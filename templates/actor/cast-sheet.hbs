@@ -3,38 +3,38 @@
         <div class="portrait-section">
             <img class="profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}"/>
         </div>
-        <div class="sidebar-info-group">
+        <div class="sidebar-personal-data-group">
             <h3 class="sidebar-header">{{localize "TNX.ProfileStaticHeader"}}</h3>
-            <div class="info-grid">
-                <div class="info-item">
+            <div class="personal-data-grid">
+                <div class="personal-data-item">
                     <label>{{localize "TNX.Age"}}</label>
                     <input type="text" name="system.age" value="{{system.age}}"/>
                 </div>
-                <div class="info-item">
+                <div class="personal-data-item">
                     <label>{{localize "TNX.Gender"}}</label>
                     <input type="text" name="system.gender" value="{{system.gender}}"/>
                 </div>
-                <div class="info-item">
+                <div class="personal-data-item">
                     <label>{{localize "TNX.Birthday"}}</label>
                     <input type="text" name="system.birthday" value="{{system.birthday}}"/>
                 </div>
-                <div class="info-item">
+                <div class="personal-data-item">
                     <label>{{localize "TNX.Height"}}</label>
                     <input type="text" name="system.height" value="{{system.height}}"/>
                 </div>
-                <div class="info-item">
+                <div class="personal-data-item">
                     <label>{{localize "TNX.Weight"}}</label>
                     <input type="text" name="system.weight" value="{{system.weight}}"/>
                 </div>
-                <div class="info-item">
+                <div class="personal-data-item">
                     <label>{{localize "TNX.Eyes"}}</label>
                     <input type="text" name="system.eyes" value="{{system.eyes}}"/>
                 </div>
-                <div class="info-item">
+                <div class="personal-data-item">
                     <label>{{localize "TNX.Hair"}}</label>
                     <input type="text" name="system.hair" value="{{system.hair}}"/>
                 </div>
-                <div class="info-item">
+                <div class="personal-data-item">
                     <label>{{localize "TNX.Skin"}}</label>
                     <input type="text" name="system.skin" value="{{system.skin}}"/>
                 </div>
@@ -79,7 +79,7 @@
                         <i class="fas fa-star"></i> {{localize "TNX.TrumpCard"}}
                     </button>
                 </div>
-                <div class="hand-cards-display">
+                <div class="hand-cards-display" data-drop-zone="actor-hand">
                     {{#each handPile.cards as |card|}}
                         <div class="card-in-hand interactive" data-action="playCard" data-card-id="{{card._id}}" title="{{card.name}}">
                             <img src="{{card.faces.[0].img}}" alt="{{card.name}}" />

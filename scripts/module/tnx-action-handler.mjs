@@ -236,7 +236,7 @@ export class TnxActionHandler {
         }
 
         // 1. 捨て札の山に、山札から1枚カードを引く
-        const drawnCards = await discardPile.draw(deck, 1, { render: false });
+        const drawnCards = await discardPile.draw(deck, 1, { render: false, chatNotification: false });
         if (drawnCards.length === 0) return;
         
         // 2. 引いたカードを表向きにする
@@ -282,30 +282,49 @@ export class TnxActionHandler {
     }
 
     /**
-     * 捨て札からカードを引く (ユーザーのHUD手札へ)
+     * 捨て札からカードを引く（アクターまたはユーザーの手札へ）
+     * @param {object} [context={}] - 操作のコンテキスト
      */
-    static async takeFromDiscard() {
-        const handId = game.user.getFlag("tokyo-nova-axleration", "handId");
-        const hand = handId ? await fromUuid(handId) : null;
-        if (!hand) {
-            return ui.notifications.warn("カードを受け取るための手札がユーザー設定で指定されていません。");
+    static async takeFromDiscard(context = {}) {
+        let hand, limit, handSourceDescription;
+
+        // アクターが指定されていれば、アクターの手札を対象にする
+        if (context.actor) {
+            const actor = context.actor;
+            const handId = actor.system.handPileId;
+            hand = handId ? await fromUuid(handId) : null;
+            limit = actor.system.handMaxSize || 0;
+            handSourceDescription = `アクター「${actor.name}」`;
+        } 
+        // 指定がなければ、操作しているユーザーのHUD手札を対象にする
+        else {
+            const user = context.user || game.user;
+            const handId = user.getFlag("tokyo-nova-axleration", "handId");
+            hand = handId ? await fromUuid(handId) : null;
+            const character = user.character;
+            limit = character?.system.handMaxSize ?? game.settings.get("tokyo-nova-axleration", "defaultHandMaxSize");
+            handSourceDescription = "あなた";
         }
+
+        if (!hand) {
+            return ui.notifications.warn(`${handSourceDescription}に手札が設定されていません。`);
+        }
+
+        if (limit > 0 && hand.cards.size >= limit) {
+            ui.notifications.warn(`${handSourceDescription}の手札が上限(${limit}枚)を超えます。`);
+        }
+
         const discardPile = await this.getActiveDiscardPile();
         if (!discardPile || discardPile.cards.size === 0) {
             return ui.notifications.warn("捨て札にカードがありません。");
         }
-        const character = game.user.character;
-        const limit = character 
-            ? character.system.handMaxSize 
-            : game.settings.get("tokyo-nova-axleration", "defaultHandMaxSize");
-        if (limit > 0 && hand.cards.size >= limit) {
-            ui.notifications.warn(`手札が上限(${limit}枚)を超えます。`);
-        }
+
         const cardsArray = discardPile.cards.contents;
         const topCard = cardsArray[cardsArray.length - 1];
-        
+
         if (topCard) {
             await discardPile.pass(hand, [topCard.id], { render: false });
+            ui.notifications.info(`捨て札から${handSourceDescription}の手札にカードを1枚移動しました。`);
         }
     }
 

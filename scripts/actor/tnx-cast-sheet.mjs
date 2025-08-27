@@ -134,6 +134,24 @@ export class TokyoNovaCastSheet extends ActorSheet {
             }
         });
 
+        // シート内の手札カードをドラッグ可能にする
+        const draggableCards = html.find('.hand-cards-display .card-in-hand');
+        draggableCards.each((i, el) => {
+            el.setAttribute('draggable', true);
+            el.addEventListener('dragstart', (event) => {
+                event.stopPropagation();
+                
+                // ドラッグするデータに「アクターの手札から」という情報と
+                // カードID、アクターIDを格納する
+                const dragData = {
+                    sourceType: 'actor-hand-card',
+                    cardId: el.dataset.cardId,
+                    actorId: this.actor.id
+                };
+                event.dataTransfer.setData('text/plain', JSON.stringify(dragData));
+            });
+        });
+
         // ▼▼▼ コンテキストメニューの呼び出しを復活 ▼▼▼
         this._activateContextMenus(html);
     }
@@ -283,11 +301,30 @@ export class TokyoNovaCastSheet extends ActorSheet {
 
     async _onDrop(event) {
         let data;
-        try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch (err) { return false; }
-        
-        if (data.type === "Cards") return this._onDropCardPile(event, data);
-        if (data.type === "Item") return this._onDropItem(event, data);
-        return false;
+        try {
+            const dataString = event.dataTransfer.getData("text/plain");
+            if (dataString) data = JSON.parse(dataString);
+        } catch (err) {
+            return super._onDrop(event);
+        }
+
+        if (data && data.sourceType) {
+            const dropZone = event.target.closest('[data-drop-zone="actor-hand"]');
+            if (!dropZone) return false;
+
+            // HUDの山札からドロップされた場合
+            if (data.sourceType === 'deck') {
+                TnxActionHandler.drawCard({ actor: this.actor });
+                return true;
+            }
+
+            // HUDの捨て札からドロップされた場合
+            if (data.sourceType === 'discard-card') {
+                TnxActionHandler.takeFromDiscard({ actor: this.actor });
+                return true;
+            }
+        }
+        return super._onDrop(event);
     }
 
     async _onDropCardPile(event, data) {

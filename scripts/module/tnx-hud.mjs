@@ -298,40 +298,29 @@ export class TnxHud extends Application {
             document.body.appendChild(ghost);
         }
     
-        // 2) ドラッグ対象のセレクターを設定
-        const dragSelector = [
-            ".hand-area .card-in-hand",
-            ".trump-area .card-in-hand",
-            ".hud-container .deck-area",
-            ".hud-container .discard-area",
-            ".hud-container .neuro-deck-area"
-        ].join(", ");
+        // 2) セレクターをデータ属性ベースに統一
+        const dragSelector = "[data-drag-type]";
+        const dropSelector = "[data-drop-zone]";
         
         // 3) ドラッグ＆ドロップ対象の要素をすべて取得
         const dragTargets = rootEl.querySelectorAll(dragSelector);
-        const dropZone = rootEl.querySelector(".discard-area");
+        const dropZones = rootEl.querySelectorAll(dropSelector);
     
-        if (!dropZone) return;
+        if (dragTargets.length === 0 || dropZones.length === 0) return;
     
         // 4) すべてのドラッグ対象要素に、ネイティブイベントリスナーを設定
         dragTargets.forEach(target => {
     
             target.addEventListener('dragstart', (event) => {
                 event.stopPropagation();
-                console.log("--- Drag Start ---", target);
-    
-                event.dataTransfer.setDragImage(new Image(), 0, 0);
                 
-                const dragData = {};
-                if (target.classList.contains('deck-area')) {
-                    dragData.type = 'deck';
-                }
-    
-                // ▼▼▼【これが最後の修正点です】▼▼▼
-                // Foundry VTTのコアUIが監視している 'text/plain' 形式に、
-                // 我々のカスタムJSONデータを格納します。
+                const dragData = {
+                    sourceType: target.dataset.dragType,
+                    cardId: target.dataset.cardId
+                };
+                
                 event.dataTransfer.setData('text/plain', JSON.stringify(dragData));
-                // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+                event.dataTransfer.setDragImage(new Image(), 0, 0);
     
                 const img = target.querySelector("img") || target;
                 if (img && ghost) {
@@ -354,34 +343,81 @@ export class TnxHud extends Application {
             });
     
             target.addEventListener('dragend', (event) => {
-                console.log("--- Drag End ---");
                 if (ghost) ghost.style.display = 'none';
             });
         });
     
-        // 5) ドロップ先の要素にイベントリスナーを設定
-        dropZone.addEventListener('dragover', (event) => {
-            event.preventDefault();
-        });
+        // 5) すべてのドロップ先の要素にイベントリスナーを設定
+        dropZones.forEach(zone => {
+            zone.addEventListener('dragover', (event) => {
+                event.preventDefault();
+            });
     
-        dropZone.addEventListener('drop', (event) => {
-            event.preventDefault();
-            console.log("--- Drop Event Fired ---");
+            zone.addEventListener('drop', (event) => {
+                event.preventDefault();
+                
+                try {
+                    const dataString = event.dataTransfer.getData('text/plain');
+                    if (!dataString) return;
+                    const data = JSON.parse(dataString);
+                    const dropZoneType = zone.dataset.dropZone;
     
-            try {
-                // ▼▼▼【対になる修正点】▼▼▼
-                // dragstartで設定した 'text/plain' 形式からデータを取得します。
-                const dataString = event.dataTransfer.getData('text/plain');
-                // ▲▲▲▲▲▲▲▲▲▲▲▲▲
-                if (!dataString) return;
+                    // --- ドラッグ＆ドロップ処理の分岐 ---
     
-                const data = JSON.parse(dataString);
-                if (data.type === 'deck') {
-                    TnxActionHandler.checkFromDeck();
+                    if (data.sourceType === 'deck') {
+                        if (dropZoneType === 'hand') {
+                            TnxActionHandler.drawCard({ user: game.user });
+                        }
+                        else if (dropZoneType === 'discard') {
+                            TnxActionHandler.checkFromDeck();
+                        }
+                    }
+                    
+                    else if (data.sourceType === 'hand-card') {
+                        if (dropZoneType === 'discard') {
+                            if (data.cardId) {
+                                TnxActionHandler.playCard(data.cardId);
+                            }
+                        }
+                    }
+                    
+                    else if (data.sourceType === 'neuro-deck') {
+                        if (dropZoneType === 'scene') {
+                            TnxActionHandler.drawNeuroCard();
+                        }
+                    }
+
+                    else if (data.sourceType === 'trump-card') {
+                        // ドロップ先が「シーンカード」置き場の場合
+                        if (dropZoneType === 'scene') {
+                            // さらに、操作しているユーザーがGMでない（＝プレイヤーである）ことを確認
+                            if (!game.user.isGM) {
+                                if (data.cardId) {
+                                    TnxActionHandler.useTrump(data.cardId);
+                                }
+                            }
+                            // GMの場合は何もしない（このブロックが実行されないため）
+                        }
+                    }
+
+                    // ドラッグ元が「キャストシートの手札のカード」の場合
+                    else if (data.sourceType === 'actor-hand-card') {
+                        // ドロップ先が「捨て札」の場合
+                        if (dropZoneType === 'discard') {
+                            if (data.cardId && data.actorId) {
+                                const actor = game.actors.get(data.actorId);
+                                if (actor) {
+                                    // playCardに、どのキャラクターが使ったかを伝える
+                                    TnxActionHandler.playCard(data.cardId, { actor: actor });
+                                }
+                            }
+                        }
+                    }
+    
+                } catch (e) {
+                    console.error("Error on drop:", e);
                 }
-            } catch (e) {
-                console.error("Error on drop:", e);
-            }
+            });
         });
     }
 }

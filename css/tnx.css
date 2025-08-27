@@ -813,7 +813,7 @@
     background-color: var(--tnx-color-bg-alt);
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 15px;
     overflow-y: auto;
 }
 .tokyo-nova.sheet.actor.cast .main-content-area {
@@ -840,19 +840,19 @@
     border-bottom: 1px solid var(--tnx-color-primary-dark);
     padding-bottom: 5px;
 }
-.tokyo-nova.sheet.actor.cast .profile-sidebar .info-grid {
+.tokyo-nova.sheet.actor.cast .profile-sidebar .personal-data-grid {
     display: grid;
     grid-template-columns: 126px 1fr;
     gap: 5px 8px;
     align-items: center;
 }
-.tokyo-nova.sheet.actor.cast .profile-sidebar .info-item label {
+.tokyo-nova.sheet.actor.cast .profile-sidebar .personal-data-item label {
     font-size: 0.9em;
     color: var(--tnx-color-text-dim);
     text-align: right;
     padding-right: 5px;
 }
-.tokyo-nova.sheet.actor.cast .profile-sidebar .info-item input[type="text"] {
+.tokyo-nova.sheet.actor.cast .profile-sidebar .personal-data-item input[type="text"] {
     width: 100%;
     background-color: var(--tnx-color-bg-input);
     border: 1px solid var(--tnx-color-border);
@@ -2548,4 +2548,12 @@
     transform: none; /* 拡大・移動などの変形を無効化 */
     box-shadow: none; /* 影を無効化 */
     cursor: default; /* カーソルを矢印のままにする */
+}
+
+/* --- Drag Ghost --- */
+.tnx-card-ghost {
+    position: absolute;
+    top: -1000px;
+    left: -1000px;
+    z-index: -1;
 }
