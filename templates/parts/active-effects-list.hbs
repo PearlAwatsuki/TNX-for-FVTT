@@ -1,0 +1,78 @@
+<div class="effects-list">
+    {{!-- テーブルヘッダー --}}
+    <header class="items-header flexrow">
+        <div class="effect-name flexrow">{{localize "EFFECT.Name"}}</div>
+        <div class="effect-duration">{{localize "EFFECT.Duration"}}</div>
+        <div class="effect-controls">
+            <a class="effect-control" data-action="create" title="{{localize 'EFFECT.Create'}}">
+                <i class="fas fa-plus"></i>
+            </a>
+        </div>
+    </header>
+
+    {{!-- テーブル本体 --}}
+    <ol class="item-list">
+        {{!-- 一時的エフェクト --}}
+        {{#if effects.temporary}}
+        <li class="items-header effect-section-header flexrow">
+            <div class="item-name">{{localize "EFFECT.Temporary"}}</div>
+        </li>
+        {{/if}}
+        {{#each effects.temporary as |effect|}}
+        <li class="effect item flexrow" data-effect-id="{{effect._id}}">
+            <div class="effect-name flexrow">
+                <img class="effect-image" src="{{effect.img}}"/>
+                <h4>{{effect.name}}</h4>
+            </div>
+            <div class="effect-duration">{{effect.duration.label}}</div>
+            <div class="effect-controls">
+                <a class="effect-control" data-action="toggle" title="{{localize 'EFFECT.Toggle'}}"><i class="far fa-square"></i></a>
+                <a class="effect-control" data-action="edit" title="{{localize 'EFFECT.Edit'}}"><i class="fas fa-edit"></i></a>
+                <a class="effect-control" data-action="delete" title="{{localize 'EFFECT.Delete'}}"><i class="fas fa-trash"></i></a>
+            </div>
+        </li>
+        {{/each}}
+
+        {{!-- 受動エフェクト --}}
+        {{#if effects.passive}}
+        <li class="items-header effect-section-header flexrow">
+            <div class="item-name">{{localize "EFFECT.Passive"}}</div>
+        </li>
+        {{/if}}
+        {{#each effects.passive as |effect|}}
+        <li class="effect item flexrow" data-effect-id="{{effect._id}}">
+            <div class="effect-name flexrow">
+                <img class="effect-image" src="{{effect.img}}"/>
+                <h4>{{effect.name}}</h4>
+            </div>
+            <div class="effect-duration">{{effect.duration.label}}</div>
+            <div class="effect-controls">
+                <a class="effect-control" data-action="toggle" title="{{localize 'EFFECT.Toggle'}}"><i class="far fa-square"></i></a>
+                <a class="effect-control" data-action="edit" title="{{localize 'EFFECT.Edit'}}"><i class="fas fa-edit"></i></a>
+                <a class="effect-control" data-action="delete" title="{{localize 'EFFECT.Delete'}}"><i class="fas fa-trash"></i></a>
+            </div>
+        </li>
+        {{/each}}
+        
+        {{!-- 非アクティブなエフェクト --}}
+        {{#if effects.inactive}}
+        <li class="items-header effect-section-header flexrow">
+            <div class="item-name">{{localize "EFFECT.Inactive"}}</div>
+        </li>
+        {{/if}}
+        {{#each effects.inactive as |effect|}}
+        <li class="effect item flexrow" data-effect-id="{{effect._id}}">
+            <div class="effect-name flexrow">
+                <img class="effect-image" src="{{effect.img}}"/>
+                <h4 class="disabled">{{effect.name}}</h4>
+            </div>
+            <div class="effect-duration">{{effect.duration.label}}</div>
+            <div class="effect-controls">
+                <a class="effect-control" data-action="toggle" title="{{localize 'EFFECT.Toggle'}}"><i class="far fa-check-square"></i></a>
+                <a class="effect-control" data-action="edit" title="{{localize 'EFFECT.Edit'}}"><i class="fas fa-edit"></i></a>
+                <a class="effect-control" data-action="delete" title="{{localize 'EFFECT.Delete'}}"><i class="fas fa-trash"></i></a>
+            </div>
+        </li>
+        {{/each}}
+    </ol>
+</div>

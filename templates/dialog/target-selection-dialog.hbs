@@ -1,0 +1,12 @@
+<form autocomplete="off">
+    <div class="form-group">
+        <label>{{label}}</label>
+        <div class="form-fields">
+            <select name="selection" autofocus>
+                {{#each options}}
+                <option value="{{this.value}}">{{this.label}}</option>
+                {{/each}}
+            </select>
+        </div>
+    </div>
+</form>

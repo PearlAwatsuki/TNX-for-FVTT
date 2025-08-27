@@ -1,0 +1,174 @@
+<form autocomplete="off">
+    {{!-- ステップ1：シナリオの基本構成 --}}
+    {{#if (eq step 1)}}
+        <fieldset class="tnx-fieldset">
+            <legend>基本構成</legend>
+            <p class="notes">シナリオの名称、参加するPCの人数、各フェイズのシーン数を設定します。</p>
+            <div class="form-group">
+                <label>アクトシートの名称</label>
+                <div class="form-fields">
+                    <input type="text" name="journalName" value="{{journalName}}" placeholder="新規シナリオ" autofocus/>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>PC人数</label>
+                <div class="number-input-spinner">
+                    <button type="button" class="tnx-button" data-action="decrement">-</button>
+                    <input type="number" name="pcCount" value="4" min="1">
+                    <button type="button" class="tnx-button" data-action="increment">+</button>
+                </div>
+            </div>
+        </fieldset>
+        <fieldset class="tnx-fieldset">
+            <legend>シーン数</legend>
+            <div class="form-grid-2col">
+                <div class="form-group">
+                    <label>オープニング</label>
+                    <div class="number-input-spinner">
+                        <button type="button" class="tnx-button" data-action="decrement">-</button>
+                        <input type="number" name="sceneCounts.opening" value="1" min="0">
+                        <button type="button" class="tnx-button" data-action="increment">+</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>リサーチ</label>
+                    <div class="number-input-spinner">
+                        <button type="button" class="tnx-button" data-action="decrement">-</button>
+                        <input type="number" name="sceneCounts.research" value="3" min="0">
+                        <button type="button" class="tnx-button" data-action="increment">+</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>クライマックス</label>
+                    <div class="number-input-spinner">
+                        <button type="button" class="tnx-button" data-action="decrement">-</button>
+                        <input type="number" name="sceneCounts.climax" value="1" min="0">
+                        <button type="button" class="tnx-button" data-action="increment">+</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>エンディング</label>
+                    <div class="number-input-spinner">
+                        <button type="button" class="tnx-button" data-action="decrement">-</button>
+                        <input type="number" name="sceneCounts.ending" value="1" min="0">
+                        <button type="button" class="tnx-button" data-action="increment">+</button>
+                    </div>
+                </div>
+            </div>
+        </fieldset>
+        <footer class="sheet-footer">
+            <button type="button" class="wizard-next tnx-button">次へ <i class="fas fa-arrow-right"></i></button>
+        </footer>
+    {{/if}}
+
+    {{!-- ステップ2：カード置き場の選択 --}}
+    {{#if (eq step 2)}}
+        <fieldset class="tnx-fieldset">
+            <legend>カード置き場の自動作成</legend>
+            <p class="notes">このシナリオで使用するカード置き場を自動作成します。</p>
+            <div class="form-group-checkbox">
+                <input type="checkbox" id="createcardDeck" name="createcardDeck" checked>
+                <label for="createcardDeck">山札 (トランプ)</label>
+            </div>
+            <div class="form-group-checkbox">
+                <input type="checkbox" id="createDiscardPile" name="createDiscardPile" checked>
+                <label for="createDiscardPile">捨て札 (共通)</label>
+            </div>
+            <div class="form-group-checkbox">
+                <input type="checkbox" id="createNeuroDeck" name="createNeuroDeck" checked>
+                <label for="createNeuroDeck">ニューロデッキ</label>
+            </div>
+            <div class="form-group-checkbox">
+                <input type="checkbox" id="createScenePile" name="createScenePile" checked>
+                <label for="createScenePile">シーンカード置き場</label>
+            </div>
+            <div class="form-group-checkbox">
+                <input type="checkbox" id="createAccesscardDeck" name="createAccesscardDeck" checked>
+                <label for="createAccesscardDeck">アクセスカード山</label>
+            </div>
+            <div class="form-group-checkbox">
+                <input type="checkbox" id="createAccessCardPile" name="createAccessCardPile" checked>
+                <label for="createAccessCardPile">アクセスカード置き場</label>
+            </div>
+            <hr>
+            <p class="notes" style="font-weight: bold;">RL（あなた）専用のカード</p>
+            <div class="form-group-checkbox">
+                <input type="checkbox" id="createGmHand" name="createGmHand" checked>
+                <label for="createGmHand">RL専用の手札</label>
+            </div>
+            <div class="form-group-checkbox">
+                <input type="checkbox" id="createGmTrumpPile" name="createGmTrumpPile" checked>
+                <label for="createGmTrumpPile">RL専用の切り札</label>
+            </div>
+            <div class="form-group-checkbox">
+                <input type="checkbox" id="createGmTrumpDiscard" name="createGmTrumpDiscard" checked>
+                <label for="createGmTrumpDiscard">RL切り札捨て場</label>
+            </div>
+        </fieldset>
+        <footer class="sheet-footer">
+            <button type="button" class="wizard-back tnx-button tnx-button--secondary"><i class="fas fa-arrow-left"></i> 戻る</button>
+            <button type="button" class="wizard-next tnx-button">次へ <i class="fas fa-arrow-right"></i></button>
+        </footer>
+    {{/if}}
+
+    {{!-- ステップ3：山札の詳細設定 --}}
+    {{#if (eq step 3)}}
+        <fieldset class="tnx-fieldset">
+            <legend>山札の詳細設定</legend>
+            <p class="notes">作成する山札の種類に応じた詳細設定を行います。</p>
+            
+            {{#if formData.createcardDeck}}
+                <div class="deck-settings-group">
+                    <h4>山札 (トランプ)</h4>
+                    <div class="form-group">
+                        <label>デッキ数</label>
+                        <div class="number-input-spinner">
+                            <button type="button" class="tnx-button" data-action="decrement">-</button>
+                            <input type="number" name="deckCount" value="2" min="1">
+                            <button type="button" class="tnx-button" data-action="increment">+</button>
+                        </div>
+                        <p class="notes">ジョーカーを含む54枚のトランプを何セット使用するか指定します。</p>
+                    </div>
+                    <div class="form-group-checkbox">
+                        <input type="checkbox" id="shuffleTrumpDeck" name="shuffleTrumpDeck" checked>
+                        <label for="shuffleTrumpDeck">作成後にシャッフルする</label>
+                    </div>
+                </div>
+            {{/if}}
+
+            {{#if formData.createNeuroDeck}}
+                <div class="deck-settings-group">
+                    <h4>ニューロデッキ</h4>
+                    <div class="form-group-checkbox">
+                        <input type="checkbox" id="shuffleNeuroDeck" name="shuffleNeuroDeck" checked>
+                        <label for="shuffleNeuroDeck">作成後にシャッフルする</label>
+                    </div>
+                </div>
+            {{/if}}
+        </fieldset>
+        <footer class="sheet-footer">
+            <button type="button" class="wizard-back tnx-button tnx-button--secondary"><i class="fas fa-arrow-left"></i> 戻る</button>
+            <button type="button" class="wizard-next tnx-button">次へ <i class="fas fa-arrow-right"></i></button>
+        </footer>
+    {{/if}}
+    
+    {{!-- ステップ4：最終処理 --}}
+    {{#if (eq step 4)}}
+        <fieldset class="tnx-fieldset">
+            <legend>最終処理</legend>
+            <p class="notes">セットアップの最終処理を選択します。ここで「完了」ボタンを押すと、これまでの設定がすべてアクトシートに反映されます。</p>
+            <hr>
+            <div class="form-group-checkbox">
+                <input type="checkbox" id="dealInitialHands" name="dealInitialHands" checked>
+                <label for="dealInitialHands">全PCに初期手札を配布する</label>
+            </div>
+            <p class="notes" style="padding-left: 5px;">ワールドに存在する全ての「手札」タイプのカード置き場に対し、上限までカードを補充します。</p>
+        </fieldset>
+        <footer class="sheet-footer">
+            <button type="button" class="wizard-back tnx-button tnx-button--secondary"><i class="fas fa-arrow-left"></i> 戻る</button>
+            <button type="submit" name="submit" class="tnx-button">
+                <i class="fas fa-check"></i> 完了
+            </button>
+        </footer>
+    {{/if}}
+</form>

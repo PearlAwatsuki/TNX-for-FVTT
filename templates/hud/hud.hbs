@@ -1,0 +1,85 @@
+<div id="tnx-hud" class="tnx-hud">
+    <div class="hud-container hud-main-cards">
+        <div class="main-area">
+            {{#if (and cardDeck cardDeck.count)}}
+                <div class="deck-card deck-area" data-action="draw-from-deck" data-deck-uuid="{{cardDeck.uuid}}" title="{{localize 'TNX.DrawCardHint'}}">
+                    <img src="{{cardDeck.img}}" alt="山札">
+                    <span class="deck-count">{{cardDeck.count}}</span>
+                </div>
+            {{else}}
+                <div class="card-empty-placeholder deck-area">
+                    <i class="fas fa-inbox"></i>
+                </div>
+            {{/if}}
+            
+            {{#if (and discardPile discardPile.cards.size)}}
+                <div class="deck-card discard-area" data-action="take-from-discard" data-pile-id="{{discardPile.id}}" title="{{discardPile.name}}">
+                    <img src="{{topDiscardImage}}" alt="捨て札">
+                    <span class="deck-count">{{discardPile.cards.size}}</span>
+                </div>
+            {{else}}
+                <div class="card-empty-placeholder discard-area">
+                    <i class="fas fa-trash"></i>
+                </div>
+            {{/if}}
+        </div>
+    </div>
+
+    {{!-- 右上エリア --}}
+    <div class="hud-container hud-top-right">
+        <div class="main-area neuro-area">
+            {{!-- ニューロデッキ --}}
+            {{#if (and neuroDeck neuroDeck.count)}}
+                <div class="deck-card neuro-deck-area" data-action="draw-neuro" title="ニューロデッキ (クリックでシーンカードを引く)">
+                    <img src="{{neuroDeck.img}}" alt="ニューロデッキ">
+                    <span class="deck-count">{{neuroDeck.count}}</span>
+                </div>
+            {{else}}
+                <div class="card-empty-placeholder">
+                    <i class="fas fa-inbox"></i>
+                </div>
+            {{/if}}
+
+            {{!-- シーンカード --}}
+            {{#if (and scenePile scenePile.cards.size)}}
+                <div class="deck-card scene-card-display">
+                    <img src="{{topSceneCard.img}}" alt="{{topSceneCard.name}}">
+                </div>
+            {{else}}
+                <div class="card-empty-placeholder">
+                    <i class="fas fa-cards-blank"></i>
+                </div>
+            {{/if}}
+        </div>
+    </div>
+
+    <div class="hud-container hud-bottom-bar">
+        {{!-- 手札エリア --}}
+        <div class="hand-area hud-panel">
+            {{#if (and hand hand.cards.size)}}
+                {{#each hand.cards as |card|}}
+                    <div class="card-in-hand" data-action="play-card" data-card-id="{{card.id}}" title="{{card.name}} (クリックでプレイ)">
+                        <img src="{{card.img}}" alt="{{card.name}}">
+                    </div>
+                {{/each}}
+            {{else}}
+                <div class="card-empty-placeholder" title="手札">
+                    <i class="fas fa-hand-paper"></i>
+                </div>
+            {{/if}}
+        </div>
+
+        {{!-- 切り札エリア --}}
+        <div class="trump-area hud-panel">
+            {{#if trumpCard}}
+                <div class="card-in-hand" data-action="use-trump" data-card-id="{{trumpCard.id}}" title="{{trumpCard.name}} (クリックで使用)">
+                    <img src="{{trumpCard.img}}" alt="{{trumpCard.name}}">
+                </div>
+            {{else}}
+                <div class="card-empty-placeholder" title="切り札">
+                    <i class="fas fa-star"></i>
+                </div>
+            {{/if}}
+        </div>
+    </div>
+</div>

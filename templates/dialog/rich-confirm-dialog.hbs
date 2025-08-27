@@ -1,0 +1,15 @@
+<div class="rich-dialog">
+    <div class="rich-dialog__main">
+        {{#if img}}
+        <img src="{{img}}" class="rich-dialog__img">
+        {{/if}}
+        <div class="rich-dialog__content">
+            <p>{{{content}}}</p>
+        </div>
+    </div>
+    {{#if description}}
+    <p class="rich-dialog__description">
+        <em>{{description}}</em>
+    </p>
+    {{/if}}
+</div>

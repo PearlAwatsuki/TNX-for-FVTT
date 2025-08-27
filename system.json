@@ -1,0 +1,48 @@
+{
+    "id": "tokyo-nova-axleration",
+    "title": "トーキョーN◎VA THE AXLERATION",
+    "description": "「災厄の街」トーキョーN◎VAを舞台に自分のスタイルを貫く、サイバーアクションTRPG",
+    "version": "0.1.0",
+    "compatibility": {
+      "minimum": 11,
+      "verified": 12.343
+    },
+    "authors": [{
+      "name": "淡月真珠",
+      "url": "",
+      "email": "",
+      "discord": ""
+    }],
+    "esmodules": ["scripts/tnx.mjs"],
+    "styles": ["css/tnx.css"],
+    "languages": [{
+      "lang": "ja",
+      "name": "Japanese",
+      "path": "lang/ja.json"
+    }],
+    "documentTypes": {
+      "Actor": {
+        "cast": {},
+        "guest": {},
+        "troop": {},
+        "extra": {}
+      },
+      "Item": {
+        "style": {},
+        "divine_work": {},
+        "skill": {},
+        "outfit": {},
+        "organization": {},
+        "information": {}
+      }
+    },
+    "socket": true,
+    "initiative": "@system.CS.value",
+    "grid": {
+      "distance": 1,
+      "units": "m"
+    },
+    "url": "",
+    "manifest": "",
+    "download": ""
+}

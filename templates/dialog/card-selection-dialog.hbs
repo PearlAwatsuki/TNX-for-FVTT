@@ -1,0 +1,16 @@
+<form autocomplete="off">
+    <p>{{content}}</p>
+    <div class="card-selection-grid discard-selection">
+        {{#each cards}}
+        <div class="card-selection-item" data-card-id="{{this._id}}">
+            <label for="card-{{this._id}}">
+                {{!-- カードオブジェクトの画像パスに合わせて調整してください。多くの場合、最初のfaceの画像を使います。 --}}
+                <img src="{{this.faces.0.img}}" loading="lazy" title="{{this.name}}" />
+                <input type="checkbox" name="cardIds" value="{{this._id}}" id="card-{{this._id}}">
+                {{!-- カード名はCSSで非表示に設定されていますが、アクセシビリティのために残しておきます --}}
+                <span class="card-name">{{this.name}}</span>
+            </label>
+        </div>
+        {{/each}}
+    </div>
+</form>
