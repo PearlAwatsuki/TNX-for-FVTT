@@ -10,7 +10,7 @@ export class TnxHud extends TnxBaseApplication {
     /**
      * @override
      * V12対応: デフォルトオプションを static DEFAULT_OPTIONS プロパティで定義 
-     * V12対応: クリックイベントを actions として静的に定義 [cite: 10, 11]
+     * V12対応: クリックイベントを actions として静的に定義
      */
     static DEFAULT_OPTIONS = {
         id: "tnx-hud",
@@ -121,7 +121,7 @@ export class TnxHud extends TnxBaseApplication {
     }
 
     /**
-     * V12対応: activateListeners の代わりに _attachListeners を使用 [cite: 10, 15]
+     * V12対応: activateListeners の代わりに _attachListeners を使用
      * ここでは静的actionsでカバーできないイベントリスナー（コンテキストメニューなど）を設定します。
      * @param {HTMLElement} html - アプリケーションのルートDOM要素
      */
@@ -131,6 +131,15 @@ export class TnxHud extends TnxBaseApplication {
 
         // ドラッグ＆ドロップの設定
         this._setupCardDragGhost(html);
+    }
+
+    async _onRender(context, options) {
+        // 必要であれば親クラスの処理を呼び出す
+        if (typeof super._onRender === "function") {
+            super._onRender(context, options);
+        }
+        // ルート要素が this.element に格納されているのでイベントを接続
+        this._attachListeners(this.element);
     }
     
     /**
@@ -155,18 +164,16 @@ export class TnxHud extends TnxBaseApplication {
                 }, isCollapsing ? 200 : 0);
             });
         }
-
-        // ホットバー開閉追従
+        
+        // ★★★ 修正点 ★★★
+        // ホットバー開閉追従：クリック監視からFoundry VTTのHooksを利用する方法に変更
         const bottomBar = this.element.querySelector('.hud-bottom-bar');
-        const actionBar = document.getElementById('action-bar');
-        const hotbarCollapseButton = document.getElementById('bar-toggle');
-
-        if (bottomBar && actionBar && hotbarCollapseButton) {
-             // 初期状態を反映
-            bottomBar.classList.toggle('hotbar-is-collapsed', actionBar.classList.contains('collapsed'));
-            // クリックイベントを設定
-            hotbarCollapseButton.addEventListener('click', () => {
-                bottomBar.classList.toggle('hotbar-is-collapsed', !actionBar.classList.contains('collapsed'));
+        if (bottomBar) {
+            // 初期状態を反映
+            bottomBar.classList.toggle('hotbar-is-collapsed', ui.hotbar.collapsed);
+            // hotbarCollapseフックをリッスンし、ホットバーの状態が変化したときにHUDのクラスを更新
+            Hooks.on("hotbarCollapse", (isCollapsed) => {
+                bottomBar.classList.toggle('hotbar-is-collapsed', isCollapsed);
             });
         }
     }
@@ -176,8 +183,14 @@ export class TnxHud extends TnxBaseApplication {
      * @param {HTMLElement} html - アプリケーションのルートDOM要素
      */
     _initializeContextMenus(html) {
+        // ★★★ 修正点 ★★★
+        // ContextMenuの第一引数をjQueryオブジェクト $(html) から ネイティブ要素 html に変更
+        // また、callbackの引数がjQueryオブジェクトのままなので、.data() を使うために $(header) とラップするか、
+        // .dataset を使うために header[0].dataset.cardId のようにネイティブ要素にアクセスします。
+        // ここでは、よりV12らしい .dataset を使う形に統一します。
+
         // ニューロデッキの右クリックメニュー
-        new ContextMenu($(html), '.deck-card[data-action="draw-neuro"]', [
+        ContextMenu.create(this, this.element, '.deck-card[data-action="draw-neuro"]', [
             {
                 name: "切り札を配布する",
                 icon: '<i class="fas fa-star"></i>',
@@ -211,18 +224,40 @@ export class TnxHud extends TnxBaseApplication {
         ]);
 
         // 山札の右クリックメニュー
-        new ContextMenu($(html), '.deck-card[data-action="draw-from-deck"]', [
-            { name: "山札から判定する", icon: '<i class="fas fa-gavel"></i>', callback: () => TnxActionHandler.checkFromDeck() },
-            { name: "初期手札を配布", icon: '<i class="fas fa-hand-holding"></i>', condition: game.user.isGM, callback: () => TnxActionHandler.dealInitialHands() },
-            { name: "複数枚ドローする", icon: '<i class="fas fa-cards"></i>', callback: () => TnxActionHandler.drawMultipleCardsFromDeck() },
-            { name: "シャッフルする", icon: '<i class="fas fa-random"></i>', condition: game.user.isGM, callback: async () => {
-                const cardDeck = await TnxActionHandler.getActiveDeck();
-                if (cardDeck) {
-                    await cardDeck.shuffle();
-                    ui.notifications.info("山札をシャッフルしました。");
+        ContextMenu.create(this, this.element, '.deck-card[data-action="draw-from-deck"]', [
+            {
+                name: "山札から判定する",
+                icon: '<i class="fas fa-gavel"></i>',
+                callback: () => TnxActionHandler.checkFromDeck()
+            },
+            {
+                name: "初期手札を配布",
+                icon: '<i class="fas fa-hand-holding"></i>',
+                condition: game.user.isGM,
+                callback: () => TnxActionHandler.dealInitialHands()
+            },
+            {
+                name: "複数枚ドローする",
+                icon: '<i class="fas fa-cards"></i>',
+                callback: () => TnxActionHandler.drawMultipleCardsFromDeck()
+            },
+            {
+                name: "シャッフルする",
+                icon: '<i class="fas fa-random"></i>',
+                condition: game.user.isGM,
+                callback: async () => {
+                    const cardDeck = await TnxActionHandler.getActiveDeck();
+                    if (cardDeck) {
+                        await cardDeck.shuffle();
+                        ui.notifications.info("山札をシャッフルしました。");
+                    }
                 }
-            }},
-            { name: "リセットする", icon: '<i class="fas fa-undo"></i>', condition: game.user.isGM, callback: async () => {
+            },
+            { 
+                name: "リセットする",
+                icon: '<i class="fas fa-undo"></i>',
+                condition: game.user.isGM,
+                callback: async () => {
                 const cardDeck = await TnxActionHandler.getActiveDeck();
                 if (cardDeck) {
                     await cardDeck.recall();
@@ -232,10 +267,11 @@ export class TnxHud extends TnxBaseApplication {
         ]);
 
         // 手札のカードの右クリックメニュー
-        new ContextMenu($(html), '.hand-area .card-in-hand', [
-            { name: "手札を渡す", icon: '<i class="fas fa-user-friends"></i>', callback: header => TnxActionHandler.passSingleCard(header.data('card-id')) },
+        ContextMenu.create(this, this.element, '.hand-area .card-in-hand', [
+            // callbackの第一引数(header)はjQueryオブジェクトなので、ネイティブDOM要素にアクセスするために[0]をつけます
+            { name: "手札を渡す", icon: '<i class="fas fa-user-friends"></i>', callback: header => TnxActionHandler.passSingleCard(header[0].dataset.cardId) },
             { name: "指定枚数を渡す", icon: '<i class="fas fa-users"></i>', callback: () => TnxActionHandler.selectAndPassMultipleCards() },
-            { name: "捨てる", icon: '<i class="fas fa-trash-alt"></i>', callback: header => TnxActionHandler.discardCard(header.data('card-id')) }
+            { name: "捨てる", icon: '<i class="fas fa-trash-alt"></i>', callback: header => TnxActionHandler.discardCard(header[0].dataset.cardId) }
         ]);
     }
 
@@ -305,6 +341,8 @@ export class TnxHud extends TnxBaseApplication {
                         else if (dropZoneType === 'discard') TnxActionHandler.checkFromDeck();
                     } else if (data.sourceType === 'hand-card') {
                         if (dropZoneType === 'discard' && data.cardId) TnxActionHandler.playCard(data.cardId);
+                    } else if (data.sourceType === 'discard-card') {
+                        if (dropZoneType === 'hand') TnxActionHandler.takeFromDiscard();
                     } else if (data.sourceType === 'neuro-deck') {
                         if (dropZoneType === 'scene') TnxActionHandler.drawNeuroCard();
                     } else if (data.sourceType === 'trump-card') {
