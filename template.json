@@ -139,7 +139,7 @@
         }
     },
     "Item": {
-        "types": ["style", "divine_work", "skill", "outfit", "organization", "information"],
+        "types": ["style", "divine_work", "skill", "outfit", "organization"],
         "templates": {
             "base": {
                 "description": ""

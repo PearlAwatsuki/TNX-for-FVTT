@@ -172,7 +172,8 @@
         "Control": "制御値",
         "UsageCondition": "条件",
         "Effects": "効果",
-        "Used": "使用済み"
+        "Used": "使用済み",
+        "GeneralSkills": "一般技能"
     },
     "SHEET": {
         "Open": "シートを開く",
@@ -192,7 +193,6 @@
         },
         "Item": {
             "divine_work": "神業",
-            "information": "情報",
             "organization": "組織",
             "outfit": "アウトフィット",
             "skill": "技能",

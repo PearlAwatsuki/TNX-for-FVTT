@@ -57,6 +57,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
         await this._getCardPileData(context);
         this._getCitizenRankData(context);
         this._getAbilitiesData(context, allStyles);
+        this._prepareSkillsData(context);
 
         return context;
     }
@@ -89,7 +90,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
             const isPersona = level === 3 ? true : item.system.isPersona;
             const isKey = level === 3 ? true : item.system.isKey;
             
-            itemData.repeatedName = Array(level).fill(item.name).join('、');
+            itemData.repeatedName = Array(level).fill(item.name).join('＝');
             itemData.roleIndicatorDisplay = this._getRoleIndicatorSymbol(isPersona, isKey);
             return itemData;
         });
@@ -106,6 +107,38 @@ export class TokyoNovaCastSheet extends ActorSheet {
             }
         }
         return slots;
+    }
+
+    /**
+     * @private
+     */
+    _prepareSkillsData(context) {
+        const allSkills = this.actor.items.filter(i => i.type === 'skill');
+        const generalSkills = allSkills.filter(s => s.system.category === 'generalSkill');
+
+        // コネ技能を分離
+        context.connectionsSkills = generalSkills.filter(s => s.name.startsWith("コネ"));
+
+        // コネ以外の一般技能をスート別に分類
+        const otherGeneralSkills = generalSkills.filter(s => !s.name.startsWith("コネ"));
+        const skillsBySuit = {
+            spade: { label: "スペード", skills: [] },
+            club: { label: "クラブ", skills: [] },
+            diamond: { label: "ダイヤ", skills: [] },
+            heart: { label: "ハート", skills: [] },
+            none: { label: "スートなし", skills: [] }
+        };
+
+        for (const skill of otherGeneralSkills) {
+            if (skill.system.spade) skillsBySuit.spade.skills.push(skill);
+            else if (skill.system.club) skillsBySuit.club.skills.push(skill);
+            else if (skill.system.diamond) skillsBySuit.diamond.skills.push(skill);
+            else if (skill.system.heart) skillsBySuit.heart.skills.push(skill);
+            else skillsBySuit.none.skills.push(skill);
+        }
+
+        // 空のカテゴリをフィルタリングしてコンテキストに追加
+        context.generalSkillsBySuit = Object.values(skillsBySuit).filter(group => group.skills.length > 0);
     }
 
     activateListeners(html) {
@@ -299,32 +332,119 @@ export class TokyoNovaCastSheet extends ActorSheet {
         }
     }
 
-    async _onDrop(event) {
-        let data;
-        try {
-            const dataString = event.dataTransfer.getData("text/plain");
-            if (dataString) data = JSON.parse(dataString);
-        } catch (err) {
-            return super._onDrop(event);
-        }
+    async _onDropItem(event, data) {
+        const item = await Item.fromDropData(data);
+        if (!item) return;
+        const dropArea = event.target.closest('[data-drop-area]')?.dataset.dropArea;
+    
+        // ▼▼▼【ここから修正】▼▼▼
+        if (item.type === "style" && dropArea === "style") {
+            const allStyles = this.actor.items.filter(i => i.type === 'style');
+            const totalLevel = allStyles.reduce((sum, s) => sum + (s.system.level || 1), 0);
+            const existingItem = allStyles.find(i => i.name === item.name);
+            
+            let createdOrUpdatedStyle;
 
-        if (data && data.sourceType) {
-            const dropZone = event.target.closest('[data-drop-zone="actor-hand"]');
-            if (!dropZone) return false;
-
-            // HUDの山札からドロップされた場合
-            if (data.sourceType === 'deck') {
-                TnxActionHandler.drawCard({ actor: this.actor });
-                return true;
+            if (existingItem) {
+                if (totalLevel >= 3) {
+                    ui.notifications.warn("これ以上スタイルレベルを上げられません。");
+                    return false;
+                }
+                const currentLevel = existingItem.system.level || 1;
+                await existingItem.update({ 'system.level': currentLevel + 1 });
+                createdOrUpdatedStyle = existingItem;
+            } else {
+                const itemData = item.toObject();
+                if (!itemData.system.level) itemData.system.level = 1;
+                if (totalLevel + itemData.system.level > 3) {
+                    ui.notifications.warn("スタイルの合計レベルが3を超えてしまいます。");
+                    return false;
+                }
+                const createdItems = await this.actor.createEmbeddedDocuments("Item", [itemData]);
+                createdOrUpdatedStyle = createdItems[0];
             }
 
-            // HUDの捨て札からドロップされた場合
-            if (data.sourceType === 'discard-card') {
-                TnxActionHandler.takeFromDiscard({ actor: this.actor });
-                return true;
+            // --- スタイルに紐づく神業の処理をここに追加 ---
+            if (createdOrUpdatedStyle) {
+                const divineWorkUuid = createdOrUpdatedStyle.system.divineWork?.id;
+                if (divineWorkUuid) {
+                    const sourceDivineWork = await fromUuid(divineWorkUuid);
+                    if (sourceDivineWork) {
+                        const allDivineWorks = this.actor.items.filter(i => i.type === 'divine_work');
+                        const existingDivineWork = allDivineWorks.find(i => i.name === sourceDivineWork.name);
+
+                        if (existingDivineWork) {
+                            // 既に持っている場合は母数を+1
+                            const usage = existingDivineWork.system.usageCount;
+                            const mod = usage.mod || 0;
+                            const newValue = Math.min(3, (usage.value || 0) + 1);
+                            const newTotal = newValue + mod;
+                            
+                            ui.notifications.info(`神業「${existingDivineWork.name}」の母数が+1されました。`);
+                            await existingDivineWork.update({
+                                'system.usageCount.value': newValue,
+                                'system.usageCount.total': newTotal
+                            });
+                        } else {
+                            // 持っていない場合は新規作成
+                            if (allDivineWorks.length >= 3) {
+                                ui.notifications.warn(`神業は3種類までしか所有できません。`);
+                            } else {
+                                const divineWorkData = sourceDivineWork.toObject();
+                                if (!foundry.utils.hasProperty(divineWorkData, "system.usageCount.value")) {
+                                    const mod = foundry.utils.getProperty(divineWorkData, "system.usageCount.mod") || 0;
+                                    foundry.utils.setProperty(divineWorkData, "system.usageCount", { value: 1, total: 1 + mod, mod: mod, used: 0 });
+                                }
+                                await this.actor.createEmbeddedDocuments("Item", [divineWorkData]);
+                                ui.notifications.info(`神業「${divineWorkData.name}」がスタイル「${createdOrUpdatedStyle.name}」から追加されました。`);
+                            }
+                        }
+                    }
+                }
+            }
+            return createdOrUpdatedStyle;
+        }
+        // ▲▲▲【ここまで修正】▲▲▲
+    
+        if (item.type === "divine_work" && dropArea === "divine_work") {
+            const allDivineWorks = this.actor.items.filter(i => i.type === 'divine_work');
+            const existingItem = allDivineWorks.find(i => i.name === item.name);
+            if (existingItem) {
+                const usage = existingItem.system.usageCount;
+                const mod = usage.mod || 0;
+                const newValue = Math.min(3, (usage.value || 0) + 1);
+                const newTotal = newValue + mod;
+                
+                ui.notifications.info(`神業「${existingItem.name}」の母数が+1されました。`);
+                return existingItem.update({
+                    'system.usageCount.value': newValue,
+                    'system.usageCount.total': newTotal
+                });
+            } else {
+                if (allDivineWorks.length >= 3) {
+                    ui.notifications.warn(`神業は3種類までしか所有できません。`);
+                    return false;
+                }
+                const itemData = item.toObject();
+                if (!foundry.utils.hasProperty(itemData, "system.usageCount.value")) {
+                    const mod = foundry.utils.getProperty(itemData, "system.usageCount.mod") || 0;
+                    foundry.utils.setProperty(itemData, "system.usageCount", { value: 1, total: 1 + mod, mod: mod, used: 0 });
+                }
+                return this.actor.createEmbeddedDocuments("Item", [itemData]);
             }
         }
-        return super._onDrop(event);
+        
+        const itemLimits = { organization: { limit: 1, area: 'affiliation' } };
+        const rule = itemLimits[item.type];
+        if (rule && rule.area === dropArea) {
+            const count = this.actor.items.filter(i => i.type === item.type).length;
+            if (count >= rule.limit) {
+                ui.notifications.warn(`${item.name}は${rule.limit}つまでしか所有できません。`);
+                return false;
+            }
+            return this.actor.createEmbeddedDocuments("Item", [item.toObject()]);
+        }
+        return false;
     }
 
     async _onDropCardPile(event, data) {
@@ -353,13 +473,19 @@ export class TokyoNovaCastSheet extends ActorSheet {
             const allStyles = this.actor.items.filter(i => i.type === 'style');
             const totalLevel = allStyles.reduce((sum, s) => sum + (s.system.level || 1), 0);
             const existingItem = allStyles.find(i => i.name === item.name);
+            
+            let createdOrUpdatedStyle;
+
             if (existingItem) {
                 if (totalLevel >= 3) {
                     ui.notifications.warn("これ以上スタイルレベルを上げられません。");
                     return false;
                 }
                 const currentLevel = existingItem.system.level || 1;
-                return existingItem.update({ 'system.level': currentLevel + 1 });
+                // ▼▼▼【ここを修正】▼▼▼
+                // updateメソッドが返す「更新後のアイテム」を次の処理で使うようにする
+                createdOrUpdatedStyle = await existingItem.update({ 'system.level': currentLevel + 1 });
+                // ▲▲▲【ここまで】▲▲▲
             } else {
                 const itemData = item.toObject();
                 if (!itemData.system.level) itemData.system.level = 1;
@@ -367,8 +493,47 @@ export class TokyoNovaCastSheet extends ActorSheet {
                     ui.notifications.warn("スタイルの合計レベルが3を超えてしまいます。");
                     return false;
                 }
-                return this.actor.createEmbeddedDocuments("Item", [itemData]);
+                const createdItems = await this.actor.createEmbeddedDocuments("Item", [itemData]);
+                createdOrUpdatedStyle = createdItems[0];
             }
+
+            // --- スタイルに紐づく神業の処理 ---
+            if (createdOrUpdatedStyle) {
+                const divineWorkUuid = createdOrUpdatedStyle.system.divineWork?.id;
+                if (divineWorkUuid) {
+                    const sourceDivineWork = await fromUuid(divineWorkUuid);
+                    if (sourceDivineWork) {
+                        const allDivineWorks = this.actor.items.filter(i => i.type === 'divine_work');
+                        const existingDivineWork = allDivineWorks.find(i => i.name === sourceDivineWork.name);
+
+                        if (existingDivineWork) {
+                            const usage = existingDivineWork.system.usageCount;
+                            const mod = usage.mod || 0;
+                            const newValue = Math.min(3, (usage.value || 0) + 1);
+                            const newTotal = newValue + mod;
+                            
+                            ui.notifications.info(`神業「${existingDivineWork.name}」の母数が+1されました。`);
+                            await existingDivineWork.update({
+                                'system.usageCount.value': newValue,
+                                'system.usageCount.total': newTotal
+                            });
+                        } else {
+                            if (allDivineWorks.length >= 3) {
+                                ui.notifications.warn(`神業は3種類までしか所有できません。`);
+                            } else {
+                                const divineWorkData = sourceDivineWork.toObject();
+                                if (!foundry.utils.hasProperty(divineWorkData, "system.usageCount.value")) {
+                                    const mod = foundry.utils.getProperty(divineWorkData, "system.usageCount.mod") || 0;
+                                    foundry.utils.setProperty(divineWorkData, "system.usageCount", { value: 1, total: 1 + mod, mod: mod, used: 0 });
+                                }
+                                await this.actor.createEmbeddedDocuments("Item", [divineWorkData]);
+                                ui.notifications.info(`神業「${divineWorkData.name}」がスタイル「${createdOrUpdatedStyle.name}」から追加されました。`);
+                            }
+                        }
+                    }
+                }
+            }
+            return createdOrUpdatedStyle;
         }
     
         if (item.type === "divine_work" && dropArea === "divine_work") {
@@ -378,7 +543,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
                 const usage = existingItem.system.usageCount;
                 const mod = usage.mod || 0;
                 const newValue = Math.min(3, (usage.value || 0) + 1);
-                const newTotal = newValue + mod; // ご指示通りtotalを再計算
+                const newTotal = newValue + mod;
                 
                 ui.notifications.info(`神業「${existingItem.name}」の母数が+1されました。`);
                 return existingItem.update({
@@ -391,7 +556,6 @@ export class TokyoNovaCastSheet extends ActorSheet {
                     return false;
                 }
                 const itemData = item.toObject();
-                // データ移行ロジック
                 if (!foundry.utils.hasProperty(itemData, "system.usageCount.value")) {
                     const mod = foundry.utils.getProperty(itemData, "system.usageCount.mod") || 0;
                     foundry.utils.setProperty(itemData, "system.usageCount", { value: 1, total: 1 + mod, mod: mod, used: 0 });
@@ -467,20 +631,72 @@ export class TokyoNovaCastSheet extends ActorSheet {
         event.preventDefault();
         event.stopPropagation();
         const itemId = event.currentTarget.closest('[data-item-id]').dataset.itemId;
-        const item = this.actor.items.get(itemId);
-        if (!this.isEditable || !item) return;
+        const clickedItem = this.actor.items.get(itemId);
+        if (!this.isEditable || !clickedItem) return;
 
-        if (item.system.level === 3) {
+        if (clickedItem.system.level === 3) {
             return ui.notifications.warn("スタイルレベルが3のため、役割は「ペルソナ」と「キー」で固定されています。");
         }
 
-        let { isPersona, isKey } = item.system;
-        if (!isPersona && !isKey) { isPersona = true; isKey = false; }
-        else if (isPersona && !isKey) { isPersona = false; isKey = true; }
-        else if (!isPersona && isKey) { isPersona = true; isKey = true; }
-        else { isPersona = false; isKey = false; }
-        
-        await item.update({ 'system.isPersona': isPersona, 'system.isKey': isKey });
+        // --- ▼▼▼【ここからが新しいロジック】▼▼▼ ---
+
+        // 1. クリックされたアイテムの「次の」役割を決定する
+        const { isPersona, isKey } = clickedItem.system;
+        let nextIsPersona, nextIsKey;
+        if (!isPersona && !isKey)      { nextIsPersona = true;  nextIsKey = false; } // シャドウ -> ペルソナ
+        else if (isPersona && !isKey)  { nextIsPersona = false; nextIsKey = true;  } // ペルソナ -> キー
+        else if (!isPersona && isKey)  { nextIsPersona = true;  nextIsKey = true;  } // キー -> ペルソナ+キー
+        else                           { nextIsPersona = false; nextIsKey = false; } // ペルソナ+キー -> シャドウ
+
+        // 2. アクターが持つ全スタイルの更新データを作成する
+        const updates = [];
+        const allStyles = this.actor.items.filter(i => i.type === 'style');
+
+        for (const style of allStyles) {
+            // スタイルがレベル3の場合は役割を操作しない
+            if (style.system.level === 3) continue;
+
+            const updateData = { _id: style.id };
+            let needsUpdate = false;
+
+            if (style.id === clickedItem.id) {
+                // クリックされたアイテムは、次の役割に更新
+                updateData['system.isPersona'] = nextIsPersona;
+                updateData['system.isKey'] = nextIsKey;
+                needsUpdate = true;
+            } else {
+                // 他のアイテムは、役割が重複していたら解除する
+                let resetPersona = false;
+                let resetKey = false;
+
+                if (nextIsPersona && style.system.isPersona) {
+                    // これからペルソナになるスタイルがあり、このスタイルがペルソナの場合
+                    resetPersona = true;
+                }
+                if (nextIsKey && style.system.isKey) {
+                    // これからキーになるスタイルがあり、このスタイルがキーの場合
+                    resetKey = true;
+                }
+
+                if (resetPersona) {
+                    updateData['system.isPersona'] = false;
+                    needsUpdate = true;
+                }
+                if (resetKey) {
+                    updateData['system.isKey'] = false;
+                    needsUpdate = true;
+                }
+            }
+            if (needsUpdate) {
+                updates.push(updateData);
+            }
+        }
+
+        // 3. 必要な更新をまとめて実行する
+        if (updates.length > 0) {
+            await this.actor.updateEmbeddedDocuments("Item", updates);
+        }
+        // --- ▲▲▲【ここまで】▲▲▲ ---
     }
     
     _getRoleIndicatorSymbol(isPersona, isKey) {
