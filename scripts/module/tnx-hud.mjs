@@ -6,7 +6,6 @@ const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 class TnxBaseApplication extends HandlebarsApplicationMixin(ApplicationV2) {}
 
 export class TnxHud extends TnxBaseApplication {
-
     /**
      * @override
      * V12対応: デフォルトオプションを static DEFAULT_OPTIONS プロパティで定義 
@@ -171,10 +170,6 @@ export class TnxHud extends TnxBaseApplication {
         if (bottomBar) {
             // 初期状態を反映
             bottomBar.classList.toggle('hotbar-is-collapsed', ui.hotbar.collapsed);
-            // hotbarCollapseフックをリッスンし、ホットバーの状態が変化したときにHUDのクラスを更新
-            Hooks.on("hotbarCollapse", (isCollapsed) => {
-                bottomBar.classList.toggle('hotbar-is-collapsed', isCollapsed);
-            });
         }
     }
     
@@ -258,20 +253,33 @@ export class TnxHud extends TnxBaseApplication {
                 icon: '<i class="fas fa-undo"></i>',
                 condition: game.user.isGM,
                 callback: async () => {
-                const cardDeck = await TnxActionHandler.getActiveDeck();
-                if (cardDeck) {
-                    await cardDeck.recall();
-                    ui.notifications.info("山札をリセット（全カードを回収）しました。");
+                    const cardDeck = await TnxActionHandler.getActiveDeck();
+                    if (cardDeck) {
+                        await cardDeck.recall();
+                        ui.notifications.info("山札をリセット（全カードを回収）しました。");
+                    }
                 }
-            }}
+            }
         ]);
 
         // 手札のカードの右クリックメニュー
         ContextMenu.create(this, this.element, '.hand-area .card-in-hand', [
             // callbackの第一引数(header)はjQueryオブジェクトなので、ネイティブDOM要素にアクセスするために[0]をつけます
-            { name: "手札を渡す", icon: '<i class="fas fa-user-friends"></i>', callback: header => TnxActionHandler.passSingleCard(header[0].dataset.cardId) },
-            { name: "指定枚数を渡す", icon: '<i class="fas fa-users"></i>', callback: () => TnxActionHandler.selectAndPassMultipleCards() },
-            { name: "捨てる", icon: '<i class="fas fa-trash-alt"></i>', callback: header => TnxActionHandler.discardCard(header[0].dataset.cardId) }
+            {
+                name: "手札を渡す",
+                icon: '<i class="fas fa-user-friends"></i>',
+                callback: header => TnxActionHandler.passSingleCard(header[0].dataset.cardId)
+            },
+            {
+                name: "指定枚数を渡す",
+                icon: '<i class="fas fa-users"></i>',
+                callback: () => TnxActionHandler.selectAndPassMultipleCards()
+            },
+            {
+                name: "捨てる",
+                icon: '<i class="fas fa-trash-alt"></i>',
+                callback: header => TnxActionHandler.discardCard(header[0].dataset.cardId)
+            }
         ]);
     }
 
