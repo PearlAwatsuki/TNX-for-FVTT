@@ -18,10 +18,6 @@ export class TnxHud extends TnxBaseApplication {
         template: "systems/tokyo-nova-axleration/templates/hud/hud.hbs",
         popOut: false,
         resizable: false,
-        position: {
-            left: 10,
-            bottom: 10
-        },
         window: {
             header: false, // ヘッダーを非表示
             frame: false   // ウィンドウ枠を非表示
