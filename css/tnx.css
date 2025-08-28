@@ -54,19 +54,6 @@
     font-weight: bold;
 }
 
-#ui-top > .app#tnx-hud {
-    /* ウィンドウとしてのスタイルをすべてリセット */
-    background: none;
-    border: none;
-    box-shadow: none;
-  
-    /* サイズと位置をコンテンツ（HUD本体）に追従させる */
-    width: auto;
-    height: auto;
-    position: static; /* CSSでの位置決めに干渉しないようにする */
-}
-
-
 /* =================================================================== */
 /* 2. GENERIC COMPONENTS                                             */
 /* =================================================================== */

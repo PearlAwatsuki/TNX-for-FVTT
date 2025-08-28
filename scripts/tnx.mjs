@@ -32,6 +32,9 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/dialog/target-selection-dialog.hbs",
         "systems/tokyo-nova-axleration/templates/dialog/unlink-confirm-dialog.hbs",
 
+        // === HUD ===
+        "systems/tokyo-nova-axleration/templates/hud/hud.hbs",
+
         // === Partials ===
         "systems/tokyo-nova-axleration/templates/parts/active-effects-list.hbs",
         "systems/tokyo-nova-axleration/templates/parts/scenario-setting-wizard.hbs",
@@ -683,9 +686,9 @@ Hooks.once("init", async function() {
 });
 
 Hooks.once("ready", async function() {
-    const hud = new TnxHud();
-    await hud.render(true);
-    document.getElementById('ui-top').appendChild(hud.element);
+    game.tnx = game.tnx || {};
+    game.tnx.hud = new TnxHud();
+    await game.tnx.hud.render(true);
     
     const defaultMaxSize = game.settings.get("tokyo-nova-axleration", "defaultHandMaxSize");
     const castActors = game.actors.filter(a => a.type === 'cast');
