@@ -47,7 +47,7 @@
                 <div class="control-group">
                     <label>{{localize "TNX.Hand"}}</label>
                     {{#if system.handPileId}}
-                        <button type="button" class="tnx-linked-button" data-action="openHandSheet" data-context-menu-type="unlink" data-unlink-path="system.handPileId">
+                        <button type="button" class="tnx-linked-button" data-action="open-hand-sheet" data-context-menu-type="unlink" data-unlink-path="system.handPileId">
                             <img src="{{handPile.img}}" class="tnx-linked-button__icon"/><span class="tnx-linked-button__label">{{handPile.name}}</span>
                         </button>
                     {{else}}
@@ -57,7 +57,7 @@
                 <div class="control-group">
                     <label>{{localize "TNX.TrumpCard"}}</label>
                     {{#if system.trumpCardPileId}}
-                        <button type="button" class="tnx-linked-button" data-action="openTrumpCardSheet" data-context-menu-type="unlink" data-unlink-path="system.trumpCardPileId">
+                        <button type="button" class="tnx-linked-button" data-action="open-trump-card-sheet" data-context-menu-type="unlink" data-unlink-path="system.trumpCardPileId">
                             <img src="{{trumpCardPile.img}}" class="tnx-linked-button__icon"/><span class="tnx-linked-button__label">{{trumpCardPile.name}}</span>
                         </button>
                     {{else}}
@@ -69,19 +69,19 @@
             <div class="view-mode-hand">
                 {{#if handPile}}
                 <div class="hand-controls horizontal-buttons">
-                    <button type="button" class="tnx-button" data-action="drawCard" {{#if isHandFull}}disabled{{/if}}>
+                    <button type="button" class="tnx-button" data-action="draw-card" {{#if isHandFull}}disabled{{/if}}>
                         <i class="fas fa-hand-paper"></i> 引く
                     </button>
-                    <button type="button" class="tnx-button" data-action="passToOther" {{#unless handPile.cards.length}}disabled{{/unless}}>
+                    <button type="button" class="tnx-button" data-action="pass-to-other" {{#unless handPile.cards.length}}disabled{{/unless}}>
                         <i class="fas fa-hand-holding-heart"></i> 渡す
                     </button>
-                    <button type="button" class="tnx-button" data-action="useTrumpCard" {{#unless trumpCard}}disabled{{/unless}}>
+                    <button type="button" class="tnx-button" data-action="use-trump-card" {{#unless trumpCard}}disabled{{/unless}}>
                         <i class="fas fa-star"></i> {{localize "TNX.TrumpCard"}}
                     </button>
                 </div>
                 <div class="hand-cards-display" data-drop-area="actor-hand">
                     {{#each handPile.cards as |card|}}
-                        <div class="card-in-hand interactive" data-action="playCard" data-card-id="{{card._id}}" title="{{card.name}}">
+                        <div class="card-in-hand interactive" data-action="play-card" data-card-id="{{card._id}}" title="{{card.name}}">
                             <img src="{{card.faces.[0].img}}" alt="{{card.name}}" />
                         </div>
                     {{/each}}
@@ -125,7 +125,7 @@
                                 <label>{{localize "TNX.Affiliation"}}：</label>
                                 {{#if equippedAffiliations.length}}
                                     {{#each equippedAffiliations as |item|}}
-                                        <button type="button" class="item-button tnx-linked-button" data-action="openItemSheet" data-item-id="{{item._id}}" data-context-menu="item-edit">
+                                        <button type="button" class="item-button tnx-linked-button" data-action="open-item-sheet" data-item-id="{{item._id}}" data-context-menu="item-edit">
                                             <img src="{{item.img}}" class="tnx-linked-button__icon"/>
                                             <span class="tnx-linked-button__label">{{item.name}}</span>
                                         </button>
@@ -165,10 +165,10 @@
                                 {{#if slot.isEmpty}}
                                     <div class="tnx-import-box tnx-import-box--inline" data-drop-area="style"><span>{{localize "TNX.ImportStyle"}}</span></div>
                                 {{else}}
-                                    <button type="button" class="item-button tnx-linked-button style-info-button" data-action="openItemSheet" data-item-id="{{slot._id}}" data-context-menu="item-edit">
+                                    <button type="button" class="item-button tnx-linked-button style-info-button" data-action="open-item-sheet" data-item-id="{{slot._id}}" data-context-menu="item-edit">
                                         <img src="{{slot.img}}" class="tnx-linked-button__icon"/>
                                         <span class="tnx-linked-button__label">{{slot.name}}</span>
-                                        <div class="style-role-toggle" data-action="toggleStyleRole"><span class="role-indicator {{slot.roleIndicatorClass}}">{{slot.roleIndicatorDisplay}}</span></div>
+                                        <div class="style-role-toggle" data-action="toggle-style-role"><span class="role-indicator {{slot.roleIndicatorClass}}">{{slot.roleIndicatorDisplay}}</span></div>
                                     </button>
                                 {{/if}}
                                 </div>
@@ -180,7 +180,7 @@
                                 {{#if slot.isEmpty}}
                                     <div class="tnx-import-box tnx-import-box--inline" data-drop-area="miracle"><span>{{localize "TNX.DropMiracleHint"}}</span></div>
                                 {{else}}
-                                    <button type="button" class="item-button tnx-linked-button" data-action="openItemSheet" data-item-id="{{slot._id}}" data-context-menu="item-edit">
+                                    <button type="button" class="item-button tnx-linked-button" data-action="open-item-sheet" data-item-id="{{slot._id}}" data-context-menu="item-edit">
                                         <img src="{{slot.img}}" class="tnx-linked-button__icon"/>{{slot.name}}
                                     </button>
                                 {{/if}}
@@ -193,7 +193,7 @@
                         <h3 class="miracle-header">{{localize "TNX.Miracles"}}</h3>
                         <div class="miracle-buttons-grid">
                             {{#each miracleSlotsForView as |dw|}}
-                                <button type="button" class="tnx-linked-button miracle-use-button" data-action="useMiracle" data-item-id="{{dw._id}}" {{#if dw.isPlaceholder}}disabled{{/if}} {{#if dw.isDisabled}}disabled{{/if}} data-context-menu="miracle-view">
+                                <button type="button" class="tnx-linked-button miracle-use-button" data-action="use-miracle" data-item-id="{{dw._id}}" {{#if dw.isPlaceholder}}disabled{{/if}} {{#if dw.isDisabled}}disabled{{/if}} data-context-menu="miracle-view">
                                     <i class="fas fa-bolt"></i>
                                     <span class="tnx-linked-button__label miracle-name__label">{{dw.name}}</span>
                                 </button>
@@ -204,7 +204,7 @@
                 </div>
             </div>
             <div class="sheet-controls">
-                <button type="button" class="edit-mode-toggle tnx-button tnx-button--toggle" data-action="toggleEditMode" title="表示モード切替">
+                <button type="button" class="edit-mode-toggle tnx-button tnx-button--toggle" data-action="toggle-edit-mode" title="表示モード切替">
                     <i class="fas fa-edit"></i>
                 </button>
             </div>
@@ -232,7 +232,7 @@
                                         <span class="separator">/</span>
                                         <input type="number" value="{{ability.totalControl}}" class="control-value" disabled title="最終制御値">
                                     </div>
-                                    <div class="ability-details-toggle" data-action="toggleAbilityDetails">
+                                    <div class="ability-details-toggle" data-action="toggle-ability-details">
                                         <span>内訳</span>
                                         <i class="fas fa-chevron-down"></i>
                                     </div>
@@ -300,7 +300,7 @@
                                             {{#each connectionsSkills as |item|}}
                                                 <li class="item" data-item-id="{{item._id}}">
                                                     <div class="item-name">
-                                                        <a data-action="openItemSheet" data-item-id="{{item._id}}">{{item.name}}</a>
+                                                        <a data-action="open-item-sheet" data-item-id="{{item._id}}">{{item.name}}</a>
                                                     </div>
                                                     <div class="skill-level">
                                                         <input type="number" name="items.{{item._id}}.system.level" value="{{item.system.level}}" />
@@ -322,7 +322,7 @@
                                             {{#each group.skills as |item|}}
                                                 <li class="item" data-item-id="{{item._id}}">
                                                     <div class="item-name">
-                                                        <a data-action="openItemSheet" data-item-id="{{item._id}}">{{item.name}}</a>
+                                                        <a data-action="open-item-sheet" data-item-id="{{item._id}}">{{item.name}}</a>
                                                     </div>
                                                     <div class="skill-level">
                                                         <input type="number" name="items.{{item._id}}.system.level" value="{{item.system.level}}" />
