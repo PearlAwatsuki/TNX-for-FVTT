@@ -79,7 +79,7 @@
                         <i class="fas fa-star"></i> {{localize "TNX.TrumpCard"}}
                     </button>
                 </div>
-                <div class="hand-cards-display" data-drop-area="actor-hand">
+                <div class="hand-cards-display" data-drop-zone="actor-hand">
                     {{#each handPile.cards as |card|}}
                         <div class="card-in-hand interactive" data-action="playCard" data-card-id="{{card._id}}" title="{{card.name}}">
                             <img src="{{card.faces.[0].img}}" alt="{{card.name}}" />
@@ -178,7 +178,7 @@
                             {{#each miracleSlots as |slot|}}
                                 <div class="miracle-slot" data-item-id="{{slot._id}}">
                                 {{#if slot.isEmpty}}
-                                    <div class="tnx-import-box tnx-import-box--inline" data-drop-area="miracle"><span>{{localize "TNX.DropMiracleHint"}}</span></div>
+                                    <div class="tnx-import-box tnx-import-box--inline" data-drop-area="divine_work"><span>{{localize "TNX.DropMiracleHint"}}</span></div>
                                 {{else}}
                                     <button type="button" class="item-button tnx-linked-button" data-action="openItemSheet" data-item-id="{{slot._id}}" data-context-menu="item-edit">
                                         <img src="{{slot.img}}" class="tnx-linked-button__icon"/>{{slot.name}}
@@ -212,15 +212,10 @@
      
         <section class="tabbed-content">
             <nav class="sheet-tabs tabs tnx-tabs" data-group="primary">
-                <a class="item" data-tab="abilities">{{localize "TNX.Abilities"}}</a>
-                <a class="item" data-tab="outfits">{{localize "TNX.Outfits"}}</a>
-                <a class="item" data-tab="battle">{{localize "TNX.Battle"}}</a>
-                <a class="item" data-tab="status">{{localize "TNX.Status"}}</a>
-                <a class="item" data-tab="history">{{localize "TNX.History"}}</a>
-                <a class="item" data-tab="profile">{{localize "TNX.Profile"}}</a>
+                <a class="item" data-tab="abilities">{{localize "TNX.Abilities"}}</a><a class="item" data-tab="outfits">{{localize "TNX.Outfits"}}</a><a class="item" data-tab="battle">{{localize "TNX.Battle"}}</a><a class="item" data-tab="status">{{localize "TNX.Status"}}</a><a class="item" data-tab="history">{{localize "TNX.History"}}</a><a class="item" data-tab="profile">{{localize "TNX.Profile"}}</a>
             </nav>
             <section class="sheet-body tnx-body">
-                <div class="tab abilities" data-tab="abilities" data-group="primary">
+                <div class="tab abilities" data-tab="abilities">
                     <h2 class="abilities-grid-header">{{localize "TNX.AbilityControlHeader"}}</h2>
                     {{#if isEditMode}}
                         <div class="abilities-grid edit-mode-layout">

@@ -13,14 +13,14 @@
                 </div>
             {{/if}}
         
-            {{!-- ▼▼▼ data-drag-type と data-drop-zone を追加 ▼▼▼ --}}
+            {{!-- ▼▼▼ data-drag-type と data-drop-area を追加 ▼▼▼ --}}
             {{#if (and discardPile discardPile.cards.size)}}
-                <div class="deck-card discard-area" data-action="take-from-discard" title="{{discardPile.name}}" draggable="true" data-drag-type="discard-card" data-drop-zone="discard">
+                <div class="deck-card discard-area" data-action="take-from-discard" title="{{discardPile.name}}" draggable="true" data-drag-type="discard-card" data-drop-area="discard">
                     <img src="{{topDiscardImage}}" alt="捨て札">
                     <span class="deck-count">{{discardPile.cards.size}}</span>
                 </div>
             {{else}}
-                <div class="card-empty-placeholder discard-area" data-drop-zone="discard">
+                <div class="card-empty-placeholder discard-area" data-drop-area="discard">
                     <i class="fas fa-trash"></i>
                 </div>
             {{/if}}
@@ -42,11 +42,11 @@
             {{/if}}
 
             {{#if (and scenePile scenePile.cards.size)}}
-                <div class="deck-card scene-card-display" data-drop-zone="scene">
+                <div class="deck-card scene-card-display" data-drop-area="scene">
                     <img src="{{topSceneCard.img}}" alt="{{topSceneCard.name}}">
                 </div>
             {{else}}
-                <div class="card-empty-placeholder" data-drop-zone="scene">
+                <div class="card-empty-placeholder" data-drop-area="scene">
                     <i class="fas fa-cards-blank"></i>
                 </div>
             {{/if}}
@@ -54,8 +54,8 @@
     </div>
 
     <div class="hud-container hud-bottom-bar">
-        {{!-- ▼▼▼ data-drop-zone を追加 ▼▼▼ --}}
-        <div class="hand-area hud-panel" data-drop-zone="hand">
+        {{!-- ▼▼▼ data-drop-area を追加 ▼▼▼ --}}
+        <div class="hand-area hud-panel" data-drop-area="hand">
             {{#if (and hand hand.cards.size)}}
                 {{#each hand.cards as |card|}}
                     {{!-- ▼▼▼ data-drag-type と data-card-id を追加 ▼▼▼ --}}
