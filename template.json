@@ -187,7 +187,7 @@
         },
         "skill": {
             "templates": ["base"],
-            "level": 0,
+            "level": 1,
             "category": "generalSkill",
             "spade": true,
             "club": false,
@@ -212,8 +212,8 @@
                 "comboSkill": "-",
                 "maxLevel":"-",
                 "timing": "-",
-                "range": "-",
                 "targetValue": "-",
+                "range": "-",
                 "confrontation": "-",
                 "isDRRewriting": false,
                 "RewritedTargetID": "",

@@ -61,6 +61,12 @@
     font-family: 'Mirror', sans-serif;
     font-weight: bold;
 }
+.tokyo-nova input{
+    background-color: var(--tnx-color-bg-input);
+    border: 1px solid var(--tnx-color-border);
+    color: var(--tnx-color-text-base);
+    text-align: center;
+}
 
 
 /* =================================================================== */
