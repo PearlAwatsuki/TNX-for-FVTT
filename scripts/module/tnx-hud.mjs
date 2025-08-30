@@ -7,6 +7,11 @@ class TnxBaseApplication extends HandlebarsApplicationMixin(ApplicationV2) {}
 
 export class TnxHud extends TnxBaseApplication {
     /**
+     * @type {ContextMenu[]}
+     */
+    _contextMenus = [];
+
+    /**
      * @override
      * V12対応: デフォルトオプションを static DEFAULT_OPTIONS プロパティで定義 
      * V12対応: クリックイベントを actions として静的に定義
@@ -169,6 +174,12 @@ export class TnxHud extends TnxBaseApplication {
             });
         }
     }
+
+    _disposeContextMenus() {
+        // Bodyに紐づいているメニューを破棄
+        this._contextMenus.forEach(menu => menu.dispose());
+        this._contextMenus = [];
+    }
     
     /**
      * コンテキストメニューを初期化するヘルパーメソッド
@@ -180,9 +191,10 @@ export class TnxHud extends TnxBaseApplication {
         // また、callbackの引数がjQueryオブジェクトのままなので、.data() を使うために $(header) とラップするか、
         // .dataset を使うために header[0].dataset.cardId のようにネイティブ要素にアクセスします。
         // ここでは、よりV12らしい .dataset を使う形に統一します。
+        this._disposeContextMenus();
 
         // ニューロデッキの右クリックメニュー
-        ContextMenu.create(this, this.element, '.deck-card[data-action="draw-neuro"]', [
+        this._contextMenus.push(ContextMenu.create(this, this.element, '.deck-card[data-action="draw-neuro"]', [
             {
                 name: "切り札を配布する",
                 icon: '<i class="fas fa-star"></i>',
@@ -213,10 +225,10 @@ export class TnxHud extends TnxBaseApplication {
                     }
                 }
             }
-        ]);
+        ]));
 
         // 山札の右クリックメニュー
-        ContextMenu.create(this, this.element, '.deck-card[data-action="draw-from-deck"]', [
+        this._contextMenus.push(ContextMenu.create(this, this.element, '.deck-card[data-action="draw-from-deck"]', [
             {
                 name: "山札から判定する",
                 icon: '<i class="fas fa-gavel"></i>',
@@ -257,10 +269,10 @@ export class TnxHud extends TnxBaseApplication {
                     }
                 }
             }
-        ]);
+        ]));
 
         // 手札のカードの右クリックメニュー
-        ContextMenu.create(this, this.element, '.hand-area .card-in-hand', [
+        this._contextMenus.push(ContextMenu.create(this, this.element, '.hand-area .card-in-hand', [
             // callbackの第一引数(header)はjQueryオブジェクトなので、ネイティブDOM要素にアクセスするために[0]をつけます
             {
                 name: "手札を渡す",
@@ -277,7 +289,7 @@ export class TnxHud extends TnxBaseApplication {
                 icon: '<i class="fas fa-trash-alt"></i>',
                 callback: header => TnxActionHandler.discardCard(header[0].dataset.cardId)
             }
-        ]);
+        ]));
     }
 
     /**
