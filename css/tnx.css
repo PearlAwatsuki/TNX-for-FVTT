@@ -2657,3 +2657,54 @@
     color: var(--tnx-color-primary-accent);
     margin: 0;
 }
+.sheet-header .level-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-left: auto;
+}
+  
+.sheet-header .level-display input {
+    width: 50px;
+    height: 50px;
+    text-align: center;
+    font-size: 2em;
+    background-color: white;
+    border: 1px solid #ccc;
+}
+  
+.suit-selection {
+    display: flex;
+    gap: 5px;
+}
+  
+.suit-selection input[type="checkbox"] {
+    display: none;
+}
+
+.suit-selection .suit-icon {
+    font-size: 2em;
+    cursor: pointer;
+}
+  
+.suit-selection input[type="checkbox"]:checked + .suit-icon {
+    color: var(--color-active); /* チェック時の色を指定 */
+}
+
+.basic-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+  
+.basic-info .form-group {
+    display: flex;
+    flex-direction: column;
+    flex-basis: calc(50% - 5px); /* 2列表示にする場合 */
+}
+
+.settings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* 例として2列グリッド */
+    gap: 15px; /* ここで要素間の間隔を指定 */
+}
