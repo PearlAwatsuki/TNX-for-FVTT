@@ -989,7 +989,7 @@
     min-width: 0;
 }
 .tokyo-nova.sheet.actor.cast .profile-header .view-mode-style-summary { display: flex; align-items: baseline; gap: 5px; }
-.tokyo-nova.sheet.actor.cast .profile-header .style-summary-items { font-size: 1.1em; font-weight: bold; display: inline-flex; flex-wrap: wrap; }
+.tokyo-nova.sheet.actor.cast .profile-header .style-summary-items { font-size: 1.1em; font-weight: bold; display: inline-flex; flex-wrap: wrap; gap: 0 0.5em; }
 .tokyo-nova.sheet.actor.cast .profile-header .exp-display-section { text-align: right; }
 .tokyo-nova.sheet.actor.cast .profile-header .edit-mode-exp { display: flex; align-items: center; gap: 5px; }
 .tokyo-nova.sheet.actor.cast .profile-header .exp-display-section .exp-value { font-weight: bold; font-size: 1.2em; color: var(--tnx-color-primary-highlight); }
@@ -2556,91 +2556,4 @@
     top: -1000px;
     left: -1000px;
     z-index: -1;
-}
-
-/* --- Actor Sheet: Skills Section --- */
-.skills-section {
-    margin-top: 30px;
-    padding-top: 10px;
-}
-.skill-group-block {
-    margin-bottom: 15px;
-}
-.skill-group-header, .skill-group-header-connector {
-    font-weight: bold;
-    color: var(--tnx-color-text-dim);
-    border-bottom: 1px solid var(--tnx-color-border-accent);
-    padding-bottom: 4px;
-    margin-bottom: 5px;
-}
-.skill-group-header-connector {
-    color: var(--tnx-color-primary-accent);
-}
-.skills-list-edit .item-list .item {
-    display: flex;
-    align-items: center;
-    padding: 4px 0;
-}
-.skills-list-edit .item-list .item .item-name {
-    flex: 1;
-}
-.skills-list-edit .item-list .item .skill-level input {
-    width: 50px;
-    text-align: center;
-    background-color: var(--tnx-color-bg-input);
-    border: 1px solid var(--tnx-color-border);
-    color: var(--tnx-color-text-base);
-}
-.skills-list-edit .item-list .item .item-controls {
-    flex: 0 0 30px;
-    text-align: right;
-}
-
-/* --- Rich Text Editor Section (ProseMirror Compatible) --- */
-.tnx-editor-section {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    margin-bottom: 20px;
-    position: relative; 
-}
-.tnx-editor-section__header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-    border-bottom: 1px solid var(--tnx-color-primary-dark);
-    padding-bottom: 5px;
-    margin-bottom: 8px;
-}
-.tnx-editor-section__header > label {
-    font-size: 1.2em;
-    font-weight: bold;
-    color: var(--tnx-color-primary-accent);
-    margin: 0;
-}
-
-/* ProseMirrorのコンテナに直接スタイルを適用 */
-.tnx-editor-section__content .prosemirror {
-    width: 100%;
-    min-height: 120px;
-    padding: 10px;
-    box-sizing: border-box;
-    background: transparent;
-    color: var(--tnx-color-text-dim);
-    border: 1px solid var(--tnx-color-primary-dark);
-    border-radius: var(--tnx-border-radius-sm);
-    box-shadow: inset 0 0 8px rgba(0, 170, 255, 0.2);
-}
-/* TinyMCE用の古いスタイルも残しておく */
-.tnx-editor-section__content .editor-content {
-    width: 100%;
-    min-height: 120px;
-    padding: 10px;
-    box-sizing: border-box;
-    background: transparent;
-    color: var(--tnx-color-text-dim);
-    border: 1px solid var(--tnx-color-primary-dark);
-    border-radius: var(--tnx-border-radius-sm);
-    box-shadow: inset 0 0 8px rgba(0, 170, 255, 0.2);
 }

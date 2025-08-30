@@ -125,10 +125,10 @@
                                 <label>{{localize "TNX.Affiliation"}}：</label>
                                 {{#if equippedAffiliations.length}}
                                     {{#each equippedAffiliations as |item|}}
-                                        <button type="button" class="item-button tnx-linked-button" data-action="openItemSheet" data-item-id="{{item._id}}" data-context-menu="item-edit">
-                                            <img src="{{item.img}}" class="tnx-linked-button__icon"/>
-                                            <span class="tnx-linked-button__label">{{item.name}}</span>
-                                        </button>
+                                    <button type="button" class="item-button tnx-linked-button" data-action="openItemSheet" data-item-id="{{item._id}}" data-context-menu="item-edit">
+                                        <img src="{{item.img}}" class="tnx-linked-button__icon"/>
+                                        <span class="tnx-linked-button__label">{{item.name}}</span>
+                                    </button>
                                     {{/each}}
                                 {{else}}
                                     <div class="tnx-import-box tnx-import-box--inline" data-drop-area="affiliation"><span>{{localize "TNX.DropOrganizationHint"}}</span></div>
@@ -269,76 +269,18 @@
                             {{/each}}
                         </div>
                     {{else}}
-                        <div class="abilities-grid view-mode-layout">
-                            {{#each system.abilities as |ability key|}}
-                                <div class="ability-display">
-                                    <div class="ability-label-shape"><div class="ability-label-content"><h3>{{localize ability.label}}</h3></div></div>
-                                    <div class="ability-values-area">
-                                        <div class="ability-value-shape"><div class="ability-value-content"><input type="number" value="{{ability.totalValue}}" readonly></div></div>
-                                        <div class="control-value-shape"><div class="control-value-content"><input type="number" value="{{ability.totalControl}}" readonly></div></div>
-                                    </div>
-                                </div>
-                            {{/each}}
-                        </div>
-                    {{/if}}
-                    <div class="skills-section">
-                        <h2 class="abilities-grid-header">{{localize "TNX.GeneralSkills"}}</h2>
-
-                        {{#if isEditMode}}
-                        {{!-- 編集モードの表示 --}}
-                            <div class="skills-list-edit">
-                                {{!-- コネ技能のブロック --}}
-                                {{#if connectionsSkills.length}}
-                                    <div class="skill-group-block">
-                                        <h4 class="skill-group-header-connector">{{localize "TNX.Connections"}}</h4>
-                                        <ol class="item-list">
-                                            {{#each connectionsSkills as |item|}}
-                                                <li class="item" data-item-id="{{item._id}}">
-                                                    <div class="item-name">
-                                                        <a data-action="openItemSheet" data-item-id="{{item._id}}">{{item.name}}</a>
-                                                    </div>
-                                                    <div class="skill-level">
-                                                        <input type="number" name="items.{{item._id}}.system.level" value="{{item.system.level}}" />
-                                                    </div>
-                                                    <div class="item-controls">
-                                                        <a class="item-control item-delete" title="Delete Item"><i class="fas fa-trash"></i></a>
-                                                    </div>
-                                                </li>
-                                            {{/each}}
-                                        </ol>
-                                    </div>
-                                {{/if}}
-
-                                {{!-- その他の一般技能（スート別） --}}
-                                {{#each generalSkillsBySuit as |group|}}
-                                    <div class="skill-group-block">
-                                        <h4 class="skill-group-header">{{group.label}}</h4>
-                                        <ol class="item-list">
-                                            {{#each group.skills as |item|}}
-                                                <li class="item" data-item-id="{{item._id}}">
-                                                    <div class="item-name">
-                                                        <a data-action="openItemSheet" data-item-id="{{item._id}}">{{item.name}}</a>
-                                                    </div>
-                                                    <div class="skill-level">
-                                                        <input type="number" name="items.{{item._id}}.system.level" value="{{item.system.level}}" />
-                                                    </div>
-                                                    <div class="item-controls">
-                                                        <a class="item-control item-delete" title="Delete Item"><i class="fas fa-trash"></i></a>
-                                                    </div>
-                                                </li>
-                                            {{/each}}
-                                        </ol>
-                                    </div>
-                                {{/each}}
+                    <div class="abilities-grid view-mode-layout">
+                        {{#each system.abilities as |ability key|}}
+                        <div class="ability-display">
+                            <div class="ability-label-shape"><div class="ability-label-content"><h3>{{localize ability.label}}</h3></div></div>
+                            <div class="ability-values-area">
+                                <div class="ability-value-shape"><div class="ability-value-content"><input type="number" value="{{ability.totalValue}}" readonly></div></div>
+                                <div class="control-value-shape"><div class="control-value-content"><input type="number" value="{{ability.totalControl}}" readonly></div></div>
                             </div>
-                            {{else}}
-                            {{!-- 閲覧モードの表示 --}}
-                                <div class="skills-list-view">
-                                    {{!-- ここに閲覧モード用のレイアウトを後で実装します --}}
-                                    <p style="text-align: center; color: #888;">（一般技能の閲覧モード表示はここに実装されます）</p>
-                                </div>
-                        {{/if}}
+                        </div>
+                        {{/each}}
                     </div>
+                    {{/if}}
                 </div>
             </section>
         </section>
