@@ -15,6 +15,7 @@ export class TnxHud extends TnxBaseApplication {
     static DEFAULT_OPTIONS = {
         id: "tnx-hud",
         classes: ["tokyo-nova"],
+        template: "systems/tokyo-nova-axleration/templates/hud/hud.hbs",
         popOut: false,
         resizable: false,
         window: {
@@ -27,12 +28,6 @@ export class TnxHud extends TnxBaseApplication {
             "draw-neuro": TnxHud.onDrawNeuro,
             "take-from-discard": TnxHud.onTakeFromDiscard,
             "use-trump": TnxHud.onUseTrump
-        }
-    };
-
-    static PARTS = {
-        body: {
-          template: 'systems/tokyo-nova-axleration/templates/hud/hud.hbs'
         }
     };
 
