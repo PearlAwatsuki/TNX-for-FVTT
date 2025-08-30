@@ -30,27 +30,27 @@ export class TokyoNovaCastSheet extends ActorSheet {
         context.isEditMode = this._isEditMode && this.isEditable;
 
         const allStyles = this.actor.items.filter(i => i.type === 'style');
-        const allDivineWorks = this.actor.items.filter(i => i.type === 'divine_work');
+        const allMiracles = this.actor.items.filter(i => i.type === 'miracle');
         context.equippedAffiliations = this.actor.items.filter(i => i.type === 'organization');
         context.affiliationDisplay = context.equippedAffiliations[0]?.name || game.i18n.localize("TNX.Unaffiliated");
         
         context.styleSlots = this._prepareStyleSlots(allStyles);
-        const divineWorkSlotsData = this._prepareDivineWorksForDisplay(allDivineWorks);
-        context.divineWorkSlots = [...divineWorkSlotsData];
-        while (context.divineWorkSlots.length < 3) {
-            context.divineWorkSlots.push({ isEmpty: true });
+        const miracleSlotsData = this._prepareMiraclesForDisplay(allMiracles);
+        context.miracleSlots = [...miracleSlotsData];
+        while (context.miracleSlots.length < 3) {
+            context.miracleSlots.push({ isEmpty: true });
         }
-        context.divineWorkSlots = context.divineWorkSlots.slice(0, 3);
+        context.miracleSlots = context.miracleSlots.slice(0, 3);
 
-        context.divineWorkSlotsForView = [...divineWorkSlotsData];
-        while (context.divineWorkSlotsForView.length < 3) {
-            context.divineWorkSlotsForView.push({
-                name: `神業${context.divineWorkSlotsForView.length + 1}`,
+        context.miracleSlotsForView = [...miracleSlotsData];
+        while (context.miracleSlotsForView.length < 3) {
+            context.miracleSlotsForView.push({
+                name: `神業${context.miracleSlotsForView.length + 1}`,
                 isPlaceholder: true,
-                _id: `placeholder-${context.divineWorkSlotsForView.length}`
+                _id: `placeholder-${context.miracleSlotsForView.length}`
             });
         }
-        context.divineWorkSlotsForView = context.divineWorkSlotsForView.slice(0, 3);
+        context.miracleSlotsForView = context.miracleSlotsForView.slice(0, 3);
         
         context.processedStylesForView = this._prepareStylesForView(allStyles);
 
@@ -198,7 +198,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
             if (!item) return;
     
             // --- 神業の使用回数を減らす処理 ---
-            if (item.type === 'divine_work') {
+            if (item.type === 'miracle') {
                 const usage = item.system.usageCount;
                 // 使用回数(母数)が1より大きい場合
                 if (usage && usage.value > 1) {
@@ -231,7 +231,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
         }];
         new ContextMenu(html, '.item-button[data-context-menu="item-edit"]', itemContextMenu);
         
-        const divineWorkViewMenu = [
+        const miracleViewMenu = [
             {
                 name: "閲覧",
                 icon: '<i class="fas fa-eye"></i>',
@@ -245,7 +245,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
                 callback: itemDeleteCallback // こちらも共通の削除コールバックを使用
             }
         ];
-        new ContextMenu(html, '[data-context-menu="divine-work-view"]', divineWorkViewMenu);
+        new ContextMenu(html, '[data-context-menu="divine-work-view"]', miracleViewMenu);
         
         const unlinkMenu = [{
             name: game.i18n.localize("TNX.UnlinkCards"),
@@ -366,37 +366,37 @@ export class TokyoNovaCastSheet extends ActorSheet {
 
             // --- スタイルに紐づく神業の処理をここに追加 ---
             if (createdOrUpdatedStyle) {
-                const divineWorkUuid = createdOrUpdatedStyle.system.divineWork?.id;
-                if (divineWorkUuid) {
-                    const sourceDivineWork = await fromUuid(divineWorkUuid);
-                    if (sourceDivineWork) {
-                        const allDivineWorks = this.actor.items.filter(i => i.type === 'divine_work');
-                        const existingDivineWork = allDivineWorks.find(i => i.name === sourceDivineWork.name);
+                const miracleUuid = createdOrUpdatedStyle.system.miracle?.id;
+                if (miracleUuid) {
+                    const sourceMiracle = await fromUuid(miracleUuid);
+                    if (sourceMiracle) {
+                        const allMiracles = this.actor.items.filter(i => i.type === 'miracle');
+                        const existingMiracle = allMiracles.find(i => i.name === sourceMiracle.name);
 
-                        if (existingDivineWork) {
+                        if (existingMiracle) {
                             // 既に持っている場合は母数を+1
-                            const usage = existingDivineWork.system.usageCount;
+                            const usage = existingMiracle.system.usageCount;
                             const mod = usage.mod || 0;
                             const newValue = Math.min(3, (usage.value || 0) + 1);
                             const newTotal = newValue + mod;
                             
-                            ui.notifications.info(`神業「${existingDivineWork.name}」の母数が+1されました。`);
-                            await existingDivineWork.update({
+                            ui.notifications.info(`神業「${existingMiracle.name}」の母数が+1されました。`);
+                            await existingMiracle.update({
                                 'system.usageCount.value': newValue,
                                 'system.usageCount.total': newTotal
                             });
                         } else {
                             // 持っていない場合は新規作成
-                            if (allDivineWorks.length >= 3) {
+                            if (allMiracles.length >= 3) {
                                 ui.notifications.warn(`神業は3種類までしか所有できません。`);
                             } else {
-                                const divineWorkData = sourceDivineWork.toObject();
-                                if (!foundry.utils.hasProperty(divineWorkData, "system.usageCount.value")) {
-                                    const mod = foundry.utils.getProperty(divineWorkData, "system.usageCount.mod") || 0;
-                                    foundry.utils.setProperty(divineWorkData, "system.usageCount", { value: 1, total: 1 + mod, mod: mod, used: 0 });
+                                const miracleData = sourceMiracle.toObject();
+                                if (!foundry.utils.hasProperty(miracleData, "system.usageCount.value")) {
+                                    const mod = foundry.utils.getProperty(miracleData, "system.usageCount.mod") || 0;
+                                    foundry.utils.setProperty(miracleData, "system.usageCount", { value: 1, total: 1 + mod, mod: mod, used: 0 });
                                 }
-                                await this.actor.createEmbeddedDocuments("Item", [divineWorkData]);
-                                ui.notifications.info(`神業「${divineWorkData.name}」がスタイル「${createdOrUpdatedStyle.name}」から追加されました。`);
+                                await this.actor.createEmbeddedDocuments("Item", [miracleData]);
+                                ui.notifications.info(`神業「${miracleData.name}」がスタイル「${createdOrUpdatedStyle.name}」から追加されました。`);
                             }
                         }
                     }
@@ -406,9 +406,9 @@ export class TokyoNovaCastSheet extends ActorSheet {
         }
         // ▲▲▲【ここまで修正】▲▲▲
     
-        if (item.type === "divine_work" && dropArea === "divine_work") {
-            const allDivineWorks = this.actor.items.filter(i => i.type === 'divine_work');
-            const existingItem = allDivineWorks.find(i => i.name === item.name);
+        if (item.type === "miracle" && dropArea === "miracle") {
+            const allMiracles = this.actor.items.filter(i => i.type === 'miracle');
+            const existingItem = allMiracles.find(i => i.name === item.name);
             if (existingItem) {
                 const usage = existingItem.system.usageCount;
                 const mod = usage.mod || 0;
@@ -421,7 +421,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
                     'system.usageCount.total': newTotal
                 });
             } else {
-                if (allDivineWorks.length >= 3) {
+                if (allMiracles.length >= 3) {
                     ui.notifications.warn(`神業は3種類までしか所有できません。`);
                     return false;
                 }
@@ -499,35 +499,35 @@ export class TokyoNovaCastSheet extends ActorSheet {
 
             // --- スタイルに紐づく神業の処理 ---
             if (createdOrUpdatedStyle) {
-                const divineWorkUuid = createdOrUpdatedStyle.system.divineWork?.id;
-                if (divineWorkUuid) {
-                    const sourceDivineWork = await fromUuid(divineWorkUuid);
-                    if (sourceDivineWork) {
-                        const allDivineWorks = this.actor.items.filter(i => i.type === 'divine_work');
-                        const existingDivineWork = allDivineWorks.find(i => i.name === sourceDivineWork.name);
+                const miracleUuid = createdOrUpdatedStyle.system.miracle?.id;
+                if (miracleUuid) {
+                    const sourceMiracle = await fromUuid(miracleUuid);
+                    if (sourceMiracle) {
+                        const allMiracles = this.actor.items.filter(i => i.type === 'miracle');
+                        const existingMiracle = allMiracles.find(i => i.name === sourceMiracle.name);
 
-                        if (existingDivineWork) {
-                            const usage = existingDivineWork.system.usageCount;
+                        if (existingMiracle) {
+                            const usage = existingMiracle.system.usageCount;
                             const mod = usage.mod || 0;
                             const newValue = Math.min(3, (usage.value || 0) + 1);
                             const newTotal = newValue + mod;
                             
-                            ui.notifications.info(`神業「${existingDivineWork.name}」の母数が+1されました。`);
-                            await existingDivineWork.update({
+                            ui.notifications.info(`神業「${existingMiracle.name}」の母数が+1されました。`);
+                            await existingMiracle.update({
                                 'system.usageCount.value': newValue,
                                 'system.usageCount.total': newTotal
                             });
                         } else {
-                            if (allDivineWorks.length >= 3) {
+                            if (allMiracles.length >= 3) {
                                 ui.notifications.warn(`神業は3種類までしか所有できません。`);
                             } else {
-                                const divineWorkData = sourceDivineWork.toObject();
-                                if (!foundry.utils.hasProperty(divineWorkData, "system.usageCount.value")) {
-                                    const mod = foundry.utils.getProperty(divineWorkData, "system.usageCount.mod") || 0;
-                                    foundry.utils.setProperty(divineWorkData, "system.usageCount", { value: 1, total: 1 + mod, mod: mod, used: 0 });
+                                const miracleData = sourceMiracle.toObject();
+                                if (!foundry.utils.hasProperty(miracleData, "system.usageCount.value")) {
+                                    const mod = foundry.utils.getProperty(miracleData, "system.usageCount.mod") || 0;
+                                    foundry.utils.setProperty(miracleData, "system.usageCount", { value: 1, total: 1 + mod, mod: mod, used: 0 });
                                 }
-                                await this.actor.createEmbeddedDocuments("Item", [divineWorkData]);
-                                ui.notifications.info(`神業「${divineWorkData.name}」がスタイル「${createdOrUpdatedStyle.name}」から追加されました。`);
+                                await this.actor.createEmbeddedDocuments("Item", [miracleData]);
+                                ui.notifications.info(`神業「${miracleData.name}」がスタイル「${createdOrUpdatedStyle.name}」から追加されました。`);
                             }
                         }
                     }
@@ -536,9 +536,9 @@ export class TokyoNovaCastSheet extends ActorSheet {
             return createdOrUpdatedStyle;
         }
     
-        if (item.type === "divine_work" && dropArea === "divine_work") {
-            const allDivineWorks = this.actor.items.filter(i => i.type === 'divine_work');
-            const existingItem = allDivineWorks.find(i => i.name === item.name);
+        if (item.type === "miracle" && dropArea === "miracle") {
+            const allMiracles = this.actor.items.filter(i => i.type === 'miracle');
+            const existingItem = allMiracles.find(i => i.name === item.name);
             if (existingItem) {
                 const usage = existingItem.system.usageCount;
                 const mod = usage.mod || 0;
@@ -551,7 +551,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
                     'system.usageCount.total': newTotal
                 });
             } else {
-                if (allDivineWorks.length >= 3) {
+                if (allMiracles.length >= 3) {
                     ui.notifications.warn(`神業は3種類までしか所有できません。`);
                     return false;
                 }
@@ -713,24 +713,24 @@ export class TokyoNovaCastSheet extends ActorSheet {
         return "role-shadow";
     }
 
-    async _onUseDivineWork(event) {
+    async _onUseMiracle(event) {
         event.preventDefault();
         const itemId = event.currentTarget.closest('[data-item-id]').dataset.itemId;
-        const originalDivineWork = this.actor.items.get(itemId);
+        const originalMiracle = this.actor.items.get(itemId);
         console.log("▼▼▼ 神業使用時のデータチェック ▼▼▼");
-        console.log("取得したアイテムオブジェクト:", originalDivineWork);
-        console.log("システムデータ(system):", originalDivineWork?.system);
-        if (!originalDivineWork) return;
+        console.log("取得したアイテムオブジェクト:", originalMiracle);
+        console.log("システムデータ(system):", originalMiracle?.system);
+        if (!originalMiracle) return;
     
-        let targetDivineWork = originalDivineWork;
+        let targetMiracle = originalMiracle;
         let useAsOther = false; // 他の神業として使用するかどうかのフラグ
     
         // ▼▼▼ 万能神業(isAll)の場合のロジック ▼▼▼
-        if (originalDivineWork.system.isAll) {
+        if (originalMiracle.system.isAll) {
             // --- 1. 最初の確認ダイアログ ---
             useAsOther = await Dialog.confirm({
                 title: game.i18n.localize("TNX.ConfirmUseAsOtherTitle"),
-                content: `<p>${game.i18n.format("TNX.ConfirmUseAsOtherContent", { name: originalDivineWork.name })}</p>`,
+                content: `<p>${game.i18n.format("TNX.ConfirmUseAsOtherContent", { name: originalMiracle.name })}</p>`,
                 yes: () => true,
                 no: () => false,
                 defaultYes: false
@@ -738,19 +738,19 @@ export class TokyoNovaCastSheet extends ActorSheet {
     
             // --- 2. 「はい」が選択された場合のみ、神業選択に移る ---
             if (useAsOther) {
-                const divineWorkChoices = game.items.filter(i => 
-                    i.type === 'divine_work' && i.name !== originalDivineWork.name
+                const miracleChoices = game.items.filter(i => 
+                    i.type === 'miracle' && i.name !== originalMiracle.name
                 );
     
-                if (divineWorkChoices.length === 0) {
+                if (miracleChoices.length === 0) {
                     ui.notifications.warn("ワールドに選択可能な神業が存在しません。");
                     return; // ここで処理を中断
                 }
     
                 const selectedId = await TargetSelectionDialog.prompt({
-                    title: game.i18n.localize("TNX.SelectOmniDivineWorkTitle"),
-                    label: game.i18n.format("TNX.SelectOmniDivineWorkContent", { name: originalDivineWork.name }),
-                    options: divineWorkChoices.map(dw => ({ value: dw.id, label: dw.name })),
+                    title: game.i18n.localize("TNX.SelectOmniMiracleTitle"),
+                    label: game.i18n.format("TNX.SelectOmniMiracleContent", { name: originalMiracle.name }),
+                    options: miracleChoices.map(dw => ({ value: dw.id, label: dw.name })),
                     selectLabel: game.i18n.localize("TNX.Select")
                 });
     
@@ -762,33 +762,33 @@ export class TokyoNovaCastSheet extends ActorSheet {
                     return;
                 }
                 
-                targetDivineWork = selectedWork;
+                targetMiracle = selectedWork;
             }
         }
     
         // --- 使用回数のチェックと消費は「元の」神業で行う ---
-        const remainingUses = originalDivineWork.system.usageCount.total || 0;
+        const remainingUses = originalMiracle.system.usageCount.total || 0;
         if (remainingUses <= 0) {
-            ui.notifications.warn(`神業「${originalDivineWork.name}」はこれ以上使用できません。`);
+            ui.notifications.warn(`神業「${originalMiracle.name}」はこれ以上使用できません。`);
             return;
         }
     
-        await originalDivineWork.update({
+        await originalMiracle.update({
             "system.usageCount.total": remainingUses - 1,
             "system.isUsed": remainingUses - 1 === 0 // 残り回数が0になったら使用済みに
         });
     
         // --- チャットメッセージの作成と送信 (ここからが修正箇所) ---
-        const originalDescription = await TextEditor.enrichHTML(originalDivineWork.system.description, { async: true });
+        const originalDescription = await TextEditor.enrichHTML(originalMiracle.system.description, { async: true });
         let nestedContent = ''; // ネストされるコンテンツ用の変数
     
         // 「はい」を選び、かつ実際に別の神業が選択された場合に追記
-        if (useAsOther && targetDivineWork.id !== originalDivineWork.id) {
-            const selectedDescription = await TextEditor.enrichHTML(targetDivineWork.system.description, { async: true });
+        if (useAsOther && targetMiracle.id !== originalMiracle.id) {
+            const selectedDescription = await TextEditor.enrichHTML(targetMiracle.system.description, { async: true });
             // ネスト部分を <details> タグで囲みます
             nestedContent = `
                 <details class="nested-description">
-                    <summary><h4>発動効果: ${targetDivineWork.name}</h4></summary>
+                    <summary><h4>発動効果: ${targetMiracle.name}</h4></summary>
                     <div class="card-content">
                         ${selectedDescription}
                     </div>
@@ -796,14 +796,14 @@ export class TokyoNovaCastSheet extends ActorSheet {
             `;
         }
 
-        const divineWorkName = originalDivineWork.name;
-        const divineWorkFurigana = originalDivineWork.system.furigana;
+        const miracleName = originalMiracle.name;
+        const miracleFurigana = originalMiracle.system.furigana;
         let nameHtml;
 
-        if (divineWorkFurigana) {
-            nameHtml = `<ruby>${divineWorkName}<rt>${divineWorkFurigana}</rt></ruby>`;
+        if (miracleFurigana) {
+            nameHtml = `<ruby>${miracleName}<rt>${miracleFurigana}</rt></ruby>`;
         } else {
-            nameHtml = divineWorkName;
+            nameHtml = miracleName;
         }
     
         const flavorText = `<h3>神業: ${nameHtml}</h3>`;
@@ -826,9 +826,9 @@ export class TokyoNovaCastSheet extends ActorSheet {
         });
     
         // --- 通知メッセージ ---
-        const notificationMessage = (useAsOther && targetDivineWork.id !== originalDivineWork.id)
-            ? `神業「${originalDivineWork.name}」を使用し、「${targetDivineWork.name}」の効果を発動しました。`
-            : `神業「${originalDivineWork.name}」を使用しました。`;
+        const notificationMessage = (useAsOther && targetMiracle.id !== originalMiracle.id)
+            ? `神業「${originalMiracle.name}」を使用し、「${targetMiracle.name}」の効果を発動しました。`
+            : `神業「${originalMiracle.name}」を使用しました。`;
             
         ui.notifications.info(notificationMessage);
     }
@@ -1017,13 +1017,13 @@ export class TokyoNovaCastSheet extends ActorSheet {
 
     /**
      * 神業アイテムの表示用データを、使用回数に基づいて生成します。
-     * @param {Array<Item>} divineWorks アクターが所有する神業アイテムの配列
+     * @param {Array<Item>} miracles アクターが所有する神業アイテムの配列
      * @returns {Array<Object>} 表示用の神業データ配列
      * @private
      */
-    _prepareDivineWorksForDisplay(divineWorks) {
+    _prepareMiraclesForDisplay(miracles) {
         const slots = [];
-        divineWorks.forEach(item => {
+        miracles.forEach(item => {
             const itemData = item.toObject(false);
             const usage = itemData.system.usageCount;
     

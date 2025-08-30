@@ -132,7 +132,7 @@
                     <label>書き換え対象</label>
                     <select name="system.styleSkill.RewritingTargetID">
                         <option value="">- 対象を選択 -</option>
-                        {{#each divineWorkOptions as |dw|}}
+                        {{#each miracleOptions as |dw|}}
                             <option value="{{dw._id}}" {{#if dw.selected}}selected{{/if}}>{{dw.name}}</option>
                         {{/each}}
                     </select>

@@ -997,28 +997,28 @@
     width: 70px; padding: 3px 5px; border-radius: var(--tnx-border-radius-sm);
     background-color: var(--tnx-color-bg-input); border: 1px solid var(--tnx-color-border); color: var(--tnx-color-text-base);
 }
-.tokyo-nova.sheet.actor.cast .profile-header .styles-and-divineWork-section { width: 100%; margin-top: 10px; }
-.tokyo-nova.sheet.actor.cast .profile-header .divineWork-header { font-size: 1.2em; font-weight: bold; color: var(--tnx-color-primary); margin-bottom: 8px; text-align: center; border-bottom: 1px solid var(--tnx-color-primary-dark); padding-bottom: 4px; }
-.tokyo-nova.sheet.actor.cast .profile-header .divineWork-buttons-grid {
+.tokyo-nova.sheet.actor.cast .profile-header .styles-and-miracle-section { width: 100%; margin-top: 10px; }
+.tokyo-nova.sheet.actor.cast .profile-header .miracle-header { font-size: 1.2em; font-weight: bold; color: var(--tnx-color-primary); margin-bottom: 8px; text-align: center; border-bottom: 1px solid var(--tnx-color-primary-dark); padding-bottom: 4px; }
+.tokyo-nova.sheet.actor.cast .profile-header .miracle-buttons-grid {
     display: flex;         /* 親要素をFlexboxコンテナにする（これが横並びの基本です） */
     flex-wrap: wrap;       /* 要素が多すぎて一行に収まらない場合は折り返す */
     gap: 10px;             /* ボタン間の隙間を空ける */
     justify-content: center; /* ボタンを中央揃えにする */
 }
-.tokyo-nova.sheet.actor.cast .profile-header .divineWork-action-item { flex: 1; min-width: 160px; }
-.tokyo-nova.sheet.actor.cast .profile-header button.divineWork-use-button {
+.tokyo-nova.sheet.actor.cast .profile-header .miracle-action-item { flex: 1; min-width: 160px; }
+.tokyo-nova.sheet.actor.cast .profile-header button.miracle-use-button {
     width: 168px;
     gap: 10px;
     flex-grow: 1;
     min-height: 44px;
     font-size: 0.9em;
 }
-.tokyo-nova.sheet.actor.cast .profile-header span.divineWork-name__label {
+.tokyo-nova.sheet.actor.cast .profile-header span.miracle-name__label {
     text-align: center;
 }
 
 /* --- Cast Sheet: Header Item Slots --- */
-.tokyo-nova.sheet.actor.cast .edit-mode-styles-divineWork-block {
+.tokyo-nova.sheet.actor.cast .edit-mode-styles-miracle-block {
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -1170,14 +1170,14 @@
 .tokyo-nova.sheet.actor.cast.view-mode .middle-header-section .edit-mode-rank,
 .tokyo-nova.sheet.actor.cast.view-mode .middle-header-section .edit-mode-affiliation,
 .tokyo-nova.sheet.actor.cast.view-mode .exp-display-section .edit-mode-exp,
-.tokyo-nova.sheet.actor.cast.view-mode .styles-and-divineWork-section .edit-mode-styles-divineWork-block,
+.tokyo-nova.sheet.actor.cast.view-mode .styles-and-miracle-section .edit-mode-styles-miracle-block,
 .tokyo-nova.sheet.actor.cast.view-mode .sidebar-hand-pool-section .sidebar-edit-controls,
 .tokyo-nova.sheet.actor.cast.edit-mode .identity-view-mode,
 .tokyo-nova.sheet.actor.cast.edit-mode .middle-header-section .view-mode-rank,
 .tokyo-nova.sheet.actor.cast.edit-mode .middle-header-section .view-mode-affiliation,
 .tokyo-nova.sheet.actor.cast.edit-mode .middle-header-section .view-mode-style-summary,
 .tokyo-nova.sheet.actor.cast.edit-mode .exp-display-section .view-mode-exp,
-.tokyo-nova.sheet.actor.cast.edit-mode .styles-and-divineWork-section .view-mode-divineWork-actions,
+.tokyo-nova.sheet.actor.cast.edit-mode .styles-and-miracle-section .view-mode-miracle-actions,
 .tokyo-nova.sheet.actor.cast.edit-mode .sidebar-hand-pool-section .view-mode-hand {
     display: none !important;
 }

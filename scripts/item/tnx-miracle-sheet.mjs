@@ -1,6 +1,6 @@
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 
-export class TokyoNovaDivineWorkSheet extends ItemSheet {
+export class TokyoNovaMiracleSheet extends ItemSheet {
 
     static get defaultOptions() {
         return foundry.utils.mergeObject(super.defaultOptions, {

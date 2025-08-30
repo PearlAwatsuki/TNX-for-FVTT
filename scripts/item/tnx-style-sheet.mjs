@@ -31,9 +31,9 @@ export class TokyoNovaStyleSheet extends ItemSheet {
             };
         }
         
-        context.linkedDivineWork = null;
-        if (this.item.system.divineWork?.id) {
-            context.linkedDivineWork = await fromUuid(this.item.system.divineWork.id);
+        context.linkedMiracle = null;
+        if (this.item.system.miracle?.id) {
+            context.linkedMiracle = await fromUuid(this.item.system.miracle.id);
         }
         return context;
     }
@@ -49,7 +49,7 @@ export class TokyoNovaStyleSheet extends ItemSheet {
                     this._onOpenLinkedSheet(event);
                     break;
                 case 'create-and-link-divine-work':
-                    this._onCreateAndLinkDivineWork(event);
+                    this._onCreateAndLinkMiracle(event);
                     break;
                 case 'decrement-level':
                     this._onModifyLevel(event, -1);
@@ -60,16 +60,16 @@ export class TokyoNovaStyleSheet extends ItemSheet {
             }
         });
     
-        const divineWorkContextMenu = [{
+        const miracleContextMenu = [{
             name: game.i18n.localize("TNX.Unlink"),
             icon: '<i class="fas fa-unlink"></i>',
-            condition: () => !!this.item.system.divineWork?.id,
+            condition: () => !!this.item.system.miracle?.id,
             callback: async () => {
-                await this.item.update({ "system.divineWork.id": "", "system.divineWork.name": "" });
+                await this.item.update({ "system.miracle.id": "", "system.miracle.name": "" });
                 ui.notifications.info(`神業とのリンクを解除しました。`);
             }
         }];
-        new ContextMenu(html, '[data-context-menu-type="manage-divine-work"]', divineWorkContextMenu);
+        new ContextMenu(html, '[data-context-menu-type="manage-divine-work"]', miracleContextMenu);
     }
 
     async _onModifyLevel(event, amount) {
@@ -88,37 +88,37 @@ export class TokyoNovaStyleSheet extends ItemSheet {
         
         if (data.type !== "Item") return false;
         const item = await Item.fromDropData(data);
-        if (item?.type !== "divine_work") return ui.notifications.warn("リンクできるのは「神業」タイプのアイテムのみです。");
+        if (item?.type !== "miracle") return ui.notifications.warn("リンクできるのは「神業」タイプのアイテムのみです。");
         
-        await this.item.update({ "system.divineWork.id": item.uuid, "system.divineWork.name": item.name });
+        await this.item.update({ "system.miracle.id": item.uuid, "system.miracle.name": item.name });
     }
 
-    async _onCreateAndLinkDivineWork(event) {
+    async _onCreateAndLinkMiracle(event) {
         event.preventDefault();
-        if (this.item.system.divineWork?.id || this.item.actor) return;
+        if (this.item.system.miracle?.id || this.item.actor) return;
 
-        const divineWorkData = {
+        const miracleData = {
             name: `${this.item.name}の神業`,
-            type: "divine_work",
+            type: "miracle",
             img: "icons/svg/daze.svg",
             system: { description: `<p>${this.item.name}スタイルに対応する神業です。</p>` }
         };
 
-        const newDivineWork = await Item.create(divineWorkData, { parent: this.item.parent });
-        if (newDivineWork) {
+        const newMiracle = await Item.create(miracleData, { parent: this.item.parent });
+        if (newMiracle) {
             await this.item.update({
-                "system.divineWork.id": newDivineWork.uuid,
-                "system.divineWork.name": newDivineWork.name
+                "system.miracle.id": newMiracle.uuid,
+                "system.miracle.name": newMiracle.name
             });
-            ui.notifications.info(`新規神業「${newDivineWork.name}」が作成され、リンクされました。`);
+            ui.notifications.info(`新規神業「${newMiracle.name}」が作成され、リンクされました。`);
         }
     }
 
     async _onOpenLinkedSheet(event) {
         event.preventDefault();
-        const divineWorkId = this.item.system.divineWork?.id;
-        if (divineWorkId) {
-            const doc = await fromUuid(divineWorkId);
+        const miracleId = this.item.system.miracle?.id;
+        if (miracleId) {
+            const doc = await fromUuid(miracleId);
             doc?.sheet.render(true);
         }
     }

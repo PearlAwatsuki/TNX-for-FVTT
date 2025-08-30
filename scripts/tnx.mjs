@@ -1,7 +1,7 @@
 import { TokyoNovaCastSheet } from './actor/tnx-cast-sheet.mjs';
 import { TokyoNovaItem } from './item/item.mjs';
 import { TokyoNovaStyleSheet } from './item/tnx-style-sheet.mjs';
-import { TokyoNovaDivineWorkSheet } from './item/tnx-divine-work-sheet.mjs';
+import { TokyoNovaMiracleSheet } from './item/tnx-miracle-sheet.mjs';
 import { TokyoNovaSkillSheet } from './item/tnx-skill-sheet.mjs';
 import { TnxScenarioSheet } from './journal/tnx-scenario-sheet.mjs';
 import { TnxActionHandler } from './module/tnx-action-handler.mjs';
@@ -149,8 +149,8 @@ Hooks.once("init", async function() {
         label: "スタイルシート"
     });
 
-    Items.registerSheet("tokyo-nova", TokyoNovaDivineWorkSheet, {
-        types: ["divine_work"],
+    Items.registerSheet("tokyo-nova", TokyoNovaMiracleSheet, {
+        types: ["miracle"],
         makeDefault: true,
         label: "神業シート"
     });
@@ -410,7 +410,7 @@ Hooks.once("init", async function() {
     });
 
     Hooks.on("preDeleteItem", async (item, options, userId) => {
-        if (item.type === "divine_work" && item.actor) {
+        if (item.type === "miracle" && item.actor) {
             const usage = item.system.usageCount;
             if (usage.value > 1) {
                 const newValue = usage.value - 1;
@@ -427,13 +427,13 @@ Hooks.once("init", async function() {
             try {
                 // このフックはレベル1のスタイル削除時にのみ動作する想定
                 // 対応する神業を1つだけ削除する
-                const divineWorkUuid = item.system.divineWork?.id;
-                if (divineWorkUuid) {
-                    const sourceDivineWork = await fromUuid(divineWorkUuid);
-                    if (sourceDivineWork) {
-                        const divineWorkNameToDelete = sourceDivineWork.name;
+                const miracleUuid = item.system.miracle?.id;
+                if (miracleUuid) {
+                    const sourceMiracle = await fromUuid(miracleUuid);
+                    if (sourceMiracle) {
+                        const miracleNameToDelete = sourceMiracle.name;
                         const actor = item.actor;
-                        const itemToDelete = actor.items.find(i => i.type === 'divine_work' && i.name === divineWorkNameToDelete);
+                        const itemToDelete = actor.items.find(i => i.type === 'miracle' && i.name === miracleNameToDelete);
     
                         if (itemToDelete) {
                             await itemToDelete.delete();
@@ -503,7 +503,7 @@ Hooks.once("init", async function() {
 
     Hooks.on("preUpdateItem", async(item, changes) => {
         // 更新されるアイテムが神業の場合の処理
-        if (item.type === "divine_work") {
+        if (item.type === "miracle") {
             // 「使用済み(isUsed)」フラグが true → false に変更されたかチェック
             const newIsUsed = foundry.utils.getProperty(changes, "system.isUsed");
             if (item.system.isUsed === true && newIsUsed === false) {
@@ -529,27 +529,27 @@ Hooks.once("init", async function() {
             if (newLevel !== undefined && newLevel !== oldLevel) {
                 (async () => {
                     try {
-                        const divineWorkUuid = item.system.divineWork?.id;
-                        if (!divineWorkUuid) return;
-                        const sourceDivineWork = await fromUuid(divineWorkUuid);
-                        if (!sourceDivineWork) return;
-                        const existingDivineWork = item.actor.items.find(i => i.type === 'divine_work' && i.name === sourceDivineWork.name);
-                        if (!existingDivineWork) return;
+                        const miracleUuid = item.system.miracle?.id;
+                        if (!miracleUuid) return;
+                        const sourceMiracle = await fromUuid(miracleUuid);
+                        if (!sourceMiracle) return;
+                        const existingMiracle = item.actor.items.find(i => i.type === 'miracle' && i.name === sourceMiracle.name);
+                        if (!existingMiracle) return;
     
-                        const usage = existingDivineWork.system.usageCount;
+                        const usage = existingMiracle.system.usageCount;
                         const currentValue = usage.value || 1;
                         const currentTotal = usage.total || 0;
     
                         if (newLevel > oldLevel) {
                             const newValue = Math.min(3, currentValue + 1);
                             const newTotal = newValue + (usage.mod || 0);
-                            await existingDivineWork.update({ "system.usageCount.value": newValue, "system.usageCount.total": newTotal });
-                            ui.notifications.info(`神業「${existingDivineWork.name}」の母数が+1されました。`);
+                            await existingMiracle.update({ "system.usageCount.value": newValue, "system.usageCount.total": newTotal });
+                            ui.notifications.info(`神業「${existingMiracle.name}」の母数が+1されました。`);
                         } else {
                             const newValue = Math.max(1, currentValue - 1);
                             const newTotal = Math.max(0, currentTotal - 1);
-                            await existingDivineWork.update({ "system.usageCount.value": newValue, "system.usageCount.total": newTotal });
-                            ui.notifications.info(`神業「${existingDivineWork.name}」の母数が-1されました。`);
+                            await existingMiracle.update({ "system.usageCount.value": newValue, "system.usageCount.total": newTotal });
+                            ui.notifications.info(`神業「${existingMiracle.name}」の母数が-1されました。`);
                         }
                     } catch (e) { console.error(`TokyoNOVA | Error updating Divine Work usage count:`, e); }
                 })();

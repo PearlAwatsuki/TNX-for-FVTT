@@ -63,25 +63,25 @@
             </fieldset>
 
             <fieldset class="abilities-section">
-                <legend>{{localize "TNX.DivineWorkLink"}}</legend>
+                <legend>{{localize "TNX.MiracleLink"}}</legend>
                 <div class="form-group">
-                    <label>{{localize "TNX.DivineWorkLink"}}</label>
-                    {{#if linkedDivineWork}}
+                    <label>{{localize "TNX.MiracleLink"}}</label>
+                    {{#if linkedMiracle}}
                         <button type="button" class="tnx-linked-button" data-action="open-linked-sheet" data-context-menu-type="manage-divine-work" title="クリックでシートを開く" {{#if isOwnedByActor}}disabled{{/if}}>
-                            <img src="{{linkedDivineWork.img}}" class="tnx-linked-button__icon"/>
-                            <span class="tnx-linked-button__label">{{linkedDivineWork.name}}</span>
+                            <img src="{{linkedMiracle.img}}" class="tnx-linked-button__icon"/>
+                            <span class="tnx-linked-button__label">{{linkedMiracle.name}}</span>
                         </button>
                     {{else}}
                         <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="divine-work">
-                            <span>{{localize "TNX.DropDivineWorkHint"}}</span>
+                            <span>{{localize "TNX.DropMiracleHint"}}</span>
                         </div>
                     {{/if}}
                 </div>
                 <div class="form-group">
-                     <button type="button" class="tnx-button" data-action="create-and-link-divine-work" {{#if linkedDivineWork}}disabled{{/if}} {{#if isOwnedByActor}}disabled{{/if}}>
-                        <i class="fas fa-plus-square"></i> {{localize "TNX.CreateAndLinkDivineWork"}}
+                     <button type="button" class="tnx-button" data-action="create-and-link-divine-work" {{#if linkedMiracle}}disabled{{/if}} {{#if isOwnedByActor}}disabled{{/if}}>
+                        <i class="fas fa-plus-square"></i> {{localize "TNX.CreateAndLinkMiracle"}}
                     </button>
-                    <p class="notes">{{localize "TNX.CreateAndLinkDivineWorkHint"}}</p>
+                    <p class="notes">{{localize "TNX.CreateAndLinkMiracleHint"}}</p>
                 </div>
             </fieldset>
         </div>
