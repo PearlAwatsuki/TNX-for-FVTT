@@ -1,4 +1,4 @@
-<section class="sheet-profile two-column-layout cast-sheet">
+<form class="{{cssClass}} sheet-profile two-column-layout cast-sheet" autocomplete="off">
     <aside class="profile-sidebar column left-column cast-sidebar">
         <div class="portrait-section">
             <img class="profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}"/>
@@ -79,7 +79,7 @@
                         <i class="fas fa-star"></i> {{localize "TNX.TrumpCard"}}
                     </button>
                 </div>
-                <div class="hand-cards-display" data-drop-area="actor-hand">
+                <div class="hand-cards-display" data-drop-zone="actor-hand">
                     {{#each handPile.cards as |card|}}
                         <div class="card-in-hand interactive" data-action="playCard" data-card-id="{{card._id}}" title="{{card.name}}">
                             <img src="{{card.faces.[0].img}}" alt="{{card.name}}" />
@@ -156,9 +156,9 @@
                         </div>
                     </div>
                 </div>
-                <div class="styles-and-miracle-section">
+                <div class="styles-and-divineWork-section">
                     {{#if isEditMode}}
-                    <div class="edit-mode-styles-miracle-block">
+                    <div class="edit-mode-styles-divineWork-block">
                         <div class="item-slots-row">
                             {{#each styleSlots as |slot|}}
                                 <div class="style-slot" data-item-id="{{slot._id}}">
@@ -175,10 +175,10 @@
                             {{/each}}
                         </div>
                         <div class="item-slots-row">
-                            {{#each miracleSlots as |slot|}}
-                                <div class="miracle-slot" data-item-id="{{slot._id}}">
+                            {{#each divineWorkSlots as |slot|}}
+                                <div class="divine-work-slot" data-item-id="{{slot._id}}">
                                 {{#if slot.isEmpty}}
-                                    <div class="tnx-import-box tnx-import-box--inline" data-drop-area="miracle"><span>{{localize "TNX.DropMiracleHint"}}</span></div>
+                                    <div class="tnx-import-box tnx-import-box--inline" data-drop-area="divine_work"><span>{{localize "TNX.DropDivineWorkHint"}}</span></div>
                                 {{else}}
                                     <button type="button" class="item-button tnx-linked-button" data-action="openItemSheet" data-item-id="{{slot._id}}" data-context-menu="item-edit">
                                         <img src="{{slot.img}}" class="tnx-linked-button__icon"/>{{slot.name}}
@@ -189,13 +189,13 @@
                         </div>
                     </div>
                     {{else}}
-                    <div class="view-mode-miracle-actions">
-                        <h3 class="miracle-header">{{localize "TNX.Miracles"}}</h3>
-                        <div class="miracle-buttons-grid">
-                            {{#each miracleSlotsForView as |dw|}}
-                                <button type="button" class="tnx-linked-button miracle-use-button" data-action="useMiracle" data-item-id="{{dw._id}}" {{#if dw.isPlaceholder}}disabled{{/if}} {{#if dw.isDisabled}}disabled{{/if}} data-context-menu="miracle-view">
+                    <div class="view-mode-divineWork-actions">
+                        <h3 class="divineWork-header">{{localize "TNX.DivineWorks"}}</h3>
+                        <div class="divineWork-buttons-grid">
+                            {{#each divineWorkSlotsForView as |dw|}}
+                                <button type="button" class="tnx-linked-button divineWork-use-button" data-action="useDivineWork" data-item-id="{{dw._id}}" {{#if dw.isPlaceholder}}disabled{{/if}} {{#if dw.isDisabled}}disabled{{/if}} data-context-menu="divine-work-view">
                                     <i class="fas fa-bolt"></i>
-                                    <span class="tnx-linked-button__label miracle-name__label">{{dw.name}}</span>
+                                    <span class="tnx-linked-button__label divineWork-name__label">{{dw.name}}</span>
                                 </button>
                             {{/each}}
                         </div>
@@ -212,15 +212,10 @@
      
         <section class="tabbed-content">
             <nav class="sheet-tabs tabs tnx-tabs" data-group="primary">
-                <a class="item" data-tab="abilities">{{localize "TNX.Abilities"}}</a>
-                <a class="item" data-tab="outfits">{{localize "TNX.Outfits"}}</a>
-                <a class="item" data-tab="battle">{{localize "TNX.Battle"}}</a>
-                <a class="item" data-tab="status">{{localize "TNX.Status"}}</a>
-                <a class="item" data-tab="history">{{localize "TNX.History"}}</a>
-                <a class="item" data-tab="profile">{{localize "TNX.Profile"}}</a>
+                <a class="item" data-tab="abilities">{{localize "TNX.Abilities"}}</a><a class="item" data-tab="outfits">{{localize "TNX.Outfits"}}</a><a class="item" data-tab="battle">{{localize "TNX.Battle"}}</a><a class="item" data-tab="status">{{localize "TNX.Status"}}</a><a class="item" data-tab="history">{{localize "TNX.History"}}</a><a class="item" data-tab="profile">{{localize "TNX.Profile"}}</a>
             </nav>
             <section class="sheet-body tnx-body">
-                <div class="tab abilities" data-tab="abilities" data-group="primary">
+                <div class="tab abilities" data-tab="abilities">
                     <h2 class="abilities-grid-header">{{localize "TNX.AbilityControlHeader"}}</h2>
                     {{#if isEditMode}}
                         <div class="abilities-grid edit-mode-layout">
@@ -348,4 +343,4 @@
             </section>
         </section>
     </section>
-</section>
+</form>

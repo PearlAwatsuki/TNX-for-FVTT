@@ -63,25 +63,25 @@
             </fieldset>
 
             <fieldset class="abilities-section">
-                <legend>{{localize "TNX.MiracleLink"}}</legend>
+                <legend>{{localize "TNX.DivineWorkLink"}}</legend>
                 <div class="form-group">
-                    <label>{{localize "TNX.MiracleLink"}}</label>
-                    {{#if linkedMiracle}}
-                        <button type="button" class="tnx-linked-button" data-action="open-linked-sheet" data-context-menu-type="manage-miracle" title="クリックでシートを開く" {{#if isOwnedByActor}}disabled{{/if}}>
-                            <img src="{{linkedMiracle.img}}" class="tnx-linked-button__icon"/>
-                            <span class="tnx-linked-button__label">{{linkedMiracle.name}}</span>
+                    <label>{{localize "TNX.DivineWorkLink"}}</label>
+                    {{#if linkedDivineWork}}
+                        <button type="button" class="tnx-linked-button" data-action="open-linked-sheet" data-context-menu-type="manage-divine-work" title="クリックでシートを開く" {{#if isOwnedByActor}}disabled{{/if}}>
+                            <img src="{{linkedDivineWork.img}}" class="tnx-linked-button__icon"/>
+                            <span class="tnx-linked-button__label">{{linkedDivineWork.name}}</span>
                         </button>
                     {{else}}
-                        <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="miracle">
-                            <span>{{localize "TNX.DropMiracleHint"}}</span>
+                        <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="divine-work">
+                            <span>{{localize "TNX.DropDivineWorkHint"}}</span>
                         </div>
                     {{/if}}
                 </div>
                 <div class="form-group">
-                     <button type="button" class="tnx-button" data-action="create-and-link-miracle" {{#if linkedMiracle}}disabled{{/if}} {{#if isOwnedByActor}}disabled{{/if}}>
-                        <i class="fas fa-plus-square"></i> {{localize "TNX.CreateAndLinkMiracle"}}
+                     <button type="button" class="tnx-button" data-action="create-and-link-divine-work" {{#if linkedDivineWork}}disabled{{/if}} {{#if isOwnedByActor}}disabled{{/if}}>
+                        <i class="fas fa-plus-square"></i> {{localize "TNX.CreateAndLinkDivineWork"}}
                     </button>
-                    <p class="notes">{{localize "TNX.CreateAndLinkMiracleHint"}}</p>
+                    <p class="notes">{{localize "TNX.CreateAndLinkDivineWorkHint"}}</p>
                 </div>
             </fieldset>
         </div>

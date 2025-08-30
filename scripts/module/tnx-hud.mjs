@@ -7,6 +7,11 @@ class TnxBaseApplication extends HandlebarsApplicationMixin(ApplicationV2) {}
 
 export class TnxHud extends TnxBaseApplication {
     /**
+     * @type {ContextMenu[]}
+     */
+    _contextMenus = [];
+
+    /**
      * @override
      * V12対応: デフォルトオプションを static DEFAULT_OPTIONS プロパティで定義 
      * V12対応: クリックイベントを actions として静的に定義
@@ -125,6 +130,8 @@ export class TnxHud extends TnxBaseApplication {
      * @param {HTMLElement} html - アプリケーションのルートDOM要素
      */
     _attachListeners(html) {
+        // コンテキストメニューの設定
+        this._initializeContextMenus(html);
 
         // ドラッグ＆ドロップの設定
         this._setupCardDragGhost(html);
@@ -135,20 +142,12 @@ export class TnxHud extends TnxBaseApplication {
         if (typeof super._onRender === "function") {
             super._onRender(context, options);
         }
-                    
+        // ルート要素が this.element に格納されているのでイベントを接続
         this._attachListeners(this.element);
 
         const bottomBar = this.element.querySelector('.hud-bottom-bar');
-        const actionBar = document.getElementById('action-bar');
-        const hotbarCollapseButton = document.getElementById('bar-toggle');
-
-        if (bottomBar && actionBar && hotbarCollapseButton) {
-            const isInitiallyCollapsed = actionBar.classList.contains('collapsed');
-            bottomBar.classList.toggle('hotbar-is-collapsed', isInitiallyCollapsed);
-            hotbarCollapseButton.addEventListener('click', () => {
-                const isCurrentlyCollapsed = actionBar.classList.contains('collapsed');
-                bottomBar.classList.toggle('hotbar-is-collapsed', !isCurrentlyCollapsed);
-            });
+        if (bottomBar) {
+            bottomBar.classList.toggle('hotbar-is-collapsed', ui.hotbar.collapsed);
         }
     }
     
@@ -156,10 +155,7 @@ export class TnxHud extends TnxBaseApplication {
      * V12対応: 初回描画時に一度だけ実行されるライフサイクルフック 
      * サイドバーやホットバーの開閉など、HUD外の要素との連携をここに記述します。
      */
-    async _onFirstRender(html) {
-        // コンテキストメニューの設定
-        this._initializeContextMenus(html);
-
+    async _onFirstRender() {
         const hudElement = this.element; // this.elementは直接HTMLElementを指す 
         const sidebar = document.getElementById('sidebar');
         const collapseButton = document.querySelector('#sidebar-tabs a.collapse');
@@ -178,14 +174,27 @@ export class TnxHud extends TnxBaseApplication {
             });
         }
     }
+
+    _disposeContextMenus() {
+        // Bodyに紐づいているメニューを破棄
+        this._contextMenus.forEach(menu => menu.dispose());
+        this._contextMenus = [];
+    }
     
     /**
      * コンテキストメニューを初期化するヘルパーメソッド
      * @param {HTMLElement} html - アプリケーションのルートDOM要素
      */
     _initializeContextMenus(html) {
+        // ★★★ 修正点 ★★★
+        // ContextMenuの第一引数をjQueryオブジェクト $(html) から ネイティブ要素 html に変更
+        // また、callbackの引数がjQueryオブジェクトのままなので、.data() を使うために $(header) とラップするか、
+        // .dataset を使うために header[0].dataset.cardId のようにネイティブ要素にアクセスします。
+        // ここでは、よりV12らしい .dataset を使う形に統一します。
+        this._disposeContextMenus();
+
         // ニューロデッキの右クリックメニュー
-        ContextMenu.create(this, this.element, '.deck-card[data-action="draw-neuro"]', [
+        this._contextMenus.push(ContextMenu.create(this, this.element, '.deck-card[data-action="draw-neuro"]', [
             {
                 name: "切り札を配布する",
                 icon: '<i class="fas fa-star"></i>',
@@ -216,10 +225,10 @@ export class TnxHud extends TnxBaseApplication {
                     }
                 }
             }
-        ]);
+        ]));
 
         // 山札の右クリックメニュー
-        ContextMenu.create(this, this.element, '.deck-card[data-action="draw-from-deck"]', [
+        this._contextMenus.push(ContextMenu.create(this, this.element, '.deck-card[data-action="draw-from-deck"]', [
             {
                 name: "山札から判定する",
                 icon: '<i class="fas fa-gavel"></i>',
@@ -260,10 +269,10 @@ export class TnxHud extends TnxBaseApplication {
                     }
                 }
             }
-        ]);
+        ]));
 
         // 手札のカードの右クリックメニュー
-        ContextMenu.create(this, this.element, '.hand-area .card-in-hand', [
+        this._contextMenus.push(ContextMenu.create(this, this.element, '.hand-area .card-in-hand', [
             // callbackの第一引数(header)はjQueryオブジェクトなので、ネイティブDOM要素にアクセスするために[0]をつけます
             {
                 name: "手札を渡す",
@@ -280,7 +289,7 @@ export class TnxHud extends TnxBaseApplication {
                 icon: '<i class="fas fa-trash-alt"></i>',
                 callback: header => TnxActionHandler.discardCard(header[0].dataset.cardId)
             }
-        ]);
+        ]));
     }
 
     /**
@@ -298,10 +307,10 @@ export class TnxHud extends TnxBaseApplication {
             document.body.appendChild(ghost);
         }
         const dragSelector = "[data-drag-type]";
-        const dropSelector = "[data-drop-area]";
+        const dropSelector = "[data-drop-zone]";
         const dragTargets = rootEl.querySelectorAll(dragSelector);
-        const dropAreas = rootEl.querySelectorAll(dropSelector);
-        if (dragTargets.length === 0 || dropAreas.length === 0) return;
+        const dropZones = rootEl.querySelectorAll(dropSelector);
+        if (dragTargets.length === 0 || dropZones.length === 0) return;
         dragTargets.forEach(target => {
             target.addEventListener('dragstart', (event) => {
                 event.stopPropagation();
@@ -333,30 +342,30 @@ export class TnxHud extends TnxBaseApplication {
                 if (ghost) ghost.style.display = 'none';
             });
         });
-        dropAreas.forEach(area => {
-            area.addEventListener('dragover', (event) => {
+        dropZones.forEach(zone => {
+            zone.addEventListener('dragover', (event) => {
                 event.preventDefault();
             });
-            area.addEventListener('drop', (event) => {
+            zone.addEventListener('drop', (event) => {
                 event.preventDefault();
                 try {
                     const dataString = event.dataTransfer.getData('text/plain');
                     if (!dataString) return;
                     const data = JSON.parse(dataString);
-                    const dropAreaType = area.dataset.dropArea;
+                    const dropZoneType = zone.dataset.dropZone;
                     if (data.sourceType === 'deck') {
-                        if (dropAreaType === 'hand') TnxActionHandler.drawCard({ user: game.user });
-                        else if (dropAreaType === 'discard') TnxActionHandler.checkFromDeck();
+                        if (dropZoneType === 'hand') TnxActionHandler.drawCard({ user: game.user });
+                        else if (dropZoneType === 'discard') TnxActionHandler.checkFromDeck();
                     } else if (data.sourceType === 'hand-card') {
-                        if (dropAreaType === 'discard' && data.cardId) TnxActionHandler.playCard(data.cardId);
+                        if (dropZoneType === 'discard' && data.cardId) TnxActionHandler.playCard(data.cardId);
                     } else if (data.sourceType === 'discard-card') {
-                        if (dropAreaType === 'hand') TnxActionHandler.takeFromDiscard();
+                        if (dropZoneType === 'hand') TnxActionHandler.takeFromDiscard();
                     } else if (data.sourceType === 'neuro-deck') {
-                        if (dropAreaType === 'scene') TnxActionHandler.drawNeuroCard();
+                        if (dropZoneType === 'scene') TnxActionHandler.drawNeuroCard();
                     } else if (data.sourceType === 'trump-card') {
-                        if (dropAreaType === 'scene' && !game.user.isGM && data.cardId) TnxActionHandler.useTrump(data.cardId);
+                        if (dropZoneType === 'scene' && !game.user.isGM && data.cardId) TnxActionHandler.useTrump(data.cardId);
                     } else if (data.sourceType === 'actor-hand-card') {
-                        if (dropAreaType === 'discard' && data.cardId && data.actorId) {
+                        if (dropZoneType === 'discard' && data.cardId && data.actorId) {
                             const actor = game.actors.get(data.actorId);
                             if (actor) TnxActionHandler.playCard(data.cardId, { actor: actor });
                         }

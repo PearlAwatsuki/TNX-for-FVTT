@@ -139,7 +139,7 @@
         }
     },
     "Item": {
-        "types": ["style", "miracle", "skill", "outfit", "organization"],
+        "types": ["style", "divine_work", "skill", "outfit", "organization"],
         "templates": {
             "base": {
                 "description": ""
@@ -150,7 +150,7 @@
             "isPersona": false,
             "isKey": false,
             "level": 1,
-            "miracle": {
+            "divineWork": {
                 "name": "",
                 "id": ""
             },
@@ -171,7 +171,7 @@
                 "control": 0
             }
         },
-        "miracle": {
+        "divine_work": {
             "templates": ["base"],
             "furigana": "",
             "usageCondition": "",

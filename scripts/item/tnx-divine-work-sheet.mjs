@@ -1,11 +1,11 @@
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 
-export class TokyoNovaMiracleSheet extends ItemSheet {
+export class TokyoNovaDivineWorkSheet extends ItemSheet {
 
     static get defaultOptions() {
         return foundry.utils.mergeObject(super.defaultOptions, {
-            classes: ["tokyo-nova", "sheet", "item", "miracle"],
-            template: "systems/tokyo-nova-axleration/templates/item/miracle-sheet.hbs",
+            classes: ["tokyo-nova", "sheet", "item", "divine-work"],
+            template: "systems/tokyo-nova-axleration/templates/item/divine-work-sheet.hbs",
             width: 560,
             height: 520,
             // ▼▼▼ tabs 配列に "setting" を追加 ▼▼▼
