@@ -51,13 +51,20 @@
                         <input type="text" name="system.styleSkill.targetValue" value="{{system.styleSkill.targetValue}}"/>
                     </div>
                     <div class="form-group">
-                        <label>対抗</label>
+                        <label>対決</label>
                         <input type="text" name="system.styleSkill.confrontation" value="{{system.styleSkill.confrontation}}"/>
                     </div>
                 </div>
             </fieldset>
             {{/if}}
-            {{editor enrichedDescription target="system.description" button=true owner=owner editable=editable}}
+            <div class="tnx-editor-section">
+                <div class="tnx-editor-section__header">
+                    <label>{{localize "TNX.Description"}}</label>
+                </div>
+                <div class="tnx-editor-section__content">
+                    {{editor enrichedDescription target="system.description" engine="prosemirror" button=true owner=owner editable=editable}}
+                </div>
+            </div>
         </div>
 
         {{!-- 設定タブ --}}
