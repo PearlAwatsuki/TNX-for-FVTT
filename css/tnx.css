@@ -289,42 +289,6 @@
     color: var(--tnx-color-primary-accent);
     margin: 0;
 }
-.tnx-editor-section .editor {
-    position: static;
-}
-.tnx-editor-section .editor .editor-edit {
-    position: absolute;
-    top: 2px;
-    right: 0;
-    width: 28px;
-    height: 28px;
-    background: transparent;
-    border: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-    color: var(--tnx-color-text-dim);
-    transition: all 0.2s ease-out;
-}
-.tnx-editor-section .editor .editor-edit:hover {
-    color: var(--tnx-color-primary-highlight);
-}
-.tnx-editor-section__content .editor-content {
-    width: 100%;
-    min-height: 120px;
-    padding: 10px;
-    box-sizing: border-box;
-    background: transparent;
-    color: var(--tnx-color-text-dim);
-    border: 1px solid var(--tnx-color-primary-dark);
-    border-radius: var(--tnx-border-radius-sm);
-    box-shadow: inset 0 0 8px rgba(0, 170, 255, 0.2);
-    min-width: 513px;
-}
-.tokyo-nova.sheet .tox .tox-edit-area__iframe {
-    background-color: #ffffff !important;
-}
 
 /* --- Item List (e.g., Effects) --- */
 .tnx-item-list {
@@ -561,6 +525,64 @@
     background-color: rgba(0, 180, 255, 0.15);
     box-shadow: 0 0 12px var(--tnx-color-primary);
     transform: translateY(-3px);
+}
+
+.tnx-editor-section .editor {
+    position: static;
+}
+.tnx-editor-section .editor .editor-edit {
+    position: absolute;
+    top: 2px;
+    right: 0;
+    width: 28px;
+    height: 28px;
+    background: transparent;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: var(--tnx-color-text-dim);
+    transition: all 0.2s ease-out;
+}
+.tnx-editor-section .editor .editor-edit:hover {
+    color: var(--tnx-color-primary-highlight);
+}
+.tnx-editor-section__content .editor-content {
+    width: 100%;
+    min-height: 120px;
+    padding: 10px;
+    box-sizing: border-box;
+    background: transparent;
+    color: var(--tnx-color-text-dim);
+    border: 1px solid var(--tnx-color-primary-dark);
+    border-radius: var(--tnx-border-radius-sm);
+    box-shadow: inset 0 0 8px rgba(0, 170, 255, 0.2);
+    min-width: 513px;
+}
+.tnx-editor-section .prosemirror {
+    min-height: 300px;
+}
+.tnx-editor-section .prosemirror menu button{
+    color: var(--tnx-color-text-base);
+}
+.tnx-editor-section .prosemirror menu button:hover{
+    color: #000;
+    background: var(--tnx-color-text-base);
+}
+.tnx-editor-section .prosemirror menu .pm-dropdown{
+    background: var(--tnx-color-bg-input);
+}
+.tnx-editor-section .prosemirror menu .pm-dropdown:hover{
+    background: var(--tnx-color-text-base);
+}
+#prosemirror-dropdown ul{
+    color: var(--tnx-color-text-base);
+    background-color: #333;
+}
+#prosemirror-dropdown li:hover{
+    color: #000;
+    background-color: var(--tnx-color-text-base);
 }
 
 /* =================================================================== */
@@ -2628,17 +2650,4 @@
     font-weight: bold;
     color: var(--tnx-color-primary-accent);
     margin: 0;
-}
-
-/* ProseMirrorのコンテナに直接スタイルを適用 */
-.tnx-editor-section__content .prosemirror {
-    width: 100%;
-    min-height: 120px;
-    padding: 10px;
-    box-sizing: border-box;
-    background: transparent;
-    color: var(--tnx-color-text-dim);
-    border: 1px solid var(--tnx-color-primary-dark);
-    border-radius: var(--tnx-border-radius-sm);
-    box-shadow: inset 0 0 8px rgba(0, 170, 255, 0.2);
 }

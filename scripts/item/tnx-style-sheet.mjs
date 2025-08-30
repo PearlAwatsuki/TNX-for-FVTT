@@ -6,7 +6,7 @@ export class TokyoNovaStyleSheet extends ItemSheet {
         return foundry.utils.mergeObject(super.defaultOptions, {
             classes: ["tokyo-nova", "sheet", "item", "style"],
             template: "systems/tokyo-nova-axleration/templates/item/style-sheet.hbs",
-            width: 580,
+            width: 600,
             height: 600,
             tabs: [{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "description" }],
             dragDrop: [{ dragSelector: null, dropSelector: ".tnx-import-box" }]

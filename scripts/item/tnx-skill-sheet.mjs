@@ -6,7 +6,7 @@ export class TokyoNovaSkillSheet extends ItemSheet {
         return foundry.utils.mergeObject(super.defaultOptions, {
             classes: ["tokyo-nova", "sheet", "item", "skill"],
             template: "systems/tokyo-nova-axleration/templates/item/skill-sheet.hbs",
-            width: 580,
+            width: 600,
             height: 650,
             tabs: [
                 { navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "description" },
