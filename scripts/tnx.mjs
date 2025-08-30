@@ -2,6 +2,7 @@ import { TokyoNovaCastSheet } from './actor/tnx-cast-sheet.mjs';
 import { TokyoNovaItem } from './item/item.mjs';
 import { TokyoNovaStyleSheet } from './item/tnx-style-sheet.mjs';
 import { TokyoNovaDivineWorkSheet } from './item/tnx-divine-work-sheet.mjs';
+import { TokyoNovaSkillSheet } from './item/tnx-skill-sheet.mjs';
 import { TnxScenarioSheet } from './journal/tnx-scenario-sheet.mjs';
 import { TnxActionHandler } from './module/tnx-action-handler.mjs';
 import { TnxHud } from './module/tnx-hud.mjs';
@@ -14,6 +15,7 @@ async function preloadHandlebarsTemplates() {
         // === Item Sheets ===
         "systems/tokyo-nova-axleration/templates/item/divine-work-sheet.hbs",
         "systems/tokyo-nova-axleration/templates/item/style-sheet.hbs",
+        "systems/tokyo-nova-axleration/templates/item/skill-sheet.hbs",
 
         // === Journal Sheets ===
         "systems/tokyo-nova-axleration/templates/journal/scenario-sheet.hbs",
@@ -32,7 +34,8 @@ async function preloadHandlebarsTemplates() {
 
         // === Partials ===
         "systems/tokyo-nova-axleration/templates/parts/active-effects-list.hbs",
-        "systems/tokyo-nova-axleration/templates/parts/scenario-setting-wizard.hbs"
+        "systems/tokyo-nova-axleration/templates/parts/scenario-setting-wizard.hbs",
+        "systems/tokyo-nova-axleration/templates/parts/prosemirror-editor.hbs"
     ];
     return loadTemplates(templatePaths);
 }
@@ -150,6 +153,12 @@ Hooks.once("init", async function() {
         types: ["divine_work"],
         makeDefault: true,
         label: "神業シート"
+    });
+
+    Items.registerSheet("tokyo-nova", TokyoNovaSkillSheet, {
+        types: ["skill"],
+        makeDefault: true,
+        label: "技能シート"
     });
 
     // Journal Sheetの登録
@@ -399,24 +408,6 @@ Hooks.once("init", async function() {
             setupDefaultCardPilesForCast(actor);
         }
     });
-    
-    Hooks.on("createItem", async(item, options, userId) => {
-        if (item.type == "style" && item.actor){
-            const divineWorkUuid = item.system.divineWork?.id;
-            if (!divineWorkUuid) return;
-        
-            const divineWorkItem = await fromUuid(divineWorkUuid);
-            if (divineWorkItem) {
-                const alreadyOwned = item.actor.items.some(i => i.name === divineWorkItem.name && i.type === 'divine_work');
-                if (!alreadyOwned) {
-                    await item.actor.createEmbeddedDocuments("Item", [divineWorkItem.toObject()]);
-                    ui.notifications.info(`神業「${divineWorkItem.name}」がスタイル「${item.name}」から追加されました。`);
-                }
-            } else {
-                ui.notifications.warn(`UUID「${divineWorkUuid}」に対応する神業アイテムが見つかりませんでした。`);
-            }
-        }
-    });
 
     Hooks.on("preDeleteItem", async (item, options, userId) => {
         if (item.type === "divine_work" && item.actor) {
@@ -562,11 +553,19 @@ Hooks.once("init", async function() {
                         }
                     } catch (e) { console.error(`TokyoNOVA | Error updating Divine Work usage count:`, e); }
                 })();
-            }
-            
-            if (newLevel === 3) {
-                foundry.utils.setProperty(changes, "system.isPersona", true);
-                foundry.utils.setProperty(changes, "system.isKey", true);
+
+                // ▼▼▼【ここからが修正箇所】▼▼▼
+                // レベルが3になったら、役割を「ペルソナ」「キー」に強制設定
+                if (newLevel === 3) {
+                    foundry.utils.setProperty(changes, "system.isPersona", true);
+                    foundry.utils.setProperty(changes, "system.isKey", true);
+                } 
+                // レベルが3から下がったら、役割を「シャドウ」にリセット
+                else if (oldLevel === 3 && newLevel < 3) {
+                    foundry.utils.setProperty(changes, "system.isPersona", false);
+                    foundry.utils.setProperty(changes, "system.isKey", false);
+                }
+                // ▲▲▲【ここまで】▲▲▲
             }
         }
     });
