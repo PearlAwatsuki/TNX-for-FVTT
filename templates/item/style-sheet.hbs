@@ -13,7 +13,7 @@
 
     <section class="sheet-body">
         <div class="tab description" data-group="primary" data-tab="description">
-            <fieldset class="abilities-section">
+            <fieldset class="tnx-fieldset">
                 <legend>{{localize "TNX.AbilityModifiers"}}</legend>
                 <div class="abilities-grid edit-mode-layout">
                     {{#each system.abilities as |ability key|}}
@@ -31,13 +31,13 @@
             <div class="tnx-editor-section">
                 <div class="tnx-editor-section__header"><label>{{localize "TNX.Description"}}</label></div>
                 <div class="tnx-editor-section__content">
-                    {{editor enrichedDescription target="system.description" button=true owner=owner editable=editable}}
+                    {{editor enrichedDescription target="system.description" engine="prosemirror" button=true owner=owner editable=editable}}
                 </div>
             </div>
         </div>
 
         <div class="tab setting" data-group="primary" data-tab="setting">
-            <fieldset class="abilities-section">
+            <fieldset class="tnx-fieldset">
                 <legend>{{localize "TNX.StyleSetting"}}</legend>
                 <div class="form-group">
                     <label>{{localize "TNX.StyleLevel"}}</label>
@@ -62,7 +62,7 @@
                 </div>
             </fieldset>
 
-            <fieldset class="abilities-section">
+            <fieldset class="tnx-fieldset">
                 <legend>{{localize "TNX.MiracleLink"}}</legend>
                 <div class="form-group">
                     <label>{{localize "TNX.MiracleLink"}}</label>

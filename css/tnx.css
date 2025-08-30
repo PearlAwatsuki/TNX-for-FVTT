@@ -46,6 +46,14 @@
 .tokyo-nova *, .tokyo-nova *::before, .tokyo-nova *::after {
     box-sizing: border-box;
 }
+.tokyo-nova select {
+    min-width: 120px;
+    background-color: var(--tnx-color-bg-input);
+    border: 1px solid var(--tnx-color-border);
+    color: var(--tnx-color-text-base);
+    border-radius: var(--tnx-border-radius-sm);
+    padding: 4px;
+}
 .tokyo-nova select option {
     background-color: #333;
 }
@@ -1431,18 +1439,20 @@
 }
 
 .tnx-fieldset {
-    border: 1px solid var(--tnx-color-border);
-    border-radius: var(--tnx-border-radius-md);
-    padding: 20px 15px 15px;
-    margin-bottom: 20px;
     position: relative;
+    border: 1px solid var(--tnx-color-primary-dark);
+    border-radius: var(--tnx-border-radius-lg);
+    background-color: var(--tnx-color-bg-alt);
+    box-shadow: inset 0 0 15px rgba(0, 170, 255, 0.1);
+    padding: 25px 15px 15px 15px;
+    margin: 0 0 20px 0;
 }
 
 .tnx-fieldset > legend {
     position: absolute;
-    top: -0.8em;
-    left: 10px;
-    background: var(--tnx-color-bg-alt);
+    top: -0.7em;
+    left: 15px;
+    background-color: var(--tnx-color-bg);
     padding: 0 10px;
     font-size: 1.2em;
     font-weight: bold;
@@ -2622,18 +2632,6 @@
 
 /* ProseMirrorのコンテナに直接スタイルを適用 */
 .tnx-editor-section__content .prosemirror {
-    width: 100%;
-    min-height: 120px;
-    padding: 10px;
-    box-sizing: border-box;
-    background: transparent;
-    color: var(--tnx-color-text-dim);
-    border: 1px solid var(--tnx-color-primary-dark);
-    border-radius: var(--tnx-border-radius-sm);
-    box-shadow: inset 0 0 8px rgba(0, 170, 255, 0.2);
-}
-/* TinyMCE用の古いスタイルも残しておく */
-.tnx-editor-section__content .editor-content {
     width: 100%;
     min-height: 120px;
     padding: 10px;
