@@ -216,7 +216,7 @@
                 "range": "-",
                 "targetValue": "-",
                 "confrontation": "-",
-                "isDRRewriting": false,
+                "isMiracleRewriting": false,
                 "RewritedTargetID": "",
                 "RewritingDR_ID":"",
                 "uses": {

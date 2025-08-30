@@ -35,27 +35,27 @@
         {{!-- 説明タブ --}}
         <div class="tab description" data-group="primary" data-tab="description">
             {{#if (eq system.category "styleSkill")}}
-            <fieldset class="tnx-fieldset">
-                <legend>スタイル技能 基本情報</legend>
-                <div class="form-grid-2col">
-                    <div class="form-group">
-                        <label>タイミング</label>
-                        <input type="text" name="system.styleSkill.timing" value="{{system.styleSkill.timing}}"/>
+                <fieldset class="tnx-fieldset">
+                    <legend>スタイル技能 基本情報</legend>
+                    <div class="form-grid-2col">
+                        <div class="form-group">
+                            <label>タイミング</label>
+                            <input type="text" name="system.styleSkill.timing" value="{{system.styleSkill.timing}}"/>
+                        </div>
+                        <div class="form-group">
+                            <label>射程</label>
+                            <input type="text" name="system.styleSkill.range" value="{{system.styleSkill.range}}"/>
+                        </div>
+                        <div class="form-group">
+                            <label>対象</label>
+                            <input type="text" name="system.styleSkill.targetValue" value="{{system.styleSkill.target}}"/>
+                        </div>
+                        <div class="form-group">
+                            <label>対決</label>
+                            <input type="text" name="system.styleSkill.confrontation" value="{{system.styleSkill.confrontation}}"/>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label>射程</label>
-                        <input type="text" name="system.styleSkill.range" value="{{system.styleSkill.range}}"/>
-                    </div>
-                    <div class="form-group">
-                        <label>対象</label>
-                        <input type="text" name="system.styleSkill.targetValue" value="{{system.styleSkill.target}}"/>
-                    </div>
-                    <div class="form-group">
-                        <label>対決</label>
-                        <input type="text" name="system.styleSkill.confrontation" value="{{system.styleSkill.confrontation}}"/>
-                    </div>
-                </div>
-            </fieldset>
+                </fieldset>
             {{/if}}
             <div class="tnx-editor-section">
                 <div class="tnx-editor-section__header">
@@ -87,71 +87,71 @@
 
             {{!-- 一般技能設定 --}}
             {{#if (eq system.category "generalSkill")}}
-            <fieldset class="tnx-fieldset">
-                <legend>一般技能 設定</legend>
-                <div class="form-group">
-                    <label>種別</label>
-                    <select name="system.generalSkill.generalSkillCategory">
-                        <option value="initialSkill" {{#if (eq system.generalSkill.generalSkillCategory "initialSkill")}}selected{{/if}}>初期習得技能</option>
-                        <option value="onomasticSKill" {{#if (eq system.generalSkill.generalSkillCategory "onomasticSKill")}}selected{{/if}}>固有名詞技能</option>
-                    </select>
-                </div>
-            </fieldset>
+                <fieldset class="tnx-fieldset">
+                    <legend>一般技能 設定</legend>
+                    <div class="form-group">
+                        <label>種別</label>
+                        <select name="system.generalSkill.generalSkillCategory">
+                            <option value="initialSkill" {{#if (eq system.generalSkill.generalSkillCategory "initialSkill")}}selected{{/if}}>初期習得技能</option>
+                            <option value="onomasticSKill" {{#if (eq system.generalSkill.generalSkillCategory "onomasticSKill")}}selected{{/if}}>固有名詞技能</option>
+                        </select>
+                    </div>
+                </fieldset>
             {{/if}}
 
             {{!-- スタイル技能設定 --}}
             {{#if (eq system.category "styleSkill")}}
-            <fieldset class="tnx-fieldset">
-                <legend>スタイル技能 設定</legend>
-                <div class="form-group">
-                    <label>種別</label>
-                    <select name="system.styleSkill.styleSkillCategory">
-                        <option value="special" {{#if (eq system.styleSkill.styleSkillCategory "special")}}selected{{/if}}>特技</option>
-                        <option value="secret" {{#if (eq system.styleSkill.styleSkillCategory "secret")}}selected{{/if}}>秘伝</option>
-                        <option value="mystery" {{#if (eq system.styleSkill.styleSkillCategory "mystery")}}selected{{/if}}>奥義</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>使用回数制限</label>
-                    <div class="form-fields">
-                        <label>最大値:</label>
-                        <input type="number" name="system.styleSkill.uses.max" value="{{system.styleSkill.uses.max}}" style="width: 60px; text-align: center;">
-                        <label>現在値:</label>
-                        <input type="number" name="system.styleSkill.uses.value" value="{{system.styleSkill.uses.value}}" style="width: 60px; text-align: center;">
+                <fieldset class="tnx-fieldset">
+                    <legend>スタイル技能 設定</legend>
+                    <div class="form-group">
+                        <label>種別</label>
+                        <select name="system.styleSkill.styleSkillCategory">
+                            <option value="special" {{#if (eq system.styleSkill.styleSkillCategory "special")}}selected{{/if}}>特技</option>
+                            <option value="secret" {{#if (eq system.styleSkill.styleSkillCategory "secret")}}selected{{/if}}>秘伝</option>
+                            <option value="mystery" {{#if (eq system.styleSkill.styleSkillCategory "mystery")}}selected{{/if}}>奥義</option>
+                        </select>
                     </div>
-                </div>
 
-                {{#if (eq system.styleSkill.styleSkillCategory "special")}}
-                <div class="form-group">
-                    <label>ワークス技能</label>
-                    <input type="checkbox" name="system.styleSkill.special.works.value" {{checked system.styleSkill.special.works.value}}>
-                </div>
-                {{/if}}
-                
-                <div class="form-group">
-                    <label>神業書き換え</label>
-                    <input type="checkbox" name="system.styleSkill.isDRRewriting" {{checked system.styleSkill.isDRRewriting}}>
-                </div>
-
-                {{#if system.styleSkill.isDRRewriting}}
-                <div class="form-group">
-                    <label>書き換え対象</label>
-                    <select name="system.styleSkill.RewritingTargetID">
-                        <option value="">- 対象を選択 -</option>
-                        {{#each miracleOptions as |dw|}}
-                            <option value="{{dw._id}}" {{#if dw.selected}}selected{{/if}}>{{dw.name}}</option>
-                        {{/each}}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>書き換え先</label>
-                    <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="rewriting-miracle">
-                        <span>神業アイテムをここにドロップ</span>
+                    <div class="form-group">
+                        <label>使用回数制限</label>
+                        <div class="form-fields">
+                            <label>最大値:</label>
+                            <input type="number" name="system.styleSkill.uses.max" value="{{system.styleSkill.uses.max}}" style="width: 60px; text-align: center;">
+                            <label>現在値:</label>
+                            <input type="number" name="system.styleSkill.uses.value" value="{{system.styleSkill.uses.value}}" style="width: 60px; text-align: center;">
+                        </div>
                     </div>
-                </div>
-                {{/if}}
-            </fieldset>
+
+                    {{#if (eq system.styleSkill.styleSkillCategory "special")}}
+                        <div class="form-group">
+                            <label>ワークス技能</label>
+                            <input type="checkbox" name="system.styleSkill.special.works.value" {{checked system.styleSkill.special.works.value}}>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>神業書き換え</label>
+                            <input type="checkbox" name="system.styleSkill.isMiracleRewriting" {{checked system.styleSkill.isMiracleRewriting}}>
+                        </div>
+                    {{/if}}
+
+                    {{#if system.styleSkill.isMiracleRewriting}}
+                        <div class="form-group">
+                            <label>書き換え対象</label>
+                            <select name="system.styleSkill.RewritingTargetID">
+                                <option value="">- 対象を選択 -</option>
+                                {{#each miracleOptions as |dw|}}
+                                    <option value="{{dw._id}}" {{#if dw.selected}}selected{{/if}}>{{dw.name}}</option>
+                                {{/each}}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>書き換え先</label>
+                            <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="rewriting-miracle">
+                                <span>神業アイテムをここにドロップ</span>
+                            </div>
+                        </div>
+                    {{/if}}
+                </fieldset>
             {{/if}}
 
         </div>
