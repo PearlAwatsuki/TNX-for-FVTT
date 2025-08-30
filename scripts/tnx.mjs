@@ -683,9 +683,9 @@ Hooks.once("init", async function() {
 });
 
 Hooks.once("ready", async function() {
-    const hud = new TnxHud();
-    await hud.render(true);
-    document.getElementById('ui-top').appendChild(hud.element);
+    game.tnx = game.tnx || {};
+    game.tnx.hud = new TnxHud();
+    game.tnx.hud.render(true, { focus: false });
     
     const defaultMaxSize = game.settings.get("tokyo-nova-axleration", "defaultHandMaxSize");
     const castActors = game.actors.filter(a => a.type === 'cast');
