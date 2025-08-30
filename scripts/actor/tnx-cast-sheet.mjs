@@ -245,7 +245,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
                 callback: itemDeleteCallback // こちらも共通の削除コールバックを使用
             }
         ];
-        new ContextMenu(html, '[data-context-menu="divine-work-view"]', miracleViewMenu);
+        new ContextMenu(html, '[data-context-menu="miracle-view"]', miracleViewMenu);
         
         const unlinkMenu = [{
             name: game.i18n.localize("TNX.UnlinkCards"),

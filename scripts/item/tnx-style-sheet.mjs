@@ -48,7 +48,7 @@ export class TokyoNovaStyleSheet extends ItemSheet {
                 case 'open-linked-sheet':
                     this._onOpenLinkedSheet(event);
                     break;
-                case 'create-and-link-divine-work':
+                case 'create-and-link-miracle':
                     this._onCreateAndLinkMiracle(event);
                     break;
                 case 'decrement-level':
@@ -69,7 +69,7 @@ export class TokyoNovaStyleSheet extends ItemSheet {
                 ui.notifications.info(`神業とのリンクを解除しました。`);
             }
         }];
-        new ContextMenu(html, '[data-context-menu-type="manage-divine-work"]', miracleContextMenu);
+        new ContextMenu(html, '[data-context-menu-type="manage-miracle"]', miracleContextMenu);
     }
 
     async _onModifyLevel(event, amount) {

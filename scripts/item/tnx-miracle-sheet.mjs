@@ -4,8 +4,8 @@ export class TokyoNovaMiracleSheet extends ItemSheet {
 
     static get defaultOptions() {
         return foundry.utils.mergeObject(super.defaultOptions, {
-            classes: ["tokyo-nova", "sheet", "item", "divine-work"],
-            template: "systems/tokyo-nova-axleration/templates/item/divine-work-sheet.hbs",
+            classes: ["tokyo-nova", "sheet", "item", "miracle"],
+            template: "systems/tokyo-nova-axleration/templates/item/miracle-sheet.hbs",
             width: 560,
             height: 520,
             // ▼▼▼ tabs 配列に "setting" を追加 ▼▼▼

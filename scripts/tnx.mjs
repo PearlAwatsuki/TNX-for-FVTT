@@ -13,7 +13,7 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/actor/cast-sheet.hbs",
 
         // === Item Sheets ===
-        "systems/tokyo-nova-axleration/templates/item/divine-work-sheet.hbs",
+        "systems/tokyo-nova-axleration/templates/item/miracle-sheet.hbs",
         "systems/tokyo-nova-axleration/templates/item/style-sheet.hbs",
         "systems/tokyo-nova-axleration/templates/item/skill-sheet.hbs",
 

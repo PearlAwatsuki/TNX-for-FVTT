@@ -1029,7 +1029,7 @@
     align-items: center;
 }
 .tokyo-nova.sheet.actor.cast .style-slot,
-.tokyo-nova.sheet.actor.cast .divine-work-slot {
+.tokyo-nova.sheet.actor.cast .miracle-slot {
     flex: 1;
     min-width: 0;
 }
@@ -1188,7 +1188,7 @@
     -webkit-appearance: none; -moz-appearance: none; appearance: none;
 }
 /* 神業シートのチェックボックス用スタイル */
-.sheet.item.divine-work .sheet-header .is-used-checkbox {
+.sheet.item.miracle .sheet-header .is-used-checkbox {
     position: absolute;
     top: 57px;
     right: 15px;
@@ -1196,13 +1196,13 @@
     align-items: center;
 }
 
-.sheet.item.divine-work .sheet-header .is-used-checkbox label {
+.sheet.item.miracle .sheet-header .is-used-checkbox label {
     /* labelの右マージンは不要なため削除 */
     font-weight: bold;
     color: var(--tnx-color-text-dim);
 }
 
-.sheet.item.divine-work .sheet-header .is-used-checkbox input[type="checkbox"] {
+.sheet.item.miracle .sheet-header .is-used-checkbox input[type="checkbox"] {
     width: 16px;
     height: 16px;
     flex: 0 0 16px;
