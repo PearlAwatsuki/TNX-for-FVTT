@@ -139,11 +139,6 @@ export class TnxHud extends TnxBaseApplication {
         }
         // ルート要素が this.element に格納されているのでイベントを接続
         this._attachListeners(this.element);
-
-        const bottomBar = this.element.querySelector('.hud-bottom-bar');
-        if (bottomBar) {
-            bottomBar.classList.toggle('hotbar-is-collapsed', ui.hotbar.collapsed);
-        }
     }
     
     /**
@@ -167,6 +162,14 @@ export class TnxHud extends TnxBaseApplication {
                     hudElement.classList.toggle('sidebar-collapsed', isCollapsing);
                 }, isCollapsing ? 200 : 0);
             });
+        }
+        
+        // ★★★ 修正点 ★★★
+        // ホットバー開閉追従：クリック監視からFoundry VTTのHooksを利用する方法に変更
+        const bottomBar = this.element.querySelector('.hud-bottom-bar');
+        if (bottomBar) {
+            // 初期状態を反映
+            bottomBar.classList.toggle('hotbar-is-collapsed', ui.hotbar.collapsed);
         }
     }
     
