@@ -116,8 +116,16 @@
                 <div class="middle-header-section">
                     <div class="rank-affiliation-wrapper">
                         <div class="citizen-rank-block">
-                            <div class="view-mode-rank"><span class="view-mode-label">{{localize "TNX.CitizenRankLabel"}}：</span><span class="view-mode-value">{{system.citizenRank}}</span></div>
-                            <div class="edit-mode-rank"><label>{{localize "TNX.CitizenRank"}}：</label><select name="system.citizenRank">{{#each citizenRankOptionsForSelect as |o|}}<option value="{{o.value}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>{{/each}}</select></div>
+                            <div class="view-mode-rank">
+                                <span class="view-mode-label">{{localize "TNX.CitizenRankLabel"}}：</span>
+                                <span class="view-mode-value">{{system.citizenRank}}</span>
+                            </div>
+                            <div class="edit-mode-rank">
+                                <label>{{localize "TNX.CitizenRank"}}：</label>
+                                <select name="system.citizenRank">{{#each citizenRankOptionsForSelect as |o|}}
+                                    <option value="{{o.value}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>{{/each}}
+                                </select>
+                            </div>
                         </div>
                         <div class="affiliation-block">
                             <div class="view-mode-affiliation"><span class="view-mode-label">{{localize "TNX.Affiliation"}}：</span><span class="view-mode-value">{{affiliationDisplay}}</span></div>

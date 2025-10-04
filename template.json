@@ -187,17 +187,20 @@
         },
         "skill": {
             "templates": ["base"],
-            "level": 1,
+            "level": 0,
             "category": "generalSkill",
-            "spade": true,
-            "club": false,
-            "heart": false,
-            "diamond": false,
+            "suits": {
+                "spade": false,
+                "heart": false,
+                "diamond": false,
+                "club": false
+            },
             "isBase": false,
             "generalSkill": {
                 "generalSkillCategory": "initialSkill",
                 "initialSkill":{
                     "value": true,
+                    "initiakSuit": "",
                     "expCost": 10
                 },
                 "onomasticSKill": {
@@ -216,11 +219,15 @@
                 "range": "-",
                 "targetValue": "-",
                 "confrontation": "-",
+                "isFixedRange": false,
+                "isFixedTarget": false,
+                "isEssentialSkill": false,
                 "isMiracleRewriting": false,
-                "RewritedTargetID": "",
-                "RewritingDR_ID":"",
+                "RewritedTarget": "",
+                "rewritingMiracleName": "",
+                "RewritingMiracle_ID":"",
                 "uses": {
-                    "isLimit": true,
+                    "isLimit": false,
                     "value":0,
                     "max": 0
                 },
