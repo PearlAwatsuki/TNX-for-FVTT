@@ -2808,6 +2808,7 @@ form .notes, form .hint {
     display: flex;
     align-items: center;
     gap: 5px;
+    justify-content: flex-end;
 }
 .usage-field {
     display: flex;
