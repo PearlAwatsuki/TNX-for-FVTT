@@ -38,30 +38,30 @@
                     <div class="style-skill-display-grid">
                         <div>
                             <label>技能</label>
-                            <span>{{system.styleSkill.comboSkill}}</span>
+                            <span>{{view.comboSkill}}</span>
                         </div>
                         <div>
                             <label>上限</label>
                             <span>{{system.styleSkill.maxLevel}}</span>
                         </div>
                         <div class="full-width-row">
-                            <label>タイミング</label><span>{{system.styleSkill.timing}}</span>
+                            <label>タイミング</label><span>{{view.timing}}</span>
                         </div>
                         <div>
                             <label>対象</label>
-                            <span>{{system.styleSkill.target}}</span>
+                            <span>{{view.target}}</span>
                         </div>
                         <div>
                             <label>射程</label>
-                            <span>{{system.styleSkill.range}}</span>
+                            <span>{{view.range}}</span>
                         </div>
                         <div>
                             <label>対決</label>
-                            <span>{{system.styleSkill.confrontation}}</span>
+                            <span>{{view.confrontation}}</span>
                         </div>
                         <div>
                             <label>目標値</label>
-                            <span>{{system.styleSkill.targetValue}}</span>
+                            <span>{{view.targetValue}}</span>
                         </div>
                     </div>
                 </div>
@@ -85,11 +85,11 @@
                     <input type="checkbox" name="system.isBase" {{checked system.isBase}}>
                     <p class="notes">組み合わせ判定のベースになる技能の場合にチェックします。</p>
                 </div>
+
                 <div class="form-group">
                     <label>技能カテゴリ</label>
                     <select name="system.category">
-                        <option value="generalSkill" {{#if (eq system.category "generalSkill")}}selected{{/if}}>一般技能</option>
-                        <option value="styleSkill" {{#if (eq system.category "styleSkill")}}selected{{/if}}>スタイル技能</option>
+                        {{selectOptions options.category selected=system.category}}
                     </select>
                 </div>
                 <hr>
@@ -99,8 +99,7 @@
                         <div class="form-group">
                             <label>種別</label>
                             <select name="system.generalSkill.generalSkillCategory">
-                                <option value="initialSkill" {{#if (eq system.generalSkill.generalSkillCategory "initialSkill")}}selected{{/if}}>初期習得技能</option>
-                                <option value="onomasticSKill" {{#if (eq system.generalSkill.generalSkillCategory "onomasticSKill")}}selected{{/if}}>固有名詞技能</option>
+                                {{selectOptions options.generalSkillCategory selected=system.generalSkill.generalSkillCategory}}
                             </select>
                         </div>
                     </fieldset>
@@ -113,9 +112,7 @@
                             <div class="form-group">
                                 <label>種別</label>
                                 <select name="system.styleSkill.styleSkillCategory">
-                                    <option value="special" {{#if (eq system.styleSkill.styleSkillCategory "special")}}selected{{/if}}>特技</option>
-                                    <option value="secret" {{#if (eq system.styleSkill.styleSkillCategory "secret")}}selected{{/if}}>秘伝</option>
-                                    <option value="mystery" {{#if (eq system.styleSkill.styleSkillCategory "mystery")}}selected{{/if}}>奥義</option>
+                                    {{selectOptions options.styleSkillCategory selected=system.styleSkill.styleSkillCategory}}
                                 </select>
                             </div>
 
@@ -123,37 +120,81 @@
                                 <label>スタイル</label>
                                 <input type="text" name="system.styleSkill.style" value="{{system.styleSkill.style}}"/>
                             </div>
+
                             <div class="form-group">
                                 <label>技能</label>
-                                <input type="text" name="system.styleSkill.comboSkill" value="{{system.styleSkill.comboSkill}}"/>
+                                <div class="form-fields {{#if (eq system.styleSkill.comboSkill 'skillName')}}split-fields{{/if}}">
+                                    <select name="system.styleSkill.comboSkill">
+                                        {{selectOptions options.comboSkill selected=system.styleSkill.comboSkill}}
+                                    </select>
+                                    {{#if (eq system.styleSkill.comboSkill "skillName")}}
+                                        <input type="text" name="system.styleSkill.comboSkillOther" value="{{system.styleSkill.comboSkillOther}}" placeholder="技能名を入力"/>
+                                    {{/if}}
+                                </div>
                             </div>
+                            
                             <div class="form-group">
                                 <label>上限</label>
                                 <div class="number-input-spinner skill-sheet-spinner">                             
                                     <button type="button" data-action="decrement-max-level" class="tnx-button">-</button>
                                     <input type="number" name="system.styleSkill.maxLevel" value="{{system.styleSkill.maxLevel}}"/>
-                                    <button type="button" data-action="increment-max-level" class="tnx-button">+</button>                                    
+                                    <button type="button" data-action="increment-max-level" class="tnx-button">+</button>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>タイミング</label>
+                                <div class="form-fields {{#if (eq system.styleSkill.timing 'other')}}split-fields{{/if}}">
+                                    <select name="system.styleSkill.timing">
+                                        {{selectOptions options.timing selected=system.styleSkill.timing}}
+                                    </select>
+                                    {{#if (eq system.styleSkill.timing "other")}}
+                                        <input type="text" name="system.styleSkill.timingOther" value="{{system.styleSkill.timingOther}}" placeholder="タイミングを入力"/>
+                                    {{/if}}
                                 </div>
                             </div>
                             <div class="form-group">
-                                <label>タイミング</label>
-                                <input type="text" name="system.styleSkill.timing" value="{{system.styleSkill.timing}}"/>
-                            </div>
-                            <div class="form-group">
                                 <label>対象</label>
-                                <input type="text" name="system.styleSkill.target" value="{{system.styleSkill.target}}"/>
+                                <div class="form-fields {{#if (eq system.styleSkill.target 'other')}}split-fields{{/if}}">
+                                    <select name="system.styleSkill.target">
+                                        {{selectOptions options.target selected=system.styleSkill.target}}
+                                    </select>
+                                    {{#if (eq system.styleSkill.target "other")}}
+                                        <input type="text" name="system.styleSkill.targetOther" value="{{system.styleSkill.targetOther}}" placeholder="対象を入力"/>
+                                    {{/if}}
+                                </div>
                             </div>
                             <div class="form-group">
                                 <label>射程</label>
-                                <input type="text" name="system.styleSkill.range" value="{{system.styleSkill.range}}"/>
+                                <select name="system.styleSkill.range">
+                                    {{selectOptions options.range selected=system.styleSkill.range}}
+                                </select>
                             </div>
-                            <div class="form-group">
+                             <div class="form-group">
                                 <label>目標値</label>
-                                <input type="text" name="system.styleSkill.targetValue" value="{{system.styleSkill.targetValue}}"/>
+                                <div class="form-fields {{#if (eq system.styleSkill.targetValue 'number')}}split-fields{{/if}}">
+                                    <select name="system.styleSkill.targetValue">
+                                        {{selectOptions options.targetValue selected=system.styleSkill.targetValue}}
+                                    </select>
+                                    {{#if (eq system.styleSkill.targetValue "number")}}                                        
+                                        <div class="number-input-spinner skill-sheet-spinner">                             
+                                            <button type="button" data-action="decrement-max-level" class="tnx-button">-</button>
+                                            <input type="number" name="system.styleSkill.maxLevel" value="{{system.styleSkill.maxLevel}}"/>
+                                            <button type="button" data-action="increment-max-level" class="tnx-button">+</button>
+                                        </div>
+                                    {{/if}}
+                                </div>
                             </div>
                             <div class="form-group">
                                 <label>対決</label>
-                                <input type="text" name="system.styleSkill.confrontation" value="{{system.styleSkill.confrontation}}"/>
+                                <div class="form-fields {{#if (or (eq system.styleSkill.confrontation 'skillName') (eq system.styleSkill.confrontation 'skillNameAsterisk'))}}split-fields{{/if}}">
+                                    <select name="system.styleSkill.confrontation">
+                                        {{selectOptions options.confrontation selected=system.styleSkill.confrontation}}
+                                    </select>
+                                    {{#if (or (eq system.styleSkill.confrontation 'skillName') (eq system.styleSkill.confrontation 'skillNameAsterisk'))}}
+                                        <input type="text" name="system.styleSkill.confrontationOther" value="{{system.styleSkill.confrontationOther}}" placeholder="技能名を入力"/>
+                                    {{/if}}
+                                </div>
                             </div>
 
                             <div class="form-group">

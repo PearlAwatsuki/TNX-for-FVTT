@@ -57,6 +57,28 @@
 .tokyo-nova select option {
     background-color: #333;
 }
+.number-input-spinner {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    justify-content: flex-end;
+}
+.number-input-spinner input{
+    display: flex;
+    align-items: center;
+    text-align: center;
+    gap: 5px;
+    justify-content: flex-end;
+    width: 40px;
+}
+.number-input-spinner .tnx-button {
+    flex: none;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    font-size: 1.2em;
+    flex-shrink: 0;
+}
 .mirror-character {
     font-family: 'Mirror', sans-serif;
     font-weight: bold;
@@ -462,27 +484,8 @@ form .notes, form .hint {
     padding-top: 5px;
     border-top: 1px solid var(--tnx-color-border);
 }
-.dialog .number-input-spinner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 5px;
-}
-.dialog .number-input-spinner .form-fields {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-}
-.dialog .number-input-spinner input[type="number"] {
-    width: 10px;
-    text-align: center;
-}
-.dialog .number-input-spinner button {
-    width: 32px;
-    height: 32px;
-    font-size: 1.2em;
-    line-height: 1;
-    padding: 0 8px;
+.dialog .number-input-spinner input {
+    flex: 0;
 }
 .dialog:has(.card-selection-grid) {
     /* ▼▼▼ 幅の修正 ▼▼▼ */
@@ -627,20 +630,6 @@ form .notes, form .hint {
 }
 
 /* --- Style Sheet Spinner Control --- */
-.tokyo-nova.sheet.item .form-group .number-input-spinner {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    width: 150px;    
-    justify-content: flex-end;
-}
-.tokyo-nova.sheet.item .form-group .number-input-spinner .tnx-button {
-    width: 35px;
-    height: 35px;
-    padding: 0;
-    font-size: 1.2em;
-    flex-shrink: 0;
-}
 .tokyo-nova.sheet.item .form-group input.ability-value {
     background-color: var(--tnx-color-bg-input);
     border: 1px solid var(--tnx-color-border);
@@ -2872,11 +2861,4 @@ form .notes, form .hint {
     display: flex;
     flex-direction: column;
     gap: 4px;
-}
-.tokyo-nova.sheet.item .form-group .skill-sheet-spinner input{
-    width: 40px;
-}
-.tokyo-nova.sheet.item .form-group .skill-sheet-spinner .tnx-button{
-    width: 26px;
-    height: 26px;
 }
