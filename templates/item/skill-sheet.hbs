@@ -37,31 +37,31 @@
                 <div class="style-skill-display">
                     <div class="style-skill-display-grid">
                         <div>
-                            <label>技能</label>
+                            <label>技能：</label>
                             <span>{{view.comboSkill}}</span>
                         </div>
                         <div>
-                            <label>上限</label>
+                            <label>上限：</label>
                             <span>{{system.styleSkill.maxLevel}}</span>
                         </div>
                         <div class="full-width-row">
-                            <label>タイミング</label><span>{{view.timing}}</span>
+                            <label>タイミング：</label><span>{{view.timing}}</span>
                         </div>
                         <div>
-                            <label>対象</label>
+                            <label>対象：</label>
                             <span>{{view.target}}</span>
                         </div>
                         <div>
-                            <label>射程</label>
+                            <label>射程：</label>
                             <span>{{view.range}}</span>
                         </div>
                         <div>
-                            <label>対決</label>
-                            <span>{{view.confrontation}}</span>
+                            <label>目標値：</label>
+                            <span>{{view.targetValue}}</span>
                         </div>
                         <div>
-                            <label>目標値</label>
-                            <span>{{view.targetValue}}</span>
+                            <label>対決：</label>
+                            <span>{{view.confrontation}}</span>
                         </div>
                     </div>
                 </div>
@@ -135,24 +135,37 @@
                             
                             <div class="form-group">
                                 <label>上限</label>
-                                <div class="number-input-spinner skill-sheet-spinner">                             
+                                <div class="number-input-spinner skill-sheet-spinner">
                                     <button type="button" data-action="decrement-max-level" class="tnx-button">-</button>
                                     <input type="number" name="system.styleSkill.maxLevel" value="{{system.styleSkill.maxLevel}}"/>
                                     <button type="button" data-action="increment-max-level" class="tnx-button">+</button>
                                 </div>
                             </div>
 
+                            {{!-- ▼▼▼【ここから追記・修正】▼▼▼ --}}
                             <div class="form-group">
                                 <label>タイミング</label>
-                                <div class="form-fields {{#if (eq system.styleSkill.timing 'other')}}split-fields{{/if}}">
+                                <div class="form-fields {{#if (or (eq system.styleSkill.timing 'other') (eq system.styleSkill.timing 'action') (eq system.styleSkill.timing 'process'))}}split-fields{{/if}}">
                                     <select name="system.styleSkill.timing">
                                         {{selectOptions options.timing selected=system.styleSkill.timing}}
                                     </select>
                                     {{#if (eq system.styleSkill.timing "other")}}
                                         <input type="text" name="system.styleSkill.timingOther" value="{{system.styleSkill.timingOther}}" placeholder="タイミングを入力"/>
                                     {{/if}}
+                                    {{#if (eq system.styleSkill.timing "action")}}
+                                        <select name="system.styleSkill.actionName">
+                                            {{selectOptions options.actions selected=system.styleSkill.actionName}}
+                                        </select>
+                                    {{/if}}
+                                    {{#if (eq system.styleSkill.timing "process")}}
+                                        <select name="system.styleSkill.processName">
+                                            {{selectOptions options.processes selected=system.styleSkill.processName}}
+                                        </select>
+                                    {{/if}}
                                 </div>
                             </div>
+                            {{!-- ▲▲▲【ここまで追記・修正】▲▲▲ --}}
+
                             <div class="form-group">
                                 <label>対象</label>
                                 <div class="form-fields {{#if (eq system.styleSkill.target 'other')}}split-fields{{/if}}">
@@ -176,7 +189,7 @@
                                     <select name="system.styleSkill.targetValue">
                                         {{selectOptions options.targetValue selected=system.styleSkill.targetValue}}
                                     </select>
-                                    {{#if (eq system.styleSkill.targetValue "number")}}                                        
+                                    {{#if (eq system.styleSkill.targetValue "number")}}
                                         <div class="number-input-spinner skill-sheet-spinner">
                                             <button type="button" data-action="decrement-target-value" class="tnx-button">-</button>
                                             <input type="number" name="system.styleSkill.targetValueOther" value="{{system.styleSkill.targetValueOther}}"/>
@@ -239,7 +252,7 @@
                                         <label>書き換え対象の神業名</label>
                                         <input type="text" name="system.styleSkill.rewritingMiracleName" value="{{system.styleSkill.rewritingMiracleName}}" placeholder="書き換え元の神業名を入力...">
                                     </div>
-                                    
+                               
                                     <div class="form-group">
                                         <label>書き換え先</label>
                                         <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="rewriting-miracle">

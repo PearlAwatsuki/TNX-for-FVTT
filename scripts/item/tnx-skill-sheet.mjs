@@ -57,6 +57,7 @@ export class TokyoNovaSkillSheet extends ItemSheet {
                 "mystery": "奥義"
             },
             comboSkill: {
+                "blank":"-",
                 "none": "なし",
                 "single": "単独",
                 "dodge": "ドッジ",
@@ -65,6 +66,7 @@ export class TokyoNovaSkillSheet extends ItemSheet {
                 "any": "任意"                
             },
             timing: {
+                "blank":"-",
                 "action": "アクション",
                 "process": "プロセス",
                 "initiativeMajor": "イニシアチブ（メジャー）",
@@ -75,7 +77,23 @@ export class TokyoNovaSkillSheet extends ItemSheet {
                 "miracle": "神業",
                 "other": "その他"
             },
+            // 【追加】アクションとプロセスの選択肢
+            actions: {
+                "blank":"-",
+                "move": "ムーブ",
+                "minor": "マイナー",
+                "major": "メジャー",
+                "reaction": "リアクション",
+                "auto": "オート"
+            },
+            processes: {
+                "blank":"-",
+                "setup": "セットアップ",
+                "initiative": "イニシアチブ",
+                "clean-up": "クリンナップ"
+            },
             target: {
+                "blank":"-",
                 "self": "自身",
                 "single": "単体",
                 "area": "範囲",
@@ -86,6 +104,7 @@ export class TokyoNovaSkillSheet extends ItemSheet {
                 "other": "その他"
             },
             range: {
+                "blank":"-",
                 "close": "至近",
                 "short": "近",
                 "middle": "中",
@@ -95,6 +114,7 @@ export class TokyoNovaSkillSheet extends ItemSheet {
                 "none": "なし"
             },
             targetValue: {
+                "blank":"-",
                 "none": "なし",
                 "number": "数字",
                 "control": "制御値",
@@ -102,6 +122,7 @@ export class TokyoNovaSkillSheet extends ItemSheet {
                 "enterDifficulty": "登場目標値"
             },
             confrontation: {
+                "blank":"-",
                 "skillName": "技能名",
                 "skillNameAsterisk": "技能名※",
                 "none": "なし",
@@ -112,12 +133,14 @@ export class TokyoNovaSkillSheet extends ItemSheet {
         // --- 説明タブでの表示用データを準備 ---
         context.view = {};
         const ss = system.styleSkill; // styleSkillのエイリアス
+        const skillOptions = context.options; // optionsのエイリアス
 
         if (system.category === 'styleSkill') {
+            // valueからlabelを取得して表示用データを作成
             // 技能
             context.view.comboSkill = (ss.comboSkill === 'skillName' && ss.comboSkillOther)
                 ? `〈${ss.comboSkillOther}〉`
-                : ss.comboSkill;
+                : skillOptions.comboSkill[ss.comboSkill];
 
             // 対決
             if (ss.confrontation === 'skillName' && ss.confrontationOther) {
@@ -125,20 +148,39 @@ export class TokyoNovaSkillSheet extends ItemSheet {
             } else if (ss.confrontation === 'skillNameAsterisk' && ss.confrontationOther) {
                 context.view.confrontation = `〈${ss.confrontationOther}〉※`;
             } else {
-                context.view.confrontation = ss.confrontation;
+                context.view.confrontation = skillOptions.confrontation[ss.confrontation];
             }
             
             // 目標値
             context.view.targetValue = (ss.targetValue === 'number' && (ss.targetValueOther || ss.targetValueOther === 0))
                 ? ss.targetValueOther
-                : ss.targetValue;
+                : skillOptions.targetValue[ss.targetValue];
             
-            // その他（特殊な処理が不要な項目）
-            context.view.timing = (ss.timing === 'other' && ss.timingOther) ? ss.timingOther : ss.timing;
-            context.view.target = (ss.target === 'other' && ss.targetOther) ? ss.targetOther : ss.target;
-            context.view.range = ss.range; // 射程はそのまま表示
+            // ▼▼▼【ここから修正】▼▼▼
+            // タイミング
+            if (ss.timing === 'other') {
+                // 「その他」が選択された場合、入力されたテキストを表示。未入力なら「その他」を表示
+                context.view.timing = ss.timingOther || skillOptions.timing.other;
+            } else if (ss.timing === 'action') {
+                // 「アクション」が選択された場合、詳細アクションのラベルを表示。未選択なら「アクション」を表示
+                context.view.timing = skillOptions.actions[ss.actionName] || skillOptions.timing.action;
+            } else if (ss.timing === 'process') {
+                // 「プロセス」が選択された場合、詳細プロセスのラベルを表示。未選択なら「プロセス」を表示
+                context.view.timing = skillOptions.processes[ss.processName] || skillOptions.timing.process;
+            } else {
+                // その他のタイミングは、選択肢のラベルをそのまま表示
+                context.view.timing = skillOptions.timing[ss.timing];
+            }
+            // ▲▲▲【ここまで修正】▲▲▲
+
+            // 対象
+            context.view.target = (ss.target === 'other' && ss.targetOther)
+                ? ss.targetOther
+                : skillOptions.target[ss.target];
+
+            // 射程
+            context.view.range = skillOptions.range[ss.range];
         }
-        // ▲▲▲【ここまで追記・修正】▲▲▲
       
         console.log("TnxSkillSheet | getData | context", context);
         
@@ -153,13 +195,10 @@ export class TokyoNovaSkillSheet extends ItemSheet {
         EffectsSheetMixin.activateEffectListListeners(html, this.item);
         html.find('.suit-selection input[type="checkbox"]').on('change', this._onSuitChange.bind(this));
         
-        // ▼▼▼【ここから追記】▼▼▼
         // --- 数値入力スピナーのボタン処理 ---
         html.find('.number-input-spinner button').on('click', this._onSpinnerButtonClick.bind(this));
-        // ▲▲▲【ここまで追記】▲▲▲
     }
     
-    // ▼▼▼【ここから追記】▼▼▼
     /**
      * 数値入力スピナーのボタンクリックを処理します。
      * @param {Event} event クリックイベント
@@ -191,7 +230,6 @@ export class TokyoNovaSkillSheet extends ItemSheet {
 
         await this.item.update(updateData);
     }
-    // ▲▲▲【ここまで追記】▲▲▲
 
     async _onSuitChange(event) {
         // 既存のリスナー (変更なし)

@@ -2772,7 +2772,6 @@ form .notes, form .hint {
 .style-skill-display label {
     font-weight: bold;
     color: var(--tnx-color-text-dim);
-    margin-right: 0.8em;
 }
 
 /* --- 4. スタイル技能情報 (設定タブ) --- */
@@ -2855,7 +2854,6 @@ form .notes, form .hint {
 .style-skill-display-grid > div {
     display: flex;
     align-items: baseline;
-    gap: 0.8em;
 }
 .style-skill-display label {
     font-weight: bold;
