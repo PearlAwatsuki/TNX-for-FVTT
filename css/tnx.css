@@ -2878,3 +2878,21 @@ form .notes, form .hint {
     flex-direction: column;
     gap: 4px;
 }
+
+.style-skill-settings-wrapper .form-group {
+    display: grid;
+    grid-template-columns: 130px 1fr; /* ラベルの幅を約120pxに固定し、残りを入力欄に割り当てます */
+    align-items: center; /* 垂直方向の中央に揃えます */
+    gap: 0 10px; /* 横方向の隙間を指定します */
+}
+
+.style-skill-settings-wrapper .form-group > label {
+    justify-self: end; /* ラベルを右揃えにします */
+}
+
+/* チェックボックスや分割フィールドなど、特殊なレイアウトを持つ要素はグリッドから除外します */
+.style-skill-settings-wrapper .form-group.full-width-row,
+.style-skill-settings-wrapper .form-group .form-fields.split-fields {
+    display: flex;
+    align-items: center;
+}

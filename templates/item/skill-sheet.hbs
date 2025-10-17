@@ -177,10 +177,10 @@
                                         {{selectOptions options.targetValue selected=system.styleSkill.targetValue}}
                                     </select>
                                     {{#if (eq system.styleSkill.targetValue "number")}}                                        
-                                        <div class="number-input-spinner skill-sheet-spinner">                             
-                                            <button type="button" data-action="decrement-max-level" class="tnx-button">-</button>
-                                            <input type="number" name="system.styleSkill.maxLevel" value="{{system.styleSkill.maxLevel}}"/>
-                                            <button type="button" data-action="increment-max-level" class="tnx-button">+</button>
+                                        <div class="number-input-spinner skill-sheet-spinner">
+                                            <button type="button" data-action="decrement-target-value" class="tnx-button">-</button>
+                                            <input type="number" name="system.styleSkill.targetValueOther" value="{{system.styleSkill.targetValueOther}}"/>
+                                            <button type="button" data-action="increment-target-value" class="tnx-button">+</button>
                                         </div>
                                     {{/if}}
                                 </div>

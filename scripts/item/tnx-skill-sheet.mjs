@@ -57,40 +57,55 @@ export class TokyoNovaSkillSheet extends ItemSheet {
                 "mystery": "奥義"
             },
             comboSkill: {
-                "《社会》": "《社会》",
-                "《芸術：任意》": "《芸術：任意》",
-                "skillName": "技能名"
+                "none": "なし",
+                "single": "単独",
+                "dodge": "ドッジ",
+                "parry": "パリー",
+                "skillName": "技能名",
+                "any": "任意"                
             },
             timing: {
-                "オート": "オート",
-                "メジャー": "メジャー",
-                "マイナー": "マイナー",
-                "リアクション": "リアクション",
+                "action": "アクション",
+                "process": "プロセス",
+                "initiativeMajor": "イニシアチブ（メジャー）",
+                "always": "常時",
+                "alwaysSelect": "常時（選択）",
+                "preDamge": "ダメージ算出の直前",
+                "postDamge": "ダメージ算出の直後",
+                "miracle": "神業",
                 "other": "その他"
             },
             target: {
-                "自身": "自身",
-                "単体": "単体",
-                "範囲": "範囲",
+                "self": "自身",
+                "single": "単体",
+                "area": "範囲",
+                "areaSelect": "範囲（選択）",
+                "scene": "シーン",
+                "sceneSelect": "シーン（選択）",
+                "team": "チーム",
                 "other": "その他"
             },
             range: {
-                "至近": "至近",
-                "近距離": "近距離",
-                "遠距離": "遠距離",
-                "シーン": "シーン"
+                "close": "至近",
+                "short": "近",
+                "middle": "中",
+                "long": "遠",
+                "superLong": "超遠",
+                "weapon": "武器",
+                "none": "なし"
             },
             targetValue: {
-                "自動成功": "自動成功",
-                "対決": "対決",
-                "number": "数字"
+                "none": "なし",
+                "number": "数字",
+                "control": "制御値",
+                "total": "達成値",
+                "enterDifficulty": "登場目標値"
             },
             confrontation: {
-                "なし": "なし",
-                "《回避》": "《回避》",
-                "《抵抗》": "《抵抗》",
                 "skillName": "技能名",
-                "skillNameAsterisk": "技能名※"
+                "skillNameAsterisk": "技能名※",
+                "none": "なし",
+                "cannot": "不可"
             }
         };
 
@@ -114,7 +129,7 @@ export class TokyoNovaSkillSheet extends ItemSheet {
             }
             
             // 目標値
-            context.view.targetValue = (ss.targetValue === 'number' && ss.targetValueOther)
+            context.view.targetValue = (ss.targetValue === 'number' && (ss.targetValueOther || ss.targetValueOther === 0))
                 ? ss.targetValueOther
                 : ss.targetValue;
             
@@ -134,10 +149,49 @@ export class TokyoNovaSkillSheet extends ItemSheet {
         super.activateListeners(html);
         if (!this.isEditable) return;
 
-        // 既存のリスナー (変更なし)
+        // 既存のリスナー
         EffectsSheetMixin.activateEffectListListeners(html, this.item);
         html.find('.suit-selection input[type="checkbox"]').on('change', this._onSuitChange.bind(this));
+        
+        // ▼▼▼【ここから追記】▼▼▼
+        // --- 数値入力スピナーのボタン処理 ---
+        html.find('.number-input-spinner button').on('click', this._onSpinnerButtonClick.bind(this));
+        // ▲▲▲【ここまで追記】▲▲▲
     }
+    
+    // ▼▼▼【ここから追記】▼▼▼
+    /**
+     * 数値入力スピナーのボタンクリックを処理します。
+     * @param {Event} event クリックイベント
+     * @private
+     */
+    async _onSpinnerButtonClick(event) {
+        event.preventDefault();
+        const button = event.currentTarget;
+        const action = button.dataset.action;
+        const ss = this.item.system.styleSkill;
+        let updateData = {};
+
+        switch (action) {
+            case 'increment-max-level':
+                updateData['system.styleSkill.maxLevel'] = (ss.maxLevel || 0) + 1;
+                break;
+            case 'decrement-max-level':
+                updateData['system.styleSkill.maxLevel'] = (ss.maxLevel || 0) - 1;
+                break;
+            case 'increment-target-value':
+                updateData['system.styleSkill.targetValueOther'] = (ss.targetValueOther || 0) + 1;
+                break;
+            case 'decrement-target-value':
+                updateData['system.styleSkill.targetValueOther'] = (ss.targetValueOther || 0) - 1;
+                break;
+            default:
+                return;
+        }
+
+        await this.item.update(updateData);
+    }
+    // ▲▲▲【ここまで追記】▲▲▲
 
     async _onSuitChange(event) {
         // 既存のリスナー (変更なし)
@@ -145,10 +199,8 @@ export class TokyoNovaSkillSheet extends ItemSheet {
         const newLevel = checkedSuits.length;
 
         if (this.item.system.level !== newLevel) {
-            const formData = this._getSubmitData();
-            formData["system.level"] = newLevel;
-            await this.item.update(formData);
-            this.render();
+            await this.item.update({"system.level": newLevel});
         }
     }
+
 }
