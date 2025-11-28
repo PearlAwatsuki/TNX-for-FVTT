@@ -2894,3 +2894,42 @@ form .notes, form .hint {
     display: flex;
     align-items: center;
 }
+
+/* ラベルを上揃えにするフォームグループ */
+.form-group.align-start {
+    align-items: flex-start;
+}
+
+/* 上揃えの場合、左側のラベル位置を微調整して1行目の入力欄と高さを合わせる */
+.form-group.align-start > label {
+    padding-top: 3px;
+}
+
+/* 入力欄を縦積みにするためのコンテナ */
+.form-fields-stack {
+    flex: 3;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 2行目のチェックボックス行 */
+.checkbox-row {
+    margin-top: 10px;
+    font-size: 0.9em;
+    display: flex;
+    align-items: center;
+}
+
+/* チェックボックス行のラベル（クリック範囲を確保しつつ整列） */
+.checkbox-row label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-weight: normal; /* 必要に応じて調整 */
+}
+
+/* チェックボックス本体の余白調整 */
+.checkbox-row input[type="checkbox"] {
+    margin: 0 4px 0 0;
+    flex: 0 0 auto;
+}

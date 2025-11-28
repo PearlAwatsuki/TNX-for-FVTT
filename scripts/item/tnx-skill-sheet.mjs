@@ -174,12 +174,24 @@ export class TokyoNovaSkillSheet extends ItemSheet {
             // ▲▲▲【ここまで修正】▲▲▲
 
             // 対象
-            context.view.target = (ss.target === 'other' && ss.targetOther)
+            let targetLabel = (ss.target === 'other' && ss.targetOther)
                 ? ss.targetOther
                 : skillOptions.target[ss.target];
+            
+            // 変更不可フラグがある場合、末尾に※を付与
+            if (ss.isFixedTarget) {
+                targetLabel += "※";
+            }
+            context.view.target = targetLabel;
 
             // 射程
-            context.view.range = skillOptions.range[ss.range];
+            let rangeLabel = skillOptions.range[ss.range];
+
+            // 変更不可フラグがある場合、末尾に※を付与
+            if (ss.isFixedRange) {
+                rangeLabel += "※";
+            }
+            context.view.range = rangeLabel;
         }
       
         console.log("TnxSkillSheet | getData | context", context);

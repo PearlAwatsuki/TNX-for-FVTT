@@ -168,20 +168,38 @@
 
                             <div class="form-group">
                                 <label>対象</label>
-                                <div class="form-fields {{#if (eq system.styleSkill.target 'other')}}split-fields{{/if}}">
-                                    <select name="system.styleSkill.target">
-                                        {{selectOptions options.target selected=system.styleSkill.target}}
-                                    </select>
-                                    {{#if (eq system.styleSkill.target "other")}}
-                                        <input type="text" name="system.styleSkill.targetOther" value="{{system.styleSkill.targetOther}}" placeholder="対象を入力"/>
-                                    {{/if}}
+                                <div class="form-fields-stack">
+                                    {{!-- 1行目: ドロップダウンと入力欄 --}}
+                                    <div class="form-fields {{#if (eq system.styleSkill.target 'other')}}split-fields{{/if}}">
+                                        <select name="system.styleSkill.target">
+                                            {{selectOptions options.target selected=system.styleSkill.target}}
+                                        </select>
+                                        {{#if (eq system.styleSkill.target "other")}}
+                                            <input type="text" name="system.styleSkill.targetOther" value="{{system.styleSkill.targetOther}}" placeholder="対象を入力"/>
+                                        {{/if}}
+                                    </div>
+                                    {{!-- 2行目: チェックボックス --}}
+                                    <div class="checkbox-row">
+                                        <label>変更不可（※）</label>
+                                        <input type="checkbox" name="system.styleSkill.isFixedTarget" {{checked system.styleSkill.isFixedTarget}}>
+                                    </div>
                                 </div>
                             </div>
                             <div class="form-group">
                                 <label>射程</label>
-                                <select name="system.styleSkill.range">
-                                    {{selectOptions options.range selected=system.styleSkill.range}}
-                                </select>
+                                <div class="form-fields-stack">
+                                    {{!-- 1行目 --}}
+                                    <div class="form-fields">
+                                        <select name="system.styleSkill.range">
+                                            {{selectOptions options.range selected=system.styleSkill.range}}
+                                        </select>
+                                    </div>
+                                    {{!-- 2行目 --}}
+                                    <div class="checkbox-row">
+                                        <label>変更不可（※）</label>
+                                        <input type="checkbox" name="system.styleSkill.isFixedRange" {{checked system.styleSkill.isFixedRange}}>
+                                    </div>
+                                </div>
                             </div>
                              <div class="form-group">
                                 <label>目標値</label>
