@@ -2933,3 +2933,117 @@ form .notes, form .hint {
     margin: 0 4px 0 0;
     flex: 0 0 auto;
 }
+
+/* 縦積みのフォームフィールドコンテナ */
+.form-fields-column {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    width: 100%;
+}
+
+/* 各行のレイアウト */
+.array-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+}
+
+.array-row select {
+    flex: 0 0 auto;
+    min-width: 100px;
+}
+
+.array-row input[type="text"] {
+    flex: 1;
+    min-width: 0;
+}
+
+/* チェックボックス（&） */
+.checkbox-inline {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-weight: bold;
+    cursor: pointer;
+    white-space: nowrap;
+    font-size: 0.9em;
+}
+.checkbox-inline input {
+    margin: 0;
+}
+
+/* ボタンエリア（右端固定用） */
+.row-controls {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: auto; /* 右寄せ */
+    min-width: 30px; /* ボタンがない行でもスペースを確保したい場合など */
+    justify-content: flex-end;
+}
+
+/* 追加・削除ボタン */
+.add-array-item, .delete-array-item {
+    flex: 0 0 24px;
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--tnx-color-border);
+    background-color: var(--tnx-color-bg-input);
+    color: var(--tnx-color-text-dim);
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    font-size: 12px;
+    transition: all 0.2s;
+}
+
+.add-array-item:hover {
+    color: var(--tnx-color-primary-highlight);
+    border-color: var(--tnx-color-primary);
+}
+
+.delete-array-item:hover {
+    color: var(--tnx-color-error-text);
+    border-color: var(--tnx-color-error);
+}
+
+/* 各行のレイアウト */
+.array-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+}
+
+/* ドロップダウン：余白を埋めるように伸長させる */
+.array-row select {
+    flex: 1; /* ここを変更：flex: 0 0 auto から flex: 1 へ */
+    min-width: 0; /* 縮小も許可（安全策） */
+}
+
+/* 技能名などのテキスト入力欄も同様に伸長させる */
+.array-row input[type="text"] {
+    flex: 1;
+}
+
+/* ボタンエリア（右端固定用） */
+.row-controls {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: auto;
+    flex: 0 0 auto; /* ボタンエリアは伸縮させない */
+}
+
+/* 追加・削除ボタン */
+.add-array-item, .delete-array-item {
+    flex: 0 0 24px;
+    width: 24px;
+    height: 24px;
+    /* ... 他のスタイルはそのまま ... */
+}

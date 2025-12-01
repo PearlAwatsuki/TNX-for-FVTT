@@ -16,7 +16,7 @@ export class TokyoNovaSkillSheet extends ItemSheet {
 
     async getData(options) {
         const context = await super.getData(options);
-        const system = this.item.system; // systemデータを取得
+        const system = foundry.utils.deepClone(this.item.system);
         context.system = system; // hbsで system を使えるように
         
         context.enrichedDescription = await TextEditor.enrichHTML(system.description, { async: true, relativeTo: this.item, editable: this.isEditable });
@@ -63,7 +63,9 @@ export class TokyoNovaSkillSheet extends ItemSheet {
                 "dodge": "ドッジ",
                 "parry": "パリー",
                 "skillName": "技能名",
-                "any": "任意"                
+                "any": "任意",
+                "explanation":"解説参照",
+                "other": "その他"
             },
             timing: {
                 "blank":"-",
@@ -75,6 +77,7 @@ export class TokyoNovaSkillSheet extends ItemSheet {
                 "preDamge": "ダメージ算出の直前",
                 "postDamge": "ダメージ算出の直後",
                 "miracle": "神業",
+                "explanation":"解説参照",
                 "other": "その他"
             },
             // 【追加】アクションとプロセスの選択肢
@@ -101,6 +104,15 @@ export class TokyoNovaSkillSheet extends ItemSheet {
                 "scene": "シーン",
                 "sceneSelect": "シーン（選択）",
                 "team": "チーム",
+                "explanation":"解説参照",
+                "other": "その他"
+            },
+            // 上限 (新規)
+            maxLevel: {
+                "blank": "-",
+                "number": "数値",
+                "sl": "SL",
+                "explanation":"解説参照",
                 "other": "その他"
             },
             range: {
@@ -111,91 +123,191 @@ export class TokyoNovaSkillSheet extends ItemSheet {
                 "long": "遠",
                 "superLong": "超遠",
                 "weapon": "武器",
-                "none": "なし"
+                "none": "なし",
+                "explanation":"解説参照",
+                "other": "その他"
             },
             targetValue: {
                 "blank":"-",
                 "none": "なし",
-                "number": "数字",
+                "number": "数値",
                 "control": "制御値",
                 "total": "達成値",
-                "enterDifficulty": "登場目標値"
+                "enterDifficulty": "登場目標値",
+                "explanation":"解説参照",
+                "other": "その他"
             },
             confrontation: {
                 "blank":"-",
                 "skillName": "技能名",
                 "skillNameAsterisk": "技能名※",
                 "none": "なし",
-                "cannot": "不可"
+                "cannot": "不可",
+                "explanation":"解説参照",
+                "other": "その他"
             }
         };
 
+        if (system.category === 'styleSkill') {
+            const ss = system.styleSkill;
+
+            // 配列ライクなオブジェクト（Foundryの更新データ）を配列に変換するヘルパー
+            const ensureArray = (val, defaultNameProp) => {
+                if (Array.isArray(val)) return val;
+                // オブジェクト形式（{0:Val, 1:Val}）の場合、配列に変換
+                if (typeof val === 'object' && val !== null && Object.keys(val).length > 0) {
+                    return Object.values(val);
+                }
+                // 旧データ(String)または空の場合のレガシー処理
+                if (typeof val === 'string' && val !== "" && val !== "-") {
+                    const item = { value: val };
+                    if (defaultNameProp) item.name = defaultNameProp;
+                    // 他のプロパティ初期値
+                    if (defaultNameProp === ss.comboSkillOther) item.isMandatory = false; 
+                    return [item];
+                }
+                // 完全な空なら空配列を返す
+                return [];
+            };
+
+            // 1. 技能 (Combo Skill)
+            ss.comboSkill = ensureArray(ss.comboSkill, ss.comboSkillOther);
+            // 初期値（空の場合）は1行追加
+            if (ss.comboSkill.length === 0) {
+                ss.comboSkill = [{ value: "blank", name: "", isMandatory: false }];
+            }
+
+            // 2. 対決 (Confrontation)
+            ss.confrontation = ensureArray(ss.confrontation, ss.confrontationOther);
+            if (ss.confrontation.length === 0) {
+                ss.confrontation = [{ value: "blank", name: "" }];
+            }
+
+            // 3. タイミング (Timing)
+            ss.timing = ensureArray(ss.timing, null);
+            if (ss.timing.length === 0) {
+                ss.timing = [{
+                    value: "blank",
+                    actionName: "blank",
+                    processName: "blank",
+                    timingOther: ""
+                }];
+            }
+        }
+
         // --- 説明タブでの表示用データを準備 ---
         context.view = {};
-        const ss = system.styleSkill; // styleSkillのエイリアス
-        const skillOptions = context.options; // optionsのエイリアス
+        const ss = system.styleSkill;
+        const skillOptions = context.options;
 
         if (system.category === 'styleSkill') {
-            // valueからlabelを取得して表示用データを作成
-            // 技能
-            context.view.comboSkill = (ss.comboSkill === 'skillName' && ss.comboSkillOther)
-                ? `〈${ss.comboSkillOther}〉`
-                : skillOptions.comboSkill[ss.comboSkill];
-
-            // 対決
-            if (ss.confrontation === 'skillName' && ss.confrontationOther) {
-                context.view.confrontation = `〈${ss.confrontationOther}〉`;
-            } else if (ss.confrontation === 'skillNameAsterisk' && ss.confrontationOther) {
-                context.view.confrontation = `〈${ss.confrontationOther}〉※`;
-            } else {
-                context.view.confrontation = skillOptions.confrontation[ss.confrontation];
-            }
             
-            // 目標値
-            context.view.targetValue = (ss.targetValue === 'number' && (ss.targetValueOther || ss.targetValueOther === 0))
-                ? ss.targetValueOther
-                : skillOptions.targetValue[ss.targetValue];
-            
-            // ▼▼▼【ここから修正】▼▼▼
-            // タイミング
-            if (ss.timing === 'other') {
-                // 「その他」が選択された場合、入力されたテキストを表示。未入力なら「その他」を表示
-                context.view.timing = ss.timingOther || skillOptions.timing.other;
-            } else if (ss.timing === 'action') {
-                // 「アクション」が選択された場合、詳細アクションのラベルを表示。未選択なら「アクション」を表示
-                context.view.timing = skillOptions.actions[ss.actionName] || skillOptions.timing.action;
-            } else if (ss.timing === 'process') {
-                // 「プロセス」が選択された場合、詳細プロセスのラベルを表示。未選択なら「プロセス」を表示
-                context.view.timing = skillOptions.processes[ss.processName] || skillOptions.timing.process;
-            } else {
-                // その他のタイミングは、選択肢のラベルをそのまま表示
-                context.view.timing = skillOptions.timing[ss.timing];
-            }
-            // ▲▲▲【ここまで修正】▲▲▲
+            // 技能 (Combo)
+            context.view.comboSkill = ss.comboSkill.map((s, idx) => {
+                let label = "";
+                if (s.value === 'skillName') {
+                    label = s.name ? `〈${s.name}〉` : "〈〉";
+                } else if (s.value === 'other') {
+                    // ★その他: そのまま表示
+                    label = s.name || ""; 
+                } else {
+                    label = skillOptions.comboSkill[s.value] || "-";
+                }
+                
+                // 2つ目以降の結合処理
+                if (idx > 0) {
+                    if (s.value === 'skillName') {
+                        return s.isMandatory ? `&${label}` : label;
+                    } else {
+                        // その他やドッジなどは「、」で区切る
+                        return `、${label}`;
+                    }
+                }
+                return label;
+            }).join("");
 
-            // 対象
-            let targetLabel = (ss.target === 'other' && ss.targetOther)
-                ? ss.targetOther
+            // 対決 (Confrontation)
+            context.view.confrontation = ss.confrontation.map((s, idx) => {
+                let label = "";
+                if (s.value === 'skillName' || s.value === 'skillNameAsterisk') {
+                    label = s.name ? `〈${s.name}〉` : "〈〉";
+                    if (s.value === 'skillNameAsterisk') label += "※";
+                } else if (s.value === 'other') {
+                    // ★その他: そのまま表示
+                    label = s.name || "";
+                } else {
+                    label = skillOptions.confrontation[s.value] || "-";
+                }
+                
+                // 2つ目以降の結合処理
+                if (idx > 0) {
+                    if (s.value === 'skillName' || s.value === 'skillNameAsterisk') {
+                        return label;
+                    } else {
+                        return `、${label}`;
+                    }
+                }
+                return label;
+            }).join("");
+
+            // タイミング (Timing)
+            context.view.timing = ss.timing.map((t, idx) => {
+                let label = "";
+                if (t.value === 'other') {
+                    label = t.timingOther || skillOptions.timing.other;
+                } else if (t.value === 'action') {
+                    label = skillOptions.actions[t.actionName] || skillOptions.timing.action;
+                } else if (t.value === 'process') {
+                    label = skillOptions.processes[t.processName] || skillOptions.timing.process;
+                } else {
+                    label = skillOptions.timing[t.value] || "-";
+                }
+                
+                // タイミングなど「技能以外」は「、」で区切る（前回の指示を維持）
+                if (idx > 0) return `、${label}`;
+                return label;
+            }).join("");
+
+            // ▼▼▼【上限 (Max Level) の表示処理】▼▼▼
+            // 初期値や旧データの考慮（デフォルトは "number" 扱い）
+            let maxLevelType = ss.maxLevel;
+            // もし maxLevel に数値が直接入っていた場合（旧データ互換）
+            if (!isNaN(Number(ss.maxLevel)) && ss.maxLevel !== "") {
+                maxLevelType = 'number';
+                // 表示用データとして値をセットしておく（保存はされていないが、表示は崩さない）
+                if (!ss.maxLevelOther) ss.maxLevelOther = ss.maxLevel; 
+            }
+
+            if (maxLevelType === 'number' || maxLevelType === 'other') {
+                context.view.maxLevel = ss.maxLevelOther;
+            } else if (maxLevelType === 'sl') {
+                context.view.maxLevel = "SL";
+            } else {
+                context.view.maxLevel = skillOptions.maxLevel[maxLevelType] || "-";
+            }
+
+            // ▼▼▼【対象 (Target) の表示処理】▼▼▼
+            let targetLabel = (ss.target === 'other') 
+                ? ss.targetOther 
                 : skillOptions.target[ss.target];
-            
-            // 変更不可フラグがある場合、末尾に※を付与
-            if (ss.isFixedTarget) {
-                targetLabel += "※";
-            }
+            if (ss.isFixedTarget) targetLabel += "※";
             context.view.target = targetLabel;
 
-            // 射程
-            let rangeLabel = skillOptions.range[ss.range];
-
-            // 変更不可フラグがある場合、末尾に※を付与
-            if (ss.isFixedRange) {
-                rangeLabel += "※";
-            }
+            // ▼▼▼【射程 (Range) の表示処理】▼▼▼
+            let rangeLabel = (ss.range === 'other') 
+                ? ss.rangeOther 
+                : skillOptions.range[ss.range];
+            if (ss.isFixedRange) rangeLabel += "※";
             context.view.range = rangeLabel;
+
+            // ▼▼▼【目標値 (Target Value) の表示処理】▼▼▼
+            if (ss.targetValue === 'number' || ss.targetValue === 'other') {
+                context.view.targetValue = ss.targetValueOther;
+            } else {
+                context.view.targetValue = skillOptions.targetValue[ss.targetValue];
+            }
         }
       
-        console.log("TnxSkillSheet | getData | context", context);
-        
         return context;
     }
 
@@ -209,6 +321,8 @@ export class TokyoNovaSkillSheet extends ItemSheet {
         
         // --- 数値入力スピナーのボタン処理 ---
         html.find('.number-input-spinner button').on('click', this._onSpinnerButtonClick.bind(this));
+        html.find('.add-array-item').on('click', this._onAddArrayItem.bind(this));
+        html.find('.delete-array-item').on('click', this._onDeleteArrayItem.bind(this));
     }
     
     /**
@@ -251,6 +365,92 @@ export class TokyoNovaSkillSheet extends ItemSheet {
         if (this.item.system.level !== newLevel) {
             await this.item.update({"system.level": newLevel});
         }
+    }
+
+    /**
+     * 配列に行を追加する処理
+     */
+    async _onAddArrayItem(event) {
+        event.preventDefault();
+        const target = event.currentTarget.dataset.target; // "combo", "confrontation", "timing"
+        const ss = this.item.system.styleSkill;
+        let updateData = {};
+        
+        // 現在のデータを取得（getDataでの正規化前なので、生データをチェック）
+        // もし生データが配列でなければ初期化する
+        const ensureArray = (val, defaultObj) => {
+            if (Array.isArray(val) && val.length > 0) return [...val];
+            // 既存が単一値ならそれを1つ目に入れる移行措置
+            if (val) return [val]; // 注: 実際はオブジェクト構造が違うのでgetDataのようなマッピングが必要だが、
+                                   // ここでは簡易的に「保存済みデータはgetDataで正規化されて表示されている」前提で、
+                                   // フォーム送信により配列化されていることを期待するか、
+                                   // あるいは明示的に空配列からスタートさせる。
+                                   // 今回は「追加」ボタンを押したときの挙動なので、
+                                   // 既存配列 + 新規要素 で更新する。
+            return [defaultObj]; 
+        };
+
+        // getDataを通していないので this.item.system の値は古い構造の可能性がある。
+        // 安全のため、getData内でやった正規化ロジックと同様の変換をここでも通すか、
+        // あるいは `this.getData()` を呼んで正規化済みデータを取得するのが確実。
+        const context = await this.getData();
+        const normalizedSs = context.system.styleSkill;
+
+        if (target === "combo") {
+            const list = [...normalizedSs.comboSkill];
+            list.push({ value: "blank", name: "", isMandatory: false });
+            updateData['system.styleSkill.comboSkill'] = list;
+        } 
+        else if (target === "confrontation") {
+            const list = [...normalizedSs.confrontation];
+            list.push({ value: "blank", name: "" });
+            updateData['system.styleSkill.confrontation'] = list;
+        }
+        else if (target === "timing") {
+            const list = [...normalizedSs.timing];
+            list.push({ value: "blank", actionName: "blank", processName: "blank", timingOther: "" });
+            updateData['system.styleSkill.timing'] = list;
+        }
+
+        await this.item.update(updateData);
+    }
+
+    /**
+     * 配列から行を削除する処理
+     */
+    async _onDeleteArrayItem(event) {
+        event.preventDefault();
+        const target = event.currentTarget.dataset.target;
+        const index = Number(event.currentTarget.dataset.index);
+        
+        // データ取得（正規化済み）
+        const context = await this.getData();
+        const normalizedSs = context.system.styleSkill;
+        let updateData = {};
+
+        if (target === "combo") {
+            const list = [...normalizedSs.comboSkill];
+            if (index >= 0 && index < list.length) {
+                list.splice(index, 1);
+                updateData['system.styleSkill.comboSkill'] = list;
+            }
+        } 
+        else if (target === "confrontation") {
+            const list = [...normalizedSs.confrontation];
+            if (index >= 0 && index < list.length) {
+                list.splice(index, 1);
+                updateData['system.styleSkill.confrontation'] = list;
+            }
+        }
+        else if (target === "timing") {
+            const list = [...normalizedSs.timing];
+            if (index >= 0 && index < list.length) {
+                list.splice(index, 1);
+                updateData['system.styleSkill.timing'] = list;
+            }
+        }
+
+        await this.item.update(updateData);
     }
 
 }
