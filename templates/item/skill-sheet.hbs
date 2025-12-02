@@ -42,7 +42,7 @@
                         </div>
                         <div>
                             <label>上限：</label>
-                            <span>{{system.styleSkill.maxLevel}}</span>
+                            <span>{{view.maxLevel}}</span>
                         </div>
                         <div class="full-width-row">
                             <label>タイミング：</label><span>{{view.timing}}</span>
@@ -172,7 +172,7 @@
                                     {{#if (eq system.styleSkill.maxLevel "number")}}
                                         <div class="number-input-spinner skill-sheet-spinner">
                                             <button type="button" data-action="decrement-max-level" class="tnx-button">-</button>
-                                            <input type="number" name="system.styleSkill.maxLevelOther" value="{{system.styleSkill.maxLevelOther}}"/>
+                                            <input type="number" name="system.styleSkill.maxLevelNumber" value="{{system.styleSkill.maxLevelNumber}}"/>
                                             <button type="button" data-action="increment-max-level" class="tnx-button">+</button>
                                         </div>
                                     {{/if}}
@@ -281,7 +281,7 @@
                                     {{#if (eq system.styleSkill.targetValue "number")}}
                                         <div class="number-input-spinner skill-sheet-spinner">
                                             <button type="button" data-action="decrement-target-value" class="tnx-button">-</button>
-                                            <input type="number" name="system.styleSkill.targetValueOther" value="{{system.styleSkill.targetValueOther}}"/>
+                                            <input type="number" name="system.styleSkill.targetValueNumber" value="{{system.styleSkill.targetValueNumber}}"/>
                                             <button type="button" data-action="increment-target-value" class="tnx-button">+</button>
                                         </div>
                                     {{/if}}

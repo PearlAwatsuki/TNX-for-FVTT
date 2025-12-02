@@ -269,21 +269,13 @@ export class TokyoNovaSkillSheet extends ItemSheet {
             }).join("");
 
             // ▼▼▼【上限 (Max Level) の表示処理】▼▼▼
-            // 初期値や旧データの考慮（デフォルトは "number" 扱い）
-            let maxLevelType = ss.maxLevel;
-            // もし maxLevel に数値が直接入っていた場合（旧データ互換）
-            if (!isNaN(Number(ss.maxLevel)) && ss.maxLevel !== "") {
-                maxLevelType = 'number';
-                // 表示用データとして値をセットしておく（保存はされていないが、表示は崩さない）
-                if (!ss.maxLevelOther) ss.maxLevelOther = ss.maxLevel; 
-            }
-
-            if (maxLevelType === 'number' || maxLevelType === 'other') {
+            // モードが「数値」か「その他」なら Other の値を表示する
+            if (ss.maxLevel === 'number') {
+                context.view.maxLevel = ss.maxLevelNumber;
+            } else if(ss.maxLevel === 'other') {
                 context.view.maxLevel = ss.maxLevelOther;
-            } else if (maxLevelType === 'sl') {
-                context.view.maxLevel = "SL";
             } else {
-                context.view.maxLevel = skillOptions.maxLevel[maxLevelType] || "-";
+                context.view.maxLevel = skillOptions.maxLevel[ss.maxLevel];
             }
 
             // ▼▼▼【対象 (Target) の表示処理】▼▼▼
@@ -301,7 +293,9 @@ export class TokyoNovaSkillSheet extends ItemSheet {
             context.view.range = rangeLabel;
 
             // ▼▼▼【目標値 (Target Value) の表示処理】▼▼▼
-            if (ss.targetValue === 'number' || ss.targetValue === 'other') {
+            if (ss.targetValue === 'number') {
+                context.view.targetValue = ss.targetValueNumber;
+            } else if(ss.targetValue === 'other') {
                 context.view.targetValue = ss.targetValueOther;
             } else {
                 context.view.targetValue = skillOptions.targetValue[ss.targetValue];
@@ -339,16 +333,16 @@ export class TokyoNovaSkillSheet extends ItemSheet {
 
         switch (action) {
             case 'increment-max-level':
-                updateData['system.styleSkill.maxLevel'] = (ss.maxLevel || 0) + 1;
+                updateData['system.styleSkill.maxLevelNumber'] = (ss.maxLevelNumber || 0) + 1;
                 break;
             case 'decrement-max-level':
-                updateData['system.styleSkill.maxLevel'] = (ss.maxLevel || 0) - 1;
+                updateData['system.styleSkill.maxLevelNumber'] = (ss.maxLevelNumber || 0) - 1;
                 break;
             case 'increment-target-value':
-                updateData['system.styleSkill.targetValueOther'] = (ss.targetValueOther || 0) + 1;
+                updateData['system.styleSkill.targetValueNumber'] = (ss.targetValueNumber || 0) + 1;
                 break;
             case 'decrement-target-value':
-                updateData['system.styleSkill.targetValueOther'] = (ss.targetValueOther || 0) - 1;
+                updateData['system.styleSkill.targetValueNumber'] = (ss.targetValueNumber || 0) - 1;
                 break;
             default:
                 return;
