@@ -44,107 +44,109 @@ export class TokyoNovaSkillSheet extends ItemSheet {
         // --- ドロップダウンの選択肢を定義 ---
         context.options = {
             category: {
-                "generalSkill": "一般技能",
-                "styleSkill": "スタイル技能"
+                "generalSkill": game.i18n.localize("TNX.Item.Skill.Category.General"),
+                "styleSkill": game.i18n.localize("TNX.Item.Skill.Category.Style")
             },
             generalSkillCategory: {
-                "initialSkill": "初期習得技能",
-                "onomasticSKill": "固有名詞技能"
+                "initialSkill": game.i18n.localize("TNX.Item.Skill.GeneralType.Initial"),
+                "onomasticSKill": game.i18n.localize("TNX.Item.Skill.GeneralType.Onomastic")
             },
             styleSkillCategory: {
-                "special": "特技",
-                "secret": "秘伝",
-                "mystery": "奥義"
+                "special": game.i18n.localize("TNX.Item.Skill.StyleType.Special"),
+                "secret": game.i18n.localize("TNX.Item.Skill.StyleType.Secret"),
+                "mystery": game.i18n.localize("TNX.Item.Skill.StyleType.Mystery")
             },
             comboSkill: {
-                "blank":"-",
-                "none": "なし",
-                "single": "単独",
-                "dodge": "ドッジ",
-                "parry": "パリー",
-                "skillName": "技能名",
-                "any": "任意",
-                "explanation":"解説参照",
-                "other": "その他"
+                "blank": game.i18n.localize("TNX.Item.Skill.Options.Common.Blank"),
+                "none": game.i18n.localize("TNX.Item.Skill.Options.Common.None"),
+                "single": game.i18n.localize("TNX.Item.Skill.Options.Combo.Single"),
+                "dodge": game.i18n.localize("TNX.Item.Skill.Options.Combo.Dodge"),
+                "parry": game.i18n.localize("TNX.Item.Skill.Options.Combo.Parry"),
+                "skillName": game.i18n.localize("TNX.Item.Skill.Options.Combo.SkillName"),
+                "any": game.i18n.localize("TNX.Item.Skill.Options.Combo.Any"),
+                "explanation": game.i18n.localize("TNX.Item.Skill.Options.Common.Explanation"),
+                "other": game.i18n.localize("TNX.Item.Skill.Options.Common.Other")
             },
             timing: {
-                "blank":"-",
-                "action": "アクション",
-                "process": "プロセス",
-                "initiativeMajor": "イニシアチブ（メジャー）",
-                "always": "常時",
-                "alwaysSelect": "常時（選択）",
-                "preDamge": "ダメージ算出の直前",
-                "postDamge": "ダメージ算出の直後",
-                "miracle": "神業",
-                "explanation":"解説参照",
-                "other": "その他"
+                "blank": game.i18n.localize("TNX.Item.Skill.Options.Common.Blank"),
+                "action": game.i18n.localize("TNX.Item.Skill.Options.Timing.Action"),
+                "process": game.i18n.localize("TNX.Item.Skill.Options.Timing.Process"),
+                "initiativeMajor": game.i18n.localize("TNX.Item.Skill.Options.Timing.InitiativeMajor"),
+                "always": game.i18n.localize("TNX.Item.Skill.Options.Timing.Always"),
+                "alwaysSelect": game.i18n.localize("TNX.Item.Skill.Options.Timing.AlwaysSelect"),
+                "preDamge": game.i18n.localize("TNX.Item.Skill.Options.Timing.PreDamage"),
+                "postDamge": game.i18n.localize("TNX.Item.Skill.Options.Timing.PostDamage"),
+                "miracle": game.i18n.localize("TNX.Item.Skill.Options.Timing.Miracle"),
+                "explanation": game.i18n.localize("TNX.Item.Skill.Options.Common.Explanation"),
+                "other": game.i18n.localize("TNX.Item.Skill.Options.Common.Other")
             },
-            // 【追加】アクションとプロセスの選択肢
             actions: {
-                "blank":"-",
-                "move": "ムーブ",
-                "minor": "マイナー",
-                "major": "メジャー",
-                "reaction": "リアクション",
-                "auto": "オート"
+                "blank": game.i18n.localize("TNX.Item.Skill.Options.Common.Blank"),
+                "move": game.i18n.localize("TNX.Item.Skill.Options.Action.Move"),
+                "minor": game.i18n.localize("TNX.Item.Skill.Options.Action.Minor"),
+                "major": game.i18n.localize("TNX.Item.Skill.Options.Action.Major"),
+                "reaction": game.i18n.localize("TNX.Item.Skill.Options.Action.Reaction"),
+                "auto": game.i18n.localize("TNX.Item.Skill.Options.Action.Auto"),
+                "explanation": game.i18n.localize("TNX.Item.Skill.Options.Common.Explanation"),
+                "other": game.i18n.localize("TNX.Item.Skill.Options.Common.Other")
             },
             processes: {
-                "blank":"-",
-                "setup": "セットアップ",
-                "initiative": "イニシアチブ",
-                "clean-up": "クリンナップ"
+                "blank": game.i18n.localize("TNX.Item.Skill.Options.Common.Blank"),
+                "setup": game.i18n.localize("TNX.Item.Skill.Options.Process.Setup"),
+                "initiative": game.i18n.localize("TNX.Item.Skill.Options.Process.Initiative"),
+                "clean-up": game.i18n.localize("TNX.Item.Skill.Options.Process.Cleanup"),
+                "explanation": game.i18n.localize("TNX.Item.Skill.Options.Common.Explanation"),
+                "other": game.i18n.localize("TNX.Item.Skill.Options.Common.Other")
             },
             target: {
-                "blank":"-",
-                "self": "自身",
-                "single": "単体",
-                "area": "範囲",
-                "areaSelect": "範囲（選択）",
-                "scene": "シーン",
-                "sceneSelect": "シーン（選択）",
-                "team": "チーム",
-                "explanation":"解説参照",
-                "other": "その他"
-            },
-            // 上限 (新規)
-            maxLevel: {
-                "blank": "-",
-                "number": "数値",
-                "sl": "SL",
-                "explanation":"解説参照",
-                "other": "その他"
+                "blank": game.i18n.localize("TNX.Item.Skill.Options.Common.Blank"),
+                "self": game.i18n.localize("TNX.Item.Skill.Options.Target.Self"),
+                "single": game.i18n.localize("TNX.Item.Skill.Options.Target.Single"),
+                "area": game.i18n.localize("TNX.Item.Skill.Options.Target.Area"),
+                "areaSelect": game.i18n.localize("TNX.Item.Skill.Options.Target.AreaSelect"),
+                "scene": game.i18n.localize("TNX.Item.Skill.Options.Target.Scene"),
+                "sceneSelect": game.i18n.localize("TNX.Item.Skill.Options.Target.SceneSelect"),
+                "team": game.i18n.localize("TNX.Item.Skill.Options.Target.Team"),
+                "explanation": game.i18n.localize("TNX.Item.Skill.Options.Common.Explanation"),
+                "other": game.i18n.localize("TNX.Item.Skill.Options.Common.Other")
             },
             range: {
-                "blank":"-",
-                "close": "至近",
-                "short": "近",
-                "middle": "中",
-                "long": "遠",
-                "superLong": "超遠",
-                "weapon": "武器",
-                "none": "なし",
-                "explanation":"解説参照",
-                "other": "その他"
+                "blank": game.i18n.localize("TNX.Item.Skill.Options.Common.Blank"),
+                "close": game.i18n.localize("TNX.Item.Skill.Options.Range.Close"),
+                "short": game.i18n.localize("TNX.Item.Skill.Options.Range.Short"),
+                "middle": game.i18n.localize("TNX.Item.Skill.Options.Range.Middle"),
+                "long": game.i18n.localize("TNX.Item.Skill.Options.Range.Long"),
+                "superLong": game.i18n.localize("TNX.Item.Skill.Options.Range.SuperLong"),
+                "weapon": game.i18n.localize("TNX.Item.Skill.Options.Range.Weapon"),
+                "none": game.i18n.localize("TNX.Item.Skill.Options.Common.None"),
+                "explanation": game.i18n.localize("TNX.Item.Skill.Options.Common.Explanation"),
+                "other": game.i18n.localize("TNX.Item.Skill.Options.Common.Other")
             },
             targetValue: {
-                "blank":"-",
-                "none": "なし",
-                "number": "数値",
-                "control": "制御値",
-                "total": "達成値",
-                "enterDifficulty": "登場目標値",
-                "explanation":"解説参照",
-                "other": "その他"
+                "blank": game.i18n.localize("TNX.Item.Skill.Options.Common.Blank"),
+                "none": game.i18n.localize("TNX.Item.Skill.Options.Common.None"),
+                "number": game.i18n.localize("TNX.Item.Skill.Options.Common.Number"),
+                "control": game.i18n.localize("TNX.Item.Skill.Options.TargetValue.Control"),
+                "total": game.i18n.localize("TNX.Item.Skill.Options.TargetValue.Total"),
+                "enterDifficulty": game.i18n.localize("TNX.Item.Skill.Options.TargetValue.EnterDifficulty"),
+                "explanation": game.i18n.localize("TNX.Item.Skill.Options.Common.Explanation"),
+                "other": game.i18n.localize("TNX.Item.Skill.Options.Common.Other")
+            },
+            maxLevel: {
+                "blank": game.i18n.localize("TNX.Item.Skill.Options.Common.Blank"),
+                "number": game.i18n.localize("TNX.Item.Skill.Options.Common.Number"),
+                "sl": game.i18n.localize("TNX.Item.Skill.Options.MaxLevel.SL"),
+                "explanation": game.i18n.localize("TNX.Item.Skill.Options.Common.Explanation"),
+                "other": game.i18n.localize("TNX.Item.Skill.Options.Common.Other")
             },
             confrontation: {
-                "blank":"-",
-                "skillName": "技能名",
-                "skillNameAsterisk": "技能名※",
-                "none": "なし",
-                "cannot": "不可",
-                "explanation":"解説参照",
-                "other": "その他"
+                "blank": game.i18n.localize("TNX.Item.Skill.Options.Common.Blank"),
+                "skillName": game.i18n.localize("TNX.Item.Skill.Options.Confrontation.SkillName"),
+                "skillNameAsterisk": game.i18n.localize("TNX.Item.Skill.Options.Confrontation.SkillNameAsterisk"),
+                "none": game.i18n.localize("TNX.Item.Skill.Options.Common.None"),
+                "cannot": game.i18n.localize("TNX.Item.Skill.Options.Confrontation.Cannot"),
+                "explanation": game.i18n.localize("TNX.Item.Skill.Options.Common.Explanation"),
+                "other": game.i18n.localize("TNX.Item.Skill.Options.Common.Other")
             }
         };
 
@@ -308,15 +310,12 @@ export class TokyoNovaSkillSheet extends ItemSheet {
     activateListeners(html) {
         super.activateListeners(html);
         if (!this.isEditable) return;
-
-        // 既存のリスナー
         EffectsSheetMixin.activateEffectListListeners(html, this.item);
         html.find('.suit-selection input[type="checkbox"]').on('change', this._onSuitChange.bind(this));
-        
-        // --- 数値入力スピナーのボタン処理 ---
         html.find('.number-input-spinner button').on('click', this._onSpinnerButtonClick.bind(this));
         html.find('.add-array-item').on('click', this._onAddArrayItem.bind(this));
         html.find('.delete-array-item').on('click', this._onDeleteArrayItem.bind(this));
+        html.find('select').on('change', this._onSelectChange.bind(this));
     }
     
     /**
@@ -447,4 +446,115 @@ export class TokyoNovaSkillSheet extends ItemSheet {
         await this.item.update(updateData);
     }
 
+    /**
+     * ドロップダウン変更時に、選択されなかったモードの入力値をリセットする汎用処理
+     */
+    async _onSelectChange(event) {
+        event.preventDefault();
+        const select = event.currentTarget;
+        const fieldName = select.name;
+        const value = select.value;
+        
+        // 更新用データオブジェクト
+        const updateData = {};
+        updateData[fieldName] = value; // まず自分自身の変更を適用
+
+        // --- リセットルールの定義 ---
+        // key: 監視するフィールド名（またはパターン）
+        // clear: { "モード名": ["削除するプロパティ名"...], "default": [...] }
+        // ※プロパティ名は、fieldNameからの相対パスではなく絶対パス、あるいは置換用トークンを使用
+        
+        const resetLogic = (clears, basePrefix = "system.styleSkill.") => {
+            // 現在のモード(value)に対応するクリアリストを取得（なければdefault、それもなければ空）
+            const targetsToClear = clears[value] || clears["default"] || [];
+            
+            targetsToClear.forEach(prop => {
+                // 数値型のリセットは 0、それ以外（文字列）は "" にする
+                // ここでは簡易的に、プロパティ名に "Number" が含まれていれば 0、それ以外は "" とする
+                const clearValue = prop.includes("Number") ? 0 : "";
+                updateData[`${basePrefix}${prop}`] = clearValue;
+            });
+        };
+
+        // 1. スカラー項目（上限、目標値、対象、射程）の処理
+        if (fieldName === "system.styleSkill.maxLevel") {
+            resetLogic({
+                "number": ["maxLevelOther"],
+                "other":  ["maxLevelNumber"],
+                "default":["maxLevelNumber", "maxLevelOther"] // SL, blank等
+            });
+        }
+        else if (fieldName === "system.styleSkill.targetValue") {
+            resetLogic({
+                "number": ["targetValueOther"],
+                "other":  ["targetValueNumber"],
+                "default":["targetValueNumber", "targetValueOther"]
+            });
+        }
+        else if (fieldName === "system.styleSkill.target") {
+            resetLogic({
+                "other":  [], // その他を選んだ時は消さない
+                "default":["targetOther"] // それ以外は targetOther を消す
+            });
+        }
+        else if (fieldName === "system.styleSkill.range") {
+            resetLogic({
+                "other":  [],
+                "default":["rangeOther"]
+            });
+        }
+
+        // 2. 配列項目（技能、対決、タイミング）の処理
+        // 正規表現でインデックスを取得
+        const comboMatch = fieldName.match(/^system\.styleSkill\.comboSkill\.(\d+)\.value$/);
+        const confrontMatch = fieldName.match(/^system\.styleSkill\.confrontation\.(\d+)\.value$/);
+        const timingMatch = fieldName.match(/^system\.styleSkill\.timing\.(\d+)\.value$/);
+
+        if (comboMatch) {
+            const idx = comboMatch[1];
+            resetLogic({
+                "skillName": [],
+                "other":     [],
+                "default":   [`comboSkill.${idx}.name`] // 技能名・その他以外なら name を消す
+            }, "system.styleSkill."); 
+        }
+        else if (confrontMatch) {
+            const idx = confrontMatch[1];
+            resetLogic({
+                "skillName": [],
+                "skillNameAsterisk": [],
+                "other":     [],
+                "default":   [`confrontation.${idx}.name`]
+            }, "system.styleSkill.");
+        }
+        else if (timingMatch) {
+            const idx = timingMatch[1];
+            // タイミングは項目が多いので少し細かく制御
+            // action -> actionName以外を消す
+            // process -> processName以外を消す
+            // other -> timingOther以外を消す
+            const prefix = `timing.${idx}.`;
+            
+            if (value === "action") {
+                updateData[`system.styleSkill.${prefix}processName`] = "blank";
+                updateData[`system.styleSkill.${prefix}timingOther`] = "";
+            } else if (value === "process") {
+                updateData[`system.styleSkill.${prefix}actionName`] = "blank";
+                updateData[`system.styleSkill.${prefix}timingOther`] = "";
+            } else if (value === "other") {
+                updateData[`system.styleSkill.${prefix}actionName`] = "blank";
+                updateData[`system.styleSkill.${prefix}processName`] = "blank";
+            } else {
+                // それ以外（blank, always等）なら全部消す
+                updateData[`system.styleSkill.${prefix}actionName`] = "blank";
+                updateData[`system.styleSkill.${prefix}processName`] = "blank";
+                updateData[`system.styleSkill.${prefix}timingOther`] = "";
+            }
+        }
+
+        // 更新実行
+        if (Object.keys(updateData).length > 1) { // 自分自身以外の変更がある場合のみ
+            await this.item.update(updateData);
+        }
+    }
 }
