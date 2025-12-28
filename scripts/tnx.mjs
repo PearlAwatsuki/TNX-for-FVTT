@@ -541,20 +541,34 @@ Hooks.once("init", async function() {
                         const currentTotal = usage.total || 0;
     
                         if (newLevel > oldLevel) {
+                            // レベル上昇時の処理
                             const newValue = Math.min(3, currentValue + 1);
                             const newTotal = newValue + (usage.mod || 0);
                             await existingMiracle.update({ "system.usageCount.value": newValue, "system.usageCount.total": newTotal });
                             ui.notifications.info(`神業「${existingMiracle.name}」の母数が+1されました。`);
                         } else {
-                            const newValue = Math.max(1, currentValue - 1);
-                            const newTotal = Math.max(0, currentTotal - 1);
-                            await existingMiracle.update({ "system.usageCount.value": newValue, "system.usageCount.total": newTotal });
-                            ui.notifications.info(`神業「${existingMiracle.name}」の母数が-1されました。`);
+                            // レベル減少時の処理（修正版）
+                            
+                            // この神業に関連する、アクターが所持する全スタイルを取得
+                            const allLinkedStyles = item.actor.items.filter(i => i.type === 'style' && i.system.miracle?.id === miracleUuid);
+                            
+                            // スタイルの合計レベルを計算（更新中のアイテムは newLevel を使用）
+                            const totalStyleLevel = allLinkedStyles.reduce((sum, s) => {
+                                if (s.id === item.id) return sum + newLevel;
+                                return sum + (s.system.level || 1);
+                            }, 0);
+
+                            // 「現在の神業母数」が「新しい合計スタイルレベル」より大きい場合のみ減らす
+                            if (currentValue > totalStyleLevel) {
+                                const newValue = Math.max(1, currentValue - 1);
+                                const newTotal = Math.max(0, currentTotal - 1);
+                                await existingMiracle.update({ "system.usageCount.value": newValue, "system.usageCount.total": newTotal });
+                                ui.notifications.info(`神業「${existingMiracle.name}」の母数が-1されました。`);
+                            }
                         }
                     } catch (e) { console.error(`TokyoNOVA | Error updating Divine Work usage count:`, e); }
                 })();
 
-                // ▼▼▼【ここからが修正箇所】▼▼▼
                 // レベルが3になったら、役割を「ペルソナ」「キー」に強制設定
                 if (newLevel === 3) {
                     foundry.utils.setProperty(changes, "system.isPersona", true);
@@ -565,7 +579,6 @@ Hooks.once("init", async function() {
                     foundry.utils.setProperty(changes, "system.isPersona", false);
                     foundry.utils.setProperty(changes, "system.isKey", false);
                 }
-                // ▲▲▲【ここまで】▲▲▲
             }
         }
     });

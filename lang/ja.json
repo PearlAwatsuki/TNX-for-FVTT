@@ -251,6 +251,31 @@
             "SceneTitle": "タイトル",
             "EnterDifficulty": "登場難易度"
         },
+        "Notification": {
+            "StyleLevelLimit": "これ以上スタイルレベルを上げられません。",
+            "StyleTotalLevelLimit": "スタイルの合計レベルが3を超えてしまいます。",
+            "MiracleCountIncreased": "神業「{name}」の母数を+1しました。",
+            "MiracleCountDecreased": "神業「{name}」の母数を-1しました。",
+            "MiracleLimit": "神業は3種類までしか所有できません。",
+            "MiracleAddedFromStyle": "神業「{miracle}」がスタイル「{style}」から追加されました。",
+            "ItemLimit": "{name}は{limit}つまでしか所有できません。",
+            "StyleRoleFixed": "スタイルレベルが3のため、役割は「ペルソナ」と「キー」で固定されています。",
+            "NoMiracleInWorld": "ワールドに選択可能な神業が存在しません。",
+            "MiracleNotFound": "選択された神業が見つかりませんでした。",
+            "MiracleNoUses": "神業「{name}」はこれ以上使用できません。",
+            "MiracleUsed": "神業「{name}」を使用しました。",
+            "MiracleUsedAsOther": "神業「{origin}」を使用し、「{target}」の効果を発動しました。",
+            "NoTrumpAvailable": "使用できる切り札がありません。",
+            "NoCardToPass": "渡せるカードが手札にありません。",
+            "NoHandSet": "{name}に手札が設定されていません。",
+            "ExpInsufficient": "経験点が足りません！ (必要: {cost} / 所持: {current})",
+            "GrowthChanged": "{label} [{type}] の成長が変更されました ({costText})。",
+            "PointsConsumed": "{points}点 消費",
+            "PointsRecovered": "{points}点 回復"
+        },
+        "Chat": {
+            "EffectTriggered": "発動効果: {name}"
+        },
         "Ui": {
             "Tab": {
                 "Abilities": "能力値",
@@ -262,6 +287,19 @@
                 "Description": "説明",
                 "Setting": "設定",
                 "Effects": "エフェクト"
+            },
+            "Label": {
+                "Style": "スタイル: {name}",
+                "Miracle": "神業: {name}",
+                "View": "閲覧",
+                "AbilityControl": "能力値管理"
+            },
+            "Header": {
+                "AbilityControl": "能力値管理"
+            },
+            "Info": {
+                "NotImplementedSkillView": "（一般技能の閲覧モード表示はここに実装されます）",
+                "HandEmpty": "(手札は空です)"
             },
             "Button": {
                 "Draw": "引く",

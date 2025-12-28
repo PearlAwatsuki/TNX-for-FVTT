@@ -34,5 +34,40 @@ export class TokyoNovaMiracleSheet extends ItemSheet {
         if (!this.isEditable) return;
 
         EffectsSheetMixin.activateEffectListListeners(html, this.item);
+
+        // 使用回数操作ボタンのリスナーを追加
+        html.find('[data-action="increment-level"]').on('click', this._onIncrementLevel.bind(this));
+        html.find('[data-action="decrement-level"]').on('click', this._onDecrementLevel.bind(this));
+    }
+
+    /**
+     * 残り回数を増やす処理
+     */
+    async _onIncrementLevel(event) {
+        event.preventDefault();
+        const usage = this.item.system.usageCount;
+        const max = (usage.value || 0) + (usage.mod || 0);
+        // 上限（母数+修正値）を超えない範囲で+1
+        if (usage.total < max) {
+             const updates = { "system.usageCount.total": usage.total + 1 };
+             // 回数が0より大きくなるなら、使用済みフラグを解除する
+             if (usage.total + 1 > 0) updates["system.isUsed"] = false;
+             await this.item.update(updates);
+        }
+    }
+
+    /**
+     * 残り回数を減らす処理
+     */
+    async _onDecrementLevel(event) {
+        event.preventDefault();
+        const usage = this.item.system.usageCount;
+        // 0未満にならない範囲で-1
+        if (usage.total > 0) {
+             const updates = { "system.usageCount.total": usage.total - 1 };
+             // 回数が0になるなら、使用済みフラグを立てる
+             if (usage.total - 1 === 0) updates["system.isUsed"] = true;
+             await this.item.update(updates);
+        }
     }
 }

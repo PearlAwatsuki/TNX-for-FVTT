@@ -32,7 +32,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
         const allStyles = this.actor.items.filter(i => i.type === 'style');
         const allMiracles = this.actor.items.filter(i => i.type === 'miracle');
         context.equippedAffiliations = this.actor.items.filter(i => i.type === 'organization');
-        context.affiliationDisplay = context.equippedAffiliations[0]?.name || game.i18n.localize("TNX.Unaffiliated");
+        context.affiliationDisplay = context.equippedAffiliations[0]?.name || game.i18n.localize("TNX.Actor.Profile.Unaffiliated");
         
         context.styleSlots = this._prepareStyleSlots(allStyles);
         const miracleSlotsData = this._prepareMiraclesForDisplay(allMiracles);
@@ -122,7 +122,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
         // コネ以外の一般技能をスート別に分類
         const otherGeneralSkills = generalSkills.filter(s => !s.name.startsWith("コネ"));
         const skillsBySuit = {
-            spade: { label: "スペード", skills: [] },
+            spade: { label: game.i18n.localize("TNX.Suit.Spade"), skills: [] },
             club: { label: "クラブ", skills: [] },
             diamond: { label: "ダイヤ", skills: [] },
             heart: { label: "ハート", skills: [] },
@@ -208,7 +208,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
                         'system.usageCount.value': newValue,
                         'system.usageCount.total': newTotal
                     });
-                    ui.notifications.info(`神業「${item.name}」の母数を-1しました。`);
+                    ui.notifications.info(game.i18n.format("TNX.Notification.MiracleCountDecreased", { name: item.name }));
                     return; // アイテムを削除せずに処理を終了
                 }
             }
@@ -302,7 +302,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
     _getAbilitiesData(context, equippedStyles) {
         context.system.abilities = {};
         const abilityKeys = ["reason", "passion", "life", "mundane"];
-        const abilityLabels = { "reason": "TNX.Reason", "passion": "TNX.Passion", "life": "TNX.Life", "mundane": "TNX.Mundane" };
+        const abilityLabels = { "reason": "TNX.Ability.Reason", "passion": "TNX.Ability.Passion", "life": "TNX.Ability.Life", "mundane": "TNX.Ability.Mundane" };
         
         for (const key of abilityKeys) {
             const ability = context.system[key];
@@ -337,7 +337,6 @@ export class TokyoNovaCastSheet extends ActorSheet {
         if (!item) return;
         const dropArea = event.target.closest('[data-drop-area]')?.dataset.dropArea;
     
-        // ▼▼▼【ここから修正】▼▼▼
         if (item.type === "style" && dropArea === "style") {
             const allStyles = this.actor.items.filter(i => i.type === 'style');
             const totalLevel = allStyles.reduce((sum, s) => sum + (s.system.level || 1), 0);
@@ -351,8 +350,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
                     return false;
                 }
                 const currentLevel = existingItem.system.level || 1;
-                await existingItem.update({ 'system.level': currentLevel + 1 });
-                createdOrUpdatedStyle = existingItem;
+                createdOrUpdatedStyle = await existingItem.update({ 'system.level': currentLevel + 1 });
             } else {
                 const itemData = item.toObject();
                 if (!itemData.system.level) itemData.system.level = 1;
@@ -364,7 +362,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
                 createdOrUpdatedStyle = createdItems[0];
             }
 
-            // --- スタイルに紐づく神業の処理をここに追加 ---
+            // --- スタイルに紐づく神業の処理（修正版） ---
             if (createdOrUpdatedStyle) {
                 const miracleUuid = createdOrUpdatedStyle.system.miracle?.id;
                 if (miracleUuid) {
@@ -374,17 +372,24 @@ export class TokyoNovaCastSheet extends ActorSheet {
                         const existingMiracle = allMiracles.find(i => i.name === sourceMiracle.name);
 
                         if (existingMiracle) {
-                            // 既に持っている場合は母数を+1
-                            const usage = existingMiracle.system.usageCount;
-                            const mod = usage.mod || 0;
-                            const newValue = Math.min(3, (usage.value || 0) + 1);
-                            const newTotal = newValue + mod;
-                            
-                            ui.notifications.info(`神業「${existingMiracle.name}」の母数が+1されました。`);
-                            await existingMiracle.update({
-                                'system.usageCount.value': newValue,
-                                'system.usageCount.total': newTotal
-                            });
+                            // 既に持っている場合は、母数が必要量に達していない場合のみ+1
+                            const allLinkedStyles = this.actor.items.filter(i => i.type === 'style' && i.system.miracle?.id === miracleUuid);
+                            // インポート後の合計レベル（createdOrUpdatedStyleは既に作成/更新済みなのでそのまま加算）
+                            const totalStyleLevel = allLinkedStyles.reduce((sum, s) => sum + (s.system.level || 1), 0);
+                            const currentMiracleValue = existingMiracle.system.usageCount.value || 0;
+
+                            if (currentMiracleValue < totalStyleLevel) {
+                                const usage = existingMiracle.system.usageCount;
+                                const mod = usage.mod || 0;
+                                const newValue = Math.min(3, currentMiracleValue + 1);
+                                const newTotal = newValue + mod;
+                                
+                                ui.notifications.info(`神業「${existingMiracle.name}」の母数が+1されました。`);
+                                await existingMiracle.update({
+                                    'system.usageCount.value': newValue,
+                                    'system.usageCount.total': newTotal
+                                });
+                            }
                         } else {
                             // 持っていない場合は新規作成
                             if (allMiracles.length >= 3) {
@@ -404,7 +409,6 @@ export class TokyoNovaCastSheet extends ActorSheet {
             }
             return createdOrUpdatedStyle;
         }
-        // ▲▲▲【ここまで修正】▲▲▲
     
         if (item.type === "miracle" && dropArea === "miracle") {
             const allMiracles = this.actor.items.filter(i => i.type === 'miracle');
