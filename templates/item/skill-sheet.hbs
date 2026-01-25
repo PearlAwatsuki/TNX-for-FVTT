@@ -1,0 +1,390 @@
+<form class="{{cssClass}}" autocomplete="off">
+    {{!-- ヘッダーエリア --}}
+    <header class="sheet-header skill-header">
+        <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}"/>
+        <div class="header-fields">
+            <h1 class="charname"><input name="name" type="text" value="{{item.name}}" placeholder="スキル名"/></h1>
+            
+            <div class="suit-selection">
+                {{#each TNX.SUITS as |suitData key|}}
+                    <label for="suit-{{key}}" class="suit-icon" title="{{suitData.label}}">
+                        <input type="checkbox" id="suit-{{key}}" name="system.suits.{{key}}" {{checked (lookup ../system.suits key)}} {{#if suitData.disabled}}disabled{{/if}}/>
+                        <i class="fa-solid fa-{{key}}"></i>
+                    </label>
+                {{/each}}
+            </div>
+        </div>
+
+        <div class="level-display">
+            <label for="system.level">レベル</label>
+            <input type="number" name="system.level" value="{{system.level}}">
+        </div>
+    </header>
+
+    {{!-- タブナビゲーション --}}
+    <nav class="sheet-tabs tabs" data-group="primary">
+        <a class="item" data-tab="description">説明</a>
+        <a class="item" data-tab="setting">設定</a>
+        <a class="item" data-tab="effects">エフェクト</a>
+    </nav>
+
+    {{!-- タブコンテンツ --}}
+    <section class="sheet-body">
+
+        {{!-- 説明タブ --}}
+        <div class="tab description" data-group="primary" data-tab="description">
+            {{#if (eq system.category "styleSkill")}}
+                <div class="style-skill-display">
+                    <div class="style-skill-display-grid">
+                        <div>
+                            <label>技能：</label>
+                            <span>{{view.comboSkill}}</span>
+                        </div>
+                        <div>
+                            <label>上限：</label>
+                            <span>{{view.maxLevel}}</span>
+                        </div>
+                        <div class="full-width-row">
+                            <label>タイミング：</label><span>{{view.timing}}</span>
+                        </div>
+                        <div>
+                            <label>対象：</label>
+                            <span>{{view.target}}</span>
+                        </div>
+                        <div>
+                            <label>射程：</label>
+                            <span>{{view.range}}</span>
+                        </div>
+                        <div>
+                            <label>目標値：</label>
+                            <span>{{view.targetValue}}</span>
+                        </div>
+                        <div>
+                            <label>対決：</label>
+                            <span>{{view.confrontation}}</span>
+                        </div>
+                    </div>
+                </div>
+            {{/if}}
+
+            <div class="tnx-editor-section">
+                <div class="tnx-editor-section__header">
+                    <label>解説</label>
+                </div>
+                <div class="tnx-editor-section__content">
+                     {{editor enrichedDescription target="system.description" engine="prosemirror" button=true owner=owner editable=editable}}
+                </div>
+            </div>
+        </div>
+
+        {{!-- 設定タブ --}}
+        <div class="tab setting" data-group="primary" data-tab="setting">
+            <div class="settings-grid">
+                <div class="form-group">
+                    <label>ベース技能</label>
+                    <input type="checkbox" name="system.isBase" {{checked system.isBase}}>
+                    <p class="notes">組み合わせ判定のベースになる技能の場合にチェックします。</p>
+                </div>
+
+                <div class="form-group">
+                    <label>技能カテゴリ</label>
+                    <select name="system.category">
+                        {{selectOptions options.category selected=system.category}}
+                    </select>
+                </div>
+                <hr>
+                {{#if (eq system.category "generalSkill")}}
+                    <fieldset class="tnx-fieldset">
+                        <legend>一般技能 設定</legend>
+                        <div class="form-group">
+                            <label>種別</label>
+                            <select name="system.generalSkill.generalSkillCategory">
+                                {{selectOptions options.generalSkillCategory selected=system.generalSkill.generalSkillCategory}}
+                            </select>
+                        </div>
+                    </fieldset>
+                {{/if}}
+
+                {{#if (eq system.category "styleSkill")}}
+                    <fieldset class="tnx-fieldset">
+                        <legend>スタイル技能 詳細設定</legend>
+                        <div class="style-skill-settings-wrapper">
+                            <div class="form-group">
+                                <label>種別</label>
+                                <select name="system.styleSkill.styleSkillCategory">
+                                    {{selectOptions options.styleSkillCategory selected=system.styleSkill.styleSkillCategory}}
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>スタイル</label>
+                                <input type="text" name="system.styleSkill.style" value="{{system.styleSkill.style}}"/>
+                            </div>
+
+                            {{!-- 技能（Combo Skill） --}}
+                            <div class="form-group align-start">
+                                <label>技能</label>
+                                <div class="form-fields-column">
+                                    {{#each system.styleSkill.comboSkill as |skill idx|}}
+                                        <div class="array-row">
+                                            <select name="system.styleSkill.comboSkill.{{idx}}.value">
+                                                {{selectOptions ../options.comboSkill selected=skill.value}}
+                                            </select>
+
+                                            {{!-- 技能名 または その他 の場合に入力欄を表示 --}}
+                                            {{#if (or (eq skill.value "skillName") (eq skill.value "other"))}}
+                                                <input type="text" name="system.styleSkill.comboSkill.{{idx}}.name" value="{{skill.name}}" placeholder="{{#if (eq skill.value 'other')}}内容を入力{{else}}技能名{{/if}}"/>
+                                                
+                                                {{!-- チェックボックス（2行目以降のみ） --}}
+                                                {{#if (gt idx 0)}}
+                                                    <label class="checkbox-inline" title="直前の技能と結合 (&)">
+                                                        <input type="checkbox" name="system.styleSkill.comboSkill.{{idx}}.isMandatory" {{checked skill.isMandatory}}>
+                                                    </label>
+                                                {{/if}}
+                                            {{/if}}
+
+                                            <div class="row-controls">
+                                                {{#if (eq idx 0)}}
+                                                    <button type="button" class="add-array-item" data-target="combo" title="行を追加">
+                                                        <i class="fas fa-plus"></i>
+                                                    </button>
+                                                {{/if}}
+                                                {{#if (gte idx 1)}}
+                                                    <button type="button" class="delete-array-item" data-target="combo" data-index="{{idx}}" title="削除">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                {{/if}}
+                                            </div>
+                                        </div>
+                                    {{/each}}
+                                </div>
+                            </div>
+
+                            {{!-- 上限 (変更なし) --}}
+                            <div class="form-group">
+                                <label>上限</label>
+                                <div class="form-fields {{#if (eq system.styleSkill.maxLevel 'number')}}split-fields{{/if}}">
+                                    <select name="system.styleSkill.maxLevel">
+                                        {{selectOptions options.maxLevel selected=system.styleSkill.maxLevel}}
+                                    </select>
+                                    
+                                    {{!-- 数値の場合: スピナー表示 --}}
+                                    {{#if (eq system.styleSkill.maxLevel "number")}}
+                                        <div class="number-input-spinner skill-sheet-spinner">
+                                            <button type="button" data-action="decrement-max-level" class="tnx-button">-</button>
+                                            <input type="number" name="system.styleSkill.maxLevelNumber" value="{{system.styleSkill.maxLevelNumber}}"/>
+                                            <button type="button" data-action="increment-max-level" class="tnx-button">+</button>
+                                        </div>
+                                    {{/if}}
+
+                                    {{!-- その他の場合: テキスト入力 --}}
+                                    {{#if (eq system.styleSkill.maxLevel "other")}}
+                                        <input type="text" name="system.styleSkill.maxLevelOther" value="{{system.styleSkill.maxLevelOther}}" placeholder="上限を入力"/>
+                                    {{/if}}
+                                </div>
+                            </div>
+
+                            {{!-- タイミング (Timing) --}}
+                            <div class="form-group align-start">
+                                <label>タイミング</label>
+                                <div class="form-fields-column">
+                                    {{#each system.styleSkill.timing as |t idx|}}
+                                    <div class="array-row">
+                                        <select name="system.styleSkill.timing.{{idx}}.value">
+                                            {{selectOptions ../options.timing selected=t.value}}
+                                        </select>
+
+                                        {{!-- 詳細入力 --}}
+                                        {{#if (eq t.value "other")}}
+                                            <input type="text" name="system.styleSkill.timing.{{idx}}.timingOther" value="{{t.timingOther}}" placeholder="タイミングを入力"/>
+                                        {{/if}}
+                                        {{#if (eq t.value "action")}}
+                                            <select name="system.styleSkill.timing.{{idx}}.actionName">
+                                                {{selectOptions ../options.actions selected=t.actionName}}
+                                            </select>
+                                        {{/if}}
+                                        {{#if (eq t.value "process")}}
+                                            <select name="system.styleSkill.timing.{{idx}}.processName">
+                                                {{selectOptions ../options.processes selected=t.processName}}
+                                            </select>
+                                        {{/if}}
+
+                                        <div class="row-controls">
+                                            {{!-- 1行目のみ追加ボタン --}}
+                                            {{#if (eq idx 0)}}
+                                                <button type="button" class="add-array-item" data-target="timing" title="行を追加">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                            {{/if}}
+
+                                            {{!-- 2行目(index 1)以降は削除ボタン --}}
+                                            {{#if (gte idx 1)}}
+                                                <button type="button" class="delete-array-item" data-target="timing" data-index="{{idx}}" title="削除">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            {{/if}}
+                                        </div>
+                                    </div>
+                                    {{/each}}
+                                </div>
+                            </div>
+
+                            <div class="form-group align-start">
+                                <label>対象</label>
+                                <div class="form-fields-stack">
+                                    {{!-- 1行目: ドロップダウンと入力欄 --}}
+                                    <div class="form-fields {{#if (eq system.styleSkill.target 'other')}}split-fields{{/if}}">
+                                        <select name="system.styleSkill.target">
+                                            {{selectOptions options.target selected=system.styleSkill.target}}
+                                        </select>
+                                        {{#if (eq system.styleSkill.target "other")}}
+                                            <input type="text" name="system.styleSkill.targetOther" value="{{system.styleSkill.targetOther}}" placeholder="対象を入力"/>
+                                        {{/if}}
+                                    </div>
+                                    {{!-- 2行目: チェックボックス --}}
+                                    <div class="checkbox-row">
+                                        <label>変更不可（※）</label>
+                                        <input type="checkbox" name="system.styleSkill.isFixedTarget" {{checked system.styleSkill.isFixedTarget}}>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group align-start">
+                                <label>射程</label>
+                                <div class="form-fields-stack">
+                                    {{!-- 1行目 --}}
+                                    <div class="form-fields {{#if (eq system.styleSkill.range 'other')}}split-fields{{/if}}">
+                                        <select name="system.styleSkill.range">
+                                            {{selectOptions options.range selected=system.styleSkill.range}}
+                                        </select>
+                                        {{!-- その他入力 --}}
+                                        {{#if (eq system.styleSkill.range "other")}}
+                                            <input type="text" name="system.styleSkill.rangeOther" value="{{system.styleSkill.rangeOther}}" placeholder="射程を入力"/>
+                                        {{/if}}
+                                    </div>
+                                    {{!-- 2行目 --}}
+                                    <div class="checkbox-row">
+                                        <label>
+                                            <input type="checkbox" name="system.styleSkill.isFixedRange" {{checked system.styleSkill.isFixedRange}}>
+                                            変更不可（※）
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>目標値</label>
+                                <div class="form-fields {{#if (eq system.styleSkill.targetValue 'number')}}split-fields{{/if}}">
+                                    <select name="system.styleSkill.targetValue">
+                                        {{selectOptions options.targetValue selected=system.styleSkill.targetValue}}
+                                    </select>
+                                    
+                                    {{!-- 数値の場合: スピナー --}}
+                                    {{#if (eq system.styleSkill.targetValue "number")}}
+                                        <div class="number-input-spinner skill-sheet-spinner">
+                                            <button type="button" data-action="decrement-target-value" class="tnx-button">-</button>
+                                            <input type="number" name="system.styleSkill.targetValueNumber" value="{{system.styleSkill.targetValueNumber}}"/>
+                                            <button type="button" data-action="increment-target-value" class="tnx-button">+</button>
+                                        </div>
+                                    {{/if}}
+
+                                    {{!-- その他の場合: テキスト入力 --}}
+                                    {{#if (eq system.styleSkill.targetValue "other")}}
+                                        <input type="text" name="system.styleSkill.targetValueOther" value="{{system.styleSkill.targetValueOther}}" placeholder="目標値を入力"/>
+                                    {{/if}}
+                                </div>
+                            </div>
+                            {{!-- 対決 (Confrontation) --}}
+                            <div class="form-group align-start">
+                                <label>対決</label>
+                                <div class="form-fields-column">
+                                    {{#each system.styleSkill.confrontation as |c idx|}}
+                                        <div class="array-row">
+                                            <select name="system.styleSkill.confrontation.{{idx}}.value">
+                                                {{selectOptions ../options.confrontation selected=c.value}}
+                                            </select>
+
+                                            {{!-- 技能名系 または その他 の場合に入力欄を表示 --}}
+                                            {{#if (or (eq c.value 'skillName') (eq c.value 'skillNameAsterisk') (eq c.value 'other'))}}
+                                                <input type="text" name="system.styleSkill.confrontation.{{idx}}.name" value="{{c.name}}" placeholder="{{#if (eq c.value 'other')}}内容を入力{{else}}技能名{{/if}}"/>
+                                            {{/if}}
+
+                                            <div class="row-controls">
+                                                {{!-- ...ボタン類は変更なし... --}}
+                                                {{#if (eq idx 0)}}
+                                                    <button type="button" class="add-array-item" data-target="confrontation">
+                                                        <i class="fas fa-plus"></i>
+                                                    </button>
+                                                {{/if}}
+                                                {{#if (gte idx 1)}}
+                                                    <button type="button" class="delete-array-item" data-target="confrontation" data-index="{{idx}}">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                {{/if}}
+                                            </div>
+                                        </div>
+                                    {{/each}}
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="isLimit-{{item._id}}">使用回数に制限あり</label>
+                                <input type="checkbox" name="system.styleSkill.uses.isLimit" id="isLimit-{{item._id}}" {{checked system.styleSkill.uses.isLimit}}>
+                            </div>
+                            {{#if system.styleSkill.uses.isLimit}}
+                                <div class="form-group usage-limit-group">
+                                    <label>使用回数</label>
+                                    <div class="usage-inputs">
+                                        <div class="usage-field">
+                                            <label>現在値</label>
+                                            <input type="number" name="system.styleSkill.uses.value" value="{{system.styleSkill.uses.value}}">
+                                        </div>
+                                        <span class="usage-separator">/</span>
+                                        <div class="usage-field">
+                                            <label>最大値</label>
+                                            <input type="number" name="system.styleSkill.uses.max" value="{{system.styleSkill.uses.max}}">
+                                        </div>
+                                    </div>
+                                </div>
+                            {{/if}}
+
+                            {{#if (eq system.styleSkill.styleSkillCategory "special")}}
+                                <div class="form-group">
+                                    <label for="isWorks-{{item._id}}">ワークス技能</label>
+                                    <input type="checkbox" name="system.styleSkill.special.works.value" id="isWorks-{{item._id}}" {{checked system.styleSkill.special.works.value}}>
+                                </div>
+                                {{#if system.styleSkill.special.works.value}}
+                                    <div class="form-group">
+                                        <label>組織名</label>
+                                        <input type="text" name="system.styleSkill.special.works.organization" value="{{system.styleSkill.special.works.organization}}" placeholder="関連する組織名を入力...">
+                                    </div>
+                                {{/if}}
+                                
+                                <div class="form-group">
+                                    <label for="isRewrite-{{item._id}}">神業書き換え</label>
+                                    <input type="checkbox" name="system.styleSkill.isMiracleRewriting" id="isRewrite-{{item._id}}" {{checked system.styleSkill.isMiracleRewriting}}>
+                                </div>
+                                {{#if system.styleSkill.isMiracleRewriting}}
+                                    <div class="form-group">
+                                        <label>書き換え対象の神業名</label>
+                                        <input type="text" name="system.styleSkill.rewritingMiracleName" value="{{system.styleSkill.rewritingMiracleName}}" placeholder="書き換え元の神業名を入力...">
+                                    </div>
+                               
+                                    <div class="form-group">
+                                        <label>書き換え先</label>
+                                        <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="rewriting-miracle">
+                                            <span>神業アイテムをここにドロップ</span>
+                                        </div>
+                                    </div>
+                                {{/if}}
+                            {{/if}}
+                        </div>
+                    </fieldset>
+                {{/if}}
+            </div>
+        </div>
+
+        {{!-- エフェクトタブ --}}
+        <div class="tab effects" data-group="primary" data-tab="effects">
+            {{> "systems/tokyo-nova-axleration/templates/parts/active-effects-list.hbs"}}
+        </div>
+    </section>
+</form>

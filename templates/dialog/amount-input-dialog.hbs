@@ -1,0 +1,10 @@
+<form autocomplete="off">
+    <div class="form-group">
+        <label>{{label}}</label>
+        <div class="form-fields number-input-spinner">
+            <button type="button" class="minus" aria-label="Decrease" onclick="this.nextElementSibling.stepDown()">-</button>
+            <input type="number" name="amount" value="{{initialValue}}" min="{{min}}" max="{{max}}">
+            <button type="button" class="plus" aria-label="Increase" onclick="this.previousElementSibling.stepUp()">+</button>
+        </div>
+    </div>
+</form>

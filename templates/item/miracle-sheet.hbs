@@ -1,0 +1,83 @@
+<form class="{{cssClass}}" autocomplete="off">
+    <header class="sheet-header">
+        <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}"/>
+        
+        <div class="header-fields">
+            <h1 class="charname-container">
+                <input class="furigana-input" name="system.furigana" type="text" value="{{system.furigana}}" placeholder="フリガナ" />
+                <input class="itemname-input" name="name" type="text" value="{{item.name}}" placeholder="アイテム名" />
+            </h1>
+        </div>
+    </header>
+
+    <nav class="sheet-tabs tabs" data-group="primary">
+        <a class="item" data-tab="description">{{localize "TNX.Description"}}</a>
+        <a class="item" data-tab="setting">{{localize "TNX.Setting"}}</a>
+        <a class="item" data-tab="effects">{{localize "TNX.Effects"}}</a>
+    </nav>
+
+     <section class="sheet-body">
+        <div class="tab description" data-group="primary" data-tab="description">
+            <div class="tnx-editor-section">
+  
+              <div class="tnx-editor-section__header">
+                    <label>{{localize "TNX.Description"}}</label>
+                </div>
+                <div class="tnx-editor-section__content">
+                    {{editor enrichedDescription target="system.description" engine="prosemirror" button=true owner=owner editable=editable}}      
+                </div>
+            </div>
+            <div class="tnx-editor-section">
+                <div class="tnx-editor-section__header">
+                    <label>{{localize "TNX.UsageCondition"}}</label>
+                </div>
+                <div class="tnx-editor-section__content">
+                    {{editor enrichedConditionDescription target="system.usageCondition" engine="prosemirror" button=true owner=owner editable=editable}}
+                </div>
+            </div>
+        </div>
+
+        <div class="tab setting" data-group="primary" data-tab="setting">
+            <fieldset class="tnx-fieldset">
+                <legend>{{localize "TNX.MiracleFlags"}}</legend>
+                <div class="form-group">
+                    <label for="isKill">{{localize "TNX.IsKill"}}</label>
+                    <input type="checkbox" id="isKill" name="system.isKill" {{checked system.isKill}}>
+                    <p class="notes">{{localize "TNX.IsKillHint"}}</p>
+                </div>
+                <div class="form-group">
+                    <label for="isDefence">{{localize "TNX.IsDefence"}}</label>
+                    <input type="checkbox" id="isDefence" name="system.isDefence" {{checked system.isDefence}}>
+                    <p class="notes">{{localize "TNX.IsDefenceHint"}}</p>
+                </div>
+                <div class="form-group">
+                    <label for="isAll">{{localize "TNX.IsAll"}}</label>
+                    <input type="checkbox" id="isAll" name="system.isAll" {{checked system.isAll}}>
+                    <p class="notes">{{localize "TNX.IsAllHint"}}</p>
+                </div>
+            </fieldset>
+
+            <fieldset class="tnx-fieldset">
+                <legend>{{localize "TNX.UsageCount"}}</legend>
+                <div class="form-group">
+                    <label for="isUsed">{{localize "TNX.Used"}}</label>
+                    <input type="checkbox" id="isUsed" name="system.isUsed" {{checked system.isUsed}}>
+                    <p class="notes">{{localize "TNX.UsedHint"}}</p>
+                </div>
+                <div class="form-group">
+                    <label>{{localize "TNX.RemainingUses"}}</label>
+                    <div class="number-input-spinner">
+                        <button type="button" data-action="decrement-level" class="tnx-button">-</button>
+                        <input class="ability-value" type="number" name="system.usageCount.total" value="{{system.usageCount.total}}" {{#if system.isUsed}} disabled {{/if}}>
+                        <button type="button" data-action="increment-level" class="tnx-button">+</button>
+                    </div>
+                    <p class="notes">{{localize "TNX.RemainingUsesHint"}}</p>
+                </div>
+            </fieldset>
+        </div>
+        
+        <div class="tab effects" data-group="primary" data-tab="effects">
+            {{> "systems/tokyo-nova-axleration/templates/parts/active-effects-list.hbs"}}
+        </div>
+    </section>
+</form>

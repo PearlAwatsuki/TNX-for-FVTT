@@ -1,0 +1,394 @@
+{
+    "TNX": {
+        "Common": {
+            "Name": "名称",
+            "Level": "レベル",
+            "Description": "説明",
+            "Explanation": "解説",
+            "Settings": "設定",
+            "Effects": "エフェクト",
+            "Image": "画像",
+            "Value": "値",
+            "Max": "最大値",
+            "Current": "現在値",
+            "Type": "種別",
+            "Category": "カテゴリ",
+            "Add": "追加",
+            "Delete": "削除",
+            "Edit": "編集",
+            "Usage": "使用回数",
+            "Check": "判定",
+            "Target": "対象",
+            "Range": "射程",
+            "Timing": "タイミング",
+            "Cost": "代償",
+            "None": "なし",
+            "Other": "その他",
+            "Memo": "メモ"
+        },
+        "Ability": {
+            "Reason": "{suit}理性",
+            "Passion": "{suit}感情",
+            "Life": "{suit}生命",
+            "Mundane": "{suit}外界",
+            "CS": "CS",
+            "Total": "合計値",
+            "Control": "制御値",
+            "Growth": "成長",
+            "Mod": "修正",
+            "Effect": "効果",
+            "Breakdown": "内訳"
+        },
+        "Suits": {
+            "spade": "スペード",
+            "club": "クラブ",
+            "heart": "ハート",
+            "diamond": "ダイヤ"
+        },
+        "Actor": {
+            "Type": {
+                "Cast": "キャスト",
+                "Guest": "ゲスト",
+                "Troop": "トループ",
+                "Extra": "エキストラ"
+            },
+            "Profile": {
+                "Header": "パーソナルデータ",
+                "Name": "キャラクター名",
+                "Ruby": "フリガナ",
+                "Handle": "ハンドル",
+                "Age": "年齢",
+                "Gender": "性別",
+                "Birthday": "誕生日",
+                "Height": "身長",
+                "Weight": "体重",
+                "Eyes": "瞳の色",
+                "Hair": "髪の色",
+                "Skin": "肌の色",
+                "CitizenRank": "市民ランク",
+                "Affiliation": "所属",
+                "Unaffiliated": "無所属",
+                "LifePath": "ライフパス"
+            },
+            "Stats": {
+                "Exp": "経験点",
+                "ExpCurrent": "現在経験点",
+                "ExpTotal": "総経験点"
+            },
+            "Cards": {
+                "Hand": "手札",
+                "Trump": "切り札",
+                "Deck": "山札",
+                "Discard": "捨て札",
+                "DefaultHandPileName": "{actorName}の手札",
+                "DefaultTrumpPileName": "{actorName}の切り札"
+
+            },
+            "Items": {
+                "Styles": "スタイル",
+                "Miracles": "神業",
+                "GeneralSkills": "一般技能",
+                "StyleSkills": "スタイル技能",
+                "Connections": "コネ",
+                "Outfits": "アウトフィット",
+                "Organizations": "組織",
+                "Arts": "アーツ"
+            },
+            "DropHint": {
+                "Hand": "ここに山札/手札をドロップ",
+                "Trump": "ここに切り札置き場をドロップ",
+                "Style": "スタイルをここにドロップ",
+                "Miracle": "神業をここにドロップ",
+                "Organization": "組織アイテムをここにドロップ"
+            }
+        },
+        "Item": {
+            "Skill": {
+                "Label": "技能",
+                "Base": "ベース技能",
+                "BaseHint": "組み合わせ判定のベースになる技能の場合にチェックします。",
+                "Category": {
+                    "General": "一般技能",
+                    "Style": "スタイル技能"
+                },
+                "GeneralType": {
+                    "Initial": "初期習得技能",
+                    "Onomastic": "固有名詞技能"
+                },
+                "StyleType": {
+                    "Special": "特技",
+                    "Secret": "秘伝",
+                    "Mystery": "奥義"
+                },
+                "Combo": "技能",
+                "MaxLevel": "上限",
+                "TargetValue": "目標値",
+                "Confrontation": "対決",
+                "IsFixed": "変更不可（※）",
+                "Combine": "直前の技能と結合 (&)",
+                "UseLimit": "使用回数に制限あり",
+                "Works": "ワークス技能",
+                "Organization": "組織名",
+                "MiracleRewrite": "神業書き換え",
+                "SourceMiracle": "書き換え対象の神業名",
+                "TargetMiracle": "書き換え先",
+                "DropMiracle": "神業アイテムをここにドロップ",
+                "Options": {
+                    "Combo": {
+                        "Single": "単独",
+                        "Dodge": "ドッジ",
+                        "Parry": "パリー",
+                        "SkillName": "技能名",
+                        "Any": "任意"
+                    },
+                    "Timing": {
+                        "Action": "アクション",
+                        "Process": "プロセス",
+                        "InitiativeMajor": "イニシアチブ（メジャー）",
+                        "Always": "常時",
+                        "AlwaysSelect": "常時（選択）",
+                        "PreDamage": "ダメージ算出の直前",
+                        "PostDamage": "ダメージ算出の直後",
+                        "Miracle": "神業"
+                    },
+                    "Action": {
+                        "Move": "ムーブ",
+                        "Minor": "マイナー",
+                        "Major": "メジャー",
+                        "Reaction": "リアクション",
+                        "Auto": "オート"
+                    },
+                    "Process": {
+                        "Setup": "セットアップ",
+                        "Initiative": "イニシアチブ",
+                        "Cleanup": "クリンナップ"
+                    },
+                    "Target": {
+                        "Self": "自身",
+                        "Single": "単体",
+                        "Area": "範囲",
+                        "AreaSelect": "範囲（選択）",
+                        "Scene": "シーン",
+                        "SceneSelect": "シーン（選択）",
+                        "Team": "チーム"
+                    },
+                    "Range": {
+                        "Close": "至近",
+                        "Short": "近",
+                        "Middle": "中",
+                        "Long": "遠",
+                        "SuperLong": "超遠",
+                        "Weapon": "武器"
+                    },
+                    "TargetValue": {
+                        "Control": "制御値",
+                        "Total": "達成値",
+                        "EnterDifficulty": "登場目標値"
+                    },
+                    "MaxLevel": {
+                        "Number": "数値",
+                        "SL": "SL"
+                    },
+                    "Confrontation": {
+                        "SkillName": "技能名",
+                        "SkillNameAsterisk": "技能名※",
+                        "Cannot": "不可"
+                    },
+                    "Common": {
+                        "Blank": "-",
+                        "None": "なし",
+                        "Other": "その他",
+                        "Explanation": "解説参照",
+                        "Number": "数字"
+                    }
+                }
+            },
+            "Miracle": {
+                "Label": "神業",
+                "Condition": "使用条件",
+                "IsAttack": "攻撃神業",
+                "IsDefence": "防御神業",
+                "IsOmni": "万能神業",
+                "IsUsed": "使用済み"
+            },
+            "Style": {
+                "Label": "スタイル",
+                "IsPersona": "ペルソナ",
+                "IsKey": "キー",
+                "MiracleName": "神業名",
+                "FlagNames": {
+                    "Reason": "理性",
+                    "Passion": "感情",
+                    "Life": "生命",
+                    "Mundane": "外界"
+                }
+            },
+            "Outfit": {
+                "Label": "アウトフィット",
+                "IsPrepared": "準備済み",
+                "Purchase": "購入難易度",
+                "Concealment": "隠匿値",
+                "Attack": "攻撃力",
+                "Defence": "防御力",
+                "DefenceS": "S防",
+                "DefenceP": "P防",
+                "DefenceI": "I防",
+                "Part": "部位",
+                "Parts": {
+                    "OneHand": "片手持ち",
+                    "TwoHand": "両手持ち",
+                    "Head": "頭部",
+                    "Body": "胴部",
+                    "Option": "オプション",
+                    "Vehicle": "ヴィークル",
+                    "Cyberne": "サイバネ",
+                    "Other": "その他"
+                }
+            }
+        },
+        "Scenario": {
+            "Scenes": "シーン管理",
+            "Texts": "テキスト管理",
+            "Info": "情報管理",
+            "Handouts": "ハンドアウト",
+            "Trailer": "トレーラー",
+            "AddScene": "シーン追加",
+            "AddText": "テキスト追加",
+            "AddInfo": "情報追加",
+            "MasterScene": "マスターシーン",
+            "SceneNumber": "シーンNo",
+            "SceneTitle": "タイトル",
+            "EnterDifficulty": "登場難易度"
+        },
+        "Notification": {
+            "StyleLevelLimit": "これ以上スタイルレベルを上げられません。",
+            "StyleTotalLevelLimit": "スタイルの合計レベルが3を超えてしまいます。",
+            "MiracleCountIncreased": "神業「{name}」の母数を+1しました。",
+            "MiracleCountDecreased": "神業「{name}」の母数を-1しました。",
+            "MiracleLimit": "神業は3種類までしか所有できません。",
+            "MiracleAddedFromStyle": "神業「{miracle}」がスタイル「{style}」から追加されました。",
+            "ItemLimit": "{name}は{limit}つまでしか所有できません。",
+            "StyleRoleFixed": "スタイルレベルが3のため、役割は「ペルソナ」と「キー」で固定されています。",
+            "NoMiracleInWorld": "ワールドに選択可能な神業が存在しません。",
+            "MiracleNotFound": "選択された神業が見つかりませんでした。",
+            "MiracleNoUses": "神業「{name}」はこれ以上使用できません。",
+            "MiracleUsed": "神業「{name}」を使用しました。",
+            "MiracleUsedAsOther": "神業「{origin}」を使用し、「{target}」の効果を発動しました。",
+            "NoTrumpAvailable": "使用できる切り札がありません。",
+            "NoCardToPass": "渡せるカードが手札にありません。",
+            "NoHandSet": "{name}に手札が設定されていません。",
+            "ExpInsufficient": "経験点が足りません！ (必要: {cost} / 所持: {current})",
+            "GrowthChanged": "{label} [{type}] の成長が変更されました ({costText})。",
+            "PointsConsumed": "{points}点 消費",
+            "PointsRecovered": "{points}点 回復"
+        },
+        "Chat": {
+            "EffectTriggered": "発動効果: {name}"
+        },
+        "Ui": {
+            "Tab": {
+                "Abilities": "能力値",
+                "Outfits": "装備",
+                "Battle": "戦闘",
+                "Status": "状態",
+                "History": "履歴",
+                "Profile": "詳細",
+                "Description": "説明",
+                "Setting": "設定",
+                "Effects": "エフェクト"
+            },
+            "Label": {
+                "Style": "スタイル: {name}",
+                "Miracle": "神業: {name}",
+                "MiracleSlot": "神業{number}",
+                "View": "閲覧",
+                "AbilityControl": "能力値管理"
+            },
+            "Header": {
+                "Ability": "能力値",
+                "AbilityControl": "能力値管理"
+            },
+            "Info": {
+                "NotImplementedSkillView": "（一般技能の閲覧モード表示はここに実装されます）",
+                "HandEmpty": "(手札は空です)"
+            },
+            "Button": {
+                "Draw": "引く",
+                "Pass": "渡す",
+                "Use": "使用",
+                "Equip": "装備",
+                "Select": "選択",
+                "Cancel": "キャンセル",
+                "Confirm": "確認",
+                "Edit": "編集",
+                "ToggleMode": "表示モード切替"
+            },
+            "Placeholder": {
+                "Name": "名称を入力",
+                "SkillName": "技能名",
+                "Timing": "タイミングを入力",
+                "Target": "対象を入力",
+                "Range": "射程を入力",
+                "TargetValue": "目標値を入力",
+                "MaxLevel": "上限を入力",
+                "OrgName": "関連する組織名を入力...",
+                "MiracleName": "書き換え元の神業名を入力...",
+                "Content": "内容を入力"
+            }
+        },
+        "Dialog": {
+            "Title": {
+                "UnlinkCards": "カードのリンク解除",
+                "ConfirmUseAsOther": "万能神業の使用確認",
+                "SelectOmniMiracle": "模倣する神業の選択",
+                "ConfirmUseTrump": "切り札の使用確認",
+                "SelectCardsToPass": "渡すカードの選択",
+                "SelectTargetActor": "渡し先の選択"
+            },
+            "Message": {
+                "ConfirmUseAsOther": "神業「{name}」を、他の神業の効果として使用しますか？",
+                "SelectOmniMiracle": "「{name}」として発動する神業を選択してください。",
+                "ConfirmUseTrump": "切り札 {cardName} を使用しますか？",
+                "SelectCardsToPass": "相手に渡すカードを選択してください。",
+                "SelectTargetActor": "誰に渡しますか？",
+                "DefaultHandName": "{actorName}の手札",
+                "DefaultTrumpName": "{actorName}の切り札"
+            },
+            "Error": {
+                "NoHand": "手札が設定されていません。",
+                "NoTrump": "切り札が設定されていません。",
+                "HandEmpty": "手札が空です。",
+                "NoOtherActors": "他に選択可能なキャラクターがいません。"
+            }
+        }
+    },
+    "SHEET": {
+        "Open": "シートを開く",
+        "ItemDelete": "削除"
+    },
+    "TYPES": {
+        "Actor": {
+            "cast": "キャスト",
+            "extra": "エキストラ",
+            "guest": "ゲスト",
+            "troop": "トループ"
+        },
+        "Card": {
+            "playingCards": "トランプ",
+            "neuroCards": "タロット",
+            "other": "その他"
+        },
+        "Item": {
+            "miracle": "神業",
+            "organization": "組織",
+            "outfit": "アウトフィット",
+            "skill": "技能",
+            "style": "スタイル"
+        }
+    },
+    "EFFECT": {
+        "Duration": "効果時間",
+        "Passive": "受動効果",
+        "New": "新規効果"
+    }
+}

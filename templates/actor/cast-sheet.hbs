@@ -1,0 +1,386 @@
+<form class="{{cssClass}} sheet-profile two-column-layout cast-sheet" autocomplete="off">
+    <aside class="profile-sidebar column left-column cast-sidebar">
+        <div class="portrait-section">
+            <img class="profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}"/>
+        </div>
+        <div class="sidebar-personal-data-group">
+            <h3 class="sidebar-header">{{localize "TNX.Actor.Profile.Header"}}</h3>
+            <div class="personal-data-grid">
+                <div class="personal-data-item">
+                    <label>{{localize "TNX.Actor.Profile.Age"}}</label>
+                    <input type="text" name="system.age" value="{{system.age}}"/>
+                </div>
+                <div class="personal-data-item">
+                    <label>{{localize "TNX.Actor.Profile.Gender"}}</label>
+                    <input type="text" name="system.gender" value="{{system.gender}}"/>
+                </div>
+                <div class="personal-data-item">
+                    <label>{{localize "TNX.Actor.Profile.Birthday"}}</label>
+                    <input type="text" name="system.birthday" value="{{system.birthday}}"/>
+                </div>
+                <div class="personal-data-item">
+                    <label>{{localize "TNX.Actor.Profile.Height"}}</label>
+                    <input type="text" name="system.height" value="{{system.height}}"/>
+                </div>
+                <div class="personal-data-item">
+                    <label>{{localize "TNX.Actor.Profile.Weight"}}</label>
+                    <input type="text" name="system.weight" value="{{system.weight}}"/>
+                </div>
+                <div class="personal-data-item">
+                    <label>{{localize "TNX.Actor.Profile.Eyes"}}</label>
+                    <input type="text" name="system.eyes" value="{{system.eyes}}"/>
+                </div>
+                <div class="personal-data-item">
+                    <label>{{localize "TNX.Actor.Profile.Hair"}}</label>
+                    <input type="text" name="system.hair" value="{{system.hair}}"/>
+                </div>
+                <div class="personal-data-item">
+                    <label>{{localize "TNX.Actor.Profile.Skin"}}</label>
+                    <input type="text" name="system.skin" value="{{system.skin}}"/>
+                </div>
+            </div>
+        </div>
+        <div class="sidebar-hand-pool-section">
+            <h3 class="sidebar-header">{{localize "TNX.Actor.Cards.Hand"}}</h3>
+            {{#if isEditMode}}
+            <div class="sidebar-edit-controls">
+                <div class="control-group">
+                    <label>{{localize "TNX.Actor.Cards.Hand"}}</label>
+                    {{#if system.handPileId}}
+                        <button type="button" class="tnx-linked-button" data-action="openHandSheet" data-context-menu-type="unlink" data-unlink-path="system.handPileId">
+                            <img src="{{handPile.img}}" class="tnx-linked-button__icon"/><span class="tnx-linked-button__label">{{handPile.name}}</span>
+                        </button>
+                    {{else}}
+                        <div class="tnx-import-box tnx-import-box--panel-dropzone" data-drop-area="hand-pile"><span>{{localize "TNX.Actor.DropHint.Hand"}}</span></div>
+                    {{/if}}
+                </div>
+                <div class="control-group">
+                    <label>{{localize "TNX.Actor.Cards.Trump"}}</label>
+                    {{#if system.trumpCardPileId}}
+                        <button type="button" class="tnx-linked-button" data-action="openTrumpCardSheet" data-context-menu-type="unlink" data-unlink-path="system.trumpCardPileId">
+                            <img src="{{trumpCardPile.img}}" class="tnx-linked-button__icon"/><span class="tnx-linked-button__label">{{trumpCardPile.name}}</span>
+                        </button>
+                    {{else}}
+                        <div class="tnx-import-box tnx-import-box--panel-dropzone" data-drop-area="trump-card-pile"><span>{{localize "TNX.Actor.DropHint.Trump"}}</span></div>
+                    {{/if}}
+                </div>
+            </div>
+            {{else}}
+            <div class="view-mode-hand">
+                {{#if handPile}}
+                <div class="hand-controls horizontal-buttons">
+                    <button type="button" class="tnx-button" data-action="drawCard" {{#if isHandFull}}disabled{{/if}}>
+                        <i class="fas fa-hand-paper"></i> {{localize "TNX.Ui.Button.Draw"}}
+                    </button>
+                    <button type="button" class="tnx-button" data-action="passToOther" {{#unless handPile.cards.length}}disabled{{/unless}}>
+                        <i class="fas fa-hand-holding-heart"></i> {{localize "TNX.Ui.Button.Pass"}}
+                    </button>
+                    <button type="button" class="tnx-button" data-action="useTrumpCard" {{#unless trumpCard}}disabled{{/unless}}>
+                        <i class="fas fa-star"></i> {{localize "TNX.Actor.Cards.Trump"}}
+                    </button>
+                </div>
+                <div class="hand-cards-display" data-drop-zone="actor-hand">
+                    {{#each handPile.cards as |card|}}
+                        <div class="card-in-hand interactive" data-action="playCard" data-card-id="{{card._id}}" title="{{card.name}}">
+                            <img src="{{card.faces.[0].img}}" alt="{{card.name}}" />
+                        </div>
+                    {{/each}}
+                    {{#if (eq handPile.cards.length 0)}}<div class="hand-empty-placeholder"><span>{{localize "TNX.Ui.Info.HandEmpty"}}</span></div>{{/if}}
+                </div>
+                {{else}}
+                    <div class="no-item-linked-message"><span>{{localize "TNX.NoHandPoolLinked"}}</span></div>
+                {{/if}}
+            </div>
+            {{/if}}
+        </div>
+    </aside>
+
+    <section class="main-content-area column right-column">
+        <header class="sheet-header profile-header">
+            <div class="header-content-wrapper">
+                <div class="identity-section">
+                    <div class="identity-view-mode">
+                        {{#if system.handle}}
+                            <span class="handle-quoted-block">
+                                <span class="quote-mark">"</span>
+                                <ruby class="handle-ruby-view">
+                                    <rb>{{system.handle}}</rb>
+                                    <rt>{{system.handle_ruby}}</rt>
+                                </ruby>
+                                <span class="quote-mark">"</span>
+                            </span>
+                        {{/if}}
+                        {{#if actor.name}}
+                            <ruby class="char-name-ruby-view">
+                                <rb>{{actor.name}}</rb>
+                                <rt>{{system.charaname_ruby}}</rt>
+                            </ruby>
+                        {{else}}
+                            {{#unless system.handle}}
+                                <span class="no-name-placeholder">{{localize "TNX.NameNotSet"}}</span>
+                            {{/unless}}
+                        {{/if}}
+                    </div>
+                    <div class="identity-edit-mode">
+                        <label>{{localize "TNX.Actor.Profile.Name"}}</label>
+                        <div class="char-name-block-edit">
+                            <input name="name" type="text" value="{{actor.name}}">
+                            <input name="system.charaname_ruby" type="text" value="{{system.charaname_ruby}}">
+                        </div>
+                        <label>{{localize "TNX.Actor.Profile.Handle"}}</label>
+                        <div class="handle-block-edit">
+                            <input name="system.handle" type="text" value="{{system.handle}}">
+                            <input name="system.handle_ruby" type="text" value="{{system.handle_ruby}}">
+                        </div>
+                    </div>
+                </div>
+                <div class="middle-header-section">
+                    <div class="rank-affiliation-wrapper">
+                        <div class="citizen-rank-block">
+                            <div class="view-mode-rank">
+                                <span class="view-mode-label">{{localize "TNX.Actor.Profile.CitizenRank"}}：</span>
+                                <span class="view-mode-value">{{system.citizenRank}}</span>
+                            </div>
+                            <div class="edit-mode-rank">
+                                <label>{{localize "TNX.Actor.Profile.CitizenRank"}}：</label>
+                                <select name="system.citizenRank">
+                                    {{#each citizenRankOptionsForSelect as |o|}}
+                                        <option value="{{o.value}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>
+                                    {{/each}}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="affiliation-block">
+                            <div class="view-mode-affiliation">
+                                <span class="view-mode-label">{{localize "TNX.Actor.Profile.Affiliation"}}：</span>
+                                <span class="view-mode-value">{{affiliationDisplay}}</span>
+                            </div>
+                            <div class="edit-mode-affiliation">
+                                <label>{{localize "TNX.Actor.Profile.Affiliation"}}：</label>
+                                {{#if equippedAffiliations.length}}
+                                    {{#each equippedAffiliations as |item|}}
+                                        <button type="button" class="item-button tnx-linked-button" data-action="openItemSheet" data-item-id="{{item._id}}" data-context-menu="item-edit">
+                                            <img src="{{item.img}}" class="tnx-linked-button__icon"/>
+                                            <span class="tnx-linked-button__label">{{item.name}}</span>
+                                        </button>
+                                    {{/each}}
+                                {{else}}
+                                    <div class="tnx-import-box tnx-import-box--inline" data-drop-area="affiliation"><span>{{localize "TNX.Actor.DropHint.Organization"}}</span></div>
+                                {{/if}}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="view-mode-style-summary">
+                        <span class="view-mode-label">{{localize "TNX.Actor.Items.Styles"}}：</span>
+                        <span class="style-summary-items">
+                            {{#each processedStylesForView as |s|}}
+                                <a class="style-summary-item" data-item-id="{{s._id}}">{{s.repeatedName}}{{s.roleIndicatorDisplay}}</a>
+                                {{#unless @last}}、{{/unless}}
+                            {{/each}}
+                        </span>
+                    </div>
+                    <div class="exp-display-section">
+                        <div class="view-mode-exp">
+                            <span>{{localize "TNX.Actor.Stats.Exp"}}：</span>
+                            <span class="exp-value">{{system.exp.value}}/{{system.exp.total}}</span>
+                        </div>
+                        <div class="edit-mode-exp">
+                            <label>{{localize "TNX.Actor.Stats.ExpTotal"}}:</label>
+                            <input type="number" name="system.exp.total" value="{{system.exp.total}}" class="exp-input">
+                        </div>
+                    </div>
+                </div>
+                <div class="styles-and-miracle-section">
+                    {{#if isEditMode}}
+                    <div class="edit-mode-styles-miracle-block">
+                        <div class="item-slots-row">
+                            {{#each styleSlots as |slot|}}
+                                <div class="style-slot" data-item-id="{{slot._id}}">
+                                {{#if slot.isEmpty}}
+                                    <div class="tnx-import-box tnx-import-box--inline" data-drop-area="style"><span>{{localize "TNX.Actor.DropHint.Style"}}</span></div>
+                                {{else}}
+                                    <button type="button" class="item-button tnx-linked-button style-info-button" data-action="openItemSheet" data-item-id="{{slot._id}}" data-context-menu="item-edit">
+                                        <img src="{{slot.img}}" class="tnx-linked-button__icon"/>
+                                        <span class="tnx-linked-button__label">{{slot.name}}</span>
+                                        <div class="style-role-toggle" data-action="toggleStyleRole"><span class="role-indicator {{slot.roleIndicatorClass}}">{{slot.roleIndicatorDisplay}}</span></div>
+                                    </button>
+                                {{/if}}
+                                </div>
+                            {{/each}}
+                        </div>
+                        <div class="item-slots-row">
+                            {{#each miracleSlots as |slot|}}
+                                <div class="miracle-slot" data-item-id="{{slot._id}}">
+                                {{#if slot.isEmpty}}
+                                    <div class="tnx-import-box tnx-import-box--inline" data-drop-area="miracle"><span>{{localize "TNX.Actor.DropHint.Miracle"}}</span></div>
+                                {{else}}
+                                    <button type="button" class="item-button tnx-linked-button" data-action="openItemSheet" data-item-id="{{slot._id}}" data-context-menu="item-edit">
+                                        <img src="{{slot.img}}" class="tnx-linked-button__icon"/>{{slot.name}}
+                                    </button>
+                                {{/if}}
+                                </div>
+                            {{/each}}
+                        </div>
+                    </div>
+                    {{else}}
+                    <div class="view-mode-miracle-actions">
+                        <h3 class="miracle-header">{{localize "TNX.Actor.Items.Miracles"}}</h3>
+                        <div class="miracle-buttons-grid">
+                            {{#each miracleSlotsForView as |dw|}}
+                                <button type="button" class="tnx-linked-button miracle-use-button" data-action="useMiracle" data-item-id="{{dw._id}}" {{#if dw.isPlaceholder}}disabled{{/if}} {{#if dw.isDisabled}}disabled{{/if}} data-context-menu="miracle-view">
+                                    <i class="fas fa-bolt"></i>
+                                    <span class="tnx-linked-button__label miracle-name__label">{{dw.name}}</span>
+                                </button>
+                            {{/each}}
+                        </div>
+                    </div>
+                    {{/if}}
+                </div>
+            </div>
+            <div class="sheet-controls">
+                <button type="button" class="edit-mode-toggle tnx-button tnx-button--toggle" data-action="toggleEditMode" title="表示モード切替">
+                    <i class="fas fa-edit"></i>
+                </button>
+            </div>
+        </header>
+     
+        <section class="tabbed-content">
+            <nav class="sheet-tabs tabs tnx-tabs" data-group="primary">
+                <a class="item" data-tab="abilities">{{localize "TNX.Ui.Tab.Abilities"}}</a>
+                <a class="item" data-tab="outfits">{{localize "TNX.Ui.Tab.Outfits"}}</a>
+                <a class="item" data-tab="battle">{{localize "TNX.Ui.Tab.Battle"}}</a>
+                <a class="item" data-tab="status">{{localize "TNX.Ui.Tab.Status"}}</a>
+                <a class="item" data-tab="history">{{localize "TNX.Ui.Tab.History"}}</a>
+                <a class="item" data-tab="profile">{{localize "TNX.Ui.Tab.Profile"}}</a>
+            </nav>
+            <section class="sheet-body tnx-body">
+                <div class="tab abilities" data-tab="abilities">
+                    {{#if isEditMode}}
+                        <h2 class="abilities-grid-header">{{localize "TNX.Ui.Header.AbilityControl"}}</h2>
+                        <div class="abilities-grid edit-mode-layout">
+                            {{#each system.abilities as |ability key|}}
+                                <div class="ability-block">
+                                    <h3>{{localize ability.label}}</h3>
+                                    <div class="value-control-wrapper">
+                                        <input type="number" value="{{ability.totalValue}}" class="ability-value" disabled title="最終値">
+                                        <span class="separator">/</span>
+                                        <input type="number" value="{{ability.totalControl}}" class="control-value" disabled title="最終制御値">
+                                    </div>
+                                    <div class="ability-details-toggle" data-action="toggleAbilityDetails">
+                                        <span>内訳</span>
+                                        <i class="fas fa-chevron-down"></i>
+                                    </div>
+                                    <div class="ability-details-panel" style="display: none;">
+                                        <div class="ability-breakdown breakdown-row">
+                                            {{#each ability.styleContributions as |style|}}
+                                                {{#if style.name}}
+                                                    <label class="breakdown-label breakdown-label--style">{{style.name}} (SL{{style.level}})</label>
+                                                    <div class="breakdown-item">
+                                                        <input class="" type="number" value="{{style.value}}" disabled>
+                                                        <span class="separator">/</span>
+                                                        <input type="number" value="{{style.control}}" disabled>
+                                                    </div>
+                                                {{/if}}
+                                            {{/each}}
+                                            <label class="breakdown-label">効果</label>
+                                            <div class="breakdown-item">
+                                                <input type="number" name="system.{{key}}.effectMod" value="{{ability.effectMod}}" disabled>
+                                                <span class="separator">/</span>
+                                                <input type="number" name="system.{{key}}.controlEffectMod" value="{{ability.controlEffectMod}}" disabled>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="ability-main-inputs">
+                                        <label>成長</label>
+                                        <div class="input-row">
+                                            <input type="number" name="system.{{key}}.growth" value="{{ability.growth}}">
+                                            <span class="separator">/</span>
+                                            <input type="number" name="system.{{key}}.controlGrowth" value="{{ability.controlGrowth}}">
+                                        </div>
+                                        <label>修正</label>
+                                        <div class="input-row">
+                                            <input type="number" name="system.{{key}}.mod" value="{{ability.mod}}">
+                                            <span class="separator">/</span>
+                                            <input type="number" name="system.{{key}}.controlMod" value="{{ability.controlMod}}">
+                                        </div>
+                                    </div>
+                                </div>
+                            {{/each}}
+                        </div>
+                    {{else}}
+                        <h2 class="abilities-grid-header">{{localize "TNX.Ui.Header.Ability"}}</h2>
+                        <div class="abilities-grid view-mode-layout">
+                            {{#each system.abilities as |ability key|}}
+                                <div class="ability-display">
+                                    <div class="ability-label-shape"><div class="ability-label-content"><h3>{{localize ability.label}}</h3></div></div>
+                                    <div class="ability-values-area">
+                                        <div class="ability-value-shape"><div class="ability-value-content"><input type="number" value="{{ability.totalValue}}" readonly></div></div>
+                                        <div class="control-value-shape"><div class="control-value-content"><input type="number" value="{{ability.totalControl}}" readonly></div></div>
+                                    </div>
+                                </div>
+                            {{/each}}
+                        </div>
+                    {{/if}}
+                    <div class="skills-section">
+                        <h2 class="abilities-grid-header">{{localize "TNX.Actor.Items.GeneralSkills"}}</h2>
+
+                        {{#if isEditMode}}
+                        {{!-- 編集モードの表示 --}}
+                            <div class="skills-list-edit">
+                                {{!-- コネ技能のブロック --}}
+                                {{#if connectionsSkills.length}}
+                                    <div class="skill-group-block">
+                                        <h4 class="skill-group-header-connector">{{localize "TNX.Connections"}}</h4>
+                                        <ol class="item-list">
+                                            {{#each connectionsSkills as |item|}}
+                                                <li class="item" data-item-id="{{item._id}}">
+                                                    <div class="item-name">
+                                                        <a data-action="openItemSheet" data-item-id="{{item._id}}">{{item.name}}</a>
+                                                    </div>
+                                                    <div class="skill-level">
+                                                        <input type="number" name="items.{{item._id}}.system.level" value="{{item.system.level}}" />
+                                                    </div>
+                                                    <div class="item-controls">
+                                                        <a class="item-control item-delete" title="Delete Item"><i class="fas fa-trash"></i></a>
+                                                    </div>
+                                                </li>
+                                            {{/each}}
+                                        </ol>
+                                    </div>
+                                {{/if}}
+
+                                {{!-- その他の一般技能（スート別） --}}
+                                {{#each generalSkillsBySuit as |group|}}
+                                    <div class="skill-group-block">
+                                        <h4 class="skill-group-header">{{group.label}}</h4>
+                                        <ol class="item-list">
+                                            {{#each group.skills as |item|}}
+                                                <li class="item" data-item-id="{{item._id}}">
+                                                    <div class="item-name">
+                                                        <a data-action="openItemSheet" data-item-id="{{item._id}}">{{item.name}}</a>
+                                                    </div>
+                                                    <div class="skill-level">
+                                                        <input type="number" name="items.{{item._id}}.system.level" value="{{item.system.level}}" />
+                                                    </div>
+                                                    <div class="item-controls">
+                                                        <a class="item-control item-delete" title="Delete Item"><i class="fas fa-trash"></i></a>
+                                                    </div>
+                                                </li>
+                                            {{/each}}
+                                        </ol>
+                                    </div>
+                                {{/each}}
+                            </div>
+                            {{else}}
+                            {{!-- 閲覧モードの表示 --}}
+                                <div class="skills-list-view">
+                                    {{!-- ここに閲覧モード用のレイアウトを後で実装します --}}
+                                    <p style="text-align: center; color: #888;">（一般技能の閲覧モード表示はここに実装されます）</p>
+                                </div>
+                        {{/if}}
+                    </div>
+                </div>
+            </section>
+        </section>
+    </section>
+</form>

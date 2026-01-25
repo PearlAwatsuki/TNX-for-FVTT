@@ -1,0 +1,72 @@
+<fieldset>
+    <legend>トーキョーN◎VA HUD設定</legend>
+    <p class="notes">HUD（ヘッドアップディスプレイ）に表示するあなたの手札と切り札を選択します。</p>
+
+    {{!-- 手札の設定 --}}
+    <div class="form-group">
+        <label for="tnx-user-hand">手札 (Hand)</label>
+        <div class="form-fields" style="display: flex; align-items: center; gap: 5px;">
+            <select name="flags.tokyo-nova-axleration.handId" id="tnx-user-hand" style="flex: 1;">
+                <option value=""></option> {{!-- デフォルトは空欄 --}}
+                {{#if cardOptions.hands.owner.length}}
+                    <optgroup label="{{localize 'OWNERSHIP.OWNER'}}">
+                        {{#each cardOptions.hands.owner as |item|}}
+                            <option value="{{item.uuid}}" {{#if item.isSelected}}selected{{/if}} {{#if item.isLinked}}disabled{{/if}}>{{item.name}} {{#if item.isLinked}} (使用中){{/if}}</option>
+                        {{/each}}
+                    </optgroup>
+                {{/if}}
+                {{#if cardOptions.hands.limited.length}}
+                    <optgroup label="{{localize 'OWNERSHIP.LIMITED'}}">
+                        {{#each cardOptions.hands.limited as |item|}}
+                            <option value="{{item.uuid}}" {{#if item.isSelected}}selected{{/if}} {{#if item.isLinked}}disabled{{/if}}>{{item.name}} {{#if item.isLinked}} (使用中){{/if}}</option>
+                        {{/each}}
+                    </optgroup>
+                {{/if}}
+                {{#if cardOptions.hands.observer.length}}
+                    <optgroup label="{{localize 'OWNERSHIP.OBSERVER'}}">
+                        {{#each cardOptions.hands.observer as |item|}}
+                            <option value="{{item.uuid}}" {{#if item.isSelected}}selected{{/if}} {{#if item.isLinked}}disabled{{/if}}>{{item.name}} {{#if item.isLinked}} (使用中){{/if}}</option>
+                        {{/each}}
+                    </optgroup>
+                {{/if}}
+            </select>
+            {{#if selectedHandId}}
+                <button type="button" class="icon fa-solid fa-ban" data-action="release-flag" data-flag="handId" data-tooltip="手札を解放"></button>
+            {{/if}}
+        </div>
+    </div>
+
+    {{!-- 切り札の設定 --}}
+    <div class="form-group">
+        <label for="tnx-user-trump">切り札 (Pile)</label>
+        <div class="form-fields" style="display: flex; align-items: center; gap: 5px;">
+            <select name="flags.tokyo-nova-axleration.trumpPileId" id="tnx-user-trump" style="flex: 1;">
+                <option value=""></option> {{!-- デフォルトは空欄 --}}
+                 {{#if cardOptions.piles.owner.length}}
+                    <optgroup label="{{localize 'OWNERSHIP.OWNER'}}">
+                        {{#each cardOptions.piles.owner as |item|}}
+                            <option value="{{item.uuid}}" {{#if item.isSelected}}selected{{/if}} {{#if item.isLinked}}disabled{{/if}}>{{item.name}} {{#if item.isLinked}} (使用中){{/if}}</option>
+                        {{/each}}
+                    </optgroup>
+                {{/if}}
+                {{#if cardOptions.piles.limited.length}}
+                    <optgroup label="{{localize 'OWNERSHIP.LIMITED'}}">
+                        {{#each cardOptions.piles.limited as |item|}}
+                            <option value="{{item.uuid}}" {{#if item.isSelected}}selected{{/if}} {{#if item.isLinked}}disabled{{/if}}>{{item.name}} {{#if item.isLinked}} (使用中){{/if}}</option>
+                        {{/each}}
+                    </optgroup>
+                {{/if}}
+                {{#if cardOptions.piles.observer.length}}
+                    <optgroup label="{{localize 'OWNERSHIP.OBSERVER'}}">
+                        {{#each cardOptions.piles.observer as |item|}}
+                            <option value="{{item.uuid}}" {{#if item.isSelected}}selected{{/if}} {{#if item.isLinked}}disabled{{/if}}>{{item.name}} {{#if item.isLinked}} (使用中){{/if}}</option>
+                        {{/each}}
+                    </optgroup>
+                {{/if}}
+            </select>
+            {{#if selectedTrumpPileId}}
+                <button type="button" class="icon fa-solid fa-ban" data-action="release-flag" data-flag="trumpPileId" data-tooltip="切り札を解放"></button>
+            {{/if}}
+        </div>
+    </div>
+</fieldset>

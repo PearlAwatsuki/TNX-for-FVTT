@@ -1,0 +1,22 @@
+<form autocomplete="off">
+    <div class="form-group">
+        <label>{{localize "TNX.SelectTargetActorLabel"}}</label>
+        <div class="form-fields">
+            <select name="actorId" autofocus>
+                {{#each actors}}
+                <option value="{{this.id}}">{{this.name}}</option>
+                {{/each}}
+            </select>
+        </div>
+    </div>
+    <div class="form-group">
+        <label>{{localize "TNX.SelectCardLabel"}}</label>
+        <div class="form-fields">
+            <select name="cardId">
+                {{#each cards}}
+                <option value="{{this.id}}">{{{this.faces.0.name}}}</option>
+                {{/each}}
+            </select>
+        </div>
+    </div>
+</form>

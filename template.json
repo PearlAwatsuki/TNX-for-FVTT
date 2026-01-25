@@ -1,0 +1,295 @@
+{
+    "Actor": {
+        "types": ["cast", "guest", "troop", "extra"],
+        "templates": {
+            "biography": {
+                "charaname_ruby": "",
+                "handle": "",
+                "handle_ruby": "",
+                "post": {
+                    "name": "無所属",
+                    "id": ""
+                },
+                "citizenRank": "B-",
+                "age": "",
+                "gender": "",
+                "birthday": "",
+                "height": "",
+                "weight": "",
+                "eyes": "",
+                "hair": "",
+                "skin": "",
+                "description": ""
+            },
+            "attributes": {
+                "reason": {
+                    "value": 0,
+                    "control": 0,
+                    "styleA_value": 0,
+                    "styleA_control": 0,
+                    "styleB_value": 0,
+                    "styleB_control": 0,
+                    "styleC_value": 0,
+                    "styleC_control": 0,
+                    "growth": 0,
+                    "controlGrowth": 0,
+                    "mod": 0,
+                    "controlMod": 0,
+                    "effectMod": 0,
+                    "controlEffectMod": 0
+                },
+                "passion": {
+                    "value": 0,
+                    "control": 0,
+                    "styleA_value": 0,
+                    "styleA_control": 0,
+                    "styleB_value": 0,
+                    "styleB_control": 0,
+                    "styleC_value": 0,
+                    "styleC_control": 0,
+                    "growth": 0,
+                    "controlGrowth": 0,
+                    "mod": 0,
+                    "controlMod": 0,
+                    "effectMod": 0,
+                    "controlEffectMod": 0
+                },
+                "life": {
+                    "value": 0,
+                    "control": 0,
+                    "styleA_value": 0,
+                    "styleA_control": 0,
+                    "styleB_value": 0,
+                    "styleB_control": 0,
+                    "styleC_value": 0,
+                    "styleC_control": 0,
+                    "growth": 0,
+                    "controlGrowth": 0,
+                    "mod": 0,
+                    "controlMod": 0,
+                    "effectMod": 0,
+                    "controlEffectMod": 0
+                },
+                "mundane": {
+                    "value": 0,
+                    "control": 0,
+                    "styleA_value": 0,
+                    "styleA_control": 0,
+                    "styleB_value": 0,
+                    "styleB_control": 0,
+                    "styleC_value": 0,
+                    "styleC_control": 0,
+                    "growth": 0,
+                    "controlGrowth": 0,
+                    "mod": 0,
+                    "controlMod": 0,
+                    "effectMod": 0,
+                    "controlEffectMod": 0
+                },
+                "CS": {
+                    "value": 0,
+                    "base": 0,
+                    "current": 0,
+                    "mod": 0,
+                    "freeMod": 0
+                },
+                "physicalDamage": {
+                    "value": 0,
+                    "min": 0,
+                    "max": 21
+                },
+                "mentalDamage": {
+                    "value": 0,
+                    "min": 0,
+                    "max": 21
+                },
+                "socialDamage": {
+                    "value": 0,
+                    "min": 0,
+                    "max": 21
+                }
+            }
+        },
+        "cast": {
+            "templates": ["biography", "attributes"],
+            "player_name": "",
+            "handCardPoolItemId": "",
+            "handPileId": "",
+            "trumpCardPileId": "",
+            "handMaxSize": 4,
+            "exp": {
+                "value": 170,
+                "total": 170 
+            },
+            "lifePath": {
+                "origin": "",
+                "experience": "",
+                "encounter": ""
+            }
+        },
+        "guest": {
+            "templates": ["biography", "attributes"]
+        },
+        "troop": {
+            "templates": ["attributes"],
+            "memo": ""
+        },
+        "extra": {
+            "templates": ["biography"]
+        }
+    },
+    "Item": {
+        "types": ["style", "miracle", "skill", "outfit", "organization"],
+        "templates": {
+            "base": {
+                "description": ""
+            }
+        },
+        "style": {
+            "templates": ["base"],
+            "isPersona": false,
+            "isKey": false,
+            "level": 1,
+            "miracle": {
+                "name": "",
+                "id": ""
+            },
+            "reason": {
+                "value": 0,
+                "control": 0
+            },
+            "passion": {
+                "value": 0,
+                "control": 0
+            },
+            "life": {
+                "value": 0,
+                "control": 0
+            },
+            "mundane": {
+                "value": 0,
+                "control": 0
+            }
+        },
+        "miracle": {
+            "templates": ["base"],
+            "furigana": "",
+            "usageCondition": "",
+            "isKill": false,
+            "isDefence": false,
+            "isAll": false,
+            "isUsed": false,
+            "usageCount": {
+                "value": 1,
+                "total":1,
+                "mod": 0
+            }
+        },
+        "skill": {
+            "templates": ["base"],
+            "level": 0,
+            "category": "generalSkill",
+            "suits": {
+                "spade": false,
+                "heart": false,
+                "diamond": false,
+                "club": false
+            },
+            "isBase": false,
+            "generalSkill": {
+                "generalSkillCategory": "initialSkill",
+                "initialSkill":{
+                    "value": true,
+                    "initiakSuit": "",
+                    "expCost": 10
+                },
+                "onomasticSKill": {
+                    "value": false,
+                    "expCost": 5
+                }
+            },
+            "styleSkill": {
+                "value": false,
+                "styleSkillCategory": "special",
+                "style": "-",
+                "comboSkill": [],
+                "maxLevel":"-",
+                "timing": [],
+                "target": "-",
+                "range": "-",
+                "targetValue": "-",
+                "confrontation": [],
+                "isFixedRange": false,
+                "isFixedTarget": false,
+                "isEssentialSkill": false,
+                "isMiracleRewriting": false,
+                "RewritedTarget": "",
+                "rewritingMiracleName": "",
+                "RewritingMiracle_ID":"",
+                "uses": {
+                    "isLimit": false,
+                    "value":0,
+                    "max": 0
+                },
+                "special": {
+                    "value": false,
+                    "expCost": 10,
+                    "works": {
+                        "value": false,
+                        "organization": "-"
+                    }
+                },
+                "secret": {
+                    "value": false,
+                    "expCost": 20
+                },
+                "mystery": {
+                    "value": false,
+                    "expCost": 50
+                }
+            }
+        },
+        "outfit": {
+            "isPrepared": true,
+            "category": "-",
+            "buy": "-",
+            "saving": "-",
+            "concealment": "-",
+            "appearanceMod": "-",
+            "attack": {
+                "damageType": "-",
+                "value": "-"
+            },
+            "defence": {
+                "S_defence": 0,
+                "P_defence": 0,
+                "I_defence": 0
+            },
+            "guardValue": "-",
+            "controlMod": "-",
+            "range": "-",
+            "SF": "-",
+            "passenger": 0,
+            "appearanceTarget": "-",
+            "securityRate": "-",
+            "part": "片手持ち"
+        },
+        "organization": {
+            "templates": ["base"]
+        },
+        "record": {
+            "ScenarioTittle": [],
+            "GainedExp": [],
+            "RulerName": [],
+            "PlayerList": []
+        }
+    },
+    "Card": {
+        "types": ["playingCards", "neuroCards", "other"],
+        "templates": {
+            "base": {
+                "description": ""
+            }
+        }
+    }
+}

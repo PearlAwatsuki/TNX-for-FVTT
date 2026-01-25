@@ -1,0 +1,35 @@
+<div class="tnx-item-list">
+    <div class="tnx-item-list__row tnx-item-list__row--header">
+        <div class="tnx-item-list__column--main">{{localize "EFFECT.Name"}}</div>
+        <div class="tnx-item-list__column--duration">{{localize "EFFECT.Duration"}}</div>
+        <div class="tnx-item-list__column--controls">
+            <a class="effect-control" data-action="create" title="{{localize 'EFFECT.Create'}}">
+                <i class="fa fa-plus"></i>
+            </a>
+        </div>
+    </div>
+    <ol class="item-list-body">
+        {{#each allEffects as |effect|}}
+            <li class="tnx-item-list__row" data-effect-id="{{effect.id}}">
+                <div class="tnx-item-list__column--main">    
+                    <img class="effect-image" src="{{effect.img}}" alt="{{effect.name}}"/>
+                    <h4 class="{{#if effect.disabled}}disabled{{/if}}">{{effect.name}}</h4>
+                </div>
+                <div class="tnx-item-list__column--duration">
+                    {{effect.duration.label}}
+                </div>
+                <div class="tnx-item-list__column--controls">
+                    <a class="effect-control" data-action="toggle" title="{{localize 'EFFECT.Toggle'}}">
+                        <i class="fas fa-power-off"></i>
+                    </a>
+                    <a class="effect-control" data-action="edit" title="{{localize 'EFFECT.Edit'}}">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <a class="effect-control" data-action="delete" title="{{localize 'EFFECT.Delete'}}">
+                        <i class="fas fa-trash"></i>
+                    </a>
+                </div>
+            </li>
+        {{/each}}
+    </ol>
+</div>

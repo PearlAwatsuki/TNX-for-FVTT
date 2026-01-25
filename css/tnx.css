@@ -1,0 +1,3049 @@
+/* === TokyoNOVA System CSS (Refactored and Organized) === */
+
+/* =================================================================== */
+/* 1. CORE & GLOBAL SETTINGS                                         */
+/* =================================================================== */
+
+/* --- Font Definitions --- */
+@font-face {
+    font-family: 'Mirror';
+    src: url('../assets/fonts/TTEditMirrorWritingGothic.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+/* --- CSS Variables --- */
+:root {
+    --tnx-color-primary: #00aaff;
+    --tnx-color-primary-accent: #00ccff;
+    --tnx-color-primary-highlight: #00ddff;
+    --tnx-color-primary-dark: #007799;
+    --tnx-color-primary-darker: #005577;
+    --tnx-color-text-base: #f0f0f0;
+    --tnx-color-text-dim: #ccc;
+    --tnx-color-text-muted: #888;
+    --tnx-color-bg: #2c333b;
+    --tnx-color-bg-alt: rgba(0, 0, 0, 0.05);
+    --tnx-color-bg-input: rgba(255, 255, 255, 0.08);
+    --tnx-color-border: #555;
+    --tnx-color-border-accent: #777;
+    --tnx-color-error: #aa0000;
+    --tnx-color-error-text: #ffaaaa;
+
+    /* Sizing & Radius */
+    --tnx-sidebar-width: 280px;
+    --tnx-border-radius-sm: 3px;
+    --tnx-border-radius-md: 4px;
+    --tnx-border-radius-lg: 5px;
+}
+
+/* --- Global Styles --- */
+.tokyo-nova .window-content {
+    background-image: none !important;
+    background-color: var(--tnx-color-bg) !important;
+    color: var(--tnx-color-text-base);
+}
+.tokyo-nova *, .tokyo-nova *::before, .tokyo-nova *::after {
+    box-sizing: border-box;
+}
+.tokyo-nova select {
+    min-width: 120px;
+    background-color: var(--tnx-color-bg-input);
+    border: 1px solid var(--tnx-color-border);
+    color: var(--tnx-color-text-base);
+    border-radius: var(--tnx-border-radius-sm);
+    padding: 4px;
+}
+.tokyo-nova select option {
+    background-color: #333;
+}
+.number-input-spinner {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    justify-content: flex-end;
+}
+.number-input-spinner input{
+    display: flex;
+    align-items: center;
+    text-align: center;
+    gap: 5px;
+    justify-content: flex-end;
+    width: 40px;
+}
+.number-input-spinner .tnx-button {
+    flex: none;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    font-size: 1.2em;
+    flex-shrink: 0;
+}
+form .form-group .form-fields .number-input-spinner input{
+    display: flex;
+    align-items: center;
+    text-align: center;
+    gap: 5px;
+    justify-content: flex-end;
+    width: 40px;
+}
+form .form-group .form-fields .number-input-spinner .tnx-button {
+    flex: none;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    font-size: 1.2em;
+    flex-shrink: 0;
+}
+.mirror-character {
+    font-family: 'Mirror', sans-serif;
+    font-weight: bold;
+}
+.tokyo-nova input{
+    background-color: var(--tnx-color-bg-input);
+    border: 1px solid var(--tnx-color-border);
+    color: var(--tnx-color-text-base);
+}
+form .notes, form .hint {
+    color: var(--tnx-color-text-dim);
+}
+
+
+/* =================================================================== */
+/* 2. GENERIC COMPONENTS                                             */
+/* =================================================================== */
+
+/* --- Buttons --- */
+.tnx-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    height: 38px;
+    padding: 0 12px;
+    font-size: 14px;
+    font-weight: bold;
+    text-align: center;
+    background-color: var(--tnx-color-primary-darker);
+    border: 1px solid var(--tnx-color-primary-dark);
+    color: var(--tnx-color-text-base);
+    border-radius: var(--tnx-border-radius-md);
+    transition: background-color 0.2s, border-color 0.2s;
+    box-sizing: border-box;
+    cursor: pointer;
+}
+.tnx-button:hover:not(:disabled) {
+    background-color: var(--tnx-color-primary-dark);
+    border-color: var(--tnx-color-primary);
+}
+.tnx-button:disabled {
+    background-color: #4a5057;
+    border-color: #3e444a;
+    color: #888;
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.tokyo-nova.sheet .tnx-linked-button {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    width: 100%;
+    height: 38px;
+    padding: 5px 12px;
+    text-align: left;
+    background-color: var(--tnx-color-primary-darker);
+    border: 1px solid var(--tnx-color-primary-dark);
+    color: var(--tnx-color-text-base);
+    border-radius: var(--tnx-border-radius-md);
+    transition: background-color 0.2s, border-color 0.2s;
+    box-sizing: border-box;
+    cursor: pointer;
+    font-family: inherit;
+}
+.tokyo-nova.sheet .tnx-linked-button:hover:not(:disabled) {
+    background-color: var(--tnx-color-primary-dark);
+    border-color: var(--tnx-color-primary);
+}
+.tokyo-nova.sheet .tnx-linked-button:disabled {
+    background-color: #4a5057;
+    border-color: #3e444a;
+    color: #888;
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+.tokyo-nova.sheet .tnx-linked-button .tnx-linked-button__icon {
+    width: 24px;
+    height: 24px;
+    flex: 0 0 24px;
+    border: none;
+    object-fit: contain;
+}
+.tokyo-nova.sheet .tnx-linked-button .tnx-linked-button__label {
+    flex-grow: 1;
+    min-width: 0;
+    font-weight: bold;
+    font-size: 14px;
+    color: var(--tnx-color-text-base);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.tnx-wrapper-button {
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: default;
+    text-align: left;
+}
+
+.tnx-interactive-text {
+    display: inline-block;
+    font-size: 1.1em;
+    font-weight: bold;
+    color: var(--tnx-color-text-base);
+    cursor: pointer;
+}
+
+.tnx-wrapper-button:hover .tnx-interactive-text,
+.tnx-wrapper-button:focus .tnx-interactive-text {
+    text-decoration: underline;
+    color: var(--tnx-color-primary-highlight);
+}
+
+.tnx-wrapper-button:focus {
+    outline: none;
+}
+.tokyo-nova.sheet .style-info-button {
+    gap: 8px;
+}
+.tokyo-nova.sheet .style-info-button .style-role-toggle {
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.tokyo-nova.sheet .style-info-button .role-indicator {
+    font-weight: bold;
+    font-size: 1.2em;
+    line-height: 1;
+    color: var(--tnx-color-text-base);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.2em;
+    height: 1.2em;
+}
+.tokyo-nova.sheet .style-info-button .role-indicator.role-shadow {
+    background-color: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--tnx-color-primary);
+    border-radius: var(--tnx-border-radius-sm);
+}
+
+/* --- Form Fields --- */
+.tnx-form-field {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    width: 100%;
+    height: 38px;
+    padding: 0 12px;
+    font-size: 14px;
+    font-weight: bold;
+    text-align: left;
+    background-color: var(--tnx-color-bg-input);
+    border: 1px solid var(--tnx-color-border);
+    color: var(--tnx-color-text-base);
+    border-radius: var(--tnx-border-radius-md);
+    box-sizing: border-box;
+}
+
+/* --- Import Boxes (Placeholders) --- */
+.tnx-import-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    box-sizing: border-box;
+    color: var(--tnx-color-text-muted);
+    font-size: 0.9em;
+    font-style: italic;
+    text-align: center;
+    transition: all 0.2s ease-out;
+}
+.tnx-import-box--dropzone {
+    min-height: 42px;
+    padding: 10px;
+    background-color: transparent;
+    border: 2px dashed var(--tnx-color-border-accent);
+    border-radius: var(--tnx-border-radius-md);
+}
+.tnx-import-box--panel-dropzone {
+    min-height: 42px;
+    border-radius: var(--tnx-border-radius-md);
+    background-color: transparent;
+    border: 2px dashed var(--tnx-color-border-accent);
+}
+.tnx-import-box--deck {
+    width: 180px;
+    height: 268px;
+    border: 2px dashed var(--tnx-color-border-accent);
+    border-radius: 12px;
+    box-sizing: border-box;
+    padding: 10px;
+}
+.tnx-import-box--inline {
+    height: 38px;
+    width: 100%;
+    padding: 2px 8px;
+    border: 1px dashed var(--tnx-color-border-accent);
+    border-radius: var(--tnx-border-radius-sm);
+    justify-content: center;
+    font-style: normal;
+    cursor: grab;
+}
+.tnx-import-box--inline span {
+    color: var(--tnx-color-text-dim);
+    font-size: 0.9em;
+}
+
+/* --- Rich Text Editor Section --- */
+.tnx-editor-section {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    margin-bottom: 20px;
+    position: relative; 
+}
+.tnx-editor-section__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    border-bottom: 1px solid var(--tnx-color-primary-dark);
+    padding-bottom: 5px;
+    margin-bottom: 8px;
+}
+.tnx-editor-section__header > label {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: var(--tnx-color-primary-accent);
+    margin: 0;
+}
+
+/* --- Item List (e.g., Effects) --- */
+.tnx-item-list {
+    display: flex;
+    flex-direction: column;
+}
+.tnx-item-list__row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px;
+    border-bottom: 1px solid var(--tnx-color-border);
+}
+.tnx-item-list__row--header {
+    font-weight: bold;
+    color: var(--tnx-color-primary-accent);
+    border-bottom: 2px solid var(--tnx-color-primary-dark);
+    margin-bottom: 5px;
+}
+.tnx-item-list .item-list-body .tnx-item-list__row:hover {
+    background-color: rgba(0, 0, 0, 0.2);
+}
+.tnx-item-list__column--main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.tnx-item-list__column--duration {
+    flex: 0 0 120px;
+    text-align: center;
+}
+.tnx-item-list__column--controls {
+    flex: 0 0 80px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+.tnx-item-list__column--main .effect-image {
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+    border: none;
+}
+.tnx-item-list__column--main h4 {
+    margin: 0;
+}
+.tnx-item-list__column--main h4.disabled {
+    color: var(--tnx-color-text-muted);
+    text-decoration: line-through;
+}
+.tnx-item-list__column--controls .effect-control:hover {
+    color: var(--tnx-color-primary-highlight);
+    text-shadow: 0 0 4px var(--tnx-color-primary);
+}
+.tnx-item-list .item-list-body {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+/* --- Abilities Grid (Edit Mode) --- */
+.tokyo-nova.sheet .abilities-grid-header {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: var(--tnx-color-primary);
+    margin-bottom: 15px;
+    border-bottom: 1px solid var(--tnx-color-primary-dark);
+    padding-bottom: 5px;
+    text-align: left;
+}
+.tokyo-nova.sheet .abilities-grid.edit-mode-layout {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+    padding: 0;
+    align-items: start;
+}
+.tokyo-nova.sheet .edit-mode-layout .ability-block {
+    background-color: rgba(0,0,0,0.15);
+    border: 1px solid var(--tnx-color-border);
+    border-radius: var(--tnx-border-radius-md);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.tokyo-nova.sheet .edit-mode-layout .ability-block h3 {
+    margin: 0;
+    text-align: center;
+    font-size: 1.4em;
+    color: var(--tnx-color-primary-accent);
+    border-bottom: 1px solid var(--tnx-color-primary-dark);
+    padding-bottom: 8px;
+    font-weight: bold;
+    width: 100%;
+}
+.tokyo-nova.sheet .edit-mode-layout .value-control-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    width: 100%;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+.tokyo-nova.sheet .edit-mode-layout .ability-value,
+.tokyo-nova.sheet .edit-mode-layout .control-value {
+    width: 50%;
+    height: 40px;
+    font-size: 1.6em;
+    background-color: var(--tnx-color-bg-input);
+    border: 1px solid var(--tnx-color-border);
+    color: var(--tnx-color-text-base);
+    border-radius: var(--tnx-border-radius-sm);
+    text-align: center;
+    padding: 0 2px;
+    -moz-appearance: textfield;
+}
+.tokyo-nova.sheet .edit-mode-layout .ability-value:disabled,
+.tokyo-nova.sheet .edit-mode-layout .control-value:disabled {
+    color: var(--tnx-color-text-muted);
+}
+.tokyo-nova.sheet .edit-mode-layout .ability-value::-webkit-outer-spin-button,
+.tokyo-nova.sheet .edit-mode-layout .ability-value::-webkit-inner-spin-button,
+.tokyo-nova.sheet .edit-mode-layout .control-value::-webkit-outer-spin-button,
+.tokyo-nova.sheet .edit-mode-layout .control-value::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.tokyo-nova.sheet .edit-mode-layout .separator {
+    font-size: 2em;
+    color: var(--tnx-color-text-muted);
+    line-height: 1;
+    padding: 0 2px;
+}
+
+/* --- Dialog Styles --- */
+.rich-dialog {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.rich-dialog__main {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+.rich-dialog__img {
+    width: 100px;
+    height: auto;
+    border: 1px solid var(--tnx-color-border-accent);
+    border-radius: 5px;
+    flex-shrink: 0;
+}
+.rich-dialog__content {
+    flex-grow: 1;
+}
+.rich-dialog__description {
+    font-size: 0.9em;
+    color: var(--tnx-color-text-muted);
+    margin: 0;
+    padding-top: 5px;
+    border-top: 1px solid var(--tnx-color-border);
+}
+.dialog .number-input-spinner input {
+    flex: 0;
+}
+.dialog:has(.card-selection-grid) {
+    /* ▼▼▼ 幅の修正 ▼▼▼ */
+    /* カード4枚が並ぶ幅に固定します。!importantでJSによる上書きを防ぎます。 */
+    width: 480px !important;
+    height: auto !important;
+}
+.dialog .card-selection-grid.discard-selection {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    max-height: 450px;
+    overflow-y: auto;
+    padding: 8px;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid var(--tnx-color-border);
+    border-radius: var(--tnx-border-radius-md);
+    margin-top: 10px;
+}
+.discard-selection .card-selection-item {
+    position: relative;
+    width: 100px;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    transition: all 0.2s ease-out;
+    padding: 2px;
+}
+.discard-selection .card-selection-item label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    height: 100%;
+}
+.discard-selection .card-selection-item img {
+    width: 100%;
+    height: auto;
+    border-radius: 5px;
+    display: block;
+}
+.discard-selection .card-selection-item .card-name,
+.discard-selection .card-selection-item input[type="checkbox"] {
+    display: none;
+}
+.discard-selection .card-selection-item.selected {
+    border-color: var(--tnx-color-primary-highlight);
+    background-color: rgba(0, 180, 255, 0.15);
+    box-shadow: 0 0 12px var(--tnx-color-primary);
+    transform: translateY(-3px);
+}
+
+.tnx-editor-section .editor {
+    position: static;
+}
+.tnx-editor-section .editor .editor-edit {
+    position: absolute;
+    top: 2px;
+    right: 0;
+    width: 28px;
+    height: 28px;
+    background: transparent;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: var(--tnx-color-text-dim);
+    transition: all 0.2s ease-out;
+}
+.tnx-editor-section .editor .editor-edit:hover {
+    color: var(--tnx-color-primary-highlight);
+}
+.tnx-editor-section__content .editor-content {
+    width: 100%;
+    min-height: 120px;
+    padding: 10px;
+    box-sizing: border-box;
+    background: transparent;
+    color: var(--tnx-color-text-dim);
+    border: 1px solid var(--tnx-color-primary-dark);
+    border-radius: var(--tnx-border-radius-sm);
+    box-shadow: inset 0 0 8px rgba(0, 170, 255, 0.2);
+    min-width: 513px;
+}
+.tnx-editor-section .prosemirror {
+    min-height: 300px;
+}
+.tnx-editor-section .prosemirror menu button{
+    color: var(--tnx-color-text-base);
+}
+.tnx-editor-section .prosemirror menu button:hover{
+    color: #000;
+    background: var(--tnx-color-text-base);
+}
+.tnx-editor-section .prosemirror menu .pm-dropdown{
+    background: var(--tnx-color-bg-input);
+}
+.tnx-editor-section .prosemirror menu .pm-dropdown:hover{
+    background: var(--tnx-color-text-base);
+}
+#prosemirror-dropdown ul{
+    color: var(--tnx-color-text-base);
+    background-color: #333;
+}
+#prosemirror-dropdown li:hover{
+    color: #000;
+    background-color: var(--tnx-color-text-base);
+}
+
+/* =================================================================== */
+/* 3. ITEM SHEETS                                                    */
+/* =================================================================== */
+
+/* --- Item Sheets: General --- */
+.tokyo-nova.sheet.item .sheet-header {
+    border-bottom: 1px solid var(--tnx-color-border);
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+}
+.tokyo-nova.sheet.item .sheet-header .profile-img {
+    flex: 0 0 64px;
+    width: 64px;
+    height: 64px;
+    border: 1px solid var(--tnx-color-border);
+}
+.tokyo-nova.sheet.item .sheet-header .header-fields {
+    flex-grow: 1;
+}
+.tokyo-nova.sheet.item .sheet-tabs {
+    border-bottom: 1px solid var(--tnx-color-primary-dark);
+}
+.tokyo-nova.sheet.item .sheet-tabs .item.active {
+    text-shadow: 0 0 8px var(--tnx-color-primary);
+    border-bottom: 2px solid var(--tnx-color-primary);
+}
+.tokyo-nova.sheet.item .sheet-body {
+    padding: 10px;
+}
+
+/* --- Style Sheet Spinner Control --- */
+.tokyo-nova.sheet.item .form-group input.ability-value {
+    background-color: var(--tnx-color-bg-input);
+    border: 1px solid var(--tnx-color-border);
+    color: var(--tnx-color-text-base);
+    text-align: center;
+    height: 35px;
+    width: 50px;
+    -moz-appearance: textfield;
+}
+.tokyo-nova.sheet.item .form-group input.ability-value:disabled{
+    color: var(--tnx-color-text-muted);
+}
+.tokyo-nova.sheet.item .form-group input.ability-value::-webkit-outer-spin-button,
+.tokyo-nova.sheet.item .form-group input.ability-value::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+
+/* --- Item Sheets: Header Title Input --- */
+.tokyo-nova.sheet.item .sheet-header .charname,
+.tokyo-nova.sheet.item .sheet-header .charname input {
+    margin: 0;
+    padding: 0;
+    line-height: 1.2;
+    font-family: inherit;
+}
+.tokyo-nova.sheet.item .sheet-header .charname input {
+    width: 100%;
+    height: auto;
+    padding: 4px 6px;
+    font-size: 24px;
+    font-weight: bold;
+    color: var(--tnx-color-text-base);
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--tnx-border-radius-md);
+    transition: border-color 0.2s ease-in-out, background-color 0.2s ease-in-out;
+}
+.tokyo-nova.sheet.item .sheet-header .charname input:focus {
+    background-color: var(--tnx-color-bg-input);
+    border-color: var(--tnx-color-primary);
+    outline: none;
+}
+
+/* --- Style Sheet: Specific --- */
+.abilities-section {
+    position: relative;
+    border: 1px solid var(--tnx-color-primary-dark);
+    border-radius: var(--tnx-border-radius-lg);
+    background-color: var(--tnx-color-bg-alt);
+    box-shadow: inset 0 0 15px rgba(0, 170, 255, 0.1);
+    padding: 25px 15px 15px 15px;
+    margin: 0 0 20px 0;
+}
+.abilities-section legend {
+    position: absolute;
+    top: -0.7em;
+    left: 15px;
+    background-color: var(--tnx-color-bg);
+    padding: 0 10px;
+    font-size: 1.2em;
+    font-weight: bold;
+    color: var(--tnx-color-primary-accent);
+}
+
+/* --- CardPool Sheet: Specific --- */
+.tokyo-nova.sheet.item.cardpool .sheet-body {
+    background: var(--tnx-color-bg-alt);
+    padding: 10px;
+}
+.tokyo-nova.sheet.item.cardpool .form-group {
+    margin-bottom: 15px;
+}
+.tokyo-nova.sheet.item.cardpool .form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+.tnx-card-display {
+    width: 180px;
+    height: 268px;
+    padding: 0;
+    border: none;
+    background: none;
+    border-radius: 12px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    line-height: 0;
+}
+.tnx-card-display[data-action] {
+    cursor: pointer;
+}
+.tnx-card-display[data-action]:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 25px 5px rgba(0, 200, 255, 0.4);
+}
+.tnx-card-display img {
+    width: 100%;
+    height: 100%;
+    border-radius: 12px;
+    border: 2px solid var(--tnx-color-border);
+    display: block;
+}
+.cardpool-sheet .deck-operations-grid {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    align-items: center;
+    gap: 10px;
+    height: 100%;
+}
+.cardpool-sheet .deck-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 100%;
+}
+.cardpool-sheet .deck-info {
+    font-size: 1.2em;
+    font-weight: bold;
+}
+.cardpool-sheet .deck-actions-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    justify-content: center;
+}
+.cardpool-sheet .discard-operations-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: center;
+    justify-items: center;
+    height: 100%;
+    padding-top: 10px;
+}
+.cardpool-sheet .discard-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+.cardpool-sheet .discard-info {
+    font-size: 1.2em;
+    font-weight: bold;
+}
+.cardpool-sheet .scene-operations-grid {
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    height: 100%;
+    box-sizing: border-box;
+}
+.cardpool-sheet .scene-card-header {
+    text-align: center;
+    border-bottom: 1px solid var(--tnx-color-primary-dark);
+    margin-bottom: 15px;
+}
+.cardpool-sheet .scene-card-header h2 {
+    margin: 0;
+    font-size: 1.5em;
+    color: var(--tnx-color-primary-accent);
+}
+.cardpool-sheet .scene-card-content {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 20px;
+    align-items: flex-start;
+    flex-grow: 1;
+}
+.cardpool-sheet .scene-card-image-wrapper {
+    display: flex;
+    justify-content: center;
+}
+.cardpool-sheet .scene-card-details {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+.cardpool-sheet .scene-card-details .detail-block h3 {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: var(--tnx-color-primary);
+    margin: 0 0 5px 0;
+    border-bottom: 1px solid var(--tnx-color-primary-darker);
+    padding-bottom: 3px;
+}
+.cardpool-sheet .scene-card-details .detail-block p {
+    margin: 0;
+    line-height: 1.6;
+    color: var(--tnx-color-text-dim);
+}
+
+
+/* =================================================================== */
+/* 4. ACTOR SHEETS                                                   */
+/* =================================================================== */
+
+/* --- Cast Sheet: General --- */
+.tokyo-nova.sheet.actor.cast .two-column-layout {
+    display: flex;
+    height: 100%;
+}
+.tokyo-nova.sheet.actor.cast .profile-sidebar {
+    flex: 0 0 var(--tnx-sidebar-width);
+    padding: 10px;
+    border-right: 1px solid #333;
+    background-color: var(--tnx-color-bg-alt);
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    overflow-y: auto;
+}
+.tokyo-nova.sheet.actor.cast .main-content-area {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* --- Cast Sheet: Sidebar --- */
+.tokyo-nova.sheet.actor.cast .profile-sidebar .portrait-section .profile-img {
+    max-width: 180px;
+    height: auto;
+    border: 2px solid var(--tnx-color-border);
+    border-radius: var(--tnx-border-radius-md);
+    display: block;
+    margin: 0 auto;
+}
+.tokyo-nova.sheet.actor.cast .profile-sidebar .sidebar-header {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: var(--tnx-color-primary);
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--tnx-color-primary-dark);
+    padding-bottom: 5px;
+}
+.tokyo-nova.sheet.actor.cast .profile-sidebar .personal-data-grid {
+    display: grid;
+    grid-template-columns: 126px 1fr;
+    gap: 5px 8px;
+    align-items: center;
+}
+.tokyo-nova.sheet.actor.cast .profile-sidebar .personal-data-item label {
+    font-size: 0.9em;
+    color: var(--tnx-color-text-dim);
+    text-align: right;
+    padding-right: 5px;
+}
+.tokyo-nova.sheet.actor.cast .profile-sidebar .personal-data-item input[type="text"] {
+    width: 100%;
+    background-color: var(--tnx-color-bg-input);
+    border: 1px solid var(--tnx-color-border);
+    color: var(--tnx-color-text-base);
+    padding: 4px 6px;
+    border-radius: var(--tnx-border-radius-sm);
+}
+.tokyo-nova.sheet.actor.cast .profile-sidebar .sidebar-edit-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+.tokyo-nova.sheet.actor.cast .profile-sidebar .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.tokyo-nova.sheet.actor.cast .profile-sidebar .control-group > label {
+    font-weight: bold;
+    color: var(--tnx-color-text-dim);
+    font-size: 1.1em;
+    border-bottom: 1px solid var(--tnx-color-border);
+    padding-bottom: 3px;
+    margin-bottom: 2px;
+}
+.tokyo-nova.sheet.actor.cast .profile-sidebar .hand-controls.horizontal-buttons {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 10px;
+}
+.tokyo-nova.sheet.actor.cast .profile-sidebar .hand-controls.horizontal-buttons .tnx-button {
+    padding: 0 6px;
+    gap: 4px;
+    font-size: 13px;
+}
+.tokyo-nova.sheet.actor.cast .profile-sidebar .hand-cards-display {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    min-height: 100px;
+}
+.tokyo-nova.sheet.actor.cast .profile-sidebar .card-in-hand.interactive {
+    cursor: pointer;
+    border: 2px solid transparent;
+    border-radius: 5px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s ease-out;
+    width: 95px;
+    height: auto;
+    flex-shrink: 0;
+}
+.tokyo-nova.sheet.actor.cast .profile-sidebar .card-in-hand.interactive img {
+    width: 100%; 
+    height: auto;
+    display: block;
+    border-radius: 3px;
+}
+.tokyo-nova.sheet.actor.cast .profile-sidebar .card-in-hand.interactive:hover {
+    transform: translateY(-4px) scale(1.05);
+    border-color: var(--tnx-color-primary-highlight);
+    box-shadow: 0 4px 15px rgba(0, 221, 255, 0.5);
+}
+.tokyo-nova.sheet.actor.cast .profile-sidebar .hand-empty-placeholder,
+.tokyo-nova.sheet.actor.cast .no-item-linked-message {
+    width: 100%;
+    text-align: center;
+    font-style: italic;
+    color: var(--tnx-color-text-muted);
+    padding: 20px 0;
+}
+
+/* --- Cast Sheet: Header --- */
+.tokyo-nova.sheet.actor.cast .profile-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 10px;
+    border-bottom: 1px solid var(--tnx-color-border);
+    gap: 10px;
+    position: relative;
+    flex-shrink: 0;
+}
+.tokyo-nova.sheet.actor.cast .profile-header .header-content-wrapper {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    gap: 8px;
+}
+.tokyo-nova.sheet.actor.cast .profile-header .identity-section .identity-view-mode {
+    display: flex; align-items: baseline; gap: 0.5em; flex-wrap: wrap;
+}
+.tokyo-nova.sheet.actor.cast .profile-header .identity-view-mode .quote-mark { font-size: 1.6em; font-weight: bold; color: var(--tnx-color-primary-accent); line-height: 1; }
+.tokyo-nova.sheet.actor.cast .profile-header .identity-view-mode .handle-ruby-view rb { font-size: 1.6em; font-weight: bold; color: var(--tnx-color-primary-accent); margin: 0 0.1em; }
+.tokyo-nova.sheet.actor.cast .profile-header .identity-view-mode .handle-ruby-view rt { font-size: 0.65em; color: var(--tnx-color-primary); }
+.tokyo-nova.sheet.actor.cast .profile-header .identity-view-mode .char-name-ruby-view rb { font-size: 1.9em; font-weight: bold; color: var(--tnx-color-primary-accent); }
+.tokyo-nova.sheet.actor.cast .profile-header .identity-view-mode .char-name-ruby-view rt { font-size: 0.7em; color: var(--tnx-color-primary); }
+.tokyo-nova.sheet.actor.cast .profile-header .identity-edit-mode { display: flex; flex-direction: column; gap: 8px; }
+.tokyo-nova.sheet.actor.cast .profile-header .identity-edit-mode .char-name-block-edit,
+.tokyo-nova.sheet.actor.cast .profile-header .identity-edit-mode .handle-block-edit { display: flex; gap: 3px; }
+.tokyo-nova.sheet.actor.cast .profile-header .identity-edit-mode label { font-size: 0.9em; color: var(--tnx-color-text-dim); }
+.tokyo-nova.sheet.actor.cast .profile-header .identity-edit-mode input[type="text"] {
+    background-color: var(--tnx-color-bg-input);
+    border: 1px solid var(--tnx-color-border);
+    color: var(--tnx-color-text-base);
+    padding: 4px 6px;
+    border-radius: var(--tnx-border-radius-sm);
+    font-size: 1.1em;
+}
+.tokyo-nova.sheet.actor.cast .profile-header .middle-header-section { display: flex; flex-direction: column; width: 100%; gap: 8px; }
+.tokyo-nova.sheet.actor.cast .profile-header .rank-affiliation-wrapper { display: flex; align-items: baseline; gap: 30px; flex-grow: 1; flex-wrap: wrap; }
+.tokyo-nova.sheet.actor.cast .profile-header .view-mode-rank,
+.tokyo-nova.sheet.actor.cast .profile-header .view-mode-affiliation { display: flex; flex-direction: row; align-items: baseline; }
+.tokyo-nova.sheet.actor.cast .profile-header .middle-header-section .view-mode-label { font-size: 1.1em; color: var(--tnx-color-text-dim); }
+.tokyo-nova.sheet.actor.cast .profile-header .citizen-rank-block .view-mode-value { font-size: 2em; color: var(--tnx-color-primary-highlight); font-weight: bold; }
+.tokyo-nova.sheet.actor.cast .profile-header .affiliation-block .view-mode-value { font-size: 1.3em; font-weight: bold; }
+.tokyo-nova.sheet.actor.cast .profile-header .edit-mode-rank,
+.tokyo-nova.sheet.actor.cast .profile-header .edit-mode-affiliation { display: flex; align-items: center; gap: 5px; }
+.tokyo-nova.sheet.actor.cast .profile-header .middle-header-section label { color: var(--tnx-color-text-dim); white-space: nowrap; }
+.tokyo-nova.sheet.actor.cast .profile-header .citizen-rank-block select {
+    min-width: 120px;
+    background-color: var(--tnx-color-bg-input);
+    border: 1px solid var(--tnx-color-border);
+    color: var(--tnx-color-text-base);
+    border-radius: var(--tnx-border-radius-sm);
+    padding: 4px;
+}
+.tokyo-nova.sheet.actor.cast .affiliation-block {
+    width: 280px;
+}
+.tokyo-nova.sheet.actor.cast .edit-mode-affiliation > .tnx-linked-button,
+.tokyo-nova.sheet.actor.cast .edit-mode-affiliation > .tnx-import-box--inline {
+    flex-grow: 1;
+    min-width: 0;
+}
+.tokyo-nova.sheet.actor.cast .profile-header .view-mode-style-summary { display: flex; align-items: baseline; gap: 5px; }
+.tokyo-nova.sheet.actor.cast .profile-header .style-summary-items { font-size: 1.1em; font-weight: bold; display: inline-flex; flex-wrap: wrap; }
+.tokyo-nova.sheet.actor.cast .profile-header .exp-display-section { text-align: right; }
+.tokyo-nova.sheet.actor.cast .profile-header .edit-mode-exp { display: flex; align-items: center; gap: 5px; }
+.tokyo-nova.sheet.actor.cast .profile-header .exp-display-section .exp-value { font-weight: bold; font-size: 1.2em; color: var(--tnx-color-primary-highlight); }
+.tokyo-nova.sheet.actor.cast .profile-header .exp-display-section .exp-input {
+    width: 70px; padding: 3px 5px; border-radius: var(--tnx-border-radius-sm);
+    background-color: var(--tnx-color-bg-input); border: 1px solid var(--tnx-color-border); color: var(--tnx-color-text-base);
+}
+.tokyo-nova.sheet.actor.cast .profile-header .styles-and-miracle-section { width: 100%; margin-top: 10px; }
+.tokyo-nova.sheet.actor.cast .profile-header .miracle-header { font-size: 1.2em; font-weight: bold; color: var(--tnx-color-primary); margin-bottom: 8px; text-align: center; border-bottom: 1px solid var(--tnx-color-primary-dark); padding-bottom: 4px; }
+.tokyo-nova.sheet.actor.cast .profile-header .miracle-buttons-grid {
+    display: flex;         /* 親要素をFlexboxコンテナにする（これが横並びの基本です） */
+    flex-wrap: wrap;       /* 要素が多すぎて一行に収まらない場合は折り返す */
+    gap: 10px;             /* ボタン間の隙間を空ける */
+    justify-content: center; /* ボタンを中央揃えにする */
+}
+.tokyo-nova.sheet.actor.cast .profile-header .miracle-action-item { flex: 1; min-width: 160px; }
+.tokyo-nova.sheet.actor.cast .profile-header button.miracle-use-button {
+    width: 168px;
+    gap: 10px;
+    flex-grow: 1;
+    min-height: 44px;
+    font-size: 0.9em;
+}
+.tokyo-nova.sheet.actor.cast .profile-header span.miracle-name__label {
+    text-align: center;
+}
+
+/* --- Cast Sheet: Header Item Slots --- */
+.tokyo-nova.sheet.actor.cast .edit-mode-styles-miracle-block {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.tokyo-nova.sheet.actor.cast .item-slots-row {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+.tokyo-nova.sheet.actor.cast .style-slot,
+.tokyo-nova.sheet.actor.cast .miracle-slot {
+    flex: 1;
+    min-width: 0;
+}
+
+.tokyo-nova.sheet.actor.cast .sheet-controls { position: absolute; top: 5px; right: 5px; }
+.tokyo-nova.sheet.actor.cast .edit-mode-toggle {
+    position: relative;
+    width: 50px;
+    height: 26px;
+    background-color: #555;
+    border: 1px solid var(--tnx-color-border);
+    border-radius: 13px;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+    -webkit-appearance: none;
+    padding: 0;
+}
+.tokyo-nova.sheet.actor.cast .edit-mode-toggle::after {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background-color: #fff;
+    border-radius: 50%;
+    transition: left 0.2s ease-in-out, color 0.2s ease-in-out;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    font-size: 12px;
+    color: #555;
+    content: '\f06e';
+}
+.tokyo-nova.sheet.actor.cast .edit-mode-toggle i {
+    display: none;
+}
+.tokyo-nova.sheet.actor.cast.edit-mode .edit-mode-toggle {
+    background-color: var(--tnx-color-primary);
+}
+.tokyo-nova.sheet.actor.cast.edit-mode .edit-mode-toggle::after {
+    left: 26px;
+    color: var(--tnx-color-primary);
+    content: '\f044';
+}
+
+/* --- Cast Sheet: Main Content --- */
+.tokyo-nova.sheet.actor.cast .sheet-tabs { flex-shrink: 0; border-bottom: 1px solid var(--tnx-color-primary-dark); }
+.tokyo-nova.sheet.actor.cast .sheet-tabs .item { color: var(--tnx-color-text-dim); padding: 5px 10px; }
+.tokyo-nova.sheet.actor.cast .sheet-tabs .item.active { text-shadow: 0 0 8px var(--tnx-color-primary); border-bottom: 2px solid var(--tnx-color-primary); color: #fff; }
+.tokyo-nova.sheet.actor.cast .sheet-body { flex-grow: 1; overflow-y: auto; padding: 10px; background-color: var(--tnx-color-bg-alt); }
+
+/* --- Cast Sheet: Abilities Tab (View Mode) --- */
+.tokyo-nova.sheet.actor.cast .abilities-grid.view-mode-layout {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    padding: 5px;
+}
+.tokyo-nova.sheet.actor.cast .view-mode-layout .ability-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.tokyo-nova.sheet.actor.cast .view-mode-layout .ability-label-shape {
+    background-color: var(--tnx-color-primary-darker);
+    border: 1px solid var(--tnx-color-primary);
+    transform: skewX(-25deg);
+    width: 90%;
+    z-index: 2;
+    position: relative;
+}
+.tokyo-nova.sheet.actor.cast .view-mode-layout .ability-label-content {
+    transform: skewX(25deg);
+    padding: 4px 0;
+}
+.tokyo-nova.sheet.actor.cast .view-mode-layout .ability-label-content h3 {
+    color: var(--tnx-color-primary-accent);
+    font-size: 1.2em;
+    font-weight: bold;
+    text-align: center;
+    border-bottom: 0;
+    margin: 0;
+}
+.tokyo-nova.sheet.actor.cast .view-mode-layout .ability-values-area {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    width: 100%;
+}
+.tokyo-nova.sheet.actor.cast .view-mode-layout .ability-value-shape {
+    background-color: var(--tnx-color-bg-input);
+    border: 1px solid var(--tnx-color-border-accent);
+    transform: skewX(-25deg);
+    width: 60%;
+    z-index: 1;
+}
+.tokyo-nova.sheet.actor.cast .view-mode-layout .ability-value-content {
+    transform: skewX(25deg);
+    padding: 5px;
+}
+.tokyo-nova.sheet.actor.cast .view-mode-layout .control-value-shape {
+    background-color: #333a41;
+    border: 1px solid var(--tnx-color-border);
+    transform: skewX(-25deg);
+    width: 40%;
+    height: 80%;
+    margin-left: -2px;
+}
+.tokyo-nova.sheet.actor.cast .view-mode-layout .control-value-content {
+    transform: skewX(25deg);
+    padding: 5px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+}
+.tokyo-nova.sheet.actor.cast .view-mode-layout input[type="number"] {
+    width: 100%;
+    background: transparent;
+    border: none;
+    text-align: center;
+    color: var(--tnx-color-text-base);
+    padding: 0;
+    pointer-events: none;
+}
+.tokyo-nova.sheet.actor.cast .view-mode-layout .ability-value-content input {
+    font-size: 1.8em;
+    font-weight: bold;
+}
+.tokyo-nova.sheet.actor.cast .view-mode-layout .control-value-content input {
+    font-size: 1.2em;
+    color: var(--tnx-color-text-dim);
+}
+
+/* --- Cast Sheet: Visibility Toggles --- */
+.tokyo-nova.sheet.actor.cast.view-mode .identity-edit-mode,
+.tokyo-nova.sheet.actor.cast.view-mode .middle-header-section .edit-mode-rank,
+.tokyo-nova.sheet.actor.cast.view-mode .middle-header-section .edit-mode-affiliation,
+.tokyo-nova.sheet.actor.cast.view-mode .exp-display-section .edit-mode-exp,
+.tokyo-nova.sheet.actor.cast.view-mode .styles-and-miracle-section .edit-mode-styles-miracle-block,
+.tokyo-nova.sheet.actor.cast.view-mode .sidebar-hand-pool-section .sidebar-edit-controls,
+.tokyo-nova.sheet.actor.cast.edit-mode .identity-view-mode,
+.tokyo-nova.sheet.actor.cast.edit-mode .middle-header-section .view-mode-rank,
+.tokyo-nova.sheet.actor.cast.edit-mode .middle-header-section .view-mode-affiliation,
+.tokyo-nova.sheet.actor.cast.edit-mode .middle-header-section .view-mode-style-summary,
+.tokyo-nova.sheet.actor.cast.edit-mode .exp-display-section .view-mode-exp,
+.tokyo-nova.sheet.actor.cast.edit-mode .styles-and-miracle-section .view-mode-miracle-actions,
+.tokyo-nova.sheet.actor.cast.edit-mode .sidebar-hand-pool-section .view-mode-hand {
+    display: none !important;
+}
+.tokyo-nova.sheet.actor.cast.view-mode input,
+.tokyo-nova.sheet.actor.cast.view-mode select {
+    border: none !important; background: transparent !important; pointer-events: none;
+    padding-left: 0; padding-right: 0; color: inherit !important;
+    -webkit-appearance: none; -moz-appearance: none; appearance: none;
+}
+/* 神業シートのチェックボックス用スタイル */
+.sheet.item.miracle .sheet-header .is-used-checkbox {
+    position: absolute;
+    top: 57px;
+    right: 15px;
+    display: flex;
+    align-items: center;
+}
+
+.sheet.item.miracle .sheet-header .is-used-checkbox label {
+    /* labelの右マージンは不要なため削除 */
+    font-weight: bold;
+    color: var(--tnx-color-text-dim);
+}
+
+.sheet.item.miracle .sheet-header .is-used-checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    /* inputの右側にマージンを追加してラベルとの隙間を確保 */
+    margin-right: 5px;
+}
+
+/* --- レイアウトとスクロールの修正 --- */
+.tokyo-nova.sheet.actor.cast .tabbed-content {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    min-height: 0; /* flexアイテム内でスクロールを有効にするための重要設定 */
+}
+
+.tokyo-nova.sheet .abilities-grid.edit-mode-layout {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+    padding: 0;
+    align-items: start;
+}
+
+/* * 内訳と成長・修正入力欄のレイアウト 
+ * 新しく追加した .input-row と .breakdown-item を使ってスタイリングします
+ */
+.tokyo-nova.sheet .edit-mode-layout .ability-main-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 5px; /* 各行の間のスペース */
+}
+.tokyo-nova.sheet .edit-mode-layout .ability-breakdown.breakdown-row {
+    display: flex;
+    flex-direction: column;
+    gap: 5px; /* 各行の間のスペース */
+    margin-bottom: 10px;
+}
+
+/* 各入力行のレイアウト */
+.tokyo-nova.sheet .edit-mode-layout .input-row,
+.tokyo-nova.sheet .edit-mode-layout .breakdown-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto 1fr; /* 「ラベル」「値」「/」「制御値」の4列 */
+    align-items: center;
+}
+
+/* ラベルのスタイル */
+.tokyo-nova.sheet .edit-mode-layout .input-row label,
+.tokyo-nova.sheet .edit-mode-layout .breakdown-item label {
+    text-align: right;
+    padding-right: 5px;
+}
+
+/* 入力欄のスタイル */
+.tokyo-nova.sheet .edit-mode-layout .input-row input {
+    text-align: center; /* 要望: 中央揃え */
+    height: 28px;
+    font-size: 1.2em;
+    background-color: var(--tnx-color-bg-input);
+    border: 1px solid var(--tnx-color-border);
+    color: var(--tnx-color-text-base);
+}
+.tokyo-nova.sheet .edit-mode-layout .breakdown-item input {
+    text-align: center; /* 要望: 中央揃え */
+    height: 28px;
+    font-size: 1.2em;
+    background-color: var(--tnx-color-bg-input);
+    border: 1px solid var(--tnx-color-border);
+    color: var(--tnx-color-text-muted);
+}
+
+/* セパレータのスタイル */
+.tokyo-nova.sheet .edit-mode-layout .input-row .separator,
+.tokyo-nova.sheet .edit-mode-layout .breakdown-item .separator {
+    font-size: 1.4em; /* 要望: 小さくする */
+}/* =================================================================== */
+/* 5. CHAT MESSAGES                                                  */
+/* =================================================================== */
+
+/* --- Collapsible Chat Cards --- */
+.chat-message .message-content .tnx-chat-card {
+    border: 1px solid var(--tnx-color-primary-dark);
+    border-radius: var(--tnx-border-radius-md);
+    background-color: var(--tnx-color-bg-alt);
+    margin-bottom: 5px;
+    overflow: hidden;
+}
+
+.chat-message .message-content .tnx-chat-card > summary {
+    padding: 12px 12px;
+    background-color: rgba(0,0,0,0.2);
+    cursor: pointer;
+    transition: background-color 0.2s;
+    display: block;
+    outline: none;
+}
+
+.chat-message .message-content .tnx-chat-card > summary:hover {
+    background-color: var(--tnx-color-primary-darker);    
+    color: var(--tnx-color-text-base);
+}
+
+.chat-message .message-content .tnx-chat-card > summary::-webkit-details-marker {
+    display: none; /* Hide default triangle marker */
+}
+
+.chat-message .message-content .tnx-chat-card > summary h3 {
+    margin: 0;
+    display: inline;
+    font-size: 1.1em;
+    border-bottom: none;
+}
+
+/* Custom expand/collapse icon */
+.chat-message .message-content .tnx-chat-card > summary::before {
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    content: '\f0da'; /* Right-pointing triangle */
+    margin-right: 8px;
+    transition: transform 0.2s ease-in-out;
+    display: inline-block;
+}
+
+.chat-message .message-content .tnx-chat-card[open] > summary::before {
+    transform: rotate(90deg); /* Down-pointing on open */
+}
+
+.chat-message .message-content .tnx-chat-card .card-content {
+    padding: 10px 12px;
+    border-top: 1px solid var(--tnx-color-primary-dark);
+}
+
+/* --- Nested Description Section --- */
+.chat-message .nested-description {
+    margin-top: 10px;
+    background-color: rgba(0, 0, 0, 0.15);
+    border-left: 3px solid var(--tnx-color-primary);
+    border-radius: var(--tnx-border-radius-sm);
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.2);
+    padding: 0; /* paddingは内部で管理 */
+}
+
+.chat-message .nested-description > summary {
+    cursor: pointer;
+    padding: 12px 10px;
+    display: block;
+    outline: none;
+    transition: background-color 0.2s;
+}
+
+.chat-message .nested-description > summary:hover {
+    background-color: rgba(0,0,0,0.1);
+}
+
+
+.chat-message .nested-description > summary::-webkit-details-marker {
+    display: none;
+}
+
+.chat-message .nested-description > summary::before {
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    content: '\f0da';
+    margin-right: 6px;
+    transition: transform 0.2s ease-in-out;
+    display: inline-block;
+    font-size: 0.9em;
+}
+
+.chat-message .nested-description[open] > summary::before {
+    transform: rotate(90deg);
+}
+
+.chat-message .nested-description > summary h4 {
+    margin: 0;
+    padding: 0;
+    border-bottom: none;
+    font-size: 1.1em;
+    display: inline;
+}
+
+.chat-message .nested-description .card-content {
+    padding: 10px 12px 10px 30px; /* インデントを調整 */
+    border-top: 1px solid var(--tnx-color-border);
+}
+
+.tnx-create-menu {
+    position: absolute;
+    z-index: 100;
+    background-color: #2a2a2e;
+    border: 1px solid #444;
+    border-radius: 4px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    padding: 5px 0;
+    min-width: 180px;
+}
+
+.tnx-create-menu ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.tnx-create-menu li {
+    padding: 8px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #f0f0f0;
+    transition: background-color 0.2s;
+}
+
+.tnx-create-menu li:hover {
+    background-color: var(--tnx-color-primary-dark);
+}
+
+.tnx-create-menu li i {
+    color: #ccc;
+}
+
+/* === Scenario Sheet === */
+.scenario-sheet .sheet-body {
+    padding: 10px;
+    background-color: var(--tnx-color-bg-alt);
+}
+
+.tnx-fieldset {
+    position: relative;
+    border: 1px solid var(--tnx-color-primary-dark);
+    border-radius: var(--tnx-border-radius-lg);
+    background-color: var(--tnx-color-bg-alt);
+    box-shadow: inset 0 0 15px rgba(0, 170, 255, 0.1);
+    padding: 25px 15px 15px 15px;
+    margin: 0 0 20px 0;
+}
+
+.tnx-fieldset > legend {
+    position: absolute;
+    top: -0.7em;
+    left: 15px;
+    background-color: var(--tnx-color-bg);
+    padding: 0 10px;
+    font-size: 1.2em;
+    font-weight: bold;
+    color: var(--tnx-color-primary-accent);
+}
+
+.card-management-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
+
+.card-slot .slot-header {
+    margin: 0 0 8px 0;
+    font-size: 1.1em;
+    font-weight: bold;
+    border-bottom: 1px solid var(--tnx-color-border-accent);
+    padding-bottom: 4px;
+}
+
+.setup-controls {
+    display: flex;
+    justify-content: left;
+    padding: 10px 0;
+    margin-bottom: 20px;
+}
+
+.setup-controls .tnx-button {
+    max-width: 300px;
+}
+
+.manual-text p {
+    margin: 0 0 10px 0;
+    color: var(--tnx-color-text-dim);
+    line-height: 1.6;
+}
+
+.manual-text p:last-child {
+    margin-bottom: 0;
+}
+
+/* === Wizard Dialog (Refined) === */
+#tnx-scenario-wizard .dialog-content {
+    background-color: var(--tnx-color-bg-alt);
+}
+
+#tnx-scenario-wizard form {
+    padding: 10px;
+}
+
+#tnx-scenario-wizard .sheet-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 20px;
+    border-top: 1px solid var(--tnx-color-border);
+    padding-top: 10px;
+}
+
+#tnx-scenario-wizard .tnx-fieldset > legend {
+    color: var(--tnx-color-primary-accent);
+}
+
+#tnx-scenario-wizard .form-group > label {
+    font-weight: bold;
+    color: var(--tnx-color-text-base);
+}
+
+#tnx-scenario-wizard p.notes {
+    color: var(--tnx-color-text-dim);
+}
+
+#tnx-scenario-wizard input[type="text"] {
+    color: var(--tnx-color-text-base);
+}
+
+#tnx-scenario-wizard input[type="text"]::placeholder {
+    color: var(--tnx-color-text-muted);
+    opacity: 0.7;
+}
+
+#tnx-scenario-wizard .form-group-checkbox {
+    display: flex;
+    align-items: center;
+    padding: 5px 0;
+}
+#tnx-scenario-wizard .form-group-checkbox input[type="checkbox"] {
+    margin-right: 10px;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+#tnx-scenario-wizard .form-group-checkbox label {
+    font-weight: normal;
+    cursor: pointer;
+    color: var(--tnx-color-text-base);
+}
+
+.tnx-button--secondary {
+    background-color: #4a5057;
+    border-color: #3e444a;
+    color: #ccc;
+}
+.tnx-button--secondary:hover {
+    background-color: #585f68;
+    border-color: #666;
+}
+
+/* === Wizard Dialog Number Spinner (MODIFIED) === */
+#tnx-scenario-wizard .form-group .number-input-spinner {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0;
+}
+
+#tnx-scenario-wizard .number-input-spinner input[type="number"] {
+    width: 60px;
+    height: 35px;
+    text-align: center;
+    font-size: 1.2em;
+    font-weight: bold;
+    /* CHANGE: Unify border color and remove horizontal borders */
+    border: 1px solid var(--tnx-color-primary-dark);
+    border-left: none;
+    border-right: none;
+    border-radius: 0; /* Ensure no radius on the input itself */
+    padding: 0 2px;
+    margin: 0; /* Explicitly remove margin */
+    background-color: var(--tnx-color-bg-input);
+    color: var(--tnx-color-text-base);
+    -moz-appearance: textfield; /* Hide Firefox spinner */
+}
+
+#tnx-scenario-wizard .number-input-spinner input[type="number"]::-webkit-outer-spin-button,
+#tnx-scenario-wizard .number-input-spinner input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none; /* Hide Chrome/Safari spinner */
+    margin: 0;
+}
+
+#tnx-scenario-wizard .number-input-spinner .tnx-button {
+    width: 35px;
+    height: 35px;
+    flex-shrink: 0;
+    padding: 0;
+    font-size: 1.4em;
+    line-height: 1;
+    margin: 0; /* Explicitly remove margin */
+}
+
+/* Adjust border radius for a cohesive look */
+#tnx-scenario-wizard .number-input-spinner button[data-action="decrement"] {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+#tnx-scenario-wizard .number-input-spinner button[data-action="increment"] {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+
+.tokyo-nova.sheet.item .sheet-header .charname-container {
+    display: flex;
+    flex-direction: column; /* 内部の入力欄を縦に並べる */
+    gap: 2px; /* 入力欄の間の隙間 */
+    width: 100%;
+    /* h1のデフォルトスタイルを無効化 */
+    margin: 0;
+    padding: 0;
+    font-size: inherit;
+    font-weight: normal;
+    border: none;
+    line-height: normal;
+}
+
+/* フリガナ入力欄のスタイル */
+.tokyo-nova.sheet.item .sheet-header .furigana-input {
+    width: 100%;
+    height: 20px;
+    margin: 0;
+    font-size: 14px;
+    font-weight: normal;
+    color: var(--tnx-color-text-dim);
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--tnx-border-radius-sm);
+    transition: all 0.2s ease-in-out;
+}
+
+/* アイテム名入力欄のスタイル */
+.tokyo-nova.sheet.item .sheet-header .itemname-input {
+    width: 100%;
+    margin: 0;
+    font-size: 24px;
+    font-weight: bold;
+    color: var(--tnx-color-text-base);
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--tnx-border-radius-md);
+    transition: all 0.2s ease-in-out;
+}
+
+/* 両方の入力欄に共通のフォーカススタイル */
+.tokyo-nova.sheet.item .sheet-header .furigana-input:focus,
+.tokyo-nova.sheet.item .sheet-header .itemname-input:focus {
+    background-color: var(--tnx-color-bg-input);
+    border-color: var(--tnx-color-primary);
+    outline: none;
+}
+
+.scenario-sheet.two-column-layout {
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+}
+
+/* サイドバー（目次）のスタイル */
+.scenario-sheet .scenario-sidebar {
+    flex: 0 0 180px;
+    background-color: var(--tnx-color-bg-alt);
+    border-right: 1px solid var(--tnx-color-border);
+    padding: 10px;
+    overflow-y: auto;
+}
+
+.scenario-sheet .vertical-tabs {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    border: none;
+}
+
+.scenario-sheet .vertical-tabs .item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border-radius: var(--tnx-border-radius-md);
+    color: var(--tnx-color-text-dim);
+    border: 1px solid transparent;
+    transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+    cursor: pointer;
+}
+
+.scenario-sheet .vertical-tabs .item:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: var(--tnx-color-text-base);
+}
+
+.scenario-sheet .vertical-tabs .item.active {
+    background-color: var(--tnx-color-primary-darker);
+    border-color: var(--tnx-color-primary-dark);
+    color: var(--tnx-color-primary-highlight);
+    text-shadow: 0 0 5px var(--tnx-color-primary);
+    font-weight: bold;
+}
+
+.scenario-sheet .vertical-tabs .item i {
+    width: 20px;
+    text-align: center;
+}
+
+.scenario-sheet .vertical-tabs .item.active i {
+    color: var(--tnx-color-primary-highlight);
+}
+
+/* メインコンテンツエリアのスタイル */
+.scenario-sheet .sheet-body {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+/* タブ内のプレースホルダーテキストのスタイル */
+.scenario-sheet .tab-placeholder {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    color: var(--tnx-color-text-muted);
+    font-style: italic;
+    font-size: 1.2em;
+}
+
+/* === Scenario Sheet: Scenes Tab === */
+.scenes-container { display: flex; flex-direction: column; gap: 5px; }
+.phase-section { border: 1px solid var(--tnx-color-border); border-radius: var(--tnx-border-radius-md); }
+.phase-header { 
+    display: flex; justify-content: space-between; align-items: center; 
+    padding: 8px 15px; background-color: rgba(0,0,0,0.15);
+    border-bottom: 1px solid var(--tnx-color-border-accent);
+}
+.phase-header h3 { margin: 0; color: var(--tnx-color-primary-accent); border-bottom: none; }
+.scene-table { display: flex; flex-direction: column; padding: 10px; }
+.scene-table-header {
+    display: grid;
+    grid-template-columns: 40px 3fr 2fr 50px 40px 40px; 
+    gap: 10px; align-items: center; padding: 0 8px 8px 12px;
+    font-weight: bold; color: var(--tnx-color-text-dim); 
+    border-bottom: 1px solid var(--tnx-color-border-accent);
+}
+.scene-table-header .header-cell.scene-number,
+.scene-table-header .header-cell.master-scene,
+.scene-table-header .header-cell.scene-switch,
+.scene-table-header .header-cell.scene-controls { text-align: center; }
+.scene-table-header .add-scene-button {
+    background: none; border: none; padding: 0; font-size: 1.1em;
+    color: var(--tnx-color-text-dim); cursor: pointer; border-radius: 50%;
+    width: 26px; height: 26px; line-height: 26px; text-align: center;
+    transition: all 0.2s;
+}
+.scene-table-header .add-scene-button:hover { border-color: transparent; color: var(--tnx-color-primary-highlight); }
+.scene-table-body { display: flex; flex-direction: column; gap: 5px; margin-top: 5px; }
+.scene-item {
+    display: flex; flex-direction: column; background-color: var(--tnx-color-bg-alt);
+    border: 1px solid var(--tnx-color-border); border-radius: var(--tnx-border-radius-sm);
+    transition: background-color 0.2s;
+}
+.scene-item:hover { background-color: rgba(255, 255, 255, 0.05); }
+.scene-main-row {
+    display: grid; grid-template-columns: 40px 3fr 2fr 50px 40px 40px; 
+    gap: 10px; align-items: center; padding: 8px;
+}
+.table-cell input[type="text"] {
+    width: 100%; background-color: var(--tnx-color-bg-input);
+    border: 1px solid var(--tnx-color-border-accent); border-radius: var(--tnx-border-radius-sm);
+    padding: 6px 8px; color: var(--tnx-color-text-base);
+}
+.table-cell input[type="text"]:disabled { background-color: #3e444a; color: var(--tnx-color-text-muted); cursor: not-allowed; }
+.table-cell select {
+    width: 100%; background-color: var(--tnx-color-bg-input);
+    border: 1px solid var(--tnx-color-border-accent); border-radius: var(--tnx-border-radius-sm);
+    padding: 5px 4px; color: var(--tnx-color-text-base);
+    font-family: inherit; font-size: 14px; height: 32px;
+}
+.table-cell select:disabled {
+    background-color: #3e444a; color: var(--tnx-color-text-muted);
+    cursor: not-allowed; border-color: var(--tnx-color-border);
+}
+.table-cell.scene-number, .table-cell.master-scene,
+.table-cell.scene-switch, .table-cell.scene-controls { display: flex; justify-content: center; align-items: center; }
+.scene-control { color: var(--tnx-color-text-muted); font-size: 1.2em; }
+.scene-control[data-action="delete-scene"]:hover { color: var(--tnx-color-error-text); }
+.scene-control[data-action="switch-scene"]:hover { color: var(--tnx-color-primary-highlight); }
+.scene-details-row { border-top: 1px dashed transparent; }
+.scene-details-row[open] { border-top-color: var(--tnx-color-border); }
+.scene-details-row > summary {
+    padding: 3px 10px; cursor: pointer; color: var(--tnx-color-text-muted); 
+    font-style: italic; font-size: 0.9em; outline: none; list-style: none;
+    text-align: center;
+}
+.scene-details-row > summary::-webkit-details-marker { display: none; }
+.scene-details-row > summary:hover { color: var(--tnx-color-primary-accent); }
+.message-preview { padding: 8px; }
+.message-preview textarea {
+    width: 100%; min-height: 60px; background: rgba(0,0,0,0.15);
+    border: 1px solid var(--tnx-color-border-accent); color: var(--tnx-color-text-base);
+    padding: 8px; border-radius: 3px; font-family: inherit;
+    line-height: 1.5; word-break: break-word; resize: vertical;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.message-preview textarea:focus {
+    outline: none; border-color: var(--tnx-color-primary);
+    box-shadow: 0 0 5px var(--tnx-color-primary-dark);
+}
+
+/* === Scenario Sheet: Texts Tab === */
+.texts-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+.texts-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--tnx-color-border-accent);
+    padding-bottom: 8px;
+}
+.texts-header h3 {
+    margin: 0;
+    color: var(--tnx-color-primary-accent);
+    font-size: 1.3em;
+    border-bottom: none;
+}
+.texts-header .add-text-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 32px;
+    padding: 0 12px;
+    font-size: 13px;
+    font-weight: bold;
+    background-color: var(--tnx-color-primary-darker);
+    border: 1px solid var(--tnx-color-primary-dark);
+    color: var(--tnx-color-text-base);
+    border-radius: var(--tnx-border-radius-md);
+    cursor: pointer;
+    transition: all 0.2s;
+    width: auto;
+    flex-shrink: 0;
+}
+.texts-header .add-text-button:hover {
+    background-color: var(--tnx-color-primary-dark);
+    border-color: var(--tnx-color-primary);
+}
+.text-item-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.text-item {
+    background-color: var(--tnx-color-bg-alt);
+    border: 1px solid var(--tnx-color-border);
+    border-radius: var(--tnx-border-radius-md);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.text-item-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: rgba(0,0,0,0.1);
+    border-bottom: 1px solid var(--tnx-color-border);
+}
+.text-item-header input[type="text"] {
+    flex-grow: 1;
+    background-color: transparent;
+    border: none;
+    padding: 4px 0;
+    font-size: 1.1em;
+    font-weight: bold;
+    color: var(--tnx-color-text-base);
+    border-radius: 0;
+    border-bottom: 1px solid transparent;
+    transition: all 0.2s;
+}
+.text-item-header input[type="text"]:focus {
+    outline: none;
+    background-color: var(--tnx-color-bg-input);
+    padding-left: 5px;
+    border-bottom-color: var(--tnx-color-primary);
+}
+.text-item-controls {
+    display: flex;
+    gap: 15px;
+    flex-shrink: 0;
+}
+.text-item-controls .text-control {
+    font-size: 1.2em;
+    color: var(--tnx-color-text-muted);
+    cursor: pointer;
+    transition: color 0.2s;
+}
+.text-item-controls .text-control[data-action="send-text-to-chat"]:hover {
+    color: var(--tnx-color-primary-highlight);
+}
+.text-item-controls .text-control[data-action="delete-text-item"]:hover {
+    color: var(--tnx-color-error-text);
+}
+.text-item-body {
+    padding: 12px;
+}
+.text-item-body textarea {
+    width: 100%;
+    min-height: 100px;
+    background: transparent;
+    border: 1px solid var(--tnx-color-border-accent);
+    color: var(--tnx-color-text-base);
+    padding: 8px;
+    border-radius: 3px;
+    font-family: inherit;
+    line-height: 1.5;
+    resize: vertical;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.text-item-body textarea:focus {
+    outline: none;
+    border-color: var(--tnx-color-primary);
+    box-shadow: 0 0 5px var(--tnx-color-primary-dark);
+}
+.no-items-placeholder {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--tnx-color-text-muted);
+    font-style: italic;
+    border: 2px dashed var(--tnx-color-border-accent);
+    border-radius: var(--tnx-border-radius-md);
+    margin-top: 10px;
+}
+/* === Scenario Sheet: Info Tab === */
+.info-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+.info-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--tnx-color-border-accent);
+    padding-bottom: 8px;
+}
+.info-header h3 {
+    margin: 0;
+    color: var(--tnx-color-primary-accent);
+    font-size: 1.3em;
+    border-bottom: none;
+}
+.info-header .add-info-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    padding: 0 12px;
+    font-size: 13px;
+    font-weight: bold;
+    background-color: var(--tnx-color-primary-darker);
+    border: 1px solid var(--tnx-color-primary-dark);
+    color: var(--tnx-color-text-base);
+    border-radius: var(--tnx-border-radius-md);
+    cursor: pointer;
+    transition: all 0.2s;
+    width: auto;
+}
+.info-header .add-info-button:hover {
+    background-color: var(--tnx-color-primary-dark);
+    border-color: var(--tnx-color-primary);
+}
+.info-item-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.info-item {
+    background-color: var(--tnx-color-bg-alt);
+    border: 1px solid var(--tnx-color-border-accent);
+    border-radius: var(--tnx-border-radius-md);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: all 0.3s ease-out;
+}
+.info-item-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: rgba(0,0,0,0.1);
+    border-bottom: 1px solid var(--tnx-color-border);
+}
+.info-item-header input[type="text"] {
+    flex-grow: 1;
+    background-color: transparent;
+    border: none;
+    padding: 4px 0;
+    font-size: 1.1em;
+    font-weight: bold;
+    color: var(--tnx-color-text-base);
+    border-radius: 0;
+    border-bottom: 1px solid transparent;
+    transition: all 0.2s;
+}
+.info-item-header input[type="text"]:focus {
+    outline: none;
+    background-color: var(--tnx-color-bg-input);
+    padding-left: 5px;
+    border-bottom-color: var(--tnx-color-primary);
+}
+.info-item-controls {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    flex-shrink: 0;
+}
+.info-item-controls .info-control {
+    font-size: 1.2em;
+    color: var(--tnx-color-text-muted);
+    cursor: pointer;
+    transition: color 0.2s;
+}
+.info-item-controls .info-control[data-action="send-info-to-chat"]:hover {
+    color: var(--tnx-color-primary-highlight);
+}
+.info-item-controls .info-control[data-action="delete-info-item"]:hover {
+    color: var(--tnx-color-error-text);
+}
+.info-item-body {
+    padding: 12px;
+}
+.info-item-body textarea {
+    width: 100%;
+    min-height: 100px;
+    background: transparent;
+    border: 1px solid var(--tnx-color-border);
+    color: var(--tnx-color-text-base);
+    padding: 8px;
+    border-radius: 3px;
+    font-family: inherit;
+    line-height: 1.5;
+    resize: vertical;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.info-item-body textarea:focus {
+    outline: none;
+    border-color: var(--tnx-color-primary);
+    box-shadow: 0 0 5px var(--tnx-color-primary-dark);
+}
+/* 公開/非公開のスタイル */
+.info-item.disclosed {
+    border-left: 3px solid var(--tnx-color-primary);
+}
+.info-item.disclosed .info-item-header {
+    background-color: rgba(0, 170, 255, 0.08);
+}
+.disclosure-toggle {
+    cursor: pointer;
+    color: var(--tnx-color-text-muted);
+    font-size: 1.2em;
+    position: relative;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.disclosure-toggle input[type="checkbox"] {
+    opacity: 0;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+}
+.disclosure-toggle i {
+    transition: color 0.2s;
+}
+.disclosure-toggle input[type="checkbox"]:checked + i {
+    color: var(--tnx-color-primary-highlight);
+    text-shadow: 0 0 8px var(--tnx-color-primary);
+}
+.disclosure-toggle:hover i {
+    color: var(--tnx-color-primary-accent);
+}
+/* === Scenario Sheet: Info Tab (Advanced) === */
+.info-item-body {
+    display: flex;
+    flex-direction: column;
+}
+
+.info-item-body .info-contents-list {
+    flex-grow: 1;
+}
+.info-content-block {
+    padding: 12px;
+    border-top: 1px solid var(--tnx-color-border-accent);
+}
+.info-content-block:first-child {
+    border-top: none;
+}
+.content-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.content-header h4 {
+    margin: 0;
+    font-size: 1em;
+    font-weight: bold;
+    color: var(--tnx-color-text-dim);
+}
+.content-control {
+    color: var(--tnx-color-text-muted);
+    cursor: pointer;
+}
+.content-control:hover {
+    color: var(--tnx-color-error-text);
+}
+.skill-checks-area {
+    padding: 10px;
+    background-color: rgba(0,0,0,0.15);
+    border-radius: var(--tnx-border-radius-sm);
+}
+.skill-checks-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.skill-checks-header h5 {
+    margin: 0;
+    font-weight: bold;
+}
+.skill-control {
+    background: none;
+    border: 1px solid var(--tnx-color-border-accent);
+    color: var(--tnx-color-text-dim);
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.skill-control:hover {
+    color: var(--tnx-color-primary-highlight);
+    border-color: var(--tnx-color-primary);
+}
+.skill-control.delete:hover {
+    color: var(--tnx-color-error-text);
+    border-color: var(--tnx-color-error);
+}
+.skill-check-list {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.skill-check-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.skill-check-row .skill-name {
+    flex: 1;
+}
+.skill-check-row .skill-tn {
+    width: 60px;
+    text-align: center;
+}
+.skill-check-row input {
+    background-color: var(--tnx-color-bg-input);
+    border: 1px solid var(--tnx-color-border);
+    border-radius: var(--tnx-border-radius-sm);
+    padding: 4px 6px;
+    color: var(--tnx-color-text-base);
+}
+.tn-label {
+    font-size: 0.9em;
+    color: var(--tnx-color-text-dim);
+}
+.add-content-button-wrapper {
+    padding: 12px;
+    border-top: 1px solid var(--tnx-color-border-accent);
+}
+.add-content-button {
+    width: 100%;
+    background-color: rgba(0,0,0,0.2);
+    border-style: dashed;
+}
+.add-content-button:hover {
+    background-color: rgba(0, 170, 255, 0.1);
+}
+/* === Scenario Sheet: Scenario Info Tab === */
+.scenario-info-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+.trailer-section, .handouts-section {
+    border: 1px solid var(--tnx-color-border);
+    border-radius: var(--tnx-border-radius-md);
+    padding: 15px;
+}
+.info-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--tnx-color-border-accent);
+    padding-bottom: 8px;
+}
+.info-header h3 {
+    margin: 0;
+    font-size: 1.3em;
+    color: var(--tnx-color-primary-accent);
+    border: none;
+}
+.trailer-textarea {
+    width: 100%;
+    resize: vertical;
+    background: var(--tnx-color-bg-input);
+    border: 1px solid var(--tnx-color-border);
+    color: var(--tnx-color-text-base);
+    padding: 8px;
+    border-radius: 3px;
+    font-family: inherit;
+    line-height: 1.6;
+}
+.handout-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.handout-item {
+    border: 1px solid var(--tnx-color-border-accent);
+    border-radius: var(--tnx-border-radius-sm);
+    background-color: var(--tnx-color-bg-alt);
+}
+.handout-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    background-color: rgba(0,0,0,0.1);
+    border-bottom: 1px solid var(--tnx-color-border);
+}
+.handout-inputs {
+    flex-grow: 1;
+    display: flex;
+    gap: 10px;
+}
+.handout-inputs input {
+    background-color: var(--tnx-color-bg-input);
+    border: 1px solid var(--tnx-color-border);
+    border-radius: 3px;
+    padding: 6px 8px;
+    color: var(--tnx-color-text-base);
+}
+.handout-inputs input[name="pcName"] { flex: 0 0 100px; }
+.handout-inputs input[name="title"] { flex: 1; }
+.handout-controls { display: flex; gap: 15px; }
+.handout-control { font-size: 1.2em; color: var(--tnx-color-text-muted); cursor: pointer; transition: color 0.2s; }
+.handout-control:hover { color: var(--tnx-color-primary-highlight); }
+.handout-control[data-action="delete-handout"]:hover { color: var(--tnx-color-error-text); }
+.handout-body { padding: 8px; }
+.handout-body textarea {
+    width: 100%;
+    resize: vertical;
+    background: transparent;
+    border: none;
+    color: var(--tnx-color-text-dim);
+}
+.add-handout-button {
+    background: none; border: 1px solid var(--tnx-color-border-accent);
+    color: var(--tnx-color-text-dim); border-radius: 50%; width: 26px; height: 26px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.2s;
+}
+.add-handout-button:hover {
+    color: var(--tnx-color-primary-highlight);
+    border-color: var(--tnx-color-primary);
+}
+.small-button {
+    width: auto !important;
+    height: 32px !important;
+    font-size: 13px !important;
+    gap: 8px !important;
+}
+/* === Scenario Sheet: Handout Section (Refactored) === */
+.handout-item {
+    border: 1px solid var(--tnx-color-border-accent);
+    border-radius: var(--tnx-border-radius-sm);
+    background-color: var(--tnx-color-bg-alt);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* 各行の間のスペース */
+}
+
+/* 各行の共通設定 */
+.handout-row {
+    display: flex;
+    width: 100%;
+}
+
+/* 1行目: ヘッダー */
+.handout-row--header {
+    align-items: center;
+    gap: 10px;
+}
+.handout-row--header .handout-pc-name {
+    flex: 0 0 120px; /* PC名入力欄の幅を固定 */
+}
+.handout-row--header .handout-title {
+    flex: 1 1 auto; /* ハンドアウト名入力欄を可能な限り伸ばす */
+}
+.handout-row--header .handout-controls {
+    display: flex;
+    gap: 15px;
+}
+
+/* 2行目: 推奨項目 */
+.handout-row--recommendations {
+    align-items: center;
+    gap: 15px;
+}
+.handout-row--recommendations .recommendation-field {
+    display: flex;
+    align-items: center;
+    flex: 1; /* 3つのフィールドが均等にスペースを分け合う */
+    gap: 8px;
+}
+.handout-row--recommendations label {
+    white-space: nowrap; /* ラベルの改行を防ぐ */
+    flex-shrink: 0; /* ラベルが縮まないように */
+}
+.handout-row--recommendations input {
+    width: 100%; /* 入力欄をフィールドいっぱいに伸ばす */
+}
+
+/* 3行目: 内容ラベル */
+.handout-row--content-label {
+    margin-bottom: -6px; /* テキストエリアとの隙間を詰める */
+}
+.handout-row--content-label label {
+    font-weight: bold;
+    font-size: 0.9em;
+    color: var(--tnx-color-text-dim);
+}
+
+/* 4-7行目: 内容テキストエリア */
+.handout-row--content-area textarea {
+    width: 100%;
+    resize: vertical;
+}
+
+/* 8行目: PS */
+.handout-row--ps {
+    align-items: center;
+    gap: 8px;
+}
+.handout-row--ps label {
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-weight: bold;
+    font-size: 0.9em;
+    color: var(--tnx-color-text-dim);
+}
+.handout-row--ps input {
+    flex-grow: 1; /* 入力欄を可能な限り伸ばす */
+}
+
+/* ハンドアウト内の汎用入力部品スタイル */
+.handout-item input[type="text"],
+.handout-item textarea {
+    background-color: var(--tnx-color-bg-input);
+    border: 1px solid var(--tnx-color-border);
+    border-radius: 3px;
+    padding: 6px 8px;
+    color: var(--tnx-color-text-base);
+    font-family: inherit;
+}
+
+/* === HUD (Final CSS-driven Positioning) === */
+
+/* --- 共通設定 --- */
+.deck-card,
+.card-in-hand {
+    width: 128px;
+    height: 192px;
+    border-radius: 5px;
+    position: relative;
+    background: #222;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    transition: all 0.2s ease-out;
+}
+
+.deck-card:hover,
+.card-in-hand:hover {
+    transform: translateY(-10px) scale(1.05);
+    z-index: 10;
+}
+
+.deck-card img,
+.card-in-hand img {
+    width: 100%;
+    height: 100%;
+    border-radius: 4px;
+    border: none;
+    display: block;
+}
+
+/* --- HUDの包括的な設定 --- */
+#tnx-hud {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 50;
+}
+
+.hud-container {
+    position: absolute;
+    pointer-events: auto;
+}
+
+/* --- 山札・捨て札エリア --- */
+.hud-main-cards {
+    bottom: 10px;
+    right: 310px;
+    transition: right 0.25s ease-in-out;
+}
+
+#tnx-hud.sidebar-collapsed .hud-main-cards {
+    right: 15px;
+}
+
+.main-area {
+    display: flex;
+    gap: 8px;
+    padding: 8px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid #555;
+    border-radius: 10px;
+    height: 208px;
+    width: auto;
+}
+
+.deck-count {
+    position: absolute;
+    bottom: 2px;
+    right: 5px;
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 0 0 5px #000, 0 0 3px #000;
+}
+
+/* --- 右上エリア (ニューロデッキ) --- */
+.hud-top-right {
+    top: 5px;
+    right: 310px;
+    transition: right 0.25s ease-in-out;
+}
+
+#tnx-hud.sidebar-collapsed .hud-top-right {
+    right: 50px;
+}
+
+.neuro-area {
+    display: flex;
+    gap: 8px;
+    padding: 8px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid #555;
+    border-radius: 10px;
+    height: 208px;
+    width: auto;
+}
+
+/* ▼▼▼【ここからが追加/修正箇所です】▼▼▼ */
+
+/* 親コンテナ：要素を横に並べ、下端を揃える役割 */
+.hud-bottom-bar {
+    bottom: 70px;
+    left: 260px;
+    display: flex;
+    gap: 5px;
+    align-items: flex-end; /* 高さが違う要素の「下」を揃える */
+    transition: bottom 0.25s ease-in-out;
+}
+
+.hud-bottom-bar.hotbar-is-collapsed {
+    bottom: 10px;
+}
+
+/* パネル共通スタイル：背景や枠線などの見た目を定義 */
+.hud-panel {
+    padding: 8px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid #555;
+    border-radius: 10px;
+    display: flex;
+}
+
+/* 手札エリア専用スタイル：可変の高さと折り返しを設定 */
+.hand-area {
+    flex-wrap: wrap; /* カードを折り返す */
+    height: auto; /* 高さを自動調整 */
+    align-items: flex-end; /* カードを下端に揃える */
+    /* (カード幅128px * 7枚) + (隙間5px * 6個) + (パディング8px * 2辺) = 942px */
+    max-width: 914px;
+}
+
+/* 切り札エリア専用スタイル：固定の高さを設定 */
+.trump-area {
+    height: 208px; /* カード1枚分の高さに固定 */
+    align-items: center; /* カードを中央揃え */
+    justify-content: center;
+}
+
+.card-empty-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #888;
+    width: 128px;
+    height: 192px;
+}
+
+.card-empty-placeholder i {
+    font-size: 2.5em;
+}
+
+.tnx-hud .deck-card.scene-card-display:hover {
+    transform: none; /* 拡大・移動などの変形を無効化 */
+    box-shadow: none; /* 影を無効化 */
+    cursor: default; /* カーソルを矢印のままにする */
+}
+
+/* --- Drag Ghost --- */
+.tnx-card-ghost {
+    position: absolute;
+    top: -1000px;
+    left: -1000px;
+    z-index: -1;
+}
+
+/* --- Actor Sheet: Skills Section --- */
+.skills-section {
+    margin-top: 30px;
+    padding-top: 10px;
+}
+.skill-group-block {
+    margin-bottom: 15px;
+}
+.skill-group-header, .skill-group-header-connector {
+    font-weight: bold;
+    color: var(--tnx-color-text-dim);
+    border-bottom: 1px solid var(--tnx-color-border-accent);
+    padding-bottom: 4px;
+    margin-bottom: 5px;
+}
+.skill-group-header-connector {
+    color: var(--tnx-color-primary-accent);
+}
+.skills-list-edit .item-list .item {
+    display: flex;
+    align-items: center;
+    padding: 4px 0;
+}
+.skills-list-edit .item-list .item .item-name {
+    flex: 1;
+}
+.skills-list-edit .item-list .item .skill-level input {
+    width: 50px;
+    text-align: center;
+    background-color: var(--tnx-color-bg-input);
+    border: 1px solid var(--tnx-color-border);
+    color: var(--tnx-color-text-base);
+}
+.skills-list-edit .item-list .item .item-controls {
+    flex: 0 0 30px;
+    text-align: right;
+}
+
+/* --- Rich Text Editor Section (ProseMirror Compatible) --- */
+.tnx-editor-section {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    margin-bottom: 20px;
+    position: relative; 
+}
+.tnx-editor-section__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    border-bottom: 1px solid var(--tnx-color-primary-dark);
+    padding-bottom: 5px;
+    margin-bottom: 8px;
+}
+.tnx-editor-section__header > label {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: var(--tnx-color-primary-accent);
+    margin: 0;
+}
+.tokyo-nova.sheet.item.skill .skill-header .charname input{
+    width: 410px;
+    height: auto;
+}
+.sheet-header .level-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-left: auto;
+    margin-bottom: 20px;
+}
+  
+.sheet-header .level-display input {
+    width: 50px;
+    height: 50px;
+    text-align: center;
+    font-size: 2em;
+    background-color: white;
+    border: 1px solid #ccc;
+    color: #000;
+}
+  
+.suit-selection {
+    display: flex;
+    gap: 5px;
+}
+  
+.suit-selection input[type="checkbox"] {
+    display: none;
+}
+
+.suit-selection .suit-icon {
+    font-size: 2em;
+    cursor: pointer;
+}
+  
+.suit-selection input[type="checkbox"]:checked + .suit-icon {
+    color: var(--color-active); /* チェック時の色を指定 */
+}
+
+.basic-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+  
+.basic-info .form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.settings-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 15px;
+}
+
+/* === Skill Sheet: 追加/修正スタイル === */
+
+/* --- 1. スート選択 (ヘッダー内) --- */
+.tokyo-nova.sheet.item.skill .suit-selection {
+    display: flex;
+    gap: 10px;
+    margin-top: 4px;
+}
+.tokyo-nova.sheet.item.skill .suit-selection .suit-icon {
+    font-size: 2em;
+    cursor: pointer;
+    color: var(--tnx-color-text-muted); /* 非選択時の色 */
+    transition: color 0.2s, text-shadow 0.2s;
+}
+.tokyo-nova.sheet.item.skill .suit-selection input[type="checkbox"] {
+    display: none; /* 元のチェックボックスは隠す */
+}
+.tokyo-nova.sheet.item.skill .suit-selection input[type="checkbox"]:checked + i {
+    color: var(--tnx-color-primary-highlight); /* 選択時の色 */
+    text-shadow: 0 0 8px var(--tnx-color-primary);
+}
+.tokyo-nova.sheet.item.skill .suit-selection input[type="checkbox"]:disabled + i {
+    color: var(--tnx-color-primary-dark); /* 無効化された時の色 */
+    cursor: not-allowed;
+    text-shadow: none;
+}
+
+/* --- 2. レベル表示 (ヘッダー内) --- */
+.tokyo-nova.sheet.item.skill .level-display input[readonly] {
+    background-color: var(--tnx-color-bg-input);
+    border: 1px solid var(--tnx-color-border);
+    color: var(--tnx-color-text-base);
+    pointer-events: none; /* クリックなどの操作を無効化 */
+}
+
+/* --- 4. スタイル技能情報 (説明タブ) --- */
+.style-skill-display {
+    background: rgba(0,0,0,0.1);
+    border: 1px solid var(--tnx-color-border);
+    border-radius: var(--tnx-border-radius-sm);
+    padding: 10px;
+    margin-bottom: 15px;
+}
+.style-skill-display-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 15px; /* 縦・横の隙間 */
+}
+.style-skill-display label {
+    font-weight: bold;
+    color: var(--tnx-color-text-dim);
+}
+
+/* --- 4. スタイル技能情報 (設定タブ) --- */
+.style-skill-inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 15px;
+}
+.style-skill-inputs .full-width-row {
+    grid-column: 1 / -1; /* 行全体を占有 */
+}
+.style-skill-inputs .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* --- 5. スタイル技能詳細設定 (設定タブ) --- */
+.style-skill-settings-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 12px; /* 各設定項目の間のスペース */
+}
+.form-group-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.form-group-checkbox label {
+    cursor: pointer;
+}
+.usage-limit-group {
+    display: flex;
+    align-items: end !important;
+    gap: 10px;
+}
+.usage-inputs {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    justify-content: flex-end;
+}
+.usage-field {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.usage-field label {
+    font-size: 0.8em;
+    color: var(--tnx-color-text-muted);
+}
+.usage-field input {
+    width: 60px;
+    text-align: center;
+}
+.usage-separator {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: var(--tnx-color-text-muted);
+    padding-top: 20px; /* 上のラベルと高さを合わせる */
+}
+
+/* --- 4. スタイル技能情報 (説明タブ) --- */
+.style-skill-display {
+    background: rgba(0,0,0,0.1);
+    border: 1px solid var(--tnx-color-border);
+    border-radius: var(--tnx-border-radius-sm);
+    padding: 10px;
+    margin-bottom: 15px;
+}
+.style-skill-display-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 15px; /* 縦・横の隙間 */
+}
+/* ▼▼▼【重要】フルワイドの行を指定するCSSルール ▼▼▼ */
+.style-skill-display-grid .full-width-row {
+    grid-column: 1 / -1; /* この行がグリッドの全幅を占めるようにする */
+}
+.style-skill-display-grid > div {
+    display: flex;
+    align-items: baseline;
+}
+.style-skill-display label {
+    font-weight: bold;
+    color: var(--tnx-color-text-dim);
+    flex-shrink: 0; /* ラベルが縮まないように */
+}
+
+/* --- 4. スタイル技能情報 (設定タブ) --- */
+.style-skill-inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 15px;
+}
+/* ▼▼▼【重要】フルワイドの行を指定するCSSルール ▼▼▼ */
+.style-skill-inputs .full-width-row {
+    grid-column: 1 / -1; /* この行がグリッドの全幅を占めるようにする */
+}
+.style-skill-inputs .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.style-skill-settings-wrapper .form-group {
+    display: grid;
+    grid-template-columns: 130px 1fr; /* ラベルの幅を約120pxに固定し、残りを入力欄に割り当てます */
+    align-items: center; /* 垂直方向の中央に揃えます */
+    gap: 0 10px; /* 横方向の隙間を指定します */
+}
+
+.style-skill-settings-wrapper .form-group > label {
+    justify-self: end; /* ラベルを右揃えにします */
+}
+
+/* チェックボックスや分割フィールドなど、特殊なレイアウトを持つ要素はグリッドから除外します */
+.style-skill-settings-wrapper .form-group.full-width-row,
+.style-skill-settings-wrapper .form-group .form-fields.split-fields {
+    display: flex;
+    align-items: center;
+}
+
+/* ラベルを上揃えにするフォームグループ */
+.form-group.align-start {
+    align-items: flex-start;
+}
+
+/* 上揃えの場合、左側のラベル位置を微調整して1行目の入力欄と高さを合わせる */
+.form-group.align-start > label {
+    padding-top: 3px;
+}
+
+/* 入力欄を縦積みにするためのコンテナ */
+.form-fields-stack {
+    flex: 3;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 2行目のチェックボックス行 */
+.checkbox-row {
+    margin-top: 10px;
+    font-size: 0.9em;
+    display: flex;
+    align-items: center;
+}
+
+/* チェックボックス行のラベル（クリック範囲を確保しつつ整列） */
+.checkbox-row label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-weight: normal; /* 必要に応じて調整 */
+}
+
+/* チェックボックス本体の余白調整 */
+.checkbox-row input[type="checkbox"] {
+    margin: 0 4px 0 0;
+    flex: 0 0 auto;
+}
+
+/* 縦積みのフォームフィールドコンテナ */
+.form-fields-column {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    width: 100%;
+}
+
+/* 各行のレイアウト */
+.array-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+}
+
+.array-row select {
+    flex: 0 0 auto;
+    min-width: 100px;
+}
+
+.array-row input[type="text"] {
+    flex: 1;
+    min-width: 0;
+}
+
+/* チェックボックス（&） */
+.checkbox-inline {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-weight: bold;
+    cursor: pointer;
+    white-space: nowrap;
+    font-size: 0.9em;
+}
+.checkbox-inline input {
+    margin: 0;
+}
+
+/* ボタンエリア（右端固定用） */
+.row-controls {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: auto; /* 右寄せ */
+    min-width: 30px; /* ボタンがない行でもスペースを確保したい場合など */
+    justify-content: flex-end;
+}
+
+/* 追加・削除ボタン */
+.add-array-item, .delete-array-item {
+    flex: 0 0 24px;
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--tnx-color-border);
+    background-color: var(--tnx-color-bg-input);
+    color: var(--tnx-color-text-dim);
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    font-size: 12px;
+    transition: all 0.2s;
+}
+
+.add-array-item:hover {
+    color: var(--tnx-color-primary-highlight);
+    border-color: var(--tnx-color-primary);
+}
+
+.delete-array-item:hover {
+    color: var(--tnx-color-error-text);
+    border-color: var(--tnx-color-error);
+}
+
+/* 各行のレイアウト */
+.array-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+}
+
+/* ドロップダウン：余白を埋めるように伸長させる */
+.array-row select {
+    flex: 1; /* ここを変更：flex: 0 0 auto から flex: 1 へ */
+    min-width: 0; /* 縮小も許可（安全策） */
+}
+
+/* 技能名などのテキスト入力欄も同様に伸長させる */
+.array-row input[type="text"] {
+    flex: 1;
+}
+
+/* ボタンエリア（右端固定用） */
+.row-controls {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: auto;
+    flex: 0 0 auto; /* ボタンエリアは伸縮させない */
+}
+
+/* 追加・削除ボタン */
+.add-array-item, .delete-array-item {
+    flex: 0 0 24px;
+    width: 24px;
+    height: 24px;
+    /* ... 他のスタイルはそのまま ... */
+}

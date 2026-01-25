@@ -1,0 +1,89 @@
+<form class="{{cssClass}}" autocomplete="off">
+    <header class="sheet-header">
+        <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}"/>
+        <div class="header-fields">
+            <h1 class="charname"><input name="name" type="text" value="{{item.name}}" placeholder="{{localize 'TYPES.Item.style'}}"/></h1>
+        </div>
+    </header>
+
+    <nav class="sheet-tabs tabs" data-group="primary">
+        <a class="item" data-tab="description">{{localize "TNX.Description"}}</a>
+        <a class="item" data-tab="setting">{{localize "TNX.Setting"}}</a>
+    </nav>
+
+    <section class="sheet-body">
+        <div class="tab description" data-group="primary" data-tab="description">
+            <fieldset class="tnx-fieldset">
+                <legend>{{localize "TNX.AbilityModifiers"}}</legend>
+                <div class="abilities-grid edit-mode-layout">
+                    {{#each system.abilities as |ability key|}}
+                    <div class="ability-block">
+                        <h3>{{localize ability.label}}</h3>
+                        <div class="value-control-wrapper">
+                            <input type="number" name="system.{{key}}.value" value="{{ability.value}}" class="ability-value">
+                            <span class="separator">/</span>
+                            <input type="number" name="system.{{key}}.control" value="{{ability.control}}" class="control-value">
+                        </div>
+                    </div>
+                    {{/each}}
+                </div>
+            </fieldset>
+            <div class="tnx-editor-section">
+                <div class="tnx-editor-section__header"><label>{{localize "TNX.Description"}}</label></div>
+                <div class="tnx-editor-section__content">
+                    {{editor enrichedDescription target="system.description" engine="prosemirror" button=true owner=owner editable=editable}}
+                </div>
+            </div>
+        </div>
+
+        <div class="tab setting" data-group="primary" data-tab="setting">
+            <fieldset class="tnx-fieldset">
+                <legend>{{localize "TNX.StyleSetting"}}</legend>
+                <div class="form-group">
+                    <label>{{localize "TNX.StyleLevel"}}</label>
+                    <div class="number-input-spinner">
+                        <button type="button" data-action="decrement-level" class="tnx-button">-</button>
+                        <input type="number" name="system.level" value="{{system.level}}" min="1" max="3" class="ability-value" readonly/>
+                        <button type="button" data-action="increment-level" class="tnx-button">+</button>
+                    </div>
+                    <p class="notes">{{localize "TNX.StyleLevelHint"}}</p>
+                </div>
+                <div class="form-group">
+                    <label for="is-persona">{{localize "TNX.Persona"}}</label>
+                    {{!-- ▼▼▼ レベル3の時にdisabledを追加 ▼▼▼ --}}
+                    <input type="checkbox" id="is-persona" name="system.isPersona" {{checked system.isPersona}} {{#if isLevel3Locked}}disabled{{/if}}/>
+                    <p class="notes">{{localize "TNX.PersonaHint"}}</p>
+                </div>
+                <div class="form-group">
+                    <label for="is-key">{{localize "TNX.Key"}}</label>
+                    {{!-- ▼▼▼ レベル3の時にdisabledを追加 ▼▼▼ --}}
+                    <input type="checkbox" id="is-key" name="system.isKey" {{checked system.isKey}} {{#if isLevel3Locked}}disabled{{/if}}/>
+                    <p class="notes">{{localize "TNX.KeyHint"}}</p>
+                </div>
+            </fieldset>
+
+            <fieldset class="tnx-fieldset">
+                <legend>{{localize "TNX.MiracleLink"}}</legend>
+                <div class="form-group">
+                    <label>{{localize "TNX.MiracleLink"}}</label>
+                    {{#if linkedMiracle}}
+                        <button type="button" class="tnx-linked-button" data-action="open-linked-sheet" data-context-menu-type="manage-miracle" title="クリックでシートを開く" {{#if isOwnedByActor}}disabled{{/if}}>
+                            <img src="{{linkedMiracle.img}}" class="tnx-linked-button__icon"/>
+                            <span class="tnx-linked-button__label">{{linkedMiracle.name}}</span>
+                        </button>
+                    {{else}}
+                        <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="miracle">
+                            <span>{{localize "TNX.DropMiracleHint"}}</span>
+                        </div>
+                    {{/if}}
+                </div>
+                <div class="form-group">
+                     <button type="button" class="tnx-button" data-action="create-and-link-miracle" {{#if linkedMiracle}}disabled{{/if}} {{#if isOwnedByActor}}disabled{{/if}}>
+                        <i class="fas fa-plus-square"></i> {{localize "TNX.CreateAndLinkMiracle"}}
+                    </button>
+                    <p class="notes">{{localize "TNX.CreateAndLinkMiracleHint"}}</p>
+                </div>
+            </fieldset>
+        </div>
+    </section>
+</form>

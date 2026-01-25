@@ -1,0 +1,126 @@
+{
+    "id": "tokyo-nova-axleration",
+    "title": "トーキョーN◎VA THE AXLERATION",
+    "description": "「災厄の街」トーキョーN◎VAを舞台に自分のスタイルを貫く、サイバーアクションTRPG",
+    "version": "0.1.0",
+    "compatibility": {
+      "minimum": 11,
+      "verified": 12.343
+    },
+    "authors": [{
+      "name": "淡月真珠",
+      "url": "",
+      "email": "",
+      "discord": ""
+    }],
+    "esmodules": ["scripts/tnx.mjs"],
+    "styles": ["css/tnx.css"],
+    "languages": [{
+      "lang": "ja",
+      "name": "Japanese",
+      "path": "lang/ja.json"
+    }],
+    "packs": [
+        {
+            "name": "styles",
+            "label": "スタイル",
+            "system": "tokyo-nova-axleration",
+            "path": "packs/styles",
+            "type": "Item",
+            "ownership": {
+                "PLAYER": "OBSERVER",
+                "ASSISTANT": "OWNER"
+            }
+        },
+        {
+            "name": "miracles",
+            "label": "神業",
+            "system": "tokyo-nova-axleration",
+            "path": "packs/miracles",
+            "type": "Item",
+            "ownership": {
+                "PLAYER": "OBSERVER",
+                "ASSISTANT": "OWNER"
+            }
+        },
+        {
+            "name": "general-skills",
+            "label": "一般技能",
+            "system": "tokyo-nova-axleration",
+            "path": "packs/general-skills",
+            "type": "Item",
+            "ownership": {
+                "PLAYER": "OBSERVER",
+                "ASSISTANT": "OWNER"
+            }
+        },
+        {
+            "name": "style-skills",
+            "label": "スタイル技能",
+            "system": "tokyo-nova-axleration",
+            "path": "packs/style-skills",
+            "type": "Item",
+            "ownership": {
+                "PLAYER": "OBSERVER",
+                "ASSISTANT": "OWNER"
+            }
+        },
+        {
+            "name": "outfits",
+            "label": "アウトフィット",
+            "system": "tokyo-nova-axleration",
+            "path": "packs/outfits",
+            "type": "Item",
+            "ownership": {
+                "PLAYER": "OBSERVER",
+                "ASSISTANT": "OWNER"
+            }
+        }
+    ],
+    "packFolders": [
+        {
+          "name": "トーキョーN◎VA THE AXELERATION",
+          "sorting": "m",
+          "packs": [
+              "styles",
+              "miracles",
+              "outfits"
+          ],
+          "folders": [
+                {
+                    "name": "技能",
+                    "sorting": "m",
+                    "packs": [
+                        "general-skills",
+                        "style-skills"
+                    ]
+                }
+          ]
+        }
+    ],
+    "documentTypes": {
+      "Actor": {
+        "cast": {},
+        "guest": {},
+        "troop": {},
+        "extra": {}
+      },
+      "Item": {
+        "style": {},
+        "miracle": {},
+        "skill": {},
+        "outfit": {},
+        "organization": {},
+        "record": {}
+      }
+    },
+    "socket": true,
+    "initiative": "@system.CS.value",
+    "grid": {
+      "distance": 1,
+      "units": "m"
+    },
+    "url": "",
+    "manifest": "",
+    "download": ""
+}
