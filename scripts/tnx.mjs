@@ -115,6 +115,7 @@ async function setupDefaultSkills(actor) {
         // アクターに埋め込むためのデータオブジェクト配列を作成
         // toObject() でIDをリセットして新規アイテムとして扱えるようにする
         const itemsData = documents.map(doc => doc.toObject());
+        console.log(itemsData);
 
         // アクターにアイテムを一括作成
         await actor.createEmbeddedDocuments("Item", itemsData);
