@@ -3047,3 +3047,30 @@ form .notes, form .hint {
     height: 24px;
     /* ... 他のスタイルはそのまま ... */
 }
+
+/* 追加スタイルの例 */
+.skill-level-container {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.skill-level-container input[type="number"] {
+    width: 3em;
+    text-align: center;
+}
+.skill-suits-row {
+    display: flex;
+    gap: 2px;
+}
+.suit-checkbox-tiny {
+    cursor: pointer;
+    font-size: 0.9em;
+    color: #888;
+}
+.suit-checkbox-tiny input {
+    display: none; /* チェックボックス本体は隠す */
+}
+.suit-checkbox-tiny input:checked + i {
+    color: var(--tnx-color-primary-highlight); /* 選択時は色をつける（適宜変更） */
+    text-shadow: var(--tnx-color-primary);
+}

@@ -327,7 +327,7 @@
                         {{#if isEditMode}}
                         {{!-- 編集モードの表示 --}}
                             <div class="skills-list-edit">
-                                {{!-- コネ技能のブロック --}}
+                                {{!-- コネ技能のブロック (91行目付近) --}}
                                 {{#if connectionsSkills.length}}
                                     <div class="skill-group-block">
                                         <h4 class="skill-group-header-connector">{{localize "TNX.Connections"}}</h4>
@@ -337,8 +337,20 @@
                                                     <div class="item-name">
                                                         <a data-action="openItemSheet" data-item-id="{{item._id}}">{{item.name}}</a>
                                                     </div>
-                                                    <div class="skill-level">
-                                                        <input type="number" name="items.{{item._id}}.system.level" value="{{item.system.level}}" />
+                                                    {{!-- 【修正】レベル入力とスート選択エリア --}}
+                                                    <div class="skill-level-container">
+                                                        <input type="number" class="skill-property-change" data-target="level" value="{{item.system.level}}" placeholder="Lv" />
+                                                        
+                                                        {{!-- スートチェックボックス（コネ技能にも表示する場合） --}}
+                                                        <div class="skill-suits-row">
+                                                            {{#each ../TNX.SUITS as |suitData key|}}
+                                                                <label class="suit-checkbox-tiny" title="{{localize suitData.label}}">
+                                                                    <input type="checkbox" class="skill-property-change" data-target="suit" data-suit="{{key}}" 
+                                                                        {{checked (lookup item.system.suits key)}} />
+                                                                    <i class="{{suitData.icon}}"></i>
+                                                                </label>
+                                                            {{/each}}
+                                                        </div>
                                                     </div>
                                                     <div class="item-controls">
                                                         <a class="item-control item-delete" title="Delete Item"><i class="fas fa-trash"></i></a>
@@ -349,7 +361,7 @@
                                     </div>
                                 {{/if}}
 
-                                {{!-- その他の一般技能（スート別） --}}
+                                {{!-- その他の一般技能（スート別） (100行目付近) --}}
                                 {{#each generalSkillsBySuit as |group|}}
                                     <div class="skill-group-block">
                                         <h4 class="skill-group-header">{{group.label}}</h4>
@@ -359,8 +371,21 @@
                                                     <div class="item-name">
                                                         <a data-action="openItemSheet" data-item-id="{{item._id}}">{{item.name}}</a>
                                                     </div>
-                                                    <div class="skill-level">
-                                                        <input type="number" name="items.{{item._id}}.system.level" value="{{item.system.level}}" />
+                                                    {{!-- 【修正】レベル入力とスート選択エリア --}}
+                                                    <div class="skill-level-container">
+                                                        <input type="number" class="skill-property-change" data-target="level" value="{{item.system.level}}" placeholder="Lv" />
+                                                        
+                                                        {{!-- スートチェックボックス --}}
+                                                        <div class="skill-suits-row">
+                                                            {{!-- ループの階層が深くなるため ../../TNX.SUITS で参照 --}}
+                                                            {{#each ../../TNX.SUITS as |suitData key|}}
+                                                                <label class="suit-checkbox-tiny" title="{{localize suitData.label}}">
+                                                                    <input type="checkbox" class="skill-property-change" data-target="suit" data-suit="{{key}}" 
+                                                                        {{checked (lookup item.system.suits key)}} />
+                                                                    <i class="{{suitData.icon}}"></i>
+                                                                </label>
+                                                            {{/each}}
+                                                        </div>
                                                     </div>
                                                     <div class="item-controls">
                                                         <a class="item-control item-delete" title="Delete Item"><i class="fas fa-trash"></i></a>

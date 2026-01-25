@@ -43,7 +43,8 @@
             "spade": "スペード",
             "club": "クラブ",
             "heart": "ハート",
-            "diamond": "ダイヤ"
+            "diamond": "ダイヤ",
+            "none": "スートなし"
         },
         "Actor": {
             "Type": {

@@ -19,7 +19,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
             width: 850,
             height: 900,
             tabs: [{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "abilities" }],
-            dragDrop: [{ dragSelector: null, dropSelector: "form" }]
+            dragDrop: [{ dragSelector: ".item-list .item", dropSelector: "form" }]
         });
     }
 
@@ -28,6 +28,15 @@ export class TokyoNovaCastSheet extends ActorSheet {
         context.system = this.actor.system;
         context.isEditable = this.isEditable;
         context.isEditMode = this._isEditMode && this.isEditable;
+
+        context.TNX = {
+            SUITS: {
+                spade:   { label: "TNX.Suits.spade",   icon: "fa-solid fa-spade" },
+                club:    { label: "TNX.Suits.club",    icon: "fa-solid fa-club" },
+                heart:   { label: "TNX.Suits.heart",   icon: "fa-solid fa-heart" },
+                diamond: { label: "TNX.Suits.diamond", icon: "fa-solid fa-diamond" }
+            }
+        };
 
         const allStyles = this.actor.items.filter(i => i.type === 'style');
         const allMiracles = this.actor.items.filter(i => i.type === 'miracle');
@@ -113,7 +122,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
      * @private
      */
     _prepareSkillsData(context) {
-        const allSkills = this.actor.items.filter(i => i.type === 'skill');
+        const allSkills = this.actor.items.filter(i => i.type === 'skill').sort((a, b) => a.sort - b.sort);
         const generalSkills = allSkills.filter(s => s.system.category === 'generalSkill');
 
         // コネ技能を分離
@@ -122,11 +131,11 @@ export class TokyoNovaCastSheet extends ActorSheet {
         // コネ以外の一般技能をスート別に分類
         const otherGeneralSkills = generalSkills.filter(s => !s.name.startsWith("コネ"));
         const skillsBySuit = {
-            spade: { label: game.i18n.localize("TNX.Suit.Spade"), skills: [] },
-            club: { label: game.i18n.localize("TNX.Suit.Club"), skills: [] },
-            heart: { label: game.i18n.localize("TNX.Suit.Heart"), skills: [] },
-            diamond: { label: game.i18n.localize("TNX.Suit.Diamond"), skills: [] },
-            none: { label: "TNX.Suit.none", skills: [] }
+            spade: { label: game.i18n.localize("TNX.Suits.spade"), skills: [] },
+            club: { label: game.i18n.localize("TNX.Suits.club"), skills: [] },
+            heart: { label: game.i18n.localize("TNX.Suits.heart"), skills: [] },
+            diamond: { label: game.i18n.localize("TNX.Suits.diamond"), skills: [] },
+            none: { label: "TNX.Suits.none", skills: [] }
         };
 
         for (const skill of otherGeneralSkills) {
@@ -146,6 +155,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
 
         html.find('.edit-mode-toggle').on('click', this._onToggleEditMode.bind(this));
         html.find('.view-mode-style-summary .style-summary-item').on('click', this._onRollStyleDescription.bind(this));
+        html.find('.skill-property-change').on('change', this._onSkillPropertyChange.bind(this));
 
         if (this.isEditable) {
             html.find('.ability-main-inputs input[name$=".growth"], .ability-main-inputs input[name$=".controlGrowth"]')
@@ -886,6 +896,51 @@ export class TokyoNovaCastSheet extends ActorSheet {
         const changeType = isControl ? "制御値" : "能力値";
         const costText = totalCost > 0 ? `${totalCost}点 消費` : `${-totalCost}点 回復`;
         ui.notifications.info(`${abilityLabel} [${changeType}] の成長が変更されました (${costText})。`);
+    }
+
+    /**
+     * 【追加】技能のレベルやスートが変更されたときの処理
+     * レベルの手動変更、およびスートチェック時の自動レベル計算を行います
+     */
+    async _onSkillPropertyChange(event) {
+        event.preventDefault();
+        const input = event.currentTarget;
+        const itemId = input.closest('.item').dataset.itemId;
+        const item = this.actor.items.get(itemId);
+        if (!item) return;
+
+        const target = input.dataset.target; // "level" または "suit"
+        
+        if (target === "level") {
+            // レベルを直接数値入力した場合
+            await item.update({ "system.level": Number(input.value) });
+        } else if (target === "suit") {
+            // スートのチェックボックスを変更した場合
+            const suitKey = input.dataset.suit; // "spade", "club" 等
+            const isChecked = input.checked;
+            
+            // スートの状態を更新
+            const updateData = { [`system.suits.${suitKey}`]: isChecked };
+            
+            // アイテムの現在のスート状態を取得して新しいレベルを計算（チェックされているスートの数＝レベル）
+            // 注意: update前のデータなので、変更分を加味して計算します
+            const currentSuits = item.system.suits;
+            let newLevel = 0;
+            const suitKeys = ["spade", "club", "heart", "diamond"];
+            
+            for (const key of suitKeys) {
+                if (key === suitKey) {
+                    if (isChecked) newLevel++;
+                } else {
+                    if (currentSuits[key]) newLevel++;
+                }
+            }
+            
+            // レベルも更新データに含める
+            updateData["system.level"] = newLevel;
+            
+            await item.update(updateData);
+        }
     }
 
     /**
