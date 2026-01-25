@@ -122,7 +122,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
      * @private
      */
     _prepareSkillsData(context) {
-        const allSkills = this.actor.items.filter(i => i.type === 'skill').sort((a, b) => a.sort - b.sort);
+        const allSkills = this.actor.items.filter(i => i.type === 'skill').sort((a, b) => (a.sort || 0) - (b.sort || 0));
         const generalSkills = allSkills.filter(s => s.system.category === 'generalSkill');
 
         // コネ技能を分離
@@ -347,32 +347,35 @@ export class TokyoNovaCastSheet extends ActorSheet {
     }
 
     async _onDropItem(event, data) {
+        if (!this.actor.isOwner) return false;
+        
         const item = await Item.fromDropData(data);
         if (!item) return;
+
+        // ▼▼▼【修正点1】並び替え（ソート）の処理を追加 ▼▼▼
+        // ドロップされたアイテムの親がこのアクター自身である場合、それは並び替え操作です。
+        if (this.actor.uuid === item.parent?.uuid) {
+            return this._onSortItem(event, item.toObject());
+        }
+        // ▲▲▲▲▲▲
+
         const dropArea = event.target.closest('[data-drop-area]')?.dataset.dropArea;
     
+        // === 既存のスタイル処理 ===
         if (item.type === "style" && dropArea === "style") {
             const allStyles = this.actor.items.filter(i => i.type === 'style');
             const totalLevel = allStyles.reduce((sum, s) => sum + (s.system.level || 1), 0);
             const existingItem = allStyles.find(i => i.name === item.name);
             
             if (existingItem) {
-                // === 既存スタイルのレベルアップ処理 ===
                 if (totalLevel >= 3) {
                     ui.notifications.warn("これ以上スタイルレベルを上げられません。");
                     return false;
                 }
                 const currentLevel = existingItem.system.level || 1;
-                
-                // スタイルのレベルのみを更新します。
-                // 神業の更新処理は tnx.mjs の preUpdateItem フックが検知して行うため、
-                // ここでは二重実行を防ぐために何もしません。
                 await existingItem.update({ 'system.level': currentLevel + 1 });
-                
                 return existingItem;
-
             } else {
-                // === 新規スタイルの追加処理 ===
                 const itemData = item.toObject();
                 if (!itemData.system.level) itemData.system.level = 1;
                 if (totalLevel + itemData.system.level > 3) {
@@ -382,9 +385,6 @@ export class TokyoNovaCastSheet extends ActorSheet {
                 const createdItems = await this.actor.createEmbeddedDocuments("Item", [itemData]);
                 const createdStyle = createdItems[0];
 
-                // --- スタイルに紐づく神業の処理（新規作成時のみ実行） ---
-                // createEmbeddedDocuments では preUpdateItem フックが走らないため、
-                // 新規追加時のみ、ここで明示的に神業の追加・更新を行います。
                 if (createdStyle) {
                     const miracleUuid = createdStyle.system.miracle?.id;
                     if (miracleUuid) {
@@ -394,7 +394,6 @@ export class TokyoNovaCastSheet extends ActorSheet {
                             const existingMiracle = allMiracles.find(i => i.name === sourceMiracle.name);
 
                             if (existingMiracle) {
-                                // 既に持っている場合は母数を+1
                                 const usage = existingMiracle.system.usageCount;
                                 const mod = usage.mod || 0;
                                 const newValue = Math.min(3, (usage.value || 0) + 1);
@@ -406,7 +405,6 @@ export class TokyoNovaCastSheet extends ActorSheet {
                                     'system.usageCount.total': newTotal
                                 });
                             } else {
-                                // 持っていない場合は新規作成
                                 if (allMiracles.length >= 3) {
                                     ui.notifications.warn(`神業は3種類までしか所有できません。`);
                                 } else {
@@ -426,6 +424,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
             }
         }
     
+        // === 既存の神業処理 ===
         if (item.type === "miracle" && dropArea === "miracle") {
             const allMiracles = this.actor.items.filter(i => i.type === 'miracle');
             const existingItem = allMiracles.find(i => i.name === item.name);
@@ -454,6 +453,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
             }
         }
         
+        // === 既存の制限付きアイテム処理 ===
         const itemLimits = { organization: { limit: 1, area: 'affiliation' } };
         const rule = itemLimits[item.type];
         if (rule && rule.area === dropArea) {
@@ -464,7 +464,11 @@ export class TokyoNovaCastSheet extends ActorSheet {
             }
             return this.actor.createEmbeddedDocuments("Item", [item.toObject()]);
         }
-        return false;
+
+        // ▼▼▼【修正点2】標準ドロップ処理へのフォールバック ▼▼▼
+        // 上記のいずれの条件にも合致しない場合（例：一般技能の新規追加など）は、
+        // 親クラス（ActorSheet）の標準処理に任せます。これによりアイテムが作成されます。
+        return super._onDropItem(event, data);
     }
 
     async _onDropCardPile(event, data) {
