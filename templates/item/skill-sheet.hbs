@@ -110,7 +110,12 @@
                                 </select>
                                 <p class="sheet-notes notes">初期取得となるスートを指定します（チェックが固定されます）。</p>
                             </div>
-                         {{/if}}
+                        {{else}}
+                            <div class="form-group">
+                                <label>初期取得の社会・コネ</label>
+                                <input type="checkbox" name="system.generalSkill.onomasticSkill.isInitial" {{checked system.generalSkill.onomasticSkill.isInitial}}>
+                            </div>
+                        {{/if}}
                     </fieldset>
                 {{/if}}
 
