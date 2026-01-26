@@ -88,6 +88,7 @@
             "Items": {
                 "Styles": "スタイル",
                 "Miracles": "神業",
+                "Skills": "技能",
                 "GeneralSkills": "一般技能",
                 "StyleSkills": "スタイル技能",
                 "Connections": "コネ",
@@ -113,7 +114,7 @@
                     "Style": "スタイル技能"
                 },
                 "GeneralType": {
-                    "Initial": "初期習得技能",
+                    "Initial": "無条件取得技能",
                     "Onomastic": "固有名詞技能"
                 },
                 "StyleType": {
