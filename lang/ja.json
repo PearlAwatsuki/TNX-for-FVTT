@@ -119,8 +119,18 @@
                 },
                 "StyleType": {
                     "Special": "特技",
-                    "Secret": "秘伝",
+                    "Secret": "秘技",
                     "Mystery": "奥義"
+                },
+                "UniqueType": {
+                    "DamageIncrease": "ダメージ増加技能",
+                    "DamageReduction": "ダメージ軽減技能",
+                    "AdditionalAction": "追加行動技能",
+                    "AbilityChange": "能力値変更技能",
+                    "Clone": "模造技能",
+                    "RSC": "RSC技能",
+                    "Modification": "改造技能",
+                    "MiracleChange": "神業書き換え技能"
                 },
                 "Combo": "技能",
                 "MaxLevel": "上限",
@@ -131,7 +141,6 @@
                 "UseLimit": "使用回数に制限あり",
                 "Works": "ワークス技能",
                 "Organization": "組織名",
-                "MiracleRewrite": "神業書き換え",
                 "SourceMiracle": "書き換え対象の神業名",
                 "TargetMiracle": "書き換え先",
                 "DropMiracle": "神業アイテムをここにドロップ",

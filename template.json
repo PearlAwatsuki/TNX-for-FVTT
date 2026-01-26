@@ -199,12 +199,10 @@
             "generalSkill": {
                 "generalSkillCategory": "initialSkill",
                 "initialSkill":{
-                    "value": true,
                     "initialSuit": "",
                     "expCost": 10
                 },
-                "onomasticSKill": {
-                    "value": false,
+                "onomasticSkill": {
                     "isInitial": false,
                     "expCost": 5
                 }
@@ -212,6 +210,7 @@
             "styleSkill": {
                 "value": false,
                 "styleSkillCategory": "special",
+                "unique": "",
                 "style": "-",
                 "comboSkill": [],
                 "maxLevel":"-",
@@ -223,7 +222,8 @@
                 "isFixedRange": false,
                 "isFixedTarget": false,
                 "isEssentialSkill": false,
-                "isMiracleRewriting": false,
+                "isSubstitute": false,
+                "substituteTarget": [],
                 "RewritedTarget": "",
                 "rewritingMiracleName": "",
                 "RewritingMiracle_ID":"",
@@ -233,19 +233,15 @@
                     "max": 0
                 },
                 "special": {
-                    "value": false,
                     "expCost": 10,
                     "works": {
-                        "value": false,
                         "organization": "-"
                     }
                 },
                 "secret": {
-                    "value": false,
                     "expCost": 20
                 },
                 "mystery": {
-                    "value": false,
                     "expCost": 50
                 }
             }

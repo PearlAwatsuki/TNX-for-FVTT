@@ -135,6 +135,13 @@
                                 <input type="text" name="system.styleSkill.style" value="{{system.styleSkill.style}}"/>
                             </div>
 
+                            <div class="form-group">
+                                <label>特別なスタイル技能</label>
+                                <select name="system.styleSkill.unique">
+                                    {{selectOptions options.unique selected=system.styleSkill.unique}}
+                                </select>
+                            </div>
+
                             {{!-- 技能（Combo Skill） --}}
                             <div class="form-group align-start">
                                 <label>技能</label>
@@ -373,12 +380,12 @@
                                 {{/if}}
                                 
                                 <div class="form-group">
-                                    <label for="isRewrite-{{item._id}}">神業書き換え</label>
-                                    <input type="checkbox" name="system.styleSkill.isMiracleRewriting" id="isRewrite-{{item._id}}" {{checked system.styleSkill.isMiracleRewriting}}>
+                                    <label for="isSubstitute-{{item._id}}">代用可能</label>
+                                    <input type="checkbox" name="system.styleSkill.isSubstitute" id="isSubstitute-{{item._id}}" {{checked system.styleSkill.isSubstitute}}>
                                 </div>
-                                {{#if system.styleSkill.isMiracleRewriting}}
+                                {{#if (eq system.styleSkill.unique "miracleChange")}}
                                     <div class="form-group">
-                                        <label>書き換え対象の神業名</label>
+                                        <label>書き換え対象の神業</label>
                                         <input type="text" name="system.styleSkill.rewritingMiracleName" value="{{system.styleSkill.rewritingMiracleName}}" placeholder="書き換え元の神業名を入力...">
                                     </div>
                                

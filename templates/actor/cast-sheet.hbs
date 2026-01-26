@@ -325,132 +325,107 @@
                         <h2 class="abilities-grid-header">{{localize "TNX.Actor.Items.Skills"}}</h2>
 
                         {{#if isEditMode}}
-                        {{!-- 編集モードの表示 --}}
+                            {{!-- 編集モード：一般技能セクション --}}
                             <div class="skills-list-edit">
-                                <h4 class="skill-group-header">{{localize "TNX.Actor.Items.GeneralSkills"}}</h4>
+                                <div class="skill-group-header-row flexrow">
+                                    <h4 class="skill-group-header">{{localize "TNX.Actor.Items.GeneralSkills"}}</h4>
+                                    {{!-- 【変更点2】一般技能追加ボタン --}}
+                                    <a class="item-control item-create" data-type="skill" data-category="generalSkill" title="{{localize 'TNX.Ui.Button.Add'}}">
+                                        <i class="fas fa-plus"></i> {{localize "TNX.Ui.Button.Add"}}
+                                    </a>
+                                </div>
+                                
                                 <div class="skill-group-block">
                                     <ol class="item-list">
-                                        {{#each group.skills as |item|}}
+                                        {{!-- 【変更点1】generalSkillsをループ --}}
+                                        {{#each generalSkills as |item|}}
                                             <li class="item" data-item-id="{{item._id}}">
                                                 <div class="item-name">
                                                     <a data-action="openItemSheet" data-item-id="{{item._id}}">
                                                         {{#if item.system.isAction}}★{{else}}　{{/if}}{{item.name}}
                                                     </a>
                                                 </div>
-                                                {{!-- 【修正】レベル入力とスート選択エリア --}}
+        
                                                 <div class="skill-level-container">
                                                     <input type="number" class="skill-property-change" data-target="level" value="{{item.system.level}}" placeholder="Lv" />
                                                     
-                                                    {{!-- スートチェックボックス --}}
                                                     <div class="skill-suits-row">
-                                                        {{!-- ループの階層が深くなるため ../../TNX.SUITS で参照 --}}
-                                                        {{#each ../../TNX.SUITS as |suitData key|}}
+                                                        {{#each ../TNX.SUITS as |suitData key|}}
                                                             <label class="suit-checkbox-tiny" title="{{localize suitData.label}}">
-                                                                <input type="checkbox" class="skill-property-change" data-target="suit" data-suit="{{key}}" {{checked (lookup item.system.suits key)}} {{#if (eq item.system.generalSkill.initialSkill.initialSuit key)}}disabled{{/if}}/>
+                                                                {{!-- generalSkill.initialSkill.initialSuit 等の制約処理は必要に応じて残す --}}
+                                                                <input type="checkbox" class="skill-property-change" data-target="suit" data-suit="{{key}}" {{checked (lookup item.system.suits key)}} />
                                                                 <i class="{{suitData.icon}}"></i>
                                                             </label>
                                                         {{/each}}
                                                     </div>
                                                 </div>
                                                 <div class="item-controls">
-                                                    <a class="item-control item-delete" title="Delete Item" {{#if item.system.generalSkill.initialSkill.value}}disabled{{/if}}><i class="fas fa-trash"></i></a>
+                                                    <a class="item-control item-delete" title="{{localize 'SHEET.ItemDelete'}}" {{#if (eq item.system.generalSkill.generalSkillCategory "initialSkill")}}disabled{{/if}} {{#if item.system.generalSkill.onomasticSkill.isInitial}}disabled{{/if}}><i class="fas fa-trash"></i></a>
                                                 </div>
                                             </li>
                                         {{/each}}
                                     </ol>
                                 </div>
-                                <h4 class="skill-group-header">{{localize "TNX.Actor.Items.StyleSkills"}}</h4>
+
+                                {{!-- 編集モード：スタイル技能セクション --}}
+                                <div class="skill-group-header-row flexrow">
+                                    <h4 class="skill-group-header">{{localize "TNX.Actor.Items.StyleSkills"}}</h4>
+                                    {{!-- 【変更点2】スタイル技能追加ボタン --}}
+                                    <a class="item-control item-create" data-type="skill" data-category="styleSkill" title="{{localize 'TNX.Ui.Button.Add'}}">
+                                        <i class="fas fa-plus"></i> {{localize "TNX.Ui.Button.Add"}}
+                                    </a>
+                                </div>
+
+                                <div class="skill-group-block">
+                                    <ol class="item-list">
+                                        {{!-- 【変更点1】styleSkillsをループ --}}
+                                        {{#each styleSkills as |item|}}
+                                            <li class="item" data-item-id="{{item._id}}">
+                                                <div class="item-name">
+                                                    <a data-action="openItemSheet" data-item-id="{{item._id}}">
+                                                        {{item.name}}
+                                                    </a>
+                                                </div>
+                                                
+                                                <div class="skill-level-container">
+                                                    <input type="number" class="skill-property-change" data-target="level" value="{{item.system.level}}" placeholder="Lv" />
+                                                    
+                                                    <div class="skill-suits-row">
+                                                        {{#each ../TNX.SUITS as |suitData key|}}
+                                                            <label class="suit-checkbox-tiny" title="{{localize suitData.label}}">
+                                                                <input type="checkbox" class="skill-property-change" data-target="suit" data-suit="{{key}}" {{checked (lookup item.system.suits key)}} />
+                                                                <i class="{{suitData.icon}}"></i>
+                                                            </label>
+                                                        {{/each}}
+                                                    </div>
+                                                </div>
+
+                                                <div class="item-controls">
+                                                    <a class="item-control item-delete" title="{{localize 'SHEET.ItemDelete'}}"><i class="fas fa-trash"></i></a>
+                                                </div>
+                                            </li>
+                                        {{/each}}
+                                    </ol>
+                                </div>
                             </div>
-                            {{else}}
-                            {{!-- 閲覧モードの表示 --}}
-                                <div class="skills-list-view">
-                                    {{!-- ここに閲覧モード用のレイアウトを後で実装します --}}
-                                    <p style="text-align: center; color: #888;">（一般技能の閲覧モード表示はここに実装されます）</p>
-                                </div>
-                                <div class="skills-list-view">
-                                    {{!-- ここに閲覧モード用のレイアウトを後で実装します --}}
-                                    <p style="text-align: center; color: #888;">（一般技能の閲覧モード表示はここに実装されます）</p>
-                                </div>
-                                <div class="skills-list-view">
-                                    {{!-- ここに閲覧モード用のレイアウトを後で実装します --}}
-                                    <p style="text-align: center; color: #888;">（一般技能の閲覧モード表示はここに実装されます）</p>
-                                </div>
-                                <div class="skills-list-view">
-                                    {{!-- ここに閲覧モード用のレイアウトを後で実装します --}}
-                                    <p style="text-align: center; color: #888;">（一般技能の閲覧モード表示はここに実装されます）</p>
-                                </div>
-                                <div class="skills-list-view">
-                                    {{!-- ここに閲覧モード用のレイアウトを後で実装します --}}
-                                    <p style="text-align: center; color: #888;">（一般技能の閲覧モード表示はここに実装されます）</p>
-                                </div>
-                                <div class="skills-list-view">
-                                    {{!-- ここに閲覧モード用のレイアウトを後で実装します --}}
-                                    <p style="text-align: center; color: #888;">（一般技能の閲覧モード表示はここに実装されます）</p>
-                                </div>
-                                <div class="skills-list-view">
-                                    {{!-- ここに閲覧モード用のレイアウトを後で実装します --}}
-                                    <p style="text-align: center; color: #888;">（一般技能の閲覧モード表示はここに実装されます）</p>
-                                </div>
-                                <div class="skills-list-view">
-                                    {{!-- ここに閲覧モード用のレイアウトを後で実装します --}}
-                                    <p style="text-align: center; color: #888;">（一般技能の閲覧モード表示はここに実装されます）</p>
-                                </div>
-                                <div class="skills-list-view">
-                                    {{!-- ここに閲覧モード用のレイアウトを後で実装します --}}
-                                    <p style="text-align: center; color: #888;">（一般技能の閲覧モード表示はここに実装されます）</p>
-                                </div>
-                                <div class="skills-list-view">
-                                    {{!-- ここに閲覧モード用のレイアウトを後で実装します --}}
-                                    <p style="text-align: center; color: #888;">（一般技能の閲覧モード表示はここに実装されます）</p>
-                                </div>
-                                <div class="skills-list-view">
-                                    {{!-- ここに閲覧モード用のレイアウトを後で実装します --}}
-                                    <p style="text-align: center; color: #888;">（一般技能の閲覧モード表示はここに実装されます）</p>
-                                </div>
-                                <div class="skills-list-view">
-                                    {{!-- ここに閲覧モード用のレイアウトを後で実装します --}}
-                                    <p style="text-align: center; color: #888;">（一般技能の閲覧モード表示はここに実装されます）</p>
-                                </div>
-                                <div class="skills-list-view">
-                                    {{!-- ここに閲覧モード用のレイアウトを後で実装します --}}
-                                    <p style="text-align: center; color: #888;">（一般技能の閲覧モード表示はここに実装されます）</p>
-                                </div>
-                                <div class="skills-list-view">
-                                    {{!-- ここに閲覧モード用のレイアウトを後で実装します --}}
-                                    <p style="text-align: center; color: #888;">（一般技能の閲覧モード表示はここに実装されます）</p>
-                                </div>
-                                <div class="skills-list-view">
-                                    {{!-- ここに閲覧モード用のレイアウトを後で実装します --}}
-                                    <p style="text-align: center; color: #888;">（一般技能の閲覧モード表示はここに実装されます）</p>
-                                </div>
-                                <div class="skills-list-view">
-                                    {{!-- ここに閲覧モード用のレイアウトを後で実装します --}}
-                                    <p style="text-align: center; color: #888;">（一般技能の閲覧モード表示はここに実装されます）</p>
-                                </div>
-                                <div class="skills-list-view">
-                                    {{!-- ここに閲覧モード用のレイアウトを後で実装します --}}
-                                    <p style="text-align: center; color: #888;">（一般技能の閲覧モード表示はここに実装されます）</p>
-                                </div>
-                                <div class="skills-list-view">
-                                    {{!-- ここに閲覧モード用のレイアウトを後で実装します --}}
-                                    <p style="text-align: center; color: #888;">（一般技能の閲覧モード表示はここに実装されます）</p>
-                                </div>
-                                <div class="skills-list-view">
-                                    {{!-- ここに閲覧モード用のレイアウトを後で実装します --}}
-                                    <p style="text-align: center; color: #888;">（一般技能の閲覧モード表示はここに実装されます）</p>
-                                </div>
-                                <div class="skills-list-view">
-                                    {{!-- ここに閲覧モード用のレイアウトを後で実装します --}}
-                                    <p style="text-align: center; color: #888;">（一般技能の閲覧モード表示はここに実装されます）</p>
-                                </div>
-                                <div class="skills-list-view">
-                                    {{!-- ここに閲覧モード用のレイアウトを後で実装します --}}
-                                    <p style="text-align: center; color: #888;">（一般技能の閲覧モード表示はここに実装されます）</p>
-                                </div>
-                                <div class="skills-list-view">
-                                    {{!-- ここに閲覧モード用のレイアウトを後で実装します --}}
-                                    <p style="text-align: center; color: #888;">（一般技能の閲覧モード表示はここに実装されます）</p>
-                                </div>
+                        {{else}}
+                            {{!-- 閲覧モード --}}
+                            <div class="skills-list-view">
+                                {{!-- 閲覧モード用の表示ロジック（generalSkills, styleSkillsを使って表示） --}}
+                                <h4>{{localize "TNX.Actor.Items.GeneralSkills"}}</h4>
+                                <ul>
+                                {{#each generalSkills as |item|}}
+                                    <li>{{item.name}} (Lv{{item.system.level}})</li>
+                                {{/each}}
+                                </ul>
+                                
+                                <h4>{{localize "TNX.Actor.Items.StyleSkills"}}</h4>
+                                <ul>
+                                {{#each styleSkills as |item|}}
+                                    <li>{{item.name}} (Lv{{item.system.level}})</li>
+                                {{/each}}
+                                </ul>
+                            </div>
                         {{/if}}
                     </div>
                 </div>

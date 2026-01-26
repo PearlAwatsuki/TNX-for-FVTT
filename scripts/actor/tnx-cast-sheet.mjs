@@ -124,31 +124,12 @@ export class TokyoNovaCastSheet extends ActorSheet {
      */
     _prepareSkillsData(context) {
         const allSkills = this.actor.items.filter(i => i.type === 'skill').sort((a, b) => (a.sort || 0) - (b.sort || 0));
-        const generalSkills = allSkills.filter(s => s.system.category === 'generalSkill');
-
-        // コネ技能を分離
-        context.connectionsSkills = generalSkills.filter(s => s.name.startsWith("コネ"));
-
-        // コネ以外の一般技能をスート別に分類
-        const otherGeneralSkills = generalSkills.filter(s => !s.name.startsWith("コネ"));
-        const skillsBySuit = {
-            spade: { label: game.i18n.localize("TNX.Suits.spade"), skills: [] },
-            club: { label: game.i18n.localize("TNX.Suits.club"), skills: [] },
-            heart: { label: game.i18n.localize("TNX.Suits.heart"), skills: [] },
-            diamond: { label: game.i18n.localize("TNX.Suits.diamond"), skills: [] },
-            none: { label: "TNX.Suits.none", skills: [] }
-        };
-
-        for (const skill of otherGeneralSkills) {
-            if (skill.system.spade) skillsBySuit.spade.skills.push(skill);
-            else if (skill.system.club) skillsBySuit.club.skills.push(skill);
-            else if (skill.system.diamond) skillsBySuit.diamond.skills.push(skill);
-            else if (skill.system.heart) skillsBySuit.heart.skills.push(skill);
-            else skillsBySuit.none.skills.push(skill);
-        }
-
-        // 空のカテゴリをフィルタリングしてコンテキストに追加
-        context.generalSkillsBySuit = Object.values(skillsBySuit).filter(group => group.skills.length > 0);
+        
+        // 一般技能 (generalSkill)
+        context.generalSkills = allSkills.filter(s => s.system.category === 'generalSkill');
+        
+        // スタイル技能 (styleSkill)
+        context.styleSkills = allSkills.filter(s => s.system.category === 'styleSkill');
     }
 
     activateListeners(html) {
@@ -158,6 +139,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
         html.find('.view-mode-style-summary .style-summary-item').on('click', this._onRollStyleDescription.bind(this));
         html.find('.skill-property-change').on('change', this._onSkillPropertyChange.bind(this));
         html.find('.item-delete').on('click', this._onItemDelete.bind(this));
+        html.find('.item-create').on('click', this._onItemCreate.bind(this));
 
         if (this.isEditable) {
             html.find('.ability-main-inputs input[name$=".growth"], .ability-main-inputs input[name$=".controlGrowth"]')
@@ -1029,5 +1011,161 @@ export class TokyoNovaCastSheet extends ActorSheet {
             }
         });
         return slots;
+    }
+
+    /**
+     * 【変更点2】アイテム作成ハンドラ
+     * ヘッダーの+ボタンを押した際の処理
+     */
+    async _onItemCreate(event) {
+        event.preventDefault();
+        const header = event.currentTarget;
+        const type = header.dataset.type; // "skill"
+        const category = header.dataset.category; // "generalSkill" or "styleSkill"
+        
+        const itemData = {
+            name: category === 'generalSkill' ? "新規一般技能" : "新規スタイル技能",
+            type: type,
+            system: {
+                category: category,
+                level: 0, // 初期レベル
+            }
+        };
+
+        // 要件: 一般技能の場合は onomasticSKill (固有名詞技能) を初期選択
+        if (category === 'generalSkill') {
+            foundry.utils.setProperty(itemData, "system.generalSkill.generalSkillCategory", "onomasticSkill");
+        }
+        
+        // 要件: スタイル技能の場合は styleSkill を初期選択 (template.jsonの初期値が既にstyleSkillであれば不要ですが念の為)
+        if (category === 'styleSkill') {
+            // styleSkillカテゴリの初期設定が必要であればここに記述
+            // 例: 特定のスタイル技能種別など
+        }
+
+        return await Item.create(itemData, {parent: this.actor});
+    }
+
+    /**
+     * 【変更点3】技能プロパティ変更時の処理（経験点消費の実装）
+     */
+    async _onSkillPropertyChange(event) {
+        event.preventDefault();
+        const input = event.currentTarget;
+        const itemId = input.closest('.item').dataset.itemId;
+        const item = this.actor.items.get(itemId);
+        if (!item) return;
+
+        const target = input.dataset.target; // "level" または "suit"
+        let newLevel = item.system.level;
+        let updateData = {};
+
+        // 変更後のレベルを計算
+        if (target === "level") {
+            newLevel = parseInt(input.value, 10) || 0;
+            updateData["system.level"] = newLevel;
+        } else if (target === "suit") {
+            const suitKey = input.dataset.suit;
+            const isChecked = input.checked;
+            updateData[`system.suits.${suitKey}`] = isChecked;
+
+            // スート数からレベルを再計算
+            const currentSuits = item.system.suits;
+            newLevel = 0;
+            const suitKeys = ["spade", "club", "heart", "diamond"];
+            for (const key of suitKeys) {
+                if (key === suitKey) {
+                    if (isChecked) newLevel++;
+                } else {
+                    if (currentSuits[key]) newLevel++;
+                }
+            }
+            updateData["system.level"] = newLevel;
+        }
+
+        // --- 経験点消費ロジック ---
+        const oldLevel = item.system.level || 0;
+        
+        // レベルが変わっていない場合は更新のみ（スート変更でレベルが変わらない場合など）
+        if (newLevel === oldLevel) {
+            await item.update(updateData);
+            return;
+        }
+
+        // コストの取得
+        const expCostPerLevel = this._getSkillExpCost(item);
+        
+        // コスト計算 (差分 * 1レベルあたりのコスト)
+        // 初期取得技能(isInitial=true)などの場合、Lv1までは作成時に支払い済み（または無料）とみなし、
+        // Lv2以降への成長のみコストがかかると解釈します。
+        // 単純化のため、「レベルが上がった分だけコストを支払う」処理とします。
+        
+        const diff = newLevel - oldLevel;
+        const totalCost = diff * expCostPerLevel;
+
+        const currentExp = this.actor.system.exp.value;
+
+        // 経験点が足りない場合（コストが正の数、かつ所持経験点より多い場合）
+        if (totalCost > 0 && totalCost > currentExp) {
+            ui.notifications.warn(`経験点が足りません！ (必要: ${totalCost} / 所持: ${currentExp})`);
+            // 入力値を元に戻す（リロードは重いのでinputの値を書き戻す）
+            if (target === "level") {
+                input.value = oldLevel;
+            } else if (target === "suit") {
+                input.checked = !input.checked; // チェック状態を戻す
+            }
+            return;
+        }
+
+        // アクターの経験点更新
+        if (totalCost !== 0) {
+            const newExp = currentExp - totalCost;
+            await this.actor.update({ "system.exp.value": newExp });
+            
+            const actionText = totalCost > 0 ? "消費" : "回復";
+            ui.notifications.info(`${item.name}のレベルを${newLevel}に変更しました。経験点を${Math.abs(totalCost)}点${actionText}しました。`);
+        }
+
+        // アイテムの更新
+        await item.update(updateData);
+    }
+
+    /**
+     * 【追加】技能ごとの経験点コストを取得するヘルパー
+     */
+    _getSkillExpCost(item) {
+        const system = item.system;
+        
+        // 一般技能
+        if (system.category === 'generalSkill') {
+            const genCategory = system.generalSkill.generalSkillCategory;
+            
+            // 固有名詞技能 (onomasticSKill) -> 5点
+            if (genCategory === 'onomasticSkill') {
+                return system.generalSkill.onomasticSkill.expCost || 5;
+            }
+            
+            // 初期技能 (initialSkill) -> 10点 (Lv2以降の成長コスト)
+            // system.json/template.jsonの定義に従い値を取得
+            if (genCategory === 'initialSkill') {
+                return system.generalSkill.initialSkill.expCost || 10;
+            }
+            
+            // デフォルト
+            return 10;
+        }
+        
+        // スタイル技能
+        if (system.category === 'styleSkill') {
+            const styleCategory = system.styleSkill.styleSkillCategory;
+            
+            if (styleCategory === 'special') return system.styleSkill.special.expCost || 10;
+            if (styleCategory === 'secret') return system.styleSkill.secret.expCost || 20; // 秘技
+            if (styleCategory === 'mystery') return system.styleSkill.mystery.expCost || 50; // 奥義
+            
+            return 10;
+        }
+
+        return 0;
     }
 }

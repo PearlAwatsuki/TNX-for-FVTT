@@ -56,12 +56,23 @@ export class TokyoNovaSkillSheet extends ItemSheet {
             },
             generalSkillCategory: {
                 "initialSkill": game.i18n.localize("TNX.Item.Skill.GeneralType.Initial"),
-                "onomasticSKill": game.i18n.localize("TNX.Item.Skill.GeneralType.Onomastic")
+                "onomasticSkill": game.i18n.localize("TNX.Item.Skill.GeneralType.Onomastic")
             },
             styleSkillCategory: {
                 "special": game.i18n.localize("TNX.Item.Skill.StyleType.Special"),
                 "secret": game.i18n.localize("TNX.Item.Skill.StyleType.Secret"),
                 "mystery": game.i18n.localize("TNX.Item.Skill.StyleType.Mystery")
+            },
+            unique: {
+                "none": game.i18n.localize("TNX.Item.Skill.Options.Common.Blank"),
+                "damageIncrease": game.i18n.localize("TNX.Item.Skill.UniqueType.DamageIncrease"),
+                "damageReduction": game.i18n.localize("TNX.Item.Skill.UniqueType.DamageReduction"),
+                "additionalAction": game.i18n.localize("TNX.Item.Skill.UniqueType.AdditionalAction"),
+                "abilityChange": game.i18n.localize("TNX.Item.Skill.UniqueType.AbilityChange"),
+                "clone": game.i18n.localize("TNX.Item.Skill.UniqueType.Clone"),
+                "RSC": game.i18n.localize("TNX.Item.Skill.UniqueType.RSC"),
+                "modification": game.i18n.localize("TNX.Item.Skill.UniqueType.Modification"),
+                "miracleChange": game.i18n.localize("TNX.Item.Skill.UniqueType.MiracleChange")
             },
             comboSkill: {
                 "blank": game.i18n.localize("TNX.Item.Skill.Options.Common.Blank"),
