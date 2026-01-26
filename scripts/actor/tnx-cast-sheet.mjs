@@ -157,6 +157,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
         html.find('.edit-mode-toggle').on('click', this._onToggleEditMode.bind(this));
         html.find('.view-mode-style-summary .style-summary-item').on('click', this._onRollStyleDescription.bind(this));
         html.find('.skill-property-change').on('change', this._onSkillPropertyChange.bind(this));
+        html.find('.item-delete').on('click', this._onItemDelete.bind(this));
 
         if (this.isEditable) {
             html.find('.ability-main-inputs input[name$=".growth"], .ability-main-inputs input[name$=".controlGrowth"]')
@@ -487,6 +488,30 @@ export class TokyoNovaCastSheet extends ActorSheet {
             return true;
         }
         return false;
+    }
+
+    /**
+     * 【追加】アイテム削除ボタンが押されたときの処理
+     * @private
+     */
+    async _onItemDelete(event) {
+        event.preventDefault();
+        const li = $(event.currentTarget).closest(".item");
+        const itemId = li.data("itemId");
+        const item = this.actor.items.get(itemId);
+
+        if (!item) return;
+
+        // 確認ダイアログを表示（誤操作防止のため）
+        const confirm = await Dialog.confirm({
+            title: game.i18n.localize("SHEET.ItemDelete"),
+            content: `<p>${game.i18n.format("SHEET.Delete", {name: item.name})}</p>`
+        });
+
+        if (confirm) {
+            await item.delete();
+            li.slideUp(200, () => this.render(false));
+        }
     }
 
     async _render(force = false, options = {}) {

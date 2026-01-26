@@ -3087,30 +3087,6 @@ form .sheet-notes.notes {
     gap: 10px; /* 要素間の基本間隔 */
 }
 
-/* 技能名：必要最小限の幅にし、余白を占有させない */
-.skills-list-edit .item-list .item .item-name {
-    flex: 0 0 auto; /* 自動伸縮を停止 */
-    font-weight: bold;
-    max-width: 200px; /* 長すぎる名前への対策（任意） */
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-/* レベル入力とスート：技能名の隣に自然に配置（変更なしでOKだが念のため明示） */
-.skills-list-edit .item-list .item .skill-level-container {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-
-/* 操作ボタン（ゴミ箱）：右端に寄せる */
-.skills-list-edit .item-list .item .item-controls {
-    flex: 0 0 30px;
-    margin-left: auto; /* これにより左側の余白を全て埋め、右端に配置される */
-    text-align: right;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
+a.item-control.item-delete[disabled] {
+    color: #858585;
 }

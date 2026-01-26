@@ -466,33 +466,44 @@ export class TokyoNovaSkillSheet extends ItemSheet {
         const updateData = {};
         updateData[fieldName] = value; // まず自分自身の変更を適用
 
-        // ▼▼▼【修正】初期スート変更時の処理 ▼▼▼
         if (fieldName === "system.generalSkill.initialSkill.initialSuit") {
-            // "none" 以外が選ばれた場合の処理
-            if (value && value !== "none") {
-                // 現在のスート状態を取得し、変更後の状態をシミュレートするためのオブジェクトを作成
-                const nextSuits = { ...this.item.system.suits };
+            const validSuits = ["spade", "club", "heart", "diamond"];
+            
+            // 変更前の初期スートを取得
+            const oldSuit = this.item.system.generalSkill.initialSkill?.initialSuit;
 
-                // 選択された初期スートを強制的に true に設定
-                // (まだチェックされていない場合のみ updateData に追加)
-                if (!nextSuits[value]) {
-                    nextSuits[value] = true;
-                    updateData[`system.suits.${value}`] = true;
-                }
-
-                // シミュレートしたスート状態に基づいて、レベル（trueの数）を再計算
-                const suitKeys = ["spade", "club", "heart", "diamond"];
-                let newLevel = 0;
-                for (const key of suitKeys) {
-                    if (nextSuits[key]) newLevel++;
-                }
-
-                // 計算した正しいレベルを updateData にセット
-                updateData[`system.level`] = newLevel;
-                console.log("TNX | [保存後] Suitsの状態:", this.item.system.generalSkill.initialSkill.initialSuit);
-                console.log("TNX | [保存後] Suitsの状態:", this.item.system.suits);
-                console.log("TNX | [保存後] Levelの値:", this.item.system.level);
+            // 1. 変更前のスートがあり、有効な値なら false (チェック解除) を予約
+            //    ※新しい値と同じ場合は無視（通常ありえませんが念のため）
+            if (oldSuit && validSuits.includes(oldSuit) && oldSuit !== value) {
+                updateData[`system.suits.${oldSuit}`] = false;
             }
+
+            // 2. 新しいスートが有効な値なら true (チェック) を予約
+            if (validSuits.includes(value)) {
+                updateData[`system.suits.${value}`] = true;
+            }
+
+            // 3. レベルの再計算
+            // 現在のアイテムの状態(this.item.system.suits)に対し、
+            // 今回の updateData による変更を加味してレベルを算出します
+            let newLevel = 0;
+            const currentSuits = this.item.system.suits;
+
+            for (const suit of validSuits) {
+                let isActive = currentSuits[suit]; // 現在の状態
+
+                // updateDataで変更される予定がある場合はその値を優先
+                // (注意: updateDataのキーは "system.suits.spade" のような形式)
+                const updateKey = `system.suits.${suit}`;
+                if (updateKey in updateData) {
+                    isActive = updateData[updateKey];
+                }
+
+                if (isActive) {
+                    newLevel++;
+                }
+            }
+            updateData[`system.level`] = newLevel;
         }
 
         // --- リセットルールの定義 ---

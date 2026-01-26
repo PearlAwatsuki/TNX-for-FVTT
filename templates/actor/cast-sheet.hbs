@@ -248,7 +248,7 @@
             <nav class="sheet-tabs tabs tnx-tabs" data-group="primary">
                 <a class="item" data-tab="abilities">{{localize "TNX.Ui.Tab.Abilities"}}</a>
                 <a class="item" data-tab="outfits">{{localize "TNX.Ui.Tab.Outfits"}}</a>
-                <a class="item" data-tab="battle">{{localize "TNX.Ui.Tab.Battle"}}</a>
+                <a class="item" data-tab="check">{{localize "TNX.Ui.Tab.Check"}}</a>
                 <a class="item" data-tab="status">{{localize "TNX.Ui.Tab.Status"}}</a>
                 <a class="item" data-tab="history">{{localize "TNX.Ui.Tab.History"}}</a>
                 <a class="item" data-tab="profile">{{localize "TNX.Ui.Tab.Profile"}}</a>
@@ -345,7 +345,7 @@
                                                         <div class="skill-suits-row">
                                                             {{#each ../TNX.SUITS as |suitData key|}}
                                                                 <label class="suit-checkbox-tiny" title="{{localize suitData.label}}">
-                                                                    <input type="checkbox" class="skill-property-change" data-target="suit" data-suit="{{key}}" {{checked (lookup item.system.suits key)}} {{#if (eq item.system.generalSkill.initialSuit key)}}disabled{{/if}}/>
+                                                                    <input type="checkbox" class="skill-property-change" data-target="suit" data-suit="{{key}}" {{checked (lookup item.system.suits key)}} {{#if (eq item.system.generalSkill.initialSkill.initialSuit key)}}disabled{{/if}}/>
                                                                     <i class="{{suitData.icon}}"></i>
                                                                 </label>
                                                             {{/each}}
@@ -368,7 +368,9 @@
                                             {{#each group.skills as |item|}}
                                                 <li class="item" data-item-id="{{item._id}}">
                                                     <div class="item-name">
-                                                        <a data-action="openItemSheet" data-item-id="{{item._id}}">{{item.name}}</a>
+                                                        <a data-action="openItemSheet" data-item-id="{{item._id}}">
+                                                            {{#if item.system.isAction}}★{{else}}　{{/if}}{{item.name}}
+                                                        </a>
                                                     </div>
                                                     {{!-- 【修正】レベル入力とスート選択エリア --}}
                                                     <div class="skill-level-container">
@@ -379,14 +381,14 @@
                                                             {{!-- ループの階層が深くなるため ../../TNX.SUITS で参照 --}}
                                                             {{#each ../../TNX.SUITS as |suitData key|}}
                                                                 <label class="suit-checkbox-tiny" title="{{localize suitData.label}}">
-                                                                    <input type="checkbox" class="skill-property-change" data-target="suit" data-suit="{{key}}" {{checked (lookup item.system.suits key)}} {{#if (eq item.system.generalSkill.initialSuit key)}}disabled{{/if}}/>
+                                                                    <input type="checkbox" class="skill-property-change" data-target="suit" data-suit="{{key}}" {{checked (lookup item.system.suits key)}} {{#if (eq item.system.generalSkill.initialSkill.initialSuit key)}}disabled{{/if}}/>
                                                                     <i class="{{suitData.icon}}"></i>
                                                                 </label>
                                                             {{/each}}
                                                         </div>
                                                     </div>
                                                     <div class="item-controls">
-                                                        <a class="item-control item-delete" title="Delete Item"><i class="fas fa-trash"></i></a>
+                                                        <a class="item-control item-delete" title="Delete Item" {{#if item.system.generalSkill.initialSkill.value}}disabled{{/if}}><i class="fas fa-trash"></i></a>
                                                     </div>
                                                 </li>
                                             {{/each}}

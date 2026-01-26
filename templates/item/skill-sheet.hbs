@@ -8,7 +8,7 @@
             <div class="suit-selection">
                 {{#each TNX.SUITS as |suitData key|}}
                     <label for="suit-{{key}}" class="suit-icon" title="{{suitData.label}}">
-                        <input type="checkbox" id="suit-{{key}}" name="system.suits.{{key}}" {{checked (lookup ../system.suits key)}} {{#if suitData.disabled}}disabled{{/if}} {{#if (eq item.system.generalSkill.initialSuit key)}}disabled{{/if}}/>
+                        <input type="checkbox" id="suit-{{key}}" name="system.suits.{{key}}" {{checked (lookup ../system.suits key)}} {{#if suitData.disabled}}disabled{{/if}} {{#if (eq item.system.generalSkill.initialSkill.initialSuit key)}}disabled{{/if}}/>
                         <i class="fa-solid fa-{{key}}"></i>
                     </label>
                 {{/each}}

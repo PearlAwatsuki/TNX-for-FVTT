@@ -290,7 +290,7 @@
             "Tab": {
                 "Abilities": "能力値",
                 "Outfits": "装備",
-                "Battle": "戦闘",
+                "Check": "判定",
                 "Status": "状態",
                 "History": "履歴",
                 "Profile": "詳細",
@@ -365,6 +365,7 @@
     },
     "SHEET": {
         "Open": "シートを開く",
+        "Delete": "このアイテムを削除しますか？",
         "ItemDelete": "削除"
     },
     "TYPES": {
@@ -384,7 +385,8 @@
             "organization": "組織",
             "outfit": "アウトフィット",
             "skill": "技能",
-            "style": "スタイル"
+            "style": "スタイル",
+            "record": "レコードシート"
         }
     },
     "EFFECT": {
