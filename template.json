@@ -195,7 +195,7 @@
                 "diamond": false,
                 "club": false
             },
-            "isBase": false,
+            "isAction": false,
             "generalSkill": {
                 "generalSkillCategory": "initialSkill",
                 "initialSkill":{

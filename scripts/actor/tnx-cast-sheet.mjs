@@ -19,7 +19,8 @@ export class TokyoNovaCastSheet extends ActorSheet {
             width: 850,
             height: 900,
             tabs: [{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "abilities" }],
-            dragDrop: [{ dragSelector: ".item-list .item", dropSelector: "form" }]
+            dragDrop: [{ dragSelector: ".item-list .item", dropSelector: "form" }],
+            scrollY: [".sheet-body", ".profile-sidebar", ".tab.abilities"]
         });
     }
 
