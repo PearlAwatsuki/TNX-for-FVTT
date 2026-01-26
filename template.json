@@ -200,7 +200,7 @@
                 "generalSkillCategory": "initialSkill",
                 "initialSkill":{
                     "value": true,
-                    "initiakSuit": "",
+                    "initialSuit": "",
                     "expCost": 10
                 },
                 "onomasticSKill": {

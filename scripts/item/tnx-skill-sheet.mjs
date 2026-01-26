@@ -30,7 +30,7 @@ export class TokyoNovaSkillSheet extends ItemSheet {
         ];
 
         // スートの無効化判定ロジック (変更なし)
-        const initialSuit = system.generalSkill?.initialSuit || "";
+        const initialSuit = system.generalSkill.initialSkill?.initialSuit || "";
         context.TNX = {
             SUITS: {
               spade:   { label: game.i18n.localize("TNX.Suits.spade"),   disabled: initialSuit === "spade" },
@@ -467,7 +467,7 @@ export class TokyoNovaSkillSheet extends ItemSheet {
         updateData[fieldName] = value; // まず自分自身の変更を適用
 
         // ▼▼▼【修正】初期スート変更時の処理 ▼▼▼
-        if (fieldName === "system.generalSkill.initialSuit") {
+        if (fieldName === "system.generalSkill.initialSkill.initialSuit") {
             // "none" 以外が選ばれた場合の処理
             if (value && value !== "none") {
                 // 現在のスート状態を取得し、変更後の状態をシミュレートするためのオブジェクトを作成
@@ -489,6 +489,7 @@ export class TokyoNovaSkillSheet extends ItemSheet {
 
                 // 計算した正しいレベルを updateData にセット
                 updateData[`system.level`] = newLevel;
+                console.log("TNX | [保存後] Suitsの状態:", this.item.system.generalSkill.initialSkill.initialSuit);
                 console.log("TNX | [保存後] Suitsの状態:", this.item.system.suits);
                 console.log("TNX | [保存後] Levelの値:", this.item.system.level);
             }
