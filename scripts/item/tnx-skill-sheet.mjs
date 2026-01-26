@@ -30,19 +30,26 @@ export class TokyoNovaSkillSheet extends ItemSheet {
         ];
 
         // スートの無効化判定ロジック (変更なし)
-        const initialSuit = system.generalSkill?.initialSkill?.initialSuit || "";
+        const initialSuit = system.generalSkill?.initialSuit || "";
         context.TNX = {
             SUITS: {
-              spade:   { label: "スペード",   disabled: initialSuit === "spade" },
-              club:    { label: "クラブ",    disabled: initialSuit === "club" },
-              heart:   { label: "ハート",   disabled: initialSuit === "heart" },
-              diamond: { label: "ダイヤ",    disabled: initialSuit === "diamond" }
+              spade:   { label: game.i18n.localize("TNX.Suits.spade"),   disabled: initialSuit === "spade" },
+              club:    { label: game.i18n.localize("TNX.Suits.club"),    disabled: initialSuit === "club" },
+              heart:   { label: game.i18n.localize("TNX.Suits.heart"),   disabled: initialSuit === "heart" },
+              diamond: { label: game.i18n.localize("TNX.Suits.diamond"),    disabled: initialSuit === "diamond" }
             }
         };
 
         // ▼▼▼【ここから追記・修正】▼▼▼
         // --- ドロップダウンの選択肢を定義 ---
         context.options = {
+            initialSuit: {
+                "default": "-",
+                "spade": game.i18n.localize("TNX.Suits.spade"),
+                "club": game.i18n.localize("TNX.Suits.club"),
+                "heart": game.i18n.localize("TNX.Suits.heart"),
+                "diamond": game.i18n.localize("TNX.Suits.diamond")
+            },
             category: {
                 "generalSkill": game.i18n.localize("TNX.Item.Skill.Category.General"),
                 "styleSkill": game.i18n.localize("TNX.Item.Skill.Category.Style")
@@ -458,6 +465,34 @@ export class TokyoNovaSkillSheet extends ItemSheet {
         // 更新用データオブジェクト
         const updateData = {};
         updateData[fieldName] = value; // まず自分自身の変更を適用
+
+        // ▼▼▼【修正】初期スート変更時の処理 ▼▼▼
+        if (fieldName === "system.generalSkill.initialSuit") {
+            // "none" 以外が選ばれた場合の処理
+            if (value && value !== "none") {
+                // 現在のスート状態を取得し、変更後の状態をシミュレートするためのオブジェクトを作成
+                const nextSuits = { ...this.item.system.suits };
+
+                // 選択された初期スートを強制的に true に設定
+                // (まだチェックされていない場合のみ updateData に追加)
+                if (!nextSuits[value]) {
+                    nextSuits[value] = true;
+                    updateData[`system.suits.${value}`] = true;
+                }
+
+                // シミュレートしたスート状態に基づいて、レベル（trueの数）を再計算
+                const suitKeys = ["spade", "club", "heart", "diamond"];
+                let newLevel = 0;
+                for (const key of suitKeys) {
+                    if (nextSuits[key]) newLevel++;
+                }
+
+                // 計算した正しいレベルを updateData にセット
+                updateData[`system.level`] = newLevel;
+                console.log("TNX | [保存後] Suitsの状態:", this.item.system.suits);
+                console.log("TNX | [保存後] Levelの値:", this.item.system.level);
+            }
+        }
 
         // --- リセットルールの定義 ---
         // key: 監視するフィールド名（またはパターン）

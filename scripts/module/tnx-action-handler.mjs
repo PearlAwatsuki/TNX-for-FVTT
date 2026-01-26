@@ -591,6 +591,59 @@ export class TnxActionHandler {
     }
 
     /**
+     * 捨て札にある全てのカードを山札に戻す
+     */
+    static async retrieveDiscardPile() {
+        const deck = await this.getActiveDeck();
+        const discardPile = await this.getActiveDiscardPile();
+        
+        if (!deck || !discardPile) return;
+        if (discardPile.cards.size === 0) {
+            return ui.notifications.warn("捨て札がありません。");
+        }
+
+        // 捨て札の全カードIDを取得
+        const ids = discardPile.cards.map(c => c.id);
+
+        // 山札に移動（pass）し、オプションで裏向き（face: null）に更新する
+        await discardPile.pass(deck, ids, { 
+            chatNotification: false,
+            updateData: { face: null } 
+        });
+        
+        if (game.settings.get("tokyo-nova-axleration", "shuffleOnDeckReset")) {
+            await deck.shuffle();
+            ui.notifications.info("捨て札を回収し、山札をシャッフルしました。");
+        } else {
+            ui.notifications.info("捨て札をすべて山札に回収しました。");
+        }
+    }
+
+    /**
+     * 捨て札の一番上のカード（最新の1枚）を山札の一番上に戻す
+     */
+    static async returnTopDiscardToDeck() {
+        const deck = await this.getActiveDeck();
+        const discardPile = await this.getActiveDiscardPile();
+        
+        if (!deck || !discardPile) return;
+        if (discardPile.cards.size === 0) {
+            return ui.notifications.warn("捨て札がありません。");
+        }
+
+        const cardsArray = discardPile.cards.contents;
+        const topCard = cardsArray[cardsArray.length - 1]; // 配列の末尾が最新（一番上）
+
+        // 山札に移動し、裏向きにする
+        await discardPile.pass(deck, [topCard.id], { 
+            chatNotification: false,
+            updateData: { face: null }
+        });
+
+        ui.notifications.info(`「${topCard.name}」を山札に戻しました。`);
+    }
+
+    /**
      * カード情報をチャットに投稿する共通ヘルパー
      * @param {Card} card - チャットに投稿するカードドキュメント
      * @param {object} [options={}] - 追加オプション

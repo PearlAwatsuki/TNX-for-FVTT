@@ -240,6 +240,14 @@ export class TnxHud extends Application {
                     }
                 },
                 {
+                    name: "捨て札を回収",
+                    icon: '<i class="fas fa-recycle"></i>',
+                    condition: game.user.isGM,
+                    callback: async () => {
+                        TnxActionHandler.retrieveDiscardPile();
+                    }
+                },
+                {
                     name: "リセットする",
                     icon: '<i class="fas fa-undo"></i>',
                     condition: game.user.isGM,
@@ -247,12 +255,48 @@ export class TnxHud extends Application {
                         const cardDeck = await TnxActionHandler.getActiveDeck();
                         if (cardDeck) {
                             await cardDeck.recall();
-                            ui.notifications.info("山札をリセット（全カードを回収）しました。");
+                            if (game.settings.get("tokyo-nova-axleration", "shuffleOnDeckReset")) {
+                                await cardDeck.shuffle();
+                                ui.notifications.info("山札をリセット（全カードを回収）し、シャッフルしました。");
+                            } else {
+                                ui.notifications.info("山札をリセット（全カードを回収）しました。");
+                            }
                         }
                     }
                 }
             ];
             new ContextMenu(html, '.deck-card[data-action="draw-from-deck"]', contextMenuOptions);
+        }
+
+        const discardPileElement = html.find('.deck-card[data-action="take-from-discard"]');
+        if (discardPileElement.length > 0) {
+            const contextMenuOptions = [
+                {
+                    name: "1枚手札に戻す",
+                    icon: '<i class="fas fa-hand-holding"></i>',
+                    callback: () => {
+                        // 既存の左クリック時と同じ挙動
+                        TnxActionHandler.takeFromDiscard();
+                    }
+                },
+                {
+                    name: "1枚山札に戻す",
+                    icon: '<i class="fas fa-arrow-up"></i>',
+                    condition: game.user.isGM, // 山札操作のためGM推奨（必要に応じて外してください）
+                    callback: () => {
+                        TnxActionHandler.returnTopDiscardToDeck();
+                    }
+                },
+                {
+                    name: "全て山札に戻す",
+                    icon: '<i class="fas fa-recycle"></i>',
+                    condition: game.user.isGM, // 山札回収と同じ挙動のためGM限定
+                    callback: () => {
+                        TnxActionHandler.retrieveDiscardPile();
+                    }
+                }
+            ];
+            new ContextMenu(html, '.deck-card[data-action="take-from-discard"]', contextMenuOptions);
         }
 
         // 手札のカードの右クリックメニュー

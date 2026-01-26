@@ -20,7 +20,8 @@
     --tnx-color-primary-dark: #007799;
     --tnx-color-primary-darker: #005577;
     --tnx-color-text-base: #f0f0f0;
-    --tnx-color-text-dim: #ccc;
+    --tnx-color-text-dim: #cecece;
+    --tnx-color-text-dim-sheet: #353535;
     --tnx-color-text-muted: #888;
     --tnx-color-bg: #2c333b;
     --tnx-color-bg-alt: rgba(0, 0, 0, 0.05);
@@ -105,6 +106,9 @@ form .form-group .form-fields .number-input-spinner .tnx-button {
     color: var(--tnx-color-text-base);
 }
 form .notes, form .hint {
+    color: var(--tnx-color-text-dim-sheet);
+}
+form .sheet-notes.notes {
     color: var(--tnx-color-text-dim);
 }
 
@@ -2743,9 +2747,9 @@ form .notes, form .hint {
     text-shadow: 0 0 8px var(--tnx-color-primary);
 }
 .tokyo-nova.sheet.item.skill .suit-selection input[type="checkbox"]:disabled + i {
-    color: var(--tnx-color-primary-dark); /* 無効化された時の色 */
+    color: var(--tnx-color-primary-highlight); /* 無効化された時の色 */
+    text-shadow: 0 0 8px var(--tnx-color-primary);
     cursor: not-allowed;
-    text-shadow: none;
 }
 
 /* --- 2. レベル表示 (ヘッダー内) --- */
@@ -3073,4 +3077,40 @@ form .notes, form .hint {
 .suit-checkbox-tiny input:checked + i {
     color: var(--tnx-color-primary-highlight); /* 選択時は色をつける（適宜変更） */
     text-shadow: var(--tnx-color-primary);
+}
+
+/* リストアイテムのレイアウト：Flexboxで配置 */
+.skills-list-edit .item-list .item {
+    display: flex;
+    align-items: center;
+    padding: 4px 0;
+    gap: 10px; /* 要素間の基本間隔 */
+}
+
+/* 技能名：必要最小限の幅にし、余白を占有させない */
+.skills-list-edit .item-list .item .item-name {
+    flex: 0 0 auto; /* 自動伸縮を停止 */
+    font-weight: bold;
+    max-width: 200px; /* 長すぎる名前への対策（任意） */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* レベル入力とスート：技能名の隣に自然に配置（変更なしでOKだが念のため明示） */
+.skills-list-edit .item-list .item .skill-level-container {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/* 操作ボタン（ゴミ箱）：右端に寄せる */
+.skills-list-edit .item-list .item .item-controls {
+    flex: 0 0 30px;
+    margin-left: auto; /* これにより左側の余白を全て埋め、右端に配置される */
+    text-align: right;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
 }

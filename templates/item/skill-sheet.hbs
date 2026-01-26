@@ -8,7 +8,7 @@
             <div class="suit-selection">
                 {{#each TNX.SUITS as |suitData key|}}
                     <label for="suit-{{key}}" class="suit-icon" title="{{suitData.label}}">
-                        <input type="checkbox" id="suit-{{key}}" name="system.suits.{{key}}" {{checked (lookup ../system.suits key)}} {{#if suitData.disabled}}disabled{{/if}}/>
+                        <input type="checkbox" id="suit-{{key}}" name="system.suits.{{key}}" {{checked (lookup ../system.suits key)}} {{#if suitData.disabled}}disabled{{/if}} {{#if (eq item.system.generalSkill.initialSuit key)}}disabled{{/if}}/>
                         <i class="fa-solid fa-{{key}}"></i>
                     </label>
                 {{/each}}
@@ -83,7 +83,7 @@
                 <div class="form-group">
                     <label>アクション技能</label>
                     <input type="checkbox" name="system.isAction" {{checked system.isAction}}>
-                    <p class="notes">組み合わせ判定のベースになる技能の場合にチェックします。</p>
+                    <p class="sheet-notes notes">組み合わせ判定のベースになる技能の場合にチェックします。</p>
                 </div>
 
                 <div class="form-group">
@@ -101,6 +101,13 @@
                             <select name="system.generalSkill.generalSkillCategory">
                                 {{selectOptions options.generalSkillCategory selected=system.generalSkill.generalSkillCategory}}
                             </select>
+                        </div>
+                        <div class="form-group">
+                            <label>初期スート</label>
+                            <select name="system.generalSkill.initialSuit">
+                                {{selectOptions options.initialSuit selected=system.generalSkill.initialSuit}}
+                            </select>
+                            <p class="sheet-notes notes">初期取得となるスートを指定します（チェックが固定されます）。</p>
                         </div>
                     </fieldset>
                 {{/if}}

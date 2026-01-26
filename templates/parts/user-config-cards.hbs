@@ -33,8 +33,10 @@
                 <button type="button" class="icon fa-solid fa-ban" data-action="release-flag" data-flag="handId" data-tooltip="手札を解放"></button>
             {{/if}}
         </div>
+    </div>
 
     {{!-- 切り札の設定 --}}
+    <div class="form-group">
         <label for="tnx-user-trump">切り札</label>
         <div class="form-fields" style="display: flex; align-items: center; gap: 5px;">
             <select name="flags.tokyo-nova-axleration.trumpPileId" id="tnx-user-trump" style="flex: 1;">
@@ -65,7 +67,9 @@
                 <button type="button" class="icon fa-solid fa-ban" data-action="release-flag" data-flag="trumpPileId" data-tooltip="切り札を解放"></button>
             {{/if}}
         </div>
-        
+    </div>
+
+    <div class="form-group">    
         <p class="hint">HUD（ヘッドアップディスプレイ）に表示するあなたの手札と切り札を選択します。</p>
     </div>
 </fieldset>

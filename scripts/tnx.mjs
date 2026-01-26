@@ -209,6 +209,15 @@ Hooks.once("init", async function() {
         requiresReload: true
     });
 
+    game.settings.register("tokyo-nova-axleration", "shuffleOnDeckReset", {
+        name: "山札リセット時にシャッフル",
+        hint: "山札のリセット（全回収）や捨て札の回収を行った際、自動的に山札をシャッフルします。",
+        scope: "world",
+        config: true,
+        type: Boolean,
+        default: false // デフォルトはOFF
+    });
+
     game.settings.register("tokyo-nova-axleration", "activeScenarioId", {
         name: "現在のアクトシート",
         hint: "HUDが自動でカード情報を読み込む対象のアクトシート（ジャーナル）を選択します。",

@@ -345,8 +345,7 @@
                                                         <div class="skill-suits-row">
                                                             {{#each ../TNX.SUITS as |suitData key|}}
                                                                 <label class="suit-checkbox-tiny" title="{{localize suitData.label}}">
-                                                                    <input type="checkbox" class="skill-property-change" data-target="suit" data-suit="{{key}}" 
-                                                                        {{checked (lookup item.system.suits key)}} />
+                                                                    <input type="checkbox" class="skill-property-change" data-target="suit" data-suit="{{key}}" {{checked (lookup item.system.suits key)}} {{#if (eq item.system.generalSkill.initialSuit key)}}disabled{{/if}}/>
                                                                     <i class="{{suitData.icon}}"></i>
                                                                 </label>
                                                             {{/each}}
@@ -380,8 +379,7 @@
                                                             {{!-- ループの階層が深くなるため ../../TNX.SUITS で参照 --}}
                                                             {{#each ../../TNX.SUITS as |suitData key|}}
                                                                 <label class="suit-checkbox-tiny" title="{{localize suitData.label}}">
-                                                                    <input type="checkbox" class="skill-property-change" data-target="suit" data-suit="{{key}}" 
-                                                                        {{checked (lookup item.system.suits key)}} />
+                                                                    <input type="checkbox" class="skill-property-change" data-target="suit" data-suit="{{key}}" {{checked (lookup item.system.suits key)}} {{#if (eq item.system.generalSkill.initialSuit key)}}disabled{{/if}}/>
                                                                     <i class="{{suitData.icon}}"></i>
                                                                 </label>
                                                             {{/each}}
