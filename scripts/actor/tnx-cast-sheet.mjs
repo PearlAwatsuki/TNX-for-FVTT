@@ -1086,7 +1086,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
         // --- 経験点消費ロジック ---
         const oldLevel = item.system.level || 0;
         
-        // レベルが変わっていない場合は更新のみ（スート変更でレベルが変わらない場合など）
+        // レベルが変わっていない場合は更新のみ
         if (newLevel === oldLevel) {
             await item.update(updateData);
             return;
@@ -1095,24 +1095,38 @@ export class TokyoNovaCastSheet extends ActorSheet {
         // コストの取得
         const expCostPerLevel = this._getSkillExpCost(item);
         
-        // コスト計算 (差分 * 1レベルあたりのコスト)
-        // 初期取得技能(isInitial=true)などの場合、Lv1までは作成時に支払い済み（または無料）とみなし、
-        // Lv2以降への成長のみコストがかかると解釈します。
-        // 単純化のため、「レベルが上がった分だけコストを支払う」処理とします。
-        
-        const diff = newLevel - oldLevel;
-        const totalCost = diff * expCostPerLevel;
+        // ▼▼▼【修正】初期取得技能のコスト計算ロジック ▼▼▼
+        // 一般技能かつ固有名詞技能で、初期取得フラグが立っているか確認
+        const isInitialOnomastic = (item.system.category === 'generalSkill') && 
+                                   (item.system.generalSkill?.generalSkillCategory === 'onomasticSkill') &&
+                                   (item.system.generalSkill?.onomasticSkill?.isInitial);
+
+        let totalCost = 0;
+
+        if (isInitialOnomastic) {
+            // 初期取得の場合、Lv1までは無料とみなす
+            // つまり、Lv2以上になっている分のみコストを支払う必要がある
+            // 計算式: max(0, level - 1) * unitCost
+            const oldPaidLevel = Math.max(0, oldLevel - 1);
+            const newPaidLevel = Math.max(0, newLevel - 1);
+            totalCost = (newPaidLevel - oldPaidLevel) * expCostPerLevel;
+        } else {
+            // 通常計算
+            const diff = newLevel - oldLevel;
+            totalCost = diff * expCostPerLevel;
+        }
+        // ▲▲▲【ここまで】▲▲▲
 
         const currentExp = this.actor.system.exp.value;
 
         // 経験点が足りない場合（コストが正の数、かつ所持経験点より多い場合）
         if (totalCost > 0 && totalCost > currentExp) {
             ui.notifications.warn(`経験点が足りません！ (必要: ${totalCost} / 所持: ${currentExp})`);
-            // 入力値を元に戻す（リロードは重いのでinputの値を書き戻す）
+            // 入力値を元に戻す
             if (target === "level") {
                 input.value = oldLevel;
             } else if (target === "suit") {
-                input.checked = !input.checked; // チェック状態を戻す
+                input.checked = !input.checked; 
             }
             return;
         }

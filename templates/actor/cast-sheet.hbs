@@ -322,16 +322,15 @@
                         </div>
                     {{/if}}
                     <div class="skills-section">
-                        <h2 class="abilities-grid-header">{{localize "TNX.Actor.Items.Skills"}}</h2>
-
                         {{#if isEditMode}}
+                            <h2 class="abilities-grid-header">{{localize "TNX.Actor.Items.Skills"}}</h2>
                             {{!-- 編集モード：一般技能セクション --}}
                             <div class="skills-list-edit">
                                 <div class="skill-group-header-row flexrow">
                                     <h4 class="skill-group-header">{{localize "TNX.Actor.Items.GeneralSkills"}}</h4>
                                     {{!-- 【変更点2】一般技能追加ボタン --}}
-                                    <a class="item-control item-create" data-type="skill" data-category="generalSkill" title="{{localize 'TNX.Ui.Button.Add'}}">
-                                        <i class="fas fa-plus"></i> {{localize "TNX.Ui.Button.Add"}}
+                                    <a class="item-control item-create" data-type="skill" data-category="generalSkill" title="{{localize 'TNX.Common.Add'}}">
+                                        <i class="fas fa-plus"></i> {{localize "TNX.Common.Add"}}
                                     </a>
                                 </div>
                                 
@@ -371,8 +370,8 @@
                                 <div class="skill-group-header-row flexrow">
                                     <h4 class="skill-group-header">{{localize "TNX.Actor.Items.StyleSkills"}}</h4>
                                     {{!-- 【変更点2】スタイル技能追加ボタン --}}
-                                    <a class="item-control item-create" data-type="skill" data-category="styleSkill" title="{{localize 'TNX.Ui.Button.Add'}}">
-                                        <i class="fas fa-plus"></i> {{localize "TNX.Ui.Button.Add"}}
+                                    <a class="item-control item-create" data-type="skill" data-category="styleSkill" title="{{localize 'TNX.Common.Add'}}">
+                                        <i class="fas fa-plus"></i> {{localize "TNX.Common.Add"}}
                                     </a>
                                 </div>
 
@@ -410,21 +409,26 @@
                             </div>
                         {{else}}
                             {{!-- 閲覧モード --}}
-                            <div class="skills-list-view">
-                                {{!-- 閲覧モード用の表示ロジック（generalSkills, styleSkillsを使って表示） --}}
-                                <h4>{{localize "TNX.Actor.Items.GeneralSkills"}}</h4>
-                                <ul>
-                                {{#each generalSkills as |item|}}
-                                    <li>{{item.name}} (Lv{{item.system.level}})</li>
-                                {{/each}}
-                                </ul>
-                                
-                                <h4>{{localize "TNX.Actor.Items.StyleSkills"}}</h4>
-                                <ul>
-                                {{#each styleSkills as |item|}}
-                                    <li>{{item.name}} (Lv{{item.system.level}})</li>
-                                {{/each}}
-                                </ul>
+                            <div class="skills-section">
+                                <h2 class="abilities-grid-header">{{localize "TNX.Actor.Items.GeneralSkills"}}</h2>
+                                <div class="skills-list-view">
+                                    {{!-- 閲覧モード用の表示ロジック（generalSkills, styleSkillsを使って表示） --}}
+                                    <ul>
+                                    {{#each generalSkills as |item|}}
+                                        <li>{{item.name}} (Lv{{item.system.level}})</li>
+                                    {{/each}}
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="skills-section">
+                                <h2 class="abilities-grid-header">{{localize "TNX.Actor.Items.StyleSkills"}}</h2>
+                                <div class="skills-list-view">
+                                    <ul>
+                                    {{#each styleSkills as |item|}}
+                                        <li>{{item.name}} (Lv{{item.system.level}})</li>
+                                    {{/each}}
+                                    </ul>
+                                </div>
                             </div>
                         {{/if}}
                     </div>

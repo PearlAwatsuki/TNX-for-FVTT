@@ -213,6 +213,21 @@ export class TokyoNovaSkillSheet extends ItemSheet {
                     timingOther: ""
                 }];
             }
+
+            // substituteTarget は単純な文字列の配列として扱います
+            if (!Array.isArray(ss.substituteTarget)) {
+                if (typeof ss.substituteTarget === 'object' && ss.substituteTarget !== null) {
+                    ss.substituteTarget = Object.values(ss.substituteTarget);
+                } else if (typeof ss.substituteTarget === 'string' && ss.substituteTarget !== "") {
+                    ss.substituteTarget = [ss.substituteTarget];
+                } else {
+                    ss.substituteTarget = [];
+                }
+            }
+            // 空の場合は入力欄を1つ表示
+            if (ss.substituteTarget.length === 0) {
+                ss.substituteTarget = [""];
+            }
         }
 
         // --- 説明タブでの表示用データを準備 ---
@@ -334,6 +349,7 @@ export class TokyoNovaSkillSheet extends ItemSheet {
         html.find('.add-array-item').on('click', this._onAddArrayItem.bind(this));
         html.find('.delete-array-item').on('click', this._onDeleteArrayItem.bind(this));
         html.find('select').on('change', this._onSelectChange.bind(this));
+        html.find('input[name="system.generalSkill.onomasticSkill.isInitial"]').on('change', this._onInitialSkillChange.bind(this));
     }
     
     /**
@@ -423,6 +439,12 @@ export class TokyoNovaSkillSheet extends ItemSheet {
             updateData['system.styleSkill.timing'] = list;
         }
 
+        if (target === "substitute") {
+            const list = [...normalizedSs.substituteTarget];
+            list.push(""); // 空文字を追加
+            updateData['system.styleSkill.substituteTarget'] = list;
+        }
+
         await this.item.update(updateData);
     }
 
@@ -458,6 +480,14 @@ export class TokyoNovaSkillSheet extends ItemSheet {
             if (index >= 0 && index < list.length) {
                 list.splice(index, 1);
                 updateData['system.styleSkill.timing'] = list;
+            }
+        }
+
+        if (target === "substitute") {
+            const list = [...normalizedSs.substituteTarget];
+            if (index >= 0 && index < list.length) {
+                list.splice(index, 1);
+                updateData['system.styleSkill.substituteTarget'] = list;
             }
         }
 
@@ -613,6 +643,14 @@ export class TokyoNovaSkillSheet extends ItemSheet {
         // 更新実行
         if (Object.keys(updateData).length > 1) { // 自分自身以外の変更がある場合のみ
             await this.item.update(updateData);
+        }
+    }
+
+    async _onInitialSkillChange(event) {
+        const isChecked = event.currentTarget.checked;
+        // チェックが入った時、レベルが0であれば1に設定する
+        if (isChecked && this.item.system.level === 0) {
+            await this.item.update({ "system.level": 1 });
         }
     }
 }

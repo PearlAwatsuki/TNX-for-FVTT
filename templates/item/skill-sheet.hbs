@@ -383,6 +383,32 @@
                                     <label for="isSubstitute-{{item._id}}">代用可能</label>
                                     <input type="checkbox" name="system.styleSkill.isSubstitute" id="isSubstitute-{{item._id}}" {{checked system.styleSkill.isSubstitute}}>
                                 </div>
+
+                                {{#if system.styleSkill.isSubstitute}}
+                                    <div class="form-group align-start">
+                                        <label>代用対象</label>
+                                        <div class="form-fields-column">
+                                            {{#each system.styleSkill.substituteTarget as |target idx|}}
+                                            <div class="array-row">
+                                                <input type="text" name="system.styleSkill.substituteTarget.{{idx}}" value="{{target}}" placeholder="技能名"/>
+                                                <div class="row-controls">
+                                                    {{#if (eq idx 0)}}
+                                                    <button type="button" class="add-array-item" data-target="substitute" title="行を追加">
+                                                        <i class="fas fa-plus"></i>
+                                                    </button>
+                                                    {{/if}}
+                                                    {{#if (gte idx 1)}}
+                                                    <button type="button" class="delete-array-item" data-target="substitute" data-index="{{idx}}" title="削除">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                    {{/if}}
+                                                </div>
+                                            </div>
+                                            {{/each}}
+                                        </div>
+                                    </div>
+                                {{/if}}
+
                                 {{#if (eq system.styleSkill.unique "miracleChange")}}
                                     <div class="form-group">
                                         <label>書き換え対象の神業</label>

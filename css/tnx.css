@@ -2610,7 +2610,6 @@ form .sheet-notes.notes {
 /* --- Actor Sheet: Skills Section --- */
 .skills-section {
     margin-top: 30px;
-    padding-top: 10px;
 }
 .skill-group-block {
     margin-bottom: 15px;
@@ -3089,4 +3088,8 @@ form .sheet-notes.notes {
 
 a.item-control.item-delete[disabled] {
     color: #858585;
+}
+
+ol.item-list {
+    padding: 0 0 0 0em;
 }
