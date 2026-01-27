@@ -4,6 +4,7 @@ import {
     TargetSelectionDialog
 } from '../module/tnx-dialog.mjs';
 import { TnxActionHandler } from '../module/tnx-action-handler.mjs';
+import { TnxSkillUtils } from '../module/tnx-skill-utils.mjs';
 
 export class TokyoNovaCastSheet extends ActorSheet {
 
@@ -16,8 +17,8 @@ export class TokyoNovaCastSheet extends ActorSheet {
         return foundry.utils.mergeObject(super.defaultOptions, {
             classes: ["tokyo-nova", "sheet", "actor", "cast"],
             template: "systems/tokyo-nova-axleration/templates/actor/cast-sheet.hbs",
-            width: 850,
-            height: 900,
+            width: 950,
+            height: 1000,
             tabs: [{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "abilities" }],
             dragDrop: [{ dragSelector: ".item-list .item", dropSelector: "form" }],
             scrollY: [".sheet-body", ".profile-sidebar", ".tab.abilities"]
@@ -126,10 +127,27 @@ export class TokyoNovaCastSheet extends ActorSheet {
         const allSkills = this.actor.items.filter(i => i.type === 'skill').sort((a, b) => (a.sort || 0) - (b.sort || 0));
         
         // 一般技能 (generalSkill)
-        context.generalSkills = allSkills.filter(s => s.system.category === 'generalSkill');
+        const generalSkills = allSkills.filter(s => s.system.category === 'generalSkill');
+        context.generalSkills = generalSkills; // 編集モード等で全件リストが必要な場合用
+
+        // ▼▼▼ 修正: 閲覧モード用にデータを「列」の配列にまとめる ▼▼▼
+        const halfIndex = Math.ceil(generalSkills.length / 2);
+        context.generalSkillColumns = [
+            generalSkills.slice(0, halfIndex), // 1列目 (左)
+            generalSkills.slice(halfIndex)     // 2列目 (右)
+        ];
         
         // スタイル技能 (styleSkill)
         context.styleSkills = allSkills.filter(s => s.system.category === 'styleSkill');
+
+        const skillOptions = TnxSkillUtils.getSkillOptions();
+        
+        context.styleSkills.forEach(item => {
+            // styleSkillの場合のみviewを生成
+            if (item.system.category === 'styleSkill') {
+                item.view = TnxSkillUtils.prepareStyleSkillView(item.system, skillOptions);
+            }
+        });
     }
 
     activateListeners(html) {
@@ -512,7 +530,56 @@ export class TokyoNovaCastSheet extends ActorSheet {
                 sheetElement.classList.remove("edit-mode");
                 sheetElement.classList.add("view-mode");
             }
+            this._applyTextSqueezing();
         }
+    }
+
+    /**
+     * .squeeze-text クラスを持つ要素に対し、親要素の幅に合わせて長体(scaleX)を適用する
+     * @private
+     */
+    _applyTextSqueezing() {
+        if (!this.element) return;
+        
+        const elements = this.element.find('.squeeze-text');
+        
+        elements.each((i, el) => {
+            const parent = el.parentElement;
+            
+            // 親要素のパディングを除いた利用可能幅を計算
+            const parentStyle = getComputedStyle(parent);
+            const parentWidth = parent.clientWidth;
+            const paddingLeft = parseFloat(parentStyle.paddingLeft) || 0;
+            const paddingRight = parseFloat(parentStyle.paddingRight) || 0;
+            // 少し余裕を持たせるためにさらに-2px
+            const availableWidth = parentWidth - paddingLeft - paddingRight - 2;
+            
+            // コンテンツの幅を取得
+            const contentWidth = el.scrollWidth;
+
+            // 一般技能（平行四辺形）かどうかを判定
+            const isSkewedLabel = el.classList.contains('skill-label-content');
+
+            // ベースとなる transform を決定
+            let transformBase = '';
+            if (isSkewedLabel) {
+                // 一般技能は斜め変形が必要
+                transformBase = 'skewX(25deg)';
+            } else {
+                // 表のセル内は変形なし、中央基準
+                transformBase = '';
+            }
+
+            // 幅が溢れている場合、scaleX を追加
+            if (contentWidth > availableWidth) {
+                const scale = availableWidth / contentWidth;
+                // 0.95倍でギリギリ感を緩和
+                el.style.transform = `${transformBase} scaleX(${scale * 0.95})`;
+            } else {
+                // 溢れていない場合も、skewX 等のベース変形は適用する必要がある
+                el.style.transform = transformBase;
+            }
+        });
     }
     
     _onOpenItemSheet(event) {

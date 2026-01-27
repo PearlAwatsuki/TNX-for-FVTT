@@ -3093,3 +3093,195 @@ a.item-control.item-delete[disabled] {
 ol.item-list {
     padding: 0 0 0 0em;
 }
+
+.skills-list-view {
+    display: flex;
+    gap: 40px;       /* 左右カラムの間隔 */
+    width: 100%;
+    align-items: flex-start; /* 上揃え */
+}
+
+/* カラム設定：均等幅かつ縮小可能に */
+.skills-column {
+    flex: 1 1 50%;   /* 常に50%の幅を分け合う */
+    min-width: 0;    /* コンテンツ幅による押し広げを防止（重要） */
+    display: flex;
+    flex-direction: column;
+    gap: 10px;        /* 縦方向のアイテム間隔 */
+}
+
+.general-skill-display {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0;
+    width: 100%;
+}
+
+/* 能力値と同じような平行四辺形スタイル */
+.skill-label-shape {
+    background-color: var(--tnx-color-primary-darker);
+    border: 1px solid var(--tnx-color-primary);
+    transform: skewX(-25deg);
+    padding: 0 10px;
+    width: 35%; /* 幅を確保 */
+    flex: 0 0 35%;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 15px;
+    margin-left: 10px; /* 左端の欠け防止 */
+    overflow: hidden;
+}
+
+.skill-label-content {
+    transform: skewX(25deg);
+    color: var(--tnx-color-text-base);
+    font-weight: bold;
+}
+
+/* 文字数が多い場合の縮小処理 */
+.skill-label-content.long-text {
+    font-size: 0.9em;
+    letter-spacing: -0.05em;
+}
+
+.skill-meta-data {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    font-weight: bold;
+}
+
+.skill-level {
+    font-size: 1.2em;
+    color: var(--tnx-color-text-base);
+    text-align: center;
+    min-width: 35px;
+}
+
+.skill-suits-view {
+    display: flex;
+    gap: 2px;
+}
+
+.suit-icon {
+    font-size: 1.1em;
+}
+
+.suit-icon.active {
+    color: var(--tnx-color-primary-highlight);
+    text-shadow: 0 0 5px var(--tnx-color-primary);
+}
+
+.suit-icon.inactive {
+    color: var(--tnx-color-text-muted); /* 非習得は暗くする */
+}
+
+/* --- リスト全体のラッパー --- */
+.style-skills-list-wrapper {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    border: 1px solid var(--tnx-color-border);
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 3px;
+}
+
+/* --- グリッド定義 --- */
+.style-skill-grid {
+    display: grid;
+    /* 変更点:
+       5列目 (Timing): 1fr -> 1.2fr (少し広く)
+       8列目 (TN/目標値): 40px -> 60px (広く)
+    */
+    grid-template-columns: minmax(140px, 1.5fr) 80px 1fr 40px 75px 1fr 1fr 45px 1fr 10px;
+    align-items: center;
+    padding: 0 4px;
+}
+
+/* --- ヘッダーのスタイル --- */
+.style-skill-header {
+    background-color: var(--tnx-color-primary-darker);
+    color: var(--tnx-color-text-base);
+    font-weight: bold;
+    border-bottom: 2px solid var(--tnx-color-primary);
+    padding-top: 4px;
+    padding-bottom: 4px;
+    font-size: 0.9em;
+}
+
+/* --- リスト本体のスタイル --- */
+.style-skills-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* --- 行（li）のスタイル --- */
+.style-skill-row {
+    height: 50px; /* 前回の指定通り高さを確保 */
+    border-bottom: 1px solid var(--tnx-color-border);
+    font-size: 0.9em;
+    transition: background-color 0.2s;
+}
+
+/* 最後の行の下線は消す */
+.style-skill-row:last-child {
+    border-bottom: none;
+}
+
+/* 偶数行の背景色（ストライプ） */
+.style-skill-row:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+/* ホバー時の強調 */
+.style-skill-row:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* --- セルの共通スタイル --- */
+.cell {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 2px;
+    
+    /* ▼▼▼ 変更: 基本的に中央揃えにする ▼▼▼ */
+    text-align: center;
+}
+
+/* --- 名称カラムのみ左揃えに戻す --- */
+.cell-name {
+    /* ▼▼▼ 追加: 左揃え ▼▼▼ */
+    text-align: left;
+    
+    /* 名称はリンクなどが含まれるため、念のため色や装飾も確認 */
+    font-weight: bold;
+}
+
+/* --- レベル・スート周り（前回CSSの再定義・調整） --- */
+.level-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: 100%;
+}
+
+.level-number {
+    color: var(--tnx-color-text-base);
+    position: relative;
+}
+
+.level-suits {
+    display: flex;
+    gap: 1px;
+}
+
+.squeeze-text {
+    white-space: nowrap;
+    transform-origin: center;
+    display: inline-block;
+}

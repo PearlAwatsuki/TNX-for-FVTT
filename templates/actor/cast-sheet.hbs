@@ -314,8 +314,16 @@
                                 <div class="ability-display">
                                     <div class="ability-label-shape"><div class="ability-label-content"><h3>{{localize ability.label}}</h3></div></div>
                                     <div class="ability-values-area">
-                                        <div class="ability-value-shape"><div class="ability-value-content"><input type="number" value="{{ability.totalValue}}" readonly></div></div>
-                                        <div class="control-value-shape"><div class="control-value-content"><input type="number" value="{{ability.totalControl}}" readonly></div></div>
+                                        <div class="ability-value-shape">
+                                            <div class="ability-value-content">
+                                                <input type="number" value="{{ability.totalValue}}" readonly>
+                                            </div>
+                                        </div>
+                                        <div class="control-value-shape">
+                                            <div class="control-value-content">
+                                                <input type="number" value="{{ability.totalControl}}" readonly>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             {{/each}}
@@ -410,22 +418,95 @@
                             <div class="skills-section">
                                 <h2 class="abilities-grid-header">{{localize "TNX.Actor.Items.GeneralSkills"}}</h2>
                                 <div class="skills-list-view">
-                                    {{!-- 閲覧モード用の表示ロジック（generalSkills, styleSkillsを使って表示） --}}
-                                    <ul>
-                                    {{#each generalSkills as |item|}}
-                                        <li>{{item.name}} (Lv{{item.system.level}})</li>
+                                    {{#each generalSkillColumns as |columnItems|}}
+                                        <div class="skills-column">
+                                            {{#each columnItems as |item|}}
+                                                <div class="general-skill-display">
+                                                    <div class="skill-label-shape">
+                                                        <a class="skill-label-content squeeze-text">
+                                                            {{#if item.system.isAction}}★{{/if}}{{item.name}}
+                                                        </a>
+                                                    </div>
+                                                    <div class="skill-meta-data">
+                                                        <span class="skill-level">Lv{{item.system.level}}</span>
+                                                        <div class="skill-suits-view">
+                                                            <i class="fas fa-spade suit-icon {{#if item.system.suits.spade}}active{{else}}inactive{{/if}}"></i>
+                                                            <i class="fas fa-club suit-icon {{#if item.system.suits.club}}active{{else}}inactive{{/if}}"></i>
+                                                            <i class="fas fa-heart suit-icon {{#if item.system.suits.heart}}active{{else}}inactive{{/if}}"></i>
+                                                            <i class="fas fa-diamond suit-icon {{#if item.system.suits.diamond}}active{{else}}inactive{{/if}}"></i>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            {{/each}}
+                                        </div>
                                     {{/each}}
-                                    </ul>
                                 </div>
                             </div>
                             <div class="skills-section">
                                 <h2 class="abilities-grid-header">{{localize "TNX.Actor.Items.StyleSkills"}}</h2>
-                                <div class="skills-list-view">
-                                    <ul>
-                                    {{#each styleSkills as |item|}}
-                                        <li>{{item.name}} (Lv{{item.system.level}})</li>
-                                    {{/each}}
-                                    </ul>
+                                <div class="style-skills-list-wrapper">
+                                    {{!-- ヘッダー行 --}}
+                                    <div class="style-skill-header style-skill-grid">
+                                        <div class="cell cell-name">{{localize "TNX.Common.Name"}}</div>
+                                        <div class="cell cell-level">Lv</div>
+                                        <div class="cell cell-combo">{{localize "TNX.Item.Skill.Combo"}}</div>
+                                        <div class="cell cell-max">{{localize "TNX.Item.Skill.MaxLevel"}}</div>
+                                        <div class="cell cell-timing">{{localize "TNX.Item.Skill.Timing"}}</div>
+                                        <div class="cell cell-target">{{localize "TNX.Item.Skill.Target"}}</div>
+                                        <div class="cell cell-range">{{localize "TNX.Item.Skill.Range"}}</div>
+                                        <div class="cell cell-tn">{{localize "TNX.Item.Skill.TargetValue"}}</div>
+                                        <div class="cell cell-confront">{{localize "TNX.Item.Skill.Confrontation"}}</div>
+                                        <div class="cell cell-other"></div>
+                                    </div>
+
+                                    {{!-- リスト本体 --}}
+                                    <ol class="style-skills-list">
+                                        {{#each styleSkills as |item|}}
+                                            <li class="item style-skill-row style-skill-grid" data-item-id="{{item._id}}">
+                                                {{!-- 名称 --}}
+                                                <div class="cell cell-name">
+                                                    <a class="item-name">{{item.name}}</a>
+                                                </div>
+
+                                                {{!-- レベル＆スート（横並びコンテナ） --}}
+                                                <div class="cell cell-level">
+                                                    <div class="level-container">
+                                                        <span class="level-number">{{item.system.level}}</span>
+                                                        <div class="level-suits">
+                                                            <i class="fas fa-spade suit-icon {{#if item.system.suits.spade}}active{{else}}inactive{{/if}}"></i>
+                                                            <i class="fas fa-club suit-icon {{#if item.system.suits.club}}active{{else}}inactive{{/if}}"></i>
+                                                            <i class="fas fa-heart suit-icon {{#if item.system.suits.heart}}active{{else}}inactive{{/if}}"></i>
+                                                            <i class="fas fa-diamond suit-icon {{#if item.system.suits.diamond}}active{{else}}inactive{{/if}}"></i>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {{!-- その他パラメータ --}}
+                                                <div class="cell cell-combo">
+                                                    <span class="squeeze-text">{{item.view.comboSkill}}</span>
+                                                </div>
+                                                <div class="cell cell-max">
+                                                    <span class="squeeze-text">{{item.view.maxLevel}}</span>
+                                                </div>
+                                                <div class="cell cell-timing">
+                                                    <span class="squeeze-text">{{item.view.timing}}</span>
+                                                </div>
+                                                <div class="cell cell-target">
+                                                    <span class="squeeze-text">{{item.view.target}}</span>
+                                                </div>
+                                                <div class="cell cell-range">
+                                                    <span class="squeeze-text">{{item.view.range}}</span>
+                                                </div>
+                                                <div class="cell cell-tn">
+                                                    <span class="squeeze-text">{{item.view.targetValue}}</span>
+                                                </div>
+                                                <div class="cell cell-confront">
+                                                    <span class="squeeze-text">{{item.view.confrontation}}</span>
+                                                </div>
+                                                <div class="cell cell-other"></div>
+                                            </li>
+                                        {{/each}}
+                                    </ol>
                                 </div>
                             </div>
                         {{/if}}
