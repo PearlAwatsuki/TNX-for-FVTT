@@ -136,6 +136,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
         super.activateListeners(html);
 
         html.find('.edit-mode-toggle').on('click', this._onToggleEditMode.bind(this));
+        html.find('.item-edit').on('click', this._onOpenItemSheet.bind(this));
         html.find('.view-mode-style-summary .style-summary-item').on('click', this._onRollStyleDescription.bind(this));
         html.find('.skill-property-change').on('change', this._onSkillPropertyChange.bind(this));
         html.find('.item-delete').on('click', this._onItemDelete.bind(this));

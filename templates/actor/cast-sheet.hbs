@@ -340,9 +340,7 @@
                                         {{#each generalSkills as |item|}}
                                             <li class="item" data-item-id="{{item._id}}">
                                                 <div class="item-name">
-                                                    <a data-action="openItemSheet" data-item-id="{{item._id}}">
-                                                        {{#if item.system.isAction}}★{{else}}　{{/if}}{{item.name}}
-                                                    </a>
+                                                    <a class="item-name">{{#if item.system.isAction}}★{{else}}　{{/if}}{{item.name}}</a>
                                                 </div>
         
                                                 <div class="skill-level-container">
@@ -359,6 +357,7 @@
                                                     </div>
                                                 </div>
                                                 <div class="item-controls">
+                                                    <a class="item-control item-edit" title="{{localize 'SHEET.ItemEdit'}}" data-item-id="{{item._id}}"><i class="fas fa-edit"></i></a>
                                                     <a class="item-control item-delete" title="{{localize 'SHEET.ItemDelete'}}" {{#if (eq item.system.generalSkill.generalSkillCategory "initialSkill")}}disabled{{/if}} {{#if item.system.generalSkill.onomasticSkill.isInitial}}disabled{{/if}}><i class="fas fa-trash"></i></a>
                                                 </div>
                                             </li>
@@ -381,9 +380,7 @@
                                         {{#each styleSkills as |item|}}
                                             <li class="item" data-item-id="{{item._id}}">
                                                 <div class="item-name">
-                                                    <a data-action="openItemSheet" data-item-id="{{item._id}}">
-                                                        {{item.name}}
-                                                    </a>
+                                                    <a class="item-name">{{item.name}}</a>
                                                 </div>
                                                 
                                                 <div class="skill-level-container">
@@ -400,6 +397,7 @@
                                                 </div>
 
                                                 <div class="item-controls">
+                                                    <a class="item-control item-edit" title="{{localize 'SHEET.ItemEdit'}}" data-item-id="{{item._id}}"><i class="fas fa-edit"></i></a>
                                                     <a class="item-control item-delete" title="{{localize 'SHEET.ItemDelete'}}"><i class="fas fa-trash"></i></a>
                                                 </div>
                                             </li>
