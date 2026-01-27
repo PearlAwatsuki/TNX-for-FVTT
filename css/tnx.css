@@ -3243,10 +3243,13 @@ ol.item-list {
 
 /* --- セルの共通スタイル --- */
 .cell {
+    display: flex;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     padding: 0 2px;
+    align-items: center;
+    justify-content: center;
     
     /* ▼▼▼ 変更: 基本的に中央揃えにする ▼▼▼ */
     text-align: center;
