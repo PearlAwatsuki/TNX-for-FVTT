@@ -2614,15 +2614,15 @@ form .sheet-notes.notes {
 .skill-group-block {
     margin-bottom: 15px;
 }
-.skill-group-header, .skill-group-header-connector {
-    font-weight: bold;
+.tnx-item-list__row--header.skill-group-header {
     color: var(--tnx-color-text-dim);
-    border-bottom: 1px solid var(--tnx-color-border-accent);
-    padding-bottom: 4px;
-    margin-bottom: 5px;
+    border-bottom: 0.5px solid var(--tnx-color-border-accent);
+    margin-bottom: 0;
 }
-.skill-group-header-connector {
-    color: var(--tnx-color-primary-accent);
+.skill-name-header {
+    flex: 1;
+    margin: 0rem;
+    font-weight: bold;
 }
 .skills-list-edit .item-list .item {
     display: flex;
@@ -2640,8 +2640,8 @@ form .sheet-notes.notes {
     color: var(--tnx-color-text-base);
 }
 .skills-list-edit .item-list .item .item-controls {
-    flex: 0 0 30px;
-    text-align: right;
+    flex: 0 0 50px;
+    text-align: center;
 }
 
 /* --- Rich Text Editor Section (ProseMirror Compatible) --- */
