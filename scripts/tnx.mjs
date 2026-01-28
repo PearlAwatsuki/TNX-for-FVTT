@@ -4,6 +4,7 @@ import { TokyoNovaStyleSheet } from './item/tnx-style-sheet.mjs';
 import { TokyoNovaMiracleSheet } from './item/tnx-miracle-sheet.mjs';
 import { TokyoNovaSkillSheet } from './item/tnx-skill-sheet.mjs';
 import { TokyoNovaOrganizationSheet } from './item/tnx-organization-sheet.mjs';
+import { TokyoNovaRecordSheet } from './item/tnx-record-sheet.mjs';
 import { TnxScenarioSheet } from './journal/tnx-scenario-sheet.mjs';
 import { TnxActionHandler } from './module/tnx-action-handler.mjs';
 import { TnxHud } from './module/tnx-hud.mjs';
@@ -18,6 +19,7 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/item/style-sheet.hbs",
         "systems/tokyo-nova-axleration/templates/item/skill-sheet.hbs",
         "systems/tokyo-nova-axleration/templates/item/organization-sheet.hbs",
+        "systems/tokyo-nova-axleration/templates/item/record-sheet.hbs",
 
         // === Journal Sheets ===
         "systems/tokyo-nova-axleration/templates/journal/scenario-sheet.hbs",
@@ -37,7 +39,8 @@ async function preloadHandlebarsTemplates() {
         // === Partials ===
         "systems/tokyo-nova-axleration/templates/parts/active-effects-list.hbs",
         "systems/tokyo-nova-axleration/templates/parts/scenario-setting-wizard.hbs",
-        "systems/tokyo-nova-axleration/templates/parts/prosemirror-editor.hbs"
+        "systems/tokyo-nova-axleration/templates/parts/prosemirror-editor.hbs",
+        "systems/tokyo-nova-axleration/templates/parts/history-list.hbs"
     ];
     return loadTemplates(templatePaths);
 }
@@ -198,6 +201,12 @@ Hooks.once("init", async function() {
         types: ["organization"],
         makeDefault: true,
         label: "組織シート"
+    });
+
+    Items.registerSheet("tokyo-nova", TokyoNovaRecordSheet, {
+        types: ["record"],
+        makeDefault: true,
+        label: "レコードシート"
     });
 
     // Journal Sheetの登録
@@ -882,5 +891,40 @@ Hooks.once("ready", async function() {
                 app.setPosition({ height: "auto" });
             }
         });
+    });
+
+    const recalcActorExp = (item) => {
+        if (item.parent && item.parent.type === 'cast') {
+            TokyoNovaCastSheet.updateCastExp(item.parent);
+        }
+    };
+
+    Hooks.on('createItem', (item) => recalcActorExp(item));
+    Hooks.on('deleteItem', (item) => recalcActorExp(item));
+    Hooks.on('updateItem', (item) => recalcActorExp(item));
+
+    /**
+     * アイテム更新時のフック
+     * 1. アイテム変更に伴う親アクターの経験点再計算
+     * 2. レコードシート更新時のキャストシートへの同期
+     */
+    Hooks.on('updateItem', async (item, diff, options, userId) => {
+        // A. 親アクターの経験点再計算
+        if (item.parent && item.parent.type === 'cast') {
+             if (!options.syncing) {
+                 TokyoNovaCastSheet.updateCastExp(item.parent);
+             }
+        }
+    });
+
+    /**
+     * アクター更新時のフック（経験点再計算のトリガー）
+     */
+    Hooks.on('updateActor', (actor, diff, options, userId) => {
+        if (actor.type === 'cast' && options.calcExp !== false && !options.syncing) {
+            if (diff.system) {
+                 TokyoNovaCastSheet.updateCastExp(actor);
+            }
+        }
     });
 });

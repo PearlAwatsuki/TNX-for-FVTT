@@ -1,0 +1,65 @@
+<div class="history-list-wrapper">
+    {{!-- ヘッダー行 --}}
+    <div class="history-header history-grid">
+        <div class="cell cell-date">日付</div>
+        <div class="cell cell-title">シナリオ名</div>
+        <div class="cell cell-exp">Exp</div>
+        <div class="cell cell-rl">RL</div>
+        <div class="cell cell-players">参加プレイヤー</div>
+        {{#if isEditMode}}
+            <div class="cell cell-ctrl">
+                <a class="history-add" title="行を追加">
+                    <i class="fas fa-plus"></i>
+                </a>
+            </div>
+        {{/if}}
+    </div>
+
+    {{!-- リスト本体 --}}
+    <ol class="history-list">
+        {{#each history as |entry i|}}
+        <li class="item history-row history-grid">
+            <div class="cell cell-date">
+                {{#if ../isEditMode}}
+                    <input type="date" class="history-input" data-id="{{entry.id}}" data-field="date" value="{{entry.date}}">
+                {{else}}
+                    <span class="squeeze-text">{{entry.date}}</span>
+                {{/if}}
+            </div>
+            <div class="cell cell-title">
+                {{#if ../isEditMode}}
+                    <input type="text" class="history-input" data-id="{{entry.id}}" data-field="title" value="{{entry.title}}" placeholder="シナリオ名">
+                {{else}}
+                    <span class="squeeze-text">{{entry.title}}</span>
+                {{/if}}
+            </div>
+            <div class="cell cell-exp">
+                {{#if ../isEditMode}}
+                    <input type="number" class="history-input" data-id="{{entry.id}}" data-field="exp" value="{{entry.exp}}">
+                {{else}}
+                    <span class="squeeze-text">{{entry.exp}}</span>
+                {{/if}}
+            </div>
+            <div class="cell cell-rl">
+                {{#if ../isEditMode}}
+                    <input type="text" class="history-input" data-id="{{entry.id}}" data-field="rl" value="{{entry.rl}}">
+                {{else}}
+                    <span class="squeeze-text">{{entry.rl}}</span>
+                {{/if}}
+            </div>
+            <div class="cell cell-players">
+                {{#if ../isEditMode}}
+                    <input type="text" class="history-input" data-id="{{entry.id}}" data-field="players" value="{{entry.players}}">
+                {{else}}
+                    <span class="squeeze-text">{{entry.players}}</span>
+                {{/if}}
+            </div>
+            {{#if ../isEditMode}}
+                <div class="cell cell-ctrl">
+                    <a class="history-delete" data-id="{{entry.id}}"><i class="fas fa-trash"></i></a>
+                </div>
+            {{/if}}
+        </li>
+        {{/each}}
+    </ol>
+</div>

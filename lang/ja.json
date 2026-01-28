@@ -16,6 +16,7 @@
             "Add": "追加",
             "New": "新規",
             "Delete": "削除",
+            "Unlink": "リンク解除",
             "Edit": "編集",
             "Usage": "使用回数",
             "Check": "判定",
@@ -75,6 +76,7 @@
             },
             "Stats": {
                 "Exp": "経験点",
+                "ExpSpent": "消費経験点",
                 "ExpCurrent": "現在経験点",
                 "ExpTotal": "総経験点"
             },
@@ -121,6 +123,7 @@
                 },
                 "StyleType": {
                     "Special": "特技",
+                    "Performance": "演出特技",
                     "Secret": "秘技",
                     "Mystery": "奥義"
                 },

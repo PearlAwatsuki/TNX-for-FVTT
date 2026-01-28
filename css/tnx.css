@@ -111,6 +111,14 @@ form .notes, form .hint {
 form .sheet-notes.notes {
     color: var(--tnx-color-text-dim);
 }
+.tokyo-nova .exp-input {
+    width: 70px;
+    padding: 3px 5px;
+    border-radius: var(--tnx-border-radius-sm);
+    background-color: var(--tnx-color-bg-input);
+    border: 1px solid var(--tnx-color-border);
+    color: var(--tnx-color-text-base);
+}
 
 
 /* =================================================================== */
@@ -1038,12 +1046,8 @@ form .sheet-notes.notes {
 .tokyo-nova.sheet.actor.cast .profile-header .view-mode-style-summary { display: flex; align-items: baseline; gap: 5px; }
 .tokyo-nova.sheet.actor.cast .profile-header .style-summary-items { font-size: 1.1em; font-weight: bold; display: inline-flex; flex-wrap: wrap; }
 .tokyo-nova.sheet.actor.cast .profile-header .exp-display-section { text-align: right; }
-.tokyo-nova.sheet.actor.cast .profile-header .edit-mode-exp { display: flex; align-items: center; gap: 5px; }
+.tokyo-nova.sheet.actor.cast .profile-header .edit-mode-exp { display: flex; align-items: center; gap: 55px; }
 .tokyo-nova.sheet.actor.cast .profile-header .exp-display-section .exp-value { font-weight: bold; font-size: 1.2em; color: var(--tnx-color-primary-highlight); }
-.tokyo-nova.sheet.actor.cast .profile-header .exp-display-section .exp-input {
-    width: 70px; padding: 3px 5px; border-radius: var(--tnx-border-radius-sm);
-    background-color: var(--tnx-color-bg-input); border: 1px solid var(--tnx-color-border); color: var(--tnx-color-text-base);
-}
 .tokyo-nova.sheet.actor.cast .profile-header .styles-and-miracle-section { width: 100%; margin-top: 10px; }
 .tokyo-nova.sheet.actor.cast .profile-header .miracle-header { font-size: 1.2em; font-weight: bold; color: var(--tnx-color-primary); margin-bottom: 8px; text-align: center; border-bottom: 1px solid var(--tnx-color-primary-dark); padding-bottom: 4px; }
 .tokyo-nova.sheet.actor.cast .profile-header .miracle-buttons-grid {
@@ -3305,4 +3309,110 @@ ol.item-list {
 .item-menu-trigger:hover {
     color: var(--tnx-color-primary-highlight);
     text-shadow: 0 0 5px var(--tnx-color-primary);
+}
+
+/* --- レコードシート連携エリア（横並び強制・配置調整） --- */
+.record-link-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 350px;
+    padding: 5px 0;
+    box-sizing: border-box;
+}
+
+/* ラベルのスタイル（幅が潰れないように固定） */
+.record-link-section label {
+    flex: 0 0 auto;
+    font-weight: bold;
+    margin: 0;
+}
+
+/* --- ボックス/ボタンの受け皿（サイズ統一の要） --- */
+.record-slot {
+    flex: 1;    
+    height: 38px;
+    position: relative;
+    display: block;
+}
+
+/* --- 受け皿の中身（ドロップボックス・ボタン共通） --- */
+.record-slot .tnx-import-box,
+.record-slot .tnx-linked-button {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    box-sizing: border-box;
+    
+    /* 内部テキストの中央揃え */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* --- 履歴リスト用 (スタイル技能リストを踏襲) --- */
+.history-list-wrapper {
+    border: 1px solid #999;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.3);
+    overflow: hidden;
+    font-size: 13px;
+}
+
+.history-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.history-grid {
+    display: grid;
+    /* 日付、シナリオ名、Exp、RL、プレイヤー、(操作) */
+    grid-template-columns: 100px 150px 30px 80px 2fr 20px; 
+    gap: 2px;
+    align-items: center;
+}
+
+.history-header {
+    background: #444; /* またはシステム固有のヘッダー色 */
+    color: #fff;
+    font-weight: bold;
+    padding: 4px;
+    text-align: center;
+    border-bottom: 1px solid #000;
+}
+
+.history-row {
+    padding: 2px 4px;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+.history-row:nth-child(even) {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.history-row .cell {
+    display: flex;
+    align-items: center;
+    justify-content: center; /* 基本は中央揃え */
+    padding: 0 2px;
+    overflow: hidden;
+}
+
+.history-row .cell-title,
+.history-row .cell-players {
+    justify-content: flex-start; /* テキストの長い項目は左寄せ */
+}
+
+/* 入力欄のスタイル調整 */
+.history-row input {
+    height: 24px;
+    font-size: 12px;
+    width: 100%;
+    border: 1px solid transparent;
+    background: var(--tnx-color-bg-input);
+}
+.history-row input:focus {
+    border: 1px solid #111;
+    background: var(--tnx-color-bg-alt);
 }

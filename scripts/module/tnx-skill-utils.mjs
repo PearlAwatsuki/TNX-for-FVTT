@@ -21,6 +21,7 @@ export class TnxSkillUtils {
             },
             styleSkillCategory: {
                 "special": game.i18n.localize("TNX.Item.Skill.StyleType.Special"),
+                "performance": game.i18n.localize("TNX.Item.Skill.StyleType.Performance"),
                 "secret": game.i18n.localize("TNX.Item.Skill.StyleType.Secret"),
                 "mystery": game.i18n.localize("TNX.Item.Skill.StyleType.Mystery")
             },

@@ -181,12 +181,18 @@
                     </div>
                     <div class="exp-display-section">
                         <div class="view-mode-exp">
-                            <span>{{localize "TNX.Actor.Stats.Exp"}}：</span>
-                            <span class="exp-value">{{system.exp.value}}/{{system.exp.total}}</span>
+                            <span>{{localize "TNX.Actor.Stats.ExpSpent"}}：</span>
+                            <span class="exp-value">{{system.exp.spent}}</span>
                         </div>
                         <div class="edit-mode-exp">
-                            <label>{{localize "TNX.Actor.Stats.ExpTotal"}}:</label>
-                            <input type="number" name="system.exp.total" value="{{system.exp.total}}" class="exp-input">
+                            <div>
+                                <label>{{localize "TNX.Actor.Stats.ExpSpent"}}：</label>
+                                <input type="number" name="system.exp.spent" value="{{system.exp.spent}}" class="exp-input" disabled>
+                            </div>
+                            <div>
+                                <label>{{localize "TNX.Actor.Stats.ExpTotal"}}：</label>
+                                <input type="number" name="system.exp.total" value="{{system.exp.total}}" class="exp-input">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -516,6 +522,45 @@
                         {{/if}}
                     </div>
                 </div>
+
+                <div class="tab outfits" data-tab="outfits"></div>
+
+                <div class="tab check" data-tab="check"></div>
+
+                <div class="tab status" data-tab="status"></div>
+
+                <div class="tab history" data-tab="history">
+                    {{!-- レコードシート連携エリア --}}
+                    {{#if isEditMode}}
+                        <div class="record-link-section">
+                            <label>レコードシート連携：</label>
+                            
+                            {{!-- サイズを固定・統一するためのラッパー --}}
+                            <div class="record-slot">
+                                {{#if recordSheet}}
+                                    {{!-- リンク済みの場合のボタン --}}
+                                    <div class="record-link-container">
+                                        <button type="button" class="tnx-linked-button record-sheet-open" title="クリックで開く / 右クリックで解除">
+                                            <img src="{{recordSheet.img}}" class="tnx-linked-button__icon"/>
+                                            <span class="tnx-linked-button__label">{{recordSheet.name}}</span>
+                                        </button>
+                                    </div>
+                                {{else}}
+                                    {{!-- 未リンクの場合のドロップエリア --}}
+                                    <div class="tnx-import-box tnx-import-box--inline" data-drop-area="record-sheet">
+                                        <span>レコードシートをドロップ</span>
+                                    </div>
+                                {{/if}}
+                            </div>
+                        </div>
+                        <hr>
+                    {{/if}}
+
+                    {{> "systems/tokyo-nova-axleration/templates/parts/history-list.hbs"}}
+                </div>
+
+                <div class="tab profile" data-tab="profile"></div>
+
             </section>
         </section>
     </section>

@@ -5,8 +5,15 @@ import {
 } from '../module/tnx-dialog.mjs';
 import { TnxActionHandler } from '../module/tnx-action-handler.mjs';
 import { TnxSkillUtils } from '../module/tnx-skill-utils.mjs';
+import { TnxHistoryMixin } from '../module/tnx-history-mixin.mjs';
 
 export class TokyoNovaCastSheet extends ActorSheet {
+    _prepareHistoryForDisplay = TnxHistoryMixin._prepareHistoryForDisplay;
+
+    // イベントハンドラ
+    _onHistoryAdd = TnxHistoryMixin._onHistoryAdd;
+    _onHistoryDelete = TnxHistoryMixin._onHistoryDelete;
+    _onHistoryChange = TnxHistoryMixin._onHistoryChange;
 
     constructor(...args) {
         super(...args);
@@ -65,12 +72,54 @@ export class TokyoNovaCastSheet extends ActorSheet {
         
         context.processedStylesForView = this._prepareStylesForView(allStyles);
 
+        const historyMap = this.actor.system.history || {};
+        context.history = this._prepareHistoryForDisplay(historyMap);
+        
+        // リンク情報の取得（ボタン表示用）
+        if (this.actor.system.recordSheetId) {
+            context.recordSheet = await fromUuid(this.actor.system.recordSheetId);
+        }
+
         await this._getCardPileData(context);
         this._getCitizenRankData(context);
         this._getAbilitiesData(context, allStyles);
         this._prepareSkillsData(context);
 
         return context;
+    }
+
+    /**
+     * ▼▼▼ 実装: Mixinから呼ばれる更新処理 ▼▼▼
+     * 自分を更新し、リンクがあればレコードシートの「履歴」も更新する
+     */
+    async _performHistoryUpdate(updateData) {
+        // 1. 自分自身の更新
+        await this.actor.update(updateData);
+
+        // 2. レコードシートへの一方通行同期
+        if (this.actor.system.recordSheetId) {
+            try {
+                const recordSheet = await fromUuid(this.actor.system.recordSheetId);
+                if (recordSheet) {
+                    // updateDataから "system.history" 関連のキーのみを抽出して同期する
+                    // (exp.totalの差分更新などが含まれる場合があるが、
+                    //  totalの同期は updateCastExp で厳密に行うため、ここでは履歴データのみを送るのが安全)
+                    
+                    const historyUpdate = {};
+                    for (const [key, value] of Object.entries(updateData)) {
+                        if (key.startsWith("system.history")) {
+                            historyUpdate[key] = value;
+                        }
+                    }
+                    
+                    if (!foundry.utils.isEmpty(historyUpdate)) {
+                        await recordSheet.update(historyUpdate);
+                    }
+                }
+            } catch (e) {
+                console.warn("Linked Record Sheet update failed:", e);
+            }
+        }
     }
 
     _prepareStyleSlots(styles) {
@@ -153,12 +202,15 @@ export class TokyoNovaCastSheet extends ActorSheet {
     activateListeners(html) {
         super.activateListeners(html);
 
+        TnxHistoryMixin.activateHistoryListeners.call(this, html);
+
         html.find('.edit-mode-toggle').on('click', this._onToggleEditMode.bind(this));
         html.find('.item-edit').on('click', this._onOpenItemSheet.bind(this));
         html.find('.view-mode-style-summary .style-summary-item').on('click', this._onRollStyleDescription.bind(this));
         html.find('.skill-property-change').on('change', this._onSkillPropertyChange.bind(this));
         html.find('.item-delete').on('click', this._onItemDelete.bind(this));
         html.find('.item-create').on('click', this._onItemCreate.bind(this));
+        html.find('.record-sheet-open').click(this._onOpenRecordSheet.bind(this));
 
         if (this.isEditable) {
             html.find('.ability-main-inputs input[name$=".growth"], .ability-main-inputs input[name$=".controlGrowth"]')
@@ -312,6 +364,15 @@ export class TokyoNovaCastSheet extends ActorSheet {
         // ② 行自体を「右クリック (contextmenu)」したときのメニュー
         // CSSセレクタ: .style-skills-list 内の .style-skill-row
         new ContextMenu(html, ".style-skills-list .style-skill-row", styleSkillOptions);
+
+        const recordLinkMenu = [
+            {
+                name: "TNX.Common.Unlink", 
+                icon: '<i class="fas fa-unlink"></i>',
+                callback: () => this.actor.update({ "system.recordSheetId": "" })
+            }
+        ];
+        new ContextMenu(html, '.record-link-container', recordLinkMenu);
     }
     
     async _getCardPileData(context) {
@@ -398,15 +459,17 @@ export class TokyoNovaCastSheet extends ActorSheet {
     async _onDropItem(event, data) {
         if (!this.actor.isOwner) return false;
         
-        const item = await Item.fromDropData(data);
+        let item;
+        if (data.uuid) {
+            item = await fromUuid(data.uuid);
+        } else {
+            item = await Item.fromDropData(data);
+        }
         if (!item) return;
-
-        // ▼▼▼【修正点1】並び替え（ソート）の処理を追加 ▼▼▼
-        // ドロップされたアイテムの親がこのアクター自身である場合、それは並び替え操作です。
+        
         if (this.actor.uuid === item.parent?.uuid) {
             return this._onSortItem(event, item.toObject());
         }
-        // ▲▲▲▲▲▲
 
         const dropArea = event.target.closest('[data-drop-area]')?.dataset.dropArea;
     
@@ -514,9 +577,32 @@ export class TokyoNovaCastSheet extends ActorSheet {
             return this.actor.createEmbeddedDocuments("Item", [item.toObject()]);
         }
 
-        // ▼▼▼【修正点2】標準ドロップ処理へのフォールバック ▼▼▼
-        // 上記のいずれの条件にも合致しない場合（例：一般技能の新規追加など）は、
-        // 親クラス（ActorSheet）の標準処理に任せます。これによりアイテムが作成されます。
+        if (item.type === "record") {
+            if (!this._isEditMode) return false;
+            const uuid = data.uuid || item.uuid;
+
+            // キャスト側の履歴(Local)のみを使用
+            const localMap = this.actor.system.history || {};
+
+            // レコードシートからの読み込み（マージ）は行わない（要望2）
+            
+            // リンク情報の保存
+            await this.actor.update({ "system.recordSheetId": uuid });
+
+            // ただし、リンクした瞬間「キャストの履歴」を「レコードシート」に書き込む（同期開始）
+            // ID衝突しない限り追記となる
+            await item.update({ 
+                "system.history": localMap
+                // totalも同期すべきだが、直後のupdateCastExpに任せても良い
+            });
+            
+            // 経験点の整合性を取るため再計算を実行
+            TokyoNovaCastSheet.updateCastExp(this.actor);
+
+            ui.notifications.info(`${item.name} をリンクしました。`);
+            return false;
+        }
+        
         return super._onDropItem(event, data);
     }
 
@@ -970,56 +1056,11 @@ export class TokyoNovaCastSheet extends ActorSheet {
     async _onGrowthChange(event) {
         event.preventDefault();
         const input = event.currentTarget;
-        const name = input.name; // "system.reason.growth" など
+        const name = input.name; 
         const newValue = parseInt(input.value, 10) || 0;
 
-        const oldValue = foundry.utils.getProperty(this.actor, name) || 0;
-        if (newValue === oldValue) return;
-
-        // 能力値のキー（"reason"など）と、制御値かどうか（isControl）を特定
-        const parts = name.split('.');
-        const abilityKey = parts[1];
-        const isControl = name.endsWith('controlGrowth');
-
-        // スタイルによる能力値の合計を計算（計算のベースとなるため）
-        const allStyles = this.actor.items.filter(i => i.type === 'style');
-        let styleTotalValue = 0;
-        let styleTotalControl = 0;
-        allStyles.forEach(style => {
-            const level = style.system.level || 1;
-            styleTotalValue += (style.system[abilityKey]?.value || 0) * level;
-            styleTotalControl += (style.system[abilityKey]?.control || 0) * level;
-        });
-        
-        const ability = this.actor.system[abilityKey];
-        const baseValue = styleTotalValue + (ability.mod || 0) + (ability.effectMod || 0);
-        const baseControl = styleTotalControl + (ability.controlMod || 0) + (ability.controlEffectMod || 0);
-        const baseForCalc = isControl ? baseControl : baseValue;
-
-        // コストを計算
-        const costForOld = this._calculateGrowthCost(isControl, oldValue, baseForCalc);
-        const costForNew = this._calculateGrowthCost(isControl, newValue, baseForCalc);
-        const totalCost = costForNew - costForOld;
-
-        const currentExp = this.actor.system.exp.value;
-
-        // 経験点が足りない場合は処理を中断
-        if (totalCost > 0 && totalCost > currentExp) {
-            input.value = oldValue; // 入力値を元に戻す
-            return;
-        }
-
-        // アクターのデータ（成長値と経験点）を更新
-        const newExp = currentExp - totalCost;
-        await this.actor.update({
-            [name]: newValue,
-            'system.exp.value': newExp
-        });
-
-        // ユーザーへの通知
-        const abilityLabel = game.i18n.localize(this.actor.system.abilities[abilityKey].label);
-        const changeType = isControl ? "制御値" : "能力値";
-        const costText = totalCost > 0 ? `${totalCost}点 消費` : `${-totalCost}点 回復`;
+        // 計算はせず、入力された値を保存するだけ
+        await this.actor.update({ [name]: newValue });
     }
 
     /**
@@ -1033,25 +1074,20 @@ export class TokyoNovaCastSheet extends ActorSheet {
         const item = this.actor.items.get(itemId);
         if (!item) return;
 
-        const target = input.dataset.target; // "level" または "suit"
-        
+        const target = input.dataset.target;
+        let updateData = {};
+
         if (target === "level") {
-            // レベルを直接数値入力した場合
-            await item.update({ "system.level": Number(input.value) });
+            updateData["system.level"] = parseInt(input.value, 10) || 0;
         } else if (target === "suit") {
-            // スートのチェックボックスを変更した場合
-            const suitKey = input.dataset.suit; // "spade", "club" 等
+            const suitKey = input.dataset.suit;
             const isChecked = input.checked;
-            
-            // スートの状態を更新
-            const updateData = { [`system.suits.${suitKey}`]: isChecked };
-            
-            // アイテムの現在のスート状態を取得して新しいレベルを計算（チェックされているスートの数＝レベル）
-            // 注意: update前のデータなので、変更分を加味して計算します
+            updateData[`system.suits.${suitKey}`] = isChecked;
+
+            // スート数からレベルを決定
             const currentSuits = item.system.suits;
             let newLevel = 0;
             const suitKeys = ["spade", "club", "heart", "diamond"];
-            
             for (const key of suitKeys) {
                 if (key === suitKey) {
                     if (isChecked) newLevel++;
@@ -1059,36 +1095,11 @@ export class TokyoNovaCastSheet extends ActorSheet {
                     if (currentSuits[key]) newLevel++;
                 }
             }
-            
-            // レベルも更新データに含める
             updateData["system.level"] = newLevel;
-            
-            await item.update(updateData);
         }
-    }
 
-    /**
-     * 指定された成長ポイントまでの累積経験点コストを計算するヘルパーメソッド
-     * @param {boolean} isControl 制御値の計算かどうか
-     * @param {number} growthPoints 計算対象の成長ポイント
-     * @param {number} baseValue スタイルや修正など、成長以外の合計値
-     * @returns {number} 累積コスト
-     * @private
-     */
-    _calculateGrowthCost(isControl, growthPoints, baseValue) {
-        if (growthPoints <= 0) return 0;
-        
-        const costTier1 = 20;
-        const costTier2 = 40;
-        // 能力値は11から、制御値は17からコストが上がる
-        const threshold = isControl ? 17 : 11;
-        
-        let totalCost = 0;
-        for (let i = 1; i <= growthPoints; i++) {
-            const currentTotalValue = baseValue + i;
-            totalCost += (currentTotalValue < threshold) ? costTier1 : costTier2;
-        }
-        return totalCost;
+        // アイテムを更新するだけ
+        await item.update(updateData);
     }
 
     /**
@@ -1284,6 +1295,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
             const styleCategory = system.styleSkill.styleSkillCategory;
             
             if (styleCategory === 'special') return system.styleSkill.special.expCost || 10;
+            if (styleCategory === 'performance') return system.styleSkill.performance.expCost || 2;
             if (styleCategory === 'secret') return system.styleSkill.secret.expCost || 20; // 秘技
             if (styleCategory === 'mystery') return system.styleSkill.mystery.expCost || 50; // 奥義
             
@@ -1291,5 +1303,206 @@ export class TokyoNovaCastSheet extends ActorSheet {
         }
 
         return 0;
+    }
+
+    /**
+     * 最新の履歴データを取得する。
+     * リンクされたレコードシートがある場合は、必ずそこから最新データをfetchする。
+     */
+    async _getHistoryData() {
+        if (this.actor.system.recordSheetId) {
+            const recordSheet = await fromUuid(this.actor.system.recordSheetId);
+            if (recordSheet) {
+                // ディープクローンして返す（参照渡しによる予期せぬ変更を防ぐため）
+                return foundry.utils.deepClone(recordSheet.system.history || []);
+            }
+        }
+        return foundry.utils.deepClone(this.actor.system.history || []);
+    }
+
+    /**
+     * 履歴データの保存（キャストシート固有：リンク先への同期も行う）
+     */
+    async _saveHistoryData(newHistory) {
+        // 1. アクター自身の更新
+        await this.actor.update({ "system.history": newHistory });
+
+        // 2. リンクされたレコードシートへの同期
+        if (this.actor.system.recordSheetId) {
+            try {
+                const recordSheet = await fromUuid(this.actor.system.recordSheetId);
+                if (recordSheet) {
+                    // 同じソートロジックを適用
+                    const sortedHistory = [...newHistory];
+                    this._sortHistory(sortedHistory);
+                    
+                    // レコードシート側の exp.total も同期させる
+                    const currentTotal = Number(this.actor.system.exp.total) || 0;
+
+                    await recordSheet.update({ 
+                        "system.history": sortedHistory,
+                        "system.exp.total": currentTotal
+                    });
+                }
+            } catch (e) {
+                console.warn("Failed to sync with linked Record Sheet:", e);
+            }
+        }
+    }
+
+    /**
+     * 経験点合計の更新
+     */
+    async _updateExpTotal(diff) {
+        const currentTotal = Number(this.actor.system.exp.total) || 0;
+        await this.actor.update({
+            "system.exp.total": currentTotal + diff
+        });
+        // Note: updateCastExpフックが別途走るため、valueの自動計算はそちらで行われる
+    }
+
+    async _onOpenRecordSheet(event) {
+        event.preventDefault();
+        if (this.actor.system.recordSheetId) {
+            const item = await fromUuid(this.actor.system.recordSheetId);
+            item?.sheet.render(true);
+        }
+    }
+
+    /**
+     * アクターの全データを元に経験点を再計算し、spentとvalueを更新する
+     */
+    static async updateCastExp(actor) {
+        if (!actor || actor.type !== 'cast') return;
+
+        // 1. 能力値成長コストの計算 (既存通り)
+        const abilities = ["reason", "passion", "life", "mundane"];
+        let totalAbilityCost = 0;
+        const allStyles = actor.items.filter(i => i.type === 'style');
+        
+        for (const key of abilities) {
+            let styleValue = 0;
+            let styleControl = 0;
+            allStyles.forEach(s => {
+                const level = Number(s.system.level) || 1;
+                styleValue += (Number(s.system[key]?.value) || 0) * level;
+                styleControl += (Number(s.system[key]?.control) || 0) * level;
+            });
+            
+            const abilityData = actor.system[key];
+            
+            const baseVal = styleValue + (Number(abilityData.mod) || 0) + (Number(abilityData.effectMod) || 0);
+            totalAbilityCost += this._calcSingleAbilityCost(abilityData.growth, baseVal, false);
+
+            const baseCtrl = styleControl + (Number(abilityData.controlMod) || 0) + (Number(abilityData.controlEffectMod) || 0);
+            totalAbilityCost += this._calcSingleAbilityCost(abilityData.controlGrowth, baseCtrl, true);
+        }
+
+        // 2. アイテムコストの計算 (既存通り)
+        let totalItemCost = 0;
+        actor.items.forEach(item => {
+             totalItemCost += this._calcSingleItemCost(item);
+        });
+
+        // 3. アクターの更新
+        const currentTotal = Number(actor.system.exp.total) || 0;
+        const initialOffset = -170; 
+        
+        const newSpent = initialOffset + totalAbilityCost + totalItemCost;
+        const newValue = currentTotal - newSpent;
+
+        if (actor.system.exp.spent !== newSpent || actor.system.exp.value !== newValue) {
+             await actor.update({
+                 "system.exp.spent": newSpent,
+                 "system.exp.value": newValue
+             }, { calcExp: false });
+             
+             if (actor.system.recordSheetId) {
+                try {
+                    const recordSheet = await fromUuid(actor.system.recordSheetId);
+                    if (recordSheet) {
+                        // spent, value は同期しない（要望1）
+                        // total は履歴由来の増加として同期する
+                        if (recordSheet.system.exp.total !== currentTotal) {
+                            await recordSheet.update({
+                                "system.exp.total": currentTotal
+                            });
+                        }
+                    }
+                } catch (e) {
+                    console.warn("Failed to sync exp to Record Sheet:", e);
+                }
+             }
+             // ▲▲▲
+        }
+    }
+
+    /**
+     * 能力値1つ分の成長コスト計算
+     */
+    static _calcSingleAbilityCost(growth, base, isControl) {
+        const g = Number(growth) || 0;
+        if (g <= 0) return 0;
+        
+        const threshold = isControl ? 17 : 11;
+        const costLow = 20; 
+        const costHigh = 40; 
+        
+        let cost = 0;
+        for (let i = 1; i <= g; i++) {
+            const currentVal = base + i;
+            cost += (currentVal < threshold) ? costLow : costHigh;
+        }
+        return cost;
+    }
+
+    /**
+     * アイテム1つ分の経験点コストを計算 (特定技能の免除ルール含む)
+     */
+    static _calcSingleItemCost(item) {
+        // 技能以外のアイテム対応
+        if (item.type !== 'skill') {
+             return Number(item.system.expCost) || 0;
+        }
+        
+        const system = item.system;
+        const level = Number(system.level) || 0;
+        if (level <= 0) return 0;
+
+        let costPerLevel = 0;
+        
+        // A. 一般技能
+        if (system.category === 'generalSkill') {
+            const genCat = system.generalSkill?.generalSkillCategory;
+            
+            // 1. 固有名詞技能 (Onomastic)
+            if (genCat === 'onomasticSkill') {
+                costPerLevel = Number(system.generalSkill.onomasticSkill?.expCost) || 5;
+                // 初期取得チェックがある場合は Lv1 分が無料
+                if (system.generalSkill.onomasticSkill?.isInitial) {
+                    return Math.max(0, level - 1) * costPerLevel;
+                }
+            } 
+            // 2. 初期一般技能 (Initial)
+            else if (genCat === 'initialSkill') {
+                costPerLevel = Number(system.generalSkill.initialSkill?.expCost) || 10;
+                // 初期一般技能は Lv1 分が無料
+                return Math.max(0, level - 1) * costPerLevel;
+            } 
+            // 3. その他
+            else {
+                costPerLevel = 5; 
+            }
+        
+        // B. スタイル技能
+        } else if (system.category === 'styleSkill') {
+             const sCat = system.styleSkill?.styleSkillCategory;
+             if (sCat === 'secret') costPerLevel = 20;
+             else if (sCat === 'mystery') costPerLevel = 50;
+             else if (sCat === 'special') costPerLevel = 10;
+             else costPerLevel = 10;
+        }
+
+        return level * costPerLevel;
     }
 }

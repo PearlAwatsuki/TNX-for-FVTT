@@ -105,7 +105,7 @@ export class TokyoNovaSkillSheet extends ItemSheet {
             if (ss.substituteTarget.length === 0) {
                 ss.substituteTarget = [""];
             }
-            
+
             context.view = TnxSkillUtils.prepareStyleSkillView(system, context.options);
         }
       
@@ -275,6 +275,10 @@ export class TokyoNovaSkillSheet extends ItemSheet {
         const fieldName = select.name;
         const value = select.value;
         
+        if (fieldName === "system.styleSkill.styleSkillCategory") {
+            console.log(this.item.system.styleSkill.styleSkillCategory);
+        }
+
         // 更新用データオブジェクト
         const updateData = {};
         updateData[fieldName] = value; // まず自分自身の変更を適用

@@ -117,9 +117,12 @@
             "handPileId": "",
             "trumpCardPileId": "",
             "handMaxSize": 4,
+            "recordSheetId": "",
+            "history": {},
             "exp": {
                 "value": 170,
-                "total": 170 
+                "spent": -170,
+                "total": 0
             },
             "lifePath": {
                 "origin": "",
@@ -238,6 +241,9 @@
                         "organization": "-"
                     }
                 },
+                "performance": {
+                    "expCost": 2
+                },
                 "secret": {
                     "expCost": 20
                 },
@@ -275,12 +281,12 @@
             "templates": ["base"]
         },
         "record": {
-            "ScenarioTittle": [],
-            "GainedExp": [],
-            "RulerName": [],
-            "PlayerList": [],
-            "totalExp": 0,
-            "spentEXp": 0
+            "history": {},
+            "exp": {
+                "value": 0,
+                "total": 0,
+                "spent": 0
+            }
         }
     },
     "Card": {
