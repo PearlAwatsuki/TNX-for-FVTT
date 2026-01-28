@@ -5,7 +5,7 @@
             "Level": "レベル",
             "Description": "説明",
             "Explanation": "解説",
-            "Settings": "設定",
+            "Setting": "設定",
             "Effects": "効果",
             "Image": "画像",
             "Value": "値",
@@ -25,7 +25,8 @@
             "Cost": "代償",
             "None": "なし",
             "Other": "その他",
-            "Memo": "メモ"
+            "Memo": "メモ",
+            "Menu": "メニュー"
         },
         "Ability": {
             "Reason": "{suit}理性",
@@ -33,7 +34,7 @@
             "Life": "{suit}生命",
             "Mundane": "{suit}外界",
             "CS": "CS",
-            "Total": "合計値",
+            "Value": "能力値",
             "Control": "制御値",
             "Growth": "成長",
             "Mod": "修正",
@@ -228,15 +229,12 @@
             },
             "Style": {
                 "Label": "スタイル",
-                "IsPersona": "ペルソナ",
-                "IsKey": "キー",
-                "MiracleName": "神業名",
-                "FlagNames": {
-                    "Reason": "理性",
-                    "Passion": "感情",
-                    "Life": "生命",
-                    "Mundane": "外界"
-                }
+                "Setting": "スタイル設定",
+                "Level": "スタイルレベル",
+                "Persona": "ペルソナ",
+                "Key": "キー",
+                "MiracleSetting": "神業設定",
+                "Miracle": "神業"
             },
             "Outfit": {
                 "Label": "アウトフィット",
@@ -380,6 +378,7 @@
     "SHEET": {
         "Open": "シートを開く",
         "Delete": "このアイテムを削除しますか？",
+        "ItemEdit": "編集",
         "ItemDelete": "削除"
     },
     "TYPES": {

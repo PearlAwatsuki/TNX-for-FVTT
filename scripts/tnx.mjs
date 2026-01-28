@@ -3,6 +3,7 @@ import { TokyoNovaItem } from './item/item.mjs';
 import { TokyoNovaStyleSheet } from './item/tnx-style-sheet.mjs';
 import { TokyoNovaMiracleSheet } from './item/tnx-miracle-sheet.mjs';
 import { TokyoNovaSkillSheet } from './item/tnx-skill-sheet.mjs';
+import { TokyoNovaOrganizationSheet } from './item/tnx-organization-sheet.mjs';
 import { TnxScenarioSheet } from './journal/tnx-scenario-sheet.mjs';
 import { TnxActionHandler } from './module/tnx-action-handler.mjs';
 import { TnxHud } from './module/tnx-hud.mjs';
@@ -16,6 +17,7 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/item/miracle-sheet.hbs",
         "systems/tokyo-nova-axleration/templates/item/style-sheet.hbs",
         "systems/tokyo-nova-axleration/templates/item/skill-sheet.hbs",
+        "systems/tokyo-nova-axleration/templates/item/organization-sheet.hbs",
 
         // === Journal Sheets ===
         "systems/tokyo-nova-axleration/templates/journal/scenario-sheet.hbs",
@@ -190,6 +192,12 @@ Hooks.once("init", async function() {
         types: ["skill"],
         makeDefault: true,
         label: "技能シート"
+    });
+
+    Items.registerSheet("tokyo-nova", TokyoNovaOrganizationSheet, {
+        types: ["organization"],
+        makeDefault: true,
+        label: "組織シート"
     });
 
     // Journal Sheetの登録

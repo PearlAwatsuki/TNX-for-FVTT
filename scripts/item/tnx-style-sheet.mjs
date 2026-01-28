@@ -21,7 +21,11 @@ export class TokyoNovaStyleSheet extends ItemSheet {
         context.isLevel3Locked = context.system.level === 3;
         
         const abilityKeys = ["reason", "passion", "life", "mundane"];
-        const abilityLabels = { "reason": "TNX.Reason", "passion": "TNX.Passion", "life": "TNX.Life", "mundane": "TNX.Mundane" };
+        const abilityLabels = { "reason": game.i18n.format("TNX.Ability.Reason", { suit: "♠" }),
+                                "passion": game.i18n.format("TNX.Ability.Passion", { suit: "♣" }),
+                                "life": game.i18n.format("TNX.Ability.Life", { suit: "♥" }),
+                                "mundane": game.i18n.format("TNX.Ability.Mundane", { suit: "♦" })
+                              };
         context.system.abilities = {};
         for (const key of abilityKeys) {
             context.system.abilities[key] = {

@@ -262,9 +262,9 @@
                                 <div class="ability-block">
                                     <h3>{{localize ability.label}}</h3>
                                     <div class="value-control-wrapper">
-                                        <input type="number" value="{{ability.totalValue}}" class="ability-value" disabled title="最終値">
+                                        <input type="number" value="{{ability.totalValue}}" class="ability-value" disabled title="{{localize "TNX.Ability.Value"}}">
                                         <span class="separator">/</span>
-                                        <input type="number" value="{{ability.totalControl}}" class="control-value" disabled title="最終制御値">
+                                        <input type="number" value="{{ability.totalControl}}" class="control-value" disabled title="{{localize "TNX.Ability.Control"}}">
                                     </div>
                                     <div class="ability-details-toggle" data-action="toggleAbilityDetails">
                                         <span>内訳</span>
@@ -503,7 +503,11 @@
                                                 <div class="cell cell-confront">
                                                     <span class="squeeze-text">{{item.view.confrontation}}</span>
                                                 </div>
-                                                <div class="cell cell-other"></div>
+                                                <div class="cell cell-other">
+                                                    <a class="item-menu-trigger" data-item-id="{{item._id}}" title="{{localize 'TNX.Common.Menu'}}">
+                                                        <i class="fas fa-ellipsis-v"></i>
+                                                    </a>
+                                                </div>
                                             </li>
                                         {{/each}}
                                     </ol>

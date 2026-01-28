@@ -20,7 +20,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
             width: 950,
             height: 1000,
             tabs: [{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "abilities" }],
-            dragDrop: [{ dragSelector: ".item-list .item", dropSelector: "form" }],
+            dragDrop: [{ dragSelector: ".item-list .item, .style-skills-list .item", dropSelector: "form" }],
             scrollY: [".sheet-body", ".profile-sidebar", ".tab.abilities"]
         });
     }
@@ -180,6 +180,30 @@ export class TokyoNovaCastSheet extends ActorSheet {
             }
         });
 
+        html.find('.style-skills-list .item-menu-trigger').click(ev => {
+            ev.preventDefault();
+            ev.stopPropagation(); // ボタンの親へのクリック伝播を止める
+
+            // クリックされたボタンに最も近い「行」要素を取得（jQueryオブジェクトからDOM要素を取り出す）
+            const row = ev.currentTarget.closest('.style-skill-row');
+            
+            if (row) {
+                // ブラウザ標準の右クリックイベント(contextmenu)を作成
+                // 座標(clientX, clientY)を渡すことで、マウスカーソルの位置にメニューが出ます
+                const event = new MouseEvent('contextmenu', {
+                    bubbles: true,
+                    cancelable: true,
+                    view: window,
+                    clientX: ev.clientX,
+                    clientY: ev.clientY,
+                    buttons: 2 // 右ボタンが押された状態をシミュレート
+                });
+
+                // 行要素に対してイベントを送り込む
+                row.dispatchEvent(event);
+            }
+        });
+
         // シート内の手札カードをドラッグ可能にする
         const draggableCards = html.find('.hand-cards-display .card-in-hand');
         draggableCards.each((i, el) => {
@@ -266,6 +290,28 @@ export class TokyoNovaCastSheet extends ActorSheet {
             callback: panel => this.actor.update({ [panel.data('unlinkPath')]: "" })
         }];
         new ContextMenu(html, '[data-context-menu-type="unlink"]', unlinkMenu);
+
+        // スタイル技能用の共通メニュー定義
+        const styleSkillOptions = [
+            {
+                name: "SHEET.ItemEdit",
+                icon: '<i class="fas fa-edit"></i>',
+                callback: header => {
+                    const itemId = header.data("itemId") || header.closest('[data-item-id]').data('itemId');
+                    const item = this.actor.items.get(itemId);
+                    item?.sheet.render(true);
+                }
+            },
+            {
+                name: "SHEET.ItemDelete",
+                icon: '<i class="fas fa-trash"></i>',
+                callback: itemDeleteCallback // 共通削除ロジックを使用
+            }
+        ];
+
+        // ② 行自体を「右クリック (contextmenu)」したときのメニュー
+        // CSSセレクタ: .style-skills-list 内の .style-skill-row
+        new ContextMenu(html, ".style-skills-list .style-skill-row", styleSkillOptions);
     }
     
     async _getCardPileData(context) {
@@ -959,7 +1005,6 @@ export class TokyoNovaCastSheet extends ActorSheet {
 
         // 経験点が足りない場合は処理を中断
         if (totalCost > 0 && totalCost > currentExp) {
-            ui.notifications.warn(`経験点が足りません！ (必要: ${totalCost} / 所持: ${currentExp})`);
             input.value = oldValue; // 入力値を元に戻す
             return;
         }
@@ -975,7 +1020,6 @@ export class TokyoNovaCastSheet extends ActorSheet {
         const abilityLabel = game.i18n.localize(this.actor.system.abilities[abilityKey].label);
         const changeType = isControl ? "制御値" : "能力値";
         const costText = totalCost > 0 ? `${totalCost}点 消費` : `${-totalCost}点 回復`;
-        ui.notifications.info(`${abilityLabel} [${changeType}] の成長が変更されました (${costText})。`);
     }
 
     /**
@@ -1189,7 +1233,6 @@ export class TokyoNovaCastSheet extends ActorSheet {
 
         // 経験点が足りない場合（コストが正の数、かつ所持経験点より多い場合）
         if (totalCost > 0 && totalCost > currentExp) {
-            ui.notifications.warn(`経験点が足りません！ (必要: ${totalCost} / 所持: ${currentExp})`);
             // 入力値を元に戻す
             if (target === "level") {
                 input.value = oldLevel;
@@ -1205,7 +1248,6 @@ export class TokyoNovaCastSheet extends ActorSheet {
             await this.actor.update({ "system.exp.value": newExp });
             
             const actionText = totalCost > 0 ? "消費" : "回復";
-            ui.notifications.info(`${item.name}のレベルを${newLevel}に変更しました。経験点を${Math.abs(totalCost)}点${actionText}しました。`);
         }
 
         // アイテムの更新

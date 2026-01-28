@@ -3,7 +3,7 @@
     <header class="sheet-header skill-header">
         <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}"/>
         <div class="header-fields">
-            <h1 class="charname"><input name="name" type="text" value="{{item.name}}" placeholder="スキル名"/></h1>
+            <h1 class="charname"><input name="name" type="text" value="{{item.name}}" placeholder="{{localize 'TYPES.Item.skill'}}"/></h1>
             
             <div class="suit-selection">
                 {{#each TNX.SUITS as |suitData key|}}
