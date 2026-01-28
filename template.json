@@ -278,7 +278,9 @@
             "ScenarioTittle": [],
             "GainedExp": [],
             "RulerName": [],
-            "PlayerList": []
+            "PlayerList": [],
+            "totalExp": 0,
+            "spentEXp": 0
         }
     },
     "Card": {
