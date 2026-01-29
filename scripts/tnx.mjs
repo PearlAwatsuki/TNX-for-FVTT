@@ -3,6 +3,7 @@ import { TokyoNovaItem } from './item/item.mjs';
 import { TokyoNovaStyleSheet } from './item/tnx-style-sheet.mjs';
 import { TokyoNovaMiracleSheet } from './item/tnx-miracle-sheet.mjs';
 import { TokyoNovaSkillSheet } from './item/tnx-skill-sheet.mjs';
+import { TokyoNovaOutfitSheet } from './item/tnx-outfit-sheet.mjs';
 import { TokyoNovaOrganizationSheet } from './item/tnx-organization-sheet.mjs';
 import { TokyoNovaRecordSheet } from './item/tnx-record-sheet.mjs';
 import { TnxScenarioSheet } from './journal/tnx-scenario-sheet.mjs';
@@ -18,6 +19,7 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/item/miracle-sheet.hbs",
         "systems/tokyo-nova-axleration/templates/item/style-sheet.hbs",
         "systems/tokyo-nova-axleration/templates/item/skill-sheet.hbs",
+        "systems/tokyo-nova-axleration/templates/item/outfit-sheet.hbs",
         "systems/tokyo-nova-axleration/templates/item/organization-sheet.hbs",
         "systems/tokyo-nova-axleration/templates/item/record-sheet.hbs",
 
@@ -195,6 +197,12 @@ Hooks.once("init", async function() {
         types: ["skill"],
         makeDefault: true,
         label: "技能シート"
+    });
+
+    Items.registerSheet("tokyo-nova", TokyoNovaOutfitSheet, {
+        types: ["outfit"],
+        makeDefault: true,
+        label: "アウトフィットシート"
     });
 
     Items.registerSheet("tokyo-nova", TokyoNovaOrganizationSheet, {
@@ -549,10 +557,8 @@ Hooks.once("init", async function() {
     
         // 4. 確認された場合、収集したドキュメントを削除します
         if (confirmed) {
-            ui.notifications.info(`関連するカード置き場 ${cardNames} を削除します...`);
             const deletionPromises = docsToDelete.map(doc => doc.delete());
             await Promise.all(deletionPromises);
-            ui.notifications.info(`関連カード置き場の削除が完了しました。`);
         }
     
         // ユーザーの選択に関わらず、アクター本体の削除処理は常に続行します
@@ -901,29 +907,89 @@ Hooks.once("ready", async function() {
 
     Hooks.on('createItem', (item) => recalcActorExp(item));
     Hooks.on('deleteItem', (item) => recalcActorExp(item));
-    Hooks.on('updateItem', (item) => recalcActorExp(item));
+    Hooks.on('updateItem', (item, diff, options) => recalcActorExp(item));
 
     /**
-     * アイテム更新時のフック
-     * 1. アイテム変更に伴う親アクターの経験点再計算
-     * 2. レコードシート更新時のキャストシートへの同期
+     * ▼▼▼ 追加・修正: レコードシート更新時の再計算トリガー ▼▼▼
      */
     Hooks.on('updateItem', async (item, diff, options, userId) => {
-        // A. 親アクターの経験点再計算
-        if (item.parent && item.parent.type === 'cast') {
-             if (!options.syncing) {
-                 TokyoNovaCastSheet.updateCastExp(item.parent);
-             }
+        // レコードシート自体が更新された場合
+        if (item.type === "record") {
+            // このレコードシートをリンクしているキャストを探す
+            const linkedActors = game.actors.filter(a => 
+                a.type === 'cast' && a.system.recordSheetId === item.uuid
+            );
+
+            // 各キャストについて経験点再計算を実行
+            // (レコードのtotalが増減した場合、キャストのvalueに影響するため)
+            for (const actor of linkedActors) {
+                // 同期フラグ(syncing)がない場合のみ実行して無限ループ防止
+                if (!options.syncing) {
+                    TokyoNovaCastSheet.updateCastExp(actor);
+                }
+            }
         }
     });
 
-    /**
-     * アクター更新時のフック（経験点再計算のトリガー）
-     */
-    Hooks.on('updateActor', (actor, diff, options, userId) => {
-        if (actor.type === 'cast' && options.calcExp !== false && !options.syncing) {
+    Hooks.on('updateActor', async (actor, diff, options, userId) => {
+        if (actor.type !== 'cast') return;
+
+        // 1. 自身の経験点再計算
+        if (options.calcExp !== false && !options.syncing) {
             if (diff.system) {
-                 TokyoNovaCastSheet.updateCastExp(actor);
+                 await TokyoNovaCastSheet.updateCastExp(actor);
+            }
+        }
+
+        // 2. リンクしているレコードシートの再集計 (修正版)
+        if (actor.system.recordSheetId) {
+            try {
+                const recordSheet = await fromUuid(actor.system.recordSheetId);
+                
+                // レコードシートが存在し、かつ同期ループ中でない場合
+                if (recordSheet && !options.syncing) {
+                    
+                    // ▼▼▼ 集計ロジックの修正 ▼▼▼
+                    
+                    // このレコードシートをリンクしている全キャストを取得
+                    const linkedActors = game.actors.filter(a => 
+                        a.type === 'cast' && a.system.recordSheetId === recordSheet.uuid
+                    );
+                    
+                    let totalSharedSpent = 0;
+
+                    for (const a of linkedActors) {
+                        // キャストの「消費経験点 (spent)」は「実消費 - 170」の値
+                        const actorSpentOffset = Number(a.system.exp.spent) || 0;
+                        
+                        // キャストの「追加点」
+                        const additional = Number(a.system.exp.additional) || 0;
+                        
+                        // レコードシートからの消費分 (Overflow)
+                        // = 「消費(170引いた後)」が「追加点」を超えた分
+                        const overflow = Math.max(0, actorSpentOffset - additional);
+                        
+                        totalSharedSpent += overflow;
+                    }
+
+                    // 現在の値と比較して変更があれば更新
+                    const currentRecordSpent = Number(recordSheet.system.exp.spent) || 0;
+                    
+                    if (currentRecordSpent !== totalSharedSpent) {
+                        const currentRecordTotal = Number(recordSheet.system.exp.total) || 0;
+                        
+                        // spent と value を更新
+                        await recordSheet.update({
+                            "system.exp.spent": totalSharedSpent,
+                            "system.exp.value": currentRecordTotal - totalSharedSpent
+                        }, { syncing: true }); // syncingフラグでループ防止
+                        
+                        console.log(`TNX | Updated Shared Record Spent: ${totalSharedSpent} (Actors: ${linkedActors.length})`);
+                    }
+                    // ▲▲▲
+                }
+            } catch (e) {
+                console.warn("Failed to update linked record sheet:", e);
             }
         }
     });

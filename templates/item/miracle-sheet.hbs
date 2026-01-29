@@ -11,9 +11,9 @@
     </header>
 
     <nav class="sheet-tabs tabs" data-group="primary">
-        <a class="item" data-tab="description">{{localize "TNX.Description"}}</a>
-        <a class="item" data-tab="setting">{{localize "TNX.Setting"}}</a>
-        <a class="item" data-tab="effects">{{localize "TNX.Effects"}}</a>
+        <a class="item" data-tab="description">{{localize "TNX.Common.Description"}}</a>
+        <a class="item" data-tab="setting">{{localize "TNX.Common.Setting"}}</a>
+        <a class="item" data-tab="effects">{{localize "TNX.Common.Effects"}}</a>
     </nav>
 
      <section class="sheet-body">
@@ -21,7 +21,7 @@
             <div class="tnx-editor-section">
   
               <div class="tnx-editor-section__header">
-                    <label>{{localize "TNX.Description"}}</label>
+                    <label>{{localize "TNX.Common.Description"}}</label>
                 </div>
                 <div class="tnx-editor-section__content">
                     {{editor enrichedDescription target="system.description" engine="prosemirror" button=true owner=owner editable=editable}}      
@@ -29,7 +29,7 @@
             </div>
             <div class="tnx-editor-section">
                 <div class="tnx-editor-section__header">
-                    <label>{{localize "TNX.UsageCondition"}}</label>
+                    <label>{{localize "TNX.Item.Miracle.Condition"}}</label>
                 </div>
                 <div class="tnx-editor-section__content">
                     {{editor enrichedConditionDescription target="system.usageCondition" engine="prosemirror" button=true owner=owner editable=editable}}

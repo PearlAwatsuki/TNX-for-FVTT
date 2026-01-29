@@ -6,18 +6,26 @@ export const TnxHistoryMixin = {
     },
 
     /**
+     * 履歴データの経験点合計を算出するヘルパー
+     */
+    _calculateTotalExp(historyMap) {
+        return Object.values(historyMap || {}).reduce((sum, entry) => {
+            return sum + (Number(entry.exp) || 0);
+        }, 0);
+    },
+
+    /**
      * 行の追加
      */
     async _onHistoryAdd(event) {
         event.preventDefault();
         
-        // ユニークID生成
         const newId = foundry.utils.randomID();
         const newEntry = { 
             id: newId, 
             date: "", 
             title: "", 
-            exp: 0, 
+            exp: 0, // 新規行は0点なので合計には影響しないが、初期化は行う
             rl: "", 
             players: "" 
         };
@@ -26,7 +34,11 @@ export const TnxHistoryMixin = {
             [`system.history.${newId}`]: newEntry
         };
 
-        // ▼▼▼ 修正: 各クラスで実装する更新メソッドに委譲 ▼▼▼
+        // expオブジェクトがない場合の安全策
+        if (!this.document.system.exp) {
+            updateData["system.exp"] = { value: 0, total: 0, spent: 0 };
+        }
+
         await this._performHistoryUpdate(updateData);
     },
 
@@ -38,21 +50,24 @@ export const TnxHistoryMixin = {
         const targetId = event.currentTarget.dataset.id;
         if (!targetId) return;
 
-        // 削除対象データの取得（計算用）
-        const historyData = this.document.system.history || {};
-        const entry = historyData[targetId];
+        // 現在の履歴を取得して複製
+        const historyMap = foundry.utils.deepClone(this.document.system.history || {});
+        
+        // 削除対象を除外
+        delete historyMap[targetId];
+
+        // 再集計
+        const newTotal = this._calculateTotalExp(historyMap);
 
         const updateData = {
             [`system.history.-=${targetId}`]: null
         };
 
-        // Exp計算 (Itemシート単体利用時のため計算して渡す)
-        if (entry) {
-            const exp = Number(entry.exp) || 0;
-            if (exp !== 0) {
-                const currentTotal = Number(this.document.system.exp.total) || 0;
-                updateData["system.exp.total"] = currentTotal - exp;
-            }
+        // exp更新データの作成
+        if (!this.document.system.exp) {
+            updateData["system.exp"] = { value: 0, total: newTotal, spent: 0 };
+        } else {
+            updateData["system.exp.total"] = newTotal;
         }
 
         await this._performHistoryUpdate(updateData);
@@ -68,22 +83,24 @@ export const TnxHistoryMixin = {
         const field = input.dataset.field;
         const value = input.type === "number" ? Number(input.value) : input.value;
 
-        const historyData = this.document.system.history || {};
-        const entry = historyData[targetId];
+        // 現在の履歴を取得して複製
+        const historyMap = foundry.utils.deepClone(this.document.system.history || {});
+        
+        if (historyMap[targetId]) {
+            // 値を更新
+            historyMap[targetId][field] = value;
 
-        if (entry) {
             const updateData = {};
             updateData[`system.history.${targetId}.${field}`] = value;
 
-            // Exp変更時の差分計算
+            // 経験点が変更された場合、再集計して更新
             if (field === "exp") {
-                const oldExp = Number(entry.exp) || 0;
-                const newExp = Number(value) || 0;
-                const diff = newExp - oldExp;
+                const newTotal = this._calculateTotalExp(historyMap);
                 
-                if (diff !== 0) {
-                    const currentTotal = Number(this.document.system.exp.total) || 0;
-                    updateData["system.exp.total"] = currentTotal + diff;
+                if (!this.document.system.exp) {
+                    updateData["system.exp"] = { value: 0, total: newTotal, spent: 0 };
+                } else {
+                    updateData["system.exp.total"] = newTotal;
                 }
             }
 
@@ -92,9 +109,6 @@ export const TnxHistoryMixin = {
         }
     },
 
-    /**
-     * 表示用ヘルパー
-     */
     _prepareHistoryForDisplay(historyMap) {
         const historyArray = Object.values(historyMap || {});
         historyArray.sort((a, b) => {

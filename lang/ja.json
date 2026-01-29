@@ -78,7 +78,8 @@
                 "Exp": "経験点",
                 "ExpSpent": "消費経験点",
                 "ExpCurrent": "現在経験点",
-                "ExpTotal": "総経験点"
+                "ExpTotal": "総経験点",
+                "ExpAdditional": "追加経験点"
             },
             "Cards": {
                 "Hand": "手札",

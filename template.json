@@ -86,7 +86,7 @@
                     "effectMod": 0,
                     "controlEffectMod": 0
                 },
-                "CS": {
+                "combatSpeed": {
                     "value": 0,
                     "base": 0,
                     "current": 0,
@@ -122,7 +122,8 @@
             "exp": {
                 "value": 170,
                 "spent": -170,
-                "total": 0
+                "total": 0,
+                "additional": 0
             },
             "lifePath": {
                 "origin": "",
@@ -142,7 +143,7 @@
         }
     },
     "Item": {
-        "types": ["style", "miracle", "skill", "outfit", "organization"],
+        "types": ["style", "miracle", "skill", "outfit", "organization", "record"],
         "templates": {
             "base": {
                 "description": ""
@@ -254,28 +255,50 @@
         },
         "outfit": {
             "isPrepared": true,
-            "category": "-",
+            "majorCategory": "-",
+            "minorCategory": "-",
             "buy": "-",
-            "saving": "-",
+            "stock": "-",
             "concealment": "-",
-            "appearanceMod": "-",
+            "danger": "-",
+            "cyberControl": "-",
+            "part": "片手持ち",
             "attack": {
                 "damageType": "-",
-                "value": "-"
+                "value": "-",
+                "mod": "-"
             },
+            "range": "-",
+            "slot": "-",
             "defence": {
-                "S_defence": 0,
-                "P_defence": 0,
-                "I_defence": 0
+                "S_defence": "-",
+                "P_defence": "-",
+                "I_defence": "-"
             },
             "guardValue": "-",
+            "conscious": "-",
+            "subconscious": "-",
+            "unconscious": "-",
             "controlMod": "-",
-            "range": "-",
-            "SF": "-",
+            "cycle": "-",
+            "software": "-",
+            "hardware": "-",
+            "conbatSpeedMod": "-",
+            "speedFactor": "-",
             "passenger": 0,
             "appearanceTarget": "-",
-            "securityRate": "-",
-            "part": "片手持ち"
+            "cyberSecurity": "-",
+            "analogSecurity": "-",
+            "timing": "-",
+            "exclusive": "-",
+            "isthrow": false,
+            "fullAuto": "-",
+            "isLaser": false,
+            "uses": {
+                "isLimit": false,
+                "max": 0,
+                "value": 0
+            }
         },
         "organization": {
             "templates": ["base"]

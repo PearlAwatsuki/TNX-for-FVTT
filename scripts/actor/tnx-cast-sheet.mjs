@@ -9,6 +9,7 @@ import { TnxHistoryMixin } from '../module/tnx-history-mixin.mjs';
 
 export class TokyoNovaCastSheet extends ActorSheet {
     _prepareHistoryForDisplay = TnxHistoryMixin._prepareHistoryForDisplay;
+    _calculateTotalExp = TnxHistoryMixin._calculateTotalExp;
 
     // イベントハンドラ
     _onHistoryAdd = TnxHistoryMixin._onHistoryAdd;
@@ -93,33 +94,35 @@ export class TokyoNovaCastSheet extends ActorSheet {
      * 自分を更新し、リンクがあればレコードシートの「履歴」も更新する
      */
     async _performHistoryUpdate(updateData) {
+        // Mixinから渡される system.exp.total は「履歴の合計」のみの値。
+        // キャストシートの system.exp.total は「履歴合計 + 追加点」であるべきため、ここで補正する。
+        if (updateData["system.exp.total"] !== undefined) {
+            const historySum = updateData["system.exp.total"];
+            const additional = Number(this.actor.system.exp.additional) || 0;
+            updateData["system.exp.total"] = historySum + additional;
+        }
+
         // 1. 自分自身の更新
         await this.actor.update(updateData);
 
-        // 2. レコードシートへの一方通行同期
+        // 2. レコードシートへの同期（履歴データのみ）
         if (this.actor.system.recordSheetId) {
-            try {
-                const recordSheet = await fromUuid(this.actor.system.recordSheetId);
-                if (recordSheet) {
-                    // updateDataから "system.history" 関連のキーのみを抽出して同期する
-                    // (exp.totalの差分更新などが含まれる場合があるが、
-                    //  totalの同期は updateCastExp で厳密に行うため、ここでは履歴データのみを送るのが安全)
-                    
-                    const historyUpdate = {};
-                    for (const [key, value] of Object.entries(updateData)) {
-                        if (key.startsWith("system.history")) {
-                            historyUpdate[key] = value;
-                        }
-                    }
-                    
-                    if (!foundry.utils.isEmpty(historyUpdate)) {
-                        await recordSheet.update(historyUpdate);
+            const recordSheet = await fromUuid(this.actor.system.recordSheetId);
+            if (recordSheet) {
+                const historyUpdate = {};
+                for (const [key, value] of Object.entries(updateData)) {
+                    if (key.startsWith("system.history")) {
+                        historyUpdate[key] = value;
                     }
                 }
-            } catch (e) {
-                console.warn("Linked Record Sheet update failed:", e);
+                if (!foundry.utils.isEmpty(historyUpdate)) {
+                    await recordSheet.update(historyUpdate);
+                }
             }
         }
+        
+        // 念のため再計算（消費経験点の同期などを行うため）
+        TokyoNovaCastSheet.updateCastExp(this.actor);
     }
 
     _prepareStyleSlots(styles) {
@@ -581,25 +584,34 @@ export class TokyoNovaCastSheet extends ActorSheet {
             if (!this._isEditMode) return false;
             const uuid = data.uuid || item.uuid;
 
-            // キャスト側の履歴(Local)のみを使用
+            // 1. 履歴データのマージ
             const localMap = this.actor.system.history || {};
+            const remoteMap = item.system.history || {}; 
+            const mergedMap = { ...remoteMap, ...localMap };
 
-            // レコードシートからの読み込み（マージ）は行わない（要望2）
-            
-            // リンク情報の保存
-            await this.actor.update({ "system.recordSheetId": uuid });
+            // 2. 総経験点の計算
+            const newTotal = this._calculateTotalExp(mergedMap);
 
-            // ただし、リンクした瞬間「キャストの履歴」を「レコードシート」に書き込む（同期開始）
-            // ID衝突しない限り追記となる
+            // 3. 現在値(value)の計算を追加
+            // 現在の消費点(spent)を取得し、total - spent で value を算出する
+            const currentSpent = Number(item.system.exp.spent) || 0;
+            const newValue = newTotal - currentSpent;
+
+            // 4. レコードシートの即時更新
+            // history, total に加えて value も更新する
             await item.update({ 
-                "system.history": localMap
-                // totalも同期すべきだが、直後のupdateCastExpに任せても良い
+                "system.history": mergedMap,
+                "system.exp.total": newTotal,
+                "system.exp.value": newValue // ★ここを追加
             });
             
-            // 経験点の整合性を取るため再計算を実行
-            TokyoNovaCastSheet.updateCastExp(this.actor);
+            // 5. キャストシートのリンク更新
+            await this.actor.update({ "system.recordSheetId": uuid });
 
-            ui.notifications.info(`${item.name} をリンクしました。`);
+            // 6. キャストシートの経験点再計算
+            await TokyoNovaCastSheet.updateCastExp(this.actor);
+
+            ui.notifications.info(`${item.name} をリンクし、履歴を統合しました。`);
             return false;
         }
         
@@ -1369,17 +1381,14 @@ export class TokyoNovaCastSheet extends ActorSheet {
         }
     }
 
-    /**
-     * アクターの全データを元に経験点を再計算し、spentとvalueを更新する
-     */
     static async updateCastExp(actor) {
         if (!actor || actor.type !== 'cast') return;
 
-        // 1. 能力値成長コストの計算 (既存通り)
+        // 1. コスト計算 (消費経験点 = realSpent)
+        // ... (省略: 変更なし) ...
         const abilities = ["reason", "passion", "life", "mundane"];
         let totalAbilityCost = 0;
         const allStyles = actor.items.filter(i => i.type === 'style');
-        
         for (const key of abilities) {
             let styleValue = 0;
             let styleControl = 0;
@@ -1388,52 +1397,50 @@ export class TokyoNovaCastSheet extends ActorSheet {
                 styleValue += (Number(s.system[key]?.value) || 0) * level;
                 styleControl += (Number(s.system[key]?.control) || 0) * level;
             });
-            
             const abilityData = actor.system[key];
-            
             const baseVal = styleValue + (Number(abilityData.mod) || 0) + (Number(abilityData.effectMod) || 0);
             totalAbilityCost += this._calcSingleAbilityCost(abilityData.growth, baseVal, false);
-
             const baseCtrl = styleControl + (Number(abilityData.controlMod) || 0) + (Number(abilityData.controlEffectMod) || 0);
             totalAbilityCost += this._calcSingleAbilityCost(abilityData.controlGrowth, baseCtrl, true);
         }
-
-        // 2. アイテムコストの計算 (既存通り)
         let totalItemCost = 0;
         actor.items.forEach(item => {
              totalItemCost += this._calcSingleItemCost(item);
         });
+        const realSpent = totalAbilityCost + totalItemCost;
+        const initialExp = 170;
 
-        // 3. アクターの更新
-        const currentTotal = Number(actor.system.exp.total) || 0;
-        const initialOffset = -170; 
+
+        // 2. 総経験点の計算
+        const additional = Number(actor.system.exp.additional) || 0;
+        let historyTotal = 0;
         
-        const newSpent = initialOffset + totalAbilityCost + totalItemCost;
-        const newValue = currentTotal - newSpent;
+        // レコードシートの取得（再計算トリガー用に見つけるが、書き込みはしない）
+        let recordSheet = null;
+        if (actor.system.recordSheetId) {
+            try {
+                const doc = await fromUuid(actor.system.recordSheetId);
+                if (doc) {
+                    recordSheet = doc;
+                    historyTotal = Number(doc.system.exp.total) || 0;
+                }
+            } catch (e) { console.warn(e); }
+        } else {
+            const history = actor.system.history || {};
+            historyTotal = Object.values(history).reduce((sum, entry) => sum + (Number(entry.exp) || 0), 0);
+        }
 
-        if (actor.system.exp.spent !== newSpent || actor.system.exp.value !== newValue) {
+        const newTotal = additional + historyTotal;
+        const newValue = (newTotal + initialExp) - realSpent;
+        const newActorSpent = realSpent - initialExp;
+
+        // アクター更新
+        if (actor.system.exp.total !== newTotal || actor.system.exp.value !== newValue || actor.system.exp.spent !== newActorSpent) {
              await actor.update({
-                 "system.exp.spent": newSpent,
+                 "system.exp.total": newTotal,
+                 "system.exp.spent": newActorSpent,
                  "system.exp.value": newValue
              }, { calcExp: false });
-             
-             if (actor.system.recordSheetId) {
-                try {
-                    const recordSheet = await fromUuid(actor.system.recordSheetId);
-                    if (recordSheet) {
-                        // spent, value は同期しない（要望1）
-                        // total は履歴由来の増加として同期する
-                        if (recordSheet.system.exp.total !== currentTotal) {
-                            await recordSheet.update({
-                                "system.exp.total": currentTotal
-                            });
-                        }
-                    }
-                } catch (e) {
-                    console.warn("Failed to sync exp to Record Sheet:", e);
-                }
-             }
-             // ▲▲▲
         }
     }
 

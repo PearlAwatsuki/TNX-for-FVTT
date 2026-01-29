@@ -9,7 +9,8 @@ export class TokyoNovaItem extends Item {
                 "organization": "icons/svg/house.svg",
                 "outfit": "icons/svg/item-bag.svg",
                 "skill": "icons/svg/card-joker.svg",
-                "style": "icons/svg/paralysis.svg"
+                "style": "icons/svg/paralysis.svg",
+                "record": "icons/svg/book.svg"
             };
 
             if ( iconMap[data.type] ) {

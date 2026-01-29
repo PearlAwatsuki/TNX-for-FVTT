@@ -3399,7 +3399,9 @@ ol.item-list {
     overflow: hidden;
 }
 
-.history-row .cell-title,
+.history-row .cell-title {
+    justify-content: center; /* テキストの長い項目は左寄せ */
+}
 .history-row .cell-players {
     justify-content: flex-start; /* テキストの長い項目は左寄せ */
 }
@@ -3411,6 +3413,7 @@ ol.item-list {
     width: 100%;
     border: 1px solid transparent;
     background: var(--tnx-color-bg-input);
+    text-align: left;
 }
 .history-row input:focus {
     border: 1px solid #111;

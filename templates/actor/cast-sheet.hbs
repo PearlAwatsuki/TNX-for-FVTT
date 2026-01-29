@@ -187,11 +187,15 @@
                         <div class="edit-mode-exp">
                             <div>
                                 <label>{{localize "TNX.Actor.Stats.ExpSpent"}}：</label>
-                                <input type="number" name="system.exp.spent" value="{{system.exp.spent}}" class="exp-input" disabled>
+                                <span>{{system.exp.spent}}</span>
                             </div>
                             <div>
                                 <label>{{localize "TNX.Actor.Stats.ExpTotal"}}：</label>
-                                <input type="number" name="system.exp.total" value="{{system.exp.total}}" class="exp-input">
+                                <span>{{system.exp.total}}</span>
+                            </div>
+                            <div>
+                                <label>{{localize "TNX.Actor.Stats.ExpAdditional"}}：</label>
+                                <input type="number" name="system.exp.additional" value="{{system.exp.additional}}" class="exp-input">
                             </div>
                         </div>
                     </div>
