@@ -255,6 +255,7 @@
         },
         "outfit": {
             "isPrepared": true,
+            "isPre-play": false,
             "majorCategory": "-",
             "minorCategory": "-",
             "buy": "-",

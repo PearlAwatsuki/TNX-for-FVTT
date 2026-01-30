@@ -58,7 +58,7 @@ async function setupDefaultCardPilesForCast(actor) {
         const updates = {};
         const ownership = {
             default: CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE,
-            [game.user.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE
+            [game.user.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER
         };
 
         // 1. 手札用 Cards ドキュメントを作成 (既存の処理)
@@ -440,8 +440,32 @@ Hooks.once("init", async function() {
 
         const ownership = data.ownership || {};
         ownership.default = CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER;
-        ownership[userId] = CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE;
+        const user = game.users.get(userId);
+        if (user && !user.isGM) {
+            ownership[userId] = CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
+        } else {
+            ownership[userId] = CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE;
+        }
         actor.updateSource({ ownership: ownership });
+    });
+
+    /**
+     * アイテム作成時の権限設定
+     * GMでないユーザーが作成した場合、オーナー権限を付与する
+     */
+    Hooks.on("preCreateItem", (item, data, options, userId) => {
+        // 作成者がGMの場合はデフォルト処理に任せる（通常はOwnerになる）
+        const user = game.users.get(userId);
+        if (user && user.isGM) return;
+
+        // 既存の権限設定を取得、または初期化
+        const ownership = data.ownership || {};
+
+        // 作成者にオーナー権限(3)を付与
+        ownership[userId] = CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
+
+        // FVTT v12 API: updateSourceを使用して更新
+        item.updateSource({ ownership: ownership });
     });
 
     Hooks.on("preCreateCard", (card, data, options, userId) => {
