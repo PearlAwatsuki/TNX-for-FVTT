@@ -257,8 +257,8 @@
         <section class="tabbed-content">
             <nav class="sheet-tabs tabs tnx-tabs" data-group="primary">
                 <a class="item" data-tab="abilities">{{localize "TNX.Ui.Tab.Abilities"}}</a>
-                <a class="item" data-tab="outfits">{{localize "TNX.Ui.Tab.Outfits"}}</a>
                 <a class="item" data-tab="check">{{localize "TNX.Ui.Tab.Check"}}</a>
+                <a class="item" data-tab="outfits">{{localize "TNX.Ui.Tab.Outfits"}}</a>
                 <a class="item" data-tab="status">{{localize "TNX.Ui.Tab.Status"}}</a>
                 <a class="item" data-tab="history">{{localize "TNX.Ui.Tab.History"}}</a>
                 <a class="item" data-tab="profile">{{localize "TNX.Ui.Tab.Profile"}}</a>
@@ -527,9 +527,116 @@
                     </div>
                 </div>
 
-                <div class="tab outfits" data-tab="outfits"></div>
-
                 <div class="tab check" data-tab="check"></div>
+
+                <div class="tab outfits" data-tab="outfits">
+                    {{!-- 編集モード --}}
+                    {{#if isEditMode}}
+                        <div class="outfit-groups-container">
+                            {{#each outfitGroups as |group|}}
+                                <div class="tnx-item-list__row tnx-item-list__row--header skill-group-header">
+                                    <h4 class="skill-name-header">{{group.label}}</h4>
+                                    <a class="item-control item-create" data-type="outfit" data-major="{{group.key}}" title="{{localize 'TNX.Common.Add'}}">
+                                        <i class="fas fa-plus"></i> {{localize "TNX.Common.Add"}}
+                                    </a>
+                                </div>
+
+                                <div class="skill-group-block">
+                                    {{#if group.hasItems}}
+                                    <ol class="item-list">
+                                        {{!-- ヘッダー行 (必要に応じて表示) --}}
+                                        <li class="item-list-header-row flexrow">
+                                            <div class="item-name">名前</div>
+                                            <div class="item-prop">常備化</div>
+                                            <div class="item-prop">部位</div>
+                                            {{#if (eq group.key "weapon")}}<div class="item-prop">攻撃</div>{{/if}}
+                                            {{#if (eq group.key "armor")}}<div class="item-prop">防御</div>{{/if}}
+                                            <div class="item-controls"></div>
+                                        </li>
+
+                                        {{#each group.items as |item|}}
+                                        <li class="item flexrow" data-item-id="{{item._id}}">
+                                            <div class="item-name">
+                                                <a class="item-edit">{{item.name}}</a>
+                                            </div>
+                                            
+                                            {{!-- 簡易ステータス表示 --}}
+                                            <div class="item-prop">{{item.system.stock}}</div>
+                                            <div class="item-prop">{{item.system.part}}</div>
+                                            
+                                            {{!-- 武器なら攻撃力 --}}
+                                            {{#if (eq ../group.key "weapon")}}
+                                                <div class="item-prop">{{item.system.attack.value}} / {{item.system.guardValue}}</div>
+                                            {{/if}}
+                                            
+                                            {{!-- 防具なら防御力 --}}
+                                            {{#if (eq ../group.key "armor")}}
+                                                <div class="item-prop">{{item.system.defence.S_defence}}/{{item.system.defence.P_defence}}/{{item.system.defence.I_defence}}</div>
+                                            {{/if}}
+
+                                            <div class="item-controls">
+                                                <a class="item-control item-edit" data-item-id="{{item._id}}" title="{{localize 'SHEET.ItemEdit'}}"><i class="fas fa-edit"></i></a>
+                                                <a class="item-control item-delete" title="{{localize 'SHEET.ItemDelete'}}"><i class="fas fa-trash"></i></a>
+                                            </div>
+                                        </li>
+                                        {{/each}}
+                                    </ol>
+                                    {{else}}
+                                        <p class="no-items-message">アイテムがありません</p>
+                                    {{/if}}
+                                </div>
+                            {{/each}}
+                        </div>
+                    
+                    {{!-- 閲覧モード --}}
+                    {{else}}
+                        <div class="outfit-view-mode">
+                            {{#each outfitGroups as |group|}}
+                                {{#if group.hasItems}}
+                                <div class="outfit-group-view">
+                                    <h3>{{group.label}}</h3>
+                                    <table class="tnx-table">
+                                        <thead>
+                                            <tr>
+                                                <th>名称</th>
+                                                <th>部位</th>
+                                                {{#if (eq group.key "weapon")}}<th>攻撃/受</th><th>射程</th>{{/if}}
+                                                {{#if (eq group.key "armor")}}<th>防御(S/P/I)</th><th>修正</th>{{/if}}
+                                                {{#if (eq group.key "vehicle")}}<th>SF/乗員</th>{{/if}}
+                                                <th>効果・解説</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {{#each group.items as |item|}}
+                                            <tr class="item" data-item-id="{{item._id}}">
+                                                <td class="item-name cell-clickable" data-action="rollStyleDescription">{{item.name}}</td>
+                                                <td>{{item.system.part}}</td>
+                                                
+                                                {{#if (eq ../group.key "weapon")}}
+                                                    <td>{{item.system.attack.value}} / {{item.system.guardValue}}</td>
+                                                    <td>{{item.system.range}}</td>
+                                                {{/if}}
+                                                
+                                                {{#if (eq ../group.key "armor")}}
+                                                    <td>{{item.system.defence.S_defence}}/{{item.system.defence.P_defence}}/{{item.system.defence.I_defence}}</td>
+                                                    <td>{{item.system.controlMod}}</td>
+                                                {{/if}}
+                                                
+                                                {{#if (eq ../group.key "vehicle")}}
+                                                    <td>{{item.system.speedFactor}} / {{item.system.passenger}}</td>
+                                                {{/if}}
+
+                                                <td class="cell-description squeeze-text">{{{item.system.description}}}</td>
+                                            </tr>
+                                            {{/each}}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {{/if}}
+                            {{/each}}
+                        </div>
+                    {{/if}}
+                </div>
 
                 <div class="tab status" data-tab="status"></div>
 

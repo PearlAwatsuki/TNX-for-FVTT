@@ -86,6 +86,9 @@ export class TokyoNovaCastSheet extends ActorSheet {
         this._getAbilitiesData(context, allStyles);
         this._prepareSkillsData(context);
 
+        // 既存の処理に加え、アウトフィットの準備を追加
+        this._prepareOutfits(context);
+
         return context;
     }
 
@@ -200,6 +203,27 @@ export class TokyoNovaCastSheet extends ActorSheet {
                 item.view = TnxSkillUtils.prepareStyleSkillView(item.system, skillOptions);
             }
         });
+    }
+
+    /**
+     * アウトフィットを大分類ごとにグルーピングする
+     */
+    _prepareOutfits(context) {
+        const outfits = this.actor.items.filter(i => i.type === "outfit");
+        
+        // 分類ごとのコンテナを初期化
+        // 順序を維持したいので、CONFIGの定義順に配列を作る
+        context.outfitGroups = [];
+        
+        for (const [key, label] of Object.entries(CONFIG.TNX.outfitMajorCategories)) {
+            const items = outfits.filter(i => i.system.majorCategory === key);
+            context.outfitGroups.push({
+                key: key,
+                label: label,
+                items: items,
+                hasItems: items.length > 0
+            });
+        }
     }
 
     activateListeners(html) {
@@ -1155,30 +1179,60 @@ export class TokyoNovaCastSheet extends ActorSheet {
     async _onItemCreate(event) {
         event.preventDefault();
         const header = event.currentTarget;
-        const type = header.dataset.type; // "skill"
-        const category = header.dataset.category; // "generalSkill" or "styleSkill"
+        const type = header.dataset.type; // "skill" または "outfit"
         
-        const itemData = {
-            name: category === 'generalSkill' ? "新規一般技能" : "新規スタイル技能",
-            type: type,
-            system: {
-                category: category,
-                level: 0, // 初期レベル
+        // --- 1. 技能 (skill) の場合（既存のコード） ---
+        if (type === 'skill') {
+            const category = header.dataset.category; // "generalSkill" or "styleSkill"
+            
+            const itemData = {
+                name: category === 'generalSkill' ? "新規一般技能" : "新規スタイル技能",
+                type: type,
+                system: {
+                    category: category,
+                    level: 0, // 初期レベル
+                }
+            };
+
+            // 要件: 一般技能の場合は onomasticSKill (固有名詞技能) を初期選択
+            if (category === 'generalSkill') {
+                foundry.utils.setProperty(itemData, "system.generalSkill.generalSkillCategory", "onomasticSkill");
             }
-        };
+            
+            // 要件: スタイル技能の場合は styleSkill を初期選択
+            if (category === 'styleSkill') {
+                // 将来的な初期設定のためにブロックを残しています
+            }
 
-        // 要件: 一般技能の場合は onomasticSKill (固有名詞技能) を初期選択
-        if (category === 'generalSkill') {
-            foundry.utils.setProperty(itemData, "system.generalSkill.generalSkillCategory", "onomasticSkill");
-        }
-        
-        // 要件: スタイル技能の場合は styleSkill を初期選択 (template.jsonの初期値が既にstyleSkillであれば不要ですが念の為)
-        if (category === 'styleSkill') {
-            // styleSkillカテゴリの初期設定が必要であればここに記述
-            // 例: 特定のスタイル技能種別など
+            return await Item.create(itemData, {parent: this.actor});
+        } else if (type === 'outfit') {
+            const major = header.dataset.major; // "weapon", "armor" 等
+            
+            const itemData = {
+                name: "新規アウトフィット",
+                type: type,
+                system: {}
+            };
+
+            // 大分類が指定されていればセットする
+            if (major) {
+                itemData.system.majorCategory = major;
+                // 日本語ラベルを取得して名前に反映（例: "新規武器"）
+                const label = CONFIG.TNX.outfitMajorCategories[major] || "アウトフィット";
+                itemData.name = `新規${label}`;
+                
+                // 対応する小分類のデフォルト値をセット (CategoryMapは scripts/tnx.mjs で定義済みとする)
+                const minors = CONFIG.TNX.outfitCategoryMap[major];
+                if (minors && minors.length > 0) {
+                    itemData.system.minorCategory = minors[0];
+                }
+            }
+
+            return await Item.create(itemData, {parent: this.actor});
         }
 
-        return await Item.create(itemData, {parent: this.actor});
+        // その他のアイテムタイプの場合（デフォルト処理）
+        return await Item.create({name: `新規${type}`, type: type}, {parent: this.actor});
     }
 
     /**
