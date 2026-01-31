@@ -256,6 +256,7 @@
         "outfit": {
             "isPrepared": true,
             "isPre-play": false,
+            "isCyber": false,
             "majorCategory": "-",
             "minorCategory": "-",
             "buy": "-",
@@ -263,7 +264,7 @@
             "concealment": "-",
             "danger": "-",
             "cyberControl": "-",
-            "part": "片手持ち",
+            "part": "-",
             "attack": {
                 "damageType": "-",
                 "value": "-",
@@ -290,11 +291,13 @@
             "appearanceTarget": "-",
             "cyberSecurity": "-",
             "analogSecurity": "-",
+            "housingArea": "-",
             "timing": "-",
             "exclusive": "-",
             "isthrow": false,
             "fullAuto": "-",
             "isLaser": false,
+            "combinedOutfitID": [],
             "uses": {
                 "isLimit": false,
                 "max": 0,
