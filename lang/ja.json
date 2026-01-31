@@ -226,9 +226,9 @@
             "Miracle": {
                 "Label": "神業",
                 "Condition": "使用条件",
-                "IsAttack": "攻撃神業",
+                "IsKill": "殺し神業",
                 "IsDefence": "防御神業",
-                "IsOmni": "万能神業",
+                "IsAll": "万能神業",
                 "IsUsed": "使用済み"
             },
             "Style": {
@@ -238,7 +238,8 @@
                 "Persona": "ペルソナ",
                 "Key": "キー",
                 "MiracleSetting": "神業設定",
-                "Miracle": "神業"
+                "Miracle": "神業",
+                "CreateAndLinkMiracle": "神業アイテムを作成してリンク"
             },
             "Outfit": {
                 "Label": "アウトフィット",
@@ -247,9 +248,6 @@
                 "Concealment": "隠匿値",
                 "Attack": "攻撃力",
                 "Defence": "防御力",
-                "DefenceS": "S防",
-                "DefenceP": "P防",
-                "DefenceI": "I防",
                 "Part": "部位",
                 "Parts": {
                     "OneHand": "片手持ち",

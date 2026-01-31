@@ -65,7 +65,7 @@ export class TokyoNovaStyleSheet extends ItemSheet {
         });
     
         const miracleContextMenu = [{
-            name: game.i18n.localize("TNX.Unlink"),
+            name: game.i18n.localize("TNX.Common.Unlink"),
             icon: '<i class="fas fa-unlink"></i>',
             condition: () => !!this.item.system.miracle?.id,
             callback: async () => {
