@@ -143,10 +143,23 @@
         }
     },
     "Item": {
-        "types": ["style", "miracle", "skill", "outfit", "organization", "record"],
+        "types": ["style", "miracle", "generalSkill", "styleSkill", "outfit", "organization", "record"],
         "templates": {
             "base": {
                 "description": ""
+            },
+            "usage": {
+                "actions": []
+            },
+            "skillBase": {
+                "level": 0,
+                "suits": {
+                    "spade": false,
+                    "heart": false,
+                    "diamond": false,
+                    "club": false
+                },
+                "isAction": false
             }
         },
         "style": {
@@ -176,7 +189,7 @@
             }
         },
         "miracle": {
-            "templates": ["base"],
+            "templates": ["base", "usage"],
             "furigana": "",
             "usageCondition": "",
             "isKill": false,
@@ -189,68 +202,57 @@
                 "mod": 0
             }
         },
-        "skill": {
-            "templates": ["base"],
-            "level": 0,
-            "category": "generalSkill",
-            "suits": {
-                "spade": false,
-                "heart": false,
-                "diamond": false,
-                "club": false
+        "generalSkill": {
+            "templates": ["base", "usage", "skillBase"],
+            "generalSkillCategory": "initialSkill",
+            "initialSkill":{
+                "initialSuit": "",
+                "expCost": 10
             },
-            "isAction": false,
-            "generalSkill": {
-                "generalSkillCategory": "initialSkill",
-                "initialSkill":{
-                    "initialSuit": "",
-                    "expCost": 10
-                },
-                "onomasticSkill": {
-                    "isInitial": false,
-                    "expCost": 5
+            "onomasticSkill": {
+                "isInitial": false,
+                "expCost": 5
+            }
+        },
+        "styleSkill": {
+            "value": false,
+            "styleSkillCategory": "special",
+            "unique": "",
+            "style": "-",
+            "comboSkill": ["blank"],
+            "maxLevel": "blank",
+            "timing": ["blank"],
+            "target": "blank",
+            "range": "blank",
+            "targetValue": "blank",
+            "confrontation": ["blank"],
+            "isFixedRange": false,
+            "isFixedTarget": false,
+            "isEssentialSkill": false,
+            "isSubstitute": false,
+            "substituteTarget": [],
+            "RewritedTarget": "",
+            "rewritingMiracleName": "",
+            "RewritingMiracle_ID":"",
+            "uses": {
+                "isLimit": false,
+                "value":0,
+                "max": 0
+            },
+            "special": {
+                "expCost": 10,
+                "works": {
+                    "organization": "-"
                 }
             },
-            "styleSkill": {
-                "value": false,
-                "styleSkillCategory": "special",
-                "unique": "",
-                "style": "-",
-                "comboSkill": ["blank"],
-                "maxLevel": "blank",
-                "timing": ["blank"],
-                "target": "blank",
-                "range": "blank",
-                "targetValue": "blank",
-                "confrontation": ["blank"],
-                "isFixedRange": false,
-                "isFixedTarget": false,
-                "isEssentialSkill": false,
-                "isSubstitute": false,
-                "substituteTarget": [],
-                "RewritedTarget": "",
-                "rewritingMiracleName": "",
-                "RewritingMiracle_ID":"",
-                "uses": {
-                    "isLimit": false,
-                    "value":0,
-                    "max": 0
-                },
-                "special": {
-                    "expCost": 10,
-                    "works": {
-                        "organization": "-"
-                    }
-                },
-                "performance": {
-                    "expCost": 2
-                },
-                "secret": {
-                    "expCost": 20
-                },
-                "mystery": {
-                    "expCost": 50
-                }
+            "performance": {
+                "expCost": 2
+            },
+            "secret": {
+                "expCost": 20
+            },
+            "mystery": {
+                "expCost": 50
             }
         },
         "outfit": {
