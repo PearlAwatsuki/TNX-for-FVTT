@@ -1,0 +1,72 @@
+<form class="{{cssClass}}" autocomplete="off">
+    <header class="sheet-header skill-header">
+        <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}"/>
+        <div class="header-fields">
+            <h1 class="charname"><input name="name" type="text" value="{{item.name}}" placeholder="一般技能名"/></h1>
+            <div class="suit-selection">
+                {{#each TNX.SUITS as |suitData key|}}
+                   <label for="suit-{{key}}" class="suit-icon" title="{{suitData.label}}">
+                        <input type="checkbox" id="suit-{{key}}" name="system.suits.{{key}}" {{checked (lookup ../system.suits key)}} {{#if suitData.disabled}}disabled{{/if}}/>
+                        <i class="fa-solid fa-{{key}}"></i>
+                    </label>
+                {{/each}}
+            </div>
+        </div>
+        <div class="level-display">
+            <label>レベル</label>
+            <input type="number" name="system.level" value="{{system.level}}">
+        </div>
+    </header>
+
+    <nav class="sheet-tabs tabs" data-group="primary">
+        <a class="item" data-tab="description">説明</a>
+        <a class="item" data-tab="setting">設定</a>
+        <a class="item" data-tab="usage">用途</a>
+        <a class="item" data-tab="effects">エフェクト</a>
+    </nav>
+
+    <section class="sheet-body">
+        <div class="tab description" data-group="primary" data-tab="description">
+            <div class="tnx-editor-section">
+                <div class="tnx-editor-section__header"><label>解説</label></div>
+                <div class="tnx-editor-section__content">
+                    {{editor enrichedDescription target="system.description" engine="prosemirror" button=true owner=owner editable=editable}}
+                </div>
+            </div>
+        </div>
+
+        <div class="tab setting" data-group="primary" data-tab="setting">
+            <fieldset class="tnx-fieldset">
+                <legend>一般技能 設定</legend>
+                <div class="form-group">
+                    <label>種別</label>
+                    <select name="system.generalSkillCategory">
+                        {{selectOptions options.generalSkillCategory selected=system.generalSkillCategory}}
+                    </select>
+                </div>
+                {{#if (eq system.generalSkillCategory "initialSkill")}}
+                    <div class="form-group">
+                        <label>初期スート</label>
+                        <select name="system.initialSkill.initialSuit">
+                            {{selectOptions options.initialSuit selected=system.initialSkill.initialSuit}}
+                        </select>
+                    </div>
+                {{else}}
+                    <div class="form-group">
+                        <label>初期取得の社会・コネ</label>
+                        <input type="checkbox" name="system.onomasticSkill.isInitial" {{checked system.onomasticSkill.isInitial}}>
+                    </div>
+                {{/if}}
+            </fieldset>
+        </div>
+
+        {{!-- 用途タブ --}}
+        <div class="tab usage" data-group="primary" data-tab="usage">
+            {{> "systems/tokyo-nova-axleration/templates/parts/item-usage.hbs"}}
+        </div>
+
+        <div class="tab effects" data-group="primary" data-tab="effects">
+            {{> "systems/tokyo-nova-axleration/templates/parts/active-effects-list.hbs"}}
+        </div>
+    </section>
+</form>
