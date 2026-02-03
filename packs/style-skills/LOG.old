@@ -1,7 +1,7 @@
-2026/01/31-18:19:58.329 dbf4 Recovering log #219
-2026/01/31-18:19:58.851 dbf4 Delete type=0 #219
-2026/01/31-18:19:58.852 dbf4 Delete type=3 #217
-2026/01/31-18:44:22.759 d4e0 Level-0 table #224: started
-2026/01/31-18:44:22.759 d4e0 Level-0 table #224: 0 bytes OK
-2026/01/31-18:44:22.786 d4e0 Delete type=0 #222
-2026/01/31-18:44:22.812 d4e0 Manual compaction at level-0 from 'undefined' @ 72057594037927935 : 1 .. 'undefined' @ 0 : 0; will stop at (end)
+2026/01/31-18:51:42.031 dddc Recovering log #223
+2026/01/31-18:51:42.049 dddc Delete type=0 #223
+2026/01/31-18:51:42.049 dddc Delete type=3 #221
+2026/02/03-00:10:54.372 d4e0 Level-0 table #228: started
+2026/02/03-00:10:54.372 d4e0 Level-0 table #228: 0 bytes OK
+2026/02/03-00:10:54.382 d4e0 Delete type=0 #226
+2026/02/03-00:10:54.382 d4e0 Manual compaction at level-0 from 'undefined' @ 72057594037927935 : 1 .. 'undefined' @ 0 : 0; will stop at (end)

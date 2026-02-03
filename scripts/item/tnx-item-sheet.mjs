@@ -1,6 +1,7 @@
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 import { UsageCreationDialog } from "../module/tnx-dialog.mjs";
 
+
 /**
  * Tokyo NOVA アイテムシートの基底クラス
  * 用途(Actions)タブの処理や共通のエフェクト処理を提供します。

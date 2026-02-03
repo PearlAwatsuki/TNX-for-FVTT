@@ -46,7 +46,7 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/parts/scenario-setting-wizard.hbs",
         "systems/tokyo-nova-axleration/templates/parts/prosemirror-editor.hbs",
         "systems/tokyo-nova-axleration/templates/parts/history-list.hbs",
-        "systems/tokyo-nova-axleration/templates/item/usage-list.hbs"
+        "systems/tokyo-nova-axleration/templates/parts/usage-list.hbs"
     ];
     return loadTemplates(templatePaths);
 }
