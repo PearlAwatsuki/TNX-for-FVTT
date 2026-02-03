@@ -11,10 +11,6 @@ export class TnxSkillUtils {
                 "heart": game.i18n.localize("TNX.Suits.heart"),
                 "diamond": game.i18n.localize("TNX.Suits.diamond")
             },
-            category: {
-                "generalSkill": game.i18n.localize("TNX.Item.Skill.Category.General"),
-                "styleSkill": game.i18n.localize("TNX.Item.Skill.Category.Style")
-            },
             generalSkillCategory: {
                 "initialSkill": game.i18n.localize("TNX.Item.Skill.GeneralType.Initial"),
                 "onomasticSkill": game.i18n.localize("TNX.Item.Skill.GeneralType.Onomastic")

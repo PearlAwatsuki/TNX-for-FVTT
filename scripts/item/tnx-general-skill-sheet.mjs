@@ -1,7 +1,7 @@
-import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
+import { TokyoNovaItemSheet } from "./tnx-item-sheet.mjs";
 import { TnxSkillUtils } from "../module/tnx-skill-utils.mjs";
 
-export class TokyoNovaSkillSheet extends ItemSheet {
+export class TokyoNovaGeneralSkillSheet extends ItemSheet {
 
     static get defaultOptions() {
         return foundry.utils.mergeObject(super.defaultOptions, {

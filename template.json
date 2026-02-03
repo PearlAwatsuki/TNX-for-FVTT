@@ -214,7 +214,8 @@
                 "expCost": 5
             }
         },
-        "styleSkill": {
+        "styleSkill": {            
+            "templates": ["base", "usage", "skillBase"],
             "value": false,
             "styleSkillCategory": "special",
             "unique": "",

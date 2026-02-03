@@ -2,7 +2,8 @@ import { TokyoNovaCastSheet } from './actor/tnx-cast-sheet.mjs';
 import { TokyoNovaItem } from './item/item.mjs';
 import { TokyoNovaStyleSheet } from './item/tnx-style-sheet.mjs';
 import { TokyoNovaMiracleSheet } from './item/tnx-miracle-sheet.mjs';
-import { TokyoNovaSkillSheet } from './item/tnx-skill-sheet.mjs';
+import { TokyoNovaGeneralSkillSheet } from './item/tnx-general-skill-sheet.mjs';
+import { TokyoNovaStyleSkillSheet } from './item/tnx-style-skill-sheet.mjs';
 import { TokyoNovaOutfitSheet } from './item/tnx-outfit-sheet.mjs';
 import { TokyoNovaOrganizationSheet } from './item/tnx-organization-sheet.mjs';
 import { TokyoNovaRecordSheet } from './item/tnx-record-sheet.mjs';
@@ -257,6 +258,7 @@ Hooks.once("init", async function() {
     });
     
     // Item Sheetの登録
+    Items.unregisterSheet("core", ItemSheet);
     Items.registerSheet("tokyo-nova", TokyoNovaStyleSheet, {
         types: ["style"],
         makeDefault: true,
@@ -269,10 +271,16 @@ Hooks.once("init", async function() {
         label: "神業シート"
     });
 
-    Items.registerSheet("tokyo-nova", TokyoNovaSkillSheet, {
-        types: ["skill"],
+    Items.registerSheet("tokyo-nova", TokyoNovaGeneralSkillSheet, {
+        types: ["generalSkill"],
         makeDefault: true,
-        label: "技能シート"
+        label: "一般技能シート"
+    });
+
+    Items.registerSheet("tokyo-nova", TokyoNovaStyleSkillSheet, {
+        types: ["styleSkill"],
+        makeDefault: true,
+        label: "スタイル技能シート"
     });
 
     Items.registerSheet("tokyo-nova", TokyoNovaOutfitSheet, {

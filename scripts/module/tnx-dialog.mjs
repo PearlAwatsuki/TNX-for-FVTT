@@ -251,3 +251,39 @@ export class UnlinkConfirmDialog {
         });
     }
 }
+
+/**
+ * 用途（Action）を追加する際のダイアログ
+ */
+export class UsageCreationDialog {
+    static async prompt({ usageTypes }) {
+        const template = "systems/tokyo-nova-axleration/templates/dialog/usage-creation-dialog.hbs";
+        const html = await renderTemplate(template, { usageTypes });
+
+        return new Promise(resolve => {
+            new Dialog({
+                title: "用途の追加",
+                content: html,
+                buttons: {
+                    add: {
+                        icon: '<i class="fas fa-check"></i>',
+                        label: "追加",
+                        callback: (html) => {
+                            const form = html[0].querySelector("form");
+                            // FormDataExtendedを使用してフォームデータを取得
+                            const formData = new FormDataExtended(form);
+                            resolve(formData.object.type);
+                        }
+                    },
+                    cancel: {
+                        icon: '<i class="fas fa-times"></i>',
+                        label: game.i18n.localize("TNX.Cancel"),
+                        callback: () => resolve(null)
+                    }
+                },
+                default: "add",
+                close: () => resolve(null)
+            }).render(true);
+        });
+    }
+}
