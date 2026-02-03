@@ -19,7 +19,8 @@ async function preloadHandlebarsTemplates() {
         // === Item Sheets ===
         "systems/tokyo-nova-axleration/templates/item/miracle-sheet.hbs",
         "systems/tokyo-nova-axleration/templates/item/style-sheet.hbs",
-        "systems/tokyo-nova-axleration/templates/item/skill-sheet.hbs",
+        "systems/tokyo-nova-axleration/templates/item/general-skill-sheet.hbs",
+        "systems/tokyo-nova-axleration/templates/item/style-skill-sheet.hbs",
         "systems/tokyo-nova-axleration/templates/item/outfit-sheet.hbs",
         "systems/tokyo-nova-axleration/templates/item/organization-sheet.hbs",
         "systems/tokyo-nova-axleration/templates/item/record-sheet.hbs",
@@ -38,12 +39,14 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/dialog/rich-confirm-dialog.hbs",
         "systems/tokyo-nova-axleration/templates/dialog/target-selection-dialog.hbs",
         "systems/tokyo-nova-axleration/templates/dialog/unlink-confirm-dialog.hbs",
+        "systems/tokyo-nova-axleration/templates/dialog/usage-creation-dialog.hbs",
 
         // === Partials ===
         "systems/tokyo-nova-axleration/templates/parts/active-effects-list.hbs",
         "systems/tokyo-nova-axleration/templates/parts/scenario-setting-wizard.hbs",
         "systems/tokyo-nova-axleration/templates/parts/prosemirror-editor.hbs",
-        "systems/tokyo-nova-axleration/templates/parts/history-list.hbs"
+        "systems/tokyo-nova-axleration/templates/parts/history-list.hbs",
+        "systems/tokyo-nova-axleration/templates/item/usage-list.hbs"
     ];
     return loadTemplates(templatePaths);
 }
