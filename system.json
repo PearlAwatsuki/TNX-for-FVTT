@@ -103,15 +103,16 @@
         "cast": {},
         "guest": {},
         "troop": {},
-        "extra": {}
+        "extra": {},
+        "player": {}
       },
       "Item": {
         "style": {},
         "miracle": {},
-        "skill": {},
+        "generalSkill": {},
+        "styleSkill": {},
         "outfit": {},
-        "organization": {},
-        "record": {}
+        "organization": {}
       }
     },
     "socket": true,

@@ -277,7 +277,7 @@ export class UsageCreationDialog {
                     },
                     cancel: {
                         icon: '<i class="fas fa-times"></i>',
-                        label: game.i18n.localize("TNX.Cancel"),
+                        label: game.i18n.localize("TNX.Common.Cancel"),
                         callback: () => resolve(null)
                     }
                 },

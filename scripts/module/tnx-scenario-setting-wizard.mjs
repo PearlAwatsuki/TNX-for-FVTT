@@ -28,7 +28,6 @@ export class TnxScenarioSettingWizard extends FormApplication {
         const context = await super.getData(options);
         context.step = this.step;
         context.journalName = this.journal.name;
-        // formDataをテンプレートに渡して、ステップ3での条件付き表示に利用
         context.formData = this.formData;
         return context;
     }
@@ -60,11 +59,10 @@ export class TnxScenarioSettingWizard extends FormApplication {
 
         this.step++;
 
-        // ステップ2から次に進む際、ステップ3（詳細設定）が必要か判定
         if (this.step === 3) {
             const needsDeckCustomization = this.formData.createcardDeck || this.formData.createNeuroDeck;
             if (!needsDeckCustomization) {
-                this.step++; // 不要ならステップ3をスキップしてステップ4へ
+                this.step++; 
             }
         }
         
@@ -75,11 +73,10 @@ export class TnxScenarioSettingWizard extends FormApplication {
         event.preventDefault();
         this.step--;
 
-        // ステップ4から戻る際、ステップ3（詳細設定）をスキップすべきか判定
         if (this.step === 3) {
             const needsDeckCustomization = this.formData.createcardDeck || this.formData.createNeuroDeck;
             if (!needsDeckCustomization) {
-                this.step--; // 不要ならステップ3をスキップしてステップ2へ
+                this.step--; 
             }
         }
         this.render(true);
@@ -88,7 +85,7 @@ export class TnxScenarioSettingWizard extends FormApplication {
     async _updateObject(event, formData) {
         foundry.utils.mergeObject(this.formData, formData);
         const allData = this.formData;
-        let accessCardDeck, accessCardPile, gmTrumpPile, gmTrumpDiscard;
+        let accessCardDeck, accessCardPile, gmTrumpDiscard;
         ui.notifications.info("シナリオのセットアップを開始します...");
 
         if (allData.journalName && this.journal.name !== allData.journalName) {
@@ -97,11 +94,12 @@ export class TnxScenarioSettingWizard extends FormApplication {
         const updates = {};
         const ownership = { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER };
 
+        // --- 各種デッキ・パイルの作成 ---
         if (allData.createcardDeck) {
             const backImagePath = "systems/tokyo-nova-axleration/assets/cards/playing-cards/back.png";
-            const deckCount = parseInt(allData.deckCount) || 2; // デッキ数を反映
+            const deckCount = parseInt(allData.deckCount) || 2; 
             const deck = await Cards.create({ name: `山札`, type: 'deck', cards: createDefaultDeckData(deckCount), img: backImagePath, back: { img: backImagePath } });
-            if (allData.shuffleTrumpDeck) { // シャッフルするかを反映
+            if (allData.shuffleTrumpDeck) { 
                 await deck.shuffle({chatNotification: false});
             }
             updates['flags.tokyo-nova-axleration.cardDeckId'] = deck.uuid;
@@ -113,7 +111,7 @@ export class TnxScenarioSettingWizard extends FormApplication {
         if (allData.createNeuroDeck) {
             const backImagePath = "systems/tokyo-nova-axleration/assets/cards/neuro-cards/back.png";
             const deck = await Cards.create({ name: `ニューロデッキ`, type: 'deck', cards: createNeuroDeckData(), img: backImagePath, back: {img: backImagePath} });
-            if (allData.shuffleNeuroDeck) { // シャッフルするかを反映
+            if (allData.shuffleNeuroDeck) { 
                 await deck.shuffle({chatNotification: false});
             }
             updates['flags.tokyo-nova-axleration.neuroDeckId'] = deck.uuid;
@@ -131,20 +129,19 @@ export class TnxScenarioSettingWizard extends FormApplication {
             updates['flags.tokyo-nova-axleration.accessCardPileId'] = accessCardPile.uuid;
         }
         
+        // --- GM用カード設定の変更点 ---
         const gm = game.users.find(u => u.isGM);
         if (gm) {
-            if (allData.createGmHand) {
-                await Cards.create({ name: `${gm.name}の手札`, type: 'hand', ownership: { [gm.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER } });
-            }
-            if (allData.createGmTrumpPile) {
-                gmTrumpPile = await Cards.create({ name: `${gm.name}の切り札`, type: 'pile', ownership: { [gm.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER } });
-            }
+            // 【変更】GM用手札・切り札の作成処理を削除しました。
+            // 代わりに、RL用切り札捨て場のみ作成します。
+            
             if (allData.createGmTrumpDiscard) {
                 gmTrumpDiscard = await Cards.create({ name: `${gm.name}の切り札(使用済)`, type: 'pile', ownership: { [gm.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER } });
                 updates['flags.tokyo-nova-axleration.gmTrumpDiscardId'] = gmTrumpDiscard.uuid;
             }
         }
         
+        // --- シーン作成 ---
         const sceneCounts = allData.sceneCounts || {};
         const scenes = { opening: [], research: [], climax: [], ending: [] };
         let sceneCounter = 1;
@@ -161,6 +158,7 @@ export class TnxScenarioSettingWizard extends FormApplication {
         updates['flags.tokyo-nova-axleration.scenes'] = scenes;
         updates['flags.tokyo-nova-axleration.currentState'] = { phase: 'opening', sceneId: scenes.opening[0]?.id || null };
         
+        // --- ハンドアウト作成 ---
         const pcCount = parseInt(allData.pcCount) || 4;
         const handouts = [];
         for (let i = 1; i <= pcCount; i++) {
@@ -177,15 +175,31 @@ export class TnxScenarioSettingWizard extends FormApplication {
             await this.journal.update(updates);
         }
         
+        // --- アクセスカードの配布処理 ---
         if (accessCardDeck) {
             await accessCardDeck.reset({render: false}, {chatNotification: false});
             
+            // 【変更】切り札の配布先を「GMユーザーのアクターに紐づく切り札置き場」に変更
             const trumpCard = accessCardDeck.cards.find(c => c.name === "切り札");
-            if (trumpCard && gmTrumpPile) {
-                await accessCardDeck.pass(gmTrumpPile, [trumpCard.id], {chatNotification: false});
-                ui.notifications.info("「切り札」をRLの切り札に配布しました。");
+            let targetGmTrumpPile = null;
+
+            if (gm && gm.character) {
+                const pileId = gm.character.system.trumpCardPileId;
+                if (pileId) {
+                    targetGmTrumpPile = await fromUuid(pileId);
+                }
+            }
+
+            if (trumpCard) {
+                if (targetGmTrumpPile) {
+                    await accessCardDeck.pass(targetGmTrumpPile, [trumpCard.id], {chatNotification: false});
+                    ui.notifications.info("「切り札」をRLの切り札に配布しました。");
+                } else {
+                    ui.notifications.warn("RLにキャラクターが割り当てられていない、または切り札置き場が存在しないため、「切り札」を配布できませんでした。");
+                }
             }
             
+            // 残りのカードをアクセスカード置き場へ
             if (accessCardPile) {
                 const remainingCards = accessCardDeck.cards.filter(c => c.id !== trumpCard?.id);
                 const remainingAvailableCards = remainingCards.filter(c => !c.drawn);

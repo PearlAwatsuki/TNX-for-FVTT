@@ -325,6 +325,7 @@
             },
             "Info": {
                 "NotImplementedSkillView": "（一般技能の閲覧モード表示はここに実装されます）",
+                "Hand&TrumpPileEmpty": "(手札と切り札が設定されていません)",
                 "HandEmpty": "(手札は空です)"
             },
             "Button": {
@@ -388,7 +389,8 @@
             "cast": "キャスト",
             "extra": "エキストラ",
             "guest": "ゲスト",
-            "troop": "トループ"
+            "troop": "トループ",
+            "player": "プレイヤー"
         },
         "Card": {
             "playingCards": "トランプ",
@@ -396,12 +398,12 @@
             "other": "その他"
         },
         "Item": {
-            "miracle": "神業",
-            "organization": "組織",
-            "outfit": "アウトフィット",
-            "skill": "技能",
             "style": "スタイル",
-            "record": "レコードシート"
+            "miracle": "神業",
+            "generalSkill": "一般技能",
+            "styleSkill": "スタイル技能",
+            "outfit": "アウトフィット",
+            "organization": "組織"
         }
     },
     "EFFECT": {

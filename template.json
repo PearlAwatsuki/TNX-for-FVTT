@@ -108,16 +108,17 @@
                     "min": 0,
                     "max": 21
                 }
+            },
+            "actorBase": {
+                "handMaxSize": 4,
+                "handPileId": "",
+                "trumpCardPileId": ""
             }
         },
         "cast": {
-            "templates": ["biography", "attributes"],
+            "templates": ["biography", "attributes", "actorBase"],
             "player_name": "",
-            "handCardPoolItemId": "",
-            "handPileId": "",
-            "trumpCardPileId": "",
-            "handMaxSize": 4,
-            "recordSheetId": "",
+            "playerId": "",
             "history": {},
             "exp": {
                 "value": 170,
@@ -132,18 +133,27 @@
             }
         },
         "guest": {
-            "templates": ["biography", "attributes"]
+            "templates": ["biography", "attributes", "actorBase"]
         },
         "troop": {
-            "templates": ["attributes"],
+            "templates": ["attributes", "actorBase"],
             "memo": ""
         },
         "extra": {
             "templates": ["biography"]
+        },
+        "player": {
+            "templates": ["actorBase"],
+            "history": {},
+            "exp": {
+                "value": 0,
+                "total": 0,
+                "spent": 0
+            }
         }
     },
     "Item": {
-        "types": ["style", "miracle", "generalSkill", "styleSkill", "outfit", "organization", "record"],
+        "types": ["style", "miracle", "generalSkill", "styleSkill", "outfit", "organization"],
         "templates": {
             "base": {
                 "description": ""
@@ -216,7 +226,6 @@
         },
         "styleSkill": {            
             "templates": ["base", "usage", "skillBase"],
-            "value": false,
             "styleSkillCategory": "special",
             "unique": "",
             "style": "-",
@@ -309,14 +318,6 @@
         },
         "organization": {
             "templates": ["base"]
-        },
-        "record": {
-            "history": {},
-            "exp": {
-                "value": 0,
-                "total": 0,
-                "spent": 0
-            }
         }
     },
     "Card": {

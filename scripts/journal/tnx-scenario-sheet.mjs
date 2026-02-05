@@ -243,7 +243,7 @@ export class TnxScenarioSheet extends JournalSheet {
                 break;
             }
             case "reset-access-cards": {
-                await this._onResetAccessCards();
+                await this._onDistributeRlTrump();
                 break;
             }
             case "deal-initial-hands": {
@@ -372,7 +372,7 @@ export class TnxScenarioSheet extends JournalSheet {
         const newItem = {
             id: foundry.utils.randomID(),
             title: "新規情報",
-            isPublic: false, // この行を追加
+            isPublic: false, 
             contents: [
                 {
                     id: foundry.utils.randomID(),
@@ -544,7 +544,19 @@ export class TnxScenarioSheet extends JournalSheet {
         ui.notifications.info(`「${droppedDoc.name}」が${dropArea}としてリンクされました。`);
     }
 
-    async _onResetAccessCards() {
+    async _toggleInfoPublic(infoId) {
+        const items = foundry.utils.deepClone(this.object.getFlag("tokyo-nova-axleration", "infoItems") || []);
+        const item = items.find(i => i.id === infoId);
+        if (item) {
+            item.isPublic = !(item.isPublic || false);
+            await this.object.setFlag("tokyo-nova-axleration", "infoItems", items);
+        }
+    }
+
+    /**
+     * RL用切り札を、捨て場（使用済み）からRLのアクター切り札置き場へ再配布する
+     */
+    async _onDistributeRlTrump() {
         // 1. シナリオに設定されたRL切り札捨て場を取得
         const gmTrumpDiscardId = this.object.getFlag("tokyo-nova-axleration", "gmTrumpDiscardId");
         if (!gmTrumpDiscardId) {
@@ -555,49 +567,40 @@ export class TnxScenarioSheet extends JournalSheet {
             return ui.notifications.error("設定されているRL切り札捨て場が見つかりませんでした。");
         }
 
-        // 2. GMユーザーとその切り札置き場（手札）を取得
+        // 2. GMユーザーとそのアクター（キャラクター）を取得
         const gm = game.users.find(u => u.isGM);
         if (!gm) {
             return ui.notifications.warn("GMユーザーが見つかりません。");
         }
-        const gmTrumpPileId = gm.getFlag("tokyo-nova-axleration", "trumpPileId");
+        if (!gm.character) {
+            return ui.notifications.warn("GMユーザーにキャラクター（プレイヤーアクター）が割り当てられていません。");
+        }
+
+        // 3. GMアクターに紐づく切り札置き場を取得
+        const gmTrumpPileId = gm.character.system.trumpCardPileId;
         if (!gmTrumpPileId) {
-            return ui.notifications.warn("GMのユーザー設定に切り札が設定されていません。");
+            return ui.notifications.warn("GMキャラクターに切り札置き場が設定されていません。");
         }
         const gmTrumpPile = await fromUuid(gmTrumpPileId);
         if (!gmTrumpPile) {
-            return ui.notifications.error("設定されているGMの切り札が見つかりませんでした。");
+            return ui.notifications.error("設定されているGMキャラクターの切り札置き場が見つかりませんでした。");
         }
 
-        // 3. 捨て場から「切り札」という名前のカードを探す
+        // 4. 捨て場から「切り札」という名前のカードを探す
         const trumpCard = gmTrumpDiscard.cards.find(c => c.name === "切り札");
         if (!trumpCard) {
-            return ui.notifications.info("RL切り札捨て場に「切り札」カードはありません。リセットの必要はありません。");
+            return ui.notifications.info("RL切り札捨て場に「切り札」カードはありません。配布の必要はありません。");
         }
         
-        // 4. RLの切り札置き場が空か確認
+        // 5. RLの切り札置き場が空か確認
         if (gmTrumpPile.cards.size > 0) {
-            return ui.notifications.warn("RLの切り札には既にカードがあるため、再配布できませんでした。");
+            return ui.notifications.warn("RLの切り札には既にカードがあるため、配布できませんでした。");
         }
 
-        // 5. カードを移動
+        // 6. カードを移動
         await gmTrumpDiscard.pass(gmTrumpPile, [trumpCard.id]);
 
-        // 6. ユーザーに通知
+        // 7. ユーザーに通知
         ui.notifications.info("「切り札」をRLの切り札に再配布しました。");
-    }
-
-    /**
-     * 情報項目全体の公開/非公開を切り替える
-     * @param {string} infoId 対象の情報項目のID
-     * @private
-     */
-    async _toggleInfoPublic(infoId) {
-        const items = foundry.utils.deepClone(this.object.getFlag("tokyo-nova-axleration", "infoItems") || []);
-        const item = items.find(i => i.id === infoId);
-        if (item) {
-            item.isPublic = !(item.isPublic || false);
-            await this.object.setFlag("tokyo-nova-axleration", "infoItems", items);
-        }
     }
 }

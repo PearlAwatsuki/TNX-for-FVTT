@@ -1,4 +1,5 @@
 import { TokyoNovaCastSheet } from './actor/tnx-cast-sheet.mjs';
+import { TokyoNovaPlayerSheet } from './actor/tnx-player-sheet.mjs';
 import { TokyoNovaItem } from './item/item.mjs';
 import { TokyoNovaStyleSheet } from './item/tnx-style-sheet.mjs';
 import { TokyoNovaMiracleSheet } from './item/tnx-miracle-sheet.mjs';
@@ -52,12 +53,10 @@ async function preloadHandlebarsTemplates() {
 }
 
 /**
- * 新しいキャストにデフォルトの手札と切り札置き場を作成・関連付けする
- * @param {Actor} actor 作成されたアクター
+ * 【共通化】アクターにデフォルトの手札と切り札置き場を作成・関連付けする
+ * @param {Actor} actor 対象のアクター
  */
-async function setupDefaultCardPilesForCast(actor) {
-    if (actor.type !== "cast") return;
-
+async function setupDefaultCardPiles(actor) {
     try {
         const updates = {};
         const ownership = {
@@ -65,12 +64,12 @@ async function setupDefaultCardPilesForCast(actor) {
             [game.user.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER
         };
 
-        // 1. 手札用 Cards ドキュメントを作成 (既存の処理)
+        // 1. 手札用 Cards
         const handPileName = game.i18n.format("TNX.Actor.Cards.DefaultHandPileName", {actorName: actor.name});
         const handPile = await Cards.create({
             name: handPileName,
             type: "hand",
-            description: `キャスト「${actor.name}」のデフォルト手札です。`,
+            description: `「${actor.name}」の手札です。`,
             img: "icons/svg/card-hand.svg",
             ownership: ownership
         });
@@ -79,32 +78,28 @@ async function setupDefaultCardPilesForCast(actor) {
             updates["system.handMaxSize"] = 4;
         }
 
-        // 2. 切り札用 Cards ドキュメントを新規作成
+        // 2. 切り札用 Cards
         const trumpPileName = game.i18n.format("TNX.Actor.Cards.DefaultTrumpPileName", {actorName: actor.name});
         const trumpPile = await Cards.create({
             name: trumpPileName,
             type: "pile",
-            description: `キャスト「${actor.name}」の切り札置き場です。ニューロカードを1枚だけ格納できます。`,
+            description: `「${actor.name}」の切り札置き場です。`,
             img: "icons/svg/card-hand.svg",
             ownership: ownership,
-            // このカード束を「切り札用」として識別するためのフラグを設定
-            flags: {
-                "tokyo-nova-axleration": {
-                    isTrumpPile: true
-                }
-            }
+            flags: { "tokyo-nova-axleration": { isTrumpPile: true } }
         });
         if (trumpPile) {
             updates["system.trumpCardPileId"] = trumpPile.uuid;
         }
 
-        // 3. アクターの情報を一括で更新
+        // 更新
         if (Object.keys(updates).length > 0) {
             await actor.update(updates);
+            ui.notifications.info(`${actor.name} 用の手札と切り札を作成しました。`);
         }
 
     } catch (err) {
-        console.error(`TokyoNOVA | Error setting up default piles for cast ${actor.name}:`, err);
+        console.error(`TokyoNOVA | Error setting up piles for ${actor.name}:`, err);
     }
 }
 
@@ -139,6 +134,9 @@ async function setupDefaultSkills(actor) {
     }
 }
 
+game.tnx = game.tnx || {};
+game.tnx.setupDefaultCardPiles = setupDefaultCardPiles;
+
 /**
  * [All Clients] 開かれている関連シートを全て再描画する
  */
@@ -155,8 +153,32 @@ function handleRefreshSheets() {
     }
 }
 
-Hooks.once("init", async function() {  
-    game.tnx = game.tnx || {};
+/**
+ * プレイヤーアクターに紐づく全キャストの消費経験点を集計し、プレイヤー側のデータを更新する
+ */
+async function syncPlayerExpFromCasts(playerActor) {
+    const linkedCasts = game.actors.filter(a => a.type === 'cast' && a.system.playerId === playerActor.uuid);
+    let totalSharedSpent = 0;
+
+    for (const cast of linkedCasts) {
+        const castSpent = Number(cast.system.exp.spent) || 0; // 実消費 - 170
+        const additional = Number(cast.system.exp.additional) || 0;
+        const overflow = Math.max(0, castSpent - additional);
+        totalSharedSpent += overflow;
+    }
+
+    const currentSpent = Number(playerActor.system.exp.spent) || 0;
+    if (currentSpent !== totalSharedSpent) {
+        const currentTotal = Number(playerActor.system.exp.total) || 0;
+        await playerActor.update({
+            "system.exp.spent": totalSharedSpent,
+            "system.exp.value": currentTotal - totalSharedSpent
+        }, { syncing: true });
+    }
+}
+
+Hooks.once("init", async function() {
+    game.tnx = game.tnx || {}
     game.tnx.refreshSheets = handleRefreshSheets;
     Handlebars.registerHelper('add', function(a, b) {
         return a + b;
@@ -258,6 +280,12 @@ Hooks.once("init", async function() {
         types: ["cast"],
         makeDefault: true,
         label: "プロファイルシート"
+    });
+
+    Actors.registerSheet("tokyo-nova", TokyoNovaPlayerSheet, {
+        types: ["player"],
+        makeDefault: true,
+        label: "プレイヤーシート"
     });
     
     // Item Sheetの登録
@@ -573,16 +601,42 @@ Hooks.once("init", async function() {
         return true;
     });
 
-    Hooks.on("createActor", (actor, options, userId) => {
-        if (!options.temporary && userId === game.user.id) {
-            actor.update({
+    Hooks.on("createActor", async (actor, options, userId) => {
+        // 自身が作成したアクターのみ対象
+        if (userId !== game.user.id) return;
+    
+        // 1. プレイヤーアクターの場合：無条件で手札・切り札を自動作成
+        if (actor.type === "player") {
+            await setupDefaultCardPiles(actor);
+            ui.notifications.info(`プレイヤー「${actor.name}」を作成しました。`);
+        }
+    
+        // 2. キャストの場合：ダイアログで確認
+        else if (actor.type === "cast") {
+            // デフォルト設定の更新
+            await actor.update({
                 "prototypeToken.disposition": CONST.TOKEN_DISPOSITIONS.FRIENDLY,
                 "prototypeToken.actorLink": true,
                 "prototypeToken.sight.enabled": true,
                 "prototypeToken.sight.range": 1000
             });
-            setupDefaultCardPilesForCast(actor);
             setupDefaultSkills(actor);
+    
+            // 手札作成確認ダイアログ
+            const confirm = await Dialog.confirm({
+                title: "手札・切り札の作成",
+                content: `
+                    <p>キャスト「${actor.name}」用の手札と切り札のカード置き場を新規作成しますか？</p>
+                    <p><small>※通常は「プレイヤー」アクターの手札を使用するため、キャスト個別に作成する必要はありません。</small></p>
+                `,
+                yes: () => true,
+                no: () => false,
+                defaultYes: false // デフォルトは「いいえ」
+            });
+    
+            if (confirm) {
+                await setupDefaultCardPiles(actor);
+            }
         }
     });
 
@@ -871,7 +925,7 @@ Hooks.once("init", async function() {
 });
 
 Hooks.once("ready", async function() {
-    game.tnx = game.tnx || {};
+    game.tnx = game.tnx || {}
     game.tnx.hud = new TnxHud();
     game.tnx.hud.render(true);
     
@@ -900,115 +954,6 @@ Hooks.once("ready", async function() {
             console.log(`TokyoNOVA | ${actor.name} の手札上限を ${finalMaxSize} に更新しました。`);
         }
     }
-
-    Hooks.on("renderApplicationV2", async (app, html) => {
-        if ( !(app instanceof foundry.applications.sheets.UserConfig) ) return;
-    
-        const targetUser = app.document;
-        if (!targetUser) return;
-        
-        const systemId = "tokyo-nova-axleration";
-        const flags = targetUser.flags[systemId] || {};
-        let handUuid = flags.handId || "";
-        let trumpUuid = flags.trumpPileId || "";
-        let needsUpdate = false;
-    
-        // --- リンク切れのチェック ---
-        if (handUuid && !(await fromUuid(handUuid))) {
-            handUuid = "";
-            needsUpdate = true;
-        }
-        if (trumpUuid && !(await fromUuid(trumpUuid))) {
-            trumpUuid = "";
-            needsUpdate = true;
-        }
-    
-        // --- データに不正なリンクがあった場合 ---
-        if (needsUpdate) {
-            // ユーザーデータを更新して、無効なリンクをクリーンアップする
-            await targetUser.update({
-                [`flags.${systemId}.handId`]: handUuid,
-                [`flags.${systemId}.trumpPileId`]: trumpUuid
-            });
-            // データを更新すると自動で再描画が走るため、現在の描画処理はここで中断する
-            // これにより、UIが二重に描画される不具合を防ぐ
-            return;
-        }
-    
-        // --- 「使用中」判定ロジック (修正版) ---
-        // 他のユーザーが使用しているカード置き場のIDをすべて収集する
-        const linkedPileIds = new Set();
-        game.users.forEach(user => {
-            // 自分自身のユーザー設定は「使用中」の判定から除外する
-            if (user.id === targetUser.id) return;
-    
-            const userFlags = user.flags[systemId] || {};
-            if (userFlags.handId) linkedPileIds.add(userFlags.handId);
-            if (userFlags.trumpPileId) linkedPileIds.add(userFlags.trumpPileId);
-        });
-    
-        // --- 権限レベルごとの分類 ---
-        const cardOptions = {
-            hands: { owner: [], limited: [], observer: [] },
-            piles: { owner: [], limited: [], observer: [] }
-        };
-        const ownershipLevels = { 3: 'owner', 2: 'limited', 1: 'observer' };
-    
-        for (const cards of game.cards) {
-            let perm = cards.ownership[targetUser.id];
-            if (perm === undefined) { perm = cards.ownership.default; }
-            const levelKey = ownershipLevels[perm];
-            
-            if (levelKey) {
-                const data = {
-                    uuid: cards.uuid, name: cards.name,
-                    isLinked: linkedPileIds.has(cards.uuid), // 判定ロジックをシンプル化
-                    isSelected: false
-                };
-                if (cards.type === 'hand') {
-                    data.isSelected = (cards.uuid === handUuid);
-                    cardOptions.hands[levelKey].push(data);
-                } else if (cards.type === 'pile') {
-                    data.isSelected = (cards.uuid === trumpUuid);
-                    cardOptions.piles[levelKey].push(data);
-                }
-            }
-        }
-        
-        const templatePath = `systems/${systemId}/templates/parts/user-config-cards.hbs`;
-        const templateData = { 
-            cardOptions,
-            selectedHandId: handUuid,
-            selectedTrumpPileId: trumpUuid
-        };
-    
-        // --- テンプレート描画とイベントリスナー設定 ---
-        renderTemplate(templatePath, templateData).then(renderedHtml => {
-            const form = html;
-            if (form) {
-                const footer = form.querySelector("footer.form-footer");
-                const container = document.createElement('div');
-                container.innerHTML = renderedHtml;
-    
-                container.querySelectorAll('[data-action="release-flag"]').forEach(button => {
-                    button.addEventListener('click', async (event) => {
-                        const flagName = event.currentTarget.dataset.flag;
-                        if (flagName) {
-                            await targetUser.unsetFlag(systemId, flagName);
-                            app.render(true);
-                        }
-                    });
-                });
-    
-                if (footer) {
-                    footer.insertAdjacentElement('beforebegin', container);
-                } else {
-                    form.insertAdjacentElement('beforeend', container);
-                }
-                app.setPosition({ height: "auto" });
-            }
-        });
-    });
 
     const recalcActorExp = (item) => {
         if (item.parent && item.parent.type === 'cast') {
@@ -1043,64 +988,34 @@ Hooks.once("ready", async function() {
     });
 
     Hooks.on('updateActor', async (actor, diff, options, userId) => {
-        if (actor.type !== 'cast') return;
-
-        // 1. 自身の経験点再計算
-        if (options.calcExp !== false && !options.syncing) {
+        // 1. キャスト自身の経験点再計算 (変更なし)
+        if (actor.type === 'cast' && options.calcExp !== false && !options.syncing) {
             if (diff.system) {
                  await TokyoNovaCastSheet.updateCastExp(actor);
             }
         }
 
-        // 2. リンクしているレコードシートの再集計 (修正版)
-        if (actor.system.recordSheetId) {
+        // 2. プレイヤーアクターへの同期（キャスト更新時）
+        if (actor.type === 'cast' && actor.system.playerId) {
             try {
-                const recordSheet = await fromUuid(actor.system.recordSheetId);
-                
-                // レコードシートが存在し、かつ同期ループ中でない場合
-                if (recordSheet && !options.syncing) {
-                    
-                    // ▼▼▼ 集計ロジックの修正 ▼▼▼
-                    
-                    // このレコードシートをリンクしている全キャストを取得
-                    const linkedActors = game.actors.filter(a => 
-                        a.type === 'cast' && a.system.recordSheetId === recordSheet.uuid
-                    );
-                    
-                    let totalSharedSpent = 0;
-
-                    for (const a of linkedActors) {
-                        // キャストの「消費経験点 (spent)」は「実消費 - 170」の値
-                        const actorSpentOffset = Number(a.system.exp.spent) || 0;
-                        
-                        // キャストの「追加点」
-                        const additional = Number(a.system.exp.additional) || 0;
-                        
-                        // レコードシートからの消費分 (Overflow)
-                        // = 「消費(170引いた後)」が「追加点」を超えた分
-                        const overflow = Math.max(0, actorSpentOffset - additional);
-                        
-                        totalSharedSpent += overflow;
-                    }
-
-                    // 現在の値と比較して変更があれば更新
-                    const currentRecordSpent = Number(recordSheet.system.exp.spent) || 0;
-                    
-                    if (currentRecordSpent !== totalSharedSpent) {
-                        const currentRecordTotal = Number(recordSheet.system.exp.total) || 0;
-                        
-                        // spent と value を更新
-                        await recordSheet.update({
-                            "system.exp.spent": totalSharedSpent,
-                            "system.exp.value": currentRecordTotal - totalSharedSpent
-                        }, { syncing: true }); // syncingフラグでループ防止
-                        
-                        console.log(`TNX | Updated Shared Record Spent: ${totalSharedSpent} (Actors: ${linkedActors.length})`);
-                    }
-                    // ▲▲▲
+                const playerActor = await fromUuid(actor.system.playerId);
+                if (playerActor && !options.syncing) {
+                    // キャスト側の消費経験点等をチェックし、必要であればプレイヤーアクター側の値を更新するロジック
+                    // (レコードシートのロジックと同様、複数のキャストが紐づいている場合の合算が必要)
+                    await syncPlayerExpFromCasts(playerActor);
                 }
-            } catch (e) {
-                console.warn("Failed to update linked record sheet:", e);
+            } catch (e) { console.warn(e); }
+        }
+
+        // 3. プレイヤーアクター更新時の処理（キャストへの同期）
+        if (actor.type === 'player') {
+            // このプレイヤーアクターをリンクしている全キャストを探す
+            const linkedCasts = game.actors.filter(a => a.type === 'cast' && a.system.playerId === actor.uuid);
+            for (const cast of linkedCasts) {
+                if (!options.syncing) {
+                    // キャスト側の再計算をトリガー（プレイヤー側の履歴合計が変わった可能性があるため）
+                    await TokyoNovaCastSheet.updateCastExp(cast);
+                }
             }
         }
     });

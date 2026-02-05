@@ -97,26 +97,24 @@ export class TnxActionHandler {
      */
     static async playCard(cardId, context = {}) {
         let hand;
-        let handSourceDescription; // エラーメッセージ用の主語
+        let handSourceDescription;
 
-        // コンテキストに応じてどの手札からプレイするかを決定
         if (context.actor) {
-            // ケース1：アクターシートから呼び出された場合
+            // アクターシート等から明示的に指定された場合
             const handId = context.actor.system.handPileId;
             hand = handId ? await fromUuid(handId) : null;
             handSourceDescription = `アクター「${context.actor.name}」`;
         } else {
-            // ケース2：HUDなどユーザーから直接呼び出された場合
-            const user = context.user || game.user;
-            const handId = user.getFlag("tokyo-nova-axleration", "handId");
+            // HUD等からの操作：ユーザーキャラクターを参照
+            const actor = game.user.character;
+            if (!actor) return ui.notifications.warn("操作するキャラクターがユーザーに割り当てられていません。");
+            
+            const handId = actor.system.handPileId;
             hand = handId ? await fromUuid(handId) : null;
-            handSourceDescription = "あなた";
+            handSourceDescription = `キャラクター「${actor.name}」`;
         }
 
-        // 共通のカードプレイ処理
-        if (!hand) {
-            return ui.notifications.error(`${handSourceDescription}に手札が設定されていません。`);
-        }
+        if (!hand) return ui.notifications.error(`${handSourceDescription}に手札が設定されていません。`);
         
         const card = hand.cards.get(cardId);
         const discardPile = await this.getActiveDiscardPile();
@@ -201,15 +199,15 @@ export class TnxActionHandler {
                 return ui.notifications.warn(`アクター「${context.actor.name}」に手札が設定されていません。`);
             }
         } else {
-            // 【ケース2】HUDなどユーザーから直接呼び出された場合
-            const user = context.user || game.user;
-            const handId = user.getFlag("tokyo-nova-axleration", "handId");
+            // ユーザーキャラクターを参照
+            const actor = game.user.character;
+            if (!actor) return ui.notifications.warn("操作するキャラクターがユーザーに割り当てられていません。");
+
+            const handId = actor.system.handPileId;
             hand = handId ? await fromUuid(handId) : null;
-            const character = user.character;
-            limit = character?.system.handMaxSize ?? game.settings.get("tokyo-nova-axleration", "defaultHandMaxSize");
-            if (!hand) {
-                return ui.notifications.warn("あなたのユーザー設定に手札が割り当てられていません。");
-            }
+            limit = actor.system.handMaxSize ?? game.settings.get("tokyo-nova-axleration", "defaultHandMaxSize");
+            
+            if (!hand) return ui.notifications.warn(`キャラクター「${actor.name}」に手札が設定されていません。`);
         }
 
         // 上限を超えているかチェックし、警告を表示

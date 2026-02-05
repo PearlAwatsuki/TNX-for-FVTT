@@ -135,7 +135,6 @@ export class TnxSkillUtils {
      */
     static prepareStyleSkillView(systemData, options) {
         const view = {};
-        const ss = systemData.styleSkill;
 
         // 配列変換・正規化ヘルパー
         const ensureArray = (val) => {
@@ -148,7 +147,7 @@ export class TnxSkillUtils {
         };
 
         // 1. 技能 (Combo Skill)
-        const comboList = ensureArray(ss.comboSkill);
+        const comboList = ensureArray(systemData.comboSkill);
         view.comboSkill = comboList.map((s, idx) => {
             let label = "";
             // s がオブジェクトでない場合（古いデータなど）のガード
@@ -174,7 +173,7 @@ export class TnxSkillUtils {
         }).join("");
 
         // 2. 対決 (Confrontation)
-        const confrontList = ensureArray(ss.confrontation);
+        const confrontList = ensureArray(systemData.confrontation);
         view.confrontation = confrontList.map((s, idx) => {
             let label = "";
             const val = s.value || s;
@@ -200,7 +199,7 @@ export class TnxSkillUtils {
         }).join("");
 
         // 3. タイミング (Timing)
-        const timingList = ensureArray(ss.timing);
+        const timingList = ensureArray(systemData.timing);
         view.timing = timingList.map((t, idx) => {
             let label = "";
             const val = t.value || t;
@@ -220,37 +219,53 @@ export class TnxSkillUtils {
         }).join("");
 
         // 4. 上限 (Max Level)
-        if (ss.maxLevel === 'number') {
-            view.maxLevel = ss.maxLevelNumber;
-        } else if(ss.maxLevel === 'other') {
-            view.maxLevel = ss.maxLevelOther;
+        if (systemData.maxLevel === 'number') {
+            view.maxLevel = systemData.maxLevelNumber;
+        } else if(systemData.maxLevel === 'other') {
+            view.maxLevel = systemData.maxLevelOther;
         } else {
-            view.maxLevel = options.maxLevel[ss.maxLevel];
+            view.maxLevel = options.maxLevel[systemData.maxLevel];
         }
 
         // 5. 対象 (Target)
-        let targetLabel = (ss.target === 'other') 
-            ? ss.targetOther 
-            : options.target[ss.target];
-        if (ss.isFixedTarget) targetLabel += "※";
+        let targetLabel = (systemData.target === 'other') 
+            ? systemData.targetOther 
+            : options.target[systemData.target];
+        if (systemData.isFixedTarget) targetLabel += "※";
         view.target = targetLabel;
 
         // 6. 射程 (Range)
-        let rangeLabel = (ss.range === 'other') 
-            ? ss.rangeOther 
-            : options.range[ss.range];
-        if (ss.isFixedRange) rangeLabel += "※";
+        let rangeLabel = (systemData.range === 'other') 
+            ? systemData.rangeOther 
+            : options.range[systemData.range];
+        if (systemData.isFixedRange) rangeLabel += "※";
         view.range = rangeLabel;
 
         // 7. 目標値 (Target Value)
-        if (ss.targetValue === 'number') {
-            view.targetValue = ss.targetValueNumber;
-        } else if(ss.targetValue === 'other') {
-            view.targetValue = ss.targetValueOther;
+        if (systemData.targetValue === 'number') {
+            view.targetValue = systemData.targetValueNumber;
+        } else if(systemData.targetValue === 'other') {
+            view.targetValue = systemData.targetValueOther;
         } else {
-            view.targetValue = options.targetValue[ss.targetValue];
+            view.targetValue = options.targetValue[systemData.targetValue];
         }
 
         return view;
+    }
+
+    /**
+     * スートのチェックボックス変更時にレベルを再計算して更新する共通処理
+     * @param {Event} event 発生したイベント
+     * @param {ItemSheet} sheet 呼び出し元のアイテムシートインスタンス
+     */
+    static async onSuitChange(event, sheet) {
+        // シート内のチェックされているスートを取得
+        const checkedSuits = sheet.form.querySelectorAll('.suit-selection input[type="checkbox"]:checked');
+        const newLevel = checkedSuits.length;
+
+        // レベルが変更されていれば更新を実行
+        if (sheet.item.system.level !== newLevel) {
+            await sheet.item.update({"system.level": newLevel});
+        }
     }
 }

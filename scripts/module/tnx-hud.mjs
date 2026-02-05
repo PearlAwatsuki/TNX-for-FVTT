@@ -79,20 +79,23 @@ export class TnxHud extends Application {
             context.topSceneCard = scenePile.cards.contents[scenePile.cards.contents.length - 1];
         }
 
-        // --- 4. ユーザー個別のカード情報を取得 ---
-        const currentUser = game.user;
-        if (currentUser) {
+        const userCharacter = game.user.character;
+        
+        if (userCharacter) {
             // 手札
-            const handId = currentUser.getFlag("tokyo-nova-axleration", "handId");
+            const handId = userCharacter.system.handPileId;
             if (handId) {
-                context.hand = await fromUuid(handId);
+                const hand = await fromUuid(handId);
+                if (hand) context.hand = hand;
             }
+
             // 切り札
-            const trumpPileId = currentUser.getFlag("tokyo-nova-axleration", "trumpPileId");
+            const trumpPileId = userCharacter.system.trumpCardPileId;
             if (trumpPileId) {
                 const trumpPile = await fromUuid(trumpPileId);
                 if (trumpPile) {
                     context.trumpPile = trumpPile;
+                    // 切り札がある場合、1枚目を取得
                     context.trumpCard = trumpPile.cards.contents[0];
                 }
             }

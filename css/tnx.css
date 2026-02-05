@@ -857,11 +857,11 @@ form .sheet-notes.notes {
 /* =================================================================== */
 
 /* --- Cast Sheet: General --- */
-.tokyo-nova.sheet.actor.cast .two-column-layout {
+.tokyo-nova.sheet.actor .two-column-layout {
     display: flex;
     height: 100%;
 }
-.tokyo-nova.sheet.actor.cast .profile-sidebar {
+.tokyo-nova.sheet.actor .profile-sidebar {
     flex: 0 0 var(--tnx-sidebar-width);
     padding: 10px;
     border-right: 1px solid #333;
@@ -871,7 +871,7 @@ form .sheet-notes.notes {
     gap: 15px;
     overflow-y: auto;
 }
-.tokyo-nova.sheet.actor.cast .main-content-area {
+.tokyo-nova.sheet.actor .main-content-area {
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
@@ -879,7 +879,7 @@ form .sheet-notes.notes {
 }
 
 /* --- Cast Sheet: Sidebar --- */
-.tokyo-nova.sheet.actor.cast .profile-sidebar .portrait-section .profile-img {
+.tokyo-nova.sheet.actor .profile-sidebar .portrait-section .profile-img {
     max-width: 180px;
     height: auto;
     border: 2px solid var(--tnx-color-border);
@@ -887,7 +887,7 @@ form .sheet-notes.notes {
     display: block;
     margin: 0 auto;
 }
-.tokyo-nova.sheet.actor.cast .profile-sidebar .sidebar-header {
+.tokyo-nova.sheet.actor .profile-sidebar .sidebar-header {
     font-size: 1.2em;
     font-weight: bold;
     color: var(--tnx-color-primary);
@@ -895,19 +895,19 @@ form .sheet-notes.notes {
     border-bottom: 1px solid var(--tnx-color-primary-dark);
     padding-bottom: 5px;
 }
-.tokyo-nova.sheet.actor.cast .profile-sidebar .personal-data-grid {
+.tokyo-nova.sheet.actor .profile-sidebar .personal-data-grid {
     display: grid;
     grid-template-columns: 126px 1fr;
     gap: 5px 8px;
     align-items: center;
 }
-.tokyo-nova.sheet.actor.cast .profile-sidebar .personal-data-item label {
+.tokyo-nova.sheet.actor .profile-sidebar .personal-data-item label {
     font-size: 0.9em;
     color: var(--tnx-color-text-dim);
     text-align: right;
     padding-right: 5px;
 }
-.tokyo-nova.sheet.actor.cast .profile-sidebar .personal-data-item input[type="text"] {
+.tokyo-nova.sheet.actor .profile-sidebar .personal-data-item input[type="text"] {
     width: 100%;
     background-color: var(--tnx-color-bg-input);
     border: 1px solid var(--tnx-color-border);
@@ -915,17 +915,17 @@ form .sheet-notes.notes {
     padding: 4px 6px;
     border-radius: var(--tnx-border-radius-sm);
 }
-.tokyo-nova.sheet.actor.cast .profile-sidebar .sidebar-edit-controls {
+.tokyo-nova.sheet.actor .profile-sidebar .sidebar-edit-controls {
     display: flex;
     flex-direction: column;
     gap: 15px;
 }
-.tokyo-nova.sheet.actor.cast .profile-sidebar .control-group {
+.tokyo-nova.sheet.actor .profile-sidebar .control-group {
     display: flex;
     flex-direction: column;
     gap: 5px;
 }
-.tokyo-nova.sheet.actor.cast .profile-sidebar .control-group > label {
+.tokyo-nova.sheet.actor .profile-sidebar .control-group > label {
     font-weight: bold;
     color: var(--tnx-color-text-dim);
     font-size: 1.1em;
@@ -933,24 +933,24 @@ form .sheet-notes.notes {
     padding-bottom: 3px;
     margin-bottom: 2px;
 }
-.tokyo-nova.sheet.actor.cast .profile-sidebar .hand-controls.horizontal-buttons {
+.tokyo-nova.sheet.actor .profile-sidebar .hand-controls.horizontal-buttons {
     display: flex;
     gap: 5px;
     margin-bottom: 10px;
 }
-.tokyo-nova.sheet.actor.cast .profile-sidebar .hand-controls.horizontal-buttons .tnx-button {
+.tokyo-nova.sheet.actor .profile-sidebar .hand-controls.horizontal-buttons .tnx-button {
     padding: 0 6px;
     gap: 4px;
     font-size: 13px;
 }
-.tokyo-nova.sheet.actor.cast .profile-sidebar .hand-cards-display {
+.tokyo-nova.sheet.actor .profile-sidebar .hand-cards-display {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
     justify-content: center;
     min-height: 100px;
 }
-.tokyo-nova.sheet.actor.cast .profile-sidebar .card-in-hand.interactive {
+.tokyo-nova.sheet.actor .profile-sidebar .card-in-hand.interactive {
     cursor: pointer;
     border: 2px solid transparent;
     border-radius: 5px;
@@ -960,19 +960,19 @@ form .sheet-notes.notes {
     height: auto;
     flex-shrink: 0;
 }
-.tokyo-nova.sheet.actor.cast .profile-sidebar .card-in-hand.interactive img {
+.tokyo-nova.sheet.actor .profile-sidebar .card-in-hand.interactive img {
     width: 100%; 
     height: auto;
     display: block;
     border-radius: 3px;
 }
-.tokyo-nova.sheet.actor.cast .profile-sidebar .card-in-hand.interactive:hover {
+.tokyo-nova.sheet.actor .profile-sidebar .card-in-hand.interactive:hover {
     transform: translateY(-4px) scale(1.05);
     border-color: var(--tnx-color-primary-highlight);
     box-shadow: 0 4px 15px rgba(0, 221, 255, 0.5);
 }
-.tokyo-nova.sheet.actor.cast .profile-sidebar .hand-empty-placeholder,
-.tokyo-nova.sheet.actor.cast .no-item-linked-message {
+.tokyo-nova.sheet.actor .profile-sidebar .hand-empty-placeholder,
+.tokyo-nova.sheet.actor .no-item-linked-message {
     width: 100%;
     text-align: center;
     font-style: italic;
@@ -981,7 +981,7 @@ form .sheet-notes.notes {
 }
 
 /* --- Cast Sheet: Header --- */
-.tokyo-nova.sheet.actor.cast .profile-header {
+.tokyo-nova.sheet.actor .profile-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
@@ -991,25 +991,25 @@ form .sheet-notes.notes {
     position: relative;
     flex-shrink: 0;
 }
-.tokyo-nova.sheet.actor.cast .profile-header .header-content-wrapper {
+.tokyo-nova.sheet.actor .profile-header .header-content-wrapper {
     display: flex;
     flex-direction: column;
     flex-grow: 1;
     gap: 8px;
 }
-.tokyo-nova.sheet.actor.cast .profile-header .identity-section .identity-view-mode {
+.tokyo-nova.sheet.actor .profile-header .identity-section .identity-view-mode {
     display: flex; align-items: baseline; gap: 0.5em; flex-wrap: wrap;
 }
-.tokyo-nova.sheet.actor.cast .profile-header .identity-view-mode .quote-mark { font-size: 1.6em; font-weight: bold; color: var(--tnx-color-primary-accent); line-height: 1; }
-.tokyo-nova.sheet.actor.cast .profile-header .identity-view-mode .handle-ruby-view rb { font-size: 1.6em; font-weight: bold; color: var(--tnx-color-primary-accent); margin: 0 0.1em; }
-.tokyo-nova.sheet.actor.cast .profile-header .identity-view-mode .handle-ruby-view rt { font-size: 0.65em; color: var(--tnx-color-primary); }
-.tokyo-nova.sheet.actor.cast .profile-header .identity-view-mode .char-name-ruby-view rb { font-size: 1.9em; font-weight: bold; color: var(--tnx-color-primary-accent); }
-.tokyo-nova.sheet.actor.cast .profile-header .identity-view-mode .char-name-ruby-view rt { font-size: 0.7em; color: var(--tnx-color-primary); }
-.tokyo-nova.sheet.actor.cast .profile-header .identity-edit-mode { display: flex; flex-direction: column; gap: 8px; }
-.tokyo-nova.sheet.actor.cast .profile-header .identity-edit-mode .char-name-block-edit,
-.tokyo-nova.sheet.actor.cast .profile-header .identity-edit-mode .handle-block-edit { display: flex; gap: 3px; }
-.tokyo-nova.sheet.actor.cast .profile-header .identity-edit-mode label { font-size: 0.9em; color: var(--tnx-color-text-dim); }
-.tokyo-nova.sheet.actor.cast .profile-header .identity-edit-mode input[type="text"] {
+.tokyo-nova.sheet.actor .profile-header .identity-view-mode .quote-mark { font-size: 1.6em; font-weight: bold; color: var(--tnx-color-primary-accent); line-height: 1; }
+.tokyo-nova.sheet.actor .profile-header .identity-view-mode .handle-ruby-view rb { font-size: 1.6em; font-weight: bold; color: var(--tnx-color-primary-accent); margin: 0 0.1em; }
+.tokyo-nova.sheet.actor .profile-header .identity-view-mode .handle-ruby-view rt { font-size: 0.65em; color: var(--tnx-color-primary); }
+.tokyo-nova.sheet.actor .profile-header .identity-view-mode .char-name-ruby-view rb { font-size: 1.9em; font-weight: bold; color: var(--tnx-color-primary-accent); }
+.tokyo-nova.sheet.actor .profile-header .identity-view-mode .char-name-ruby-view rt { font-size: 0.7em; color: var(--tnx-color-primary); }
+.tokyo-nova.sheet.actor .profile-header .identity-edit-mode { display: flex; flex-direction: column; gap: 8px; }
+.tokyo-nova.sheet.actor .profile-header .identity-edit-mode .char-name-block-edit,
+.tokyo-nova.sheet.actor .profile-header .identity-edit-mode .handle-block-edit { display: flex; gap: 3px; }
+.tokyo-nova.sheet.actor .profile-header .identity-edit-mode label { font-size: 0.9em; color: var(--tnx-color-text-dim); }
+.tokyo-nova.sheet.actor .profile-header .identity-edit-mode input[type="text"] {
     background-color: var(--tnx-color-bg-input);
     border: 1px solid var(--tnx-color-border);
     color: var(--tnx-color-text-base);
@@ -1017,17 +1017,17 @@ form .sheet-notes.notes {
     border-radius: var(--tnx-border-radius-sm);
     font-size: 1.1em;
 }
-.tokyo-nova.sheet.actor.cast .profile-header .middle-header-section { display: flex; flex-direction: column; width: 100%; gap: 8px; }
-.tokyo-nova.sheet.actor.cast .profile-header .rank-affiliation-wrapper { display: flex; align-items: baseline; gap: 30px; flex-grow: 1; flex-wrap: wrap; }
-.tokyo-nova.sheet.actor.cast .profile-header .view-mode-rank,
-.tokyo-nova.sheet.actor.cast .profile-header .view-mode-affiliation { display: flex; flex-direction: row; align-items: baseline; }
-.tokyo-nova.sheet.actor.cast .profile-header .middle-header-section .view-mode-label { font-size: 1.1em; color: var(--tnx-color-text-dim); }
-.tokyo-nova.sheet.actor.cast .profile-header .citizen-rank-block .view-mode-value { font-size: 2em; color: var(--tnx-color-primary-highlight); font-weight: bold; }
-.tokyo-nova.sheet.actor.cast .profile-header .affiliation-block .view-mode-value { font-size: 1.3em; font-weight: bold; }
-.tokyo-nova.sheet.actor.cast .profile-header .edit-mode-rank,
-.tokyo-nova.sheet.actor.cast .profile-header .edit-mode-affiliation { display: flex; align-items: center; gap: 5px; }
-.tokyo-nova.sheet.actor.cast .profile-header .middle-header-section label { color: var(--tnx-color-text-dim); white-space: nowrap; }
-.tokyo-nova.sheet.actor.cast .profile-header .citizen-rank-block select {
+.tokyo-nova.sheet.actor .profile-header .middle-header-section { display: flex; flex-direction: column; width: 100%; gap: 8px; }
+.tokyo-nova.sheet.actor .profile-header .rank-affiliation-wrapper { display: flex; align-items: baseline; gap: 30px; flex-grow: 1; flex-wrap: wrap; }
+.tokyo-nova.sheet.actor .profile-header .view-mode-rank,
+.tokyo-nova.sheet.actor .profile-header .view-mode-affiliation { display: flex; flex-direction: row; align-items: baseline; }
+.tokyo-nova.sheet.actor .profile-header .middle-header-section .view-mode-label { font-size: 1.1em; color: var(--tnx-color-text-dim); }
+.tokyo-nova.sheet.actor .profile-header .citizen-rank-block .view-mode-value { font-size: 2em; color: var(--tnx-color-primary-highlight); font-weight: bold; }
+.tokyo-nova.sheet.actor .profile-header .affiliation-block .view-mode-value { font-size: 1.3em; font-weight: bold; }
+.tokyo-nova.sheet.actor .profile-header .edit-mode-rank,
+.tokyo-nova.sheet.actor .profile-header .edit-mode-affiliation { display: flex; align-items: center; gap: 5px; }
+.tokyo-nova.sheet.actor .profile-header .middle-header-section label { color: var(--tnx-color-text-dim); white-space: nowrap; }
+.tokyo-nova.sheet.actor .profile-header .citizen-rank-block select {
     min-width: 120px;
     background-color: var(--tnx-color-bg-input);
     border: 1px solid var(--tnx-color-border);
@@ -1035,58 +1035,58 @@ form .sheet-notes.notes {
     border-radius: var(--tnx-border-radius-sm);
     padding: 4px;
 }
-.tokyo-nova.sheet.actor.cast .affiliation-block {
+.tokyo-nova.sheet.actor .affiliation-block {
     width: 280px;
 }
-.tokyo-nova.sheet.actor.cast .edit-mode-affiliation > .tnx-linked-button,
-.tokyo-nova.sheet.actor.cast .edit-mode-affiliation > .tnx-import-box--inline {
+.tokyo-nova.sheet.actor .edit-mode-affiliation > .tnx-linked-button,
+.tokyo-nova.sheet.actor .edit-mode-affiliation > .tnx-import-box--inline {
     flex-grow: 1;
     min-width: 0;
 }
-.tokyo-nova.sheet.actor.cast .profile-header .view-mode-style-summary { display: flex; align-items: baseline; gap: 5px; }
-.tokyo-nova.sheet.actor.cast .profile-header .style-summary-items { font-size: 1.1em; font-weight: bold; display: inline-flex; flex-wrap: wrap; }
-.tokyo-nova.sheet.actor.cast .profile-header .exp-display-section { text-align: right; }
-.tokyo-nova.sheet.actor.cast .profile-header .edit-mode-exp { display: flex; align-items: center; gap: 55px; }
-.tokyo-nova.sheet.actor.cast .profile-header .exp-display-section .exp-value { font-weight: bold; font-size: 1.2em; color: var(--tnx-color-primary-highlight); }
-.tokyo-nova.sheet.actor.cast .profile-header .styles-and-miracle-section { width: 100%; margin-top: 10px; }
-.tokyo-nova.sheet.actor.cast .profile-header .miracle-header { font-size: 1.2em; font-weight: bold; color: var(--tnx-color-primary); margin-bottom: 8px; text-align: center; border-bottom: 1px solid var(--tnx-color-primary-dark); padding-bottom: 4px; }
-.tokyo-nova.sheet.actor.cast .profile-header .miracle-buttons-grid {
+.tokyo-nova.sheet.actor .profile-header .view-mode-style-summary { display: flex; align-items: baseline; gap: 5px; }
+.tokyo-nova.sheet.actor .profile-header .style-summary-items { font-size: 1.1em; font-weight: bold; display: inline-flex; flex-wrap: wrap; }
+.tokyo-nova.sheet.actor .profile-header .exp-display-section { text-align: right; }
+.tokyo-nova.sheet.actor .profile-header .edit-mode-exp { display: flex; align-items: center; gap: 55px; }
+.tokyo-nova.sheet.actor .profile-header .exp-display-section .exp-value { font-weight: bold; font-size: 1.2em; color: var(--tnx-color-primary-highlight); }
+.tokyo-nova.sheet.actor .profile-header .styles-and-miracle-section { width: 100%; margin-top: 10px; }
+.tokyo-nova.sheet.actor .profile-header .miracle-header { font-size: 1.2em; font-weight: bold; color: var(--tnx-color-primary); margin-bottom: 8px; text-align: center; border-bottom: 1px solid var(--tnx-color-primary-dark); padding-bottom: 4px; }
+.tokyo-nova.sheet.actor .profile-header .miracle-buttons-grid {
     display: flex;         /* 親要素をFlexboxコンテナにする（これが横並びの基本です） */
     flex-wrap: wrap;       /* 要素が多すぎて一行に収まらない場合は折り返す */
     gap: 10px;             /* ボタン間の隙間を空ける */
     justify-content: center; /* ボタンを中央揃えにする */
 }
-.tokyo-nova.sheet.actor.cast .profile-header .miracle-action-item { flex: 1; min-width: 160px; }
-.tokyo-nova.sheet.actor.cast .profile-header button.miracle-use-button {
+.tokyo-nova.sheet.actor .profile-header .miracle-action-item { flex: 1; min-width: 160px; }
+.tokyo-nova.sheet.actor .profile-header button.miracle-use-button {
     width: 168px;
     gap: 10px;
     flex-grow: 1;
     min-height: 44px;
     font-size: 0.9em;
 }
-.tokyo-nova.sheet.actor.cast .profile-header span.miracle-name__label {
+.tokyo-nova.sheet.actor .profile-header span.miracle-name__label {
     text-align: center;
 }
 
 /* --- Cast Sheet: Header Item Slots --- */
-.tokyo-nova.sheet.actor.cast .edit-mode-styles-miracle-block {
+.tokyo-nova.sheet.actor .edit-mode-styles-miracle-block {
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
-.tokyo-nova.sheet.actor.cast .item-slots-row {
+.tokyo-nova.sheet.actor .item-slots-row {
     display: flex;
     gap: 5px;
     align-items: center;
 }
-.tokyo-nova.sheet.actor.cast .style-slot,
-.tokyo-nova.sheet.actor.cast .miracle-slot {
+.tokyo-nova.sheet.actor .style-slot,
+.tokyo-nova.sheet.actor .miracle-slot {
     flex: 1;
     min-width: 0;
 }
 
-.tokyo-nova.sheet.actor.cast .sheet-controls { position: absolute; top: 5px; right: 5px; }
-.tokyo-nova.sheet.actor.cast .edit-mode-toggle {
+.tokyo-nova.sheet.actor .sheet-controls { position: absolute; top: 5px; right: 5px; }
+.tokyo-nova.sheet.actor .edit-mode-toggle {
     position: relative;
     width: 50px;
     height: 26px;
@@ -1098,7 +1098,7 @@ form .sheet-notes.notes {
     -webkit-appearance: none;
     padding: 0;
 }
-.tokyo-nova.sheet.actor.cast .edit-mode-toggle::after {
+.tokyo-nova.sheet.actor .edit-mode-toggle::after {
     position: absolute;
     top: 2px;
     left: 2px;
@@ -1116,37 +1116,37 @@ form .sheet-notes.notes {
     color: #555;
     content: '\f06e';
 }
-.tokyo-nova.sheet.actor.cast .edit-mode-toggle i {
+.tokyo-nova.sheet.actor .edit-mode-toggle i {
     display: none;
 }
-.tokyo-nova.sheet.actor.cast.edit-mode .edit-mode-toggle {
+.tokyo-nova.sheet.actor.edit-mode .edit-mode-toggle {
     background-color: var(--tnx-color-primary);
 }
-.tokyo-nova.sheet.actor.cast.edit-mode .edit-mode-toggle::after {
+.tokyo-nova.sheet.actor.edit-mode .edit-mode-toggle::after {
     left: 26px;
     color: var(--tnx-color-primary);
     content: '\f044';
 }
 
 /* --- Cast Sheet: Main Content --- */
-.tokyo-nova.sheet.actor.cast .sheet-tabs { flex-shrink: 0; border-bottom: 1px solid var(--tnx-color-primary-dark); }
-.tokyo-nova.sheet.actor.cast .sheet-tabs .item { color: var(--tnx-color-text-dim); padding: 5px 10px; }
-.tokyo-nova.sheet.actor.cast .sheet-tabs .item.active { text-shadow: 0 0 8px var(--tnx-color-primary); border-bottom: 2px solid var(--tnx-color-primary); color: #fff; }
-.tokyo-nova.sheet.actor.cast .sheet-body { flex-grow: 1; overflow-y: auto; padding: 10px; background-color: var(--tnx-color-bg-alt); }
+.tokyo-nova.sheet.actor .sheet-tabs { flex-shrink: 0; border-bottom: 1px solid var(--tnx-color-primary-dark); }
+.tokyo-nova.sheet.actor .sheet-tabs .item { color: var(--tnx-color-text-dim); padding: 5px 10px; }
+.tokyo-nova.sheet.actor .sheet-tabs .item.active { text-shadow: 0 0 8px var(--tnx-color-primary); border-bottom: 2px solid var(--tnx-color-primary); color: #fff; }
+.tokyo-nova.sheet.actor .sheet-body { flex-grow: 1; overflow-y: auto; padding: 10px; background-color: var(--tnx-color-bg-alt); }
 
 /* --- Cast Sheet: Abilities Tab (View Mode) --- */
-.tokyo-nova.sheet.actor.cast .abilities-grid.view-mode-layout {
+.tokyo-nova.sheet.actor .abilities-grid.view-mode-layout {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 20px;
     padding: 5px;
 }
-.tokyo-nova.sheet.actor.cast .view-mode-layout .ability-display {
+.tokyo-nova.sheet.actor .view-mode-layout .ability-display {
     display: flex;
     flex-direction: column;
     align-items: center;
 }
-.tokyo-nova.sheet.actor.cast .view-mode-layout .ability-label-shape {
+.tokyo-nova.sheet.actor .view-mode-layout .ability-label-shape {
     background-color: var(--tnx-color-primary-darker);
     border: 1px solid var(--tnx-color-primary);
     transform: skewX(-25deg);
@@ -1154,11 +1154,11 @@ form .sheet-notes.notes {
     z-index: 2;
     position: relative;
 }
-.tokyo-nova.sheet.actor.cast .view-mode-layout .ability-label-content {
+.tokyo-nova.sheet.actor .view-mode-layout .ability-label-content {
     transform: skewX(25deg);
     padding: 4px 0;
 }
-.tokyo-nova.sheet.actor.cast .view-mode-layout .ability-label-content h3 {
+.tokyo-nova.sheet.actor .view-mode-layout .ability-label-content h3 {
     color: var(--tnx-color-primary-accent);
     font-size: 1.2em;
     font-weight: bold;
@@ -1166,24 +1166,24 @@ form .sheet-notes.notes {
     border-bottom: 0;
     margin: 0;
 }
-.tokyo-nova.sheet.actor.cast .view-mode-layout .ability-values-area {
+.tokyo-nova.sheet.actor .view-mode-layout .ability-values-area {
     display: flex;
     justify-content: center;
     align-items: flex-end;
     width: 100%;
 }
-.tokyo-nova.sheet.actor.cast .view-mode-layout .ability-value-shape {
+.tokyo-nova.sheet.actor .view-mode-layout .ability-value-shape {
     background-color: var(--tnx-color-bg-input);
     border: 1px solid var(--tnx-color-border-accent);
     transform: skewX(-25deg);
     width: 60%;
     z-index: 1;
 }
-.tokyo-nova.sheet.actor.cast .view-mode-layout .ability-value-content {
+.tokyo-nova.sheet.actor .view-mode-layout .ability-value-content {
     transform: skewX(25deg);
     padding: 5px;
 }
-.tokyo-nova.sheet.actor.cast .view-mode-layout .control-value-shape {
+.tokyo-nova.sheet.actor .view-mode-layout .control-value-shape {
     background-color: #333a41;
     border: 1px solid var(--tnx-color-border);
     transform: skewX(-25deg);
@@ -1191,14 +1191,14 @@ form .sheet-notes.notes {
     height: 80%;
     margin-left: -2px;
 }
-.tokyo-nova.sheet.actor.cast .view-mode-layout .control-value-content {
+.tokyo-nova.sheet.actor .view-mode-layout .control-value-content {
     transform: skewX(25deg);
     padding: 5px;
     height: 100%;
     display: flex;
     align-items: center;
 }
-.tokyo-nova.sheet.actor.cast .view-mode-layout input[type="number"] {
+.tokyo-nova.sheet.actor .view-mode-layout input[type="number"] {
     width: 100%;
     background: transparent;
     border: none;
@@ -1207,33 +1207,33 @@ form .sheet-notes.notes {
     padding: 0;
     pointer-events: none;
 }
-.tokyo-nova.sheet.actor.cast .view-mode-layout .ability-value-content input {
+.tokyo-nova.sheet.actor .view-mode-layout .ability-value-content input {
     font-size: 1.8em;
     font-weight: bold;
 }
-.tokyo-nova.sheet.actor.cast .view-mode-layout .control-value-content input {
+.tokyo-nova.sheet.actor .view-mode-layout .control-value-content input {
     font-size: 1.2em;
     color: var(--tnx-color-text-dim);
 }
 
 /* --- Cast Sheet: Visibility Toggles --- */
-.tokyo-nova.sheet.actor.cast.view-mode .identity-edit-mode,
-.tokyo-nova.sheet.actor.cast.view-mode .middle-header-section .edit-mode-rank,
-.tokyo-nova.sheet.actor.cast.view-mode .middle-header-section .edit-mode-affiliation,
-.tokyo-nova.sheet.actor.cast.view-mode .exp-display-section .edit-mode-exp,
-.tokyo-nova.sheet.actor.cast.view-mode .styles-and-miracle-section .edit-mode-styles-miracle-block,
-.tokyo-nova.sheet.actor.cast.view-mode .sidebar-hand-pool-section .sidebar-edit-controls,
-.tokyo-nova.sheet.actor.cast.edit-mode .identity-view-mode,
-.tokyo-nova.sheet.actor.cast.edit-mode .middle-header-section .view-mode-rank,
-.tokyo-nova.sheet.actor.cast.edit-mode .middle-header-section .view-mode-affiliation,
-.tokyo-nova.sheet.actor.cast.edit-mode .middle-header-section .view-mode-style-summary,
-.tokyo-nova.sheet.actor.cast.edit-mode .exp-display-section .view-mode-exp,
-.tokyo-nova.sheet.actor.cast.edit-mode .styles-and-miracle-section .view-mode-miracle-actions,
-.tokyo-nova.sheet.actor.cast.edit-mode .sidebar-hand-pool-section .view-mode-hand {
+.tokyo-nova.sheet.actor.view-mode .identity-edit-mode,
+.tokyo-nova.sheet.actor.view-mode .middle-header-section .edit-mode-rank,
+.tokyo-nova.sheet.actor.view-mode .middle-header-section .edit-mode-affiliation,
+.tokyo-nova.sheet.actor.view-mode .exp-display-section .edit-mode-exp,
+.tokyo-nova.sheet.actor.view-mode .styles-and-miracle-section .edit-mode-styles-miracle-block,
+.tokyo-nova.sheet.actor.view-mode .sidebar-hand-pool-section .sidebar-edit-controls,
+.tokyo-nova.sheet.actor.edit-mode .identity-view-mode,
+.tokyo-nova.sheet.actor.edit-mode .middle-header-section .view-mode-rank,
+.tokyo-nova.sheet.actor.edit-mode .middle-header-section .view-mode-affiliation,
+.tokyo-nova.sheet.actor.edit-mode .middle-header-section .view-mode-style-summary,
+.tokyo-nova.sheet.actor.edit-mode .exp-display-section .view-mode-exp,
+.tokyo-nova.sheet.actor.edit-mode .styles-and-miracle-section .view-mode-miracle-actions,
+.tokyo-nova.sheet.actor.edit-mode .sidebar-hand-pool-section .view-mode-hand {
     display: none !important;
 }
-.tokyo-nova.sheet.actor.cast.view-mode input,
-.tokyo-nova.sheet.actor.cast.view-mode select {
+.tokyo-nova.sheet.actor.view-mode input,
+.tokyo-nova.sheet.actor.view-mode select {
     border: none !important; background: transparent !important; pointer-events: none;
     padding-left: 0; padding-right: 0; color: inherit !important;
     -webkit-appearance: none; -moz-appearance: none; appearance: none;
@@ -1262,7 +1262,7 @@ form .sheet-notes.notes {
 }
 
 /* --- レイアウトとスクロールの修正 --- */
-.tokyo-nova.sheet.actor.cast .tabbed-content {
+.tokyo-nova.sheet.actor .tabbed-content {
     display: flex;
     flex-direction: column;
     flex-grow: 1;
