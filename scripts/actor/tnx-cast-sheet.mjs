@@ -242,7 +242,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
         html.find('.skill-property-change').on('change', this._onSkillPropertyChange.bind(this));
         html.find('.item-delete').on('click', this._onItemDelete.bind(this));
         html.find('.item-create').on('click', this._onItemCreate.bind(this));
-        html.find('.record-sheet-open').click(this._onOpenRecordSheet.bind(this));
+        html.find('.unlink-player-btn').click(this._onUnlinkPlayer.bind(this));
 
         if (this.isEditable) {
             html.find('.ability-main-inputs input[name$=".growth"], .ability-main-inputs input[name$=".controlGrowth"]')
@@ -380,15 +380,6 @@ export class TokyoNovaCastSheet extends ActorSheet {
         ];
 
         new ContextMenu(html, ".style-skills-list .style-skill-row", styleSkillOptions);
-
-        const recordLinkMenu = [
-            {
-                name: "TNX.Common.Unlink", 
-                icon: '<i class="fas fa-unlink"></i>',
-                callback: () => this.actor.update({ "system.recordSheetId": "" })
-            }
-        ];
-        new ContextMenu(html, '.record-link-container', recordLinkMenu);
     }
     
     async _getCardPileData(context) {
@@ -470,6 +461,62 @@ export class TokyoNovaCastSheet extends ActorSheet {
                 totalControl: (ability.controlGrowth || 0) + styleTotalControl + (ability.controlMod || 0) + (ability.controlEffectMod || 0)
             };
         }
+    }
+
+    async _onDrop(event) {
+        // FVTT v12 推奨のドラッグデータ取得
+        const data = TextEditor.getDragEventData(event);
+
+        if (data.type === "Actor") {
+            const sourceActor = await fromUuid(data.uuid);
+            
+            // ドロップされたアクターが「プレイヤー(player)」タイプの場合
+            if (sourceActor && sourceActor.type === "player") {
+                // 自分自身をドロップした場合は無視
+                if (sourceActor.uuid === this.actor.uuid) return false;
+
+                const updateData = {
+                    "system.playerId": sourceActor.uuid
+                };
+
+                // 【要望対応】手札・切り札IDのインポート
+                // プレイヤー側で設定されている場合のみ上書きする
+                if (sourceActor.system.handPileId) {
+                    updateData["system.handPileId"] = sourceActor.system.handPileId;
+                }
+                if (sourceActor.system.trumpCardPileId) {
+                    updateData["system.trumpCardPileId"] = sourceActor.system.trumpCardPileId;
+                }
+
+                // 【要望対応】履歴と経験点の即時同期
+                // ドロップ直後にキャスト側の計算や表示が整合するように、プレイヤー側のデータをコピーする
+                if (sourceActor.system.history) {
+                    updateData["system.history"] = sourceActor.system.history;
+                }
+                
+                // プレイヤー側の経験点情報（合計点や追加点）もコピー
+                // ※キャスト側の消費点(spent)はキャストの所持スタイル等から再計算されるため、totalを同期することが重要
+                if (sourceActor.system.exp) {
+                    if (sourceActor.system.exp.total !== undefined) {
+                        updateData["system.exp.total"] = sourceActor.system.exp.total;
+                    }
+                    if (sourceActor.system.exp.additional !== undefined) {
+                        updateData["system.exp.additional"] = sourceActor.system.exp.additional;
+                    }
+                }
+
+                // 更新を実行
+                await this.actor.update(updateData);
+                
+                // 念のため経験点の再計算を実行（コピーしたtotalを基に、現在値(value)を正しく計算させる）
+                await TokyoNovaCastSheet.updateCastExp(this.actor);
+                
+                return true;
+            }
+        }
+
+        // それ以外（アイテムのドロップなど）は親クラスの処理に任せる
+        return super._onDrop(event);
     }
 
     async _onDropItem(event, data) {
@@ -1197,10 +1244,10 @@ export class TokyoNovaCastSheet extends ActorSheet {
     }
 
     async _getHistoryData() {
-        if (this.actor.system.recordSheetId) {
-            const recordSheet = await fromUuid(this.actor.system.recordSheetId);
-            if (recordSheet) {
-                return foundry.utils.deepClone(recordSheet.system.history || []);
+        if (this.actor.system.playerId) {
+            const player = await fromUuid(this.actor.system.playerId);
+            if (player) {
+                return foundry.utils.deepClone(player.system.history || []);
             }
         }
         return foundry.utils.deepClone(this.actor.system.history || []);
@@ -1209,16 +1256,16 @@ export class TokyoNovaCastSheet extends ActorSheet {
     async _saveHistoryData(newHistory) {
         await this.actor.update({ "system.history": newHistory });
 
-        if (this.actor.system.recordSheetId) {
+        if (this.actor.system.playerId) {
             try {
-                const recordSheet = await fromUuid(this.actor.system.recordSheetId);
-                if (recordSheet) {
+                const player = await fromUuid(this.actor.system.playerId);
+                if (player) {
                     const sortedHistory = [...newHistory];
                     this._sortHistory(sortedHistory);
                     
                     const currentTotal = Number(this.actor.system.exp.total) || 0;
 
-                    await recordSheet.update({ 
+                    await player.update({ 
                         "system.history": sortedHistory,
                         "system.exp.total": currentTotal
                     });
@@ -1236,11 +1283,23 @@ export class TokyoNovaCastSheet extends ActorSheet {
         });
     }
 
-    async _onOpenRecordSheet(event) {
+    /**
+     * ▼▼▼ 追加: プレイヤーリンク解除処理 ▼▼▼
+     */
+    async _onUnlinkPlayer(event) {
         event.preventDefault();
-        if (this.actor.system.recordSheetId) {
-            const item = await fromUuid(this.actor.system.recordSheetId);
-            item?.sheet.render(true);
+        
+        // 念のためIDがない場合は処理しない
+        if (!this.actor.system.playerId) return;
+
+        const confirm = await Dialog.confirm({
+            title: game.i18n.localize("TNX.Common.Unlink"),
+            content: `<p>${game.i18n.localize("TNX.ConfirmUnlinkPlayer")}</p>`,
+            defaultYes: false
+        });
+
+        if (confirm) {
+            await this.actor.update({ "system.playerId": "" });
         }
     }
 
@@ -1275,12 +1334,12 @@ export class TokyoNovaCastSheet extends ActorSheet {
         const additional = Number(actor.system.exp.additional) || 0;
         let historyTotal = 0;
         
-        let recordSheet = null;
-        if (actor.system.recordSheetId) {
+        let player = null;
+        if (actor.system.playerId) {
             try {
-                const doc = await fromUuid(actor.system.recordSheetId);
+                const doc = await fromUuid(actor.system.playerId);
                 if (doc) {
-                    recordSheet = doc;
+                    player = doc;
                     historyTotal = Number(doc.system.exp.total) || 0;
                 }
             } catch (e) { console.warn(e); }

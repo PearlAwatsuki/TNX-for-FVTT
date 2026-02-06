@@ -20,8 +20,8 @@ export class TokyoNovaPlayerSheet extends ActorSheet {
         return foundry.utils.mergeObject(super.defaultOptions, {
             classes: ["tokyo-nova", "sheet", "actor", "player"], // .cast-sheet はhbs側で付与するか、ここで追加しても良い
             template: "systems/tokyo-nova-axleration/templates/actor/player-sheet.hbs",
-            width: 800,
-            height: 800,
+            width: 850,
+            height: 900,
             tabs: [{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "history" }]
         });
     }

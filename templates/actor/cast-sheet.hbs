@@ -3,6 +3,14 @@
         <div class="portrait-section">
             <img class="profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}"/>
         </div>
+        {{#if isEditMode}}
+            <div class="control-group player-link-group">
+                    <button type="button" class="tnx-button unlink-player-btn" title="{{localize 'TNX.Common.Unlink'}}" {{#unless system.playerId}}disabled{{/unless}}>
+                        <i class="fas fa-unlink"></i>プレイヤーシートのリンク解除
+                    </button>
+                </div>
+            </div>
+        {{/if}}
         <div class="sidebar-personal-data-group">
             <h3 class="sidebar-header">{{localize "TNX.Actor.Profile.Header"}}</h3>
             <div class="personal-data-grid">
@@ -43,50 +51,52 @@
         <div class="sidebar-hand-pool-section">
             <h3 class="sidebar-header">{{localize "TNX.Actor.Cards.Hand"}}</h3>
             {{#if isEditMode}}
-            <div class="sidebar-edit-controls">
-                <div class="control-group">
-                    <label>{{localize "TNX.Actor.Cards.Hand"}}</label>
-                    {{#if system.handPileId}}
-                        <button type="button" class="tnx-linked-button" data-action="openHandSheet" data-context-menu-type="unlink" data-unlink-path="system.handPileId">
-                            <img src="{{handPile.img}}" class="tnx-linked-button__icon"/><span class="tnx-linked-button__label">{{handPile.name}}</span>
-                        </button>
-                    {{else}}
-                        <div class="tnx-import-box tnx-import-box--panel-dropzone" data-drop-area="hand-pile"><span>{{localize "TNX.Actor.DropHint.Hand"}}</span></div>
-                    {{/if}}
+                <div class="sidebar-edit-controls">
+                    <div class="control-group">
+                        <label>{{localize "TNX.Actor.Cards.Hand"}}</label>
+                        {{#if system.handPileId}}
+                            <button type="button" class="tnx-linked-button" data-action="openHandSheet" data-context-menu-type="unlink" data-unlink-path="system.handPileId">
+                                <img src="{{handPile.img}}" class="tnx-linked-button__icon"/><span class="tnx-linked-button__label">{{handPile.name}}</span>
+                            </button>
+                        {{else}}
+                            <div class="tnx-import-box tnx-import-box--panel-dropzone" data-drop-area="hand-pile"><span>{{localize "TNX.Actor.DropHint.Hand"}}</span></div>
+                        {{/if}}
+                    </div>
+                    <div class="control-group">
+                        <label>{{localize "TNX.Actor.Cards.Trump"}}</label>
+                        {{#if system.trumpCardPileId}}
+                            <button type="button" class="tnx-linked-button" data-action="openTrumpCardSheet" data-context-menu-type="unlink" data-unlink-path="system.trumpCardPileId">
+                                <img src="{{trumpCardPile.img}}" class="tnx-linked-button__icon"/><span class="tnx-linked-button__label">{{trumpCardPile.name}}</span>
+                            </button>
+                        {{else}}
+                            <div class="tnx-import-box tnx-import-box--panel-dropzone" data-drop-area="trump-card-pile"><span>{{localize "TNX.Actor.DropHint.Trump"}}</span></div>
+                        {{/if}}
+                    </div>
                 </div>
-                <div class="control-group">
-                    <label>{{localize "TNX.Actor.Cards.Trump"}}</label>
-                    {{#if system.trumpCardPileId}}
-                        <button type="button" class="tnx-linked-button" data-action="openTrumpCardSheet" data-context-menu-type="unlink" data-unlink-path="system.trumpCardPileId">
-                            <img src="{{trumpCardPile.img}}" class="tnx-linked-button__icon"/><span class="tnx-linked-button__label">{{trumpCardPile.name}}</span>
-                        </button>
-                    {{else}}
-                        <div class="tnx-import-box tnx-import-box--panel-dropzone" data-drop-area="trump-card-pile"><span>{{localize "TNX.Actor.DropHint.Trump"}}</span></div>
-                    {{/if}}
-                </div>
-            </div>
             {{else}}
             <div class="view-mode-hand">
                 {{#if handPile}}
-                <div class="hand-controls horizontal-buttons">
-                    <button type="button" class="tnx-button" data-action="drawCard" {{#if isHandFull}}disabled{{/if}}>
-                        <i class="fas fa-hand-paper"></i> {{localize "TNX.Ui.Button.Draw"}}
-                    </button>
-                    <button type="button" class="tnx-button" data-action="passToOther" {{#unless handPile.cards.length}}disabled{{/unless}}>
-                        <i class="fas fa-hand-holding-heart"></i> {{localize "TNX.Ui.Button.Pass"}}
-                    </button>
-                    <button type="button" class="tnx-button" data-action="useTrumpCard" {{#unless trumpCard}}disabled{{/unless}}>
-                        <i class="fas fa-star"></i> {{localize "TNX.Actor.Cards.Trump"}}
-                    </button>
-                </div>
-                <div class="hand-cards-display" data-drop-zone="actor-hand">
-                    {{#each handPile.cards as |card|}}
-                        <div class="card-in-hand interactive" data-action="playCard" data-card-id="{{card._id}}" title="{{card.name}}">
-                            <img src="{{card.faces.[0].img}}" alt="{{card.name}}" />
-                        </div>
-                    {{/each}}
-                    {{#if (eq handPile.cards.length 0)}}<div class="hand-empty-placeholder"><span>{{localize "TNX.Ui.Info.HandEmpty"}}</span></div>{{/if}}
-                </div>
+                    <div class="hand-controls horizontal-buttons">
+                        <button type="button" class="tnx-button" data-action="drawCard" {{#if isHandFull}}disabled{{/if}}>
+                            <i class="fas fa-hand-paper"></i> {{localize "TNX.Ui.Button.Draw"}}
+                        </button>
+                        <button type="button" class="tnx-button" data-action="passToOther" {{#unless handPile.cards.length}}disabled{{/unless}}>
+                            <i class="fas fa-hand-holding-heart"></i> {{localize "TNX.Ui.Button.Pass"}}
+                        </button>
+                        <button type="button" class="tnx-button" data-action="useTrumpCard" {{#unless trumpCard}}disabled{{/unless}}>
+                            <i class="fas fa-star"></i> {{localize "TNX.Actor.Cards.Trump"}}
+                        </button>
+                    </div>
+                    <div class="hand-cards-display" data-drop-zone="actor-hand">
+                        {{#each handPile.cards as |card|}}
+                            <div class="card-in-hand interactive" data-action="playCard" data-card-id="{{card._id}}" title="{{card.name}}">
+                                <img src="{{card.faces.[0].img}}" alt="{{card.name}}" />
+                            </div>
+                        {{/each}}
+                        {{#if (eq handPile.cards.length 0)}}
+                            <div class="hand-empty-placeholder"><span>{{localize "TNX.Ui.Info.HandEmpty"}}</span></div>
+                        {{/if}}
+                    </div>
                 {{else}}
                     <div class="no-item-linked-message"><span>{{localize "TNX.Ui.Info.Hand&TrumpPileEmpty"}}</span></div>
                 {{/if}}

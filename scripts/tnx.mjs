@@ -7,7 +7,6 @@ import { TokyoNovaGeneralSkillSheet } from './item/tnx-general-skill-sheet.mjs';
 import { TokyoNovaStyleSkillSheet } from './item/tnx-style-skill-sheet.mjs';
 import { TokyoNovaOutfitSheet } from './item/tnx-outfit-sheet.mjs';
 import { TokyoNovaOrganizationSheet } from './item/tnx-organization-sheet.mjs';
-import { TokyoNovaRecordSheet } from './item/tnx-record-sheet.mjs';
 import { TnxScenarioSheet } from './journal/tnx-scenario-sheet.mjs';
 import { TnxActionHandler } from './module/tnx-action-handler.mjs';
 import { TnxHud } from './module/tnx-hud.mjs';
@@ -16,6 +15,7 @@ async function preloadHandlebarsTemplates() {
     const templatePaths = [
         // === Actor Sheets ===
         "systems/tokyo-nova-axleration/templates/actor/cast-sheet.hbs",
+        "systems/tokyo-nova-axleration/templates/actor/player-sheet.hbs",
 
         // === Item Sheets ===
         "systems/tokyo-nova-axleration/templates/item/miracle-sheet.hbs",
@@ -24,7 +24,6 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/item/style-skill-sheet.hbs",
         "systems/tokyo-nova-axleration/templates/item/outfit-sheet.hbs",
         "systems/tokyo-nova-axleration/templates/item/organization-sheet.hbs",
-        "systems/tokyo-nova-axleration/templates/item/record-sheet.hbs",
 
         // === Journal Sheets ===
         "systems/tokyo-nova-axleration/templates/journal/scenario-sheet.hbs",
@@ -324,12 +323,6 @@ Hooks.once("init", async function() {
         types: ["organization"],
         makeDefault: true,
         label: "組織シート"
-    });
-
-    Items.registerSheet("tokyo-nova", TokyoNovaRecordSheet, {
-        types: ["record"],
-        makeDefault: true,
-        label: "レコードシート"
     });
 
     // Journal Sheetの登録
@@ -680,8 +673,19 @@ Hooks.once("init", async function() {
     });
 
     Hooks.on("preDeleteActor", async (actor, options, userId) => {
-        // この処理は "cast" タイプのアクターにのみ適用します
-        if (actor.type !== "cast") {
+        // ■修正: 対象アクターの判定
+        // キャスト(cast) または プレイヤー(player) のみが対象
+        const isCast = actor.type === "cast";
+        const isPlayer = actor.type === "player";
+        
+        if (!isCast && !isPlayer) {
+            return true;
+        }
+
+        // ■追加: リンク済みキャストの除外判定
+        // キャストであり、かつプレイヤーIDが設定されている場合は、
+        // カードの実体はプレイヤー側にあるとみなして削除確認を行わない
+        if (isCast && actor.system.playerId) {
             return true;
         }
     
@@ -965,28 +969,6 @@ Hooks.once("ready", async function() {
     Hooks.on('deleteItem', (item) => recalcActorExp(item));
     Hooks.on('updateItem', (item, diff, options) => recalcActorExp(item));
 
-    /**
-     * ▼▼▼ 追加・修正: レコードシート更新時の再計算トリガー ▼▼▼
-     */
-    Hooks.on('updateItem', async (item, diff, options, userId) => {
-        // レコードシート自体が更新された場合
-        if (item.type === "record") {
-            // このレコードシートをリンクしているキャストを探す
-            const linkedActors = game.actors.filter(a => 
-                a.type === 'cast' && a.system.recordSheetId === item.uuid
-            );
-
-            // 各キャストについて経験点再計算を実行
-            // (レコードのtotalが増減した場合、キャストのvalueに影響するため)
-            for (const actor of linkedActors) {
-                // 同期フラグ(syncing)がない場合のみ実行して無限ループ防止
-                if (!options.syncing) {
-                    TokyoNovaCastSheet.updateCastExp(actor);
-                }
-            }
-        }
-    });
-
     Hooks.on('updateActor', async (actor, diff, options, userId) => {
         // 1. キャスト自身の経験点再計算 (変更なし)
         if (actor.type === 'cast' && options.calcExp !== false && !options.syncing) {
@@ -1000,8 +982,6 @@ Hooks.once("ready", async function() {
             try {
                 const playerActor = await fromUuid(actor.system.playerId);
                 if (playerActor && !options.syncing) {
-                    // キャスト側の消費経験点等をチェックし、必要であればプレイヤーアクター側の値を更新するロジック
-                    // (レコードシートのロジックと同様、複数のキャストが紐づいている場合の合算が必要)
                     await syncPlayerExpFromCasts(playerActor);
                 }
             } catch (e) { console.warn(e); }
@@ -1011,9 +991,29 @@ Hooks.once("ready", async function() {
         if (actor.type === 'player') {
             // このプレイヤーアクターをリンクしている全キャストを探す
             const linkedCasts = game.actors.filter(a => a.type === 'cast' && a.system.playerId === actor.uuid);
+            
+            // ▼▼▼ 追加: プレイヤーの更新内容（履歴・経験点）をキャストにコピー ▼▼▼
+            const updates = {};
+            let needsSync = false;
+
+            // 履歴、経験点合計、追加経験点のいずれかが変更された場合
+            if (foundry.utils.hasProperty(diff, "system.history") || 
+                foundry.utils.hasProperty(diff, "system.exp.total") || 
+                foundry.utils.hasProperty(diff, "system.exp.additional")) {
+                
+                updates["system.history"] = actor.system.history;
+                updates["system.exp.total"] = actor.system.exp.total;
+                updates["system.exp.additional"] = actor.system.exp.additional;
+                needsSync = true;
+            }
+
             for (const cast of linkedCasts) {
                 if (!options.syncing) {
-                    // キャスト側の再計算をトリガー（プレイヤー側の履歴合計が変わった可能性があるため）
+                    if (needsSync) {
+                        // データを同期（再帰ループ防止のため syncing: true を付与）
+                        await cast.update(updates, { syncing: true });
+                    }
+                    // キャスト側の再計算を実行
                     await TokyoNovaCastSheet.updateCastExp(cast);
                 }
             }

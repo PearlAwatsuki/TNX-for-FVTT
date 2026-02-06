@@ -72,7 +72,8 @@
                 "CitizenRank": "市民ランク",
                 "Affiliation": "所属",
                 "Unaffiliated": "無所属",
-                "LifePath": "ライフパス"
+                "LifePath": "ライフパス",
+                "PlayerName": "プレイヤー名"
             },
             "Stats": {
                 "Exp": "経験点",
