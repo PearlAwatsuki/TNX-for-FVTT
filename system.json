@@ -66,10 +66,32 @@
             }
         },
         {
+            "name": "works-skills",
+            "label": "ワークス専用技能",
+            "system": "tokyo-nova-axleration",
+            "path": "packs/works-skills",
+            "type": "Item",
+            "ownership": {
+                "PLAYER": "OBSERVER",
+                "ASSISTANT": "OWNER"
+            }
+        },
+        {
             "name": "outfits",
             "label": "アウトフィット",
             "system": "tokyo-nova-axleration",
             "path": "packs/outfits",
+            "type": "Item",
+            "ownership": {
+                "PLAYER": "OBSERVER",
+                "ASSISTANT": "OWNER"
+            }
+        },
+        {
+            "name": "works-outfits",
+            "label": "ワークス専用装備",
+            "system": "tokyo-nova-axleration",
+            "path": "packs/works-outfits",
             "type": "Item",
             "ownership": {
                 "PLAYER": "OBSERVER",
@@ -84,7 +106,8 @@
           "packs": [
               "styles",
               "miracles",
-              "outfits"
+              "outfits",
+              "works-outfits"
           ],
           "folders": [
                 {
@@ -92,7 +115,8 @@
                     "sorting": "m",
                     "packs": [
                         "general-skills",
-                        "style-skills"
+                        "style-skills",
+                        "works-skills"
                     ]
                 }
           ]

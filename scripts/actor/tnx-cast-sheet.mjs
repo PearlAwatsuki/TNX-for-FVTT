@@ -102,36 +102,74 @@ export class TokyoNovaCastSheet extends ActorSheet {
      * 自分を更新し、リンクがあればレコードシートの「履歴」も更新する
      */
     async _performHistoryUpdate(updateData) {
+        // 経験点合計の補正ロジック（既存ママ）
         if (updateData["system.exp.total"] !== undefined) {
             const historySum = updateData["system.exp.total"];
             const additional = Number(this.actor.system.exp.additional) || 0;
             updateData["system.exp.total"] = historySum + additional;
         }
 
-        // 1. 自分自身の更新
-        await this.actor.update(updateData);
-
-        if (this.actor.system.playerId) {
-            const playerActor = await fromUuid(this.actor.system.playerId);
+        const playerId = this.actor.system.playerId;
+        
+        // --- A. プレイヤーとリンクしている場合 ---
+        if (playerId) {
+            const playerActor = await fromUuid(playerId);
             if (playerActor) {
-                const historyUpdate = {};
+                // 1. プレイヤーアクターを更新（正：共有データの更新）
+                // updateDataは system.history.xxx などの形式
+                await playerActor.update(updateData);
+
+                // 2. 自分自身の更新（選別して適用）
+                // 他人の履歴データで自身のローカル履歴を汚染しないようにする
+                const localUpdate = {};
+                const localHistory = this.actor.system.history || {};
+
                 for (const [key, value] of Object.entries(updateData)) {
+                    // 経験点関連は同期する
+                    if (key.startsWith("system.exp.")) {
+                        localUpdate[key] = value;
+                        continue;
+                    }
+
+                    // 履歴データの判定
                     if (key.startsWith("system.history")) {
-                        historyUpdate[key] = value;
+                        // キー形式: system.history.<ID> または system.history.<ID>.<prop>
+                        const parts = key.split(".");
+                        
+                        // ID部分の抽出（system.history 直下の更新でない場合）
+                        if (parts.length >= 3) {
+                            const historyId = parts[2];
+                            
+                            // 条件: ローカルに既に存在する履歴、または新規追加(オブジェクトごとの代入)の場合のみ更新
+                            // ※編集(prop単位)の場合は、ローカルにIDがない＝他人の履歴なのでスキップ
+                            if (localHistory[historyId]) {
+                                // 自身の履歴の更新 -> 反映
+                                localUpdate[key] = value;
+                            } else if (parts.length === 3 && typeof value === 'object' && value !== null) {
+                                // 新規追加（と推測される） -> 反映
+                                localUpdate[key] = value;
+                            }
+                        }
+                    } else {
+                        // その他のデータ
+                        localUpdate[key] = value;
                     }
                 }
-                // プレイヤーアクター側の exp.total も更新が必要な場合がある
-                if (updateData["system.exp.total"] !== undefined) {
-                    historyUpdate["system.exp.total"] = updateData["system.exp.total"];
-                }
 
-                if (!foundry.utils.isEmpty(historyUpdate)) {
-                    await playerActor.update(historyUpdate);
+                // 選別したデータのみで自身を更新
+                if (!foundry.utils.isEmpty(localUpdate)) {
+                    await this.actor.update(localUpdate);
                 }
             }
+        } 
+        
+        // --- B. リンクしていない場合 ---
+        else {
+            // 通常通り自身を更新
+            await this.actor.update(updateData);
         }
         
-        // 念のため再計算（消費経験点の同期などを行うため）
+        // 再計算（消費経験点の同期など）
         TokyoNovaCastSheet.updateCastExp(this.actor);
     }
 
@@ -464,23 +502,35 @@ export class TokyoNovaCastSheet extends ActorSheet {
     }
 
     async _onDrop(event) {
-        // FVTT v12 推奨のドラッグデータ取得
         const data = TextEditor.getDragEventData(event);
 
         if (data.type === "Actor") {
             const sourceActor = await fromUuid(data.uuid);
             
-            // ドロップされたアクターが「プレイヤー(player)」タイプの場合
             if (sourceActor && sourceActor.type === "player") {
-                // 自分自身をドロップした場合は無視
                 if (sourceActor.uuid === this.actor.uuid) return false;
 
+                // 1. キャストの現在の履歴を取得
+                const castHistory = this.actor.system.history || {};
+                
+                // 2. プレイヤーの現在の履歴を取得
+                const playerHistory = sourceActor.system.history || {};
+
+                // 3. 履歴をマージ（キャストの履歴をプレイヤーに追加）
+                // キー（ID）が重複することは稀ですが、万が一重複した場合はキャスト側が優先される形か、
+                // あるいはプレイヤー側を生かすかは状況によりますが、ここでは単純マージします。
+                const mergedHistory = { ...playerHistory, ...castHistory };
+
+                // 4. プレイヤーシート側の履歴を更新
+                await sourceActor.update({
+                    "system.history": mergedHistory
+                });
+
+                // 5. キャストシートをプレイヤーにリンク
+                // 手札・切り札IDの同期も含める
                 const updateData = {
                     "system.playerId": sourceActor.uuid
                 };
-
-                // 【要望対応】手札・切り札IDのインポート
-                // プレイヤー側で設定されている場合のみ上書きする
                 if (sourceActor.system.handPileId) {
                     updateData["system.handPileId"] = sourceActor.system.handPileId;
                 }
@@ -488,34 +538,16 @@ export class TokyoNovaCastSheet extends ActorSheet {
                     updateData["system.trumpCardPileId"] = sourceActor.system.trumpCardPileId;
                 }
 
-                // 【要望対応】履歴と経験点の即時同期
-                // ドロップ直後にキャスト側の計算や表示が整合するように、プレイヤー側のデータをコピーする
-                if (sourceActor.system.history) {
-                    updateData["system.history"] = sourceActor.system.history;
-                }
-                
-                // プレイヤー側の経験点情報（合計点や追加点）もコピー
-                // ※キャスト側の消費点(spent)はキャストの所持スタイル等から再計算されるため、totalを同期することが重要
-                if (sourceActor.system.exp) {
-                    if (sourceActor.system.exp.total !== undefined) {
-                        updateData["system.exp.total"] = sourceActor.system.exp.total;
-                    }
-                    if (sourceActor.system.exp.additional !== undefined) {
-                        updateData["system.exp.additional"] = sourceActor.system.exp.additional;
-                    }
-                }
-
-                // 更新を実行
+                // キャスト自身の履歴は**上書きしない**（元データを残すため）
                 await this.actor.update(updateData);
                 
-                // 念のため経験点の再計算を実行（コピーしたtotalを基に、現在値(value)を正しく計算させる）
+                // 経験点再計算
                 await TokyoNovaCastSheet.updateCastExp(this.actor);
                 
                 return true;
             }
         }
 
-        // それ以外（アイテムのドロップなど）は親クラスの処理に任せる
         return super._onDrop(event);
     }
 

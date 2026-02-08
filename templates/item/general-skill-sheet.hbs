@@ -36,28 +36,35 @@
         </div>
 
         <div class="tab setting" data-group="primary" data-tab="setting">
-            <fieldset class="tnx-fieldset">
-                <legend>一般技能 設定</legend>
+            <div class="settings-grid">
                 <div class="form-group">
-                    <label>種別</label>
-                    <select name="system.generalSkillCategory">
-                        {{selectOptions options.generalSkillCategory selected=system.generalSkillCategory}}
-                    </select>
+                    <label>アクション技能</label>
+                    <input type="checkbox" name="system.isAction" {{checked system.isAction}}>
+                    <p class="sheet-notes notes">組み合わせ判定のベースになる技能の場合にチェックします。</p>
                 </div>
-                {{#if (eq system.generalSkillCategory "initialSkill")}}
+                <fieldset class="tnx-fieldset">
+                    <legend>一般技能 設定</legend>
                     <div class="form-group">
-                        <label>初期スート</label>
-                        <select name="system.initialSkill.initialSuit">
-                            {{selectOptions options.initialSuit selected=system.initialSkill.initialSuit}}
+                        <label>種別</label>
+                        <select name="system.generalSkillCategory">
+                            {{selectOptions options.generalSkillCategory selected=system.generalSkillCategory}}
                         </select>
                     </div>
-                {{else}}
-                    <div class="form-group">
-                        <label>初期取得の社会・コネ</label>
-                        <input type="checkbox" name="system.onomasticSkill.isInitial" {{checked system.onomasticSkill.isInitial}}>
-                    </div>
-                {{/if}}
-            </fieldset>
+                    {{#if (eq system.generalSkillCategory "initialSkill")}}
+                        <div class="form-group">
+                            <label>初期スート</label>
+                            <select name="system.initialSkill.initialSuit">
+                                {{selectOptions options.initialSuit selected=system.initialSkill.initialSuit}}
+                            </select>
+                        </div>
+                    {{else}}
+                        <div class="form-group">
+                            <label>初期取得の社会・コネ</label>
+                            <input type="checkbox" name="system.onomasticSkill.isInitial" {{checked system.onomasticSkill.isInitial}}>
+                        </div>
+                    {{/if}}
+                </fieldset>
+            </div>
         </div>
 
         {{!-- 用途タブ --}}
