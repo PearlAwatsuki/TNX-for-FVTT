@@ -123,35 +123,38 @@
         }
     ],
     "documentTypes": {
-      "Actor": {
-        "cast": {},
-        "guest": {},
-        "troop": {},
-        "extra": {},
-        "player": {}
-      },
-      "Item": {
-        "style": {},
-        "miracle": {},
-        "generalSkill": {},
-        "styleSkill": {},
-        "weapon": {},
-        "armor": {},
-        "ianus": {},
-        "cyborg": {},
-        "tron": {},
-        "tap": {},
-        "vehicle": {},
-        "residence": {},
-        "combiner": {},
-        "organization": {}
-      }
+        "Actor": {
+            "cast": {},
+            "guest": {},
+            "troop": {},
+            "extra": {},
+            "player": {}
+        },
+        "Item": {
+            "style": {},
+            "miracle": {},
+            "generalSkill": {},
+            "styleSkill": {},
+            "weapon": {},
+            "armor": {},
+            "ianus": {},
+            "cyborg": {},
+            "tron": {},
+            "tap": {},
+            "vehicle": {},
+            "residence": {},
+            "housingArea": {},
+            "combiner": {},
+            "general": {},
+            "organization": {},
+            "lifePath": {}
+        }
     },
     "socket": true,
     "initiative": "@system.CS.value",
     "grid": {
-      "distance": 1,
-      "units": "m"
+        "distance": 1,
+        "units": "m"
     },
     "url": "",
     "manifest": "",

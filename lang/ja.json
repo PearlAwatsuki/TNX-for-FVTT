@@ -403,8 +403,19 @@
             "miracle": "神業",
             "generalSkill": "一般技能",
             "styleSkill": "スタイル技能",
-            "outfit": "アウトフィット",
-            "organization": "組織"
+            "weapon": "武器",
+            "armor": "防具",
+            "ianus": "IANUS",
+            "cyborg": "全身義体",
+            "tron": "トロン",
+            "tap": "タップ",
+            "vehicle": "ヴィークル",
+            "residence": "住宅施設",
+            "housingArea": "住宅エリア",
+            "combiner": "コンバイナー",
+            "general": "一般アウトフィット",
+            "organization": "オーガニゼーション",
+            "lifePath": "ライフパス"
         }
     },
     "EFFECT": {
