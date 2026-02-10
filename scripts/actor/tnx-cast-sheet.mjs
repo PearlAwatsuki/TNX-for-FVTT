@@ -92,8 +92,6 @@ export class TokyoNovaCastSheet extends ActorSheet {
         this._getAbilitiesData(context, allStyles);
         this._prepareSkillsData(context);
 
-        this._prepareOutfits(context);
-
         return context;
     }
 
@@ -249,24 +247,6 @@ export class TokyoNovaCastSheet extends ActorSheet {
                 item.view = TnxSkillUtils.prepareStyleSkillView(item.system, skillOptions);
             }
         });
-    }
-
-    /**
-     * アウトフィットを大分類ごとにグルーピングする
-     */
-    _prepareOutfits(context) {
-        const outfits = this.actor.items.filter(i => i.type === "outfit");
-        context.outfitGroups = [];
-        
-        for (const [key, label] of Object.entries(CONFIG.TNX.outfitMajorCategories)) {
-            const items = outfits.filter(i => i.system.majorCategory === key);
-            context.outfitGroups.push({
-                key: key,
-                label: label,
-                items: items,
-                hasItems: items.length > 0
-            });
-        }
     }
 
     activateListeners(html) {
@@ -1214,30 +1194,6 @@ export class TokyoNovaCastSheet extends ActorSheet {
             return await Item.create(itemData, {parent: this.actor});
         }
         
-        // 3. アウトフィット (outfit)
-        else if (type === 'outfit') {
-            const major = header.dataset.major; 
-            
-            const itemData = {
-                name: "新規アウトフィット",
-                type: type,
-                system: {}
-            };
-
-            if (major) {
-                itemData.system.majorCategory = major;
-                const label = CONFIG.TNX.outfitMajorCategories[major] || "アウトフィット";
-                itemData.name = `新規${label}`;
-                
-                const minors = CONFIG.TNX.outfitCategoryMap[major];
-                if (minors && minors.length > 0) {
-                    itemData.system.minorCategory = minors[0];
-                }
-            }
-
-            return await Item.create(itemData, {parent: this.actor});
-        }
-
         // その他のアイテムタイプ
         return await Item.create({name: `新規${type}`, type: type}, {parent: this.actor});
     }

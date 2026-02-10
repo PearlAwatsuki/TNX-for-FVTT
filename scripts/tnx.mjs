@@ -503,10 +503,6 @@ Hooks.once("init", async function() {
             ui.notifications.warn(game.i18n.localize("TNX.WarnTrumpPileFull"));
             return false;
         }
-        if (typeof data.value !== 'number') {
-            ui.notifications.warn(game.i18n.localize("TNX.WarnNotNeuroCard"));
-            return false;
-        }
         return true;
     });
 

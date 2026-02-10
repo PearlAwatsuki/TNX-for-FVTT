@@ -143,13 +143,13 @@ export class TnxActionHandler {
             actor = context.actor;
             const trumpPileId = actor.system.trumpCardPileId;
             if (!trumpPileId) return ui.notifications.error(`アクター「${actor.name}」に切り札が設定されていません。`);
-            trumpPile = await fromUuid(trumpPileId);
+            trumpPile = trumpPileId ? await fromUuid(trumpPileId) : null;
         } else {
-            // ケース2：HUDなどユーザーから直接呼び出された場合
-            actor = canvas.tokens.controlled[0]?.actor || game.user.character;
-            const trumpPileId = game.user.getFlag("tokyo-nova-axleration", "trumpPileId");
-            if (!trumpPileId) return ui.notifications.error("あなたのユーザー設定に切り札が設定されていません。");
-            trumpPile = await fromUuid(trumpPileId);
+           const actor = game.user.character;
+            if (!actor) return ui.notifications.warn("操作するキャラクターがユーザーに割り当てられていません。");
+            
+            const trumpPileId = actor.system.trumpCardPileId;
+            trumpPile = trumpPileId ? await fromUuid(trumpPileId) : null;
         }
 
         if (!trumpPile) return ui.notifications.error("切り札のカード置き場が見つかりませんでした。");
@@ -296,11 +296,10 @@ export class TnxActionHandler {
         } 
         // 指定がなければ、操作しているユーザーのHUD手札を対象にする
         else {
-            const user = context.user || game.user;
-            const handId = user.getFlag("tokyo-nova-axleration", "handId");
+            const actor = game.user.character;
+            const handId = actor.system.handPileId;
             hand = handId ? await fromUuid(handId) : null;
-            const character = user.character;
-            limit = character?.system.handMaxSize ?? game.settings.get("tokyo-nova-axleration", "defaultHandMaxSize");
+            limit = actor?.system.handMaxSize ?? game.settings.get("tokyo-nova-axleration", "defaultHandMaxSize");
             handSourceDescription = "あなた";
         }
 
@@ -399,13 +398,13 @@ export class TnxActionHandler {
      * 【HUD用】操作したユーザーが、自身の手に複数枚カードを引く
      */
     static async drawMultipleCardsFromDeck() {
-        const handId = game.user.getFlag("tokyo-nova-axleration", "handId");
+        const character = game.user.character;
+        const handId = character.system.handId;
         if (!handId) return ui.notifications.warn("あなたのユーザー設定に手札が割り当てられていません。");
         
         const userHand = await fromUuid(handId);
         if (!userHand) return ui.notifications.error("設定されている手札が見つかりませんでした。");
 
-        const character = game.user.character;
         const handLimit = character?.system.handMaxSize ?? game.settings.get("tokyo-nova-axleration", "defaultHandMaxSize");
 
         const numToDraw = await AmountInputDialog.prompt({
