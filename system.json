@@ -135,7 +135,15 @@
         "miracle": {},
         "generalSkill": {},
         "styleSkill": {},
-        "outfit": {},
+        "weapon": {},
+        "armor": {},
+        "ianus": {},
+        "cyborg": {},
+        "tron": {},
+        "tap": {},
+        "vehicle": {},
+        "residence": {},
+        "combiner": {},
         "organization": {}
       }
     },

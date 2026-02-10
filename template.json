@@ -153,7 +153,7 @@
         }
     },
     "Item": {
-        "types": ["style", "miracle", "generalSkill", "styleSkill", "outfit", "organization"],
+        "types": ["style", "miracle", "generalSkill", "styleSkill", "weapon", "armor", "ianus", "cyborg", "tron", "tap", "vehicle", "residence", "housingArea", "combiner", "general", "organization", "lifePath"],
         "templates": {
             "base": {
                 "description": ""
@@ -170,6 +170,36 @@
                     "club": false
                 },
                 "isAction": false
+            },
+            "outfitBase": {
+                "isPrepared": true,
+                "isOption": false,
+                "isPre-play": false,
+                "isCyber": false,
+                "majorCategory": "-",
+                "minorCategory": "-",
+                "buy": "-",
+                "preserveExp": "-",
+                "hide": "-",
+                "appearancePenalty": "-",
+                "hack": "-",
+                "part": "-",
+                "timing": "-",
+                "exclusive": "-",
+                "uses": {
+                    "isLimit": false,
+                    "max": 0,
+                    "value": 0
+                }
+            },
+            "extensible": {
+                "slot": [
+                    {
+                        "label": "",
+                        "value": 0,
+                        "optionId": []
+                    }
+                ]
             }
         },
         "style": {
@@ -265,59 +295,96 @@
                 "expCost": 50
             }
         },
-        "outfit": {
-            "isPrepared": true,
-            "isPre-play": false,
-            "isCyber": false,
-            "majorCategory": "-",
-            "minorCategory": "-",
-            "buy": "-",
-            "stock": "-",
-            "concealment": "-",
-            "danger": "-",
-            "cyberControl": "-",
-            "part": "-",
+        "weapon": {
+            "templates": ["base", "outfitBase", "extensible"],
             "attack": {
-                "damageType": "-",
-                "value": "-",
-                "mod": "-"
+                "damageType": [],
+                "value": 0,
+                "mod": 0
             },
+            "guardValue": 0,
             "range": "-",
-            "slot": "-",
-            "defence": {
-                "S_defence": "-",
-                "P_defence": "-",
-                "I_defence": "-"
-            },
-            "guardValue": "-",
-            "conscious": "-",
-            "subconscious": "-",
-            "unconscious": "-",
-            "controlMod": "-",
-            "cycle": "-",
-            "software": "-",
-            "hardware": "-",
-            "conbatSpeedMod": "-",
-            "speedFactor": "-",
-            "passenger": 0,
-            "appearanceTarget": "-",
-            "cyberSecurity": "-",
-            "analogSecurity": "-",
-            "housingArea": "-",
-            "timing": "-",
-            "exclusive": "-",
             "isthrow": false,
-            "fullAuto": "-",
             "isLaser": false,
-            "combinedOutfitID": [],
-            "uses": {
-                "isLimit": false,
-                "max": 0,
-                "value": 0
-            }
+            "isBiological": false,
+            "isFullAuto": false,
+            "FAValue": 0
+        },
+        "armor": {
+            "templates": ["base", "outfitBase"],
+            "defence": {
+                "S_defence": 0,
+                "P_defence": 0,
+                "I_defence": 0
+            },
+            "controlMod": 0
+        },
+        "ianus": {
+            "templates": ["base", "outfitBase", "extensible"],
+            "controlMod": 0
+        },
+        "cyborg": {
+            "templates": ["base", "outfitBase"],
+            "defence": {
+                "S_defence": 0,
+                "P_defence": 0,
+                "I_defence": 0
+            },
+            "attack": {
+                "damageType": [],
+                "value": 0,
+                "mod": 0
+            },
+            "guardValue": 0
+        },
+        "tron": {
+            "templates": ["base", "outfitBase", "extensible"]
+        },
+        "tap": {
+            "templates": ["base", "outfitBase", "extensible"],
+            "cycle": 0,
+            "conbatSpeedMod": 0
+        },
+        "vehicle": {
+            "templates": ["base", "outfitBase", "extensible"],
+            "speedFactor": 0,
+            "passenger": 0,
+            "controlMod": 0
+        },
+        "residence": {
+            "templates": ["base", "outfitBase", "extensible"],
+            "appearanceTarget": 0,
+            "cyberSecurity": 0,
+            "analogSecurity": 0,
+            "housingArea": "",
+            "buyRatingMod": 0,
+            "preserveExpMod": 0,
+            "appearanceTargetMod": 0,
+            "cyberSecurityMod": 0,
+            "analogSecurityMod": 0
+        },
+        "housingArea": {
+            "templates": ["base"],
+            "buyRatingMod": 0,
+            "preserveExpMod": 0,
+            "appearanceTargetMod": 0,
+            "cyberSecurityMod": 0,
+            "analogSecurityMod": 0
+        },
+        "combiner": {
+            "templates": ["base", "outfitBase"],
+            "combinedOutfitID": []
+        },
+        "general": {
+            "templates": ["base", "outfitBase"]
         },
         "organization": {
             "templates": ["base"]
+        },
+        "lifePath": {
+            "templates": ["base"],
+            "lifePathType": "",
+            "skillName": ""
         }
     },
     "Card": {

@@ -5,7 +5,6 @@ import { TokyoNovaStyleSheet } from './item/tnx-style-sheet.mjs';
 import { TokyoNovaMiracleSheet } from './item/tnx-miracle-sheet.mjs';
 import { TokyoNovaGeneralSkillSheet } from './item/tnx-general-skill-sheet.mjs';
 import { TokyoNovaStyleSkillSheet } from './item/tnx-style-skill-sheet.mjs';
-import { TokyoNovaOutfitSheet } from './item/tnx-outfit-sheet.mjs';
 import { TokyoNovaOrganizationSheet } from './item/tnx-organization-sheet.mjs';
 import { TnxScenarioSheet } from './journal/tnx-scenario-sheet.mjs';
 import { TnxActionHandler } from './module/tnx-action-handler.mjs';
@@ -22,7 +21,6 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/item/style-sheet.hbs",
         "systems/tokyo-nova-axleration/templates/item/general-skill-sheet.hbs",
         "systems/tokyo-nova-axleration/templates/item/style-skill-sheet.hbs",
-        "systems/tokyo-nova-axleration/templates/item/outfit-sheet.hbs",
         "systems/tokyo-nova-axleration/templates/item/organization-sheet.hbs",
 
         // === Journal Sheets ===
@@ -196,82 +194,6 @@ Hooks.once("init", async function() {
         climax: "クライマックス",
         ending: "エンディング"
     };
-
-    // アウトフィット：大分類
-    CONFIG.TNX.outfitMajorCategories = {
-        weapon: "武器",
-        armor: "防具",
-        cyberware: "サイバーウェア",
-        tron: "トロン",
-        vehicle: "ヴィークル",
-        housing: "住宅",
-        item: "アイテム",
-        service: "サービス"
-    };
-
-    // アウトフィット：小分類
-    CONFIG.TNX.outfitMinorCategories = {
-        // 武器
-        melee: "白兵武器",
-        shooting: "射撃武器",
-        mounted: "搭載兵器",
-        weaponOption: "武器オプション",
-        specialAmmo: "特殊弾",
-        // 防具
-        bodyArmor: "ボディアーマー",
-        armorGear: "アーマーギア",
-        fashion: "ファッション",
-        // サイバーウェア
-        ianus: "IANUS",
-        ianusOption: "IANUSオプション",
-        neuralWare: "ニューラルウェア",
-        artificialBody: "アーティフィシャルボディ",
-        organicWare: "オーガニックウェア",
-        psychoApp: "サイコアプリ",
-        cosmetic: "コスメティック",
-        fullBody: "全身義体",
-        // トロン
-        pocketron: "ポケットロン",
-        ptOption: "PTオプション",
-        tap: "タップ",
-        software: "ソフトウェア",
-        hardware: "ハードウェア",
-        // ヴィークル
-        ground: "地上車両",
-        aircraft: "航空機",
-        ship: "船舶",
-        walker: "ウォーカー",
-        drone: "ドローン",
-        vehicleOption: "ヴィークルオプション",
-        // 住宅
-        housingFacility: "住宅施設",
-        housingOption: "住宅オプション",
-        housingAccessory: "住宅アクセサリ",
-        // アイテム
-        tool: "ツール",
-        magicItem: "マジックアイテム",
-        livingWeapon: "生体装備：武器",
-        livingArmor: "生体装備：防具",
-        drug: "ドラッグ",
-        foods: "フーズ",
-        // サービス
-        social: "ソーシャル",
-        background: "バックグラウンド",
-        extra: "エキストラ",
-        combiner: "コンバイナー"
-    };
-    
-    // 大分類ごとの小分類フィルタリング用マップ
-    CONFIG.TNX.outfitCategoryMap = {
-        weapon: ["melee", "shooting", "mounted", "weaponOption", "specialAmmo"],
-        armor: ["bodyArmor", "armorGear", "fashion"],
-        cyberware: ["ianus", "ianusOption", "neuralWare", "artificialBody", "organicWare", "psychoApp", "cosmetic", "fullBody"],
-        tron: ["pocketron", "ptOption", "tap", "software", "hardware"],
-        vehicle: ["ground", "aircraft", "ship", "walker", "drone", "vehicleOption"],
-        housing: ["housingFacility", "housingOption", "housingAccessory"],
-        item: ["tool", "magicItem", "livingWeapon", "livingArmor", "drug", "foods"],
-        service: ["social", "background", "extra", "combiner"]
-    };
     
     // Actor Sheetの登録
     Actors.unregisterSheet("core", ActorSheet);
@@ -311,12 +233,6 @@ Hooks.once("init", async function() {
         types: ["styleSkill"],
         makeDefault: true,
         label: "スタイル技能シート"
-    });
-
-    Items.registerSheet("tokyo-nova", TokyoNovaOutfitSheet, {
-        types: ["outfit"],
-        makeDefault: true,
-        label: "アウトフィットシート"
     });
 
     Items.registerSheet("tokyo-nova", TokyoNovaOrganizationSheet, {
