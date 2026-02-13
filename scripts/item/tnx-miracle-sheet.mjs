@@ -1,6 +1,7 @@
+import { TokyoNovaItemSheet } from "./tnx-item-sheet.mjs";
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 
-export class TokyoNovaMiracleSheet extends ItemSheet {
+export class TokyoNovaMiracleSheet extends TokyoNovaItemSheet {
 
     static get defaultOptions() {
         return foundry.utils.mergeObject(super.defaultOptions, {
@@ -18,14 +19,7 @@ export class TokyoNovaMiracleSheet extends ItemSheet {
     async getData(options) {
         const context = await super.getData(options);
         context.system = this.item.system;
-        context.enrichedDescription = await TextEditor.enrichHTML(this.item.system.description, { async: true, relativeTo: this.item, editable: this.isEditable });
         context.enrichedConditionDescription = await TextEditor.enrichHTML(this.item.system.usageCondition, { async: true, relativeTo: this.item, editable: this.isEditable });
-        EffectsSheetMixin.prepareEffectsContext(this.item, context);
-        context.allEffects = [
-            ...context.effects.temporary,
-            ...context.effects.passive,
-            ...context.effects.inactive
-        ];
         return context;
     }
 

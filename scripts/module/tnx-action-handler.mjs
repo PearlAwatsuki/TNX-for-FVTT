@@ -399,11 +399,12 @@ export class TnxActionHandler {
      */
     static async drawMultipleCardsFromDeck() {
         const character = game.user.character;
-        const handId = character.system.handId;
-        if (!handId) return ui.notifications.warn("あなたのユーザー設定に手札が割り当てられていません。");
+        if (!character) return ui.notifications.warn("操作するキャラクターがユーザーに割り当てられていません。");
+        
+        const handId = character.system.handPileId;
+        if (!handId) return ui.notifications.warn("キャラクター設定に手札が割り当てられていません。");
         
         const userHand = await fromUuid(handId);
-        if (!userHand) return ui.notifications.error("設定されている手札が見つかりませんでした。");
 
         const handLimit = character?.system.handMaxSize ?? game.settings.get("tokyo-nova-axleration", "defaultHandMaxSize");
 
@@ -486,15 +487,19 @@ export class TnxActionHandler {
      * @param {string} cardId - 渡すカードのID
      */
     static async passSingleCard(cardId) {
-        const sourceHand = await fromUuid(game.user.getFlag("tokyo-nova-axleration", "handId"));
-        if (!sourceHand) return ui.notifications.warn("あなたの手札が設定されていません。");
+        const sourceActor = game.user.character;
+        const sourceHandId = sourceActor?.system.handPileId;
+        const sourceHand = sourceHandId ? await fromUuid(sourceHandId) : null;
 
         const cardToPass = sourceHand.cards.get(cardId);
         if (!cardToPass) return ui.notifications.error("渡すカードが見つかりませんでした。");
 
-        // ▼▼▼【修正点】アクターではなく、手札が設定されている他の「ユーザー」をリストアップ▼▼▼
-        const targetUsers = game.users.filter(u => u.id !== game.user.id && u.getFlag("tokyo-nova-axleration", "handId"));
-        if (targetUsers.length === 0) return ui.notifications.warn("カードを渡せる相手がいません。");
+        const targetUsers = game.users.filter(u => 
+            u.id !== game.user.id && 
+            u.character?.system.handPileId
+        );
+
+        if (targetUsers.length === 0) return ui.notifications.warn("カードを渡せる相手（手札を持つキャラクターを操作中のユーザー）がいません。");
         
         // ユーザーをプレイヤーとGMに分け、ソートする
         const playerUsers = targetUsers.filter(u => !u.isGM);
@@ -512,9 +517,7 @@ export class TnxActionHandler {
         if (!targetUserId) return;
         
         const targetUser = game.users.get(targetUserId);
-        const targetHandId = targetUser?.getFlag("tokyo-nova-axleration", "handId");
-        if (!targetHandId) return ui.notifications.warn(`「${targetUser.name}」に手札が設定されていません。`);
-
+        const targetHandId = targetUser.character.system.handPileId;
         const targetHand = await fromUuid(targetHandId);
         if (!targetHand) return ui.notifications.error("相手の手札が見つかりませんでした。");
         
@@ -526,7 +529,9 @@ export class TnxActionHandler {
      * 【HUD用】選択した複数枚のカードを、選択した別のユーザーに渡す
      */
     static async selectAndPassMultipleCards() {
-        const sourceHand = await fromUuid(game.user.getFlag("tokyo-nova-axleration", "handId"));
+        const sourceActor = game.user.character;
+        const sourceHandId = sourceActor?.system.handPileId;
+        const sourceHand = sourceHandId ? await fromUuid(sourceHandId) : null;
         if (!sourceHand || sourceHand.cards.size === 0) return ui.notifications.warn("渡せるカードが手札にありません。");
 
         const selectedCardsIds = await CardSelectionDialog.prompt({
@@ -537,8 +542,10 @@ export class TnxActionHandler {
         });
         if (!selectedCardsIds || selectedCardsIds.length === 0) return;
 
-        // ▼▼▼【修正点】アクターではなく、手札が設定されている他の「ユーザー」をリストアップ▼▼▼
-        const targetUsers = game.users.filter(u => u.id !== game.user.id && u.getFlag("tokyo-nova-axleration", "handId"));
+        const targetUsers = game.users.filter(u => 
+            u.id !== game.user.id && 
+            u.character?.system.handPileId
+        );
         if (targetUsers.length === 0) return ui.notifications.warn("カードを渡せる相手がいません。");
 
         // ユーザーをプレイヤーとGMに分け、ソートする
@@ -557,7 +564,7 @@ export class TnxActionHandler {
         if (!targetUserId) return;
 
         const targetUser = game.users.get(targetUserId);
-        const targetHandId = targetUser?.getFlag("tokyo-nova-axleration", "handId");
+        const targetHandId = targetUser.character.system.handPileId;
         if (!targetHandId) return ui.notifications.warn(`「${targetUser.name}」に手札が設定されていません。`);
         
         const targetHand = await fromUuid(targetHandId);
@@ -572,7 +579,8 @@ export class TnxActionHandler {
      * @param {string} cardId - 捨てるカードのID
      */
     static async discardCard(cardId) {
-        const sourceHandId = game.user.getFlag("tokyo-nova-axleration", "handId");
+        const sourceActor = game.user.character;
+        const sourceHandId = sourceActor?.system.handPileId;
         const sourceHand = sourceHandId ? await fromUuid(sourceHandId) : null;
         if (!sourceHand) return ui.notifications.warn("あなたの手札が設定されていません。");
 

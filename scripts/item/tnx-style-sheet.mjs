@@ -1,6 +1,7 @@
+import { TokyoNovaItemSheet } from "./tnx-item-sheet.mjs";
 import { UnlinkConfirmDialog } from '../module/tnx-dialog.mjs';
 
-export class TokyoNovaStyleSheet extends ItemSheet {
+export class TokyoNovaStyleSheet extends TokyoNovaItemSheet {
 
     static get defaultOptions() {
         return foundry.utils.mergeObject(super.defaultOptions, {
@@ -17,7 +18,6 @@ export class TokyoNovaStyleSheet extends ItemSheet {
         const context = await super.getData(options);
         context.system = this.item.system;
         context.isOwnedByActor = !!this.item.actor;
-        context.enrichedDescription = await TextEditor.enrichHTML(this.item.system.description, { async: true, relativeTo: this.item, editable: this.isEditable });
         context.isLevel3Locked = context.system.level === 3;
         
         const abilityKeys = ["reason", "passion", "life", "mundane"];
