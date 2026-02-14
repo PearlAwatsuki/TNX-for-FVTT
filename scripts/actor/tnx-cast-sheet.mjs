@@ -540,7 +540,13 @@ export class TokyoNovaCastSheet extends ActorSheet {
                 await this.actor.update(updateData);
                 
                 // 経験点再計算
-                await TokyoNovaCastSheet.updateCastExp(this.actor);
+                const playerActor = await fromUuid(sourceActor.uuid);
+                if (playerActor) {
+                    // FVTT内部のデータ初期化を強制実行
+                    playerActor.prepareData(); 
+                    // その後、再計算メソッドを呼ぶ
+                    await TokyoNovaCastSheet.updateCastExp(this.actor);
+                }
                 
                 return true;
             }
@@ -1358,15 +1364,13 @@ export class TokyoNovaCastSheet extends ActorSheet {
         const additional = Number(actor.system.exp.additional) || 0;
         let historyTotal = 0;
         
-        let player = null;
         if (actor.system.playerId) {
             try {
                 const doc = await fromUuid(actor.system.playerId);
                 if (doc) {
-                    player = doc;
                     historyTotal = Number(doc.system.exp.total) || 0;
                 }
-            } catch (e) { console.warn(e); }
+            } catch (e) { console.warn("TokyoNOVA | プレイヤーデータの参照に失敗しました", e); }
         } else {
             const history = actor.system.history || {};
             historyTotal = Object.values(history).reduce((sum, entry) => sum + (Number(entry.exp) || 0), 0);

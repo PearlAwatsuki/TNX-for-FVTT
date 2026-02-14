@@ -2302,6 +2302,7 @@ form .sheet-notes.notes {
 }
 .skill-check-row input {
     padding: 4px 6px;
+    color: var(--tnx-color-text-base);
 }
 .tn-label {
     font-size: 0.9em;

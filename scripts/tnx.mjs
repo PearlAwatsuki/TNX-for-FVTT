@@ -910,12 +910,10 @@ Hooks.once("ready", async function() {
 
             // 履歴、経験点合計、追加経験点のいずれかが変更された場合
             if (foundry.utils.hasProperty(diff, "system.history") || 
-                foundry.utils.hasProperty(diff, "system.exp.total") || 
-                foundry.utils.hasProperty(diff, "system.exp.additional")) {
+                foundry.utils.hasProperty(diff, "system.exp.total")) {
                 
                 updates["system.history"] = actor.system.history;
                 updates["system.exp.total"] = actor.system.exp.total;
-                updates["system.exp.additional"] = actor.system.exp.additional;
                 needsSync = true;
             }
 
