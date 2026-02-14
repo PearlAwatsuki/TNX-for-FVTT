@@ -33,6 +33,25 @@ export class TokyoNovaCastSheet extends ActorSheet {
         });
     }
 
+    _getHeaderButtons() {
+        const buttons = super._getHeaderButtons();
+        
+        // UUIDコピーボタンを先頭（ボタン群の一番左）に追加
+        // ※トグルスイッチはDOM操作で追加するためここには含めない
+        buttons.unshift({
+            label: "UUIDをコピー", // ホバー時に表示されるテキスト
+            class: "copy-uuid",
+            icon: "fas fa-passport",
+            onclick: (ev) => {
+                ev.preventDefault();
+                game.clipboard.copyPlainText(this.document.uuid);
+                ui.notifications.info(game.i18n.format("DOCUMENT.IdCopiedClipboard", {label: this.document.documentName, type: "UUID", id: this.document.uuid}));
+            }
+        });
+        
+        return buttons;
+    }
+
     async getData(options) {
         const context = await super.getData(options);
         context.system = this.actor.system;
@@ -254,7 +273,6 @@ export class TokyoNovaCastSheet extends ActorSheet {
 
         TnxHistoryMixin.activateHistoryListeners.call(this, html);
 
-        html.find('.edit-mode-toggle').on('click', this._onToggleEditMode.bind(this));
         html.find('.item-edit').on('click', this._onOpenItemSheet.bind(this));
         html.find('.view-mode-style-summary .style-summary-item').on('click', this._onRollStyleDescription.bind(this));
         html.find('.skill-property-change').on('change', this._onSkillPropertyChange.bind(this));
@@ -691,14 +709,15 @@ export class TokyoNovaCastSheet extends ActorSheet {
         }
     }
 
+    // 【修正】描画時にトグルスイッチを左端に挿入
     async _render(force = false, options = {}) {
         await super._render(force, options);
-        const refreshFlag = this.actor.getFlag("tokyo-nova-axleration", "refreshSheet");
-        if (refreshFlag) {
-            await this.actor.unsetFlag("tokyo-nova-axleration", "refreshSheet");
-        }
+        
         if (this.element && this.element[0]) {
             const sheetElement = this.element[0];
+            const header = this.element.find('.window-header');
+
+            // 1. モードクラスの適用
             if (this._isEditMode && this.isEditable) {
                 sheetElement.classList.remove("view-mode");
                 sheetElement.classList.add("edit-mode");
@@ -706,6 +725,23 @@ export class TokyoNovaCastSheet extends ActorSheet {
                 sheetElement.classList.remove("edit-mode");
                 sheetElement.classList.add("view-mode");
             }
+
+            // 2. トグルスイッチの左端挿入（権限がある場合のみ）
+            // 既に挿入済みでないか確認してから追加
+            if (this.isEditable && header.find('.edit-mode-toggle').length === 0) {
+                // CSSのスタイルに合わせたHTML構造を作成
+                const toggleBtn = $('<a class="edit-mode-toggle tnx-button tnx-button--toggle" title="編集モード切替"></a>');
+                
+                // クリックイベントの設定
+                toggleBtn.on('click', (ev) => {
+                    ev.preventDefault();
+                    this._onToggleEditMode(ev);
+                });
+
+                // ヘッダーの先頭（左端）に追加
+                header.prepend(toggleBtn);
+            }
+
             this._applyTextSqueezing();
         }
     }
@@ -959,7 +995,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
     }
     
     _onToggleEditMode(event) {
-        event.preventDefault();
+        if (event) event.preventDefault();
         this._isEditMode = !this._isEditMode;
         this.render(false);
     }
