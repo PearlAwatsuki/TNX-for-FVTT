@@ -44,25 +44,27 @@
                 </div>
                 <fieldset class="tnx-fieldset">
                     <legend>一般技能 設定</legend>
-                    <div class="form-group">
-                        <label>種別</label>
-                        <select name="system.generalSkillCategory">
-                            {{selectOptions options.generalSkillCategory selected=system.generalSkillCategory}}
-                        </select>
-                    </div>
-                    {{#if (eq system.generalSkillCategory "initialSkill")}}
+                    <div class="tnx-form-field">
                         <div class="form-group">
-                            <label>初期スート</label>
-                            <select name="system.initialSkill.initialSuit">
-                                {{selectOptions options.initialSuit selected=system.initialSkill.initialSuit}}
+                            <label>種別</label>
+                            <select name="system.generalSkillCategory">
+                                {{selectOptions options.generalSkillCategory selected=system.generalSkillCategory}}
                             </select>
                         </div>
-                    {{else}}
-                        <div class="form-group">
-                            <label>初期取得の社会・コネ</label>
-                            <input type="checkbox" name="system.onomasticSkill.isInitial" {{checked system.onomasticSkill.isInitial}}>
-                        </div>
-                    {{/if}}
+                        {{#if (eq system.generalSkillCategory "initialSkill")}}
+                            <div class="form-group">
+                                <label>初期スート</label>
+                                <select name="system.initialSkill.initialSuit">
+                                    {{selectOptions options.initialSuit selected=system.initialSkill.initialSuit}}
+                                </select>
+                            </div>
+                        {{else}}
+                            <div class="form-group">
+                                <label>初期取得の社会・コネ</label>
+                                <input type="checkbox" name="system.onomasticSkill.isInitial" {{checked system.onomasticSkill.isInitial}}>
+                            </div>
+                        {{/if}}
+                    </div>
                 </fieldset>
             </div>
         </div>

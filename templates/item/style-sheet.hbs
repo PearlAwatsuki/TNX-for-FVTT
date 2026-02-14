@@ -37,47 +37,51 @@
         </div>
 
         <div class="tab setting" data-group="primary" data-tab="setting">
-            <fieldset class="tnx-fieldset">
+            <fieldset class="tnx-fieldset">                
                 <legend>{{localize "TNX.Item.Style.Setting"}}</legend>
-                <div class="form-group">
-                    <label>{{localize "TNX.Item.Style.Level"}}</label>
-                    <div class="number-input-spinner">
-                        <button type="button" data-action="decrement-level" class="tnx-button">-</button>
-                        <input type="number" name="system.level" value="{{system.level}}" min="1" max="3" class="ability-value" readonly/>
-                        <button type="button" data-action="increment-level" class="tnx-button">+</button>
+                <div class="tnx-form-field">
+                    <div class="form-group">
+                        <label>{{localize "TNX.Item.Style.Level"}}</label>
+                        <div class="number-input-spinner">
+                            <button type="button" data-action="decrement-level" class="tnx-button">-</button>
+                            <input type="number" name="system.level" value="{{system.level}}" min="1" max="3" class="ability-value" readonly/>
+                            <button type="button" data-action="increment-level" class="tnx-button">+</button>
+                        </div>
                     </div>
-                </div>
-                <div class="form-group">
-                    <label for="is-persona">{{localize "TNX.Item.Style.Persona"}}</label>
-                    {{!-- ▼▼▼ レベル3の時にdisabledを追加 ▼▼▼ --}}
-                    <input type="checkbox" id="is-persona" name="system.isPersona" {{checked system.isPersona}} {{#if isLevel3Locked}}disabled{{/if}}/>
-                </div>
-                <div class="form-group">
-                    <label for="is-key">{{localize "TNX.Item.Style.Key"}}</label>
-                    {{!-- ▼▼▼ レベル3の時にdisabledを追加 ▼▼▼ --}}
-                    <input type="checkbox" id="is-key" name="system.isKey" {{checked system.isKey}} {{#if isLevel3Locked}}disabled{{/if}}/>
+                    <div class="form-group">
+                        <label for="is-persona">{{localize "TNX.Item.Style.Persona"}}</label>
+                        {{!-- ▼▼▼ レベル3の時にdisabledを追加 ▼▼▼ --}}
+                        <input type="checkbox" id="is-persona" name="system.isPersona" {{checked system.isPersona}} {{#if isLevel3Locked}}disabled{{/if}}/>
+                    </div>
+                    <div class="form-group">
+                        <label for="is-key">{{localize "TNX.Item.Style.Key"}}</label>
+                        {{!-- ▼▼▼ レベル3の時にdisabledを追加 ▼▼▼ --}}
+                        <input type="checkbox" id="is-key" name="system.isKey" {{checked system.isKey}} {{#if isLevel3Locked}}disabled{{/if}}/>
+                    </div>
                 </div>
             </fieldset>
 
             <fieldset class="tnx-fieldset">
                 <legend>{{localize "TNX.Item.Style.MiracleSetting"}}</legend>
-                <div class="form-group">
-                    <label>{{localize "TNX.Item.Style.Miracle"}}</label>
-                    {{#if linkedMiracle}}
-                        <button type="button" class="tnx-linked-button" data-action="open-linked-sheet" data-context-menu-type="manage-miracle" title="クリックでシートを開く" {{#if isOwnedByActor}}disabled{{/if}}>
-                            <img src="{{linkedMiracle.img}}" class="tnx-linked-button__icon"/>
-                            <span class="tnx-linked-button__label">{{linkedMiracle.name}}</span>
+                <div class="tnx-form-field">
+                    <div class="form-group">
+                        <label>{{localize "TNX.Item.Style.Miracle"}}</label>
+                        {{#if linkedMiracle}}
+                            <button type="button" class="tnx-linked-button" data-action="open-linked-sheet" data-context-menu-type="manage-miracle" title="クリックでシートを開く" {{#if isOwnedByActor}}disabled{{/if}}>
+                                <img src="{{linkedMiracle.img}}" class="tnx-linked-button__icon"/>
+                                <span class="tnx-linked-button__label">{{linkedMiracle.name}}</span>
+                            </button>
+                        {{else}}
+                            <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="miracle">
+                                <span>{{localize "TNX.DropMiracleHint"}}</span>
+                            </div>
+                        {{/if}}
+                    </div>
+                    <div class="form-group">
+                        <button type="button" class="tnx-button" data-action="create-and-link-miracle" {{#if linkedMiracle}}disabled{{/if}} {{#if isOwnedByActor}}disabled{{/if}}>
+                            <i class="fas fa-plus-square"></i> {{localize "TNX.Item.Style.CreateAndLinkMiracle"}}
                         </button>
-                    {{else}}
-                        <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="miracle">
-                            <span>{{localize "TNX.DropMiracleHint"}}</span>
-                        </div>
-                    {{/if}}
-                </div>
-                <div class="form-group">
-                     <button type="button" class="tnx-button" data-action="create-and-link-miracle" {{#if linkedMiracle}}disabled{{/if}} {{#if isOwnedByActor}}disabled{{/if}}>
-                        <i class="fas fa-plus-square"></i> {{localize "TNX.Item.Style.CreateAndLinkMiracle"}}
-                    </button>
+                    </div>
                 </div>
             </fieldset>
         </div>

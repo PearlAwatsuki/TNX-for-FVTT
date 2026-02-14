@@ -41,19 +41,21 @@
         <div class="tab setting" data-group="primary" data-tab="setting">
             <fieldset class="tnx-fieldset">
                 <legend>{{localize "TNX.UsageCount"}}</legend>
-                <div class="form-group">
-                    <label for="isUsed">{{localize "TNX.Used"}}</label>
-                    <input type="checkbox" id="isUsed" name="system.isUsed" {{checked system.isUsed}}>
-                    <p class="sheet-notes notes">{{localize "TNX.UsedHint"}}</p>
-                </div>
-                <div class="form-group">
-                    <label>{{localize "TNX.RemainingUses"}}</label>
-                    <div class="number-input-spinner">
-                        <button type="button" data-action="decrement-level" class="tnx-button">-</button>
-                        <input class="ability-value" type="number" name="system.usageCount.total" value="{{system.usageCount.total}}" {{#if system.isUsed}} disabled {{/if}}>
-                        <button type="button" data-action="increment-level" class="tnx-button">+</button>
+                <div class="tnx-form-field">
+                    <div class="form-group">
+                        <label for="isUsed">{{localize "TNX.Used"}}</label>
+                        <input type="checkbox" id="isUsed" name="system.isUsed" {{checked system.isUsed}}>
+                        <p class="sheet-notes notes">{{localize "TNX.UsedHint"}}</p>
                     </div>
-                    <p class="sheet-notes notes">{{localize "TNX.RemainingUsesHint"}}</p>
+                    <div class="form-group">
+                        <label>{{localize "TNX.RemainingUses"}}</label>
+                        <div class="number-input-spinner">
+                            <button type="button" data-action="decrement-level" class="tnx-button">-</button>
+                            <input class="ability-value" type="number" name="system.usageCount.total" value="{{system.usageCount.total}}" {{#if system.isUsed}} disabled {{/if}}>
+                            <button type="button" data-action="increment-level" class="tnx-button">+</button>
+                        </div>
+                        <p class="sheet-notes notes">{{localize "TNX.RemainingUsesHint"}}</p>
+                    </div>
                 </div>
             </fieldset>
         </div>

@@ -86,7 +86,7 @@
                 </div>
                 <fieldset class="tnx-fieldset">
                     <legend>スタイル技能 詳細設定</legend>
-                    <div class="style-skill-settings-wrapper">
+                    <div class="tnx-form-field">
                         <div class="form-group">
                             <label>種別</label>
                             <select name="system.styleSkillCategory">
@@ -130,14 +130,14 @@
 
                                         <div class="row-controls">
                                             {{#if (eq idx 0)}}
-                                                <button type="button" class="tnx-button add-array-item" data-target="combo" title="行を追加">
+                                                <a class="add-array-item" data-target="combo" title="行を追加">
                                                     <i class="fas fa-plus"></i>
-                                                </button>
+                                                </a>
                                             {{/if}}
                                             {{#if (gte idx 1)}}
-                                                <button type="button" class="tnx-button delete-array-item" data-target="combo" data-index="{{idx}}" title="削除">
+                                                <a class="delete-array-item" data-target="combo" data-index="{{idx}}" title="削除">
                                                     <i class="fas fa-trash"></i>
-                                                </button>
+                                                </a>
                                             {{/if}}
                                         </div>
                                     </div>
@@ -197,16 +197,16 @@
                                     <div class="row-controls">
                                         {{!-- 1行目のみ追加ボタン --}}
                                         {{#if (eq idx 0)}}
-                                            <button type="button" class="tnx-button add-array-item" data-target="timing" title="行を追加">
+                                            <a class="add-array-item" data-target="timing" title="行を追加">
                                                 <i class="fas fa-plus"></i>
-                                            </button>
+                                            </a>
                                         {{/if}}
 
                                         {{!-- 2行目(index 1)以降は削除ボタン --}}
                                         {{#if (gte idx 1)}}
-                                            <button type="button" class="tnx-button delete-array-item" data-target="timing" data-index="{{idx}}" title="削除">
+                                            <a class="delete-array-item" data-target="timing" data-index="{{idx}}" title="削除">
                                                 <i class="fas fa-trash"></i>
-                                            </button>
+                                            </a>
                                         {{/if}}
                                     </div>
                                 </div>
@@ -293,14 +293,14 @@
                                         <div class="row-controls">
                                             {{!-- ...ボタン類は変更なし... --}}
                                             {{#if (eq idx 0)}}
-                                                <button type="button" class="tnx-button add-array-item" data-target="confrontation">
+                                                <a class="add-array-item" data-target="confrontation">
                                                     <i class="fas fa-plus"></i>
-                                                </button>
+                                                </a>
                                             {{/if}}
                                             {{#if (gte idx 1)}}
-                                                <button type="button" class="tnx-button delete-array-item" data-target="confrontation" data-index="{{idx}}">
+                                                <a class="delete-array-item" data-target="confrontation" data-index="{{idx}}">
                                                     <i class="fas fa-trash"></i>
-                                                </button>
+                                                </a>
                                             {{/if}}
                                         </div>
                                     </div>

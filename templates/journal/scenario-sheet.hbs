@@ -137,25 +137,31 @@
                 </fieldset>
                 <fieldset class="tnx-fieldset">
                     <legend>管理アクション</legend>
-                    <div class="scenario-actions" style="display: flex; flex-direction: column; gap: 10px; max-width: 300px;">
-                        <button type="button" class="tnx-button" data-action="reset-access-cards">
-                            <i class="fas fa-undo"></i> アクセスカードをリセットする
-                        </button>
-                        <p class="sheet-notes notes">
-                            RL切り札捨て場の「切り札」をRLの切り札置き場に戻します。
-                        </p>
-                        <button type="button" class="tnx-button" data-action="deal-initial-hands">
-                            <i class="fas fa-hand-holding"></i> 初期手札を配布
-                        </button>
-                        <p class="sheet-notes notes">
-                            全てのPCの手札をリセットし、システム設定枚数のカードを山札から配布します。
-                        </p>
-                        <button type="button" class="tnx-button" data-action="deal-trump-from-neuro">
-                            <i class="fas fa-star"></i> 切り札を配布
-                        </button>
-                        <p class="sheet-notes notes">
-                            ニューロデッキからカードを1枚引き、選択したキャストの切り札として配布します。
-                        </p>
+                    <div class="scenario-actions">
+                        <div>
+                            <button type="button" class="tnx-button" data-action="reset-access-cards">
+                                <i class="fas fa-undo"></i> アクセスカードをリセットする
+                            </button>
+                            <p class="sheet-notes notes">
+                                RL切り札捨て場の「切り札」をRLの切り札置き場に戻します。
+                            </p>
+                        </div>
+                        <div>
+                            <button type="button" class="tnx-button" data-action="deal-initial-hands">
+                                <i class="fas fa-hand-holding"></i> 初期手札を配布
+                            </button>
+                            <p class="sheet-notes notes">
+                                全てのPCの手札をリセットし、システム設定枚数のカードを山札から配布します。
+                            </p>
+                        </div>
+                        <div>                            
+                            <button type="button" class="tnx-button" data-action="deal-trump-from-neuro">
+                                <i class="fas fa-star"></i> 切り札を配布
+                            </button>
+                            <p class="sheet-notes notes">
+                                ニューロデッキからカードを1枚引き、選択したキャストの切り札として配布します。
+                            </p>
+                        </div>
                     </div>
                 </fieldset>
             </div>
