@@ -26,6 +26,25 @@ export class TokyoNovaPlayerSheet extends ActorSheet {
         });
     }
 
+    _getHeaderButtons() {
+        const buttons = super._getHeaderButtons();
+        
+        // UUIDコピーボタンを先頭（ボタン群の一番左）に追加
+        // ※トグルスイッチはDOM操作で追加するためここには含めない
+        buttons.unshift({
+            label: "UUIDをコピー", // ホバー時に表示されるテキスト
+            class: "copy-uuid",
+            icon: "fas fa-passport",
+            onclick: (ev) => {
+                ev.preventDefault();
+                game.clipboard.copyPlainText(this.document.uuid);
+                ui.notifications.info(game.i18n.format("DOCUMENT.IdCopiedClipboard", {label: this.document.documentName, type: "UUID", id: this.document.uuid}));
+            }
+        });
+        
+        return buttons;
+    }
+
     async getData(options) {
         const context = await super.getData(options);
         context.system = this.actor.system;
@@ -53,6 +72,9 @@ export class TokyoNovaPlayerSheet extends ActorSheet {
         
         if (this.element && this.element[0]) {
             const sheetElement = this.element[0];
+            const header = this.element.find('.window-header');
+
+            // 1. モードクラスの適用
             if (this._isEditMode && this.isEditable) {
                 sheetElement.classList.remove("view-mode");
                 sheetElement.classList.add("edit-mode");
@@ -60,7 +82,59 @@ export class TokyoNovaPlayerSheet extends ActorSheet {
                 sheetElement.classList.remove("edit-mode");
                 sheetElement.classList.add("view-mode");
             }
+
+            // 2. トグルスイッチの左端挿入（権限がある場合のみ）
+            // 既に挿入済みでないか確認してから追加
+            if (this.isEditable && header.find('.edit-mode-toggle').length === 0) {
+                // CSSのスタイルに合わせたHTML構造を作成
+                const toggleBtn = $('<a class="edit-mode-toggle tnx-button tnx-button--toggle" title="編集モード切替"></a>');
+                
+                // クリックイベントの設定
+                toggleBtn.on('click', (ev) => {
+                    ev.preventDefault();
+                    this._onToggleEditMode(ev);
+                });
+
+                // ヘッダーの先頭（左端）に追加
+                header.prepend(toggleBtn);
+            }
+
+            this._applyTextSqueezing();
         }
+    }
+
+    _applyTextSqueezing() {
+        if (!this.element) return;
+        
+        const elements = this.element.find('.squeeze-text');
+        
+        elements.each((i, el) => {
+            const parent = el.parentElement;
+            
+            const parentStyle = getComputedStyle(parent);
+            const parentWidth = parent.clientWidth;
+            const paddingLeft = parseFloat(parentStyle.paddingLeft) || 0;
+            const paddingRight = parseFloat(parentStyle.paddingRight) || 0;
+            const availableWidth = parentWidth - paddingLeft - paddingRight - 2;
+            
+            const contentWidth = el.scrollWidth;
+
+            const isSkewedLabel = el.classList.contains('skill-label-content');
+
+            let transformBase = '';
+            if (isSkewedLabel) {
+                transformBase = 'skewX(25deg)';
+            } else {
+                transformBase = '';
+            }
+
+            if (contentWidth > availableWidth) {
+                const scale = availableWidth / contentWidth;
+                el.style.transform = `${transformBase} scaleX(${scale * 0.95})`;
+            } else {
+                el.style.transform = transformBase;
+            }
+        });
     }
 
     /**
@@ -73,9 +147,6 @@ export class TokyoNovaPlayerSheet extends ActorSheet {
     activateListeners(html) {
         super.activateListeners(html);
         TnxHistoryMixin.activateHistoryListeners.call(this, html);
-
-        // 編集モード切り替えボタン
-        html.find('.edit-mode-toggle').on('click', this._onToggleEditMode.bind(this));
 
         // カード関連のリスナー
         html.find('.open-hand').click(ev => {
