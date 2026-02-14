@@ -730,7 +730,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
             // 既に挿入済みでないか確認してから追加
             if (this.isEditable && header.find('.edit-mode-toggle').length === 0) {
                 // CSSのスタイルに合わせたHTML構造を作成
-                const toggleBtn = $('<a class="edit-mode-toggle tnx-button tnx-button--toggle" title="編集モード切替"></a>');
+                const toggleBtn = $('<a class="edit-mode-toggle" title="編集モード切替"></a>');
                 
                 // クリックイベントの設定
                 toggleBtn.on('click', (ev) => {

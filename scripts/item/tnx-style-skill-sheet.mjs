@@ -183,7 +183,7 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
         
         // データ取得（正規化済み）
         const context = await this.getData();
-        const normalizedSs = context.system.styleSkill;
+        const normalizedSs = context.system;
         let updateData = {};
 
         if (target === "combo") {

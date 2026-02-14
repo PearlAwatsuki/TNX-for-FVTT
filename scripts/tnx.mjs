@@ -738,7 +738,7 @@ Hooks.once("init", async function() {
         }
 
         // "cast"タイプのアクターのみを対象とする
-        if (actor.type !== "cast") {
+        if (actor.type !== "player") {
             return;
         }
 

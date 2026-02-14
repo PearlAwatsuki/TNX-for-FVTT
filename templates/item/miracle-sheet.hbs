@@ -13,6 +13,7 @@
     <nav class="sheet-tabs tabs" data-group="primary">
         <a class="item" data-tab="description">{{localize "TNX.Common.Description"}}</a>
         <a class="item" data-tab="setting">{{localize "TNX.Common.Setting"}}</a>
+        <a class="item" data-tab="usage">用途</a>
         <a class="item" data-tab="effects">{{localize "TNX.Common.Effects"}}</a>
     </nav>
 
@@ -38,25 +39,6 @@
         </div>
 
         <div class="tab setting" data-group="primary" data-tab="setting">
-            <fieldset class="tnx-fieldset">
-                <legend>{{localize "TNX.MiracleFlags"}}</legend>
-                <div class="form-group">
-                    <label for="isKill">{{localize "TNX.IsKill"}}</label>
-                    <input type="checkbox" id="isKill" name="system.isKill" {{checked system.isKill}}>
-                    <p class="sheet-notes notes">{{localize "TNX.IsKillHint"}}</p>
-                </div>
-                <div class="form-group">
-                    <label for="isDefence">{{localize "TNX.IsDefence"}}</label>
-                    <input type="checkbox" id="isDefence" name="system.isDefence" {{checked system.isDefence}}>
-                    <p class="sheet-notes notes">{{localize "TNX.IsDefenceHint"}}</p>
-                </div>
-                <div class="form-group">
-                    <label for="isAll">{{localize "TNX.IsAll"}}</label>
-                    <input type="checkbox" id="isAll" name="system.isAll" {{checked system.isAll}}>
-                    <p class="sheet-notes notes">{{localize "TNX.IsAllHint"}}</p>
-                </div>
-            </fieldset>
-
             <fieldset class="tnx-fieldset">
                 <legend>{{localize "TNX.UsageCount"}}</legend>
                 <div class="form-group">

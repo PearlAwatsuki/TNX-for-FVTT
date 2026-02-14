@@ -38,6 +38,10 @@
     --tnx-border-radius-lg: 5px;
 }
 
+.tokyo-nova a:hover {
+    text-shadow: 0 0 4px  var(--tnx-color-primary-highlight);
+}
+
 /* =================================================================== */
 /* 6. WINDOW HEADER CUSTOMIZATION (D&D 5e Style)                     */
 /* =================================================================== */
@@ -87,7 +91,7 @@
     vertical-align: middle;
 }
 
-.tokyo-nova.sheet.actor .edit-mode-toggle {
+.tokyo-nova.sheet .edit-mode-toggle {
     position: relative;
     width: 36px;
     height: 20px;
@@ -99,8 +103,9 @@
     -webkit-appearance: none;
     padding: 0;
     margin-right: auto;
+    margin-left: 0px;
 }
-.tokyo-nova.sheet.actor .edit-mode-toggle::after {
+.tokyo-nova.sheet .edit-mode-toggle::after {
     position: absolute;
     top: 1px;
     left: 1px;
@@ -117,6 +122,25 @@
     font-size: 10px;
     color: #555;
     content: '\f06e';
+}
+
+.tokyo-nova.sheet .window-header .edit-mode-toggle:hover::after {
+    box-shadow: 0 0 4px var(--tnx-color-primary-highlight);
+    background-color: #a2f3ff;
+}
+
+.tokyo-nova.sheet .edit-mode-toggle i {
+    display: none;
+}
+
+.tokyo-nova.sheet.edit-mode .edit-mode-toggle {
+    background-color: var(--tnx-color-primary);
+}
+
+.tokyo-nova.sheet.edit-mode .edit-mode-toggle::after {
+    left: 17px;
+    color: var(--tnx-color-primary);
+    content: '\f044';
 }
 
 /* --- Global Styles --- */
@@ -181,7 +205,8 @@ form .form-group .form-fields .number-input-spinner .tnx-button {
     font-family: 'Mirror', sans-serif;
     font-weight: bold;
 }
-.tokyo-nova input{
+.tokyo-nova input {
+    border-radius: var(--tnx-border-radius-sm);
     background-color: var(--tnx-color-bg-input);
     border: 1px solid var(--tnx-color-border);
     color: var(--tnx-color-text-base);
@@ -201,6 +226,16 @@ form .sheet-notes.notes {
     color: var(--tnx-color-text-base);
 }
 
+.tokyo-nova select:focus,
+.tokyo-nova input:focus,
+.tokyo-nova .tnx-linked-button:hover,
+.tokyo-nova .tnx-linked-button:focus,
+.tokyo-nova .tnx-button:hover,
+.tokyo-nova .tnx-button:focus {
+    border-color: var(--tnx-color-primary-highlight);
+    box-shadow: 0 0 6px var(--tnx-color-primary);
+    color: inherit;
+}
 
 /* =================================================================== */
 /* 2. GENERIC COMPONENTS                                             */
@@ -990,11 +1025,7 @@ form .sheet-notes.notes {
 }
 .tokyo-nova.sheet.actor .profile-sidebar .personal-data-item input[type="text"] {
     width: 100%;
-    background-color: var(--tnx-color-bg-input);
-    border: 1px solid var(--tnx-color-border);
-    color: var(--tnx-color-text-base);
     padding: 4px 6px;
-    border-radius: var(--tnx-border-radius-sm);
 }
 .tokyo-nova.sheet.actor .profile-sidebar .sidebar-edit-controls {
     display: flex;
@@ -1091,11 +1122,7 @@ form .sheet-notes.notes {
 .tokyo-nova.sheet.actor .profile-header .identity-edit-mode .handle-block-edit { display: flex; gap: 3px; }
 .tokyo-nova.sheet.actor .profile-header .identity-edit-mode label { font-size: 0.9em; color: var(--tnx-color-text-dim); }
 .tokyo-nova.sheet.actor .profile-header .identity-edit-mode input[type="text"] {
-    background-color: var(--tnx-color-bg-input);
-    border: 1px solid var(--tnx-color-border);
-    color: var(--tnx-color-text-base);
     padding: 4px 6px;
-    border-radius: var(--tnx-border-radius-sm);
     font-size: 1.1em;
 }
 .tokyo-nova.sheet.actor .profile-header .middle-header-section { display: flex; flex-direction: column; width: 100%; gap: 8px; }
@@ -1110,10 +1137,6 @@ form .sheet-notes.notes {
 .tokyo-nova.sheet.actor .profile-header .middle-header-section label { color: var(--tnx-color-text-dim); white-space: nowrap; }
 .tokyo-nova.sheet.actor .profile-header .citizen-rank-block select {
     min-width: 120px;
-    background-color: var(--tnx-color-bg-input);
-    border: 1px solid var(--tnx-color-border);
-    color: var(--tnx-color-text-base);
-    border-radius: var(--tnx-border-radius-sm);
     padding: 4px;
 }
 .tokyo-nova.sheet.actor .affiliation-block {
@@ -1167,18 +1190,6 @@ form .sheet-notes.notes {
 }
 
 .tokyo-nova.sheet.actor .sheet-controls { position: absolute; top: 5px; right: 5px; }
-
-.tokyo-nova.sheet.actor .edit-mode-toggle i {
-    display: none;
-}
-.tokyo-nova.sheet.actor.edit-mode .edit-mode-toggle {
-    background-color: var(--tnx-color-primary);
-}
-.tokyo-nova.sheet.actor.edit-mode .edit-mode-toggle::after {
-    left: 17px;
-    color: var(--tnx-color-primary);
-    content: '\f044';
-}
 
 /* --- Cast Sheet: Main Content --- */
 .tokyo-nova.sheet.actor .sheet-tabs { flex-shrink: 0; border-bottom: 1px solid var(--tnx-color-primary-dark); }
@@ -1286,9 +1297,15 @@ form .sheet-notes.notes {
 }
 .tokyo-nova.sheet.actor.view-mode input,
 .tokyo-nova.sheet.actor.view-mode select {
-    border: none !important; background: transparent !important; pointer-events: none;
-    padding-left: 0; padding-right: 0; color: inherit !important;
-    -webkit-appearance: none; -moz-appearance: none; appearance: none;
+    border: none !important;
+    background: transparent !important;
+    pointer-events: none;
+    padding-left: 0;
+    padding-right: 0;
+    color: inherit !important;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
 }
 /* 神業シートのチェックボックス用スタイル */
 .sheet.item.miracle .sheet-header .is-used-checkbox {
@@ -1879,14 +1896,16 @@ form .sheet-notes.notes {
 }
 .table-cell input[type="text"]:disabled { background-color: #3e444a; color: var(--tnx-color-text-muted); cursor: not-allowed; }
 .table-cell select {
-    width: 100%; background-color: var(--tnx-color-bg-input);
-    border: 1px solid var(--tnx-color-border-accent); border-radius: var(--tnx-border-radius-sm);
-    padding: 5px 4px; color: var(--tnx-color-text-base);
-    font-family: inherit; font-size: 14px; height: 32px;
+    width: 100%;
+    padding: 5px 4px;
+    font-family: inherit;
+    font-size: 14px; height: 32px;
 }
 .table-cell select:disabled {
-    background-color: #3e444a; color: var(--tnx-color-text-muted);
-    cursor: not-allowed; border-color: var(--tnx-color-border);
+    background-color: #3e444a;
+    color: var(--tnx-color-text-muted);
+    cursor: not-allowed;
+    border-color: var(--tnx-color-border);
 }
 .table-cell.scene-number, .table-cell.master-scene,
 .table-cell.scene-switch, .table-cell.scene-controls { display: flex; justify-content: center; align-items: center; }
@@ -2282,11 +2301,7 @@ form .sheet-notes.notes {
     text-align: center;
 }
 .skill-check-row input {
-    background-color: var(--tnx-color-bg-input);
-    border: 1px solid var(--tnx-color-border);
-    border-radius: var(--tnx-border-radius-sm);
     padding: 4px 6px;
-    color: var(--tnx-color-text-base);
 }
 .tn-label {
     font-size: 0.9em;
@@ -3470,4 +3485,68 @@ ol.item-list {
 .history-row input:focus {
     border: 1px solid #111;
     background: var(--tnx-color-bg-alt);
+}
+
+/* =================================================================== */
+/* 7. ITEM SHEET VIEW MODE BEHAVIOR                                  */
+/* =================================================================== */
+
+/* --- A. ヘッダー & 説明タブ: 枠線を消してクリーンに --- */
+
+/* ヘッダー内の入力欄（レベル以外）と、説明タブ内の入力要素 */
+.tokyo-nova.sheet.item.view-mode .sheet-header input:not([name="system.level"]),
+.tokyo-nova.sheet.item.view-mode .tab[data-tab="description"] input,
+.tokyo-nova.sheet.item.view-mode .tab[data-tab="description"] textarea {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    pointer-events: none; /* 操作不可 */
+    color: var(--tnx-color-text-base);
+}
+
+/* 例外1: レベル入力欄 (ヘッダー内) は見た目を維持したまま操作不可 */
+.tokyo-nova.sheet.item.view-mode .sheet-header .level-display input {
+    pointer-events: none;
+    /* 色や枠線は元のCSS定義(.sheet-header .level-display input)がそのまま適用されます */
+}
+
+/* 例外2: スート選択 (ヘッダー内) は見た目を維持したまま操作不可 */
+.tokyo-nova.sheet.item.view-mode .sheet-header .suit-selection {
+    pointer-events: none;
+}
+
+/* --- B. 設定タブ (説明タブ以外): グレーアウト --- */
+
+/* テキスト・数値入力、セレクトボックス、テキストエリア */
+.tokyo-nova.sheet.item.view-mode .tab:not([data-tab="description"]) input[type="text"],
+.tokyo-nova.sheet.item.view-mode .tab:not([data-tab="description"]) input[type="number"],
+.tokyo-nova.sheet.item.view-mode .tab:not([data-tab="description"]) select,
+.tokyo-nova.sheet.item.view-mode .tab:not([data-tab="description"]) textarea {
+    background-color: rgba(0, 0, 0, 0.3); /* 暗い背景 */
+    color: var(--tnx-color-text-muted);   /* グレー文字 */
+    border: 1px solid var(--tnx-color-border);
+    pointer-events: none;
+}
+
+/* チェックボックス: グレーアウト表現 */
+.tokyo-nova.sheet.item.view-mode .tab:not([data-tab="description"]) input[type="checkbox"] {
+    pointer-events: none;
+    opacity: 0.5;
+    filter: grayscale(100%);
+}
+
+/* --- C. スピナーボタン (＋－): 操作不可・グレーアウト --- */
+.tokyo-nova.sheet.item.view-mode .tnx-button {
+    pointer-events: none;
+    background-color: #4a5057;
+    border-color: #3e444a;
+    color: #888;
+}
+
+/* --- D. プレースホルダー非表示 --- */
+/* 閲覧モード時はプレースホルダー（入力ヒント）を透明にして隠す */
+.tokyo-nova.sheet.item.view-mode input::placeholder,
+.tokyo-nova.sheet.item.view-mode textarea::placeholder {
+    color: transparent;
+    opacity: 0;
 }
