@@ -154,19 +154,37 @@ function handleRefreshSheets() {
  * プレイヤーアクターに紐づく全キャストの消費経験点を集計し、プレイヤー側のデータを更新する
  */
 async function syncPlayerExpFromCasts(playerActor) {
-    const linkedCasts = game.actors.filter(a => a.type === 'cast' && a.system.playerId === playerActor.uuid);
+    // まず対象の可能性があるアクターをピックアップ
+    const linkedCastCandidates = game.actors.filter(a => a.type === 'cast' && a.system.playerId === playerActor.uuid);
+    
     let totalSharedSpent = 0;
 
-    for (const cast of linkedCasts) {
-        const castSpent = Number(cast.system.exp.spent) || 0; // 実消費 - 170
-        const additional = Number(cast.system.exp.additional) || 0;
+    for (let cast of linkedCastCandidates) {
+        // 【修正】データが不完全（初期化前）な場合、除外せず「再取得」して処理を行う
+        if (!cast.system || !cast.system.exp) {
+            try {
+                // キャッシュが古い可能性があるため、DBから最新を非同期で取得
+                const realCast = await fromUuid(cast.uuid);
+                if (realCast) {
+                    cast = realCast; // インスタンスを差し替え
+                    // 取得したインスタンスのデータ準備を強制
+                    cast.prepareData();
+                }
+            } catch (e) {
+                console.error(`TokyoNOVA | キャスト ${cast.name} のデータ再取得に失敗しました:`, e);
+                continue; 
+            }
+        }
+
+        const castSpent = Number(cast.system.exp?.spent);
+        const additional = Number(cast.system.exp?.additional);
         const overflow = Math.max(0, castSpent - additional);
         totalSharedSpent += overflow;
     }
 
-    const currentSpent = Number(playerActor.system.exp.spent) || 0;
+    const currentSpent = Number(playerActor.system.exp?.spent) || 0;
     if (currentSpent !== totalSharedSpent) {
-        const currentTotal = Number(playerActor.system.exp.total) || 0;
+        const currentTotal = Number(playerActor.system.exp?.total) || 0;
         await playerActor.update({
             "system.exp.spent": totalSharedSpent,
             "system.exp.value": currentTotal - totalSharedSpent
@@ -882,14 +900,12 @@ Hooks.once("ready", async function() {
     Hooks.on('updateItem', (item, diff, options) => recalcActorExp(item));
 
     Hooks.on('updateActor', async (actor, diff, options, userId) => {
-        // 1. キャスト自身の経験点再計算 (変更なし)
         if (actor.type === 'cast' && options.calcExp !== false && !options.syncing) {
             if (diff.system) {
                  await TokyoNovaCastSheet.updateCastExp(actor);
             }
         }
 
-        // 2. プレイヤーアクターへの同期（キャスト更新時）
         if (actor.type === 'cast' && actor.system.playerId) {
             try {
                 const playerActor = await fromUuid(actor.system.playerId);
@@ -899,31 +915,26 @@ Hooks.once("ready", async function() {
             } catch (e) { console.warn(e); }
         }
 
-        // 3. プレイヤーアクター更新時の処理（キャストへの同期）
         if (actor.type === 'player') {
-            // このプレイヤーアクターをリンクしている全キャストを探す
             const linkedCasts = game.actors.filter(a => a.type === 'cast' && a.system.playerId === actor.uuid);
             
-            // ▼▼▼ 追加: プレイヤーの更新内容（履歴・経験点）をキャストにコピー ▼▼▼
             const updates = {};
             let needsSync = false;
 
-            // 履歴、経験点合計、追加経験点のいずれかが変更された場合
             if (foundry.utils.hasProperty(diff, "system.history") || 
                 foundry.utils.hasProperty(diff, "system.exp.total")) {
                 
                 updates["system.history"] = actor.system.history;
-                updates["system.exp.total"] = actor.system.exp.total;
+                updates["system.exp.total"] = actor.system.exp?.total;
+                
                 needsSync = true;
             }
 
             for (const cast of linkedCasts) {
                 if (!options.syncing) {
                     if (needsSync) {
-                        // データを同期（再帰ループ防止のため syncing: true を付与）
                         await cast.update(updates, { syncing: true });
                     }
-                    // キャスト側の再計算を実行
                     await TokyoNovaCastSheet.updateCastExp(cast);
                 }
             }

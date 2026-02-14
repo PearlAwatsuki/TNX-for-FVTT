@@ -98,11 +98,11 @@ export class TokyoNovaCastSheet extends ActorSheet {
         }
 
         if (context.playerActor) {
-            const historyMap = context.playerActor.system.history || {};
+            const historyMap = context.playerActor.system.history;
             context.history = this._prepareHistoryForDisplay(historyMap);
         } else {
             // なければ自身の履歴
-            const historyMap = this.actor.system.history || {};
+            const historyMap = this.actor.system.history;
             context.history = this._prepareHistoryForDisplay(historyMap);
         }
 
@@ -122,7 +122,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
         // 経験点合計の補正ロジック（既存ママ）
         if (updateData["system.exp.total"] !== undefined) {
             const historySum = updateData["system.exp.total"];
-            const additional = Number(this.actor.system.exp.additional) || 0;
+            const additional = Number(this.actor.system.exp.additional);
             updateData["system.exp.total"] = historySum + additional;
         }
 
@@ -139,7 +139,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
                 // 2. 自分自身の更新（選別して適用）
                 // 他人の履歴データで自身のローカル履歴を汚染しないようにする
                 const localUpdate = {};
-                const localHistory = this.actor.system.history || {};
+                const localHistory = this.actor.system.history;
 
                 for (const [key, value] of Object.entries(updateData)) {
                     // 経験点関連は同期する
@@ -243,7 +243,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
     _prepareSkillsData(context) {
         const generalSkills = this.actor.items
             .filter(i => i.type === 'generalSkill')
-            .sort((a, b) => (a.sort || 0) - (b.sort || 0));
+            .sort((a, b) => (a.sort) - (b.sort));
         
         context.generalSkills = generalSkills; 
 
@@ -257,7 +257,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
         // スタイル技能
         context.styleSkills = this.actor.items
             .filter(i => i.type === 'styleSkill')
-            .sort((a, b) => (a.sort || 0) - (b.sort || 0));
+            .sort((a, b) => (a.sort) - (b.sort));
 
         const skillOptions = TnxSkillUtils.getSkillOptions();
         
@@ -476,8 +476,8 @@ export class TokyoNovaCastSheet extends ActorSheet {
             let styleTotalValue = 0;
             let styleTotalControl = 0;
             const styleContributions = equippedStyles.map(style => {
-                const styleValue = style.system[key]?.value || 0;
-                const styleControl = style.system[key]?.control || 0;
+                const styleValue = style.system[key].value;
+                const styleControl = style.system[key]?.control;
                 const level = style.system.level || 1;
                 styleTotalValue += styleValue * level;
                 styleTotalControl += styleControl * level;
@@ -493,8 +493,8 @@ export class TokyoNovaCastSheet extends ActorSheet {
                 effectMod: ability.effectMod,
                 controlEffectMod: ability.controlEffectMod,
                 styleContributions,
-                totalValue: (ability.growth || 0) + styleTotalValue + (ability.mod || 0) + (ability.effectMod || 0),
-                totalControl: (ability.controlGrowth || 0) + styleTotalControl + (ability.controlMod || 0) + (ability.controlEffectMod || 0)
+                totalValue: (ability.growth) + styleTotalValue + (ability.mod) + (ability.effectMod),
+                totalControl: (ability.controlGrowth) + styleTotalControl + (ability.controlMod) + (ability.controlEffectMod)
             };
         }
     }
@@ -509,10 +509,10 @@ export class TokyoNovaCastSheet extends ActorSheet {
                 if (sourceActor.uuid === this.actor.uuid) return false;
 
                 // 1. キャストの現在の履歴を取得
-                const castHistory = this.actor.system.history || {};
+                const castHistory = this.actor.system.history;
                 
                 // 2. プレイヤーの現在の履歴を取得
-                const playerHistory = sourceActor.system.history || {};
+                const playerHistory = sourceActor.system.history;
 
                 // 3. 履歴をマージ（キャストの履歴をプレイヤーに追加）
                 // キー（ID）が重複することは稀ですが、万が一重複した場合はキャスト側が優先される形か、
@@ -520,9 +520,11 @@ export class TokyoNovaCastSheet extends ActorSheet {
                 const mergedHistory = { ...playerHistory, ...castHistory };
 
                 // 4. プレイヤーシート側の履歴を更新
-                await sourceActor.update({
+                // 【修正】updateの戻り値（更新後の最新インスタンス）を受け取る
+                const updatedPlayerDocs = await sourceActor.update({
                     "system.history": mergedHistory
                 });
+                const latestPlayerActor = Array.isArray(updatedPlayerDocs) ? updatedPlayerDocs[0] : updatedPlayerDocs;
 
                 // 5. キャストシートをプレイヤーにリンク
                 // 手札・切り札IDの同期も含める
@@ -537,15 +539,19 @@ export class TokyoNovaCastSheet extends ActorSheet {
                 }
 
                 // キャスト自身の履歴は**上書きしない**（元データを残すため）
-                await this.actor.update(updateData);
+                // 【修正】自身の更新結果も受け取る
+                const updatedCastDocs = await this.actor.update(updateData);
+                const latestCastActor = Array.isArray(updatedCastDocs) ? updatedCastDocs[0] : updatedCastDocs;
                 
                 // 経験点再計算
-                const playerActor = await fromUuid(sourceActor.uuid);
-                if (playerActor) {
-                    // FVTT内部のデータ初期化を強制実行
-                    playerActor.prepareData(); 
-                    // その後、再計算メソッドを呼ぶ
-                    await TokyoNovaCastSheet.updateCastExp(this.actor);
+                // 【修正】再度 fromUuid するのではなく、更新直後の「完全なインスタンス」同士を渡す
+                if (latestCastActor && latestPlayerActor) {
+                    // 念のためデータ準備を呼んでおく
+                    latestCastActor.prepareData();
+                    latestPlayerActor.prepareData();
+
+                    // 第2引数として最新のプレイヤーアクターを渡す
+                    await TokyoNovaCastSheet.updateCastExp(latestCastActor, latestPlayerActor);
                 }
                 
                 return true;
@@ -606,8 +612,8 @@ export class TokyoNovaCastSheet extends ActorSheet {
 
                             if (existingMiracle) {
                                 const usage = existingMiracle.system.usageCount;
-                                const mod = usage.mod || 0;
-                                const newValue = Math.min(3, (usage.value || 0) + 1);
+                                const mod = usage.mod;
+                                const newValue = Math.min(3, (usage.value) + 1);
                                 const newTotal = newValue + mod;
                                 
                                 ui.notifications.info(`神業「${existingMiracle.name}」の母数が+1されました。`);
@@ -621,7 +627,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
                                 } else {
                                     const miracleData = sourceMiracle.toObject();
                                     if (!foundry.utils.hasProperty(miracleData, "system.usageCount.value")) {
-                                        const mod = foundry.utils.getProperty(miracleData, "system.usageCount.mod") || 0;
+                                        const mod = foundry.utils.getProperty(miracleData, "system.usageCount.mod");
                                         foundry.utils.setProperty(miracleData, "system.usageCount", { value: 1, total: 1 + mod, mod: mod, used: 0 });
                                     }
                                     await this.actor.createEmbeddedDocuments("Item", [miracleData]);
@@ -641,8 +647,8 @@ export class TokyoNovaCastSheet extends ActorSheet {
             const existingItem = allMiracles.find(i => i.name === item.name);
             if (existingItem) {
                 const usage = existingItem.system.usageCount;
-                const mod = usage.mod || 0;
-                const newValue = Math.min(3, (usage.value || 0) + 1);
+                const mod = usage.mod;
+                const newValue = Math.min(3, (usage.value) + 1);
                 const newTotal = newValue + mod;
                 
                 ui.notifications.info(`神業「${existingItem.name}」の母数が+1されました。`);
@@ -657,7 +663,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
                 }
                 const itemData = item.toObject();
                 if (!foundry.utils.hasProperty(itemData, "system.usageCount.value")) {
-                    const mod = foundry.utils.getProperty(itemData, "system.usageCount.mod") || 0;
+                    const mod = foundry.utils.getProperty(itemData, "system.usageCount.mod");
                     foundry.utils.setProperty(itemData, "system.usageCount", { value: 1, total: 1 + mod, mod: mod, used: 0 });
                 }
                 return this.actor.createEmbeddedDocuments("Item", [itemData]);
@@ -762,8 +768,8 @@ export class TokyoNovaCastSheet extends ActorSheet {
             
             const parentStyle = getComputedStyle(parent);
             const parentWidth = parent.clientWidth;
-            const paddingLeft = parseFloat(parentStyle.paddingLeft) || 0;
-            const paddingRight = parseFloat(parentStyle.paddingRight) || 0;
+            const paddingLeft = parseFloat(parentStyle.paddingLeft);
+            const paddingRight = parseFloat(parentStyle.paddingRight);
             const availableWidth = parentWidth - paddingLeft - paddingRight - 2;
             
             const contentWidth = el.scrollWidth;
@@ -939,7 +945,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
             }
         }
     
-        const remainingUses = originalMiracle.system.usageCount.total || 0;
+        const remainingUses = originalMiracle.system.usageCount.total;
         if (remainingUses <= 0) {
             ui.notifications.warn(`神業「${originalMiracle.name}」はこれ以上使用できません。`);
             return;
@@ -1094,7 +1100,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
         event.preventDefault();
         const input = event.currentTarget;
         const name = input.name; 
-        const newValue = parseInt(input.value, 10) || 0;
+        const newValue = parseInt(input.value, 10);
         await this.actor.update({ [name]: newValue });
     }
 
@@ -1110,7 +1116,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
         let updateData = {};
 
         if (target === "level") {
-            newLevel = parseInt(input.value, 10) || 0;
+            newLevel = parseInt(input.value, 10);
             updateData["system.level"] = newLevel;
         } else if (target === "suit") {
             const suitKey = input.dataset.suit;
@@ -1131,7 +1137,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
         }
 
         // --- 経験点消費ロジック ---
-        const oldLevel = item.system.level || 0;
+        const oldLevel = item.system.level;
         
         if (newLevel === oldLevel) {
             await item.update(updateData);
@@ -1186,8 +1192,8 @@ export class TokyoNovaCastSheet extends ActorSheet {
                 return; 
             }
     
-            const maxUses = (usage.value || 0) + (usage.mod || 0);
-            const remainingUses = usage.total || 0;
+            const maxUses = (usage.value) + (usage.mod);
+            const remainingUses = usage.total;
     
             for (let i = 0; i < maxUses; i++) {
                 const isDisabled = i >= remainingUses;
@@ -1293,7 +1299,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
                     const sortedHistory = [...newHistory];
                     this._sortHistory(sortedHistory);
                     
-                    const currentTotal = Number(this.actor.system.exp.total) || 0;
+                    const currentTotal = Number(this.actor.system.exp.total);
 
                     await player.update({ 
                         "system.history": sortedHistory,
@@ -1307,7 +1313,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
     }
 
     async _updateExpTotal(diff) {
-        const currentTotal = Number(this.actor.system.exp.total) || 0;
+        const currentTotal = Number(this.actor.system.exp.total);
         await this.actor.update({
             "system.exp.total": currentTotal + diff
         });
@@ -1333,8 +1339,11 @@ export class TokyoNovaCastSheet extends ActorSheet {
         }
     }
 
-    static async updateCastExp(actor) {
+    static async updateCastExp(actor, linkedPlayer = null) {
         if (!actor || actor.type !== 'cast') return;
+
+        // 【修正】データ保護: 万が一データ構造が未構築なら構築を試みる
+        if (!actor.system.exp) actor.prepareData();
 
         const abilities = ["reason", "passion", "life", "mundane"];
         let totalAbilityCost = 0;
@@ -1344,13 +1353,13 @@ export class TokyoNovaCastSheet extends ActorSheet {
             let styleControl = 0;
             allStyles.forEach(s => {
                 const level = Number(s.system.level) || 1;
-                styleValue += (Number(s.system[key]?.value) || 0) * level;
-                styleControl += (Number(s.system[key]?.control) || 0) * level;
+                styleValue += (Number(s.system[key]?.value)) * level;
+                styleControl += (Number(s.system[key]?.control)) * level;
             });
             const abilityData = actor.system[key];
-            const baseVal = styleValue + (Number(abilityData.mod) || 0) + (Number(abilityData.effectMod) || 0);
+            const baseVal = styleValue + (Number(abilityData.mod)) + (Number(abilityData.effectMod));
             totalAbilityCost += this._calcSingleAbilityCost(abilityData.growth, baseVal, false);
-            const baseCtrl = styleControl + (Number(abilityData.controlMod) || 0) + (Number(abilityData.controlEffectMod) || 0);
+            const baseCtrl = styleControl + (Number(abilityData.controlMod)) + (Number(abilityData.controlEffectMod));
             totalAbilityCost += this._calcSingleAbilityCost(abilityData.controlGrowth, baseCtrl, true);
         }
         let totalItemCost = 0;
@@ -1361,19 +1370,27 @@ export class TokyoNovaCastSheet extends ActorSheet {
         const initialExp = 170;
 
 
-        const additional = Number(actor.system.exp.additional) || 0;
+        const additional = Number(actor.system.exp?.additional);
         let historyTotal = 0;
         
         if (actor.system.playerId) {
             try {
-                const doc = await fromUuid(actor.system.playerId);
+                // 【修正】引数で渡されていればそれを使い、なければ取得する
+                let doc = linkedPlayer;
+                if (!doc) {
+                    doc = await fromUuid(actor.system.playerId);
+                    // 取得直後でデータがない場合は準備を実行
+                    if (doc && !doc.system.exp) doc.prepareData();
+                }
+
                 if (doc) {
-                    historyTotal = Number(doc.system.exp.total) || 0;
+                    // 安全にアクセス
+                    historyTotal = Number(doc.system.exp?.total);
                 }
             } catch (e) { console.warn("TokyoNOVA | プレイヤーデータの参照に失敗しました", e); }
         } else {
-            const history = actor.system.history || {};
-            historyTotal = Object.values(history).reduce((sum, entry) => sum + (Number(entry.exp) || 0), 0);
+            const history = actor.system.history;
+            historyTotal = Object.values(history).reduce((sum, entry) => sum + (Number(entry.exp)), 0);
         }
 
         const newTotal = additional + historyTotal;
@@ -1390,7 +1407,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
     }
 
     static _calcSingleAbilityCost(growth, base, isControl) {
-        const g = Number(growth) || 0;
+        const g = Number(growth);
         if (g <= 0) return 0;
         
         const threshold = isControl ? 17 : 11;
@@ -1411,7 +1428,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
      */
     static _calcSingleItemCost(item) {
         const system = item.system;
-        const level = Number(system.level) || 0;
+        const level = Number(system.level);
         
         // A. 一般技能
         if (item.type === 'generalSkill') {
@@ -1449,6 +1466,6 @@ export class TokyoNovaCastSheet extends ActorSheet {
         }
 
         // C. その他のコストを持つアイテム
-        return Number(item.system.expCost) || 0;
+        return Number(item.system.expCost);
     }
 }
