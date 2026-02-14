@@ -254,6 +254,10 @@ export class TnxScenarioSheet extends JournalSheet {
                 await TnxActionHandler.dealTrumpFromNeuroDeck();
                 break;
             }
+            case "deal-trump-for-rl": {
+                await this._dealRlTrumpFromAccess();
+                break;
+            }
         }
     }
 
@@ -602,5 +606,57 @@ export class TnxScenarioSheet extends JournalSheet {
 
         // 7. ユーザーに通知
         ui.notifications.info("「切り札」をRLの切り札に再配布しました。");
+    }
+
+    /**
+     * アクセスカード山から「切り札」を検索し、RLのアクター切り札置き場へ配布する
+     */
+    async _dealRlTrumpFromAccess() {
+        // 1. シナリオに設定されたアクセスカード山を取得
+        const accessCardPileId = this.object.getFlag("tokyo-nova-axleration", "accessCardPileId");
+        if (!accessCardPileId) {
+            return ui.notifications.warn("アクセスカード山が設定されていません。設定タブでドロップしてください。");
+        }
+        const accessCardPile = await fromUuid(accessCardPileId);
+        if (!accessCardPile) {
+            return ui.notifications.error("設定されているアクセスカード山が見つかりませんでした。");
+        }
+
+        // 2. GMユーザーとそのアクター（キャラクター）を取得
+        const gm = game.users.find(u => u.isGM);
+        if (!gm) {
+            return ui.notifications.warn("GMユーザーが見つかりません。");
+        }
+        if (!gm.character) {
+            return ui.notifications.warn("GMユーザーにキャラクター（プレイヤーアクター）が割り当てられていません。");
+        }
+
+        // 3. GMアクターに紐づく切り札置き場を取得
+        const gmTrumpPileId = gm.character.system.trumpCardPileId;
+        if (!gmTrumpPileId) {
+            return ui.notifications.warn("GMキャラクターに切り札置き場が設定されていません。");
+        }
+        const gmTrumpPile = await fromUuid(gmTrumpPileId);
+        if (!gmTrumpPile) {
+            return ui.notifications.error("設定されているGMキャラクターの切り札置き場が見つかりませんでした。");
+        }
+
+        // 4. アクセスカード山から「切り札」という名前のカードを探す
+        // Note: tnx-access-cards.mjs で定義された名称 "切り札" を使用
+        const trumpCard = accessCardPile.cards.contents.find(c => c.name === "切り札");
+        if (!trumpCard) {
+            return ui.notifications.info("アクセスカード山の中に「切り札」カードが見つかりませんでした。");
+        }
+
+        // 5. RLの切り札置き場が空か確認
+        if (gmTrumpPile.cards.size > 0) {
+            return ui.notifications.warn("RLの切り札には既にカードがあるため、配布を中止しました。");
+        }
+
+        // 6. カードを移動 (FVTT v12 Cards API)
+        await accessCardPile.pass(gmTrumpPile, [trumpCard.id]);
+
+        // 7. ユーザーに通知
+        ui.notifications.info("RLに「切り札」を配布しました。");
     }
 }

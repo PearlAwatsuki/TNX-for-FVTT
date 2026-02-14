@@ -176,13 +176,15 @@ export class TnxScenarioSettingWizard extends FormApplication {
         }
         
         // --- アクセスカードの配布処理 ---
-        if (accessCardDeck) {
-            await accessCardDeck.reset({render: false}, {chatNotification: false});
+        if (accessCardDeck && accessCardPile) {
+            // 1. まず山（Deck）から置き場（Pile）へ全てのカードを移動する
+            await accessCardDeck.pass(accessCardPile, accessCardDeck.cards.map(c => c.id), {chatNotification: false});
             
-            // 【変更】切り札の配布先を「GMユーザーのアクターに紐づく切り札置き場」に変更
-            const trumpCard = accessCardDeck.cards.find(c => c.name === "切り札");
+            // 2. 置き場（Pile）に移ったカードの中から「切り札」を探す
+            const trumpCard = accessCardPile.cards.find(c => c.name === "切り札");
+            
+            // 3. RL（GM）の切り札置き場を特定する
             let targetGmTrumpPile = null;
-
             if (gm && gm.character) {
                 const pileId = gm.character.system.trumpCardPileId;
                 if (pileId) {
@@ -190,30 +192,17 @@ export class TnxScenarioSettingWizard extends FormApplication {
                 }
             }
 
+            // 4. 「切り札」を置き場からRLの切り札へ移動する
             if (trumpCard) {
                 if (targetGmTrumpPile) {
-                    await accessCardDeck.pass(targetGmTrumpPile, [trumpCard.id], {chatNotification: false});
-                    ui.notifications.info("「切り札」をRLの切り札に配布しました。");
+                    await accessCardPile.pass(targetGmTrumpPile, [trumpCard.id], {chatNotification: false});
+                    ui.notifications.info("「切り札」をアクセスカード置き場からRLの切り札に配布しました。");
                 } else {
-                    ui.notifications.warn("RLにキャラクターが割り当てられていない、または切り札置き場が存在しないため、「切り札」を配布できませんでした。");
+                    ui.notifications.warn("RLにキャラクターが割り当てられていない、または切り札置き場が存在しないため、「切り札」を配布できませんでした（カードは置き場に残ります）。");
                 }
+            } else {
+                ui.notifications.info("アクセスカード置き場に全てのカードを配置しました。");
             }
-            
-            // 残りのカードをアクセスカード置き場へ
-            if (accessCardPile) {
-                const remainingCards = accessCardDeck.cards.filter(c => c.id !== trumpCard?.id);
-                const remainingAvailableCards = remainingCards.filter(c => !c.drawn);
-                const remainingAvailableCardIds = remainingAvailableCards.map(c => c.id);
-
-                if (remainingAvailableCardIds.length > 0) {
-                    await accessCardDeck.pass(accessCardPile, remainingAvailableCardIds, {chatNotification: false});
-                    ui.notifications.info("残りのアクセスカードを置き場に配布しました。");
-                }
-            }
-        }
-
-        if (allData.dealInitialHands) {
-            await TnxActionHandler.dealInitialHands();
         }
         
         ui.notifications.info("シナリオのセットアップが完了しました。");

@@ -154,7 +154,7 @@
 /* =================================================================== */
 
 /* ウィンドウヘッダーのスタイル上書き */
-.window-app .window-header {
+.tokyo-nova.window-app .window-header {
     flex-direction: row;
     justify-content: flex-end; /* ボタンを右寄せ */
     align-items: center;
@@ -164,12 +164,12 @@
 }
 
 /* ウィンドウタイトルの非表示 */
-.window-app .window-header .window-title {
+.tokyo-nova.window-app .window-header .window-title {
     display: none;
 }
 
 /* ヘッダーボタンのスタイル（テキストを隠しアイコンのみにする） */
-.window-app .window-header .header-button {
+.tokyo-nova.window-app .window-header .header-button {
     font-size: 0; /* ラベルテキストを不可視化 */
     background: none;
     border: none;
@@ -185,13 +185,13 @@
     transition: color 0.2s;
 }
 
-.window-app .window-header .header-button:hover {
+.tokyo-nova.window-app .window-header .header-button:hover {
     color: var(--tnx-color-text-base);
     text-shadow: 0 0 4px var(--tnx-color-primary);
 }
 
 /* アイコンのサイズを復元 */
-.window-app .window-header .header-button i {
+.tokyo-nova.window-app .window-header .header-button i {
     font-size: 14px;
     margin-right: 0;
     display: inline-block;

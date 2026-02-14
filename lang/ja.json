@@ -421,6 +421,7 @@
     "EFFECT": {
         "Duration": "効果時間",
         "Passive": "受動効果",
-        "New": "新規効果"
+        "New": "新規効果",
+        "Create": "作成"
     }
 }
