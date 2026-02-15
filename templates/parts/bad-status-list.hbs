@@ -1,0 +1,17 @@
+<div class="tnx-bs-grid">
+    {{#each badStatuses as |status|}}
+    {{!-- status.idをdatasetに持たせ、isActiveならクラスを付与 --}}
+        <button type="button" 
+                class="tnx-bs-button {{#if status.isActive}}active{{/if}}" 
+                data-status-id="{{status.id}}"
+                data-tooltip="{{status.label}}">
+            
+            {{!-- アイコンと名前 --}}
+            <img src="{{status.icon}}" class="tnx-bs-icon"/>
+            <span class="tnx-bs-label">{{status.label}}</span>
+            
+            {{!-- 視覚的なチェックマーク（ONの時だけCSSで表示など） --}}
+            <i class="fas fa-check tnx-bs-check"></i>
+        </button>
+    {{/each}}
+</div>

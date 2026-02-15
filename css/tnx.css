@@ -3553,3 +3553,67 @@ ol.item-list {
     color: transparent;
     opacity: 0;
 }
+
+/* グリッドレイアウト */
+.tnx-bs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); /* 幅に応じて列数を自動調整 */
+    gap: 6px;
+    margin: 8px 0;
+}
+
+/* ボタンの基本スタイル */
+.tnx-bs-button {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    padding: 6px;
+    border: 1px solid #777;
+    background: #e0e0e0;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    opacity: 0.7; /* オフの時は少し薄く */
+}
+
+.tnx-bs-button:hover {
+    background: #d0d0d0;
+    opacity: 1;
+}
+
+/* 画像サイズ */
+.tnx-bs-icon {
+    width: 24px;
+    height: 24px;
+    border: none;
+    flex-shrink: 0;
+}
+
+.tnx-bs-label {
+    font-size: 12px;
+    font-weight: bold;
+    flex-grow: 1;
+    text-align: left;
+    white-space: nowrap; /* 文字の折り返し禁止 */
+    overflow: hidden;
+    text-overflow: ellipsis; /* はみ出たら... */
+}
+
+.tnx-bs-check {
+    display: none; /* デフォルトでは非表示 */
+    color: #fff;
+}
+
+/* --- アクティブ（ON）時のスタイル --- */
+.tnx-bs-button.active {
+    background: #782e2e; /* N◎VAらしい赤黒い色など */
+    border-color: #ff0000;
+    color: #fff;
+    opacity: 1;
+    box-shadow: 0 0 5px rgba(255, 0, 0, 0.5);
+}
+
+.tnx-bs-button.active .tnx-bs-check {
+    display: block; /* チェックマーク表示 */
+}

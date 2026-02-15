@@ -643,7 +643,10 @@
                     {{/if}}
                 </div>
 
-                <div class="tab status" data-tab="status"></div>
+                <div class="tab status" data-tab="status">
+                    {{> "systems/tokyo-nova-axleration/templates/parts/active-effects-list.hbs"}}
+                    {{> "systems/tokyo-nova-axleration/templates/parts/bad-status-list.hbs"}}
+                </div>
 
                 <div class="tab history" data-tab="history">
                     {{> "systems/tokyo-nova-axleration/templates/parts/history-list.hbs"}}

@@ -6,6 +6,8 @@ import {
 import { TnxActionHandler } from '../module/tnx-action-handler.mjs';
 import { TnxSkillUtils } from '../module/tnx-skill-utils.mjs';
 import { TnxHistoryMixin } from '../module/tnx-history-mixin.mjs';
+import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
+
 
 export class TokyoNovaCastSheet extends ActorSheet {
     _prepareHistoryForDisplay = TnxHistoryMixin._prepareHistoryForDisplay;
@@ -106,10 +108,26 @@ export class TokyoNovaCastSheet extends ActorSheet {
             context.history = this._prepareHistoryForDisplay(historyMap);
         }
 
+        // 定義済みBSリストを回して、アクターが所持しているかチェック
+        context.badStatuses = CONFIG.statusEffects.map(status => {
+            // v12推奨: statusIdからActiveEffectの有無を確認
+            const hasEffect = this.actor.effects.some(e => e.statuses.has(status.id) && !e.disabled);
+            return {
+                ...status,
+                isActive: hasEffect
+            };
+        });
+
         await this._getCardPileData(context);
         this._getCitizenRankData(context);
         this._getAbilitiesData(context, allStyles);
         this._prepareSkillsData(context);
+        EffectsSheetMixin.prepareEffectsContext(this.item, context);
+        context.allEffects = [
+            ...context.effects.temporary,
+            ...context.effects.passive,
+            ...context.effects.inactive
+        ];
 
         return context;
     }
@@ -272,6 +290,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
         super.activateListeners(html);
 
         TnxHistoryMixin.activateHistoryListeners.call(this, html);
+        EffectsSheetMixin.activateEffectListListeners(html, this.item);
 
         html.find('.item-edit').on('click', this._onOpenItemSheet.bind(this));
         html.find('.view-mode-style-summary .style-summary-item').on('click', this._onRollStyleDescription.bind(this));
@@ -331,6 +350,20 @@ export class TokyoNovaCastSheet extends ActorSheet {
                 };
                 event.dataTransfer.setData('text/plain', JSON.stringify(dragData));
             });
+        });
+
+        html.find('.tnx-bs-button').click(async (ev) => {
+            ev.preventDefault();
+            const btn = ev.currentTarget;
+            const statusId = btn.dataset.statusId;
+            
+            // IDから定義設定を取得
+            const effectConfig = CONFIG.statusEffects.find(s => s.id === statusId);
+            if (!effectConfig) return;
+    
+            // 現在の状態を確認（クラスで判定しても良いが、データを見るのが確実）
+            // toggleStatusEffect は、現在OFFならONに、ONならOFFに自動で切り替えます
+            await this.actor.toggleStatusEffect(effectConfig);
         });
 
         this._activateContextMenus(html);

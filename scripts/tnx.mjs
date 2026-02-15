@@ -44,7 +44,8 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/parts/scenario-setting-wizard.hbs",
         "systems/tokyo-nova-axleration/templates/parts/prosemirror-editor.hbs",
         "systems/tokyo-nova-axleration/templates/parts/history-list.hbs",
-        "systems/tokyo-nova-axleration/templates/parts/usage-list.hbs"
+        "systems/tokyo-nova-axleration/templates/parts/usage-list.hbs",
+        "systems/tokyo-nova-axleration/templates/parts/bad-status-list.hbs"
     ];
     return loadTemplates(templatePaths);
 }
@@ -212,6 +213,22 @@ Hooks.once("init", async function() {
         climax: "クライマックス",
         ending: "エンディング"
     };
+
+    // トーキョーN◎VA バッドステータス定義
+    // id: システム内部で使うID, label: 表示名
+    CONFIG.statusEffects = [
+        { id: "panic", label: "恐慌", icon: "icons/svg/terror.svg" },
+        { id: "poison", label: "邪毒", icon: "icons/svg/poison.svg" },
+        { id: "pressure", label: "重圧", icon: "icons/svg/down.svg" },
+        { id: "weakness", label: "衰弱", icon: "icons/svg/degen.svg" },
+        { id: "capture", label: "捕縛", icon: "icons/svg/net.svg" },
+        { id: "doped-major", label: "酩酊(大)", icon: "icons/svg/daze.svg" },
+        { id: "doped-minor", label: "酩酊(小)", icon: "icons/svg/sleep.svg" },
+        { id: "confusion", label: "狼狽", icon: "icons/svg/explosion.svg" },
+        { id: "fear", label: "萎縮", icon: "icons/svg/cowled.svg" }, // User specified 'Fear' for 萎縮
+        { id: "hatred", label: "憎悪", icon: "icons/svg/fire.svg" },
+        { id: "interference", label: "電子妨害", icon: "icons/svg/lightning.svg" }
+    ];
     
     // Actor Sheetの登録
     Actors.unregisterSheet("core", ActorSheet);
