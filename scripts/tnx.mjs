@@ -217,17 +217,17 @@ Hooks.once("init", async function() {
     // トーキョーN◎VA バッドステータス定義
     // id: システム内部で使うID, label: 表示名
     CONFIG.statusEffects = [
-        { id: "panic", label: "恐慌", icon: "icons/svg/terror.svg" },
-        { id: "poison", label: "邪毒", icon: "icons/svg/poison.svg" },
-        { id: "pressure", label: "重圧", icon: "icons/svg/down.svg" },
-        { id: "weakness", label: "衰弱", icon: "icons/svg/degen.svg" },
-        { id: "capture", label: "捕縛", icon: "icons/svg/net.svg" },
-        { id: "doped-major", label: "酩酊(大)", icon: "icons/svg/daze.svg" },
-        { id: "doped-minor", label: "酩酊(小)", icon: "icons/svg/sleep.svg" },
-        { id: "confusion", label: "狼狽", icon: "icons/svg/explosion.svg" },
-        { id: "fear", label: "萎縮", icon: "icons/svg/cowled.svg" }, // User specified 'Fear' for 萎縮
-        { id: "hatred", label: "憎悪", icon: "icons/svg/fire.svg" },
-        { id: "interference", label: "電子妨害", icon: "icons/svg/lightning.svg" }
+        { id: "panic", name: "恐慌", img: "icons/svg/terror.svg" },
+        { id: "poison", name: "邪毒", img: "icons/svg/poison.svg" },
+        { id: "pressure", name: "重圧", img: "icons/svg/down.svg" },
+        { id: "weakness", name: "衰弱", img: "icons/svg/degen.svg" },
+        { id: "capture", name: "捕縛", img: "icons/svg/net.svg" },
+        { id: "doped-major", name: "酩酊(大)", img: "icons/svg/daze.svg" },
+        { id: "doped-minor", name: "酩酊(小)", img: "icons/svg/sleep.svg" },
+        { id: "confusion", name: "狼狽", img: "icons/svg/explosion.svg" },
+        { id: "fear", name: "萎縮", img: "icons/svg/cowled.svg" }, // User specified 'Fear' for 萎縮
+        { id: "hatred", name: "憎悪", img: "icons/svg/fire.svg" },
+        { id: "interference", name: "電子妨害", img: "icons/svg/lightning.svg" }
     ];
     
     // Actor Sheetの登録

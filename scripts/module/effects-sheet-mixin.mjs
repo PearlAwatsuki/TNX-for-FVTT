@@ -15,6 +15,10 @@ export const EffectsSheetMixin = {
             inactive: []
         };
         for (const effect of document.effects) {
+            if (effect.statuses && effect.statuses.size > 0) {
+                continue; 
+            }
+
             if (effect.disabled) {
                 effects.inactive.push(effect);
             } else if (effect.isTemporary) {
@@ -55,5 +59,40 @@ export const EffectsSheetMixin = {
                     return effect?.update({ disabled: !effect.disabled });
             }
         });
+    },
+
+    async _onCreateEffect(event) {
+        event.preventDefault();
+        // this.actor または this.document を使用
+        const doc = this.actor || this.document; 
+        return await doc.createEmbeddedDocuments("ActiveEffect", [{
+            name: game.i18n.localize("EFFECT.New"),
+            img: "icons/svg/aura.svg",
+            origin: doc.uuid,
+        }]).then(effects => effects[0]?.sheet.render(true));
+    },
+
+    async _onEditEffect(event) {
+        event.preventDefault();
+        const doc = this.actor || this.document;
+        const effectId = event.currentTarget.closest(".tnx-item-list__row")?.dataset.effectId;
+        const effect = doc.effects.get(effectId);
+        return effect?.sheet.render(true);
+    },
+
+    async _onDeleteEffect(event) {
+        event.preventDefault();
+        const doc = this.actor || this.document;
+        const effectId = event.currentTarget.closest(".tnx-item-list__row")?.dataset.effectId;
+        const effect = doc.effects.get(effectId);
+        return await effect?.delete();
+    },
+
+    async _onToggleEffect(event) {
+        event.preventDefault();
+        const doc = this.actor || this.document;
+        const effectId = event.currentTarget.closest(".tnx-item-list__row")?.dataset.effectId;
+        const effect = doc.effects.get(effectId);
+        return await effect?.update({ disabled: !effect.disabled });
     }
 };

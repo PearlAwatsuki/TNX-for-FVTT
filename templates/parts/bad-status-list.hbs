@@ -1,17 +1,25 @@
-<div class="tnx-bs-grid">
-    {{#each badStatuses as |status|}}
-    {{!-- status.idをdatasetに持たせ、isActiveならクラスを付与 --}}
+<div class="tnx-bs-container">
+    <div class="tnx-bs-grid">
+        {{#each badStatuses as |bs|}}
+        {{!-- クリックでBSを解除するためのボタン --}}
         <button type="button" 
-                class="tnx-bs-button {{#if status.isActive}}active{{/if}}" 
-                data-status-id="{{status.id}}"
-                data-tooltip="{{status.label}}">
+                class="tnx-bs-button active" 
+                data-effect-id="{{bs.id}}"
+                data-tooltip="{{bs.details}}">
             
-            {{!-- アイコンと名前 --}}
-            <img src="{{status.icon}}" class="tnx-bs-icon"/>
-            <span class="tnx-bs-label">{{status.label}}</span>
+            <img src="{{bs.img}}" class="tnx-bs-icon"/>
+            <span class="tnx-bs-label">{{bs.name}}</span>
             
-            {{!-- 視覚的なチェックマーク（ONの時だけCSSで表示など） --}}
-            <i class="fas fa-check tnx-bs-check"></i>
+            {{!-- 解除可能であることを示すアイコン（バツ印など） --}}
+            <i class="fas fa-times tnx-bs-remove"></i>
         </button>
-    {{/each}}
+        {{/each}}
+        
+        {{!-- 何も付与されていない場合の表示（必要に応じて使用） --}}
+        {{#unless badStatuses.length}}
+        <span class="tnx-bs-empty" style="color: #777; font-size: 12px; grid-column: 1 / -1;">
+            現在受けているバッドステータスはありません。
+        </span>
+        {{/unless}}
+    </div>
 </div>

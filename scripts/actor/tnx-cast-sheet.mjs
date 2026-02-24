@@ -18,6 +18,11 @@ export class TokyoNovaCastSheet extends ActorSheet {
     _onHistoryDelete = TnxHistoryMixin._onHistoryDelete;
     _onHistoryChange = TnxHistoryMixin._onHistoryChange;
 
+    _onCreateEffect = EffectsSheetMixin._onCreateEffect;
+    _onEditEffect = EffectsSheetMixin._onEditEffect;
+    _onDeleteEffect = EffectsSheetMixin._onDeleteEffect;
+    _onToggleEffect = EffectsSheetMixin._onToggleEffect;
+
     constructor(...args) {
         super(...args);
         this._isEditMode = this.actor.isOwner ? false : false;
@@ -118,11 +123,22 @@ export class TokyoNovaCastSheet extends ActorSheet {
             };
         });
 
+        context.badStatuses = this.actor.effects
+            .filter(e => e.flags?.["tokyo-nova-axleration"]?.isBadStatus === true && !e.disabled)
+            .map(e => {
+                return {
+                    id: e.id,
+                    name: e.name, // "邪毒(3)" などの生成済みの名称が入ります
+                    img: e.img,
+                    details: e.flags?.["tokyo-nova-axleration"]?.details || ""
+                };
+            });
+
         await this._getCardPileData(context);
         this._getCitizenRankData(context);
         this._getAbilitiesData(context, allStyles);
         this._prepareSkillsData(context);
-        EffectsSheetMixin.prepareEffectsContext(this.item, context);
+        EffectsSheetMixin.prepareEffectsContext(this.actor, context);
         context.allEffects = [
             ...context.effects.temporary,
             ...context.effects.passive,
@@ -290,7 +306,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
         super.activateListeners(html);
 
         TnxHistoryMixin.activateHistoryListeners.call(this, html);
-        EffectsSheetMixin.activateEffectListListeners(html, this.item);
+        EffectsSheetMixin.activateEffectListListeners(html, this.actor);
 
         html.find('.item-edit').on('click', this._onOpenItemSheet.bind(this));
         html.find('.view-mode-style-summary .style-summary-item').on('click', this._onRollStyleDescription.bind(this));
@@ -354,16 +370,13 @@ export class TokyoNovaCastSheet extends ActorSheet {
 
         html.find('.tnx-bs-button').click(async (ev) => {
             ev.preventDefault();
-            const btn = ev.currentTarget;
-            const statusId = btn.dataset.statusId;
+            const effectId = ev.currentTarget.dataset.effectId;
+            const effect = this.actor.effects.get(effectId);
             
-            // IDから定義設定を取得
-            const effectConfig = CONFIG.statusEffects.find(s => s.id === statusId);
-            if (!effectConfig) return;
-    
-            // 現在の状態を確認（クラスで判定しても良いが、データを見るのが確実）
-            // toggleStatusEffect は、現在OFFならONに、ONならOFFに自動で切り替えます
-            await this.actor.toggleStatusEffect(effectConfig);
+            if (effect) {
+                // FVTT標準の機能でエフェクトを削除します
+                await effect.delete();
+            }
         });
 
         this._activateContextMenus(html);
