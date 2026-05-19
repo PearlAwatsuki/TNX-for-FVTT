@@ -151,7 +151,7 @@
         }
     },
     "socket": true,
-    "initiative": "@system.CS.value",
+    "initiative": "@system.combatSpeed.value",
     "grid": {
         "distance": 1,
         "units": "m"

@@ -133,7 +133,7 @@ miracle または generalSkill のアイテムシートを開き、ActiveEffect 
 
 ### P0-04: `system.json` の initiative 式を修正
 
-- [ ] 完了
+- [x] 完了
 
 **作業内容**
 `system.json:154` の initiative 式を、実際のフィールドパスに合わせて修正する。
