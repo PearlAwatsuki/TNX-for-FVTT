@@ -426,14 +426,17 @@ Hooks.once("init", async function() {
     Hooks.on("renderJournalDirectory", (app, html, data) => {
         if (!game.user.isGM) return;
 
-        const createButton = html.find(".create-document");
-        createButton.html('<i class="far fa-plus-square"></i> 作成');
-        createButton.off("click").on("click", (event) => {
+        const createButton = html.querySelector(".create-document");
+        if (!createButton) return;
+
+        createButton.innerHTML = '<i class="far fa-plus-square"></i> 作成';
+        createButton.addEventListener("click", (event) => {
             event.preventDefault();
             event.stopPropagation();
-            $('.tnx-create-menu').remove();
+            document.querySelectorAll('.tnx-create-menu').forEach(el => el.remove());
 
-            const menuHtml = `
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = `
                 <div class="tnx-create-menu">
                     <ul>
                         <li data-creation-type="base"><i class="fas fa-file-alt"></i> 資料を作成</li>
@@ -441,41 +444,40 @@ Hooks.once("init", async function() {
                     </ul>
                 </div>
             `;
-            const menu = $(menuHtml);
-            $('body').append(menu);
-            const buttonPos = createButton.offset();
-            menu.css({ top: buttonPos.top + createButton.outerHeight(), left: buttonPos.left });
+            const menu = tempDiv.firstElementChild;
+            document.body.appendChild(menu);
+            const rect = createButton.getBoundingClientRect();
+            menu.style.top = `${rect.bottom + window.scrollY}px`;
+            menu.style.left = `${rect.left + window.scrollX}px`;
 
-            menu.find('li').on('click', async (ev) => {
-                const creationType = ev.currentTarget.dataset.creationType;
-                let newJournal;
-                if (creationType === "base") {
-                    // 通常のジャーナルを作成
-                    newJournal = await JournalEntry.create({ name: "新規資料" });
-                } else if (creationType === "act-sheet") {
-                    // ▼▼▼【ここが最重要の修正点です】▼▼▼
-                    // core.sheetClassフラグに、使用したいシートクラスのIDを指定して作成
-                    newJournal = await JournalEntry.create({
-                        name: "新規アクトシート",
-                        flags: {
-                            core: {
-                                sheetClass: `tokyo-nova.${TnxScenarioSheet.name}`
+            menu.querySelectorAll('li').forEach(li => {
+                li.addEventListener('click', async (ev) => {
+                    const creationType = ev.currentTarget.dataset.creationType;
+                    let newJournal;
+                    if (creationType === "base") {
+                        newJournal = await JournalEntry.create({ name: "新規資料" });
+                    } else if (creationType === "act-sheet") {
+                        newJournal = await JournalEntry.create({
+                            name: "新規アクトシート",
+                            flags: {
+                                core: {
+                                    sheetClass: `tokyo-nova.${TnxScenarioSheet.name}`
+                                }
                             }
-                        }
-                    });
-                }
-                menu.remove();
-                newJournal?.sheet.render(true);
-
-            });
-            
-            const closeMenu = (e) => {
-                if (!$(e.target).closest('.tnx-create-menu').length) {
+                        });
+                    }
                     menu.remove();
-                    $(document).off('click', closeMenu);
+                    newJournal?.sheet.render(true);
+                });
+            });
+
+            const closeMenu = (e) => {
+                if (!e.target.closest('.tnx-create-menu')) {
+                    menu.remove();
+                    document.removeEventListener('click', closeMenu);
                 }
             };
-            setTimeout(() => $(document).on('click', closeMenu), 10);
+            setTimeout(() => document.addEventListener('click', closeMenu), 10);
         });
     });
 
