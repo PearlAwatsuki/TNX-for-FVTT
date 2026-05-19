@@ -270,9 +270,9 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
         }
 
         // 2. 配列項目（技能、対決、タイミング）の処理
-        const comboMatch = fieldName.match(/^system\.styleSkill\.comboSkill\.(\d+)\.value$/);
-        const confrontMatch = fieldName.match(/^system\.styleSkill\.confrontation\.(\d+)\.value$/);
-        const timingMatch = fieldName.match(/^system\.styleSkill\.timing\.(\d+)\.value$/);
+        const comboMatch = fieldName.match(/^system\.comboSkill\.(\d+)\.value$/);
+        const confrontMatch = fieldName.match(/^system\.confrontation\.(\d+)\.value$/);
+        const timingMatch = fieldName.match(/^system\.timing\.(\d+)\.value$/);
 
         if (comboMatch) {
             const idx = comboMatch[1];

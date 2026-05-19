@@ -94,7 +94,7 @@ miracle または generalSkill のアイテムシートを開き、ActiveEffect 
 
 ### P0-03: `styleSkill._onSelectChange` の正規表現を修正
 
-- [ ] 完了
+- [x] 完了
 
 **作業内容**
 `scripts/item/tnx-style-skill-sheet.mjs:273-275` の3つの正規表現から
