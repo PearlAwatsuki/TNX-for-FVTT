@@ -385,19 +385,25 @@ Hooks.once("init", async function() {
     Hooks.on("renderSettingsConfig", (app, html, data) => {
         // --- ドロップダウン生成ヘルパー関数 ---
         const createDropdown = (settingName, collection, filter) => {
-            const input = html.find(`[name="tokyo-nova-axleration.${settingName}"]`);
-            if (!input.length) return;
+            const input = html.querySelector(`[name="tokyo-nova-axleration.${settingName}"]`);
+            if (!input) return;
             const currentValue = game.settings.get("tokyo-nova-axleration", settingName);
-            const select = $(`<select name="tokyo-nova-axleration.${settingName}"></select>`);
-            select.append(`<option value="">- 選択 -</option>`);
+            const select = document.createElement('select');
+            select.name = `tokyo-nova-axleration.${settingName}`;
+            const defaultOption = document.createElement('option');
+            defaultOption.value = "";
+            defaultOption.textContent = "- 選択 -";
+            select.appendChild(defaultOption);
             collection.filter(filter).forEach(doc => {
-                const option = $(`<option value="${doc.uuid}">${doc.name}</option>`);
-                if (doc.uuid === currentValue) option.attr('selected', true);
-                select.append(option);
+                const option = document.createElement('option');
+                option.value = doc.uuid;
+                option.textContent = doc.name;
+                if (doc.uuid === currentValue) option.selected = true;
+                select.appendChild(option);
             });
-            input.replaceWith(select);
+            input.parentNode.replaceChild(select, input);
         };
-    
+
         // --- 各設定をドロップダウンに変換 ---
         createDropdown("activeScenarioId", game.journal, j => j.sheet instanceof TnxScenarioSheet);
         createDropdown("cardDeckId", game.cards, c => c.type === 'deck');
@@ -406,20 +412,19 @@ Hooks.once("init", async function() {
         createDropdown("scenePileId", game.cards, c => c.type === 'pile');
         createDropdown("accessCardPileId", game.cards, c => c.type === 'hand');
         createDropdown("gmTrumpDiscardId", game.cards, c => c.type === 'pile');
-    
+
         // --- チェックボックスに応じて項目を無効化する処理 ---
-        const autoLoadCheckbox = html.find('[name="tokyo-nova-axleration.autoLoadFromScenario"]');
-        const manualSelects = html.find(
-            `[name$=".cardDeckId"], [name$=".discardPileId"], [name$=".neuroDeckId"], 
-             [name$=".scenePileId"], [name$=".accessCardPileId"], [name$=".gmTrumpDiscardId"]`
+        const autoLoadCheckbox = html.querySelector('[name="tokyo-nova-axleration.autoLoadFromScenario"]');
+        const manualSelects = html.querySelectorAll(
+            '[name$=".cardDeckId"], [name$=".discardPileId"], [name$=".neuroDeckId"], [name$=".scenePileId"], [name$=".accessCardPileId"], [name$=".gmTrumpDiscardId"]'
         );
-    
+
         const toggleManualSettings = () => {
-            const isDisabled = autoLoadCheckbox.is(":checked");
-            manualSelects.prop("disabled", isDisabled);
+            const isDisabled = autoLoadCheckbox.checked;
+            manualSelects.forEach(el => { el.disabled = isDisabled; });
         };
-    
-        autoLoadCheckbox.on("change", toggleManualSettings);
+
+        autoLoadCheckbox.addEventListener("change", toggleManualSettings);
         toggleManualSettings();
     });
 
