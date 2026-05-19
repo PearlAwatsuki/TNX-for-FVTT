@@ -276,7 +276,7 @@ jQuery API から DOM API に書き換える。
 
 ### P0-09: `renderHotbar` フックを v13 対応
 
-- [ ] 完了
+- [x] 完了
 
 **作業内容**
 `scripts/tnx.mjs` の `renderHotbar` フックハンドラを v13 対応に修正する。

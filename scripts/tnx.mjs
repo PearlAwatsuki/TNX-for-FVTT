@@ -490,13 +490,9 @@ Hooks.once("init", async function() {
      * ホットバーが描画された際に、デフォルトで折りたたむためのフック
      */
     Hooks.on("renderHotbar", (app, html, data) => {
-        // #action-bar（マクロが並んでいる部分）を取得
-        const actionBar = html[0].querySelector("#action-bar");
-
-        // action-barが存在し、かつ .collapsed クラスを持っていない（＝展開されている）場合のみ処理
+        const actionBar = html.querySelector("#action-bar");
         if (actionBar && !actionBar.classList.contains("collapsed")) {
-            // 折りたたみボタン(#bar-toggle)を探してクリックイベントを発生させる
-            const toggleButton = html[0].querySelector("#bar-toggle");
+            const toggleButton = html.querySelector("#bar-toggle");
             toggleButton?.click();
         }
     });
