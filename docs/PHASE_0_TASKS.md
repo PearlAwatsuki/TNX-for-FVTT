@@ -36,7 +36,7 @@ v13 実機観測の結果を踏まえた推奨実施順:
 
 ### P0-01: system.json の `verified` 更新
 
-- [ ] 完了
+- [x] 完了
 
 **作業内容**
 `system.json` の `compatibility.verified` を、v13 で動作確認した実バージョン番号に更新する。
