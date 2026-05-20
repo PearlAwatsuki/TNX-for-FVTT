@@ -15,10 +15,6 @@ export const EffectsSheetMixin = {
             inactive: []
         };
         for (const effect of document.effects) {
-            if (effect.statuses && effect.statuses.size > 0) {
-                continue; 
-            }
-
             if (effect.disabled) {
                 effects.inactive.push(effect);
             } else if (effect.isTemporary) {

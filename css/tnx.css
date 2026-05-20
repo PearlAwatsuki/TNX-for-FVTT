@@ -3608,11 +3608,11 @@ ol.item-list {
 
 /* --- アクティブ（ON）時のスタイル --- */
 .tnx-bs-button.active {
-    background: #782e2e; /* N◎VAらしい赤黒い色など */
-    border-color: #ff0000;
+    background: var(--tnx-color-primary-darker); /* N◎VAらしい赤黒い色など */
+    border-color: var(--tnx-color-primary);
     color: #fff;
     opacity: 1;
-    box-shadow: 0 0 5px rgba(255, 0, 0, 0.5);
+    box-shadow: 0 0 5px var(--tnx-color-primary-dark);
 }
 
 .tnx-bs-button.active .tnx-bs-check {

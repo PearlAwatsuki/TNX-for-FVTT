@@ -113,26 +113,43 @@ export class TokyoNovaCastSheet extends ActorSheet {
             context.history = this._prepareHistoryForDisplay(historyMap);
         }
 
-        // 定義済みBSリストを回して、アクターが所持しているかチェック
-        context.badStatuses = CONFIG.statusEffects.map(status => {
-            // v12推奨: statusIdからActiveEffectの有無を確認
-            const hasEffect = this.actor.effects.some(e => e.statuses.has(status.id) && !e.disabled);
-            return {
-                ...status,
-                isActive: hasEffect
-            };
-        });
+        const bsList = [];
 
-        context.badStatuses = this.actor.effects
-            .filter(e => e.flags?.["tokyo-nova-axleration"]?.isBadStatus === true && !e.disabled)
-            .map(e => {
-                return {
+        this.actor.effects.forEach(e => {
+            if (e.disabled) return;
+
+            let hasStatusCondition = false;
+
+            // 1. FVTT標準の Status Condition を展開して、ステータス状態ごとに個別の項目として追加
+            if (e.statuses && e.statuses.size > 0) {
+                e.statuses.forEach(statusId => {
+                    const statusConfig = CONFIG.statusEffects.find(s => s.id === statusId);
+                    if (statusConfig) {
+                        bsList.push({
+                            id: e.id,           // 大元のエフェクトID
+                            statusId: statusId, // 個別解除用のステータスID
+                            name: statusConfig.name,
+                            img: statusConfig.img,
+                            details: e.flags?.["tokyo-nova-axleration"]?.details || ""
+                        });
+                        hasStatusCondition = true;
+                    }
+                });
+            }
+
+            // 2. Status Conditionを持たないが、独自のバッドステータスフラグを持つ場合のみ追加
+            if (!hasStatusCondition && e.flags?.["tokyo-nova-axleration"]?.isBadStatus) {
+                bsList.push({
                     id: e.id,
-                    name: e.name, // "邪毒(3)" などの生成済みの名称が入ります
+                    statusId: null,
+                    name: e.name,
                     img: e.img,
                     details: e.flags?.["tokyo-nova-axleration"]?.details || ""
-                };
-            });
+                });
+            }
+        });
+
+        context.badStatuses = bsList;
 
         await this._getCardPileData(context);
         this._getCitizenRankData(context);
@@ -368,14 +385,33 @@ export class TokyoNovaCastSheet extends ActorSheet {
             });
         });
 
-        html.find('.tnx-bs-button').click(async (ev) => {
+        html.find('.tnx-bs-remove').click(async (ev) => {
             ev.preventDefault();
-            const effectId = ev.currentTarget.dataset.effectId;
+            ev.stopPropagation();
+
+            const button = ev.currentTarget.closest('.tnx-bs-button');
+            if (!button) return;
+
+            const effectId = button.dataset.effectId;
+            const statusId = button.dataset.statusId; // hbsからステータスIDを取得
             const effect = this.actor.effects.get(effectId);
             
             if (effect) {
-                // FVTT標準の機能でエフェクトを削除します
-                await effect.delete();
+                if (statusId) {
+                    // Status Conditionの場合、そのステータスだけを配列から除外する
+                    const newStatuses = Array.from(effect.statuses).filter(id => id !== statusId);
+                    
+                    // エフェクトの statuses を更新して特定のバッドステータスのみを消す
+                    await effect.update({ statuses: newStatuses });
+                    
+                    // 【任意】ステータスも能力値の変更（changes）も無くなった場合は、エフェクト自体を削除するかどうか検討します
+                    if (newStatuses.length === 0 && effect.changes.length === 0 && !effect.flags?.["tokyo-nova-axleration"]?.isBadStatus) {
+                        await effect.delete();
+                    }
+                } else {
+                    // 独自のバッドステータスの場合は大元のエフェクト自体を削除する
+                    await effect.delete();
+                }
             }
         });
 
