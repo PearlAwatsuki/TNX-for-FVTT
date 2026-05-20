@@ -1,7 +1,7 @@
-2026/02/22-09:47:47.569 573c Recovering log #50
-2026/02/22-09:47:47.603 573c Delete type=0 #50
-2026/02/22-09:47:47.604 573c Delete type=3 #48
-2026/02/22-10:32:42.140 e5a8 Level-0 table #55: started
-2026/02/22-10:32:42.140 e5a8 Level-0 table #55: 0 bytes OK
-2026/02/22-10:32:42.150 e5a8 Delete type=0 #53
-2026/02/22-10:32:42.204 e5a8 Manual compaction at level-0 from 'undefined' @ 72057594037927935 : 1 .. 'undefined' @ 0 : 0; will stop at (end)
+2026/05/20-18:29:14.993 72bc Log #57: 0 ops saved to Table #64 OK
+2026/05/20-18:29:14.994 72bc Archiving D:\Users\Akoya Tsukishiro\AppData\Local\FoundryVTT\Data\systems\tokyo-nova-axleration\packs\works-outfits/000057.log: OK
+2026/05/20-18:29:14.994 72bc Log #63: 0 ops saved to Table #65 OK
+2026/05/20-18:29:14.994 72bc Archiving D:\Users\Akoya Tsukishiro\AppData\Local\FoundryVTT\Data\systems\tokyo-nova-axleration\packs\works-outfits/000063.log: OK
+2026/05/20-18:29:15.099 72bc Archiving D:\Users\Akoya Tsukishiro\AppData\Local\FoundryVTT\Data\systems\tokyo-nova-axleration\packs\works-outfits/MANIFEST-000056: OK
+2026/05/20-18:29:15.099 72bc Archiving D:\Users\Akoya Tsukishiro\AppData\Local\FoundryVTT\Data\systems\tokyo-nova-axleration\packs\works-outfits/MANIFEST-000062: OK
+2026/05/20-18:29:15.242 72bc **** Repaired leveldb D:\Users\Akoya Tsukishiro\AppData\Local\FoundryVTT\Data\systems\tokyo-nova-axleration\packs\works-outfits; recovered 0 files; 0 bytes. Some data may have been lost. ****

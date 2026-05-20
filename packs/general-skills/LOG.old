@@ -1,7 +1,10 @@
-2026/02/22-09:47:47.223 573c Recovering log #324
-2026/02/22-09:47:47.265 573c Delete type=0 #324
-2026/02/22-09:47:47.265 573c Delete type=3 #322
-2026/02/22-10:32:42.150 e5a8 Level-0 table #329: started
-2026/02/22-10:32:42.150 e5a8 Level-0 table #329: 0 bytes OK
-2026/02/22-10:32:42.159 e5a8 Delete type=0 #327
-2026/02/22-10:32:42.204 e5a8 Manual compaction at level-0 from '!items!4z0v11MGwuFz8Awi' @ 72057594037927935 : 1 .. '!items!yd90R2Q0oK96kWOE' @ 0 : 0; will stop at (end)
+2026/05/20-18:29:12.711 b5c Log #331: 0 ops saved to Table #338 OK
+2026/05/20-18:29:12.711 b5c Archiving D:\Users\Akoya Tsukishiro\AppData\Local\FoundryVTT\Data\systems\tokyo-nova-axleration\packs\general-skills/000331.log: OK
+2026/05/20-18:29:12.966 b5c Log #337: 14 ops saved to Table #339 OK
+2026/05/20-18:29:12.966 b5c Archiving D:\Users\Akoya Tsukishiro\AppData\Local\FoundryVTT\Data\systems\tokyo-nova-axleration\packs\general-skills/000337.log: OK
+2026/05/20-18:29:12.987 b5c Table #45: 13 entries OK
+2026/05/20-18:29:13.000 b5c Table #283: 15 entries OK
+2026/05/20-18:29:13.000 b5c Table #339: 14 entries OK
+2026/05/20-18:29:13.109 b5c Archiving D:\Users\Akoya Tsukishiro\AppData\Local\FoundryVTT\Data\systems\tokyo-nova-axleration\packs\general-skills/MANIFEST-000330: OK
+2026/05/20-18:29:13.110 b5c Archiving D:\Users\Akoya Tsukishiro\AppData\Local\FoundryVTT\Data\systems\tokyo-nova-axleration\packs\general-skills/MANIFEST-000336: OK
+2026/05/20-18:29:13.173 b5c **** Repaired leveldb D:\Users\Akoya Tsukishiro\AppData\Local\FoundryVTT\Data\systems\tokyo-nova-axleration\packs\general-skills; recovered 3 files; 13109 bytes. Some data may have been lost. ****
