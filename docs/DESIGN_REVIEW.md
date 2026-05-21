@@ -417,3 +417,174 @@ B-5(単純な Item type の DataModel 化)に進む。以下を申し送る。
 - B-5 / B-6 / B-7 で Item type の DataModel 化を進める際、`ObjectField` は今回の実装例
   (cast / player の `history`)を参照できる。
 - `player_name` / `lifePath` のデッドフィールド / UI 未実装問題はフェーズ6 / 7 で対応。
+
+---
+
+### B-5a 単純な Item type の DataModel 化(base のみ 3種)(フェーズB)
+
+**日付**: 2026-05-22
+**レビュー対象**: `scripts/data/item/housing-area.mjs`, `scripts/data/item/organization.mjs`,
+`scripts/data/item/life-path.mjs`, `scripts/tnx.mjs`(CONFIG.Item.dataModels 登録追加),
+`template.json`(housingArea / organization / lifePath エントリ削除)
+**ステータス**: レビュー済(問題なし)
+
+#### レビュー観点
+
+- 保守性: B-3 / B-4 の Actor 実装パターンを踏襲しているか
+- 拡張性: B-5b / B-5c での mixin 追加に向けて、今回のパターンが流用できる形か
+- FVTT 慣行: `CONFIG.Item.dataModels` への登録が `init` フックで正しく行われているか
+- 既存設計との整合: template.json から削除した範囲が対象 3 type に限定されているか
+
+#### 良かった点
+
+- **Actor 側パターンの踏襲**: `SystemDataModel.mixin(BaseTemplate)` の記法が
+  `SystemDataModel.mixin(BiographyTemplate, ...)` と完全に対称で、Actor / Item 間の
+  実装一貫性を保てている。
+- **CONFIG.Item.dataModels の初回登録**: B-4 まで Actor 側のみだった `CONFIG.*DataModels`
+  登録に Item 側が加わった。`init` フックの正しいタイミングで登録されており、
+  Actor 側と同じブロックの直後に配置して視認性を確保している。
+- **template.json の整理範囲が最小限**: `Item.types` 配列・`Item.templates` セクション
+  は保持し、3 type のエントリのみ削除。B-5 全体完了まで二重管理を最小化しつつ進める
+  方針と整合している。
+- **lifePathType の型判断を記録**: `@fileoverview` に「実質的に enum だが StringField
+  のままとした理由と将来の対応」を明記。設計上の妥協点を将来のメンテナーに伝えている。
+- **Cast Actor との混同防止**: `life-path.mjs` の `@fileoverview` に Cast Actor 側の
+  `lifePath`(origin / experience / encounter)とは別物であることを明記した。
+  2種の同名概念が共存する状況でのドキュメント対応として適切。
+- **テストカバレッジ**: 計 283 件(B-4 から 25 件増加)。初期値の一致確認と
+  非存在確認(他 type のフィールドが混入していないこと)を含む。
+
+#### 課題
+
+- ⚠️ **lifePathType が実質 enum**: 現状は `StringField` で定義。将来のシート実装時に
+  選択肢付きフィールドに変更する必要が生じる可能性がある。`life-path.mjs` の
+  `@fileoverview` に申し送り済み。
+
+#### 推奨アクション
+
+B-5b(base + outfitBase の 4種: armor / cyborg / combiner / general)に進む。
+以下を申し送る。
+
+- armor / cyborg は `defence: { S_defence, P_defence, I_defence }` 構造を共有する。
+  B-5b では `defenceField()` ヘルパーを `helpers.mjs` に追加して両者で流用することを推奨。
+- cyborg は `attack: { damageType: [], value, mod }` も持つ。B-6 の weapon でも同構造が
+  出るため、`attackField()` ヘルパーの追加も B-5b のタイミングで検討する。
+- `CONFIG.Item.dataModels` への B-5b 対象の追加は、既存の B-5a 登録ブロックに追記する形で進める。
+
+---
+
+### B-5b 単純な Item type の DataModel 化(base + outfitBase 4種)(フェーズB)
+
+**日付**: 2026-05-22
+**レビュー対象**: `scripts/data/item/helpers.mjs`(新設),
+`scripts/data/item/armor.mjs`, `scripts/data/item/cyborg.mjs`,
+`scripts/data/item/combiner.mjs`, `scripts/data/item/general.mjs`,
+`scripts/tnx.mjs`(CONFIG.Item.dataModels 追記),
+`template.json`(armor / cyborg / combiner / general エントリ削除)
+**ステータス**: レビュー済(問題なし)
+
+#### レビュー観点
+
+- 保守性: B-5a のパターンを踏襲しつつ、OutfitBaseTemplate mixin が正しく合成されているか
+- 拡張性: defenceField() の切り出しタイミングが適切か / attack の inline 判断が妥当か
+- FVTT 慣行: ArrayField(StringField) の使い方が正しいか
+- 既存設計との整合: template.json から削除した範囲が対象 4 type に限定されているか
+
+#### 良かった点
+
+- **defenceField() の切り出しタイミング**: armor / cyborg の 2 箇所で同構造が出た時点で
+  `scripts/data/item/helpers.mjs` として切り出した。B-2 の前例(「再利用が必要になった
+  時点で切り出す」)に正確に倣っている。
+- **attack の inline 判断**: B-5b 時点では cyborg のみで使用されるため inline に留め、
+  `@fileoverview` に「B-7 weapon 着手時に attackField() ヘルパー化を再検討」と申し送り。
+  過剰な先回り設計を避けつつ将来の対応点を明記した。
+- **Item 専用 helpers.mjs の分離**: `scripts/data/helpers.mjs`(Actor 側)と
+  `scripts/data/item/helpers.mjs`(Item 側)を別ファイルに分離。
+  責務の分離が明確で混在を防いでいる。
+- **combiner.combinedOutfitID の型**: Item ID 文字列の配列として `ArrayField(StringField)`
+  で定義。template.json が `[]` のみの定義で要素型が明示されていない状況で、
+  ID 文字列という用途から型を推測した判断として適切。
+- **general の固有フィールドなし**: B-3 の GuestDataModel・B-5a の OrganizationDataModel
+  と同パターン。`{ ...super.defineSchema() }` のみのオーバーライドで「意図してフィールドを
+  追加しなかった」ことを示す。
+- **テストカバレッジ**: 計 324 件(B-5a から 41 件増加)。defenceField() ヘルパー単体の
+  5 件、各 DataModel の mixin 確認と非存在確認を含む。
+
+#### 課題
+
+- ⚠️ **attack フィールドは B-7 までヘルパー化されない**: weapon(B-7)でも同構造が
+  出るため、B-7 着手時に `attackField()` ヘルパーを `scripts/data/item/helpers.mjs`
+  に追加して cyborg / weapon 共用にすることを推奨。申し送り済み。
+
+#### 推奨アクション
+
+B-5c(base + outfitBase + extensible の 3種: ianus / tron / vehicle)に進む。
+以下を申し送る。
+
+- ExtensibleTemplate の mixin は B-5b の OutfitBaseTemplate 追加パターンをそのまま拡張できる。
+- ianus は `controlMod` フィールド(NumberField)のみの固有フィールドを持つ。
+- vehicle は `speedFactor` / `passenger` / `controlMod` の 3 フィールドを持つ。
+- tron は固有フィールドなし(B-3 の guest / B-5a の organization / B-5b の general と同パターン)。
+- `CONFIG.Item.dataModels` への B-5c 対象の追加は、既存の B-5a / B-5b 登録ブロックに追記する形で進める。
+
+---
+
+### B-5c 単純な Item type の DataModel 化(base + outfitBase + extensible 3種)(フェーズB)
+
+**日付**: 2026-05-22
+**レビュー対象**: `scripts/data/item/ianus.mjs`, `scripts/data/item/tron.mjs`,
+`scripts/data/item/vehicle.mjs`, `scripts/tnx.mjs`(CONFIG.Item.dataModels 追記),
+`template.json`(ianus / tron / vehicle エントリ削除)
+**ステータス**: レビュー済(問題なし)
+
+#### レビュー観点
+
+- 保守性: B-5a / B-5b の mixin パターンに第 3 テンプレート(ExtensibleTemplate)を
+  追加した形で一貫しているか
+- 拡張性: `controlMod` のヘルパー化見送りが妥当か
+- FVTT 慣行: 3 テンプレート合成の mixin 記述が正しいか
+- 既存設計との整合: template.json から削除した範囲が対象 3 type に限定されているか
+
+#### 良かった点
+
+- **3 テンプレート mixin の記述一貫性**: B-5b の `mixin(Base, Outfit)` に
+  `ExtensibleTemplate` を 3 番目に追加した形。テンプレート順序が
+  template.json の `"templates"` 配列順に対応しており読みやすい。
+- **controlMod のヘルパー化見送り**: ianus / vehicle / armor(B-5b)の 3 箇所に存在するが、
+  単一 `NumberField({ initial: 0 })` のみであり関数化してもコード量が変わらないと判断。
+  「ヘルパー化すべき」という判断基準(SchemaField / 再利用頻度 / 保守上の意義)を
+  明文化したうえで見送った。
+- **tron の固有フィールドなし**: guest / organization / general と同じ「意図してフィールドを
+  追加しなかった」パターン。B-5 全体を通して一貫。
+
+#### 課題
+
+なし。B-5c のスコープ内で品質を満たした実装。
+
+#### B-5 全体完了の総括
+
+**日付**: 2026-05-22
+**完了した 10 type**:
+- B-5a: housingArea / organization / lifePath(base のみ)
+- B-5b: armor / cyborg / combiner / general(base + outfitBase)
+- B-5c: ianus / tron / vehicle(base + outfitBase + extensible)
+
+**新設ファイル**:
+- `scripts/data/item/helpers.mjs`(defenceField())
+- `scripts/data/item/{housing-area, organization, life-path, armor, cyborg, combiner, general, ianus, tron, vehicle}.mjs`
+
+**テスト**: B-5 全体で 89 件追加(258 → 347 件)
+
+**`CONFIG.Item.dataModels`**: init フックで 10 type 全登録済み
+
+**申し送り事項**:
+- `attackField()` ヘルパー化は B-7 weapon 着手時に再検討
+- `lifePathType` の選択肢付き型へのリファクタは将来サブフェーズに送り
+- `Item.types` 配列・`Item.templates` セクションは B-7 完了時に整理
+
+#### 推奨アクション
+
+B-6(中程度の Item type + データマイグレーション機構の導入)に進む。
+B-6 の対象 type: weapon / tap / residence / miracle / generalSkill。
+KI-007(`tap.conbatSpeedMod` → `combatSpeedMod` のタイポ修正)はデータマイグレーション
+機構の導入と同時に対応する。

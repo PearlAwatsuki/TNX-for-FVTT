@@ -90,12 +90,43 @@ Item で共有される共通 template を DataModel として実装する。
 - `docs/KNOWN_ISSUES.md` に KI-017 追加
 - 事前調査: `docs/B4_INVESTIGATION.md` 作成(2026-05-22)
 
-### B-5: 単純な Item type
+### B-5: 単純な Item type ✅ 完了(2026-05-22)
 
-固有フィールドが少ないか存在しない Item type を DataModel 化する。
+固有フィールドが少ないか存在しない Item type を DataModel 化する。3 グループに分けて実施。
 
-- armor / ianus / cyborg / tron / vehicle
-- housingArea / combiner / general / organization / lifePath
+#### B-5a: base のみ 3種 ✅ 完了(2026-05-22)
+
+- housingArea / organization / lifePath
+
+完了内容:
+- `scripts/data/item/{housing-area,organization,life-path}.mjs` 作成
+- `scripts/tnx.mjs` の `init` フックで `CONFIG.Item.dataModels` に 3 type 登録(初回)
+- `template.json` から housingArea / organization / lifePath エントリ削除
+- テスト 25 件追加(計 283 件)
+- `docs/DESIGN_REVIEW.md` に B-5a エントリ追加
+
+#### B-5b: base + outfitBase 4種 ✅ 完了(2026-05-22)
+
+- armor / cyborg / combiner / general
+
+完了内容:
+- `scripts/data/item/helpers.mjs` 新設、`defenceField()` をエクスポート
+- `scripts/data/item/{armor,cyborg,combiner,general}.mjs` 作成
+- `scripts/tnx.mjs` の `init` フックで `CONFIG.Item.dataModels` に 4 type 追加
+- `template.json` から armor / cyborg / combiner / general エントリ削除
+- テスト 41 件追加(計 324 件)
+- `docs/DESIGN_REVIEW.md` に B-5b エントリ追加
+
+#### B-5c: base + outfitBase + extensible 3種 ✅ 完了(2026-05-22)
+
+- ianus / tron / vehicle
+
+完了内容:
+- `scripts/data/item/{ianus,tron,vehicle}.mjs` 作成
+- `scripts/tnx.mjs` の `init` フックで `CONFIG.Item.dataModels` に 3 type 追加(B-5 全 10 type 登録完了)
+- `template.json` から ianus / tron / vehicle エントリ削除
+- テスト 23 件追加(計 347 件)
+- `docs/DESIGN_REVIEW.md` に B-5c エントリ + B-5 全体完了の総括を追加
 
 ### B-6: 中程度の Item type + データマイグレーション機構の導入
 
