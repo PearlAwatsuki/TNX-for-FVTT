@@ -23,6 +23,12 @@ export class MockBooleanField {
 export class MockSchemaField {
   constructor(fields) { this.fields = fields; }
 }
+export class MockArrayField {
+  constructor(element, options = {}) {
+    this.element = element;
+    this.options = options;
+  }
+}
 export class MockTypeDataModel {
   static defineSchema() { return {}; }
 }
@@ -37,6 +43,7 @@ globalThis.foundry = {
       StringField:  MockStringField,
       BooleanField: MockBooleanField,
       SchemaField:  MockSchemaField,
+      ArrayField:   MockArrayField,
     },
   },
 };

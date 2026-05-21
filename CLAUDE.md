@@ -82,11 +82,11 @@ description は日本語で簡潔に記述する。
 
 ### 2.2 現在のフェーズ ★
 
-**フェーズB-2: Item 共通 template の DataModel 化**
+**フェーズB-3: 単純な Actor type の DataModel 化**
 
-フェーズB-1(Actor 共通 template の DataModel 化)完了。SystemDataModel + Mixin パターンの
-土台と、biography / attributes / actor-base の 3 つの template クラスが実装済み。
-詳細は `docs/DESIGN_REVIEW.md` B-1 エントリを参照。
+フェーズB-2(Item 共通 template の DataModel 化)完了。Actor / Item の共通 template が
+すべて揃った状態。B-3 では guest / troop / extra の 3 type を実装する。
+詳細は `docs/DESIGN_REVIEW.md` B-2 エントリを参照。
 
 (セッション開始時、まずここを確認すること)
 
@@ -103,8 +103,8 @@ description は日本語で簡潔に記述する。
 - **フェーズB: DataModel への完全移行**(現在)
   - B-0: 設計方針の確定 ← 完了
   - B-1: Actor 共通 template の DataModel 化 ← 完了
-  - B-2: Item 共通 template の DataModel 化 ← 現在
-  - B-3: 単純な Actor type
+  - B-2: Item 共通 template の DataModel 化 ← 完了
+  - B-3: 単純な Actor type ← 現在
   - B-4: 複雑な Actor type
   - B-5: 単純な Item type
   - B-6: 中程度の Item type + データマイグレーション機構の導入

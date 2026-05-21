@@ -388,4 +388,34 @@ case ブロックを `{}` で囲むことで解消可能。
 
 ---
 
+## KI-016: template.json のフィールド型の妥当性疑問
+
+**概要**
+`template.json` の outfitBase 系フィールド（`exclusive`、`hide` 等）は、名称から Boolean を
+想起させるが、初期値として文字列 `"-"` が設定されている。B-2 の DataModel 化では
+template.json の現状を忠実に再現し `StringField` で実装したが、本来の意図が Boolean である
+可能性が残る。
+
+**確認済み**: B-2 実装時に template.json を直接確認。`exclusive` 等が `"-"` で初期化されて
+いることを確認した。一方、`isPrepared`、`isOption`、`isCyber`、`isPre-play` は正しく
+Boolean として定義されており、一部のフィールドのみが String 型に留まっている。
+
+**該当ファイル・箇所**
+- `template.json`（outfit 系 Item の outfitBase テンプレート定義）
+- `scripts/data/item/common/outfit-base.mjs`（DataModel 実装、現状 StringField で追従）
+
+**影響範囲**
+その他。現時点では template.json の値をそのまま使う実装になっているため、動作上の
+問題は発生しない。将来シートや判定処理でこれらのフィールドを Boolean として扱おうと
+した場合に型ミスマッチが顕在化する可能性がある。
+
+**修正の難易度**: 中（既存データとの互換性確保のため、データマイグレーションが必要）
+
+**フェーズ0 で扱うべきか**: No
+
+**担当フェーズ**: B-6（データマイグレーション機構の導入）または B-8（移行後の検証）で
+確認・対処。ルール的に Boolean が正しいかはユーザーに確認する。
+
+---
+
 *最終更新: 2026-05-21*
