@@ -8,6 +8,14 @@
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+## [0.1.0] - 2026-05-21
+
+### Added
 - フェーズA: 開発基盤の整備
   - ライセンス・著作権・コントリビューション関連ドキュメント (A-1)
   - 設計ドキュメント基盤 (MECHANICS_AUDIT.md, DESIGN_REVIEW.md) (A-2)

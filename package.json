@@ -1,6 +1,6 @@
 {
   "name": "tokyo-nova-axleration",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Foundry VTT system for Tokyo N◎VA THE AXLERATION",
   "type": "module",
   "private": true,
