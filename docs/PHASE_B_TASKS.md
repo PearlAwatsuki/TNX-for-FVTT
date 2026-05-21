@@ -69,15 +69,26 @@ Item で共有される共通 template を DataModel として実装する。
 - テスト 63 件追加(計 201 件)
 - `docs/DESIGN_REVIEW.md` に B-3 エントリ追加
 
-### B-4: 複雑な Actor type
+### B-4: 複雑な Actor type ✅ 完了(2026-05-22)
 
 固有フィールドが多い・既存ロジックとの結合が強い Actor type を DataModel 化する。
 
-- cast(history / exp / lifePath 等)
-- player(history / exp、cast との exp 構造差異の整理)
+- cast(history / exp / lifePath 等) → `CastDataModel`
+- player(history / exp、cast との exp 構造差異の整理) → `PlayerDataModel`
 - exp 計算ロジック(`updateCastExp`)との接続確認
 
-備考: player は template.json の "types" 配列に未記載のため、扱いを確認する。
+完了内容:
+- `scripts/data/actor/{cast,player}.mjs` 作成
+- `tests/setup.mjs` に `MockObjectField` 追加
+- `scripts/tnx.mjs` の `init` フックで cast / player を `CONFIG.Actor.dataModels` に追加(全5 type 完了)
+- `template.json` の Actor セクションを `types` 配列のみに整理
+  - `Actor.templates` セクション(biography / attributes / actorBase)を削除
+  - `Actor.cast` / `Actor.player` セクションを削除
+  - `Actor.types` 配列に `player` を追加(system.json と整合)
+- テスト 57 件追加(計 258 件)
+- `docs/DESIGN_REVIEW.md` に B-4 エントリ追加
+- `docs/KNOWN_ISSUES.md` に KI-017 追加
+- 事前調査: `docs/B4_INVESTIGATION.md` 作成(2026-05-22)
 
 ### B-5: 単純な Item type
 
