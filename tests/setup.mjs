@@ -29,6 +29,9 @@ export class MockArrayField {
     this.options = options;
   }
 }
+export class MockObjectField {
+  constructor(options = {}) { this.options = options; }
+}
 export class MockTypeDataModel {
   static defineSchema() { return {}; }
 }
@@ -44,6 +47,7 @@ globalThis.foundry = {
       BooleanField: MockBooleanField,
       SchemaField:  MockSchemaField,
       ArrayField:   MockArrayField,
+      ObjectField:  MockObjectField,
     },
   },
 };
