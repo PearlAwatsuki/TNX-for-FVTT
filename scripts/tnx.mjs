@@ -704,7 +704,7 @@ Hooks.once("init", async function() {
         }
     
         // スタイルアイテム以外の更新は無視 (既存の処理)
-        if (item.type == "style" && item.actor) {
+        if (item.type === "style" && item.actor) {
             const oldLevel = item.system.level || 1;
             const newLevel = foundry.utils.getProperty(changes, "system.level");
     

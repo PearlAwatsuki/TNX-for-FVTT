@@ -40,13 +40,14 @@ export const EffectsSheetMixin = {
             const action = a.dataset.action;
 
             switch (action) {
-                case "create":
+                case "create": {
                     const newEffects = await document.createEmbeddedDocuments("ActiveEffect", [{
                         name: game.i18n.localize("EFFECT.New"),
                         img: "icons/svg/aura.svg",
                         origin: document.uuid,
                     }]);
                     return newEffects[0]?.sheet.render(true);
+                }
                 case "edit":
                     return effect?.sheet.render(true);
                 case "delete":
