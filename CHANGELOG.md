@@ -8,6 +8,21 @@
 ## [Unreleased]
 
 ### Added
+- フェーズB-1: Actor 共通 template の DataModel 化
+  - `BiographyTemplate`, `AttributesTemplate`, `ActorBaseTemplate` を `scripts/data/actor/common/` に実装
+  - `SystemDataModel` 基底クラスおよび `mixin()` ユーティリティを `scripts/data/abstract.mjs` に実装
+- フェーズB-2: Item 共通 template の DataModel 化
+  - `BaseTemplate`, `UsageTemplate`, `SkillBaseTemplate`, `OutfitBaseTemplate`, `ExtensibleTemplate` を `scripts/data/item/common/` に実装
+- フェーズB-3: 単純な Actor type の DataModel 化
+  - `GuestDataModel`, `TroopDataModel`, `ExtraDataModel` を実装し `CONFIG.Actor.dataModels` に登録
+  - `template.json` から guest / troop / extra エントリを削除
+  - テスト 63 件追加(計 201 件)
+- フェーズB-4: 複雑な Actor type の DataModel 化
+  - `CastDataModel`, `PlayerDataModel` を実装し `CONFIG.Actor.dataModels` に登録(全 5 type 完了)
+  - `template.json` の Actor セクションを `types` 配列のみに整理(templates / cast / player エントリ削除)
+  - `tests/setup.mjs` に `MockObjectField` 追加
+  - テスト 57 件追加(計 258 件)
+  - `docs/FUTURE_CONSIDERATIONS.md` 新設(Player Actor → User ベース移行の検討事項)
 
 ### Changed
 
