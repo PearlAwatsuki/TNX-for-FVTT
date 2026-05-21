@@ -1,7 +1,5 @@
-2026/05/20-18:29:12.266 b5c Log #318: 0 ops saved to Table #325 OK
-2026/05/20-18:29:12.267 b5c Archiving D:\Users\Akoya Tsukishiro\AppData\Local\FoundryVTT\Data\systems\tokyo-nova-axleration\packs\miracles/000318.log: OK
-2026/05/20-18:29:12.267 b5c Log #324: 0 ops saved to Table #326 OK
-2026/05/20-18:29:12.267 b5c Archiving D:\Users\Akoya Tsukishiro\AppData\Local\FoundryVTT\Data\systems\tokyo-nova-axleration\packs\miracles/000324.log: OK
-2026/05/20-18:29:12.334 b5c Archiving D:\Users\Akoya Tsukishiro\AppData\Local\FoundryVTT\Data\systems\tokyo-nova-axleration\packs\miracles/MANIFEST-000317: OK
-2026/05/20-18:29:12.334 b5c Archiving D:\Users\Akoya Tsukishiro\AppData\Local\FoundryVTT\Data\systems\tokyo-nova-axleration\packs\miracles/MANIFEST-000323: OK
-2026/05/20-18:29:12.399 b5c **** Repaired leveldb D:\Users\Akoya Tsukishiro\AppData\Local\FoundryVTT\Data\systems\tokyo-nova-axleration\packs\miracles; recovered 0 files; 0 bytes. Some data may have been lost. ****
+2026/05/20-18:29:12.540 b5c Delete type=3 #1
+2026/05/20-18:47:46.728 7534 Level-0 table #330: started
+2026/05/20-18:47:46.728 7534 Level-0 table #330: 0 bytes OK
+2026/05/20-18:47:46.736 7534 Delete type=0 #328
+2026/05/20-18:47:46.786 7534 Manual compaction at level-0 from 'undefined' @ 72057594037927935 : 1 .. 'undefined' @ 0 : 0; will stop at (end)

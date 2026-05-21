@@ -1,7 +1,5 @@
-2026/05/20-18:29:13.766 34ac Log #57: 0 ops saved to Table #64 OK
-2026/05/20-18:29:13.766 34ac Archiving D:\Users\Akoya Tsukishiro\AppData\Local\FoundryVTT\Data\systems\tokyo-nova-axleration\packs\works-skills/000057.log: OK
-2026/05/20-18:29:13.766 34ac Log #63: 0 ops saved to Table #65 OK
-2026/05/20-18:29:13.767 34ac Archiving D:\Users\Akoya Tsukishiro\AppData\Local\FoundryVTT\Data\systems\tokyo-nova-axleration\packs\works-skills/000063.log: OK
-2026/05/20-18:29:13.872 34ac Archiving D:\Users\Akoya Tsukishiro\AppData\Local\FoundryVTT\Data\systems\tokyo-nova-axleration\packs\works-skills/MANIFEST-000056: OK
-2026/05/20-18:29:13.872 34ac Archiving D:\Users\Akoya Tsukishiro\AppData\Local\FoundryVTT\Data\systems\tokyo-nova-axleration\packs\works-skills/MANIFEST-000062: OK
-2026/05/20-18:29:13.994 34ac **** Repaired leveldb D:\Users\Akoya Tsukishiro\AppData\Local\FoundryVTT\Data\systems\tokyo-nova-axleration\packs\works-skills; recovered 0 files; 0 bytes. Some data may have been lost. ****
+2026/05/20-18:29:14.206 34ac Delete type=3 #1
+2026/05/20-18:47:46.711 7534 Level-0 table #69: started
+2026/05/20-18:47:46.711 7534 Level-0 table #69: 0 bytes OK
+2026/05/20-18:47:46.719 7534 Delete type=0 #67
+2026/05/20-18:47:46.745 7534 Manual compaction at level-0 from 'undefined' @ 72057594037927935 : 1 .. 'undefined' @ 0 : 0; will stop at (end)

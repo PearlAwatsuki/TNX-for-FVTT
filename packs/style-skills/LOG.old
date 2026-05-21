@@ -1,8 +1,11 @@
-2026/05/20-18:29:13.370 b5c Log #317: 0 ops saved to Table #324 OK
-2026/05/20-18:29:13.370 b5c Archiving D:\Users\Akoya Tsukishiro\AppData\Local\FoundryVTT\Data\systems\tokyo-nova-axleration\packs\style-skills/000317.log: OK
-2026/05/20-18:29:13.371 b5c Log #323: 0 ops saved to Table #325 OK
-2026/05/20-18:29:13.371 b5c Archiving D:\Users\Akoya Tsukishiro\AppData\Local\FoundryVTT\Data\systems\tokyo-nova-axleration\packs\style-skills/000323.log: OK
-2026/05/20-18:29:13.422 b5c Table #269: 33 entries OK
-2026/05/20-18:29:13.537 b5c Archiving D:\Users\Akoya Tsukishiro\AppData\Local\FoundryVTT\Data\systems\tokyo-nova-axleration\packs\style-skills/MANIFEST-000316: OK
-2026/05/20-18:29:13.538 b5c Archiving D:\Users\Akoya Tsukishiro\AppData\Local\FoundryVTT\Data\systems\tokyo-nova-axleration\packs\style-skills/MANIFEST-000322: OK
-2026/05/20-18:29:13.639 b5c **** Repaired leveldb D:\Users\Akoya Tsukishiro\AppData\Local\FoundryVTT\Data\systems\tokyo-nova-axleration\packs\style-skills; recovered 1 files; 3410 bytes. Some data may have been lost. ****
+2026/05/20-18:29:13.719 b5c Delete type=3 #1
+2026/05/20-18:47:46.719 7534 Level-0 table #329: started
+2026/05/20-18:47:46.719 7534 Level-0 table #329: 0 bytes OK
+2026/05/20-18:47:46.728 7534 Delete type=0 #327
+2026/05/20-18:47:46.745 7534 Manual compaction at level-0 from '!folders!2ezhAClOgs4jKAfN' @ 72057594037927935 : 1 .. '!folders!xm3nPz6CXYxhznKo' @ 0 : 0; will stop at '!folders!xm3nPz6CXYxhznKo' @ 80 : 1
+2026/05/20-18:47:46.745 7534 Compacting 1@0 + 0@1 files
+2026/05/20-18:47:46.760 7534 Generated table #330@0: 33 keys, 3410 bytes
+2026/05/20-18:47:46.760 7534 Compacted 1@0 + 0@1 files => 3410 bytes
+2026/05/20-18:47:46.785 7534 compacted to: files[ 0 1 0 0 0 0 0 ]
+2026/05/20-18:47:46.786 7534 Delete type=2 #269
+2026/05/20-18:47:46.796 7534 Manual compaction at level-0 from '!folders!xm3nPz6CXYxhznKo' @ 80 : 1 .. '!folders!xm3nPz6CXYxhznKo' @ 0 : 0; will stop at (end)
