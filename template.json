@@ -132,16 +132,6 @@
                 "encounter": ""
             }
         },
-        "guest": {
-            "templates": ["biography", "attributes", "actorBase"]
-        },
-        "troop": {
-            "templates": ["attributes", "actorBase"],
-            "memo": ""
-        },
-        "extra": {
-            "templates": ["biography"]
-        },
         "player": {
             "templates": ["actorBase"],
             "history": {},
