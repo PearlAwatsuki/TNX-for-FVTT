@@ -1,8 +1,10 @@
 import { TokyoNovaCastSheet } from './actor/tnx-cast-sheet.mjs';
 import { TokyoNovaPlayerSheet } from './actor/tnx-player-sheet.mjs';
+import { CastDataModel } from './data/actor/cast.mjs';
 import { GuestDataModel } from './data/actor/guest.mjs';
 import { TroopDataModel } from './data/actor/troop.mjs';
 import { ExtraDataModel } from './data/actor/extra.mjs';
+import { PlayerDataModel } from './data/actor/player.mjs';
 import { TokyoNovaItem } from './item/item.mjs';
 import { TokyoNovaStyleSheet } from './item/tnx-style-sheet.mjs';
 import { TokyoNovaMiracleSheet } from './item/tnx-miracle-sheet.mjs';
@@ -206,11 +208,13 @@ Hooks.once("init", async function() {
     await preloadHandlebarsTemplates();
     CONFIG.Item.documentClass = TokyoNovaItem;
 
-    // Actor DataModel の登録(DataModel 化済みの type のみ)
+    // Actor DataModel の登録(全 Actor type)
     CONFIG.Actor.dataModels = {
-      guest: GuestDataModel,
-      troop: TroopDataModel,
-      extra: ExtraDataModel,
+      cast:   CastDataModel,
+      guest:  GuestDataModel,
+      troop:  TroopDataModel,
+      extra:  ExtraDataModel,
+      player: PlayerDataModel,
     };
 
     // システム用のCONFIG名前空間を準備
