@@ -116,6 +116,7 @@ description は日本語で簡潔に記述する。
   サブシーン的仕組みの設計と実装(順序は着手時に判断)
 - フェーズ5: HUD / CSS の v13 化(TnxHud の v13 UI レイヤーへの整合化を含む)
 - フェーズ6: 既存シートの ApplicationV2 完全移行
+- フェーズ6.5: サイバーパンク基調のデザイン刷新
 - フェーズ7: 未実装シート(outfit系・guest/troop/extra)の追加
 - フェーズ8: 公開準備
 
@@ -220,6 +221,8 @@ Foundry の起動・リロードは手動で行う。
 - `docs/KNOWN_ISSUES.md`: バグ・既知不具合
 - `docs/V13_MIGRATION_NOTES.md`: v13 移行メモ
 - `docs/PHASE_0_TASKS.md`: フェーズ0 タスクと完了サマリー
+- `docs/PHASE_B_TASKS.md`: フェーズB(DataModel 移行)の作業計画
+- `docs/PHASE_6_5_TASKS.md`: フェーズ6.5(デザイン刷新)の作業計画
 - `docs/MECHANICS_AUDIT.md`: メカニクス監査記録
 - `docs/DESIGN_REVIEW.md`: 設計レビュー記録
 
