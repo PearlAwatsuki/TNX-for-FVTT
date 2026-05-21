@@ -89,17 +89,7 @@
 - prepareData / prepareDerivedData のオーバーライドは現状なし(能力値はシート
   getData() で都度計算)
 
-### 3.3 開発コマンド
-
-- `npm install` … 依存パッケージのインストール(初回および package.json 更新時)
-- `npm test` … Vitest によるテスト実行(1回のみ)
-- `npm run test:watch` … Vitest をウォッチモードで起動(ファイル保存ごとに再実行)
-- `npm run lint` … ESLint によるリント実行(警告・エラー表示)
-- `npm run lint:fix` … ESLint で自動修正可能な問題を修正
-
-Foundry の起動・リロードは手動で行う。
-
-### 3.4 設計指針(今後の実装に向けて)
+### 3.3 設計指針(今後の実装に向けて)
 
 - 判定・特定効果の発動などの「アイテムロール」関連処理は、D&D 5e システムの設計思想を
   踏襲し、Item に紐づく「用途(usage)」ドキュメントのコレクションとして管理する。
@@ -144,6 +134,16 @@ Foundry の起動・リロードは手動で行う。
 - 動作確認なしの大規模移行
 - 既存の EXP 計算ロジックを「効率化のため」と称して書き換える(複雑なルール上の事情が
   あるため)
+
+### 4.4 開発コマンド
+
+- `npm install` … 依存パッケージのインストール(初回および package.json 更新時)
+- `npm test` … Vitest によるテスト実行(1回のみ)
+- `npm run test:watch` … Vitest をウォッチモードで起動(ファイル保存ごとに再実行)
+- `npm run lint` … ESLint によるリント実行(警告・エラー表示)
+- `npm run lint:fix` … ESLint で自動修正可能な問題を修正
+
+Foundry の起動・リロードは手動で行う。
 
 ## 5. 運用
 
