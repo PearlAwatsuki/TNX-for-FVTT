@@ -82,21 +82,33 @@ description は日本語で簡潔に記述する。
 
 ### 2.2 現在のフェーズ ★
 
-**フェーズA-1: ライセンス・著作権・コントリビューション関連の文書整備**
+**フェーズB-0: DataModel 移行の設計方針確定**
+
+フェーズA(開発基盤整備)は v0.1.0 として完了。フェーズB(DataModel への完全移行)に
+着手する。詳細は `docs/PHASE_B_TASKS.md` を参照。
 
 (セッション開始時、まずここを確認すること)
 
 ### 2.3 ロードマップ(完走志向版)
 
 - フェーズ0: 土台を v13 で動かす ← 完了
-- **フェーズA: 開発基盤整備**(現在)
-  - A-1: ライセンス・著作権・コントリビューション関連の文書整備 ← 現在
+- フェーズA: 開発基盤整備 ← 完了 (v0.1.0)
+  - A-1: ライセンス・著作権・コントリビューション関連の文書整備 ← 完了
   - A-2: 設計ドキュメント基盤
-    (RULES_REFERENCE.md / MECHANICS_AUDIT.md / DESIGN_REVIEW.md)
-  - A-3: テスト基盤の構築
-  - A-4: GitHub Actions による CI 設定
-  - A-5: バージョニング・リリース方針の決定
-- フェーズB: DataModel への完全移行
+    (RULES_REFERENCE.md / MECHANICS_AUDIT.md / DESIGN_REVIEW.md) ← 完了
+  - A-3: テスト基盤の構築 ← 完了
+  - A-4: GitHub Actions による CI 設定 ← 完了
+  - A-5: バージョニング・リリース方針の決定 ← 完了
+- **フェーズB: DataModel への完全移行**(現在)
+  - B-0: 設計方針の確定 ← 現在
+  - B-1: Actor 共通 template の DataModel 化
+  - B-2: Item 共通 template の DataModel 化
+  - B-3: 単純な Actor type
+  - B-4: 複雑な Actor type
+  - B-5: 単純な Item type
+  - B-6: 中程度の Item type + データマイグレーション機構の導入
+  - B-7: 複雑な Item type
+  - B-8: 移行後の検証
 - フェーズ1: 判定システムの設計と最小実装
 - フェーズ1.5: 神業システムの設計
 - フェーズ2: 神業システムの最小実装
