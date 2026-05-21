@@ -160,46 +160,10 @@
             "isFullAuto": false,
             "FAValue": 0
         },
-        "armor": {
-            "templates": ["base", "outfitBase"],
-            "defence": {
-                "S_defence": 0,
-                "P_defence": 0,
-                "I_defence": 0
-            },
-            "controlMod": 0
-        },
-        "ianus": {
-            "templates": ["base", "outfitBase", "extensible"],
-            "controlMod": 0
-        },
-        "cyborg": {
-            "templates": ["base", "outfitBase"],
-            "defence": {
-                "S_defence": 0,
-                "P_defence": 0,
-                "I_defence": 0
-            },
-            "attack": {
-                "damageType": [],
-                "value": 0,
-                "mod": 0
-            },
-            "guardValue": 0
-        },
-        "tron": {
-            "templates": ["base", "outfitBase", "extensible"]
-        },
         "tap": {
             "templates": ["base", "outfitBase", "extensible"],
             "cycle": 0,
             "conbatSpeedMod": 0
-        },
-        "vehicle": {
-            "templates": ["base", "outfitBase", "extensible"],
-            "speedFactor": 0,
-            "passenger": 0,
-            "controlMod": 0
         },
         "residence": {
             "templates": ["base", "outfitBase", "extensible"],
@@ -212,29 +176,6 @@
             "appearanceTargetMod": 0,
             "cyberSecurityMod": 0,
             "analogSecurityMod": 0
-        },
-        "housingArea": {
-            "templates": ["base"],
-            "buyRatingMod": 0,
-            "preserveExpMod": 0,
-            "appearanceTargetMod": 0,
-            "cyberSecurityMod": 0,
-            "analogSecurityMod": 0
-        },
-        "combiner": {
-            "templates": ["base", "outfitBase"],
-            "combinedOutfitID": []
-        },
-        "general": {
-            "templates": ["base", "outfitBase"]
-        },
-        "organization": {
-            "templates": ["base"]
-        },
-        "lifePath": {
-            "templates": ["base"],
-            "lifePathType": "",
-            "skillName": ""
         }
     },
     "Card": {

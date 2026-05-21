@@ -5,6 +5,16 @@ import { GuestDataModel } from './data/actor/guest.mjs';
 import { TroopDataModel } from './data/actor/troop.mjs';
 import { ExtraDataModel } from './data/actor/extra.mjs';
 import { PlayerDataModel } from './data/actor/player.mjs';
+import { HousingAreaDataModel } from './data/item/housing-area.mjs';
+import { OrganizationDataModel } from './data/item/organization.mjs';
+import { LifePathDataModel } from './data/item/life-path.mjs';
+import { ArmorDataModel } from './data/item/armor.mjs';
+import { CyborgDataModel } from './data/item/cyborg.mjs';
+import { CombinerDataModel } from './data/item/combiner.mjs';
+import { GeneralDataModel } from './data/item/general.mjs';
+import { IanusDataModel } from './data/item/ianus.mjs';
+import { TronDataModel } from './data/item/tron.mjs';
+import { VehicleDataModel } from './data/item/vehicle.mjs';
 import { TokyoNovaItem } from './item/item.mjs';
 import { TokyoNovaStyleSheet } from './item/tnx-style-sheet.mjs';
 import { TokyoNovaMiracleSheet } from './item/tnx-miracle-sheet.mjs';
@@ -215,6 +225,20 @@ Hooks.once("init", async function() {
       troop:  TroopDataModel,
       extra:  ExtraDataModel,
       player: PlayerDataModel,
+    };
+
+    // Item DataModel の登録(B-5: 単純な Item type 10 type 完了)
+    CONFIG.Item.dataModels = {
+      housingArea:  HousingAreaDataModel,
+      organization: OrganizationDataModel,
+      lifePath:     LifePathDataModel,
+      armor:        ArmorDataModel,
+      cyborg:       CyborgDataModel,
+      combiner:     CombinerDataModel,
+      general:      GeneralDataModel,
+      ianus:        IanusDataModel,
+      tron:         TronDataModel,
+      vehicle:      VehicleDataModel,
     };
 
     // システム用のCONFIG名前空間を準備
