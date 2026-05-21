@@ -82,10 +82,10 @@ description は日本語で簡潔に記述する。
 
 ### 2.2 現在のフェーズ ★
 
-**フェーズB-0: DataModel 移行の設計方針確定**
+**フェーズB-1: Actor 共通 template の DataModel 化**
 
-フェーズA(開発基盤整備)は v0.1.0 として完了。フェーズB(DataModel への完全移行)に
-着手する。詳細は `docs/PHASE_B_TASKS.md` を参照。
+フェーズB-0(設計方針確定)完了。DataModel の命名規約・配置・継承戦略等は
+`docs/DESIGN_REVIEW.md` B-0 エントリを参照。
 
 (セッション開始時、まずここを確認すること)
 
@@ -100,8 +100,8 @@ description は日本語で簡潔に記述する。
   - A-4: GitHub Actions による CI 設定 ← 完了
   - A-5: バージョニング・リリース方針の決定 ← 完了
 - **フェーズB: DataModel への完全移行**(現在)
-  - B-0: 設計方針の確定 ← 現在
-  - B-1: Actor 共通 template の DataModel 化
+  - B-0: 設計方針の確定 ← 完了
+  - B-1: Actor 共通 template の DataModel 化 ← 現在
   - B-2: Item 共通 template の DataModel 化
   - B-3: 単純な Actor type
   - B-4: 複雑な Actor type

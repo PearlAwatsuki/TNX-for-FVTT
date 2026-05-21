@@ -40,4 +40,164 @@
 
 ## エントリ一覧
 
-(実装が進むにつれて追記)
+### B-0 設計方針(DataModel 移行)(フェーズB)
+
+**日付**: 2026-05-21
+**レビュー対象**: フェーズB 全体の DataModel 実装方針
+**ステータス**: レビュー済(問題なし)
+
+#### レビュー観点
+
+- 保守性: 長期戦(2〜3ヶ月)の DataModel 実装で破綻しないか
+- 拡張性: フェーズ1 以降の判定システム実装で破綻しないか
+- パフォーマンス: 22 type 分の DataModel 実装で大きな問題が出ないか
+- FVTT 慣行: Foundry VTT v13 の推奨パターンに準拠しているか
+- 既存設計との整合: 既存の TnxCastSheet、TnxActionHandler 等と整合しているか
+
+#### 決定事項
+
+##### 論点1: クラス命名規約
+
+**決定**: 案C(`CastDataModel` / `StyleSkillDataModel` 等、プレフィックスなし)
+
+検討した他の案:
+- 案A: `TnxCastDataModel`(プロジェクトプレフィックス付き)
+- 案B: `CastData`(短い)
+
+決定理由: dnd5e の慣行に近く、データモデル単独でクラス名から型がわかる。
+
+見直しの可能性: 既存の `Tnx` プレフィックスクラスとの命名一貫性で違和感が強くなる場合は
+案A への切り替えを検討する。
+
+##### 論点2: ファイル配置
+
+**決定**: 案A(`scripts/data/` 配下に集約)
+
+ディレクトリ構造:
+
+```
+scripts/
+  data/
+    abstract.mjs
+    actor/
+      common/      # biography, attributes, actor-base
+      cast.mjs
+      guest.mjs
+      troop.mjs
+      extra.mjs
+      player.mjs
+    item/
+      common/      # base, usage, skill-base, outfit-base, extensible
+      style.mjs
+      style-skill.mjs
+      ...
+```
+
+検討した他の案:
+- 案B: `scripts/data-models/`(より明示的)
+- 案C: 既存の `scripts/actor/` `scripts/item/` の隣に `*.data.mjs`
+
+決定理由: dnd5e の構造を踏襲し、Actor / Item をディレクトリで分離。共通 template を
+`common/` に閉じ込めることで依存関係を明示。
+
+見直しの可能性: 実装してみてディレクトリが浅すぎる・深すぎると感じたら再構成する。
+
+##### 論点3: 共通 template の継承戦略
+
+**決定**: 案A(Mixin パターン)
+
+検討した他の案:
+- 案B: 単純な継承(1つの親クラスから派生)
+- 案C: SchemaField の合成(継承なし)
+
+決定理由: TNX は1つの type が複数の template を使う構造(cast = biography + attributes
++ actorBase など)。多重継承相当の機能が必要。dnd5e の `SystemDataModel.mixin()` パターン
+を踏襲する。
+
+参考実装イメージ:
+
+```javascript
+// scripts/data/abstract.mjs
+export class SystemDataModel extends foundry.abstract.TypeDataModel {
+  static mixin(...mixins) {
+    const Class = class extends this {};
+    for (const mixin of mixins) {
+      // mixin の defineSchema、メソッドを Class に追加
+    }
+    return Class;
+  }
+}
+
+// scripts/data/actor/cast.mjs
+export class CastDataModel extends SystemDataModel.mixin(
+  BiographyTemplate, AttributesTemplate, ActorBaseTemplate
+) {
+  static defineSchema() {
+    const fields = foundry.data.fields;
+    return {
+      ...super.defineSchema(),
+      // cast 固有のフィールド
+    };
+  }
+}
+```
+
+見直しの可能性: Mixin の実装が複雑すぎる・型エラーが頻発する場合は案C(SchemaField
+合成)に切り替える。
+
+##### 論点4: defineSchema の記述スタイル
+
+**決定**: 案A(インライン)+ 一部 案C(ヘルパー関数)
+
+検討した他の案:
+- 案B: フィールド定義を別ファイルに切り出してインポート
+
+決定理由: 基本はインラインで可読性を優先。ただし `{ value, min, max }` のような
+TNX 固有の繰り返しパターンはヘルパー関数(`scripts/data/helpers.mjs`)に集約する。
+
+ヘルパー関数の例:
+
+```javascript
+// scripts/data/helpers.mjs
+export function damageField() {
+  const fields = foundry.data.fields;
+  return new fields.SchemaField({
+    value: new fields.NumberField({ initial: 0 }),
+    min: new fields.NumberField({ initial: 0 }),
+    max: new fields.NumberField({ initial: 0 }),
+  });
+}
+```
+
+見直しの可能性: ヘルパー関数が肥大化したらモジュール分割を検討する。
+
+##### 論点5: 既存シートとの接続方式
+
+**決定**: 案A(既存シートはそのまま、`actor.system.xxx` でアクセスする方式を維持)
+
+検討した他の案:
+- 案B: DataModel に getter / setter / メソッドを足して、シートロジックを DataModel に寄せる
+- 案C: シートも一緒に書き換える
+
+決定理由: フェーズB のスコープは「DataModel への移行」であってシート書き換えではない。
+シートの構造的書き換えはフェーズ6(既存シートの ApplicationV2 完全移行)で扱う。
+DataModel に必要最小限のメソッド(`prepareDerivedData` 等)を実装するのは OK だが、
+シートのロジックを移すことはしない。
+
+見直しの可能性: 既存シートが DataModel と整合しない箇所が出てきた場合、フェーズB の
+範囲で最小限の調整を許容する(ただし大幅な書き換えはしない)。
+
+#### 良かった点
+
+- フェーズB のスコープが明確になった(DataModel 化のみ、シート書き換えは含まない)
+- dnd5e という参照例があるため、実装方針に迷ったときに参照できる
+- 命名規約・ファイル配置の決定により、Claude Code への実装プロンプトが簡潔になる
+
+#### 課題
+
+なし。実装着手前の方針確定として、必要な決定はすべて行えた。
+
+#### 推奨アクション
+
+B-1(Actor 共通 template の DataModel 化)に進む。実装中に方針見直しが必要と感じた
+時点で、本エントリの「見直しの可能性」セクションを更新する。
