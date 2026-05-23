@@ -144,7 +144,7 @@
             "mystery": {
                 "expCost": 50
             }
-        },
+        }
     },
     "Card": {
         "types": ["playingCards", "neuroCards", "other"],
