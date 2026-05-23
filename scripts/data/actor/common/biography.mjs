@@ -30,7 +30,7 @@ export class BiographyTemplate extends SystemDataModel {
       eyes:        new fields.StringField({ initial: "" }),
       hair:        new fields.StringField({ initial: "" }),
       skin:        new fields.StringField({ initial: "" }),
-      description: new fields.StringField({ initial: "" }),
+      description: new fields.HTMLField({ initial: "" }),
     };
   }
 }

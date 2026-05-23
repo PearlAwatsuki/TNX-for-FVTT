@@ -29,6 +29,9 @@ export class MockArrayField {
     this.options = options;
   }
 }
+export class MockHTMLField {
+  constructor(options = {}) { this.options = options; }
+}
 export class MockObjectField {
   constructor(options = {}) { this.options = options; }
 }
@@ -45,6 +48,7 @@ globalThis.foundry = {
       NumberField:  MockNumberField,
       StringField:  MockStringField,
       BooleanField: MockBooleanField,
+      HTMLField:    MockHTMLField,
       SchemaField:  MockSchemaField,
       ArrayField:   MockArrayField,
       ObjectField:  MockObjectField,

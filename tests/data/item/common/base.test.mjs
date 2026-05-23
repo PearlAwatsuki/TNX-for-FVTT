@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MockStringField } from "../../../setup.mjs";
+import { MockHTMLField } from "../../../setup.mjs";
 
 const { BaseTemplate } = await import("../../../../scripts/data/item/common/base.mjs");
 
@@ -14,8 +14,8 @@ describe("BaseTemplate.defineSchema()", () => {
     expect(schema).toHaveProperty("description");
   });
 
-  it("description は StringField で initial が空文字", () => {
-    expect(schema.description).toBeInstanceOf(MockStringField);
+  it("description は HTMLField で initial が空文字", () => {
+    expect(schema.description).toBeInstanceOf(MockHTMLField);
     expect(schema.description.options.initial).toBe("");
   });
 

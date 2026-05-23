@@ -18,7 +18,7 @@ export class BaseTemplate extends SystemDataModel {
   static defineSchema() {
     const fields = foundry.data.fields;
     return {
-      description: new fields.StringField({ initial: "" }),
+      description: new fields.HTMLField({ initial: "" }),
     };
   }
 }
