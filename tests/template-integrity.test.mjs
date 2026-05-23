@@ -1,18 +1,19 @@
 /**
- * @fileoverview template.json 健全性テスト(恒久テスト)
+ * @fileoverview 型定義健全性テスト(恒久テスト)
  *
- * フェーズB のサブフェーズごとに template.json からエントリを削除する際に
- * 発生しうる以下の問題を CI で継続的に検出する。
+ * B-9 完了後: template.json は廃止。type 定義の権威は system.json の documentTypes。
  *
- * 検証1: JSON 妥当性 — 末尾カンマ等の構文崩れを検出
- * 検証2: 二重定義の禁止 — DataModel 化済み type が template.json に残存していないこと
+ * 検証1: template.json の廃止確認 — ファイルが存在しないこと
+ * 検証2: system.json の JSON 妥当性 — 末尾カンマ等の構文崩れを検出
+ * 検証3: documentTypes に全 25 type が揃っていること
+ * 検証4: DataModel ファイルと documentTypes.Item の整合 — 過不足がないこと
  *
  * このテストは Foundry ランタイムに依存しない(Node.js 単体で完結)。
  * CONFIG.Item.dataModels 等のグローバルは参照しない。
  */
 
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, dirname, basename, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -20,8 +21,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const projectRoot = join(__dirname, "..");
 
-// template.json の生テキスト(module 評価時に読み込む。ファイル不在は collection error)
-const templateRaw = readFileSync(join(projectRoot, "template.json"), "utf-8");
+// system.json の生テキスト(module 評価時に読み込む)
+const systemRaw = readFileSync(join(projectRoot, "system.json"), "utf-8");
 
 /**
  * kebab-case を camelCase に変換する。
@@ -52,39 +53,7 @@ function getDataModeledItemTypes() {
     .map(entry => kebabToCamel(basename(entry.name, ".mjs")));
 }
 
-/**
- * template.json の Item セクションから type 別エントリのキーを取得する。
- * 'types'(配列)と 'templates'(共通テンプレート定義)は type 別エントリではないため除外する。
- * @param {object} templateJson
- * @returns {string[]}
- */
-function getTemplateItemTypeKeys(templateJson) {
-  const NON_TYPE_KEYS = new Set(["types", "templates"]);
-  return Object.keys(templateJson.Item).filter(key => !NON_TYPE_KEYS.has(key));
-}
-
-// ============================================================
-// 検証1: JSON 妥当性
-// ============================================================
-
-describe("template.json 健全性テスト", () => {
-  describe("検証1: JSON 妥当性", () => {
-    it("template.json が有効な JSON として読み込める(末尾カンマ等の構文崩れがない)", () => {
-      expect(() => JSON.parse(templateRaw)).not.toThrow();
-    });
-
-    it("Item セクションと Actor セクションが存在する", () => {
-      const json = JSON.parse(templateRaw);
-      expect(json).toHaveProperty("Item");
-      expect(json).toHaveProperty("Actor");
-    });
-
-    it("フェーズB 完了後: Item セクションは空オブジェクト(types/templates/type エントリなし)", () => {
-      const json = JSON.parse(templateRaw);
-      // 全 Item type が DataModel 化済みのため、Item セクションは空オブジェクト
-      expect(Object.keys(json.Item)).toHaveLength(0);
-    });
-  });
+describe("型定義健全性テスト", () => {
 
   // ============================================================
   // ファイル名 → type 名変換の動作確認
@@ -106,10 +75,71 @@ describe("template.json 健全性テスト", () => {
   });
 
   // ============================================================
-  // 検証2: DataModel 化済み type の二重定義なし
+  // 検証1: template.json の廃止確認
   // ============================================================
 
-  describe("検証2: DataModel 化済み type と template.json の非重複", () => {
+  describe("検証1: template.json の廃止確認", () => {
+    it("template.json が存在しない(B-9 で廃止済み)", () => {
+      expect(existsSync(join(projectRoot, "template.json"))).toBe(false);
+    });
+  });
+
+  // ============================================================
+  // 検証2: system.json の JSON 妥当性
+  // ============================================================
+
+  describe("検証2: system.json の JSON 妥当性", () => {
+    it("system.json が有効な JSON として読み込める(末尾カンマ等の構文崩れがない)", () => {
+      expect(() => JSON.parse(systemRaw)).not.toThrow();
+    });
+
+    it("documentTypes に Actor / Item / Card セクションが存在する", () => {
+      const json = JSON.parse(systemRaw);
+      expect(json).toHaveProperty("documentTypes");
+      expect(json.documentTypes).toHaveProperty("Actor");
+      expect(json.documentTypes).toHaveProperty("Item");
+      expect(json.documentTypes).toHaveProperty("Card");
+    });
+  });
+
+  // ============================================================
+  // 検証3: documentTypes に全 25 type が揃っている
+  // ============================================================
+
+  describe("検証3: documentTypes に全 type が揃っている", () => {
+    const docTypes = JSON.parse(systemRaw).documentTypes;
+
+    it("Actor が全 5 type を持つ", () => {
+      const expected = ["cast", "guest", "troop", "extra", "player"];
+      for (const t of expected) {
+        expect(docTypes.Actor).toHaveProperty(t);
+      }
+    });
+
+    it("Item が全 17 type を持つ", () => {
+      const expected = [
+        "style", "miracle", "generalSkill", "styleSkill",
+        "weapon", "armor", "ianus", "cyborg", "tron", "tap", "vehicle",
+        "residence", "housingArea", "combiner", "general", "organization", "lifePath",
+      ];
+      for (const t of expected) {
+        expect(docTypes.Item).toHaveProperty(t);
+      }
+    });
+
+    it("Card が全 3 type を持つ", () => {
+      const expected = ["playingCards", "neuroCards", "other"];
+      for (const t of expected) {
+        expect(docTypes.Card).toHaveProperty(t);
+      }
+    });
+  });
+
+  // ============================================================
+  // 検証4: DataModel ファイルと documentTypes.Item の整合
+  // ============================================================
+
+  describe("検証4: scripts/data/item/ の DataModel ファイルが documentTypes.Item と整合する", () => {
     it("scripts/data/item/ から DataModel ファイルが 1 件以上検出される", () => {
       const types = getDataModeledItemTypes();
       expect(types.length).toBeGreaterThan(0);
@@ -121,23 +151,11 @@ describe("template.json 健全性テスト", () => {
       expect(types).not.toContain("helpers");
     });
 
-    it("Item.types 配列・Item.templates セクションが type 別エントリとして混入しない", () => {
-      const json = JSON.parse(templateRaw);
-      const typeKeys = getTemplateItemTypeKeys(json);
-      expect(typeKeys).not.toContain("types");
-      expect(typeKeys).not.toContain("templates");
-    });
-
-    it("DataModel 化済み type が template.json の type 別エントリに残存しない(積集合が空)", () => {
-      const json = JSON.parse(templateRaw);
-      const dataModeledTypes = getDataModeledItemTypes();
-      const templateTypeKeys = getTemplateItemTypeKeys(json);
-
-      // 積集合: DataModel 化済みなのに template.json にも残っている type
-      const intersection = dataModeledTypes.filter(t => templateTypeKeys.includes(t));
-
-      // 削除漏れがあればここで検出される。失敗時のメッセージで対象 type を特定できるよう出力
-      expect(intersection).toHaveLength(0);
+    it("DataModel ファイルの type が documentTypes.Item に過不足なく存在する", () => {
+      const json = JSON.parse(systemRaw);
+      const dataModeledTypes = getDataModeledItemTypes().sort();
+      const documentTypesItemKeys = Object.keys(json.documentTypes.Item).sort();
+      expect(dataModeledTypes).toEqual(documentTypesItemKeys);
     });
   });
 });
