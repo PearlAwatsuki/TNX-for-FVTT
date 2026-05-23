@@ -22,6 +22,9 @@ import { MiracleDataModel } from './data/item/miracle.mjs';
 import { GeneralSkillDataModel } from './data/item/general-skill.mjs';
 import { StyleDataModel } from './data/item/style.mjs';
 import { StyleSkillDataModel } from './data/item/style-skill.mjs';
+import { PlayingCardsDataModel } from './data/card/playing-cards.mjs';
+import { NeuroCardsDataModel } from './data/card/neuro-cards.mjs';
+import { OtherDataModel } from './data/card/other.mjs';
 import { TokyoNovaItem } from './item/item.mjs';
 import { TokyoNovaStyleSheet } from './item/tnx-style-sheet.mjs';
 import { TokyoNovaMiracleSheet } from './item/tnx-miracle-sheet.mjs';
@@ -253,6 +256,13 @@ Hooks.once("init", async function() {
       generalSkill: GeneralSkillDataModel,
       style:        StyleDataModel,
       styleSkill:   StyleSkillDataModel,
+    };
+
+    // Card DataModel の登録(B-8: 全 3 type 登録完了)
+    CONFIG.Card.dataModels = {
+      playingCards: PlayingCardsDataModel,
+      neuroCards:   NeuroCardsDataModel,
+      other:        OtherDataModel,
     };
 
     // システム用のCONFIG名前空間を準備
