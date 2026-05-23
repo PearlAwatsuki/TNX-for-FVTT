@@ -148,6 +148,11 @@
             "general": {},
             "organization": {},
             "lifePath": {}
+        },
+        "Card": {
+            "playingCards": {},
+            "neuroCards": {},
+            "other": {}
         }
     },
     "socket": true,
