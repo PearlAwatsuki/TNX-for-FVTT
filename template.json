@@ -52,32 +52,6 @@
                 ]
             }
         },
-        "style": {
-            "templates": ["base"],
-            "isPersona": false,
-            "isKey": false,
-            "level": 1,
-            "miracle": {
-                "name": "",
-                "id": ""
-            },
-            "reason": {
-                "value": 0,
-                "control": 0
-            },
-            "passion": {
-                "value": 0,
-                "control": 0
-            },
-            "life": {
-                "value": 0,
-                "control": 0
-            },
-            "mundane": {
-                "value": 0,
-                "control": 0
-            }
-        },
         "styleSkill": {            
             "templates": ["base", "usage", "skillBase"],
             "styleSkillCategory": "special",

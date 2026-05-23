@@ -736,11 +736,65 @@ B-6b(skill 系 2種: miracle / generalSkill の DataModel 化)に進む。
 
 #### 推奨アクション
 
-B-7(複雑な Item type: style / styleSkill の DataModel 化)に進む。
-以下を申し送る。
+B-7a(style の DataModel 化)に進む。以下を申し送る。
 
 - style / styleSkill は Items の中で最もフィールド数が多く設計が複雑。
   特に styleSkill は confrontation / comboSkill / timing 等の配列フィールドと
   SchemaField のネストが複雑。事前に `tnx-style-sheet.mjs` / `tnx-style-skill-sheet.mjs`
   の getData() を読んで、どのフィールドがシートで使われているかを把握してから着手すること。
 - B-7 完了時に `Item.templates` セクションと `Item.types` 配列の整理を行う。
+
+---
+
+### B-7a 複雑な Item type の DataModel 化(style)(フェーズB)
+
+**日付**: 2026-05-23
+**レビュー対象**: `scripts/data/item/style.mjs`,
+`scripts/tnx.mjs`(CONFIG.Item.dataModels 追記),
+`template.json`(style エントリ削除)
+**ステータス**: レビュー済(問題なし)
+
+#### レビュー観点
+
+- 保守性: base のみの mixin で素直に実装できているか
+- 設計の正確性: reason 等が Actor の attributeField()(14 フィールド)と別物であることを
+  認識して正しく実装されているか
+- 既存ロジックへの無介入: preUpdateItem/preDeleteItem フック・style-sheet に触れていないか
+- ローカルヘルパーの適切性: abilityField() を style.mjs 内に閉じた判断が妥当か
+
+#### 良かった点
+
+- **ローカルヘルパー関数 abilityField() の採用**: `{value, control}` の 2 フィールド
+  SchemaField が reason/passion/life/mundane の 4 箇所で繰り返されるため、style.mjs 内に
+  ローカル関数として切り出した。DRY の観点と「複数 type 共用にするほどではない(style 専用)」
+  という判断を両立している。
+- **Actor の attributeField() と明確に区別**: style の reason 等(2 フィールド)が
+  Actor の reason(14 フィールド、`attributeField()`)と別物であることを `@fileoverview`
+  に明記し、混同リスクを文書で排除した。
+- **level の初期値が 1**: template.json に忠実。miracle.usageCount.value と同様、
+  初期値ミス(0 にするなど)が実機で重大バグになりえる箇所を正確に実装し、
+  テストで `toBe(1)` を明示的に検証している。
+- **level の範囲制約を入れない判断**: 既存の preUpdateItem フックと cast-sheet が
+  レベル制御を担っているため DataModel 側で min/max を設定しない。過剰な制約追加を避け、
+  既存ロジックへの依存を変えない。`@fileoverview` に判断根拠を記録済み。
+- **既存ロジックへの無介入**: preUpdateItem(style レベル変更時の miracle usageCount 増減
+  および isPersona/isKey 強制設定)/ preDeleteItem(miracle 連動削除)/ cast-sheet の
+  排他制御すべてを変更しなかった。B-7a のスコープを DataModel 化に限定する方針を徹底。
+- **テストの ability ループ**: 4 つの能力値フィールドを `for...of` ループで検証。
+  フィールドが増えた場合も一箇所の修正で対応できる形。
+
+#### 課題
+
+なし。B-7a のスコープ内で品質を満たした実装。
+
+#### 推奨アクション
+
+B-7b(styleSkill の DataModel 化)に進む。以下を申し送る。
+
+- styleSkill は template.json 定義と実際のシート動作(getData)の間で乖離が確認されている
+  (`tnx-style-skill-sheet.mjs` の getData を要事前確認)。
+- confrontation / comboSkill / timing は `["blank"]` 初期値の配列フィールド。要素型の
+  判断が必要(StringField か SchemaField か)。
+- 4 種類の SchemaField ネスト(special / performance / secret / mystery)の expCost 等の
+  初期値を正確に確認すること。
+- B-7b 完了時に `Item.templates` セクションと `Item.types` 配列の整理を行う。

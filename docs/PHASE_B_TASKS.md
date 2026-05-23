@@ -168,10 +168,26 @@ Item で共有される共通 template を DataModel として実装する。
 ### B-7: 複雑な Item type
 
 最もフィールド数が多く設計が複雑な Item type を DataModel 化する。
+B-7a / B-7b の 2 サブグループに分割して進める。
 
-- style(persona / key / level / miracle / attributes 部分継承等)
+#### B-7a: style ✅ 完了
+
+- `scripts/data/item/style.mjs` 作成(base のみ mixin)
+- ファイル内ローカル関数 `abilityField()` で reason / passion / life / mundane の
+  `{value, control}` 2 フィールド構造を定義(style 専用のため helpers.mjs には出さない)
+- `scripts/tnx.mjs` の `init` フックで `CONFIG.Item.dataModels` に 1 type 追加(計 16 type)
+- `template.json` から style エントリ削除
+- テスト 28 件追加(計 471 件)
+- `docs/DESIGN_REVIEW.md` に B-7a エントリを追加
+
+#### B-7b: styleSkill(事前調査を経て着手予定)
+
+最もフィールド数が多い Item type。事前に `tnx-style-skill-sheet.mjs` の getData() を
+精査してからプランを提示する。
+
 - styleSkill(category / unique / combo / target / range / confrontation 等多数、
   performance / secret / mystery 等のネストオブジェクトを含む)
+- B-7b 完了時に template.json の `Item.templates` セクションと `Item.types` 配列も整理する
 
 ### B-8: 移行後の検証
 
