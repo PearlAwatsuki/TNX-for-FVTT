@@ -18,6 +18,8 @@ import { VehicleDataModel } from './data/item/vehicle.mjs';
 import { WeaponDataModel } from './data/item/weapon.mjs';
 import { TapDataModel } from './data/item/tap.mjs';
 import { ResidenceDataModel } from './data/item/residence.mjs';
+import { MiracleDataModel } from './data/item/miracle.mjs';
+import { GeneralSkillDataModel } from './data/item/general-skill.mjs';
 import { TokyoNovaItem } from './item/item.mjs';
 import { TokyoNovaStyleSheet } from './item/tnx-style-sheet.mjs';
 import { TokyoNovaMiracleSheet } from './item/tnx-miracle-sheet.mjs';
@@ -230,7 +232,7 @@ Hooks.once("init", async function() {
       player: PlayerDataModel,
     };
 
-    // Item DataModel の登録(B-6a: outfit 系 3 type 追加、計 13 type)
+    // Item DataModel の登録(B-6b: skill 系 2 type 追加、計 15 type)
     CONFIG.Item.dataModels = {
       housingArea:  HousingAreaDataModel,
       organization: OrganizationDataModel,
@@ -245,6 +247,8 @@ Hooks.once("init", async function() {
       weapon:       WeaponDataModel,
       tap:          TapDataModel,
       residence:    ResidenceDataModel,
+      miracle:      MiracleDataModel,
+      generalSkill: GeneralSkillDataModel,
     };
 
     // システム用のCONFIG名前空間を準備

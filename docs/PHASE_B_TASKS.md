@@ -128,7 +128,7 @@ Item で共有される共通 template を DataModel として実装する。
 - テスト 23 件追加(計 347 件)
 - `docs/DESIGN_REVIEW.md` に B-5c エントリ + B-5 全体完了の総括を追加
 
-### B-6: 中程度の Item type の DataModel 化
+### B-6: 中程度の Item type の DataModel 化 ✅ 完了(2026-05-23)
 
 中程度のフィールド数を持つ Item type を DataModel 化する。2 サブフェーズに分割する。
 
@@ -152,9 +152,18 @@ Item で共有される共通 template を DataModel として実装する。
 - `docs/DESIGN_REVIEW.md` に B-6a エントリ追加
 - `docs/KNOWN_ISSUES.md` の KI-007 を解消済みに更新、KI-016 の担当フェーズを修正
 
-#### B-6b: skill 系 2種
+#### B-6b: skill 系 2種 ✅ 完了(2026-05-23)
 
-- miracle / generalSkill(base + skillBase / base + usage 等)
+- miracle / generalSkill(base + usage / base + usage + skillBase)
+
+完了内容:
+- `scripts/data/item/{miracle,general-skill}.mjs` 作成
+- `scripts/tnx.mjs` の `init` フックで `CONFIG.Item.dataModels` に 2 type 追加(計 15 type)
+- `template.json` から miracle / generalSkill エントリ削除
+- テスト 37 件追加(計 443 件)
+- `docs/DESIGN_REVIEW.md` に B-6b エントリ + B-6 全体完了の総括を追加
+
+**B-6 全体完了**。template.json に残る Item type 別エントリは style / styleSkill のみ(B-7 対象)。
 
 ### B-7: 複雑な Item type
 

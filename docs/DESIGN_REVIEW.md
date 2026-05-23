@@ -659,3 +659,88 @@ B-6b(skill 系 2種: miracle / generalSkill の DataModel 化)に進む。
   既存の `usage-list.hbs` / `UsageCreationDialog` への影響を慎重に確認してから実装すること。
 - `Item.types` 配列・`Item.templates` セクションは B-7 完了時に整理する方針を維持。
 - `attackField()` は B-6a で weapon / cyborg 共用として確立済み。
+
+---
+
+### B-6b 中程度の Item type の DataModel 化(skill 系 2種)(フェーズB)
+
+**日付**: 2026-05-23
+**レビュー対象**: `scripts/data/item/miracle.mjs`, `scripts/data/item/general-skill.mjs`,
+`scripts/tnx.mjs`(CONFIG.Item.dataModels 追記),
+`template.json`(miracle / generalSkill エントリ削除)
+**ステータス**: レビュー済(問題なし)
+
+#### レビュー観点
+
+- 保守性: usage / skillBase テンプレートを初めて実 type に mixin した際のパターン一貫性
+- 拡張性: usageCount / initialSkill 等のヘルパー化見送りが妥当か
+- 既存設計との整合: 既存シートロジック(general-skill-sheet の連動更新)に触れていないか
+- usage テンプレートの不変性: usage.mjs / usage-list.hbs / UsageCreationDialog を
+  一切変更していないか
+
+#### 良かった点
+
+- **usage / skillBase の初適用**: B-2 で DataModel 化した UsageTemplate / SkillBaseTemplate
+  が、本サブフェーズで初めて実 Item type の mixin として機能した。テンプレート設計の
+  正しさがここで初めて実証される形となった。
+- **mixin 合成順が templates 配列順に対応**: miracle は `mixin(Base, Usage)`、
+  generalSkill は `mixin(Base, Usage, SkillBase)` と template.json の配列順に忠実。
+  B-5 以降一貫している規約を正確に踏襲。
+- **usageCount の初期値が 1**: template.json に忠実に `value: 1 / total: 1` とした。
+  既存フック(preUpdateItem / preDeleteItem)が usageCount を参照しているため、
+  初期値ミス(0 にするなど)は実機で重大バグになりえる。テストで明示的に `toBe(1)` を
+  検証し、将来の誤修正を防いでいる。
+- **既存シートロジックへの無介入**: general-skill-sheet の initialSuit ↔ suits ↔ level
+  連動更新は DataModel 化の対象外として明確にスコープ外に置いた。`@fileoverview` に
+  その旨を明記。
+- **generalSkillCategory を StringField のままとした判断**: B-5a の lifePathType と同じ
+  判断基準(実質 enum だが、将来の選択肢付き型リファクタまで StringField を維持)を
+  一貫して適用。`@fileoverview` に申し送り済み。
+- **ヘルパー化しない判断**: usageCount / initialSkill / onomasticSkill はいずれも当該
+  type 固有の 1 箇所のみ。B-5c の controlMod と同じ判断で inline SchemaField に留めた。
+  過剰な汎化を避ける一貫した姿勢。
+- **テストカバレッジ**: 計 443 件(B-6a の 396 件から 37 件増加)。
+  miracle の usageCount.value / total が 1 であることの明示的な検証、
+  miracle に skillBase フィールドが含まれないことの非存在確認を含む。
+
+#### 課題
+
+- ⚠️ **generalSkillCategory が実質 enum**: B-5a の lifePathType と同じ状況。
+  将来のシート実装時に選択肢付き型へのリファクタが必要になる可能性がある。
+  `general-skill.mjs` の `@fileoverview` に申し送り済み。
+
+#### B-6 全体完了の総括
+
+**日付**: 2026-05-23
+**完了した 5 type**:
+- B-6a: weapon / tap / residence(base + outfitBase + extensible)
+- B-6b: miracle / generalSkill(base + usage / base + usage + skillBase)
+
+**新設ファイル**:
+- `scripts/data/item/{weapon, tap, residence, miracle, general-skill}.mjs`
+- `tests/template-integrity.test.mjs`(B-6 補助タスク: template.json 恒久健全性テスト)
+
+**テスト**: B-6 全体で 96 件追加(347 → 443 件)
+
+**`CONFIG.Item.dataModels`**: init フックで 15 type 登録済み
+
+**設計判断**:
+- マイグレーション機構は実運用前のため導入しない(CLAUDE.md §4.2 に準拠)
+- KI-007(tap タイポ)は正しい綴りで定義することでマイグレーションなしで解消
+- template.json の健全性(JSON 妥当性 + 二重定義なし)を恒久テストで CI 担保
+
+**申し送り事項**:
+- `Item.types` 配列・`Item.templates` セクションは B-7 完了時に整理
+- generalSkillCategory / lifePathType の選択肢付き型リファクタは将来フェーズに送り
+- B-7 対象: style / styleSkill(template.json に残る最後の 2 type 別エントリ)
+
+#### 推奨アクション
+
+B-7(複雑な Item type: style / styleSkill の DataModel 化)に進む。
+以下を申し送る。
+
+- style / styleSkill は Items の中で最もフィールド数が多く設計が複雑。
+  特に styleSkill は confrontation / comboSkill / timing 等の配列フィールドと
+  SchemaField のネストが複雑。事前に `tnx-style-sheet.mjs` / `tnx-style-skill-sheet.mjs`
+  の getData() を読んで、どのフィールドがシートで使われているかを把握してから着手すること。
+- B-7 完了時に `Item.templates` セクションと `Item.types` 配列の整理を行う。

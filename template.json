@@ -78,32 +78,6 @@
                 "control": 0
             }
         },
-        "miracle": {
-            "templates": ["base", "usage"],
-            "furigana": "",
-            "usageCondition": "",
-            "isKill": false,
-            "isDefence": false,
-            "isAll": false,
-            "isUsed": false,
-            "usageCount": {
-                "value": 1,
-                "total":1,
-                "mod": 0
-            }
-        },
-        "generalSkill": {
-            "templates": ["base", "usage", "skillBase"],
-            "generalSkillCategory": "initialSkill",
-            "initialSkill":{
-                "initialSuit": "",
-                "expCost": 10
-            },
-            "onomasticSkill": {
-                "isInitial": false,
-                "expCost": 5
-            }
-        },
         "styleSkill": {            
             "templates": ["base", "usage", "skillBase"],
             "styleSkillCategory": "special",
