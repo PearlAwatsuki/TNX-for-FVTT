@@ -21,6 +21,7 @@ import { ResidenceDataModel } from './data/item/residence.mjs';
 import { MiracleDataModel } from './data/item/miracle.mjs';
 import { GeneralSkillDataModel } from './data/item/general-skill.mjs';
 import { StyleDataModel } from './data/item/style.mjs';
+import { StyleSkillDataModel } from './data/item/style-skill.mjs';
 import { TokyoNovaItem } from './item/item.mjs';
 import { TokyoNovaStyleSheet } from './item/tnx-style-sheet.mjs';
 import { TokyoNovaMiracleSheet } from './item/tnx-miracle-sheet.mjs';
@@ -233,7 +234,7 @@ Hooks.once("init", async function() {
       player: PlayerDataModel,
     };
 
-    // Item DataModel の登録(B-7a: style 追加、計 16 type)
+    // Item DataModel の登録(B-7b: styleSkill 追加、全 17 type 登録完了)
     CONFIG.Item.dataModels = {
       housingArea:  HousingAreaDataModel,
       organization: OrganizationDataModel,
@@ -251,6 +252,7 @@ Hooks.once("init", async function() {
       miracle:      MiracleDataModel,
       generalSkill: GeneralSkillDataModel,
       style:        StyleDataModel,
+      styleSkill:   StyleSkillDataModel,
     };
 
     // システム用のCONFIG名前空間を準備

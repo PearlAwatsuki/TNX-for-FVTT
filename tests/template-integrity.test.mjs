@@ -79,10 +79,10 @@ describe("template.json 健全性テスト", () => {
       expect(json).toHaveProperty("Actor");
     });
 
-    it("Item.types が配列として存在する", () => {
+    it("フェーズB 完了後: Item セクションは空オブジェクト(types/templates/type エントリなし)", () => {
       const json = JSON.parse(templateRaw);
-      expect(Array.isArray(json.Item.types)).toBe(true);
-      expect(json.Item.types.length).toBeGreaterThan(0);
+      // 全 Item type が DataModel 化済みのため、Item セクションは空オブジェクト
+      expect(Object.keys(json.Item)).toHaveLength(0);
     });
   });
 
