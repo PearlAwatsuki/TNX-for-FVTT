@@ -41,7 +41,7 @@
 - 現在 `0.x.x` (開発中、破壊的変更あり)
 - フェーズ完了ごとに MINOR を上げる(例: フェーズA 完了で `0.1.0`)
 - フェーズ間のバグ修正で PATCH を上げる(例: `0.1.1`)
-- フェーズ8(公開準備)完了時に `1.0.0` をリリース
+- フェーズ10(公開準備)完了時に `1.0.0` をリリース
 
 バージョン番号は以下の3箇所で同期する:
 - `package.json` の `"version"`
@@ -77,17 +77,18 @@ description は日本語で簡潔に記述する。
 ### 2.1 Foundry VTT バージョン
 
 - 現状: v13.351 で動作確認済
-- system.json: minimum 11, verified 12.343(フェーズB の DataModel 移行後に更新予定)
+- system.json: minimum 11, verified 13.351
 - フェーズ0(v13 起動)は完了
 
 ### 2.2 現在のフェーズ ★
 
-**フェーズB-5: 単純な Item type の DataModel 化**
+**フェーズB(DataModel 完全移行)最終段階**
 
-フェーズB-4(複雑な Actor type の DataModel 化)完了。Actor 5 type すべてが DataModel
-に移行済み。B-5 では armor / ianus / cyborg / tron / vehicle / housingArea / combiner /
-general / organization / lifePath の 10 Item type を実装する。
-詳細は `docs/DESIGN_REVIEW.md` B-4 エントリを参照。
+Actor 全 5 type・Item 全 17 type の DataModel 化が完了(B-7b まで完了)。
+残作業: Card 3 type(playingCards / neuroCards / other)の DataModel 化 /
+template.json ファイルの廃止 / 移行後の検証(B-8)。
+完了後 v0.2.0 をリリース予定。
+詳細は `docs/PHASE_B_TASKS.md` を参照。
 
 (セッション開始時、まずここを確認すること)
 
@@ -101,26 +102,31 @@ general / organization / lifePath の 10 Item type を実装する。
   - A-3: テスト基盤の構築 ← 完了
   - A-4: GitHub Actions による CI 設定 ← 完了
   - A-5: バージョニング・リリース方針の決定 ← 完了
-- **フェーズB: DataModel への完全移行**(現在)
-  - B-0: 設計方針の確定 ← 完了
-  - B-1: Actor 共通 template の DataModel 化 ← 完了
-  - B-2: Item 共通 template の DataModel 化 ← 完了
-  - B-3: 単純な Actor type ← 完了
-  - B-4: 複雑な Actor type ← 完了
-  - B-5: 単純な Item type ← 現在
-  - B-6: 中程度の Item type + データマイグレーション機構の導入
-  - B-7: 複雑な Item type
-  - B-8: 移行後の検証
-- フェーズ1: 判定システムの設計と最小実装
-- フェーズ1.5: 神業システムの設計
-- フェーズ2: 神業システムの最小実装
-- フェーズ3 / フェーズ4: 戦闘進行(コンバットトラッカー改修)と
-  サブシーン的仕組みの設計と実装(順序は着手時に判断)
-- フェーズ5: HUD / CSS の v13 化(TnxHud の v13 UI レイヤーへの整合化を含む)
-- フェーズ6: 既存シートの ApplicationV2 完全移行
-- フェーズ6.5: サイバーパンク基調のデザイン刷新
-- フェーズ7: 未実装シート(outfit系・guest/troop/extra)の追加
-- フェーズ8: 公開準備
+- **フェーズB: DataModel への完全移行**(現在 / 残作業あり)← v0.2.0 予定
+  - B-0〜B-7: 全 Actor 5 + Item 17 type の DataModel 化 ← 完了
+  - B-8: Card DataModel 化 + template.json 廃止 + 移行後の検証
+- フェーズ1: HUD の ApplicationV2 移行 + v13 UI 整合
+- フェーズ2: 既存シートの ApplicationV2 移行
+- フェーズ3: CSS リファクタ + デザイン刷新(サイバーパンク基調、HUD デザインを含む)
+- フェーズ4: 未実装シートの追加(outfit 系 11 種 + guest/troop/extra の Actor 3 種)
+- フェーズ5: 判定システムの設計
+- フェーズ6: 判定システムの実装
+- フェーズ7: 神業システムの設計
+- フェーズ8: 神業システムの実装
+- フェーズ9: 戦闘進行(コンバットトラッカー改修)/ サブシーン的仕組み
+  (設計・実装の分割は着手時に判断)
+- フェーズ10: 公開準備 → v1.0.0
+
+**設計方針(ロードマップ運用)**:
+- 「最小実装」の語は使わない。各機能は最低限ではなく作り込む。リスク管理のため
+  各フェーズはサブフェーズに細分して着実に仕上げる。
+- 判定(フェーズ5・6)と神業(フェーズ7・8)は「設計フェーズ → 実装フェーズ」に分割。
+  設計フェーズはチャット(Opus)でのルール言語化・データ構造設計が中心、
+  実装フェーズが Claude Code 中心。
+- UI フェーズの順序の意図: HUD を最初に V2 化して V2 パターンを確立(新1)→ 既存シートに
+  展開(新2)→ CSS リファクタ + デザイン確立(新3)→ そのデザインを踏まえて未実装シートを
+  新規作成(新4)。「構造(V2)」と「見た目(デザイン)」を分離し、シートを二度蒸し返さない
+  一気通貫を狙う。
 
 (注: 各フェーズの順序は今後変更されうる。現在のフェーズは明示すること)
 
@@ -128,12 +134,13 @@ general / organization / lifePath の 10 Item type を実装する。
 
 ### 3.1 データモデル(現状)
 
-- template.json 依存 (DataModel クラス未使用)
+- DataModel(TypeDataModel)ベース。全 Actor 5 type・全 Item 17 type が移行済み。
+- Card type(playingCards / neuroCards / other)は B-8 で DataModel 化予定。
 - Actor types: cast, guest, troop, extra, player
 - Item types: style, miracle, generalSkill, styleSkill, weapon, armor, ianus,
   cyborg, tron, tap, vehicle, residence, housingArea, combiner, general,
   organization, lifePath
-- 詳細は template.json を参照すること
+- 詳細は `scripts/data/` 配下の各 DataModel ファイルを参照すること
 
 ### 3.2 主要モジュール
 
@@ -152,11 +159,11 @@ general / organization / lifePath の 10 Item type を実装する。
   既存の usage テンプレート(actions[])および UsageCreationDialog はその基盤として
   設計されている。「用途を起動する」という共通インタフェースを上位に置く構造を目指す。
 - 神業はゲーム進行に踏み込んで影響する処理が多く、システム側で機能を作り込む必要がある。
-  設計はフェーズ1.5 で独立して扱う。
+  設計はフェーズ7(神業システムの設計)で独立して扱う。
 - プレイヤー単位の経験点管理は FEAR 系の重要な特徴。現状の player Actor 実装の設計を
   尊重し、安易な改変はしない。
 - FVTT 標準の Scene 切り替えに依存せず、軽量にシーンを切り替えられるサブシーン的な
-  仕組みを後のフェーズで設計する。
+  仕組みをフェーズ9(戦闘進行/サブシーン)で設計・実装する。
 
 ## 4. 開発ルール
 
@@ -224,7 +231,7 @@ Foundry の起動・リロードは手動で行う。
 - `docs/V13_MIGRATION_NOTES.md`: v13 移行メモ
 - `docs/PHASE_0_TASKS.md`: フェーズ0 タスクと完了サマリー
 - `docs/PHASE_B_TASKS.md`: フェーズB(DataModel 移行)の作業計画
-- `docs/PHASE_6_5_TASKS.md`: フェーズ6.5(デザイン刷新)の作業計画
+- `docs/PHASE_3_TASKS.md`: フェーズ3(CSS リファクタ + デザイン刷新)の作業計画
 - `docs/MECHANICS_AUDIT.md`: メカニクス監査記録
 - `docs/DESIGN_REVIEW.md`: 設計レビュー記録
 
