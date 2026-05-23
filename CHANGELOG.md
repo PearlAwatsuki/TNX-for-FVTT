@@ -23,6 +23,10 @@
   - `tests/setup.mjs` に `MockObjectField` 追加
   - テスト 57 件追加(計 258 件)
   - `docs/FUTURE_CONSIDERATIONS.md` 新設(Player Actor → User ベース移行の検討事項)
+- フェーズB-8: Card type の DataModel 化
+  - `CardBaseTemplate` を `scripts/data/card/common/` に実装
+  - `PlayingCardsDataModel`, `NeuroCardsDataModel`, `OtherDataModel` を実装し `CONFIG.Card.dataModels` に登録(全 3 type 完了)
+  - テスト 12 件追加(計 542 件)
 
 ### Changed
 

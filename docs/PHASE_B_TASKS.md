@@ -206,25 +206,47 @@ B-7a / B-7b の 2 サブグループに分割して進める。
 全 22 type(Actor 5 + Item 17)が DataModel に移行済み。
 template.json の Item セクションは空オブジェクト。
 
-### B-8: 移行後の検証
+### B-8: Card type の DataModel 化 ✅ 完了(2026-05-23)
 
-全 type の DataModel 移行完了後、既存機能との整合性を検証する。
+Card 3 type(playingCards / neuroCards / other)を DataModel 化し、`CONFIG.Card.dataModels` に登録する。
+フェーズB の DataModel 化対象(Actor 5 + Item 17 + Card 3 = 全 25 type)が揃う。
+
+完了内容:
+- `scripts/data/card/common/base.mjs` 新設(`CardBaseTemplate`、description のみ)
+  - `Item.BaseTemplate` との層またぎ(data/card → data/item)を避けるため Card 用に独立定義
+- `scripts/data/card/{playing-cards,neuro-cards,other}.mjs` 作成
+  - `PlayingCardsDataModel` / `NeuroCardsDataModel` / `OtherDataModel`
+  - 各々 `SystemDataModel.mixin(CardBaseTemplate)` を継承、固有フィールドなし
+- `scripts/tnx.mjs` の `init` フックで `CONFIG.Card.dataModels` に 3 type 登録
+- テスト 12 件追加(計 542 件)
+- `docs/DESIGN_REVIEW.md` に B-8 エントリ追加
+- template.json の Card セクションは B-9 まで残置(廃止は B-9)
+
+### B-9: template.json の廃止
+
+全 type の DataModel 移行完了(B-8)後、template.json ファイルを廃止する。
+
+着手前に以下を確認すること:
+- (a) `htmlFields` / `gmOnlyFields` 等のサニタイズ宣言が `system.json` の
+  `documentTypes` 側に存在するか、または DataModel の `HTMLField` 等で代替されているか。
+  `description` 等の ProseMirror 対象 HTML フィールドがサニタイズ宣言を失わないことを確認。
+- (b) v13 実機で template.json を削除した状態で全 type が正常認識されることの確認。
+- v13 では template.json は非推奨方向(v14 で deprecation period)。
+  documentTypes が権威のため、上記検証が通ればファイル廃止が可能。
+
+削除対象:
+- `template.json` ファイル自体(`Card` セクション + `Actor.types` 配列 + `Item: {}` を含む)
+
+### B-10: 移行後の検証
+
+※ 旧 B-8「移行後の検証」を B-9(template.json 廃止)の追加に伴い B-10 に繰り下げ。
+
+template.json 廃止(B-9)完了後、既存機能との整合性を検証する。
 
 - 既存のキャラクターシート・アイテムシートが正常表示されることを確認
 - EXP 計算が変わらず動作することを確認
 - カード判定・神業の usageCount 等、既存ロジックが破壊されていないことを確認
 - `MECHANICS_AUDIT.md` / `DESIGN_REVIEW.md` への記録
-
-**B-8 への申し送り事項(DataModel 移行完了後の後始末)**:
-
-- **template.json ファイルの廃止**: Actor セクション(`types` 配列)の削除を含む。
-  着手前に以下を確認すること:
-  - (a) `htmlFields` / `gmOnlyFields` 等のサニタイズ宣言が `system.json` の
-    `documentTypes` 側に存在するか、または DataModel の `HTMLField` 等で代替されているか。
-    `description` 等の ProseMirror 対象 HTML フィールドがサニタイズ宣言を失わないことを確認。
-  - (b) v13 実機で template.json を削除した状態で全 type が正常認識されることの確認。
-  - v13 では template.json は非推奨方向(v14 で deprecation period)。
-    documentTypes が権威のため、上記検証が通ればファイル廃止が可能。
 
 ## 移行戦略
 
@@ -252,8 +274,8 @@ template.json の Item セクションは空オブジェクト。
 
 - 全 25 type(Actor 5 + Item 17 + Card 3)が DataModel に移行されていること
 - **template.json ファイルが廃止されていること**(documentTypes が type の権威)
-- 既存機能が破壊されていないこと(B-8 で検証)
-- B-0〜B-8 の各サブフェーズの記録が DESIGN_REVIEW.md / MECHANICS_AUDIT.md にあること
+- 既存機能が破壊されていないこと(B-10 で検証)
+- B-0〜B-10 の各サブフェーズの記録が DESIGN_REVIEW.md / MECHANICS_AUDIT.md にあること
 
 ## 担当時期
 
