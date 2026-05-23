@@ -9,8 +9,8 @@
  * 従い、B-5b で defence フィールドが armor / cyborg の 2 箇所で必要になったため
  * 切り出した。
  *
- * attack フィールドは B-5b 時点では cyborg のみで使用。B-7 で weapon に
- * 同構造が出現した時点で attackField() のヘルパー化を再検討する。
+ * B-6a で attack フィールドが cyborg / weapon の 2 箇所で必要になったため
+ * attackField() として切り出した。
  */
 
 /**
@@ -27,5 +27,22 @@ export function defenceField() {
     S_defence: new fields.NumberField({ initial: 0 }),
     P_defence: new fields.NumberField({ initial: 0 }),
     I_defence: new fields.NumberField({ initial: 0 }),
+  });
+}
+
+/**
+ * 攻撃値(ダメージ種別 / 値 / 修正)の SchemaField を返す。
+ * damageType は文字列の配列(ArrayField(StringField))、value / mod は初期値 0 の NumberField。
+ *
+ * 使用 Item type: cyborg / weapon
+ *
+ * @returns {foundry.data.fields.SchemaField}
+ */
+export function attackField() {
+  const fields = foundry.data.fields;
+  return new fields.SchemaField({
+    damageType: new fields.ArrayField(new fields.StringField()),
+    value:      new fields.NumberField({ initial: 0 }),
+    mod:        new fields.NumberField({ initial: 0 }),
   });
 }

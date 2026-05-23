@@ -145,38 +145,6 @@
                 "expCost": 50
             }
         },
-        "weapon": {
-            "templates": ["base", "outfitBase", "extensible"],
-            "attack": {
-                "damageType": [],
-                "value": 0,
-                "mod": 0
-            },
-            "guardValue": 0,
-            "range": "-",
-            "isthrow": false,
-            "isLaser": false,
-            "isBiological": false,
-            "isFullAuto": false,
-            "FAValue": 0
-        },
-        "tap": {
-            "templates": ["base", "outfitBase", "extensible"],
-            "cycle": 0,
-            "conbatSpeedMod": 0
-        },
-        "residence": {
-            "templates": ["base", "outfitBase", "extensible"],
-            "appearanceTarget": 0,
-            "cyberSecurity": 0,
-            "analogSecurity": 0,
-            "housingArea": "",
-            "buyRatingMod": 0,
-            "preserveExpMod": 0,
-            "appearanceTargetMod": 0,
-            "cyberSecurityMod": 0,
-            "analogSecurityMod": 0
-        }
     },
     "Card": {
         "types": ["playingCards", "neuroCards", "other"],

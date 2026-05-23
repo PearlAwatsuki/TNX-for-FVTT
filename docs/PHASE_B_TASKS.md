@@ -128,14 +128,33 @@ Item で共有される共通 template を DataModel として実装する。
 - テスト 23 件追加(計 347 件)
 - `docs/DESIGN_REVIEW.md` に B-5c エントリ + B-5 全体完了の総括を追加
 
-### B-6: 中程度の Item type + データマイグレーション機構の導入
+### B-6: 中程度の Item type の DataModel 化
 
-中程度のフィールド数を持つ Item type を DataModel 化する。同時に、データマイグレーション
-機構を導入し、KI-007(tap.conbatSpeedMod のタイポ)を修正する。
+中程度のフィールド数を持つ Item type を DataModel 化する。2 サブフェーズに分割する。
 
-- weapon / tap / residence / miracle / generalSkill
-- データマイグレーション機構の設計と実装
-- KI-007: `conbatSpeedMod` → `combatSpeedMod` の修正とマイグレーション
+**設計判断**: 当初の B-6 定義には「データマイグレーション機構の導入」が含まれていたが、
+実運用前で移行対象の実データが存在しないこと、および CLAUDE.md §4.2「将来のために拡張
+ポイントを先回りで作らない」の方針に従い、マイグレーション機構の導入は見送った。
+詳細は `docs/DESIGN_REVIEW.md` B-6a エントリ参照。
+
+#### B-6a: outfit 系 3種 ✅ 完了(2026-05-23)
+
+- weapon / tap / residence(base + outfitBase + extensible)
+
+完了内容:
+- `scripts/data/item/helpers.mjs` に `attackField()` を追加
+- `scripts/data/item/cyborg.mjs` を `attackField()` 使用に変更(リファクタ、意味的変更なし)
+- `scripts/data/item/{weapon,tap,residence}.mjs` 作成
+- `scripts/tnx.mjs` の `init` フックで `CONFIG.Item.dataModels` に 3 type 追加(計 13 type)
+- `template.json` から weapon / tap / residence エントリ削除
+- KI-007: tap DataModel を正しい綴り `combatSpeedMod` で定義し解消(マイグレーションなし)
+- テスト 49 件追加(計 396 件)
+- `docs/DESIGN_REVIEW.md` に B-6a エントリ追加
+- `docs/KNOWN_ISSUES.md` の KI-007 を解消済みに更新、KI-016 の担当フェーズを修正
+
+#### B-6b: skill 系 2種
+
+- miracle / generalSkill(base + skillBase / base + usage 等)
 
 ### B-7: 複雑な Item type
 
@@ -168,18 +187,18 @@ Item で共有される共通 template を DataModel として実装する。
 - 既存シート(`tnx-cast-sheet.mjs` 等)の構造的な書き換え(フェーズ6 で扱う)
 - 既存の EXP 計算ロジック(`updateCastExp`)の意味的な変更
 - カード判定・神業の usageCount 等、既存の業務ロジックへの介入
-- データマイグレーション機構の導入を B-6 以外で行う(タイミングを揃える)
+- データマイグレーション機構を B-6(またはフェーズB 全体)でまとめて導入しようとすること
+  (実運用前で不要。必要になったフェーズで設計する)
 
 ## 既知の課題との関係
 
-- KI-007 (tap.conbatSpeedMod のタイポ): B-6 でデータマイグレーション機構と同時に修正
+- KI-007 (tap.conbatSpeedMod のタイポ): B-6a で正しい綴り `combatSpeedMod` で定義し解消(マイグレーションなし)
 - KI-014, KI-015: フェーズA-3/A-4 で解消済み
 
 ## 完了条件
 
 - 全 22 type(Actor 5 + Item 17)が DataModel に移行されていること
 - template.json から移行対象の type 定義が削除されていること(template セクションも整理)
-- データマイグレーション機構が導入されていること
 - 既存機能が破壊されていないこと(B-8 で検証)
 - B-0〜B-8 の各サブフェーズの記録が DESIGN_REVIEW.md / MECHANICS_AUDIT.md にあること
 
