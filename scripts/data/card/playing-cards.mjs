@@ -1,0 +1,21 @@
+/**
+ * @fileoverview PlayingCardsDataModel - プレイングカード Card の DataModel
+ *
+ * 使用 template: base
+ * 固有フィールド: なし
+ * suit / value / face 等は Foundry Card document のコアフィールドであり system 側には持たせない。
+ *
+ * 準拠データ: template.json > Card(types 配列の "playingCards"、base テンプレート使用)
+ */
+
+import { SystemDataModel } from "../abstract.mjs";
+import { CardBaseTemplate } from "./common/base.mjs";
+
+export class PlayingCardsDataModel extends SystemDataModel.mixin(CardBaseTemplate) {
+  /** @override */
+  static defineSchema() {
+    return {
+      ...super.defineSchema(),
+    };
+  }
+}
