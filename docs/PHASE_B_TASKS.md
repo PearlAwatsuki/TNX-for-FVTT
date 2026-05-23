@@ -180,14 +180,27 @@ B-7a / B-7b の 2 サブグループに分割して進める。
 - テスト 28 件追加(計 471 件)
 - `docs/DESIGN_REVIEW.md` に B-7a エントリを追加
 
-#### B-7b: styleSkill(事前調査を経て着手予定)
+#### B-7b: styleSkill ✅ 完了
 
-最もフィールド数が多い Item type。事前に `tnx-style-skill-sheet.mjs` の getData() を
-精査してからプランを提示する。
+- `scripts/data/item/style-skill.mjs` 作成(base + usage + skillBase mixin)
+- 配列要素を実態の SchemaField で定義(template.json の `["blank"]` 近似には追従しない)
+- template.json 未定義だがシート参照の ★ フィールド 8 個を明示定義
+  (maxLevelNumber / maxLevelOther / targetOther / rangeOther /
+   targetValueNumber / targetValueOther / comboSkillOther / confrontationOther)
+- unique の initial を `"none"` に修正(template.json の `""` は誤り)
+- RewritedTarget / RewritingMiracle_ID はタイポ・命名揺れを維持(KI-018/019 記録)
+- `scripts/tnx.mjs` の `init` フックで `CONFIG.Item.dataModels` に styleSkill を追加
+  (**全 17 type 登録完了**)
+- `template.json` の Item セクションを空オブジェクト `{}` に整理
+  (styleSkill エントリ削除 + `Item.templates` セクション削除 + `Item.types` 配列削除)
+  ※ template.json ファイル自体は B-8 まで維持(htmlFields 検証が必要)
+- `tests/template-integrity.test.mjs` を新しい template.json 形状(Item: {})に対応更新
+- テスト 60 件追加(計 530 件)
+- `docs/DESIGN_REVIEW.md` に B-7b エントリ + B-7 全体総括 + フェーズB Item 完了総括を追加
 
-- styleSkill(category / unique / combo / target / range / confrontation 等多数、
-  performance / secret / mystery 等のネストオブジェクトを含む)
-- B-7b 完了時に template.json の `Item.templates` セクションと `Item.types` 配列も整理する
+**B-7 全体完了。フェーズB の DataModel 化作業(B-1〜B-7)が完了した。**
+全 22 type(Actor 5 + Item 17)が DataModel に移行済み。
+template.json の Item セクションは空オブジェクト。
 
 ### B-8: 移行後の検証
 
@@ -197,6 +210,17 @@ B-7a / B-7b の 2 サブグループに分割して進める。
 - EXP 計算が変わらず動作することを確認
 - カード判定・神業の usageCount 等、既存ロジックが破壊されていないことを確認
 - `MECHANICS_AUDIT.md` / `DESIGN_REVIEW.md` への記録
+
+**B-8 への申し送り事項(DataModel 移行完了後の後始末)**:
+
+- **template.json ファイルの廃止**: Actor セクション(`types` 配列)の削除を含む。
+  着手前に以下を確認すること:
+  - (a) `htmlFields` / `gmOnlyFields` 等のサニタイズ宣言が `system.json` の
+    `documentTypes` 側に存在するか、または DataModel の `HTMLField` 等で代替されているか。
+    `description` 等の ProseMirror 対象 HTML フィールドがサニタイズ宣言を失わないことを確認。
+  - (b) v13 実機で template.json を削除した状態で全 type が正常認識されることの確認。
+  - v13 では template.json は非推奨方向(v14 で deprecation period)。
+    documentTypes が権威のため、上記検証が通ればファイル廃止が可能。
 
 ## 移行戦略
 

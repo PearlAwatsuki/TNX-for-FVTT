@@ -442,4 +442,47 @@ Boolean が正しいかはユーザー確認が必要。
 
 ---
 
+## KI-018: styleSkill.RewritedTarget のタイポ
+
+**発見**: 2026-05-23(B-7b DataModel 化)  
+**ファイル**: `scripts/data/item/style-skill.mjs`、`template.json`(削除済み)
+
+**症状**  
+フィールド名 `RewritedTarget` は誤綴りで、正しくは `RewrittenTarget`。
+DataModel 定義・シート参照・template.json すべてで同じ誤綴りが使われている。
+
+**確認済み**: B-7b 事前調査(2026-05-23)。
+
+**影響範囲**  
+styleSkill の書き換えターゲット機能。現状は一貫して誤綴りのため動作に影響はない。
+
+**修正の難易度**: 低〜中(DataModel・シート参照・既存データの3箇所で追従が必要)
+
+**担当フェーズ**: フェーズ6(既存シートの ApplicationV2 完全移行)。  
+シート全体のリネームと合わせて整理する。B-7b のスコープ外。
+
+---
+
+## KI-019: styleSkill.RewritingMiracle_ID の命名規約違反
+
+**発見**: 2026-05-23(B-7b DataModel 化)  
+**ファイル**: `scripts/data/item/style-skill.mjs`、`template.json`(削除済み)
+
+**症状**  
+フィールド名 `RewritingMiracle_ID` は本プロジェクトの camelCase 命名規約に違反している
+(正しくは `rewritingMiracleId`)。また先頭が大文字であり、フィールド名の一般規約とも
+合わない。DataModel 定義・シート参照・template.json すべてで同じ命名が使われている。
+
+**確認済み**: B-7b 事前調査(2026-05-23)。
+
+**影響範囲**  
+styleSkill の書き換え神業 ID 参照機能。現状は一貫して命名が統一されているため動作には影響しない。
+
+**修正の難易度**: 低〜中(DataModel・シート参照・既存データの3箇所で追従が必要)
+
+**担当フェーズ**: フェーズ6(既存シートの ApplicationV2 完全移行)。  
+シート全体の命名整理と合わせて対応する。B-7b のスコープ外。
+
+---
+
 *最終更新: 2026-05-23*

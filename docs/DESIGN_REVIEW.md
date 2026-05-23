@@ -798,3 +798,91 @@ B-7b(styleSkill の DataModel 化)に進む。以下を申し送る。
 - 4 種類の SchemaField ネスト(special / performance / secret / mystery)の expCost 等の
   初期値を正確に確認すること。
 - B-7b 完了時に `Item.templates` セクションと `Item.types` 配列の整理を行う。
+
+---
+
+### B-7b 複雑な Item type の DataModel 化(styleSkill)+ Item 完了(フェーズB)
+
+**日付**: 2026-05-23
+**レビュー対象**: `scripts/data/item/style-skill.mjs`,
+`scripts/tnx.mjs`(CONFIG.Item.dataModels 全 17 type 登録完了),
+`template.json`(Item セクションを空オブジェクト {} に整理),
+`tests/template-integrity.test.mjs`(フェーズB 完了形状に対応)
+**ステータス**: レビュー済(問題なし)
+
+#### レビュー観点
+
+- 設計判断の妥当性: 配列要素の型定義方針(SchemaField vs StringField)
+- ★ フィールドの網羅: template.json 未定義だがシートが参照する 8 フィールドの明示定義
+- mixin 合成の正確性: base + usage + skillBase の順序、skillBase 由来の重複定義なし
+- unique の初期値修正: template.json の "" ではなく "none" が正しいことの確認
+- タイポ・命名揺れの維持判断: RewritedTarget / RewritingMiracle_ID
+- template.json Item セクション整理の適切性
+
+#### 設計判断の汎用記録
+
+**template.json の配列定義は要素スキーマを表現できない**。`template.json` では配列フィールドは
+`["blank"]` のような「配列であること」しか表現できない形式で定義される。これは template.json の
+制約によるもので、DataModel 化では追従すべき仕様ではない。**DataModel 化においては、シート
+実装(getData() の ensureArray 正規化構造・_onSelectChange の保存データ)を真実の源として、
+要素の SchemaField を確定する**。この方針は B-7b の styleSkill で初めて適用されたが、
+将来の DataModel 化においても同様の状況では同じアプローチをとる。
+
+#### 良かった点
+
+- **★ フィールドの完全網羅**: template.json に未定義だがシートの `_onSelectChange` が
+  リセット先として参照する 8 フィールド(maxLevelNumber / maxLevelOther / targetOther /
+  rangeOther / targetValueNumber / targetValueOther / comboSkillOther / confrontationOther)
+  をすべて明示定義した。未定義のままにすると `_onSelectChange` でバリデーションエラーになる。
+- **配列要素を実態の SchemaField で定義**: comboSkill / confrontation / timing について、
+  template.json の `["blank"]` 近似ではなく、getData() の正規化後の要素構造
+  `{value, name, isMandatory}` / `{value, name}` / `{value, actionName, processName, timingOther}`
+  を SchemaField で定義した。既存シートの `ensureArray` は引き続きフォールバックとして機能する。
+- **unique の initial 修正**: template.json に `""` と定義されていたが、シートの選択肢定義
+  (`TnxSkillUtils.getSkillOptions`) における先頭値が `"none"` であることから、正しい
+  デフォルト値は `"none"` と判断。template.json の誤りを修正した。
+- **タイポ・命名揺れの意識的な維持**: `RewritedTarget`(→ RewrittenTarget が正)および
+  `RewritingMiracle_ID`(→ rewritingMiracleId が正)はタイポ・命名規約違反だが、
+  シート・ロジックが同じ名前で参照しているため本フェーズではリネームせずそのまま維持。
+  KI-018 / KI-019 として記録した。将来のシート全体整理フェーズで対応。
+- **uses の inline 定義**: outfitBase の uses SchemaField と同型だが styleSkill 固有の
+  別フィールド。OutfitBaseTemplate を共用せず inline 定義にとどめた。過剰な共用化を避けた。
+- **template.json Item セクションの整理**: styleSkill(最後の type エントリ)削除と同時に
+  `Item.templates` セクション・`Item.types` 配列も削除し `Item: {}` に整理。v13 では
+  type の権威は system.json の documentTypes であり、両者が揃うことで二重管理が解消。
+- **template.json ファイル自体の維持**: htmlFields 等のサニタイズ宣言が documentTypes に
+  マージされる経路の検証を B-8 に委ねるため、ファイルは削除しなかった。安全な選択。
+- **integrity テストの意図保持**: "Item.types が配列として存在する" テストを
+  "フェーズB 完了後: Item セクションは空オブジェクト" に更新し、
+  「JSON 妥当性 + DataModel と template.json の二重定義禁止」という本来の意図を維持。
+
+#### B-7 全体総括(B-7a + B-7b)
+
+| サブフェーズ | 対象 | mixin | 特記事項 |
+|---|---|---|---|
+| B-7a | style | base | ローカル abilityField() / level initial=1 |
+| B-7b | styleSkill | base+usage+skillBase | ★8フィールド / 配列SchemaField / unique修正 |
+
+#### フェーズB Item DataModel 化 完了総括
+
+B-5〜B-7 の全サブフェーズで Item 全 17 type の DataModel 化が完了した。
+
+| B-5 対象(10 type) | B-6 対象(4 type) | B-7 対象(3 type) |
+|---|---|---|
+| armor / ianus / cyborg / tron / vehicle | weapon / tap / residence / miracle / generalSkill | style / styleSkill |
+| housingArea / combiner / general / organization / lifePath | (generalSkill は B-6b) | |
+
+- `CONFIG.Item.dataModels` に全 17 type 登録完了
+- `template.json` の Item セクションは空オブジェクト `{}` に整理
+- `template.json` ファイル自体は B-8 での htmlFields 検証後に廃止予定
+- 全テスト 530 件グリーン / ESLint 0 errors
+
+#### 推奨アクション(B-8 申し送り)
+
+1. **template.json ファイルの廃止**: Actor セクション(`types` 配列)の削除を含む。
+   検証事項: `htmlFields` / `gmOnlyFields` 等のサニタイズ宣言が `system.json` の
+   `documentTypes` 側に存在するか(または DataModel の `HTMLField` 等で代替されているか)。
+   `description` の ProseMirror サニタイズがサニタイズ宣言を失わないことを確認してから廃止。
+2. **v13 実機確認**: template.json 削除後も全 type が正常認識されること。
+3. **既存機能の検証**: 既存シート・EXP 計算・カード判定・神業 usageCount 等が
+   DataModel 移行後も正常動作することを確認。
