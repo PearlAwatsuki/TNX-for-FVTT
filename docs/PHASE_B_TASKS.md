@@ -1,5 +1,10 @@
 # Phase B: DataModel への完全移行
 
+> **ステータス: 完了(v0.2.0 / 2026-05-24)**
+> B-0〜B-10 全サブフェーズ完了。全 25 type(Actor 5 + Item 17 + Card 3)DataModel 移行済み。
+> template.json 廃止済み。実機検証(B-10)完了。
+> **次フェーズ: フェーズ1(HUD の ApplicationV2 移行 + v13 UI 整合)**
+
 ## 目的
 
 現状の `template.json` ベースの Actor / Item / Card 定義を、Foundry VTT の DataModel

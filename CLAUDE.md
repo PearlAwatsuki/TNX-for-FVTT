@@ -82,13 +82,11 @@ description は日本語で簡潔に記述する。
 
 ### 2.2 現在のフェーズ ★
 
-**フェーズB(DataModel 完全移行)最終段階**
+**フェーズB(DataModel 完全移行)完了 → v0.2.0 リリース済み(2026-05-24)**
+**次はフェーズ1: HUD の ApplicationV2 移行 + v13 UI 整合**
 
-Actor 全 5 type・Item 全 17 type の DataModel 化が完了(B-7b まで完了)。
-残作業: Card 3 type(playingCards / neuroCards / other)の DataModel 化 /
-template.json ファイルの廃止 / 移行後の検証(B-8)。
-完了後 v0.2.0 をリリース予定。
-詳細は `docs/PHASE_B_TASKS.md` を参照。
+全 25 type(Actor 5 + Item 17 + Card 3)DataModel 移行完了。template.json 廃止済み。
+実機検証(B-10)完了。詳細は `docs/PHASE_B_TASKS.md` を参照。
 
 (セッション開始時、まずここを確認すること)
 
@@ -102,10 +100,10 @@ template.json ファイルの廃止 / 移行後の検証(B-8)。
   - A-3: テスト基盤の構築 ← 完了
   - A-4: GitHub Actions による CI 設定 ← 完了
   - A-5: バージョニング・リリース方針の決定 ← 完了
-- **フェーズB: DataModel への完全移行**(現在 / 残作業あり)← v0.2.0 予定
-  - B-0〜B-7: 全 Actor 5 + Item 17 type の DataModel 化 ← 完了
-  - B-8: Card DataModel 化 + template.json 廃止 + 移行後の検証
-- フェーズ1: HUD の ApplicationV2 移行 + v13 UI 整合
+- フェーズB: DataModel への完全移行 ← 完了 (v0.2.0)
+  - B-0〜B-9: 全 25 type(Actor 5 + Item 17 + Card 3)DataModel 化・template.json 廃止 ← 完了
+  - B-10: 移行後の実機検証 ← 完了
+- **フェーズ1: HUD の ApplicationV2 移行 + v13 UI 整合** ← 現在(次フェーズ)
 - フェーズ2: 既存シートの ApplicationV2 移行
 - フェーズ3: CSS リファクタ + デザイン刷新(サイバーパンク基調、HUD デザインを含む)
 - フェーズ4: 未実装シートの追加(outfit 系 11 種 + guest/troop/extra の Actor 3 種)
@@ -134,8 +132,7 @@ template.json ファイルの廃止 / 移行後の検証(B-8)。
 
 ### 3.1 データモデル(現状)
 
-- DataModel(TypeDataModel)ベース。全 Actor 5 type・全 Item 17 type が移行済み。
-- Card type(playingCards / neuroCards / other)は B-8 で DataModel 化予定。
+- DataModel(TypeDataModel)ベース。全 25 type(Actor 5 + Item 17 + Card 3)が移行済み。
 - Actor types: cast, guest, troop, extra, player
 - Item types: style, miracle, generalSkill, styleSkill, weapon, armor, ianus,
   cyborg, tron, tap, vehicle, residence, housingArea, combiner, general,
