@@ -2,12 +2,13 @@
 
 ## 目的
 
-現状の `template.json` ベースの Actor / Item 定義を、Foundry VTT の DataModel
-(`TypeDataModel` クラス継承)による定義に置き換える。これにより以下を達成する。
+現状の `template.json` ベースの Actor / Item / Card 定義を、Foundry VTT の DataModel
+(`TypeDataModel` クラス継承)による定義に置き換え、`template.json` ファイルを完全に廃止する。
+これにより以下を達成する。
 
 - データ構造の型・バリデーション・デフォルト値を明示的に管理する
-- v10 以降の Foundry VTT 推奨方式に整合させる
-- フェーズ1 以降の判定システム実装時に、データの扱いを簡潔にする
+- v13(および以降)の Foundry VTT 推奨方式に整合させる(template.json は v14 で非推奨期間)
+- 新フェーズ5/6(判定システム)の実装時に、データの扱いを簡潔にする
 
 ## 背景
 
@@ -17,9 +18,12 @@
 棚卸し結果として、Actor 5種(cast / guest / troop / extra / player)、
 Item 17種(style / styleSkill / generalSkill / miracle / weapon / armor / ianus /
 cyborg / tron / tap / vehicle / residence / housingArea / combiner / general /
-organization / lifePath)を DataModel 化する。
+organization / lifePath)、および Card 3種(playingCards / neuroCards / other)を
+DataModel 化する。
 
-Card type(playingCards / neuroCards / other)は今回の移行対象外とする。
+**Card type を移行対象に含める**: フェーズB の目的は template.json 依存の完全排除であり、
+Card を残すと template.json ファイルを廃止できない。Card は description のみ(organization
+と同型)で DataModel 化が容易。template.json ファイルの廃止とあわせて B-8 で実施する。
 
 ## サブフェーズ
 
@@ -233,7 +237,7 @@ template.json の Item セクションは空オブジェクト。
 
 ## やってはいけないこと
 
-- 既存シート(`tnx-cast-sheet.mjs` 等)の構造的な書き換え(フェーズ6 で扱う)
+- 既存シート(`tnx-cast-sheet.mjs` 等)の構造的な書き換え(新フェーズ2 で扱う)
 - 既存の EXP 計算ロジック(`updateCastExp`)の意味的な変更
 - カード判定・神業の usageCount 等、既存の業務ロジックへの介入
 - データマイグレーション機構を B-6(またはフェーズB 全体)でまとめて導入しようとすること
@@ -246,8 +250,8 @@ template.json の Item セクションは空オブジェクト。
 
 ## 完了条件
 
-- 全 22 type(Actor 5 + Item 17)が DataModel に移行されていること
-- template.json から移行対象の type 定義が削除されていること(template セクションも整理)
+- 全 25 type(Actor 5 + Item 17 + Card 3)が DataModel に移行されていること
+- **template.json ファイルが廃止されていること**(documentTypes が type の権威)
 - 既存機能が破壊されていないこと(B-8 で検証)
 - B-0〜B-8 の各サブフェーズの記録が DESIGN_REVIEW.md / MECHANICS_AUDIT.md にあること
 
