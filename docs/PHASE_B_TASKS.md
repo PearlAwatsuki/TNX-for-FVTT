@@ -222,20 +222,27 @@ Card 3 type(playingCards / neuroCards / other)を DataModel 化し、`CONFIG.Car
 - `docs/DESIGN_REVIEW.md` に B-8 エントリ追加
 - template.json の Card セクションは B-9 まで残置(廃止は B-9)
 
-### B-9: template.json の廃止
+### B-9: template.json 廃止 + description の HTMLField 化 ✅ 完了(2026-05-24)
 
-全 type の DataModel 移行完了(B-8)後、template.json ファイルを廃止する。
+全 type の DataModel 移行完了(B-8)後、`description` の HTMLField 化と template.json の廃止を実施。
 
-着手前に以下を確認すること:
-- (a) `htmlFields` / `gmOnlyFields` 等のサニタイズ宣言が `system.json` の
-  `documentTypes` 側に存在するか、または DataModel の `HTMLField` 等で代替されているか。
-  `description` 等の ProseMirror 対象 HTML フィールドがサニタイズ宣言を失わないことを確認。
-- (b) v13 実機で template.json を削除した状態で全 type が正常認識されることの確認。
-- v13 では template.json は非推奨方向(v14 で deprecation period)。
-  documentTypes が権威のため、上記検証が通ればファイル廃止が可能。
-
-削除対象:
-- `template.json` ファイル自体(`Card` セクション + `Actor.types` 配列 + `Item: {}` を含む)
+完了内容:
+- `scripts/data/item/common/base.mjs` / `scripts/data/card/common/base.mjs` /
+  `scripts/data/actor/common/biography.mjs` の description を `StringField` → `HTMLField` 化
+- `system.json` の `documentTypes` に `"htmlFields": ["description"]` を宣言:
+  - Item 全 17 type / Card 全 3 type / Actor は cast・guest・extra のみ
+  - troop・player は biography 非保有のため対象外
+- `tests/setup.mjs` に `MockHTMLField` 追加・`foundry.data.fields.HTMLField` に登録
+- `tests/data/item/common/base.test.mjs` の description 型検証を HTMLField に更新
+- `template.json` ファイルを削除(全 25 type の権威が `system.json` の documentTypes に一本化)
+- `tests/template-integrity.test.mjs` を documentTypes ベースに全面書き換え:
+  - template.json 廃止確認 / system.json 妥当性 / 全 25 type の存在確認 /
+    DataModel ファイルと documentTypes.Item の過不足なし確認
+- `docs/KNOWN_ISSUES.md`:
+  - KI-005: 担当フェーズを「HUD・カード再設計フェーズ以降」に更新
+  - KI-016: StringField 維持で確定しクローズ([解消済み]に更新)
+- テスト 2 件増加(計 544 件 / 38 ファイル)
+- `docs/DESIGN_REVIEW.md` に B-9 エントリ追加
 
 ### B-10: 移行後の検証
 

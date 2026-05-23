@@ -934,3 +934,68 @@ B-9(template.json の廃止)に進む。以下を申し送る。
   カバーされているかを確認すること(PHASE_B_TASKS.md B-9 の事前確認事項参照)。
 - template.json には Actor.types 配列と Card セクションが残置。B-9 でこれらを含む
   ファイル全体を廃止する。
+
+---
+
+### B-9 template.json 廃止 + description の HTMLField 化(フェーズB)
+
+**日付**: 2026-05-24
+**レビュー対象**: `scripts/data/item/common/base.mjs`, `scripts/data/card/common/base.mjs`,
+`scripts/data/actor/common/biography.mjs`(description HTMLField 化),
+`system.json`(documentTypes に htmlFields 宣言追加),
+`tests/setup.mjs`(MockHTMLField 追加),
+`tests/template-integrity.test.mjs`(documentTypes ベースに全面書き換え),
+`template.json`(廃止・削除)
+**ステータス**: レビュー済(問題なし)
+
+#### レビュー観点
+
+- 不可逆作業の順序: HTMLField 化(可逆)→ テストグリーン確認 → template.json 削除(不可逆)
+- htmlFields 宣言の type 集合と description 保有 type の完全一致
+- template.json 削除後の全 25 type の正常認識可否(system.json documentTypes が権威)
+- integrity テストの意図保持: JSON 妥当性 + 型定義整合を documentTypes ベースで継続
+
+#### 良かった点
+
+- **不可逆作業の安全な順序**: HTMLField 化をコミット(可逆)した後に npm test グリーンを
+  確認し、その後 template.json を削除(不可逆)した。削除前のグリーン確認が安全弁として
+  機能した。
+- **htmlFields 宣言の type 集合が description 保有 type と完全一致**: biography mixin を
+  持つ Actor(cast / guest / extra)のみに付与し、troop(memo のみ) / player(attributes + actorBase)
+  を正しく除外した。Item 全 17 / Card 全 3 はすべて BaseTemplate / CardBaseTemplate 経由で
+  description を持つため全件付与。過不足なし。
+- **integrity テストの意図を documentTypes ベースで継続**: 旧テストの「JSON 妥当性」「DataModel
+  との二重定義禁止」という意図を「system.json 妥当性」「documentTypes への全 25 type 存在確認」
+  「DataModel ファイルと documentTypes.Item の過不足なし確認」として正確に置き換えた。
+  テスト件数は 10 → 12 件(+2)と増加し、検証密度も向上した。
+- **MockHTMLField の最小実装**: setup.mjs への追加は既存の MockStringField と同パターン。
+  テスト環境を最小限の変更で拡張した。
+- **description フィールドのトップレベル限定**: actions[].description(UsageTemplate 内の
+  プレーンテキスト用)は対象外とし、ProseMirror 編集対象のトップレベル description のみを
+  HTMLField 化した。スコープの逸脱なし。
+
+#### 課題
+
+なし。B-9 のスコープ内で品質を満たした実装。
+
+#### フェーズB DataModel 化 完了総括
+
+B-1〜B-9 の全サブフェーズが完了した。
+
+| 完了項目 | 内容 |
+|---|---|
+| DataModel 化 | Actor 5 + Item 17 + Card 3 = 全 25 type |
+| CONFIG 登録 | `CONFIG.Actor/Item/Card.dataModels` に全 type 登録済み |
+| HTMLField 化 | description(トップレベル)を 3 テンプレートで HTMLField に変更 |
+| htmlFields 宣言 | system.json documentTypes に全対象 type へ宣言追加 |
+| template.json | 廃止済み。type 権威は system.json documentTypes に一本化 |
+| テスト | 544 件グリーン / ESLint 0 errors |
+
+#### 推奨アクション
+
+B-10(移行後の検証)に進む。実機確認はユーザー主役。
+
+- 既存シート(cast / guest 等)の正常表示
+- EXP 計算が変わらず動作すること
+- カード判定・神業 usageCount 等の既存ロジックが破壊されていないこと
+- 確認後に v0.2.0 タグを打つ(PHASE_B_TASKS.md の完了条件を参照)

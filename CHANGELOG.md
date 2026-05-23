@@ -27,8 +27,18 @@
   - `CardBaseTemplate` を `scripts/data/card/common/` に実装
   - `PlayingCardsDataModel`, `NeuroCardsDataModel`, `OtherDataModel` を実装し `CONFIG.Card.dataModels` に登録(全 3 type 完了)
   - テスト 12 件追加(計 542 件)
+- フェーズB-9: description の HTMLField 化 / template.json 廃止
+  - `BaseTemplate`, `CardBaseTemplate`, `BiographyTemplate` の description を `HTMLField` に変更
+  - `tests/setup.mjs` に `MockHTMLField` 追加
+  - `tests/template-integrity.test.mjs` を documentTypes ベースに書き換え
+  - テスト 2 件追加(計 544 件)
 
 ### Changed
+- フェーズB-9: `system.json` の `documentTypes` に `"htmlFields": ["description"]` を宣言
+  (Item 全 17 type / Card 全 3 type / Actor: cast・guest・extra)
+
+### Removed
+- フェーズB-9: `template.json` を廃止(type 定義の権威が `system.json` の `documentTypes` に一本化)
 
 ### Fixed
 
