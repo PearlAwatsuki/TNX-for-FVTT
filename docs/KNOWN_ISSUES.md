@@ -108,11 +108,11 @@ getData() で `system.comboSkill = ensureArray(...)` として扱っており、
 
 ---
 
-## KI-005: handMaxSizeMod フィールドが template.json に未定義
+## KI-005: handMaxSizeMod フィールドが DataModel に未定義
 
 **概要**
 `scripts/tnx.mjs:893` で ActiveEffect の変更キーとして `'system.handMaxSizeMod'` を参照しているが、
-このフィールドは `template.json` (また DataModel) に定義されていない。コメントに
+このフィールドはいずれの DataModel にも定義されていない。コメントに
 「このキーはアクターのデータモデルに合わせてください」と明記されている。
 
 **該当ファイル・箇所**
@@ -122,9 +122,14 @@ getData() で `system.comboSkill = ensureArray(...)` として扱っており、
 その他。手札上限の ActiveEffect 修正が機能しない（ゼロ扱いになる）。
 基本的な手札上限機能自体は動作する。
 
-**修正の難易度**: 低（フィールド追加のみ、ただし DataModel 未使用のため template.json への追加になる）
+**修正の難易度**: 中（handMaxSize の所有モデルが cast / player / User のいずれかという上流設計の
+確定が必要。フィールド追加自体は低コストだが、設計決定なしに追加すると誤った場所に定義するリスクがある）
 
-**フェーズ0 で扱うべきか**: No（フェーズ6の DataModel 移行時にまとめて対処）
+**フェーズ0 で扱うべきか**: No
+
+**担当フェーズ**: フェーズB 対象外。`handMaxSize` の所有モデル(cast / player / User)の決定は
+`docs/FUTURE_CONSIDERATIONS.md` の Player Actor → User ベース移行検討と連動する。
+HUD・カード再設計フェーズ(フェーズ1 以降)での設計確定後に対処する。
 
 ---
 
@@ -385,40 +390,29 @@ case ブロックを `{}` で囲むことで解消可能。
 
 ---
 
-## KI-016: template.json のフィールド型の妥当性疑問
+## KI-016 [解消済み]: outfitBase フィールド型の妥当性確認
 
 **概要**
-`template.json` の outfitBase 系フィールド（`exclusive`、`hide` 等）は、名称から Boolean を
-想起させるが、初期値として文字列 `"-"` が設定されている。B-2 の DataModel 化では
-template.json の現状を忠実に再現し `StringField` で実装したが、本来の意図が Boolean である
-可能性が残る。
+`scripts/data/item/common/outfit-base.mjs` の outfitBase 系フィールド（`exclusive`、`hide` 等）は、
+名称から Boolean を想起させるが、DataModel では `StringField` で実装されている。
+本来の意図が Boolean または Number である可能性が残っていた。
 
-**確認済み**: B-2 実装時に template.json を直接確認。`exclusive` 等が `"-"` で初期化されて
-いることを確認した。一方、`isPrepared`、`isOption`、`isCyber`、`isPre-play` は正しく
-Boolean として定義されており、一部のフィールドのみが String 型に留まっている。
+**確認済み**: B-2 実装時に元の template.json を確認し、B-9 にてユーザーが最終確認。
 
 **該当ファイル・箇所**
-- `template.json`（outfit 系 Item の outfitBase テンプレート定義）
-- `scripts/data/item/common/outfit-base.mjs`（DataModel 実装、現状 StringField で追従）
+- `scripts/data/item/common/outfit-base.mjs`（DataModel 実装）
 
 **影響範囲**
-その他。現時点では template.json の値をそのまま使う実装になっているため、動作上の
-問題は発生しない。将来シートや判定処理でこれらのフィールドを Boolean として扱おうと
-した場合に型ミスマッチが顕在化する可能性がある。
+その他。型確認の結果、現状の実装で問題なし。
 
-**修正の難易度**: 中（既存データとの互換性確保のため、データマイグレーションが必要）
+**ユーザー確認結果(2026-05-24 最終確定)**:
+- `exclusive`: 「専用条件」を表す**文字列**フィールド。数値と文字列表現の両方を取りうるため
+  `StringField` 維持が正しい。型変更不要。
+- `hide`: 「発見目標値」を表すフィールド。数値と文字列表現の両方を取りうるため
+  `StringField` 維持が正しい。型変更不要。
+- いずれも Boolean ではなく、StringField 維持で妥当と確定。
 
-**フェーズ0 で扱うべきか**: No
-
-**担当フェーズ**: フェーズB 残作業(B-8: Card DataModel 化 + template.json 廃止)と同時期に検証する。
-
-**ユーザー確認結果(2026-05-23 確定)**:
-- `exclusive`: 「専用条件」を表す**文字列**フィールド。StringField 維持で妥当。
-- `hide`: 「発見目標値」を表す**数値**フィールド。NumberField への変更を検討する。
-- いずれも Boolean ではないことが判明。
-
-型変更を行う場合はマイグレーションが必要なため、実運用データが生じる前の B-8 以降に
-改めて設計する。
+**解消**: 2026-05-24、B-9 にてユーザー確認の上クローズ。型変更・マイグレーション不要。
 
 ---
 
