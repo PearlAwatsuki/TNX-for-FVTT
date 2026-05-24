@@ -1,0 +1,25 @@
+<div class="record-sheet-body">
+
+  {{!-- EXP サマリ --}}
+  <div class="record-exp-summary">
+    <div class="exp-item">
+      <span class="exp-label">合計 EXP</span>
+      <span class="exp-value record-exp-value">{{exp.total}}</span>
+    </div>
+    <div class="exp-item">
+      <span class="exp-label">使用可能</span>
+      <span class="exp-value record-exp-value">{{exp.value}}</span>
+    </div>
+    <div class="exp-item">
+      <span class="exp-label">消費済み</span>
+      <span class="exp-value record-exp-value">{{exp.spent}}</span>
+    </div>
+  </div>
+
+  {{!-- 経験点履歴 --}}
+  <div class="record-history-section">
+    <h3 class="record-section-title">経験点履歴</h3>
+    {{> "systems/tokyo-nova-axleration/templates/parts/history-list.hbs"}}
+  </div>
+
+</div>

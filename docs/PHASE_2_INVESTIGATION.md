@@ -214,11 +214,23 @@ User 側が完全機能していることを確認してから着手する。
 
 フェーズB の B-0〜B-10 に相当する分割。可逆を先に・不可逆(2-5 player 廃止)を最後に。
 
-### 2-0: User flag データ構造設計 + レコードシート(表示のみ)
+### 2-0: User flag データ構造設計 + レコードシート(表示のみ) ✅ 完了(2026-05-25)
 
 User flag に `history`・`exp`・手札関連のスキーマをコード側で定義。レコードシート
 (ApplicationV2)を作り User flag を表示できるところまで。右クリックメニューに
 「レコードシートを開く」追加。player Actor は手付かず。新規追加のみで既存に影響なし(可逆)。
+
+**実装結果**:
+- `scripts/module/user-flag-schema.mjs`: flag スキーマ定義 + `getUserFlagData()` / `getUserFlagHistorySorted()` ヘルパー
+- `scripts/module/tnx-record-sheet.mjs`: `HandlebarsApplicationMixin(ApplicationV2)` ベースのレコードシート(表示のみ)
+- `templates/user/record-sheet.hbs`: EXP サマリ + 履歴テーブル(history-list.hbs パーシャル再利用)
+- `scripts/tnx.mjs`: import + テンプレートプリロード + `getUserContextOptions` フック登録
+- `css/tnx.css`: レコードシート用スタイル追加(セクション8)
+- `tests/module/user-flag-schema.test.mjs`: 15テスト追加、全559件グリーン
+
+**採用フック**: `getUserContextOptions`(v13 PlayerList のコンテキストメニュー標準フック)
+**コンテキストメニュー条件**: GM は全員分 / 一般ユーザーは自分の分のみ表示
+**重複防止**: `foundry.applications?.instances?.get(id)` でシングルトン動作
 
 ### 2-1: cast → User の紐づけ機構
 

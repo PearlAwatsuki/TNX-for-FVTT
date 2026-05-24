@@ -1163,3 +1163,63 @@ Foundry v13 の公開 API では確認できない。システム固有のペー
 
 `docs/FUTURE_CONSIDERATIONS.md` の JournalEntryPage カスタムサブタイプ化エントリも
 不採用確定として更新済み。
+
+---
+
+### 2-0 レコードシートと User flag スキーマ設計(フェーズ2)
+
+**日付**: 2026-05-25
+**レビュー対象**: `scripts/module/user-flag-schema.mjs`、`scripts/module/tnx-record-sheet.mjs`
+**ステータス**: レビュー済(問題なし)
+
+#### レビュー観点
+
+- 保守性: flag スキーマの変更が一箇所に集約されているか
+- 拡張性: 編集機能(2-2)・手札機能(2-3)追加時に既存コードを大きく変えなくて済むか
+- FVTT 慣行: ApplicationV2 の使い方が v13 の推奨パターンに準拠しているか
+- 既存設計との整合: player Actor の TnxHistoryMixin との共存・再利用
+
+#### 決定事項
+
+##### 論点1: flag 読み出しの集約方式
+
+**決定**: `getUserFlagData(user)` / `getUserFlagHistorySorted(user)` をモジュール関数として公開。
+直接 `user.flags[SCOPE]` を散在させない。
+
+決定理由: flag はスキーマがなく、キー名のタイポや初期値の不一致が散在するリスクが高い。
+getter を一箇所に集約することで、将来のキー名変更や初期値変更が1ファイルで完結する。
+また、純粋な JS 関数としてテスト容易性が高い。
+
+##### 論点2: TnxRecordSheet の基底クラス
+
+**決定**: `HandlebarsApplicationMixin(ApplicationV2)` を直接使用(DocumentSheetV2 ではない)。
+
+決定理由: レコードシートは特定 Foundry Document(Actor/Item 等)のシートではなく、
+User を引数に受け取る独自 Application である。DocumentSheetV2 は `this.document` を
+前提とした Document 専用 API が多く、User を引数に渡す用途には合わない。
+素の ApplicationV2 + HandlebarsApplicationMixin が意図に一致する。
+
+プロジェクト内でフェーズ2-0 が最初の ApplicationV2 実装となる。
+以降のシート V2 化(フェーズ3)の先例として参照可能。
+
+##### 論点3: インスタンス重複防止
+
+**決定**: `foundry.applications?.instances?.get(appId)` で既存インスタンスを確認し、
+存在すれば `bringToFront()` して早期リターン。id は `tnx-record-sheet-${user.id}`。
+
+決定理由: 同一ユーザーのレコードシートが複数開くのはバグに見える。
+ApplicationV2 の instances Map は v13 で利用可能だが optional chaining でフォールバックを保つ。
+2-2 で編集機能を追加する際も、同じ id ベースの重複防止方式を踏襲する。
+
+##### 論点4: コンテキストメニューフック
+
+**決定**: `Hooks.on("getUserContextOptions", ...)` を `init` フック内で登録。
+
+確認: v13 のプレイヤーリスト(`PlayerList` ApplicationV2)のコンテキストメニューは
+`getUserContextOptions` フックを使用する。`<li>` の `dataset.userId` から対象 User ID を取得。
+`condition` コールバックで「GM は全員分 / 一般ユーザーは自分の分のみ」を制御。
+
+#### 課題
+
+特になし。2-2(編集機能追加)で `_prepareContext` の `isEditMode: false` を `true` に切り替え、
+FormHandlerMixin 等の追加が必要になる点はフェーズ 2-2 の設計で扱う。

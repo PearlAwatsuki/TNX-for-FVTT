@@ -3602,3 +3602,67 @@ ol.item-list {
 .tnx-bs-button.active .tnx-bs-check {
     display: block; /* チェックマーク表示 */
 }
+
+/* =================================================================== */
+/* 8. RECORD SHEET (フェーズ2-0)                                      */
+/* =================================================================== */
+
+.record-sheet .window-content {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    background: var(--tnx-color-bg);
+    color: var(--tnx-color-text-base);
+}
+
+.record-sheet-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* EXP サマリ行 */
+.record-exp-summary {
+    display: flex;
+    gap: 20px;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--tnx-color-border);
+    border-radius: var(--tnx-border-radius-md);
+}
+
+.record-exp-summary .exp-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.record-exp-summary .exp-label {
+    font-size: 11px;
+    color: var(--tnx-color-text-muted);
+}
+
+.record-exp-summary .record-exp-value {
+    font-size: 1.4em;
+    font-weight: bold;
+    color: var(--tnx-color-primary-highlight);
+}
+
+/* 履歴セクション */
+.record-history-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.record-section-title {
+    font-size: 13px;
+    font-weight: bold;
+    color: var(--tnx-color-text-dim);
+    margin: 0;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--tnx-color-border);
+}

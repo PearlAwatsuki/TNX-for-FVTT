@@ -34,6 +34,7 @@ import { TokyoNovaOrganizationSheet } from './item/tnx-organization-sheet.mjs';
 import { TnxScenarioSheet } from './journal/tnx-scenario-sheet.mjs';
 import { TnxActionHandler } from './module/tnx-action-handler.mjs';
 import { TnxHud } from './module/tnx-hud.mjs';
+import { TnxRecordSheet } from './module/tnx-record-sheet.mjs';
 
 async function preloadHandlebarsTemplates() {
     const templatePaths = [
@@ -70,7 +71,10 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/parts/prosemirror-editor.hbs",
         "systems/tokyo-nova-axleration/templates/parts/history-list.hbs",
         "systems/tokyo-nova-axleration/templates/parts/usage-list.hbs",
-        "systems/tokyo-nova-axleration/templates/parts/bad-status-list.hbs"
+        "systems/tokyo-nova-axleration/templates/parts/bad-status-list.hbs",
+
+        // === User Sheets ===
+        "systems/tokyo-nova-axleration/templates/user/record-sheet.hbs",
     ];
     return loadTemplates(templatePaths);
 }
@@ -488,6 +492,33 @@ Hooks.once("init", async function() {
 
         autoLoadCheckbox.addEventListener("change", toggleManualSettings);
         toggleManualSettings();
+    });
+
+    // プレイヤーリストの右クリックメニューに「レコードシートを開く」を追加する。
+    // 自分の分は全員、他人の分は GM のみ表示。
+    Hooks.on("getUserContextOptions", (_html, options) => {
+        options.push({
+            name: "レコードシートを開く",
+            icon: '<i class="fas fa-id-card"></i>',
+            condition: (li) => {
+                const el = li instanceof Element ? li : li[0];
+                const userId = el?.dataset?.userId ?? el?.dataset?.documentId;
+                if (!userId) return false;
+                return game.user.isGM || userId === game.user.id;
+            },
+            callback: (li) => {
+                const el = li instanceof Element ? li : li[0];
+                const userId = el?.dataset?.userId ?? el?.dataset?.documentId;
+                if (!userId) return;
+                const user = game.users.get(userId);
+                if (!user) return;
+                // 既に開いていれば最前面に出す
+                const appId = `tnx-record-sheet-${user.id}`;
+                const existing = foundry.applications?.instances?.get(appId);
+                if (existing) { existing.bringToFront(); return; }
+                new TnxRecordSheet(user).render(true);
+            },
+        });
     });
 
     // v13: [data-action="createEntry"] の直後に「アクトシートを作成」ボタンを挿入する。
