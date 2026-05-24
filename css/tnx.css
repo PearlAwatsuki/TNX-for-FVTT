@@ -2561,13 +2561,8 @@ form .sheet-notes.notes {
 
 /* --- 山札・捨て札エリア --- */
 .hud-main-cards {
-    bottom: 10px;
-    right: 310px;
-    transition: right 0.25s ease-in-out;
-}
-
-#tnx-hud.sidebar-collapsed .hud-main-cards {
-    right: 15px;
+    bottom: 80px;   /* v13: sidebar bottom / player list clearance */
+    right: 360px;   /* v13: sidebar (~305px) + scene controls (~50px) clearance */
 }
 
 .main-area {
@@ -2593,13 +2588,8 @@ form .sheet-notes.notes {
 
 /* --- 右上エリア (ニューロデッキ) --- */
 .hud-top-right {
-    top: 5px;
-    right: 310px;
-    transition: right 0.25s ease-in-out;
-}
-
-#tnx-hud.sidebar-collapsed .hud-top-right {
-    right: 50px;
+    top: 50px;    /* v13: scene nav / top controls clearance */
+    right: 360px; /* v13: sidebar (~305px) + scene controls (~50px) clearance */
 }
 
 .neuro-area {
@@ -2613,20 +2603,13 @@ form .sheet-notes.notes {
     width: auto;
 }
 
-/* ▼▼▼【ここからが追加/修正箇所です】▼▼▼ */
-
 /* 親コンテナ：要素を横に並べ、下端を揃える役割 */
 .hud-bottom-bar {
-    bottom: 70px;
+    bottom: 70px;  /* v13: hotbar (~60px) clearance */
     left: 260px;
     display: flex;
     gap: 5px;
     align-items: flex-end; /* 高さが違う要素の「下」を揃える */
-    transition: bottom 0.25s ease-in-out;
-}
-
-.hud-bottom-bar.hotbar-is-collapsed {
-    bottom: 10px;
 }
 
 /* パネル共通スタイル：背景や枠線などの見た目を定義 */
@@ -2643,8 +2626,9 @@ form .sheet-notes.notes {
     flex-wrap: wrap; /* カードを折り返す */
     height: auto; /* 高さを自動調整 */
     align-items: flex-end; /* カードを下端に揃える */
-    /* (カード幅128px * 7枚) + (隙間5px * 6個) + (パディング8px * 2辺) = 942px */
-    max-width: 914px;
+    /* (カード幅128px * 5枚) + (隙間5px * 4個) + (パディング8px * 2辺) = 676px → 余白込みで680px */
+    /* right側: 画面幅1280px - left260px - 右UI360px = 660px。5枚で収まる初期値。 */
+    max-width: 680px;
 }
 
 /* 切り札エリア専用スタイル：固定の高さを設定 */

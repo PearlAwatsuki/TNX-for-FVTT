@@ -156,20 +156,22 @@ P0-09 で `querySelector` のエラーは解消したが、そもそも `#bar-to
 
 ## 7. HUD のサイドバー連動セレクタ
 
-**ステータス: 未確認**
+**ステータス: 確認済み・死にルール削除済み（フェーズ1-2）**
 
-### 現状
-`scripts/module/tnx-hud.mjs:115-132` で v12 のサイドバー DOM 構造を前提としたセレクタを使用:
-```js
-const sidebar = document.getElementById('sidebar');
-const collapseButton = document.querySelector('#sidebar-tabs a.collapse');
-```
+### 現状（フェーズ1-2 時点）
+`scripts/module/tnx-hud.mjs:115-132` のサイドバー連動コードは残存しているが、
+KI-012(ホットバー折りたたみ廃止)に伴い CSS 上の sidebar-collapsed 依存ルールは削除済み。
 
-### 懸念事項
-v13 でサイドバーが ApplicationV2 に移行した場合、`#sidebar-tabs` の構造や `.collapse` クラスが
-変わる可能性がある。
+フェーズ1-2 で削除した CSS 死にルール:
+- `#tnx-hud.sidebar-collapsed .hud-main-cards { right: 15px; }` — サイドバー折りたたみ連動
+- `#tnx-hud.sidebar-collapsed .hud-top-right { right: 50px; }` — 同上
+- `.hud-bottom-bar.hotbar-is-collapsed { bottom: 10px; }` — ホットバー折りたたみ連動
 
-### 対応優先度: 低（HUD 本体の表示・カード操作は継続する。フェーズ5 で対処）
+JS 側のサイドバー連動コード（`#sidebar` / `#sidebar-tabs a.collapse` セレクタ）は
+`tnx-hud.mjs` に残存。v13 での動作は未確認だが、接続先の CSS ルールが削除されたため
+影響は最小限。JS の死コード削除はフェーズ2(V2 化)の HUD 再設計時に合わせて実施する。
+
+### 対応優先度: 低（フェーズ2 の ApplicationV2 化で再設計）
 
 ---
 
