@@ -131,20 +131,6 @@ export class TnxHud extends Application {
             });
         }
 
-        const bottomBar = this.element.find('.hud-bottom-bar')[0];
-        const actionBar = document.getElementById('action-bar');
-        const hotbarCollapseButton = document.getElementById('bar-toggle');
-
-        if (bottomBar && actionBar && hotbarCollapseButton) {
-            const isInitiallyCollapsed = actionBar.classList.contains('collapsed');
-            bottomBar.classList.toggle('hotbar-is-collapsed', isInitiallyCollapsed);
-
-            hotbarCollapseButton.addEventListener('click', () => {
-                const isCurrentlyCollapsed = actionBar.classList.contains('collapsed');
-                bottomBar.classList.toggle('hotbar-is-collapsed', !isCurrentlyCollapsed);
-            });
-        }
-
         html.on('click', '[data-action]', async (event) => {
             event.preventDefault();
             const action = event.currentTarget.dataset.action;

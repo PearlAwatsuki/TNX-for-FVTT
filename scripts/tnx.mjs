@@ -548,17 +548,6 @@ Hooks.once("init", async function() {
         });
     });
 
-    /**
-     * ホットバーが描画された際に、デフォルトで折りたたむためのフック
-     */
-    Hooks.on("renderHotbar", (app, html, data) => {
-        const actionBar = html.querySelector("#action-bar");
-        if (actionBar && !actionBar.classList.contains("collapsed")) {
-            const toggleButton = html.querySelector("#bar-toggle");
-            toggleButton?.click();
-        }
-    });
-
     Hooks.on("preCreateActor", (actor, data, options, userId) => {
         if (data.type !== "cast") return;
 
