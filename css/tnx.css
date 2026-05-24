@@ -3658,11 +3658,35 @@ ol.item-list {
     gap: 6px;
 }
 
+.record-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--tnx-color-border);
+}
+
 .record-section-title {
     font-size: 13px;
     font-weight: bold;
     color: var(--tnx-color-text-dim);
     margin: 0;
-    padding-bottom: 4px;
-    border-bottom: 1px solid var(--tnx-color-border);
+}
+
+.record-add-history-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    font-size: 12px;
+    background: transparent;
+    border: 1px solid var(--tnx-color-border);
+    border-radius: var(--tnx-border-radius-sm);
+    color: var(--tnx-color-text-dim);
+    cursor: pointer;
+}
+
+.record-add-history-btn:hover {
+    border-color: var(--tnx-color-primary);
+    color: var(--tnx-color-primary-highlight);
 }

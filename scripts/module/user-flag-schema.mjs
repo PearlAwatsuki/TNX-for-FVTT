@@ -1,9 +1,14 @@
 /**
- * @fileoverview TnxUserFlag — User flag のスキーマ定義と読み出しヘルパー
+ * @fileoverview TnxUserFlag — User flag のスキーマ定義・読み出し・書き込みヘルパー
  *
  * User は DataModel を持てないため、EXP・履歴・手札関連データは flag に保持する。
  * flag は任意 JSON であり型検証がないため、スキーマ(キー構造・初期値)はここで一元管理する。
  * 直接 user.flags を散在して読まず、必ずこのモジュールのヘルパーを経由すること。
+ *
+ * 関数の種別:
+ *   - 純粋関数(引数のみに依存、Foundry 不要): getUserFlagData / getUserFlagHistorySorted /
+ *     calcHistoryExpTotal / historyAdd / historyUpdate / historyRemove
+ *   - Foundry 依存(非同期): saveUserFlagHistory
  */
 
 export const TNX_FLAG_SCOPE = "tokyo-nova-axleration";
@@ -65,4 +70,73 @@ export function getUserFlagHistorySorted(user) {
     return new Date(a.date) - new Date(b.date);
   });
   return arr;
+}
+
+// ─── 純粋関数: history オブジェクトマップの変換 ───────────────────────────
+
+/**
+ * history マップの全エントリの exp を合計する。
+ * @param {object} historyMap
+ * @returns {number}
+ */
+export function calcHistoryExpTotal(historyMap) {
+  return Object.values(historyMap ?? {}).reduce(
+    (sum, entry) => sum + (Number(entry.exp) || 0),
+    0,
+  );
+}
+
+/**
+ * history マップに新規エントリを追加した新しいマップを返す。
+ * 既存マップは変更しない。
+ * @param {object} historyMap
+ * @param {{ id: string, date: string, title: string, exp: number, rl: string, players: string }} entry
+ * @returns {object}
+ */
+export function historyAdd(historyMap, entry) {
+  return { ...historyMap, [entry.id]: { ...entry } };
+}
+
+/**
+ * history マップの指定エントリを変更した新しいマップを返す。
+ * entryId が存在しない場合は元のマップをそのまま返す。
+ * @param {object} historyMap
+ * @param {string} entryId
+ * @param {object} changes  上書きするフィールド
+ * @returns {object}
+ */
+export function historyUpdate(historyMap, entryId, changes) {
+  if (!Object.prototype.hasOwnProperty.call(historyMap, entryId)) return historyMap;
+  return { ...historyMap, [entryId]: { ...historyMap[entryId], ...changes } };
+}
+
+/**
+ * history マップから指定エントリを除いた新しいマップを返す。
+ * entryId が存在しない場合は元のマップをそのまま返す。
+ * @param {object} historyMap
+ * @param {string} entryId
+ * @returns {object}
+ */
+export function historyRemove(historyMap, entryId) {
+  if (!Object.prototype.hasOwnProperty.call(historyMap, entryId)) return historyMap;
+  const copy = { ...historyMap };
+  delete copy[entryId];
+  return copy;
+}
+
+// ─── Foundry 依存: flag への書き込み ─────────────────────────────────────
+
+/**
+ * 変更後の history マップと再計算した exp.total を一括で User flag に保存する。
+ * exp.value / exp.spent はフェーズ2-2 の同期ロジックが担当するため変更しない。
+ * @param {User} user  書き込み対象の Foundry User
+ * @param {object} newHistoryMap  保存する新しい history マップ
+ * @returns {Promise<User>}
+ */
+export async function saveUserFlagHistory(user, newHistoryMap) {
+  const newTotal = calcHistoryExpTotal(newHistoryMap);
+  return user.update({
+    [`flags.${TNX_FLAG_SCOPE}.history`]: newHistoryMap,
+    [`flags.${TNX_FLAG_SCOPE}.exp.total`]: newTotal,
+  });
 }

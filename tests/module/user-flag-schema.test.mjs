@@ -3,8 +3,17 @@
  * Foundry 環境不要(純粋な JS 関数テスト)。
  */
 
-import { describe, it, expect } from "vitest";
-import { getUserFlagData, getUserFlagHistorySorted, TNX_FLAG_SCOPE } from "../../scripts/module/user-flag-schema.mjs";
+import { vi, describe, it, expect } from "vitest";
+import {
+  getUserFlagData,
+  getUserFlagHistorySorted,
+  calcHistoryExpTotal,
+  historyAdd,
+  historyUpdate,
+  historyRemove,
+  saveUserFlagHistory,
+  TNX_FLAG_SCOPE,
+} from "../../scripts/module/user-flag-schema.mjs";
 
 describe("getUserFlagData()", () => {
   describe("フラグ未設定時の初期値", () => {
@@ -123,5 +132,166 @@ describe("getUserFlagHistorySorted()", () => {
     };
     getUserFlagHistorySorted(makeUser(history));
     expect(Object.keys(history)).toEqual(["a"]); // 元の順序は保持
+  });
+});
+
+// ─── 純粋関数: history 変換 ────────────────────────────────────────────────
+
+describe("calcHistoryExpTotal()", () => {
+  it("空マップは 0 を返す", () => {
+    expect(calcHistoryExpTotal({})).toBe(0);
+  });
+
+  it("null/undefined は 0 を返す", () => {
+    expect(calcHistoryExpTotal(null)).toBe(0);
+    expect(calcHistoryExpTotal(undefined)).toBe(0);
+  });
+
+  it("各エントリの exp を合計する", () => {
+    expect(calcHistoryExpTotal({
+      a: { exp: 3 },
+      b: { exp: 5 },
+      c: { exp: 2 },
+    })).toBe(10);
+  });
+
+  it("exp が文字列の場合も数値として扱う", () => {
+    expect(calcHistoryExpTotal({ a: { exp: "4" } })).toBe(4);
+  });
+
+  it("exp が欠落しているエントリは 0 として扱う", () => {
+    expect(calcHistoryExpTotal({ a: {}, b: { exp: 3 } })).toBe(3);
+  });
+});
+
+describe("historyAdd()", () => {
+  const entry = { id: "n1", date: "2026-01-01", title: "T", exp: 3, rl: "", players: "" };
+
+  it("新規エントリが追加されたマップを返す", () => {
+    const result = historyAdd({}, entry);
+    expect(result.n1).toEqual(entry);
+  });
+
+  it("既存エントリは保持される", () => {
+    const existing = { a1: { id: "a1", date: "", title: "A", exp: 1, rl: "", players: "" } };
+    const result = historyAdd(existing, entry);
+    expect(Object.keys(result)).toHaveLength(2);
+    expect(result.a1).toEqual(existing.a1);
+  });
+
+  it("元のマップを変更しない", () => {
+    const original = {};
+    historyAdd(original, entry);
+    expect(Object.keys(original)).toHaveLength(0);
+  });
+
+  it("エントリはシャローコピーされる", () => {
+    const result = historyAdd({}, entry);
+    expect(result.n1).not.toBe(entry); // 別参照
+    expect(result.n1).toEqual(entry);  // 内容は同じ
+  });
+});
+
+describe("historyUpdate()", () => {
+  const base = {
+    a1: { id: "a1", date: "2026-01-01", title: "Old", exp: 2, rl: "", players: "" },
+  };
+
+  it("指定フィールドを更新したマップを返す", () => {
+    const result = historyUpdate(base, "a1", { title: "New", exp: 5 });
+    expect(result.a1.title).toBe("New");
+    expect(result.a1.exp).toBe(5);
+  });
+
+  it("指定外フィールドは保持される", () => {
+    const result = historyUpdate(base, "a1", { title: "New" });
+    expect(result.a1.date).toBe("2026-01-01");
+    expect(result.a1.exp).toBe(2);
+  });
+
+  it("存在しない entryId の場合、元のマップをそのまま返す", () => {
+    const result = historyUpdate(base, "nonexistent", { title: "X" });
+    expect(result).toBe(base); // 同一参照
+  });
+
+  it("元のマップを変更しない", () => {
+    historyUpdate(base, "a1", { title: "Changed" });
+    expect(base.a1.title).toBe("Old");
+  });
+});
+
+describe("historyRemove()", () => {
+  const base = {
+    a1: { id: "a1", date: "", title: "A", exp: 1, rl: "", players: "" },
+    b2: { id: "b2", date: "", title: "B", exp: 2, rl: "", players: "" },
+  };
+
+  it("指定エントリを除いたマップを返す", () => {
+    const result = historyRemove(base, "a1");
+    expect(result).not.toHaveProperty("a1");
+    expect(result).toHaveProperty("b2");
+  });
+
+  it("存在しない entryId の場合、元のマップをそのまま返す", () => {
+    const result = historyRemove(base, "nonexistent");
+    expect(result).toBe(base);
+  });
+
+  it("元のマップを変更しない", () => {
+    historyRemove(base, "a1");
+    expect(base).toHaveProperty("a1");
+  });
+});
+
+// ─── Foundry 依存: saveUserFlagHistory ─────────────────────────────────────
+
+describe("saveUserFlagHistory()", () => {
+  const makeUser = (flags = {}) => ({
+    id: "user-test",
+    flags: { [TNX_FLAG_SCOPE]: flags },
+    update: vi.fn().mockResolvedValue(undefined),
+  });
+
+  it("history と exp.total を user.update() に渡す", async () => {
+    const user = makeUser({ exp: { total: 0, value: 0, spent: 0 } });
+    const entry = { id: "x1", date: "2026-01-01", title: "T", exp: 5, rl: "", players: "" };
+    const newHistory = historyAdd({}, entry);
+
+    await saveUserFlagHistory(user, newHistory);
+
+    expect(user.update).toHaveBeenCalledOnce();
+    const arg = user.update.mock.calls[0][0];
+    expect(arg[`flags.${TNX_FLAG_SCOPE}.history`]).toEqual(newHistory);
+    expect(arg[`flags.${TNX_FLAG_SCOPE}.exp.total`]).toBe(5);
+  });
+
+  it("複数エントリの exp 合計が exp.total に反映される", async () => {
+    const user = makeUser();
+    const newHistory = {
+      a: { id: "a", exp: 3 },
+      b: { id: "b", exp: 7 },
+    };
+
+    await saveUserFlagHistory(user, newHistory);
+
+    const arg = user.update.mock.calls[0][0];
+    expect(arg[`flags.${TNX_FLAG_SCOPE}.exp.total`]).toBe(10);
+  });
+
+  it("空 history では exp.total が 0 になる", async () => {
+    const user = makeUser();
+    await saveUserFlagHistory(user, {});
+
+    const arg = user.update.mock.calls[0][0];
+    expect(arg[`flags.${TNX_FLAG_SCOPE}.exp.total`]).toBe(0);
+  });
+
+  it("user.update() の戻り値を返す", async () => {
+    const mockReturn = { id: "updated" };
+    const user = makeUser();
+    user.update.mockResolvedValue(mockReturn);
+
+    const result = await saveUserFlagHistory(user, {});
+    expect(result).toBe(mockReturn);
   });
 });
