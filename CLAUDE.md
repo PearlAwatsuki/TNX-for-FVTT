@@ -82,11 +82,16 @@ description は日本語で簡潔に記述する。
 
 ### 2.2 現在のフェーズ ★
 
-**フェーズB(DataModel 完全移行)完了 → v0.2.0 リリース済み(2026-05-24)**
-**次はフェーズ1: HUD + シナリオジャーナルの ApplicationV2 移行 + v13 UI 整合**
+**フェーズ1(v13 UI 整合)完了(2026-05-24)**
+**次はフェーズ2: Player Actor → User DataModel 移行(player 廃止)**
 
-全 25 type(Actor 5 + Item 17 + Card 3)DataModel 移行完了。template.json 廃止済み。
-実機検証(B-10)完了。詳細は `docs/PHASE_B_TASKS.md` を参照。
+フェーズ1 完了内容:
+- 1-0: KI-012 ホットバー折りたたみ死コード削除
+- 1-1: KI-011 アクトシート作成導線復活(実機確認済み)
+- 1-2: KI-013 HUD/v13 標準 UI 衝突を CSS 座標調整で解消(実機確認済み)
+
+**重要**: TnxHud / TnxScenarioSheet 本体の ApplicationV2 化はフェーズ1 では**未実施**。
+HUD の V2 化はフェーズ2、既存シートの V2 化はフェーズ3 で対応する。
 
 (セッション開始時、まずここを確認すること)
 
@@ -103,10 +108,11 @@ description は日本語で簡潔に記述する。
 - フェーズB: DataModel への完全移行 ← 完了 (v0.2.0)
   - B-0〜B-9: 全 25 type(Actor 5 + Item 17 + Card 3)DataModel 化・template.json 廃止 ← 完了
   - B-10: 移行後の実機検証 ← 完了
-- **フェーズ1: HUD + シナリオジャーナルの ApplicationV2 移行 + v13 UI 整合** ← 現在(次フェーズ)
-  TnxHud と TnxScenarioSheet を ApplicationV2 へ移行し v13 標準 UI との物理衝突を解消する。
-  KI-011・KI-012・KI-013 をここで統合的に扱う。
-- フェーズ2: Player Actor → User DataModel 移行(player 廃止)
+- フェーズ1: v13 UI 整合(KI-011/012/013 解消) ← 完了
+  1-0: ホットバー死コード削除(KI-012)、1-1: アクトシート作成導線復活(KI-011)、
+  1-2: HUD CSS 座標調整で位置衝突解消(KI-013)。
+  **注意**: TnxHud / TnxScenarioSheet 本体の ApplicationV2 化はこのフェーズでは未実施。
+- **フェーズ2: Player Actor → User DataModel 移行(player 廃止)** ← 現在(次フェーズ)
   プレイヤーの EXP・履歴・手札所有を Player Actor から User へ移行。player Actor を廃止。
   cast シートはロジック(EXP 同期・User 参照)のみ User 対応に張り替える(構造 V2 化はフェーズ3)。
   KI-005(handMaxSize 所有モデル確定)はここで決着。
@@ -131,7 +137,7 @@ description は日本語で簡潔に記述する。
   二度手間を避ける。シート構造の V2 化(3)を済ませてから内容追加・改修(4)を行い、デザイン
   刷新(5)で見た目を一気に揃え、そのデザインを踏まえて未実装シートを新規作成(6)する。
   「構造(V2)」「所有モデル(User)」「見た目(デザイン)」を分離し、シートを二度蒸し返さない
-  一気通貫を狙う。HUD の構造 V2 化はフェーズ1 で完了させ、HUD のデザイン(見た目)は
+  一気通貫を狙う。HUD の構造 V2 化はフェーズ2 で行い、HUD のデザイン(見た目)は
   フェーズ5 で他シートと合わせて行う。
 
 (注: 各フェーズの順序は今後変更されうる。現在のフェーズは明示すること)
@@ -150,8 +156,8 @@ description は日本語で簡潔に記述する。
 ### 3.2 主要モジュール
 
 - TnxActionHandler: カード操作(checkFromDeck, drawCard, playCard, useTrump, drawNeuroCard)
-- TnxHud: 常駐 HUD (ApplicationV1 → フェーズ1 で V2 化対象)
-- TnxScenarioSheet: アクト用 JournalSheet (ApplicationV1 ベース → フェーズ1 で V2 化対象)
+- TnxHud: 常駐 HUD (ApplicationV1 → フェーズ2 で V2 化対象。フェーズ1 では CSS 座標調整のみ)
+- TnxScenarioSheet: アクト用 JournalSheet (ApplicationV1 ベース → フェーズ3 で V2 化対象)
 - TokyoNovaCastSheet.updateCastExp: ready フックで Actor/Item の CRUD に連動して
   EXP 再計算
 - prepareData / prepareDerivedData のオーバーライドは現状なし(能力値はシート
