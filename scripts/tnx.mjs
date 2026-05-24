@@ -35,6 +35,7 @@ import { TnxScenarioSheet } from './journal/tnx-scenario-sheet.mjs';
 import { TnxActionHandler } from './module/tnx-action-handler.mjs';
 import { TnxHud } from './module/tnx-hud.mjs';
 import { TnxRecordSheet } from './module/tnx-record-sheet.mjs';
+import { recordCastOwnerUser } from './module/cast-ownership.mjs';
 
 async function preloadHandlebarsTemplates() {
     const templatePaths = [
@@ -974,6 +975,14 @@ Hooks.once("ready", async function() {
             if (diff.system) {
                  await TokyoNovaCastSheet.updateCastExp(actor);
             }
+        }
+
+        // 2-1: cast の ownership 変更 → ownerUserId(User UUID)を記録
+        // GM クライアントのみ実行。diff.ownership がない変更(EXP 更新等)は無視。
+        if (actor.type === 'cast' && diff.ownership && game.user.isGM) {
+            try {
+                await recordCastOwnerUser(actor);
+            } catch (e) { console.error(`TokyoNOVA | Failed to record ownerUserId for cast ${actor.name}:`, e); }
         }
 
         if (actor.type === 'cast' && actor.system.playerId) {

@@ -26,8 +26,9 @@ export class CastDataModel extends SystemDataModel.mixin(
     const fields = foundry.data.fields;
     return {
       ...super.defineSchema(),
-      player_name: new fields.StringField({ initial: "" }),
-      playerId:    new fields.StringField({ initial: "" }),
+      player_name:   new fields.StringField({ initial: "" }),
+      playerId:      new fields.StringField({ initial: "" }),
+      ownerUserId:   new fields.StringField({ initial: "" }),
       history:     new fields.ObjectField(),
       exp: new fields.SchemaField({
         value:      new fields.NumberField({ initial: 170 }),

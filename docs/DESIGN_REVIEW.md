@@ -1223,3 +1223,60 @@ ApplicationV2 の instances Map は v13 で利用可能だが optional chaining 
 
 特になし。2-2(編集機能追加)で `_prepareContext` の `isEditMode: false` を `true` に切り替え、
 FormHandlerMixin 等の追加が必要になる点はフェーズ 2-2 の設計で扱う。
+
+---
+
+### 2-1 cast → User UUID 記録(cast-ownership.mjs)(フェーズ2-1)
+
+**日付**: 2026-05-25
+**レビュー対象**: `scripts/module/cast-ownership.mjs`、`scripts/data/actor/cast.mjs`、`scripts/tnx.mjs`
+**ステータス**: レビュー済(問題なし)
+
+#### レビュー観点
+
+- 既存 player 向け処理との分離(player Actor の手札権限同期・EXP 同期は無変更か)
+- 記録先フィールドの選定(playerId 転用 vs 新規フィールド)
+- テスト可能性(純粋関数と Foundry 依存の分離)
+- 無限ループリスク(ownerUserId 更新が再び hook を呼ばないか)
+
+#### 決定事項
+
+##### 論点1: 記録先フィールドの選定
+
+**決定**: `cast.system.ownerUserId`(新規 `StringField`)を追加。`playerId` は転用しない。
+
+決定理由: `playerId` は `_onDrop` / EXP 同期フック / `tnx-cast-sheet.mjs` の 10 箇所以上で
+player Actor UUID として参照されている。2-1 で転用すると全て破壊される。
+`ownerUserId` を独立フィールドとして設けることで、2-5 player 廃止まで安全に並存できる。
+2-2 は `ownerUserId` を EXP 同期の参照先として使う。
+
+##### 論点2: 純粋関数と Foundry 依存の分離
+
+**決定**: `cast-ownership.mjs` を3層に分離。
+- `pickFirstOwnerUserId` — ownership オブジェクトから最初の非 GM userId を選出(純粋関数)
+- `resolveOwnerUserIdAction` — 新旧 UUID を比較してアクション(set/confirm-overwrite/none)を決定(純粋関数)
+- `recordCastOwnerUser` — 上記を組み合わせて実際の更新・ダイアログを行う(Foundry 依存)
+
+決定理由: ownership ロジックは `game.users` に依存しないため純粋関数でテスト容易。
+ダイアログ(`Dialog.confirm`)は UI 層のため Foundry 依存関数に隔離。
+
+##### 論点3: 無限ループリスク
+
+**評価**: リスクなし。
+
+`recordCastOwnerUser` が `castActor.update({ "system.ownerUserId": uuid }, { calcExp: false })` を呼ぶと
+`updateActor` フックが再び発火するが、このとき `diff.ownership` は含まれない(`diff.system.ownerUserId` のみ)。
+`if (diff.ownership)` ガードにより所有者記録分岐はスキップされる。
+`{ calcExp: false }` オプションにより EXP 再計算も抑制される。
+
+##### 論点4: hook 登録箇所
+
+**決定**: 既存 `ready` フック内の `updateActor` に新分岐を追加。
+
+決定理由: `game.users` が確実に利用可能な `ready` 以降での登録が適切。
+既存の EXP 同期フックと同じ `updateActor` 内に追記することで `updateActor` の全体像が一箇所に集中する。
+
+#### 課題
+
+- 2-5 player 廃止時に `playerId` フィールドの扱い(廃止 / `ownerUserId` への統合)を決定する。
+- `ownerUserId` の矯正用 UI(手動 UUID 入力)は 2-4 以降の検討事項。
