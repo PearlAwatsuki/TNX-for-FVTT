@@ -18,14 +18,7 @@
 
   {{!-- 経験点履歴 --}}
   <div class="record-history-section">
-    <div class="record-section-header">
-      <h3 class="record-section-title">経験点履歴</h3>
-      {{#if isEditMode}}
-        <button type="button" data-action="addHistory" class="record-add-history-btn" title="行を追加">
-          <i class="fas fa-plus"></i> 追加
-        </button>
-      {{/if}}
-    </div>
+    <h3 class="record-section-title">経験点履歴</h3>
 
     <div class="history-list-wrapper">
       <div class="history-header history-grid">
@@ -34,7 +27,13 @@
         <div class="cell cell-exp">経験点</div>
         <div class="cell cell-rl">RL</div>
         <div class="cell cell-players">参加プレイヤー</div>
-        {{#if isEditMode}}<div class="cell cell-ctrl"></div>{{/if}}
+        {{#if isEditMode}}
+          <div class="cell cell-ctrl">
+            <button type="button" data-action="addHistory" class="record-add-history-btn" title="追加">
+              <i class="fas fa-plus"></i>
+            </button>
+          </div>
+        {{/if}}
       </div>
       <ol class="history-list">
         {{#each history as |entry i|}}

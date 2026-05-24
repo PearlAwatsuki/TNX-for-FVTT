@@ -3421,8 +3421,8 @@ ol.item-list {
 
 .history-grid {
     display: grid;
-    /* 日付、シナリオ名、Exp、RL、プレイヤー、(操作) */
-    grid-template-columns: 100px 150px 30px 80px 2fr 20px; 
+    /* 日付、シナリオ名、経験点(全角3文字対応)、RL、プレイヤー、(操作) */
+    grid-template-columns: 100px 150px 48px 80px 2fr 24px;
     gap: 2px;
     align-items: center;
 }
@@ -3673,20 +3673,21 @@ ol.item-list {
     margin: 0;
 }
 
-.record-add-history-btn {
+/* テーブルヘッダー内の追加ボタン: ゴミ箱アイコンと同じ列に収まるアイコンのみ表示 */
+.history-header .record-add-history-btn {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 2px 8px;
-    font-size: 12px;
+    justify-content: center;
+    width: 100%;
+    padding: 0;
     background: transparent;
-    border: 1px solid var(--tnx-color-border);
-    border-radius: var(--tnx-border-radius-sm);
-    color: var(--tnx-color-text-dim);
+    border: none;
+    color: #fff;
     cursor: pointer;
+    font-size: 13px;
 }
 
-.record-add-history-btn:hover {
-    border-color: var(--tnx-color-primary);
+.history-header .record-add-history-btn:hover {
     color: var(--tnx-color-primary-highlight);
+    text-shadow: 0 0 4px var(--tnx-color-primary);
 }
