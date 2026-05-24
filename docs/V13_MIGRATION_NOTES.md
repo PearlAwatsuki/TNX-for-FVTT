@@ -68,7 +68,7 @@ ApplicationV1/V2 共通で使える判定は `app.rendered` (boolean)。
 
 ## 4. `renderJournalDirectory` フックの DOM 操作
 
-**ステータス: 確認済み・致命的**
+**ステータス: 対応済み(フェーズ1-1)**
 
 ### 確認内容
 v13 実機でエラー発生: `html.find is not a function` (`scripts/tnx.mjs:429`)
@@ -80,12 +80,16 @@ v13 では render 系フックの第2引数が **jQuery オブジェクト → H
 ジャーナルディレクトリの「アクトシートを作成」カスタムボタンが表示されない。
 （通常のジャーナル作成は Foundry 標準 UI から引き続き可能）
 
-### 修正方針
-`html.find(...)` を `html.querySelector(...)` / `html.querySelectorAll(...)` に置き換え。
-jQuery の `.on()` / `.append()` / `.css()` 等も DOM API に置き換える。
-詳細は P0-07 を参照。
+### 修正方針(当初)
+`html.find(...)` を `html.querySelector(...)` に置き換え(P0-07 で実施)。
+ただし P0-07 後も `.create-document` セレクタが v13 に存在せずガード文で return するため
+カスタムボタンは引き続き表示されなかった(KI-011)。
 
-### 対応優先度: 高（P0-07 で対処）
+### 対応(フェーズ1-1、2026-05-24)
+`renderJournalDirectory` フックを書き直し、v13 の `[data-action="createEntry"]` ボタン直後に
+「アクトシートを作成」ボタンを1つ挿入する方式に変更。旧2択メニュー構造は廃止。
+「資料を作成」はコア標準の createEntry ボタンに委ねる。
+詳細は KNOWN_ISSUES.md KI-011 を参照。
 
 ---
 

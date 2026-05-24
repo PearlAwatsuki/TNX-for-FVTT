@@ -490,62 +490,30 @@ Hooks.once("init", async function() {
         toggleManualSettings();
     });
 
+    // v13: [data-action="createEntry"] の直後に「アクトシートを作成」ボタンを挿入する。
+    // 「資料を作成」はコア標準ボタンに委ねる。
     Hooks.on("renderJournalDirectory", (app, html, data) => {
         if (!game.user.isGM) return;
 
-        const createButton = html.querySelector(".create-document");
-        if (!createButton) return;
+        const createEntryButton = html.querySelector('[data-action="createEntry"]');
+        if (!createEntryButton) return;
 
-        createButton.innerHTML = '<i class="far fa-plus-square"></i> 作成';
-        createButton.addEventListener("click", (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            document.querySelectorAll('.tnx-create-menu').forEach(el => el.remove());
-
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = `
-                <div class="tnx-create-menu">
-                    <ul>
-                        <li data-creation-type="base"><i class="fas fa-file-alt"></i> 資料を作成</li>
-                        <li data-creation-type="act-sheet"><i class="fas fa-file-medical"></i> アクトシートを作成</li>
-                    </ul>
-                </div>
-            `;
-            const menu = tempDiv.firstElementChild;
-            document.body.appendChild(menu);
-            const rect = createButton.getBoundingClientRect();
-            menu.style.top = `${rect.bottom + window.scrollY}px`;
-            menu.style.left = `${rect.left + window.scrollX}px`;
-
-            menu.querySelectorAll('li').forEach(li => {
-                li.addEventListener('click', async (ev) => {
-                    const creationType = ev.currentTarget.dataset.creationType;
-                    let newJournal;
-                    if (creationType === "base") {
-                        newJournal = await JournalEntry.create({ name: "新規資料" });
-                    } else if (creationType === "act-sheet") {
-                        newJournal = await JournalEntry.create({
-                            name: "新規アクトシート",
-                            flags: {
-                                core: {
-                                    sheetClass: `tokyo-nova.${TnxScenarioSheet.name}`
-                                }
-                            }
-                        });
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.innerHTML = '<i class="fas fa-file-medical"></i> アクトシートを作成';
+        button.addEventListener('click', async () => {
+            const newJournal = await JournalEntry.create({
+                name: "新規アクトシート",
+                flags: {
+                    core: {
+                        sheetClass: `tokyo-nova.${TnxScenarioSheet.name}`
                     }
-                    menu.remove();
-                    newJournal?.sheet.render(true);
-                });
-            });
-
-            const closeMenu = (e) => {
-                if (!e.target.closest('.tnx-create-menu')) {
-                    menu.remove();
-                    document.removeEventListener('click', closeMenu);
                 }
-            };
-            setTimeout(() => document.addEventListener('click', closeMenu), 10);
+            });
+            newJournal?.sheet.render(true);
         });
+
+        createEntryButton.insertAdjacentElement('afterend', button);
     });
 
     Hooks.on("preCreateActor", (actor, data, options, userId) => {
