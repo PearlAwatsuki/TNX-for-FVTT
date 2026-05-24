@@ -140,3 +140,24 @@ export async function saveUserFlagHistory(user, newHistoryMap) {
     [`flags.${TNX_FLAG_SCOPE}.exp.total`]: newTotal,
   });
 }
+
+/**
+ * User flag の history から指定エントリを削除し、exp.total を更新する。
+ *
+ * saveUserFlagHistory でオブジェクト全体を渡すと Foundry の mergeObject が
+ * 欠落キーを保持してしまい削除が反映されない。Foundry の `-=` 削除構文で
+ * 対象キーのみを明示的に削除する。
+ *
+ * @param {User} user  書き込み対象の Foundry User
+ * @param {string} entryId  削除するエントリの ID
+ * @returns {Promise<User>}
+ */
+export async function deleteUserFlagHistoryEntry(user, entryId) {
+  const { history } = getUserFlagData(user);
+  const newHistory = historyRemove(history, entryId);
+  const newTotal = calcHistoryExpTotal(newHistory);
+  return user.update({
+    [`flags.${TNX_FLAG_SCOPE}.history.-=${entryId}`]: null,
+    [`flags.${TNX_FLAG_SCOPE}.exp.total`]: newTotal,
+  });
+}

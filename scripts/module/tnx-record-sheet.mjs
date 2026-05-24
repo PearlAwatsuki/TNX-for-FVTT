@@ -14,8 +14,8 @@ import {
   calcHistoryExpTotal,
   historyAdd,
   historyUpdate,
-  historyRemove,
   saveUserFlagHistory,
+  deleteUserFlagHistoryEntry,
 } from "./user-flag-schema.mjs";
 
 const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
@@ -105,8 +105,7 @@ export class TnxRecordSheet extends HandlebarsApplicationMixin(ApplicationV2) {
   static async _onDeleteHistory(_event, target) {
     const entryId = target.dataset.id;
     if (!entryId) return;
-    const { history } = getUserFlagData(this.user);
-    await saveUserFlagHistory(this.user, historyRemove(history, entryId));
+    await deleteUserFlagHistoryEntry(this.user, entryId);
     this.render();
   }
 

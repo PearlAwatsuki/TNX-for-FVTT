@@ -12,6 +12,7 @@ import {
   historyUpdate,
   historyRemove,
   saveUserFlagHistory,
+  deleteUserFlagHistoryEntry,
   TNX_FLAG_SCOPE,
 } from "../../scripts/module/user-flag-schema.mjs";
 
@@ -292,6 +293,60 @@ describe("saveUserFlagHistory()", () => {
     user.update.mockResolvedValue(mockReturn);
 
     const result = await saveUserFlagHistory(user, {});
+    expect(result).toBe(mockReturn);
+  });
+});
+
+// ─── Foundry 依存: deleteUserFlagHistoryEntry ──────────────────────────────
+
+describe("deleteUserFlagHistoryEntry()", () => {
+  const makeUser = (history = {}) => ({
+    id: "user-test",
+    flags: { [TNX_FLAG_SCOPE]: { history } },
+    update: vi.fn().mockResolvedValue(undefined),
+  });
+
+  it("-= 削除パスと残存エントリの exp.total を user.update() に渡す", async () => {
+    const user = makeUser({
+      a1: { id: "a1", date: "", title: "A", exp: 3, rl: "", players: "" },
+      b2: { id: "b2", date: "", title: "B", exp: 7, rl: "", players: "" },
+    });
+    await deleteUserFlagHistoryEntry(user, "a1");
+
+    expect(user.update).toHaveBeenCalledOnce();
+    const arg = user.update.mock.calls[0][0];
+    expect(arg[`flags.${TNX_FLAG_SCOPE}.history.-=a1`]).toBeNull();
+    expect(arg[`flags.${TNX_FLAG_SCOPE}.exp.total`]).toBe(7);
+  });
+
+  it("削除後の残存エントリ exp の合計が exp.total に反映される", async () => {
+    const user = makeUser({
+      x: { id: "x", date: "", title: "X", exp: 5, rl: "", players: "" },
+      y: { id: "y", date: "", title: "Y", exp: 10, rl: "", players: "" },
+    });
+    await deleteUserFlagHistoryEntry(user, "x");
+
+    const arg = user.update.mock.calls[0][0];
+    expect(arg[`flags.${TNX_FLAG_SCOPE}.exp.total`]).toBe(10);
+  });
+
+  it("最後のエントリを削除すると exp.total が 0 になる", async () => {
+    const user = makeUser({
+      a1: { id: "a1", date: "", title: "A", exp: 5, rl: "", players: "" },
+    });
+    await deleteUserFlagHistoryEntry(user, "a1");
+
+    const arg = user.update.mock.calls[0][0];
+    expect(arg[`flags.${TNX_FLAG_SCOPE}.history.-=a1`]).toBeNull();
+    expect(arg[`flags.${TNX_FLAG_SCOPE}.exp.total`]).toBe(0);
+  });
+
+  it("user.update() の戻り値を返す", async () => {
+    const mockReturn = { id: "deleted" };
+    const user = makeUser({ a1: { id: "a1", date: "", title: "A", exp: 1, rl: "", players: "" } });
+    user.update.mockResolvedValue(mockReturn);
+
+    const result = await deleteUserFlagHistoryEntry(user, "a1");
     expect(result).toBe(mockReturn);
   });
 });
