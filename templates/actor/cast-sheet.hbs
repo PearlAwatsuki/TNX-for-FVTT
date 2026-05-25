@@ -650,14 +650,15 @@
 
                 <div class="tab history" data-tab="history">
                     {{#if system.ownerUserId}}
+                    {{#if isEditable}}
                     <div class="sync-toggle-row">
                         <label class="sync-toggle-label">
                             <input type="checkbox" class="sync-with-owner-toggle"
-                                {{checked system.syncWithOwner}}
-                                {{#unless isEditable}}disabled{{/unless}}>
-                            User と履歴を同期する
+                                {{checked system.syncWithOwner}}>
+                            レコードシートと同期
                         </label>
                     </div>
+                    {{/if}}
                     {{/if}}
                     {{> "systems/tokyo-nova-axleration/templates/parts/history-list.hbs"}}
                 </div>
