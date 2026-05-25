@@ -281,6 +281,11 @@ async function performUnsyncSeparation(castActor, ownerUser) {
     // 分離後の EXP 再集計(sync 中の他キャスト分のみが残る)
     await syncCastExpToUser(ownerUser);
     await TokyoNovaCastSheet.updateCastExp(castActor);
+
+    // ownerUser の update は syncing:true で行うため updateUser フックの再描画が
+    // スキップされる。由来分離完了後に明示的に再描画する。
+    const recordSheet = foundry.applications?.instances?.get(`tnx-record-sheet-${ownerUser.id}`);
+    if (recordSheet?.rendered) recordSheet.render();
 }
 
 Hooks.once("init", async function() {
