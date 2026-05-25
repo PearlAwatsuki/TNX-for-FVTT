@@ -263,12 +263,52 @@ ownership 変更検知で User UUID を `cast.system.ownerUserId` に記録。
 
 **テスト**: 全 602 件グリーン / ESLint エラー 0
 
-### 2-2: EXP・履歴の二フック同期
+### 2-2: EXP・履歴の二フック同期 ✅ 完了(2026-05-25)
 
 `updateUser` フック新設(User flag 更新 → 属する全 cast へ配布)。既存 `updateActor` の
-cast→player 集約を cast→User へ張り替え。無限ループ防止(`syncing` 相当)を二フックまたぎで
-設計。User flag が EXP・履歴の権威として機能(player と二重状態)。
-**注意**: レコードシートの履歴 CRUD は 2-0 前倒しで実装済み。この 2-2 では cast への同期のみ担当。
+cast→player 集約を cast→User へ張り替え。無限ループ防止は `{ syncing: true }` を
+`updateUser` と `syncCastExpToUser` がそれぞれ発する update に付与し、双方のフックで
+最初にガード条件として参照する。
+
+**実装結果**:
+- `scripts/module/exp-sync.mjs`(新規): 純粋関数 `calcSharedSpent(castExpList)` — cast の
+  spent/additional リストから User flag に記録する sharedSpent を算出
+- `scripts/tnx.mjs`:
+  - imports 追加: `getUserFlagData` / `TNX_FLAG_SCOPE`(user-flag-schema) / `calcSharedSpent`(exp-sync)
+  - `syncPlayerExpFromCasts` を削除 → `syncCastExpToUser(ownerUser)` に置き換え
+  - `updateActor` フック: cast→player 分岐・player→cast 分岐を削除し、
+    cast→User 分岐を追加(`ownerUserId` & `!options.syncing` & GM のみ)
+  - `ready` フック内に `updateUser` フック登録: `options.syncing` ガード → flag の
+    exp/history 変更時のみ → 紐づく cast に `updateCastExp` を発動
+- `scripts/actor/tnx-cast-sheet.mjs`:
+  - import 追加: `getUserFlagData` / `saveUserFlagHistory` / `TNX_FLAG_SCOPE`(user-flag-schema)
+  - `updateCastExp(actor)`: `linkedPlayer` パラメータ削除。`playerId` 分岐を `ownerUserId`
+    分岐に変更 — `game.users.find` で同期 User を取得し `getUserFlagData().exp.total` を参照
+  - `_performHistoryUpdate`: `ownerUserId` 分岐を先頭に追加 — `system.history.X` →
+    `flags.TNX.history.X` へ翻訳して User に書き込み、cast ローカル history も更新(mixin
+    の読み取り整合を保つため)、exp 再計算は updateUser 経由に委ねる
+  - `_getHistoryData`(KI-017 解消): `ownerUserId` 分岐を追加 — User flag から返す
+  - `_saveHistoryData`(KI-017 解消): `ownerUserId` 分岐を追加 — `saveUserFlagHistory` + cast 更新
+- `tests/module/exp-sync.test.mjs`(新規): `calcSharedSpent` の 8 件ユニットテスト
+
+**無限ループ防止の設計**:
+```
+updateUser(hist/exp変更, syncing=false)
+  → updateCastExp(cast)
+    → cast.update({exp.*}, {calcExp:false})
+      → updateActor(cast):
+          calcExp=false → EXP再計算スキップ
+          ownerUserId & !syncing → syncCastExpToUser
+            → ownerUser.update({exp.spent/value}, {syncing:true})
+              → updateUser(syncing=true) → 先頭ガードで即return ✓
+```
+
+**既存処理への影響**:
+- `syncPlayerExpFromCasts` 削除: player Actor の EXP は更新されなくなる(2-5 廃止まで stale)
+- player→cast 同期ブロック削除: cast ローカルの history/exp は `updateUser` 経由でのみ更新
+- `_getHistoryData`/`_saveHistoryData`: 死コード解消。`ownerUserId` が設定されていれば機能する
+
+**テスト**: 全 610 件グリーン / ESLint 確認済み
 
 ### 2-3: 手札・切り札を User flag へ + アクトシート一括作成
 

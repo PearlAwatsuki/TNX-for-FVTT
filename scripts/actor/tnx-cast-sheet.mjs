@@ -7,6 +7,7 @@ import { TnxActionHandler } from '../module/tnx-action-handler.mjs';
 import { TnxSkillUtils } from '../module/tnx-skill-utils.mjs';
 import { TnxHistoryMixin } from '../module/tnx-history-mixin.mjs';
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
+import { getUserFlagData, saveUserFlagHistory, TNX_FLAG_SCOPE } from '../module/user-flag-schema.mjs';
 
 
 export class TokyoNovaCastSheet extends ActorSheet {
@@ -170,7 +171,38 @@ export class TokyoNovaCastSheet extends ActorSheet {
      * 自分を更新し、リンクがあればレコードシートの「履歴」も更新する
      */
     async _performHistoryUpdate(updateData) {
-        // 経験点合計の補正ロジック（既存ママ）
+        const ownerUserId = this.actor.system.ownerUserId;
+
+        // --- A. User flag にリンクしている場合(2-2) ---
+        if (ownerUserId) {
+            const ownerUser = game.users.find(u => u.uuid === ownerUserId);
+            if (ownerUser) {
+                // system.history.X → flags.TNX.history.X / system.exp.total → flags.TNX.exp.total
+                const flagUpdate = {};
+                for (const [key, value] of Object.entries(updateData)) {
+                    if (key.startsWith("system.history")) {
+                        flagUpdate[key.replace("system.history", `flags.${TNX_FLAG_SCOPE}.history`)] = value;
+                    } else if (key === "system.exp.total") {
+                        // User flag の total は historySum のみ(additional は cast 固有)
+                        flagUpdate[`flags.${TNX_FLAG_SCOPE}.exp.total`] = value;
+                    }
+                }
+                await ownerUser.update(flagUpdate);
+
+                // cast ローカルにも history を反映(mixin の読み取り整合のため)
+                const historyUpdate = {};
+                for (const [key, value] of Object.entries(updateData)) {
+                    if (key.startsWith("system.history")) historyUpdate[key] = value;
+                }
+                if (!foundry.utils.isEmpty(historyUpdate)) {
+                    await this.actor.update(historyUpdate, { calcExp: false });
+                }
+                // cast EXP 再計算は updateUser → updateCastExp が担う
+                return;
+            }
+        }
+
+        // --- B. player Actor にリンクしている場合(旧来実装を保持) ---
         if (updateData["system.exp.total"] !== undefined) {
             const historySum = updateData["system.exp.total"];
             const additional = Number(this.actor.system.exp.additional);
@@ -178,66 +210,41 @@ export class TokyoNovaCastSheet extends ActorSheet {
         }
 
         const playerId = this.actor.system.playerId;
-        
-        // --- A. プレイヤーとリンクしている場合 ---
         if (playerId) {
             const playerActor = await fromUuid(playerId);
             if (playerActor) {
-                // 1. プレイヤーアクターを更新（正：共有データの更新）
-                // updateDataは system.history.xxx などの形式
                 await playerActor.update(updateData);
 
-                // 2. 自分自身の更新（選別して適用）
-                // 他人の履歴データで自身のローカル履歴を汚染しないようにする
                 const localUpdate = {};
                 const localHistory = this.actor.system.history;
-
                 for (const [key, value] of Object.entries(updateData)) {
-                    // 経験点関連は同期する
                     if (key.startsWith("system.exp.")) {
                         localUpdate[key] = value;
                         continue;
                     }
-
-                    // 履歴データの判定
                     if (key.startsWith("system.history")) {
-                        // キー形式: system.history.<ID> または system.history.<ID>.<prop>
                         const parts = key.split(".");
-                        
-                        // ID部分の抽出（system.history 直下の更新でない場合）
                         if (parts.length >= 3) {
                             const historyId = parts[2];
-                            
-                            // 条件: ローカルに既に存在する履歴、または新規追加(オブジェクトごとの代入)の場合のみ更新
-                            // ※編集(prop単位)の場合は、ローカルにIDがない＝他人の履歴なのでスキップ
                             if (localHistory[historyId]) {
-                                // 自身の履歴の更新 -> 反映
                                 localUpdate[key] = value;
                             } else if (parts.length === 3 && typeof value === 'object' && value !== null) {
-                                // 新規追加（と推測される） -> 反映
                                 localUpdate[key] = value;
                             }
                         }
                     } else {
-                        // その他のデータ
                         localUpdate[key] = value;
                     }
                 }
-
-                // 選別したデータのみで自身を更新
                 if (!foundry.utils.isEmpty(localUpdate)) {
                     await this.actor.update(localUpdate);
                 }
             }
-        } 
-        
-        // --- B. リンクしていない場合 ---
-        else {
-            // 通常通り自身を更新
+        } else {
+            // --- C. スタンドアロン ---
             await this.actor.update(updateData);
         }
-        
-        // 再計算（消費経験点の同期など）
+
         TokyoNovaCastSheet.updateCastExp(this.actor);
     }
 
@@ -1362,30 +1369,39 @@ export class TokyoNovaCastSheet extends ActorSheet {
     }
 
     async _getHistoryData() {
+        if (this.actor.system.ownerUserId) {
+            const ownerUser = game.users.find(u => u.uuid === this.actor.system.ownerUserId);
+            if (ownerUser) {
+                return foundry.utils.deepClone(getUserFlagData(ownerUser).history ?? {});
+            }
+        }
         if (this.actor.system.playerId) {
             const player = await fromUuid(this.actor.system.playerId);
             if (player) {
-                return foundry.utils.deepClone(player.system.history || []);
+                return foundry.utils.deepClone(player.system.history || {});
             }
         }
-        return foundry.utils.deepClone(this.actor.system.history || []);
+        return foundry.utils.deepClone(this.actor.system.history || {});
     }
 
     async _saveHistoryData(newHistory) {
+        if (this.actor.system.ownerUserId) {
+            const ownerUser = game.users.find(u => u.uuid === this.actor.system.ownerUserId);
+            if (ownerUser) {
+                await saveUserFlagHistory(ownerUser, newHistory);
+                await this.actor.update({ "system.history": newHistory }, { calcExp: false });
+                return;
+            }
+        }
         await this.actor.update({ "system.history": newHistory });
-
         if (this.actor.system.playerId) {
             try {
                 const player = await fromUuid(this.actor.system.playerId);
                 if (player) {
-                    const sortedHistory = [...newHistory];
-                    this._sortHistory(sortedHistory);
-                    
                     const currentTotal = Number(this.actor.system.exp.total);
-
-                    await player.update({ 
-                        "system.history": sortedHistory,
-                        "system.exp.total": currentTotal
+                    await player.update({
+                        "system.history": newHistory,
+                        "system.exp.total": currentTotal,
                     });
                 }
             } catch (e) {
@@ -1421,7 +1437,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
         }
     }
 
-    static async updateCastExp(actor, linkedPlayer = null) {
+    static async updateCastExp(actor) {
         if (!actor || actor.type !== 'cast') return;
 
         // 【修正】データ保護: 万が一データ構造が未構築なら構築を試みる
@@ -1451,25 +1467,15 @@ export class TokyoNovaCastSheet extends ActorSheet {
         const realSpent = totalAbilityCost + totalItemCost;
         const initialExp = 170;
 
-
         const additional = Number(actor.system.exp?.additional);
         let historyTotal = 0;
-        
-        if (actor.system.playerId) {
-            try {
-                // 【修正】引数で渡されていればそれを使い、なければ取得する
-                let doc = linkedPlayer;
-                if (!doc) {
-                    doc = await fromUuid(actor.system.playerId);
-                    // 取得直後でデータがない場合は準備を実行
-                    if (doc && !doc.system.exp) doc.prepareData();
-                }
 
-                if (doc) {
-                    // 安全にアクセス
-                    historyTotal = Number(doc.system.exp?.total);
-                }
-            } catch (e) { console.warn("TokyoNOVA | プレイヤーデータの参照に失敗しました", e); }
+        if (actor.system.ownerUserId) {
+            // 2-2: User flag から履歴合計を取得
+            const ownerUser = game.users.find(u => u.uuid === actor.system.ownerUserId);
+            if (ownerUser) {
+                historyTotal = getUserFlagData(ownerUser).exp.total;
+            }
         } else {
             const history = actor.system.history;
             historyTotal = Object.values(history).reduce((sum, entry) => sum + (Number(entry.exp)), 0);

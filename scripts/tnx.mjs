@@ -36,6 +36,8 @@ import { TnxActionHandler } from './module/tnx-action-handler.mjs';
 import { TnxHud } from './module/tnx-hud.mjs';
 import { TnxRecordSheet } from './module/tnx-record-sheet.mjs';
 import { recordCastOwnerUser } from './module/cast-ownership.mjs';
+import { getUserFlagData, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
+import { calcSharedSpent } from './module/exp-sync.mjs';
 
 async function preloadHandlebarsTemplates() {
     const templatePaths = [
@@ -182,45 +184,30 @@ function handleRefreshSheets() {
 }
 
 /**
- * プレイヤーアクターに紐づく全キャストの消費経験点を集計し、プレイヤー側のデータを更新する
+ * ownerUserId に紐づく全キャストの消費経験点を集計し、User flag の EXP データを更新する。
+ * GM クライアントのみ呼び出すこと。
+ *
+ * @param {User} ownerUser  cast.system.ownerUserId から取得した Foundry User
  */
-async function syncPlayerExpFromCasts(playerActor) {
-    // まず対象の可能性があるアクターをピックアップ
-    const linkedCastCandidates = game.actors.filter(a => a.type === 'cast' && a.system.playerId === playerActor.uuid);
-    
-    let totalSharedSpent = 0;
+async function syncCastExpToUser(ownerUser) {
+    const linkedCasts = game.actors.filter(
+        a => a.type === 'cast' && a.system.ownerUserId === ownerUser.uuid
+    );
 
-    for (let cast of linkedCastCandidates) {
-        // 【修正】データが不完全（初期化前）な場合、除外せず「再取得」して処理を行う
-        if (!cast.system || !cast.system.exp) {
-            try {
-                // キャッシュが古い可能性があるため、DBから最新を非同期で取得
-                const realCast = await fromUuid(cast.uuid);
-                if (realCast) {
-                    cast = realCast; // インスタンスを差し替え
-                    // 取得したインスタンスのデータ準備を強制
-                    cast.prepareData();
-                }
-            } catch (e) {
-                console.error(`TokyoNOVA | キャスト ${cast.name} のデータ再取得に失敗しました:`, e);
-                continue; 
-            }
-        }
+    const castExpList = linkedCasts.map(a => ({
+        spent:      Number(a.system.exp?.spent)      || 0,
+        additional: Number(a.system.exp?.additional) || 0,
+    }));
 
-        const castSpent = Number(cast.system.exp?.spent);
-        const additional = Number(cast.system.exp?.additional);
-        const overflow = Math.max(0, castSpent - additional);
-        totalSharedSpent += overflow;
-    }
+    const newSpent = calcSharedSpent(castExpList);
+    const { exp: { total: currentTotal, spent: currentSpent } } = getUserFlagData(ownerUser);
 
-    const currentSpent = Number(playerActor.system.exp?.spent) || 0;
-    if (currentSpent !== totalSharedSpent) {
-        const currentTotal = Number(playerActor.system.exp?.total) || 0;
-        await playerActor.update({
-            "system.exp.spent": totalSharedSpent,
-            "system.exp.value": currentTotal - totalSharedSpent
-        }, { syncing: true });
-    }
+    if (currentSpent === newSpent) return;
+
+    await ownerUser.update({
+        [`flags.${TNX_FLAG_SCOPE}.exp.spent`]: newSpent,
+        [`flags.${TNX_FLAG_SCOPE}.exp.value`]: currentTotal - newSpent,
+    }, { syncing: true });
 }
 
 Hooks.once("init", async function() {
@@ -985,38 +972,33 @@ Hooks.once("ready", async function() {
             } catch (e) { console.error(`TokyoNOVA | Failed to record ownerUserId for cast ${actor.name}:`, e); }
         }
 
-        if (actor.type === 'cast' && actor.system.playerId) {
+        // 2-2: cast → User flag EXP 同期
+        // syncing フラグで updateUser → updateCastExp → updateActor の再帰を遮断する
+        if (actor.type === 'cast' && actor.system.ownerUserId && !options.syncing && game.user.isGM) {
             try {
-                const playerActor = await fromUuid(actor.system.playerId);
-                if (playerActor && !options.syncing) {
-                    await syncPlayerExpFromCasts(playerActor);
+                const ownerUser = game.users.find(u => u.uuid === actor.system.ownerUserId);
+                if (ownerUser) {
+                    await syncCastExpToUser(ownerUser);
                 }
-            } catch (e) { console.warn(e); }
+            } catch (e) { console.warn(`TokyoNOVA | Failed to sync EXP to User flag:`, e); }
         }
+    });
 
-        if (actor.type === 'player') {
-            const linkedCasts = game.actors.filter(a => a.type === 'cast' && a.system.playerId === actor.uuid);
-            
-            const updates = {};
-            let needsSync = false;
+    // 2-2: User flag(exp/history)変更 → 紐づく cast の EXP 再計算
+    // syncCastExpToUser が { syncing: true } で書き込むため、その折り返しはここで遮断する
+    Hooks.on('updateUser', async (user, diff, options) => {
+        if (options.syncing) return;
+        if (!game.user.isGM) return;
 
-            if (foundry.utils.hasProperty(diff, "system.history") || 
-                foundry.utils.hasProperty(diff, "system.exp.total")) {
-                
-                updates["system.history"] = actor.system.history;
-                updates["system.exp.total"] = actor.system.exp?.total;
-                
-                needsSync = true;
-            }
+        const flagDiff = diff.flags?.[TNX_FLAG_SCOPE];
+        if (!flagDiff) return;
+        if (!("exp" in flagDiff) && !("history" in flagDiff)) return;
 
-            for (const cast of linkedCasts) {
-                if (!options.syncing) {
-                    if (needsSync) {
-                        await cast.update(updates, { syncing: true });
-                    }
-                    await TokyoNovaCastSheet.updateCastExp(cast);
-                }
-            }
+        const linkedCasts = game.actors.filter(
+            a => a.type === 'cast' && a.system.ownerUserId === user.uuid
+        );
+        for (const cast of linkedCasts) {
+            await TokyoNovaCastSheet.updateCastExp(cast);
         }
     });
 });
