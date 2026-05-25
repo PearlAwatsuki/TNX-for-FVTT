@@ -36,8 +36,8 @@ import { TnxActionHandler } from './module/tnx-action-handler.mjs';
 import { TnxHud } from './module/tnx-hud.mjs';
 import { TnxRecordSheet } from './module/tnx-record-sheet.mjs';
 import { recordCastOwnerUser } from './module/cast-ownership.mjs';
-import { getUserFlagData, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
-import { calcSharedSpent, buildCastHistorySyncUpdate } from './module/exp-sync.mjs';
+import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
+import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories } from './module/exp-sync.mjs';
 
 async function preloadHandlebarsTemplates() {
     const templatePaths = [
@@ -208,6 +208,42 @@ async function syncCastExpToUser(ownerUser) {
         [`flags.${TNX_FLAG_SCOPE}.exp.spent`]: newSpent,
         [`flags.${TNX_FLAG_SCOPE}.exp.value`]: currentTotal - newSpent,
     }, { syncing: true });
+}
+
+/**
+ * ownerUserId が新規に記録された時点で、cast の history と User flag の history を
+ * 双方向マージして両者を揃える初回同期を行う。
+ * GM クライアントのみ呼び出すこと。
+ *
+ * @param {Actor}  castActor  cast タイプの Actor(ownerUserId 設定済み)
+ * @param {User}   ownerUser  cast.system.ownerUserId から取得した Foundry User
+ */
+async function performInitialHistorySync(castActor, ownerUser) {
+    const castHistory = castActor.system.history ?? {};
+    const { history: userHistory } = getUserFlagData(ownerUser);
+    const mergedHistory = mergeHistories(castHistory, userHistory);
+    const newTotal = calcHistoryExpTotal(mergedHistory);
+
+    // User flag: merged history 全エントリ + exp.total を更新
+    // syncing: true で updateUser フックのループを防ぐ
+    const flagUpdate = { [`flags.${TNX_FLAG_SCOPE}.exp.total`]: newTotal };
+    for (const [id, entry] of Object.entries(mergedHistory)) {
+        flagUpdate[`flags.${TNX_FLAG_SCOPE}.history.${id}`] = entry;
+    }
+    await ownerUser.update(flagUpdate, { syncing: true });
+
+    // cast: system.history を merged に差分同期
+    // syncing: true で updateActor フックのループを防ぐ
+    const castHistoryUpdate = buildCastHistorySyncUpdate(castActor.system.history, mergedHistory);
+    if (!foundry.utils.isEmpty(castHistoryUpdate)) {
+        await castActor.update(castHistoryUpdate, { calcExp: false, syncing: true });
+    }
+
+    // exp.spent / exp.value を User flag に反映(syncCastExpToUser は syncing: true で書く)
+    await syncCastExpToUser(ownerUser);
+
+    // cast の exp.total / spent / value を User flag の新しい total に基づいて更新
+    await TokyoNovaCastSheet.updateCastExp(castActor);
 }
 
 Hooks.once("init", async function() {
@@ -958,6 +994,7 @@ Hooks.once("ready", async function() {
                 const foundUser = game.users.get(userId);
                 if (foundUser?.uuid) {
                     await cast.update({ "system.ownerUserId": foundUser.uuid }, { calcExp: false, syncing: true });
+                    await performInitialHistorySync(cast, foundUser);
                     break;
                 }
             }
@@ -990,6 +1027,16 @@ Hooks.once("ready", async function() {
             try {
                 await recordCastOwnerUser(actor);
             } catch (e) { console.error(`TokyoNOVA | Failed to record ownerUserId for cast ${actor.name}:`, e); }
+        }
+
+        // 2-2: ownerUserId 新規記録 → cast と User flag の history を双方向マージ(初回同期)
+        // diff.system?.ownerUserId が設定されている = recordCastOwnerUser が ownerUserId を更新した
+        // syncing: true の更新(起動時スキャン等)はここに到達しないため startup scan は直接呼ぶ
+        if (actor.type === 'cast' && diff.system?.ownerUserId && !options.syncing && game.user.isGM) {
+            try {
+                const ownerUser = game.users.find(u => u.uuid === actor.system.ownerUserId);
+                if (ownerUser) await performInitialHistorySync(actor, ownerUser);
+            } catch (e) { console.warn(`TokyoNOVA | Failed initial history sync for cast ${actor.name}:`, e); }
         }
 
         // 2-2: cast → User flag EXP 同期

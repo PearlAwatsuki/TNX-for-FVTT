@@ -22,6 +22,22 @@ export function calcSharedSpent(castExpList) {
 }
 
 /**
+ * cast と User の history マップを双方向マージして統合マップを返す(純粋関数)。
+ *
+ * 結合ルール: { ...userHistory, ...castHistory }
+ * 同一 ID が両者に存在する場合は cast 側が優先される。
+ * これは旧 _onDrop の { ...playerHistory, ...castHistory } と同仕様。
+ * ID は randomID のため通常は重複しない。
+ *
+ * @param {object|null|undefined} castHistory  cast.system.history
+ * @param {object|null|undefined} userHistory  User flag の history
+ * @returns {object}  統合後の history マップ(新しいオブジェクト)
+ */
+export function mergeHistories(castHistory, userHistory) {
+  return { ...(userHistory ?? {}), ...(castHistory ?? {}) };
+}
+
+/**
  * 旧 history マップと新 history マップを比較し、cast の system.history を
  * 最小変更で同期するための updateData を生成する(純粋関数)。
  *

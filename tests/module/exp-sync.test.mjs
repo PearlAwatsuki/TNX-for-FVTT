@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { calcSharedSpent, buildCastHistorySyncUpdate } from "../../scripts/module/exp-sync.mjs";
+import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories } from "../../scripts/module/exp-sync.mjs";
 
 describe("calcSharedSpent()", () => {
   it("空配列の場合 0 を返す", () => {
@@ -101,5 +101,55 @@ describe("buildCastHistorySyncUpdate()", () => {
       "system.history.keep": { exp: 99 },
       "system.history.add": { exp: 1 },
     });
+  });
+});
+
+describe("mergeHistories()", () => {
+  it("両方空の場合は空オブジェクトを返す", () => {
+    expect(mergeHistories({}, {})).toEqual({});
+  });
+
+  it("null/undefined は空マップとして扱う", () => {
+    expect(mergeHistories(null, null)).toEqual({});
+    expect(mergeHistories(undefined, undefined)).toEqual({});
+  });
+
+  it("cast のみにエントリがある場合 cast のエントリが残る", () => {
+    const cast = { "c1": { exp: 10, title: "castOnly" } };
+    expect(mergeHistories(cast, {})).toEqual({ "c1": { exp: 10, title: "castOnly" } });
+  });
+
+  it("User のみにエントリがある場合 User のエントリが残る", () => {
+    const user = { "u1": { exp: 5, title: "userOnly" } };
+    expect(mergeHistories({}, user)).toEqual({ "u1": { exp: 5, title: "userOnly" } });
+  });
+
+  it("重複しないエントリは両者を統合する", () => {
+    const cast = { "c1": { exp: 10 } };
+    const user = { "u1": { exp: 5 } };
+    const result = mergeHistories(cast, user);
+    expect(result).toEqual({ "u1": { exp: 5 }, "c1": { exp: 10 } });
+  });
+
+  it("同一 ID が重複する場合は cast 側が優先される(旧 _onDrop 仕様)", () => {
+    const cast = { "dup": { exp: 20, title: "cast-wins" } };
+    const user = { "dup": { exp: 99, title: "user-loses" } };
+    const result = mergeHistories(cast, user);
+    expect(result["dup"].exp).toBe(20);
+    expect(result["dup"].title).toBe("cast-wins");
+  });
+
+  it("マージ結果は冪等(再マージしても同じ結果)", () => {
+    const cast = { "c1": { exp: 10 } };
+    const user = { "u1": { exp: 5 } };
+    const merged1 = mergeHistories(cast, user);
+    // merged1 を user として再マージ
+    const merged2 = mergeHistories(cast, merged1);
+    expect(merged2).toEqual(merged1);
+  });
+
+  it("cast が null / User が非空でも User エントリが残る", () => {
+    const user = { "u1": { exp: 5 } };
+    expect(mergeHistories(null, user)).toEqual({ "u1": { exp: 5 } });
   });
 });
