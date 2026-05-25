@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { calcSharedSpent } from "../../scripts/module/exp-sync.mjs";
+import { calcSharedSpent, buildCastHistorySyncUpdate } from "../../scripts/module/exp-sync.mjs";
 
 describe("calcSharedSpent()", () => {
   it("空配列の場合 0 を返す", () => {
@@ -51,5 +51,55 @@ describe("calcSharedSpent()", () => {
 
   it("小数点を含む値は正しく計算する", () => {
     expect(calcSharedSpent([{ spent: 100.5, additional: 50.5 }])).toBe(50);
+  });
+});
+
+describe("buildCastHistorySyncUpdate()", () => {
+  it("両マップが空の場合は空オブジェクトを返す", () => {
+    expect(buildCastHistorySyncUpdate({}, {})).toEqual({});
+  });
+
+  it("null/undefined は空マップとして扱う", () => {
+    expect(buildCastHistorySyncUpdate(null, null)).toEqual({});
+    expect(buildCastHistorySyncUpdate(undefined, undefined)).toEqual({});
+  });
+
+  it("新規エントリは追加される", () => {
+    const result = buildCastHistorySyncUpdate({}, { "id1": { exp: 10, memo: "test" } });
+    expect(result).toEqual({ "system.history.id1": { exp: 10, memo: "test" } });
+  });
+
+  it("既存エントリは上書きされる", () => {
+    const old = { "id1": { exp: 10 } };
+    const newMap = { "id1": { exp: 20 } };
+    const result = buildCastHistorySyncUpdate(old, newMap);
+    expect(result).toEqual({ "system.history.id1": { exp: 20 } });
+  });
+
+  it("旧にあって新にないエントリは -= 構文で削除される", () => {
+    const old = { "id1": { exp: 10 }, "id2": { exp: 5 } };
+    const newMap = { "id1": { exp: 10 } };
+    const result = buildCastHistorySyncUpdate(old, newMap);
+    expect(result).toEqual({
+      "system.history.-=id2": null,
+      "system.history.id1": { exp: 10 },
+    });
+  });
+
+  it("全エントリ削除の場合は全て -= キーになる", () => {
+    const old = { "id1": { exp: 10 } };
+    const result = buildCastHistorySyncUpdate(old, {});
+    expect(result).toEqual({ "system.history.-=id1": null });
+  });
+
+  it("追加・削除・上書きが混在する場合を正しく処理する", () => {
+    const old = { "keep": { exp: 5 }, "del": { exp: 3 } };
+    const newMap = { "keep": { exp: 99 }, "add": { exp: 1 } };
+    const result = buildCastHistorySyncUpdate(old, newMap);
+    expect(result).toEqual({
+      "system.history.-=del": null,
+      "system.history.keep": { exp: 99 },
+      "system.history.add": { exp: 1 },
+    });
   });
 });

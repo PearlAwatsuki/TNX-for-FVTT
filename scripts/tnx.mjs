@@ -37,7 +37,7 @@ import { TnxHud } from './module/tnx-hud.mjs';
 import { TnxRecordSheet } from './module/tnx-record-sheet.mjs';
 import { recordCastOwnerUser } from './module/cast-ownership.mjs';
 import { getUserFlagData, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
-import { calcSharedSpent } from './module/exp-sync.mjs';
+import { calcSharedSpent, buildCastHistorySyncUpdate } from './module/exp-sync.mjs';
 
 async function preloadHandlebarsTemplates() {
     const templatePaths = [
@@ -947,6 +947,23 @@ Hooks.once("ready", async function() {
         }
     }
 
+    // 2-1/2-2: ownerUserId 未記録キャストの起動時初期化
+    // Phase 2-1 デプロイ前に ownership が設定済みのキャストはここで補完する
+    if (game.user.isGM) {
+        const gmSet = new Set(game.users.filter(u => u.isGM).map(u => u.id));
+        const OBSERVER = 2;
+        for (const cast of game.actors.filter(a => a.type === 'cast' && !a.system.ownerUserId)) {
+            for (const [userId, level] of Object.entries(cast.ownership ?? {})) {
+                if (userId === 'default' || level < OBSERVER || gmSet.has(userId)) continue;
+                const foundUser = game.users.get(userId);
+                if (foundUser?.uuid) {
+                    await cast.update({ "system.ownerUserId": foundUser.uuid }, { calcExp: false, syncing: true });
+                    break;
+                }
+            }
+        }
+    }
+
     const recalcActorExp = (item) => {
         if (item.parent && item.parent.type === 'cast') {
             TokyoNovaCastSheet.updateCastExp(item.parent);
@@ -984,20 +1001,32 @@ Hooks.once("ready", async function() {
         }
     });
 
-    // 2-2: User flag(exp/history)変更 → 紐づく cast の EXP 再計算
+    // 2-2: User flag(exp/history)変更 → レコードシート再描画 + cast ローカル履歴同期
     // syncCastExpToUser が { syncing: true } で書き込むため、その折り返しはここで遮断する
+    // 全クライアントでレコードシートを再描画してから GM クライアントのみ cast 同期を行う
     Hooks.on('updateUser', async (user, diff, options) => {
         if (options.syncing) return;
-        if (!game.user.isGM) return;
 
         const flagDiff = diff.flags?.[TNX_FLAG_SCOPE];
         if (!flagDiff) return;
         if (!("exp" in flagDiff) && !("history" in flagDiff)) return;
 
+        // 全クライアント: 開いているレコードシートを再描画
+        const sheet = foundry.applications?.instances?.get(`tnx-record-sheet-${user.id}`);
+        if (sheet?.rendered) sheet.render();
+
+        if (!game.user.isGM) return;
+
         const linkedCasts = game.actors.filter(
             a => a.type === 'cast' && a.system.ownerUserId === user.uuid
         );
+        const { history: userHistory } = getUserFlagData(user);
         for (const cast of linkedCasts) {
+            // cast ローカルの system.history を User flag に合わせて同期
+            const historySyncUpdate = buildCastHistorySyncUpdate(cast.system.history, userHistory);
+            if (!foundry.utils.isEmpty(historySyncUpdate)) {
+                await cast.update(historySyncUpdate, { calcExp: false, syncing: true });
+            }
             await TokyoNovaCastSheet.updateCastExp(cast);
         }
     });
