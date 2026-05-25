@@ -122,3 +122,49 @@ describe("resolveOwnerUserIdAction()", () => {
     expect(r2.newUserUuid).toBeNull();
   });
 });
+
+// ─── 連続呼び出し安全性(ループなし) ─────────────────────────────────────────────
+// updateActor フックで diff.ownership によらず recordCastOwnerUser を呼ぶ設計において、
+// ownerUserId 設定後の再評価が "none" を返すことを検証する。
+// これにより update → updateActor → recordCastOwnerUser のループが 2 呼び出しで自己終端する。
+
+describe("pickFirstOwnerUserId + resolveOwnerUserIdAction 連続呼び出し安全性", () => {
+  const OWNER = 3;
+
+  it("ownerUserId 設定前後で連続評価しても 2 呼び出し以内で none に収束する", () => {
+    const ownership = { gm1: OWNER, u1: OWNER };
+    const gmUserIds = ["gm1"];
+
+    // 1 回目(ownerUserId 未設定): "set"
+    const picked1 = pickFirstOwnerUserId(ownership, gmUserIds);
+    const fakeUuid = `User.${picked1}`;
+    const result1 = resolveOwnerUserIdAction(fakeUuid, "");
+    expect(result1.action).toBe("set");
+    expect(result1.newUserUuid).toBe(fakeUuid);
+
+    // 2 回目(ownerUserId = fakeUuid 設定済): "none" → ループ自己終端
+    const picked2 = pickFirstOwnerUserId(ownership, gmUserIds);
+    const fakeUuid2 = `User.${picked2}`;
+    const result2 = resolveOwnerUserIdAction(fakeUuid2, fakeUuid);
+    expect(result2.action).toBe("none");
+  });
+
+  it("diff.ownership がなくても ownership を直接読めば正しく所有者を特定できる", () => {
+    // Foundry v13 では diff.ownership が設定されないケースがある。
+    // recordCastOwnerUser は castActor.ownership を直接読むため diff に依存しない。
+    const ownership = { default: 0, gm1: OWNER, u1: OWNER };
+    const gmUserIds = ["gm1"];
+    const picked = pickFirstOwnerUserId(ownership, gmUserIds);
+    expect(picked).toBe("u1"); // default と GM を除いた最初の一般 User
+    const resolution = resolveOwnerUserIdAction(`User.${picked}`, "");
+    expect(resolution.action).toBe("set");
+  });
+
+  it("full ownership マップ(Foundry が送る形式)から正しく所有者を拾える", () => {
+    // Foundry は ownership 更新時に全ユーザーを含む完全マップを送ることがある
+    const fullOwnershipMap = { default: 0, gm1: OWNER, u1: 0, u2: OWNER, u3: 1 };
+    const gmUserIds = ["gm1"];
+    // u1 は NONE(0) → スキップ, u2 は OWNER(3) → 拾う
+    expect(pickFirstOwnerUserId(fullOwnershipMap, gmUserIds)).toBe("u2");
+  });
+});

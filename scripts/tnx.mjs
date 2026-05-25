@@ -982,8 +982,11 @@ Hooks.once("ready", async function() {
         }
 
         // 2-1: cast の ownership 変更 → ownerUserId(User UUID)を記録
-        // GM クライアントのみ実行。diff.ownership がない変更(EXP 更新等)は無視。
-        if (actor.type === 'cast' && diff.ownership && game.user.isGM) {
+        // GM クライアントのみ実行。syncing フラグ付きの更新(ownerUserId 記録後の折り返し等)は無視。
+        // diff.ownership に依存しない: Foundry v13 の ownership 更新では diff.ownership が
+        // 設定されない場合があるため。recordCastOwnerUser 自体が resolveOwnerUserIdAction で
+        // 変更不要(none)の場合を早期 return するため、全 cast 更新で呼んでも安全。
+        if (actor.type === 'cast' && !options.syncing && game.user.isGM) {
             try {
                 await recordCastOwnerUser(actor);
             } catch (e) { console.error(`TokyoNOVA | Failed to record ownerUserId for cast ${actor.name}:`, e); }
