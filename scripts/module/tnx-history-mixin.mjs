@@ -21,13 +21,14 @@ export const TnxHistoryMixin = {
         event.preventDefault();
         
         const newId = foundry.utils.randomID();
-        const newEntry = { 
-            id: newId, 
-            date: "", 
-            title: "", 
+        const newEntry = {
+            id: newId,
+            date: "",
+            title: "",
             exp: 0, // 新規行は0点なので合計には影響しないが、初期化は行う
-            rl: "", 
-            players: "" 
+            rl: "",
+            players: "",
+            origin: this.document?.uuid ?? "",   // 由来分離のための出所: cast UUID
         };
 
         const updateData = {

@@ -91,7 +91,7 @@ export class TnxRecordSheet extends HandlebarsApplicationMixin(ApplicationV2) {
    */
   static async _onAddHistory(_event, _target) {
     const newId = foundry.utils.randomID();
-    const entry = { id: newId, date: "", title: "", exp: 0, rl: "", players: "" };
+    const entry = { id: newId, date: "", title: "", exp: 0, rl: "", players: "", origin: this.user.id };
     const { history } = getUserFlagData(this.user);
     await saveUserFlagHistory(this.user, historyAdd(history, entry));
     this.render();

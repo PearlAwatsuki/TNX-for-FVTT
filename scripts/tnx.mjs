@@ -37,7 +37,7 @@ import { TnxHud } from './module/tnx-hud.mjs';
 import { TnxRecordSheet } from './module/tnx-record-sheet.mjs';
 import { recordCastOwnerUser } from './module/cast-ownership.mjs';
 import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
-import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories } from './module/exp-sync.mjs';
+import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
 
 async function preloadHandlebarsTemplates() {
     const templatePaths = [
@@ -191,7 +191,7 @@ function handleRefreshSheets() {
  */
 async function syncCastExpToUser(ownerUser) {
     const linkedCasts = game.actors.filter(
-        a => a.type === 'cast' && a.system.ownerUserId === ownerUser.uuid
+        a => a.type === 'cast' && a.system.ownerUserId === ownerUser.uuid && a.system.syncWithOwner
     );
 
     const castExpList = linkedCasts.map(a => ({
@@ -219,6 +219,7 @@ async function syncCastExpToUser(ownerUser) {
  * @param {User}   ownerUser  cast.system.ownerUserId から取得した Foundry User
  */
 async function performInitialHistorySync(castActor, ownerUser) {
+    if (!castActor.system.syncWithOwner) return;
     const castHistory = castActor.system.history ?? {};
     const { history: userHistory } = getUserFlagData(ownerUser);
     const mergedHistory = mergeHistories(castHistory, userHistory);
@@ -243,6 +244,42 @@ async function performInitialHistorySync(castActor, ownerUser) {
     await syncCastExpToUser(ownerUser);
 
     // cast の exp.total / spent / value を User flag の新しい total に基づいて更新
+    await TokyoNovaCastSheet.updateCastExp(castActor);
+}
+
+/**
+ * syncWithOwner が ON→OFF になった際に、cast と User flag から相互の由来エントリを除去する。
+ * GM クライアントのみ呼び出すこと。
+ *
+ * @param {Actor}  castActor  同期を切った cast タイプの Actor
+ * @param {User}   ownerUser  cast.system.ownerUserId から取得した Foundry User
+ */
+async function performUnsyncSeparation(castActor, ownerUser) {
+    const castUuid = castActor.uuid;
+
+    // cast から User 由来(origin !== castUuid)のエントリを削除
+    const castHistory = castActor.system.history ?? {};
+    const { ownedByOther: castForeignEntries } = separateHistoryByOrigin(castHistory, castUuid);
+    const castUpdate = {};
+    for (const id of Object.keys(castForeignEntries)) {
+        castUpdate[`system.history.-=${id}`] = null;
+    }
+    if (!foundry.utils.isEmpty(castUpdate)) {
+        await castActor.update(castUpdate, { calcExp: false, syncing: true });
+    }
+
+    // User flag からこの cast 由来(origin === castUuid)のエントリを削除
+    const { history: userHistory } = getUserFlagData(ownerUser);
+    const { ownedByOrigin: castEntriesInUser, ownedByOther: remainingUserHistory } = separateHistoryByOrigin(userHistory, castUuid);
+    const newTotal = calcHistoryExpTotal(remainingUserHistory);
+    const flagUpdate = { [`flags.${TNX_FLAG_SCOPE}.exp.total`]: newTotal };
+    for (const id of Object.keys(castEntriesInUser)) {
+        flagUpdate[`flags.${TNX_FLAG_SCOPE}.history.-=${id}`] = null;
+    }
+    await ownerUser.update(flagUpdate, { syncing: true });
+
+    // 分離後の EXP 再集計(sync 中の他キャスト分のみが残る)
+    await syncCastExpToUser(ownerUser);
     await TokyoNovaCastSheet.updateCastExp(castActor);
 }
 
@@ -994,7 +1031,9 @@ Hooks.once("ready", async function() {
                 const foundUser = game.users.get(userId);
                 if (foundUser?.uuid) {
                     await cast.update({ "system.ownerUserId": foundUser.uuid }, { calcExp: false, syncing: true });
-                    await performInitialHistorySync(cast, foundUser);
+                    if (cast.system.syncWithOwner) {
+                        await performInitialHistorySync(cast, foundUser);
+                    }
                     break;
                 }
             }
@@ -1039,9 +1078,25 @@ Hooks.once("ready", async function() {
             } catch (e) { console.warn(`TokyoNOVA | Failed initial history sync for cast ${actor.name}:`, e); }
         }
 
-        // 2-2: cast → User flag EXP 同期
+        // 2-2b: syncWithOwner OFF→ON → 初回同期(performInitialHistorySync 内で syncWithOwner ゲート済み)
+        if (actor.type === 'cast' && diff.system?.syncWithOwner === true && actor.system.ownerUserId && !options.syncing && game.user.isGM) {
+            try {
+                const ownerUser = game.users.find(u => u.uuid === actor.system.ownerUserId);
+                if (ownerUser) await performInitialHistorySync(actor, ownerUser);
+            } catch (e) { console.warn(`TokyoNOVA | Failed initial history sync (ON) for cast ${actor.name}:`, e); }
+        }
+
+        // 2-2b: syncWithOwner ON→OFF → 由来分離
+        if (actor.type === 'cast' && diff.system?.syncWithOwner === false && actor.system.ownerUserId && !options.syncing && game.user.isGM) {
+            try {
+                const ownerUser = game.users.find(u => u.uuid === actor.system.ownerUserId);
+                if (ownerUser) await performUnsyncSeparation(actor, ownerUser);
+            } catch (e) { console.warn(`TokyoNOVA | Failed unsync separation for cast ${actor.name}:`, e); }
+        }
+
+        // 2-2: cast → User flag EXP 同期(syncWithOwner が ON の場合のみ)
         // syncing フラグで updateUser → updateCastExp → updateActor の再帰を遮断する
-        if (actor.type === 'cast' && actor.system.ownerUserId && !options.syncing && game.user.isGM) {
+        if (actor.type === 'cast' && actor.system.ownerUserId && actor.system.syncWithOwner && !options.syncing && game.user.isGM) {
             try {
                 const ownerUser = game.users.find(u => u.uuid === actor.system.ownerUserId);
                 if (ownerUser) {
@@ -1068,7 +1123,7 @@ Hooks.once("ready", async function() {
         if (!game.user.isGM) return;
 
         const linkedCasts = game.actors.filter(
-            a => a.type === 'cast' && a.system.ownerUserId === user.uuid
+            a => a.type === 'cast' && a.system.ownerUserId === user.uuid && a.system.syncWithOwner
         );
         const { history: userHistory } = getUserFlagData(user);
         for (const cast of linkedCasts) {

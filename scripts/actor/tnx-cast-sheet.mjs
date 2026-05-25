@@ -338,6 +338,10 @@ export class TokyoNovaCastSheet extends ActorSheet {
         html.find('.item-delete').on('click', this._onItemDelete.bind(this));
         html.find('.item-create').on('click', this._onItemCreate.bind(this));
         html.find('.unlink-player-btn').click(this._onUnlinkPlayer.bind(this));
+        html.find('.sync-with-owner-toggle').on('change', async (event) => {
+            const checked = event.currentTarget.checked;
+            await this.actor.update({ "system.syncWithOwner": checked });
+        });
 
         if (this.isEditable) {
             html.find('.ability-main-inputs input[name$=".growth"], .ability-main-inputs input[name$=".controlGrowth"]')
@@ -1470,8 +1474,8 @@ export class TokyoNovaCastSheet extends ActorSheet {
         const additional = Number(actor.system.exp?.additional);
         let historyTotal = 0;
 
-        if (actor.system.ownerUserId) {
-            // 2-2: User flag から履歴合計を取得
+        if (actor.system.ownerUserId && actor.system.syncWithOwner) {
+            // 2-2: User flag から履歴合計を取得(syncWithOwner が true の場合のみ)
             const ownerUser = game.users.find(u => u.uuid === actor.system.ownerUserId);
             if (ownerUser) {
                 historyTotal = getUserFlagData(ownerUser).exp.total;

@@ -38,6 +38,33 @@ export function mergeHistories(castHistory, userHistory) {
 }
 
 /**
+ * 履歴マップを指定した origin で分割する(純粋関数)。
+ *
+ * origin が originId に一致するエントリ(その主体が追加したもの)と
+ * 一致しないエントリ(他の主体が追加したもの / origin なし)に分けて返す。
+ *
+ * 同期 OFF 時の由来分離に使用:
+ *   - cast では ownedByOther を削除(User 由来を除去)
+ *   - User flag では ownedByOrigin を削除(この cast 由来を除去)
+ *
+ * @param {object|null|undefined} historyMap  history マップ
+ * @param {string} originId  分割基準となる主体 ID(cast UUID または User ID)
+ * @returns {{ ownedByOrigin: object, ownedByOther: object }}
+ */
+export function separateHistoryByOrigin(historyMap, originId) {
+  const ownedByOrigin = {};
+  const ownedByOther = {};
+  for (const [id, entry] of Object.entries(historyMap ?? {})) {
+    if (entry.origin === originId) {
+      ownedByOrigin[id] = entry;
+    } else {
+      ownedByOther[id] = entry;
+    }
+  }
+  return { ownedByOrigin, ownedByOther };
+}
+
+/**
  * 旧 history マップと新 history マップを比較し、cast の system.history を
  * 最小変更で同期するための updateData を生成する(純粋関数)。
  *

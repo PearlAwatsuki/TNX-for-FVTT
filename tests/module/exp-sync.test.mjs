@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories } from "../../scripts/module/exp-sync.mjs";
+import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from "../../scripts/module/exp-sync.mjs";
 
 describe("calcSharedSpent()", () => {
   it("空配列の場合 0 を返す", () => {
@@ -151,5 +151,85 @@ describe("mergeHistories()", () => {
   it("cast が null / User が非空でも User エントリが残る", () => {
     const user = { "u1": { exp: 5 } };
     expect(mergeHistories(null, user)).toEqual({ "u1": { exp: 5 } });
+  });
+
+  it("origin フィールドを保持したままマージする", () => {
+    const cast = { "c1": { exp: 10, origin: "Actor.castUuid" } };
+    const user = { "u1": { exp: 5, origin: "userId-abc" } };
+    const result = mergeHistories(cast, user);
+    expect(result["c1"].origin).toBe("Actor.castUuid");
+    expect(result["u1"].origin).toBe("userId-abc");
+  });
+});
+
+describe("separateHistoryByOrigin()", () => {
+  it("空マップの場合 両方空オブジェクトを返す", () => {
+    expect(separateHistoryByOrigin({}, "castUuid")).toEqual({
+      ownedByOrigin: {},
+      ownedByOther: {},
+    });
+  });
+
+  it("null/undefined は空マップとして扱う", () => {
+    expect(separateHistoryByOrigin(null, "castUuid")).toEqual({
+      ownedByOrigin: {},
+      ownedByOther: {},
+    });
+    expect(separateHistoryByOrigin(undefined, "castUuid")).toEqual({
+      ownedByOrigin: {},
+      ownedByOther: {},
+    });
+  });
+
+  it("全エントリが originId に一致する場合 全て ownedByOrigin に入る", () => {
+    const map = {
+      "id1": { exp: 10, origin: "castUuid" },
+      "id2": { exp: 5,  origin: "castUuid" },
+    };
+    const { ownedByOrigin, ownedByOther } = separateHistoryByOrigin(map, "castUuid");
+    expect(Object.keys(ownedByOrigin)).toEqual(["id1", "id2"]);
+    expect(ownedByOther).toEqual({});
+  });
+
+  it("全エントリが originId に一致しない場合 全て ownedByOther に入る", () => {
+    const map = {
+      "id1": { exp: 10, origin: "otherUuid" },
+      "id2": { exp: 5,  origin: "userId-abc" },
+    };
+    const { ownedByOrigin, ownedByOther } = separateHistoryByOrigin(map, "castUuid");
+    expect(ownedByOrigin).toEqual({});
+    expect(Object.keys(ownedByOther)).toEqual(["id1", "id2"]);
+  });
+
+  it("混在する場合 originId に一致するものだけ ownedByOrigin に入る", () => {
+    const map = {
+      "c1": { exp: 10, origin: "castUuid" },
+      "u1": { exp: 5,  origin: "userId-abc" },
+      "c2": { exp: 3,  origin: "castUuid" },
+    };
+    const { ownedByOrigin, ownedByOther } = separateHistoryByOrigin(map, "castUuid");
+    expect(Object.keys(ownedByOrigin).sort()).toEqual(["c1", "c2"]);
+    expect(Object.keys(ownedByOther)).toEqual(["u1"]);
+  });
+
+  it("origin フィールドがないエントリは ownedByOther に入る", () => {
+    const map = {
+      "id1": { exp: 10 },
+      "id2": { exp: 5, origin: "castUuid" },
+    };
+    const { ownedByOrigin, ownedByOther } = separateHistoryByOrigin(map, "castUuid");
+    expect(Object.keys(ownedByOrigin)).toEqual(["id2"]);
+    expect(Object.keys(ownedByOther)).toEqual(["id1"]);
+  });
+
+  it("複数 cast origin が混在する場合 対象 cast 分のみ ownedByOrigin に入る", () => {
+    const map = {
+      "c1": { exp: 10, origin: "castA" },
+      "c2": { exp: 5,  origin: "castB" },
+      "u1": { exp: 3,  origin: "userId-abc" },
+    };
+    const { ownedByOrigin, ownedByOther } = separateHistoryByOrigin(map, "castA");
+    expect(Object.keys(ownedByOrigin)).toEqual(["c1"]);
+    expect(Object.keys(ownedByOther).sort()).toEqual(["c2", "u1"]);
   });
 });
