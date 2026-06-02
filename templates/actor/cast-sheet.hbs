@@ -649,7 +649,6 @@
                 </div>
 
                 <div class="tab history" data-tab="history">
-                    {{#if system.ownerUserId}}
                     {{#if isEditMode}}
                     <div class="sync-toggle-row">
                         <label class="sync-toggle-label">
@@ -658,7 +657,6 @@
                             レコードシートと同期
                         </label>
                     </div>
-                    {{/if}}
                     {{/if}}
                     {{> "systems/tokyo-nova-axleration/templates/parts/history-list.hbs"}}
                 </div>

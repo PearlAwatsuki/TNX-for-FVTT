@@ -14,3 +14,6 @@ coverage/
 
 # Foundry packs (LevelDB, GM が手入力するデータ)
 packs/
+
+# LLM Wiki / Obsidian Vault
+llm-wiki/
