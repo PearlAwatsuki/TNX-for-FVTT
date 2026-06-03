@@ -109,8 +109,8 @@ describe("型定義健全性テスト", () => {
   describe("検証3: documentTypes に全 type が揃っている", () => {
     const docTypes = JSON.parse(systemRaw).documentTypes;
 
-    it("Actor が全 5 type を持つ", () => {
-      const expected = ["cast", "guest", "troop", "extra", "player"];
+    it("Actor が全 4 type を持つ", () => {
+      const expected = ["cast", "guest", "troop", "extra"];
       for (const t of expected) {
         expect(docTypes.Actor).toHaveProperty(t);
       }
