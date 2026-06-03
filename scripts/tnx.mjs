@@ -1,10 +1,8 @@
 import { TokyoNovaCastSheet } from './actor/tnx-cast-sheet.mjs';
-import { TokyoNovaPlayerSheet } from './actor/tnx-player-sheet.mjs';
 import { CastDataModel } from './data/actor/cast.mjs';
 import { GuestDataModel } from './data/actor/guest.mjs';
 import { TroopDataModel } from './data/actor/troop.mjs';
 import { ExtraDataModel } from './data/actor/extra.mjs';
-import { PlayerDataModel } from './data/actor/player.mjs';
 import { HousingAreaDataModel } from './data/item/housing-area.mjs';
 import { OrganizationDataModel } from './data/item/organization.mjs';
 import { LifePathDataModel } from './data/item/life-path.mjs';
@@ -43,7 +41,6 @@ async function preloadHandlebarsTemplates() {
     const templatePaths = [
         // === Actor Sheets ===
         "systems/tokyo-nova-axleration/templates/actor/cast-sheet.hbs",
-        "systems/tokyo-nova-axleration/templates/actor/player-sheet.hbs",
 
         // === Item Sheets ===
         "systems/tokyo-nova-axleration/templates/item/miracle-sheet.hbs",
@@ -82,57 +79,6 @@ async function preloadHandlebarsTemplates() {
     return loadTemplates(templatePaths);
 }
 
-/**
- * 【共通化】アクターにデフォルトの手札と切り札置き場を作成・関連付けする
- * @param {Actor} actor 対象のアクター
- */
-async function setupDefaultCardPiles(actor) {
-    try {
-        const updates = {};
-        const ownership = {
-            default: CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE,
-            [game.user.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER
-        };
-
-        // 1. 手札用 Cards
-        const handPileName = game.i18n.format("TNX.Actor.Cards.DefaultHandPileName", {actorName: actor.name});
-        const handPile = await Cards.create({
-            name: handPileName,
-            type: "hand",
-            description: `「${actor.name}」の手札です。`,
-            img: "icons/svg/card-hand.svg",
-            ownership: ownership
-        });
-        if (handPile) {
-            updates["system.handPileId"] = handPile.uuid;
-            updates["system.handMaxSize"] = 4;
-        }
-
-        // 2. 切り札用 Cards
-        const trumpPileName = game.i18n.format("TNX.Actor.Cards.DefaultTrumpPileName", {actorName: actor.name});
-        const trumpPile = await Cards.create({
-            name: trumpPileName,
-            type: "pile",
-            description: `「${actor.name}」の切り札置き場です。`,
-            img: "icons/svg/card-hand.svg",
-            ownership: ownership,
-            flags: { "tokyo-nova-axleration": { isTrumpPile: true } }
-        });
-        if (trumpPile) {
-            updates["system.trumpCardPileId"] = trumpPile.uuid;
-        }
-
-        // 更新
-        if (Object.keys(updates).length > 0) {
-            await actor.update(updates);
-            ui.notifications.info(`${actor.name} 用の手札と切り札を作成しました。`);
-        }
-
-    } catch (err) {
-        console.error(`TokyoNOVA | Error setting up piles for ${actor.name}:`, err);
-    }
-}
-
 async function setupDefaultSkills(actor) {
     try {
         // system.jsonで定義したパック名 "system-id.pack-name"
@@ -163,9 +109,6 @@ async function setupDefaultSkills(actor) {
         console.error(`TokyoNOVA | Error importing default skills for ${actor.name}:`, err);
     }
 }
-
-game.tnx = game.tnx || {};
-game.tnx.setupDefaultCardPiles = setupDefaultCardPiles;
 
 /**
  * [All Clients] 開かれている関連シートを全て再描画する
@@ -304,7 +247,6 @@ Hooks.once("init", async function() {
       guest:  GuestDataModel,
       troop:  TroopDataModel,
       extra:  ExtraDataModel,
-      player: PlayerDataModel,
     };
 
     // Item DataModel の登録(B-7b: styleSkill 追加、全 17 type 登録完了)
@@ -368,12 +310,6 @@ Hooks.once("init", async function() {
         types: ["cast"],
         makeDefault: true,
         label: "プロファイルシート"
-    });
-
-    Actors.registerSheet("tokyo-nova", TokyoNovaPlayerSheet, {
-        types: ["player"],
-        makeDefault: true,
-        label: "プレイヤーシート"
     });
     
     // Item Sheetの登録
@@ -664,14 +600,8 @@ Hooks.once("init", async function() {
         // 自身が作成したアクターのみ対象
         if (userId !== game.user.id) return;
     
-        // 1. プレイヤーアクターの場合：無条件で手札・切り札を自動作成
-        if (actor.type === "player") {
-            await setupDefaultCardPiles(actor);
-            ui.notifications.info(`プレイヤー「${actor.name}」を作成しました。`);
-        }
-    
-        // 2. キャストの場合：ダイアログで確認せずに手札作成は行わない
-        else if (actor.type === "cast") {
+        // キャストの場合：ダイアログで確認せずに手札作成は行わない
+        if (actor.type === "cast") {
             // デフォルト設定の更新
             await actor.update({
                 "prototypeToken.disposition": CONST.TOKEN_DISPOSITIONS.FRIENDLY,
@@ -724,11 +654,10 @@ Hooks.once("init", async function() {
 
     Hooks.on("preDeleteActor", async (actor, options, userId) => {
         // ■修正: 対象アクターの判定
-        // キャスト(cast) または プレイヤー(player) のみが対象
+        // キャスト(cast) のみが対象
         const isCast = actor.type === "cast";
-        const isPlayer = actor.type === "player";
         
-        if (!isCast && !isPlayer) {
+        if (!isCast) {
             return true;
         }
 
@@ -862,99 +791,6 @@ Hooks.once("init", async function() {
                     foundry.utils.setProperty(changes, "system.isPersona", false);
                     foundry.utils.setProperty(changes, "system.isKey", false);
                 }
-            }
-        }
-    });
-
-    /**
-     * アクターが更新された際に、関連するカードドキュメントの所有権や名前を更新するフック
-     */
-    Hooks.on("updateActor", async (actor, diff, options, userId) => {
-        // アクターの名前と所有権のいずれも変更されていない場合は、ここで処理を終了
-        if (diff.name === undefined && diff.ownership === undefined) {
-            return;
-        }
-
-        // "cast"タイプのアクターのみを対象とする
-        if (actor.type !== "player") {
-            return;
-        }
-
-        // --- 所有権の同期処理 ---
-        // diff.ownershipに変更があった場合のみ実行
-        if (diff.ownership) {
-            try {
-                const gmUser = game.users.find(u => u.isGM && u.active);
-                const gmId = gmUser?.id;
-
-                const newCardOwnership = {
-                    default: CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE
-                };
-                if (gmId) {
-                    newCardOwnership[gmId] = CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE;
-                }
-
-                for (const [userId, level] of Object.entries(actor.ownership)) {
-                    if (userId !== "default") {
-                        newCardOwnership[userId] = level;
-                    }
-                }
-
-                // 手札の権限を同期
-                if (actor.system.handPileId) {
-                    const handPile = await fromUuid(actor.system.handPileId);
-                    if (handPile) {
-                        await handPile.update({ ownership: newCardOwnership });
-                    }
-                }
-        
-                // 切り札の権限を同期
-                if (actor.system.trumpCardPileId) {
-                    const trumpPile = await fromUuid(actor.system.trumpCardPileId);
-                    if (trumpPile) {
-                        await trumpPile.update({ ownership: newCardOwnership });
-                    }
-                }
-            } catch (err) {
-                console.error(`TokyoNOVA | Failed to sync card pile ownership for actor ${actor.name}:`, err);
-            }
-        }
-
-        // --- 名前の同期処理 ---
-        // diff.nameに変更があった場合のみ実行
-        if (diff.name) {
-            let needsRender = false;
-            try {
-                // 手札の名前を更新
-                if (actor.system.handPileId) {
-                    const handPile = await fromUuid(actor.system.handPileId);
-                    if (handPile) {
-                        const newHandName = game.i18n.format("TNX.Actor.Cards.DefaultHandPileName", { actorName: actor.name });
-                        if (handPile.name !== newHandName) {
-                            await handPile.update({ name: newHandName });
-                            needsRender = true;
-                        }
-                    }
-                }
-
-                // 切り札の名前を更新
-                if (actor.system.trumpCardPileId) {
-                    const trumpPile = await fromUuid(actor.system.trumpCardPileId);
-                    if (trumpPile) {
-                        const newTrumpName = game.i18n.format("TNX.Actor.Cards.DefaultTrumpPileName", { actorName: actor.name });
-                        if (trumpPile.name !== newTrumpName) {
-                            await trumpPile.update({ name: newTrumpName });
-                            needsRender = true;
-                        }
-                    }
-                }
-            } catch (e) {
-                console.error(`TokyoNOVA | Failed to update linked card pile names for actor ${actor.name}`, e);
-            }
-
-            // 名前の変更が実際にあった場合、開かれているアクターシートを再描画
-            if (needsRender && actor.sheet?.rendered) {
-                actor.sheet.render(true);
             }
         }
     });

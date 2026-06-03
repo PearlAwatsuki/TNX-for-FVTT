@@ -127,8 +127,7 @@
             "cast":   { "htmlFields": ["description"] },
             "guest":  { "htmlFields": ["description"] },
             "troop":  {},
-            "extra":  { "htmlFields": ["description"] },
-            "player": {}
+            "extra":  { "htmlFields": ["description"] }
         },
         "Item": {
             "style":        { "htmlFields": ["description"] },
