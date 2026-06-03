@@ -13,6 +13,7 @@ import {
   historyRemove,
   saveUserFlagHistory,
   deleteUserFlagHistoryEntry,
+  saveUserFlagCards,
   TNX_FLAG_SCOPE,
 } from "../../scripts/module/user-flag-schema.mjs";
 
@@ -350,3 +351,42 @@ describe("deleteUserFlagHistoryEntry()", () => {
     expect(result).toBe(mockReturn);
   });
 });
+
+// ─── Foundry 依存: saveUserFlagCards ───────────────────────────────────────
+
+describe("saveUserFlagCards()", () => {
+  const makeUser = () => ({
+    id: "user-test",
+    flags: {},
+    update: vi.fn().mockResolvedValue(undefined),
+  });
+
+  it("handPileId と trumpCardPileId を user.update() に渡す", async () => {
+    const user = makeUser();
+    await saveUserFlagCards(user, "uuid-hand-123", "uuid-trump-456");
+
+    expect(user.update).toHaveBeenCalledOnce();
+    const arg = user.update.mock.calls[0][0];
+    expect(arg[`flags.${TNX_FLAG_SCOPE}.handPileId`]).toBe("uuid-hand-123");
+    expect(arg[`flags.${TNX_FLAG_SCOPE}.trumpCardPileId`]).toBe("uuid-trump-456");
+  });
+
+  it("空文字も正しく保存される", async () => {
+    const user = makeUser();
+    await saveUserFlagCards(user, "", "");
+
+    const arg = user.update.mock.calls[0][0];
+    expect(arg[`flags.${TNX_FLAG_SCOPE}.handPileId`]).toBe("");
+    expect(arg[`flags.${TNX_FLAG_SCOPE}.trumpCardPileId`]).toBe("");
+  });
+
+  it("user.update() の戻り値を返す", async () => {
+    const mockReturn = { id: "updated_cards" };
+    const user = makeUser();
+    user.update.mockResolvedValue(mockReturn);
+
+    const result = await saveUserFlagCards(user, "h", "t");
+    expect(result).toBe(mockReturn);
+  });
+});
+

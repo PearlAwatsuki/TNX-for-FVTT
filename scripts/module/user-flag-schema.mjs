@@ -161,3 +161,18 @@ export async function deleteUserFlagHistoryEntry(user, entryId) {
     [`flags.${TNX_FLAG_SCOPE}.exp.total`]: newTotal,
   });
 }
+
+/**
+ * User flag に手札および切り札の Cards UUID を保存する。
+ *
+ * @param {User} user  書き込み対象の Foundry User
+ * @param {string} handPileId
+ * @param {string} trumpCardPileId
+ * @returns {Promise<User>}
+ */
+export async function saveUserFlagCards(user, handPileId, trumpCardPileId) {
+  return user.update({
+    [`flags.${TNX_FLAG_SCOPE}.handPileId`]: handPileId,
+    [`flags.${TNX_FLAG_SCOPE}.trumpCardPileId`]: trumpCardPileId,
+  });
+}

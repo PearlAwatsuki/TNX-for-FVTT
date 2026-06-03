@@ -17,3 +17,5 @@ packs/
 
 # LLM Wiki / Obsidian Vault
 llm-wiki/
+
+.github/copilot-instructions.md

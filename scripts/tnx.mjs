@@ -670,7 +670,7 @@ Hooks.once("init", async function() {
             ui.notifications.info(`プレイヤー「${actor.name}」を作成しました。`);
         }
     
-        // 2. キャストの場合：ダイアログで確認
+        // 2. キャストの場合：ダイアログで確認せずに手札作成は行わない
         else if (actor.type === "cast") {
             // デフォルト設定の更新
             await actor.update({
@@ -680,22 +680,6 @@ Hooks.once("init", async function() {
                 "prototypeToken.sight.range": 1000
             });
             setupDefaultSkills(actor);
-    
-            // 手札作成確認ダイアログ
-            const confirm = await Dialog.confirm({
-                title: "手札・切り札の作成",
-                content: `
-                    <p>キャスト「${actor.name}」用の手札と切り札のカード置き場を新規作成しますか？</p>
-                    <p><small>※通常は「プレイヤー」アクターの手札を使用するため、キャスト個別に作成する必要はありません。</small></p>
-                `,
-                yes: () => true,
-                no: () => false,
-                defaultYes: false // デフォルトは「いいえ」
-            });
-    
-            if (confirm) {
-                await setupDefaultCardPiles(actor);
-            }
         }
     });
 
@@ -998,32 +982,6 @@ Hooks.once("ready", async function() {
     game.tnx = game.tnx || {}
     game.tnx.hud = new TnxHud();
     game.tnx.hud.render(true);
-    
-    const defaultMaxSize = game.settings.get("tokyo-nova-axleration", "defaultHandMaxSize");
-    const castActors = game.actors.filter(a => a.type === 'cast');
-
-    for (const actor of castActors) {
-        // アクティブエフェクトによる修正値を取得
-        // 'system.handMaxSizeMod' などのカスタム属性をエフェクトで変更することを想定
-        const effects = actor.effects.filter(e => !e.disabled);
-        let effectMod = 0;
-        for (const effect of effects) {
-            for (const change of effect.changes) {
-                if (change.key === 'system.handMaxSizeMod') { // このキーはアクターのデータモデルに合わせてください
-                    effectMod += parseInt(change.value) || 0;
-                }
-            }
-        }
-        
-        // 最終的な上限値を計算
-        const finalMaxSize = defaultMaxSize + effectMod;
-
-        // アクターのデータと比較し、変更があれば更新
-        if (actor.system.handMaxSize !== finalMaxSize) {
-            await actor.update({ 'system.handMaxSize': finalMaxSize });
-            console.log(`TokyoNOVA | ${actor.name} の手札上限を ${finalMaxSize} に更新しました。`);
-        }
-    }
 
     // 2-1/2-2: ownerUserId 未記録キャストの起動時初期化
     // Phase 2-1 デプロイ前に ownership が設定済みのキャストはここで補完する

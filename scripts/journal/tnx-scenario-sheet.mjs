@@ -242,6 +242,10 @@ export class TnxScenarioSheet extends JournalSheet {
                 await this._sendHandoutToChat(id);
                 break;
             }
+            case "create-all-user-hands": {
+                await this._onCreateAllUserHands();
+                break;
+            }
             case "reset-access-cards": {
                 await this._onDistributeRlTrump();
                 break;
@@ -558,9 +562,74 @@ export class TnxScenarioSheet extends JournalSheet {
     }
 
     /**
-     * RL用切り札を、捨て場（使用済み）からRLのアクター切り札置き場へ再配布する
+     * 全ユーザー分の手札・切り札置き場を一括作成し、各User flagに保存する
+     */
+    async _onCreateAllUserHands() {
+        if (!game.user.isGM) return ui.notifications.warn("この操作はGMのみ実行可能です。");
+
+        const { saveUserFlagCards } = await import('../module/user-flag-schema.mjs');
+
+        const confirmed = await Dialog.confirm({
+            title: "全ユーザーの手札作成",
+            content: "<p>すべてのユーザーに対して、手札および切り札置き場を一括作成し、ユーザーデータに登録しますか？</p><p>（既に設定されているユーザーは上書きで再作成されます。過去の手札ドキュメントは削除されず残ります）</p>",
+            defaultYes: false
+        });
+
+        if (!confirmed) return;
+
+        ui.notifications.info("手札・切り札の作成を開始します...");
+        let createdCount = 0;
+
+        for (const user of game.users) {
+            const handPileName = game.i18n.format("TNX.Actor.Cards.DefaultHandPileName", { actorName: user.name });
+            const trumpPileName = game.i18n.format("TNX.Actor.Cards.DefaultTrumpPileName", { actorName: user.name });
+            
+            const ownership = {
+                default: CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE,
+                [user.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER
+            };
+            
+            // GMにもOWNER権限を付与する(自身以外の場合)
+            if (user.id !== game.user.id) {
+                ownership[game.user.id] = CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
+            }
+
+            try {
+                const handPile = await Cards.create({
+                    name: handPileName,
+                    type: "hand",
+                    description: `「${user.name}」の手札です。`,
+                    img: "icons/svg/card-hand.svg",
+                    ownership: ownership
+                });
+
+                const trumpPile = await Cards.create({
+                    name: trumpPileName,
+                    type: "pile",
+                    description: `「${user.name}」の切り札置き場です。`,
+                    img: "icons/svg/card-hand.svg",
+                    ownership: ownership,
+                    flags: { "tokyo-nova-axleration": { isTrumpPile: true } }
+                });
+
+                if (handPile && trumpPile) {
+                    await saveUserFlagCards(user, handPile.uuid, trumpPile.uuid);
+                    createdCount++;
+                }
+            } catch (err) {
+                console.error(`TokyoNOVA | Failed to create cards for user ${user.name}:`, err);
+            }
+        }
+
+        ui.notifications.info(`全 ${createdCount} 人のユーザーに手札・切り札を作成しました。`);
+    }
+
+    /**
+     * RL用切り札を、捨て場（使用済み）からRLの切り札置き場へ再配布する
      */
     async _onDistributeRlTrump() {
+        const { getUserFlagData } = await import('../module/user-flag-schema.mjs');
+
         // 1. シナリオに設定されたRL切り札捨て場を取得
         const gmTrumpDiscardId = this.object.getFlag("tokyo-nova-axleration", "gmTrumpDiscardId");
         if (!gmTrumpDiscardId) {
@@ -571,23 +640,20 @@ export class TnxScenarioSheet extends JournalSheet {
             return ui.notifications.error("設定されているRL切り札捨て場が見つかりませんでした。");
         }
 
-        // 2. GMユーザーとそのアクター（キャラクター）を取得
+        // 2. GMユーザーを取得
         const gm = game.users.find(u => u.isGM);
         if (!gm) {
             return ui.notifications.warn("GMユーザーが見つかりません。");
         }
-        if (!gm.character) {
-            return ui.notifications.warn("GMユーザーにキャラクター（プレイヤーアクター）が割り当てられていません。");
-        }
 
-        // 3. GMアクターに紐づく切り札置き場を取得
-        const gmTrumpPileId = gm.character.system.trumpCardPileId;
+        // 3. GMユーザーに紐づく切り札置き場を取得
+        const gmTrumpPileId = getUserFlagData(gm).trumpCardPileId;
         if (!gmTrumpPileId) {
-            return ui.notifications.warn("GMキャラクターに切り札置き場が設定されていません。");
+            return ui.notifications.warn("GMユーザーに切り札置き場が設定されていません。");
         }
         const gmTrumpPile = await fromUuid(gmTrumpPileId);
         if (!gmTrumpPile) {
-            return ui.notifications.error("設定されているGMキャラクターの切り札置き場が見つかりませんでした。");
+            return ui.notifications.error("設定されているGMユーザーの切り札置き場が見つかりませんでした。");
         }
 
         // 4. 捨て場から「切り札」という名前のカードを探す
@@ -609,9 +675,11 @@ export class TnxScenarioSheet extends JournalSheet {
     }
 
     /**
-     * アクセスカード山から「切り札」を検索し、RLのアクター切り札置き場へ配布する
+     * アクセスカード山から「切り札」を検索し、RLの切り札置き場へ配布する
      */
     async _dealRlTrumpFromAccess() {
+        const { getUserFlagData } = await import('../module/user-flag-schema.mjs');
+
         // 1. シナリオに設定されたアクセスカード山を取得
         const accessCardPileId = this.object.getFlag("tokyo-nova-axleration", "accessCardPileId");
         if (!accessCardPileId) {
@@ -622,23 +690,20 @@ export class TnxScenarioSheet extends JournalSheet {
             return ui.notifications.error("設定されているアクセスカード山が見つかりませんでした。");
         }
 
-        // 2. GMユーザーとそのアクター（キャラクター）を取得
+        // 2. GMユーザーを取得
         const gm = game.users.find(u => u.isGM);
         if (!gm) {
             return ui.notifications.warn("GMユーザーが見つかりません。");
         }
-        if (!gm.character) {
-            return ui.notifications.warn("GMユーザーにキャラクター（プレイヤーアクター）が割り当てられていません。");
-        }
 
-        // 3. GMアクターに紐づく切り札置き場を取得
-        const gmTrumpPileId = gm.character.system.trumpCardPileId;
+        // 3. GMユーザーに紐づく切り札置き場を取得
+        const gmTrumpPileId = getUserFlagData(gm).trumpCardPileId;
         if (!gmTrumpPileId) {
-            return ui.notifications.warn("GMキャラクターに切り札置き場が設定されていません。");
+            return ui.notifications.warn("GMユーザーに切り札置き場が設定されていません。");
         }
         const gmTrumpPile = await fromUuid(gmTrumpPileId);
         if (!gmTrumpPile) {
-            return ui.notifications.error("設定されているGMキャラクターの切り札置き場が見つかりませんでした。");
+            return ui.notifications.error("設定されているGMユーザーの切り札置き場が見つかりませんでした。");
         }
 
         // 4. アクセスカード山から「切り札」という名前のカードを探す

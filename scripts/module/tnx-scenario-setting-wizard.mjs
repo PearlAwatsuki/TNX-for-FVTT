@@ -140,6 +140,48 @@ export class TnxScenarioSettingWizard extends FormApplication {
                 updates['flags.tokyo-nova-axleration.gmTrumpDiscardId'] = gmTrumpDiscard.uuid;
             }
         }
+
+        // --- 全ユーザーの手札・切り札置き場の自動作成 ---
+        if (allData.createUserHands) {
+            const { saveUserFlagCards } = await import('./user-flag-schema.mjs');
+            let createdCount = 0;
+            for (const user of game.users) {
+                const handPileName = game.i18n.format("TNX.Actor.Cards.DefaultHandPileName", { actorName: user.name });
+                const trumpPileName = game.i18n.format("TNX.Actor.Cards.DefaultTrumpPileName", { actorName: user.name });
+                
+                const cardOwnership = {
+                    default: CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE,
+                    [user.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER
+                };
+                
+                if (user.id !== game.user.id) {
+                    cardOwnership[game.user.id] = CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
+                }
+
+                const handPile = await Cards.create({
+                    name: handPileName,
+                    type: "hand",
+                    description: `「${user.name}」の手札です。`,
+                    img: "icons/svg/card-hand.svg",
+                    ownership: cardOwnership
+                });
+
+                const trumpPile = await Cards.create({
+                    name: trumpPileName,
+                    type: "pile",
+                    description: `「${user.name}」の切り札置き場です。`,
+                    img: "icons/svg/card-hand.svg",
+                    ownership: cardOwnership,
+                    flags: { "tokyo-nova-axleration": { isTrumpPile: true } }
+                });
+
+                if (handPile && trumpPile) {
+                    await saveUserFlagCards(user, handPile.uuid, trumpPile.uuid);
+                    createdCount++;
+                }
+            }
+            ui.notifications.info(`全 ${createdCount} 人のユーザーに手札・切り札を作成しました。`);
+        }
         
         // --- シーン作成 ---
         const sceneCounts = allData.sceneCounts || {};
@@ -185,8 +227,9 @@ export class TnxScenarioSettingWizard extends FormApplication {
             
             // 3. RL（GM）の切り札置き場を特定する
             let targetGmTrumpPile = null;
-            if (gm && gm.character) {
-                const pileId = gm.character.system.trumpCardPileId;
+            if (gm) {
+                const { getUserFlagData } = await import('./user-flag-schema.mjs');
+                const pileId = getUserFlagData(gm).trumpCardPileId;
                 if (pileId) {
                     targetGmTrumpPile = await fromUuid(pileId);
                 }
@@ -198,7 +241,7 @@ export class TnxScenarioSettingWizard extends FormApplication {
                     await accessCardPile.pass(targetGmTrumpPile, [trumpCard.id], {chatNotification: false});
                     ui.notifications.info("「切り札」をアクセスカード置き場からRLの切り札に配布しました。");
                 } else {
-                    ui.notifications.warn("RLにキャラクターが割り当てられていない、または切り札置き場が存在しないため、「切り札」を配布できませんでした（カードは置き場に残ります）。");
+                    ui.notifications.warn("RLに切り札置き場が存在しないため、「切り札」を配布できませんでした（カードは置き場に残ります）。");
                 }
             } else {
                 ui.notifications.info("アクセスカード置き場に全てのカードを配置しました。");

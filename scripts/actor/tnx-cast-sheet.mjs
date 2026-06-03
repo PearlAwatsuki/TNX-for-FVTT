@@ -152,7 +152,6 @@ export class TokyoNovaCastSheet extends ActorSheet {
 
         context.badStatuses = bsList;
 
-        await this._getCardPileData(context);
         this._getCitizenRankData(context);
         this._getAbilitiesData(context, allStyles);
         this._prepareSkillsData(context);
@@ -382,20 +381,6 @@ export class TokyoNovaCastSheet extends ActorSheet {
             }
         });
 
-        const draggableCards = html.find('.hand-cards-display .card-in-hand');
-        draggableCards.each((i, el) => {
-            el.setAttribute('draggable', true);
-            el.addEventListener('dragstart', (event) => {
-                event.stopPropagation();
-                const dragData = {
-                    sourceType: 'actor-hand-card',
-                    cardId: el.dataset.cardId,
-                    actorId: this.actor.id
-                };
-                event.dataTransfer.setData('text/plain', JSON.stringify(dragData));
-            });
-        });
-
         html.find('.tnx-bs-remove').click(async (ev) => {
             ev.preventDefault();
             ev.stopPropagation();
@@ -483,13 +468,6 @@ export class TokyoNovaCastSheet extends ActorSheet {
             }
         ];
         new ContextMenu(html, '[data-context-menu="miracle-view"]', miracleViewMenu);
-        
-        const unlinkMenu = [{
-            name: game.i18n.localize("TNX.UnlinkCards"),
-            icon: '<i class="fas fa-unlink"></i>',
-            callback: panel => this.actor.update({ [panel.data('unlinkPath')]: "" })
-        }];
-        new ContextMenu(html, '[data-context-menu-type="unlink"]', unlinkMenu);
 
         const styleSkillOptions = [
             {
@@ -620,16 +598,9 @@ export class TokyoNovaCastSheet extends ActorSheet {
                 const latestPlayerActor = Array.isArray(updatedPlayerDocs) ? updatedPlayerDocs[0] : updatedPlayerDocs;
 
                 // 5. キャストシートをプレイヤーにリンク
-                // 手札・切り札IDの同期も含める
                 const updateData = {
                     "system.playerId": sourceActor.uuid
                 };
-                if (sourceActor.system.handPileId) {
-                    updateData["system.handPileId"] = sourceActor.system.handPileId;
-                }
-                if (sourceActor.system.trumpCardPileId) {
-                    updateData["system.trumpCardPileId"] = sourceActor.system.trumpCardPileId;
-                }
 
                 // キャスト自身の履歴は**上書きしない**（元データを残すため）
                 // 【修正】自身の更新結果も受け取る
@@ -776,23 +747,6 @@ export class TokyoNovaCastSheet extends ActorSheet {
         }
         
         return super._onDropItem(event, data);
-    }
-
-    async _onDropCardPile(event, data) {
-        event.preventDefault();
-        const dropArea = event.target.closest('[data-drop-area]')?.dataset.dropArea;
-        if (!dropArea) return false;
-        const droppedDoc = await fromUuid(data.uuid);
-        if (!droppedDoc) return false;
-        if (dropArea === 'hand-pile' && droppedDoc.type === 'hand') {
-            await this.actor.update({ "system.handPileId": data.uuid });
-            return true;
-        } 
-        if (dropArea === 'trump-card-pile' && droppedDoc.type === 'pile') {
-            await this.actor.update({ "system.trumpCardPileId": data.uuid });
-            return true;
-        }
-        return false;
     }
 
     async _onItemDelete(event) {
@@ -1112,81 +1066,6 @@ export class TokyoNovaCastSheet extends ActorSheet {
         panel.slideToggle(200);
         const icon = toggle.find('i');
         icon.toggleClass('fa-chevron-down fa-chevron-up');
-    }
-
-    _onOpenHandSheet(event) {
-        event.preventDefault();
-        const handPileId = this.actor.system.handPileId;
-        if (handPileId) fromUuid(handPileId).then(doc => doc?.sheet.render(true));
-    }
-
-    _onOpenTrumpCardSheet(event) {
-        event.preventDefault();
-        const trumpCardPileId = this.actor.system.trumpCardPileId;
-        if (trumpCardPileId) fromUuid(trumpCardPileId).then(doc => doc?.sheet.render(true));
-    }
-
-    async _onPlayCard(event) {
-        event.preventDefault();
-        const cardId = event.currentTarget.dataset.cardId;
-        await TnxActionHandler.playCard(cardId, { actor: this.actor });
-    }
-
-    async _onDrawCard(event) {
-        event.preventDefault();
-        await TnxActionHandler.drawCard({ actor: this.actor });
-    }
-
-    async _onUseTrumpCard(event) {
-        event.preventDefault();
-        const trumpCardPileId = this.actor.system.trumpCardPileId;
-        if (!trumpCardPileId) return ui.notifications.warn("切り札が設定されていません。");
-        
-        const trumpPile = await fromUuid(trumpCardPileId);
-        if (!trumpPile || trumpPile.cards.size === 0) return ui.notifications.warn("使用できる切り札がありません。");
-        
-        const trumpCard = trumpPile.cards.values().next().value;
-        const cardName = trumpCard.name || "名前不明のカード";
-        const cardImg = trumpCard.faces[0]?.img || trumpCard.img || CONST.DEFAULT_TOKEN;
-        const cardDescription = trumpCard.description || "";
-
-        const confirmed = await RichConfirmDialog.prompt({
-            title: game.i18n.localize("TNX.ConfirmUseTrumpCardTitle"),
-            content: game.i18n.format("TNX.ConfirmUseTrumpCardContent", { cardName: `<strong>${cardName}</strong>` }),
-            img: cardImg,
-            description: cardDescription,
-            mainButtonLabel: game.i18n.localize("TNX.Use")
-        });
-
-        if (confirmed) {
-            await TnxActionHandler.useTrump(trumpCard.id, { actor: this.actor });
-        }
-    }
-
-    async _onPassToOther(event) {
-        event.preventDefault();
-        const sourceHand = await fromUuid(this.actor.system.handPileId);
-        if (!sourceHand || sourceHand.cards.size === 0) return ui.notifications.warn("渡せるカードが手札にありません。");
-        const cards = Array.from(sourceHand.cards.values()).map(c => c.toObject(false));
-        const selectedCardsIds = await CardSelectionDialog.prompt({
-            title: game.i18n.localize("TNX.SelectCardsToPassTitle"),
-            content: game.i18n.localize("TNX.SelectCardsToPassContent"),
-            cards,
-            passLabel: game.i18n.localize("TNX.Pass")
-        });
-        if (!selectedCardsIds || selectedCardsIds.length === 0) return;
-        const otherActors = game.actors.filter(a => a.id !== this.actor.id && a.type === 'cast');
-        if (otherActors.length === 0) return ui.notifications.warn(game.i18n.localize("TNX.NoOtherActorsFound"));
-        const targetActorId = await TargetSelectionDialog.prompt({
-            title: game.i18n.localize("TNX.SelectTargetActorTitle"),
-            label: game.i18n.localize("TNX.SelectTargetActorContent"),
-            options: otherActors.map(a => ({ value: a.id, label: a.name })),
-            selectLabel: game.i18n.localize("TNX.Pass")
-        });
-        if (!targetActorId) return;
-        const targetActor = game.actors.get(targetActorId);
-        if (!targetActor?.system.handPileId) return ui.notifications.warn(`${targetActor.name}に手札が設定されていません。`);
-        await TnxActionHandler.passCards(this.actor.id, targetActorId, selectedCardsIds);
     }
 
     async _onGrowthChange(event) {

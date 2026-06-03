@@ -128,16 +128,16 @@
                     </div>
                 </fieldset>
                 <fieldset class="tnx-fieldset">
-                    <legend>RL専用カードの設定</legend>
-                    <div class="manual-text">
-                        <p>RL専用の手札と切り札は、このシナリオシートではなく、あなた個人のユーザー設定に紐づけられます。</p>
-                        <p>設定や確認を行うには、画面左下の入室者リストからご自身のユーザー名を右クリックし、「<b>ユーザー設定</b>」を開いてください。</p>
-                        <p>また、プレイヤー用の手札と切り札はキャラクター作成と同時に作成されます。RL用の手札と同様に設定を完了させてください。なお、ログインしていないユーザーは入室者リストを一度クリックして展開することで表示されるようになります。</p>
-                    </div>
-                </fieldset>
-                <fieldset class="tnx-fieldset">
                     <legend>管理アクション</legend>
                     <div class="scenario-actions">
+                        <div>
+                            <button type="button" class="tnx-button" data-action="create-all-user-hands">
+                                <i class="fas fa-users"></i> 全ユーザーの手札・切り札を作成
+                            </button>
+                            <p class="sheet-notes notes">
+                                全てのユーザーに対して手札・切り札置き場を一括作成し、各ユーザーのフラグに紐づけます。
+                            </p>
+                        </div>
                         <div>
                             <button type="button" class="tnx-button" data-action="deal-trump-for-rl">
                                 <i class="fas fa-crown"></i> RLの切り札を設定
