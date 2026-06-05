@@ -652,67 +652,6 @@ Hooks.once("init", async function() {
         }
     });
 
-    Hooks.on("preDeleteActor", async (actor, options, userId) => {
-        // ■修正: 対象アクターの判定
-        // キャスト(cast) のみが対象
-        const isCast = actor.type === "cast";
-        
-        if (!isCast) {
-            return true;
-        }
-
-        // ■追加: リンク済みキャストの除外判定
-        // キャストであり、かつプレイヤーIDが設定されている場合は、
-        // カードの実体はプレイヤー側にあるとみなして削除確認を行わない
-        if (isCast && actor.system.playerId) {
-            return true;
-        }
-    
-        // 1. アクターに直接リンクされているカードドキュメントのUUIDを収集します
-        const linkedUuids = [
-            actor.system.handPileId,
-            actor.system.trumpCardPileId
-        ].filter(uuid => !!uuid); // 空のIDを除外します
-    
-        // リンクされたドキュメントがなければ、通常の削除処理を続行します
-        if (linkedUuids.length === 0) {
-            return true;
-        }
-    
-        // 2. UUIDから実際のカードドキュメントを取得します
-        const docsToDelete = (await Promise.all(
-            linkedUuids.map(uuid => fromUuid(uuid))
-        )).filter(doc => doc); // 存在しないドキュメント(null)を除外します
-    
-        if (docsToDelete.length === 0) {
-            return true;
-        }
-    
-        // 3. ユーザーに削除を確認するダイアログを表示します
-        const cardNames = docsToDelete.map(doc => `「${doc.name}」`).join("、");
-        const content = `<p>アクター「${actor.name}」を削除しようとしています。</p>
-                         <p>このアクターに直接リンクされている、以下のカード置き場（手札・切り札）も一緒に削除しますか？</p>
-                         <p><strong>${cardNames}</strong></p>
-                         <p>この操作は元に戻せません。</p>`;
-    
-        const confirmed = await Dialog.confirm({
-            title: "関連カード置き場の削除確認",
-            content: content,
-            yes: () => true,
-            no: () => false,
-            defaultYes: false
-        });
-    
-        // 4. 確認された場合、収集したドキュメントを削除します
-        if (confirmed) {
-            const deletionPromises = docsToDelete.map(doc => doc.delete());
-            await Promise.all(deletionPromises);
-        }
-    
-        // ユーザーの選択に関わらず、アクター本体の削除処理は常に続行します
-        return true;
-    });
-
     Hooks.on("preUpdateItem", async(item, changes) => {
         // 更新されるアイテムが神業の場合の処理
         if (item.type === "miracle") {

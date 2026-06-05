@@ -2,7 +2,7 @@
  * @fileoverview CastDataModel - キャスト Actor の DataModel
  *
  * 使用 template: biography + attributes + actorBase
- * 固有フィールド: player_name / playerId / history / exp / lifePath
+ * 固有フィールド: player_name / ownerUserId / history / exp / lifePath
  *
  * 準拠データ: template.json > Actor.cast
  *
@@ -27,7 +27,6 @@ export class CastDataModel extends SystemDataModel.mixin(
     return {
       ...super.defineSchema(),
       player_name:   new fields.StringField({ initial: "" }),
-      playerId:      new fields.StringField({ initial: "" }),
       ownerUserId:   new fields.StringField({ initial: "" }),
       syncWithOwner: new fields.BooleanField({ initial: true }),
       history:     new fields.ObjectField(),
