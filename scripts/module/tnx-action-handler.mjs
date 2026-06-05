@@ -181,7 +181,7 @@ export class TnxActionHandler {
      * @param {object} [context={}] - 操作のコンテキスト
      */
     static async drawCard(context = {}) {
-        const { getUserFlagData } = await import('./user-flag-schema.mjs');
+        const { getUserFlagData, resolveEffectiveHandMaxSize } = await import('./user-flag-schema.mjs');
         const deck = await this.getActiveDeck();
         if (!deck || deck.availableCards.length === 0) {
             return ui.notifications.warn("山札にカードがありません。");
@@ -194,7 +194,10 @@ export class TnxActionHandler {
             // 【ケース1】アクターシートから呼び出された場合
             const handId = context.actor.system.handPileId;
             hand = handId ? await fromUuid(handId) : null;
-            limit = context.actor.system.handMaxSize || 0;
+            const ownerUser = context.actor.type === 'cast' && context.actor.system.ownerUserId
+                ? game.users.find(u => u.uuid === context.actor.system.ownerUserId)
+                : null;
+            limit = resolveEffectiveHandMaxSize(ownerUser);
             if (!hand) {
                 return ui.notifications.warn(`アクター「${context.actor.name}」に手札が設定されていません。`);
             }
@@ -203,8 +206,8 @@ export class TnxActionHandler {
             const flagData = getUserFlagData(game.user);
             const handId = flagData.handPileId;
             hand = handId ? await fromUuid(handId) : null;
-            limit = flagData.handMaxSize ?? game.settings.get("tokyo-nova-axleration", "defaultHandMaxSize");
-            
+            limit = resolveEffectiveHandMaxSize(game.user);
+
             if (!hand) return ui.notifications.warn(`ユーザー「${game.user.name}」に手札が設定されていません。`);
         }
 
@@ -282,7 +285,7 @@ export class TnxActionHandler {
      * @param {object} [context={}] - 操作のコンテキスト
      */
     static async takeFromDiscard(context = {}) {
-        const { getUserFlagData } = await import('./user-flag-schema.mjs');
+        const { getUserFlagData, resolveEffectiveHandMaxSize } = await import('./user-flag-schema.mjs');
         let hand, limit, handSourceDescription;
 
         // アクターが指定されていれば、アクターの手札を対象にする
@@ -290,15 +293,18 @@ export class TnxActionHandler {
             const actor = context.actor;
             const handId = actor.system.handPileId;
             hand = handId ? await fromUuid(handId) : null;
-            limit = actor.system.handMaxSize || 0;
+            const ownerUser = actor.type === 'cast' && actor.system.ownerUserId
+                ? game.users.find(u => u.uuid === actor.system.ownerUserId)
+                : null;
+            limit = resolveEffectiveHandMaxSize(ownerUser);
             handSourceDescription = `アクター「${actor.name}」`;
-        } 
+        }
         // 指定がなければ、操作しているユーザーのHUD手札を対象にする
         else {
             const flagData = getUserFlagData(game.user);
             const handId = flagData.handPileId;
             hand = handId ? await fromUuid(handId) : null;
-            limit = flagData.handMaxSize ?? game.settings.get("tokyo-nova-axleration", "defaultHandMaxSize");
+            limit = resolveEffectiveHandMaxSize(game.user);
             handSourceDescription = "あなた";
         }
 
@@ -328,7 +334,7 @@ export class TnxActionHandler {
      * すべての手札に、上限まで1枚ずつカードを補充する
      */
     static async dealInitialHands() {
-        const { getUserFlagData } = await import('./user-flag-schema.mjs');
+        const { getUserFlagData, resolveEffectiveHandMaxSize } = await import('./user-flag-schema.mjs');
 
         // --- 1. 配布に必要な基本情報を取得 ---
         const deck = await this.getActiveDeck();
@@ -336,8 +342,8 @@ export class TnxActionHandler {
             return ui.notifications.warn("山札にカードがありません。");
         }
 
-        const defaultMaxSize = game.settings.get("tokyo-nova-axleration", "defaultHandMaxSize");
-        if (!defaultMaxSize || defaultMaxSize <= 0) {
+        const defaultHandMaxSize = game.settings.get("tokyo-nova-axleration", "defaultHandMaxSize");
+        if (!defaultHandMaxSize || defaultHandMaxSize <= 0) {
             return ui.notifications.warn("システム設定で初期手札枚数が設定されていません。");
         }
 
@@ -351,7 +357,7 @@ export class TnxActionHandler {
         for (const hand of allHands) {
             // その手札を持つUserを探す
             const ownerUser = game.users.find(u => getUserFlagData(u).handPileId === hand.uuid);
-            const limit = ownerUser ? getUserFlagData(ownerUser).handMaxSize : defaultMaxSize;
+            const limit = resolveEffectiveHandMaxSize(ownerUser);
             handsToDeal.push({ hand, limit });
         }
         
@@ -398,14 +404,14 @@ export class TnxActionHandler {
      * 【HUD用】操作したユーザーが、自身の手に複数枚カードを引く
      */
     static async drawMultipleCardsFromDeck() {
-        const { getUserFlagData } = await import('./user-flag-schema.mjs');
+        const { getUserFlagData, resolveEffectiveHandMaxSize } = await import('./user-flag-schema.mjs');
         const flagData = getUserFlagData(game.user);
         const handId = flagData.handPileId;
         if (!handId) return ui.notifications.warn("ユーザーに手札が割り当てられていません。");
-        
+
         const userHand = await fromUuid(handId);
 
-        const handLimit = flagData.handMaxSize ?? game.settings.get("tokyo-nova-axleration", "defaultHandMaxSize");
+        const handLimit = resolveEffectiveHandMaxSize(game.user);
 
         const numToDraw = await AmountInputDialog.prompt({
             title: "複数枚カードを引く",

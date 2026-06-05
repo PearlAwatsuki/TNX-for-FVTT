@@ -8,7 +8,8 @@
  * 関数の種別:
  *   - 純粋関数(引数のみに依存、Foundry 不要): getUserFlagData / getUserFlagHistorySorted /
  *     calcHistoryExpTotal / historyAdd / historyUpdate / historyRemove
- *   - Foundry 依存(非同期): saveUserFlagHistory
+ *   - Foundry 依存(同期): resolveEffectiveHandMaxSize
+ *   - Foundry 依存(非同期): saveUserFlagHistory / deleteUserFlagHistoryEntry / saveUserFlagCards
  */
 
 export const TNX_FLAG_SCOPE = "tokyo-nova-axleration";
@@ -122,6 +123,25 @@ export function historyRemove(historyMap, entryId) {
   const copy = { ...historyMap };
   delete copy[entryId];
   return copy;
+}
+
+// ─── Foundry 依存: 実効手札上限の解決 ───────────────────────────────────────
+
+/**
+ * ユーザーの実効手札上限を返す。
+ *
+ * User flag に handMaxSize が明示設定されていればその値を、
+ * 未設定の場合はゲーム設定 defaultHandMaxSize を返す。
+ *
+ * FLAG_DEFAULTS を経由しないことで「未設定」と「明示的に 4 を設定」を区別できる。
+ *
+ * @param {User|null|undefined} user  Foundry User ドキュメント
+ * @returns {number}
+ */
+export function resolveEffectiveHandMaxSize(user) {
+  const explicit = user?.flags?.[TNX_FLAG_SCOPE]?.handMaxSize;
+  if (explicit !== undefined) return explicit;
+  return game.settings.get("tokyo-nova-axleration", "defaultHandMaxSize");
 }
 
 // ─── Foundry 依存: flag への書き込み ─────────────────────────────────────

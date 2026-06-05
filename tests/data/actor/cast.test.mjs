@@ -36,12 +36,16 @@ describe("CastDataModel.defineSchema()", () => {
   });
 
   describe("ActorBaseTemplate のフィールドが含まれる", () => {
-    const actorBaseKeys = ["handMaxSize", "handPileId", "trumpCardPileId"];
+    const actorBaseKeys = ["handPileId", "trumpCardPileId"];
     for (const key of actorBaseKeys) {
       it(`schema.${key} が存在する`, () => {
         expect(schema).toHaveProperty(key);
       });
     }
+
+    it("handMaxSize フィールドを持たない(手札上限は User flag の権威)", () => {
+      expect(schema).not.toHaveProperty("handMaxSize");
+    });
   });
 
   describe("cast 固有フィールド — 基本", () => {
@@ -50,9 +54,8 @@ describe("CastDataModel.defineSchema()", () => {
       expect(schema.player_name.options.initial).toBe("");
     });
 
-    it("playerId が StringField で initial が空文字", () => {
-      expect(schema.playerId).toBeInstanceOf(MockStringField);
-      expect(schema.playerId.options.initial).toBe("");
+    it("playerId フィールドを持たない(フェーズ2-5 で廃止)", () => {
+      expect(schema).not.toHaveProperty("playerId");
     });
 
     it("history が ObjectField である", () => {

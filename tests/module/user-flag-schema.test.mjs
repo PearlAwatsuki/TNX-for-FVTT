@@ -14,6 +14,7 @@ import {
   saveUserFlagHistory,
   deleteUserFlagHistoryEntry,
   saveUserFlagCards,
+  resolveEffectiveHandMaxSize,
   TNX_FLAG_SCOPE,
 } from "../../scripts/module/user-flag-schema.mjs";
 
@@ -387,6 +388,68 @@ describe("saveUserFlagCards()", () => {
 
     const result = await saveUserFlagCards(user, "h", "t");
     expect(result).toBe(mockReturn);
+  });
+});
+
+// ─── Foundry 依存(同期): resolveEffectiveHandMaxSize ──────────────────────
+
+describe("resolveEffectiveHandMaxSize()", () => {
+  const makeUser = (flags = {}) => ({
+    flags: { [TNX_FLAG_SCOPE]: flags },
+  });
+
+  const withGameSettings = (settingValue, fn) => {
+    const original = globalThis.game;
+    globalThis.game = {
+      settings: { get: vi.fn().mockReturnValue(settingValue) },
+    };
+    try { fn(); } finally { globalThis.game = original; }
+  };
+
+  it("User flag に handMaxSize が明示設定されている場合、その値を返す", () => {
+    withGameSettings(4, () => {
+      const user = makeUser({ handMaxSize: 6 });
+      expect(resolveEffectiveHandMaxSize(user)).toBe(6);
+    });
+  });
+
+  it("User flag が未設定の場合、ゲーム設定 defaultHandMaxSize を返す", () => {
+    withGameSettings(5, () => {
+      const user = makeUser({});
+      expect(resolveEffectiveHandMaxSize(user)).toBe(5);
+    });
+  });
+
+  it("ゲーム設定値を変えると実効上限が追随する(連携が生きていることの検証)", () => {
+    const user = makeUser({});
+    withGameSettings(3, () => {
+      expect(resolveEffectiveHandMaxSize(user)).toBe(3);
+    });
+    withGameSettings(7, () => {
+      expect(resolveEffectiveHandMaxSize(user)).toBe(7);
+    });
+  });
+
+  it("user が null の場合、ゲーム設定を返す", () => {
+    withGameSettings(4, () => {
+      expect(resolveEffectiveHandMaxSize(null)).toBe(4);
+    });
+  });
+
+  it("User flag に handMaxSize が 0 と明示設定されている場合、0 を返す(falsy 値の区別)", () => {
+    withGameSettings(4, () => {
+      const user = makeUser({ handMaxSize: 0 });
+      expect(resolveEffectiveHandMaxSize(user)).toBe(0);
+    });
+  });
+
+  it("FLAG_DEFAULTS のハードコード値(4)ではなくゲーム設定を返す", () => {
+    withGameSettings(8, () => {
+      const user = makeUser({});
+      const result = resolveEffectiveHandMaxSize(user);
+      expect(result).toBe(8);
+      expect(result).not.toBe(4);
+    });
   });
 });
 

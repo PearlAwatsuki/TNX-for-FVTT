@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MockNumberField, MockStringField } from "../../../setup.mjs";
+import { MockStringField } from "../../../setup.mjs";
 
 const { ActorBaseTemplate } = await import("../../../../scripts/data/actor/common/actor-base.mjs");
 
@@ -11,16 +11,15 @@ describe("ActorBaseTemplate.defineSchema()", () => {
   });
 
   describe("トップレベルフィールドがすべて存在する", () => {
-    for (const key of ["handMaxSize", "handPileId", "trumpCardPileId"]) {
+    for (const key of ["handPileId", "trumpCardPileId"]) {
       it(`schema.${key} が存在する`, () => {
         expect(schema).toHaveProperty(key);
       });
     }
   });
 
-  it("handMaxSize は NumberField で initial が 4 (template.json 準拠)", () => {
-    expect(schema.handMaxSize).toBeInstanceOf(MockNumberField);
-    expect(schema.handMaxSize.options.initial).toBe(4);
+  it("handMaxSize フィールドを持たない(手札上限は User flag の権威)", () => {
+    expect(schema).not.toHaveProperty("handMaxSize");
   });
 
   it("handPileId は StringField で initial が空文字", () => {
