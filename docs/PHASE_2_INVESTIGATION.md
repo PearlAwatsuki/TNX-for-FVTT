@@ -4,8 +4,8 @@
 重要な制約・トレードオフを記録する。
 
 **作成**: 2026-05-24  
-**更新**: 2026-05-25(設計確定事項追記 / 手札方針訂正 / サブフェーズ構成追記)  
-**ステータス**: 設計確定・サブフェーズ構成確定
+**更新**: 2026-06-05(2-3〜2-5 実装結果追記 / handMaxSize 締め対応追記)  
+**ステータス**: フェーズ2 完了(v0.3.1)
 
 ---
 
@@ -310,22 +310,42 @@ updateUser(hist/exp変更, syncing=false)
 
 **テスト**: 全 610 件グリーン / ESLint 確認済み
 
-### 2-3: 手札・切り札を User flag へ + アクトシート一括作成
+### 2-3: 手札・切り札を User flag へ + HUD 張替 + cast 手札削除 ✅ 完了(2026-05-25)
 
-User flag に手札・切り札 Cards UUID と手札上限を保持。アクトシートの RL 手札作成を
-全ユーザーぶんに拡張(ownership 設定込み)。HUD の手札取得を `game.user` の flag 経由へ
-張り替え。キャストシートの手札表示を削除。HUD に作成 UI は足さない。
+User flag に手札・切り札 Cards UUID と手札上限を保持。HUD の手札取得を `game.user` の
+flag 経由へ張り替え。キャストシートの手札管理インターフェースを削除。
+アクトシートの RL 手札作成を全ユーザーぶんに拡張(ownership 設定込み)。
 
-### 2-4: 既存 player Actor データの User flag への移行(可逆)
+**実装結果**:
+- `scripts/module/user-flag-schema.mjs`: `handPileId` / `trumpCardPileId` / `handMaxSize` を
+  User flag スキーマに追加。`saveUserFlagCards` ヘルパー新設。
+- `scripts/module/tnx-action-handler.mjs`: drawCard / takeFromDiscard / drawMultipleCardsFromDeck /
+  dealInitialHands の手札参照を User flag 経由に張り替え。
+- HUD テンプレートの手札表示を User flag 参照へ変更。
+- cast シートから手札管理 UI を削除(cast は手札に非関与)。
 
-既存ワールドの player Actor の `history`・`exp`・手札 UUID を対応 User flag へ移す。
-実運用前なら移行不要の可能性あり、要否は着手時確認。player はまだ消さない(コピーのみ)。
+**フェーズ2 締めジョブでの追加対応(v0.3.1)**:
+- `ActorBaseTemplate.handMaxSize` フィールドを削除し、手札上限の権威を User flag に一本化。
+- `resolveEffectiveHandMaxSize(user)` リゾルバを新設。User flag 個別値 → ゲーム設定
+  `defaultHandMaxSize` のフォールバック順を確立(FLAG_DEFAULTS ハードコード値を迂回)。
+- 全消費箇所をリゾルバ経由に統一。cast Actor の `system.handMaxSize` 直接参照を一掃。
+- KI-005 ベース連携(層①②)解消。ActiveEffect 修正(層③)は KI-020 として新設フェーズへ。
 
-### 2-5: player Actor の廃止(不可逆・最後)
+### 2-4: 既存 player Actor データの User flag への移行 — スキップ(pre-production)
+
+実運用前であり移行対象データが存在しないため、スキップ。
+実運用を開始する前には player Actor から User flag へのデータ移行が不要であることを確認済み。
+
+### 2-5: player Actor の廃止(不可逆・最後) ✅ 完了(2026-05-25〜2026-06-05)
 
 player type の登録・シート・preCreateActor 自動作成・各フックの player 分岐を除去。
-`system.json` から player 関連を整理。2-0〜2-4 が全グリーンで User 側が
-完全機能していることを確認してから着手。不可逆の直前で報告を挟む。
+`system.json` から player 関連を整理済み。
+
+**フェーズ2 締めジョブでの追加対応(v0.3.1)**:
+- `scripts/tnx.mjs`: `preDeleteActor` フック全体を削除(player Actor のカード置き場
+  削除確認ロジックが cast の手札 User 移行により no-op 化していたため)。
+- `scripts/data/actor/cast.mjs`: `playerId` フィールド定義を削除(player 廃止の積み残し)。
+  `tnx-cast-sheet.mjs` の playerId 分岐 8 箇所は KI-017 と統合しフェーズ3 で対応。
 
 ---
 
