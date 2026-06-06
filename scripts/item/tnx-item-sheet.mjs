@@ -1,151 +1,122 @@
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 import { UsageCreationDialog } from "../module/tnx-dialog.mjs";
 
+const { HandlebarsApplicationMixin } = foundry.applications.api;
+const { ItemSheetV2 } = foundry.applications.sheets;
 
 /**
- * Tokyo NOVA アイテムシートの基底クラス
- * 用途(Actions)タブの処理や共通のエフェクト処理を提供します。
+ * Tokyo NOVA アイテムシートの基底クラス。
+ * 用途(Actions)タブの処理や共通のエフェクト処理を提供する。
+ * PARTS は各サブクラスで定義する。
  */
-export class TokyoNovaItemSheet extends ItemSheet {
-    constructor(...args) {
-        super(...args);
-        this._isEditMode = false;
-    }
+export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
-    static get defaultOptions() {
-        return foundry.utils.mergeObject(super.defaultOptions, {
-            width: 600,
-            height: 650,
-            tabs: [{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "description" }]
-        });
-    }
+    /** view/edit モード状態。isOwner でない場合は常に false。 */
+    _isEditMode = false;
 
-    /**
-     * 用途の種類の定義
-     */
+    /** アクティブタブの状態。 */
+    tabGroups = { primary: "description" };
+
+    static DEFAULT_OPTIONS = {
+        classes: ["tokyo-nova", "sheet", "item"],
+        position: { width: 600, height: 650 },
+        form: { submitOnChange: true },
+        actions: {
+            ...EffectsSheetMixin.ACTIONS,
+            toggleEditMode: TokyoNovaItemSheet._onToggleEditMode,
+        },
+    };
+
     static get usageTypes() {
         return {
             "check": "判定",
             "declaration": "宣言",
-            "miracle": "神業"
+            "miracle": "神業",
         };
     }
 
-    _getHeaderButtons() {
-        const buttons = super._getHeaderButtons();
-        
-        if (this.isEditable) {
-            buttons.unshift({
-                label: "UUIDをコピー",
-                class: "copy-uuid",
-                icon: "fas fa-passport",
-                onclick: (ev) => {
-                    ev.preventDefault();
-                    game.clipboard.copyPlainText(this.document.uuid);
-                    ui.notifications.info(game.i18n.format("DOCUMENT.IdCopiedClipboard", {label: this.document.documentName, type: "UUID", id: this.document.uuid}));
-                }
-            });
-        }
-        
-        return buttons;
-    }
-
-    async getData(options) {
-        const context = await super.getData(options);
+    /** @override */
+    async _prepareContext(options) {
+        const context = await super._prepareContext(options);
         const system = foundry.utils.deepClone(this.item.system);
+
+        context.item = this.item;
         context.system = system;
-        
-        // context.options を初期化し、usageTypes を設定
-        context.options = context.options || {};
-        context.options.usageTypes = this.constructor.usageTypes;
-        context.isEditMode = this._isEditMode && this.isEditable;
+        context.owner = this.document.isOwner;
+        // V1 テンプレートとの互換のため cssClass を提供する
+        context.cssClass = this.element?.className ?? "";
+        context.options = { usageTypes: this.constructor.usageTypes };
+        context.isEditMode = this._isEditMode && context.editable;
 
-        // 解説のエンリッチ
-        context.enrichedDescription = await TextEditor.enrichHTML(system.description, { async: true, relativeTo: this.item, editable: this.isEditable });
+        context.enrichedDescription = await TextEditor.enrichHTML(system.description, {
+            relativeTo: this.item,
+            editable: context.editable,
+        });
 
-        // エフェクトタブの共通処理
         EffectsSheetMixin.prepareEffectsContext(this.item, context);
         context.allEffects = [
             ...context.effects.temporary,
             ...context.effects.passive,
-            ...context.effects.inactive
+            ...context.effects.inactive,
         ];
 
         return context;
     }
 
-    activateListeners(html) {
-        super.activateListeners(html);
-        if (!this.isEditable) return;
+    /** @override */
+    _onRender(context, _options) {
+        const el = this.element;
 
-        EffectsSheetMixin.activateEffectListListeners(html, this.item);
+        // edit/view モード CSS クラスを同期
+        el.classList.toggle("edit-mode", !!context.isEditMode);
+        el.classList.toggle("view-mode", !context.isEditMode);
 
-        html.find('.action-create').on('click', this._onActionCreate.bind(this));
-        html.find('.action-delete').on('click', this._onActionDelete.bind(this));
-    }
+        if (!context.editable) return;
 
-    async _render(force = false, options = {}) {
-        await super._render(force, options);
-        
-        if (this.element && this.element[0]) {
-            const sheetElement = this.element[0];
-            const header = this.element.find('.window-header');
-
-            // クラスの切り替え
-            if (this._isEditMode && this.isEditable) {
-                sheetElement.classList.remove("view-mode");
-                sheetElement.classList.add("edit-mode");
-            } else {
-                sheetElement.classList.remove("edit-mode");
-                sheetElement.classList.add("view-mode");
-            }
-
-            // トグルスイッチの挿入
-            if (this.isEditable && header.find('.edit-mode-toggle').length === 0) {
-                const toggleBtn = $('<a class="edit-mode-toggle" title="編集モード切替"></a>');
-                toggleBtn.on('click', (ev) => {
-                    ev.preventDefault();
-                    this._onToggleEditMode(ev);
-                });
-                header.prepend(toggleBtn);
-            }
+        // 編集モード切替ボタン。window-header は PART 外で永続するが
+        // _onRender は毎レンダー呼ばれるので remove → append でリフレッシュする。
+        const header = el.querySelector(".window-header");
+        if (header) {
+            header.querySelector(".edit-mode-toggle")?.remove();
+            const btn = document.createElement("a");
+            btn.className = "edit-mode-toggle";
+            btn.title = "編集モード切替";
+            btn.dataset.action = "toggleEditMode";
+            header.prepend(btn);
         }
-    }
 
-    // 【追加】モード切り替えハンドラ
-    _onToggleEditMode(event) {
-        if (event) event.preventDefault();
-        this._isEditMode = !this._isEditMode;
-        this.render(false);
-    }
-
-    async _onActionCreate(event) {
-        event.preventDefault();
-        
-        // クラス定義から用途のリストを取得
-        const usageTypes = this.constructor.usageTypes;
-
-        // 専用ダイアログを呼び出し
-        const type = await UsageCreationDialog.prompt({ usageTypes });
-
-        // 追加ボタンが押された場合（nullでない場合）のみ処理を実行
-        if (type) {
-            const actions = foundry.utils.deepClone(this.item.system.actions || []);
-            
-            actions.push({
-                type: type,
-                name: "新規用途",
-                description: ""
+        // usage-list.hbs は変更不可のため data-action ではなく直接リスナーで対応する
+        el.querySelector(".action-create")?.addEventListener("click", (ev) => {
+            ev.preventDefault();
+            TokyoNovaItemSheet._onActionCreate.call(this, ev, ev.currentTarget);
+        });
+        for (const btn of el.querySelectorAll(".action-delete[data-index]")) {
+            btn.addEventListener("click", (ev) => {
+                ev.preventDefault();
+                TokyoNovaItemSheet._onActionDelete.call(this, ev, ev.currentTarget);
             });
-
-            await this.item.update({ "system.actions": actions });
         }
     }
 
-    async _onActionDelete(event) {
-        event.preventDefault();
-        const index = Number(event.currentTarget.dataset.index);
-        const actions = foundry.utils.deepClone(this.item.system.actions || []);
+    // ─── アクションハンドラ ────────────────────────────────────────────────────
+
+    static async _onToggleEditMode(_event, _target) {
+        this._isEditMode = !this._isEditMode;
+        this.render();
+    }
+
+    static async _onActionCreate(_event, _target) {
+        const usageTypes = this.constructor.usageTypes;
+        const type = await UsageCreationDialog.prompt({ usageTypes });
+        if (!type) return;
+        const actions = foundry.utils.deepClone(this.item.system.actions ?? []);
+        actions.push({ type, name: "新規用途", description: "" });
+        await this.item.update({ "system.actions": actions });
+    }
+
+    static async _onActionDelete(_event, target) {
+        const index = Number(target.dataset.index);
+        const actions = foundry.utils.deepClone(this.item.system.actions ?? []);
         if (index >= 0 && index < actions.length) {
             actions.splice(index, 1);
             await this.item.update({ "system.actions": actions });
