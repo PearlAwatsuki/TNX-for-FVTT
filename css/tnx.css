@@ -338,22 +338,6 @@
     font-size: 1.2em;
     flex-shrink: 0;
 }
-form .form-group .form-fields .number-input-spinner input{
-    display: flex;
-    align-items: center;
-    text-align: center;
-    gap: 5px;
-    justify-content: flex-end;
-    width: 40px;
-}
-form .form-group .form-fields .number-input-spinner .tnx-button {
-    flex: none;
-    width: 26px;
-    height: 26px;
-    padding: 0;
-    font-size: 1.2em;
-    flex-shrink: 0;
-}
 .mirror-character {
     font-family: 'Mirror', sans-serif;
     font-weight: bold;
@@ -1359,14 +1343,6 @@ form .sheet-notes.notes {
     flex-direction: column;
     flex-grow: 1;
     min-height: 0; /* flexアイテム内でスクロールを有効にするための重要設定 */
-}
-
-.tokyo-nova.sheet .abilities-grid.edit-mode-layout {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 15px;
-    padding: 0;
-    align-items: start;
 }
 
 /* * 内訳と成長・修正入力欄のレイアウト 
@@ -2395,11 +2371,6 @@ form .sheet-notes.notes {
     flex-direction: column;
     gap: 10px;
 }
-.handout-item {
-    border: 1px solid var(--tnx-color-border-accent);
-    border-radius: var(--tnx-border-radius-sm);
-    background-color: var(--tnx-color-bg-alt);
-}
 .handout-header {
     display: flex;
     align-items: center;
@@ -2714,11 +2685,6 @@ form .sheet-notes.notes {
     margin: 0rem;
     font-weight: bold;
 }
-.skills-list-edit .item-list .item {
-    display: flex;
-    align-items: center;
-    padding: 4px 0;
-}
 .skills-list-edit .item-list .item .item-name {
     flex: 1;
 }
@@ -2826,24 +2792,6 @@ form .sheet-notes.notes {
     pointer-events: none; /* クリックなどの操作を無効化 */
 }
 
-/* --- 4. スタイル技能情報 (説明タブ) --- */
-.style-skill-display {
-    background: rgba(0,0,0,0.1);
-    border: 1px solid var(--tnx-color-border);
-    border-radius: var(--tnx-border-radius-sm);
-    padding: 10px;
-    margin-bottom: 15px;
-}
-.style-skill-display-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px 15px; /* 縦・横の隙間 */
-}
-.style-skill-display label {
-    font-weight: bold;
-    color: var(--tnx-color-text-dim);
-}
-
 /* チェックボックス・ラジオ・スピナーを直接含む form-group のみ flex 化して右端寄せ・垂直中央揃えを適用 */
 .tokyo-nova.sheet.item .form-group:has(> input[type="checkbox"]),
 .tokyo-nova.sheet.item .form-group:has(> input[type="radio"]),
@@ -2863,21 +2811,6 @@ form .sheet-notes.notes {
 .tokyo-nova.sheet.item .form-group > input[type="radio"],
 .tokyo-nova.sheet.item .form-group > .number-input-spinner {
     margin-left: auto;
-}
-
-/* --- 4. スタイル技能情報 (設定タブ) --- */
-.style-skill-inputs {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px 15px;
-}
-.style-skill-inputs .full-width-row {
-    grid-column: 1 / -1; /* 行全体を占有 */
-}
-.tokyo-nova.sheet.item .style-skill-inputs .form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
 }
 
 /* --- 5. スタイル技能詳細設定 (設定タブ) --- */
@@ -3033,24 +2966,6 @@ form .sheet-notes.notes {
     width: 100%;
 }
 
-/* 各行のレイアウト */
-.array-row {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    width: 100%;
-}
-
-.array-row select {
-    flex: 0 0 auto;
-    min-width: 100px;
-}
-
-.array-row input[type="text"] {
-    flex: 1;
-    min-width: 0;
-}
-
 /* チェックボックス（&） */
 .checkbox-inline {
     display: flex;
@@ -3065,14 +2980,31 @@ form .sheet-notes.notes {
     margin: 0;
 }
 
+/* 各行のレイアウト */
+.array-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+}
+.array-row select {
+    flex: 1;
+    min-width: 0;
+}
+.array-row input[type="text"] {
+    flex: 1;
+    min-width: 0;
+}
+
 /* ボタンエリア（右端固定用） */
 .row-controls {
     display: flex;
     align-items: center;
     gap: 5px;
-    margin-left: auto; /* 右寄せ */
-    min-width: 30px; /* ボタンがない行でもスペースを確保したい場合など */
+    margin-left: auto;
+    min-width: 30px;
     justify-content: flex-end;
+    flex: 0 0 auto;
 }
 
 /* 追加・削除ボタン */
@@ -3092,51 +3024,13 @@ form .sheet-notes.notes {
     font-size: 12px;
     transition: all 0.2s;
 }
-
 .add-array-item:hover {
     color: var(--tnx-color-primary-highlight);
     border-color: var(--tnx-color-primary);
 }
-
 .delete-array-item:hover {
     color: var(--tnx-color-error-text);
     border-color: var(--tnx-color-error);
-}
-
-/* 各行のレイアウト */
-.array-row {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    width: 100%;
-}
-
-/* ドロップダウン：余白を埋めるように伸長させる */
-.array-row select {
-    flex: 1; /* ここを変更：flex: 0 0 auto から flex: 1 へ */
-    min-width: 0; /* 縮小も許可（安全策） */
-}
-
-/* 技能名などのテキスト入力欄も同様に伸長させる */
-.array-row input[type="text"] {
-    flex: 1;
-}
-
-/* ボタンエリア（右端固定用） */
-.row-controls {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    margin-left: auto;
-    flex: 0 0 auto; /* ボタンエリアは伸縮させない */
-}
-
-/* 追加・削除ボタン */
-.add-array-item, .delete-array-item {
-    flex: 0 0 24px;
-    width: 24px;
-    height: 24px;
-    /* ... 他のスタイルはそのまま ... */
 }
 
 /* 追加スタイルの例 */
