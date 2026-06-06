@@ -223,6 +223,7 @@
     cursor: pointer;
     transition: background-color 0.2s ease-in-out;
     -webkit-appearance: none;
+    appearance: none;
     padding: 0;
     flex-shrink: 0;
     margin-right: auto;
