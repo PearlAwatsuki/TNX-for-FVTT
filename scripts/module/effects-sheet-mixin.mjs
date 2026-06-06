@@ -57,7 +57,7 @@ export const EffectsSheetMixin = {
 
     /** @deprecated V1 only。V2 シートでは ACTIONS を使うこと。 */
     activateEffectListListeners(html, document) {
-        html.find(".effect-control").on("click", async (event) => {
+        html.find(".tnx-icon-ctrl").on("click", async (event) => {
             event.preventDefault();
             const a = event.currentTarget;
             const effectId = a.closest(".tnx-item-list__row")?.dataset.effectId;

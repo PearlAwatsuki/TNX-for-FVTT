@@ -199,9 +199,9 @@
                             <div class="handout-row handout-row--header">
                                 <input type="text" name="pcName" class="handout-pc-name" value="{{handout.pcName}}" placeholder="PC名">
                                 <input type="text" name="title" class="handout-title" value="{{handout.title}}" placeholder="ハンドアウトのタイトル">
-                                <div class="handout-controls">
-                                    <a class="handout-control" data-action="send-handout-to-chat" title="チャットに送信"><i class="fas fa-paper-plane"></i></a>
-                                    <a class="handout-control" data-action="delete-handout" title="削除"><i class="fas fa-trash"></i></a>
+                                <div class="tnx-ctrl-strip">
+                                    <a class="tnx-icon-ctrl" data-action="send-handout-to-chat" title="チャットに送信"><i class="fas fa-paper-plane"></i></a>
+                                    <a class="tnx-icon-ctrl" data-action="delete-handout" title="削除"><i class="fas fa-trash"></i></a>
                                 </div>
                             </div>
                             <div class="handout-row handout-row--recommendations">
@@ -279,10 +279,10 @@
                                             <input type="checkbox" name="isMasterScene" {{checked scene.isMasterScene}}/>
                                         </div>
                                         <div class="table-cell scene-switch">
-                                            <a class="scene-control" data-action="switch-scene" title="このシーンに切り替え"><i class="fas fa-play-circle"></i></a>
+                                            <a class="tnx-icon-ctrl" data-action="switch-scene" title="このシーンに切り替え"><i class="fas fa-play-circle"></i></a>
                                         </div>
                                         <div class="table-cell scene-controls">
-                                            <a class="scene-control" data-action="delete-scene" title="このシーンを削除"><i class="fas fa-trash"></i></a>
+                                            <a class="tnx-icon-ctrl" data-action="delete-scene" title="このシーンを削除"><i class="fas fa-trash"></i></a>
                                         </div>
                                     </div>
                                     <details class="scene-details-row">
@@ -313,9 +313,9 @@
                         <div class="text-item" data-id="{{textItem.id}}">
                             <div class="text-item-header">
                                 <input type="text" name="title" value="{{textItem.title}}" placeholder="テキストのタイトル"/>
-                                <div class="text-item-controls">
-                                    <a class="text-control" data-action="send-text-to-chat" title="チャットに送信"><i class="fas fa-paper-plane"></i></a>
-                                    <a class="text-control" data-action="delete-text-item" title="この項目を削除"><i class="fas fa-trash"></i></a>
+                                <div class="tnx-ctrl-strip">
+                                    <a class="tnx-icon-ctrl" data-action="send-text-to-chat" title="チャットに送信"><i class="fas fa-paper-plane"></i></a>
+                                    <a class="tnx-icon-ctrl" data-action="delete-text-item" title="この項目を削除"><i class="fas fa-trash"></i></a>
                                 </div>
                             </div>
                             <div class="text-item-body">
@@ -344,15 +344,15 @@
                         <div class="info-item" data-id="{{infoItem.id}}">
                             <div class="info-item-header">
                                 <input type="text" name="title" value="{{infoItem.title}}" placeholder="情報名" data-info-id="{{infoItem.id}}"/>
-                                <div class="info-item-controls">
+                                <div class="tnx-ctrl-strip">
                                     <label class="disclosure-toggle">
                                         <input type="checkbox" name="isPublic" {{checked infoItem.isPublic}} title="{{#if infoItem.isPublic}}公開中 (クリックで非公開に){{else}}非公開 (クリックで公開){{/if}}" data-info-id="{{infoItem.id}}">
                                         <i class="fas {{#if infoItem.isPublic}}fa-lock-open{{else}}fa-lock{{/if}}"></i>
                                     </label>
-                                    <a class="info-control" data-action="send-info-to-chat" data-info-id="{{infoItem.id}}" title="公開済みの情報をチャットに送信" {{#unless infoItem.isPublic}}disabled{{/unless}}>
+                                    <a class="tnx-icon-ctrl" data-action="send-info-to-chat" data-info-id="{{infoItem.id}}" title="公開済みの情報をチャットに送信" {{#unless infoItem.isPublic}}disabled{{/unless}}>
                                         <i class="fas fa-paper-plane"></i>
                                     </a>
-                                    <a class="info-control" data-action="delete-info-item" data-info-id="{{infoItem.id}}" title="この項目を削除"><i class="fas fa-trash"></i></a>
+                                    <a class="tnx-icon-ctrl" data-action="delete-info-item" data-info-id="{{infoItem.id}}" title="この項目を削除"><i class="fas fa-trash"></i></a>
                                 </div>
                             </div>
                             <div class="info-item-body">
@@ -361,12 +361,12 @@
                                         <div class="info-content-block {{#if contentItem.isDisclosed}}disclosed{{/if}}" data-content-id="{{contentItem.id}}">
                                             <div class="content-header">
                                                 <h4>情報の内容</h4>
-                                                <div class="info-item-controls">
+                                                <div class="tnx-ctrl-strip">
                                                     <label class="disclosure-toggle">
                                                         <input type="checkbox" name="isDisclosed" {{checked contentItem.isDisclosed}} title="{{#if contentItem.isDisclosed}}調査済み (クリックで未調査に){{else}}未調査 (クリックで調査済みに){{/if}}" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}">
                                                         <i class="fas {{#if contentItem.isDisclosed}}fa-eye{{else}}fa-eye-slash{{/if}}"></i>
                                                     </label>
-                                                    <a class="content-control" data-action="delete-info-content" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" title="この情報内容を削除"><i class="fas fa-trash"></i></a>
+                                                    <a class="tnx-icon-ctrl" data-action="delete-info-content" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" title="この情報内容を削除"><i class="fas fa-trash"></i></a>
                                                 </div>
                                             </div>
                                         </div>
