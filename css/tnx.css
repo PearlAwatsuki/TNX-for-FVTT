@@ -104,11 +104,26 @@
 }
 .tokyo-nova .tnx-btn:disabled {
     background-color: #4a5057;
-    border-color: #3e444a;    
+    border-color: #3e444a;
     box-shadow: none;
     color: #888;
     opacity: 0.7;
     cursor: not-allowed;
+}
+.tokyo-nova .tnx-btn.tnx-btn--sm {
+    height: 32px;
+    font-size: 13px;
+    padding: 0 12px;
+    font-weight: bold;
+    width: auto;
+}
+.tokyo-nova .tnx-btn.tnx-btn-dashed {
+    width: 100%;
+    background-color: rgba(0,0,0,0.2);
+    border-style: dashed;
+}
+.tokyo-nova .tnx-btn.tnx-btn-dashed:hover:not(:disabled) {
+    background-color: rgba(0, 170, 255, 0.1);
 }
 
 .tokyo-nova.sheet .tnx-linked-btn {
@@ -2009,31 +2024,6 @@ form .sheet-notes.notes {
     flex-direction: column;
     gap: 15px;
 }
-/* セクション追加ボタン: texts/info 共通スタイル */
-.tnx-section-header .add-text-button,
-.tnx-section-header .add-info-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    height: 32px;
-    padding: 0 12px;
-    font-size: 13px;
-    font-weight: bold;
-    background-color: var(--tnx-color-primary-darker);
-    border: 1px solid var(--tnx-color-primary-dark);
-    color: var(--tnx-color-text-base);
-    border-radius: var(--tnx-border-radius-md);
-    cursor: pointer;
-    transition: all 0.2s;
-    width: auto;
-}
-.tnx-section-header .add-text-button { flex-shrink: 0; }
-.tnx-section-header .add-text-button:hover,
-.tnx-section-header .add-info-button:hover {
-    background-color: var(--tnx-color-primary-dark);
-    border-color: var(--tnx-color-primary);
-}
 .text-item-list {
     display: flex;
     flex-direction: column;
@@ -2223,14 +2213,6 @@ form .sheet-notes.notes {
     padding: 12px;
     border-top: 1px solid var(--tnx-color-border-accent);
 }
-.add-content-button {
-    width: 100%;
-    background-color: rgba(0,0,0,0.2);
-    border-style: dashed;
-}
-.add-content-button:hover {
-    background-color: rgba(0, 170, 255, 0.1);
-}
 /* === Scenario Sheet: Scenario Info Tab === */
 .scenario-info-container {
     display: flex;
@@ -2287,12 +2269,6 @@ form .sheet-notes.notes {
     background: transparent;
     border: none;
     color: var(--tnx-color-text-dim);
-}
-.tokyo-nova .tnx-btn.small-button {
-    width: auto;
-    height: 32px;
-    font-size: 13px;
-    gap: 8px;
 }
 /* === Scenario Sheet: Handout Section (Refactored) === */
 .handout-item {
