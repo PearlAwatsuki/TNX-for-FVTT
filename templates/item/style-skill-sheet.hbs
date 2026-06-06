@@ -1,7 +1,7 @@
-<form class="{{cssClass}}" autocomplete="off">
+<section class="{{cssClass}}">
     {{!-- ヘッダーエリア --}}
     <header class="sheet-header skill-header">
-        <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}"/>
+        <img class="profile-img" src="{{item.img}}" data-edit="img" data-action="editImage" title="{{item.name}}"/>
         <div class="header-fields">
             <h1 class="charname"><input name="name" type="text" value="{{item.name}}" placeholder="{{localize 'TYPES.Item.skill'}}"/></h1>
             
@@ -23,10 +23,10 @@
 
     {{!-- タブナビゲーション --}}
     <nav class="sheet-tabs tabs" data-group="primary">
-        <a class="item" data-tab="description">説明</a>
-        <a class="item" data-tab="setting">設定</a>
-        <a class="item" data-tab="usage">用途</a>
-        <a class="item" data-tab="effects">エフェクト</a>
+        <a class="item" data-group="primary" data-tab="description">説明</a>
+        <a class="item" data-group="primary" data-tab="setting">設定</a>
+        <a class="item" data-group="primary" data-tab="usage">用途</a>
+        <a class="item" data-group="primary" data-tab="effects">エフェクト</a>
     </nav>
 
     {{!-- タブコンテンツ --}}
@@ -156,9 +156,9 @@
                                 {{!-- 数値の場合: スピナー表示 --}}
                                 {{#if (eq system.maxLevel "number")}}
                                     <div class="number-input-spinner skill-sheet-spinner">
-                                        <button type="button" data-action="decrement-max-level" class="tnx-button">-</button>
+                                        <button type="button" data-action="decrementMaxLevel" class="tnx-button">-</button>
                                         <input type="number" name="system.maxLevelNumber" value="{{system.maxLevelNumber}}"/>
-                                        <button type="button" data-action="increment-max-level" class="tnx-button">+</button>
+                                        <button type="button" data-action="incrementMaxLevel" class="tnx-button">+</button>
                                     </div>
                                 {{/if}}
 
@@ -263,9 +263,9 @@
                                 {{!-- 数値の場合: スピナー --}}
                                 {{#if (eq system.targetValue "number")}}
                                     <div class="number-input-spinner skill-sheet-spinner">
-                                        <button type="button" data-action="decrement-target-value" class="tnx-button">-</button>
+                                        <button type="button" data-action="decrementTargetValue" class="tnx-button">-</button>
                                         <input type="number" name="system.targetValueNumber" value="{{system.targetValueNumber}}"/>
-                                        <button type="button" data-action="increment-target-value" class="tnx-button">+</button>
+                                        <button type="button" data-action="incrementTargetValue" class="tnx-button">+</button>
                                     </div>
                                 {{/if}}
 
@@ -401,4 +401,4 @@
         </div>
 
     </section>
-</form>
+</section>

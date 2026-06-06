@@ -1,129 +1,119 @@
 import { TokyoNovaItemSheet } from "./tnx-item-sheet.mjs";
-import { UnlinkConfirmDialog } from '../module/tnx-dialog.mjs';
 
 export class TokyoNovaStyleSheet extends TokyoNovaItemSheet {
 
-    static get defaultOptions() {
-        return foundry.utils.mergeObject(super.defaultOptions, {
-            classes: ["tokyo-nova", "sheet", "item", "style"],
-            template: "systems/tokyo-nova-axleration/templates/item/style-sheet.hbs",
-            width: 600,
-            height: 600,
-            tabs: [{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "description" }],
-            dragDrop: [{ dragSelector: null, dropSelector: ".tnx-import-box" }]
-        });
-    }
+    static DEFAULT_OPTIONS = {
+        classes: ["tokyo-nova", "sheet", "item", "style"],
+        position: { width: 600, height: 600 },
+        dragDrop: [{ dragSelector: null, dropSelector: ".tnx-import-box" }],
+        actions: {
+            openLinkedSheet:       TokyoNovaStyleSheet._onOpenLinkedSheet,
+            createAndLinkMiracle:  TokyoNovaStyleSheet._onCreateAndLinkMiracle,
+            decrementLevel:        TokyoNovaStyleSheet._onDecrementLevel,
+            incrementLevel:        TokyoNovaStyleSheet._onIncrementLevel,
+        },
+    };
 
-    async getData(options) {
-        const context = await super.getData(options);
-        context.system = this.item.system;
+    static PARTS = {
+        main: { template: "systems/tokyo-nova-axleration/templates/item/style-sheet.hbs" },
+    };
+
+    static TABS = {
+        primary: {
+            tabs: [{ id: "description" }, { id: "setting" }],
+            initial: "description",
+        },
+    };
+
+    /** @override */
+    async _prepareContext(options) {
+        const context = await super._prepareContext(options);
         context.isOwnedByActor = !!this.item.actor;
         context.isLevel3Locked = context.system.level === 3;
-        
-        const abilityKeys = ["reason", "passion", "life", "mundane"];
-        const abilityLabels = { "reason": game.i18n.format("TNX.Ability.Reason", { suit: "♠" }),
-                                "passion": game.i18n.format("TNX.Ability.Passion", { suit: "♣" }),
-                                "life": game.i18n.format("TNX.Ability.Life", { suit: "♥" }),
-                                "mundane": game.i18n.format("TNX.Ability.Mundane", { suit: "♦" })
-                              };
+
+        const abilityLabels = {
+            reason:  game.i18n.format("TNX.Ability.Reason",  { suit: "♠" }),
+            passion: game.i18n.format("TNX.Ability.Passion", { suit: "♣" }),
+            life:    game.i18n.format("TNX.Ability.Life",    { suit: "♥" }),
+            mundane: game.i18n.format("TNX.Ability.Mundane", { suit: "♦" }),
+        };
         context.system.abilities = {};
-        for (const key of abilityKeys) {
+        for (const key of Object.keys(abilityLabels)) {
             context.system.abilities[key] = {
-                label: abilityLabels[key],
-                value: context.system[key].value,
-                control: context.system[key].control
+                label:   abilityLabels[key],
+                value:   context.system[key].value,
+                control: context.system[key].control,
             };
         }
-        
-        context.linkedMiracle = null;
-        if (this.item.system.miracle?.id) {
-            context.linkedMiracle = await fromUuid(this.item.system.miracle.id);
-        }
+
+        context.linkedMiracle = this.item.system.miracle?.id
+            ? await fromUuid(this.item.system.miracle.id)
+            : null;
+
         return context;
     }
 
-    activateListeners(html) {
-        super.activateListeners(html);
-        if (!this.isEditable) return;
-    
-        html.on('click', '[data-action]', (event) => {
-            const action = event.currentTarget.dataset.action;
-            switch (action) {
-                case 'open-linked-sheet':
-                    this._onOpenLinkedSheet(event);
-                    break;
-                case 'create-and-link-miracle':
-                    this._onCreateAndLinkMiracle(event);
-                    break;
-                case 'decrement-level':
-                    this._onModifyLevel(event, -1);
-                    break;
-                case 'increment-level':
-                    this._onModifyLevel(event, 1);
-                    break;
-            }
-        });
-    
-        const miracleContextMenu = [{
+    /** @override */
+    _onRender(context, options) {
+        super._onRender(context, options);
+        if (!context.editable) return;
+
+        new ContextMenu(this.element, '[data-context-menu-type="manage-miracle"]', [{
             name: game.i18n.localize("TNX.Common.Unlink"),
             icon: '<i class="fas fa-unlink"></i>',
             condition: () => !!this.item.system.miracle?.id,
             callback: async () => {
                 await this.item.update({ "system.miracle.id": "", "system.miracle.name": "" });
-                ui.notifications.info(`神業とのリンクを解除しました。`);
-            }
-        }];
-        new ContextMenu(html, '[data-context-menu-type="manage-miracle"]', miracleContextMenu);
+                ui.notifications.info("神業とのリンクを解除しました。");
+            },
+        }]);
     }
 
-    async _onModifyLevel(event, amount) {
-        event.preventDefault();
-        const currentLevel = this.item.system.level;
-        // ▼▼▼ Math.clamped を Math.clamp に修正 ▼▼▼
-        const newLevel = Math.clamp(currentLevel + amount, 1, 3);
-        if (currentLevel !== newLevel) {
-            await this.item.update({'system.level': newLevel});
+    // ─── アクションハンドラ ────────────────────────────────────────────────────
+
+    static async _onIncrementLevel(_event, _target) {
+        const newLevel = Math.clamp(this.item.system.level + 1, 1, 3);
+        if (this.item.system.level !== newLevel) await this.item.update({ "system.level": newLevel });
+    }
+
+    static async _onDecrementLevel(_event, _target) {
+        const newLevel = Math.clamp(this.item.system.level - 1, 1, 3);
+        if (this.item.system.level !== newLevel) await this.item.update({ "system.level": newLevel });
+    }
+
+    static async _onOpenLinkedSheet(_event, _target) {
+        const miracleId = this.item.system.miracle?.id;
+        if (miracleId) {
+            const doc = await fromUuid(miracleId);
+            doc?.sheet.render({ force: true });
         }
     }
-    
-    async _onDrop(event) {
-        let data;
-        try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch (err) { return false; }
-        
-        if (data.type !== "Item") return false;
-        const item = await Item.fromDropData(data);
-        if (item?.type !== "miracle") return ui.notifications.warn("リンクできるのは「神業」タイプのアイテムのみです。");
-        
-        await this.item.update({ "system.miracle.id": item.uuid, "system.miracle.name": item.name });
-    }
 
-    async _onCreateAndLinkMiracle(event) {
-        event.preventDefault();
+    static async _onCreateAndLinkMiracle(_event, _target) {
         if (this.item.system.miracle?.id || this.item.actor) return;
-
         const miracleData = {
             name: `${this.item.name}の神業`,
             type: "miracle",
             img: "icons/svg/daze.svg",
-            system: { description: `<p>${this.item.name}スタイルに対応する神業です。</p>` }
+            system: { description: `<p>${this.item.name}スタイルに対応する神業です。</p>` },
         };
-
         const newMiracle = await Item.create(miracleData, { parent: this.item.parent });
         if (newMiracle) {
             await this.item.update({
-                "system.miracle.id": newMiracle.uuid,
-                "system.miracle.name": newMiracle.name
+                "system.miracle.id":   newMiracle.uuid,
+                "system.miracle.name": newMiracle.name,
             });
             ui.notifications.info(`新規神業「${newMiracle.name}」が作成され、リンクされました。`);
         }
     }
 
-    async _onOpenLinkedSheet(event) {
-        event.preventDefault();
-        const miracleId = this.item.system.miracle?.id;
-        if (miracleId) {
-            const doc = await fromUuid(miracleId);
-            doc?.sheet.render(true);
-        }
+    /** @override ドラッグ&ドロップで神業をリンクする */
+    async _onDrop(event) {
+        let data;
+        try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch { return false; }
+        if (data.type !== "Item") return false;
+        const item = await Item.fromDropData(data);
+        if (item?.type !== "miracle") return ui.notifications.warn("リンクできるのは「神業」タイプのアイテムのみです。");
+        await this.item.update({ "system.miracle.id": item.uuid, "system.miracle.name": item.name });
     }
 }

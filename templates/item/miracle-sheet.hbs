@@ -1,6 +1,6 @@
-<form class="{{cssClass}}" autocomplete="off">
+<section class="{{cssClass}}">
     <header class="sheet-header">
-        <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}"/>
+        <img class="profile-img" src="{{item.img}}" data-edit="img" data-action="editImage" title="{{item.name}}"/>
         
         <div class="header-fields">
             <h1 class="charname-container">
@@ -11,10 +11,10 @@
     </header>
 
     <nav class="sheet-tabs tabs" data-group="primary">
-        <a class="item" data-tab="description">{{localize "TNX.Common.Description"}}</a>
-        <a class="item" data-tab="setting">{{localize "TNX.Common.Setting"}}</a>
-        <a class="item" data-tab="usage">用途</a>
-        <a class="item" data-tab="effects">{{localize "TNX.Common.Effects"}}</a>
+        <a class="item" data-group="primary" data-tab="description">{{localize "TNX.Common.Description"}}</a>
+        <a class="item" data-group="primary" data-tab="setting">{{localize "TNX.Common.Setting"}}</a>
+        <a class="item" data-group="primary" data-tab="usage">用途</a>
+        <a class="item" data-group="primary" data-tab="effects">{{localize "TNX.Common.Effects"}}</a>
     </nav>
 
      <section class="sheet-body">
@@ -50,9 +50,9 @@
                     <div class="form-group">
                         <label>{{localize "TNX.RemainingUses"}}</label>
                         <div class="number-input-spinner">
-                            <button type="button" data-action="decrement-level" class="tnx-button">-</button>
+                            <button type="button" data-action="decrementLevel" class="tnx-button">-</button>
                             <input class="ability-value" type="number" name="system.usageCount.total" value="{{system.usageCount.total}}" {{#if system.isUsed}} disabled {{/if}}>
-                            <button type="button" data-action="increment-level" class="tnx-button">+</button>
+                            <button type="button" data-action="incrementLevel" class="tnx-button">+</button>
                         </div>
                         <p class="sheet-notes notes">{{localize "TNX.RemainingUsesHint"}}</p>
                     </div>
@@ -68,4 +68,4 @@
             {{> "systems/tokyo-nova-axleration/templates/parts/active-effects-list.hbs"}}
         </div>
     </section>
-</form>
+</section>

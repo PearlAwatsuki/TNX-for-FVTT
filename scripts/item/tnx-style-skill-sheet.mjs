@@ -3,316 +3,234 @@ import { TnxSkillUtils } from "../module/tnx-skill-utils.mjs";
 
 export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
 
-    static get defaultOptions() {
-        return foundry.utils.mergeObject(super.defaultOptions, {
-            classes: ["tokyo-nova", "sheet", "item", "skill"],
-            template: "systems/tokyo-nova-axleration/templates/item/style-skill-sheet.hbs",
-            width: 600,
-            height: 650,
-            tabs: [
-                { navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "description" },
-            ]
-        });
-    }
+    static DEFAULT_OPTIONS = {
+        classes: ["tokyo-nova", "sheet", "item", "skill"],
+        position: { width: 600, height: 650 },
+        actions: {
+            incrementMaxLevel:    TokyoNovaStyleSkillSheet._onIncrementMaxLevel,
+            decrementMaxLevel:    TokyoNovaStyleSkillSheet._onDecrementMaxLevel,
+            incrementTargetValue: TokyoNovaStyleSkillSheet._onIncrementTargetValue,
+            decrementTargetValue: TokyoNovaStyleSkillSheet._onDecrementTargetValue,
+        },
+    };
 
-    async getData(options) {
-        // 基底クラスのデータを取得（解説のエンリッチ、エフェクト、用途タイプ等はここで準備される）
-        const context = await super.getData(options);
-        const system = context.system;
+    static PARTS = {
+        main: { template: "systems/tokyo-nova-axleration/templates/item/style-skill-sheet.hbs" },
+    };
 
-        // スート選択肢の定義（スタイル技能には初期スートによる無効化はないため、disabledは常にfalse）
+    static TABS = {
+        primary: {
+            tabs: [{ id: "description" }, { id: "setting" }, { id: "usage" }, { id: "effects" }],
+            initial: "description",
+        },
+    };
+
+    /** @override */
+    async _prepareContext(options) {
+        const context = await super._prepareContext(options);
+        context.options = TnxSkillUtils.getSkillOptions();
+        const system = TokyoNovaStyleSkillSheet._normalizeSystem(this.item);
+        context.system = system;
         context.TNX = {
             SUITS: {
                 spade:   { label: game.i18n.localize("TNX.Suits.spade"),   disabled: false },
                 club:    { label: game.i18n.localize("TNX.Suits.club"),    disabled: false },
                 heart:   { label: game.i18n.localize("TNX.Suits.heart"),   disabled: false },
-                diamond: { label: game.i18n.localize("TNX.Suits.diamond"), disabled: false }
-            }
+                diamond: { label: game.i18n.localize("TNX.Suits.diamond"), disabled: false },
+            },
         };
-
-        // --- ドロップダウンの選択肢を定義 ---
-        context.options = TnxSkillUtils.getSkillOptions();
-
-        // 配列ライクなオブジェクト（Foundryの更新データ）を配列に変換するヘルパー
-        const ensureArray = (val, defaultNameProp) => {
-            if (Array.isArray(val)) return val;
-            if (typeof val === 'object' && val !== null && Object.keys(val).length > 0) {
-                return Object.values(val);
-            }
-            if (typeof val === 'string' && val !== "" && val !== "-") {
-                const item = { value: val };
-                if (defaultNameProp) item.name = defaultNameProp;
-                if (defaultNameProp === system.comboSkillOther) item.isMandatory = false; 
-                return [item];
-            }
-            return [];
-        };
-
-        // 1. 技能 (Combo Skill)
-        system.comboSkill = ensureArray(system.comboSkill, system.comboSkillOther);
-        if (system.comboSkill.length === 0) {
-            system.comboSkill = [{ value: "blank", name: "", isMandatory: false }];
-        }
-
-        // 2. 対決 (Confrontation)
-        system.confrontation = ensureArray(system.confrontation, system.confrontationOther);
-        if (system.confrontation.length === 0) {
-            system.confrontation = [{ value: "blank", name: "" }];
-        }
-
-        // 3. タイミング (Timing)
-        system.timing = ensureArray(system.timing, null);
-        if (system.timing.length === 0) {
-            system.timing = [{
-                value: "blank",
-                actionName: "blank",
-                processName: "blank",
-                timingOther: ""
-            }];
-        }
-
-        // substituteTarget は単純な文字列の配列として扱います
-        if (!Array.isArray(system.substituteTarget)) {
-            if (typeof system.substituteTarget === 'object' && system.substituteTarget !== null) {
-                system.substituteTarget = Object.values(system.substituteTarget);
-            } else if (typeof system.substituteTarget === 'string' && system.substituteTarget !== "") {
-                system.substituteTarget = [system.substituteTarget];
-            } else {
-                system.substituteTarget = [];
-            }
-        }
-        if (system.substituteTarget.length === 0) {
-            system.substituteTarget = [""];
-        }
-
-        // 表示用ビューの生成をUtilsに委譲
         context.view = TnxSkillUtils.prepareStyleSkillView(system, context.options);
-
         return context;
     }
 
-    activateListeners(html) {
-        super.activateListeners(html); // 基底クラスのリスナーを有効化
-        if (!this.isEditable) return;
+    /** @override */
+    _onRender(context, options) {
+        super._onRender(context, options);
+        if (!context.editable) return;
 
-        // スート変更時の共通処理 (Utilsへ委譲)
-        html.find('.suit-selection input[type="checkbox"]').on('change', (event) => {TnxSkillUtils.onSuitChange(event, this);});
-
-        // スタイル技能固有のリスナー
-        html.find('.number-input-spinner button').on('click', this._onSpinnerButtonClick.bind(this));
-        html.find('.add-array-item').on('click', this._onAddArrayItem.bind(this));
-        html.find('.delete-array-item').on('click', this._onDeleteArrayItem.bind(this));
-        html.find('select').on('change', this._onSelectChange.bind(this));
-    }
-    
-    /**
-     * 数値入力スピナーのボタンクリックを処理します。
-     * @private
-     */
-    async _onSpinnerButtonClick(event) {
-        event.preventDefault();
-        const button = event.currentTarget;
-        const action = button.dataset.action;
-        const system = this.item.system;
-        let updateData = {};
-
-        switch (action) {
-            case 'increment-max-level':
-                updateData['system.maxLevelNumber'] = (system.maxLevelNumber || 0) + 1;
-                break;
-            case 'decrement-max-level':
-                updateData['system.maxLevelNumber'] = (system.maxLevelNumber || 0) - 1;
-                break;
-            case 'increment-target-value':
-                updateData['system.targetValueNumber'] = (system.targetValueNumber || 0) + 1;
-                break;
-            case 'decrement-target-value':
-                updateData['system.targetValueNumber'] = (system.targetValueNumber || 0) - 1;
-                break;
-            default:
-                return;
+        for (const input of this.element.querySelectorAll('.suit-selection input[type="checkbox"]')) {
+            input.addEventListener("change", (event) => {
+                TnxSkillUtils.onSuitChange(event, this);
+            });
         }
 
-        await this.item.update(updateData);
+        for (const select of this.element.querySelectorAll("select")) {
+            select.addEventListener("change", (event) => {
+                event.stopPropagation();
+                this._onSelectChange(event);
+            });
+        }
+
+        for (const btn of this.element.querySelectorAll(".add-array-item")) {
+            btn.addEventListener("click", (event) => {
+                event.preventDefault();
+                this._onAddArrayItem(event);
+            });
+        }
+
+        for (const btn of this.element.querySelectorAll(".delete-array-item")) {
+            btn.addEventListener("click", (event) => {
+                event.preventDefault();
+                this._onDeleteArrayItem(event);
+            });
+        }
     }
 
-    /**
-     * 配列に行を追加する処理
-     */
+    // ─── スピナーハンドラ ──────────────────────────────────────────────────────
+
+    static async _onIncrementMaxLevel(_event, _target) {
+        await this.item.update({ "system.maxLevelNumber": (this.item.system.maxLevelNumber || 0) + 1 });
+    }
+
+    static async _onDecrementMaxLevel(_event, _target) {
+        await this.item.update({ "system.maxLevelNumber": (this.item.system.maxLevelNumber || 0) - 1 });
+    }
+
+    static async _onIncrementTargetValue(_event, _target) {
+        await this.item.update({ "system.targetValueNumber": (this.item.system.targetValueNumber || 0) + 1 });
+    }
+
+    static async _onDecrementTargetValue(_event, _target) {
+        await this.item.update({ "system.targetValueNumber": (this.item.system.targetValueNumber || 0) - 1 });
+    }
+
+    // ─── 配列操作ハンドラ ──────────────────────────────────────────────────────
+
     async _onAddArrayItem(event) {
-        event.preventDefault();
-        const target = event.currentTarget.dataset.target; // "combo", "confrontation", "timing"
-        
-        // getDataを通した正規化済みデータを取得
-        const context = await this.getData();
-        const normalizedSs = context.system;
-        let updateData = {};
+        const target = event.currentTarget.dataset.target;
+        const normalizedSs = TokyoNovaStyleSkillSheet._normalizeSystem(this.item);
+        const updateData = {};
 
         if (target === "combo") {
             const list = [...normalizedSs.comboSkill];
             list.push({ value: "blank", name: "", isMandatory: false });
-            updateData['system.comboSkill'] = list;
-        } 
-        else if (target === "confrontation") {
+            updateData["system.comboSkill"] = list;
+        } else if (target === "confrontation") {
             const list = [...normalizedSs.confrontation];
             list.push({ value: "blank", name: "" });
-            updateData['system.confrontation'] = list;
-        }
-        else if (target === "timing") {
+            updateData["system.confrontation"] = list;
+        } else if (target === "timing") {
             const list = [...normalizedSs.timing];
             list.push({ value: "blank", actionName: "blank", processName: "blank", timingOther: "" });
-            updateData['system.timing'] = list;
-        }
-
-        if (target === "substitute") {
+            updateData["system.timing"] = list;
+        } else if (target === "substitute") {
             const list = [...normalizedSs.substituteTarget];
-            list.push(""); // 空文字を追加
-            updateData['system.substituteTarget'] = list;
+            list.push("");
+            updateData["system.substituteTarget"] = list;
         }
 
-        await this.item.update(updateData);
+        if (Object.keys(updateData).length) await this.item.update(updateData);
     }
 
-    /**
-     * 配列から行を削除する処理
-     */
     async _onDeleteArrayItem(event) {
-        event.preventDefault();
         const target = event.currentTarget.dataset.target;
         const index = Number(event.currentTarget.dataset.index);
-        
-        // データ取得（正規化済み）
-        const context = await this.getData();
-        const normalizedSs = context.system;
-        let updateData = {};
+        const normalizedSs = TokyoNovaStyleSkillSheet._normalizeSystem(this.item);
+        const updateData = {};
 
-        if (target === "combo") {
-            const list = [...normalizedSs.comboSkill];
+        const spliceList = (list, key) => {
             if (index >= 0 && index < list.length) {
                 list.splice(index, 1);
-                updateData['system.comboSkill'] = list;
+                updateData[key] = list;
             }
-        } 
-        else if (target === "confrontation") {
-            const list = [...normalizedSs.confrontation];
-            if (index >= 0 && index < list.length) {
-                list.splice(index, 1);
-                updateData['system.confrontation'] = list;
-            }
-        }
-        else if (target === "timing") {
-            const list = [...normalizedSs.timing];
-            if (index >= 0 && index < list.length) {
-                list.splice(index, 1);
-                updateData['system.timing'] = list;
-            }
-        }
+        };
 
-        if (target === "substitute") {
-            const list = [...normalizedSs.substituteTarget];
-            if (index >= 0 && index < list.length) {
-                list.splice(index, 1);
-                updateData['system.substituteTarget'] = list;
-            }
-        }
+        if (target === "combo")          spliceList([...normalizedSs.comboSkill],       "system.comboSkill");
+        else if (target === "confrontation") spliceList([...normalizedSs.confrontation], "system.confrontation");
+        else if (target === "timing")    spliceList([...normalizedSs.timing],            "system.timing");
+        else if (target === "substitute") spliceList([...normalizedSs.substituteTarget], "system.substituteTarget");
 
-        await this.item.update(updateData);
+        if (Object.keys(updateData).length) await this.item.update(updateData);
     }
 
-    /**
-     * ドロップダウン変更時に、選択されなかったモードの入力値をリセットする汎用処理
-     */
     async _onSelectChange(event) {
-        event.preventDefault();
         const select = event.currentTarget;
         const fieldName = select.name;
         const value = select.value;
-        
-        // 更新用データオブジェクト
-        const updateData = {};
-        updateData[fieldName] = value; // まず自分自身の変更を適用
+        const updateData = { [fieldName]: value };
 
-        // --- リセットルールの定義 ---
-        const resetLogic = (clears, basePrefix = "system.") => {
+        const resetLogic = (clears) => {
             const targetsToClear = clears[value] || clears["default"] || [];
-            targetsToClear.forEach(prop => {
-                const clearValue = prop.includes("Number") ? 0 : "";
-                updateData[`${basePrefix}${prop}`] = clearValue;
-            });
+            for (const prop of targetsToClear) {
+                updateData[`system.${prop}`] = prop.includes("Number") ? 0 : "";
+            }
         };
 
-        // 1. スカラー項目（上限、目標値、対象、射程）の処理
         if (fieldName === "system.maxLevel") {
-            resetLogic({
-                "number": ["maxLevelOther"],
-                "other":  ["maxLevelNumber"],
-                "default":["maxLevelNumber", "maxLevelOther"]
-            });
-        }
-        else if (fieldName === "system.targetValue") {
-            resetLogic({
-                "number": ["targetValueOther"],
-                "other":  ["targetValueNumber"],
-                "default":["targetValueNumber", "targetValueOther"]
-            });
-        }
-        else if (fieldName === "system.target") {
-            resetLogic({
-                "other":  [], 
-                "default":["targetOther"]
-            });
-        }
-        else if (fieldName === "system.range") {
-            resetLogic({
-                "other":  [],
-                "default":["rangeOther"]
-            });
+            resetLogic({ number: ["maxLevelOther"], other: ["maxLevelNumber"], default: ["maxLevelNumber", "maxLevelOther"] });
+        } else if (fieldName === "system.targetValue") {
+            resetLogic({ number: ["targetValueOther"], other: ["targetValueNumber"], default: ["targetValueNumber", "targetValueOther"] });
+        } else if (fieldName === "system.target") {
+            resetLogic({ other: [], default: ["targetOther"] });
+        } else if (fieldName === "system.range") {
+            resetLogic({ other: [], default: ["rangeOther"] });
         }
 
-        // 2. 配列項目（技能、対決、タイミング）の処理
         const comboMatch = fieldName.match(/^system\.comboSkill\.(\d+)\.value$/);
         const confrontMatch = fieldName.match(/^system\.confrontation\.(\d+)\.value$/);
         const timingMatch = fieldName.match(/^system\.timing\.(\d+)\.value$/);
 
         if (comboMatch) {
             const idx = comboMatch[1];
-            resetLogic({
-                "skillName": [],
-                "other":     [],
-                "default":   [`comboSkill.${idx}.name`] 
-            }, "system."); 
-        }
-        else if (confrontMatch) {
+            resetLogic({ skillName: [], other: [], default: [`comboSkill.${idx}.name`] });
+        } else if (confrontMatch) {
             const idx = confrontMatch[1];
-            resetLogic({
-                "skillName": [],
-                "skillNameAsterisk": [],
-                "other":     [],
-                "default":   [`confrontation.${idx}.name`]
-            }, "system.");
-        }
-        else if (timingMatch) {
+            resetLogic({ skillName: [], skillNameAsterisk: [], other: [], default: [`confrontation.${idx}.name`] });
+        } else if (timingMatch) {
             const idx = timingMatch[1];
-            const prefix = `timing.${idx}.`;
-            
+            const prefix = `system.timing.${idx}.`;
             if (value === "action") {
-                updateData[`system.${prefix}processName`] = "blank";
-                updateData[`system.${prefix}timingOther`] = "";
+                updateData[`${prefix}processName`] = "blank";
+                updateData[`${prefix}timingOther`] = "";
             } else if (value === "process") {
-                updateData[`system.${prefix}actionName`] = "blank";
-                updateData[`system.${prefix}timingOther`] = "";
+                updateData[`${prefix}actionName`] = "blank";
+                updateData[`${prefix}timingOther`] = "";
             } else if (value === "other") {
-                updateData[`system.${prefix}actionName`] = "blank";
-                updateData[`system.${prefix}processName`] = "blank";
+                updateData[`${prefix}actionName`] = "blank";
+                updateData[`${prefix}processName`] = "blank";
             } else {
-                updateData[`system.${prefix}actionName`] = "blank";
-                updateData[`system.${prefix}processName`] = "blank";
-                updateData[`system.${prefix}timingOther`] = "";
+                updateData[`${prefix}actionName`] = "blank";
+                updateData[`${prefix}processName`] = "blank";
+                updateData[`${prefix}timingOther`] = "";
             }
         }
 
-        if (Object.keys(updateData).length > 1) {
-            await this.item.update(updateData);
+        await this.item.update(updateData);
+    }
+
+    // ─── 静的ヘルパー ──────────────────────────────────────────────────────────
+
+    /** system データの配列フィールドを正規化して返す */
+    static _normalizeSystem(item) {
+        const system = foundry.utils.deepClone(item.system);
+
+        const ensureArray = (val) => {
+            if (Array.isArray(val)) return val;
+            if (typeof val === "object" && val !== null && Object.keys(val).length > 0) return Object.values(val);
+            if (typeof val === "string" && val !== "" && val !== "-") return [{ value: val }];
+            return [];
+        };
+
+        system.comboSkill = ensureArray(system.comboSkill);
+        if (!system.comboSkill.length) system.comboSkill = [{ value: "blank", name: "", isMandatory: false }];
+
+        system.confrontation = ensureArray(system.confrontation);
+        if (!system.confrontation.length) system.confrontation = [{ value: "blank", name: "" }];
+
+        system.timing = ensureArray(system.timing);
+        if (!system.timing.length) system.timing = [{ value: "blank", actionName: "blank", processName: "blank", timingOther: "" }];
+
+        if (!Array.isArray(system.substituteTarget)) {
+            if (typeof system.substituteTarget === "object" && system.substituteTarget !== null) {
+                system.substituteTarget = Object.values(system.substituteTarget);
+            } else if (typeof system.substituteTarget === "string" && system.substituteTarget !== "") {
+                system.substituteTarget = [system.substituteTarget];
+            } else {
+                system.substituteTarget = [];
+            }
         }
+        if (!system.substituteTarget.length) system.substituteTarget = [""];
+
+        return system;
     }
 }
