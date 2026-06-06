@@ -2557,18 +2557,18 @@ form .sheet-notes.notes {
     z-index: 50;
 }
 
-.hud-container {
+.tnx-hud .hud-container {
     position: absolute;
     pointer-events: auto;
 }
 
 /* --- 山札・捨て札エリア --- */
-.hud-main-cards {
+.tnx-hud .hud-main-cards {
     bottom: 80px;   /* v13: sidebar bottom / player list clearance */
     right: 360px;   /* v13: sidebar (~305px) + scene controls (~50px) clearance */
 }
 
-.main-area {
+.tnx-hud .main-area {
     display: flex;
     gap: 8px;
     padding: 8px;
@@ -2579,7 +2579,7 @@ form .sheet-notes.notes {
     width: auto;
 }
 
-.deck-count {
+.tnx-hud .deck-count {
     position: absolute;
     bottom: 2px;
     right: 5px;
@@ -2590,12 +2590,12 @@ form .sheet-notes.notes {
 }
 
 /* --- 右上エリア (ニューロデッキ) --- */
-.hud-top-right {
+.tnx-hud .hud-top-right {
     top: 50px;    /* v13: scene nav / top controls clearance */
     right: 360px; /* v13: sidebar (~305px) + scene controls (~50px) clearance */
 }
 
-.neuro-area {
+.tnx-hud .neuro-area {
     display: flex;
     gap: 8px;
     padding: 8px;
@@ -2607,16 +2607,16 @@ form .sheet-notes.notes {
 }
 
 /* 親コンテナ：要素を横に並べ、下端を揃える役割 */
-.hud-bottom-bar {
+.tnx-hud .hud-bottom-bar {
     bottom: 70px;  /* v13: hotbar (~60px) clearance */
     left: 260px;
     display: flex;
     gap: 5px;
-    align-items: flex-end; /* 高さが違う要素の「下」を揃える */
+    align-items: flex-end;
 }
 
 /* パネル共通スタイル：背景や枠線などの見た目を定義 */
-.hud-panel {
+.tnx-hud .hud-panel {
     padding: 8px;
     background: rgba(0,0,0,0.5);
     border: 1px solid #555;
@@ -2625,23 +2625,23 @@ form .sheet-notes.notes {
 }
 
 /* 手札エリア専用スタイル：可変の高さと折り返しを設定 */
-.hand-area {
-    flex-wrap: wrap; /* カードを折り返す */
-    height: auto; /* 高さを自動調整 */
-    align-items: flex-end; /* カードを下端に揃える */
+.tnx-hud .hand-area {
+    flex-wrap: wrap;
+    height: auto;
+    align-items: flex-end;
     /* (カード幅128px * 5枚) + (隙間5px * 4個) + (パディング8px * 2辺) = 676px → 余白込みで680px */
     /* right側: 画面幅1280px - left260px - 右UI360px = 660px。5枚で収まる初期値。 */
     max-width: 680px;
 }
 
 /* 切り札エリア専用スタイル：固定の高さを設定 */
-.trump-area {
-    height: 208px; /* カード1枚分の高さに固定 */
-    align-items: center; /* カードを中央揃え */
+.tnx-hud .trump-area {
+    height: 208px;
+    align-items: center;
     justify-content: center;
 }
 
-.card-empty-placeholder {
+.tnx-hud .card-empty-placeholder {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2650,7 +2650,7 @@ form .sheet-notes.notes {
     height: 192px;
 }
 
-.card-empty-placeholder i {
+.tnx-hud .card-empty-placeholder i {
     font-size: 2.5em;
 }
 
@@ -2704,15 +2704,15 @@ form .sheet-notes.notes {
     width: 410px;
     height: auto;
 }
-.sheet-header .level-display {
+.tokyo-nova.sheet.item .sheet-header .level-display {
     display: flex;
     flex-direction: column;
     align-items: center;
     margin-left: auto;
     margin-bottom: 20px;
 }
-  
-.sheet-header .level-display input {
+
+.tokyo-nova.sheet.item .sheet-header .level-display input {
     width: 50px;
     height: 50px;
     text-align: center;
@@ -2721,37 +2721,37 @@ form .sheet-notes.notes {
     border: 1px solid #ccc;
     color: #000;
 }
-  
-.suit-selection {
+
+.tokyo-nova.sheet.item .suit-selection {
     display: flex;
     gap: 5px;
 }
-  
-.suit-selection input[type="checkbox"] {
+
+.tokyo-nova.sheet.item .suit-selection input[type="checkbox"] {
     display: none;
 }
 
-.suit-selection .suit-icon {
+.tokyo-nova.sheet.item .suit-selection .suit-icon {
     font-size: 2em;
     cursor: pointer;
 }
-  
-.suit-selection input[type="checkbox"]:checked + i {
+
+.tokyo-nova.sheet.item .suit-selection input[type="checkbox"]:checked + i {
     color: var(--color-active);
 }
 
-.basic-info {
+.tokyo-nova.sheet.item .basic-info {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
 }
-  
-.basic-info .form-group {
+
+.tokyo-nova.sheet.item .basic-info .form-group {
     display: flex;
     flex-direction: column;
 }
 
-.settings-grid {
+.tokyo-nova.sheet.item .settings-grid {
     display: grid;
     grid-template-columns: 1fr;
     gap: 15px;
@@ -3329,7 +3329,7 @@ ol.item-list {
 }
 
 /* --- 履歴リスト用 (スタイル技能リストを踏襲) --- */
-.history-list-wrapper {
+.tokyo-nova .history-list-wrapper {
     border: 1px solid #999;
     border-radius: 3px;
     background: rgba(255, 255, 255, 0.3);
@@ -3337,13 +3337,13 @@ ol.item-list {
     font-size: 13px;
 }
 
-.history-list {
+.tokyo-nova .history-list {
     list-style: none;
     margin: 0;
     padding: 0;
 }
 
-.history-grid {
+.tokyo-nova .history-grid {
     display: grid;
     /* 日付、シナリオ名、経験点(全角3文字対応)、RL、プレイヤー、(操作) */
     grid-template-columns: 100px 150px 48px 80px 2fr 24px;
@@ -3351,8 +3351,8 @@ ol.item-list {
     align-items: center;
 }
 
-.history-header {
-    background: #444; /* またはシステム固有のヘッダー色 */
+.tokyo-nova .history-header {
+    background: #444;
     color: #fff;
     font-weight: bold;
     padding: 4px;
@@ -3360,32 +3360,32 @@ ol.item-list {
     border-bottom: 1px solid #000;
 }
 
-.history-row {
+.tokyo-nova .history-row {
     padding: 2px 4px;
     border-bottom: 1px solid rgba(0,0,0,0.1);
 }
 
-.history-row:nth-child(even) {
+.tokyo-nova .history-row:nth-child(even) {
     background: rgba(0, 0, 0, 0.05);
 }
 
-.history-row .cell {
+.tokyo-nova .history-row .cell {
     display: flex;
     align-items: center;
-    justify-content: center; /* 基本は中央揃え */
+    justify-content: center;
     padding: 0 2px;
     overflow: hidden;
 }
 
-.history-row .cell-title {
-    justify-content: center; /* テキストの長い項目は左寄せ */
+.tokyo-nova .history-row .cell-title {
+    justify-content: center;
 }
-.history-row .cell-players {
-    justify-content: flex-start; /* テキストの長い項目は左寄せ */
+.tokyo-nova .history-row .cell-players {
+    justify-content: flex-start;
 }
 
 /* 入力欄のスタイル調整 */
-.history-row input {
+.tokyo-nova .history-row input {
     height: 24px;
     font-size: 12px;
     width: 100%;
@@ -3393,7 +3393,7 @@ ol.item-list {
     background: var(--tnx-color-bg-input);
     text-align: left;
 }
-.history-row input:focus {
+.tokyo-nova .history-row input:focus {
     border: 1px solid #111;
     background: var(--tnx-color-bg-alt);
 }
