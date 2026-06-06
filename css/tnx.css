@@ -1950,20 +1950,25 @@ form .sheet-notes.notes {
     flex-direction: column;
     gap: 15px;
 }
-.texts-header {
+/* セクションヘッダー: タイトル + アクションボタン横並び (texts/info 共通) */
+.texts-header,
+.info-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     border-bottom: 1px solid var(--tnx-color-border-accent);
     padding-bottom: 8px;
 }
-.texts-header h3 {
+.texts-header h3,
+.info-header h3 {
     margin: 0;
     color: var(--tnx-color-primary-accent);
     font-size: 1.3em;
-    border-bottom: none;
+    border: none;
 }
-.texts-header .add-text-button {
+/* セクション追加ボタン: texts/info 共通スタイル */
+.texts-header .add-text-button,
+.info-header .add-info-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1979,9 +1984,10 @@ form .sheet-notes.notes {
     cursor: pointer;
     transition: all 0.2s;
     width: auto;
-    flex-shrink: 0;
 }
-.texts-header .add-text-button:hover {
+.texts-header .add-text-button { flex-shrink: 0; }
+.texts-header .add-text-button:hover,
+.info-header .add-info-button:hover {
     background-color: var(--tnx-color-primary-dark);
     border-color: var(--tnx-color-primary);
 }
@@ -1998,7 +2004,9 @@ form .sheet-notes.notes {
     flex-direction: column;
     overflow: hidden;
 }
-.text-item-header {
+/* カードアイテムヘッダー: texts/info 共通 */
+.text-item-header,
+.info-item-header {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -2006,7 +2014,8 @@ form .sheet-notes.notes {
     background: rgba(0,0,0,0.1);
     border-bottom: 1px solid var(--tnx-color-border);
 }
-.text-item-header input[type="text"] {
+.text-item-header input[type="text"],
+.info-item-header input[type="text"] {
     flex-grow: 1;
     background-color: transparent;
     border: none;
@@ -2018,7 +2027,8 @@ form .sheet-notes.notes {
     border-bottom: 1px solid transparent;
     transition: all 0.2s;
 }
-.text-item-header input[type="text"]:focus {
+.text-item-header input[type="text"]:focus,
+.info-item-header input[type="text"]:focus {
     outline: none;
     background-color: var(--tnx-color-bg-input);
     padding-left: 5px;
@@ -2029,7 +2039,9 @@ form .sheet-notes.notes {
     gap: 15px;
     flex-shrink: 0;
 }
-.text-item-controls .text-control {
+/* インラインアイコンコントロール: texts/info 共通 */
+.text-item-controls .text-control,
+.info-item-controls .info-control {
     font-size: 1.2em;
     color: var(--tnx-color-text-muted);
     cursor: pointer;
@@ -2077,39 +2089,6 @@ form .sheet-notes.notes {
     flex-direction: column;
     gap: 15px;
 }
-.info-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid var(--tnx-color-border-accent);
-    padding-bottom: 8px;
-}
-.info-header h3 {
-    margin: 0;
-    color: var(--tnx-color-primary-accent);
-    font-size: 1.3em;
-    border-bottom: none;
-}
-.info-header .add-info-button {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    height: 32px;
-    padding: 0 12px;
-    font-size: 13px;
-    font-weight: bold;
-    background-color: var(--tnx-color-primary-darker);
-    border: 1px solid var(--tnx-color-primary-dark);
-    color: var(--tnx-color-text-base);
-    border-radius: var(--tnx-border-radius-md);
-    cursor: pointer;
-    transition: all 0.2s;
-    width: auto;
-}
-.info-header .add-info-button:hover {
-    background-color: var(--tnx-color-primary-dark);
-    border-color: var(--tnx-color-primary);
-}
 .info-item-list {
     display: flex;
     flex-direction: column;
@@ -2124,43 +2103,11 @@ form .sheet-notes.notes {
     overflow: hidden;
     transition: all 0.3s ease-out;
 }
-.info-item-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    background: rgba(0,0,0,0.1);
-    border-bottom: 1px solid var(--tnx-color-border);
-}
-.info-item-header input[type="text"] {
-    flex-grow: 1;
-    background-color: transparent;
-    border: none;
-    padding: 4px 0;
-    font-size: 1.1em;
-    font-weight: bold;
-    color: var(--tnx-color-text-base);
-    border-radius: 0;
-    border-bottom: 1px solid transparent;
-    transition: all 0.2s;
-}
-.info-item-header input[type="text"]:focus {
-    outline: none;
-    background-color: var(--tnx-color-bg-input);
-    padding-left: 5px;
-    border-bottom-color: var(--tnx-color-primary);
-}
 .info-item-controls {
     display: flex;
     gap: 15px;
     align-items: center;
     flex-shrink: 0;
-}
-.info-item-controls .info-control {
-    font-size: 1.2em;
-    color: var(--tnx-color-text-muted);
-    cursor: pointer;
-    transition: color 0.2s;
 }
 .info-item-controls .info-control[data-action="send-info-to-chat"]:hover {
     color: var(--tnx-color-primary-highlight);
@@ -2341,20 +2288,8 @@ form .sheet-notes.notes {
     border-radius: var(--tnx-border-radius-md);
     padding: 15px;
 }
-.info-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-    border-bottom: 1px solid var(--tnx-color-border-accent);
-    padding-bottom: 8px;
-}
-.info-header h3 {
-    margin: 0;
-    font-size: 1.3em;
-    color: var(--tnx-color-primary-accent);
-    border: none;
-}
+/* シナリオ情報タブの .info-header は下マージンが必要 */
+.info-header { margin-bottom: 10px; }
 .trailer-textarea {
     width: 100%;
     resize: vertical;
