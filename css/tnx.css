@@ -685,7 +685,10 @@ form .sheet-notes.notes {
 /* prose-mirror は Foundry が display:flex; position:relative を前提とする。
    display/padding を上書きせず --min-height 変数と外観スタイルのみ設定する。 */
 .tnx-editor-section__content prose-mirror {
-    --min-height: 300px;
+    --min-height: 120px;
+}
+.tnx-editor-section__content prose-mirror.active {
+    --min-height: 280px;
     width: 100%;
     border: 1px solid var(--tnx-color-primary-dark);
     border-radius: var(--tnx-border-radius-sm);
