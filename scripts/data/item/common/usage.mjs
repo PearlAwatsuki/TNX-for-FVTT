@@ -1,11 +1,11 @@
-/**
+﻿/**
  * @fileoverview UsageTemplate - 用途(Action)リストを定義する template クラス
  *
  * 使用 Item type: miracle / generalSkill / styleSkill
  * SystemDataModel.mixin() の引数として各 Item DataModel に合成して使う。
  *
  * 準拠データ: template.json > Item.templates.usage
- * 設計方針: docs/DESIGN_REVIEW.md B-0「論点3: 共通 template の継承戦略」参照
+ * 設計方針: llm-wiki/02_System/Design_Review_Entries.md B-0「論点3: 共通 template の継承戦略」参照
  *
  * actions 配列要素の構造は scripts/item/tnx-item-sheet.mjs の _onActionCreate() から読み取った:
  *   { type: string, name: string, description: string }

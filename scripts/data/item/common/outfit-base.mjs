@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @fileoverview OutfitBaseTemplate - 装備品共通フィールドを定義する template クラス
  *
  * 使用 Item type: weapon / armor / ianus / cyborg / tron / tap /
@@ -6,7 +6,7 @@
  * SystemDataModel.mixin() の引数として各 Item DataModel に合成して使う。
  *
  * 準拠データ: template.json > Item.templates.outfitBase
- * 設計方針: docs/DESIGN_REVIEW.md B-0「論点3: 共通 template の継承戦略」参照
+ * 設計方針: llm-wiki/02_System/Design_Review_Entries.md B-0「論点3: 共通 template の継承戦略」参照
  *
  * フィールド型の判断:
  * - buy / preserveExp / hide / appearancePenalty / hack / part / timing / exclusive は

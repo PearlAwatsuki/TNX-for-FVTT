@@ -20,13 +20,13 @@
 - 期待される動作と実際の動作
 - 関連すると思われるコンソールエラー(あれば)
 
-既知の不具合は [docs/KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md) にまとめられているので、報告前にご確認ください。
+既知の不具合は [llm-wiki/01_Wiki/Issues/Active_Issues.md](./llm-wiki/01_Wiki/Issues/Active_Issues.md) にまとめられているので、報告前にご確認ください。
 
 ## Pull Request の方針
 
 ### 受け付ける PR
 
-- 既知の不具合(`docs/KNOWN_ISSUES.md` 記載)の修正
+- 既知の不具合(`llm-wiki/01_Wiki/Issues/Active_Issues.md` 記載)の修正
 - ドキュメントの誤字・脱字修正、表現改善
 - 翻訳の追加・改善(`lang/` 配下)
 

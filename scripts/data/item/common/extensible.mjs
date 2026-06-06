@@ -1,11 +1,11 @@
-/**
+﻿/**
  * @fileoverview ExtensibleTemplate - 拡張スロット(slot)フィールドを定義する template クラス
  *
  * 使用 Item type: weapon / ianus / tron / tap / vehicle / residence / combiner
  * SystemDataModel.mixin() の引数として各 Item DataModel に合成して使う。
  *
  * 準拠データ: template.json > Item.templates.extensible
- * 設計方針: docs/DESIGN_REVIEW.md B-0「論点3: 共通 template の継承戦略」参照
+ * 設計方針: llm-wiki/02_System/Design_Review_Entries.md B-0「論点3: 共通 template の継承戦略」参照
  *
  * フィールド型の判断:
  * - slot[].value は template.json の初期値が 0(数値)のため NumberField。

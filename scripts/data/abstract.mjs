@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @fileoverview SystemDataModel と Mixin パターンの基底実装
  *
  * 目的:
@@ -28,7 +28,7 @@
  *   }
  * }
  *
- * 設計方針: docs/DESIGN_REVIEW.md B-0「論点3: 共通 template の継承戦略」参照
+ * 設計方針: llm-wiki/02_System/Design_Review_Entries.md B-0「論点3: 共通 template の継承戦略」参照
  */
 
 export class SystemDataModel extends foundry.abstract.TypeDataModel {

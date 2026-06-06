@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @fileoverview StyleSkillDataModel - スタイル技能 Item の DataModel
  *
  * 使用 template: base + usage + skillBase
@@ -15,7 +15,7 @@
  *   "配列であること"しか表現できない制約による近似(値は文字列配列 ["blank"] 等)。
  *   DataModel では、シート実装(getData() の ensureArray 正規化・_onSelectChange の
  *   保存構造)が参照する実際の要素構造を真実の源として SchemaField で定義する。
- *   詳細: docs/DESIGN_REVIEW.md B-7b
+ *   詳細: llm-wiki/02_System/Design_Review_Entries.md B-7b
  *
  * - template.json に未定義だがシートが参照するフィールド(★)を明示定義する:
  *   maxLevelNumber / maxLevelOther / targetOther / rangeOther /
