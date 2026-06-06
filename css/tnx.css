@@ -682,30 +682,37 @@ form .sheet-notes.notes {
     transform: translateY(-3px);
 }
 
-/* .editor / .editor-edit / .editor-content は <prose-mirror> 置換により廃止。
-   .tnx-editor-section .prosemirror (小文字) も .ProseMirror と不一致で dead code だったため削除。 */
+/* prose-mirror は Foundry が display:flex; position:relative を前提とする。
+   display/padding を上書きせず --min-height 変数と外観スタイルのみ設定する。 */
 .tnx-editor-section__content prose-mirror {
-    display: block;
+    --min-height: 300px;
     width: 100%;
-    min-height: 120px;
-    padding: 10px;
-    box-sizing: border-box;
-    background: transparent;
-    color: var(--tnx-color-text-dim);
     border: 1px solid var(--tnx-color-primary-dark);
     border-radius: var(--tnx-border-radius-sm);
     box-shadow: inset 0 0 8px rgba(0, 170, 255, 0.2);
 }
-/* ProseMirror エディタ本体 (prose-mirror 内の .ProseMirror) */
+.tnx-editor-section__content prose-mirror .editor-content {
+    color: var(--tnx-color-text-dim);
+    padding: 8px;
+}
 .tnx-editor-section__content prose-mirror .ProseMirror {
-    min-height: 200px;
     outline: none;
     color: var(--tnx-color-text-base);
 }
-/* Foundry デフォルトはホバー時のみ表示。詳細度 0,5,2 で上書きして常時表示にする。
-   (Foundry の body.game .app prose-mirror button.toggle は 0,3,3) */
-.tokyo-nova.sheet .tnx-editor-section__content prose-mirror button.toggle:enabled {
-    display: block;
+/* Foundry のデフォルト toggle ボタンを隠し、ヘッダー側のカスタムボタンを使う */
+.tnx-editor-section__content prose-mirror button.toggle {
+    display: none !important;
+}
+/* ヘッダー内エディタ開閉ボタン (アイコンのみ) */
+.tnx-editor-section__header .tnx-editor-open {
+    cursor: pointer;
+    color: var(--tnx-color-primary-accent);
+    font-size: 1em;
+    line-height: 1;
+    padding: 2px 4px;
+}
+.tnx-editor-section__header .tnx-editor-open:hover {
+    color: var(--tnx-color-primary);
 }
 #prosemirror-dropdown ul{
     color: var(--tnx-color-text-base);
@@ -2687,29 +2694,6 @@ form .sheet-notes.notes {
     text-align: center;
 }
 
-/* --- Rich Text Editor Section (ProseMirror Compatible) --- */
-.tnx-editor-section {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    margin-bottom: 20px;
-    position: relative; 
-}
-.tnx-editor-section__header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-    border-bottom: 1px solid var(--tnx-color-primary-dark);
-    padding-bottom: 5px;
-    margin-bottom: 8px;
-}
-.tnx-editor-section__header > label {
-    font-size: 1.2em;
-    font-weight: bold;
-    color: var(--tnx-color-primary-accent);
-    margin: 0;
-}
 .tokyo-nova.sheet.item.skill .skill-header .charname input{
     width: 410px;
     height: auto;

@@ -94,10 +94,6 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             header.prepend(btn);
         }
 
-        // {{editor button=true}} は V1 スタイルの div.editor を生成するが V2 には _activateEditor 相当がない。
-        // <prose-mirror> に置換して Foundry V2 の標準フローを使う:
-        //   閲覧モード (toggled:true)  → 整形済み HTML + 常時表示ボタン → 押下でエディタ起動
-        //   編集モード (toggled:false) → _activateListeners が即 open=true → エディタ自動起動
         const ProseMirrorEl = customElements.get("prose-mirror");
         if (ProseMirrorEl) {
             for (const contentDiv of el.querySelectorAll(".editor-content[data-edit]")) {
@@ -108,9 +104,14 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
                     name: fieldName,
                     value: foundry.utils.getProperty(this.document, fieldName) ?? "",
                     enriched: contentDiv.innerHTML,
-                    toggled: !context.isEditMode,
+                    toggled: true,
                 });
+                pm.dataset.documentUuid = this.document.uuid;
                 editorDiv.replaceWith(pm);
+            }
+            for (const btn of el.querySelectorAll(".tnx-editor-section__header .tnx-editor-open[data-field]")) {
+                const pm = el.querySelector(`prose-mirror[name="${btn.dataset.field}"]`);
+                if (pm) btn.addEventListener("click", (ev) => { ev.preventDefault(); pm.open = true; });
             }
         }
 
