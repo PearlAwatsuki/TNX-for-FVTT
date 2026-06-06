@@ -200,6 +200,7 @@
 
 .tokyo-nova.sheet .edit-mode-toggle {
     position: relative;
+    display: inline-block;
     width: 36px;
     height: 20px;
     background-color: #555;
@@ -209,6 +210,7 @@
     transition: background-color 0.2s ease-in-out;
     -webkit-appearance: none;
     padding: 0;
+    flex-shrink: 0;
     margin-right: auto;
     margin-left: 0px;
 }
@@ -255,6 +257,13 @@
     background-image: none !important;
     background-color: var(--tnx-color-bg) !important;
     color: var(--tnx-color-text-base);
+}
+
+/* V2 の .application .window-content は overflow: hidden なのでスクロールを有効化し、
+   内部パディングはシート側のテンプレートで管理する */
+.tokyo-nova.sheet .window-content {
+    padding: 0;
+    overflow-y: auto;
 }
 .tokyo-nova *, .tokyo-nova *::before, .tokyo-nova *::after {
     box-sizing: border-box;
@@ -673,28 +682,10 @@ form .sheet-notes.notes {
     transform: translateY(-3px);
 }
 
-.tnx-editor-section .editor {
-    position: static;
-}
-.tnx-editor-section .editor .editor-edit {
-    position: absolute;
-    top: 2px;
-    right: 0;
-    width: 28px;
-    height: 28px;
-    background: transparent;
-    border: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-    color: var(--tnx-color-text-dim);
-    transition: all 0.2s ease-out;
-}
-.tnx-editor-section .editor .editor-edit:hover {
-    color: var(--tnx-color-primary-highlight);
-}
-.tnx-editor-section__content .editor-content {
+/* .editor / .editor-edit / .editor-content は <prose-mirror> 置換により廃止。
+   .tnx-editor-section .prosemirror (小文字) も .ProseMirror と不一致で dead code だったため削除。 */
+.tnx-editor-section__content prose-mirror {
+    display: block;
     width: 100%;
     min-height: 120px;
     padding: 10px;
@@ -704,23 +695,12 @@ form .sheet-notes.notes {
     border: 1px solid var(--tnx-color-primary-dark);
     border-radius: var(--tnx-border-radius-sm);
     box-shadow: inset 0 0 8px rgba(0, 170, 255, 0.2);
-    min-width: 513px;
 }
-.tnx-editor-section .prosemirror {
-    min-height: 300px;
-}
-.tnx-editor-section .prosemirror menu button{
+/* ProseMirror エディタ本体 (prose-mirror 内の .ProseMirror) */
+.tnx-editor-section__content prose-mirror .ProseMirror {
+    min-height: 200px;
+    outline: none;
     color: var(--tnx-color-text-base);
-}
-.tnx-editor-section .prosemirror menu button:hover{
-    color: #000;
-    background: var(--tnx-color-text-base);
-}
-.tnx-editor-section .prosemirror menu .pm-dropdown{
-    background: var(--tnx-color-bg-input);
-}
-.tnx-editor-section .prosemirror menu .pm-dropdown:hover{
-    background: var(--tnx-color-text-base);
 }
 #prosemirror-dropdown ul{
     color: var(--tnx-color-text-base);
@@ -2761,8 +2741,8 @@ form .sheet-notes.notes {
     cursor: pointer;
 }
   
-.suit-selection input[type="checkbox"]:checked + .suit-icon {
-    color: var(--color-active); /* チェック時の色を指定 */
+.suit-selection input[type="checkbox"]:checked + i {
+    color: var(--color-active);
 }
 
 .basic-info {
