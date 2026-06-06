@@ -91,6 +91,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             btn.className = "edit-mode-toggle";
             btn.title = "編集モード切替";
             btn.dataset.action = "toggleEditMode";
+            btn.innerHTML = '<i class="fa-solid fa-eye tnx-view-icon"></i><i class="fa-solid fa-pen tnx-edit-icon"></i>';
             header.prepend(btn);
         }
 
