@@ -2909,8 +2909,8 @@ form .sheet-notes.notes {
     flex: 0 0 auto;
 }
 
-/* 追加・削除ボタン */
-.add-array-item, .delete-array-item {
+/* 行追加・削除ボタン (24×24px, 角丸正方形) */
+.tnx-row-btn, .tnx-row-btn--delete {
     flex: 0 0 24px;
     width: 24px;
     height: 24px;
@@ -2926,11 +2926,11 @@ form .sheet-notes.notes {
     font-size: 12px;
     transition: all 0.2s;
 }
-.add-array-item:hover {
+.tnx-row-btn:hover {
     color: var(--tnx-color-primary-highlight);
     border-color: var(--tnx-color-primary);
 }
-.delete-array-item:hover {
+.tnx-row-btn--delete:hover {
     color: var(--tnx-color-error-text);
     border-color: var(--tnx-color-error);
 }

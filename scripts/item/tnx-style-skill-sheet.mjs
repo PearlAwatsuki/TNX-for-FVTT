@@ -61,14 +61,14 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
             });
         }
 
-        for (const btn of this.element.querySelectorAll(".add-array-item")) {
+        for (const btn of this.element.querySelectorAll(".tnx-row-btn")) {
             btn.addEventListener("click", (event) => {
                 event.preventDefault();
                 this._onAddArrayItem(event);
             });
         }
 
-        for (const btn of this.element.querySelectorAll(".delete-array-item")) {
+        for (const btn of this.element.querySelectorAll(".tnx-row-btn--delete")) {
             btn.addEventListener("click", (event) => {
                 event.preventDefault();
                 this._onDeleteArrayItem(event);
