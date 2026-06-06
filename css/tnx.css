@@ -67,7 +67,7 @@
     --checkbox-checked-color: var(--tnx-color-primary);
 }
 
-.tokyo-nova .tnx-button {
+.tokyo-nova .tnx-btn {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -89,20 +89,20 @@
 
 .tokyo-nova select:focus,
 .tokyo-nova input:focus,
-.tokyo-nova .tnx-linked-button:hover,
-.tokyo-nova .tnx-linked-button:focus,
-.tokyo-nova .tnx-button:hover,
-.tokyo-nova .tnx-button:focus {
+.tokyo-nova .tnx-linked-btn:hover,
+.tokyo-nova .tnx-linked-btn:focus,
+.tokyo-nova .tnx-btn:hover,
+.tokyo-nova .tnx-btn:focus {
     border-color: var(--tnx-color-primary-highlight);
     box-shadow: 0 0 6px var(--tnx-color-primary);
     color: inherit;
 }
 
-.tokyo-nova .tnx-button:hover:not(:disabled) {
+.tokyo-nova .tnx-btn:hover:not(:disabled) {
     background-color: var(--tnx-color-primary-dark);
     border-color: var(--tnx-color-primary);
 }
-.tokyo-nova .tnx-button:disabled {
+.tokyo-nova .tnx-btn:disabled {
     background-color: #4a5057;
     border-color: #3e444a;    
     box-shadow: none;
@@ -111,7 +111,7 @@
     cursor: not-allowed;
 }
 
-.tokyo-nova.sheet .tnx-linked-button {
+.tokyo-nova.sheet .tnx-linked-btn {
     display: flex;
     align-items: center;
     justify-content: flex-start;
@@ -129,11 +129,11 @@
     cursor: pointer;
     font-family: inherit;
 }
-.tokyo-nova.sheet .tnx-linked-button:hover:not(:disabled) {
+.tokyo-nova.sheet .tnx-linked-btn:hover:not(:disabled) {
     background-color: var(--tnx-color-primary-dark);
     border-color: var(--tnx-color-primary);
 }
-.tokyo-nova.sheet .tnx-linked-button:disabled {
+.tokyo-nova.sheet .tnx-linked-btn:disabled {
     background-color: #4a5057;
     border-color: #3e444a;
     box-shadow: none;
@@ -141,14 +141,14 @@
     opacity: 0.7;
     cursor: not-allowed;
 }
-.tokyo-nova.sheet .tnx-linked-button .tnx-linked-button__icon {
+.tokyo-nova.sheet .tnx-linked-btn .tnx-linked-btn__icon {
     width: 24px;
     height: 24px;
     flex: 0 0 24px;
     border: none;
     object-fit: contain;
 }
-.tokyo-nova.sheet .tnx-linked-button .tnx-linked-button__label {
+.tokyo-nova.sheet .tnx-linked-btn .tnx-linked-btn__label {
     flex-grow: 1;
     min-width: 0;
     font-weight: bold;
@@ -335,7 +335,7 @@
     justify-content: flex-end;
     width: 40px;
 }
-.number-input-spinner .tnx-button {
+.number-input-spinner .tnx-btn {
     flex: none;
     width: 26px;
     height: 26px;
@@ -1040,7 +1040,7 @@ form .sheet-notes.notes {
     gap: 5px;
     margin-bottom: 10px;
 }
-.tokyo-nova.sheet.actor .profile-sidebar .hand-controls.horizontal-buttons .tnx-button {
+.tokyo-nova.sheet.actor .profile-sidebar .hand-controls.horizontal-buttons .tnx-btn {
     padding: 0 6px;
     gap: 4px;
     font-size: 13px;
@@ -1132,7 +1132,7 @@ form .sheet-notes.notes {
 .tokyo-nova.sheet.actor .affiliation-block {
     width: 280px;
 }
-.tokyo-nova.sheet.actor .edit-mode-affiliation > .tnx-linked-button,
+.tokyo-nova.sheet.actor .edit-mode-affiliation > .tnx-linked-btn,
 .tokyo-nova.sheet.actor .edit-mode-affiliation > .tnx-import-box--inline {
     flex-grow: 1;
     min-width: 0;
@@ -1574,7 +1574,7 @@ form .sheet-notes.notes {
     margin-bottom: 20px;
 }
 
-.setup-controls .tnx-button {
+.setup-controls .tnx-btn {
     max-width: 300px;
 }
 
@@ -1645,12 +1645,12 @@ form .sheet-notes.notes {
     color: var(--tnx-color-text-base);
 }
 
-.tnx-button--secondary {
+.tnx-btn--secondary {
     background-color: #4a5057;
     border-color: #3e444a;
     color: var(--tnx-color-text-secondary);
 }
-.tnx-button--secondary:hover {
+.tnx-btn--secondary:hover {
     background-color: #585f68;
     border-color: #666;
 }
@@ -1687,7 +1687,7 @@ form .sheet-notes.notes {
     margin: 0;
 }
 
-#tnx-scenario-wizard .number-input-spinner .tnx-button {
+#tnx-scenario-wizard .number-input-spinner .tnx-btn {
     width: 35px;
     height: 35px;
     flex-shrink: 0;
@@ -1780,7 +1780,7 @@ form .sheet-notes.notes {
     max-width: 500px;
 }
 
-.scenario-sheet .scenario-actions .tnx-button {
+.scenario-sheet .scenario-actions .tnx-btn {
     width: 300px;
 }
 
@@ -2334,7 +2334,7 @@ form .sheet-notes.notes {
     color: var(--tnx-color-primary-highlight);
     border-color: var(--tnx-color-primary);
 }
-.tokyo-nova .tnx-button.small-button {
+.tokyo-nova .tnx-btn.small-button {
     width: auto;
     height: 32px;
     font-size: 13px;
@@ -3228,7 +3228,7 @@ ol.item-list {
 
 /* --- 受け皿の中身（ドロップボックス・ボタン共通） --- */
 .record-slot .tnx-import-box,
-.record-slot .tnx-linked-button {
+.record-slot .tnx-linked-btn {
     width: 100%;
     height: 100%;
     margin: 0;
@@ -3360,7 +3360,7 @@ ol.item-list {
 
 /* --- C. スピナーボタン (＋－): 操作不可・グレーアウト --- */
 .tokyo-nova.sheet.item.view-mode .row-controls a,
-.tokyo-nova.sheet.item.view-mode .tnx-button {
+.tokyo-nova.sheet.item.view-mode .tnx-btn {
     pointer-events: none;
     background-color: #4a5057;
     border-color: #3e444a;
@@ -3384,7 +3384,7 @@ ol.item-list {
 }
 
 /* ボタンの基本スタイル */
-.tnx-bs-button {
+.tnx-bs-btn {
     display: flex;
     align-items: center;
     justify-content: flex-start;
@@ -3398,7 +3398,7 @@ ol.item-list {
     opacity: 0.7; /* オフの時は少し薄く */
 }
 
-.tnx-bs-button:hover {
+.tnx-bs-btn:hover {
     background: #d0d0d0;
     opacity: 1;
 }
@@ -3427,7 +3427,7 @@ ol.item-list {
 }
 
 /* --- アクティブ（ON）時のスタイル --- */
-.tnx-bs-button.active {
+.tnx-bs-btn.active {
     background: var(--tnx-color-primary-darker); /* N◎VAらしい赤黒い色など */
     border-color: var(--tnx-color-primary);
     color: var(--tnx-color-white);
@@ -3435,7 +3435,7 @@ ol.item-list {
     box-shadow: 0 0 5px var(--tnx-color-primary-dark);
 }
 
-.tnx-bs-button.active .tnx-bs-check {
+.tnx-bs-btn.active .tnx-bs-check {
     display: block; /* チェックマーク表示 */
 }
 

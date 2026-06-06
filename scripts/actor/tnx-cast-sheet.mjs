@@ -385,7 +385,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
             ev.preventDefault();
             ev.stopPropagation();
 
-            const button = ev.currentTarget.closest('.tnx-bs-button');
+            const button = ev.currentTarget.closest('.tnx-bs-btn');
             if (!button) return;
 
             const effectId = button.dataset.effectId;

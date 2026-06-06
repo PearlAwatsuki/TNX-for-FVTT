@@ -52,9 +52,9 @@
                     <div class="form-group">
                         <label>{{localize "TNX.RemainingUses"}}</label>
                         <div class="number-input-spinner">
-                            <button type="button" data-action="decrementLevel" class="tnx-button">-</button>
+                            <button type="button" data-action="decrementLevel" class="tnx-btn">-</button>
                             <input class="ability-value" type="number" name="system.usageCount.total" value="{{system.usageCount.total}}" {{#if system.isUsed}} disabled {{/if}}>
-                            <button type="button" data-action="incrementLevel" class="tnx-button">+</button>
+                            <button type="button" data-action="incrementLevel" class="tnx-btn">+</button>
                         </div>
                         <p class="sheet-notes notes">{{localize "TNX.RemainingUsesHint"}}</p>
                     </div>

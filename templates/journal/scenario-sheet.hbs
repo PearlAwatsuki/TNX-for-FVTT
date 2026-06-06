@@ -28,7 +28,7 @@
         <div class="tab setting" data-group="primary" data-tab="setting">
             <div class="scenario-content">
                 <div class="setup-controls">
-                    <button type="button" class="tnx-button" data-action="launch-wizard">
+                    <button type="button" class="tnx-btn" data-action="launch-wizard">
                         <i class="fas fa-magic"></i> セットアップウィザードを起動
                     </button>
                 </div>
@@ -39,9 +39,9 @@
                             <h3 class="slot-header">山札 (トランプ)</h3>
                             <div class="slot-body">
                                 {{#if cardDeck}}
-                                    <button type="button" class="tnx-linked-button" data-action="open-document" data-uuid="{{cardDeck.uuid}}">
-                                        <img src="{{cardDeck.img}}" class="tnx-linked-button__icon"/>
-                                        <span class="tnx-linked-button__label">{{cardDeck.name}}</span>
+                                    <button type="button" class="tnx-linked-btn" data-action="open-document" data-uuid="{{cardDeck.uuid}}">
+                                        <img src="{{cardDeck.img}}" class="tnx-linked-btn__icon"/>
+                                        <span class="tnx-linked-btn__label">{{cardDeck.name}}</span>
                                     </button>
                                 {{else}}
                                     <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="cardDeck">
@@ -54,9 +54,9 @@
                             <h3 class="slot-header">捨て札</h3>
                             <div class="slot-body">
                                 {{#if discardPile}}
-                                    <button type="button" class="tnx-linked-button" data-action="open-document" data-uuid="{{discardPile.uuid}}">
-                                        <img src="{{discardPile.img}}" class="tnx-linked-button__icon"/>
-                                        <span class="tnx-linked-button__label">{{discardPile.name}}</span>
+                                    <button type="button" class="tnx-linked-btn" data-action="open-document" data-uuid="{{discardPile.uuid}}">
+                                        <img src="{{discardPile.img}}" class="tnx-linked-btn__icon"/>
+                                        <span class="tnx-linked-btn__label">{{discardPile.name}}</span>
                                     </button>
                                 {{else}}
                                     <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="discardPile">
@@ -69,9 +69,9 @@
                             <h3 class="slot-header">ニューロデッキ</h3>
                             <div class="slot-body">
                                 {{#if neuroDeck}}
-                                    <button type="button" class="tnx-linked-button" data-action="open-document" data-uuid="{{neuroDeck.uuid}}">
-                                        <img src="{{neuroDeck.img}}" class="tnx-linked-button__icon"/>
-                                        <span class="tnx-linked-button__label">{{neuroDeck.name}}</span>
+                                    <button type="button" class="tnx-linked-btn" data-action="open-document" data-uuid="{{neuroDeck.uuid}}">
+                                        <img src="{{neuroDeck.img}}" class="tnx-linked-btn__icon"/>
+                                        <span class="tnx-linked-btn__label">{{neuroDeck.name}}</span>
                                     </button>
                                 {{else}}
                                     <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="neuroDeck">
@@ -84,9 +84,9 @@
                             <h3 class="slot-header">シーンカード</h3>
                             <div class="slot-body">
                                 {{#if scenePile}}
-                                    <button type="button" class="tnx-linked-button" data-action="open-document" data-uuid="{{scenePile.uuid}}">
-                                        <img src="{{scenePile.img}}" class="tnx-linked-button__icon"/>
-                                        <span class="tnx-linked-button__label">{{scenePile.name}}</span>
+                                    <button type="button" class="tnx-linked-btn" data-action="open-document" data-uuid="{{scenePile.uuid}}">
+                                        <img src="{{scenePile.img}}" class="tnx-linked-btn__icon"/>
+                                        <span class="tnx-linked-btn__label">{{scenePile.name}}</span>
                                     </button>
                                 {{else}}
                                     <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="scenePile">
@@ -99,9 +99,9 @@
                             <h3 class="slot-header">アクセスカード置き場</h3>
                             <div class="slot-body">
                                 {{#if accessCardPile}}
-                                    <button type="button" class="tnx-linked-button" data-action="open-document" data-uuid="{{accessCardPile.uuid}}">
-                                        <img src="{{accessCardPile.img}}" class="tnx-linked-button__icon"/>
-                                        <span class="tnx-linked-button__label">{{accessCardPile.name}}</span>
+                                    <button type="button" class="tnx-linked-btn" data-action="open-document" data-uuid="{{accessCardPile.uuid}}">
+                                        <img src="{{accessCardPile.img}}" class="tnx-linked-btn__icon"/>
+                                        <span class="tnx-linked-btn__label">{{accessCardPile.name}}</span>
                                     </button>
                                 {{else}}
                                     <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="accessCardPile">
@@ -114,9 +114,9 @@
                             <h3 class="slot-header">RL切り札捨て場</h3>
                             <div class="slot-body">
                                 {{#if gmTrumpDiscard}}
-                                    <button type="button" class="tnx-linked-button" data-action="open-document" data-uuid="{{gmTrumpDiscard.uuid}}">
-                                        <img src="{{gmTrumpDiscard.img}}" class="tnx-linked-button__icon"/>
-                                        <span class="tnx-linked-button__label">{{gmTrumpDiscard.name}}</span>
+                                    <button type="button" class="tnx-linked-btn" data-action="open-document" data-uuid="{{gmTrumpDiscard.uuid}}">
+                                        <img src="{{gmTrumpDiscard.img}}" class="tnx-linked-btn__icon"/>
+                                        <span class="tnx-linked-btn__label">{{gmTrumpDiscard.name}}</span>
                                     </button>
                                 {{else}}
                                     <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="gmTrumpDiscard">
@@ -131,7 +131,7 @@
                     <legend>管理アクション</legend>
                     <div class="scenario-actions">
                         <div>
-                            <button type="button" class="tnx-button" data-action="create-all-user-hands">
+                            <button type="button" class="tnx-btn" data-action="create-all-user-hands">
                                 <i class="fas fa-users"></i> 全ユーザーの手札・切り札を作成
                             </button>
                             <p class="sheet-notes notes">
@@ -139,7 +139,7 @@
                             </p>
                         </div>
                         <div>
-                            <button type="button" class="tnx-button" data-action="deal-trump-for-rl">
+                            <button type="button" class="tnx-btn" data-action="deal-trump-for-rl">
                                 <i class="fas fa-crown"></i> RLの切り札を設定
                             </button>
                             <p class="sheet-notes notes">
@@ -147,7 +147,7 @@
                             </p>
                         </div>
                         <div>
-                            <button type="button" class="tnx-button" data-action="reset-access-cards">
+                            <button type="button" class="tnx-btn" data-action="reset-access-cards">
                                 <i class="fas fa-undo"></i> アクセスカードをリセットする
                             </button>
                             <p class="sheet-notes notes">
@@ -155,7 +155,7 @@
                             </p>
                         </div>
                         <div>
-                            <button type="button" class="tnx-button" data-action="deal-initial-hands">
+                            <button type="button" class="tnx-btn" data-action="deal-initial-hands">
                                 <i class="fas fa-hand-holding"></i> 初期手札を配布
                             </button>
                             <p class="sheet-notes notes">
@@ -163,7 +163,7 @@
                             </p>
                         </div>
                         <div>                            
-                            <button type="button" class="tnx-button" data-action="deal-trump-from-neuro">
+                            <button type="button" class="tnx-btn" data-action="deal-trump-from-neuro">
                                 <i class="fas fa-star"></i> 切り札を配布
                             </button>
                             <p class="sheet-notes notes">
@@ -180,7 +180,7 @@
                 <div class="trailer-section">
                     <div class="info-header">
                         <h3>トレーラー</h3>
-                        <button type="button" class="tnx-button small-button" data-action="send-trailer-to-chat">
+                        <button type="button" class="tnx-btn small-button" data-action="send-trailer-to-chat">
                             <i class="fas fa-paper-plane"></i> チャットに送信
                         </button>
                     </div>
@@ -391,7 +391,7 @@
                                 </div>
                             </div>
                             <div class="add-content-button-wrapper">
-                                <button type="button" class="tnx-button add-content-button" data-action="add-info-content" data-info-id="{{infoItem.id}}">
+                                <button type="button" class="tnx-btn add-content-button" data-action="add-info-content" data-info-id="{{infoItem.id}}">
                                     <i class="fas fa-plus"></i> 情報の内容を追加
                                 </button>
                             </div>

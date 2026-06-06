@@ -13,9 +13,9 @@
             <div class="form-group">
                 <label>PC人数</label>
                 <div class="number-input-spinner">
-                    <button type="button" class="tnx-button" data-action="decrement">-</button>
+                    <button type="button" class="tnx-btn" data-action="decrement">-</button>
                     <input type="number" name="pcCount" value="4" min="1">
-                    <button type="button" class="tnx-button" data-action="increment">+</button>
+                    <button type="button" class="tnx-btn" data-action="increment">+</button>
                 </div>
             </div>
         </fieldset>
@@ -25,39 +25,39 @@
                 <div class="form-group">
                     <label>オープニング</label>
                     <div class="number-input-spinner">
-                        <button type="button" class="tnx-button" data-action="decrement">-</button>
+                        <button type="button" class="tnx-btn" data-action="decrement">-</button>
                         <input type="number" name="sceneCounts.opening" value="1" min="0">
-                        <button type="button" class="tnx-button" data-action="increment">+</button>
+                        <button type="button" class="tnx-btn" data-action="increment">+</button>
                     </div>
                 </div>
                 <div class="form-group">
                     <label>リサーチ</label>
                     <div class="number-input-spinner">
-                        <button type="button" class="tnx-button" data-action="decrement">-</button>
+                        <button type="button" class="tnx-btn" data-action="decrement">-</button>
                         <input type="number" name="sceneCounts.research" value="3" min="0">
-                        <button type="button" class="tnx-button" data-action="increment">+</button>
+                        <button type="button" class="tnx-btn" data-action="increment">+</button>
                     </div>
                 </div>
                 <div class="form-group">
                     <label>クライマックス</label>
                     <div class="number-input-spinner">
-                        <button type="button" class="tnx-button" data-action="decrement">-</button>
+                        <button type="button" class="tnx-btn" data-action="decrement">-</button>
                         <input type="number" name="sceneCounts.climax" value="1" min="0">
-                        <button type="button" class="tnx-button" data-action="increment">+</button>
+                        <button type="button" class="tnx-btn" data-action="increment">+</button>
                     </div>
                 </div>
                 <div class="form-group">
                     <label>エンディング</label>
                     <div class="number-input-spinner">
-                        <button type="button" class="tnx-button" data-action="decrement">-</button>
+                        <button type="button" class="tnx-btn" data-action="decrement">-</button>
                         <input type="number" name="sceneCounts.ending" value="1" min="0">
-                        <button type="button" class="tnx-button" data-action="increment">+</button>
+                        <button type="button" class="tnx-btn" data-action="increment">+</button>
                     </div>
                 </div>
             </div>
         </fieldset>
         <footer class="sheet-footer">
-            <button type="button" class="wizard-next tnx-button">次へ <i class="fas fa-arrow-right"></i></button>
+            <button type="button" class="wizard-next tnx-btn">次へ <i class="fas fa-arrow-right"></i></button>
         </footer>
     {{/if}}
 
@@ -101,8 +101,8 @@
             </div>
         </fieldset>
         <footer class="sheet-footer">
-            <button type="button" class="wizard-back tnx-button tnx-button--secondary"><i class="fas fa-arrow-left"></i> 戻る</button>
-            <button type="button" class="wizard-next tnx-button">次へ <i class="fas fa-arrow-right"></i></button>
+            <button type="button" class="wizard-back tnx-btn tnx-btn--secondary"><i class="fas fa-arrow-left"></i> 戻る</button>
+            <button type="button" class="wizard-next tnx-btn">次へ <i class="fas fa-arrow-right"></i></button>
         </footer>
     {{/if}}
 
@@ -118,9 +118,9 @@
                     <div class="form-group">
                         <label>デッキ数</label>
                         <div class="number-input-spinner">
-                            <button type="button" class="tnx-button" data-action="decrement">-</button>
+                            <button type="button" class="tnx-btn" data-action="decrement">-</button>
                             <input type="number" name="deckCount" value="2" min="1">
-                            <button type="button" class="tnx-button" data-action="increment">+</button>
+                            <button type="button" class="tnx-btn" data-action="increment">+</button>
                         </div>
                         <p class="notes">ジョーカーを含む54枚のトランプを何セット使用するか指定します。</p>
                     </div>
@@ -142,8 +142,8 @@
             {{/if}}
         </fieldset>
         <footer class="sheet-footer">
-            <button type="button" class="wizard-back tnx-button tnx-button--secondary"><i class="fas fa-arrow-left"></i> 戻る</button>
-            <button type="button" class="wizard-next tnx-button">次へ <i class="fas fa-arrow-right"></i></button>
+            <button type="button" class="wizard-back tnx-btn tnx-btn--secondary"><i class="fas fa-arrow-left"></i> 戻る</button>
+            <button type="button" class="wizard-next tnx-btn">次へ <i class="fas fa-arrow-right"></i></button>
         </footer>
     {{/if}}
     
@@ -160,8 +160,8 @@
             <p class="sheet-notes notes" style="padding-left: 5px;">ワールドに存在する全ての「手札」タイプのカード置き場に対し、上限までカードを補充します。</p>
         </fieldset>
         <footer class="sheet-footer">
-            <button type="button" class="wizard-back tnx-button tnx-button--secondary"><i class="fas fa-arrow-left"></i> 戻る</button>
-            <button type="submit" name="submit" class="tnx-button">
+            <button type="button" class="wizard-back tnx-btn tnx-btn--secondary"><i class="fas fa-arrow-left"></i> 戻る</button>
+            <button type="submit" name="submit" class="tnx-btn">
                 <i class="fas fa-check"></i> 完了
             </button>
         </footer>

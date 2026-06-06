@@ -507,7 +507,7 @@ export class TnxScenarioSheet extends JournalSheet {
     
     _activateContextMenu(html) {
         const sheet = this;
-        new ContextMenu(html, ".tnx-linked-button", [{
+        new ContextMenu(html, ".tnx-linked-btn", [{
             name: "リンクを解除", icon: '<i class="fas fa-unlink"></i>',
             condition: $li => $li.data("uuid"), 
             callback: async header => {

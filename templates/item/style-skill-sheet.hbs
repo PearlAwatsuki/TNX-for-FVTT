@@ -157,9 +157,9 @@
                                 {{!-- 数値の場合: スピナー表示 --}}
                                 {{#if (eq system.maxLevel "number")}}
                                     <div class="number-input-spinner skill-sheet-spinner">
-                                        <button type="button" data-action="decrementMaxLevel" class="tnx-button">-</button>
+                                        <button type="button" data-action="decrementMaxLevel" class="tnx-btn">-</button>
                                         <input type="number" name="system.maxLevelNumber" value="{{system.maxLevelNumber}}"/>
-                                        <button type="button" data-action="incrementMaxLevel" class="tnx-button">+</button>
+                                        <button type="button" data-action="incrementMaxLevel" class="tnx-btn">+</button>
                                     </div>
                                 {{/if}}
 
@@ -264,9 +264,9 @@
                                 {{!-- 数値の場合: スピナー --}}
                                 {{#if (eq system.targetValue "number")}}
                                     <div class="number-input-spinner skill-sheet-spinner">
-                                        <button type="button" data-action="decrementTargetValue" class="tnx-button">-</button>
+                                        <button type="button" data-action="decrementTargetValue" class="tnx-btn">-</button>
                                         <input type="number" name="system.targetValueNumber" value="{{system.targetValueNumber}}"/>
-                                        <button type="button" data-action="incrementTargetValue" class="tnx-button">+</button>
+                                        <button type="button" data-action="incrementTargetValue" class="tnx-btn">+</button>
                                     </div>
                                 {{/if}}
 
@@ -356,12 +356,12 @@
                                             <input type="text" name="system.substituteTarget.{{idx}}" value="{{target}}" placeholder="技能名"/>
                                             <div class="row-controls">
                                                 {{#if (eq idx 0)}}
-                                                <button type="button" class="tnx-button add-array-item" data-target="substitute" title="行を追加">
+                                                <button type="button" class="tnx-btn add-array-item" data-target="substitute" title="行を追加">
                                                     <i class="fas fa-plus"></i>
                                                 </button>
                                                 {{/if}}
                                                 {{#if (gte idx 1)}}
-                                                <button type="button" class="tnx-button delete-array-item" data-target="substitute" data-index="{{idx}}" title="削除">
+                                                <button type="button" class="tnx-btn delete-array-item" data-target="substitute" data-index="{{idx}}" title="削除">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
                                                 {{/if}}
