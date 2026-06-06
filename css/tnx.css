@@ -49,12 +49,16 @@
     color: var(--tnx-color-text-base);
 }
 /* Foundry は checkbox/radio を appearance:none + ::before FA アイコンで描画する。
-   汎用 input の background/border が干渉して縦長・ボックス化するため除外し、
-   --checkbox-* 変数で TNX 配色に上書きする。 */
+   background が干渉するため透明に、配色は --checkbox-* 変数で上書きする。 */
 .tokyo-nova input[type="checkbox"],
 .tokyo-nova input[type="radio"] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background-color: transparent;
-    border: none;
+    border: 1px solid var(--tnx-color-border);
+    height: var(--checkbox-size, 1.25rem);
+    width: var(--checkbox-size, 1.25rem);
     --checkbox-background-color: var(--tnx-color-text-muted);
     --checkbox-checked-color: var(--tnx-color-primary);
 }
@@ -224,7 +228,9 @@
     margin-right: auto;
     margin-left: 0px;
 }
+/* ノブ(白い円): content なしで純粋な図形として描画 */
 .tokyo-nova.sheet .edit-mode-toggle::after {
+    content: '';
     position: absolute;
     top: 1px;
     left: 1px;
@@ -232,15 +238,31 @@
     height: 16px;
     background-color: #fff;
     border-radius: 50%;
-    transition: left 0.2s ease-in-out, color 0.2s ease-in-out;
+    transition: left 0.2s ease-in-out;
+}
+
+/* アイコン共通: ノブの上に重ねて中央配置 */
+.tokyo-nova.sheet .edit-mode-toggle .tnx-view-icon,
+.tokyo-nova.sheet .edit-mode-toggle .tnx-edit-icon {
+    position: absolute;
+    top: 50%;
+    left: 1px;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: "Font Awesome 5 Free";
-    font-weight: 900;
     font-size: 10px;
     color: #555;
-    content: '\f06e';
+    z-index: 1;
+    pointer-events: none;
+    transition: left 0.2s ease-in-out;
+}
+
+/* 閲覧モードでは編集アイコンを非表示 */
+.tokyo-nova.sheet .edit-mode-toggle .tnx-edit-icon {
+    display: none;
 }
 
 .tokyo-nova.sheet .window-header .edit-mode-toggle:hover::after {
@@ -248,18 +270,23 @@
     background-color: #a2f3ff;
 }
 
-.tokyo-nova.sheet .edit-mode-toggle i {
-    display: none;
-}
-
+/* 編集モード: ノブ右寄せ・背景色・アイコン切替 */
 .tokyo-nova.sheet.edit-mode .edit-mode-toggle {
     background-color: var(--tnx-color-primary);
 }
 
 .tokyo-nova.sheet.edit-mode .edit-mode-toggle::after {
     left: 17px;
+}
+
+.tokyo-nova.sheet.edit-mode .edit-mode-toggle .tnx-view-icon {
+    display: none;
+}
+
+.tokyo-nova.sheet.edit-mode .edit-mode-toggle .tnx-edit-icon {
+    display: flex;
+    left: 17px;
     color: var(--tnx-color-primary);
-    content: '\f044';
 }
 
 /* --- Global Styles --- */
@@ -397,7 +424,7 @@ form .sheet-notes.notes {
 .tnx-form-field {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 10px;
 }
 
 /* --- Import Boxes (Placeholders) --- */
@@ -1434,7 +1461,7 @@ form .sheet-notes.notes {
 
 /* Custom expand/collapse icon */
 .chat-message .message-content .tnx-chat-card > summary::before {
-    font-family: "Font Awesome 5 Free";
+    font-family: "Font Awesome 6 Free";
     font-weight: 900;
     content: '\f0da'; /* Right-pointing triangle */
     margin-right: 8px;
@@ -1479,7 +1506,7 @@ form .sheet-notes.notes {
 }
 
 .chat-message .nested-description > summary::before {
-    font-family: "Font Awesome 5 Free";
+    font-family: "Font Awesome 6 Free";
     font-weight: 900;
     content: '\f0da';
     margin-right: 6px;
@@ -2817,6 +2844,27 @@ form .sheet-notes.notes {
     color: var(--tnx-color-text-dim);
 }
 
+/* チェックボックス・ラジオ・スピナーを直接含む form-group のみ flex 化して右端寄せ・垂直中央揃えを適用 */
+.tokyo-nova.sheet.item .form-group:has(> input[type="checkbox"]),
+.tokyo-nova.sheet.item .form-group:has(> input[type="radio"]),
+.tokyo-nova.sheet.item .form-group:has(> .number-input-spinner) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+}
+.tokyo-nova.sheet.item .form-group:has(> input[type="checkbox"]) > .notes,
+.tokyo-nova.sheet.item .form-group:has(> input[type="radio"]) > .notes,
+.tokyo-nova.sheet.item .form-group:has(> .number-input-spinner) > .notes {
+    width: 100%;
+    margin: 2px 0 0;
+}
+.tokyo-nova.sheet.item .form-group > input[type="checkbox"],
+.tokyo-nova.sheet.item .form-group > input[type="radio"],
+.tokyo-nova.sheet.item .form-group > .number-input-spinner {
+    margin-left: auto;
+}
+
 /* --- 4. スタイル技能情報 (設定タブ) --- */
 .style-skill-inputs {
     display: grid;
@@ -2826,7 +2874,7 @@ form .sheet-notes.notes {
 .style-skill-inputs .full-width-row {
     grid-column: 1 / -1; /* 行全体を占有 */
 }
-.style-skill-inputs .form-group {
+.tokyo-nova.sheet.item .style-skill-inputs .form-group {
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -2914,7 +2962,7 @@ form .sheet-notes.notes {
 .style-skill-inputs .full-width-row {
     grid-column: 1 / -1; /* この行がグリッドの全幅を占めるようにする */
 }
-.style-skill-inputs .form-group {
+.tokyo-nova.sheet.item .style-skill-inputs .form-group {
     display: flex;
     flex-direction: column;
     gap: 4px;
