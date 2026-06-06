@@ -48,7 +48,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         context.options = { usageTypes: this.constructor.usageTypes };
         context.isEditMode = this._isEditMode && context.editable;
 
-        context.enrichedDescription = await TextEditor.enrichHTML(system.description, {
+        context.enrichedDescription = await foundry.applications.ux.TextEditor.enrichHTML(system.description, {
             relativeTo: this.item,
             editable: context.editable,
         });
@@ -95,8 +95,9 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         }
 
         // {{editor button=true}} は V1 スタイルの div.editor を生成するが V2 には _activateEditor 相当がない。
-        // <prose-mirror toggled> に置換することで Foundry V2 の標準フローを使う:
-        // 編集ボタン押下 → ProseMirror 起動 → 保存時に change イベント → submitOnChange → document.update()
+        // <prose-mirror> に置換して Foundry V2 の標準フローを使う:
+        //   閲覧モード (toggled:true)  → 整形済み HTML + 常時表示ボタン → 押下でエディタ起動
+        //   編集モード (toggled:false) → _activateListeners が即 open=true → エディタ自動起動
         const ProseMirrorEl = customElements.get("prose-mirror");
         if (ProseMirrorEl) {
             for (const contentDiv of el.querySelectorAll(".editor-content[data-edit]")) {
@@ -107,7 +108,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
                     name: fieldName,
                     value: foundry.utils.getProperty(this.document, fieldName) ?? "",
                     enriched: contentDiv.innerHTML,
-                    toggled: true,
+                    toggled: !context.isEditMode,
                 });
                 editorDiv.replaceWith(pm);
             }

@@ -25,7 +25,7 @@ export class TokyoNovaMiracleSheet extends TokyoNovaItemSheet {
     /** @override */
     async _prepareContext(options) {
         const context = await super._prepareContext(options);
-        context.enrichedConditionDescription = await TextEditor.enrichHTML(
+        context.enrichedConditionDescription = await foundry.applications.ux.TextEditor.enrichHTML(
             this.item.system.usageCondition ?? "",
             { relativeTo: this.item, editable: context.editable }
         );

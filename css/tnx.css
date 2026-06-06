@@ -702,6 +702,11 @@ form .sheet-notes.notes {
     outline: none;
     color: var(--tnx-color-text-base);
 }
+/* Foundry デフォルトはホバー時のみ表示。詳細度 0,5,2 で上書きして常時表示にする。
+   (Foundry の body.game .app prose-mirror button.toggle は 0,3,3) */
+.tokyo-nova.sheet .tnx-editor-section__content prose-mirror button.toggle:enabled {
+    display: block;
+}
 #prosemirror-dropdown ul{
     color: var(--tnx-color-text-base);
     background-color: #333;
