@@ -48,6 +48,16 @@
     border: 1px solid var(--tnx-color-border);
     color: var(--tnx-color-text-base);
 }
+/* Foundry は checkbox/radio を appearance:none + ::before FA アイコンで描画する。
+   汎用 input の background/border が干渉して縦長・ボックス化するため除外し、
+   --checkbox-* 変数で TNX 配色に上書きする。 */
+.tokyo-nova input[type="checkbox"],
+.tokyo-nova input[type="radio"] {
+    background-color: transparent;
+    border: none;
+    --checkbox-background-color: var(--tnx-color-text-muted);
+    --checkbox-checked-color: var(--tnx-color-primary);
+}
 
 .tokyo-nova .tnx-button {
     display: flex;
