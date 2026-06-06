@@ -311,7 +311,7 @@
                 <div class="text-item-list">
                     {{#each scenarioTexts as |textItem|}}
                         <div class="text-item" data-id="{{textItem.id}}">
-                            <div class="tnx-item-header">
+                            <div class="tnx-item-header tnx-item-header--card">
                                 <input type="text" name="title" value="{{textItem.title}}" placeholder="テキストのタイトル"/>
                                 <div class="tnx-ctrl-strip">
                                     <a class="tnx-icon-ctrl" data-action="send-text-to-chat" title="チャットに送信"><i class="fas fa-paper-plane"></i></a>
@@ -342,7 +342,7 @@
                 <div class="info-item-list">
                     {{#each infoItems as |infoItem|}}
                         <div class="info-item" data-id="{{infoItem.id}}">
-                            <div class="tnx-item-header">
+                            <div class="tnx-item-header tnx-item-header--card">
                                 <input type="text" name="title" value="{{infoItem.title}}" placeholder="情報名" data-info-id="{{infoItem.id}}"/>
                                 <div class="tnx-ctrl-strip">
                                     <label class="disclosure-toggle">

@@ -173,28 +173,49 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
-/* 小型リングアイコンボタン (22×22px, 円形) */
-.tnx-ring-btn {
-    background: none;
-    border: 1px solid var(--tnx-color-border-accent);
+/* 小型ボーダー付きアイコンボタン 共通ベース */
+.tnx-ring-btn,
+.tnx-row-btn,
+.tnx-row-btn--delete {
     color: var(--tnx-color-text-dim);
-    border-radius: 50%;
-    width: 22px;
-    height: 22px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     transition: all 0.2s;
     padding: 0;
+    border: 1px solid;
 }
-.tnx-ring-btn:hover {
+/* ホバー: 追加系 */
+.tnx-ring-btn:hover,
+.tnx-row-btn:hover {
     color: var(--tnx-color-primary-highlight);
     border-color: var(--tnx-color-primary);
 }
-.tnx-ring-btn[data-action*="delete"]:hover {
+/* ホバー: 削除系 */
+.tnx-ring-btn[data-action*="delete"]:hover,
+.tnx-row-btn--delete:hover {
     color: var(--tnx-color-error-text);
     border-color: var(--tnx-color-error);
+}
+/* リング型 (22×22px, 円形) */
+.tnx-ring-btn {
+    border-color: var(--tnx-color-border-accent);
+    background: none;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+}
+/* 行ボタン型 (24×24px, 角丸) */
+.tnx-row-btn,
+.tnx-row-btn--delete {
+    flex: 0 0 24px;
+    width: 24px;
+    height: 24px;
+    border-color: var(--tnx-color-border);
+    background-color: var(--tnx-color-bg-input);
+    border-radius: 3px;
+    font-size: 12px;
 }
 
 /* インラインアイコンコントロール */
@@ -226,10 +247,12 @@
     font-size: 1.2em;
     font-weight: bold;
     color: var(--tnx-color-primary);
-    margin-bottom: 10px;
+    margin-bottom: 15px;
     border-bottom: 1px solid var(--tnx-color-primary-dark);
     padding-bottom: 5px;
 }
+.tnx-section-title--sm     { margin-bottom: 10px; }
+.tnx-section-title--center { text-align: center; margin-bottom: 8px; padding-bottom: 4px; }
 
 /* セクションヘッダー (タイトル + アクション横並びコンテナ) */
 .tnx-section-header {
@@ -252,6 +275,8 @@
     display: flex;
     align-items: center;
     gap: 10px;
+}
+.tnx-item-header--card {
     padding: 8px 12px;
     background: rgba(0,0,0,0.1);
     border-bottom: 1px solid var(--tnx-color-border);
@@ -664,9 +689,6 @@ form .sheet-notes.notes {
 }
 
 /* --- Abilities Grid (Edit Mode) --- */
-.tokyo-nova.sheet .tnx-section-title {
-    margin-bottom: 15px;
-}
 .tokyo-nova.sheet .abilities-grid.edit-mode-layout {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -1100,9 +1122,6 @@ form .sheet-notes.notes {
     display: block;
     margin: 0 auto;
 }
-.tokyo-nova.sheet.actor .profile-sidebar .tnx-section-title {
-    margin-bottom: 10px;
-}
 .tokyo-nova.sheet.actor .profile-sidebar .personal-data-grid {
     display: grid;
     grid-template-columns: 126px 1fr;
@@ -1245,7 +1264,6 @@ form .sheet-notes.notes {
 .tokyo-nova.sheet.actor .profile-header .edit-mode-exp { display: flex; align-items: center; gap: 55px; }
 .tokyo-nova.sheet.actor .profile-header .exp-display-section .exp-value { font-weight: bold; font-size: 1.2em; color: var(--tnx-color-primary-highlight); }
 .tokyo-nova.sheet.actor .profile-header .styles-and-miracle-section { width: 100%; margin-top: 10px; }
-.tokyo-nova.sheet.actor .profile-header .tnx-section-title { text-align: center; margin-bottom: 8px; padding-bottom: 4px; }
 .tokyo-nova.sheet.actor .profile-header .miracle-buttons-grid {
     display: flex;         /* 親要素をFlexboxコンテナにする（これが横並びの基本です） */
     flex-wrap: wrap;       /* 要素が多すぎて一行に収まらない場合は折り返す */
@@ -2112,7 +2130,7 @@ form .sheet-notes.notes {
 .info-item.disclosed {
     border-left: 3px solid var(--tnx-color-primary);
 }
-.info-item.disclosed .tnx-item-header {
+.info-item.disclosed .tnx-item-header--card {
     background-color: rgba(0, 170, 255, 0.08);
 }
 .disclosure-toggle {
@@ -2174,12 +2192,7 @@ form .sheet-notes.notes {
     background-color: rgba(0,0,0,0.15);
     border-radius: var(--tnx-border-radius-sm);
 }
-.skill-checks-area .tnx-item-header {
-    padding: 0;
-    background: none;
-    border-bottom: none;
-    margin-bottom: 8px;
-}
+.skill-checks-area .tnx-item-header { margin-bottom: 8px; }
 .skill-checks-area .tnx-item-header h5 {
     margin: 0;
     font-weight: bold;
@@ -2850,31 +2863,6 @@ form .sheet-notes.notes {
     flex: 0 0 auto;
 }
 
-/* 行追加・削除ボタン (24×24px, 角丸正方形) */
-.tnx-row-btn, .tnx-row-btn--delete {
-    flex: 0 0 24px;
-    width: 24px;
-    height: 24px;
-    border: 1px solid var(--tnx-color-border);
-    background-color: var(--tnx-color-bg-input);
-    color: var(--tnx-color-text-dim);
-    border-radius: 3px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    padding: 0;
-    font-size: 12px;
-    transition: all 0.2s;
-}
-.tnx-row-btn:hover {
-    color: var(--tnx-color-primary-highlight);
-    border-color: var(--tnx-color-primary);
-}
-.tnx-row-btn--delete:hover {
-    color: var(--tnx-color-error-text);
-    border-color: var(--tnx-color-error);
-}
 
 /* 追加スタイルの例 */
 .skill-level-container {
