@@ -653,7 +653,6 @@ form .sheet-notes.notes {
     flex: 0;
 }
 .dialog:has(.card-selection-grid) {
-    /* ▼▼▼ 幅の修正 ▼▼▼ */
     /* カード4枚が並ぶ幅に固定します。!importantでJSによる上書きを防ぎます。 */
     width: 480px !important;
     height: auto !important;
@@ -824,27 +823,6 @@ form .sheet-notes.notes {
     background-color: var(--tnx-color-bg-input);
     border-color: var(--tnx-color-primary);
     outline: none;
-}
-
-/* --- Style Sheet: Specific --- */
-.abilities-section {
-    position: relative;
-    border: 1px solid var(--tnx-color-primary-dark);
-    border-radius: var(--tnx-border-radius-lg);
-    background-color: var(--tnx-color-bg-alt);
-    box-shadow: inset 0 0 15px rgba(0, 170, 255, 0.1);
-    padding: 25px 15px 15px 15px;
-    margin: 0 0 20px 0;
-}
-.abilities-section legend {
-    position: absolute;
-    top: -0.7em;
-    left: 15px;
-    background-color: var(--tnx-color-bg);
-    padding: 0 10px;
-    font-size: 1.2em;
-    font-weight: bold;
-    color: var(--tnx-color-primary-accent);
 }
 
 /* --- CardPool Sheet: Specific --- */
@@ -2807,7 +2785,6 @@ form .sheet-notes.notes {
     grid-template-columns: 1fr 1fr;
     gap: 8px 15px; /* 縦・横の隙間 */
 }
-/* ▼▼▼【重要】フルワイドの行を指定するCSSルール ▼▼▼ */
 .style-skill-display-grid .full-width-row {
     grid-column: 1 / -1; /* この行がグリッドの全幅を占めるようにする */
 }
@@ -2827,7 +2804,6 @@ form .sheet-notes.notes {
     grid-template-columns: 1fr 1fr;
     gap: 10px 15px;
 }
-/* ▼▼▼【重要】フルワイドの行を指定するCSSルール ▼▼▼ */
 .style-skill-inputs .full-width-row {
     grid-column: 1 / -1; /* この行がグリッドの全幅を占めるようにする */
 }
@@ -3168,8 +3144,6 @@ ol.item-list {
     padding: 0 2px;
     align-items: center;
     justify-content: center;
-    
-    /* ▼▼▼ 変更: 基本的に中央揃えにする ▼▼▼ */
     text-align: center;
 }
 
@@ -3200,11 +3174,8 @@ ol.item-list {
 
 /* --- 名称カラムのみ左揃えに戻す --- */
 .cell-name {
-    /* ▼▼▼ 追加: 左揃え ▼▼▼ */
     text-align: left;
     justify-content: left;
-    
-    /* 名称はリンクなどが含まれるため、念のため色や装飾も確認 */
     font-weight: bold;
 }
 
