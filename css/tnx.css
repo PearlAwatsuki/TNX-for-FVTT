@@ -158,6 +158,30 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
+/* 小型リングアイコンボタン (22×22px, 円形) */
+.tnx-ring-btn {
+    background: none;
+    border: 1px solid var(--tnx-color-border-accent);
+    color: var(--tnx-color-text-dim);
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    padding: 0;
+}
+.tnx-ring-btn:hover {
+    color: var(--tnx-color-primary-highlight);
+    border-color: var(--tnx-color-primary);
+}
+.tnx-ring-btn[data-action*="delete"]:hover {
+    color: var(--tnx-color-error-text);
+    border-color: var(--tnx-color-error);
+}
+
 .tnx-wrapper-button {
     background: transparent;
     border: none;
@@ -1864,14 +1888,6 @@ form .sheet-notes.notes {
 .scene-table-header .header-cell.master-scene,
 .scene-table-header .header-cell.scene-switch,
 .scene-table-header .header-cell.scene-controls { text-align: center; }
-.scene-table-header .add-scene-button {
-    background: none; border: 1px solid var(--tnx-color-border-accent); padding: 0; font-size: 1.1em;
-    color: var(--tnx-color-text-dim); cursor: pointer; border-radius: 50%;
-    width: 26px; height: 26px;
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s;
-}
-.scene-table-header .add-scene-button:hover { border-color: var(--tnx-color-primary); color: var(--tnx-color-primary-highlight); }
 .scene-table-body { display: flex; flex-direction: column; gap: 5px; margin-top: 5px; }
 .scene-item {
     display: flex; flex-direction: column; background-color: var(--tnx-color-bg-alt);
@@ -2204,27 +2220,6 @@ form .sheet-notes.notes {
     margin: 0;
     font-weight: bold;
 }
-.skill-control {
-    background: none;
-    border: 1px solid var(--tnx-color-border-accent);
-    color: var(--tnx-color-text-dim);
-    border-radius: 50%;
-    width: 22px;
-    height: 22px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-.skill-control:hover {
-    color: var(--tnx-color-primary-highlight);
-    border-color: var(--tnx-color-primary);
-}
-.skill-control.delete:hover {
-    color: var(--tnx-color-error-text);
-    border-color: var(--tnx-color-error);
-}
 .skill-check-list {
     display: flex;
     flex-direction: column;
@@ -2323,16 +2318,6 @@ form .sheet-notes.notes {
     background: transparent;
     border: none;
     color: var(--tnx-color-text-dim);
-}
-.add-handout-button {
-    background: none; border: 1px solid var(--tnx-color-border-accent);
-    color: var(--tnx-color-text-dim); border-radius: 50%; width: 26px; height: 26px;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; transition: all 0.2s;
-}
-.add-handout-button:hover {
-    color: var(--tnx-color-primary-highlight);
-    border-color: var(--tnx-color-primary);
 }
 .tokyo-nova .tnx-btn.small-button {
     width: auto;

@@ -189,7 +189,7 @@
                 <div class="handouts-section">
                     <div class="info-header">
                         <h3>ハンドアウト</h3>
-                        <button type="button" class="add-handout-button" data-action="add-handout" title="ハンドアウトを追加">
+                        <button type="button" class="tnx-ring-btn" data-action="add-handout" title="ハンドアウトを追加">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
@@ -250,7 +250,7 @@
                             <div class="header-cell master-scene">MS</div>
                             <div class="header-cell scene-switch">切替</div>
                             <div class="header-cell scene-controls">
-                                <button type="button" class="add-scene-button" data-action="add-scene" data-phase="{{phaseKey}}" title="このフェイズにシーンを追加">
+                                <button type="button" class="tnx-ring-btn" data-action="add-scene" data-phase="{{phaseKey}}" title="このフェイズにシーンを追加">
                                     <i class="fas fa-plus"></i>
                                 </button>
                             </div>
@@ -373,7 +373,7 @@
                                         <div class="skill-checks-area">
                                             <div class="skill-checks-header">
                                                 <h5>使用技能</h5>
-                                                <a class="skill-control" data-action="add-skill-check" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" title="使用技能を追加"><i class="fas fa-plus"></i></a>
+                                                <a class="tnx-ring-btn" data-action="add-skill-check" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" title="使用技能を追加"><i class="fas fa-plus"></i></a>
                                             </div>
                                             <div class="skill-check-list">
                                                 {{#each contentItem.skills as |skillItem|}}
@@ -381,7 +381,7 @@
                                                     <input type="text" name="name" class="skill-name" placeholder="技能名" value="{{skillItem.name}}" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}">
                                                     <span class="tn-label">目標値:</span>
                                                     <input type="number" name="tn" class="skill-tn" placeholder="-" value="{{skillItem.tn}}" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}">
-                                                    <a class="skill-control delete" data-action="delete-skill-check" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}" title="この技能を削除"><i class="fas fa-times"></i></a>
+                                                    <a class="tnx-ring-btn" data-action="delete-skill-check" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}" title="この技能を削除"><i class="fas fa-times"></i></a>
                                                 </div>
                                                 {{/each}}
                                             </div>
