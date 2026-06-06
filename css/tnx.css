@@ -206,6 +206,60 @@
     flex-shrink: 0;
 }
 
+/* セクションタイトル (見出し要素 h2/h3 に付与) */
+.tnx-section-title {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: var(--tnx-color-primary);
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--tnx-color-primary-dark);
+    padding-bottom: 5px;
+}
+
+/* セクションヘッダー (タイトル + アクション横並びコンテナ) */
+.tnx-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--tnx-color-border-accent);
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+}
+.tnx-section-header h3 {
+    margin: 0;
+    color: var(--tnx-color-primary-accent);
+    font-size: 1.3em;
+    border: none;
+}
+
+/* アイテムヘッダー (入力 + コントロール横並びコンテナ) */
+.tnx-item-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: rgba(0,0,0,0.1);
+    border-bottom: 1px solid var(--tnx-color-border);
+}
+.tnx-item-header input[type="text"] {
+    flex-grow: 1;
+    background-color: transparent;
+    border: none;
+    padding: 4px 0;
+    font-size: 1.1em;
+    font-weight: bold;
+    color: var(--tnx-color-text-base);
+    border-radius: 0;
+    border-bottom: 1px solid transparent;
+    transition: all 0.2s;
+}
+.tnx-item-header input[type="text"]:focus {
+    outline: none;
+    background-color: var(--tnx-color-bg-input);
+    padding-left: 5px;
+    border-bottom-color: var(--tnx-color-primary);
+}
+
 .tnx-wrapper-button {
     background: transparent;
     border: none;
@@ -595,14 +649,8 @@ form .sheet-notes.notes {
 }
 
 /* --- Abilities Grid (Edit Mode) --- */
-.tokyo-nova.sheet .abilities-grid-header {
-    font-size: 1.2em;
-    font-weight: bold;
-    color: var(--tnx-color-primary);
+.tokyo-nova.sheet .tnx-section-title {
     margin-bottom: 15px;
-    border-bottom: 1px solid var(--tnx-color-primary-dark);
-    padding-bottom: 5px;
-    text-align: left;
 }
 .tokyo-nova.sheet .abilities-grid.edit-mode-layout {
     display: grid;
@@ -1037,13 +1085,8 @@ form .sheet-notes.notes {
     display: block;
     margin: 0 auto;
 }
-.tokyo-nova.sheet.actor .profile-sidebar .sidebar-header {
-    font-size: 1.2em;
-    font-weight: bold;
-    color: var(--tnx-color-primary);
+.tokyo-nova.sheet.actor .profile-sidebar .tnx-section-title {
     margin-bottom: 10px;
-    border-bottom: 1px solid var(--tnx-color-primary-dark);
-    padding-bottom: 5px;
 }
 .tokyo-nova.sheet.actor .profile-sidebar .personal-data-grid {
     display: grid;
@@ -1187,7 +1230,7 @@ form .sheet-notes.notes {
 .tokyo-nova.sheet.actor .profile-header .edit-mode-exp { display: flex; align-items: center; gap: 55px; }
 .tokyo-nova.sheet.actor .profile-header .exp-display-section .exp-value { font-weight: bold; font-size: 1.2em; color: var(--tnx-color-primary-highlight); }
 .tokyo-nova.sheet.actor .profile-header .styles-and-miracle-section { width: 100%; margin-top: 10px; }
-.tokyo-nova.sheet.actor .profile-header .miracle-header { font-size: 1.2em; font-weight: bold; color: var(--tnx-color-primary); margin-bottom: 8px; text-align: center; border-bottom: 1px solid var(--tnx-color-primary-dark); padding-bottom: 4px; }
+.tokyo-nova.sheet.actor .profile-header .tnx-section-title { text-align: center; margin-bottom: 8px; padding-bottom: 4px; }
 .tokyo-nova.sheet.actor .profile-header .miracle-buttons-grid {
     display: flex;         /* 親要素をFlexboxコンテナにする（これが横並びの基本です） */
     flex-wrap: wrap;       /* 要素が多すぎて一行に収まらない場合は折り返す */
@@ -1890,12 +1933,11 @@ form .sheet-notes.notes {
 /* === Scenario Sheet: Scenes Tab === */
 .scenes-container { display: flex; flex-direction: column; gap: 5px; }
 .phase-section { border: 1px solid var(--tnx-color-border); border-radius: var(--tnx-border-radius-md); }
-.phase-header { 
-    display: flex; justify-content: space-between; align-items: center; 
-    padding: 8px 15px; background-color: rgba(0,0,0,0.15);
-    border-bottom: 1px solid var(--tnx-color-border-accent);
+.phase-section .tnx-section-header {
+    padding: 8px 15px;
+    background-color: rgba(0,0,0,0.15);
+    margin-bottom: 0;
 }
-.phase-header h3 { margin: 0; color: var(--tnx-color-primary-accent); border-bottom: none; }
 .scene-table { display: flex; flex-direction: column; padding: 10px; }
 .scene-table-header {
     display: grid;
@@ -1967,25 +2009,9 @@ form .sheet-notes.notes {
     flex-direction: column;
     gap: 15px;
 }
-/* セクションヘッダー: タイトル + アクションボタン横並び (texts/info 共通) */
-.texts-header,
-.info-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid var(--tnx-color-border-accent);
-    padding-bottom: 8px;
-}
-.texts-header h3,
-.info-header h3 {
-    margin: 0;
-    color: var(--tnx-color-primary-accent);
-    font-size: 1.3em;
-    border: none;
-}
 /* セクション追加ボタン: texts/info 共通スタイル */
-.texts-header .add-text-button,
-.info-header .add-info-button {
+.tnx-section-header .add-text-button,
+.tnx-section-header .add-info-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -2002,9 +2028,9 @@ form .sheet-notes.notes {
     transition: all 0.2s;
     width: auto;
 }
-.texts-header .add-text-button { flex-shrink: 0; }
-.texts-header .add-text-button:hover,
-.info-header .add-info-button:hover {
+.tnx-section-header .add-text-button { flex-shrink: 0; }
+.tnx-section-header .add-text-button:hover,
+.tnx-section-header .add-info-button:hover {
     background-color: var(--tnx-color-primary-dark);
     border-color: var(--tnx-color-primary);
 }
@@ -2020,36 +2046,6 @@ form .sheet-notes.notes {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-}
-/* カードアイテムヘッダー: texts/info 共通 */
-.text-item-header,
-.info-item-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    background: rgba(0,0,0,0.1);
-    border-bottom: 1px solid var(--tnx-color-border);
-}
-.text-item-header input[type="text"],
-.info-item-header input[type="text"] {
-    flex-grow: 1;
-    background-color: transparent;
-    border: none;
-    padding: 4px 0;
-    font-size: 1.1em;
-    font-weight: bold;
-    color: var(--tnx-color-text-base);
-    border-radius: 0;
-    border-bottom: 1px solid transparent;
-    transition: all 0.2s;
-}
-.text-item-header input[type="text"]:focus,
-.info-item-header input[type="text"]:focus {
-    outline: none;
-    background-color: var(--tnx-color-bg-input);
-    padding-left: 5px;
-    border-bottom-color: var(--tnx-color-primary);
 }
 .text-item-body {
     padding: 12px;
@@ -2126,7 +2122,7 @@ form .sheet-notes.notes {
 .info-item.disclosed {
     border-left: 3px solid var(--tnx-color-primary);
 }
-.info-item.disclosed .info-item-header {
+.info-item.disclosed .tnx-item-header {
     background-color: rgba(0, 170, 255, 0.08);
 }
 .disclosure-toggle {
@@ -2188,13 +2184,13 @@ form .sheet-notes.notes {
     background-color: rgba(0,0,0,0.15);
     border-radius: var(--tnx-border-radius-sm);
 }
-.skill-checks-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+.skill-checks-area .tnx-item-header {
+    padding: 0;
+    background: none;
+    border-bottom: none;
     margin-bottom: 8px;
 }
-.skill-checks-header h5 {
+.skill-checks-area .tnx-item-header h5 {
     margin: 0;
     font-weight: bold;
 }
@@ -2246,8 +2242,6 @@ form .sheet-notes.notes {
     border-radius: var(--tnx-border-radius-md);
     padding: 15px;
 }
-/* シナリオ情報タブの .info-header は下マージンが必要 */
-.info-header { margin-bottom: 10px; }
 .trailer-textarea {
     width: 100%;
     resize: vertical;

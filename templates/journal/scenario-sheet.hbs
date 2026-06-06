@@ -178,7 +178,7 @@
         <div class="tab scenario-info" data-group="primary" data-tab="scenario-info">
             <div class="scenario-info-container">
                 <div class="trailer-section">
-                    <div class="info-header">
+                    <div class="tnx-section-header">
                         <h3>トレーラー</h3>
                         <button type="button" class="tnx-btn small-button" data-action="send-trailer-to-chat">
                             <i class="fas fa-paper-plane"></i> チャットに送信
@@ -187,7 +187,7 @@
                     <textarea name="trailer" class="trailer-textarea" rows="8" placeholder="シナリオのトレーラーをここに入力...">{{trailer}}</textarea>
                 </div>
                 <div class="handouts-section">
-                    <div class="info-header">
+                    <div class="tnx-section-header">
                         <h3>ハンドアウト</h3>
                         <button type="button" class="tnx-ring-btn" data-action="add-handout" title="ハンドアウトを追加">
                             <i class="fas fa-plus"></i>
@@ -239,7 +239,7 @@
             <div class="scenes-container">
                 {{#each scenes as |phaseScenes phaseKey|}}
                 <div class="phase-section">
-                    <div class="phase-header">
+                    <div class="tnx-section-header">
                         <h3>{{localize (lookup ../phaseLabels phaseKey)}}</h3>
                     </div>
                     <div class="scene-table">
@@ -302,7 +302,7 @@
 
         <div class="tab texts" data-group="primary" data-tab="texts">
             <div class="texts-container">
-                <div class="texts-header">
+                <div class="tnx-section-header">
                     <h3>シナリオテキスト</h3>
                     <button type="button" class="add-text-button" data-action="add-text-item" title="テキスト項目を追加">
                         <i class="fas fa-plus"></i> テキストを追加
@@ -311,7 +311,7 @@
                 <div class="text-item-list">
                     {{#each scenarioTexts as |textItem|}}
                         <div class="text-item" data-id="{{textItem.id}}">
-                            <div class="text-item-header">
+                            <div class="tnx-item-header">
                                 <input type="text" name="title" value="{{textItem.title}}" placeholder="テキストのタイトル"/>
                                 <div class="tnx-ctrl-strip">
                                     <a class="tnx-icon-ctrl" data-action="send-text-to-chat" title="チャットに送信"><i class="fas fa-paper-plane"></i></a>
@@ -333,7 +333,7 @@
 
         <div class="tab info" data-group="primary" data-tab="info">
             <div class="info-container">
-                <div class="info-header">
+                <div class="tnx-section-header">
                     <h3>情報項目</h3>
                     <button type="button" class="add-info-button" data-action="add-info-item" title="情報項目を追加">
                         <i class="fas fa-plus"></i> 情報を追加
@@ -342,7 +342,7 @@
                 <div class="info-item-list">
                     {{#each infoItems as |infoItem|}}
                         <div class="info-item" data-id="{{infoItem.id}}">
-                            <div class="info-item-header">
+                            <div class="tnx-item-header">
                                 <input type="text" name="title" value="{{infoItem.title}}" placeholder="情報名" data-info-id="{{infoItem.id}}"/>
                                 <div class="tnx-ctrl-strip">
                                     <label class="disclosure-toggle">
@@ -371,7 +371,7 @@
                                             </div>
                                         </div>
                                         <div class="skill-checks-area">
-                                            <div class="skill-checks-header">
+                                            <div class="tnx-item-header">
                                                 <h5>使用技能</h5>
                                                 <a class="tnx-ring-btn" data-action="add-skill-check" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" title="使用技能を追加"><i class="fas fa-plus"></i></a>
                                             </div>

@@ -12,7 +12,7 @@
             </div>
         {{/if}}
         <div class="sidebar-personal-data-group">
-            <h3 class="sidebar-header">{{localize "TNX.Actor.Profile.Header"}}</h3>
+            <h3 class="tnx-section-title">{{localize "TNX.Actor.Profile.Header"}}</h3>
             <div class="personal-data-grid">
                 <div class="personal-data-item">
                     <label>{{localize "TNX.Actor.Profile.Age"}}</label>
@@ -189,7 +189,7 @@
                     </div>
                     {{else}}
                     <div class="view-mode-miracle-actions">
-                        <h3 class="miracle-header">{{localize "TNX.Actor.Items.Miracles"}}</h3>
+                        <h3 class="tnx-section-title">{{localize "TNX.Actor.Items.Miracles"}}</h3>
                         <div class="miracle-buttons-grid">
                             {{#each miracleSlotsForView as |dw|}}
                                 <button type="button" class="tnx-linked-btn miracle-use-button" data-action="useMiracle" data-item-id="{{dw._id}}" {{#if dw.isPlaceholder}}disabled{{/if}} {{#if dw.isDisabled}}disabled{{/if}} data-context-menu="miracle-view">
@@ -216,7 +216,7 @@
             <section class="sheet-body tnx-body">
                 <div class="tab abilities" data-tab="abilities">
                     {{#if isEditMode}}
-                        <h2 class="abilities-grid-header">{{localize "TNX.Ui.Header.AbilityControl"}}</h2>
+                        <h2 class="tnx-section-title">{{localize "TNX.Ui.Header.AbilityControl"}}</h2>
                         <div class="abilities-grid edit-mode-layout">
                             {{#each system.abilities as |ability key|}}
                                 <div class="ability-block">
@@ -268,7 +268,7 @@
                             {{/each}}
                         </div>
                     {{else}}
-                        <h2 class="abilities-grid-header">{{localize "TNX.Ui.Header.Ability"}}</h2>
+                        <h2 class="tnx-section-title">{{localize "TNX.Ui.Header.Ability"}}</h2>
                         <div class="abilities-grid view-mode-layout">
                             {{#each system.abilities as |ability key|}}
                                 <div class="ability-display">
@@ -291,7 +291,7 @@
                     {{/if}}
                     <div class="skills-section">
                         {{#if isEditMode}}
-                            <h2 class="abilities-grid-header">{{localize "TNX.Actor.Items.Skills"}}</h2>
+                            <h2 class="tnx-section-title">{{localize "TNX.Actor.Items.Skills"}}</h2>
                             {{!-- 編集モード：一般技能セクション --}}
                             <div class="skills-list-edit">
                                 <div class="tnx-item-list__row tnx-item-list__row--header skill-group-header">
@@ -376,7 +376,7 @@
                         {{else}}
                             {{!-- 閲覧モード --}}
                             <div class="skills-section">
-                                <h2 class="abilities-grid-header">{{localize "TNX.Actor.Items.GeneralSkills"}}</h2>
+                                <h2 class="tnx-section-title">{{localize "TNX.Actor.Items.GeneralSkills"}}</h2>
                                 <div class="skills-list-view">
                                     {{#each generalSkillColumns as |columnItems|}}
                                         <div class="skills-column">
@@ -403,7 +403,7 @@
                                 </div>
                             </div>
                             <div class="skills-section">
-                                <h2 class="abilities-grid-header">{{localize "TNX.Actor.Items.StyleSkills"}}</h2>
+                                <h2 class="tnx-section-title">{{localize "TNX.Actor.Items.StyleSkills"}}</h2>
                                 <div class="style-skills-list-wrapper">
                                     {{!-- ヘッダー行 --}}
                                     <div class="style-skill-header style-skill-grid">
