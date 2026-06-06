@@ -29,7 +29,7 @@
         <div class="cell cell-players">参加プレイヤー</div>
         {{#if isEditMode}}
           <div class="cell cell-ctrl">
-            <button type="button" data-action="addHistory" class="record-add-history-btn" title="追加">
+            <button type="button" data-action="addHistory" class="tnx-ring-btn" title="追加">
               <i class="fas fa-plus"></i>
             </button>
           </div>
@@ -75,7 +75,7 @@
           </div>
           {{#if ../isEditMode}}
             <div class="cell cell-ctrl">
-              <button type="button" data-action="deleteHistory" data-id="{{entry.id}}" title="削除">
+              <button type="button" data-action="deleteHistory" class="tnx-ring-btn" data-id="{{entry.id}}" title="削除">
                 <i class="fas fa-trash"></i>
               </button>
             </div>

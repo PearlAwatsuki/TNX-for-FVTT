@@ -33,6 +33,7 @@
     --tnx-color-white: #fff;
     --tnx-color-black: #000;
     --tnx-color-bg-panel-dark: #444;
+    --tnx-color-bg-dark: #333;
     --tnx-color-text-secondary: #ccc;
 
     /* Sizing & Radius */
@@ -40,13 +41,30 @@
     --tnx-border-radius-sm: 3px;
     --tnx-border-radius-md: 4px;
     --tnx-border-radius-lg: 5px;
+    --tnx-border-radius-card: 12px;
+
+    /* Overlay (rgba black) */
+    --tnx-overlay-light: rgba(0, 0, 0, 0.1);
+    --tnx-overlay-mid-light: rgba(0, 0, 0, 0.15);
+    --tnx-overlay-medium: rgba(0, 0, 0, 0.2);
+    --tnx-overlay-heavy: rgba(0, 0, 0, 0.3);
+    --tnx-overlay-opaque: rgba(0, 0, 0, 0.5);
+
+    /* State: disabled */
+    --tnx-color-bg-disabled: #4a5057;
+    --tnx-color-border-disabled: #3e444a;
+
+    /* Shadows */
+    --tnx-shadow-glow: 0 0 6px var(--tnx-color-primary);
+    --tnx-shadow-glow-text: 0 0 4px var(--tnx-color-primary);
 }
 
 .tokyo-nova a:hover {
     text-shadow: 0 0 4px  var(--tnx-color-primary-highlight);
 }
 
-.tokyo-nova input {
+.tokyo-nova input,
+.tokyo-nova select {
     border-radius: var(--tnx-border-radius-sm);
     background-color: var(--tnx-color-bg-input);
     border: 1px solid var(--tnx-color-border);
@@ -94,7 +112,7 @@
 .tokyo-nova .tnx-btn:hover,
 .tokyo-nova .tnx-btn:focus {
     border-color: var(--tnx-color-primary-highlight);
-    box-shadow: 0 0 6px var(--tnx-color-primary);
+    box-shadow: var(--tnx-shadow-glow);
     color: inherit;
 }
 
@@ -103,10 +121,10 @@
     border-color: var(--tnx-color-primary);
 }
 .tokyo-nova .tnx-btn:disabled {
-    background-color: #4a5057;
-    border-color: #3e444a;
+    background-color: var(--tnx-color-bg-disabled);
+    border-color: var(--tnx-color-border-disabled);
     box-shadow: none;
-    color: #888;
+    color: var(--tnx-color-text-muted);
     opacity: 0.7;
     cursor: not-allowed;
 }
@@ -119,7 +137,7 @@
 }
 .tokyo-nova .tnx-btn.tnx-btn-dashed {
     width: 100%;
-    background-color: rgba(0,0,0,0.2);
+    background-color: var(--tnx-overlay-medium);
     border-style: dashed;
 }
 .tokyo-nova .tnx-btn.tnx-btn-dashed:hover:not(:disabled) {
@@ -149,10 +167,10 @@
     border-color: var(--tnx-color-primary);
 }
 .tokyo-nova.sheet .tnx-linked-btn:disabled {
-    background-color: #4a5057;
-    border-color: #3e444a;
+    background-color: var(--tnx-color-bg-disabled);
+    border-color: var(--tnx-color-border-disabled);
     box-shadow: none;
-    color: #888;
+    color: var(--tnx-color-text-muted);
     opacity: 0.7;
     cursor: not-allowed;
 }
@@ -227,7 +245,7 @@
 }
 .tnx-icon-ctrl:hover {
     color: var(--tnx-color-primary-highlight);
-    text-shadow: 0 0 4px var(--tnx-color-primary);
+    text-shadow: var(--tnx-shadow-glow-text);
 }
 .tnx-icon-ctrl[data-action*="delete"]:hover {
     color: var(--tnx-color-error-text);
@@ -278,7 +296,7 @@
 }
 .tnx-item-header--card {
     padding: 8px 12px;
-    background: rgba(0,0,0,0.1);
+    background: var(--tnx-overlay-light);
     border-bottom: 1px solid var(--tnx-color-border);
 }
 .tnx-item-header input[type="text"] {
@@ -298,15 +316,6 @@
     background-color: var(--tnx-color-bg-input);
     padding-left: 5px;
     border-bottom-color: var(--tnx-color-primary);
-}
-
-.tnx-wrapper-button {
-    background: transparent;
-    border: none;
-    padding: 0;
-    margin: 0;
-    cursor: default;
-    text-align: left;
 }
 
 /* =================================================================== */
@@ -347,7 +356,7 @@
 
 .tokyo-nova.window-app .window-header .header-button:hover {
     color: var(--tnx-color-text-base);
-    text-shadow: 0 0 4px var(--tnx-color-primary);
+    text-shadow: var(--tnx-shadow-glow-text);
 }
 
 /* アイコンのサイズを復元 */
@@ -454,14 +463,10 @@
 }
 .tokyo-nova select {
     min-width: 120px;
-    background-color: var(--tnx-color-bg-input);
-    border: 1px solid var(--tnx-color-border);
-    color: var(--tnx-color-text-base);
-    border-radius: var(--tnx-border-radius-sm);
     padding: 4px;
 }
 .tokyo-nova select option {
-    background-color: #333;
+    background-color: var(--tnx-color-bg-dark);
 }
 .number-input-spinner {
     display: flex;
@@ -498,10 +503,6 @@ form .sheet-notes.notes {
 .tokyo-nova .exp-input {
     width: 70px;
     padding: 3px 5px;
-    border-radius: var(--tnx-border-radius-sm);
-    background-color: var(--tnx-color-bg-input);
-    border: 1px solid var(--tnx-color-border);
-    color: var(--tnx-color-text-base);
 }
 
 /* =================================================================== */
@@ -515,15 +516,6 @@ form .sheet-notes.notes {
     cursor: pointer;
 }
 
-.tnx-wrapper-button:hover .tnx-interactive-text,
-.tnx-wrapper-button:focus .tnx-interactive-text {
-    text-decoration: underline;
-    color: var(--tnx-color-primary-highlight);
-}
-
-.tnx-wrapper-button:focus {
-    outline: none;
-}
 .tokyo-nova.sheet .style-info-button {
     gap: 8px;
 }
@@ -546,7 +538,7 @@ form .sheet-notes.notes {
     height: 1.2em;
 }
 .tokyo-nova.sheet .style-info-button .role-indicator.role-shadow {
-    background-color: rgba(0, 0, 0, 0.2);
+    background-color: var(--tnx-overlay-medium);
     border: 1px solid var(--tnx-color-primary);
     border-radius: var(--tnx-border-radius-sm);
 }
@@ -588,7 +580,7 @@ form .sheet-notes.notes {
     width: 180px;
     height: 268px;
     border: 2px dashed var(--tnx-color-border-accent);
-    border-radius: 12px;
+    border-radius: var(--tnx-border-radius-card);
     box-sizing: border-box;
     padding: 10px;
 }
@@ -651,7 +643,7 @@ form .sheet-notes.notes {
     margin-bottom: 5px;
 }
 .tnx-item-list .item-list-body .tnx-item-list__row:hover {
-    background-color: rgba(0, 0, 0, 0.2);
+    background-color: var(--tnx-overlay-medium);
 }
 .tnx-item-list__column--main {
     flex: 1;
@@ -697,7 +689,7 @@ form .sheet-notes.notes {
     align-items: start;
 }
 .tokyo-nova.sheet .edit-mode-layout .ability-block {
-    background-color: rgba(0,0,0,0.15);
+    background-color: var(--tnx-overlay-mid-light);
     border: 1px solid var(--tnx-color-border);
     border-radius: var(--tnx-border-radius-md);
     padding: 10px;
@@ -799,7 +791,7 @@ form .sheet-notes.notes {
     max-height: 450px;
     overflow-y: auto;
     padding: 8px;
-    background: rgba(0,0,0,0.2);
+    background: var(--tnx-overlay-medium);
     border: 1px solid var(--tnx-color-border);
     border-radius: var(--tnx-border-radius-md);
     margin-top: 10px;
@@ -873,7 +865,7 @@ form .sheet-notes.notes {
 }
 #prosemirror-dropdown ul{
     color: var(--tnx-color-text-base);
-    background-color: #333;
+    background-color: var(--tnx-color-bg-dark);
 }
 #prosemirror-dropdown li:hover{
     color: var(--tnx-color-black);
@@ -978,7 +970,7 @@ form .sheet-notes.notes {
     padding: 0;
     border: none;
     background: none;
-    border-radius: 12px;
+    border-radius: var(--tnx-border-radius-card);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
     line-height: 0;
 }
@@ -992,7 +984,7 @@ form .sheet-notes.notes {
 .tnx-card-display img {
     width: 100%;
     height: 100%;
-    border-radius: 12px;
+    border-radius: var(--tnx-border-radius-card);
     border: 2px solid var(--tnx-color-border);
     display: block;
 }
@@ -1099,7 +1091,7 @@ form .sheet-notes.notes {
 .tokyo-nova.sheet.actor .profile-sidebar {
     flex: 0 0 var(--tnx-sidebar-width);
     padding: 10px;
-    border-right: 1px solid #333;
+    border-right: 1px solid var(--tnx-color-bg-dark);
     background-color: var(--tnx-color-bg-alt);
     display: flex;
     flex-direction: column;
@@ -1177,7 +1169,7 @@ form .sheet-notes.notes {
     cursor: pointer;
     border: 2px solid transparent;
     border-radius: 5px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 1px 3px var(--tnx-overlay-heavy);
     transition: all 0.2s ease-out;
     width: 95px;
     height: auto;
@@ -1515,7 +1507,7 @@ form .sheet-notes.notes {
 
 .chat-message .message-content .tnx-chat-card > summary {
     padding: 12px 12px;
-    background-color: rgba(0,0,0,0.2);
+    background-color: var(--tnx-overlay-medium);
     cursor: pointer;
     transition: background-color 0.2s;
     display: block;
@@ -1560,10 +1552,10 @@ form .sheet-notes.notes {
 /* --- Nested Description Section --- */
 .chat-message .nested-description {
     margin-top: 10px;
-    background-color: rgba(0, 0, 0, 0.15);
+    background-color: var(--tnx-overlay-mid-light);
     border-left: 3px solid var(--tnx-color-primary);
     border-radius: var(--tnx-border-radius-sm);
-    box-shadow: inset 0 0 5px rgba(0,0,0,0.2);
+    box-shadow: inset 0 0 5px var(--tnx-overlay-medium);
     padding: 0; /* paddingは内部で管理 */
 }
 
@@ -1576,7 +1568,7 @@ form .sheet-notes.notes {
 }
 
 .chat-message .nested-description > summary:hover {
-    background-color: rgba(0,0,0,0.1);
+    background-color: var(--tnx-overlay-light);
 }
 
 
@@ -1609,41 +1601,6 @@ form .sheet-notes.notes {
 .chat-message .nested-description .card-content {
     padding: 10px 12px 10px 30px; /* インデントを調整 */
     border-top: 1px solid var(--tnx-color-border);
-}
-
-.tnx-create-menu {
-    position: absolute;
-    z-index: 100;
-    background-color: #2a2a2e;
-    border: 1px solid var(--tnx-color-bg-panel-dark);
-    border-radius: 4px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-    padding: 5px 0;
-    min-width: 180px;
-}
-
-.tnx-create-menu ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-}
-
-.tnx-create-menu li {
-    padding: 8px 12px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: #f0f0f0;
-    transition: background-color 0.2s;
-}
-
-.tnx-create-menu li:hover {
-    background-color: var(--tnx-color-primary-dark);
-}
-
-.tnx-create-menu li i {
-    color: var(--tnx-color-text-secondary);
 }
 
 /* === Scenario Sheet === */
@@ -1766,8 +1723,8 @@ form .sheet-notes.notes {
 }
 
 .tnx-btn--secondary {
-    background-color: #4a5057;
-    border-color: #3e444a;
+    background-color: var(--tnx-color-bg-disabled);
+    border-color: var(--tnx-color-border-disabled);
     color: var(--tnx-color-text-secondary);
 }
 .tnx-btn--secondary:hover {
@@ -1968,7 +1925,7 @@ form .sheet-notes.notes {
 .phase-section { border: 1px solid var(--tnx-color-border); border-radius: var(--tnx-border-radius-md); }
 .phase-section .tnx-section-header {
     padding: 8px 15px;
-    background-color: rgba(0,0,0,0.15);
+    background-color: var(--tnx-overlay-mid-light);
     margin-bottom: 0;
 }
 .scene-table { display: flex; flex-direction: column; padding: 10px; }
@@ -1999,7 +1956,7 @@ form .sheet-notes.notes {
     border: 1px solid var(--tnx-color-border-accent); border-radius: var(--tnx-border-radius-sm);
     padding: 6px 8px; color: var(--tnx-color-text-base);
 }
-.table-cell input[type="text"]:disabled { background-color: #3e444a; color: var(--tnx-color-text-muted); cursor: not-allowed; }
+.table-cell input[type="text"]:disabled { background-color: var(--tnx-color-border-disabled); color: var(--tnx-color-text-muted); cursor: not-allowed; }
 .table-cell select {
     width: 100%;
     padding: 5px 4px;
@@ -2007,7 +1964,7 @@ form .sheet-notes.notes {
     font-size: 14px; height: 32px;
 }
 .table-cell select:disabled {
-    background-color: #3e444a;
+    background-color: var(--tnx-color-border-disabled);
     color: var(--tnx-color-text-muted);
     cursor: not-allowed;
     border-color: var(--tnx-color-border);
@@ -2025,7 +1982,7 @@ form .sheet-notes.notes {
 .scene-details-row > summary:hover { color: var(--tnx-color-primary-accent); }
 .message-preview { padding: 8px; }
 .message-preview textarea {
-    width: 100%; min-height: 60px; background: rgba(0,0,0,0.15);
+    width: 100%; min-height: 60px; background: var(--tnx-overlay-mid-light);
     border: 1px solid var(--tnx-color-border-accent); color: var(--tnx-color-text-base);
     padding: 8px; border-radius: 3px; font-family: inherit;
     line-height: 1.5; word-break: break-word; resize: vertical;
@@ -2189,7 +2146,7 @@ form .sheet-notes.notes {
 }
 .skill-checks-area {
     padding: 10px;
-    background-color: rgba(0,0,0,0.15);
+    background-color: var(--tnx-overlay-mid-light);
     border-radius: var(--tnx-border-radius-sm);
 }
 .skill-checks-area .tnx-item-header { margin-bottom: 8px; }
@@ -2258,7 +2215,7 @@ form .sheet-notes.notes {
     align-items: center;
     gap: 10px;
     padding: 8px;
-    background-color: rgba(0,0,0,0.1);
+    background-color: var(--tnx-overlay-light);
     border-bottom: 1px solid var(--tnx-color-border);
 }
 .handout-inputs {
@@ -2385,7 +2342,7 @@ form .sheet-notes.notes {
     position: relative;
     background: #222;
     cursor: pointer;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    box-shadow: 0 1px 3px var(--tnx-overlay-opaque);
     transition: all 0.2s ease-out;
 }
 
@@ -2430,7 +2387,7 @@ form .sheet-notes.notes {
     display: flex;
     gap: 8px;
     padding: 8px;
-    background: rgba(0,0,0,0.5);
+    background: var(--tnx-overlay-opaque);
     border: 1px solid #555;
     border-radius: 10px;
     height: 208px;
@@ -2457,7 +2414,7 @@ form .sheet-notes.notes {
     display: flex;
     gap: 8px;
     padding: 8px;
-    background: rgba(0,0,0,0.5);
+    background: var(--tnx-overlay-opaque);
     border: 1px solid #555;
     border-radius: 10px;
     height: 208px;
@@ -2476,7 +2433,7 @@ form .sheet-notes.notes {
 /* パネル共通スタイル：背景や枠線などの見た目を定義 */
 .tnx-hud .hud-panel {
     padding: 8px;
-    background: rgba(0,0,0,0.5);
+    background: var(--tnx-overlay-opaque);
     border: 1px solid #555;
     border-radius: 10px;
     display: flex;
@@ -2503,7 +2460,7 @@ form .sheet-notes.notes {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #888;
+    color: var(--tnx-color-text-muted);
     width: 128px;
     height: 192px;
 }
@@ -2718,7 +2675,7 @@ form .sheet-notes.notes {
 
 /* --- 4. スタイル技能情報 (説明タブ) --- */
 .style-skill-display {
-    background: rgba(0,0,0,0.1);
+    background: var(--tnx-overlay-light);
     border: 1px solid var(--tnx-color-border);
     border-radius: var(--tnx-border-radius-sm);
     padding: 10px;
@@ -2881,7 +2838,7 @@ form .sheet-notes.notes {
 .suit-checkbox-tiny {
     cursor: pointer;
     font-size: 0.9em;
-    color: #888;
+    color: var(--tnx-color-text-muted);
 }
 .suit-checkbox-tiny input {
     display: none; /* チェックボックス本体は隠す */
@@ -2997,7 +2954,7 @@ ol.item-list {
     flex-direction: column;
     width: 100%;
     border: 1px solid var(--tnx-color-border);
-    background-color: rgba(0, 0, 0, 0.1);
+    background-color: var(--tnx-overlay-light);
     border-radius: 3px;
 }
 
@@ -3188,11 +3145,11 @@ ol.item-list {
 
 .tokyo-nova .history-row {
     padding: 2px 4px;
-    border-bottom: 1px solid rgba(0,0,0,0.1);
+    border-bottom: 1px solid var(--tnx-overlay-light);
 }
 
 .tokyo-nova .history-row:nth-child(even) {
-    background: rgba(0, 0, 0, 0.05);
+    background: var(--tnx-color-bg-alt);
 }
 
 .tokyo-nova .history-row .cell {
@@ -3259,7 +3216,7 @@ ol.item-list {
 .tokyo-nova.sheet.item.view-mode .tab:not([data-tab="description"]) input[type="number"],
 .tokyo-nova.sheet.item.view-mode .tab:not([data-tab="description"]) select,
 .tokyo-nova.sheet.item.view-mode .tab:not([data-tab="description"]) textarea {
-    background-color: rgba(0, 0, 0, 0.3); /* 暗い背景 */
+    background-color: var(--tnx-overlay-heavy); /* 暗い背景 */
     color: var(--tnx-color-text-muted);   /* グレー文字 */
     border: 1px solid var(--tnx-color-border);
     pointer-events: none;
@@ -3276,9 +3233,9 @@ ol.item-list {
 .tokyo-nova.sheet.item.view-mode .row-controls a,
 .tokyo-nova.sheet.item.view-mode .tnx-btn {
     pointer-events: none;
-    background-color: #4a5057;
-    border-color: #3e444a;
-    color: #888;
+    background-color: var(--tnx-color-bg-disabled);
+    border-color: var(--tnx-color-border-disabled);
+    color: var(--tnx-color-text-muted);
 }
 
 /* --- D. プレースホルダー非表示 --- */
@@ -3289,69 +3246,6 @@ ol.item-list {
     opacity: 0;
 }
 
-/* グリッドレイアウト */
-.tnx-bs-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); /* 幅に応じて列数を自動調整 */
-    gap: 6px;
-    margin: 8px 0;
-}
-
-/* ボタンの基本スタイル */
-.tnx-bs-btn {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 6px;
-    padding: 6px;
-    border: 1px solid #777;
-    background: #e0e0e0;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.2s;
-    opacity: 0.7; /* オフの時は少し薄く */
-}
-
-.tnx-bs-btn:hover {
-    background: #d0d0d0;
-    opacity: 1;
-}
-
-/* 画像サイズ */
-.tnx-bs-icon {
-    width: 24px;
-    height: 24px;
-    border: none;
-    flex-shrink: 0;
-}
-
-.tnx-bs-label {
-    font-size: 12px;
-    font-weight: bold;
-    flex-grow: 1;
-    text-align: left;
-    white-space: nowrap; /* 文字の折り返し禁止 */
-    overflow: hidden;
-    text-overflow: ellipsis; /* はみ出たら... */
-}
-
-.tnx-bs-check {
-    display: none; /* デフォルトでは非表示 */
-    color: var(--tnx-color-white);
-}
-
-/* --- アクティブ（ON）時のスタイル --- */
-.tnx-bs-btn.active {
-    background: var(--tnx-color-primary-darker); /* N◎VAらしい赤黒い色など */
-    border-color: var(--tnx-color-primary);
-    color: var(--tnx-color-white);
-    opacity: 1;
-    box-shadow: 0 0 5px var(--tnx-color-primary-dark);
-}
-
-.tnx-bs-btn.active .tnx-bs-check {
-    display: block; /* チェックマーク表示 */
-}
 
 /* =================================================================== */
 /* 8. RECORD SHEET (フェーズ2-0)                                      */
@@ -3378,7 +3272,7 @@ ol.item-list {
     display: flex;
     gap: 20px;
     padding: 8px 12px;
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--tnx-overlay-heavy);
     border: 1px solid var(--tnx-color-border);
     border-radius: var(--tnx-border-radius-md);
 }
@@ -3423,21 +3317,3 @@ ol.item-list {
     margin: 0;
 }
 
-/* テーブルヘッダー内の追加ボタン: ゴミ箱アイコンと同じ列に収まるアイコンのみ表示 */
-.history-header .record-add-history-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    padding: 0;
-    background: transparent;
-    border: none;
-    color: var(--tnx-color-white);
-    cursor: pointer;
-    font-size: 13px;
-}
-
-.history-header .record-add-history-btn:hover {
-    color: var(--tnx-color-primary-highlight);
-    text-shadow: 0 0 4px var(--tnx-color-primary);
-}
