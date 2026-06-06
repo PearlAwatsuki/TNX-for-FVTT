@@ -58,6 +58,7 @@ export default [
         $: "readonly",
         jQuery: "readonly",
         Handlebars: "readonly",
+        ProseMirror: "readonly",
       },
     },
     rules: {

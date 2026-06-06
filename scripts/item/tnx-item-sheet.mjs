@@ -43,8 +43,8 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         context.item = this.item;
         context.system = system;
         context.owner = this.document.isOwner;
-        // V1 テンプレートとの互換のため cssClass を提供する
-        context.cssClass = this.element?.className ?? "";
+        // cssClass: edit/view-mode は root 要素で管理するため section には渡さない
+        context.cssClass = "";
         context.options = { usageTypes: this.constructor.usageTypes };
         context.isEditMode = this._isEditMode && context.editable;
 
@@ -71,6 +71,15 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         el.classList.toggle("edit-mode", !!context.isEditMode);
         el.classList.toggle("view-mode", !context.isEditMode);
 
+        // V2 はレンダー時に active クラスを DOM に付与しないため、changeTab で補完する。
+        // テンプレートは context.tabs を使っていないため毎レンダー後に呼ぶ必要がある。
+        for (const [group, tab] of Object.entries(this.tabGroups)) {
+            if (tab) {
+                try { this.changeTab(tab, group, { force: true, updatePosition: false }); }
+                catch { /* PARTS にそのタブがない場合は無視 */ }
+            }
+        }
+
         if (!context.editable) return;
 
         // 編集モード切替ボタン。window-header は PART 外で永続するが
@@ -83,6 +92,25 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             btn.title = "編集モード切替";
             btn.dataset.action = "toggleEditMode";
             header.prepend(btn);
+        }
+
+        // {{editor button=true}} は V1 スタイルの div.editor を生成するが V2 には _activateEditor 相当がない。
+        // <prose-mirror toggled> に置換することで Foundry V2 の標準フローを使う:
+        // 編集ボタン押下 → ProseMirror 起動 → 保存時に change イベント → submitOnChange → document.update()
+        const ProseMirrorEl = customElements.get("prose-mirror");
+        if (ProseMirrorEl) {
+            for (const contentDiv of el.querySelectorAll(".editor-content[data-edit]")) {
+                const editorDiv = contentDiv.closest("div.editor");
+                if (!editorDiv) continue;
+                const fieldName = contentDiv.dataset.edit;
+                const pm = ProseMirrorEl.create({
+                    name: fieldName,
+                    value: foundry.utils.getProperty(this.document, fieldName) ?? "",
+                    enriched: contentDiv.innerHTML,
+                    toggled: true,
+                });
+                editorDiv.replaceWith(pm);
+            }
         }
 
         // usage-list.hbs は変更不可のため data-action ではなく直接リスナーで対応する
