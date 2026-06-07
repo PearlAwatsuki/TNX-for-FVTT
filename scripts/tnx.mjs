@@ -347,7 +347,7 @@ Hooks.once("init", async function() {
     // Journal Sheetの登録
     Journal.registerSheet("tokyo-nova", TnxScenarioSheet, {
         makeDefault: false,
-        label: "アクトシート"
+        label: "アクトシート",
     });
 
     // --- システム設定の登録 ---

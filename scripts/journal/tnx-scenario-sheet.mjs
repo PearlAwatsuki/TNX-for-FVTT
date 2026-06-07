@@ -1,36 +1,82 @@
 import { UnlinkConfirmDialog } from '../module/tnx-dialog.mjs';
 import { TnxScenarioSettingWizard } from '../module/tnx-scenario-setting-wizard.mjs';
 import { TnxActionHandler } from '../module/tnx-action-handler.mjs';
+import { saveUserFlagCards, getUserFlagData } from '../module/user-flag-schema.mjs';
 
-/**
- * TokyoNOVAのアクトシート（シナリオ管理用カスタムジャーナルシート）
- */
-export class TnxScenarioSheet extends JournalSheet {
+const { HandlebarsApplicationMixin, DocumentSheetV2, DialogV2 } = foundry.applications.api;
 
-    static get defaultOptions() {
-        return foundry.utils.mergeObject(super.defaultOptions, {
-            classes: ["tokyo-nova", "sheet", "journal", "scenario", "two-column-layout"],
+export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2) {
+
+    static DEFAULT_OPTIONS = {
+        classes: ["tokyo-nova", "sheet", "journal", "scenario", "two-column-layout"],
+        position: { width: 800, height: 700 },
+        dragDrop: [{ dragSelector: null, dropSelector: ".tnx-import-box--dropzone" }],
+        actions: {
+            openDocument:      TnxScenarioSheet._onOpenDocument,
+            launchWizard:      TnxScenarioSheet._onLaunchWizard,
+            addScene:          TnxScenarioSheet._onAddScene,
+            deleteScene:       TnxScenarioSheet._onDeleteScene,
+            switchScene:       TnxScenarioSheet._onSwitchScene,
+            addTextItem:       TnxScenarioSheet._onAddTextItem,
+            deleteTextItem:    TnxScenarioSheet._onDeleteTextItem,
+            sendTextToChat:    TnxScenarioSheet._onSendTextToChat,
+            addInfoItem:       TnxScenarioSheet._onAddInfoItem,
+            deleteInfoItem:    TnxScenarioSheet._onDeleteInfoItem,
+            sendInfoToChat:    TnxScenarioSheet._onSendInfoToChat,
+            addInfoContent:    TnxScenarioSheet._onAddInfoContent,
+            deleteInfoContent: TnxScenarioSheet._onDeleteInfoContent,
+            addSkillCheck:     TnxScenarioSheet._onAddSkillCheck,
+            deleteSkillCheck:  TnxScenarioSheet._onDeleteSkillCheck,
+            sendTrailerToChat: TnxScenarioSheet._onSendTrailerToChat,
+            addHandout:        TnxScenarioSheet._onAddHandout,
+            deleteHandout:     TnxScenarioSheet._onDeleteHandout,
+            sendHandoutToChat: TnxScenarioSheet._onSendHandoutToChat,
+            createAllUserHands: TnxScenarioSheet._onCreateAllUserHands,
+            resetAccessCards:  TnxScenarioSheet._onDistributeRlTrump,
+            dealInitialHands:  TnxScenarioSheet._onDealInitialHands,
+            dealTrumpFromNeuro: TnxScenarioSheet._onDealTrumpFromNeuro,
+            dealTrumpForRl:    TnxScenarioSheet._onDealRlTrumpFromAccess,
+        },
+    };
+
+    static PARTS = {
+        main: {
             template: "systems/tokyo-nova-axleration/templates/journal/scenario-sheet.hbs",
-            width: 800,
-            height: 700,
-            dragDrop: [{ dragSelector: null, dropSelector: ".tnx-import-box--dropzone" }],
-            tabs: [{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "setting" }]
-        });
-    }
+        },
+    };
 
-    async getData(options) {
-        const context = await super.getData(options);
-        const flagData = this.object.flags["tokyo-nova-axleration"] || {};
+    static TABS = {
+        primary: {
+            tabs: [
+                { id: "setting" },
+                { id: "scenario-info" },
+                { id: "scenes" },
+                { id: "texts" },
+                { id: "info" },
+            ],
+            initial: "setting",
+            group: "primary",
+        },
+    };
+
+    tabGroups = { primary: "setting" };
+
+    // ─── コンテキスト準備 ─────────────────────────────────────────────────────
+
+    async _prepareContext(options) {
+        const context = await super._prepareContext(options);
+        const flagData = this.document.flags["tokyo-nova-axleration"] || {};
+
         context.castActors = game.actors.filter(a => a.type === 'cast');
         context.phaseLabels = CONFIG.TNX.phaseLabels;
 
         const cardDocs = {
-            cardDeck: await fromUuid(flagData.cardDeckId),
-            discardPile: await fromUuid(flagData.discardPileId),
-            neuroDeck: await fromUuid(flagData.neuroDeckId),
-            scenePile: await fromUuid(flagData.scenePileId),
+            cardDeck:       await fromUuid(flagData.cardDeckId),
+            discardPile:    await fromUuid(flagData.discardPileId),
+            neuroDeck:      await fromUuid(flagData.neuroDeckId),
+            scenePile:      await fromUuid(flagData.scenePileId),
             accessCardPile: await fromUuid(flagData.accessCardPileId),
-            gmTrumpDiscard: await fromUuid(flagData.gmTrumpDiscardId)
+            gmTrumpDiscard: await fromUuid(flagData.gmTrumpDiscardId),
         };
         for (const [key, doc] of Object.entries(cardDocs)) {
             context[key] = doc;
@@ -38,37 +84,105 @@ export class TnxScenarioSheet extends JournalSheet {
 
         const scenesData = flagData.scenes || {};
         context.scenes = {
-            opening: Array.isArray(scenesData.opening) ? scenesData.opening : [],
+            opening:  Array.isArray(scenesData.opening)  ? scenesData.opening  : [],
             research: Array.isArray(scenesData.research) ? scenesData.research : [],
-            climax: Array.isArray(scenesData.climax) ? scenesData.climax : [],
-            ending: Array.isArray(scenesData.ending) ? scenesData.ending : []
+            climax:   Array.isArray(scenesData.climax)   ? scenesData.climax   : [],
+            ending:   Array.isArray(scenesData.ending)   ? scenesData.ending   : [],
         };
-        
+
         context.scenarioTexts = flagData.scenarioTexts || [];
-        context.infoItems = flagData.infoItems || [];
-        context.trailer = flagData.trailer || "";
-        context.handouts = flagData.handouts || [];
-        
+        context.infoItems     = flagData.infoItems     || [];
+        context.trailer       = flagData.trailer       || "";
+        context.handouts      = flagData.handouts      || [];
+
         return context;
     }
 
-    async _updateObject(event, formData) {}
+    // ─── レンダリング ─────────────────────────────────────────────────────────
 
-    activateListeners(html) {
-        super.activateListeners(html);
-
-        html.find('[data-action]').on('click', this._handleActionClick.bind(this));
-        
-        html.find('.scene-item input[type="text"], .scene-item input[type="checkbox"], .scene-item textarea, .scene-item select').on('change', this._onSceneItemChange.bind(this));
-        html.find('.scene-item input[name="isMasterScene"]').on('change', this._onToggleMasterScene.bind(this));
-        html.find('.scene-item').each((i, el) => this._updateScenePlayerState(el));
-        
-        html.find('.text-item input[type="text"], .text-item textarea').on('change', this._onTextItemChange.bind(this));
-        html.find('.info-item input, .info-item textarea').on('change', this._onInfoItemChange.bind(this));
-        html.find('.scenario-info-container textarea, .handout-item input, .handout-item textarea').on('change', this._onScenarioInfoChange.bind(this));
-
-        this._activateContextMenu(html);
+    _onRender(_context, _options) {
+        this._setupContextMenus();
+        this._setupChangeListeners();
     }
+
+    // ─── 変更リスナー ─────────────────────────────────────────────────────────
+
+    _setupChangeListeners() {
+        const el = this.element;
+
+        for (const input of el.querySelectorAll('.scene-item input[type="text"], .scene-item input[type="checkbox"], .scene-item textarea, .scene-item select')) {
+            input.addEventListener('change', this._onSceneItemChange.bind(this));
+        }
+        for (const checkbox of el.querySelectorAll('.scene-item input[name="isMasterScene"]')) {
+            checkbox.addEventListener('change', this._onToggleMasterScene.bind(this));
+        }
+        for (const sceneItem of el.querySelectorAll('.scene-item')) {
+            this._updateScenePlayerState(sceneItem);
+        }
+
+        for (const input of el.querySelectorAll('.text-item input[type="text"], .text-item textarea')) {
+            input.addEventListener('change', this._onTextItemChange.bind(this));
+        }
+        for (const input of el.querySelectorAll('.info-item input, .info-item textarea')) {
+            input.addEventListener('change', this._onInfoItemChange.bind(this));
+        }
+        for (const input of el.querySelectorAll('.scenario-info-container textarea, .handout-item input, .handout-item textarea')) {
+            input.addEventListener('change', this._onScenarioInfoChange.bind(this));
+        }
+    }
+
+    // ─── コンテキストメニュー ─────────────────────────────────────────────────
+
+    _setupContextMenus() {
+        new ContextMenu(this.element, ".tnx-linked-btn", [{
+            name: "リンクを解除",
+            icon: '<i class="fas fa-unlink"></i>',
+            condition: el => !!el.dataset.uuid,
+            callback: async header => {
+                const uuid = header.dataset.uuid;
+                const slot = header.closest('[data-drop-area]');
+                if (!slot) return;
+                const flagKey = `${slot.dataset.dropArea}Id`;
+                const linkedDoc = await fromUuid(uuid);
+                if (!linkedDoc) {
+                    ui.notifications.warn("リンク先のドキュメントが見つかりませんでした。");
+                    await this.document.update({ [`flags.tokyo-nova-axleration.-=${flagKey}`]: null });
+                    return this.render({ force: true });
+                }
+                const choice = await UnlinkConfirmDialog.prompt({ linkedDoc });
+                if (choice === "unlink" || choice === "delete") {
+                    await this.document.update({ [`flags.tokyo-nova-axleration.-=${flagKey}`]: null });
+                    ui.notifications.info(`「${linkedDoc.name}」とのリンクを解除しました。`);
+                    if (choice === "delete") {
+                        await linkedDoc.delete();
+                        ui.notifications.info(`「${linkedDoc.name}」を削除しました。`);
+                    }
+                    this.render({ force: true });
+                }
+            },
+        }]);
+    }
+
+    // ─── ドロップ処理 ─────────────────────────────────────────────────────────
+
+    async _onDrop(event) {
+        let data;
+        try { data = JSON.parse(event.dataTransfer.getData("text/plain")); }
+        catch { return false; }
+        if (data.type !== "Cards" || !data.uuid) return;
+
+        const dropArea = event.target.closest('[data-drop-area]')?.dataset.dropArea;
+        if (!dropArea) return;
+
+        const droppedDoc = await fromUuid(data.uuid);
+        if (!droppedDoc) return;
+
+        await this.document.setFlag("tokyo-nova-axleration", `${dropArea}Id`, droppedDoc.uuid);
+        this.render({ force: true });
+        ui.notifications.info(`「${droppedDoc.name}」が${dropArea}としてリンクされました。`);
+    }
+
+    // ─── インスタンス変更ハンドラ ─────────────────────────────────────────────
 
     async _onScenarioInfoChange(event) {
         const input = event.currentTarget;
@@ -77,40 +191,33 @@ export class TnxScenarioSheet extends JournalSheet {
         const handoutItem = input.closest('.handout-item');
 
         if (handoutItem) {
-            const id = handoutItem.dataset.id;
-            const handouts = foundry.utils.deepClone(this.object.getFlag("tokyo-nova-axleration", "handouts") || []);
-            const handout = handouts.find(h => h.id === id);
+            const handouts = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "handouts") || []);
+            const handout = handouts.find(h => h.id === handoutItem.dataset.id);
             if (handout) {
                 handout[name] = value;
-                await this.object.setFlag("tokyo-nova-axleration", "handouts", handouts);
+                await this.document.setFlag("tokyo-nova-axleration", "handouts", handouts);
             }
         } else if (name === "trailer") {
-            await this.object.setFlag("tokyo-nova-axleration", "trailer", value);
+            await this.document.setFlag("tokyo-nova-axleration", "trailer", value);
         }
     }
-    
+
     async _onSceneItemChange(event) {
         const input = event.currentTarget;
         const sceneItem = input.closest('.scene-item');
         const sceneId = sceneItem.dataset.sceneId;
         const phase = sceneItem.dataset.phase;
-        
-        const scenes = foundry.utils.deepClone(this.object.getFlag("tokyo-nova-axleration", "scenes"));
-        const scene = scenes[phase]?.find(s => s.id === sceneId);
 
+        const scenes = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "scenes"));
+        const scene = scenes[phase]?.find(s => s.id === sceneId);
         if (!scene) return;
-        
-        const fieldName = input.name;
-        const value = input.type === 'checkbox' ? input.checked : input.value;
-        scene[fieldName] = value;
-        
-        await this.object.setFlag("tokyo-nova-axleration", "scenes", scenes);
+
+        scene[input.name] = input.type === 'checkbox' ? input.checked : input.value;
+        await this.document.setFlag("tokyo-nova-axleration", "scenes", scenes);
     }
 
     _onToggleMasterScene(event) {
-        const checkbox = event.currentTarget;
-        const sceneItem = checkbox.closest('.scene-item');
-        this._updateScenePlayerState(sceneItem);
+        this._updateScenePlayerState(event.currentTarget.closest('.scene-item'));
     }
 
     _updateScenePlayerState(sceneItem) {
@@ -118,156 +225,247 @@ export class TnxScenarioSheet extends JournalSheet {
         const playerInput = sceneItem.querySelector('select[name="player"]');
         if (checkbox && playerInput) {
             playerInput.disabled = checkbox.checked;
-            if (checkbox.checked) {
-                playerInput.value = '';
-            }
+            if (checkbox.checked) playerInput.value = '';
         }
     }
 
-    async _handleActionClick(event) {
-        event.preventDefault();
-        const action = event.currentTarget.dataset.action;
-        const targetElement = event.currentTarget;
+    async _onTextItemChange(event) {
+        const input = event.currentTarget;
+        const id = input.closest('.text-item').dataset.id;
+        const texts = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "scenarioTexts") || []);
+        const textItem = texts.find(t => t.id === id);
+        if (textItem) {
+            textItem[input.name] = input.value;
+            await this.document.setFlag("tokyo-nova-axleration", "scenarioTexts", texts);
+        }
+    }
 
-        switch(action) {
-            case "open-document": {
-                const uuid = targetElement.dataset.uuid;
-                if (uuid) fromUuid(uuid).then(doc => doc?.sheet.render(true));
-                break;
-            }
-            case "launch-wizard": {
-                new TnxScenarioSettingWizard(this.object).render(true);
-                break;
-            }
-            case "add-scene": {
-                const phase = targetElement.dataset.phase;
-                const scenes = foundry.utils.deepClone(this.object.getFlag("tokyo-nova-axleration", "scenes") || { opening: [], research: [], climax: [], ending: [] });
-                if (!Array.isArray(scenes[phase])) scenes[phase] = [];
-                const newScene = { id: foundry.utils.randomID(), number: "", name: "新規シーン", player: "", isMasterScene: false, switchMessage: "" };
-                scenes[phase].push(newScene);
-                this.object.setFlag("tokyo-nova-axleration", "scenes", scenes);
-                break;
-            }
-            case "delete-scene": {
-                const sceneItem = targetElement.closest('.scene-item');
-                const sceneId = sceneItem.dataset.sceneId;
-                const phase = sceneItem.dataset.phase;
-                Dialog.confirm({
-                    title: "シーンの削除", content: "<p>このシーンを削除しますか？</p>",
-                    yes: () => {
-                        const scenes = foundry.utils.deepClone(this.object.getFlag("tokyo-nova-axleration", "scenes"));
-                        if (scenes[phase]) scenes[phase] = scenes[phase].filter(s => s.id !== sceneId);
-                        this.object.setFlag("tokyo-nova-axleration", "scenes", scenes);
-                    },
-                    defaultYes: false
-                });
-                break;
-            }
-            case "switch-scene": {
-                const sceneItem = targetElement.closest('.scene-item');
-                const sceneId = sceneItem.dataset.sceneId;
-                const phase = sceneItem.dataset.phase;
-                const scenes = this.object.getFlag("tokyo-nova-axleration", "scenes");
-                const scene = scenes[phase]?.find(s => s.id === sceneId);
-                if (scene) {
-                    const sceneTitle = `<h2>SCENE ${scene.number || '??'} : ${scene.name || '無題のシーン'}</h2>`;
-                    let sceneDetails = scene.isMasterScene ? `<p>マスターシーン</p>` : (scene.player ? `<p><strong>シーンプレイヤー:</strong> ${scene.player}</p>` : '');
-                    let customMessage = scene.switchMessage ? `<hr>${scene.switchMessage}` : '';
-                    const chatContent = sceneTitle + sceneDetails + customMessage;
-                    if (chatContent) ChatMessage.create({ content: chatContent });
-                    await this.object.setFlag("tokyo-nova-axleration", "currentState", { phase, sceneId });
-                    ui.notifications.info(`シーン「${scene.name}」に切り替えました。`);
+    async _onInfoItemChange(event) {
+        const input = event.currentTarget;
+        const { infoId, contentId, skillId } = input.dataset;
+        const value = input.type === "checkbox" ? input.checked
+            : input.type === "number" ? parseInt(input.value)
+            : input.value;
+
+        const items = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "infoItems") || []);
+        const item = items.find(i => i.id === infoId);
+        if (!item) return;
+
+        if (contentId && skillId) {
+            const skill = item.contents.find(c => c.id === contentId)?.skills.find(s => s.id === skillId);
+            if (skill) skill[input.name] = value;
+        } else if (contentId) {
+            const content = item.contents.find(c => c.id === contentId);
+            if (content) content[input.name] = value;
+        } else {
+            item[input.name] = value;
+        }
+
+        await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
+    }
+
+    // ─── 静的アクションハンドラ ───────────────────────────────────────────────
+
+    static async _onOpenDocument(_event, target) {
+        const doc = await fromUuid(target.dataset.uuid);
+        doc?.sheet.render({ force: true });
+    }
+
+    static async _onLaunchWizard(_event, _target) {
+        new TnxScenarioSettingWizard(this.document).render(true);
+    }
+
+    static async _onAddScene(_event, target) {
+        const phase = target.dataset.phase;
+        const scenes = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "scenes") || { opening: [], research: [], climax: [], ending: [] });
+        if (!Array.isArray(scenes[phase])) scenes[phase] = [];
+        scenes[phase].push({ id: foundry.utils.randomID(), number: "", name: "新規シーン", player: "", isMasterScene: false, switchMessage: "" });
+        this.document.setFlag("tokyo-nova-axleration", "scenes", scenes);
+    }
+
+    static async _onDeleteScene(_event, target) {
+        const sceneItem = target.closest('.scene-item');
+        const { sceneId, phase } = sceneItem.dataset;
+        const confirmed = await DialogV2.confirm({
+            window: { title: "シーンの削除" },
+            content: "<p>このシーンを削除しますか？</p>",
+        });
+        if (!confirmed) return;
+        const scenes = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "scenes"));
+        if (scenes[phase]) scenes[phase] = scenes[phase].filter(s => s.id !== sceneId);
+        this.document.setFlag("tokyo-nova-axleration", "scenes", scenes);
+    }
+
+    static async _onSwitchScene(_event, target) {
+        const sceneItem = target.closest('.scene-item');
+        const { sceneId, phase } = sceneItem.dataset;
+        const scenes = this.document.getFlag("tokyo-nova-axleration", "scenes");
+        const scene = scenes[phase]?.find(s => s.id === sceneId);
+        if (!scene) return;
+
+        const sceneTitle = `<h2>SCENE ${scene.number || '??'} : ${scene.name || '無題のシーン'}</h2>`;
+        const sceneDetails = scene.isMasterScene ? `<p>マスターシーン</p>`
+            : scene.player ? `<p><strong>シーンプレイヤー:</strong> ${scene.player}</p>` : '';
+        const customMessage = scene.switchMessage ? `<hr>${scene.switchMessage}` : '';
+        const chatContent = sceneTitle + sceneDetails + customMessage;
+        if (chatContent) ChatMessage.create({ content: chatContent });
+        await this.document.setFlag("tokyo-nova-axleration", "currentState", { phase, sceneId });
+        ui.notifications.info(`シーン「${scene.name}」に切り替えました。`);
+    }
+
+    static async _onAddTextItem(_event, _target) {
+        const texts = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "scenarioTexts") || []);
+        texts.push({ id: foundry.utils.randomID(), title: "新規テキスト", content: "" });
+        await this.document.setFlag("tokyo-nova-axleration", "scenarioTexts", texts);
+    }
+
+    static async _onDeleteTextItem(_event, target) {
+        const textItemId = target.closest('.text-item').dataset.id;
+        const confirmed = await DialogV2.confirm({
+            window: { title: "テキストの削除" },
+            content: "<p>このテキスト項目を削除しますか？</p>",
+        });
+        if (!confirmed) return;
+        let texts = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "scenarioTexts") || []);
+        texts = texts.filter(t => t.id !== textItemId);
+        await this.document.setFlag("tokyo-nova-axleration", "scenarioTexts", texts);
+    }
+
+    static async _onSendTextToChat(_event, target) {
+        const textItemId = target.closest('.text-item').dataset.id;
+        const texts = this.document.getFlag("tokyo-nova-axleration", "scenarioTexts") || [];
+        const textItem = texts.find(t => t.id === textItemId);
+        if (textItem?.content) ChatMessage.create({ content: textItem.content });
+        else ui.notifications.warn("送信するテキストがありません。");
+    }
+
+    static async _onAddInfoItem(_event, _target) {
+        const items = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "infoItems") || []);
+        items.push({
+            id: foundry.utils.randomID(),
+            title: "新規情報",
+            isPublic: false,
+            contents: [{
+                id: foundry.utils.randomID(),
+                text: "",
+                isDisclosed: false,
+                skills: [{ id: foundry.utils.randomID(), name: "", tn: null }],
+            }],
+        });
+        await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
+    }
+
+    static async _onDeleteInfoItem(_event, target) {
+        const infoItemId = target.dataset.infoId;
+        const confirmed = await DialogV2.confirm({
+            window: { title: "情報の削除" },
+            content: "<p>この情報項目全体を削除しますか？</p>",
+        });
+        if (!confirmed) return;
+        let items = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "infoItems") || []);
+        items = items.filter(i => i.id !== infoItemId);
+        await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
+    }
+
+    static async _onSendInfoToChat(_event, target) {
+        const infoItemId = target.dataset.infoId;
+        const items = this.document.getFlag("tokyo-nova-axleration", "infoItems") || [];
+        const item = items.find(i => i.id === infoItemId);
+        if (!item?.contents) return;
+
+        const chatContent = `<h3>${item.title}</h3>`;
+        const disclosedContents = item.contents.filter(c => c.isDisclosed);
+
+        const buildSkillHtml = (contents) => {
+            let html = "";
+            let added = false;
+            for (const content of contents) {
+                const skillsByTn = content.skills.reduce((acc, skill) => {
+                    if (skill.name && skill.tn) {
+                        (acc[skill.tn] = acc[skill.tn] || []).push(skill.name);
+                    }
+                    return acc;
+                }, {});
+                const skillsHtml = Object.entries(skillsByTn)
+                    .map(([tn, names]) => `<strong>${names.join(" / ")} &gt; ${tn}</strong>`)
+                    .join("<br>");
+                if (skillsHtml || content.text) {
+                    if (added) html += "<hr>";
+                    if (skillsHtml) html += `<p>${skillsHtml}</p>`;
+                    if (content.text) html += `<p>${content.text}</p>`;
+                    added = true;
                 }
-                break;
             }
-            case "add-text-item":
-                await this._addTextItem();
-                break;
-            case "delete-text-item": {
-                const textItemId = targetElement.closest('.text-item').dataset.id;
-                await this._deleteTextItem(textItemId);
-                break;
-            }
-            case "send-text-to-chat": {
-                const textItemId = targetElement.closest('.text-item').dataset.id;
-                await this._sendTextToChat(textItemId);
-                break;
-            }
-            case "add-info-item":
-                await this._addInfoItem();
-                break;
-            case "delete-info-item": {
-                const infoItemId = targetElement.dataset.infoId;
-                await this._deleteInfoItem(infoItemId);
-                break;
-            }
-            case "send-info-to-chat": {
-                const infoItemId = targetElement.dataset.infoId;
-                await this._sendInfoToChat(infoItemId);
-                break;
-            }
-            case "add-info-content": {
-                const infoItemId = targetElement.dataset.infoId;
-                await this._addInfoContent(infoItemId);
-                break;
-            }
-            case "delete-info-content": {
-                const { infoId, contentId } = targetElement.dataset;
-                await this._deleteInfoContent(infoId, contentId);
-                break;
-            }
-            case "add-skill-check": {
-                const { infoId, contentId } = targetElement.dataset;
-                await this._addSkillCheck(infoId, contentId);
-                break;
-            }
-            case "delete-skill-check": {
-                const { infoId, contentId, skillId } = targetElement.dataset;
-                await this._deleteSkillCheck(infoId, contentId, skillId);
-                break;
-            }
-            case "send-trailer-to-chat":
-                await this._sendTrailerToChat();
-                break;
-            case "add-handout":
-                await this._addHandout();
-                break;
-            case "delete-handout": {
-                const id = targetElement.closest('.handout-item').dataset.id;
-                await this._deleteHandout(id);
-                break;
-            }
-            case "send-handout-to-chat": {
-                const id = targetElement.closest('.handout-item').dataset.id;
-                await this._sendHandoutToChat(id);
-                break;
-            }
-            case "create-all-user-hands": {
-                await this._onCreateAllUserHands();
-                break;
-            }
-            case "reset-access-cards": {
-                await this._onDistributeRlTrump();
-                break;
-            }
-            case "deal-initial-hands": {
-                await TnxActionHandler.dealInitialHands();
-                break;
-            }
-            case "deal-trump-from-neuro": {
-                await TnxActionHandler.dealTrumpFromNeuroDeck();
-                break;
-            }
-            case "deal-trump-for-rl": {
-                await this._dealRlTrumpFromAccess();
-                break;
+            return { html, added };
+        };
+
+        if (disclosedContents.length > 0) {
+            const { html } = buildSkillHtml(disclosedContents);
+            ChatMessage.create({ content: chatContent + html });
+            ui.notifications.info(`情報「${item.title}」の公開済み内容を送信しました。`);
+        } else {
+            const { html, added } = buildSkillHtml(item.contents);
+            if (added) {
+                ChatMessage.create({ content: chatContent + html });
+                ui.notifications.info(`情報「${item.title}」の目標値情報を送信しました。`);
+            } else {
+                ui.notifications.warn("送信できる技能・目標値がありません。");
             }
         }
     }
 
-    async _addHandout() {
-        const handouts = foundry.utils.deepClone(this.object.getFlag("tokyo-nova-axleration", "handouts") || []);
-        const newHandout = {
+    static async _onAddInfoContent(_event, target) {
+        const infoId = target.dataset.infoId;
+        const items = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "infoItems") || []);
+        const item = items.find(i => i.id === infoId);
+        if (!item) return;
+        if (!Array.isArray(item.contents)) item.contents = [];
+        item.contents.push({
+            id: foundry.utils.randomID(),
+            text: "",
+            isDisclosed: false,
+            skills: [{ id: foundry.utils.randomID(), name: "", tn: null }],
+        });
+        await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
+    }
+
+    static async _onDeleteInfoContent(_event, target) {
+        const { infoId, contentId } = target.dataset;
+        const items = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "infoItems") || []);
+        const item = items.find(i => i.id === infoId);
+        if (!item) return;
+        item.contents = item.contents.filter(c => c.id !== contentId);
+        await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
+    }
+
+    static async _onAddSkillCheck(_event, target) {
+        const { infoId, contentId } = target.dataset;
+        const items = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "infoItems") || []);
+        const content = items.find(i => i.id === infoId)?.contents.find(c => c.id === contentId);
+        if (!content) return;
+        content.skills.push({ id: foundry.utils.randomID(), name: "", tn: null });
+        await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
+    }
+
+    static async _onDeleteSkillCheck(_event, target) {
+        const { infoId, contentId, skillId } = target.dataset;
+        const items = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "infoItems") || []);
+        const content = items.find(i => i.id === infoId)?.contents.find(c => c.id === contentId);
+        if (!content) return;
+        content.skills = content.skills.filter(s => s.id !== skillId);
+        if (content.skills.length === 0) content.skills.push({ id: foundry.utils.randomID(), name: "", tn: null });
+        await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
+    }
+
+    static async _onSendTrailerToChat(_event, _target) {
+        const trailer = this.document.getFlag("tokyo-nova-axleration", "trailer");
+        if (trailer) ChatMessage.create({ content: `<h3>シナリオトレーラー</h3><hr>${trailer}` });
+        else ui.notifications.warn("トレーラーが入力されていません。");
+    }
+
+    static async _onAddHandout(_event, _target) {
+        const handouts = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "handouts") || []);
+        handouts.push({
             id: foundry.utils.randomID(),
             pcName: `PC${handouts.length + 1}`,
             title: `ハンドアウト ${handouts.length + 1}`,
@@ -275,343 +473,64 @@ export class TnxScenarioSheet extends JournalSheet {
             recommendedSuit: "",
             recommendedStyle: "",
             content: "",
-            ps: ""
-        };
-        handouts.push(newHandout);
-        await this.object.setFlag("tokyo-nova-axleration", "handouts", handouts);
+            ps: "",
+        });
+        await this.document.setFlag("tokyo-nova-axleration", "handouts", handouts);
     }
 
-    async _deleteHandout(id) {
-        if (await Dialog.confirm({ title: "ハンドアウトの削除", content: "<p>このハンドアウトを削除しますか？</p>", defaultYes: false })) {
-            let handouts = foundry.utils.deepClone(this.object.getFlag("tokyo-nova-axleration", "handouts") || []);
-            handouts = handouts.filter(h => h.id !== id);
-            await this.object.setFlag("tokyo-nova-axleration", "handouts", handouts);
-        }
+    static async _onDeleteHandout(_event, target) {
+        const id = target.closest('.handout-item').dataset.id;
+        const confirmed = await DialogV2.confirm({
+            window: { title: "ハンドアウトの削除" },
+            content: "<p>このハンドアウトを削除しますか？</p>",
+        });
+        if (!confirmed) return;
+        let handouts = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "handouts") || []);
+        handouts = handouts.filter(h => h.id !== id);
+        await this.document.setFlag("tokyo-nova-axleration", "handouts", handouts);
     }
 
-    async _sendTrailerToChat() {
-        const trailer = this.object.getFlag("tokyo-nova-axleration", "trailer");
-        if (trailer) {
-            ChatMessage.create({ content: `<h3>シナリオトレーラー</h3><hr>${trailer}` });
-        } else {
-            ui.notifications.warn("トレーラーが入力されていません。");
-        }
-    }
-
-    async _sendHandoutToChat(id) {
-        const handouts = this.object.getFlag("tokyo-nova-axleration", "handouts") || [];
+    static async _onSendHandoutToChat(_event, target) {
+        const id = target.closest('.handout-item').dataset.id;
+        const handouts = this.document.getFlag("tokyo-nova-axleration", "handouts") || [];
         const handout = handouts.find(h => h.id === id);
-        if (handout) {
-            let chatContent = `<h3>${handout.title} (${handout.pcName})</h3>`;
-            
-            let details = '';
-            if (handout.connections) details += `<p><strong>コネ:</strong> ${handout.connections}</p>`;
-            if (handout.recommendedSuit) details += `<p><strong>推奨スート:</strong> ${handout.recommendedSuit}</p>`;
-            if (handout.recommendedStyle) details += `<p><strong>推奨スタイル:</strong> ${handout.recommendedStyle}</p>`;
-            if (details) chatContent += details;
+        if (!handout) return;
 
-            chatContent += `<hr>${handout.content}`;
-            
-            if (handout.ps) {
-                chatContent += `<hr><h4>PS</h4><p>${handout.ps}</p>`;
-            }
-            ChatMessage.create({ content: chatContent });
-        }
+        let chatContent = `<h3>${handout.title} (${handout.pcName})</h3>`;
+        let details = '';
+        if (handout.connections)      details += `<p><strong>コネ:</strong> ${handout.connections}</p>`;
+        if (handout.recommendedSuit)  details += `<p><strong>推奨スート:</strong> ${handout.recommendedSuit}</p>`;
+        if (handout.recommendedStyle) details += `<p><strong>推奨スタイル:</strong> ${handout.recommendedStyle}</p>`;
+        if (details) chatContent += details;
+        chatContent += `<hr>${handout.content}`;
+        if (handout.ps) chatContent += `<hr><h4>PS</h4><p>${handout.ps}</p>`;
+        ChatMessage.create({ content: chatContent });
     }
 
-    async _onTextItemChange(event) {
-        const input = event.currentTarget;
-        const textItemEl = input.closest('.text-item');
-        const id = textItemEl.dataset.id;
-        const name = input.name;
-        const value = input.value;
-        const texts = foundry.utils.deepClone(this.object.getFlag("tokyo-nova-axleration", "scenarioTexts") || []);
-        const textItem = texts.find(t => t.id === id);
-        if (textItem) {
-            textItem[name] = value;
-            await this.object.setFlag("tokyo-nova-axleration", "scenarioTexts", texts);
-        }
-    }
-    async _addTextItem() {
-        const texts = foundry.utils.deepClone(this.object.getFlag("tokyo-nova-axleration", "scenarioTexts") || []);
-        texts.push({ id: foundry.utils.randomID(), title: "新規テキスト", content: "" });
-        await this.object.setFlag("tokyo-nova-axleration", "scenarioTexts", texts);
-    }
-    async _deleteTextItem(id) {
-        if (await Dialog.confirm({ title: "テキストの削除", content: "<p>このテキスト項目を削除しますか？</p>", defaultYes: false })) {
-            let texts = foundry.utils.deepClone(this.object.getFlag("tokyo-nova-axleration", "scenarioTexts") || []);
-            texts = texts.filter(t => t.id !== id);
-            await this.object.setFlag("tokyo-nova-axleration", "scenarioTexts", texts);
-        }
-    }
-    async _sendTextToChat(id) {
-        const texts = this.object.getFlag("tokyo-nova-axleration", "scenarioTexts") || [];
-        const textItem = texts.find(t => t.id === id);
-        if (textItem?.content) ChatMessage.create({ content: textItem.content });
-        else ui.notifications.warn("送信するテキストがありません。");
-    }
-
-    async _onInfoItemChange(event) {
-        const input = event.currentTarget;
-        const { infoId, contentId, skillId } = input.dataset;
-        const name = input.name;
-        const value = input.type === "checkbox" ? input.checked : (input.type === "number" ? parseInt(input.value) : input.value);
-
-        const items = foundry.utils.deepClone(this.object.getFlag("tokyo-nova-axleration", "infoItems") || []);
-        const item = items.find(i => i.id === infoId);
-        if (!item) return;
-
-        if (contentId && skillId) {
-            const content = item.contents.find(c => c.id === contentId);
-            const skill = content?.skills.find(s => s.id === skillId);
-            if (skill) skill[name] = value;
-        } else if (contentId) {
-            const content = item.contents.find(c => c.id === contentId);
-            if (content) content[name] = value;
-        } else {
-            item[name] = value;
-        }
-        
-        await this.object.setFlag("tokyo-nova-axleration", "infoItems", items);
-    }
-
-    async _addInfoItem() {
-        const items = foundry.utils.deepClone(this.object.getFlag("tokyo-nova-axleration", "infoItems") || []);
-        const newItem = {
-            id: foundry.utils.randomID(),
-            title: "新規情報",
-            isPublic: false, 
-            contents: [
-                {
-                    id: foundry.utils.randomID(),
-                    text: "",
-                    isDisclosed: false,
-                    skills: [
-                        { id: foundry.utils.randomID(), name: "", tn: null }
-                    ]
-                }
-            ]
-        };
-        items.push(newItem);
-        await this.object.setFlag("tokyo-nova-axleration", "infoItems", items);
-    }
-
-    async _deleteInfoItem(id) {
-        if (await Dialog.confirm({ title: "情報の削除", content: "<p>この情報項目全体を削除しますか？</p>", defaultYes: false })) {
-            let items = foundry.utils.deepClone(this.object.getFlag("tokyo-nova-axleration", "infoItems") || []);
-            items = items.filter(i => i.id !== id);
-            await this.object.setFlag("tokyo-nova-axleration", "infoItems", items);
-        }
-    }
-
-    async _addInfoContent(infoId) {
-        const items = foundry.utils.deepClone(this.object.getFlag("tokyo-nova-axleration", "infoItems") || []);
-        const item = items.find(i => i.id === infoId);
-        if (item) {
-            if (!Array.isArray(item.contents)) item.contents = [];
-            item.contents.push({
-                id: foundry.utils.randomID(),
-                text: "",
-                isDisclosed: false,
-                skills: [
-                    { id: foundry.utils.randomID(), name: "", tn: null }
-                ]
-            });
-            await this.object.setFlag("tokyo-nova-axleration", "infoItems", items);
-        }
-    }
-
-    async _deleteInfoContent(infoId, contentId) {
-        const items = foundry.utils.deepClone(this.object.getFlag("tokyo-nova-axleration", "infoItems") || []);
-        const item = items.find(i => i.id === infoId);
-        if (item) {
-            item.contents = item.contents.filter(c => c.id !== contentId);
-            await this.object.setFlag("tokyo-nova-axleration", "infoItems", items);
-        }
-    }
-
-    async _addSkillCheck(infoId, contentId) {
-        const items = foundry.utils.deepClone(this.object.getFlag("tokyo-nova-axleration", "infoItems") || []);
-        const item = items.find(i => i.id === infoId);
-        const content = item?.contents.find(c => c.id === contentId);
-        if (content) {
-            content.skills.push({ id: foundry.utils.randomID(), name: "", tn: null });
-            await this.object.setFlag("tokyo-nova-axleration", "infoItems", items);
-        }
-    }
-
-    async _deleteSkillCheck(infoId, contentId, skillId) {
-        const items = foundry.utils.deepClone(this.object.getFlag("tokyo-nova-axleration", "infoItems") || []);
-        const item = items.find(i => i.id === infoId);
-        const content = item?.contents.find(c => c.id === contentId);
-        if (content) {
-            content.skills = content.skills.filter(s => s.id !== skillId);
-            if (content.skills.length === 0) {
-                content.skills.push({ id: foundry.utils.randomID(), name: "", tn: null });
-            }
-            await this.object.setFlag("tokyo-nova-axleration", "infoItems", items);
-        }
-    }
-
-    async _sendInfoToChat(id) {
-        const items = this.object.getFlag("tokyo-nova-axleration", "infoItems") || [];
-        const item = items.find(i => i.id === id);
-        if (!item || !item.contents) return;
-
-        let chatContent = `<h3>${item.title}</h3>`;
-        const disclosedContents = item.contents.filter(c => c.isDisclosed);
-
-        if (disclosedContents.length > 0) {
-            let contentAdded = false;
-            for (const content of disclosedContents) {
-                if (contentAdded) chatContent += "<hr>";
-                const skillsByTn = content.skills.reduce((acc, skill) => {
-                    if (skill.name && skill.tn) {
-                        acc[skill.tn] = acc[skill.tn] || [];
-                        acc[skill.tn].push(skill.name);
-                    }
-                    return acc;
-                }, {});
-                const skillsHtml = Object.entries(skillsByTn).map(([tn, names]) => `<strong>${names.join(" / ")} &gt; ${tn}</strong>`).join("<br>");
-                if (skillsHtml) chatContent += `<p>${skillsHtml}</p>`;
-                if (content.text) chatContent += `<p>${content.text}</p>`;
-                contentAdded = true;
-            }
-            ChatMessage.create({ content: chatContent });
-            ui.notifications.info(`情報「${item.title}」の公開済み内容を送信しました。`);
-        } else {
-            let contentAdded = false;
-            for (const content of item.contents) {
-                const skillsByTn = content.skills.reduce((acc, skill) => {
-                    if (skill.name && skill.tn) {
-                        acc[skill.tn] = acc[skill.tn] || [];
-                        acc[skill.tn].push(skill.name);
-                    }
-                    return acc;
-                }, {});
-                const skillsHtml = Object.entries(skillsByTn).map(([tn, names]) => `<strong>${names.join(" / ")} &gt; ${tn}</strong>`).join("<br>");
-                if (skillsHtml) {
-                    if (contentAdded) chatContent += "<hr>";
-                    chatContent += `<p>${skillsHtml}</p>`;
-                    contentAdded = true;
-                }
-            }
-            if (contentAdded) {
-                ChatMessage.create({ content: chatContent });
-                ui.notifications.info(`情報「${item.title}」の目標値情報を送信しました。`);
-            } else {
-                ui.notifications.warn("送信できる技能・目標値がありません。");
-            }
-        }
-    }
-    
-    _activateContextMenu(html) {
-        const sheet = this;
-        new ContextMenu(html, ".tnx-linked-btn", [{
-            name: "リンクを解除", icon: '<i class="fas fa-unlink"></i>',
-            condition: $li => $li.data("uuid"), 
-            callback: async header => {
-                const button = header[0];
-                const uuid = button.dataset.uuid;
-                const slot = button.closest('[data-drop-area]');
-                if (!slot) return;
-                const dropAreaName = slot.dataset.dropArea;
-                const flagKey = `${dropAreaName}Id`;
-                const linkedDoc = await fromUuid(uuid);
-                if (!linkedDoc) {
-                    ui.notifications.warn("リンク先のドキュメントが見つかりませんでした。");
-                    await sheet.object.update({ [`flags.tokyo-nova-axleration.-=${flagKey}`]: null });
-                    return sheet.render(true);
-                }
-                const choice = await UnlinkConfirmDialog.prompt({ linkedDoc });
-                if (choice === "unlink" || choice === "delete") {
-                    await sheet.object.update({ [`flags.tokyo-nova-axleration.-=${flagKey}`]: null });
-                    ui.notifications.info(`「${linkedDoc.name}」とのリンクを解除しました。`);
-                    if (choice === "delete") {
-                        await linkedDoc.delete();
-                        ui.notifications.info(`「${linkedDoc.name}」を削除しました。`);
-                    }
-                    sheet.render(true);
-                }
-            }
-        }]);
-    }
-
-    async _onDrop(event) {
-        let data;
-        try { data = JSON.parse(event.dataTransfer.getData("text/plain")); }
-        catch (err) { return false; }
-        if (data.type !== "Cards" || !data.uuid) return;
-        const dropArea = event.target.closest('[data-drop-area]')?.dataset.dropArea;
-        if (!dropArea) return;
-        const droppedDoc = await fromUuid(data.uuid);
-        if (!droppedDoc) return;
-        const flagKey = `${dropArea}Id`;
-        await this.object.setFlag("tokyo-nova-axleration", flagKey, droppedDoc.uuid);
-        this.render(true);
-        ui.notifications.info(`「${droppedDoc.name}」が${dropArea}としてリンクされました。`);
-    }
-
-    async _toggleInfoPublic(infoId) {
-        const items = foundry.utils.deepClone(this.object.getFlag("tokyo-nova-axleration", "infoItems") || []);
-        const item = items.find(i => i.id === infoId);
-        if (item) {
-            item.isPublic = !(item.isPublic || false);
-            await this.object.setFlag("tokyo-nova-axleration", "infoItems", items);
-        }
-    }
-
-    /**
-     * 全ユーザー分の手札・切り札置き場を一括作成し、各User flagに保存する
-     */
-    async _onCreateAllUserHands() {
+    static async _onCreateAllUserHands(_event, _target) {
         if (!game.user.isGM) return ui.notifications.warn("この操作はGMのみ実行可能です。");
 
-        const { saveUserFlagCards } = await import('../module/user-flag-schema.mjs');
-
-        const confirmed = await Dialog.confirm({
-            title: "全ユーザーの手札作成",
+        const confirmed = await DialogV2.confirm({
+            window: { title: "全ユーザーの手札作成" },
             content: "<p>すべてのユーザーに対して、手札および切り札置き場を一括作成し、ユーザーデータに登録しますか？</p><p>（既に設定されているユーザーは上書きで再作成されます。過去の手札ドキュメントは削除されず残ります）</p>",
-            defaultYes: false
         });
-
         if (!confirmed) return;
 
         ui.notifications.info("手札・切り札の作成を開始します...");
         let createdCount = 0;
 
         for (const user of game.users) {
-            const handPileName = game.i18n.format("TNX.Actor.Cards.DefaultHandPileName", { actorName: user.name });
+            const handPileName  = game.i18n.format("TNX.Actor.Cards.DefaultHandPileName",  { actorName: user.name });
             const trumpPileName = game.i18n.format("TNX.Actor.Cards.DefaultTrumpPileName", { actorName: user.name });
-            
             const ownership = {
                 default: CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE,
-                [user.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER
+                [user.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER,
             };
-            
-            // GMにもOWNER権限を付与する(自身以外の場合)
-            if (user.id !== game.user.id) {
-                ownership[game.user.id] = CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
-            }
+            if (user.id !== game.user.id) ownership[game.user.id] = CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
 
             try {
-                const handPile = await Cards.create({
-                    name: handPileName,
-                    type: "hand",
-                    description: `「${user.name}」の手札です。`,
-                    img: "icons/svg/card-hand.svg",
-                    ownership: ownership
-                });
-
-                const trumpPile = await Cards.create({
-                    name: trumpPileName,
-                    type: "pile",
-                    description: `「${user.name}」の切り札置き場です。`,
-                    img: "icons/svg/card-hand.svg",
-                    ownership: ownership,
-                    flags: { "tokyo-nova-axleration": { isTrumpPile: true } }
-                });
-
+                const handPile  = await Cards.create({ name: handPileName,  type: "hand", description: `「${user.name}」の手札です。`,      img: "icons/svg/card-hand.svg", ownership });
+                const trumpPile = await Cards.create({ name: trumpPileName, type: "pile", description: `「${user.name}」の切り札置き場です。`, img: "icons/svg/card-hand.svg", ownership, flags: { "tokyo-nova-axleration": { isTrumpPile: true } } });
                 if (handPile && trumpPile) {
                     await saveUserFlagCards(user, handPile.uuid, trumpPile.uuid);
                     createdCount++;
@@ -624,104 +543,53 @@ export class TnxScenarioSheet extends JournalSheet {
         ui.notifications.info(`全 ${createdCount} 人のユーザーに手札・切り札を作成しました。`);
     }
 
-    /**
-     * RL用切り札を、捨て場（使用済み）からRLの切り札置き場へ再配布する
-     */
-    async _onDistributeRlTrump() {
-        const { getUserFlagData } = await import('../module/user-flag-schema.mjs');
+    static async _onDistributeRlTrump(_event, _target) {
+        const gmTrumpDiscardId = this.document.getFlag("tokyo-nova-axleration", "gmTrumpDiscardId");
+        if (!gmTrumpDiscardId) return ui.notifications.warn("RL切り札捨て場がこのシナリオに設定されていません。");
 
-        // 1. シナリオに設定されたRL切り札捨て場を取得
-        const gmTrumpDiscardId = this.object.getFlag("tokyo-nova-axleration", "gmTrumpDiscardId");
-        if (!gmTrumpDiscardId) {
-            return ui.notifications.warn("RL切り札捨て場がこのシナリオに設定されていません。");
-        }
         const gmTrumpDiscard = await fromUuid(gmTrumpDiscardId);
-        if (!gmTrumpDiscard) {
-            return ui.notifications.error("設定されているRL切り札捨て場が見つかりませんでした。");
-        }
+        if (!gmTrumpDiscard) return ui.notifications.error("設定されているRL切り札捨て場が見つかりませんでした。");
 
-        // 2. GMユーザーを取得
         const gm = game.users.find(u => u.isGM);
-        if (!gm) {
-            return ui.notifications.warn("GMユーザーが見つかりません。");
-        }
+        if (!gm) return ui.notifications.warn("GMユーザーが見つかりません。");
 
-        // 3. GMユーザーに紐づく切り札置き場を取得
-        const gmTrumpPileId = getUserFlagData(gm).trumpCardPileId;
-        if (!gmTrumpPileId) {
-            return ui.notifications.warn("GMユーザーに切り札置き場が設定されていません。");
-        }
-        const gmTrumpPile = await fromUuid(gmTrumpPileId);
-        if (!gmTrumpPile) {
-            return ui.notifications.error("設定されているGMユーザーの切り札置き場が見つかりませんでした。");
-        }
+        const gmTrumpPile = await fromUuid(getUserFlagData(gm).trumpCardPileId);
+        if (!gmTrumpPile) return ui.notifications.warn("GMユーザーの切り札置き場が設定・取得できませんでした。");
 
-        // 4. 捨て場から「切り札」という名前のカードを探す
         const trumpCard = gmTrumpDiscard.cards.find(c => c.name === "切り札");
-        if (!trumpCard) {
-            return ui.notifications.info("RL切り札捨て場に「切り札」カードはありません。配布の必要はありません。");
-        }
-        
-        // 5. RLの切り札置き場が空か確認
-        if (gmTrumpPile.cards.size > 0) {
-            return ui.notifications.warn("RLの切り札には既にカードがあるため、配布できませんでした。");
-        }
+        if (!trumpCard) return ui.notifications.info("RL切り札捨て場に「切り札」カードはありません。配布の必要はありません。");
+        if (gmTrumpPile.cards.size > 0) return ui.notifications.warn("RLの切り札には既にカードがあるため、配布できませんでした。");
 
-        // 6. カードを移動
         await gmTrumpDiscard.pass(gmTrumpPile, [trumpCard.id]);
-
-        // 7. ユーザーに通知
         ui.notifications.info("「切り札」をRLの切り札に再配布しました。");
     }
 
-    /**
-     * アクセスカード山から「切り札」を検索し、RLの切り札置き場へ配布する
-     */
-    async _dealRlTrumpFromAccess() {
-        const { getUserFlagData } = await import('../module/user-flag-schema.mjs');
+    static async _onDealInitialHands(_event, _target) {
+        await TnxActionHandler.dealInitialHands();
+    }
 
-        // 1. シナリオに設定されたアクセスカード山を取得
-        const accessCardPileId = this.object.getFlag("tokyo-nova-axleration", "accessCardPileId");
-        if (!accessCardPileId) {
-            return ui.notifications.warn("アクセスカード山が設定されていません。設定タブでドロップしてください。");
-        }
+    static async _onDealTrumpFromNeuro(_event, _target) {
+        await TnxActionHandler.dealTrumpFromNeuroDeck();
+    }
+
+    static async _onDealRlTrumpFromAccess(_event, _target) {
+        const accessCardPileId = this.document.getFlag("tokyo-nova-axleration", "accessCardPileId");
+        if (!accessCardPileId) return ui.notifications.warn("アクセスカード山が設定されていません。設定タブでドロップしてください。");
+
         const accessCardPile = await fromUuid(accessCardPileId);
-        if (!accessCardPile) {
-            return ui.notifications.error("設定されているアクセスカード山が見つかりませんでした。");
-        }
+        if (!accessCardPile) return ui.notifications.error("設定されているアクセスカード山が見つかりませんでした。");
 
-        // 2. GMユーザーを取得
         const gm = game.users.find(u => u.isGM);
-        if (!gm) {
-            return ui.notifications.warn("GMユーザーが見つかりません。");
-        }
+        if (!gm) return ui.notifications.warn("GMユーザーが見つかりません。");
 
-        // 3. GMユーザーに紐づく切り札置き場を取得
-        const gmTrumpPileId = getUserFlagData(gm).trumpCardPileId;
-        if (!gmTrumpPileId) {
-            return ui.notifications.warn("GMユーザーに切り札置き場が設定されていません。");
-        }
-        const gmTrumpPile = await fromUuid(gmTrumpPileId);
-        if (!gmTrumpPile) {
-            return ui.notifications.error("設定されているGMユーザーの切り札置き場が見つかりませんでした。");
-        }
+        const gmTrumpPile = await fromUuid(getUserFlagData(gm).trumpCardPileId);
+        if (!gmTrumpPile) return ui.notifications.warn("GMユーザーの切り札置き場が設定・取得できませんでした。");
 
-        // 4. アクセスカード山から「切り札」という名前のカードを探す
-        // Note: tnx-access-cards.mjs で定義された名称 "切り札" を使用
         const trumpCard = accessCardPile.cards.contents.find(c => c.name === "切り札");
-        if (!trumpCard) {
-            return ui.notifications.info("アクセスカード山の中に「切り札」カードが見つかりませんでした。");
-        }
+        if (!trumpCard) return ui.notifications.info("アクセスカード山の中に「切り札」カードが見つかりませんでした。");
+        if (gmTrumpPile.cards.size > 0) return ui.notifications.warn("RLの切り札には既にカードがあるため、配布を中止しました。");
 
-        // 5. RLの切り札置き場が空か確認
-        if (gmTrumpPile.cards.size > 0) {
-            return ui.notifications.warn("RLの切り札には既にカードがあるため、配布を中止しました。");
-        }
-
-        // 6. カードを移動 (FVTT v12 Cards API)
         await accessCardPile.pass(gmTrumpPile, [trumpCard.id]);
-
-        // 7. ユーザーに通知
         ui.notifications.info("RLに「切り札」を配布しました。");
     }
 }
