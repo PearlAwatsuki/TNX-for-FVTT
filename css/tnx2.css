@@ -323,12 +323,13 @@
     padding: 4px;
 }
 
-/* チェックボックス / ラジオ */
+/* チェックボックス / ラジオ
+   Foundry は appearance:none + FA アイコン(::before/::after)で描画する。
+   --checkbox-background-color が継承で負けるため、input 要素に直接設定し特異度を確保する。
+   border は FA アイコン描画の外側に余分な枠が出るため設定しない。 */
 .tokyo-nova input[type="checkbox"],
 .tokyo-nova input[type="radio"] {
-    background-color: transparent;
-    border: 1px solid var(--tnx2-border-active);
-    --checkbox-background-color: var(--tnx2-text-muted);
+    --checkbox-background-color: var(--tnx2-border-active);
     --checkbox-checked-color:    var(--tnx2-accent);
 }
 
@@ -493,18 +494,23 @@
     color: var(--tnx2-color-danger-text);
     border-color: var(--tnx2-color-danger);
 }
+/* Foundry の body.game .app button { width:100% } に対抗するため !important で固定 */
 .tnx-ring-btn {
     border-radius: 50%;
-    width: 22px;
-    height: 22px;
+    width: 22px !important;
+    height: 22px !important;
+    flex-shrink: 0;
+    line-height: 1 !important;
 }
 .tnx-row-btn,
 .tnx-row-btn--delete {
     flex: 0 0 24px;
-    width: 24px;
-    height: 24px;
+    width: 24px !important;
+    height: 24px !important;
     border-radius: var(--tnx2-radius);
     font-size: 12px;
+    line-height: 1 !important;
+    flex-shrink: 0;
 }
 
 /* ----------------------------------------------------------------
