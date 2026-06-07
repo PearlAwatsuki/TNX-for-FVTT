@@ -325,12 +325,17 @@
 
 /* チェックボックス / ラジオ
    Foundry は appearance:none + FA アイコン(::before/::after)で描画する。
-   --checkbox-background-color が継承で負けるため、input 要素に直接設定し特異度を確保する。
-   border は FA アイコン描画の外側に余分な枠が出るため設定しない。 */
-.tokyo-nova input[type="checkbox"],
-.tokyo-nova input[type="radio"] {
-    --checkbox-background-color: var(--tnx2-border-active);
-    --checkbox-checked-color:    var(--tnx2-accent);
+   CSS 変数アプローチは themed.theme-dark 等の高特異度ルールに負けるため、
+   ::before / ::after を直接スタイルして確実に上書きする。 */
+.tokyo-nova input[type="checkbox"]::before,
+.tokyo-nova input[type="radio"]::before {
+    color: var(--tnx2-border-active) !important;
+}
+.tokyo-nova input[type="checkbox"]:checked::after,
+.tokyo-nova input[type="radio"]:checked::after,
+.tokyo-nova input[type="checkbox"]:indeterminate::after,
+.tokyo-nova input[type="radio"]:indeterminate::after {
+    color: var(--tnx2-accent) !important;
 }
 
 /* 数値入力 */
@@ -494,11 +499,13 @@
     color: var(--tnx2-color-danger-text);
     border-color: var(--tnx2-color-danger);
 }
-/* Foundry の body.game .app button { width:100% } に対抗するため !important で固定 */
+/* Foundry の "a.button, button { min-height: var(--button-size); width: 100% }" に対抗するため
+   width / height / min-height を !important で固定 */
 .tnx-ring-btn {
     border-radius: 50%;
     width: 22px !important;
     height: 22px !important;
+    min-height: 22px !important;
     flex-shrink: 0;
     line-height: 1 !important;
 }
@@ -507,6 +514,7 @@
     flex: 0 0 24px;
     width: 24px !important;
     height: 24px !important;
+    min-height: 24px !important;
     border-radius: var(--tnx2-radius);
     font-size: 12px;
     line-height: 1 !important;
