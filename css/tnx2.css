@@ -4,7 +4,7 @@
    ================================================================
    構造:
      1.  Design Tokens (CSS カスタムプロパティ)
-     2.  ウィンドウ / アプリケーション ベース  (.tokyo-nova)
+     2.  ウィンドウ / アプリケーション ベース
      3.  スキャンライン
      4.  タイポグラフィ & リンク
      5.  フォーム要素
@@ -15,9 +15,12 @@
     10.  汎用ユーティリティ
     11.  シートフッター
    ================================================================
-   NOTE: Foundry V13 の _renderFrame はルート要素に "application" クラスを
-         付与しない。ルートクラスは options.classes のみ (例: "tokyo-nova sheet")。
-         したがってセレクタは .tokyo-nova / .tokyo-nova.sheet を使用する。
+   セレクタの設計指針:
+     - .tokyo-nova        : 色・文字サイズ等の無害なグローバル値のみ
+                            (TnxHud も含まれるため、背景・枠線は付けない)
+     - .tokyo-nova.sheet  : DocumentSheetV2 系シート (cast / item / scenario)
+     - .tokyo-nova.dialog : DialogV2 系ダイアログ
+     HUD は 4-5 で個別に対応する。
    ================================================================ */
 
 /* ----------------------------------------------------------------
@@ -31,13 +34,13 @@
     --tnx2-bg-3:     #1a2230;
     --tnx2-bg-hover: #1e2a3a;
 
-    /* テキスト — cool white 系 (ハレーション防止のため彩度を落とす) */
+    /* テキスト — cool white 系 (ハレーション防止) */
     --tnx2-text-primary:   #c8d4e0;
     --tnx2-text-secondary: #7a90a8;
     --tnx2-text-muted:     #4a5e72;
     --tnx2-text-accent:    #78c8d8; /* 文字用シアン: 明度を下げた安全値 */
 
-    /* アクセント — シアン (ボーダー・装飾専用。文字には --tnx2-text-accent を使う) */
+    /* アクセント — シアン (ボーダー・装飾専用) */
     --tnx2-accent:         #00c8e0;
     --tnx2-accent-dim:     #007a8a;
     --tnx2-accent-glow:    rgba(0, 200, 224, 0.25);
@@ -65,10 +68,24 @@
 
 /* ----------------------------------------------------------------
    2. ウィンドウ / アプリケーション ベース
+   ----------------------------------------------------------------
+   NOTE: .tokyo-nova.sheet / .dialog のみ対象。
+         TnxHud は .tokyo-nova 単体クラスのため、ここには含めない。
    ---------------------------------------------------------------- */
 
-/* ルートウィンドウ要素 (.tokyo-nova が共通クラス) */
-.tokyo-nova {
+/* box-sizing 統一 (HUD 含む全 TNX 要素) */
+.tokyo-nova *,
+.tokyo-nova *::before,
+.tokyo-nova *::after {
+    box-sizing: border-box;
+}
+
+/* ウィンドウ枠 — シート・ダイアログのみ
+   IMPORTANT: position は Foundry の @layer applications { .application { position: absolute } } に委ねる。
+              ここで position を上書きすると座標系が壊れる (.application は @layer 内なので
+              unlayered である tnx2.css のルールに常に負けてしまう)。 */
+.tokyo-nova.sheet,
+.tokyo-nova.dialog {
     background: var(--tnx2-bg-1);
     color: var(--tnx2-text-primary);
     border: 1px solid var(--tnx2-border-active);
@@ -77,20 +94,11 @@
         0 0 0 1px var(--tnx2-border-subtle),
         0 6px 40px rgba(0, 0, 0, 0.85),
         0 0 20px rgba(0, 200, 224, 0.05);
-    position: relative;
-    font-size: 14px;
-    line-height: 1.5;
-}
-
-/* box-sizing 統一 */
-.tokyo-nova *,
-.tokyo-nova *::before,
-.tokyo-nova *::after {
-    box-sizing: border-box;
 }
 
 /* ウィンドウヘッダー */
-.tokyo-nova .window-header {
+.tokyo-nova.sheet .window-header,
+.tokyo-nova.dialog .window-header {
     background: var(--tnx2-bg-0);
     border-bottom: 1px solid var(--tnx2-border-glow);
     color: var(--tnx2-text-accent);
@@ -103,13 +111,15 @@
     overflow: visible;
 }
 
-/* V2 ウィンドウタイトルは非表示 (シートは独自ヘッダーを持つ) */
-.tokyo-nova .window-header .window-title {
+/* V2 ウィンドウタイトル非表示 */
+.tokyo-nova.sheet .window-header .window-title,
+.tokyo-nova.dialog .window-header .window-title {
     display: none;
 }
 
-/* ヘッダーボタン (閉じる・設定等) */
-.tokyo-nova .window-header .header-button {
+/* ヘッダーボタン */
+.tokyo-nova.sheet .window-header .header-button,
+.tokyo-nova.dialog .window-header .header-button {
     background: none;
     border: none;
     box-shadow: none;
@@ -125,21 +135,24 @@
     justify-content: center;
     cursor: pointer;
 }
-.tokyo-nova .window-header .header-button:hover {
+.tokyo-nova.sheet .window-header .header-button:hover,
+.tokyo-nova.dialog .window-header .header-button:hover {
     color: var(--tnx2-text-accent);
 }
-.tokyo-nova .window-header .header-button i {
+.tokyo-nova.sheet .window-header .header-button i,
+.tokyo-nova.dialog .window-header .header-button i {
     font-size: 13px;
     margin: 0;
 }
 
 /* リサイズハンドル */
-.tokyo-nova .window-resizable-handle {
+.tokyo-nova.sheet .window-resizable-handle,
+.tokyo-nova.dialog .window-resizable-handle {
     color: var(--tnx2-accent-dim);
     opacity: 0.5;
 }
 
-/* ウィンドウコンテンツ領域 */
+/* ウィンドウコンテンツ */
 .tokyo-nova .window-content {
     background-color: var(--tnx2-bg-1) !important;
     background-image: none !important;
@@ -150,7 +163,7 @@
     overflow-y: auto;
 }
 
-/* select の option 背景 */
+/* select option */
 .tokyo-nova select option {
     background-color: var(--tnx2-bg-2);
     color: var(--tnx2-text-primary);
@@ -173,9 +186,10 @@
 }
 
 /* ----------------------------------------------------------------
-   3. スキャンライン
+   3. スキャンライン (シート・ダイアログのみ)
    ---------------------------------------------------------------- */
-.tokyo-nova::after {
+.tokyo-nova.sheet::after,
+.tokyo-nova.dialog::after {
     content: "";
     position: absolute;
     inset: 0;
@@ -193,6 +207,11 @@
 /* ----------------------------------------------------------------
    4. タイポグラフィ & リンク
    ---------------------------------------------------------------- */
+.tokyo-nova {
+    font-size: 14px;
+    line-height: 1.5;
+}
+
 .tokyo-nova a {
     color: var(--tnx2-text-accent);
     text-decoration: none;
@@ -204,17 +223,15 @@
     text-shadow: 0 0 6px var(--tnx2-accent-glow-sm);
 }
 
-/* 注釈・ヒント */
+/* 注釈・ヒント (.tokyo-nova 配下のみ) */
 .tokyo-nova .notes,
-.tokyo-nova .hint {
+.tokyo-nova .hint,
+.tokyo-nova form .notes,
+.tokyo-nova form .hint {
     color: var(--tnx2-text-muted);
     font-size: 0.85em;
 }
-form .notes,
-form .hint {
-    color: var(--tnx2-text-muted);
-}
-form .sheet-notes.notes {
+.tokyo-nova form .sheet-notes.notes {
     color: var(--tnx2-text-secondary);
 }
 
@@ -284,8 +301,6 @@ form .sheet-notes.notes {
 /* ----------------------------------------------------------------
    6. ボタン
    ---------------------------------------------------------------- */
-
-/* プライマリボタン */
 .tokyo-nova .tnx-btn,
 .tokyo-nova.sheet .tnx-linked-btn {
     background: var(--tnx2-bg-2);
@@ -461,13 +476,11 @@ form .sheet-notes.notes {
 /* ----------------------------------------------------------------
    8. セクションヘッダー & フィールドセット
    ---------------------------------------------------------------- */
-
-/* セクションタイトル — > プレフィックス付き */
 .tnx-section-title {
     font-family: var(--tnx2-font-mono);
-    font-size: 0.82em;
+    font-size: 0.9em;
     font-weight: 700;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.10em;
     text-transform: uppercase;
     color: var(--tnx2-text-accent);
     margin-bottom: 12px;
@@ -489,7 +502,6 @@ form .sheet-notes.notes {
     content: "";
 }
 
-/* セクションヘッダー (タイトル + アクション横並び) */
 .tnx-section-header {
     display: flex;
     justify-content: space-between;
@@ -501,9 +513,9 @@ form .sheet-notes.notes {
 .tnx-section-header h3 {
     margin: 0;
     font-family: var(--tnx2-font-mono);
-    font-size: 0.82em;
+    font-size: 0.9em;
     font-weight: 700;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.10em;
     text-transform: uppercase;
     color: var(--tnx2-text-accent);
     border: none;
@@ -514,7 +526,6 @@ form .sheet-notes.notes {
     font-weight: 400;
 }
 
-/* アイテムヘッダー (名前入力 + コントロール) */
 .tnx-item-header {
     display: flex;
     align-items: center;
@@ -547,7 +558,6 @@ form .sheet-notes.notes {
     box-shadow: none;
 }
 
-/* フィールドセット */
 .tnx-fieldset {
     border: 1px solid var(--tnx2-border-subtle);
     border-radius: var(--tnx2-radius);
@@ -557,9 +567,9 @@ form .sheet-notes.notes {
 }
 .tnx-fieldset legend {
     font-family: var(--tnx2-font-mono);
-    font-size: 0.78em;
+    font-size: 0.84em;
     font-weight: 700;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.10em;
     text-transform: uppercase;
     color: var(--tnx2-text-accent);
     padding: 0 4px;
@@ -607,7 +617,6 @@ form .sheet-notes.notes {
 /* ----------------------------------------------------------------
    10. 汎用ユーティリティ
    ---------------------------------------------------------------- */
-
 .tnx-interactive-text {
     display: inline-block;
     font-size: 1.05em;
@@ -667,4 +676,168 @@ form .sheet-notes.notes {
     padding-top: 10px;
     border-top: 1px solid var(--tnx2-border-subtle);
     margin-top: 10px;
+}
+
+/* ----------------------------------------------------------------
+   12. キャストシート: パーソナルデータ / ヘッダーラベル英語化
+   ---------------------------------------------------------------- */
+
+/* ── グリッド基本 ───────────────────────────────────────────────── */
+.tokyo-nova.sheet.actor .personal-data-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+}
+
+.tokyo-nova.sheet.actor .personal-data-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 6px 8px;
+    min-width: 0;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+}
+.tokyo-nova.sheet.actor .personal-data-item:nth-child(odd) {
+    border-right: 1px solid var(--tnx2-border-subtle);
+}
+.tokyo-nova.sheet.actor .personal-data-item:nth-last-child(-n+2) {
+    border-bottom: none;
+}
+
+/* ── 閲覧モード: データパネル化 ──────────────────────────────────── */
+
+/* グリッドコンテナ: カード枠 */
+.tokyo-nova.sheet.actor:not(.edit-mode) .personal-data-grid {
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    overflow: hidden;
+    background: var(--tnx2-bg-2);
+}
+
+/* 各アイテム: 横並び (ラベル | 値) */
+.tokyo-nova.sheet.actor:not(.edit-mode) .personal-data-item {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    min-height: 26px;
+}
+
+/* ラベル: JP テキストを隠して EN を疑似要素で表示
+   NOTE: 親 font-size: 0 のとき em 単位は 0px になるため px 固定で指定する */
+.tokyo-nova.sheet.actor:not(.edit-mode) .personal-data-item label {
+    flex: 0 0 46px;
+    font-size: 0;
+    text-align: left;
+    padding-right: 0;
+    line-height: 1;
+    white-space: nowrap;
+}
+.tokyo-nova.sheet.actor:not(.edit-mode) .personal-data-item label[data-en]::before {
+    content: attr(data-en);
+    font-family: var(--tnx2-font-mono);
+    font-size: 10px; /* px 固定: em は親 font-size: 0 を継承して消えるため */
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    color: var(--tnx2-text-secondary);
+    display: inline;
+}
+
+/* 入力値: 透明・モノスペース・主テキスト色 */
+.tokyo-nova.sheet.actor:not(.edit-mode) .personal-data-item input[type="text"] {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 0;
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.92em;
+    font-weight: 500;
+    color: var(--tnx2-text-primary);
+    cursor: default;
+    line-height: 1.3;
+    min-height: 0;
+    height: auto;
+    width: auto;
+}
+.tokyo-nova.sheet.actor:not(.edit-mode) .personal-data-item input[type="text"]:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+/* ── 編集モード: 通常レイアウト ──────────────────────────────────── */
+.tokyo-nova.sheet.actor.edit-mode .personal-data-item {
+    flex-direction: column;
+}
+.tokyo-nova.sheet.actor.edit-mode .personal-data-item label {
+    font-size: 0.85em;
+    color: var(--tnx2-text-muted);
+    font-family: inherit;
+}
+.tokyo-nova.sheet.actor.edit-mode .personal-data-item input[type="text"] {
+    width: 100%;
+    padding: 3px 5px;
+    font-size: 0.9em;
+}
+
+/* ── ヘッダー: STYLE / ID / WORKS 英語ラベル (閲覧モード) ─────────── */
+/* tnx.css の .profile-header .middle-header-section .view-mode-label { font-size: 1.1em }
+   は specificity 0,5,0。それを上回るため 0,6,0 のセレクターを使用する。
+   また ::before の font-size は px 固定 (em は親 font-size: 0 を継承して消えるため)。 */
+
+.tokyo-nova.sheet.actor .profile-header .middle-header-section .view-mode-rank .view-mode-label,
+.tokyo-nova.sheet.actor .profile-header .middle-header-section .view-mode-affiliation .view-mode-label,
+.tokyo-nova.sheet.actor .profile-header .middle-header-section .view-mode-style-summary .view-mode-label {
+    font-size: 0;
+    color: transparent;
+}
+
+.tokyo-nova.sheet.actor .profile-header .middle-header-section .view-mode-rank .view-mode-label::before {
+    content: "ID";
+    font-family: var(--tnx2-font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--tnx2-text-secondary);
+}
+.tokyo-nova.sheet.actor .profile-header .middle-header-section .view-mode-rank .view-mode-label::after {
+    content: ":";
+    font-family: var(--tnx2-font-mono);
+    font-size: 13px;
+    color: var(--tnx2-text-secondary);
+    display: inline-block;
+    margin-right: 8px;
+}
+
+.tokyo-nova.sheet.actor .profile-header .middle-header-section .view-mode-affiliation .view-mode-label::before {
+    content: "WORKS";
+    font-family: var(--tnx2-font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--tnx2-text-secondary);
+}
+.tokyo-nova.sheet.actor .profile-header .middle-header-section .view-mode-affiliation .view-mode-label::after {
+    content: ":";
+    font-family: var(--tnx2-font-mono);
+    font-size: 13px;
+    color: var(--tnx2-text-secondary);
+    display: inline-block;
+    margin-right: 8px;
+}
+
+.tokyo-nova.sheet.actor .profile-header .middle-header-section .view-mode-style-summary .view-mode-label::before {
+    content: "STYLE";
+    font-family: var(--tnx2-font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--tnx2-text-secondary);
+}
+.tokyo-nova.sheet.actor .profile-header .middle-header-section .view-mode-style-summary .view-mode-label::after {
+    content: ":";
+    font-family: var(--tnx2-font-mono);
+    font-size: 13px;
+    color: var(--tnx2-text-secondary);
+    display: inline-block;
+    margin-right: 8px;
 }
