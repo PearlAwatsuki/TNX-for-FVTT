@@ -39,6 +39,7 @@ export class StyleDataModel extends SystemDataModel.mixin(BaseTemplate) {
     const fields = foundry.data.fields;
     return {
       ...super.defineSchema(),
+      nameEn:    new fields.StringField({ required: false, initial: "" }),
       isPersona: new fields.BooleanField({ initial: false }),
       isKey:     new fields.BooleanField({ initial: false }),
       level:     new fields.NumberField({ initial: 1 }),
