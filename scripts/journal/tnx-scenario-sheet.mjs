@@ -47,6 +47,23 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
     tabGroups = { primary: "setting" };
 
+    /**
+     * Foundry V13 の changeTab は `.tabs` クラスを nav に要求するが、
+     * 縦型タブレイアウトでは Foundry コア CSS と競合するため、独自実装で置き換える。
+     */
+    changeTab(tab, group, options = {}) {
+        if (!tab || !group) return;
+        if ((this.tabGroups[group] === tab) && !options.force) return;
+
+        for (const item of this.element.querySelectorAll(`[data-group="${group}"][data-tab]`)) {
+            item.classList.toggle("active", item.dataset.tab === tab);
+        }
+        for (const section of this.element.querySelectorAll(`.tab[data-group="${group}"]`)) {
+            section.classList.toggle("active", section.dataset.tab === tab);
+        }
+        this.tabGroups[group] = tab;
+    }
+
     // ─── コンテキスト準備 ─────────────────────────────────────────────────────
 
     async _prepareContext(options) {
@@ -90,10 +107,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         this._setupContextMenus();
         this._setupChangeListeners();
         for (const [group, tab] of Object.entries(this.tabGroups)) {
-            if (tab) {
-                try { this.changeTab(tab, group, { force: true, updatePosition: false }); }
-                catch(e) { console.warn("TnxScenarioSheet.changeTab failed:", e); }
-            }
+            if (tab) this.changeTab(tab, group, { force: true });
         }
     }
 
