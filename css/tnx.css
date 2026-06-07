@@ -819,7 +819,8 @@ form .sheet-notes.notes {
 .discard-selection .card-selection-item input[type="checkbox"] {
     display: none;
 }
-.discard-selection .card-selection-item.selected {
+.discard-selection .card-selection-item.selected,
+.discard-selection .card-selection-item:has(input:checked) {
     border-color: var(--tnx-color-primary-highlight);
     background-color: rgba(0, 180, 255, 0.15);
     box-shadow: 0 0 12px var(--tnx-color-primary);

@@ -57,7 +57,7 @@
             </div>
         </fieldset>
         <footer class="sheet-footer">
-            <button type="button" class="wizard-next tnx-btn">次へ <i class="fas fa-arrow-right"></i></button>
+            <button type="button" class="wizard-next tnx-btn" data-action="nextStep">次へ <i class="fas fa-arrow-right"></i></button>
         </footer>
     {{/if}}
 
@@ -101,8 +101,8 @@
             </div>
         </fieldset>
         <footer class="sheet-footer">
-            <button type="button" class="wizard-back tnx-btn tnx-btn--secondary"><i class="fas fa-arrow-left"></i> 戻る</button>
-            <button type="button" class="wizard-next tnx-btn">次へ <i class="fas fa-arrow-right"></i></button>
+            <button type="button" class="wizard-back tnx-btn tnx-btn--secondary" data-action="previousStep"><i class="fas fa-arrow-left"></i> 戻る</button>
+            <button type="button" class="wizard-next tnx-btn" data-action="nextStep">次へ <i class="fas fa-arrow-right"></i></button>
         </footer>
     {{/if}}
 
@@ -142,11 +142,11 @@
             {{/if}}
         </fieldset>
         <footer class="sheet-footer">
-            <button type="button" class="wizard-back tnx-btn tnx-btn--secondary"><i class="fas fa-arrow-left"></i> 戻る</button>
-            <button type="button" class="wizard-next tnx-btn">次へ <i class="fas fa-arrow-right"></i></button>
+            <button type="button" class="wizard-back tnx-btn tnx-btn--secondary" data-action="previousStep"><i class="fas fa-arrow-left"></i> 戻る</button>
+            <button type="button" class="wizard-next tnx-btn" data-action="nextStep">次へ <i class="fas fa-arrow-right"></i></button>
         </footer>
     {{/if}}
-    
+
     {{!-- ステップ4：最終処理 --}}
     {{#if (eq step 4)}}
         <fieldset class="tnx-fieldset">
@@ -160,8 +160,8 @@
             <p class="sheet-notes notes" style="padding-left: 5px;">ワールドに存在する全ての「手札」タイプのカード置き場に対し、上限までカードを補充します。</p>
         </fieldset>
         <footer class="sheet-footer">
-            <button type="button" class="wizard-back tnx-btn tnx-btn--secondary"><i class="fas fa-arrow-left"></i> 戻る</button>
-            <button type="submit" name="submit" class="tnx-btn">
+            <button type="button" class="wizard-back tnx-btn tnx-btn--secondary" data-action="previousStep"><i class="fas fa-arrow-left"></i> 戻る</button>
+            <button type="button" class="tnx-btn" data-action="finishSetup">
                 <i class="fas fa-check"></i> 完了
             </button>
         </footer>

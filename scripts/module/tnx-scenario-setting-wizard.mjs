@@ -1,59 +1,47 @@
 import { createDefaultDeckData } from './tnx-playing-cards.mjs';
 import { createNeuroDeckData } from './tnx-neuro-cards.mjs';
 import { createAccessCardsData } from './tnx-access-cards.mjs';
-import { TnxActionHandler } from './tnx-action-handler.mjs';
+import { saveUserFlagCards, getUserFlagData } from './user-flag-schema.mjs';
 
-export class TnxScenarioSettingWizard extends FormApplication {
+const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
+
+export class TnxScenarioSettingWizard extends HandlebarsApplicationMixin(ApplicationV2) {
 
     constructor(journal, options = {}) {
-        super(journal, options);
-        this.journal = this.object;
+        super(options);
+        this.journal = journal;
         this.step = 1;
         this.formData = {};
     }
 
-    static get defaultOptions() {
-        return foundry.utils.mergeObject(super.defaultOptions, {
-            id: "tnx-scenario-wizard",
-            classes: ["tokyo-nova", "dialog"],
-            template: "systems/tokyo-nova-axleration/templates/parts/scenario-setting-wizard.hbs",
-            width: 500,
-            height: "auto",
-            title: "シナリオ・セットアップウィザード",
-            resizable: true
-        });
-    }
+    static DEFAULT_OPTIONS = {
+        id: "tnx-scenario-wizard",
+        classes: ["tokyo-nova", "dialog"],
+        position: { width: 500 },
+        window: { title: "シナリオ・セットアップウィザード", resizable: true },
+        actions: {
+            nextStep: TnxScenarioSettingWizard._onNextStep,
+            previousStep: TnxScenarioSettingWizard._onPreviousStep,
+            increment: TnxScenarioSettingWizard._onIncrement,
+            decrement: TnxScenarioSettingWizard._onDecrement,
+            finishSetup: TnxScenarioSettingWizard._onFinishSetup,
+        },
+    };
 
-    async getData(options) {
-        const context = await super.getData(options);
+    static PARTS = {
+        main: { template: "systems/tokyo-nova-axleration/templates/parts/scenario-setting-wizard.hbs" },
+    };
+
+    async _prepareContext(options) {
+        const context = await super._prepareContext(options);
         context.step = this.step;
         context.journalName = this.journal.name;
         context.formData = this.formData;
         return context;
     }
 
-    activateListeners(html) {
-        super.activateListeners(html);
-        html.find('.wizard-next').on('click', this._onNextStep.bind(this));
-        html.find('.wizard-back').on('click', this._onPreviousStep.bind(this));
-        html.find('.number-input-spinner button').on('click', event => {
-            const button = event.currentTarget;
-            const action = button.dataset.action;
-            const input = button.parentElement.querySelector('input[type="number"]');
-            if (!input) return;
-            let value = parseInt(input.value, 10);
-            const min = parseInt(input.min, 10);
-            if (isNaN(value)) value = 0;
-            if (action === 'increment') value++;
-            else if (action === 'decrement') value--;
-            if (!isNaN(min) && value < min) value = min;
-            input.value = value;
-        });
-    }
-
-    _onNextStep(event) {
-        event.preventDefault();
-        const form = this.element.find("form")[0];
+    static async _onNextStep(_event, _target) {
+        const form = this.element.querySelector("form");
         const data = new FormDataExtended(form).object;
         foundry.utils.mergeObject(this.formData, data);
 
@@ -62,30 +50,57 @@ export class TnxScenarioSettingWizard extends FormApplication {
         if (this.step === 3) {
             const needsDeckCustomization = this.formData.createcardDeck || this.formData.createNeuroDeck;
             if (!needsDeckCustomization) {
-                this.step++; 
+                this.step++;
             }
         }
-        
-        this.render(true);
+
+        this.render();
     }
 
-    _onPreviousStep(event) {
-        event.preventDefault();
+    static async _onPreviousStep(_event, _target) {
         this.step--;
 
         if (this.step === 3) {
             const needsDeckCustomization = this.formData.createcardDeck || this.formData.createNeuroDeck;
             if (!needsDeckCustomization) {
-                this.step--; 
+                this.step--;
             }
         }
-        this.render(true);
+        this.render();
     }
 
-    async _updateObject(event, formData) {
+    static _onIncrement(event, target) {
+        const input = target.parentElement.querySelector('input[type="number"]');
+        if (!input) return;
+        let value = parseInt(input.value, 10);
+        const min = parseInt(input.min, 10);
+        if (isNaN(value)) value = 0;
+        value++;
+        if (!isNaN(min) && value < min) value = min;
+        input.value = value;
+    }
+
+    static _onDecrement(event, target) {
+        const input = target.parentElement.querySelector('input[type="number"]');
+        if (!input) return;
+        let value = parseInt(input.value, 10);
+        const min = parseInt(input.min, 10);
+        if (isNaN(value)) value = 0;
+        value--;
+        if (!isNaN(min) && value < min) value = min;
+        input.value = value;
+    }
+
+    static async _onFinishSetup(_event, _target) {
+        const form = this.element.querySelector("form");
+        const formData = new FormDataExtended(form).object;
         foundry.utils.mergeObject(this.formData, formData);
+        await this._executeSetup();
+    }
+
+    async _executeSetup() {
         const allData = this.formData;
-        let accessCardDeck, accessCardPile, gmTrumpDiscard;
+        let accessCardDeck, accessCardPile;
         ui.notifications.info("シナリオのセットアップを開始します...");
 
         if (allData.journalName && this.journal.name !== allData.journalName) {
@@ -94,12 +109,11 @@ export class TnxScenarioSettingWizard extends FormApplication {
         const updates = {};
         const ownership = { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER };
 
-        // --- 各種デッキ・パイルの作成 ---
         if (allData.createcardDeck) {
             const backImagePath = "systems/tokyo-nova-axleration/assets/cards/playing-cards/back.png";
-            const deckCount = parseInt(allData.deckCount) || 2; 
+            const deckCount = parseInt(allData.deckCount) || 2;
             const deck = await Cards.create({ name: `山札`, type: 'deck', cards: createDefaultDeckData(deckCount), img: backImagePath, back: { img: backImagePath } });
-            if (allData.shuffleTrumpDeck) { 
+            if (allData.shuffleTrumpDeck) {
                 await deck.shuffle({chatNotification: false});
             }
             updates['flags.tokyo-nova-axleration.cardDeckId'] = deck.uuid;
@@ -111,7 +125,7 @@ export class TnxScenarioSettingWizard extends FormApplication {
         if (allData.createNeuroDeck) {
             const backImagePath = "systems/tokyo-nova-axleration/assets/cards/neuro-cards/back.png";
             const deck = await Cards.create({ name: `ニューロデッキ`, type: 'deck', cards: createNeuroDeckData(), img: backImagePath, back: {img: backImagePath} });
-            if (allData.shuffleNeuroDeck) { 
+            if (allData.shuffleNeuroDeck) {
                 await deck.shuffle({chatNotification: false});
             }
             updates['flags.tokyo-nova-axleration.neuroDeckId'] = deck.uuid;
@@ -128,32 +142,24 @@ export class TnxScenarioSettingWizard extends FormApplication {
             accessCardPile = await Cards.create({ name: `アクセスカード置き場`, type: 'pile', ownership });
             updates['flags.tokyo-nova-axleration.accessCardPileId'] = accessCardPile.uuid;
         }
-        
-        // --- GM用カード設定の変更点 ---
+
         const gm = game.users.find(u => u.isGM);
-        if (gm) {
-            // 【変更】GM用手札・切り札の作成処理を削除しました。
-            // 代わりに、RL用切り札捨て場のみ作成します。
-            
-            if (allData.createGmTrumpDiscard) {
-                gmTrumpDiscard = await Cards.create({ name: `${gm.name}の切り札(使用済)`, type: 'pile', ownership: { [gm.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER } });
-                updates['flags.tokyo-nova-axleration.gmTrumpDiscardId'] = gmTrumpDiscard.uuid;
-            }
+        if (gm && allData.createGmTrumpDiscard) {
+            const gmTrumpDiscard = await Cards.create({ name: `${gm.name}の切り札(使用済)`, type: 'pile', ownership: { [gm.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER } });
+            updates['flags.tokyo-nova-axleration.gmTrumpDiscardId'] = gmTrumpDiscard.uuid;
         }
 
-        // --- 全ユーザーの手札・切り札置き場の自動作成 ---
         if (allData.createUserHands) {
-            const { saveUserFlagCards } = await import('./user-flag-schema.mjs');
             let createdCount = 0;
             for (const user of game.users) {
                 const handPileName = game.i18n.format("TNX.Actor.Cards.DefaultHandPileName", { actorName: user.name });
                 const trumpPileName = game.i18n.format("TNX.Actor.Cards.DefaultTrumpPileName", { actorName: user.name });
-                
+
                 const cardOwnership = {
                     default: CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE,
                     [user.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER
                 };
-                
+
                 if (user.id !== game.user.id) {
                     cardOwnership[game.user.id] = CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
                 }
@@ -182,8 +188,7 @@ export class TnxScenarioSettingWizard extends FormApplication {
             }
             ui.notifications.info(`全 ${createdCount} 人のユーザーに手札・切り札を作成しました。`);
         }
-        
-        // --- シーン作成 ---
+
         const sceneCounts = allData.sceneCounts || {};
         const scenes = { opening: [], research: [], climax: [], ending: [] };
         let sceneCounter = 1;
@@ -199,8 +204,7 @@ export class TnxScenarioSettingWizard extends FormApplication {
         }
         updates['flags.tokyo-nova-axleration.scenes'] = scenes;
         updates['flags.tokyo-nova-axleration.currentState'] = { phase: 'opening', sceneId: scenes.opening[0]?.id || null };
-        
-        // --- ハンドアウト作成 ---
+
         const pcCount = parseInt(allData.pcCount) || 4;
         const handouts = [];
         for (let i = 1; i <= pcCount; i++) {
@@ -212,30 +216,24 @@ export class TnxScenarioSettingWizard extends FormApplication {
         }
         updates['flags.tokyo-nova-axleration.handouts'] = handouts;
         updates['flags.tokyo-nova-axleration.trailer'] = "";
-        
+
         if (Object.keys(updates).length > 0) {
             await this.journal.update(updates);
         }
-        
-        // --- アクセスカードの配布処理 ---
+
         if (accessCardDeck && accessCardPile) {
-            // 1. まず山（Deck）から置き場（Pile）へ全てのカードを移動する
             await accessCardDeck.pass(accessCardPile, accessCardDeck.cards.map(c => c.id), {chatNotification: false});
-            
-            // 2. 置き場（Pile）に移ったカードの中から「切り札」を探す
+
             const trumpCard = accessCardPile.cards.find(c => c.name === "切り札");
-            
-            // 3. RL（GM）の切り札置き場を特定する
+
             let targetGmTrumpPile = null;
             if (gm) {
-                const { getUserFlagData } = await import('./user-flag-schema.mjs');
                 const pileId = getUserFlagData(gm).trumpCardPileId;
                 if (pileId) {
                     targetGmTrumpPile = await fromUuid(pileId);
                 }
             }
 
-            // 4. 「切り札」を置き場からRLの切り札へ移動する
             if (trumpCard) {
                 if (targetGmTrumpPile) {
                     await accessCardPile.pass(targetGmTrumpPile, [trumpCard.id], {chatNotification: false});
@@ -247,9 +245,9 @@ export class TnxScenarioSettingWizard extends FormApplication {
                 ui.notifications.info("アクセスカード置き場に全てのカードを配置しました。");
             }
         }
-        
+
         ui.notifications.info("シナリオのセットアップが完了しました。");
-        await this.journal.sheet.render(true);
+        await this.journal.sheet.render({ force: true });
         this.close();
     }
 }
