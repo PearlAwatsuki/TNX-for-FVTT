@@ -14,6 +14,9 @@
      9.  アイテムリスト
     10.  汎用ユーティリティ
     11.  シートフッター
+    12.  テキストエディタセクション
+    13.  キャストシート: バッドステータスグリッド
+    14.  キャストシート: パーソナルデータ / ヘッダーラベル英語化
    ================================================================
    セレクタの設計指針:
      - .tokyo-nova        : 色・文字サイズ等の無害なグローバル値のみ
@@ -679,7 +682,126 @@
 }
 
 /* ----------------------------------------------------------------
-   12. キャストシート: パーソナルデータ / ヘッダーラベル英語化
+   12. テキストエディタセクション
+   ---------------------------------------------------------------- */
+
+.tokyo-nova .tnx-editor-section__header {
+    border-bottom-color: var(--tnx2-border-active);
+    padding-bottom: 6px;
+    margin-bottom: 10px;
+}
+.tokyo-nova .tnx-editor-section__header > label {
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.9em;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--tnx2-text-accent);
+    margin: 0;
+}
+.tokyo-nova .tnx-editor-section__header > label::before {
+    content: "> ";
+    color: var(--tnx2-accent);
+    font-weight: 400;
+}
+.tokyo-nova .tnx-editor-section__header .tnx-editor-open {
+    color: var(--tnx2-text-muted);
+    font-size: 0.85em;
+    transition: color var(--tnx2-transition-fast);
+}
+.tokyo-nova .tnx-editor-section__header .tnx-editor-open:hover {
+    color: var(--tnx2-accent);
+}
+.tokyo-nova .tnx-editor-section__content prose-mirror {
+    border-color: var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    box-shadow: inset 0 0 6px rgba(0, 200, 255, 0.08);
+}
+.tokyo-nova .tnx-editor-section__content prose-mirror .editor-content {
+    color: var(--tnx2-text-secondary);
+}
+.tokyo-nova .tnx-editor-section__content prose-mirror .ProseMirror {
+    color: var(--tnx2-text-primary);
+}
+
+/* ----------------------------------------------------------------
+   13. キャストシート: バッドステータスグリッド
+   ---------------------------------------------------------------- */
+
+.tokyo-nova.sheet.actor .tnx-bs-container {
+    padding: 8px 0;
+}
+.tokyo-nova.sheet.actor .tnx-bs-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+}
+.tokyo-nova.sheet.actor .tnx-bs-btn {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    height: 36px;
+    min-height: unset;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    cursor: pointer;
+    position: relative;
+    transition: background   var(--tnx2-transition-fast),
+                border-color var(--tnx2-transition-fast);
+}
+.tokyo-nova.sheet.actor .tnx-bs-icon {
+    flex: 0 0 22px;
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+    border: none;
+}
+.tokyo-nova.sheet.actor .tnx-bs-label {
+    flex: 1;
+    font-size: 0.88em;
+    font-family: var(--tnx2-font-mono);
+    color: var(--tnx2-text-secondary);
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 編集モード: ホバーで削除インジケーター */
+.tokyo-nova.sheet.actor .tnx-bs-btn--edit:hover {
+    background: rgba(220, 60, 60, 0.15);
+    border-color: rgba(220, 60, 60, 0.6);
+}
+.tokyo-nova.sheet.actor .tnx-bs-btn--edit:hover .tnx-bs-label {
+    color: var(--tnx2-text-primary);
+}
+.tokyo-nova.sheet.actor .tnx-bs-remove {
+    font-size: 0.65em;
+    color: rgba(220, 60, 60, 0.7);
+    position: absolute;
+    top: 3px;
+    right: 4px;
+}
+
+/* 閲覧モード: ホバーでアクセント強調 */
+.tokyo-nova.sheet.actor .tnx-bs-btn--view:hover {
+    background: var(--tnx2-bg-hover);
+    border-color: var(--tnx2-border-active);
+}
+
+/* 空状態 */
+.tokyo-nova.sheet.actor .tnx-bs-empty {
+    grid-column: 1 / -1;
+    font-size: 0.82em;
+    color: var(--tnx2-text-muted);
+    padding: 6px 0;
+}
+
+/* ----------------------------------------------------------------
+   14. キャストシート: パーソナルデータ / ヘッダーラベル英語化
    ---------------------------------------------------------------- */
 
 /* ── グリッド基本 ───────────────────────────────────────────────── */
