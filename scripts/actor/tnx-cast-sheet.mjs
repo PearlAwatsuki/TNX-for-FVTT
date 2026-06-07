@@ -1,70 +1,66 @@
-import {
-    RichConfirmDialog,
-    CardSelectionDialog,
-    TargetSelectionDialog
-} from '../module/tnx-dialog.mjs';
-import { TnxActionHandler } from '../module/tnx-action-handler.mjs';
+import { TargetSelectionDialog } from '../module/tnx-dialog.mjs';
 import { TnxSkillUtils } from '../module/tnx-skill-utils.mjs';
 import { TnxHistoryMixin } from '../module/tnx-history-mixin.mjs';
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
-import { getUserFlagData, saveUserFlagHistory, TNX_FLAG_SCOPE } from '../module/user-flag-schema.mjs';
+import { getUserFlagData, TNX_FLAG_SCOPE } from '../module/user-flag-schema.mjs';
 
+const { HandlebarsApplicationMixin } = foundry.applications.api;
+const { ActorSheetV2 } = foundry.applications.sheets;
 
-export class TokyoNovaCastSheet extends ActorSheet {
-    _prepareHistoryForDisplay = TnxHistoryMixin._prepareHistoryForDisplay;
-    _calculateTotalExp = TnxHistoryMixin._calculateTotalExp;
+export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
-    // イベントハンドラ
-    _onHistoryAdd = TnxHistoryMixin._onHistoryAdd;
-    _onHistoryDelete = TnxHistoryMixin._onHistoryDelete;
-    _onHistoryChange = TnxHistoryMixin._onHistoryChange;
+    _isEditMode = false;
+    tabGroups = { primary: "abilities" };
 
-    _onCreateEffect = EffectsSheetMixin._onCreateEffect;
-    _onEditEffect = EffectsSheetMixin._onEditEffect;
-    _onDeleteEffect = EffectsSheetMixin._onDeleteEffect;
-    _onToggleEffect = EffectsSheetMixin._onToggleEffect;
+    static DEFAULT_OPTIONS = {
+        classes: ["tokyo-nova", "sheet", "actor", "cast"],
+        position: { width: 950, height: 1000 },
+        window: {
+            resizable: true,
+            controls: [
+                {
+                    action: "copyUuid",
+                    icon: "fas fa-passport",
+                    label: "UUIDをコピー",
+                    ownership: "OBSERVER",
+                }
+            ]
+        },
+        form: { submitOnChange: true },
+        actions: {
+            ...EffectsSheetMixin.ACTIONS,
+            ...TnxHistoryMixin.ACTIONS,
+            copyUuid:             TokyoNovaCastSheet._onCopyUuid,
+            toggleEditMode:       TokyoNovaCastSheet._onToggleEditMode,
+            toggleStyleRole:      TokyoNovaCastSheet._onToggleStyleRole,
+            useMiracle:           TokyoNovaCastSheet._onUseMiracle,
+            rollStyleDescription: TokyoNovaCastSheet._onRollStyleDescription,
+            openItemSheet:        TokyoNovaCastSheet._onOpenItemSheet,
+            itemCreate:           TokyoNovaCastSheet._onItemCreate,
+            itemDelete:           TokyoNovaCastSheet._onItemDelete,
+            unlinkPlayer:         TokyoNovaCastSheet._onUnlinkPlayer,
+            removeBadStatus:      TokyoNovaCastSheet._onRemoveBadStatus,
+            toggleAbilityDetails: TokyoNovaCastSheet._onToggleAbilityDetails,
+        },
+        dragDrop: [{ dragSelector: ".item-list .item, .style-skills-list .item", dropSelector: null }],
+    };
 
-    constructor(...args) {
-        super(...args);
-        this._isEditMode = this.actor.isOwner ? false : false;
-    }
-
-    static get defaultOptions() {
-        return foundry.utils.mergeObject(super.defaultOptions, {
-            classes: ["tokyo-nova", "sheet", "actor", "cast"],
+    static PARTS = {
+        main: {
             template: "systems/tokyo-nova-axleration/templates/actor/cast-sheet.hbs",
-            width: 950,
-            height: 1000,
-            tabs: [{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "abilities" }],
-            dragDrop: [{ dragSelector: ".item-list .item, .style-skills-list .item", dropSelector: "form" }],
-            scrollY: [".sheet-body", ".profile-sidebar", ".tab.abilities"]
-        });
-    }
+            scrollable: [".sheet-body", ".profile-sidebar", ".tab.abilities"],
+        },
+    };
 
-    _getHeaderButtons() {
-        const buttons = super._getHeaderButtons();
-        
-        // UUIDコピーボタンを先頭（ボタン群の一番左）に追加
-        // ※トグルスイッチはDOM操作で追加するためここには含めない
-        buttons.unshift({
-            label: "UUIDをコピー", // ホバー時に表示されるテキスト
-            class: "copy-uuid",
-            icon: "fas fa-passport",
-            onclick: (ev) => {
-                ev.preventDefault();
-                game.clipboard.copyPlainText(this.document.uuid);
-                ui.notifications.info(game.i18n.format("DOCUMENT.IdCopiedClipboard", {label: this.document.documentName, type: "UUID", id: this.document.uuid}));
-            }
-        });
-        
-        return buttons;
-    }
+    // ─── コンテキスト準備 ──────────────────────────────────────────────────────
 
-    async getData(options) {
-        const context = await super.getData(options);
+    async _prepareContext(options) {
+        const context = await super._prepareContext(options);
+        context.actor = this.actor;
         context.system = this.actor.system;
         context.isEditable = this.isEditable;
         context.isEditMode = this._isEditMode && this.isEditable;
+        context.cssClass = "";
 
         context.TNX = {
             SUITS: {
@@ -75,81 +71,67 @@ export class TokyoNovaCastSheet extends ActorSheet {
             }
         };
 
-        const allStyles = this.actor.items.filter(i => i.type === 'style');
+        const allStyles   = this.actor.items.filter(i => i.type === 'style');
         const allMiracles = this.actor.items.filter(i => i.type === 'miracle');
         context.equippedAffiliations = this.actor.items.filter(i => i.type === 'organization');
-        context.affiliationDisplay = context.equippedAffiliations[0]?.name || game.i18n.localize("TNX.Actor.Profile.Unaffiliated");
-        
+        context.affiliationDisplay   = context.equippedAffiliations[0]?.name
+            || game.i18n.localize("TNX.Actor.Profile.Unaffiliated");
+
         context.styleSlots = this._prepareStyleSlots(allStyles);
+
         const miracleSlotsData = this._prepareMiraclesForDisplay(allMiracles);
         context.miracleSlots = [...miracleSlotsData];
-        while (context.miracleSlots.length < 3) {
-            context.miracleSlots.push({ isEmpty: true });
-        }
+        while (context.miracleSlots.length < 3) context.miracleSlots.push({ isEmpty: true });
         context.miracleSlots = context.miracleSlots.slice(0, 3);
 
         context.miracleSlotsForView = [...miracleSlotsData];
         while (context.miracleSlotsForView.length < 3) {
             context.miracleSlotsForView.push({
-                name: game.i18n.format("TNX.Ui.Label.MiracleSlot", {number: context.miracleSlotsForView.length + 1}),
+                name: game.i18n.format("TNX.Ui.Label.MiracleSlot", { number: context.miracleSlotsForView.length + 1 }),
                 isPlaceholder: true,
                 _id: `placeholder-${context.miracleSlotsForView.length}`
             });
         }
         context.miracleSlotsForView = context.miracleSlotsForView.slice(0, 3);
-        
+
         context.processedStylesForView = this._prepareStylesForView(allStyles);
-        
-        // リンク情報の取得（ボタン表示用）
+
         if (this.actor.system.playerId) {
             context.playerActor = await fromUuid(this.actor.system.playerId);
         }
 
-        if (context.playerActor) {
-            const historyMap = context.playerActor.system.history;
-            context.history = this._prepareHistoryForDisplay(historyMap);
-        } else {
-            // なければ自身の履歴
-            const historyMap = this.actor.system.history;
-            context.history = this._prepareHistoryForDisplay(historyMap);
-        }
+        const historySource = context.playerActor ?? this.actor;
+        context.history = TnxHistoryMixin._prepareHistoryForDisplay(historySource.system.history);
 
         const bsList = [];
-
         this.actor.effects.forEach(e => {
             if (e.disabled) return;
-
             let hasStatusCondition = false;
-
-            // 1. FVTT標準の Status Condition を展開して、ステータス状態ごとに個別の項目として追加
             if (e.statuses && e.statuses.size > 0) {
                 e.statuses.forEach(statusId => {
                     const statusConfig = CONFIG.statusEffects.find(s => s.id === statusId);
                     if (statusConfig) {
                         bsList.push({
-                            id: e.id,           // 大元のエフェクトID
-                            statusId: statusId, // 個別解除用のステータスID
-                            name: statusConfig.name,
-                            img: statusConfig.img,
+                            id:      e.id,
+                            statusId,
+                            name:    statusConfig.name,
+                            img:     statusConfig.img,
                             details: e.flags?.["tokyo-nova-axleration"]?.details || ""
                         });
                         hasStatusCondition = true;
                     }
                 });
             }
-
-            // 2. Status Conditionを持たないが、独自のバッドステータスフラグを持つ場合のみ追加
             if (!hasStatusCondition && e.flags?.["tokyo-nova-axleration"]?.isBadStatus) {
                 bsList.push({
-                    id: e.id,
+                    id:      e.id,
                     statusId: null,
-                    name: e.name,
-                    img: e.img,
+                    name:    e.name,
+                    img:     e.img,
                     details: e.flags?.["tokyo-nova-axleration"]?.details || ""
                 });
             }
         });
-
         context.badStatuses = bsList;
 
         this._getCitizenRankData(context);
@@ -165,30 +147,94 @@ export class TokyoNovaCastSheet extends ActorSheet {
         return context;
     }
 
-    /**
-     * ▼▼▼ 実装: Mixinから呼ばれる更新処理 ▼▼▼
-     * 自分を更新し、リンクがあればレコードシートの「履歴」も更新する
-     */
+    // ─── レンダリング ──────────────────────────────────────────────────────────
+
+    _onRender(context, _options) {
+        const el = this.element;
+
+        el.classList.toggle("edit-mode",  !!context.isEditMode);
+        el.classList.toggle("view-mode", !context.isEditMode);
+
+        for (const [group, tab] of Object.entries(this.tabGroups)) {
+            if (tab) {
+                try { this.changeTab(tab, group, { force: true, updatePosition: false }); }
+                catch { /* PARTS にそのタブがない場合は無視 */ }
+            }
+        }
+
+        // 編集モードトグルボタン(ウィンドウヘッダー左端)
+        const header = el.querySelector(".window-header");
+        if (header && this.isEditable && !header.querySelector(".edit-mode-toggle")) {
+            const toggleBtn = document.createElement("a");
+            toggleBtn.className = "edit-mode-toggle";
+            toggleBtn.title = "編集モード切替";
+            toggleBtn.innerHTML = '<i class="fa-solid fa-eye tnx-view-icon"></i><i class="fa-solid fa-pen tnx-edit-icon"></i>';
+            toggleBtn.addEventListener("click", ev => {
+                ev.preventDefault();
+                TokyoNovaCastSheet._onToggleEditMode.call(this, ev, toggleBtn);
+            });
+            header.prepend(toggleBtn);
+        }
+
+        // スキルプロパティ変更(EXP 連動あり、data-action 外で処理)
+        for (const input of el.querySelectorAll(".skill-property-change")) {
+            input.addEventListener("change", ev => this._onSkillPropertyChange(ev));
+        }
+
+        // クラスベースのアイテム操作
+        for (const btn of el.querySelectorAll(".item-edit")) {
+            btn.addEventListener("click", ev => {
+                ev.preventDefault();
+                const itemId = ev.currentTarget.dataset.itemId;
+                this.actor.items.get(itemId)?.sheet.render({ force: true });
+            });
+        }
+        for (const btn of el.querySelectorAll(".item-delete")) {
+            btn.addEventListener("click", ev => TokyoNovaCastSheet._onItemDelete.call(this, ev, ev.currentTarget));
+        }
+        for (const btn of el.querySelectorAll(".item-create")) {
+            btn.addEventListener("click", ev => TokyoNovaCastSheet._onItemCreate.call(this, ev, ev.currentTarget));
+        }
+
+        // スタイル技能行のコンテキストメニュートリガー
+        for (const trigger of el.querySelectorAll(".style-skills-list .item-menu-trigger")) {
+            trigger.addEventListener("click", ev => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                const row = ev.currentTarget.closest(".style-skill-row");
+                if (row) {
+                    row.dispatchEvent(new MouseEvent("contextmenu", {
+                        bubbles: true, cancelable: true, view: window,
+                        clientX: ev.clientX, clientY: ev.clientY, buttons: 2
+                    }));
+                }
+            });
+        }
+
+        TnxHistoryMixin.activateHistoryListeners.call(this, el);
+        this._activateContextMenus(el);
+        this._applyTextSqueezing();
+    }
+
+    // ─── 履歴更新(TnxHistoryMixin から呼ばれる) ──────────────────────────────
+
     async _performHistoryUpdate(updateData) {
         const ownerUserId = this.actor.system.ownerUserId;
 
-        // --- A. User flag にリンクしている場合(2-2) ---
+        // A. User flag にリンクしている場合
         if (ownerUserId) {
             const ownerUser = game.users.find(u => u.uuid === ownerUserId);
             if (ownerUser) {
-                // system.history.X → flags.TNX.history.X / system.exp.total → flags.TNX.exp.total
                 const flagUpdate = {};
                 for (const [key, value] of Object.entries(updateData)) {
                     if (key.startsWith("system.history")) {
                         flagUpdate[key.replace("system.history", `flags.${TNX_FLAG_SCOPE}.history`)] = value;
                     } else if (key === "system.exp.total") {
-                        // User flag の total は historySum のみ(additional は cast 固有)
                         flagUpdate[`flags.${TNX_FLAG_SCOPE}.exp.total`] = value;
                     }
                 }
                 await ownerUser.update(flagUpdate);
 
-                // cast ローカルにも history を反映(mixin の読み取り整合のため)
                 const historyUpdate = {};
                 for (const [key, value] of Object.entries(updateData)) {
                     if (key.startsWith("system.history")) historyUpdate[key] = value;
@@ -196,12 +242,11 @@ export class TokyoNovaCastSheet extends ActorSheet {
                 if (!foundry.utils.isEmpty(historyUpdate)) {
                     await this.actor.update(historyUpdate, { calcExp: false });
                 }
-                // cast EXP 再計算は updateUser → updateCastExp が担う
                 return;
             }
         }
 
-        // --- B. player Actor にリンクしている場合(旧来実装を保持) ---
+        // B. player Actor にリンクしている場合
         if (updateData["system.exp.total"] !== undefined) {
             const historySum = updateData["system.exp.total"];
             const additional = Number(this.actor.system.exp.additional);
@@ -214,8 +259,8 @@ export class TokyoNovaCastSheet extends ActorSheet {
             if (playerActor) {
                 await playerActor.update(updateData);
 
-                const localUpdate = {};
                 const localHistory = this.actor.system.history;
+                const localUpdate  = {};
                 for (const [key, value] of Object.entries(updateData)) {
                     if (key.startsWith("system.exp.")) {
                         localUpdate[key] = value;
@@ -225,9 +270,7 @@ export class TokyoNovaCastSheet extends ActorSheet {
                         const parts = key.split(".");
                         if (parts.length >= 3) {
                             const historyId = parts[2];
-                            if (localHistory[historyId]) {
-                                localUpdate[key] = value;
-                            } else if (parts.length === 3 && typeof value === 'object' && value !== null) {
+                            if (localHistory[historyId] || (parts.length === 3 && typeof value === 'object' && value !== null)) {
                                 localUpdate[key] = value;
                             }
                         }
@@ -240,12 +283,14 @@ export class TokyoNovaCastSheet extends ActorSheet {
                 }
             }
         } else {
-            // --- C. スタンドアロン ---
+            // C. スタンドアロン
             await this.actor.update(updateData);
         }
 
         TokyoNovaCastSheet.updateCastExp(this.actor);
     }
+
+    // ─── データ準備ヘルパー ────────────────────────────────────────────────────
 
     _prepareStyleSlots(styles) {
         const slots = [];
@@ -253,71 +298,51 @@ export class TokyoNovaCastSheet extends ActorSheet {
             const itemData = item.toObject(false);
             itemData.isEmpty = false;
             itemData.isPersona = item.system.level === 3 ? true : item.system.isPersona;
-            itemData.isKey = item.system.level === 3 ? true : item.system.isKey;
+            itemData.isKey     = item.system.level === 3 ? true : item.system.isKey;
             itemData.roleIndicatorDisplay = this._getRoleIndicatorSymbol(itemData.isPersona, itemData.isKey);
-            itemData.roleIndicatorClass = this._getRoleIndicatorClass(itemData.isPersona, itemData.isKey);
+            itemData.roleIndicatorClass   = this._getRoleIndicatorClass(itemData.isPersona, itemData.isKey);
             for (let i = 0; i < item.system.level; i++) {
-                if (slots.length < 3) {
-                    slots.push(itemData);
-                }
+                if (slots.length < 3) slots.push(itemData);
             }
         });
-        while (slots.length < 3) {
-            slots.push({ isEmpty: true });
-        }
+        while (slots.length < 3) slots.push({ isEmpty: true });
         return slots;
     }
 
     _prepareStylesForView(styles) {
         return styles.map(item => {
             const itemData = item.toObject(false);
-            const level = item.system.level || 1;
+            const level    = item.system.level || 1;
             const isPersona = level === 3 ? true : item.system.isPersona;
-            const isKey = level === 3 ? true : item.system.isKey;
-            
-            itemData.repeatedName = Array(level).fill(item.name).join('=');
-            itemData.roleIndicatorDisplay = this._getRoleIndicatorSymbol(isPersona, isKey);
+            const isKey     = level === 3 ? true : item.system.isKey;
+            itemData.repeatedName          = Array(level).fill(item.name).join('=');
+            itemData.roleIndicatorDisplay  = this._getRoleIndicatorSymbol(isPersona, isKey);
             return itemData;
         });
     }
-    
+
     _prepareGenericSlots(items, maxSlots) {
         const slots = [];
         for (let i = 0; i < maxSlots; i++) {
             const item = items[i];
-            if (item) {
-                slots.push({ ...item.toObject(false), isEmpty: false });
-            } else {
-                slots.push({ isEmpty: true });
-            }
+            slots.push(item ? { ...item.toObject(false), isEmpty: false } : { isEmpty: true });
         }
         return slots;
     }
 
-    /**
-     * @private
-     */
     _prepareSkillsData(context) {
         const generalSkills = this.actor.items
             .filter(i => i.type === 'generalSkill')
-            .sort((a, b) => (a.sort) - (b.sort));
-        
-        context.generalSkills = generalSkills; 
-
-        // 列への分割
+            .sort((a, b) => a.sort - b.sort);
+        context.generalSkills = generalSkills;
         const halfIndex = Math.ceil(generalSkills.length / 2);
-        context.generalSkillColumns = [
-            generalSkills.slice(0, halfIndex), 
-            generalSkills.slice(halfIndex)
-        ];
-        
-        // スタイル技能
+        context.generalSkillColumns = [generalSkills.slice(0, halfIndex), generalSkills.slice(halfIndex)];
+
         context.styleSkills = this.actor.items
             .filter(i => i.type === 'styleSkill')
-            .sort((a, b) => (a.sort) - (b.sort));
+            .sort((a, b) => a.sort - b.sort);
 
         const skillOptions = TnxSkillUtils.getSkillOptions();
-        
         context.styleSkills.forEach(item => {
             if (item.type === 'styleSkill') {
                 item.view = TnxSkillUtils.prepareStyleSkillView(item.system, skillOptions);
@@ -325,186 +350,251 @@ export class TokyoNovaCastSheet extends ActorSheet {
         });
     }
 
-    activateListeners(html) {
-        super.activateListeners(html);
-
-        TnxHistoryMixin.activateHistoryListeners.call(this, html);
-        EffectsSheetMixin.activateEffectListListeners(html, this.actor);
-
-        html.find('.item-edit').on('click', this._onOpenItemSheet.bind(this));
-        html.find('.view-mode-style-summary .style-summary-item').on('click', this._onRollStyleDescription.bind(this));
-        html.find('.skill-property-change').on('change', this._onSkillPropertyChange.bind(this));
-        html.find('.item-delete').on('click', this._onItemDelete.bind(this));
-        html.find('.item-create').on('click', this._onItemCreate.bind(this));
-        html.find('.unlink-player-btn').click(this._onUnlinkPlayer.bind(this));
-        html.find('.sync-with-owner-toggle').on('change', async (event) => {
-            const checked = event.currentTarget.checked;
-            await this.actor.update({ "system.syncWithOwner": checked });
-        });
-
-        if (this.isEditable) {
-            html.find('.ability-main-inputs input[name$=".growth"], .ability-main-inputs input[name$=".controlGrowth"]')
-                .on('change', this._onGrowthChange.bind(this));
-        }
-
-        html.on('click', '[data-action]:not(.edit-mode-toggle)', (event) => {
-            const target = $(event.currentTarget);
-            if (target.hasClass('style-summary-item')) return;
-            
-            const action = target.data('action');
-            if (!action) return;
-
-            const handler = this[`_on${action.charAt(0).toUpperCase() + action.slice(1)}`];
-            if (handler) {
-                handler.bind(this)(event);
-            } else {
-                console.warn(`Action "${action}" was not found in the sheet controller.`);
+    _prepareMiraclesForDisplay(miracles) {
+        const slots = [];
+        miracles.forEach(item => {
+            const itemData = item.toObject(false);
+            const usage    = itemData.system.usageCount;
+            if (typeof usage !== 'object' || usage === null) {
+                console.error(`アイテム「${item.name}」のusageCountが不正なデータです:`, usage);
+                return;
+            }
+            const maxUses       = (usage.value) + (usage.mod);
+            const remainingUses = usage.total;
+            for (let i = 0; i < maxUses; i++) {
+                slots.push({ ...itemData, isPlaceholder: false, instanceIndex: i, isDisabled: i >= remainingUses });
             }
         });
-
-        html.find('.style-skills-list .item-menu-trigger').click(ev => {
-            ev.preventDefault();
-            ev.stopPropagation(); 
-
-            const row = ev.currentTarget.closest('.style-skill-row');
-            
-            if (row) {
-                const event = new MouseEvent('contextmenu', {
-                    bubbles: true,
-                    cancelable: true,
-                    view: window,
-                    clientX: ev.clientX,
-                    clientY: ev.clientY,
-                    buttons: 2 
-                });
-                row.dispatchEvent(event);
-            }
-        });
-
-        html.find('.tnx-bs-remove').click(async (ev) => {
-            ev.preventDefault();
-            ev.stopPropagation();
-
-            const button = ev.currentTarget.closest('.tnx-bs-btn');
-            if (!button) return;
-
-            const effectId = button.dataset.effectId;
-            const statusId = button.dataset.statusId; // hbsからステータスIDを取得
-            const effect = this.actor.effects.get(effectId);
-            
-            if (effect) {
-                if (statusId) {
-                    // Status Conditionの場合、そのステータスだけを配列から除外する
-                    const newStatuses = Array.from(effect.statuses).filter(id => id !== statusId);
-                    
-                    // エフェクトの statuses を更新して特定のバッドステータスのみを消す
-                    await effect.update({ statuses: newStatuses });
-                    
-                    // 【任意】ステータスも能力値の変更（changes）も無くなった場合は、エフェクト自体を削除するかどうか検討します
-                    if (newStatuses.length === 0 && effect.changes.length === 0 && !effect.flags?.["tokyo-nova-axleration"]?.isBadStatus) {
-                        await effect.delete();
-                    }
-                } else {
-                    // 独自のバッドステータスの場合は大元のエフェクト自体を削除する
-                    await effect.delete();
-                }
-            }
-        });
-
-        this._activateContextMenus(html);
+        return slots;
     }
 
-    _activateContextMenus(html) {
+    // ─── ドラッグ&ドロップ ────────────────────────────────────────────────────
+
+    async _onDrop(event) {
+        let data;
+        try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch { return false; }
+
+        if (data.type === "Actor") {
+            const sourceActor = await fromUuid(data.uuid);
+            if (sourceActor && sourceActor.type === "player") {
+                if (sourceActor.uuid === this.actor.uuid) return false;
+
+                const mergedHistory = { ...sourceActor.system.history, ...this.actor.system.history };
+
+                const updatedPlayerDocs = await sourceActor.update({ "system.history": mergedHistory });
+                const latestPlayerActor = Array.isArray(updatedPlayerDocs) ? updatedPlayerDocs[0] : updatedPlayerDocs;
+
+                const updatedCastDocs = await this.actor.update({ "system.playerId": sourceActor.uuid });
+                const latestCastActor = Array.isArray(updatedCastDocs) ? updatedCastDocs[0] : updatedCastDocs;
+
+                if (latestCastActor && latestPlayerActor) {
+                    latestCastActor.prepareData();
+                    latestPlayerActor.prepareData();
+                    await TokyoNovaCastSheet.updateCastExp(latestCastActor, latestPlayerActor);
+                }
+                return true;
+            }
+        }
+
+        return super._onDrop(event);
+    }
+
+    async _onDropItem(event, data) {
+        if (!this.actor.isOwner) return false;
+
+        let item;
+        if (data.uuid) {
+            item = await fromUuid(data.uuid);
+        } else {
+            item = await Item.fromDropData(data);
+        }
+        if (!item) return;
+
+        if (this.actor.uuid === item.parent?.uuid) {
+            return this._onSortItem(event, item.toObject());
+        }
+
+        const dropArea = event.target.closest('[data-drop-area]')?.dataset.dropArea;
+
+        if (item.type === "style" && dropArea === "style") {
+            const allStyles  = this.actor.items.filter(i => i.type === 'style');
+            const totalLevel = allStyles.reduce((sum, s) => sum + (s.system.level || 1), 0);
+            const existingItem = allStyles.find(i => i.name === item.name);
+
+            if (existingItem) {
+                if (totalLevel >= 3) { ui.notifications.warn("これ以上スタイルレベルを上げられません。"); return false; }
+                await existingItem.update({ 'system.level': (existingItem.system.level || 1) + 1 });
+                return existingItem;
+            } else {
+                const itemData = item.toObject();
+                if (!itemData.system.level) itemData.system.level = 1;
+                if (totalLevel + itemData.system.level > 3) {
+                    ui.notifications.warn("スタイルの合計レベルが3を超えてしまいます。"); return false;
+                }
+                const createdItems = await this.actor.createEmbeddedDocuments("Item", [itemData]);
+                const createdStyle = createdItems[0];
+                if (createdStyle) {
+                    const miracleUuid = createdStyle.system.miracle?.id;
+                    if (miracleUuid) {
+                        const sourceMiracle = await fromUuid(miracleUuid);
+                        if (sourceMiracle) {
+                            const allMiracles    = this.actor.items.filter(i => i.type === 'miracle');
+                            const existingMiracle = allMiracles.find(i => i.name === sourceMiracle.name);
+                            if (existingMiracle) {
+                                const { mod, value } = existingMiracle.system.usageCount;
+                                const newValue = Math.min(3, value + 1);
+                                ui.notifications.info(`神業「${existingMiracle.name}」の母数が+1されました。`);
+                                await existingMiracle.update({
+                                    'system.usageCount.value': newValue,
+                                    'system.usageCount.total': newValue + mod
+                                });
+                            } else if (allMiracles.length >= 3) {
+                                ui.notifications.warn("神業は3種類までしか所有できません。");
+                            } else {
+                                const miracleData = sourceMiracle.toObject();
+                                if (!foundry.utils.hasProperty(miracleData, "system.usageCount.value")) {
+                                    const mod = foundry.utils.getProperty(miracleData, "system.usageCount.mod");
+                                    foundry.utils.setProperty(miracleData, "system.usageCount", { value: 1, total: 1 + mod, mod, used: 0 });
+                                }
+                                await this.actor.createEmbeddedDocuments("Item", [miracleData]);
+                                ui.notifications.info(`神業「${miracleData.name}」がスタイル「${createdStyle.name}」から追加されました。`);
+                            }
+                        }
+                    }
+                }
+                return createdStyle;
+            }
+        }
+
+        if (item.type === "miracle" && dropArea === "miracle") {
+            const allMiracles  = this.actor.items.filter(i => i.type === 'miracle');
+            const existingItem = allMiracles.find(i => i.name === item.name);
+            if (existingItem) {
+                const { mod, value } = existingItem.system.usageCount;
+                const newValue = Math.min(3, value + 1);
+                ui.notifications.info(`神業「${existingItem.name}」の母数が+1されました。`);
+                return existingItem.update({ 'system.usageCount.value': newValue, 'system.usageCount.total': newValue + mod });
+            } else {
+                if (allMiracles.length >= 3) { ui.notifications.warn("神業は3種類までしか所有できません。"); return false; }
+                const itemData = item.toObject();
+                if (!foundry.utils.hasProperty(itemData, "system.usageCount.value")) {
+                    const mod = foundry.utils.getProperty(itemData, "system.usageCount.mod");
+                    foundry.utils.setProperty(itemData, "system.usageCount", { value: 1, total: 1 + mod, mod, used: 0 });
+                }
+                return this.actor.createEmbeddedDocuments("Item", [itemData]);
+            }
+        }
+
+        const itemLimits = { organization: { limit: 1, area: 'affiliation' } };
+        const rule = itemLimits[item.type];
+        if (rule && rule.area === dropArea) {
+            const count = this.actor.items.filter(i => i.type === item.type).length;
+            if (count >= rule.limit) { ui.notifications.warn(`${item.name}は${rule.limit}つまでしか所有できません。`); return false; }
+            return this.actor.createEmbeddedDocuments("Item", [item.toObject()]);
+        }
+
+        return super._onDropItem(event, data);
+    }
+
+    // ─── コンテキストメニュー ──────────────────────────────────────────────────
+
+    _activateContextMenus(el) {
         const itemDeleteCallback = async header => {
-            const itemId = header.data('itemId');
-            const item = this.actor.items.get(itemId);
+            const itemId = header.dataset.itemId;
+            const item   = this.actor.items.get(itemId);
             if (!item) return;
-    
-            // --- 神業の使用回数を減らす処理 ---
+
             if (item.type === 'miracle') {
                 const usage = item.system.usageCount;
                 if (usage && usage.value > 1) {
                     const newValue = usage.value - 1;
-                    const newTotal = Math.max(0, usage.total - 1);
-                    await item.update({
-                        'system.usageCount.value': newValue,
-                        'system.usageCount.total': newTotal
-                    });
+                    await item.update({ 'system.usageCount.value': newValue, 'system.usageCount.total': Math.max(0, usage.total - 1) });
                     ui.notifications.info(game.i18n.format("TNX.Notification.MiracleCountDecreased", { name: item.name }));
-                    return; 
+                    return;
                 }
             }
-    
-            // --- スタイルのレベルを下げる処理 ---
+
             if (item.type === 'style' && item.system.level > 1) {
-                await item.update({'system.level': item.system.level - 1});
-                return; 
+                await item.update({ 'system.level': item.system.level - 1 });
+                return;
             }
-    
-            // --- 上記以外の場合、アイテムを完全に削除 ---
+
             await this.actor.deleteEmbeddedDocuments("Item", [itemId]);
         };
 
         const itemContextMenu = [{
-            name: "SHEET.ItemDelete",
-            icon: '<i class="fas fa-trash"></i>',
-            condition: header => !!header.data('itemId'),
-            callback: itemDeleteCallback
+            name:      "SHEET.ItemDelete",
+            icon:      '<i class="fas fa-trash"></i>',
+            condition: header => !!header.dataset.itemId,
+            callback:  itemDeleteCallback
         }];
-        new ContextMenu(html, '.item-button[data-context-menu="item-edit"]', itemContextMenu);
-        
+        new ContextMenu(el, '.item-button[data-context-menu="item-edit"]', itemContextMenu);
+
         const miracleViewMenu = [
             {
-                name: "閲覧",
-                icon: '<i class="fas fa-eye"></i>',
-                condition: header => !!header.data('itemId'),
-                callback: header => this.actor.items.get(header.data('itemId'))?.sheet.render(true)
+                name:      "閲覧",
+                icon:      '<i class="fas fa-eye"></i>',
+                condition: header => !!header.dataset.itemId,
+                callback:  header => this.actor.items.get(header.dataset.itemId)?.sheet.render({ force: true })
             },
             {
-                name: "削除",
-                icon: '<i class="fas fa-trash"></i>',
-                condition: header => this.isEditable && !!header.data('itemId'),
-                callback: itemDeleteCallback
+                name:      "削除",
+                icon:      '<i class="fas fa-trash"></i>',
+                condition: header => this.isEditable && !!header.dataset.itemId,
+                callback:  itemDeleteCallback
             }
         ];
-        new ContextMenu(html, '[data-context-menu="miracle-view"]', miracleViewMenu);
+        new ContextMenu(el, '[data-context-menu="miracle-view"]', miracleViewMenu);
 
         const styleSkillOptions = [
             {
                 name: "SHEET.ItemEdit",
                 icon: '<i class="fas fa-edit"></i>',
                 callback: header => {
-                    const itemId = header.data("itemId") || header.closest('[data-item-id]').data('itemId');
-                    const item = this.actor.items.get(itemId);
-                    item?.sheet.render(true);
+                    const itemId = header.dataset.itemId || header.closest('[data-item-id]')?.dataset.itemId;
+                    this.actor.items.get(itemId)?.sheet.render({ force: true });
                 }
             },
             {
-                name: "SHEET.ItemDelete",
-                icon: '<i class="fas fa-trash"></i>',
+                name:     "SHEET.ItemDelete",
+                icon:     '<i class="fas fa-trash"></i>',
                 callback: itemDeleteCallback
             }
         ];
-
-        new ContextMenu(html, ".style-skills-list .style-skill-row", styleSkillOptions);
+        new ContextMenu(el, ".style-skills-list .style-skill-row", styleSkillOptions);
     }
-    
+
+    // ─── テキスト圧縮 ─────────────────────────────────────────────────────────
+
+    _applyTextSqueezing() {
+        if (!this.element) return;
+        for (const el of this.element.querySelectorAll('.squeeze-text')) {
+            const parent      = el.parentElement;
+            const parentStyle = getComputedStyle(parent);
+            const availableWidth = parent.clientWidth
+                - parseFloat(parentStyle.paddingLeft)
+                - parseFloat(parentStyle.paddingRight)
+                - 2;
+            const contentWidth = el.scrollWidth;
+            const isSkewedLabel = el.classList.contains('skill-label-content');
+            const transformBase = isSkewedLabel ? 'skewX(25deg)' : '';
+            if (contentWidth > availableWidth) {
+                el.style.transform = `${transformBase} scaleX(${(availableWidth / contentWidth) * 0.95})`;
+            } else {
+                el.style.transform = transformBase;
+            }
+        }
+    }
+
+    // ─── カードパイルヘルパー(将来利用) ──────────────────────────────────────
+
     async _getCardPileData(context) {
         const handPileData = await this._fetchLinkedCardPile(context.system.handPileId, "system.handPileId");
-        if (handPileData) {
-            context.handPile = handPileData;
-        } else {
-            context.handPile = null;
-        }
+        context.handPile = handPileData ?? null;
 
         const trumpPileData = await this._fetchLinkedCardPile(context.system.trumpCardPileId, "system.trumpCardPileId");
-        if (trumpPileData) {
-            context.trumpCardPile = trumpPileData;
-            context.trumpCard = trumpPileData.cards?.[0] || null;
-        } else {
-            context.trumpCardPile = null;
-            context.trumpCard = null;
-        }
+        context.trumpCardPile = trumpPileData ?? null;
+        context.trumpCard     = trumpPileData?.cards?.[0] ?? null;
     }
 
     async _fetchLinkedCardPile(uuid, updatePath) {
@@ -522,358 +612,305 @@ export class TokyoNovaCastSheet extends ActorSheet {
         }
         return null;
     }
-    
+
+    // ─── 市民ランク・能力値データ ─────────────────────────────────────────────
+
     _getCitizenRankData(context) {
-        const currentCitizenRank = context.system.citizenRank;
-        const citizenRankMap = { "A": "A", "B+": "B+", "B": "B", "B-": "B-", "C+": "C+", "C": "C", "C-": "C-", "X": "X"};
-        context.citizenRankOptionsForSelect = Object.entries(citizenRankMap).map(([value, labelKey]) => ({
-            value: value,
-            label: game.i18n.localize(labelKey),
-            selected: value === currentCitizenRank
+        const currentRank = context.system.citizenRank;
+        const rankMap = { "A": "A", "B+": "B+", "B": "B", "B-": "B-", "C+": "C+", "C": "C", "C-": "C-", "X": "X" };
+        context.citizenRankOptionsForSelect = Object.entries(rankMap).map(([value]) => ({
+            value,
+            label:    game.i18n.localize(value),
+            selected: value === currentRank
         }));
     }
 
     _getAbilitiesData(context, equippedStyles) {
         context.system.abilities = {};
-        const abilityKeys = ["reason", "passion", "life", "mundane"];
-        const abilityLabels = { "reason": game.i18n.format("TNX.Ability.Reason", { suit: "♠" }),
-                                "passion": game.i18n.format("TNX.Ability.Passion", { suit: "♣" }),
-                                "life": game.i18n.format("TNX.Ability.Life", { suit: "♥" }),
-                                "mundane": game.i18n.format("TNX.Ability.Mundane", { suit: "♦" })
-                              };
-        
+        const abilityKeys   = ["reason", "passion", "life", "mundane"];
+        const abilityLabels = {
+            reason:  game.i18n.format("TNX.Ability.Reason",   { suit: "♠" }),
+            passion: game.i18n.format("TNX.Ability.Passion",  { suit: "♣" }),
+            life:    game.i18n.format("TNX.Ability.Life",     { suit: "♥" }),
+            mundane: game.i18n.format("TNX.Ability.Mundane",  { suit: "♦" })
+        };
+
         for (const key of abilityKeys) {
             const ability = context.system[key];
-            let styleTotalValue = 0;
-            let styleTotalControl = 0;
+            let styleTotalValue = 0, styleTotalControl = 0;
             const styleContributions = equippedStyles.map(style => {
-                const styleValue = style.system[key].value;
-                const styleControl = style.system[key]?.control;
-                const level = style.system.level || 1;
-                styleTotalValue += styleValue * level;
-                styleTotalControl += styleControl * level;
-                return { name: style.name, value: styleValue * level, control: styleControl * level, level: level };
+                const level   = style.system.level || 1;
+                const sVal    = style.system[key].value   * level;
+                const sCtrl   = style.system[key].control * level;
+                styleTotalValue   += sVal;
+                styleTotalControl += sCtrl;
+                return { name: style.name, value: sVal, control: sCtrl, level };
             });
-            
             context.system.abilities[key] = {
-                label: abilityLabels[key],
-                growth: ability.growth,
-                controlGrowth: ability.controlGrowth,
-                mod: ability.mod,
-                controlMod: ability.controlMod,
-                effectMod: ability.effectMod,
+                label:           abilityLabels[key],
+                growth:          ability.growth,
+                controlGrowth:   ability.controlGrowth,
+                mod:             ability.mod,
+                controlMod:      ability.controlMod,
+                effectMod:       ability.effectMod,
                 controlEffectMod: ability.controlEffectMod,
                 styleContributions,
-                totalValue: (ability.growth) + styleTotalValue + (ability.mod) + (ability.effectMod),
-                totalControl: (ability.controlGrowth) + styleTotalControl + (ability.controlMod) + (ability.controlEffectMod)
+                totalValue:   ability.growth + styleTotalValue   + ability.mod + ability.effectMod,
+                totalControl: ability.controlGrowth + styleTotalControl + ability.controlMod + ability.controlEffectMod
             };
         }
     }
 
-    async _onDrop(event) {
-        const data = TextEditor.getDragEventData(event);
+    // ─── スキルプロパティ変更(EXP 連動) ──────────────────────────────────────
 
-        if (data.type === "Actor") {
-            const sourceActor = await fromUuid(data.uuid);
-            
-            if (sourceActor && sourceActor.type === "player") {
-                if (sourceActor.uuid === this.actor.uuid) return false;
-
-                // 1. キャストの現在の履歴を取得
-                const castHistory = this.actor.system.history;
-                
-                // 2. プレイヤーの現在の履歴を取得
-                const playerHistory = sourceActor.system.history;
-
-                // 3. 履歴をマージ（キャストの履歴をプレイヤーに追加）
-                // キー（ID）が重複することは稀ですが、万が一重複した場合はキャスト側が優先される形か、
-                // あるいはプレイヤー側を生かすかは状況によりますが、ここでは単純マージします。
-                const mergedHistory = { ...playerHistory, ...castHistory };
-
-                // 4. プレイヤーシート側の履歴を更新
-                // 【修正】updateの戻り値（更新後の最新インスタンス）を受け取る
-                const updatedPlayerDocs = await sourceActor.update({
-                    "system.history": mergedHistory
-                });
-                const latestPlayerActor = Array.isArray(updatedPlayerDocs) ? updatedPlayerDocs[0] : updatedPlayerDocs;
-
-                // 5. キャストシートをプレイヤーにリンク
-                const updateData = {
-                    "system.playerId": sourceActor.uuid
-                };
-
-                // キャスト自身の履歴は**上書きしない**（元データを残すため）
-                // 【修正】自身の更新結果も受け取る
-                const updatedCastDocs = await this.actor.update(updateData);
-                const latestCastActor = Array.isArray(updatedCastDocs) ? updatedCastDocs[0] : updatedCastDocs;
-                
-                // 経験点再計算
-                // 【修正】再度 fromUuid するのではなく、更新直後の「完全なインスタンス」同士を渡す
-                if (latestCastActor && latestPlayerActor) {
-                    // 念のためデータ準備を呼んでおく
-                    latestCastActor.prepareData();
-                    latestPlayerActor.prepareData();
-
-                    // 第2引数として最新のプレイヤーアクターを渡す
-                    await TokyoNovaCastSheet.updateCastExp(latestCastActor, latestPlayerActor);
-                }
-                
-                return true;
-            }
-        }
-
-        return super._onDrop(event);
-    }
-
-    async _onDropItem(event, data) {
-        if (!this.actor.isOwner) return false;
-        
-        let item;
-        if (data.uuid) {
-            item = await fromUuid(data.uuid);
-        } else {
-            item = await Item.fromDropData(data);
-        }
-        if (!item) return;
-        
-        if (this.actor.uuid === item.parent?.uuid) {
-            return this._onSortItem(event, item.toObject());
-        }
-
-        const dropArea = event.target.closest('[data-drop-area]')?.dataset.dropArea;
-    
-        // === 既存のスタイル処理 ===
-        if (item.type === "style" && dropArea === "style") {
-            const allStyles = this.actor.items.filter(i => i.type === 'style');
-            const totalLevel = allStyles.reduce((sum, s) => sum + (s.system.level || 1), 0);
-            const existingItem = allStyles.find(i => i.name === item.name);
-            
-            if (existingItem) {
-                if (totalLevel >= 3) {
-                    ui.notifications.warn("これ以上スタイルレベルを上げられません。");
-                    return false;
-                }
-                const currentLevel = existingItem.system.level || 1;
-                await existingItem.update({ 'system.level': currentLevel + 1 });
-                return existingItem;
-            } else {
-                const itemData = item.toObject();
-                if (!itemData.system.level) itemData.system.level = 1;
-                if (totalLevel + itemData.system.level > 3) {
-                    ui.notifications.warn("スタイルの合計レベルが3を超えてしまいます。");
-                    return false;
-                }
-                const createdItems = await this.actor.createEmbeddedDocuments("Item", [itemData]);
-                const createdStyle = createdItems[0];
-
-                if (createdStyle) {
-                    const miracleUuid = createdStyle.system.miracle?.id;
-                    if (miracleUuid) {
-                        const sourceMiracle = await fromUuid(miracleUuid);
-                        if (sourceMiracle) {
-                            const allMiracles = this.actor.items.filter(i => i.type === 'miracle');
-                            const existingMiracle = allMiracles.find(i => i.name === sourceMiracle.name);
-
-                            if (existingMiracle) {
-                                const usage = existingMiracle.system.usageCount;
-                                const mod = usage.mod;
-                                const newValue = Math.min(3, (usage.value) + 1);
-                                const newTotal = newValue + mod;
-                                
-                                ui.notifications.info(`神業「${existingMiracle.name}」の母数が+1されました。`);
-                                await existingMiracle.update({
-                                    'system.usageCount.value': newValue,
-                                    'system.usageCount.total': newTotal
-                                });
-                            } else {
-                                if (allMiracles.length >= 3) {
-                                    ui.notifications.warn(`神業は3種類までしか所有できません。`);
-                                } else {
-                                    const miracleData = sourceMiracle.toObject();
-                                    if (!foundry.utils.hasProperty(miracleData, "system.usageCount.value")) {
-                                        const mod = foundry.utils.getProperty(miracleData, "system.usageCount.mod");
-                                        foundry.utils.setProperty(miracleData, "system.usageCount", { value: 1, total: 1 + mod, mod: mod, used: 0 });
-                                    }
-                                    await this.actor.createEmbeddedDocuments("Item", [miracleData]);
-                                    ui.notifications.info(`神業「${miracleData.name}」がスタイル「${createdStyle.name}」から追加されました。`);
-                                }
-                            }
-                        }
-                    }
-                }
-                return createdStyle;
-            }
-        }
-    
-        // === 既存の神業処理 ===
-        if (item.type === "miracle" && dropArea === "miracle") {
-            const allMiracles = this.actor.items.filter(i => i.type === 'miracle');
-            const existingItem = allMiracles.find(i => i.name === item.name);
-            if (existingItem) {
-                const usage = existingItem.system.usageCount;
-                const mod = usage.mod;
-                const newValue = Math.min(3, (usage.value) + 1);
-                const newTotal = newValue + mod;
-                
-                ui.notifications.info(`神業「${existingItem.name}」の母数が+1されました。`);
-                return existingItem.update({
-                    'system.usageCount.value': newValue,
-                    'system.usageCount.total': newTotal
-                });
-            } else {
-                if (allMiracles.length >= 3) {
-                    ui.notifications.warn(`神業は3種類までしか所有できません。`);
-                    return false;
-                }
-                const itemData = item.toObject();
-                if (!foundry.utils.hasProperty(itemData, "system.usageCount.value")) {
-                    const mod = foundry.utils.getProperty(itemData, "system.usageCount.mod");
-                    foundry.utils.setProperty(itemData, "system.usageCount", { value: 1, total: 1 + mod, mod: mod, used: 0 });
-                }
-                return this.actor.createEmbeddedDocuments("Item", [itemData]);
-            }
-        }
-        
-        // === 既存の制限付きアイテム処理 ===
-        const itemLimits = { organization: { limit: 1, area: 'affiliation' } };
-        const rule = itemLimits[item.type];
-        if (rule && rule.area === dropArea) {
-            const count = this.actor.items.filter(i => i.type === item.type).length;
-            if (count >= rule.limit) {
-                ui.notifications.warn(`${item.name}は${rule.limit}つまでしか所有できません。`);
-                return false;
-            }
-            return this.actor.createEmbeddedDocuments("Item", [item.toObject()]);
-        }
-        
-        return super._onDropItem(event, data);
-    }
-
-    async _onItemDelete(event) {
+    async _onSkillPropertyChange(event) {
         event.preventDefault();
-        const li = $(event.currentTarget).closest(".item");
-        const itemId = li.data("itemId");
-        const item = this.actor.items.get(itemId);
-
+        const input  = event.currentTarget;
+        const itemId = input.closest('.item')?.dataset.itemId;
+        const item   = this.actor.items.get(itemId);
         if (!item) return;
 
-        const confirm = await Dialog.confirm({
-            title: game.i18n.localize("SHEET.ItemDelete"),
-            content: `<p>${game.i18n.format("SHEET.Delete", {name: item.name})}</p>`
-        });
+        const target = input.dataset.target;
+        let newLevel  = item.system.level;
+        const updateData = {};
 
-        if (confirm) {
+        if (target === "level") {
+            newLevel = parseInt(input.value, 10);
+            updateData["system.level"] = newLevel;
+        } else if (target === "suit") {
+            const suitKey = input.dataset.suit;
+            updateData[`system.suits.${suitKey}`] = input.checked;
+            const currentSuits = item.system.suits;
+            newLevel = 0;
+            for (const key of ["spade", "club", "heart", "diamond"]) {
+                if ((key === suitKey ? input.checked : currentSuits[key])) newLevel++;
+            }
+            updateData["system.level"] = newLevel;
+        }
+
+        const oldLevel = item.system.level;
+        if (newLevel === oldLevel) { await item.update(updateData); return; }
+
+        const expCostPerLevel    = this._getSkillExpCost(item);
+        const isInitialOnomastic = (item.type === 'generalSkill')
+            && (item.system.generalSkillCategory === 'onomasticSkill')
+            && (item.system.onomasticSkill?.isInitial);
+
+        const totalCost = isInitialOnomastic
+            ? (Math.max(0, newLevel - 1) - Math.max(0, oldLevel - 1)) * expCostPerLevel
+            : (newLevel - oldLevel) * expCostPerLevel;
+
+        const currentExp = this.actor.system.exp.value;
+        if (totalCost > 0 && totalCost > currentExp) {
+            if (target === "level")  input.value   = oldLevel;
+            else if (target === "suit") input.checked = !input.checked;
+            return;
+        }
+
+        if (totalCost !== 0) {
+            await this.actor.update({ "system.exp.value": currentExp - totalCost });
+        }
+        await item.update(updateData);
+    }
+
+    _getSkillExpCost(item) {
+        const system = item.system;
+        if (item.type === 'generalSkill') {
+            const genCategory = system.generalSkillCategory;
+            if (genCategory === 'onomasticSkill') return system.onomasticSkill?.expCost || 5;
+            if (genCategory === 'initialSkill')   return system.initialSkill?.expCost  || 10;
+            return 10;
+        }
+        if (item.type === 'styleSkill') {
+            const styleCategory = system.styleSkillCategory;
+            if (styleCategory === 'special')     return system.special?.expCost     || 10;
+            if (styleCategory === 'performance') return system.performance?.expCost || 2;
+            if (styleCategory === 'secret')      return system.secret?.expCost      || 20;
+            if (styleCategory === 'mystery')     return system.mystery?.expCost     || 50;
+            return 10;
+        }
+        return 0;
+    }
+
+    _getRoleIndicatorSymbol(isPersona, isKey) {
+        if (isPersona && isKey) return "◎●";
+        if (isPersona)          return "◎";
+        if (isKey)              return "●";
+        return "";
+    }
+
+    _getRoleIndicatorClass(isPersona, isKey) {
+        if (isPersona && isKey) return "role-pk";
+        if (isPersona)          return "role-p";
+        if (isKey)              return "role-k";
+        return "role-shadow";
+    }
+
+    // ─── 静的アクションハンドラ ────────────────────────────────────────────────
+
+    static _onCopyUuid(event, _target) {
+        event.preventDefault();
+        game.clipboard.copyPlainText(this.document.uuid);
+        ui.notifications.info(game.i18n.format("DOCUMENT.IdCopiedClipboard", {
+            label: this.document.documentName, type: "UUID", id: this.document.uuid
+        }));
+    }
+
+    static _onToggleEditMode(event, _target) {
+        if (event) event.preventDefault();
+        this._isEditMode = !this._isEditMode;
+        this.render();
+    }
+
+    static _onOpenItemSheet(event, target) {
+        event.preventDefault();
+        const itemId = target.dataset.itemId;
+        this.actor.items.get(itemId)?.sheet.render({ force: true });
+    }
+
+    static async _onItemCreate(event, target) {
+        event.preventDefault();
+        const type = target.dataset.type;
+        if (type === 'generalSkill') {
+            return Item.create({ name: "新規一般技能", type: "generalSkill",
+                system: { level: 0, generalSkillCategory: "onomasticSkill" }
+            }, { parent: this.actor });
+        }
+        if (type === 'styleSkill') {
+            return Item.create({ name: "新規スタイル技能", type: "styleSkill",
+                system: { level: 0 }
+            }, { parent: this.actor });
+        }
+        return Item.create({ name: `新規${type}`, type }, { parent: this.actor });
+    }
+
+    static async _onItemDelete(event, target) {
+        event.preventDefault();
+        const li     = target.closest(".item");
+        const itemId = li?.dataset.itemId;
+        const item   = this.actor.items.get(itemId);
+        if (!item) return;
+
+        const confirmed = await foundry.applications.api.DialogV2.confirm({
+            window:  { title: game.i18n.localize("SHEET.ItemDelete") },
+            content: `<p>${game.i18n.format("SHEET.Delete", { name: item.name })}</p>`
+        });
+        if (confirmed) {
             await item.delete();
-            li.slideUp(200, () => this.render(false));
+            this.render();
         }
     }
 
-    // 【修正】描画時にトグルスイッチを左端に挿入
-    async _render(force = false, options = {}) {
-        await super._render(force, options);
-        
-        if (this.element && this.element[0]) {
-            const sheetElement = this.element[0];
-            const header = this.element.find('.window-header');
+    static async _onUnlinkPlayer(event, _target) {
+        event.preventDefault();
+        if (!this.actor.system.playerId) return;
 
-            // 1. モードクラスの適用
-            if (this._isEditMode && this.isEditable) {
-                sheetElement.classList.remove("view-mode");
-                sheetElement.classList.add("edit-mode");
-            } else {
-                sheetElement.classList.remove("edit-mode");
-                sheetElement.classList.add("view-mode");
-            }
-
-            // 2. トグルスイッチの左端挿入（権限がある場合のみ）
-            // 既に挿入済みでないか確認してから追加
-            if (this.isEditable && header.find('.edit-mode-toggle').length === 0) {
-                // CSSのスタイルに合わせたHTML構造を作成
-                const toggleBtn = $('<a class="edit-mode-toggle" title="編集モード切替"><i class="fa-solid fa-eye tnx-view-icon"></i><i class="fa-solid fa-pen tnx-edit-icon"></i></a>');
-                
-                // クリックイベントの設定
-                toggleBtn.on('click', (ev) => {
-                    ev.preventDefault();
-                    this._onToggleEditMode(ev);
-                });
-
-                // ヘッダーの先頭（左端）に追加
-                header.prepend(toggleBtn);
-            }
-
-            this._applyTextSqueezing();
-        }
-    }
-
-    _applyTextSqueezing() {
-        if (!this.element) return;
-        
-        const elements = this.element.find('.squeeze-text');
-        
-        elements.each((i, el) => {
-            const parent = el.parentElement;
-            
-            const parentStyle = getComputedStyle(parent);
-            const parentWidth = parent.clientWidth;
-            const paddingLeft = parseFloat(parentStyle.paddingLeft);
-            const paddingRight = parseFloat(parentStyle.paddingRight);
-            const availableWidth = parentWidth - paddingLeft - paddingRight - 2;
-            
-            const contentWidth = el.scrollWidth;
-
-            const isSkewedLabel = el.classList.contains('skill-label-content');
-
-            let transformBase = '';
-            if (isSkewedLabel) {
-                transformBase = 'skewX(25deg)';
-            } else {
-                transformBase = '';
-            }
-
-            if (contentWidth > availableWidth) {
-                const scale = availableWidth / contentWidth;
-                el.style.transform = `${transformBase} scaleX(${scale * 0.95})`;
-            } else {
-                el.style.transform = transformBase;
-            }
+        const confirmed = await foundry.applications.api.DialogV2.confirm({
+            window:  { title: game.i18n.localize("TNX.Common.Unlink") },
+            content: `<p>${game.i18n.localize("TNX.ConfirmUnlinkPlayer")}</p>`
         });
-    }
-    
-    _onOpenItemSheet(event) {
-        event.preventDefault();
-        const itemId = event.currentTarget.dataset.itemId;
-        this.actor.items.get(itemId)?.sheet.render(true);
+        if (confirmed) {
+            await this.actor.update({ "system.playerId": "" });
+        }
     }
 
-    async _onRollStyleDescription(event) {
+    static async _onUseMiracle(event, target) {
         event.preventDefault();
-        const itemId = event.currentTarget.dataset.itemId;
-        const item = this.actor.items.get(itemId);
-        if (!item) return;
-    
-        const enrichedDescription = await TextEditor.enrichHTML(item.system.description, { async: true });
-        const flavorText = `<h3>スタイル: ${item.name}</h3>`;
-        const chatContent = `
-        <details class="tnx-chat-card" open>
-            <summary>${flavorText}</summary>
-            <div class="card-content">
-                ${enrichedDescription}
-            </div>
-        </details>
-        `;
-    
+        const itemId          = target.closest('[data-item-id]')?.dataset.itemId;
+        const originalMiracle = this.actor.items.get(itemId);
+        if (!originalMiracle) return;
+
+        let targetMiracle = originalMiracle;
+
+        if (originalMiracle.system.isAll) {
+            const useAsOther = await foundry.applications.api.DialogV2.confirm({
+                window:  { title: game.i18n.localize("TNX.ConfirmUseAsOtherTitle") },
+                content: `<p>${game.i18n.format("TNX.ConfirmUseAsOtherContent", { name: originalMiracle.name })}</p>`
+            });
+
+            if (useAsOther) {
+                const miracleChoices = game.items.filter(i => i.type === 'miracle' && i.name !== originalMiracle.name);
+                if (miracleChoices.length === 0) { ui.notifications.warn("ワールドに選択可能な神業が存在しません。"); return; }
+
+                const selectedId = await TargetSelectionDialog.prompt({
+                    title:       game.i18n.localize("TNX.SelectOmniMiracleTitle"),
+                    label:       game.i18n.format("TNX.SelectOmniMiracleContent", { name: originalMiracle.name }),
+                    options:     miracleChoices.map(dw => ({ value: dw.id, label: dw.name })),
+                    selectLabel: game.i18n.localize("TNX.Select")
+                });
+                if (!selectedId) return;
+
+                const selectedWork = game.items.get(selectedId);
+                if (!selectedWork) { ui.notifications.error("選択された神業が見つかりませんでした。"); return; }
+                targetMiracle = selectedWork;
+            }
+        }
+
+        const remainingUses = originalMiracle.system.usageCount.total;
+        if (remainingUses <= 0) { ui.notifications.warn(`神業「${originalMiracle.name}」はこれ以上使用できません。`); return; }
+
+        await originalMiracle.update({
+            "system.usageCount.total": remainingUses - 1,
+            "system.isUsed":           remainingUses - 1 === 0
+        });
+
+        const enrichHTML = foundry.applications.ux.TextEditor.enrichHTML.bind(foundry.applications.ux.TextEditor);
+        const originalDescription = await enrichHTML(originalMiracle.system.description, { async: true });
+
+        let nestedContent = '';
+        const isOther = targetMiracle.id !== originalMiracle.id;
+        if (isOther) {
+            const selectedDescription = await enrichHTML(targetMiracle.system.description, { async: true });
+            nestedContent = `
+                <details class="nested-description">
+                    <summary><h4>発動効果: ${targetMiracle.name}</h4></summary>
+                    <div class="card-content">${selectedDescription}</div>
+                </details>`;
+        }
+
+        const miracleFurigana = originalMiracle.system.furigana;
+        const nameHtml = miracleFurigana
+            ? `<ruby>${originalMiracle.name}<rt>${miracleFurigana}</rt></ruby>`
+            : originalMiracle.name;
+
         ChatMessage.create({
-            user: game.user.id,
+            user:    game.user.id,
             speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-            content: chatContent, 
+            content: `<details class="tnx-chat-card"><summary><h3>神業: ${nameHtml}</h3></summary>
+                <div class="card-content">${originalDescription}${nestedContent}</div></details>`,
+            flags: { "core.canPopout": true }
+        });
+
+        ui.notifications.info(isOther
+            ? `神業「${originalMiracle.name}」を使用し、「${targetMiracle.name}」の効果を発動しました。`
+            : `神業「${originalMiracle.name}」を使用しました。`
+        );
+    }
+
+    static async _onRollStyleDescription(event, target) {
+        event.preventDefault();
+        const itemId = target.dataset.itemId;
+        const item   = this.actor.items.get(itemId);
+        if (!item) return;
+
+        const enrichedDescription = await foundry.applications.ux.TextEditor.enrichHTML(
+            item.system.description, { async: true }
+        );
+        ChatMessage.create({
+            user:    game.user.id,
+            speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+            content: `<details class="tnx-chat-card" open>
+                <summary><h3>スタイル: ${item.name}</h3></summary>
+                <div class="card-content">${enrichedDescription}</div>
+            </details>`,
             flags: { "core.canPopout": true }
         });
     }
 
-    async _onToggleStyleRole(event) {
+    static async _onToggleStyleRole(event, target) {
         event.preventDefault();
         event.stopPropagation();
-        const itemId = event.currentTarget.closest('[data-item-id]').dataset.itemId;
+        const itemId      = target.closest('[data-item-id]')?.dataset.itemId;
         const clickedItem = this.actor.items.get(itemId);
         if (!this.isEditable || !clickedItem) return;
 
@@ -883,560 +920,149 @@ export class TokyoNovaCastSheet extends ActorSheet {
 
         const { isPersona, isKey } = clickedItem.system;
         let nextIsPersona, nextIsKey;
-        if (!isPersona && !isKey)      { nextIsPersona = true;  nextIsKey = false; } 
-        else if (isPersona && !isKey)  { nextIsPersona = false; nextIsKey = true;  } 
-        else if (!isPersona && isKey)  { nextIsPersona = true;  nextIsKey = true;  } 
-        else                           { nextIsPersona = false; nextIsKey = false; } 
+        if (!isPersona && !isKey)     { nextIsPersona = true;  nextIsKey = false; }
+        else if (isPersona && !isKey) { nextIsPersona = false; nextIsKey = true;  }
+        else if (!isPersona && isKey) { nextIsPersona = true;  nextIsKey = true;  }
+        else                          { nextIsPersona = false; nextIsKey = false; }
 
-        const updates = [];
-        const allStyles = this.actor.items.filter(i => i.type === 'style');
-
+        const updates    = [];
+        const allStyles  = this.actor.items.filter(i => i.type === 'style');
         for (const style of allStyles) {
             if (style.system.level === 3) continue;
-
             const updateData = { _id: style.id };
-            let needsUpdate = false;
-
+            let needsUpdate  = false;
             if (style.id === clickedItem.id) {
                 updateData['system.isPersona'] = nextIsPersona;
-                updateData['system.isKey'] = nextIsKey;
+                updateData['system.isKey']     = nextIsKey;
                 needsUpdate = true;
             } else {
-                let resetPersona = false;
-                let resetKey = false;
-
-                if (nextIsPersona && style.system.isPersona) {
-                    resetPersona = true;
-                }
-                if (nextIsKey && style.system.isKey) {
-                    resetKey = true;
-                }
-
-                if (resetPersona) {
-                    updateData['system.isPersona'] = false;
-                    needsUpdate = true;
-                }
-                if (resetKey) {
-                    updateData['system.isKey'] = false;
-                    needsUpdate = true;
-                }
+                if (nextIsPersona && style.system.isPersona) { updateData['system.isPersona'] = false; needsUpdate = true; }
+                if (nextIsKey     && style.system.isKey)     { updateData['system.isKey']     = false; needsUpdate = true; }
             }
-            if (needsUpdate) {
-                updates.push(updateData);
-            }
+            if (needsUpdate) updates.push(updateData);
         }
-
-        if (updates.length > 0) {
-            await this.actor.updateEmbeddedDocuments("Item", updates);
-        }
-    }
-    
-    _getRoleIndicatorSymbol(isPersona, isKey) {
-        if (isPersona && isKey) return "◎●";
-        if (isPersona) return "◎";
-        if (isKey) return "●";
-        return "";
+        if (updates.length > 0) await this.actor.updateEmbeddedDocuments("Item", updates);
     }
 
-    _getRoleIndicatorClass(isPersona, isKey) {
-        if (isPersona && isKey) return "role-pk";
-        if (isPersona) return "role-p";
-        if (isKey) return "role-k";
-        return "role-shadow";
-    }
-
-    async _onUseMiracle(event) {
+    static _onToggleAbilityDetails(event, target) {
         event.preventDefault();
-        const itemId = event.currentTarget.closest('[data-item-id]').dataset.itemId;
-        const originalMiracle = this.actor.items.get(itemId);
-        if (!originalMiracle) return;
-    
-        let targetMiracle = originalMiracle;
-        let useAsOther = false; 
-    
-        if (originalMiracle.system.isAll) {
-            useAsOther = await Dialog.confirm({
-                title: game.i18n.localize("TNX.ConfirmUseAsOtherTitle"),
-                content: `<p>${game.i18n.format("TNX.ConfirmUseAsOtherContent", { name: originalMiracle.name })}</p>`,
-                yes: () => true,
-                no: () => false,
-                defaultYes: false
-            });
-    
-            if (useAsOther) {
-                const miracleChoices = game.items.filter(i => 
-                    i.type === 'miracle' && i.name !== originalMiracle.name
-                );
-    
-                if (miracleChoices.length === 0) {
-                    ui.notifications.warn("ワールドに選択可能な神業が存在しません。");
-                    return; 
-                }
-    
-                const selectedId = await TargetSelectionDialog.prompt({
-                    title: game.i18n.localize("TNX.SelectOmniMiracleTitle"),
-                    label: game.i18n.format("TNX.SelectOmniMiracleContent", { name: originalMiracle.name }),
-                    options: miracleChoices.map(dw => ({ value: dw.id, label: dw.name })),
-                    selectLabel: game.i18n.localize("TNX.Select")
-                });
-    
-                if (!selectedId) return; 
-    
-                const selectedWork = game.items.get(selectedId);
-                if (!selectedWork) {
-                    ui.notifications.error("選択された神業が見つかりませんでした。");
-                    return;
-                }
-                
-                targetMiracle = selectedWork;
+        const panel = target.closest('.ability-block')?.querySelector('.ability-details-panel');
+        if (panel) panel.style.display = panel.style.display === 'none' ? '' : 'none';
+        const icon = target.querySelector('i');
+        if (icon) {
+            icon.classList.toggle('fa-chevron-down');
+            icon.classList.toggle('fa-chevron-up');
+        }
+    }
+
+    static async _onRemoveBadStatus(event, target) {
+        event.preventDefault();
+        const effectId = target.dataset.effectId;
+        const statusId = target.dataset.statusId || null;
+        const effect   = this.actor.effects.get(effectId);
+        if (!effect) return;
+
+        if (statusId) {
+            const newStatuses = Array.from(effect.statuses).filter(id => id !== statusId);
+            await effect.update({ statuses: newStatuses });
+            if (newStatuses.length === 0 && effect.changes.length === 0
+                    && !effect.flags?.["tokyo-nova-axleration"]?.isBadStatus) {
+                await effect.delete();
             }
-        }
-    
-        const remainingUses = originalMiracle.system.usageCount.total;
-        if (remainingUses <= 0) {
-            ui.notifications.warn(`神業「${originalMiracle.name}」はこれ以上使用できません。`);
-            return;
-        }
-    
-        await originalMiracle.update({
-            "system.usageCount.total": remainingUses - 1,
-            "system.isUsed": remainingUses - 1 === 0 
-        });
-    
-        const originalDescription = await TextEditor.enrichHTML(originalMiracle.system.description, { async: true });
-        let nestedContent = ''; 
-    
-        if (useAsOther && targetMiracle.id !== originalMiracle.id) {
-            const selectedDescription = await TextEditor.enrichHTML(targetMiracle.system.description, { async: true });
-            nestedContent = `
-                <details class="nested-description">
-                    <summary><h4>発動効果: ${targetMiracle.name}</h4></summary>
-                    <div class="card-content">
-                        ${selectedDescription}
-                    </div>
-                </details>
-            `;
-        }
-
-        const miracleName = originalMiracle.name;
-        const miracleFurigana = originalMiracle.system.furigana;
-        let nameHtml;
-
-        if (miracleFurigana) {
-            nameHtml = `<ruby>${miracleName}<rt>${miracleFurigana}</rt></ruby>`;
         } else {
-            nameHtml = miracleName;
-        }
-    
-        const flavorText = `<h3>神業: ${nameHtml}</h3>`;
-        const chatContent = `
-        <details class="tnx-chat-card">
-            <summary>${flavorText}</summary>
-            <div class="card-content">
-                ${originalDescription}
-                ${nestedContent}
-            </div>
-        </details>
-        `;
-    
-        ChatMessage.create({
-            user: game.user.id,
-            speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-            content: chatContent, 
-            flags: { "core.canPopout": true }
-        });
-    
-        const notificationMessage = (useAsOther && targetMiracle.id !== originalMiracle.id)
-            ? `神業「${originalMiracle.name}」を使用し、「${targetMiracle.name}」の効果を発動しました。`
-            : `神業「${originalMiracle.name}」を使用しました。`;
-            
-        ui.notifications.info(notificationMessage);
-    }
-    
-    _onToggleEditMode(event) {
-        if (event) event.preventDefault();
-        this._isEditMode = !this._isEditMode;
-        this.render(false);
-    }
-    
-    _onToggleAbilityDetails(event) {
-        event.preventDefault();
-        const toggle = $(event.currentTarget);
-        const panel = toggle.closest('.ability-block').find('.ability-details-panel');
-        panel.slideToggle(200);
-        const icon = toggle.find('i');
-        icon.toggleClass('fa-chevron-down fa-chevron-up');
-    }
-
-    async _onGrowthChange(event) {
-        event.preventDefault();
-        const input = event.currentTarget;
-        const name = input.name; 
-        const newValue = parseInt(input.value, 10);
-        await this.actor.update({ [name]: newValue });
-    }
-
-    async _onSkillPropertyChange(event) {
-        event.preventDefault();
-        const input = event.currentTarget;
-        const itemId = input.closest('.item').dataset.itemId;
-        const item = this.actor.items.get(itemId);
-        if (!item) return;
-
-        const target = input.dataset.target; 
-        let newLevel = item.system.level;
-        let updateData = {};
-
-        if (target === "level") {
-            newLevel = parseInt(input.value, 10);
-            updateData["system.level"] = newLevel;
-        } else if (target === "suit") {
-            const suitKey = input.dataset.suit;
-            const isChecked = input.checked;
-            updateData[`system.suits.${suitKey}`] = isChecked;
-
-            const currentSuits = item.system.suits;
-            newLevel = 0;
-            const suitKeys = ["spade", "club", "heart", "diamond"];
-            for (const key of suitKeys) {
-                if (key === suitKey) {
-                    if (isChecked) newLevel++;
-                } else {
-                    if (currentSuits[key]) newLevel++;
-                }
-            }
-            updateData["system.level"] = newLevel;
-        }
-
-        // --- 経験点消費ロジック ---
-        const oldLevel = item.system.level;
-        
-        if (newLevel === oldLevel) {
-            await item.update(updateData);
-            return;
-        }
-
-        const expCostPerLevel = this._getSkillExpCost(item);
-        
-        // 【修正】system直下のプロパティを参照
-        const isInitialOnomastic = (item.type === 'generalSkill') && 
-                                   (item.system.generalSkillCategory === 'onomasticSkill') &&
-                                   (item.system.onomasticSkill?.isInitial);
-
-        let totalCost = 0;
-
-        if (isInitialOnomastic) {
-            const oldPaidLevel = Math.max(0, oldLevel - 1);
-            const newPaidLevel = Math.max(0, newLevel - 1);
-            totalCost = (newPaidLevel - oldPaidLevel) * expCostPerLevel;
-        } else {
-            const diff = newLevel - oldLevel;
-            totalCost = diff * expCostPerLevel;
-        }
-
-        const currentExp = this.actor.system.exp.value;
-
-        if (totalCost > 0 && totalCost > currentExp) {
-            if (target === "level") {
-                input.value = oldLevel;
-            } else if (target === "suit") {
-                input.checked = !input.checked; 
-            }
-            return;
-        }
-
-        if (totalCost !== 0) {
-            const newExp = currentExp - totalCost;
-            await this.actor.update({ "system.exp.value": newExp });
-        }
-
-        await item.update(updateData);
-    }
-
-    _prepareMiraclesForDisplay(miracles) {
-        const slots = [];
-        miracles.forEach(item => {
-            const itemData = item.toObject(false);
-            const usage = itemData.system.usageCount;
-    
-            if (typeof usage !== 'object' || usage === null) {
-                console.error(`アイテム「${item.name}」のusageCountが不正なデータです:`, usage);
-                return; 
-            }
-    
-            const maxUses = (usage.value) + (usage.mod);
-            const remainingUses = usage.total;
-    
-            for (let i = 0; i < maxUses; i++) {
-                const isDisabled = i >= remainingUses;
-                slots.push({
-                    ...itemData,
-                    isPlaceholder: false,
-                    instanceIndex: i,
-                    isDisabled: isDisabled
-                });
-            }
-        });
-        return slots;
-    }
-
-    /**
-     * 【修正】アイテム作成ハンドラ
-     * item.type ごとに適切な system データを初期化
-     */
-    async _onItemCreate(event) {
-        event.preventDefault();
-        const header = event.currentTarget;
-        const type = header.dataset.type; // "generalSkill", "styleSkill", "outfit" etc.
-        
-        // 1. 一般技能 (generalSkill)
-        if (type === 'generalSkill') {
-            const itemData = {
-                name: "新規一般技能",
-                type: "generalSkill",
-                system: {
-                    level: 0,
-                    generalSkillCategory: "onomasticSkill" // 【修正】system直下に設定
-                }
-            };
-            return await Item.create(itemData, {parent: this.actor});
-        } 
-        
-        // 2. スタイル技能 (styleSkill)
-        else if (type === 'styleSkill') {
-            const itemData = {
-                name: "新規スタイル技能",
-                type: "styleSkill",
-                system: {
-                    level: 0
-                }
-            };
-            return await Item.create(itemData, {parent: this.actor});
-        }
-        
-        // その他のアイテムタイプ
-        return await Item.create({name: `新規${type}`, type: type}, {parent: this.actor});
-    }
-
-    /**
-     * 【修正】経験点コスト取得ヘルパー
-     * system直下のプロパティを参照するように修正
-     */
-    _getSkillExpCost(item) {
-        const system = item.system;
-        
-        if (item.type === 'generalSkill') {
-            // 【修正】system.generalSkillCategory を参照
-            const genCategory = system.generalSkillCategory;
-            if (genCategory === 'onomasticSkill') {
-                return system.onomasticSkill?.expCost || 5;
-            }
-            if (genCategory === 'initialSkill') {
-                return system.initialSkill?.expCost || 10;
-            }
-            return 10;
-        }
-        
-        if (item.type === 'styleSkill') {
-            // 【修正】system.styleSkillCategory を参照
-            const styleCategory = system.styleSkillCategory;
-            
-            if (styleCategory === 'special') return system.special?.expCost || 10;
-            if (styleCategory === 'performance') return system.performance?.expCost || 2;
-            if (styleCategory === 'secret') return system.secret?.expCost || 20; 
-            if (styleCategory === 'mystery') return system.mystery?.expCost || 50; 
-            return 10;
-        }
-
-        return 0;
-    }
-
-    async _getHistoryData() {
-        if (this.actor.system.ownerUserId) {
-            const ownerUser = game.users.find(u => u.uuid === this.actor.system.ownerUserId);
-            if (ownerUser) {
-                return foundry.utils.deepClone(getUserFlagData(ownerUser).history ?? {});
-            }
-        }
-        if (this.actor.system.playerId) {
-            const player = await fromUuid(this.actor.system.playerId);
-            if (player) {
-                return foundry.utils.deepClone(player.system.history || {});
-            }
-        }
-        return foundry.utils.deepClone(this.actor.system.history || {});
-    }
-
-    async _saveHistoryData(newHistory) {
-        if (this.actor.system.ownerUserId) {
-            const ownerUser = game.users.find(u => u.uuid === this.actor.system.ownerUserId);
-            if (ownerUser) {
-                await saveUserFlagHistory(ownerUser, newHistory);
-                await this.actor.update({ "system.history": newHistory }, { calcExp: false });
-                return;
-            }
-        }
-        await this.actor.update({ "system.history": newHistory });
-        if (this.actor.system.playerId) {
-            try {
-                const player = await fromUuid(this.actor.system.playerId);
-                if (player) {
-                    const currentTotal = Number(this.actor.system.exp.total);
-                    await player.update({
-                        "system.history": newHistory,
-                        "system.exp.total": currentTotal,
-                    });
-                }
-            } catch (e) {
-                console.warn("Failed to sync with linked Record Sheet:", e);
-            }
+            await effect.delete();
         }
     }
 
-    async _updateExpTotal(diff) {
-        const currentTotal = Number(this.actor.system.exp.total);
-        await this.actor.update({
-            "system.exp.total": currentTotal + diff
-        });
-    }
-
-    /**
-     * ▼▼▼ 追加: プレイヤーリンク解除処理 ▼▼▼
-     */
-    async _onUnlinkPlayer(event) {
-        event.preventDefault();
-        
-        // 念のためIDがない場合は処理しない
-        if (!this.actor.system.playerId) return;
-
-        const confirm = await Dialog.confirm({
-            title: game.i18n.localize("TNX.Common.Unlink"),
-            content: `<p>${game.i18n.localize("TNX.ConfirmUnlinkPlayer")}</p>`,
-            defaultYes: false
-        });
-
-        if (confirm) {
-            await this.actor.update({ "system.playerId": "" });
-        }
-    }
+    // ─── 経験点計算(静的) ────────────────────────────────────────────────────
 
     static async updateCastExp(actor) {
         if (!actor || actor.type !== 'cast') return;
-
-        // 【修正】データ保護: 万が一データ構造が未構築なら構築を試みる
         if (!actor.system.exp) actor.prepareData();
 
         const abilities = ["reason", "passion", "life", "mundane"];
         let totalAbilityCost = 0;
         const allStyles = actor.items.filter(i => i.type === 'style');
+
         for (const key of abilities) {
-            let styleValue = 0;
-            let styleControl = 0;
+            let styleValue = 0, styleControl = 0;
             allStyles.forEach(s => {
                 const level = Number(s.system.level) || 1;
-                styleValue += (Number(s.system[key]?.value)) * level;
+                styleValue   += (Number(s.system[key]?.value))   * level;
                 styleControl += (Number(s.system[key]?.control)) * level;
             });
             const abilityData = actor.system[key];
-            const baseVal = styleValue + (Number(abilityData.mod)) + (Number(abilityData.effectMod));
-            totalAbilityCost += this._calcSingleAbilityCost(abilityData.growth, baseVal, false);
-            const baseCtrl = styleControl + (Number(abilityData.controlMod)) + (Number(abilityData.controlEffectMod));
+            const baseVal  = styleValue   + Number(abilityData.mod)        + Number(abilityData.effectMod);
+            const baseCtrl = styleControl + Number(abilityData.controlMod) + Number(abilityData.controlEffectMod);
+            totalAbilityCost += this._calcSingleAbilityCost(abilityData.growth,        baseVal,  false);
             totalAbilityCost += this._calcSingleAbilityCost(abilityData.controlGrowth, baseCtrl, true);
         }
+
         let totalItemCost = 0;
-        actor.items.forEach(item => {
-             totalItemCost += this._calcSingleItemCost(item);
-        });
-        const realSpent = totalAbilityCost + totalItemCost;
+        actor.items.forEach(item => { totalItemCost += this._calcSingleItemCost(item); });
+
+        const realSpent  = totalAbilityCost + totalItemCost;
         const initialExp = 170;
-
         const additional = Number(actor.system.exp?.additional);
-        let historyTotal = 0;
 
+        let historyTotal = 0;
         if (actor.system.ownerUserId && actor.system.syncWithOwner) {
-            // 2-2: User flag から履歴合計を取得(syncWithOwner が true の場合のみ)
             const ownerUser = game.users.find(u => u.uuid === actor.system.ownerUserId);
-            if (ownerUser) {
-                historyTotal = getUserFlagData(ownerUser).exp.total;
-            }
+            if (ownerUser) historyTotal = getUserFlagData(ownerUser).exp.total;
         } else {
-            const history = actor.system.history;
-            historyTotal = Object.values(history).reduce((sum, entry) => sum + (Number(entry.exp)), 0);
+            historyTotal = Object.values(actor.system.history)
+                .reduce((sum, entry) => sum + Number(entry.exp), 0);
         }
 
-        const newTotal = additional + historyTotal;
-        const newValue = (newTotal + initialExp) - realSpent;
-        const newActorSpent = realSpent - initialExp;
+        const newTotal       = additional + historyTotal;
+        const newValue       = (newTotal + initialExp) - realSpent;
+        const newActorSpent  = realSpent - initialExp;
 
-        if (actor.system.exp.total !== newTotal || actor.system.exp.value !== newValue || actor.system.exp.spent !== newActorSpent) {
-             await actor.update({
-                 "system.exp.total": newTotal,
-                 "system.exp.spent": newActorSpent,
-                 "system.exp.value": newValue
-             }, { calcExp: false });
+        if (actor.system.exp.total !== newTotal
+                || actor.system.exp.value !== newValue
+                || actor.system.exp.spent !== newActorSpent) {
+            await actor.update({
+                "system.exp.total":  newTotal,
+                "system.exp.spent":  newActorSpent,
+                "system.exp.value":  newValue
+            }, { calcExp: false });
         }
     }
 
     static _calcSingleAbilityCost(growth, base, isControl) {
         const g = Number(growth);
         if (g <= 0) return 0;
-        
         const threshold = isControl ? 17 : 11;
-        const costLow = 20; 
-        const costHigh = 40; 
-        
         let cost = 0;
         for (let i = 1; i <= g; i++) {
-            const currentVal = base + i;
-            cost += (currentVal < threshold) ? costLow : costHigh;
+            cost += ((base + i) < threshold) ? 20 : 40;
         }
         return cost;
     }
 
-    /**
-     * 【修正】経験点コスト計算ロジック
-     * system直下のプロパティを参照するように修正
-     */
     static _calcSingleItemCost(item) {
         const system = item.system;
-        const level = Number(system.level);
-        
-        // A. 一般技能
+        const level  = Number(system.level);
+
         if (item.type === 'generalSkill') {
             if (level <= 0) return 0;
-            // 【修正】system.generalSkillCategory
             const genCat = system.generalSkillCategory;
-            
             if (genCat === 'onomasticSkill') {
-                let costPerLevel = Number(system.onomasticSkill?.expCost) || 5;
-                if (system.onomasticSkill?.isInitial) {
-                    return Math.max(0, level - 1) * costPerLevel;
-                }
-                return level * costPerLevel;
-            } 
-            else if (genCat === 'initialSkill') {
-                let costPerLevel = Number(system.initialSkill?.expCost) || 10;
-                return Math.max(0, level - 1) * costPerLevel;
-            } 
-            else {
-                return level * 5; 
+                const cost = Number(system.onomasticSkill?.expCost) || 5;
+                return system.onomasticSkill?.isInitial ? Math.max(0, level - 1) * cost : level * cost;
             }
-        } 
-        
-        // B. スタイル技能
-        else if (item.type === 'styleSkill') {
-             if (level <= 0) return 0;
-             let costPerLevel = 10;
-             // 【修正】system.styleSkillCategory
-             const sCat = system.styleSkillCategory;
-             if (sCat === 'secret') costPerLevel = 20;
-             else if (sCat === 'mystery') costPerLevel = 50;
-             else if (sCat === 'special') costPerLevel = 10;
-             
-             return level * costPerLevel;
+            if (genCat === 'initialSkill') return Math.max(0, level - 1) * (Number(system.initialSkill?.expCost) || 10);
+            return level * 5;
         }
 
-        // C. その他のコストを持つアイテム
+        if (item.type === 'styleSkill') {
+            if (level <= 0) return 0;
+            const sCat = system.styleSkillCategory;
+            if (sCat === 'secret')  return level * 20;
+            if (sCat === 'mystery') return level * 50;
+            return level * 10;
+        }
+
         return Number(item.system.expCost);
     }
 }

@@ -1,11 +1,11 @@
-<form class="{{cssClass}} sheet-profile two-column-layout cast-sheet" autocomplete="off">
+<section class="sheet-profile two-column-layout cast-sheet">
     <aside class="profile-sidebar column left-column cast-sidebar">
         <div class="portrait-section">
-            <img class="profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}"/>
+            <img class="profile-img" src="{{actor.img}}" data-action="editImage" title="{{actor.name}}"/>
         </div>
         {{#if isEditMode}}
             <div class="control-group player-link-group">
-                    <button type="button" class="tnx-btn unlink-player-btn" title="{{localize 'TNX.Common.Unlink'}}" {{#unless system.playerId}}disabled{{/unless}}>
+                    <button type="button" class="tnx-btn unlink-player-btn" data-action="unlinkPlayer" title="{{localize 'TNX.Common.Unlink'}}" {{#unless system.playerId}}disabled{{/unless}}>
                         <i class="fas fa-unlink"></i>プレイヤーシートのリンク解除
                     </button>
                 </div>
@@ -206,12 +206,12 @@
      
         <section class="tabbed-content">
             <nav class="sheet-tabs tabs tnx-tabs" data-group="primary">
-                <a class="item" data-tab="abilities">{{localize "TNX.Ui.Tab.Abilities"}}</a>
-                <a class="item" data-tab="check">{{localize "TNX.Ui.Tab.Check"}}</a>
-                <a class="item" data-tab="outfits">{{localize "TNX.Ui.Tab.Outfits"}}</a>
-                <a class="item" data-tab="status">{{localize "TNX.Ui.Tab.Status"}}</a>
-                <a class="item" data-tab="history">{{localize "TNX.Ui.Tab.History"}}</a>
-                <a class="item" data-tab="profile">{{localize "TNX.Ui.Tab.Profile"}}</a>
+                <a class="item" data-tab="abilities" data-group="primary">{{localize "TNX.Ui.Tab.Abilities"}}</a>
+                <a class="item" data-tab="check"     data-group="primary">{{localize "TNX.Ui.Tab.Check"}}</a>
+                <a class="item" data-tab="outfits"   data-group="primary">{{localize "TNX.Ui.Tab.Outfits"}}</a>
+                <a class="item" data-tab="status"    data-group="primary">{{localize "TNX.Ui.Tab.Status"}}</a>
+                <a class="item" data-tab="history"   data-group="primary">{{localize "TNX.Ui.Tab.History"}}</a>
+                <a class="item" data-tab="profile"   data-group="primary">{{localize "TNX.Ui.Tab.Profile"}}</a>
             </nav>
             <section class="sheet-body tnx-body">
                 <div class="tab abilities" data-tab="abilities">
@@ -597,7 +597,7 @@
                     {{#if isEditMode}}
                     <div class="sync-toggle-row">
                         <label class="sync-toggle-label">
-                            <input type="checkbox" class="sync-with-owner-toggle"
+                            <input type="checkbox" name="system.syncWithOwner"
                                 {{checked system.syncWithOwner}}>
                             レコードシートと同期
                         </label>
@@ -611,4 +611,4 @@
             </section>
         </section>
     </section>
-</form>
+</section>

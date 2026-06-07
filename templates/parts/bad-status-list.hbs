@@ -2,7 +2,7 @@
     <div class="tnx-bs-grid">
         {{#each badStatuses as |bs|}}
         {{!-- クリックでBSを解除するためのボタン --}}
-        <button type="button" class="tnx-bs-btn active" data-effect-id="{{bs.id}}" data-status-id="{{bs.statusId}}" data-tooltip="{{bs.details}}">
+        <button type="button" class="tnx-bs-btn active" data-action="removeBadStatus" data-effect-id="{{bs.id}}" data-status-id="{{bs.statusId}}" data-tooltip="{{bs.details}}">
             
             <img src="{{bs.img}}" class="tnx-bs-icon"/>
             <span class="tnx-bs-label">{{bs.name}}</span>
