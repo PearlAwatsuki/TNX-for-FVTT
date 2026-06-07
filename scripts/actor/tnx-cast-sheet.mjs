@@ -516,6 +516,29 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             }
         ];
         new ContextMenu(el, ".style-skills-list .style-skill-row", styleSkillOptions);
+
+        // バッドステータス 閲覧モード: 左クリックでコンテキストメニュー
+        const badStatusViewMenu = [{
+            name:     "削除",
+            icon:     '<i class="fas fa-trash"></i>',
+            callback: async header => {
+                const effectId = header.dataset.effectId;
+                const statusId = header.dataset.statusId || null;
+                const effect   = this.actor.effects.get(effectId);
+                if (!effect) return;
+                if (statusId) {
+                    const newStatuses = Array.from(effect.statuses).filter(id => id !== statusId);
+                    await effect.update({ statuses: newStatuses });
+                    if (newStatuses.length === 0 && effect.changes.length === 0
+                            && !effect.flags?.["tokyo-nova-axleration"]?.isBadStatus) {
+                        await effect.delete();
+                    }
+                } else {
+                    await effect.delete();
+                }
+            }
+        }];
+        new ContextMenu(el, ".tnx-bs-btn--view", badStatusViewMenu, { eventName: "click" });
     }
 
     // ─── テキスト圧縮 ─────────────────────────────────────────────────────────

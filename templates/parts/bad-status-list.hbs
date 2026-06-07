@@ -1,20 +1,20 @@
 <div class="tnx-bs-container">
     <div class="tnx-bs-grid">
         {{#each badStatuses as |bs|}}
-        {{!-- クリックでBSを解除するためのボタン --}}
-        <button type="button" class="tnx-bs-btn active" data-action="removeBadStatus" data-effect-id="{{bs.id}}" data-status-id="{{bs.statusId}}" data-tooltip="{{bs.details}}">
-            
+        <button type="button"
+            class="tnx-bs-btn {{#if ../isEditMode}}tnx-bs-btn--edit{{else}}tnx-bs-btn--view{{/if}}"
+            {{#if ../isEditMode}}data-action="removeBadStatus"{{/if}}
+            data-effect-id="{{bs.id}}"
+            data-status-id="{{bs.statusId}}"
+            data-tooltip="{{bs.details}}">
             <img src="{{bs.img}}" class="tnx-bs-icon"/>
             <span class="tnx-bs-label">{{bs.name}}</span>
-            
-            {{!-- 解除可能であることを示すアイコン（バツ印など） --}}
-            <i class="fas fa-times tnx-bs-remove"></i>
+            {{#if ../isEditMode}}<i class="fas fa-times tnx-bs-remove"></i>{{/if}}
         </button>
         {{/each}}
-        
-        {{!-- 何も付与されていない場合の表示（必要に応じて使用） --}}
+
         {{#unless badStatuses.length}}
-        <span class="tnx-bs-empty" style="color: #777; font-size: 12px; grid-column: 1 / -1;">
+        <span class="tnx-bs-empty">
             現在受けているバッドステータスはありません。
         </span>
         {{/unless}}
