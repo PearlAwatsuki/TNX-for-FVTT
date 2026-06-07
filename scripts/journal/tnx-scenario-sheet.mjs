@@ -45,20 +45,6 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         },
     };
 
-    static TABS = {
-        primary: {
-            tabs: [
-                { id: "setting" },
-                { id: "scenario-info" },
-                { id: "scenes" },
-                { id: "texts" },
-                { id: "info" },
-            ],
-            initial: "setting",
-            group: "primary",
-        },
-    };
-
     tabGroups = { primary: "setting" };
 
     // ─── コンテキスト準備 ─────────────────────────────────────────────────────
@@ -103,6 +89,12 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
     _onRender(_context, _options) {
         this._setupContextMenus();
         this._setupChangeListeners();
+        for (const [group, tab] of Object.entries(this.tabGroups)) {
+            if (tab) {
+                try { this.changeTab(tab, group, { force: true, updatePosition: false }); }
+                catch(e) { console.warn("TnxScenarioSheet.changeTab failed:", e); }
+            }
+        }
     }
 
     // ─── 変更リスナー ─────────────────────────────────────────────────────────
