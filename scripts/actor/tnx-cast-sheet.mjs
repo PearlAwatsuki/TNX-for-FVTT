@@ -11,6 +11,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
     _isEditMode = false;
     tabGroups = { primary: "abilities" };
+    _scrollPositions = {};
 
     static DEFAULT_OPTIONS = {
         classes: ["tokyo-nova", "sheet", "actor", "cast"],
@@ -38,7 +39,6 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             openItemSheet:        TokyoNovaCastSheet._onOpenItemSheet,
             itemCreate:           TokyoNovaCastSheet._onItemCreate,
             itemDelete:           TokyoNovaCastSheet._onItemDelete,
-            unlinkPlayer:         TokyoNovaCastSheet._onUnlinkPlayer,
             removeBadStatus:      TokyoNovaCastSheet._onRemoveBadStatus,
             toggleAbilityDetails: TokyoNovaCastSheet._onToggleAbilityDetails,
         },
@@ -96,12 +96,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
         context.processedStylesForView = this._prepareStylesForView(allStyles);
 
-        if (this.actor.system.playerId) {
-            context.playerActor = await fromUuid(this.actor.system.playerId);
-        }
-
-        const historySource = context.playerActor ?? this.actor;
-        context.history = TnxHistoryMixin._prepareHistoryForDisplay(historySource.system.history);
+        context.history = TnxHistoryMixin._prepareHistoryForDisplay(this.actor.system.history);
 
         const bsList = [];
         this.actor.effects.forEach(e => {
@@ -148,6 +143,21 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     }
 
     // ─── レンダリング ──────────────────────────────────────────────────────────
+
+    async _preRender(_context, _options) {
+        if (!this.element) return;
+        this.element.classList.add("tnx-no-transitions");
+        this._scrollPositions = {};
+        for (const sel of [
+            ".profile-sidebar", ".sheet-body",
+            ".tab[data-tab='abilities']", ".tab[data-tab='check']",
+            ".tab[data-tab='outfits']",  ".tab[data-tab='status']",
+            ".tab[data-tab='history']",  ".tab[data-tab='profile']",
+        ]) {
+            const el = this.element.querySelector(sel);
+            if (el) this._scrollPositions[sel] = el.scrollTop;
+        }
+    }
 
     _onRender(context, _options) {
         const el = this.element;
@@ -214,6 +224,18 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         TnxHistoryMixin.activateHistoryListeners.call(this, el);
         this._activateContextMenus(el);
         this._applyTextSqueezing();
+
+        // 再描画後にスクロール位置を復元する
+        const saved = this._scrollPositions;
+        this._scrollPositions = {};
+        requestAnimationFrame(() => {
+            for (const [sel, top] of Object.entries(saved)) {
+                if (!top) continue;
+                const target = this.element?.querySelector(sel);
+                if (target) target.scrollTop = top;
+            }
+            this.element?.classList.remove("tnx-no-transitions");
+        });
     }
 
     // ─── 履歴更新(TnxHistoryMixin から呼ばれる) ──────────────────────────────
@@ -246,47 +268,8 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             }
         }
 
-        // B. player Actor にリンクしている場合
-        if (updateData["system.exp.total"] !== undefined) {
-            const historySum = updateData["system.exp.total"];
-            const additional = Number(this.actor.system.exp.additional);
-            updateData["system.exp.total"] = historySum + additional;
-        }
-
-        const playerId = this.actor.system.playerId;
-        if (playerId) {
-            const playerActor = await fromUuid(playerId);
-            if (playerActor) {
-                await playerActor.update(updateData);
-
-                const localHistory = this.actor.system.history;
-                const localUpdate  = {};
-                for (const [key, value] of Object.entries(updateData)) {
-                    if (key.startsWith("system.exp.")) {
-                        localUpdate[key] = value;
-                        continue;
-                    }
-                    if (key.startsWith("system.history")) {
-                        const parts = key.split(".");
-                        if (parts.length >= 3) {
-                            const historyId = parts[2];
-                            if (localHistory[historyId] || (parts.length === 3 && typeof value === 'object' && value !== null)) {
-                                localUpdate[key] = value;
-                            }
-                        }
-                    } else {
-                        localUpdate[key] = value;
-                    }
-                }
-                if (!foundry.utils.isEmpty(localUpdate)) {
-                    await this.actor.update(localUpdate);
-                }
-            }
-        } else {
-            // C. スタンドアロン
-            await this.actor.update(updateData);
-        }
-
+        // B. スタンドアロン
+        await this.actor.update(updateData);
         TokyoNovaCastSheet.updateCastExp(this.actor);
     }
 
@@ -369,35 +352,6 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     }
 
     // ─── ドラッグ&ドロップ ────────────────────────────────────────────────────
-
-    async _onDrop(event) {
-        let data;
-        try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch { return false; }
-
-        if (data.type === "Actor") {
-            const sourceActor = await fromUuid(data.uuid);
-            if (sourceActor && sourceActor.type === "player") {
-                if (sourceActor.uuid === this.actor.uuid) return false;
-
-                const mergedHistory = { ...sourceActor.system.history, ...this.actor.system.history };
-
-                const updatedPlayerDocs = await sourceActor.update({ "system.history": mergedHistory });
-                const latestPlayerActor = Array.isArray(updatedPlayerDocs) ? updatedPlayerDocs[0] : updatedPlayerDocs;
-
-                const updatedCastDocs = await this.actor.update({ "system.playerId": sourceActor.uuid });
-                const latestCastActor = Array.isArray(updatedCastDocs) ? updatedCastDocs[0] : updatedCastDocs;
-
-                if (latestCastActor && latestPlayerActor) {
-                    latestCastActor.prepareData();
-                    latestPlayerActor.prepareData();
-                    await TokyoNovaCastSheet.updateCastExp(latestCastActor, latestPlayerActor);
-                }
-                return true;
-            }
-        }
-
-        return super._onDrop(event);
-    }
 
     async _onDropItem(event, data) {
         if (!this.actor.isOwner) return false;
@@ -798,19 +752,6 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         if (confirmed) {
             await item.delete();
             this.render();
-        }
-    }
-
-    static async _onUnlinkPlayer(event, _target) {
-        event.preventDefault();
-        if (!this.actor.system.playerId) return;
-
-        const confirmed = await foundry.applications.api.DialogV2.confirm({
-            window:  { title: game.i18n.localize("TNX.Common.Unlink") },
-            content: `<p>${game.i18n.localize("TNX.ConfirmUnlinkPlayer")}</p>`
-        });
-        if (confirmed) {
-            await this.actor.update({ "system.playerId": "" });
         }
     }
 

@@ -2773,7 +2773,7 @@ form .sheet-notes.notes {
     font-size: 0.9em;
     color: var(--tnx-color-text-muted);
 }
-.suit-checkbox-tiny input {
+.suit-checkbox-tiny input[type="checkbox"] {
     display: none; /* チェックボックス本体は隠す */
 }
 .suit-checkbox-tiny input:checked + i {
@@ -3238,4 +3238,11 @@ ol.item-list {
     font-weight: bold;
     color: var(--tnx-color-text-dim);
     margin: 0;
+}
+
+/* 再描画中のトランジション抑制 (tnx-cast-sheet _preRender/_onRender で付け外し) */
+.tokyo-nova.sheet.tnx-no-transitions,
+.tokyo-nova.sheet.tnx-no-transitions * {
+    transition: none !important;
+    animation: none !important;
 }

@@ -3,14 +3,6 @@
         <div class="portrait-section">
             <img class="profile-img" src="{{actor.img}}" data-action="editImage" title="{{actor.name}}"/>
         </div>
-        {{#if isEditMode}}
-            <div class="control-group player-link-group">
-                    <button type="button" class="tnx-btn unlink-player-btn" data-action="unlinkPlayer" title="{{localize 'TNX.Common.Unlink'}}" {{#unless system.playerId}}disabled{{/unless}}>
-                        <i class="fas fa-unlink"></i>プレイヤーシートのリンク解除
-                    </button>
-                </div>
-            </div>
-        {{/if}}
         <div class="sidebar-personal-data-group">
             <h3 class="tnx-section-title tnx-section-title--sm">{{localize "TNX.Actor.Profile.Header"}}</h3>
             <div class="personal-data-grid">
@@ -595,8 +587,8 @@
 
                 <div class="tab history" data-group="primary" data-tab="history">
                     {{#if isEditMode}}
-                    <div class="sync-toggle-row">
-                        <label class="sync-toggle-label">
+                    <div class="checkbox-row">
+                        <label>
                             <input type="checkbox" name="system.syncWithOwner"
                                 {{checked system.syncWithOwner}}>
                             レコードシートと同期
