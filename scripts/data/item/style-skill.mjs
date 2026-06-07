@@ -5,8 +5,8 @@
  * 固有フィールド: styleSkillCategory / unique / style / comboSkill / maxLevel /
  *               timing / target / range / targetValue / confrontation /
  *               isFixedRange / isFixedTarget / isEssentialSkill / isSubstitute /
- *               substituteTarget / RewritedTarget / rewritingMiracleName /
- *               RewritingMiracle_ID / uses / special / performance / secret / mystery
+ *               substituteTarget / RewrittenTarget / rewritingMiracleName /
+ *               rewritingMiracleId / uses / special / performance / secret / mystery
  *
  * 準拠データ: template.json > Item.styleSkill(削除済み)
  *
@@ -25,8 +25,8 @@
  * - unique の initial は "none"。template.json は "" だが、シートの選択肢定義
  *   (TnxSkillUtils.getSkillOptions)で先頭が "none" であり、これが正しいデフォルト値。
  *
- * - RewritedTarget / RewritingMiracle_ID は typo・命名揺れだが、シート・ロジックが
- *   参照するため本フェーズではリネームせず維持(KI-018 / KI-019 参照)。
+ * - RewrittenTarget / rewritingMiracleId: KI-018/KI-019 で旧 typo 名(RewritedTarget /
+ *   RewritingMiracle_ID)から正規化済み。テンプレート・ロジックの参照なしのため移行不要。
  *
  * - styleSkillCategory / unique の enum 型化は将来フェーズで対応。
  *
@@ -111,10 +111,10 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
       // 代替ターゲット(単純な文字列配列。シートコメント: "単純な文字列の配列として扱います")
       substituteTarget: new fields.ArrayField(new fields.StringField()),
 
-      // 書き換え神業関連(typo・命名揺れは template.json のまま維持。KI-018/KI-019 参照)
-      RewritedTarget:       new fields.StringField({ initial: "" }),
+      // 書き換え神業関連(KI-018/KI-019: typo・命名揺れを正規化済み)
+      RewrittenTarget:      new fields.StringField({ initial: "" }),
       rewritingMiracleName: new fields.StringField({ initial: "" }),
-      RewritingMiracle_ID:  new fields.StringField({ initial: "" }),
+      rewritingMiracleId:   new fields.StringField({ initial: "" }),
 
       // 使用回数(outfitBase.uses と同型だが styleSkill 固有の別フィールド)
       uses: new fields.SchemaField({

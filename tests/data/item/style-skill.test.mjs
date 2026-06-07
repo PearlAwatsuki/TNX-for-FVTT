@@ -122,10 +122,10 @@ describe("StyleSkillDataModel.defineSchema()", () => {
     });
   });
 
-  describe("書き換え神業関連フィールド(typo・命名揺れ維持)", () => {
-    it("RewritedTarget は StringField で initial が ''", () => {
-      expect(schema.RewritedTarget).toBeInstanceOf(MockStringField);
-      expect(schema.RewritedTarget.options.initial).toBe("");
+  describe("書き換え神業関連フィールド(KI-018/019 正規化済み)", () => {
+    it("RewrittenTarget は StringField で initial が ''", () => {
+      expect(schema.RewrittenTarget).toBeInstanceOf(MockStringField);
+      expect(schema.RewrittenTarget.options.initial).toBe("");
     });
 
     it("rewritingMiracleName は StringField で initial が ''", () => {
@@ -133,9 +133,9 @@ describe("StyleSkillDataModel.defineSchema()", () => {
       expect(schema.rewritingMiracleName.options.initial).toBe("");
     });
 
-    it("RewritingMiracle_ID は StringField で initial が ''", () => {
-      expect(schema.RewritingMiracle_ID).toBeInstanceOf(MockStringField);
-      expect(schema.RewritingMiracle_ID.options.initial).toBe("");
+    it("rewritingMiracleId は StringField で initial が ''", () => {
+      expect(schema.rewritingMiracleId).toBeInstanceOf(MockStringField);
+      expect(schema.rewritingMiracleId.options.initial).toBe("");
     });
   });
 
