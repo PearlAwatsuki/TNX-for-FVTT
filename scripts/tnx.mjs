@@ -756,7 +756,7 @@ Hooks.once("init", async function() {
 Hooks.once("ready", async function() {
     game.tnx = game.tnx || {}
     game.tnx.hud = new TnxHud();
-    game.tnx.hud.render(true);
+    game.tnx.hud.render({ force: true });
 
     // 2-1/2-2: ownerUserId 未記録キャストの起動時初期化
     // Phase 2-1 デプロイ前に ownership が設定済みのキャストはここで補完する
