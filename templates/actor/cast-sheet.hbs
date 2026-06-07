@@ -206,15 +206,15 @@
      
         <section class="tabbed-content">
             <nav class="sheet-tabs tabs tnx-tabs" data-group="primary">
-                <a class="item" data-tab="abilities" data-group="primary">{{localize "TNX.Ui.Tab.Abilities"}}</a>
-                <a class="item" data-tab="check"     data-group="primary">{{localize "TNX.Ui.Tab.Check"}}</a>
-                <a class="item" data-tab="outfits"   data-group="primary">{{localize "TNX.Ui.Tab.Outfits"}}</a>
-                <a class="item" data-tab="status"    data-group="primary">{{localize "TNX.Ui.Tab.Status"}}</a>
-                <a class="item" data-tab="history"   data-group="primary">{{localize "TNX.Ui.Tab.History"}}</a>
-                <a class="item" data-tab="profile"   data-group="primary">{{localize "TNX.Ui.Tab.Profile"}}</a>
+                <a class="item" data-action="tab" data-tab="abilities" data-group="primary">{{localize "TNX.Ui.Tab.Abilities"}}</a>
+                <a class="item" data-action="tab" data-tab="check"     data-group="primary">{{localize "TNX.Ui.Tab.Check"}}</a>
+                <a class="item" data-action="tab" data-tab="outfits"   data-group="primary">{{localize "TNX.Ui.Tab.Outfits"}}</a>
+                <a class="item" data-action="tab" data-tab="status"    data-group="primary">{{localize "TNX.Ui.Tab.Status"}}</a>
+                <a class="item" data-action="tab" data-tab="history"   data-group="primary">{{localize "TNX.Ui.Tab.History"}}</a>
+                <a class="item" data-action="tab" data-tab="profile"   data-group="primary">{{localize "TNX.Ui.Tab.Profile"}}</a>
             </nav>
             <section class="sheet-body tnx-body">
-                <div class="tab abilities" data-tab="abilities">
+                <div class="tab abilities" data-group="primary" data-tab="abilities">
                     {{#if isEditMode}}
                         <h2 class="tnx-section-title">{{localize "TNX.Ui.Header.AbilityControl"}}</h2>
                         <div class="abilities-grid edit-mode-layout">
@@ -477,9 +477,9 @@
                     </div>
                 </div>
 
-                <div class="tab check" data-tab="check"></div>
+                <div class="tab check" data-group="primary" data-tab="check"></div>
 
-                <div class="tab outfits" data-tab="outfits">
+                <div class="tab outfits" data-group="primary" data-tab="outfits">
                     {{!-- 編集モード --}}
                     {{#if isEditMode}}
                         <div class="outfit-groups-container">
@@ -588,12 +588,12 @@
                     {{/if}}
                 </div>
 
-                <div class="tab status" data-tab="status">
+                <div class="tab status" data-group="primary" data-tab="status">
                     {{> "systems/tokyo-nova-axleration/templates/parts/active-effects-list.hbs"}}
                     {{> "systems/tokyo-nova-axleration/templates/parts/bad-status-list.hbs"}}
                 </div>
 
-                <div class="tab history" data-tab="history">
+                <div class="tab history" data-group="primary" data-tab="history">
                     {{#if isEditMode}}
                     <div class="sync-toggle-row">
                         <label class="sync-toggle-label">
@@ -606,7 +606,7 @@
                     {{> "systems/tokyo-nova-axleration/templates/parts/history-list.hbs"}}
                 </div>
 
-                <div class="tab profile" data-tab="profile"></div>
+                <div class="tab profile" data-group="primary" data-tab="profile"></div>
 
             </section>
         </section>
