@@ -20,7 +20,6 @@
   
               <div class="tnx-editor-section__header">
                     <label>{{localize "TNX.Common.Description"}}</label>
-                    {{#if editable}}<a class="tnx-editor-open" data-field="system.description"><i class="fa-solid fa-pen-to-square"></i></a>{{/if}}
                 </div>
                 <div class="tnx-editor-section__content">
                     {{editor enrichedDescription target="system.description" engine="prosemirror" button=true owner=owner editable=editable}}      

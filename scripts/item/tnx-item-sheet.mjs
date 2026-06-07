@@ -110,10 +110,6 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
                 pm.dataset.documentUuid = this.document.uuid;
                 editorDiv.replaceWith(pm);
             }
-            for (const btn of el.querySelectorAll(".tnx-editor-section__header .tnx-editor-open[data-field]")) {
-                const pm = el.querySelector(`prose-mirror[name="${btn.dataset.field}"]`);
-                if (pm) btn.addEventListener("click", (ev) => { ev.preventDefault(); pm.open = true; });
-            }
         }
 
         // usage-list.hbs は変更不可のため data-action ではなく直接リスナーで対応する
