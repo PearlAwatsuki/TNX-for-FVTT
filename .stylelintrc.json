@@ -1,0 +1,16 @@
+{
+  "rules": {
+    "no-duplicate-selectors": true,
+    "declaration-block-no-duplicate-properties": [
+      true,
+      { "ignore": ["consecutive-duplicates-with-different-syntaxes"] }
+    ],
+    "block-no-empty": true,
+    "color-no-invalid-hex": true,
+    "selector-type-no-unknown": [
+      true,
+      { "ignore": ["custom-elements"] }
+    ],
+    "no-invalid-double-slash-comments": true
+  }
+}
