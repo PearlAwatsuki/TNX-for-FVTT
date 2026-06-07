@@ -14,7 +14,7 @@
       "discord": ""
     }],
     "esmodules": ["scripts/tnx.mjs"],
-    "styles": ["css/tnx.css"],
+    "styles": ["css/tnx.css", "css/tnx2.css"],
     "languages": [{
       "lang": "ja",
       "name": "Japanese",
