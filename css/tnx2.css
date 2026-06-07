@@ -2769,7 +2769,7 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 }
 
 .tnx-hud .hud-bottom-bar {
-    bottom: 70px;
+    bottom: 80px;
     left: 260px;
     display: flex;
     gap: 5px;
