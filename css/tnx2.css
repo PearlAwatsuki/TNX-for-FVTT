@@ -845,20 +845,24 @@
     color: var(--tnx2-text-primary);
     padding: 8px 10px;
 }
-/* prose-mirror 内蔵の editor-edit ボタン: TNX デザインに合わせてスタイリング */
-.tokyo-nova .tnx-editor-section .editor-edit {
+/* トグルボタンはJSでヘッダーへ移動済み: ヘッダー内でのスタイル */
+.tokyo-nova .tnx-editor-section__header button.toggle {
     background: transparent;
-    border: 1px solid var(--tnx2-border-subtle);
-    border-radius: var(--tnx2-radius);
+    border: none;
     color: var(--tnx2-text-muted);
-    font-size: 0.78em;
+    font-size: 0.9em;
     cursor: pointer;
-    padding: 2px 6px;
-    transition: color var(--tnx2-transition-fast), border-color var(--tnx2-transition-fast);
+    padding: 2px 4px;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: color var(--tnx2-transition-fast);
 }
-.tokyo-nova .tnx-editor-section .editor-edit:hover {
+.tokyo-nova .tnx-editor-section__header button.toggle:hover:not([disabled]) {
     color: var(--tnx2-accent);
-    border-color: var(--tnx2-accent);
+}
+.tokyo-nova .tnx-editor-section__header button.toggle[disabled] {
+    opacity: 0.3;
+    cursor: default;
 }
 
 /* ----------------------------------------------------------------

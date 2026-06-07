@@ -109,6 +109,17 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
                 });
                 pm.dataset.documentUuid = this.document.uuid;
                 editorDiv.replaceWith(pm);
+                // トグルボタンをヘッダーへ移動する（Foundry デフォルトはhover時のみ表示・エリア右上絶対配置）
+                const section = pm.closest(".tnx-editor-section");
+                const sectionHeader = section?.querySelector(".tnx-editor-section__header");
+                if (sectionHeader) {
+                    const moveBtn = () => {
+                        const btn = pm.querySelector("button.toggle");
+                        if (btn) sectionHeader.appendChild(btn);
+                    };
+                    requestAnimationFrame(moveBtn);
+                    pm.addEventListener("close", () => requestAnimationFrame(moveBtn));
+                }
             }
         }
 
