@@ -17,6 +17,9 @@
     12.  テキストエディタセクション
     13.  キャストシート: バッドステータスグリッド
     14.  キャストシート: パーソナルデータ / ヘッダーラベル英語化
+    15.  アイテムシート共通
+    16.  アイテムシート: スキル系共通 (スーツ / レベル / スキル表示グリッド)
+    17.  アイテムシート: スタイル固有 (アビリティグリッド)
    ================================================================
    セレクタの設計指針:
      - .tokyo-nova        : 色・文字サイズ等の無害なグローバル値のみ
@@ -174,18 +177,72 @@
 
 /* 編集モード切替トグル */
 .tokyo-nova.sheet .edit-mode-toggle {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
     background-color: var(--tnx2-border-active);
     border: 1px solid var(--tnx2-accent-dim);
+    border-radius: 13px;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+    -webkit-appearance: none;
+    appearance: none;
+    padding: 0;
+    flex-shrink: 0;
+    margin-right: auto;
+    margin-left: 0;
 }
 .tokyo-nova.sheet .edit-mode-toggle::after {
+    content: '';
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 16px;
+    height: 16px;
     background-color: var(--tnx2-text-secondary);
+    border-radius: 50%;
+    transition: left 0.2s ease-in-out;
+}
+.tokyo-nova.sheet .edit-mode-toggle .tnx-view-icon,
+.tokyo-nova.sheet .edit-mode-toggle .tnx-edit-icon {
+    position: absolute;
+    top: 50%;
+    left: 1px;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: var(--tnx2-border-active);
+    z-index: 1;
+    pointer-events: none;
+    transition: left 0.2s ease-in-out;
+}
+.tokyo-nova.sheet .edit-mode-toggle .tnx-edit-icon {
+    display: none;
+}
+.tokyo-nova.sheet .window-header .edit-mode-toggle:hover::after {
+    box-shadow: 0 0 4px var(--tnx2-accent);
+    background-color: var(--tnx2-accent);
 }
 .tokyo-nova.sheet.edit-mode .edit-mode-toggle {
     background-color: var(--tnx2-accent-dim);
     border-color: var(--tnx2-accent);
 }
 .tokyo-nova.sheet.edit-mode .edit-mode-toggle::after {
+    left: 17px;
     background-color: var(--tnx2-accent);
+}
+.tokyo-nova.sheet.edit-mode .edit-mode-toggle .tnx-view-icon {
+    display: none;
+}
+.tokyo-nova.sheet.edit-mode .edit-mode-toggle .tnx-edit-icon {
+    display: flex;
+    left: 17px;
+    color: var(--tnx2-accent-dim);
 }
 
 /* ----------------------------------------------------------------
@@ -616,6 +673,66 @@
     border-left: 2px solid var(--tnx2-accent);
     background: var(--tnx2-bg-hover);
 }
+.tnx-item-list__row--header {
+    background: var(--tnx2-bg-3);
+    font-size: 0.82em;
+    color: var(--tnx2-text-muted);
+    font-family: var(--tnx2-font-mono);
+    letter-spacing: 0.04em;
+}
+/* エフェクトリスト列 */
+.tnx-item-list__column--main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+.tnx-item-list__column--main h4,
+.tnx-item-list__column--main h5 {
+    margin: 0;
+    font-size: 0.9em;
+    border: none;
+    font-weight: 600;
+    color: var(--tnx2-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.tnx-item-list__column--main h4.disabled {
+    color: var(--tnx2-text-muted);
+    text-decoration: line-through;
+}
+.tnx-item-list__column--duration {
+    flex: 0 0 80px;
+    text-align: center;
+    font-size: 0.82em;
+    color: var(--tnx2-text-muted);
+    font-family: var(--tnx2-font-mono);
+}
+.tnx-item-list__column--controls {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+.tnx-item-list .effect-image {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    border: none;
+    flex-shrink: 0;
+    border-radius: 2px;
+}
+.tnx-item-list .item-list-body {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 2px;
+}
 
 /* ----------------------------------------------------------------
    10. 汎用ユーティリティ
@@ -686,7 +803,10 @@
    ---------------------------------------------------------------- */
 
 .tokyo-nova .tnx-editor-section__header {
-    border-bottom-color: var(--tnx2-border-active);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--tnx2-border-active);
     padding-bottom: 6px;
     margin-bottom: 10px;
 }
@@ -722,6 +842,11 @@
 }
 .tokyo-nova .tnx-editor-section__content prose-mirror .ProseMirror {
     color: var(--tnx2-text-primary);
+}
+/* prose-mirror 内蔵の editor-edit ボタンを非表示 (ヘッダーの tnx-editor-open と重複するため) */
+.tokyo-nova .tnx-editor-section__content prose-mirror .editor-edit,
+.tokyo-nova .tnx-editor-section__content prose-mirror button.editor-edit {
+    display: none !important;
 }
 
 /* ----------------------------------------------------------------
@@ -962,4 +1087,2459 @@
     color: var(--tnx2-text-secondary);
     display: inline-block;
     margin-right: 8px;
+}
+
+/* ================================================================
+   15. アイテムシート共通
+   ================================================================ */
+
+/* ── ヘッダー ──────────────────────────────────────────────────── */
+.tokyo-nova.sheet.item .sheet-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--tnx2-border-active);
+    background: var(--tnx2-bg-2);
+    flex-shrink: 0;
+}
+.tokyo-nova.sheet.item .sheet-header .profile-img {
+    flex: 0 0 56px;
+    width: 56px;
+    height: 56px;
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    object-fit: cover;
+    cursor: pointer;
+}
+.tokyo-nova.sheet.item .sheet-header .header-fields {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* 名前入力 */
+.tokyo-nova.sheet.item .sheet-header .charname,
+.tokyo-nova.sheet.item .sheet-header .charname-container {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.tokyo-nova.sheet.item .sheet-header .charname input,
+.tokyo-nova.sheet.item .sheet-header .itemname-input {
+    width: 100%;
+    height: auto;
+    margin: 0;
+    padding: 2px 6px;
+    font-size: 1.1em;
+    font-weight: 700;
+    color: var(--tnx2-text-primary);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--tnx2-radius);
+    transition: border-color var(--tnx2-transition-fast),
+                background   var(--tnx2-transition-fast);
+}
+.tokyo-nova.sheet.item .sheet-header .charname input:focus,
+.tokyo-nova.sheet.item .sheet-header .itemname-input:focus {
+    background: var(--tnx2-bg-3);
+    border-color: var(--tnx2-accent);
+    outline: none;
+}
+
+/* 英語名入力 (スタイル名下に細く配置) */
+.tokyo-nova.sheet.item .sheet-header .nameen-input {
+    width: 100%;
+    height: 20px;
+    margin: 0;
+    font-size: 14px;
+    font-family: var(--tnx2-font-mono);
+    font-weight: normal;
+    letter-spacing: 0.04em;
+    color: var(--tnx2-text-muted);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--tnx2-radius);
+    transition: border-color var(--tnx2-transition-fast),
+                background   var(--tnx2-transition-fast);
+}
+.tokyo-nova.sheet.item .sheet-header .nameen-input:focus {
+    background: var(--tnx2-bg-3);
+    border-color: var(--tnx2-border-active);
+    outline: none;
+}
+
+/* フリガナ入力 */
+.tokyo-nova.sheet.item .sheet-header .furigana-input {
+    width: 100%;
+    padding: 2px 6px;
+    font-size: 0.78em;
+    color: var(--tnx2-text-muted);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--tnx2-radius);
+    transition: border-color var(--tnx2-transition-fast),
+                background   var(--tnx2-transition-fast);
+}
+.tokyo-nova.sheet.item .sheet-header .furigana-input:focus {
+    background: var(--tnx2-bg-3);
+    border-color: var(--tnx2-border-active);
+    outline: none;
+}
+
+/* ── タブ (actor / item 共通) ───────────────────────────────────── */
+.tokyo-nova.sheet.actor .sheet-tabs,
+.tokyo-nova.sheet.item .sheet-tabs {
+    display: flex;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--tnx2-border-active);
+    background: var(--tnx2-bg-1);
+}
+.tokyo-nova.sheet.actor .sheet-tabs .item,
+.tokyo-nova.sheet.item .sheet-tabs .item {
+    padding: 6px 12px;
+    font-size: 0.92em;
+    font-family: var(--tnx2-font-mono);
+    letter-spacing: 0.04em;
+    color: var(--tnx2-text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    text-shadow: none;
+    transition: color         var(--tnx2-transition-fast),
+                border-color  var(--tnx2-transition-fast);
+}
+.tokyo-nova.sheet.actor .sheet-tabs .item:hover,
+.tokyo-nova.sheet.item .sheet-tabs .item:hover {
+    color: var(--tnx2-text-secondary);
+}
+.tokyo-nova.sheet.actor .sheet-tabs .item.active,
+.tokyo-nova.sheet.item .sheet-tabs .item.active {
+    color: var(--tnx2-accent);
+    border-bottom-color: var(--tnx2-accent);
+    text-shadow: none;
+}
+
+/* ── ボディ ─────────────────────────────────────────────────────── */
+.tokyo-nova.sheet.item .sheet-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+}
+
+/* ── フォーム共通 ────────────────────────────────────────────────── */
+.tokyo-nova.sheet.item .form-group input.ability-value {
+    text-align: center;
+    width: 52px;
+    height: auto;
+}
+
+/* ================================================================
+   16. アイテムシート: スキル系共通
+   ================================================================ */
+
+/* ── スキルヘッダー (スーツ + レベル) ──────────────────────────── */
+.tokyo-nova.sheet.item .sheet-header.skill-header {
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* スーツ選択 */
+.tokyo-nova.sheet.item .suit-selection {
+    display: flex;
+    gap: 3px;
+}
+.tokyo-nova.sheet.item .suit-selection input[type="checkbox"] {
+    display: none;
+}
+.tokyo-nova.sheet.item .suit-selection .suit-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    color: var(--tnx2-text-muted);
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: color         var(--tnx2-transition-fast),
+                border-color  var(--tnx2-transition-fast),
+                background    var(--tnx2-transition-fast);
+}
+.tokyo-nova.sheet.item .suit-selection .suit-icon:hover {
+    color: var(--tnx2-text-secondary);
+    border-color: var(--tnx2-border-active);
+}
+.tokyo-nova.sheet.item .suit-selection input[type="checkbox"]:checked + i {
+    color: var(--tnx2-accent);
+}
+.tokyo-nova.sheet.item .suit-selection input[type="checkbox"]:checked ~ .suit-icon,
+.tokyo-nova.sheet.item .suit-selection input[type="checkbox"]:checked + i {
+    color: var(--tnx2-accent);
+}
+/* label全体のチェック済みスタイル */
+.tokyo-nova.sheet.item .suit-selection .suit-icon:has(input:checked) {
+    color: var(--tnx2-accent);
+    border-color: var(--tnx2-accent);
+    background: rgba(0, 200, 255, 0.08);
+}
+.tokyo-nova.sheet.item .suit-selection input[type="checkbox"]:disabled + i {
+    color: var(--tnx2-text-muted);
+    opacity: 0.5;
+}
+
+/* レベル表示 */
+.tokyo-nova.sheet.item .sheet-header .level-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}
+.tokyo-nova.sheet.item .sheet-header .level-display label {
+    font-size: 0.72em;
+    font-family: var(--tnx2-font-mono);
+    color: var(--tnx2-text-muted);
+    letter-spacing: 0.04em;
+}
+.tokyo-nova.sheet.item .sheet-header .level-display input {
+    width: 44px;
+    text-align: center;
+    font-family: var(--tnx2-font-mono);
+    font-size: 1.2em;
+    font-weight: 700;
+    color: var(--tnx2-accent);
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    padding: 2px 0;
+}
+
+/* スタイル技能 説明タブ: スキル情報サマリー */
+.style-skill-display {
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    padding: 10px;
+    margin-bottom: 14px;
+}
+.style-skill-display-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 12px;
+}
+.style-skill-display-grid .full-width-row {
+    grid-column: 1 / -1;
+}
+.style-skill-display-grid > div {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    font-size: 0.85em;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    padding-bottom: 3px;
+}
+.style-skill-display label {
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.82em;
+    color: var(--tnx2-text-muted);
+    white-space: nowrap;
+}
+.style-skill-display span {
+    color: var(--tnx2-text-primary);
+    font-size: 0.88em;
+}
+
+/* ================================================================
+   17. アイテムシート: スタイル固有
+   ================================================================ */
+
+/* アビリティグリッド */
+.tokyo-nova.sheet.item .abilities-grid.edit-mode-layout {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 8px;
+}
+.tokyo-nova.sheet.item .ability-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 6px 8px;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+}
+.tokyo-nova.sheet.item .ability-block h3 {
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.88em;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--tnx2-text-secondary);
+    margin: 0;
+    text-transform: uppercase;
+    border: none;
+}
+.tokyo-nova.sheet.item .value-control-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+.tokyo-nova.sheet.item .value-control-wrapper input {
+    width: 40px;
+    text-align: center;
+    font-family: var(--tnx2-font-mono);
+    font-size: 1em;
+    font-weight: 700;
+    color: var(--tnx2-text-primary);
+    padding: 2px 0;
+}
+.tokyo-nova.sheet.item .value-control-wrapper .separator {
+    color: var(--tnx2-text-muted);
+    font-size: 0.9em;
+}
+
+/* ================================================================
+   18. キャストシート: 全体レイアウト
+   ================================================================ */
+
+.tokyo-nova.sheet.actor .window-content {
+    overflow: hidden;
+}
+
+.tokyo-nova.sheet.actor .two-column-layout {
+    display: flex;
+    height: 100%;
+}
+
+.tokyo-nova.sheet.actor .profile-sidebar {
+    flex: 0 0 220px;
+    padding: 10px;
+    border-right: 1px solid var(--tnx2-border-subtle);
+    background: var(--tnx2-bg-2);
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    overflow-y: auto;
+}
+
+.tokyo-nova.sheet.actor .main-content-area {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* ── サイドバー内: プロフィール画像 ──────────────────────────── */
+.tokyo-nova.sheet.actor .profile-sidebar .portrait-section .profile-img {
+    max-width: 180px;
+    height: auto;
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    display: block;
+    margin: 0 auto;
+}
+
+/* ── サイドバー内: 編集コントロール ──────────────────────────── */
+.tokyo-nova.sheet.actor .profile-sidebar .sidebar-edit-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.tokyo-nova.sheet.actor .profile-sidebar .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.tokyo-nova.sheet.actor .profile-sidebar .control-group > label {
+    font-weight: bold;
+    color: var(--tnx2-text-muted);
+    font-size: 1.1em;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    padding-bottom: 3px;
+    margin-bottom: 2px;
+}
+
+.tokyo-nova.sheet.actor .profile-sidebar .hand-controls.horizontal-buttons {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 10px;
+}
+
+.tokyo-nova.sheet.actor .profile-sidebar .hand-controls.horizontal-buttons .tnx-btn {
+    padding: 0 6px;
+    gap: 4px;
+    font-size: 13px;
+}
+
+.tokyo-nova.sheet.actor .profile-sidebar .hand-cards-display {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    min-height: 100px;
+}
+
+.tokyo-nova.sheet.actor .profile-sidebar .card-in-hand.interactive {
+    cursor: pointer;
+    border: 2px solid transparent;
+    border-radius: 4px;
+    background: #222;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    transition: transform var(--tnx2-transition-fast), border-color var(--tnx2-transition-fast);
+    width: 95px;
+    height: auto;
+    flex-shrink: 0;
+}
+
+.tokyo-nova.sheet.actor .profile-sidebar .card-in-hand.interactive img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: var(--tnx2-radius);
+}
+
+.tokyo-nova.sheet.actor .profile-sidebar .card-in-hand.interactive:hover {
+    transform: translateY(-4px) scale(1.05);
+    border-color: var(--tnx2-accent);
+    box-shadow: 0 4px 15px var(--tnx2-accent-glow);
+}
+
+.tokyo-nova.sheet.actor .profile-sidebar .hand-empty-placeholder,
+.tokyo-nova.sheet.actor .no-item-linked-message {
+    width: 100%;
+    text-align: center;
+    font-style: italic;
+    color: var(--tnx2-text-muted);
+    padding: 20px 0;
+}
+
+/* ── プロフィールヘッダー ─────────────────────────────────────── */
+.tokyo-nova.sheet.actor .profile-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 10px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    gap: 10px;
+    position: relative;
+    flex-shrink: 0;
+    background: var(--tnx2-bg-2);
+}
+
+.tokyo-nova.sheet.actor .profile-header .header-content-wrapper {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    gap: 8px;
+}
+
+.tokyo-nova.sheet.actor .profile-header .identity-section .identity-view-mode {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5em;
+    flex-wrap: wrap;
+}
+
+.tokyo-nova.sheet.actor .profile-header .identity-view-mode .quote-mark {
+    font-size: 1.6em;
+    font-weight: bold;
+    color: var(--tnx2-text-accent);
+    line-height: 1;
+}
+
+.tokyo-nova.sheet.actor .profile-header .identity-view-mode .handle-ruby-view rb {
+    font-size: 1.6em;
+    font-weight: bold;
+    color: var(--tnx2-text-accent);
+    margin: 0 0.1em;
+}
+
+.tokyo-nova.sheet.actor .profile-header .identity-view-mode .handle-ruby-view rt {
+    font-size: 0.65em;
+    color: var(--tnx2-text-secondary);
+}
+
+.tokyo-nova.sheet.actor .profile-header .identity-view-mode .char-name-ruby-view rb {
+    font-size: 1.9em;
+    font-weight: bold;
+    color: var(--tnx2-text-accent);
+}
+
+.tokyo-nova.sheet.actor .profile-header .identity-view-mode .char-name-ruby-view rt {
+    font-size: 0.7em;
+    color: var(--tnx2-text-secondary);
+}
+
+.tokyo-nova.sheet.actor .profile-header .identity-edit-mode {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.tokyo-nova.sheet.actor .profile-header .identity-edit-mode .char-name-block-edit,
+.tokyo-nova.sheet.actor .profile-header .identity-edit-mode .handle-block-edit {
+    display: flex;
+    gap: 3px;
+}
+
+.tokyo-nova.sheet.actor .profile-header .identity-edit-mode label {
+    font-size: 0.9em;
+    color: var(--tnx2-text-muted);
+}
+
+.tokyo-nova.sheet.actor .profile-header .identity-edit-mode input[type="text"] {
+    padding: 4px 6px;
+    font-size: 1.1em;
+}
+
+.tokyo-nova.sheet.actor .profile-header .middle-header-section {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
+}
+
+.tokyo-nova.sheet.actor .profile-header .rank-affiliation-wrapper {
+    display: flex;
+    align-items: baseline;
+    gap: 30px;
+    flex-grow: 1;
+    flex-wrap: wrap;
+}
+
+.tokyo-nova.sheet.actor .profile-header .view-mode-rank,
+.tokyo-nova.sheet.actor .profile-header .view-mode-affiliation {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+}
+
+.tokyo-nova.sheet.actor .profile-header .middle-header-section .view-mode-label {
+    font-size: 1.1em;
+    color: var(--tnx2-text-secondary);
+}
+
+.tokyo-nova.sheet.actor .profile-header .citizen-rank-block .view-mode-value {
+    font-size: 2em;
+    color: var(--tnx2-accent);
+    font-weight: bold;
+}
+
+.tokyo-nova.sheet.actor .profile-header .affiliation-block .view-mode-value {
+    font-size: 1.3em;
+    font-weight: bold;
+}
+
+.tokyo-nova.sheet.actor .profile-header .edit-mode-rank,
+.tokyo-nova.sheet.actor .profile-header .edit-mode-affiliation {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.tokyo-nova.sheet.actor .profile-header .middle-header-section label {
+    color: var(--tnx2-text-muted);
+    white-space: nowrap;
+}
+
+.tokyo-nova.sheet.actor .profile-header .citizen-rank-block select {
+    min-width: 120px;
+    padding: 4px;
+}
+
+.tokyo-nova.sheet.actor .affiliation-block { width: 280px; }
+
+.tokyo-nova.sheet.actor .edit-mode-affiliation > .tnx-linked-btn,
+.tokyo-nova.sheet.actor .edit-mode-affiliation > .tnx-import-box--inline {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.tokyo-nova.sheet.actor .profile-header .view-mode-style-summary {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+}
+
+.tokyo-nova.sheet.actor .profile-header .style-summary-items {
+    font-size: 1.1em;
+    font-weight: bold;
+    display: inline-flex;
+    flex-wrap: wrap;
+}
+
+.tokyo-nova.sheet.actor .profile-header .exp-display-section { text-align: right; }
+
+.tokyo-nova.sheet.actor .profile-header .edit-mode-exp {
+    display: flex;
+    align-items: center;
+    gap: 55px;
+}
+
+.tokyo-nova.sheet.actor .profile-header .exp-display-section .exp-value {
+    font-weight: bold;
+    font-size: 1.2em;
+    color: var(--tnx2-accent);
+}
+
+.tokyo-nova.sheet.actor .profile-header .styles-and-miracle-section {
+    width: 100%;
+    margin-top: 10px;
+}
+
+.tokyo-nova.sheet.actor .profile-header .miracle-buttons-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+}
+
+.tokyo-nova.sheet.actor .profile-header .miracle-action-item {
+    flex: 1;
+    min-width: 160px;
+}
+
+.tokyo-nova.sheet.actor .profile-header button.miracle-use-button {
+    width: 168px;
+    gap: 10px;
+    flex-grow: 1;
+    min-height: 44px;
+    font-size: 0.9em;
+}
+
+.tokyo-nova.sheet.actor .profile-header span.miracle-name__label {
+    text-align: center;
+}
+
+/* ── ヘッダー: アイテムスロット ─────────────────────────────── */
+.tokyo-nova.sheet.actor .edit-mode-styles-miracle-block {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.tokyo-nova.sheet.actor .item-slots-row {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.tokyo-nova.sheet.actor .style-slot,
+.tokyo-nova.sheet.actor .miracle-slot {
+    flex: 1;
+    min-width: 0;
+}
+
+.tokyo-nova.sheet.actor .sheet-controls {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+}
+
+/* ── メインコンテンツ: ボディ ─────────────────────────────────── */
+.tokyo-nova.sheet.actor .sheet-body {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 10px;
+    background: var(--tnx2-bg-1);
+}
+
+.tokyo-nova.sheet.actor .tabbed-content {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    min-height: 0;
+}
+
+/* ================================================================
+   19. キャストシート: 表示/編集モード切替
+   ================================================================ */
+
+.tokyo-nova.sheet.actor.view-mode .identity-edit-mode,
+.tokyo-nova.sheet.actor.view-mode .middle-header-section .edit-mode-rank,
+.tokyo-nova.sheet.actor.view-mode .middle-header-section .edit-mode-affiliation,
+.tokyo-nova.sheet.actor.view-mode .exp-display-section .edit-mode-exp,
+.tokyo-nova.sheet.actor.view-mode .styles-and-miracle-section .edit-mode-styles-miracle-block,
+.tokyo-nova.sheet.actor.view-mode .sidebar-hand-pool-section .sidebar-edit-controls,
+.tokyo-nova.sheet.actor.edit-mode .identity-view-mode,
+.tokyo-nova.sheet.actor.edit-mode .middle-header-section .view-mode-rank,
+.tokyo-nova.sheet.actor.edit-mode .middle-header-section .view-mode-affiliation,
+.tokyo-nova.sheet.actor.edit-mode .middle-header-section .view-mode-style-summary,
+.tokyo-nova.sheet.actor.edit-mode .exp-display-section .view-mode-exp,
+.tokyo-nova.sheet.actor.edit-mode .styles-and-miracle-section .view-mode-miracle-actions,
+.tokyo-nova.sheet.actor.edit-mode .sidebar-hand-pool-section .view-mode-hand {
+    display: none !important;
+}
+
+.tokyo-nova.sheet.actor.view-mode input,
+.tokyo-nova.sheet.actor.view-mode select {
+    border: none !important;
+    background: transparent !important;
+    pointer-events: none;
+    padding-left: 0;
+    padding-right: 0;
+    color: inherit !important;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+/* ================================================================
+   20. キャストシート: 能力値閲覧モード (平行四辺形)
+   ================================================================ */
+
+.tokyo-nova.sheet.actor .abilities-grid.view-mode-layout {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    padding: 5px;
+}
+
+.tokyo-nova.sheet.actor .view-mode-layout .ability-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.tokyo-nova.sheet.actor .view-mode-layout .ability-label-shape {
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-accent-dim);
+    transform: skewX(-25deg);
+    width: 90%;
+    z-index: 2;
+    position: relative;
+}
+
+.tokyo-nova.sheet.actor .view-mode-layout .ability-label-content {
+    transform: skewX(25deg);
+    padding: 4px 0;
+}
+
+.tokyo-nova.sheet.actor .view-mode-layout .ability-label-content h3 {
+    color: var(--tnx2-text-accent);
+    font-size: 1.2em;
+    font-weight: bold;
+    text-align: center;
+    border-bottom: 0;
+    margin: 0;
+}
+
+.tokyo-nova.sheet.actor .view-mode-layout .ability-values-area {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    width: 100%;
+}
+
+.tokyo-nova.sheet.actor .view-mode-layout .ability-value-shape {
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-border-active);
+    transform: skewX(-25deg);
+    width: 60%;
+    z-index: 1;
+}
+
+.tokyo-nova.sheet.actor .view-mode-layout .ability-value-content {
+    transform: skewX(25deg);
+    padding: 5px;
+}
+
+.tokyo-nova.sheet.actor .view-mode-layout .control-value-shape {
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    transform: skewX(-25deg);
+    width: 40%;
+    height: 80%;
+    margin-left: -2px;
+}
+
+.tokyo-nova.sheet.actor .view-mode-layout .control-value-content {
+    transform: skewX(25deg);
+    padding: 5px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+}
+
+.tokyo-nova.sheet.actor .view-mode-layout input[type="number"] {
+    width: 100%;
+    background: transparent;
+    border: none;
+    text-align: center;
+    color: var(--tnx2-text-primary);
+    padding: 0;
+    pointer-events: none;
+}
+
+.tokyo-nova.sheet.actor .view-mode-layout .ability-value-content input {
+    font-size: 1.8em;
+    font-weight: bold;
+}
+
+.tokyo-nova.sheet.actor .view-mode-layout .control-value-content input {
+    font-size: 1.2em;
+    color: var(--tnx2-text-muted);
+}
+
+/* ================================================================
+   20b. キャストシート: 能力値編集モード グリッド
+   ================================================================ */
+
+.tokyo-nova.sheet.actor .abilities-grid.edit-mode-layout {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 8px;
+}
+
+.tokyo-nova.sheet.actor .ability-block {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 8px;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+}
+
+.tokyo-nova.sheet.actor .ability-block h3 {
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.88em;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--tnx2-text-secondary);
+    margin: 0;
+    text-transform: uppercase;
+    border: none;
+    text-align: center;
+}
+
+.tokyo-nova.sheet.actor .value-control-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+}
+
+.tokyo-nova.sheet.actor .value-control-wrapper input {
+    width: 44px;
+    text-align: center;
+    font-family: var(--tnx2-font-mono);
+    font-size: 1.1em;
+    font-weight: 700;
+    color: var(--tnx2-text-primary);
+    padding: 2px 0;
+}
+
+.tokyo-nova.sheet.actor .value-control-wrapper .separator {
+    color: var(--tnx2-text-muted);
+    font-size: 0.9em;
+}
+
+/* 内訳トグル */
+.ability-details-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-size: 0.78em;
+    color: var(--tnx2-text-muted);
+    cursor: pointer;
+    padding: 2px 0;
+    transition: color var(--tnx2-transition-fast);
+}
+
+.ability-details-toggle:hover { color: var(--tnx2-text-secondary); }
+
+.ability-details-toggle i {
+    font-size: 0.8em;
+    transition: transform var(--tnx2-transition-fast);
+}
+
+.ability-details-panel {
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    padding: 6px;
+    font-size: 0.82em;
+}
+
+.breakdown-label {
+    font-size: 0.8em;
+    color: var(--tnx2-text-muted);
+    margin-top: 4px;
+}
+
+.breakdown-label--style {
+    color: var(--tnx2-text-secondary);
+    font-weight: 600;
+}
+
+/* ================================================================
+   21. キャストシート: 能力値編集モード 入力行
+   ================================================================ */
+
+.tokyo-nova.sheet .edit-mode-layout .ability-main-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.tokyo-nova.sheet .edit-mode-layout .ability-breakdown.breakdown-row {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 10px;
+}
+
+.tokyo-nova.sheet .edit-mode-layout .input-row,
+.tokyo-nova.sheet .edit-mode-layout .breakdown-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto 1fr;
+    align-items: center;
+}
+
+.tokyo-nova.sheet .edit-mode-layout .input-row label,
+.tokyo-nova.sheet .edit-mode-layout .breakdown-item label {
+    text-align: right;
+    padding-right: 5px;
+}
+
+.tokyo-nova.sheet .edit-mode-layout .input-row input {
+    text-align: center;
+    height: 28px;
+    font-size: 1.2em;
+}
+
+.tokyo-nova.sheet .edit-mode-layout .breakdown-item input {
+    text-align: center;
+    height: 28px;
+    font-size: 1.2em;
+    color: var(--tnx2-text-muted);
+}
+
+.tokyo-nova.sheet .edit-mode-layout .input-row .separator,
+.tokyo-nova.sheet .edit-mode-layout .breakdown-item .separator {
+    font-size: 1.4em;
+}
+
+/* ================================================================
+   22. キャストシート: 技能セクション
+   ================================================================ */
+
+.skills-section { margin-top: 30px; }
+
+.skill-group-block { margin-bottom: 15px; }
+
+.tnx-item-list__row--header.skill-group-header {
+    color: var(--tnx2-text-muted);
+    border-bottom: 1px solid var(--tnx2-border-active);
+    margin-bottom: 0;
+}
+
+.skill-name-header {
+    flex: 1;
+    margin: 0;
+    font-weight: bold;
+}
+
+.skills-list-edit .item-list .item {
+    display: flex;
+    align-items: center;
+    padding: 4px 0;
+    gap: 10px;
+}
+
+.skills-list-edit .item-list .item .item-name { flex: 1; }
+
+.skills-list-edit .item-list .item .skill-level input {
+    width: 50px;
+    text-align: center;
+}
+
+.skills-list-edit .item-list .item .item-controls {
+    flex: 0 0 50px;
+    text-align: center;
+}
+
+ol.item-list { padding: 0; }
+
+a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
+
+/* 閲覧モード: 二列レイアウト */
+.skills-list-view {
+    display: flex;
+    gap: 40px;
+    width: 100%;
+    align-items: flex-start;
+}
+
+.skills-column {
+    flex: 1 1 50%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* 一般技能表示 */
+.general-skill-display {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0;
+    width: 100%;
+}
+
+.skill-label-shape {
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-accent-dim);
+    transform: skewX(-25deg);
+    padding: 0 10px;
+    width: 35%;
+    flex: 0 0 35%;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 15px;
+    margin-left: 10px;
+    overflow: hidden;
+}
+
+.skill-label-content {
+    transform: skewX(25deg);
+    color: var(--tnx2-text-primary);
+    font-weight: bold;
+}
+
+.skill-label-content.long-text {
+    font-size: 0.9em;
+    letter-spacing: -0.05em;
+}
+
+.skill-meta-data {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    font-weight: bold;
+}
+
+.skill-level {
+    font-size: 1.2em;
+    color: var(--tnx2-text-primary);
+    text-align: center;
+    min-width: 35px;
+}
+
+.skill-suits-view { display: flex; gap: 2px; }
+
+.suit-icon { font-size: 1.1em; }
+
+.suit-icon.active {
+    color: var(--tnx2-accent);
+    text-shadow: 0 0 6px var(--tnx2-accent-glow-sm);
+}
+
+.suit-icon.inactive { color: var(--tnx2-text-muted); }
+
+/* ================================================================
+   23. スタイル技能リスト (キャストシート表示)
+   ================================================================ */
+
+.style-skills-list-wrapper {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    border: 1px solid var(--tnx2-border-subtle);
+    background: var(--tnx2-bg-2);
+    border-radius: var(--tnx2-radius);
+}
+
+.style-skill-grid {
+    display: grid;
+    grid-template-columns: minmax(140px, 1.5fr) 80px 1fr 40px 75px 1fr 1fr 45px 1fr 15px;
+    align-items: center;
+    padding: 0 4px;
+}
+
+.style-skill-header {
+    background: var(--tnx2-bg-3);
+    color: var(--tnx2-text-secondary);
+    font-weight: bold;
+    border-bottom: 1px solid var(--tnx2-border-active);
+    padding-top: 4px;
+    padding-bottom: 4px;
+    font-size: 0.9em;
+}
+
+.style-skills-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.style-skill-row {
+    height: 50px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    font-size: 0.9em;
+    transition: background var(--tnx2-transition-fast);
+}
+
+.style-skill-row:last-child { border-bottom: none; }
+
+.style-skill-row:nth-child(even) { background: rgba(255,255,255,0.02); }
+
+.style-skill-row:hover { background: var(--tnx2-bg-hover); }
+
+.cell {
+    display: flex;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 2px;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.level-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: 100%;
+}
+
+.level-number {
+    color: var(--tnx2-text-primary);
+    position: relative;
+}
+
+.level-suits { display: flex; gap: 1px; }
+
+.squeeze-text {
+    white-space: nowrap;
+    transform-origin: center center;
+    display: inline-block;
+}
+
+.cell-name {
+    text-align: left;
+    justify-content: flex-start;
+    font-weight: bold;
+}
+
+.item-menu-trigger {
+    color: var(--tnx2-text-muted);
+    cursor: pointer;
+    padding: 0 5px;
+    transition: color var(--tnx2-transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+.item-menu-trigger:hover {
+    color: var(--tnx2-accent);
+    text-shadow: 0 0 6px var(--tnx2-accent-glow-sm);
+}
+
+/* ================================================================
+   24. アイテムシート: フォーム共通
+   ================================================================ */
+
+.tokyo-nova.sheet.item .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+
+.tokyo-nova.sheet.item .form-group label {
+    font-size: 0.85em;
+    color: var(--tnx2-text-muted);
+}
+
+.tokyo-nova.sheet.item .form-group:has(> input[type="checkbox"]),
+.tokyo-nova.sheet.item .form-group:has(> input[type="radio"]),
+.tokyo-nova.sheet.item .form-group:has(> .number-input-spinner) {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+}
+
+.tokyo-nova.sheet.item .form-group:has(> input[type="checkbox"]) > .notes,
+.tokyo-nova.sheet.item .form-group:has(> input[type="radio"]) > .notes,
+.tokyo-nova.sheet.item .form-group:has(> .number-input-spinner) > .notes {
+    width: 100%;
+    margin: 2px 0 0;
+}
+
+.tokyo-nova.sheet.item .form-group > input[type="checkbox"],
+.tokyo-nova.sheet.item .form-group > input[type="radio"],
+.tokyo-nova.sheet.item .form-group > .number-input-spinner {
+    margin-left: auto;
+}
+
+.tokyo-nova.sheet.item .basic-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.tokyo-nova.sheet.item .basic-info .form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.tokyo-nova.sheet.item .settings-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 15px;
+}
+
+.tnx-form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.array-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+}
+
+.array-row select { flex: 1; min-width: 0; }
+
+.array-row input[type="text"] { flex: 1; min-width: 0; }
+
+.row-controls {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: auto;
+    min-width: 30px;
+    justify-content: flex-end;
+    flex: 0 0 auto;
+}
+
+/* ================================================================
+   25. アイテムシート: スタイル技能設定
+   ================================================================ */
+
+.style-skill-settings-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.style-skill-settings-wrapper .form-group {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    align-items: center;
+    gap: 0 10px;
+}
+
+.style-skill-settings-wrapper .form-group > label {
+    justify-self: end;
+    font-size: 0.85em;
+    color: var(--tnx2-text-muted);
+}
+
+.style-skill-settings-wrapper .form-group.full-width-row,
+.style-skill-settings-wrapper .form-group .form-fields.split-fields {
+    display: flex;
+    align-items: center;
+}
+
+.form-group.align-start { align-items: flex-start; }
+
+.form-group.align-start > label { padding-top: 3px; }
+
+.form-fields-stack {
+    flex: 3;
+    display: flex;
+    flex-direction: column;
+}
+
+.form-fields-column {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    width: 100%;
+}
+
+.form-group-checkbox,
+.checkbox-row {
+    display: flex;
+    align-items: center;
+}
+
+.form-group-checkbox { gap: 8px; }
+.form-group-checkbox label, .checkbox-row label { cursor: pointer; }
+
+.checkbox-row {
+    margin-top: 10px;
+    font-size: 0.9em;
+}
+
+.checkbox-row label {
+    display: flex;
+    align-items: center;
+    font-weight: normal;
+}
+
+.checkbox-row input[type="checkbox"] {
+    margin: 0 4px 0 0;
+    flex: 0 0 auto;
+}
+
+.checkbox-inline {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-weight: bold;
+    cursor: pointer;
+    white-space: nowrap;
+    font-size: 0.9em;
+}
+
+.checkbox-inline input { margin: 0; }
+
+.style-skill-inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 15px;
+}
+
+.style-skill-inputs .full-width-row { grid-column: 1 / -1; }
+
+.tokyo-nova.sheet.item .style-skill-inputs .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.form-group.usage-limit-group {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.usage-inputs {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    justify-content: flex-end;
+}
+
+.usage-field {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.usage-field label {
+    font-size: 0.8em;
+    color: var(--tnx2-text-muted);
+}
+
+.usage-field input { width: 60px; text-align: center; }
+
+.usage-separator {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: var(--tnx2-text-muted);
+    padding-top: 20px;
+}
+
+.skill-level-container {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.skill-level-container input[type="number"] {
+    width: 3em;
+    text-align: center;
+}
+
+.skill-suits-row { display: flex; gap: 2px; }
+
+.suit-checkbox-tiny {
+    cursor: pointer;
+    font-size: 0.9em;
+    color: var(--tnx2-text-muted);
+}
+
+.suit-checkbox-tiny input[type="checkbox"] { display: none; }
+
+.suit-checkbox-tiny input:checked + i { color: var(--tnx2-accent); }
+
+/* ================================================================
+   26. アイテムシート: 閲覧モード動作
+   ================================================================ */
+
+.tokyo-nova.sheet.item.view-mode .sheet-header input:not([name="system.level"]),
+.tokyo-nova.sheet.item.view-mode .tab[data-tab="description"] input,
+.tokyo-nova.sheet.item.view-mode .tab[data-tab="description"] textarea {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    pointer-events: none;
+}
+
+.tokyo-nova.sheet.item.view-mode .sheet-header .level-display input {
+    pointer-events: none;
+}
+
+.tokyo-nova.sheet.item.view-mode .sheet-header .suit-selection {
+    pointer-events: none;
+}
+
+.tokyo-nova.sheet.item.view-mode .tab:not([data-tab="description"]) input[type="text"],
+.tokyo-nova.sheet.item.view-mode .tab:not([data-tab="description"]) input[type="number"],
+.tokyo-nova.sheet.item.view-mode .tab:not([data-tab="description"]) select,
+.tokyo-nova.sheet.item.view-mode .tab:not([data-tab="description"]) textarea {
+    background: var(--tnx2-bg-2);
+    color: var(--tnx2-text-muted);
+    border: 1px solid var(--tnx2-border-subtle);
+    pointer-events: none;
+}
+
+.tokyo-nova.sheet.item.view-mode .tab:not([data-tab="description"]) input[type="checkbox"] {
+    pointer-events: none;
+    opacity: 0.5;
+    filter: grayscale(100%);
+}
+
+.tokyo-nova.sheet.item.view-mode .row-controls a,
+.tokyo-nova.sheet.item.view-mode .tnx-btn {
+    pointer-events: none;
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.tokyo-nova.sheet.item.view-mode input::placeholder,
+.tokyo-nova.sheet.item.view-mode textarea::placeholder {
+    color: transparent;
+    opacity: 0;
+}
+
+/* 神業シート: 使用済みチェックボックス */
+.tokyo-nova.sheet.item .sheet-header .is-used-checkbox {
+    position: absolute;
+    top: 57px;
+    right: 15px;
+    display: flex;
+    align-items: center;
+}
+
+.tokyo-nova.sheet.item .sheet-header .is-used-checkbox label {
+    font-weight: bold;
+    color: var(--tnx2-text-muted);
+}
+
+.tokyo-nova.sheet.item .sheet-header .is-used-checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    margin-right: 5px;
+}
+
+/* ================================================================
+   27. チャットカード
+   ================================================================ */
+
+.chat-message .message-content .tnx-chat-card {
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    background: var(--tnx2-bg-2);
+    margin-bottom: 5px;
+    overflow: hidden;
+}
+
+.chat-message .message-content .tnx-chat-card > summary {
+    padding: 12px;
+    background: var(--tnx2-bg-3);
+    cursor: pointer;
+    transition: background var(--tnx2-transition-fast);
+    display: block;
+    outline: none;
+}
+
+.chat-message .message-content .tnx-chat-card > summary:hover {
+    background: var(--tnx2-bg-hover);
+}
+
+.chat-message .message-content .tnx-chat-card > summary::-webkit-details-marker { display: none; }
+
+.chat-message .message-content .tnx-chat-card > summary h3 {
+    margin: 0;
+    display: inline;
+    font-size: 1.1em;
+    border-bottom: none;
+}
+
+.chat-message .message-content .tnx-chat-card > summary::before {
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    content: '\f0da';
+    margin-right: 8px;
+    transition: transform 0.2s ease-in-out;
+    display: inline-block;
+}
+
+.chat-message .message-content .tnx-chat-card[open] > summary::before {
+    transform: rotate(90deg);
+}
+
+.chat-message .message-content .tnx-chat-card .card-content {
+    padding: 10px 12px;
+    border-top: 1px solid var(--tnx2-border-active);
+}
+
+.chat-message .nested-description {
+    margin-top: 10px;
+    background: rgba(255,255,255,0.02);
+    border-left: 3px solid var(--tnx2-accent-dim);
+    border-radius: var(--tnx2-radius);
+    padding: 0;
+}
+
+.chat-message .nested-description > summary {
+    cursor: pointer;
+    padding: 12px 10px;
+    display: block;
+    outline: none;
+    transition: background var(--tnx2-transition-fast);
+}
+
+.chat-message .nested-description > summary:hover { background: rgba(255,255,255,0.03); }
+
+.chat-message .nested-description > summary::-webkit-details-marker { display: none; }
+
+.chat-message .nested-description > summary::before {
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    content: '\f0da';
+    margin-right: 6px;
+    transition: transform 0.2s ease-in-out;
+    display: inline-block;
+    font-size: 0.9em;
+}
+
+.chat-message .nested-description[open] > summary::before { transform: rotate(90deg); }
+
+.chat-message .nested-description > summary h4 {
+    margin: 0;
+    padding: 0;
+    border-bottom: none;
+    font-size: 1.1em;
+    display: inline;
+}
+
+.chat-message .nested-description .card-content {
+    padding: 10px 12px 10px 30px;
+    border-top: 1px solid var(--tnx2-border-subtle);
+}
+
+/* ================================================================
+   28. HUD
+   ================================================================ */
+
+.deck-card,
+.card-in-hand {
+    width: 128px;
+    height: 192px;
+    border-radius: 4px;
+    position: relative;
+    background: #222;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    transition: transform var(--tnx2-transition-fast), box-shadow var(--tnx2-transition-mid);
+}
+
+.deck-card:hover,
+.card-in-hand:hover {
+    transform: translateY(-10px) scale(1.05);
+    z-index: 10;
+}
+
+.deck-card img,
+.card-in-hand img {
+    width: 100%;
+    height: 100%;
+    border-radius: 4px;
+    border: none;
+    display: block;
+}
+
+#tnx-hud {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 50;
+}
+
+.tnx-hud .hud-container {
+    position: absolute;
+    pointer-events: auto;
+}
+
+.tnx-hud .hud-main-cards {
+    bottom: 80px;
+    right: 360px;
+}
+
+.tnx-hud .main-area,
+.tnx-hud .neuro-area,
+.tnx-hud .hud-panel {
+    padding: 8px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid #555;
+    border-radius: 10px;
+    display: flex;
+}
+
+.tnx-hud .main-area,
+.tnx-hud .neuro-area {
+    gap: 8px;
+    height: 208px;
+    width: auto;
+}
+
+.tnx-hud .deck-count {
+    position: absolute;
+    bottom: 2px;
+    right: 5px;
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #ffffff;
+    text-shadow: 0 0 5px #000, 0 0 3px #000;
+}
+
+.tnx-hud .hud-top-right {
+    top: 50px;
+    right: 360px;
+}
+
+.tnx-hud .hud-bottom-bar {
+    bottom: 70px;
+    left: 260px;
+    display: flex;
+    gap: 5px;
+    align-items: flex-end;
+}
+
+.tnx-hud .hand-area {
+    flex-wrap: wrap;
+    height: auto;
+    align-items: flex-end;
+    max-width: 680px;
+}
+
+.tnx-hud .trump-area {
+    height: 208px;
+    align-items: center;
+    justify-content: center;
+}
+
+.tnx-hud .card-empty-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--tnx2-text-muted);
+    width: 128px;
+    height: 192px;
+}
+
+.tnx-hud .card-empty-placeholder i { font-size: 2.5em; }
+
+.tnx-hud .deck-card.scene-card-display:hover {
+    transform: none;
+    box-shadow: none;
+    cursor: default;
+}
+
+.tnx-card-ghost {
+    position: absolute;
+    top: -1000px;
+    left: -1000px;
+    z-index: -1;
+}
+
+/* カードプール専用 */
+.cardpool-sheet .deck-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 100%;
+}
+
+.cardpool-sheet .deck-info { font-size: 1.2em; font-weight: bold; }
+
+.cardpool-sheet .deck-actions-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    justify-content: center;
+}
+
+.cardpool-sheet .discard-operations-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: center;
+    justify-items: center;
+    height: 100%;
+    padding-top: 10px;
+}
+
+.cardpool-sheet .discard-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.cardpool-sheet .discard-info { font-size: 1.2em; font-weight: bold; }
+
+.cardpool-sheet .scene-operations-grid {
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    height: 100%;
+}
+
+.cardpool-sheet .scene-card-header {
+    text-align: center;
+    border-bottom: 1px solid var(--tnx2-border-glow);
+    margin-bottom: 15px;
+}
+
+.cardpool-sheet .scene-card-header h2 {
+    margin: 0;
+    font-size: 1.5em;
+    color: var(--tnx2-text-accent);
+}
+
+.cardpool-sheet .scene-card-content {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 20px;
+    align-items: flex-start;
+    flex-grow: 1;
+}
+
+.cardpool-sheet .scene-card-image-wrapper {
+    display: flex;
+    justify-content: center;
+}
+
+.cardpool-sheet .scene-card-details {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.cardpool-sheet .scene-card-details .detail-block h3 {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: var(--tnx2-accent);
+    margin: 0 0 5px 0;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    padding-bottom: 3px;
+}
+
+.cardpool-sheet .scene-card-details .detail-block p {
+    margin: 0;
+    line-height: 1.6;
+    color: var(--tnx2-text-secondary);
+}
+
+.card-management-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
+
+.card-slot .slot-header {
+    margin: 0 0 8px 0;
+    font-size: 1.1em;
+    font-weight: bold;
+    border-bottom: 1px solid var(--tnx2-border-active);
+    padding-bottom: 4px;
+}
+
+.setup-controls {
+    display: flex;
+    justify-content: flex-start;
+    padding: 10px 0;
+    margin-bottom: 20px;
+}
+
+.setup-controls .tnx-btn { max-width: 300px; }
+
+.manual-text p {
+    margin: 0 0 10px 0;
+    color: var(--tnx2-text-muted);
+    line-height: 1.6;
+}
+
+.manual-text p:last-child { margin-bottom: 0; }
+
+/* ================================================================
+   29. シナリオシート
+   ================================================================ */
+
+.scenario-sheet.two-column-layout {
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+}
+
+.scenario-sheet .scenario-sidebar {
+    flex: 0 0 180px;
+    background: var(--tnx2-bg-2);
+    border-right: 1px solid var(--tnx2-border-subtle);
+    padding: 10px;
+    overflow-y: auto;
+}
+
+.scenario-sheet .scenario-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 500px;
+}
+
+.scenario-sheet .scenario-actions .tnx-btn { width: 300px; }
+
+.scenario-sheet .vertical-tabs {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    border: none;
+}
+
+.scenario-sheet .vertical-tabs .item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border-radius: var(--tnx2-radius);
+    color: var(--tnx2-text-muted);
+    border: 1px solid transparent;
+    transition: background var(--tnx2-transition-fast),
+                border-color var(--tnx2-transition-fast),
+                color var(--tnx2-transition-fast);
+    cursor: pointer;
+}
+
+.scenario-sheet .vertical-tabs .item:hover {
+    background: rgba(255,255,255,0.04);
+    color: var(--tnx2-text-primary);
+}
+
+.scenario-sheet .vertical-tabs .item.active {
+    background: var(--tnx2-bg-3);
+    border-color: var(--tnx2-border-active);
+    color: var(--tnx2-text-accent);
+    font-weight: bold;
+}
+
+.scenario-sheet .vertical-tabs .item i { width: 20px; text-align: center; }
+
+.scenario-sheet .vertical-tabs .item.active i { color: var(--tnx2-text-accent); }
+
+.scenario-sheet .sheet-body {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 10px;
+    background: var(--tnx2-bg-1);
+}
+
+.scenario-sheet .tab-placeholder {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    color: var(--tnx2-text-muted);
+    font-style: italic;
+    font-size: 1.2em;
+}
+
+.scenes-container { display: flex; flex-direction: column; gap: 5px; }
+
+.phase-section {
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+}
+
+.phase-section .tnx-section-header {
+    padding: 8px 15px;
+    background: var(--tnx2-bg-2);
+    margin-bottom: 0;
+}
+
+.scene-table { display: flex; flex-direction: column; padding: 10px; }
+
+.scene-table-header {
+    display: grid;
+    grid-template-columns: 40px 3fr 2fr 50px 40px 40px;
+    gap: 10px;
+    align-items: center;
+    padding: 0 8px 8px 12px;
+    font-weight: bold;
+    color: var(--tnx2-text-muted);
+    border-bottom: 1px solid var(--tnx2-border-active);
+}
+
+.scene-table-header .header-cell.scene-number,
+.scene-table-header .header-cell.master-scene,
+.scene-table-header .header-cell.scene-switch,
+.scene-table-header .header-cell.scene-controls { text-align: center; }
+
+.scene-table-body { display: flex; flex-direction: column; gap: 5px; margin-top: 5px; }
+
+.scene-item {
+    display: flex;
+    flex-direction: column;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    transition: background var(--tnx2-transition-fast);
+}
+
+.scene-item:hover { background: var(--tnx2-bg-hover); }
+
+.scene-main-row {
+    display: grid;
+    grid-template-columns: 40px 3fr 2fr 50px 40px 40px;
+    gap: 10px;
+    align-items: center;
+    padding: 8px;
+}
+
+.table-cell input[type="text"] { width: 100%; padding: 6px 8px; }
+
+.table-cell input[type="text"]:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.table-cell select { width: 100%; padding: 5px 4px; font-size: 14px; height: 32px; }
+
+.table-cell select:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.table-cell.scene-number, .table-cell.master-scene,
+.table-cell.scene-switch, .table-cell.scene-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.scene-details-row { border-top: 1px dashed transparent; }
+.scene-details-row[open] { border-top-color: var(--tnx2-border-subtle); }
+
+.scene-details-row > summary {
+    padding: 3px 10px;
+    cursor: pointer;
+    color: var(--tnx2-text-muted);
+    font-style: italic;
+    font-size: 0.9em;
+    outline: none;
+    list-style: none;
+    text-align: center;
+}
+
+.scene-details-row > summary::-webkit-details-marker { display: none; }
+
+.scene-details-row > summary:hover { color: var(--tnx2-text-accent); }
+
+.message-preview { padding: 8px; }
+
+.message-preview textarea {
+    width: 100%;
+    min-height: 60px;
+    padding: 8px;
+    border-radius: var(--tnx2-radius);
+    font-family: inherit;
+    line-height: 1.5;
+    resize: vertical;
+}
+
+.texts-container, .info-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.text-item-list, .info-item-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.text-item,
+.info-item {
+    background: var(--tnx2-bg-2);
+    border-radius: var(--tnx2-radius);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.text-item { border: 1px solid var(--tnx2-border-subtle); }
+.info-item { border: 1px solid var(--tnx2-border-active); transition: all 0.3s ease-out; }
+
+.text-item-body, .info-item-body { padding: 12px; }
+
+.text-item-body textarea,
+.info-item-body textarea {
+    width: 100%;
+    min-height: 100px;
+    background: transparent;
+    padding: 8px;
+    border-radius: var(--tnx2-radius);
+    font-family: inherit;
+    line-height: 1.5;
+    resize: vertical;
+}
+
+.text-item-body textarea { border: 1px solid var(--tnx2-border-active); }
+.info-item-body textarea { border: 1px solid var(--tnx2-border-subtle); }
+
+.message-preview textarea:focus,
+.text-item-body textarea:focus,
+.info-item-body textarea:focus {
+    outline: none;
+    border-color: var(--tnx2-accent-dim);
+}
+
+.no-items-placeholder {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--tnx2-text-muted);
+    font-style: italic;
+    border: 2px dashed var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    margin-top: 10px;
+}
+
+.info-item-body { display: flex; flex-direction: column; }
+
+.info-item-body .info-contents-list { flex-grow: 1; }
+
+.info-content-block {
+    padding: 12px;
+    border-top: 1px solid var(--tnx2-border-active);
+}
+
+.info-content-block:first-child { border-top: none; }
+
+.content-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.content-header h4 {
+    margin: 0;
+    font-size: 1em;
+    font-weight: bold;
+    color: var(--tnx2-text-secondary);
+}
+
+.skill-checks-area {
+    padding: 10px;
+    background: var(--tnx2-bg-3);
+    border-radius: var(--tnx2-radius);
+}
+
+.skill-checks-area .tnx-item-header { margin-bottom: 8px; }
+
+.skill-checks-area .tnx-item-header h5 { margin: 0; font-weight: bold; }
+
+.skill-check-list { display: flex; flex-direction: column; gap: 5px; }
+
+.skill-check-row { display: flex; align-items: center; gap: 8px; }
+
+.skill-check-row .skill-name { flex: 1; }
+
+.skill-check-row .skill-tn { width: 60px; text-align: center; }
+
+.skill-check-row input { padding: 4px 6px; }
+
+.tn-label { font-size: 0.9em; color: var(--tnx2-text-muted); }
+
+.add-content-button-wrapper {
+    padding: 12px;
+    border-top: 1px solid var(--tnx2-border-active);
+}
+
+.info-item.disclosed { border-left: 3px solid var(--tnx2-accent-dim); }
+
+.info-item.disclosed .tnx-item-header--card { background: rgba(0,200,224,0.06); }
+
+.disclosure-toggle {
+    cursor: pointer;
+    color: var(--tnx2-text-muted);
+    font-size: 1.2em;
+    position: relative;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.disclosure-toggle input[type="checkbox"] {
+    opacity: 0;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+}
+
+.disclosure-toggle i { transition: color var(--tnx2-transition-fast); }
+
+.disclosure-toggle input[type="checkbox"]:checked + i {
+    color: var(--tnx2-accent);
+    text-shadow: 0 0 6px var(--tnx2-accent-glow-sm);
+}
+
+.disclosure-toggle:hover i { color: var(--tnx2-text-accent); }
+
+.scenario-info-container { display: flex; flex-direction: column; gap: 20px; }
+
+.trailer-section, .handouts-section {
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    padding: 15px;
+}
+
+.trailer-textarea {
+    width: 100%;
+    resize: vertical;
+    padding: 8px;
+    border-radius: var(--tnx2-radius);
+    font-family: inherit;
+    line-height: 1.6;
+}
+
+.handout-list { display: flex; flex-direction: column; gap: 10px; }
+
+.handout-item {
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    background: var(--tnx2-bg-2);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.handout-row { display: flex; width: 100%; }
+
+.handout-row--header { align-items: center; gap: 10px; }
+
+.handout-row--header .handout-pc-name { flex: 0 0 120px; }
+
+.handout-row--header .handout-title { flex: 1 1 auto; }
+
+.handout-row--recommendations { align-items: center; gap: 15px; }
+
+.handout-row--recommendations .recommendation-field {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    gap: 8px;
+}
+
+.handout-row--recommendations label { white-space: nowrap; flex-shrink: 0; }
+
+.handout-row--recommendations input { width: 100%; }
+
+.handout-row--content-label { margin-bottom: -6px; }
+
+.handout-row--content-label label {
+    font-weight: bold;
+    font-size: 0.9em;
+    color: var(--tnx2-text-muted);
+}
+
+.handout-row--content-area textarea { width: 100%; resize: vertical; }
+
+.handout-row--ps { align-items: center; gap: 8px; }
+
+.handout-row--ps label {
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-weight: bold;
+    font-size: 0.9em;
+    color: var(--tnx2-text-muted);
+}
+
+.handout-row--ps input { flex-grow: 1; }
+
+.handout-item input[type="text"],
+.handout-item textarea {
+    border-radius: var(--tnx2-radius);
+    padding: 6px 8px;
+    font-family: inherit;
+}
+
+/* ================================================================
+   30. レコードシート
+   ================================================================ */
+
+.record-sheet .window-content {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+}
+
+.record-sheet-body { display: flex; flex-direction: column; gap: 12px; }
+
+.record-exp-summary {
+    display: flex;
+    gap: 20px;
+    padding: 8px 12px;
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+}
+
+.record-exp-summary .exp-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.record-exp-summary .exp-label {
+    font-size: 11px;
+    color: var(--tnx2-text-muted);
+}
+
+.record-exp-summary .record-exp-value {
+    font-size: 1.4em;
+    font-weight: bold;
+    color: var(--tnx2-accent);
+}
+
+.record-history-section { display: flex; flex-direction: column; gap: 6px; }
+
+.record-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+}
+
+.record-section-title {
+    font-size: 13px;
+    font-weight: bold;
+    color: var(--tnx2-text-secondary);
+    margin: 0;
+}
+
+.record-link-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 350px;
+    padding: 5px 0;
+}
+
+.record-link-section label { flex: 0 0 auto; font-weight: bold; margin: 0; }
+
+.record-slot {
+    flex: 1;
+    height: 38px;
+    position: relative;
+    display: block;
+}
+
+.record-slot .tnx-import-box,
+.record-slot .tnx-linked-btn {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tokyo-nova .history-list-wrapper {
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    background: var(--tnx2-bg-2);
+    overflow: hidden;
+    font-size: 13px;
+}
+
+.tokyo-nova .history-list { list-style: none; margin: 0; padding: 0; }
+
+.tokyo-nova .history-grid {
+    display: grid;
+    grid-template-columns: 100px 150px 48px 80px 2fr 24px;
+    gap: 2px;
+    align-items: center;
+}
+
+.tokyo-nova .history-header {
+    background: var(--tnx2-bg-3);
+    color: var(--tnx2-text-secondary);
+    font-weight: bold;
+    padding: 4px;
+    text-align: center;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+}
+
+.tokyo-nova .history-row {
+    padding: 2px 4px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+}
+
+.tokyo-nova .history-row:nth-child(even) { background: rgba(255,255,255,0.02); }
+
+.tokyo-nova .history-row .cell-players { justify-content: flex-start; }
+
+.tokyo-nova .history-row input {
+    height: 24px;
+    font-size: 12px;
+    width: 100%;
+    border: 1px solid transparent;
+    background: transparent;
+    text-align: left;
+}
+
+.tokyo-nova .history-row input:focus {
+    border: 1px solid var(--tnx2-border-active);
+    background: var(--tnx2-bg-3);
+}
+
+/* ================================================================
+   31. ウィザードダイアログ
+   ================================================================ */
+
+#tnx-scenario-wizard .dialog-content { background: var(--tnx2-bg-2); }
+
+#tnx-scenario-wizard form { padding: 10px; }
+
+#tnx-scenario-wizard .sheet-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 20px;
+    border-top: 1px solid var(--tnx2-border-subtle);
+    padding-top: 10px;
+}
+
+#tnx-scenario-wizard .form-group > label {
+    font-weight: bold;
+    color: var(--tnx2-text-primary);
+}
+
+#tnx-scenario-wizard p.notes { color: var(--tnx2-text-muted); }
+
+#tnx-scenario-wizard input[type="text"] { color: var(--tnx2-text-primary); }
+
+#tnx-scenario-wizard .form-group-checkbox {
+    display: flex;
+    align-items: center;
+    padding: 5px 0;
+}
+
+#tnx-scenario-wizard .form-group-checkbox input[type="checkbox"] {
+    margin-right: 10px;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+#tnx-scenario-wizard .form-group-checkbox label {
+    font-weight: normal;
+    cursor: pointer;
+    color: var(--tnx2-text-primary);
+}
+
+.tnx-btn--secondary {
+    background: var(--tnx2-bg-2);
+    border-color: var(--tnx2-border-subtle);
+    color: var(--tnx2-text-muted);
+}
+
+.tnx-btn--secondary:hover {
+    background: var(--tnx2-bg-hover);
+    border-color: var(--tnx2-border-active);
+}
+
+#tnx-scenario-wizard .form-group .number-input-spinner {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0;
+}
+
+#tnx-scenario-wizard .number-input-spinner input[type="number"] {
+    width: 60px;
+    height: 35px;
+    text-align: center;
+    font-size: 1.2em;
+    font-weight: bold;
+    border: 1px solid var(--tnx2-border-active);
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
+    padding: 0 2px;
+    margin: 0;
+    -moz-appearance: textfield;
+}
+
+#tnx-scenario-wizard .number-input-spinner .tnx-btn {
+    width: 35px;
+    height: 35px;
+    flex-shrink: 0;
+    padding: 0;
+    font-size: 1.4em;
+    line-height: 1;
+    margin: 0;
+}
+
+#tnx-scenario-wizard .number-input-spinner button[data-action="decrement"] {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+#tnx-scenario-wizard .number-input-spinner button[data-action="increment"] {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+/* ================================================================
+   32. ユーティリティ
+   ================================================================ */
+
+.tokyo-nova.sheet.tnx-no-transitions,
+.tokyo-nova.sheet.tnx-no-transitions * {
+    transition: none !important;
+    animation: none !important;
 }
