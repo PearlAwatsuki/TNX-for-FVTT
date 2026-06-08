@@ -1,9 +1,22 @@
-import { 
+import {
     DealTrumpDialog,
     AmountInputDialog,
     CardSelectionDialog,
     TargetSelectionDialog
     } from './tnx-dialog.mjs';
+
+/** スタイル枠ニューロカードの日本語名 → タロット名アルファベット対応表 */
+const NEURO_STYLE_ROMAJI = {
+    "アヤカシ":   "AYAKASHI",
+    "エトランゼ": "ETRANGER",
+    "カゲムシャ": "KAGEMUSHA",
+    "アラシ":     "ARASHI",
+    "シキガミ":   "SHIKIGAMI",
+    "イブキ":     "IBUKI",
+    "クロガネ":   "KUROGANE",
+    "ヒルコ":     "HIRUKO",
+    "コモン":     "COMMON",
+};
 
 export class TnxActionHandler {
     /**
@@ -47,7 +60,7 @@ export class TnxActionHandler {
     }
 
     static async getActiveNeuroDeck() {
-        let neuroDeckId = game.settings.get("tokyo-nova-axleration", "autoLoadFromScenario")
+        const neuroDeckId = game.settings.get("tokyo-nova-axleration", "autoLoadFromScenario")
             ? (await fromUuid(game.settings.get("tokyo-nova-axleration", "activeScenarioId")))?.getFlag("tokyo-nova-axleration", "neuroDeckId")
             : undefined;
         // フォールバックは不要（シナリオ設定でのみ指定される想定）
@@ -59,7 +72,7 @@ export class TnxActionHandler {
     }
 
     static async getActiveScenePile() {
-        let scenePileId = game.settings.get("tokyo-nova-axleration", "autoLoadFromScenario")
+        const scenePileId = game.settings.get("tokyo-nova-axleration", "autoLoadFromScenario")
             ? (await fromUuid(game.settings.get("tokyo-nova-axleration", "activeScenarioId")))?.getFlag("tokyo-nova-axleration", "scenePileId")
             : undefined;
         if (!scenePileId) {
@@ -675,17 +688,38 @@ export class TnxActionHandler {
      * @private
      */
     static async _postCardToChat(card, { speakerActor = null } = {}) {
-        const templateData = {
-            cardName: card.name,
-            cardImage: card.img,
-            keyword: card.faces[0]?.text || "（キーワードなし）",
-            implication: card.description || "（暗示なし）"
-        };
-        
-        const chatContent = await renderTemplate(
-            "systems/tokyo-nova-axleration/templates/chat/scene-card.hbs", 
-            templateData
-        );
+        const keyword    = await TextEditor.enrichHTML(card.faces[0]?.text ?? "（キーワードなし）");
+        const implication = await TextEditor.enrichHTML(card.description ?? "（暗示なし）");
+        const cardNameRomaji = NEURO_STYLE_ROMAJI[card.name] ?? null;
+
+        const romajiBlock = cardNameRomaji
+            ? `<div class="tnx-neuro-card-chat__name">${cardNameRomaji}</div>`
+            : "";
+        const imageBlock = card.img
+            ? `<img class="tnx-neuro-card-chat__image" src="${card.img}" alt="">`
+            : "";
+
+        const chatContent = `<div class="tnx-neuro-card-chat tokyo-nova">
+    <div class="tnx-neuro-card-chat__header">
+        <span class="tnx-neuro-card-chat__type-label">ニューロカード</span>
+    </div>
+    <div class="tnx-neuro-card-chat__body">
+        ${imageBlock}
+        <div class="tnx-neuro-card-chat__info">
+            ${romajiBlock}
+            <div class="tnx-neuro-card-chat__name">${card.name}</div>
+            <hr class="tnx-neuro-card-chat__divider">
+            <div class="tnx-neuro-card-chat__field">
+                <div class="tnx-neuro-card-chat__field-label">キーワード</div>
+                <div class="tnx-neuro-card-chat__field-value">${keyword}</div>
+            </div>
+            <div class="tnx-neuro-card-chat__field">
+                <div class="tnx-neuro-card-chat__field-label">暗示</div>
+                <div class="tnx-neuro-card-chat__field-value">${implication}</div>
+            </div>
+        </div>
+    </div>
+</div>`;
 
         const messageData = { content: chatContent };
         if (speakerActor) {

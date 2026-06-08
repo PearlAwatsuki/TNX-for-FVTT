@@ -1,16 +1,24 @@
-<div class="tokyo-nova scene-operations-grid" style="padding: 10px; background: var(--tnx-color-bg-alt); border: 1px solid var(--tnx-color-border);">
-    <div class="scene-card-header">
-        <h2>{{{cardName}}}</h2>
+<div class="tnx-neuro-card-chat tokyo-nova">
+    <div class="tnx-neuro-card-chat__header">
+        <span class="tnx-neuro-card-chat__type-label">ニューロカード</span>
     </div>
-    <div class="scene-card-content" style="grid-template-columns: 150px 1fr; gap: 15px; align-items: flex-start;">
-        <div class="scene-card-details" style="display: flex; flex-direction: column; gap: 10px;">
-            <div class="detail-block">
-                <h3 style="margin: 0 0 5px; font-size: 1.1em; color: var(--tnx-color-primary);">キーワード</h3>
-                <p style="margin: 0;">{{keyword}}</p>
+    <div class="tnx-neuro-card-chat__body">
+        {{#if cardImage}}
+            <img class="tnx-neuro-card-chat__image" src="{{cardImage}}" alt="{{cardName}}">
+        {{/if}}
+        <div class="tnx-neuro-card-chat__info">
+            {{#if cardNameRomaji}}
+                <div class="tnx-neuro-card-chat__romaji">{{cardNameRomaji}}</div>
+            {{/if}}
+            <div class="tnx-neuro-card-chat__name">{{cardName}}</div>
+            <hr class="tnx-neuro-card-chat__divider">
+            <div class="tnx-neuro-card-chat__field">
+                <span class="tnx-neuro-card-chat__field-label">キーワード</span>
+                <span class="tnx-neuro-card-chat__field-value">{{{keyword}}}</span>
             </div>
-            <div class="detail-block">
-                <h3 style="margin: 0 0 5px; font-size: 1.1em; color: var(--tnx-color-primary);">暗示</h3>
-                <p style="margin: 0;">{{implication}}</p>
+            <div class="tnx-neuro-card-chat__field">
+                <span class="tnx-neuro-card-chat__field-label">暗示</span>
+                <span class="tnx-neuro-card-chat__field-value">{{{implication}}}</span>
             </div>
         </div>
     </div>

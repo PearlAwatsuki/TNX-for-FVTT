@@ -42,7 +42,7 @@
             <div class="card-slot">
                 <span class="card-slot-label">山札</span>
                 {{#if (and cardDeck cardDeck.count)}}
-                    <div class="deck-card deck-area" data-action="drawFromDeck" title="{{localize 'TNX.DrawCardHint'}}" draggable="true" data-drag-type="deck">
+                    <div class="deck-card deck-area" data-action="drawFromDeck" title="山札からドロー" draggable="true" data-drag-type="deck">
                         <img src="{{cardDeck.img}}" alt="山札">
                         <span class="deck-count">{{cardDeck.count}}</span>
                     </div>

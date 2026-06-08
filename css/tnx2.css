@@ -30,6 +30,24 @@
    ================================================================ */
 
 /* ----------------------------------------------------------------
+   0. カスタムフォント (@font-face で TNX-Mirror* ファミリー名を定義)
+   ---------------------------------------------------------------- */
+@font-face {
+    font-family: 'TNX-MirrorGothic';
+    src: url('../assets/fonts/TTEditMirrorWritingGothic.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+    font-display: block;
+}
+@font-face {
+    font-family: 'TNX-MirrorMincho';
+    src: url('../assets/fonts/TTEditMirrorWritingMincho.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+    font-display: block;
+}
+
+/* ----------------------------------------------------------------
    1. Design Tokens
    ---------------------------------------------------------------- */
 :root {
@@ -2732,6 +2750,94 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 }
 
 /* ================================================================
+   27b. ニューロカード チャットカード
+   ================================================================ */
+
+.tnx-neuro-card-chat {
+    border: 1px solid var(--tnx2-border-glow);
+    border-left: 3px solid var(--tnx2-accent);
+    border-radius: var(--tnx2-radius);
+    background: var(--tnx2-bg-0);
+    overflow: hidden;
+    font-size: 14px;
+    box-shadow: 0 0 12px rgba(0, 200, 224, 0.08);
+}
+
+.tnx-neuro-card-chat__header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    background: var(--tnx2-bg-1);
+    border-bottom: 1px solid var(--tnx2-border-glow);
+}
+
+.tnx-neuro-card-chat__type-label {
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.8em;
+    color: var(--tnx2-accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.tnx-neuro-card-chat__body {
+    display: flex;
+    gap: 10px;
+    padding: 10px;
+    align-items: flex-start;
+}
+
+.tnx-neuro-card-chat__image {
+    flex-shrink: 0;
+    width: 76px;
+    height: auto;
+    border-radius: var(--tnx2-radius);
+    border: 1px solid var(--tnx2-border-active);
+    display: block;
+}
+
+.tnx-neuro-card-chat__info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+
+.tnx-neuro-card-chat__name {
+    font-size: 0.93em;
+    color: var(--tnx2-text-primary);
+    line-height: 1.2;
+    margin-bottom: 5px;
+}
+
+.tnx-neuro-card-chat__divider {
+    border: none;
+    border-top: 1px solid var(--tnx2-border-subtle);
+    margin: 4px 0 6px;
+}
+
+.tnx-neuro-card-chat__field {
+    margin-bottom: 5px;
+}
+
+.tnx-neuro-card-chat__field-label {
+    display: block;
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.75em;
+    color: var(--tnx2-accent);
+    letter-spacing: 0.06em;
+    margin-bottom: 1px;
+}
+
+.tnx-neuro-card-chat__field-value {
+    display: block;
+    color: var(--tnx2-text-secondary);
+    font-size: 0.95em;
+    line-height: 1.4;
+}
+
+/* ================================================================
    28. HUD
    ================================================================ */
 
@@ -2812,6 +2918,24 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     align-items: flex-start;
 }
 
+.tnx-hud .hud-insert-area {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    min-height: 56px;
+    min-width: 120px;
+}
+
+.tnx-hud .hud-insert-area::after {
+    content: "";
+    display: block;
+    flex: 1;
+    width: 100%;
+    min-height: 24px;
+    border: 1px dashed rgba(0, 200, 224, 0.15);
+    border-radius: 2px;
+}
+
 .tnx-hud .neuro-cards-row {
     display: flex;
     flex-direction: row;
@@ -2878,12 +3002,23 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 }
 
 .tnx-hud .card-slot-label {
-    font-size: 0.8em;
-    color: var(--tnx2-text-accent);
-    letter-spacing: 0.06em;
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.7em;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    color: var(--tnx2-accent);
     white-space: nowrap;
     line-height: 1;
-    text-shadow: 0 0 6px rgba(120, 200, 216, 0.5);
+    padding: 3px 6px;
+    background: rgba(0, 200, 224, 0.08);
+    border: 1px solid rgba(0, 200, 224, 0.25);
+    border-radius: 2px;
+    text-shadow: 0 0 6px rgba(0, 200, 224, 0.5);
+    box-shadow: 0 0 6px rgba(0, 200, 224, 0.15), inset 0 0 4px rgba(0, 200, 224, 0.05);
+}
+
+.tnx-hud .card-slot .card-slot-label {
+    align-self: flex-start;
 }
 
 .tnx-hud .hand-area .card-in-hand:hover {
