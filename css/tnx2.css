@@ -2462,6 +2462,25 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     align-items: center;
 }
 
+/* split-fields: セレクト + テキスト入力 or スピナーを 1:1 で横並び */
+.form-fields.split-fields {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.form-fields.split-fields > select {
+    flex: 1 1 0;
+    min-width: 0;
+}
+.form-fields.split-fields > input[type="text"] {
+    flex: 1 1 0;
+    min-width: 0;
+}
+.form-fields.split-fields > .number-input-spinner {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
 .form-group.align-start { align-items: flex-start; }
 
 .form-group.align-start > label { padding-top: 3px; }
