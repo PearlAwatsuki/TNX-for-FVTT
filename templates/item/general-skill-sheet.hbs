@@ -5,8 +5,8 @@
             <h1 class="charname"><input name="name" type="text" value="{{item.name}}" placeholder="一般技能名"/></h1>
             <div class="suit-selection">
                 {{#each TNX.SUITS as |suitData key|}}
-                   <label for="suit-{{key}}" class="suit-icon" title="{{suitData.label}}">
-                        <input type="checkbox" id="suit-{{key}}" name="system.suits.{{key}}" {{checked (lookup ../system.suits key)}} {{#if suitData.disabled}}disabled{{/if}}/>
+                   <label for="suit-{{../item.id}}-{{key}}" class="suit-icon" title="{{suitData.label}}">
+                        <input type="checkbox" id="suit-{{../item.id}}-{{key}}" name="system.suits.{{key}}" {{checked (lookup ../system.suits key)}} {{#if suitData.disabled}}disabled{{/if}}/>
                         <i class="fa-solid fa-{{key}}"></i>
                     </label>
                 {{/each}}
