@@ -1373,9 +1373,14 @@
     color: var(--tnx2-accent);
     text-shadow: 0 0 8px var(--tnx2-accent-glow);
 }
-.tokyo-nova.sheet.item .suit-selection input[type="checkbox"]:disabled + i {
+.tokyo-nova.sheet.item .suit-selection input[type="checkbox"]:disabled:not(:checked) + i {
     color: var(--tnx2-text-muted);
     opacity: 0.5;
+}
+.tokyo-nova.sheet.item .suit-selection input[type="checkbox"]:disabled:checked + i {
+    color: var(--tnx2-accent);
+    opacity: 1;
+    text-shadow: 0 0 8px var(--tnx2-accent-glow);
 }
 
 /* レベル表示 */
