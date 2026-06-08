@@ -2490,6 +2490,7 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     flex: 3;
     display: flex;
     flex-direction: column;
+    width: 100%;
 }
 
 .form-fields-column {
