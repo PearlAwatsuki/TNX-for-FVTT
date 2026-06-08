@@ -2479,6 +2479,7 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 .form-fields.split-fields > .number-input-spinner {
     flex: 1 1 0;
     min-width: 0;
+    padding-right: 34px;
 }
 
 .form-group.align-start { align-items: flex-start; }
