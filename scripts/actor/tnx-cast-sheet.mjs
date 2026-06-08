@@ -15,7 +15,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
     static DEFAULT_OPTIONS = {
         classes: ["tokyo-nova", "sheet", "actor", "cast"],
-        position: { width: 950, height: 1000 },
+        position: { width: 850, height: 1000 },
         window: {
             resizable: true,
             controls: [
