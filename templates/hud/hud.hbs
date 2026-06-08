@@ -1,80 +1,105 @@
 <div class="tnx-hud">
-    <div class="hud-container hud-main-cards">
-        <div class="main-area">
-            {{#if (and cardDeck cardDeck.count)}}
-                <div class="deck-card deck-area" data-action="drawFromDeck" title="{{localize 'TNX.DrawCardHint'}}" draggable="true" data-drag-type="deck">
-                    <img src="{{cardDeck.img}}" alt="山札">
-                    <span class="deck-count">{{cardDeck.count}}</span>
-                </div>
-            {{else}}
-                <div class="card-empty-placeholder deck-area">
-                    <i class="fas fa-inbox"></i>
-                </div>
-            {{/if}}
-
-            {{#if (and discardPile discardPile.cards.size)}}
-                <div class="deck-card discard-area" data-action="takeFromDiscard" title="{{discardPile.name}}" draggable="true" data-drag-type="discard-card" data-drop-zone="discard">
-                    <img src="{{topDiscardImage}}" alt="捨て札">
-                    <span class="deck-count">{{discardPile.cards.size}}</span>
-                </div>
-            {{else}}
-                <div class="card-empty-placeholder discard-area" data-drop-zone="discard">
-                    <i class="fas fa-trash"></i>
-                </div>
-            {{/if}}
-        </div>
-    </div>
-
-    <div class="hud-container hud-top-right">
+    <div class="hud-container hud-right-column">
         <div class="main-area neuro-area">
-            {{#if (and neuroDeck neuroDeck.count)}}
-                <div class="deck-card" data-action="drawNeuro" title="ニューロデッキ (クリックでシーンカードを引く)" draggable="true" data-drag-type="neuro-deck">
-                    <img src="{{neuroDeck.img}}" alt="ニューロデッキ">
-                    <span class="deck-count">{{neuroDeck.count}}</span>
+            <span class="card-slot-label">シーンカード</span>
+            <div class="neuro-cards-row">
+                <div class="card-slot">
+                    {{#if (and neuroDeck neuroDeck.count)}}
+                        <div class="deck-card" data-action="drawNeuro" title="ニューロデッキ (クリックでシーンカードを引く)" draggable="true" data-drag-type="neuro-deck">
+                            <img src="{{neuroDeck.img}}" alt="ニューロデッキ">
+                            <span class="deck-count">{{neuroDeck.count}}</span>
+                        </div>
+                    {{else}}
+                        <div class="card-empty-placeholder">
+                            <i class="fas fa-inbox"></i>
+                        </div>
+                    {{/if}}
                 </div>
-            {{else}}
-                <div class="card-empty-placeholder">
-                    <i class="fas fa-inbox"></i>
-                </div>
-            {{/if}}
 
-            {{#if (and scenePile scenePile.cards.size)}}
-                <div class="deck-card scene-card-display" data-drop-zone="scene">
-                    <img src="{{topSceneCard.img}}" alt="{{topSceneCard.name}}">
+                <div class="card-slot">
+                    {{#if (and scenePile scenePile.cards.size)}}
+                        <div class="deck-card scene-card-display" data-drop-zone="scene">
+                            <img src="{{topSceneCard.img}}" alt="{{topSceneCard.name}}">
+                        </div>
+                    {{else}}
+                        <div class="card-empty-placeholder" data-drop-zone="scene">
+                            <i class="fas fa-cards-blank"></i>
+                        </div>
+                    {{/if}}
                 </div>
-            {{else}}
-                <div class="card-empty-placeholder" data-drop-zone="scene">
-                    <i class="fas fa-cards-blank"></i>
-                </div>
-            {{/if}}
+            </div>
+        </div>
+
+        <div class="hud-panel hud-insert-area">
+            <span class="card-slot-label">情報項目</span>
+        </div>
+
+        <div class="hud-panel hud-insert-area">
+            <span class="card-slot-label">プレイヤーの手札</span>
+        </div>
+
+        <div class="main-area">
+            <div class="card-slot">
+                <span class="card-slot-label">山札</span>
+                {{#if (and cardDeck cardDeck.count)}}
+                    <div class="deck-card deck-area" data-action="drawFromDeck" title="{{localize 'TNX.DrawCardHint'}}" draggable="true" data-drag-type="deck">
+                        <img src="{{cardDeck.img}}" alt="山札">
+                        <span class="deck-count">{{cardDeck.count}}</span>
+                    </div>
+                {{else}}
+                    <div class="card-empty-placeholder deck-area">
+                        <i class="fas fa-inbox"></i>
+                    </div>
+                {{/if}}
+            </div>
+
+            <div class="card-slot">
+                <span class="card-slot-label">捨て札</span>
+                {{#if (and discardPile discardPile.cards.size)}}
+                    <div class="deck-card discard-area" data-action="takeFromDiscard" title="{{discardPile.name}}" draggable="true" data-drag-type="discard-card" data-drop-zone="discard">
+                        <img src="{{topDiscardImage}}" alt="捨て札">
+                        <span class="deck-count">{{discardPile.cards.size}}</span>
+                    </div>
+                {{else}}
+                    <div class="card-empty-placeholder discard-area" data-drop-zone="discard">
+                        <i class="fas fa-trash"></i>
+                    </div>
+                {{/if}}
+            </div>
         </div>
     </div>
 
     <div class="hud-container hud-bottom-bar">
         <div class="hand-area hud-panel" data-drop-zone="hand">
-            {{#if (and hand hand.cards.size)}}
-                {{#each hand.cards as |card|}}
-                    <div class="card-in-hand" data-action="playCard" data-card-id="{{card.id}}" title="{{card.name}} (クリックでプレイ)" draggable="true" data-drag-type="hand-card">
-                        <img src="{{card.img}}" alt="{{card.name}}">
+            <span class="card-slot-label">手札</span>
+            <div class="hand-cards-row">
+                {{#if (and hand hand.cards.size)}}
+                    {{#each hand.cards as |card|}}
+                        <div class="card-in-hand" data-action="playCard" data-card-id="{{card.id}}" title="{{card.name}} (クリックでプレイ)" draggable="true" data-drag-type="hand-card">
+                            <img src="{{card.img}}" alt="{{card.name}}">
+                        </div>
+                    {{/each}}
+                {{else}}
+                    <div class="card-empty-placeholder" title="手札">
+                        <i class="fas fa-hand-paper"></i>
                     </div>
-                {{/each}}
-            {{else}}
-                <div class="card-empty-placeholder" title="手札">
-                    <i class="fas fa-hand-paper"></i>
-                </div>
-            {{/if}}
+                {{/if}}
+            </div>
         </div>
 
         <div class="trump-area hud-panel">
-            {{#if trumpCard}}
-                <div class="card-in-hand" data-action="useTrump" data-card-id="{{trumpCard.id}}" title="{{trumpCard.name}} (クリックで使用)" draggable="true" data-drag-type="trump-card">
-                    <img src="{{trumpCard.img}}" alt="{{trumpCard.name}}">
-                </div>
-            {{else}}
-                <div class="card-empty-placeholder" title="切り札">
-                    <i class="fas fa-star"></i>
-                </div>
-            {{/if}}
+            <div class="card-slot">
+                <span class="card-slot-label">切り札</span>
+                {{#if trumpCard}}
+                    <div class="card-in-hand" data-action="useTrump" data-card-id="{{trumpCard.id}}" title="{{trumpCard.name}} (クリックで使用)" draggable="true" data-drag-type="trump-card">
+                        <img src="{{trumpCard.img}}" alt="{{trumpCard.name}}">
+                    </div>
+                {{else}}
+                    <div class="card-empty-placeholder" title="切り札">
+                        <i class="fas fa-star"></i>
+                    </div>
+                {{/if}}
+            </div>
         </div>
     </div>
 </div>

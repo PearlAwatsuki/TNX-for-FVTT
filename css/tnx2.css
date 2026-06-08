@@ -2691,8 +2691,8 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 
 .deck-card,
 .card-in-hand {
-    width: 128px;
-    height: 192px;
+    width: 100px;
+    height: 150px;
     border-radius: 4px;
     position: relative;
     background: #222;
@@ -2731,9 +2731,13 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     pointer-events: auto;
 }
 
-.tnx-hud .hud-main-cards {
+.tnx-hud .hud-right-column {
+    top: 50px;
     bottom: 80px;
-    right: 360px;
+    right: var(--tnx-right-offset, 370px);
+    display: grid;
+    grid-template-rows: auto 1fr 1fr auto;
+    gap: 8px;
 }
 
 .tnx-hud .main-area,
@@ -2746,11 +2750,27 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     display: flex;
 }
 
-.tnx-hud .main-area,
-.tnx-hud .neuro-area {
+.tnx-hud .main-area {
+    flex-direction: row;
     gap: 8px;
-    height: 208px;
+    height: auto;
     width: auto;
+    align-items: center;
+}
+
+.tnx-hud .neuro-area {
+    flex-direction: column;
+    gap: 6px;
+    height: auto;
+    width: auto;
+    align-items: flex-start;
+}
+
+.tnx-hud .neuro-cards-row {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    align-items: flex-end;
 }
 
 .tnx-hud .deck-count {
@@ -2763,28 +2783,32 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     text-shadow: 0 0 5px #000, 0 0 3px #000;
 }
 
-.tnx-hud .hud-top-right {
-    top: 50px;
-    right: 360px;
-}
 
 .tnx-hud .hud-bottom-bar {
-    bottom: 80px;
-    left: 260px;
+    bottom: var(--tnx-players-height, 80px);
+    left: 17px;
     display: flex;
     gap: 5px;
     align-items: flex-end;
 }
 
 .tnx-hud .hand-area {
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: flex-start;
     height: auto;
+    max-width: 520px;
+    gap: 6px;
+}
+
+.tnx-hud .hand-cards-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
     align-items: flex-end;
-    max-width: 680px;
 }
 
 .tnx-hud .trump-area {
-    height: 208px;
+    height: auto;
     align-items: center;
     justify-content: center;
 }
@@ -2794,11 +2818,31 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     align-items: center;
     justify-content: center;
     color: var(--tnx2-text-muted);
-    width: 128px;
-    height: 192px;
+    width: 100px;
+    height: 150px;
 }
 
 .tnx-hud .card-empty-placeholder i { font-size: 2.5em; }
+
+.tnx-hud .card-slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.tnx-hud .card-slot-label {
+    font-size: 0.8em;
+    color: var(--tnx2-text-accent);
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    line-height: 1;
+    text-shadow: 0 0 6px rgba(120, 200, 216, 0.5);
+}
+
+.tnx-hud .hand-area .card-in-hand:hover {
+    box-shadow: 0 0 16px var(--tnx2-accent), 0 0 32px rgba(0, 195, 255, 0.25);
+}
 
 .tnx-hud .deck-card.scene-card-display:hover {
     transform: none;
