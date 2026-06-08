@@ -9,14 +9,14 @@ export class DeckCreationDialog {
         const content = await renderTemplate(template, {});
 
         return DialogV2.wait({
-            window: { title: game.i18n.localize("TNX.CreateNewDeckDialogTitle") },
+            window: { title: "新規デッキ作成" },
             classes: ["tokyo-nova"],
             content,
             buttons: [
                 {
                     action: "create",
                     icon: "fas fa-check",
-                    label: game.i18n.localize("TNX.Create"),
+                    label: "作成",
                     default: true,
                     callback: (_event, _button, dialog) => {
                         const form = dialog.element.querySelector("form");
@@ -26,7 +26,7 @@ export class DeckCreationDialog {
                 {
                     action: "cancel",
                     icon: "fas fa-times",
-                    label: game.i18n.localize("TNX.Cancel"),
+                    label: "キャンセル",
                     callback: () => null,
                 },
             ],
@@ -62,14 +62,14 @@ export class AmountInputDialog {
                 {
                     action: "ok",
                     icon: "fas fa-check",
-                    label: game.i18n.localize("TNX.Draw"),
+                    label: "ドロー",
                     default: true,
                     callback: (_event, _button, dialog) => parseInt(dialog.element.querySelector('input[name="amount"]')?.value),
                 },
                 {
                     action: "cancel",
                     icon: "fas fa-times",
-                    label: game.i18n.localize("TNX.Cancel"),
+                    label: "キャンセル",
                     callback: () => null,
                 },
             ],
@@ -111,7 +111,7 @@ export class TargetSelectionDialog {
                 {
                     action: "cancel",
                     icon: "fas fa-times",
-                    label: game.i18n.localize("TNX.Cancel"),
+                    label: "キャンセル",
                     callback: () => null,
                 },
             ],
@@ -145,7 +145,7 @@ export class CardSelectionDialog {
                 {
                     action: "cancel",
                     icon: "fas fa-times",
-                    label: game.i18n.localize("TNX.Cancel"),
+                    label: "キャンセル",
                     callback: () => null,
                 },
             ],
@@ -177,7 +177,7 @@ export class RichConfirmDialog {
                 {
                     action: "no",
                     icon: "fas fa-times",
-                    label: game.i18n.localize("TNX.Cancel"),
+                    label: "キャンセル",
                     callback: () => false,
                 },
             ],
@@ -198,17 +198,22 @@ export class DealTrumpDialog {
      */
     static async prompt({ actors, cards }) {
         const template = "systems/tokyo-nova-axleration/templates/dialog/deal-trump-dialog.hbs";
-        const html = await renderTemplate(template, { actors, cards });
+        const cardOptions = cards.map(c => {
+            const raw   = c.faces?.[0]?.name ?? c.name ?? "";
+            const label = raw.replace(/<[^>]+>/g, '').match(/：(.+?)\s*\//)?.[1] ?? raw;
+            return { id: c.id, label };
+        });
+        const html = await renderTemplate(template, { actors, cards: cardOptions });
 
         return DialogV2.wait({
-            window: { title: game.i18n.localize("TNX.SelectTargetActorAndCardTitle") },
+            window: { title: "配布先とカードを選択" },
             classes: ["tokyo-nova"],
             content: html,
             buttons: [
                 {
                     action: "deal",
                     icon: "fas fa-check",
-                    label: game.i18n.localize("TNX.Deal"),
+                    label: "配布",
                     default: true,
                     callback: (_event, _button, dialog) => {
                         const form = dialog.element.querySelector("form");
@@ -218,7 +223,7 @@ export class DealTrumpDialog {
                 {
                     action: "cancel",
                     icon: "fas fa-times",
-                    label: game.i18n.localize("TNX.Cancel"),
+                    label: "キャンセル",
                     callback: () => null,
                 },
             ],
@@ -239,31 +244,31 @@ export class UnlinkConfirmDialog {
      */
     static async prompt({ linkedDoc }) {
         const template = "systems/tokyo-nova-axleration/templates/dialog/unlink-confirm-dialog.hbs";
-        const content = game.i18n.format("TNX.UnlinkAndConfirmDeleteContent", { cardsName: linkedDoc.name });
+        const content = `「${linkedDoc.name}」のリンクを解除します。デッキも一緒に削除しますか？`;
         const html = await renderTemplate(template, { content });
 
         return DialogV2.wait({
-            window: { title: game.i18n.localize("TNX.UnlinkAndConfirmDeleteTitle") },
+            window: { title: "リンク解除の確認" },
             classes: ["tokyo-nova"],
             content: html,
             buttons: [
                 {
                     action: "delete",
                     icon: "fas fa-trash-alt",
-                    label: game.i18n.localize("TNX.UnlinkAndDelete"),
+                    label: "解除して削除",
                     callback: () => "delete",
                 },
                 {
                     action: "unlink",
                     icon: "fas fa-unlink",
-                    label: game.i18n.localize("TNX.UnlinkOnly"),
+                    label: "リンクのみ解除",
                     default: true,
                     callback: () => "unlink",
                 },
                 {
                     action: "cancel",
                     icon: "fas fa-times",
-                    label: game.i18n.localize("TNX.Cancel"),
+                    label: "キャンセル",
                     callback: () => null,
                 },
             ],
@@ -298,7 +303,7 @@ export class UsageCreationDialog {
                 {
                     action: "cancel",
                     icon: "fas fa-times",
-                    label: game.i18n.localize("TNX.Common.Cancel"),
+                    label: "キャンセル",
                     callback: () => null,
                 },
             ],

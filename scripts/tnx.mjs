@@ -593,7 +593,7 @@ Hooks.once("init", async function() {
             return true;
         }
         if (parentPile.cards.size >= 1) {
-            ui.notifications.warn(game.i18n.localize("TNX.WarnTrumpPileFull"));
+            ui.notifications.warn("切り札置き場はすでにいっぱいです。");
             return false;
         }
         return true;
@@ -717,7 +717,7 @@ Hooks.once("init", async function() {
                                 const newValue = Math.max(1, currentValue - 1);
                                 const newTotal = Math.max(0, currentTotal - 1);
                                 await existingMiracle.update({ "system.usageCount.value": newValue, "system.usageCount.total": newTotal });
-                                ui.notifications.info(game.i18n.format("TNX.Notification.MiracleCountDecreased", { name: existingMiracle.name }));
+                                ui.notifications.info(`神業「${existingMiracle.name}」の母数を-1しました。`);
                             }
                         }
                     } catch (e) { console.error(`TokyoNOVA | Error updating Divine Work usage count:`, e); }
@@ -890,4 +890,5 @@ Hooks.once("ready", async function() {
             await TokyoNovaCastSheet.updateCastExp(cast);
         }
     });
+
 });

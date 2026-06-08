@@ -1,6 +1,6 @@
 <form autocomplete="off">
     <div class="form-group">
-        <label>{{localize "TNX.SelectTargetActorLabel"}}</label>
+        <label>配布先</label>
         <div class="form-fields">
             <select name="actorId" autofocus>
                 {{#each actors}}
@@ -10,11 +10,11 @@
         </div>
     </div>
     <div class="form-group">
-        <label>{{localize "TNX.SelectCardLabel"}}</label>
+        <label>カード</label>
         <div class="form-fields">
             <select name="cardId">
                 {{#each cards}}
-                <option value="{{this.id}}">{{{this.faces.0.name}}}</option>
+                <option value="{{this.id}}">{{this.label}}</option>
                 {{/each}}
             </select>
         </div>

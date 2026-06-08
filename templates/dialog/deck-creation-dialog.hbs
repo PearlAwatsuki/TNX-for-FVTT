@@ -1,21 +1,21 @@
 <form>
     <div class="form-group">
-        <label>{{localize "TNX.NumberOfDecks"}}</label>
+        <label>デッキ数</label>
         <div class="form-fields">
             <input type="number" name="deckCount" value="2" min="1" step="1">
         </div>
     </div>
-    <p class="notes">{{localize "TNX.NumberOfDecksHint"}}</p>
+    <p class="notes">作成するニューロデッキのセット数です。</p>
 
     <div class="form-group-checkbox">
         <input type="checkbox" id="createFaceDown" name="createFaceDown" checked>
-        <label for="createFaceDown">{{localize "TNX.CreateFaceDown"}}</label>
+        <label for="createFaceDown">裏向きで作成</label>
     </div>
-    <p class="notes">{{localize "TNX.CreateFaceDownHint"}}</p>
+    <p class="notes">チェックすると、カードを裏向きの状態で作成します。</p>
 
     <div class="form-group-checkbox">
         <input type="checkbox" id="shuffleDeck" name="shuffleDeck" checked>
-        <label for="shuffleDeck">{{localize "TNX.ShuffleOnCreate"}}</label>
+        <label for="shuffleDeck">作成時にシャッフル</label>
     </div>
-    <p class="notes">{{localize "TNX.ShuffleOnCreateHint"}}</p>
+    <p class="notes">チェックすると、作成直後にデッキをシャッフルします。</p>
 </form>

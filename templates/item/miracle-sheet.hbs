@@ -1,28 +1,28 @@
 <section class="{{cssClass}}">
     <header class="sheet-header">
         <img class="profile-img" src="{{item.img}}" data-edit="img" data-action="editImage" title="{{item.name}}"/>
-        
+
         <div class="header-fields">
             <h1 class="charname-container">
                 <input class="furigana-input" name="system.furigana" type="text" value="{{system.furigana}}" placeholder="フリガナ" />
-                <input class="itemname-input" name="name" type="text" value="{{item.name}}" placeholder="{{localize 'TYPES.Item.miracle'}}" />
+                <input class="itemname-input" name="name" type="text" value="{{item.name}}" placeholder="神業" />
             </h1>
         </div>
     </header>
 
     <nav class="sheet-tabs tabs" data-group="primary">
-        <a class="item" data-action="tab" data-group="primary" data-tab="description">{{localize "TNX.Common.Description"}}</a>
-        <a class="item" data-action="tab" data-group="primary" data-tab="setting">{{localize "TNX.Common.Setting"}}</a>
+        <a class="item" data-action="tab" data-group="primary" data-tab="description">説明</a>
+        <a class="item" data-action="tab" data-group="primary" data-tab="setting">設定</a>
         <a class="item" data-action="tab" data-group="primary" data-tab="usage">用途</a>
-        <a class="item" data-action="tab" data-group="primary" data-tab="effects">{{localize "TNX.Common.Effects"}}</a>
+        <a class="item" data-action="tab" data-group="primary" data-tab="effects">効果</a>
     </nav>
 
      <section class="sheet-body">
         <div class="tab description" data-group="primary" data-tab="description">
             <div class="tnx-editor-section">
-  
+
               <div class="tnx-editor-section__header">
-                    <label>{{localize "TNX.Common.Description"}}</label>
+                    <label>説明</label>
 
                 </div>
                 <div class="tnx-editor-section__content">
@@ -31,7 +31,7 @@
             </div>
             <div class="tnx-editor-section">
                 <div class="tnx-editor-section__header">
-                    <label>{{localize "TNX.Item.Miracle.Condition"}}</label>
+                    <label>使用条件</label>
                 </div>
                 <div class="tnx-editor-section__content">
                     {{editor enrichedConditionDescription target="system.usageCondition" engine="prosemirror" button=true owner=owner editable=editable}}
@@ -41,21 +41,21 @@
 
         <div class="tab setting" data-group="primary" data-tab="setting">
             <fieldset class="tnx-fieldset">
-                <legend>{{localize "TNX.UsageCount"}}</legend>
+                <legend>使用回数</legend>
                 <div class="tnx-form-field">
                     <div class="form-group">
-                        <label for="isUsed">{{localize "TNX.Used"}}</label>
+                        <label for="isUsed">使用済み</label>
                         <input type="checkbox" id="isUsed" name="system.isUsed" {{checked system.isUsed}}>
-                        <p class="sheet-notes notes">{{localize "TNX.UsedHint"}}</p>
+                        <p class="sheet-notes notes">チェックすると、使用済みとして扱われます。</p>
                     </div>
                     <div class="form-group">
-                        <label>{{localize "TNX.RemainingUses"}}</label>
+                        <label>残り使用回数</label>
                         <div class="number-input-spinner">
                             <button type="button" data-action="decrementLevel" class="tnx-btn">-</button>
                             <input class="ability-value" type="number" name="system.usageCount.total" value="{{system.usageCount.total}}" {{#if system.isUsed}} disabled {{/if}}>
                             <button type="button" data-action="incrementLevel" class="tnx-btn">+</button>
                         </div>
-                        <p class="sheet-notes notes">{{localize "TNX.RemainingUsesHint"}}</p>
+                        <p class="sheet-notes notes">0以上の値で使用回数を管理します。0のとき無制限。</p>
                     </div>
                 </div>
             </fieldset>
@@ -64,7 +64,7 @@
         <div class="tab usage" data-group="primary" data-tab="usage">
             {{> "systems/tokyo-nova-axleration/templates/parts/usage-list.hbs"}}
         </div>
-        
+
         <div class="tab effects" data-group="primary" data-tab="effects">
             {{> "systems/tokyo-nova-axleration/templates/parts/active-effects-list.hbs"}}
         </div>

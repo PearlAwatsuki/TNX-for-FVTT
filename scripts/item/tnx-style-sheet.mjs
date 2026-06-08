@@ -32,10 +32,10 @@ export class TokyoNovaStyleSheet extends TokyoNovaItemSheet {
         context.isLevel3Locked = context.system.level === 3;
 
         const abilityLabels = {
-            reason:  game.i18n.format("TNX.Ability.Reason",  { suit: "♠" }),
-            passion: game.i18n.format("TNX.Ability.Passion", { suit: "♣" }),
-            life:    game.i18n.format("TNX.Ability.Life",    { suit: "♥" }),
-            mundane: game.i18n.format("TNX.Ability.Mundane", { suit: "♦" }),
+            reason:  "♠理性",
+            passion: "♣感情",
+            life:    "♥生命",
+            mundane: "♦外界",
         };
         context.system.abilities = {};
         for (const key of Object.keys(abilityLabels)) {
@@ -59,7 +59,7 @@ export class TokyoNovaStyleSheet extends TokyoNovaItemSheet {
         if (!context.editable) return;
 
         new ContextMenu(this.element, '[data-context-menu-type="manage-miracle"]', [{
-            name: game.i18n.localize("TNX.Common.Unlink"),
+            name: "リンク解除",
             icon: '<i class="fas fa-unlink"></i>',
             condition: () => !!this.item.system.miracle?.id,
             callback: async () => {

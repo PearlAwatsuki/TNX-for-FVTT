@@ -33,10 +33,10 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
         context.system = system;
         context.TNX = {
             SUITS: {
-                spade:   { label: game.i18n.localize("TNX.Suits.spade"),   disabled: false },
-                club:    { label: game.i18n.localize("TNX.Suits.club"),    disabled: false },
-                heart:   { label: game.i18n.localize("TNX.Suits.heart"),   disabled: false },
-                diamond: { label: game.i18n.localize("TNX.Suits.diamond"), disabled: false },
+                spade:   { label: "スペード", disabled: false },
+                club:    { label: "クラブ",   disabled: false },
+                heart:   { label: "ハート",   disabled: false },
+                diamond: { label: "ダイヤ",   disabled: false },
             },
         };
         context.view = TnxSkillUtils.prepareStyleSkillView(system, context.options);

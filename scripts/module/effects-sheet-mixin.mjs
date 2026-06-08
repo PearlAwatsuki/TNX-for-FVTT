@@ -29,7 +29,7 @@ export const EffectsSheetMixin = {
         async createEffect(_event, _target) {
             const doc = this.document;
             const [effect] = await doc.createEmbeddedDocuments("ActiveEffect", [{
-                name: game.i18n.localize("EFFECT.New"),
+                name: "新規効果",
                 img: "icons/svg/aura.svg",
                 origin: doc.uuid,
             }]);
@@ -67,7 +67,7 @@ export const EffectsSheetMixin = {
             switch (action) {
                 case "createEffect": {
                     const newEffects = await document.createEmbeddedDocuments("ActiveEffect", [{
-                        name: game.i18n.localize("EFFECT.New"),
+                        name: "新規効果",
                         img: "icons/svg/aura.svg",
                         origin: document.uuid,
                     }]);
@@ -88,7 +88,7 @@ export const EffectsSheetMixin = {
         event.preventDefault();
         const doc = this.actor || this.document;
         const [effect] = await doc.createEmbeddedDocuments("ActiveEffect", [{
-            name: game.i18n.localize("EFFECT.New"),
+            name: "新規効果",
             img: "icons/svg/aura.svg",
             origin: doc.uuid,
         }]);

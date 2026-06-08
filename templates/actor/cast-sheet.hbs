@@ -4,38 +4,38 @@
             <img class="profile-img" src="{{actor.img}}" data-action="editImage" title="{{actor.name}}"/>
         </div>
         <div class="sidebar-personal-data-group">
-            <h3 class="tnx-section-title tnx-section-title--sm">{{localize "TNX.Actor.Profile.Header"}}</h3>
+            <h3 class="tnx-section-title tnx-section-title--sm">パーソナルデータ</h3>
             <div class="personal-data-grid">
                 <div class="personal-data-item">
-                    <label data-en="AGE">{{localize "TNX.Actor.Profile.Age"}}</label>
+                    <label data-en="AGE">年齢</label>
                     <input type="text" name="system.age" value="{{system.age}}"/>
                 </div>
                 <div class="personal-data-item">
-                    <label data-en="GENDER">{{localize "TNX.Actor.Profile.Gender"}}</label>
+                    <label data-en="GENDER">性別</label>
                     <input type="text" name="system.gender" value="{{system.gender}}"/>
                 </div>
                 <div class="personal-data-item">
-                    <label data-en="DOB">{{localize "TNX.Actor.Profile.Birthday"}}</label>
+                    <label data-en="DOB">誕生日</label>
                     <input type="text" name="system.birthday" value="{{system.birthday}}"/>
                 </div>
                 <div class="personal-data-item">
-                    <label data-en="HEIGHT">{{localize "TNX.Actor.Profile.Height"}}</label>
+                    <label data-en="HEIGHT">身長</label>
                     <input type="text" name="system.height" value="{{system.height}}"/>
                 </div>
                 <div class="personal-data-item">
-                    <label data-en="WEIGHT">{{localize "TNX.Actor.Profile.Weight"}}</label>
+                    <label data-en="WEIGHT">体重</label>
                     <input type="text" name="system.weight" value="{{system.weight}}"/>
                 </div>
                 <div class="personal-data-item">
-                    <label data-en="EYES">{{localize "TNX.Actor.Profile.Eyes"}}</label>
+                    <label data-en="EYES">瞳の色</label>
                     <input type="text" name="system.eyes" value="{{system.eyes}}"/>
                 </div>
                 <div class="personal-data-item">
-                    <label data-en="HAIR">{{localize "TNX.Actor.Profile.Hair"}}</label>
+                    <label data-en="HAIR">髪の色</label>
                     <input type="text" name="system.hair" value="{{system.hair}}"/>
                 </div>
                 <div class="personal-data-item">
-                    <label data-en="SKIN">{{localize "TNX.Actor.Profile.Skin"}}</label>
+                    <label data-en="SKIN">肌の色</label>
                     <input type="text" name="system.skin" value="{{system.skin}}"/>
                 </div>
             </div>
@@ -64,17 +64,17 @@
                             </ruby>
                         {{else}}
                             {{#unless system.handle}}
-                                <span class="no-name-placeholder">{{localize "TNX.NameNotSet"}}</span>
+                                <span class="no-name-placeholder">名前未設定</span>
                             {{/unless}}
                         {{/if}}
                     </div>
                     <div class="identity-edit-mode">
-                        <label>{{localize "TNX.Actor.Profile.Name"}}</label>
+                        <label>キャラクター名</label>
                         <div class="char-name-block-edit">
                             <input name="name" type="text" value="{{actor.name}}">
                             <input name="system.charaname_ruby" type="text" value="{{system.charaname_ruby}}">
                         </div>
-                        <label>{{localize "TNX.Actor.Profile.Handle"}}</label>
+                        <label>ハンドル</label>
                         <div class="handle-block-edit">
                             <input name="system.handle" type="text" value="{{system.handle}}">
                             <input name="system.handle_ruby" type="text" value="{{system.handle_ruby}}">
@@ -85,11 +85,11 @@
                     <div class="rank-affiliation-wrapper">
                         <div class="citizen-rank-block">
                             <div class="view-mode-rank">
-                                <span class="view-mode-label">{{localize "TNX.Actor.Profile.CitizenRank"}}：</span>
+                                <span class="view-mode-label">市民ランク：</span>
                                 <span class="view-mode-value">{{system.citizenRank}}</span>
                             </div>
                             <div class="edit-mode-rank">
-                                <label>{{localize "TNX.Actor.Profile.CitizenRank"}}：</label>
+                                <label>市民ランク：</label>
                                 <select name="system.citizenRank">
                                     {{#each citizenRankOptionsForSelect as |o|}}
                                         <option value="{{o.value}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>
@@ -99,11 +99,11 @@
                         </div>
                         <div class="affiliation-block">
                             <div class="view-mode-affiliation">
-                                <span class="view-mode-label">{{localize "TNX.Actor.Profile.Affiliation"}}：</span>
+                                <span class="view-mode-label">所属：</span>
                                 <span class="view-mode-value">{{affiliationDisplay}}</span>
                             </div>
                             <div class="edit-mode-affiliation">
-                                <label>{{localize "TNX.Actor.Profile.Affiliation"}}：</label>
+                                <label>所属：</label>
                                 {{#if equippedAffiliations.length}}
                                     {{#each equippedAffiliations as |item|}}
                                         <button type="button" class="item-button tnx-linked-btn" data-action="openItemSheet" data-item-id="{{item._id}}" data-context-menu="item-edit">
@@ -112,13 +112,13 @@
                                         </button>
                                     {{/each}}
                                 {{else}}
-                                    <div class="tnx-import-box tnx-import-box--inline" data-drop-area="affiliation"><span>{{localize "TNX.Actor.DropHint.Organization"}}</span></div>
+                                    <div class="tnx-import-box tnx-import-box--inline" data-drop-area="affiliation"><span>組織アイテムをここにドロップ</span></div>
                                 {{/if}}
                             </div>
                         </div>
                     </div>
                     <div class="view-mode-style-summary">
-                        <span class="view-mode-label">{{localize "TNX.Actor.Items.Styles"}}：</span>
+                        <span class="view-mode-label">スタイル：</span>
                         <span class="style-summary-items">
                             {{#each processedStylesForView as |s|}}
                                 <a class="style-summary-item" data-item-id="{{s._id}}">{{s.repeatedName}}{{s.roleIndicatorDisplay}}</a>
@@ -128,20 +128,20 @@
                     </div>
                     <div class="exp-display-section">
                         <div class="view-mode-exp">
-                            <span>{{localize "TNX.Actor.Stats.ExpSpent"}}：</span>
+                            <span>消費経験点：</span>
                             <span class="exp-value">{{system.exp.spent}}</span>
                         </div>
                         <div class="edit-mode-exp">
                             <div>
-                                <label>{{localize "TNX.Actor.Stats.ExpSpent"}}：</label>
+                                <label>消費経験点：</label>
                                 <span>{{system.exp.spent}}</span>
                             </div>
                             <div>
-                                <label>{{localize "TNX.Actor.Stats.ExpTotal"}}：</label>
+                                <label>総経験点：</label>
                                 <span>{{system.exp.total}}</span>
                             </div>
                             <div>
-                                <label>{{localize "TNX.Actor.Stats.ExpAdditional"}}：</label>
+                                <label>追加経験点：</label>
                                 <input type="number" name="system.exp.additional" value="{{system.exp.additional}}" class="exp-input">
                             </div>
                         </div>
@@ -154,7 +154,7 @@
                             {{#each styleSlots as |slot|}}
                                 <div class="style-slot" data-item-id="{{slot._id}}">
                                 {{#if slot.isEmpty}}
-                                    <div class="tnx-import-box tnx-import-box--inline" data-drop-area="style"><span>{{localize "TNX.Actor.DropHint.Style"}}</span></div>
+                                    <div class="tnx-import-box tnx-import-box--inline" data-drop-area="style"><span>スタイルをここにドロップ</span></div>
                                 {{else}}
                                     <button type="button" class="item-button tnx-linked-btn style-info-button" data-action="openItemSheet" data-item-id="{{slot._id}}" data-context-menu="item-edit">
                                         <img src="{{slot.img}}" class="tnx-linked-btn__icon"/>
@@ -169,7 +169,7 @@
                             {{#each miracleSlots as |slot|}}
                                 <div class="miracle-slot" data-item-id="{{slot._id}}">
                                 {{#if slot.isEmpty}}
-                                    <div class="tnx-import-box tnx-import-box--inline" data-drop-area="miracle"><span>{{localize "TNX.Actor.DropHint.Miracle"}}</span></div>
+                                    <div class="tnx-import-box tnx-import-box--inline" data-drop-area="miracle"><span>神業をここにドロップ</span></div>
                                 {{else}}
                                     <button type="button" class="item-button tnx-linked-btn" data-action="openItemSheet" data-item-id="{{slot._id}}" data-context-menu="item-edit">
                                         <img src="{{slot.img}}" class="tnx-linked-btn__icon"/>{{slot.name}}
@@ -181,7 +181,7 @@
                     </div>
                     {{else}}
                     <div class="view-mode-miracle-actions">
-                        <h3 class="tnx-section-title tnx-section-title--center">{{localize "TNX.Actor.Items.Miracles"}}</h3>
+                        <h3 class="tnx-section-title tnx-section-title--center">神業</h3>
                         <div class="miracle-buttons-grid">
                             {{#each miracleSlotsForView as |dw|}}
                                 <button type="button" class="tnx-linked-btn miracle-use-button" data-action="useMiracle" data-item-id="{{dw._id}}" {{#if dw.isPlaceholder}}disabled{{/if}} {{#if dw.isDisabled}}disabled{{/if}} data-context-menu="miracle-view">
@@ -198,25 +198,25 @@
      
         <section class="tabbed-content">
             <nav class="sheet-tabs tabs tnx-tabs" data-group="primary">
-                <a class="item" data-action="tab" data-tab="abilities" data-group="primary">{{localize "TNX.Ui.Tab.Abilities"}}</a>
-                <a class="item" data-action="tab" data-tab="check"     data-group="primary">{{localize "TNX.Ui.Tab.Check"}}</a>
-                <a class="item" data-action="tab" data-tab="outfits"   data-group="primary">{{localize "TNX.Ui.Tab.Outfits"}}</a>
-                <a class="item" data-action="tab" data-tab="status"    data-group="primary">{{localize "TNX.Ui.Tab.Status"}}</a>
-                <a class="item" data-action="tab" data-tab="history"   data-group="primary">{{localize "TNX.Ui.Tab.History"}}</a>
-                <a class="item" data-action="tab" data-tab="profile"   data-group="primary">{{localize "TNX.Ui.Tab.Profile"}}</a>
+                <a class="item" data-action="tab" data-tab="abilities" data-group="primary">能力</a>
+                <a class="item" data-action="tab" data-tab="check"     data-group="primary">判定</a>
+                <a class="item" data-action="tab" data-tab="outfits"   data-group="primary">アウトフィット</a>
+                <a class="item" data-action="tab" data-tab="status"    data-group="primary">状態</a>
+                <a class="item" data-action="tab" data-tab="history"   data-group="primary">セッション履歴</a>
+                <a class="item" data-action="tab" data-tab="profile"   data-group="primary">詳細</a>
             </nav>
             <section class="sheet-body tnx-body">
                 <div class="tab abilities" data-group="primary" data-tab="abilities">
                     {{#if isEditMode}}
-                        <h2 class="tnx-section-title">{{localize "TNX.Ui.Header.AbilityControl"}}</h2>
+                        <h2 class="tnx-section-title">能力値管理</h2>
                         <div class="abilities-grid edit-mode-layout">
                             {{#each system.abilities as |ability key|}}
                                 <div class="ability-block">
-                                    <h3>{{localize ability.label}}</h3>
+                                    <h3>{{ability.label}}</h3>
                                     <div class="value-control-wrapper">
-                                        <input type="number" value="{{ability.totalValue}}" class="ability-value" disabled title="{{localize "TNX.Ability.Value"}}">
+                                        <input type="number" value="{{ability.totalValue}}" class="ability-value" disabled title="能力値">
                                         <span class="separator">/</span>
-                                        <input type="number" value="{{ability.totalControl}}" class="control-value" disabled title="{{localize "TNX.Ability.Control"}}">
+                                        <input type="number" value="{{ability.totalControl}}" class="control-value" disabled title="制御値">
                                     </div>
                                     <div class="ability-details-toggle" data-action="toggleAbilityDetails">
                                         <span>内訳</span>
@@ -260,11 +260,11 @@
                             {{/each}}
                         </div>
                     {{else}}
-                        <h2 class="tnx-section-title">{{localize "TNX.Ui.Header.Ability"}}</h2>
+                        <h2 class="tnx-section-title">能力値</h2>
                         <div class="abilities-grid view-mode-layout">
                             {{#each system.abilities as |ability key|}}
                                 <div class="ability-display">
-                                    <div class="ability-label-shape"><div class="ability-label-content"><h3>{{localize ability.label}}</h3></div></div>
+                                    <div class="ability-label-shape"><div class="ability-label-content"><h3>{{ability.label}}</h3></div></div>
                                     <div class="ability-values-area">
                                         <div class="ability-value-shape">
                                             <div class="ability-value-content">
@@ -283,14 +283,14 @@
                     {{/if}}
                     <div class="skills-section">
                         {{#if isEditMode}}
-                            <h2 class="tnx-section-title">{{localize "TNX.Actor.Items.Skills"}}</h2>
+                            <h2 class="tnx-section-title">技能</h2>
                             {{!-- 編集モード：一般技能セクション --}}
                             <div class="skills-list-edit">
                                 <div class="tnx-item-list__row tnx-item-list__row--header skill-group-header">
-                                    <h4 class="skill-name-header">{{localize "TNX.Actor.Items.GeneralSkills"}}</h4>
+                                    <h4 class="skill-name-header">一般技能</h4>
                                     {{!-- 【変更点2】一般技能追加ボタン --}}
-                                    <a class="item-control item-create" data-type="generalSkill" title="{{localize 'TNX.Common.Add'}}">
-                                        <i class="fas fa-plus"></i> {{localize "TNX.Common.Add"}}
+                                    <a class="item-control item-create" data-type="generalSkill" title="追加">
+                                        <i class="fas fa-plus"></i> 追加
                                     </a>
                                 </div>
                                 
@@ -308,7 +308,7 @@
                                                     
                                                     <div class="skill-suits-row">
                                                         {{#each ../TNX.SUITS as |suitData key|}}
-                                                            <label class="suit-checkbox-tiny" title="{{localize suitData.label}}">
+                                                            <label class="suit-checkbox-tiny" title="{{suitData.label}}">
                                                                 {{!-- generalSkill.initialSkill.initialSuit 等の制約処理は必要に応じて残す --}}
                                                                 <input type="checkbox" class="skill-property-change" data-target="suit" data-suit="{{key}}" {{checked (lookup item.system.suits key)}} />
                                                                 <i class="{{suitData.icon}}"></i>
@@ -317,8 +317,8 @@
                                                     </div>
                                                 </div>
                                                 <div class="item-controls">
-                                                    <a class="item-control item-edit" title="{{localize 'SHEET.ItemEdit'}}" data-item-id="{{item._id}}"><i class="fas fa-edit"></i></a>
-                                                    <a class="item-control item-delete" title="{{localize 'SHEET.ItemDelete'}}" {{#if (eq item.system.generalSkillCategory "initialSkill")}}disabled{{/if}} {{#if item.system.onomasticSkill.isInitial}}disabled{{/if}}><i class="fas fa-trash"></i></a>
+                                                    <a class="item-control item-edit" title="編集" data-item-id="{{item._id}}"><i class="fas fa-edit"></i></a>
+                                                    <a class="item-control item-delete" title="削除" {{#if (eq item.system.generalSkillCategory "initialSkill")}}disabled{{/if}} {{#if item.system.onomasticSkill.isInitial}}disabled{{/if}}><i class="fas fa-trash"></i></a>
                                                 </div>
                                             </li>
                                         {{/each}}
@@ -327,10 +327,10 @@
 
                                 {{!-- 編集モード：スタイル技能セクション --}}
                                 <div class="tnx-item-list__row tnx-item-list__row--header skill-group-header">
-                                    <h4 class="skill-name-header">{{localize "TNX.Actor.Items.StyleSkills"}}</h4>
+                                    <h4 class="skill-name-header">スタイル技能</h4>
                                     {{!-- 【変更点2】スタイル技能追加ボタン --}}
-                                    <a class="item-control item-create" data-type="styleSkill" title="{{localize 'TNX.Common.Add'}}">
-                                        <i class="fas fa-plus"></i> {{localize "TNX.Common.Add"}}
+                                    <a class="item-control item-create" data-type="styleSkill" title="追加">
+                                        <i class="fas fa-plus"></i> 追加
                                     </a>
                                 </div>
 
@@ -348,7 +348,7 @@
                                                     
                                                     <div class="skill-suits-row">
                                                         {{#each ../TNX.SUITS as |suitData key|}}
-                                                            <label class="suit-checkbox-tiny" title="{{localize suitData.label}}">
+                                                            <label class="suit-checkbox-tiny" title="{{suitData.label}}">
                                                                 <input type="checkbox" class="skill-property-change" data-target="suit" data-suit="{{key}}" {{checked (lookup item.system.suits key)}} />
                                                                 <i class="{{suitData.icon}}"></i>
                                                             </label>
@@ -357,8 +357,8 @@
                                                 </div>
 
                                                 <div class="item-controls">
-                                                    <a class="item-control item-edit" title="{{localize 'SHEET.ItemEdit'}}" data-item-id="{{item._id}}"><i class="fas fa-edit"></i></a>
-                                                    <a class="item-control item-delete" title="{{localize 'SHEET.ItemDelete'}}"><i class="fas fa-trash"></i></a>
+                                                    <a class="item-control item-edit" title="編集" data-item-id="{{item._id}}"><i class="fas fa-edit"></i></a>
+                                                    <a class="item-control item-delete" title="削除"><i class="fas fa-trash"></i></a>
                                                 </div>
                                             </li>
                                         {{/each}}
@@ -368,7 +368,7 @@
                         {{else}}
                             {{!-- 閲覧モード --}}
                             <div class="skills-section">
-                                <h2 class="tnx-section-title">{{localize "TNX.Actor.Items.GeneralSkills"}}</h2>
+                                <h2 class="tnx-section-title">一般技能</h2>
                                 <div class="skills-list-view">
                                     {{#each generalSkillColumns as |columnItems|}}
                                         <div class="skills-column">
@@ -395,19 +395,19 @@
                                 </div>
                             </div>
                             <div class="skills-section">
-                                <h2 class="tnx-section-title">{{localize "TNX.Actor.Items.StyleSkills"}}</h2>
+                                <h2 class="tnx-section-title">スタイル技能</h2>
                                 <div class="style-skills-list-wrapper">
                                     {{!-- ヘッダー行 --}}
                                     <div class="style-skill-header style-skill-grid">
-                                        <div class="cell cell-name">{{localize "TNX.Common.Name"}}</div>
+                                        <div class="cell cell-name">名称</div>
                                         <div class="cell cell-level">Lv</div>
-                                        <div class="cell cell-combo">{{localize "TNX.Item.Skill.Combo"}}</div>
-                                        <div class="cell cell-max">{{localize "TNX.Item.Skill.MaxLevel"}}</div>
-                                        <div class="cell cell-timing">{{localize "TNX.Item.Skill.Timing"}}</div>
-                                        <div class="cell cell-target">{{localize "TNX.Item.Skill.Target"}}</div>
-                                        <div class="cell cell-range">{{localize "TNX.Item.Skill.Range"}}</div>
-                                        <div class="cell cell-tn">{{localize "TNX.Item.Skill.TargetValue"}}</div>
-                                        <div class="cell cell-confront">{{localize "TNX.Item.Skill.Confrontation"}}</div>
+                                        <div class="cell cell-combo">技能</div>
+                                        <div class="cell cell-max">上限</div>
+                                        <div class="cell cell-timing">タイミング</div>
+                                        <div class="cell cell-target">対象</div>
+                                        <div class="cell cell-range">射程</div>
+                                        <div class="cell cell-tn">目標値</div>
+                                        <div class="cell cell-confront">対決</div>
                                         <div class="cell cell-other"></div>
                                     </div>
 
@@ -456,7 +456,7 @@
                                                     <span class="squeeze-text">{{item.view.confrontation}}</span>
                                                 </div>
                                                 <div class="cell cell-other">
-                                                    <a class="item-menu-trigger" data-item-id="{{item._id}}" title="{{localize 'TNX.Common.Menu'}}">
+                                                    <a class="item-menu-trigger" data-item-id="{{item._id}}" title="メニュー">
                                                         <i class="fas fa-ellipsis-v"></i>
                                                     </a>
                                                 </div>
@@ -478,8 +478,8 @@
                             {{#each outfitGroups as |group|}}
                                 <div class="tnx-item-list__row tnx-item-list__row--header skill-group-header">
                                     <h4 class="skill-name-header">{{group.label}}</h4>
-                                    <a class="item-control item-create" data-type="outfit" data-major="{{group.key}}" title="{{localize 'TNX.Common.Add'}}">
-                                        <i class="fas fa-plus"></i> {{localize "TNX.Common.Add"}}
+                                    <a class="item-control item-create" data-type="outfit" data-major="{{group.key}}" title="追加">
+                                        <i class="fas fa-plus"></i> 追加
                                     </a>
                                 </div>
 
@@ -517,8 +517,8 @@
                                             {{/if}}
 
                                             <div class="item-controls">
-                                                <a class="item-control item-edit" data-item-id="{{item._id}}" title="{{localize 'SHEET.ItemEdit'}}"><i class="fas fa-edit"></i></a>
-                                                <a class="item-control item-delete" title="{{localize 'SHEET.ItemDelete'}}"><i class="fas fa-trash"></i></a>
+                                                <a class="item-control item-edit" data-item-id="{{item._id}}" title="編集"><i class="fas fa-edit"></i></a>
+                                                <a class="item-control item-delete" title="削除"><i class="fas fa-trash"></i></a>
                                             </div>
                                         </li>
                                         {{/each}}

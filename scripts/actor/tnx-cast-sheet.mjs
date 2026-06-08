@@ -75,7 +75,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         const allMiracles = this.actor.items.filter(i => i.type === 'miracle');
         context.equippedAffiliations = this.actor.items.filter(i => i.type === 'organization');
         context.affiliationDisplay   = context.equippedAffiliations[0]?.name
-            || game.i18n.localize("TNX.Actor.Profile.Unaffiliated");
+            || "無所属";
 
         context.styleSlots = this._prepareStyleSlots(allStyles);
 
@@ -87,7 +87,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         context.miracleSlotsForView = [...miracleSlotsData];
         while (context.miracleSlotsForView.length < 3) {
             context.miracleSlotsForView.push({
-                name: game.i18n.format("TNX.Ui.Label.MiracleSlot", { number: context.miracleSlotsForView.length + 1 }),
+                name: `神業${context.miracleSlotsForView.length + 1}`,
                 isPlaceholder: true,
                 _id: `placeholder-${context.miracleSlotsForView.length}`
             });
@@ -463,7 +463,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
                 if (usage && usage.value > 1) {
                     const newValue = usage.value - 1;
                     await item.update({ 'system.usageCount.value': newValue, 'system.usageCount.total': Math.max(0, usage.total - 1) });
-                    ui.notifications.info(game.i18n.format("TNX.Notification.MiracleCountDecreased", { name: item.name }));
+                    ui.notifications.info(`神業「${item.name}」の母数を-1しました。`);
                     return;
                 }
             }
@@ -477,7 +477,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         };
 
         const itemContextMenu = [{
-            name:      "SHEET.ItemDelete",
+            name:      "削除",
             icon:      '<i class="fas fa-trash"></i>',
             condition: header => !!header.dataset.itemId,
             callback:  itemDeleteCallback
@@ -502,7 +502,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
         const styleSkillOptions = [
             {
-                name: "SHEET.ItemEdit",
+                name: "編集",
                 icon: '<i class="fas fa-edit"></i>',
                 callback: header => {
                     const itemId = header.dataset.itemId || header.closest('[data-item-id]')?.dataset.itemId;
@@ -510,7 +510,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
                 }
             },
             {
-                name:     "SHEET.ItemDelete",
+                name:     "削除",
                 icon:     '<i class="fas fa-trash"></i>',
                 callback: itemDeleteCallback
             }
@@ -597,7 +597,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         const rankMap = { "A": "A", "B+": "B+", "B": "B", "B-": "B-", "C+": "C+", "C": "C", "C-": "C-", "X": "X" };
         context.citizenRankOptionsForSelect = Object.entries(rankMap).map(([value]) => ({
             value,
-            label:    game.i18n.localize(value),
+            label:    value,
             selected: value === currentRank
         }));
     }
@@ -606,10 +606,10 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         context.system.abilities = {};
         const abilityKeys   = ["reason", "passion", "life", "mundane"];
         const abilityLabels = {
-            reason:  game.i18n.format("TNX.Ability.Reason",   { suit: "♠" }),
-            passion: game.i18n.format("TNX.Ability.Passion",  { suit: "♣" }),
-            life:    game.i18n.format("TNX.Ability.Life",     { suit: "♥" }),
-            mundane: game.i18n.format("TNX.Ability.Mundane",  { suit: "♦" })
+            reason:  "♠理性",
+            passion: "♣感情",
+            life:    "♥生命",
+            mundane: "♦外界"
         };
 
         for (const key of abilityKeys) {
@@ -769,8 +769,8 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         if (!item) return;
 
         const confirmed = await foundry.applications.api.DialogV2.confirm({
-            window:  { title: game.i18n.localize("SHEET.ItemDelete") },
-            content: `<p>${game.i18n.format("SHEET.Delete", { name: item.name })}</p>`
+            window:  { title: "削除" },
+            content: `<p>「${item.name}」を削除しますか？</p>`
         });
         if (confirmed) {
             await item.delete();
@@ -788,8 +788,8 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
         if (originalMiracle.system.isAll) {
             const useAsOther = await foundry.applications.api.DialogV2.confirm({
-                window:  { title: game.i18n.localize("TNX.ConfirmUseAsOtherTitle") },
-                content: `<p>${game.i18n.format("TNX.ConfirmUseAsOtherContent", { name: originalMiracle.name })}</p>`
+                window:  { title: "万能神業の使用確認" },
+                content: `<p>神業「${originalMiracle.name}」を、他の神業の効果として使用しますか？</p>`
             });
 
             if (useAsOther) {
@@ -797,10 +797,10 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
                 if (miracleChoices.length === 0) { ui.notifications.warn("ワールドに選択可能な神業が存在しません。"); return; }
 
                 const selectedId = await TargetSelectionDialog.prompt({
-                    title:       game.i18n.localize("TNX.SelectOmniMiracleTitle"),
-                    label:       game.i18n.format("TNX.SelectOmniMiracleContent", { name: originalMiracle.name }),
+                    title:       "模倣する神業の選択",
+                    label:       `「${originalMiracle.name}」として発動する神業を選択してください。`,
                     options:     miracleChoices.map(dw => ({ value: dw.id, label: dw.name })),
-                    selectLabel: game.i18n.localize("TNX.Select")
+                    selectLabel: "選択"
                 });
                 if (!selectedId) return;
 

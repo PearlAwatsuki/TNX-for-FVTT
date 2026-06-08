@@ -6,123 +6,123 @@ export class TnxSkillUtils {
         return {
             initialSuit: {
                 "default": "-",
-                "spade": game.i18n.localize("TNX.Suits.spade"),
-                "club": game.i18n.localize("TNX.Suits.club"),
-                "heart": game.i18n.localize("TNX.Suits.heart"),
-                "diamond": game.i18n.localize("TNX.Suits.diamond")
+                "spade":   "スペード",
+                "club":    "クラブ",
+                "heart":   "ハート",
+                "diamond": "ダイヤ"
             },
             generalSkillCategory: {
-                "initialSkill": game.i18n.localize("TNX.Item.Skill.GeneralType.Initial"),
-                "onomasticSkill": game.i18n.localize("TNX.Item.Skill.GeneralType.Onomastic")
+                "initialSkill":   "無条件取得技能",
+                "onomasticSkill": "固有名詞技能"
             },
             styleSkillCategory: {
-                "special": game.i18n.localize("TNX.Item.Skill.StyleType.Special"),
-                "performance": game.i18n.localize("TNX.Item.Skill.StyleType.Performance"),
-                "secret": game.i18n.localize("TNX.Item.Skill.StyleType.Secret"),
-                "mystery": game.i18n.localize("TNX.Item.Skill.StyleType.Mystery")
+                "special":     "特技",
+                "performance": "演出特技",
+                "secret":      "秘技",
+                "mystery":     "奥義"
             },
             unique: {
-                "none": game.i18n.localize("TNX.Item.Skill.Options.Common.Blank"),
-                "damageIncrease": game.i18n.localize("TNX.Item.Skill.UniqueType.DamageIncrease"),
-                "damageReduction": game.i18n.localize("TNX.Item.Skill.UniqueType.DamageReduction"),
-                "additionalAction": game.i18n.localize("TNX.Item.Skill.UniqueType.AdditionalAction"),
-                "abilityChange": game.i18n.localize("TNX.Item.Skill.UniqueType.AbilityChange"),
-                "clone": game.i18n.localize("TNX.Item.Skill.UniqueType.Clone"),
-                "RSC": game.i18n.localize("TNX.Item.Skill.UniqueType.RSC"),
-                "modification": game.i18n.localize("TNX.Item.Skill.UniqueType.Modification"),
-                "miracleChange": game.i18n.localize("TNX.Item.Skill.UniqueType.MiracleChange")
+                "none":             "-",
+                "damageIncrease":   "ダメージ増加技能",
+                "damageReduction":  "ダメージ軽減技能",
+                "additionalAction": "追加行動技能",
+                "abilityChange":    "能力値変更技能",
+                "clone":            "模造技能",
+                "RSC":              "RSC技能",
+                "modification":     "改造技能",
+                "miracleChange":    "神業書き換え技能"
             },
             comboSkill: {
-                "blank": game.i18n.localize("TNX.Item.Skill.Options.Common.Blank"),
-                "none": game.i18n.localize("TNX.Item.Skill.Options.Common.None"),
-                "single": game.i18n.localize("TNX.Item.Skill.Options.Combo.Single"),
-                "dodge": game.i18n.localize("TNX.Item.Skill.Options.Combo.Dodge"),
-                "parry": game.i18n.localize("TNX.Item.Skill.Options.Combo.Parry"),
-                "skillName": game.i18n.localize("TNX.Item.Skill.Options.Combo.SkillName"),
-                "any": game.i18n.localize("TNX.Item.Skill.Options.Combo.Any"),
-                "explanation": game.i18n.localize("TNX.Item.Skill.Options.Common.Explanation"),
-                "other": game.i18n.localize("TNX.Item.Skill.Options.Common.Other")
+                "blank":       "-",
+                "none":        "なし",
+                "single":      "単独",
+                "dodge":       "ドッジ",
+                "parry":       "パリー",
+                "skillName":   "技能名",
+                "any":         "任意",
+                "explanation": "解説参照",
+                "other":       "その他"
             },
             timing: {
-                "blank": game.i18n.localize("TNX.Item.Skill.Options.Common.Blank"),
-                "action": game.i18n.localize("TNX.Item.Skill.Options.Timing.Action"),
-                "process": game.i18n.localize("TNX.Item.Skill.Options.Timing.Process"),
-                "initiativeMajor": game.i18n.localize("TNX.Item.Skill.Options.Timing.InitiativeMajor"),
-                "always": game.i18n.localize("TNX.Item.Skill.Options.Timing.Always"),
-                "alwaysSelect": game.i18n.localize("TNX.Item.Skill.Options.Timing.AlwaysSelect"),
-                "preDamge": game.i18n.localize("TNX.Item.Skill.Options.Timing.PreDamage"),
-                "postDamge": game.i18n.localize("TNX.Item.Skill.Options.Timing.PostDamage"),
-                "miracle": game.i18n.localize("TNX.Item.Skill.Options.Timing.Miracle"),
-                "explanation": game.i18n.localize("TNX.Item.Skill.Options.Common.Explanation"),
-                "other": game.i18n.localize("TNX.Item.Skill.Options.Common.Other")
+                "blank":           "-",
+                "action":          "アクション",
+                "process":         "プロセス",
+                "initiativeMajor": "イニシアチブ（メジャー）",
+                "always":          "常時",
+                "alwaysSelect":    "常時（選択）",
+                "preDamge":        "ダメージ算出の直前",
+                "postDamge":       "ダメージ算出の直後",
+                "miracle":         "神業",
+                "explanation":     "解説参照",
+                "other":           "その他"
             },
             actions: {
-                "blank": game.i18n.localize("TNX.Item.Skill.Options.Common.Blank"),
-                "move": game.i18n.localize("TNX.Item.Skill.Options.Action.Move"),
-                "minor": game.i18n.localize("TNX.Item.Skill.Options.Action.Minor"),
-                "major": game.i18n.localize("TNX.Item.Skill.Options.Action.Major"),
-                "reaction": game.i18n.localize("TNX.Item.Skill.Options.Action.Reaction"),
-                "auto": game.i18n.localize("TNX.Item.Skill.Options.Action.Auto"),
-                "explanation": game.i18n.localize("TNX.Item.Skill.Options.Common.Explanation"),
-                "other": game.i18n.localize("TNX.Item.Skill.Options.Common.Other")
+                "blank":       "-",
+                "move":        "ムーブ",
+                "minor":       "マイナー",
+                "major":       "メジャー",
+                "reaction":    "リアクション",
+                "auto":        "オート",
+                "explanation": "解説参照",
+                "other":       "その他"
             },
             processes: {
-                "blank": game.i18n.localize("TNX.Item.Skill.Options.Common.Blank"),
-                "setup": game.i18n.localize("TNX.Item.Skill.Options.Process.Setup"),
-                "initiative": game.i18n.localize("TNX.Item.Skill.Options.Process.Initiative"),
-                "clean-up": game.i18n.localize("TNX.Item.Skill.Options.Process.Cleanup"),
-                "explanation": game.i18n.localize("TNX.Item.Skill.Options.Common.Explanation"),
-                "other": game.i18n.localize("TNX.Item.Skill.Options.Common.Other")
+                "blank":       "-",
+                "setup":       "セットアップ",
+                "initiative":  "イニシアチブ",
+                "clean-up":    "クリンナップ",
+                "explanation": "解説参照",
+                "other":       "その他"
             },
             target: {
-                "blank": game.i18n.localize("TNX.Item.Skill.Options.Common.Blank"),
-                "self": game.i18n.localize("TNX.Item.Skill.Options.Target.Self"),
-                "single": game.i18n.localize("TNX.Item.Skill.Options.Target.Single"),
-                "area": game.i18n.localize("TNX.Item.Skill.Options.Target.Area"),
-                "areaSelect": game.i18n.localize("TNX.Item.Skill.Options.Target.AreaSelect"),
-                "scene": game.i18n.localize("TNX.Item.Skill.Options.Target.Scene"),
-                "sceneSelect": game.i18n.localize("TNX.Item.Skill.Options.Target.SceneSelect"),
-                "team": game.i18n.localize("TNX.Item.Skill.Options.Target.Team"),
-                "explanation": game.i18n.localize("TNX.Item.Skill.Options.Common.Explanation"),
-                "other": game.i18n.localize("TNX.Item.Skill.Options.Common.Other")
+                "blank":       "-",
+                "self":        "自身",
+                "single":      "単体",
+                "area":        "範囲",
+                "areaSelect":  "範囲（選択）",
+                "scene":       "シーン",
+                "sceneSelect": "シーン（選択）",
+                "team":        "チーム",
+                "explanation": "解説参照",
+                "other":       "その他"
             },
             range: {
-                "blank": game.i18n.localize("TNX.Item.Skill.Options.Common.Blank"),
-                "close": game.i18n.localize("TNX.Item.Skill.Options.Range.Close"),
-                "short": game.i18n.localize("TNX.Item.Skill.Options.Range.Short"),
-                "middle": game.i18n.localize("TNX.Item.Skill.Options.Range.Middle"),
-                "long": game.i18n.localize("TNX.Item.Skill.Options.Range.Long"),
-                "superLong": game.i18n.localize("TNX.Item.Skill.Options.Range.SuperLong"),
-                "weapon": game.i18n.localize("TNX.Item.Skill.Options.Range.Weapon"),
-                "none": game.i18n.localize("TNX.Item.Skill.Options.Common.None"),
-                "explanation": game.i18n.localize("TNX.Item.Skill.Options.Common.Explanation"),
-                "other": game.i18n.localize("TNX.Item.Skill.Options.Common.Other")
+                "blank":       "-",
+                "close":       "至近",
+                "short":       "近",
+                "middle":      "中",
+                "long":        "遠",
+                "superLong":   "超遠",
+                "weapon":      "武器",
+                "none":        "なし",
+                "explanation": "解説参照",
+                "other":       "その他"
             },
             targetValue: {
-                "blank": game.i18n.localize("TNX.Item.Skill.Options.Common.Blank"),
-                "none": game.i18n.localize("TNX.Item.Skill.Options.Common.None"),
-                "number": game.i18n.localize("TNX.Item.Skill.Options.Common.Number"),
-                "control": game.i18n.localize("TNX.Item.Skill.Options.TargetValue.Control"),
-                "total": game.i18n.localize("TNX.Item.Skill.Options.TargetValue.Total"),
-                "enterDifficulty": game.i18n.localize("TNX.Item.Skill.Options.TargetValue.EnterDifficulty"),
-                "explanation": game.i18n.localize("TNX.Item.Skill.Options.Common.Explanation"),
-                "other": game.i18n.localize("TNX.Item.Skill.Options.Common.Other")
+                "blank":           "-",
+                "none":            "なし",
+                "number":          "数字",
+                "control":         "制御値",
+                "total":           "達成値",
+                "enterDifficulty": "登場目標値",
+                "explanation":     "解説参照",
+                "other":           "その他"
             },
             maxLevel: {
-                "blank": game.i18n.localize("TNX.Item.Skill.Options.Common.Blank"),
-                "number": game.i18n.localize("TNX.Item.Skill.Options.Common.Number"),
-                "sl": game.i18n.localize("TNX.Item.Skill.Options.MaxLevel.SL"),
-                "explanation": game.i18n.localize("TNX.Item.Skill.Options.Common.Explanation"),
-                "other": game.i18n.localize("TNX.Item.Skill.Options.Common.Other")
+                "blank":       "-",
+                "number":      "数字",
+                "sl":          "SL",
+                "explanation": "解説参照",
+                "other":       "その他"
             },
             confrontation: {
-                "blank": game.i18n.localize("TNX.Item.Skill.Options.Common.Blank"),
-                "skillName": game.i18n.localize("TNX.Item.Skill.Options.Confrontation.SkillName"),
-                "skillNameAsterisk": game.i18n.localize("TNX.Item.Skill.Options.Confrontation.SkillNameAsterisk"),
-                "none": game.i18n.localize("TNX.Item.Skill.Options.Common.None"),
-                "cannot": game.i18n.localize("TNX.Item.Skill.Options.Confrontation.Cannot"),
-                "explanation": game.i18n.localize("TNX.Item.Skill.Options.Common.Explanation"),
-                "other": game.i18n.localize("TNX.Item.Skill.Options.Common.Other")
+                "blank":              "-",
+                "skillName":          "技能名",
+                "skillNameAsterisk":  "技能名※",
+                "none":               "なし",
+                "cannot":             "不可",
+                "explanation":        "解説参照",
+                "other":              "その他"
             }
         };
     }

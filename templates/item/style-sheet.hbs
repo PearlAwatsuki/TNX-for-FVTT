@@ -3,25 +3,25 @@
         <img class="profile-img" src="{{item.img}}" data-edit="img" data-action="editImage" title="{{item.name}}"/>
         <div class="header-fields">
             <h1 class="charname-container">
-                <input class="itemname-input" name="name" type="text" value="{{item.name}}" placeholder="{{localize 'TYPES.Item.style'}}"/>
+                <input class="itemname-input" name="name" type="text" value="{{item.name}}" placeholder="スタイル"/>
                 <input class="nameen-input" name="system.nameEn" type="text" value="{{system.nameEn}}" placeholder="Style name in English"/>
             </h1>
         </div>
     </header>
 
     <nav class="sheet-tabs tabs" data-group="primary">
-        <a class="item" data-action="tab" data-group="primary" data-tab="description">{{localize "TNX.Common.Description"}}</a>
-        <a class="item" data-action="tab" data-group="primary" data-tab="setting">{{localize "TNX.Common.Setting"}}</a>
+        <a class="item" data-action="tab" data-group="primary" data-tab="description">説明</a>
+        <a class="item" data-action="tab" data-group="primary" data-tab="setting">設定</a>
     </nav>
 
     <section class="sheet-body">
         <div class="tab description" data-group="primary" data-tab="description">
             <fieldset class="tnx-fieldset">
-                <legend>{{localize "TNX.Ability.Value"}}</legend>
+                <legend>能力値</legend>
                 <div class="abilities-grid edit-mode-layout">
                     {{#each system.abilities as |ability key|}}
                         <div class="ability-block">
-                            <h3>{{localize ability.label}}</h3>
+                            <h3>{{ability.label}}</h3>
                             <div class="value-control-wrapper">
                                 <input type="number" name="system.{{key}}.value" value="{{ability.value}}" class="ability-value">
                                 <span class="separator">/</span>
@@ -33,7 +33,7 @@
             </fieldset>
             <div class="tnx-editor-section">
                 <div class="tnx-editor-section__header">
-                    <label>{{localize "TNX.Common.Description"}}</label>
+                    <label>説明</label>
                 </div>
                 <div class="tnx-editor-section__content">
                     {{editor enrichedDescription target="system.description" engine="prosemirror" button=true owner=owner editable=editable}}
@@ -42,11 +42,11 @@
         </div>
 
         <div class="tab setting" data-group="primary" data-tab="setting">
-            <fieldset class="tnx-fieldset">                
-                <legend>{{localize "TNX.Item.Style.Setting"}}</legend>
+            <fieldset class="tnx-fieldset">
+                <legend>スタイル設定</legend>
                 <div class="tnx-form-field">
                     <div class="form-group">
-                        <label>{{localize "TNX.Item.Style.Level"}}</label>
+                        <label>スタイルレベル</label>
                         <div class="number-input-spinner">
                             <button type="button" data-action="decrementLevel" class="tnx-btn">-</button>
                             <input type="number" name="system.level" value="{{system.level}}" min="1" max="3" class="ability-value" readonly/>
@@ -54,12 +54,12 @@
                         </div>
                     </div>
                     <div class="form-group">
-                        <label for="is-persona">{{localize "TNX.Item.Style.Persona"}}</label>
+                        <label for="is-persona">ペルソナ</label>
                         {{!-- ▼▼▼ レベル3の時にdisabledを追加 ▼▼▼ --}}
                         <input type="checkbox" id="is-persona" name="system.isPersona" {{checked system.isPersona}} {{#if isLevel3Locked}}disabled{{/if}}/>
                     </div>
                     <div class="form-group">
-                        <label for="is-key">{{localize "TNX.Item.Style.Key"}}</label>
+                        <label for="is-key">キー</label>
                         {{!-- ▼▼▼ レベル3の時にdisabledを追加 ▼▼▼ --}}
                         <input type="checkbox" id="is-key" name="system.isKey" {{checked system.isKey}} {{#if isLevel3Locked}}disabled{{/if}}/>
                     </div>
@@ -67,10 +67,10 @@
             </fieldset>
 
             <fieldset class="tnx-fieldset">
-                <legend>{{localize "TNX.Item.Style.MiracleSetting"}}</legend>
+                <legend>神業設定</legend>
                 <div class="tnx-form-field">
                     <div class="form-group">
-                        <label>{{localize "TNX.Item.Style.Miracle"}}</label>
+                        <label>神業</label>
                         {{#if linkedMiracle}}
                             <button type="button" class="tnx-linked-btn" data-action="openLinkedSheet" data-context-menu-type="manage-miracle" title="クリックでシートを開く" {{#if isOwnedByActor}}disabled{{/if}}>
                                 <img src="{{linkedMiracle.img}}" class="tnx-linked-btn__icon"/>
@@ -78,13 +78,13 @@
                             </button>
                         {{else}}
                             <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="miracle">
-                                <span>{{localize "TNX.DropMiracleHint"}}</span>
+                                <span>神業アイテムをここにドロップ</span>
                             </div>
                         {{/if}}
                     </div>
                     <div class="form-group">
                         <button type="button" class="tnx-btn" data-action="createAndLinkMiracle" {{#if linkedMiracle}}disabled{{/if}} {{#if isOwnedByActor}}disabled{{/if}}>
-                            <i class="fas fa-plus-square"></i> {{localize "TNX.Item.Style.CreateAndLinkMiracle"}}
+                            <i class="fas fa-plus-square"></i> 神業アイテムを作成してリンク
                         </button>
                     </div>
                 </div>

@@ -28,10 +28,10 @@ export class TokyoNovaGeneralSkillSheet extends TokyoNovaItemSheet {
         const initialSuit = system.initialSkill?.initialSuit || "";
         context.TNX = {
             SUITS: {
-                spade:   { label: game.i18n.localize("TNX.Suits.spade"),   disabled: initialSuit === "spade" },
-                club:    { label: game.i18n.localize("TNX.Suits.club"),    disabled: initialSuit === "club" },
-                heart:   { label: game.i18n.localize("TNX.Suits.heart"),   disabled: initialSuit === "heart" },
-                diamond: { label: game.i18n.localize("TNX.Suits.diamond"), disabled: initialSuit === "diamond" },
+                spade:   { label: "スペード", disabled: initialSuit === "spade" },
+                club:    { label: "クラブ",   disabled: initialSuit === "club" },
+                heart:   { label: "ハート",   disabled: initialSuit === "heart" },
+                diamond: { label: "ダイヤ",   disabled: initialSuit === "diamond" },
             },
         };
         return context;

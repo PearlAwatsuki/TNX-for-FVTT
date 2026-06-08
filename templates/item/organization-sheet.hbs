@@ -1,27 +1,27 @@
 <section class="{{cssClass}}">
     <header class="sheet-header">
         <img class="profile-img" src="{{item.img}}" data-edit="img" data-action="editImage" title="{{item.name}}"/>
-        
+
         <div class="header-fields">
             <h1 class="charname">
-                <input name="name" type="text" value="{{item.name}}" placeholder="{{localize 'TYPES.Item.organization'}}" />
+                <input name="name" type="text" value="{{item.name}}" placeholder="オーガニゼーション" />
             </h1>
         </div>
     </header>
 
     <nav class="sheet-tabs tabs" data-group="primary">
-        <a class="item" data-action="tab" data-group="primary" data-tab="description">{{localize "TNX.Common.Description"}}</a>
+        <a class="item" data-action="tab" data-group="primary" data-tab="description">説明</a>
     </nav>
 
      <section class="sheet-body">
         <div class="tab description" data-group="primary" data-tab="description">
             <div class="tnx-editor-section">
-  
+
               <div class="tnx-editor-section__header">
-                    <label>{{localize "TNX.Common.Description"}}</label>
+                    <label>説明</label>
                 </div>
                 <div class="tnx-editor-section__content">
-                    {{editor enrichedDescription target="system.description" engine="prosemirror" button=true owner=owner editable=editable}}      
+                    {{editor enrichedDescription target="system.description" engine="prosemirror" button=true owner=owner editable=editable}}
                 </div>
             </div>
         </div>

@@ -526,8 +526,8 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         let createdCount = 0;
 
         for (const user of game.users) {
-            const handPileName  = game.i18n.format("TNX.Actor.Cards.DefaultHandPileName",  { actorName: user.name });
-            const trumpPileName = game.i18n.format("TNX.Actor.Cards.DefaultTrumpPileName", { actorName: user.name });
+            const handPileName  = `${user.name}の手札`;
+            const trumpPileName = `${user.name}の切り札`;
             const ownership = {
                 default: CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE,
                 [user.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER,
