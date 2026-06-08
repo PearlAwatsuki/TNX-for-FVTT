@@ -169,6 +169,7 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
         const comboMatch = fieldName.match(/^system\.comboSkill\.(\d+)\.value$/);
         const confrontMatch = fieldName.match(/^system\.confrontation\.(\d+)\.value$/);
         const timingMatch = fieldName.match(/^system\.timing\.(\d+)\.value$/);
+        const timingSubMatch = fieldName.match(/^system\.timing\.(\d+)\.(actionName|processName)$/);
 
         if (comboMatch) {
             const idx = comboMatch[1];
@@ -193,6 +194,14 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
                 updateData[`${prefix}processName`] = "blank";
                 updateData[`${prefix}timingOther`] = "";
             }
+        } else if (timingSubMatch) {
+            const idx = Number(timingSubMatch[1]);
+            const subField = timingSubMatch[2];
+            const normalizedSs = TokyoNovaStyleSkillSheet._normalizeSystem(this.item);
+            const timing = foundry.utils.deepClone(normalizedSs.timing);
+            if (timing[idx]) timing[idx][subField] = value;
+            await this.item.update({ "system.timing": timing });
+            return;
         }
 
         await this.item.update(updateData);
