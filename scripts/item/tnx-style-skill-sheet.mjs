@@ -147,64 +147,86 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
         const select = event.currentTarget;
         const fieldName = select.name;
         const value = select.value;
-        const updateData = { [fieldName]: value };
 
-        const resetLogic = (clears) => {
-            const targetsToClear = clears[value] || clears["default"] || [];
-            for (const prop of targetsToClear) {
-                updateData[`system.${prop}`] = prop.includes("Number") ? 0 : "";
-            }
-        };
-
+        // ── スカラーフィールド ────────────────────────────────────────────
         if (fieldName === "system.maxLevel") {
-            resetLogic({ number: ["maxLevelOther"], other: ["maxLevelNumber"], default: ["maxLevelNumber", "maxLevelOther"] });
-        } else if (fieldName === "system.targetValue") {
-            resetLogic({ number: ["targetValueOther"], other: ["targetValueNumber"], default: ["targetValueNumber", "targetValueOther"] });
-        } else if (fieldName === "system.target") {
-            resetLogic({ other: [], default: ["targetOther"] });
-        } else if (fieldName === "system.range") {
-            resetLogic({ other: [], default: ["rangeOther"] });
+            const d = { [fieldName]: value };
+            if (value !== "number") d["system.maxLevelNumber"] = 0;
+            if (value !== "other")  d["system.maxLevelOther"]  = "";
+            await this.item.update(d);
+            return;
         }
-
-        const comboMatch = fieldName.match(/^system\.comboSkill\.(\d+)\.value$/);
-        const confrontMatch = fieldName.match(/^system\.confrontation\.(\d+)\.value$/);
-        const timingMatch = fieldName.match(/^system\.timing\.(\d+)\.value$/);
-        const timingSubMatch = fieldName.match(/^system\.timing\.(\d+)\.(actionName|processName)$/);
-
-        if (comboMatch) {
-            const idx = comboMatch[1];
-            resetLogic({ skillName: [], other: [], default: [`comboSkill.${idx}.name`] });
-        } else if (confrontMatch) {
-            const idx = confrontMatch[1];
-            resetLogic({ skillName: [], skillNameAsterisk: [], other: [], default: [`confrontation.${idx}.name`] });
-        } else if (timingMatch) {
-            const idx = timingMatch[1];
-            const prefix = `system.timing.${idx}.`;
-            if (value === "action") {
-                updateData[`${prefix}processName`] = "blank";
-                updateData[`${prefix}timingOther`] = "";
-            } else if (value === "process") {
-                updateData[`${prefix}actionName`] = "blank";
-                updateData[`${prefix}timingOther`] = "";
-            } else if (value === "other") {
-                updateData[`${prefix}actionName`] = "blank";
-                updateData[`${prefix}processName`] = "blank";
-            } else {
-                updateData[`${prefix}actionName`] = "blank";
-                updateData[`${prefix}processName`] = "blank";
-                updateData[`${prefix}timingOther`] = "";
-            }
-        } else if (timingSubMatch) {
-            const idx = Number(timingSubMatch[1]);
-            const subField = timingSubMatch[2];
-            const normalizedSs = TokyoNovaStyleSkillSheet._normalizeSystem(this.item);
-            const timing = foundry.utils.deepClone(normalizedSs.timing);
-            if (timing[idx]) timing[idx][subField] = value;
-            await this.item.update({ "system.timing": timing });
+        if (fieldName === "system.targetValue") {
+            const d = { [fieldName]: value };
+            if (value !== "number") d["system.targetValueNumber"] = 0;
+            if (value !== "other")  d["system.targetValueOther"]  = "";
+            await this.item.update(d);
+            return;
+        }
+        if (fieldName === "system.target") {
+            const d = { [fieldName]: value };
+            if (value !== "other") d["system.targetOther"] = "";
+            await this.item.update(d);
+            return;
+        }
+        if (fieldName === "system.range") {
+            const d = { [fieldName]: value };
+            if (value !== "other") d["system.rangeOther"] = "";
+            await this.item.update(d);
             return;
         }
 
-        await this.item.update(updateData);
+        // ── 配列フィールド（配列全体を送って index 消失を防ぐ） ──────────
+        const ns = TokyoNovaStyleSkillSheet._normalizeSystem(this.item);
+
+        const comboMatch    = fieldName.match(/^system\.comboSkill\.(\d+)\.value$/);
+        const confrontMatch = fieldName.match(/^system\.confrontation\.(\d+)\.value$/);
+        const timingMatch   = fieldName.match(/^system\.timing\.(\d+)\.value$/);
+        const timingSubMatch = fieldName.match(/^system\.timing\.(\d+)\.(actionName|processName)$/);
+
+        if (comboMatch) {
+            const idx = Number(comboMatch[1]);
+            const list = foundry.utils.deepClone(ns.comboSkill);
+            if (list[idx]) {
+                list[idx].value = value;
+                if (value !== "skillName" && value !== "other") list[idx].name = "";
+            }
+            await this.item.update({ "system.comboSkill": list });
+            return;
+        }
+        if (confrontMatch) {
+            const idx = Number(confrontMatch[1]);
+            const list = foundry.utils.deepClone(ns.confrontation);
+            if (list[idx]) {
+                list[idx].value = value;
+                if (value !== "skillName" && value !== "skillNameAsterisk" && value !== "other") list[idx].name = "";
+            }
+            await this.item.update({ "system.confrontation": list });
+            return;
+        }
+        if (timingMatch) {
+            const idx = Number(timingMatch[1]);
+            const list = foundry.utils.deepClone(ns.timing);
+            if (list[idx]) {
+                list[idx].value = value;
+                if (value === "action")        { list[idx].processName = "blank"; list[idx].timingOther = ""; }
+                else if (value === "process")  { list[idx].actionName  = "blank"; list[idx].timingOther = ""; }
+                else if (value === "other")    { list[idx].actionName  = "blank"; list[idx].processName = "blank"; }
+                else                           { list[idx].actionName  = "blank"; list[idx].processName = "blank"; list[idx].timingOther = ""; }
+            }
+            await this.item.update({ "system.timing": list });
+            return;
+        }
+        if (timingSubMatch) {
+            const idx = Number(timingSubMatch[1]);
+            const list = foundry.utils.deepClone(ns.timing);
+            if (list[idx]) list[idx][timingSubMatch[2]] = value;
+            await this.item.update({ "system.timing": list });
+            return;
+        }
+
+        // ── その他（styleSkillCategory / unique 等） ─────────────────────
+        await this.item.update({ [fieldName]: value });
     }
 
     // ─── 静的ヘルパー ──────────────────────────────────────────────────────────
