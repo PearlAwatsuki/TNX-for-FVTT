@@ -109,6 +109,70 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
     _onRender(_context, _options) {
         this._setupContextMenus();
         this._setupCardDragGhost(this.element);
+        TnxHud._setupRightOffsetObserver();
+        TnxHud._setupPlayerListObserver();
+    }
+
+    // ─── サイドバー幅連動 ─────────────────────────────────────────────────────
+
+    static _rightOffsetObserver = null;
+
+    static _setupRightOffsetObserver() {
+        if (TnxHud._rightOffsetObserver) return;
+        // #sidebar-content のクラスを監視する。
+        // - expanded 追加/削除 → サイドバー展開/収納 → CSS遷移(250ms)後に再測定
+        // - active-{tab} 変化 → タブ切替 → 同上
+        // active-chat のときは #sidebar 左端、それ以外は #ui-right 左端（#chat-notifications を含む）を基準にする。
+        const content = document.querySelector("#sidebar-content");
+        if (!content) return;
+
+        const apply = () => {
+            const isChat = content.classList.contains("active-chat");
+            const target = isChat
+                ? document.querySelector("#sidebar")
+                : document.querySelector("#ui-right");
+            if (!target) return;
+            const fromRight = window.innerWidth - target.getBoundingClientRect().left;
+            document.documentElement.style.setProperty(
+                "--tnx-right-offset", `${Math.max(370, fromRight)}px`
+            );
+        };
+
+        TnxHud._rightOffsetObserver = new MutationObserver(() => setTimeout(apply, 280));
+        TnxHud._rightOffsetObserver.observe(content, { attributes: true, attributeFilter: ["class"] });
+        apply();
+    }
+
+    // ─── プレイヤーリスト連動 ──────────────────────────────────────────────────
+
+    static _playerListObserver = null;
+    static _playerListUpdate   = null;
+
+    static _setupPlayerListObserver() {
+        if (TnxHud._playerListObserver) return;
+        const el = document.querySelector("#player-list") ?? document.querySelector("#players");
+        if (!el) return;
+
+        // 初回測定値を「折りたたみ時のベースライン」として記録する
+        const collapsedFromBottom = window.innerHeight - el.getBoundingClientRect().top;
+
+        TnxHud._playerListUpdate = () => {
+            const fromBottom = window.innerHeight - el.getBoundingClientRect().top;
+            const growth = fromBottom - collapsedFromBottom;
+            if (growth > 8) {
+                // 展開時: リスト上端 + 8px の位置にスライド
+                document.documentElement.style.setProperty(
+                    "--tnx-players-height", `${fromBottom + 8}px`
+                );
+            } else {
+                // 折りたたみ時: 変数を削除して CSS デフォルト (80px) に戻す
+                document.documentElement.style.removeProperty("--tnx-players-height");
+            }
+        };
+
+        TnxHud._playerListObserver = new ResizeObserver(TnxHud._playerListUpdate);
+        TnxHud._playerListObserver.observe(el);
+        TnxHud._playerListUpdate();
     }
 
     // ─── コンテキストメニュー ──────────────────────────────────────────────────

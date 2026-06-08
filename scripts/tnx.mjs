@@ -757,6 +757,20 @@ Hooks.once("ready", async function() {
     game.tnx = game.tnx || {}
     game.tnx.hud = new TnxHud();
     game.tnx.hud.render({ force: true });
+    Hooks.on("renderPlayerList", () => {
+        if (!TnxHud._playerListObserver) {
+            TnxHud._setupPlayerListObserver();
+        } else if (TnxHud._playerListUpdate) {
+            requestAnimationFrame(TnxHud._playerListUpdate);
+        }
+    });
+
+    // サイドバー再描画時にオブザーバーをリセット(#sidebar-content が作り直される可能性)
+    Hooks.on("renderSidebar", () => {
+        TnxHud._rightOffsetObserver?.disconnect();
+        TnxHud._rightOffsetObserver = null;
+        TnxHud._setupRightOffsetObserver();
+    });
 
     // 2-1/2-2: ownerUserId 未記録キャストの起動時初期化
     // Phase 2-1 デプロイ前に ownership が設定済みのキャストはここで補完する
