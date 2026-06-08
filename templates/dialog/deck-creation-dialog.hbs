@@ -4,17 +4,18 @@
         <div class="form-fields">
             <input type="number" name="deckCount" value="2" min="1" step="1">
         </div>
-        <p class="notes">{{localize "TNX.NumberOfDecksHint"}}</p>
     </div>
-    <div class="form-group">
+    <p class="notes">{{localize "TNX.NumberOfDecksHint"}}</p>
+
+    <div class="form-group-checkbox">
+        <input type="checkbox" id="createFaceDown" name="createFaceDown" checked>
         <label for="createFaceDown">{{localize "TNX.CreateFaceDown"}}</label>
-        <input type="checkbox" name="createFaceDown" checked>
-        <p class="notes">{{localize "TNX.CreateFaceDownHint"}}</p>
     </div>
-    
-    <div class="form-group">
+    <p class="notes">{{localize "TNX.CreateFaceDownHint"}}</p>
+
+    <div class="form-group-checkbox">
+        <input type="checkbox" id="shuffleDeck" name="shuffleDeck" checked>
         <label for="shuffleDeck">{{localize "TNX.ShuffleOnCreate"}}</label>
-        <input type="checkbox" name="shuffleDeck" checked>
-        <p class="notes">{{localize "TNX.ShuffleOnCreateHint"}}</p>
     </div>
+    <p class="notes">{{localize "TNX.ShuffleOnCreateHint"}}</p>
 </form>

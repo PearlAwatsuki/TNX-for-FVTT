@@ -523,8 +523,7 @@ Hooks.once("init", async function() {
         });
     });
 
-    // v13: [data-action="createEntry"] の直後に「アクトシートを作成」ボタンを挿入する。
-    // 「資料を作成」はコア標準ボタンに委ねる。
+    // v13: 標準ボタン行(header-actions)の直後に「アクトシートを作成」ボタンを 2 段目として挿入する。
     Hooks.on("renderJournalDirectory", (app, html, data) => {
         if (!game.user.isGM) return;
 
@@ -533,7 +532,8 @@ Hooks.once("init", async function() {
 
         const button = document.createElement('button');
         button.type = 'button';
-        button.innerHTML = '<i class="fas fa-file-medical"></i> アクトシートを作成';
+        button.className = 'tnx-create-act-button';
+        button.innerHTML = '<i class="fas fa-file-medical"></i><span>アクトシートを作成</span>';
         button.addEventListener('click', async () => {
             const newJournal = await JournalEntry.create({
                 name: "新規アクトシート",
@@ -546,7 +546,10 @@ Hooks.once("init", async function() {
             newJournal?.sheet.render(true);
         });
 
-        createEntryButton.insertAdjacentElement('afterend', button);
+        // .action-buttons 内に追加し、flex-wrap で 2 段目に折り返させる（幅が自動で揃う）
+        const actionsRow = createEntryButton.closest('.action-buttons') ?? createEntryButton.parentElement;
+        actionsRow.style.flexWrap = 'wrap';
+        actionsRow.appendChild(button);
     });
 
     Hooks.on("preCreateActor", (actor, data, options, userId) => {

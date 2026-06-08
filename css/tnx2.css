@@ -348,20 +348,48 @@
 .number-input-spinner {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 0;
     justify-content: flex-end;
 }
-.number-input-spinner input {
-    width: 44px;
+.number-input-spinner input[type="number"] {
+    flex: 0 0 60px;
+    width: 60px;
+    height: 35px;
     text-align: center;
+    font-size: 1.2em;
+    font-weight: bold;
+    border: 1px solid var(--tnx2-border-active);
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
+    padding: 0 2px;
+    margin: 0;
+    -moz-appearance: textfield;
+    box-sizing: border-box;
 }
-.number-input-spinner .tnx-btn {
-    flex: none;
-    width: 26px;
-    height: 26px;
+/* .tokyo-nova スコープで specificity を上げ、.tokyo-nova .tnx-btn (020) に勝つ (030) */
+.tokyo-nova .number-input-spinner .tnx-btn {
+    flex: 0 0 35px;
+    width: 35px;
+    height: 35px;
     padding: 0;
-    font-size: 1.1em;
-    flex-shrink: 0;
+    font-size: 1.4em;
+    line-height: 1;
+    margin: 0;
+}
+.tokyo-nova .number-input-spinner button[data-action="decrement"],
+.tokyo-nova .number-input-spinner button[data-action="decrementLevel"],
+.tokyo-nova .number-input-spinner button[data-action="decrementMaxLevel"],
+.tokyo-nova .number-input-spinner button[data-action="decrementTargetValue"] {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+.tokyo-nova .number-input-spinner button[data-action="increment"],
+.tokyo-nova .number-input-spinner button[data-action="incrementLevel"],
+.tokyo-nova .number-input-spinner button[data-action="incrementMaxLevel"],
+.tokyo-nova .number-input-spinner button[data-action="incrementTargetValue"] {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
 }
 
 /* ----------------------------------------------------------------
@@ -1162,15 +1190,17 @@
 .tokyo-nova.sheet.item .sheet-header .charname input,
 .tokyo-nova.sheet.item .sheet-header .itemname-input {
     width: 100%;
-    height: auto;
+    height: 32px;
     margin: 0;
-    padding: 2px 6px;
-    font-size: 1.1em;
+    padding: 4px 8px;
+    font-size: 14px;
     font-weight: 700;
+    line-height: 1.2;
     color: var(--tnx2-text-primary);
     background: transparent;
     border: 1px solid transparent;
     border-radius: var(--tnx2-radius);
+    box-sizing: border-box;
     transition: border-color var(--tnx2-transition-fast),
                 background   var(--tnx2-transition-fast);
 }
@@ -1203,11 +1233,15 @@
     outline: none;
 }
 
-/* フリガナ入力 */
+/* フリガナ入力: アイテム名より明確に小さく — 絶対 px で h1 継承を断ち切る */
 .tokyo-nova.sheet.item .sheet-header .furigana-input {
     width: 100%;
-    padding: 2px 6px;
-    font-size: 0.78em;
+    height: 20px;
+    margin: 0;
+    padding: 1px 8px;
+    font-size: 11px;
+    line-height: 1.4;
+    box-sizing: border-box;
     color: var(--tnx2-text-muted);
     background: transparent;
     border: 1px solid transparent;
@@ -1267,6 +1301,13 @@
     height: auto;
 }
 
+/* number-input-spinner 内の ability-value はスピナーデザインに合わせる */
+.tokyo-nova.sheet.item .form-group .number-input-spinner input.ability-value {
+    flex: 0 0 60px;
+    width: 60px;
+    height: 35px;
+}
+
 /* ================================================================
    16. アイテムシート: スキル系共通
    ================================================================ */
@@ -1289,20 +1330,18 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 26px;
-    height: 26px;
-    border: 1px solid var(--tnx2-border-subtle);
+    width: 30px;
+    height: 30px;
+    border: none;
     border-radius: var(--tnx2-radius);
     color: var(--tnx2-text-muted);
     cursor: pointer;
-    font-size: 0.9em;
-    transition: color         var(--tnx2-transition-fast),
-                border-color  var(--tnx2-transition-fast),
-                background    var(--tnx2-transition-fast);
+    font-size: 1.2em;
+    transition: color       var(--tnx2-transition-fast),
+                text-shadow var(--tnx2-transition-fast);
 }
 .tokyo-nova.sheet.item .suit-selection .suit-icon:hover {
     color: var(--tnx2-text-secondary);
-    border-color: var(--tnx2-border-active);
 }
 .tokyo-nova.sheet.item .suit-selection input[type="checkbox"]:checked + i {
     color: var(--tnx2-accent);
@@ -1311,11 +1350,10 @@
 .tokyo-nova.sheet.item .suit-selection input[type="checkbox"]:checked + i {
     color: var(--tnx2-accent);
 }
-/* label全体のチェック済みスタイル */
+/* label全体のチェック済みスタイル: 枠なし・グロー効果で示す */
 .tokyo-nova.sheet.item .suit-selection .suit-icon:has(input:checked) {
     color: var(--tnx2-accent);
-    border-color: var(--tnx2-accent);
-    background: rgba(0, 200, 255, 0.08);
+    text-shadow: 0 0 8px var(--tnx2-accent-glow);
 }
 .tokyo-nova.sheet.item .suit-selection input[type="checkbox"]:disabled + i {
     color: var(--tnx2-text-muted);
@@ -1376,7 +1414,7 @@
 .style-skill-display label {
     font-family: var(--tnx2-font-mono);
     font-size: 0.82em;
-    color: var(--tnx2-text-muted);
+    color: var(--tnx2-text-secondary);
     white-space: nowrap;
 }
 .style-skill-display span {
@@ -2295,6 +2333,14 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 
 .tokyo-nova.sheet.item .form-group label {
     font-size: 0.85em;
+    color: var(--tnx2-text-secondary);
+}
+
+/* フットノートはイタリック・小文字・ミュートで通常ラベルと明確に差別化 */
+.tokyo-nova.sheet.item .form-group .notes,
+.tokyo-nova.sheet.item .form-group .sheet-notes {
+    font-size: 0.8em;
+    font-style: italic;
     color: var(--tnx2-text-muted);
 }
 
@@ -2384,7 +2430,7 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 .style-skill-settings-wrapper .form-group > label {
     justify-self: end;
     font-size: 0.85em;
-    color: var(--tnx2-text-muted);
+    color: var(--tnx2-text-secondary);
 }
 
 .style-skill-settings-wrapper .form-group.full-width-row,
@@ -2796,7 +2842,7 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     flex-direction: column;
     align-items: flex-start;
     height: auto;
-    max-width: 520px;
+    max-width: 534px;
     gap: 6px;
 }
 
@@ -2842,6 +2888,16 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 
 .tnx-hud .hand-area .card-in-hand:hover {
     box-shadow: 0 0 16px var(--tnx2-accent), 0 0 32px rgba(0, 195, 255, 0.25);
+}
+
+/* 切り札は手札より多層グローで豪華に */
+.tnx-hud .trump-area .card-in-hand:hover {
+    transform: translateY(-12px) scale(1.08);
+    box-shadow:
+        0 0 10px var(--tnx2-accent),
+        0 0 25px var(--tnx2-accent),
+        0 0 50px rgba(0, 200, 224, 0.5),
+        0 0 80px rgba(0, 200, 224, 0.2);
 }
 
 .tnx-hud .deck-card.scene-card-display:hover {
@@ -3566,14 +3622,35 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     border-color: var(--tnx2-border-active);
 }
 
-#tnx-scenario-wizard .form-group .number-input-spinner {
+/* number-input-spinner を含む form-group を 1 行に（ウィザード・dialog 共通）
+   flex-wrap: wrap で notes など追加要素が次行に折り返す */
+#tnx-scenario-wizard .form-group:has(> .number-input-spinner),
+.tokyo-nova.dialog .form-group:has(> .number-input-spinner) {
     display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
-    justify-content: flex-end;
-    gap: 0;
+    gap: 4px 8px;
 }
 
+#tnx-scenario-wizard .form-group:has(> .number-input-spinner) > label,
+.tokyo-nova.dialog .form-group:has(> .number-input-spinner) > label {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+/* notes は次行に折り返して全幅表示 */
+#tnx-scenario-wizard .form-group:has(> .number-input-spinner) > p.notes,
+.tokyo-nova.dialog .form-group:has(> .number-input-spinner) > p.notes {
+    flex-basis: 100%;
+    margin: 0;
+    color: var(--tnx2-text-muted);
+    font-size: 0.8em;
+}
+
+/* ID セレクタで specificity を高め Foundry dialog CSS の上書きを防ぐ */
 #tnx-scenario-wizard .number-input-spinner input[type="number"] {
+    flex: 0 0 60px;
     width: 60px;
     height: 35px;
     text-align: center;
@@ -3586,30 +3663,136 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     padding: 0 2px;
     margin: 0;
     -moz-appearance: textfield;
+    box-sizing: border-box;
 }
 
 #tnx-scenario-wizard .number-input-spinner .tnx-btn {
+    flex: 0 0 35px;
     width: 35px;
     height: 35px;
-    flex-shrink: 0;
     padding: 0;
     font-size: 1.4em;
     line-height: 1;
     margin: 0;
 }
 
-#tnx-scenario-wizard .number-input-spinner button[data-action="decrement"] {
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
+/* ステップ3: 山札種別ごとの設定グループに枠と背景を付与してセクション境界を明示 */
+#tnx-scenario-wizard .deck-settings-group {
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    background: var(--tnx2-bg-3);
 }
-
-#tnx-scenario-wizard .number-input-spinner button[data-action="increment"] {
-    border-top-left-radius: 0;
-    border-bottom-left-radius: 0;
+#tnx-scenario-wizard .deck-settings-group:last-child {
+    margin-bottom: 0;
+}
+#tnx-scenario-wizard .deck-settings-group h4 {
+    margin: 0 0 8px 0;
+    padding-bottom: 5px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    color: var(--tnx2-accent);
+    font-size: 0.9em;
+    font-family: var(--tnx2-font-mono);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+#tnx-scenario-wizard .deck-settings-group .form-group {
+    margin-bottom: 4px;
+}
+#tnx-scenario-wizard .deck-settings-group .form-group-checkbox {
+    margin-top: 4px;
 }
 
 /* ================================================================
-   32. ユーティリティ
+   32. ダイアログ個別調整
+   ================================================================ */
+
+/* カード選択ダイアログ: tnx.css 未読み込みのため全スタイルをここで定義
+   テンプレートは <label class="card-selection-item"> 構造（ラベルがアイテム本体） */
+.tokyo-nova.dialog:has(.card-selection-grid) {
+    width: 480px !important;
+}
+.card-selection-grid.discard-selection {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    max-height: 450px;
+    overflow-y: auto;
+    padding: 8px;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    margin-top: 10px;
+}
+.discard-selection .card-selection-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    width: 100px;
+    border-radius: 6px;
+    border: 2px solid transparent;
+    padding: 2px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+.discard-selection .card-selection-item img {
+    width: 100%;
+    height: auto;
+    border-radius: 4px;
+    display: block;
+}
+.discard-selection .card-selection-item .card-name,
+.discard-selection .card-selection-item input[type="checkbox"] {
+    display: none;
+}
+.discard-selection .card-selection-item:has(input:checked) {
+    border-color: var(--tnx2-accent);
+    background-color: var(--tnx2-accent-glow-sm);
+    box-shadow: 0 0 10px var(--tnx2-accent-glow);
+    transform: translateY(-3px);
+}
+
+/* 数値入力ダイアログ: spinner を縮まないよう固定、label を上揃えで2行表示に */
+.tnx-amount-dialog .form-group:has(> .number-input-spinner) {
+    align-items: flex-start;
+}
+.tnx-amount-dialog .number-input-spinner {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+/* ================================================================
+   33. ジャーナルディレクトリ カスタムボタン
+   ================================================================ */
+
+/* アクトシートを作成ボタン — .action-buttons 内で flex-basis:100% により 2 段目に折り返す */
+button.tnx-create-act-button {
+    flex-basis: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    white-space: normal;
+    height: auto;
+    line-height: 1.4;
+    padding: 4px 8px;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+button.tnx-create-act-button i {
+    flex-shrink: 0;
+}
+
+button.tnx-create-act-button span {
+    text-align: center;
+}
+
+/* ================================================================
+   33. ユーティリティ
    ================================================================ */
 
 .tokyo-nova.sheet.tnx-no-transitions,

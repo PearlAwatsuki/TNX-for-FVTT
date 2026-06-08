@@ -50,6 +50,9 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
     return {
       ...super.defineSchema(),
 
+      // フリガナ
+      furigana: new fields.StringField({ initial: "" }),
+
       // カテゴリ・分類
       styleSkillCategory: new fields.StringField({ initial: "special" }),
       unique:             new fields.StringField({ initial: "none" }),

@@ -10,11 +10,13 @@ export class DeckCreationDialog {
 
         return DialogV2.wait({
             window: { title: game.i18n.localize("TNX.CreateNewDeckDialogTitle") },
+            classes: ["tokyo-nova"],
             content,
             buttons: [
                 {
                     action: "create",
-                    label: `<i class="fas fa-check"></i> ${game.i18n.localize("TNX.Create")}`,
+                    icon: "fas fa-check",
+                    label: game.i18n.localize("TNX.Create"),
                     default: true,
                     callback: (_event, _button, dialog) => {
                         const form = dialog.element.querySelector("form");
@@ -23,7 +25,8 @@ export class DeckCreationDialog {
                 },
                 {
                     action: "cancel",
-                    label: `<i class="fas fa-times"></i> ${game.i18n.localize("TNX.Cancel")}`,
+                    icon: "fas fa-times",
+                    label: game.i18n.localize("TNX.Cancel"),
                     callback: () => null,
                 },
             ],
@@ -42,17 +45,31 @@ export class AmountInputDialog {
 
         const result = await DialogV2.wait({
             window: { title },
+            classes: ["tokyo-nova", "tnx-amount-dialog"],
+            position: { width: 480 },
             content,
+            actions: {
+                decrement: (_event, target) => {
+                    target.closest(".number-input-spinner")
+                        ?.querySelector("input[type='number']")?.stepDown();
+                },
+                increment: (_event, target) => {
+                    target.closest(".number-input-spinner")
+                        ?.querySelector("input[type='number']")?.stepUp();
+                },
+            },
             buttons: [
                 {
                     action: "ok",
-                    label: `<i class="fas fa-check"></i> ${game.i18n.localize("TNX.Draw")}`,
+                    icon: "fas fa-check",
+                    label: game.i18n.localize("TNX.Draw"),
                     default: true,
                     callback: (_event, _button, dialog) => parseInt(dialog.element.querySelector('input[name="amount"]')?.value),
                 },
                 {
                     action: "cancel",
-                    label: `<i class="fas fa-times"></i> ${game.i18n.localize("TNX.Cancel")}`,
+                    icon: "fas fa-times",
+                    label: game.i18n.localize("TNX.Cancel"),
                     callback: () => null,
                 },
             ],
@@ -78,11 +95,13 @@ export class TargetSelectionDialog {
 
         return DialogV2.wait({
             window: { title },
+            classes: ["tokyo-nova"],
             content,
             buttons: [
                 {
                     action: "select",
-                    label: `<i class="fas fa-check"></i> ${selectLabel}`,
+                    icon: "fas fa-check",
+                    label: selectLabel,
                     default: true,
                     callback: (_event, _button, dialog) => {
                         const form = dialog.element.querySelector("form");
@@ -91,7 +110,8 @@ export class TargetSelectionDialog {
                 },
                 {
                     action: "cancel",
-                    label: `<i class="fas fa-times"></i> ${game.i18n.localize("TNX.Cancel")}`,
+                    icon: "fas fa-times",
+                    label: game.i18n.localize("TNX.Cancel"),
                     callback: () => null,
                 },
             ],
@@ -111,18 +131,21 @@ export class CardSelectionDialog {
 
         return DialogV2.wait({
             window: { title },
+            classes: ["tokyo-nova"],
             content: html,
             buttons: [
                 {
                     action: "pass",
-                    label: `<i class="fas fa-check"></i> ${passLabel}`,
+                    icon: "fas fa-check",
+                    label: passLabel,
                     default: true,
                     callback: (_event, _button, dialog) =>
                         Array.from(dialog.element.querySelectorAll('input[name="cardIds"]:checked')).map(cb => cb.value),
                 },
                 {
                     action: "cancel",
-                    label: `<i class="fas fa-times"></i> ${game.i18n.localize("TNX.Cancel")}`,
+                    icon: "fas fa-times",
+                    label: game.i18n.localize("TNX.Cancel"),
                     callback: () => null,
                 },
             ],
@@ -141,17 +164,20 @@ export class RichConfirmDialog {
 
         return DialogV2.wait({
             window: { title },
+            classes: ["tokyo-nova"],
             content: html,
             buttons: [
                 {
                     action: "yes",
-                    label: `<i class="fas fa-check"></i> ${mainButtonLabel}`,
+                    icon: "fas fa-check",
+                    label: mainButtonLabel,
                     default: true,
                     callback: () => true,
                 },
                 {
                     action: "no",
-                    label: `<i class="fas fa-times"></i> ${game.i18n.localize("TNX.Cancel")}`,
+                    icon: "fas fa-times",
+                    label: game.i18n.localize("TNX.Cancel"),
                     callback: () => false,
                 },
             ],
@@ -176,11 +202,13 @@ export class DealTrumpDialog {
 
         return DialogV2.wait({
             window: { title: game.i18n.localize("TNX.SelectTargetActorAndCardTitle") },
+            classes: ["tokyo-nova"],
             content: html,
             buttons: [
                 {
                     action: "deal",
-                    label: `<i class="fas fa-check"></i> ${game.i18n.localize("TNX.Deal")}`,
+                    icon: "fas fa-check",
+                    label: game.i18n.localize("TNX.Deal"),
                     default: true,
                     callback: (_event, _button, dialog) => {
                         const form = dialog.element.querySelector("form");
@@ -189,7 +217,8 @@ export class DealTrumpDialog {
                 },
                 {
                     action: "cancel",
-                    label: `<i class="fas fa-times"></i> ${game.i18n.localize("TNX.Cancel")}`,
+                    icon: "fas fa-times",
+                    label: game.i18n.localize("TNX.Cancel"),
                     callback: () => null,
                 },
             ],
@@ -215,22 +244,26 @@ export class UnlinkConfirmDialog {
 
         return DialogV2.wait({
             window: { title: game.i18n.localize("TNX.UnlinkAndConfirmDeleteTitle") },
+            classes: ["tokyo-nova"],
             content: html,
             buttons: [
                 {
                     action: "delete",
-                    label: `<i class="fas fa-trash-alt"></i> ${game.i18n.localize("TNX.UnlinkAndDelete")}`,
+                    icon: "fas fa-trash-alt",
+                    label: game.i18n.localize("TNX.UnlinkAndDelete"),
                     callback: () => "delete",
                 },
                 {
                     action: "unlink",
-                    label: `<i class="fas fa-unlink"></i> ${game.i18n.localize("TNX.UnlinkOnly")}`,
+                    icon: "fas fa-unlink",
+                    label: game.i18n.localize("TNX.UnlinkOnly"),
                     default: true,
                     callback: () => "unlink",
                 },
                 {
                     action: "cancel",
-                    label: `<i class="fas fa-times"></i> ${game.i18n.localize("TNX.Cancel")}`,
+                    icon: "fas fa-times",
+                    label: game.i18n.localize("TNX.Cancel"),
                     callback: () => null,
                 },
             ],
@@ -249,11 +282,13 @@ export class UsageCreationDialog {
 
         return DialogV2.wait({
             window: { title: "用途の追加" },
+            classes: ["tokyo-nova"],
             content: html,
             buttons: [
                 {
                     action: "add",
-                    label: `<i class="fas fa-check"></i> 追加`,
+                    icon: "fas fa-check",
+                    label: "追加",
                     default: true,
                     callback: (_event, _button, dialog) => {
                         const form = dialog.element.querySelector("form");
@@ -262,7 +297,8 @@ export class UsageCreationDialog {
                 },
                 {
                     action: "cancel",
-                    label: `<i class="fas fa-times"></i> ${game.i18n.localize("TNX.Common.Cancel")}`,
+                    icon: "fas fa-times",
+                    label: game.i18n.localize("TNX.Common.Cancel"),
                     callback: () => null,
                 },
             ],
