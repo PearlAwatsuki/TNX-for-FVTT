@@ -32,32 +32,11 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
     async _prepareContext(options) {
         const context = await super._prepareContext(options);
 
-        // --- 1. ID変数の準備 ---
-        let cardDeckId     = "",
-            discardPileId  = "",
-            neuroDeckId    = "",
-            scenePileId    = "";
-
-        // --- 2. ID取得ロジック ---
-        const autoLoad  = game.settings.get("tokyo-nova-axleration", "autoLoadFromScenario");
-        const scenarioId = game.settings.get("tokyo-nova-axleration", "activeScenarioId");
-
-        // ステップA: シナリオから読み込みを試行
-        if (autoLoad && scenarioId) {
-            const scenarioJournal = await fromUuid(scenarioId);
-            if (scenarioJournal) {
-                cardDeckId    = scenarioJournal.getFlag("tokyo-nova-axleration", "cardDeckId");
-                discardPileId = scenarioJournal.getFlag("tokyo-nova-axleration", "discardPileId");
-                neuroDeckId   = scenarioJournal.getFlag("tokyo-nova-axleration", "neuroDeckId");
-                scenePileId   = scenarioJournal.getFlag("tokyo-nova-axleration", "scenePileId");
-            }
-        }
-
-        // ステップB: シナリオに設定がなかった場合、システム設定からフォールバック
-        if (!cardDeckId)    cardDeckId    = game.settings.get("tokyo-nova-axleration", "cardDeckId");
-        if (!discardPileId) discardPileId = game.settings.get("tokyo-nova-axleration", "discardPileId");
-        if (!neuroDeckId)   neuroDeckId   = game.settings.get("tokyo-nova-axleration", "neuroDeckId");
-        if (!scenePileId)   scenePileId   = game.settings.get("tokyo-nova-axleration", "scenePileId");
+        // --- カードID取得（ゲーム設定から直接読み込み）---
+        const cardDeckId    = game.settings.get("tokyo-nova-axleration", "cardDeckId");
+        const discardPileId = game.settings.get("tokyo-nova-axleration", "discardPileId");
+        const neuroDeckId   = game.settings.get("tokyo-nova-axleration", "neuroDeckId");
+        const scenePileId   = game.settings.get("tokyo-nova-axleration", "scenePileId");
 
         // --- 3. 取得したIDを元にドキュメントを読み込み、コンテキストにセット ---
 
@@ -122,24 +101,30 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
         // #sidebar-content のクラスを監視する。
         // - expanded 追加/削除 → サイドバー展開/収納 → CSS遷移(250ms)後に再測定
         // - active-{tab} 変化 → タブ切替 → 同上
-        // active-chat のときは #sidebar 左端、それ以外は #ui-right 左端（#chat-notifications を含む）を基準にする。
+        // chatNotifications が "pip"（通知バッジ）の場合は #chat-notifications が表示されないため
+        // 常に #sidebar 左端を基準にする。"cards"（チャットカード）の場合は従来通り。
         const content = document.querySelector("#sidebar-content");
         if (!content) return;
 
         const apply = () => {
+            const isPip = game.settings.get("core", "uiConfig").chatNotifications === "pip";
             const isChat = content.classList.contains("active-chat");
-            const target = isChat
+            const target = (isPip || isChat)
                 ? document.querySelector("#sidebar")
                 : document.querySelector("#ui-right");
             if (!target) return;
             const fromRight = window.innerWidth - target.getBoundingClientRect().left;
+            // pip モードではサイドバー収納時にも追従できるよう下限を小さくし、10px の余白を加える
+            const minOffset = isPip ? 18 : 370;
             document.documentElement.style.setProperty(
-                "--tnx-right-offset", `${Math.max(370, fromRight)}px`
+                "--tnx-right-offset", `${Math.max(minOffset, isPip ? fromRight + 10 : fromRight)}px`
             );
         };
 
         TnxHud._rightOffsetObserver = new MutationObserver(() => setTimeout(apply, 280));
         TnxHud._rightOffsetObserver.observe(content, { attributes: true, attributeFilter: ["class"] });
+        // チャット通知モードの切替時にも再計算する
+        Hooks.on("renderChatInput", apply);
         apply();
     }
 
@@ -180,7 +165,9 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
     _setupContextMenus() {
         const el = this.element;
 
-        new ContextMenu(el, '.deck-card[data-action="drawNeuro"]', [
+        const CM = foundry.applications.ux.ContextMenu.implementation;
+
+        new CM(el, '.deck-card[data-action="drawNeuro"]', [
             {
                 name: "切り札を配布する",
                 icon: '<i class="fas fa-star"></i>',
@@ -211,9 +198,9 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
                     }
                 },
             },
-        ]);
+        ], { jQuery: false, fixed: true });
 
-        new ContextMenu(el, '.deck-card[data-action="drawFromDeck"]', [
+        new CM(el, '.deck-card[data-action="drawFromDeck"]', [
             {
                 name: "山札から判定する",
                 icon: '<i class="fas fa-gavel"></i>',
@@ -265,9 +252,9 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
                     }
                 },
             },
-        ]);
+        ], { jQuery: false, fixed: true });
 
-        new ContextMenu(el, '.deck-card[data-action="takeFromDiscard"]', [
+        new CM(el, '.deck-card[data-action="takeFromDiscard"]', [
             {
                 name: "1枚手札に戻す",
                 icon: '<i class="fas fa-hand-holding"></i>',
@@ -285,9 +272,9 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
                 condition: game.user.isGM,
                 callback: () => TnxActionHandler.retrieveDiscardPile(),
             },
-        ]);
+        ], { jQuery: false, fixed: true });
 
-        new ContextMenu(el, '.hand-area .card-in-hand', [
+        new CM(el, '.hand-area .card-in-hand', [
             {
                 name: "手札を渡す",
                 icon: '<i class="fas fa-user-friends"></i>',
@@ -303,7 +290,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
                 icon: '<i class="fas fa-trash-alt"></i>',
                 callback: (header) => TnxActionHandler.discardCard(header.dataset.cardId),
             },
-        ]);
+        ], { jQuery: false, fixed: true });
     }
 
     // ─── ドラッグゴースト ──────────────────────────────────────────────────────

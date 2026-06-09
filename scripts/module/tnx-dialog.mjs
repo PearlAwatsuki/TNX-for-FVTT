@@ -6,7 +6,7 @@ const { DialogV2 } = foundry.applications.api;
 export class DeckCreationDialog {
     static async prompt() {
         const template = "systems/tokyo-nova-axleration/templates/dialog/deck-creation-dialog.hbs";
-        const content = await renderTemplate(template, {});
+        const content = await foundry.applications.handlebars.renderTemplate(template, {});
 
         return DialogV2.wait({
             window: { title: "新規デッキ作成" },
@@ -41,7 +41,7 @@ export class DeckCreationDialog {
 export class AmountInputDialog {
     static async prompt({title, label, initialValue = 1, min = 1, max = 99}) {
         const template = "systems/tokyo-nova-axleration/templates/dialog/amount-input-dialog.hbs";
-        const content = await renderTemplate(template, { label, initialValue, min, max });
+        const content = await foundry.applications.handlebars.renderTemplate(template, { label, initialValue, min, max });
 
         const result = await DialogV2.wait({
             window: { title },
@@ -91,7 +91,7 @@ export class AmountInputDialog {
 export class TargetSelectionDialog {
     static async prompt({title, label, options, selectLabel = "決定"}) {
         const template = "systems/tokyo-nova-axleration/templates/dialog/target-selection-dialog.hbs";
-        const content = await renderTemplate(template, { label, options });
+        const content = await foundry.applications.handlebars.renderTemplate(template, { label, options });
 
         return DialogV2.wait({
             window: { title },
@@ -127,7 +127,7 @@ export class TargetSelectionDialog {
 export class CardSelectionDialog {
     static async prompt({title, content, cards, passLabel = "渡す"}) {
         const template = "systems/tokyo-nova-axleration/templates/dialog/card-selection-dialog.hbs";
-        const html = await renderTemplate(template, { content, cards });
+        const html = await foundry.applications.handlebars.renderTemplate(template, { content, cards });
 
         return DialogV2.wait({
             window: { title },
@@ -160,7 +160,7 @@ export class CardSelectionDialog {
 export class RichConfirmDialog {
     static async prompt({title, content, mainButtonLabel = "使用", img, description}) {
         const template = "systems/tokyo-nova-axleration/templates/dialog/rich-confirm-dialog.hbs";
-        const html = await renderTemplate(template, { content, img, description });
+        const html = await foundry.applications.handlebars.renderTemplate(template, { content, img, description });
 
         return DialogV2.wait({
             window: { title },
@@ -187,23 +187,23 @@ export class RichConfirmDialog {
 }
 
 /**
- * 切り札を配布する際に、対象アクターとカードを選択させるダイアログ。
+ * 切り札を配布する際に、対象ユーザーとカードを選択させるダイアログ。
  */
 export class DealTrumpDialog {
     /**
      * @param {object} data
-     * @param {Actor[]} data.actors - 選択肢となるアクターの配列。
+     * @param {User[]} data.users - 選択肢となるユーザーの配列。
      * @param {Card[]} data.cards - 選択肢となるカードの配列。
-     * @returns {Promise<object|null>} ユーザーが「配布」を押した場合は {actorId, cardId} を、キャンセルした場合は null を返す。
+     * @returns {Promise<object|null>} ユーザーが「配布」を押した場合は {userId, cardId} を、キャンセルした場合は null を返す。
      */
-    static async prompt({ actors, cards }) {
+    static async prompt({ users, cards }) {
         const template = "systems/tokyo-nova-axleration/templates/dialog/deal-trump-dialog.hbs";
         const cardOptions = cards.map(c => {
             const raw   = c.faces?.[0]?.name ?? c.name ?? "";
             const label = raw.replace(/<[^>]+>/g, '').match(/：(.+?)\s*\//)?.[1] ?? raw;
             return { id: c.id, label };
         });
-        const html = await renderTemplate(template, { actors, cards: cardOptions });
+        const html = await foundry.applications.handlebars.renderTemplate(template, { users, cards: cardOptions });
 
         return DialogV2.wait({
             window: { title: "配布先とカードを選択" },
@@ -245,7 +245,7 @@ export class UnlinkConfirmDialog {
     static async prompt({ linkedDoc }) {
         const template = "systems/tokyo-nova-axleration/templates/dialog/unlink-confirm-dialog.hbs";
         const content = `「${linkedDoc.name}」のリンクを解除します。デッキも一緒に削除しますか？`;
-        const html = await renderTemplate(template, { content });
+        const html = await foundry.applications.handlebars.renderTemplate(template, { content });
 
         return DialogV2.wait({
             window: { title: "リンク解除の確認" },
@@ -283,7 +283,7 @@ export class UnlinkConfirmDialog {
 export class UsageCreationDialog {
     static async prompt({ usageTypes }) {
         const template = "systems/tokyo-nova-axleration/templates/dialog/usage-creation-dialog.hbs";
-        const html = await renderTemplate(template, { usageTypes });
+        const html = await foundry.applications.handlebars.renderTemplate(template, { usageTypes });
 
         return DialogV2.wait({
             window: { title: "用途の追加" },

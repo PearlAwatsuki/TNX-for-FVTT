@@ -30,6 +30,7 @@ import { TokyoNovaGeneralSkillSheet } from './item/tnx-general-skill-sheet.mjs';
 import { TokyoNovaStyleSkillSheet } from './item/tnx-style-skill-sheet.mjs';
 import { TokyoNovaOrganizationSheet } from './item/tnx-organization-sheet.mjs';
 import { TnxScenarioSheet } from './journal/tnx-scenario-sheet.mjs';
+import { TnxCardSetupApp } from './module/tnx-card-setup-app.mjs';
 import { TnxActionHandler } from './module/tnx-action-handler.mjs';
 import { TnxHud } from './module/tnx-hud.mjs';
 import { TnxRecordSheet } from './module/tnx-record-sheet.mjs';
@@ -67,6 +68,7 @@ async function preloadHandlebarsTemplates() {
 
         // === Partials ===
         "systems/tokyo-nova-axleration/templates/parts/active-effects-list.hbs",
+        "systems/tokyo-nova-axleration/templates/parts/card-setup-app.hbs",
         "systems/tokyo-nova-axleration/templates/parts/scenario-setting-wizard.hbs",
         "systems/tokyo-nova-axleration/templates/parts/prosemirror-editor.hbs",
         "systems/tokyo-nova-axleration/templates/parts/history-list.hbs",
@@ -76,7 +78,7 @@ async function preloadHandlebarsTemplates() {
         // === User Sheets ===
         "systems/tokyo-nova-axleration/templates/user/record-sheet.hbs",
     ];
-    return loadTemplates(templatePaths);
+    return foundry.applications.handlebars.loadTemplates(templatePaths);
 }
 
 async function setupDefaultSkills(actor) {
@@ -305,47 +307,47 @@ Hooks.once("init", async function() {
     ];
     
     // Actor Sheetの登録
-    Actors.unregisterSheet("core", ActorSheet);
-    Actors.registerSheet("tokyo-nova", TokyoNovaCastSheet, {
+    foundry.documents.collections.Actors.unregisterSheet("core", foundry.appv1.sheets.ActorSheet);
+    foundry.documents.collections.Actors.registerSheet("tokyo-nova", TokyoNovaCastSheet, {
         types: ["cast"],
         makeDefault: true,
         label: "プロファイルシート"
     });
-    
+
     // Item Sheetの登録
-    Items.unregisterSheet("core", ItemSheet);
-    Items.registerSheet("tokyo-nova", TokyoNovaStyleSheet, {
+    foundry.documents.collections.Items.unregisterSheet("core", foundry.appv1.sheets.ItemSheet);
+    foundry.documents.collections.Items.registerSheet("tokyo-nova", TokyoNovaStyleSheet, {
         types: ["style"],
         makeDefault: true,
         label: "スタイルシート"
     });
 
-    Items.registerSheet("tokyo-nova", TokyoNovaMiracleSheet, {
+    foundry.documents.collections.Items.registerSheet("tokyo-nova", TokyoNovaMiracleSheet, {
         types: ["miracle"],
         makeDefault: true,
         label: "神業シート"
     });
 
-    Items.registerSheet("tokyo-nova", TokyoNovaGeneralSkillSheet, {
+    foundry.documents.collections.Items.registerSheet("tokyo-nova", TokyoNovaGeneralSkillSheet, {
         types: ["generalSkill"],
         makeDefault: true,
         label: "一般技能シート"
     });
 
-    Items.registerSheet("tokyo-nova", TokyoNovaStyleSkillSheet, {
+    foundry.documents.collections.Items.registerSheet("tokyo-nova", TokyoNovaStyleSkillSheet, {
         types: ["styleSkill"],
         makeDefault: true,
         label: "スタイル技能シート"
     });
 
-    Items.registerSheet("tokyo-nova", TokyoNovaOrganizationSheet, {
+    foundry.documents.collections.Items.registerSheet("tokyo-nova", TokyoNovaOrganizationSheet, {
         types: ["organization"],
         makeDefault: true,
         label: "組織シート"
     });
 
     // Journal Sheetの登録
-    Journal.registerSheet("tokyo-nova", TnxScenarioSheet, {
+    foundry.documents.collections.Journal.registerSheet("tokyo-nova", TnxScenarioSheet, {
         makeDefault: false,
         label: "アクトシート",
     });
@@ -370,130 +372,22 @@ Hooks.once("init", async function() {
         default: false // デフォルトはOFF
     });
 
-    game.settings.register("tokyo-nova-axleration", "activeScenarioId", {
-        name: "現在のアクトシート",
-        hint: "HUDが自動でカード情報を読み込む対象のアクトシート（ジャーナル）を選択します。",
-        scope: "world",
-        config: true,
-        type: String,
-        default: "",
-        requiresReload: true,
-    });
+    // カードID設定（config: false — UIはカードセットアップアプリで管理）
+    const _cardIdSetting = { scope: "world", config: false, type: String, default: "" };
+    game.settings.register("tokyo-nova-axleration", "cardDeckId",       { ..._cardIdSetting });
+    game.settings.register("tokyo-nova-axleration", "discardPileId",    { ..._cardIdSetting });
+    game.settings.register("tokyo-nova-axleration", "neuroDeckId",      { ..._cardIdSetting });
+    game.settings.register("tokyo-nova-axleration", "scenePileId",      { ..._cardIdSetting });
+    game.settings.register("tokyo-nova-axleration", "accessCardPileId", { ..._cardIdSetting });
+    game.settings.register("tokyo-nova-axleration", "gmTrumpDiscardId", { ..._cardIdSetting });
 
-    game.settings.register("tokyo-nova-axleration", "autoLoadFromScenario", {
-        name: "アクトシートから自動で読み込む",
-        hint: "このチェックを入れると、上記で指定されたアクトシートから山札・捨て札の情報を自動で読み込みます。",
-        scope: "world",
-        config: true,
-        type: Boolean,
-        default: true,
-        requiresReload: true
-    });
-
-    game.settings.register("tokyo-nova-axleration", "cardDeckId", {
-        name: "山札の登録",
-        hint: "「自動で読み込む」のチェックを外した場合に、HUDが参照する山札（Cardsドキュメント）を直接選択します。",
-        scope: "world",
-        config: true,
-        type: String,
-        default: "",
-        requiresReload: true
-    });
-
-    game.settings.register("tokyo-nova-axleration", "discardPileId", {
-        name: "捨て札の登録",
-        hint: "「自動で読み込む」のチェックを外した場合に、HUDが参照する捨て札（Cardsドキュメント）を直接選択します。",
-        scope: "world",
-        config: true,
-        type: String,
-        default: "",
-        requiresReload: true
-    });
-
-    game.settings.register("tokyo-nova-axleration", "neuroDeckId", {
-        name: "ニューロデッキの登録",
-        hint: "「自動で読み込む」を外した場合に、HUDが参照するニューロデッキ（Deck）を選択します。",
-        scope: "world",
-        config: true,
-        type: String,
-        default: "",
-        requiresReload: true
-    });
-
-    game.settings.register("tokyo-nova-axleration", "scenePileId", {
-        name: "シーンカード置き場の登録",
-        hint: "「自動で読み込む」を外した場合に、HUDが参照するシーンカード置き場（Pile）を選択します。",
-        scope: "world",
-        config: true,
-        type: String,
-        default: "",
-        requiresReload: true
-    });
-
-    game.settings.register("tokyo-nova-axleration", "accessCardPileId", {
-        name: "アクセスカード置き場の登録",
-        hint: "「自動で読み込む」を外した場合に、HUDが参照するアクセスカード置き場（Hand）を選択します。",
-        scope: "world",
-        config: true,
-        type: String,
-        default: "",
-        requiresReload: true
-    });
-
-    game.settings.register("tokyo-nova-axleration", "gmTrumpDiscardId", {
-        name: "RL切り札捨て場の登録",
-        hint: "「自動で読み込む」を外した場合に、HUDが参照するRL切り札捨て場（Pile）を選択します。",
-        scope: "world",
-        config: true,
-        type: String,
-        default: "",
-        requiresReload: true
-    });
-    
-    Hooks.on("renderSettingsConfig", (app, html, data) => {
-        // --- ドロップダウン生成ヘルパー関数 ---
-        const createDropdown = (settingName, collection, filter) => {
-            const input = html.querySelector(`[name="tokyo-nova-axleration.${settingName}"]`);
-            if (!input) return;
-            const currentValue = game.settings.get("tokyo-nova-axleration", settingName);
-            const select = document.createElement('select');
-            select.name = `tokyo-nova-axleration.${settingName}`;
-            const defaultOption = document.createElement('option');
-            defaultOption.value = "";
-            defaultOption.textContent = "- 選択 -";
-            select.appendChild(defaultOption);
-            collection.filter(filter).forEach(doc => {
-                const option = document.createElement('option');
-                option.value = doc.uuid;
-                option.textContent = doc.name;
-                if (doc.uuid === currentValue) option.selected = true;
-                select.appendChild(option);
-            });
-            input.parentNode.replaceChild(select, input);
-        };
-
-        // --- 各設定をドロップダウンに変換 ---
-        createDropdown("activeScenarioId", game.journal, j => j.sheet instanceof TnxScenarioSheet);
-        createDropdown("cardDeckId", game.cards, c => c.type === 'deck');
-        createDropdown("discardPileId", game.cards, c => c.type === 'pile');
-        createDropdown("neuroDeckId", game.cards, c => c.type === 'deck');
-        createDropdown("scenePileId", game.cards, c => c.type === 'pile');
-        createDropdown("accessCardPileId", game.cards, c => c.type === 'hand');
-        createDropdown("gmTrumpDiscardId", game.cards, c => c.type === 'pile');
-
-        // --- チェックボックスに応じて項目を無効化する処理 ---
-        const autoLoadCheckbox = html.querySelector('[name="tokyo-nova-axleration.autoLoadFromScenario"]');
-        const manualSelects = html.querySelectorAll(
-            '[name$=".cardDeckId"], [name$=".discardPileId"], [name$=".neuroDeckId"], [name$=".scenePileId"], [name$=".accessCardPileId"], [name$=".gmTrumpDiscardId"]'
-        );
-
-        const toggleManualSettings = () => {
-            const isDisabled = autoLoadCheckbox.checked;
-            manualSelects.forEach(el => { el.disabled = isDisabled; });
-        };
-
-        autoLoadCheckbox.addEventListener("change", toggleManualSettings);
-        toggleManualSettings();
+    game.settings.registerMenu("tokyo-nova-axleration", "cardSetup", {
+        name: "カードをセットアップ",
+        label: "設定を開く",
+        hint: "山札・手札などのカードドキュメントを作成・割り当てします。",
+        icon: "fas fa-layer-group",
+        type: TnxCardSetupApp,
+        restricted: true,
     });
 
     // プレイヤーリストの右クリックメニューに「レコードシートを開く」を追加する。

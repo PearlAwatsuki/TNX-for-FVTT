@@ -1,0 +1,230 @@
+<form autocomplete="off" class="tnx-card-setup-form">
+
+    {{!-- タブナビゲーション --}}
+    <nav class="tnx-setup-tabs">
+        <button type="button" class="tnx-setup-tab-btn active" data-action="switchTab" data-tab="playingCards">
+            <i class="fas fa-layer-group"></i> 山札
+        </button>
+        <button type="button" class="tnx-setup-tab-btn" data-action="switchTab" data-tab="hands">
+            <i class="fas fa-hand-holding"></i> 手札
+        </button>
+        <button type="button" class="tnx-setup-tab-btn" data-action="switchTab" data-tab="trumps">
+            <i class="fas fa-star"></i> 切り札
+        </button>
+        <button type="button" class="tnx-setup-tab-btn" data-action="switchTab" data-tab="others">
+            <i class="fas fa-ellipsis-h"></i> その他
+        </button>
+    </nav>
+
+    {{!-- ===== 山札タブ ===== --}}
+    <div class="tnx-tab-content" data-tab="playingCards">
+        <p class="notes tnx-setup-note">プレイングカード（山札・捨て札）を設定します。</p>
+
+        <div class="tnx-setup-group">
+            <div class="tnx-card-row">
+                <span class="tnx-card-row-label">山札</span>
+                <div class="tnx-card-row-select-wrap">
+                    <select name="cardDeckId">
+                        <option value="">— 未設定 —</option>
+                        {{#each cardDeckOptions}}
+                        <option value="{{this.uuid}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
+                        {{/each}}
+                    </select>
+                </div>
+                <div class="number-input-spinner tnx-spinner--sm" title="デッキ数">
+                    <button type="button" class="tnx-btn" data-action="decrement">－</button>
+                    <input type="number" name="deckCount" value="2" min="1" max="9">
+                    <button type="button" class="tnx-btn" data-action="increment">＋</button>
+                </div>
+                <button type="button" class="tnx-btn tnx-btn--sm" data-action="createCardDeck">
+                    <i class="fas fa-plus"></i> 新規作成
+                </button>
+                <button type="button" class="tnx-btn tnx-btn--sm tnx-btn--secondary" data-action="clearSetting" data-setting="cardDeckId" title="クリア">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="tnx-setup-group">
+            <div class="tnx-card-row">
+                <span class="tnx-card-row-label">捨て札</span>
+                <div class="tnx-card-row-select-wrap">
+                    <select name="discardPileId">
+                        <option value="">— 未設定 —</option>
+                        {{#each discardOptions}}
+                        <option value="{{this.uuid}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
+                        {{/each}}
+                    </select>
+                </div>
+                <button type="button" class="tnx-btn tnx-btn--sm" data-action="createDiscardPile">
+                    <i class="fas fa-plus"></i> 新規作成
+                </button>
+                <button type="button" class="tnx-btn tnx-btn--sm tnx-btn--secondary" data-action="clearSetting" data-setting="discardPileId" title="クリア">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {{!-- ===== 手札タブ ===== --}}
+    <div class="tnx-tab-content tnx-hidden" data-tab="hands">
+        <p class="notes tnx-setup-note">各ユーザーの手札置き場を設定します。</p>
+        <div class="tnx-setup-bulk-actions">
+            <button type="button" class="tnx-btn tnx-btn--sm" data-action="createAllUserHands">
+                <i class="fas fa-users"></i> 全ユーザーに手札を新規作成
+            </button>
+        </div>
+        <div class="tnx-user-rows">
+            {{#each users}}
+            <div class="tnx-user-row" data-user-id="{{this.id}}">
+                <span class="tnx-user-row-name">
+                    {{this.name}}{{#if this.isGM}}&nbsp;<small class="tnx-gm-badge">RL</small>{{/if}}
+                </span>
+                <div class="tnx-card-row-select-wrap">
+                    <select name="hand-{{this.id}}">
+                        <option value="">— 未設定 —</option>
+                        {{#each this.handOptions}}
+                        <option value="{{this.uuid}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
+                        {{/each}}
+                    </select>
+                </div>
+                <button type="button" class="tnx-btn tnx-btn--sm" data-action="createUserHand" title="手札を新規作成">
+                    <i class="fas fa-plus"></i>
+                </button>
+                <button type="button" class="tnx-btn tnx-btn--sm tnx-btn--secondary" data-action="clearUserHand" title="割り当て解除">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            {{/each}}
+        </div>
+    </div>
+
+    {{!-- ===== 切り札タブ ===== --}}
+    <div class="tnx-tab-content tnx-hidden" data-tab="trumps">
+        <p class="notes tnx-setup-note">切り札置き場・RL切り札捨て場を設定します。</p>
+
+        <div class="tnx-setup-group">
+            <div class="tnx-card-row">
+                <span class="tnx-card-row-label">RL切り札捨て場</span>
+                <div class="tnx-card-row-select-wrap">
+                    <select name="gmTrumpDiscardId">
+                        <option value="">— 未設定 —</option>
+                        {{#each gmTrumpOptions}}
+                        <option value="{{this.uuid}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
+                        {{/each}}
+                    </select>
+                </div>
+                <button type="button" class="tnx-btn tnx-btn--sm" data-action="createGmTrumpDiscard">
+                    <i class="fas fa-plus"></i> 新規作成
+                </button>
+                <button type="button" class="tnx-btn tnx-btn--sm tnx-btn--secondary" data-action="clearSetting" data-setting="gmTrumpDiscardId" title="クリア">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <hr class="tnx-setup-divider">
+
+        <div class="tnx-setup-bulk-actions">
+            <button type="button" class="tnx-btn tnx-btn--sm" data-action="createAllUserTrumps">
+                <i class="fas fa-users"></i> 全ユーザーに切り札置き場を新規作成
+            </button>
+        </div>
+        <div class="tnx-user-rows">
+            {{#each users}}
+            <div class="tnx-user-row" data-user-id="{{this.id}}">
+                <span class="tnx-user-row-name">
+                    {{this.name}}{{#if this.isGM}}&nbsp;<small class="tnx-gm-badge">RL</small>{{/if}}
+                </span>
+                <div class="tnx-card-row-select-wrap">
+                    <select name="trump-{{this.id}}">
+                        <option value="">— 未設定 —</option>
+                        {{#each this.trumpOptions}}
+                        <option value="{{this.uuid}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
+                        {{/each}}
+                    </select>
+                </div>
+                <button type="button" class="tnx-btn tnx-btn--sm" data-action="createUserTrump" title="切り札置き場を新規作成">
+                    <i class="fas fa-plus"></i>
+                </button>
+                <button type="button" class="tnx-btn tnx-btn--sm tnx-btn--secondary" data-action="clearUserTrump" title="割り当て解除">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            {{/each}}
+        </div>
+    </div>
+
+    {{!-- ===== その他タブ ===== --}}
+    <div class="tnx-tab-content tnx-hidden" data-tab="others">
+        <p class="notes tnx-setup-note">ニューロデッキ・シーンカード・アクセスカードを設定します。</p>
+
+        <div class="tnx-setup-group">
+            <div class="tnx-card-row">
+                <span class="tnx-card-row-label">ニューロデッキ</span>
+                <div class="tnx-card-row-select-wrap">
+                    <select name="neuroDeckId">
+                        <option value="">— 未設定 —</option>
+                        {{#each neuroDeckOptions}}
+                        <option value="{{this.uuid}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
+                        {{/each}}
+                    </select>
+                </div>
+                <button type="button" class="tnx-btn tnx-btn--sm" data-action="createNeuroDeck">
+                    <i class="fas fa-plus"></i> 新規作成
+                </button>
+                <button type="button" class="tnx-btn tnx-btn--sm tnx-btn--secondary" data-action="clearSetting" data-setting="neuroDeckId" title="クリア">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="tnx-setup-group">
+            <div class="tnx-card-row">
+                <span class="tnx-card-row-label">シーンカード</span>
+                <div class="tnx-card-row-select-wrap">
+                    <select name="scenePileId">
+                        <option value="">— 未設定 —</option>
+                        {{#each scenePileOptions}}
+                        <option value="{{this.uuid}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
+                        {{/each}}
+                    </select>
+                </div>
+                <button type="button" class="tnx-btn tnx-btn--sm" data-action="createScenePile">
+                    <i class="fas fa-plus"></i> 新規作成
+                </button>
+                <button type="button" class="tnx-btn tnx-btn--sm tnx-btn--secondary" data-action="clearSetting" data-setting="scenePileId" title="クリア">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="tnx-setup-group">
+            <div class="tnx-card-row">
+                <span class="tnx-card-row-label">アクセスカード</span>
+                <div class="tnx-card-row-select-wrap">
+                    <select name="accessCardPileId">
+                        <option value="">— 未設定 —</option>
+                        {{#each accessCardOptions}}
+                        <option value="{{this.uuid}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
+                        {{/each}}
+                    </select>
+                </div>
+                <button type="button" class="tnx-btn tnx-btn--sm" data-action="createAccessCards">
+                    <i class="fas fa-plus"></i> 新規作成
+                </button>
+                <button type="button" class="tnx-btn tnx-btn--sm tnx-btn--secondary" data-action="clearSetting" data-setting="accessCardPileId" title="クリア">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {{!-- フッター（常に表示） --}}
+    <footer class="sheet-footer">
+        <button type="button" class="tnx-btn" data-action="save">
+            <i class="fas fa-save"></i> 設定を保存
+        </button>
+    </footer>
+
+</form>

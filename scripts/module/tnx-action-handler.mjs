@@ -24,19 +24,9 @@ export class TnxActionHandler {
      * @returns {Promise<Cards|null>}
      */
     static async getActiveDeck() {
-        let cardDeckId = game.settings.get("tokyo-nova-axleration", "autoLoadFromScenario")
-            ? (await fromUuid(game.settings.get("tokyo-nova-axleration", "activeScenarioId")))?.getFlag("tokyo-nova-axleration", "cardDeckId")
-            : undefined;
-
-        if (!cardDeckId) {
-            cardDeckId = game.settings.get("tokyo-nova-axleration", "cardDeckId");
-        }
-
-        if (!cardDeckId) {
-            ui.notifications.error("操作対象の山札が設定されていません。");
-            return null;
-        }
-        return await fromUuid(cardDeckId);
+        const id = game.settings.get("tokyo-nova-axleration", "cardDeckId");
+        if (!id) { ui.notifications.error("操作対象の山札が設定されていません。"); return null; }
+        return await fromUuid(id);
     }
 
     /**
@@ -44,63 +34,31 @@ export class TnxActionHandler {
      * @returns {Promise<Cards|null>}
      */
     static async getActiveDiscardPile() {
-        let discardPileId = game.settings.get("tokyo-nova-axleration", "autoLoadFromScenario")
-            ? (await fromUuid(game.settings.get("tokyo-nova-axleration", "activeScenarioId")))?.getFlag("tokyo-nova-axleration", "discardPileId")
-            : undefined;
-
-        if (!discardPileId) {
-            discardPileId = game.settings.get("tokyo-nova-axleration", "discardPileId");
-        }
-
-        if (!discardPileId) {
-            ui.notifications.error("操作対象の捨て札が設定されていません。");
-            return null;
-        }
-        return await fromUuid(discardPileId);
+        const id = game.settings.get("tokyo-nova-axleration", "discardPileId");
+        if (!id) { ui.notifications.error("操作対象の捨て札が設定されていません。"); return null; }
+        return await fromUuid(id);
     }
 
     static async getActiveNeuroDeck() {
-        const neuroDeckId = game.settings.get("tokyo-nova-axleration", "autoLoadFromScenario")
-            ? (await fromUuid(game.settings.get("tokyo-nova-axleration", "activeScenarioId")))?.getFlag("tokyo-nova-axleration", "neuroDeckId")
-            : undefined;
-        // フォールバックは不要（シナリオ設定でのみ指定される想定）
-        if (!neuroDeckId) {
-            ui.notifications.error("操作対象のニューロデッキが設定されていません。");
-            return null;
-        }
-        return await fromUuid(neuroDeckId);
+        const id = game.settings.get("tokyo-nova-axleration", "neuroDeckId");
+        if (!id) { ui.notifications.error("操作対象のニューロデッキが設定されていません。"); return null; }
+        return await fromUuid(id);
     }
 
     static async getActiveScenePile() {
-        const scenePileId = game.settings.get("tokyo-nova-axleration", "autoLoadFromScenario")
-            ? (await fromUuid(game.settings.get("tokyo-nova-axleration", "activeScenarioId")))?.getFlag("tokyo-nova-axleration", "scenePileId")
-            : undefined;
-        if (!scenePileId) {
-            ui.notifications.error("操作対象のシーンカード置き場が設定されていません。");
-            return null;
-        }
-        return await fromUuid(scenePileId);
+        const id = game.settings.get("tokyo-nova-axleration", "scenePileId");
+        if (!id) { ui.notifications.error("操作対象のシーンカード置き場が設定されていません。"); return null; }
+        return await fromUuid(id);
     }
-    
+
     /**
      * 現在アクティブなRL切り札捨て場を取得するヘルパー関数
      * @returns {Promise<Cards|null>}
      */
     static async getActiveGmTrumpDiscardPile() {
-        let discardId = game.settings.get("tokyo-nova-axleration", "autoLoadFromScenario")
-            ? (await fromUuid(game.settings.get("tokyo-nova-axleration", "activeScenarioId")))?.getFlag("tokyo-nova-axleration", "gmTrumpDiscardId")
-            : undefined;
-
-        if (!discardId) {
-            // シナリオにない場合、システム設定からもフォールバックする
-            discardId = game.settings.get("tokyo-nova-axleration", "gmTrumpDiscardId");
-        }
-
-        if (!discardId) {
-            ui.notifications.error("操作対象のRL切り札捨て場が設定されていません。");
-            return null;
-        }
-        return await fromUuid(discardId);
+        const id = game.settings.get("tokyo-nova-axleration", "gmTrumpDiscardId");
+        if (!id) { ui.notifications.error("操作対象のRL切り札捨て場が設定されていません。"); return null; }
+        return await fromUuid(id);
     }
 
     /**
@@ -448,15 +406,15 @@ export class TnxActionHandler {
     }
 
     /**
-     * GMがニューロデッキから特定のキャスト（を操作するユーザー）に切り札を1枚配布する
+     * GMがニューロデッキから特定のユーザーに切り札を1枚配布する
      */
     static async dealTrumpFromNeuroDeck() {
         const { getUserFlagData } = await import('./user-flag-schema.mjs');
 
-        // 1. 配布に必要なアクターとカードの情報を取得
-        const castActors = game.actors.filter(a => a.type === 'cast');
-        if (castActors.length === 0) {
-            return ui.notifications.warn("配布対象のキャストが存在しません。");
+        // 1. 配布に必要なユーザーとカードの情報を取得
+        const targetUsers = game.users.filter(u => !u.isGM);
+        if (targetUsers.length === 0) {
+            return ui.notifications.warn("配布対象のプレイヤーが存在しません。");
         }
 
         const neuroDeck = await this.getActiveNeuroDeck();
@@ -465,38 +423,28 @@ export class TnxActionHandler {
         }
         const availableCards = neuroDeck.cards.contents;
 
-        // 2. 専用ダイアログを呼び出して、アクターとカードを選択させる
+        // 2. 専用ダイアログを呼び出して、ユーザーとカードを選択させる
         const selection = await DealTrumpDialog.prompt({
-            actors: castActors,
+            users: targetUsers,
             cards: availableCards
         });
 
         // 3. 選択されなかった場合（キャンセル時）は処理を中断
-        if (!selection || !selection.actorId || !selection.cardId) {
+        if (!selection || !selection.userId || !selection.cardId) {
             return;
         }
 
-        // 4. 選択されたアクターとカードの情報を取得
-        const targetActor = game.actors.get(selection.actorId);
+        // 4. 選択されたユーザーとカードの情報を取得
+        const targetUser = game.users.get(selection.userId);
         const selectedCard = neuroDeck.cards.get(selection.cardId);
-        if (!targetActor || !selectedCard) {
-            return ui.notifications.error("選択されたアクターまたはカードが見つかりませんでした。");
+        if (!targetUser || !selectedCard) {
+            return ui.notifications.error("選択されたユーザーまたはカードが見つかりませんでした。");
         }
 
-        // 5. キャストから紐づくユーザーを取得し、切り札置き場を検証
-        const ownerUserId = targetActor.system.ownerUserId;
-        if (!ownerUserId) {
-            return ui.notifications.warn(`「${targetActor.name}」にはユーザーが割り当てられていないため、切り札を配布できません。`);
-        }
-        
-        const ownerUser = await fromUuid(ownerUserId);
-        if (!ownerUser) {
-            return ui.notifications.error("紐づけられたユーザーが見つかりませんでした。");
-        }
-        
-        const trumpPileId = getUserFlagData(ownerUser).trumpCardPileId;
+        // 5. ユーザーの切り札置き場を検証
+        const trumpPileId = getUserFlagData(targetUser).trumpCardPileId;
         if (!trumpPileId) {
-            return ui.notifications.warn(`「${ownerUser.name}」に切り札置き場が設定されていません。`);
+            return ui.notifications.warn(`「${targetUser.name}」に切り札置き場が設定されていません。`);
         }
 
         const trumpPile = await fromUuid(trumpPileId);
@@ -504,14 +452,14 @@ export class TnxActionHandler {
             return ui.notifications.error("対象の切り札置き場が見つかりませんでした。");
         }
         if (trumpPile.cards.size > 0) {
-            return ui.notifications.warn(`「${ownerUser.name}」の切り札置き場には既にカードがあります。`);
+            return ui.notifications.warn(`「${targetUser.name}」の切り札置き場には既にカードがあります。`);
         }
 
         // 6. 選択されたカードをニューロデッキから切り札置き場へ移動
         await neuroDeck.pass(trumpPile, [selection.cardId], { updateData: { face: 0 } });
 
         // 7. 完了を通知
-        ui.notifications.info(`ニューロデッキから「${selectedCard.name}」を「${targetActor.name}（${ownerUser.name}）」の切り札として配布しました。`);
+        ui.notifications.info(`ニューロデッキから「${selectedCard.name}」を「${targetUser.name}」の切り札として配布しました。`);
     }
 
     /**

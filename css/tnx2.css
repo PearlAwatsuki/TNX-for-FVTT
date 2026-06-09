@@ -282,6 +282,7 @@
     z-index: 9999;
 }
 
+
 /* ----------------------------------------------------------------
    4. タイポグラフィ & リンク
    ---------------------------------------------------------------- */
@@ -823,7 +824,41 @@
     border-radius: var(--tnx2-radius);
 }
 
+/* スタイルスロット: コンテンツ＋ロールインジケーターの横並びラッパー */
+.tokyo-nova.sheet.actor .style-slot-inner {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+}
+.tokyo-nova.sheet.actor .style-slot-inner .style-info-button,
+.tokyo-nova.sheet.actor .style-slot-inner .tnx-import-box--compact {
+    flex: 1;
+    min-width: 0;
+}
+
+/* ロールインジケーター */
+.tokyo-nova.sheet .style-role-toggle {
+    flex: 0 0 3em;
+    width: 3em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    cursor: pointer;
+    border-radius: var(--tnx2-radius);
+}
+.tokyo-nova.sheet .style-role-toggle--disabled {
+    opacity: 0.3;
+    cursor: default;
+    pointer-events: none;
+}
 .tokyo-nova.sheet .role-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.4em;
+    min-height: 1.4em;
     font-weight: 700;
     font-size: 1.2em;
     color: var(--tnx2-text-primary);
@@ -833,6 +868,7 @@
     border: 1px solid var(--tnx2-accent-dim);
     border-radius: var(--tnx2-radius);
 }
+
 
 .mirror-character {
     font-family: 'Mirror', sans-serif;
@@ -2471,6 +2507,7 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 .form-fields.split-fields > select {
     flex: 1 1 0;
     min-width: 0;
+    max-width: 240.5px;
 }
 .form-fields.split-fields > input[type="text"] {
     flex: 1 1 0;
@@ -2479,7 +2516,6 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 .form-fields.split-fields > .number-input-spinner {
     flex: 1 1 0;
     min-width: 0;
-    padding-right: 34px;
 }
 
 .form-group.align-start { align-items: flex-start; }
@@ -3960,4 +3996,156 @@ button.tnx-create-act-button span {
 .tokyo-nova.sheet.tnx-no-transitions * {
     transition: none !important;
     animation: none !important;
+}
+
+/* ================================================================
+   34. カードセットアップアプリ
+   ================================================================ */
+
+/* ウィンドウ全体のスクロール */
+.tokyo-nova #tnx-card-setup .window-content {
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.tokyo-nova #tnx-card-setup .tnx-card-setup-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+/* タブナビゲーション */
+.tokyo-nova #tnx-card-setup .tnx-setup-tabs {
+    display: flex;
+    gap: 2px;
+    padding: 4px 8px 0;
+    border-bottom: 1px solid var(--tnx-border-subtle, rgba(255,255,255,0.12));
+    flex-shrink: 0;
+}
+.tokyo-nova #tnx-card-setup .tnx-setup-tab-btn {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 5px 12px;
+    font-size: 0.85em;
+    color: var(--color-text-light-6, #aaa);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s;
+    margin-bottom: -1px;
+}
+.tokyo-nova #tnx-card-setup .tnx-setup-tab-btn:hover {
+    color: var(--color-text-light-1, #ddd);
+}
+.tokyo-nova #tnx-card-setup .tnx-setup-tab-btn.active {
+    color: var(--tnx-accent, #b08d57);
+    border-bottom-color: var(--tnx-accent, #b08d57);
+    font-weight: 600;
+}
+
+/* タブコンテンツ */
+.tokyo-nova #tnx-card-setup .tnx-tab-content {
+    padding: 10px 12px;
+}
+.tokyo-nova #tnx-card-setup .tnx-hidden {
+    display: none !important;
+}
+
+/* ノート */
+.tokyo-nova #tnx-card-setup .tnx-setup-note {
+    font-size: 0.8em;
+    opacity: 0.65;
+    margin: 0 0 8px;
+    padding: 0;
+}
+
+/* グループ間の仕切り */
+.tokyo-nova #tnx-card-setup .tnx-setup-group {
+    border-bottom: 1px solid var(--tnx-border-subtle, rgba(255,255,255,0.06));
+    padding: 2px 0;
+}
+.tokyo-nova #tnx-card-setup .tnx-setup-group:last-of-type {
+    border-bottom: none;
+}
+.tokyo-nova #tnx-card-setup .tnx-setup-divider {
+    border: none;
+    border-top: 1px solid var(--tnx-border-subtle, rgba(255,255,255,0.12));
+    margin: 8px 0;
+}
+
+/* 一括作成ボタン行 */
+.tokyo-nova #tnx-card-setup .tnx-setup-bulk-actions {
+    margin-bottom: 8px;
+}
+
+/* 共通カード行レイアウト（横並び） */
+.tokyo-nova #tnx-card-setup .tnx-card-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 0;
+}
+.tokyo-nova #tnx-card-setup .tnx-card-row-label {
+    flex-shrink: 0;
+    width: 9rem;
+    font-weight: 600;
+    font-size: 0.875em;
+    white-space: nowrap;
+}
+.tokyo-nova #tnx-card-setup .tnx-card-row-select-wrap {
+    flex: 1;
+    min-width: 0;
+}
+.tokyo-nova #tnx-card-setup .tnx-card-row-select-wrap select {
+    width: 100%;
+}
+
+/* コンパクトスピナー（デッキ数） */
+.tokyo-nova #tnx-card-setup .tnx-spinner--sm {
+    gap: 2px;
+    flex-shrink: 0;
+}
+.tokyo-nova #tnx-card-setup .tnx-spinner--sm input[type="number"] {
+    width: 32px;
+    text-align: center;
+    padding: 0 2px;
+    font-size: 0.82em;
+}
+.tokyo-nova #tnx-card-setup .tnx-spinner--sm .tnx-btn {
+    min-width: 24px;
+    padding: 2px 5px;
+    font-size: 0.82em;
+}
+
+/* ユーザー行（手札・切り札タブ共通） */
+.tokyo-nova #tnx-card-setup .tnx-user-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.tokyo-nova #tnx-card-setup .tnx-user-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--tnx-border-subtle, rgba(255,255,255,0.06));
+}
+.tokyo-nova #tnx-card-setup .tnx-user-row:last-child {
+    border-bottom: none;
+}
+.tokyo-nova #tnx-card-setup .tnx-user-row-name {
+    flex-shrink: 0;
+    width: 9rem;
+    font-weight: 600;
+    font-size: 0.875em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.tokyo-nova #tnx-card-setup .tnx-gm-badge {
+    opacity: 0.55;
+    font-size: 0.8em;
+    font-weight: normal;
 }
