@@ -61,6 +61,20 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
             });
         }
 
+        // isLimit チェックボックス: 解除時に uses フィールドをリセット
+        this.element.querySelector('input[name="system.uses.isLimit"]')
+            ?.addEventListener("change", (event) => {
+                event.stopPropagation();
+                this._onUsesLimitChange(event);
+            });
+
+        // isSubstitute チェックボックス: 解除時に substituteTarget をリセット
+        this.element.querySelector('input[name="system.isSubstitute"]')
+            ?.addEventListener("change", (event) => {
+                event.stopPropagation();
+                this._onIsSubstituteChange(event);
+            });
+
         for (const btn of this.element.querySelectorAll(".tnx-row-btn")) {
             btn.addEventListener("click", (event) => {
                 event.preventDefault();
@@ -141,6 +155,24 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
         else if (target === "substitute") spliceList([...normalizedSs.substituteTarget], "system.substituteTarget");
 
         if (Object.keys(updateData).length) await this.item.update(updateData);
+    }
+
+    async _onUsesLimitChange(event) {
+        const isChecked = event.currentTarget.checked;
+        const update = { "system.uses.isLimit": isChecked };
+        if (!isChecked) {
+            update["system.uses.value"] = 0;
+            update["system.uses.max"]   = 0;
+            update["system.uses.type"]  = "";
+        }
+        await this.item.update(update);
+    }
+
+    async _onIsSubstituteChange(event) {
+        const isChecked = event.currentTarget.checked;
+        const update = { "system.isSubstitute": isChecked };
+        if (!isChecked) update["system.substituteTarget"] = [];
+        await this.item.update(update);
     }
 
     async _onSelectChange(event) {

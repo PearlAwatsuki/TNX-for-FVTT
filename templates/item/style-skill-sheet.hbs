@@ -316,6 +316,12 @@
                             <input type="checkbox" name="system.uses.isLimit" id="isLimit-{{item._id}}" {{checked system.uses.isLimit}}>
                         </div>
                         {{#if system.uses.isLimit}}
+                            <div class="form-group">
+                                <label>種別</label>
+                                <select name="system.uses.type">
+                                    {{selectOptions options.usesType selected=system.uses.type}}
+                                </select>
+                            </div>
                             <div class="form-group usage-limit-group">
                                 <label>使用回数</label>
                                 <div class="usage-inputs">

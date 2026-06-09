@@ -124,6 +124,7 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
         isLimit: new fields.BooleanField({ initial: false }),
         value:   new fields.NumberField({ initial: 0 }),
         max:     new fields.NumberField({ initial: 0 }),
+        type:    new fields.StringField({ initial: "" }),
       }),
 
       // スキルカテゴリ別経験点コスト

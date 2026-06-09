@@ -123,6 +123,12 @@ export class TnxSkillUtils {
                 "cannot":             "不可",
                 "explanation":        "解説参照",
                 "other":              "その他"
+            },
+            usesType: {
+                "":      "-",
+                "act":   "アクト",
+                "scene": "シーン",
+                "cut":   "カット"
             }
         };
     }
