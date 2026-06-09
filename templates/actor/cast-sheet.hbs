@@ -153,15 +153,19 @@
                         <div class="item-slots-row">
                             {{#each styleSlots as |slot|}}
                                 <div class="style-slot" data-item-id="{{slot._id}}">
-                                {{#if slot.isEmpty}}
-                                    <div class="tnx-import-box tnx-import-box--inline" data-drop-area="style"><span>スタイルをここにドロップ</span></div>
-                                {{else}}
-                                    <button type="button" class="item-button tnx-linked-btn style-info-button" data-action="openItemSheet" data-item-id="{{slot._id}}" data-context-menu="item-edit">
-                                        <img src="{{slot.img}}" class="tnx-linked-btn__icon"/>
-                                        <span class="tnx-linked-btn__label">{{slot.name}}</span>
-                                        <div class="style-role-toggle" data-action="toggleStyleRole"><span class="role-indicator {{slot.roleIndicatorClass}}">{{slot.roleIndicatorDisplay}}</span></div>
-                                    </button>
-                                {{/if}}
+                                    <div class="style-slot-inner">
+                                        {{#if slot.isEmpty}}
+                                            <div class="tnx-import-box tnx-import-box--inline tnx-import-box--compact" data-drop-area="style"><span>スタイルをドロップ</span></div>
+                                        {{else}}
+                                            <button type="button" class="item-button tnx-linked-btn style-info-button" data-action="openItemSheet" data-item-id="{{slot._id}}" data-context-menu="item-edit">
+                                                <img src="{{slot.img}}" class="tnx-linked-btn__icon"/>
+                                                <span class="tnx-linked-btn__label">{{slot.name}}</span>
+                                            </button>
+                                        {{/if}}
+                                        <div class="style-role-toggle {{#if slot.isEmpty}}style-role-toggle--disabled{{/if}}" {{#unless slot.isEmpty}}data-action="toggleStyleRole"{{/unless}}>
+                                            <span class="role-indicator {{slot.roleIndicatorClass}}">{{slot.roleIndicatorDisplay}}</span>
+                                        </div>
+                                    </div>
                                 </div>
                             {{/each}}
                         </div>

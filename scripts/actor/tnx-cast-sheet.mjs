@@ -15,7 +15,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
     static DEFAULT_OPTIONS = {
         classes: ["tokyo-nova", "sheet", "actor", "cast"],
-        position: { width: 850, height: 1000 },
+        position: { width: 920, height: 1000 },
         window: {
             resizable: true,
             controls: [
@@ -160,6 +160,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     }
 
     _onRender(context, _options) {
+        super._onRender(context, _options);
         const el = this.element;
 
         el.classList.toggle("edit-mode",  !!context.isEditMode);
@@ -298,7 +299,8 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             const level    = item.system.level || 1;
             const isPersona = level === 3 ? true : item.system.isPersona;
             const isKey     = level === 3 ? true : item.system.isKey;
-            itemData.repeatedName          = Array(level).fill(item.name).join('=');
+            const displayName               = item.system.nameEn || item.name;
+            itemData.repeatedName          = Array(level).fill(displayName).join('=');
             itemData.roleIndicatorDisplay  = this._getRoleIndicatorSymbol(isPersona, isKey);
             return itemData;
         });
@@ -479,26 +481,27 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         const itemContextMenu = [{
             name:      "削除",
             icon:      '<i class="fas fa-trash"></i>',
-            condition: header => !!header.dataset.itemId,
+            condition: () => this.isEditable,
             callback:  itemDeleteCallback
         }];
-        new ContextMenu(el, '.item-button[data-context-menu="item-edit"]', itemContextMenu);
+        const CM = foundry.applications.ux.ContextMenu.implementation;
+
+        new CM(el, '.item-button[data-context-menu="item-edit"]', itemContextMenu, { jQuery: false, fixed: true });
 
         const miracleViewMenu = [
             {
                 name:      "閲覧",
                 icon:      '<i class="fas fa-eye"></i>',
-                condition: header => !!header.dataset.itemId,
                 callback:  header => this.actor.items.get(header.dataset.itemId)?.sheet.render({ force: true })
             },
             {
                 name:      "削除",
                 icon:      '<i class="fas fa-trash"></i>',
-                condition: header => this.isEditable && !!header.dataset.itemId,
+                condition: () => this.isEditable,
                 callback:  itemDeleteCallback
             }
         ];
-        new ContextMenu(el, '[data-context-menu="miracle-view"]', miracleViewMenu);
+        new CM(el, '[data-context-menu="miracle-view"]', miracleViewMenu, { jQuery: false, fixed: true });
 
         const styleSkillOptions = [
             {
@@ -515,7 +518,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
                 callback: itemDeleteCallback
             }
         ];
-        new ContextMenu(el, ".style-skills-list .style-skill-row", styleSkillOptions);
+        new CM(el, ".style-skills-list .style-skill-row", styleSkillOptions, { jQuery: false, fixed: true });
 
         // バッドステータス 閲覧モード: 左クリックでコンテキストメニュー
         const badStatusViewMenu = [{
@@ -538,7 +541,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
                 }
             }
         }];
-        new ContextMenu(el, ".tnx-bs-btn--view", badStatusViewMenu, { eventName: "click" });
+        new CM(el, ".tnx-bs-btn--view", badStatusViewMenu, { jQuery: false, fixed: true, eventName: "click" });
     }
 
     // ─── テキスト圧縮 ─────────────────────────────────────────────────────────
@@ -710,9 +713,9 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     }
 
     _getRoleIndicatorSymbol(isPersona, isKey) {
-        if (isPersona && isKey) return "◎●";
+        if (isPersona && isKey) return "◎⬤";
         if (isPersona)          return "◎";
-        if (isKey)              return "●";
+        if (isKey)              return "⬤";
         return "";
     }
 
@@ -1027,6 +1030,11 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             return level * 10;
         }
 
-        return Number(item.system.expCost);
+        // style / miracle / organization のコストはアビリティ計算に含まれるため個別コスト0
+        if (item.type === 'style' || item.type === 'miracle' || item.type === 'organization') {
+            return 0;
+        }
+
+        return Number(item.system.expCost) || 0;
     }
 }

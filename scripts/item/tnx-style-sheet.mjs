@@ -58,7 +58,8 @@ export class TokyoNovaStyleSheet extends TokyoNovaItemSheet {
         super._onRender(context, options);
         if (!context.editable) return;
 
-        new ContextMenu(this.element, '[data-context-menu-type="manage-miracle"]', [{
+        const CM = foundry.applications.ux.ContextMenu.implementation;
+        new CM(this.element, '[data-context-menu-type="manage-miracle"]', [{
             name: "リンク解除",
             icon: '<i class="fas fa-unlink"></i>',
             condition: () => !!this.item.system.miracle?.id,
@@ -66,7 +67,7 @@ export class TokyoNovaStyleSheet extends TokyoNovaItemSheet {
                 await this.item.update({ "system.miracle.id": "", "system.miracle.name": "" });
                 ui.notifications.info("神業とのリンクを解除しました。");
             },
-        }]);
+        }], { jQuery: false, fixed: true });
     }
 
     // ─── アクションハンドラ ────────────────────────────────────────────────────

@@ -140,10 +140,11 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
     // ─── コンテキストメニュー ─────────────────────────────────────────────────
 
     _setupContextMenus() {
-        new ContextMenu(this.element, ".tnx-linked-btn", [{
+        const CM = foundry.applications.ux.ContextMenu.implementation;
+        new CM(this.element, ".tnx-linked-btn", [{
             name: "リンクを解除",
             icon: '<i class="fas fa-unlink"></i>',
-            condition: el => !!el.dataset.uuid,
+            condition: el => !!(el.dataset?.uuid ?? el[0]?.dataset?.uuid),
             callback: async header => {
                 const uuid = header.dataset.uuid;
                 const slot = header.closest('[data-drop-area]');
@@ -166,7 +167,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
                     this.render({ force: true });
                 }
             },
-        }]);
+        }], { jQuery: false, fixed: true });
     }
 
     // ─── ドロップ処理 ─────────────────────────────────────────────────────────
