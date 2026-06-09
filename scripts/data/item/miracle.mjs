@@ -34,6 +34,7 @@ export class MiracleDataModel extends SystemDataModel.mixin(BaseTemplate, UsageT
         total: new fields.NumberField({ initial: 1 }),
         mod:   new fields.NumberField({ initial: 0 }),
       }),
+      identificationKey: new fields.StringField({ initial: "" }),
     };
   }
 }

@@ -13,8 +13,10 @@ import { BaseTemplate } from "./common/base.mjs";
 export class OrganizationDataModel extends SystemDataModel.mixin(BaseTemplate) {
   /** @override */
   static defineSchema() {
+    const fields = foundry.data.fields;
     return {
       ...super.defineSchema(),
+      identificationKey: new fields.StringField({ initial: "" }),
     };
   }
 }

@@ -127,6 +127,8 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
         type:    new fields.StringField({ initial: "" }),
       }),
 
+      identificationKey: new fields.StringField({ initial: "" }),
+
       // スキルカテゴリ別経験点コスト
       special: new fields.SchemaField({
         expCost: new fields.NumberField({ initial: 10 }),

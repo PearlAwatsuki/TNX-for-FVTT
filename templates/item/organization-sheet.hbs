@@ -11,12 +11,12 @@
 
     <nav class="sheet-tabs tabs" data-group="primary">
         <a class="item" data-action="tab" data-group="primary" data-tab="description">説明</a>
+        <a class="item" data-action="tab" data-group="primary" data-tab="setting">設定</a>
     </nav>
 
      <section class="sheet-body">
         <div class="tab description" data-group="primary" data-tab="description">
             <div class="tnx-editor-section">
-
               <div class="tnx-editor-section__header">
                     <label>説明</label>
                 </div>
@@ -24,6 +24,18 @@
                     {{editor enrichedDescription target="system.description" engine="prosemirror" button=true owner=owner editable=editable}}
                 </div>
             </div>
+        </div>
+
+        <div class="tab setting" data-group="primary" data-tab="setting">
+            <fieldset class="tnx-fieldset">
+                <legend>識別キー</legend>
+                <div class="tnx-form-field">
+                    <div class="form-group">
+                        <label>識別キー</label>
+                        <input type="text" name="system.identificationKey" value="{{system.identificationKey}}" placeholder="識別キーを入力"/>
+                    </div>
+                </div>
+            </fieldset>
         </div>
     </section>
 </section>

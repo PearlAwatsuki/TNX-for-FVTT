@@ -13,7 +13,7 @@ export class TokyoNovaOrganizationSheet extends TokyoNovaItemSheet {
 
     static TABS = {
         primary: {
-            tabs: [{ id: "description" }],
+            tabs: [{ id: "description" }, { id: "setting" }],
             initial: "description",
         },
     };

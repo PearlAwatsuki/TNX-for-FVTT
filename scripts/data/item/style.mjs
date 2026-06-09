@@ -51,6 +51,7 @@ export class StyleDataModel extends SystemDataModel.mixin(BaseTemplate) {
       passion: abilityField(),
       life:    abilityField(),
       mundane: abilityField(),
+      identificationKey: new fields.StringField({ initial: "" }),
     };
   }
 }
