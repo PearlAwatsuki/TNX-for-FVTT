@@ -75,6 +75,13 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
                 this._onIsSubstituteChange(event);
             });
 
+        // works.value チェックボックス: 解除時に organization をリセット
+        this.element.querySelector('input[name="system.special.works.value"]')
+            ?.addEventListener("change", (event) => {
+                event.stopPropagation();
+                this._onWorksChange(event);
+            });
+
         for (const btn of this.element.querySelectorAll(".tnx-row-btn")) {
             btn.addEventListener("click", (event) => {
                 event.preventDefault();
@@ -172,6 +179,13 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
         const isChecked = event.currentTarget.checked;
         const update = { "system.isSubstitute": isChecked };
         if (!isChecked) update["system.substituteTarget"] = [];
+        await this.item.update(update);
+    }
+
+    async _onWorksChange(event) {
+        const isChecked = event.currentTarget.checked;
+        const update = { "system.special.works.value": isChecked };
+        if (!isChecked) update["system.special.works.organization"] = "-";
         await this.item.update(update);
     }
 

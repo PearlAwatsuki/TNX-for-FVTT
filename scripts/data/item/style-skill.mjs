@@ -133,6 +133,7 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
       special: new fields.SchemaField({
         expCost: new fields.NumberField({ initial: 10 }),
         works: new fields.SchemaField({
+          value:        new fields.BooleanField({ initial: false }),
           organization: new fields.StringField({ initial: "-" }),
         }),
       }),
