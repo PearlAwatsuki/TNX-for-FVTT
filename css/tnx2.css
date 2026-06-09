@@ -4003,28 +4003,34 @@ button.tnx-create-act-button span {
    ================================================================ */
 
 /* ウィンドウ全体のスクロール */
-.tokyo-nova #tnx-card-setup .window-content {
+#tnx-card-setup .window-content {
     overflow-y: auto;
     display: flex;
     flex-direction: column;
     min-height: 0;
 }
 
-.tokyo-nova #tnx-card-setup .tnx-card-setup-form {
+#tnx-card-setup .tnx-card-setup-form {
     display: flex;
     flex-direction: column;
     gap: 0;
 }
 
 /* タブナビゲーション */
-.tokyo-nova #tnx-card-setup .tnx-setup-tabs {
-    display: flex;
+#tnx-card-setup .tnx-setup-tabs {
+    display: flex !important;
+    flex-direction: row !important;
     gap: 2px;
     padding: 4px 8px 0;
     border-bottom: 1px solid var(--tnx-border-subtle, rgba(255,255,255,0.12));
     flex-shrink: 0;
 }
-.tokyo-nova #tnx-card-setup .tnx-setup-tab-btn {
+#tnx-card-setup .tnx-setup-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto;
+    width: auto;
     background: transparent;
     border: none;
     border-bottom: 2px solid transparent;
@@ -4036,25 +4042,25 @@ button.tnx-create-act-button span {
     transition: color 0.15s, border-color 0.15s;
     margin-bottom: -1px;
 }
-.tokyo-nova #tnx-card-setup .tnx-setup-tab-btn:hover {
+#tnx-card-setup .tnx-setup-tab-btn:hover {
     color: var(--color-text-light-1, #ddd);
 }
-.tokyo-nova #tnx-card-setup .tnx-setup-tab-btn.active {
+#tnx-card-setup .tnx-setup-tab-btn.active {
     color: var(--tnx-accent, #b08d57);
     border-bottom-color: var(--tnx-accent, #b08d57);
     font-weight: 600;
 }
 
 /* タブコンテンツ */
-.tokyo-nova #tnx-card-setup .tnx-tab-content {
+#tnx-card-setup .tnx-tab-content {
     padding: 10px 12px;
 }
-.tokyo-nova #tnx-card-setup .tnx-hidden {
+#tnx-card-setup .tnx-hidden {
     display: none !important;
 }
 
 /* ノート */
-.tokyo-nova #tnx-card-setup .tnx-setup-note {
+#tnx-card-setup .tnx-setup-note {
     font-size: 0.8em;
     opacity: 0.65;
     margin: 0 0 8px;
@@ -4062,80 +4068,82 @@ button.tnx-create-act-button span {
 }
 
 /* グループ間の仕切り */
-.tokyo-nova #tnx-card-setup .tnx-setup-group {
+#tnx-card-setup .tnx-setup-group {
     border-bottom: 1px solid var(--tnx-border-subtle, rgba(255,255,255,0.06));
     padding: 2px 0;
 }
-.tokyo-nova #tnx-card-setup .tnx-setup-group:last-of-type {
+#tnx-card-setup .tnx-setup-group:last-of-type {
     border-bottom: none;
 }
-.tokyo-nova #tnx-card-setup .tnx-setup-divider {
+#tnx-card-setup .tnx-setup-divider {
     border: none;
     border-top: 1px solid var(--tnx-border-subtle, rgba(255,255,255,0.12));
     margin: 8px 0;
 }
 
 /* 一括作成ボタン行 */
-.tokyo-nova #tnx-card-setup .tnx-setup-bulk-actions {
+#tnx-card-setup .tnx-setup-bulk-actions {
     margin-bottom: 8px;
 }
 
 /* 共通カード行レイアウト（横並び） */
-.tokyo-nova #tnx-card-setup .tnx-card-row {
-    display: flex;
+#tnx-card-setup .tnx-card-row {
+    display: flex !important;
+    flex-direction: row !important;
     align-items: center;
     gap: 6px;
     padding: 5px 0;
 }
-.tokyo-nova #tnx-card-setup .tnx-card-row-label {
+#tnx-card-setup .tnx-card-row-label {
     flex-shrink: 0;
     width: 9rem;
     font-weight: 600;
     font-size: 0.875em;
     white-space: nowrap;
 }
-.tokyo-nova #tnx-card-setup .tnx-card-row-select-wrap {
+#tnx-card-setup .tnx-card-row-select-wrap {
     flex: 1;
     min-width: 0;
 }
-.tokyo-nova #tnx-card-setup .tnx-card-row-select-wrap select {
+#tnx-card-setup .tnx-card-row-select-wrap select {
     width: 100%;
 }
 
 /* コンパクトスピナー（デッキ数） */
-.tokyo-nova #tnx-card-setup .tnx-spinner--sm {
+#tnx-card-setup .tnx-spinner--sm {
     gap: 2px;
     flex-shrink: 0;
 }
-.tokyo-nova #tnx-card-setup .tnx-spinner--sm input[type="number"] {
+#tnx-card-setup .tnx-spinner--sm input[type="number"] {
     width: 32px;
     text-align: center;
     padding: 0 2px;
     font-size: 0.82em;
 }
-.tokyo-nova #tnx-card-setup .tnx-spinner--sm .tnx-btn {
+#tnx-card-setup .tnx-spinner--sm .tnx-btn {
     min-width: 24px;
     padding: 2px 5px;
     font-size: 0.82em;
 }
 
 /* ユーザー行（手札・切り札タブ共通） */
-.tokyo-nova #tnx-card-setup .tnx-user-rows {
+#tnx-card-setup .tnx-user-rows {
     display: flex;
     flex-direction: column;
     gap: 2px;
 }
-.tokyo-nova #tnx-card-setup .tnx-user-row {
-    display: flex;
+#tnx-card-setup .tnx-user-row {
+    display: flex !important;
+    flex-direction: row !important;
     align-items: center;
     gap: 6px;
     padding: 4px 0;
     border-bottom: 1px solid var(--tnx-border-subtle, rgba(255,255,255,0.06));
 }
-.tokyo-nova #tnx-card-setup .tnx-user-row:last-child {
+#tnx-card-setup .tnx-user-row:last-child {
     border-bottom: none;
 }
-.tokyo-nova #tnx-card-setup .tnx-user-row-name {
+#tnx-card-setup .tnx-user-row-name {
     flex-shrink: 0;
     width: 9rem;
     font-weight: 600;
@@ -4144,7 +4152,7 @@ button.tnx-create-act-button span {
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.tokyo-nova #tnx-card-setup .tnx-gm-badge {
+#tnx-card-setup .tnx-gm-badge {
     opacity: 0.55;
     font-size: 0.8em;
     font-weight: normal;
