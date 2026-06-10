@@ -106,6 +106,14 @@ export function registerDrawTableHooks() {
                 RollTable:  "ドロー表",
                 RollTables: "ドロー表",
             },
+            SIDEBAR: {
+                ACTIONS: {
+                    CREATE: { RollTable: "ドロー表を作成" },
+                },
+            },
+            FOLDER: {
+                CreateTable: "ドロー表を作成",
+            },
             TABLE: {
                 ACTIONS: {
                     Submit:       "ドロー表を更新",
