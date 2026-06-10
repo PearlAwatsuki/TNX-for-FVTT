@@ -4187,3 +4187,19 @@ button.tnx-create-act-button span {
     font-size: 0.8em;
     font-weight: normal;
 }
+
+/* ============================================================
+   § 35: ドロー表（コア RollTableSheet への注入 UI）
+   ============================================================ */
+
+/* 結果行の範囲欄に注入する値選択ドロップダウン */
+.roll-table-sheet td.range select.tnx-card-select {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.85em;
+}
+
+/* 概要タブのデッキ選択 */
+.roll-table-sheet .tnx-draw-table-deck select {
+    width: 100%;
+}

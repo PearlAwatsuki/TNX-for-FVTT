@@ -4,6 +4,7 @@ import {
     CardSelectionDialog,
     TargetSelectionDialog
     } from './tnx-dialog.mjs';
+import { lookupDrawTables } from './tnx-draw-table.mjs';
 
 /** スタイル枠ニューロカードの日本語名 → タロット名アルファベット対応表 */
 const NEURO_STYLE_ROMAJI = {
@@ -230,6 +231,9 @@ export class TnxActionHandler {
         const cardData = scenePile.cards.get(card.id);
 
         await this._postCardToChat(cardData);
+
+        // 開いているドロー表（設定デッキ = ニューロデッキ）に結果をルックアップ
+        await lookupDrawTables(cardData, neuroDeck.uuid);
     }
 
     /**

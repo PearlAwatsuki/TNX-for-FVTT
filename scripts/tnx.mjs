@@ -34,6 +34,7 @@ import { TnxCardSetupApp } from './module/tnx-card-setup-app.mjs';
 import { TnxActionHandler } from './module/tnx-action-handler.mjs';
 import { TnxHud } from './module/tnx-hud.mjs';
 import { TnxRecordSheet } from './module/tnx-record-sheet.mjs';
+import { registerDrawTableHooks } from './module/tnx-draw-table.mjs';
 import { recordCastOwnerUser } from './module/cast-ownership.mjs';
 import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
@@ -351,6 +352,9 @@ Hooks.once("init", async function() {
         makeDefault: false,
         label: "アクトシート",
     });
+
+    // ドロー表: コア RollTable のカードドロー拡張（シート置換なし・フック注入のみ）
+    registerDrawTableHooks();
 
     // --- システム設定の登録 ---
     game.settings.register("tokyo-nova-axleration", "defaultHandMaxSize", {
