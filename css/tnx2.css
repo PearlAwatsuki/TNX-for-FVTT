@@ -130,14 +130,12 @@
     padding: 0 10px;
     box-shadow: 0 1px 10px rgba(0, 200, 224, 0.08);
     flex-direction: row;
-    justify-content: flex-end;
     align-items: center;
     overflow: visible;
 }
 
 /* V2 ウィンドウタイトル非表示 */
-.tokyo-nova.sheet .window-header .window-title,
-.tokyo-nova.dialog .window-header .window-title {
+.tokyo-nova.sheet .window-header .window-title {
     display: none;
 }
 
@@ -4011,7 +4009,8 @@ button.tnx-create-act-button span {
     flex: 1;
 }
 
-#tnx-card-setup .tnx-card-setup-form {
+/* part コンテナ（tag:"form" により <form> 要素）にフレックスを適用 */
+#tnx-card-setup [data-application-part="main"] {
     display: flex;
     flex-direction: column;
     flex: 1;

@@ -10,7 +10,7 @@ export class TnxCardSetupApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
     static DEFAULT_OPTIONS = {
         id: "tnx-card-setup",
-        classes: ["tokyo-nova", "dialog"],
+        classes: [ "application", "tokyo-nova", "standard-form"],
         position: { width: 620, height: 520 },
         window: { title: "カードをセットアップ", icon: "fas fa-cards" },
         actions: {
@@ -40,7 +40,7 @@ export class TnxCardSetupApp extends HandlebarsApplicationMixin(ApplicationV2) {
     };
 
     static PARTS = {
-        main: { template: "systems/tokyo-nova-axleration/templates/parts/card-setup-app.hbs" },
+        main: { template: "systems/tokyo-nova-axleration/templates/parts/card-setup-app.hbs", tag: "form" },
     };
 
     async _prepareContext(options) {
