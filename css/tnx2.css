@@ -4000,6 +4000,12 @@ button.tnx-create-act-button span {
    34. カードセットアップアプリ
    ================================================================ */
 
+/* ルート <form>（standard-form の flex gap がヘッダーとコンテントの間に
+   空くため打ち消す） */
+#tnx-card-setup {
+    gap: 0;
+}
+
 /* ウィンドウ — フッターを下端に固定するためオーバーフローをフォーム側に委譲 */
 #tnx-card-setup .window-content {
     display: flex;
