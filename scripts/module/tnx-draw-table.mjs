@@ -39,6 +39,9 @@ const DOC_VALUES = [
     { value: 99, label: "joker" },
 ];
 
+/** 結果行の登録・表示順（joker → 2〜10 → J → Q → K → A） */
+const DOC_CREATION_ORDER = [99, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 1];
+
 /**
  * カード名から照合用ラベルを抽出する（切り札配布ダイアログと同じ規則）。
  * 例: "魔剣：カタナ / The Sword" → "カタナ"。パターン外はカード名そのまま。
@@ -143,6 +146,24 @@ export function registerDrawTableHooks() {
         if (!foundry.utils.isEmpty(update)) table.updateSource(update);
     });
 
+    // 結果行の追加時（仮想 DoC モードのみ）:
+    // コアの自動採番（1, 2, 3, … と連番で 14 以上も生成される）を上書きし、
+    // joker → 2〜10 → J → Q → K → A の順で未使用の値を割り当てる。
+    // 14 種すべて登録済みの場合は追加をブロックする。
+    Hooks.on("preCreateTableResult", (result, _data) => {
+        const table = result.parent;
+        if (!table || table.pack) return;
+        if (table.getFlag(SCOPE, DECK_FLAG)) return; // 設定デッキモードは対象外
+
+        const used = new Set(table.results.map(r => r.range?.[0]));
+        const next = DOC_CREATION_ORDER.find(v => !used.has(v));
+        if (next === undefined) {
+            ui.notifications.warn("ドロー表の値（joker・2〜10・J・Q・K・A）はすべて登録済みです。");
+            return false;
+        }
+        result.updateSource({ range: [next, next] });
+    });
+
     Hooks.on("renderRollTableSheet", onRenderRollTableSheet);
 }
 
@@ -169,9 +190,36 @@ function onRenderRollTableSheet(app, element) {
         // ビューモード: ヘッダーのロール式表示をモード表示に差し替え
         const formulaEl = element.querySelector("header.sheet-header h4");
         if (formulaEl) formulaEl.textContent = isConfigured ? `デッキ: ${deck.name}` : "仮想DoC";
+
+        // ビューモード（仮想 DoC）: 範囲列の数値をカードラベル（A/J/Q/K/joker 等）で表示
+        if (!isConfigured) {
+            for (const row of element.querySelectorAll("tr[data-result-id]")) {
+                const rangeTd = row.querySelector("td.range");
+                const value = table.results.get(row.dataset.resultId)?.range?.[0];
+                const label = DOC_VALUES.find(v => v.value === value)?.label;
+                if (rangeTd && label) rangeTd.textContent = label;
+            }
+        }
     }
 
+    // 仮想 DoC モード: 表示順を joker → 2〜10 → J → Q → K → A に並べ替える
+    if (!isConfigured) sortDocResultRows(element, table);
+
     overrideDrawButton(element, table, isConfigured);
+}
+
+/** 仮想 DoC モードの結果行を DOC_CREATION_ORDER の順に DOM 上で並べ替える */
+function sortDocResultRows(element, table) {
+    const tbody = element.querySelector("table[data-results] tbody");
+    if (!tbody) return;
+    const orderOf = (row) => {
+        const value = table.results.get(row.dataset.resultId)?.range?.[0];
+        const idx = DOC_CREATION_ORDER.indexOf(value);
+        return idx === -1 ? DOC_CREATION_ORDER.length : idx;
+    };
+    [...tbody.querySelectorAll("tr[data-result-id]")]
+        .sort((a, b) => orderOf(a) - orderOf(b))
+        .forEach(row => tbody.appendChild(row));
 }
 
 /** 概要タブ: ロール式欄を隠し、デッキ選択ドロップダウンを設置する */
