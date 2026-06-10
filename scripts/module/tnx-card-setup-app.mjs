@@ -12,7 +12,7 @@ export class TnxCardSetupApp extends HandlebarsApplicationMixin(ApplicationV2) {
         id: "tnx-card-setup",
         classes: ["tokyo-nova", "dialog"],
         position: { width: 620, height: 520 },
-        window: { title: "カードをセットアップ", resizable: true },
+        window: { title: "カードをセットアップ", icon: "fas fa-cards" },
         actions: {
             switchTab:           TnxCardSetupApp._onSwitchTab,
             increment:           TnxCardSetupApp._onIncrement,

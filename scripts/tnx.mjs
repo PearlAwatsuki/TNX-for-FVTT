@@ -383,9 +383,9 @@ Hooks.once("init", async function() {
 
     game.settings.registerMenu("tokyo-nova-axleration", "cardSetup", {
         name: "カードをセットアップ",
-        label: "設定を開く",
+        label: "カードの設定を開く",
         hint: "山札・手札などのカードドキュメントを作成・割り当てします。",
-        icon: "fas fa-layer-group",
+        icon: "fas fa-cards",
         type: TnxCardSetupApp,
         restricted: true,
     });
