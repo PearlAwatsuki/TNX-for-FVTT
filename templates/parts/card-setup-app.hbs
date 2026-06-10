@@ -31,17 +31,20 @@
                         {{/each}}
                     </select>
                 </div>
-                <div class="number-input-spinner tnx-spinner--sm" title="デッキ数">
-                    <button type="button" class="tnx-btn" data-action="decrement">－</button>
-                    <input type="number" name="deckCount" value="2" min="1" max="9">
-                    <button type="button" class="tnx-btn" data-action="increment">＋</button>
-                </div>
                 <button type="button" class="tnx-btn tnx-btn--sm" data-action="createCardDeck">
                     <i class="fas fa-plus"></i> 新規作成
                 </button>
                 <button type="button" class="tnx-btn tnx-btn--sm tnx-btn--secondary" data-action="clearSetting" data-setting="cardDeckId" title="クリア">
                     <i class="fas fa-times"></i>
                 </button>
+            </div>
+            <div class="tnx-card-row tnx-card-row--sub">
+                <span class="tnx-card-row-label">新規作成する山札のデッキ数を設定</span>
+                <div class="number-input-spinner tnx-spinner--sm">
+                    <button type="button" class="tnx-btn" data-action="decrement">－</button>
+                    <input type="number" name="deckCount" value="2" min="1" max="9">
+                    <button type="button" class="tnx-btn" data-action="increment">＋</button>
+                </div>
             </div>
         </div>
 
