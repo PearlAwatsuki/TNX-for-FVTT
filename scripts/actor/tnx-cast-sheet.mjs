@@ -640,6 +640,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             };
         }
         context.mundaneTotalValue = context.system.abilities.mundane.totalValue;
+        context.effectiveBounty = context.mundaneTotalValue + (context.system.bounty ?? 0);
     }
 
     // ─── スキルプロパティ変更(EXP 連動) ──────────────────────────────────────

@@ -1141,26 +1141,47 @@
     padding: 6px 8px 4px;
     border-top: 1px solid var(--tnx2-border-subtle);
 }
-.tokyo-nova.sheet.actor .bounty-row {
+
+/* 編集モード: 初期値 + 修正値 (.usage-field と同パターン) */
+.tokyo-nova.sheet.actor .bounty-edit-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+.tokyo-nova.sheet.actor .bounty-field {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.tokyo-nova.sheet.actor .bounty-field label {
+    font-size: 0.8em;
+    color: var(--tnx2-text-muted);
+}
+.tokyo-nova.sheet.actor .bounty-field input {
+    width: 56px;
+    text-align: center;
+}
+.tokyo-nova.sheet.actor .bounty-separator {
+    font-size: 1.2em;
+    color: var(--tnx2-text-muted);
+    padding-top: 1em;
+}
+
+/* 閲覧モード: ラベル + 合計値 */
+.tokyo-nova.sheet.actor .bounty-view-row {
     display: flex;
     align-items: center;
     gap: 6px;
+    font-size: 0.9em;
 }
-.tokyo-nova.sheet.actor .bounty-label {
+.tokyo-nova.sheet.actor .bounty-view-row label {
+    color: var(--tnx2-text-muted);
     flex: 0 0 auto;
-    font-size: 0.85em;
-    color: var(--tnx2-text-muted);
-    white-space: nowrap;
 }
-.tokyo-nova.sheet.actor .bounty-input {
-    width: 56px;
-    text-align: right;
+.tokyo-nova.sheet.actor .bounty-total {
     font-family: var(--tnx2-font-mono);
-}
-.tokyo-nova.sheet.actor .bounty-hint {
-    font-size: 0.78em;
-    color: var(--tnx2-text-muted);
-    white-space: nowrap;
+    font-size: 1.1em;
 }
 
 /* ── ヘッダー: STYLE / ID / WORKS 英語ラベル (閲覧モード) ─────────── */

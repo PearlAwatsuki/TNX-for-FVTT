@@ -41,11 +41,24 @@
             </div>
         </div>
         <div class="sidebar-bounty-group">
-            <div class="bounty-row">
-                <label class="bounty-label">報酬点</label>
-                <input type="number" name="system.bounty" value="{{system.bounty}}" min="0" class="bounty-input"/>
-                <span class="bounty-hint">(外界値: {{mundaneTotalValue}})</span>
-            </div>
+            {{#if isEditMode}}
+                <div class="bounty-edit-row">
+                    <div class="bounty-field">
+                        <label>初期値</label>
+                        <input type="number" value="{{mundaneTotalValue}}" disabled>
+                    </div>
+                    <span class="bounty-separator">+</span>
+                    <div class="bounty-field">
+                        <label>修正値</label>
+                        <input type="number" name="system.bounty" value="{{system.bounty}}">
+                    </div>
+                </div>
+            {{else}}
+                <div class="bounty-view-row">
+                    <label>報酬点</label>
+                    <span class="bounty-total">{{effectiveBounty}}</span>
+                </div>
+            {{/if}}
         </div>
     </aside>
 
