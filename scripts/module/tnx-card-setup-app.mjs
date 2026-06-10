@@ -17,7 +17,7 @@ export class TnxCardSetupApp extends HandlebarsApplicationMixin(ApplicationV2) {
         form: {
             handler: TnxCardSetupApp._onSubmitForm,
             submitOnChange: false,
-            closeOnSubmit: false,
+            closeOnSubmit: true,
         },
         actions: {
             switchTab:           TnxCardSetupApp._onSwitchTab,
@@ -331,6 +331,5 @@ export class TnxCardSetupApp extends HandlebarsApplicationMixin(ApplicationV2) {
         }
 
         ui.notifications.info("カード設定を保存しました。");
-        this.render();
     }
 }
