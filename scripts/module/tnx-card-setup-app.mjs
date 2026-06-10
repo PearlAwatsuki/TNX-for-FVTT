@@ -40,7 +40,7 @@ export class TnxCardSetupApp extends HandlebarsApplicationMixin(ApplicationV2) {
     };
 
     static PARTS = {
-        main: { template: "systems/tokyo-nova-axleration/templates/parts/card-setup-app.hbs", tag: "form" },
+        main: { template: "systems/tokyo-nova-axleration/templates/parts/card-setup-app.hbs" },
     };
 
     async _prepareContext(options) {
