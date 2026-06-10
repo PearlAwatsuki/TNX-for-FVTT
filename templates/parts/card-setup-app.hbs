@@ -18,7 +18,7 @@
 
     {{!-- ===== 山札タブ ===== --}}
     <div class="tnx-tab-content" data-tab="playingCards">
-        <p class="notes tnx-setup-note">プレイングカード（山札・捨て札）を設定します。</p>
+        <p class="notes tnx-setup-note">山札・ニューロデッキを設定します。</p>
 
         <div class="tnx-setup-group">
             <div class="tnx-card-row">
@@ -39,7 +39,7 @@
                 </button>
             </div>
             <div class="tnx-card-row tnx-card-row--sub">
-                <span class="tnx-card-row-label">新規作成する山札のデッキ数を設定</span>
+                <span class="tnx-sub-label">新規作成する山札のデッキ数を設定</span>
                 <div class="number-input-spinner tnx-spinner--sm">
                     <button type="button" class="tnx-btn" data-action="decrement">－</button>
                     <input type="number" name="deckCount" value="2" min="1" max="9">
@@ -50,19 +50,19 @@
 
         <div class="tnx-setup-group">
             <div class="tnx-card-row">
-                <span class="tnx-card-row-label">捨て札</span>
+                <span class="tnx-card-row-label">ニューロデッキ</span>
                 <div class="tnx-card-row-select-wrap">
-                    <select name="discardPileId">
+                    <select name="neuroDeckId">
                         <option value="">— 未設定 —</option>
-                        {{#each discardOptions}}
+                        {{#each neuroDeckOptions}}
                         <option value="{{this.uuid}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
                         {{/each}}
                     </select>
                 </div>
-                <button type="button" class="tnx-btn tnx-btn--sm" data-action="createDiscardPile">
+                <button type="button" class="tnx-btn tnx-btn--sm" data-action="createNeuroDeck">
                     <i class="fas fa-plus"></i> 新規作成
                 </button>
-                <button type="button" class="tnx-btn tnx-btn--sm tnx-btn--secondary" data-action="clearSetting" data-setting="discardPileId" title="クリア">
+                <button type="button" class="tnx-btn tnx-btn--sm tnx-btn--secondary" data-action="clearSetting" data-setting="neuroDeckId" title="クリア">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -104,29 +104,7 @@
 
     {{!-- ===== 切り札タブ ===== --}}
     <div class="tnx-tab-content tnx-hidden" data-tab="trumps">
-        <p class="notes tnx-setup-note">切り札置き場・RL切り札捨て場を設定します。</p>
-
-        <div class="tnx-setup-group">
-            <div class="tnx-card-row">
-                <span class="tnx-card-row-label">RL切り札捨て場</span>
-                <div class="tnx-card-row-select-wrap">
-                    <select name="gmTrumpDiscardId">
-                        <option value="">— 未設定 —</option>
-                        {{#each gmTrumpOptions}}
-                        <option value="{{this.uuid}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
-                        {{/each}}
-                    </select>
-                </div>
-                <button type="button" class="tnx-btn tnx-btn--sm" data-action="createGmTrumpDiscard">
-                    <i class="fas fa-plus"></i> 新規作成
-                </button>
-                <button type="button" class="tnx-btn tnx-btn--sm tnx-btn--secondary" data-action="clearSetting" data-setting="gmTrumpDiscardId" title="クリア">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        </div>
-
-        <hr class="tnx-setup-divider">
+        <p class="notes tnx-setup-note">各ユーザーの切り札置き場を設定します。</p>
 
         <div class="tnx-setup-bulk-actions">
             <button type="button" class="tnx-btn tnx-btn--sm" data-action="createAllUserTrumps">
@@ -160,23 +138,43 @@
 
     {{!-- ===== その他タブ ===== --}}
     <div class="tnx-tab-content tnx-hidden" data-tab="others">
-        <p class="notes tnx-setup-note">ニューロデッキ・シーンカード・アクセスカードを設定します。</p>
+        <p class="notes tnx-setup-note">RL切り札捨て場・捨て札・シーンカード・アクセスカードを設定します。</p>
 
         <div class="tnx-setup-group">
             <div class="tnx-card-row">
-                <span class="tnx-card-row-label">ニューロデッキ</span>
+                <span class="tnx-card-row-label">RL切り札捨て場</span>
                 <div class="tnx-card-row-select-wrap">
-                    <select name="neuroDeckId">
+                    <select name="gmTrumpDiscardId">
                         <option value="">— 未設定 —</option>
-                        {{#each neuroDeckOptions}}
+                        {{#each gmTrumpOptions}}
                         <option value="{{this.uuid}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
                         {{/each}}
                     </select>
                 </div>
-                <button type="button" class="tnx-btn tnx-btn--sm" data-action="createNeuroDeck">
+                <button type="button" class="tnx-btn tnx-btn--sm" data-action="createGmTrumpDiscard">
                     <i class="fas fa-plus"></i> 新規作成
                 </button>
-                <button type="button" class="tnx-btn tnx-btn--sm tnx-btn--secondary" data-action="clearSetting" data-setting="neuroDeckId" title="クリア">
+                <button type="button" class="tnx-btn tnx-btn--sm tnx-btn--secondary" data-action="clearSetting" data-setting="gmTrumpDiscardId" title="クリア">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="tnx-setup-group">
+            <div class="tnx-card-row">
+                <span class="tnx-card-row-label">捨て札</span>
+                <div class="tnx-card-row-select-wrap">
+                    <select name="discardPileId">
+                        <option value="">— 未設定 —</option>
+                        {{#each discardOptions}}
+                        <option value="{{this.uuid}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
+                        {{/each}}
+                    </select>
+                </div>
+                <button type="button" class="tnx-btn tnx-btn--sm" data-action="createDiscardPile">
+                    <i class="fas fa-plus"></i> 新規作成
+                </button>
+                <button type="button" class="tnx-btn tnx-btn--sm tnx-btn--secondary" data-action="clearSetting" data-setting="discardPileId" title="クリア">
                     <i class="fas fa-times"></i>
                 </button>
             </div>

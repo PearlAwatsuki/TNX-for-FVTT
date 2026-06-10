@@ -4002,18 +4002,21 @@ button.tnx-create-act-button span {
    34. カードセットアップアプリ
    ================================================================ */
 
-/* ウィンドウ全体のスクロール */
+/* ウィンドウ — フッターを下端に固定するためオーバーフローをフォーム側に委譲 */
 #tnx-card-setup .window-content {
-    overflow-y: auto;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
     min-height: 0;
+    flex: 1;
 }
 
 #tnx-card-setup .tnx-card-setup-form {
     display: flex;
     flex-direction: column;
-    gap: 0;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
 }
 
 /* タブナビゲーション */
@@ -4051,9 +4054,12 @@ button.tnx-create-act-button span {
     font-weight: 600;
 }
 
-/* タブコンテンツ */
+/* タブコンテンツ — 表示中のものだけスクロール領域を確保 */
 #tnx-card-setup .tnx-tab-content {
     padding: 10px 12px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
 }
 #tnx-card-setup .tnx-hidden {
     display: none !important;
@@ -4079,6 +4085,15 @@ button.tnx-create-act-button span {
     border: none;
     border-top: 1px solid var(--tnx-border-subtle, rgba(255,255,255,0.12));
     margin: 8px 0;
+}
+
+/* フッター — タブコンテンツの下に固定 */
+#tnx-card-setup .sheet-footer {
+    flex-shrink: 0;
+    display: flex;
+    justify-content: center;
+    padding: 8px 12px;
+    border-top: 1px solid var(--tnx-border-subtle, rgba(255,255,255,0.12));
 }
 
 /* 一括作成ボタン行 */
@@ -4109,9 +4124,19 @@ button.tnx-create-act-button span {
     width: 100%;
 }
 
+/* デッキ数設定サブ行（ドロップダウン列と揃える） */
+#tnx-card-setup .tnx-card-row--sub {
+    padding-left: calc(9rem + 6px);
+}
+#tnx-card-setup .tnx-card-row--sub .tnx-sub-label {
+    flex: 1;
+    font-size: 0.82em;
+    color: var(--color-text-light-4, #888);
+}
+
 /* コンパクトスピナー（デッキ数） */
 #tnx-card-setup .tnx-spinner--sm {
-    gap: 2px;
+    display: flex;
     flex-shrink: 0;
 }
 #tnx-card-setup .tnx-spinner--sm input[type="number"] {
