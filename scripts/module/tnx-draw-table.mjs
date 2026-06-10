@@ -21,7 +21,7 @@ const SCOPE = "tokyo-nova-axleration";
 const DECK_FLAG = "drawTableDeckId";
 const CARD_FLAG = "cardName";
 
-/** 仮想 DoC の値とラベル（A〜K = 1〜13、ジョーカー = 99） */
+/** 仮想 DoC の値とラベル（A〜K = 1〜13、joker = 99） */
 const DOC_VALUES = [
     { value: 1,  label: "A" },
     { value: 2,  label: "2" },
@@ -36,7 +36,7 @@ const DOC_VALUES = [
     { value: 11, label: "J" },
     { value: 12, label: "Q" },
     { value: 13, label: "K" },
-    { value: 99, label: "ジョーカー" },
+    { value: 99, label: "joker" },
 ];
 
 /**
@@ -95,12 +95,36 @@ export async function lookupDrawTables(card, sourceDeckUuid) {
 /** ドロー表関連のフックを登録する（init から呼ぶ） */
 export function registerDrawTableHooks() {
 
-    // 新規作成時: デフォルト名「ドロー表」・アイコン card-hands.svg
+    // 結果行のデフォルトアイコンを card-hand.svg に変更
+    CONFIG.RollTable.resultIcon = "icons/svg/card-hand.svg";
+
+    // ドキュメント名・フッターボタン・チャット表示設定のラベルを差し替える。
+    // 日本語化モジュールの翻訳より後勝ちにするため、i18nInit で直接マージする。
+    Hooks.once("i18nInit", () => {
+        foundry.utils.mergeObject(game.i18n.translations, {
+            DOCUMENT: {
+                RollTable:  "ドロー表",
+                RollTables: "ドロー表",
+            },
+            TABLE: {
+                ACTIONS: {
+                    Submit:       "ドロー表を更新",
+                    ResetResults: "結果をリセット",
+                    DrawResult:   "ドロー",
+                },
+                FIELDS: {
+                    displayRoll: { label: "ドロー結果をチャットに表示" },
+                },
+            },
+        });
+    });
+
+    // 新規作成時: デフォルト名「ドロー表」・アイコン card-hand.svg
     Hooks.on("preCreateRollTable", (table, data) => {
         const update = {};
         const defaultIcon = foundry.documents.BaseRollTable.DEFAULT_ICON;
         if (!data.img || data.img === defaultIcon) {
-            update.img = "icons/svg/card-hands.svg";
+            update.img = "icons/svg/card-hand.svg";
         }
         const coreLabel = game.i18n.localize(foundry.documents.BaseRollTable.metadata.label);
         if (!data.name) {
@@ -160,7 +184,7 @@ function injectDeckSelector(element, table, deckId) {
     group.innerHTML = `
         <label>使用デッキ</label>
         <div class="form-fields"><select>${options}</select></div>
-        <p class="hint">未選択の場合は仮想DoC（A〜K=1〜13、ジョーカー=99）でドローします。デッキを選択すると、そのデッキからのカードドローを発火点として結果を出力します。</p>
+        <p class="hint">未選択の場合は仮想DoC（A〜K=1〜13、joker=99）でドローします。デッキを選択すると、そのデッキからのカードドローを発火点として結果を出力します。</p>
     `;
     formulaGroup.after(group);
 
@@ -206,26 +230,24 @@ function injectResultSelectors(element, table, deck, isConfigured) {
             select.innerHTML = options;
             rangeTd.appendChild(select);
         } else {
-            // 仮想 DoC モード: 値選択ドロップダウンを併設（手動入力も可）
-            const low = result.range?.[0];
-            const high = result.range?.[1];
-            const matched = DOC_VALUES.find(v => v.value === low && v.value === high);
-            const options = [
-                `<option value="">（手動）</option>`,
-                ...DOC_VALUES.map(v => `<option value="${v.value}" ${matched?.value === v.value ? "selected" : ""}>${v.label}</option>`),
-            ].join("");
-            const select = document.createElement("select");
-            select.className = "tnx-card-select";
-            select.innerHTML = options;
-            select.addEventListener("change", (ev) => {
-                const value = ev.currentTarget.value;
-                if (value === "") return;
-                const lowInput  = rangeTd.querySelector(`input[name="results.${i}.range.0"]`);
-                const highInput = rangeTd.querySelector(`input[name="results.${i}.range.1"]`);
-                if (lowInput)  lowInput.value  = value;
-                if (highInput) highInput.value = value;
-            });
-            rangeTd.appendChild(select);
+            // 仮想 DoC モード: 範囲入力 2 つをそれぞれ値ドロップダウンに置き換える
+            // （name を引き継ぐので保存ボタンでそのまま永続化される）
+            for (const bound of [0, 1]) {
+                const input = rangeTd.querySelector(`input[name="results.${i}.range.${bound}"]`);
+                if (!input) continue;
+                const current = result.range?.[bound] ?? 1;
+                const known = DOC_VALUES.some(v => v.value === current);
+                const options = [
+                    ...DOC_VALUES.map(v => `<option value="${v.value}" ${v.value === current ? "selected" : ""}>${v.label}</option>`),
+                    // 一覧外の既存値（新規行の自動採番など）は選択肢として残し、暗黙の書き換えを防ぐ
+                    ...(known ? [] : [`<option value="${current}" selected>${current}</option>`]),
+                ].join("");
+                const select = document.createElement("select");
+                select.className = "tnx-card-select";
+                select.name = input.name;
+                select.innerHTML = options;
+                input.replaceWith(select);
+            }
         }
     }
 }
