@@ -284,8 +284,9 @@ Hooks.once("init", async function() {
       other:        OtherDataModel,
     };
 
-    // RollTable DataModel の登録
+    // RollTable DataModel の登録（base を上書きして全 RollTable に適用）
     CONFIG.RollTable.dataModels = {
+      base:     TnxRollTableDataModel,
       tnxTable: TnxRollTableDataModel,
     };
 
@@ -362,9 +363,9 @@ Hooks.once("init", async function() {
         label: "アクトシート",
     });
 
-    // RollTable Sheet の登録(tnxTable 専用シート + 全タイプのデフォルト上書き)
+    // RollTable Sheet の登録（コアシートを置き換えて全タイプに適用）
+    foundry.documents.collections.RollTables.unregisterSheet("core", foundry.appv1.sheets.RollTableConfig);
     foundry.documents.collections.RollTables.registerSheet("tokyo-nova", TnxRollTableSheet, {
-        types: ["tnxTable"],
         makeDefault: true,
         label: "TNXロールテーブル",
     });
