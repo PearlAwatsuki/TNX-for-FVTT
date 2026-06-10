@@ -39,6 +39,7 @@ export class GeneralSkillDataModel extends SystemDataModel.mixin(
         expCost:   new fields.NumberField({ initial: 5 }),
       }),
       identificationKey: new fields.StringField({ initial: "" }),
+      usesBounty: new fields.BooleanField({ initial: false }),
     };
   }
 }

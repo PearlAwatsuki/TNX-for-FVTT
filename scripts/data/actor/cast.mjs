@@ -41,6 +41,7 @@ export class CastDataModel extends SystemDataModel.mixin(
         experience: new fields.StringField({ initial: "" }),
         encounter:  new fields.StringField({ initial: "" }),
       }),
+      bounty: new fields.NumberField({ initial: 0, min: 0, integer: true }),
     };
   }
 }
