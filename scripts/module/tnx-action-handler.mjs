@@ -4,7 +4,7 @@ import {
     CardSelectionDialog,
     TargetSelectionDialog
     } from './tnx-dialog.mjs';
-import { lookupFromCard } from '../data/roll-table/tnx-roll-table.mjs';
+import { lookupFromCard } from './tnx-roll-table-sheet.mjs';
 
 /** スタイル枠ニューロカードの日本語名 → タロット名アルファベット対応表 */
 const NEURO_STYLE_ROMAJI = {

@@ -23,7 +23,6 @@ import { StyleSkillDataModel } from './data/item/style-skill.mjs';
 import { PlayingCardsDataModel } from './data/card/playing-cards.mjs';
 import { NeuroCardsDataModel } from './data/card/neuro-cards.mjs';
 import { OtherDataModel } from './data/card/other.mjs';
-import { TnxRollTableDataModel } from './data/roll-table/tnx-roll-table.mjs';
 import { TnxRollTableSheet } from './module/tnx-roll-table-sheet.mjs';
 import { TokyoNovaItem } from './item/item.mjs';
 import { TokyoNovaStyleSheet } from './item/tnx-style-sheet.mjs';
@@ -284,12 +283,6 @@ Hooks.once("init", async function() {
       other:        OtherDataModel,
     };
 
-    // RollTable DataModel の登録（base を上書きして全 RollTable に適用）
-    CONFIG.RollTable.dataModels = {
-      base:     TnxRollTableDataModel,
-      tnxTable: TnxRollTableDataModel,
-    };
-
     // システム用のCONFIG名前空間を準備
     CONFIG.TNX = {};
 
@@ -363,8 +356,8 @@ Hooks.once("init", async function() {
         label: "アクトシート",
     });
 
-    // RollTable Sheet の登録（コアシートを置き換えて全タイプに適用）
-    foundry.documents.collections.RollTables.unregisterSheet("core", foundry.appv1.sheets.RollTableConfig);
+    // RollTable Sheet の登録（v13 コアシート RollTableSheet を置き換えて全 RollTable に適用）
+    foundry.documents.collections.RollTables.unregisterSheet("core", foundry.applications.sheets.RollTableSheet);
     foundry.documents.collections.RollTables.registerSheet("tokyo-nova", TnxRollTableSheet, {
         makeDefault: true,
         label: "TNXロールテーブル",

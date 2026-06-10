@@ -25,7 +25,7 @@
             <div class="tnx-rt-slot-row">
                 <span class="tnx-rt-slot-label">{{this.label}}</span>
                 <input type="text"
-                    name="system.docResults.{{this.key}}"
+                    name="docResults.{{this.key}}"
                     value="{{this.value}}"
                     placeholder="結果テキスト">
             </div>
@@ -39,10 +39,10 @@
     <div class="tnx-rt-configured-section">
         <div class="tnx-rt-deck-selector form-group">
             <label>紐付けデッキ</label>
-            <select name="system.deckId">
+            <select name="deckId">
                 {{#each deckOptions}}
                 <option value="{{this.uuid}}"
-                    {{#if (eq this.uuid ../system.deckId)}}selected{{/if}}>
+                    {{#if (eq this.uuid ../table.deckId)}}selected{{/if}}>
                     {{this.name}}
                 </option>
                 {{/each}}
@@ -52,14 +52,14 @@
             HUD からこのデッキのカードが引かれると、カード名と一致するエントリの結果をチャットに出力します。
         </p>
         <div class="tnx-rt-entries">
-            {{#each system.deckResults}}
+            {{#each table.deckResults}}
             <div class="tnx-rt-entry-row" data-index="{{@index}}">
                 <input type="text"
-                    name="system.deckResults.{{@index}}.label"
+                    name="deckResults.{{@index}}.label"
                     value="{{this.label}}"
                     placeholder="カード名（部分一致）">
                 <input type="text"
-                    name="system.deckResults.{{@index}}.text"
+                    name="deckResults.{{@index}}.text"
                     value="{{this.text}}"
                     placeholder="結果テキスト">
                 <button type="button" class="tnx-btn tnx-btn--icon"

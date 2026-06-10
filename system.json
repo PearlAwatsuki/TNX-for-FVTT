@@ -152,9 +152,6 @@
             "playingCards": { "htmlFields": ["description"] },
             "neuroCards":   { "htmlFields": ["description"] },
             "other":        { "htmlFields": ["description"] }
-        },
-        "RollTable": {
-            "tnxTable": {}
         }
     },
     "socket": true,
