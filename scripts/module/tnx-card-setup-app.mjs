@@ -10,9 +10,15 @@ export class TnxCardSetupApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
     static DEFAULT_OPTIONS = {
         id: "tnx-card-setup",
+        tag: "form",
         classes: [ "application", "tokyo-nova", "standard-form"],
         position: { width: 620, height: 520 },
         window: { title: "カードをセットアップ", icon: "fas fa-cards" },
+        form: {
+            handler: TnxCardSetupApp._onSubmitForm,
+            submitOnChange: false,
+            closeOnSubmit: false,
+        },
         actions: {
             switchTab:           TnxCardSetupApp._onSwitchTab,
             increment:           TnxCardSetupApp._onIncrement,
@@ -35,7 +41,6 @@ export class TnxCardSetupApp extends HandlebarsApplicationMixin(ApplicationV2) {
             createAccessCards:   TnxCardSetupApp._onCreateAccessCards,
             // 共通
             clearSetting:        TnxCardSetupApp._onClearSetting,
-            save:                TnxCardSetupApp._onSave,
         },
     };
 
@@ -308,10 +313,8 @@ export class TnxCardSetupApp extends HandlebarsApplicationMixin(ApplicationV2) {
         this.render();
     }
 
-    static async _onSave(_event, _target) {
-        const form = this.element.querySelector("form");
-        if (!form) return;
-        const data = new FormDataExtended(form).object;
+    static async _onSubmitForm(_event, _form, formData) {
+        const data = formData.object;
 
         const settingKeys = ["cardDeckId", "discardPileId", "neuroDeckId", "scenePileId", "accessCardPileId", "gmTrumpDiscardId"];
         for (const key of settingKeys) {

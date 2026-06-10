@@ -4009,7 +4009,7 @@ button.tnx-create-act-button span {
     flex: 1;
 }
 
-/* part コンテナ（tag:"form" により <form> 要素）にフレックスを適用 */
+/* part コンテナ（ルートは tag:"form" の <form>、その window-content 直下） */
 #tnx-card-setup [data-application-part="main"] {
     display: flex;
     flex-direction: column;
