@@ -1136,6 +1136,33 @@
     font-size: 0.9em;
 }
 
+/* ── 報酬点エリア ────────────────────────────────────────────────── */
+.tokyo-nova.sheet.actor .sidebar-bounty-group {
+    padding: 6px 8px 4px;
+    border-top: 1px solid var(--tnx2-border-subtle);
+}
+.tokyo-nova.sheet.actor .bounty-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.tokyo-nova.sheet.actor .bounty-label {
+    flex: 0 0 auto;
+    font-size: 0.85em;
+    color: var(--tnx2-text-muted);
+    white-space: nowrap;
+}
+.tokyo-nova.sheet.actor .bounty-input {
+    width: 56px;
+    text-align: right;
+    font-family: var(--tnx2-font-mono);
+}
+.tokyo-nova.sheet.actor .bounty-hint {
+    font-size: 0.78em;
+    color: var(--tnx2-text-muted);
+    white-space: nowrap;
+}
+
 /* ── ヘッダー: STYLE / ID / WORKS 英語ラベル (閲覧モード) ─────────── */
 /* tnx.css の .profile-header .middle-header-section .view-mode-label { font-size: 1.1em }
    は specificity 0,5,0。それを上回るため 0,6,0 のセレクターを使用する。

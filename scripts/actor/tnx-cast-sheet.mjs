@@ -639,6 +639,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
                 totalControl: ability.controlGrowth + styleTotalControl + ability.controlMod + ability.controlEffectMod
             };
         }
+        context.mundaneTotalValue = context.system.abilities.mundane.totalValue;
     }
 
     // ─── スキルプロパティ変更(EXP 連動) ──────────────────────────────────────

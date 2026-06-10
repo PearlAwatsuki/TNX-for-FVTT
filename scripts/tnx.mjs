@@ -699,6 +699,28 @@ Hooks.once("ready", async function() {
         }
     };
 
+    // mundane(外界)能力値変化時に bounty を自動追従させる。
+    // bounty が旧外界値と一致する場合のみ同期(手動で変更済みの場合は上書きしない)。
+    Hooks.on('preUpdateActor', (actor, data) => {
+        if (actor.type !== 'cast') return;
+        const sys = actor.system;
+        const mundaneDiff = foundry.utils.getProperty(data, 'system.mundane');
+        if (!mundaneDiff) return;
+
+        const styles = actor.items.filter(i => i.type === 'style');
+        const styleTotal = styles.reduce((sum, s) => sum + (s.system.mundane?.value ?? 0) * (s.system.level || 1), 0);
+
+        const oldTotal = (sys.mundane.growth ?? 0) + styleTotal + (sys.mundane.mod ?? 0) + (sys.mundane.effectMod ?? 0);
+        if (sys.bounty !== oldTotal) return;
+
+        const newGrowth    = mundaneDiff.growth    ?? sys.mundane.growth    ?? 0;
+        const newMod       = mundaneDiff.mod        ?? sys.mundane.mod       ?? 0;
+        const newEffectMod = mundaneDiff.effectMod  ?? sys.mundane.effectMod ?? 0;
+        const newTotal = newGrowth + styleTotal + newMod + newEffectMod;
+
+        if (newTotal !== oldTotal) foundry.utils.setProperty(data, 'system.bounty', newTotal);
+    });
+
     Hooks.on('createItem', (item) => recalcActorExp(item));
     Hooks.on('deleteItem', (item) => recalcActorExp(item));
     Hooks.on('updateItem', (item, diff, options) => recalcActorExp(item));

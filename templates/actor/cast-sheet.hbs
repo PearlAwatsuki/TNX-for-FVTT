@@ -38,10 +38,13 @@
                     <label data-en="SKIN">肌の色</label>
                     <input type="text" name="system.skin" value="{{system.skin}}"/>
                 </div>
-                <div class="personal-data-item">
-                    <label data-en="BOUNTY">報酬点</label>
-                    <input type="number" name="system.bounty" value="{{system.bounty}}" min="0"/>
-                </div>
+            </div>
+        </div>
+        <div class="sidebar-bounty-group">
+            <div class="bounty-row">
+                <label class="bounty-label">報酬点</label>
+                <input type="number" name="system.bounty" value="{{system.bounty}}" min="0" class="bounty-input"/>
+                <span class="bounty-hint">(外界値: {{mundaneTotalValue}})</span>
             </div>
         </div>
     </aside>
