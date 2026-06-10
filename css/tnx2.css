@@ -3830,7 +3830,7 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 
 #tnx-scenario-wizard .form-group:has(> .number-input-spinner) > label,
 .tokyo-nova.dialog .form-group:has(> .number-input-spinner) > label {
-    flex: 1 1 0;
+    flex: 2 1 0;
     min-width: 0;
 }
 
@@ -4186,4 +4186,177 @@ button.tnx-create-act-button span {
     opacity: 0.55;
     font-size: 0.8em;
     font-weight: normal;
+}
+
+/* ============================================================
+   § 35: TNX ロールテーブルシート (.tnx-roll-table-sheet)
+   ============================================================ */
+
+.tnx-roll-table-sheet {
+    gap: 0;
+}
+.tnx-roll-table-sheet .window-content {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+.tnx-roll-table-sheet [data-application-part="main"] {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+.tnx-roll-table-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* モード切替バー */
+.tnx-rt-mode-bar {
+    display: flex;
+    gap: 4px;
+    padding: 8px 12px 0;
+    flex-shrink: 0;
+}
+.tnx-rt-mode-radio {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border: 1px solid var(--tnx-border-subtle, rgba(255,255,255,0.12));
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85em;
+    background: transparent;
+    color: var(--color-text-light-secondary, #999);
+    transition: background 0.15s, color 0.15s;
+}
+.tnx-rt-mode-radio input[type="radio"] {
+    display: none;
+}
+.tnx-rt-mode-radio.active {
+    background: var(--tnx-accent, #5a8dcc);
+    color: #fff;
+    border-color: var(--tnx-accent, #5a8dcc);
+}
+
+/* ヒントテキスト */
+.tnx-rt-hint {
+    font-size: 0.78em;
+    color: var(--color-text-light-secondary, #999);
+    padding: 6px 12px 2px;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+/* --- Doc モード --- */
+.tnx-rt-doc-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+.tnx-rt-slots {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.tnx-rt-slot-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.tnx-rt-slot-label {
+    flex-shrink: 0;
+    width: 3rem;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.88em;
+    color: var(--color-text-light-secondary, #ccc);
+}
+.tnx-rt-slot-row input[type="text"] {
+    flex: 1;
+    font-size: 0.85em;
+}
+
+/* --- Configured モード --- */
+.tnx-rt-configured-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+.tnx-rt-deck-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px 0;
+    flex-shrink: 0;
+}
+.tnx-rt-deck-selector label {
+    flex-shrink: 0;
+    font-size: 0.85em;
+}
+.tnx-rt-deck-selector select {
+    flex: 1;
+    font-size: 0.85em;
+}
+.tnx-rt-entries {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.tnx-rt-entry-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.tnx-rt-entry-row input[type="text"]:first-child {
+    flex: 0 0 9rem;
+    font-size: 0.83em;
+}
+.tnx-rt-entry-row input[type="text"]:nth-child(2) {
+    flex: 1;
+    font-size: 0.83em;
+}
+.tnx-rt-add-row {
+    padding: 4px 12px;
+    flex-shrink: 0;
+}
+
+/* フッター */
+.tnx-rt-footer {
+    flex-shrink: 0;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-top: 1px solid var(--tnx-border-subtle, rgba(255,255,255,0.08));
+}
+
+/* チャット結果メッセージ */
+.tnx-roll-table-result {
+    padding: 6px 8px;
+    border-left: 3px solid var(--tnx-accent, #5a8dcc);
+}
+.tnx-result-card-name {
+    font-size: 0.85em;
+    color: var(--color-text-light-secondary, #aaa);
+    margin-bottom: 4px;
+}
+.tnx-result-text {
+    font-size: 0.92em;
 }

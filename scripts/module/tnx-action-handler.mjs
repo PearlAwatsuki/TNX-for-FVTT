@@ -4,6 +4,7 @@ import {
     CardSelectionDialog,
     TargetSelectionDialog
     } from './tnx-dialog.mjs';
+import { lookupFromCard } from '../data/roll-table/tnx-roll-table.mjs';
 
 /** スタイル枠ニューロカードの日本語名 → タロット名アルファベット対応表 */
 const NEURO_STYLE_ROMAJI = {
@@ -221,15 +222,18 @@ export class TnxActionHandler {
         const neuroDeck = await this.getActiveNeuroDeck();
         const scenePile = await this.getActiveScenePile();
         if (!neuroDeck || !scenePile || neuroDeck.availableCards.length === 0) return;
-        
+
         const drawnCards = await scenePile.draw(neuroDeck, 1, { render: false, chatNotification: false });
         if (drawnCards.length === 0) return;
-        
+
         const card = drawnCards[0];
         await scenePile.updateEmbeddedDocuments("Card", [{_id: card.id, face: 0}]);
         const cardData = scenePile.cards.get(card.id);
 
         await this._postCardToChat(cardData);
+
+        // 開いている TNX ロールテーブルにカードをルックアップして結果をチャット投稿
+        await lookupFromCard(cardData, neuroDeck.uuid);
     }
 
     /**

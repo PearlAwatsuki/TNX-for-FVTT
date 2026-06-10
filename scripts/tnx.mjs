@@ -23,6 +23,8 @@ import { StyleSkillDataModel } from './data/item/style-skill.mjs';
 import { PlayingCardsDataModel } from './data/card/playing-cards.mjs';
 import { NeuroCardsDataModel } from './data/card/neuro-cards.mjs';
 import { OtherDataModel } from './data/card/other.mjs';
+import { TnxRollTableDataModel } from './data/roll-table/tnx-roll-table.mjs';
+import { TnxRollTableSheet } from './module/tnx-roll-table-sheet.mjs';
 import { TokyoNovaItem } from './item/item.mjs';
 import { TokyoNovaStyleSheet } from './item/tnx-style-sheet.mjs';
 import { TokyoNovaMiracleSheet } from './item/tnx-miracle-sheet.mjs';
@@ -77,6 +79,9 @@ async function preloadHandlebarsTemplates() {
 
         // === User Sheets ===
         "systems/tokyo-nova-axleration/templates/user/record-sheet.hbs",
+
+        // === RollTable Sheets ===
+        "systems/tokyo-nova-axleration/templates/roll-table/tnx-roll-table-sheet.hbs",
     ];
     return foundry.applications.handlebars.loadTemplates(templatePaths);
 }
@@ -279,6 +284,11 @@ Hooks.once("init", async function() {
       other:        OtherDataModel,
     };
 
+    // RollTable DataModel の登録
+    CONFIG.RollTable.dataModels = {
+      tnxTable: TnxRollTableDataModel,
+    };
+
     // システム用のCONFIG名前空間を準備
     CONFIG.TNX = {};
 
@@ -350,6 +360,13 @@ Hooks.once("init", async function() {
     foundry.documents.collections.Journal.registerSheet("tokyo-nova", TnxScenarioSheet, {
         makeDefault: false,
         label: "アクトシート",
+    });
+
+    // RollTable Sheet の登録(tnxTable 専用シート + 全タイプのデフォルト上書き)
+    foundry.documents.collections.RollTables.registerSheet("tokyo-nova", TnxRollTableSheet, {
+        types: ["tnxTable"],
+        makeDefault: true,
+        label: "TNXロールテーブル",
     });
 
     // --- システム設定の登録 ---
