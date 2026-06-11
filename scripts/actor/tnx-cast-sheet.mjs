@@ -58,9 +58,17 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         const context = await super._prepareContext(options);
         context.actor = this.actor;
         context.system = this.actor.system;
+        context.owner = this.actor.isOwner;
         context.isEditable = this.isEditable;
         context.isEditMode = this._isEditMode && this.isEditable;
         context.cssClass = "";
+
+        context.enrichedDescription = await foundry.applications.ux.TextEditor.enrichHTML(
+            this.actor.system.description, {
+                relativeTo: this.actor,
+                editable: context.editable,
+            }
+        );
 
         context.TNX = {
             SUITS: {
@@ -371,6 +379,8 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         }
 
         const dropArea = event.target.closest('[data-drop-area]')?.dataset.dropArea;
+
+        if (dropArea === "lifepath") return false;
 
         if (item.type === "style" && dropArea === "style") {
             const allStyles  = this.actor.items.filter(i => i.type === 'style');

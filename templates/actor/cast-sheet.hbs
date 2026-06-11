@@ -626,7 +626,23 @@
                     {{> "systems/tokyo-nova-axleration/templates/parts/history-list.hbs"}}
                 </div>
 
-                <div class="tab profile" data-group="primary" data-tab="profile"></div>
+                <div class="tab profile" data-group="primary" data-tab="profile">
+                    <div class="tnx-editor-section">
+                        <div class="tnx-editor-section__header">
+                            <h3 class="tnx-section-title tnx-section-title--sm">キャラクター説明</h3>
+                        </div>
+                        <div class="tnx-editor-section__content">
+                            {{editor enrichedDescription target="system.description" engine="prosemirror" button=true owner=owner editable=editable}}
+                        </div>
+                    </div>
+
+                    <div class="lifepath-section">
+                        <h3 class="tnx-section-title tnx-section-title--sm">ライフパス</h3>
+                        <div class="tnx-import-box" data-drop-area="lifepath">
+                            <span>ライフパスアイテムをここにドロップ</span>
+                        </div>
+                    </div>
+                </div>
 
             </section>
         </section>
