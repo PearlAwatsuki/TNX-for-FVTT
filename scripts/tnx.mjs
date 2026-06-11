@@ -391,6 +391,15 @@ Hooks.once("init", async function() {
     game.settings.register("tokyo-nova-axleration", "hudBottomCollapsed", { ..._hudUiSetting });
     game.settings.register("tokyo-nova-axleration", "hudAccessCollapsed", { ..._hudUiSetting, default: true });
 
+    game.settings.register("tokyo-nova-axleration", "revealPlayerHands", {
+        name: "プレイヤーの手札を開示",
+        hint: "有効にすると全ユーザーのHUDにプレイヤー全員の手札が表示されます。",
+        scope: "world",
+        config: true,
+        type: Boolean,
+        default: false,
+    });
+
     game.settings.registerMenu("tokyo-nova-axleration", "cardSetup", {
         name: "カードをセットアップ",
         label: "カードの設定を開く",
@@ -672,6 +681,12 @@ Hooks.once("ready", async function() {
                 src: data.src,
                 window: { title: data.title },
             }).render(true);
+        }
+    });
+
+    Hooks.on("updateSetting", (setting) => {
+        if (setting.key === "tokyo-nova-axleration.revealPlayerHands") {
+            game.tnx?.hud?.render();
         }
     });
 

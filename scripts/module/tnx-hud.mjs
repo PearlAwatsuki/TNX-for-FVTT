@@ -91,7 +91,9 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
             context.accessCards = accessPile.cards.contents;
         }
 
-        // --- プレイヤー手札（GM=全員 / Player=自分以外。手札未設定ユーザーは除外）---
+        // --- プレイヤー手札（revealPlayerHands が true のときのみ表示）---
+        if (!game.settings.get("tokyo-nova-axleration", "revealPlayerHands")) return context;
+
         const allUsersWithHand = game.users.filter(u => u.active && !u.isGM && getUserFlagData(u).handPileId);
         const handTargets = game.user.isGM
             ? allUsersWithHand
