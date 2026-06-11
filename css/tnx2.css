@@ -3042,9 +3042,10 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
        wrap 前提のフレックス子(プレイヤー手札)がカラムごと押し広げてしまう。
        基準はニューロ/デッキパネル幅 (カード100px×2 + gap 8px + padding 16px)。 */
     width: 224px;
-    display: grid;
-    /* 先頭行=収納ボタン / 4行目=player-hands は非表示時に0になるよう auto */
-    grid-template-rows: auto auto 1fr auto auto;
+    /* grid から flex へ: DOM にない要素の gap が残らず、
+       情報項目(flex:1)が余白を自然に吸収できる。 */
+    display: flex;
+    flex-direction: column;
     gap: 8px;
 }
 
@@ -3075,6 +3076,7 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 }
 
 .tnx-hud .hud-insert-area {
+    flex: 1; /* 右カラム(flex column)内で余白をすべて吸収する */
     flex-direction: column;
     align-items: flex-start;
     gap: 6px;
@@ -3084,13 +3086,13 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 
 /* ── プレイヤー手札エリア ── */
 .tnx-hud .player-hands-area {
+    flex: 0 0 auto; /* 右カラム(flex column)内で伸縮せず、コンテンツ高に収まる */
     flex-direction: column;
     gap: 4px;
     overflow: hidden;
     min-width: 0;
     min-height: 0;
-    /* grid 行が auto のため、コンテンツが増えすぎないよう上限を設ける */
-    max-height: 40vh;
+    max-height: 40vh; /* プレイヤー人数が多くても画面を占有しすぎない */
 }
 
 .tnx-hud .player-hands-area > .card-slot-label {
