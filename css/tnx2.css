@@ -3099,7 +3099,7 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     display: flex;
     flex-direction: column;
     gap: 4px;
-    overflow-y: auto;
+    overflow-y: overlay; /* Chromium(Electron)専用: バーをコンテンツ上に重ねて幅を消費しない */
     flex: 1;
     min-height: 0;
 }
