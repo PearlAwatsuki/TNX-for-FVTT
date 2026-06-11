@@ -1197,7 +1197,7 @@
     font-size: 0.72em;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--tnx2-text-muted);
+    color: var(--tnx2-text-secondary);
 }
 .tokyo-nova.sheet.actor .bounty-total {
     font-family: var(--tnx2-font-mono);
