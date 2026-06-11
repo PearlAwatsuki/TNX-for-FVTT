@@ -57,7 +57,10 @@
             {{else}}
                 <div class="bounty-view-panel">
                     <span class="bounty-view-label">報酬点</span>
-                    <span class="bounty-total">{{effectiveBounty}}</span>
+                    <div class="bounty-total-row">
+                        <i class="fas fa-coins bounty-coin-icon"></i>
+                        <span class="bounty-total">{{effectiveBounty}}</span>
+                    </div>
                 </div>
             {{/if}}
         </div>

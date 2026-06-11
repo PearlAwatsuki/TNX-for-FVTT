@@ -1199,6 +1199,17 @@
     text-transform: uppercase;
     color: var(--tnx2-text-secondary);
 }
+.tokyo-nova.sheet.actor .bounty-total-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.tokyo-nova.sheet.actor .bounty-coin-icon {
+    font-size: 1.1em;
+    color: var(--tnx2-text-accent);
+    opacity: 0.7;
+    flex-shrink: 0;
+}
 .tokyo-nova.sheet.actor .bounty-total {
     font-family: var(--tnx2-font-mono);
     font-size: 2em;
@@ -1206,6 +1217,7 @@
     letter-spacing: 0.05em;
     color: var(--tnx2-text-accent);
     text-shadow: 0 0 10px var(--tnx2-accent-glow-sm);
+    flex: 1;
     text-align: right;
 }
 
