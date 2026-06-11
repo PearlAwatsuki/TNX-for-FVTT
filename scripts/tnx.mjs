@@ -237,6 +237,11 @@ async function performUnsyncSeparation(castActor, ownerUser) {
 Hooks.once("init", async function() {
     game.tnx = game.tnx || {}
     game.tnx.refreshSheets = handleRefreshSheets;
+
+    // チャット通知のデフォルトを「チャットカード」から「通知バッジ」に変更する。
+    // ユーザーが明示的に設定済みの場合はその値が優先される(デフォルト値のみの変更)。
+    const chatNotifSetting = game.settings.settings.get("core.chatNotifications");
+    if (chatNotifSetting) chatNotifSetting.default = "pip";
     Handlebars.registerHelper('add', function(a, b) {
         return a + b;
     });
