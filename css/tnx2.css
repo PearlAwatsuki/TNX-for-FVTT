@@ -3083,7 +3083,7 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     flex-direction: column;
     gap: 4px;
     overflow: hidden;
-    min-width: 120px;
+    min-width: 0; /* grid 列幅をニューロ/デッキエリアに委ね、自身は伸縮のみ */
     min-height: 0; /* grid の 1fr セル内スクロールに必要 */
 }
 
