@@ -3243,7 +3243,7 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     overflow: hidden;
     max-width: 300px;
     margin-right: 8px;
-    transition: max-width 0.25s ease, opacity 0.25s ease, margin-right 0.25s ease;
+    transition: max-width 0.25s ease, padding-left 0.25s ease, padding-right 0.25s ease, opacity 0.25s ease, margin-right 0.25s ease;
 }
 
 /* ── アクセスカードエリア ── */
@@ -3395,6 +3395,8 @@ body.tnx-bottom-hud-expanded #hotbar {
 .tnx-hud .hud-bottom-bar.collapsed .trump-area {
     max-width: 0;
     margin-right: 0;
+    padding-left: 0;
+    padding-right: 0;
     opacity: 0;
     pointer-events: none;
 }
