@@ -3317,9 +3317,9 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     border-color: var(--tnx2-accent-dim);
 }
 
-/* 右カラム: グリッド先頭行の右端 */
+/* 右カラム: flex 末端に寄せる */
 .tnx-hud .hud-collapse-right {
-    justify-self: end;
+    align-self: flex-end;
 }
 
 /* 下バー: ホットバーと排他表示。
