@@ -1184,19 +1184,28 @@
     padding-top: calc(0.82em + 4px);
 }
 
-/* 閲覧モード: ラベル + 合計値 */
-.tokyo-nova.sheet.actor .bounty-view-row {
+/* 閲覧モード: データパネル風 縦積み */
+.tokyo-nova.sheet.actor .bounty-view-panel {
     display: flex;
-    align-items: baseline;
-    gap: 50px;
+    flex-direction: column;
+    gap: 1px;
+    padding: 4px 8px;
+    border-left: 2px solid var(--tnx2-accent-dim);
 }
-.tokyo-nova.sheet.actor .bounty-view-row label {
-    font-size: 1.2em;
-    color: var(--tnx2-text-accent);
+.tokyo-nova.sheet.actor .bounty-view-label {
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.72em;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--tnx2-text-muted);
 }
 .tokyo-nova.sheet.actor .bounty-total {
     font-family: var(--tnx2-font-mono);
-    font-size: 1.25em;
+    font-size: 2em;
+    line-height: 1;
+    letter-spacing: 0.05em;
+    color: var(--tnx2-text-accent);
+    text-shadow: 0 0 10px var(--tnx2-accent-glow-sm);
 }
 
 /* ── ヘッダー: STYLE / ID / WORKS 英語ラベル (閲覧モード) ─────────── */
