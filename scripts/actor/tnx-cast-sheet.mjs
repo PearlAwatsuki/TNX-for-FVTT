@@ -230,6 +230,34 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             });
         }
 
+        // ProseMirror エディタのセットアップ (アイテムシートと同じパターン)
+        const ProseMirrorEl = customElements.get("prose-mirror");
+        if (ProseMirrorEl) {
+            for (const contentDiv of el.querySelectorAll(".editor-content[data-edit]")) {
+                const editorDiv = contentDiv.closest("div.editor");
+                if (!editorDiv) continue;
+                const fieldName = contentDiv.dataset.edit;
+                const pm = ProseMirrorEl.create({
+                    name: fieldName,
+                    value: foundry.utils.getProperty(this.actor, fieldName) ?? "",
+                    enriched: contentDiv.innerHTML,
+                    toggled: true,
+                });
+                pm.dataset.documentUuid = this.actor.uuid;
+                editorDiv.replaceWith(pm);
+                const section = pm.closest(".tnx-editor-section");
+                const sectionHeader = section?.querySelector(".tnx-editor-section__header");
+                if (sectionHeader) {
+                    const moveBtn = () => {
+                        const btn = pm.querySelector("button.toggle");
+                        if (btn) sectionHeader.appendChild(btn);
+                    };
+                    requestAnimationFrame(moveBtn);
+                    pm.addEventListener("close", () => requestAnimationFrame(moveBtn));
+                }
+            }
+        }
+
         TnxHistoryMixin.activateHistoryListeners.call(this, el);
         this._activateContextMenus(el);
         this._applyTextSqueezing();
