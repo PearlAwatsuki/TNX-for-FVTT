@@ -3190,15 +3190,26 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 }
 
 
-/* プレイヤーリストの右側(間5px)・画面下端に配置。
-   リストは上方向に伸び、バーはその右に並ぶため、人数が増えても干渉しない。 */
+/* 画面左下(left:222px)に配置。row方向 flex: コンテンツが左、ボタンが右端。
+   コンテンツの max-width トランジションで水平コラプスアニメーションを実現する。 */
 .tnx-hud .hud-bottom-bar {
     bottom: 15px;
     left: 222px;
     display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 0;
+}
+
+.tnx-hud .hud-bottom-content {
+    display: flex;
     flex-direction: column;
-    align-items: flex-start;
     gap: 5px;
+    overflow: hidden;
+    min-width: 0;
+    max-width: 700px;
+    margin-right: 5px;
+    transition: max-width 0.25s ease, opacity 0.25s ease, margin-right 0.25s ease;
 }
 
 .tnx-hud .hud-bottom-row {
@@ -3322,18 +3333,10 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     align-self: flex-end;
 }
 
-/* 下バー: ホットバーと排他表示。
-   展開時 = ホットバー非表示。ボタンはカラム右下(切り札エリアの右横・間5px)に左向き。
-   収納時 = ホットバー表示。ボタンはプレイヤーリストの右側(間5px)に右向き。 */
+/* 下バー: flex 末端(右)に配置。position: absolute 不使用。 */
 .tnx-hud .hud-collapse-bottom {
-    position: absolute;
-    right: -31px;
-    bottom: 0;
-}
-.tnx-hud .hud-bottom-bar.collapsed .hud-collapse-bottom {
-    /* バー左端 = プレイヤーリスト右側 5px の位置に揃える */
-    left: 0;
-    right: auto;
+    flex: 0 0 auto;
+    align-self: flex-end;
 }
 
 /* 下バー展開時はコアのホットバーを退避させる(収納で復帰) */
@@ -3346,10 +3349,8 @@ body.tnx-bottom-hud-expanded #hotbar {
     pointer-events: none;
 }
 
-/* 収納/展開アニメーション: コンテンツをスライド + フェード。
-   visibility は遷移終了まで visible のまま保たれ、終了時に hidden になる。 */
-.tnx-hud .hud-right-column > *:not(.hud-collapse-toggle),
-.tnx-hud .hud-bottom-bar  > *:not(.hud-collapse-toggle) {
+/* 収納/展開アニメーション: 右カラムは子要素スライド+フェード。 */
+.tnx-hud .hud-right-column > *:not(.hud-collapse-toggle) {
     transition: transform 0.25s ease, opacity 0.25s ease, visibility 0.25s;
 }
 .tnx-hud .hud-right-column.collapsed > *:not(.hud-collapse-toggle) {
@@ -3357,10 +3358,13 @@ body.tnx-bottom-hud-expanded #hotbar {
     opacity: 0;
     visibility: hidden;
 }
-.tnx-hud .hud-bottom-bar.collapsed > *:not(.hud-collapse-toggle) {
-    transform: translateY(40px);
+
+/* 下バーは hud-bottom-content を max-width: 0 で水平コラプス。 */
+.tnx-hud .hud-bottom-bar.collapsed .hud-bottom-content {
+    max-width: 0;
     opacity: 0;
-    visibility: hidden;
+    margin-right: 0;
+    pointer-events: none;
 }
 
 .tnx-hud .card-empty-placeholder i { font-size: 2.5em; }
