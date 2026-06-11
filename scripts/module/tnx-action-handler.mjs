@@ -559,6 +559,37 @@ export class TnxActionHandler {
     }
 
     /**
+     * 【HUD用】対象ユーザーを事前に決めてカードを渡す（プレイヤー手札エリアのクリックから起動）。
+     * カード選択ダイアログのみ表示し、プレイヤー選択ステップはスキップする。
+     * @param {string} targetUserId
+     */
+    static async selectAndPassToUser(targetUserId) {
+        const { getUserFlagData } = await import('./user-flag-schema.mjs');
+        const sourceHandId = getUserFlagData(game.user).handPileId;
+        const sourceHand = sourceHandId ? await fromUuid(sourceHandId) : null;
+        if (!sourceHand || sourceHand.cards.size === 0)
+            return ui.notifications.warn("渡せるカードが手札にありません。");
+
+        const targetUser = game.users.get(targetUserId);
+        if (!targetUser) return ui.notifications.error("対象ユーザーが見つかりません。");
+
+        const targetHandId = getUserFlagData(targetUser).handPileId;
+        const targetHand = targetHandId ? await fromUuid(targetHandId) : null;
+        if (!targetHand) return ui.notifications.warn(`「${targetUser.name}」に手札が設定されていません。`);
+
+        const selectedCardIds = await CardSelectionDialog.prompt({
+            title: `「${targetUser.name}」に渡すカードを選択`,
+            content: "渡したいカードをすべて選択してください。",
+            cards: sourceHand.cards.contents,
+            passLabel: "渡す",
+        });
+        if (!selectedCardIds || selectedCardIds.length === 0) return;
+
+        await sourceHand.pass(targetHand, selectedCardIds);
+        ui.notifications.info(`「${targetUser.name}」に${selectedCardIds.length}枚のカードを渡しました。`);
+    }
+
+    /**
      * 【HUD用】特定のカード1枚を捨て札に送る
      * @param {string} cardId - 捨てるカードのID
      */

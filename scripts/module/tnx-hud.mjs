@@ -18,9 +18,10 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
             drawNeuro:       TnxHud._onDrawNeuro,
             takeFromDiscard: TnxHud._onTakeFromDiscard,
             useTrump:        TnxHud._onUseTrump,
-            toggleHudColumn:   TnxHud._onToggleHudColumn,
-            toggleAccessArea:  TnxHud._onToggleAccessArea,
-            presentAccessCard: TnxHud._onPresentAccessCard,
+            toggleHudColumn:    TnxHud._onToggleHudColumn,
+            toggleAccessArea:   TnxHud._onToggleAccessArea,
+            presentAccessCard:  TnxHud._onPresentAccessCard,
+            giveCardsToPlayer:  TnxHud._onGiveCardsToPlayer,
         },
     };
 
@@ -89,6 +90,26 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
         if (accessPile && accessPile.cards.size > 0) {
             context.accessCards = accessPile.cards.contents;
         }
+
+        // --- プレイヤー手札（GM=全員 / Player=自分以外。手札未設定ユーザーは除外）---
+        const allUsersWithHand = game.users.filter(u => u.active && getUserFlagData(u).handPileId);
+        const handTargets = game.user.isGM
+            ? allUsersWithHand
+            : allUsersWithHand.filter(u => u.id !== game.user.id);
+
+        const playerHands = [];
+        for (const u of handTargets) {
+            const hand = await fromUuid(getUserFlagData(u).handPileId);
+            if (hand) {
+                playerHands.push({
+                    userId:   u.id,
+                    userName: u.name,
+                    color:    u.color?.css ?? "#888888",
+                    cards:    hand.cards.contents,
+                });
+            }
+        }
+        if (playerHands.length > 0) context.playerHands = playerHands;
 
         return context;
     }
@@ -492,6 +513,13 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
      */
     static _syncHotbarVisibility(hudExpanded) {
         document.body.classList.toggle("tnx-bottom-hud-expanded", hudExpanded);
+    }
+
+    static async _onGiveCardsToPlayer(event, target) {
+        event.preventDefault();
+        const targetUserId = target.dataset.targetUserId;
+        if (!targetUserId) return;
+        await TnxActionHandler.selectAndPassToUser(targetUserId);
     }
 
     static _updateCollapseIcons(hudEl) {

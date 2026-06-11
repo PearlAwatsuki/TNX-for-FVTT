@@ -37,8 +37,28 @@
             <span class="card-slot-label">情報項目</span>
         </div>
 
-        <div class="hud-panel hud-insert-area">
+        <div class="hud-panel player-hands-area">
             <span class="card-slot-label">プレイヤーの手札</span>
+            <div class="player-hands-scroll">
+                {{#if playerHands}}
+                    {{#each playerHands as |ph|}}
+                        <div class="player-hand-row" data-action="giveCardsToPlayer" data-target-user-id="{{ph.userId}}" title="{{ph.userName}} にカードを渡す">
+                            <span class="player-hand-name" style="color: {{ph.color}}">{{ph.userName}}</span>
+                            <div class="player-hand-cards">
+                                {{#if ph.cards.length}}
+                                    {{#each ph.cards as |card|}}
+                                        <img class="player-hand-card-img" src="{{card.img}}" alt="{{card.name}}" title="{{card.name}}">
+                                    {{/each}}
+                                {{else}}
+                                    <span class="player-hand-empty">（手札なし）</span>
+                                {{/if}}
+                            </div>
+                        </div>
+                    {{/each}}
+                {{else}}
+                    <span class="player-hand-empty">（対象プレイヤーなし）</span>
+                {{/if}}
+            </div>
         </div>
 
         <div class="main-area">

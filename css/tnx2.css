@@ -3078,6 +3078,64 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     min-width: 120px;
 }
 
+/* ── プレイヤー手札エリア ── */
+.tnx-hud .player-hands-area {
+    flex-direction: column;
+    gap: 4px;
+    overflow: hidden;
+    min-width: 120px;
+    min-height: 0; /* grid の 1fr セル内スクロールに必要 */
+}
+
+.tnx-hud .player-hands-scroll {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+
+.tnx-hud .player-hand-row {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 4px 6px;
+    cursor: pointer;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.3);
+    flex-shrink: 0;
+    transition: background 0.15s;
+}
+
+.tnx-hud .player-hand-row:hover {
+    background: rgba(0, 200, 224, 0.12);
+}
+
+.tnx-hud .player-hand-name {
+    font-size: 0.72em;
+    font-weight: bold;
+    line-height: 1.2;
+}
+
+.tnx-hud .player-hand-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    align-items: flex-end;
+}
+
+.tnx-hud .player-hand-card-img {
+    width: 30px;
+    border-radius: 2px;
+    display: block;
+}
+
+.tnx-hud .player-hand-empty {
+    font-size: 0.7em;
+    color: var(--tnx2-text-muted);
+}
+
 .tnx-hud .hud-insert-area::after {
     content: "";
     display: block;
