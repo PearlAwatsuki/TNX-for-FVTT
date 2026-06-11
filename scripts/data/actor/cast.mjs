@@ -10,7 +10,7 @@
  * - exp の value / spent / total は updateCastExp() が非同期で上書きする派生値。
  *   DataModel 内での prepareDerivedData による再計算は行わない。
  * - player_name は template.json に定義されているが実コードでは未使用(デッドフィールド)。
- * - lifePath は UI 未実装(B-4 では template.json 準拠で定義のみ)。
+ * - lifePath の各スロットは origin/experience/encounter で構成され、フェーズ 5-6 で UI 実装済み。
  */
 
 import { SystemDataModel } from "../abstract.mjs";
@@ -37,9 +37,21 @@ export class CastDataModel extends SystemDataModel.mixin(
         additional: new fields.NumberField({ initial: 0 }),
       }),
       lifePath: new fields.SchemaField({
-        origin:     new fields.StringField({ initial: "" }),
-        experience: new fields.StringField({ initial: "" }),
-        encounter:  new fields.StringField({ initial: "" }),
+        origin: new fields.SchemaField({
+          itemUuid: new fields.StringField({ initial: "" }),
+          name:     new fields.StringField({ initial: "" }),
+          summary:  new fields.StringField({ initial: "" }),
+        }),
+        experience: new fields.SchemaField({
+          itemUuid: new fields.StringField({ initial: "" }),
+          name:     new fields.StringField({ initial: "" }),
+          summary:  new fields.StringField({ initial: "" }),
+        }),
+        encounter: new fields.SchemaField({
+          itemUuid: new fields.StringField({ initial: "" }),
+          name:     new fields.StringField({ initial: "" }),
+          summary:  new fields.StringField({ initial: "" }),
+        }),
       }),
       bounty: new fields.NumberField({ initial: 0, min: 0, integer: true }),
     };

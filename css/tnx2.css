@@ -926,14 +926,22 @@
 .tokyo-nova .tnx-editor-section__header .tnx-editor-open:hover {
     color: var(--tnx2-accent);
 }
+/* 固定高さ＋内部スクロール。overflow: hidden で枠線(角丸)からのはみ出しを防ぐ */
 .tokyo-nova .tnx-editor-section__content prose-mirror {
     border-color: var(--tnx2-border-subtle);
     border-radius: var(--tnx2-radius);
     box-shadow: inset 0 0 6px rgba(0, 200, 255, 0.08);
+    height: 500px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 .tokyo-nova .tnx-editor-section__content prose-mirror .editor-content {
     color: var(--tnx2-text-secondary);
     padding: 8px 10px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
 }
 .tokyo-nova .tnx-editor-section__content prose-mirror .ProseMirror {
     color: var(--tnx2-text-primary);
@@ -958,6 +966,12 @@
     opacity: 0.3;
     cursor: default;
 }
+.tokyo-nova .tnx-editor-section__header .tnx-editor-mode-icon {
+    color: var(--tnx2-text-muted);
+    font-size: 0.9em;
+    padding: 2px 4px;
+    flex-shrink: 0;
+}
 
 /* ----------------------------------------------------------------
    13. キャストシート: 詳細タブ
@@ -965,6 +979,62 @@
 
 .tokyo-nova.sheet.actor .tab.profile .tnx-editor-section {
     margin-top: 20px;
+}
+.tokyo-nova.sheet.actor .tab.profile .profile-lifepath-section {
+    margin-bottom: 4px;
+}
+.tokyo-nova.sheet.actor .tab.profile .lifepath-slots {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.tokyo-nova.sheet.actor .tab.profile .lifepath-slot-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 28px;
+    padding: 2px 0;
+}
+.tokyo-nova.sheet.actor .tab.profile .lifepath-type-label {
+    flex: 0 0 3em;
+    color: var(--tnx2-text-secondary);
+}
+.tokyo-nova.sheet.actor .tab.profile .lifepath-name {
+    font-weight: 600;
+    color: var(--tnx2-text-primary);
+}
+.tokyo-nova.sheet.actor .tab.profile .lifepath-summary {
+    flex: 1;
+    color: var(--tnx2-text-muted);
+    font-size: 0.85em;
+    font-style: italic;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.tokyo-nova.sheet.actor .tab.profile .lifepath-import-box {
+    flex: 0.3;
+}
+.tokyo-nova.sheet.actor .tab.profile .lifepath-item-btn {
+    flex: 0.3;
+    min-width: 0;
+}
+.tokyo-nova.sheet.actor .tab.profile .lifepath-delete-btn {
+    flex: 0 0 auto;
+    color: var(--tnx2-text-muted);
+    cursor: pointer;
+    padding: 2px 4px;
+}
+.tokyo-nova.sheet.actor .tab.profile .lifepath-delete-btn:hover {
+    color: var(--tnx2-danger, #e74c3c);
+}
+.tokyo-nova.sheet.actor .tab.profile .tnx-editor-view-content {
+    color: var(--tnx2-text-secondary);
+    padding: 8px 10px;
+    min-height: 350px;
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    box-shadow: inset 0 0 6px rgba(0, 200, 255, 0.08);
 }
 
 /* ----------------------------------------------------------------
@@ -2037,7 +2107,7 @@
 
 .tokyo-nova.sheet.actor .view-mode-layout .ability-label-content {
     transform: skewX(25deg);
-    padding: 4px 0;
+    padding: 8px 0;
 }
 
 .tokyo-nova.sheet.actor .view-mode-layout .ability-label-content h3 {
@@ -2267,25 +2337,6 @@
     font-weight: bold;
 }
 
-.skills-list-edit .item-list .item {
-    display: flex;
-    align-items: center;
-    padding: 4px 0;
-    gap: 10px;
-}
-
-.skills-list-edit .item-list .item .item-name { flex: 1; }
-
-.skills-list-edit .item-list .item .skill-level input {
-    width: 50px;
-    text-align: center;
-}
-
-.skills-list-edit .item-list .item .item-controls {
-    flex: 0 0 50px;
-    text-align: center;
-}
-
 ol.item-list { padding: 0; }
 
 a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
@@ -2468,6 +2519,39 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 .item-menu-trigger:hover {
     color: var(--tnx2-accent);
     text-shadow: 0 0 6px var(--tnx2-accent-glow-sm);
+}
+
+/* 一般技能行内のメニュートリガー(flexレイアウト用、スートマークのすぐ右) */
+.general-skill-display .item-menu-trigger {
+    width: auto;
+    height: auto;
+    margin-left: 6px;
+}
+
+/* 編集モード: 平行四辺形枠ではなく行全体を枠で囲む */
+.general-skill-display--edit {
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    background: var(--tnx2-bg-2);
+    padding: 4px 8px;
+    gap: 8px;
+}
+.general-skill-display--edit .skill-name-wrap {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+.general-skill-display--edit .skill-name-plain {
+    color: var(--tnx2-text-primary);
+    font-weight: bold;
+}
+
+/* 編集モードグリッド: Lvセルにレベル入力＋スートチェックを収める */
+.style-skill-grid--edit {
+    grid-template-columns: minmax(140px, 1.5fr) 110px 1fr 40px 75px 1fr 1fr 45px 1fr 15px;
+}
+.style-skill-grid--edit .cell-level .skill-level-container input[type="number"] {
+    width: 2.6em;
 }
 
 /* ================================================================
@@ -3099,7 +3183,7 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     gap: 4px;
     overflow: hidden;
     min-width: 0;
-    min-height: 0;
+    min-height: 267.7px;
     max-height: 40vh; /* プレイヤー人数が多くても画面を占有しすぎない */
 }
 

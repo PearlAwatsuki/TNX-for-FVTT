@@ -37,12 +37,14 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             useMiracle:           TokyoNovaCastSheet._onUseMiracle,
             rollStyleDescription: TokyoNovaCastSheet._onRollStyleDescription,
             openItemSheet:        TokyoNovaCastSheet._onOpenItemSheet,
+            openLifepathItem:     TokyoNovaCastSheet._onOpenLifepathItem,
+            removeLifepath:       TokyoNovaCastSheet._onRemoveLifepath,
             itemCreate:           TokyoNovaCastSheet._onItemCreate,
             itemDelete:           TokyoNovaCastSheet._onItemDelete,
             removeBadStatus:      TokyoNovaCastSheet._onRemoveBadStatus,
             toggleAbilityDetails: TokyoNovaCastSheet._onToggleAbilityDetails,
         },
-        dragDrop: [{ dragSelector: ".item-list .item, .style-skills-list .item", dropSelector: null }],
+        dragDrop: [{ dragSelector: ".item-list .item, .style-skills-list .item, .skills-list-view .item", dropSelector: null }],
     };
 
     static PARTS = {
@@ -70,6 +72,22 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             }
         );
 
+        const lifepathDefs = [
+            { key: "origin",     label: "出自" },
+            { key: "experience", label: "経験" },
+            { key: "encounter",  label: "邂逅" },
+        ];
+        context.lifepathSlots = lifepathDefs.map(({ key, label }) => {
+            const data = this.actor.system.lifePath[key];
+            return {
+                key,
+                label,
+                hasItem:  !!data.name,
+                name:     data.name,
+                summary:  data.summary,
+            };
+        });
+
         context.TNX = {
             SUITS: {
                 spade:   { label: "TNX.Suits.spade",   icon: "fa-solid fa-spade" },
@@ -83,7 +101,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         const allMiracles = this.actor.items.filter(i => i.type === 'miracle');
         context.equippedAffiliations = this.actor.items.filter(i => i.type === 'organization');
         context.affiliationDisplay   = context.equippedAffiliations[0]?.name
-            || "無所属";
+            || "フリーランス";
 
         context.styleSlots = this._prepareStyleSlots(allStyles);
 
@@ -215,12 +233,12 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             btn.addEventListener("click", ev => TokyoNovaCastSheet._onItemCreate.call(this, ev, ev.currentTarget));
         }
 
-        // スタイル技能行のコンテキストメニュートリガー
-        for (const trigger of el.querySelectorAll(".style-skills-list .item-menu-trigger")) {
+        // 技能行のコンテキストメニュートリガー(縦三点リーダー)
+        for (const trigger of el.querySelectorAll(".item-menu-trigger")) {
             trigger.addEventListener("click", ev => {
                 ev.preventDefault();
                 ev.stopPropagation();
-                const row = ev.currentTarget.closest(".style-skill-row");
+                const row = ev.currentTarget.closest("[data-item-id]");
                 if (row) {
                     row.dispatchEvent(new MouseEvent("contextmenu", {
                         bubbles: true, cancelable: true, view: window,
@@ -230,7 +248,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             });
         }
 
-        // ProseMirror エディタのセットアップ (アイテムシートと同じパターン)
+        // ProseMirror エディタのセットアップ — 編集モード時のみ表示、トグルなし
         const ProseMirrorEl = customElements.get("prose-mirror");
         if (ProseMirrorEl) {
             for (const contentDiv of el.querySelectorAll(".editor-content[data-edit]")) {
@@ -241,20 +259,10 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
                     name: fieldName,
                     value: foundry.utils.getProperty(this.actor, fieldName) ?? "",
                     enriched: contentDiv.innerHTML,
-                    toggled: true,
+                    toggled: false,
                 });
                 pm.dataset.documentUuid = this.actor.uuid;
                 editorDiv.replaceWith(pm);
-                const section = pm.closest(".tnx-editor-section");
-                const sectionHeader = section?.querySelector(".tnx-editor-section__header");
-                if (sectionHeader) {
-                    const moveBtn = () => {
-                        const btn = pm.querySelector("button.toggle");
-                        if (btn) sectionHeader.appendChild(btn);
-                    };
-                    requestAnimationFrame(moveBtn);
-                    pm.addEventListener("close", () => requestAnimationFrame(moveBtn));
-                }
             }
         }
 
@@ -408,7 +416,20 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
         const dropArea = event.target.closest('[data-drop-area]')?.dataset.dropArea;
 
-        if (dropArea === "lifepath") return false;
+        const lifepathAreaMap = {
+            "lifepath-origin":     "origin",
+            "lifepath-experience": "experience",
+            "lifepath-encounter":  "encounter",
+        };
+        if (dropArea && lifepathAreaMap[dropArea]) {
+            const key = lifepathAreaMap[dropArea];
+            await this.actor.update({
+                [`system.lifePath.${key}.itemUuid`]: item.uuid ?? "",
+                [`system.lifePath.${key}.name`]:     item.name ?? "",
+                [`system.lifePath.${key}.summary`]:  "",
+            });
+            return;
+        }
 
         if (item.type === "style" && dropArea === "style") {
             const allStyles  = this.actor.items.filter(i => i.type === 'style');
@@ -493,9 +514,26 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     // ─── コンテキストメニュー ──────────────────────────────────────────────────
 
     _activateContextMenus(el) {
+        const getItemFromHeader = header => {
+            const itemId = header.dataset.itemId || header.closest('[data-item-id]')?.dataset.itemId;
+            return this.actor.items.get(itemId);
+        };
+
+        // 初期習得技能(初期技能カテゴリ・名乗りの初期分)の判定
+        const isInitialSkill = item =>
+            item?.type === 'generalSkill'
+            && (item.system.generalSkillCategory === 'initialSkill'
+                || item.system.onomasticSkill?.isInitial);
+
+        const openItemSheet = (header, editMode) => {
+            const item = getItemFromHeader(header);
+            if (!item) return;
+            item.sheet._isEditMode = editMode;
+            item.sheet.render({ force: true });
+        };
+
         const itemDeleteCallback = async header => {
-            const itemId = header.dataset.itemId;
-            const item   = this.actor.items.get(itemId);
+            const item = getItemFromHeader(header);
             if (!item) return;
 
             if (item.type === 'miracle') {
@@ -513,50 +551,57 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
                 return;
             }
 
-            await this.actor.deleteEmbeddedDocuments("Item", [itemId]);
+            await this.actor.deleteEmbeddedDocuments("Item", [item.id]);
         };
 
-        const itemContextMenu = [{
+        const viewOption = {
+            name:     "閲覧",
+            icon:     '<i class="fas fa-eye"></i>',
+            callback: header => openItemSheet(header, false)
+        };
+        const editOption = {
+            name:      "編集",
+            icon:      '<i class="fas fa-edit"></i>',
+            condition: () => this.isEditable,
+            callback:  header => openItemSheet(header, true)
+        };
+        const deleteOption = {
             name:      "削除",
             icon:      '<i class="fas fa-trash"></i>',
-            condition: () => this.isEditable,
+            condition: header => this.isEditable && !isInitialSkill(getItemFromHeader(header)),
             callback:  itemDeleteCallback
-        }];
+        };
+        const duplicateOption = {
+            name:      "複製",
+            icon:      '<i class="fas fa-copy"></i>',
+            condition: header => {
+                if (!this.isEditable) return false;
+                const item = getItemFromHeader(header);
+                return item?.system.generalSkillCategory !== 'initialSkill';
+            },
+            callback: async header => {
+                const item = getItemFromHeader(header);
+                if (!item) return;
+                const data = item.toObject();
+                delete data._id;
+                data.name = `${data.name}(コピー)`;
+                // 名乗り初期分の複製は通常の名乗り技能として扱う
+                if (foundry.utils.getProperty(data, "system.onomasticSkill.isInitial")) {
+                    foundry.utils.setProperty(data, "system.onomasticSkill.isInitial", false);
+                }
+                await this.actor.createEmbeddedDocuments("Item", [data]);
+            }
+        };
+
+        const baseItemMenu = [viewOption, editOption, deleteOption];
+        const skillMenu    = [viewOption, editOption, duplicateOption, deleteOption];
+
         const CM = foundry.applications.ux.ContextMenu.implementation;
 
-        new CM(el, '.item-button[data-context-menu="item-edit"]', itemContextMenu, { jQuery: false, fixed: true });
-
-        const miracleViewMenu = [
-            {
-                name:      "閲覧",
-                icon:      '<i class="fas fa-eye"></i>',
-                callback:  header => this.actor.items.get(header.dataset.itemId)?.sheet.render({ force: true })
-            },
-            {
-                name:      "削除",
-                icon:      '<i class="fas fa-trash"></i>',
-                condition: () => this.isEditable,
-                callback:  itemDeleteCallback
-            }
-        ];
-        new CM(el, '[data-context-menu="miracle-view"]', miracleViewMenu, { jQuery: false, fixed: true });
-
-        const styleSkillOptions = [
-            {
-                name: "編集",
-                icon: '<i class="fas fa-edit"></i>',
-                callback: header => {
-                    const itemId = header.dataset.itemId || header.closest('[data-item-id]')?.dataset.itemId;
-                    this.actor.items.get(itemId)?.sheet.render({ force: true });
-                }
-            },
-            {
-                name:     "削除",
-                icon:     '<i class="fas fa-trash"></i>',
-                callback: itemDeleteCallback
-            }
-        ];
-        new CM(el, ".style-skills-list .style-skill-row", styleSkillOptions, { jQuery: false, fixed: true });
+        new CM(el, '.item-button[data-context-menu="item-edit"]', baseItemMenu, { jQuery: false, fixed: true });
+        new CM(el, '[data-context-menu="miracle-view"]', baseItemMenu, { jQuery: false, fixed: true });
+        new CM(el, ".style-skills-list .style-skill-row", skillMenu, { jQuery: false, fixed: true });
+        new CM(el, ".skills-list-view .general-skill-display", skillMenu, { jQuery: false, fixed: true });
 
         // バッドステータス 閲覧モード: 左クリックでコンテキストメニュー
         const badStatusViewMenu = [{
@@ -786,6 +831,27 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         event.preventDefault();
         const itemId = target.dataset.itemId;
         this.actor.items.get(itemId)?.sheet.render({ force: true });
+    }
+
+    static async _onOpenLifepathItem(event, target) {
+        event.preventDefault();
+        const key = target.dataset.lifepathKey;
+        if (!key) return;
+        const uuid = this.actor.system.lifePath[key]?.itemUuid;
+        if (!uuid) return;
+        const item = await fromUuid(uuid);
+        item?.sheet?.render({ force: true });
+    }
+
+    static async _onRemoveLifepath(event, target) {
+        event.preventDefault();
+        const key = target.dataset.lifepathKey;
+        if (!key) return;
+        await this.actor.update({
+            [`system.lifePath.${key}.itemUuid`]: "",
+            [`system.lifePath.${key}.name`]:     "",
+            [`system.lifePath.${key}.summary`]:  "",
+        });
     }
 
     static async _onItemCreate(event, target) {

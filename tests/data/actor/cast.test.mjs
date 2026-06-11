@@ -94,19 +94,15 @@ describe("CastDataModel.defineSchema()", () => {
       expect(schema.lifePath).toBeInstanceOf(MockSchemaField);
     });
 
-    it("lifePath.origin が StringField で initial が空文字", () => {
-      expect(schema.lifePath.fields.origin).toBeInstanceOf(MockStringField);
-      expect(schema.lifePath.fields.origin.options.initial).toBe("");
-    });
-
-    it("lifePath.experience が StringField で initial が空文字", () => {
-      expect(schema.lifePath.fields.experience).toBeInstanceOf(MockStringField);
-      expect(schema.lifePath.fields.experience.options.initial).toBe("");
-    });
-
-    it("lifePath.encounter が StringField で initial が空文字", () => {
-      expect(schema.lifePath.fields.encounter).toBeInstanceOf(MockStringField);
-      expect(schema.lifePath.fields.encounter.options.initial).toBe("");
-    });
+    for (const slot of ["origin", "experience", "encounter"]) {
+      it(`lifePath.${slot} が SchemaField で itemUuid / name / summary を持つ`, () => {
+        const slotField = schema.lifePath.fields[slot];
+        expect(slotField).toBeInstanceOf(MockSchemaField);
+        for (const sub of ["itemUuid", "name", "summary"]) {
+          expect(slotField.fields[sub]).toBeInstanceOf(MockStringField);
+          expect(slotField.fields[sub].options.initial).toBe("");
+        }
+      });
+    }
   });
 });
