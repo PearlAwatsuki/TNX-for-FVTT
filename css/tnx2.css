@@ -3202,12 +3202,13 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 }
 
 /* row flex: 手札コンテンツ（collapsible）・切り札・ボタンを横並びにする。
-   ボタンは常に切り札の8px右に固定される。 */
+   gap ではなく margin-right を各要素に持たせる。
+   収納時に margin-right もゼロへ遷移させ、ボタンが浮かないようにする。 */
 .tnx-hud .hud-bottom-main {
     display: flex;
     flex-direction: row;
     align-items: flex-end;
-    gap: 8px;
+    gap: 0;
 }
 
 /* 手札エリアのみをラップするコラプス用コンテナ。 */
@@ -3216,7 +3217,8 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     overflow: hidden;
     min-width: 0;
     max-width: 540px;
-    transition: max-width 0.25s ease, opacity 0.25s ease;
+    margin-right: 8px;
+    transition: max-width 0.25s ease, opacity 0.25s ease, margin-right 0.25s ease;
 }
 
 .tnx-hud .hand-area {
@@ -3240,7 +3242,8 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     justify-content: center;
     overflow: hidden;
     max-width: 300px;
-    transition: max-width 0.25s ease, opacity 0.25s ease;
+    margin-right: 8px;
+    transition: max-width 0.25s ease, opacity 0.25s ease, margin-right 0.25s ease;
 }
 
 /* ── アクセスカードエリア ── */
@@ -3385,11 +3388,13 @@ body.tnx-bottom-hud-expanded #hotbar {
 }
 .tnx-hud .hud-bottom-bar.collapsed .hud-bottom-content {
     max-width: 0;
+    margin-right: 0;
     opacity: 0;
     pointer-events: none;
 }
 .tnx-hud .hud-bottom-bar.collapsed .trump-area {
     max-width: 0;
+    margin-right: 0;
     opacity: 0;
     pointer-events: none;
 }
