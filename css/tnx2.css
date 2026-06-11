@@ -3087,6 +3087,10 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     min-height: 0; /* grid の 1fr セル内スクロールに必要 */
 }
 
+.tnx-hud .player-hands-area > .card-slot-label {
+    align-self: flex-start; /* ラベルをコンテンツ幅に収める(親幅まで伸ばさない) */
+}
+
 .tnx-hud .player-hands-scroll {
     display: flex;
     flex-direction: column;
@@ -3126,7 +3130,8 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 }
 
 .tnx-hud .player-hand-card-img {
-    width: 30px;
+    /* 4枚ちょうどで1行。gap:3px×3本=9px、calc(25% - 3px)で4枚=97%→収まる、5枚目は折り返し */
+    width: calc(25% - 3px);
     border-radius: 2px;
     display: block;
 }

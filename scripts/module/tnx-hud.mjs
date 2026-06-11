@@ -92,7 +92,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
         }
 
         // --- プレイヤー手札（GM=全員 / Player=自分以外。手札未設定ユーザーは除外）---
-        const allUsersWithHand = game.users.filter(u => u.active && getUserFlagData(u).handPileId);
+        const allUsersWithHand = game.users.filter(u => u.active && !u.isGM && getUserFlagData(u).handPileId);
         const handTargets = game.user.isGM
             ? allUsersWithHand
             : allUsersWithHand.filter(u => u.id !== game.user.id);
