@@ -3023,17 +3023,24 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     z-index: 50;
 }
 
+/* コンテナ自体はクリックを透過させ、子要素(パネル・ボタン)のみ受け付ける。
+   収納時に visibility: hidden の子がキャンバス操作を妨げないようにするため。 */
 .tnx-hud .hud-container {
     position: absolute;
+    pointer-events: none;
+}
+
+.tnx-hud .hud-container > * {
     pointer-events: auto;
 }
 
 .tnx-hud .hud-right-column {
-    top: 50px;
-    bottom: 80px;
+    top: 17px;
+    bottom: 15px;
     right: var(--tnx-right-offset, 370px);
     display: grid;
-    grid-template-rows: auto 1fr 1fr auto;
+    /* 先頭行 = 収納/展開ボタン */
+    grid-template-rows: auto auto 1fr 1fr auto;
     gap: 8px;
 }
 
@@ -3099,9 +3106,18 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 }
 
 
+/* プレイヤーリストの右側(間5px)・画面下端に配置。
+   リストは上方向に伸び、バーはその右に並ぶため、人数が増えても干渉しない。 */
 .tnx-hud .hud-bottom-bar {
-    bottom: var(--tnx-players-height, 80px);
-    left: 17px;
+    bottom: 15px;
+    left: 222px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+}
+
+.tnx-hud .hud-bottom-row {
     display: flex;
     gap: 5px;
     align-items: flex-end;
@@ -3128,6 +3144,62 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     justify-content: center;
 }
 
+/* ── アクセスカードエリア ── */
+.tnx-hud .access-area {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 6px 8px;
+}
+
+.tnx-hud .access-area-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.tnx-hud .access-fold-icon {
+    font-size: 0.7em;
+    color: var(--tnx2-text-secondary);
+    transition: transform 0.25s ease;
+}
+.tnx-hud .access-area.collapsed .access-fold-icon {
+    transform: rotate(-90deg);
+}
+
+.tnx-hud .access-cards-row {
+    display: flex;
+    gap: 4px;
+    align-items: flex-end;
+    /* overflow: hidden の内側にホバー浮き上がり(-3px)分の逃げ場を確保する */
+    margin-top: 2px;
+    padding-top: 4px;
+    max-height: 110px;
+    overflow: hidden;
+    transition: max-height 0.25s ease, opacity 0.25s ease, margin-top 0.25s ease, padding-top 0.25s ease;
+}
+.tnx-hud .access-area.collapsed .access-cards-row {
+    max-height: 0;
+    opacity: 0;
+    margin-top: 0;
+    padding-top: 0;
+}
+
+.tnx-hud .access-card {
+    width: 56px;
+    flex: 0 0 auto;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+.tnx-hud .access-card:hover {
+    transform: translateY(-3px);
+}
+.tnx-hud .access-card img {
+    display: block;
+    width: 100%;
+    border-radius: 4px;
+}
+
 .tnx-hud .card-empty-placeholder {
     display: flex;
     align-items: center;
@@ -3135,6 +3207,76 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     color: var(--tnx2-text-muted);
     width: 100px;
     height: 150px;
+}
+
+/* ── HUD カラム折りたたみ ── */
+.tnx-hud .hud-collapse-toggle {
+    width: 26px;
+    height: 26px;
+    flex: 0 0 auto;
+    padding: 0;
+    background: rgba(0,0,0,0.6);
+    border: 1px solid #555;
+    border-radius: 4px;
+    color: var(--tnx2-text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7em;
+    line-height: 1;
+    transition: background 0.15s, color 0.15s;
+}
+.tnx-hud .hud-collapse-toggle:hover {
+    background: rgba(0, 200, 224, 0.2);
+    color: var(--tnx2-text-accent);
+    border-color: var(--tnx2-accent-dim);
+}
+
+/* 右カラム: グリッド先頭行の右端 */
+.tnx-hud .hud-collapse-right {
+    justify-self: end;
+}
+
+/* 下バー: ホットバーと排他表示。
+   展開時 = ホットバー非表示。ボタンはカラム右下(切り札エリアの右横・間5px)に左向き。
+   収納時 = ホットバー表示。ボタンはプレイヤーリストの右側(間5px)に右向き。 */
+.tnx-hud .hud-collapse-bottom {
+    position: absolute;
+    right: -31px;
+    bottom: 0;
+}
+.tnx-hud .hud-bottom-bar.collapsed .hud-collapse-bottom {
+    /* バー左端 = プレイヤーリスト右側 5px の位置に揃える */
+    left: 0;
+    right: auto;
+}
+
+/* 下バー展開時はコアのホットバーを退避させる(収納で復帰) */
+#hotbar {
+    transition: transform 0.25s ease, opacity 0.25s ease;
+}
+body.tnx-bottom-hud-expanded #hotbar {
+    transform: translateY(150%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* 収納/展開アニメーション: コンテンツをスライド + フェード。
+   visibility は遷移終了まで visible のまま保たれ、終了時に hidden になる。 */
+.tnx-hud .hud-right-column > *:not(.hud-collapse-toggle),
+.tnx-hud .hud-bottom-bar  > *:not(.hud-collapse-toggle) {
+    transition: transform 0.25s ease, opacity 0.25s ease, visibility 0.25s;
+}
+.tnx-hud .hud-right-column.collapsed > *:not(.hud-collapse-toggle) {
+    transform: translateX(40px);
+    opacity: 0;
+    visibility: hidden;
+}
+.tnx-hud .hud-bottom-bar.collapsed > *:not(.hud-collapse-toggle) {
+    transform: translateY(40px);
+    opacity: 0;
+    visibility: hidden;
 }
 
 .tnx-hud .card-empty-placeholder i { font-size: 2.5em; }

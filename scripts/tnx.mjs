@@ -385,6 +385,12 @@ Hooks.once("init", async function() {
     game.settings.register("tokyo-nova-axleration", "accessCardPileId", { ..._cardIdSetting });
     game.settings.register("tokyo-nova-axleration", "gmTrumpDiscardId", { ..._cardIdSetting });
 
+    // HUD UI 状態（クライアントローカル）
+    const _hudUiSetting = { scope: "client", config: false, type: Boolean, default: false };
+    game.settings.register("tokyo-nova-axleration", "hudRightCollapsed",  { ..._hudUiSetting });
+    game.settings.register("tokyo-nova-axleration", "hudBottomCollapsed", { ..._hudUiSetting });
+    game.settings.register("tokyo-nova-axleration", "hudAccessCollapsed", { ..._hudUiSetting, default: true });
+
     game.settings.registerMenu("tokyo-nova-axleration", "cardSetup", {
         name: "カードをセットアップ",
         label: "カードの設定を開く",
@@ -658,6 +664,17 @@ Hooks.once("ready", async function() {
     game.tnx = game.tnx || {}
     game.tnx.hud = new TnxHud();
     game.tnx.hud.render({ force: true });
+
+    // アクセスカード提示の受信(GM 権限に依存しないシステム独自ソケット)
+    game.socket.on("system.tokyo-nova-axleration", (data) => {
+        if (data?.type === "presentAccessCard") {
+            new foundry.applications.apps.ImagePopout({
+                src: data.src,
+                window: { title: data.title },
+            }).render(true);
+        }
+    });
+
     Hooks.on("renderPlayerList", () => {
         if (!TnxHud._playerListObserver) {
             TnxHud._setupPlayerListObserver();

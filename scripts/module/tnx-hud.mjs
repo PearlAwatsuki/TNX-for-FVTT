@@ -18,6 +18,9 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
             drawNeuro:       TnxHud._onDrawNeuro,
             takeFromDiscard: TnxHud._onTakeFromDiscard,
             useTrump:        TnxHud._onUseTrump,
+            toggleHudColumn:   TnxHud._onToggleHudColumn,
+            toggleAccessArea:  TnxHud._onToggleAccessArea,
+            presentAccessCard: TnxHud._onPresentAccessCard,
         },
     };
 
@@ -80,6 +83,13 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
             }
         }
 
+        // --- アクセスカード（全ユーザーに表示。pile 未設定・空のときはエリアごと非表示）---
+        const accessCardPileId = game.settings.get("tokyo-nova-axleration", "accessCardPileId");
+        const accessPile = await fromUuid(accessCardPileId);
+        if (accessPile && accessPile.cards.size > 0) {
+            context.accessCards = accessPile.cards.contents;
+        }
+
         return context;
     }
 
@@ -90,6 +100,21 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
         this._setupCardDragGhost(this.element);
         TnxHud._setupRightOffsetObserver();
         TnxHud._setupPlayerListObserver();
+        this._restoreCollapseState();
+    }
+
+    _restoreCollapseState() {
+        const rightCollapsed  = game.settings.get("tokyo-nova-axleration", "hudRightCollapsed");
+        const bottomCollapsed = game.settings.get("tokyo-nova-axleration", "hudBottomCollapsed");
+        const accessCollapsed = game.settings.get("tokyo-nova-axleration", "hudAccessCollapsed");
+        const right  = this.element.querySelector(".hud-right-column");
+        const bottom = this.element.querySelector(".hud-bottom-bar");
+        const access = this.element.querySelector(".access-area");
+        if (right  && rightCollapsed)  right.classList.add("collapsed");
+        if (bottom && bottomCollapsed) bottom.classList.add("collapsed");
+        if (access && accessCollapsed) access.classList.add("collapsed");
+        TnxHud._syncHotbarVisibility(!bottomCollapsed);
+        TnxHud._updateCollapseIcons(this.element);
     }
 
     // ─── サイドバー幅連動 ─────────────────────────────────────────────────────
@@ -121,7 +146,17 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
             );
         };
 
-        TnxHud._rightOffsetObserver = new MutationObserver(() => setTimeout(apply, 280));
+        // サイドバーの CSS 遷移(250ms)中は毎フレーム再測定し、HUD を連続的に追従させる
+        const follow = () => {
+            const start = performance.now();
+            const step = () => {
+                apply();
+                if (performance.now() - start < 400) requestAnimationFrame(step);
+            };
+            step();
+        };
+
+        TnxHud._rightOffsetObserver = new MutationObserver(follow);
         TnxHud._rightOffsetObserver.observe(content, { attributes: true, attributeFilter: ["class"] });
         // チャット通知モードの切替時にも再計算する
         Hooks.on("renderChatInput", apply);
@@ -138,21 +173,11 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
         const el = document.querySelector("#player-list") ?? document.querySelector("#players");
         if (!el) return;
 
-        // 初回測定値を「折りたたみ時のベースライン」として記録する
-        const collapsedFromBottom = window.innerHeight - el.getBoundingClientRect().top;
-
         TnxHud._playerListUpdate = () => {
-            const fromBottom = window.innerHeight - el.getBoundingClientRect().top;
-            const growth = fromBottom - collapsedFromBottom;
-            if (growth > 8) {
-                // 展開時: リスト上端 + 8px の位置にスライド
-                document.documentElement.style.setProperty(
-                    "--tnx-players-height", `${fromBottom + 8}px`
-                );
-            } else {
-                // 折りたたみ時: 変数を削除して CSS デフォルト (80px) に戻す
-                document.documentElement.style.removeProperty("--tnx-players-height");
-            }
+            // 下バーはプレイヤーリストの右隣に配置するため、リストの右端を公開する。
+            // 名前の長さ・人数の増減で幅が変わっても ResizeObserver 経由で追従する。
+            const rect = el.getBoundingClientRect();
+            document.documentElement.style.setProperty("--tnx-players-right", `${rect.right}px`);
         };
 
         TnxHud._playerListObserver = new ResizeObserver(TnxHud._playerListUpdate);
@@ -406,5 +431,87 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
         const cardId = target.dataset.cardId;
         if (!cardId) return;
         await TnxActionHandler.useTrump(cardId);
+    }
+
+    static _onToggleAccessArea(event, target) {
+        event.preventDefault();
+        const area = target.closest(".access-area");
+        if (!area) return;
+        const nowCollapsed = area.classList.toggle("collapsed");
+        game.settings.set("tokyo-nova-axleration", "hudAccessCollapsed", nowCollapsed);
+    }
+
+    /**
+     * アクセスカードを全接続ユーザーに提示する。カードは pile から移動させない。
+     * GM 権限に依存しないよう、コアの shareImage ではなくシステム独自ソケットで配信する。
+     * 受信側の表示処理は tnx.mjs の ready フックで登録している。
+     */
+    static async _onPresentAccessCard(event, target) {
+        event.preventDefault();
+        const cardId = target.dataset.cardId;
+        if (!cardId) return;
+
+        const accessPile = await fromUuid(game.settings.get("tokyo-nova-axleration", "accessCardPileId"));
+        const card = accessPile?.cards.get(cardId);
+        if (!card) return ui.notifications.warn("アクセスカードが見つかりませんでした。");
+
+        // emit は自分のクライアントには届かないため、自分の分は直接表示する
+        new foundry.applications.apps.ImagePopout({
+            src: card.img,
+            window: { title: card.name },
+        }).render(true);
+        game.socket.emit("system.tokyo-nova-axleration", {
+            type: "presentAccessCard",
+            src: card.img,
+            title: card.name,
+        });
+    }
+
+    static _onToggleHudColumn(event, target) {
+        event.preventDefault();
+        const column = target.dataset.column;
+        if (!column) return;
+
+        const settingKey = column === "right" ? "hudRightCollapsed" : "hudBottomCollapsed";
+        const selector   = column === "right" ? ".hud-right-column" : ".hud-bottom-bar";
+        const container  = target.closest(selector) ?? target.closest(".tnx-hud")?.querySelector(selector);
+        if (!container) return;
+
+        const nowCollapsed = container.classList.toggle("collapsed");
+        game.settings.set("tokyo-nova-axleration", settingKey, nowCollapsed);
+
+        if (column === "bottom") TnxHud._syncHotbarVisibility(!nowCollapsed);
+
+        const hud = target.closest(".tnx-hud");
+        if (hud) TnxHud._updateCollapseIcons(hud);
+    }
+
+    /**
+     * 下バーとコアのホットバーは排他表示。
+     * 下バー展開中はホットバーを退避させ、収納したら復帰させる(CSS は tnx2.css 参照)。
+     */
+    static _syncHotbarVisibility(hudExpanded) {
+        document.body.classList.toggle("tnx-bottom-hud-expanded", hudExpanded);
+    }
+
+    static _updateCollapseIcons(hudEl) {
+        const right  = hudEl.querySelector(".hud-right-column");
+        const bottom = hudEl.querySelector(".hud-bottom-bar");
+
+        if (right) {
+            const icon = right.querySelector(".hud-collapse-right i");
+            if (icon) {
+                icon.classList.toggle("fa-chevron-right", !right.classList.contains("collapsed"));
+                icon.classList.toggle("fa-chevron-left",   right.classList.contains("collapsed"));
+            }
+        }
+        if (bottom) {
+            // 展開時: 左向き(収納方向) / 収納時: 右向き(展開方向)
+            const icon = bottom.querySelector(".hud-collapse-bottom i");
+            if (icon) {
+                icon.classList.toggle("fa-chevron-left",  !bottom.classList.contains("collapsed"));
+                icon.classList.toggle("fa-chevron-right",  bottom.classList.contains("collapsed"));
+            }
+        }
     }
 }

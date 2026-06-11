@@ -1,5 +1,8 @@
 <div class="tnx-hud">
     <div class="hud-container hud-right-column">
+        <button class="hud-collapse-toggle hud-collapse-right" data-action="toggleHudColumn" data-column="right" title="右カラムを折りたたむ">
+            <i class="fas fa-chevron-right"></i>
+        </button>
         <div class="main-area neuro-area">
             <span class="card-slot-label">シーンカード</span>
             <div class="neuro-cards-row">
@@ -70,35 +73,57 @@
     </div>
 
     <div class="hud-container hud-bottom-bar">
-        <div class="hand-area hud-panel" data-drop-zone="hand">
-            <span class="card-slot-label">手札</span>
-            <div class="hand-cards-row">
-                {{#if (and hand hand.cards.size)}}
-                    {{#each hand.cards as |card|}}
-                        <div class="card-in-hand" data-action="playCard" data-card-id="{{card.id}}" title="{{card.name}} (クリックでプレイ)" draggable="true" data-drag-type="hand-card">
-                            <img src="{{card.img}}" alt="{{card.name}}">
-                        </div>
-                    {{/each}}
-                {{else}}
-                    <div class="card-empty-placeholder" title="手札">
-                        <i class="fas fa-hand-paper"></i>
+        <button class="hud-collapse-toggle hud-collapse-bottom" data-action="toggleHudColumn" data-column="bottom" title="HUD / ホットバーを切り替え">
+            <i class="fas fa-chevron-left"></i>
+        </button>
+
+        {{#if accessCards}}
+        <div class="access-area hud-panel">
+            <div class="access-area-header" data-action="toggleAccessArea" title="アクセスカードの表示を開閉">
+                <i class="fas fa-chevron-down access-fold-icon"></i>
+                <span class="card-slot-label">アクセスカード</span>
+            </div>
+            <div class="access-cards-row">
+                {{#each accessCards as |card|}}
+                    <div class="access-card" data-action="presentAccessCard" data-card-id="{{card.id}}" title="{{card.name}} (クリックで全員に提示)">
+                        <img src="{{card.img}}" alt="{{card.name}}">
                     </div>
-                {{/if}}
+                {{/each}}
             </div>
         </div>
+        {{/if}}
 
-        <div class="trump-area hud-panel">
-            <div class="card-slot">
-                <span class="card-slot-label">切り札</span>
-                {{#if trumpCard}}
-                    <div class="card-in-hand" data-action="useTrump" data-card-id="{{trumpCard.id}}" title="{{trumpCard.name}} (クリックで使用)" draggable="true" data-drag-type="trump-card">
-                        <img src="{{trumpCard.img}}" alt="{{trumpCard.name}}">
-                    </div>
-                {{else}}
-                    <div class="card-empty-placeholder" title="切り札">
-                        <i class="fas fa-star"></i>
-                    </div>
-                {{/if}}
+        <div class="hud-bottom-row">
+            <div class="hand-area hud-panel" data-drop-zone="hand">
+                <span class="card-slot-label">手札</span>
+                <div class="hand-cards-row">
+                    {{#if (and hand hand.cards.size)}}
+                        {{#each hand.cards as |card|}}
+                            <div class="card-in-hand" data-action="playCard" data-card-id="{{card.id}}" title="{{card.name}} (クリックでプレイ)" draggable="true" data-drag-type="hand-card">
+                                <img src="{{card.img}}" alt="{{card.name}}">
+                            </div>
+                        {{/each}}
+                    {{else}}
+                        <div class="card-empty-placeholder" title="手札">
+                            <i class="fas fa-hand-paper"></i>
+                        </div>
+                    {{/if}}
+                </div>
+            </div>
+
+            <div class="trump-area hud-panel">
+                <div class="card-slot">
+                    <span class="card-slot-label">切り札</span>
+                    {{#if trumpCard}}
+                        <div class="card-in-hand" data-action="useTrump" data-card-id="{{trumpCard.id}}" title="{{trumpCard.name}} (クリックで使用)" draggable="true" data-drag-type="trump-card">
+                            <img src="{{trumpCard.img}}" alt="{{trumpCard.name}}">
+                        </div>
+                    {{else}}
+                        <div class="card-empty-placeholder" title="切り札">
+                            <i class="fas fa-star"></i>
+                        </div>
+                    {{/if}}
+                </div>
             </div>
         </div>
     </div>
