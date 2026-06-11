@@ -3038,6 +3038,10 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     top: 17px;
     bottom: 15px;
     right: var(--tnx-right-offset, 370px);
+    /* 幅を明示しないと absolute の shrink-to-fit が max-content で確定し、
+       wrap 前提のフレックス子(プレイヤー手札)がカラムごと押し広げてしまう。
+       基準はニューロ/デッキパネル幅 (カード100px×2 + gap 8px + padding 16px)。 */
+    width: 224px;
     display: grid;
     /* 先頭行 = 収納/展開ボタン */
     grid-template-rows: auto auto 1fr 1fr auto;
