@@ -3099,9 +3099,22 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     display: flex;
     flex-direction: column;
     gap: 4px;
-    overflow-y: overlay; /* Chromium(Electron)専用: バーをコンテンツ上に重ねて幅を消費しない */
+    overflow-y: auto;
     flex: 1;
     min-height: 0;
+    /* スクロールバーはパネルの右パディング(8px)内に置き、コンテンツ幅を消費させない。
+       バー非表示時は padding-right がその領域を埋めるため、行幅は常に一定。 */
+    margin-right: -7px;
+    padding-right: 7px;
+}
+
+.tnx-hud .player-hands-scroll::-webkit-scrollbar {
+    width: 6px;
+}
+
+.tnx-hud .player-hands-scroll::-webkit-scrollbar-thumb {
+    background: rgba(0, 200, 224, 0.3);
+    border-radius: 3px;
 }
 
 .tnx-hud .player-hand-row {
