@@ -1146,10 +1146,10 @@
 .tokyo-nova.sheet.actor .bounty-edit-row {
     display: flex;
     align-items: baseline;
-    gap: 8px;
+    gap: 10px;
 }
 .tokyo-nova.sheet.actor .bounty-section-label {
-    font-size: 0.95em;
+    font-size: 1em;
     color: var(--tnx2-text-muted);
     white-space: nowrap;
     flex: 0 0 auto;
@@ -1165,30 +1165,39 @@
     color: var(--tnx2-text-muted);
 }
 .tokyo-nova.sheet.actor .bounty-field input {
-    width: 60px;
+    width: 64px;
     text-align: center;
-    font-size: 1em;
+    font-size: 1.15em;
+}
+/* 初期値（読み取り専用）: 枠なし・ミュート色で編集不可を明示 */
+.tokyo-nova.sheet.actor .bounty-field input:disabled {
+    border: none;
+    background: transparent;
+    color: var(--tnx2-text-muted);
+    box-shadow: none;
+    cursor: default;
+    opacity: 1;
 }
 .tokyo-nova.sheet.actor .bounty-separator {
-    font-size: 1.1em;
+    font-size: 1.2em;
     color: var(--tnx2-text-muted);
-    padding-top: 1.2em;
+    padding-top: 1.3em;
 }
 
 /* 閲覧モード: ラベル + 合計値 */
 .tokyo-nova.sheet.actor .bounty-view-row {
     display: flex;
     align-items: baseline;
-    gap: 8px;
+    gap: 10px;
 }
 .tokyo-nova.sheet.actor .bounty-view-row label {
-    font-size: 0.95em;
+    font-size: 1em;
     color: var(--tnx2-text-muted);
     flex: 0 0 auto;
 }
 .tokyo-nova.sheet.actor .bounty-total {
     font-family: var(--tnx2-font-mono);
-    font-size: 1.3em;
+    font-size: 1.5em;
 }
 
 /* ── ヘッダー: STYLE / ID / WORKS 英語ラベル (閲覧モード) ─────────── */
