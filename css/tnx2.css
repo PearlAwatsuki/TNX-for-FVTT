@@ -1145,7 +1145,7 @@
 /* 編集モード: 報酬点ラベル + 初期値 + 修正値 */
 .tokyo-nova.sheet.actor .bounty-edit-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 10px;
 }
 .tokyo-nova.sheet.actor .bounty-section-label {
@@ -1153,6 +1153,7 @@
     color: var(--tnx2-text-secondary);
     white-space: nowrap;
     flex: 0 0 auto;
+    padding-top: calc(0.82em + 4px);
 }
 .tokyo-nova.sheet.actor .bounty-field {
     display: flex;
@@ -1180,13 +1181,14 @@
 .tokyo-nova.sheet.actor .bounty-separator {
     font-size: 1.2em;
     color: var(--tnx2-text-muted);
+    padding-top: calc(0.82em + 4px);
 }
 
 /* 閲覧モード: ラベル + 合計値 */
 .tokyo-nova.sheet.actor .bounty-view-row {
     display: flex;
     align-items: baselines;
-    gap: 80px;
+    gap: 50px;
 }
 .tokyo-nova.sheet.actor .bounty-view-row label {
     font-size: 1.2em;
