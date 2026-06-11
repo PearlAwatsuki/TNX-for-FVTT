@@ -3130,8 +3130,8 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 }
 
 .tnx-hud .player-hand-card-img {
-    /* 4枚ちょうどで1行。gap:3px×3本=9px、calc(25% - 3px)で4枚=97%→収まる、5枚目は折り返し */
-    width: calc(25% - 3px);
+    width: 46px;
+    flex-shrink: 0;
     border-radius: 2px;
     display: block;
 }
