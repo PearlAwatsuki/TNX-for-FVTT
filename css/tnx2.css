@@ -3190,32 +3190,33 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 }
 
 
-/* 画面左下(left:222px)に配置。row方向 flex: コンテンツが左、ボタンが右端。
-   コンテンツの max-width トランジションで水平コラプスアニメーションを実現する。 */
+/* 画面左下(left:222px)に配置。column flex: アクセスエリアが上、hud-bottom-mainが下。
+   align-items: flex-start により各子要素は自身のコンテンツ幅のみを使用する。 */
 .tnx-hud .hud-bottom-bar {
     bottom: 15px;
     left: 222px;
     display: flex;
-    flex-direction: row;
-    align-items: flex-end;
+    flex-direction: column;
+    align-items: flex-start;
     gap: 0;
 }
 
-.tnx-hud .hud-bottom-content {
+/* row flex: 手札コンテンツ（collapsible）・切り札・ボタンを横並びにする。
+   ボタンは常に切り札の8px右に固定される。 */
+.tnx-hud .hud-bottom-main {
     display: flex;
-    flex-direction: column;
-    gap: 5px;
-    overflow: hidden;
-    min-width: 0;
-    max-width: 700px;
-    margin-right: 5px;
-    transition: max-width 0.25s ease, opacity 0.25s ease, margin-right 0.25s ease;
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 8px;
 }
 
-.tnx-hud .hud-bottom-row {
+/* 手札エリアのみをラップするコラプス用コンテナ。 */
+.tnx-hud .hud-bottom-content {
     display: flex;
-    gap: 5px;
-    align-items: flex-end;
+    overflow: hidden;
+    min-width: 0;
+    max-width: 540px;
+    transition: max-width 0.25s ease, opacity 0.25s ease;
 }
 
 .tnx-hud .hand-area {
@@ -3237,6 +3238,9 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     height: auto;
     align-items: center;
     justify-content: center;
+    overflow: hidden;
+    max-width: 300px;
+    transition: max-width 0.25s ease, opacity 0.25s ease;
 }
 
 /* ── アクセスカードエリア ── */
@@ -3244,6 +3248,15 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     flex-direction: column;
     align-items: stretch;
     padding: 6px 8px;
+    margin-bottom: 5px;
+    max-height: 300px;
+    overflow: hidden;
+    transition: max-height 0.25s ease, opacity 0.25s ease, margin-bottom 0.25s ease;
+}
+
+/* アコーディオン折りたたみ時: ラベル幅のみに縮小 */
+.tnx-hud .access-area.collapsed {
+    align-self: flex-start;
 }
 
 .tnx-hud .access-area-header {
@@ -3270,11 +3283,14 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     margin-top: 2px;
     padding-top: 4px;
     max-height: 110px;
+    max-width: 1000px;
     overflow: hidden;
-    transition: max-height 0.25s ease, opacity 0.25s ease, margin-top 0.25s ease, padding-top 0.25s ease;
+    transition: max-height 0.25s ease, max-width 0.25s ease, opacity 0.25s ease, margin-top 0.25s ease, padding-top 0.25s ease;
 }
+/* アコーディオン折りたたみ時: 高さ・幅ともにゼロへ → エリアがラベル幅のみに縮小 */
 .tnx-hud .access-area.collapsed .access-cards-row {
     max-height: 0;
+    max-width: 0;
     opacity: 0;
     margin-top: 0;
     padding-top: 0;
@@ -3359,11 +3375,22 @@ body.tnx-bottom-hud-expanded #hotbar {
     visibility: hidden;
 }
 
-/* 下バーは hud-bottom-content を max-width: 0 で水平コラプス。 */
+/* 下バー全体収納: アクセスエリア・手札コンテンツ・切り札をそれぞれ非表示へ。
+   ボタン(.hud-collapse-bottom)は hud-bottom-main 内で対象外のため常に表示される。 */
+.tnx-hud .hud-bottom-bar.collapsed .access-area {
+    max-height: 0;
+    opacity: 0;
+    margin-bottom: 0;
+    pointer-events: none;
+}
 .tnx-hud .hud-bottom-bar.collapsed .hud-bottom-content {
     max-width: 0;
     opacity: 0;
-    margin-right: 0;
+    pointer-events: none;
+}
+.tnx-hud .hud-bottom-bar.collapsed .trump-area {
+    max-width: 0;
+    opacity: 0;
     pointer-events: none;
 }
 

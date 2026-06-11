@@ -95,24 +95,24 @@
     </div>
 
     <div class="hud-container hud-bottom-bar">
-        <div class="hud-bottom-content">
-            {{#if accessCards}}
-            <div class="access-area hud-panel">
-                <div class="access-area-header" data-action="toggleAccessArea" title="アクセスカードの表示を開閉">
-                    <i class="fas fa-chevron-down access-fold-icon"></i>
-                    <span class="card-slot-label">アクセスカード</span>
-                </div>
-                <div class="access-cards-row">
-                    {{#each accessCards as |card|}}
-                        <div class="access-card" data-action="presentAccessCard" data-card-id="{{card.id}}" title="{{card.name}} (クリックで全員に提示)">
-                            <img src="{{card.img}}" alt="{{card.name}}">
-                        </div>
-                    {{/each}}
-                </div>
+        {{#if accessCards}}
+        <div class="access-area hud-panel">
+            <div class="access-area-header" data-action="toggleAccessArea" title="アクセスカードの表示を開閉">
+                <i class="fas fa-chevron-down access-fold-icon"></i>
+                <span class="card-slot-label">アクセスカード</span>
             </div>
-            {{/if}}
+            <div class="access-cards-row">
+                {{#each accessCards as |card|}}
+                    <div class="access-card" data-action="presentAccessCard" data-card-id="{{card.id}}" title="{{card.name}} (クリックで全員に提示)">
+                        <img src="{{card.img}}" alt="{{card.name}}">
+                    </div>
+                {{/each}}
+            </div>
+        </div>
+        {{/if}}
 
-            <div class="hud-bottom-row">
+        <div class="hud-bottom-main">
+            <div class="hud-bottom-content">
                 <div class="hand-area hud-panel" data-drop-zone="hand">
                     <span class="card-slot-label">手札</span>
                     <div class="hand-cards-row">
@@ -129,26 +129,26 @@
                         {{/if}}
                     </div>
                 </div>
+            </div>
 
-                <div class="trump-area hud-panel">
-                    <div class="card-slot">
-                        <span class="card-slot-label">切り札</span>
-                        {{#if trumpCard}}
-                            <div class="card-in-hand" data-action="useTrump" data-card-id="{{trumpCard.id}}" title="{{trumpCard.name}} (クリックで使用)" draggable="true" data-drag-type="trump-card">
-                                <img src="{{trumpCard.img}}" alt="{{trumpCard.name}}">
-                            </div>
-                        {{else}}
-                            <div class="card-empty-placeholder" title="切り札">
-                                <i class="fas fa-star"></i>
-                            </div>
-                        {{/if}}
-                    </div>
+            <div class="trump-area hud-panel">
+                <div class="card-slot">
+                    <span class="card-slot-label">切り札</span>
+                    {{#if trumpCard}}
+                        <div class="card-in-hand" data-action="useTrump" data-card-id="{{trumpCard.id}}" title="{{trumpCard.name}} (クリックで使用)" draggable="true" data-drag-type="trump-card">
+                            <img src="{{trumpCard.img}}" alt="{{trumpCard.name}}">
+                        </div>
+                    {{else}}
+                        <div class="card-empty-placeholder" title="切り札">
+                            <i class="fas fa-star"></i>
+                        </div>
+                    {{/if}}
                 </div>
             </div>
-        </div>
 
-        <button class="hud-collapse-toggle hud-collapse-bottom" data-action="toggleHudColumn" data-column="bottom" title="HUD / ホットバーを切り替え">
-            <i class="fas fa-chevron-left"></i>
-        </button>
+            <button class="hud-collapse-toggle hud-collapse-bottom" data-action="toggleHudColumn" data-column="bottom" title="HUD / ホットバーを切り替え">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+        </div>
     </div>
 </div>
