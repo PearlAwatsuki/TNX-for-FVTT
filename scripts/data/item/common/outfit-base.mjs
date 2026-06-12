@@ -14,8 +14,11 @@
  * - preserveExp(常備化経験点)/ appearancePenalty(危険値)は必ず数値が入るため NumberField。
  * - majorCategory / minorCategory は choices 付き StringField(outfit-categories.mjs が正本)。
  *   未選択を許すため blank: true。
- * - hack / part / timing / exclusive は引き続き StringField(初期値 "-")。
- *   形式の確定は実装サブフェーズ着手時に行う(Phase_6_Tasks_Detail.md 残課題)。
+ * - hack(電脳制御値)は「なし / 数値」の 2 状態のため nullable NumberField(null = なし)。
+ * - timing はスタイル技能と共通の選択肢・構造(フェーズ6-1 でユーザー確定)。
+ *   {value, actionName, processName, timingOther} の配列で、選択肢マップは
+ *   TnxSkillUtils.getSkillOptions()(timing / actions / processes)を共用する。
+ * - part / exclusive は自由記述の StringField(空欄はシート閲覧時に "-" 表示)。
  * - "isPre-play" はハイフンを含むため JavaScript の識別子として使えない。
  *   defineSchema の戻り値オブジェクトでは文字列キーとして定義し、
  *   アクセス時は system["isPre-play"] 記法を使う。
@@ -68,10 +71,17 @@ export class OutfitBaseTemplate extends SystemDataModel {
       preserveExp:       new fields.NumberField({ initial: 0 }),
       hide:              threeStateValueField(),
       appearancePenalty: new fields.NumberField({ initial: 0 }),
-      hack:              new fields.StringField({ initial: "-" }),
-      part:              new fields.StringField({ initial: "-" }),
-      timing:            new fields.StringField({ initial: "-" }),
-      exclusive:         new fields.StringField({ initial: "-" }),
+      hack:              new fields.NumberField({ nullable: true, initial: null }),
+      part:              new fields.StringField({ initial: "" }),
+      timing: new fields.ArrayField(
+        new fields.SchemaField({
+          value:       new fields.StringField({ initial: "blank" }),
+          actionName:  new fields.StringField({ initial: "blank" }),
+          processName: new fields.StringField({ initial: "blank" }),
+          timingOther: new fields.StringField({ initial: "" }),
+        })
+      ),
+      exclusive:         new fields.StringField({ initial: "" }),
       uses: new fields.SchemaField({
         isLimit: new fields.BooleanField({ initial: false }),
         max:     new fields.NumberField({ initial: 0 }),

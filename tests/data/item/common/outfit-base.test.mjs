@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MockBooleanField, MockStringField, MockNumberField, MockSchemaField } from "../../../setup.mjs";
+import { MockBooleanField, MockStringField, MockNumberField, MockSchemaField, MockArrayField } from "../../../setup.mjs";
 
 const { OutfitBaseTemplate } = await import("../../../../scripts/data/item/common/outfit-base.mjs");
 const { getMajorCategoryChoices, getMinorCategoryChoices } =
@@ -32,14 +32,38 @@ describe("OutfitBaseTemplate.defineSchema()", () => {
     }
   });
 
-  describe("StringField (初期値 '-') フィールドが正しい", () => {
-    const stringFields = ["hack", "part", "timing", "exclusive"];
-    for (const key of stringFields) {
-      it(`${key} は StringField で initial が '-'`, () => {
+  describe("自由記述フィールド (フェーズ6-1) が正しい", () => {
+    for (const key of ["part", "exclusive"]) {
+      it(`${key} は StringField で initial が空文字 (閲覧時に空欄は '-' 表示)`, () => {
         expect(schema[key]).toBeInstanceOf(MockStringField);
-        expect(schema[key].options.initial).toBe("-");
+        expect(schema[key].options.initial).toBe("");
       });
     }
+  });
+
+  describe("hack (電脳制御値) が正しい (フェーズ6-1)", () => {
+    it("hack は nullable な NumberField で initial が null (null = なし)", () => {
+      expect(schema.hack).toBeInstanceOf(MockNumberField);
+      expect(schema.hack.options.nullable).toBe(true);
+      expect(schema.hack.options.initial).toBe(null);
+    });
+  });
+
+  describe("timing (スタイル技能と共通構造) が正しい (フェーズ6-1)", () => {
+    it("timing は ArrayField で要素は SchemaField", () => {
+      expect(schema.timing).toBeInstanceOf(MockArrayField);
+      expect(schema.timing.element).toBeInstanceOf(MockSchemaField);
+    });
+
+    it("要素は value / actionName / processName / timingOther を持ち、初期値がスタイル技能と同一", () => {
+      const el = schema.timing.element.fields;
+      for (const key of ["value", "actionName", "processName"]) {
+        expect(el[key]).toBeInstanceOf(MockStringField);
+        expect(el[key].options.initial).toBe("blank");
+      }
+      expect(el.timingOther).toBeInstanceOf(MockStringField);
+      expect(el.timingOther.options.initial).toBe("");
+    });
   });
 
   describe("カテゴリフィールド (choices 付き) が正しい", () => {
