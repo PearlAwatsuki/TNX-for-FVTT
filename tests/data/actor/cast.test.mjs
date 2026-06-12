@@ -49,9 +49,8 @@ describe("CastDataModel.defineSchema()", () => {
   });
 
   describe("cast 固有フィールド — 基本", () => {
-    it("player_name が StringField で initial が空文字", () => {
-      expect(schema.player_name).toBeInstanceOf(MockStringField);
-      expect(schema.player_name.options.initial).toBe("");
+    it("player_name フィールドを持たない(フェーズ6-0 で削除)", () => {
+      expect(schema).not.toHaveProperty("player_name");
     });
 
     it("playerId フィールドを持たない(フェーズ2-5 で廃止)", () => {

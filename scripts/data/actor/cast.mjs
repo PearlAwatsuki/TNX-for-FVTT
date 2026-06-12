@@ -2,14 +2,14 @@
  * @fileoverview CastDataModel - キャスト Actor の DataModel
  *
  * 使用 template: biography + attributes + actorBase
- * 固有フィールド: player_name / ownerUserId / history / exp / lifePath
+ * 固有フィールド: ownerUserId / history / exp / lifePath
  *
  * 準拠データ: template.json > Actor.cast
  *
  * 注意:
  * - exp の value / spent / total は updateCastExp() が非同期で上書きする派生値。
  *   DataModel 内での prepareDerivedData による再計算は行わない。
- * - player_name は template.json に定義されているが実コードでは未使用(デッドフィールド)。
+ * - player_name は旧 template.json 由来のデッドフィールドだったが、フェーズ6-0 で削除確定(2026-06-12)。
  * - lifePath の各スロットは origin/experience/encounter で構成され、フェーズ 5-6 で UI 実装済み。
  */
 
@@ -26,7 +26,6 @@ export class CastDataModel extends SystemDataModel.mixin(
     const fields = foundry.data.fields;
     return {
       ...super.defineSchema(),
-      player_name:   new fields.StringField({ initial: "" }),
       ownerUserId:   new fields.StringField({ initial: "" }),
       syncWithOwner: new fields.BooleanField({ initial: true }),
       history:     new fields.ObjectField(),
