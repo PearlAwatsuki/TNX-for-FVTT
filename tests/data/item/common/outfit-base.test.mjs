@@ -33,19 +33,35 @@ describe("OutfitBaseTemplate.defineSchema()", () => {
   });
 
   describe("自由記述フィールド (フェーズ6-1) が正しい", () => {
-    for (const key of ["part", "exclusive"]) {
-      it(`${key} は StringField で initial が空文字 (閲覧時に空欄は '-' 表示)`, () => {
-        expect(schema[key]).toBeInstanceOf(MockStringField);
-        expect(schema[key].options.initial).toBe("");
-      });
-    }
+    it("exclusive は StringField で initial が空文字 (閲覧時に空欄は '-' 表示)", () => {
+      expect(schema.exclusive).toBeInstanceOf(MockStringField);
+      expect(schema.exclusive.options.initial).toBe("");
+    });
+  });
+
+  describe("part (部位) が正しい (フェーズ6-1)", () => {
+    it("part は SchemaField で value (部位名) / slots (スロット数) を持つ", () => {
+      expect(schema.part).toBeInstanceOf(MockSchemaField);
+      expect(schema.part.fields.value).toBeInstanceOf(MockStringField);
+      expect(schema.part.fields.value.options.initial).toBe("");
+    });
+
+    it("part.slots は NumberField で initial 1・min 0・整数", () => {
+      expect(schema.part.fields.slots).toBeInstanceOf(MockNumberField);
+      expect(schema.part.fields.slots.options.initial).toBe(1);
+      expect(schema.part.fields.slots.options.min).toBe(0);
+      expect(schema.part.fields.slots.options.integer).toBe(true);
+    });
   });
 
   describe("hack (電脳制御値) が正しい (フェーズ6-1)", () => {
-    it("hack は nullable な NumberField で initial が null (null = なし)", () => {
-      expect(schema.hack).toBeInstanceOf(MockNumberField);
-      expect(schema.hack.options.nullable).toBe(true);
-      expect(schema.hack.options.initial).toBe(null);
+    it("hack は {mode, value} の SchemaField で mode の choices は none/value のみ", () => {
+      expect(schema.hack).toBeInstanceOf(MockSchemaField);
+      expect(schema.hack.fields.mode).toBeInstanceOf(MockStringField);
+      expect(schema.hack.fields.mode.options.initial).toBe("none");
+      expect(schema.hack.fields.mode.options.choices).toEqual(["none", "value"]);
+      expect(schema.hack.fields.value).toBeInstanceOf(MockNumberField);
+      expect(schema.hack.fields.value.options.initial).toBe(0);
     });
   });
 
@@ -124,10 +140,16 @@ describe("OutfitBaseTemplate.defineSchema()", () => {
       expect(schema.uses).toBeInstanceOf(MockSchemaField);
     });
 
-    it("uses に isLimit / max / value が存在する", () => {
+    it("uses に isLimit / type / max / value が存在する", () => {
       expect(schema.uses.fields).toHaveProperty("isLimit");
+      expect(schema.uses.fields).toHaveProperty("type");
       expect(schema.uses.fields).toHaveProperty("max");
       expect(schema.uses.fields).toHaveProperty("value");
+    });
+
+    it("uses.type は StringField で initial が空文字 (種別: アクト/シーン/カット)", () => {
+      expect(schema.uses.fields.type).toBeInstanceOf(MockStringField);
+      expect(schema.uses.fields.type.options.initial).toBe("");
     });
 
     it("uses.isLimit は BooleanField で initial が false", () => {
