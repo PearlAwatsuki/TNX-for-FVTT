@@ -1470,9 +1470,11 @@
     outline: none;
 }
 
-/* 閲覧モードの名称表示(マーカー付き)。対応する入力欄とメトリクスを揃える */
+/* 閲覧モードの名称表示(マーカー付き)。対応する入力欄とメトリクスを揃え、
+   flex の縦中央揃えで block 時の上寄りを防ぐ */
 .tokyo-nova.sheet.item .sheet-header .charname-view {
-    display: block;
+    display: flex;
+    align-items: center;
     width: 100%;
     min-height: 32px;
     padding: 4px 8px;
@@ -1484,7 +1486,8 @@
 }
 
 .tokyo-nova.sheet.item .sheet-header .furigana-view {
-    display: block;
+    display: flex;
+    align-items: center;
     width: 100%;
     min-height: 20px;
     padding: 1px 8px;
