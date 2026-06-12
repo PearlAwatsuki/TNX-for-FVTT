@@ -4644,3 +4644,25 @@ button.tnx-create-act-button span {
 .roll-table-sheet .tnx-draw-table-deck select {
     width: 100%;
 }
+
+/* ================================================================
+   35. アイテムシート: アウトフィット
+   ================================================================ */
+
+/* ヘッダーのカテゴリ行 (大分類→小分類の連動ドロップダウン / 閲覧ラベル) */
+.tokyo-nova.sheet.item.outfit .outfit-category {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 4px;
+}
+
+.tokyo-nova.sheet.item.outfit .outfit-category select {
+    flex: 1;
+    min-width: 0;
+}
+
+.tokyo-nova.sheet.item.outfit .outfit-category-label {
+    color: var(--tnx2-text-secondary);
+    font-size: 0.9em;
+}

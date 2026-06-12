@@ -29,6 +29,7 @@ import { TokyoNovaMiracleSheet } from './item/tnx-miracle-sheet.mjs';
 import { TokyoNovaGeneralSkillSheet } from './item/tnx-general-skill-sheet.mjs';
 import { TokyoNovaStyleSkillSheet } from './item/tnx-style-skill-sheet.mjs';
 import { TokyoNovaOrganizationSheet } from './item/tnx-organization-sheet.mjs';
+import { TokyoNovaOutfitSheet } from './item/tnx-outfit-sheet.mjs';
 import { TnxScenarioSheet } from './journal/tnx-scenario-sheet.mjs';
 import { TnxCardSetupApp } from './module/tnx-card-setup-app.mjs';
 import { TnxActionHandler } from './module/tnx-action-handler.mjs';
@@ -350,6 +351,14 @@ Hooks.once("init", async function() {
         types: ["organization"],
         makeDefault: true,
         label: "組織シート"
+    });
+
+    // アウトフィット共通シート(フェーズ6-1)。固有フィールドを持つ型は
+    // フェーズ6-2 以降でサブクラスに差し替える。
+    foundry.documents.collections.Items.registerSheet("tokyo-nova", TokyoNovaOutfitSheet, {
+        types: ["general"],
+        makeDefault: true,
+        label: "アウトフィットシート"
     });
 
     // Journal Sheetの登録

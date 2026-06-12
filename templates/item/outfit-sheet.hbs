@@ -1,0 +1,254 @@
+<section class="{{cssClass}}">
+    {{!-- ヘッダーエリア --}}
+    <header class="sheet-header outfit-header">
+        <img class="profile-img" src="{{item.img}}" data-edit="img" data-action="editImage" title="{{item.name}}"/>
+        <div class="header-fields">
+            <h1 class="charname">
+                <input name="name" type="text" value="{{item.name}}" placeholder="アウトフィット名"/>
+            </h1>
+            <div class="outfit-category">
+                {{#if isEditMode}}
+                    <select name="system.majorCategory">
+                        {{selectOptions options.majorCategory selected=system.majorCategory}}
+                    </select>
+                    <select name="system.minorCategory">
+                        {{selectOptions options.minorCategory selected=system.minorCategory}}
+                    </select>
+                {{else}}
+                    <span class="outfit-category-label">{{view.category}}</span>
+                {{/if}}
+            </div>
+        </div>
+    </header>
+
+    {{!-- タブナビゲーション --}}
+    <nav class="sheet-tabs tabs" data-group="primary">
+        <a class="item" data-action="tab" data-group="primary" data-tab="description">説明</a>
+        <a class="item" data-action="tab" data-group="primary" data-tab="data">データ</a>
+        <a class="item" data-action="tab" data-group="primary" data-tab="setting">設定</a>
+        <a class="item" data-action="tab" data-group="primary" data-tab="effects">エフェクト</a>
+    </nav>
+
+    {{!-- タブコンテンツ --}}
+    <section class="sheet-body">
+
+        {{!-- 説明タブ --}}
+        <div class="tab description" data-group="primary" data-tab="description">
+            <div class="tnx-editor-section">
+                <div class="tnx-editor-section__header">
+                    <label>解説</label>
+                </div>
+                <div class="tnx-editor-section__content">
+                    {{editor enrichedDescription target="system.description" engine="prosemirror" button=true owner=owner editable=editable}}
+                </div>
+            </div>
+        </div>
+
+        {{!-- データタブ --}}
+        <div class="tab data" data-group="primary" data-tab="data">
+            {{#if isEditMode}}
+                <div class="settings-grid">
+                    <fieldset class="tnx-fieldset">
+                        <legend>購入</legend>
+                        <div class="tnx-form-field">
+                            <div class="form-group">
+                                <label>購入値</label>
+                                <select name="system.buy.mode">
+                                    {{selectOptions options.buyHideMode selected=system.buy.mode}}
+                                </select>
+                                {{#if (eq system.buy.mode "value")}}
+                                    <input type="number" name="system.buy.value" value="{{system.buy.value}}"/>
+                                {{/if}}
+                            </div>
+                            <div class="form-group">
+                                <label>常備化経験点</label>
+                                <input type="number" name="system.preserveExp" value="{{system.preserveExp}}"/>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="tnx-fieldset">
+                        <legend>隠匿</legend>
+                        <div class="tnx-form-field">
+                            <div class="form-group">
+                                <label>隠匿値</label>
+                                <select name="system.hide.mode">
+                                    {{selectOptions options.buyHideMode selected=system.hide.mode}}
+                                </select>
+                                {{#if (eq system.hide.mode "value")}}
+                                    <input type="number" name="system.hide.value" value="{{system.hide.value}}"/>
+                                {{/if}}
+                            </div>
+                            <div class="form-group">
+                                <label>危険値</label>
+                                <input type="number" name="system.appearancePenalty" value="{{system.appearancePenalty}}"/>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="tnx-fieldset">
+                        <legend>運用データ</legend>
+                        <div class="tnx-form-field">
+                            <div class="form-group">
+                                <label>電脳制御値</label>
+                                <input type="number" name="system.hack" value="{{system.hack}}" placeholder="なし"/>
+                            </div>
+                            <div class="form-group">
+                                <label>部位</label>
+                                <input type="text" name="system.part" value="{{system.part}}" placeholder="部位を入力"/>
+                            </div>
+                            <div class="form-group">
+                                <label>専用</label>
+                                <input type="text" name="system.exclusive" value="{{system.exclusive}}" placeholder="専用スタイル・ワークス"/>
+                            </div>
+                            {{!-- タイミング(スタイル技能と共通の選択肢) --}}
+                            <div class="form-group align-start">
+                                <label>タイミング</label>
+                                <div class="form-fields-column">
+                                    {{#each system.timing as |t idx|}}
+                                    <div class="array-row">
+                                        <select name="system.timing.{{idx}}.value">
+                                            {{selectOptions ../options.timing selected=t.value}}
+                                        </select>
+
+                                        {{#if (eq t.value "other")}}
+                                            <input type="text" name="system.timing.{{idx}}.timingOther" value="{{t.timingOther}}" placeholder="タイミングを入力"/>
+                                        {{/if}}
+                                        {{#if (eq t.value "action")}}
+                                            <select name="system.timing.{{idx}}.actionName">
+                                                {{selectOptions ../options.actions selected=t.actionName}}
+                                            </select>
+                                        {{/if}}
+                                        {{#if (eq t.value "process")}}
+                                            <select name="system.timing.{{idx}}.processName">
+                                                {{selectOptions ../options.processes selected=t.processName}}
+                                            </select>
+                                        {{/if}}
+
+                                        <div class="row-controls">
+                                            {{#if (eq idx 0)}}
+                                                <a class="tnx-row-btn" data-target="timing" title="行を追加">
+                                                    <i class="fas fa-plus"></i>
+                                                </a>
+                                            {{/if}}
+                                            {{#if (gte idx 1)}}
+                                                <a class="tnx-row-btn--delete" data-target="timing" data-index="{{idx}}" title="削除">
+                                                    <i class="fas fa-trash"></i>
+                                                </a>
+                                            {{/if}}
+                                        </div>
+                                    </div>
+                                    {{/each}}
+                                </div>
+                            </div>
+                            {{!-- 使用回数 --}}
+                            <div class="form-group">
+                                <label>回数制限あり</label>
+                                <input type="checkbox" name="system.uses.isLimit" {{checked system.uses.isLimit}}>
+                            </div>
+                            {{#if system.uses.isLimit}}
+                                <div class="form-group">
+                                    <label>使用回数(現在／最大)</label>
+                                    <input type="number" name="system.uses.value" value="{{system.uses.value}}"/>
+                                    <input type="number" name="system.uses.max" value="{{system.uses.max}}"/>
+                                </div>
+                            {{/if}}
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="tnx-fieldset">
+                        <legend>運用状態</legend>
+                        <div class="tnx-form-field">
+                            <div class="form-group">
+                                <label>常備化済み</label>
+                                <input type="checkbox" name="system.isPrepared" {{checked system.isPrepared}}>
+                            </div>
+                            <div class="form-group">
+                                <label>携帯中</label>
+                                <input type="checkbox" name="system.isCarrying" {{checked system.isCarrying}}>
+                            </div>
+                        </div>
+                    </fieldset>
+                </div>
+            {{else}}
+                <div class="style-skill-display">
+                    <div class="style-skill-display-grid">
+                        <div>
+                            <label>購：</label>
+                            <span>{{view.buy}}</span>
+                        </div>
+                        <div>
+                            <label>隠：</label>
+                            <span>{{view.hide}}</span>
+                        </div>
+                        <div>
+                            <label>電脳制御値：</label>
+                            <span>{{view.hack}}</span>
+                        </div>
+                        <div>
+                            <label>部位：</label>
+                            <span>{{view.part}}</span>
+                        </div>
+                        <div class="full-width-row">
+                            <label>タイミング：</label>
+                            <span>{{view.timing}}</span>
+                        </div>
+                        <div>
+                            <label>専用：</label>
+                            <span>{{view.exclusive}}</span>
+                        </div>
+                        <div>
+                            <label>使用回数：</label>
+                            <span>{{view.uses}}</span>
+                        </div>
+                        <div>
+                            <label>常備化：</label>
+                            <span>{{#if system.isPrepared}}済{{else}}-{{/if}}</span>
+                        </div>
+                        <div>
+                            <label>携帯：</label>
+                            <span>{{#if system.isCarrying}}中{{else}}-{{/if}}</span>
+                        </div>
+                    </div>
+                </div>
+            {{/if}}
+        </div>
+
+        {{!-- 設定タブ --}}
+        <div class="tab setting" data-group="primary" data-tab="setting">
+            <div class="settings-grid">
+                <fieldset class="tnx-fieldset">
+                    <legend>識別キー</legend>
+                    <div class="tnx-form-field">
+                        <div class="form-group">
+                            <label>識別キー</label>
+                            <input type="text" name="system.identificationKey" value="{{system.identificationKey}}" placeholder="識別キーを入力"/>
+                        </div>
+                    </div>
+                </fieldset>
+                <fieldset class="tnx-fieldset">
+                    <legend>アウトフィット性質</legend>
+                    <div class="tnx-form-field">
+                        <div class="form-group">
+                            <label>オプション</label>
+                            <input type="checkbox" name="system.isOption" {{checked system.isOption}}>
+                        </div>
+                        <div class="form-group">
+                            <label>プレアクト取得</label>
+                            <input type="checkbox" name="system.isPre-play" {{checked (lookup system "isPre-play")}}>
+                        </div>
+                        <div class="form-group">
+                            <label>サイバーウェア</label>
+                            <input type="checkbox" name="system.isCyber" {{checked system.isCyber}}>
+                        </div>
+                    </div>
+                </fieldset>
+            </div>
+        </div>
+
+        {{!-- エフェクトタブ --}}
+        <div class="tab effects" data-group="primary" data-tab="effects">
+            {{> "systems/tokyo-nova-axleration/templates/parts/active-effects-list.hbs"}}
+        </div>
+    </section>
+</section>

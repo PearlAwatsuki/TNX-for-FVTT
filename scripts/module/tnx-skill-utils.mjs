@@ -134,6 +134,37 @@ export class TnxSkillUtils {
     }
 
     /**
+     * タイミング配列({value, actionName, processName, timingOther})を表示用ラベルに整形します。
+     * スタイル技能とアウトフィット(フェーズ6-1)で共用。
+     * @param {Array|Object} timingList timing 配列(オブジェクトマップも許容)
+     * @param {Object} options getSkillOptions()で取得したオプション
+     * @returns {string} 「、」区切りの表示ラベル
+     */
+    static formatTimingLabel(timingList, options) {
+        const list = Array.isArray(timingList) ? timingList
+            : (typeof timingList === "object" && timingList !== null) ? Object.values(timingList)
+            : timingList ? [timingList] : [];
+
+        return list.map((t, idx) => {
+            let label = "";
+            const val = t.value || t;
+
+            if (val === 'other') {
+                label = t.timingOther || options.timing.other;
+            } else if (val === 'action') {
+                label = options.actions[t.actionName] || options.timing.action;
+            } else if (val === 'process') {
+                label = options.processes[t.processName] || options.timing.process;
+            } else {
+                label = options.timing[val] || "-";
+            }
+
+            if (idx > 0) return `、${label}`;
+            return label;
+        }).join("");
+    }
+
+    /**
      * スタイル技能の表示用データ(view)を生成します
      * @param {Object} systemData アイテムの system データ
      * @param {Object} options getSkillOptions()で取得したオプション
@@ -204,25 +235,8 @@ export class TnxSkillUtils {
             return label;
         }).join("");
 
-        // 3. タイミング (Timing)
-        const timingList = ensureArray(systemData.timing);
-        view.timing = timingList.map((t, idx) => {
-            let label = "";
-            const val = t.value || t;
-
-            if (val === 'other') {
-                label = t.timingOther || options.timing.other;
-            } else if (val === 'action') {
-                label = options.actions[t.actionName] || options.timing.action;
-            } else if (val === 'process') {
-                label = options.processes[t.processName] || options.timing.process;
-            } else {
-                label = options.timing[val] || "-";
-            }
-            
-            if (idx > 0) return `、${label}`;
-            return label;
-        }).join("");
+        // 3. タイミング (Timing) — 整形ロジックは formatTimingLabel に共通化(フェーズ6-1)
+        view.timing = TnxSkillUtils.formatTimingLabel(ensureArray(systemData.timing), options);
 
         // 4. 上限 (Max Level)
         if (systemData.maxLevel === 'number') {
