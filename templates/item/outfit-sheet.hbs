@@ -90,6 +90,7 @@
                 <div class="form-group">
                     <label>オプション</label>
                     <input type="checkbox" name="system.isOption" {{checked system.isOption}}>
+                    <p class="sheet-notes notes">別のアウトフィットに装備するオプションの場合にチェックします。装備対象のスロット数がなければ装備できません。</p>
                 </div>
 
                 <fieldset class="tnx-fieldset">
@@ -107,21 +108,23 @@
                     <div class="tnx-form-field">
                         <div class="form-group">
                             <label>購入値</label>
-                            <select name="system.buy.mode">
-                                {{selectOptions options.buyHideMode selected=system.buy.mode}}
-                            </select>
-                            {{#if (eq system.buy.mode "value")}}
-                                <div class="number-input-spinner">
-                                    <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.buy.value">-</button>
-                                    <input type="number" name="system.buy.value" value="{{system.buy.value}}">
-                                    <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.buy.value">+</button>
-                                </div>
-                            {{/if}}
+                            <div class="form-fields {{#if (eq system.buy.mode "value")}}split-fields{{/if}}">
+                                <select name="system.buy.mode">
+                                    {{selectOptions options.buyHideMode selected=system.buy.mode}}
+                                </select>
+                                {{#if (eq system.buy.mode "value")}}
+                                    <div class="number-input-spinner skill-sheet-spinner">
+                                        <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.buy.value">-</button>
+                                        <input type="number" name="system.buy.value" value="{{system.buy.value}}">
+                                        <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.buy.value">+</button>
+                                    </div>
+                                {{/if}}
+                            </div>
                         </div>
 
                         <div class="form-group">
                             <label>常備化経験点</label>
-                            <div class="number-input-spinner">
+                            <div class="number-input-spinner skill-sheet-spinner">
                                 <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.preserveExp">-</button>
                                 <input type="number" name="system.preserveExp" value="{{system.preserveExp}}">
                                 <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.preserveExp">+</button>
@@ -130,21 +133,23 @@
 
                         <div class="form-group">
                             <label>隠匿値</label>
-                            <select name="system.hide.mode">
-                                {{selectOptions options.buyHideMode selected=system.hide.mode}}
-                            </select>
-                            {{#if (eq system.hide.mode "value")}}
-                                <div class="number-input-spinner">
-                                    <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.hide.value">-</button>
-                                    <input type="number" name="system.hide.value" value="{{system.hide.value}}">
-                                    <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.hide.value">+</button>
-                                </div>
-                            {{/if}}
+                            <div class="form-fields {{#if (eq system.hide.mode "value")}}split-fields{{/if}}">
+                                <select name="system.hide.mode">
+                                    {{selectOptions options.buyHideMode selected=system.hide.mode}}
+                                </select>
+                                {{#if (eq system.hide.mode "value")}}
+                                    <div class="number-input-spinner skill-sheet-spinner">
+                                        <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.hide.value">-</button>
+                                        <input type="number" name="system.hide.value" value="{{system.hide.value}}">
+                                        <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.hide.value">+</button>
+                                    </div>
+                                {{/if}}
+                            </div>
                         </div>
 
                         <div class="form-group">
                             <label>危険値</label>
-                            <div class="number-input-spinner">
+                            <div class="number-input-spinner skill-sheet-spinner">
                                 <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.appearancePenalty">-</button>
                                 <input type="number" name="system.appearancePenalty" value="{{system.appearancePenalty}}">
                                 <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.appearancePenalty">+</button>
@@ -153,16 +158,30 @@
 
                         <div class="form-group">
                             <label>電脳制御値</label>
-                            <div class="number-input-spinner">
-                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.hack">-</button>
-                                <input type="number" name="system.hack" value="{{system.hack}}" placeholder="なし">
-                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.hack">+</button>
+                            <div class="form-fields {{#if (eq system.hack.mode "value")}}split-fields{{/if}}">
+                                <select name="system.hack.mode">
+                                    {{selectOptions options.hackMode selected=system.hack.mode}}
+                                </select>
+                                {{#if (eq system.hack.mode "value")}}
+                                    <div class="number-input-spinner skill-sheet-spinner">
+                                        <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.hack.value">-</button>
+                                        <input type="number" name="system.hack.value" value="{{system.hack.value}}">
+                                        <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.hack.value">+</button>
+                                    </div>
+                                {{/if}}
                             </div>
                         </div>
 
                         <div class="form-group">
                             <label>部位</label>
-                            <input type="text" name="system.part" value="{{system.part}}" placeholder="部位を入力"/>
+                            <div class="form-fields split-fields">
+                                <input type="text" name="system.part.value" value="{{system.part.value}}" placeholder="部位を入力"/>
+                                <div class="number-input-spinner skill-sheet-spinner">
+                                    <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.part.slots" data-min="0">-</button>
+                                    <input type="number" name="system.part.slots" value="{{system.part.slots}}" min="0">
+                                    <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.part.slots">+</button>
+                                </div>
+                            </div>
                         </div>
 
                         {{!-- タイミング(スタイル技能と共通の選択肢) --}}
@@ -211,16 +230,31 @@
                             <input type="text" name="system.exclusive" value="{{system.exclusive}}" placeholder="専用スタイル・ワークス"/>
                         </div>
 
-                        {{!-- 使用回数(数値入力はスピナー不使用の例外) --}}
+                        {{!-- 使用回数(スタイル技能と同形。数値入力はスピナー不使用の例外) --}}
                         <div class="form-group">
-                            <label>回数制限あり</label>
-                            <input type="checkbox" name="system.uses.isLimit" {{checked system.uses.isLimit}}>
+                            <label for="isLimit-{{item._id}}">使用回数に制限あり</label>
+                            <input type="checkbox" name="system.uses.isLimit" id="isLimit-{{item._id}}" {{checked system.uses.isLimit}}>
                         </div>
                         {{#if system.uses.isLimit}}
                             <div class="form-group">
-                                <label>使用回数(現在／最大)</label>
-                                <input type="number" name="system.uses.value" value="{{system.uses.value}}"/>
-                                <input type="number" name="system.uses.max" value="{{system.uses.max}}"/>
+                                <label>種別</label>
+                                <select name="system.uses.type">
+                                    {{selectOptions options.usesType selected=system.uses.type}}
+                                </select>
+                            </div>
+                            <div class="form-group usage-limit-group">
+                                <label>使用回数</label>
+                                <div class="usage-inputs">
+                                    <div class="usage-field">
+                                        <label>現在値</label>
+                                        <input type="number" name="system.uses.value" value="{{system.uses.value}}">
+                                    </div>
+                                    <span class="usage-separator">/</span>
+                                    <div class="usage-field">
+                                        <label>最大値</label>
+                                        <input type="number" name="system.uses.max" value="{{system.uses.max}}">
+                                    </div>
+                                </div>
                             </div>
                         {{/if}}
                     </div>

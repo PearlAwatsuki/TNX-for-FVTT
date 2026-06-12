@@ -46,6 +46,11 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         return { none: "なし", value: "数値", reference: "解説参照" };
     }
 
+    /** 電脳制御値の 2 状態(なし/数値) */
+    static get hackModes() {
+        return { none: "なし", value: "数値" };
+    }
+
     /** 空のタイミング行 */
     static get blankTimingRow() {
         return { value: "blank", actionName: "blank", processName: "blank", timingOther: "" };
@@ -93,7 +98,9 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             timing:        skillOptions.timing,
             actions:       skillOptions.actions,
             processes:     skillOptions.processes,
+            usesType:      skillOptions.usesType,
             buyHideMode:   this.constructor.buyHideModes,
+            hackMode:      this.constructor.hackModes,
             majorCategory: majorChoices,
             minorCategory: minorChoices,
         };
@@ -127,9 +134,17 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             : "-";
         view.hide = `${hideVal}／${num(system.appearancePenalty)}`;
 
-        // 電制(電脳制御値)。null = なし
-        view.hack = system.hack ?? "-";
-        view.part = system.part || "-";
+        // 電制(電脳制御値)。なし/数値の 2 状態
+        view.hack = system.hack.mode === "value" ? num(system.hack.value) : "-";
+
+        // 部位。slots が 1 のときは部位名のみ、0 または 2 以上は「武器2」のように数値を付す
+        if (system.part.value) {
+            view.part = system.part.slots === 1
+                ? system.part.value
+                : `${system.part.value}${system.part.slots ?? 0}`;
+        } else {
+            view.part = "-";
+        }
 
         if (system.majorCategory && system.minorCategory) {
             view.category = `${system.majorCategory}／${system.minorCategory}`;
@@ -153,7 +168,10 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         const field = target.dataset.field;
         if (!field) return;
         const current = foundry.utils.getProperty(this.item, field) ?? 0;
-        await this.item.update({ [field]: current - 1 });
+        let next = current - 1;
+        // data-min 指定時は下限でクランプする(part.slots の min 0 等)
+        if (target.dataset.min !== undefined) next = Math.max(next, Number(target.dataset.min));
+        await this.item.update({ [field]: next });
     }
 
     /** @override */
@@ -171,8 +189,8 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 });
             });
 
-        // 購/隠のモード変更時、数値以外なら value をリセットする
-        for (const key of ["buy", "hide"]) {
+        // 購/隠/電制のモード変更時、数値以外なら value をリセットする
+        for (const key of ["buy", "hide", "hack"]) {
             this.element.querySelector(`select[name="system.${key}.mode"]`)
                 ?.addEventListener("change", (event) => {
                     event.stopPropagation();
@@ -183,7 +201,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 });
         }
 
-        // 使用回数: チェック解除時に回数をリセットする
+        // 使用回数: チェック解除時に回数・種別をリセットする(スタイル技能と同挙動)
         this.element.querySelector('input[name="system.uses.isLimit"]')
             ?.addEventListener("change", (event) => {
                 event.stopPropagation();
@@ -192,6 +210,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 if (!isChecked) {
                     update["system.uses.value"] = 0;
                     update["system.uses.max"]   = 0;
+                    update["system.uses.type"]  = "";
                 }
                 this.item.update(update);
             });

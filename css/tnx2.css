@@ -931,10 +931,13 @@
     border-color: var(--tnx2-border-subtle);
     border-radius: var(--tnx2-radius);
     box-shadow: inset 0 0 6px rgba(0, 200, 255, 0.08);
-    height: 500px;
+    height: 200px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+}
+.tokyo-nova .profile .tnx-editor-section__content prose-mirror  {
+    height: 500px;
 }
 .tokyo-nova .tnx-editor-section__content prose-mirror .editor-content {
     color: var(--tnx2-text-secondary);
@@ -1627,7 +1630,7 @@
     display: flex;
     align-items: baseline;
     gap: 4px;
-    font-size: 0.85em;
+    font-size: 1em;
     border-bottom: 1px solid var(--tnx2-border-subtle);
     padding-bottom: 3px;
 }
@@ -2580,7 +2583,12 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 
 .tokyo-nova.sheet.item .form-group:has(> input[type="checkbox"]),
 .tokyo-nova.sheet.item .form-group:has(> input[type="radio"]),
-.tokyo-nova.sheet.item .form-group:has(> .number-input-spinner) {
+.tokyo-nova.sheet.item .form-group:has(> .number-input-spinner),
+.tokyo-nova.sheet.item .form-group:has(> select),
+.tokyo-nova.sheet.item .form-group:has(> .form-fields),
+.tokyo-nova.sheet.item .form-group:has(> .usage-inputs),
+.tokyo-nova.sheet.item .form-group:has(> input[type="text"]),
+.tokyo-nova.sheet.item .form-group:has(> input[type="number"]) {
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
@@ -2589,15 +2597,34 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 
 .tokyo-nova.sheet.item .form-group:has(> input[type="checkbox"]) > .notes,
 .tokyo-nova.sheet.item .form-group:has(> input[type="radio"]) > .notes,
-.tokyo-nova.sheet.item .form-group:has(> .number-input-spinner) > .notes {
+.tokyo-nova.sheet.item .form-group:has(> .number-input-spinner) > .notes,
+.tokyo-nova.sheet.item .form-group:has(> select) > .notes,
+.tokyo-nova.sheet.item .form-group:has(> .form-fields) > .notes,
+.tokyo-nova.sheet.item .form-group:has(> input[type="text"]) > .notes,
+.tokyo-nova.sheet.item .form-group:has(> input[type="number"]) > .notes {
     width: 100%;
     margin: 2px 0 0;
 }
 
 .tokyo-nova.sheet.item .form-group > input[type="checkbox"],
 .tokyo-nova.sheet.item .form-group > input[type="radio"],
-.tokyo-nova.sheet.item .form-group > .number-input-spinner {
+.tokyo-nova.sheet.item .form-group > .number-input-spinner,
+.tokyo-nova.sheet.item .form-group > .usage-inputs {
     margin-left: auto;
+}
+
+/* ラベル横並び時の入力列: 残り幅を埋める */
+.tokyo-nova.sheet.item .form-group > select,
+.tokyo-nova.sheet.item .form-group > .form-fields,
+.tokyo-nova.sheet.item .form-group > input[type="text"],
+.tokyo-nova.sheet.item .form-group > input[type="number"] {
+    flex: 1;
+    min-width: 0;
+}
+
+/* フィールドセット内ではラベル幅を揃えて縦の通りを良くする */
+.tokyo-nova.sheet.item .tnx-form-field .form-group > label {
+    flex: 0 0 110px;
 }
 
 .tokyo-nova.sheet.item .basic-info {
@@ -2764,7 +2791,7 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 
 .form-group.usage-limit-group {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     gap: 10px;
 }
 
