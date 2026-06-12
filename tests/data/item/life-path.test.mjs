@@ -36,6 +36,20 @@ describe("LifePathDataModel.defineSchema()", () => {
     });
   });
 
+  describe("lifePathType の choices (フェーズ6-0)", () => {
+    it("choices は origin / experience / encounter の 3 種のみ", () => {
+      expect(schema.lifePathType.options.choices).toEqual({
+        origin:     "出自",
+        experience: "経験",
+        encounter:  "邂逅",
+      });
+    });
+
+    it("未選択を許容する (blank: true)", () => {
+      expect(schema.lifePathType.options.blank).toBe(true);
+    });
+  });
+
   it("lifePath に存在しないフィールドは含まれない(level が含まれない)", () => {
     expect(schema).not.toHaveProperty("level");
   });
