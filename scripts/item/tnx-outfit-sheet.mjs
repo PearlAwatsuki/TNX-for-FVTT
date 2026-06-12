@@ -10,14 +10,24 @@ import { OUTFIT_CATEGORIES } from "../data/item/outfit-categories.mjs";
  * ルールの正本: llm-wiki/01_Wiki/Game_Rules/Outfits.md
  * - 購は「購：購入値／常備化経験点」表記。解説参照時は常備化経験点を表記しない。
  * - 隠は「隠：隠匿値／危険値」表記。解説参照でも危険値は別個に表記する。
+ * - 電脳制御値の略号は「電制」。
  * - カテゴリは大分類→小分類の連動ドロップダウンで、その type に有効な小分類のみを出す。
  * - タイミングはスタイル技能と共通の選択肢・構造(TnxSkillUtils を共用)。
+ *
+ * レイアウト(2026-06-12 ユーザー指示):
+ * - 説明タブ上部にルルブ表記の概要(購/隠/電制/部位のみ)、その下に解説エディタ。
+ * - 編集 UI はすべて設定タブ(スタイル技能のレイアウト踏襲)。データタブは置かない。
+ * - 数値入力欄は number-input-spinner を使用(例外は使用回数のみ)。
  */
 export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
     static DEFAULT_OPTIONS = {
         classes: ["tokyo-nova", "sheet", "item", "outfit"],
         position: { width: 600, height: 650 },
+        actions: {
+            incrementField: TokyoNovaOutfitSheet._onIncrementField,
+            decrementField: TokyoNovaOutfitSheet._onDecrementField,
+        },
     };
 
     static PARTS = {
@@ -26,7 +36,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
     static TABS = {
         primary: {
-            tabs: [{ id: "description" }, { id: "data" }, { id: "setting" }, { id: "effects" }],
+            tabs: [{ id: "description" }, { id: "setting" }, { id: "effects" }],
             initial: "description",
         },
     };
@@ -93,12 +103,12 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
     }
 
     /**
-     * 閲覧モードのルルブ表記ラベルを生成する。
+     * 説明タブ上部に表示するルルブ表記ラベル(購/隠/電制/部位)を生成する。
      * @param {Object} system 正規化済み system データ
-     * @param {Object} skillOptions TnxSkillUtils.getSkillOptions() の戻り値
+     * @param {Object} _skillOptions TnxSkillUtils.getSkillOptions() の戻り値
      * @returns {Object}
      */
-    _prepareView(system, skillOptions) {
+    _prepareView(system, _skillOptions) {
         const view = {};
         const num = (v) => (Number.isFinite(v) ? String(v) : "0");
 
@@ -117,11 +127,9 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             : "-";
         view.hide = `${hideVal}／${num(system.appearancePenalty)}`;
 
-        view.hack      = system.hack ?? "-";
-        view.part      = system.part || "-";
-        view.exclusive = system.exclusive || "-";
-        view.timing    = TnxSkillUtils.formatTimingLabel(system.timing, skillOptions) || "-";
-        view.uses      = system.uses.isLimit ? `${system.uses.value}／${system.uses.max}` : "-";
+        // 電制(電脳制御値)。null = なし
+        view.hack = system.hack ?? "-";
+        view.part = system.part || "-";
 
         if (system.majorCategory && system.minorCategory) {
             view.category = `${system.majorCategory}／${system.minorCategory}`;
@@ -130,6 +138,22 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         }
 
         return view;
+    }
+
+    // ─── 数値スピナー(number-input-spinner) ────────────────────────────────
+
+    static async _onIncrementField(_event, target) {
+        const field = target.dataset.field;
+        if (!field) return;
+        const current = foundry.utils.getProperty(this.item, field) ?? 0;
+        await this.item.update({ [field]: current + 1 });
+    }
+
+    static async _onDecrementField(_event, target) {
+        const field = target.dataset.field;
+        if (!field) return;
+        const current = foundry.utils.getProperty(this.item, field) ?? 0;
+        await this.item.update({ [field]: current - 1 });
     }
 
     /** @override */
