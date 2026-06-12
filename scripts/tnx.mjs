@@ -247,6 +247,32 @@ Hooks.once("init", async function() {
         return a + b;
     });
 
+    // アイテム名の表示マーカー(2026-06-12 ユーザー確定ルール)
+    // - 一般技能: アクション技能なら頭に「★」(スタイル技能には付さない)
+    // - スタイル技能: カテゴリが秘技「†」/ 奥義「※」/ 演出特技「＠」を頭に付す
+    // - アウトフィット: isCyber なら末尾に「※」
+    Handlebars.registerHelper('tnxDecoratedName', function(item) {
+        const name = item?.name ?? "";
+        const system = item?.system ?? {};
+        if (item?.type === "generalSkill") {
+            return (system.isAction ? "★" : "") + name;
+        }
+        if (item?.type === "styleSkill") {
+            const prefix = { secret: "†", mystery: "※", performance: "＠" }[system.styleSkillCategory] ?? "";
+            return prefix + name;
+        }
+        if (system.isCyber === true) return `${name}※`;
+        return name;
+    });
+
+    // 部位の表記(スロット数 1 は部位名のみ、0 または 2 以上は「武器2」形式)
+    Handlebars.registerHelper('tnxPartLabel', function(part) {
+        if (!part || typeof part !== "object") return part ?? "";
+        if (!part.value) return "-";
+        const slots = part.slots ?? 0;
+        return slots === 1 ? part.value : `${part.value}${slots}`;
+    });
+
     await preloadHandlebarsTemplates();
     CONFIG.Item.documentClass = TokyoNovaItem;
 

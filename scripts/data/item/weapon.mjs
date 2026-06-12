@@ -1,7 +1,7 @@
 /**
  * @fileoverview WeaponDataModel - 武器 Item の DataModel
  *
- * 使用 template: base + outfitBase + extensible
+ * 使用 template: base + outfitBase + extensible + usage
  * 固有フィールド: attack / guardValue / range / isthrow / isLaser / isBiological /
  *               isFullAuto / FAValue / identificationKey
  *
@@ -11,11 +11,12 @@
 import { SystemDataModel } from "../abstract.mjs";
 import { BaseTemplate } from "./common/base.mjs";
 import { OutfitBaseTemplate } from "./common/outfit-base.mjs";
+import { UsageTemplate } from "./common/usage.mjs";
 import { ExtensibleTemplate } from "./common/extensible.mjs";
 import { attackField } from "./helpers.mjs";
 
 export class WeaponDataModel extends SystemDataModel.mixin(
-  BaseTemplate, OutfitBaseTemplate, ExtensibleTemplate
+  BaseTemplate, OutfitBaseTemplate, ExtensibleTemplate, UsageTemplate
 ) {
   /** @override */
   static defineSchema() {

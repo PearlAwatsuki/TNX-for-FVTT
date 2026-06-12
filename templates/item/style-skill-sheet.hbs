@@ -4,8 +4,13 @@
         <img class="profile-img" src="{{item.img}}" data-edit="img" data-action="editImage" title="{{item.name}}"/>
         <div class="header-fields">
             <h1 class="charname-container">
-                <input class="furigana-input" name="system.furigana" type="text" value="{{system.furigana}}" placeholder="フリガナ" />
-                <input class="itemname-input" name="name" type="text" value="{{item.name}}" placeholder="技能"/>
+                {{#if isEditMode}}
+                    <input class="furigana-input" name="system.furigana" type="text" value="{{system.furigana}}" placeholder="フリガナ" />
+                    <input class="itemname-input" name="name" type="text" value="{{item.name}}" placeholder="技能"/>
+                {{else}}
+                    <span class="furigana-view">{{system.furigana}}</span>
+                    <span class="charname-view">{{tnxDecoratedName item}}</span>
+                {{/if}}
             </h1>
             
             <div class="suit-selection">

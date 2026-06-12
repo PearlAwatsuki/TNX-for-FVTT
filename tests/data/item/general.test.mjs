@@ -43,3 +43,11 @@ describe("GeneralDataModel identificationKey (フェーズ6-0)", () => {
     expect(schema.identificationKey.options.initial).toBe("");
   });
 });
+
+describe("GeneralDataModel usage template (フェーズ6-1 追加対応)", () => {
+  const schema = GeneralDataModel.defineSchema();
+
+  it("actions (用途リスト) が存在する", () => {
+    expect(schema).toHaveProperty("actions");
+  });
+});

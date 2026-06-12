@@ -2,7 +2,13 @@
     <header class="sheet-header skill-header">
         <img class="profile-img" src="{{item.img}}" data-edit="img" data-action="editImage" title="{{item.name}}"/>
         <div class="header-fields">
-            <h1 class="charname"><input name="name" type="text" value="{{item.name}}" placeholder="一般技能名"/></h1>
+            <h1 class="charname">
+                {{#if isEditMode}}
+                    <input name="name" type="text" value="{{item.name}}" placeholder="一般技能名"/>
+                {{else}}
+                    <span class="charname-view">{{tnxDecoratedName item}}</span>
+                {{/if}}
+            </h1>
             <div class="suit-selection">
                 {{#each TNX.SUITS as |suitData key|}}
                    <label for="suit-{{../item.id}}-{{key}}" class="suit-icon" title="{{suitData.label}}">

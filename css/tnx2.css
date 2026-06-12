@@ -1,4 +1,4 @@
-/* ================================================================
+﻿/* ================================================================
    TNX Design System v2  —  tnx2.css
    Phase 4: サイバーパンク・デザイン刷新 (Tokyo Noir Cyber)
    ================================================================
@@ -1470,6 +1470,30 @@
     outline: none;
 }
 
+/* 閲覧モードの名称表示(マーカー付き)。対応する入力欄とメトリクスを揃える */
+.tokyo-nova.sheet.item .sheet-header .charname-view {
+    display: block;
+    width: 100%;
+    min-height: 32px;
+    padding: 4px 8px;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--tnx2-text-primary);
+    box-sizing: border-box;
+}
+
+.tokyo-nova.sheet.item .sheet-header .furigana-view {
+    display: block;
+    width: 100%;
+    min-height: 20px;
+    padding: 1px 8px;
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--tnx2-text-muted);
+    box-sizing: border-box;
+}
+
 /* ── タブ (actor / item 共通) ───────────────────────────────────── */
 .tokyo-nova.sheet.actor .sheet-tabs,
 .tokyo-nova.sheet.item .sheet-tabs {
@@ -1627,7 +1651,7 @@
     display: flex;
     align-items: baseline;
     gap: 4px;
-    font-size: 0.85em;
+    font-size: 1em;
     border-bottom: 1px solid var(--tnx2-border-subtle);
     padding-bottom: 3px;
 }
@@ -2709,7 +2733,7 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 .form-fields.split-fields > select {
     flex: 1 1 0;
     min-width: 0;
-    max-width: 240.5px;
+    max-width: 170.5px;
 }
 .form-fields.split-fields > input[type="text"] {
     flex: 1 1 0;

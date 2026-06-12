@@ -4,7 +4,11 @@
         <img class="profile-img" src="{{item.img}}" data-edit="img" data-action="editImage" title="{{item.name}}"/>
         <div class="header-fields">
             <h1 class="charname">
-                <input name="name" type="text" value="{{item.name}}" placeholder="アウトフィット名"/>
+                {{#if isEditMode}}
+                    <input name="name" type="text" value="{{item.name}}" placeholder="アウトフィット名"/>
+                {{else}}
+                    <span class="charname-view">{{tnxDecoratedName item}}</span>
+                {{/if}}
             </h1>
             <div class="outfit-category">
                 {{#if isEditMode}}
@@ -25,6 +29,7 @@
     <nav class="sheet-tabs tabs" data-group="primary">
         <a class="item" data-action="tab" data-group="primary" data-tab="description">説明</a>
         <a class="item" data-action="tab" data-group="primary" data-tab="setting">設定</a>
+        <a class="item" data-action="tab" data-group="primary" data-tab="usage">用途</a>
         <a class="item" data-action="tab" data-group="primary" data-tab="effects">エフェクト</a>
     </nav>
 
@@ -49,7 +54,7 @@
                     </div>
                     <div>
                         <label>部位：</label>
-                        <span>{{view.part}}</span>
+                        <span>{{tnxPartLabel system.part}}</span>
                     </div>
                 </div>
             </div>
@@ -260,6 +265,11 @@
                     </div>
                 </fieldset>
             </div>
+        </div>
+
+        {{!-- 用途タブ --}}
+        <div class="tab usage" data-group="primary" data-tab="usage">
+            {{> "systems/tokyo-nova-axleration/templates/parts/usage-list.hbs"}}
         </div>
 
         {{!-- エフェクトタブ --}}

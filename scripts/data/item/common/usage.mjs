@@ -1,7 +1,10 @@
 ﻿/**
  * @fileoverview UsageTemplate - 用途(Action)リストを定義する template クラス
  *
- * 使用 Item type: miracle / generalSkill / styleSkill
+ * 使用 Item type: miracle / generalSkill / styleSkill /
+ *                weapon / armor / ianus / cyborg / tron / tap /
+ *                vehicle / residence / combiner / general
+ *                (アウトフィット 10 種はフェーズ6-1 追加対応で「用途」タブを持つため)
  * SystemDataModel.mixin() の引数として各 Item DataModel に合成して使う。
  *
  * 準拠データ: template.json > Item.templates.usage

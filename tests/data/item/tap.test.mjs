@@ -63,3 +63,11 @@ describe("TapDataModel identificationKey (フェーズ6-0)", () => {
     expect(schema.identificationKey.options.initial).toBe("");
   });
 });
+
+describe("TapDataModel usage template (フェーズ6-1 追加対応)", () => {
+  const schema = TapDataModel.defineSchema();
+
+  it("actions (用途リスト) が存在する", () => {
+    expect(schema).toHaveProperty("actions");
+  });
+});

@@ -325,7 +325,7 @@
                                             <div class="general-skill-display general-skill-display--edit item" data-item-id="{{item._id}}">
                                                 <div class="skill-name-wrap">
                                                     <a class="skill-name-plain squeeze-text">
-                                                        {{#if item.system.isAction}}★{{/if}}{{item.name}}
+                                                        {{tnxDecoratedName item}}
                                                     </a>
                                                 </div>
                                                 <div class="skill-meta-data">
@@ -375,7 +375,7 @@
                                         {{#each styleSkills as |item|}}
                                             <li class="item style-skill-row style-skill-grid style-skill-grid--edit" data-item-id="{{item._id}}">
                                                 <div class="cell cell-name">
-                                                    <a class="item-name">{{item.name}}</a>
+                                                    <a class="item-name">{{tnxDecoratedName item}}</a>
                                                 </div>
                                                 <div class="cell cell-level">
                                                     <div class="skill-level-container">
@@ -432,7 +432,7 @@
                                                 <div class="general-skill-display item" data-item-id="{{item._id}}">
                                                     <div class="skill-label-shape">
                                                         <a class="skill-label-content squeeze-text">
-                                                            {{#if item.system.isAction}}★{{/if}}{{item.name}}
+                                                            {{tnxDecoratedName item}}
                                                         </a>
                                                     </div>
                                                     <div class="skill-meta-data">
@@ -476,7 +476,7 @@
                                             <li class="item style-skill-row style-skill-grid" data-item-id="{{item._id}}">
                                                 {{!-- 名称 --}}
                                                 <div class="cell cell-name">
-                                                    <a class="item-name">{{item.name}}</a>
+                                                    <a class="item-name">{{tnxDecoratedName item}}</a>
                                                 </div>
 
                                                 {{!-- レベル＆スート（横並びコンテナ） --}}
@@ -558,12 +558,12 @@
                                         {{#each group.items as |item|}}
                                         <li class="item flexrow" data-item-id="{{item._id}}">
                                             <div class="item-name">
-                                                <a class="item-edit">{{item.name}}</a>
+                                                <a class="item-edit">{{tnxDecoratedName item}}</a>
                                             </div>
-                                            
+
                                             {{!-- 簡易ステータス表示 --}}
                                             <div class="item-prop">{{item.system.stock}}</div>
-                                            <div class="item-prop">{{item.system.part}}</div>
+                                            <div class="item-prop">{{tnxPartLabel item.system.part}}</div>
                                             
                                             {{!-- 武器なら攻撃力 --}}
                                             {{#if (eq ../group.key "weapon")}}
@@ -610,8 +610,8 @@
                                         <tbody>
                                             {{#each group.items as |item|}}
                                             <tr class="item" data-item-id="{{item._id}}">
-                                                <td class="item-name cell-clickable" data-action="rollStyleDescription">{{item.name}}</td>
-                                                <td>{{item.system.part}}</td>
+                                                <td class="item-name cell-clickable" data-action="rollStyleDescription">{{tnxDecoratedName item}}</td>
+                                                <td>{{tnxPartLabel item.system.part}}</td>
                                                 
                                                 {{#if (eq ../group.key "weapon")}}
                                                     <td>{{item.system.attack.value}} / {{item.system.guardValue}}</td>

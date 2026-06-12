@@ -36,7 +36,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
     static TABS = {
         primary: {
-            tabs: [{ id: "description" }, { id: "setting" }, { id: "effects" }],
+            tabs: [{ id: "description" }, { id: "setting" }, { id: "usage" }, { id: "effects" }],
             initial: "description",
         },
     };

@@ -1,7 +1,7 @@
 /**
  * @fileoverview TapDataModel - タップ(電子機器)Item の DataModel
  *
- * 使用 template: base + outfitBase + extensible
+ * 使用 template: base + outfitBase + extensible + usage
  * 固有フィールド: cycle / combatSpeedMod / identificationKey
  *
  * 準拠データ: template.json > Item.tap
@@ -17,10 +17,11 @@
 import { SystemDataModel } from "../abstract.mjs";
 import { BaseTemplate } from "./common/base.mjs";
 import { OutfitBaseTemplate } from "./common/outfit-base.mjs";
+import { UsageTemplate } from "./common/usage.mjs";
 import { ExtensibleTemplate } from "./common/extensible.mjs";
 
 export class TapDataModel extends SystemDataModel.mixin(
-  BaseTemplate, OutfitBaseTemplate, ExtensibleTemplate
+  BaseTemplate, OutfitBaseTemplate, ExtensibleTemplate, UsageTemplate
 ) {
   /** @override */
   static defineSchema() {

@@ -50,3 +50,11 @@ describe("CombinerDataModel identificationKey (フェーズ6-0)", () => {
     expect(schema.identificationKey.options.initial).toBe("");
   });
 });
+
+describe("CombinerDataModel usage template (フェーズ6-1 追加対応)", () => {
+  const schema = CombinerDataModel.defineSchema();
+
+  it("actions (用途リスト) が存在する", () => {
+    expect(schema).toHaveProperty("actions");
+  });
+});
