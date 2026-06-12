@@ -54,6 +54,11 @@ describe("attackField()", () => {
     expect(field.fields.damageType.element).toBeInstanceOf(MockStringField);
   });
 
+  it("damageType の choices は S/P/I/X の 4 種 (フェーズ6-2)", () => {
+    const field = attackField();
+    expect(Object.keys(field.fields.damageType.element.options.choices)).toEqual(["S", "P", "I", "X"]);
+  });
+
   it("value は NumberField で initial が 0", () => {
     const field = attackField();
     expect(field.fields.value).toBeInstanceOf(MockNumberField);

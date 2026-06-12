@@ -23,6 +23,11 @@
  *   0 または 2 以上のときは「武器2」のように部位名 + 数値で表記する(2026-06-12 ユーザー確定)。
  * - exclusive は自由記述の StringField(空欄はシート閲覧時に "-" 表示)。
  * - uses.type は使用回数の種別(アクト/シーン/カット。スタイル技能の usesType と共通)。
+ * - isConsumption(消費アイテム)はフェーズ6-2 で weapon の isthrow を置き換えて全種別に
+ *   一般化したフラグ(2026-06-12 ユーザー確定)。true のアイテムは個数(quantity)を持つ。
+ * - quantity は {value: 現在個数, max: 常備化個数}。消費で value を減らし、0 でそのセッション中は
+ *   使用不可。セッション終了で value は max に戻る。常備化経験点は max(個数分)を基準とし、
+ *   消費しても経験点は復活しない。
  * - "isPre-play" はハイフンを含むため JavaScript の識別子として使えない。
  *   defineSchema の戻り値オブジェクトでは文字列キーとして定義し、
  *   アクセス時は system["isPre-play"] 記法を使う。
@@ -60,6 +65,11 @@ export class OutfitBaseTemplate extends SystemDataModel {
       "isPre-play":      new fields.BooleanField({ initial: false }),
       isCyber:           new fields.BooleanField({ initial: false }),
       isCarrying:        new fields.BooleanField({ initial: false }),
+      isConsumption:     new fields.BooleanField({ initial: false }),
+      quantity: new fields.SchemaField({
+        value: new fields.NumberField({ initial: 1, min: 0, integer: true }),
+        max:   new fields.NumberField({ initial: 1, min: 0, integer: true }),
+      }),
       majorCategory:     new fields.StringField({
         required: true,
         blank: true,

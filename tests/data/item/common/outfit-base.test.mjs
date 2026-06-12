@@ -24,12 +24,24 @@ describe("OutfitBaseTemplate.defineSchema()", () => {
       expect(schema["isPre-play"].options.initial).toBe(false);
     });
 
-    for (const key of ["isOption", "isCyber", "isCarrying"]) {
+    for (const key of ["isOption", "isCyber", "isCarrying", "isConsumption"]) {
       it(`${key} は BooleanField で initial が false`, () => {
         expect(schema[key]).toBeInstanceOf(MockBooleanField);
         expect(schema[key].options.initial).toBe(false);
       });
     }
+  });
+
+  describe("quantity (消費アイテムの個数、フェーズ6-2) が正しい", () => {
+    it("quantity は {value, max} の SchemaField で initial 1・min 0・整数", () => {
+      expect(schema.quantity).toBeInstanceOf(MockSchemaField);
+      for (const key of ["value", "max"]) {
+        expect(schema.quantity.fields[key]).toBeInstanceOf(MockNumberField);
+        expect(schema.quantity.fields[key].options.initial).toBe(1);
+        expect(schema.quantity.fields[key].options.min).toBe(0);
+        expect(schema.quantity.fields[key].options.integer).toBe(true);
+      }
+    });
   });
 
   describe("自由記述フィールド (フェーズ6-1) が正しい", () => {

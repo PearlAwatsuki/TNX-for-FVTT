@@ -31,8 +31,22 @@ export function defenceField() {
 }
 
 /**
+ * 攻撃のダメージ種別(2026-06-12 ユーザー確定)。
+ * S: 斬撃 / P: 貫通 / I: 衝撃 / X: 装甲無視(エクストラ)。
+ * 表記は「攻：I+4」のように 種別 + 攻撃値。
+ * @type {Readonly<Record<string, string>>}
+ */
+export const ATTACK_DAMAGE_TYPES = Object.freeze({
+  S: "斬撃",
+  P: "貫通",
+  I: "衝撃",
+  X: "装甲無視",
+});
+
+/**
  * 攻撃値(ダメージ種別 / 値 / 修正)の SchemaField を返す。
- * damageType は文字列の配列(ArrayField(StringField))、value / mod は初期値 0 の NumberField。
+ * damageType は S/P/I/X の choices 付き文字列配列(複数種別を持つ武器があるため配列)。
+ * value / mod は初期値 0 の NumberField。
  *
  * 使用 Item type: cyborg / weapon
  *
@@ -41,7 +55,9 @@ export function defenceField() {
 export function attackField() {
   const fields = foundry.data.fields;
   return new fields.SchemaField({
-    damageType: new fields.ArrayField(new fields.StringField()),
+    damageType: new fields.ArrayField(
+      new fields.StringField({ choices: ATTACK_DAMAGE_TYPES })
+    ),
     value:      new fields.NumberField({ initial: 0 }),
     mod:        new fields.NumberField({ initial: 0 }),
   });

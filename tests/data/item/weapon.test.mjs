@@ -64,18 +64,39 @@ describe("WeaponDataModel.defineSchema()", () => {
     expect(schema.guardValue.options.initial).toBe(0);
   });
 
-  it("schema.range は StringField で initial が '-'", () => {
-    expect(schema.range).toBeInstanceOf(MockStringField);
-    expect(schema.range.options.initial).toBe("-");
+  describe("range (射程、フェーズ6-2) の構造が正しい", () => {
+    it("range は {min, max} の SchemaField である", () => {
+      expect(schema.range).toBeInstanceOf(MockSchemaField);
+      expect(schema.range.fields).toHaveProperty("min");
+      expect(schema.range.fields).toHaveProperty("max");
+    });
+
+    it("min / max は choices 付き StringField で initial が close、選択肢は 5 種のみ", () => {
+      for (const key of ["min", "max"]) {
+        const f = schema.range.fields[key];
+        expect(f).toBeInstanceOf(MockStringField);
+        expect(f.options.initial).toBe("close");
+        expect(Object.keys(f.options.choices)).toEqual(["close", "short", "middle", "long", "superLong"]);
+      }
+    });
   });
 
   describe("Boolean フィールドが BooleanField で initial false である", () => {
-    for (const key of ["isthrow", "isLaser", "isBiological", "isFullAuto"]) {
+    for (const key of ["isLaser", "isBiological", "isFullAuto"]) {
       it(`schema.${key} は BooleanField で initial が false`, () => {
         expect(schema[key]).toBeInstanceOf(MockBooleanField);
         expect(schema[key].options.initial).toBe(false);
       });
     }
+
+    it("isthrow は持たない(フェーズ6-2 で isConsumption に一般化して削除)", () => {
+      expect(schema).not.toHaveProperty("isthrow");
+    });
+
+    it("isConsumption / quantity を持つ(outfitBase 由来)", () => {
+      expect(schema.isConsumption).toBeInstanceOf(MockBooleanField);
+      expect(schema.quantity).toBeInstanceOf(MockSchemaField);
+    });
   });
 
   it("schema.FAValue は NumberField で initial が 0", () => {
