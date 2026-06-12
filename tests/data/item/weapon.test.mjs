@@ -87,3 +87,12 @@ describe("WeaponDataModel.defineSchema()", () => {
     expect(schema).not.toHaveProperty("defence");
   });
 });
+
+describe("WeaponDataModel identificationKey (フェーズ6-0)", () => {
+  const schema = WeaponDataModel.defineSchema();
+
+  it("identificationKey は StringField で initial が空文字", () => {
+    expect(schema.identificationKey).toBeInstanceOf(MockStringField);
+    expect(schema.identificationKey.options.initial).toBe("");
+  });
+});

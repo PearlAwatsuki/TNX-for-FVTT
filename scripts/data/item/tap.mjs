@@ -2,7 +2,7 @@
  * @fileoverview TapDataModel - タップ(電子機器)Item の DataModel
  *
  * 使用 template: base + outfitBase + extensible
- * 固有フィールド: cycle / combatSpeedMod
+ * 固有フィールド: cycle / combatSpeedMod / identificationKey
  *
  * 準拠データ: template.json > Item.tap
  *
@@ -29,6 +29,7 @@ export class TapDataModel extends SystemDataModel.mixin(
       ...super.defineSchema(),
       cycle:          new fields.NumberField({ initial: 0 }),
       combatSpeedMod: new fields.NumberField({ initial: 0 }),
+      identificationKey: new fields.StringField({ initial: "" }),
     };
   }
 }

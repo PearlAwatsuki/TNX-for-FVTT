@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import "../../setup.mjs";
+import { MockStringField } from "../../setup.mjs";
 
 const { LifePathDataModel } = await import("../../../scripts/data/item/life-path.mjs");
 
@@ -42,5 +42,14 @@ describe("LifePathDataModel.defineSchema()", () => {
 
   it("Cast Actor 側の lifePath.origin は含まれない", () => {
     expect(schema).not.toHaveProperty("origin");
+  });
+});
+
+describe("LifePathDataModel identificationKey (フェーズ6-0)", () => {
+  const schema = LifePathDataModel.defineSchema();
+
+  it("identificationKey は StringField で initial が空文字", () => {
+    expect(schema.identificationKey).toBeInstanceOf(MockStringField);
+    expect(schema.identificationKey.options.initial).toBe("");
   });
 });

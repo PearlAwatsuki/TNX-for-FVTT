@@ -3,7 +3,7 @@
  *
  * 使用 template: base
  * 固有フィールド: buyRatingMod / preserveExpMod / appearanceTargetMod /
- *               cyberSecurityMod / analogSecurityMod
+ *               cyberSecurityMod / analogSecurityMod / identificationKey
  *
  * 準拠データ: template.json > Item.housingArea
  */
@@ -22,6 +22,7 @@ export class HousingAreaDataModel extends SystemDataModel.mixin(BaseTemplate) {
       appearanceTargetMod: new fields.NumberField({ initial: 0 }),
       cyberSecurityMod:    new fields.NumberField({ initial: 0 }),
       analogSecurityMod:   new fields.NumberField({ initial: 0 }),
+      identificationKey:   new fields.StringField({ initial: "" }),
     };
   }
 }

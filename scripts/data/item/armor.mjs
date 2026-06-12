@@ -2,7 +2,7 @@
  * @fileoverview ArmorDataModel - 防具 Item の DataModel
  *
  * 使用 template: base + outfitBase
- * 固有フィールド: defence(S/P/I) / controlMod
+ * 固有フィールド: defence(S/P/I) / controlMod / identificationKey
  *
  * 準拠データ: template.json > Item.armor
  */
@@ -20,6 +20,7 @@ export class ArmorDataModel extends SystemDataModel.mixin(BaseTemplate, OutfitBa
       ...super.defineSchema(),
       defence:    defenceField(),
       controlMod: new fields.NumberField({ initial: 0 }),
+      identificationKey: new fields.StringField({ initial: "" }),
     };
   }
 }

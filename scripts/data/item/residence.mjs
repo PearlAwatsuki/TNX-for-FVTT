@@ -4,7 +4,7 @@
  * 使用 template: base + outfitBase + extensible
  * 固有フィールド: appearanceTarget / cyberSecurity / analogSecurity / housingArea /
  *               buyRatingMod / preserveExpMod / appearanceTargetMod /
- *               cyberSecurityMod / analogSecurityMod
+ *               cyberSecurityMod / analogSecurityMod / identificationKey
  *
  * 準拠データ: template.json > Item.residence
  *
@@ -36,6 +36,7 @@ export class ResidenceDataModel extends SystemDataModel.mixin(
       appearanceTargetMod: new fields.NumberField({ initial: 0 }),
       cyberSecurityMod:    new fields.NumberField({ initial: 0 }),
       analogSecurityMod:   new fields.NumberField({ initial: 0 }),
+      identificationKey:   new fields.StringField({ initial: "" }),
     };
   }
 }

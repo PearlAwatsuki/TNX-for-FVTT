@@ -2,7 +2,7 @@
  * @fileoverview LifePathDataModel - ライフパス Item の DataModel
  *
  * 使用 template: base
- * 固有フィールド: lifePathType / skillName
+ * 固有フィールド: lifePathType / skillName / identificationKey
  *
  * 準拠データ: template.json > Item.lifePath
  *
@@ -26,6 +26,7 @@ export class LifePathDataModel extends SystemDataModel.mixin(BaseTemplate) {
       ...super.defineSchema(),
       lifePathType: new fields.StringField({ initial: "" }),
       skillName:    new fields.StringField({ initial: "" }),
+      identificationKey: new fields.StringField({ initial: "" }),
     };
   }
 }

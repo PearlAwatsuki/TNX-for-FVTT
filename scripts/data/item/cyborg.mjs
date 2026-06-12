@@ -2,7 +2,7 @@
  * @fileoverview CyborgDataModel - サイバーウェア Item の DataModel
  *
  * 使用 template: base + outfitBase
- * 固有フィールド: defence(S/P/I) / attack / guardValue
+ * 固有フィールド: defence(S/P/I) / attack / guardValue / identificationKey
  *
  * 準拠データ: template.json > Item.cyborg
  *
@@ -23,6 +23,7 @@ export class CyborgDataModel extends SystemDataModel.mixin(BaseTemplate, OutfitB
       defence:    defenceField(),
       attack:     attackField(),
       guardValue: new foundry.data.fields.NumberField({ initial: 0 }),
+      identificationKey: new foundry.data.fields.StringField({ initial: "" }),
     };
   }
 }

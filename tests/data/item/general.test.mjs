@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MockBooleanField, MockSchemaField } from "../../setup.mjs";
+import { MockStringField, MockBooleanField, MockSchemaField } from "../../setup.mjs";
 
 const { GeneralDataModel } = await import("../../../scripts/data/item/general.mjs");
 
@@ -32,5 +32,14 @@ describe("GeneralDataModel.defineSchema()", () => {
 
   it("extensible のフィールドは含まれない(slot が含まれない)", () => {
     expect(schema).not.toHaveProperty("slot");
+  });
+});
+
+describe("GeneralDataModel identificationKey (フェーズ6-0)", () => {
+  const schema = GeneralDataModel.defineSchema();
+
+  it("identificationKey は StringField で initial が空文字", () => {
+    expect(schema.identificationKey).toBeInstanceOf(MockStringField);
+    expect(schema.identificationKey.options.initial).toBe("");
   });
 });

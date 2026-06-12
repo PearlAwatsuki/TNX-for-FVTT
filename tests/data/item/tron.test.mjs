@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MockArrayField, MockBooleanField, MockSchemaField } from "../../setup.mjs";
+import { MockStringField, MockArrayField, MockBooleanField, MockSchemaField } from "../../setup.mjs";
 
 const { TronDataModel } = await import("../../../scripts/data/item/tron.mjs");
 
@@ -38,5 +38,14 @@ describe("TronDataModel.defineSchema()", () => {
 
   it("tron 固有フィールドは存在しない(defence が含まれない)", () => {
     expect(schema).not.toHaveProperty("defence");
+  });
+});
+
+describe("TronDataModel identificationKey (フェーズ6-0)", () => {
+  const schema = TronDataModel.defineSchema();
+
+  it("identificationKey は StringField で initial が空文字", () => {
+    expect(schema.identificationKey).toBeInstanceOf(MockStringField);
+    expect(schema.identificationKey.options.initial).toBe("");
   });
 });

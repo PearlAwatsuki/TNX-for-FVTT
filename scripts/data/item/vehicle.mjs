@@ -2,7 +2,7 @@
  * @fileoverview VehicleDataModel - 乗り物 Item の DataModel
  *
  * 使用 template: base + outfitBase + extensible
- * 固有フィールド: speedFactor / passenger / controlMod
+ * 固有フィールド: speedFactor / passenger / controlMod / identificationKey
  *
  * 準拠データ: template.json > Item.vehicle
  */
@@ -23,6 +23,7 @@ export class VehicleDataModel extends SystemDataModel.mixin(
       speedFactor: new fields.NumberField({ initial: 0 }),
       passenger:   new fields.NumberField({ initial: 0 }),
       controlMod:  new fields.NumberField({ initial: 0 }),
+      identificationKey: new fields.StringField({ initial: "" }),
     };
   }
 }

@@ -2,7 +2,7 @@
  * @fileoverview TronDataModel - トロン Item の DataModel
  *
  * 使用 template: base + outfitBase + extensible
- * 固有フィールド: なし
+ * 固有フィールド: identificationKey
  *
  * 準拠データ: template.json > Item.tron
  */
@@ -17,8 +17,10 @@ export class TronDataModel extends SystemDataModel.mixin(
 ) {
   /** @override */
   static defineSchema() {
+    const fields = foundry.data.fields;
     return {
       ...super.defineSchema(),
+      identificationKey: new fields.StringField({ initial: "" }),
     };
   }
 }

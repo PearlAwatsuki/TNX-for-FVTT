@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MockArrayField, MockBooleanField, MockNumberField, MockSchemaField } from "../../setup.mjs";
+import { MockStringField, MockArrayField, MockBooleanField, MockNumberField, MockSchemaField } from "../../setup.mjs";
 
 const { IanusDataModel } = await import("../../../scripts/data/item/ianus.mjs");
 
@@ -41,5 +41,14 @@ describe("IanusDataModel.defineSchema()", () => {
 
   it("defence フィールドは含まれない", () => {
     expect(schema).not.toHaveProperty("defence");
+  });
+});
+
+describe("IanusDataModel identificationKey (フェーズ6-0)", () => {
+  const schema = IanusDataModel.defineSchema();
+
+  it("identificationKey は StringField で initial が空文字", () => {
+    expect(schema.identificationKey).toBeInstanceOf(MockStringField);
+    expect(schema.identificationKey.options.initial).toBe("");
   });
 });

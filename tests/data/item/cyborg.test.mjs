@@ -75,3 +75,12 @@ describe("CyborgDataModel.defineSchema()", () => {
     expect(schema).not.toHaveProperty("slot");
   });
 });
+
+describe("CyborgDataModel identificationKey (フェーズ6-0)", () => {
+  const schema = CyborgDataModel.defineSchema();
+
+  it("identificationKey は StringField で initial が空文字", () => {
+    expect(schema.identificationKey).toBeInstanceOf(MockStringField);
+    expect(schema.identificationKey.options.initial).toBe("");
+  });
+});

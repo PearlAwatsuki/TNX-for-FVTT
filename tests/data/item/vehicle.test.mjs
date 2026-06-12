@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MockArrayField, MockBooleanField, MockNumberField, MockSchemaField } from "../../setup.mjs";
+import { MockStringField, MockArrayField, MockBooleanField, MockNumberField, MockSchemaField } from "../../setup.mjs";
 
 const { VehicleDataModel } = await import("../../../scripts/data/item/vehicle.mjs");
 
@@ -46,5 +46,14 @@ describe("VehicleDataModel.defineSchema()", () => {
 
   it("defence フィールドは含まれない", () => {
     expect(schema).not.toHaveProperty("defence");
+  });
+});
+
+describe("VehicleDataModel identificationKey (フェーズ6-0)", () => {
+  const schema = VehicleDataModel.defineSchema();
+
+  it("identificationKey は StringField で initial が空文字", () => {
+    expect(schema.identificationKey).toBeInstanceOf(MockStringField);
+    expect(schema.identificationKey.options.initial).toBe("");
   });
 });

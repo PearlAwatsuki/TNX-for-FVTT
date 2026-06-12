@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import "../../setup.mjs";
+import { MockStringField } from "../../setup.mjs";
 
 const { HousingAreaDataModel } = await import("../../../scripts/data/item/housing-area.mjs");
 
@@ -48,5 +48,14 @@ describe("HousingAreaDataModel.defineSchema()", () => {
 
   it("housingArea に存在しないフィールドは含まれない(level が含まれない)", () => {
     expect(schema).not.toHaveProperty("level");
+  });
+});
+
+describe("HousingAreaDataModel identificationKey (フェーズ6-0)", () => {
+  const schema = HousingAreaDataModel.defineSchema();
+
+  it("identificationKey は StringField で initial が空文字", () => {
+    expect(schema.identificationKey).toBeInstanceOf(MockStringField);
+    expect(schema.identificationKey.options.initial).toBe("");
   });
 });

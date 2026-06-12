@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MockArrayField, MockBooleanField, MockNumberField, MockSchemaField } from "../../setup.mjs";
+import { MockStringField, MockArrayField, MockBooleanField, MockNumberField, MockSchemaField } from "../../setup.mjs";
 
 const { TapDataModel } = await import("../../../scripts/data/item/tap.mjs");
 
@@ -52,5 +52,14 @@ describe("TapDataModel.defineSchema()", () => {
 
   it("attack フィールドは含まれない(weapon 固有)", () => {
     expect(schema).not.toHaveProperty("attack");
+  });
+});
+
+describe("TapDataModel identificationKey (フェーズ6-0)", () => {
+  const schema = TapDataModel.defineSchema();
+
+  it("identificationKey は StringField で initial が空文字", () => {
+    expect(schema.identificationKey).toBeInstanceOf(MockStringField);
+    expect(schema.identificationKey.options.initial).toBe("");
   });
 });

@@ -41,3 +41,12 @@ describe("CombinerDataModel.defineSchema()", () => {
     expect(schema).not.toHaveProperty("defence");
   });
 });
+
+describe("CombinerDataModel identificationKey (フェーズ6-0)", () => {
+  const schema = CombinerDataModel.defineSchema();
+
+  it("identificationKey は StringField で initial が空文字", () => {
+    expect(schema.identificationKey).toBeInstanceOf(MockStringField);
+    expect(schema.identificationKey.options.initial).toBe("");
+  });
+});

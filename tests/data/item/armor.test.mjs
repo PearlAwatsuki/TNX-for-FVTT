@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MockBooleanField, MockNumberField, MockSchemaField } from "../../setup.mjs";
+import { MockStringField, MockBooleanField, MockNumberField, MockSchemaField } from "../../setup.mjs";
 
 const { ArmorDataModel } = await import("../../../scripts/data/item/armor.mjs");
 
@@ -58,5 +58,14 @@ describe("ArmorDataModel.defineSchema()", () => {
 
   it("cyborg 固有フィールドは含まれない(attack が含まれない)", () => {
     expect(schema).not.toHaveProperty("attack");
+  });
+});
+
+describe("ArmorDataModel identificationKey (フェーズ6-0)", () => {
+  const schema = ArmorDataModel.defineSchema();
+
+  it("identificationKey は StringField で initial が空文字", () => {
+    expect(schema.identificationKey).toBeInstanceOf(MockStringField);
+    expect(schema.identificationKey.options.initial).toBe("");
   });
 });

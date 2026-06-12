@@ -3,7 +3,7 @@
  *
  * 使用 template: base + outfitBase + extensible
  * 固有フィールド: attack / guardValue / range / isthrow / isLaser / isBiological /
- *               isFullAuto / FAValue
+ *               isFullAuto / FAValue / identificationKey
  *
  * 準拠データ: template.json > Item.weapon
  */
@@ -30,6 +30,7 @@ export class WeaponDataModel extends SystemDataModel.mixin(
       isBiological: new fields.BooleanField({ initial: false }),
       isFullAuto:  new fields.BooleanField({ initial: false }),
       FAValue:     new fields.NumberField({ initial: 0 }),
+      identificationKey: new fields.StringField({ initial: "" }),
     };
   }
 }

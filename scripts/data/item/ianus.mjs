@@ -2,7 +2,7 @@
  * @fileoverview IanusDataModel - イアヌス Item の DataModel
  *
  * 使用 template: base + outfitBase + extensible
- * 固有フィールド: controlMod
+ * 固有フィールド: controlMod / identificationKey
  *
  * 準拠データ: template.json > Item.ianus
  */
@@ -21,6 +21,7 @@ export class IanusDataModel extends SystemDataModel.mixin(
     return {
       ...super.defineSchema(),
       controlMod: new fields.NumberField({ initial: 0 }),
+      identificationKey: new fields.StringField({ initial: "" }),
     };
   }
 }

@@ -2,7 +2,7 @@
  * @fileoverview CombinerDataModel - コンバイナ Item の DataModel
  *
  * 使用 template: base + outfitBase
- * 固有フィールド: combinedOutfitID(装備 Item ID の配列)
+ * 固有フィールド: combinedOutfitID(装備 Item ID の配列) / identificationKey
  *
  * 準拠データ: template.json > Item.combiner
  */
@@ -18,6 +18,7 @@ export class CombinerDataModel extends SystemDataModel.mixin(BaseTemplate, Outfi
     return {
       ...super.defineSchema(),
       combinedOutfitID: new fields.ArrayField(new fields.StringField()),
+      identificationKey: new fields.StringField({ initial: "" }),
     };
   }
 }
