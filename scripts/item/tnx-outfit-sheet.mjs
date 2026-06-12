@@ -55,6 +55,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             decrementField: TokyoNovaOutfitSheet._onDecrementField,
             incrementSlot:  TokyoNovaOutfitSheet._onIncrementSlot,
             decrementSlot:  TokyoNovaOutfitSheet._onDecrementSlot,
+            toggleFlag:     TokyoNovaOutfitSheet._onToggleFlag,
         },
     };
 
@@ -358,6 +359,19 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 this._onDeleteTimingRow(Number(event.currentTarget.dataset.index));
             });
         }
+    }
+
+    // ─── ヘッダーの状態トグル(準備済み/携帯中/プリプレイ購入) ────────────────
+
+    /**
+     * D&D 5e の装備済みトグルを踏襲したヘッダーアイコン。閲覧モードでも操作できる
+     * (プレイ中に切り替える運用状態のため)。
+     */
+    static async _onToggleFlag(_event, target) {
+        const flag = target.dataset.flag;
+        if (!flag) return;
+        const current = foundry.utils.getProperty(this.item.system, flag) === true;
+        await this.item.update({ [`system.${flag}`]: !current });
     }
 
     // ─── 数値スピナー(number-input-spinner) ────────────────────────────────
