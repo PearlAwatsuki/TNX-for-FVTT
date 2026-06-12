@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { MockBooleanField, MockStringField, MockNumberField, MockSchemaField } from "../../../setup.mjs";
 
 const { OutfitBaseTemplate } = await import("../../../../scripts/data/item/common/outfit-base.mjs");
+const { getMajorCategoryChoices, getMinorCategoryChoices } =
+  await import("../../../../scripts/data/item/outfit-categories.mjs");
 
 describe("OutfitBaseTemplate.defineSchema()", () => {
   const schema = OutfitBaseTemplate.defineSchema();
@@ -22,7 +24,7 @@ describe("OutfitBaseTemplate.defineSchema()", () => {
       expect(schema["isPre-play"].options.initial).toBe(false);
     });
 
-    for (const key of ["isOption", "isCyber"]) {
+    for (const key of ["isOption", "isCyber", "isCarrying"]) {
       it(`${key} は BooleanField で initial が false`, () => {
         expect(schema[key]).toBeInstanceOf(MockBooleanField);
         expect(schema[key].options.initial).toBe(false);
@@ -31,16 +33,66 @@ describe("OutfitBaseTemplate.defineSchema()", () => {
   });
 
   describe("StringField (初期値 '-') フィールドが正しい", () => {
-    const stringFields = [
-      "majorCategory", "minorCategory", "buy", "preserveExp",
-      "hide", "appearancePenalty", "hack", "part", "timing", "exclusive",
-    ];
+    const stringFields = ["hack", "part", "timing", "exclusive"];
     for (const key of stringFields) {
       it(`${key} は StringField で initial が '-'`, () => {
         expect(schema[key]).toBeInstanceOf(MockStringField);
         expect(schema[key].options.initial).toBe("-");
       });
     }
+  });
+
+  describe("カテゴリフィールド (choices 付き) が正しい", () => {
+    it("majorCategory は StringField で initial が空文字・blank 許容", () => {
+      expect(schema.majorCategory).toBeInstanceOf(MockStringField);
+      expect(schema.majorCategory.options.initial).toBe("");
+      expect(schema.majorCategory.options.blank).toBe(true);
+    });
+
+    it("majorCategory の choices は大分類リストを返す関数", () => {
+      expect(schema.majorCategory.options.choices).toBe(getMajorCategoryChoices);
+    });
+
+    it("minorCategory は StringField で initial が空文字・blank 許容", () => {
+      expect(schema.minorCategory).toBeInstanceOf(MockStringField);
+      expect(schema.minorCategory.options.initial).toBe("");
+      expect(schema.minorCategory.options.blank).toBe(true);
+    });
+
+    it("minorCategory の choices は小分類リストを返す関数", () => {
+      expect(schema.minorCategory.options.choices).toBe(getMinorCategoryChoices);
+    });
+  });
+
+  describe("buy / hide (3 状態 SchemaField) が正しい", () => {
+    for (const key of ["buy", "hide"]) {
+      it(`${key} は SchemaField である`, () => {
+        expect(schema[key]).toBeInstanceOf(MockSchemaField);
+      });
+
+      it(`${key}.mode は StringField で initial が 'none'、choices は none/value/reference`, () => {
+        expect(schema[key].fields.mode).toBeInstanceOf(MockStringField);
+        expect(schema[key].fields.mode.options.initial).toBe("none");
+        expect(schema[key].fields.mode.options.choices).toEqual(["none", "value", "reference"]);
+      });
+
+      it(`${key}.value は NumberField で initial が 0`, () => {
+        expect(schema[key].fields.value).toBeInstanceOf(MockNumberField);
+        expect(schema[key].fields.value.options.initial).toBe(0);
+      });
+    }
+  });
+
+  describe("数値フィールドが正しい", () => {
+    it("preserveExp は NumberField で initial が 0 (常備化経験点は必ず数値)", () => {
+      expect(schema.preserveExp).toBeInstanceOf(MockNumberField);
+      expect(schema.preserveExp.options.initial).toBe(0);
+    });
+
+    it("appearancePenalty は NumberField で initial が 0 (危険値は必ず数値)", () => {
+      expect(schema.appearancePenalty).toBeInstanceOf(MockNumberField);
+      expect(schema.appearancePenalty.options.initial).toBe(0);
+    });
   });
 
   describe("uses (SchemaField) の構造が正しい", () => {
