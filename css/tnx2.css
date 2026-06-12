@@ -4779,12 +4779,12 @@ button.tnx-create-act-button span {
     color: var(--tnx2-text-primary);
 }
 
-/* ヘッダーの状態トグル(準備済み/携帯中/プリプレイ購入)。
+/* ウィンドウヘッダーの状態トグル(準備済み/携帯中/プレアクト購入)。
    D&D 5e の装備済みトグル風。閲覧モードでも操作できる */
-.tokyo-nova.sheet.item.outfit .outfit-header-toggles {
+.tokyo-nova.sheet.item.outfit .window-header .outfit-header-toggles {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
     flex: 0 0 auto;
 }
 
@@ -4792,12 +4792,11 @@ button.tnx-create-act-button span {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 26px;
-    height: 26px;
-    border-radius: var(--tnx2-radius);
+    width: 22px;
+    height: 100%;
     color: var(--tnx2-text-muted);
     cursor: pointer;
-    font-size: 0.95em;
+    font-size: 0.9em;
     transition: color       var(--tnx2-transition-fast),
                 text-shadow var(--tnx2-transition-fast);
 }

@@ -21,20 +21,6 @@
                         {{/if}}
                     </div>
                 {{/if}}
-                <div class="outfit-header-toggles">
-                    <a class="outfit-flag-toggle {{#if system.isPrepared}}active{{/if}}"
-                       data-action="toggleFlag" data-flag="isPrepared" title="準備済み">
-                        <i class="fa-solid fa-shield-halved"></i>
-                    </a>
-                    <a class="outfit-flag-toggle {{#if system.isCarrying}}active{{/if}}"
-                       data-action="toggleFlag" data-flag="isCarrying" title="携帯中">
-                        <i class="fa-solid fa-suitcase"></i>
-                    </a>
-                    <a class="outfit-flag-toggle {{#if (lookup system "isPre-play")}}active{{/if}}"
-                       data-action="toggleFlag" data-flag="isPre-play" title="プリプレイ購入">
-                        <i class="fa-solid fa-cart-shopping"></i>
-                    </a>
-                </div>
             </div>
             <div class="outfit-category">
                 {{#if isEditMode}}

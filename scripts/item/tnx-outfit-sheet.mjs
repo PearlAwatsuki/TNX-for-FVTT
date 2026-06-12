@@ -280,6 +280,31 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         super._onRender(context, options);
         if (!context.editable) return;
 
+        // 状態トグル(準備済み/携帯中/プレアクト購入)をウィンドウヘッダーに注入する。
+        // D&D 5e の装備済みトグル踏襲。window-header は PART 外で永続するため
+        // 毎レンダーで remove → prepend してリフレッシュする(編集モード切替ボタンと同方式)。
+        const header = this.element.querySelector(".window-header");
+        if (header) {
+            header.querySelector(".outfit-header-toggles")?.remove();
+            const wrap = document.createElement("div");
+            wrap.className = "outfit-header-toggles";
+            const toggles = [
+                { flag: "isPrepared",  icon: "fa-shield-halved",  title: "準備済み" },
+                { flag: "isCarrying",  icon: "fa-suitcase",       title: "携帯中" },
+                { flag: "isPre-play",  icon: "fa-cart-shopping",  title: "プレアクト購入" },
+            ];
+            for (const t of toggles) {
+                const a = document.createElement("a");
+                a.className = "outfit-flag-toggle" + (this.item.system[t.flag] === true ? " active" : "");
+                a.dataset.action = "toggleFlag";
+                a.dataset.flag = t.flag;
+                a.title = t.title;
+                a.innerHTML = `<i class="fa-solid ${t.icon}"></i>`;
+                wrap.appendChild(a);
+            }
+            header.prepend(wrap);
+        }
+
         // 大分類変更時は小分類をリセットする(連動ドロップダウン)
         this.element.querySelector('select[name="system.majorCategory"]')
             ?.addEventListener("change", (event) => {
