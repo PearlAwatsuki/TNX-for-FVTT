@@ -29,7 +29,7 @@ import { TokyoNovaMiracleSheet } from './item/tnx-miracle-sheet.mjs';
 import { TokyoNovaGeneralSkillSheet } from './item/tnx-general-skill-sheet.mjs';
 import { TokyoNovaStyleSkillSheet } from './item/tnx-style-skill-sheet.mjs';
 import { TokyoNovaOrganizationSheet } from './item/tnx-organization-sheet.mjs';
-import { TokyoNovaOutfitSheet } from './item/tnx-outfit-sheet.mjs';
+import { TokyoNovaOutfitSheet, formatPartLabel, formatWeaponRangeLabel } from './item/tnx-outfit-sheet.mjs';
 import { TnxScenarioSheet } from './journal/tnx-scenario-sheet.mjs';
 import { TnxCardSetupApp } from './module/tnx-card-setup-app.mjs';
 import { TnxActionHandler } from './module/tnx-action-handler.mjs';
@@ -266,12 +266,10 @@ Hooks.once("init", async function() {
     });
 
     // 部位の表記(スロット数 1 は部位名のみ、0 または 2 以上は「武器2」形式)
-    Handlebars.registerHelper('tnxPartLabel', function(part) {
-        if (!part || typeof part !== "object") return part ?? "";
-        if (!part.value) return "-";
-        const slots = part.slots ?? 0;
-        return slots === 1 ? part.value : `${part.value}${slots}`;
-    });
+    Handlebars.registerHelper('tnxPartLabel', formatPartLabel);
+
+    // 武器射程の表記(min/max が同じなら単一表記、異なるなら「近～超遠」形式)
+    Handlebars.registerHelper('tnxRangeLabel', formatWeaponRangeLabel);
 
     await preloadHandlebarsTemplates();
     CONFIG.Item.documentClass = TokyoNovaItem;
@@ -379,10 +377,10 @@ Hooks.once("init", async function() {
         label: "組織シート"
     });
 
-    // アウトフィット共通シート(フェーズ6-1)。固有フィールドを持つ型は
-    // フェーズ6-2 以降でサブクラスに差し替える。
+    // アウトフィット共通シート(フェーズ6-1〜)。型ごとの差分はシート内の
+    // type 判定(サマリ構成・固有フィールドセット)で吸収する。
     foundry.documents.collections.Items.registerSheet("tokyo-nova", TokyoNovaOutfitSheet, {
-        types: ["general"],
+        types: ["general", "weapon", "armor", "cyborg"],
         makeDefault: true,
         label: "アウトフィットシート"
     });

@@ -3,13 +3,25 @@
     <header class="sheet-header outfit-header">
         <img class="profile-img" src="{{item.img}}" data-edit="img" data-action="editImage" title="{{item.name}}"/>
         <div class="header-fields">
-            <h1 class="charname">
-                {{#if isEditMode}}
-                    <input name="name" type="text" value="{{item.name}}" placeholder="アウトフィット名"/>
-                {{else}}
-                    <span class="charname-view">{{tnxDecoratedName item}}</span>
+            <div class="charname-row">
+                <h1 class="charname">
+                    {{#if isEditMode}}
+                        <input name="name" type="text" value="{{item.name}}" placeholder="アウトフィット名"/>
+                    {{else}}
+                        <span class="charname-view">{{tnxDecoratedName item}}</span>
+                    {{/if}}
+                </h1>
+                {{#if system.isConsumption}}
+                    <div class="outfit-quantity" title="個数">
+                        <span class="outfit-quantity__times">×</span>
+                        {{#if isEditMode}}
+                            <input type="number" name="system.quantity.value" value="{{system.quantity.value}}" min="0">
+                        {{else}}
+                            <span class="outfit-quantity__value">{{system.quantity.value}}</span>
+                        {{/if}}
+                    </div>
                 {{/if}}
-            </h1>
+            </div>
             <div class="outfit-category">
                 {{#if isEditMode}}
                     <select name="system.majorCategory">
@@ -40,22 +52,12 @@
         <div class="tab description" data-group="primary" data-tab="description">
             <div class="style-skill-display">
                 <div class="style-skill-display-grid">
-                    <div>
-                        <label>購：</label>
-                        <span>{{view.buy}}</span>
-                    </div>
-                    <div>
-                        <label>隠：</label>
-                        <span>{{view.hide}}</span>
-                    </div>
-                    <div>
-                        <label>電制：</label>
-                        <span>{{view.hack}}</span>
-                    </div>
-                    <div>
-                        <label>部位：</label>
-                        <span>{{tnxPartLabel system.part}}</span>
-                    </div>
+                    {{#each view.summary as |row|}}
+                        <div>
+                            <label>{{row.label}}：</label>
+                            <span>{{row.value}}</span>
+                        </div>
+                    {{/each}}
                 </div>
             </div>
 
@@ -88,6 +90,11 @@
                     <p class="sheet-notes notes">サイバーウェアである場合にチェックします（種別がサイバーウェア以外のアウトフィットの識別用）。</p>
                 </div>
                 <div class="form-group">
+                    <label>生体装備</label>
+                    <input type="checkbox" name="system.isBiological" {{checked system.isBiological}}>
+                    <p class="sheet-notes notes">生体武器・生体装備である場合にチェックします。</p>
+                </div>
+                <div class="form-group">
                     <label>プリプレイ購入</label>
                     <input type="checkbox" name="system.isPre-play" {{checked (lookup system "isPre-play")}}>
                     <p class="sheet-notes notes">常備化経験点を支払わずプリプレイで購入したアイテムの場合にチェックします。所持時の経験点消費がなくなります。</p>
@@ -96,6 +103,11 @@
                     <label>オプション</label>
                     <input type="checkbox" name="system.isOption" {{checked system.isOption}}>
                     <p class="sheet-notes notes">別のアウトフィットに装備するオプションの場合にチェックします。装備対象のスロット数がなければ装備できません。</p>
+                </div>
+                <div class="form-group">
+                    <label>消費アイテム</label>
+                    <input type="checkbox" name="system.isConsumption" {{checked system.isConsumption}}>
+                    <p class="sheet-notes notes">使用すると個数が減るアイテムの場合にチェックします。0 でそのセッション中は使用不可、セッション終了で復活します。</p>
                 </div>
 
                 <fieldset class="tnx-fieldset">
@@ -107,6 +119,147 @@
                         </div>
                     </div>
                 </fieldset>
+
+                {{#if (or isArmor isCyborg)}}
+                <fieldset class="tnx-fieldset">
+                    <legend>防御データ</legend>
+                    <div class="tnx-form-field">
+                        <div class="form-group">
+                            <label>防御値(S)</label>
+                            <div class="number-input-spinner skill-sheet-spinner">
+                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.defence.S_defence">-</button>
+                                <input type="number" name="system.defence.S_defence" value="{{system.defence.S_defence}}">
+                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.defence.S_defence">+</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>防御値(P)</label>
+                            <div class="number-input-spinner skill-sheet-spinner">
+                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.defence.P_defence">-</button>
+                                <input type="number" name="system.defence.P_defence" value="{{system.defence.P_defence}}">
+                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.defence.P_defence">+</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>防御値(I)</label>
+                            <div class="number-input-spinner skill-sheet-spinner">
+                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.defence.I_defence">-</button>
+                                <input type="number" name="system.defence.I_defence" value="{{system.defence.I_defence}}">
+                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.defence.I_defence">+</button>
+                            </div>
+                        </div>
+                        {{#if isArmor}}
+                            <div class="form-group">
+                                <label>制御値修正</label>
+                                <div class="number-input-spinner skill-sheet-spinner">
+                                    <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.controlMod">-</button>
+                                    <input type="number" name="system.controlMod" value="{{system.controlMod}}">
+                                    <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.controlMod">+</button>
+                                </div>
+                            </div>
+                        {{/if}}
+                    </div>
+                </fieldset>
+                {{/if}}
+
+                {{#if (or isWeapon isCyborg)}}
+                <fieldset class="tnx-fieldset">
+                    <legend>攻撃データ</legend>
+                    <div class="tnx-form-field">
+                        <div class="form-group">
+                            <label>ダメージ種別</label>
+                            <div class="attack-damage-type">
+                                {{#each damageTypeOptions as |opt|}}
+                                    <label class="checkbox-inline" title="{{opt.label}}">
+                                        <input type="checkbox" data-type="{{opt.key}}" {{checked opt.checked}}>
+                                        {{opt.key}}
+                                    </label>
+                                {{/each}}
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>攻撃値</label>
+                            <div class="number-input-spinner skill-sheet-spinner">
+                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.attack.value">-</button>
+                                <input type="number" name="system.attack.value" value="{{system.attack.value}}">
+                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.attack.value">+</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>攻撃修正</label>
+                            <div class="number-input-spinner skill-sheet-spinner">
+                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.attack.mod">-</button>
+                                <input type="number" name="system.attack.mod" value="{{system.attack.mod}}">
+                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.attack.mod">+</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>受け値</label>
+                            <div class="number-input-spinner skill-sheet-spinner">
+                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.guardValue">-</button>
+                                <input type="number" name="system.guardValue" value="{{system.guardValue}}">
+                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.guardValue">+</button>
+                            </div>
+                        </div>
+                        {{#if isWeapon}}
+                            <div class="form-group">
+                                <label>射程</label>
+                                <div class="form-fields split-fields">
+                                    <select name="system.range.min">
+                                        {{selectOptions options.weaponRange selected=system.range.min}}
+                                    </select>
+                                    <span class="range-separator">～</span>
+                                    <select name="system.range.max">
+                                        {{selectOptions options.weaponRange selected=system.range.max}}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>攻撃範囲</label>
+                                <select name="system.attackArea">
+                                    {{selectOptions options.attackArea selected=system.attackArea}}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>レーザー兵器</label>
+                                <input type="checkbox" name="system.isLaser" {{checked system.isLaser}}>
+                            </div>
+                            <div class="form-group">
+                                <label>フルオート</label>
+                                <input type="checkbox" name="system.isFullAuto" {{checked system.isFullAuto}}>
+                            </div>
+                            {{#if system.isFullAuto}}
+                                <div class="form-group">
+                                    <label>FA値</label>
+                                    <div class="number-input-spinner skill-sheet-spinner">
+                                        <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.FAValue" data-min="0">-</button>
+                                        <input type="number" name="system.FAValue" value="{{system.FAValue}}" min="0">
+                                        <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.FAValue">+</button>
+                                    </div>
+                                </div>
+                            {{/if}}
+                        {{/if}}
+                    </div>
+                </fieldset>
+                {{/if}}
+
+                {{#if hasSlots}}
+                <fieldset class="tnx-fieldset">
+                    <legend>スロット</legend>
+                    <div class="tnx-form-field">
+                        {{#each system.slots as |pool|}}
+                            <div class="form-group">
+                                <label>{{lookup ../options.slotKinds pool.kind}}</label>
+                                <div class="number-input-spinner skill-sheet-spinner">
+                                    <button type="button" class="tnx-btn" data-action="decrementSlot" data-kind="{{pool.kind}}">-</button>
+                                    <input type="number" value="{{pool.count}}" min="0" data-slot-kind="{{pool.kind}}">
+                                    <button type="button" class="tnx-btn" data-action="incrementSlot" data-kind="{{pool.kind}}">+</button>
+                                </div>
+                            </div>
+                        {{/each}}
+                    </div>
+                </fieldset>
+                {{/if}}
 
                 <fieldset class="tnx-fieldset">
                     <legend>アウトフィット 詳細設定</legend>
@@ -135,6 +288,17 @@
                                 <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.preserveExp">+</button>
                             </div>
                         </div>
+
+                        {{#if system.isConsumption}}
+                            <div class="form-group">
+                                <label>常備化個数</label>
+                                <div class="number-input-spinner skill-sheet-spinner">
+                                    <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.quantity.max" data-min="0">-</button>
+                                    <input type="number" name="system.quantity.max" value="{{system.quantity.max}}" min="0">
+                                    <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.quantity.max">+</button>
+                                </div>
+                            </div>
+                        {{/if}}
 
                         <div class="form-group">
                             <label>隠匿値</label>

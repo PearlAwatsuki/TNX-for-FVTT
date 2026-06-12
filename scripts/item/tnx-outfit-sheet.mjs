@@ -1,23 +1,49 @@
 import { TokyoNovaItemSheet } from "./tnx-item-sheet.mjs";
 import { TnxSkillUtils } from "../module/tnx-skill-utils.mjs";
 import { OUTFIT_CATEGORIES } from "../data/item/outfit-categories.mjs";
+import { ATTACK_DAMAGE_TYPES } from "../data/item/helpers.mjs";
+import { WEAPON_RANGES, WEAPON_ATTACK_AREAS } from "../data/item/weapon.mjs";
+import { SLOT_KINDS } from "../data/item/common/extensible.mjs";
+
+/**
+ * 部位の表記(2026-06-12 ユーザー確定)。
+ * スロット数 1 のときは部位名のみ、0 または 2 以上のときは「武器2」のように数値を付す。
+ * Handlebars ヘルパー tnxPartLabel(tnx.mjs)と本シートのサマリ生成で共用する。
+ * @param {{value: string, slots: number}|string|null} part
+ * @returns {string}
+ */
+export function formatPartLabel(part) {
+    if (!part || typeof part !== "object") return part ?? "";
+    if (!part.value) return "-";
+    const slots = part.slots ?? 0;
+    return slots === 1 ? part.value : `${part.value}${slots}`;
+}
+
+/**
+ * 射程の表記(略号「射」)。min と max が同じなら単一表記、異なるなら「近～超遠」形式。
+ * @param {{min: string, max: string}|string|null} range
+ * @returns {string}
+ */
+export function formatWeaponRangeLabel(range) {
+    if (!range || typeof range !== "object") return range ?? "-";
+    const min = WEAPON_RANGES[range.min] ?? "-";
+    const max = WEAPON_RANGES[range.max] ?? "-";
+    return min === max ? min : `${min}～${max}`;
+}
 
 /**
  * アウトフィット(装備品)共通シート。
- * general はこのクラスをそのまま使用し、固有フィールドを持つ型(weapon 等)は
- * 本クラスを継承してデータタブの固有部分を追加する(フェーズ6-2 以降)。
+ * general / weapon / armor / cyborg に登録し、型ごとの差分は context のフラグと
+ * サマリ(view.summary)の組み立てで吸収する(フェーズ6-2)。
  *
  * ルールの正本: llm-wiki/01_Wiki/Game_Rules/Outfits.md
- * - 購は「購：購入値／常備化経験点」表記。解説参照時は常備化経験点を表記しない。
- * - 隠は「隠：隠匿値／危険値」表記。解説参照でも危険値は別個に表記する。
- * - 電脳制御値の略号は「電制」。
- * - カテゴリは大分類→小分類の連動ドロップダウンで、その type に有効な小分類のみを出す。
- * - タイミングはスタイル技能と共通の選択肢・構造(TnxSkillUtils を共用)。
- *
- * レイアウト(2026-06-12 ユーザー指示):
- * - 説明タブ上部にルルブ表記の概要(購/隠/電制/部位のみ)、その下に解説エディタ。
- * - 編集 UI はすべて設定タブ(スタイル技能のレイアウト踏襲)。データタブは置かない。
- * - 数値入力欄は number-input-spinner を使用(例外は使用回数のみ)。
+ * - 概要表記順: weapon = 購/隠/攻/受/射/ス/電制/部位、armor = 購/隠/防/制/電制/部位、
+ *   cyborg = 購/隠/防/攻/受/電制/部位、その他 = 購/隠/電制/部位
+ * - 攻は「攻：I+4」(ダメージ種別 + 攻撃値)、防は「5/4/6」(S/P/I)、制は制御値修正
+ * - 消費アイテム(isConsumption)はアイテム名の右に「×個数」を表示
+ *   (この数値入力は number-input-spinner を使わない例外)
+ * - スロットを持つ型は型ごとの既定プール(weapon 等 = スロットのみ、
+ *   ianus = スロット + 意識 3 種、tap = ソフトウェア + ハードウェア)の数のみを設定する
  */
 export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
@@ -27,6 +53,8 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         actions: {
             incrementField: TokyoNovaOutfitSheet._onIncrementField,
             decrementField: TokyoNovaOutfitSheet._onDecrementField,
+            incrementSlot:  TokyoNovaOutfitSheet._onIncrementSlot,
+            decrementSlot:  TokyoNovaOutfitSheet._onDecrementSlot,
         },
     };
 
@@ -56,6 +84,16 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         return { value: "blank", actionName: "blank", processName: "blank", timingOther: "" };
     }
 
+    /** 型ごとの既定スロットプール(kind の並び) */
+    static SLOT_PRESETS = {
+        weapon:    ["normal"],
+        tron:      ["normal"],
+        vehicle:   ["normal"],
+        residence: ["normal"],
+        ianus:     ["normal", "surface", "deep", "unconscious"],
+        tap:       ["software", "hardware"],
+    };
+
     /**
      * この Item type が選択できる大分類 → 小分類リストのマップを返す。
      * @returns {Record<string, string[]>}
@@ -72,10 +110,34 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         return result;
     }
 
+    /**
+     * 保存済み slots を型の既定プール構成に正規化して返す(表示・更新共用)。
+     * 既存プールの count は kind で引き継ぐ。
+     * @returns {Array<{kind: string, count: number}>}
+     */
+    _normalizedSlots() {
+        const preset = this.constructor.SLOT_PRESETS[this.item.type];
+        if (!preset) return [];
+        const raw = this.item.system.slots;
+        const list = Array.isArray(raw) ? raw
+            : (typeof raw === "object" && raw !== null) ? Object.values(raw)
+            : [];
+        return preset.map((kind) => ({
+            kind,
+            count: list.find((s) => s?.kind === kind)?.count ?? 0,
+        }));
+    }
+
     /** @override */
     async _prepareContext(options) {
         const context = await super._prepareContext(options);
         const system = context.system;
+        const type = this.item.type;
+
+        context.isWeapon = type === "weapon";
+        context.isArmor  = type === "armor";
+        context.isCyborg = type === "cyborg";
+        context.hasSlots = !!this.constructor.SLOT_PRESETS[type];
 
         // timing は編集 UI 用に最低 1 行を保証する(保存はしない。表示用の正規化のみ)
         if (!Array.isArray(system.timing)) {
@@ -84,6 +146,9 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 : [];
         }
         if (!system.timing.length) system.timing = [this.constructor.blankTimingRow];
+
+        // slots は既定プール構成に正規化して表示する
+        if (context.hasSlots) system.slots = this._normalizedSlots();
 
         const skillOptions = TnxSkillUtils.getSkillOptions();
         const categories = this._categoriesForType();
@@ -103,48 +168,76 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             hackMode:      this.constructor.hackModes,
             majorCategory: majorChoices,
             minorCategory: minorChoices,
+            damageTypes:   ATTACK_DAMAGE_TYPES,
+            weaponRange:   WEAPON_RANGES,
+            attackArea:    WEAPON_ATTACK_AREAS,
+            slotKinds:     SLOT_KINDS,
         };
 
-        context.view = this._prepareView(system, skillOptions);
+        // ダメージ種別チェックボックス(S/P/I/X)の表示用データ
+        if (context.isWeapon || context.isCyborg) {
+            const selected = Array.isArray(system.attack.damageType) ? system.attack.damageType : [];
+            context.damageTypeOptions = Object.entries(ATTACK_DAMAGE_TYPES)
+                .map(([key, label]) => ({ key, label, checked: selected.includes(key) }));
+        }
+
+        context.view = this._prepareView(system, type);
         return context;
     }
 
+    // ─── 閲覧表示の組み立て ─────────────────────────────────────────────────
+
     /**
-     * 説明タブ上部に表示するルルブ表記ラベル(購/隠/電制/部位)を生成する。
+     * 説明タブ上部のサマリ(ルルブ表記順の {label, value} 配列)とヘッダー表示を生成する。
      * @param {Object} system 正規化済み system データ
-     * @param {Object} _skillOptions TnxSkillUtils.getSkillOptions() の戻り値
+     * @param {string} type Item type
      * @returns {Object}
      */
-    _prepareView(system, _skillOptions) {
+    _prepareView(system, type) {
         const view = {};
         const num = (v) => (Number.isFinite(v) ? String(v) : "0");
 
         // 購：購入値／常備化経験点(解説参照時は常備化経験点を表記しない)
-        if (system.buy.mode === "reference") {
-            view.buy = "解説参照";
-        } else if (system.buy.mode === "value") {
-            view.buy = `${num(system.buy.value)}／${num(system.preserveExp)}`;
-        } else {
-            view.buy = `-／${num(system.preserveExp)}`;
-        }
+        let buy;
+        if (system.buy.mode === "reference") buy = "解説参照";
+        else if (system.buy.mode === "value") buy = `${num(system.buy.value)}／${num(system.preserveExp)}`;
+        else buy = `-／${num(system.preserveExp)}`;
 
         // 隠：隠匿値／危険値(解説参照でも危険値は別個に表記)
         const hideVal = system.hide.mode === "reference" ? "解説参照"
             : system.hide.mode === "value" ? num(system.hide.value)
             : "-";
-        view.hide = `${hideVal}／${num(system.appearancePenalty)}`;
+        const hide = `${hideVal}／${num(system.appearancePenalty)}`;
 
-        // 電制(電脳制御値)。なし/数値の 2 状態
-        view.hack = system.hack.mode === "value" ? num(system.hack.value) : "-";
+        const hack = system.hack.mode === "value" ? num(system.hack.value) : "-";
+        const part = formatPartLabel(system.part);
 
-        // 部位。slots が 1 のときは部位名のみ、0 または 2 以上は「武器2」のように数値を付す
-        if (system.part.value) {
-            view.part = system.part.slots === 1
-                ? system.part.value
-                : `${system.part.value}${system.part.slots ?? 0}`;
-        } else {
-            view.part = "-";
+        const rows = [
+            { label: "購", value: buy },
+            { label: "隠", value: hide },
+        ];
+
+        if (type === "weapon") {
+            rows.push({ label: "攻", value: this._attackLabel(system.attack) });
+            rows.push({ label: "受", value: num(system.guardValue) });
+            rows.push({ label: "射", value: formatWeaponRangeLabel(system.range) });
+            rows.push({ label: "ス", value: num(this._slotTotal(system)) });
         }
+        if (type === "armor" || type === "cyborg") {
+            const d = system.defence;
+            rows.push({ label: "防", value: `${num(d.S_defence)}/${num(d.P_defence)}/${num(d.I_defence)}` });
+        }
+        if (type === "armor") {
+            rows.push({ label: "制", value: num(system.controlMod) });
+        }
+        if (type === "cyborg") {
+            rows.push({ label: "攻", value: this._attackLabel(system.attack) });
+            rows.push({ label: "受", value: num(system.guardValue) });
+        }
+
+        rows.push({ label: "電制", value: hack });
+        rows.push({ label: "部位", value: part });
+        view.summary = rows;
 
         if (system.majorCategory && system.minorCategory) {
             view.category = `${system.majorCategory}／${system.minorCategory}`;
@@ -155,24 +248,26 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         return view;
     }
 
-    // ─── 数値スピナー(number-input-spinner) ────────────────────────────────
-
-    static async _onIncrementField(_event, target) {
-        const field = target.dataset.field;
-        if (!field) return;
-        const current = foundry.utils.getProperty(this.item, field) ?? 0;
-        await this.item.update({ [field]: current + 1 });
+    /**
+     * 攻撃力の表記(「攻：I+4」のダメージ種別 + 攻撃値部分)。
+     * @param {{damageType: string[], value: number}} attack
+     * @returns {string}
+     */
+    _attackLabel(attack) {
+        const types = Array.isArray(attack.damageType) ? attack.damageType : [];
+        const value = attack.value ?? 0;
+        if (!types.length && !value) return "-";
+        const sign = value >= 0 ? `+${value}` : String(value);
+        return `${types.join("/")}${sign}`;
     }
 
-    static async _onDecrementField(_event, target) {
-        const field = target.dataset.field;
-        if (!field) return;
-        const current = foundry.utils.getProperty(this.item, field) ?? 0;
-        let next = current - 1;
-        // data-min 指定時は下限でクランプする(part.slots の min 0 等)
-        if (target.dataset.min !== undefined) next = Math.max(next, Number(target.dataset.min));
-        await this.item.update({ [field]: next });
+    /** スロット総数(概要の「ス」表示用) */
+    _slotTotal(system) {
+        const list = Array.isArray(system.slots) ? system.slots : [];
+        return list.reduce((sum, s) => sum + (s.count ?? 0), 0);
     }
+
+    // ─── レンダリング後のイベント結線 ───────────────────────────────────────
 
     /** @override */
     _onRender(context, options) {
@@ -215,6 +310,36 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 this.item.update(update);
             });
 
+        // フルオート: チェック解除時に FA 値をリセットする
+        this.element.querySelector('input[name="system.isFullAuto"]')
+            ?.addEventListener("change", (event) => {
+                event.stopPropagation();
+                const isChecked = event.currentTarget.checked;
+                const update = { "system.isFullAuto": isChecked };
+                if (!isChecked) update["system.FAValue"] = 0;
+                this.item.update(update);
+            });
+
+        // ダメージ種別(S/P/I/X)のチェックボックス → 配列としてまとめて保存
+        for (const box of this.element.querySelectorAll(".attack-damage-type input[type='checkbox']")) {
+            box.addEventListener("change", (event) => {
+                event.stopPropagation();
+                const checked = [...this.element.querySelectorAll(".attack-damage-type input[type='checkbox']:checked")]
+                    .map((el) => el.dataset.type);
+                this.item.update({ "system.attack.damageType": checked });
+            });
+        }
+
+        // スロット数の直接入力(配列フィールドのため全体更新で保存する)
+        for (const input of this.element.querySelectorAll("input[data-slot-kind]")) {
+            input.addEventListener("change", (event) => {
+                event.stopPropagation();
+                const kind = event.currentTarget.dataset.slotKind;
+                const value = Math.max(0, Number(event.currentTarget.value) || 0);
+                this._updateSlotCount(kind, () => value);
+            });
+        }
+
         // タイミング行: 種別変更時に下位フィールドをリセットする
         for (const select of this.element.querySelectorAll('select[name^="system.timing."]')) {
             const match = select.name.match(/^system\.timing\.(\d+)\.value$/);
@@ -238,6 +363,48 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 this._onDeleteTimingRow(Number(event.currentTarget.dataset.index));
             });
         }
+    }
+
+    // ─── 数値スピナー(number-input-spinner) ────────────────────────────────
+
+    static async _onIncrementField(_event, target) {
+        const field = target.dataset.field;
+        if (!field) return;
+        const current = foundry.utils.getProperty(this.item, field) ?? 0;
+        await this.item.update({ [field]: current + 1 });
+    }
+
+    static async _onDecrementField(_event, target) {
+        const field = target.dataset.field;
+        if (!field) return;
+        const current = foundry.utils.getProperty(this.item, field) ?? 0;
+        let next = current - 1;
+        // data-min 指定時は下限でクランプする(part.slots の min 0 等)
+        if (target.dataset.min !== undefined) next = Math.max(next, Number(target.dataset.min));
+        await this.item.update({ [field]: next });
+    }
+
+    // ─── スロットプール操作 ─────────────────────────────────────────────────
+
+    static async _onIncrementSlot(_event, target) {
+        await this._updateSlotCount(target.dataset.kind, (count) => count + 1);
+    }
+
+    static async _onDecrementSlot(_event, target) {
+        await this._updateSlotCount(target.dataset.kind, (count) => Math.max(0, count - 1));
+    }
+
+    /**
+     * 指定 kind のプールの count を更新する(配列全体を送って保存する)。
+     * @param {string} kind スロット種別
+     * @param {(count: number) => number} mutate 現在値から新しい値を計算する関数
+     */
+    async _updateSlotCount(kind, mutate) {
+        const slots = this._normalizedSlots();
+        const pool = slots.find((s) => s.kind === kind);
+        if (!pool) return;
+        pool.count = mutate(pool.count ?? 0);
+        await this.item.update({ "system.slots": slots });
     }
 
     // ─── タイミング配列操作 ─────────────────────────────────────────────────

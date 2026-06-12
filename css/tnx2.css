@@ -4723,3 +4723,41 @@ button.tnx-create-act-button span {
     color: var(--tnx2-text-secondary);
     font-size: 0.9em;
 }
+
+/* アイテム名 + 個数(×n)の行 */
+.tokyo-nova.sheet.item.outfit .charname-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.tokyo-nova.sheet.item.outfit .charname-row .charname { flex: 1; min-width: 0; }
+
+.tokyo-nova.sheet.item.outfit .outfit-quantity {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--tnx2-text-primary);
+    white-space: nowrap;
+}
+
+.tokyo-nova.sheet.item.outfit .outfit-quantity input[type="number"] {
+    width: 3.5em;
+    text-align: center;
+}
+
+/* ダメージ種別(S/P/I/X)のチェックボックス列 */
+.tokyo-nova.sheet.item.outfit .attack-damage-type {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* 射程の min～max 区切り */
+.tokyo-nova.sheet.item.outfit .range-separator {
+    flex: 0 0 auto;
+    color: var(--tnx2-text-muted);
+}

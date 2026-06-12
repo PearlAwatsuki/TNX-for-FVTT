@@ -615,7 +615,7 @@
                                                 
                                                 {{#if (eq ../group.key "weapon")}}
                                                     <td>{{item.system.attack.value}} / {{item.system.guardValue}}</td>
-                                                    <td>{{item.system.range}}</td>
+                                                    <td>{{tnxRangeLabel item.system.range}}</td>
                                                 {{/if}}
                                                 
                                                 {{#if (eq ../group.key "armor")}}
