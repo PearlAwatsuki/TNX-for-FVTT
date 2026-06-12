@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MockStringField } from "../../setup.mjs";
+import { MockStringField, MockNumberField, MockSchemaField } from "../../setup.mjs";
 
 const { TroopDataModel } = await import("../../../scripts/data/actor/troop.mjs");
 
@@ -43,6 +43,21 @@ describe("TroopDataModel.defineSchema()", () => {
     it("memo は StringField で initial が空文字", () => {
       expect(schema.memo).toBeInstanceOf(MockStringField);
       expect(schema.memo.options.initial).toBe("");
+    });
+
+    it("heads は SchemaField で value / max を持つ(リソースバー用構造)", () => {
+      expect(schema.heads).toBeInstanceOf(MockSchemaField);
+      expect(schema.heads.fields).toHaveProperty("value");
+      expect(schema.heads.fields).toHaveProperty("max");
+    });
+
+    it("heads.value / heads.max は NumberField で initial が 1・min 0・整数", () => {
+      for (const key of ["value", "max"]) {
+        expect(schema.heads.fields[key]).toBeInstanceOf(MockNumberField);
+        expect(schema.heads.fields[key].options.initial).toBe(1);
+        expect(schema.heads.fields[key].options.min).toBe(0);
+        expect(schema.heads.fields[key].options.integer).toBe(true);
+      }
     });
   });
 
