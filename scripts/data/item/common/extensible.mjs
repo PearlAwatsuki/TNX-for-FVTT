@@ -1,31 +1,50 @@
-﻿/**
- * @fileoverview ExtensibleTemplate - 拡張スロット(slot)フィールドを定義する template クラス
+/**
+ * @fileoverview ExtensibleTemplate - 拡張スロット(slots)フィールドを定義する template クラス
  *
- * 使用 Item type: weapon / ianus / tron / tap / vehicle / residence / combiner
+ * 使用 Item type: weapon / ianus / tron / tap / vehicle / residence
  * SystemDataModel.mixin() の引数として各 Item DataModel に合成して使う。
  *
- * 準拠データ: template.json > Item.templates.extensible
- * 設計方針: llm-wiki/02_System/Design_Review_Entries.md B-0「論点3: 共通 template の継承戦略」参照
+ * フェーズ6-2 で旧 slot[]({label, value, optionId[]})からプール方式に再設計
+ * (2026-06-12 ユーザー確定)。ルールの正本: llm-wiki/01_Wiki/Game_Rules/Outfits.md
  *
- * フィールド型の判断:
- * - slot[].value は template.json の初期値が 0(数値)のため NumberField。
- * - slot[].optionId は文字列 ID の配列のため ArrayField(StringField)。
- * - slot の初期値: template.json では要素 1 つ入りだが DataModel では [] とし、
- *   初期スロット追加はシート側に委ねる。
+ * - 装備される側のスロットに名前は基本的にない(一律「スロット」= kind: normal)。
+ *   例外は IANUS の意識スロット 3 種(表層意識/深層意識/無意識)と、
+ *   タップのソフトウェアスロット・ハードウェアスロットのみ。
+ * - スロットを持つアイテム側は**スロット数のみ**を設定する。オプションの装備連携
+ *   (どのオプションがどのスロットを使っているか)はシート側で扱い、本フィールドには持たない。
+ * - 型ごとの既定プール(weapon 等は normal のみ、ianus は normal + 意識 3 種、
+ *   tap は software + hardware)の生成はシート側に委ねる。
  */
 
 import { SystemDataModel } from "../../abstract.mjs";
+
+/**
+ * スロット種別(2026-06-12 ユーザー確定)。
+ * @type {Readonly<Record<string, string>>}
+ */
+export const SLOT_KINDS = Object.freeze({
+  normal:      "スロット",
+  surface:     "表層意識",
+  deep:        "深層意識",
+  unconscious: "無意識",
+  software:    "ソフトウェア",
+  hardware:    "ハードウェア",
+});
 
 export class ExtensibleTemplate extends SystemDataModel {
   /** @override */
   static defineSchema() {
     const fields = foundry.data.fields;
     return {
-      slot: new fields.ArrayField(
+      slots: new fields.ArrayField(
         new fields.SchemaField({
-          label:    new fields.StringField({ initial: "" }),
-          value:    new fields.NumberField({ initial: 0 }),
-          optionId: new fields.ArrayField(new fields.StringField()),
+          kind: new fields.StringField({
+            required: true,
+            blank: false,
+            initial: "normal",
+            choices: SLOT_KINDS,
+          }),
+          count: new fields.NumberField({ initial: 0, min: 0, integer: true }),
         })
       ),
     };

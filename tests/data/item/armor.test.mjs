@@ -53,7 +53,7 @@ describe("ArmorDataModel.defineSchema()", () => {
   });
 
   it("extensible のフィールドは含まれない(slot が含まれない)", () => {
-    expect(schema).not.toHaveProperty("slot");
+    expect(schema).not.toHaveProperty("slots");
   });
 
   it("cyborg 固有フィールドは含まれない(attack が含まれない)", () => {

@@ -22,8 +22,8 @@ describe("WeaponDataModel.defineSchema()", () => {
       expect(schema.isPrepared.options.initial).toBe(true);
     });
 
-    it("schema.slot が ArrayField で存在する(ExtensibleTemplate)", () => {
-      expect(schema.slot).toBeInstanceOf(MockArrayField);
+    it("schema.slots が ArrayField で存在する(ExtensibleTemplate)", () => {
+      expect(schema.slots).toBeInstanceOf(MockArrayField);
     });
 
     it("schema.uses が SchemaField で存在する", () => {
@@ -33,8 +33,8 @@ describe("WeaponDataModel.defineSchema()", () => {
   });
 
   describe("ExtensibleTemplate のフィールドが含まれる", () => {
-    it("schema.slot が ArrayField で存在する", () => {
-      expect(schema.slot).toBeInstanceOf(MockArrayField);
+    it("schema.slots が ArrayField で存在する", () => {
+      expect(schema.slots).toBeInstanceOf(MockArrayField);
     });
   });
 
@@ -102,6 +102,14 @@ describe("WeaponDataModel.defineSchema()", () => {
   it("schema.FAValue は NumberField で initial が 0", () => {
     expect(schema.FAValue).toBeInstanceOf(MockNumberField);
     expect(schema.FAValue.options.initial).toBe(0);
+  });
+
+  it("attackArea (攻撃範囲) は choices 付き StringField で initial が none", () => {
+    expect(schema.attackArea).toBeInstanceOf(MockStringField);
+    expect(schema.attackArea.options.initial).toBe("none");
+    expect(Object.keys(schema.attackArea.options.choices)).toEqual(
+      ["none", "area", "areaSelect", "scene", "sceneSelect"]
+    );
   });
 
   it("defence フィールドは含まれない(cyborg 固有)", () => {

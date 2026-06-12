@@ -72,7 +72,7 @@ describe("CyborgDataModel.defineSchema()", () => {
   });
 
   it("extensible のフィールドは含まれない(slot が含まれない)", () => {
-    expect(schema).not.toHaveProperty("slot");
+    expect(schema).not.toHaveProperty("slots");
   });
 });
 

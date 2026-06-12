@@ -29,8 +29,8 @@ describe("TapDataModel.defineSchema()", () => {
   });
 
   describe("ExtensibleTemplate のフィールドが含まれる", () => {
-    it("schema.slot が ArrayField で存在する", () => {
-      expect(schema.slot).toBeInstanceOf(MockArrayField);
+    it("schema.slots が ArrayField で存在する", () => {
+      expect(schema.slots).toBeInstanceOf(MockArrayField);
     });
   });
 

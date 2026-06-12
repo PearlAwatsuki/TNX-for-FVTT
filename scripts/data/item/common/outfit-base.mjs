@@ -25,6 +25,8 @@
  * - uses.type は使用回数の種別(アクト/シーン/カット。スタイル技能の usesType と共通)。
  * - isConsumption(消費アイテム)はフェーズ6-2 で weapon の isthrow を置き換えて全種別に
  *   一般化したフラグ(2026-06-12 ユーザー確定)。true のアイテムは個数(quantity)を持つ。
+ * - isBiological(生体武器・生体装備)もフェーズ6-2 で weapon から全種別へ一般化
+ *   (武器・防具のどちらでもない生体装備があるため)。
  * - quantity は {value: 現在個数, max: 常備化個数}。消費で value を減らし、0 でそのセッション中は
  *   使用不可。セッション終了で value は max に戻る。常備化経験点は max(個数分)を基準とし、
  *   消費しても経験点は復活しない。
@@ -66,6 +68,7 @@ export class OutfitBaseTemplate extends SystemDataModel {
       isCyber:           new fields.BooleanField({ initial: false }),
       isCarrying:        new fields.BooleanField({ initial: false }),
       isConsumption:     new fields.BooleanField({ initial: false }),
+      isBiological:      new fields.BooleanField({ initial: false }),
       quantity: new fields.SchemaField({
         value: new fields.NumberField({ initial: 1, min: 0, integer: true }),
         max:   new fields.NumberField({ initial: 1, min: 0, integer: true }),
