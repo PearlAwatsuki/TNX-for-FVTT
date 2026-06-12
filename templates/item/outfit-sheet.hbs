@@ -74,42 +74,6 @@
         {{!-- 設定タブ --}}
         <div class="tab setting" data-group="primary" data-tab="setting">
             <div class="settings-grid">
-                <div class="form-group">
-                    <label>準備済み</label>
-                    <input type="checkbox" name="system.isPrepared" {{checked system.isPrepared}}>
-                    <p class="sheet-notes notes">使用可能な状態にある場合にチェックします。身に付けられないアウトフィットにも適用されます。</p>
-                </div>
-                <div class="form-group">
-                    <label>携帯中</label>
-                    <input type="checkbox" name="system.isCarrying" {{checked system.isCarrying}}>
-                    <p class="sheet-notes notes">身に着けている場合にチェックします。</p>
-                </div>
-                <div class="form-group">
-                    <label>サイバーウェア</label>
-                    <input type="checkbox" name="system.isCyber" {{checked system.isCyber}}>
-                    <p class="sheet-notes notes">サイバーウェアである場合にチェックします（種別がサイバーウェア以外のアウトフィットの識別用）。</p>
-                </div>
-                <div class="form-group">
-                    <label>生体装備</label>
-                    <input type="checkbox" name="system.isBiological" {{checked system.isBiological}}>
-                    <p class="sheet-notes notes">生体武器・生体装備である場合にチェックします。</p>
-                </div>
-                <div class="form-group">
-                    <label>プリプレイ購入</label>
-                    <input type="checkbox" name="system.isPre-play" {{checked (lookup system "isPre-play")}}>
-                    <p class="sheet-notes notes">常備化経験点を支払わずプリプレイで購入したアイテムの場合にチェックします。所持時の経験点消費がなくなります。</p>
-                </div>
-                <div class="form-group">
-                    <label>オプション</label>
-                    <input type="checkbox" name="system.isOption" {{checked system.isOption}}>
-                    <p class="sheet-notes notes">別のアウトフィットに装備するオプションの場合にチェックします。装備対象のスロット数がなければ装備できません。</p>
-                </div>
-                <div class="form-group">
-                    <label>消費アイテム</label>
-                    <input type="checkbox" name="system.isConsumption" {{checked system.isConsumption}}>
-                    <p class="sheet-notes notes">使用すると個数が減るアイテムの場合にチェックします。0 でそのセッション中は使用不可、セッション終了で復活します。</p>
-                </div>
-
                 <fieldset class="tnx-fieldset">
                     <legend>識別キー</legend>
                     <div class="tnx-form-field">
@@ -167,22 +131,16 @@
                     <legend>攻撃データ</legend>
                     <div class="tnx-form-field">
                         <div class="form-group">
-                            <label>ダメージ種別</label>
-                            <div class="attack-damage-type">
-                                {{#each damageTypeOptions as |opt|}}
-                                    <label class="checkbox-inline" title="{{opt.label}}">
-                                        <input type="checkbox" data-type="{{opt.key}}" {{checked opt.checked}}>
-                                        {{opt.key}}
-                                    </label>
-                                {{/each}}
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>攻撃値</label>
-                            <div class="number-input-spinner skill-sheet-spinner">
-                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.attack.value">-</button>
-                                <input type="number" name="system.attack.value" value="{{system.attack.value}}">
-                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.attack.value">+</button>
+                            <label>攻撃力</label>
+                            <div class="form-fields split-fields">
+                                <select name="system.attack.damageType">
+                                    {{selectOptions options.damageType selected=system.attack.damageType}}
+                                </select>
+                                <div class="number-input-spinner skill-sheet-spinner">
+                                    <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.attack.value">-</button>
+                                    <input type="number" name="system.attack.value" value="{{system.attack.value}}">
+                                    <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.attack.value">+</button>
+                                </div>
                             </div>
                         </div>
                         <div class="form-group">
@@ -426,6 +384,40 @@
                                 </div>
                             </div>
                         {{/if}}
+                    </div>
+                </fieldset>
+
+                <fieldset class="tnx-fieldset">
+                    <legend>状態・性質</legend>
+                    <div class="outfit-flags">
+                        <label class="outfit-flag">
+                            <input type="checkbox" name="system.isPrepared" {{checked system.isPrepared}}>
+                            <span>準備済み</span>
+                        </label>
+                        <label class="outfit-flag">
+                            <input type="checkbox" name="system.isCarrying" {{checked system.isCarrying}}>
+                            <span>携帯中</span>
+                        </label>
+                        <label class="outfit-flag">
+                            <input type="checkbox" name="system.isCyber" {{checked system.isCyber}}>
+                            <span>サイバーウェア</span>
+                        </label>
+                        <label class="outfit-flag">
+                            <input type="checkbox" name="system.isBiological" {{checked system.isBiological}}>
+                            <span>生体装備</span>
+                        </label>
+                        <label class="outfit-flag">
+                            <input type="checkbox" name="system.isPre-play" {{checked (lookup system "isPre-play")}}>
+                            <span>プリプレイ購入</span>
+                        </label>
+                        <label class="outfit-flag">
+                            <input type="checkbox" name="system.isOption" {{checked system.isOption}}>
+                            <span>オプション</span>
+                        </label>
+                        <label class="outfit-flag">
+                            <input type="checkbox" name="system.isConsumption" {{checked system.isConsumption}}>
+                            <span>消費アイテム</span>
+                        </label>
                     </div>
                 </fieldset>
             </div>

@@ -44,9 +44,9 @@ export const ATTACK_DAMAGE_TYPES = Object.freeze({
 });
 
 /**
- * 攻撃値(ダメージ種別 / 値 / 修正)の SchemaField を返す。
- * damageType は S/P/I/X の choices 付き文字列配列(複数種別を持つ武器があるため配列)。
- * value / mod は初期値 0 の NumberField。
+ * 攻撃力(ダメージ種別 / 値 / 修正)の SchemaField を返す。
+ * damageType は S/P/I/X の choices 付き単一選択(2026-06-13 ユーザー指示で
+ * ドロップダウン選択に変更。空文字は未設定)。value / mod は初期値 0 の NumberField。
  *
  * 使用 Item type: cyborg / weapon
  *
@@ -55,9 +55,12 @@ export const ATTACK_DAMAGE_TYPES = Object.freeze({
 export function attackField() {
   const fields = foundry.data.fields;
   return new fields.SchemaField({
-    damageType: new fields.ArrayField(
-      new fields.StringField({ choices: ATTACK_DAMAGE_TYPES })
-    ),
+    damageType: new fields.StringField({
+      required: true,
+      blank: true,
+      initial: "",
+      choices: ATTACK_DAMAGE_TYPES,
+    }),
     value:      new fields.NumberField({ initial: 0 }),
     mod:        new fields.NumberField({ initial: 0 }),
   });

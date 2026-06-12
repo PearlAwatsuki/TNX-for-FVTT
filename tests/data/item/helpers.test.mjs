@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MockArrayField, MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
+import { MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
 const { defenceField, attackField } = await import("../../../scripts/data/item/helpers.mjs");
 
@@ -48,15 +48,11 @@ describe("attackField()", () => {
     expect(field.fields).toHaveProperty("mod");
   });
 
-  it("damageType は ArrayField(StringField) である", () => {
+  it("damageType は choices 付き StringField で initial が空文字 (単一選択、フェーズ6-2)", () => {
     const field = attackField();
-    expect(field.fields.damageType).toBeInstanceOf(MockArrayField);
-    expect(field.fields.damageType.element).toBeInstanceOf(MockStringField);
-  });
-
-  it("damageType の choices は S/P/I/X の 4 種 (フェーズ6-2)", () => {
-    const field = attackField();
-    expect(Object.keys(field.fields.damageType.element.options.choices)).toEqual(["S", "P", "I", "X"]);
+    expect(field.fields.damageType).toBeInstanceOf(MockStringField);
+    expect(field.fields.damageType.options.initial).toBe("");
+    expect(Object.keys(field.fields.damageType.options.choices)).toEqual(["S", "P", "I", "X"]);
   });
 
   it("value は NumberField で initial が 0", () => {

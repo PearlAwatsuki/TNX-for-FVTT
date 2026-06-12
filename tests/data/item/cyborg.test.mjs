@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MockArrayField, MockBooleanField, MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
+import { MockBooleanField, MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
 const { CyborgDataModel } = await import("../../../scripts/data/item/cyborg.mjs");
 
@@ -50,9 +50,9 @@ describe("CyborgDataModel.defineSchema()", () => {
       expect(schema.attack).toBeInstanceOf(MockSchemaField);
     });
 
-    it("attack.damageType は ArrayField(StringField) である", () => {
-      expect(schema.attack.fields.damageType).toBeInstanceOf(MockArrayField);
-      expect(schema.attack.fields.damageType.element).toBeInstanceOf(MockStringField);
+    it("attack.damageType は choices 付き StringField (単一選択)", () => {
+      expect(schema.attack.fields.damageType).toBeInstanceOf(MockStringField);
+      expect(Object.keys(schema.attack.fields.damageType.options.choices)).toEqual(["S", "P", "I", "X"]);
     });
 
     it("attack.value は NumberField で initial が 0", () => {

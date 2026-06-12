@@ -24,12 +24,17 @@ describe("OutfitBaseTemplate.defineSchema()", () => {
       expect(schema["isPre-play"].options.initial).toBe(false);
     });
 
-    for (const key of ["isOption", "isCyber", "isCarrying", "isConsumption"]) {
+    for (const key of ["isOption", "isCyber", "isConsumption", "isBiological"]) {
       it(`${key} は BooleanField で initial が false`, () => {
         expect(schema[key]).toBeInstanceOf(MockBooleanField);
         expect(schema[key].options.initial).toBe(false);
       });
     }
+
+    it("isCarrying は BooleanField で initial が true (2026-06-13 ユーザー指示)", () => {
+      expect(schema.isCarrying).toBeInstanceOf(MockBooleanField);
+      expect(schema.isCarrying.options.initial).toBe(true);
+    });
   });
 
   describe("quantity (消費アイテムの個数、フェーズ6-2) が正しい", () => {

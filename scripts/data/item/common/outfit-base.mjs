@@ -66,7 +66,7 @@ export class OutfitBaseTemplate extends SystemDataModel {
       isOption:          new fields.BooleanField({ initial: false }),
       "isPre-play":      new fields.BooleanField({ initial: false }),
       isCyber:           new fields.BooleanField({ initial: false }),
-      isCarrying:        new fields.BooleanField({ initial: false }),
+      isCarrying:        new fields.BooleanField({ initial: true }),
       isConsumption:     new fields.BooleanField({ initial: false }),
       isBiological:      new fields.BooleanField({ initial: false }),
       quantity: new fields.SchemaField({

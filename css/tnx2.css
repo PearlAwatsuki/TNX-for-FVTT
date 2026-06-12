@@ -4748,16 +4748,33 @@ button.tnx-create-act-button span {
     text-align: center;
 }
 
-/* ダメージ種別(S/P/I/X)のチェックボックス列 */
-.tokyo-nova.sheet.item.outfit .attack-damage-type {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
 /* 射程の min～max 区切り */
 .tokyo-nova.sheet.item.outfit .range-separator {
     flex: 0 0 auto;
     color: var(--tnx2-text-muted);
+}
+
+/* 状態・性質フラグ: 2 カラムのコンパクトなチェックリスト */
+.tokyo-nova.sheet.item.outfit .outfit-flags {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 16px;
+}
+
+.tokyo-nova.sheet.item.outfit .outfit-flag {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 0.9em;
+    color: var(--tnx2-text-secondary);
+}
+
+.tokyo-nova.sheet.item.outfit .outfit-flag input[type="checkbox"] {
+    margin: 0;
+    flex: 0 0 auto;
+}
+
+.tokyo-nova.sheet.item.outfit .outfit-flag:has(input:checked) span {
+    color: var(--tnx2-text-primary);
 }

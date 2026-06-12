@@ -39,7 +39,7 @@ export function formatWeaponRangeLabel(range) {
  * ルールの正本: llm-wiki/01_Wiki/Game_Rules/Outfits.md
  * - 概要表記順: weapon = 購/隠/攻/受/射/ス/電制/部位、armor = 購/隠/防/制/電制/部位、
  *   cyborg = 購/隠/防/攻/受/電制/部位、その他 = 購/隠/電制/部位
- * - 攻は「攻：I+4」(ダメージ種別 + 攻撃値)、防は「5/4/6」(S/P/I)、制は制御値修正
+ * - 攻は「攻：I+4」(ダメージ種別 + 値)、防は「防(S／P／I)：n／n／n」、制は制御値修正
  * - 消費アイテム(isConsumption)はアイテム名の右に「×個数」を表示
  *   (この数値入力は number-input-spinner を使わない例外)
  * - スロットを持つ型は型ごとの既定プール(weapon 等 = スロットのみ、
@@ -103,7 +103,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         const result = {};
         for (const [major, minors] of Object.entries(OUTFIT_CATEGORIES)) {
             const valid = Object.entries(minors)
-                .filter(([, t]) => t === type)
+                .filter(([, types]) => types.includes(type))
                 .map(([minor]) => minor);
             if (valid.length) result[major] = valid;
         }
@@ -174,11 +174,13 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             slotKinds:     SLOT_KINDS,
         };
 
-        // ダメージ種別チェックボックス(S/P/I/X)の表示用データ
+        // ダメージ種別のドロップダウン選択肢(表示は「S（斬撃）」形式、保存値はキー)
         if (context.isWeapon || context.isCyborg) {
-            const selected = Array.isArray(system.attack.damageType) ? system.attack.damageType : [];
-            context.damageTypeOptions = Object.entries(ATTACK_DAMAGE_TYPES)
-                .map(([key, label]) => ({ key, label, checked: selected.includes(key) }));
+            const damageType = { "": "-" };
+            for (const [key, label] of Object.entries(ATTACK_DAMAGE_TYPES)) {
+                damageType[key] = `${key}（${label}）`;
+            }
+            context.options.damageType = damageType;
         }
 
         context.view = this._prepareView(system, type);
@@ -225,7 +227,10 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         }
         if (type === "armor" || type === "cyborg") {
             const d = system.defence;
-            rows.push({ label: "防", value: `${num(d.S_defence)}/${num(d.P_defence)}/${num(d.I_defence)}` });
+            rows.push({
+                label: "防(S／P／I)",
+                value: `${num(d.S_defence)}／${num(d.P_defence)}／${num(d.I_defence)}`,
+            });
         }
         if (type === "armor") {
             rows.push({ label: "制", value: num(system.controlMod) });
@@ -249,16 +254,16 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
     }
 
     /**
-     * 攻撃力の表記(「攻：I+4」のダメージ種別 + 攻撃値部分)。
-     * @param {{damageType: string[], value: number}} attack
+     * 攻撃力の表記(「攻：I+4」のダメージ種別 + 値部分)。
+     * @param {{damageType: string, value: number}} attack
      * @returns {string}
      */
     _attackLabel(attack) {
-        const types = Array.isArray(attack.damageType) ? attack.damageType : [];
+        const type = attack.damageType || "";
         const value = attack.value ?? 0;
-        if (!types.length && !value) return "-";
+        if (!type && !value) return "-";
         const sign = value >= 0 ? `+${value}` : String(value);
-        return `${types.join("/")}${sign}`;
+        return `${type}${sign}`;
     }
 
     /** スロット総数(概要の「ス」表示用) */
@@ -319,16 +324,6 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 if (!isChecked) update["system.FAValue"] = 0;
                 this.item.update(update);
             });
-
-        // ダメージ種別(S/P/I/X)のチェックボックス → 配列としてまとめて保存
-        for (const box of this.element.querySelectorAll(".attack-damage-type input[type='checkbox']")) {
-            box.addEventListener("change", (event) => {
-                event.stopPropagation();
-                const checked = [...this.element.querySelectorAll(".attack-damage-type input[type='checkbox']:checked")]
-                    .map((el) => el.dataset.type);
-                this.item.update({ "system.attack.damageType": checked });
-            });
-        }
 
         // スロット数の直接入力(配列フィールドのため全体更新で保存する)
         for (const input of this.element.querySelectorAll("input[data-slot-kind]")) {
