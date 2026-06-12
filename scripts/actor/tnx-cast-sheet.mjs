@@ -233,6 +233,21 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             btn.addEventListener("click", ev => TokyoNovaCastSheet._onItemCreate.call(this, ev, ev.currentTarget));
         }
 
+        // 技能・アイテム行のドラッグ並び替え(編集モードのみ)
+        // V2 は DEFAULT_OPTIONS.dragDrop を自動処理しないため明示的にバインドする。
+        // ドロップ側は ActorSheetV2 既存の処理に委ねる(drop: false で二重発火を防止)。
+        new foundry.applications.ux.DragDrop.implementation({
+            dragSelector: ".item-list .item, .style-skills-list .item, .skills-list-view .item",
+            dropSelector: null,
+            permissions: {
+                dragstart: () => this.isEditable && this._isEditMode,
+                drop:      () => false,
+            },
+            callbacks: {
+                dragstart: this._onDragStart.bind(this),
+            },
+        }).bind(el);
+
         // 技能行のコンテキストメニュートリガー(縦三点リーダー)
         for (const trigger of el.querySelectorAll(".item-menu-trigger")) {
             trigger.addEventListener("click", ev => {
@@ -398,6 +413,35 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     }
 
     // ─── ドラッグ&ドロップ ────────────────────────────────────────────────────
+
+    _onDragStart(event) {
+        const row  = event.currentTarget.closest("[data-item-id]");
+        const item = this.actor.items.get(row?.dataset.itemId);
+        if (!item) return;
+        event.dataTransfer.setData("text/plain", JSON.stringify(item.toDragData()));
+    }
+
+    /**
+     * 同型アイテム間の並び替え。
+     * 一般技能は二列表示のため DOM 兄弟ではなく actor 上の同型アイテム全体を siblings とする。
+     * @override
+     */
+    _onSortItem(event, itemData) {
+        const items  = this.actor.items;
+        const source = items.get(itemData._id);
+        if (!source) return;
+
+        const dropTarget = event.target.closest("[data-item-id]");
+        if (!dropTarget) return;
+        const target = items.get(dropTarget.dataset.itemId);
+        if (!target || source.id === target.id) return;
+        if (source.type !== target.type) return;
+
+        const siblings = items.filter(i => i.type === source.type && i.id !== source.id);
+        const sortUpdates = foundry.utils.performIntegerSort(source, { target, siblings });
+        const updateData = sortUpdates.map(u => ({ _id: u.target.id, ...u.update }));
+        return this.actor.updateEmbeddedDocuments("Item", updateData);
+    }
 
     async _onDropItem(event, data) {
         if (!this.actor.isOwner) return false;
