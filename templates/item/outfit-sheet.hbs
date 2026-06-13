@@ -33,6 +33,9 @@
                 {{else}}
                     <span class="outfit-category-label">{{view.category}}</span>
                 {{/if}}
+                {{#if linkedArea}}
+                    <span class="outfit-area-badge" title="住宅エリア"><i class="fa-solid fa-city"></i> {{linkedArea.name}}</span>
+                {{/if}}
             </div>
         </div>
     </header>
@@ -276,6 +279,45 @@
                 {{/if}}
 
                 {{#if isResidence}}
+                <fieldset class="tnx-fieldset">
+                    <legend>住宅エリア</legend>
+                    <div class="tnx-form-field">
+                        {{#if linkedArea}}
+                        <div class="form-group">
+                            <label>設定中</label>
+                            <div class="form-fields split-fields">
+                                <span class="linked-value">{{linkedArea.name}}（{{linkedArea.rankLabel}}）</span>
+                                <button type="button" class="tnx-btn tnx-btn--sm" data-action="clearHousingArea">クリア</button>
+                            </div>
+                        </div>
+                        {{/if}}
+                        <div class="form-group">
+                            <label>エリアを選択</label>
+                            <select name="system.housingArea" {{#if housingAreaDropLocked}}disabled{{/if}}>
+                                {{selectOptions options.housingArea selected=system.housingArea blank="-"}}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>またはドロップ</label>
+                            <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="housing-area">
+                                <span>住宅エリアアイテムをここにドロップ</span>
+                            </div>
+                        </div>
+                        {{#if linkedArea}}
+                        <div class="form-group">
+                            <label>エリアランク</label>
+                            <span class="linked-value">{{linkedArea.rankLabel}}</span>
+                        </div>
+                        {{#each linkedArea.mods as |mod|}}
+                        <div class="form-group">
+                            <label>{{mod.label}} 修正</label>
+                            <span class="linked-value">{{mod.value}}</span>
+                        </div>
+                        {{/each}}
+                        {{/if}}
+                    </div>
+                </fieldset>
+
                 <fieldset class="tnx-fieldset">
                     <legend>住宅施設データ</legend>
                     <div class="tnx-form-field">

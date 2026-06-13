@@ -1,5 +1,5 @@
 import { TokyoNovaItemSheet } from "./tnx-item-sheet.mjs";
-import { HOUSING_AREA_RANKS } from "../data/item/housing-area.mjs";
+import { HOUSING_AREA_RANKS, HOUSING_AREA_MOD_FIELDS } from "../data/item/housing-area.mjs";
 
 /**
  * 住宅エリア(housingArea)シート。
@@ -28,21 +28,10 @@ export class TokyoNovaHousingAreaSheet extends TokyoNovaItemSheet {
         },
     };
 
-    /** 修正値フィールドの表示順とラベル(ユーザー確定の住宅施設パラメータ順) */
-    static MOD_FIELDS = [
-        { key: "buyRatingMod",        label: "購入値" },
-        { key: "preserveExpMod",      label: "常備化経験点" },
-        { key: "hideMod",             label: "隠匿値" },
-        { key: "appearanceTargetMod", label: "登場判定目標値" },
-        { key: "cyberSecurityMod",    label: "電脳セキュリティ" },
-        { key: "analogSecurityMod",   label: "アナログセキュリティ" },
-        { key: "slotMod",             label: "スロット" },
-    ];
-
     /** @override */
     async _prepareContext(options) {
         const context = await super._prepareContext(options);
-        context.modFields = this.constructor.MOD_FIELDS.map((m) => ({
+        context.modFields = HOUSING_AREA_MOD_FIELDS.map((m) => ({
             ...m,
             value: context.system[m.key] ?? 0,
         }));

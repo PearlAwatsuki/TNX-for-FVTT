@@ -4809,3 +4809,25 @@ button.tnx-create-act-button span {
     color: var(--tnx2-accent);
     text-shadow: 0 0 8px var(--tnx2-accent-glow);
 }
+
+/* 住宅施設: 住宅エリアから供給された入力不可の値 */
+.tokyo-nova.sheet.item.outfit .linked-value {
+    flex: 1;
+    min-width: 0;
+    color: var(--tnx2-text-secondary);
+    font-size: 0.9em;
+}
+
+/* ヘッダーの住宅エリアバッジ */
+.tokyo-nova.sheet.item.outfit .outfit-area-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+    padding: 1px 8px;
+    border-radius: var(--tnx2-radius);
+    background: var(--tnx2-bg-3);
+    color: var(--tnx2-text-secondary);
+    font-size: 0.85em;
+    white-space: nowrap;
+}

@@ -4,6 +4,10 @@ import { OUTFIT_CATEGORIES } from "../data/item/outfit-categories.mjs";
 import { ATTACK_DAMAGE_TYPES } from "../data/item/helpers.mjs";
 import { WEAPON_RANGES, WEAPON_ATTACK_AREAS } from "../data/item/weapon.mjs";
 import { SLOT_KINDS } from "../data/item/common/extensible.mjs";
+import { HOUSING_AREA_RANKS, HOUSING_AREA_MOD_FIELDS } from "../data/item/housing-area.mjs";
+
+/** 住宅エリア compendium の pack ID */
+const HOUSING_AREA_PACK = "tokyo-nova-axleration.housing-areas";
 
 /**
  * 部位の表記(2026-06-12 ユーザー確定、2026-06-13 複数部位対応)。
@@ -61,6 +65,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             incrementPart:  TokyoNovaOutfitSheet._onIncrementPart,
             decrementPart:  TokyoNovaOutfitSheet._onDecrementPart,
             toggleFlag:     TokyoNovaOutfitSheet._onToggleFlag,
+            clearHousingArea: TokyoNovaOutfitSheet._onClearHousingArea,
         },
     };
 
@@ -197,8 +202,42 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             context.options.damageType = damageType;
         }
 
-        context.view = this._prepareView(system, type);
+        // 住宅施設: 紐づけた住宅エリアを live 解決し、供給値 + 合算用 mod を用意する(2026-06-13)
+        let areaMods = null;
+        if (context.isResidence) {
+            context.options.housingArea = await this._housingAreaChoices();
+            const uuid = system.housingArea;
+            const linked = uuid ? await fromUuid(uuid).catch(() => null) : null;
+            if (linked && linked.type === "housingArea") {
+                areaMods = linked.system;
+                context.linkedArea = {
+                    name: linked.name,
+                    rankLabel: HOUSING_AREA_RANKS[linked.system.area] ?? "-",
+                    mods: HOUSING_AREA_MOD_FIELDS.map((m) => ({
+                        ...m, value: linked.system[m.key] ?? 0,
+                    })),
+                };
+                // ワールドアイテムのドロップで設定された場合はドロップダウンを無効化する
+                // (compendium UUID はドロップダウンで表現できるためロックしない)
+                context.housingAreaDropLocked = !uuid.startsWith("Compendium.");
+            }
+        }
+
+        context.view = this._prepareView(system, type, areaMods);
         return context;
+    }
+
+    /**
+     * 住宅エリア compendium の選択肢({uuid: name})を返す。
+     * @returns {Promise<Record<string, string>>}
+     */
+    async _housingAreaChoices() {
+        const pack = game.packs.get(HOUSING_AREA_PACK);
+        if (!pack) return {};
+        const index = await pack.getIndex();
+        const choices = {};
+        for (const entry of index) choices[entry.uuid] = entry.name;
+        return choices;
     }
 
     // ─── 閲覧表示の組み立て ─────────────────────────────────────────────────
@@ -207,11 +246,14 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
      * 説明タブ上部のサマリ(ルルブ表記順の {label, value} 配列)とヘッダー表示を生成する。
      * @param {Object} system 正規化済み system データ
      * @param {string} type Item type
+     * @param {Object|null} areaMods 住宅施設の場合、紐づけた住宅エリアの system(合算用)。なければ null
      * @returns {Object}
      */
-    _prepareView(system, type) {
+    _prepareView(system, type, areaMods = null) {
         const view = {};
         const num = (v) => (Number.isFinite(v) ? String(v) : "0");
+        // 住宅エリアの修正値を加算するヘルパー(住宅施設のみ。エリア未設定時は加算 0)
+        const am = (key) => (areaMods?.[key] ?? 0);
 
         // 購：購入値／常備化経験点(解説参照時は常備化経験点を表記しない)
         let buy;
@@ -291,14 +333,23 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 push("ス", num(countOf("normal")));
                 push("電制", hack); push("部位", part);
                 break;
-            case "residence":
-                // 危険値・電制なし。隠は隠匿値のみ
-                push("購", buy); push("隠", hideVal);
-                push("登場", num(system.appearanceTarget));
-                push("セ(電／ア)", `${num(system.cyberSecurity)}／${num(system.analogSecurity)}`);
-                push("ス", num(countOf("normal")));
+            case "residence": {
+                // 危険値・電制なし。隠は隠匿値のみ。住宅エリアの修正値を合算して表示する
+                const preserveR = (system.preserveExp ?? 0) + am("preserveExpMod");
+                let buyR;
+                if (system.buy.mode === "reference") buyR = "解説参照";
+                else if (system.buy.mode === "value") buyR = `${(system.buy.value ?? 0) + am("buyRatingMod")}／${preserveR}`;
+                else buyR = `-／${preserveR}`;
+                const hideR = system.hide.mode === "reference" ? "解説参照"
+                    : system.hide.mode === "value" ? String((system.hide.value ?? 0) + am("hideMod"))
+                    : "-";
+                push("購", buyR); push("隠", hideR);
+                push("登場", num((system.appearanceTarget ?? 0) + am("appearanceTargetMod")));
+                push("セ(電／ア)", `${(system.cyberSecurity ?? 0) + am("cyberSecurityMod")}／${(system.analogSecurity ?? 0) + am("analogSecurityMod")}`);
+                push("ス", num(countOf("normal") + am("slotMod")));
                 push("部位", part);
                 break;
+            }
             default: // general / combiner
                 push("購", buy); push("隠", hideFull);
                 push("電制", hack); push("部位", part);
@@ -460,6 +511,40 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 this._onDeletePartRow(Number(event.currentTarget.dataset.index));
             });
         }
+
+        // 住宅施設: 住宅エリアアイテムのドロップを受ける(V2 は dragDrop を自動処理しない)
+        if (this.element.querySelector(".tnx-import-box--dropzone")) {
+            new foundry.applications.ux.DragDrop.implementation({
+                dropSelector: ".tnx-import-box--dropzone",
+                permissions: { drop: () => this.isEditable },
+                callbacks: { drop: this._onDropZone.bind(this) },
+            }).bind(this.element);
+        }
+    }
+
+    /**
+     * 住宅エリアのドロップ受付。住宅施設シートでのみ有効。
+     * ドロップされた housingArea アイテムの UUID を system.housingArea に設定する。
+     */
+    async _onDropZone(event) {
+        const area = event.target.closest("[data-drop-area]")?.dataset.dropArea;
+        if (area !== "housing-area" || this.item.type !== "residence") return;
+        let data;
+        try { data = JSON.parse(event.dataTransfer.getData("text/plain")); }
+        catch { return; }
+        if (data?.type !== "Item") return;
+        const dropped = (data.uuid ? await fromUuid(data.uuid).catch(() => null) : null)
+            ?? await Item.fromDropData(data).catch(() => null);
+        if (!dropped || dropped.type !== "housingArea") {
+            ui.notifications.warn("住宅エリアアイテムをドロップしてください。");
+            return;
+        }
+        await this.item.update({ "system.housingArea": dropped.uuid });
+    }
+
+    /** 住宅エリアの紐づけを解除する */
+    static async _onClearHousingArea(_event, _target) {
+        await this.item.update({ "system.housingArea": "" });
     }
 
     // ─── ヘッダーの状態トグル(準備済み/携帯中/プリプレイ購入) ────────────────

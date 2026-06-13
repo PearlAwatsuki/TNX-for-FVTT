@@ -32,6 +32,21 @@ export const HOUSING_AREA_RANKS = Object.freeze({
   sanctuary:  "サンクチュアリ",
 });
 
+/**
+ * 住宅エリアが住宅施設に供給する修正値フィールドの順序とラベル。
+ * 住宅エリアシートの編集 UI と、住宅施設シートの供給値表示で共用する。
+ * @type {ReadonlyArray<{key: string, label: string}>}
+ */
+export const HOUSING_AREA_MOD_FIELDS = Object.freeze([
+  { key: "buyRatingMod",        label: "購入値" },
+  { key: "preserveExpMod",      label: "常備化経験点" },
+  { key: "hideMod",             label: "隠匿値" },
+  { key: "appearanceTargetMod", label: "登場判定目標値" },
+  { key: "cyberSecurityMod",    label: "電脳セキュリティ" },
+  { key: "analogSecurityMod",   label: "アナログセキュリティ" },
+  { key: "slotMod",             label: "スロット" },
+]);
+
 export class HousingAreaDataModel extends SystemDataModel.mixin(BaseTemplate) {
   /** @override */
   static defineSchema() {
