@@ -2,7 +2,7 @@ import { TokyoNovaItemSheet } from "./tnx-item-sheet.mjs";
 import { TnxSkillUtils } from "../module/tnx-skill-utils.mjs";
 import { OUTFIT_CATEGORIES } from "../data/item/outfit-categories.mjs";
 import { ATTACK_DAMAGE_TYPES } from "../data/item/helpers.mjs";
-import { WEAPON_RANGES, WEAPON_ATTACK_AREAS } from "../data/item/weapon.mjs";
+import { WEAPON_RANGES, WEAPON_RANGE_MIN_OPTIONS, WEAPON_RANGE_MAX_OPTIONS, WEAPON_ATTACK_AREAS } from "../data/item/weapon.mjs";
 import { SLOT_KINDS } from "../data/item/common/extensible.mjs";
 import { HOUSING_AREA_RANKS, HOUSING_AREA_MOD_FIELDS } from "../data/item/housing-area.mjs";
 
@@ -10,24 +10,56 @@ import { HOUSING_AREA_RANKS, HOUSING_AREA_MOD_FIELDS } from "../data/item/housin
 const HOUSING_AREA_PACK = "tokyo-nova-axleration.housing-areas";
 
 /**
+ * 大分類・小分類の両方が一意に確定している Item type → { major, minor } のマップ。
+ * 該当型ではドロップダウンを非表示にし、データが異なれば自動補正する。
+ */
+const BOTH_FIXED_CATEGORIES = Object.freeze({
+    combiner:  { major: "サービス",      minor: "コンバイナー" },
+    residence: { major: "住宅",          minor: "住宅施設" },
+    ianus:     { major: "サイバーウェア", minor: "IANUS" },
+    cyborg:    { major: "サイバーウェア", minor: "全身義体" },
+});
+
+/**
+ * 大分類のみ確定しており、小分類は選択できる Item type → 大分類名のマップ。
+ * 該当型では大分類をラベル表示にし、小分類だけドロップダウンで選択する。
+ */
+const MAJOR_FIXED_CATEGORIES = Object.freeze({
+    tron:    "トロン",
+    tap:     "トロン",
+    vehicle: "ヴィークル",
+});
+
+/**
  * コンバイン元の比較対象パラメータ定義。
  * exists: 当該 system にフィールドが定義されているか(型依存)。
  * eq: 二値が等しいかの判定(等しければラジオ不要)。
  */
+/** {mode,value} 形式のフィールド用共通比較 */
+function modeValueEq(a, b) {
+    const mA = a?.mode ?? "none", mB = b?.mode ?? "none";
+    if (mA !== mB) return false;
+    if (mA !== "value") return true;
+    return (a?.value ?? 0) === (b?.value ?? 0);
+}
+function modeValueFmt(v) {
+    return v?.mode === "value" ? String(v.value ?? 0) : "-";
+}
+
 const COMBINE_PARAM_DEFS = Object.freeze([
     {
         key: "appearancePenalty", label: "危険値",
         exists: () => true,
         get: (s) => s.appearancePenalty,
-        fmt: (v) => String(v ?? 0),
-        eq: (a, b) => (a ?? 0) === (b ?? 0),
+        fmt: modeValueFmt,
+        eq: modeValueEq,
     },
     {
         key: "controlMod", label: "制御値修正",
         exists: (s) => s.controlMod !== undefined,
         get: (s) => s.controlMod,
-        fmt: (v) => String(v ?? 0),
-        eq: (a, b) => (a ?? 0) === (b ?? 0),
+        fmt: modeValueFmt,
+        eq: modeValueEq,
     },
     {
         key: "attack", label: "攻撃力",
@@ -40,38 +72,45 @@ const COMBINE_PARAM_DEFS = Object.freeze([
         key: "defence", label: "防御値",
         exists: (s) => s.defence !== undefined,
         get: (s) => s.defence,
-        fmt: (v) => `${v.S_defence ?? 0}／${v.P_defence ?? 0}／${v.I_defence ?? 0}`,
-        eq: (a, b) => (a.S_defence ?? 0) === (b.S_defence ?? 0)
-                   && (a.P_defence ?? 0) === (b.P_defence ?? 0)
-                   && (a.I_defence ?? 0) === (b.I_defence ?? 0),
+        fmt: (v) => v?.mode === "value"
+            ? `${v.S_defence ?? 0}／${v.P_defence ?? 0}／${v.I_defence ?? 0}` : "-",
+        eq: (a, b) => {
+            const mA = a?.mode ?? "none", mB = b?.mode ?? "none";
+            if (mA !== mB) return false;
+            if (mA !== "value") return true;
+            return (a.S_defence ?? 0) === (b.S_defence ?? 0)
+                && (a.P_defence ?? 0) === (b.P_defence ?? 0)
+                && (a.I_defence ?? 0) === (b.I_defence ?? 0);
+        },
     },
     {
         key: "guardValue", label: "受け値",
         exists: (s) => s.guardValue !== undefined,
         get: (s) => s.guardValue,
-        fmt: (v) => String(v ?? 0),
-        eq: (a, b) => (a ?? 0) === (b ?? 0),
+        fmt: modeValueFmt,
+        eq: modeValueEq,
     },
     {
         key: "range", label: "射程",
         exists: (s) => s.range !== undefined,
         get: (s) => s.range,
         fmt: (v) => formatWeaponRangeLabel(v),
-        eq: (a, b) => a.min === b.min && a.max === b.max,
+        eq: (a, b) => (a?.min ?? "none") === (b?.min ?? "none")
+                   && (a?.max ?? "none") === (b?.max ?? "none"),
     },
     {
         key: "speedFactor", label: "SF",
         exists: (s) => s.speedFactor !== undefined,
         get: (s) => s.speedFactor,
-        fmt: (v) => String(v ?? 0),
-        eq: (a, b) => (a ?? 0) === (b ?? 0),
+        fmt: modeValueFmt,
+        eq: modeValueEq,
     },
     {
         key: "passenger", label: "乗員",
         exists: (s) => s.passenger !== undefined,
         get: (s) => s.passenger,
-        fmt: (v) => String(v ?? 0),
-        eq: (a, b) => (a ?? 0) === (b ?? 0),
+        fmt: modeValueFmt,
+        eq: modeValueEq,
     },
 ]);
 
@@ -95,15 +134,20 @@ export function formatPartLabel(part) {
 }
 
 /**
- * 射程の表記(略号「射」)。min と max が同じなら単一表記、異なるなら「近～超遠」形式。
+ * 射程の表記(略号「射」)。
+ * - min が "none" または未設定: "-"
+ * - min が値で max が "none" または未設定: 単一表記(例: "至近")
+ * - min と max が両方値: 範囲表記(例: "近～超遠")
  * @param {{min: string, max: string}|string|null} range
  * @returns {string}
  */
 export function formatWeaponRangeLabel(range) {
     if (!range || typeof range !== "object") return range ?? "-";
+    if (!range.min || range.min === "none") return "-";
     const min = WEAPON_RANGES[range.min] ?? "-";
+    if (!range.max || range.max === "none") return min;
     const max = WEAPON_RANGES[range.max] ?? "-";
-    return min === max ? min : `${min}～${max}`;
+    return `${min}～${max}`;
 }
 
 /**
@@ -132,6 +176,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             decrementPart:     TokyoNovaOutfitSheet._onDecrementPart,
             toggleFlag:        TokyoNovaOutfitSheet._onToggleFlag,
             clearHousingArea:    TokyoNovaOutfitSheet._onClearHousingArea,
+            viewHousingArea:     TokyoNovaOutfitSheet._onViewHousingArea,
             clearCombineSource:  TokyoNovaOutfitSheet._onClearCombineSource,
             viewCombineSource:   TokyoNovaOutfitSheet._onViewCombineSource,
         },
@@ -155,6 +200,16 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
     /** 電脳制御値の 2 状態(なし/数値) */
     static get hackModes() {
+        return { none: "なし", value: "数値" };
+    }
+
+    /** 危険値の 2 状態(なし/数値) */
+    static get appearancePenaltyModes() {
+        return { none: "なし", value: "数値" };
+    }
+
+    /** 汎用 なし/数値 の 2 状態(preserveExp / guardValue / controlMod / cycle / combatSpeedMod / speedFactor / passenger / slots / defence) */
+    static get noneValueModes() {
         return { none: "なし", value: "数値" };
     }
 
@@ -191,8 +246,8 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
     /**
      * 保存済み slots を型の既定プール構成に正規化して返す(表示・更新共用)。
-     * 既存プールの count は kind で引き継ぐ。
-     * @returns {Array<{kind: string, count: number}>}
+     * 既存プールの count({mode,value})は kind で引き継ぐ。
+     * @returns {Array<{kind: string, count: {mode: string, value: number}}>}
      */
     _normalizedSlots() {
         const preset = this.constructor.SLOT_PRESETS[this.item.type];
@@ -203,7 +258,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             : [];
         return preset.map((kind) => ({
             kind,
-            count: list.find((s) => s?.kind === kind)?.count ?? 0,
+            count: list.find((s) => s?.kind === kind)?.count ?? { mode: "none", value: 0 },
         }));
     }
 
@@ -238,6 +293,25 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         // slots は既定プール構成に正規化して表示する
         if (context.hasSlots) system.slots = this._normalizedSlots();
 
+        // カテゴリ固定型: データが不整合なら自動補正し、テンプレート用フラグをセットする
+        const fixedBoth = BOTH_FIXED_CATEGORIES[type];
+        const fixedMajorName = MAJOR_FIXED_CATEGORIES[type];
+        if (fixedBoth) {
+            if (system.majorCategory !== fixedBoth.major || system.minorCategory !== fixedBoth.minor) {
+                this.item.update({ "system.majorCategory": fixedBoth.major, "system.minorCategory": fixedBoth.minor });
+                system.majorCategory = fixedBoth.major;
+                system.minorCategory = fixedBoth.minor;
+            }
+            context.isBothCategoryFixed = true;
+        } else if (fixedMajorName) {
+            if (system.majorCategory !== fixedMajorName) {
+                this.item.update({ "system.majorCategory": fixedMajorName });
+                system.majorCategory = fixedMajorName;
+            }
+            context.isMajorCategoryFixed = true;
+            context.fixedMajorLabel = fixedMajorName;
+        }
+
         const skillOptions = TnxSkillUtils.getSkillOptions();
         const categories = this._categoriesForType();
 
@@ -252,12 +326,15 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             actions:       skillOptions.actions,
             processes:     skillOptions.processes,
             usesType:      skillOptions.usesType,
-            buyHideMode:   this.constructor.buyHideModes,
-            hackMode:      this.constructor.hackModes,
+            buyHideMode:            this.constructor.buyHideModes,
+            hackMode:               this.constructor.hackModes,
+            appearancePenaltyMode:  this.constructor.appearancePenaltyModes,
+            noneValueMode:          this.constructor.noneValueModes,
             majorCategory: majorChoices,
             minorCategory: minorChoices,
             damageTypes:   ATTACK_DAMAGE_TYPES,
-            weaponRange:   WEAPON_RANGES,
+            weaponRangeMin: WEAPON_RANGE_MIN_OPTIONS,
+            weaponRangeMax: WEAPON_RANGE_MAX_OPTIONS,
             attackArea:    WEAPON_ATTACK_AREAS,
             slotKinds:     SLOT_KINDS,
         };
@@ -281,24 +358,25 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 areaMods = linked.system;
                 context.linkedArea = {
                     name: linked.name,
+                    img: linked.img,
                     rankLabel: HOUSING_AREA_RANKS[linked.system.area] ?? "-",
-                    mods: HOUSING_AREA_MOD_FIELDS.map((m) => ({
-                        ...m, value: linked.system[m.key] ?? 0,
-                    })),
+                    mods: HOUSING_AREA_MOD_FIELDS.map((m) => {
+                        const v = linked.system[m.key] ?? 0;
+                        return { ...m, value: v > 0 ? `+${v}` : String(v) };
+                    }),
                 };
-                // ワールドアイテムのドロップで設定された場合はドロップダウンを無効化する
-                // (compendium UUID はドロップダウンで表現できるためロックしない)
-                context.housingAreaDropLocked = !uuid.startsWith("Compendium.");
             }
         }
 
-        // コンバイナー: カテゴリはサービス/コンバイナーで確定。データが異なれば自動補正する(2026-06-13)
+        // サイバーウェア分類: isCyber フラグを自動的に true にする(2026-06-13)
+        context.isCyberByCategory = system.majorCategory === "サイバーウェア";
+        if (context.isCyberByCategory && !system.isCyber) {
+            this.item.update({ "system.isCyber": true });
+            system.isCyber = true;
+        }
+
+        // コンバイナー: カテゴリ自動補正は BOTH_FIXED_CATEGORIES で処理済み
         if (context.isCombiner) {
-            if (system.majorCategory !== "サービス" || system.minorCategory !== "コンバイナー") {
-                this.item.update({ "system.majorCategory": "サービス", "system.minorCategory": "コンバイナー" });
-                system.majorCategory = "サービス";
-                system.minorCategory = "コンバイナー";
-            }
             context.combine = await this._prepareCombinePreview(system);
         }
 
@@ -326,6 +404,8 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         const hackOf = (it) => (it?.system?.hack?.mode === "value" ? num(it.system.hack.value) : null);
         const hideOf = (sys) => sys?.hide?.mode === "reference" ? "解説参照"
             : sys?.hide?.mode === "value" ? String(num(sys.hide.value)) : "-";
+        const penaltyOf = (sys) => sys?.appearancePenalty?.mode === "value"
+            ? String(num(sys.appearancePenalty.value)) : "-";
 
         const result = {
             source1: s1 ? { name: s1.name, img: s1.img } : null,
@@ -335,9 +415,10 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
         if (s1 && s2) {
             // 常備化経験点: コンバイナー本体 + 元1 + 元2 の合計(2026-06-13 ユーザー確定)
-            const preserveExpTotal = num(system.preserveExp)
-                + num(s1.system.preserveExp)
-                + num(s2.system.preserveExp);
+            const expNum = (s) => s?.preserveExp?.mode === "value" ? num(s.preserveExp.value) : 0;
+            const preserveExpTotal = expNum(system)
+                + expNum(s1.system)
+                + expNum(s2.system);
 
             // 部位: 両方の指定部位を全て占有
             const parts = [
@@ -363,10 +444,20 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             }
 
             result.paramRows = paramRows;
+            const appearSrc = system.combine.appearance === "2" ? s2 : s1;
+            const appearSys = appearSrc.system;
+
+            // 分類: 大分類が同じ場合は短縮形(2026-06-13 ユーザー確定)
+            const maj1 = s1.system.majorCategory || "-", min1 = s1.system.minorCategory || "-";
+            const maj2 = s2.system.majorCategory || "-", min2 = s2.system.minorCategory || "-";
+            const category = maj1 === maj2
+                ? `${maj1}／${min1}、${min2}`
+                : `${maj1}／${min1}、${maj2}／${min2}`;
+
             result.merged = {
-                name: (system.combine.appearance === "2" ? s2 : s1).name,
+                name: appearSrc.name,
                 part: formatPartLabel(parts),
-                category: `${categoryOf(s1)}／${categoryOf(s2)}`,
+                category,
                 preserveExpTotal,
                 // 電制: どちらか高い方(両方なしなら -)
                 hack: (() => {
@@ -374,8 +465,11 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                     const vals = [a, b].filter((v) => v !== null);
                     return vals.length ? String(Math.max(...vals)) : "-";
                 })(),
-                // 隠: X(Y) — X = 見た目の隠匿値、Y = コンバイナー本体の隠匿値
-                hide: `${hideOf((system.combine.appearance === "2" ? s2 : s1).system)}(${hideOf(system)})`,
+                // 隠：見た目元の隠匿値(コンバイナーの隠匿値)／選択した元の危険値
+                hide: (() => {
+                    const penaltySrc = system.combine.params?.appearancePenalty === "2" ? s2 : s1;
+                    return `${hideOf(appearSys)}(${hideOf(system)})／${penaltyOf(penaltySrc.system)}`;
+                })(),
             };
         }
         return result;
@@ -408,27 +502,53 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         const num = (v) => (Number.isFinite(v) ? String(v) : "0");
         // 住宅エリアの修正値を加算するヘルパー(住宅施設のみ。エリア未設定時は加算 0)
         const am = (key) => (areaMods?.[key] ?? 0);
+        // {mode,value} フィールドを文字列に変換。mode が "none" なら "-"
+        const mv = (field) => field?.mode === "value" ? num(field.value) : "-";
 
-        // 購：購入値／常備化経験点(解説参照時は常備化経験点を表記しない)
+        // オプション時: 正の数値に + を付ける
+        const isOption = system.isOption === true;
+        const numSigned = (v) => {
+            if (!Number.isFinite(v)) return "0";
+            return v > 0 ? `+${v}` : String(v);
+        };
+        // 購入値・常備化経験点・隠匿値・電脳制御値以外の数値に使う mv(オプション時は符号付き)
+        const mvOpt = (field) => {
+            if (field?.mode !== "value") return "-";
+            return isOption ? numSigned(field.value) : num(field.value);
+        };
+        // 数値を直接フォーマット(オプション時は符号付き)
+        const fmtNum = (v) => isOption ? numSigned(v) : num(v);
+
+        // 常備化経験点ラベル(除外対象: 符号なし)
+        const expLabel = mv(system.preserveExp);
+
+        // 購：購入値／常備化経験点(解説参照時は常備化経験点を表記しない。除外対象: 符号なし)
         let buy;
         if (system.buy.mode === "reference") buy = "解説参照";
-        else if (system.buy.mode === "value") buy = `${num(system.buy.value)}／${num(system.preserveExp)}`;
-        else buy = `-／${num(system.preserveExp)}`;
+        else if (system.buy.mode === "value") buy = `${num(system.buy.value)}／${expLabel}`;
+        else buy = `-／${expLabel}`;
 
-        // 隠匿値(単体)。隠匿値／危険値の併記版は hideFull
+        // 隠匿値(除外対象: 符号なし)／危険値(オプション時は符号付き)の併記版は hideFull
         const hideVal = system.hide.mode === "reference" ? "解説参照"
             : system.hide.mode === "value" ? num(system.hide.value)
             : "-";
-        const hideFull = `${hideVal}／${num(system.appearancePenalty)}`;
+        const penaltyVal = mvOpt(system.appearancePenalty);
+        const hideFull = `${hideVal}／${penaltyVal}`;
 
-        const hack = system.hack.mode === "value" ? num(system.hack.value) : "-";
+        // 電脳制御値(除外対象: 符号なし)
+        const hack = mv(system.hack);
         const part = formatPartLabel(system.part);
         const defence = () => {
             const d = system.defence;
-            return `${num(d.S_defence)}／${num(d.P_defence)}／${num(d.I_defence)}`;
+            if (d?.mode !== "value") return "-";
+            return `${fmtNum(d.S_defence)}／${fmtNum(d.P_defence)}／${fmtNum(d.I_defence)}`;
         };
         const slots = Array.isArray(system.slots) ? system.slots : [];
-        const countOf = (kind) => slots.find((s) => s.kind === kind)?.count ?? 0;
+        const countOf = (kind) => {
+            const slot = slots.find((s) => s.kind === kind);
+            if (!slot?.count || slot.count.mode !== "value") return "-";
+            return fmtNum(slot.count.value);
+        };
 
         // 型ごとに概要の項目と順序が異なる(2026-06-12〜13 ユーザー確定)
         const rows = [];
@@ -437,70 +557,73 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             case "weapon":
                 push("購", buy); push("隠", hideFull);
                 push("攻", this._attackLabel(system.attack));
-                push("受", num(system.guardValue));
+                push("受", mvOpt(system.guardValue));
                 push("射", formatWeaponRangeLabel(system.range));
-                push("ス", num(countOf("normal")));
+                push("ス", countOf("normal"));
                 push("電制", hack); push("部位", part);
                 break;
             case "armor":
                 push("購", buy); push("隠", hideFull);
                 push("防(S／P／I)", defence());
-                push("制", num(system.controlMod));
+                push("制", mvOpt(system.controlMod));
                 push("電制", hack); push("部位", part);
                 break;
             case "cyborg":
                 push("購", buy); push("隠", hideFull);
                 push("防(S／P／I)", defence());
                 push("攻", this._attackLabel(system.attack));
-                push("受", num(system.guardValue));
+                push("受", mvOpt(system.guardValue));
                 push("電制", hack); push("部位", part);
                 break;
             case "ianus":
                 // 電制なし
                 push("購", buy); push("隠", hideFull);
-                push("ス", num(countOf("normal")));
-                push("表", num(countOf("surface")));
-                push("深", num(countOf("deep")));
-                push("無", num(countOf("unconscious")));
-                push("制", num(system.controlMod));
+                push("ス", countOf("normal"));
+                push("表", countOf("surface"));
+                push("深", countOf("deep"));
+                push("無", countOf("unconscious"));
+                push("制", mvOpt(system.controlMod));
                 push("部位", part);
                 break;
             case "tron":
                 push("購", buy); push("隠", hideFull);
-                push("ス", num(countOf("normal")));
+                push("ス", countOf("normal"));
                 push("電制", hack); push("部位", part);
                 break;
             case "tap":
                 push("購", buy); push("隠", hideFull);
-                push("ソ", num(countOf("software")));
-                push("ハ", num(countOf("hardware")));
-                push("CS", num(system.combatSpeedMod));
+                push("ソ", countOf("software"));
+                push("ハ", countOf("hardware"));
+                push("CS", mvOpt(system.combatSpeedMod));
                 push("電制", hack); push("部位", part);
                 break;
             case "vehicle":
                 push("購", buy); push("隠", hideFull);
                 push("攻", this._attackLabel(system.attack));
-                push("SF", num(system.speedFactor));
+                push("SF", mvOpt(system.speedFactor));
                 push("防(S／P／I)", defence());
-                push("制", num(system.controlMod));
-                push("乗員", num(system.passenger));
-                push("ス", num(countOf("normal")));
+                push("制", mvOpt(system.controlMod));
+                push("乗員", mvOpt(system.passenger));
+                push("ス", countOf("normal"));
                 push("電制", hack); push("部位", part);
                 break;
             case "residence": {
                 // 危険値・電制なし。隠は隠匿値のみ。住宅エリアの修正値を合算して表示する
-                const preserveR = (system.preserveExp ?? 0) + am("preserveExpMod");
+                const expBase = system.preserveExp?.mode === "value" ? (system.preserveExp.value ?? 0) : null;
+                const preserveR = expBase !== null ? String(expBase + am("preserveExpMod")) : "-";
                 let buyR;
                 if (system.buy.mode === "reference") buyR = "解説参照";
                 else if (system.buy.mode === "value") buyR = `${(system.buy.value ?? 0) + am("buyRatingMod")}／${preserveR}`;
                 else buyR = `-／${preserveR}`;
                 const hideR = system.hide.mode === "reference" ? "解説参照"
-                    : system.hide.mode === "value" ? String((system.hide.value ?? 0) + am("hideMod"))
+                    : system.hide.mode === "value" ? String(system.hide.value ?? 0)
                     : "-";
                 push("購", buyR); push("隠", hideR);
-                push("登場", num((system.appearanceTarget ?? 0) + am("appearanceTargetMod")));
-                push("セ(電／ア)", `${(system.cyberSecurity ?? 0) + am("cyberSecurityMod")}／${(system.analogSecurity ?? 0) + am("analogSecurityMod")}`);
-                push("ス", num(countOf("normal") + am("slotMod")));
+                push("登場", fmtNum((system.appearanceTarget ?? 0) + am("appearanceTargetMod")));
+                push("セ(電／ア)", `${fmtNum((system.cyberSecurity ?? 0) + am("cyberSecurityMod"))}／${fmtNum((system.analogSecurity ?? 0) + am("analogSecurityMod"))}`);
+                const slotBase = slots.find((s) => s.kind === "normal");
+                const slotCount = slotBase?.count?.mode === "value" ? (slotBase.count.value ?? 0) : 0;
+                push("ス", fmtNum(slotCount + am("slotMod")));
                 push("部位", part);
                 break;
             }
@@ -541,6 +664,9 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
         // コンバイン元ボタン: editable に関わらず閲覧コンテキストメニューを設置する
         if (context.isCombiner) this._setupCombineSourceMenu();
+
+        // 住宅エリアリンクボタン: editable に関わらず閲覧コンテキストメニューを設置する
+        if (context.isResidence) this._setupHousingAreaMenu();
 
         if (!context.editable) return;
 
@@ -584,8 +710,11 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 });
             });
 
-        // 購/隠/電制のモード変更時、数値以外なら value をリセットする
-        for (const key of ["buy", "hide", "hack"]) {
+        // 購/隠/電制/常備化経験点/受け値/制御値修正/サイクル/CS修正/SF/乗員/防御力のモード変更時、
+        // 数値以外なら value をリセットする
+        for (const key of ["buy", "hide", "hack",
+                            "preserveExp", "guardValue", "controlMod",
+                            "cycle", "combatSpeedMod", "speedFactor", "passenger"]) {
             this.element.querySelector(`select[name="system.${key}.mode"]`)
                 ?.addEventListener("change", (event) => {
                     event.stopPropagation();
@@ -594,6 +723,32 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                     if (mode !== "value") update[`system.${key}.value`] = 0;
                     this.item.update(update);
                 });
+        }
+
+        // 防御力モード変更時、"none" なら S/P/I をリセットする
+        this.element.querySelector('select[name="system.defence.mode"]')
+            ?.addEventListener("change", (event) => {
+                event.stopPropagation();
+                const mode = event.currentTarget.value;
+                const update = { "system.defence.mode": mode };
+                if (mode !== "value") {
+                    update["system.defence.S_defence"] = 0;
+                    update["system.defence.P_defence"] = 0;
+                    update["system.defence.I_defence"] = 0;
+                }
+                this.item.update(update);
+            });
+
+        // スロットの mode 変更(kind ベース)
+        for (const select of this.element.querySelectorAll(".slot-mode-select")) {
+            select.addEventListener("change", (event) => {
+                event.stopPropagation();
+                const kind = event.currentTarget.dataset.kind;
+                const mode = event.currentTarget.value;
+                this._updateSlotCount(kind, (count) => ({
+                    ...count, mode, value: mode === "none" ? 0 : (count.value ?? 0),
+                }));
+            });
         }
 
         // 使用回数: チェック解除時に回数・種別をリセットする(スタイル技能と同挙動)
@@ -626,7 +781,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 event.stopPropagation();
                 const kind = event.currentTarget.dataset.slotKind;
                 const value = Math.max(0, Number(event.currentTarget.value) || 0);
-                this._updateSlotCount(kind, () => value);
+                this._updateSlotCount(kind, (count) => ({ ...count, value }));
             });
         }
 
@@ -669,6 +824,16 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 this._onDeletePartRow(Number(event.currentTarget.dataset.index));
             });
         }
+
+        // 住宅施設: ドロップモードチェックボックスの切り替え(オフ時はリンクをクリア)
+        this.element.querySelector('input[name="system.useHousingAreaDrop"]')
+            ?.addEventListener("change", (event) => {
+                event.stopPropagation();
+                const isChecked = event.currentTarget.checked;
+                const update = { "system.useHousingAreaDrop": isChecked };
+                if (!isChecked) update["system.housingArea"] = "";
+                this.item.update(update);
+            });
 
         // 住宅施設: 住宅エリアアイテムのドロップを受ける(V2 は dragDrop を自動処理しない)
         if (this.element.querySelector(".tnx-import-box--dropzone")) {
@@ -718,6 +883,56 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
     /** 住宅エリアの紐づけを解除する */
     static async _onClearHousingArea(_event, _target) {
         await this.item.update({ "system.housingArea": "" });
+    }
+
+    /** 住宅エリアを閲覧モードで開く(左クリックアクション) */
+    static async _onViewHousingArea(_event, _target) {
+        const uuid = this.item.system.housingArea;
+        if (!uuid) return;
+        const item = await fromUuid(uuid).catch(() => null);
+        if (item) item.sheet.render(true, { editable: false });
+    }
+
+    /**
+     * 住宅エリアリンクボタンの右クリックコンテキストメニューを設置する。
+     * editable に関わらず閲覧は可能。削除は condition で制御する。
+     */
+    _setupHousingAreaMenu() {
+        const CM = foundry.applications.ux.ContextMenu.implementation;
+        new CM(this.element, '[data-context-menu="housing-area"]', [
+            {
+                name: "閲覧",
+                icon: '<i class="fas fa-eye"></i>',
+                callback: async (_target) => {
+                    const uuid = this.item.system.housingArea;
+                    const item = uuid ? await fromUuid(uuid).catch(() => null) : null;
+                    if (item) item.sheet.render(true, { editable: false });
+                },
+            },
+            {
+                name: "編集",
+                icon: '<i class="fas fa-edit"></i>',
+                callback: async (_target) => {
+                    const uuid = this.item.system.housingArea;
+                    const item = uuid ? await fromUuid(uuid).catch(() => null) : null;
+                    if (item) item.sheet.render(true);
+                },
+            },
+            {
+                name: "削除",
+                icon: '<i class="fas fa-unlink"></i>',
+                condition: () => this.isEditable,
+                callback: (_target) => {
+                    this.item.update({ "system.housingArea": "" });
+                },
+            },
+        ], { jQuery: false, fixed: true });
+    }
+
+    /** コンバイン元の紐づけを解除する */
+    static async _onClearCombineSource(_event, target) {
+        const key = target.dataset.source === "2" ? "source2" : "source1";
+        await this.item.update({ [`system.combine.${key}`]: "" });
     }
 
     /** コンバイン元を閲覧モードで開く(左クリックアクション) */
@@ -787,23 +1002,27 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
     // ─── スロットプール操作 ─────────────────────────────────────────────────
 
     static async _onIncrementSlot(_event, target) {
-        await this._updateSlotCount(target.dataset.kind, (count) => count + 1);
+        await this._updateSlotCount(target.dataset.kind, (count) => ({
+            ...count, value: (count.value ?? 0) + 1,
+        }));
     }
 
     static async _onDecrementSlot(_event, target) {
-        await this._updateSlotCount(target.dataset.kind, (count) => Math.max(0, count - 1));
+        await this._updateSlotCount(target.dataset.kind, (count) => ({
+            ...count, value: Math.max(0, (count.value ?? 0) - 1),
+        }));
     }
 
     /**
-     * 指定 kind のプールの count を更新する(配列全体を送って保存する)。
+     * 指定 kind のプールの count({mode,value})を更新する(配列全体を送って保存する)。
      * @param {string} kind スロット種別
-     * @param {(count: number) => number} mutate 現在値から新しい値を計算する関数
+     * @param {(count: {mode:string,value:number}) => {mode:string,value:number}} mutate
      */
     async _updateSlotCount(kind, mutate) {
         const slots = this._normalizedSlots();
         const pool = slots.find((s) => s.kind === kind);
         if (!pool) return;
-        pool.count = mutate(pool.count ?? 0);
+        pool.count = mutate(pool.count ?? { mode: "none", value: 0 });
         await this.item.update({ "system.slots": slots });
     }
 

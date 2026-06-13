@@ -24,16 +24,20 @@
             </div>
             <div class="outfit-category">
                 {{#if isEditMode}}
-                    {{#unless isCombiner}}
-                        <select name="system.majorCategory">
-                            {{selectOptions options.majorCategory selected=system.majorCategory}}
-                        </select>
+                    {{#if isBothCategoryFixed}}
+                        <span class="outfit-category-label">{{view.category}}</span>
+                    {{else}}
+                        {{#if isMajorCategoryFixed}}
+                            <span class="outfit-category-label">{{fixedMajorLabel}}／</span>
+                        {{else}}
+                            <select name="system.majorCategory">
+                                {{selectOptions options.majorCategory selected=system.majorCategory}}
+                            </select>
+                        {{/if}}
                         <select name="system.minorCategory">
                             {{selectOptions options.minorCategory selected=system.minorCategory}}
                         </select>
-                    {{else}}
-                        <span class="outfit-category-label">サービス／コンバイナー</span>
-                    {{/unless}}
+                    {{/if}}
                 {{else}}
                     <span class="outfit-category-label">{{view.category}}</span>
                 {{/if}}
@@ -91,10 +95,39 @@
                     </div>
                 </fieldset>
 
+                {{#unless isCombiner}}
+                <fieldset class="tnx-fieldset">
+                    <legend>性質</legend>
+                    <div class="outfit-flags">
+                        {{#unless isCyberByCategory}}
+                        <label class="outfit-flag">
+                            <input type="checkbox" name="system.isCyber" {{checked system.isCyber}}>
+                            <span>サイバーウェア</span>
+                        </label>
+                        {{/unless}}
+                        <label class="outfit-flag">
+                            <input type="checkbox" name="system.isOption" {{checked system.isOption}}>
+                            <span>オプション</span>
+                        </label>
+                        <label class="outfit-flag">
+                            <input type="checkbox" name="system.isConsumption" {{checked system.isConsumption}}>
+                            <span>消費アイテム</span>
+                        </label>
+                    </div>
+                </fieldset>
+                {{/unless}}
+
                 {{#if hasDefence}}
                 <fieldset class="tnx-fieldset">
                     <legend>防御データ</legend>
                     <div class="tnx-form-field">
+                        <div class="form-group">
+                            <label>防御力</label>
+                            <select name="system.defence.mode">
+                                {{selectOptions options.noneValueMode selected=system.defence.mode}}
+                            </select>
+                        </div>
+                        {{#if (eq system.defence.mode "value")}}
                         <div class="form-group">
                             <label>防御値(S)</label>
                             <div class="number-input-spinner skill-sheet-spinner">
@@ -119,13 +152,21 @@
                                 <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.defence.I_defence">+</button>
                             </div>
                         </div>
+                        {{/if}}
                         {{#if isArmor}}
                             <div class="form-group">
                                 <label>制御値修正</label>
-                                <div class="number-input-spinner skill-sheet-spinner">
-                                    <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.controlMod">-</button>
-                                    <input type="number" name="system.controlMod" value="{{system.controlMod}}">
-                                    <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.controlMod">+</button>
+                                <div class="form-fields {{#if (eq system.controlMod.mode "value")}}split-fields{{/if}}">
+                                    <select name="system.controlMod.mode">
+                                        {{selectOptions options.noneValueMode selected=system.controlMod.mode}}
+                                    </select>
+                                    {{#if (eq system.controlMod.mode "value")}}
+                                        <div class="number-input-spinner skill-sheet-spinner">
+                                            <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.controlMod.value">-</button>
+                                            <input type="number" name="system.controlMod.value" value="{{system.controlMod.value}}">
+                                            <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.controlMod.value">+</button>
+                                        </div>
+                                    {{/if}}
                                 </div>
                             </div>
                         {{/if}}
@@ -161,24 +202,33 @@
                         {{#if hasGuard}}
                         <div class="form-group">
                             <label>受け値</label>
-                            <div class="number-input-spinner skill-sheet-spinner">
-                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.guardValue">-</button>
-                                <input type="number" name="system.guardValue" value="{{system.guardValue}}">
-                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.guardValue">+</button>
+                            <div class="form-fields {{#if (eq system.guardValue.mode "value")}}split-fields{{/if}}">
+                                <select name="system.guardValue.mode">
+                                    {{selectOptions options.noneValueMode selected=system.guardValue.mode}}
+                                </select>
+                                {{#if (eq system.guardValue.mode "value")}}
+                                    <div class="number-input-spinner skill-sheet-spinner">
+                                        <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.guardValue.value">-</button>
+                                        <input type="number" name="system.guardValue.value" value="{{system.guardValue.value}}">
+                                        <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.guardValue.value">+</button>
+                                    </div>
+                                {{/if}}
                             </div>
                         </div>
                         {{/if}}
                         {{#if isWeapon}}
                             <div class="form-group">
                                 <label>射程</label>
-                                <div class="form-fields split-fields">
+                                <div class="form-fields {{#unless (eq system.range.min "none")}}split-fields{{/unless}}">
                                     <select name="system.range.min">
-                                        {{selectOptions options.weaponRange selected=system.range.min}}
+                                        {{selectOptions options.weaponRangeMin selected=system.range.min}}
                                     </select>
-                                    <span class="range-separator">～</span>
-                                    <select name="system.range.max">
-                                        {{selectOptions options.weaponRange selected=system.range.max}}
-                                    </select>
+                                    {{#unless (eq system.range.min "none")}}
+                                        <span class="range-separator">～</span>
+                                        <select name="system.range.max">
+                                            {{selectOptions options.weaponRangeMax selected=system.range.max}}
+                                        </select>
+                                    {{/unless}}
                                 </div>
                             </div>
                             <div class="form-group">
@@ -216,10 +266,17 @@
                     <div class="tnx-form-field">
                         <div class="form-group">
                             <label>制御値修正</label>
-                            <div class="number-input-spinner skill-sheet-spinner">
-                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.controlMod">-</button>
-                                <input type="number" name="system.controlMod" value="{{system.controlMod}}">
-                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.controlMod">+</button>
+                            <div class="form-fields {{#if (eq system.controlMod.mode "value")}}split-fields{{/if}}">
+                                <select name="system.controlMod.mode">
+                                    {{selectOptions options.noneValueMode selected=system.controlMod.mode}}
+                                </select>
+                                {{#if (eq system.controlMod.mode "value")}}
+                                    <div class="number-input-spinner skill-sheet-spinner">
+                                        <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.controlMod.value">-</button>
+                                        <input type="number" name="system.controlMod.value" value="{{system.controlMod.value}}">
+                                        <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.controlMod.value">+</button>
+                                    </div>
+                                {{/if}}
                             </div>
                         </div>
                     </div>
@@ -232,18 +289,32 @@
                     <div class="tnx-form-field">
                         <div class="form-group">
                             <label>サイクル数</label>
-                            <div class="number-input-spinner skill-sheet-spinner">
-                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.cycle" data-min="0">-</button>
-                                <input type="number" name="system.cycle" value="{{system.cycle}}" min="0">
-                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.cycle">+</button>
+                            <div class="form-fields {{#if (eq system.cycle.mode "value")}}split-fields{{/if}}">
+                                <select name="system.cycle.mode">
+                                    {{selectOptions options.noneValueMode selected=system.cycle.mode}}
+                                </select>
+                                {{#if (eq system.cycle.mode "value")}}
+                                    <div class="number-input-spinner skill-sheet-spinner">
+                                        <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.cycle.value" data-min="0">-</button>
+                                        <input type="number" name="system.cycle.value" value="{{system.cycle.value}}" min="0">
+                                        <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.cycle.value">+</button>
+                                    </div>
+                                {{/if}}
                             </div>
                         </div>
                         <div class="form-group">
                             <label>CS修正</label>
-                            <div class="number-input-spinner skill-sheet-spinner">
-                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.combatSpeedMod">-</button>
-                                <input type="number" name="system.combatSpeedMod" value="{{system.combatSpeedMod}}">
-                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.combatSpeedMod">+</button>
+                            <div class="form-fields {{#if (eq system.combatSpeedMod.mode "value")}}split-fields{{/if}}">
+                                <select name="system.combatSpeedMod.mode">
+                                    {{selectOptions options.noneValueMode selected=system.combatSpeedMod.mode}}
+                                </select>
+                                {{#if (eq system.combatSpeedMod.mode "value")}}
+                                    <div class="number-input-spinner skill-sheet-spinner">
+                                        <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.combatSpeedMod.value">-</button>
+                                        <input type="number" name="system.combatSpeedMod.value" value="{{system.combatSpeedMod.value}}">
+                                        <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.combatSpeedMod.value">+</button>
+                                    </div>
+                                {{/if}}
                             </div>
                         </div>
                     </div>
@@ -256,26 +327,47 @@
                     <div class="tnx-form-field">
                         <div class="form-group">
                             <label>移動力(SF)</label>
-                            <div class="number-input-spinner skill-sheet-spinner">
-                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.speedFactor" data-min="0">-</button>
-                                <input type="number" name="system.speedFactor" value="{{system.speedFactor}}" min="0">
-                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.speedFactor">+</button>
+                            <div class="form-fields {{#if (eq system.speedFactor.mode "value")}}split-fields{{/if}}">
+                                <select name="system.speedFactor.mode">
+                                    {{selectOptions options.noneValueMode selected=system.speedFactor.mode}}
+                                </select>
+                                {{#if (eq system.speedFactor.mode "value")}}
+                                    <div class="number-input-spinner skill-sheet-spinner">
+                                        <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.speedFactor.value" data-min="0">-</button>
+                                        <input type="number" name="system.speedFactor.value" value="{{system.speedFactor.value}}" min="0">
+                                        <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.speedFactor.value">+</button>
+                                    </div>
+                                {{/if}}
                             </div>
                         </div>
                         <div class="form-group">
                             <label>乗員</label>
-                            <div class="number-input-spinner skill-sheet-spinner">
-                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.passenger" data-min="0">-</button>
-                                <input type="number" name="system.passenger" value="{{system.passenger}}" min="0">
-                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.passenger">+</button>
+                            <div class="form-fields {{#if (eq system.passenger.mode "value")}}split-fields{{/if}}">
+                                <select name="system.passenger.mode">
+                                    {{selectOptions options.noneValueMode selected=system.passenger.mode}}
+                                </select>
+                                {{#if (eq system.passenger.mode "value")}}
+                                    <div class="number-input-spinner skill-sheet-spinner">
+                                        <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.passenger.value" data-min="0">-</button>
+                                        <input type="number" name="system.passenger.value" value="{{system.passenger.value}}" min="0">
+                                        <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.passenger.value">+</button>
+                                    </div>
+                                {{/if}}
                             </div>
                         </div>
                         <div class="form-group">
                             <label>制御値修正</label>
-                            <div class="number-input-spinner skill-sheet-spinner">
-                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.controlMod">-</button>
-                                <input type="number" name="system.controlMod" value="{{system.controlMod}}">
-                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.controlMod">+</button>
+                            <div class="form-fields {{#if (eq system.controlMod.mode "value")}}split-fields{{/if}}">
+                                <select name="system.controlMod.mode">
+                                    {{selectOptions options.noneValueMode selected=system.controlMod.mode}}
+                                </select>
+                                {{#if (eq system.controlMod.mode "value")}}
+                                    <div class="number-input-spinner skill-sheet-spinner">
+                                        <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.controlMod.value">-</button>
+                                        <input type="number" name="system.controlMod.value" value="{{system.controlMod.value}}">
+                                        <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.controlMod.value">+</button>
+                                    </div>
+                                {{/if}}
                             </div>
                         </div>
                     </div>
@@ -286,27 +378,38 @@
                 <fieldset class="tnx-fieldset">
                     <legend>住宅エリア</legend>
                     <div class="tnx-form-field">
-                        {{#if linkedArea}}
-                        <div class="form-group">
-                            <label>設定中</label>
-                            <div class="form-fields split-fields">
-                                <span class="linked-value">{{linkedArea.name}}（{{linkedArea.rankLabel}}）</span>
-                                <button type="button" class="tnx-btn tnx-btn--sm" data-action="clearHousingArea">クリア</button>
-                            </div>
-                        </div>
-                        {{/if}}
                         <div class="form-group">
                             <label>エリアを選択</label>
-                            <select name="system.housingArea" {{#if housingAreaDropLocked}}disabled{{/if}}>
+                            <select name="system.housingArea" {{#if system.useHousingAreaDrop}}disabled{{/if}}>
                                 {{selectOptions options.housingArea selected=system.housingArea blank="-"}}
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>またはドロップ</label>
-                            <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="housing-area">
-                                <span>住宅エリアアイテムをここにドロップ</span>
+                            <label for="useHousingAreaDrop-{{item._id}}">住宅エリアアイテムをドロップしてエリア設定</label>
+                            <input type="checkbox" id="useHousingAreaDrop-{{item._id}}" name="system.useHousingAreaDrop" {{checked system.useHousingAreaDrop}}>
+                        </div>
+                        {{#if system.useHousingAreaDrop}}
+                        <div class="form-group">
+                            <label>エリア(ドロップ)</label>
+                            <div class="housing-area-row">
+                                {{#if linkedArea}}
+                                    <button type="button" class="tnx-linked-btn housing-area-linked"
+                                            data-action="viewHousingArea"
+                                            data-context-menu="housing-area"
+                                            {{#unless isEditMode}}disabled{{/unless}}>
+                                        <img src="{{linkedArea.img}}" class="tnx-linked-btn__icon"/>
+                                        <span class="tnx-linked-btn__label">{{linkedArea.name}}</span>
+                                    </button>
+                                    <button type="button" class="tnx-btn tnx-btn--sm" data-action="clearHousingArea">クリア</button>
+                                {{else}}
+                                    <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="housing-area">
+                                        <span>住宅エリアアイテムをここにドロップ</span>
+                                    </div>
+                                    <button type="button" class="tnx-btn tnx-btn--sm" disabled>クリア</button>
+                                {{/if}}
                             </div>
                         </div>
+                        {{/if}}
                         {{#if linkedArea}}
                         <div class="form-group">
                             <label>エリアランク</label>
@@ -360,16 +463,17 @@
                         {{!-- 元アイテム1: 設定済みは tnx-linked-btn + クリア、未設定はドロップゾーン + disabled クリア --}}
                         <div class="form-group">
                             <label>元アイテム1</label>
-                            <div class="form-fields split-fields combine-source-row">
+                            <div class="combine-source-row">
                                 {{#if combine.source1}}
                                     <label class="combine-appearance-eye" title="見た目に設定">
-                                        <input type="radio" name="system.combine.appearance" value="1" {{#if (eq combine.appearance "1")}}checked{{/if}}>
+                                        <input type="radio" name="system.combine.appearance" value="1" {{#if (eq combine.appearance "1")}}checked{{/if}} {{#unless isEditMode}}disabled{{/unless}}>
                                         <i class="fa-solid fa-eye"></i>
                                     </label>
                                     <button type="button" class="tnx-linked-btn combine-source-linked"
                                             data-action="viewCombineSource"
                                             data-source="1"
-                                            data-context-menu="combine-source">
+                                            data-context-menu="combine-source"
+                                            {{#unless isEditMode}}disabled{{/unless}}>
                                         <img src="{{combine.source1.img}}" class="tnx-linked-btn__icon"/>
                                         <span class="tnx-linked-btn__label">{{combine.source1.name}}</span>
                                     </button>
@@ -388,16 +492,17 @@
                         {{!-- 元アイテム2: 設定済みは tnx-linked-btn + クリア、未設定はドロップゾーン + disabled クリア --}}
                         <div class="form-group">
                             <label>元アイテム2</label>
-                            <div class="form-fields split-fields combine-source-row">
+                            <div class="combine-source-row">
                                 {{#if combine.source2}}
                                     <label class="combine-appearance-eye" title="見た目に設定">
-                                        <input type="radio" name="system.combine.appearance" value="2" {{#if (eq combine.appearance "2")}}checked{{/if}}>
+                                        <input type="radio" name="system.combine.appearance" value="2" {{#if (eq combine.appearance "2")}}checked{{/if}} {{#unless isEditMode}}disabled{{/unless}}>
                                         <i class="fa-solid fa-eye"></i>
                                     </label>
                                     <button type="button" class="tnx-linked-btn combine-source-linked"
                                             data-action="viewCombineSource"
                                             data-source="2"
-                                            data-context-menu="combine-source">
+                                            data-context-menu="combine-source"
+                                            {{#unless isEditMode}}disabled{{/unless}}>
                                         <img src="{{combine.source2.img}}" class="tnx-linked-btn__icon"/>
                                         <span class="tnx-linked-btn__label">{{combine.source2.name}}</span>
                                     </button>
@@ -424,11 +529,11 @@
                                 <div class="usage-inputs">
                                     <div class="usage-field">
                                         <label>元1（{{row.val1}}）</label>
-                                        <input type="radio" name="system.combine.params.{{row.key}}" value="1" {{#if (eq row.choice "1")}}checked{{/if}}>
+                                        <input type="radio" name="system.combine.params.{{row.key}}" value="1" {{#if (eq row.choice "1")}}checked{{/if}} {{#unless isEditMode}}disabled{{/unless}}>
                                     </div>
                                     <div class="usage-field">
                                         <label>元2（{{row.val2}}）</label>
-                                        <input type="radio" name="system.combine.params.{{row.key}}" value="2" {{#if (eq row.choice "2")}}checked{{/if}}>
+                                        <input type="radio" name="system.combine.params.{{row.key}}" value="2" {{#if (eq row.choice "2")}}checked{{/if}} {{#unless isEditMode}}disabled{{/unless}}>
                                     </div>
                                 </div>
                             </div>
@@ -439,7 +544,7 @@
                         {{#if combine.merged}}
                         <div class="combine-preview">
                             <div class="combine-preview__title">コンバインプレビュー</div>
-                            <div class="style-skill-display-grid">
+                            <div class="style-skill-display style-skill-display-grid">
                                 <div><label>名称：</label><span>{{combine.merged.name}}（コンバイン）</span></div>
                                 <div class="full-width-row"><label>分類：</label><span>{{combine.merged.category}}</span></div>
                                 <div><label>常備化経験点：</label><span>{{combine.merged.preserveExpTotal}}</span></div>
@@ -460,10 +565,17 @@
                         {{#each system.slots as |pool|}}
                             <div class="form-group">
                                 <label>{{lookup ../options.slotKinds pool.kind}}</label>
-                                <div class="number-input-spinner skill-sheet-spinner">
-                                    <button type="button" class="tnx-btn" data-action="decrementSlot" data-kind="{{pool.kind}}">-</button>
-                                    <input type="number" value="{{pool.count}}" min="0" data-slot-kind="{{pool.kind}}">
-                                    <button type="button" class="tnx-btn" data-action="incrementSlot" data-kind="{{pool.kind}}">+</button>
+                                <div class="form-fields {{#if (eq pool.count.mode "value")}}split-fields{{/if}}">
+                                    <select class="slot-mode-select" data-kind="{{pool.kind}}">
+                                        {{selectOptions ../options.noneValueMode selected=pool.count.mode}}
+                                    </select>
+                                    {{#if (eq pool.count.mode "value")}}
+                                        <div class="number-input-spinner skill-sheet-spinner">
+                                            <button type="button" class="tnx-btn" data-action="decrementSlot" data-kind="{{pool.kind}}">-</button>
+                                            <input type="number" value="{{pool.count.value}}" min="0" data-slot-kind="{{pool.kind}}">
+                                            <button type="button" class="tnx-btn" data-action="incrementSlot" data-kind="{{pool.kind}}">+</button>
+                                        </div>
+                                    {{/if}}
                                 </div>
                             </div>
                         {{/each}}
@@ -492,10 +604,17 @@
 
                         <div class="form-group">
                             <label>常備化経験点</label>
-                            <div class="number-input-spinner skill-sheet-spinner">
-                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.preserveExp">-</button>
-                                <input type="number" name="system.preserveExp" value="{{system.preserveExp}}">
-                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.preserveExp">+</button>
+                            <div class="form-fields {{#if (eq system.preserveExp.mode "value")}}split-fields{{/if}}">
+                                <select name="system.preserveExp.mode">
+                                    {{selectOptions options.noneValueMode selected=system.preserveExp.mode}}
+                                </select>
+                                {{#if (eq system.preserveExp.mode "value")}}
+                                    <div class="number-input-spinner skill-sheet-spinner">
+                                        <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.preserveExp.value">-</button>
+                                        <input type="number" name="system.preserveExp.value" value="{{system.preserveExp.value}}">
+                                        <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.preserveExp.value">+</button>
+                                    </div>
+                                {{/if}}
                             </div>
                         </div>
 
@@ -529,10 +648,17 @@
                         {{#unless isResidence}}
                         <div class="form-group">
                             <label>危険値</label>
-                            <div class="number-input-spinner skill-sheet-spinner">
-                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.appearancePenalty">-</button>
-                                <input type="number" name="system.appearancePenalty" value="{{system.appearancePenalty}}">
-                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.appearancePenalty">+</button>
+                            <div class="form-fields {{#if (eq system.appearancePenalty.mode "value")}}split-fields{{/if}}">
+                                <select name="system.appearancePenalty.mode">
+                                    {{selectOptions options.appearancePenaltyMode selected=system.appearancePenalty.mode}}
+                                </select>
+                                {{#if (eq system.appearancePenalty.mode "value")}}
+                                    <div class="number-input-spinner skill-sheet-spinner">
+                                        <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.appearancePenalty.value">-</button>
+                                        <input type="number" name="system.appearancePenalty.value" value="{{system.appearancePenalty.value}}">
+                                        <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.appearancePenalty.value">+</button>
+                                    </div>
+                                {{/if}}
                             </div>
                         </div>
                         {{/unless}}
@@ -642,29 +768,6 @@
                     </div>
                 </fieldset>
 
-                {{#unless isCombiner}}
-                <fieldset class="tnx-fieldset">
-                    <legend>性質</legend>
-                    <div class="outfit-flags">
-                        <label class="outfit-flag">
-                            <input type="checkbox" name="system.isCyber" {{checked system.isCyber}}>
-                            <span>サイバーウェア</span>
-                        </label>
-                        <label class="outfit-flag">
-                            <input type="checkbox" name="system.isBiological" {{checked system.isBiological}}>
-                            <span>生体装備</span>
-                        </label>
-                        <label class="outfit-flag">
-                            <input type="checkbox" name="system.isOption" {{checked system.isOption}}>
-                            <span>オプション</span>
-                        </label>
-                        <label class="outfit-flag">
-                            <input type="checkbox" name="system.isConsumption" {{checked system.isConsumption}}>
-                            <span>消費アイテム</span>
-                        </label>
-                    </div>
-                </fieldset>
-                {{/unless}}
             </div>
         </div>
 
