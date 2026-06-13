@@ -349,6 +349,66 @@
                 </fieldset>
                 {{/if}}
 
+                {{#if isCombiner}}
+                <fieldset class="tnx-fieldset">
+                    <legend>コンバイン</legend>
+                    <div class="tnx-form-field">
+                        <div class="form-group">
+                            <label>元アイテム1</label>
+                            <div class="form-fields split-fields">
+                                {{#if combine.source1}}
+                                    <span class="linked-value">{{combine.source1.name}}</span>
+                                    <button type="button" class="tnx-btn tnx-btn--sm" data-action="clearCombineSource" data-source="1">クリア</button>
+                                {{else}}
+                                    <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="combine-1">
+                                        <span>アウトフィットをここにドロップ</span>
+                                    </div>
+                                {{/if}}
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>元アイテム2</label>
+                            <div class="form-fields split-fields">
+                                {{#if combine.source2}}
+                                    <span class="linked-value">{{combine.source2.name}}</span>
+                                    <button type="button" class="tnx-btn tnx-btn--sm" data-action="clearCombineSource" data-source="2">クリア</button>
+                                {{else}}
+                                    <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="combine-2">
+                                        <span>アウトフィットをここにドロップ</span>
+                                    </div>
+                                {{/if}}
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>見た目</label>
+                            <div class="form-fields">
+                                <label class="checkbox-inline">
+                                    <input type="radio" name="system.combine.appearance" value="1" {{#if (eq combine.appearance "1")}}checked{{/if}}>
+                                    元1
+                                </label>
+                                <label class="checkbox-inline">
+                                    <input type="radio" name="system.combine.appearance" value="2" {{#if (eq combine.appearance "2")}}checked{{/if}}>
+                                    元2
+                                </label>
+                            </div>
+                        </div>
+
+                        {{#if combine.merged}}
+                        <div class="combine-preview">
+                            <div class="combine-preview__title">コンバインプレビュー</div>
+                            <div class="style-skill-display-grid">
+                                <div><label>名称：</label><span>{{combine.merged.name}}（コンバイン）</span></div>
+                                <div class="full-width-row"><label>分類：</label><span>{{combine.merged.category}}</span></div>
+                                <div><label>隠：</label><span>{{combine.merged.hide}}</span></div>
+                                <div><label>電制：</label><span>{{combine.merged.hack}}</span></div>
+                                <div class="full-width-row"><label>部位：</label><span>{{combine.merged.part}}</span></div>
+                            </div>
+                        </div>
+                        {{/if}}
+                    </div>
+                </fieldset>
+                {{/if}}
+
                 {{#if hasSlots}}
                 <fieldset class="tnx-fieldset">
                     <legend>スロット</legend>

@@ -66,6 +66,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             decrementPart:  TokyoNovaOutfitSheet._onDecrementPart,
             toggleFlag:     TokyoNovaOutfitSheet._onToggleFlag,
             clearHousingArea: TokyoNovaOutfitSheet._onClearHousingArea,
+            clearCombineSource: TokyoNovaOutfitSheet._onClearCombineSource,
         },
     };
 
@@ -152,6 +153,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         context.isTap       = type === "tap";
         context.isVehicle   = type === "vehicle";
         context.isResidence = type === "residence";
+        context.isCombiner  = type === "combiner";
         context.hasSlots    = !!this.constructor.SLOT_PRESETS[type];
         // フィールドの出し分け(複数型で共有する攻撃/防御)
         context.hasAttack  = ["weapon", "cyborg", "vehicle"].includes(type);
@@ -223,8 +225,63 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             }
         }
 
+        // コンバイナー: 二つのコンバイン元を live 解決し、コンバインプレビューを用意する(2026-06-13)
+        if (context.isCombiner) {
+            context.combine = await this._prepareCombinePreview(system);
+        }
+
         context.view = this._prepareView(system, type, areaMods);
         return context;
+    }
+
+    /**
+     * コンバイン元二つを解決し、確定的な合成結果(部位/分類/電制/隠)を組み立てる。
+     * パラメータの取捨選択(両方にある値のどちらを採るか)は設計確認後に拡張する。
+     * @param {Object} system コンバイナーの system データ
+     * @returns {Promise<Object>}
+     */
+    async _prepareCombinePreview(system) {
+        const num = (v) => (Number.isFinite(v) ? v : 0);
+        const resolve = async (uuid) => (uuid ? await fromUuid(uuid).catch(() => null) : null);
+        const s1 = await resolve(system.combine.source1);
+        const s2 = await resolve(system.combine.source2);
+
+        const categoryOf = (it) => {
+            if (!it) return "";
+            const { majorCategory: maj, minorCategory: min } = it.system;
+            return maj && min ? `${maj}／${min}` : (maj || min || "-");
+        };
+        const hackOf = (it) => (it?.system?.hack?.mode === "value" ? num(it.system.hack.value) : null);
+        const hideOf = (sys) => sys?.hide?.mode === "reference" ? "解説参照"
+            : sys?.hide?.mode === "value" ? String(num(sys.hide.value)) : "-";
+
+        const result = {
+            source1: s1 ? { name: s1.name, img: s1.img } : null,
+            source2: s2 ? { name: s2.name, img: s2.img } : null,
+            appearance: system.combine.appearance,
+        };
+
+        if (s1 && s2) {
+            // 部位: 両方の指定部位を全て占有
+            const parts = [
+                ...(Array.isArray(s1.system.part) ? s1.system.part : []),
+                ...(Array.isArray(s2.system.part) ? s2.system.part : []),
+            ];
+            result.merged = {
+                name: (system.combine.appearance === "2" ? s2 : s1).name,
+                part: formatPartLabel(parts),
+                category: `${categoryOf(s1)}／${categoryOf(s2)}`,
+                // 電制: どちらか高い方(両方なしなら -)
+                hack: (() => {
+                    const a = hackOf(s1), b = hackOf(s2);
+                    const vals = [a, b].filter((v) => v !== null);
+                    return vals.length ? String(Math.max(...vals)) : "-";
+                })(),
+                // 隠: X(Y) — X = 見た目の隠匿値、Y = コンバイナー本体の隠匿値
+                hide: `${hideOf((system.combine.appearance === "2" ? s2 : s1).system)}(${hideOf(system)})`,
+            };
+        }
+        return result;
     }
 
     /**
@@ -523,28 +580,49 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
     }
 
     /**
-     * 住宅エリアのドロップ受付。住宅施設シートでのみ有効。
-     * ドロップされた housingArea アイテムの UUID を system.housingArea に設定する。
+     * ドロップ受付。住宅施設の住宅エリア / コンバイナーのコンバイン元を設定する。
      */
     async _onDropZone(event) {
         const area = event.target.closest("[data-drop-area]")?.dataset.dropArea;
-        if (area !== "housing-area" || this.item.type !== "residence") return;
+        if (!area) return;
         let data;
         try { data = JSON.parse(event.dataTransfer.getData("text/plain")); }
         catch { return; }
         if (data?.type !== "Item") return;
         const dropped = (data.uuid ? await fromUuid(data.uuid).catch(() => null) : null)
             ?? await Item.fromDropData(data).catch(() => null);
-        if (!dropped || dropped.type !== "housingArea") {
-            ui.notifications.warn("住宅エリアアイテムをドロップしてください。");
+        if (!dropped) return;
+
+        // 住宅施設: 住宅エリアの紐づけ
+        if (area === "housing-area" && this.item.type === "residence") {
+            if (dropped.type !== "housingArea") {
+                ui.notifications.warn("住宅エリアアイテムをドロップしてください。");
+                return;
+            }
+            await this.item.update({ "system.housingArea": dropped.uuid });
             return;
         }
-        await this.item.update({ "system.housingArea": dropped.uuid });
+
+        // コンバイナー: コンバイン元(1/2)の指定。アウトフィット系のみ受け付ける
+        if ((area === "combine-1" || area === "combine-2") && this.item.type === "combiner") {
+            if (dropped.type === "housingArea" || dropped.type === "combiner") {
+                ui.notifications.warn("コンバインできないアイテムです。");
+                return;
+            }
+            const key = area === "combine-1" ? "source1" : "source2";
+            await this.item.update({ [`system.combine.${key}`]: dropped.uuid });
+        }
     }
 
     /** 住宅エリアの紐づけを解除する */
     static async _onClearHousingArea(_event, _target) {
         await this.item.update({ "system.housingArea": "" });
+    }
+
+    /** コンバイン元の指定を解除する(data-source = "1" / "2") */
+    static async _onClearCombineSource(_event, target) {
+        const key = target.dataset.source === "2" ? "source2" : "source1";
+        await this.item.update({ [`system.combine.${key}`]: "" });
     }
 
     // ─── ヘッダーの状態トグル(準備済み/携帯中/プリプレイ購入) ────────────────
