@@ -30,6 +30,7 @@ import { TokyoNovaGeneralSkillSheet } from './item/tnx-general-skill-sheet.mjs';
 import { TokyoNovaStyleSkillSheet } from './item/tnx-style-skill-sheet.mjs';
 import { TokyoNovaOrganizationSheet } from './item/tnx-organization-sheet.mjs';
 import { TokyoNovaOutfitSheet, formatPartLabel, formatWeaponRangeLabel } from './item/tnx-outfit-sheet.mjs';
+import { TokyoNovaHousingAreaSheet } from './item/tnx-housing-area-sheet.mjs';
 import { TnxScenarioSheet } from './journal/tnx-scenario-sheet.mjs';
 import { TnxCardSetupApp } from './module/tnx-card-setup-app.mjs';
 import { TnxActionHandler } from './module/tnx-action-handler.mjs';
@@ -384,6 +385,13 @@ Hooks.once("init", async function() {
                 "vehicle", "residence", "combiner"],
         makeDefault: true,
         label: "アウトフィットシート"
+    });
+
+    // 住宅エリア専用シート(アウトフィットではなく住宅施設への修正値の集合)
+    foundry.documents.collections.Items.registerSheet("tokyo-nova", TokyoNovaHousingAreaSheet, {
+        types: ["housingArea"],
+        makeDefault: true,
+        label: "住宅エリアシート"
     });
 
     // Journal Sheetの登録

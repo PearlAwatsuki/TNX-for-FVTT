@@ -1,0 +1,62 @@
+<section class="{{cssClass}}">
+    <header class="sheet-header">
+        <img class="profile-img" src="{{item.img}}" data-edit="img" data-action="editImage" title="{{item.name}}"/>
+        <div class="header-fields">
+            <h1 class="charname">
+                {{#if isEditMode}}
+                    <input name="name" type="text" value="{{item.name}}" placeholder="住宅エリア名"/>
+                {{else}}
+                    <span class="charname-view">{{item.name}}</span>
+                {{/if}}
+            </h1>
+        </div>
+    </header>
+
+    <nav class="sheet-tabs tabs" data-group="primary">
+        <a class="item" data-action="tab" data-group="primary" data-tab="description">説明</a>
+        <a class="item" data-action="tab" data-group="primary" data-tab="setting">設定</a>
+    </nav>
+
+    <section class="sheet-body">
+        <div class="tab description" data-group="primary" data-tab="description">
+            <div class="tnx-editor-section">
+                <div class="tnx-editor-section__header">
+                    <label>説明</label>
+                </div>
+                <div class="tnx-editor-section__content">
+                    {{editor enrichedDescription target="system.description" engine="prosemirror" button=true owner=owner editable=editable}}
+                </div>
+            </div>
+        </div>
+
+        <div class="tab setting" data-group="primary" data-tab="setting">
+            <div class="settings-grid">
+                <fieldset class="tnx-fieldset">
+                    <legend>識別キー</legend>
+                    <div class="tnx-form-field">
+                        <div class="form-group">
+                            <label>識別キー</label>
+                            <input type="text" name="system.identificationKey" value="{{system.identificationKey}}" placeholder="識別キーを入力"/>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="tnx-fieldset">
+                    <legend>住宅施設への修正値</legend>
+                    <div class="tnx-form-field">
+                        {{#each modFields as |mod|}}
+                        <div class="form-group">
+                            <label>{{mod.label}}</label>
+                            <div class="number-input-spinner skill-sheet-spinner">
+                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.{{mod.key}}">-</button>
+                                <input type="number" name="system.{{mod.key}}" value="{{mod.value}}">
+                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.{{mod.key}}">+</button>
+                            </div>
+                        </div>
+                        {{/each}}
+                    </div>
+                </fieldset>
+            </div>
+        </div>
+    </section>
+</section>

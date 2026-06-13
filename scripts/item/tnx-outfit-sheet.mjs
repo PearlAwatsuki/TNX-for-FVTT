@@ -56,8 +56,6 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         classes: ["tokyo-nova", "sheet", "item", "outfit"],
         position: { width: 600, height: 650 },
         actions: {
-            incrementField: TokyoNovaOutfitSheet._onIncrementField,
-            decrementField: TokyoNovaOutfitSheet._onDecrementField,
             incrementSlot:  TokyoNovaOutfitSheet._onIncrementSlot,
             decrementSlot:  TokyoNovaOutfitSheet._onDecrementSlot,
             incrementPart:  TokyoNovaOutfitSheet._onIncrementPart,
@@ -475,25 +473,6 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         if (!flag) return;
         const current = foundry.utils.getProperty(this.item.system, flag) === true;
         await this.item.update({ [`system.${flag}`]: !current });
-    }
-
-    // ─── 数値スピナー(number-input-spinner) ────────────────────────────────
-
-    static async _onIncrementField(_event, target) {
-        const field = target.dataset.field;
-        if (!field) return;
-        const current = foundry.utils.getProperty(this.item, field) ?? 0;
-        await this.item.update({ [field]: current + 1 });
-    }
-
-    static async _onDecrementField(_event, target) {
-        const field = target.dataset.field;
-        if (!field) return;
-        const current = foundry.utils.getProperty(this.item, field) ?? 0;
-        let next = current - 1;
-        // data-min 指定時は下限でクランプする(part.slots の min 0 等)
-        if (target.dataset.min !== undefined) next = Math.max(next, Number(target.dataset.min));
-        await this.item.update({ [field]: next });
     }
 
     // ─── スロットプール操作 ─────────────────────────────────────────────────

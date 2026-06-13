@@ -24,6 +24,8 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         actions: {
             ...EffectsSheetMixin.ACTIONS,
             toggleEditMode: TokyoNovaItemSheet._onToggleEditMode,
+            incrementField: TokyoNovaItemSheet._onIncrementField,
+            decrementField: TokyoNovaItemSheet._onDecrementField,
         },
     };
 
@@ -141,6 +143,30 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
     static async _onToggleEditMode(_event, _target) {
         this._isEditMode = !this._isEditMode;
         this.render();
+    }
+
+    /**
+     * number-input-spinner の +ボタン。data-field のパスを 1 増やす。
+     * 全アイテムシートで共用する汎用ハンドラ。
+     */
+    static async _onIncrementField(_event, target) {
+        const field = target.dataset.field;
+        if (!field) return;
+        const current = foundry.utils.getProperty(this.item, field) ?? 0;
+        await this.item.update({ [field]: current + 1 });
+    }
+
+    /**
+     * number-input-spinner の -ボタン。data-field のパスを 1 減らす。
+     * data-min 指定時は下限でクランプする。
+     */
+    static async _onDecrementField(_event, target) {
+        const field = target.dataset.field;
+        if (!field) return;
+        const current = foundry.utils.getProperty(this.item, field) ?? 0;
+        let next = current - 1;
+        if (target.dataset.min !== undefined) next = Math.max(next, Number(target.dataset.min));
+        await this.item.update({ [field]: next });
     }
 
     static async _onActionCreate(_event, _target) {
