@@ -37,6 +37,7 @@ export class ResidenceDataModel extends SystemDataModel.mixin(
       cyberSecurity:       new fields.NumberField({ initial: 0 }),
       analogSecurity:      new fields.NumberField({ initial: 0 }),
       housingArea:         new fields.StringField({ initial: "" }),
+      useHousingAreaDrop:  new fields.BooleanField({ initial: false }),
       identificationKey:   new fields.StringField({ initial: "" }),
     };
   }

@@ -17,6 +17,7 @@
  */
 
 import { SystemDataModel } from "../../abstract.mjs";
+import { modeValueField } from "../helpers.mjs";
 
 /**
  * スロット種別(2026-06-12 ユーザー確定)。
@@ -44,9 +45,22 @@ export class ExtensibleTemplate extends SystemDataModel {
             initial: "normal",
             choices: SLOT_KINDS,
           }),
-          count: new fields.NumberField({ initial: 0, min: 0, integer: true }),
+          count: modeValueField(["none", "value"]),
         })
       ),
     };
+  }
+
+  /** @override — slots[].count を旧 NumberField 形式から {mode,value} へ移行 */
+  static migrateData(source) {
+    if (Array.isArray(source.slots)) {
+      for (const slot of source.slots) {
+        if (slot && typeof slot.count === "number") {
+          const n = slot.count;
+          slot.count = n === 0 ? { mode: "none", value: 0 } : { mode: "value", value: n };
+        }
+      }
+    }
+    return super.migrateData(source);
   }
 }

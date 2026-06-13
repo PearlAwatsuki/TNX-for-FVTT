@@ -11,7 +11,9 @@
  * フィールド型の判断(フェーズ6-0 で刷新):
  * - buy(購入値)/ hide(隠匿値)は「なし / 数値 / 解説参照」の 3 状態を持つため
  *   { mode, value } の SchemaField。mode が "value" のときのみ value を使う。
- * - preserveExp(常備化経験点)/ appearancePenalty(危険値)は必ず数値が入るため NumberField。
+ * - preserveExp(常備化経験点)は必ず数値が入るため NumberField。
+ * - appearancePenalty(危険値)は「なし / 数値」の 2 状態。buy / hide / hack と同様の {mode, value} 構造
+ *   (mode は none / value のみ)(フェーズ6-4 にて変更)。
  * - majorCategory / minorCategory は choices 付き StringField(outfit-categories.mjs が正本)。
  *   未選択を許すため blank: true。
  * - hack(電脳制御値)は「なし / 数値」の 2 状態。buy / hide と同様の {mode, value} 構造
@@ -26,8 +28,6 @@
  * - uses.type は使用回数の種別(アクト/シーン/カット。スタイル技能の usesType と共通)。
  * - isConsumption(消費アイテム)はフェーズ6-2 で weapon の isthrow を置き換えて全種別に
  *   一般化したフラグ(2026-06-12 ユーザー確定)。true のアイテムは個数(quantity)を持つ。
- * - isBiological(生体武器・生体装備)もフェーズ6-2 で weapon から全種別へ一般化
- *   (武器・防具のどちらでもない生体装備があるため)。
  * - quantity は {value: 現在個数, max: 常備化個数}。消費で value を減らし、0 でそのセッション中は
  *   使用不可。セッション終了で value は max に戻る。常備化経験点は max(個数分)を基準とし、
  *   消費しても経験点は復活しない。
@@ -39,24 +39,7 @@
 
 import { SystemDataModel } from "../../abstract.mjs";
 import { getMajorCategoryChoices, getMinorCategoryChoices } from "../outfit-categories.mjs";
-
-/**
- * モード選択付きの数値(buy / hide / hack 共用)。
- * @param {string[]} choices mode の選択肢(例: ["none", "value", "reference"])
- * @returns {foundry.data.fields.SchemaField}
- */
-function modeValueField(choices) {
-  const fields = foundry.data.fields;
-  return new fields.SchemaField({
-    mode:  new fields.StringField({
-      required: true,
-      blank: false,
-      initial: "none",
-      choices,
-    }),
-    value: new fields.NumberField({ initial: 0 }),
-  });
-}
+import { modeValueField } from "../helpers.mjs";
 
 export class OutfitBaseTemplate extends SystemDataModel {
   /** @override */
@@ -69,7 +52,6 @@ export class OutfitBaseTemplate extends SystemDataModel {
       isCyber:           new fields.BooleanField({ initial: false }),
       isCarrying:        new fields.BooleanField({ initial: true }),
       isConsumption:     new fields.BooleanField({ initial: false }),
-      isBiological:      new fields.BooleanField({ initial: false }),
       quantity: new fields.SchemaField({
         value: new fields.NumberField({ initial: 1, min: 0, integer: true }),
         max:   new fields.NumberField({ initial: 1, min: 0, integer: true }),
@@ -87,9 +69,9 @@ export class OutfitBaseTemplate extends SystemDataModel {
         choices: getMinorCategoryChoices,
       }),
       buy:               modeValueField(["none", "value", "reference"]),
-      preserveExp:       new fields.NumberField({ initial: 0 }),
+      preserveExp:       modeValueField(["none", "value"]),
       hide:              modeValueField(["none", "value", "reference"]),
-      appearancePenalty: new fields.NumberField({ initial: 0 }),
+      appearancePenalty: modeValueField(["none", "value"]),
       hack:              modeValueField(["none", "value"]),
       part: new fields.ArrayField(
         new fields.SchemaField({
@@ -111,5 +93,18 @@ export class OutfitBaseTemplate extends SystemDataModel {
         value:   new fields.NumberField({ initial: 0 }),
       }),
     };
+  }
+
+  /** @override — 旧 NumberField 形式から {mode,value} へ移行 */
+  static migrateData(source) {
+    if (typeof source.appearancePenalty === "number") {
+      const n = source.appearancePenalty;
+      source.appearancePenalty = n === 0 ? { mode: "none", value: 0 } : { mode: "value", value: n };
+    }
+    if (typeof source.preserveExp === "number") {
+      const n = source.preserveExp;
+      source.preserveExp = n === 0 ? { mode: "none", value: 0 } : { mode: "value", value: n };
+    }
+    return super.migrateData(source);
   }
 }

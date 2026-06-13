@@ -11,19 +11,36 @@
  *
  * B-6a で attack フィールドが cyborg / weapon の 2 箇所で必要になったため
  * attackField() として切り出した。
+ *
+ * modeValueField は outfit-base.mjs での局所定義から昇格し、
+ * 各 DataModel で広く使われるようになったため helpers.mjs に集約した。
  */
 
 /**
+ * 「なし / 数値」の 2 状態を持つフィールド。buy / hide / hack などと同形。
+ * @param {string[]} choices mode の選択肢(例: ["none", "value"])
+ * @returns {foundry.data.fields.SchemaField}
+ */
+export function modeValueField(choices) {
+  const fields = foundry.data.fields;
+  return new fields.SchemaField({
+    mode:  new fields.StringField({ required: true, blank: false, initial: "none", choices }),
+    value: new fields.NumberField({ initial: 0 }),
+  });
+}
+
+/**
  * 防御値(ストリート / フィジカル / インフォウォー)の SchemaField を返す。
- * template.json の初期値はすべて 0 のため NumberField。
+ * mode: "none" | "value" を持ち、"value" のときのみ S/P/I を使う。
  *
- * 使用 Item type: armor / cyborg
+ * 使用 Item type: armor / cyborg / vehicle
  *
  * @returns {foundry.data.fields.SchemaField}
  */
 export function defenceField() {
   const fields = foundry.data.fields;
   return new fields.SchemaField({
+    mode:      new fields.StringField({ required: true, blank: false, initial: "none", choices: ["none", "value"] }),
     S_defence: new fields.NumberField({ initial: 0 }),
     P_defence: new fields.NumberField({ initial: 0 }),
     I_defence: new fields.NumberField({ initial: 0 }),
