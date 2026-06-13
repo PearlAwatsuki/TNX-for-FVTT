@@ -84,7 +84,7 @@
                     </div>
                 </fieldset>
 
-                {{#if (or isArmor isCyborg)}}
+                {{#if hasDefence}}
                 <fieldset class="tnx-fieldset">
                     <legend>防御データ</legend>
                     <div class="tnx-form-field">
@@ -126,7 +126,7 @@
                 </fieldset>
                 {{/if}}
 
-                {{#if (or isWeapon isCyborg)}}
+                {{#if hasAttack}}
                 <fieldset class="tnx-fieldset">
                     <legend>攻撃データ</legend>
                     <div class="tnx-form-field">
@@ -151,6 +151,7 @@
                                 <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.attack.mod">+</button>
                             </div>
                         </div>
+                        {{#if hasGuard}}
                         <div class="form-group">
                             <label>受け値</label>
                             <div class="number-input-spinner skill-sheet-spinner">
@@ -159,6 +160,7 @@
                                 <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.guardValue">+</button>
                             </div>
                         </div>
+                        {{/if}}
                         {{#if isWeapon}}
                             <div class="form-group">
                                 <label>射程</label>
@@ -241,6 +243,70 @@
                 </fieldset>
                 {{/if}}
 
+                {{#if isVehicle}}
+                <fieldset class="tnx-fieldset">
+                    <legend>ヴィークルデータ</legend>
+                    <div class="tnx-form-field">
+                        <div class="form-group">
+                            <label>移動力(SF)</label>
+                            <div class="number-input-spinner skill-sheet-spinner">
+                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.speedFactor" data-min="0">-</button>
+                                <input type="number" name="system.speedFactor" value="{{system.speedFactor}}" min="0">
+                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.speedFactor">+</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>乗員</label>
+                            <div class="number-input-spinner skill-sheet-spinner">
+                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.passenger" data-min="0">-</button>
+                                <input type="number" name="system.passenger" value="{{system.passenger}}" min="0">
+                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.passenger">+</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>制御値修正</label>
+                            <div class="number-input-spinner skill-sheet-spinner">
+                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.controlMod">-</button>
+                                <input type="number" name="system.controlMod" value="{{system.controlMod}}">
+                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.controlMod">+</button>
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+                {{/if}}
+
+                {{#if isResidence}}
+                <fieldset class="tnx-fieldset">
+                    <legend>住宅施設データ</legend>
+                    <div class="tnx-form-field">
+                        <div class="form-group">
+                            <label>登場判定目標値</label>
+                            <div class="number-input-spinner skill-sheet-spinner">
+                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.appearanceTarget">-</button>
+                                <input type="number" name="system.appearanceTarget" value="{{system.appearanceTarget}}">
+                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.appearanceTarget">+</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>電脳セキュリティ</label>
+                            <div class="number-input-spinner skill-sheet-spinner">
+                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.cyberSecurity">-</button>
+                                <input type="number" name="system.cyberSecurity" value="{{system.cyberSecurity}}">
+                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.cyberSecurity">+</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>アナログセキュリティ</label>
+                            <div class="number-input-spinner skill-sheet-spinner">
+                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.analogSecurity">-</button>
+                                <input type="number" name="system.analogSecurity" value="{{system.analogSecurity}}">
+                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.analogSecurity">+</button>
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+                {{/if}}
+
                 {{#if hasSlots}}
                 <fieldset class="tnx-fieldset">
                     <legend>スロット</legend>
@@ -314,6 +380,7 @@
                             </div>
                         </div>
 
+                        {{#unless isResidence}}
                         <div class="form-group">
                             <label>危険値</label>
                             <div class="number-input-spinner skill-sheet-spinner">
@@ -322,8 +389,9 @@
                                 <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.appearancePenalty">+</button>
                             </div>
                         </div>
+                        {{/unless}}
 
-                        {{#unless isIanus}}
+                        {{#unless (or isIanus isResidence)}}
                         <div class="form-group">
                             <label>電脳制御値</label>
                             <div class="form-fields {{#if (eq system.hack.mode "value")}}split-fields{{/if}}">

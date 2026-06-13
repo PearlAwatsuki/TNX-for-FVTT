@@ -380,7 +380,8 @@ Hooks.once("init", async function() {
     // アウトフィット共通シート(フェーズ6-1〜)。型ごとの差分はシート内の
     // type 判定(サマリ構成・固有フィールドセット)で吸収する。
     foundry.documents.collections.Items.registerSheet("tokyo-nova", TokyoNovaOutfitSheet, {
-        types: ["general", "weapon", "armor", "cyborg", "ianus", "tron", "tap"],
+        types: ["general", "weapon", "armor", "cyborg", "ianus", "tron", "tap",
+                "vehicle", "residence", "combiner"],
         makeDefault: true,
         label: "アウトフィットシート"
     });

@@ -142,12 +142,18 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         const system = context.system;
         const type = this.item.type;
 
-        context.isWeapon = type === "weapon";
-        context.isArmor  = type === "armor";
-        context.isCyborg = type === "cyborg";
-        context.isIanus  = type === "ianus";
-        context.isTap    = type === "tap";
-        context.hasSlots = !!this.constructor.SLOT_PRESETS[type];
+        context.isWeapon    = type === "weapon";
+        context.isArmor     = type === "armor";
+        context.isCyborg    = type === "cyborg";
+        context.isIanus     = type === "ianus";
+        context.isTap       = type === "tap";
+        context.isVehicle   = type === "vehicle";
+        context.isResidence = type === "residence";
+        context.hasSlots    = !!this.constructor.SLOT_PRESETS[type];
+        // フィールドの出し分け(複数型で共有する攻撃/防御)
+        context.hasAttack  = ["weapon", "cyborg", "vehicle"].includes(type);
+        context.hasGuard   = ["weapon", "cyborg"].includes(type);
+        context.hasDefence = ["armor", "cyborg", "vehicle"].includes(type);
 
         // part は編集 UI 用に最低 1 行を保証する(保存はしない。表示用の正規化のみ)
         if (!Array.isArray(system.part)) {
@@ -185,7 +191,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         };
 
         // ダメージ種別のドロップダウン選択肢(表示は「S（斬撃）」形式、保存値はキー)
-        if (context.isWeapon || context.isCyborg) {
+        if (context.hasAttack) {
             const damageType = { "": "-" };
             for (const [key, label] of Object.entries(ATTACK_DAMAGE_TYPES)) {
                 damageType[key] = `${key}（${label}）`;
@@ -215,63 +221,90 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         else if (system.buy.mode === "value") buy = `${num(system.buy.value)}／${num(system.preserveExp)}`;
         else buy = `-／${num(system.preserveExp)}`;
 
-        // 隠：隠匿値／危険値(解説参照でも危険値は別個に表記)
+        // 隠匿値(単体)。隠匿値／危険値の併記版は hideFull
         const hideVal = system.hide.mode === "reference" ? "解説参照"
             : system.hide.mode === "value" ? num(system.hide.value)
             : "-";
-        const hide = `${hideVal}／${num(system.appearancePenalty)}`;
+        const hideFull = `${hideVal}／${num(system.appearancePenalty)}`;
 
         const hack = system.hack.mode === "value" ? num(system.hack.value) : "-";
         const part = formatPartLabel(system.part);
-
-        const rows = [
-            { label: "購", value: buy },
-            { label: "隠", value: hide },
-        ];
-
+        const defence = () => {
+            const d = system.defence;
+            return `${num(d.S_defence)}／${num(d.P_defence)}／${num(d.I_defence)}`;
+        };
         const slots = Array.isArray(system.slots) ? system.slots : [];
         const countOf = (kind) => slots.find((s) => s.kind === kind)?.count ?? 0;
 
-        if (type === "weapon") {
-            rows.push({ label: "攻", value: this._attackLabel(system.attack) });
-            rows.push({ label: "受", value: num(system.guardValue) });
-            rows.push({ label: "射", value: formatWeaponRangeLabel(system.range) });
+        // 型ごとに概要の項目と順序が異なる(2026-06-12〜13 ユーザー確定)
+        const rows = [];
+        const push = (label, value) => rows.push({ label, value });
+        switch (type) {
+            case "weapon":
+                push("購", buy); push("隠", hideFull);
+                push("攻", this._attackLabel(system.attack));
+                push("受", num(system.guardValue));
+                push("射", formatWeaponRangeLabel(system.range));
+                push("ス", num(countOf("normal")));
+                push("電制", hack); push("部位", part);
+                break;
+            case "armor":
+                push("購", buy); push("隠", hideFull);
+                push("防(S／P／I)", defence());
+                push("制", num(system.controlMod));
+                push("電制", hack); push("部位", part);
+                break;
+            case "cyborg":
+                push("購", buy); push("隠", hideFull);
+                push("防(S／P／I)", defence());
+                push("攻", this._attackLabel(system.attack));
+                push("受", num(system.guardValue));
+                push("電制", hack); push("部位", part);
+                break;
+            case "ianus":
+                // 電制なし
+                push("購", buy); push("隠", hideFull);
+                push("ス", num(countOf("normal")));
+                push("表", num(countOf("surface")));
+                push("深", num(countOf("deep")));
+                push("無", num(countOf("unconscious")));
+                push("制", num(system.controlMod));
+                push("部位", part);
+                break;
+            case "tron":
+                push("購", buy); push("隠", hideFull);
+                push("ス", num(countOf("normal")));
+                push("電制", hack); push("部位", part);
+                break;
+            case "tap":
+                push("購", buy); push("隠", hideFull);
+                push("ソ", num(countOf("software")));
+                push("ハ", num(countOf("hardware")));
+                push("CS", num(system.combatSpeedMod));
+                push("電制", hack); push("部位", part);
+                break;
+            case "vehicle":
+                push("購", buy); push("隠", hideFull);
+                push("攻", this._attackLabel(system.attack));
+                push("SF", num(system.speedFactor));
+                push("防(S／P／I)", defence());
+                push("制", num(system.controlMod));
+                push("乗員", num(system.passenger));
+                push("ス", num(countOf("normal")));
+                push("電制", hack); push("部位", part);
+                break;
+            case "residence":
+                // 危険値・電制なし。隠は隠匿値のみ
+                push("購", buy); push("隠", hideVal);
+                push("登場", num(system.appearanceTarget));
+                push("セ(電／ア)", `${num(system.cyberSecurity)}／${num(system.analogSecurity)}`);
+                push("ス", num(countOf("normal")));
+                push("部位", part);
+                break;
+            default: // general / combiner
+                push("購", buy); push("隠", hideFull);
+                push("電制", hack); push("部位", part);
         }
-        if (type === "armor" || type === "cyborg") {
-            const d = system.defence;
-            rows.push({
-                label: "防(S／P／I)",
-                value: `${num(d.S_defence)}／${num(d.P_defence)}／${num(d.I_defence)}`,
-            });
-        }
-        if (type === "armor") {
-            rows.push({ label: "制", value: num(system.controlMod) });
-        }
-        if (type === "cyborg") {
-            rows.push({ label: "攻", value: this._attackLabel(system.attack) });
-            rows.push({ label: "受", value: num(system.guardValue) });
-        }
-
-        // スロット行(型ごとの表示順はユーザー確定。2026-06-13)
-        if (type === "ianus") {
-            // 購/隠/ス/表/深/無/制/部位(電制なし)
-            rows.push({ label: "ス", value: num(countOf("normal")) });
-            rows.push({ label: "表", value: num(countOf("surface")) });
-            rows.push({ label: "深", value: num(countOf("deep")) });
-            rows.push({ label: "無", value: num(countOf("unconscious")) });
-            rows.push({ label: "制", value: num(system.controlMod) });
-        } else if (type === "tap") {
-            // 購/隠/ソ/ハ/CS/電制/部位
-            rows.push({ label: "ソ", value: num(countOf("software")) });
-            rows.push({ label: "ハ", value: num(countOf("hardware")) });
-            rows.push({ label: "CS", value: num(system.combatSpeedMod) });
-        } else if (this.constructor.SLOT_PRESETS[type]) {
-            rows.push({ label: "ス", value: num(countOf("normal")) });
-        }
-
-        // 電制(IANUS は表示しない)
-        if (type !== "ianus") rows.push({ label: "電制", value: hack });
-        rows.push({ label: "部位", value: part });
         view.summary = rows;
 
         if (system.majorCategory && system.minorCategory) {
