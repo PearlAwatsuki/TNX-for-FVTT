@@ -16,6 +16,16 @@ describe("HousingAreaDataModel.defineSchema()", () => {
     });
   });
 
+  describe("area (セキュリティ・ランク、フェーズ6-4) が正しい", () => {
+    it("area は choices 付き StringField で initial が none、5 種", () => {
+      expect(schema.area).toBeInstanceOf(MockStringField);
+      expect(schema.area.options.initial).toBe("none");
+      expect(Object.keys(schema.area.options.choices)).toEqual(
+        ["none", "red", "green", "white", "sanctuary"]
+      );
+    });
+  });
+
   describe("修正値フィールドが存在し initial が 0 (フェーズ6-4 で hideMod/slotMod 追加)", () => {
     const ownFields = [
       "buyRatingMod",

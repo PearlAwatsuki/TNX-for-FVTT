@@ -454,6 +454,12 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         }
         if (!item) return;
 
+        // 住宅エリアは厳密にはアウトフィットではないためアクターには持たせない(2026-06-13 確定)
+        if (item.type === "housingArea") {
+            ui.notifications.warn("住宅エリアはアクターに直接持たせられません。住宅施設アイテムに設定してください。");
+            return false;
+        }
+
         if (this.actor.uuid === item.parent?.uuid) {
             return this._onSortItem(event, item.toObject());
         }

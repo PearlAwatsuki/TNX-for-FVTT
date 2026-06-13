@@ -97,6 +97,17 @@
                 "PLAYER": "OBSERVER",
                 "ASSISTANT": "OWNER"
             }
+        },
+        {
+            "name": "housing-areas",
+            "label": "住宅エリア",
+            "system": "tokyo-nova-axleration",
+            "path": "packs/housing-areas",
+            "type": "Item",
+            "ownership": {
+                "PLAYER": "OBSERVER",
+                "ASSISTANT": "OWNER"
+            }
         }
     ],
     "packFolders": [
@@ -107,7 +118,8 @@
               "styles",
               "miracles",
               "outfits",
-              "works-outfits"
+              "works-outfits",
+              "housing-areas"
           ],
           "folders": [
                 {

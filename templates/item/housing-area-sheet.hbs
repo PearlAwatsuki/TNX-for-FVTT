@@ -42,6 +42,18 @@
                 </fieldset>
 
                 <fieldset class="tnx-fieldset">
+                    <legend>エリア</legend>
+                    <div class="tnx-form-field">
+                        <div class="form-group">
+                            <label>セキュリティ・ランク</label>
+                            <select name="system.area">
+                                {{selectOptions options.area selected=system.area}}
+                            </select>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="tnx-fieldset">
                     <legend>住宅施設への修正値</legend>
                     <div class="tnx-form-field">
                         {{#each modFields as |mod|}}

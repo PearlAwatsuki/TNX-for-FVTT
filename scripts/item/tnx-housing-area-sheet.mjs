@@ -1,4 +1,5 @@
 import { TokyoNovaItemSheet } from "./tnx-item-sheet.mjs";
+import { HOUSING_AREA_RANKS } from "../data/item/housing-area.mjs";
 
 /**
  * 住宅エリア(housingArea)シート。
@@ -45,6 +46,7 @@ export class TokyoNovaHousingAreaSheet extends TokyoNovaItemSheet {
             ...m,
             value: context.system[m.key] ?? 0,
         }));
+        context.options = { ...context.options, area: HOUSING_AREA_RANKS };
         return context;
     }
 }
