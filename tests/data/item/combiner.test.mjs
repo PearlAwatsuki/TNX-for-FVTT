@@ -42,6 +42,19 @@ describe("CombinerDataModel.defineSchema()", () => {
     it("旧 combinedOutfitID は持たない", () => {
       expect(schema).not.toHaveProperty("combinedOutfitID");
     });
+
+    it("combine.params は SchemaField でパラメータ選択フィールドを持つ(フェーズ6-4)", () => {
+      expect(schema.combine.fields.params).toBeInstanceOf(MockSchemaField);
+      const p = schema.combine.fields.params.fields;
+      expect(p.appearancePenalty).toBeInstanceOf(MockStringField);
+      expect(p.controlMod).toBeInstanceOf(MockStringField);
+      expect(p.attack).toBeInstanceOf(MockStringField);
+      expect(p.defence).toBeInstanceOf(MockStringField);
+      expect(p.guardValue).toBeInstanceOf(MockStringField);
+      expect(p.range).toBeInstanceOf(MockStringField);
+      expect(p.speedFactor).toBeInstanceOf(MockStringField);
+      expect(p.passenger).toBeInstanceOf(MockStringField);
+    });
   });
 
   it("extensible のフィールドは含まれない(slot が含まれない)", () => {

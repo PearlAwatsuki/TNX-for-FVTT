@@ -24,12 +24,16 @@
             </div>
             <div class="outfit-category">
                 {{#if isEditMode}}
-                    <select name="system.majorCategory">
-                        {{selectOptions options.majorCategory selected=system.majorCategory}}
-                    </select>
-                    <select name="system.minorCategory">
-                        {{selectOptions options.minorCategory selected=system.minorCategory}}
-                    </select>
+                    {{#unless isCombiner}}
+                        <select name="system.majorCategory">
+                            {{selectOptions options.majorCategory selected=system.majorCategory}}
+                        </select>
+                        <select name="system.minorCategory">
+                            {{selectOptions options.minorCategory selected=system.minorCategory}}
+                        </select>
+                    {{else}}
+                        <span class="outfit-category-label">サービス／コンバイナー</span>
+                    {{/unless}}
                 {{else}}
                     <span class="outfit-category-label">{{view.category}}</span>
                 {{/if}}
@@ -353,45 +357,70 @@
                 <fieldset class="tnx-fieldset">
                     <legend>コンバイン</legend>
                     <div class="tnx-form-field">
+                        {{!-- 元アイテム1: 見た目ラジオを右端にインライン配置 --}}
                         <div class="form-group">
                             <label>元アイテム1</label>
-                            <div class="form-fields split-fields">
+                            <div class="form-fields split-fields combine-source-row">
                                 {{#if combine.source1}}
+                                    <label class="combine-appearance-eye" title="見た目に設定">
+                                        <input type="radio" name="system.combine.appearance" value="1" {{#if (eq combine.appearance "1")}}checked{{/if}}>
+                                        <i class="fa-solid fa-eye"></i>
+                                    </label>
                                     <span class="linked-value">{{combine.source1.name}}</span>
                                     <button type="button" class="tnx-btn tnx-btn--sm" data-action="clearCombineSource" data-source="1">クリア</button>
                                 {{else}}
+                                    <span class="combine-appearance-eye combine-appearance-eye--empty" title="見た目（未設定）">
+                                        <i class="fa-regular fa-eye-slash"></i>
+                                    </span>
                                     <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="combine-1">
                                         <span>アウトフィットをここにドロップ</span>
                                     </div>
                                 {{/if}}
                             </div>
                         </div>
+                        {{!-- 元アイテム2: 見た目ラジオを右端にインライン配置 --}}
                         <div class="form-group">
                             <label>元アイテム2</label>
-                            <div class="form-fields split-fields">
+                            <div class="form-fields split-fields combine-source-row">
                                 {{#if combine.source2}}
+                                    <label class="combine-appearance-eye" title="見た目に設定">
+                                        <input type="radio" name="system.combine.appearance" value="2" {{#if (eq combine.appearance "2")}}checked{{/if}}>
+                                        <i class="fa-solid fa-eye"></i>
+                                    </label>
                                     <span class="linked-value">{{combine.source2.name}}</span>
                                     <button type="button" class="tnx-btn tnx-btn--sm" data-action="clearCombineSource" data-source="2">クリア</button>
                                 {{else}}
+                                    <span class="combine-appearance-eye combine-appearance-eye--empty" title="見た目（未設定）">
+                                        <i class="fa-regular fa-eye-slash"></i>
+                                    </span>
                                     <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="combine-2">
                                         <span>アウトフィットをここにドロップ</span>
                                     </div>
                                 {{/if}}
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label>見た目</label>
-                            <div class="form-fields">
-                                <label class="checkbox-inline">
-                                    <input type="radio" name="system.combine.appearance" value="1" {{#if (eq combine.appearance "1")}}checked{{/if}}>
-                                    元1
-                                </label>
-                                <label class="checkbox-inline">
-                                    <input type="radio" name="system.combine.appearance" value="2" {{#if (eq combine.appearance "2")}}checked{{/if}}>
-                                    元2
-                                </label>
+
+                        {{!-- 食い違うパラメータを使用回数制限と同形式のラジオで選択 --}}
+                        {{#if combine.paramRows}}
+                        <div class="combine-param-section">
+                            <div class="combine-param-section__title">パラメータ選択</div>
+                            {{#each combine.paramRows as |row|}}
+                            <div class="form-group usage-limit-group">
+                                <label>{{row.label}}</label>
+                                <div class="usage-inputs">
+                                    <div class="usage-field">
+                                        <label>元1（{{row.val1}}）</label>
+                                        <input type="radio" name="system.combine.params.{{row.key}}" value="1" {{#if (eq row.choice "1")}}checked{{/if}}>
+                                    </div>
+                                    <div class="usage-field">
+                                        <label>元2（{{row.val2}}）</label>
+                                        <input type="radio" name="system.combine.params.{{row.key}}" value="2" {{#if (eq row.choice "2")}}checked{{/if}}>
+                                    </div>
+                                </div>
                             </div>
+                            {{/each}}
                         </div>
+                        {{/if}}
 
                         {{#if combine.merged}}
                         <div class="combine-preview">
@@ -399,6 +428,7 @@
                             <div class="style-skill-display-grid">
                                 <div><label>名称：</label><span>{{combine.merged.name}}（コンバイン）</span></div>
                                 <div class="full-width-row"><label>分類：</label><span>{{combine.merged.category}}</span></div>
+                                <div><label>常備化経験点：</label><span>{{combine.merged.preserveExpTotal}}</span></div>
                                 <div><label>隠：</label><span>{{combine.merged.hide}}</span></div>
                                 <div><label>電制：</label><span>{{combine.merged.hack}}</span></div>
                                 <div class="full-width-row"><label>部位：</label><span>{{combine.merged.part}}</span></div>
@@ -598,6 +628,7 @@
                     </div>
                 </fieldset>
 
+                {{#unless isCombiner}}
                 <fieldset class="tnx-fieldset">
                     <legend>性質</legend>
                     <div class="outfit-flags">
@@ -619,6 +650,7 @@
                         </label>
                     </div>
                 </fieldset>
+                {{/unless}}
             </div>
         </div>
 

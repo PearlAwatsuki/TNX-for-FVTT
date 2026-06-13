@@ -4847,3 +4847,62 @@ button.tnx-create-act-button span {
     font-weight: 700;
     color: var(--tnx2-accent);
 }
+
+/* コンバイナー: 見た目選択の目アイコン(各元アイテム行にインライン配置) */
+.tokyo-nova.sheet.item.outfit .combine-appearance-eye {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    cursor: pointer;
+    padding: 2px 4px;
+}
+
+.tokyo-nova.sheet.item.outfit .combine-appearance-eye input[type="radio"] {
+    display: none;
+}
+
+.tokyo-nova.sheet.item.outfit .combine-appearance-eye i {
+    font-size: var(--font-size-14);
+    opacity: 0.25;
+    transition: opacity 0.15s, color 0.15s;
+}
+
+.tokyo-nova.sheet.item.outfit .combine-appearance-eye:has(input:checked) i {
+    opacity: 1;
+    color: var(--tnx2-accent);
+}
+
+.tokyo-nova.sheet.item.outfit .combine-appearance-eye--empty {
+    pointer-events: none;
+}
+
+.tokyo-nova.sheet.item.outfit .combine-appearance-eye--empty i {
+    opacity: 0.15;
+}
+
+/* コンバイナー: パラメータ選択セクション */
+.tokyo-nova.sheet.item.outfit .combine-param-section {
+    margin-top: 8px;
+    padding: 6px 8px;
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    background: var(--tnx2-bg-2);
+}
+
+.tokyo-nova.sheet.item.outfit .combine-param-section__title {
+    margin-bottom: 4px;
+    font-size: 0.8em;
+    font-weight: 700;
+    color: var(--tnx2-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* パラメータ選択のラジオは usage-field 内。number input の 60px をリセットして小さく */
+.tokyo-nova.sheet.item.outfit .combine-param-section .usage-field input[type="radio"] {
+    width: auto;
+    margin: 4px auto 0;
+    accent-color: var(--tnx2-accent);
+    cursor: pointer;
+}

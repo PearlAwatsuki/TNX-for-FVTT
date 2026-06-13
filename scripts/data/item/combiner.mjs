@@ -34,6 +34,17 @@ export class CombinerDataModel extends SystemDataModel.mixin(BaseTemplate, Outfi
           initial: "1",
           choices: ["1", "2"],
         }),
+        // 両方の元に存在し値が食い違うパラメータの取捨選択("1" = source1 / "2" = source2)
+        params: new fields.SchemaField({
+          appearancePenalty: new fields.StringField({ initial: "1" }),
+          controlMod:        new fields.StringField({ initial: "1" }),
+          attack:            new fields.StringField({ initial: "1" }),
+          defence:           new fields.StringField({ initial: "1" }),
+          guardValue:        new fields.StringField({ initial: "1" }),
+          range:             new fields.StringField({ initial: "1" }),
+          speedFactor:       new fields.StringField({ initial: "1" }),
+          passenger:         new fields.StringField({ initial: "1" }),
+        }),
       }),
       identificationKey: new fields.StringField({ initial: "" }),
     };

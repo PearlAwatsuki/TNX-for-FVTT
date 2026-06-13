@@ -10,6 +10,72 @@ import { HOUSING_AREA_RANKS, HOUSING_AREA_MOD_FIELDS } from "../data/item/housin
 const HOUSING_AREA_PACK = "tokyo-nova-axleration.housing-areas";
 
 /**
+ * コンバイン元の比較対象パラメータ定義。
+ * exists: 当該 system にフィールドが定義されているか(型依存)。
+ * eq: 二値が等しいかの判定(等しければラジオ不要)。
+ */
+const COMBINE_PARAM_DEFS = Object.freeze([
+    {
+        key: "appearancePenalty", label: "危険値",
+        exists: () => true,
+        get: (s) => s.appearancePenalty,
+        fmt: (v) => String(v ?? 0),
+        eq: (a, b) => (a ?? 0) === (b ?? 0),
+    },
+    {
+        key: "controlMod", label: "制御値修正",
+        exists: (s) => s.controlMod !== undefined,
+        get: (s) => s.controlMod,
+        fmt: (v) => String(v ?? 0),
+        eq: (a, b) => (a ?? 0) === (b ?? 0),
+    },
+    {
+        key: "attack", label: "攻撃力",
+        exists: (s) => s.attack !== undefined,
+        get: (s) => s.attack,
+        fmt: (v) => `${v.damageType || ""}+${v.value ?? 0}`,
+        eq: (a, b) => a.damageType === b.damageType && (a.value ?? 0) === (b.value ?? 0),
+    },
+    {
+        key: "defence", label: "防御値",
+        exists: (s) => s.defence !== undefined,
+        get: (s) => s.defence,
+        fmt: (v) => `${v.S_defence ?? 0}／${v.P_defence ?? 0}／${v.I_defence ?? 0}`,
+        eq: (a, b) => (a.S_defence ?? 0) === (b.S_defence ?? 0)
+                   && (a.P_defence ?? 0) === (b.P_defence ?? 0)
+                   && (a.I_defence ?? 0) === (b.I_defence ?? 0),
+    },
+    {
+        key: "guardValue", label: "受け値",
+        exists: (s) => s.guardValue !== undefined,
+        get: (s) => s.guardValue,
+        fmt: (v) => String(v ?? 0),
+        eq: (a, b) => (a ?? 0) === (b ?? 0),
+    },
+    {
+        key: "range", label: "射程",
+        exists: (s) => s.range !== undefined,
+        get: (s) => s.range,
+        fmt: (v) => formatWeaponRangeLabel(v),
+        eq: (a, b) => a.min === b.min && a.max === b.max,
+    },
+    {
+        key: "speedFactor", label: "SF",
+        exists: (s) => s.speedFactor !== undefined,
+        get: (s) => s.speedFactor,
+        fmt: (v) => String(v ?? 0),
+        eq: (a, b) => (a ?? 0) === (b ?? 0),
+    },
+    {
+        key: "passenger", label: "乗員",
+        exists: (s) => s.passenger !== undefined,
+        get: (s) => s.passenger,
+        fmt: (v) => String(v ?? 0),
+        eq: (a, b) => (a ?? 0) === (b ?? 0),
+    },
+]);
+
+/**
  * 部位の表記(2026-06-12 ユーザー確定、2026-06-13 複数部位対応)。
  * 各行はスロット数 1 のときは部位名のみ、0 または 2 以上のときは「武器2」のように数値を付し、
  * 複数行は「、」で連結する。
@@ -225,8 +291,13 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             }
         }
 
-        // コンバイナー: 二つのコンバイン元を live 解決し、コンバインプレビューを用意する(2026-06-13)
+        // コンバイナー: カテゴリはサービス/コンバイナーで確定。データが異なれば自動補正する(2026-06-13)
         if (context.isCombiner) {
+            if (system.majorCategory !== "サービス" || system.minorCategory !== "コンバイナー") {
+                this.item.update({ "system.majorCategory": "サービス", "system.minorCategory": "コンバイナー" });
+                system.majorCategory = "サービス";
+                system.minorCategory = "コンバイナー";
+            }
             context.combine = await this._prepareCombinePreview(system);
         }
 
@@ -235,8 +306,8 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
     }
 
     /**
-     * コンバイン元二つを解決し、確定的な合成結果(部位/分類/電制/隠)を組み立てる。
-     * パラメータの取捨選択(両方にある値のどちらを採るか)は設計確認後に拡張する。
+     * コンバイン元二つを解決し、確定的な合成結果(部位/分類/電制/隠/常備化経験点)を組み立てる。
+     * 食い違うパラメータは paramRows として返し、テンプレート側でラジオ選択 UI を表示する。
      * @param {Object} system コンバイナーの system データ
      * @returns {Promise<Object>}
      */
@@ -262,15 +333,40 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         };
 
         if (s1 && s2) {
+            // 常備化経験点: コンバイナー本体 + 元1 + 元2 の合計(2026-06-13 ユーザー確定)
+            const preserveExpTotal = num(system.preserveExp)
+                + num(s1.system.preserveExp)
+                + num(s2.system.preserveExp);
+
             // 部位: 両方の指定部位を全て占有
             const parts = [
                 ...(Array.isArray(s1.system.part) ? s1.system.part : []),
                 ...(Array.isArray(s2.system.part) ? s2.system.part : []),
             ];
+
+            // 食い違うパラメータのラジオ選択行を生成する
+            const params = system.combine.params ?? {};
+            const paramRows = [];
+            for (const def of COMBINE_PARAM_DEFS) {
+                const sy1 = s1.system, sy2 = s2.system;
+                if (!def.exists(sy1) || !def.exists(sy2)) continue;
+                const v1 = def.get(sy1), v2 = def.get(sy2);
+                if (def.eq(v1, v2)) continue; // 同値なら選択不要
+                paramRows.push({
+                    key:    def.key,
+                    label:  def.label,
+                    val1:   def.fmt(v1),
+                    val2:   def.fmt(v2),
+                    choice: params[def.key] ?? "1",
+                });
+            }
+
+            result.paramRows = paramRows;
             result.merged = {
                 name: (system.combine.appearance === "2" ? s2 : s1).name,
                 part: formatPartLabel(parts),
                 category: `${categoryOf(s1)}／${categoryOf(s2)}`,
+                preserveExpTotal,
                 // 電制: どちらか高い方(両方なしなら -)
                 hack: (() => {
                     const a = hackOf(s1), b = hackOf(s2);
