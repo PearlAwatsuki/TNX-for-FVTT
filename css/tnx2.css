@@ -1271,6 +1271,12 @@
 .tokyo-nova.sheet.actor .bounty-view-panel {
     display: flex;
     flex-direction: column;
+    gap: 4px;
+    padding: 0;
+}
+.tokyo-nova.sheet.actor .bounty-view-content {
+    display: flex;
+    flex-direction: column;
     gap: 1px;
     padding: 4px 8px;
     border-left: 2px solid var(--tnx2-accent-dim);
@@ -1302,6 +1308,37 @@
     text-shadow: 0 0 10px var(--tnx2-accent-glow-sm);
     flex: 1;
     text-align: right;
+}
+.tokyo-nova.sheet.actor .bounty-adjust-btns {
+    display: flex;
+    gap: 4px;
+    padding: 0 8px;
+    opacity: 0;
+    transition: opacity 0.15s;
+    pointer-events: none;
+}
+.tokyo-nova.sheet.actor .bounty-view-panel:hover .bounty-adjust-btns {
+    opacity: 1;
+    pointer-events: auto;
+}
+.tokyo-nova.sheet.actor .bounty-adjust-btn {
+    flex: 1;
+    padding: 1px 0;
+    background: var(--tnx2-bg-mid, rgba(255,255,255,0.06));
+    border: 1px solid var(--tnx2-accent-dim);
+    border-radius: 3px;
+    color: var(--tnx2-text-secondary);
+    font-size: 0.9em;
+    line-height: 1.4;
+    cursor: pointer;
+}
+.tokyo-nova.sheet.actor .bounty-adjust-btn:hover:not(:disabled) {
+    background: var(--tnx2-accent-dim);
+    color: var(--tnx2-text-accent);
+}
+.tokyo-nova.sheet.actor .bounty-adjust-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
 }
 
 /* ── ヘッダー: STYLE / ID / WORKS 英語ラベル (閲覧モード) ─────────── */
@@ -1668,6 +1705,8 @@
     font-size: 0.82em;
     color: var(--tnx2-text-secondary);
     white-space: nowrap;
+    flex-shrink: 0;
+    align-self: flex-start;
 }
 .style-skill-display span {
     color: var(--tnx2-text-primary);
@@ -2823,6 +2862,7 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 
 .form-group.usage-limit-group {
     display: flex;
+    flex-direction: row;
     align-items: flex-end;
     gap: 10px;
 }
@@ -2908,7 +2948,8 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     pointer-events: none;
 }
 
-.tokyo-nova.sheet.item.view-mode .tab:not([data-tab="description"]) input[type="checkbox"] {
+.tokyo-nova.sheet.item.view-mode .tab:not([data-tab="description"]) input[type="checkbox"],
+.tokyo-nova.sheet.item.view-mode .tab:not([data-tab="description"]) input[type="radio"] {
     pointer-events: none;
     opacity: 0.5;
     filter: grayscale(100%);
@@ -4887,13 +4928,61 @@ button.tnx-create-act-button span {
     opacity: 0.15;
 }
 
-/* 設定済み状態: tnx-linked-btn の width:100% をフレックス伸長に上書き */
-.tokyo-nova.sheet.item.outfit .combine-source-linked {
+/* view-mode: 選択状態を read-only 感に抑制する */
+.tokyo-nova.sheet.item.outfit.view-mode .combine-appearance-eye {
+    cursor: default;
+}
+.tokyo-nova.sheet.item.outfit.view-mode .combine-appearance-eye i {
+    filter: grayscale(100%);
+    transition: none;
+}
+.tokyo-nova.sheet.item.outfit.view-mode .combine-appearance-eye:has(input:checked) i {
+    opacity: 0.5;
+}
+
+/* コンバイン元行: form-fields/split-fields を外し専用コンテナで管理 */
+.tokyo-nova.sheet.item.outfit .combine-source-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tokyo-nova.sheet.item.outfit .combine-source-row .combine-source-linked,
+.tokyo-nova.sheet.item.outfit .combine-source-row .tnx-import-box {
     flex: 1;
-    width: auto;
     min-width: 0;
+}
+
+.tokyo-nova.sheet.item.outfit .combine-source-row .combine-source-linked {
     height: auto;
-    min-height: 26px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+.tokyo-nova.sheet.item.outfit .housing-area-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tokyo-nova.sheet.item.outfit .housing-area-row .housing-area-linked,
+.tokyo-nova.sheet.item.outfit .housing-area-row .tnx-import-box {
+    flex: 1;
+    min-width: 0;
+}
+
+.tokyo-nova.sheet.item.outfit .housing-area-row .housing-area-linked {
+    height: auto;
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+/* ドロップモード時は select をミュートカラーで表示(view-mode と同等の視覚) */
+.tokyo-nova.sheet.item.outfit select[name="system.housingArea"]:disabled {
+    background: var(--tnx2-bg-2);
+    color: var(--tnx2-text-muted);
+    border: 1px solid var(--tnx2-border-subtle);
+    cursor: not-allowed;
 }
 
 /* パラメータ選択セクション */
@@ -4912,6 +5001,15 @@ button.tnx-create-act-button span {
     color: var(--tnx2-text-muted);
     text-transform: uppercase;
     letter-spacing: 0.05em;
+}
+
+/* パラメータ名ラベルとラジオ部を横並びにする（.form-group への詳細度競合を解消） */
+.tokyo-nova.sheet.item.outfit .combine-param-section .form-group.usage-limit-group {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 10px;
 }
 
 /* パラメータ選択ラジオ: usage-field 内の number input 60px をリセット */
