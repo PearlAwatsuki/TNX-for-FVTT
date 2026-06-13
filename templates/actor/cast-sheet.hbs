@@ -56,11 +56,19 @@
                 </div>
             {{else}}
                 <div class="bounty-view-panel">
-                    <span class="bounty-view-label">報酬点</span>
-                    <div class="bounty-total-row">
-                        <i class="fas fa-coins bounty-coin-icon"></i>
-                        <span class="bounty-total">{{effectiveBounty}}</span>
+                    <div class="bounty-view-content">
+                        <span class="bounty-view-label">報酬点</span>
+                        <div class="bounty-total-row">
+                            <i class="fas fa-coins bounty-coin-icon"></i>
+                            <span class="bounty-total">{{effectiveBounty}}</span>
+                        </div>
                     </div>
+                    {{#if isEditable}}
+                    <div class="bounty-adjust-btns">
+                        <button type="button" class="bounty-adjust-btn" data-delta="-1" title="報酬点を1減らす" {{#if bountyAtMin}}disabled{{/if}}>−</button>
+                        <button type="button" class="bounty-adjust-btn" data-delta="1" title="報酬点を1増やす">＋</button>
+                    </div>
+                    {{/if}}
                 </div>
             {{/if}}
         </div>
@@ -567,12 +575,12 @@
                                             
                                             {{!-- 武器なら攻撃力 --}}
                                             {{#if (eq ../group.key "weapon")}}
-                                                <div class="item-prop">{{item.system.attack.value}} / {{item.system.guardValue}}</div>
+                                                <div class="item-prop">{{item.system.attack.value}} / {{#if (eq item.system.guardValue.mode "value")}}{{item.system.guardValue.value}}{{else}}-{{/if}}</div>
                                             {{/if}}
-                                            
+
                                             {{!-- 防具なら防御力 --}}
                                             {{#if (eq ../group.key "armor")}}
-                                                <div class="item-prop">{{item.system.defence.S_defence}}/{{item.system.defence.P_defence}}/{{item.system.defence.I_defence}}</div>
+                                                <div class="item-prop">{{#if (eq item.system.defence.mode "value")}}{{item.system.defence.S_defence}}/{{item.system.defence.P_defence}}/{{item.system.defence.I_defence}}{{else}}-{{/if}}</div>
                                             {{/if}}
 
                                             <div class="item-controls">
@@ -614,17 +622,17 @@
                                                 <td>{{tnxPartLabel item.system.part}}</td>
                                                 
                                                 {{#if (eq ../group.key "weapon")}}
-                                                    <td>{{item.system.attack.value}} / {{item.system.guardValue}}</td>
+                                                    <td>{{item.system.attack.value}} / {{#if (eq item.system.guardValue.mode "value")}}{{item.system.guardValue.value}}{{else}}-{{/if}}</td>
                                                     <td>{{tnxRangeLabel item.system.range}}</td>
                                                 {{/if}}
-                                                
+
                                                 {{#if (eq ../group.key "armor")}}
-                                                    <td>{{item.system.defence.S_defence}}/{{item.system.defence.P_defence}}/{{item.system.defence.I_defence}}</td>
-                                                    <td>{{item.system.controlMod}}</td>
+                                                    <td>{{#if (eq item.system.defence.mode "value")}}{{item.system.defence.S_defence}}/{{item.system.defence.P_defence}}/{{item.system.defence.I_defence}}{{else}}-{{/if}}</td>
+                                                    <td>{{#if (eq item.system.controlMod.mode "value")}}{{item.system.controlMod.value}}{{else}}-{{/if}}</td>
                                                 {{/if}}
-                                                
+
                                                 {{#if (eq ../group.key "vehicle")}}
-                                                    <td>{{item.system.speedFactor}} / {{item.system.passenger}}</td>
+                                                    <td>{{#if (eq item.system.speedFactor.mode "value")}}{{item.system.speedFactor.value}}{{else}}-{{/if}} / {{#if (eq item.system.passenger.mode "value")}}{{item.system.passenger.value}}{{else}}-{{/if}}</td>
                                                 {{/if}}
 
                                                 <td class="cell-description squeeze-text">{{{item.system.description}}}</td>

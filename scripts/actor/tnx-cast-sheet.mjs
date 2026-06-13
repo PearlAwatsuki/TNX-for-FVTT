@@ -233,6 +233,21 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             btn.addEventListener("click", ev => TokyoNovaCastSheet._onItemCreate.call(this, ev, ev.currentTarget));
         }
 
+        // 報酬点 ±1 ボタン(閲覧モード・ホバー表示)
+        for (const btn of el.querySelectorAll(".bounty-adjust-btn")) {
+            btn.addEventListener("click", ev => {
+                ev.preventDefault();
+                const delta = parseInt(ev.currentTarget.dataset.delta, 10);
+                const currentEffective = parseInt(
+                    ev.currentTarget.closest(".bounty-view-panel")?.querySelector(".bounty-total")?.textContent ?? "0",
+                    10
+                );
+                if (currentEffective + delta < 0) return;
+                const currentBounty = this.actor.system.bounty ?? 0;
+                this.actor.update({ "system.bounty": currentBounty + delta });
+            });
+        }
+
         // 技能・アイテム行のドラッグ並び替え(編集モードのみ)
         // V2 は DEFAULT_OPTIONS.dragDrop を自動処理しないため明示的にバインドする。
         // ドロップ側は ActorSheetV2 既存の処理に委ねる(drop: false で二重発火を防止)。
@@ -774,6 +789,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         }
         context.mundaneTotalValue = context.system.abilities.mundane.totalValue;
         context.effectiveBounty = context.mundaneTotalValue + (context.system.bounty ?? 0);
+        context.bountyAtMin = context.effectiveBounty <= 0;
     }
 
     // ─── スキルプロパティ変更(EXP 連動) ──────────────────────────────────────
