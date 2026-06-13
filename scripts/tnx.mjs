@@ -29,6 +29,7 @@ import { TokyoNovaMiracleSheet } from './item/tnx-miracle-sheet.mjs';
 import { TokyoNovaGeneralSkillSheet } from './item/tnx-general-skill-sheet.mjs';
 import { TokyoNovaStyleSkillSheet } from './item/tnx-style-skill-sheet.mjs';
 import { TokyoNovaOrganizationSheet } from './item/tnx-organization-sheet.mjs';
+import { TokyoNovaLifePathSheet } from './item/tnx-life-path-sheet.mjs';
 import { TokyoNovaOutfitSheet, formatPartLabel, formatWeaponRangeLabel } from './item/tnx-outfit-sheet.mjs';
 import { TokyoNovaHousingAreaSheet } from './item/tnx-housing-area-sheet.mjs';
 import { TnxScenarioSheet } from './journal/tnx-scenario-sheet.mjs';
@@ -52,6 +53,7 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/item/general-skill-sheet.hbs",
         "systems/tokyo-nova-axleration/templates/item/style-skill-sheet.hbs",
         "systems/tokyo-nova-axleration/templates/item/organization-sheet.hbs",
+        "systems/tokyo-nova-axleration/templates/item/life-path-sheet.hbs",
 
         // === Journal Sheets ===
         "systems/tokyo-nova-axleration/templates/journal/scenario-sheet.hbs",
@@ -376,6 +378,12 @@ Hooks.once("init", async function() {
         types: ["organization"],
         makeDefault: true,
         label: "組織シート"
+    });
+
+    foundry.documents.collections.Items.registerSheet("tokyo-nova", TokyoNovaLifePathSheet, {
+        types: ["lifePath"],
+        makeDefault: true,
+        label: "ライフパスシート"
     });
 
     // アウトフィット共通シート(フェーズ6-1〜)。型ごとの差分はシート内の

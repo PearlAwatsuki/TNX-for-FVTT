@@ -77,16 +77,34 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             { key: "experience", label: "経験" },
             { key: "encounter",  label: "邂逅" },
         ];
-        context.lifepathSlots = lifepathDefs.map(({ key, label }) => {
+        const lifepathSlots = [];
+        for (const { key, label } of lifepathDefs) {
             const data = this.actor.system.lifePath[key];
-            return {
+            let enrichedSummary = "";
+            let displayName = data.name;
+            if (data.itemUuid) {
+                try {
+                    const liveItem = await fromUuid(data.itemUuid);
+                    if (liveItem) {
+                        displayName = liveItem.name;
+                        if (liveItem.system?.description) {
+                            enrichedSummary = await foundry.applications.ux.TextEditor.enrichHTML(
+                                liveItem.system.description,
+                                { relativeTo: liveItem, editable: false }
+                            );
+                        }
+                    }
+                } catch { /* アイテムが削除されている場合はフォールバック名を使用 */ }
+            }
+            lifepathSlots.push({
                 key,
                 label,
-                hasItem:  !!data.name,
-                name:     data.name,
-                summary:  data.summary,
-            };
-        });
+                hasItem:       !!data.itemUuid,
+                name:          displayName,
+                enrichedSummary,
+            });
+        }
+        context.lifepathSlots = lifepathSlots;
 
         context.TNX = {
             SUITS: {
@@ -488,10 +506,19 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         };
         if (dropArea && lifepathAreaMap[dropArea]) {
             const key = lifepathAreaMap[dropArea];
+            if (item.type !== "lifePath") {
+                ui.notifications.warn("ライフパスアイテムのみドロップできます。");
+                return false;
+            }
+            const lifePathType = item.system?.lifePathType;
+            if (lifePathType && lifePathType !== key) {
+                const typeLabels = { origin: "出自", experience: "経験", encounter: "邂逅" };
+                ui.notifications.warn(`このスロットには「${typeLabels[key]}」のライフパスのみドロップできます。`);
+                return false;
+            }
             await this.actor.update({
                 [`system.lifePath.${key}.itemUuid`]: item.uuid ?? "",
                 [`system.lifePath.${key}.name`]:     item.name ?? "",
-                [`system.lifePath.${key}.summary`]:  "",
             });
             return;
         }
@@ -667,6 +694,51 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         new CM(el, '[data-context-menu="miracle-view"]', baseItemMenu, { jQuery: false, fixed: true });
         new CM(el, ".style-skills-list .style-skill-row", skillMenu, { jQuery: false, fixed: true });
         new CM(el, ".skills-list-view .general-skill-display", skillMenu, { jQuery: false, fixed: true });
+
+        // ライフパスボタン（編集モード）のコンテキストメニュー
+        const lifepathItemMenu = [
+            {
+                name:     "閲覧",
+                icon:     '<i class="fas fa-eye"></i>',
+                callback: async header => {
+                    const key  = header.dataset.lifepathKey;
+                    const uuid = this.actor.system.lifePath[key]?.itemUuid;
+                    if (!uuid) return;
+                    const item = await fromUuid(uuid);
+                    if (!item) return;
+                    item.sheet._isEditMode = false;
+                    item.sheet.render({ force: true });
+                }
+            },
+            {
+                name:      "編集",
+                icon:      '<i class="fas fa-edit"></i>',
+                condition: () => this.isEditable,
+                callback: async header => {
+                    const key  = header.dataset.lifepathKey;
+                    const uuid = this.actor.system.lifePath[key]?.itemUuid;
+                    if (!uuid) return;
+                    const item = await fromUuid(uuid);
+                    if (!item) return;
+                    item.sheet._isEditMode = true;
+                    item.sheet.render({ force: true });
+                }
+            },
+            {
+                name:      "削除",
+                icon:      '<i class="fas fa-trash"></i>',
+                condition: () => this.isEditable,
+                callback: async header => {
+                    const key = header.dataset.lifepathKey;
+                    if (!key) return;
+                    await this.actor.update({
+                        [`system.lifePath.${key}.itemUuid`]: "",
+                        [`system.lifePath.${key}.name`]:     "",
+                    });
+                }
+            }
+        ];
+        new CM(el, '.lifepath-item-btn[data-context-menu="lifepath-item"]', lifepathItemMenu, { jQuery: false, fixed: true });
 
         // バッドステータス 閲覧モード: 左クリックでコンテキストメニュー
         const badStatusViewMenu = [{
@@ -916,7 +988,6 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         await this.actor.update({
             [`system.lifePath.${key}.itemUuid`]: "",
             [`system.lifePath.${key}.name`]:     "",
-            [`system.lifePath.${key}.summary`]:  "",
         });
     }
 

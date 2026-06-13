@@ -153,7 +153,7 @@
                         <span class="view-mode-label">スタイル：</span>
                         <span class="style-summary-items">
                             {{#each processedStylesForView as |s|}}
-                                <a class="style-summary-item" data-item-id="{{s._id}}">{{s.repeatedName}}{{s.roleIndicatorDisplay}}</a>
+                                <a class="style-summary-item" data-action="openItemSheet" data-item-id="{{s._id}}">{{s.repeatedName}}{{s.roleIndicatorDisplay}}</a>
                                 {{#unless @last}}、{{/unless}}
                             {{/each}}
                         </span>
@@ -670,24 +670,34 @@
                         <h3 class="tnx-section-title tnx-section-title--sm">ライフパス</h3>
                         <div class="lifepath-slots">
                             {{#each lifepathSlots as |slot|}}
-                            <div class="lifepath-slot-row">
-                                <span class="lifepath-type-label">{{slot.label}}</span>
-                                {{#if ../isEditMode}}
-                                    {{#if slot.hasItem}}
-                                        <button type="button" class="item-button tnx-linked-btn lifepath-item-btn" data-action="openLifepathItem" data-lifepath-key="{{slot.key}}">
-                                            <span class="tnx-linked-btn__label">{{slot.name}}</span>
-                                        </button>
-                                        <a class="item-control lifepath-delete-btn" data-action="removeLifepath" data-lifepath-key="{{slot.key}}" title="削除">
-                                            <i class="fas fa-trash"></i>
-                                        </a>
+                            <div class="lifepath-card{{#unless slot.hasItem}} lifepath-card--empty{{/unless}}">
+                                <div class="lifepath-card-header">
+                                    <span class="lifepath-type-badge">{{slot.label}}</span>
+                                    {{#if ../isEditMode}}
+                                        {{#if slot.hasItem}}
+                                            <button type="button" class="item-button tnx-linked-btn lifepath-item-btn"
+                                                data-action="openLifepathItem" data-lifepath-key="{{slot.key}}"
+                                                data-context-menu="lifepath-item">
+                                                <span class="tnx-linked-btn__label">{{slot.name}}</span>
+                                            </button>
+                                            <a class="item-control lifepath-delete-btn" data-action="removeLifepath" data-lifepath-key="{{slot.key}}" title="削除">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        {{else}}
+                                            <div class="tnx-import-box tnx-import-box--inline lifepath-import-box" data-drop-area="lifepath-{{slot.key}}">
+                                                <span>ライフパスをドロップ</span>
+                                            </div>
+                                        {{/if}}
                                     {{else}}
-                                        <div class="tnx-import-box tnx-import-box--inline lifepath-import-box" data-drop-area="lifepath-{{slot.key}}">
-                                            <span>ライフパスをドロップ</span>
-                                        </div>
+                                        {{#if slot.hasItem}}
+                                            <a class="lifepath-card-name" data-action="openLifepathItem" data-lifepath-key="{{slot.key}}">{{slot.name}}</a>
+                                        {{else}}
+                                            <span class="lifepath-card-name lifepath-card-name--empty">—</span>
+                                        {{/if}}
                                     {{/if}}
-                                {{else}}
-                                    <span class="lifepath-name">{{#if slot.name}}{{slot.name}}{{else}}—{{/if}}</span>
-                                    {{#if slot.summary}}<span class="lifepath-summary">{{slot.summary}}</span>{{/if}}
+                                </div>
+                                {{#if slot.enrichedSummary}}
+                                <div class="lifepath-card-desc">{{{slot.enrichedSummary}}}</div>
                                 {{/if}}
                             </div>
                             {{/each}}

@@ -94,13 +94,18 @@ describe("CastDataModel.defineSchema()", () => {
     });
 
     for (const slot of ["origin", "experience", "encounter"]) {
-      it(`lifePath.${slot} が SchemaField で itemUuid / name / summary を持つ`, () => {
+      it(`lifePath.${slot} が SchemaField で itemUuid / name を持つ`, () => {
         const slotField = schema.lifePath.fields[slot];
         expect(slotField).toBeInstanceOf(MockSchemaField);
-        for (const sub of ["itemUuid", "name", "summary"]) {
+        for (const sub of ["itemUuid", "name"]) {
           expect(slotField.fields[sub]).toBeInstanceOf(MockStringField);
           expect(slotField.fields[sub].options.initial).toBe("");
         }
+      });
+
+      it(`lifePath.${slot} は summary フィールドを持たない(live fromUuid 解決に移行)`, () => {
+        const slotField = schema.lifePath.fields[slot];
+        expect(slotField.fields).not.toHaveProperty("summary");
       });
     }
   });

@@ -983,44 +983,90 @@
     margin-top: 20px;
 }
 .tokyo-nova.sheet.actor .tab.profile .profile-lifepath-section {
-    margin-bottom: 4px;
+    margin-bottom: 12px;
 }
 .tokyo-nova.sheet.actor .tab.profile .lifepath-slots {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 6px;
 }
-.tokyo-nova.sheet.actor .tab.profile .lifepath-slot-row {
+/* カード */
+.tokyo-nova.sheet.actor .tab.profile .lifepath-card {
+    border: 1px solid var(--tnx2-border-subtle);
+    border-left: 3px solid var(--tnx2-accent-dim);
+    border-radius: var(--tnx2-radius);
+    padding: 7px 10px;
+    background: var(--tnx2-bg-2);
+}
+.tokyo-nova.sheet.actor .tab.profile .lifepath-card--empty {
+    border-left-color: var(--tnx2-border-active);
+    opacity: 0.6;
+}
+/* ヘッダー行 */
+.tokyo-nova.sheet.actor .tab.profile .lifepath-card-header {
     display: flex;
     align-items: center;
     gap: 8px;
-    min-height: 28px;
-    padding: 2px 0;
+    min-height: 26px;
 }
-.tokyo-nova.sheet.actor .tab.profile .lifepath-type-label {
-    flex: 0 0 3em;
-    color: var(--tnx2-text-secondary);
-}
-.tokyo-nova.sheet.actor .tab.profile .lifepath-name {
-    font-weight: 600;
-    color: var(--tnx2-text-primary);
-}
-.tokyo-nova.sheet.actor .tab.profile .lifepath-summary {
-    flex: 1;
-    color: var(--tnx2-text-muted);
-    font-size: 0.85em;
-    font-style: italic;
-    overflow: hidden;
-    text-overflow: ellipsis;
+/* 種別バッジ */
+.tokyo-nova.sheet.actor .tab.profile .lifepath-type-badge {
+    flex: 0 0 auto;
+    font-size: 0.72em;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--tnx2-text-accent);
+    background: var(--tnx2-accent-glow-sm);
+    border: 1px solid var(--tnx2-accent-dim);
+    border-radius: var(--tnx2-radius);
+    padding: 1px 6px;
     white-space: nowrap;
 }
+/* 閲覧モード: クリック可能なアイテム名 */
+.tokyo-nova.sheet.actor .tab.profile a.lifepath-card-name {
+    flex: 1;
+    min-width: 0;
+    font-weight: 600;
+    color: var(--tnx2-text-primary);
+    cursor: pointer;
+    text-decoration: none;
+    transition: color var(--tnx2-transition-fast);
+}
+.tokyo-nova.sheet.actor .tab.profile a.lifepath-card-name:hover {
+    color: var(--tnx2-text-accent);
+}
+/* 未設定プレースホルダー */
+.tokyo-nova.sheet.actor .tab.profile .lifepath-card-name--empty {
+    flex: 1;
+    color: var(--tnx2-text-muted);
+    font-style: italic;
+}
+/* description 表示 */
+.tokyo-nova.sheet.actor .tab.profile .lifepath-card-desc {
+    margin-top: 5px;
+    padding-top: 5px;
+    border-top: 1px solid var(--tnx2-border-subtle);
+    color: var(--tnx2-text-secondary);
+    font-size: 0.85em;
+    line-height: 1.55;
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
+.tokyo-nova.sheet.actor .tab.profile .lifepath-card-desc p {
+    margin: 0 0 0.3em;
+}
+.tokyo-nova.sheet.actor .tab.profile .lifepath-card-desc p:last-child {
+    margin-bottom: 0;
+}
+/* 編集モード: ドロップ枠・アイテムボタン */
 .tokyo-nova.sheet.actor .tab.profile .lifepath-import-box {
-    flex: 0.3;
+    flex: 1;
 }
 .tokyo-nova.sheet.actor .tab.profile .lifepath-item-btn {
-    flex: 0.3;
+    flex: 1;
     min-width: 0;
 }
+/* 削除ボタン */
 .tokyo-nova.sheet.actor .tab.profile .lifepath-delete-btn {
     flex: 0 0 auto;
     color: var(--tnx2-text-muted);

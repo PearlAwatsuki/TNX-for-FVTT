@@ -39,17 +39,14 @@ export class CastDataModel extends SystemDataModel.mixin(
         origin: new fields.SchemaField({
           itemUuid: new fields.StringField({ initial: "" }),
           name:     new fields.StringField({ initial: "" }),
-          summary:  new fields.StringField({ initial: "" }),
         }),
         experience: new fields.SchemaField({
           itemUuid: new fields.StringField({ initial: "" }),
           name:     new fields.StringField({ initial: "" }),
-          summary:  new fields.StringField({ initial: "" }),
         }),
         encounter: new fields.SchemaField({
           itemUuid: new fields.StringField({ initial: "" }),
           name:     new fields.StringField({ initial: "" }),
-          summary:  new fields.StringField({ initial: "" }),
         }),
       }),
       bounty: new fields.NumberField({ initial: 0, min: 0, integer: true }),
