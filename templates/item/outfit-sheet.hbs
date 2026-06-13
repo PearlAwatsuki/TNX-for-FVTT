@@ -357,7 +357,7 @@
                 <fieldset class="tnx-fieldset">
                     <legend>コンバイン</legend>
                     <div class="tnx-form-field">
-                        {{!-- 元アイテム1: 設定済みはボタン(左クリック=閲覧、右クリック=CM)、未設定はドロップゾーン --}}
+                        {{!-- 元アイテム1: 設定済みは tnx-linked-btn + クリア、未設定はドロップゾーン + disabled クリア --}}
                         <div class="form-group">
                             <label>元アイテム1</label>
                             <div class="form-fields split-fields combine-source-row">
@@ -366,12 +366,14 @@
                                         <input type="radio" name="system.combine.appearance" value="1" {{#if (eq combine.appearance "1")}}checked{{/if}}>
                                         <i class="fa-solid fa-eye"></i>
                                     </label>
-                                    <button type="button" class="combine-source-btn"
+                                    <button type="button" class="tnx-linked-btn combine-source-linked"
                                             data-action="viewCombineSource"
                                             data-source="1"
                                             data-context-menu="combine-source">
-                                        {{combine.source1.name}}
+                                        <img src="{{combine.source1.img}}" class="tnx-linked-btn__icon"/>
+                                        <span class="tnx-linked-btn__label">{{combine.source1.name}}</span>
                                     </button>
+                                    <button type="button" class="tnx-btn tnx-btn--sm" data-action="clearCombineSource" data-source="1">クリア</button>
                                 {{else}}
                                     <span class="combine-appearance-eye combine-appearance-eye--empty" title="見た目（未設定）">
                                         <i class="fa-regular fa-eye-slash"></i>
@@ -383,7 +385,7 @@
                                 {{/if}}
                             </div>
                         </div>
-                        {{!-- 元アイテム2: 設定済みはボタン(左クリック=閲覧、右クリック=CM)、未設定はドロップゾーン --}}
+                        {{!-- 元アイテム2: 設定済みは tnx-linked-btn + クリア、未設定はドロップゾーン + disabled クリア --}}
                         <div class="form-group">
                             <label>元アイテム2</label>
                             <div class="form-fields split-fields combine-source-row">
@@ -392,12 +394,14 @@
                                         <input type="radio" name="system.combine.appearance" value="2" {{#if (eq combine.appearance "2")}}checked{{/if}}>
                                         <i class="fa-solid fa-eye"></i>
                                     </label>
-                                    <button type="button" class="combine-source-btn"
+                                    <button type="button" class="tnx-linked-btn combine-source-linked"
                                             data-action="viewCombineSource"
                                             data-source="2"
                                             data-context-menu="combine-source">
-                                        {{combine.source2.name}}
+                                        <img src="{{combine.source2.img}}" class="tnx-linked-btn__icon"/>
+                                        <span class="tnx-linked-btn__label">{{combine.source2.name}}</span>
                                     </button>
+                                    <button type="button" class="tnx-btn tnx-btn--sm" data-action="clearCombineSource" data-source="2">クリア</button>
                                 {{else}}
                                     <span class="combine-appearance-eye combine-appearance-eye--empty" title="見た目（未設定）">
                                         <i class="fa-regular fa-eye-slash"></i>

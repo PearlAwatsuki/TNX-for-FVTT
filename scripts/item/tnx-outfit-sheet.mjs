@@ -131,8 +131,9 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             incrementPart:     TokyoNovaOutfitSheet._onIncrementPart,
             decrementPart:     TokyoNovaOutfitSheet._onDecrementPart,
             toggleFlag:        TokyoNovaOutfitSheet._onToggleFlag,
-            clearHousingArea:  TokyoNovaOutfitSheet._onClearHousingArea,
-            viewCombineSource: TokyoNovaOutfitSheet._onViewCombineSource,
+            clearHousingArea:    TokyoNovaOutfitSheet._onClearHousingArea,
+            clearCombineSource:  TokyoNovaOutfitSheet._onClearCombineSource,
+            viewCombineSource:   TokyoNovaOutfitSheet._onViewCombineSource,
         },
     };
 
