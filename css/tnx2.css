@@ -926,22 +926,18 @@
 .tokyo-nova .tnx-editor-section__header .tnx-editor-open:hover {
     color: var(--tnx2-accent);
 }
-/* 固定高さ＋内部スクロール。overflow: hidden で枠線(角丸)からのはみ出しを防ぐ */
+/* アイテムシートはコンテンツ高に伸長する。固定高さが必要なシート(アクタープロファイル)は
+   セクション13で上書きする */
 .tokyo-nova .tnx-editor-section__content prose-mirror {
     border-color: var(--tnx2-border-subtle);
     border-radius: var(--tnx2-radius);
     box-shadow: inset 0 0 6px rgba(0, 200, 255, 0.08);
-    height: 200px;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
 }
 .tokyo-nova .tnx-editor-section__content prose-mirror .editor-content {
     color: var(--tnx2-text-secondary);
     padding: 8px 10px;
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
 }
 .tokyo-nova .tnx-editor-section__content prose-mirror .ProseMirror {
     color: var(--tnx2-text-primary);
@@ -1038,6 +1034,12 @@
 }
 .tokyo-nova.sheet.actor .tab.profile .tnx-editor-section__content prose-mirror {
     height: 500px;
+    overflow: hidden;
+}
+.tokyo-nova.sheet.actor .tab.profile .tnx-editor-section__content prose-mirror .editor-content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
 }
 
 /* ----------------------------------------------------------------
@@ -4935,20 +4937,4 @@ button.tnx-create-act-button span {
     margin: 4px auto 0;
     accent-color: var(--tnx2-accent);
     cursor: pointer;
-}
-
-/* ----------------------------------------------------------------
-   アイテムシート: ProseMirror エディタ — 閲覧状態は高さ自動伸長
-   ---------------------------------------------------------------- */
-
-/* アイテムシートの prose-mirror 要素は高さ固定しない */
-.tokyo-nova.sheet.item .tnx-editor-section__content prose-mirror {
-    height: auto;
-    min-height: 60px;
-}
-
-/* 閲覧状態の editor-content もオーバーフローさせずコンテンツ高に追従 */
-.tokyo-nova.sheet.item .tnx-editor-section__content prose-mirror .editor-content {
-    height: auto;
-    overflow: visible;
 }
