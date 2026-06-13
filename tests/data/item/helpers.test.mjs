@@ -12,11 +12,19 @@ describe("defenceField()", () => {
     expect(defenceField()).toBeInstanceOf(MockSchemaField);
   });
 
-  it("S_defence / P_defence / I_defence の 3 フィールドを持つ", () => {
+  it("mode / S_defence / P_defence / I_defence の 4 フィールドを持つ", () => {
     const field = defenceField();
+    expect(field.fields).toHaveProperty("mode");
     expect(field.fields).toHaveProperty("S_defence");
     expect(field.fields).toHaveProperty("P_defence");
     expect(field.fields).toHaveProperty("I_defence");
+  });
+
+  it("mode は StringField で initial が none、choices は none/value", () => {
+    const field = defenceField();
+    expect(field.fields.mode).toBeInstanceOf(MockStringField);
+    expect(field.fields.mode.options.initial).toBe("none");
+    expect(field.fields.mode.options.choices).toEqual(["none", "value"]);
   });
 
   it("各フィールドは NumberField で initial が 0", () => {

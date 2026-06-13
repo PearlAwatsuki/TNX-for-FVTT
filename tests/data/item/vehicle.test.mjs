@@ -37,9 +37,13 @@ describe("VehicleDataModel.defineSchema()", () => {
   describe("固有フィールドが存在する", () => {
     const ownFields = ["speedFactor", "passenger", "controlMod"];
     for (const key of ownFields) {
-      it(`schema.${key} は NumberField で initial が 0`, () => {
-        expect(schema[key]).toBeInstanceOf(MockNumberField);
-        expect(schema[key].options.initial).toBe(0);
+      it(`schema.${key} は {mode,value} の SchemaField で mode の choices は none/value のみ`, () => {
+        expect(schema[key]).toBeInstanceOf(MockSchemaField);
+        expect(schema[key].fields.mode).toBeInstanceOf(MockStringField);
+        expect(schema[key].fields.mode.options.initial).toBe("none");
+        expect(schema[key].fields.mode.options.choices).toEqual(["none", "value"]);
+        expect(schema[key].fields.value).toBeInstanceOf(MockNumberField);
+        expect(schema[key].fields.value.options.initial).toBe(0);
       });
     }
   });
@@ -50,8 +54,9 @@ describe("VehicleDataModel.defineSchema()", () => {
       expect(schema.attack.fields).toHaveProperty("damageType");
     });
 
-    it("schema.defence は SchemaField (S/P/I)", () => {
+    it("schema.defence は SchemaField (mode + S/P/I)", () => {
       expect(schema.defence).toBeInstanceOf(MockSchemaField);
+      expect(schema.defence.fields).toHaveProperty("mode");
       expect(schema.defence.fields).toHaveProperty("S_defence");
     });
   });

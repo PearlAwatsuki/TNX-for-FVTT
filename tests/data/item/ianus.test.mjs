@@ -34,9 +34,13 @@ describe("IanusDataModel.defineSchema()", () => {
     });
   });
 
-  it("schema.controlMod は NumberField で initial が 0", () => {
-    expect(schema.controlMod).toBeInstanceOf(MockNumberField);
-    expect(schema.controlMod.options.initial).toBe(0);
+  it("schema.controlMod は {mode,value} の SchemaField で mode の choices は none/value のみ", () => {
+    expect(schema.controlMod).toBeInstanceOf(MockSchemaField);
+    expect(schema.controlMod.fields.mode).toBeInstanceOf(MockStringField);
+    expect(schema.controlMod.fields.mode.options.initial).toBe("none");
+    expect(schema.controlMod.fields.mode.options.choices).toEqual(["none", "value"]);
+    expect(schema.controlMod.fields.value).toBeInstanceOf(MockNumberField);
+    expect(schema.controlMod.fields.value.options.initial).toBe(0);
   });
 
   it("defence フィールドは含まれない", () => {

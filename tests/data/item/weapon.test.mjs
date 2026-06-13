@@ -59,30 +59,39 @@ describe("WeaponDataModel.defineSchema()", () => {
     });
   });
 
-  it("schema.guardValue は NumberField で initial が 0", () => {
-    expect(schema.guardValue).toBeInstanceOf(MockNumberField);
-    expect(schema.guardValue.options.initial).toBe(0);
+  it("schema.guardValue は {mode,value} の SchemaField で mode の choices は none/value のみ", () => {
+    expect(schema.guardValue).toBeInstanceOf(MockSchemaField);
+    expect(schema.guardValue.fields.mode).toBeInstanceOf(MockStringField);
+    expect(schema.guardValue.fields.mode.options.initial).toBe("none");
+    expect(schema.guardValue.fields.mode.options.choices).toEqual(["none", "value"]);
+    expect(schema.guardValue.fields.value).toBeInstanceOf(MockNumberField);
+    expect(schema.guardValue.fields.value.options.initial).toBe(0);
   });
 
-  describe("range (射程、フェーズ6-2) の構造が正しい", () => {
+  describe("range (射程) の構造が正しい", () => {
     it("range は {min, max} の SchemaField である", () => {
       expect(schema.range).toBeInstanceOf(MockSchemaField);
       expect(schema.range.fields).toHaveProperty("min");
       expect(schema.range.fields).toHaveProperty("max");
     });
 
-    it("min / max は choices 付き StringField で initial が close、選択肢は 5 種のみ", () => {
-      for (const key of ["min", "max"]) {
-        const f = schema.range.fields[key];
-        expect(f).toBeInstanceOf(MockStringField);
-        expect(f.options.initial).toBe("close");
-        expect(Object.keys(f.options.choices)).toEqual(["close", "short", "middle", "long", "superLong"]);
-      }
+    it("min は choices 付き StringField で initial が none、選択肢は none+5 種(6 種)", () => {
+      const f = schema.range.fields.min;
+      expect(f).toBeInstanceOf(MockStringField);
+      expect(f.options.initial).toBe("none");
+      expect(Object.keys(f.options.choices)).toEqual(["none", "close", "short", "middle", "long", "superLong"]);
+    });
+
+    it("max は choices 付き StringField で initial が none、選択肢は none+4 種(至近除く 5 種)", () => {
+      const f = schema.range.fields.max;
+      expect(f).toBeInstanceOf(MockStringField);
+      expect(f.options.initial).toBe("none");
+      expect(Object.keys(f.options.choices)).toEqual(["none", "short", "middle", "long", "superLong"]);
     });
   });
 
   describe("Boolean フィールドが BooleanField で initial false である", () => {
-    for (const key of ["isLaser", "isBiological", "isFullAuto"]) {
+    for (const key of ["isLaser", "isFullAuto"]) {
       it(`schema.${key} は BooleanField で initial が false`, () => {
         expect(schema[key]).toBeInstanceOf(MockBooleanField);
         expect(schema[key].options.initial).toBe(false);

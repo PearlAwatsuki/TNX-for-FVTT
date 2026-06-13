@@ -26,11 +26,10 @@ describe("HousingAreaDataModel.defineSchema()", () => {
     });
   });
 
-  describe("修正値フィールドが存在し initial が 0 (フェーズ6-4 で hideMod/slotMod 追加)", () => {
+  describe("修正値フィールドが存在し initial が 0", () => {
     const ownFields = [
       "buyRatingMod",
       "preserveExpMod",
-      "hideMod",
       "appearanceTargetMod",
       "cyberSecurityMod",
       "analogSecurityMod",

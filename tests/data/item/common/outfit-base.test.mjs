@@ -24,7 +24,7 @@ describe("OutfitBaseTemplate.defineSchema()", () => {
       expect(schema["isPre-play"].options.initial).toBe(false);
     });
 
-    for (const key of ["isOption", "isCyber", "isConsumption", "isBiological"]) {
+    for (const key of ["isOption", "isCyber", "isConsumption"]) {
       it(`${key} は BooleanField で initial が false`, () => {
         expect(schema[key]).toBeInstanceOf(MockBooleanField);
         expect(schema[key].options.initial).toBe(false);
@@ -142,14 +142,19 @@ describe("OutfitBaseTemplate.defineSchema()", () => {
   });
 
   describe("数値フィールドが正しい", () => {
-    it("preserveExp は NumberField で initial が 0 (常備化経験点は必ず数値)", () => {
-      expect(schema.preserveExp).toBeInstanceOf(MockNumberField);
-      expect(schema.preserveExp.options.initial).toBe(0);
+    it("preserveExp は {mode,value} の SchemaField で mode の choices は none/value のみ (常備化経験点は「なし/数値」)", () => {
+      expect(schema.preserveExp).toBeInstanceOf(MockSchemaField);
+      expect(schema.preserveExp.fields.mode).toBeInstanceOf(MockStringField);
+      expect(schema.preserveExp.fields.mode.options.initial).toBe("none");
+      expect(schema.preserveExp.fields.mode.options.choices).toEqual(["none", "value"]);
+      expect(schema.preserveExp.fields.value).toBeInstanceOf(MockNumberField);
+      expect(schema.preserveExp.fields.value.options.initial).toBe(0);
     });
 
-    it("appearancePenalty は NumberField で initial が 0 (危険値は必ず数値)", () => {
-      expect(schema.appearancePenalty).toBeInstanceOf(MockNumberField);
-      expect(schema.appearancePenalty.options.initial).toBe(0);
+    it("appearancePenalty は SchemaField で mode/value を持つ (フェーズ6-4 にて変更)", () => {
+      expect(schema.appearancePenalty).toBeInstanceOf(MockSchemaField);
+      expect(schema.appearancePenalty.fields.mode).toBeInstanceOf(MockStringField);
+      expect(schema.appearancePenalty.fields.value).toBeInstanceOf(MockNumberField);
     });
   });
 

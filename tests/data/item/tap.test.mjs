@@ -34,15 +34,22 @@ describe("TapDataModel.defineSchema()", () => {
     });
   });
 
-  it("schema.cycle は NumberField で initial が 0", () => {
-    expect(schema.cycle).toBeInstanceOf(MockNumberField);
-    expect(schema.cycle.options.initial).toBe(0);
+  it("schema.cycle は {mode,value} の SchemaField で mode の choices は none/value のみ", () => {
+    expect(schema.cycle).toBeInstanceOf(MockSchemaField);
+    expect(schema.cycle.fields.mode).toBeInstanceOf(MockStringField);
+    expect(schema.cycle.fields.mode.options.initial).toBe("none");
+    expect(schema.cycle.fields.mode.options.choices).toEqual(["none", "value"]);
+    expect(schema.cycle.fields.value).toBeInstanceOf(MockNumberField);
+    expect(schema.cycle.fields.value.options.initial).toBe(0);
   });
 
   describe("KI-007: combatSpeedMod の綴り確認", () => {
-    it("schema.combatSpeedMod(正しい綴り)が NumberField で存在する", () => {
-      expect(schema.combatSpeedMod).toBeInstanceOf(MockNumberField);
-      expect(schema.combatSpeedMod.options.initial).toBe(0);
+    it("schema.combatSpeedMod(正しい綴り)が {mode,value} の SchemaField で存在する", () => {
+      expect(schema.combatSpeedMod).toBeInstanceOf(MockSchemaField);
+      expect(schema.combatSpeedMod.fields.mode).toBeInstanceOf(MockStringField);
+      expect(schema.combatSpeedMod.fields.mode.options.initial).toBe("none");
+      expect(schema.combatSpeedMod.fields.value).toBeInstanceOf(MockNumberField);
+      expect(schema.combatSpeedMod.fields.value.options.initial).toBe(0);
     });
 
     it("schema.conbatSpeedMod(タイポ)は存在しない", () => {

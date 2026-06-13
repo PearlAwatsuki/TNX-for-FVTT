@@ -33,10 +33,17 @@ describe("ArmorDataModel.defineSchema()", () => {
       expect(schema.defence).toBeInstanceOf(MockSchemaField);
     });
 
-    it("defence に S_defence / P_defence / I_defence が存在する", () => {
+    it("defence に mode / S_defence / P_defence / I_defence が存在する", () => {
+      expect(schema.defence.fields).toHaveProperty("mode");
       expect(schema.defence.fields).toHaveProperty("S_defence");
       expect(schema.defence.fields).toHaveProperty("P_defence");
       expect(schema.defence.fields).toHaveProperty("I_defence");
+    });
+
+    it("defence.mode は StringField で initial が none、choices は none/value", () => {
+      expect(schema.defence.fields.mode).toBeInstanceOf(MockStringField);
+      expect(schema.defence.fields.mode.options.initial).toBe("none");
+      expect(schema.defence.fields.mode.options.choices).toEqual(["none", "value"]);
     });
 
     it("defence の各フィールドは NumberField で initial が 0", () => {
@@ -47,9 +54,13 @@ describe("ArmorDataModel.defineSchema()", () => {
     });
   });
 
-  it("schema.controlMod は NumberField で initial が 0", () => {
-    expect(schema.controlMod).toBeInstanceOf(MockNumberField);
-    expect(schema.controlMod.options.initial).toBe(0);
+  it("schema.controlMod は {mode,value} の SchemaField で mode の choices は none/value のみ", () => {
+    expect(schema.controlMod).toBeInstanceOf(MockSchemaField);
+    expect(schema.controlMod.fields.mode).toBeInstanceOf(MockStringField);
+    expect(schema.controlMod.fields.mode.options.initial).toBe("none");
+    expect(schema.controlMod.fields.mode.options.choices).toEqual(["none", "value"]);
+    expect(schema.controlMod.fields.value).toBeInstanceOf(MockNumberField);
+    expect(schema.controlMod.fields.value.options.initial).toBe(0);
   });
 
   it("extensible のフィールドは含まれない(slot が含まれない)", () => {

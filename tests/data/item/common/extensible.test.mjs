@@ -33,12 +33,14 @@ describe("ExtensibleTemplate.defineSchema() (フェーズ6-2 プール方式)", 
     expect(kind.options.choices).toBe(SLOT_KINDS);
   });
 
-  it("count は NumberField で initial 0・min 0・整数", () => {
+  it("count は {mode,value} の SchemaField (スロット数はなし/数値を選択可能)", () => {
     const count = schema.slots.element.fields.count;
-    expect(count).toBeInstanceOf(MockNumberField);
-    expect(count.options.initial).toBe(0);
-    expect(count.options.min).toBe(0);
-    expect(count.options.integer).toBe(true);
+    expect(count).toBeInstanceOf(MockSchemaField);
+    expect(count.fields.mode).toBeInstanceOf(MockStringField);
+    expect(count.fields.mode.options.initial).toBe("none");
+    expect(count.fields.mode.options.choices).toEqual(["none", "value"]);
+    expect(count.fields.value).toBeInstanceOf(MockNumberField);
+    expect(count.fields.value.options.initial).toBe(0);
   });
 });
 

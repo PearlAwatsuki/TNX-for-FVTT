@@ -31,10 +31,17 @@ describe("CyborgDataModel.defineSchema()", () => {
       expect(schema.defence).toBeInstanceOf(MockSchemaField);
     });
 
-    it("defence に S_defence / P_defence / I_defence が存在する", () => {
+    it("defence に mode / S_defence / P_defence / I_defence が存在する", () => {
+      expect(schema.defence.fields).toHaveProperty("mode");
       expect(schema.defence.fields).toHaveProperty("S_defence");
       expect(schema.defence.fields).toHaveProperty("P_defence");
       expect(schema.defence.fields).toHaveProperty("I_defence");
+    });
+
+    it("defence.mode は StringField で initial が none、choices は none/value", () => {
+      expect(schema.defence.fields.mode).toBeInstanceOf(MockStringField);
+      expect(schema.defence.fields.mode.options.initial).toBe("none");
+      expect(schema.defence.fields.mode.options.choices).toEqual(["none", "value"]);
     });
 
     it("defence の各フィールドは NumberField で initial が 0", () => {
@@ -66,9 +73,13 @@ describe("CyborgDataModel.defineSchema()", () => {
     });
   });
 
-  it("schema.guardValue は NumberField で initial が 0", () => {
-    expect(schema.guardValue).toBeInstanceOf(MockNumberField);
-    expect(schema.guardValue.options.initial).toBe(0);
+  it("schema.guardValue は {mode,value} の SchemaField で mode の choices は none/value のみ", () => {
+    expect(schema.guardValue).toBeInstanceOf(MockSchemaField);
+    expect(schema.guardValue.fields.mode).toBeInstanceOf(MockStringField);
+    expect(schema.guardValue.fields.mode.options.initial).toBe("none");
+    expect(schema.guardValue.fields.mode.options.choices).toEqual(["none", "value"]);
+    expect(schema.guardValue.fields.value).toBeInstanceOf(MockNumberField);
+    expect(schema.guardValue.fields.value.options.initial).toBe(0);
   });
 
   it("extensible のフィールドは含まれない(slot が含まれない)", () => {
