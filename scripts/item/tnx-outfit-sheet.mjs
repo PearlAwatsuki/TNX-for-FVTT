@@ -126,13 +126,13 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         classes: ["tokyo-nova", "sheet", "item", "outfit"],
         position: { width: 600, height: 650 },
         actions: {
-            incrementSlot:  TokyoNovaOutfitSheet._onIncrementSlot,
-            decrementSlot:  TokyoNovaOutfitSheet._onDecrementSlot,
-            incrementPart:  TokyoNovaOutfitSheet._onIncrementPart,
-            decrementPart:  TokyoNovaOutfitSheet._onDecrementPart,
-            toggleFlag:     TokyoNovaOutfitSheet._onToggleFlag,
-            clearHousingArea: TokyoNovaOutfitSheet._onClearHousingArea,
-            clearCombineSource: TokyoNovaOutfitSheet._onClearCombineSource,
+            incrementSlot:     TokyoNovaOutfitSheet._onIncrementSlot,
+            decrementSlot:     TokyoNovaOutfitSheet._onDecrementSlot,
+            incrementPart:     TokyoNovaOutfitSheet._onIncrementPart,
+            decrementPart:     TokyoNovaOutfitSheet._onDecrementPart,
+            toggleFlag:        TokyoNovaOutfitSheet._onToggleFlag,
+            clearHousingArea:  TokyoNovaOutfitSheet._onClearHousingArea,
+            viewCombineSource: TokyoNovaOutfitSheet._onViewCombineSource,
         },
     };
 
@@ -537,6 +537,10 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
     /** @override */
     _onRender(context, options) {
         super._onRender(context, options);
+
+        // コンバイン元ボタン: editable に関わらず閲覧コンテキストメニューを設置する
+        if (context.isCombiner) this._setupCombineSourceMenu();
+
         if (!context.editable) return;
 
         // 状態トグル(準備済み/携帯中/プレアクト購入)をウィンドウヘッダーに注入する。
@@ -715,10 +719,55 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         await this.item.update({ "system.housingArea": "" });
     }
 
-    /** コンバイン元の指定を解除する(data-source = "1" / "2") */
-    static async _onClearCombineSource(_event, target) {
-        const key = target.dataset.source === "2" ? "source2" : "source1";
-        await this.item.update({ [`system.combine.${key}`]: "" });
+    /** コンバイン元を閲覧モードで開く(左クリックアクション) */
+    static async _onViewCombineSource(_event, target) {
+        const uuid = target.dataset.source === "2"
+            ? this.item.system.combine.source2
+            : this.item.system.combine.source1;
+        if (!uuid) return;
+        const item = await fromUuid(uuid).catch(() => null);
+        if (item) item.sheet.render(true, { editable: false });
+    }
+
+    /**
+     * コンバイン元ボタンの右クリックコンテキストメニューを設置する。
+     * editable に関わらず閲覧は可能。リンク解除は condition で制御する。
+     */
+    _setupCombineSourceMenu() {
+        const CM = foundry.applications.ux.ContextMenu.implementation;
+        new CM(this.element, '[data-context-menu="combine-source"]', [
+            {
+                name: "閲覧",
+                icon: '<i class="fas fa-eye"></i>',
+                callback: async (target) => {
+                    const uuid = target.dataset.source === "2"
+                        ? this.item.system.combine.source2
+                        : this.item.system.combine.source1;
+                    const item = uuid ? await fromUuid(uuid).catch(() => null) : null;
+                    if (item) item.sheet.render(true, { editable: false });
+                },
+            },
+            {
+                name: "編集",
+                icon: '<i class="fas fa-edit"></i>',
+                callback: async (target) => {
+                    const uuid = target.dataset.source === "2"
+                        ? this.item.system.combine.source2
+                        : this.item.system.combine.source1;
+                    const item = uuid ? await fromUuid(uuid).catch(() => null) : null;
+                    if (item) item.sheet.render(true);
+                },
+            },
+            {
+                name: "リンク解除",
+                icon: '<i class="fas fa-unlink"></i>',
+                condition: () => this.isEditable,
+                callback: (target) => {
+                    const key = target.dataset.source === "2" ? "source2" : "source1";
+                    this.item.update({ [`system.combine.${key}`]: "" });
+                },
+            },
+        ], { jQuery: false, fixed: true });
     }
 
     // ─── ヘッダーの状態トグル(準備済み/携帯中/プリプレイ購入) ────────────────

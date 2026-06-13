@@ -357,7 +357,7 @@
                 <fieldset class="tnx-fieldset">
                     <legend>コンバイン</legend>
                     <div class="tnx-form-field">
-                        {{!-- 元アイテム1: 見た目ラジオを右端にインライン配置 --}}
+                        {{!-- 元アイテム1: 設定済みはボタン(左クリック=閲覧、右クリック=CM)、未設定はドロップゾーン --}}
                         <div class="form-group">
                             <label>元アイテム1</label>
                             <div class="form-fields split-fields combine-source-row">
@@ -366,8 +366,12 @@
                                         <input type="radio" name="system.combine.appearance" value="1" {{#if (eq combine.appearance "1")}}checked{{/if}}>
                                         <i class="fa-solid fa-eye"></i>
                                     </label>
-                                    <span class="linked-value">{{combine.source1.name}}</span>
-                                    <button type="button" class="tnx-btn tnx-btn--sm" data-action="clearCombineSource" data-source="1">クリア</button>
+                                    <button type="button" class="combine-source-btn"
+                                            data-action="viewCombineSource"
+                                            data-source="1"
+                                            data-context-menu="combine-source">
+                                        {{combine.source1.name}}
+                                    </button>
                                 {{else}}
                                     <span class="combine-appearance-eye combine-appearance-eye--empty" title="見た目（未設定）">
                                         <i class="fa-regular fa-eye-slash"></i>
@@ -375,10 +379,11 @@
                                     <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="combine-1">
                                         <span>アウトフィットをここにドロップ</span>
                                     </div>
+                                    <button type="button" class="tnx-btn tnx-btn--sm" disabled>クリア</button>
                                 {{/if}}
                             </div>
                         </div>
-                        {{!-- 元アイテム2: 見た目ラジオを右端にインライン配置 --}}
+                        {{!-- 元アイテム2: 設定済みはボタン(左クリック=閲覧、右クリック=CM)、未設定はドロップゾーン --}}
                         <div class="form-group">
                             <label>元アイテム2</label>
                             <div class="form-fields split-fields combine-source-row">
@@ -387,8 +392,12 @@
                                         <input type="radio" name="system.combine.appearance" value="2" {{#if (eq combine.appearance "2")}}checked{{/if}}>
                                         <i class="fa-solid fa-eye"></i>
                                     </label>
-                                    <span class="linked-value">{{combine.source2.name}}</span>
-                                    <button type="button" class="tnx-btn tnx-btn--sm" data-action="clearCombineSource" data-source="2">クリア</button>
+                                    <button type="button" class="combine-source-btn"
+                                            data-action="viewCombineSource"
+                                            data-source="2"
+                                            data-context-menu="combine-source">
+                                        {{combine.source2.name}}
+                                    </button>
                                 {{else}}
                                     <span class="combine-appearance-eye combine-appearance-eye--empty" title="見た目（未設定）">
                                         <i class="fa-regular fa-eye-slash"></i>
@@ -396,6 +405,7 @@
                                     <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="combine-2">
                                         <span>アウトフィットをここにドロップ</span>
                                     </div>
+                                    <button type="button" class="tnx-btn tnx-btn--sm" disabled>クリア</button>
                                 {{/if}}
                             </div>
                         </div>

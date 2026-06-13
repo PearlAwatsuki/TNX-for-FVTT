@@ -936,9 +936,6 @@
     flex-direction: column;
     overflow: hidden;
 }
-.tokyo-nova .profile.tnx-editor-section__content prose-mirror {
-    height: 500px;
-}
 .tokyo-nova .tnx-editor-section__content prose-mirror .editor-content {
     color: var(--tnx2-text-secondary);
     padding: 8px 10px;
@@ -1038,6 +1035,9 @@
     border: 1px solid var(--tnx2-border-subtle);
     border-radius: var(--tnx2-radius);
     box-shadow: inset 0 0 6px rgba(0, 200, 255, 0.08);
+}
+.tokyo-nova.sheet.actor .tab.profile .tnx-editor-section__content prose-mirror {
+    height: 500px;
 }
 
 /* ----------------------------------------------------------------
@@ -4848,7 +4848,11 @@ button.tnx-create-act-button span {
     color: var(--tnx2-accent);
 }
 
-/* コンバイナー: 見た目選択の目アイコン(各元アイテム行にインライン配置) */
+/* ----------------------------------------------------------------
+   コンバイナー: 元アイテム行のインラインUI
+   ---------------------------------------------------------------- */
+
+/* 見た目選択の目アイコン */
 .tokyo-nova.sheet.item.outfit .combine-appearance-eye {
     display: flex;
     align-items: center;
@@ -4881,7 +4885,33 @@ button.tnx-create-act-button span {
     opacity: 0.15;
 }
 
-/* コンバイナー: パラメータ選択セクション */
+/* 設定済み状態: アイテムをボタンとして表示(インポートボックスと同高に揃える) */
+.tokyo-nova.sheet.item.outfit .combine-source-btn {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    background: var(--tnx2-bg-2);
+    color: var(--tnx2-text-primary);
+    font-size: 0.9em;
+    text-align: left;
+    cursor: pointer;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    transition: border-color var(--tnx2-transition-fast), background var(--tnx2-transition-fast);
+}
+
+.tokyo-nova.sheet.item.outfit .combine-source-btn:hover {
+    border-color: var(--tnx2-accent);
+    background: var(--tnx2-bg-3);
+    color: var(--tnx2-text-accent);
+}
+
+/* パラメータ選択セクション */
 .tokyo-nova.sheet.item.outfit .combine-param-section {
     margin-top: 8px;
     padding: 6px 8px;
@@ -4899,10 +4929,26 @@ button.tnx-create-act-button span {
     letter-spacing: 0.05em;
 }
 
-/* パラメータ選択のラジオは usage-field 内。number input の 60px をリセットして小さく */
+/* パラメータ選択ラジオ: usage-field 内の number input 60px をリセット */
 .tokyo-nova.sheet.item.outfit .combine-param-section .usage-field input[type="radio"] {
     width: auto;
     margin: 4px auto 0;
     accent-color: var(--tnx2-accent);
     cursor: pointer;
+}
+
+/* ----------------------------------------------------------------
+   アイテムシート: ProseMirror エディタ — 閲覧状態は高さ自動伸長
+   ---------------------------------------------------------------- */
+
+/* アイテムシートの prose-mirror 要素は高さ固定しない */
+.tokyo-nova.sheet.item .tnx-editor-section__content prose-mirror {
+    height: auto;
+    min-height: 60px;
+}
+
+/* 閲覧状態の editor-content もオーバーフローさせずコンテンツ高に追従 */
+.tokyo-nova.sheet.item .tnx-editor-section__content prose-mirror .editor-content {
+    height: auto;
+    overflow: visible;
 }
