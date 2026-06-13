@@ -44,8 +44,16 @@ describe("VehicleDataModel.defineSchema()", () => {
     }
   });
 
-  it("defence フィールドは含まれない", () => {
-    expect(schema).not.toHaveProperty("defence");
+  describe("attack / defence を持つ (フェーズ6-4)", () => {
+    it("schema.attack は SchemaField (攻撃力)", () => {
+      expect(schema.attack).toBeInstanceOf(MockSchemaField);
+      expect(schema.attack.fields).toHaveProperty("damageType");
+    });
+
+    it("schema.defence は SchemaField (S/P/I)", () => {
+      expect(schema.defence).toBeInstanceOf(MockSchemaField);
+      expect(schema.defence.fields).toHaveProperty("S_defence");
+    });
   });
 });
 

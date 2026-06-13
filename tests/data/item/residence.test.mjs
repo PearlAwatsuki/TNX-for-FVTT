@@ -56,7 +56,7 @@ describe("ResidenceDataModel.defineSchema()", () => {
     });
   });
 
-  describe("修正値フィールド(*Mod)", () => {
+  describe("修正値フィールド(*Mod)は持たない(フェーズ6-4 で housingArea へ移管)", () => {
     const modFields = [
       "buyRatingMod",
       "preserveExpMod",
@@ -66,9 +66,8 @@ describe("ResidenceDataModel.defineSchema()", () => {
     ];
 
     for (const key of modFields) {
-      it(`schema.${key} は NumberField で initial が 0`, () => {
-        expect(schema[key]).toBeInstanceOf(MockNumberField);
-        expect(schema[key].options.initial).toBe(0);
+      it(`schema.${key} を持たない`, () => {
+        expect(schema).not.toHaveProperty(key);
       });
     }
   });

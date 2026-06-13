@@ -16,31 +16,19 @@ describe("HousingAreaDataModel.defineSchema()", () => {
     });
   });
 
-  describe("固有フィールドが存在する", () => {
+  describe("修正値フィールドが存在し initial が 0 (フェーズ6-4 で hideMod/slotMod 追加)", () => {
     const ownFields = [
       "buyRatingMod",
       "preserveExpMod",
+      "hideMod",
       "appearanceTargetMod",
       "cyberSecurityMod",
       "analogSecurityMod",
+      "slotMod",
     ];
     for (const key of ownFields) {
-      it(`schema.${key} が存在する`, () => {
+      it(`schema.${key} が存在し initial が 0`, () => {
         expect(schema).toHaveProperty(key);
-      });
-    }
-  });
-
-  describe("固有フィールドの初期値が 0 である", () => {
-    const ownFields = [
-      "buyRatingMod",
-      "preserveExpMod",
-      "appearanceTargetMod",
-      "cyberSecurityMod",
-      "analogSecurityMod",
-    ];
-    for (const key of ownFields) {
-      it(`schema.${key}.options.initial === 0`, () => {
         expect(schema[key].options.initial).toBe(0);
       });
     }

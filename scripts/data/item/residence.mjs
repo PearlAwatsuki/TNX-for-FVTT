@@ -3,15 +3,20 @@
  *
  * 使用 template: base + outfitBase + extensible + usage
  * 固有フィールド: appearanceTarget / cyberSecurity / analogSecurity / housingArea /
- *               buyRatingMod / preserveExpMod / appearanceTargetMod /
- *               cyberSecurityMod / analogSecurityMod / identificationKey
+ *               identificationKey
  *
  * 準拠データ: template.json > Item.residence
  *
+ * フェーズ6-4 の変更(2026-06-13 ユーザー確定):
+ * - 修正値(*Mod)フィールドは住宅エリア(HousingAreaDataModel)の役割のため residence から除去。
+ *   住宅施設は基本値(登場判定目標値 / 電脳セキュリティ / アナログセキュリティ)を持ち、
+ *   住宅エリアの修正値を組み合わせた実効値の算出はフェーズ6-6(キャストシート)で扱う。
+ * - 概要表記順は 購/隠/登場/セ(電／ア)/ス/部位。**危険値(appearancePenalty)と電制(hack)は表示しない**
+ *   (危険値は他種別では隠匿値とセットだが住宅施設にはない)。隠は隠匿値のみを表示する。
+ *
  * 注意:
- * - *Mod フィールドは housingArea Item(HousingAreaDataModel)にも同名・同型のフィールドが
- *   存在するが、単一 NumberField のためヘルパー化はしない。
- * - housingArea フィールドは housingArea Item の ID(文字列)を格納する。
+ * - appearanceTarget(登場判定目標値)は、その住宅施設を舞台としたシーンの登場判定目標値となる。
+ * - housingArea フィールドは組み合わせる住宅エリア Item の ID(文字列)を格納する。
  */
 
 import { SystemDataModel } from "../abstract.mjs";
@@ -32,11 +37,6 @@ export class ResidenceDataModel extends SystemDataModel.mixin(
       cyberSecurity:       new fields.NumberField({ initial: 0 }),
       analogSecurity:      new fields.NumberField({ initial: 0 }),
       housingArea:         new fields.StringField({ initial: "" }),
-      buyRatingMod:        new fields.NumberField({ initial: 0 }),
-      preserveExpMod:      new fields.NumberField({ initial: 0 }),
-      appearanceTargetMod: new fields.NumberField({ initial: 0 }),
-      cyberSecurityMod:    new fields.NumberField({ initial: 0 }),
-      analogSecurityMod:   new fields.NumberField({ initial: 0 }),
       identificationKey:   new fields.StringField({ initial: "" }),
     };
   }

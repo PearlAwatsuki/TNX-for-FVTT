@@ -56,8 +56,9 @@ export const OUTFIT_CATEGORIES = Object.freeze({
   }),
   "住宅": Object.freeze({
     "住宅施設":     ["residence"],
-    "住宅オプション": ["residence"],
-    "住宅アクセサリ": ["residence"],
+    // 住宅オプション・住宅アクセサリは一般アウトフィット(2026-06-13 確定。residence ではない)
+    "住宅オプション": ["general"],
+    "住宅アクセサリ": ["general"],
   }),
   "アイテム": Object.freeze({
     "ツール":         ["general"],
