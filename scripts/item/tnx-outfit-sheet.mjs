@@ -6,17 +6,22 @@ import { WEAPON_RANGES, WEAPON_ATTACK_AREAS } from "../data/item/weapon.mjs";
 import { SLOT_KINDS } from "../data/item/common/extensible.mjs";
 
 /**
- * 部位の表記(2026-06-12 ユーザー確定)。
- * スロット数 1 のときは部位名のみ、0 または 2 以上のときは「武器2」のように数値を付す。
+ * 部位の表記(2026-06-12 ユーザー確定、2026-06-13 複数部位対応)。
+ * 各行はスロット数 1 のときは部位名のみ、0 または 2 以上のときは「武器2」のように数値を付し、
+ * 複数行は「、」で連結する。
  * Handlebars ヘルパー tnxPartLabel(tnx.mjs)と本シートのサマリ生成で共用する。
- * @param {{value: string, slots: number}|string|null} part
+ * @param {Array<{value: string, slots: number}>|Object|string|null} part
  * @returns {string}
  */
 export function formatPartLabel(part) {
-    if (!part || typeof part !== "object") return part ?? "";
-    if (!part.value) return "-";
-    const slots = part.slots ?? 0;
-    return slots === 1 ? part.value : `${part.value}${slots}`;
+    if (typeof part === "string") return part || "-";
+    const list = Array.isArray(part) ? part
+        : (part && typeof part === "object") ? Object.values(part)
+        : [];
+    const labels = list
+        .filter((p) => p && typeof p === "object" && p.value)
+        .map((p) => ((p.slots ?? 0) === 1 ? p.value : `${p.value}${p.slots ?? 0}`));
+    return labels.length ? labels.join("、") : "-";
 }
 
 /**
@@ -55,6 +60,8 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             decrementField: TokyoNovaOutfitSheet._onDecrementField,
             incrementSlot:  TokyoNovaOutfitSheet._onIncrementSlot,
             decrementSlot:  TokyoNovaOutfitSheet._onDecrementSlot,
+            incrementPart:  TokyoNovaOutfitSheet._onIncrementPart,
+            decrementPart:  TokyoNovaOutfitSheet._onDecrementPart,
             toggleFlag:     TokyoNovaOutfitSheet._onToggleFlag,
         },
     };
@@ -80,9 +87,9 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         return { none: "なし", value: "数値" };
     }
 
-    /** 空のタイミング行 */
-    static get blankTimingRow() {
-        return { value: "blank", actionName: "blank", processName: "blank", timingOther: "" };
+    /** 空の部位行 */
+    static get blankPartRow() {
+        return { value: "", slots: 1 };
     }
 
     /** 型ごとの既定スロットプール(kind の並び) */
@@ -138,15 +145,17 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         context.isWeapon = type === "weapon";
         context.isArmor  = type === "armor";
         context.isCyborg = type === "cyborg";
+        context.isIanus  = type === "ianus";
+        context.isTap    = type === "tap";
         context.hasSlots = !!this.constructor.SLOT_PRESETS[type];
 
-        // timing は編集 UI 用に最低 1 行を保証する(保存はしない。表示用の正規化のみ)
-        if (!Array.isArray(system.timing)) {
-            system.timing = (typeof system.timing === "object" && system.timing !== null)
-                ? Object.values(system.timing)
+        // part は編集 UI 用に最低 1 行を保証する(保存はしない。表示用の正規化のみ)
+        if (!Array.isArray(system.part)) {
+            system.part = (typeof system.part === "object" && system.part !== null)
+                ? Object.values(system.part)
                 : [];
         }
-        if (!system.timing.length) system.timing = [this.constructor.blankTimingRow];
+        if (!system.part.length) system.part = [this.constructor.blankPartRow];
 
         // slots は既定プール構成に正規化して表示する
         if (context.hasSlots) system.slots = this._normalizedSlots();
@@ -220,11 +229,13 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             { label: "隠", value: hide },
         ];
 
+        const slots = Array.isArray(system.slots) ? system.slots : [];
+        const countOf = (kind) => slots.find((s) => s.kind === kind)?.count ?? 0;
+
         if (type === "weapon") {
             rows.push({ label: "攻", value: this._attackLabel(system.attack) });
             rows.push({ label: "受", value: num(system.guardValue) });
             rows.push({ label: "射", value: formatWeaponRangeLabel(system.range) });
-            rows.push({ label: "ス", value: num(this._slotTotal(system)) });
         }
         if (type === "armor" || type === "cyborg") {
             const d = system.defence;
@@ -241,7 +252,25 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             rows.push({ label: "受", value: num(system.guardValue) });
         }
 
-        rows.push({ label: "電制", value: hack });
+        // スロット行(型ごとの表示順はユーザー確定。2026-06-13)
+        if (type === "ianus") {
+            // 購/隠/ス/表/深/無/制/部位(電制なし)
+            rows.push({ label: "ス", value: num(countOf("normal")) });
+            rows.push({ label: "表", value: num(countOf("surface")) });
+            rows.push({ label: "深", value: num(countOf("deep")) });
+            rows.push({ label: "無", value: num(countOf("unconscious")) });
+            rows.push({ label: "制", value: num(system.controlMod) });
+        } else if (type === "tap") {
+            // 購/隠/ソ/ハ/CS/電制/部位
+            rows.push({ label: "ソ", value: num(countOf("software")) });
+            rows.push({ label: "ハ", value: num(countOf("hardware")) });
+            rows.push({ label: "CS", value: num(system.combatSpeedMod) });
+        } else if (this.constructor.SLOT_PRESETS[type]) {
+            rows.push({ label: "ス", value: num(countOf("normal")) });
+        }
+
+        // 電制(IANUS は表示しない)
+        if (type !== "ianus") rows.push({ label: "電制", value: hack });
         rows.push({ label: "部位", value: part });
         view.summary = rows;
 
@@ -267,11 +296,6 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         return `${type}${sign}`;
     }
 
-    /** スロット総数(概要の「ス」表示用) */
-    _slotTotal(system) {
-        const list = Array.isArray(system.slots) ? system.slots : [];
-        return list.reduce((sum, s) => sum + (s.count ?? 0), 0);
-    }
 
     // ─── レンダリング後のイベント結線 ───────────────────────────────────────
 
@@ -366,27 +390,43 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             });
         }
 
-        // タイミング行: 種別変更時に下位フィールドをリセットする
-        for (const select of this.element.querySelectorAll('select[name^="system.timing."]')) {
-            const match = select.name.match(/^system\.timing\.(\d+)\.value$/);
-            if (!match) continue;
-            select.addEventListener("change", (event) => {
+        // タイミング(単一): 種別変更時に下位フィールドをリセットする
+        this.element.querySelector('select[name="system.timing.value"]')
+            ?.addEventListener("change", (event) => {
                 event.stopPropagation();
-                this._onTimingValueChange(Number(match[1]), event.currentTarget.value);
+                const value = event.currentTarget.value;
+                const update = { "system.timing.value": value };
+                if (value !== "action")  update["system.timing.actionName"]  = "blank";
+                if (value !== "process") update["system.timing.processName"] = "blank";
+                if (value !== "other")   update["system.timing.timingOther"] = "";
+                this.item.update(update);
+            });
+
+        // 部位行の入力(配列フィールドのため全体更新で保存する)
+        for (const input of this.element.querySelectorAll("[data-part-field]")) {
+            input.addEventListener("change", (event) => {
+                event.stopPropagation();
+                const el = event.currentTarget;
+                const index = Number(el.dataset.index);
+                const field = el.dataset.partField;
+                const value = field === "slots"
+                    ? Math.max(0, Number(el.value) || 0)
+                    : el.value;
+                this._updatePartRow(index, (row) => { row[field] = value; });
             });
         }
 
-        // タイミング行の追加・削除
-        for (const btn of this.element.querySelectorAll('.tnx-row-btn[data-target="timing"]')) {
+        // 部位行の追加・削除
+        for (const btn of this.element.querySelectorAll('.tnx-row-btn[data-target="part"]')) {
             btn.addEventListener("click", (event) => {
                 event.preventDefault();
-                this._onAddTimingRow();
+                this._onAddPartRow();
             });
         }
-        for (const btn of this.element.querySelectorAll('.tnx-row-btn--delete[data-target="timing"]')) {
+        for (const btn of this.element.querySelectorAll('.tnx-row-btn--delete[data-target="part"]')) {
             btn.addEventListener("click", (event) => {
                 event.preventDefault();
-                this._onDeleteTimingRow(Number(event.currentTarget.dataset.index));
+                this._onDeletePartRow(Number(event.currentTarget.dataset.index));
             });
         }
     }
@@ -446,44 +486,53 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         await this.item.update({ "system.slots": slots });
     }
 
-    // ─── タイミング配列操作 ─────────────────────────────────────────────────
+    // ─── 部位配列操作 ───────────────────────────────────────────────────────
 
-    /** 保存済み timing を配列に正規化して返す(最低 1 行) */
-    _normalizedTiming() {
-        const raw = foundry.utils.deepClone(this.item.system.timing);
+    /** 保存済み part を配列に正規化して返す(最低 1 行) */
+    _normalizedPart() {
+        const raw = foundry.utils.deepClone(this.item.system.part);
         const list = Array.isArray(raw) ? raw
             : (typeof raw === "object" && raw !== null) ? Object.values(raw)
             : [];
-        if (!list.length) list.push(this.constructor.blankTimingRow);
+        if (!list.length) list.push(this.constructor.blankPartRow);
         return list;
     }
 
-    async _onTimingValueChange(idx, value) {
-        const list = this._normalizedTiming();
-        if (!list[idx]) return;
-        list[idx].value = value;
-        if (value === "action")       { list[idx].processName = "blank"; list[idx].timingOther = ""; }
-        else if (value === "process") { list[idx].actionName  = "blank"; list[idx].timingOther = ""; }
-        else if (value === "other")   { list[idx].actionName  = "blank"; list[idx].processName = "blank"; }
-        else {
-            list[idx].actionName  = "blank";
-            list[idx].processName = "blank";
-            list[idx].timingOther = "";
-        }
-        await this.item.update({ "system.timing": list });
+    /**
+     * 指定行を書き換えて配列全体を保存する。
+     * @param {number} index 行番号
+     * @param {(row: {value: string, slots: number}) => void} mutate 行を書き換える関数
+     */
+    async _updatePartRow(index, mutate) {
+        const list = this._normalizedPart();
+        if (!list[index]) return;
+        mutate(list[index]);
+        await this.item.update({ "system.part": list });
     }
 
-    async _onAddTimingRow() {
-        const list = this._normalizedTiming();
-        list.push(this.constructor.blankTimingRow);
-        await this.item.update({ "system.timing": list });
+    static async _onIncrementPart(_event, target) {
+        await this._updatePartRow(Number(target.dataset.index), (row) => {
+            row.slots = (row.slots ?? 0) + 1;
+        });
     }
 
-    async _onDeleteTimingRow(index) {
-        const list = this._normalizedTiming();
+    static async _onDecrementPart(_event, target) {
+        await this._updatePartRow(Number(target.dataset.index), (row) => {
+            row.slots = Math.max(0, (row.slots ?? 0) - 1);
+        });
+    }
+
+    async _onAddPartRow() {
+        const list = this._normalizedPart();
+        list.push(this.constructor.blankPartRow);
+        await this.item.update({ "system.part": list });
+    }
+
+    async _onDeletePartRow(index) {
+        const list = this._normalizedPart();
         if (index >= 0 && index < list.length) {
             list.splice(index, 1);
-            await this.item.update({ "system.timing": list });
+            await this.item.update({ "system.part": list });
         }
     }
 }

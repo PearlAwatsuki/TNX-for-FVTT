@@ -56,18 +56,20 @@ describe("OutfitBaseTemplate.defineSchema()", () => {
     });
   });
 
-  describe("part (部位) が正しい (フェーズ6-1)", () => {
-    it("part は SchemaField で value (部位名) / slots (スロット数) を持つ", () => {
-      expect(schema.part).toBeInstanceOf(MockSchemaField);
-      expect(schema.part.fields.value).toBeInstanceOf(MockStringField);
-      expect(schema.part.fields.value.options.initial).toBe("");
+  describe("part (部位) が正しい (フェーズ6-3: 複数部位対応で配列化)", () => {
+    it("part は ArrayField で要素は {value, slots} の SchemaField", () => {
+      expect(schema.part).toBeInstanceOf(MockArrayField);
+      expect(schema.part.element).toBeInstanceOf(MockSchemaField);
+      expect(schema.part.element.fields.value).toBeInstanceOf(MockStringField);
+      expect(schema.part.element.fields.value.options.initial).toBe("");
     });
 
-    it("part.slots は NumberField で initial 1・min 0・整数", () => {
-      expect(schema.part.fields.slots).toBeInstanceOf(MockNumberField);
-      expect(schema.part.fields.slots.options.initial).toBe(1);
-      expect(schema.part.fields.slots.options.min).toBe(0);
-      expect(schema.part.fields.slots.options.integer).toBe(true);
+    it("要素の slots は NumberField で initial 1・min 0・整数", () => {
+      const slots = schema.part.element.fields.slots;
+      expect(slots).toBeInstanceOf(MockNumberField);
+      expect(slots.options.initial).toBe(1);
+      expect(slots.options.min).toBe(0);
+      expect(slots.options.integer).toBe(true);
     });
   });
 
@@ -82,14 +84,13 @@ describe("OutfitBaseTemplate.defineSchema()", () => {
     });
   });
 
-  describe("timing (スタイル技能と共通構造) が正しい (フェーズ6-1)", () => {
-    it("timing は ArrayField で要素は SchemaField", () => {
-      expect(schema.timing).toBeInstanceOf(MockArrayField);
-      expect(schema.timing.element).toBeInstanceOf(MockSchemaField);
+  describe("timing が正しい (フェーズ6-3: 単一の SchemaField に変更)", () => {
+    it("timing は配列ではなく単一の SchemaField (アウトフィットのタイミングは一つのみ)", () => {
+      expect(schema.timing).toBeInstanceOf(MockSchemaField);
     });
 
-    it("要素は value / actionName / processName / timingOther を持ち、初期値がスタイル技能と同一", () => {
-      const el = schema.timing.element.fields;
+    it("value / actionName / processName / timingOther を持ち、初期値がスタイル技能と同一", () => {
+      const el = schema.timing.fields;
       for (const key of ["value", "actionName", "processName"]) {
         expect(el[key]).toBeInstanceOf(MockStringField);
         expect(el[key].options.initial).toBe("blank");

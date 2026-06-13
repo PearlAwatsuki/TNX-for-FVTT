@@ -30,7 +30,8 @@ export const OUTFIT_CATEGORIES = Object.freeze({
   }),
   "サイバーウェア": Object.freeze({
     "IANUS":            ["ianus"],
-    "IANUSオプション":   ["ianus"],
+    // IANUSオプションはオプションで唯一、装備対象(ianus)とカテゴリが違う一般アウトフィット(2026-06-13 確定)
+    "IANUSオプション":   ["general"],
     "ニューラルウェア":   ["general"],
     "アーティフィシャルボディ": ["general"],
     "オーガニックウェア": ["general"],

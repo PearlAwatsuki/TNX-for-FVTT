@@ -16,11 +16,12 @@
  *   未選択を許すため blank: true。
  * - hack(電脳制御値)は「なし / 数値」の 2 状態。buy / hide と同様の {mode, value} 構造
  *   (mode は none / value のみ)。
- * - timing はスタイル技能と共通の選択肢・構造(フェーズ6-1 でユーザー確定)。
- *   {value, actionName, processName, timingOther} の配列で、選択肢マップは
- *   TnxSkillUtils.getSkillOptions()(timing / actions / processes)を共用する。
- * - part(部位)は文字列 + スロット数の {value, slots} 構造。slots が 1 のときは部位名のみ、
- *   0 または 2 以上のときは「武器2」のように部位名 + 数値で表記する(2026-06-12 ユーザー確定)。
+ * - timing はスタイル技能と共通の選択肢({value, actionName, processName, timingOther})だが、
+ *   スタイル技能と違って**一つしかあり得ない**ため単一の SchemaField(2026-06-13 ユーザー確定)。
+ *   選択肢マップは TnxSkillUtils.getSkillOptions()(timing / actions / processes)を共用する。
+ * - part(部位)は {value, slots} の**配列**。複数部位を占有するアウトフィットがあるため
+ *   行の追加・削除ができる(2026-06-13 ユーザー確定)。slots が 1 のときは部位名のみ、
+ *   0 または 2 以上のときは「武器2」のように部位名 + 数値で表記する。
  * - exclusive は自由記述の StringField(空欄はシート閲覧時に "-" 表示)。
  * - uses.type は使用回数の種別(アクト/シーン/カット。スタイル技能の usesType と共通)。
  * - isConsumption(消費アイテム)はフェーズ6-2 で weapon の isthrow を置き換えて全種別に
@@ -90,18 +91,18 @@ export class OutfitBaseTemplate extends SystemDataModel {
       hide:              modeValueField(["none", "value", "reference"]),
       appearancePenalty: new fields.NumberField({ initial: 0 }),
       hack:              modeValueField(["none", "value"]),
-      part: new fields.SchemaField({
-        value: new fields.StringField({ initial: "" }),
-        slots: new fields.NumberField({ initial: 1, min: 0, integer: true }),
-      }),
-      timing: new fields.ArrayField(
+      part: new fields.ArrayField(
         new fields.SchemaField({
-          value:       new fields.StringField({ initial: "blank" }),
-          actionName:  new fields.StringField({ initial: "blank" }),
-          processName: new fields.StringField({ initial: "blank" }),
-          timingOther: new fields.StringField({ initial: "" }),
+          value: new fields.StringField({ initial: "" }),
+          slots: new fields.NumberField({ initial: 1, min: 0, integer: true }),
         })
       ),
+      timing: new fields.SchemaField({
+        value:       new fields.StringField({ initial: "blank" }),
+        actionName:  new fields.StringField({ initial: "blank" }),
+        processName: new fields.StringField({ initial: "blank" }),
+        timingOther: new fields.StringField({ initial: "" }),
+      }),
       exclusive:         new fields.StringField({ initial: "" }),
       uses: new fields.SchemaField({
         isLimit: new fields.BooleanField({ initial: false }),

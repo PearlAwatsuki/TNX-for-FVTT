@@ -201,6 +201,46 @@
                 </fieldset>
                 {{/if}}
 
+                {{#if isIanus}}
+                <fieldset class="tnx-fieldset">
+                    <legend>IANUSデータ</legend>
+                    <div class="tnx-form-field">
+                        <div class="form-group">
+                            <label>制御値修正</label>
+                            <div class="number-input-spinner skill-sheet-spinner">
+                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.controlMod">-</button>
+                                <input type="number" name="system.controlMod" value="{{system.controlMod}}">
+                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.controlMod">+</button>
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+                {{/if}}
+
+                {{#if isTap}}
+                <fieldset class="tnx-fieldset">
+                    <legend>タップデータ</legend>
+                    <div class="tnx-form-field">
+                        <div class="form-group">
+                            <label>サイクル数</label>
+                            <div class="number-input-spinner skill-sheet-spinner">
+                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.cycle" data-min="0">-</button>
+                                <input type="number" name="system.cycle" value="{{system.cycle}}" min="0">
+                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.cycle">+</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>CS修正</label>
+                            <div class="number-input-spinner skill-sheet-spinner">
+                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.combatSpeedMod">-</button>
+                                <input type="number" name="system.combatSpeedMod" value="{{system.combatSpeedMod}}">
+                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.combatSpeedMod">+</button>
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+                {{/if}}
+
                 {{#if hasSlots}}
                 <fieldset class="tnx-fieldset">
                     <legend>スロット</legend>
@@ -283,6 +323,7 @@
                             </div>
                         </div>
 
+                        {{#unless isIanus}}
                         <div class="form-group">
                             <label>電脳制御値</label>
                             <div class="form-fields {{#if (eq system.hack.mode "value")}}split-fields{{/if}}">
@@ -298,57 +339,57 @@
                                 {{/if}}
                             </div>
                         </div>
+                        {{/unless}}
 
-                        <div class="form-group">
-                            <label>部位</label>
-                            <div class="form-fields split-fields">
-                                <input type="text" name="system.part.value" value="{{system.part.value}}" placeholder="部位を入力"/>
-                                <div class="number-input-spinner skill-sheet-spinner">
-                                    <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.part.slots" data-min="0">-</button>
-                                    <input type="number" name="system.part.slots" value="{{system.part.slots}}" min="0">
-                                    <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.part.slots">+</button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {{!-- タイミング(スタイル技能と共通の選択肢) --}}
+                        {{!-- 部位(複数部位を占有する場合があるため行の追加/削除に対応) --}}
                         <div class="form-group align-start">
-                            <label>タイミング</label>
+                            <label>部位</label>
                             <div class="form-fields-column">
-                                {{#each system.timing as |t idx|}}
+                                {{#each system.part as |p idx|}}
                                 <div class="array-row">
-                                    <select name="system.timing.{{idx}}.value">
-                                        {{selectOptions ../options.timing selected=t.value}}
-                                    </select>
-
-                                    {{#if (eq t.value "other")}}
-                                        <input type="text" name="system.timing.{{idx}}.timingOther" value="{{t.timingOther}}" placeholder="タイミングを入力"/>
-                                    {{/if}}
-                                    {{#if (eq t.value "action")}}
-                                        <select name="system.timing.{{idx}}.actionName">
-                                            {{selectOptions ../options.actions selected=t.actionName}}
-                                        </select>
-                                    {{/if}}
-                                    {{#if (eq t.value "process")}}
-                                        <select name="system.timing.{{idx}}.processName">
-                                            {{selectOptions ../options.processes selected=t.processName}}
-                                        </select>
-                                    {{/if}}
-
+                                    <input type="text" data-part-field="value" data-index="{{idx}}" value="{{p.value}}" placeholder="部位を入力"/>
+                                    <div class="number-input-spinner skill-sheet-spinner">
+                                        <button type="button" class="tnx-btn" data-action="decrementPart" data-index="{{idx}}">-</button>
+                                        <input type="number" data-part-field="slots" data-index="{{idx}}" value="{{p.slots}}" min="0">
+                                        <button type="button" class="tnx-btn" data-action="incrementPart" data-index="{{idx}}">+</button>
+                                    </div>
                                     <div class="row-controls">
                                         {{#if (eq idx 0)}}
-                                            <a class="tnx-row-btn" data-target="timing" title="行を追加">
+                                            <a class="tnx-row-btn" data-target="part" title="行を追加">
                                                 <i class="fas fa-plus"></i>
                                             </a>
                                         {{/if}}
                                         {{#if (gte idx 1)}}
-                                            <a class="tnx-row-btn--delete" data-target="timing" data-index="{{idx}}" title="削除">
+                                            <a class="tnx-row-btn--delete" data-target="part" data-index="{{idx}}" title="削除">
                                                 <i class="fas fa-trash"></i>
                                             </a>
                                         {{/if}}
                                     </div>
                                 </div>
                                 {{/each}}
+                            </div>
+                        </div>
+
+                        {{!-- タイミング(選択肢はスタイル技能と共通だが、アウトフィットは一つのみ) --}}
+                        <div class="form-group">
+                            <label>タイミング</label>
+                            <div class="form-fields {{#if (or (eq system.timing.value "action") (eq system.timing.value "process") (eq system.timing.value "other"))}}split-fields{{/if}}">
+                                <select name="system.timing.value">
+                                    {{selectOptions options.timing selected=system.timing.value}}
+                                </select>
+                                {{#if (eq system.timing.value "other")}}
+                                    <input type="text" name="system.timing.timingOther" value="{{system.timing.timingOther}}" placeholder="タイミングを入力"/>
+                                {{/if}}
+                                {{#if (eq system.timing.value "action")}}
+                                    <select name="system.timing.actionName">
+                                        {{selectOptions options.actions selected=system.timing.actionName}}
+                                    </select>
+                                {{/if}}
+                                {{#if (eq system.timing.value "process")}}
+                                    <select name="system.timing.processName">
+                                        {{selectOptions options.processes selected=system.timing.processName}}
+                                    </select>
+                                {{/if}}
                             </div>
                         </div>
 
