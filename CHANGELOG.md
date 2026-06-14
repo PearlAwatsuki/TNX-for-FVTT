@@ -7,6 +7,66 @@
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-06-14
+
+フェーズ6（未実装シート追加）完了。outfit 系 Item 11 種・lifePath・キャストシートのアウトフィットタブを実装。
+
+### Added
+- 全 Item 型（未実装 12 種）に識別キー（identificationKey）を追加
+- outfitBase に isCarrying（携帯中）・parentSlotKind・combineGroupId フィールドを追加
+- **TokyoNovaOutfitSheet**（アウトフィット共通シート）を新設・general/weapon/armor/ianus/cyborg/tron/tap/vehicle/residence/combiner 10 種に登録
+  - 説明タブ（型別概要サマリ + ProseMirror）/ 設定タブ / 用途タブ / エフェクトタブ
+  - 準備済み・携帯中・プレアクト購入のヘッダーアイコントグル
+  - 大分類→小分類の連動カテゴリドロップダウン（型に有効な小分類のみ提示）
+  - タイミング・スロット・消費アイテム個数・modeValueField 系フィールドの編集 UI
+- **TokyoNovaHousingAreaSheet** 新設（説明 + 修正値 7 種、住宅エリア辞典 compendium）
+- **TokyoNovaLifePathSheet** 新設（説明 / 設定の 2 タブ）
+- キャストシート「アウトフィット」タブを全面実装
+  - 大分類別グループ（武器/防具/サイバーウェア/トロン/ヴィークル/住居/その他）+ グループ別固有列
+  - 行内 isCarrying / isPrepared フラグトグルボタン
+  - グループ内ドラッグ＆ドロップ並び替え
+- キャスト DataModel に isGhost / bountyBase / baseGuard / appearanceModifier / outfitMod フィールドを追加
+- アウトフィット集計の自動更新（createItem / deleteItem / updateItem フック + ready 時初期化）
+  - 携帯中アウトフィットから `appearanceModifier`（危険値合算）を自動集計
+  - 準備済み・携帯中フィルタで `outfitMod.control`・CS 修正（`outfitMod.combatSpeed`）を自動集計
+  - `isGhost` 変更時に `outfitMod.combatSpeed` を再集計（ゴースト登場中は CS 修正無効化）
+- キャストシートに報酬点 ±1 ホバーボタン・bountyBase 再計算ボタンを追加
+- 住宅施設の住宅エリア紐付け（compendium ドロップダウン / アイテムドロップの 2 方式）
+- コンバイナーのコンバイン連携（source1/source2 ドロップ・見た目選択・パラメータ取捨選択 UI）
+- 名称マーカー表示ヘルパー（★/†/※/＠/末尾※、`tnxDecoratedName`）
+- 住宅エリア辞典 compendium（`housing-areas`）を system.json に追加
+
+### Changed
+- outfitBase: buy / hide を `{mode, value}` SchemaField 化（mode = none/value/reference）
+- outfitBase: preserveExp / appearancePenalty を `{mode,value}` 化（「なし/数値」2 状態に変更）
+- outfitBase: majorCategory / minorCategory を choices 付き StringField 化
+- outfitBase: timing を配列から単一 SchemaField に変更（アウトフィットのタイミングは一つのみ）
+- outfitBase: part を `[{value, slots}]` 配列化（複数部位占有に対応）
+- outfitBase: hack を nullable NumberField 化（なし=null、「-」表示）
+- outfitBase: isOption を追加（別アウトフィットに装備するオプション品）
+- outfitBase: isConsumption + quantity `{value,max}` で消費アイテムを一般化（旧 isthrow を廃止）
+- extensible: slots[] を `{kind, count: {mode,value}}` プール方式に再設計
+- weapon: attack を `{damageType, value}` 化（damageType は単一選択 S/P/I/X）、range を `{min, max}` の選択式に変更
+- armor/cyborg/ianus/tap/vehicle 各フィールドを `{mode,value}` 化（guardValue/defence/controlMod/cycle/combatSpeedMod/speedFactor/passenger）
+- `modeValueField()` ヘルパーを outfit-base.mjs 局所定義から helpers.mjs へ昇格（全モデルで共有）
+- combiner: combinedOutfitID[] → combine `{source1, source2, appearance, params}` + isCombineActive に再設計
+- lifePath: lifePathType の choices を確定（origin/experience/encounter + 空文字）
+- troop: heads を `{value, max}` SchemaField 化
+- キャストシート「判定」タブを「戦闘」タブに改称（内容整備はフェーズ11）
+- キャストシートのアイテムリストで modeValueField 系フィールドを「-」または値で表示
+- ProseMirror エディタをコンテンツ高に自動伸長
+
+### Removed
+- cast: player_name フィールドを削除（デッドフィールド確定、フェーズ6-0）
+- outfitBase: isBiological を削除（カテゴリ「生体装備」で識別する方針に変更）
+- housingArea: hideMod を削除（住宅エリアは住宅施設の隠匿値を修正しない）
+- 全シートのフットノート（sheet-notes 注釈）を撤去（title 属性か wiki で代替）
+
+### Fixed
+- 全アウトフィット型に `static migrateData` を実装（旧 NumberField 形式 → `{mode,value}` 自動移行）
+- キャストシートのアウトフィットリスト部位表示を新 `{value,slots}` 構造に追従
+- isCyber ※マークをサイバーウェア大カテゴリには付与しない修正
+
 ## [0.6.0] - 2026-06-12
 
 フェーズ5（修正・軽微な機能追加）完了。
