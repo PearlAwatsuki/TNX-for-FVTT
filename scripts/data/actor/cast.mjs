@@ -17,6 +17,7 @@ import { SystemDataModel } from "../abstract.mjs";
 import { BiographyTemplate } from "./common/biography.mjs";
 import { AttributesTemplate } from "./common/attributes.mjs";
 import { ActorBaseTemplate } from "./common/actor-base.mjs";
+import { ATTACK_DAMAGE_TYPES } from "../item/helpers.mjs";
 
 export class CastDataModel extends SystemDataModel.mixin(
   BiographyTemplate, AttributesTemplate, ActorBaseTemplate
@@ -50,6 +51,21 @@ export class CastDataModel extends SystemDataModel.mixin(
         }),
       }),
       bounty: new fields.NumberField({ initial: 0, min: 0, integer: true }),
+      baseAttack: new fields.SchemaField({
+        damageType: new fields.StringField({
+          required: true,
+          blank: true,
+          initial: "I",
+          choices: ATTACK_DAMAGE_TYPES,
+        }),
+        value: new fields.NumberField({ initial: 0 }),
+        mod:   new fields.NumberField({ initial: 0 }),
+      }),
+      baseDefence: new fields.SchemaField({
+        S_defence: new fields.NumberField({ initial: 0 }),
+        P_defence: new fields.NumberField({ initial: 0 }),
+        I_defence: new fields.NumberField({ initial: 0 }),
+      }),
     };
   }
 }

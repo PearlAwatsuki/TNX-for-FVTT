@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { MockStringField, MockNumberField, MockSchemaField, MockObjectField } from "../../setup.mjs";
+import { ATTACK_DAMAGE_TYPES } from "../../../scripts/data/item/helpers.mjs";
 
 const { CastDataModel } = await import("../../../scripts/data/actor/cast.mjs");
 
@@ -85,6 +86,38 @@ describe("CastDataModel.defineSchema()", () => {
     it("exp.additional が NumberField で initial が 0", () => {
       expect(schema.exp.fields.additional).toBeInstanceOf(MockNumberField);
       expect(schema.exp.fields.additional.options.initial).toBe(0);
+    });
+  });
+
+  describe("cast 固有フィールド — baseAttack (生身の攻撃力)", () => {
+    it("baseAttack は SchemaField で damageType・value・mod を持つ", () => {
+      expect(schema.baseAttack).toBeInstanceOf(MockSchemaField);
+      expect(schema.baseAttack.fields.damageType).toBeInstanceOf(MockStringField);
+      expect(schema.baseAttack.fields.value).toBeInstanceOf(MockNumberField);
+      expect(schema.baseAttack.fields.mod).toBeInstanceOf(MockNumberField);
+    });
+
+    it("damageType の initial は 'I'（生身の打撃は衝撃ダメージ）", () => {
+      expect(schema.baseAttack.fields.damageType.options.initial).toBe("I");
+    });
+
+    it("damageType の choices は ATTACK_DAMAGE_TYPES", () => {
+      expect(schema.baseAttack.fields.damageType.options.choices).toBe(ATTACK_DAMAGE_TYPES);
+    });
+
+    it("value / mod の initial は 0", () => {
+      expect(schema.baseAttack.fields.value.options.initial).toBe(0);
+      expect(schema.baseAttack.fields.mod.options.initial).toBe(0);
+    });
+  });
+
+  describe("cast 固有フィールド — baseDefence (生身の防御値)", () => {
+    it("baseDefence は SchemaField で S_defence・P_defence・I_defence を持つ", () => {
+      expect(schema.baseDefence).toBeInstanceOf(MockSchemaField);
+      for (const key of ["S_defence", "P_defence", "I_defence"]) {
+        expect(schema.baseDefence.fields[key]).toBeInstanceOf(MockNumberField);
+        expect(schema.baseDefence.fields[key].options.initial).toBe(0);
+      }
     });
   });
 

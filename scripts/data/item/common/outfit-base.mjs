@@ -92,6 +92,7 @@ export class OutfitBaseTemplate extends SystemDataModel {
         max:     new fields.NumberField({ initial: 0 }),
         value:   new fields.NumberField({ initial: 0 }),
       }),
+      parentItemId: new fields.StringField({ initial: "" }),
     };
   }
 

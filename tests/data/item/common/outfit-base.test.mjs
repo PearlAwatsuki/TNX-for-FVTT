@@ -158,6 +158,13 @@ describe("OutfitBaseTemplate.defineSchema()", () => {
     });
   });
 
+  describe("parentItemId (オプション装備先の親 Item 参照)", () => {
+    it("parentItemId は StringField で initial が空文字", () => {
+      expect(schema.parentItemId).toBeInstanceOf(MockStringField);
+      expect(schema.parentItemId.options.initial).toBe("");
+    });
+  });
+
   describe("uses (SchemaField) の構造が正しい", () => {
     it("uses は SchemaField である", () => {
       expect(schema.uses).toBeInstanceOf(MockSchemaField);
