@@ -2549,7 +2549,7 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 
 .style-skill-grid {
     display: grid;
-    grid-template-columns: minmax(140px, 1.5fr) 80px 1fr 40px 75px 1fr 1fr 45px 1fr 15px;
+    grid-template-columns: minmax(120px, 1.3fr) 80px 1fr 40px 75px 1fr 1fr 45px 1fr 35px;
     align-items: center;
     padding: 0 4px;
 }
@@ -2571,10 +2571,14 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 }
 
 .style-skill-row {
-    height: 50px;
+    min-height: 50px;
     border-bottom: 1px solid var(--tnx2-border-subtle);
     font-size: 0.9em;
     transition: background var(--tnx2-transition-fast);
+}
+
+.style-skill-row-main {
+    height: 50px;
 }
 
 .style-skill-row:last-child { border-bottom: none; }
@@ -2665,11 +2669,50 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 
 /* 編集モードグリッド: Lvセルにレベル入力＋スートチェックを収める */
 .style-skill-grid--edit {
-    grid-template-columns: minmax(140px, 1.5fr) 110px 1fr 40px 75px 1fr 1fr 45px 1fr 15px;
+    grid-template-columns: minmax(115px, 1.3fr) 110px 1fr 40px 75px 1fr 1fr 45px 1fr 40px;
 }
 .style-skill-grid--edit .cell-level .skill-level-container input[type="number"] {
     width: 2.6em;
 }
+
+.skill-desc-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--tnx2-text-muted);
+    padding: 0 5px;
+    font-size: 0.8em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: color var(--tnx2-transition-fast);
+}
+.skill-desc-toggle:focus { outline: none; }
+.skill-desc-toggle:hover { color: var(--tnx2-accent); }
+
+.cell-other .item-menu-trigger {
+    width: auto;
+    height: auto;
+    padding: 0 5px;
+}
+
+.style-skill-desc-panel {
+    border-top: 1px solid var(--tnx2-border-subtle);
+    background: var(--tnx2-bg-2);
+    padding: 8px 14px 10px 12px;
+}
+.style-skill-desc-content {
+    font-size: 0.85em;
+    color: var(--tnx2-text-secondary);
+    line-height: 1.6;
+    white-space: normal;
+}
+.style-skill-desc-content p { margin: 0 0 4px; }
+.style-skill-desc-content p:last-child { margin-bottom: 0; }
+.style-skill-desc-content ul,
+.style-skill-desc-content ol { margin: 2px 0 4px 1.2em; padding: 0; }
+.style-skill-desc-content li { margin-bottom: 2px; }
 
 /* ================================================================
    24. アイテムシート: フォーム共通

@@ -381,48 +381,56 @@
                                     </div>
                                     <ol class="style-skills-list">
                                         {{#each styleSkills as |item|}}
-                                            <li class="item style-skill-row style-skill-grid style-skill-grid--edit" data-item-id="{{item._id}}">
-                                                <div class="cell cell-name">
-                                                    <a class="item-name">{{tnxDecoratedName item}}</a>
-                                                </div>
-                                                <div class="cell cell-level">
-                                                    <div class="skill-level-container">
-                                                        <input type="number" class="skill-property-change" data-target="level" value="{{item.system.level}}" placeholder="Lv" />
-                                                        <div class="skill-suits-row">
-                                                            {{#each ../TNX.SUITS as |suitData key|}}
-                                                                <label class="suit-checkbox-tiny" title="{{suitData.label}}">
-                                                                    <input type="checkbox" class="skill-property-change" data-target="suit" data-suit="{{key}}" {{checked (lookup item.system.suits key)}} />
-                                                                    <i class="{{suitData.icon}}"></i>
-                                                                </label>
-                                                            {{/each}}
+                                            <li class="item style-skill-row" data-item-id="{{item._id}}">
+                                                <div class="style-skill-row-main style-skill-grid style-skill-grid--edit">
+                                                    <div class="cell cell-name">
+                                                        <a class="item-name">{{tnxDecoratedName item}}</a>
+                                                    </div>
+                                                    <div class="cell cell-level">
+                                                        <div class="skill-level-container">
+                                                            <input type="number" class="skill-property-change" data-target="level" value="{{item.system.level}}" placeholder="Lv" />
+                                                            <div class="skill-suits-row">
+                                                                {{#each ../TNX.SUITS as |suitData key|}}
+                                                                    <label class="suit-checkbox-tiny" title="{{suitData.label}}">
+                                                                        <input type="checkbox" class="skill-property-change" data-target="suit" data-suit="{{key}}" {{checked (lookup item.system.suits key)}} />
+                                                                        <i class="{{suitData.icon}}"></i>
+                                                                    </label>
+                                                                {{/each}}
+                                                            </div>
                                                         </div>
                                                     </div>
+                                                    <div class="cell cell-combo">
+                                                        <span class="squeeze-text">{{item.view.comboSkill}}</span>
+                                                    </div>
+                                                    <div class="cell cell-max">
+                                                        <span class="squeeze-text">{{item.view.maxLevel}}</span>
+                                                    </div>
+                                                    <div class="cell cell-timing">
+                                                        <span class="squeeze-text">{{item.view.timing}}</span>
+                                                    </div>
+                                                    <div class="cell cell-target">
+                                                        <span class="squeeze-text">{{item.view.target}}</span>
+                                                    </div>
+                                                    <div class="cell cell-range">
+                                                        <span class="squeeze-text">{{item.view.range}}</span>
+                                                    </div>
+                                                    <div class="cell cell-tn">
+                                                        <span class="squeeze-text">{{item.view.targetValue}}</span>
+                                                    </div>
+                                                    <div class="cell cell-confront">
+                                                        <span class="squeeze-text">{{item.view.confrontation}}</span>
+                                                    </div>
+                                                    <div class="cell cell-other">
+                                                        <button type="button" class="skill-desc-toggle" data-action="toggleSkillDesc" title="説明を表示/非表示">
+                                                            <i class="fas fa-expand"></i>
+                                                        </button>
+                                                        <a class="item-menu-trigger" title="メニュー">
+                                                            <i class="fas fa-ellipsis-v"></i>
+                                                        </a>
+                                                    </div>
                                                 </div>
-                                                <div class="cell cell-combo">
-                                                    <span class="squeeze-text">{{item.view.comboSkill}}</span>
-                                                </div>
-                                                <div class="cell cell-max">
-                                                    <span class="squeeze-text">{{item.view.maxLevel}}</span>
-                                                </div>
-                                                <div class="cell cell-timing">
-                                                    <span class="squeeze-text">{{item.view.timing}}</span>
-                                                </div>
-                                                <div class="cell cell-target">
-                                                    <span class="squeeze-text">{{item.view.target}}</span>
-                                                </div>
-                                                <div class="cell cell-range">
-                                                    <span class="squeeze-text">{{item.view.range}}</span>
-                                                </div>
-                                                <div class="cell cell-tn">
-                                                    <span class="squeeze-text">{{item.view.targetValue}}</span>
-                                                </div>
-                                                <div class="cell cell-confront">
-                                                    <span class="squeeze-text">{{item.view.confrontation}}</span>
-                                                </div>
-                                                <div class="cell cell-other">
-                                                    <a class="item-menu-trigger" title="メニュー">
-                                                        <i class="fas fa-ellipsis-v"></i>
-                                                    </a>
+                                                <div class="style-skill-desc-panel" style="display: none;">
+                                                    <div class="style-skill-desc-content">{{{item.system.description}}}</div>
                                                 </div>
                                             </li>
                                         {{/each}}
@@ -481,51 +489,59 @@
                                     {{!-- リスト本体 --}}
                                     <ol class="style-skills-list">
                                         {{#each styleSkills as |item|}}
-                                            <li class="item style-skill-row style-skill-grid" data-item-id="{{item._id}}">
-                                                {{!-- 名称 --}}
-                                                <div class="cell cell-name">
-                                                    <a class="item-name">{{tnxDecoratedName item}}</a>
-                                                </div>
+                                            <li class="item style-skill-row" data-item-id="{{item._id}}">
+                                                <div class="style-skill-row-main style-skill-grid">
+                                                    {{!-- 名称 --}}
+                                                    <div class="cell cell-name">
+                                                        <a class="item-name">{{tnxDecoratedName item}}</a>
+                                                    </div>
 
-                                                {{!-- レベル＆スート（横並びコンテナ） --}}
-                                                <div class="cell cell-level">
-                                                    <div class="level-container">
-                                                        <span class="level-number">{{item.system.level}}</span>
-                                                        <div class="level-suits">
-                                                            <i class="fas fa-spade suit-icon {{#if item.system.suits.spade}}active{{else}}inactive{{/if}}"></i>
-                                                            <i class="fas fa-club suit-icon {{#if item.system.suits.club}}active{{else}}inactive{{/if}}"></i>
-                                                            <i class="fas fa-heart suit-icon {{#if item.system.suits.heart}}active{{else}}inactive{{/if}}"></i>
-                                                            <i class="fas fa-diamond suit-icon {{#if item.system.suits.diamond}}active{{else}}inactive{{/if}}"></i>
+                                                    {{!-- レベル＆スート（横並びコンテナ） --}}
+                                                    <div class="cell cell-level">
+                                                        <div class="level-container">
+                                                            <span class="level-number">{{item.system.level}}</span>
+                                                            <div class="level-suits">
+                                                                <i class="fas fa-spade suit-icon {{#if item.system.suits.spade}}active{{else}}inactive{{/if}}"></i>
+                                                                <i class="fas fa-club suit-icon {{#if item.system.suits.club}}active{{else}}inactive{{/if}}"></i>
+                                                                <i class="fas fa-heart suit-icon {{#if item.system.suits.heart}}active{{else}}inactive{{/if}}"></i>
+                                                                <i class="fas fa-diamond suit-icon {{#if item.system.suits.diamond}}active{{else}}inactive{{/if}}"></i>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
 
-                                                {{!-- その他パラメータ --}}
-                                                <div class="cell cell-combo">
-                                                    <span class="squeeze-text">{{item.view.comboSkill}}</span>
+                                                    {{!-- その他パラメータ --}}
+                                                    <div class="cell cell-combo">
+                                                        <span class="squeeze-text">{{item.view.comboSkill}}</span>
+                                                    </div>
+                                                    <div class="cell cell-max">
+                                                        <span class="squeeze-text">{{item.view.maxLevel}}</span>
+                                                    </div>
+                                                    <div class="cell cell-timing">
+                                                        <span class="squeeze-text">{{item.view.timing}}</span>
+                                                    </div>
+                                                    <div class="cell cell-target">
+                                                        <span class="squeeze-text">{{item.view.target}}</span>
+                                                    </div>
+                                                    <div class="cell cell-range">
+                                                        <span class="squeeze-text">{{item.view.range}}</span>
+                                                    </div>
+                                                    <div class="cell cell-tn">
+                                                        <span class="squeeze-text">{{item.view.targetValue}}</span>
+                                                    </div>
+                                                    <div class="cell cell-confront">
+                                                        <span class="squeeze-text">{{item.view.confrontation}}</span>
+                                                    </div>
+                                                    <div class="cell cell-other">
+                                                        <button type="button" class="skill-desc-toggle" data-action="toggleSkillDesc" title="説明を表示/非表示">
+                                                            <i class="fas fa-expand"></i>
+                                                        </button>
+                                                        <a class="item-menu-trigger" data-item-id="{{item._id}}" title="メニュー">
+                                                            <i class="fas fa-ellipsis-v"></i>
+                                                        </a>
+                                                    </div>
                                                 </div>
-                                                <div class="cell cell-max">
-                                                    <span class="squeeze-text">{{item.view.maxLevel}}</span>
-                                                </div>
-                                                <div class="cell cell-timing">
-                                                    <span class="squeeze-text">{{item.view.timing}}</span>
-                                                </div>
-                                                <div class="cell cell-target">
-                                                    <span class="squeeze-text">{{item.view.target}}</span>
-                                                </div>
-                                                <div class="cell cell-range">
-                                                    <span class="squeeze-text">{{item.view.range}}</span>
-                                                </div>
-                                                <div class="cell cell-tn">
-                                                    <span class="squeeze-text">{{item.view.targetValue}}</span>
-                                                </div>
-                                                <div class="cell cell-confront">
-                                                    <span class="squeeze-text">{{item.view.confrontation}}</span>
-                                                </div>
-                                                <div class="cell cell-other">
-                                                    <a class="item-menu-trigger" data-item-id="{{item._id}}" title="メニュー">
-                                                        <i class="fas fa-ellipsis-v"></i>
-                                                    </a>
+                                                <div class="style-skill-desc-panel" style="display: none;">
+                                                    <div class="style-skill-desc-content">{{{item.system.description}}}</div>
                                                 </div>
                                             </li>
                                         {{/each}}

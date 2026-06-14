@@ -43,6 +43,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             itemDelete:           TokyoNovaCastSheet._onItemDelete,
             removeBadStatus:      TokyoNovaCastSheet._onRemoveBadStatus,
             toggleAbilityDetails: TokyoNovaCastSheet._onToggleAbilityDetails,
+            toggleSkillDesc:      TokyoNovaCastSheet._onToggleSkillDesc,
         },
         dragDrop: [{ dragSelector: ".item-list .item, .style-skills-list .item, .skills-list-view .item", dropSelector: null }],
     };
@@ -1162,6 +1163,21 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         if (icon) {
             icon.classList.toggle('fa-chevron-down');
             icon.classList.toggle('fa-chevron-up');
+        }
+    }
+
+    static _onToggleSkillDesc(event, target) {
+        event.preventDefault();
+        target.blur();
+        const row = target.closest('.style-skill-row');
+        const panel = row?.querySelector('.style-skill-desc-panel');
+        if (!panel) return;
+        const isVisible = panel.style.display !== 'none';
+        panel.style.display = isVisible ? 'none' : '';
+        const icon = target.querySelector('i');
+        if (icon) {
+            icon.classList.toggle('fa-expand', isVisible);
+            icon.classList.toggle('fa-compress', !isVisible);
         }
     }
 
