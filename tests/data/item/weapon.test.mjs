@@ -22,6 +22,11 @@ describe("WeaponDataModel.defineSchema()", () => {
       expect(schema.isPrepared.options.initial).toBe(true);
     });
 
+    it("schema.isCheckAcquired が BooleanField で initial が false", () => {
+      expect(schema.isCheckAcquired).toBeInstanceOf(MockBooleanField);
+      expect(schema.isCheckAcquired.options.initial).toBe(false);
+    });
+
     it("schema.slots が ArrayField で存在する(ExtensibleTemplate)", () => {
       expect(schema.slots).toBeInstanceOf(MockArrayField);
     });

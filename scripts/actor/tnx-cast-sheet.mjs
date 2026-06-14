@@ -3,6 +3,8 @@ import { TnxSkillUtils } from '../module/tnx-skill-utils.mjs';
 import { TnxHistoryMixin } from '../module/tnx-history-mixin.mjs';
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 import { getUserFlagData, TNX_FLAG_SCOPE } from '../module/user-flag-schema.mjs';
+import { OUTFIT_CATEGORIES } from '../data/item/outfit-categories.mjs';
+import { formatWeaponRangeLabel, formatPartLabel } from '../item/tnx-outfit-sheet.mjs';
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -44,16 +46,90 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             removeBadStatus:      TokyoNovaCastSheet._onRemoveBadStatus,
             toggleAbilityDetails: TokyoNovaCastSheet._onToggleAbilityDetails,
             toggleSkillDesc:      TokyoNovaCastSheet._onToggleSkillDesc,
+            openOutfitSheet:      TokyoNovaCastSheet._onOpenOutfitSheet,
+            addOutfit:            TokyoNovaCastSheet._onAddOutfit,
+            toggleOutfitFlag:     TokyoNovaCastSheet._onToggleOutfitFlag,
+            toggleOutfitDesc:     TokyoNovaCastSheet._onToggleOutfitDesc,
+            recalculateBounty:    TokyoNovaCastSheet._onRecalculateBounty,
         },
-        dragDrop: [{ dragSelector: ".item-list .item, .style-skills-list .item, .skills-list-view .item", dropSelector: null }],
+        dragDrop: [{ dragSelector: ".item-list .item, .style-skills-list .item, .skills-list-view .item, .outfit-groups-container .outfit-row:not(.outfit-row--option):not(.outfit-row--header)", dropSelector: null }],
     };
 
     static PARTS = {
         main: {
             template: "systems/tokyo-nova-axleration/templates/actor/cast-sheet.hbs",
-            scrollable: [".sheet-body", ".profile-sidebar", ".tab.abilities"],
+            scrollable: [".sheet-body", ".profile-sidebar", ".tab.abilities", ".tab[data-tab='outfits']"],
         },
     };
+
+    /** アウトフィット対応 Item type の Set */
+    static OUTFIT_TYPES = new Set([
+        "weapon", "armor", "cyborg", "ianus", "tron", "tap", "vehicle", "residence", "combiner", "general",
+    ]);
+
+    /** 住宅エリア compendium pack ID */
+    static HOUSING_AREA_PACK = "tokyo-nova-axleration.housing-areas";
+
+    /** 大分類ごとの表示設定（表示ラベル・列定義）。アイテム/サービスは「その他」にまとめる。 */
+    static OUTFIT_GROUP_CONFIG = [
+        { key: "武器",       label: "武器",       sourceKeys: ["武器"],
+          columns: [
+              { key: "hide",    label: "隠" },
+              { key: "attack",  label: "攻" },
+              { key: "guard",   label: "受" },
+              { key: "range",   label: "射" },
+              { key: "hack",    label: "電制" },
+              { key: "part",    label: "部位" },
+          ] },
+        { key: "防具",       label: "防具",       sourceKeys: ["防具"],
+          columns: [
+              { key: "hide",    label: "隠" },
+              { key: "defence", label: "防(S／P／I)" },
+              { key: "control", label: "制" },
+              { key: "hack",    label: "電制" },
+              { key: "part",    label: "部位" },
+          ] },
+        { key: "サイバーウェア", label: "サイバーウェア", sourceKeys: ["サイバーウェア"],
+          columns: [
+              { key: "hide",    label: "隠" },
+              { key: "hack",    label: "電制" },
+              { key: "part",    label: "部位" },
+          ] },
+        { key: "トロン",     label: "トロン",     sourceKeys: ["トロン"],
+          columns: [
+              { key: "hide",    label: "隠" },
+              { key: "cycle",   label: "サ" },
+              { key: "soft",    label: "ソ" },
+              { key: "hard",    label: "ハ" },
+              { key: "cs",      label: "CS" },
+              { key: "hack",    label: "電制" },
+              { key: "part",    label: "部位" },
+          ] },
+        { key: "ヴィークル", label: "ヴィークル", sourceKeys: ["ヴィークル"],
+          columns: [
+              { key: "hide",      label: "隠" },
+              { key: "attack",    label: "攻" },
+              { key: "sf",        label: "SF" },
+              { key: "defence",   label: "防(S／P／I)" },
+              { key: "control",   label: "制" },
+              { key: "passenger", label: "乗員" },
+              { key: "slot",      label: "ス" },
+              { key: "hack",      label: "電制" },
+              { key: "part",      label: "部位" },
+          ] },
+        { key: "住宅",       label: "住居",       sourceKeys: ["住宅"],
+          columns: [
+              { key: "appearance", label: "登" },
+              { key: "security",   label: "セ" },
+              { key: "part",       label: "部位" },
+          ] },
+        { key: "その他",     label: "その他",     sourceKeys: ["アイテム", "サービス"],
+          columns: [
+              { key: "hide",    label: "隠" },
+              { key: "hack",    label: "電制" },
+              { key: "part",    label: "部位" },
+          ] },
+    ];
 
     // ─── コンテキスト準備 ──────────────────────────────────────────────────────
 
@@ -184,6 +260,8 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             ...context.effects.inactive
         ];
 
+        context.outfitGroups = await this._prepareOutfitGroups();
+
         return context;
     }
 
@@ -195,7 +273,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         this._scrollPositions = {};
         for (const sel of [
             ".profile-sidebar", ".sheet-body",
-            ".tab[data-tab='abilities']", ".tab[data-tab='check']",
+            ".tab[data-tab='abilities']", ".tab[data-tab='combat']",
             ".tab[data-tab='outfits']",  ".tab[data-tab='status']",
             ".tab[data-tab='history']",  ".tab[data-tab='profile']",
         ]) {
@@ -271,7 +349,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         // V2 は DEFAULT_OPTIONS.dragDrop を自動処理しないため明示的にバインドする。
         // ドロップ側は ActorSheetV2 既存の処理に委ねる(drop: false で二重発火を防止)。
         new foundry.applications.ux.DragDrop.implementation({
-            dragSelector: ".item-list .item, .style-skills-list .item, .skills-list-view .item",
+            dragSelector: ".item-list .item, .style-skills-list .item, .skills-list-view .item, .outfit-groups-container .outfit-row:not(.outfit-row--option):not(.outfit-row--header)",
             dropSelector: null,
             permissions: {
                 dragstart: () => this.isEditable && this._isEditMode,
@@ -458,6 +536,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     /**
      * 同型アイテム間の並び替え。
      * 一般技能は二列表示のため DOM 兄弟ではなく actor 上の同型アイテム全体を siblings とする。
+     * アウトフィットは同じ表示グループ内のみソート可能（グループをまたぐドロップは無視）。
      * @override
      */
     _onSortItem(event, itemData) {
@@ -469,8 +548,23 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         if (!dropTarget) return;
         const target = items.get(dropTarget.dataset.itemId);
         if (!target || source.id === target.id) return;
-        if (source.type !== target.type) return;
 
+        // アウトフィット同士は同じ表示グループ内のみソート（グループをまたぐドロップは無視）
+        if (TokyoNovaCastSheet.OUTFIT_TYPES.has(source.type) && TokyoNovaCastSheet.OUTFIT_TYPES.has(target.type)) {
+            const sourceGroup = this._getDisplayGroupKey(source.system.majorCategory);
+            const targetGroup = this._getDisplayGroupKey(target.system.majorCategory);
+            if (sourceGroup !== targetGroup) return;
+            const siblings = items.filter(i =>
+                TokyoNovaCastSheet.OUTFIT_TYPES.has(i.type)
+                && this._getDisplayGroupKey(i.system.majorCategory) === sourceGroup
+                && i.id !== source.id
+            );
+            const sortUpdates = foundry.utils.performIntegerSort(source, { target, siblings });
+            const updateData = sortUpdates.map(u => ({ _id: u.target.id, ...u.update }));
+            return this.actor.updateEmbeddedDocuments("Item", updateData);
+        }
+
+        if (source.type !== target.type) return;
         const siblings = items.filter(i => i.type === source.type && i.id !== source.id);
         const sortUpdates = foundry.utils.performIntegerSort(source, { target, siblings });
         const updateData = sortUpdates.map(u => ({ _id: u.target.id, ...u.update }));
@@ -496,6 +590,52 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
         if (this.actor.uuid === item.parent?.uuid) {
             return this._onSortItem(event, item.toObject());
+        }
+
+        // コンバイナー（source1/source2 設定済み）: 3 アイテムを一括インポートして活性化する
+        if (item.type === "combiner"
+                && item.system.combine?.source1
+                && item.system.combine?.source2
+                && !item.system.isCombineActive) {
+            const s1 = await fromUuid(item.system.combine.source1).catch(() => null);
+            const s2 = await fromUuid(item.system.combine.source2).catch(() => null);
+            const src1Data = s1?.toObject();
+            const src2Data = s2?.toObject();
+            const datas = [item.toObject(), ...([src1Data, src2Data].filter(Boolean))];
+            const created = await this.actor.createEmbeddedDocuments("Item", datas);
+            const combinerCreated = created[0];
+            let srcIdx = 1;
+            const src1Created = src1Data ? created[srcIdx++] : null;
+            const src2Created = src2Data ? created[srcIdx]   : null;
+            if (combinerCreated && src1Created && src2Created) {
+                await this.actor.updateEmbeddedDocuments("Item", [
+                    {
+                        _id: combinerCreated.id,
+                        "system.isCombineActive": true,
+                        "system.combine.source1": src1Created.uuid,
+                        "system.combine.source2": src2Created.uuid,
+                    },
+                    { _id: src1Created.id, "system.combineGroupId": combinerCreated.id },
+                    { _id: src2Created.id, "system.combineGroupId": combinerCreated.id },
+                ]);
+            } else if (combinerCreated) {
+                // 一方のソース解決失敗: UUID だけ更新して非活性状態を維持
+                const partialUpdate = { _id: combinerCreated.id };
+                if (src1Created) {
+                    partialUpdate["system.combine.source1"] = src1Created.uuid;
+                    await this.actor.updateEmbeddedDocuments("Item", [
+                        partialUpdate,
+                        { _id: src1Created.id, "system.combineGroupId": combinerCreated.id },
+                    ]);
+                } else if (src2Created) {
+                    partialUpdate["system.combine.source2"] = src2Created.uuid;
+                    await this.actor.updateEmbeddedDocuments("Item", [
+                        partialUpdate,
+                        { _id: src2Created.id, "system.combineGroupId": combinerCreated.id },
+                    ]);
+                }
+            }
+            return created;
         }
 
         const dropArea = event.target.closest('[data-drop-area]')?.dataset.dropArea;
@@ -763,6 +903,66 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             }
         }];
         new CM(el, ".tnx-bs-btn--view", badStatusViewMenu, { jQuery: false, fixed: true, eventName: "click" });
+
+        // アウトフィット行のコンテキストメニュー
+        const outfitMenu = [
+            {
+                name:     "閲覧",
+                icon:     '<i class="fas fa-eye"></i>',
+                callback: header => {
+                    const item = getItemFromHeader(header);
+                    if (!item) return;
+                    item.sheet._isEditMode = false;
+                    item.sheet.render({ force: true });
+                }
+            },
+            {
+                name:      "編集",
+                icon:      '<i class="fas fa-edit"></i>',
+                condition: () => this.isEditable,
+                callback:  header => {
+                    const item = getItemFromHeader(header);
+                    if (!item) return;
+                    item.sheet._isEditMode = true;
+                    item.sheet.render({ force: true });
+                }
+            },
+            {
+                name:      "コンバイン解除",
+                icon:      '<i class="fas fa-unlink"></i>',
+                condition: header => this.isEditable && !!getItemFromHeader(header)?.system.combineGroupId,
+                callback:  async header => {
+                    const srcItem = getItemFromHeader(header);
+                    if (!srcItem) return;
+                    const combiner = this.actor.items.get(srcItem.system.combineGroupId);
+                    if (!combiner) return;
+                    const s1Uuid = combiner.system.combine.source1;
+                    const s2Uuid = combiner.system.combine.source2;
+                    const updates = [{
+                        _id: combiner.id,
+                        "system.isCombineActive": false,
+                        "system.combine.source1": "",
+                        "system.combine.source2": "",
+                    }];
+                    for (const uuid of [s1Uuid, s2Uuid].filter(Boolean)) {
+                        const si = this.actor.items.find(i => i.uuid === uuid);
+                        if (si) updates.push({ _id: si.id, "system.combineGroupId": "" });
+                    }
+                    await this.actor.updateEmbeddedDocuments("Item", updates);
+                }
+            },
+            {
+                name:      "削除",
+                icon:      '<i class="fas fa-trash"></i>',
+                condition: () => this.isEditable,
+                callback:  async header => {
+                    const item = getItemFromHeader(header);
+                    if (!item) return;
+                    await this.actor.deleteEmbeddedDocuments("Item", [item.id]);
+                }
+            }
+        ];
+        new CM(el, ".outfit-row", outfitMenu, { jQuery: false, fixed: true });
     }
 
     // ─── テキスト圧縮 ─────────────────────────────────────────────────────────
@@ -814,6 +1014,320 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         return null;
     }
 
+    // ─── アウトフィットタブ ──────────────────────────────────────────────────
+
+    /** OUTFIT_GROUP_CONFIG の key に対応する表示グループキーを返す。 */
+    _getDisplayGroupKey(major) {
+        if (!major || major === "アイテム" || major === "サービス") return "その他";
+        return major;
+    }
+
+    /** 大分類でグループ化したアウトフィット行データを構築する。 */
+    async _prepareOutfitGroups() {
+        const outfitItems = this.actor.items
+            .filter(i => TokyoNovaCastSheet.OUTFIT_TYPES.has(i.type))
+            .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
+
+        // コンバイン活性中は「コンバイナー本体」と「非見た目元ソース」をリストから隠す
+        const combineHiddenIds = new Set();
+        for (const item of outfitItems) {
+            if (item.type !== "combiner" || !item.system.isCombineActive) continue;
+            combineHiddenIds.add(item.id);
+            const hiddenSrcKey = item.system.combine.appearance === "2" ? "source1" : "source2";
+            const hiddenItem = outfitItems.find(i => i.uuid === item.system.combine[hiddenSrcKey]);
+            if (hiddenItem) combineHiddenIds.add(hiddenItem.id);
+        }
+
+        const optionsByParent = new Map();
+        for (const item of outfitItems) {
+            const pid = item.system.parentItemId;
+            if (item.system.isOption && pid) {
+                if (!optionsByParent.has(pid)) optionsByParent.set(pid, []);
+                optionsByParent.get(pid).push(item);
+            }
+        }
+
+        const rowsById = new Map();
+        for (const item of outfitItems) {
+            rowsById.set(item.id, await this._prepareOutfitRow(item, optionsByParent));
+        }
+
+        const byGroupKey = new Map();
+        for (const item of outfitItems) {
+            if (item.system.isOption && item.system.parentItemId) continue;
+            if (combineHiddenIds.has(item.id)) continue;
+            const gk = this._getDisplayGroupKey(item.system.majorCategory);
+            if (!byGroupKey.has(gk)) byGroupKey.set(gk, []);
+            byGroupKey.get(gk).push(item);
+        }
+
+        return TokyoNovaCastSheet.OUTFIT_GROUP_CONFIG.map(cfg => {
+            const groupItems = byGroupKey.get(cfg.key) ?? [];
+            const rows = [];
+            for (const item of groupItems) {
+                const row = rowsById.get(item.id);
+                if (row) rows.push(row);
+                for (const opt of optionsByParent.get(item.id) ?? []) {
+                    const optRow = rowsById.get(opt.id);
+                    if (optRow) rows.push(optRow);
+                }
+            }
+            return { key: cfg.key, label: cfg.label, columns: cfg.columns, hasItems: rows.length > 0, items: rows };
+        });
+    }
+
+    /** 1 アイテム分の行データを構築する。 */
+    async _prepareOutfitRow(item, optionsByParent) {
+        const sys = item.system;
+        const isOption = !!(sys.isOption && sys.parentItemId);
+
+        // 表示名
+        let displayName = item.name;
+
+        // コンバイン見た目元の場合: コンバイナーと両ソースを解決して merged 列値を使う
+        let combinerItem = null;
+        let mergeSrc1 = null;
+        let mergeSrc2 = null;
+        if (sys.combineGroupId) {
+            const ci = this.actor.items.get(sys.combineGroupId);
+            if (ci?.system.isCombineActive) {
+                const s1 = this.actor.items.find(i => i.uuid === ci.system.combine.source1) ?? null;
+                const s2 = this.actor.items.find(i => i.uuid === ci.system.combine.source2) ?? null;
+                if (s1 && s2) {
+                    combinerItem = ci;
+                    mergeSrc1    = s1;
+                    mergeSrc2    = s2;
+                    displayName  = `${item.name}（コンバイン）`;
+                }
+            }
+        }
+
+        // 住宅エリアの有効値解決
+        let effectiveValues = null;
+        if (item.type === "residence") {
+            const mods = await this._resolveHousingAreaMods(sys);
+            if (mods) {
+                effectiveValues = {
+                    appearanceTarget: (sys.appearanceTarget ?? 0) + mods.appearanceTargetMod,
+                    cyberSecurity:    (sys.cyberSecurity    ?? 0) + mods.cyberSecurityMod,
+                    analogSecurity:   (sys.analogSecurity   ?? 0) + mods.analogSecurityMod,
+                };
+            }
+        }
+
+        // 列値を事前計算（コンバイン見た目元は merged 値、それ以外は通常値）
+        const gk = this._getDisplayGroupKey(sys.majorCategory);
+        const cfg = TokyoNovaCastSheet.OUTFIT_GROUP_CONFIG.find(c => c.key === gk)
+            ?? TokyoNovaCastSheet.OUTFIT_GROUP_CONFIG.at(-1);
+        const colValues = cfg.columns.map(col => ({
+            key:   col.key,
+            value: (combinerItem)
+                ? TokyoNovaCastSheet._computeCombinedColValue(col.key, combinerItem, mergeSrc1, mergeSrc2)
+                : TokyoNovaCastSheet._computeColValue(col.key, sys, effectiveValues),
+        }));
+
+        return {
+            _id: item.id,
+            displayName,
+            img: item.img,
+            system: sys,
+            isOption,
+            isResidence: item.system.majorCategory === "住宅",
+            hasOptions: optionsByParent.has(item.id),
+            colValues,
+            description: sys.description ?? "",
+            combineInfo: combinerItem ? {
+                combinerName:  combinerItem.name,
+                source1Name:   mergeSrc1.name,
+                source2Name:   mergeSrc2.name,
+            } : null,
+        };
+    }
+
+    /** 1 列分の表示値を計算する。 */
+    static _computeColValue(key, sys, effectiveValues) {
+        switch (key) {
+            case "hide": {
+                const h = sys.hide?.mode === "value" ? sys.hide.value : "-";
+                const d = sys.appearancePenalty?.mode === "value" ? sys.appearancePenalty.value : "-";
+                return (h === "-" && d === "-") ? "-" : `${h}／${d}`;
+            }
+            case "attack":
+                return sys.attack?.damageType
+                    ? `${sys.attack.damageType}+${sys.attack.value ?? 0}` : "-";
+            case "guard":
+                return sys.guardValue?.mode === "value" ? String(sys.guardValue.value) : "-";
+            case "range":
+                return (sys.range?.min && sys.range.min !== "none")
+                    ? formatWeaponRangeLabel(sys.range) : "-";
+            case "hack":
+                return sys.hack?.mode === "value" ? String(sys.hack.value) : "-";
+            case "defence":
+                return sys.defence?.mode === "value"
+                    ? `${sys.defence.S_defence}／${sys.defence.P_defence}／${sys.defence.I_defence}` : "-";
+            case "control":
+                return sys.controlMod?.mode === "value" ? String(sys.controlMod.value) : "-";
+            case "slot": {
+                const s = (sys.slots ?? []).find(s => s.kind === "normal");
+                return s?.count?.mode === "value" ? String(s.count.value) : "-";
+            }
+            case "soft": {
+                const s = (sys.slots ?? []).find(s => s.kind === "software");
+                return s?.count?.mode === "value" ? String(s.count.value) : "-";
+            }
+            case "hard": {
+                const s = (sys.slots ?? []).find(s => s.kind === "hardware");
+                return s?.count?.mode === "value" ? String(s.count.value) : "-";
+            }
+            case "cycle":
+                return sys.cycle?.mode === "value" ? String(sys.cycle.value) : "-";
+            case "cs":
+                return sys.combatSpeedMod?.mode === "value" ? String(sys.combatSpeedMod.value) : "-";
+            case "sf":
+                return sys.speedFactor?.mode === "value" ? String(sys.speedFactor.value) : "-";
+            case "passenger":
+                return sys.passenger?.mode === "value" ? String(sys.passenger.value) : "-";
+            case "appearance":
+                return effectiveValues
+                    ? String(effectiveValues.appearanceTarget)
+                    : String(sys.appearanceTarget ?? 0);
+            case "security":
+                return effectiveValues
+                    ? `${effectiveValues.cyberSecurity}／${effectiveValues.analogSecurity}`
+                    : `${sys.cyberSecurity ?? 0}／${sys.analogSecurity ?? 0}`;
+            case "part":
+                return formatPartLabel(sys.part);
+            default:
+                return "-";
+        }
+    }
+
+    /**
+     * コンバイン活性中の見た目元アイテム行の列値を merged 計算する。
+     * @param {string} key 列キー
+     * @param {Item} combinerItem コンバイナーアイテム
+     * @param {Item} srcItem1 ソース1（combine.source1）
+     * @param {Item} srcItem2 ソース2（combine.source2）
+     * @returns {string}
+     */
+    static _computeCombinedColValue(key, combinerItem, srcItem1, srcItem2) {
+        const csys   = combinerItem.system;
+        const params = csys.combine.params ?? {};
+        const s1sys  = srcItem1.system;
+        const s2sys  = srcItem2.system;
+        const appearIs1 = csys.combine.appearance !== "2";
+        const appearSys = appearIs1 ? s1sys : s2sys;
+
+        /** params[paramKey] に従って source1 または source2 の system を返す */
+        const chosenSys = (paramKey) => (params[paramKey] === "2" ? s2sys : s1sys);
+
+        const num = (v) => (Number.isFinite(v) ? v : 0);
+        const slotVal = (sys, kind) => {
+            const slot = (sys.slots ?? []).find(s => s.kind === kind);
+            return slot?.count?.mode === "value" ? (slot.count.value ?? 0) : 0;
+        };
+
+        switch (key) {
+            case "hide": {
+                // 見た目元の隠(コンバイナーの隠) ／ 選択した元の危険値
+                const h  = appearSys.hide?.mode === "value" ? appearSys.hide.value : "-";
+                const ch = csys.hide?.mode === "value" ? csys.hide.value : "-";
+                const penSys = chosenSys("appearancePenalty");
+                const d = penSys.appearancePenalty?.mode === "value"
+                    ? penSys.appearancePenalty.value : "-";
+                return (h === "-" && ch === "-" && d === "-") ? "-"
+                    : `${h}(${ch})／${d}`;
+            }
+            case "attack": {
+                const s = chosenSys("attack");
+                return s.attack?.damageType
+                    ? `${s.attack.damageType}+${s.attack.value ?? 0}` : "-";
+            }
+            case "guard": {
+                const s = chosenSys("guardValue");
+                return s.guardValue?.mode === "value" ? String(s.guardValue.value) : "-";
+            }
+            case "range": {
+                const s = chosenSys("range");
+                return (s.range?.min && s.range.min !== "none")
+                    ? formatWeaponRangeLabel(s.range) : "-";
+            }
+            case "hack": {
+                const h1 = s1sys.hack?.mode === "value" ? num(s1sys.hack.value) : null;
+                const h2 = s2sys.hack?.mode === "value" ? num(s2sys.hack.value) : null;
+                const vals = [h1, h2].filter(v => v !== null);
+                return vals.length ? String(Math.max(...vals)) : "-";
+            }
+            case "defence": {
+                const s = chosenSys("defence");
+                return s.defence?.mode === "value"
+                    ? `${s.defence.S_defence}／${s.defence.P_defence}／${s.defence.I_defence}` : "-";
+            }
+            case "control": {
+                const s = chosenSys("controlMod");
+                return s.controlMod?.mode === "value" ? String(s.controlMod.value) : "-";
+            }
+            case "sf": {
+                const s = chosenSys("speedFactor");
+                return s.speedFactor?.mode === "value" ? String(s.speedFactor.value) : "-";
+            }
+            case "passenger": {
+                const s = chosenSys("passenger");
+                return s.passenger?.mode === "value" ? String(s.passenger.value) : "-";
+            }
+            case "cycle": {
+                const s = chosenSys("cycle");
+                return s.cycle?.mode === "value" ? String(s.cycle.value) : "-";
+            }
+            case "cs": {
+                const s = chosenSys("combatSpeedMod");
+                return s.combatSpeedMod?.mode === "value" ? String(s.combatSpeedMod.value) : "-";
+            }
+            case "slot": {
+                const total = slotVal(s1sys, "normal") + slotVal(s2sys, "normal");
+                return total > 0 ? String(total) : "-";
+            }
+            case "soft": {
+                const total = slotVal(s1sys, "software") + slotVal(s2sys, "software");
+                return total > 0 ? String(total) : "-";
+            }
+            case "hard": {
+                const total = slotVal(s1sys, "hardware") + slotVal(s2sys, "hardware");
+                return total > 0 ? String(total) : "-";
+            }
+            case "part": {
+                const parts = [
+                    ...(Array.isArray(s1sys.part) ? s1sys.part : []),
+                    ...(Array.isArray(s2sys.part) ? s2sys.part : []),
+                ];
+                return formatPartLabel(parts);
+            }
+            default:
+                return TokyoNovaCastSheet._computeColValue(key, appearSys, null);
+        }
+    }
+
+    /** 住宅施設に紐づく住宅エリアの修正値を解決する。 */
+    async _resolveHousingAreaMods(sys) {
+        const ref = sys.housingArea;
+        if (!ref) return null;
+        try {
+            const areaItem = sys.useHousingAreaDrop
+                ? await fromUuid(ref)
+                : await game.packs.get(TokyoNovaCastSheet.HOUSING_AREA_PACK)?.getDocument(ref);
+            if (!areaItem) return null;
+            const s = areaItem.system;
+            return {
+                buyRatingMod:        s.buyRatingMod        ?? 0,
+                preserveExpMod:      s.preserveExpMod      ?? 0,
+                appearanceTargetMod: s.appearanceTargetMod ?? 0,
+                cyberSecurityMod:    s.cyberSecurityMod    ?? 0,
+                analogSecurityMod:   s.analogSecurityMod   ?? 0,
+                slotMod:             s.slotMod             ?? 0,
+            };
+        } catch { return null; }
+    }
+
     // ─── 市民ランク・能力値データ ─────────────────────────────────────────────
 
     _getCitizenRankData(context) {
@@ -836,6 +1350,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             mundane: "♦外界"
         };
 
+        const outfitMod = context.system.outfitMod ?? {};
         for (const key of abilityKeys) {
             const ability = context.system[key];
             let styleTotalValue = 0, styleTotalControl = 0;
@@ -847,21 +1362,25 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
                 styleTotalControl += sCtrl;
                 return { name: style.name, value: sVal, control: sCtrl, level };
             });
+            const abilityOutfitMod  = outfitMod[key]    ?? 0;
+            const controlOutfitMod  = outfitMod.control ?? 0;
             context.system.abilities[key] = {
-                label:           abilityLabels[key],
-                growth:          ability.growth,
-                controlGrowth:   ability.controlGrowth,
-                mod:             ability.mod,
-                controlMod:      ability.controlMod,
-                effectMod:       ability.effectMod,
+                label:            abilityLabels[key],
+                growth:           ability.growth,
+                controlGrowth:    ability.controlGrowth,
+                mod:              ability.mod,
+                controlMod:       ability.controlMod,
+                effectMod:        ability.effectMod,
                 controlEffectMod: ability.controlEffectMod,
+                outfitMod:        abilityOutfitMod,
+                outfitControlMod: controlOutfitMod,
                 styleContributions,
-                totalValue:   ability.growth + styleTotalValue   + ability.mod + ability.effectMod,
-                totalControl: ability.controlGrowth + styleTotalControl + ability.controlMod + ability.controlEffectMod
+                totalValue:   ability.growth + styleTotalValue   + ability.mod + ability.effectMod + abilityOutfitMod,
+                totalControl: ability.controlGrowth + styleTotalControl + ability.controlMod + ability.controlEffectMod + controlOutfitMod,
             };
         }
         context.mundaneTotalValue = context.system.abilities.mundane.totalValue;
-        context.effectiveBounty = context.mundaneTotalValue + (context.system.bounty ?? 0);
+        context.effectiveBounty = (context.system.bountyBase ?? 0) + (context.system.bounty ?? 0);
         context.bountyAtMin = context.effectiveBounty <= 0;
     }
 
@@ -992,9 +1511,79 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         });
     }
 
+    static async _onOpenOutfitSheet(event, target) {
+        event.preventDefault();
+        const itemId = target.closest("[data-item-id]")?.dataset.itemId;
+        const item   = this.actor.items.get(itemId);
+        if (!item) return;
+        item.sheet._isEditMode = false;
+        item.sheet.render({ force: true });
+    }
+
+    static async _onAddOutfit(event) {
+        event.preventDefault();
+        const optgroups = Object.entries(OUTFIT_CATEGORIES).map(([major, minors]) => {
+            const opts = Object.entries(minors).map(([minor, types]) =>
+                `<option value="${major}|${minor}|${types[0]}">${minor}</option>`
+            ).join("");
+            return `<optgroup label="${major}">${opts}</optgroup>`;
+        }).join("");
+
+        const result = await foundry.applications.api.DialogV2.prompt({
+            window:  { title: "アウトフィットを追加" },
+            content: `<div class="form-group"><label>種別</label><select name="sel">${optgroups}</select></div>`,
+            ok: { label: "追加", callback: (_e, _btn, dialog) =>
+                dialog.element.querySelector("[name=sel]").value
+            },
+        });
+        if (!result) return;
+        const [majorCategory, minorCategory, type] = result.split("|");
+        await Item.create({
+            name:   `新規${minorCategory}`,
+            type,
+            system: { majorCategory, minorCategory },
+        }, { parent: this.actor });
+    }
+
+    static async _onToggleOutfitFlag(event, target) {
+        event.preventDefault();
+        const itemId = target.closest("[data-item-id]")?.dataset.itemId;
+        const item   = this.actor.items.get(itemId);
+        if (!item) return;
+        const flag = target.dataset.flag;
+        if (flag !== "isCarrying" && flag !== "isPrepared") return;
+        // 住宅大分類は携帯中フラグを変更不可(常時 ON 固定)
+        if (flag === "isCarrying" && item.system.majorCategory === "住宅") return;
+        const next = !item.system[flag];
+        // 携帯中でなければ準備済みにできない(念のため)
+        if (flag === "isPrepared" && next && !item.system.isCarrying) return;
+        const update = { [`system.${flag}`]: next };
+        // 携帯中を外したとき準備済みも連動して外す
+        if (flag === "isCarrying" && !next && item.system.isPrepared) {
+            update["system.isPrepared"] = false;
+        }
+        await item.update(update);
+    }
+
+    static _onToggleOutfitDesc(event, target) {
+        event.preventDefault();
+        target.blur();
+        const row   = target.closest(".outfit-row");
+        const panel = row?.querySelector(".outfit-desc-panel");
+        if (!panel) return;
+        const visible = panel.style.display !== "none";
+        panel.style.display = visible ? "none" : "";
+        const icon = target.querySelector("i");
+        if (icon) {
+            icon.classList.toggle("fa-expand",   visible);
+            icon.classList.toggle("fa-compress", !visible);
+        }
+    }
+
     static async _onItemCreate(event, target) {
         event.preventDefault();
         const type = target.dataset.type;
+        if (!type) return;
         if (type === 'generalSkill') {
             return Item.create({ name: "新規一般技能", type: "generalSkill",
                 system: { level: 0, generalSkillCategory: "onomasticSkill" }
@@ -1200,6 +1789,19 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         }
     }
 
+    static async _onRecalculateBounty(event, _target) {
+        event.preventDefault();
+        await this.actor.update({ "system.bountyBase": TokyoNovaCastSheet._computeMundaneTotalValue(this.actor) });
+    }
+
+    static _computeMundaneTotalValue(actor) {
+        const mundane    = actor.system.mundane;
+        const outfitMod  = actor.system.outfitMod ?? {};
+        const allStyles  = actor.items.filter(i => i.type === "style");
+        const styleTotal = allStyles.reduce((sum, s) => sum + (s.system.mundane?.value ?? 0) * (s.system.level || 1), 0);
+        return mundane.growth + styleTotal + mundane.mod + mundane.effectMod + (outfitMod.mundane ?? 0);
+    }
+
     // ─── 経験点計算(静的) ────────────────────────────────────────────────────
 
     static async updateCastExp(actor) {
@@ -1292,6 +1894,16 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         // style / miracle / organization のコストはアビリティ計算に含まれるため個別コスト0
         if (item.type === 'style' || item.type === 'miracle' || item.type === 'organization') {
             return 0;
+        }
+
+        // アウトフィット: 常備化経験点を集計する
+        // isCheckAcquired（購入判定による入手）は経験点不要
+        // 消費アイテムは preserveExp.value × 常備化個数(quantity.max)
+        if (this.OUTFIT_TYPES.has(item.type)) {
+            if (system.isCheckAcquired) return 0;
+            if (system.preserveExp?.mode !== "value") return 0;
+            const base = Number(system.preserveExp.value) || 0;
+            return system.isConsumption ? base * (Number(system.quantity?.max) || 0) : base;
         }
 
         return Number(item.system.expCost) || 0;

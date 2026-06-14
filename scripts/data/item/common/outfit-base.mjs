@@ -9,7 +9,7 @@
  * 設計方針: llm-wiki/02_System/Design_Review_Entries.md B-0「論点3: 共通 template の継承戦略」参照
  *
  * フィールド型の判断(フェーズ6-0 で刷新):
- * - buy(購入値)/ hide(隠匿値)は「なし / 数値 / 解説参照」の 3 状態を持つため
+ * - buy(購入値)は「なし / 数値 / 解説参照」の 3 状態、hide(隠匿値)は「なし / 数値 / 解説参照 / 制御値」の 4 状態を持つため
  *   { mode, value } の SchemaField。mode が "value" のときのみ value を使う。
  * - preserveExp(常備化経験点)は必ず数値が入るため NumberField。
  * - appearancePenalty(危険値)は「なし / 数値」の 2 状態。buy / hide / hack と同様の {mode, value} 構造
@@ -49,6 +49,7 @@ export class OutfitBaseTemplate extends SystemDataModel {
       isPrepared:        new fields.BooleanField({ initial: true }),
       isOption:          new fields.BooleanField({ initial: false }),
       "isPre-play":      new fields.BooleanField({ initial: false }),
+      isCheckAcquired:   new fields.BooleanField({ initial: false }),
       isCyber:           new fields.BooleanField({ initial: false }),
       isCarrying:        new fields.BooleanField({ initial: true }),
       isConsumption:     new fields.BooleanField({ initial: false }),
@@ -70,7 +71,7 @@ export class OutfitBaseTemplate extends SystemDataModel {
       }),
       buy:               modeValueField(["none", "value", "reference"]),
       preserveExp:       modeValueField(["none", "value"]),
-      hide:              modeValueField(["none", "value", "reference"]),
+      hide:              modeValueField(["none", "value", "reference", "control"]),
       appearancePenalty: modeValueField(["none", "value"]),
       hack:              modeValueField(["none", "value"]),
       part: new fields.ArrayField(
@@ -92,7 +93,9 @@ export class OutfitBaseTemplate extends SystemDataModel {
         max:     new fields.NumberField({ initial: 0 }),
         value:   new fields.NumberField({ initial: 0 }),
       }),
-      parentItemId: new fields.StringField({ initial: "" }),
+      parentItemId:   new fields.StringField({ initial: "" }),
+      parentSlotKind: new fields.StringField({ initial: "" }),
+      combineGroupId: new fields.StringField({ initial: "" }),
     };
   }
 

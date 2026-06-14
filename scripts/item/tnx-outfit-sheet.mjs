@@ -112,6 +112,13 @@ const COMBINE_PARAM_DEFS = Object.freeze([
         fmt: modeValueFmt,
         eq: modeValueEq,
     },
+    {
+        key: "combatSpeedMod", label: "CS修正",
+        exists: (s) => s.combatSpeedMod !== undefined,
+        get: (s) => s.combatSpeedMod,
+        fmt: modeValueFmt,
+        eq: modeValueEq,
+    },
 ]);
 
 /**
@@ -179,6 +186,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             viewHousingArea:     TokyoNovaOutfitSheet._onViewHousingArea,
             clearCombineSource:  TokyoNovaOutfitSheet._onClearCombineSource,
             viewCombineSource:   TokyoNovaOutfitSheet._onViewCombineSource,
+            deactivateCombine:   TokyoNovaOutfitSheet._onDeactivateCombine,
         },
     };
 
@@ -320,6 +328,37 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         const minorChoices = { "": "-" };
         for (const minor of categories[system.majorCategory] ?? []) minorChoices[minor] = minor;
 
+        // isOption のとき: 同アクター・同大分類・非オプションのアウトフィットのみを選択肢として構築する
+        const parentItemChoices = { "": "-" };
+        const parentSlotChoices = { "": "-" };
+        if (system.isOption && this.item.parent?.documentName === "Actor") {
+            const outfitTypes = new Set([
+                "weapon","armor","cyborg","ianus","tron","tap",
+                "vehicle","residence","combiner","general",
+            ]);
+            const selfMajor = system.majorCategory;
+            for (const sibling of this.item.parent.items) {
+                if (sibling.id === this.item.id) continue;
+                if (!outfitTypes.has(sibling.type)) continue;
+                if (sibling.system.isOption) continue;
+                if (sibling.system.majorCategory !== selfMajor) continue;
+                parentItemChoices[sibling.id] = sibling.name;
+            }
+            // 親アイテム選択済みの場合、その slots を展開してスロット種別選択肢を構築する
+            if (system.parentItemId) {
+                const parentItem = this.item.parent.items.get(system.parentItemId);
+                const slots = parentItem?.system?.slots;
+                if (Array.isArray(slots)) {
+                    for (const slot of slots) {
+                        if (slot?.count?.mode === "value") {
+                            parentSlotChoices[slot.kind] = SLOT_KINDS[slot.kind] ?? slot.kind;
+                        }
+                    }
+                }
+            }
+        }
+        context.parentHasSlots = Object.keys(parentSlotChoices).length > 1;
+
         context.options = {
             ...context.options,
             timing:        skillOptions.timing,
@@ -337,6 +376,8 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             weaponRangeMax: WEAPON_RANGE_MAX_OPTIONS,
             attackArea:    WEAPON_ATTACK_AREAS,
             slotKinds:     SLOT_KINDS,
+            parentItem:    parentItemChoices,
+            parentSlot:    parentSlotChoices,
         };
 
         // ダメージ種別のドロップダウン選択肢(表示は「S（斬撃）」形式、保存値はキー)
@@ -378,6 +419,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         // コンバイナー: カテゴリ自動補正は BOTH_FIXED_CATEGORIES で処理済み
         if (context.isCombiner) {
             context.combine = await this._prepareCombinePreview(system);
+            context.combine.isActive = system.isCombineActive;
         }
 
         context.view = this._prepareView(system, type, areaMods);
@@ -592,6 +634,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 break;
             case "tap":
                 push("購", buy); push("隠", hideFull);
+                push("サ", mvOpt(system.cycle));
                 push("ソ", countOf("software"));
                 push("ハ", countOf("hardware"));
                 push("CS", mvOpt(system.combatSpeedMod));
@@ -685,9 +728,14 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 { flag: "isCarrying",  icon: "fa-suitcase",       title: "携帯中" },
                 { flag: "isPrepared",  icon: "fa-shield-halved",  title: "準備済み" },
             ];
+            const noPreserveExp = this.item.system.preserveExp?.mode !== "value";
             for (const t of toggles) {
                 const a = document.createElement("a");
-                a.className = "outfit-flag-toggle" + (this.item.system[t.flag] === true ? " active" : "");
+                const isDisabled = t.flag === "isPre-play" && noPreserveExp;
+                const cls = ["outfit-flag-toggle"];
+                if (this.item.system[t.flag] === true) cls.push("active");
+                if (isDisabled) cls.push("disabled");
+                a.className = cls.join(" ");
                 a.dataset.action = "toggleFlag";
                 a.dataset.flag = t.flag;
                 a.title = t.title;
@@ -825,6 +873,16 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             });
         }
 
+        // 装備対象変更時: スロット種別をリセットする(親が変わればスロット構成も変わるため)
+        this.element.querySelector('select[name="system.parentItemId"]')
+            ?.addEventListener("change", (event) => {
+                event.stopPropagation();
+                this.item.update({
+                    "system.parentItemId":   event.currentTarget.value,
+                    "system.parentSlotKind": "",
+                });
+            });
+
         // 住宅施設: ドロップモードチェックボックスの切り替え(オフ時はリンクをクリア)
         this.element.querySelector('input[name="system.useHousingAreaDrop"]')
             ?.addEventListener("change", (event) => {
@@ -877,6 +935,21 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             }
             const key = area === "combine-1" ? "source1" : "source2";
             await this.item.update({ [`system.combine.${key}`]: dropped.uuid });
+
+            // 両方のソースが同一アクター内の埋め込みアイテムになった場合、自動活性化する
+            if (!this.item.system.isCombineActive
+                    && this.item.parent?.documentName === "Actor") {
+                const actor = this.item.parent;
+                const s1 = actor.items.find(i => i.uuid === this.item.system.combine.source1);
+                const s2 = actor.items.find(i => i.uuid === this.item.system.combine.source2);
+                if (s1 && s2) {
+                    await actor.updateEmbeddedDocuments("Item", [
+                        { _id: this.item.id, "system.isCombineActive": true },
+                        { _id: s1.id, "system.combineGroupId": this.item.id },
+                        { _id: s2.id, "system.combineGroupId": this.item.id },
+                    ]);
+                }
+            }
         }
     }
 
@@ -929,10 +1002,50 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         ], { jQuery: false, fixed: true });
     }
 
-    /** コンバイン元の紐づけを解除する */
-    static async _onClearCombineSource(_event, target) {
-        const key = target.dataset.source === "2" ? "source2" : "source1";
-        await this.item.update({ [`system.combine.${key}`]: "" });
+    /** コンバイン元の紐づけを解除する。活性中の場合は完全解除する */
+    static async _onClearCombineSource(_event, _target) {
+        if (this.item.system.isCombineActive) {
+            await TokyoNovaOutfitSheet._deactivateCombine(this.item);
+        } else {
+            const key = _target.dataset.source === "2" ? "source2" : "source1";
+            await this.item.update({ [`system.combine.${key}`]: "" });
+        }
+    }
+
+    /** コンバイン解除ボタン */
+    static async _onDeactivateCombine(_event, _target) {
+        await TokyoNovaOutfitSheet._deactivateCombine(this.item);
+    }
+
+    /**
+     * コンバインを解除する共通処理。
+     * isCombineActive を false にし、source1/source2 をクリア、
+     * 関連ソースアイテムの combineGroupId をクリアする。
+     * @param {Item} combinerItem コンバイナーアイテム
+     */
+    static async _deactivateCombine(combinerItem) {
+        const actor = combinerItem.parent;
+        const s1Uuid = combinerItem.system.combine.source1;
+        const s2Uuid = combinerItem.system.combine.source2;
+        const updates = [{
+            _id: combinerItem.id,
+            "system.isCombineActive": false,
+            "system.combine.source1": "",
+            "system.combine.source2": "",
+        }];
+        if (actor?.documentName === "Actor") {
+            for (const uuid of [s1Uuid, s2Uuid].filter(Boolean)) {
+                const src = actor.items.find(i => i.uuid === uuid);
+                if (src) updates.push({ _id: src.id, "system.combineGroupId": "" });
+            }
+            await actor.updateEmbeddedDocuments("Item", updates);
+        } else {
+            await combinerItem.update({
+                "system.isCombineActive": false,
+                "system.combine.source1": "",
+                "system.combine.source2": "",
+            });
+        }
     }
 
     /** コンバイン元を閲覧モードで開く(左クリックアクション) */

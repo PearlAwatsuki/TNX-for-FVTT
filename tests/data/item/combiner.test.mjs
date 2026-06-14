@@ -82,3 +82,21 @@ describe("CombinerDataModel usage template (フェーズ6-1 追加対応)", () =
     expect(schema).toHaveProperty("actions");
   });
 });
+
+describe("CombinerDataModel isCombineActive (コンバイン活性状態)", () => {
+  const schema = CombinerDataModel.defineSchema();
+
+  it("isCombineActive は BooleanField で initial が false", () => {
+    expect(schema.isCombineActive).toBeInstanceOf(MockBooleanField);
+    expect(schema.isCombineActive.options.initial).toBe(false);
+  });
+});
+
+describe("CombinerDataModel combine.params.combatSpeedMod (CS修正択一)", () => {
+  const schema = CombinerDataModel.defineSchema();
+
+  it("combine.params.combatSpeedMod は StringField で initial が '1'", () => {
+    expect(schema.combine.fields.params.fields.combatSpeedMod).toBeInstanceOf(MockStringField);
+    expect(schema.combine.fields.params.fields.combatSpeedMod.options.initial).toBe("1");
+  });
+});

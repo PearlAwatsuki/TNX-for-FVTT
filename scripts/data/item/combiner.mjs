@@ -44,9 +44,11 @@ export class CombinerDataModel extends SystemDataModel.mixin(BaseTemplate, Outfi
           range:             new fields.StringField({ initial: "1" }),
           speedFactor:       new fields.StringField({ initial: "1" }),
           passenger:         new fields.StringField({ initial: "1" }),
+          combatSpeedMod:    new fields.StringField({ initial: "1" }),
         }),
       }),
       identificationKey: new fields.StringField({ initial: "" }),
+      isCombineActive:   new fields.BooleanField({ initial: false }),
     };
   }
 }

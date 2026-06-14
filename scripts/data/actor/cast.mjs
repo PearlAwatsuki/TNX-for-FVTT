@@ -50,7 +50,9 @@ export class CastDataModel extends SystemDataModel.mixin(
           name:     new fields.StringField({ initial: "" }),
         }),
       }),
-      bounty: new fields.NumberField({ initial: 0, min: 0, integer: true }),
+      isGhost:    new fields.BooleanField({ initial: false }),
+      bounty:     new fields.NumberField({ initial: 0, integer: true }),
+      bountyBase: new fields.NumberField({ initial: 0, integer: true }),
       baseAttack: new fields.SchemaField({
         damageType: new fields.StringField({
           required: true,
@@ -65,6 +67,19 @@ export class CastDataModel extends SystemDataModel.mixin(
         S_defence: new fields.NumberField({ initial: 0 }),
         P_defence: new fields.NumberField({ initial: 0 }),
         I_defence: new fields.NumberField({ initial: 0 }),
+      }),
+      baseGuard: new fields.SchemaField({
+        value: new fields.NumberField({ initial: 0 }),
+        mod:   new fields.NumberField({ initial: 0 }),
+      }),
+      appearanceModifier: new fields.NumberField({ initial: 0, integer: true }),
+      outfitMod: new fields.SchemaField({
+        control:     new fields.NumberField({ initial: 0, integer: true }),
+        reason:      new fields.NumberField({ initial: 0, integer: true }),
+        passion:     new fields.NumberField({ initial: 0, integer: true }),
+        life:        new fields.NumberField({ initial: 0, integer: true }),
+        mundane:     new fields.NumberField({ initial: 0, integer: true }),
+        combatSpeed: new fields.NumberField({ initial: 0, integer: true }),
       }),
     };
   }

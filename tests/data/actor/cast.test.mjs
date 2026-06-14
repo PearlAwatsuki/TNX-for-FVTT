@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MockStringField, MockNumberField, MockSchemaField, MockObjectField } from "../../setup.mjs";
+import { MockBooleanField, MockStringField, MockNumberField, MockSchemaField, MockObjectField } from "../../setup.mjs";
 import { ATTACK_DAMAGE_TYPES } from "../../../scripts/data/item/helpers.mjs";
 
 const { CastDataModel } = await import("../../../scripts/data/actor/cast.mjs");
@@ -119,6 +119,59 @@ describe("CastDataModel.defineSchema()", () => {
         expect(schema.baseDefence.fields[key].options.initial).toBe(0);
       }
     });
+  });
+
+  describe("cast 固有フィールド — baseGuard (生身の受け値)", () => {
+    it("baseGuard は SchemaField で value・mod を持ち initial 0", () => {
+      expect(schema.baseGuard).toBeInstanceOf(MockSchemaField);
+      expect(schema.baseGuard.fields.value).toBeInstanceOf(MockNumberField);
+      expect(schema.baseGuard.fields.value.options.initial).toBe(0);
+      expect(schema.baseGuard.fields.mod).toBeInstanceOf(MockNumberField);
+      expect(schema.baseGuard.fields.mod.options.initial).toBe(0);
+    });
+  });
+
+  describe("cast 固有フィールド — isGhost (ゴースト登場フラグ)", () => {
+    it("isGhost が BooleanField で initial が false", () => {
+      expect(schema.isGhost).toBeInstanceOf(MockBooleanField);
+      expect(schema.isGhost.options.initial).toBe(false);
+    });
+  });
+
+  describe("cast 固有フィールド — bounty / bountyBase (報酬点)", () => {
+    it("bounty が NumberField で initial が 0、integer が true", () => {
+      expect(schema.bounty).toBeInstanceOf(MockNumberField);
+      expect(schema.bounty.options.initial).toBe(0);
+      expect(schema.bounty.options.integer).toBe(true);
+    });
+
+    it("bountyBase が NumberField で initial が 0、integer が true", () => {
+      expect(schema.bountyBase).toBeInstanceOf(MockNumberField);
+      expect(schema.bountyBase.options.initial).toBe(0);
+      expect(schema.bountyBase.options.integer).toBe(true);
+    });
+  });
+
+  describe("cast 固有フィールド — appearanceModifier (登場判定修正)", () => {
+    it("appearanceModifier が NumberField で initial が 0、integer が true", () => {
+      expect(schema.appearanceModifier).toBeInstanceOf(MockNumberField);
+      expect(schema.appearanceModifier.options.initial).toBe(0);
+      expect(schema.appearanceModifier.options.integer).toBe(true);
+    });
+  });
+
+  describe("cast 固有フィールド — outfitMod (アウトフィット修正集計)", () => {
+    it("outfitMod が SchemaField である", () => {
+      expect(schema.outfitMod).toBeInstanceOf(MockSchemaField);
+    });
+
+    for (const key of ["control", "reason", "passion", "life", "mundane", "combatSpeed"]) {
+      it(`outfitMod.${key} が NumberField で initial が 0、integer が true`, () => {
+        expect(schema.outfitMod.fields[key]).toBeInstanceOf(MockNumberField);
+        expect(schema.outfitMod.fields[key].options.initial).toBe(0);
+        expect(schema.outfitMod.fields[key].options.integer).toBe(true);
+      });
+    }
   });
 
   describe("cast 固有フィールド — lifePath (SchemaField)", () => {

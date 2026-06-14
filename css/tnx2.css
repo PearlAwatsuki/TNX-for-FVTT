@@ -1386,6 +1386,22 @@
     opacity: 0.3;
     cursor: not-allowed;
 }
+.tokyo-nova.sheet.actor .bounty-recalc-btn {
+    width: 100%;
+    margin-top: 6px;
+    padding: 2px 0;
+    font-size: 0.82em;
+    color: var(--tnx2-text-muted);
+    background: transparent;
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: 3px;
+    cursor: pointer;
+}
+.tokyo-nova.sheet.actor .bounty-recalc-btn:hover {
+    background: var(--tnx2-accent-dim);
+    color: var(--tnx2-text-accent);
+    border-color: var(--tnx2-accent-dim);
+}
 
 /* ── ヘッダー: STYLE / ID / WORKS 英語ラベル (閲覧モード) ─────────── */
 /* tnx.css の .profile-header .middle-header-section .view-mode-label { font-size: 1.1em }
@@ -2628,13 +2644,10 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 .item-menu-trigger {
     color: var(--tnx2-text-muted);
     cursor: pointer;
-    padding: 0 5px;
     transition: color var(--tnx2-transition-fast);
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 100%;
-    height: 100%;
 }
 
 .item-menu-trigger:hover {
@@ -2680,6 +2693,7 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     border: none;
     cursor: pointer;
     color: var(--tnx2-text-muted);
+    box-shadow: none;
     padding: 0 5px;
     font-size: 0.8em;
     display: flex;
@@ -4942,6 +4956,12 @@ button.tnx-create-act-button span {
     text-shadow: 0 0 8px var(--tnx2-accent-glow);
 }
 
+.tokyo-nova.sheet.item.outfit .outfit-flag-toggle.disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 /* 住宅施設: 住宅エリアから供給された入力不可の値 */
 .tokyo-nova.sheet.item.outfit .linked-value {
     flex: 1;
@@ -5107,4 +5127,193 @@ button.tnx-create-act-button span {
     margin: 4px auto 0;
     accent-color: var(--tnx2-accent);
     cursor: pointer;
+}
+
+/* ================================================================
+   34. キャストシート アウトフィットタブ
+   ================================================================ */
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-groups-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 4px;
+}
+
+/* グループ間の区切り */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-group {
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius-sm);
+    overflow: hidden;
+    background: var(--tnx2-bg-2);
+}
+
+/* ヘッダー行(カラムラベル兼グループ名) */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row--header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 6px;
+    background: var(--tnx2-bg-3);
+    border-bottom: 1px solid var(--tnx2-border-active);
+    font-size: 0.9em;
+    font-weight: bold;
+    color: var(--tnx2-text-secondary);
+    cursor: default;
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row--header:hover {
+    background: var(--tnx2-bg-3);
+}
+
+/* アイテム行 */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row {
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    font-size: 0.9em;
+    cursor: context-menu;
+    transition: background var(--tnx2-transition-fast);
+}
+
+.tokyo-nova.sheet.actor.edit-mode .tab[data-tab="outfits"] .outfit-row:not(.outfit-row--header):not(.outfit-row--option) {
+    cursor: grab;
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row:last-child {
+    border-bottom: none;
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row:not(.outfit-row--header):hover {
+    background: var(--tnx2-bg-hover);
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row--option > .outfit-row-main {
+    background: var(--tnx2-bg-2);
+}
+
+/* 行本体(flex行) */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row-main {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 6px;
+    min-height: 50px;
+}
+
+/* 説明パネル */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-desc-panel {
+    padding: 4px 32px 6px;
+    font-size: 0.9em;
+    color: var(--tnx2-text-secondary);
+    background: var(--tnx2-bg-2);
+    border-top: 1px solid var(--tnx2-border-subtle);
+}
+
+/* 列幅定義 */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--img {
+    flex: 0 0 22px;
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--img img {
+    display: block;
+    width: 20px;
+    height: 20px;
+    object-fit: cover;
+    border-radius: 2px;
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--name {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.9em;
+    white-space: nowrap;
+    overflow: hidden;
+    font-stretch: condensed;
+    letter-spacing: -0.04em;
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-option-indent {
+    color: var(--tnx2-text-muted);
+    font-size: 0.9em;
+    margin-right: 2px;
+}
+
+/* パラメータ列: 共通 */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] [class^="outfit-col--"]:not(.outfit-col--img):not(.outfit-col--name):not(.outfit-col--flags):not(.outfit-col--actions) {
+    flex: 0 0 auto;
+    font-size: 0.9em;
+    text-align: center;
+    white-space: nowrap;
+    font-stretch: condensed;
+    letter-spacing: -0.04em;
+    color: var(--tnx2-text-secondary);
+}
+
+/* 個別列幅 */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--hide       { width: 68px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--attack      { width: 58px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--guard       { width: 36px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--range       { width: 54px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--hack        { width: 36px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--defence     { width: 72px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--control     { width: 32px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--slot        { width: 30px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--soft        { width: 30px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--cycle       { width: 30px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--hard        { width: 30px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--cs          { width: 36px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--sf          { width: 32px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--passenger   { width: 36px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--appearance  { width: 30px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--security    { width: 68px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--part        { width: 60px; }
+
+/* フラグ列(携帯/準備ボタン) */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--flags {
+    flex: 0 0 30px;
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+}
+
+/* アクション列(展開+メニュー) */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--actions {
+    flex: 0 0 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+}
+
+/* 携帯/準備フラグボタン */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-flag-btn {
+    padding: 0;
+    border: 1px solid transparent;
+    outline: none;
+    box-shadow: none;
+    background: transparent;
+    color: var(--tnx2-text-muted);
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: color       var(--tnx2-transition-fast),
+                text-shadow var(--tnx2-transition-fast);
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-flag-btn:focus,
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-flag-btn:active {
+    box-shadow: none;
+    outline: none;
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-flag-btn:hover {
+    color: var(--tnx2-text-secondary);
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-flag-btn.active {
+    color: var(--tnx2-accent);
+    text-shadow: 0 0 8px var(--tnx2-accent-glow);
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-flag-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
 }

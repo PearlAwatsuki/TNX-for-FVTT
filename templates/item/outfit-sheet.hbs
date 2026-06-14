@@ -114,6 +114,26 @@
                             <span>消費アイテム</span>
                         </label>
                     </div>
+                    {{#if system.isOption}}
+                    <div class="tnx-form-field">
+                        <div class="form-group">
+                            <label>装備対象</label>
+                            <select name="system.parentItemId">
+                                {{selectOptions options.parentItem selected=system.parentItemId}}
+                            </select>
+                        </div>
+                        {{#if system.parentItemId}}
+                        {{#if parentHasSlots}}
+                        <div class="form-group">
+                            <label>装備スロット</label>
+                            <select name="system.parentSlotKind">
+                                {{selectOptions options.parentSlot selected=system.parentSlotKind}}
+                            </select>
+                        </div>
+                        {{/if}}
+                        {{/if}}
+                    </div>
+                    {{/if}}
                 </fieldset>
                 {{/unless}}
 
@@ -552,6 +572,14 @@
                                 <div><label>電制：</label><span>{{combine.merged.hack}}</span></div>
                                 <div class="full-width-row"><label>部位：</label><span>{{combine.merged.part}}</span></div>
                             </div>
+                        </div>
+                        {{/if}}
+
+                        {{#if combine.isActive}}
+                        <div class="form-group">
+                            <button type="button" class="tnx-btn" data-action="deactivateCombine">
+                                <i class="fas fa-unlink"></i> コンバイン解除
+                            </button>
                         </div>
                         {{/if}}
                     </div>

@@ -238,6 +238,52 @@ async function performUnsyncSeparation(castActor, ownerUser) {
     if (recordSheet?.rendered) recordSheet.render();
 }
 
+const OUTFIT_ITEM_TYPES = new Set([
+    "weapon", "armor", "ianus", "cyborg", "tron", "tap",
+    "vehicle", "residence", "combiner", "general",
+]);
+
+function calcAppearanceModifier(actor) {
+    return actor.items
+        .filter(i => OUTFIT_ITEM_TYPES.has(i.type)
+                  && i.system.isCarrying
+                  && i.system.appearancePenalty?.mode === "value")
+        .reduce((sum, i) => sum + (Number(i.system.appearancePenalty?.value) || 0), 0);
+}
+
+async function updateCastAppearanceModifier(actor) {
+    if (!actor || actor.type !== "cast") return;
+    const newValue = calcAppearanceModifier(actor);
+    if (actor.system.appearanceModifier === newValue) return;
+    await actor.update({ "system.appearanceModifier": newValue }, { syncing: true });
+}
+
+function calcOutfitMods(actor) {
+    const mods = { control: 0, reason: 0, passion: 0, life: 0, mundane: 0, combatSpeed: 0 };
+    const carrying = actor.items.filter(i => OUTFIT_ITEM_TYPES.has(i.type) && i.system.isCarrying);
+    for (const outfit of carrying) {
+        const s = outfit.system;
+        // 制御値修正: 準備済み(isPrepared)かつ携帯中のアウトフィットのみ加算
+        if (s.isPrepared && s.controlMod?.mode === "value")
+            mods.control += Number(s.controlMod.value) || 0;
+        // CS修正: 携帯中であれば加算(tap は常時稼働のため isPrepared 不問)
+        // ただしゴースト登場中は物理現場不在のため CS 修正を無効にする
+        if (!actor.system.isGhost && s.combatSpeedMod?.mode === "value")
+            mods.combatSpeed += Number(s.combatSpeedMod.value) || 0;
+    }
+    return mods;
+}
+
+async function updateCastOutfitMods(actor) {
+    if (!actor || actor.type !== "cast") return;
+    const newMods = calcOutfitMods(actor);
+    const cur = actor.system.outfitMod ?? {};
+    if (Object.entries(newMods).every(([k, v]) => cur[k] === v)) return;
+    const update = {};
+    for (const [k, v] of Object.entries(newMods)) update[`system.outfitMod.${k}`] = v;
+    await actor.update(update, { syncing: true });
+}
+
 Hooks.once("init", async function() {
     game.tnx = game.tnx || {}
     game.tnx.refreshSheets = handleRefreshSheets;
@@ -790,6 +836,33 @@ Hooks.once("ready", async function() {
     Hooks.on('deleteItem', (item) => recalcActorExp(item));
     Hooks.on('updateItem', (item, diff, options) => recalcActorExp(item));
 
+    const recalcOutfitAggregates = (item) => {
+        if (item.parent?.type === "cast" && OUTFIT_ITEM_TYPES.has(item.type)) {
+            updateCastAppearanceModifier(item.parent).catch(e =>
+                console.error("TokyoNOVA | appearanceModifier update failed:", e)
+            );
+            updateCastOutfitMods(item.parent).catch(e =>
+                console.error("TokyoNOVA | outfitMod update failed:", e)
+            );
+        }
+    };
+    Hooks.on('createItem', (item) => recalcOutfitAggregates(item));
+    Hooks.on('deleteItem', (item) => recalcOutfitAggregates(item));
+    Hooks.on('updateItem', (item) => recalcOutfitAggregates(item));
+
+    // 起動時: 全キャストのアウトフィット集計・経験点を初期化(既存データが DB に未反映のため)
+    for (const actor of game.actors.filter(a => a.type === "cast")) {
+        updateCastAppearanceModifier(actor).catch(e =>
+            console.error(`TokyoNOVA | Initial appearanceModifier failed for ${actor.name}:`, e)
+        );
+        updateCastOutfitMods(actor).catch(e =>
+            console.error(`TokyoNOVA | Initial outfitMod failed for ${actor.name}:`, e)
+        );
+        TokyoNovaCastSheet.updateCastExp(actor).catch(e =>
+            console.error(`TokyoNOVA | Initial updateCastExp failed for ${actor.name}:`, e)
+        );
+    }
+
     Hooks.on('updateActor', async (actor, diff, options, userId) => {
         if (actor.type === 'cast' && options.calcExp !== false && !options.syncing) {
             if (diff.system) {
@@ -832,6 +905,13 @@ Hooks.once("ready", async function() {
                 const ownerUser = game.users.find(u => u.uuid === actor.system.ownerUserId);
                 if (ownerUser) await performUnsyncSeparation(actor, ownerUser);
             } catch (e) { console.warn(`TokyoNOVA | Failed unsync separation for cast ${actor.name}:`, e); }
+        }
+
+        // isGhost 変更 → CS修正の再集計(ゴースト登場中は TAP の CS 修正を無効化するため)
+        if (actor.type === 'cast' && diff.system?.isGhost !== undefined && !options.syncing) {
+            updateCastOutfitMods(actor).catch(e =>
+                console.error(`TokyoNOVA | outfitMod update failed on isGhost change for ${actor.name}:`, e)
+            );
         }
 
         // 2-2: cast → User flag EXP 同期(syncWithOwner が ON の場合のみ)

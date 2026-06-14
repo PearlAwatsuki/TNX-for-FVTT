@@ -122,16 +122,10 @@ describe("OutfitBaseTemplate.defineSchema()", () => {
     });
   });
 
-  describe("buy / hide (3 状態 SchemaField) が正しい", () => {
+  describe("buy / hide (SchemaField) が正しい", () => {
     for (const key of ["buy", "hide"]) {
       it(`${key} は SchemaField である`, () => {
         expect(schema[key]).toBeInstanceOf(MockSchemaField);
-      });
-
-      it(`${key}.mode は StringField で initial が 'none'、choices は none/value/reference`, () => {
-        expect(schema[key].fields.mode).toBeInstanceOf(MockStringField);
-        expect(schema[key].fields.mode.options.initial).toBe("none");
-        expect(schema[key].fields.mode.options.choices).toEqual(["none", "value", "reference"]);
       });
 
       it(`${key}.value は NumberField で initial が 0`, () => {
@@ -139,6 +133,18 @@ describe("OutfitBaseTemplate.defineSchema()", () => {
         expect(schema[key].fields.value.options.initial).toBe(0);
       });
     }
+
+    it("buy.mode は StringField で initial が 'none'、choices は none/value/reference", () => {
+      expect(schema.buy.fields.mode).toBeInstanceOf(MockStringField);
+      expect(schema.buy.fields.mode.options.initial).toBe("none");
+      expect(schema.buy.fields.mode.options.choices).toEqual(["none", "value", "reference"]);
+    });
+
+    it("hide.mode は StringField で initial が 'none'、choices は none/value/reference/control", () => {
+      expect(schema.hide.fields.mode).toBeInstanceOf(MockStringField);
+      expect(schema.hide.fields.mode.options.initial).toBe("none");
+      expect(schema.hide.fields.mode.options.choices).toEqual(["none", "value", "reference", "control"]);
+    });
   });
 
   describe("数値フィールドが正しい", () => {
@@ -158,10 +164,22 @@ describe("OutfitBaseTemplate.defineSchema()", () => {
     });
   });
 
-  describe("parentItemId (オプション装備先の親 Item 参照)", () => {
+  describe("parentItemId / parentSlotKind (オプション装備先の参照)", () => {
     it("parentItemId は StringField で initial が空文字", () => {
       expect(schema.parentItemId).toBeInstanceOf(MockStringField);
       expect(schema.parentItemId.options.initial).toBe("");
+    });
+
+    it("parentSlotKind は StringField で initial が空文字", () => {
+      expect(schema.parentSlotKind).toBeInstanceOf(MockStringField);
+      expect(schema.parentSlotKind.options.initial).toBe("");
+    });
+  });
+
+  describe("combineGroupId (コンバイングループ参照)", () => {
+    it("combineGroupId は StringField で initial が空文字", () => {
+      expect(schema.combineGroupId).toBeInstanceOf(MockStringField);
+      expect(schema.combineGroupId.options.initial).toBe("");
     });
   });
 
