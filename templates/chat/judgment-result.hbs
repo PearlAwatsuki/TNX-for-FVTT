@@ -63,7 +63,11 @@
             <span class="jr-total-num">{{result.achievement}}</span>
         </div>
     </div>
-    {{#if showSuccess}}
+    {{#if suitMismatch}}
+    <div class="jr-result jr-result--failure">
+        <i class="fas fa-times"></i> 判定不成立（達成値 0）
+    </div>
+    {{else if showSuccess}}
     <div class="jr-result {{#if result.success}}jr-result--success{{else}}jr-result--failure{{/if}}">
         {{#if result.success}}<i class="fas fa-check"></i> 成功{{else}}<i class="fas fa-times"></i> 失敗{{/if}}
         {{#if hasTargetValue}}<span class="jr-tn">目標値 {{result.targetValue}}</span>{{/if}}

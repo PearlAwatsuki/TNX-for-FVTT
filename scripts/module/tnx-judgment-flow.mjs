@@ -121,7 +121,7 @@ export class TnxJudgmentFlow {
             if (!declared) return false;
             const { suit: declaredSuit, numericValue } = declared;
 
-            // スート不一致 → 自動失敗（プレイヤーは失敗する権利を持つ）
+            // スート不一致 → 判定不成立による失敗（プレイヤーは失敗する権利を持つ）
             if (!ctx.validSuits.includes(declaredSuit)) {
                 return TnxJudgmentFlow._execute({
                     card, cardJudgmentValue: null, suit: declaredSuit, ctx, suitMismatch: true,
@@ -139,7 +139,7 @@ export class TnxJudgmentFlow {
 
         const suit = TnxJudgmentFlow._normalizeSuit(card.suit);
 
-        // スート不一致 → 自動失敗（起動は拒否しない。カードをプレイしてチャットに投稿）
+        // スート不一致 → 判定不成立による失敗（起動は拒否しない。カードをプレイしてチャットに投稿）
         if (!suit || !ctx.validSuits.includes(suit)) {
             return TnxJudgmentFlow._execute({
                 card, cardJudgmentValue: null, suit: suit ?? "spade", ctx, suitMismatch: true,
@@ -204,7 +204,7 @@ export class TnxJudgmentFlow {
                 return TnxJudgmentFlow._execute({ card, cardJudgmentValue, suit: declaredSuit, ctx, fromDeck: true });
             }
 
-            // スート不一致 → 自動失敗
+            // スート不一致 → 判定不成立による失敗
             if (!ctx.validSuits.includes(declaredSuit)) {
                 return TnxJudgmentFlow._execute({
                     card, cardJudgmentValue: null, suit: declaredSuit, ctx, fromDeck: true, suitMismatch: true,
@@ -220,7 +220,7 @@ export class TnxJudgmentFlow {
             return TnxJudgmentFlow._execute({ card, cardJudgmentValue, suit: suit ?? ctx.validSuits[0] ?? "spade", ctx, fromDeck: true });
         }
 
-        // スート不一致 → 自動失敗（手札判定と同様）
+        // スート不一致 → 判定不成立による失敗（手札判定と同様）
         if (!suit || !ctx.validSuits.includes(suit)) {
             return TnxJudgmentFlow._execute({
                 card, cardJudgmentValue: null, suit: suit ?? "spade", ctx, fromDeck: true, suitMismatch: true,
@@ -331,7 +331,7 @@ export class TnxJudgmentFlow {
         // 切り札を消費（RL切り札捨て場へ）
         await TnxActionHandler.useTrump(trumpCard.id);
 
-        // スート不一致 → 自動失敗
+        // スート不一致 → 判定不成立による失敗
         if (!ctx.validSuits.includes(declaredSuit)) {
             return TnxJudgmentFlow._execute({
                 card, cardJudgmentValue: null, suit: declaredSuit, ctx, suitMismatch: true, trumpUsed: true,
@@ -464,7 +464,7 @@ export class TnxJudgmentFlow {
         // 判定結果の計算
         let result;
         if (suitMismatch) {
-            // スート不一致 → 達成値 0 の失敗（カードはプレイされる）
+            // スート不一致 → 判定不成立。不成立ゆえに達成値 0 の失敗（カードはプレイされる）
             result = {
                 fumble:      false,
                 achievement: 0,
