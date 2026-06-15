@@ -4146,6 +4146,10 @@ body.tnx-bottom-hud-expanded #hotbar {
     color: #ff6060;
 }
 
+.jr-result--centered {
+    justify-content: center;
+}
+
 .jr-tn {
     margin-left: auto;
     font-size: 0.82em;
