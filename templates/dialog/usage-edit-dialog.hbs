@@ -1,0 +1,30 @@
+<form class="flexcol">
+    <div class="form-group">
+        <label>種類</label>
+        <select name="type">
+            {{selectOptions usageTypes selected=action.type}}
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>名前</label>
+        <input type="text" name="name" value="{{action.name}}">
+    </div>
+
+    <div class="form-group stacked">
+        <label>説明</label>
+        <textarea name="description" rows="3">{{action.description}}</textarea>
+    </div>
+
+    {{#if availableSkills.length}}
+    <div class="form-group stacked">
+        <label>組み合わせ技能（複数選択可）</label>
+        <select name="skillRefIds" multiple size="5">
+            {{#each availableSkills as |skill|}}
+                <option value="{{skill.id}}" {{#if skill.selected}}selected{{/if}}>{{skill.name}}</option>
+            {{/each}}
+        </select>
+        <p class="hint">Ctrl+クリックで複数選択。未選択は単独判定。</p>
+    </div>
+    {{/if}}
+</form>

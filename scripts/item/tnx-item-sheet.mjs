@@ -130,6 +130,12 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             ev.preventDefault();
             TokyoNovaItemSheet._onActionCreate.call(this, ev, ev.currentTarget);
         });
+        for (const btn of el.querySelectorAll(".action-edit[data-index]")) {
+            btn.addEventListener("click", (ev) => {
+                ev.preventDefault();
+                TokyoNovaItemSheet._onUsageEdit.call(this, ev, ev.currentTarget);
+            });
+        }
         for (const btn of el.querySelectorAll(".action-delete[data-index]")) {
             btn.addEventListener("click", (ev) => {
                 ev.preventDefault();
@@ -175,6 +181,27 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         if (!type) return;
         const actions = foundry.utils.deepClone(this.item.system.actions ?? []);
         actions.push({ type, name: "新規用途", description: "" });
+        await this.item.update({ "system.actions": actions });
+    }
+
+    static async _onUsageEdit(_event, target) {
+        const index = Number(target.dataset.index);
+        const actions = foundry.utils.deepClone(this.item.system.actions ?? []);
+        if (index < 0 || index >= actions.length) return;
+
+        const action = actions[index];
+        const usageTypes = this.constructor.usageTypes;
+
+        const SKILL_TYPES = ["generalSkill", "styleSkill"];
+        const availableSkills = (this.item.actor?.items ?? [])
+            .filter(i => SKILL_TYPES.includes(i.type) && i.id !== this.item.id)
+            .map(i => ({ id: i.id, name: i.name }))
+            .sort((a, b) => a.name.localeCompare(b.name, "ja"));
+
+        const result = await UsageCreationDialog.editAction({ action, usageTypes, availableSkills });
+        if (!result) return;
+
+        actions[index] = { ...action, ...result };
         await this.item.update({ "system.actions": actions });
     }
 

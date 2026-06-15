@@ -310,4 +310,59 @@ export class UsageCreationDialog {
             close: () => null,
         });
     }
+
+    /**
+     * 既存 Action を編集するダイアログ。
+     * @param {object} action         - 編集対象の action オブジェクト（type/name/description/skillRefs）
+     * @param {object} usageTypes     - type 選択肢マップ { value: label }
+     * @param {Array}  availableSkills - 選択可能スキル [{ id, name }]
+     * @returns {object|null} 編集後の action オブジェクト、またはキャンセル時 null
+     */
+    static async editAction({ action, usageTypes, availableSkills = [] }) {
+        const template = "systems/tokyo-nova-axleration/templates/dialog/usage-edit-dialog.hbs";
+        const existingRefIds = new Set((action.skillRefs ?? []).map(r => r.itemId));
+        const html = await foundry.applications.handlebars.renderTemplate(template, {
+            action,
+            usageTypes,
+            availableSkills: availableSkills.map(s => ({
+                ...s,
+                selected: existingRefIds.has(s.id),
+            })),
+        });
+
+        return DialogV2.wait({
+            window: { title: "用途の編集" },
+            classes: ["tokyo-nova"],
+            content: html,
+            buttons: [
+                {
+                    action: "save",
+                    icon: "fas fa-check",
+                    label: "保存",
+                    default: true,
+                    callback: (_event, _button, dialog) => {
+                        const form = dialog.element.querySelector("form");
+                        const data = new FormDataExtended(form).object;
+                        const rawRefs = data.skillRefIds ?? [];
+                        const skillRefs = (Array.isArray(rawRefs) ? rawRefs : [rawRefs])
+                            .filter(id => id)
+                            .map(id => ({ itemId: id }));
+                        return {
+                            type: data.type,
+                            name: data.name ?? "",
+                            description: data.description ?? "",
+                            skillRefs,
+                        };
+                    },
+                },
+                {
+                    action: "cancel",
+                    icon: "fas fa-times",
+                    label: "キャンセル",
+                    callback: () => null,
+                },
+            ],
+            close: () => null,
+        });
+    }
 }
