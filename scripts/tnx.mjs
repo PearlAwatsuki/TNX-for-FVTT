@@ -777,14 +777,15 @@ Hooks.once("init", async function() {
     // V13: controls は配列ではなくグループ名をキーとするオブジェクト
     Hooks.on("getSceneControlButtons", (controls) => {
         if (!game.user.isGM) return;
-        // V12 以前: 配列、V13: オブジェクト、Map の可能性も考慮
+        // V13: controls はグループ名をキーとするオブジェクト（キーは複数形）
+        // V12 以前: 配列
         let tokenGroup;
         if (Array.isArray(controls)) {
-            tokenGroup = controls.find(c => c.name === "token");
+            tokenGroup = controls.find(c => c.name === "tokens" || c.name === "token");
         } else if (controls instanceof Map) {
-            tokenGroup = controls.get("token");
+            tokenGroup = controls.get("tokens") ?? controls.get("token");
         } else {
-            tokenGroup = controls?.["token"];
+            tokenGroup = controls?.["tokens"] ?? controls?.["token"];
         }
         if (!tokenGroup) return;
         const newTool = {
