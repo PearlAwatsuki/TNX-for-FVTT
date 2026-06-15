@@ -791,9 +791,9 @@ Hooks.once("init", async function() {
         const newTool = {
             name:    "tnxJudgmentRequest",
             title:   "判定要求",
-            icon:    "fas fa-gavel",
+            icon:    "fas fa-cards",
             button:  true,
-            onClick: () => new TnxRlRequestApp().render(true),
+            onChange: () => new TnxRlRequestApp().render(true),
             visible: true,
         };
         const tools = tokenGroup.tools;
