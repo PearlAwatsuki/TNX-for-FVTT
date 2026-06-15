@@ -3946,143 +3946,184 @@ body.tnx-bottom-hud-expanded #hotbar {
 /* ── 判定結果チャットカード ────────────────────────────────────────── */
 
 .tnx-judgment-result {
-    padding: 6px 8px;
     border-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--tnx2-border-active);
+    background: var(--tnx2-bg-2);
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-    gap: 5px;
-    font-size: 0.9em;
 }
 
-.jr-header {
+/* ヘッダー: スキル名 | 判定種別バッジ */
+.jr-head {
     display: flex;
-    align-items: baseline;
-    gap: 8px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    padding-bottom: 4px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 6px 10px;
+    background: var(--tnx2-bg-1);
+    border-bottom: 1px solid var(--tnx2-border-subtle);
 }
 
-.jr-actor-name {
+.jr-skill-name {
+    font-size: 1.05em;
     font-weight: 700;
+    color: var(--tnx2-text-primary);
     flex: 1;
+    min-width: 0;
 }
 
-.jr-type-label {
-    font-size: 0.75em;
-    color: var(--tnx2-accent, #00c3ff);
+.jr-type-tag {
+    flex-shrink: 0;
+    font-size: 0.72em;
     font-weight: 600;
-    text-transform: uppercase;
+    color: var(--tnx2-text-accent);
+    background: var(--tnx2-accent-glow-sm);
+    border: 1px solid var(--tnx2-accent-dim);
+    border-radius: 2px;
+    padding: 1px 5px;
+    white-space: nowrap;
 }
 
-.jr-skill-label {
-    font-size: 0.85em;
-    opacity: 0.8;
-}
-
+/* カード行: スートシンボル | カード名 | バッジ群 */
 .jr-card-row {
     display: flex;
-    gap: 8px;
     align-items: center;
+    gap: 7px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
 }
 
-.jr-card-image img {
-    width: 48px;
-    height: 72px;
-    border-radius: 3px;
-    border: none;
-    display: block;
+.jr-suit {
+    font-size: 1.65em;
+    font-weight: 700;
+    line-height: 1;
+    flex-shrink: 0;
 }
 
-.jr-card-info {
+.jr-suit.suit-heart,
+.jr-suit.suit-diamond {
+    color: #e05050;
+}
+
+.jr-suit.suit-spade,
+.jr-suit.suit-club {
+    color: var(--tnx2-text-primary);
+}
+
+.jr-card-name {
+    font-size: 0.9em;
+    color: var(--tnx2-text-secondary);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.jr-badges {
+    display: flex;
+    gap: 3px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.jr-badge {
+    display: inline-block;
+    font-size: 0.68em;
+    padding: 1px 5px;
+    border-radius: 2px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.jr-badge--deck     { background: rgba(100, 100, 200, 0.35); color: #aaaaee; }
+.jr-badge--trump    { background: rgba(200, 120, 0,   0.40); color: #ffbb44; }
+.jr-badge--mismatch { background: rgba(200,  50, 50,  0.35); color: #ff8888; }
+.jr-badge--fixed21  { background: rgba(200, 200, 50,  0.30); color: #eeee60; }
+
+/* 計算内訳セクション */
+.jr-calc-section {
+    padding: 8px 12px 6px;
     display: flex;
     flex-direction: column;
     gap: 3px;
 }
 
-.jr-suit-symbol {
-    font-size: 1.4em;
-    font-weight: 700;
+.jr-calc-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 1px 0;
 }
 
-.jr-suit-symbol.suit-heart,
-.jr-suit-symbol.suit-diamond {
-    color: #e05050;
-}
-
-.jr-card-name {
-    font-size: 0.8em;
-    opacity: 0.75;
-}
-
-.jr-badge {
-    display: inline-block;
-    font-size: 0.7em;
-    padding: 1px 5px;
-    border-radius: 3px;
-    font-weight: 600;
-}
-
-.jr-badge--deck   { background: rgba(100, 100, 200, 0.4); }
-.jr-badge--trump  { background: rgba(200, 120, 0,   0.45); color: #ffbb44; }
-
-.jr-achievement {
-    font-size: 1.0em;
-}
-
-.jr-achievement strong {
-    font-size: 1.2em;
-}
-
-.jr-detail {
-    font-size: 0.75em;
-    opacity: 0.65;
-}
-
-.jr-fixed21-badge {
-    font-size: 0.7em;
-    padding: 1px 5px;
-    border-radius: 3px;
-    background: rgba(200, 200, 50, 0.35);
-    color: #eeee60;
-    font-weight: 600;
-}
-
-.jr-control-check {
+.jr-calc-label {
     font-size: 0.9em;
-    opacity: 0.85;
+    color: var(--tnx2-text-secondary);
 }
 
-.jr-result {
+.jr-calc-val {
+    font-size: 1em;
+    font-family: var(--tnx2-font-mono);
+    color: var(--tnx2-text-primary);
+    text-align: right;
+    min-width: 2.5em;
+}
+
+/* 達成値合計行 */
+.jr-total-row {
+    margin-top: 5px;
+    padding-top: 7px;
+    border-top: 1px solid var(--tnx2-border-subtle);
+    align-items: center;
+}
+
+.jr-total-row .jr-calc-label {
+    font-size: 0.95em;
+    font-weight: 600;
+    color: var(--tnx2-text-primary);
+}
+
+.jr-total-num {
+    font-size: 1.8em;
     font-weight: 700;
-    padding: 3px 6px;
-    border-radius: 3px;
+    font-family: var(--tnx2-font-mono);
+    color: var(--tnx2-text-accent);
+    text-align: right;
+    line-height: 1;
+}
+
+/* 結果フッター (成功 / 失敗 / ファンブル) */
+.jr-result {
     display: flex;
     align-items: center;
     gap: 6px;
+    padding: 7px 10px;
+    font-size: 1.05em;
+    font-weight: 700;
 }
 
 .jr-result--success {
-    background: rgba(50, 180, 80, 0.25);
+    background: rgba(50, 180, 80, 0.20);
     color: #60e880;
 }
 
 .jr-result--failure {
-    background: rgba(200, 50, 50, 0.25);
+    background: rgba(200, 50, 50, 0.20);
     color: #e86060;
 }
 
 .jr-result--fumble {
-    background: rgba(180, 0, 0, 0.35);
+    background: rgba(180, 0, 0, 0.32);
     color: #ff6060;
-    font-weight: 700;
 }
 
 .jr-tn {
-    font-size: 0.75em;
+    margin-left: auto;
+    font-size: 0.82em;
     font-weight: 400;
-    opacity: 0.8;
+    color: var(--tnx2-text-secondary);
 }
 
 .tnx-card-ghost {
@@ -5666,3 +5707,304 @@ button.tnx-create-act-button span {
     opacity: 0.3;
     cursor: not-allowed;
 }
+
+/* ============================================================
+   Phase 8-5: RL 判定要求ダイアログ (.tnx-rl-request)
+   ============================================================ */
+
+.tnx-rl-request .rl-request-body {
+    padding: 10px 14px 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.tnx-rl-request .rl-form-group {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    align-items: start;
+    gap: 6px;
+}
+
+.tnx-rl-request .rl-label {
+    font-size: 0.82em;
+    font-weight: 700;
+    color: var(--tnx2-text-secondary);
+    line-height: 28px;
+    white-space: nowrap;
+}
+
+.tnx-rl-request .rl-select,
+.tnx-rl-request .rl-input {
+    width: 100%;
+    background: var(--tnx2-input-bg, #1a1a2e);
+    border: 1px solid var(--tnx2-border, #444);
+    border-radius: 4px;
+    color: var(--tnx2-text, #e0e0e0);
+    padding: 4px 8px;
+    font-size: 0.88em;
+    height: 28px;
+}
+
+.tnx-rl-request .rl-textarea {
+    width: 100%;
+    background: var(--tnx2-input-bg, #1a1a2e);
+    border: 1px solid var(--tnx2-border, #444);
+    border-radius: 4px;
+    color: var(--tnx2-text, #e0e0e0);
+    padding: 4px 8px;
+    font-size: 0.88em;
+    resize: vertical;
+    min-height: 52px;
+    font-family: inherit;
+}
+
+.tnx-rl-request .other-skill-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-left: 8px;
+    border-left: 2px solid var(--tnx2-border-accent, #555);
+    margin-left: 4px;
+}
+
+.tnx-rl-request .rl-suit-checkboxes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+}
+
+.tnx-rl-request .rl-check-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.88em;
+    cursor: pointer;
+    color: var(--tnx2-text, #e0e0e0);
+    user-select: none;
+}
+
+.tnx-rl-request .rl-check-label input[type="checkbox"] {
+    accent-color: var(--tnx2-accent, #c8a84b);
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.tnx-rl-request .rl-tn-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.tnx-rl-request .rl-hidden-check {
+    font-size: 0.82em;
+    color: var(--tnx2-text-secondary);
+}
+
+.tnx-rl-request .rl-targets-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tnx-rl-request .rl-player-row {
+    padding: 4px 6px;
+    border-radius: 4px;
+    transition: background 0.15s;
+}
+
+.tnx-rl-request .rl-player-row:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+.tnx-rl-request .rl-player-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.tnx-rl-request .rl-player-name {
+    font-weight: 600;
+}
+
+.tnx-rl-request .rl-actor-name {
+    font-size: 0.82em;
+    color: var(--tnx2-text-secondary);
+}
+
+.tnx-rl-request .rl-no-players {
+    font-size: 0.85em;
+    color: var(--tnx2-text-secondary);
+    text-align: center;
+    padding: 6px 0;
+    margin: 0;
+}
+
+.tnx-rl-request .rl-form-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 6px;
+    border-top: 1px solid var(--tnx2-border, #444);
+    margin-top: 2px;
+}
+
+.tnx-rl-request .rl-submit-btn {
+    min-width: 160px;
+}
+
+/* ============================================================
+   Phase 8-5: 判定要求チャットカード (.tnx-judgment-request)
+   ============================================================ */
+
+.tnx-judgment-request {
+    background: var(--tnx2-card-bg, #12131f);
+    border: 1px solid var(--tnx2-border-accent, #555);
+    border-radius: 6px;
+    overflow: hidden;
+    font-size: 0.88em;
+}
+
+.tnx-judgment-request .jr-req-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: rgba(0,0,0,0.35);
+    border-bottom: 1px solid var(--tnx2-border, #444);
+}
+
+.tnx-judgment-request .jr-req-type-tag {
+    background: var(--tnx2-accent, #c8a84b);
+    color: #1a1208;
+    font-size: 0.78em;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 3px;
+    letter-spacing: 0.04em;
+}
+
+.tnx-judgment-request .jr-req-title {
+    font-weight: 700;
+    color: var(--tnx2-text-secondary);
+    font-size: 0.85em;
+    letter-spacing: 0.05em;
+}
+
+.tnx-judgment-request .jr-req-body {
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.tnx-judgment-request .jr-req-skill-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tnx-judgment-request .jr-req-skill-name {
+    font-size: 1.05em;
+    font-weight: 700;
+    color: var(--tnx2-text, #e0e0e0);
+}
+
+.tnx-judgment-request .jr-req-suits {
+    display: flex;
+    gap: 4px;
+}
+
+.tnx-judgment-request .jr-req-suit {
+    font-size: 1.1em;
+    font-weight: 700;
+}
+
+.tnx-judgment-request .jr-req-suit.suit-spade   { color: #8ab4f8; }
+.tnx-judgment-request .jr-req-suit.suit-club     { color: #81c995; }
+.tnx-judgment-request .jr-req-suit.suit-heart    { color: #f28b82; }
+.tnx-judgment-request .jr-req-suit.suit-diamond  { color: #fdd663; }
+
+.tnx-judgment-request .jr-req-description {
+    font-size: 0.85em;
+    color: var(--tnx2-text-secondary);
+    margin: 0;
+    padding: 4px 8px;
+    border-left: 2px solid var(--tnx2-border, #444);
+}
+
+.tnx-judgment-request .jr-req-tn-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.88em;
+}
+
+.tnx-judgment-request .jr-req-tn-label {
+    color: var(--tnx2-text-secondary);
+    font-size: 0.85em;
+}
+
+.tnx-judgment-request .jr-req-tn-value {
+    font-weight: 700;
+    font-size: 1.05em;
+    color: var(--tnx2-accent, #c8a84b);
+    min-width: 2em;
+    text-align: center;
+}
+
+.tnx-judgment-request .jr-req-tn-hidden {
+    color: var(--tnx2-text-secondary);
+    font-weight: normal;
+    font-size: 0.9em;
+}
+
+.tnx-judgment-request .jr-req-targets {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tnx-judgment-request .jr-req-target-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 8px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 4px;
+    gap: 8px;
+}
+
+.tnx-judgment-request .jr-req-actor-name {
+    font-weight: 600;
+    flex: 1;
+}
+
+.tnx-judgment-request .jr-req-target-status {
+    flex-shrink: 0;
+}
+
+.tnx-judgment-request .tnx-judgment-do-btn {
+    font-size: 0.82em;
+    padding: 3px 10px;
+}
+
+.tnx-judgment-request .jr-req-waiting {
+    font-size: 0.82em;
+    color: var(--tnx2-text-secondary);
+    font-style: italic;
+}
+
+.tnx-judgment-request .jr-req-result {
+    font-size: 0.88em;
+}
+
+.tnx-judgment-request .jr-inline-success { color: #81c995; font-weight: 700; }
+.tnx-judgment-request .jr-inline-failure  { color: #f28b82; font-weight: 700; }
+.tnx-judgment-request .jr-inline-fumble   { color: #f28b82; font-weight: 700; }

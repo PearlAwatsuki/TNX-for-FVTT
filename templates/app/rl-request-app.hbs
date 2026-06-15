@@ -1,0 +1,106 @@
+<div class="rl-request-body">
+
+    {{!-- 判定種別 --}}
+    <div class="form-group rl-form-group">
+        <label class="rl-label">判定種別</label>
+        <select name="judgmentType" class="rl-select">
+            <option value="skillCheck">技能判定</option>
+            <option value="abilityCheck">能力値判定</option>
+            <option value="controlCheck">制御判定</option>
+        </select>
+    </div>
+
+    {{!-- 技能セクション（技能判定時のみ） --}}
+    <div class="skill-section">
+        <div class="form-group rl-form-group">
+            <label class="rl-label">技能</label>
+            <select name="identificationKey" class="rl-select">
+                {{#each compendiumSkills}}
+                    <option value="{{this.identificationKey}}">{{this.name}}</option>
+                {{/each}}
+                <option value="">その他（自由入力）</option>
+            </select>
+        </div>
+
+        {{!-- その他: 技能名自由入力 + スート選択（JS で表示切替） --}}
+        <div class="other-skill-section" hidden>
+            <div class="form-group rl-form-group">
+                <label class="rl-label">技能名</label>
+                <input type="text" name="customSkillName" class="rl-input"
+                       placeholder="技能名を入力（省略可）">
+            </div>
+            <div class="form-group rl-form-group">
+                <label class="rl-label">使用可能スート</label>
+                <div class="rl-suit-checkboxes">
+                    {{#each SUIT_OPTIONS}}
+                        <label class="rl-check-label">
+                            <input type="checkbox" name="suit_{{this.value}}">
+                            <span>{{this.label}}</span>
+                        </label>
+                    {{/each}}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{!-- 能力値セクション（能力値判定・制御判定時のみ） --}}
+    <div class="ability-section" hidden>
+        <div class="form-group rl-form-group">
+            <label class="rl-label">能力値</label>
+            <select name="abilityKey" class="rl-select">
+                {{#each ABILITY_OPTIONS}}
+                    <option value="{{this.value}}">{{this.label}}</option>
+                {{/each}}
+            </select>
+        </div>
+    </div>
+
+    {{!-- 目標値 --}}
+    <div class="form-group rl-form-group">
+        <label class="rl-label">目標値</label>
+        <div class="rl-tn-row">
+            <div class="number-input-spinner">
+                <button type="button" class="tnx-btn" data-action="decrement" aria-label="減少">−</button>
+                <input type="number" name="targetValue" value="0" min="0" max="99">
+                <button type="button" class="tnx-btn" data-action="increment" aria-label="増加">＋</button>
+            </div>
+            <label class="rl-check-label rl-hidden-check">
+                <input type="checkbox" name="targetValueHidden">
+                <span>プレイヤーに非公開</span>
+            </label>
+        </div>
+    </div>
+
+    {{!-- 説明文 --}}
+    <div class="form-group rl-form-group">
+        <label class="rl-label">説明</label>
+        <textarea name="description" class="rl-textarea" rows="2"
+                  placeholder="（省略可）"></textarea>
+    </div>
+
+    {{!-- 対象プレイヤー --}}
+    <div class="form-group rl-form-group">
+        <label class="rl-label">対象プレイヤー</label>
+        <div class="rl-targets-list">
+            {{#if activePlayers}}
+                {{#each activePlayers}}
+                    <label class="rl-check-label rl-player-row">
+                        <input type="checkbox" name="target_{{this.userId}}">
+                        <span class="rl-player-dot" style="background:{{this.color}}"></span>
+                        <span class="rl-player-name">{{this.userName}}</span>
+                        <span class="rl-actor-name">（{{this.actorName}}）</span>
+                    </label>
+                {{/each}}
+            {{else}}
+                <p class="rl-no-players">接続中のプレイヤーがいません</p>
+            {{/if}}
+        </div>
+    </div>
+
+    <footer class="rl-form-footer">
+        <button type="submit" class="tnx-btn tnx-btn--primary rl-submit-btn">
+            <i class="fas fa-paper-plane"></i> 判定要求を送信
+        </button>
+    </footer>
+
+</div>

@@ -1,0 +1,51 @@
+<div class="tnx-judgment-request tokyo-nova">
+
+    {{!-- ヘッダー --}}
+    <header class="jr-req-header">
+        <span class="jr-req-type-tag">{{typeLabel}}</span>
+        <span class="jr-req-title">判定要求</span>
+    </header>
+
+    <div class="jr-req-body">
+
+        {{!-- 技能名 + スート --}}
+        <div class="jr-req-skill-row">
+            <span class="jr-req-skill-name">{{skillLabel}}</span>
+            {{#if validSuits.length}}
+                <span class="jr-req-suits">
+                    {{#each validSuits}}
+                        <span class="jr-req-suit suit-{{this}}">{{lookup ../suitSymbols this}}</span>
+                    {{/each}}
+                </span>
+            {{/if}}
+        </div>
+
+        {{!-- 説明文 --}}
+        {{#if description}}
+            <p class="jr-req-description">{{description}}</p>
+        {{/if}}
+
+        {{!-- 目標値 --}}
+        <div class="jr-req-tn-row">
+            <span class="jr-req-tn-label">目標値</span>
+            <span class="jr-req-tn-value" data-hidden="{{targetValueHidden}}">
+                {{#if targetValue}}{{targetValue}}{{else}}—{{/if}}
+            </span>
+        </div>
+
+        {{!-- 対象プレイヤー一覧（ステータスは renderChatMessage フックが注入） --}}
+        <ul class="jr-req-targets">
+            {{#each targets}}
+                <li class="jr-req-target-row"
+                    data-actor-id="{{this.actorId}}"
+                    data-user-id="{{this.userId}}">
+                    <span class="jr-req-actor-name">{{this.actorName}}</span>
+                    <div class="jr-req-target-status">
+                        {{!-- フックが「判定する」ボタン or 結果を注入する --}}
+                    </div>
+                </li>
+            {{/each}}
+        </ul>
+
+    </div>
+</div>

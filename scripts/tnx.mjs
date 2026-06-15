@@ -42,8 +42,10 @@ import { recordCastOwnerUser } from './module/cast-ownership.mjs';
 import { TnxSocketHandler } from './module/tnx-socket-handler.mjs';
 import { TnxJudgmentFlow } from './module/tnx-judgment-flow.mjs';
 import { TnxJudgmentDialog } from './module/tnx-judgment-dialog.mjs';
+import { TnxRlRequestApp } from './module/tnx-rl-request-app.mjs';
 import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
+import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
 
 async function preloadHandlebarsTemplates() {
     const templatePaths = [
@@ -63,9 +65,11 @@ async function preloadHandlebarsTemplates() {
 
         // === Chat ===
         "systems/tokyo-nova-axleration/templates/chat/scene-card.hbs",
-
-        // === Chat ===
         "systems/tokyo-nova-axleration/templates/chat/judgment-result.hbs",
+        "systems/tokyo-nova-axleration/templates/chat/judgment-request.hbs",
+
+        // === App ===
+        "systems/tokyo-nova-axleration/templates/app/rl-request-app.hbs",
 
         // === Dialogs ===
         "systems/tokyo-nova-axleration/templates/dialog/judgment-dialog.hbs",
@@ -95,27 +99,34 @@ async function preloadHandlebarsTemplates() {
 
 async function setupDefaultSkills(actor) {
     try {
-        // system.jsonで定義したパック名 "system-id.pack-name"
         const packId = "tokyo-nova-axleration.general-skills";
         const pack = game.packs.get(packId);
-
         if (!pack) {
             console.warn(`TokyoNOVA | General skills pack '${packId}' not found.`);
             return;
         }
 
-        // パック内の全ドキュメントを取得
         const documents = await pack.getDocuments();
         if (documents.length === 0) return;
 
-        // アクターに埋め込むためのデータオブジェクト配列を作成
-        // toObject() でIDをリセットして新規アイテムとして扱えるようにする
-        const itemsData = documents.map(doc => doc.toObject());
-        console.log(itemsData);
+        // 無条件取得技能 + 社会：N◎VA のみをインポート
+        const toImport = documents.filter(doc =>
+            doc.system.generalSkillCategory === 'initialSkill'
+            || doc.system.identificationKey === 'society_nova'
+        );
 
-        // アクターにアイテムを一括作成
+        // 正規ソート順でソートし、sort 値を付与
+        const sorted = [...toImport].sort((a, b) =>
+            TnxSkillUtils.getSkillSortPosition(a.system.identificationKey)
+            - TnxSkillUtils.getSkillSortPosition(b.system.identificationKey)
+        );
+        const itemsData = sorted.map((doc, idx) => {
+            const data = doc.toObject();
+            data.sort = (idx + 1) * 1000;
+            return data;
+        });
+
         await actor.createEmbeddedDocuments("Item", itemsData);
-        
         console.log(`TokyoNOVA | Imported ${itemsData.length} default skills to ${actor.name}.`);
         ui.notifications.info(`${actor.name} に初期技能を ${itemsData.length} 個インポートしました。`);
 
@@ -762,6 +773,26 @@ Hooks.once("init", async function() {
      * Cardの子ドキュメントが作成された際にUIを更新するフック。
      * カードが手札や捨て札に移動した（描画された、プレイされた）場合などに作動します。
      */
+    // GM 専用: シーンコントロールに「判定要求」ボタンを追加（フェーズ 8-5）
+    Hooks.on("getSceneControlButtons", (controls) => {
+        if (!game.user.isGM) return;
+        const tokenGroup = controls.find(c => c.name === "token");
+        if (!tokenGroup) return;
+        const newTool = {
+            name:    "tnxJudgmentRequest",
+            title:   "判定要求",
+            icon:    "fas fa-gavel",
+            button:  true,
+            onClick: () => new TnxRlRequestApp().render(true),
+            visible: true,
+        };
+        if (Array.isArray(tokenGroup.tools)) {
+            tokenGroup.tools.push(newTool);
+        } else if (tokenGroup.tools && typeof tokenGroup.tools === "object") {
+            tokenGroup.tools.tnxJudgmentRequest = newTool;
+        }
+    });
+
     Hooks.on("createCard", (cardDocument, options, userId) => {
         console.log(`TokyoNOVA | Card created in ${cardDocument.parent.name}. Refreshing UIs.`);
         setTimeout(() => game.tnx.refreshSheets(), 50);
@@ -835,6 +866,67 @@ Hooks.once("ready", async function() {
             TokyoNovaCastSheet.updateCastExp(item.parent);
         }
     };
+
+    // 判定要求チャットカード: 目標値の可視性制御 + 「判定する」ボタン / 結果注入（フェーズ 8-5）
+    Hooks.on("renderChatMessage", (message, html) => {
+        const flagData = message.getFlag("tokyo-nova-axleration", "judgmentRequest");
+        if (!flagData) return;
+
+        // 目標値: targetValueHidden かつ非 GM の場合は非公開表示
+        const tnEl = html.querySelector(".jr-req-tn-value");
+        if (tnEl && flagData.targetValueHidden && !game.user.isGM) {
+            tnEl.textContent = "（非公開）";
+            tnEl.classList.add("jr-req-tn-hidden");
+        }
+
+        // 各対象行: 結果がある場合は結果表示、未判定の場合はボタンまたは「待機中」
+        for (const row of html.querySelectorAll(".jr-req-target-row")) {
+            const actorId  = row.dataset.actorId;
+            const userId   = row.dataset.userId;
+            const statusEl = row.querySelector(".jr-req-target-status");
+            if (!statusEl) continue;
+
+            const result = flagData.results?.[actorId];
+            if (result) {
+                // 判定済み: 結果を表示
+                const resultEl = document.createElement("div");
+                resultEl.className = "jr-req-result";
+                if (flagData.judgmentType === "controlCheck") {
+                    resultEl.innerHTML = result.success
+                        ? '<span class="jr-inline-success"><i class="fas fa-check"></i> 成功</span>'
+                        : '<span class="jr-inline-failure"><i class="fas fa-times"></i> 失敗</span>';
+                } else if (result.fumble) {
+                    resultEl.innerHTML = '<span class="jr-inline-fumble"><i class="fas fa-skull"></i> ファンブル</span>';
+                } else {
+                    const mark = result.success === true
+                        ? ' <span class="jr-inline-success"><i class="fas fa-check"></i> 成功</span>'
+                        : result.success === false
+                            ? ' <span class="jr-inline-failure"><i class="fas fa-times"></i> 失敗</span>'
+                            : '';
+                    resultEl.innerHTML = `達成値 <strong>${result.achievement ?? "—"}</strong>${mark}`;
+                }
+                statusEl.replaceChildren(resultEl);
+            } else if (flagData.status !== "closed") {
+                // 未判定
+                const isMyChar = game.user.id === userId;
+                if (isMyChar || game.user.isGM) {
+                    const btn = document.createElement("button");
+                    btn.type      = "button";
+                    btn.className = "tnx-ring-btn tnx-judgment-do-btn";
+                    btn.innerHTML = '<i class="fas fa-gavel"></i> 判定する';
+                    btn.addEventListener("click", () => {
+                        TnxRlRequestApp.onDoJudgment(flagData, actorId, message.id);
+                    });
+                    statusEl.replaceChildren(btn);
+                } else {
+                    const waiting = document.createElement("span");
+                    waiting.className = "jr-req-waiting";
+                    waiting.textContent = "待機中…";
+                    statusEl.replaceChildren(waiting);
+                }
+            }
+        }
+    });
 
     Hooks.on('createItem', (item) => recalcActorExp(item));
     Hooks.on('deleteItem', (item) => recalcActorExp(item));
