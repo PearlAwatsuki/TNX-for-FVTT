@@ -774,9 +774,18 @@ Hooks.once("init", async function() {
      * カードが手札や捨て札に移動した（描画された、プレイされた）場合などに作動します。
      */
     // GM 専用: シーンコントロールに「判定要求」ボタンを追加（フェーズ 8-5）
+    // V13: controls は配列ではなくグループ名をキーとするオブジェクト
     Hooks.on("getSceneControlButtons", (controls) => {
         if (!game.user.isGM) return;
-        const tokenGroup = controls.find(c => c.name === "token");
+        // V12 以前: 配列、V13: オブジェクト、Map の可能性も考慮
+        let tokenGroup;
+        if (Array.isArray(controls)) {
+            tokenGroup = controls.find(c => c.name === "token");
+        } else if (controls instanceof Map) {
+            tokenGroup = controls.get("token");
+        } else {
+            tokenGroup = controls?.["token"];
+        }
         if (!tokenGroup) return;
         const newTool = {
             name:    "tnxJudgmentRequest",
@@ -786,10 +795,15 @@ Hooks.once("init", async function() {
             onClick: () => new TnxRlRequestApp().render(true),
             visible: true,
         };
-        if (Array.isArray(tokenGroup.tools)) {
-            tokenGroup.tools.push(newTool);
-        } else if (tokenGroup.tools && typeof tokenGroup.tools === "object") {
-            tokenGroup.tools.tnxJudgmentRequest = newTool;
+        const tools = tokenGroup.tools;
+        if (Array.isArray(tools)) {
+            tools.push(newTool);
+        } else if (tools instanceof Map) {
+            tools.set("tnxJudgmentRequest", newTool);
+        } else if (tools && typeof tools === "object") {
+            tools.tnxJudgmentRequest = newTool;
+        } else {
+            tokenGroup.tools = { tnxJudgmentRequest: newTool };
         }
     });
 
