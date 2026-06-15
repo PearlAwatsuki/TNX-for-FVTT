@@ -30,6 +30,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
             drawNeuro:       TnxHud._onDrawNeuro,
             takeFromDiscard: TnxHud._onTakeFromDiscard,
             useTrump:        TnxHud._onUseTrump,
+            resetRlTrump:    TnxHud._onResetRlTrump,
             toggleHudColumn:    TnxHud._onToggleHudColumn,
             toggleAccessArea:   TnxHud._onToggleAccessArea,
             presentAccessCard:  TnxHud._onPresentAccessCard,
@@ -47,6 +48,8 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
 
     async _prepareContext(options) {
         const context = await super._prepareContext(options);
+
+        context.isGM = game.user.isGM;
 
         // --- カードID取得（ゲーム設定から直接読み込み）---
         const cardDeckId    = game.settings.get("tokyo-nova-axleration", "cardDeckId");
@@ -529,6 +532,11 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
         const cardId = target.dataset.cardId;
         if (!cardId) return;
         await TnxActionHandler.useTrump(cardId);
+    }
+
+    static async _onResetRlTrump(event, _target) {
+        event.preventDefault();
+        await TnxActionHandler.resetRlTrump();
     }
 
     static _onToggleAccessArea(event, target) {

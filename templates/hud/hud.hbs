@@ -148,9 +148,15 @@
                             <img src="{{trumpCard.img}}" alt="{{trumpCard.name}}">
                         </div>
                     {{else}}
+                        {{#if isGM}}
+                        <div class="card-empty-placeholder card-empty-clickable" data-action="resetRlTrump" title="切り札（クリックで再配布）">
+                            <i class="fas fa-star"></i>
+                        </div>
+                        {{else}}
                         <div class="card-empty-placeholder" title="切り札">
                             <i class="fas fa-star"></i>
                         </div>
+                        {{/if}}
                     {{/if}}
                 </div>
             </div>

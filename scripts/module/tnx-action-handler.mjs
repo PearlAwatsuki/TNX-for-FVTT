@@ -63,6 +63,33 @@ export class TnxActionHandler {
     }
 
     /**
+     * RL切り札捨て場にある「切り札」カードを GM の切り札置き場に戻す。
+     * HUD の空切り札エリアクリックから呼ぶ。
+     */
+    static async resetRlTrump() {
+        const { getUserFlagData } = await import('./user-flag-schema.mjs');
+
+        const gmTrumpDiscard = await this.getActiveGmTrumpDiscardPile();
+        if (!gmTrumpDiscard) return;
+
+        const gm = game.users.find(u => u.isGM);
+        if (!gm) return ui.notifications.warn("GMユーザーが見つかりません。");
+
+        const gmTrumpPile = getUserFlagData(gm).trumpCardPileId
+            ? await fromUuid(getUserFlagData(gm).trumpCardPileId)
+            : null;
+        if (!gmTrumpPile) return ui.notifications.warn("GMユーザーの切り札置き場が設定されていません。");
+
+        if (gmTrumpPile.cards.size > 0) return ui.notifications.warn("RLの切り札には既にカードがあります。");
+
+        const trumpCard = gmTrumpDiscard.cards.find(c => c.name === "切り札");
+        if (!trumpCard) return ui.notifications.info("RL切り札捨て場に「切り札」カードはありません。");
+
+        await gmTrumpDiscard.pass(gmTrumpPile, [trumpCard.id]);
+        ui.notifications.info("「切り札」をRLの切り札に再配布しました。");
+    }
+
+    /**
      * カードをプレイする（手札から捨て札に移動する）
      * @param {string} cardId - プレイするカードのID
      * @param {object} [context={}] - 操作のコンテキスト

@@ -3618,6 +3618,15 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     height: 150px;
 }
 
+.tnx-hud .card-empty-placeholder.card-empty-clickable {
+    cursor: pointer;
+    transition: color var(--tnx2-transition-fast);
+}
+
+.tnx-hud .card-empty-placeholder.card-empty-clickable:hover {
+    color: var(--tnx2-accent);
+}
+
 /* ── HUD カラム折りたたみ ── */
 .tnx-hud .hud-collapse-toggle {
     width: 26px;
