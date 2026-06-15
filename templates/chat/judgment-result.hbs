@@ -1,58 +1,75 @@
 <div class="tnx-judgment-result tokyo-nova">
 
-    <div class="jr-header">
-        <span class="jr-actor-name">{{actorName}}</span>
-        <span class="jr-type-label">{{typeLabel}}</span>
+    {{!-- ① ヘッダー: スキル名 + 判定種別バッジ --}}
+    <div class="jr-head">
+        <span class="jr-skill-name">{{skillLabel}}</span>
+        <span class="jr-type-tag">{{typeLabel}}</span>
     </div>
 
-    <div class="jr-skill-label">{{skillLabel}}</div>
-
+    {{!-- ② カード行: スートシンボル + カード名 + バッジ群 --}}
     <div class="jr-card-row">
-        <div class="jr-card-image">
-            <img src="{{cardImg}}" alt="{{cardName}}">
-        </div>
-        <div class="jr-card-info">
-            <span class="jr-suit-symbol suit-{{suit}}">{{suitSymbol}}</span>
-            <span class="jr-card-name">{{cardName}}</span>
-            {{#if fromDeck}}<span class="jr-badge jr-badge--deck">山札判定</span>{{/if}}
+        <span class="jr-suit suit-{{suit}}">{{suitSymbol}}</span>
+        <span class="jr-card-name">{{cardName}}</span>
+        <span class="jr-badges">
+            {{#if fromDeck}}<span class="jr-badge jr-badge--deck">山札</span>{{/if}}
             {{#if trumpUsed}}<span class="jr-badge jr-badge--trump">切り札</span>{{/if}}
-        </div>
+            {{#if suitMismatch}}<span class="jr-badge jr-badge--mismatch">スート不一致</span>{{/if}}
+            {{#if isFixed21}}<span class="jr-badge jr-badge--fixed21">21固定</span>{{/if}}
+        </span>
     </div>
 
+    {{!-- ③ 計算・結果セクション --}}
     {{#if result.fumble}}
     <div class="jr-result jr-result--fumble">
         <i class="fas fa-skull"></i> ファンブル！（致命的失敗）
     </div>
-    {{else}}
-        {{#if isControlCheck}}
-        <div class="jr-control-check">
-            カード値 <strong>{{result.cardValue}}</strong> ≤ 制御値 <strong>{{result.controlVal}}</strong>
-        </div>
-        {{else}}
-            <div class="jr-achievement">
-                達成値: <strong>{{result.achievement}}</strong>
-                {{#if isFixed21}}
-                <span class="jr-fixed21-badge">21 固定</span>
-                {{else}}
-                <span class="jr-detail">
-                    （{{result.cardValue}} + {{result.abilityVal}}{{#if result.bountyUsed}} + 報酬点{{result.bountyUsed}}{{/if}}）
-                </span>
-                {{/if}}
-            </div>
-        {{/if}}
 
-        {{#if showSuccess}}
-        <div class="jr-result {{#if result.success}}jr-result--success{{else}}jr-result--failure{{/if}}">
-            {{#if result.success}}
-            <i class="fas fa-check-circle"></i> 成功
-            {{else}}
-            <i class="fas fa-times-circle"></i> 失敗
-            {{/if}}
-            {{#if hasTargetValue}}
-            <span class="jr-tn">（目標値 {{result.targetValue}}）</span>
-            {{/if}}
+    {{else if isControlCheck}}
+    <div class="jr-calc-section">
+        <div class="jr-calc-row">
+            <span class="jr-calc-label">カード値</span>
+            <span class="jr-calc-val">{{result.cardValue}}</span>
+        </div>
+        <div class="jr-calc-row">
+            <span class="jr-calc-label">制御値</span>
+            <span class="jr-calc-val">{{result.controlVal}}</span>
+        </div>
+    </div>
+    <div class="jr-result {{#if result.success}}jr-result--success{{else}}jr-result--failure{{/if}}">
+        {{#if result.success}}<i class="fas fa-check"></i>{{else}}<i class="fas fa-times"></i>{{/if}}
+        <span>{{result.cardValue}} ≤ {{result.controlVal}} → {{#if result.success}}成功{{else}}失敗{{/if}}</span>
+    </div>
+
+    {{else}}
+    <div class="jr-calc-section">
+        {{#unless isFixed21}}{{#unless suitMismatch}}
+        <div class="jr-calc-row">
+            <span class="jr-calc-label">カード値</span>
+            <span class="jr-calc-val">{{result.cardValue}}</span>
+        </div>
+        <div class="jr-calc-row">
+            <span class="jr-calc-label">{{abilityLabel}}</span>
+            <span class="jr-calc-val">+{{result.abilityVal}}</span>
+        </div>
+        {{#if result.bountyUsed}}
+        <div class="jr-calc-row">
+            <span class="jr-calc-label">報酬点</span>
+            <span class="jr-calc-val">+{{result.bountyUsed}}</span>
         </div>
         {{/if}}
+        {{/unless}}{{/unless}}
+        <div class="jr-calc-row jr-total-row">
+            <span class="jr-calc-label">達成値</span>
+            <span class="jr-total-num">{{result.achievement}}</span>
+        </div>
+    </div>
+    {{#if showSuccess}}
+    <div class="jr-result {{#if result.success}}jr-result--success{{else}}jr-result--failure{{/if}}">
+        {{#if result.success}}<i class="fas fa-check"></i> 成功{{else}}<i class="fas fa-times"></i> 失敗{{/if}}
+        {{#if hasTargetValue}}<span class="jr-tn">目標値 {{result.targetValue}}</span>{{/if}}
+    </div>
+    {{/if}}
+
     {{/if}}
 
 </div>

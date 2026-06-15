@@ -1484,8 +1484,22 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         }));
     }
 
-    static _onToggleEditMode(event, _target) {
+    static async _onToggleEditMode(event, _target) {
         if (event) event.preventDefault();
+        // 編集→閲覧切替時: ProseMirror の内容をアクターに保存してから再描画する
+        if (this._isEditMode && this.element) {
+            const updates = {};
+            for (const pm of this.element.querySelectorAll("prose-mirror")) {
+                const fieldName = pm.getAttribute("name");
+                if (!fieldName) continue;
+                foundry.utils.setProperty(updates, fieldName, pm.value ?? "");
+            }
+            if (!foundry.utils.isEmpty(updates)) {
+                this._isEditMode = false;
+                await this.actor.update(updates);
+                return;
+            }
+        }
         this._isEditMode = !this._isEditMode;
         this.render();
     }
@@ -1590,8 +1604,39 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         const type = target.dataset.type;
         if (!type) return;
         if (type === 'generalSkill') {
-            return Item.create({ name: "新規一般技能", type: "generalSkill",
-                system: { level: 0, generalSkillCategory: "onomasticSkill" }
+            const onomasticTypes = [
+                { value: "craft",   label: "製作" },
+                { value: "art",     label: "芸術" },
+                { value: "operate", label: "操縦" },
+                { value: "society", label: "社会" },
+                { value: "contact", label: "コネ" },
+                { value: "other",   label: "その他" },
+            ];
+            const optionsHtml = onomasticTypes.map(o =>
+                `<option value="${o.value}">${o.label}</option>`
+            ).join("");
+            const selected = await foundry.applications.api.DialogV2.prompt({
+                window:  { title: "一般技能を追加" },
+                content: `<div class="form-group"><label>種別</label><select name="sel">${optionsHtml}</select></div>`,
+                ok: { label: "追加", callback: (_e, _btn, dialog) =>
+                    dialog.element.querySelector("[name=sel]").value
+                },
+            });
+            if (!selected) return;
+
+            const nameMap = {
+                craft: "製作：", art: "芸術：", operate: "操縦：",
+                society: "社会：", contact: "コネ：", other: "新規一般技能",
+            };
+            const identificationKey = selected === "other" ? "" : `${selected}_`;
+            const existingSkills = this.actor.items.filter(i => i.type === 'generalSkill');
+            const sortValue = TokyoNovaCastSheet._calcInsertSortValue(existingSkills, selected);
+
+            return Item.create({
+                name:   nameMap[selected] ?? "新規一般技能",
+                type:   "generalSkill",
+                sort:   sortValue,
+                system: { level: 0, generalSkillCategory: "onomasticSkill", identificationKey },
             }, { parent: this.actor });
         }
         if (type === 'styleSkill') {
@@ -1600,6 +1645,29 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             }, { parent: this.actor });
         }
         return Item.create({ name: `新規${type}`, type }, { parent: this.actor });
+    }
+
+    /**
+     * 固有名詞技能をソート順の適切な位置に挿入するための sort 値を計算する。
+     * prefix グループの最後の要素と次グループの先頭要素の中間値を返す。
+     */
+    static _calcInsertSortValue(existingSkills, prefix) {
+        const targetPos = prefix === "other"
+            ? Infinity
+            : TnxSkillUtils.getSkillSortPosition(`${prefix}_`);
+        let prevSort = 0;
+        let nextSort = Infinity;
+        for (const skill of existingSkills) {
+            const skillSort = skill.sort ?? 0;
+            const skillPos  = TnxSkillUtils.getSkillSortPosition(skill.system.identificationKey);
+            if (skillPos <= targetPos) {
+                if (skillSort > prevSort) prevSort = skillSort;
+            } else {
+                if (skillSort < nextSort) nextSort = skillSort;
+            }
+        }
+        if (!isFinite(nextSort)) return prevSort + 100_000;
+        return Math.floor((prevSort + nextSort) / 2);
     }
 
     static async _onItemDelete(event, target) {

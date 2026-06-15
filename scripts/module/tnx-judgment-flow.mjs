@@ -435,8 +435,9 @@ export class TnxJudgmentFlow {
 
     static async _postResultChat({ ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch = false }) {
         const actor = game.actors.get(ctx.actorId);
-        const SUIT_SYMBOL = { spade: "♠", club: "♣", heart: "♥", diamond: "♦" };
-        const TYPE_LABEL  = { skillCheck: "技能判定", controlCheck: "制御判定", abilityCheck: "能力値判定" };
+        const SUIT_SYMBOL   = { spade: "♠", club: "♣", heart: "♥", diamond: "♦" };
+        const TYPE_LABEL    = { skillCheck: "技能判定", controlCheck: "制御判定", abilityCheck: "能力値判定" };
+        const ABILITY_LABEL = { reason: "理性", passion: "感情", life: "生命", mundane: "外界" };
 
         const isControlCheck = ctx.type === "controlCheck";
         const content = await foundry.applications.handlebars.renderTemplate(
@@ -450,6 +451,7 @@ export class TnxJudgmentFlow {
                 cardName:     card.name,
                 suit,
                 suitSymbol:   SUIT_SYMBOL[suit] ?? "",
+                abilityLabel: ABILITY_LABEL[result.abilityKey] ?? "",
                 result,
                 isControlCheck,
                 isFixed21:    result.fixedAt21 === true,

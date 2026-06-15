@@ -108,6 +108,39 @@
                 "PLAYER": "OBSERVER",
                 "ASSISTANT": "OWNER"
             }
+        },
+        {
+            "name": "life-paths",
+            "label": "ライフパス",
+            "system": "tokyo-nova-axleration",
+            "path": "packs/life-paths",
+            "type": "Item",
+            "ownership": {
+                "PLAYER": "OBSERVER",
+                "ASSISTANT": "OWNER"
+            }
+        },
+        {
+            "name": "npc",
+            "label": "NPC",
+            "system": "tokyo-nova-axleration",
+            "path": "packs/npc",
+            "type": "Actor",
+            "ownership": {
+                "PLAYER": "OBSERVER",
+                "ASSISTANT": "OWNER"
+            }
+        },
+        {
+            "name": "draw-tables",
+            "label": "ドローテーブル",
+            "system": "tokyo-nova-axleration",
+            "path": "packs/draw-tables",
+            "type": "RollTable",
+            "ownership": {
+                "PLAYER": "OBSERVER",
+                "ASSISTANT": "OWNER"
+            }
         }
     ],
     "packFolders": [
@@ -119,7 +152,10 @@
               "miracles",
               "outfits",
               "works-outfits",
-              "housing-areas"
+              "housing-areas",
+              "life-paths",
+              "npc",
+              "draw-tables"
           ],
           "folders": [
                 {

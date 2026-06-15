@@ -1,4 +1,31 @@
 export class TnxSkillUtils {
+
+    /** キャスト一般技能の正規ソート順（固有名詞技能はプレフィックスで代表） */
+    static GENERAL_SKILL_SORT_PREFIXES = [
+        "medicine", "ranged", "perception", "cybertech",
+        "craft",
+        "psychology", "will", "negotiation",
+        "art",
+        "athletics", "evasion",
+        "operate",
+        "melee", "intrigue", "stature", "stealth",
+        "society",
+        "contact",
+    ];
+
+    /**
+     * identificationKey の正規ソートリスト内位置を返します。
+     * "craft_food" → 4、"craft" → 4、未知文字列・空文字 → Infinity
+     */
+    static getSkillSortPosition(identificationKey) {
+        if (!identificationKey) return Infinity;
+        for (let i = 0; i < this.GENERAL_SKILL_SORT_PREFIXES.length; i++) {
+            const p = this.GENERAL_SKILL_SORT_PREFIXES[i];
+            if (identificationKey === p || identificationKey.startsWith(p + "_")) return i;
+        }
+        return Infinity;
+    }
+
     /**
      * 技能シートで使用するドロップダウンの選択肢定義を取得します
      */
