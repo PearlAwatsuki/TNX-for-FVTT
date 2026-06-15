@@ -3819,19 +3819,26 @@ body.tnx-bottom-hud-expanded #hotbar {
     transform: translateY(-14px) scale(1.1);
 }
 
-/* 達成値プレビューラベル（カード上部に絶対配置・ホバー時のみ表示） */
+/* 達成値プレビューラベル（カード中央に絶対配置・ホバー時のみ表示） */
 .tnx-hud .card-preview-label {
     position:       absolute;
-    top:            0;
+    top:            50%;
     left:           0;
     right:          0;
-    padding:        2px 4px;
+    transform:      translateY(-50%);
     text-align:     center;
-    font-size:      0.80em;
-    font-weight:    700;
+    font-size:      2em;
+    font-weight:    900;
     color:          #fff;
-    background:     rgba(0, 0, 0, 0.72);
-    border-radius:  4px 4px 0 0;
+    background:     none;
+    text-shadow:
+        0 0 8px  rgba(0, 200, 224, 0.9),
+        0 0 16px rgba(0, 200, 224, 0.5),
+        0 1px 3px rgba(0, 0, 0, 1),
+        0 -1px 3px rgba(0, 0, 0, 1),
+        1px 0 3px rgba(0, 0, 0, 1),
+       -1px 0 3px rgba(0, 0, 0, 1);
+    letter-spacing: 0.02em;
     white-space:    nowrap;
     pointer-events: none;
     opacity:        0;
@@ -3846,9 +3853,16 @@ body.tnx-bottom-hud-expanded #hotbar {
     visibility: visible;
 }
 
-/* スート不一致（達成値 0）は赤背景で警告 */
+/* スート不一致（達成値 0）: シアンではなく赤グローで警告 */
 .tnx-hud .hand-area.judgment-pending .card-hand-slot:not(.judgment-valid) .card-preview-label {
-    background: rgba(180, 40, 40, 0.82);
+    color: #ff8080;
+    text-shadow:
+        0 0 8px  rgba(220, 50, 50, 0.9),
+        0 0 16px rgba(220, 50, 50, 0.5),
+        0 1px 3px rgba(0, 0, 0, 1),
+        0 -1px 3px rgba(0, 0, 0, 1),
+        1px 0 3px rgba(0, 0, 0, 1),
+       -1px 0 3px rgba(0, 0, 0, 1);
 }
 
 /* ── 判定ダイアログ ────────────────────────────────────────────────── */
