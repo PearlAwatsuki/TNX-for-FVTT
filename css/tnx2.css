@@ -5784,10 +5784,11 @@ button.tnx-create-act-button span {
     user-select: none;
 }
 
-.tnx-rl-request .rl-check-label input[type="checkbox"] {
-    accent-color: var(--tnx2-accent, #c8a84b);
-    width: 14px;
-    height: 14px;
+.tnx-rl-request input[type="checkbox"] {
+    /* Foundry V13: appearance:none + FA 擬似要素で描画されるため font-size でサイズを制御する */
+    font-size: 14px;
+    width: 1em;
+    height: 1em;
     cursor: pointer;
     flex-shrink: 0;
 }
