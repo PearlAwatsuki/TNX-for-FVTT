@@ -379,6 +379,7 @@
                                                     <input type="text" name="name" class="skill-name" placeholder="技能名" value="{{skillItem.name}}" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}">
                                                     <span class="tn-label">目標値:</span>
                                                     <input type="number" name="tn" class="skill-tn" placeholder="-" value="{{skillItem.tn}}" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}">
+                                                    <a class="tnx-ring-btn" data-action="startInfoSkillCheck" title="判定を起動"><i class="fas fa-gavel"></i></a>
                                                     <a class="tnx-ring-btn" data-action="deleteSkillCheck" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}" title="この技能を削除"><i class="fas fa-times"></i></a>
                                                 </div>
                                                 {{/each}}

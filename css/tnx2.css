@@ -3745,6 +3745,325 @@ body.tnx-bottom-hud-expanded #hotbar {
     cursor: default;
 }
 
+/* ── 判定待機 (judgment-pending) ─────────────────────────────────── */
+
+.tnx-hud .hand-area.judgment-pending {
+    outline: 2px dashed rgba(255, 215, 0, 0.55);
+    outline-offset: 4px;
+    border-radius: 4px;
+}
+
+/* 有効スート以外のカードを薄暗くする（クリックは通す：通知でフィードバック） */
+.tnx-hud .hand-area.judgment-pending .card-in-hand:not(.judgment-valid) {
+    opacity: 0.35;
+    filter: grayscale(80%);
+}
+
+/* 有効スートのカードをゴールドグローで強調 */
+.tnx-hud .hand-area.judgment-pending .card-in-hand.judgment-valid {
+    box-shadow: 0 0 10px 3px rgba(255, 215, 0, 0.75);
+}
+
+.tnx-hud .hand-area.judgment-pending .card-in-hand.judgment-valid:hover {
+    transform: translateY(-14px) scale(1.1);
+    box-shadow:
+        0 0 14px 4px rgba(255, 215, 0, 0.9),
+        0 0 28px 8px rgba(255, 215, 0, 0.4);
+}
+
+/* 切り札モード: 全カードをオレンジグローに切り替え */
+.tnx-hud .hand-area.judgment-pending.trump-mode .card-in-hand {
+    opacity: 1;
+    filter: none;
+    pointer-events: auto;
+    box-shadow: 0 0 10px 3px rgba(255, 140, 0, 0.7);
+}
+
+.tnx-hud .hand-area.judgment-pending.trump-mode .card-in-hand:hover {
+    transform: translateY(-14px) scale(1.1);
+    box-shadow:
+        0 0 14px 4px rgba(255, 140, 0, 0.9),
+        0 0 28px 8px rgba(255, 140, 0, 0.4);
+}
+
+/* ── 判定トリガー要素 ─────────────────────────────────────────────── */
+
+.judgment-trigger {
+    cursor: pointer;
+}
+
+.judgment-trigger:hover {
+    opacity: 0.75;
+}
+
+/* ── 達成値プレビューバッジ（判定待機中のみ表示） ───────────────── */
+
+.tnx-hud .card-preview-value {
+    position:         absolute;
+    bottom:           4px;
+    left:             50%;
+    transform:        translateX(-50%);
+    background:       rgba(0, 0, 0, 0.72);
+    color:            #fff;
+    font-size:        0.78em;
+    font-weight:      700;
+    line-height:      1;
+    padding:          2px 5px;
+    border-radius:    3px;
+    pointer-events:   none;
+    white-space:      nowrap;
+    opacity:          0;
+    transition:       opacity 0.15s ease;
+}
+
+.tnx-hud .card-in-hand:hover .card-preview-value {
+    opacity: 1;
+}
+
+/* スート不一致（達成値 0）は赤色で警告 */
+.tnx-hud .hand-area.judgment-pending .card-in-hand:not(.judgment-valid) .card-preview-value {
+    background: rgba(180, 40, 40, 0.82);
+}
+
+/* ── 判定ダイアログ ────────────────────────────────────────────────── */
+
+.tnx-judgment-dialog .window-content {
+    padding: 8px 12px 12px;
+}
+
+.judgment-dialog-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.judgment-header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.judgment-type-label {
+    font-size: 0.75em;
+    color: var(--tnx2-accent, #00c3ff);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.judgment-skill-label {
+    font-size: 0.95em;
+    font-weight: 600;
+}
+
+.judgment-suits {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.judgment-suit-badge {
+    font-size: 1.3em;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.judgment-suit-badge.suit-heart,
+.judgment-suit-badge.suit-diamond {
+    color: #e05050;
+}
+
+.judgment-tn {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+}
+
+.judgment-tn-label {
+    font-size: 0.8em;
+    opacity: 0.7;
+}
+
+.judgment-tn-value {
+    font-size: 1.1em;
+    font-weight: 700;
+}
+
+.judgment-bounty .bounty-available {
+    font-size: 0.75em;
+    opacity: 0.65;
+}
+
+.judgment-hint {
+    font-size: 0.78em;
+    opacity: 0.7;
+    font-style: italic;
+    margin: 0;
+}
+
+.judgment-dialog-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.judgment-dialog-footer .tnx-btn {
+    text-align: left;
+}
+
+.judgment-dialog-footer .tnx-btn.active {
+    background: rgba(255, 140, 0, 0.25);
+    border-color: rgba(255, 140, 0, 0.6);
+    color: #ffaa44;
+}
+
+/* ── 判定結果チャットカード ────────────────────────────────────────── */
+
+.tnx-judgment-result {
+    padding: 6px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 0.9em;
+}
+
+.jr-header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 4px;
+}
+
+.jr-actor-name {
+    font-weight: 700;
+    flex: 1;
+}
+
+.jr-type-label {
+    font-size: 0.75em;
+    color: var(--tnx2-accent, #00c3ff);
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.jr-skill-label {
+    font-size: 0.85em;
+    opacity: 0.8;
+}
+
+.jr-card-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.jr-card-image img {
+    width: 48px;
+    height: 72px;
+    border-radius: 3px;
+    border: none;
+    display: block;
+}
+
+.jr-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.jr-suit-symbol {
+    font-size: 1.4em;
+    font-weight: 700;
+}
+
+.jr-suit-symbol.suit-heart,
+.jr-suit-symbol.suit-diamond {
+    color: #e05050;
+}
+
+.jr-card-name {
+    font-size: 0.8em;
+    opacity: 0.75;
+}
+
+.jr-badge {
+    display: inline-block;
+    font-size: 0.7em;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-weight: 600;
+}
+
+.jr-badge--deck   { background: rgba(100, 100, 200, 0.4); }
+.jr-badge--trump  { background: rgba(200, 120, 0,   0.45); color: #ffbb44; }
+
+.jr-achievement {
+    font-size: 1.0em;
+}
+
+.jr-achievement strong {
+    font-size: 1.2em;
+}
+
+.jr-detail {
+    font-size: 0.75em;
+    opacity: 0.65;
+}
+
+.jr-fixed21-badge {
+    font-size: 0.7em;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: rgba(200, 200, 50, 0.35);
+    color: #eeee60;
+    font-weight: 600;
+}
+
+.jr-control-check {
+    font-size: 0.9em;
+    opacity: 0.85;
+}
+
+.jr-result {
+    font-weight: 700;
+    padding: 3px 6px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.jr-result--success {
+    background: rgba(50, 180, 80, 0.25);
+    color: #60e880;
+}
+
+.jr-result--failure {
+    background: rgba(200, 50, 50, 0.25);
+    color: #e86060;
+}
+
+.jr-result--fumble {
+    background: rgba(180, 0, 0, 0.35);
+    color: #ff6060;
+    font-weight: 700;
+}
+
+.jr-tn {
+    font-size: 0.75em;
+    font-weight: 400;
+    opacity: 0.8;
+}
+
 .tnx-card-ghost {
     position: absolute;
     top: -1000px;
@@ -3876,6 +4195,15 @@ body.tnx-bottom-hud-expanded #hotbar {
 /* ================================================================
    29. シナリオシート
    ================================================================ */
+
+/* アクトシート: タイトル・アイコン表示、ヘッダーボタン右寄せ */
+.tokyo-nova.sheet.scenario .window-header .window-title {
+    display: block;
+    flex: 1 1 auto;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
 
 .scenario-sheet.two-column-layout {
     display: flex;

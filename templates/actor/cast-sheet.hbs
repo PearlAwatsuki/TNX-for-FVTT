@@ -311,12 +311,12 @@
                                 <div class="ability-display">
                                     <div class="ability-label-shape"><div class="ability-label-content"><h3>{{ability.label}}</h3></div></div>
                                     <div class="ability-values-area">
-                                        <div class="ability-value-shape">
+                                        <div class="ability-value-shape judgment-trigger" data-action="startAbilityCheck" data-ability-key="{{key}}" title="能力値判定を起動">
                                             <div class="ability-value-content">
                                                 <input type="number" value="{{ability.totalValue}}" readonly>
                                             </div>
                                         </div>
-                                        <div class="control-value-shape">
+                                        <div class="control-value-shape judgment-trigger" data-action="startControlCheck" data-ability-key="{{key}}" title="制御判定を起動">
                                             <div class="control-value-content">
                                                 <input type="number" value="{{ability.totalControl}}" readonly>
                                             </div>
@@ -456,7 +456,7 @@
                                             {{#each columnItems as |item|}}
                                                 <div class="general-skill-display item" data-item-id="{{item._id}}">
                                                     <div class="skill-label-shape">
-                                                        <a class="skill-label-content squeeze-text">
+                                                        <a class="skill-label-content squeeze-text judgment-trigger" data-action="startSkillCheck" data-item-id="{{item._id}}" title="技能判定を起動">
                                                             {{tnxDecoratedName item}}
                                                         </a>
                                                     </div>
@@ -502,7 +502,7 @@
                                                 <div class="style-skill-row-main style-skill-grid">
                                                     {{!-- 名称 --}}
                                                     <div class="cell cell-name">
-                                                        <a class="item-name">{{tnxDecoratedName item}}</a>
+                                                        <a class="item-name judgment-trigger" data-action="startSkillCheck" data-item-id="{{item._id}}" title="技能判定を起動">{{tnxDecoratedName item}}</a>
                                                     </div>
 
                                                     {{!-- レベル＆スート（横並びコンテナ） --}}

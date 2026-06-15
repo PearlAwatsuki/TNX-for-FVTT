@@ -2,6 +2,8 @@ import { UnlinkConfirmDialog } from '../module/tnx-dialog.mjs';
 import { TnxScenarioSettingWizard } from '../module/tnx-scenario-setting-wizard.mjs';
 import { TnxActionHandler } from '../module/tnx-action-handler.mjs';
 import { saveUserFlagCards, getUserFlagData } from '../module/user-flag-schema.mjs';
+import { TnxJudgmentFlow } from '../module/tnx-judgment-flow.mjs';
+import { ALL_SUITS } from '../module/tnx-judgment-engine.mjs';
 
 const { HandlebarsApplicationMixin, DocumentSheetV2, DialogV2 } = foundry.applications.api;
 
@@ -35,7 +37,8 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             resetAccessCards:  TnxScenarioSheet._onDistributeRlTrump,
             dealInitialHands:  TnxScenarioSheet._onDealInitialHands,
             dealTrumpFromNeuro: TnxScenarioSheet._onDealTrumpFromNeuro,
-            dealTrumpForRl:    TnxScenarioSheet._onDealRlTrumpFromAccess,
+            dealTrumpForRl:      TnxScenarioSheet._onDealRlTrumpFromAccess,
+            startInfoSkillCheck: TnxScenarioSheet._onStartInfoSkillCheck,
         },
     };
 
@@ -598,5 +601,30 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
         await accessCardPile.pass(gmTrumpPile, [trumpCard.id]);
         ui.notifications.info("RLに「切り札」を配布しました。");
+    }
+
+    // ─── 情報収集判定起動 ──────────────────────────────────────────────────
+
+    static async _onStartInfoSkillCheck(event, target) {
+        event.preventDefault();
+        const actor = game.user.character;
+        if (!actor) {
+            return ui.notifications.warn("ユーザーにキャラクターが割り当てられていません。プレイヤー設定でキャラクターを選択してください。");
+        }
+        const row       = target.closest(".skill-check-row");
+        const skillName = row?.querySelector(".skill-name")?.value?.trim() || "（技能不明）";
+        const tnRaw     = parseInt(row?.querySelector(".skill-tn")?.value);
+        const tn        = Number.isFinite(tnRaw) ? tnRaw : null;
+
+        await TnxJudgmentFlow.open({
+            type:            "skillCheck",
+            actorId:         actor.id,
+            skillIds:        [],
+            skillLabel:      skillName,
+            validSuits:      [...ALL_SUITS],
+            targetValue:     tn,
+            bountyAvailable: (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0),
+            requestMessageId: null,
+        });
     }
 }

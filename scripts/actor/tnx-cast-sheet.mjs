@@ -5,6 +5,8 @@ import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 import { getUserFlagData, TNX_FLAG_SCOPE } from '../module/user-flag-schema.mjs';
 import { OUTFIT_CATEGORIES } from '../data/item/outfit-categories.mjs';
 import { formatWeaponRangeLabel, formatPartLabel } from '../item/tnx-outfit-sheet.mjs';
+import { TnxJudgmentFlow } from '../module/tnx-judgment-flow.mjs';
+import { getComboSuits, ALL_SUITS } from '../module/tnx-judgment-engine.mjs';
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -51,6 +53,9 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             toggleOutfitFlag:     TokyoNovaCastSheet._onToggleOutfitFlag,
             toggleOutfitDesc:     TokyoNovaCastSheet._onToggleOutfitDesc,
             recalculateBounty:    TokyoNovaCastSheet._onRecalculateBounty,
+            startSkillCheck:      TokyoNovaCastSheet._onStartSkillCheck,
+            startAbilityCheck:    TokyoNovaCastSheet._onStartAbilityCheck,
+            startControlCheck:    TokyoNovaCastSheet._onStartControlCheck,
         },
         dragDrop: [{ dragSelector: ".item-list .item, .style-skills-list .item, .skills-list-view .item, .outfit-groups-container .outfit-row:not(.outfit-row--option):not(.outfit-row--header)", dropSelector: null }],
     };
@@ -1792,6 +1797,68 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     static async _onRecalculateBounty(event, _target) {
         event.preventDefault();
         await this.actor.update({ "system.bountyBase": TokyoNovaCastSheet._computeMundaneTotalValue(this.actor) });
+    }
+
+    // ─── 判定起動 ────────────────────────────────────────────────────────────
+
+    static async _onStartSkillCheck(event, target) {
+        event.preventDefault();
+        const itemId = target.closest("[data-item-id]")?.dataset.itemId;
+        if (!itemId) return;
+        const item = this.actor.items.get(itemId);
+        if (!item) return;
+        const validSuits = getComboSuits([item.system]);
+        if (!validSuits.length) return ui.notifications.warn("この技能には使用可能なスートがありません。");
+        const actor = this.actor;
+        await TnxJudgmentFlow.open({
+            type:            "skillCheck",
+            actorId:         actor.id,
+            skillIds:        [itemId],
+            skillLabel:      item.name,
+            validSuits,
+            targetValue:     null,
+            bountyAvailable: (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0),
+            requestMessageId: null,
+        });
+    }
+
+    static async _onStartAbilityCheck(event, target) {
+        event.preventDefault();
+        const abilityKey = target.closest("[data-ability-key]")?.dataset.abilityKey;
+        if (!abilityKey) return;
+        const ABILITY_TO_SUIT = { reason: "spade", passion: "club", life: "heart", mundane: "diamond" };
+        const ABILITY_LABELS  = { reason: "理性", passion: "感情", life: "生命", mundane: "外界" };
+        const suit = ABILITY_TO_SUIT[abilityKey];
+        const actor = this.actor;
+        await TnxJudgmentFlow.open({
+            type:            "abilityCheck",
+            actorId:         actor.id,
+            skillIds:        [],
+            skillLabel:      ABILITY_LABELS[abilityKey] ?? abilityKey,
+            validSuits:      suit ? [suit] : [...ALL_SUITS],
+            targetValue:     null,
+            bountyAvailable: (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0),
+            requestMessageId: null,
+        });
+    }
+
+    static async _onStartControlCheck(event, target) {
+        event.preventDefault();
+        const abilityKey = target.closest("[data-ability-key]")?.dataset.abilityKey;
+        const ABILITY_TO_SUIT = { reason: "spade", passion: "club", life: "heart", mundane: "diamond" };
+        const ABILITY_LABELS  = { reason: "理性", passion: "感情", life: "生命", mundane: "外界" };
+        const suit  = ABILITY_TO_SUIT[abilityKey];
+        const actor = this.actor;
+        await TnxJudgmentFlow.open({
+            type:            "controlCheck",
+            actorId:         actor.id,
+            skillIds:        [],
+            skillLabel:      abilityKey ? `${ABILITY_LABELS[abilityKey] ?? abilityKey}の制御` : "制御判定",
+            validSuits:      suit ? [suit] : [...ALL_SUITS],
+            targetValue:     null,
+            bountyAvailable: 0,
+            requestMessageId: null,
+        });
     }
 
     static _computeMundaneTotalValue(actor) {
