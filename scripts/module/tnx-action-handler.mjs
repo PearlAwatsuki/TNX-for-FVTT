@@ -85,7 +85,7 @@ export class TnxActionHandler {
         const trumpCard = gmTrumpDiscard.cards.find(c => c.name === "切り札");
         if (!trumpCard) return ui.notifications.info("RL切り札捨て場に「切り札」カードはありません。");
 
-        await gmTrumpDiscard.pass(gmTrumpPile, [trumpCard.id]);
+        await gmTrumpDiscard.pass(gmTrumpPile, [trumpCard.id], { chatNotification: false });
         ui.notifications.info("「切り札」をRLの切り札に再配布しました。");
     }
 
@@ -123,7 +123,7 @@ export class TnxActionHandler {
             return ui.notifications.error("捨て札が見つかりません。");
         }
 
-        await card.play(discardPile);
+        await card.play(discardPile, { chatNotification: false });
     }
 
     /**
@@ -216,7 +216,7 @@ export class TnxActionHandler {
         }
         
         // ドローを実行
-        await hand.draw(deck, 1, { render: false, updateData: { face: 0 } });
+        await hand.draw(deck, 1, { render: false, chatNotification: false, updateData: { face: 0 } });
     }
 
     /**
@@ -241,7 +241,7 @@ export class TnxActionHandler {
         const drawCount = Math.min(deficit, deck.availableCards.length);
         if (drawCount <= 0) return;
 
-        await hand.draw(deck, drawCount, { render: false, updateData: { face: 0 } });
+        await hand.draw(deck, drawCount, { render: false, chatNotification: false, updateData: { face: 0 } });
     }
 
     /**
@@ -303,7 +303,7 @@ export class TnxActionHandler {
         const targetHand = await fromUuid(targetActor.system.handPileId);
         if (!sourceHand || !targetHand) return;
 
-        await sourceHand.pass(targetHand, cardIds, { render: false });
+        await sourceHand.pass(targetHand, cardIds, { render: false, chatNotification: false });
         ui.notifications.info(`「${sourceActor.name}」から「${targetActor.name}」へ${cardIds.length}枚のカードを渡しました。`);
     }
 
@@ -352,7 +352,7 @@ export class TnxActionHandler {
         const topCard = cardsArray[cardsArray.length - 1];
 
         if (topCard) {
-            await discardPile.pass(hand, [topCard.id], { render: false });
+            await discardPile.pass(hand, [topCard.id], { render: false, chatNotification: false });
             ui.notifications.info(`捨て札から${handSourceDescription}の手札にカードを1枚移動しました。`);
         }
     }
@@ -457,7 +457,7 @@ export class TnxActionHandler {
             return ui.notifications.warn("山札のカードが足りません。");
         }
 
-        await userHand.draw(deck, numToDraw, { render: false, updateData: { face: 0 } });
+        await userHand.draw(deck, numToDraw, { render: false, chatNotification: false, updateData: { face: 0 } });
         ui.notifications.info(`${numToDraw}枚のカードを引きました。`);
     }
 
@@ -512,7 +512,7 @@ export class TnxActionHandler {
         }
 
         // 6. 選択されたカードをニューロデッキから切り札置き場へ移動
-        await neuroDeck.pass(trumpPile, [selection.cardId], { updateData: { face: 0 } });
+        await neuroDeck.pass(trumpPile, [selection.cardId], { chatNotification: false, updateData: { face: 0 } });
 
         // 7. 完了を通知
         ui.notifications.info(`ニューロデッキから「${selectedCard.name}」を「${targetUser.name}」の切り札として配布しました。`);
@@ -557,7 +557,7 @@ export class TnxActionHandler {
         const targetHand = await fromUuid(targetHandId);
         if (!targetHand) return ui.notifications.error("相手の手札が見つかりませんでした。");
         
-        await sourceHand.pass(targetHand, [cardId]);
+        await sourceHand.pass(targetHand, [cardId], { chatNotification: false });
         ui.notifications.info(`「${cardToPass.name}」を「${targetUser.name}」に渡しました。`);
     }
 
@@ -606,7 +606,7 @@ export class TnxActionHandler {
         const targetHand = await fromUuid(targetHandId);
         if (!targetHand) return ui.notifications.error("相手の手札が見つかりませんでした。");
 
-        await sourceHand.pass(targetHand, selectedCardsIds);
+        await sourceHand.pass(targetHand, selectedCardsIds, { chatNotification: false });
         ui.notifications.info(`「${targetUser.name}」に${selectedCardsIds.length}枚のカードを渡しました。`);
     }
 
@@ -637,7 +637,7 @@ export class TnxActionHandler {
         });
         if (!selectedCardIds || selectedCardIds.length === 0) return;
 
-        await sourceHand.pass(targetHand, selectedCardIds);
+        await sourceHand.pass(targetHand, selectedCardIds, { chatNotification: false });
         ui.notifications.info(`「${targetUser.name}」に${selectedCardIds.length}枚のカードを渡しました。`);
     }
 
@@ -658,7 +658,7 @@ export class TnxActionHandler {
         if (!discardPile) return ui.notifications.error("捨て札が設定されていません。");
 
         // playではなくpassでカードを移動
-        await sourceHand.pass(discardPile, [cardId]);
+        await sourceHand.pass(discardPile, [cardId], { chatNotification: false });
         ui.notifications.info(`「${cardToDiscard.name}」を捨てました。`);
     }
 
@@ -684,7 +684,7 @@ export class TnxActionHandler {
         });
         
         if (game.settings.get("tokyo-nova-axleration", "shuffleOnDeckReset")) {
-            await deck.shuffle();
+            await deck.shuffle({ chatNotification: false });
             ui.notifications.info("捨て札を回収し、山札をシャッフルしました。");
         } else {
             ui.notifications.info("捨て札をすべて山札に回収しました。");

@@ -570,7 +570,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         if (!trumpCard) return ui.notifications.info("RL切り札捨て場に「切り札」カードはありません。配布の必要はありません。");
         if (gmTrumpPile.cards.size > 0) return ui.notifications.warn("RLの切り札には既にカードがあるため、配布できませんでした。");
 
-        await gmTrumpDiscard.pass(gmTrumpPile, [trumpCard.id]);
+        await gmTrumpDiscard.pass(gmTrumpPile, [trumpCard.id], { chatNotification: false });
         ui.notifications.info("「切り札」をRLの切り札に再配布しました。");
     }
 
@@ -599,7 +599,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         if (!trumpCard) return ui.notifications.info("アクセスカード山の中に「切り札」カードが見つかりませんでした。");
         if (gmTrumpPile.cards.size > 0) return ui.notifications.warn("RLの切り札には既にカードがあるため、配布を中止しました。");
 
-        await accessCardPile.pass(gmTrumpPile, [trumpCard.id]);
+        await accessCardPile.pass(gmTrumpPile, [trumpCard.id], { chatNotification: false });
         ui.notifications.info("RLに「切り札」を配布しました。");
     }
 
