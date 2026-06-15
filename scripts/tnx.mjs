@@ -883,7 +883,7 @@ Hooks.once("ready", async function() {
     };
 
     // 判定要求チャットカード: 目標値の可視性制御 + 「判定する」ボタン / 結果注入（フェーズ 8-5）
-    Hooks.on("renderChatMessage", (message, html) => {
+    Hooks.on("renderChatMessageHTML", (message, html) => {
         const flagData = message.getFlag("tokyo-nova-axleration", "judgmentRequest");
         if (!flagData) return;
 

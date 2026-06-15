@@ -1497,6 +1497,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             if (!foundry.utils.isEmpty(updates)) {
                 this._isEditMode = false;
                 await this.actor.update(updates);
+                this.render();
                 return;
             }
         }
@@ -1629,6 +1630,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
                 society: "社会：", contact: "コネ：", other: "新規一般技能",
             };
             const identificationKey = selected === "other" ? "" : `${selected}_`;
+            const isOnomasticType   = selected !== "other";
             const existingSkills = this.actor.items.filter(i => i.type === 'generalSkill');
             const sortValue = TokyoNovaCastSheet._calcInsertSortValue(existingSkills, selected);
 
@@ -1636,7 +1638,13 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
                 name:   nameMap[selected] ?? "新規一般技能",
                 type:   "generalSkill",
                 sort:   sortValue,
-                system: { level: 0, generalSkillCategory: "onomasticSkill", identificationKey },
+                system: {
+                    level: 0,
+                    generalSkillCategory: "onomasticSkill",
+                    identificationKey,
+                    isAction:   isOnomasticType,
+                    usesBounty: isOnomasticType,
+                },
             }, { parent: this.actor });
         }
         if (type === 'styleSkill') {

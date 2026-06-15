@@ -15,7 +15,7 @@
  * ルール正本: llm-wiki/01_Wiki/Game_Rules/Judgment_Rules.md
  */
 
-import { getCardJudgmentValue, calcSkillCheck, calcControlCheck } from './tnx-judgment-engine.mjs';
+import { getCardJudgmentValue, calcSkillCheck, calcControlCheck, ALL_SUITS } from './tnx-judgment-engine.mjs';
 import { TnxActionHandler } from './tnx-action-handler.mjs';
 import { TnxSocketHandler } from './tnx-socket-handler.mjs';
 import { getUserFlagData } from './user-flag-schema.mjs';
@@ -115,12 +115,26 @@ export class TnxJudgmentFlow {
 
         const isJoker = TnxJudgmentFlow._isJoker(card);
 
-        // Joker カード: スートと値を宣言
+        // Joker カード: スートとランクを宣言し、通常カードと同じルールで計算する
         if (isJoker) {
-            const declared = await TnxJudgmentFlow._promptJokerDeclaration(ctx.validSuits);
+            const declared = await TnxJudgmentFlow._promptJokerDeclaration();
             if (!declared) return false;
-            const cardJudgmentValue = getCardJudgmentValue({ numericValue: 0, isJoker: true, declaredValue: declared.value });
-            return TnxJudgmentFlow._execute({ card, cardJudgmentValue, suit: declared.suit, ctx });
+            const { suit: declaredSuit, numericValue } = declared;
+
+            // スート不一致 → 自動失敗（プレイヤーは失敗する権利を持つ）
+            if (!ctx.validSuits.includes(declaredSuit)) {
+                return TnxJudgmentFlow._execute({
+                    card, cardJudgmentValue: null, suit: declaredSuit, ctx, suitMismatch: true,
+                });
+            }
+
+            // A → Ace 選択ダイアログ（制御判定を除く）
+            if (numericValue === 1 && ctx.type !== "controlCheck") {
+                return TnxJudgmentFlow._handleAceChoice(card, declaredSuit, ctx);
+            }
+
+            const cardJudgmentValue = getCardJudgmentValue({ numericValue });
+            return TnxJudgmentFlow._execute({ card, cardJudgmentValue, suit: declaredSuit, ctx });
         }
 
         const suit = TnxJudgmentFlow._normalizeSuit(card.suit);
@@ -162,24 +176,58 @@ export class TnxJudgmentFlow {
         // 山札から捨て札へ1枚引く（表向き）
         const drawnCards = await discard.draw(deck, 1, { render: false, chatNotification: false });
         if (!drawnCards.length) return;
-        const card = drawnCards[0];
-        await discard.updateEmbeddedDocuments("Card", [{ _id: card.id, face: 0 }]);
+        const drawnCard = drawnCards[0];
+        await discard.updateEmbeddedDocuments("Card", [{ _id: drawnCard.id, face: 0 }]);
+
+        // draw() 直後のカードは裏向き(face:-1)のため card.suit が null になる。
+        // updateEmbeddedDocuments await 後に捨て札山から再取得して表向き状態のスートを読む。
+        const card  = discard.cards.get(drawnCard.id) ?? drawnCard;
 
         const isJoker = TnxJudgmentFlow._isJoker(card);
         const suit    = isJoker ? null : TnxJudgmentFlow._normalizeSuit(card.suit);
 
-        // Joker: スートと値を宣言
+        // Joker: スートとランクを宣言し、通常カードと同じルールで計算する
         if (isJoker) {
-            const declared = await TnxJudgmentFlow._promptJokerDeclaration(ctx.validSuits, { title: "Joker の宣言（山札から）" });
+            const declared = await TnxJudgmentFlow._promptJokerDeclaration({ title: "Joker の宣言（山札から）" });
             if (!declared) { TnxJudgmentFlow.cancel(); return; }
-            const cardJudgmentValue = getCardJudgmentValue({ numericValue: 0, isJoker: true, declaredValue: declared.value });
-            return TnxJudgmentFlow._execute({ card, cardJudgmentValue, suit: declared.suit, ctx, fromDeck: true });
+            const { suit: declaredSuit, numericValue } = declared;
+
+            // A → Ace 選択ダイアログ（制御判定を除く）
+            if (numericValue === 1 && ctx.type !== "controlCheck") {
+                return TnxJudgmentFlow._handleAceChoice(card, declaredSuit, ctx, { fromDeck: true });
+            }
+
+            const cardJudgmentValue = getCardJudgmentValue({ numericValue, isFromDeck: true });
+
+            // 絵札宣言 → FUMBLE（山札引き特有ルール）
+            if (cardJudgmentValue === "FUMBLE") {
+                return TnxJudgmentFlow._execute({ card, cardJudgmentValue, suit: declaredSuit, ctx, fromDeck: true });
+            }
+
+            // スート不一致 → 自動失敗
+            if (!ctx.validSuits.includes(declaredSuit)) {
+                return TnxJudgmentFlow._execute({
+                    card, cardJudgmentValue: null, suit: declaredSuit, ctx, fromDeck: true, suitMismatch: true,
+                });
+            }
+
+            return TnxJudgmentFlow._execute({ card, cardJudgmentValue, suit: declaredSuit, ctx, fromDeck: true });
         }
 
-        // 山札判定: 絵札 → FUMBLE
+        // 山札判定: 絵札 → FUMBLE（スート不一致チェックより先）
         const cardJudgmentValue = getCardJudgmentValue({ numericValue: card.value, isFromDeck: true });
+        if (cardJudgmentValue === "FUMBLE") {
+            return TnxJudgmentFlow._execute({ card, cardJudgmentValue, suit: suit ?? ctx.validSuits[0] ?? "spade", ctx, fromDeck: true });
+        }
 
-        return TnxJudgmentFlow._execute({ card, cardJudgmentValue, suit: suit ?? ctx.validSuits[0] ?? "spade", ctx, fromDeck: true });
+        // スート不一致 → 自動失敗（手札判定と同様）
+        if (!suit || !ctx.validSuits.includes(suit)) {
+            return TnxJudgmentFlow._execute({
+                card, cardJudgmentValue: null, suit: suit ?? "spade", ctx, fromDeck: true, suitMismatch: true,
+            });
+        }
+
+        return TnxJudgmentFlow._execute({ card, cardJudgmentValue, suit, ctx, fromDeck: true });
     }
 
     // ─── プライベートヘルパー ──────────────────────────────────────────────────
@@ -197,31 +245,20 @@ export class TnxJudgmentFlow {
         return card.suit === "joker" || card.value === 99;
     }
 
-    static async _promptJokerDeclaration(validSuits, { title = "Joker の宣言" } = {}) {
-        const suitOptions = validSuits.map(s => `<option value="${s}">${SUIT_LABELS[s] ?? s}</option>`).join("");
+    static async _promptJokerDeclaration({ title = "Joker の宣言" } = {}) {
+        const suitOptions = ALL_SUITS.map(s => `<option value="${s}">${SUIT_LABELS[s] ?? s}</option>`).join("");
+        const rankOptions = [
+            ["A", 1], ["2", 2], ["3", 3], ["4", 4], ["5", 5], ["6", 6], ["7", 7],
+            ["8", 8], ["9", 9], ["10", 10], ["J", 11], ["Q", 12], ["K", 13],
+        ].map(([label, v]) => `<option value="${v}">${label}</option>`).join("");
         return foundry.applications.api.DialogV2.wait({
             window:   { title },
             classes:  ["tokyo-nova"],
-            position: { width: 480 },
+            position: { width: 360 },
             content:  `<form autocomplete="off">
 <div class="form-group"><label>スート</label><select name="suit">${suitOptions}</select></div>
-<div class="form-group">
-  <label>値（1〜13）</label>
-  <div class="number-input-spinner">
-    <button type="button" class="tnx-btn" data-action="decrementJokerValue" aria-label="Decrease">-</button>
-    <input type="number" name="value" value="10" min="1" max="13">
-    <button type="button" class="tnx-btn" data-action="incrementJokerValue" aria-label="Increase">+</button>
-  </div>
-</div>
+<div class="form-group"><label>ランク</label><select name="numericValue">${rankOptions}</select></div>
 </form>`,
-            actions: {
-                decrementJokerValue: (_event, target) => {
-                    target.closest(".number-input-spinner")?.querySelector("input[type='number']")?.stepDown();
-                },
-                incrementJokerValue: (_event, target) => {
-                    target.closest(".number-input-spinner")?.querySelector("input[type='number']")?.stepUp();
-                },
-            },
             buttons: [
                 {
                     action:   "ok",
@@ -229,8 +266,8 @@ export class TnxJudgmentFlow {
                     label:    "確定",
                     default:  true,
                     callback: (_event, _button, dialog) => ({
-                        suit:  dialog.element.querySelector("[name=suit]").value,
-                        value: Math.max(1, Math.min(13, parseInt(dialog.element.querySelector("[name=value]").value) || 10)),
+                        suit:         dialog.element.querySelector("[name=suit]").value,
+                        numericValue: parseInt(dialog.element.querySelector("[name=numericValue]").value),
                     }),
                 },
                 {
@@ -259,7 +296,7 @@ export class TnxJudgmentFlow {
         });
     }
 
-    static async _handleAceChoice(card, suit, ctx) {
+    static async _handleAceChoice(card, suit, ctx, extraParams = {}) {
         const choice = await foundry.applications.api.DialogV2.wait({
             window:  { title: "A の使い方" },
             content: "<p>A をどちらとして使いますか？</p>",
@@ -274,7 +311,7 @@ export class TnxJudgmentFlow {
 
         const fixedAt21         = choice === "fixed21";
         const cardJudgmentValue = getCardJudgmentValue({ numericValue: 1, fixedAt21 });
-        return TnxJudgmentFlow._execute({ card, cardJudgmentValue, suit, ctx });
+        return TnxJudgmentFlow._execute({ card, cardJudgmentValue, suit, ctx, ...extraParams });
     }
 
     static async _executeAsTrumpJoker(card, userFlag, ctx) {
@@ -286,15 +323,28 @@ export class TnxJudgmentFlow {
             return false;
         }
 
-        const declared = await TnxJudgmentFlow._promptJokerDeclaration(ctx.validSuits, { title: "切り札: Joker として宣言" });
+        const declared = await TnxJudgmentFlow._promptJokerDeclaration({ title: "切り札: Joker として宣言" });
         if (!declared) return false;
 
-        const cardJudgmentValue = getCardJudgmentValue({ numericValue: 0, isJoker: true, declaredValue: declared.value });
+        const { suit: declaredSuit, numericValue } = declared;
 
         // 切り札を消費（RL切り札捨て場へ）
         await TnxActionHandler.useTrump(trumpCard.id);
 
-        return TnxJudgmentFlow._execute({ card, cardJudgmentValue, suit: declared.suit, ctx, trumpUsed: true });
+        // スート不一致 → 自動失敗
+        if (!ctx.validSuits.includes(declaredSuit)) {
+            return TnxJudgmentFlow._execute({
+                card, cardJudgmentValue: null, suit: declaredSuit, ctx, suitMismatch: true, trumpUsed: true,
+            });
+        }
+
+        // A → Ace 選択ダイアログ（制御判定を除く）
+        if (numericValue === 1 && ctx.type !== "controlCheck") {
+            return TnxJudgmentFlow._handleAceChoice(card, declaredSuit, ctx, { trumpUsed: true });
+        }
+
+        const cardJudgmentValue = getCardJudgmentValue({ numericValue });
+        return TnxJudgmentFlow._execute({ card, cardJudgmentValue, suit: declaredSuit, ctx, trumpUsed: true });
     }
 
     /**
@@ -328,7 +378,7 @@ export class TnxJudgmentFlow {
      * @param {number} bountyAvailable
      * @returns {Promise<number>}
      */
-    static async _promptBountyUsage(bountyAvailable) {
+    static async _promptBountyUsage(bountyAvailable, { baseAchievement = null } = {}) {
         if (!bountyAvailable || bountyAvailable <= 0) return 0;
 
         const spinnerContent = await foundry.applications.handlebars.renderTemplate(
@@ -336,11 +386,15 @@ export class TnxJudgmentFlow {
             { label: `使用する報酬点（0〜${bountyAvailable}）`, initialValue: 0, min: 0, max: bountyAvailable },
         );
 
+        const achievementRow = baseAchievement !== null
+            ? `<p>現在の達成値: <strong>${baseAchievement}</strong>（報酬点1点 = +1 加算）</p>`
+            : `<p>報酬点を消費すると達成値に加算されます（1点 = +1）。</p>`;
+
         const result = await foundry.applications.api.DialogV2.wait({
             window:   { title: "報酬点の使用" },
             classes:  ["tokyo-nova", "tnx-amount-dialog"],
             position: { width: 480 },
-            content:  `<p>報酬点を消費すると達成値に加算されます（1点 = +1）。</p>${spinnerContent}`,
+            content:  `${achievementRow}${spinnerContent}`,
             actions: {
                 decrement: (_event, target) => {
                     target.closest(".number-input-spinner")?.querySelector("input[type='number']")?.stepDown();
@@ -393,10 +447,16 @@ export class TnxJudgmentFlow {
 
         game.tnx.hud?.render(false);
 
-        // 報酬点の使用を決定（スート不一致・制御判定はスキップ）
+        // 能力値コンテキストを先に構築（報酬点プレビュー計算と本計算で共用）
+        const abilitiesCtx = suitMismatch ? null : TnxJudgmentFlow._buildAbilitiesCtx(actor);
+
+        // 報酬点の使用を決定（スート不一致・制御判定・ファンブル確定はスキップ）
         let bountyUsed = 0;
-        if (!suitMismatch && ctx.type !== "controlCheck") {
-            bountyUsed = await TnxJudgmentFlow._promptBountyUsage(ctx.bountyAvailable ?? 0);
+        if (!suitMismatch && ctx.type !== "controlCheck" && cardJudgmentValue !== "FUMBLE") {
+            // 報酬点 0 時のベース達成値を先計算してダイアログに表示
+            const baseResult       = calcSkillCheck({ cardJudgmentValue, suit, abilitiesCtx, bountyUsed: 0, targetValue: ctx.targetValue });
+            const baseAchievement  = typeof baseResult.achievement === "number" ? baseResult.achievement : null;
+            bountyUsed = await TnxJudgmentFlow._promptBountyUsage(ctx.bountyAvailable ?? 0, { baseAchievement });
         }
 
         // 判定結果の計算
@@ -414,7 +474,6 @@ export class TnxJudgmentFlow {
                 success:     false,
             };
         } else {
-            const abilitiesCtx = TnxJudgmentFlow._buildAbilitiesCtx(actor);
             if (ctx.type === "controlCheck") {
                 result = calcControlCheck({ cardJudgmentValue, suit, abilitiesCtx });
             } else {

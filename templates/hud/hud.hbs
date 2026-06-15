@@ -119,7 +119,6 @@
                         {{#if (and hand hand.cards.size)}}
                             {{#each handCards as |card|}}
                                 <div class="card-hand-slot {{#if card.judgmentValid}}judgment-valid{{/if}}">
-                                    <span class="card-preview-label">{{card.preview}}</span>
                                     <div class="card-in-hand {{#if card.judgmentValid}}judgment-valid{{/if}} {{#if card.isJoker}}is-joker{{/if}}"
                                          data-action="playCard"
                                          data-card-id="{{card.id}}"
@@ -128,6 +127,7 @@
                                          draggable="true"
                                          data-drag-type="hand-card">
                                         <img src="{{card.img}}" alt="{{card.name}}">
+                                        <span class="card-preview-label">{{card.preview}}</span>
                                     </div>
                                 </div>
                             {{/each}}
