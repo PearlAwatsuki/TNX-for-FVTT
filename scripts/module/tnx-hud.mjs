@@ -31,6 +31,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
             takeFromDiscard: TnxHud._onTakeFromDiscard,
             useTrump:        TnxHud._onUseTrump,
             resetRlTrump:    TnxHud._onResetRlTrump,
+            replenishHand:   TnxHud._onReplenishHand,
             toggleHudColumn:    TnxHud._onToggleHudColumn,
             toggleAccessArea:   TnxHud._onToggleAccessArea,
             presentAccessCard:  TnxHud._onPresentAccessCard,
@@ -300,7 +301,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
                 callback: async () => {
                     const neuroDeck = await TnxActionHandler.getActiveNeuroDeck();
                     if (neuroDeck) {
-                        await neuroDeck.shuffle();
+                        await neuroDeck.shuffle({ chatNotification: false });
                         ui.notifications.info("ニューロデッキをシャッフルしました。");
                     }
                 },
@@ -312,7 +313,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
                 callback: async () => {
                     const neuroDeck = await TnxActionHandler.getActiveNeuroDeck();
                     if (neuroDeck) {
-                        await neuroDeck.recall();
+                        await neuroDeck.recall({ chatNotification: false });
                         ui.notifications.info("ニューロデッキをリセット（全カードを山札に回収）しました。");
                     }
                 },
@@ -343,7 +344,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
                 callback: async () => {
                     const cardDeck = await TnxActionHandler.getActiveDeck();
                     if (cardDeck) {
-                        await cardDeck.shuffle();
+                        await cardDeck.shuffle({ chatNotification: false });
                         ui.notifications.info("山札をシャッフルしました。");
                     }
                 },
@@ -361,9 +362,9 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
                 callback: async () => {
                     const cardDeck = await TnxActionHandler.getActiveDeck();
                     if (cardDeck) {
-                        await cardDeck.recall();
+                        await cardDeck.recall({ chatNotification: false });
                         if (game.settings.get("tokyo-nova-axleration", "shuffleOnDeckReset")) {
-                            await cardDeck.shuffle();
+                            await cardDeck.shuffle({ chatNotification: false });
                             ui.notifications.info("山札をリセット（全カードを回収）し、シャッフルしました。");
                         } else {
                             ui.notifications.info("山札をリセット（全カードを回収）しました。");
@@ -537,6 +538,11 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
     static async _onResetRlTrump(event, _target) {
         event.preventDefault();
         await TnxActionHandler.resetRlTrump();
+    }
+
+    static async _onReplenishHand(event, _target) {
+        event.preventDefault();
+        await TnxActionHandler.autoReplenishHand();
     }
 
     static _onToggleAccessArea(event, target) {
