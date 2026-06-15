@@ -1810,6 +1810,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         const validSuits = getComboSuits([item.system]);
         if (!validSuits.length) return ui.notifications.warn("この技能には使用可能なスートがありません。");
         const actor = this.actor;
+        const actorBounty = (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0);
         await TnxJudgmentFlow.open({
             type:            "skillCheck",
             actorId:         actor.id,
@@ -1817,7 +1818,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             skillLabel:      item.name,
             validSuits,
             targetValue:     null,
-            bountyAvailable: (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0),
+            bountyAvailable: item.system.usesBounty === true ? actorBounty : 0,
             requestMessageId: null,
         });
     }
