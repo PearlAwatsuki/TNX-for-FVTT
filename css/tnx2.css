@@ -3819,15 +3819,14 @@ body.tnx-bottom-hud-expanded #hotbar {
     transform: translateY(-14px) scale(1.1);
 }
 
-/* 達成値プレビューラベル（カード中央に絶対配置・ホバー時のみ表示） */
+/* 達成値プレビューラベル（カード上部に絶対配置・ホバー時のみ表示） */
 .tnx-hud .card-preview-label {
     position:       absolute;
-    top:            50%;
+    top:            8px;
     left:           0;
     right:          0;
-    transform:      translateY(-50%);
     text-align:     center;
-    font-size:      2em;
+    font-size:      1.8em;
     font-weight:    900;
     color:          #fff;
     background:     none;

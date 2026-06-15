@@ -115,8 +115,9 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
                             // スート不一致 → 達成値 0
                             preview = "0";
                         } else if (card.value === 1 && judgmentCtx.type !== "controlCheck") {
-                            // Ace: 11 か 21固定かをプレイ時に選択するためプレビュー省略
-                            preview = null;
+                            // A: 11ルート達成値 / 21固定 を "nn/21" 形式で表示
+                            const elevenPath = 11 + getAbilityBySuit(suit, abilitiesCtx).totalValue;
+                            preview = `${elevenPath}/21`;
                         } else {
                             const cardJudgmentValue = getCardJudgmentValue({ numericValue: card.value });
                             if (typeof cardJudgmentValue === "number") {
