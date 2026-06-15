@@ -193,6 +193,31 @@ export class TnxActionHandler {
     }
 
     /**
+     * 手札を上限まで補充する（手札判定後の自動ドロー用）。
+     * 山札が不足している場合は引ける枚数だけ引く。通知は行わない。
+     */
+    static async autoReplenishHand() {
+        const { getUserFlagData, resolveEffectiveHandMaxSize } = await import('./user-flag-schema.mjs');
+        const deck = await this.getActiveDeck();
+        if (!deck || deck.availableCards.length === 0) return;
+
+        const flagData = getUserFlagData(game.user);
+        const hand     = flagData.handPileId ? await fromUuid(flagData.handPileId) : null;
+        if (!hand) return;
+
+        const limit = resolveEffectiveHandMaxSize(game.user);
+        if (limit <= 0) return;
+
+        const deficit = limit - hand.cards.size;
+        if (deficit <= 0) return;
+
+        const drawCount = Math.min(deficit, deck.availableCards.length);
+        if (drawCount <= 0) return;
+
+        await hand.draw(deck, drawCount, { render: false, updateData: { face: 0 } });
+    }
+
+    /**
      * 山札から1枚カードを表向きで捨て札に移動する（判定処理）
      */
     static async checkFromDeck() {

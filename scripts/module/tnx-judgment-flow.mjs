@@ -443,6 +443,8 @@ export class TnxJudgmentFlow {
         // 手札からカードをプレイ（山札から判定の場合は既に捨て札にある）
         if (!fromDeck) {
             await TnxActionHandler.playCard(card.id);
+            // 手札を使用した直後に上限まで自動補充
+            await TnxActionHandler.autoReplenishHand();
         }
 
         game.tnx.hud?.render(false);
