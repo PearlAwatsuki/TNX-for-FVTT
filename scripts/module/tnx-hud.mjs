@@ -123,7 +123,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
                                 if (judgmentCtx.type === "controlCheck") {
                                     preview = cardJudgmentValue;
                                 } else {
-                                    preview = cardJudgmentValue + getAbilityBySuit(suit, abilitiesCtx);
+                                    preview = cardJudgmentValue + getAbilityBySuit(suit, abilitiesCtx).totalValue;
                                 }
                             }
                         }

@@ -118,15 +118,17 @@
                     <div class="hand-cards-row">
                         {{#if (and hand hand.cards.size)}}
                             {{#each handCards as |card|}}
-                                <div class="card-in-hand {{#if card.judgmentValid}}judgment-valid{{/if}} {{#if card.isJoker}}is-joker{{/if}}"
-                                     data-action="playCard"
-                                     data-card-id="{{card.id}}"
-                                     data-suit="{{card.suit}}"
-                                     title="{{card.name}}"
-                                     draggable="true"
-                                     data-drag-type="hand-card">
-                                    <img src="{{card.img}}" alt="{{card.name}}">
-                                    {{#if card.preview}}<span class="card-preview-value">{{card.preview}}</span>{{/if}}
+                                <div class="card-hand-slot {{#if card.judgmentValid}}judgment-valid{{/if}}">
+                                    <span class="card-preview-label">{{card.preview}}</span>
+                                    <div class="card-in-hand {{#if card.judgmentValid}}judgment-valid{{/if}} {{#if card.isJoker}}is-joker{{/if}}"
+                                         data-action="playCard"
+                                         data-card-id="{{card.id}}"
+                                         data-suit="{{card.suit}}"
+                                         title="{{card.name}}"
+                                         draggable="true"
+                                         data-drag-type="hand-card">
+                                        <img src="{{card.img}}" alt="{{card.name}}">
+                                    </div>
                                 </div>
                             {{/each}}
                         {{else}}

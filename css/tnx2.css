@@ -3753,12 +3753,6 @@ body.tnx-bottom-hud-expanded #hotbar {
     border-radius: 4px;
 }
 
-/* 有効スート以外のカードを薄暗くする（クリックは通す：通知でフィードバック） */
-.tnx-hud .hand-area.judgment-pending .card-in-hand:not(.judgment-valid) {
-    opacity: 0.35;
-    filter: grayscale(80%);
-}
-
 /* 有効スートのカードをゴールドグローで強調 */
 .tnx-hud .hand-area.judgment-pending .card-in-hand.judgment-valid {
     box-shadow: 0 0 10px 3px rgba(255, 215, 0, 0.75);
@@ -3796,32 +3790,59 @@ body.tnx-bottom-hud-expanded #hotbar {
     opacity: 0.75;
 }
 
-/* ── 達成値プレビューバッジ（判定待機中のみ表示） ───────────────── */
+/* ── 手札スロット: プレビューラベル + カード画像の縦積みラッパー ── */
 
-.tnx-hud .card-preview-value {
-    position:         absolute;
-    bottom:           4px;
-    left:             50%;
-    transform:        translateX(-50%);
-    background:       rgba(0, 0, 0, 0.72);
-    color:            #fff;
-    font-size:        0.78em;
-    font-weight:      700;
-    line-height:      1;
-    padding:          2px 5px;
-    border-radius:    3px;
-    pointer-events:   none;
-    white-space:      nowrap;
-    opacity:          0;
-    transition:       opacity 0.15s ease;
+.tnx-hud .hand-cards-row .card-hand-slot {
+    display:        flex;
+    flex-direction: column;
+    align-items:    center;
+    gap:            2px;
+    position:       relative;
+    transition:     transform var(--tnx2-transition-fast);
 }
 
-.tnx-hud .card-in-hand:hover .card-preview-value {
-    opacity: 1;
+/* スロットごとホバー（ラベルとカードを一緒に浮き上がらせる） */
+.tnx-hud .hand-area .card-hand-slot:hover {
+    transform: translateY(-10px) scale(1.05);
+    z-index: 10;
 }
 
-/* スート不一致（達成値 0）は赤色で警告 */
-.tnx-hud .hand-area.judgment-pending .card-in-hand:not(.judgment-valid) .card-preview-value {
+/* スロット内のカードはスロットが transform するため個別 transform をキャンセル */
+.tnx-hud .hand-area .card-hand-slot:hover .card-in-hand,
+.tnx-hud .hand-area.judgment-pending .card-hand-slot.judgment-valid:hover .card-in-hand,
+.tnx-hud .hand-area.judgment-pending.trump-mode .card-hand-slot:hover .card-in-hand {
+    transform: none;
+}
+
+/* 判定有効カード・切り札モード: より強い浮き上がり */
+.tnx-hud .hand-area.judgment-pending .card-hand-slot.judgment-valid:hover,
+.tnx-hud .hand-area.judgment-pending.trump-mode .card-hand-slot:hover {
+    transform: translateY(-14px) scale(1.1);
+}
+
+/* 達成値プレビューラベル（カード上部・常時表示） */
+.tnx-hud .card-preview-label {
+    font-size:     0.80em;
+    font-weight:   700;
+    color:         #fff;
+    background:    rgba(0, 0, 0, 0.68);
+    border-radius: 3px;
+    padding:       1px 6px;
+    min-height:    1.3em;
+    line-height:   1.3;
+    text-align:    center;
+    white-space:   nowrap;
+    pointer-events: none;
+    visibility:    hidden;   /* デフォルト非表示（中身がないとき） */
+}
+
+/* 中身があるときだけ見せる */
+.tnx-hud .card-preview-label:not(:empty) {
+    visibility: visible;
+}
+
+/* スート不一致（達成値 0）は赤背景で警告 */
+.tnx-hud .hand-area.judgment-pending .card-hand-slot:not(.judgment-valid) .card-preview-label {
     background: rgba(180, 40, 40, 0.82);
 }
 
