@@ -23,13 +23,14 @@ describe("UsageTemplate.defineSchema()", () => {
       expect(schema.actions.element).toBeInstanceOf(MockSchemaField);
     });
 
-    it("type / name / description が存在する", () => {
+    it("type / name / description / skillRefs が存在する", () => {
       expect(schema.actions.element.fields).toHaveProperty("type");
       expect(schema.actions.element.fields).toHaveProperty("name");
       expect(schema.actions.element.fields).toHaveProperty("description");
+      expect(schema.actions.element.fields).toHaveProperty("skillRefs");
     });
 
-    it("各フィールドは StringField である", () => {
+    it("type / name / description は StringField である", () => {
       expect(schema.actions.element.fields.type).toBeInstanceOf(MockStringField);
       expect(schema.actions.element.fields.name).toBeInstanceOf(MockStringField);
       expect(schema.actions.element.fields.description).toBeInstanceOf(MockStringField);
@@ -39,6 +40,26 @@ describe("UsageTemplate.defineSchema()", () => {
       expect(schema.actions.element.fields.type.options.initial).toBe("");
       expect(schema.actions.element.fields.name.options.initial).toBe("");
       expect(schema.actions.element.fields.description.options.initial).toBe("");
+    });
+
+    describe("skillRefs の構造が正しい", () => {
+      it("skillRefs は ArrayField である", () => {
+        expect(schema.actions.element.fields.skillRefs).toBeInstanceOf(MockArrayField);
+      });
+
+      it("skillRefs の要素は SchemaField である", () => {
+        expect(schema.actions.element.fields.skillRefs.element).toBeInstanceOf(MockSchemaField);
+      });
+
+      it("skillRefs の要素に itemId が存在する", () => {
+        expect(schema.actions.element.fields.skillRefs.element.fields).toHaveProperty("itemId");
+      });
+
+      it("skillRefs.itemId は StringField で initial が空文字", () => {
+        const itemId = schema.actions.element.fields.skillRefs.element.fields.itemId;
+        expect(itemId).toBeInstanceOf(MockStringField);
+        expect(itemId.options.initial).toBe("");
+      });
     });
   });
 });

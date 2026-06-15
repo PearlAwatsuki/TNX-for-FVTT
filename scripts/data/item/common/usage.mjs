@@ -4,17 +4,19 @@
  * 使用 Item type: miracle / generalSkill / styleSkill /
  *                weapon / armor / ianus / cyborg / tron / tap /
  *                vehicle / residence / combiner / general
- *                (アウトフィット 10 種はフェーズ6-1 追加対応で「用途」タブを持つため)
  * SystemDataModel.mixin() の引数として各 Item DataModel に合成して使う。
  *
- * 準拠データ: template.json > Item.templates.usage
- * 設計方針: llm-wiki/02_System/Design_Review_Entries.md B-0「論点3: 共通 template の継承戦略」参照
+ * actions[].type の値域:
+ *   "check"        - 通常の技能・能力判定
+ *   "controlCheck" - 制御判定（下方判定。カード値 ≤ 制御値で成功）
+ *   "attack"       - 攻撃
+ *   "declaration"  - 宣言
+ *   "miracle"      - 神業
+ *   ※ リアクション: type ではなく timing フィールドで区別（D&D 方式）
  *
- * actions 配列要素の構造は scripts/item/tnx-item-sheet.mjs の _onActionCreate() から読み取った:
- *   { type: string, name: string, description: string }
- * type の値域は "check" / "declaration" / "miracle" (TokyoNovaItemSheet.usageTypes 参照)。
- * 将来的に type を StringField ではなく選択肢付きの型に変更する可能性があるが、
- * B-2 ではまず忠実に再現する。
+ * actions[].skillRefs: 技能組み合わせ判定のベース以外の技能 item ID リスト。
+ *   空配列 = 単独判定。ベース技能はこの用途を所持するアイテム自身。
+ *   フェーズ8 追加。既存データへの影響なし（空配列デフォルト）。
  */
 
 import { SystemDataModel } from "../../abstract.mjs";
@@ -29,6 +31,11 @@ export class UsageTemplate extends SystemDataModel {
           type:        new fields.StringField({ initial: "" }),
           name:        new fields.StringField({ initial: "" }),
           description: new fields.StringField({ initial: "" }),
+          skillRefs:   new fields.ArrayField(
+            new fields.SchemaField({
+              itemId: new fields.StringField({ initial: "" }),
+            })
+          ),
         })
       ),
     };
