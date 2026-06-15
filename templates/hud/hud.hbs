@@ -113,13 +113,20 @@
 
         <div class="hud-bottom-main">
             <div class="hud-bottom-content">
-                <div class="hand-area hud-panel" data-drop-zone="hand">
+                <div class="hand-area hud-panel {{#if judgmentPending}}judgment-pending{{/if}} {{#if judgmentTrumpMode}}trump-mode{{/if}}" data-drop-zone="hand">
                     <span class="card-slot-label">手札</span>
                     <div class="hand-cards-row">
                         {{#if (and hand hand.cards.size)}}
-                            {{#each hand.cards as |card|}}
-                                <div class="card-in-hand" data-action="playCard" data-card-id="{{card.id}}" title="{{card.name}} (クリックでプレイ)" draggable="true" data-drag-type="hand-card">
+                            {{#each handCards as |card|}}
+                                <div class="card-in-hand {{#if card.judgmentValid}}judgment-valid{{/if}} {{#if card.isJoker}}is-joker{{/if}}"
+                                     data-action="playCard"
+                                     data-card-id="{{card.id}}"
+                                     data-suit="{{card.suit}}"
+                                     title="{{card.name}}"
+                                     draggable="true"
+                                     data-drag-type="hand-card">
                                     <img src="{{card.img}}" alt="{{card.name}}">
+                                    {{#if card.preview}}<span class="card-preview-value">{{card.preview}}</span>{{/if}}
                                 </div>
                             {{/each}}
                         {{else}}

@@ -1,0 +1,41 @@
+{{#if noPending}}
+<div class="judgment-no-pending">判定情報がありません。</div>
+{{else}}
+<div class="judgment-dialog-body">
+
+    <div class="judgment-header">
+        <span class="judgment-type-label">{{typeLabel}}</span>
+        <span class="judgment-skill-label">{{skillLabel}}</span>
+    </div>
+
+    <div class="judgment-suits">
+        {{#each validSuits as |s|}}
+        <span class="judgment-suit-badge suit-{{s.key}}" title="{{s.name}}">{{s.symbol}}</span>
+        {{/each}}
+    </div>
+
+    {{#if hasTargetValue}}
+    <div class="judgment-tn">
+        <span class="judgment-tn-label">目標値</span>
+        <span class="judgment-tn-value">{{targetValue}}</span>
+    </div>
+    {{/if}}
+
+    <p class="judgment-hint">{{hint}}</p>
+
+    <footer class="judgment-dialog-footer">
+        <button type="button" class="tnx-btn" data-action="drawFromDeck">
+            <i class="fas fa-cards-blank"></i> 山札から判定
+        </button>
+        {{#if hasTrump}}
+        <button type="button" class="tnx-btn {{#if trumpMode}}active{{/if}}" data-action="toggleTrumpMode">
+            <i class="fas fa-star"></i> 切り札を使う
+        </button>
+        {{/if}}
+        <button type="button" class="tnx-btn" data-action="cancel">
+            <i class="fas fa-times"></i> キャンセル
+        </button>
+    </footer>
+
+</div>
+{{/if}}

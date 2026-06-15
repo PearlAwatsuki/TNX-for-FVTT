@@ -39,6 +39,9 @@ import { TnxHud } from './module/tnx-hud.mjs';
 import { TnxRecordSheet } from './module/tnx-record-sheet.mjs';
 import { registerDrawTableHooks } from './module/tnx-draw-table.mjs';
 import { recordCastOwnerUser } from './module/cast-ownership.mjs';
+import { TnxSocketHandler } from './module/tnx-socket-handler.mjs';
+import { TnxJudgmentFlow } from './module/tnx-judgment-flow.mjs';
+import { TnxJudgmentDialog } from './module/tnx-judgment-dialog.mjs';
 import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
 
@@ -61,7 +64,11 @@ async function preloadHandlebarsTemplates() {
         // === Chat ===
         "systems/tokyo-nova-axleration/templates/chat/scene-card.hbs",
 
+        // === Chat ===
+        "systems/tokyo-nova-axleration/templates/chat/judgment-result.hbs",
+
         // === Dialogs ===
+        "systems/tokyo-nova-axleration/templates/dialog/judgment-dialog.hbs",
         "systems/tokyo-nova-axleration/templates/dialog/amount-input-dialog.hbs",
         "systems/tokyo-nova-axleration/templates/dialog/card-selection-dialog.hbs",
         "systems/tokyo-nova-axleration/templates/dialog/deal-trump-dialog.hbs",
@@ -771,19 +778,16 @@ Hooks.once("init", async function() {
 });
 
 Hooks.once("ready", async function() {
-    game.tnx = game.tnx || {}
+    game.tnx = game.tnx || {};
     game.tnx.hud = new TnxHud();
     game.tnx.hud.render({ force: true });
 
-    // アクセスカード提示の受信(GM 権限に依存しないシステム独自ソケット)
-    game.socket.on("system.tokyo-nova-axleration", (data) => {
-        if (data?.type === "presentAccessCard") {
-            new foundry.applications.apps.ImagePopout({
-                src: data.src,
-                window: { title: data.title },
-            }).render(true);
-        }
-    });
+    // 判定フロー: ダイアログクラスを注入してグローバルに公開
+    TnxJudgmentFlow.dialogClass = TnxJudgmentDialog;
+    game.tnx.judgment = TnxJudgmentFlow;
+
+    // システムソケットメッセージの受信（TnxSocketHandler に集約）
+    game.socket.on("system.tokyo-nova-axleration", TnxSocketHandler.onMessage);
 
     Hooks.on("updateSetting", (setting) => {
         if (setting.key === "tokyo-nova-axleration.revealPlayerHands") {

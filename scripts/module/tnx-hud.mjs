@@ -1,5 +1,17 @@
 import { TnxActionHandler } from './tnx-action-handler.mjs';
+import { TnxJudgmentFlow } from './tnx-judgment-flow.mjs';
+import { getCardJudgmentValue, getAbilityBySuit } from './tnx-judgment-engine.mjs';
 import { getUserFlagData } from './user-flag-schema.mjs';
+
+/** カードの suit 文字列を TNX スートキーに正規化する */
+function _normalizeSuit(rawSuit) {
+    const s = (rawSuit ?? "").toLowerCase();
+    if (s === "spades"   || s === "spade")   return "spade";
+    if (s === "clubs"    || s === "club")     return "club";
+    if (s === "hearts"   || s === "heart")    return "heart";
+    if (s === "diamonds" || s === "diamond")  return "diamond";
+    return null;
+}
 
 const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
 
@@ -71,9 +83,63 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
 
         const userFlag = getUserFlagData(game.user);
 
+        // 判定待機状態をコンテキストに反映
+        const judgmentCtx  = TnxJudgmentFlow.context;
+        const validSuits   = judgmentCtx?.validSuits ?? [];
+        context.judgmentPending   = TnxJudgmentFlow.isPending;
+        context.judgmentTrumpMode = TnxJudgmentFlow.trumpMode;
+
         if (userFlag.handPileId) {
             const hand = await fromUuid(userFlag.handPileId);
-            if (hand) context.hand = hand;
+            if (hand) {
+                context.hand = hand;
+
+                // 判定中は達成値プレビューを計算する
+                let abilitiesCtx = null;
+                if (judgmentCtx) {
+                    const jActor = game.actors.get(judgmentCtx.actorId);
+                    if (jActor) abilitiesCtx = TnxJudgmentFlow._buildAbilitiesCtx(jActor);
+                }
+
+                context.handCards = hand.cards.contents.map(card => {
+                    const suit    = _normalizeSuit(card.suit);
+                    const isJoker = card.suit === "joker";
+                    const judgmentValid = judgmentCtx !== null
+                        && (isJoker || (suit !== null && validSuits.includes(suit)));
+
+                    let preview = null;
+                    if (judgmentCtx && abilitiesCtx) {
+                        if (isJoker) {
+                            preview = "?";
+                        } else if (!suit || !validSuits.includes(suit)) {
+                            // スート不一致 → 達成値 0
+                            preview = "0";
+                        } else if (card.value === 1 && judgmentCtx.type !== "controlCheck") {
+                            // Ace: 11 か 21固定かをプレイ時に選択するためプレビュー省略
+                            preview = null;
+                        } else {
+                            const cardJudgmentValue = getCardJudgmentValue({ numericValue: card.value });
+                            if (typeof cardJudgmentValue === "number") {
+                                if (judgmentCtx.type === "controlCheck") {
+                                    preview = cardJudgmentValue;
+                                } else {
+                                    preview = cardJudgmentValue + getAbilityBySuit(suit, abilitiesCtx);
+                                }
+                            }
+                        }
+                    }
+
+                    return {
+                        id:   card.id,
+                        img:  card.img,
+                        name: card.name,
+                        suit: suit ?? card.suit,
+                        isJoker,
+                        judgmentValid,
+                        preview,
+                    };
+                });
+            }
         }
 
         if (userFlag.trumpCardPileId) {
@@ -437,6 +503,13 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
         event.preventDefault();
         const cardId = target.dataset.cardId;
         if (!cardId) return;
+
+        // 判定待機中はカード選択として処理する
+        if (TnxJudgmentFlow.isPending) {
+            await TnxJudgmentFlow.executeFromHand(cardId);
+            return;
+        }
+
         await TnxActionHandler.playCard(cardId);
     }
 

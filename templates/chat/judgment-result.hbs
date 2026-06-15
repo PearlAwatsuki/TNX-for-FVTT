@@ -1,0 +1,58 @@
+<div class="tnx-judgment-result tokyo-nova">
+
+    <div class="jr-header">
+        <span class="jr-actor-name">{{actorName}}</span>
+        <span class="jr-type-label">{{typeLabel}}</span>
+    </div>
+
+    <div class="jr-skill-label">{{skillLabel}}</div>
+
+    <div class="jr-card-row">
+        <div class="jr-card-image">
+            <img src="{{cardImg}}" alt="{{cardName}}">
+        </div>
+        <div class="jr-card-info">
+            <span class="jr-suit-symbol suit-{{suit}}">{{suitSymbol}}</span>
+            <span class="jr-card-name">{{cardName}}</span>
+            {{#if fromDeck}}<span class="jr-badge jr-badge--deck">山札判定</span>{{/if}}
+            {{#if trumpUsed}}<span class="jr-badge jr-badge--trump">切り札</span>{{/if}}
+        </div>
+    </div>
+
+    {{#if result.fumble}}
+    <div class="jr-result jr-result--fumble">
+        <i class="fas fa-skull"></i> ファンブル！（致命的失敗）
+    </div>
+    {{else}}
+        {{#if isControlCheck}}
+        <div class="jr-control-check">
+            カード値 <strong>{{result.cardValue}}</strong> ≤ 制御値 <strong>{{result.controlVal}}</strong>
+        </div>
+        {{else}}
+            <div class="jr-achievement">
+                達成値: <strong>{{result.achievement}}</strong>
+                {{#if isFixed21}}
+                <span class="jr-fixed21-badge">21 固定</span>
+                {{else}}
+                <span class="jr-detail">
+                    （{{result.cardValue}} + {{result.abilityVal}}{{#if result.bountyUsed}} + 報酬点{{result.bountyUsed}}{{/if}}）
+                </span>
+                {{/if}}
+            </div>
+        {{/if}}
+
+        {{#if showSuccess}}
+        <div class="jr-result {{#if result.success}}jr-result--success{{else}}jr-result--failure{{/if}}">
+            {{#if result.success}}
+            <i class="fas fa-check-circle"></i> 成功
+            {{else}}
+            <i class="fas fa-times-circle"></i> 失敗
+            {{/if}}
+            {{#if hasTargetValue}}
+            <span class="jr-tn">（目標値 {{result.targetValue}}）</span>
+            {{/if}}
+        </div>
+        {{/if}}
+    {{/if}}
+
+</div>
