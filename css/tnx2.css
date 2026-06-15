@@ -4146,8 +4146,14 @@ body.tnx-bottom-hud-expanded #hotbar {
     color: #ff6060;
 }
 
-.jr-result--centered {
-    justify-content: center;
+.jr-mismatch-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    font-size: 0.95em;
+    font-weight: 700;
+    color: #e86060;
 }
 
 .jr-tn {
