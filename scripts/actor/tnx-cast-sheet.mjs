@@ -1883,20 +1883,89 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         if (!itemId) return;
         const item = this.actor.items.get(itemId);
         if (!item) return;
-        const validSuits = getComboSuits([item.system]);
-        if (!validSuits.length) return ui.notifications.warn("この技能には使用可能なスートがありません。");
+
+        // check タイプの用途が設定されていなければ起動しない
+        const checkUsages = (item.system.actions ?? []).filter(a => a.type === "check");
+        if (!checkUsages.length) {
+            ui.notifications.warn(`「${item.name}」に判定用途が設定されていません。アイテムシートで用途を追加してください。`);
+            return;
+        }
+
+        // 用途を決定（1つなら自動選択、複数なら D&D スタイルのピッカー表示）
+        let selectedUsage;
+        if (checkUsages.length === 1) {
+            selectedUsage = checkUsages[0];
+        } else {
+            selectedUsage = await TokyoNovaCastSheet._promptCheckUsage(checkUsages, item.name);
+            if (!selectedUsage) return;
+        }
+
+        // ベース技能: 用途の baseSkillRef を優先、未設定なら親アイテムにフォールバック
+        const baseSkillId = selectedUsage.baseSkillRef?.itemId || itemId;
+        const baseSkill = this.actor.items.get(baseSkillId);
+        if (!baseSkill) {
+            ui.notifications.warn("ベース技能が見つかりません。用途シートでベース技能を設定してください。");
+            return;
+        }
+
+        // コンボ技能を解決し、全技能のスートの積集合を計算
+        const comboSkillIds = (selectedUsage.skillRefs ?? [])
+            .map(r => r.itemId)
+            .filter(id => id && this.actor.items.has(id));
+
+        // 用途を所持する技能がベース技能でない場合（非アクション技能から起動など）は自動追加
+        // baseSkillRef 未設定なら baseSkillId = itemId となるため、この条件は自然に不成立になる
+        if (item.id !== baseSkillId && !comboSkillIds.includes(item.id)) {
+            comboSkillIds.push(item.id);
+        }
+
+        const allSkillIds = [baseSkillId, ...comboSkillIds];
+        const allSkillSystems = allSkillIds
+            .map(id => this.actor.items.get(id)?.system)
+            .filter(Boolean);
+        const validSuits = getComboSuits(allSkillSystems);
+        if (!validSuits.length) return ui.notifications.warn("この技能（組み合わせ）には使用可能なスートがありません。");
+
+        const skillLabel = allSkillIds
+            .map(id => this.actor.items.get(id)?.name ?? "")
+            .filter(Boolean)
+            .join("+");
+
         const actor = this.actor;
         const actorBounty = (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0);
         await TnxJudgmentFlow.open({
             type:            "skillCheck",
             actorId:         actor.id,
-            skillIds:        [itemId],
-            skillLabel:      item.name,
+            skillIds:        allSkillIds,
+            skillLabel,
             validSuits,
             targetValue:     null,
-            bountyAvailable: item.system.usesBounty === true ? actorBounty : 0,
+            bountyAvailable: baseSkill.system.usesBounty === true ? actorBounty : 0,
             requestMessageId: null,
         });
+    }
+
+    /** 複数の check 用途を D&D スタイルの縦ボタンダイアログで選択させる */
+    static async _promptCheckUsage(usages, skillName) {
+        const buttons = [
+            ...usages.map((u, i) => ({
+                action:   String(i),
+                label:    u.name || "判定",
+                callback: () => i,
+            })),
+            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+        ];
+
+        const idx = await foundry.applications.api.DialogV2.wait({
+            window:   { title: skillName },
+            classes:  ["tokyo-nova", "tnx-dialog", "tnx-usage-picker"],
+            position: { width: 320 },
+            content:  "",
+            buttons,
+            close:    () => null,
+        });
+
+        return idx !== null && idx !== undefined ? usages[Number(idx)] : null;
     }
 
     static async _onStartAbilityCheck(event, target) {
