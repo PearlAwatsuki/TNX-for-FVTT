@@ -9,16 +9,17 @@
     </div>
 
     <ol class="item-list-body">
-        {{#each system.actions as |action idx|}}
+        {{#each system.actions as |action|}}
             <li class="tnx-item-list__row">
                 <div class="tnx-item-list__column--main">
+                    <span class="usage-type-tag usage-type--{{action.type}}">{{lookup ../options.usageTypeLabels action.type}}</span>
                     <h4>{{action.name}}</h4>
                 </div>
                 <div class="tnx-item-list__column--controls">
-                    <a class="action-edit" data-action="edit" data-index="{{idx}}" title="編集">
+                    <a class="action-edit" data-action="edit" data-usage-id="{{action._id}}" title="編集">
                         <i class="fas fa-edit"></i>
                     </a>
-                    <a class="action-delete" data-action="delete" data-index="{{idx}}" title="削除">
+                    <a class="action-delete" data-action="delete" data-usage-id="{{action._id}}" title="削除">
                         <i class="fas fa-trash"></i>
                     </a>
                 </div>

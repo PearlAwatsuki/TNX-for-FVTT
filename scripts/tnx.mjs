@@ -70,6 +70,7 @@ async function preloadHandlebarsTemplates() {
 
         // === App ===
         "systems/tokyo-nova-axleration/templates/app/rl-request-app.hbs",
+        "systems/tokyo-nova-axleration/templates/app/usage-sheet.hbs",
 
         // === Dialogs ===
         "systems/tokyo-nova-axleration/templates/dialog/judgment-dialog.hbs",
@@ -603,6 +604,29 @@ Hooks.once("init", async function() {
      * GMでないユーザーが作成した場合、オーナー権限を付与する
      */
     Hooks.on("preCreateItem", (item, data, options, userId) => {
+        // 一般技能: 用途が未設定の場合に「判定」用途を1件自動挿入する
+        // baseSkillRef には親アイテム自身の ID を設定する（用途が判定の起点技能を明示的に保持）
+        if (data.type === "generalSkill" && !(data.system?.actions?.length)) {
+            item.updateSource({
+                "system.actions": [{
+                    _id:             foundry.utils.randomID(),
+                    type:            "check",
+                    name:            "判定",
+                    description:     "",
+                    timing:          { value: "blank", actionName: "blank", processName: "blank", timingOther: "" },
+                    target:          "blank",
+                    effects:         [],
+                    baseSkillRef:    { itemId: item._id ?? "" },
+                    skillRefs:       [],
+                    weaponRef:       { itemId: "" },
+                    damageType:      "",
+                    formula:         "",
+                    damageCategory:  "",
+                    modifiableParams: [],
+                }],
+            });
+        }
+
         // 作成者がGMの場合はデフォルト処理に任せる（通常はOwnerになる）
         const user = game.users.get(userId);
         if (user && user.isGM) return;

@@ -30,24 +30,6 @@
    ================================================================ */
 
 /* ----------------------------------------------------------------
-   0. カスタムフォント (@font-face で TNX-Mirror* ファミリー名を定義)
-   ---------------------------------------------------------------- */
-@font-face {
-    font-family: 'TNX-MirrorGothic';
-    src: url('../assets/fonts/TTEditMirrorWritingGothic.woff') format('woff');
-    font-weight: normal;
-    font-style: normal;
-    font-display: block;
-}
-@font-face {
-    font-family: 'TNX-MirrorMincho';
-    src: url('../assets/fonts/TTEditMirrorWritingMincho.woff') format('woff');
-    font-weight: normal;
-    font-style: normal;
-    font-display: block;
-}
-
-/* ----------------------------------------------------------------
    1. Design Tokens
    ---------------------------------------------------------------- */
 :root {
@@ -5275,6 +5257,54 @@ button.tnx-create-act-button span {
     width: 100%;
 }
 
+/* 編集モードのカードラベル選択ドロップダウン横の枚数表示 */
+.roll-table-sheet td.range .tnx-draw-weight {
+    font-size: 0.8em;
+    color: var(--tnx2-text-secondary);
+    margin-left: 4px;
+    white-space: nowrap;
+}
+
+/* ドロー表チャットメッセージ */
+.chat-message .message-content .tnx-draw-table-chat {
+    font-size: 13px;
+    line-height: 1.4;
+    padding: 8px 10px;
+    background: var(--tnx2-bg-0);
+    border: 1px solid var(--tnx2-border-glow);
+    border-radius: var(--tnx2-radius);
+}
+.chat-message .message-content .tnx-draw-header {
+    margin: 0 0 6px;
+    font-size: 0.85em;
+    font-weight: bold;
+    color: var(--tnx2-text-secondary);
+}
+.chat-message .message-content .tnx-draw-card {
+    margin: 0 0 6px;
+    font-size: 1.1em;
+    font-weight: bold;
+    color: var(--tnx2-text-primary);
+}
+.chat-message .message-content .tnx-draw-results {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.chat-message .message-content .tnx-draw-result {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0;
+    font-size: 0.95em;
+    color: var(--tnx2-text-primary);
+}
+.chat-message .message-content .tnx-draw-result-img {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
 /* ================================================================
    35. アイテムシート: アウトフィット
    ================================================================ */
@@ -6042,3 +6072,338 @@ button.tnx-create-act-button span {
 .tnx-judgment-request .jr-inline-success { color: #81c995; font-weight: 700; }
 .tnx-judgment-request .jr-inline-failure  { color: #f28b82; font-weight: 700; }
 .tnx-judgment-request .jr-inline-fumble   { color: #f28b82; font-weight: 700; }
+
+/* ============================================================
+   Phase 8-6: 用途シート (.tnx-usage-sheet)
+   ============================================================ */
+
+/* ── ウィンドウ本体 ── */
+.tnx-usage-sheet .window-content {
+    padding: 0;
+    overflow: hidden;
+}
+
+.tnx-usage-sheet-inner {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* ── ヘッダー（種別バッジ + 名前入力） ── */
+.usage-sheet-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--tnx2-bg-0);
+    border-bottom: 1px solid var(--tnx2-border-glow);
+    flex-shrink: 0;
+}
+
+.usage-type-badge {
+    display: inline-block;
+    font-size: 0.72em;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 2px 8px;
+    border-radius: 3px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.usage-name-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    color: var(--tnx2-text-primary);
+    font-size: 1em;
+    font-weight: 600;
+    padding: 2px 4px;
+}
+.usage-name-input:focus {
+    outline: none;
+    border-bottom-color: var(--tnx2-accent);
+}
+
+/* ── 種別バッジ カラー ── */
+.usage-type-badge.usage-type--check,
+.usage-type-tag.usage-type--check       { background: #1e3a5f; color: #7ab8f5; }
+.usage-type-badge.usage-type--attack,
+.usage-type-tag.usage-type--attack      { background: #5f1e1e; color: #f58080; }
+.usage-type-badge.usage-type--declaration,
+.usage-type-tag.usage-type--declaration { background: #3a1e5f; color: #b07af5; }
+.usage-type-badge.usage-type--damageBoost,
+.usage-type-tag.usage-type--damageBoost { background: #5f3a1e; color: #f5a87a; }
+.usage-type-badge.usage-type--damageReduce,
+.usage-type-tag.usage-type--damageReduce{ background: #1e5f2a; color: #7af59a; }
+.usage-type-badge.usage-type--modification,
+.usage-type-tag.usage-type--modification{ background: #1e4a5f; color: #7ad8f5; }
+
+/* ── 用途リスト内の小バッジ ── */
+.usage-type-tag {
+    display: inline-block;
+    font-size: 0.68em;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+/* ── タブ ── */
+.tnx-usage-sheet .sheet-tabs {
+    flex-shrink: 0;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    background: var(--tnx2-bg-2);
+}
+
+/* ── シートボディ ── */
+.usage-sheet-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 14px;
+}
+
+.usage-sheet-body .tab { display: none; }
+.usage-sheet-body .tab.active { display: block; }
+
+/* ── フォーム共通 ── */
+.usage-field-label {
+    display: block;
+    font-size: 0.78em;
+    font-weight: 700;
+    color: var(--tnx2-text-secondary);
+    letter-spacing: 0.05em;
+    margin-bottom: 3px;
+}
+
+.usage-field-value {
+    font-size: 0.9em;
+    color: var(--tnx2-text-primary);
+    padding: 2px 0;
+}
+
+.usage-form-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.usage-form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.usage-form-row select,
+.usage-form-row input[type="text"] {
+    width: 100%;
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-border-subtle);
+    color: var(--tnx2-text-primary);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 0.88em;
+}
+.usage-form-row select:focus,
+.usage-form-row input[type="text"]:focus {
+    border-color: var(--tnx2-accent);
+    outline: none;
+}
+
+.usage-form-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.usage-textarea {
+    width: 100%;
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-border-subtle);
+    color: var(--tnx2-text-primary);
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 0.88em;
+    resize: vertical;
+    font-family: inherit;
+    line-height: 1.5;
+}
+.usage-textarea:focus {
+    border-color: var(--tnx2-accent);
+    outline: none;
+}
+
+/* ── タイミングサブ選択（JS で hidden 切り替え） ── */
+.timing-action-sub,
+.timing-process-sub,
+.timing-other-sub {
+    padding-left: 12px;
+    border-left: 2px solid var(--tnx2-border-subtle);
+}
+
+/* ── スキル参照リスト ── */
+.usage-skill-ref-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+
+.usage-skill-ref-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px;
+    background: var(--tnx2-bg-3);
+    border-radius: 4px;
+    border: 1px solid var(--tnx2-border-subtle);
+}
+
+.usage-skill-ref-name {
+    font-size: 0.88em;
+    color: var(--tnx2-text-primary);
+}
+
+.usage-skill-ref-add,
+.usage-param-add {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.usage-skill-ref-add select,
+.usage-param-add input {
+    flex: 1;
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-border-subtle);
+    color: var(--tnx2-text-primary);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 0.85em;
+}
+
+/* ── 改造パラメータリスト ── */
+.usage-param-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+
+.usage-param-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px;
+    background: var(--tnx2-bg-3);
+    border-radius: 4px;
+    border: 1px solid var(--tnx2-border-subtle);
+}
+
+.usage-param-name {
+    font-size: 0.88em;
+    color: var(--tnx2-text-primary);
+    font-family: monospace;
+}
+
+/* ── エフェクトリスト ── */
+.usage-effect-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.usage-effect-row {
+    padding: 4px 8px;
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: 4px;
+}
+
+.usage-effect-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 0.88em;
+    color: var(--tnx2-text-primary);
+}
+
+.usage-effect-label input[type="checkbox"] {
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+/* ── アイコンボタン（削除など） ── */
+.usage-icon-btn {
+    color: var(--tnx2-text-muted);
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 0.82em;
+    transition: color 0.15s;
+}
+.usage-icon-btn:hover { color: #f28b82; }
+
+/* ── 空状態テキスト ── */
+.usage-empty-hint {
+    font-size: 0.82em;
+    color: var(--tnx2-text-muted);
+    font-style: italic;
+    margin: 4px 0;
+    padding: 0 4px;
+}
+
+/* ── 種別選択ダイアログ ── */
+.usage-type-select-dialog .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 4px 4px;
+}
+.usage-type-select-dialog label {
+    font-size: 0.82em;
+    font-weight: 700;
+    color: var(--tnx2-text-secondary);
+}
+.usage-type-select-dialog select {
+    width: 100%;
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-border-subtle);
+    color: var(--tnx2-text-primary);
+    border-radius: 4px;
+    padding: 5px 8px;
+}
+
+/* ── 用途ピッカー（D&D スタイル縦ボタン） ── */
+.tnx-usage-picker .dialog-buttons {
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px;
+}
+.tnx-usage-picker .dialog-buttons button {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 8px 12px;
+    font-size: 0.95em;
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: 4px;
+    color: var(--tnx2-text-primary);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.tnx-usage-picker .dialog-buttons button:hover {
+    background: var(--tnx2-accent-dim, rgba(255,255,255,0.08));
+}
+.tnx-usage-picker .dialog-buttons button[data-action="cancel"] {
+    margin-top: 4px;
+    border-color: transparent;
+    color: var(--tnx2-text-secondary);
+    font-size: 0.82em;
+    justify-content: center;
+}

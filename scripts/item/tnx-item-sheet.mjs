@@ -1,5 +1,5 @@
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
-import { UsageCreationDialog } from "../module/tnx-dialog.mjs";
+import { TnxUsageSheet, USAGE_TYPES } from "../module/tnx-usage-sheet.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -29,14 +29,6 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         },
     };
 
-    static get usageTypes() {
-        return {
-            "check": "判定",
-            "declaration": "宣言",
-            "miracle": "神業",
-        };
-    }
-
     /** @override */
     async _prepareContext(options) {
         const context = await super._prepareContext(options);
@@ -47,7 +39,9 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         context.owner = this.document.isOwner;
         // cssClass: edit/view-mode は root 要素で管理するため section には渡さない
         context.cssClass = "";
-        context.options = { usageTypes: this.constructor.usageTypes };
+        context.options = {
+            usageTypeLabels: USAGE_TYPES,
+        };
         context.isEditMode = this._isEditMode && context.editable;
 
         context.enrichedDescription = await foundry.applications.ux.TextEditor.enrichHTML(system.description, {
@@ -125,18 +119,18 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             }
         }
 
-        // usage-list.hbs は変更不可のため data-action ではなく直接リスナーで対応する
+        // usage-list.hbs は data-action ではなく直接リスナーで対応する
         el.querySelector(".action-create")?.addEventListener("click", (ev) => {
             ev.preventDefault();
             TokyoNovaItemSheet._onActionCreate.call(this, ev, ev.currentTarget);
         });
-        for (const btn of el.querySelectorAll(".action-edit[data-index]")) {
+        for (const btn of el.querySelectorAll(".action-edit[data-usage-id]")) {
             btn.addEventListener("click", (ev) => {
                 ev.preventDefault();
                 TokyoNovaItemSheet._onUsageEdit.call(this, ev, ev.currentTarget);
             });
         }
-        for (const btn of el.querySelectorAll(".action-delete[data-index]")) {
+        for (const btn of el.querySelectorAll(".action-delete[data-usage-id]")) {
             btn.addEventListener("click", (ev) => {
                 ev.preventDefault();
                 TokyoNovaItemSheet._onActionDelete.call(this, ev, ev.currentTarget);
@@ -153,7 +147,6 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
 
     /**
      * number-input-spinner の +ボタン。data-field のパスを 1 増やす。
-     * 全アイテムシートで共用する汎用ハンドラ。
      */
     static async _onIncrementField(_event, target) {
         const field = target.dataset.field;
@@ -164,7 +157,6 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
 
     /**
      * number-input-spinner の -ボタン。data-field のパスを 1 減らす。
-     * data-min 指定時は下限でクランプする。
      */
     static async _onDecrementField(_event, target) {
         const field = target.dataset.field;
@@ -175,42 +167,94 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         await this.item.update({ [field]: next });
     }
 
+    /** 用途追加: 種別選択ダイアログ → エントリ作成 → TnxUsageSheet を開く */
     static async _onActionCreate(_event, _target) {
-        const usageTypes = this.constructor.usageTypes;
-        const type = await UsageCreationDialog.prompt({ usageTypes });
+        const type = await TokyoNovaItemSheet._promptUsageType();
         if (!type) return;
+
+        const newId = foundry.utils.randomID();
         const actions = foundry.utils.deepClone(this.item.system.actions ?? []);
-        actions.push({ type, name: "新規用途", description: "" });
+        actions.push({
+            _id:         newId,
+            type,
+            name:        USAGE_TYPES[type] ?? "新規用途",
+            description: "",
+            timing:      { value: "blank", actionName: "blank", processName: "blank", timingOther: "" },
+            target:      "blank",
+            effects:     [],
+            skillRefs:   [],
+            weaponRef:   { itemId: "" },
+            damageType:  "",
+            formula:     "",
+            damageCategory: "",
+            modifiableParams: [],
+        });
         await this.item.update({ "system.actions": actions });
+
+        // 作成直後に編集シートを開く
+        const sheet = new TnxUsageSheet(this.item, newId);
+        sheet.render({ force: true });
     }
 
+    /** 用途編集: TnxUsageSheet を開く */
     static async _onUsageEdit(_event, target) {
-        const index = Number(target.dataset.index);
-        const actions = foundry.utils.deepClone(this.item.system.actions ?? []);
-        if (index < 0 || index >= actions.length) return;
+        const usageId = target.dataset.usageId;
+        if (!usageId) return;
 
-        const action = actions[index];
-        const usageTypes = this.constructor.usageTypes;
+        // 既に同じ用途のシートが開いていれば前面に出す
+        const existing = Object.values(foundry.applications.instances)
+            .find(a => a instanceof TnxUsageSheet && a._usageId === usageId);
+        if (existing) {
+            existing.bringToTop();
+            return;
+        }
 
-        const SKILL_TYPES = ["generalSkill", "styleSkill"];
-        const availableSkills = (this.item.actor?.items ?? [])
-            .filter(i => SKILL_TYPES.includes(i.type) && i.id !== this.item.id)
-            .map(i => ({ id: i.id, name: i.name }))
-            .sort((a, b) => a.name.localeCompare(b.name, "ja"));
-
-        const result = await UsageCreationDialog.editAction({ action, usageTypes, availableSkills });
-        if (!result) return;
-
-        actions[index] = { ...action, ...result };
-        await this.item.update({ "system.actions": actions });
+        const sheet = new TnxUsageSheet(this.item, usageId);
+        sheet.render({ force: true });
     }
 
     static async _onActionDelete(_event, target) {
-        const index = Number(target.dataset.index);
+        const usageId = target.dataset.usageId;
+        if (!usageId) return;
+
         const actions = foundry.utils.deepClone(this.item.system.actions ?? []);
-        if (index >= 0 && index < actions.length) {
-            actions.splice(index, 1);
+        const idx = actions.findIndex(a => a._id === usageId);
+        if (idx >= 0) {
+            actions.splice(idx, 1);
             await this.item.update({ "system.actions": actions });
         }
+    }
+
+    // ─── 種別選択ダイアログ ────────────────────────────────────────────────────
+
+    /** 用途タイプを選択させる DialogV2。選択されたキーを返す。 */
+    static async _promptUsageType() {
+        const options = Object.entries(USAGE_TYPES)
+            .map(([value, label]) => `<option value="${value}">${label}</option>`)
+            .join("");
+
+        const content = `
+            <div class="usage-type-select-dialog">
+                <div class="form-group">
+                    <label>用途の種別</label>
+                    <select name="usageType">${options}</select>
+                </div>
+            </div>`;
+
+        return foundry.applications.api.DialogV2.wait({
+            window:   { title: "用途の種別を選択" },
+            classes:  ["tokyo-nova", "tnx-dialog"],
+            position: { width: 340 },
+            content,
+            buttons: [
+                {
+                    action: "ok", icon: "fas fa-check", label: "作成", default: true,
+                    callback: (_event, _button, dialog) =>
+                        dialog.element.querySelector("select[name='usageType']")?.value ?? null,
+                },
+                { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+            ],
+            close: () => null,
+        });
     }
 }
