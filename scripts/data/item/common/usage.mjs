@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @fileoverview UsageTemplate - 用途(Action)リストを定義する template クラス
  *
  * 使用 Item type: miracle / generalSkill / styleSkill /
@@ -7,37 +7,99 @@
  * SystemDataModel.mixin() の引数として各 Item DataModel に合成して使う。
  *
  * actions[].type の値域:
- *   "check"        - 通常の技能・能力判定
- *   "controlCheck" - 制御判定（下方判定。カード値 ≤ 制御値で成功）
- *   "attack"       - 攻撃
- *   "declaration"  - 宣言
- *   "miracle"      - 神業
- *   ※ リアクション: type ではなく timing フィールドで区別（D&D 方式）
+ *   "check"        - 判定（技能判定）
+ *   "attack"       - 攻撃（weaponRef・damageType・skillRefs）
+ *   "declaration"  - 宣言（神業を含む）
+ *   "damageBoost"  - ダメージ増加（formula・damageCategory）
+ *   "damageReduce" - ダメージ軽減（formula・damageCategory）
+ *   "modification" - 改造（modifiableParams）
  *
- * actions[].skillRefs: 技能組み合わせ判定のベース以外の技能 item ID リスト。
- *   空配列 = 単独判定。ベース技能はこの用途を所持するアイテム自身。
- *   フェーズ8 追加。既存データへの影響なし（空配列デフォルト）。
+ * タイプは作成時に固定。UI 上で切り替え不可。
+ * 全タイプ共通: _id / name / description / timing / target / effects
+ *
+ * skillRefs: check・attack タイプで使用。組み合わせ技能の item ID リスト。
+ *   ベース技能は用途を所持するアイテム自身のため skillRefs に含まない。
  */
 
 import { SystemDataModel } from "../../abstract.mjs";
 
 export class UsageTemplate extends SystemDataModel {
-  /** @override */
-  static defineSchema() {
-    const fields = foundry.data.fields;
-    return {
-      actions: new fields.ArrayField(
-        new fields.SchemaField({
-          type:        new fields.StringField({ initial: "" }),
-          name:        new fields.StringField({ initial: "" }),
-          description: new fields.StringField({ initial: "" }),
-          skillRefs:   new fields.ArrayField(
-            new fields.SchemaField({
-              itemId: new fields.StringField({ initial: "" }),
-            })
-          ),
-        })
-      ),
-    };
-  }
+    /** @override */
+    static defineSchema() {
+        const fields = foundry.data.fields;
+        return {
+            actions: new fields.ArrayField(
+                new fields.SchemaField({
+                    _id:         new fields.StringField({ initial: () => foundry.utils.randomID() }),
+                    type:        new fields.StringField({ initial: "check" }),
+                    name:        new fields.StringField({ initial: "" }),
+                    description: new fields.StringField({ initial: "" }),
+
+                    // タイミング (getSkillOptions().timing + actions/processes 準拠)
+                    timing: new fields.SchemaField({
+                        value:       new fields.StringField({ initial: "blank" }),
+                        actionName:  new fields.StringField({ initial: "blank" }),
+                        processName: new fields.StringField({ initial: "blank" }),
+                        timingOther: new fields.StringField({ initial: "" }),
+                    }),
+
+                    // 対象 (getSkillOptions().target 準拠)
+                    target: new fields.StringField({ initial: "blank" }),
+
+                    // この用途使用時に付与する ActiveEffect の参照
+                    effects: new fields.ArrayField(
+                        new fields.SchemaField({
+                            effectId: new fields.StringField({ initial: "" }),
+                        })
+                    ),
+
+                    // check・attack: ベース技能参照（用途が明示的に保持。作成時に親アイテムのIDで自動設定）
+                    baseSkillRef: new fields.SchemaField({
+                        itemId: new fields.StringField({ initial: "" }),
+                    }),
+
+                    // check・attack: 組み合わせ技能 item ID リスト（ベース技能は含まない）
+                    skillRefs: new fields.ArrayField(
+                        new fields.SchemaField({
+                            itemId: new fields.StringField({ initial: "" }),
+                        })
+                    ),
+
+                    // attack: 使用武器参照
+                    weaponRef: new fields.SchemaField({
+                        itemId: new fields.StringField({ initial: "" }),
+                    }),
+
+                    // attack: ダメージ種別 ("S" | "P" | "I")
+                    damageType: new fields.StringField({ initial: "" }),
+
+                    // damageBoost・damageReduce: 効果量（計算式 or 固定値文字列）
+                    formula: new fields.StringField({ initial: "" }),
+
+                    // damageBoost・damageReduce: 適用カテゴリ ("physical" | "mental")
+                    damageCategory: new fields.StringField({ initial: "" }),
+
+                    // modification: 改造可能なパラメータ名リスト
+                    modifiableParams: new fields.ArrayField(
+                        new fields.StringField({ initial: "" })
+                    ),
+                })
+            ),
+        };
+    }
+
+    /**
+     * 旧データ移行: _id が無い既存エントリに randomID を付与する。
+     * @override
+     */
+    static migrateData(source) {
+        if (Array.isArray(source.actions)) {
+            source.actions = source.actions.map(a => {
+                const migrated = a._id ? a : { ...a, _id: foundry.utils.randomID() };
+                if (!migrated.baseSkillRef) migrated.baseSkillRef = { itemId: "" };
+                return migrated;
+            });
+        }
+        return source;
+    }
 }
