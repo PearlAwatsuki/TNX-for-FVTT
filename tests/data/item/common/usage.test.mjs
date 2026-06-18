@@ -5,6 +5,7 @@ const { UsageTemplate } = await import("../../../../scripts/data/item/common/usa
 
 describe("UsageTemplate.defineSchema()", () => {
   const schema = UsageTemplate.defineSchema();
+  const entryFields = schema.actions.element.fields;
 
   it("スキーマを取得できる", () => {
     expect(schema).toBeDefined();
@@ -23,43 +24,132 @@ describe("UsageTemplate.defineSchema()", () => {
       expect(schema.actions.element).toBeInstanceOf(MockSchemaField);
     });
 
-    it("type / name / description / skillRefs が存在する", () => {
-      expect(schema.actions.element.fields).toHaveProperty("type");
-      expect(schema.actions.element.fields).toHaveProperty("name");
-      expect(schema.actions.element.fields).toHaveProperty("description");
-      expect(schema.actions.element.fields).toHaveProperty("skillRefs");
+    it("共通フィールドが存在する", () => {
+      expect(entryFields).toHaveProperty("_id");
+      expect(entryFields).toHaveProperty("type");
+      expect(entryFields).toHaveProperty("name");
+      expect(entryFields).toHaveProperty("description");
+      expect(entryFields).toHaveProperty("timing");
+      expect(entryFields).toHaveProperty("target");
+      expect(entryFields).toHaveProperty("effects");
+      expect(entryFields).toHaveProperty("baseSkillRef");
+      expect(entryFields).toHaveProperty("skillRefs");
+    });
+
+    it("attack 固有フィールドが存在する", () => {
+      expect(entryFields).toHaveProperty("weaponRef");
+      expect(entryFields).toHaveProperty("damageType");
+    });
+
+    it("damageBoost/damageReduce 固有フィールドが存在する", () => {
+      expect(entryFields).toHaveProperty("formula");
+      expect(entryFields).toHaveProperty("damageCategory");
+    });
+
+    it("modification 固有フィールドが存在する", () => {
+      expect(entryFields).toHaveProperty("modifiableParams");
     });
 
     it("type / name / description は StringField である", () => {
-      expect(schema.actions.element.fields.type).toBeInstanceOf(MockStringField);
-      expect(schema.actions.element.fields.name).toBeInstanceOf(MockStringField);
-      expect(schema.actions.element.fields.description).toBeInstanceOf(MockStringField);
+      expect(entryFields.type).toBeInstanceOf(MockStringField);
+      expect(entryFields.name).toBeInstanceOf(MockStringField);
+      expect(entryFields.description).toBeInstanceOf(MockStringField);
     });
 
-    it("type / name / description の initial は空文字", () => {
-      expect(schema.actions.element.fields.type.options.initial).toBe("");
-      expect(schema.actions.element.fields.name.options.initial).toBe("");
-      expect(schema.actions.element.fields.description.options.initial).toBe("");
+    it("type の initial は 'check'", () => {
+      expect(entryFields.type.options.initial).toBe("check");
+    });
+
+    it("name / description の initial は空文字", () => {
+      expect(entryFields.name.options.initial).toBe("");
+      expect(entryFields.description.options.initial).toBe("");
     });
 
     describe("skillRefs の構造が正しい", () => {
       it("skillRefs は ArrayField である", () => {
-        expect(schema.actions.element.fields.skillRefs).toBeInstanceOf(MockArrayField);
+        expect(entryFields.skillRefs).toBeInstanceOf(MockArrayField);
       });
 
       it("skillRefs の要素は SchemaField である", () => {
-        expect(schema.actions.element.fields.skillRefs.element).toBeInstanceOf(MockSchemaField);
+        expect(entryFields.skillRefs.element).toBeInstanceOf(MockSchemaField);
       });
 
       it("skillRefs の要素に itemId が存在する", () => {
-        expect(schema.actions.element.fields.skillRefs.element.fields).toHaveProperty("itemId");
+        expect(entryFields.skillRefs.element.fields).toHaveProperty("itemId");
       });
 
       it("skillRefs.itemId は StringField で initial が空文字", () => {
-        const itemId = schema.actions.element.fields.skillRefs.element.fields.itemId;
+        const itemId = entryFields.skillRefs.element.fields.itemId;
         expect(itemId).toBeInstanceOf(MockStringField);
         expect(itemId.options.initial).toBe("");
       });
     });
+
+    describe("baseSkillRef の構造が正しい", () => {
+      it("baseSkillRef は SchemaField である", () => {
+        expect(entryFields.baseSkillRef).toBeInstanceOf(MockSchemaField);
+      });
+
+      it("baseSkillRef に itemId が存在する", () => {
+        expect(entryFields.baseSkillRef.fields).toHaveProperty("itemId");
+      });
+
+      it("baseSkillRef.itemId は StringField で initial が空文字", () => {
+        const itemId = entryFields.baseSkillRef.fields.itemId;
+        expect(itemId).toBeInstanceOf(MockStringField);
+        expect(itemId.options.initial).toBe("");
+      });
+    });
+
+    describe("timing の構造が正しい", () => {
+      it("timing は SchemaField である", () => {
+        expect(entryFields.timing).toBeInstanceOf(MockSchemaField);
+      });
+
+      it("timing に value / actionName / processName / timingOther が存在する", () => {
+        const t = entryFields.timing.fields;
+        expect(t).toHaveProperty("value");
+        expect(t).toHaveProperty("actionName");
+        expect(t).toHaveProperty("processName");
+        expect(t).toHaveProperty("timingOther");
+      });
+
+      it("timing.value の initial は 'blank'", () => {
+        expect(entryFields.timing.fields.value.options.initial).toBe("blank");
+      });
+    });
+  });
+});
+
+describe("UsageTemplate.migrateData()", () => {
+  it("_id が無いエントリに randomID を付与する", () => {
+    const source = { actions: [{ type: "check", name: "テスト", description: "" }] };
+    const result = UsageTemplate.migrateData(source);
+    expect(result.actions[0]._id).toBeDefined();
+    expect(typeof result.actions[0]._id).toBe("string");
+    expect(result.actions[0]._id.length).toBeGreaterThan(0);
+  });
+
+  it("_id が既に存在するエントリは変更しない", () => {
+    const source = { actions: [{ _id: "existingId", type: "check", name: "テスト", description: "" }] };
+    const result = UsageTemplate.migrateData(source);
+    expect(result.actions[0]._id).toBe("existingId");
+  });
+
+  it("baseSkillRef が無いエントリに { itemId: '' } を付与する", () => {
+    const source = { actions: [{ _id: "abc", type: "check", name: "テスト" }] };
+    const result = UsageTemplate.migrateData(source);
+    expect(result.actions[0].baseSkillRef).toEqual({ itemId: "" });
+  });
+
+  it("baseSkillRef が既に存在するエントリは変更しない", () => {
+    const source = { actions: [{ _id: "abc", type: "check", baseSkillRef: { itemId: "skillXyz" } }] };
+    const result = UsageTemplate.migrateData(source);
+    expect(result.actions[0].baseSkillRef.itemId).toBe("skillXyz");
+  });
+
+  it("actions が undefined のとき何もしない", () => {
+    const source = {};
+    expect(() => UsageTemplate.migrateData(source)).not.toThrow();
   });
 });

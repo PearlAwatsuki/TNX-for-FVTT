@@ -39,6 +39,8 @@ export class MockTypeDataModel {
   static defineSchema() { return {}; }
 }
 
+let _idCounter = 0;
+
 globalThis.foundry = {
   abstract: {
     TypeDataModel: MockTypeDataModel,
@@ -53,5 +55,8 @@ globalThis.foundry = {
       ArrayField:   MockArrayField,
       ObjectField:  MockObjectField,
     },
+  },
+  utils: {
+    randomID: () => `mock-id-${++_idCounter}`,
   },
 };
