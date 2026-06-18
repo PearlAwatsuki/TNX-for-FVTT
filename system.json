@@ -2,7 +2,7 @@
     "id": "tokyo-nova-axleration",
     "title": "トーキョーN◎VA THE AXLERATION",
     "description": "「災厄の街」トーキョーN◎VAを舞台に自分のスタイルを貫く、サイバーアクションTRPG",
-    "version": "0.7.0",
+    "version": "0.8.0",
     "compatibility": {
       "minimum": 11,
       "verified": "13.351"

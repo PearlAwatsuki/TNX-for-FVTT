@@ -7,6 +7,39 @@
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-06-17
+
+フェーズ7（判定システム設計）・フェーズ8（判定システム実装）完了。TNX の基本判定フローを全面実装。
+
+### Added
+- **判定エンジン**（`TnxJudgmentEngine`）: カード値計算・技能判定・制御判定・組み合わせスート積集合計算
+- **判定フロー**（`TnxJudgmentFlow`）: シングルトン状態管理。手札クリック・山札判定・報酬点入力・切り札消費をサポート
+- **判定ダイアログ**（`TnxJudgmentDialog`）: コンテキスト（種別・使用可能スート・目標値）表示。×ボタンで判定キャンセル
+- **RL 判定要求**（`TnxRlRequestApp`）: GM がシーンコントロールから判定要求チャットカードを送信。対象 PL の「判定する」ボタンから起動。socket 経由で結果反映（KI-006 解決）
+- **TnxUsageSheet**（`ApplicationV2`）: 用途エントリの専用編集シート。タブ構成（基本 / 起動 / 種別固有 / エフェクト）、`submitOnChange` 自動保存（KI-002 解決）
+- **ソケット基盤**（`TnxSocketHandler`）: `judgmentResult` メッセージタイプで PL → GM への判定結果送信を実装
+- HUD のカード達成値プレビュー（ホバー時のみバッジ表示）・空手札エリアクリックで補充
+- キャストシートの技能行クリックで技能判定を起動（用途ベースのコンボ自動解決）
+- キャストシートの能力値・制御値クリックで各判定を起動
+- アクトシートのハンマーボタンから情報収集判定を起動
+- `generalSkill` 新規作成時に判定用途（check タイプ）を 1 件自動挿入（`preCreateItem` フック）
+
+### Changed
+- **UsageTemplate DataModel 全面改訂**: `_id` / `timing` / `target` / `effects` / `baseSkillRef` / `weaponRef` / `damageType` / `formula` / `damageCategory` / `modifiableParams` フィールドを追加
+  - 用途タイプを `check` / `attack` / `declaration` / `damageBoost` / `damageReduce` / `modification` の 6 種に確定
+  - `_id` により用途をインデックスではなく ID で管理
+  - `migrateData` で既存データに `_id` と `baseSkillRef` を自動付与
+- `usage-list.hbs` を `data-usage-id` ベースに変更、種別タグ（バッジ）を追加
+- アイテムシートの用途編集を `UsageCreationDialog` から `TnxUsageSheet` に移行
+- `_onStartSkillCheck` を用途ベースに刷新: `baseSkillRef` からベース技能を解決し `skillRefs` + 親技能自動追加でコンボを構成
+- RollTable ドロー表を 54 枚連続レンジ（ジョーカー 2 枠・その他各 4 枠）に刷新、ニューロデッキモードを再設計
+- タイミング選択肢にダメージ算出・ダメージ適用前後・登場判定・舞台裏を追加
+
+### Fixed
+- `_patchUsage` を `mergeObject` から `setProperty` ループに変更（配列フィールドとドット記法キーの更新バグを解消）
+- スタンドアロンアイテム（actor なし）で用途シートを開いた際のベース技能名 `(削除済み: ID)` 表示を修正
+- 山札判定でカードが裏向き状態になりスートが null になるバグを修正
+
 ## [0.7.0] - 2026-06-14
 
 フェーズ6（未実装シート追加）完了。outfit 系 Item 11 種・lifePath・キャストシートのアウトフィットタブを実装。
