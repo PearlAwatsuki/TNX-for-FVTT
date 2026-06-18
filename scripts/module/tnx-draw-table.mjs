@@ -116,7 +116,7 @@ ${cardLine}<ul class="tnx-draw-results">${resultLines}</ul>
 </div>`;
 
     await ChatMessage.create({ content });
-    foundry.audio.AudioHelper.play({ src: "sounds/cards.wav", volume: 1.0 });
+    foundry.audio.AudioHelper.play({ src: "systems/tokyo-nova-axleration/assets/sounds/カードをめくる.mp3", volume: 1.0 });
 }
 
 /**
