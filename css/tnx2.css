@@ -5270,7 +5270,7 @@ button.tnx-create-act-button span {
     font-size: 13px;
     line-height: 1.4;
     padding: 8px 10px;
-    background: var(--tnx2-bg-0);
+    background: var(--tnx2-bg-3);
     border: 1px solid var(--tnx2-border-glow);
     border-radius: var(--tnx2-radius);
 }

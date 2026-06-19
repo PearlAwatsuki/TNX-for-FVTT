@@ -167,21 +167,113 @@ export function registerDrawTableHooks() {
 
     CONFIG.RollTable.resultIcon = "icons/svg/card-hand.svg";
 
-    Hooks.once("i18nInit", () => {
-        foundry.utils.mergeObject(game.i18n.translations, {
-            DOCUMENT: { RollTable: "ドロー表", RollTables: "ドロー表" },
-            SIDEBAR: { ACTIONS: { CREATE: { RollTable: "ドロー表を作成" } } },
-            FOLDER: { CreateTable: "ドロー表を作成" },
-            TABLE: {
-                ACTIONS: {
-                    Submit:       "ドロー表を更新",
-                    ResetResults: "結果をリセット",
-                    DrawResult:   "ドロー",
-                },
-                FIELDS: { displayRoll: { label: "ドロー結果をチャットに表示" } },
+    // table.draw() を全面的に差し替え: コンテキストメニュー・シートボタン等
+    // あらゆる経路からの draw() 呼び出しをカードドローへリダイレクトする
+    foundry.documents.RollTable.prototype.draw = async function(_options = {}) {
+        const flagValue = this.getFlag(SCOPE, DECK_FLAG) ?? "";
+        if (flagValue === NEURO_SENTINEL) {
+            ui.notifications.info("ニューロデッキからのカードドローで結果が出力されます。");
+            return;
+        }
+        return drawVirtualDoc(this);
+    };
+
+    // 日本語化モジュールが i18nInit を後勝ちで上書きする場合があるため、
+    // i18nInit と ready の両方で適用し、ready でサイドバーも再描画する。
+    const TABLE_TRANSLATIONS = {
+        DOCUMENT: { RollTable: "ドロー表", RollTables: "ドロー表" },
+        SIDEBAR: {
+            ACTIONS: { CREATE: { RollTable: "ドロー表を作成" } },
+            TABS: { tables: "ドロー表" },
+        },
+        FOLDER: { CreateTable: "ドロー表を作成" },
+        TABLE: {
+            ACTIONS: {
+                Submit:        "ドロー表を更新",
+                ResetResults:  "結果をリセット",
+                DrawResult:    "ドロー",
+                DrawResultHint: "ドロー結果をチャットに送信する",
             },
-        });
+            FIELDS: { displayRoll: { label: "ドロー結果をチャットに表示" } },
+        },
+    };
+
+    Hooks.once("i18nInit", () => {
+        foundry.utils.mergeObject(game.i18n.translations, TABLE_TRANSLATIONS);
     });
+
+    // ready で再適用してモジュールの後勝ちを打ち消し、サイドバーを再描画
+    Hooks.once("ready", () => {
+        foundry.utils.mergeObject(game.i18n.translations, TABLE_TRANSLATIONS);
+        // サイドバータブのツールチップを DOM 直接書き換え（属性値が文字列で確定している場合）
+        for (const el of document.querySelectorAll('[data-tab="tables"]')) {
+            el.dataset.tooltip = "ドロー表";
+            el.setAttribute("aria-label", "ドロー表");
+        }
+        if (ui.tables?.rendered) ui.tables.render();
+
+        // プロトタイプパッチ: コンテキストメニューのアイコン・コールバックを書き換え
+        // hook 名が Foundry バージョンで異なるため、インスタンスから辿って動的に特定する
+        const RollTableDirProto = ui.tables?.constructor?.prototype;
+        if (RollTableDirProto) {
+            const methodName = ["_getEntryContextOptions", "_getContextMenuOptions", "getContextMenuOptions"]
+                .find(n => typeof RollTableDirProto[n] === "function");
+            if (methodName) {
+                const origFn = RollTableDirProto[methodName];
+                RollTableDirProto[methodName] = function(...args) {
+                    const options = origFn.call(this, ...args);
+                    for (const opt of options) {
+                        const icon = typeof opt.icon === "string" ? opt.icon : "";
+                        if (!icon.includes("dice")) continue;
+                        // アイコンを差し替え（HTML 形式・クラス名形式の両方に対応）
+                        opt.icon = icon.startsWith("<")
+                            ? '<i class="fa-solid fa-cards"></i>'
+                            : "fa-solid fa-cards";
+                        // コールバックを差し替え: ダイスロールではなく仮想ドロー
+                        const origCb = opt.callback;
+                        opt.callback = (li) => {
+                            const el = li instanceof HTMLElement ? li : li?.[0];
+                            const tableId = el?.dataset?.documentId ?? li?.data?.("documentId");
+                            const table = game.tables?.get(tableId);
+                            if (table && (table.getFlag(SCOPE, DECK_FLAG) ?? "") === "") {
+                                return drawVirtualDoc(table);
+                            }
+                            return origCb?.call(this, li);
+                        };
+                    }
+                    return options;
+                };
+            }
+        }
+
+        // DOM フォールバック: MutationObserver でコンテキストメニュー追加を即時捕捉し
+        // プロトタイプパッチが効かなかった場合でもアイコンを差し替える
+        new MutationObserver((mutations) => {
+            for (const { addedNodes } of mutations) {
+                for (const node of addedNodes) {
+                    if (!(node instanceof HTMLElement)) continue;
+                    for (const icon of node.querySelectorAll("i[class*='fa-dice']")) {
+                        icon.className = "fa-solid fa-cards";
+                    }
+                }
+            }
+        }).observe(document.body, { childList: true, subtree: true });
+    });
+
+    // コンテキストメニューのラベル・アイコンを書き換える（フックベース）
+    // Foundry バージョンによって hook 名・icon フォーマットが異なるため複数登録
+    const patchContextMenu = (_el, options) => {
+        for (const opt of options) {
+            const icon = typeof opt.icon === "string" ? opt.icon : "";
+            if (!icon.includes("dice")) continue;
+            // '<i class="...">' 形式か "fa-solid fa-*" クラス名形式かを自動判定
+            opt.icon = icon.startsWith("<")
+                ? '<i class="fa-solid fa-cards"></i>'
+                : "fa-solid fa-cards";
+        }
+    };
+    Hooks.on("getRollTableDirectoryEntryContext", patchContextMenu);
+    Hooks.on("getRollTableEntryContext",          patchContextMenu);
 
     Hooks.on("preCreateRollTable", (table, data) => {
         const update = {};
@@ -262,6 +354,21 @@ function onRenderRollTableSheet(app, element) {
 
     if (isTrump) sortDocResultRows(element, table);
     overrideDrawButton(element, table, flagValue, isConfigured);
+
+    // i18n 翻訳が日本語モジュールに負けた場合の保険: シート内ラベルを直接書き換え
+    // 「ロール表の説明」→「ドロー表の説明」など "ロール表" を含む全ラベルを置換
+    for (const label of element.querySelectorAll("label")) {
+        if (label.textContent.includes("ロール表")) {
+            label.textContent = label.textContent.replace(/ロール表/g, "ドロー表");
+        }
+    }
+    // displayRoll チェックボックス: "ダイスロール" は上記に引っかからないため個別対応
+    const displayRollInput = element.querySelector('input[name="displayRoll"]');
+    if (displayRollInput) {
+        const label = displayRollInput.closest(".form-group")?.querySelector("label")
+                   ?? element.querySelector(`label[for="${displayRollInput.id}"]`);
+        if (label) label.textContent = "ドロー結果をチャットに表示";
+    }
 }
 
 /** トランプモードの結果行を range[0] 昇順に DOM 上で並べ替える */
@@ -388,6 +495,9 @@ function overrideDrawButton(element, table, flagValue, isConfigured) {
     const button = element.querySelector("button[data-action='drawResult']");
     if (!button) return;
 
+    // innerHTML で完全置換（空白テキストノードへの誤書き込みを防ぐ）
+    button.innerHTML = '<i class="fa-solid fa-cards"></i> ドロー';
+
     if (isConfigured) {
         button.disabled = true;
         button.dataset.tooltip = flagValue === NEURO_SENTINEL
@@ -396,8 +506,6 @@ function overrideDrawButton(element, table, flagValue, isConfigured) {
         return;
     }
 
-    const icon = button.querySelector("i");
-    if (icon) icon.className = "fa-solid fa-cards";
     button.addEventListener("click", (ev) => {
         ev.preventDefault();
         ev.stopImmediatePropagation();
