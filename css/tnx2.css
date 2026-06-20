@@ -6249,19 +6249,66 @@ button.tnx-create-act-button span {
     border-left: 2px solid var(--tnx2-border-subtle);
 }
 
-/* ── 変更不可など横並びチェック行 ── */
-.usage-form-row.usage-check-row {
-    flex-direction: row;
+/* ── セレクト＋変更不可（※）のインライン配置 ── */
+.usage-field-with-fixed {
+    display: flex;
     align-items: center;
     gap: 8px;
 }
-.usage-form-row.usage-check-row .usage-field-label {
-    margin-bottom: 0;
+.usage-field-with-fixed select {
+    flex: 1;
+    min-width: 0;
 }
-.usage-form-row.usage-check-row input[type="checkbox"] {
+.usage-fixed-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
     flex-shrink: 0;
     cursor: pointer;
+    padding: 4px 8px;
+    font-size: 0.9em;
+    color: var(--tnx2-text-muted);
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: 4px;
+    transition: color 0.15s, border-color 0.15s;
 }
+.usage-fixed-toggle input { cursor: pointer; margin: 0; }
+.usage-fixed-toggle:hover { border-color: var(--tnx2-border-glow); }
+.usage-fixed-toggle:has(input:checked) {
+    color: var(--tnx2-accent);
+    border-color: var(--tnx2-accent);
+    font-weight: 700;
+}
+
+/* ── 効果タブ: 適用される効果セクションを種別固有設定から分離 ── */
+.usage-effects-section {
+    margin-top: 4px;
+    padding-top: 12px;
+    border-top: 1px solid var(--tnx2-border-subtle);
+}
+.usage-section-head {
+    font-size: 0.82em;
+    color: var(--tnx2-text-secondary);
+}
+
+/* ── インライントグル（対決不可など） ── */
+.usage-form-row.usage-toggle-row {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--tnx2-border-subtle);
+}
+.usage-toggle-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 0.85em;
+    color: var(--tnx2-text-primary);
+}
+.usage-toggle-inline input { cursor: pointer; flex-shrink: 0; margin: 0; }
 
 /* ── 対決（情報表示）── */
 .usage-confrontation-info {

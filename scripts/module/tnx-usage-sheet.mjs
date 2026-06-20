@@ -264,7 +264,11 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         this._syncConditionalSubFields();
         for (const name of ["timing.value", "target", "range", "targetValue"]) {
             this.element.querySelector(`select[name='${name}']`)
-                ?.addEventListener("change", () => this._syncConditionalSubFields());
+                ?.addEventListener("change", () => {
+                    // 制御 select を変えたら、対応しないサブ入力欄の値をリセット（submitOnChange 前に DOM を掃除）
+                    this._resetHiddenSubFields();
+                    this._syncConditionalSubFields();
+                });
         }
 
         if (context.editable) {
@@ -292,6 +296,24 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 });
             }
         }
+    }
+
+    /** 制御 select が指す状態に合わない条件付きサブ入力の DOM 値をリセットする */
+    _resetHiddenSubFields() {
+        const sel = (name) => this.element.querySelector(`select[name='${name}']`)?.value;
+        const setVal = (name, v) => {
+            const el = this.element.querySelector(`[name='${name}']`);
+            if (el) el.value = v;
+        };
+        const t = sel("timing.value");
+        if (t !== "action")  setVal("timing.actionName", "blank");
+        if (t !== "process") setVal("timing.processName", "blank");
+        if (t !== "other")   setVal("timing.timingOther", "");
+        if (sel("target") !== "other") setVal("targetOther", "");
+        if (sel("range")  !== "other") setVal("rangeOther", "");
+        const tvv = sel("targetValue");
+        if (tvv !== "number") setVal("targetValueNumber", "0");
+        if (tvv !== "other")  setVal("targetValueOther", "");
     }
 
     /** timing / target / range / targetValue のサブ入力欄の表示を選択値に追従させる */
@@ -342,6 +364,15 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
             isUnopposable: raw["isUnopposable"] ?? usage.isUnopposable,
         };
+
+        // 発動タブ: 制御 select が別の選択肢に変わったら、対応しないサブ値を残骸として残さずリセットする
+        if (update.target !== "other")            update.targetOther = "";
+        if (update.range !== "other")             update.rangeOther = "";
+        if (update.targetValue !== "number")      update.targetValueNumber = 0;
+        if (update.targetValue !== "other")       update.targetValueOther = "";
+        if (update["timing.value"] !== "action")  update["timing.actionName"]  = "blank";
+        if (update["timing.value"] !== "process") update["timing.processName"] = "blank";
+        if (update["timing.value"] !== "other")   update["timing.timingOther"] = "";
 
         // check・attack: ベース技能（アクション技能は常に自身に固定）
         if (usage.type === "check" || usage.type === "attack") {

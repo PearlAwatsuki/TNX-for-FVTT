@@ -57,39 +57,41 @@
                            {{#unless editable}}disabled{{/unless}}>
                 </div>
 
-                {{!-- 対象（＋変更不可） --}}
+                {{!-- 対象（変更不可※をインライン） --}}
                 <div class="usage-form-row">
                     <label class="usage-field-label">対象</label>
-                    <select name="target" {{#unless editable}}disabled{{/unless}}>
-                        {{selectOptions skillOpts.target selected=usage.target}}
-                    </select>
+                    <div class="usage-field-with-fixed">
+                        <select name="target" {{#unless editable}}disabled{{/unless}}>
+                            {{selectOptions skillOpts.target selected=usage.target}}
+                        </select>
+                        <label class="usage-fixed-toggle" title="変更不可（※）：効果による対象変更を受けない">
+                            <input type="checkbox" name="isFixedTarget" {{checked usage.isFixedTarget}}
+                                   {{#unless editable}}disabled{{/unless}}><span>※</span>
+                        </label>
+                    </div>
                 </div>
                 <div class="usage-form-row target-other-sub">
                     <label class="usage-field-label">対象（自由入力）</label>
                     <input type="text" name="targetOther" value="{{usage.targetOther}}"
                            {{#unless editable}}disabled{{/unless}}>
                 </div>
-                <div class="usage-form-row usage-check-row">
-                    <label class="usage-field-label">変更不可（※）</label>
-                    <input type="checkbox" name="isFixedTarget" {{checked usage.isFixedTarget}}
-                           {{#unless editable}}disabled{{/unless}}>
-                </div>
 
-                {{!-- 射程（＋変更不可） --}}
+                {{!-- 射程（変更不可※をインライン） --}}
                 <div class="usage-form-row">
                     <label class="usage-field-label">射程</label>
-                    <select name="range" {{#unless editable}}disabled{{/unless}}>
-                        {{selectOptions skillOpts.range selected=usage.range}}
-                    </select>
+                    <div class="usage-field-with-fixed">
+                        <select name="range" {{#unless editable}}disabled{{/unless}}>
+                            {{selectOptions skillOpts.range selected=usage.range}}
+                        </select>
+                        <label class="usage-fixed-toggle" title="変更不可（※）：効果による射程変更を受けない">
+                            <input type="checkbox" name="isFixedRange" {{checked usage.isFixedRange}}
+                                   {{#unless editable}}disabled{{/unless}}><span>※</span>
+                        </label>
+                    </div>
                 </div>
                 <div class="usage-form-row range-other-sub">
                     <label class="usage-field-label">射程（自由入力）</label>
                     <input type="text" name="rangeOther" value="{{usage.rangeOther}}"
-                           {{#unless editable}}disabled{{/unless}}>
-                </div>
-                <div class="usage-form-row usage-check-row">
-                    <label class="usage-field-label">変更不可（※）</label>
-                    <input type="checkbox" name="isFixedRange" {{checked usage.isFixedRange}}
                            {{#unless editable}}disabled{{/unless}}>
                 </div>
 
@@ -115,11 +117,13 @@
                            {{#unless editable}}disabled{{/unless}}>
                 </div>
 
-                {{!-- 対決不可 --}}
-                <div class="usage-form-row usage-check-row">
-                    <label class="usage-field-label">対決不可</label>
-                    <input type="checkbox" name="isUnopposable" {{checked usage.isUnopposable}}
-                           {{#unless editable}}disabled{{/unless}}>
+                {{!-- 対決不可（インライントグル） --}}
+                <div class="usage-form-row usage-toggle-row">
+                    <label class="usage-toggle-inline" title="対象がこの判定に対決（リアクション）できない状態">
+                        <input type="checkbox" name="isUnopposable" {{checked usage.isUnopposable}}
+                               {{#unless editable}}disabled{{/unless}}>
+                        <span>対決不可</span>
+                    </label>
                 </div>
 
             </div>
@@ -232,8 +236,8 @@
             {{/if}}
 
             {{!-- 適用される効果（ActiveEffect） --}}
-            <div class="usage-form-section">
-                <label class="usage-field-label">適用される効果</label>
+            <div class="usage-form-section usage-effects-section">
+                <label class="usage-field-label usage-section-head">適用される効果</label>
                 <div class="usage-effect-list">
                     {{#each addedEffects}}
                     <div class="usage-skill-ref-row">
