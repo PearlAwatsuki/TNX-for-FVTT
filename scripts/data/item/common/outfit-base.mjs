@@ -39,7 +39,7 @@
 
 import { SystemDataModel } from "../../abstract.mjs";
 import { getMajorCategoryChoices, getMinorCategoryChoices } from "../outfit-categories.mjs";
-import { modeValueField, migrateUsesValueToSpent } from "../helpers.mjs";
+import { modeValueField, migrateUsesValueToSpent, computeItemEffectiveValues } from "../helpers.mjs";
 
 export class OutfitBaseTemplate extends SystemDataModel {
   /** @override */
@@ -112,5 +112,17 @@ export class OutfitBaseTemplate extends SystemDataModel {
     }
     migrateUsesValueToSpent(source);
     return super.migrateData(source);
+  }
+
+  /**
+   * @override
+   * アウトフィット実効値(AE 着地点 effectMod 込みの `.total` 系)を派生算出する(フェーズ9-3)。
+   * 全アウトフィット type が OutfitBaseTemplate を合成するため、ここに置けば一括で適用される
+   * (各 concrete モデルは prepareDerivedData を未定義のため本メソッドを継承する)。
+   * attack / defence 等の concrete 固有パラメータも同一 system 上にあるため computeItemEffectiveValues が拾う。
+   */
+  prepareDerivedData() {
+    super.prepareDerivedData?.();
+    computeItemEffectiveValues(this);
   }
 }

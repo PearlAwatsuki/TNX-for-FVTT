@@ -113,6 +113,58 @@ export function attackField() {
 }
 
 /**
+ * アイテムの実効値(`.total` 系)を AE 着地点(effectMod)込みで算出する(フェーズ9-3)。
+ * **base 値(value / X_defence 等)は書き換えず**、別キー(`.total`)に実効値を派生する。
+ * これにより編集 UI は base を、表示・消費側は total を読める(入力に total が漏れない)。
+ *
+ * - {value, effectMod} 形(modeValueField / attackField): mode があれば mode==="value" 時のみ
+ *   effectMod を加算。`field.total` に格納。
+ * - defence(S/P/I): `defence.{S,P,I}_total`。
+ * - slots[].count(modeValueField): 各 `count.total`。
+ * - 素の値(FAValue / residence の各 stat): `<base>Total`。
+ * - clamp はしない(controlMod / combatSpeedMod 等は負の修正がありうる。0clamp は消費側の責務)。
+ *
+ * @param {object} system アイテムの system データ(prepareDerivedData の this)
+ */
+export function computeItemEffectiveValues(system) {
+  // {value, effectMod} 形(modeValueField の各種・attackField)
+  for (const field of Object.values(system)) {
+    if (field && typeof field === "object"
+        && typeof field.value === "number" && typeof field.effectMod === "number") {
+      const active = field.mode === undefined || field.mode === "value";
+      field.total = active ? field.value + field.effectMod : field.value;
+    }
+  }
+  // defence(S/P/I)
+  const def = system.defence;
+  if (def && typeof def === "object" && typeof def.S_effectMod === "number") {
+    const active = def.mode === "value";
+    for (const k of ["S", "P", "I"]) {
+      const base = def[`${k}_defence`] ?? 0;
+      def[`${k}_total`] = active ? base + (def[`${k}_effectMod`] ?? 0) : base;
+    }
+  }
+  // slots[].count
+  if (Array.isArray(system.slots)) {
+    for (const slot of system.slots) {
+      const c = slot?.count;
+      if (c && typeof c.value === "number" && typeof c.effectMod === "number") {
+        c.total = c.mode === "value" ? c.value + c.effectMod : c.value;
+      }
+    }
+  }
+  // 素の値(FAValue / residence stats)
+  if (typeof system.FAValueEffectMod === "number") {
+    system.FAValueTotal = (system.FAValue ?? 0) + system.FAValueEffectMod;
+  }
+  for (const base of ["appearanceTarget", "cyberSecurity", "analogSecurity"]) {
+    if (typeof system[`${base}EffectMod`] === "number") {
+      system[`${base}Total`] = (system[base] ?? 0) + system[`${base}EffectMod`];
+    }
+  }
+}
+
+/**
  * 旧 attack.mod(手動修正・実質未使用)→ attack.effectMod(AE 着地点)へのリネーム移行。
  * weapon / cyborg / vehicle の migrateData から呼ぶ。source を破壊的に書き換える。
  * @param {object} source DataModel の生ソース

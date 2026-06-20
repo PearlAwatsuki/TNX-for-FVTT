@@ -27,4 +27,14 @@ export class SkillBaseTemplate extends SystemDataModel {
       isAction: new fields.BooleanField({ initial: false }),
     };
   }
+
+  /**
+   * @override
+   * 技能レベルの実効値(level + levelEffectMod)を `levelTotal` に派生算出する(フェーズ9-3)。
+   * level(base)は書き換えない。generalSkill / styleSkill が SkillBaseTemplate を合成するため一括適用。
+   */
+  prepareDerivedData() {
+    super.prepareDerivedData?.();
+    this.levelTotal = (this.level ?? 0) + (this.levelEffectMod ?? 0);
+  }
 }
