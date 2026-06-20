@@ -17,7 +17,7 @@ import { SystemDataModel } from "../abstract.mjs";
 import { BiographyTemplate } from "./common/biography.mjs";
 import { AttributesTemplate } from "./common/attributes.mjs";
 import { ActorBaseTemplate } from "./common/actor-base.mjs";
-import { computeAttributeFinal } from "../helpers.mjs";
+import { computeAttributeFinal, computeOutfitAggregates } from "../helpers.mjs";
 import { ATTACK_DAMAGE_TYPES } from "../item/helpers.mjs";
 
 /** 能力値キー(♠理性 / ♣感情 / ♥生命 / ♦外界) */
@@ -95,11 +95,13 @@ export class CastDataModel extends SystemDataModel.mixin(
    * 実在しない system.equipped フィルタでスタイル基本値が欠落していた、KI-021)、
    * ここを単一の真実とする。各消費箇所は system.<key>.total / .totalControl を読む。
    *
-   * outfitMod は現状フェーズでは永続フィールドを参照する(B-2 化はフェーズ9-2)。
+   * outfitMod / appearanceModifier はフックでの DB 書き戻し(syncing)をやめ、ここで
+   * 携帯中アウトフィットから都度算出する(B-2)。能力値 total が outfitMod を読むため先に計算する。
    * AE は effectMod / controlEffectMod に着地して合算される(フェーズ9-3)。
    */
   prepareDerivedData() {
     super.prepareDerivedData?.();
+    this._prepareOutfitAggregates();
     const styleItems = this.parent?.items?.filter(i => i.type === "style") ?? [];
     const outfitMod  = this.outfitMod ?? {};
     for (const key of ABILITY_KEYS) {
@@ -114,5 +116,24 @@ export class CastDataModel extends SystemDataModel.mixin(
       this[key].total        = total;
       this[key].totalControl = totalControl;
     }
+  }
+
+  /**
+   * 携帯中アウトフィットから outfitMod(制御値修正・CS修正)・appearanceModifier(危険値合計)を
+   * 派生算出する(B-2)。派生値は永続化せず prepareDerivedData で都度算出するため、
+   * 旧来のフック書き戻し(updateCastOutfitMods / updateCastAppearanceModifier)は撤去した。
+   * 能力値の reason/passion/life/mundane への outfitMod は常に 0(現行ルール上、
+   * アウトフィットは制御値・CS のみ修正する)。
+   */
+  _prepareOutfitAggregates() {
+    const { control, combatSpeed, appearance } =
+      computeOutfitAggregates(this.parent?.items ?? [], this.isGhost);
+    this.outfitMod.control     = control;
+    this.outfitMod.combatSpeed = combatSpeed;
+    this.outfitMod.reason  = 0;
+    this.outfitMod.passion = 0;
+    this.outfitMod.life    = 0;
+    this.outfitMod.mundane = 0;
+    this.appearanceModifier = appearance;
   }
 }

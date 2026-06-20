@@ -17,7 +17,7 @@ globalThis.foundry = {
   },
 };
 
-const { damageField, attributeField, combatSpeedField, computeAttributeFinal } = await import("../../scripts/data/helpers.mjs");
+const { damageField, attributeField, combatSpeedField, computeAttributeFinal, computeOutfitAggregates } = await import("../../scripts/data/helpers.mjs");
 
 describe("damageField()", () => {
   it("呼び出せる", () => {
@@ -177,5 +177,67 @@ describe("computeAttributeFinal()", () => {
     const r = computeAttributeFinal({}, [{ value: 4, control: 2 }]);
     expect(r.total).toBe(4);
     expect(r.totalControl).toBe(2);
+  });
+});
+
+// ─── computeOutfitAggregates ──────────────────────────────────────────────────
+// 携帯中アウトフィットからの outfitMod(制御値・CS修正)・危険値の集計(フェーズ9-2, B-2)。
+
+describe("computeOutfitAggregates()", () => {
+  const outfit = (type, system) => ({ type, system });
+  const ctrl   = (v) => ({ mode: "value", value: v });
+
+  it("準備済み・携帯中の制御値修正を合算する", () => {
+    const items = [
+      outfit("armor", { isCarrying: true, isPrepared: true, controlMod: ctrl(2) }),
+      outfit("cyborg", { isCarrying: true, isPrepared: true, controlMod: ctrl(3) }),
+    ];
+    expect(computeOutfitAggregates(items).control).toBe(5);
+  });
+
+  it("未準備(isPrepared=false)の制御値修正は加算しない", () => {
+    const items = [outfit("armor", { isCarrying: true, isPrepared: false, controlMod: ctrl(2) })];
+    expect(computeOutfitAggregates(items).control).toBe(0);
+  });
+
+  it("非携帯(isCarrying=false)はすべて無視する", () => {
+    const items = [outfit("armor", {
+      isCarrying: false, isPrepared: true,
+      controlMod: ctrl(2), combatSpeedMod: ctrl(2), appearancePenalty: ctrl(2),
+    })];
+    expect(computeOutfitAggregates(items)).toEqual({ control: 0, combatSpeed: 0, appearance: 0 });
+  });
+
+  it("CS修正は isPrepared を問わず携帯中なら合算する(tap 等)", () => {
+    const items = [outfit("tap", { isCarrying: true, isPrepared: false, combatSpeedMod: ctrl(4) })];
+    expect(computeOutfitAggregates(items).combatSpeed).toBe(4);
+  });
+
+  it("ゴースト登場中(isGhost)は CS修正を無効化する", () => {
+    const items = [outfit("tap", { isCarrying: true, isPrepared: true, combatSpeedMod: ctrl(4) })];
+    expect(computeOutfitAggregates(items, true).combatSpeed).toBe(0);
+    expect(computeOutfitAggregates(items, false).combatSpeed).toBe(4);
+  });
+
+  it("危険値(appearancePenalty)を携帯中で合算する", () => {
+    const items = [
+      outfit("weapon", { isCarrying: true, appearancePenalty: ctrl(1) }),
+      outfit("armor",  { isCarrying: true, appearancePenalty: ctrl(2) }),
+    ];
+    expect(computeOutfitAggregates(items).appearance).toBe(3);
+  });
+
+  it("mode が value でない修正は加算しない", () => {
+    const items = [outfit("armor", {
+      isCarrying: true, isPrepared: true,
+      controlMod: { mode: "none", value: 9 },
+      appearancePenalty: { mode: "none", value: 9 },
+    })];
+    expect(computeOutfitAggregates(items)).toEqual({ control: 0, combatSpeed: 0, appearance: 0 });
+  });
+
+  it("アウトフィット以外の type は集計対象外", () => {
+    const items = [outfit("style", { isCarrying: true, isPrepared: true, controlMod: ctrl(5) })];
+    expect(computeOutfitAggregates(items).control).toBe(0);
   });
 });

@@ -76,6 +76,40 @@ export function computeAttributeFinal(ability, styles, outfitMod = 0, outfitCont
   };
 }
 
+/** OutfitBaseTemplate を合成するアイテム type(キャストのアウトフィット集計対象) */
+export const OUTFIT_ITEM_TYPES = new Set([
+  "weapon", "armor", "ianus", "cyborg", "tron", "tap",
+  "vehicle", "residence", "combiner", "general",
+]);
+
+/**
+ * 携帯中アウトフィットから outfitMod(制御値修正・CS修正)と appearanceModifier(危険値合計)を
+ * 集計する純粋関数(フェーズ9-2、B-2 派生化)。
+ *
+ * - 制御値修正: 準備済み(isPrepared)かつ携帯中のアウトフィットのみ加算。
+ * - CS修正: 携帯中であれば加算(tap は常時稼働のため isPrepared 不問)。
+ *   ゴースト登場中(isGhost)は物理現場不在のため無効。
+ * - 危険値(appearancePenalty): 携帯中のアウトフィットを合算(登場判定用)。
+ *
+ * Item に依存しないよう、items は { type, system } を持つ素オブジェクト配列で受け取る。
+ *
+ * @param {Array<{type:string, system:object}>} items  アクターの全アイテム
+ * @param {boolean} [isGhost=false]  ゴースト登場中か
+ * @returns {{ control:number, combatSpeed:number, appearance:number }}
+ */
+export function computeOutfitAggregates(items, isGhost = false) {
+  let control = 0, combatSpeed = 0, appearance = 0;
+  for (const item of items) {
+    if (!OUTFIT_ITEM_TYPES.has(item.type)) continue;
+    const s = item.system;
+    if (!s?.isCarrying) continue;
+    if (s.isPrepared && s.controlMod?.mode === "value")        control     += Number(s.controlMod.value) || 0;
+    if (!isGhost && s.combatSpeedMod?.mode === "value")        combatSpeed += Number(s.combatSpeedMod.value) || 0;
+    if (s.appearancePenalty?.mode === "value")                appearance  += Number(s.appearancePenalty.value) || 0;
+  }
+  return { control, combatSpeed, appearance };
+}
+
 /**
  * 戦闘速度(combatSpeed)の5フィールド構造を返す SchemaField。
  * template.json > Actor.templates.attributes.combatSpeed 構造に準拠。
