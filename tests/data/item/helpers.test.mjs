@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
-const { defenceField, attackField, migrateAttackModToEffectMod } = await import("../../../scripts/data/item/helpers.mjs");
+const { defenceField, attackField, modeValueField, migrateAttackModToEffectMod } = await import("../../../scripts/data/item/helpers.mjs");
 
 describe("defenceField()", () => {
   it("呼び出せる", () => {
@@ -35,8 +35,37 @@ describe("defenceField()", () => {
     }
   });
 
+  it("S/P/I それぞれの effectMod (AE 着地点) を NumberField で持つ", () => {
+    const field = defenceField();
+    for (const key of ["S_effectMod", "P_effectMod", "I_effectMod"]) {
+      expect(field.fields[key]).toBeInstanceOf(MockNumberField);
+      expect(field.fields[key].options.initial).toBe(0);
+    }
+  });
+
   it("呼び出すたびに別インスタンスを返す", () => {
     expect(defenceField()).not.toBe(defenceField());
+  });
+});
+
+describe("modeValueField()", () => {
+  it("mode / value / effectMod を持つ SchemaField を返す", () => {
+    const field = modeValueField(["none", "value"]);
+    expect(field).toBeInstanceOf(MockSchemaField);
+    expect(field.fields).toHaveProperty("mode");
+    expect(field.fields).toHaveProperty("value");
+    expect(field.fields).toHaveProperty("effectMod");
+  });
+
+  it("effectMod (AE 着地点) は NumberField で initial が 0", () => {
+    const field = modeValueField(["none", "value"]);
+    expect(field.fields.effectMod).toBeInstanceOf(MockNumberField);
+    expect(field.fields.effectMod.options.initial).toBe(0);
+  });
+
+  it("mode の choices は引数で指定される", () => {
+    const field = modeValueField(["none", "value", "reference"]);
+    expect(field.fields.mode.options.choices).toEqual(["none", "value", "reference"]);
   });
 });
 

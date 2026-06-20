@@ -33,14 +33,20 @@ export function migrateUsesValueToSpent(source) {
 
 /**
  * 「なし / 数値」の 2 状態を持つフィールド。buy / hide / hack などと同形。
+ *
+ * effectMod は ActiveEffect の着地点(フェーズ9-3)。改造・スタイル技能等が ADD で積む。
+ * mode === "value" のときのみ意味を持ち、実効値 = value + effectMod は消費側で算出する
+ * (mode が reference / control / none のときは effectMod は無効)。手動編集 UI は持たない。
+ *
  * @param {string[]} choices mode の選択肢(例: ["none", "value"])
  * @returns {foundry.data.fields.SchemaField}
  */
 export function modeValueField(choices) {
   const fields = foundry.data.fields;
   return new fields.SchemaField({
-    mode:  new fields.StringField({ required: true, blank: false, initial: "none", choices }),
-    value: new fields.NumberField({ initial: 0 }),
+    mode:      new fields.StringField({ required: true, blank: false, initial: "none", choices }),
+    value:     new fields.NumberField({ initial: 0 }),
+    effectMod: new fields.NumberField({ initial: 0 }),
   });
 }
 
@@ -59,6 +65,10 @@ export function defenceField() {
     S_defence: new fields.NumberField({ initial: 0 }),
     P_defence: new fields.NumberField({ initial: 0 }),
     I_defence: new fields.NumberField({ initial: 0 }),
+    // ActiveEffect 着地点(フェーズ9-3)。S/P/I それぞれに ADD。実効防御力 = X_defence + X_effectMod は消費側で算出。
+    S_effectMod: new fields.NumberField({ initial: 0 }),
+    P_effectMod: new fields.NumberField({ initial: 0 }),
+    I_effectMod: new fields.NumberField({ initial: 0 }),
   });
 }
 

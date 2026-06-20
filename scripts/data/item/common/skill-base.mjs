@@ -16,6 +16,8 @@ export class SkillBaseTemplate extends SystemDataModel {
     const fields = foundry.data.fields;
     return {
       level: new fields.NumberField({ initial: 0 }),
+      // 技能レベルの AE 着地点(フェーズ9-3)。実効レベル = level + levelEffectMod は消費側で算出。
+      levelEffectMod: new fields.NumberField({ initial: 0 }),
       suits: new fields.SchemaField({
         spade:   new fields.BooleanField({ initial: false }),
         heart:   new fields.BooleanField({ initial: false }),

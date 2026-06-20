@@ -107,6 +107,8 @@ export class WeaponDataModel extends SystemDataModel.mixin(
       isLaser:     new fields.BooleanField({ initial: false }),
       isFullAuto:  new fields.BooleanField({ initial: false }),
       FAValue:     new fields.NumberField({ initial: 0 }),
+      // フルオート値の AE 着地点(フェーズ9-3)。実効 FA値 = FAValue + FAValueEffectMod は消費側で算出。
+      FAValueEffectMod: new fields.NumberField({ initial: 0 }),
       identificationKey: new fields.StringField({ initial: "" }),
     };
   }

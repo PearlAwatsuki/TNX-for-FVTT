@@ -36,6 +36,10 @@ export class ResidenceDataModel extends SystemDataModel.mixin(
       appearanceTarget:    new fields.NumberField({ initial: 0 }),
       cyberSecurity:       new fields.NumberField({ initial: 0 }),
       analogSecurity:      new fields.NumberField({ initial: 0 }),
+      // AE 着地点(フェーズ9-3)。実効値 = base + 住宅エリア供給値 + effectMod は消費側で算出。
+      appearanceTargetEffectMod: new fields.NumberField({ initial: 0 }),
+      cyberSecurityEffectMod:    new fields.NumberField({ initial: 0 }),
+      analogSecurityEffectMod:   new fields.NumberField({ initial: 0 }),
       housingArea:         new fields.StringField({ initial: "" }),
       useHousingAreaDrop:  new fields.BooleanField({ initial: false }),
       identificationKey:   new fields.StringField({ initial: "" }),
