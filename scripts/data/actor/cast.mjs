@@ -135,10 +135,16 @@ export class CastDataModel extends SystemDataModel.mixin(
    */
   _applyCrossTargetEffects() {
     const actor = this.parent;
-    if (!actor?.effects || !actor.items) return;
+    if (!actor?.items) return;
+    // 自身の効果＋所有アイテムから転送された効果(transfer:true)を対象にする。
+    // legacyTransferral=false では転送効果が actor.effects に入らず allApplicableEffects 経由のため、
+    // これを使わないとアイテム→他アイテムのバフ(アイテムに乗せた aeTarget 効果)を拾えない。
+    const source = (typeof actor.allApplicableEffects === "function")
+      ? actor.allApplicableEffects()
+      : (actor.effects ?? []);
     const specs = [];
-    for (const effect of actor.effects) {
-      if (effect.disabled) continue;
+    for (const effect of source) {
+      if (!effect.active) continue;
       const spec = effect.flags?.[AE_TARGET_SCOPE]?.[AE_TARGET_KEY];
       if (spec && spec.param) specs.push(spec);
     }
