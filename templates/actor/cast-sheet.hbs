@@ -157,7 +157,7 @@
                         <span class="style-summary-items">
                             {{#each processedStylesForView as |s|}}
                                 <a class="style-summary-item" data-action="openItemSheet" data-item-id="{{s._id}}">{{s.repeatedName}}{{s.roleIndicatorDisplay}}</a>
-                                {{#unless @last}}、{{/unless}}
+                                {{#unless @last}},&nbsp;{{/unless}}
                             {{/each}}
                         </span>
                     </div>

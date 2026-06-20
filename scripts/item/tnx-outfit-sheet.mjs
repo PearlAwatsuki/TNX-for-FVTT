@@ -545,7 +545,8 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         // 住宅エリアの修正値を加算するヘルパー(住宅施設のみ。エリア未設定時は加算 0)
         const am = (key) => (areaMods?.[key] ?? 0);
         // {mode,value} フィールドを文字列に変換。mode が "none" なら "-"
-        const mv = (field) => field?.mode === "value" ? num(field.value) : "-";
+        // 表示は AE 込み実効値(total)。編集入力は base のまま(フェーズ9-3)。
+        const mv = (field) => field?.mode === "value" ? num(field.total ?? field.value) : "-";
 
         // オプション時: 正の数値に + を付ける
         const isOption = system.isOption === true;
@@ -556,7 +557,8 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         // 購入値・常備化経験点・隠匿値・電脳制御値以外の数値に使う mv(オプション時は符号付き)
         const mvOpt = (field) => {
             if (field?.mode !== "value") return "-";
-            return isOption ? numSigned(field.value) : num(field.value);
+            const v = field.total ?? field.value;
+            return isOption ? numSigned(v) : num(v);
         };
         // 数値を直接フォーマット(オプション時は符号付き)
         const fmtNum = (v) => isOption ? numSigned(v) : num(v);
@@ -567,12 +569,12 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         // 購：購入値／常備化経験点(解説参照時は常備化経験点を表記しない。除外対象: 符号なし)
         let buy;
         if (system.buy.mode === "reference") buy = "解説参照";
-        else if (system.buy.mode === "value") buy = `${num(system.buy.value)}／${expLabel}`;
+        else if (system.buy.mode === "value") buy = `${num(system.buy.total ?? system.buy.value)}／${expLabel}`;
         else buy = `-／${expLabel}`;
 
         // 隠匿値(除外対象: 符号なし)／危険値(オプション時は符号付き)の併記版は hideFull
         const hideVal = system.hide.mode === "reference" ? "解説参照"
-            : system.hide.mode === "value" ? num(system.hide.value)
+            : system.hide.mode === "value" ? num(system.hide.total ?? system.hide.value)
             : "-";
         const penaltyVal = mvOpt(system.appearancePenalty);
         const hideFull = `${hideVal}／${penaltyVal}`;
@@ -583,13 +585,13 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         const defence = () => {
             const d = system.defence;
             if (d?.mode !== "value") return "-";
-            return `${fmtNum(d.S_defence)}／${fmtNum(d.P_defence)}／${fmtNum(d.I_defence)}`;
+            return `${fmtNum(d.S_total ?? d.S_defence)}／${fmtNum(d.P_total ?? d.P_defence)}／${fmtNum(d.I_total ?? d.I_defence)}`;
         };
         const slots = Array.isArray(system.slots) ? system.slots : [];
         const countOf = (kind) => {
             const slot = slots.find((s) => s.kind === kind);
             if (!slot?.count || slot.count.mode !== "value") return "-";
-            return fmtNum(slot.count.value);
+            return fmtNum(slot.count.total ?? slot.count.value);
         };
 
         // 型ごとに概要の項目と順序が異なる(2026-06-12〜13 ユーザー確定)
@@ -652,20 +654,21 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 break;
             case "residence": {
                 // 危険値・電制なし。隠は隠匿値のみ。住宅エリアの修正値を合算して表示する
-                const expBase = system.preserveExp?.mode === "value" ? (system.preserveExp.value ?? 0) : null;
+                // 表示は AE 込み実効値(total)＋住宅エリア供給値(am)。base は不変。
+                const expBase = system.preserveExp?.mode === "value" ? (system.preserveExp.total ?? system.preserveExp.value ?? 0) : null;
                 const preserveR = expBase !== null ? String(expBase + am("preserveExpMod")) : "-";
                 let buyR;
                 if (system.buy.mode === "reference") buyR = "解説参照";
-                else if (system.buy.mode === "value") buyR = `${(system.buy.value ?? 0) + am("buyRatingMod")}／${preserveR}`;
+                else if (system.buy.mode === "value") buyR = `${(system.buy.total ?? system.buy.value ?? 0) + am("buyRatingMod")}／${preserveR}`;
                 else buyR = `-／${preserveR}`;
                 const hideR = system.hide.mode === "reference" ? "解説参照"
-                    : system.hide.mode === "value" ? String(system.hide.value ?? 0)
+                    : system.hide.mode === "value" ? String(system.hide.total ?? system.hide.value ?? 0)
                     : "-";
                 push("購", buyR); push("隠", hideR);
-                push("登場", fmtNum((system.appearanceTarget ?? 0) + am("appearanceTargetMod")));
-                push("セ(電／ア)", `${fmtNum((system.cyberSecurity ?? 0) + am("cyberSecurityMod"))}／${fmtNum((system.analogSecurity ?? 0) + am("analogSecurityMod"))}`);
+                push("登場", fmtNum((system.appearanceTargetTotal ?? system.appearanceTarget ?? 0) + am("appearanceTargetMod")));
+                push("セ(電／ア)", `${fmtNum((system.cyberSecurityTotal ?? system.cyberSecurity ?? 0) + am("cyberSecurityMod"))}／${fmtNum((system.analogSecurityTotal ?? system.analogSecurity ?? 0) + am("analogSecurityMod"))}`);
                 const slotBase = slots.find((s) => s.kind === "normal");
-                const slotCount = slotBase?.count?.mode === "value" ? (slotBase.count.value ?? 0) : 0;
+                const slotCount = slotBase?.count?.mode === "value" ? (slotBase.count.total ?? slotBase.count.value ?? 0) : 0;
                 push("ス", fmtNum(slotCount + am("slotMod")));
                 push("部位", part);
                 break;
@@ -687,12 +690,13 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
     /**
      * 攻撃力の表記(「攻：I+4」のダメージ種別 + 値部分)。
-     * @param {{damageType: string, value: number}} attack
+     * 表示は AE 込み実効値(attack.total)。なければ base(value)。
+     * @param {{damageType: string, value: number, total?: number}} attack
      * @returns {string}
      */
     _attackLabel(attack) {
         const type = attack.damageType || "";
-        const value = attack.value ?? 0;
+        const value = attack.total ?? attack.value ?? 0;
         if (!type && !value) return "-";
         const sign = value >= 0 ? `+${value}` : String(value);
         return `${type}${sign}`;

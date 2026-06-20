@@ -476,7 +476,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             const isPersona = level === 3 ? true : item.system.isPersona;
             const isKey     = level === 3 ? true : item.system.isKey;
             const displayName               = item.system.nameEn || item.name;
-            itemData.repeatedName          = Array(level).fill(displayName).join('=');
+            itemData.repeatedName          = Array(level).fill(displayName).join(' = ');
             itemData.roleIndicatorDisplay  = this._getRoleIndicatorSymbol(isPersona, isKey);
             return itemData;
         });
@@ -1149,49 +1149,51 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         };
     }
 
-    /** 1 列分の表示値を計算する。 */
+    /** 1 列分の表示値を計算する。表示は AE 込み実効値(total)。編集入力は base のまま(フェーズ9-3)。 */
     static _computeColValue(key, sys, effectiveValues) {
+        // {mode,value,effectMod} の実効値。mode=value 以外は null
+        const mvT = (f) => f?.mode === "value" ? (f.total ?? f.value) : null;
         switch (key) {
             case "hide": {
-                const h = sys.hide?.mode === "value" ? sys.hide.value : "-";
-                const d = sys.appearancePenalty?.mode === "value" ? sys.appearancePenalty.value : "-";
+                const h = mvT(sys.hide) ?? "-";
+                const d = mvT(sys.appearancePenalty) ?? "-";
                 return (h === "-" && d === "-") ? "-" : `${h}／${d}`;
             }
             case "attack":
                 return sys.attack?.damageType
-                    ? `${sys.attack.damageType}+${sys.attack.value ?? 0}` : "-";
+                    ? `${sys.attack.damageType}+${sys.attack.total ?? sys.attack.value ?? 0}` : "-";
             case "guard":
-                return sys.guardValue?.mode === "value" ? String(sys.guardValue.value) : "-";
+                return mvT(sys.guardValue) !== null ? String(mvT(sys.guardValue)) : "-";
             case "range":
                 return (sys.range?.min && sys.range.min !== "none")
                     ? formatWeaponRangeLabel(sys.range) : "-";
             case "hack":
-                return sys.hack?.mode === "value" ? String(sys.hack.value) : "-";
+                return mvT(sys.hack) !== null ? String(mvT(sys.hack)) : "-";
             case "defence":
                 return sys.defence?.mode === "value"
-                    ? `${sys.defence.S_defence}／${sys.defence.P_defence}／${sys.defence.I_defence}` : "-";
+                    ? `${sys.defence.S_total ?? sys.defence.S_defence}／${sys.defence.P_total ?? sys.defence.P_defence}／${sys.defence.I_total ?? sys.defence.I_defence}` : "-";
             case "control":
-                return sys.controlMod?.mode === "value" ? String(sys.controlMod.value) : "-";
+                return mvT(sys.controlMod) !== null ? String(mvT(sys.controlMod)) : "-";
             case "slot": {
                 const s = (sys.slots ?? []).find(s => s.kind === "normal");
-                return s?.count?.mode === "value" ? String(s.count.value) : "-";
+                return mvT(s?.count) !== null ? String(mvT(s.count)) : "-";
             }
             case "soft": {
                 const s = (sys.slots ?? []).find(s => s.kind === "software");
-                return s?.count?.mode === "value" ? String(s.count.value) : "-";
+                return mvT(s?.count) !== null ? String(mvT(s.count)) : "-";
             }
             case "hard": {
                 const s = (sys.slots ?? []).find(s => s.kind === "hardware");
-                return s?.count?.mode === "value" ? String(s.count.value) : "-";
+                return mvT(s?.count) !== null ? String(mvT(s.count)) : "-";
             }
             case "cycle":
-                return sys.cycle?.mode === "value" ? String(sys.cycle.value) : "-";
+                return mvT(sys.cycle) !== null ? String(mvT(sys.cycle)) : "-";
             case "cs":
-                return sys.combatSpeedMod?.mode === "value" ? String(sys.combatSpeedMod.value) : "-";
+                return mvT(sys.combatSpeedMod) !== null ? String(mvT(sys.combatSpeedMod)) : "-";
             case "sf":
-                return sys.speedFactor?.mode === "value" ? String(sys.speedFactor.value) : "-";
+                return mvT(sys.speedFactor) !== null ? String(mvT(sys.speedFactor)) : "-";
             case "passenger":
-                return sys.passenger?.mode === "value" ? String(sys.passenger.value) : "-";
+                return mvT(sys.passenger) !== null ? String(mvT(sys.passenger)) : "-";
             case "appearance":
                 return effectiveValues
                     ? String(effectiveValues.appearanceTarget)
