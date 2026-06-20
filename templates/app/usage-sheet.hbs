@@ -132,7 +132,8 @@
                 <p class="usage-info-line"><i class="fas fa-ban"></i> 対決不可の技能を含みます</p>
                 {{/if}}
                 {{#if confrontationReactions.length}}
-                <p class="usage-info-line">対決可能: {{#each confrontationReactions}}<span class="usage-info-tag">{{this}}</span>{{/each}}</p>
+                <p class="usage-info-line">リアクション例: {{#each confrontationReactions}}<span class="usage-info-tag">{{this}}</span>{{/each}}</p>
+                <p class="usage-empty-hint">※例示であり、これ以外のリアクションを排除するものではありません（※付きは必須）。</p>
                 {{else}}
                 {{#unless confrontationCannot}}
                 <p class="usage-empty-hint">（参加技能に対決の指定なし）</p>

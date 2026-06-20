@@ -17,6 +17,7 @@ globalThis.foundry = {
   abstract: {
     TypeDataModel: class {
       static defineSchema() { return {}; }
+      static migrateData(source) { return source; }
     },
   },
   data: {
@@ -83,5 +84,28 @@ describe("SystemDataModel.mixin()", () => {
   it("mixin(A, B) → B のインスタンスメソッドがプロトタイプに引き継がれる", () => {
     const Mixed = SystemDataModel.mixin(TemplateA, TemplateB);
     expect(typeof Mixed.prototype.greetB).toBe("function");
+  });
+
+  it("mixin → template の静的 migrateData が合成され順に実行される", () => {
+    class MigA extends SystemDataModel {
+      static migrateData(s) { s.a = true; return s; }
+    }
+    class MigB extends SystemDataModel {
+      static migrateData(s) { s.order = [...(s.order ?? []), "B"]; return s; }
+    }
+    class MigC extends SystemDataModel {
+      static migrateData(s) { s.order = [...(s.order ?? []), "C"]; return s; }
+    }
+    const Mixed = SystemDataModel.mixin(MigB, MigC);
+    const out = Mixed.migrateData({});
+    expect(out.order).toEqual(["B", "C"]); // template の順で実行
+
+    // concrete が migrateData を持つ場合も super 経由で template が走る
+    class Concrete extends SystemDataModel.mixin(MigA) {
+      static migrateData(s) { s.concrete = true; return super.migrateData(s); }
+    }
+    const out2 = Concrete.migrateData({});
+    expect(out2.concrete).toBe(true);
+    expect(out2.a).toBe(true);
   });
 });

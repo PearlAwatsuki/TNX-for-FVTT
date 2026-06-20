@@ -37,6 +37,7 @@ export class MockObjectField {
 }
 export class MockTypeDataModel {
   static defineSchema() { return {}; }
+  static migrateData(source) { return source; }
 }
 
 let _idCounter = 0;

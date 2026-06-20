@@ -17,6 +17,21 @@
  */
 
 /**
+ * 旧 uses.value（残り回数）→ uses.spent（消費済み回数）へのデータ移行。
+ * spent = max - value（[0, max] にクランプ）。style-skill と outfit-base の uses で共用。
+ * source を破壊的に書き換える（migrateData の慣例）。
+ * @param {object} source DataModel の生ソース
+ */
+export function migrateUsesValueToSpent(source) {
+    const uses = source?.uses;
+    if (uses && typeof uses.value === "number" && uses.spent === undefined) {
+        const max = typeof uses.max === "number" ? uses.max : 0;
+        uses.spent = Math.max(0, Math.min(max, max - uses.value));
+        delete uses.value;
+    }
+}
+
+/**
  * 「なし / 数値」の 2 状態を持つフィールド。buy / hide / hack などと同形。
  * @param {string[]} choices mode の選択肢(例: ["none", "value"])
  * @returns {foundry.data.fields.SchemaField}

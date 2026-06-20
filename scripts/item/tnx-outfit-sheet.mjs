@@ -806,7 +806,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 const isChecked = event.currentTarget.checked;
                 const update = { "system.uses.isLimit": isChecked };
                 if (!isChecked) {
-                    update["system.uses.value"] = 0;
+                    update["system.uses.spent"] = 0;
                     update["system.uses.max"]   = 0;
                     update["system.uses.type"]  = "";
                 }

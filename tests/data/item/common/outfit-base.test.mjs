@@ -188,11 +188,11 @@ describe("OutfitBaseTemplate.defineSchema()", () => {
       expect(schema.uses).toBeInstanceOf(MockSchemaField);
     });
 
-    it("uses に isLimit / type / max / value が存在する", () => {
+    it("uses に isLimit / type / max / spent が存在する", () => {
       expect(schema.uses.fields).toHaveProperty("isLimit");
       expect(schema.uses.fields).toHaveProperty("type");
       expect(schema.uses.fields).toHaveProperty("max");
-      expect(schema.uses.fields).toHaveProperty("value");
+      expect(schema.uses.fields).toHaveProperty("spent");
     });
 
     it("uses.type は StringField で initial が空文字 (種別: アクト/シーン/カット)", () => {
@@ -210,9 +210,15 @@ describe("OutfitBaseTemplate.defineSchema()", () => {
       expect(schema.uses.fields.max.options.initial).toBe(0);
     });
 
-    it("uses.value は NumberField で initial が 0", () => {
-      expect(schema.uses.fields.value).toBeInstanceOf(MockNumberField);
-      expect(schema.uses.fields.value.options.initial).toBe(0);
+    it("uses.spent は NumberField で initial が 0", () => {
+      expect(schema.uses.fields.spent).toBeInstanceOf(MockNumberField);
+      expect(schema.uses.fields.spent.options.initial).toBe(0);
+    });
+
+    it("migrateData: 旧 uses.value(残り) → uses.spent(消費済み) に移行する", () => {
+      const src = OutfitBaseTemplate.migrateData({ uses: { value: 2, max: 5 } });
+      expect(src.uses.spent).toBe(3); // 5 - 2
+      expect(src.uses.value).toBeUndefined();
     });
   });
 });

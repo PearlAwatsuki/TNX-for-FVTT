@@ -297,14 +297,20 @@ describe("StyleSkillDataModel.defineSchema()", () => {
       expect(schema.uses.fields.isLimit.options.initial).toBe(false);
     });
 
-    it("uses.value は NumberField で initial が 0", () => {
-      expect(schema.uses.fields.value).toBeInstanceOf(MockNumberField);
-      expect(schema.uses.fields.value.options.initial).toBe(0);
+    it("uses.spent は NumberField で initial が 0", () => {
+      expect(schema.uses.fields.spent).toBeInstanceOf(MockNumberField);
+      expect(schema.uses.fields.spent.options.initial).toBe(0);
     });
 
     it("uses.max は NumberField で initial が 0", () => {
       expect(schema.uses.fields.max).toBeInstanceOf(MockNumberField);
       expect(schema.uses.fields.max.options.initial).toBe(0);
+    });
+
+    it("migrateData: 旧 uses.value(残り) → uses.spent(消費済み) に移行する", () => {
+      const src = StyleSkillDataModel.migrateData({ uses: { value: 1, max: 3 } });
+      expect(src.uses.spent).toBe(2); // 3 - 1
+      expect(src.uses.value).toBeUndefined();
     });
   });
 

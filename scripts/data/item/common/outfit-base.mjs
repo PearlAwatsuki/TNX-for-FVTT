@@ -39,7 +39,7 @@
 
 import { SystemDataModel } from "../../abstract.mjs";
 import { getMajorCategoryChoices, getMinorCategoryChoices } from "../outfit-categories.mjs";
-import { modeValueField } from "../helpers.mjs";
+import { modeValueField, migrateUsesValueToSpent } from "../helpers.mjs";
 
 export class OutfitBaseTemplate extends SystemDataModel {
   /** @override */
@@ -87,11 +87,12 @@ export class OutfitBaseTemplate extends SystemDataModel {
         timingOther: new fields.StringField({ initial: "" }),
       }),
       exclusive:         new fields.StringField({ initial: "" }),
+      // spent = 消費済み回数（D&D 方式）。残り = max - spent
       uses: new fields.SchemaField({
         isLimit: new fields.BooleanField({ initial: false }),
         type:    new fields.StringField({ initial: "" }),
         max:     new fields.NumberField({ initial: 0 }),
-        value:   new fields.NumberField({ initial: 0 }),
+        spent:   new fields.NumberField({ initial: 0 }),
       }),
       parentItemId:   new fields.StringField({ initial: "" }),
       parentSlotKind: new fields.StringField({ initial: "" }),
@@ -99,7 +100,7 @@ export class OutfitBaseTemplate extends SystemDataModel {
     };
   }
 
-  /** @override — 旧 NumberField 形式から {mode,value} へ移行 */
+  /** @override — 旧 NumberField 形式から {mode,value} へ移行・uses.value→spent 移行 */
   static migrateData(source) {
     if (typeof source.appearancePenalty === "number") {
       const n = source.appearancePenalty;
@@ -109,6 +110,7 @@ export class OutfitBaseTemplate extends SystemDataModel {
       const n = source.preserveExp;
       source.preserveExp = n === 0 ? { mode: "none", value: 0 } : { mode: "value", value: n };
     }
+    migrateUsesValueToSpent(source);
     return super.migrateData(source);
   }
 }

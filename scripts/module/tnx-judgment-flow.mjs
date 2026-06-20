@@ -442,15 +442,17 @@ export class TnxJudgmentFlow {
         if (!limited.length) return { consumeIds: [] };
 
         const esc = (s) => foundry.utils.escapeHTML(String(s ?? ""));
+        const remainingOf = (u) => Math.max(0, (u.max ?? 0) - (u.spent ?? 0));
         const rows = limited.map(s => {
             const u = s.system.uses;
-            const out = (u.value ?? 0) <= 0;
+            const remaining = remainingOf(u);
+            const out = remaining <= 0;
             return `<div class="tnx-uses-row">
                 <label>
                     <input type="checkbox" name="consume" value="${esc(s.id)}" checked>
                     <span>「${esc(s.name)}」の使用回数を消費</span>
                 </label>
-                <span class="tnx-uses-count${out ? " tnx-uses-out" : ""}">残り ${u.value ?? 0}/${u.max ?? 0}</span>
+                <span class="tnx-uses-count${out ? " tnx-uses-out" : ""}">残り ${remaining}/${u.max ?? 0}</span>
             </div>`;
         }).join("");
 
@@ -480,7 +482,8 @@ export class TnxJudgmentFlow {
         // 原則ブロック: チェック済みで残り0の技能があれば起動不可
         for (const id of result) {
             const s = actor.items.get(id);
-            if (s && (s.system.uses?.value ?? 0) <= 0) {
+            const u = s?.system.uses;
+            if (u && ((u.max ?? 0) - (u.spent ?? 0)) <= 0) {
                 ui.notifications.warn(`「${s.name}」の使用回数が残っていません。消費チェックを外すと判定できます。`);
                 return null;
             }
@@ -498,8 +501,9 @@ export class TnxJudgmentFlow {
         const updates = [];
         for (const id of skillIds) {
             const s = actor.items.get(id);
-            if (!s || s.system.uses?.isLimit !== true) continue;
-            updates.push({ _id: id, "system.uses.value": Math.max(0, (s.system.uses.value ?? 0) - 1) });
+            const u = s?.system.uses;
+            if (!u || u.isLimit !== true) continue;
+            updates.push({ _id: id, "system.uses.spent": Math.min(u.max ?? 0, (u.spent ?? 0) + 1) });
         }
         if (updates.length) await actor.updateEmbeddedDocuments("Item", updates);
     }

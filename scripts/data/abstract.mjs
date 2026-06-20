@@ -54,6 +54,21 @@ export class SystemDataModel extends foundry.abstract.TypeDataModel {
         }
         return schema;
       }
+
+      /**
+       * @override
+       * 各 template の静的 migrateData を順に適用してから親へ委譲する。
+       * 静的メソッドは JS の継承・mixin のプロトタイプコピーでは引き継がれないため、
+       * ここで明示的に合成しないと template 側の migrateData が concrete モデルで実行されない。
+       */
+      static migrateData(source) {
+        for (const template of templates) {
+          if (Object.prototype.hasOwnProperty.call(template, "migrateData")) {
+            source = template.migrateData(source) ?? source;
+          }
+        }
+        return super.migrateData(source);
+      }
     };
 
     // 各 template のプロトタイプメソッドを引き継ぐ(後の template が優先)

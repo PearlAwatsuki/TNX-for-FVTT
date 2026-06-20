@@ -42,6 +42,7 @@ import { SystemDataModel } from "../abstract.mjs";
 import { BaseTemplate } from "./common/base.mjs";
 import { UsageTemplate } from "./common/usage.mjs";
 import { SkillBaseTemplate } from "./common/skill-base.mjs";
+import { migrateUsesValueToSpent } from "./helpers.mjs";
 
 export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, UsageTemplate, SkillBaseTemplate) {
   /** @override */
@@ -120,9 +121,10 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
       rewritingMiracleId:   new fields.StringField({ initial: "" }),
 
       // 使用回数(outfitBase.uses と同型だが styleSkill 固有の別フィールド)
+      // spent = 消費済み回数（D&D 方式）。残り = max - spent
       uses: new fields.SchemaField({
         isLimit: new fields.BooleanField({ initial: false }),
-        value:   new fields.NumberField({ initial: 0 }),
+        spent:   new fields.NumberField({ initial: 0 }),
         max:     new fields.NumberField({ initial: 0 }),
         type:    new fields.StringField({ initial: "" }),
       }),
@@ -147,5 +149,14 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
         expCost: new fields.NumberField({ initial: 50 }),
       }),
     };
+  }
+
+  /**
+   * @override 旧 uses.value（残り回数）→ uses.spent（消費済み回数）へ移行。
+   * spent = max - value（[0, max] にクランプ）。
+   */
+  static migrateData(source) {
+    migrateUsesValueToSpent(source);
+    return super.migrateData(source);
   }
 }
