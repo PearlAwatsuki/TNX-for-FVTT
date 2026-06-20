@@ -241,27 +241,38 @@
         </div>
         {{/if}}
 
-        {{!-- ④ エフェクトタブ --}}
+        {{!-- ④ エフェクトタブ: 用途使用時に対象へ適用する効果 --}}
         <div class="tab" data-group="primary" data-tab="effects">
-            {{#if allEffects.length}}
-            <div class="usage-effect-list">
-                {{#each allEffects}}
-                <div class="usage-effect-row">
-                    <label class="usage-effect-label">
-                        <input type="checkbox"
-                               data-action="effectToggle"
-                               data-effect-id="{{this.id}}"
-                               {{#if this.enabled}}checked{{/if}}
-                               {{#unless ../editable}}disabled{{/unless}}>
-                        <span>{{this.name}}</span>
-                    </label>
+            <div class="usage-form-section">
+                <label class="usage-field-label">適用される効果</label>
+                <div class="usage-effect-list">
+                    {{#each addedEffects}}
+                    <div class="usage-skill-ref-row">
+                        <span class="usage-skill-ref-name">{{this.name}}</span>
+                        {{#if ../editable}}
+                        <a class="usage-icon-btn" data-action="effectRemove" data-effect-id="{{this.id}}"
+                           title="解除"><i class="fas fa-times"></i></a>
+                        {{/if}}
+                    </div>
+                    {{else}}
+                    <p class="usage-empty-hint">（適用される効果なし）</p>
+                    {{/each}}
                 </div>
-                {{/each}}
+                {{#if editable}}
+                <div class="usage-skill-ref-add">
+                    <select class="effect-select">
+                        <option value="">── 追加する効果を選択 ──</option>
+                        {{#each availableEffects}}
+                        <option value="{{this.id}}">{{this.name}}</option>
+                        {{/each}}
+                    </select>
+                </div>
+                {{#unless hasAnyEffect}}
+                <p class="usage-empty-hint">このアイテムに ActiveEffect がありません。<br>
+                   アイテムシートの「エフェクト」タブで追加すると、ここで選択できます。</p>
+                {{/unless}}
+                {{/if}}
             </div>
-            {{else}}
-            <p class="usage-empty-hint">このアイテムに ActiveEffect がありません。<br>
-               アイテムシートの「エフェクト」タブで追加してください。</p>
-            {{/if}}
         </div>
 
     </section>

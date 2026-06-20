@@ -53,7 +53,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         },
         actions: {
             skillRefDelete: TnxUsageSheet._onSkillRefDelete,
-            effectToggle:   TnxUsageSheet._onEffectToggle,
+            effectRemove:   TnxUsageSheet._onEffectRemove,
             paramAdd:       TnxUsageSheet._onParamAdd,
             paramDelete:    TnxUsageSheet._onParamDelete,
         },
@@ -156,13 +156,19 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             context.selectedWeaponName = this._item.actor?.items.get(usage.weaponRef?.itemId)?.name ?? "";
         }
 
-        // エフェクト一覧（アイテムが持つ全 ActiveEffect）
-        const enabledIds = new Set(usage.effects.map(e => e.effectId));
-        context.allEffects = this._item.effects.map(e => ({
-            id: e.id,
-            name: e.name,
-            enabled: enabledIds.has(e.id),
-        }));
+        // エフェクト: 用途使用時に適用する ActiveEffect の参照
+        // - addedEffects: 用途に追加済み（usage.effects 順を保持）
+        // - availableEffects: アイテムが持つが未追加の ActiveEffect（セレクトの選択肢）
+        const addedIds = usage.effects.map(e => e.effectId).filter(Boolean);
+        const addedSet = new Set(addedIds);
+        context.addedEffects = addedIds.map(id => {
+            const eff = this._item.effects.get(id);
+            return { id, name: eff?.name ?? `(削除済み: ${id})` };
+        });
+        context.availableEffects = this._item.effects
+            .filter(e => !addedSet.has(e.id))
+            .map(e => ({ id: e.id, name: e.name }));
+        context.hasAnyEffect = this._item.effects.size > 0;
 
         return context;
     }
@@ -200,6 +206,20 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                     if (usage.skillRefs.some(r => r.itemId === itemId)) return;
                     const skillRefs = [...usage.skillRefs, { itemId }];
                     await this._patchUsage({ skillRefs });
+                    this.render({ force: true });
+                });
+            }
+
+            // エフェクト: ドロップダウン選択で即時追加（D&D の「適用される効果」方式）
+            for (const select of this.element.querySelectorAll("select.effect-select")) {
+                select.addEventListener("change", async (ev) => {
+                    const effectId = ev.target.value;
+                    if (!effectId) return;
+                    const usage = this.usage;
+                    if (!usage) return;
+                    if (usage.effects.some(e => e.effectId === effectId)) return;
+                    const effects = [...usage.effects, { effectId }];
+                    await this._patchUsage({ effects });
                     this.render({ force: true });
                 });
             }
@@ -272,16 +292,12 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
     // ─── effects 管理 ──────────────────────────────────────────────────────────
 
-    static async _onEffectToggle(_event, target) {
+    static async _onEffectRemove(_event, target) {
         const effectId = target.dataset.effectId;
         const usage = this.usage;
         if (!usage || !effectId) return;
 
-        const exists = usage.effects.some(e => e.effectId === effectId);
-        const effects = exists
-            ? usage.effects.filter(e => e.effectId !== effectId)
-            : [...usage.effects, { effectId }];
-
+        const effects = usage.effects.filter(e => e.effectId !== effectId);
         await this._patchUsage({ effects });
         this.render({ force: true });
     }
