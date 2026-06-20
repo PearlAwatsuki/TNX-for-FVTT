@@ -18,7 +18,7 @@ import { BiographyTemplate } from "./common/biography.mjs";
 import { AttributesTemplate } from "./common/attributes.mjs";
 import { ActorBaseTemplate } from "./common/actor-base.mjs";
 import { computeAttributeFinal, computeOutfitAggregates } from "../helpers.mjs";
-import { ATTACK_DAMAGE_TYPES, matchesAeTarget, addToItemTotal } from "../item/helpers.mjs";
+import { ATTACK_DAMAGE_TYPES, matchesAeTarget, addToItemEffectMod, parseCrossTargetKey, computeItemEffectiveValues } from "../item/helpers.mjs";
 
 /** モードB(アクター→アイテム横断バフ)の AE flag スコープ・キー */
 const AE_TARGET_SCOPE = "tokyo-nova-axleration";
@@ -128,32 +128,48 @@ export class CastDataModel extends SystemDataModel.mixin(
   }
 
   /**
-   * モードB: アクターに乗る AE(flag aeTarget)を、所有アイテムへ横断適用する(フェーズ9-3)。
-   * アイテム自身の prepareDerivedData は既に走り `.total` が算出済みのため、ここでは
-   * 一致アイテムの total に加算注入する(base は触らない)。アイテム横断は素の Foundry AE
-   * changes では解決できないため、flag ＋ カスタム照合で表現する(→ Active_Effects.md)。
+   * モードB: 横断バフ(アクター/アイテムに乗る AE)を所有アイテムへ適用する(フェーズ9-3)。
+   * 2つの指定方法を扱う:
+   * 1. **changes キー `<識別キー>.<systemパス>`**（例 "hisho-geki.attack.effectMod"）。
+   *    その識別キーを持つアイテムの該当パスへ `effect.apply` で適用(mode/value はネイティブ処理)。
+   * 2. **flag `aeTarget`**（型/大分類/小分類/識別キーで対象指定 ＋ param/value）。effectMod へ加算。
+   *
+   * アクター自身＋全所有アイテムの effects を走査する(transfer の有無に依らない)。アイテム横断は
+   * 素の Foundry change.key では別アイテムに解決できないため、ここでカスタム適用する。
+   * 着地点 effectMod に積んだ後、触れたアイテムの実効値(total)を再計算する。
    */
   _applyCrossTargetEffects() {
     const actor = this.parent;
     if (!actor?.items) return;
-    // 自身の効果＋所有アイテムから転送された効果(transfer:true)を対象にする。
-    // legacyTransferral=false では転送効果が actor.effects に入らず allApplicableEffects 経由のため、
-    // これを使わないとアイテム→他アイテムのバフ(アイテムに乗せた aeTarget 効果)を拾えない。
-    const source = (typeof actor.allApplicableEffects === "function")
-      ? actor.allApplicableEffects()
-      : (actor.effects ?? []);
-    const specs = [];
-    for (const effect of source) {
+    const effects = [...(actor.effects ?? [])];
+    for (const item of actor.items) for (const e of (item.effects ?? [])) effects.push(e);
+
+    const touched = new Set();
+    for (const effect of effects) {
       if (!effect.active) continue;
+      // 1. changes キー <識別キー>.<パス>
+      for (const change of (effect.changes ?? [])) {
+        const parsed = parseCrossTargetKey(change.key);
+        if (!parsed) continue;
+        for (const item of actor.items) {
+          if (item.system?.identificationKey && item.system.identificationKey === parsed.identKey) {
+            effect.apply(item, { ...change, key: `system.${parsed.path}` });
+            touched.add(item);
+          }
+        }
+      }
+      // 2. flag aeTarget(型/分類/識別キー指定)
       const spec = effect.flags?.[AE_TARGET_SCOPE]?.[AE_TARGET_KEY];
-      if (spec && spec.param) specs.push(spec);
-    }
-    if (!specs.length) return;
-    for (const item of actor.items) {
-      for (const spec of specs) {
-        if (matchesAeTarget(item, spec)) addToItemTotal(item.system, spec.param, Number(spec.value) || 0);
+      if (spec?.param) {
+        for (const item of actor.items) {
+          if (matchesAeTarget(item, spec)) {
+            addToItemEffectMod(item.system, spec.param, Number(spec.value) || 0);
+            touched.add(item);
+          }
+        }
       }
     }
+    for (const item of touched) computeItemEffectiveValues(item.system);
   }
 
   /**

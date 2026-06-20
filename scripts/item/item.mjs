@@ -46,12 +46,18 @@ export class TokyoNovaItem extends Item {
 
     /**
      * 自身の有効な非転送(transfer:false)ActiveEffect の changes を自分(system)へ適用する。
-     * transfer:true の効果は所有アクター側(actor.applyActiveEffects)が適用するためここでは扱わない。
+     * - transfer:true の効果は所有アクター側(actor.applyActiveEffects)が適用するため扱わない。
+     * - 横断キー(`<識別キー>.<パス>`、system./flags. で始まらない)は他アイテム宛のモードB なので
+     *   自分には適用しない(アクターの _applyCrossTargetEffects が処理する)。
      */
     applyActiveEffects() {
         for (const effect of this.effects) {
             if (!effect.active || effect.transfer) continue;
-            for (const change of effect.changes) effect.apply(this, change);
+            for (const change of effect.changes) {
+                const key = change.key ?? "";
+                if (!key.startsWith("system.") && !key.startsWith("flags.")) continue;
+                effect.apply(this, change);
+            }
         }
     }
 }

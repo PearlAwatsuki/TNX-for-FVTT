@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
-const { defenceField, attackField, modeValueField, migrateAttackModToEffectMod, computeItemEffectiveValues, matchesAeTarget, addToItemTotal } = await import("../../../scripts/data/item/helpers.mjs");
+const { defenceField, attackField, modeValueField, migrateAttackModToEffectMod, computeItemEffectiveValues, matchesAeTarget, addToItemEffectMod, parseCrossTargetKey } = await import("../../../scripts/data/item/helpers.mjs");
 
 describe("defenceField()", () => {
   it("呼び出せる", () => {
@@ -240,34 +240,53 @@ describe("matchesAeTarget()（モードB 照合）", () => {
   });
 });
 
-describe("addToItemTotal()（モードB 注入）", () => {
-  it("modeValue/attack の total に加算する", () => {
-    const sys = { attack: { value: 4, effectMod: 0, total: 4 }, guardValue: { mode: "value", value: 1, effectMod: 0, total: 1 } };
-    addToItemTotal(sys, "attack", 2);
-    addToItemTotal(sys, "guardValue", 3);
-    expect(sys.attack.total).toBe(6);
-    expect(sys.guardValue.total).toBe(4);
+describe("addToItemEffectMod()（モードB 注入）", () => {
+  it("modeValue/attack の effectMod に加算する", () => {
+    const sys = { attack: { value: 4, effectMod: 0 }, guardValue: { mode: "value", value: 1, effectMod: 0 } };
+    addToItemEffectMod(sys, "attack", 2);
+    addToItemEffectMod(sys, "guardValue", 3);
+    expect(sys.attack.effectMod).toBe(2);
+    expect(sys.guardValue.effectMod).toBe(3);
   });
 
-  it("defence.S/P/I の total に加算する", () => {
-    const sys = { defence: { S_total: 1, P_total: 2, I_total: 3 } };
-    addToItemTotal(sys, "defence.P", 10);
-    expect(sys.defence.P_total).toBe(12);
-    expect(sys.defence.S_total).toBe(1);
+  it("defence.S/P/I の effectMod に加算する", () => {
+    const sys = { defence: { S_effectMod: 1, P_effectMod: 2, I_effectMod: 3 } };
+    addToItemEffectMod(sys, "defence.P", 10);
+    expect(sys.defence.P_effectMod).toBe(12);
+    expect(sys.defence.S_effectMod).toBe(1);
   });
 
-  it("素の値(level/FAValue)の Total に加算する", () => {
-    const sys = { levelTotal: 2, FAValueTotal: 1 };
-    addToItemTotal(sys, "level", 1);
-    addToItemTotal(sys, "FAValue", 4);
-    expect(sys.levelTotal).toBe(3);
-    expect(sys.FAValueTotal).toBe(5);
+  it("素の値(level/FAValue)の EffectMod に加算する", () => {
+    const sys = { levelEffectMod: 2, FAValueEffectMod: 1 };
+    addToItemEffectMod(sys, "level", 1);
+    addToItemEffectMod(sys, "FAValue", 4);
+    expect(sys.levelEffectMod).toBe(3);
+    expect(sys.FAValueEffectMod).toBe(5);
   });
 
-  it("対象 total が無い場合は何もしない(base は触らない)", () => {
-    const sys = { guardValue: { mode: "value", value: 1, effectMod: 0 } }; // total 未算出
-    expect(() => addToItemTotal(sys, "guardValue", 5)).not.toThrow();
-    expect(sys.guardValue.value).toBe(1);
-    expect(sys.guardValue.total).toBeUndefined();
+  it("対象 effectMod が無い場合は何もしない", () => {
+    const sys = { foo: { value: 1 } };
+    expect(() => addToItemEffectMod(sys, "foo", 5)).not.toThrow();
+    expect(sys.foo.value).toBe(1);
+  });
+});
+
+describe("parseCrossTargetKey()（モードB キー解析）", () => {
+  it("<識別キー>.<パス> を分解する", () => {
+    expect(parseCrossTargetKey("hisho-geki.attack.effectMod"))
+      .toEqual({ identKey: "hisho-geki", path: "attack.effectMod" });
+    expect(parseCrossTargetKey("katana.defence.S_effectMod"))
+      .toEqual({ identKey: "katana", path: "defence.S_effectMod" });
+  });
+
+  it("system. / flags. で始まる通常キーは null", () => {
+    expect(parseCrossTargetKey("system.attack.effectMod")).toBeNull();
+    expect(parseCrossTargetKey("flags.x.y")).toBeNull();
+  });
+
+  it("ドット無し・空・非文字列は null", () => {
+    expect(parseCrossTargetKey("hisho")).toBeNull();
+    expect(parseCrossTargetKey("")).toBeNull();
+    expect(parseCrossTargetKey(undefined)).toBeNull();
   });
 });

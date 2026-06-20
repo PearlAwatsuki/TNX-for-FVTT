@@ -200,38 +200,53 @@ export function matchesAeTarget(item, spec) {
 }
 
 /**
- * モードB の加算注入: アイテムの実効値(`.total` 系)に delta を加える(フェーズ9-3)。
- * base は触らず total のみ調整する(アクター prepareDerivedData の後処理で呼ぶ。
- * アイテム自身の prepareDerivedData は既に走り total が算出済みのため)。
+ * モードB の加算注入: アイテムの **AE 着地点 effectMod** に delta を加える(フェーズ9-3)。
+ * base は触らない。注入後にアクター側で computeItemEffectiveValues を再実行して total に反映する。
  *
  * param の指定:
- * - "defence.S" / "defence.P" / "defence.I" → defence.{S,P,I}_total
- * - "level" / "FAValue" / "appearanceTarget" / "cyberSecurity" / "analogSecurity" → <param>Total
- * - その他(modeValueField / attack 等) → system[param].total
+ * - "defence.S" / "defence.P" / "defence.I" → defence.{S,P,I}_effectMod
+ * - "level" / "FAValue" / "appearanceTarget" / "cyberSecurity" / "analogSecurity" → <param>EffectMod
+ * - その他(modeValueField / attack 等) → system[param].effectMod
  *
  * @param {object} system アイテムの system
  * @param {string} param  対象パラメータ
  * @param {number} delta  加算量
  */
-export function addToItemTotal(system, param, delta) {
+export function addToItemEffectMod(system, param, delta) {
   if (!system || !param || !Number.isFinite(delta)) return;
   if (param.startsWith("defence.")) {
-    const key = `${param.split(".")[1]}_total`;
+    const key = `${param.split(".")[1]}_effectMod`;
     if (system.defence && typeof system.defence[key] === "number") system.defence[key] += delta;
     return;
   }
-  const bareTotals = {
-    level: "levelTotal", FAValue: "FAValueTotal",
-    appearanceTarget: "appearanceTargetTotal",
-    cyberSecurity: "cyberSecurityTotal", analogSecurity: "analogSecurityTotal",
+  const bareEffectMods = {
+    level: "levelEffectMod", FAValue: "FAValueEffectMod",
+    appearanceTarget: "appearanceTargetEffectMod",
+    cyberSecurity: "cyberSecurityEffectMod", analogSecurity: "analogSecurityEffectMod",
   };
-  if (bareTotals[param]) {
-    const key = bareTotals[param];
+  if (bareEffectMods[param]) {
+    const key = bareEffectMods[param];
     if (typeof system[key] === "number") system[key] += delta;
     return;
   }
   const field = system[param];
-  if (field && typeof field === "object" && typeof field.total === "number") field.total += delta;
+  if (field && typeof field === "object" && typeof field.effectMod === "number") field.effectMod += delta;
+}
+
+/**
+ * モードB の changes キー `<識別キー>.<systemパス>` を解析する(フェーズ9-3)。
+ * 例: "hisho-geki.attack.effectMod" → { identKey: "hisho-geki", path: "attack.effectMod" }。
+ * system. / flags. で始まる通常キー(自己適用・キャラ適用)は対象外で null を返す。
+ *
+ * @param {string} key  ActiveEffect change のキー
+ * @returns {{identKey:string, path:string}|null}
+ */
+export function parseCrossTargetKey(key) {
+  if (typeof key !== "string" || !key) return null;
+  if (key.startsWith("system.") || key.startsWith("flags.")) return null;
+  const dot = key.indexOf(".");
+  if (dot <= 0) return null;
+  return { identKey: key.slice(0, dot), path: key.slice(dot + 1) };
 }
 
 /**
