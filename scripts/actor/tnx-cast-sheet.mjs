@@ -1933,6 +1933,11 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
         const actor = this.actor;
         const actorBounty = (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0);
+
+        // 使用回数の消費を確認（参加技能の遠隔消費を含む。残り0でチェック時はブロック）
+        const usesPlan = await TnxJudgmentFlow.planUsesConsumption(actor, allSkillIds);
+        if (!usesPlan) return;
+
         await TnxJudgmentFlow.open({
             type:            "skillCheck",
             actorId:         actor.id,
@@ -1941,6 +1946,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             validSuits,
             targetValue:     null,
             bountyAvailable: baseSkill.system.usesBounty === true ? actorBounty : 0,
+            consumeUses:     usesPlan.consumeIds,
             requestMessageId: null,
         });
     }

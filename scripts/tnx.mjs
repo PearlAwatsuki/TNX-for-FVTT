@@ -91,6 +91,7 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/parts/history-list.hbs",
         "systems/tokyo-nova-axleration/templates/parts/usage-list.hbs",
         "systems/tokyo-nova-axleration/templates/parts/bad-status-list.hbs",
+        "systems/tokyo-nova-axleration/templates/app/usage-sheet-combo.hbs",
 
         // === User Sheets ===
         "systems/tokyo-nova-axleration/templates/user/record-sheet.hbs",

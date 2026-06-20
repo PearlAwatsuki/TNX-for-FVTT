@@ -6,9 +6,10 @@
  * 読み書きする疑似ドキュメントシートとして機能する。
  *
  * D&D 5e の Activity Sheet を参考に設計:
- *   - タブ構成: 基本 / 起動 / [種別固有] / エフェクト
+ *   - タブ構成: 基本 / 発動 / 効果
+ *   - 発動タブ: タイミング・対象・射程・目標値・対決不可（＋参加技能からの自動入力）
+ *   - 効果タブ: 種別固有設定（コンボ・武器・ダメージ・改造）＋適用される ActiveEffect
  *   - タイプは作成時に固定（UI 上で変更不可）
- *   - skillRefs/effects は専用ボタンで管理（submitOnChange 外）
  */
 
 import { TnxSkillUtils } from "./tnx-skill-utils.mjs";
@@ -24,14 +25,74 @@ export const USAGE_TYPES = Object.freeze({
     modification: "改造",
 });
 
-/** タイプ固有タブのラベル（存在しないタイプは null） */
-const TYPE_TAB_LABELS = Object.freeze({
-    check:        "判定",
-    attack:       "攻撃",
-    damageBoost:  "ダメージ",
-    damageReduce: "ダメージ",
-    modification: "改造",
-});
+// ─── 発動パラメータ優先度（自動入力で使用） ───────────────────────────────────
+// ルール正本: llm-wiki/01_Wiki/Game_Rules/Judgment_Rules.md（対象優先度・射程優先度）
+
+/** 対象優先度（高→低）: 自身 > 単体※ > チーム > シーン(選択) > シーン > 範囲(選択) > 範囲 > 単体 */
+function targetRank(target, isFixed) {
+    switch (target) {
+        case "self":        return 8;
+        case "single":      return isFixed ? 7 : 1;
+        case "team":        return 6;
+        case "sceneSelect": return 5;
+        case "scene":       return 4;
+        case "areaSelect":  return 3;
+        case "area":        return 2;
+        default:            return 0; // blank / other / explanation は無視
+    }
+}
+
+/** 射程の物理的な短さ順（小さいほど近い）。※複数時の「短い方を優先」に使用 */
+const RANGE_PHYSICAL = { close: 0, short: 1, middle: 2, long: 3, superLong: 4, weapon: 5 };
+
+/** 射程優先度（高→低）: 至近※ > 武器 > 超遠 > 遠 > 中 > 近 > 至近 */
+function rangeRank(range, isFixed) {
+    if (range === "close" && isFixed) return 7;
+    switch (range) {
+        case "weapon":    return 6;
+        case "superLong": return 5;
+        case "long":      return 4;
+        case "middle":    return 3;
+        case "short":     return 2;
+        case "close":     return 1;
+        default:          return 0;
+    }
+}
+
+/** 参加技能群の対象を優先度で解決。null=有効な対象なし */
+function resolveTarget(entries) {
+    let best = null, bestRank = 0;
+    for (const e of entries) {
+        const r = targetRank(e.target, e.isFixed);
+        if (r > bestRank) { bestRank = r; best = e; }
+    }
+    return best ? { target: best.target, isFixed: best.isFixed } : null;
+}
+
+/** 参加技能群の射程を優先度で解決。変更不可（※）が複数なら最短を優先 */
+function resolveRange(entries) {
+    const valid = entries.filter(e => rangeRank(e.range, e.isFixed) > 0);
+    if (!valid.length) return null;
+    const fixed = valid.filter(e => e.isFixed);
+    if (fixed.length >= 2) {
+        const shortest = fixed.reduce((a, b) =>
+            (RANGE_PHYSICAL[b.range] ?? 99) < (RANGE_PHYSICAL[a.range] ?? 99) ? b : a);
+        return { range: shortest.range, isFixed: true };
+    }
+    const best = valid.reduce((a, b) =>
+        rangeRank(b.range, b.isFixed) > rangeRank(a.range, a.isFixed) ? b : a);
+    return { range: best.range, isFixed: best.isFixed };
+}
+
+/** 参加技能群の目標値を解決。数値があれば最大、なければ最初の非blank型を採用 */
+function resolveTargetValue(entries) {
+    const numerics = entries.filter(e => e.targetValue === "number");
+    if (numerics.length) {
+        return { targetValue: "number", targetValueNumber: Math.max(...numerics.map(e => e.number ?? 0)) };
+    }
+    const typed = entries.find(e => e.targetValue && e.targetValue !== "blank" && e.targetValue !== "none");
+    return typed ? { targetValue: typed.targetValue } : null;
+}
 
 export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
@@ -43,7 +104,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
     static DEFAULT_OPTIONS = {
         classes: ["tokyo-nova", "tnx-usage-sheet"],
-        position: { width: 500, height: 480 },
+        position: { width: 500, height: 520 },
         window: { resizable: true },
         tag: "form",
         form: {
@@ -52,10 +113,13 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             closeOnSubmit: false,
         },
         actions: {
-            skillRefDelete: TnxUsageSheet._onSkillRefDelete,
-            effectRemove:   TnxUsageSheet._onEffectRemove,
-            paramAdd:       TnxUsageSheet._onParamAdd,
-            paramDelete:    TnxUsageSheet._onParamDelete,
+            skillRefDelete:        TnxUsageSheet._onSkillRefDelete,
+            effectRemove:          TnxUsageSheet._onEffectRemove,
+            paramAdd:              TnxUsageSheet._onParamAdd,
+            paramDelete:           TnxUsageSheet._onParamDelete,
+            autoFill:              TnxUsageSheet._onAutoFill,
+            incrementTargetValue:  TnxUsageSheet._onTvIncrement,
+            decrementTargetValue:  TnxUsageSheet._onTvDecrement,
         },
     };
 
@@ -76,6 +140,18 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         return name ? `用途: ${name}` : "用途";
     }
 
+    /** 用途の参加技能（親＋ベース＋コンボ）を Item 配列で返す（check / attack 用） */
+    _gatherParticipatingSkills(usage) {
+        const actor = this._item.actor;
+        const baseId = this._item.system.isAction === true
+            ? this._item.id
+            : (usage.baseSkillRef?.itemId || this._item.id);
+        const ids = new Set([this._item.id, baseId, ...usage.skillRefs.map(r => r.itemId)].filter(Boolean));
+        return [...ids]
+            .map(id => (id === this._item.id ? this._item : actor?.items.get(id)))
+            .filter(Boolean);
+    }
+
     // ─── コンテキスト準備 ───────────────────────────────────────────────────────
 
     /** @override */
@@ -87,26 +163,22 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             return context;
         }
 
-        const skillOptions = TnxSkillUtils.getSkillOptions();
-
         context.usage      = foundry.utils.deepClone(usage);
         context.item       = this._item;
         context.editable   = this._item.isOwner;
-        context.skillOpts  = skillOptions;
+        context.skillOpts  = TnxSkillUtils.getSkillOptions();
         context.typeLabel  = USAGE_TYPES[usage.type] ?? usage.type;
-
-        const typeTabLabel = TYPE_TAB_LABELS[usage.type] ?? null;
-        context.hasTypeTab    = typeTabLabel !== null;
-        context.typeTabLabel  = typeTabLabel;
 
         // タイプ判定フラグ
         context.isCheckType        = usage.type === "check";
         context.isAttackType       = usage.type === "attack";
         context.isDamageType       = usage.type === "damageBoost" || usage.type === "damageReduce";
         context.isModificationType = usage.type === "modification";
+        // 技能ベースの用途（コンボ・対決表示・自動入力の対象）
+        context.showSkillParams    = context.isCheckType || context.isAttackType;
 
         // ベース技能・組み合わせ技能候補（check / attack）
-        if (context.isCheckType || context.isAttackType) {
+        if (context.showSkillParams) {
             const SKILL_TYPES = ["generalSkill", "styleSkill"];
             const actor = this._item.actor;
             const parentIsAction = this._item.system.isAction === true;
@@ -114,31 +186,24 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             // ベース技能: アクション技能は常に自身に固定、非アクション技能はセレクターで選択
             const parentItemId = this._item.id;
             const baseId = parentIsAction ? parentItemId : (usage.baseSkillRef?.itemId ?? "");
-            // actor が null のとき（スタンドアロンアイテム）でも自身への参照は名前を表示
             const baseItem = actor?.items.get(baseId) ?? (baseId === parentItemId ? this._item : null);
             context.baseSkillName  = baseItem?.name ?? (baseId ? `(削除済み: ${baseId})` : "");
             context.baseSkillId    = baseId;
             context.baseSkillFixed = parentIsAction;
 
-            // ベース技能の選択候補（非アクション技能の用途のみ。アクション技能は常に自身が固定なので除外）
-            // アクション技能もそれ以外の技能もベースになりうる（アクション技能は必ずベースになる）
             context.availableBaseSkills = parentIsAction ? [] : (actor?.items ?? [])
                 .filter(i => SKILL_TYPES.includes(i.type) && i.id !== parentItemId)
                 .map(i => ({ id: i.id, name: i.name }))
                 .sort((a, b) => a.name.localeCompare(b.name, "ja"));
 
-            // 親アイテムがベース技能でない場合は自動的にコンボ参加（isLocked エントリ）
             const parentIsComboMember = !!baseId && parentItemId !== baseId;
 
-            // コンボ技能候補（ベース技能・親アイテム・既選択・アクション技能を除外）
-            // アクション技能同士の組み合わせ不可のため isAction === true は除外
             const usedIds = new Set([baseId, parentItemId, ...usage.skillRefs.map(r => r.itemId)].filter(Boolean));
             context.availableSkills = (actor?.items ?? [])
                 .filter(i => SKILL_TYPES.includes(i.type) && !usedIds.has(i.id) && i.system.isAction !== true)
                 .map(i => ({ id: i.id, name: i.name }))
                 .sort((a, b) => a.name.localeCompare(b.name, "ja"));
 
-            // 組み合わせ技能リスト（親＋skillRefs）
             context.skillRefItems = [
                 ...(parentIsComboMember ? [{ idx: -1, itemId: parentItemId, name: this._item.name, isLocked: true }] : []),
                 ...usage.skillRefs.map((r, idx) => {
@@ -146,6 +211,20 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                     return { idx, itemId: r.itemId, name: skillItem?.name ?? `(削除済み: ${r.itemId})`, isLocked: false };
                 }),
             ];
+
+            // 対決（情報表示）: 参加技能の固有 confrontation を読み取り、対決可能な技能と対決不可状態を可視化
+            const skills = this._gatherParticipatingSkills(usage);
+            const reactions = [];
+            let inherentCannot = false;
+            for (const s of skills) {
+                for (const c of (s.system.confrontation ?? [])) {
+                    if (c.value === "cannot") inherentCannot = true;
+                    else if (c.value === "skillName" && c.name) reactions.push(c.name);
+                    else if (c.value === "skillNameAsterisk" && c.name) reactions.push(`${c.name}※`);
+                }
+            }
+            context.confrontationReactions = [...new Set(reactions)];
+            context.confrontationCannot    = inherentCannot;
         }
 
         // 武器候補（attack）
@@ -157,8 +236,6 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         }
 
         // エフェクト: 用途使用時に適用する ActiveEffect の参照
-        // - addedEffects: 用途に追加済み（usage.effects 順を保持）
-        // - availableEffects: アイテムが持つが未追加の ActiveEffect（セレクトの選択肢）
         const addedIds = usage.effects.map(e => e.effectId).filter(Boolean);
         const addedSet = new Set(addedIds);
         context.addedEffects = addedIds.map(id => {
@@ -175,11 +252,6 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
     /** @override */
     _onRender(context, _options) {
-        // typeSpecific タブが存在しないタイプなのにアクティブになっている場合は identity に戻す
-        if (this.tabGroups.primary === "typeSpecific" && !context.hasTypeTab) {
-            this.tabGroups.primary = "identity";
-        }
-
         // タブ初期化: DOM に active クラスを付与する
         for (const [group, tab] of Object.entries(this.tabGroups)) {
             if (tab) {
@@ -188,55 +260,56 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             }
         }
 
-        // timing.value 変更でサブ選択肢を動的表示
-        const timingSelect = this.element.querySelector("select[name='timing.value']");
-        if (timingSelect) {
-            timingSelect.addEventListener("change", (ev) => this._onTimingValueChange(ev));
-            this._syncTimingSubFields(timingSelect.value);
+        // 条件付きサブ入力（timing/target/range/targetValue）の表示同期
+        this._syncConditionalSubFields();
+        for (const name of ["timing.value", "target", "range", "targetValue"]) {
+            this.element.querySelector(`select[name='${name}']`)
+                ?.addEventListener("change", () => this._syncConditionalSubFields());
         }
 
-        // 組み合わせ技能: ドロップダウン選択で即時追加（追加ボタン不要）
         if (context.editable) {
+            // 組み合わせ技能: ドロップダウン選択で即時追加
             for (const select of this.element.querySelectorAll("select.skill-ref-select")) {
                 select.addEventListener("change", async (ev) => {
                     const itemId = ev.target.value;
                     if (!itemId) return;
                     const usage = this.usage;
-                    if (!usage) return;
-                    if (usage.skillRefs.some(r => r.itemId === itemId)) return;
-                    const skillRefs = [...usage.skillRefs, { itemId }];
-                    await this._patchUsage({ skillRefs });
+                    if (!usage || usage.skillRefs.some(r => r.itemId === itemId)) return;
+                    await this._patchUsage({ skillRefs: [...usage.skillRefs, { itemId }] });
                     this.render({ force: true });
                 });
             }
 
-            // エフェクト: ドロップダウン選択で即時追加（D&D の「適用される効果」方式）
+            // エフェクト: ドロップダウン選択で即時追加
             for (const select of this.element.querySelectorAll("select.effect-select")) {
                 select.addEventListener("change", async (ev) => {
                     const effectId = ev.target.value;
                     if (!effectId) return;
                     const usage = this.usage;
-                    if (!usage) return;
-                    if (usage.effects.some(e => e.effectId === effectId)) return;
-                    const effects = [...usage.effects, { effectId }];
-                    await this._patchUsage({ effects });
+                    if (!usage || usage.effects.some(e => e.effectId === effectId)) return;
+                    await this._patchUsage({ effects: [...usage.effects, { effectId }] });
                     this.render({ force: true });
                 });
             }
         }
     }
 
-    _onTimingValueChange(event) {
-        this._syncTimingSubFields(event.target.value);
-    }
+    /** timing / target / range / targetValue のサブ入力欄の表示を選択値に追従させる */
+    _syncConditionalSubFields() {
+        const val = (name) => this.element.querySelector(`select[name='${name}']`)?.value;
+        const toggle = (sel, show) => this.element.querySelector(sel)?.classList.toggle("hidden", !show);
 
-    _syncTimingSubFields(value) {
-        this.element.querySelector(".timing-action-sub")
-            ?.classList.toggle("hidden", value !== "action");
-        this.element.querySelector(".timing-process-sub")
-            ?.classList.toggle("hidden", value !== "process");
-        this.element.querySelector(".timing-other-sub")
-            ?.classList.toggle("hidden", value !== "other");
+        const tv = val("timing.value");
+        toggle(".timing-action-sub",  tv === "action");
+        toggle(".timing-process-sub", tv === "process");
+        toggle(".timing-other-sub",   tv === "other");
+
+        toggle(".target-other-sub", val("target") === "other");
+        toggle(".range-other-sub",  val("range")  === "other");
+
+        const tvv = val("targetValue");
+        toggle(".tv-number-sub", tvv === "number");
+        toggle(".tv-other-sub",  tvv === "other");
     }
 
     // ─── フォーム送信（auto-submit on change） ─────────────────────────────────
@@ -247,13 +320,27 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
         const raw = formData.object;
         const update = {
-            name:        raw["name"]              ?? usage.name,
-            description: raw["description"]       ?? usage.description,
-            target:      raw["target"]             ?? usage.target,
+            name:        raw["name"]        ?? usage.name,
+            description: raw["description"]  ?? usage.description,
+
             "timing.value":       raw["timing.value"]       ?? usage.timing.value,
             "timing.actionName":  raw["timing.actionName"]  ?? usage.timing.actionName,
             "timing.processName": raw["timing.processName"] ?? usage.timing.processName,
             "timing.timingOther": raw["timing.timingOther"] ?? usage.timing.timingOther,
+
+            target:        raw["target"]        ?? usage.target,
+            targetOther:   raw["targetOther"]   ?? usage.targetOther,
+            isFixedTarget: raw["isFixedTarget"] ?? usage.isFixedTarget,
+
+            range:        raw["range"]        ?? usage.range,
+            rangeOther:   raw["rangeOther"]   ?? usage.rangeOther,
+            isFixedRange: raw["isFixedRange"] ?? usage.isFixedRange,
+
+            targetValue:       raw["targetValue"]       ?? usage.targetValue,
+            targetValueNumber: raw["targetValueNumber"] ?? usage.targetValueNumber,
+            targetValueOther:  raw["targetValueOther"]  ?? usage.targetValueOther,
+
+            isUnopposable: raw["isUnopposable"] ?? usage.isUnopposable,
         };
 
         // check・attack: ベース技能（アクション技能は常に自身に固定）
@@ -276,6 +363,62 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         }
 
         await this._patchUsage(update);
+    }
+
+    // ─── 自動入力（参加技能の固有値を優先度で合成） ─────────────────────────────
+
+    static async _onAutoFill(_event, _target) {
+        const usage = this.usage;
+        if (!usage) return;
+        const skills = this._gatherParticipatingSkills(usage);
+
+        const patch = {};
+        const t = resolveTarget(skills.map(s => ({ target: s.system.target, isFixed: !!s.system.isFixedTarget })));
+        if (t) { patch.target = t.target; patch.isFixedTarget = t.isFixed; }
+
+        const r = resolveRange(skills.map(s => ({ range: s.system.range, isFixed: !!s.system.isFixedRange })));
+        if (r) { patch.range = r.range; patch.isFixedRange = r.isFixed; }
+
+        const tv = resolveTargetValue(skills.map(s => ({ targetValue: s.system.targetValue, number: s.system.targetValueNumber })));
+        if (tv) {
+            patch.targetValue = tv.targetValue;
+            if (tv.targetValueNumber !== undefined) patch.targetValueNumber = tv.targetValueNumber;
+        }
+
+        // タイミング: ベース技能の最初の非 blank timing を採用（best-effort）
+        const baseId = this._item.system.isAction === true
+            ? this._item.id
+            : (usage.baseSkillRef?.itemId || this._item.id);
+        const baseSkill = skills.find(s => s.id === baseId) ?? this._item;
+        const bt = (baseSkill.system.timing ?? []).find(x => x?.value && x.value !== "blank");
+        if (bt) {
+            patch["timing.value"]       = bt.value;
+            patch["timing.actionName"]  = bt.actionName ?? "blank";
+            patch["timing.processName"] = bt.processName ?? "blank";
+            patch["timing.timingOther"] = bt.timingOther ?? "";
+        }
+
+        // 対決不可: 参加技能が固有に「対決不可」なら true（外す方向には自動更新しない）
+        if (skills.some(s => (s.system.confrontation ?? []).some(c => c.value === "cannot"))) {
+            patch.isUnopposable = true;
+        }
+
+        await this._patchUsage(patch);
+        this.render({ force: true });
+        ui.notifications.info("発動パラメータを自動入力しました。手編集で上書きできます。");
+    }
+
+    // ─── 目標値スピナー ────────────────────────────────────────────────────────
+
+    static async _onTvIncrement(_event, _target) { await this._stepTargetValue(1); }
+    static async _onTvDecrement(_event, _target) { await this._stepTargetValue(-1); }
+
+    async _stepTargetValue(delta) {
+        const usage = this.usage;
+        if (!usage) return;
+        const next = Math.max(0, (usage.targetValueNumber ?? 0) + delta);
+        await this._patchUsage({ targetValueNumber: next });
+        this.render({ force: true });
     }
 
     // ─── skillRefs 管理 ────────────────────────────────────────────────────────

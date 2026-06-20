@@ -8,14 +8,11 @@
                {{#unless editable}}disabled{{/unless}}>
     </header>
 
-    {{!-- タブナビゲーション --}}
+    {{!-- タブナビゲーション: 基本 / 発動 / 効果 --}}
     <nav class="sheet-tabs tabs" data-group="primary">
         <a class="item" data-action="tab" data-group="primary" data-tab="identity">基本</a>
-        <a class="item" data-action="tab" data-group="primary" data-tab="activation">起動</a>
-        {{#if hasTypeTab}}
-        <a class="item" data-action="tab" data-group="primary" data-tab="typeSpecific">{{typeTabLabel}}</a>
-        {{/if}}
-        <a class="item" data-action="tab" data-group="primary" data-tab="effects">エフェクト</a>
+        <a class="item" data-action="tab" data-group="primary" data-tab="activation">発動</a>
+        <a class="item" data-action="tab" data-group="primary" data-tab="effects">効果</a>
     </nav>
 
     <section class="sheet-body usage-sheet-body">
@@ -30,7 +27,7 @@
             </div>
         </div>
 
-        {{!-- ② 起動タブ: タイミング・対象 --}}
+        {{!-- ② 発動タブ: タイミング・対象・射程・目標値・対決 --}}
         <div class="tab" data-group="primary" data-tab="activation">
             <div class="usage-form-grid">
 
@@ -41,24 +38,18 @@
                         {{selectOptions skillOpts.timing selected=usage.timing.value}}
                     </select>
                 </div>
-
-                {{!-- action サブ選択（JS で表示切替） --}}
                 <div class="usage-form-row timing-action-sub">
                     <label class="usage-field-label">アクション種別</label>
                     <select name="timing.actionName" {{#unless editable}}disabled{{/unless}}>
                         {{selectOptions skillOpts.actions selected=usage.timing.actionName}}
                     </select>
                 </div>
-
-                {{!-- process サブ選択 --}}
                 <div class="usage-form-row timing-process-sub">
                     <label class="usage-field-label">プロセス種別</label>
                     <select name="timing.processName" {{#unless editable}}disabled{{/unless}}>
                         {{selectOptions skillOpts.processes selected=usage.timing.processName}}
                     </select>
                 </div>
-
-                {{!-- other 自由入力 --}}
                 <div class="usage-form-row timing-other-sub">
                     <label class="usage-field-label">タイミング（自由入力）</label>
                     <input type="text" name="timing.timingOther"
@@ -66,82 +57,109 @@
                            {{#unless editable}}disabled{{/unless}}>
                 </div>
 
-                {{!-- 対象 --}}
+                {{!-- 対象（＋変更不可） --}}
                 <div class="usage-form-row">
                     <label class="usage-field-label">対象</label>
                     <select name="target" {{#unless editable}}disabled{{/unless}}>
                         {{selectOptions skillOpts.target selected=usage.target}}
                     </select>
                 </div>
+                <div class="usage-form-row target-other-sub">
+                    <label class="usage-field-label">対象（自由入力）</label>
+                    <input type="text" name="targetOther" value="{{usage.targetOther}}"
+                           {{#unless editable}}disabled{{/unless}}>
+                </div>
+                <div class="usage-form-row usage-check-row">
+                    <label class="usage-field-label">変更不可（※）</label>
+                    <input type="checkbox" name="isFixedTarget" {{checked usage.isFixedTarget}}
+                           {{#unless editable}}disabled{{/unless}}>
+                </div>
+
+                {{!-- 射程（＋変更不可） --}}
+                <div class="usage-form-row">
+                    <label class="usage-field-label">射程</label>
+                    <select name="range" {{#unless editable}}disabled{{/unless}}>
+                        {{selectOptions skillOpts.range selected=usage.range}}
+                    </select>
+                </div>
+                <div class="usage-form-row range-other-sub">
+                    <label class="usage-field-label">射程（自由入力）</label>
+                    <input type="text" name="rangeOther" value="{{usage.rangeOther}}"
+                           {{#unless editable}}disabled{{/unless}}>
+                </div>
+                <div class="usage-form-row usage-check-row">
+                    <label class="usage-field-label">変更不可（※）</label>
+                    <input type="checkbox" name="isFixedRange" {{checked usage.isFixedRange}}
+                           {{#unless editable}}disabled{{/unless}}>
+                </div>
+
+                {{!-- 目標値 --}}
+                <div class="usage-form-row">
+                    <label class="usage-field-label">目標値</label>
+                    <select name="targetValue" {{#unless editable}}disabled{{/unless}}>
+                        {{selectOptions skillOpts.targetValue selected=usage.targetValue}}
+                    </select>
+                </div>
+                <div class="usage-form-row tv-number-sub">
+                    <label class="usage-field-label">目標値（数字）</label>
+                    <div class="number-input-spinner">
+                        <button type="button" data-action="decrementTargetValue" class="tnx-btn" {{#unless editable}}disabled{{/unless}}>-</button>
+                        <input type="number" name="targetValueNumber" value="{{usage.targetValueNumber}}"
+                               {{#unless editable}}disabled{{/unless}}>
+                        <button type="button" data-action="incrementTargetValue" class="tnx-btn" {{#unless editable}}disabled{{/unless}}>+</button>
+                    </div>
+                </div>
+                <div class="usage-form-row tv-other-sub">
+                    <label class="usage-field-label">目標値（自由入力）</label>
+                    <input type="text" name="targetValueOther" value="{{usage.targetValueOther}}"
+                           {{#unless editable}}disabled{{/unless}}>
+                </div>
+
+                {{!-- 対決不可 --}}
+                <div class="usage-form-row usage-check-row">
+                    <label class="usage-field-label">対決不可</label>
+                    <input type="checkbox" name="isUnopposable" {{checked usage.isUnopposable}}
+                           {{#unless editable}}disabled{{/unless}}>
+                </div>
 
             </div>
+
+            {{!-- 技能ベース用途のみ: 対決可能技能の情報表示 ＋ 自動入力 --}}
+            {{#if showSkillParams}}
+            <div class="usage-form-section usage-confrontation-info">
+                <label class="usage-field-label">対決（参加技能より）</label>
+                {{#if confrontationCannot}}
+                <p class="usage-info-line"><i class="fas fa-ban"></i> 対決不可の技能を含みます</p>
+                {{/if}}
+                {{#if confrontationReactions.length}}
+                <p class="usage-info-line">対決可能: {{#each confrontationReactions}}<span class="usage-info-tag">{{this}}</span>{{/each}}</p>
+                {{else}}
+                {{#unless confrontationCannot}}
+                <p class="usage-empty-hint">（参加技能に対決の指定なし）</p>
+                {{/unless}}
+                {{/if}}
+            </div>
+            {{#if editable}}
+            <div class="usage-autofill-row">
+                <a class="tnx-btn tnx-btn--sm" data-action="autoFill" title="参加技能の固有値から発動パラメータを優先度で自動入力します">
+                    <i class="fas fa-wand-magic-sparkles"></i> 参加技能から自動入力
+                </a>
+            </div>
+            {{/if}}
+            {{/if}}
         </div>
 
-        {{!-- ③ 種別固有タブ --}}
-        {{#if hasTypeTab}}
-        <div class="tab" data-group="primary" data-tab="typeSpecific">
+        {{!-- ③ 効果タブ: 種別固有設定 ＋ 適用される効果 --}}
+        <div class="tab" data-group="primary" data-tab="effects">
 
             {{!-- check: ベース技能・組み合わせ技能 --}}
             {{#if isCheckType}}
-            <div class="usage-form-grid">
-                <div class="usage-form-row">
-                    <label class="usage-field-label">ベース技能</label>
-                    {{#if baseSkillFixed}}
-                    <span class="usage-field-value">{{baseSkillName}}</span>
-                    {{else}}
-                    <select name="baseSkillRef.itemId" {{#unless editable}}disabled{{/unless}}>
-                        <option value="">── 選択 ──</option>
-                        {{#each availableBaseSkills}}
-                        <option value="{{this.id}}" {{#if (eq this.id ../baseSkillId)}}selected{{/if}}>{{this.name}}</option>
-                        {{/each}}
-                    </select>
-                    {{/if}}
-                </div>
-            </div>
-            <div class="usage-form-section">
-                <label class="usage-field-label">組み合わせ技能</label>
-                <div class="usage-skill-ref-list">
-                    {{#each skillRefItems}}
-                    <div class="usage-skill-ref-row">
-                        <span class="usage-skill-ref-name">{{this.name}}</span>
-                        {{#if ../editable}}{{#unless this.isLocked}}
-                        <a class="usage-icon-btn" data-action="skillRefDelete" data-idx="{{this.idx}}"
-                           title="削除"><i class="fas fa-times"></i></a>
-                        {{/unless}}{{/if}}
-                    </div>
-                    {{else}}
-                    <p class="usage-empty-hint">（なし）</p>
-                    {{/each}}
-                </div>
-                {{#if editable}}
-                <div class="usage-skill-ref-add">
-                    <select class="skill-ref-select">
-                        <option value="">── 追加する技能を選択 ──</option>
-                        {{#each availableSkills}}
-                        <option value="{{this.id}}">{{this.name}}</option>
-                        {{/each}}
-                    </select>
-                </div>
-                {{/if}}
-            </div>
+            {{> "systems/tokyo-nova-axleration/templates/app/usage-sheet-combo.hbs"}}
             {{/if}}
 
             {{!-- attack: ベース技能・武器・ダメージ種別・組み合わせ技能 --}}
             {{#if isAttackType}}
             <div class="usage-form-grid">
-                <div class="usage-form-row">
-                    <label class="usage-field-label">ベース技能</label>
-                    {{#if baseSkillFixed}}
-                    <span class="usage-field-value">{{baseSkillName}}</span>
-                    {{else}}
-                    <select name="baseSkillRef.itemId" {{#unless editable}}disabled{{/unless}}>
-                        <option value="">── 選択 ──</option>
-                        {{#each availableBaseSkills}}
-                        <option value="{{this.id}}" {{#if (eq this.id ../baseSkillId)}}selected{{/if}}>{{this.name}}</option>
-                        {{/each}}
-                    </select>
-                    {{/if}}
-                </div>
                 <div class="usage-form-row">
                     <label class="usage-field-label">使用武器</label>
                     <select name="weaponRef.itemId" {{#unless editable}}disabled{{/unless}}>
@@ -161,32 +179,7 @@
                     </select>
                 </div>
             </div>
-            <div class="usage-form-section">
-                <label class="usage-field-label">組み合わせ技能</label>
-                <div class="usage-skill-ref-list">
-                    {{#each skillRefItems}}
-                    <div class="usage-skill-ref-row">
-                        <span class="usage-skill-ref-name">{{this.name}}</span>
-                        {{#if ../editable}}{{#unless this.isLocked}}
-                        <a class="usage-icon-btn" data-action="skillRefDelete" data-idx="{{this.idx}}"
-                           title="削除"><i class="fas fa-times"></i></a>
-                        {{/unless}}{{/if}}
-                    </div>
-                    {{else}}
-                    <p class="usage-empty-hint">（なし）</p>
-                    {{/each}}
-                </div>
-                {{#if editable}}
-                <div class="usage-skill-ref-add">
-                    <select class="skill-ref-select">
-                        <option value="">── 追加する技能を選択 ──</option>
-                        {{#each availableSkills}}
-                        <option value="{{this.id}}">{{this.name}}</option>
-                        {{/each}}
-                    </select>
-                </div>
-                {{/if}}
-            </div>
+            {{> "systems/tokyo-nova-axleration/templates/app/usage-sheet-combo.hbs"}}
             {{/if}}
 
             {{!-- damageBoost / damageReduce: 計算式・カテゴリ --}}
@@ -194,8 +187,7 @@
             <div class="usage-form-grid">
                 <div class="usage-form-row">
                     <label class="usage-field-label">効果量（計算式）</label>
-                    <input type="text" name="formula"
-                           value="{{usage.formula}}"
+                    <input type="text" name="formula" value="{{usage.formula}}"
                            placeholder="例: @card, @card + 3, 5"
                            {{#unless editable}}disabled{{/unless}}>
                 </div>
@@ -238,11 +230,7 @@
             </div>
             {{/if}}
 
-        </div>
-        {{/if}}
-
-        {{!-- ④ エフェクトタブ: 用途使用時に対象へ適用する効果 --}}
-        <div class="tab" data-group="primary" data-tab="effects">
+            {{!-- 適用される効果（ActiveEffect） --}}
             <div class="usage-form-section">
                 <label class="usage-field-label">適用される効果</label>
                 <div class="usage-effect-list">
@@ -273,6 +261,7 @@
                 {{/unless}}
                 {{/if}}
             </div>
+
         </div>
 
     </section>

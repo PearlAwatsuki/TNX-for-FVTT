@@ -427,6 +427,83 @@ export class TnxJudgmentFlow {
         return result ?? 0;
     }
 
+    /**
+     * 用途起動前に使用回数の消費を確認する（D&D 方式の消費ダイアログ）。
+     * 原則ブロック: チェック済みで残り0の技能があれば起動不可。チェックを外せば消費せず判定可能。
+     * @param {Actor} actor
+     * @param {string[]} skillIds  参加技能（ベース＋コンボ）の Item ID
+     * @returns {Promise<{consumeIds: string[]}|null>}  null = キャンセル / ブロック
+     */
+    static async planUsesConsumption(actor, skillIds) {
+        if (!actor) return { consumeIds: [] };
+        const limited = (skillIds ?? [])
+            .map(id => actor.items.get(id))
+            .filter(s => s && s.system.uses?.isLimit === true);
+        if (!limited.length) return { consumeIds: [] };
+
+        const esc = (s) => foundry.utils.escapeHTML(String(s ?? ""));
+        const rows = limited.map(s => {
+            const u = s.system.uses;
+            const out = (u.value ?? 0) <= 0;
+            return `<div class="tnx-uses-row">
+                <label>
+                    <input type="checkbox" name="consume" value="${esc(s.id)}" checked>
+                    <span>「${esc(s.name)}」の使用回数を消費</span>
+                </label>
+                <span class="tnx-uses-count${out ? " tnx-uses-out" : ""}">残り ${u.value ?? 0}/${u.max ?? 0}</span>
+            </div>`;
+        }).join("");
+
+        const content = `<div class="tnx-uses-consume">
+            <p class="tnx-uses-note">使用する技能の使用回数を消費します。チェックを外すと消費せずに判定します。</p>
+            ${rows}
+        </div>`;
+
+        const result = await foundry.applications.api.DialogV2.wait({
+            window:   { title: "使用回数の消費" },
+            classes:  ["tokyo-nova", "tnx-dialog", "tnx-uses-dialog"],
+            position: { width: 380 },
+            content,
+            buttons: [
+                {
+                    action: "ok", icon: "fas fa-check", label: "判定する", default: true,
+                    callback: (event, button, dialog) =>
+                        [...dialog.element.querySelectorAll('input[name="consume"]:checked')].map(cb => cb.value),
+                },
+                { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+            ],
+            close: () => null,
+        });
+
+        if (!result) return null; // キャンセル
+
+        // 原則ブロック: チェック済みで残り0の技能があれば起動不可
+        for (const id of result) {
+            const s = actor.items.get(id);
+            if (s && (s.system.uses?.value ?? 0) <= 0) {
+                ui.notifications.warn(`「${s.name}」の使用回数が残っていません。消費チェックを外すと判定できます。`);
+                return null;
+            }
+        }
+        return { consumeIds: result };
+    }
+
+    /**
+     * 参加技能の使用回数を実際に消費する（判定実行時に呼ぶ）。
+     * @param {Actor} actor
+     * @param {string[]} skillIds  消費対象の Item ID
+     */
+    static async _consumeUses(actor, skillIds) {
+        if (!actor || !skillIds?.length) return;
+        const updates = [];
+        for (const id of skillIds) {
+            const s = actor.items.get(id);
+            if (!s || s.system.uses?.isLimit !== true) continue;
+            updates.push({ _id: id, "system.uses.value": Math.max(0, (s.system.uses.value ?? 0) - 1) });
+        }
+        if (updates.length) await actor.updateEmbeddedDocuments("Item", updates);
+    }
+
     static async _execute({ card, cardJudgmentValue, suit, ctx, fromDeck = false, trumpUsed = false, suitMismatch = false }) {
         const actor = game.actors.get(ctx.actorId);
         if (!actor) {
@@ -448,6 +525,12 @@ export class TnxJudgmentFlow {
         }
 
         game.tnx.hud?.render(false);
+
+        // 用途起動による使用回数の消費（参加技能。組み合わせ技能の遠隔消費を含む）
+        // 起動時の消費ダイアログで確定した consumeUses を判定実行時に適用する（キャンセル時は未到達＝非消費）
+        if (ctx.consumeUses?.length) {
+            await TnxJudgmentFlow._consumeUses(actor, ctx.consumeUses);
+        }
 
         // 能力値コンテキストを先に構築（報酬点プレビュー計算と本計算で共用）
         const abilitiesCtx = suitMismatch ? null : TnxJudgmentFlow._buildAbilitiesCtx(actor);

@@ -1,0 +1,42 @@
+{{!-- 用途シート: ベース技能 ＋ 組み合わせ技能（check / attack で共用） --}}
+<div class="usage-form-grid">
+    <div class="usage-form-row">
+        <label class="usage-field-label">ベース技能</label>
+        {{#if baseSkillFixed}}
+        <span class="usage-field-value">{{baseSkillName}}</span>
+        {{else}}
+        <select name="baseSkillRef.itemId" {{#unless editable}}disabled{{/unless}}>
+            <option value="">── 選択 ──</option>
+            {{#each availableBaseSkills}}
+            <option value="{{this.id}}" {{#if (eq this.id ../baseSkillId)}}selected{{/if}}>{{this.name}}</option>
+            {{/each}}
+        </select>
+        {{/if}}
+    </div>
+</div>
+<div class="usage-form-section">
+    <label class="usage-field-label">組み合わせ技能</label>
+    <div class="usage-skill-ref-list">
+        {{#each skillRefItems}}
+        <div class="usage-skill-ref-row">
+            <span class="usage-skill-ref-name">{{this.name}}</span>
+            {{#if ../editable}}{{#unless this.isLocked}}
+            <a class="usage-icon-btn" data-action="skillRefDelete" data-idx="{{this.idx}}"
+               title="削除"><i class="fas fa-times"></i></a>
+            {{/unless}}{{/if}}
+        </div>
+        {{else}}
+        <p class="usage-empty-hint">（なし）</p>
+        {{/each}}
+    </div>
+    {{#if editable}}
+    <div class="usage-skill-ref-add">
+        <select class="skill-ref-select">
+            <option value="">── 追加する技能を選択 ──</option>
+            {{#each availableSkills}}
+            <option value="{{this.id}}">{{this.name}}</option>
+            {{/each}}
+        </select>
+    </div>
+    {{/if}}
+</div>

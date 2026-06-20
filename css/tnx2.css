@@ -6237,12 +6237,91 @@ button.tnx-create-act-button span {
     outline: none;
 }
 
-/* ── タイミングサブ選択（JS で hidden 切り替え） ── */
+/* ── 条件付きサブ入力（JS で hidden 切り替え） ── */
 .timing-action-sub,
 .timing-process-sub,
-.timing-other-sub {
+.timing-other-sub,
+.target-other-sub,
+.range-other-sub,
+.tv-number-sub,
+.tv-other-sub {
     padding-left: 12px;
     border-left: 2px solid var(--tnx2-border-subtle);
+}
+
+/* ── 変更不可など横並びチェック行 ── */
+.usage-form-row.usage-check-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+}
+.usage-form-row.usage-check-row .usage-field-label {
+    margin-bottom: 0;
+}
+.usage-form-row.usage-check-row input[type="checkbox"] {
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+/* ── 対決（情報表示）── */
+.usage-confrontation-info {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--tnx2-border-subtle);
+}
+.usage-info-line {
+    font-size: 0.84em;
+    color: var(--tnx2-text-primary);
+    margin: 2px 0;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.usage-info-line .fa-ban { color: #f28b82; }
+.usage-info-tag {
+    display: inline-block;
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: 3px;
+    padding: 1px 6px;
+    font-size: 0.92em;
+}
+
+/* ── 自動入力ボタン行 ── */
+.usage-autofill-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 8px;
+}
+
+/* ── 使用回数の消費ダイアログ ── */
+.tnx-uses-consume .tnx-uses-note {
+    font-size: 0.85em;
+    color: var(--tnx2-text-secondary);
+    margin: 0 0 8px;
+}
+.tnx-uses-consume .tnx-uses-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 0;
+}
+.tnx-uses-consume .tnx-uses-row label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+.tnx-uses-consume .tnx-uses-count {
+    font-size: 0.82em;
+    color: var(--tnx2-text-muted);
+    white-space: nowrap;
+}
+.tnx-uses-consume .tnx-uses-count.tnx-uses-out {
+    color: #f28b82;
+    font-weight: 700;
 }
 
 /* ── スキル参照リスト ── */

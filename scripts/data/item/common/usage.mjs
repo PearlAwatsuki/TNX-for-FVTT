@@ -43,8 +43,23 @@ export class UsageTemplate extends SystemDataModel {
                         timingOther: new fields.StringField({ initial: "" }),
                     }),
 
-                    // 対象 (getSkillOptions().target 準拠)
-                    target: new fields.StringField({ initial: "blank" }),
+                    // 対象 (getSkillOptions().target 準拠。スタイル技能の target/targetOther/isFixedTarget と同形)
+                    target:        new fields.StringField({ initial: "blank" }),
+                    targetOther:   new fields.StringField({ initial: "" }),   // target === "other" の自由入力
+                    isFixedTarget: new fields.BooleanField({ initial: false }), // 変更不可（※）: AE による対象変更を抑止（実機能はフェーズ13）
+
+                    // 射程 (getSkillOptions().range 準拠)
+                    range:        new fields.StringField({ initial: "blank" }),
+                    rangeOther:   new fields.StringField({ initial: "" }),    // range === "other" の自由入力
+                    isFixedRange: new fields.BooleanField({ initial: false }), // 変更不可（※）: AE による射程変更を抑止（実機能はフェーズ13）
+
+                    // 目標値 (getSkillOptions().targetValue 準拠。number / other でサブ入力)
+                    targetValue:       new fields.StringField({ initial: "blank" }),
+                    targetValueNumber: new fields.NumberField({ initial: 0 }),
+                    targetValueOther:  new fields.StringField({ initial: "" }),
+
+                    // 対決不可: 対象がこの判定に対決（リアクション）できない状態（実機能はフェーズ13、現状は保持のみ）
+                    isUnopposable: new fields.BooleanField({ initial: false }),
 
                     // この用途使用時に付与する ActiveEffect の参照
                     effects: new fields.ArrayField(
