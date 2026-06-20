@@ -30,4 +30,28 @@ export class TokyoNovaItem extends Item {
         }
         super(data, context);
     }
+
+    /**
+     * @override
+     * Foundry の Item は既定で「自分自身の ActiveEffect」を適用しない
+     * (applyActiveEffects は Actor のみ)。アイテムのパラメータを直接書き換えるモードA の効果
+     * (改造・固有ボーナス。transfer:false)を成立させるため、Actor と同じく
+     * prepareEmbeddedDocuments の後に自己適用する。
+     * → 着地点 effectMod に値が入り、DataModel.prepareDerivedData が total を算出する。
+     */
+    prepareEmbeddedDocuments() {
+        super.prepareEmbeddedDocuments();
+        this.applyActiveEffects();
+    }
+
+    /**
+     * 自身の有効な非転送(transfer:false)ActiveEffect の changes を自分(system)へ適用する。
+     * transfer:true の効果は所有アクター側(actor.applyActiveEffects)が適用するためここでは扱わない。
+     */
+    applyActiveEffects() {
+        for (const effect of this.effects) {
+            if (!effect.active || effect.transfer) continue;
+            for (const change of effect.changes) effect.apply(this, change);
+        }
+    }
 }
