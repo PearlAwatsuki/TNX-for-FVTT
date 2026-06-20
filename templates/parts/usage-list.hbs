@@ -16,6 +16,11 @@
                     <h4>{{action.name}}</h4>
                 </div>
                 <div class="tnx-item-list__column--controls">
+                    {{#if action.effects.length}}
+                    <a class="action-use" data-usage-id="{{action._id}}" title="使用（効果を有効化）">
+                        <i class="fas fa-bolt"></i>
+                    </a>
+                    {{/if}}
                     <a class="action-edit" data-action="edit" data-usage-id="{{action._id}}" title="編集">
                         <i class="fas fa-edit"></i>
                     </a>

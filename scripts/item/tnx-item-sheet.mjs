@@ -124,6 +124,12 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             ev.preventDefault();
             TokyoNovaItemSheet._onActionCreate.call(this, ev, ev.currentTarget);
         });
+        for (const btn of el.querySelectorAll(".action-use[data-usage-id]")) {
+            btn.addEventListener("click", (ev) => {
+                ev.preventDefault();
+                TokyoNovaItemSheet._onUsageUse.call(this, ev, ev.currentTarget);
+            });
+        }
         for (const btn of el.querySelectorAll(".action-edit[data-usage-id]")) {
             btn.addEventListener("click", (ev) => {
                 ev.preventDefault();
@@ -211,6 +217,24 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
 
         const sheet = new TnxUsageSheet(this.item, usageId);
         sheet.render({ force: true });
+    }
+
+    /**
+     * 用途使用（起動）: 用途が参照するアイテム上の ActiveEffect を有効化する（フェーズ9-3）。
+     * 効果は削除でなく disabled=false に切り替える（転送効果と違い常駐し、終了は時間管理フェーズ）。
+     */
+    static async _onUsageUse(_event, target) {
+        const usageId = target.dataset.usageId;
+        if (!usageId) return;
+        const usage = (this.item.system.actions ?? []).find(a => a._id === usageId);
+        if (!usage) return;
+        const ids = (usage.effects ?? []).map(e => e.effectId).filter(Boolean);
+        const updates = [];
+        for (const id of ids) {
+            if (this.item.effects.has(id)) updates.push({ _id: id, disabled: false });
+        }
+        if (updates.length) await this.item.updateEmbeddedDocuments("ActiveEffect", updates);
+        ui.notifications?.info(`「${usage.name || "用途"}」を使用：${updates.length}件の効果を有効化しました。`);
     }
 
     static async _onActionDelete(_event, target) {
