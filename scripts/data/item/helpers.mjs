@@ -165,6 +165,76 @@ export function computeItemEffectiveValues(system) {
 }
 
 /**
+ * モードB(アクター→他アイテム横断バフ)の対象判定(フェーズ9-3)。
+ * AE が flag(`flags["tokyo-nova-axleration"].aeTarget`)に持つ target spec とアイテムを照合する。
+ *
+ * spec のフィルタ次元(指定された次元のみ AND で評価。各次元はリスト内 OR):
+ * - byItemType:        ["weapon", ...]            アイテム type
+ * - byMajorCategory:   ["武器", ...]              大分類
+ * - byMinorCategory:   ["白兵武器", ...]          小分類
+ * - byIdentificationKey: ["...", ...]             identificationKey 名指し
+ * 少なくとも1つのフィルタが必要(無条件全件マッチを防ぐ)。
+ *
+ * @param {{type:string, system:object}} item
+ * @param {object} spec
+ * @returns {boolean}
+ */
+export function matchesAeTarget(item, spec) {
+  if (!spec || !item) return false;
+  const sys = item.system ?? {};
+  const dims = [
+    ["byItemType",          item.type],
+    ["byMajorCategory",     sys.majorCategory],
+    ["byMinorCategory",     sys.minorCategory],
+    ["byIdentificationKey", sys.identificationKey],
+  ];
+  let hasFilter = false;
+  for (const [key, actual] of dims) {
+    const list = spec[key];
+    if (Array.isArray(list) && list.length) {
+      hasFilter = true;
+      if (!list.includes(actual)) return false;
+    }
+  }
+  return hasFilter;
+}
+
+/**
+ * モードB の加算注入: アイテムの実効値(`.total` 系)に delta を加える(フェーズ9-3)。
+ * base は触らず total のみ調整する(アクター prepareDerivedData の後処理で呼ぶ。
+ * アイテム自身の prepareDerivedData は既に走り total が算出済みのため)。
+ *
+ * param の指定:
+ * - "defence.S" / "defence.P" / "defence.I" → defence.{S,P,I}_total
+ * - "level" / "FAValue" / "appearanceTarget" / "cyberSecurity" / "analogSecurity" → <param>Total
+ * - その他(modeValueField / attack 等) → system[param].total
+ *
+ * @param {object} system アイテムの system
+ * @param {string} param  対象パラメータ
+ * @param {number} delta  加算量
+ */
+export function addToItemTotal(system, param, delta) {
+  if (!system || !param || !Number.isFinite(delta)) return;
+  if (param.startsWith("defence.")) {
+    const key = `${param.split(".")[1]}_total`;
+    if (system.defence && typeof system.defence[key] === "number") system.defence[key] += delta;
+    return;
+  }
+  const bareTotals = {
+    level: "levelTotal", FAValue: "FAValueTotal",
+    appearanceTarget: "appearanceTargetTotal",
+    cyberSecurity: "cyberSecurityTotal", analogSecurity: "analogSecurityTotal",
+  };
+  if (bareTotals[param]) {
+    const key = bareTotals[param];
+    if (typeof system[key] === "number") system[key] += delta;
+    return;
+  }
+  const field = system[param];
+  if (field && typeof field === "object" && typeof field.total === "number") field.total += delta;
+}
+
+/**
  * 旧 attack.mod(手動修正・実質未使用)→ attack.effectMod(AE 着地点)へのリネーム移行。
  * weapon / cyborg / vehicle の migrateData から呼ぶ。source を破壊的に書き換える。
  * @param {object} source DataModel の生ソース

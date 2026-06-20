@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
-const { defenceField, attackField, modeValueField, migrateAttackModToEffectMod, computeItemEffectiveValues } = await import("../../../scripts/data/item/helpers.mjs");
+const { defenceField, attackField, modeValueField, migrateAttackModToEffectMod, computeItemEffectiveValues, matchesAeTarget, addToItemTotal } = await import("../../../scripts/data/item/helpers.mjs");
 
 describe("defenceField()", () => {
   it("呼び出せる", () => {
@@ -208,5 +208,66 @@ describe("computeItemEffectiveValues()", () => {
     const sys = { guardValue: { mode: "value", value: 3, effectMod: 2 } };
     computeItemEffectiveValues(sys);
     expect(sys.guardValue.value).toBe(3);
+  });
+});
+
+describe("matchesAeTarget()（モードB 照合）", () => {
+  const weapon = { type: "weapon", system: { majorCategory: "武器", minorCategory: "白兵武器", identificationKey: "katana" } };
+
+  it("byItemType で一致する", () => {
+    expect(matchesAeTarget(weapon, { byItemType: ["weapon"], param: "attack", value: 1 })).toBe(true);
+    expect(matchesAeTarget(weapon, { byItemType: ["armor"], param: "attack", value: 1 })).toBe(false);
+  });
+
+  it("byMinorCategory(白兵武器)で一致する", () => {
+    expect(matchesAeTarget(weapon, { byMinorCategory: ["白兵武器"] })).toBe(true);
+    expect(matchesAeTarget(weapon, { byMinorCategory: ["射撃武器"] })).toBe(false);
+  });
+
+  it("byIdentificationKey で名指し一致する", () => {
+    expect(matchesAeTarget(weapon, { byIdentificationKey: ["katana", "tanto"] })).toBe(true);
+    expect(matchesAeTarget(weapon, { byIdentificationKey: ["tanto"] })).toBe(false);
+  });
+
+  it("複数次元は AND で評価する", () => {
+    expect(matchesAeTarget(weapon, { byItemType: ["weapon"], byMinorCategory: ["白兵武器"] })).toBe(true);
+    expect(matchesAeTarget(weapon, { byItemType: ["weapon"], byMinorCategory: ["射撃武器"] })).toBe(false);
+  });
+
+  it("フィルタ未指定は false(無条件全件マッチを防ぐ)", () => {
+    expect(matchesAeTarget(weapon, { param: "attack", value: 1 })).toBe(false);
+    expect(matchesAeTarget(weapon, { byItemType: [] })).toBe(false);
+  });
+});
+
+describe("addToItemTotal()（モードB 注入）", () => {
+  it("modeValue/attack の total に加算する", () => {
+    const sys = { attack: { value: 4, effectMod: 0, total: 4 }, guardValue: { mode: "value", value: 1, effectMod: 0, total: 1 } };
+    addToItemTotal(sys, "attack", 2);
+    addToItemTotal(sys, "guardValue", 3);
+    expect(sys.attack.total).toBe(6);
+    expect(sys.guardValue.total).toBe(4);
+  });
+
+  it("defence.S/P/I の total に加算する", () => {
+    const sys = { defence: { S_total: 1, P_total: 2, I_total: 3 } };
+    addToItemTotal(sys, "defence.P", 10);
+    expect(sys.defence.P_total).toBe(12);
+    expect(sys.defence.S_total).toBe(1);
+  });
+
+  it("素の値(level/FAValue)の Total に加算する", () => {
+    const sys = { levelTotal: 2, FAValueTotal: 1 };
+    addToItemTotal(sys, "level", 1);
+    addToItemTotal(sys, "FAValue", 4);
+    expect(sys.levelTotal).toBe(3);
+    expect(sys.FAValueTotal).toBe(5);
+  });
+
+  it("対象 total が無い場合は何もしない(base は触らない)", () => {
+    const sys = { guardValue: { mode: "value", value: 1, effectMod: 0 } }; // total 未算出
+    expect(() => addToItemTotal(sys, "guardValue", 5)).not.toThrow();
+    expect(sys.guardValue.value).toBe(1);
+    expect(sys.guardValue.total).toBeUndefined();
   });
 });
