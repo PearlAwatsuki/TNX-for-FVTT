@@ -349,23 +349,18 @@ export class TnxJudgmentFlow {
 
     /**
      * キャスト Actor の能力値実効値コンテキストを構築する。
-     * tnx-cast-sheet.mjs の _getAbilitiesData と同じ計算式。
+     * DataModel.prepareDerivedData が算出した実効値(system.<key>.total / .totalControl)を読む。
+     * 旧実装は実在しない system.equipped でスタイルをフィルタしており、達成値からスタイル
+     * 基本値が丸ごと欠落していた(KI-021)。一本化によりシート表示と同一の値になる。
      */
     static _buildAbilitiesCtx(actor) {
-        const equippedStyles = actor.items.filter(i => i.type === "style" && i.system.equipped);
-        const sys      = actor.system;
-        const outfitMod = sys.outfitMod ?? {};
+        const sys       = actor.system;
         const abilities = {};
         for (const key of ["reason", "passion", "life", "mundane"]) {
             const ab = sys[key] ?? {};
-            let sv = 0, sc = 0;
-            for (const style of equippedStyles) {
-                sv += (style.system[key]?.value   ?? 0) * (style.system.level || 1);
-                sc += (style.system[key]?.control ?? 0) * (style.system.level || 1);
-            }
             abilities[key] = {
-                totalValue:   (ab.growth ?? 0) + sv + (ab.mod ?? 0) + (ab.effectMod ?? 0) + (outfitMod[key] ?? 0),
-                totalControl: (ab.controlGrowth ?? 0) + sc + (ab.controlMod ?? 0) + (ab.controlEffectMod ?? 0) + (outfitMod.control ?? 0),
+                totalValue:   ab.total        ?? 0,
+                totalControl: ab.totalControl ?? 0,
             };
         }
         return abilities;

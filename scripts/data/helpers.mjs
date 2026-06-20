@@ -46,6 +46,37 @@ export function attributeField() {
 }
 
 /**
+ * 能力値・制御値の最終実効値(total / totalControl)を算出する純粋関数。
+ *
+ * 実効値 = growth + Σ(スタイル基本値 × レベル) + mod + effectMod + outfitMod。
+ * 制御値も同様に control 系フィールドで算出する。
+ * 最終合算後に 0clamp を適用する(全修正合算後・順序非依存。能力値/制御値とも)。
+ * → llm-wiki/01_Wiki/Game_Rules/Character_Creation.md「能力値・制御値の上限と最終値clamp」
+ *
+ * 判定・シート表示・mundane 算出が同一式を参照するための単一の真実。
+ * DataModel(prepareDerivedData)から呼ぶ。Item に依存しないよう、スタイル寄与は
+ * { value, control, level } の素オブジェクト配列で受け取る(テスト容易性のため)。
+ *
+ * @param {object}   ability  能力値フィールド(growth/mod/effectMod/controlGrowth/controlMod/controlEffectMod)
+ * @param {Array<{value:number, control:number, level:number}>} styles  スタイル寄与
+ * @param {number}   [outfitMod=0]         能力値へのアウトフィット修正
+ * @param {number}   [outfitControlMod=0]  制御値へのアウトフィット修正
+ * @returns {{ total:number, totalControl:number }}
+ */
+export function computeAttributeFinal(ability, styles, outfitMod = 0, outfitControlMod = 0) {
+  let styleValue = 0, styleControl = 0;
+  for (const s of styles) {
+    const level = s.level || 1;
+    styleValue   += (s.value   ?? 0) * level;
+    styleControl += (s.control ?? 0) * level;
+  }
+  return {
+    total:        Math.max(0, (ability.growth        ?? 0) + styleValue   + (ability.mod        ?? 0) + (ability.effectMod        ?? 0) + outfitMod),
+    totalControl: Math.max(0, (ability.controlGrowth ?? 0) + styleControl + (ability.controlMod ?? 0) + (ability.controlEffectMod ?? 0) + outfitControlMod),
+  };
+}
+
+/**
  * 戦闘速度(combatSpeed)の5フィールド構造を返す SchemaField。
  * template.json > Actor.templates.attributes.combatSpeed 構造に準拠。
  *

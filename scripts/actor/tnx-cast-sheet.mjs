@@ -1358,14 +1358,14 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         const outfitMod = context.system.outfitMod ?? {};
         for (const key of abilityKeys) {
             const ability = context.system[key];
-            let styleTotalValue = 0, styleTotalControl = 0;
             const styleContributions = equippedStyles.map(style => {
-                const level   = style.system.level || 1;
-                const sVal    = style.system[key].value   * level;
-                const sCtrl   = style.system[key].control * level;
-                styleTotalValue   += sVal;
-                styleTotalControl += sCtrl;
-                return { name: style.name, value: sVal, control: sCtrl, level };
+                const level = style.system.level || 1;
+                return {
+                    name:    style.name,
+                    value:   style.system[key].value   * level,
+                    control: style.system[key].control * level,
+                    level,
+                };
             });
             const abilityOutfitMod  = outfitMod[key]    ?? 0;
             const controlOutfitMod  = outfitMod.control ?? 0;
@@ -1380,8 +1380,10 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
                 outfitMod:        abilityOutfitMod,
                 outfitControlMod: controlOutfitMod,
                 styleContributions,
-                totalValue:   ability.growth + styleTotalValue   + ability.mod + ability.effectMod + abilityOutfitMod,
-                totalControl: ability.controlGrowth + styleTotalControl + ability.controlMod + ability.controlEffectMod + controlOutfitMod,
+                // 実効値は DataModel.prepareDerivedData が算出した単一の真実を読む(0clamp 込み)。
+                // styleTotalValue 等はスタイル内訳表示(styleContributions)専用。
+                totalValue:   this.actor.system[key].total,
+                totalControl: this.actor.system[key].totalControl,
             };
         }
         context.mundaneTotalValue = context.system.abilities.mundane.totalValue;
@@ -2014,11 +2016,8 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     }
 
     static _computeMundaneTotalValue(actor) {
-        const mundane    = actor.system.mundane;
-        const outfitMod  = actor.system.outfitMod ?? {};
-        const allStyles  = actor.items.filter(i => i.type === "style");
-        const styleTotal = allStyles.reduce((sum, s) => sum + (s.system.mundane?.value ?? 0) * (s.system.level || 1), 0);
-        return mundane.growth + styleTotal + mundane.mod + mundane.effectMod + (outfitMod.mundane ?? 0);
+        // 外界(mundane)の最終実効値。prepareDerivedData が算出した単一の真実を読む。
+        return actor.system.mundane.total;
     }
 
     // ─── 経験点計算(静的) ────────────────────────────────────────────────────

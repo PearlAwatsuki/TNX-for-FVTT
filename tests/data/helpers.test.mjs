@@ -17,7 +17,7 @@ globalThis.foundry = {
   },
 };
 
-const { damageField, attributeField, combatSpeedField } = await import("../../scripts/data/helpers.mjs");
+const { damageField, attributeField, combatSpeedField, computeAttributeFinal } = await import("../../scripts/data/helpers.mjs");
 
 describe("damageField()", () => {
   it("呼び出せる", () => {
@@ -106,5 +106,76 @@ describe("combatSpeedField()", () => {
       expect(f).toBeInstanceOf(MockNumberField);
       expect(f.options.initial).toBe(0);
     }
+  });
+});
+
+// ─── computeAttributeFinal ────────────────────────────────────────────────────
+// 能力値・制御値の最終実効値の一本化(フェーズ9-1)。
+// 実効値 = growth + Σ(スタイル基本値 × レベル) + mod + effectMod + outfitMod、最終 0clamp。
+
+describe("computeAttributeFinal()", () => {
+  const ability = {
+    growth: 2, mod: 1, effectMod: 0,
+    controlGrowth: 3, controlMod: 0, controlEffectMod: 0,
+  };
+
+  it("スタイル1つ・レベル1の合算", () => {
+    const r = computeAttributeFinal(ability, [{ value: 4, control: 5, level: 1 }]);
+    expect(r.total).toBe(2 + 4 + 1 + 0);        // growth + style + mod + effectMod
+    expect(r.totalControl).toBe(3 + 5 + 0 + 0); // controlGrowth + styleControl + ...
+  });
+
+  it("スタイルレベルで基本値を倍化する", () => {
+    const r = computeAttributeFinal(ability, [{ value: 4, control: 5, level: 2 }]);
+    expect(r.total).toBe(2 + 4 * 2 + 1);
+    expect(r.totalControl).toBe(3 + 5 * 2);
+  });
+
+  it("複数スタイルを合算する", () => {
+    const styles = [
+      { value: 4, control: 1, level: 1 },
+      { value: 2, control: 3, level: 2 },
+    ];
+    const r = computeAttributeFinal(ability, styles);
+    expect(r.total).toBe(2 + (4 + 2 * 2) + 1);
+    expect(r.totalControl).toBe(3 + (1 + 3 * 2));
+  });
+
+  it("outfitMod を能力値・制御値それぞれに加算する", () => {
+    const r = computeAttributeFinal(ability, [{ value: 4, control: 5, level: 1 }], 3, 7);
+    expect(r.total).toBe(2 + 4 + 1 + 3);
+    expect(r.totalControl).toBe(3 + 5 + 7);
+  });
+
+  it("effectMod(AE 着地点)を合算する", () => {
+    const ab = { ...ability, effectMod: 5, controlEffectMod: -1 };
+    const r = computeAttributeFinal(ab, [{ value: 0, control: 0, level: 1 }]);
+    expect(r.total).toBe(2 + 0 + 1 + 5);
+    expect(r.totalControl).toBe(3 + 0 + 0 + -1);
+  });
+
+  it("最終値が負になる場合は 0 にクランプする", () => {
+    const ab = { growth: 0, mod: -10, effectMod: 0, controlGrowth: 0, controlMod: -10, controlEffectMod: 0 };
+    const r = computeAttributeFinal(ab, [{ value: 1, control: 1, level: 1 }]);
+    expect(r.total).toBe(0);
+    expect(r.totalControl).toBe(0);
+  });
+
+  it("スタイルなしでも算出できる", () => {
+    const r = computeAttributeFinal(ability, []);
+    expect(r.total).toBe(2 + 1);
+    expect(r.totalControl).toBe(3);
+  });
+
+  it("欠落フィールドは 0 として扱う", () => {
+    const r = computeAttributeFinal({}, [{ value: 4, level: 1 }]);
+    expect(r.total).toBe(4);
+    expect(r.totalControl).toBe(0);
+  });
+
+  it("level 未指定は 1 とみなす", () => {
+    const r = computeAttributeFinal({}, [{ value: 4, control: 2 }]);
+    expect(r.total).toBe(4);
+    expect(r.totalControl).toBe(2);
   });
 });

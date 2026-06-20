@@ -17,7 +17,11 @@ import { SystemDataModel } from "../abstract.mjs";
 import { BiographyTemplate } from "./common/biography.mjs";
 import { AttributesTemplate } from "./common/attributes.mjs";
 import { ActorBaseTemplate } from "./common/actor-base.mjs";
+import { computeAttributeFinal } from "../helpers.mjs";
 import { ATTACK_DAMAGE_TYPES } from "../item/helpers.mjs";
+
+/** 能力値キー(♠理性 / ♣感情 / ♥生命 / ♦外界) */
+const ABILITY_KEYS = ["reason", "passion", "life", "mundane"];
 
 export class CastDataModel extends SystemDataModel.mixin(
   BiographyTemplate, AttributesTemplate, ActorBaseTemplate
@@ -82,5 +86,33 @@ export class CastDataModel extends SystemDataModel.mixin(
         combatSpeed: new fields.NumberField({ initial: 0, integer: true }),
       }),
     };
+  }
+
+  /**
+   * @override
+   * 能力値・制御値の最終実効値(total / totalControl)を派生計算で一本化する。
+   * これまでシート表示・判定・mundane 算出が各自で同じ式を再計算しており(うち判定は
+   * 実在しない system.equipped フィルタでスタイル基本値が欠落していた、KI-021)、
+   * ここを単一の真実とする。各消費箇所は system.<key>.total / .totalControl を読む。
+   *
+   * outfitMod は現状フェーズでは永続フィールドを参照する(B-2 化はフェーズ9-2)。
+   * AE は effectMod / controlEffectMod に着地して合算される(フェーズ9-3)。
+   */
+  prepareDerivedData() {
+    super.prepareDerivedData?.();
+    const styleItems = this.parent?.items?.filter(i => i.type === "style") ?? [];
+    const outfitMod  = this.outfitMod ?? {};
+    for (const key of ABILITY_KEYS) {
+      const styles = styleItems.map(s => ({
+        value:   s.system[key]?.value,
+        control: s.system[key]?.control,
+        level:   s.system.level,
+      }));
+      const { total, totalControl } = computeAttributeFinal(
+        this[key], styles, outfitMod[key] ?? 0, outfitMod.control ?? 0
+      );
+      this[key].total        = total;
+      this[key].totalControl = totalControl;
+    }
   }
 }
