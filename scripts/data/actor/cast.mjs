@@ -81,6 +81,10 @@ export class CastDataModel extends SystemDataModel.mixin(
         mod:   new fields.NumberField({ initial: 0 }),
       }),
       appearanceModifier: new fields.NumberField({ initial: 0, integer: true }),
+      // 手札上限への AE 修正(KI-020・層③)。手札上限の権威は User flag にあるが User は
+      // DataModel/AE を持てないため、所有 cast の AE がここに着地し(ADD)、
+      // resolveEffectiveHandMaxSize が所有ユーザーの cast から合算する。
+      handMaxSizeMod: new fields.NumberField({ initial: 0, integer: true }),
       outfitMod: new fields.SchemaField({
         control:     new fields.NumberField({ initial: 0, integer: true }),
         reason:      new fields.NumberField({ initial: 0, integer: true }),

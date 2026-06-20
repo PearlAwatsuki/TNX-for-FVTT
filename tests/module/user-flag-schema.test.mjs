@@ -15,6 +15,8 @@ import {
   deleteUserFlagHistoryEntry,
   saveUserFlagCards,
   resolveEffectiveHandMaxSize,
+  computeEffectiveHandMaxSize,
+  gatherHandMaxSizeMod,
   TNX_FLAG_SCOPE,
 } from "../../scripts/module/user-flag-schema.mjs";
 
@@ -450,6 +452,60 @@ describe("resolveEffectiveHandMaxSize()", () => {
       expect(result).toBe(8);
       expect(result).not.toBe(4);
     });
+  });
+});
+
+// ─── KI-020: 手札上限 AE 修正(層③) ───────────────────────────────────────────
+
+describe("computeEffectiveHandMaxSize()", () => {
+  it("base + mod を返す", () => {
+    expect(computeEffectiveHandMaxSize(4, 2)).toBe(6);
+  });
+  it("負になる場合は 0 にクランプする", () => {
+    expect(computeEffectiveHandMaxSize(4, -10)).toBe(0);
+  });
+  it("非数は 0 扱い", () => {
+    expect(computeEffectiveHandMaxSize(undefined, undefined)).toBe(0);
+  });
+});
+
+describe("gatherHandMaxSizeMod()", () => {
+  const withActors = (actors, fn) => {
+    const original = globalThis.game;
+    globalThis.game = { actors };
+    try { fn(); } finally { globalThis.game = original; }
+  };
+
+  it("所有 cast(ownerUserId 一致)の handMaxSizeMod を合算する", () => {
+    const user = { uuid: "User.u1" };
+    const actors = [
+      { type: "cast", system: { ownerUserId: "User.u1", handMaxSizeMod: 2 } },
+      { type: "cast", system: { ownerUserId: "User.u1", handMaxSizeMod: 1 } },
+      { type: "cast", system: { ownerUserId: "User.u2", handMaxSizeMod: 5 } }, // 別ユーザー
+      { type: "guest", system: { ownerUserId: "User.u1", handMaxSizeMod: 9 } }, // cast でない
+    ];
+    withActors(actors, () => {
+      expect(gatherHandMaxSizeMod(user)).toBe(3);
+    });
+  });
+
+  it("uuid なし / actors なしでは 0", () => {
+    withActors([], () => expect(gatherHandMaxSizeMod({})).toBe(0));
+    expect(gatherHandMaxSizeMod({ uuid: "User.u1" })).toBe(0); // game.actors なし
+  });
+});
+
+describe("resolveEffectiveHandMaxSize() 層③（AE 修正）", () => {
+  it("ベース上限に所有 cast の AE 修正を加算する", () => {
+    const original = globalThis.game;
+    globalThis.game = {
+      settings: { get: () => 4 },
+      actors: [{ type: "cast", system: { ownerUserId: "User.u1", handMaxSizeMod: 3 } }],
+    };
+    try {
+      const user = { uuid: "User.u1", flags: { [TNX_FLAG_SCOPE]: {} } };
+      expect(resolveEffectiveHandMaxSize(user)).toBe(7); // 既定4 + AE3
+    } finally { globalThis.game = original; }
   });
 });
 

@@ -128,10 +128,43 @@ export function historyRemove(historyMap, entryId) {
 // ─── Foundry 依存: 実効手札上限の解決 ───────────────────────────────────────
 
 /**
+ * 実効手札上限を3層で合成する純粋関数(KI-020・層③)。
+ * 実効上限 = max(0, base + AE 修正合計)。
+ * base = User flag の明示値 ?? ゲーム設定の既定値。
+ *
+ * @param {number} base  ベース上限(層①既定 or 層②明示)
+ * @param {number} mod   AE 修正の合計(層③)
+ * @returns {number}
+ */
+export function computeEffectiveHandMaxSize(base, mod) {
+  return Math.max(0, (Number(base) || 0) + (Number(mod) || 0));
+}
+
+/**
+ * 所有ユーザーの cast から手札上限 AE 修正(handMaxSizeMod)を合算する(層③)。
+ * User は DataModel/AE を持てないため、所有 cast(ownerUserId === user.uuid)の
+ * AE 着地値 system.handMaxSizeMod を合算する。
+ *
+ * @param {User|null|undefined} user
+ * @returns {number}
+ */
+export function gatherHandMaxSizeMod(user) {
+  if (!user?.uuid || !globalThis.game?.actors) return 0;
+  let mod = 0;
+  for (const actor of game.actors) {
+    if (actor.type === "cast" && actor.system?.ownerUserId === user.uuid) {
+      mod += Number(actor.system.handMaxSizeMod) || 0;
+    }
+  }
+  return mod;
+}
+
+/**
  * ユーザーの実効手札上限を返す。
  *
- * User flag に handMaxSize が明示設定されていればその値を、
- * 未設定の場合はゲーム設定 defaultHandMaxSize を返す。
+ * 層①: ゲーム設定 defaultHandMaxSize(既定)。
+ * 層②: User flag handMaxSize(明示設定があれば base を上書き)。
+ * 層③: 所有 cast の AE 修正合計(handMaxSizeMod、KI-020)。
  *
  * FLAG_DEFAULTS を経由しないことで「未設定」と「明示的に 4 を設定」を区別できる。
  *
@@ -140,8 +173,10 @@ export function historyRemove(historyMap, entryId) {
  */
 export function resolveEffectiveHandMaxSize(user) {
   const explicit = user?.flags?.[TNX_FLAG_SCOPE]?.handMaxSize;
-  if (explicit !== undefined) return explicit;
-  return game.settings.get("tokyo-nova-axleration", "defaultHandMaxSize");
+  const base = explicit !== undefined
+    ? explicit
+    : game.settings.get("tokyo-nova-axleration", "defaultHandMaxSize");
+  return computeEffectiveHandMaxSize(base, gatherHandMaxSizeMod(user));
 }
 
 // ─── Foundry 依存: flag への書き込み ─────────────────────────────────────
