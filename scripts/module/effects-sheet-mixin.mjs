@@ -20,11 +20,9 @@ export const EffectsSheetMixin = {
         const source = (typeof document.allApplicableEffects === "function")
             ? document.allApplicableEffects()
             : document.effects;
+        // ActiveEffect ドキュメントは変異させない(sourceName 等は読み取り専用ゲッター)。
+        // 転送元の判別が必要なら template 側で組み込みの effect.sourceName を使う。
         for (const effect of source) {
-            // 転送元(別ドキュメント=所有アイテム)の効果はその出所を表示用に付与する
-            const fromItem = effect.parent && effect.parent !== document ? effect.parent.name : null;
-            effect.sourceName = fromItem;       // 表示用の一時プロパティ(描画ごとに再設定)
-            effect.isTransferred = !!fromItem;
             if (effect.disabled) effects.inactive.push(effect);
             else if (effect.isTemporary) effects.temporary.push(effect);
             else effects.passive.push(effect);
