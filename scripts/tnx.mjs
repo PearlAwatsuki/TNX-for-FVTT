@@ -302,6 +302,13 @@ Hooks.once("init", async function() {
     await preloadHandlebarsTemplates();
     CONFIG.Item.documentClass = TokyoNovaItem;
 
+    // ActiveEffect の転送モードを新方式にする(フェーズ9-3)。
+    // レガシー(true)では「アイテムに乗せた効果がアイテム自身に適用されない」(モードA 不成立)、
+    // かつ v13 のトークンアクターで transfer:true が転送されないバグがある。
+    // false にすると、transfer:false の効果はアイテム自身へ、transfer:true の効果は
+    // アイテム上から親アクターへ仮想適用される(着地点 effectMod に正しく流れ込む)。
+    CONFIG.ActiveEffect.legacyTransferral = false;
+
     // Actor DataModel の登録(全 Actor type)
     CONFIG.Actor.dataModels = {
       cast:   CastDataModel,

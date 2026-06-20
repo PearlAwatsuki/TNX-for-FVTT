@@ -7,17 +7,47 @@ export const EffectsSheetMixin = {
     /**
      * シートの描画コンテキストに分類済みエフェクトを追加する。
      * V1/V2 共通。_prepareContext / getData から呼ぶ。
+     *
+     * アクターでは allApplicableEffects()(自身の効果＋所有アイテムから転送された効果)を
+     * 列挙する。legacyTransferral=false では転送効果が actor.effects に入らないため、
+     * これを使わないと「アイテム効果がキャストに反映されているのに一覧に出ない」状態になる。
+     * アイテム等 allApplicableEffects を持たないドキュメントは自身の effects を使う。
      * @param {Document} document
      * @param {object} context
      */
     prepareEffectsContext(document, context) {
         const effects = { temporary: [], passive: [], inactive: [] };
-        for (const effect of document.effects) {
+        const source = (typeof document.allApplicableEffects === "function")
+            ? document.allApplicableEffects()
+            : document.effects;
+        for (const effect of source) {
+            // 転送元(別ドキュメント=所有アイテム)の効果はその出所を表示用に付与する
+            const fromItem = effect.parent && effect.parent !== document ? effect.parent.name : null;
+            effect.sourceName = fromItem;       // 表示用の一時プロパティ(描画ごとに再設定)
+            effect.isTransferred = !!fromItem;
             if (effect.disabled) effects.inactive.push(effect);
             else if (effect.isTemporary) effects.temporary.push(effect);
             else effects.passive.push(effect);
         }
         context.effects = effects;
+    },
+
+    /**
+     * 効果 ID から効果ドキュメントを解決する。自身の effects に無ければ所有アイテムを探す
+     * (アクターに表示された転送効果は所有アイテム上にあるため)。
+     * @param {Document} document
+     * @param {string} effectId
+     * @returns {ActiveEffect|null}
+     */
+    resolveEffect(document, effectId) {
+        if (!effectId) return null;
+        const own = document.effects?.get(effectId);
+        if (own) return own;
+        for (const item of (document.items ?? [])) {
+            const e = item.effects?.get(effectId);
+            if (e) return e;
+        }
+        return null;
     },
 
     /**
@@ -38,17 +68,17 @@ export const EffectsSheetMixin = {
 
         async editEffect(_event, target) {
             const effectId = target.closest(".tnx-item-list__row")?.dataset.effectId;
-            this.document.effects.get(effectId)?.sheet.render({ force: true });
+            EffectsSheetMixin.resolveEffect(this.document, effectId)?.sheet.render({ force: true });
         },
 
         async deleteEffect(_event, target) {
             const effectId = target.closest(".tnx-item-list__row")?.dataset.effectId;
-            await this.document.effects.get(effectId)?.delete();
+            await EffectsSheetMixin.resolveEffect(this.document, effectId)?.delete();
         },
 
         async toggleEffect(_event, target) {
             const effectId = target.closest(".tnx-item-list__row")?.dataset.effectId;
-            const effect = this.document.effects.get(effectId);
+            const effect = EffectsSheetMixin.resolveEffect(this.document, effectId);
             await effect?.update({ disabled: !effect.disabled });
         },
     },
