@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
-const { defenceField, attackField } = await import("../../../scripts/data/item/helpers.mjs");
+const { defenceField, attackField, migrateAttackModToEffectMod } = await import("../../../scripts/data/item/helpers.mjs");
 
 describe("defenceField()", () => {
   it("呼び出せる", () => {
@@ -49,11 +49,12 @@ describe("attackField()", () => {
     expect(attackField()).toBeInstanceOf(MockSchemaField);
   });
 
-  it("damageType / value / mod の 3 フィールドを持つ", () => {
+  it("damageType / value / effectMod の 3 フィールドを持つ", () => {
     const field = attackField();
     expect(field.fields).toHaveProperty("damageType");
     expect(field.fields).toHaveProperty("value");
-    expect(field.fields).toHaveProperty("mod");
+    expect(field.fields).toHaveProperty("effectMod");
+    expect(field.fields).not.toHaveProperty("mod");
   });
 
   it("damageType は choices 付き StringField で initial が空文字 (単一選択、フェーズ6-2)", () => {
@@ -69,13 +70,36 @@ describe("attackField()", () => {
     expect(field.fields.value.options.initial).toBe(0);
   });
 
-  it("mod は NumberField で initial が 0", () => {
+  it("effectMod (AE 着地点) は NumberField で initial が 0", () => {
     const field = attackField();
-    expect(field.fields.mod).toBeInstanceOf(MockNumberField);
-    expect(field.fields.mod.options.initial).toBe(0);
+    expect(field.fields.effectMod).toBeInstanceOf(MockNumberField);
+    expect(field.fields.effectMod.options.initial).toBe(0);
   });
 
   it("呼び出すたびに別インスタンスを返す", () => {
     expect(attackField()).not.toBe(attackField());
+  });
+});
+
+describe("migrateAttackModToEffectMod()", () => {
+  it("旧 attack.mod を attack.effectMod へ移し mod を削除する", () => {
+    const source = { attack: { damageType: "I", value: 4, mod: 2 } };
+    migrateAttackModToEffectMod(source);
+    expect(source.attack.effectMod).toBe(2);
+    expect(source.attack).not.toHaveProperty("mod");
+  });
+
+  it("既に effectMod がある場合は上書きしない", () => {
+    const source = { attack: { value: 4, mod: 2, effectMod: 9 } };
+    migrateAttackModToEffectMod(source);
+    expect(source.attack.effectMod).toBe(9);
+  });
+
+  it("attack が無い / mod が無い場合は何もしない", () => {
+    const a = {};
+    expect(() => migrateAttackModToEffectMod(a)).not.toThrow();
+    const b = { attack: { value: 4 } };
+    migrateAttackModToEffectMod(b);
+    expect(b.attack.effectMod).toBeUndefined();
   });
 });

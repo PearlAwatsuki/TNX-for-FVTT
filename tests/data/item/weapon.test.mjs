@@ -58,9 +58,13 @@ describe("WeaponDataModel.defineSchema()", () => {
       expect(schema.attack.fields.value.options.initial).toBe(0);
     });
 
-    it("attack.mod は NumberField で initial が 0", () => {
-      expect(schema.attack.fields.mod).toBeInstanceOf(MockNumberField);
-      expect(schema.attack.fields.mod.options.initial).toBe(0);
+    it("attack.effectMod (AE 着地点) は NumberField で initial が 0", () => {
+      expect(schema.attack.fields.effectMod).toBeInstanceOf(MockNumberField);
+      expect(schema.attack.fields.effectMod.options.initial).toBe(0);
+    });
+
+    it("attack.mod (旧フィールド) は存在しない", () => {
+      expect(schema.attack.fields.mod).toBeUndefined();
     });
   });
 

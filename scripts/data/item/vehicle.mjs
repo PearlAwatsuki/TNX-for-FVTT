@@ -18,7 +18,7 @@ import { BaseTemplate } from "./common/base.mjs";
 import { OutfitBaseTemplate } from "./common/outfit-base.mjs";
 import { UsageTemplate } from "./common/usage.mjs";
 import { ExtensibleTemplate } from "./common/extensible.mjs";
-import { attackField, defenceField, modeValueField } from "./helpers.mjs";
+import { attackField, defenceField, modeValueField, migrateAttackModToEffectMod } from "./helpers.mjs";
 
 export class VehicleDataModel extends SystemDataModel.mixin(
   BaseTemplate, OutfitBaseTemplate, ExtensibleTemplate, UsageTemplate
@@ -38,6 +38,7 @@ export class VehicleDataModel extends SystemDataModel.mixin(
 
   /** @override — 旧 NumberField 形式から {mode,value} へ移行 */
   static migrateData(source) {
+    migrateAttackModToEffectMod(source);
     for (const key of ["speedFactor", "passenger", "controlMod"]) {
       if (typeof source[key] === "number") {
         const n = source[key];

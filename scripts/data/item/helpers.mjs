@@ -76,11 +76,15 @@ export const ATTACK_DAMAGE_TYPES = Object.freeze({
 });
 
 /**
- * 攻撃力(ダメージ種別 / 値 / 修正)の SchemaField を返す。
+ * 攻撃力(ダメージ種別 / 値 / AE 着地修正)の SchemaField を返す。
  * damageType は S/P/I/X の choices 付き単一選択(2026-06-13 ユーザー指示で
- * ドロップダウン選択に変更。空文字は未設定)。value / mod は初期値 0 の NumberField。
+ * ドロップダウン選択に変更。空文字は未設定)。value は基本攻撃力。
  *
- * 使用 Item type: cyborg / weapon
+ * effectMod は ActiveEffect の着地点(フェーズ9-3。旧 mod をリネーム)。手動編集 UI は持たず、
+ * AE(改造・スタイル技能等)が ADD で積む。実効攻撃力 = value + effectMod は消費側
+ * (ダメージ算出フェーズ12)で算出する。
+ *
+ * 使用 Item type: weapon / cyborg / vehicle
  *
  * @returns {foundry.data.fields.SchemaField}
  */
@@ -93,7 +97,20 @@ export function attackField() {
       initial: "",
       choices: ATTACK_DAMAGE_TYPES,
     }),
-    value:      new fields.NumberField({ initial: 0 }),
-    mod:        new fields.NumberField({ initial: 0 }),
+    value:     new fields.NumberField({ initial: 0 }),
+    effectMod: new fields.NumberField({ initial: 0 }),
   });
+}
+
+/**
+ * 旧 attack.mod(手動修正・実質未使用)→ attack.effectMod(AE 着地点)へのリネーム移行。
+ * weapon / cyborg / vehicle の migrateData から呼ぶ。source を破壊的に書き換える。
+ * @param {object} source DataModel の生ソース
+ */
+export function migrateAttackModToEffectMod(source) {
+  const attack = source?.attack;
+  if (attack && typeof attack.mod === "number" && attack.effectMod === undefined) {
+    attack.effectMod = attack.mod;
+    delete attack.mod;
+  }
 }
