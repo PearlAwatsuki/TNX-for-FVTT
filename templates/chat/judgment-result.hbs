@@ -34,10 +34,26 @@
             <span class="jr-calc-label">制御値</span>
             <span class="jr-calc-val">{{result.controlVal}}</span>
         </div>
+        {{#if hasCheckBonus}}
+        <div class="jr-calc-row">
+            <span class="jr-calc-label">判定ボーナス</span>
+            <span class="jr-calc-val">+{{result.checkBonus}}</span>
+        </div>
+        {{#if checkSources.length}}
+        <details class="jr-bonus-detail">
+            <summary>内訳（{{checkSources.length}}件）</summary>
+            <ul class="jr-bonus-list">
+                {{#each checkSources}}
+                <li><span class="jr-bonus-name">{{this.name}}</span><span class="jr-bonus-num">+{{this.value}}</span></li>
+                {{/each}}
+            </ul>
+        </details>
+        {{/if}}
+        {{/if}}
     </div>
     <div class="jr-result {{#if result.success}}jr-result--success{{else}}jr-result--failure{{/if}}">
         {{#if result.success}}<i class="fas fa-check"></i>{{else}}<i class="fas fa-times"></i>{{/if}}
-        <span>{{result.cardValue}} ≤ {{result.controlVal}} → {{#if result.success}}成功{{else}}失敗{{/if}}</span>
+        <span>{{result.cardValue}} ≤ {{result.effectiveControl}} → {{#if result.success}}成功{{else}}失敗{{/if}}</span>
     </div>
 
     {{else}}
@@ -56,6 +72,22 @@
             <span class="jr-calc-label">報酬点</span>
             <span class="jr-calc-val">+{{result.bountyUsed}}</span>
         </div>
+        {{/if}}
+        {{#if hasCheckBonus}}
+        <div class="jr-calc-row">
+            <span class="jr-calc-label">判定ボーナス</span>
+            <span class="jr-calc-val">+{{result.checkBonus}}</span>
+        </div>
+        {{#if checkSources.length}}
+        <details class="jr-bonus-detail">
+            <summary>内訳（{{checkSources.length}}件）</summary>
+            <ul class="jr-bonus-list">
+                {{#each checkSources}}
+                <li><span class="jr-bonus-name">{{this.name}}</span><span class="jr-bonus-num">+{{this.value}}</span></li>
+                {{/each}}
+            </ul>
+        </details>
+        {{/if}}
         {{/if}}
         {{/unless}}{{/unless}}
         {{#if suitMismatch}}

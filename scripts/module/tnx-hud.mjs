@@ -117,7 +117,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
                         // 判定バフ(check.)を達成値プレビューにも反映。能力値判定はスートで対象能力値が変わる
                         // ため、カード(スート)ごとに算出する。21固定は達成値 21 のためバフ非対象。
                         const checkBonus = jActor
-                            ? TnxJudgmentFlow._computeCheckBonus(jActor, judgmentCtx, SUIT_TO_ABILITY[suit])
+                            ? TnxJudgmentFlow._computeCheckBonus(jActor, judgmentCtx, SUIT_TO_ABILITY[suit]).total
                             : 0;
                         if (isJoker) {
                             preview = "?";

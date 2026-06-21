@@ -16,7 +16,7 @@
  */
 
 import { getCardJudgmentValue, calcSkillCheck, calcControlCheck, ALL_SUITS, SUIT_TO_ABILITY } from './tnx-judgment-engine.mjs';
-import { computeCheckBonus } from '../data/item/helpers.mjs';
+import { gatherCheckBonusSources } from '../data/item/helpers.mjs';
 import { TnxActionHandler } from './tnx-action-handler.mjs';
 import { TnxSocketHandler } from './tnx-socket-handler.mjs';
 import { getUserFlagData } from './user-flag-schema.mjs';
@@ -374,14 +374,15 @@ export class TnxJudgmentFlow {
      * @param {Actor} actor
      * @param {object} ctx  判定コンテキスト(type / skillIds 等)
      * @param {string} abilityKey  スートから決まる能力値キー
-     * @returns {number}
+     * @returns {{total:number, sources:Array<{name:string, value:number}>}}
      */
     static _computeCheckBonus(actor, ctx, abilityKey) {
-        if (!actor) return 0;
+        if (!actor) return { total: 0, sources: [] };
         const SCOPE = "tokyo-nova-axleration";
         const effects = [];
         const push = (e) => effects.push({
             identity:  e.flags?.[SCOPE]?.effectId || e.id,
+            name:      e.name,
             stackable: e.flags?.[SCOPE]?.stackable === true,
             active:    e.active,
             changes:   e.changes,
@@ -400,7 +401,8 @@ export class TnxJudgmentFlow {
                 .filter(Boolean);
             criteria = { type: "skill", skillKeys };
         }
-        return computeCheckBonus(effects, criteria);
+        const sources = gatherCheckBonusSources(effects, criteria);
+        return { total: sources.reduce((s, e) => s + e.value, 0), sources };
     }
 
     /**
@@ -570,8 +572,9 @@ export class TnxJudgmentFlow {
 
         // 能力値コンテキストを先に構築（報酬点プレビュー計算と本計算で共用）
         const abilitiesCtx = suitMismatch ? null : TnxJudgmentFlow._buildAbilitiesCtx(actor);
-        // 判定バフ(check 時・同一効果の重複適用不可)を算出
-        const checkBonus = suitMismatch ? 0 : TnxJudgmentFlow._computeCheckBonus(actor, ctx, SUIT_TO_ABILITY[suit]);
+        // 判定バフ(check 時・同一効果の重複適用不可)を算出。内訳(sources)はチャットの内訳表示に使う
+        const checkInfo  = suitMismatch ? { total: 0, sources: [] } : TnxJudgmentFlow._computeCheckBonus(actor, ctx, SUIT_TO_ABILITY[suit]);
+        const checkBonus = checkInfo.total;
 
         // 報酬点の使用を決定（スート不一致・制御判定・ファンブル確定はスキップ）
         let bountyUsed = 0;
@@ -605,7 +608,7 @@ export class TnxJudgmentFlow {
         }
 
         // チャットに結果を投稿
-        await TnxJudgmentFlow._postResultChat({ ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch });
+        await TnxJudgmentFlow._postResultChat({ ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch, checkSources: checkInfo.sources });
 
         // RL 要求フロー: GM に結果を送信
         if (ctx.requestMessageId) {
@@ -615,7 +618,7 @@ export class TnxJudgmentFlow {
         return true;
     }
 
-    static async _postResultChat({ ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch = false }) {
+    static async _postResultChat({ ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch = false, checkSources = [] }) {
         const actor = game.actors.get(ctx.actorId);
         const SUIT_SYMBOL   = { spade: "♠", club: "♣", heart: "♥", diamond: "♦" };
         const TYPE_LABEL    = { skillCheck: "技能判定", controlCheck: "制御判定", abilityCheck: "能力値判定" };
@@ -635,6 +638,8 @@ export class TnxJudgmentFlow {
                 suitSymbol:   SUIT_SYMBOL[suit] ?? "",
                 abilityLabel: ABILITY_LABEL[result.abilityKey] ?? "",
                 result,
+                checkSources,
+                hasCheckBonus: (result.checkBonus ?? 0) !== 0,
                 isControlCheck,
                 isFixed21:    result.fixedAt21 === true,
                 hasTargetValue: ctx.targetValue !== null,

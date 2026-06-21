@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
-const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus } = await import("../../../scripts/data/item/helpers.mjs");
+const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources } = await import("../../../scripts/data/item/helpers.mjs");
 
 describe("defenceField()", () => {
   it("呼び出せる", () => {
@@ -200,6 +200,28 @@ describe("computeCheckBonus()（同一効果の重複適用不可）", () => {
   it("非アクティブはスキップ", () => {
     const effs = [{ identity: "e1", active: false, changes: [{ key: "check.society_*", value: "5" }] }];
     expect(computeCheckBonus(effs, crit)).toBe(0);
+  });
+});
+
+describe("gatherCheckBonusSources()（チャット内訳）", () => {
+  const crit = { type: "skill", skillKeys: ["society_police"] };
+
+  it("寄与エフェクトを name+value で返す（重複排除・最大採用）", () => {
+    const effs = [
+      { identity: "buffA", name: "情報網", changes: [{ key: "check.society_*", value: "1" }] },
+      { identity: "buffA", name: "情報網", changes: [{ key: "check.society_*", value: "3" }] },
+      { identity: "buffB", name: "コネ", stackable: true, changes: [{ key: "check.society_*", value: "2" }] },
+    ];
+    const sources = gatherCheckBonusSources(effs, crit);
+    expect(sources).toEqual([
+      { name: "情報網", value: 3 },
+      { name: "コネ", value: 2 },
+    ]);
+  });
+
+  it("名前が無い場合は (無名効果)", () => {
+    const effs = [{ identity: "e1", changes: [{ key: "check.society_*", value: "1" }] }];
+    expect(gatherCheckBonusSources(effs, crit)[0].name).toBe("(無名効果)");
   });
 });
 

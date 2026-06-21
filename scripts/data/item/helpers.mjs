@@ -201,17 +201,18 @@ export function checkChangeMatches(key, criteria) {
 }
 
 /**
- * 判定バフの合計ボーナスを算出する(フェーズ9-3 v2)。
+ * 判定バフの寄与エフェクト一覧(重複排除済み)を返す(フェーズ9-3 v2)。
  * **同一効果の重複適用不可**: 各効果(identity)につき最大1回。同一効果内で複数の変更が合致しても
- * 最も有利な値を1回。別効果はスタック。`stackable` の効果は重複排除せず常に加算。
+ * 最も有利な値を1回。別効果はスタック。`stackable` の効果は重複排除せず常に列挙。
+ * チャットの内訳表示(エフェクト名＋値)に用いる。
  *
- * @param {Array<{identity:string, stackable?:boolean, active?:boolean, changes?:Array<{key:string,value:any}>}>} effects
+ * @param {Array<{identity:string, name?:string, stackable?:boolean, active?:boolean, changes?:Array<{key:string,value:any}>}>} effects
  * @param {{type:"skill"|"ability"|"control", skillKeys?:string[], ability?:string}} criteria
- * @returns {number}
+ * @returns {Array<{name:string, value:number}>}
  */
-export function computeCheckBonus(effects, criteria) {
+export function gatherCheckBonusSources(effects, criteria) {
   const byIdentity = new Map();
-  let stackableSum = 0;
+  const stackables = [];
   for (const eff of (effects ?? [])) {
     if (eff.active === false) continue;
     let matched = null;
@@ -221,16 +222,26 @@ export function computeCheckBonus(effects, criteria) {
       matched = matched === null ? v : Math.max(matched, v);
     }
     if (matched === null) continue;
+    const entry = { name: eff.name || "(無名効果)", value: matched };
     if (eff.stackable) {
-      stackableSum += matched;
+      stackables.push(entry);
     } else {
-      const id = eff.identity;
-      byIdentity.set(id, Math.max(byIdentity.get(id) ?? -Infinity, matched));
+      const prev = byIdentity.get(eff.identity);
+      if (!prev || matched > prev.value) byIdentity.set(eff.identity, entry);
     }
   }
-  let sum = stackableSum;
-  for (const v of byIdentity.values()) sum += v;
-  return sum;
+  return [...byIdentity.values(), ...stackables];
+}
+
+/**
+ * 判定バフの合計ボーナスを算出する(フェーズ9-3 v2)。{@link gatherCheckBonusSources} の値の総和。
+ *
+ * @param {Array<object>} effects
+ * @param {{type:"skill"|"ability"|"control", skillKeys?:string[], ability?:string}} criteria
+ * @returns {number}
+ */
+export function computeCheckBonus(effects, criteria) {
+  return gatherCheckBonusSources(effects, criteria).reduce((sum, e) => sum + e.value, 0);
 }
 
 export function parseEffectTargetKey(key) {

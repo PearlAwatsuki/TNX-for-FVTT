@@ -4103,6 +4103,46 @@ body.tnx-bottom-hud-expanded #hotbar {
     line-height: 1;
 }
 
+/* 判定ボーナスの内訳 (展開式・エフェクト名一覧) */
+.jr-bonus-detail {
+    margin: 1px 0 2px;
+    font-size: 0.82em;
+}
+
+.jr-bonus-detail > summary {
+    cursor: pointer;
+    color: var(--tnx2-text-secondary);
+    list-style: revert;
+}
+
+.jr-bonus-list {
+    list-style: none;
+    margin: 3px 0 0;
+    padding: 4px 6px;
+    border-radius: 4px;
+    background: var(--tnx2-bg-subtle, rgba(0, 0, 0, 0.12));
+}
+
+.jr-bonus-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    padding: 1px 0;
+}
+
+.jr-bonus-name {
+    color: var(--tnx2-text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.jr-bonus-num {
+    font-family: var(--tnx2-font-mono);
+    color: var(--tnx2-text-primary);
+}
+
 /* 結果フッター (成功 / 失敗 / ファンブル) */
 .jr-result {
     display: flex;
