@@ -45,19 +45,37 @@ export const CONDITION_KINDS = Object.freeze({
 });
 
 /**
- * ActiveEffect から condition 設定を読み取る。conditionKind を持たない AE は null。
- * @param {object} effect ActiveEffect(name / active / flags / id)
+ * AE の condition 種別を判定する。status id(`statuses`)を第一に、無ければ
+ * `flags.tokyo-nova-axleration.conditionKind` を見る。CONFIG.statusEffects の独自 flags が
+ * 付与時に伝播しない環境でも、貼付された status id から確実に kind を得る(フェーズ9-4)。
+ * @param {object} effect ActiveEffect(statuses / flags)
+ * @returns {?string} CONDITION_KINDS のキー、無ければ null
+ */
+export function getConditionKind(effect) {
+  const st = effect?.statuses;
+  if (st) {
+    const ids = st instanceof Set ? [...st] : (Array.isArray(st) ? st : []);
+    for (const id of ids) if (CONDITION_KINDS[id]) return id;
+  }
+  const flagKind = effect?.flags?.[SCOPE]?.conditionKind;
+  return (flagKind && CONDITION_KINDS[flagKind]) ? flagKind : null;
+}
+
+/**
+ * ActiveEffect から condition 設定を読み取る。condition でない AE は null。
+ * @param {object} effect ActiveEffect(name / active / statuses / flags / id)
  * @returns {{kind:string, label:string, def:object, name:string, identity:string,
  *   active:boolean, stackable:boolean, magnitude:number, targetAbility:?string,
  *   targetUuid:?string, targetMode:?string, durationUnit:?string}|null}
  */
 export function readCondition(effect) {
-  const f = effect?.flags?.[SCOPE];
-  if (!f?.conditionKind) return null;
-  const def = CONDITION_KINDS[f.conditionKind] ?? null;
+  const kind = getConditionKind(effect);
+  if (!kind) return null;
+  const f = effect?.flags?.[SCOPE] ?? {};
+  const def = CONDITION_KINDS[kind] ?? null;
   return {
-    kind:         f.conditionKind,
-    label:        def?.label ?? f.conditionKind,
+    kind,
+    label:        def?.label ?? kind,
     def,
     name:         effect.name || def?.label || "(無名効果)",
     identity:     f.effectId || effect.id,

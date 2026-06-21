@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CONDITION_KINDS, readCondition, gatherConditionCheckSources, getCheckBlock, gatherConditionControlPenalty, computeJammingPenalty }
+import { CONDITION_KINDS, readCondition, getConditionKind, gatherConditionCheckSources, getCheckBlock, gatherConditionControlPenalty, computeJammingPenalty }
   from "../../scripts/module/conditions.mjs";
 
 /** 準備アウトフィット記述子の略記 */
@@ -36,6 +36,17 @@ describe("readCondition()", () => {
   it("magnitude のフラグ指定が既定を上書き", () => {
     const c = readCondition(condEffect({ kind: "interference", magnitude: 3 }));
     expect(c.magnitude).toBe(3);
+  });
+
+  it("kind は statuses(status id) からも判定する（flags 非依存）", () => {
+    // statusEffects 付与で作られた AE は flags.conditionKind を持たない場合がある
+    const eff = { id: "s1", name: "酩酊(小)", active: true, statuses: new Set(["doped-minor"]), flags: {} };
+    const c = readCondition(eff);
+    expect(c?.kind).toBe("doped-minor");
+    expect(c?.magnitude).toBe(2); // def 既定
+    expect(getConditionKind({ statuses: ["interference"] })).toBe("interference"); // 配列でも可
+    expect(getConditionKind({ statuses: new Set(["dead"]) })).toBe("dead");
+    expect(getConditionKind({ statuses: new Set(["not-a-condition"]) })).toBeNull();
   });
 });
 

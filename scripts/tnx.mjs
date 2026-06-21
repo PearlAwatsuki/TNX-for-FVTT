@@ -46,7 +46,7 @@ import { TnxRlRequestApp } from './module/tnx-rl-request-app.mjs';
 import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
 import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
-import { CONDITION_KINDS } from './module/conditions.mjs';
+import { CONDITION_KINDS, getConditionKind } from './module/conditions.mjs';
 
 async function preloadHandlebarsTemplates() {
     const templatePaths = [
@@ -288,7 +288,7 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
 
     // コンディション(BS)の効果値フィールド(kind 別)を詳細タブに注入する(フェーズ9-4)。
     // 効果値は condition 自身に閉じる(汎用 changes でなく専用フィールド)。change で setFlag。
-    const kind = app.document?.getFlag?.("tokyo-nova-axleration", "conditionKind");
+    const kind = getConditionKind(app.document);
     const def  = kind ? CONDITION_KINDS[kind] : null;
     if (def) {
         const get = (k) => app.document?.getFlag?.("tokyo-nova-axleration", k);
