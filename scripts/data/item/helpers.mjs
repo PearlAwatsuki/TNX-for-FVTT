@@ -146,91 +146,6 @@ export function computeItemEffectiveValues(system) {
 }
 
 /**
- * モードB(アクター→他アイテム横断バフ)の対象判定(フェーズ9-3)。
- * AE が flag(`flags["tokyo-nova-axleration"].aeTarget`)に持つ target spec とアイテムを照合する。
- *
- * spec のフィルタ次元(指定された次元のみ AND で評価。各次元はリスト内 OR):
- * - byItemType:        ["weapon", ...]            アイテム type
- * - byMajorCategory:   ["weapon", ...]           大分類キー
- * - byMinorCategory:   ["melee", ...]            小分類キー
- * - byIdentificationKey: ["...", ...]             identificationKey 名指し
- * 少なくとも1つのフィルタが必要(無条件全件マッチを防ぐ)。
- *
- * @param {{type:string, system:object}} item
- * @param {object} spec
- * @returns {boolean}
- */
-export function matchesAeTarget(item, spec) {
-  if (!spec || !item) return false;
-  const sys = item.system ?? {};
-  const dims = [
-    ["byItemType",          item.type],
-    ["byMajorCategory",     sys.majorCategory],
-    ["byMinorCategory",     sys.minorCategory],
-    ["byIdentificationKey", sys.identificationKey],
-  ];
-  let hasFilter = false;
-  for (const [key, actual] of dims) {
-    const list = spec[key];
-    if (Array.isArray(list) && list.length) {
-      hasFilter = true;
-      if (!list.includes(actual)) return false;
-    }
-  }
-  return hasFilter;
-}
-
-/**
- * モードB の加算注入: アイテムの **AE 着地点 effectMod** に delta を加える(フェーズ9-3)。
- * base は触らない。注入後にアクター側で computeItemEffectiveValues を再実行して total に反映する。
- *
- * param の指定:
- * - "defence.S" / "defence.P" / "defence.I" → defence.{S,P,I}_effectMod
- * - "level" / "FAValue" / "appearanceTarget" / "cyberSecurity" / "analogSecurity" → <param>EffectMod
- * - その他(modeValueField / attack 等) → system[param].effectMod
- *
- * @param {object} system アイテムの system
- * @param {string} param  対象パラメータ
- * @param {number} delta  加算量
- */
-export function addToItemEffectMod(system, param, delta) {
-  if (!system || !param || !Number.isFinite(delta)) return;
-  if (param.startsWith("defence.")) {
-    const key = `${param.split(".")[1]}_effectMod`;
-    if (system.defence && typeof system.defence[key] === "number") system.defence[key] += delta;
-    return;
-  }
-  const bareEffectMods = {
-    level: "levelEffectMod", FAValue: "FAValueEffectMod",
-    appearanceTarget: "appearanceTargetEffectMod",
-    cyberSecurity: "cyberSecurityEffectMod", analogSecurity: "analogSecurityEffectMod",
-  };
-  if (bareEffectMods[param]) {
-    const key = bareEffectMods[param];
-    if (typeof system[key] === "number") system[key] += delta;
-    return;
-  }
-  const field = system[param];
-  if (field && typeof field === "object" && typeof field.effectMod === "number") field.effectMod += delta;
-}
-
-/**
- * モードB の changes キー `<識別キー>.<systemパス>` を解析する(フェーズ9-3)。
- * 例: "hisho-geki.attack.effectMod" → { identKey: "hisho-geki", path: "attack.effectMod" }。
- * system. / flags. で始まる通常キー(自己適用・キャラ適用)は対象外で null を返す。
- *
- * @param {string} key  ActiveEffect change のキー
- * @returns {{identKey:string, path:string}|null}
- */
-export function parseCrossTargetKey(key) {
-  if (typeof key !== "string" || !key) return null;
-  if (key.startsWith("system.") || key.startsWith("flags.")) return null;
-  const dot = key.indexOf(".");
-  if (dot <= 0) return null;
-  return { identKey: key.slice(0, dot), path: key.slice(dot + 1) };
-}
-
-/**
  * AE 変更キーの条件式(角括弧内)を解析する。`path op value` を `;` 区切り(フェーズ9 v2)。
  * 例 "hack>=3;guardValue>0" → [{path:"hack", op:">=", value:3}, {path:"guardValue", op:">", value:0}]
  * @param {string} str
@@ -418,15 +333,3 @@ function resolveConditionValue(system, path) {
   return typeof field === "number" ? field : NaN;
 }
 
-/**
- * 旧 attack.mod(手動修正・実質未使用)→ attack.effectMod(AE 着地点)へのリネーム移行。
- * weapon / cyborg / vehicle の migrateData から呼ぶ。source を破壊的に書き換える。
- * @param {object} source DataModel の生ソース
- */
-export function migrateAttackModToEffectMod(source) {
-  const attack = source?.attack;
-  if (attack && typeof attack.mod === "number" && attack.effectMod === undefined) {
-    attack.effectMod = attack.mod;
-    delete attack.mod;
-  }
-}

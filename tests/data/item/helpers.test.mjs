@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
-const { defenceField, attackField, modeValueField, migrateAttackModToEffectMod, computeItemEffectiveValues, matchesAeTarget, addToItemEffectMod, parseCrossTargetKey, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus } = await import("../../../scripts/data/item/helpers.mjs");
+const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus } = await import("../../../scripts/data/item/helpers.mjs");
 
 describe("defenceField()", () => {
   it("呼び出せる", () => {
@@ -95,29 +95,6 @@ describe("attackField()", () => {
 
   it("呼び出すたびに別インスタンスを返す", () => {
     expect(attackField()).not.toBe(attackField());
-  });
-});
-
-describe("migrateAttackModToEffectMod()", () => {
-  it("旧 attack.mod を attack.effectMod へ移し mod を削除する", () => {
-    const source = { attack: { damageType: "I", value: 4, mod: 2 } };
-    migrateAttackModToEffectMod(source);
-    expect(source.attack.effectMod).toBe(2);
-    expect(source.attack).not.toHaveProperty("mod");
-  });
-
-  it("既に effectMod がある場合は上書きしない", () => {
-    const source = { attack: { value: 4, mod: 2, effectMod: 9 } };
-    migrateAttackModToEffectMod(source);
-    expect(source.attack.effectMod).toBe(9);
-  });
-
-  it("attack が無い / mod が無い場合は何もしない", () => {
-    const a = {};
-    expect(() => migrateAttackModToEffectMod(a)).not.toThrow();
-    const b = { attack: { value: 4 } };
-    migrateAttackModToEffectMod(b);
-    expect(b.attack.effectMod).toBeUndefined();
   });
 });
 
@@ -239,86 +216,6 @@ describe("resolveItemTotalPath()", () => {
     expect(resolveItemTotalPath("level")).toBe("levelTotal");
     expect(resolveItemTotalPath("FAValue")).toBe("FAValueTotal");
     expect(resolveItemTotalPath("cyberSecurity")).toBe("cyberSecurityTotal");
-  });
-});
-
-describe("matchesAeTarget()（モードB 照合）", () => {
-  const weapon = { type: "weapon", system: { majorCategory: "武器", minorCategory: "白兵武器", identificationKey: "katana" } };
-
-  it("byItemType で一致する", () => {
-    expect(matchesAeTarget(weapon, { byItemType: ["weapon"], param: "attack", value: 1 })).toBe(true);
-    expect(matchesAeTarget(weapon, { byItemType: ["armor"], param: "attack", value: 1 })).toBe(false);
-  });
-
-  it("byMinorCategory(白兵武器)で一致する", () => {
-    expect(matchesAeTarget(weapon, { byMinorCategory: ["白兵武器"] })).toBe(true);
-    expect(matchesAeTarget(weapon, { byMinorCategory: ["射撃武器"] })).toBe(false);
-  });
-
-  it("byIdentificationKey で名指し一致する", () => {
-    expect(matchesAeTarget(weapon, { byIdentificationKey: ["katana", "tanto"] })).toBe(true);
-    expect(matchesAeTarget(weapon, { byIdentificationKey: ["tanto"] })).toBe(false);
-  });
-
-  it("複数次元は AND で評価する", () => {
-    expect(matchesAeTarget(weapon, { byItemType: ["weapon"], byMinorCategory: ["白兵武器"] })).toBe(true);
-    expect(matchesAeTarget(weapon, { byItemType: ["weapon"], byMinorCategory: ["射撃武器"] })).toBe(false);
-  });
-
-  it("フィルタ未指定は false(無条件全件マッチを防ぐ)", () => {
-    expect(matchesAeTarget(weapon, { param: "attack", value: 1 })).toBe(false);
-    expect(matchesAeTarget(weapon, { byItemType: [] })).toBe(false);
-  });
-});
-
-describe("addToItemEffectMod()（モードB 注入）", () => {
-  it("modeValue/attack の effectMod に加算する", () => {
-    const sys = { attack: { value: 4, effectMod: 0 }, guardValue: { mode: "value", value: 1, effectMod: 0 } };
-    addToItemEffectMod(sys, "attack", 2);
-    addToItemEffectMod(sys, "guardValue", 3);
-    expect(sys.attack.effectMod).toBe(2);
-    expect(sys.guardValue.effectMod).toBe(3);
-  });
-
-  it("defence.S/P/I の effectMod に加算する", () => {
-    const sys = { defence: { S_effectMod: 1, P_effectMod: 2, I_effectMod: 3 } };
-    addToItemEffectMod(sys, "defence.P", 10);
-    expect(sys.defence.P_effectMod).toBe(12);
-    expect(sys.defence.S_effectMod).toBe(1);
-  });
-
-  it("素の値(level/FAValue)の EffectMod に加算する", () => {
-    const sys = { levelEffectMod: 2, FAValueEffectMod: 1 };
-    addToItemEffectMod(sys, "level", 1);
-    addToItemEffectMod(sys, "FAValue", 4);
-    expect(sys.levelEffectMod).toBe(3);
-    expect(sys.FAValueEffectMod).toBe(5);
-  });
-
-  it("対象 effectMod が無い場合は何もしない", () => {
-    const sys = { foo: { value: 1 } };
-    expect(() => addToItemEffectMod(sys, "foo", 5)).not.toThrow();
-    expect(sys.foo.value).toBe(1);
-  });
-});
-
-describe("parseCrossTargetKey()（モードB キー解析）", () => {
-  it("<識別キー>.<パス> を分解する", () => {
-    expect(parseCrossTargetKey("hisho-geki.attack.effectMod"))
-      .toEqual({ identKey: "hisho-geki", path: "attack.effectMod" });
-    expect(parseCrossTargetKey("katana.defence.S_effectMod"))
-      .toEqual({ identKey: "katana", path: "defence.S_effectMod" });
-  });
-
-  it("system. / flags. で始まる通常キーは null", () => {
-    expect(parseCrossTargetKey("system.attack.effectMod")).toBeNull();
-    expect(parseCrossTargetKey("flags.x.y")).toBeNull();
-  });
-
-  it("ドット無し・空・非文字列は null", () => {
-    expect(parseCrossTargetKey("hisho")).toBeNull();
-    expect(parseCrossTargetKey("")).toBeNull();
-    expect(parseCrossTargetKey(undefined)).toBeNull();
   });
 });
 

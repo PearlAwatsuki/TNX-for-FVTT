@@ -14,7 +14,7 @@ import { SystemDataModel } from "../abstract.mjs";
 import { BaseTemplate } from "./common/base.mjs";
 import { OutfitBaseTemplate } from "./common/outfit-base.mjs";
 import { UsageTemplate } from "./common/usage.mjs";
-import { defenceField, attackField, modeValueField, migrateAttackModToEffectMod } from "./helpers.mjs";
+import { defenceField, attackField, modeValueField } from "./helpers.mjs";
 
 export class CyborgDataModel extends SystemDataModel.mixin(BaseTemplate, OutfitBaseTemplate, UsageTemplate) {
   /** @override */
@@ -30,7 +30,6 @@ export class CyborgDataModel extends SystemDataModel.mixin(BaseTemplate, OutfitB
 
   /** @override — 旧 NumberField 形式から {mode,value} へ移行 */
   static migrateData(source) {
-    migrateAttackModToEffectMod(source);
     if (typeof source.guardValue === "number") {
       const n = source.guardValue;
       source.guardValue = n === 0 ? { mode: "none", value: 0 } : { mode: "value", value: n };

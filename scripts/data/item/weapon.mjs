@@ -26,7 +26,7 @@ import { BaseTemplate } from "./common/base.mjs";
 import { OutfitBaseTemplate } from "./common/outfit-base.mjs";
 import { UsageTemplate } from "./common/usage.mjs";
 import { ExtensibleTemplate } from "./common/extensible.mjs";
-import { attackField, modeValueField, migrateAttackModToEffectMod } from "./helpers.mjs";
+import { attackField, modeValueField } from "./helpers.mjs";
 
 /**
  * 武器の射程の選択肢(2026-06-12 ユーザー確定)。
@@ -113,7 +113,6 @@ export class WeaponDataModel extends SystemDataModel.mixin(
 
   /** @override — 旧フォーマットからの移行 */
   static migrateData(source) {
-    migrateAttackModToEffectMod(source);
     if (typeof source.guardValue === "number") {
       const n = source.guardValue;
       source.guardValue = n === 0 ? { mode: "none", value: 0 } : { mode: "value", value: n };
