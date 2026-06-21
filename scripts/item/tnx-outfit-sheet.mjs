@@ -1,6 +1,6 @@
 import { TokyoNovaItemSheet } from "./tnx-item-sheet.mjs";
 import { TnxSkillUtils } from "../module/tnx-skill-utils.mjs";
-import { OUTFIT_CATEGORIES } from "../data/item/outfit-categories.mjs";
+import { OUTFIT_CATEGORIES, getMajorCategoryLabel, getMinorCategoryLabel } from "../data/item/outfit-categories.mjs";
 import { ATTACK_DAMAGE_TYPES } from "../data/item/helpers.mjs";
 import { WEAPON_RANGES, WEAPON_RANGE_MIN_OPTIONS, WEAPON_RANGE_MAX_OPTIONS, WEAPON_ATTACK_AREAS } from "../data/item/weapon.mjs";
 import { SLOT_KINDS } from "../data/item/common/extensible.mjs";
@@ -14,20 +14,20 @@ const HOUSING_AREA_PACK = "tokyo-nova-axleration.housing-areas";
  * 該当型ではドロップダウンを非表示にし、データが異なれば自動補正する。
  */
 const BOTH_FIXED_CATEGORIES = Object.freeze({
-    combiner:  { major: "サービス",      minor: "コンバイナー" },
-    residence: { major: "住宅",          minor: "住宅施設" },
-    ianus:     { major: "サイバーウェア", minor: "IANUS" },
-    cyborg:    { major: "サイバーウェア", minor: "全身義体" },
+    combiner:  { major: "service",   minor: "combiner" },
+    residence: { major: "housing",   minor: "residence" },
+    ianus:     { major: "cyberware", minor: "ianus" },
+    cyborg:    { major: "cyberware", minor: "fullCyborg" },
 });
 
 /**
- * 大分類のみ確定しており、小分類は選択できる Item type → 大分類名のマップ。
+ * 大分類のみ確定しており、小分類は選択できる Item type → 大分類キーのマップ。
  * 該当型では大分類をラベル表示にし、小分類だけドロップダウンで選択する。
  */
 const MAJOR_FIXED_CATEGORIES = Object.freeze({
-    tron:    "トロン",
-    tap:     "トロン",
-    vehicle: "ヴィークル",
+    tron:    "tron",
+    tap:     "tron",
+    vehicle: "vehicle",
 });
 
 /**
@@ -243,11 +243,11 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
     _categoriesForType() {
         const type = this.item.type;
         const result = {};
-        for (const [major, minors] of Object.entries(OUTFIT_CATEGORIES)) {
-            const valid = Object.entries(minors)
-                .filter(([, types]) => types.includes(type))
-                .map(([minor]) => minor);
-            if (valid.length) result[major] = valid;
+        for (const [majorKey, major] of Object.entries(OUTFIT_CATEGORIES)) {
+            const valid = Object.entries(major.minors)
+                .filter(([, def]) => def.types.includes(type))
+                .map(([minorKey]) => minorKey);
+            if (valid.length) result[majorKey] = valid;
         }
         return result;
     }
@@ -317,16 +317,16 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 system.majorCategory = fixedMajorName;
             }
             context.isMajorCategoryFixed = true;
-            context.fixedMajorLabel = fixedMajorName;
+            context.fixedMajorLabel = getMajorCategoryLabel(fixedMajorName);
         }
 
         const skillOptions = TnxSkillUtils.getSkillOptions();
         const categories = this._categoriesForType();
 
         const majorChoices = { "": "-" };
-        for (const major of Object.keys(categories)) majorChoices[major] = major;
+        for (const majorKey of Object.keys(categories)) majorChoices[majorKey] = getMajorCategoryLabel(majorKey);
         const minorChoices = { "": "-" };
-        for (const minor of categories[system.majorCategory] ?? []) minorChoices[minor] = minor;
+        for (const minorKey of categories[system.majorCategory] ?? []) minorChoices[minorKey] = getMinorCategoryLabel(minorKey);
 
         // isOption のとき: 同アクター・同大分類・非オプションのアウトフィットのみを選択肢として構築する
         const parentItemChoices = { "": "-" };
@@ -410,7 +410,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         }
 
         // サイバーウェア分類: isCyber フラグを自動的に true にする(2026-06-13)
-        context.isCyberByCategory = system.majorCategory === "サイバーウェア";
+        context.isCyberByCategory = system.majorCategory === "cyberware";
         if (context.isCyberByCategory && !system.isCyber) {
             this.item.update({ "system.isCyber": true });
             system.isCyber = true;
@@ -440,8 +440,9 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
         const categoryOf = (it) => {
             if (!it) return "";
-            const { majorCategory: maj, minorCategory: min } = it.system;
-            return maj && min ? `${maj}／${min}` : (maj || min || "-");
+            const majL = getMajorCategoryLabel(it.system.majorCategory);
+            const minL = getMinorCategoryLabel(it.system.minorCategory);
+            return majL && minL ? `${majL}／${minL}` : (majL || minL || "-");
         };
         const hackOf = (it) => (it?.system?.hack?.mode === "value" ? num(it.system.hack.value) : null);
         const hideOf = (sys) => sys?.hide?.mode === "reference" ? "解説参照"
@@ -489,10 +490,10 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             const appearSrc = system.combine.appearance === "2" ? s2 : s1;
             const appearSys = appearSrc.system;
 
-            // 分類: 大分類が同じ場合は短縮形(2026-06-13 ユーザー確定)
-            const maj1 = s1.system.majorCategory || "-", min1 = s1.system.minorCategory || "-";
-            const maj2 = s2.system.majorCategory || "-", min2 = s2.system.minorCategory || "-";
-            const category = maj1 === maj2
+            // 分類: 大分類が同じ場合は短縮形(2026-06-13 ユーザー確定)。表示は label を引く
+            const maj1 = getMajorCategoryLabel(s1.system.majorCategory) || "-", min1 = getMinorCategoryLabel(s1.system.minorCategory) || "-";
+            const maj2 = getMajorCategoryLabel(s2.system.majorCategory) || "-", min2 = getMinorCategoryLabel(s2.system.minorCategory) || "-";
+            const category = s1.system.majorCategory === s2.system.majorCategory
                 ? `${maj1}／${min1}、${min2}`
                 : `${maj1}／${min1}、${maj2}／${min2}`;
 
@@ -679,10 +680,12 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         }
         view.summary = rows;
 
-        if (system.majorCategory && system.minorCategory) {
-            view.category = `${system.majorCategory}／${system.minorCategory}`;
+        const majLabel = getMajorCategoryLabel(system.majorCategory);
+        const minLabel = getMinorCategoryLabel(system.minorCategory);
+        if (majLabel && minLabel) {
+            view.category = `${majLabel}／${minLabel}`;
         } else {
-            view.category = system.majorCategory || system.minorCategory || "-";
+            view.category = majLabel || minLabel || "-";
         }
 
         return view;

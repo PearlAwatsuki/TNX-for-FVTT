@@ -170,8 +170,8 @@ export function computeItemEffectiveValues(system) {
  *
  * spec のフィルタ次元(指定された次元のみ AND で評価。各次元はリスト内 OR):
  * - byItemType:        ["weapon", ...]            アイテム type
- * - byMajorCategory:   ["武器", ...]              大分類
- * - byMinorCategory:   ["白兵武器", ...]          小分類
+ * - byMajorCategory:   ["weapon", ...]           大分類キー
+ * - byMinorCategory:   ["melee", ...]            小分類キー
  * - byIdentificationKey: ["...", ...]             identificationKey 名指し
  * 少なくとも1つのフィルタが必要(無条件全件マッチを防ぐ)。
  *

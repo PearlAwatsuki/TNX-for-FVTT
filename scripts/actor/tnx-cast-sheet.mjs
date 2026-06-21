@@ -3,7 +3,7 @@ import { TnxSkillUtils } from '../module/tnx-skill-utils.mjs';
 import { TnxHistoryMixin } from '../module/tnx-history-mixin.mjs';
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 import { getUserFlagData, TNX_FLAG_SCOPE } from '../module/user-flag-schema.mjs';
-import { OUTFIT_CATEGORIES } from '../data/item/outfit-categories.mjs';
+import { OUTFIT_CATEGORIES, getMinorCategoryLabel } from '../data/item/outfit-categories.mjs';
 import { formatWeaponRangeLabel, formatPartLabel } from '../item/tnx-outfit-sheet.mjs';
 import { TnxJudgmentFlow } from '../module/tnx-judgment-flow.mjs';
 import { getComboSuits, ALL_SUITS } from '../module/tnx-judgment-engine.mjs';
@@ -77,7 +77,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
     /** 大分類ごとの表示設定（表示ラベル・列定義）。アイテム/サービスは「その他」にまとめる。 */
     static OUTFIT_GROUP_CONFIG = [
-        { key: "武器",       label: "武器",       sourceKeys: ["武器"],
+        { key: "weapon",     label: "武器",       sourceKeys: ["weapon"],
           columns: [
               { key: "hide",    label: "隠" },
               { key: "attack",  label: "攻" },
@@ -86,7 +86,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
               { key: "hack",    label: "電制" },
               { key: "part",    label: "部位" },
           ] },
-        { key: "防具",       label: "防具",       sourceKeys: ["防具"],
+        { key: "armor",      label: "防具",       sourceKeys: ["armor"],
           columns: [
               { key: "hide",    label: "隠" },
               { key: "defence", label: "防(S／P／I)" },
@@ -94,13 +94,13 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
               { key: "hack",    label: "電制" },
               { key: "part",    label: "部位" },
           ] },
-        { key: "サイバーウェア", label: "サイバーウェア", sourceKeys: ["サイバーウェア"],
+        { key: "cyberware", label: "サイバーウェア", sourceKeys: ["cyberware"],
           columns: [
               { key: "hide",    label: "隠" },
               { key: "hack",    label: "電制" },
               { key: "part",    label: "部位" },
           ] },
-        { key: "トロン",     label: "トロン",     sourceKeys: ["トロン"],
+        { key: "tron",       label: "トロン",     sourceKeys: ["tron"],
           columns: [
               { key: "hide",    label: "隠" },
               { key: "cycle",   label: "サ" },
@@ -110,7 +110,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
               { key: "hack",    label: "電制" },
               { key: "part",    label: "部位" },
           ] },
-        { key: "ヴィークル", label: "ヴィークル", sourceKeys: ["ヴィークル"],
+        { key: "vehicle",    label: "ヴィークル", sourceKeys: ["vehicle"],
           columns: [
               { key: "hide",      label: "隠" },
               { key: "attack",    label: "攻" },
@@ -122,13 +122,13 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
               { key: "hack",      label: "電制" },
               { key: "part",      label: "部位" },
           ] },
-        { key: "住宅",       label: "住居",       sourceKeys: ["住宅"],
+        { key: "housing",    label: "住居",       sourceKeys: ["housing"],
           columns: [
               { key: "appearance", label: "登" },
               { key: "security",   label: "セ" },
               { key: "part",       label: "部位" },
           ] },
-        { key: "その他",     label: "その他",     sourceKeys: ["アイテム", "サービス"],
+        { key: "other",      label: "その他",     sourceKeys: ["item", "service"],
           columns: [
               { key: "hide",    label: "隠" },
               { key: "hack",    label: "電制" },
@@ -1023,7 +1023,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
     /** OUTFIT_GROUP_CONFIG の key に対応する表示グループキーを返す。 */
     _getDisplayGroupKey(major) {
-        if (!major || major === "アイテム" || major === "サービス") return "その他";
+        if (!major || major === "item" || major === "service") return "other";
         return major;
     }
 
@@ -1137,7 +1137,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             img: item.img,
             system: sys,
             isOption,
-            isResidence: item.system.majorCategory === "住宅",
+            isResidence: item.system.majorCategory === "housing",
             hasOptions: optionsByParent.has(item.id),
             colValues,
             description: sys.description ?? "",
@@ -1546,11 +1546,11 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
     static async _onAddOutfit(event) {
         event.preventDefault();
-        const optgroups = Object.entries(OUTFIT_CATEGORIES).map(([major, minors]) => {
-            const opts = Object.entries(minors).map(([minor, types]) =>
-                `<option value="${major}|${minor}|${types[0]}">${minor}</option>`
+        const optgroups = Object.entries(OUTFIT_CATEGORIES).map(([majorKey, major]) => {
+            const opts = Object.entries(major.minors).map(([minorKey, def]) =>
+                `<option value="${majorKey}|${minorKey}|${def.types[0]}">${def.label}</option>`
             ).join("");
-            return `<optgroup label="${major}">${opts}</optgroup>`;
+            return `<optgroup label="${major.label}">${opts}</optgroup>`;
         }).join("");
 
         const result = await foundry.applications.api.DialogV2.prompt({
@@ -1563,7 +1563,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         if (!result) return;
         const [majorCategory, minorCategory, type] = result.split("|");
         await Item.create({
-            name:   `新規${minorCategory}`,
+            name:   `新規${getMinorCategoryLabel(minorCategory)}`,
             type,
             system: { majorCategory, minorCategory },
         }, { parent: this.actor });
@@ -1577,7 +1577,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         const flag = target.dataset.flag;
         if (flag !== "isCarrying" && flag !== "isPrepared") return;
         // 住宅大分類は携帯中フラグを変更不可(常時 ON 固定)
-        if (flag === "isCarrying" && item.system.majorCategory === "住宅") return;
+        if (flag === "isCarrying" && item.system.majorCategory === "housing") return;
         const next = !item.system[flag];
         // 携帯中でなければ準備済みにできない(念のため)
         if (flag === "isPrepared" && next && !item.system.isCarrying) return;

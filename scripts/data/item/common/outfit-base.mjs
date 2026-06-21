@@ -38,7 +38,7 @@
  */
 
 import { SystemDataModel } from "../../abstract.mjs";
-import { getMajorCategoryChoices, getMinorCategoryChoices } from "../outfit-categories.mjs";
+import { getMajorCategoryChoices, getMinorCategoryChoices, LEGACY_CATEGORY_MAP } from "../outfit-categories.mjs";
 import { modeValueField, migrateUsesValueToSpent, computeItemEffectiveValues } from "../helpers.mjs";
 
 export class OutfitBaseTemplate extends SystemDataModel {
@@ -100,8 +100,15 @@ export class OutfitBaseTemplate extends SystemDataModel {
     };
   }
 
-  /** @override — 旧 NumberField 形式から {mode,value} へ移行・uses.value→spent 移行 */
+  /** @override — 旧 NumberField 形式から {mode,value} へ移行・uses.value→spent 移行・分類の日本語名→キー移行 */
   static migrateData(source) {
+    // 分類: 旧データは日本語名を格納していたためコードキーへ移行(フェーズ9)
+    if (source.majorCategory && LEGACY_CATEGORY_MAP[source.majorCategory]) {
+      source.majorCategory = LEGACY_CATEGORY_MAP[source.majorCategory];
+    }
+    if (source.minorCategory && LEGACY_CATEGORY_MAP[source.minorCategory]) {
+      source.minorCategory = LEGACY_CATEGORY_MAP[source.minorCategory];
+    }
     if (typeof source.appearancePenalty === "number") {
       const n = source.appearancePenalty;
       source.appearancePenalty = n === 0 ? { mode: "none", value: 0 } : { mode: "value", value: n };

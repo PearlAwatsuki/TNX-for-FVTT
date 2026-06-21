@@ -289,7 +289,7 @@ Hooks.once("init", async function() {
             const prefix = { secret: "†", mystery: "※", performance: "＠" }[system.styleSkillCategory] ?? "";
             return prefix + name;
         }
-        if (system.isCyber === true && system.majorCategory !== "サイバーウェア") return `${name}※`;
+        if (system.isCyber === true && system.majorCategory !== "cyberware") return `${name}※`;
         return name;
     });
 
