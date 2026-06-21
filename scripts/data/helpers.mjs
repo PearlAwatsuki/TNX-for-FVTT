@@ -40,15 +40,13 @@ export function attributeField() {
     controlGrowth:    new fields.NumberField({ initial: 0 }),
     mod:              new fields.NumberField({ initial: 0 }),
     controlMod:       new fields.NumberField({ initial: 0 }),
-    effectMod:        new fields.NumberField({ initial: 0 }),
-    controlEffectMod: new fields.NumberField({ initial: 0 }),
   });
 }
 
 /**
  * 能力値・制御値の最終実効値(total / totalControl)を算出する純粋関数。
  *
- * 実効値 = growth + Σ(スタイル基本値 × レベル) + mod + effectMod + outfitMod。
+ * 実効値 = growth + Σ(スタイル基本値 × レベル) + mod + outfitMod(バフは適用パスが total へ直接)。
  * 制御値も同様に control 系フィールドで算出する。
  * 最終合算後に 0clamp を適用する(全修正合算後・順序非依存。能力値/制御値とも)。
  * → llm-wiki/01_Wiki/Game_Rules/Character_Creation.md「能力値・制御値の上限と最終値clamp」

@@ -101,7 +101,7 @@ export class CastDataModel extends SystemDataModel.mixin(
    *
    * outfitMod / appearanceModifier はフックでの DB 書き戻し(syncing)をやめ、ここで
    * 携帯中アウトフィットから都度算出する(B-2)。能力値 total が outfitMod を読むため先に計算する。
-   * AE は effectMod / controlEffectMod に着地して合算される(フェーズ9-3)。
+   * 値バフ(AE)は _applyEffectBuffs が total へ直接適用する(フェーズ9-3 v2、effectMod 着地は廃止)。
    */
   prepareDerivedData() {
     super.prepareDerivedData?.();

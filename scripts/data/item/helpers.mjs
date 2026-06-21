@@ -44,9 +44,8 @@ export function migrateUsesValueToSpent(source) {
 export function modeValueField(choices) {
   const fields = foundry.data.fields;
   return new fields.SchemaField({
-    mode:      new fields.StringField({ required: true, blank: false, initial: "none", choices }),
-    value:     new fields.NumberField({ initial: 0 }),
-    effectMod: new fields.NumberField({ initial: 0 }),
+    mode:  new fields.StringField({ required: true, blank: false, initial: "none", choices }),
+    value: new fields.NumberField({ initial: 0 }),
   });
 }
 
@@ -65,10 +64,6 @@ export function defenceField() {
     S_defence: new fields.NumberField({ initial: 0 }),
     P_defence: new fields.NumberField({ initial: 0 }),
     I_defence: new fields.NumberField({ initial: 0 }),
-    // ActiveEffect 着地点(フェーズ9-3)。S/P/I それぞれに ADD。実効防御力 = X_defence + X_effectMod は消費側で算出。
-    S_effectMod: new fields.NumberField({ initial: 0 }),
-    P_effectMod: new fields.NumberField({ initial: 0 }),
-    I_effectMod: new fields.NumberField({ initial: 0 }),
   });
 }
 
@@ -108,53 +103,45 @@ export function attackField() {
       choices: ATTACK_DAMAGE_TYPES,
     }),
     value:     new fields.NumberField({ initial: 0 }),
-    effectMod: new fields.NumberField({ initial: 0 }),
   });
 }
 
 /**
- * アイテムの実効値(`.total` 系)を AE 着地点(effectMod)込みで算出する(フェーズ9-3)。
- * **base 値(value / X_defence 等)は書き換えず**、別キー(`.total`)に実効値を派生する。
+ * アイテムの実効値(`.total` 系)を base から派生する(フェーズ9-3 v2)。
+ * **base 値は書き換えず** total=base を別キーに置く。バフはアクターの適用パスが total へ直接効かせる。
  * これにより編集 UI は base を、表示・消費側は total を読める(入力に total が漏れない)。
  *
- * - {value, effectMod} 形(modeValueField / attackField): mode があれば mode==="value" 時のみ
- *   effectMod を加算。`field.total` に格納。
- * - defence(S/P/I): `defence.{S,P,I}_total`。
- * - slots[].count(modeValueField): 各 `count.total`。
- * - 素の値(FAValue / residence の各 stat): `<base>Total`。
- * - clamp はしない(controlMod / combatSpeedMod 等は負の修正がありうる。0clamp は消費側の責務)。
+ * - modeValueField({mode,value}) / attackField({damageType,value}): `field.total = value`。
+ * - defence(S/P/I): `defence.{S,P,I}_total = X_defence`。
+ * - slots[].count: 各 `count.total = value`。
+ * - 素の値(FAValue / residence の各 stat): `<base>Total = base`。
+ * clamp はしない(0clamp は能力値側＝消費側の責務)。
  *
  * @param {object} system アイテムの system データ(prepareDerivedData の this)
  */
 export function computeItemEffectiveValues(system) {
-  // {value, ...} 形(modeValueField の各種・attackField): total は base のみ。
-  // バフはアクターの適用パスが total へ直接効かせる(v2、effectMod は廃止予定の死蔵)。
+  // {mode|damageType, value} 形(modeValueField / attackField)を形状で検出して total=value
   for (const field of Object.values(system)) {
-    if (field && typeof field === "object"
-        && typeof field.value === "number" && typeof field.effectMod === "number") {
+    if (field && typeof field === "object" && typeof field.value === "number"
+        && ("mode" in field || "damageType" in field)) {
       field.total = field.value;
     }
   }
   // defence(S/P/I)
   const def = system.defence;
-  if (def && typeof def === "object" && typeof def.S_effectMod === "number") {
+  if (def && typeof def === "object" && typeof def.S_defence === "number") {
     for (const k of ["S", "P", "I"]) def[`${k}_total`] = def[`${k}_defence`] ?? 0;
   }
   // slots[].count
   if (Array.isArray(system.slots)) {
     for (const slot of system.slots) {
       const c = slot?.count;
-      if (c && typeof c.value === "number" && typeof c.effectMod === "number") c.total = c.value;
+      if (c && typeof c.value === "number") c.total = c.value;
     }
   }
-  // 素の値(FAValue / residence stats)
-  if (typeof system.FAValueEffectMod === "number") {
-    system.FAValueTotal = system.FAValue ?? 0;
-  }
-  for (const base of ["appearanceTarget", "cyberSecurity", "analogSecurity"]) {
-    if (typeof system[`${base}EffectMod`] === "number") {
-      system[`${base}Total`] = system[base] ?? 0;
-    }
+  // 素の値(base フィールド名で検出)
+  for (const base of ["FAValue", "appearanceTarget", "cyberSecurity", "analogSecurity"]) {
+    if (typeof system[base] === "number") system[`${base}Total`] = system[base];
   }
 }
 

@@ -1377,8 +1377,6 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
                 controlGrowth:    ability.controlGrowth,
                 mod:              ability.mod,
                 controlMod:       ability.controlMod,
-                effectMod:        ability.effectMod,
-                controlEffectMod: ability.controlEffectMod,
                 outfitMod:        abilityOutfitMod,
                 outfitControlMod: controlOutfitMod,
                 styleContributions,
@@ -2040,8 +2038,8 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
                 styleControl += (Number(s.system[key]?.control)) * level;
             });
             const abilityData = actor.system[key];
-            const baseVal  = styleValue   + Number(abilityData.mod)        + Number(abilityData.effectMod);
-            const baseCtrl = styleControl + Number(abilityData.controlMod) + Number(abilityData.controlEffectMod);
+            const baseVal  = styleValue   + Number(abilityData.mod);
+            const baseCtrl = styleControl + Number(abilityData.controlMod);
             totalAbilityCost += this._calcSingleAbilityCost(abilityData.growth,        baseVal,  false);
             totalAbilityCost += this._calcSingleAbilityCost(abilityData.controlGrowth, baseCtrl, true);
         }

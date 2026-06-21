@@ -58,9 +58,8 @@ describe("WeaponDataModel.defineSchema()", () => {
       expect(schema.attack.fields.value.options.initial).toBe(0);
     });
 
-    it("attack.effectMod (AE 着地点) は NumberField で initial が 0", () => {
-      expect(schema.attack.fields.effectMod).toBeInstanceOf(MockNumberField);
-      expect(schema.attack.fields.effectMod.options.initial).toBe(0);
+    it("attack.effectMod は持たない(v2: バフは total へ直接適用)", () => {
+      expect(schema.attack.fields.effectMod).toBeUndefined();
     });
 
     it("attack.mod (旧フィールド) は存在しない", () => {

@@ -31,7 +31,6 @@ describe("AttributesTemplate.defineSchema()", () => {
       "styleC_value", "styleC_control",
       "growth", "controlGrowth",
       "mod", "controlMod",
-      "effectMod", "controlEffectMod",
     ];
 
     it("reason は SchemaField である", () => {

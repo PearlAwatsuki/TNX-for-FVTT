@@ -51,10 +51,10 @@ describe("attributeField()", () => {
     expect(() => attributeField()).not.toThrow();
   });
 
-  it("14個のサブフィールドを持つ SchemaField を返す", () => {
+  it("12個のサブフィールドを持つ SchemaField を返す(v2: effectMod 2 種を廃止)", () => {
     const field = attributeField();
     const keys = Object.keys(field.fields);
-    expect(keys).toHaveLength(14);
+    expect(keys).toHaveLength(12);
   });
 
   it("期待されるすべてのキーが存在する", () => {
@@ -66,11 +66,13 @@ describe("attributeField()", () => {
       "styleC_value", "styleC_control",
       "growth", "controlGrowth",
       "mod", "controlMod",
-      "effectMod", "controlEffectMod",
     ];
     for (const key of expectedKeys) {
       expect(field.fields).toHaveProperty(key);
     }
+    // v2: effectMod / controlEffectMod は廃止(バフは適用パスが total へ直接)
+    expect(field.fields).not.toHaveProperty("effectMod");
+    expect(field.fields).not.toHaveProperty("controlEffectMod");
   });
 
   it("各フィールドは NumberField で initial が 0", () => {

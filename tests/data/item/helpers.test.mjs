@@ -35,11 +35,10 @@ describe("defenceField()", () => {
     }
   });
 
-  it("S/P/I それぞれの effectMod (AE 着地点) を NumberField で持つ", () => {
+  it("effectMod は持たない(v2: バフは適用パスが total へ直接)", () => {
     const field = defenceField();
     for (const key of ["S_effectMod", "P_effectMod", "I_effectMod"]) {
-      expect(field.fields[key]).toBeInstanceOf(MockNumberField);
-      expect(field.fields[key].options.initial).toBe(0);
+      expect(field.fields[key]).toBeUndefined();
     }
   });
 
@@ -49,18 +48,12 @@ describe("defenceField()", () => {
 });
 
 describe("modeValueField()", () => {
-  it("mode / value / effectMod を持つ SchemaField を返す", () => {
+  it("mode / value のみを持つ(effectMod は廃止)", () => {
     const field = modeValueField(["none", "value"]);
     expect(field).toBeInstanceOf(MockSchemaField);
     expect(field.fields).toHaveProperty("mode");
     expect(field.fields).toHaveProperty("value");
-    expect(field.fields).toHaveProperty("effectMod");
-  });
-
-  it("effectMod (AE 着地点) は NumberField で initial が 0", () => {
-    const field = modeValueField(["none", "value"]);
-    expect(field.fields.effectMod).toBeInstanceOf(MockNumberField);
-    expect(field.fields.effectMod.options.initial).toBe(0);
+    expect(field.fields).not.toHaveProperty("effectMod");
   });
 
   it("mode の choices は引数で指定される", () => {
@@ -78,11 +71,11 @@ describe("attackField()", () => {
     expect(attackField()).toBeInstanceOf(MockSchemaField);
   });
 
-  it("damageType / value / effectMod の 3 フィールドを持つ", () => {
+  it("damageType / value の 2 フィールドを持つ(effectMod/mod は廃止)", () => {
     const field = attackField();
     expect(field.fields).toHaveProperty("damageType");
     expect(field.fields).toHaveProperty("value");
-    expect(field.fields).toHaveProperty("effectMod");
+    expect(field.fields).not.toHaveProperty("effectMod");
     expect(field.fields).not.toHaveProperty("mod");
   });
 
@@ -99,11 +92,6 @@ describe("attackField()", () => {
     expect(field.fields.value.options.initial).toBe(0);
   });
 
-  it("effectMod (AE 着地点) は NumberField で initial が 0", () => {
-    const field = attackField();
-    expect(field.fields.effectMod).toBeInstanceOf(MockNumberField);
-    expect(field.fields.effectMod.options.initial).toBe(0);
-  });
 
   it("呼び出すたびに別インスタンスを返す", () => {
     expect(attackField()).not.toBe(attackField());
