@@ -136,20 +136,24 @@ export function calcSkillCheck({ cardJudgmentValue, suit, abilitiesCtx, bountyUs
  * @param {object}  opts.abilitiesCtx シートコンテキストの abilities
  * @returns {ControlCheckResult}
  */
-export function calcControlCheck({ cardJudgmentValue, suit, abilitiesCtx }) {
+export function calcControlCheck({ cardJudgmentValue, suit, abilitiesCtx, checkBonus = 0 }) {
     if (cardJudgmentValue === "FUMBLE") {
         return { fumble: true, success: false, cardValue: null, controlVal: null };
     }
 
     const { abilityKey, totalControl } = getAbilityBySuit(suit, abilitiesCtx);
     const cardValue = cardJudgmentValue === "FIXED_21" ? 11 : cardJudgmentValue;
+    // 制御判定バフ: 制御値を実効的に押し上げる(成功条件が緩む)
+    const effectiveControl = totalControl + checkBonus;
 
     return {
         fumble:     false,
         abilityKey,
         controlVal: totalControl,
+        checkBonus,
+        effectiveControl,
         cardValue,
-        success:    cardValue <= totalControl,
+        success:    cardValue <= effectiveControl,
     };
 }
 

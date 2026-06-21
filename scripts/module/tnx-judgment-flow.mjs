@@ -15,7 +15,8 @@
  * ルール正本: llm-wiki/01_Wiki/Game_Rules/Judgment_Rules.md
  */
 
-import { getCardJudgmentValue, calcSkillCheck, calcControlCheck, ALL_SUITS } from './tnx-judgment-engine.mjs';
+import { getCardJudgmentValue, calcSkillCheck, calcControlCheck, ALL_SUITS, SUIT_TO_ABILITY } from './tnx-judgment-engine.mjs';
+import { computeCheckBonus } from '../data/item/helpers.mjs';
 import { TnxActionHandler } from './tnx-action-handler.mjs';
 import { TnxSocketHandler } from './tnx-socket-handler.mjs';
 import { getUserFlagData } from './user-flag-schema.mjs';
@@ -367,6 +368,42 @@ export class TnxJudgmentFlow {
     }
 
     /**
+     * 判定バフ(check./controlCheck.)を収集し、達成値に加える合計を返す(フェーズ9-3 v2)。
+     * アクター自身＋全所有アイテムの effects を集め、判定種別に応じた criteria で照合する。
+     * 同一効果の重複適用は不可(effect identity 単位・最大採用)。stackable はスタック。
+     * @param {Actor} actor
+     * @param {object} ctx  判定コンテキスト(type / skillIds 等)
+     * @param {string} abilityKey  スートから決まる能力値キー
+     * @returns {number}
+     */
+    static _computeCheckBonus(actor, ctx, abilityKey) {
+        if (!actor) return 0;
+        const SCOPE = "tokyo-nova-axleration";
+        const effects = [];
+        const push = (e) => effects.push({
+            identity:  e.flags?.[SCOPE]?.effectId || e.id,
+            stackable: e.flags?.[SCOPE]?.stackable === true,
+            active:    e.active,
+            changes:   e.changes,
+        });
+        for (const e of (actor.effects ?? [])) push(e);
+        for (const item of (actor.items ?? [])) for (const e of (item.effects ?? [])) push(e);
+
+        let criteria;
+        if (ctx.type === "controlCheck") {
+            criteria = { type: "control", ability: abilityKey };
+        } else if (ctx.type === "abilityCheck" || !(ctx.skillIds?.length)) {
+            criteria = { type: "ability", ability: abilityKey };
+        } else {
+            const skillKeys = (ctx.skillIds ?? [])
+                .map(id => actor.items.get(id)?.system?.identificationKey)
+                .filter(Boolean);
+            criteria = { type: "skill", skillKeys };
+        }
+        return computeCheckBonus(effects, criteria);
+    }
+
+    /**
      * カード選択後に報酬点の消費数を入力させる。
      * 報酬点が 0 の場合や制御判定・スート不一致の場合は呼び出さない。
      * ダイアログをキャンセルした場合は 0 を返す。
@@ -533,12 +570,14 @@ export class TnxJudgmentFlow {
 
         // 能力値コンテキストを先に構築（報酬点プレビュー計算と本計算で共用）
         const abilitiesCtx = suitMismatch ? null : TnxJudgmentFlow._buildAbilitiesCtx(actor);
+        // 判定バフ(check 時・同一効果の重複適用不可)を算出
+        const checkBonus = suitMismatch ? 0 : TnxJudgmentFlow._computeCheckBonus(actor, ctx, SUIT_TO_ABILITY[suit]);
 
         // 報酬点の使用を決定（スート不一致・制御判定・ファンブル確定はスキップ）
         let bountyUsed = 0;
         if (!suitMismatch && ctx.type !== "controlCheck" && cardJudgmentValue !== "FUMBLE") {
             // 報酬点 0 時のベース達成値を先計算してダイアログに表示
-            const baseResult       = calcSkillCheck({ cardJudgmentValue, suit, abilitiesCtx, bountyUsed: 0, targetValue: ctx.targetValue });
+            const baseResult       = calcSkillCheck({ cardJudgmentValue, suit, abilitiesCtx, bountyUsed: 0, targetValue: ctx.targetValue, checkBonus });
             const baseAchievement  = typeof baseResult.achievement === "number" ? baseResult.achievement : null;
             bountyUsed = await TnxJudgmentFlow._promptBountyUsage(ctx.bountyAvailable ?? 0, { baseAchievement });
         }
@@ -559,9 +598,9 @@ export class TnxJudgmentFlow {
             };
         } else {
             if (ctx.type === "controlCheck") {
-                result = calcControlCheck({ cardJudgmentValue, suit, abilitiesCtx });
+                result = calcControlCheck({ cardJudgmentValue, suit, abilitiesCtx, checkBonus });
             } else {
-                result = calcSkillCheck({ cardJudgmentValue, suit, abilitiesCtx, bountyUsed, targetValue: ctx.targetValue });
+                result = calcSkillCheck({ cardJudgmentValue, suit, abilitiesCtx, bountyUsed, targetValue: ctx.targetValue, checkBonus });
             }
         }
 
