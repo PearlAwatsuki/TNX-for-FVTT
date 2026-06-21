@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
-const { defenceField, attackField, modeValueField, migrateAttackModToEffectMod, computeItemEffectiveValues, matchesAeTarget, addToItemEffectMod, parseCrossTargetKey } = await import("../../../scripts/data/item/helpers.mjs");
+const { defenceField, attackField, modeValueField, migrateAttackModToEffectMod, computeItemEffectiveValues, matchesAeTarget, addToItemEffectMod, parseCrossTargetKey, parseEffectTargetKey, parseEffectConditions, evalEffectConditions } = await import("../../../scripts/data/item/helpers.mjs");
 
 describe("defenceField()", () => {
   it("呼び出せる", () => {
@@ -288,5 +288,68 @@ describe("parseCrossTargetKey()（モードB キー解析）", () => {
     expect(parseCrossTargetKey("hisho")).toBeNull();
     expect(parseCrossTargetKey("")).toBeNull();
     expect(parseCrossTargetKey(undefined)).toBeNull();
+  });
+});
+
+describe("parseEffectTargetKey()（v2 キー文法）", () => {
+  it("セレクタ system/self/parent", () => {
+    expect(parseEffectTargetKey("system.reason")).toMatchObject({ scope: "system", path: "reason", conditions: [] });
+    expect(parseEffectTargetKey("self.attack")).toMatchObject({ scope: "self", path: "attack" });
+    expect(parseEffectTargetKey("parent.attack")).toMatchObject({ scope: "parent", path: "attack" });
+  });
+
+  it("cat: 小分類キー", () => {
+    expect(parseEffectTargetKey("cat:melee.attack")).toMatchObject({ scope: "cat", selector: "melee", path: "attack" });
+  });
+
+  it("プレフィックス(末尾*)と識別キー完全一致", () => {
+    expect(parseEffectTargetKey("society_*.judgment")).toMatchObject({ scope: "prefix", selector: "society_", path: "judgment" });
+    expect(parseEffectTargetKey("melee.judgment")).toMatchObject({ scope: "key", selector: "melee", path: "judgment" });
+  });
+
+  it("パスにドットを含む(defence.S)", () => {
+    expect(parseEffectTargetKey("cat:armor.defence.S")).toMatchObject({ scope: "cat", selector: "armor", path: "defence.S" });
+  });
+
+  it("条件付き [hack>=3]", () => {
+    const r = parseEffectTargetKey("cat:melee[hack>=3].attack");
+    expect(r).toMatchObject({ scope: "cat", selector: "melee", path: "attack" });
+    expect(r.conditions).toEqual([{ path: "hack", op: ">=", value: 3 }]);
+  });
+
+  it("複数条件 ; 区切り", () => {
+    const r = parseEffectTargetKey("cat:melee[hack>=3;guardValue>0].attack");
+    expect(r.conditions).toEqual([
+      { path: "hack", op: ">=", value: 3 },
+      { path: "guardValue", op: ">", value: 0 },
+    ]);
+  });
+
+  it("不正は null", () => {
+    expect(parseEffectTargetKey("")).toBeNull();
+    expect(parseEffectTargetKey("noDotKey")).toBeNull();
+    expect(parseEffectTargetKey(undefined)).toBeNull();
+  });
+});
+
+describe("evalEffectConditions()（条件評価）", () => {
+  const sys = { hack: { mode: "value", value: 2, total: 4 }, guardValue: { value: 1, total: 1 }, levelTotal: 3 };
+
+  it("条件なしは true", () => {
+    expect(evalEffectConditions(sys, [])).toBe(true);
+  });
+
+  it("total を優先して比較する", () => {
+    expect(evalEffectConditions(sys, parseEffectConditions("hack>=3"))).toBe(true);  // hack.total=4
+    expect(evalEffectConditions(sys, parseEffectConditions("hack>=5"))).toBe(false);
+  });
+
+  it("素の Total 値(levelTotal)も解決する", () => {
+    expect(evalEffectConditions(sys, parseEffectConditions("level==3"))).toBe(true);
+  });
+
+  it("全条件 AND", () => {
+    expect(evalEffectConditions(sys, parseEffectConditions("hack>=3;guardValue>0"))).toBe(true);
+    expect(evalEffectConditions(sys, parseEffectConditions("hack>=3;guardValue>5"))).toBe(false);
   });
 });

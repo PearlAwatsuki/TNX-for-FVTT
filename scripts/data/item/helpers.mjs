@@ -250,6 +250,106 @@ export function parseCrossTargetKey(key) {
 }
 
 /**
+ * AE 変更キーの条件式(角括弧内)を解析する。`path op value` を `;` 区切り(フェーズ9 v2)。
+ * 例 "hack>=3;guardValue>0" → [{path:"hack", op:">=", value:3}, {path:"guardValue", op:">", value:0}]
+ * @param {string} str
+ * @returns {Array<{path:string, op:string, value:number}>}
+ */
+export function parseEffectConditions(str) {
+  if (!str) return [];
+  const out = [];
+  for (const raw of str.split(";")) {
+    const c = raw.trim();
+    if (!c) continue;
+    const m = c.match(/^(.+?)\s*(>=|<=|==|!=|>|<)\s*(.+)$/);
+    if (!m) continue;
+    out.push({ path: m[1].trim(), op: m[2], value: Number(m[3].trim()) });
+  }
+  return out;
+}
+
+/**
+ * AE 変更キーを解析する(フェーズ9 v2・確定設計)。標準 UI のキー文字列で対象を表す。
+ * 文法: `<セレクタ>[<条件>].<パス>`(条件は省略可)。
+ *
+ * セレクタ → scope:
+ * - "system"            → { scope:"system" }（キャラ＝そのドキュメント自身）
+ * - "self"              → { scope:"self" }（効果が乗るアイテム自身）
+ * - "parent"            → { scope:"parent" }（その親アウトフィット）
+ * - "cat:<小分類キー>"   → { scope:"cat", selector:小分類キー }
+ * - "<プレフィックス>*"   → { scope:"prefix", selector:プレフィックス }（識別キー前方一致）
+ * - "<識別キー>"         → { scope:"key", selector:識別キー }（完全一致）
+ *
+ * @param {string} key ActiveEffect change のキー
+ * @returns {{scope:string, selector?:string, path:string, conditions:Array}|null}
+ */
+export function parseEffectTargetKey(key) {
+  if (typeof key !== "string" || !key) return null;
+  let head, rest, conditions = [];
+  const condMatch = key.match(/^([^.[]+)\[([^\]]*)\](.*)$/);
+  if (condMatch) {
+    head = condMatch[1];
+    conditions = parseEffectConditions(condMatch[2]);
+    rest = condMatch[3];
+  } else {
+    const dot = key.indexOf(".");
+    if (dot <= 0) return null;
+    head = key.slice(0, dot);
+    rest = key.slice(dot);
+  }
+  if (!rest.startsWith(".")) return null;
+  const path = rest.slice(1);
+  if (!head || !path) return null;
+
+  if (head === "system") return { scope: "system", path, conditions };
+  if (head === "self")   return { scope: "self", path, conditions };
+  if (head === "parent") return { scope: "parent", path, conditions };
+  if (head.startsWith("cat:")) {
+    const sel = head.slice(4);
+    return sel ? { scope: "cat", selector: sel, path, conditions } : null;
+  }
+  if (head.endsWith("*")) {
+    const sel = head.slice(0, -1);
+    return sel ? { scope: "prefix", selector: sel, path, conditions } : null;
+  }
+  return { scope: "key", selector: head, path, conditions };
+}
+
+/**
+ * 解析済み条件を対象 system に対して評価する(フェーズ9 v2)。
+ * 条件パスは total 系へ解決(`hack`→`hack.total` があればそれ、無ければ素の値)。
+ * @param {object} system 対象アイテムの system
+ * @param {Array<{path:string, op:string, value:number}>} conditions
+ * @returns {boolean} 全条件成立で true(条件なしも true)
+ */
+export function evalEffectConditions(system, conditions) {
+  if (!conditions?.length) return true;
+  for (const { path, op, value } of conditions) {
+    const actual = resolveConditionValue(system, path);
+    if (!Number.isFinite(actual) || !Number.isFinite(value)) return false;
+    if (op === ">=" && !(actual >= value)) return false;
+    if (op === "<=" && !(actual <= value)) return false;
+    if (op === ">"  && !(actual >  value)) return false;
+    if (op === "<"  && !(actual <  value)) return false;
+    if (op === "==" && !(actual === value)) return false;
+    if (op === "!=" && !(actual !== value)) return false;
+  }
+  return true;
+}
+
+/** 条件パスの数値を解決する。`X.total`(派生実効値)があれば優先、無ければ `X.value` / 素の値。 */
+function resolveConditionValue(system, path) {
+  const field = system?.[path];
+  if (field && typeof field === "object") {
+    if (typeof field.total === "number") return field.total;
+    if (typeof field.value === "number") return field.value;
+    return NaN;
+  }
+  if (typeof system?.[`${path}Total`] === "number") return system[`${path}Total`];
+  return typeof field === "number" ? field : NaN;
+}
+
+/**
  * 旧 attack.mod(手動修正・実質未使用)→ attack.effectMod(AE 着地点)へのリネーム移行。
  * weapon / cyborg / vehicle の migrateData から呼ぶ。source を破壊的に書き換える。
  * @param {object} source DataModel の生ソース
