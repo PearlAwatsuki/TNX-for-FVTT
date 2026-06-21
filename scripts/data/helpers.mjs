@@ -70,9 +70,11 @@ export function computeAttributeFinal(ability, styles, outfitMod = 0, outfitCont
     styleValue   += (s.value   ?? 0) * level;
     styleControl += (s.control ?? 0) * level;
   }
+  // v2: effectMod 項は廃止(バフは適用パスが total へ直接効かせる)。0clamp は
+  // バフ適用後に行うため、ここでは clamp しない素の base 合計を返す。
   return {
-    total:        Math.max(0, (ability.growth        ?? 0) + styleValue   + (ability.mod        ?? 0) + (ability.effectMod        ?? 0) + outfitMod),
-    totalControl: Math.max(0, (ability.controlGrowth ?? 0) + styleControl + (ability.controlMod ?? 0) + (ability.controlEffectMod ?? 0) + outfitControlMod),
+    total:        (ability.growth        ?? 0) + styleValue   + (ability.mod        ?? 0) + outfitMod,
+    totalControl: (ability.controlGrowth ?? 0) + styleControl + (ability.controlMod ?? 0) + outfitControlMod,
   };
 }
 

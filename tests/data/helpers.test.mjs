@@ -147,18 +147,18 @@ describe("computeAttributeFinal()", () => {
     expect(r.totalControl).toBe(3 + 5 + 7);
   });
 
-  it("effectMod(AE 着地点)を合算する", () => {
+  it("effectMod は無視する(v2: バフは適用パスが total へ直接効かせる)", () => {
     const ab = { ...ability, effectMod: 5, controlEffectMod: -1 };
     const r = computeAttributeFinal(ab, [{ value: 0, control: 0, level: 1 }]);
-    expect(r.total).toBe(2 + 0 + 1 + 5);
-    expect(r.totalControl).toBe(3 + 0 + 0 + -1);
+    expect(r.total).toBe(2 + 0 + 1);        // effectMod 5 は含まれない
+    expect(r.totalControl).toBe(3 + 0 + 0); // controlEffectMod -1 も含まれない
   });
 
-  it("最終値が負になる場合は 0 にクランプする", () => {
-    const ab = { growth: 0, mod: -10, effectMod: 0, controlGrowth: 0, controlMod: -10, controlEffectMod: 0 };
+  it("負値もそのまま返す(0clamp は適用パス後に行うため computeAttributeFinal では clamp しない)", () => {
+    const ab = { growth: 0, mod: -10, controlGrowth: 0, controlMod: -10 };
     const r = computeAttributeFinal(ab, [{ value: 1, control: 1, level: 1 }]);
-    expect(r.total).toBe(0);
-    expect(r.totalControl).toBe(0);
+    expect(r.total).toBe(-9);
+    expect(r.totalControl).toBe(-9);
   });
 
   it("スタイルなしでも算出できる", () => {

@@ -120,23 +120,28 @@ export class CastDataModel extends SystemDataModel.mixin(
       this[key].total        = total;
       this[key].totalControl = totalControl;
     }
+    // バフ(ActiveEffect)を total へ直接適用 → 最後に 0clamp(全修正後の最終値、順序非依存)
     this._applyEffectBuffs();
+    for (const key of ABILITY_KEYS) {
+      this[key].total        = Math.max(0, this[key].total);
+      this[key].totalControl = Math.max(0, this[key].totalControl);
+    }
   }
 
   /**
-   * アイテムへのバフ(ActiveEffect)を、v2 キー文法で解決して**実効値 total へ直接適用**する(フェーズ9-3 v2)。
-   * 対象セレクタ: self(効果の親アイテム) / parent(その親アウトフィット) / cat:<小分類> /
-   *   <識別キー>(完全一致) / <プレフィックス>*(前方一致)。条件 [path op value] も評価する。
+   * 値バフ(ActiveEffect)を v2 キー文法で解決して**実効値 total へ直接適用**する(フェーズ9-3 v2)。
+   * 対象スコープ: ability/control(キャラ値)・self(効果の親アイテム)・parent(その親アウトフィット)・
+   *   category:<小分類/大分類キー>・skill:<識別キー[*]>(レベル等)。条件 [path op value] も評価する。
    * モード(ADD/OVERRIDE/MULTIPLY 等)は effect.apply でネイティブ処理し、priority 順に適用。
    *
-   * - `system.` スコープ(キャラ能力値)は能力値の effectMod ネイティブ経路に任せ、ここでは扱わない。
-   * - `judgment` パス(技能判定バフ)は判定実行時に評価する別系統のためここでは扱わない。
-   * - アクター自身＋全所有アイテムの effects を走査(transfer 非依存)。アイテム自身の prepareDerivedData は
-   *   既に total=base を算出済みで、ここで total を改変する(base は不変)。
+   * - **判定バフ(check./controlCheck.)は判定実行時に評価する別系統**のためここでは扱わない。
+   * - アクター自身＋全所有アイテムの effects を走査(transfer 非依存)。アイテム/能力値の base→total は
+   *   既に算出済みで、ここで total を改変する(base は不変)。0clamp は呼び出し側で適用後に行う。
    */
   _applyEffectBuffs() {
     const actor = this.parent;
     if (!actor?.items) return;
+    const CHECK_SCOPES = new Set(["abilityCheck", "controlCheck", "skillCheck"]);
 
     const entries = [];
     const collect = (effects, bearer) => {
@@ -144,7 +149,7 @@ export class CastDataModel extends SystemDataModel.mixin(
         if (!effect.active) continue;
         for (const change of (effect.changes ?? [])) {
           const parsed = parseEffectTargetKey(change.key);
-          if (!parsed || parsed.scope === "system" || parsed.path === "judgment") continue;
+          if (!parsed || CHECK_SCOPES.has(parsed.scope)) continue;
           entries.push({ effect, change, parsed, bearer });
         }
       }
@@ -158,32 +163,36 @@ export class CastDataModel extends SystemDataModel.mixin(
       ((a.change.priority ?? a.change.mode * 10) - (b.change.priority ?? b.change.mode * 10)));
 
     for (const { effect, change, parsed, bearer } of entries) {
-      for (const target of this._resolveBuffTargets(parsed, bearer)) {
-        if (!evalEffectConditions(target.system, parsed.conditions)) continue;
-        effect.apply(target, { ...change, key: `system.${resolveItemTotalPath(parsed.path)}` });
+      for (const { doc, totalPath } of this._resolveBuffApplications(parsed, bearer)) {
+        if (!evalEffectConditions(doc.system, parsed.conditions)) continue;
+        effect.apply(doc, { ...change, key: `system.${totalPath}` });
       }
     }
   }
 
-  /** v2 セレクタを所有アイテム(または親)へ解決する。 */
-  _resolveBuffTargets(parsed, bearer) {
-    const items = this.parent?.items;
+  /** v2 セレクタを {適用先ドキュメント, total系systemパス} の配列へ解決する。 */
+  _resolveBuffApplications(parsed, bearer) {
+    const actor = this.parent;
+    const items = actor?.items;
     if (!items) return [];
+    const itemApp = (item) => ({ doc: item, totalPath: resolveItemTotalPath(parsed.path) });
     switch (parsed.scope) {
+      case "ability": return [{ doc: actor, totalPath: `${parsed.path}.total` }];
+      case "control": return [{ doc: actor, totalPath: `${parsed.path}.totalControl` }];
       case "self":
-        return bearer?.documentName === "Item" ? [bearer] : [];
+        return bearer?.documentName === "Item" ? [itemApp(bearer)] : [];
       case "parent": {
         const pid = bearer?.system?.parentItemId;
         const p = pid ? items.get(pid) : null;
-        return p ? [p] : [];
+        return p ? [itemApp(p)] : [];
       }
-      case "cat":
+      case "category":
         return [...items].filter(i =>
-          i.system?.minorCategory === parsed.selector || i.system?.majorCategory === parsed.selector);
-      case "key":
-        return [...items].filter(i => i.system?.identificationKey === parsed.selector);
-      case "prefix":
-        return [...items].filter(i => i.system?.identificationKey?.startsWith?.(parsed.selector));
+          i.system?.minorCategory === parsed.selector || i.system?.majorCategory === parsed.selector).map(itemApp);
+      case "skill":
+        return [...items].filter(i => parsed.prefix
+          ? i.system?.identificationKey?.startsWith?.(parsed.selector)
+          : i.system?.identificationKey === parsed.selector).map(itemApp);
       default:
         return [];
     }

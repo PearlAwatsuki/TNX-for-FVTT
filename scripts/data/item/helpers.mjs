@@ -277,36 +277,53 @@ export function parseEffectConditions(str) {
  * @param {string} key ActiveEffect change のキー
  * @returns {{scope:string, selector?:string, path:string, conditions:Array}|null}
  */
+const ABILITY_NAMES = ["reason", "passion", "life", "mundane"];
+
 export function parseEffectTargetKey(key) {
   if (typeof key !== "string" || !key) return null;
-  let head, rest, conditions = [];
-  const condMatch = key.match(/^([^.[]+)\[([^\]]*)\](.*)$/);
+  // [conditions] を切り出す
+  let conditions = [];
+  let work = key;
+  const condMatch = key.match(/^(.*?)\[([^\]]*)\](.*)$/);
   if (condMatch) {
-    head = condMatch[1];
     conditions = parseEffectConditions(condMatch[2]);
-    rest = condMatch[3];
-  } else {
-    const dot = key.indexOf(".");
-    if (dot <= 0) return null;
-    head = key.slice(0, dot);
-    rest = key.slice(dot);
+    work = condMatch[1] + condMatch[3];
   }
-  if (!rest.startsWith(".")) return null;
-  const path = rest.slice(1);
-  if (!head || !path) return null;
+  const segs = work.split(".").filter(Boolean);
+  if (segs.length < 2) return null;
 
-  if (head === "system") return { scope: "system", path, conditions };
-  if (head === "self")   return { scope: "self", path, conditions };
-  if (head === "parent") return { scope: "parent", path, conditions };
-  if (head.startsWith("cat:")) {
-    const sel = head.slice(4);
-    return sel ? { scope: "cat", selector: sel, path, conditions } : null;
+  // 判定バフ: check.<能力値|技能識別キー[*]> / controlCheck.<能力値>
+  if (segs[0] === "check" || segs[0] === "controlCheck") {
+    const x = segs[1];
+    const isControl = segs[0] === "controlCheck";
+    if (ABILITY_NAMES.includes(x)) {
+      return { scope: isControl ? "controlCheck" : "abilityCheck", ability: x, conditions };
+    }
+    if (isControl) return null; // 制御判定は能力値のみ
+    const prefix = x.endsWith("*");
+    return { scope: "skillCheck", selector: prefix ? x.slice(0, -1) : x, prefix, conditions };
   }
-  if (head.endsWith("*")) {
-    const sel = head.slice(0, -1);
-    return sel ? { scope: "prefix", selector: sel, path, conditions } : null;
+
+  // 値バフ: system.<名前空間>.…
+  if (segs[0] !== "system") return null;
+  const ns = segs[1];
+  const after = segs.slice(2);
+  switch (ns) {
+    case "ability": return after.length ? { scope: "ability", path: after.join("."), conditions } : null;
+    case "control": return after.length ? { scope: "control", path: after.join("."), conditions } : null;
+    case "self":    return after.length ? { scope: "self",    path: after.join("."), conditions } : null;
+    case "parent":  return after.length ? { scope: "parent",  path: after.join("."), conditions } : null;
+    case "category":
+      if (after.length < 2) return null;
+      return { scope: "category", selector: after[0], path: after.slice(1).join("."), conditions };
+    case "skill": {
+      if (after.length < 2) return null;
+      const sel = after[0];
+      const prefix = sel.endsWith("*");
+      return { scope: "skill", selector: prefix ? sel.slice(0, -1) : sel, prefix, path: after.slice(1).join("."), conditions };
+    }
+    default: return null; // handMaxSizeMod 等はネイティブ処理に委ねる
   }
-  return { scope: "key", selector: head, path, conditions };
 }
 
 /**

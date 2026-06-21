@@ -276,43 +276,50 @@ describe("parseCrossTargetKey()（モードB キー解析）", () => {
   });
 });
 
-describe("parseEffectTargetKey()（v2 キー文法）", () => {
-  it("セレクタ system/self/parent", () => {
-    expect(parseEffectTargetKey("system.reason")).toMatchObject({ scope: "system", path: "reason", conditions: [] });
-    expect(parseEffectTargetKey("self.attack")).toMatchObject({ scope: "self", path: "attack" });
-    expect(parseEffectTargetKey("parent.attack")).toMatchObject({ scope: "parent", path: "attack" });
+describe("parseEffectTargetKey()（v2 system.<名前空間> 文法）", () => {
+  it("値: ability / control", () => {
+    expect(parseEffectTargetKey("system.ability.reason")).toMatchObject({ scope: "ability", path: "reason", conditions: [] });
+    expect(parseEffectTargetKey("system.control.reason")).toMatchObject({ scope: "control", path: "reason" });
   });
 
-  it("cat: 小分類キー", () => {
-    expect(parseEffectTargetKey("cat:melee.attack")).toMatchObject({ scope: "cat", selector: "melee", path: "attack" });
+  it("値: self / parent", () => {
+    expect(parseEffectTargetKey("system.self.attack")).toMatchObject({ scope: "self", path: "attack" });
+    expect(parseEffectTargetKey("system.parent.attack")).toMatchObject({ scope: "parent", path: "attack" });
   });
 
-  it("プレフィックス(末尾*)と識別キー完全一致", () => {
-    expect(parseEffectTargetKey("society_*.judgment")).toMatchObject({ scope: "prefix", selector: "society_", path: "judgment" });
-    expect(parseEffectTargetKey("melee.judgment")).toMatchObject({ scope: "key", selector: "melee", path: "judgment" });
+  it("値: category(小分類・大分類とも)", () => {
+    expect(parseEffectTargetKey("system.category.melee.attack")).toMatchObject({ scope: "category", selector: "melee", path: "attack" });
+    expect(parseEffectTargetKey("system.category.weapon.attack")).toMatchObject({ scope: "category", selector: "weapon", path: "attack" });
+  });
+
+  it("値: skill レベル(完全一致・プレフィックス)", () => {
+    expect(parseEffectTargetKey("system.skill.melee.level")).toMatchObject({ scope: "skill", selector: "melee", prefix: false, path: "level" });
+    expect(parseEffectTargetKey("system.skill.society_*.level")).toMatchObject({ scope: "skill", selector: "society_", prefix: true, path: "level" });
   });
 
   it("パスにドットを含む(defence.S)", () => {
-    expect(parseEffectTargetKey("cat:armor.defence.S")).toMatchObject({ scope: "cat", selector: "armor", path: "defence.S" });
+    expect(parseEffectTargetKey("system.category.armor.defence.S")).toMatchObject({ scope: "category", selector: "armor", path: "defence.S" });
   });
 
-  it("条件付き [hack>=3]", () => {
-    const r = parseEffectTargetKey("cat:melee[hack>=3].attack");
-    expect(r).toMatchObject({ scope: "cat", selector: "melee", path: "attack" });
-    expect(r.conditions).toEqual([{ path: "hack", op: ">=", value: 3 }]);
+  it("判定: check.<能力値> / controlCheck.<能力値> / check.<技能>", () => {
+    expect(parseEffectTargetKey("check.reason")).toMatchObject({ scope: "abilityCheck", ability: "reason" });
+    expect(parseEffectTargetKey("controlCheck.reason")).toMatchObject({ scope: "controlCheck", ability: "reason" });
+    expect(parseEffectTargetKey("check.melee")).toMatchObject({ scope: "skillCheck", selector: "melee", prefix: false });
+    expect(parseEffectTargetKey("check.society_*")).toMatchObject({ scope: "skillCheck", selector: "society_", prefix: true });
   });
 
-  it("複数条件 ; 区切り", () => {
-    const r = parseEffectTargetKey("cat:melee[hack>=3;guardValue>0].attack");
-    expect(r.conditions).toEqual([
-      { path: "hack", op: ">=", value: 3 },
-      { path: "guardValue", op: ">", value: 0 },
-    ]);
+  it("条件付き [hack>=3] / 複数 ;", () => {
+    expect(parseEffectTargetKey("system.category.melee[hack>=3].attack").conditions)
+      .toEqual([{ path: "hack", op: ">=", value: 3 }]);
+    expect(parseEffectTargetKey("system.category.melee[hack>=3;guardValue>0].attack").conditions)
+      .toEqual([{ path: "hack", op: ">=", value: 3 }, { path: "guardValue", op: ">", value: 0 }]);
   });
 
-  it("不正は null", () => {
+  it("不正・未知名前空間・ネイティブキーは null", () => {
     expect(parseEffectTargetKey("")).toBeNull();
     expect(parseEffectTargetKey("noDotKey")).toBeNull();
+    expect(parseEffectTargetKey("system.handMaxSizeMod")).toBeNull();   // ネイティブ
+    expect(parseEffectTargetKey("system.unknown.x")).toBeNull();
     expect(parseEffectTargetKey(undefined)).toBeNull();
   });
 });
