@@ -144,6 +144,47 @@ export function gatherConditionControlPenalty(conditions) {
   return dedupeEntries(entries).reduce((sum, e) => sum + e.value, 0);
 }
 
+/** 電子妨害がアウトフィット個数を数えるカテゴリ(武器/サイバーウェア/トロン=大、アーマーギア/サイコアプリ=小)。 */
+const JAMMING_MAJOR = ["weapon", "cyberware", "tron"];
+const JAMMING_MINOR = ["armorGear", "psychoApp"];
+/** ウェットのアウトフィット識別キー(辞典の実値に合わせる。フェーズ17 で確定)。 */
+export const WET_IDENT_KEY = "wet";
+
+/**
+ * 電子妨害(強度 n)による全(上方)判定へのマイナス量を算出する(正の値)。Conditions §3③。
+ * 準備中アウトフィットの記述子配列から計算する純粋関数(actor/item 解決は呼び出し側)。
+ *
+ * - 該当(対象カテゴリ＋電制≤n)の準備アウトフィット個数を数える(上限10)。
+ * - 該当する全身義体(fullCyborg)・ヴィークルを準備、または該当タップ(tap)でゴースト登場中 → 10。
+ * - ウェット(準備中に WET_IDENT_KEY あり)かつ該当1個以上 → 1。
+ * - それ以外 → min(個数, 10)。
+ *
+ * @param {number} n 強度
+ * @param {Array<{majorCategory:?string, minorCategory:?string, hack:?number, identKey:?string}>} preparedOutfits
+ * @param {{isGhost?:boolean}} [opts]
+ * @returns {number} マイナス量(正)
+ */
+export function computeJammingPenalty(n, preparedOutfits, { isGhost = false } = {}) {
+  const list = preparedOutfits ?? [];
+  const withinHack = (o) => typeof o.hack === "number" && o.hack <= n;
+  const inScope = (o) =>
+    JAMMING_MAJOR.includes(o.majorCategory) || JAMMING_MINOR.includes(o.minorCategory);
+
+  const counted = list.filter(o => inScope(o) && withinHack(o));
+  const count = counted.length;
+
+  // −10 分岐: 該当(電制≤n)の全身義体・ヴィークル準備、または該当タップでゴースト登場中
+  const heavy = list.some(o => withinHack(o) && (o.minorCategory === "fullCyborg" || o.majorCategory === "vehicle"))
+    || (isGhost && list.some(o => withinHack(o) && o.minorCategory === "tap"));
+  if (heavy) return 10;
+
+  // ウェット分岐
+  const isWet = list.some(o => o.identKey === WET_IDENT_KEY);
+  if (isWet) return count >= 1 ? 1 : 0;
+
+  return Math.min(count, 10);
+}
+
 /**
  * 上方判定が condition により禁止されているかを返す(重圧)。
  * @param {Array<object>} conditions readCondition() 済みの配列

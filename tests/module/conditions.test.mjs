@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { CONDITION_KINDS, readCondition, gatherConditionCheckSources, getCheckBlock, gatherConditionControlPenalty }
+import { CONDITION_KINDS, readCondition, gatherConditionCheckSources, getCheckBlock, gatherConditionControlPenalty, computeJammingPenalty }
   from "../../scripts/module/conditions.mjs";
+
+/** 準備アウトフィット記述子の略記 */
+function pf(majorCategory, minorCategory, hack, identKey) {
+  return { majorCategory, minorCategory, hack, identKey };
+}
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -109,6 +114,44 @@ describe("gatherConditionControlPenalty()（全制御値減）", () => {
   it("重圧など制御に効かない kind は無視", () => {
     const conds = [readCondition(condEffect({ kind: "pressure", targetAbility: "life" }))];
     expect(gatherConditionControlPenalty(conds)).toBe(0);
+  });
+});
+
+describe("computeJammingPenalty()（電子妨害）", () => {
+  it("該当カテゴリ＋電制≤n の準備個数（上限10）", () => {
+    const outfits = [
+      pf("weapon", "melee", 2),       // 電制2≤3 該当
+      pf("cyberware", "neuralware", 3), // 該当
+      pf("tron", "software", 5),      // 電制5>3 非該当
+      pf("housing", "residence", 1),  // 対象外カテゴリ
+      pf("armor", "armorGear", 1),    // 小分類該当
+    ];
+    expect(computeJammingPenalty(3, outfits)).toBe(3);
+  });
+
+  it("上限10", () => {
+    const outfits = Array.from({ length: 14 }, () => pf("cyberware", "neuralware", 1));
+    expect(computeJammingPenalty(5, outfits)).toBe(10);
+  });
+
+  it("全身義体(fullCyborg)を電制≤nで準備 → 10", () => {
+    expect(computeJammingPenalty(3, [pf("cyberware", "fullCyborg", 2)])).toBe(10);
+  });
+
+  it("ヴィークルを電制≤nで準備 → 10", () => {
+    expect(computeJammingPenalty(3, [pf("vehicle", "groundVehicle", 1)])).toBe(10);
+  });
+
+  it("該当タップでゴースト登場中 → 10、ゴーストでなければタップは通常カウント", () => {
+    const tap = [pf("tron", "tap", 2)];
+    expect(computeJammingPenalty(3, tap, { isGhost: true })).toBe(10);
+    expect(computeJammingPenalty(3, tap, { isGhost: false })).toBe(1);
+  });
+
+  it("ウェットなら該当1個以上で1、0個なら0", () => {
+    const wet = pf("service", "background", null, "wet");
+    expect(computeJammingPenalty(3, [wet, pf("weapon", "melee", 2)])).toBe(1);
+    expect(computeJammingPenalty(3, [wet, pf("weapon", "melee", 9)])).toBe(0); // 電制9>3
   });
 });
 

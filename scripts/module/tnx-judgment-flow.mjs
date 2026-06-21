@@ -17,7 +17,7 @@
 
 import { getCardJudgmentValue, calcSkillCheck, calcControlCheck, ALL_SUITS, SUIT_TO_ABILITY } from './tnx-judgment-engine.mjs';
 import { gatherCheckBonusSources } from '../data/item/helpers.mjs';
-import { readCondition, gatherConditionCheckSources, getCheckBlock } from './conditions.mjs';
+import { readCondition, gatherConditionCheckSources, getCheckBlock, computeJammingPenalty } from './conditions.mjs';
 import { TnxActionHandler } from './tnx-action-handler.mjs';
 import { TnxSocketHandler } from './tnx-socket-handler.mjs';
 import { getUserFlagData } from './user-flag-schema.mjs';
@@ -406,13 +406,41 @@ export class TnxJudgmentFlow {
 
         // コンディション(BS)由来の達成値修正を合流する(酩酊=上方判定 -n、萎縮/憎悪=攻撃判定。
         // 萎縮/憎悪の発火に必要な isAttack/targetMatched は攻撃判定モデル＝フェーズ12 が供給する)。
-        const condSources = gatherConditionCheckSources(TnxJudgmentFlow._gatherConditions(actor), {
-            upward:        ctx.type !== "controlCheck",
+        const conditions  = TnxJudgmentFlow._gatherConditions(actor);
+        const upward      = ctx.type !== "controlCheck";
+        const condSources = gatherConditionCheckSources(conditions, {
+            upward,
             isAttack:      ctx.isAttack === true,
             targetMatched: ctx.targetMatched === true,
         });
-        const all = [...sources, ...condSources];
+        const jamSource = TnxJudgmentFlow._computeJammingSource(actor, conditions, upward);
+        const all = [...sources, ...condSources, ...(jamSource ? [jamSource] : [])];
         return { total: all.reduce((s, e) => s + e.value, 0), sources: all };
+    }
+
+    /**
+     * 電子妨害(computed)による達成値修正を {name, value} で返す(フェーズ9-4)。
+     * 準備中アウトフィットを記述子化し computeJammingPenalty で算出。強度違いは最大 n。
+     * @returns {{name:string, value:number}|null}
+     */
+    static _computeJammingSource(actor, conditions, upward) {
+        if (!upward || !actor) return null;
+        const jammers = (conditions ?? []).filter(c => c.active && c.kind === "interference");
+        if (!jammers.length) return null;
+        const n = Math.max(...jammers.map(c => c.magnitude || 0));
+        const prepared = [];
+        for (const item of (actor.items ?? [])) {
+            const s = item.system;
+            if (!s || s.isPrepared !== true) continue; // 準備中アウトフィットのみ
+            const hack = s.hack?.mode === "value" ? (s.hack.total ?? s.hack.value ?? null) : null;
+            prepared.push({
+                majorCategory: s.majorCategory, minorCategory: s.minorCategory,
+                hack, identKey: s.identificationKey,
+            });
+        }
+        const penalty = computeJammingPenalty(n, prepared, { isGhost: actor.system?.isGhost === true });
+        if (!penalty) return null;
+        return { name: jammers.find(c => c.name)?.name || "電子妨害", value: -penalty };
     }
 
     /**
