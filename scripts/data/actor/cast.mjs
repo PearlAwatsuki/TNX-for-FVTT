@@ -18,11 +18,7 @@ import { BiographyTemplate } from "./common/biography.mjs";
 import { AttributesTemplate } from "./common/attributes.mjs";
 import { ActorBaseTemplate } from "./common/actor-base.mjs";
 import { computeAttributeFinal, computeOutfitAggregates } from "../helpers.mjs";
-import { ATTACK_DAMAGE_TYPES, matchesAeTarget, addToItemEffectMod, parseCrossTargetKey, computeItemEffectiveValues } from "../item/helpers.mjs";
-
-/** モードB(アクター→アイテム横断バフ)の AE flag スコープ・キー */
-const AE_TARGET_SCOPE = "tokyo-nova-axleration";
-const AE_TARGET_KEY   = "aeTarget";
+import { ATTACK_DAMAGE_TYPES, parseEffectTargetKey, resolveItemTotalPath, evalEffectConditions } from "../item/helpers.mjs";
 
 /** 能力値キー(♠理性 / ♣感情 / ♥生命 / ♦外界) */
 const ABILITY_KEYS = ["reason", "passion", "life", "mundane"];
@@ -124,52 +120,73 @@ export class CastDataModel extends SystemDataModel.mixin(
       this[key].total        = total;
       this[key].totalControl = totalControl;
     }
-    this._applyCrossTargetEffects();
+    this._applyEffectBuffs();
   }
 
   /**
-   * モードB: 横断バフ(アクター/アイテムに乗る AE)を所有アイテムへ適用する(フェーズ9-3)。
-   * 2つの指定方法を扱う:
-   * 1. **changes キー `<識別キー>.<systemパス>`**（例 "hisho-geki.attack.effectMod"）。
-   *    その識別キーを持つアイテムの該当パスへ `effect.apply` で適用(mode/value はネイティブ処理)。
-   * 2. **flag `aeTarget`**（型/大分類/小分類/識別キーで対象指定 ＋ param/value）。effectMod へ加算。
+   * アイテムへのバフ(ActiveEffect)を、v2 キー文法で解決して**実効値 total へ直接適用**する(フェーズ9-3 v2)。
+   * 対象セレクタ: self(効果の親アイテム) / parent(その親アウトフィット) / cat:<小分類> /
+   *   <識別キー>(完全一致) / <プレフィックス>*(前方一致)。条件 [path op value] も評価する。
+   * モード(ADD/OVERRIDE/MULTIPLY 等)は effect.apply でネイティブ処理し、priority 順に適用。
    *
-   * アクター自身＋全所有アイテムの effects を走査する(transfer の有無に依らない)。アイテム横断は
-   * 素の Foundry change.key では別アイテムに解決できないため、ここでカスタム適用する。
-   * 着地点 effectMod に積んだ後、触れたアイテムの実効値(total)を再計算する。
+   * - `system.` スコープ(キャラ能力値)は能力値の effectMod ネイティブ経路に任せ、ここでは扱わない。
+   * - `judgment` パス(技能判定バフ)は判定実行時に評価する別系統のためここでは扱わない。
+   * - アクター自身＋全所有アイテムの effects を走査(transfer 非依存)。アイテム自身の prepareDerivedData は
+   *   既に total=base を算出済みで、ここで total を改変する(base は不変)。
    */
-  _applyCrossTargetEffects() {
+  _applyEffectBuffs() {
     const actor = this.parent;
     if (!actor?.items) return;
-    const effects = [...(actor.effects ?? [])];
-    for (const item of actor.items) for (const e of (item.effects ?? [])) effects.push(e);
 
-    const touched = new Set();
-    for (const effect of effects) {
-      if (!effect.active) continue;
-      // 1. changes キー <識別キー>.<パス>
-      for (const change of (effect.changes ?? [])) {
-        const parsed = parseCrossTargetKey(change.key);
-        if (!parsed) continue;
-        for (const item of actor.items) {
-          if (item.system?.identificationKey && item.system.identificationKey === parsed.identKey) {
-            effect.apply(item, { ...change, key: `system.${parsed.path}` });
-            touched.add(item);
-          }
+    const entries = [];
+    const collect = (effects, bearer) => {
+      for (const effect of (effects ?? [])) {
+        if (!effect.active) continue;
+        for (const change of (effect.changes ?? [])) {
+          const parsed = parseEffectTargetKey(change.key);
+          if (!parsed || parsed.scope === "system" || parsed.path === "judgment") continue;
+          entries.push({ effect, change, parsed, bearer });
         }
       }
-      // 2. flag aeTarget(型/分類/識別キー指定)
-      const spec = effect.flags?.[AE_TARGET_SCOPE]?.[AE_TARGET_KEY];
-      if (spec?.param) {
-        for (const item of actor.items) {
-          if (matchesAeTarget(item, spec)) {
-            addToItemEffectMod(item.system, spec.param, Number(spec.value) || 0);
-            touched.add(item);
-          }
-        }
+    };
+    collect(actor.effects, actor);
+    for (const item of actor.items) collect(item.effects, item);
+    if (!entries.length) return;
+
+    // Foundry 既定の優先度(mode×10)で安定適用する
+    entries.sort((a, b) =>
+      ((a.change.priority ?? a.change.mode * 10) - (b.change.priority ?? b.change.mode * 10)));
+
+    for (const { effect, change, parsed, bearer } of entries) {
+      for (const target of this._resolveBuffTargets(parsed, bearer)) {
+        if (!evalEffectConditions(target.system, parsed.conditions)) continue;
+        effect.apply(target, { ...change, key: `system.${resolveItemTotalPath(parsed.path)}` });
       }
     }
-    for (const item of touched) computeItemEffectiveValues(item.system);
+  }
+
+  /** v2 セレクタを所有アイテム(または親)へ解決する。 */
+  _resolveBuffTargets(parsed, bearer) {
+    const items = this.parent?.items;
+    if (!items) return [];
+    switch (parsed.scope) {
+      case "self":
+        return bearer?.documentName === "Item" ? [bearer] : [];
+      case "parent": {
+        const pid = bearer?.system?.parentItemId;
+        const p = pid ? items.get(pid) : null;
+        return p ? [p] : [];
+      }
+      case "cat":
+        return [...items].filter(i =>
+          i.system?.minorCategory === parsed.selector || i.system?.majorCategory === parsed.selector);
+      case "key":
+        return [...items].filter(i => i.system?.identificationKey === parsed.selector);
+      case "prefix":
+        return [...items].filter(i => i.system?.identificationKey?.startsWith?.(parsed.selector));
+      default:
+        return [];
+    }
   }
 
   /**

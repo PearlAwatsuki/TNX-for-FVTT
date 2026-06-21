@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
-const { defenceField, attackField, modeValueField, migrateAttackModToEffectMod, computeItemEffectiveValues, matchesAeTarget, addToItemEffectMod, parseCrossTargetKey, parseEffectTargetKey, parseEffectConditions, evalEffectConditions } = await import("../../../scripts/data/item/helpers.mjs");
+const { defenceField, attackField, modeValueField, migrateAttackModToEffectMod, computeItemEffectiveValues, matchesAeTarget, addToItemEffectMod, parseCrossTargetKey, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath } = await import("../../../scripts/data/item/helpers.mjs");
 
 describe("defenceField()", () => {
   it("呼び出せる", () => {
@@ -133,64 +133,33 @@ describe("migrateAttackModToEffectMod()", () => {
   });
 });
 
-describe("computeItemEffectiveValues()", () => {
-  it("modeValue(mode=value)は value+effectMod を total に出す", () => {
-    const sys = { guardValue: { mode: "value", value: 3, effectMod: 2 } };
+describe("computeItemEffectiveValues()（v2: total=base）", () => {
+  it("modeValue / attack は total=value（バフは適用パスが total へ直接効かせる）", () => {
+    const sys = {
+      guardValue: { mode: "value", value: 3, effectMod: 2 },
+      attack: { damageType: "I", value: 4, effectMod: 9 },
+    };
     computeItemEffectiveValues(sys);
-    expect(sys.guardValue.total).toBe(5);
+    expect(sys.guardValue.total).toBe(3);
+    expect(sys.attack.total).toBe(4);
   });
 
-  it("modeValue(mode≠value)は effectMod を無視し total=value", () => {
-    const sys = { hide: { mode: "control", value: 7, effectMod: 5 } };
-    computeItemEffectiveValues(sys);
-    expect(sys.hide.total).toBe(7);
-  });
-
-  it("attack(mode なし)は value+effectMod", () => {
-    const sys = { attack: { damageType: "I", value: 4, effectMod: 2 } };
-    computeItemEffectiveValues(sys);
-    expect(sys.attack.total).toBe(6);
-  });
-
-  it("defence は S/P/I それぞれ total を出す(mode=value)", () => {
-    const sys = { defence: {
-      mode: "value",
-      S_defence: 1, P_defence: 2, I_defence: 3,
-      S_effectMod: 10, P_effectMod: 20, I_effectMod: 30,
-    } };
-    computeItemEffectiveValues(sys);
-    expect(sys.defence.S_total).toBe(11);
-    expect(sys.defence.P_total).toBe(22);
-    expect(sys.defence.I_total).toBe(33);
-  });
-
-  it("defence(mode≠value)は effectMod を無視する", () => {
-    const sys = { defence: {
-      mode: "none",
-      S_defence: 1, P_defence: 2, I_defence: 3,
-      S_effectMod: 10, P_effectMod: 20, I_effectMod: 30,
-    } };
+  it("defence は S/P/I それぞれ total=base", () => {
+    const sys = { defence: { mode: "value", S_defence: 1, P_defence: 2, I_defence: 3,
+      S_effectMod: 10, P_effectMod: 20, I_effectMod: 30 } };
     computeItemEffectiveValues(sys);
     expect(sys.defence.S_total).toBe(1);
+    expect(sys.defence.P_total).toBe(2);
+    expect(sys.defence.I_total).toBe(3);
   });
 
-  it("slots[].count の total を出す", () => {
-    const sys = { slots: [
-      { kind: "normal", count: { mode: "value", value: 2, effectMod: 1 } },
-      { kind: "normal", count: { mode: "none",  value: 0, effectMod: 5 } },
-    ] };
+  it("slots[].count の total=value", () => {
+    const sys = { slots: [{ kind: "normal", count: { mode: "value", value: 2, effectMod: 1 } }] };
     computeItemEffectiveValues(sys);
-    expect(sys.slots[0].count.total).toBe(3);
-    expect(sys.slots[1].count.total).toBe(0);
+    expect(sys.slots[0].count.total).toBe(2);
   });
 
-  it("負の修正(controlMod 等)も clamp せずそのまま反映する", () => {
-    const sys = { controlMod: { mode: "value", value: 1, effectMod: -5 } };
-    computeItemEffectiveValues(sys);
-    expect(sys.controlMod.total).toBe(-4);
-  });
-
-  it("素の値(FAValue / residence)の Total を出す", () => {
+  it("素の値(FAValue / residence)の Total=base", () => {
     const sys = {
       FAValue: 2, FAValueEffectMod: 3,
       appearanceTarget: 10, appearanceTargetEffectMod: 1,
@@ -198,16 +167,32 @@ describe("computeItemEffectiveValues()", () => {
       analogSecurity: 4, analogSecurityEffectMod: 2,
     };
     computeItemEffectiveValues(sys);
-    expect(sys.FAValueTotal).toBe(5);
-    expect(sys.appearanceTargetTotal).toBe(11);
+    expect(sys.FAValueTotal).toBe(2);
+    expect(sys.appearanceTargetTotal).toBe(10);
     expect(sys.cyberSecurityTotal).toBe(5);
-    expect(sys.analogSecurityTotal).toBe(6);
+    expect(sys.analogSecurityTotal).toBe(4);
   });
 
   it("base 値(value)は書き換えない", () => {
     const sys = { guardValue: { mode: "value", value: 3, effectMod: 2 } };
     computeItemEffectiveValues(sys);
     expect(sys.guardValue.value).toBe(3);
+  });
+});
+
+describe("resolveItemTotalPath()", () => {
+  it("modeValue/attack は <param>.total", () => {
+    expect(resolveItemTotalPath("attack")).toBe("attack.total");
+    expect(resolveItemTotalPath("guardValue")).toBe("guardValue.total");
+  });
+  it("defence.S/P/I は defence.X_total", () => {
+    expect(resolveItemTotalPath("defence.S")).toBe("defence.S_total");
+    expect(resolveItemTotalPath("defence.I")).toBe("defence.I_total");
+  });
+  it("素の値は <param>Total", () => {
+    expect(resolveItemTotalPath("level")).toBe("levelTotal");
+    expect(resolveItemTotalPath("FAValue")).toBe("FAValueTotal");
+    expect(resolveItemTotalPath("cyberSecurity")).toBe("cyberSecurityTotal");
   });
 });
 

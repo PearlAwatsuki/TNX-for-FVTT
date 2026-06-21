@@ -127,39 +127,33 @@ export function attackField() {
  * @param {object} system アイテムの system データ(prepareDerivedData の this)
  */
 export function computeItemEffectiveValues(system) {
-  // {value, effectMod} 形(modeValueField の各種・attackField)
+  // {value, ...} 形(modeValueField の各種・attackField): total は base のみ。
+  // バフはアクターの適用パスが total へ直接効かせる(v2、effectMod は廃止予定の死蔵)。
   for (const field of Object.values(system)) {
     if (field && typeof field === "object"
         && typeof field.value === "number" && typeof field.effectMod === "number") {
-      const active = field.mode === undefined || field.mode === "value";
-      field.total = active ? field.value + field.effectMod : field.value;
+      field.total = field.value;
     }
   }
   // defence(S/P/I)
   const def = system.defence;
   if (def && typeof def === "object" && typeof def.S_effectMod === "number") {
-    const active = def.mode === "value";
-    for (const k of ["S", "P", "I"]) {
-      const base = def[`${k}_defence`] ?? 0;
-      def[`${k}_total`] = active ? base + (def[`${k}_effectMod`] ?? 0) : base;
-    }
+    for (const k of ["S", "P", "I"]) def[`${k}_total`] = def[`${k}_defence`] ?? 0;
   }
   // slots[].count
   if (Array.isArray(system.slots)) {
     for (const slot of system.slots) {
       const c = slot?.count;
-      if (c && typeof c.value === "number" && typeof c.effectMod === "number") {
-        c.total = c.mode === "value" ? c.value + c.effectMod : c.value;
-      }
+      if (c && typeof c.value === "number" && typeof c.effectMod === "number") c.total = c.value;
     }
   }
   // 素の値(FAValue / residence stats)
   if (typeof system.FAValueEffectMod === "number") {
-    system.FAValueTotal = (system.FAValue ?? 0) + system.FAValueEffectMod;
+    system.FAValueTotal = system.FAValue ?? 0;
   }
   for (const base of ["appearanceTarget", "cyberSecurity", "analogSecurity"]) {
     if (typeof system[`${base}EffectMod`] === "number") {
-      system[`${base}Total`] = (system[base] ?? 0) + system[`${base}EffectMod`];
+      system[`${base}Total`] = system[base] ?? 0;
     }
   }
 }
@@ -335,6 +329,25 @@ export function evalEffectConditions(system, conditions) {
     if (op === "!=" && !(actual !== value)) return false;
   }
   return true;
+}
+
+/**
+ * AE のパラメータパス(`attack` / `defence.S` / `level` 等)を、対象 system 上の
+ * **total 系の実 system パス**へ解決する(v2 適用パスで effect.apply のキーに使う)。
+ * - "defence.S/P/I" → "defence.{S,P,I}_total"
+ * - 素の値(level/FAValue/residence stat) → "<param>Total"
+ * - その他(modeValue/attack) → "<param>.total"
+ * @param {string} param
+ * @returns {string}
+ */
+export function resolveItemTotalPath(param) {
+  if (param.startsWith("defence.")) return `defence.${param.split(".")[1]}_total`;
+  const bare = {
+    level: "levelTotal", FAValue: "FAValueTotal",
+    appearanceTarget: "appearanceTargetTotal",
+    cyberSecurity: "cyberSecurityTotal", analogSecurity: "analogSecurityTotal",
+  };
+  return bare[param] ?? `${param}.total`;
 }
 
 /** 条件パスの数値を解決する。`X.total`(派生実効値)があれば優先、無ければ `X.value` / 素の値。 */

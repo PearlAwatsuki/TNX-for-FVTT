@@ -30,11 +30,11 @@ export class SkillBaseTemplate extends SystemDataModel {
 
   /**
    * @override
-   * 技能レベルの実効値(level + levelEffectMod)を `levelTotal` に派生算出する(フェーズ9-3)。
-   * level(base)は書き換えない。generalSkill / styleSkill が SkillBaseTemplate を合成するため一括適用。
+   * 技能レベルの実効値 `levelTotal` を base(level)で派生算出する(フェーズ9-3 v2)。
+   * バフはアクターの適用パスが total へ直接効かせる。level(base)は書き換えない。
    */
   prepareDerivedData() {
     super.prepareDerivedData?.();
-    this.levelTotal = (this.level ?? 0) + (this.levelEffectMod ?? 0);
+    this.levelTotal = this.level ?? 0;
   }
 }
