@@ -157,16 +157,36 @@ export class CastDataModel extends SystemDataModel.mixin(
     collect(actor.effects, actor);
     for (const item of actor.items) collect(item.effects, item);
     if (!entries.length) return;
+    const SCOPE = "tokyo-nova-axleration";
 
-    // Foundry 既定の優先度(mode×10)で安定適用する
-    entries.sort((a, b) =>
-      ((a.change.priority ?? a.change.mode * 10) - (b.change.priority ?? b.change.mode * 10)));
-
+    // 適用先へ展開(条件評価込み)
+    const apps = [];
     for (const { effect, change, parsed, bearer } of entries) {
+      const identity  = effect.flags?.[SCOPE]?.effectId || effect.id;
+      const stackable = effect.flags?.[SCOPE]?.stackable === true;
       for (const { doc, totalPath } of this._resolveBuffApplications(parsed, bearer)) {
         if (!evalEffectConditions(doc.system, parsed.conditions)) continue;
-        effect.apply(doc, { ...change, key: `system.${totalPath}` });
+        apps.push({ effect, change, doc, totalPath, identity, stackable });
       }
+    }
+
+    // 同一効果の重複適用不可: 非 stackable は (対象, パス, モード, identity)ごとに最大値1つだけ。
+    // stackable は重複排除しない。
+    const best = new Map();
+    const finalApps = [];
+    for (const app of apps) {
+      if (app.stackable) { finalApps.push(app); continue; }
+      const k = `${app.doc.id}|${app.totalPath}|${app.change.mode}|${app.identity}`;
+      const prev = best.get(k);
+      if (!prev || (Number(app.change.value) || 0) > (Number(prev.change.value) || 0)) best.set(k, app);
+    }
+    for (const app of best.values()) finalApps.push(app);
+
+    // Foundry 既定の優先度(mode×10)で安定適用する
+    finalApps.sort((a, b) =>
+      ((a.change.priority ?? a.change.mode * 10) - (b.change.priority ?? b.change.mode * 10)));
+    for (const { effect, change, doc, totalPath } of finalApps) {
+      effect.apply(doc, { ...change, key: `system.${totalPath}` });
     }
   }
 
