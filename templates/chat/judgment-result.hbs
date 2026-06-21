@@ -35,19 +35,23 @@
             <span class="jr-calc-val">{{result.controlVal}}</span>
         </div>
         {{#if hasCheckBonus}}
-        <div class="jr-calc-row">
-            <span class="jr-calc-label">判定ボーナス</span>
-            <span class="jr-calc-val">+{{result.checkBonus}}</span>
-        </div>
         {{#if checkSources.length}}
-        <details class="jr-bonus-detail">
-            <summary>内訳（{{checkSources.length}}件）</summary>
+        <details class="jr-bonus">
+            <summary class="jr-calc-row jr-bonus-summary">
+                <span class="jr-calc-label">判定ボーナス</span>
+                <span class="jr-calc-val">+{{result.checkBonus}}</span>
+            </summary>
             <ul class="jr-bonus-list">
                 {{#each checkSources}}
                 <li><span class="jr-bonus-name">{{this.name}}</span><span class="jr-bonus-num">+{{this.value}}</span></li>
                 {{/each}}
             </ul>
         </details>
+        {{else}}
+        <div class="jr-calc-row">
+            <span class="jr-calc-label">判定ボーナス</span>
+            <span class="jr-calc-val">+{{result.checkBonus}}</span>
+        </div>
         {{/if}}
         {{/if}}
     </div>
@@ -74,19 +78,23 @@
         </div>
         {{/if}}
         {{#if hasCheckBonus}}
-        <div class="jr-calc-row">
-            <span class="jr-calc-label">判定ボーナス</span>
-            <span class="jr-calc-val">+{{result.checkBonus}}</span>
-        </div>
         {{#if checkSources.length}}
-        <details class="jr-bonus-detail">
-            <summary>内訳（{{checkSources.length}}件）</summary>
+        <details class="jr-bonus">
+            <summary class="jr-calc-row jr-bonus-summary">
+                <span class="jr-calc-label">判定ボーナス</span>
+                <span class="jr-calc-val">+{{result.checkBonus}}</span>
+            </summary>
             <ul class="jr-bonus-list">
                 {{#each checkSources}}
                 <li><span class="jr-bonus-name">{{this.name}}</span><span class="jr-bonus-num">+{{this.value}}</span></li>
                 {{/each}}
             </ul>
         </details>
+        {{else}}
+        <div class="jr-calc-row">
+            <span class="jr-calc-label">判定ボーナス</span>
+            <span class="jr-calc-val">+{{result.checkBonus}}</span>
+        </div>
         {{/if}}
         {{/if}}
         {{/unless}}{{/unless}}

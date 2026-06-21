@@ -4103,16 +4103,27 @@ body.tnx-bottom-hud-expanded #hotbar {
     line-height: 1;
 }
 
-/* 判定ボーナスの内訳 (展開式・エフェクト名一覧) */
-.jr-bonus-detail {
-    margin: 1px 0 2px;
-    font-size: 0.82em;
+/* 判定ボーナス行＝開閉トグル (▶判定ボーナス … +N、開くとエフェクト名一覧) */
+.jr-bonus-summary {
+    cursor: pointer;
+    list-style: none;
 }
 
-.jr-bonus-detail > summary {
-    cursor: pointer;
+.jr-bonus-summary::-webkit-details-marker {
+    display: none;
+}
+
+.jr-bonus-summary .jr-calc-label::before {
+    content: "\25B6"; /* ▶ */
+    display: inline-block;
+    margin-right: 4px;
+    font-size: 0.7em;
     color: var(--tnx2-text-secondary);
-    list-style: revert;
+    transition: transform 0.12s ease;
+}
+
+.jr-bonus[open] .jr-bonus-summary .jr-calc-label::before {
+    transform: rotate(90deg);
 }
 
 .jr-bonus-list {
@@ -4120,6 +4131,7 @@ body.tnx-bottom-hud-expanded #hotbar {
     margin: 3px 0 0;
     padding: 4px 6px;
     border-radius: 4px;
+    font-size: 0.85em;
     background: var(--tnx2-bg-subtle, rgba(0, 0, 0, 0.12));
 }
 
