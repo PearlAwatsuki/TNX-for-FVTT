@@ -17,6 +17,7 @@
 
 import { getCardJudgmentValue, calcSkillCheck, calcControlCheck, ALL_SUITS, SUIT_TO_ABILITY } from './tnx-judgment-engine.mjs';
 import { gatherCheckBonusSources } from '../data/item/helpers.mjs';
+import { readCondition, gatherConditionCheckSources, getCheckBlock } from './conditions.mjs';
 import { TnxActionHandler } from './tnx-action-handler.mjs';
 import { TnxSocketHandler } from './tnx-socket-handler.mjs';
 import { getUserFlagData } from './user-flag-schema.mjs';
@@ -402,7 +403,31 @@ export class TnxJudgmentFlow {
             criteria = { type: "skill", skillKeys };
         }
         const sources = gatherCheckBonusSources(effects, criteria);
-        return { total: sources.reduce((s, e) => s + e.value, 0), sources };
+
+        // コンディション(BS)由来の達成値修正を合流する(酩酊=上方判定 -n、萎縮/憎悪=攻撃判定。
+        // 萎縮/憎悪の発火に必要な isAttack/targetMatched は攻撃判定モデル＝フェーズ12 が供給する)。
+        const condSources = gatherConditionCheckSources(TnxJudgmentFlow._gatherConditions(actor), {
+            upward:        ctx.type !== "controlCheck",
+            isAttack:      ctx.isAttack === true,
+            targetMatched: ctx.targetMatched === true,
+        });
+        const all = [...sources, ...condSources];
+        return { total: all.reduce((s, e) => s + e.value, 0), sources: all };
+    }
+
+    /**
+     * アクター自身＋全所有アイテムの effects から condition(BS・戦闘不能)を読み取る(フェーズ9-4)。
+     * @param {Actor} actor
+     * @returns {Array<object>} readCondition() 済みの配列
+     */
+    static _gatherConditions(actor) {
+        if (!actor) return [];
+        const out = [];
+        for (const e of (actor.effects ?? [])) { const c = readCondition(e); if (c) out.push(c); }
+        for (const item of (actor.items ?? [])) {
+            for (const e of (item.effects ?? [])) { const c = readCondition(e); if (c) out.push(c); }
+        }
+        return out;
     }
 
     /**
@@ -548,6 +573,19 @@ export class TnxJudgmentFlow {
             ui.notifications.error("判定するキャストが見つかりません。");
             TnxJudgmentFlow.cancel();
             return false;
+        }
+
+        // 重圧(BS): 該当能力値を使う上方判定を完全にブロックする。
+        // 判定に転送された(切り札リマップ後の) suit から能力値を拾う。カード実体は読まない。
+        // ブロック時はカードを出さず判定状態も維持し、別カードを選び直せるようにする。
+        if (!suitMismatch && ctx.type !== "controlCheck") {
+            const block = getCheckBlock(TnxJudgmentFlow._gatherConditions(actor), {
+                upward: true, ability: SUIT_TO_ABILITY[suit],
+            });
+            if (block.blocked) {
+                ui.notifications.warn(`「${block.by}」により、その能力値を使う判定はできません。別のスートのカードを使ってください。`);
+                return false;
+            }
         }
 
         // ダイアログを閉じて判定状態をクリア（カード選択後に即時）
