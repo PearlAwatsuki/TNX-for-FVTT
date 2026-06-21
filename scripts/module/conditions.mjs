@@ -34,10 +34,14 @@ export const CONDITION_KINDS = Object.freeze({
   "fear":         { label: "萎縮",     type: "attackTarget", targetMode: "include", penalty: 5, stackable: true },
   "hatred":       { label: "憎悪",     type: "attackTarget", targetMode: "exclude", penalty: 5 },
   "interference": { label: "電子妨害", type: "computed",     magnitude: true },
-  // --- 戦闘不能(statusEffects への登録は後続) ---
-  "faint":        { label: "気絶",     type: "block",        block: "mainProcess" },
-  "coma":         { label: "仮死",     type: "block",        block: "mainProcess", terminalPending: true },
-  "dead":         { label: "完全死亡", type: "terminal" },
+  // --- 戦闘不能(効果の発火＝メインプロセス不可は 13、回復は 15。9-4 は器のみ) ---
+  "faint":      { label: "気絶",     type: "block", block: "mainProcess" }, // 肉体
+  "swoon":      { label: "失神",     type: "block", block: "mainProcess" }, // 精神
+  "coma":       { label: "仮死",     type: "block", block: "mainProcess", terminalPending: true }, // 肉体
+  "stupor":     { label: "昏睡",     type: "block", block: "mainProcess", terminalPending: true }, // 精神
+  "dead":       { label: "完全死亡", type: "terminal" }, // 肉体
+  "mind-break": { label: "精神崩壊", type: "terminal" }, // 精神
+  "erased":     { label: "抹殺",     type: "terminal" }, // 社会(適用はセッション終了後)
 });
 
 /**

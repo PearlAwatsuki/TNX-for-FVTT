@@ -437,7 +437,15 @@ Hooks.once("init", async function() {
         { id: "confusion", name: "狼狽", img: "icons/svg/explosion.svg", ...cond("confusion") },
         { id: "fear", name: "萎縮", img: "icons/svg/cowled.svg", ...cond("fear") }, // User specified 'Fear' for 萎縮
         { id: "hatred", name: "憎悪", img: "icons/svg/fire.svg", ...cond("hatred") },
-        { id: "interference", name: "電子妨害", img: "icons/svg/lightning.svg", ...cond("interference") }
+        { id: "interference", name: "電子妨害", img: "icons/svg/lightning.svg", ...cond("interference") },
+        // 戦闘不能(効果の発火＝メインプロセス不可は13、回復は15。9-4は器=定義のみ)
+        { id: "faint", name: "気絶", img: "icons/svg/unconscious.svg", ...cond("faint") },
+        { id: "swoon", name: "失神", img: "icons/svg/unconscious.svg", ...cond("swoon") },
+        { id: "coma", name: "仮死", img: "icons/svg/skull.svg", ...cond("coma") },
+        { id: "stupor", name: "昏睡", img: "icons/svg/skull.svg", ...cond("stupor") },
+        { id: "dead", name: "完全死亡", img: "icons/svg/blood.svg", ...cond("dead") },
+        { id: "mind-break", name: "精神崩壊", img: "icons/svg/blood.svg", ...cond("mind-break") },
+        { id: "erased", name: "抹殺", img: "icons/svg/blood.svg", ...cond("erased") }
     ];
     
     // Actor Sheetの登録
