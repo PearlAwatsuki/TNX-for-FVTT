@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
-const { defenceField, attackField, modeValueField, migrateAttackModToEffectMod, computeItemEffectiveValues, matchesAeTarget, addToItemEffectMod, parseCrossTargetKey, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath } = await import("../../../scripts/data/item/helpers.mjs");
+const { defenceField, attackField, modeValueField, migrateAttackModToEffectMod, computeItemEffectiveValues, matchesAeTarget, addToItemEffectMod, parseCrossTargetKey, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus } = await import("../../../scripts/data/item/helpers.mjs");
 
 describe("defenceField()", () => {
   it("呼び出せる", () => {
@@ -177,6 +177,64 @@ describe("computeItemEffectiveValues()（v2: total=base）", () => {
     const sys = { guardValue: { mode: "value", value: 3, effectMod: 2 } };
     computeItemEffectiveValues(sys);
     expect(sys.guardValue.value).toBe(3);
+  });
+});
+
+describe("checkChangeMatches()", () => {
+  it("技能(完全一致/プレフィックス)", () => {
+    expect(checkChangeMatches("check.melee", { type: "skill", skillKeys: ["melee", "shooting"] })).toBe(true);
+    expect(checkChangeMatches("check.melee", { type: "skill", skillKeys: ["shooting"] })).toBe(false);
+    expect(checkChangeMatches("check.society_*", { type: "skill", skillKeys: ["society_police"] })).toBe(true);
+  });
+  it("能力値判定 / 制御判定", () => {
+    expect(checkChangeMatches("check.reason", { type: "ability", ability: "reason" })).toBe(true);
+    expect(checkChangeMatches("check.reason", { type: "ability", ability: "passion" })).toBe(false);
+    expect(checkChangeMatches("controlCheck.reason", { type: "control", ability: "reason" })).toBe(true);
+    expect(checkChangeMatches("check.reason", { type: "control", ability: "reason" })).toBe(false);
+  });
+});
+
+describe("computeCheckBonus()（同一効果の重複適用不可）", () => {
+  const crit = { type: "skill", skillKeys: ["society_police", "society_media"] };
+
+  it("単一効果＝その値", () => {
+    const effs = [{ identity: "e1", changes: [{ key: "check.society_*", value: "1" }] }];
+    expect(computeCheckBonus(effs, crit)).toBe(1);
+  });
+
+  it("同一効果が複数技能に合致しても1回(プレフィックスが2技能に当たっても+1)", () => {
+    // crit に society 技能が2つあるが、1エフェクトなので +1
+    const effs = [{ identity: "e1", changes: [{ key: "check.society_*", value: "1" }] }];
+    expect(computeCheckBonus(effs, crit)).toBe(1);
+  });
+
+  it("同一 identity の複数効果は最大採用", () => {
+    const effs = [
+      { identity: "buffA", changes: [{ key: "check.society_*", value: "1" }] },
+      { identity: "buffA", changes: [{ key: "check.society_*", value: "3" }] },
+    ];
+    expect(computeCheckBonus(effs, crit)).toBe(3);
+  });
+
+  it("別 identity はスタック", () => {
+    const effs = [
+      { identity: "buffA", changes: [{ key: "check.society_*", value: "1" }] },
+      { identity: "buffB", changes: [{ key: "check.society_*", value: "2" }] },
+    ];
+    expect(computeCheckBonus(effs, crit)).toBe(3);
+  });
+
+  it("stackable は重複排除せず加算", () => {
+    const effs = [
+      { identity: "buffA", stackable: true, changes: [{ key: "check.society_*", value: "1" }] },
+      { identity: "buffA", stackable: true, changes: [{ key: "check.society_*", value: "1" }] },
+    ];
+    expect(computeCheckBonus(effs, crit)).toBe(2);
+  });
+
+  it("非アクティブはスキップ", () => {
+    const effs = [{ identity: "e1", active: false, changes: [{ key: "check.society_*", value: "5" }] }];
+    expect(computeCheckBonus(effs, crit)).toBe(0);
   });
 });
 

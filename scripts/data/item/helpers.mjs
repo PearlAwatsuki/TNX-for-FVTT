@@ -279,6 +279,58 @@ export function parseEffectConditions(str) {
  */
 const ABILITY_NAMES = ["reason", "passion", "life", "mundane"];
 
+/**
+ * 判定バフの変更キーが、判定の条件(criteria)に合致するか(フェーズ9-3 v2)。
+ * @param {string} key  change.key
+ * @param {{type:"skill"|"ability"|"control", skillKeys?:string[], ability?:string}} criteria
+ * @returns {boolean}
+ */
+export function checkChangeMatches(key, criteria) {
+  const p = parseEffectTargetKey(key);
+  if (!p || !criteria) return false;
+  if (criteria.type === "ability") return p.scope === "abilityCheck" && p.ability === criteria.ability;
+  if (criteria.type === "control") return p.scope === "controlCheck" && p.ability === criteria.ability;
+  if (criteria.type === "skill") {
+    if (p.scope !== "skillCheck") return false;
+    return (criteria.skillKeys ?? []).some(k =>
+      p.prefix ? !!k?.startsWith?.(p.selector) : k === p.selector);
+  }
+  return false;
+}
+
+/**
+ * 判定バフの合計ボーナスを算出する(フェーズ9-3 v2)。
+ * **同一効果の重複適用不可**: 各効果(identity)につき最大1回。同一効果内で複数の変更が合致しても
+ * 最も有利な値を1回。別効果はスタック。`stackable` の効果は重複排除せず常に加算。
+ *
+ * @param {Array<{identity:string, stackable?:boolean, active?:boolean, changes?:Array<{key:string,value:any}>}>} effects
+ * @param {{type:"skill"|"ability"|"control", skillKeys?:string[], ability?:string}} criteria
+ * @returns {number}
+ */
+export function computeCheckBonus(effects, criteria) {
+  const byIdentity = new Map();
+  let stackableSum = 0;
+  for (const eff of (effects ?? [])) {
+    if (eff.active === false) continue;
+    let matched = null;
+    for (const change of (eff.changes ?? [])) {
+      if (!checkChangeMatches(change.key, criteria)) continue;
+      const v = Number(change.value) || 0;
+      matched = matched === null ? v : Math.max(matched, v);
+    }
+    if (matched === null) continue;
+    if (eff.stackable) {
+      stackableSum += matched;
+    } else {
+      const id = eff.identity;
+      byIdentity.set(id, Math.max(byIdentity.get(id) ?? -Infinity, matched));
+    }
+  }
+  let sum = stackableSum;
+  for (const v of byIdentity.values()) sum += v;
+  return sum;
+}
+
 export function parseEffectTargetKey(key) {
   if (typeof key !== "string" || !key) return null;
   // [conditions] を切り出す

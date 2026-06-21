@@ -84,7 +84,7 @@ export function getAbilityBySuit(suit, abilitiesCtx) {
  * @param {number}  [opts.targetValue]  目標値（成否判定に使用）
  * @returns {JudgmentCheckResult}
  */
-export function calcSkillCheck({ cardJudgmentValue, suit, abilitiesCtx, bountyUsed = 0, targetValue = null }) {
+export function calcSkillCheck({ cardJudgmentValue, suit, abilitiesCtx, bountyUsed = 0, targetValue = null, checkBonus = 0 }) {
     if (cardJudgmentValue === "FUMBLE") {
         return { fumble: true, success: false, achievement: null, diff: null };
     }
@@ -108,7 +108,7 @@ export function calcSkillCheck({ cardJudgmentValue, suit, abilitiesCtx, bountyUs
         };
     }
 
-    const achievement = cardJudgmentValue + totalValue + bountyUsed;
+    const achievement = cardJudgmentValue + totalValue + bountyUsed + checkBonus;
     const diff        = targetValue !== null ? achievement - targetValue : null;
     return {
         fumble:      false,
@@ -116,6 +116,7 @@ export function calcSkillCheck({ cardJudgmentValue, suit, abilitiesCtx, bountyUs
         abilityKey,
         abilityVal:  totalValue,
         bountyUsed,
+        checkBonus,
         cardValue:   cardJudgmentValue,
         achievement,
         targetValue,
