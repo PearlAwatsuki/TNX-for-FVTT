@@ -126,6 +126,24 @@ export function gatherConditionCheckSources(conditions, ctx) {
 }
 
 /**
+ * condition による**全制御値の減少量**(正の合計)を返す(派生パスで totalControl から引く)。
+ * 衰弱(allControl)・酩酊(allCheckAndControl) 等、apply に "Control" を含む numeric 型。
+ * 非 stackable は同 kind で重複排除(最大)、stackable(衰弱・酩酊) は重ねる。
+ * @param {Array<object>} conditions readCondition() 済みの配列
+ * @returns {number}
+ */
+export function gatherConditionControlPenalty(conditions) {
+  const entries = [];
+  for (const c of (conditions ?? [])) {
+    if (!c?.active) continue;
+    if (c.def?.type === "numeric" && /Control/.test(c.def?.apply ?? "") && c.magnitude) {
+      entries.push({ identity: c.kind, stackable: c.stackable, name: c.name, value: c.magnitude });
+    }
+  }
+  return dedupeEntries(entries).reduce((sum, e) => sum + e.value, 0);
+}
+
+/**
  * 上方判定が condition により禁止されているかを返す(重圧)。
  * @param {Array<object>} conditions readCondition() 済みの配列
  * @param {{upward:boolean, ability:string}} ctx

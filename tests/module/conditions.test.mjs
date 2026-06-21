@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CONDITION_KINDS, readCondition, gatherConditionCheckSources, getCheckBlock }
+import { CONDITION_KINDS, readCondition, gatherConditionCheckSources, getCheckBlock, gatherConditionControlPenalty }
   from "../../scripts/module/conditions.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
@@ -88,6 +88,27 @@ describe("gatherConditionCheckSources()", () => {
     expect(gatherConditionCheckSources(cower, { isAttack: true, targetMatched: false })).toEqual([]);
     const hatred = [readCondition(condEffect({ kind: "hatred" }))];
     expect(gatherConditionCheckSources(hatred, { isAttack: true, targetMatched: true })).toEqual([]);
+  });
+});
+
+describe("gatherConditionControlPenalty()（全制御値減）", () => {
+  it("衰弱(stackable)は重ねる、酩酊の制御分も合算", () => {
+    const conds = [
+      readCondition(condEffect({ kind: "weakness", magnitude: 2, id: "w1" })),
+      readCondition(condEffect({ kind: "weakness", magnitude: 3, id: "w2" })),
+      readCondition(condEffect({ kind: "intoxMinor", id: "i1" })), // magnitude=2
+    ];
+    expect(gatherConditionControlPenalty(conds)).toBe(2 + 3 + 2);
+  });
+
+  it("酩酊だけでも制御に効く（allCheckAndControl）", () => {
+    const conds = [readCondition(condEffect({ kind: "intoxMajor", id: "x" }))]; // 5
+    expect(gatherConditionControlPenalty(conds)).toBe(5);
+  });
+
+  it("重圧など制御に効かない kind は無視", () => {
+    const conds = [readCondition(condEffect({ kind: "pressure", targetAbility: "life" }))];
+    expect(gatherConditionControlPenalty(conds)).toBe(0);
   });
 });
 

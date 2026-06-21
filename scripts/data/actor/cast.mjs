@@ -19,6 +19,7 @@ import { AttributesTemplate } from "./common/attributes.mjs";
 import { ActorBaseTemplate } from "./common/actor-base.mjs";
 import { computeAttributeFinal, computeOutfitAggregates } from "../helpers.mjs";
 import { ATTACK_DAMAGE_TYPES, parseEffectTargetKey, resolveItemTotalPath, evalEffectConditions } from "../item/helpers.mjs";
+import { readCondition, gatherConditionControlPenalty } from "../../module/conditions.mjs";
 
 /** 能力値キー(♠理性 / ♣感情 / ♥生命 / ♦外界) */
 const ABILITY_KEYS = ["reason", "passion", "life", "mundane"];
@@ -120,12 +121,30 @@ export class CastDataModel extends SystemDataModel.mixin(
       this[key].total        = total;
       this[key].totalControl = totalControl;
     }
-    // バフ(ActiveEffect)を total へ直接適用 → 最後に 0clamp(全修正後の最終値、順序非依存)
+    // バフ(ActiveEffect)を total へ直接適用 → コンディション(衰弱・酩酊)の全制御値減 → 0clamp
     this._applyEffectBuffs();
+    this._applyConditionControlPenalty();
     for (const key of ABILITY_KEYS) {
       this[key].total        = Math.max(0, this[key].total);
       this[key].totalControl = Math.max(0, this[key].totalControl);
     }
+  }
+
+  /**
+   * コンディション(BS)による全制御値の減少を totalControl に適用する(フェーズ9-4)。
+   * 衰弱・酩酊。アクター自身＋全所有アイテムの effects から condition を読む。0clamp は呼び出し側。
+   */
+  _applyConditionControlPenalty() {
+    const actor = this.parent;
+    if (!actor) return;
+    const conditions = [];
+    for (const e of (actor.effects ?? [])) { const c = readCondition(e); if (c) conditions.push(c); }
+    for (const item of (actor.items ?? [])) {
+      for (const e of (item.effects ?? [])) { const c = readCondition(e); if (c) conditions.push(c); }
+    }
+    const penalty = gatherConditionControlPenalty(conditions);
+    if (!penalty) return;
+    for (const key of ABILITY_KEYS) this[key].totalControl -= penalty;
   }
 
   /**
