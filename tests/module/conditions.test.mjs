@@ -21,44 +21,44 @@ describe("readCondition()", () => {
   });
 
   it("kind/magnitude/label を読む。magnitude 未指定は def の既定", () => {
-    const c = readCondition(condEffect({ kind: "intoxMinor" }));
-    expect(c.kind).toBe("intoxMinor");
+    const c = readCondition(condEffect({ kind: "doped-minor" }));
+    expect(c.kind).toBe("doped-minor");
     expect(c.label).toBe("酩酊(小)");
     expect(c.magnitude).toBe(2); // magnitudeDefault
     expect(c.stackable).toBe(true); // def.stackable
   });
 
   it("magnitude のフラグ指定が既定を上書き", () => {
-    const c = readCondition(condEffect({ kind: "jamming", magnitude: 3 }));
+    const c = readCondition(condEffect({ kind: "interference", magnitude: 3 }));
     expect(c.magnitude).toBe(3);
   });
 });
 
 describe("CONDITION_KINDS レジストリ", () => {
   it("主要 kind が型を持つ", () => {
-    expect(CONDITION_KINDS.intoxMinor.type).toBe("numeric");
+    expect(CONDITION_KINDS["doped-minor"].type).toBe("numeric");
     expect(CONDITION_KINDS.pressure.type).toBe("block");
-    expect(CONDITION_KINDS.jamming.type).toBe("computed");
+    expect(CONDITION_KINDS.interference.type).toBe("computed");
     expect(CONDITION_KINDS.poison.type).toBe("continuous");
-    expect(CONDITION_KINDS.cower.type).toBe("attackTarget");
+    expect(CONDITION_KINDS.fear.type).toBe("attackTarget");
   });
 });
 
 describe("gatherConditionCheckSources()", () => {
   it("酩酊(小)は上方判定の達成値 -2", () => {
-    const conds = [readCondition(condEffect({ kind: "intoxMinor", name: "酩酊(小)" }))];
+    const conds = [readCondition(condEffect({ kind: "doped-minor", name: "酩酊(小)" }))];
     expect(gatherConditionCheckSources(conds, { upward: true })).toEqual([{ name: "酩酊(小)", value: -2 }]);
   });
 
   it("上方判定でなければ適用しない", () => {
-    const conds = [readCondition(condEffect({ kind: "intoxMinor" }))];
+    const conds = [readCondition(condEffect({ kind: "doped-minor" }))];
     expect(gatherConditionCheckSources(conds, { upward: false })).toEqual([]);
   });
 
   it("酩酊(小)と酩酊(大)は別 kind で重なる(-2 と -5)", () => {
     const conds = [
-      readCondition(condEffect({ kind: "intoxMinor", name: "酩酊(小)", id: "a" })),
-      readCondition(condEffect({ kind: "intoxMajor", name: "酩酊(大)", id: "b" })),
+      readCondition(condEffect({ kind: "doped-minor", name: "酩酊(小)", id: "a" })),
+      readCondition(condEffect({ kind: "doped-major", name: "酩酊(大)", id: "b" })),
     ];
     const got = gatherConditionCheckSources(conds, { upward: true });
     expect(got).toContainEqual({ name: "酩酊(小)", value: -2 });
@@ -67,8 +67,8 @@ describe("gatherConditionCheckSources()", () => {
 
   it("萎縮(stackable)は対象一致でスタック、憎悪(非stackable)は複数でも-5一回", () => {
     const cower = [
-      readCondition(condEffect({ kind: "cower", name: "萎縮A", id: "c1" })),
-      readCondition(condEffect({ kind: "cower", name: "萎縮B", id: "c2" })),
+      readCondition(condEffect({ kind: "fear", name: "萎縮A", id: "c1" })),
+      readCondition(condEffect({ kind: "fear", name: "萎縮B", id: "c2" })),
     ];
     // 萎縮=include、対象一致 → 2件スタック
     expect(gatherConditionCheckSources(cower, { isAttack: true, targetMatched: true }))
@@ -84,7 +84,7 @@ describe("gatherConditionCheckSources()", () => {
   });
 
   it("萎縮は対象を含まなければ不適用、憎悪は含めば不適用", () => {
-    const cower = [readCondition(condEffect({ kind: "cower" }))];
+    const cower = [readCondition(condEffect({ kind: "fear" }))];
     expect(gatherConditionCheckSources(cower, { isAttack: true, targetMatched: false })).toEqual([]);
     const hatred = [readCondition(condEffect({ kind: "hatred" }))];
     expect(gatherConditionCheckSources(hatred, { isAttack: true, targetMatched: true })).toEqual([]);
@@ -96,13 +96,13 @@ describe("gatherConditionControlPenalty()（全制御値減）", () => {
     const conds = [
       readCondition(condEffect({ kind: "weakness", magnitude: 2, id: "w1" })),
       readCondition(condEffect({ kind: "weakness", magnitude: 3, id: "w2" })),
-      readCondition(condEffect({ kind: "intoxMinor", id: "i1" })), // magnitude=2
+      readCondition(condEffect({ kind: "doped-minor", id: "i1" })), // magnitude=2
     ];
     expect(gatherConditionControlPenalty(conds)).toBe(2 + 3 + 2);
   });
 
   it("酩酊だけでも制御に効く（allCheckAndControl）", () => {
-    const conds = [readCondition(condEffect({ kind: "intoxMajor", id: "x" }))]; // 5
+    const conds = [readCondition(condEffect({ kind: "doped-major", id: "x" }))]; // 5
     expect(gatherConditionControlPenalty(conds)).toBe(5);
   });
 

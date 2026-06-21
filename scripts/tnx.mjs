@@ -46,6 +46,7 @@ import { TnxRlRequestApp } from './module/tnx-rl-request-app.mjs';
 import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
 import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
+import { CONDITION_KINDS } from './module/conditions.mjs';
 
 async function preloadHandlebarsTemplates() {
     const templatePaths = [
@@ -284,6 +285,47 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
     const anchor = root.querySelector('[name="transfer"], [name="disabled"]')?.closest(".form-group");
     if (anchor) anchor.after(group);
     else (root.querySelector('.tab[data-tab="details"]') ?? root.querySelector("form"))?.appendChild(group);
+
+    // コンディション(BS)の効果値フィールド(kind 別)を詳細タブに注入する(フェーズ9-4)。
+    // 効果値は condition 自身に閉じる(汎用 changes でなく専用フィールド)。change で setFlag。
+    const kind = app.document?.getFlag?.("tokyo-nova-axleration", "conditionKind");
+    const def  = kind ? CONDITION_KINDS[kind] : null;
+    if (def) {
+        const get = (k) => app.document?.getFlag?.("tokyo-nova-axleration", k);
+        const set = (k, v) => app.document?.setFlag("tokyo-nova-axleration", k, v);
+        const fields = [];
+        if (def.magnitude) {
+            const isStrength = def.type === "computed" || def.type === "continuous";
+            const val = Number(get("magnitude") ?? def.magnitudeDefault ?? 0) || 0;
+            fields.push({ label: isStrength ? "強度 n" : "効果量",
+                html: `<input type="number" value="${val}" step="1">`,
+                bind: (el) => el.addEventListener("change", (e) => set("magnitude", Number(e.currentTarget.value) || 0)) });
+        }
+        if (def.targetAbility) {
+            const cur = get("targetAbility") ?? "reason";
+            const opts = { reason: "理性", passion: "感情", life: "生命", mundane: "外界" };
+            const sel = Object.entries(opts).map(([k, l]) =>
+                `<option value="${k}" ${k === cur ? "selected" : ""}>${l}</option>`).join("");
+            fields.push({ label: "対象能力値",
+                html: `<select>${sel}</select>`,
+                bind: (el) => el.addEventListener("change", (e) => set("targetAbility", e.currentTarget.value)) });
+        }
+        if (def.type === "attackTarget") {
+            const cur = get("targetUuid") ?? "";
+            fields.push({ label: "対象(UUID)",
+                html: `<input type="text" value="${cur}" placeholder="Actor UUID">`,
+                bind: (el) => el.addEventListener("change", (e) => set("targetUuid", e.currentTarget.value.trim())) });
+        }
+        let last = group;
+        for (const f of fields) {
+            const g = document.createElement("div");
+            g.classList.add("form-group", "tnx-condition-fields");
+            g.innerHTML = `<label>${f.label}</label><div class="form-fields">${f.html}</div>`;
+            f.bind(g.querySelector("input, select"));
+            last.after(g);
+            last = g;
+        }
+    }
 });
 
 Hooks.once("init", async function() {
@@ -380,19 +422,22 @@ Hooks.once("init", async function() {
     };
 
     // トーキョーN◎VA バッドステータス定義
-    // id: システム内部で使うID, label: 表示名
+    // id: システム内部で使うID(= conditionKind), name: 表示名
+    // flags.tokyo-nova-axleration.conditionKind を持たせ、貼付時に condition として認識させる(フェーズ9-4)。
+    // 効果値(magnitude/対象 等)はインスタンスごとに詳細タブで設定する。
+    const cond = (kind) => ({ flags: { "tokyo-nova-axleration": { conditionKind: kind } } });
     CONFIG.statusEffects = [
-        { id: "panic", name: "恐慌", img: "icons/svg/terror.svg" },
-        { id: "poison", name: "邪毒", img: "icons/svg/poison.svg" },
-        { id: "pressure", name: "重圧", img: "icons/svg/down.svg" },
-        { id: "weakness", name: "衰弱", img: "icons/svg/degen.svg" },
-        { id: "capture", name: "捕縛", img: "icons/svg/net.svg" },
-        { id: "doped-major", name: "酩酊(大)", img: "icons/svg/daze.svg" },
-        { id: "doped-minor", name: "酩酊(小)", img: "icons/svg/sleep.svg" },
-        { id: "confusion", name: "狼狽", img: "icons/svg/explosion.svg" },
-        { id: "fear", name: "萎縮", img: "icons/svg/cowled.svg" }, // User specified 'Fear' for 萎縮
-        { id: "hatred", name: "憎悪", img: "icons/svg/fire.svg" },
-        { id: "interference", name: "電子妨害", img: "icons/svg/lightning.svg" }
+        { id: "panic", name: "恐慌", img: "icons/svg/terror.svg", ...cond("panic") },
+        { id: "poison", name: "邪毒", img: "icons/svg/poison.svg", ...cond("poison") },
+        { id: "pressure", name: "重圧", img: "icons/svg/down.svg", ...cond("pressure") },
+        { id: "weakness", name: "衰弱", img: "icons/svg/degen.svg", ...cond("weakness") },
+        { id: "capture", name: "捕縛", img: "icons/svg/net.svg", ...cond("capture") },
+        { id: "doped-major", name: "酩酊(大)", img: "icons/svg/daze.svg", ...cond("doped-major") },
+        { id: "doped-minor", name: "酩酊(小)", img: "icons/svg/sleep.svg", ...cond("doped-minor") },
+        { id: "confusion", name: "狼狽", img: "icons/svg/explosion.svg", ...cond("confusion") },
+        { id: "fear", name: "萎縮", img: "icons/svg/cowled.svg", ...cond("fear") }, // User specified 'Fear' for 萎縮
+        { id: "hatred", name: "憎悪", img: "icons/svg/fire.svg", ...cond("hatred") },
+        { id: "interference", name: "電子妨害", img: "icons/svg/lightning.svg", ...cond("interference") }
     ];
     
     // Actor Sheetの登録

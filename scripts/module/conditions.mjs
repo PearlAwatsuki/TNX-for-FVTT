@@ -21,22 +21,23 @@ const SCOPE = "tokyo-nova-axleration";
  * - attackTarget: 条件付き攻撃判定デバフ(対象UUID照合)。萎縮・憎悪
  * - terminal:     終端マーカー(キャラロスト)。完全死亡 等
  */
+// キーは CONFIG.statusEffects の id と一致させる(conditionKind = status id で一意化)。
 export const CONDITION_KINDS = Object.freeze({
   // --- バッドステータス ---
-  panic:      { label: "恐慌",       type: "block",        block: "reaction" },
-  poison:     { label: "邪毒",       type: "continuous",   magnitude: true },
-  pressure:   { label: "重圧",       type: "block",        block: "abilityCheck", targetAbility: true },
-  weakness:   { label: "衰弱",       type: "numeric",      apply: "allControl",        magnitude: true, stackable: true },
-  bind:       { label: "捕縛",       type: "block",        block: "attackWith",        targetWeapon: true, stackable: true },
-  intoxMinor: { label: "酩酊(小)",   type: "numeric",      apply: "allCheckAndControl", magnitude: true, magnitudeDefault: 2, stackable: true },
-  intoxMajor: { label: "酩酊(大)",   type: "numeric",      apply: "allCheckAndControl", magnitude: true, magnitudeDefault: 5, stackable: true },
-  cower:      { label: "萎縮",       type: "attackTarget", targetMode: "include", penalty: 5, stackable: true },
-  hatred:     { label: "憎悪",       type: "attackTarget", targetMode: "exclude", penalty: 5 },
-  jamming:    { label: "電子妨害",   type: "computed",     magnitude: true },
-  // --- 戦闘不能 ---
-  faint:      { label: "気絶",       type: "block",        block: "mainProcess" },
-  coma:       { label: "仮死",       type: "block",        block: "mainProcess", terminalPending: true },
-  dead:       { label: "完全死亡",   type: "terminal" },
+  "panic":        { label: "恐慌",     type: "block",        block: "reaction" },
+  "poison":       { label: "邪毒",     type: "continuous",   magnitude: true },
+  "pressure":     { label: "重圧",     type: "block",        block: "abilityCheck", targetAbility: true },
+  "weakness":     { label: "衰弱",     type: "numeric",      apply: "allControl",        magnitude: true, stackable: true },
+  "capture":      { label: "捕縛",     type: "block",        block: "attackWith",        targetWeapon: true, stackable: true },
+  "doped-major":  { label: "酩酊(大)", type: "numeric",      apply: "allCheckAndControl", magnitude: true, magnitudeDefault: 5, stackable: true },
+  "doped-minor":  { label: "酩酊(小)", type: "numeric",      apply: "allCheckAndControl", magnitude: true, magnitudeDefault: 2, stackable: true },
+  "fear":         { label: "萎縮",     type: "attackTarget", targetMode: "include", penalty: 5, stackable: true },
+  "hatred":       { label: "憎悪",     type: "attackTarget", targetMode: "exclude", penalty: 5 },
+  "interference": { label: "電子妨害", type: "computed",     magnitude: true },
+  // --- 戦闘不能(statusEffects への登録は後続) ---
+  "faint":        { label: "気絶",     type: "block",        block: "mainProcess" },
+  "coma":         { label: "仮死",     type: "block",        block: "mainProcess", terminalPending: true },
+  "dead":         { label: "完全死亡", type: "terminal" },
 });
 
 /**
