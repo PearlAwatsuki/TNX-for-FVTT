@@ -142,9 +142,12 @@ export class CastDataModel extends SystemDataModel.mixin(
     for (const item of (actor.items ?? [])) {
       for (const e of (item.effects ?? [])) conditions.push(...readConditions(e));
     }
-    const penalty = gatherConditionControlPenalty(conditions);
-    if (!penalty) return;
-    for (const key of ABILITY_KEYS) this[key].totalControl -= penalty;
+    // 衰弱(数字なし)=対応1能力値のみ、衰弱(-数字)・酩酊=全制御値。
+    const { all, byAbility } = gatherConditionControlPenalty(conditions);
+    for (const key of ABILITY_KEYS) {
+      const p = all + (byAbility[key] ?? 0);
+      if (p) this[key].totalControl -= p;
+    }
   }
 
   /**

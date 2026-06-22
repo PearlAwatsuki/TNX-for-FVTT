@@ -25,17 +25,19 @@ describe("readCondition()", () => {
     expect(readCondition({ flags: { [SCOPE]: {} } })).toBeNull();
   });
 
-  it("kind/magnitude/label を読む。magnitude 未指定は def の既定", () => {
-    const c = readCondition(condEffect({ kind: "doped-minor" }));
+  it("酩酊は固定値(fixedMagnitude)を読み、stackable は def 固定(非重複)", () => {
+    const c = readCondition(condEffect({ kind: "doped-minor", magnitude: 99 }));
     expect(c.kind).toBe("doped-minor");
     expect(c.label).toBe("酩酊(小)");
-    expect(c.magnitude).toBe(2); // magnitudeDefault
-    expect(c.stackable).toBe(true); // def.stackable
+    expect(c.magnitude).toBe(2);      // 固定 -2（フラグ 99 は無視）
+    expect(c.stackable).toBe(false);  // 酩酊は非重複（ハードコード）
   });
 
-  it("magnitude のフラグ指定が既定を上書き", () => {
-    const c = readCondition(condEffect({ kind: "interference", magnitude: 3 }));
+  it("可変値(magnitudeField)はフラグから読む。衰弱は stackable", () => {
+    const c = readConditions({ id: "w", name: "衰弱", active: true, statuses: new Set(["weakness"]),
+      flags: { [SCOPE]: { conditions: { weakness: { magnitude: 3 } } } } })[0];
     expect(c.magnitude).toBe(3);
+    expect(c.stackable).toBe(true);
   });
 
   it("1つの AE が複数 BS を持つ場合、readConditions は全て返し効果値は kind 別キーで読む", () => {
@@ -47,10 +49,10 @@ describe("readCondition()", () => {
     const cs = readConditions(eff);
     expect(getConditionKinds(eff)).toEqual(["doped-minor", "weakness"]);
     expect(cs).toHaveLength(2);
-    expect(cs.find(c => c.kind === "doped-minor").magnitude).toBe(4);  // kind 別キー
-    expect(cs.find(c => c.kind === "weakness").magnitude).toBe(7);
-    // 制御値減は両者合算（衰弱7＋酩酊4）
-    expect(gatherConditionControlPenalty(cs)).toBe(11);
+    expect(cs.find(c => c.kind === "doped-minor").magnitude).toBe(2);  // 酩酊は固定（フラグ4は無視）
+    expect(cs.find(c => c.kind === "weakness").magnitude).toBe(7);     // 衰弱は可変
+    // 全制御値減: 酩酊2＋衰弱7（共に対象指定なし＝all）
+    expect(gatherConditionControlPenalty(cs)).toEqual({ all: 9, byAbility: {} });
   });
 
   it("kind は statuses(status id) からも判定する（flags 非依存）", () => {
@@ -122,24 +124,31 @@ describe("gatherConditionCheckSources()", () => {
   });
 });
 
-describe("gatherConditionControlPenalty()（全制御値減）", () => {
-  it("衰弱(stackable)は重ねる、酩酊の制御分も合算", () => {
-    const conds = [
-      readCondition(condEffect({ kind: "weakness", magnitude: 2, id: "w1" })),
-      readCondition(condEffect({ kind: "weakness", magnitude: 3, id: "w2" })),
-      readCondition(condEffect({ kind: "doped-minor", id: "i1" })), // magnitude=2
-    ];
-    expect(gatherConditionControlPenalty(conds)).toBe(2 + 3 + 2);
+describe("gatherConditionControlPenalty()（制御値減・all/byAbility）", () => {
+  /** 衰弱の condition を直接作る（magnitude＋任意の targetAbility） */
+  function weak(magnitude, targetAbility, id = "w") {
+    return readConditions({ id, name: "衰弱", active: true, statuses: new Set(["weakness"]),
+      flags: { [SCOPE]: { conditions: { weakness: { magnitude, targetAbility } } } } })[0];
+  }
+
+  it("衰弱(stackable)は重ねる、酩酊(固定)の制御分も全制御に合算", () => {
+    const conds = [weak(2, "", "w1"), weak(3, "", "w2"), readCondition(condEffect({ kind: "doped-minor", id: "i1" }))];
+    expect(gatherConditionControlPenalty(conds)).toEqual({ all: 2 + 3 + 2, byAbility: {} });
   });
 
-  it("酩酊だけでも制御に効く（allCheckAndControl）", () => {
-    const conds = [readCondition(condEffect({ kind: "doped-major", id: "x" }))]; // 5
-    expect(gatherConditionControlPenalty(conds)).toBe(5);
+  it("衰弱(数字なし)＝対象能力値1つだけ。targetAbility は byAbility に入る", () => {
+    const conds = [weak(4, "life", "w1")];
+    expect(gatherConditionControlPenalty(conds)).toEqual({ all: 0, byAbility: { life: 4 } });
+  });
+
+  it("酩酊(大)だけでも全制御に効く（固定5）", () => {
+    const conds = [readCondition(condEffect({ kind: "doped-major", id: "x" }))];
+    expect(gatherConditionControlPenalty(conds)).toEqual({ all: 5, byAbility: {} });
   });
 
   it("重圧など制御に効かない kind は無視", () => {
     const conds = [readCondition(condEffect({ kind: "pressure", targetAbility: "life" }))];
-    expect(gatherConditionControlPenalty(conds)).toBe(0);
+    expect(gatherConditionControlPenalty(conds)).toEqual({ all: 0, byAbility: {} });
   });
 });
 

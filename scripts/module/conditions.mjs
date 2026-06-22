@@ -22,26 +22,34 @@ const SCOPE = "tokyo-nova-axleration";
  * - terminal:     終端マーカー(キャラロスト)。完全死亡 等
  */
 // キーは CONFIG.statusEffects の id と一致させる(conditionKind = status id で一意化)。
+// Bad_Status.md 準拠(2026-06-22)。効果値は「固定(fixedMagnitude=コード適用・欄なし)」と
+// 「可変(magnitudeField/abilityField/targetField/weaponField=詳細タブで入力)」を区別する。
+// 重複可否(stackable)は **BS ごとにルールで固定**(切替不可)。
+// apply: "checkAndControl"(達成値＋制御値) / "control"(制御値のみ)。
 export const CONDITION_KINDS = Object.freeze({
   // --- バッドステータス ---
-  "panic":        { label: "恐慌",     type: "block",        block: "reaction" },
-  "poison":       { label: "邪毒",     type: "continuous",   magnitude: true },
-  "pressure":     { label: "重圧",     type: "block",        block: "abilityCheck", targetAbility: true },
-  "weakness":     { label: "衰弱",     type: "numeric",      apply: "allControl",        magnitude: true, stackable: true },
-  "capture":      { label: "捕縛",     type: "block",        block: "attackWith",        targetWeapon: true, stackable: true },
-  "doped-major":  { label: "酩酊(大)", type: "numeric",      apply: "allCheckAndControl", magnitude: true, magnitudeDefault: 5, stackable: true },
-  "doped-minor":  { label: "酩酊(小)", type: "numeric",      apply: "allCheckAndControl", magnitude: true, magnitudeDefault: 2, stackable: true },
-  "fear":         { label: "萎縮",     type: "attackTarget", targetMode: "include", penalty: 5, stackable: true },
-  "hatred":       { label: "憎悪",     type: "attackTarget", targetMode: "exclude", penalty: 5 },
-  "interference": { label: "電子妨害", type: "computed",     magnitude: true },
-  // --- 戦闘不能(効果の発火＝メインプロセス不可は 13、回復は 15。9-4 は器のみ) ---
-  "faint":      { label: "気絶",     type: "block", block: "mainProcess" }, // 肉体
-  "swoon":      { label: "失神",     type: "block", block: "mainProcess" }, // 精神
-  "coma":       { label: "仮死",     type: "block", block: "mainProcess", terminalPending: true }, // 肉体
-  "stupor":     { label: "昏睡",     type: "block", block: "mainProcess", terminalPending: true }, // 精神
-  "dead":       { label: "完全死亡", type: "terminal" }, // 肉体
-  "mind-break": { label: "精神崩壊", type: "terminal" }, // 精神
-  "erased":     { label: "抹殺",     type: "terminal" }, // 社会(適用はセッション終了後)
+  "panic":        { label: "恐慌",     type: "block", block: "reaction",     stackable: false },
+  "poison":       { label: "邪毒",     type: "continuous", magnitudeField: true, stackable: false },
+  "pressure":     { label: "重圧",     type: "block", block: "abilityCheck", abilityField: "required", stackable: false },
+  // 衰弱: (数字なし)=対応スート1つの制御値を引いた数字分減 / (-数字)=全制御値をその数字分減。
+  // abilityField=optional(空欄=全制御値)。両者とも重複する。
+  "weakness":     { label: "衰弱",     type: "numeric", apply: "control", magnitudeField: true, abilityField: "optional", stackable: true },
+  "capture":      { label: "捕縛",     type: "block", block: "attackWith", weaponField: true, stackable: true }, // 武器ごと
+  // 酩酊: 達成値・全制御値の減少量は固定(小-2 / 大-5)。設定不可。小↔大は別BSで重なる。
+  "doped-major":  { label: "酩酊(大)", type: "numeric", apply: "checkAndControl", fixedMagnitude: 5, stackable: false },
+  "doped-minor":  { label: "酩酊(小)", type: "numeric", apply: "checkAndControl", fixedMagnitude: 2, stackable: false },
+  // 萎縮/憎悪: -5 は固定。対象(targetUuid)のみ可変。萎縮=対象ごと重複、憎悪=ペナルティ非重複。
+  "fear":         { label: "萎縮",     type: "attackTarget", targetMode: "include", penalty: 5, targetField: true, stackable: true },
+  "hatred":       { label: "憎悪",     type: "attackTarget", targetMode: "exclude", penalty: 5, targetField: true, stackable: false },
+  "interference": { label: "電子妨害", type: "computed", magnitudeField: true, stackable: false },
+  // --- 戦闘不能(効果の発火＝メインプロセス不可は 13、回復は 15。9-4 は器のみ。効果値なし・非重複) ---
+  "faint":      { label: "気絶",     type: "block", block: "mainProcess", stackable: false }, // 肉体
+  "swoon":      { label: "失神",     type: "block", block: "mainProcess", stackable: false }, // 精神
+  "coma":       { label: "仮死",     type: "block", block: "mainProcess", terminalPending: true, stackable: false }, // 肉体
+  "stupor":     { label: "昏睡",     type: "block", block: "mainProcess", terminalPending: true, stackable: false }, // 精神
+  "dead":       { label: "完全死亡", type: "terminal", stackable: false }, // 肉体
+  "mind-break": { label: "精神崩壊", type: "terminal", stackable: false }, // 精神
+  "erased":     { label: "抹殺",     type: "terminal", stackable: false }, // 社会(適用はセッション終了後)
 });
 
 /**
@@ -75,11 +83,14 @@ export function getConditionKind(effect) {
  */
 export function readConditions(effect) {
   const f = effect?.flags?.[SCOPE] ?? {};
-  const stackableFlag = f.stackable === true;
   const perKind = f.conditions ?? {};
   return getConditionKinds(effect).map(kind => {
     const def = CONDITION_KINDS[kind] ?? null;
     const v = perKind[kind] ?? {};
+    // 効果量: 固定(fixedMagnitude)があればそれ。無ければ可変フラグ。
+    const magnitude = def?.fixedMagnitude !== undefined
+      ? def.fixedMagnitude
+      : (Number(v.magnitude ?? f.magnitude ?? 0) || 0);
     return {
       kind,
       label:         def?.label ?? kind,
@@ -87,10 +98,10 @@ export function readConditions(effect) {
       name:          effect.name || def?.label || "(無名効果)",
       identity:      `${effect.id ?? ""}:${kind}`,
       active:        effect.active !== false,
-      stackable:     stackableFlag || def?.stackable === true,
-      magnitude:     Number(v.magnitude ?? f.magnitude ?? def?.magnitudeDefault ?? 0) || 0,
-      targetAbility: v.targetAbility ?? f.targetAbility ?? null,
-      targetUuid:    v.targetUuid ?? f.targetUuid ?? null,
+      stackable:     def?.stackable === true, // BS ごとにルール固定(切替不可)
+      magnitude,
+      targetAbility: v.targetAbility || f.targetAbility || null,
+      targetUuid:    v.targetUuid || f.targetUuid || null,
       targetMode:    def?.targetMode ?? null,
       durationUnit:  v.durationUnit ?? f.durationUnit ?? null,
     };
@@ -143,7 +154,7 @@ export function gatherConditionCheckSources(conditions, ctx) {
   for (const c of (conditions ?? [])) {
     if (!c || !c.active) continue;
     // 数値修正型: 上方判定の達成値に -magnitude(制御は派生側で別途)
-    if (c.def?.type === "numeric" && /Check/.test(c.def?.apply ?? "")) {
+    if (c.def?.type === "numeric" && /check/i.test(c.def?.apply ?? "")) {
       if (ctx?.upward && c.magnitude) {
         entries.push({ identity: c.kind, stackable: c.stackable, name: c.name, value: -c.magnitude });
       }
@@ -162,21 +173,27 @@ export function gatherConditionCheckSources(conditions, ctx) {
 }
 
 /**
- * condition による**全制御値の減少量**(正の合計)を返す(派生パスで totalControl から引く)。
- * 衰弱(allControl)・酩酊(allCheckAndControl) 等、apply に "Control" を含む numeric 型。
- * 非 stackable は同 kind で重複排除(最大)、stackable(衰弱・酩酊) は重ねる。
- * @param {Array<object>} conditions readCondition() 済みの配列
- * @returns {number}
+ * condition による制御値の減少量を返す。`apply` に "control" を含む numeric 型。
+ * - `targetAbility` 指定あり(衰弱の数字なし)→ その能力値のみ。
+ * - 指定なし(衰弱(-数字)・酩酊)→ 全制御値(`all`)。
+ * 非 stackable(酩酊)は同 kind で重複排除、stackable(衰弱)は重ねる。
+ * @param {Array<object>} conditions readConditions() 済みの配列
+ * @returns {{all:number, byAbility:Object<string,number>}} 正の減少量
  */
 export function gatherConditionControlPenalty(conditions) {
-  const entries = [];
+  const allEntries = [];
+  const abilityEntries = {};
   for (const c of (conditions ?? [])) {
     if (!c?.active) continue;
-    if (c.def?.type === "numeric" && /Control/.test(c.def?.apply ?? "") && c.magnitude) {
-      entries.push({ identity: c.kind, stackable: c.stackable, name: c.name, value: c.magnitude });
-    }
+    if (c.def?.type !== "numeric" || !/control/i.test(c.def?.apply ?? "") || !c.magnitude) continue;
+    const entry = { identity: c.kind, stackable: c.stackable, name: c.name, value: c.magnitude };
+    if (c.targetAbility) (abilityEntries[c.targetAbility] ??= []).push(entry);
+    else allEntries.push(entry);
   }
-  return dedupeEntries(entries).reduce((sum, e) => sum + e.value, 0);
+  const sum = (es) => dedupeEntries(es).reduce((s, e) => s + e.value, 0);
+  const byAbility = {};
+  for (const [ab, es] of Object.entries(abilityEntries)) byAbility[ab] = sum(es);
+  return { all: sum(allEntries), byAbility };
 }
 
 /** 電子妨害がアウトフィット個数を数えるカテゴリ(武器/サイバーウェア/トロン=大、アーマーギア/サイコアプリ=小)。 */

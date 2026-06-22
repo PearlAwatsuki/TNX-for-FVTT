@@ -286,50 +286,60 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
     if (anchor) anchor.after(group);
     else (root.querySelector('.tab[data-tab="details"]') ?? root.querySelector("form"))?.appendChild(group);
 
-    // コンディション(BS)の効果値フィールドを詳細タブに注入する(フェーズ9-4)。
-    // 1 つの AE は複数の状態(statuses)を持てるため、**該当 BS ごとに見出し付きセクション**で出す。
-    // 効果値は kind 別キー flags.tokyo-nova-axleration.conditions[<kind>] へ setFlag(condition に閉じる)。
-    const kinds   = getConditionKinds(app.document);
-    const perKind = app.document?.getFlag?.("tokyo-nova-axleration", "conditions") ?? {};
-    const setK = (k, field, v) => app.document?.setFlag("tokyo-nova-axleration", `conditions.${k}.${field}`, v);
-    let last = group;
-    for (const kind of kinds) {
-        const def = CONDITION_KINDS[kind];
-        if (!def) continue;
-        const v = perKind[kind] ?? {};
-        const fields = [];
-        if (def.magnitude) {
-            const isStrength = def.type === "computed" || def.type === "continuous";
-            const val = Number(v.magnitude ?? def.magnitudeDefault ?? 0) || 0;
-            fields.push({ label: isStrength ? "強度 n" : "効果量",
-                html: `<input type="number" value="${val}" step="1">`,
-                bind: (el) => el.addEventListener("change", (e) => setK(kind, "magnitude", Number(e.currentTarget.value) || 0)) });
-        }
-        if (def.targetAbility) {
-            const cur  = v.targetAbility ?? "reason";
-            const opts = { reason: "理性", passion: "感情", life: "生命", mundane: "外界" };
-            const sel  = Object.entries(opts).map(([k, l]) =>
-                `<option value="${k}" ${k === cur ? "selected" : ""}>${l}</option>`).join("");
-            fields.push({ label: "対象能力値", html: `<select>${sel}</select>`,
-                bind: (el) => el.addEventListener("change", (e) => setK(kind, "targetAbility", e.currentTarget.value)) });
-        }
-        if (def.type === "attackTarget") {
-            const cur = v.targetUuid ?? "";
-            fields.push({ label: "対象(UUID)", html: `<input type="text" value="${cur}" placeholder="Actor UUID">`,
-                bind: (el) => el.addEventListener("change", (e) => setK(kind, "targetUuid", e.currentTarget.value.trim())) });
-        }
-        if (!fields.length) continue;
-        // どの BS の効果値かを必ず明示する見出し
-        const head = document.createElement("div");
-        head.classList.add("form-group", "tnx-condition-fields", "tnx-condition-head");
-        head.innerHTML = `<label style="font-weight:600">▼ ${def.label}（効果値）</label>`;
-        last.after(head); last = head;
-        for (const f of fields) {
-            const g = document.createElement("div");
-            g.classList.add("form-group", "tnx-condition-fields");
-            g.innerHTML = `<label>${f.label}</label><div class="form-fields">${f.html}</div>`;
-            f.bind(g.querySelector("input, select"));
-            last.after(g); last = g;
+    // コンディション(BS)の効果値フィールドを詳細タブの**末尾**に注入する(フェーズ9-4)。
+    // ネイティブ欄(効果の発生源 等)に挟まないよう、詳細タブ末尾へまとめて append する。
+    // 1 AE は複数の状態(statuses)を持てるため **該当 BS ごとに見出し付きセクション**。効果値が
+    // 可変な BS のみ欄を出す(固定値=酩酊 や 効果値なし=恐慌/戦闘不能 は欄を出さない)。
+    // 値は kind 別キー flags.tokyo-nova-axleration.conditions[<kind>] へ setFlag(condition に閉じる)。
+    const detailsTab = root.querySelector('.tab[data-tab="details"]') ?? root.querySelector("form");
+    const kinds = getConditionKinds(app.document);
+    if (detailsTab && kinds.length) {
+        const perKind = app.document?.getFlag?.("tokyo-nova-axleration", "conditions") ?? {};
+        const setK = (k, field, v) => app.document?.setFlag("tokyo-nova-axleration", `conditions.${k}.${field}`, v);
+        const ABIL = { reason: "理性", passion: "感情", life: "生命", mundane: "外界" };
+        for (const kind of kinds) {
+            const def = CONDITION_KINDS[kind];
+            if (!def) continue;
+            const v = perKind[kind] ?? {};
+            const fields = [];
+            if (def.magnitudeField) {
+                const isStrength = def.type === "computed" || def.type === "continuous";
+                const val = Number(v.magnitude ?? 0) || 0;
+                fields.push({ label: isStrength ? "強度 n" : "効果量",
+                    html: `<input type="number" value="${val}" step="1">`,
+                    bind: (el) => el.addEventListener("change", (e) => setK(kind, "magnitude", Number(e.currentTarget.value) || 0)) });
+            }
+            if (def.abilityField) {
+                const cur = v.targetAbility ?? "";
+                const blank = def.abilityField === "optional"
+                    ? `<option value="" ${cur === "" ? "selected" : ""}>全制御値</option>` : "";
+                const sel = blank + Object.entries(ABIL).map(([k, l]) =>
+                    `<option value="${k}" ${k === cur ? "selected" : ""}>${l}</option>`).join("");
+                fields.push({ label: "対象能力値", html: `<select>${sel}</select>`,
+                    bind: (el) => el.addEventListener("change", (e) => setK(kind, "targetAbility", e.currentTarget.value)) });
+            }
+            if (def.targetField) {
+                const cur = v.targetUuid ?? "";
+                fields.push({ label: "対象(UUID)", html: `<input type="text" value="${cur}" placeholder="Actor UUID">`,
+                    bind: (el) => el.addEventListener("change", (e) => setK(kind, "targetUuid", e.currentTarget.value.trim())) });
+            }
+            if (def.weaponField) {
+                const cur = v.targetWeapon ?? "";
+                fields.push({ label: "対象武器(識別キー)", html: `<input type="text" value="${cur}" placeholder="識別キー">`,
+                    bind: (el) => el.addEventListener("change", (e) => setK(kind, "targetWeapon", e.currentTarget.value.trim())) });
+            }
+            if (!fields.length) continue; // 効果値なし/固定値の BS は欄を出さない
+            const head = document.createElement("div");
+            head.classList.add("form-group", "tnx-condition-fields", "tnx-condition-head");
+            head.innerHTML = `<label style="font-weight:600">▼ ${def.label}（効果値）</label>`;
+            detailsTab.appendChild(head);
+            for (const f of fields) {
+                const g = document.createElement("div");
+                g.classList.add("form-group", "tnx-condition-fields");
+                g.innerHTML = `<label>${f.label}</label><div class="form-fields">${f.html}</div>`;
+                f.bind(g.querySelector("input, select"));
+                detailsTab.appendChild(g);
+            }
         }
     }
 });
