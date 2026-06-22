@@ -344,6 +344,19 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
     }
 });
 
+// コンディション(BS)のステータスを外したら、その kind の効果値フラグを後始末する(フェーズ9-4)。
+// statuses から消えた kind の flags.tokyo-nova-axleration.conditions[<kind>] を削除する。
+// (AE 自体の削除時はフラグごと消えるため対象外。複数状態 AE から1つ外した場合などが対象。)
+Hooks.on("preUpdateActiveEffect", (effect, changes) => {
+    if (!("statuses" in changes)) return;
+    const perKind = effect.flags?.["tokyo-nova-axleration"]?.conditions;
+    if (!perKind) return;
+    const next = new Set(changes.statuses ?? []);
+    for (const kind of Object.keys(perKind)) {
+        if (!next.has(kind)) changes[`flags.tokyo-nova-axleration.conditions.-=${kind}`] = null;
+    }
+});
+
 Hooks.once("init", async function() {
     game.tnx = game.tnx || {}
     game.tnx.refreshSheets = handleRefreshSheets;
