@@ -31,9 +31,11 @@ export const CONDITION_KINDS = Object.freeze({
   "panic":        { label: "恐慌",     type: "block", block: "reaction",     stackable: false },
   "poison":       { label: "邪毒",     type: "continuous", magnitudeField: true, stackable: false },
   "pressure":     { label: "重圧",     type: "block", block: "abilityCheck", abilityField: "required", stackable: false },
-  // 衰弱: (数字なし)=対応スート1つの制御値を引いた数字分減 / (-数字)=全制御値をその数字分減。
-  // abilityField=optional(空欄=全制御値)。両者とも重複する。
-  "weakness":     { label: "衰弱",     type: "numeric", apply: "control", magnitudeField: true, abilityField: "optional", stackable: true },
+  // 衰弱: (数字なし)=引いたカードのスート1つの制御値を引いた数字分減(対象・数字とも引いて決まる) /
+  // (-数字)=全制御値をその数字分減。両者とも重複。対象スートは**選択でなく引いて決まる**ため
+  // abilityField(手動選択)は持たない。targetAbility はカード機構(未実装)が書き込む。当面 magnitude のみ
+  // (targetAbility 空欄=全制御値)。
+  "weakness":     { label: "衰弱",     type: "numeric", apply: "control", magnitudeField: true, stackable: true },
   "capture":      { label: "捕縛",     type: "block", block: "attackWith", weaponField: true, stackable: true }, // 武器ごと
   // 酩酊: 達成値・全制御値の減少量は固定(小-2 / 大-5)。設定不可。小↔大は別BSで重なる。
   "doped-major":  { label: "酩酊(大)", type: "numeric", apply: "checkAndControl", fixedMagnitude: 5, stackable: false },
