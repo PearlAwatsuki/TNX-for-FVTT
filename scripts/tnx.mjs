@@ -287,61 +287,71 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
     else (root.querySelector('.tab[data-tab="details"]') ?? root.querySelector("form"))?.appendChild(group);
 
     // コンディション(BS)の効果値フィールドを詳細タブの**末尾**に注入する(フェーズ9-4)。
-    // ネイティブ欄(効果の発生源 等)に挟まないよう、詳細タブ末尾へまとめて append する。
-    // 1 AE は複数の状態(statuses)を持てるため **該当 BS ごとに見出し付きセクション**。効果値が
-    // 可変な BS のみ欄を出す(固定値=酩酊 や 効果値なし=恐慌/戦闘不能 は欄を出さない)。
-    // 値は kind 別キー flags.tokyo-nova-axleration.conditions[<kind>] へ setFlag(condition に閉じる)。
+    // - BS 種別ごとに <fieldset><legend>BS名</legend> で囲む(箇条書きの羅列を避ける)。
+    // - 効果値が可変な BS のみ欄を出す(固定値=酩酊 / 効果値なし=恐慌・戦闘不能 は出さない)。
+    // - 値は kind 別キー flags.tokyo-nova-axleration.conditions[<kind>] へ setFlag(condition に閉じる)。
+    // - ステータス欄を変えたら statuses を即 update して再注入する(保存=シートを閉じる、を避けて
+    //   未保存でも効果値欄が出るようにする)。
     const detailsTab = root.querySelector('.tab[data-tab="details"]') ?? root.querySelector("form");
-    const kinds = getConditionKinds(app.document);
-    if (detailsTab && kinds.length) {
+    const statusCtrl = root.querySelector('[name="statuses"]');
+    const ABIL = { reason: "理性", passion: "感情", life: "生命", mundane: "外界" };
+    const setK = (k, field, v) => app.document?.setFlag("tokyo-nova-axleration", `conditions.${k}.${field}`, v);
+
+    const injectConditionFieldsets = () => {
+        if (!detailsTab) return;
+        detailsTab.querySelectorAll(".tnx-condition-fieldset").forEach(el => el.remove());
         const perKind = app.document?.getFlag?.("tokyo-nova-axleration", "conditions") ?? {};
-        const setK = (k, field, v) => app.document?.setFlag("tokyo-nova-axleration", `conditions.${k}.${field}`, v);
-        const ABIL = { reason: "理性", passion: "感情", life: "生命", mundane: "外界" };
-        for (const kind of kinds) {
+        for (const kind of getConditionKinds(app.document)) {
             const def = CONDITION_KINDS[kind];
             if (!def) continue;
             const v = perKind[kind] ?? {};
             const fields = [];
             if (def.magnitudeField) {
                 const isStrength = def.type === "computed" || def.type === "continuous";
-                const val = Number(v.magnitude ?? 0) || 0;
                 fields.push({ label: isStrength ? "強度 n" : "効果量",
-                    html: `<input type="number" value="${val}" step="1">`,
+                    html: `<input type="number" value="${Number(v.magnitude ?? 0) || 0}" step="1">`,
                     bind: (el) => el.addEventListener("change", (e) => setK(kind, "magnitude", Number(e.currentTarget.value) || 0)) });
             }
             if (def.abilityField) {
                 const cur = v.targetAbility ?? "";
-                const blank = def.abilityField === "optional"
-                    ? `<option value="" ${cur === "" ? "selected" : ""}>全制御値</option>` : "";
+                const blank = `<option value="" ${cur === "" ? "selected" : ""}>${def.abilityBlankLabel ?? "全制御値"}</option>`;
                 const sel = blank + Object.entries(ABIL).map(([k, l]) =>
                     `<option value="${k}" ${k === cur ? "selected" : ""}>${l}</option>`).join("");
                 fields.push({ label: "対象能力値", html: `<select>${sel}</select>`,
                     bind: (el) => el.addEventListener("change", (e) => setK(kind, "targetAbility", e.currentTarget.value)) });
             }
             if (def.targetField) {
-                const cur = v.targetUuid ?? "";
-                fields.push({ label: "対象(UUID)", html: `<input type="text" value="${cur}" placeholder="Actor UUID">`,
+                fields.push({ label: "対象(UUID)", html: `<input type="text" value="${v.targetUuid ?? ""}" placeholder="Actor UUID">`,
                     bind: (el) => el.addEventListener("change", (e) => setK(kind, "targetUuid", e.currentTarget.value.trim())) });
             }
             if (def.weaponField) {
-                const cur = v.targetWeapon ?? "";
-                fields.push({ label: "対象武器(識別キー)", html: `<input type="text" value="${cur}" placeholder="識別キー">`,
+                fields.push({ label: "対象武器(識別キー)", html: `<input type="text" value="${v.targetWeapon ?? ""}" placeholder="識別キー">`,
                     bind: (el) => el.addEventListener("change", (e) => setK(kind, "targetWeapon", e.currentTarget.value.trim())) });
             }
             if (!fields.length) continue; // 効果値なし/固定値の BS は欄を出さない
-            const head = document.createElement("div");
-            head.classList.add("form-group", "tnx-condition-fields", "tnx-condition-head");
-            head.innerHTML = `<label style="font-weight:600">▼ ${def.label}（効果値）</label>`;
-            detailsTab.appendChild(head);
+            const fs = document.createElement("fieldset");
+            fs.classList.add("tnx-condition-fieldset");
+            const legend = document.createElement("legend");
+            legend.textContent = `${def.label}（効果値）`;
+            fs.appendChild(legend);
             for (const f of fields) {
                 const g = document.createElement("div");
-                g.classList.add("form-group", "tnx-condition-fields");
+                g.classList.add("form-group");
                 g.innerHTML = `<label>${f.label}</label><div class="form-fields">${f.html}</div>`;
                 f.bind(g.querySelector("input, select"));
-                detailsTab.appendChild(g);
+                fs.appendChild(g);
             }
+            detailsTab.appendChild(fs);
         }
-    }
+    };
+
+    injectConditionFieldsets();
+    // ステータス選択を変えたら、その場で statuses を永続化(シートは閉じない)→再注入で欄が即出る。
+    statusCtrl?.addEventListener("change", async () => {
+        const val = statusCtrl.value;
+        const ids = Array.isArray(val) ? val : (val ? [val] : []);
+        await app.document?.update({ statuses: ids });
+    });
 });
 
 // コンディション(BS)のステータスを外したら、その kind の効果値フラグを後始末する(フェーズ9-4)。

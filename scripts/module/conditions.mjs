@@ -30,7 +30,9 @@ export const CONDITION_KINDS = Object.freeze({
   // --- バッドステータス ---
   "panic":        { label: "恐慌",     type: "block", block: "reaction",     stackable: false },
   "poison":       { label: "邪毒",     type: "continuous", magnitudeField: true, stackable: false },
-  "pressure":     { label: "重圧",     type: "block", block: "abilityCheck", abilityField: "required", stackable: false },
+  // 重圧: 能力値は指定される場合(手動)と、指定なし→受ける際に引く場合がある(Bad_Status.md)。
+  // よって abilityField は空欄可。空欄＝指定なし(カードで決定。カード機構は未実装＝当面は遮断保留)。
+  "pressure":     { label: "重圧",     type: "block", block: "abilityCheck", abilityField: "optional", abilityBlankLabel: "指定なし（カードで決定）", stackable: false },
   // 衰弱: (数字なし)=引いたカードのスート1つの制御値を引いた数字分減(対象・数字とも引いて決まる) /
   // (-数字)=全制御値をその数字分減。両者とも重複。対象スートは**選択でなく引いて決まる**ため
   // abilityField(手動選択)は持たない。targetAbility はカード機構(未実装)が書き込む。当面 magnitude のみ

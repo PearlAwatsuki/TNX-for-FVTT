@@ -6565,3 +6565,18 @@ button.tnx-create-act-button span {
     font-size: 0.82em;
     justify-content: center;
 }
+
+/* コンディション(BS)効果値の種別ごと枠 (AE設定の詳細タブに注入) */
+.tnx-condition-fieldset {
+    margin: 8px 0 4px;
+    padding: 6px 10px 8px;
+    border: 1px solid var(--tnx2-border-subtle, rgba(255, 255, 255, 0.15));
+    border-radius: 4px;
+}
+
+.tnx-condition-fieldset > legend {
+    padding: 0 6px;
+    font-weight: 600;
+    font-size: 0.9em;
+    color: var(--tnx2-text-accent, inherit);
+}
