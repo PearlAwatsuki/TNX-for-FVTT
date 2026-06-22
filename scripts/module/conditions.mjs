@@ -45,48 +45,61 @@ export const CONDITION_KINDS = Object.freeze({
 });
 
 /**
- * AE の condition 種別を判定する。status id(`statuses`)を第一に、無ければ
- * `flags.tokyo-nova-axleration.conditionKind` を見る。CONFIG.statusEffects の独自 flags が
- * 付与時に伝播しない環境でも、貼付された status id から確実に kind を得る(フェーズ9-4)。
+ * AE が持つ condition 種別を**すべて**返す。1 つの ActiveEffect は複数の状態(statuses)を
+ * 持てるため、該当する status id を漏れなく集める(フェーズ9-4)。`flags…conditionKind` は
+ * フォールバック。CONFIG.statusEffects の独自 flags が付与時に伝播しない環境でも status id から得る。
  * @param {object} effect ActiveEffect(statuses / flags)
- * @returns {?string} CONDITION_KINDS のキー、無ければ null
+ * @returns {string[]} CONDITION_KINDS のキー配列
  */
-export function getConditionKind(effect) {
+export function getConditionKinds(effect) {
+  const out = [];
   const st = effect?.statuses;
-  if (st) {
-    const ids = st instanceof Set ? [...st] : (Array.isArray(st) ? st : []);
-    for (const id of ids) if (CONDITION_KINDS[id]) return id;
-  }
+  const ids = st instanceof Set ? [...st] : (Array.isArray(st) ? st : []);
+  for (const id of ids) if (CONDITION_KINDS[id] && !out.includes(id)) out.push(id);
   const flagKind = effect?.flags?.[SCOPE]?.conditionKind;
-  return (flagKind && CONDITION_KINDS[flagKind]) ? flagKind : null;
+  if (flagKind && CONDITION_KINDS[flagKind] && !out.includes(flagKind)) out.push(flagKind);
+  return out;
+}
+
+/** AE の代表 condition 種別(先頭)。複数判定が不要な箇所の簡便用。 */
+export function getConditionKind(effect) {
+  return getConditionKinds(effect)[0] ?? null;
 }
 
 /**
- * ActiveEffect から condition 設定を読み取る。condition でない AE は null。
+ * ActiveEffect が持つ condition 設定を**配列**で返す(状態1つにつき1要素)。
+ * 効果値は **kind 別キー** `flags.tokyo-nova-axleration.conditions[<kind>]` に保持する
+ * (複数状態を1 AE に載せても各々別に設定できる)。旧フラットフラグはフォールバックで読む。
  * @param {object} effect ActiveEffect(name / active / statuses / flags / id)
- * @returns {{kind:string, label:string, def:object, name:string, identity:string,
- *   active:boolean, stackable:boolean, magnitude:number, targetAbility:?string,
- *   targetUuid:?string, targetMode:?string, durationUnit:?string}|null}
+ * @returns {Array<object>}
  */
-export function readCondition(effect) {
-  const kind = getConditionKind(effect);
-  if (!kind) return null;
+export function readConditions(effect) {
   const f = effect?.flags?.[SCOPE] ?? {};
-  const def = CONDITION_KINDS[kind] ?? null;
-  return {
-    kind,
-    label:        def?.label ?? kind,
-    def,
-    name:         effect.name || def?.label || "(無名効果)",
-    identity:     f.effectId || effect.id,
-    active:       effect.active !== false,
-    stackable:    f.stackable === true || def?.stackable === true,
-    magnitude:    Number(f.magnitude ?? def?.magnitudeDefault ?? 0) || 0,
-    targetAbility: f.targetAbility ?? null,
-    targetUuid:   f.targetUuid ?? null,
-    targetMode:   f.targetMode ?? def?.targetMode ?? null,
-    durationUnit: f.durationUnit ?? null,
-  };
+  const stackableFlag = f.stackable === true;
+  const perKind = f.conditions ?? {};
+  return getConditionKinds(effect).map(kind => {
+    const def = CONDITION_KINDS[kind] ?? null;
+    const v = perKind[kind] ?? {};
+    return {
+      kind,
+      label:         def?.label ?? kind,
+      def,
+      name:          effect.name || def?.label || "(無名効果)",
+      identity:      `${effect.id ?? ""}:${kind}`,
+      active:        effect.active !== false,
+      stackable:     stackableFlag || def?.stackable === true,
+      magnitude:     Number(v.magnitude ?? f.magnitude ?? def?.magnitudeDefault ?? 0) || 0,
+      targetAbility: v.targetAbility ?? f.targetAbility ?? null,
+      targetUuid:    v.targetUuid ?? f.targetUuid ?? null,
+      targetMode:    def?.targetMode ?? null,
+      durationUnit:  v.durationUnit ?? f.durationUnit ?? null,
+    };
+  });
+}
+
+/** AE の代表 condition(先頭)。後方互換・単一前提の簡便用。 */
+export function readCondition(effect) {
+  return readConditions(effect)[0] ?? null;
 }
 
 /**

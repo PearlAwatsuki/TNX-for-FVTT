@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CONDITION_KINDS, readCondition, getConditionKind, gatherConditionCheckSources, getCheckBlock, gatherConditionControlPenalty, computeJammingPenalty }
+import { CONDITION_KINDS, readCondition, readConditions, getConditionKind, getConditionKinds, gatherConditionCheckSources, getCheckBlock, gatherConditionControlPenalty, computeJammingPenalty }
   from "../../scripts/module/conditions.mjs";
 
 /** 準備アウトフィット記述子の略記 */
@@ -36,6 +36,21 @@ describe("readCondition()", () => {
   it("magnitude のフラグ指定が既定を上書き", () => {
     const c = readCondition(condEffect({ kind: "interference", magnitude: 3 }));
     expect(c.magnitude).toBe(3);
+  });
+
+  it("1つの AE が複数 BS を持つ場合、readConditions は全て返し効果値は kind 別キーで読む", () => {
+    const eff = {
+      id: "multi", name: "複合", active: true,
+      statuses: new Set(["doped-minor", "weakness"]),
+      flags: { [SCOPE]: { conditions: { "doped-minor": { magnitude: 4 }, "weakness": { magnitude: 7 } } } },
+    };
+    const cs = readConditions(eff);
+    expect(getConditionKinds(eff)).toEqual(["doped-minor", "weakness"]);
+    expect(cs).toHaveLength(2);
+    expect(cs.find(c => c.kind === "doped-minor").magnitude).toBe(4);  // kind 別キー
+    expect(cs.find(c => c.kind === "weakness").magnitude).toBe(7);
+    // 制御値減は両者合算（衰弱7＋酩酊4）
+    expect(gatherConditionControlPenalty(cs)).toBe(11);
   });
 
   it("kind は statuses(status id) からも判定する（flags 非依存）", () => {

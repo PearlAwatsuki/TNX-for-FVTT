@@ -19,7 +19,7 @@ import { AttributesTemplate } from "./common/attributes.mjs";
 import { ActorBaseTemplate } from "./common/actor-base.mjs";
 import { computeAttributeFinal, computeOutfitAggregates } from "../helpers.mjs";
 import { ATTACK_DAMAGE_TYPES, parseEffectTargetKey, resolveItemTotalPath, evalEffectConditions } from "../item/helpers.mjs";
-import { readCondition, gatherConditionControlPenalty } from "../../module/conditions.mjs";
+import { readConditions, gatherConditionControlPenalty } from "../../module/conditions.mjs";
 
 /** 能力値キー(♠理性 / ♣感情 / ♥生命 / ♦外界) */
 const ABILITY_KEYS = ["reason", "passion", "life", "mundane"];
@@ -138,9 +138,9 @@ export class CastDataModel extends SystemDataModel.mixin(
     const actor = this.parent;
     if (!actor) return;
     const conditions = [];
-    for (const e of (actor.effects ?? [])) { const c = readCondition(e); if (c) conditions.push(c); }
+    for (const e of (actor.effects ?? [])) conditions.push(...readConditions(e));
     for (const item of (actor.items ?? [])) {
-      for (const e of (item.effects ?? [])) { const c = readCondition(e); if (c) conditions.push(c); }
+      for (const e of (item.effects ?? [])) conditions.push(...readConditions(e));
     }
     const penalty = gatherConditionControlPenalty(conditions);
     if (!penalty) return;

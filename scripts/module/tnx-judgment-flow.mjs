@@ -17,7 +17,7 @@
 
 import { getCardJudgmentValue, calcSkillCheck, calcControlCheck, ALL_SUITS, SUIT_TO_ABILITY } from './tnx-judgment-engine.mjs';
 import { gatherCheckBonusSources } from '../data/item/helpers.mjs';
-import { readCondition, gatherConditionCheckSources, getCheckBlock, computeJammingPenalty } from './conditions.mjs';
+import { readConditions, gatherConditionCheckSources, getCheckBlock, computeJammingPenalty } from './conditions.mjs';
 import { TnxActionHandler } from './tnx-action-handler.mjs';
 import { TnxSocketHandler } from './tnx-socket-handler.mjs';
 import { getUserFlagData } from './user-flag-schema.mjs';
@@ -451,9 +451,9 @@ export class TnxJudgmentFlow {
     static _gatherConditions(actor) {
         if (!actor) return [];
         const out = [];
-        for (const e of (actor.effects ?? [])) { const c = readCondition(e); if (c) out.push(c); }
+        for (const e of (actor.effects ?? [])) out.push(...readConditions(e));
         for (const item of (actor.items ?? [])) {
-            for (const e of (item.effects ?? [])) { const c = readCondition(e); if (c) out.push(c); }
+            for (const e of (item.effects ?? [])) out.push(...readConditions(e));
         }
         return out;
     }

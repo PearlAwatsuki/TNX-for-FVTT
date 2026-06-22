@@ -46,7 +46,7 @@ import { TnxRlRequestApp } from './module/tnx-rl-request-app.mjs';
 import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
 import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
-import { CONDITION_KINDS, getConditionKind } from './module/conditions.mjs';
+import { CONDITION_KINDS, getConditionKinds } from './module/conditions.mjs';
 
 async function preloadHandlebarsTemplates() {
     const templatePaths = [
@@ -286,44 +286,50 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
     if (anchor) anchor.after(group);
     else (root.querySelector('.tab[data-tab="details"]') ?? root.querySelector("form"))?.appendChild(group);
 
-    // コンディション(BS)の効果値フィールド(kind 別)を詳細タブに注入する(フェーズ9-4)。
-    // 効果値は condition 自身に閉じる(汎用 changes でなく専用フィールド)。change で setFlag。
-    const kind = getConditionKind(app.document);
-    const def  = kind ? CONDITION_KINDS[kind] : null;
-    if (def) {
-        const get = (k) => app.document?.getFlag?.("tokyo-nova-axleration", k);
-        const set = (k, v) => app.document?.setFlag("tokyo-nova-axleration", k, v);
+    // コンディション(BS)の効果値フィールドを詳細タブに注入する(フェーズ9-4)。
+    // 1 つの AE は複数の状態(statuses)を持てるため、**該当 BS ごとに見出し付きセクション**で出す。
+    // 効果値は kind 別キー flags.tokyo-nova-axleration.conditions[<kind>] へ setFlag(condition に閉じる)。
+    const kinds   = getConditionKinds(app.document);
+    const perKind = app.document?.getFlag?.("tokyo-nova-axleration", "conditions") ?? {};
+    const setK = (k, field, v) => app.document?.setFlag("tokyo-nova-axleration", `conditions.${k}.${field}`, v);
+    let last = group;
+    for (const kind of kinds) {
+        const def = CONDITION_KINDS[kind];
+        if (!def) continue;
+        const v = perKind[kind] ?? {};
         const fields = [];
         if (def.magnitude) {
             const isStrength = def.type === "computed" || def.type === "continuous";
-            const val = Number(get("magnitude") ?? def.magnitudeDefault ?? 0) || 0;
+            const val = Number(v.magnitude ?? def.magnitudeDefault ?? 0) || 0;
             fields.push({ label: isStrength ? "強度 n" : "効果量",
                 html: `<input type="number" value="${val}" step="1">`,
-                bind: (el) => el.addEventListener("change", (e) => set("magnitude", Number(e.currentTarget.value) || 0)) });
+                bind: (el) => el.addEventListener("change", (e) => setK(kind, "magnitude", Number(e.currentTarget.value) || 0)) });
         }
         if (def.targetAbility) {
-            const cur = get("targetAbility") ?? "reason";
+            const cur  = v.targetAbility ?? "reason";
             const opts = { reason: "理性", passion: "感情", life: "生命", mundane: "外界" };
-            const sel = Object.entries(opts).map(([k, l]) =>
+            const sel  = Object.entries(opts).map(([k, l]) =>
                 `<option value="${k}" ${k === cur ? "selected" : ""}>${l}</option>`).join("");
-            fields.push({ label: "対象能力値",
-                html: `<select>${sel}</select>`,
-                bind: (el) => el.addEventListener("change", (e) => set("targetAbility", e.currentTarget.value)) });
+            fields.push({ label: "対象能力値", html: `<select>${sel}</select>`,
+                bind: (el) => el.addEventListener("change", (e) => setK(kind, "targetAbility", e.currentTarget.value)) });
         }
         if (def.type === "attackTarget") {
-            const cur = get("targetUuid") ?? "";
-            fields.push({ label: "対象(UUID)",
-                html: `<input type="text" value="${cur}" placeholder="Actor UUID">`,
-                bind: (el) => el.addEventListener("change", (e) => set("targetUuid", e.currentTarget.value.trim())) });
+            const cur = v.targetUuid ?? "";
+            fields.push({ label: "対象(UUID)", html: `<input type="text" value="${cur}" placeholder="Actor UUID">`,
+                bind: (el) => el.addEventListener("change", (e) => setK(kind, "targetUuid", e.currentTarget.value.trim())) });
         }
-        let last = group;
+        if (!fields.length) continue;
+        // どの BS の効果値かを必ず明示する見出し
+        const head = document.createElement("div");
+        head.classList.add("form-group", "tnx-condition-fields", "tnx-condition-head");
+        head.innerHTML = `<label style="font-weight:600">▼ ${def.label}（効果値）</label>`;
+        last.after(head); last = head;
         for (const f of fields) {
             const g = document.createElement("div");
             g.classList.add("form-group", "tnx-condition-fields");
             g.innerHTML = `<label>${f.label}</label><div class="form-fields">${f.html}</div>`;
             f.bind(g.querySelector("input, select"));
-            last.after(g);
-            last = g;
+            last.after(g); last = g;
         }
     }
 });
