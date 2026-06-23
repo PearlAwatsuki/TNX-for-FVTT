@@ -46,8 +46,9 @@ import { TnxRlRequestApp } from './module/tnx-rl-request-app.mjs';
 import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
 import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
-import { CONDITION_KINDS, CONDITION_GROUP_LABELS, getConditionKinds, buildInflictedEffectsData } from './module/conditions.mjs';
+import { CONDITION_KINDS, CONDITION_GROUP_LABELS, getConditionKinds, buildInflictedEffectsData, readConditions } from './module/conditions.mjs';
 import { registerDamageChartTextSetting } from './module/damage-chart-text-app.mjs';
+import { conditionNeedsDraw, postDrawPrompt, postControlNegatePrompt, bindConditionChatButtons } from './module/condition-resolution.mjs';
 
 async function preloadHandlebarsTemplates() {
     const templatePaths = [
@@ -399,19 +400,33 @@ Hooks.on("createActiveEffect", async (effect, options, userId) => {
     if (game.user.id !== userId) return;
     const actor = effect.parent;
     if (!actor || actor.documentName !== "Actor") return;
+
+    // 1. カスケード: inflicts の別状態を付与(状態のみ・hideFromList)。
     const data = [];
     const seen = new Set();
     for (const kind of getConditionKinds(effect)) {
         for (const d of buildInflictedEffectsData(kind, { hidden: true })) {
             const ik = d.statuses[0];
             const idef = CONDITION_KINDS[ik];
-            // 非 stackable は既存/同バッチ重複を避ける(多重付与防止)
             if (idef && !idef.stackable && (actor.statuses?.has?.(ik) || seen.has(ik))) continue;
             seen.add(ik);
             data.push(d);
         }
     }
     if (data.length) await actor.createEmbeddedDocuments("ActiveEffect", data);
+
+    // 2. この状態自身の解決受付: 衰弱/重圧のカード決定ドロー / controlNegate の制御判定。
+    const perKind = effect.flags?.["tokyo-nova-axleration"]?.conditions ?? {};
+    for (const c of readConditions(effect)) {
+        if (conditionNeedsDraw(c.kind, c)) await postDrawPrompt(actor, effect, c.kind);
+        const cn = perKind[c.kind]?.pendingControlNegate;
+        if (cn) await postControlNegatePrompt(actor, effect, c.kind, cn);
+    }
+});
+
+// チャットの受付ボタン(ドロー/制御判定)を解決処理に配線する(フェーズ9-4)。
+Hooks.on("renderChatMessageHTML", (message, html) => {
+    bindConditionChatButtons(html instanceof HTMLElement ? html : html?.[0]);
 });
 
 Hooks.once("init", async function() {
