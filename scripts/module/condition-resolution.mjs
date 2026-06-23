@@ -10,12 +10,34 @@
 import { getCardJudgmentValue } from './tnx-judgment-engine.mjs';
 import { TnxActionHandler } from './tnx-action-handler.mjs';
 import { CONDITION_KINDS } from './conditions.mjs';
+import { getDamageChartKind } from '../data/damage-chart.mjs';
 import { conditionNeedsDraw, drawResultFlags, negateOutcome } from './condition-resolution-core.mjs';
 
 const SCOPE = "tokyo-nova-axleration";
 
 // 純粋ロジックは core 側(Foundry 非依存・テスト可)。利便のため re-export する。
 export { conditionNeedsDraw, drawResultFlags, negateOutcome };
+
+/**
+ * ダメージ値からチャートを参照し、該当段の**負傷状態をアクターに付与**する(フェーズ9-4)。
+ * 付与した負傷状態は status のみ・hideFromList(ダメージ由来=供給元が浮く)。付与で createActiveEffect
+ * フックが走り、inflicts のカスケード(BS/戦闘不能)＋ドロー/controlNegate 受付が連動する。
+ * ダメージ値の**算出本体(カード＋攻撃力−軽減)はフェーズ12**で、本関数はその適用入口。
+ * @param {Actor} actor
+ * @param {"physical"|"mental"|"social"} category
+ * @param {number} value 最終ダメージ(段は min(value,21)、段0=付与なし)
+ * @returns {Promise<?ActiveEffect>} 付与した負傷状態(段0/不正は null)
+ */
+export async function applyDamageChartResult(actor, category, value) {
+  const kind = getDamageChartKind(category, value);
+  if (!kind || !actor) return null;
+  const def = CONDITION_KINDS[kind];
+  const [eff] = await actor.createEmbeddedDocuments("ActiveEffect", [{
+    name: def?.label, img: def?.img, statuses: [kind],
+    flags: { [SCOPE]: { conditionKind: kind, hideFromList: true } },
+  }]);
+  return eff ?? null;
+}
 
 /** ドロー主体(GM か 受けたキャラの所有者か)を返す。衰弱=RL(GM)、重圧=受けたキャラ。 */
 export function drawWhisperUserIds(kind, actor) {
