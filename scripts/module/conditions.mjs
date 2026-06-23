@@ -46,6 +46,9 @@ export const CONDITION_KINDS = Object.freeze({
   "fear":         { label: "萎縮",     type: "attackTarget", targetMode: "include", penalty: 5, targetField: true, stackable: true },
   "hatred":       { label: "憎悪",     type: "attackTarget", targetMode: "exclude", penalty: 5, targetField: true, stackable: false },
   "interference": { label: "電子妨害", type: "computed", magnitudeField: true, stackable: false },
+  // 狼狽: ムーブ不可＋メジャーアクションの達成値 -10(回復=マイナー消費)。メジャー/ムーブの区別は
+  // 行動系=フェーズ13 が前提のため、9-4 では器(マーカー)。効果の発火は13。
+  "confusion":    { label: "狼狽",     type: "block", block: "move", stackable: false },
   // --- 戦闘不能(効果の発火＝メインプロセス不可は 13、回復は 15。9-4 は器のみ。効果値なし・非重複) ---
   "faint":      { label: "気絶",     type: "block", block: "mainProcess", stackable: false }, // 肉体
   "swoon":      { label: "失神",     type: "block", block: "mainProcess", stackable: false }, // 精神
