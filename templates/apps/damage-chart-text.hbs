@@ -1,0 +1,24 @@
+<nav class="tnx-dct-tabs">
+    {{#each categories}}
+    <a class="tnx-dct-tab {{#if active}}active{{/if}}" data-action="switchTab" data-tab="{{key}}">{{label}}ダメージ</a>
+    {{/each}}
+</nav>
+
+<div class="tnx-dct-body">
+    {{#each categories}}
+    <section data-tab-content="{{key}}" {{#unless active}}hidden{{/unless}}>
+        {{#each rows}}
+        <div class="form-group tnx-dct-row">
+            <label>{{tier}}　{{name}}</label>
+            <div class="form-fields">
+                <textarea name="{{../key}}.{{tier}}" rows="2">{{text}}</textarea>
+            </div>
+        </div>
+        {{/each}}
+    </section>
+    {{/each}}
+</div>
+
+<footer class="tnx-dct-footer">
+    <button type="submit"><i class="fas fa-save"></i> 保存</button>
+</footer>

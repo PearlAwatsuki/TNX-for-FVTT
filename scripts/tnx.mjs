@@ -46,7 +46,8 @@ import { TnxRlRequestApp } from './module/tnx-rl-request-app.mjs';
 import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
 import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
-import { CONDITION_KINDS, getConditionKinds, buildInflictedEffectsData } from './module/conditions.mjs';
+import { CONDITION_KINDS, CONDITION_GROUP_LABELS, getConditionKinds, buildInflictedEffectsData } from './module/conditions.mjs';
+import { registerDamageChartTextSetting } from './module/damage-chart-text-app.mjs';
 
 async function preloadHandlebarsTemplates() {
     const templatePaths = [
@@ -352,6 +353,29 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
         const ids = Array.isArray(val) ? val : (val ? [val] : []);
         await app.document?.update({ statuses: ids });
     });
+
+    // status 選択の option を群(BS/戦闘不能/肉体/精神/社会)へ optgroup でまとめる。
+    if (statusCtrl && !statusCtrl.querySelector("optgroup")) {
+        const opts = [...statusCtrl.querySelectorAll("option")];
+        if (opts.length) {
+            const byGroup = new Map();
+            const other = [];
+            for (const o of opts) {
+                const g = CONDITION_KINDS[o.value]?.group;
+                if (g) { (byGroup.get(g) ?? byGroup.set(g, []).get(g)).push(o); }
+                else other.push(o);
+            }
+            for (const g of Object.keys(CONDITION_GROUP_LABELS)) {
+                const list = byGroup.get(g);
+                if (!list?.length) continue;
+                const og = document.createElement("optgroup");
+                og.label = CONDITION_GROUP_LABELS[g];
+                for (const o of list) og.appendChild(o);
+                statusCtrl.appendChild(og);
+            }
+            for (const o of other) statusCtrl.appendChild(o); // グループ外は末尾
+        }
+    }
 });
 
 // コンディション(BS)のステータスを外したら、その kind の効果値フラグを後始末する(フェーズ9-4)。
@@ -565,6 +589,9 @@ Hooks.once("init", async function() {
     registerDrawTableHooks();
 
     // --- システム設定の登録 ---
+    // ダメージチャート効果文(ワールド設定＋編集アプリメニュー)
+    registerDamageChartTextSetting();
+
     game.settings.register("tokyo-nova-axleration", "defaultHandMaxSize", {
         name: "デフォルトの手札上限数",
         hint: "各ユーザーの手札上限の基本となる枚数を設定します。ユーザーが個別に設定していない場合、この値が適用されます。",
