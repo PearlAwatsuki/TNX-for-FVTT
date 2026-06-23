@@ -460,32 +460,15 @@ Hooks.once("init", async function() {
         ending: "エンディング"
     };
 
-    // トーキョーN◎VA バッドステータス定義
-    // id: システム内部で使うID(= conditionKind), name: 表示名
-    // flags.tokyo-nova-axleration.conditionKind を持たせ、貼付時に condition として認識させる(フェーズ9-4)。
-    // 効果値(magnitude/対象 等)はインスタンスごとに詳細タブで設定する。
-    const cond = (kind) => ({ flags: { "tokyo-nova-axleration": { conditionKind: kind } } });
-    CONFIG.statusEffects = [
-        { id: "panic", name: "恐慌", img: "icons/svg/terror.svg", ...cond("panic") },
-        { id: "poison", name: "邪毒", img: "icons/svg/poison.svg", ...cond("poison") },
-        { id: "pressure", name: "重圧", img: "icons/svg/down.svg", ...cond("pressure") },
-        { id: "weakness", name: "衰弱", img: "icons/svg/degen.svg", ...cond("weakness") },
-        { id: "capture", name: "捕縛", img: "icons/svg/net.svg", ...cond("capture") },
-        { id: "doped-major", name: "酩酊(大)", img: "icons/svg/daze.svg", ...cond("doped-major") },
-        { id: "doped-minor", name: "酩酊(小)", img: "icons/svg/sleep.svg", ...cond("doped-minor") },
-        { id: "confusion", name: "狼狽", img: "icons/svg/explosion.svg", ...cond("confusion") },
-        { id: "fear", name: "萎縮", img: "icons/svg/cowled.svg", ...cond("fear") }, // User specified 'Fear' for 萎縮
-        { id: "hatred", name: "憎悪", img: "icons/svg/fire.svg", ...cond("hatred") },
-        { id: "interference", name: "電子妨害", img: "icons/svg/lightning.svg", ...cond("interference") },
-        // 戦闘不能(効果の発火＝メインプロセス不可は13、回復は15。9-4は器=定義のみ)
-        { id: "faint", name: "気絶", img: "icons/svg/unconscious.svg", ...cond("faint") },
-        { id: "swoon", name: "失神", img: "icons/svg/unconscious.svg", ...cond("swoon") },
-        { id: "coma", name: "仮死", img: "icons/svg/skull.svg", ...cond("coma") },
-        { id: "stupor", name: "昏睡", img: "icons/svg/skull.svg", ...cond("stupor") },
-        { id: "dead", name: "完全死亡", img: "icons/svg/blood.svg", ...cond("dead") },
-        { id: "mind-break", name: "精神崩壊", img: "icons/svg/blood.svg", ...cond("mind-break") },
-        { id: "erased", name: "抹殺", img: "icons/svg/blood.svg", ...cond("erased") }
-    ];
+    // トーキョーN◎VA の状態(BS・戦闘不能・負傷)を CONDITION_KINDS から生成する(フェーズ9-4)。
+    // id = conditionKind。flags に conditionKind を持たせ、貼付時に condition として認識させる。
+    // 順は CONDITION_KINDS の統合順(BS→戦闘不能→肉体→精神→社会)。効果値はインスタンス毎に詳細タブで設定。
+    CONFIG.statusEffects = Object.entries(CONDITION_KINDS).map(([id, def]) => ({
+        id,
+        name: def.label,
+        img:  def.img ?? "icons/svg/aura.svg",
+        flags: { "tokyo-nova-axleration": { conditionKind: id } },
+    }));
     
     // Actor Sheetの登録
     foundry.documents.collections.Actors.unregisterSheet("core", foundry.appv1.sheets.ActorSheet);

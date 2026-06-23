@@ -10,6 +10,8 @@
  * 本モジュールは純粋関数(Foundry 非依存)に徹し、actor / item / targets の解決は呼び出し側で行う。
  */
 
+import { buildDamageStates } from "../data/damage-chart.mjs";
+
 const SCOPE = "tokyo-nova-axleration";
 
 /**
@@ -20,43 +22,57 @@ const SCOPE = "tokyo-nova-axleration";
  * - continuous:   継続ダメージ(発火は13/12)。邪毒
  * - attackTarget: 条件付き攻撃判定デバフ(対象UUID照合)。萎縮・憎悪
  * - terminal:     終端マーカー(キャラロスト)。完全死亡 等
+ * - wound:        負傷(ダメージチャート)。直接効果は持たず inflicts/notes で表す
+ *
+ * group(ドロップダウンのグルーピング): "bs" / "incapacitation" / "physical" / "mental" / "social"。
  */
-// キーは CONFIG.statusEffects の id と一致させる(conditionKind = status id で一意化)。
-// Bad_Status.md 準拠(2026-06-22)。効果値は「固定(fixedMagnitude=コード適用・欄なし)」と
-// 「可変(magnitudeField/abilityField/targetField/weaponField=詳細タブで入力)」を区別する。
-// 重複可否(stackable)は **BS ごとにルールで固定**(切替不可)。
-// apply: "checkAndControl"(達成値＋制御値) / "control"(制御値のみ)。
-export const CONDITION_KINDS = Object.freeze({
-  // --- バッドステータス ---
-  "panic":        { label: "恐慌",     type: "block", block: "reaction",     stackable: false },
-  "poison":       { label: "邪毒",     type: "continuous", magnitudeField: true, stackable: false },
-  // 重圧: 能力値は指定される場合(手動)と、指定なし→受ける際に引く場合がある(Bad_Status.md)。
-  // よって abilityField は空欄可。空欄＝指定なし(カードで決定。カード機構は未実装＝当面は遮断保留)。
-  "pressure":     { label: "重圧",     type: "block", block: "abilityCheck", abilityField: "optional", abilityBlankLabel: "指定なし（カードで決定）", stackable: false },
-  // 衰弱: (数字なし)=引いたカードのスート1つの制御値を引いた数字分減(対象・数字とも引いて決まる) /
-  // (-数字)=全制御値をその数字分減。両者とも重複。対象スートは**選択でなく引いて決まる**ため
-  // abilityField(手動選択)は持たない。targetAbility はカード機構(未実装)が書き込む。当面 magnitude のみ
-  // (targetAbility 空欄=全制御値)。
-  "weakness":     { label: "衰弱",     type: "numeric", apply: "control", magnitudeField: true, stackable: true },
-  "capture":      { label: "捕縛",     type: "block", block: "attackWith", weaponField: true, stackable: true }, // 武器ごと
-  // 酩酊: 達成値・全制御値の減少量は固定(小-2 / 大-5)。設定不可。小↔大は別BSで重なる。
-  "doped-major":  { label: "酩酊(大)", type: "numeric", apply: "checkAndControl", fixedMagnitude: 5, stackable: false },
-  "doped-minor":  { label: "酩酊(小)", type: "numeric", apply: "checkAndControl", fixedMagnitude: 2, stackable: false },
-  // 萎縮/憎悪: -5 は固定。対象(targetUuid)のみ可変。萎縮=対象ごと重複、憎悪=ペナルティ非重複。
-  "fear":         { label: "萎縮",     type: "attackTarget", targetMode: "include", penalty: 5, targetField: true, stackable: true },
-  "hatred":       { label: "憎悪",     type: "attackTarget", targetMode: "exclude", penalty: 5, targetField: true, stackable: false },
-  "interference": { label: "電子妨害", type: "computed", magnitudeField: true, stackable: false },
-  // 狼狽: ムーブ不可＋メジャーアクションの達成値 -10(回復=マイナー消費)。メジャー/ムーブの区別は
-  // 行動系=フェーズ13 が前提のため、9-4 では器(マーカー)。効果の発火は13。
-  "confusion":    { label: "狼狽",     type: "block", block: "move", stackable: false },
-  // --- 戦闘不能(効果の発火＝メインプロセス不可は 13、回復は 15。9-4 は器のみ。効果値なし・非重複) ---
-  "faint":      { label: "気絶",     type: "block", block: "mainProcess", stackable: false }, // 肉体
-  "swoon":      { label: "失神",     type: "block", block: "mainProcess", stackable: false }, // 精神
-  "coma":       { label: "仮死",     type: "block", block: "mainProcess", terminalPending: true, stackable: false }, // 肉体
-  "stupor":     { label: "昏睡",     type: "block", block: "mainProcess", terminalPending: true, stackable: false }, // 精神
-  "dead":       { label: "完全死亡", type: "terminal", stackable: false }, // 肉体
-  "mind-break": { label: "精神崩壊", type: "terminal", stackable: false }, // 精神
-  "erased":     { label: "抹殺",     type: "terminal", stackable: false }, // 社会(適用はセッション終了後)
+// キーは CONFIG.statusEffects の id と一致(conditionKind = status id)。Bad_Status.md 準拠。
+// 効果値は「固定(fixedMagnitude=欄なし)」と「可変(magnitudeField/abilityField/targetField/
+// weaponField=詳細タブ)」を区別。重複可否(stackable)は BS ごとにルール固定(切替不可)。
+// apply: "checkAndControl" / "control"。inflicts: 付与時に自動付与する別状態(汎用カスケード)。
+// 統合順(ユーザー確定 2026-06-23): BS → 戦闘不能 → 肉体 → 精神 → 社会。
+const BS_AND_INCAPACITATION = {
+  // --- バッドステータス(group: "bs") ---
+  "panic":        { label: "恐慌",     group: "bs", img: "icons/svg/terror.svg",    type: "block", block: "reaction",     stackable: false },
+  "poison":       { label: "邪毒",     group: "bs", img: "icons/svg/poison.svg",     type: "continuous", magnitudeField: true, stackable: false },
+  // 重圧: 能力値は指定/未指定(受ける際に引く)あり。abilityField 空欄可(空欄=指定なし=カードで決定)。
+  "pressure":     { label: "重圧",     group: "bs", img: "icons/svg/down.svg",       type: "block", block: "abilityCheck", abilityField: "optional", abilityBlankLabel: "指定なし（カードで決定）", stackable: false },
+  // 衰弱: 数字なし=引いたスート1つの制御値を引いた数字分(対象・数字とも引く)/ (-数字)=全制御値。
+  // 対象は選択でなく引いて決まるため abilityField なし。当面 magnitude のみ(空欄=全制御)。
+  "weakness":     { label: "衰弱",     group: "bs", img: "icons/svg/degen.svg",      type: "numeric", apply: "control", magnitudeField: true, stackable: true },
+  "capture":      { label: "捕縛",     group: "bs", img: "icons/svg/net.svg",        type: "block", block: "attackWith", weaponField: true, stackable: true },
+  // 酩酊: 減少量は固定(小-2 / 大-5)。小↔大は別BSで重なる。
+  "doped-major":  { label: "酩酊(大)", group: "bs", img: "icons/svg/daze.svg",       type: "numeric", apply: "checkAndControl", fixedMagnitude: 5, stackable: false },
+  "doped-minor":  { label: "酩酊(小)", group: "bs", img: "icons/svg/sleep.svg",      type: "numeric", apply: "checkAndControl", fixedMagnitude: 2, stackable: false },
+  // 萎縮/憎悪: -5 固定。対象(targetUuid)のみ可変。萎縮=対象ごと重複、憎悪=非重複。
+  "fear":         { label: "萎縮",     group: "bs", img: "icons/svg/cowled.svg",     type: "attackTarget", targetMode: "include", penalty: 5, targetField: true, stackable: true },
+  "hatred":       { label: "憎悪",     group: "bs", img: "icons/svg/fire.svg",       type: "attackTarget", targetMode: "exclude", penalty: 5, targetField: true, stackable: false },
+  "interference": { label: "電子妨害", group: "bs", img: "icons/svg/lightning.svg",  type: "computed", magnitudeField: true, stackable: false },
+  // 狼狽: ムーブ不可＋メジャー達成値-10(回復=マイナー)。メジャー/ムーブは行動系=13 前提のため器のみ。
+  "confusion":    { label: "狼狽",     group: "bs", img: "icons/svg/explosion.svg",  type: "block", block: "move", stackable: false },
+  // --- 戦闘不能(group: "incapacitation"。発火=メインプロセス不可は13・回復は15。効果値なし・非重複) ---
+  "faint":      { label: "気絶",     group: "incapacitation", img: "icons/svg/unconscious.svg", type: "block", block: "mainProcess", stackable: false },
+  "swoon":      { label: "失神",     group: "incapacitation", img: "icons/svg/unconscious.svg", type: "block", block: "mainProcess", stackable: false },
+  "coma":       { label: "仮死",     group: "incapacitation", img: "icons/svg/skull.svg",       type: "block", block: "mainProcess", terminalPending: true, stackable: false },
+  "stupor":     { label: "昏睡",     group: "incapacitation", img: "icons/svg/skull.svg",       type: "block", block: "mainProcess", terminalPending: true, stackable: false },
+  "dead":       { label: "完全死亡", group: "incapacitation", img: "icons/svg/blood.svg",       type: "terminal", stackable: false },
+  "mind-break": { label: "精神崩壊", group: "incapacitation", img: "icons/svg/blood.svg",       type: "terminal", stackable: false },
+  "erased":     { label: "抹殺",     group: "incapacitation", img: "icons/svg/blood.svg",       type: "terminal", stackable: false }, // 社会(適用はセッション終了後)
+};
+
+/**
+ * 全コンディション(BS → 戦闘不能 → 肉体 → 精神 → 社会)の統合レジストリ。
+ * 負傷状態(肉体/精神/社会)は damage-chart.mjs から取り込む(buildDamageStates)。
+ */
+export const CONDITION_KINDS = Object.freeze({ ...BS_AND_INCAPACITATION, ...buildDamageStates() });
+
+/** group キー → 表示ラベル(ドロップダウンのグループ見出し)。 */
+export const CONDITION_GROUP_LABELS = Object.freeze({
+  bs:             "バッドステータス",
+  incapacitation: "戦闘不能",
+  physical:       "肉体ダメージ",
+  mental:         "精神ダメージ",
+  social:         "社会ダメージ",
 });
 
 /**
