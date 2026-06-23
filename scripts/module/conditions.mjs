@@ -137,6 +137,42 @@ export function readCondition(effect) {
 }
 
 /**
+ * ある状態(kind)が `inflicts` で付与する別状態の **ActiveEffect 生成データ**を返す(フェーズ9-4)。
+ * 状態のみ(changes なし=コンディション)＋必要フラグ。ダメージ/カスケード由来は hideFromList=true で
+ * AE 本体をリスト非表示(供給元が浮くため。状態アイコンは出る)。純粋関数(Foundry 非依存)。
+ *
+ * - ability:        付与状態の targetAbility(重圧の理性 等)
+ * - controlNegate:  当面はそのまま付与し、`pendingControlNegate` フラグで保持(制御判定での無効/降格は
+ *                   制御判定機構＝後続が解決)
+ * - duration:       `durationNote` フラグで保持(失効発火は13/15)
+ *
+ * @param {string} kind
+ * @param {{hidden?:boolean}} [opts]
+ * @returns {Array<object>} createEmbeddedDocuments("ActiveEffect", ...) 用のデータ配列
+ */
+export function buildInflictedEffectsData(kind, { hidden = true } = {}) {
+  const def = CONDITION_KINDS[kind];
+  const out = [];
+  for (const inf of (def?.inflicts ?? [])) {
+    const idef = CONDITION_KINDS[inf.kind];
+    if (!idef) continue;
+    const cond = {};
+    if (inf.ability) cond.targetAbility = inf.ability;
+    if (inf.duration) cond.durationNote = inf.duration;
+    if (inf.controlNegate) cond.pendingControlNegate = inf.controlNegate;
+    const flags = { conditionKind: inf.kind, hideFromList: hidden };
+    if (Object.keys(cond).length) flags.conditions = { [inf.kind]: cond };
+    out.push({
+      name:     idef.label,
+      img:      idef.img ?? "icons/svg/aura.svg",
+      statuses: [inf.kind],
+      flags:    { [SCOPE]: flags },
+    });
+  }
+  return out;
+}
+
+/**
  * 重複排除(同一効果の重複適用不可)を施した値リストを返す共通処理。
  * 非 stackable は identity ごとに最も有利(最大)1つ、stackable は全て。
  * ここでの value は「ペナルティ量(正)」を想定し、最大採用＝最も重いペナルティ。

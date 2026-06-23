@@ -46,7 +46,7 @@ import { TnxRlRequestApp } from './module/tnx-rl-request-app.mjs';
 import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
 import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
-import { CONDITION_KINDS, getConditionKinds } from './module/conditions.mjs';
+import { CONDITION_KINDS, getConditionKinds, buildInflictedEffectsData } from './module/conditions.mjs';
 
 async function preloadHandlebarsTemplates() {
     const templatePaths = [
@@ -365,6 +365,29 @@ Hooks.on("preUpdateActiveEffect", (effect, changes) => {
     for (const kind of Object.keys(perKind)) {
         if (!next.has(kind)) changes[`flags.tokyo-nova-axleration.conditions.-=${kind}`] = null;
     }
+});
+
+// 状態カスケード(フェーズ9-4): inflicts を持つ状態(負傷等)が付与されたら、指定の別状態を自動付与する。
+// 付与する別状態は **状態のみ(changes なし=コンディション)** で、ダメージ/カスケード由来は
+// hideFromList=true で AE 本体をリスト非表示(状態アイコンは出る・供給元が浮かない)。
+// inflicts 先の状態は inflicts を持たないため循環しない。生成は付与した本人(userId)のみが行う。
+Hooks.on("createActiveEffect", async (effect, options, userId) => {
+    if (game.user.id !== userId) return;
+    const actor = effect.parent;
+    if (!actor || actor.documentName !== "Actor") return;
+    const data = [];
+    const seen = new Set();
+    for (const kind of getConditionKinds(effect)) {
+        for (const d of buildInflictedEffectsData(kind, { hidden: true })) {
+            const ik = d.statuses[0];
+            const idef = CONDITION_KINDS[ik];
+            // 非 stackable は既存/同バッチ重複を避ける(多重付与防止)
+            if (idef && !idef.stackable && (actor.statuses?.has?.(ik) || seen.has(ik))) continue;
+            seen.add(ik);
+            data.push(d);
+        }
+    }
+    if (data.length) await actor.createEmbeddedDocuments("ActiveEffect", data);
 });
 
 Hooks.once("init", async function() {

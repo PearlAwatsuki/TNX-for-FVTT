@@ -23,6 +23,9 @@ export const EffectsSheetMixin = {
         // ActiveEffect ドキュメントは変異させない(sourceName 等は読み取り専用ゲッター)。
         // 転送元の判別が必要なら template 側で組み込みの effect.sourceName を使う。
         for (const effect of source) {
+            // ダメージ/カスケード由来の状態は AE 本体をリスト非表示にする(供給元が浮くため。
+            // 状態自体はトークンのステータスアイコンで見える。技能由来 BS はフラグなし=表示)。
+            if (effect.flags?.["tokyo-nova-axleration"]?.hideFromList) continue;
             if (effect.disabled) effects.inactive.push(effect);
             else if (effect.isTemporary) effects.temporary.push(effect);
             else effects.passive.push(effect);
