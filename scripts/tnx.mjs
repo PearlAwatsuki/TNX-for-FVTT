@@ -46,7 +46,7 @@ import { TnxRlRequestApp } from './module/tnx-rl-request-app.mjs';
 import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
 import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
-import { CONDITION_KINDS, getConditionKinds, buildInflictedEffectsData, readConditions } from './module/conditions.mjs';
+import { CONDITION_KINDS, CONDITION_GROUP_LABELS, getConditionKinds, buildInflictedEffectsData, readConditions } from './module/conditions.mjs';
 import { registerDamageChartTextSetting } from './module/damage-chart-text-app.mjs';
 import { conditionNeedsDraw, postDrawPrompt, postControlNegatePrompt, bindConditionChatButtons } from './module/condition-resolution.mjs';
 
@@ -348,14 +348,35 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
     };
 
     injectConditionFieldsets();
-    // ステータス選択を変えたら、その場で statuses を永続化(シートは閉じない)→再注入で欄が即出る。
-    statusCtrl?.addEventListener("change", async () => {
-        const val = statusCtrl.value;
-        const ids = Array.isArray(val) ? val : (val ? [val] : []);
+
+    // status 選択を群(BS/戦闘不能/肉体/精神/社会)へグループ化する。
+    // 描画後に option を動かすと <multi-select> が壊れる(2026-06-24 修正)。そこで Foundry の
+    // ファクトリ createMultiSelectInput で optgroup 構成済みの要素を作って置換する。
+    // 失敗時は既定の選択欄にフォールバック(絶対に壊さない)。変更時は statuses を即永続化(再注入で欄即出)。
+    const persist = (el) => async () => {
+        const v = el.value;
+        const ids = Array.isArray(v) ? v : (v ? [v] : []);
         await app.document?.update({ statuses: ids });
-    });
-    // 注: status 選択の optgroup グループ化は v13 の <multi-select> を描画後に壊すため撤去。
-    // グルーピングは要素生成前に options を渡す方式が要る(別途・要 API 検証)。
+    };
+    let boundCtrl = statusCtrl;
+    if (statusCtrl) {
+        try {
+            const groups = Object.values(CONDITION_GROUP_LABELS);
+            const options = Object.entries(CONDITION_KINDS).map(([id, def]) => ({
+                value: id, label: def.label, group: CONDITION_GROUP_LABELS[def.group] ?? "",
+            }));
+            const grouped = foundry.applications.fields.createMultiSelectInput({
+                name: statusCtrl.getAttribute("name") || "statuses",
+                type: "multi", options, groups, value: [...(app.document?.statuses ?? [])],
+            });
+            statusCtrl.replaceWith(grouped);
+            boundCtrl = grouped;
+        } catch (e) {
+            console.warn("Tokyo NOVA: status のグループ化に失敗、既定の選択欄を使用します。", e);
+            boundCtrl = statusCtrl;
+        }
+        boundCtrl.addEventListener("change", persist(boundCtrl));
+    }
 });
 
 // コンディション(BS)のステータスを外したら、その kind の効果値フラグを後始末する(フェーズ9-4)。
