@@ -31,7 +31,7 @@ export function registerDamageChartTextSetting() {
   game.settings.registerMenu(SCOPE, "damageChartTextMenu", {
     name: "ダメージチャート効果文",
     label: "効果文を編集",
-    hint: "ダメージチャート各段の効果文（プロセ）を入力します。負傷名・効果は同梱、効果文のみ入力。",
+    hint: "ダメージチャートの各段（肉体／精神／社会・1〜21）に表示する効果文を入力します。各段の枠組みは同梱されており、ここでは効果文のみを入力します。",
     icon: "fas fa-file-lines",
     type: DamageChartTextApp,
     restricted: true,
