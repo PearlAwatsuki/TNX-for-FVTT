@@ -52,6 +52,12 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
 
         context.isGM = game.user.isGM;
 
+        // 折り畳み状態はテンプレートに直接出力し、初期描画＝最終状態にする(描画後 JS トグルの
+        // チラつき＝展開状態で描画→直後に収納、を防ぐ。_restoreCollapseState は冪等に残す)
+        context.rightCollapsed  = game.settings.get("tokyo-nova-axleration", "hudRightCollapsed");
+        context.bottomCollapsed = game.settings.get("tokyo-nova-axleration", "hudBottomCollapsed");
+        context.accessCollapsed = game.settings.get("tokyo-nova-axleration", "hudAccessCollapsed");
+
         // --- カードID取得（ゲーム設定から直接読み込み）---
         const cardDeckId    = game.settings.get("tokyo-nova-axleration", "cardDeckId");
         const discardPileId = game.settings.get("tokyo-nova-axleration", "discardPileId");
@@ -221,6 +227,10 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
     // ─── サイドバー幅連動 ─────────────────────────────────────────────────────
 
     static _rightOffsetObserver = null;
+    /** ロード直後の不安定な測定でサイドバーにめり込むのを防ぐ沈静化フラグ(ready 後に true) */
+    static _settled = false;
+    /** 最新の apply クロージャ参照(沈静化完了後に外部から再測定を促すため) */
+    static _applyRightOffset = null;
 
     static _setupRightOffsetObserver() {
         if (TnxHud._rightOffsetObserver) return;
@@ -233,6 +243,12 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
         if (!content) return;
 
         const apply = () => {
+            if (!TnxHud._settled) {
+                // 沈静化前(ロード直後)はサイドバー位置が未確定。測定せず何もしない。
+                // 右カラムは CSS で非表示にしておき、沈静化時に実測位置へ置いてからフェードインで出す
+                // (位置をカクっと動かして見せない。下バーは別要素なので表示のまま)。
+                return;
+            }
             const isPip = game.settings.get("core", "uiConfig").chatNotifications === "pip";
             const isChat = content.classList.contains("active-chat");
             const target = (isPip || isChat)
@@ -246,6 +262,8 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
                 "--tnx-right-offset", `${Math.max(minOffset, isPip ? fromRight + 10 : fromRight)}px`
             );
         };
+
+        TnxHud._applyRightOffset = apply;
 
         // サイドバーの CSS 遷移(250ms)中は毎フレーム再測定し、HUD を連続的に追従させる
         const follow = () => {

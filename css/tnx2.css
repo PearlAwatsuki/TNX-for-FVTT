@@ -3311,10 +3311,17 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     pointer-events: auto;
 }
 
+/* ロード沈静化まで右カラムを非表示にし、実測位置を置いてからフェードインで出す
+   （安全位置→実測位置への位置スナップを見せない。下バーは別要素で表示のまま）。 */
+body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
+    opacity: 0;
+    pointer-events: none;
+}
 .tnx-hud .hud-right-column {
     top: 17px;
     bottom: 15px;
     right: var(--tnx-right-offset, 370px);
+    transition: opacity 0.25s ease;
     /* 幅を明示しないと absolute の shrink-to-fit が max-content で確定し、
        wrap 前提のフレックス子(プレイヤー手札)がカラムごと押し広げてしまう。
        基準はニューロ/デッキパネル幅 (カード100px×2 + gap 8px + padding 16px)。 */
@@ -3495,7 +3502,7 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     min-width: 0;
     max-width: 540px;
     margin-right: 8px;
-    transition: max-width 0.25s ease, opacity 0.25s ease, margin-right 0.25s ease;
+    transition: max-width 0.4s ease-in-out, opacity 0.4s ease-in-out, margin-right 0.4s ease-in-out;
 }
 
 .tnx-hud .hand-area {
@@ -3520,7 +3527,7 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     overflow: hidden;
     max-width: 300px;
     margin-right: 8px;
-    transition: max-width 0.25s ease, padding-left 0.25s ease, padding-right 0.25s ease, opacity 0.25s ease, margin-right 0.25s ease;
+    transition: max-width 0.4s ease-in-out, padding-left 0.4s ease-in-out, padding-right 0.4s ease-in-out, opacity 0.4s ease-in-out, margin-right 0.4s ease-in-out;
 }
 
 /* ── アクセスカードエリア ── */
@@ -3531,7 +3538,7 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     margin-bottom: 5px;
     max-height: 300px;
     overflow: hidden;
-    transition: max-height 0.25s ease, opacity 0.25s ease, margin-bottom 0.25s ease;
+    transition: max-height 0.4s ease-in-out, opacity 0.4s ease-in-out, margin-bottom 0.4s ease-in-out;
 }
 
 /* アコーディオン折りたたみ時: ラベル幅のみに縮小 */
@@ -3549,7 +3556,7 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 .tnx-hud .access-fold-icon {
     font-size: 0.7em;
     color: var(--tnx2-text-secondary);
-    transition: transform 0.25s ease;
+    transition: transform 0.4s ease-in-out;
 }
 .tnx-hud .access-area.collapsed .access-fold-icon {
     transform: rotate(-90deg);

@@ -1,5 +1,5 @@
 <div class="tnx-hud">
-    <div class="hud-container hud-right-column">
+    <div class="hud-container hud-right-column{{#if rightCollapsed}} collapsed{{/if}}">
         <button class="hud-collapse-toggle hud-collapse-right" data-action="toggleHudColumn" data-column="right" title="右カラムを折りたたむ">
             <i class="fas fa-chevron-right"></i>
         </button>
@@ -94,9 +94,9 @@
         </div>
     </div>
 
-    <div class="hud-container hud-bottom-bar">
+    <div class="hud-container hud-bottom-bar{{#if bottomCollapsed}} collapsed{{/if}}">
         {{#if accessCards}}
-        <div class="access-area hud-panel">
+        <div class="access-area hud-panel{{#if accessCollapsed}} collapsed{{/if}}">
             <div class="access-area-header" data-action="toggleAccessArea" title="アクセスカードの表示を開閉">
                 <i class="fas fa-chevron-down access-fold-icon"></i>
                 <span class="card-slot-label">アクセスカード</span>

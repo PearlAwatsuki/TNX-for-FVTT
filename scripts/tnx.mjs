@@ -992,8 +992,21 @@ Hooks.once("init", async function() {
 
 Hooks.once("ready", async function() {
     game.tnx = game.tnx || {};
+    // 下バー展開時はホットバーを退避する。HUD 初期描画前に body クラスを付与して
+    // 「ホットバー表示→直後に非表示」のチラつきを防ぐ(下バー収納の既定は false=展開)。
+    if (!game.settings.get("tokyo-nova-axleration", "hudBottomCollapsed")) {
+        document.body.classList.add("tnx-bottom-hud-expanded");
+    }
     game.tnx.hud = new TnxHud();
     game.tnx.hud.render({ force: true });
+    // サイドバー追従の沈静化: ロード直後はサイドバー位置が未確定でめり込むため、右カラムは
+    // CSS で非表示にしておき、UI 安定後(ready+遅延)に実測位置をセットしてからフェードインで出す。
+    // これで「安全位置→実測位置へカクっと移動」する瞬間を見せずに済む(下バーは別要素で表示のまま)。
+    setTimeout(() => {
+        TnxHud._settled = true;
+        TnxHud._applyRightOffset?.();            // 実測位置をセット(まだ非表示)
+        document.body.classList.add("tnx-hud-settled"); // 右カラムをフェードインで表示
+    }, 500);
 
     // 判定フロー: ダイアログクラスを注入してグローバルに公開
     TnxJudgmentFlow.dialogClass = TnxJudgmentDialog;
