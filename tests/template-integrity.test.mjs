@@ -38,11 +38,11 @@ function kebabToCamel(str) {
 /**
  * scripts/data/item/ 配下のファイルから DataModel 化済み Item type 名を動的に導出する。
  * - common/ ディレクトリは共通テンプレートのため除外
- * - helpers.mjs / outfit-categories.mjs は DataModel でないファイルのため除外
+ * - helpers.mjs / outfit-categories.mjs / part-helpers.mjs は DataModel でないファイルのため除外
  * - .mjs ファイルのみを対象とし、ファイル名を camelCase type 名に変換する
  * @returns {string[]}
  */
-const NON_DATAMODEL_FILES = ["helpers.mjs", "outfit-categories.mjs"];
+const NON_DATAMODEL_FILES = ["helpers.mjs", "outfit-categories.mjs", "part-helpers.mjs"];
 
 function getDataModeledItemTypes() {
   const itemDir = join(projectRoot, "scripts", "data", "item");
@@ -152,6 +152,7 @@ describe("型定義健全性テスト", () => {
       expect(types).not.toContain("common");
       expect(types).not.toContain("helpers");
       expect(types).not.toContain("outfitCategories");
+      expect(types).not.toContain("partHelpers");
     });
 
     it("DataModel ファイルの type が documentTypes.Item に過不足なく存在する", () => {

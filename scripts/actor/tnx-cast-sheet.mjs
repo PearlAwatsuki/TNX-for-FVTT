@@ -4,7 +4,8 @@ import { TnxHistoryMixin } from '../module/tnx-history-mixin.mjs';
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 import { getUserFlagData, TNX_FLAG_SCOPE } from '../module/user-flag-schema.mjs';
 import { OUTFIT_CATEGORIES, getMinorCategoryLabel } from '../data/item/outfit-categories.mjs';
-import { formatWeaponRangeLabel, formatPartLabel } from '../item/tnx-outfit-sheet.mjs';
+import { formatWeaponRangeLabel } from '../item/tnx-outfit-sheet.mjs';
+import { formatPartDesignation, joinPartDesignations } from '../data/item/part-helpers.mjs';
 import { TnxJudgmentFlow } from '../module/tnx-judgment-flow.mjs';
 import { getComboSuits, ALL_SUITS } from '../module/tnx-judgment-engine.mjs';
 
@@ -1176,7 +1177,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
                     ? `${effectiveValues.cyberSecurity}／${effectiveValues.analogSecurity}`
                     : `${sys.cyberSecurity ?? 0}／${sys.analogSecurity ?? 0}`;
             case "part":
-                return formatPartLabel(sys.part);
+                return formatPartDesignation(sys.part, sys.partRelation, sys.partOptional);
             default:
                 return "-";
         }
@@ -1275,13 +1276,8 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
                 const total = slotVal(s1sys, "hardware") + slotVal(s2sys, "hardware");
                 return total > 0 ? String(total) : "-";
             }
-            case "part": {
-                const parts = [
-                    ...(Array.isArray(s1sys.part) ? s1sys.part : []),
-                    ...(Array.isArray(s2sys.part) ? s2sys.part : []),
-                ];
-                return formatPartLabel(parts);
-            }
+            case "part":
+                return joinPartDesignations([s1sys, s2sys]);
             default:
                 return TokyoNovaCastSheet._computeColValue(key, appearSys, null);
         }

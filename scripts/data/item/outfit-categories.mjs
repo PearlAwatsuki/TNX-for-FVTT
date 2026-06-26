@@ -118,6 +118,27 @@ export function getMinorCategoryLabel(key) {
 }
 
 /**
+ * 「大分類レベルでスロットを共有する」大分類。オプションの部位名(スロット名)を
+ * **大分類名**で表記する(「武器」「武器(白兵武器)」)。
+ *
+ * 構造上は武器(全小分類 weapon 型)もヴィークル(全小分類 vehicle 型)も同型だが、ルルブ表記は
+ * **経験的に武器のみ**が大分類名表記で、ヴィークルは小分類名「船舶」「航空機」等でそのまま記述
+ * される(ユーザー確認 2026-06-26。理由不明だが武器が例外)。よって構造逆算ではなく**観測に
+ * 基づく例外リスト**として持つ。他に該当大分類が見つかればここへ足す。
+ * @type {readonly string[]}
+ */
+export const MAJOR_LEVEL_SLOT_MAJORS = Object.freeze(["weapon"]);
+
+/**
+ * 大分類が大分類レベルでスロットを共有するか(オプション部位名を大分類名で表記するか)。
+ * @param {string} majorKey
+ * @returns {boolean}
+ */
+export function isMajorLevelSlotMajor(majorKey) {
+  return MAJOR_LEVEL_SLOT_MAJORS.includes(majorKey);
+}
+
+/**
  * 旧データ(日本語名格納)→ コードキー の対応表(大分類・小分類を一括)。
  * label と同一文字列をキーへ写像する。migrateData 用。
  * @type {Readonly<Record<string, string>>}

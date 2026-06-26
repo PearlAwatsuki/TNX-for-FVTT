@@ -7,6 +7,7 @@ import { SLOT_KINDS } from "../data/item/common/extensible.mjs";
 import { HOUSING_AREA_RANKS, HOUSING_AREA_MOD_FIELDS } from "../data/item/housing-area.mjs";
 import { PART_KINDS, PART_REFERENCE_SUB_KINDS, PART_RELATIONS } from "../data/item/common/outfit-base.mjs";
 import { getPartSlotPreset } from "../module/part-slot-preset-app.mjs";
+import { formatPartDesignation, joinPartDesignations } from "../data/item/part-helpers.mjs";
 
 /** 住宅エリア compendium の pack ID */
 const HOUSING_AREA_PACK = "tokyo-nova-axleration.housing-areas";
@@ -124,25 +125,6 @@ const COMBINE_PARAM_DEFS = Object.freeze([
 ]);
 
 /**
- * 部位の表記(2026-06-12 ユーザー確定、2026-06-13 複数部位対応)。
- * 各行はスロット数 1 のときは部位名のみ、0 または 2 以上のときは「武器2」のように数値を付し、
- * 複数行は「、」で連結する。
- * Handlebars ヘルパー tnxPartLabel(tnx.mjs)と本シートのサマリ生成で共用する。
- * @param {Array<{value: string, slots: number}>|Object|string|null} part
- * @returns {string}
- */
-export function formatPartLabel(part) {
-    if (typeof part === "string") return part || "-";
-    const list = Array.isArray(part) ? part
-        : (part && typeof part === "object") ? Object.values(part)
-        : [];
-    const labels = list
-        .filter((p) => p && typeof p === "object" && p.value)
-        .map((p) => ((p.slots ?? 0) === 1 ? p.value : `${p.value}${p.slots ?? 0}`));
-    return labels.length ? labels.join("、") : "-";
-}
-
-/**
  * 射程の表記(略号「射」)。
  * - min が "none" または未設定: "-"
  * - min が値で max が "none" または未設定: 単一表記(例: "至近")
@@ -223,10 +205,10 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         return { none: "なし", value: "数値" };
     }
 
-    /** 空の部位行(フェーズ10: 種別ベース。新規行の既定種別は身体部位) */
+    /** 空の部位行(フェーズ10: 種別ベース。新規行の既定種別は身体部位。任意は part 全体フラグ) */
     static get blankPartRow() {
         return {
-            kind: "bodyPart", value: "", slots: 1, isOptional: false,
+            kind: "bodyPart", value: "", slots: 1,
             hostMajor: "", hostMinor: "", hostMinorExclude: false,
             hostFeature: "", hostName: "", refSubKind: "none",
         };
@@ -478,11 +460,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 + expNum(s1.system)
                 + expNum(s2.system);
 
-            // 部位: 両方の指定部位を全て占有
-            const parts = [
-                ...(Array.isArray(s1.system.part) ? s1.system.part : []),
-                ...(Array.isArray(s2.system.part) ? s2.system.part : []),
-            ];
+            // 部位: 両方の指定部位を全て占有(merged.part で joinPartDesignations により併記)
 
             // 食い違うパラメータのラジオ選択行を生成する
             const params = system.combine.params ?? {};
@@ -514,7 +492,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
             result.merged = {
                 name: appearSrc.name,
-                part: formatPartLabel(parts),
+                part: joinPartDesignations([s1.system, s2.system]),
                 category,
                 preserveExpTotal,
                 // 電制: どちらか高い方(両方なしなら -)
@@ -597,7 +575,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
         // 電脳制御値(除外対象: 符号なし)
         const hack = mv(system.hack);
-        const part = formatPartLabel(system.part);
+        const part = formatPartDesignation(system.part, system.partRelation, system.partOptional);
         const defence = () => {
             const d = system.defence;
             if (d?.mode !== "value") return "-";
@@ -896,12 +874,8 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             });
         }
 
-        // 部位全体の結合(and/or)
-        this.element.querySelector('select[name="system.partRelation"]')
-            ?.addEventListener("change", (event) => {
-                event.stopPropagation();
-                this.item.update({ "system.partRelation": event.currentTarget.value });
-            });
+        // 部位全体の結合(and/or)・任意(partOptional)は name= の名前付きフィールドなので
+        // フォームの submitOnChange で自動保存される(カスタムハンドラ不要)。
 
         // 部位行の追加・削除
         for (const btn of this.element.querySelectorAll(".tnx-part-add")) {
@@ -1199,6 +1173,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         context.partRefSubChoices  = PART_REFERENCE_SUB_KINDS;
         context.partRelationChoices = PART_RELATIONS;
         context.partRelation = system.partRelation ?? "and";
+        context.partOptional = system.partOptional === true; // 任意は部位全体に効く
         context.partMultiRow = (system.part?.length ?? 0) >= 2;
 
         // 身体部位の選択肢: アクター所属=partSlots ラベル / 直下=自由入力＋datalist(プリセット)
@@ -1255,7 +1230,6 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 kind: p.kind,
                 value: p.value,
                 slots: p.slots,
-                isOptional: p.isOptional,
                 hostMajor: p.hostMajor,
                 hostMinor: p.hostMinor,
                 hostMinorExclude: p.hostMinorExclude,
@@ -1266,8 +1240,6 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 showBody:   effKind === "bodyPart",
                 showOption: effKind === "option",
                 showOther:  effKind === "other",
-                showSlots:  effKind === "bodyPart" || effKind === "option",
-                showOptional: p.kind !== "none",
                 minorChoices,
                 hostNameChoices,
             };

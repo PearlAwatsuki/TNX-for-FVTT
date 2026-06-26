@@ -6784,11 +6784,16 @@ button.tnx-create-act-button span {
 .tnx-part-fieldset .tnx-part-add:hover {
     opacity: 1;
 }
-.tnx-part-fieldset .tnx-part-relation {
+.tnx-part-fieldset .tnx-part-controls {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 14px;
     margin-bottom: 6px;
+}
+.tnx-part-fieldset .tnx-part-relation {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
 }
 .tnx-part-fieldset .tnx-part-relation > label {
     font-size: 0.85em;
@@ -6847,9 +6852,6 @@ button.tnx-create-act-button span {
     white-space: nowrap;
     color: var(--tnx2-text-secondary, #aaa);
 }
-.tnx-part-fieldset .tnx-part-optional {
-    align-self: flex-end;
-}
 .tnx-part-fieldset .tnx-part-del {
     align-self: flex-end;
     padding-bottom: 6px;
@@ -6886,8 +6888,22 @@ button.tnx-create-act-button span {
 .tnx-part-fieldset .tnx-part-option .tnx-part-target {
     grid-column: 1 / -1;
 }
-.tnx-part-fieldset .tnx-part-minor select {
-    width: 100%;
+.tnx-part-fieldset .tnx-part-minor-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.tnx-part-fieldset .tnx-part-minor-row select {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.tnx-part-fieldset .tnx-part-target-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+}
+.tnx-part-fieldset .tnx-part-target-row .tnx-part-target {
+    flex: 1 1 auto;
 }
 /* カード内コンパクトスピナー（global の flex 0 0 60px/35px を上書き） */
 .tokyo-nova.sheet.item .tnx-part-fieldset .number-input-spinner input[type="number"] {

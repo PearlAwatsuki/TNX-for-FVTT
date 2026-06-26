@@ -97,7 +97,7 @@
 
                 {{#unless isCombiner}}
                 <fieldset class="tnx-fieldset">
-                    <legend>性質</legend>
+                    <legend>特性</legend>
                     <div class="outfit-flags">
                         {{#unless isCyberByCategory}}
                         <label class="outfit-flag">
@@ -106,34 +106,10 @@
                         </label>
                         {{/unless}}
                         <label class="outfit-flag">
-                            <input type="checkbox" name="system.isOption" {{checked system.isOption}}>
-                            <span>オプション</span>
-                        </label>
-                        <label class="outfit-flag">
                             <input type="checkbox" name="system.isConsumption" {{checked system.isConsumption}}>
                             <span>消費アイテム</span>
                         </label>
                     </div>
-                    {{#if system.isOption}}
-                    <div class="tnx-form-field">
-                        <div class="form-group">
-                            <label>装備対象</label>
-                            <select name="system.parentItemId">
-                                {{selectOptions options.parentItem selected=system.parentItemId}}
-                            </select>
-                        </div>
-                        {{#if system.parentItemId}}
-                        {{#if parentHasSlots}}
-                        <div class="form-group">
-                            <label>装備スロット</label>
-                            <select name="system.parentSlotKind">
-                                {{selectOptions options.parentSlot selected=system.parentSlotKind}}
-                            </select>
-                        </div>
-                        {{/if}}
-                        {{/if}}
-                    </div>
-                    {{/if}}
                 </fieldset>
                 {{/unless}}
 
@@ -769,14 +745,20 @@
                         <a class="tnx-part-add" title="行を追加"><i class="fas fa-plus"></i></a>
                     </legend>
 
-                    {{#if partMultiRow}}
-                    <div class="tnx-part-relation">
-                        <label>結合</label>
-                        <select name="system.partRelation">
-                            {{selectOptions partRelationChoices selected=partRelation}}
-                        </select>
+                    <div class="tnx-part-controls">
+                        <label class="tnx-part-optional" title="任意＝重複可・占有数に数えない（部位全体に効く）">
+                            <input type="checkbox" name="system.partOptional" {{checked partOptional}}>
+                            任意
+                        </label>
+                        {{#if partMultiRow}}
+                        <span class="tnx-part-relation">
+                            <label>結合</label>
+                            <select name="system.partRelation">
+                                {{selectOptions partRelationChoices selected=partRelation}}
+                            </select>
+                        </span>
+                        {{/if}}
                     </div>
-                    {{/if}}
 
                     {{#if partBodyDatalist.length}}
                     <datalist id="tnx-part-bodylist">
@@ -794,22 +776,6 @@
                                         {{selectOptions ../partKindChoices selected=row.kind}}
                                     </select>
                                 </div>
-                                {{#if row.showSlots}}
-                                <div class="tnx-part-field tnx-part-slots">
-                                    <label>消費数 <i class="fas fa-circle-question" title="占有するスロット数（0＝非消費）"></i></label>
-                                    <div class="number-input-spinner tnx-spinner--sm">
-                                        <button type="button" class="tnx-btn" data-action="decrementPart" data-index="{{row.idx}}">－</button>
-                                        <input type="number" data-part-field="slots" data-index="{{row.idx}}" value="{{row.slots}}" min="0">
-                                        <button type="button" class="tnx-btn" data-action="incrementPart" data-index="{{row.idx}}">＋</button>
-                                    </div>
-                                </div>
-                                {{/if}}
-                                {{#if row.showOptional}}
-                                <label class="tnx-part-optional" title="任意＝重複可・占有数に数えない">
-                                    <input type="checkbox" data-part-field="isOptional" data-index="{{row.idx}}" {{checked row.isOptional}}>
-                                    任意
-                                </label>
-                                {{/if}}
                                 <a class="tnx-part-del" data-index="{{row.idx}}" title="この行を削除"><i class="fas fa-trash"></i></a>
                             </div>
 
@@ -823,15 +789,25 @@
                             {{/if}}
 
                             {{#if row.showBody}}
-                            <div class="tnx-part-field tnx-part-target">
-                                <label>部位</label>
-                                {{#if ../partBodyChoices}}
-                                <select data-part-field="value" data-index="{{row.idx}}">
-                                    {{selectOptions ../partBodyChoices selected=row.value}}
-                                </select>
-                                {{else}}
-                                <input type="text" data-part-field="value" data-index="{{row.idx}}" value="{{row.value}}" list="tnx-part-bodylist" placeholder="部位名（例: 片手持ち）">
-                                {{/if}}
+                            <div class="tnx-part-target-row">
+                                <div class="tnx-part-field tnx-part-target">
+                                    <label>部位</label>
+                                    {{#if ../partBodyChoices}}
+                                    <select data-part-field="value" data-index="{{row.idx}}">
+                                        {{selectOptions ../partBodyChoices selected=row.value}}
+                                    </select>
+                                    {{else}}
+                                    <input type="text" data-part-field="value" data-index="{{row.idx}}" value="{{row.value}}" list="tnx-part-bodylist" placeholder="部位名（例: 片手持ち）">
+                                    {{/if}}
+                                </div>
+                                <div class="tnx-part-field tnx-part-slots">
+                                    <label>消費数 <i class="fas fa-circle-question" title="占有するスロット数（0＝非消費）"></i></label>
+                                    <div class="number-input-spinner tnx-spinner--sm">
+                                        <button type="button" class="tnx-btn" data-action="decrementPart" data-index="{{row.idx}}">－</button>
+                                        <input type="number" data-part-field="slots" data-index="{{row.idx}}" value="{{row.slots}}" min="0">
+                                        <button type="button" class="tnx-btn" data-action="incrementPart" data-index="{{row.idx}}">＋</button>
+                                    </div>
+                                </div>
                             </div>
                             {{/if}}
 
@@ -845,19 +821,29 @@
                                 </div>
                                 <div class="tnx-part-field tnx-part-minor">
                                     <label>小分類</label>
-                                    <select data-part-field="hostMinor" data-index="{{row.idx}}">
-                                        {{selectOptions row.minorChoices selected=row.hostMinor}}
-                                    </select>
-                                    <label class="tnx-part-exclude" title="この小分類『以外』を対象にする">
-                                        <input type="checkbox" data-part-field="hostMinorExclude" data-index="{{row.idx}}" {{checked row.hostMinorExclude}}>
-                                        除外
-                                    </label>
+                                    <div class="tnx-part-minor-row">
+                                        <select data-part-field="hostMinor" data-index="{{row.idx}}">
+                                            {{selectOptions row.minorChoices selected=row.hostMinor}}
+                                        </select>
+                                        <label class="tnx-part-exclude" title="この小分類『以外』を対象にする">
+                                            <input type="checkbox" data-part-field="hostMinorExclude" data-index="{{row.idx}}" {{checked row.hostMinorExclude}}>
+                                            除外
+                                        </label>
+                                    </div>
                                 </div>
                                 <div class="tnx-part-field">
                                     <label>その他特徴</label>
                                     <select data-part-field="hostFeature" data-index="{{row.idx}}">
                                         {{selectOptions ../partHostFeatureChoices selected=row.hostFeature}}
                                     </select>
+                                </div>
+                                <div class="tnx-part-field tnx-part-slots">
+                                    <label>消費数 <i class="fas fa-circle-question" title="占有するスロット数（0＝非消費）"></i></label>
+                                    <div class="number-input-spinner tnx-spinner--sm">
+                                        <button type="button" class="tnx-btn" data-action="decrementPart" data-index="{{row.idx}}">－</button>
+                                        <input type="number" data-part-field="slots" data-index="{{row.idx}}" value="{{row.slots}}" min="0">
+                                        <button type="button" class="tnx-btn" data-action="incrementPart" data-index="{{row.idx}}">＋</button>
+                                    </div>
                                 </div>
                                 <div class="tnx-part-field tnx-part-target">
                                     <label>アイテム名</label>

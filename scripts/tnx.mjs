@@ -30,7 +30,7 @@ import { TokyoNovaGeneralSkillSheet } from './item/tnx-general-skill-sheet.mjs';
 import { TokyoNovaStyleSkillSheet } from './item/tnx-style-skill-sheet.mjs';
 import { TokyoNovaOrganizationSheet } from './item/tnx-organization-sheet.mjs';
 import { TokyoNovaLifePathSheet } from './item/tnx-life-path-sheet.mjs';
-import { TokyoNovaOutfitSheet, formatPartLabel, formatWeaponRangeLabel } from './item/tnx-outfit-sheet.mjs';
+import { TokyoNovaOutfitSheet, formatWeaponRangeLabel } from './item/tnx-outfit-sheet.mjs';
 import { TokyoNovaHousingAreaSheet } from './item/tnx-housing-area-sheet.mjs';
 import { TnxScenarioSheet } from './journal/tnx-scenario-sheet.mjs';
 import { TnxCardSetupApp } from './module/tnx-card-setup-app.mjs';
@@ -459,9 +459,6 @@ Hooks.once("init", async function() {
         if (system.isCyber === true && system.majorCategory !== "cyberware") return `${name}※`;
         return name;
     });
-
-    // 部位の表記(スロット数 1 は部位名のみ、0 または 2 以上は「武器2」形式)
-    Handlebars.registerHelper('tnxPartLabel', formatPartLabel);
 
     // 武器射程の表記(min/max が同じなら単一表記、異なるなら「近～超遠」形式)
     Handlebars.registerHelper('tnxRangeLabel', formatWeaponRangeLabel);

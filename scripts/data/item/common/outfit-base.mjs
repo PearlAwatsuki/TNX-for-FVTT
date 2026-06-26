@@ -114,7 +114,6 @@ export class OutfitBaseTemplate extends SystemDataModel {
           kind:             new fields.StringField({ initial: "other", choices: PART_KINDS }),
           value:            new fields.StringField({ initial: "" }),
           slots:            new fields.NumberField({ initial: 1, min: 0, integer: true }),
-          isOptional:       new fields.BooleanField({ initial: false }),
           hostMajor:        new fields.StringField({ initial: "" }),
           hostMinor:        new fields.StringField({ initial: "" }),
           hostMinorExclude: new fields.BooleanField({ initial: false }),
@@ -123,9 +122,11 @@ export class OutfitBaseTemplate extends SystemDataModel {
           refSubKind:       new fields.StringField({ initial: "none", choices: PART_REFERENCE_SUB_KINDS }),
         })
       ),
-      // part 全体の結合(2行以上で意味を持つ)と、or 時の装備先(占有する行 index。表示には不影響)
+      // part 全体の結合(2行以上で意味を持つ)と、or 時の装備先(占有する行 index。表示には不影響)。
+      // partOptional=任意は**部位全体**に効く(重複可・占有非カウント。行ごとではない)。
       partRelation: new fields.StringField({ initial: "and", choices: PART_RELATIONS }),
       partOrChoice: new fields.NumberField({ initial: 0, min: 0, integer: true }),
+      partOptional: new fields.BooleanField({ initial: false }),
       // 部位「-」品など、準備していなくても使用可能な例外フラグ(2026-06-26)
       noPrepareRequired: new fields.BooleanField({ initial: false }),
       timing: new fields.SchemaField({
