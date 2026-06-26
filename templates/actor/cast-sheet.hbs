@@ -566,6 +566,7 @@
                         </a>
                         {{/if}}
                     </div>
+
                     <div class="outfit-groups-container">
                         {{#each outfitGroups as |group|}}
                         <div class="outfit-group">
@@ -619,6 +620,45 @@
                         </div>
                         {{/each}}
                     </div>
+
+                    {{!-- 部位占有（タブ最下部・縮小/展開・既定縮小。表示のみ・超過は赤） --}}
+                    {{#if (or partOccupancy.hasSlots isEditMode)}}
+                    <div class="tnx-part-occupancy{{#unless partOccExpanded}} collapsed{{/unless}}">
+                        <div class="tnx-occ-title" data-action="togglePartOccupancy">
+                            <span class="tnx-occ-toggle"><i class="fas fa-chevron-right tnx-occ-chevron"></i> 部位の占有</span>
+                            {{#if isEditMode}}
+                            <span class="tnx-occ-actions">
+                                <a class="tnx-occ-edit" data-action="editPartSlots" title="このキャストの部位スロットを編集">
+                                    <i class="fas fa-pen"></i> 編集
+                                </a>
+                                <a class="tnx-occ-load" data-action="loadPartPreset" title="ゲーム設定の部位プリセットを読み込み、このキャストの部位スロットを作成（既存は置換）">
+                                    <i class="fas fa-download"></i> プリセットを読み込む
+                                </a>
+                            </span>
+                            {{/if}}
+                        </div>
+                        <div class="tnx-occ-body">
+                            {{#if partOccupancy.hasSlots}}
+                            <div class="tnx-occ-chips">
+                                {{#each partOccupancy.slots as |slot|}}
+                                <span class="tnx-occ-chip {{#if slot.over}}tnx-occ-over{{/if}}" title="{{slot.label}}　使用 {{slot.used}} / 保有 {{slot.count}}{{#if slot.over}}（超過）{{/if}}">
+                                    <span class="tnx-occ-name">{{slot.label}}</span>
+                                    <span class="tnx-occ-count">{{slot.used}}/{{slot.count}}</span>
+                                </span>
+                                {{/each}}
+                                {{#each partOccupancy.unlisted as |u|}}
+                                <span class="tnx-occ-chip tnx-occ-over" title="プリセット未登録の部位「{{u.label}}」を {{u.used}} 占有">
+                                    <span class="tnx-occ-name">{{u.label}}</span>
+                                    <span class="tnx-occ-count">{{u.used}}/–</span>
+                                </span>
+                                {{/each}}
+                            </div>
+                            {{else}}
+                            <div class="tnx-occ-empty">部位スロット未設定です。「プリセットを読み込む」で作成できます。</div>
+                            {{/if}}
+                        </div>
+                    </div>
+                    {{/if}}
                 </div>
 
                 <div class="tab status" data-group="primary" data-tab="status">

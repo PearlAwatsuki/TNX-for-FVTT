@@ -6576,45 +6576,52 @@ button.tnx-create-act-button span {
 /* ============================================================
    § 36: 部位スロットプリセット 設定アプリ（フェーズ10）
    ============================================================ */
-/* standard-form の flex gap がヘッダーとコンテントの間に空くのを打ち消す（カード設定と同方式） */
-#tnx-part-slot-preset {
+/* standard-form の flex gap がヘッダー/本体間に空くのを打ち消す。id でなくクラスにし、
+   Foundry の .application.standard-form より高い詳細度(3クラス)で確実に上書き(両エディタ共通)。 */
+.application.standard-form.tnx-part-slot-preset {
     gap: 0;
 }
-#tnx-part-slot-preset .window-content {
+.tnx-part-slot-preset .window-content {
     display: flex;
     flex-direction: column;
     overflow: hidden;
     min-height: 0;
     flex: 1;
+    /* Foundry 既定の window-content パディングを消し、余白は内側(body/各セクション)で持つ。
+       これでスクロール枠がウィンドウ枠まで届き、スクロールバー右の余白が出ない。 */
+    padding: 0;
 }
-#tnx-part-slot-preset [data-application-part="main"] {
+.tnx-part-slot-preset [data-application-part="main"] {
     display: flex;
     flex-direction: column;
     flex: 1;
     min-height: 0;
     overflow: hidden;
 }
-#tnx-part-slot-preset .tnx-psp-body {
+.tnx-part-slot-preset .tnx-psp-body {
     display: flex;
     flex-direction: column;
     gap: 8px;
     flex: 1;
     min-height: 0;
-    padding: 8px;
+    padding: 8px; /* 左右対称。各要素はこの余白で揃う(行追加・hint・footer 含む) */
 }
-#tnx-part-slot-preset .tnx-psp-hint {
+.tnx-part-slot-preset .tnx-psp-hint {
     margin: 0 0 4px;
     font-size: 0.82em;
 }
-#tnx-part-slot-preset .tnx-psp-rows {
+.tnx-part-slot-preset .tnx-psp-rows {
     display: flex;
     flex-direction: column;
     gap: 4px;
     flex: 1;
     overflow-y: auto;
-    padding-right: 4px;
+    /* スクロール枠だけ本体の右パディング(8px)を負マージンで打ち消し、スクロールバーを
+       ウィンドウ枠まで届かせる。中身は padding-right でバーから離す(他要素は触らない)。 */
+    margin-right: -8px;
+    padding-right: 8px;
 }
-#tnx-part-slot-preset .tnx-psp-row {
+.tnx-part-slot-preset .tnx-psp-row {
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
@@ -6623,28 +6630,28 @@ button.tnx-create-act-button span {
     padding: 3px 0;
     border-bottom: 1px solid var(--tnx-border-subtle, rgba(255, 255, 255, 0.06));
 }
-#tnx-part-slot-preset .tnx-psp-row:last-child {
+.tnx-part-slot-preset .tnx-psp-row:last-child {
     border-bottom: none;
 }
-#tnx-part-slot-preset .tnx-psp-name {
+.tnx-part-slot-preset .tnx-psp-name {
     flex: 1 1 5rem;
     min-width: 4rem;
 }
 /* コンパクトスピナー: グローバルの flex 0 0 60px/35px を上書きして密な行に収める
    (width だけでは flex-basis に負けて効かない。flex ごと上書きする) */
-#tnx-part-slot-preset .tnx-spinner--sm {
+.tnx-part-slot-preset .tnx-spinner--sm {
     display: inline-flex;
     align-items: center;
     flex-shrink: 0;
 }
-#tnx-part-slot-preset .tnx-spinner--sm input[type="number"] {
+.tnx-part-slot-preset .tnx-spinner--sm input[type="number"] {
     flex: 0 0 40px;
     width: 40px;
     height: 26px;
     font-size: 0.9em;
     padding: 0 2px;
 }
-#tnx-part-slot-preset .tnx-spinner--sm .tnx-btn {
+.tnx-part-slot-preset .tnx-spinner--sm .tnx-btn {
     flex: 0 0 24px;
     width: 24px;
     min-width: 24px;
@@ -6652,7 +6659,7 @@ button.tnx-create-act-button span {
     padding: 0;
     font-size: 1.1em;
 }
-#tnx-part-slot-preset .tnx-psp-alias-toggle {
+.tnx-part-slot-preset .tnx-psp-alias-toggle {
     display: inline-flex;
     align-items: center;
     gap: 3px;
@@ -6661,34 +6668,30 @@ button.tnx-create-act-button span {
     white-space: nowrap;
     color: var(--tnx2-text-secondary, #aaa);
 }
-#tnx-part-slot-preset .tnx-psp-alias-target {
+.tnx-part-slot-preset .tnx-psp-alias-target {
     display: inline-flex;
     align-items: center;
     gap: 4px;
     flex: 1 1 11rem;
     min-width: 10rem;
 }
-#tnx-part-slot-preset .tnx-psp-alias-target .tnx-psp-name {
+.tnx-part-slot-preset .tnx-psp-alias-target .tnx-psp-name {
     flex: 1 1 4rem;
 }
-#tnx-part-slot-preset .tnx-psp-x {
+.tnx-part-slot-preset .tnx-psp-x {
     opacity: 0.6;
     flex-shrink: 0;
 }
-#tnx-part-slot-preset .tnx-psp-del {
+.tnx-part-slot-preset .tnx-psp-del {
     flex-shrink: 0;
     cursor: pointer;
     opacity: 0.6;
 }
-#tnx-part-slot-preset .tnx-psp-del:hover {
+.tnx-part-slot-preset .tnx-psp-del:hover {
     opacity: 1;
     color: var(--tnx2-danger, #c0392b);
 }
-#tnx-part-slot-preset .tnx-psp-add {
-    align-self: flex-start;
-    flex-shrink: 0;
-}
-#tnx-part-slot-preset .tnx-psp-footer {
+.tnx-part-slot-preset .tnx-psp-footer {
     display: flex;
     justify-content: flex-end;
     padding-top: 6px;
@@ -6920,4 +6923,96 @@ button.tnx-create-act-button span {
     height: 26px;
     padding: 0;
     font-size: 1.1em;
+}
+
+/* ============================================================
+   § 39: 部位占有パネル（キャスト・アウトフィットタブ。フェーズ10）
+   ============================================================ */
+.tokyo-nova.sheet.actor .tnx-part-occupancy {
+    margin: 8px 0;
+    padding: 8px 10px;
+    border: 1px solid var(--tnx2-border, rgba(255, 255, 255, 0.12));
+    border-radius: 6px;
+    background: var(--tnx2-bg-2, rgba(0, 0, 0, 0.15));
+}
+.tokyo-nova.sheet.actor .tnx-occ-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 0.8em;
+    color: var(--tnx2-text-secondary, #aaa);
+    margin-bottom: 6px;
+}
+.tokyo-nova.sheet.actor .tnx-occ-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+.tokyo-nova.sheet.actor .tnx-occ-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--tnx2-bg-3, rgba(255, 255, 255, 0.06));
+    border: 1px solid var(--tnx2-border, rgba(255, 255, 255, 0.12));
+    font-size: 0.82em;
+    white-space: nowrap;
+}
+.tokyo-nova.sheet.actor .tnx-occ-chip .tnx-occ-count {
+    font-variant-numeric: tabular-nums;
+    opacity: 0.85;
+}
+.tokyo-nova.sheet.actor .tnx-occ-chip.tnx-occ-over {
+    background: var(--tnx2-danger-bg, rgba(192, 57, 43, 0.22));
+    border-color: var(--tnx2-danger, #c0392b);
+    color: var(--tnx2-danger-text, #e74c3c);
+    font-weight: 600;
+}
+.tokyo-nova.sheet.actor .tnx-occ-load {
+    cursor: pointer;
+    font-size: 0.95em;
+    font-weight: 600;
+    color: var(--tnx2-accent, #6fb3d2);
+    white-space: nowrap;
+}
+.tokyo-nova.sheet.actor .tnx-occ-load:hover {
+    text-decoration: underline;
+}
+.tokyo-nova.sheet.actor .tnx-occ-empty {
+    font-size: 0.82em;
+    color: var(--tnx2-text-secondary, #aaa);
+    opacity: 0.8;
+}
+.tokyo-nova.sheet.actor .tnx-occ-toggle {
+    cursor: pointer;
+    user-select: none;
+}
+.tokyo-nova.sheet.actor .tnx-occ-chevron {
+    transition: transform 0.15s ease;
+    font-size: 0.9em;
+}
+.tokyo-nova.sheet.actor .tnx-part-occupancy:not(.collapsed) .tnx-occ-chevron {
+    transform: rotate(90deg);
+}
+.tokyo-nova.sheet.actor .tnx-part-occupancy.collapsed .tnx-occ-body {
+    display: none;
+}
+.tokyo-nova.sheet.actor .tnx-part-occupancy.collapsed .tnx-occ-title {
+    margin-bottom: 0;
+}
+.tokyo-nova.sheet.actor .tnx-occ-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.tokyo-nova.sheet.actor .tnx-occ-edit {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--tnx2-accent, #6fb3d2);
+    white-space: nowrap;
+}
+.tokyo-nova.sheet.actor .tnx-occ-edit:hover {
+    text-decoration: underline;
 }

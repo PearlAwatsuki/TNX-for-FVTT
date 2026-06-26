@@ -48,7 +48,7 @@ import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHi
 import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
 import { CONDITION_KINDS, CONDITION_GROUP_LABELS, getConditionKinds, buildInflictedEffectsData, readConditions } from './module/conditions.mjs';
 import { registerDamageChartTextSetting } from './module/damage-chart-text-app.mjs';
-import { registerPartSlotPresetSetting, getPartSlotPreset } from './module/part-slot-preset-app.mjs';
+import { registerPartSlotPresetSetting, getPartSlotPreset, initializeDefaultPartSlotPreset } from './module/part-slot-preset-app.mjs';
 import { conditionNeedsDraw, postDrawPrompt, postControlNegatePrompt, bindConditionChatButtons } from './module/condition-resolution.mjs';
 
 async function preloadHandlebarsTemplates() {
@@ -989,6 +989,10 @@ Hooks.once("init", async function() {
 
 Hooks.once("ready", async function() {
     game.tnx = game.tnx || {};
+
+    // 部位スロットプリセット: ワールド初回ロードでデフォルト体部位を自動設定(GM のみ・1回)
+    await initializeDefaultPartSlotPreset();
+
     // 下バー展開時はホットバーを退避する。HUD 初期描画前に body クラスを付与して
     // 「ホットバー表示→直後に非表示」のチラつきを防ぐ(下バー収納の既定は false=展開)。
     if (!game.settings.get("tokyo-nova-axleration", "hudBottomCollapsed")) {

@@ -5,7 +5,8 @@ import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 import { getUserFlagData, TNX_FLAG_SCOPE } from '../module/user-flag-schema.mjs';
 import { OUTFIT_CATEGORIES, getMinorCategoryLabel } from '../data/item/outfit-categories.mjs';
 import { formatWeaponRangeLabel } from '../item/tnx-outfit-sheet.mjs';
-import { formatPartDesignation, joinPartDesignations } from '../data/item/part-helpers.mjs';
+import { formatPartDesignation, joinPartDesignations, computePartOccupancy } from '../data/item/part-helpers.mjs';
+import { getPartSlotPreset, PartSlotPresetApp } from '../module/part-slot-preset-app.mjs';
 import { TnxJudgmentFlow } from '../module/tnx-judgment-flow.mjs';
 import { getComboSuits, ALL_SUITS } from '../module/tnx-judgment-engine.mjs';
 
@@ -17,6 +18,8 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     _isEditMode = false;
     tabGroups = { primary: "abilities" };
     _scrollPositions = {};
+    /** 部位占有パネルの展開状態(既定は縮小)。再描画をまたいで保持する。 */
+    _partOccExpanded = false;
 
     static DEFAULT_OPTIONS = {
         classes: ["tokyo-nova", "sheet", "actor", "cast"],
@@ -51,6 +54,9 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             toggleSkillDesc:      TokyoNovaCastSheet._onToggleSkillDesc,
             openOutfitSheet:      TokyoNovaCastSheet._onOpenOutfitSheet,
             addOutfit:            TokyoNovaCastSheet._onAddOutfit,
+            loadPartPreset:       TokyoNovaCastSheet._onLoadPartPreset,
+            togglePartOccupancy:  TokyoNovaCastSheet._onTogglePartOccupancy,
+            editPartSlots:        TokyoNovaCastSheet._onEditPartSlots,
             toggleOutfitFlag:     TokyoNovaCastSheet._onToggleOutfitFlag,
             toggleOutfitDesc:     TokyoNovaCastSheet._onToggleOutfitDesc,
             recalculateBounty:    TokyoNovaCastSheet._onRecalculateBounty,
@@ -267,8 +273,68 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         ];
 
         context.outfitGroups = await this._prepareOutfitGroups();
+        context.partOccupancy = this._preparePartOccupancy();
+        context.partOccExpanded = this._partOccExpanded;
 
         return context;
+    }
+
+    /**
+     * 部位占有(キャストの部位スロット集合 vs 準備済みアウトフィットの部位)を算出する(フェーズ10)。
+     * 純粋関数 computePartOccupancy に委ね、シートはアクターのデータを最小形へ整形して渡す。
+     * @returns {{slots: Array, unlisted: Array, hasSlots: boolean, hasUnlisted: boolean}}
+     */
+    _preparePartOccupancy() {
+        const partSlots = this.actor.system.partSlots ?? [];
+        const outfits = this.actor.items
+            .filter(i => TokyoNovaCastSheet.OUTFIT_TYPES.has(i.type))
+            .map(i => ({
+                isPrepared:   i.system.isPrepared,
+                minorCategory: i.system.minorCategory,
+                part:         i.system.part,
+                partRelation: i.system.partRelation,
+                partOptional: i.system.partOptional,
+            }));
+        const { slots, unlisted } = computePartOccupancy(partSlots, outfits);
+        return { slots, unlisted, hasSlots: slots.length > 0, hasUnlisted: unlisted.length > 0 };
+    }
+
+    /**
+     * ゲーム設定の部位プリセットを読み込み、このキャストの部位スロットを作成する(フェーズ10)。
+     * 既存の部位スロットがある場合は確認のうえ置換する。新規キャストへの流し込み(preCreateActor)を
+     * 既存キャストにも手動で適用できるようにするもの。
+     */
+    static async _onLoadPartPreset(event, _target) {
+        event.preventDefault();
+        const preset = getPartSlotPreset();
+        if (!preset.length) {
+            ui.notifications.warn("部位スロットプリセットが空です。ゲーム設定の「部位スロットプリセット」で定義してください。");
+            return;
+        }
+        const existing = this.actor.system.partSlots ?? [];
+        if (existing.length) {
+            const ok = await foundry.applications.api.DialogV2.confirm({
+                window: { title: "部位プリセットを読み込む" },
+                content: "<p>このキャストの部位スロットをプリセットで<strong>置き換え</strong>ます。よろしいですか？</p>",
+                classes: ["tokyo-nova", "tnx-dialog"],
+            });
+            if (!ok) return;
+        }
+        await this.actor.update({ "system.partSlots": foundry.utils.deepClone(preset) });
+        ui.notifications.info("部位プリセットを読み込みました。");
+    }
+
+    /** 部位占有パネルの展開/縮小を切り替える(状態はインスタンスに保持し再描画をまたぐ)。 */
+    static _onTogglePartOccupancy(event, _target) {
+        event.preventDefault();
+        this._partOccExpanded = !this._partOccExpanded;
+        this.element.querySelector(".tnx-part-occupancy")?.classList.toggle("collapsed", !this._partOccExpanded);
+    }
+
+    /** このキャストの部位スロットを編集する(プリセット編集アプリをアクター対象で開く)。 */
+    static async _onEditPartSlots(event, _target) {
+        event.preventDefault();
+        new PartSlotPresetApp({ actor: this.actor }).render(true);
     }
 
     // ─── レンダリング ──────────────────────────────────────────────────────────

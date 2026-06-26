@@ -70,7 +70,7 @@ export class TnxJudgmentDialog extends HandlebarsApplicationMixin(ApplicationV2)
             trumpMode:      TnxJudgmentFlow.trumpMode,
             hint:           TnxJudgmentFlow.trumpMode
                 ? "手札から1枚を選択してください（Jokerとして使います）"
-                : "HUD で強調表示されたカードを選択してください",
+                : "手札からカードを選択してください",
         };
     }
 
