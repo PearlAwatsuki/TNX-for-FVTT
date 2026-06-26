@@ -92,27 +92,15 @@ export class TnxActionHandler {
     /**
      * カードをプレイする（手札から捨て札に移動する）
      * @param {string} cardId - プレイするカードのID
-     * @param {object} [context={}] - 操作のコンテキスト
      */
-    static async playCard(cardId, context = {}) {
+    static async playCard(cardId) {
         const { getUserFlagData } = await import('./user-flag-schema.mjs');
-        let hand;
-        let handSourceDescription;
+        // ユーザー自身の手札を参照
+        const handId = getUserFlagData(game.user).handPileId;
+        const hand = handId ? await fromUuid(handId) : null;
 
-        if (context.actor) {
-            // アクターシート等から明示的に指定された場合
-            const handId = context.actor.system.handPileId;
-            hand = handId ? await fromUuid(handId) : null;
-            handSourceDescription = `アクター「${context.actor.name}」`;
-        } else {
-            // HUD等からの操作：ユーザー自身の手札を参照
-            const handId = getUserFlagData(game.user).handPileId;
-            hand = handId ? await fromUuid(handId) : null;
-            handSourceDescription = `ユーザー「${game.user.name}」`;
-        }
+        if (!hand) return ui.notifications.error(`ユーザー「${game.user.name}」に手札が設定されていません。`);
 
-        if (!hand) return ui.notifications.error(`${handSourceDescription}に手札が設定されていません。`);
-        
         const card = hand.cards.get(cardId);
         const discardPile = await this.getActiveDiscardPile();
 
@@ -129,26 +117,14 @@ export class TnxActionHandler {
     /**
      * 切り札を使用する
      * @param {string} cardId - 使用する切り札のID
-     * @param {object} [context={}] - 操作のコンテキスト
      */
-    static async useTrump(cardId, context = {}) {
+    static async useTrump(cardId) {
         const { getUserFlagData } = await import('./user-flag-schema.mjs');
-        let trumpPile, actor;
-
-        // コンテキストに応じてどの切り札を操作するか決定
-        if (context.actor) {
-            // ケース1：アクターシートから呼び出された場合
-            actor = context.actor;
-            const trumpPileId = actor.system.trumpCardPileId;
-            if (!trumpPileId) return ui.notifications.error(`アクター「${actor.name}」に切り札が設定されていません。`);
-            trumpPile = trumpPileId ? await fromUuid(trumpPileId) : null;
-        } else {
-            // ケース2：HUD等からの操作：ユーザー自身の切り札を参照
-            const trumpPileId = getUserFlagData(game.user).trumpCardPileId;
-            trumpPile = trumpPileId ? await fromUuid(trumpPileId) : null;
-            // 演出用にアクターを取得しておく（設定されていなくてもエラーにはしない）
-            actor = game.user.character;
-        }
+        // ユーザー自身の切り札を参照
+        const trumpPileId = getUserFlagData(game.user).trumpCardPileId;
+        const trumpPile = trumpPileId ? await fromUuid(trumpPileId) : null;
+        // 演出用にアクターを取得しておく（設定されていなくてもエラーにはしない）
+        const actor = game.user.character;
 
         if (!trumpPile) return ui.notifications.error("切り札のカード置き場が見つかりませんでした。");
         
@@ -175,40 +151,22 @@ export class TnxActionHandler {
     }
 
     /**
-     * カードを引く
-     * アクターシートからの呼び出しと、ユーザーからの呼び出しを両方処理する
-     * @param {object} [context={}] - 操作のコンテキスト
+     * カードを引く（ユーザー自身の手札へ）
      */
-    static async drawCard(context = {}) {
+    static async drawCard() {
         const { getUserFlagData, resolveEffectiveHandMaxSize } = await import('./user-flag-schema.mjs');
         const deck = await this.getActiveDeck();
         if (!deck || deck.availableCards.length === 0) {
             return ui.notifications.warn("山札にカードがありません。");
         }
 
-        let hand, limit;
+        // ユーザー自身の手札を参照
+        const flagData = getUserFlagData(game.user);
+        const handId = flagData.handPileId;
+        const hand = handId ? await fromUuid(handId) : null;
+        const limit = resolveEffectiveHandMaxSize(game.user);
 
-        // コンテキスト（actor or user）に応じて手札と上限を決定
-        if (context.actor) {
-            // 【ケース1】アクターシートから呼び出された場合
-            const handId = context.actor.system.handPileId;
-            hand = handId ? await fromUuid(handId) : null;
-            const ownerUser = context.actor.type === 'cast' && context.actor.system.ownerUserId
-                ? game.users.find(u => u.uuid === context.actor.system.ownerUserId)
-                : null;
-            limit = resolveEffectiveHandMaxSize(ownerUser);
-            if (!hand) {
-                return ui.notifications.warn(`アクター「${context.actor.name}」に手札が設定されていません。`);
-            }
-        } else {
-            // ユーザー自身の手札を参照
-            const flagData = getUserFlagData(game.user);
-            const handId = flagData.handPileId;
-            hand = handId ? await fromUuid(handId) : null;
-            limit = resolveEffectiveHandMaxSize(game.user);
-
-            if (!hand) return ui.notifications.warn(`ユーザー「${game.user.name}」に手札が設定されていません。`);
-        }
+        if (!hand) return ui.notifications.warn(`ユーザー「${game.user.name}」に手札が設定されていません。`);
 
         // 上限を超えているかチェックし、警告を表示
         if (limit > 0 && hand.cards.size >= limit) {
@@ -289,51 +247,17 @@ export class TnxActionHandler {
     }
 
     /**
-     * 他のアクターにカードを渡す（データ操作のみ）
-     * @param {string} sourceActorId - カードの渡し元アクターID
-     * @param {string} targetActorId - カードの渡し先アクターID
-     * @param {string[]} cardIds - 渡すカードのID配列
+     * 捨て札からカードを引く（ユーザー自身の手札へ）
      */
-    static async passCards(sourceActorId, targetActorId, cardIds) {
-        const sourceActor = game.actors.get(sourceActorId);
-        const targetActor = game.actors.get(targetActorId);
-        if (!sourceActor || !targetActor || !cardIds || cardIds.length === 0) return;
-
-        const sourceHand = await fromUuid(sourceActor.system.handPileId);
-        const targetHand = await fromUuid(targetActor.system.handPileId);
-        if (!sourceHand || !targetHand) return;
-
-        await sourceHand.pass(targetHand, cardIds, { render: false, chatNotification: false });
-        ui.notifications.info(`「${sourceActor.name}」から「${targetActor.name}」へ${cardIds.length}枚のカードを渡しました。`);
-    }
-
-    /**
-     * 捨て札からカードを引く（アクターまたはユーザーの手札へ）
-     * @param {object} [context={}] - 操作のコンテキスト
-     */
-    static async takeFromDiscard(context = {}) {
+    static async takeFromDiscard() {
         const { getUserFlagData, resolveEffectiveHandMaxSize } = await import('./user-flag-schema.mjs');
-        let hand, limit, handSourceDescription;
+        const handSourceDescription = "あなた";
 
-        // アクターが指定されていれば、アクターの手札を対象にする
-        if (context.actor) {
-            const actor = context.actor;
-            const handId = actor.system.handPileId;
-            hand = handId ? await fromUuid(handId) : null;
-            const ownerUser = actor.type === 'cast' && actor.system.ownerUserId
-                ? game.users.find(u => u.uuid === actor.system.ownerUserId)
-                : null;
-            limit = resolveEffectiveHandMaxSize(ownerUser);
-            handSourceDescription = `アクター「${actor.name}」`;
-        }
-        // 指定がなければ、操作しているユーザーのHUD手札を対象にする
-        else {
-            const flagData = getUserFlagData(game.user);
-            const handId = flagData.handPileId;
-            hand = handId ? await fromUuid(handId) : null;
-            limit = resolveEffectiveHandMaxSize(game.user);
-            handSourceDescription = "あなた";
-        }
+        // 操作しているユーザーのHUD手札を対象にする
+        const flagData = getUserFlagData(game.user);
+        const handId = flagData.handPileId;
+        const hand = handId ? await fromUuid(handId) : null;
+        const limit = resolveEffectiveHandMaxSize(game.user);
 
         if (!hand) {
             return ui.notifications.warn(`${handSourceDescription}に手札が設定されていません。`);

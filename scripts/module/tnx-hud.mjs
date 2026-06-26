@@ -480,7 +480,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
                     const dropZoneType = zone.dataset.dropZone;
 
                     if (data.sourceType === 'deck') {
-                        if (dropZoneType === 'hand')    TnxActionHandler.drawCard({ user: game.user });
+                        if (dropZoneType === 'hand')    TnxActionHandler.drawCard();
                         else if (dropZoneType === 'discard') TnxActionHandler.checkFromDeck();
                     } else if (data.sourceType === 'hand-card') {
                         if (dropZoneType === 'discard' && data.cardId) TnxActionHandler.playCard(data.cardId);
@@ -489,11 +489,6 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
                     } else if (data.sourceType === 'trump-card') {
                         if (dropZoneType === 'scene' && !game.user.isGM && data.cardId) {
                             TnxActionHandler.useTrump(data.cardId);
-                        }
-                    } else if (data.sourceType === 'actor-hand-card') {
-                        if (dropZoneType === 'discard' && data.cardId && data.actorId) {
-                            const actor = game.actors.get(data.actorId);
-                            if (actor) TnxActionHandler.playCard(data.cardId, { actor });
                         }
                     }
                 } catch (e) {
@@ -507,7 +502,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
 
     static async _onDrawFromDeck(event, _target) {
         event.preventDefault();
-        await TnxActionHandler.drawCard({ user: game.user });
+        await TnxActionHandler.drawCard();
     }
 
     static async _onPlayCard(event, target) {

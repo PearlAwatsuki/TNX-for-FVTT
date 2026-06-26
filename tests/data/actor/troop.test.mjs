@@ -22,11 +22,11 @@ describe("TroopDataModel.defineSchema()", () => {
     }
   });
 
-  describe("ActorBaseTemplate のフィールドが含まれる", () => {
+  describe("ActorBaseTemplate（カード管理フィールドは User flag へ一本化済み）", () => {
     const actorBaseKeys = ["handPileId", "trumpCardPileId"];
     for (const key of actorBaseKeys) {
-      it(`schema.${key} が存在する`, () => {
-        expect(schema).toHaveProperty(key);
+      it(`schema.${key} を持たない`, () => {
+        expect(schema).not.toHaveProperty(key);
       });
     }
 

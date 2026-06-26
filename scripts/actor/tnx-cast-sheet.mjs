@@ -992,33 +992,6 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         }
     }
 
-    // ─── カードパイルヘルパー(将来利用) ──────────────────────────────────────
-
-    async _getCardPileData(context) {
-        const handPileData = await this._fetchLinkedCardPile(context.system.handPileId, "system.handPileId");
-        context.handPile = handPileData ?? null;
-
-        const trumpPileData = await this._fetchLinkedCardPile(context.system.trumpCardPileId, "system.trumpCardPileId");
-        context.trumpCardPile = trumpPileData ?? null;
-        context.trumpCard     = trumpPileData?.cards?.[0] ?? null;
-    }
-
-    async _fetchLinkedCardPile(uuid, updatePath) {
-        if (!uuid) return null;
-        try {
-            const doc = await fromUuid(uuid);
-            if (doc) {
-                const data = doc.toObject(false);
-                data.cards = Array.from(doc.cards.values()).map(c => c.toObject(false));
-                return data;
-            }
-        } catch (e) {
-            console.error(`TokyoNOVA | Failed to retrieve linked card pile (UUID: ${uuid})`, e);
-            if (this.isEditable) this.actor.update({ [updatePath]: "" });
-        }
-        return null;
-    }
-
     // ─── アウトフィットタブ ──────────────────────────────────────────────────
 
     /** OUTFIT_GROUP_CONFIG の key に対応する表示グループキーを返す。 */
