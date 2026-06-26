@@ -6569,11 +6569,31 @@ button.tnx-create-act-button span {
 /* ============================================================
    § 36: 部位スロットプリセット 設定アプリ（フェーズ10）
    ============================================================ */
+/* standard-form の flex gap がヘッダーとコンテントの間に空くのを打ち消す（カード設定と同方式） */
+#tnx-part-slot-preset {
+    gap: 0;
+}
+#tnx-part-slot-preset .window-content {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+    flex: 1;
+}
+#tnx-part-slot-preset [data-application-part="main"] {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
 #tnx-part-slot-preset .tnx-psp-body {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
+    padding: 8px;
 }
 #tnx-part-slot-preset .tnx-psp-hint {
     margin: 0 0 4px;
@@ -6590,6 +6610,7 @@ button.tnx-create-act-button span {
 #tnx-part-slot-preset .tnx-psp-row {
     display: flex;
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
     gap: 6px;
     padding: 3px 0;
@@ -6599,23 +6620,30 @@ button.tnx-create-act-button span {
     border-bottom: none;
 }
 #tnx-part-slot-preset .tnx-psp-name {
-    flex: 1 1 7rem;
-    min-width: 5rem;
+    flex: 1 1 5rem;
+    min-width: 4rem;
 }
+/* コンパクトスピナー: グローバルの flex 0 0 60px/35px を上書きして密な行に収める
+   (width だけでは flex-basis に負けて効かない。flex ごと上書きする) */
 #tnx-part-slot-preset .tnx-spinner--sm {
-    display: flex;
+    display: inline-flex;
+    align-items: center;
     flex-shrink: 0;
 }
 #tnx-part-slot-preset .tnx-spinner--sm input[type="number"] {
-    width: 36px;
-    text-align: center;
+    flex: 0 0 40px;
+    width: 40px;
+    height: 26px;
+    font-size: 0.9em;
     padding: 0 2px;
-    font-size: 0.82em;
 }
 #tnx-part-slot-preset .tnx-spinner--sm .tnx-btn {
+    flex: 0 0 24px;
+    width: 24px;
     min-width: 24px;
-    padding: 2px 5px;
-    font-size: 0.82em;
+    height: 26px;
+    padding: 0;
+    font-size: 1.1em;
 }
 #tnx-part-slot-preset .tnx-psp-alias-toggle {
     display: inline-flex;
@@ -6630,10 +6658,15 @@ button.tnx-create-act-button span {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    flex: 1 1 9rem;
+    flex: 1 1 11rem;
+    min-width: 10rem;
+}
+#tnx-part-slot-preset .tnx-psp-alias-target .tnx-psp-name {
+    flex: 1 1 4rem;
 }
 #tnx-part-slot-preset .tnx-psp-x {
     opacity: 0.6;
+    flex-shrink: 0;
 }
 #tnx-part-slot-preset .tnx-psp-del {
     flex-shrink: 0;

@@ -42,7 +42,7 @@ export class PartSlotPresetApp extends HandlebarsApplicationMixin(ApplicationV2)
     id: "tnx-part-slot-preset",
     tag: "form",
     classes: ["application", "tokyo-nova", "standard-form", "tnx-part-slot-preset"],
-    position: { width: 560, height: 620 },
+    position: { width: 600, height: 620 },
     window: { title: "部位スロットプリセット", icon: "fas fa-person" },
     form: { handler: PartSlotPresetApp.#onSubmit, submitOnChange: false, closeOnSubmit: true },
     actions: {
