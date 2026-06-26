@@ -5,6 +5,8 @@ import { ATTACK_DAMAGE_TYPES } from "../data/item/helpers.mjs";
 import { WEAPON_RANGES, WEAPON_RANGE_MIN_OPTIONS, WEAPON_RANGE_MAX_OPTIONS, WEAPON_ATTACK_AREAS } from "../data/item/weapon.mjs";
 import { SLOT_KINDS } from "../data/item/common/extensible.mjs";
 import { HOUSING_AREA_RANKS, HOUSING_AREA_MOD_FIELDS } from "../data/item/housing-area.mjs";
+import { PART_KINDS, PART_REFERENCE_SUB_KINDS, PART_RELATIONS } from "../data/item/common/outfit-base.mjs";
+import { getPartSlotPreset } from "../module/part-slot-preset-app.mjs";
 
 /** 住宅エリア compendium の pack ID */
 const HOUSING_AREA_PACK = "tokyo-nova-axleration.housing-areas";
@@ -221,10 +223,20 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         return { none: "なし", value: "数値" };
     }
 
-    /** 空の部位行 */
+    /** 空の部位行(フェーズ10: 種別ベース。新規行の既定種別は身体部位) */
     static get blankPartRow() {
-        return { value: "", slots: 1 };
+        return {
+            kind: "bodyPart", value: "", slots: 1, isOptional: false,
+            hostMajor: "", hostMinor: "", hostMinorExclude: false,
+            hostFeature: "", hostName: "", refSubKind: "none",
+        };
     }
+
+    /** オプションの装備先ホストになり得る Item type */
+    static OUTFIT_HOST_TYPES = new Set([
+        "weapon", "armor", "cyborg", "ianus", "tron", "tap",
+        "vehicle", "residence", "combiner", "general",
+    ]);
 
     /** 型ごとの既定スロットプール(kind の並び) */
     static SLOT_PRESETS = {
@@ -297,6 +309,9 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 : [];
         }
         if (!system.part.length) system.part = [this.constructor.blankPartRow];
+
+        // 部位エディタ(フェーズ10): 行ごとの種別連動 UI 用データ(文脈連動の選択肢込み)
+        this._preparePartEditorData(context, system);
 
         // slots は既定プール構成に正規化して表示する
         if (context.hasSlots) system.slots = this._normalizedSlots();
@@ -712,6 +727,16 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
     _onRender(context, options) {
         super._onRender(context, options);
 
+        // 閲覧モードでは部位エディタを読み取り専用にする(入力・スピナーを無効化。
+        // 追加/削除ボタンは CSS で非表示)。設定タブは閲覧でも見えるため明示的に無効化する。
+        if (!context.isEditMode) {
+            for (const el of this.element.querySelectorAll(
+                ".tnx-part-fieldset input, .tnx-part-fieldset select, .tnx-part-fieldset .tnx-btn"
+            )) {
+                el.disabled = true;
+            }
+        }
+
         // コンバイン元ボタン: editable に関わらず閲覧コンテキストメニューを設置する
         if (context.isCombiner) this._setupCombineSourceMenu();
 
@@ -852,28 +877,40 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 this.item.update(update);
             });
 
-        // 部位行の入力(配列フィールドのため全体更新で保存する)
-        for (const input of this.element.querySelectorAll("[data-part-field]")) {
-            input.addEventListener("change", (event) => {
+        // 部位行の入力(配列フィールドのため全体更新で保存する。種別連動で欄が変わるため、
+        // 保存後の再描画は item.update のドキュメント更新フックに委ねる)
+        for (const el of this.element.querySelectorAll("[data-part-field]")) {
+            el.addEventListener("change", (event) => {
                 event.stopPropagation();
-                const el = event.currentTarget;
-                const index = Number(el.dataset.index);
-                const field = el.dataset.partField;
-                const value = field === "slots"
-                    ? Math.max(0, Number(el.value) || 0)
-                    : el.value;
-                this._updatePartRow(index, (row) => { row[field] = value; });
+                const t = event.currentTarget;
+                const index = Number(t.dataset.index);
+                const field = t.dataset.partField;
+                let value;
+                if (t.type === "checkbox") value = t.checked;
+                else if (field === "slots") value = Math.max(0, Number(t.value) || 0);
+                else value = t.value;
+                this._updatePartRow(index, (row) => {
+                    row[field] = value;
+                    if (field === "hostMajor") row.hostMinor = ""; // 大分類変更で小分類をリセット
+                });
             });
         }
 
+        // 部位全体の結合(and/or)
+        this.element.querySelector('select[name="system.partRelation"]')
+            ?.addEventListener("change", (event) => {
+                event.stopPropagation();
+                this.item.update({ "system.partRelation": event.currentTarget.value });
+            });
+
         // 部位行の追加・削除
-        for (const btn of this.element.querySelectorAll('.tnx-row-btn[data-target="part"]')) {
+        for (const btn of this.element.querySelectorAll(".tnx-part-add")) {
             btn.addEventListener("click", (event) => {
                 event.preventDefault();
                 this._onAddPartRow();
             });
         }
-        for (const btn of this.element.querySelectorAll('.tnx-row-btn--delete[data-target="part"]')) {
+        for (const btn of this.element.querySelectorAll(".tnx-part-del")) {
             btn.addEventListener("click", (event) => {
                 event.preventDefault();
                 this._onDeletePartRow(Number(event.currentTarget.dataset.index));
@@ -1144,6 +1181,97 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         if (!pool) return;
         pool.count = mutate(pool.count ?? { mode: "none", value: 0 });
         await this.item.update({ "system.slots": slots });
+    }
+
+    // ─── 部位エディタ(フェーズ10) ───────────────────────────────────────────
+
+    /**
+     * 部位エディタ用に行ごとの種別連動データと文脈連動の選択肢を組み立てる。
+     * D&D 5e「消費」UI を参考: 対象欄はワールド直下では自由入力、キャラ所属では
+     * そのキャラの持ち物/部位からドロップダウンに変わる。
+     * @param {Object} context テンプレートコンテキスト
+     * @param {Object} system 正規化済み system(part は配列)
+     */
+    _preparePartEditorData(context, system) {
+        const isActorOwned = this.item.parent?.documentName === "Actor";
+        context.partIsActorOwned = isActorOwned;
+        context.partKindChoices    = PART_KINDS;
+        context.partRefSubChoices  = PART_REFERENCE_SUB_KINDS;
+        context.partRelationChoices = PART_RELATIONS;
+        context.partRelation = system.partRelation ?? "and";
+        context.partMultiRow = (system.part?.length ?? 0) >= 2;
+
+        // 身体部位の選択肢: アクター所属=partSlots ラベル / 直下=自由入力＋datalist(プリセット)
+        if (isActorOwned) {
+            const choices = { "": "—" };
+            for (const s of (this.item.parent.system?.partSlots ?? [])) {
+                if (s?.value) choices[s.value] = s.value;
+            }
+            context.partBodyChoices = choices;
+            context.partBodyDatalist = [];
+        } else {
+            context.partBodyChoices = null; // null => 自由入力
+            context.partBodyDatalist = [...new Set(getPartSlotPreset().map((s) => s.value).filter(Boolean))];
+        }
+
+        // ホスト大分類・その他特徴の選択肢
+        const majorChoices = { "": "—" };
+        for (const [k, m] of Object.entries(OUTFIT_CATEGORIES)) majorChoices[k] = m.label;
+        context.partHostMajorChoices = majorChoices;
+        context.partHostFeatureChoices = { "": "—", isLaser: "レーザー武器" };
+
+        context.partRows = (system.part ?? []).map((p, idx) => {
+            // 解説参照は refSubKind を実効種別として欄を出し分ける(表示ラベルは常に「解説参照」)
+            const effKind = p.kind === "reference" ? (p.refSubKind ?? "none") : p.kind;
+
+            const minorChoices = { "": "—" };
+            const major = OUTFIT_CATEGORIES[p.hostMajor];
+            if (major) for (const [mk, mv] of Object.entries(major.minors)) minorChoices[mk] = mv.label;
+
+            // オプションのアイテム名: アクター所属時、ホスト条件に一致する所有アウトフィット名
+            let hostNameChoices = null;
+            if (isActorOwned && effKind === "option") {
+                hostNameChoices = { "": "—" };
+                for (const sib of this.item.parent.items) {
+                    if (sib.id === this.item.id) continue;
+                    if (!this.constructor.OUTFIT_HOST_TYPES.has(sib.type)) continue;
+                    const sm = sib.system;
+                    if (p.hostMajor) {
+                        const majorMatch = sm.majorCategory === p.hostMajor
+                            || (p.hostMajor === "cyberware" && sm.isCyber === true);
+                        if (!majorMatch) continue;
+                    }
+                    if (p.hostMinor) {
+                        const minorMatch = sm.minorCategory === p.hostMinor;
+                        if (p.hostMinorExclude ? minorMatch : !minorMatch) continue;
+                    }
+                    if (p.hostFeature && sm[p.hostFeature] !== true) continue;
+                    hostNameChoices[sib.name] = sib.name;
+                }
+            }
+
+            return {
+                idx,
+                kind: p.kind,
+                value: p.value,
+                slots: p.slots,
+                isOptional: p.isOptional,
+                hostMajor: p.hostMajor,
+                hostMinor: p.hostMinor,
+                hostMinorExclude: p.hostMinorExclude,
+                hostFeature: p.hostFeature,
+                hostName: p.hostName,
+                refSubKind: p.refSubKind,
+                isReference: p.kind === "reference",
+                showBody:   effKind === "bodyPart",
+                showOption: effKind === "option",
+                showOther:  effKind === "other",
+                showSlots:  effKind === "bodyPart" || effKind === "option",
+                showOptional: p.kind !== "none",
+                minorChoices,
+                hostNameChoices,
+            };
+        });
     }
 
     // ─── 部位配列操作 ───────────────────────────────────────────────────────

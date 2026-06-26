@@ -702,34 +702,7 @@
                         </div>
                         {{/unless}}
 
-                        {{!-- 部位(複数部位を占有する場合があるため行の追加/削除に対応) --}}
-                        <div class="form-group align-start">
-                            <label>部位</label>
-                            <div class="form-fields-column">
-                                {{#each system.part as |p idx|}}
-                                <div class="array-row">
-                                    <input type="text" data-part-field="value" data-index="{{idx}}" value="{{p.value}}" placeholder="部位を入力"/>
-                                    <div class="number-input-spinner skill-sheet-spinner">
-                                        <button type="button" class="tnx-btn" data-action="decrementPart" data-index="{{idx}}">-</button>
-                                        <input type="number" data-part-field="slots" data-index="{{idx}}" value="{{p.slots}}" min="0">
-                                        <button type="button" class="tnx-btn" data-action="incrementPart" data-index="{{idx}}">+</button>
-                                    </div>
-                                    <div class="row-controls">
-                                        {{#if (eq idx 0)}}
-                                            <a class="tnx-row-btn" data-target="part" title="行を追加">
-                                                <i class="fas fa-plus"></i>
-                                            </a>
-                                        {{/if}}
-                                        {{#if (gte idx 1)}}
-                                            <a class="tnx-row-btn--delete" data-target="part" data-index="{{idx}}" title="削除">
-                                                <i class="fas fa-trash"></i>
-                                            </a>
-                                        {{/if}}
-                                    </div>
-                                </div>
-                                {{/each}}
-                            </div>
-                        </div>
+                        {{!-- 部位は独立 fieldset へ分離(下記「部位」legend。フェーズ10) --}}
 
                         {{!-- タイミング(選択肢はスタイル技能と共通だが、アウトフィットは一つのみ) --}}
                         <div class="form-group">
@@ -786,6 +759,127 @@
                                 </div>
                             </div>
                         {{/if}}
+                    </div>
+                </fieldset>
+
+                {{!-- 部位(独立 legend・行=ブロックカード・D&D 消費 UI 参考。フェーズ10) --}}
+                <fieldset class="tnx-fieldset tnx-part-fieldset">
+                    <legend>
+                        部位
+                        <a class="tnx-part-add" title="行を追加"><i class="fas fa-plus"></i></a>
+                    </legend>
+
+                    {{#if partMultiRow}}
+                    <div class="tnx-part-relation">
+                        <label>結合</label>
+                        <select name="system.partRelation">
+                            {{selectOptions partRelationChoices selected=partRelation}}
+                        </select>
+                    </div>
+                    {{/if}}
+
+                    {{#if partBodyDatalist.length}}
+                    <datalist id="tnx-part-bodylist">
+                        {{#each partBodyDatalist}}<option value="{{this}}"></option>{{/each}}
+                    </datalist>
+                    {{/if}}
+
+                    <div class="tnx-part-cards">
+                        {{#each partRows as |row|}}
+                        <div class="tnx-part-card" data-part-row data-index="{{row.idx}}">
+                            <div class="tnx-part-card-top">
+                                <div class="tnx-part-field tnx-part-kind">
+                                    <label>種別</label>
+                                    <select data-part-field="kind" data-index="{{row.idx}}">
+                                        {{selectOptions ../partKindChoices selected=row.kind}}
+                                    </select>
+                                </div>
+                                {{#if row.showSlots}}
+                                <div class="tnx-part-field tnx-part-slots">
+                                    <label>消費数 <i class="fas fa-circle-question" title="占有するスロット数（0＝非消費）"></i></label>
+                                    <div class="number-input-spinner tnx-spinner--sm">
+                                        <button type="button" class="tnx-btn" data-action="decrementPart" data-index="{{row.idx}}">－</button>
+                                        <input type="number" data-part-field="slots" data-index="{{row.idx}}" value="{{row.slots}}" min="0">
+                                        <button type="button" class="tnx-btn" data-action="incrementPart" data-index="{{row.idx}}">＋</button>
+                                    </div>
+                                </div>
+                                {{/if}}
+                                {{#if row.showOptional}}
+                                <label class="tnx-part-optional" title="任意＝重複可・占有数に数えない">
+                                    <input type="checkbox" data-part-field="isOptional" data-index="{{row.idx}}" {{checked row.isOptional}}>
+                                    任意
+                                </label>
+                                {{/if}}
+                                <a class="tnx-part-del" data-index="{{row.idx}}" title="この行を削除"><i class="fas fa-trash"></i></a>
+                            </div>
+
+                            {{#if row.isReference}}
+                            <div class="tnx-part-field tnx-part-refsub">
+                                <label>実部位<span class="tnx-part-note">（表示は常に「解説参照」）</span></label>
+                                <select data-part-field="refSubKind" data-index="{{row.idx}}">
+                                    {{selectOptions ../partRefSubChoices selected=row.refSubKind}}
+                                </select>
+                            </div>
+                            {{/if}}
+
+                            {{#if row.showBody}}
+                            <div class="tnx-part-field tnx-part-target">
+                                <label>部位</label>
+                                {{#if ../partBodyChoices}}
+                                <select data-part-field="value" data-index="{{row.idx}}">
+                                    {{selectOptions ../partBodyChoices selected=row.value}}
+                                </select>
+                                {{else}}
+                                <input type="text" data-part-field="value" data-index="{{row.idx}}" value="{{row.value}}" list="tnx-part-bodylist" placeholder="部位名（例: 片手持ち）">
+                                {{/if}}
+                            </div>
+                            {{/if}}
+
+                            {{#if row.showOption}}
+                            <div class="tnx-part-option">
+                                <div class="tnx-part-field">
+                                    <label>大分類</label>
+                                    <select data-part-field="hostMajor" data-index="{{row.idx}}">
+                                        {{selectOptions ../partHostMajorChoices selected=row.hostMajor}}
+                                    </select>
+                                </div>
+                                <div class="tnx-part-field tnx-part-minor">
+                                    <label>小分類</label>
+                                    <select data-part-field="hostMinor" data-index="{{row.idx}}">
+                                        {{selectOptions row.minorChoices selected=row.hostMinor}}
+                                    </select>
+                                    <label class="tnx-part-exclude" title="この小分類『以外』を対象にする">
+                                        <input type="checkbox" data-part-field="hostMinorExclude" data-index="{{row.idx}}" {{checked row.hostMinorExclude}}>
+                                        除外
+                                    </label>
+                                </div>
+                                <div class="tnx-part-field">
+                                    <label>その他特徴</label>
+                                    <select data-part-field="hostFeature" data-index="{{row.idx}}">
+                                        {{selectOptions ../partHostFeatureChoices selected=row.hostFeature}}
+                                    </select>
+                                </div>
+                                <div class="tnx-part-field tnx-part-target">
+                                    <label>アイテム名</label>
+                                    {{#if row.hostNameChoices}}
+                                    <select data-part-field="hostName" data-index="{{row.idx}}">
+                                        {{selectOptions row.hostNameChoices selected=row.hostName}}
+                                    </select>
+                                    {{else}}
+                                    <input type="text" data-part-field="hostName" data-index="{{row.idx}}" value="{{row.hostName}}" placeholder="アイテム名（任意）">
+                                    {{/if}}
+                                </div>
+                            </div>
+                            {{/if}}
+
+                            {{#if row.showOther}}
+                            <div class="tnx-part-field tnx-part-target">
+                                <label>内容</label>
+                                <input type="text" data-part-field="value" data-index="{{row.idx}}" value="{{row.value}}" placeholder="自由記入">
+                            </div>
+                            {{/if}}
+                        </div>
+                        {{/each}}
                     </div>
                 </fieldset>
 
