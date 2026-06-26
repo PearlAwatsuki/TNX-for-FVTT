@@ -1,0 +1,19 @@
+<div class="tnx-psp-body">
+  <p class="tnx-psp-hint">新規キャストへ流し込む部位スロット（体部位）の初期集合です。value＝部位ラベル、count＝保有数。両手持ち等は atomic（例: 片手持ち×2）で表現します。</p>
+
+  <div class="tnx-psp-rows">
+    {{#each rows as |row i|}}
+    <div class="tnx-psp-row" data-row>
+      <input type="text" name="rows.{{i}}.value" data-field="value" value="{{row.value}}" placeholder="部位名（例: 片手持ち）" />
+      <input type="number" name="rows.{{i}}.count" data-field="count" value="{{row.count}}" min="0" step="1" class="tnx-psp-count" />
+      <a class="tnx-psp-del" data-action="deleteRow" data-index="{{i}}" title="この行を削除"><i class="fas fa-trash"></i></a>
+    </div>
+    {{/each}}
+  </div>
+
+  <button type="button" class="tnx-psp-add" data-action="addRow"><i class="fas fa-plus"></i> 行を追加</button>
+
+  <footer class="tnx-psp-footer">
+    <button type="submit"><i class="fas fa-floppy-disk"></i> 保存</button>
+  </footer>
+</div>

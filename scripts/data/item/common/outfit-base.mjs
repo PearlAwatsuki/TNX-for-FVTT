@@ -21,9 +21,11 @@
  * - timing はスタイル技能と共通の選択肢({value, actionName, processName, timingOther})だが、
  *   スタイル技能と違って**一つしかあり得ない**ため単一の SchemaField(2026-06-13 ユーザー確定)。
  *   選択肢マップは TnxSkillUtils.getSkillOptions()(timing / actions / processes)を共用する。
- * - part(部位)は {value, slots} の**配列**。複数部位を占有するアウトフィットがあるため
- *   行の追加・削除ができる(2026-06-13 ユーザー確定)。slots が 1 のときは部位名のみ、
- *   0 または 2 以上のときは「武器2」のように部位名 + 数値で表記する。
+ * - part(部位)は**配列**。フェーズ10(2026-06-26)で種別(kind)ベースへ拡張した。
+ *   kind = none/bodyPart/option/reference/other の5択。value/slots は維持(後方互換)。
+ *   旧 {value,slots} データは kind 既定 "other" で自由記入扱いへ移行する(§4.2)。
+ *   結合は兄弟フィールド partRelation(and/or)、or 時の装備先は partOrChoice。
+ *   表示・占有ルールの正本は Outfits.md「部位管理(フェーズ10)」。
  * - exclusive は自由記述の StringField(空欄はシート閲覧時に "-" 表示)。
  * - uses.type は使用回数の種別(アクト/シーン/カット。スタイル技能の usesType と共通)。
  * - isConsumption(消費アイテム)はフェーズ6-2 で weapon の isthrow を置き換えて全種別に
@@ -40,6 +42,37 @@
 import { SystemDataModel } from "../../abstract.mjs";
 import { getMajorCategoryChoices, getMinorCategoryChoices, LEGACY_CATEGORY_MAP } from "../outfit-categories.mjs";
 import { modeValueField, migrateUsesValueToSpent, computeItemEffectiveValues } from "../helpers.mjs";
+
+/**
+ * 部位行の種別(フェーズ10・2026-06-26 確定)。公式の「部位」指定を自由入力 + フラグで表現する。
+ * - none      : 「-」部位なし(非消費)
+ * - bodyPart  : 身体部位。value にプリセット由来の部位名、slots に消費数
+ * - option    : オプション。装備先ホストを hostMajor/hostMinor(+hostMinorExclude)/hostFeature/hostName で指定
+ * - reference : 解説参照。表示は常に「解説参照」。refSubKind の実部位で占有計算する
+ * - other     : その他(自由記入)。value に自由記入文字列。占有計算対象外
+ * 正本: llm-wiki/01_Wiki/Game_Rules/Outfits.md「部位管理(フェーズ10)」
+ */
+export const PART_KINDS = Object.freeze({
+  none:      "-",
+  bodyPart:  "身体部位",
+  option:    "オプション",
+  reference: "解説参照",
+  other:     "その他",
+});
+
+/** 解説参照(reference)の入れ子で選べる実部位種別(解説参照の入れ子は不可) */
+export const PART_REFERENCE_SUB_KINDS = Object.freeze({
+  none:     "-",
+  bodyPart: "身体部位",
+  option:   "オプション",
+  other:    "その他",
+});
+
+/** part 全体の結合(2行以上のとき)。and=全部占有 / or=択一 */
+export const PART_RELATIONS = Object.freeze({
+  and: "かつ",
+  or:  "または",
+});
 
 export class OutfitBaseTemplate extends SystemDataModel {
   /** @override */
@@ -74,12 +107,27 @@ export class OutfitBaseTemplate extends SystemDataModel {
       hide:              modeValueField(["none", "value", "reference", "control"]),
       appearancePenalty: modeValueField(["none", "value"]),
       hack:              modeValueField(["none", "value"]),
+      // 部位行(フェーズ10 で種別ベースへ拡張)。value/slots は維持。kind 既定 "other" は
+      // 旧 {value,slots} データを「その他(自由記入)」へ移行する(§4.2: 文字列から種別を推測しない)。
       part: new fields.ArrayField(
         new fields.SchemaField({
-          value: new fields.StringField({ initial: "" }),
-          slots: new fields.NumberField({ initial: 1, min: 0, integer: true }),
+          kind:             new fields.StringField({ initial: "other", choices: PART_KINDS }),
+          value:            new fields.StringField({ initial: "" }),
+          slots:            new fields.NumberField({ initial: 1, min: 0, integer: true }),
+          isOptional:       new fields.BooleanField({ initial: false }),
+          hostMajor:        new fields.StringField({ initial: "" }),
+          hostMinor:        new fields.StringField({ initial: "" }),
+          hostMinorExclude: new fields.BooleanField({ initial: false }),
+          hostFeature:      new fields.StringField({ initial: "" }),
+          hostName:         new fields.StringField({ initial: "" }),
+          refSubKind:       new fields.StringField({ initial: "none", choices: PART_REFERENCE_SUB_KINDS }),
         })
       ),
+      // part 全体の結合(2行以上で意味を持つ)と、or 時の装備先(占有する行 index。表示には不影響)
+      partRelation: new fields.StringField({ initial: "and", choices: PART_RELATIONS }),
+      partOrChoice: new fields.NumberField({ initial: 0, min: 0, integer: true }),
+      // 部位「-」品など、準備していなくても使用可能な例外フラグ(2026-06-26)
+      noPrepareRequired: new fields.BooleanField({ initial: false }),
       timing: new fields.SchemaField({
         value:       new fields.StringField({ initial: "blank" }),
         actionName:  new fields.StringField({ initial: "blank" }),

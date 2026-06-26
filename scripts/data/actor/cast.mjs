@@ -55,6 +55,14 @@ export class CastDataModel extends SystemDataModel.mixin(
           name:     new fields.StringField({ initial: "" }),
         }),
       }),
+      // 部位スロット集合(フェーズ10)。ゲーム設定のプリセットを新規キャストへ流し込む。
+      // 占有計算の母数。value=部位ラベル、count=保有スロット数。キャスト側で追加/削除可。
+      partSlots: new fields.ArrayField(
+        new fields.SchemaField({
+          value: new fields.StringField({ initial: "" }),
+          count: new fields.NumberField({ initial: 1, min: 0, integer: true }),
+        })
+      ),
       isGhost:    new fields.BooleanField({ initial: false }),
       bounty:     new fields.NumberField({ initial: 0, integer: true }),
       bountyBase: new fields.NumberField({ initial: 0, integer: true }),

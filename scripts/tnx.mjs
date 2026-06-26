@@ -48,6 +48,7 @@ import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHi
 import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
 import { CONDITION_KINDS, CONDITION_GROUP_LABELS, getConditionKinds, buildInflictedEffectsData, readConditions } from './module/conditions.mjs';
 import { registerDamageChartTextSetting } from './module/damage-chart-text-app.mjs';
+import { registerPartSlotPresetSetting, getPartSlotPreset } from './module/part-slot-preset-app.mjs';
 import { conditionNeedsDraw, postDrawPrompt, postControlNegatePrompt, bindConditionChatButtons } from './module/condition-resolution.mjs';
 
 async function preloadHandlebarsTemplates() {
@@ -607,6 +608,9 @@ Hooks.once("init", async function() {
     // ダメージチャート効果文(ワールド設定＋編集アプリメニュー)
     registerDamageChartTextSetting();
 
+    // 部位スロットプリセット(ワールド設定＋編集アプリメニュー。新規キャストへ流し込む)
+    registerPartSlotPresetSetting();
+
     game.settings.register("tokyo-nova-axleration", "defaultHandMaxSize", {
         name: "デフォルトの手札上限数",
         hint: "各ユーザーの手札上限の基本となる枚数を設定します。ユーザーが個別に設定していない場合、この値が適用されます。",
@@ -717,6 +721,15 @@ Hooks.once("init", async function() {
 
     Hooks.on("preCreateActor", (actor, data, options, userId) => {
         if (data.type !== "cast") return;
+
+        // 部位スロット集合: 未設定なら全アクター共通プリセットを流し込む(フェーズ10)
+        const hasPartSlots = Array.isArray(data.system?.partSlots) && data.system.partSlots.length > 0;
+        if (!hasPartSlots) {
+            const preset = getPartSlotPreset();
+            if (preset.length) {
+                actor.updateSource({ "system.partSlots": foundry.utils.deepClone(preset) });
+            }
+        }
 
         const ownership = data.ownership || {};
         ownership.default = CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER;
