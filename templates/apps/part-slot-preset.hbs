@@ -1,19 +1,53 @@
 <div class="tnx-psp-body">
-  <p class="tnx-psp-hint">新規キャストへ流し込む部位スロット（体部位）の初期集合です。value＝部位ラベル、count＝保有数。両手持ち等は atomic（例: 片手持ち×2）で表現します。</p>
+  <p class="tnx-psp-hint hint">新規キャストへ流し込む部位スロット（体部位）の初期集合です。value＝部位ラベル、count＝保有数。「両手持ち」等は<strong>指定部位を複数占有</strong>で「片手持ち×2」のように設定できます（排他部位・ルール追加にも対応）。</p>
+
+  <datalist id="tnx-psp-parts">
+    {{#each rows as |row|}}{{#if row.value}}<option value="{{row.value}}"></option>{{/if}}{{/each}}
+  </datalist>
 
   <div class="tnx-psp-rows">
     {{#each rows as |row i|}}
     <div class="tnx-psp-row" data-row>
-      <input type="text" name="rows.{{i}}.value" data-field="value" value="{{row.value}}" placeholder="部位名（例: 片手持ち）" />
-      <input type="number" name="rows.{{i}}.count" data-field="count" value="{{row.count}}" min="0" step="1" class="tnx-psp-count" />
+      <input type="text" name="rows.{{i}}.value" data-field="value" value="{{row.value}}" placeholder="部位名（例: 片手持ち）" class="tnx-psp-name" />
+
+      {{#unless row.occupiesOther}}
+      <div class="number-input-spinner tnx-spinner--sm">
+        <button type="button" class="tnx-btn" data-action="decrement">－</button>
+        <input type="number" name="rows.{{i}}.count" data-field="count" value="{{row.count}}" min="0" step="1">
+        <button type="button" class="tnx-btn" data-action="increment">＋</button>
+      </div>
+      {{else}}
+      <input type="hidden" name="rows.{{i}}.count" data-field="count" value="{{row.count}}">
+      {{/unless}}
+
+      <label class="tnx-psp-alias-toggle" title="この部位を占有すると指定部位を複数消費する（両手持ち＝片手持ち×2 等）">
+        <input type="checkbox" name="rows.{{i}}.occupiesOther" data-field="occupiesOther" {{checked row.occupiesOther}}>
+        複数占有
+      </label>
+
+      {{#if row.occupiesOther}}
+      <span class="tnx-psp-alias-target">
+        <input type="text" name="rows.{{i}}.targetPart" data-field="targetPart" value="{{row.targetPart}}" list="tnx-psp-parts" placeholder="占有する部位" class="tnx-psp-name">
+        <span class="tnx-psp-x">×</span>
+        <div class="number-input-spinner tnx-spinner--sm">
+          <button type="button" class="tnx-btn" data-action="decrement">－</button>
+          <input type="number" name="rows.{{i}}.targetCount" data-field="targetCount" value="{{row.targetCount}}" min="0" step="1">
+          <button type="button" class="tnx-btn" data-action="increment">＋</button>
+        </div>
+      </span>
+      {{else}}
+      <input type="hidden" name="rows.{{i}}.targetPart" data-field="targetPart" value="{{row.targetPart}}">
+      <input type="hidden" name="rows.{{i}}.targetCount" data-field="targetCount" value="{{row.targetCount}}">
+      {{/if}}
+
       <a class="tnx-psp-del" data-action="deleteRow" data-index="{{i}}" title="この行を削除"><i class="fas fa-trash"></i></a>
     </div>
     {{/each}}
   </div>
 
-  <button type="button" class="tnx-psp-add" data-action="addRow"><i class="fas fa-plus"></i> 行を追加</button>
+  <button type="button" class="tnx-psp-add tnx-btn tnx-btn--secondary" data-action="addRow"><i class="fas fa-plus"></i> 行を追加</button>
 
   <footer class="tnx-psp-footer">
-    <button type="submit"><i class="fas fa-floppy-disk"></i> 保存</button>
+    <button type="submit" class="tnx-btn tnx-btn--primary"><i class="fas fa-floppy-disk"></i> 保存</button>
   </footer>
 </div>

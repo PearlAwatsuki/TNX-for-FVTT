@@ -6565,3 +6565,92 @@ button.tnx-create-act-button span {
     font-size: 0.82em;
     justify-content: center;
 }
+
+/* ============================================================
+   § 36: 部位スロットプリセット 設定アプリ（フェーズ10）
+   ============================================================ */
+#tnx-part-slot-preset .tnx-psp-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    height: 100%;
+}
+#tnx-part-slot-preset .tnx-psp-hint {
+    margin: 0 0 4px;
+    font-size: 0.82em;
+}
+#tnx-part-slot-preset .tnx-psp-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+#tnx-part-slot-preset .tnx-psp-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 0;
+    border-bottom: 1px solid var(--tnx-border-subtle, rgba(255, 255, 255, 0.06));
+}
+#tnx-part-slot-preset .tnx-psp-row:last-child {
+    border-bottom: none;
+}
+#tnx-part-slot-preset .tnx-psp-name {
+    flex: 1 1 7rem;
+    min-width: 5rem;
+}
+#tnx-part-slot-preset .tnx-spinner--sm {
+    display: flex;
+    flex-shrink: 0;
+}
+#tnx-part-slot-preset .tnx-spinner--sm input[type="number"] {
+    width: 36px;
+    text-align: center;
+    padding: 0 2px;
+    font-size: 0.82em;
+}
+#tnx-part-slot-preset .tnx-spinner--sm .tnx-btn {
+    min-width: 24px;
+    padding: 2px 5px;
+    font-size: 0.82em;
+}
+#tnx-part-slot-preset .tnx-psp-alias-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    flex-shrink: 0;
+    font-size: 0.78em;
+    white-space: nowrap;
+    color: var(--tnx2-text-secondary, #aaa);
+}
+#tnx-part-slot-preset .tnx-psp-alias-target {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1 1 9rem;
+}
+#tnx-part-slot-preset .tnx-psp-x {
+    opacity: 0.6;
+}
+#tnx-part-slot-preset .tnx-psp-del {
+    flex-shrink: 0;
+    cursor: pointer;
+    opacity: 0.6;
+}
+#tnx-part-slot-preset .tnx-psp-del:hover {
+    opacity: 1;
+    color: var(--tnx2-danger, #c0392b);
+}
+#tnx-part-slot-preset .tnx-psp-add {
+    align-self: flex-start;
+    flex-shrink: 0;
+}
+#tnx-part-slot-preset .tnx-psp-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 6px;
+    border-top: 1px solid var(--tnx-border-subtle, rgba(255, 255, 255, 0.08));
+}

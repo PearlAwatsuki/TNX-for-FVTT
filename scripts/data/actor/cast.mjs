@@ -57,10 +57,16 @@ export class CastDataModel extends SystemDataModel.mixin(
       }),
       // 部位スロット集合(フェーズ10)。ゲーム設定のプリセットを新規キャストへ流し込む。
       // 占有計算の母数。value=部位ラベル、count=保有スロット数。キャスト側で追加/削除可。
+      // occupiesOther=「指定部位を複数占有」エイリアス(両手持ち=片手持ち×2 等)。
+      //   true のとき、この部位を占有すると targetPart を targetCount だけ消費する
+      //   (count は無視)。排他部位やルール追加にもユーザー設定で対応できる。
       partSlots: new fields.ArrayField(
         new fields.SchemaField({
-          value: new fields.StringField({ initial: "" }),
-          count: new fields.NumberField({ initial: 1, min: 0, integer: true }),
+          value:         new fields.StringField({ initial: "" }),
+          count:         new fields.NumberField({ initial: 1, min: 0, integer: true }),
+          occupiesOther: new fields.BooleanField({ initial: false }),
+          targetPart:    new fields.StringField({ initial: "" }),
+          targetCount:   new fields.NumberField({ initial: 1, min: 0, integer: true }),
         })
       ),
       isGhost:    new fields.BooleanField({ initial: false }),
