@@ -5702,8 +5702,126 @@ button.tnx-create-act-button span {
     background: var(--tnx2-bg-hover);
 }
 
+/* 案「回路トレース＋スロットゲージ＋装着ノード」(組み合わせ): 表を貫く発光縦トレース＋各オプション
+   への横ブランチ、その先端に塗りつぶしの菱形「装着ノード」(端子=一工夫)。ホスト行にスロット使用
+   ゲージ、オプションに占有スロット種別タグ。未準備は独立行で通常表示。 */
 .tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row--option > .outfit-row-main {
+    position: relative;
     background: var(--tnx2-bg-2);
+}
+/* 縦トレース(表を貫く): 行上端→中央。最後以外は下端まで続け次行へ繋ぐ */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row--option > .outfit-row-main::before {
+    content: "";
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 50%;
+    width: 2px;
+    background: var(--tnx2-accent, #6fb3d2);
+    box-shadow: 0 0 4px var(--tnx2-accent-glow-sm, rgba(0, 200, 224, 0.5));
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row--option:not(.outfit-row--last-option) > .outfit-row-main::before {
+    bottom: 0;
+}
+/* 分かれ目(縦トレース→横ブランチ)＝ひし形。行本体(overflow しない)側に置き、name セルの切れを防ぐ */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row--option > .outfit-row-main::after {
+    content: "";
+    position: absolute;
+    left: 5px;
+    top: 50%;
+    width: 7px;
+    height: 7px;
+    transform: translateY(-50%) rotate(45deg);
+    background: var(--tnx2-accent, #6fb3d2);
+    box-shadow: 0 0 5px var(--tnx2-accent-glow-sm, rgba(0, 200, 224, 0.9));
+}
+/* ホストのスロット使用ゲージ(種別ごと): スラントしたピップ＋使用/容量。種別名はツールチップ。
+   --c で色分け: normal(ス=武器/IANUS/ポケットロン等)=シアン、ラベル付き(意識・soft/hard)=マゼンタ。 */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge {
+    --c: var(--tnx2-accent, #6fb3d2);
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: 16px; /* ゲージ間は広く(ピップ間 gap や数字との隙間とはっきり差をつける) */
+    line-height: 1;
+    vertical-align: middle;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge .tnx-pip {
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    width: 7px;
+    height: 11px;
+    border: 1px solid var(--c);
+    transform: skewX(-14deg);
+    opacity: 0.5;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge .tnx-pip.on {
+    background: var(--c);
+    box-shadow: 0 0 3px var(--c);
+    opacity: 1;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge .tnx-pip.over {
+    border-color: var(--tnx2-danger, #c0392b);
+    background: var(--tnx2-danger, #c0392b);
+    opacity: 1;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge .tnx-pip-count {
+    margin-left: 2px; /* 数字とピップは詰める(ゲージ間 16px とはっきり差を付ける) */
+    font-size: 0.86em;
+    font-weight: 700;
+    line-height: 11px; /* ピップと同じ箱高さ(11px)にして単一行を縦中央化。align-items に頼らず確実に揃える */
+    letter-spacing: 0.02em;
+    color: var(--c);
+    opacity: 0.9;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge.is-over .tnx-pip-count {
+    color: var(--tnx2-danger-text, #e74c3c);
+    opacity: 1;
+}
+/* 名前/ゲージ/タグの縦位置を中央で揃える(ガタつき防止) */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--name > .squeeze-text {
+    vertical-align: middle;
+}
+/* オプションの占有スロット種別タグ(情報量)。色は下記の種別ごと --c */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-tag {
+    --c: var(--tnx2-accent, #6fb3d2);
+    margin-left: 10px;
+    padding: 1px 7px;
+    font-size: 0.82em;
+    line-height: 1.5;
+    color: var(--c);
+    border: 1px solid var(--c);
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.04);
+    white-space: nowrap;
+    vertical-align: middle;
+    opacity: 0.92;
+}
+/* スロット種別ごとの色(ゲージ・タグ共通): normal=シアン/software=緑/hardware=マゼンタ/
+   表層意識=赤紫/深層意識=藤色/無意識=藍色 */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--normal,
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-tag--normal {
+    --c: var(--tnx2-accent, #6fb3d2);
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--software,
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-tag--software {
+    --c: #46d160;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--hardware,
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-tag--hardware {
+    --c: #ff3da1;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--surface,
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-tag--surface {
+    --c: #a076e4; /* 表層意識=藤色(彩度もう少し上げ) */
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--deep,
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-tag--deep {
+    --c: #6030ff; /* 深層意識=青紫(明度up) */
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--unconscious,
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-tag--unconscious {
+    --c: #263ef5; /* 無意識=藍/紺(明度up) */
 }
 
 /* 行本体(flex行) */
@@ -5747,10 +5865,34 @@ button.tnx-create-act-button span {
     letter-spacing: -0.04em;
 }
 
-.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-option-indent {
-    color: var(--tnx2-text-muted);
-    font-size: 0.9em;
-    margin-right: 2px;
+/* 横ブランチ先端の装着ノード(端子=一工夫)＋インデント。名前/ゲージ/タグは縦中央で揃える */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row--option .outfit-col--name {
+    position: relative;
+    padding-left: 28px;
+}
+/* アイテム名横の端子＝丸ポチ */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row--option .outfit-col--name::before {
+    content: "";
+    position: absolute;
+    left: 13px;
+    top: 50%;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    transform: translateY(-50%);
+    background: var(--tnx2-accent, #6fb3d2);
+    box-shadow: 0 0 5px var(--tnx2-accent-glow-sm, rgba(0, 200, 224, 0.7));
+}
+/* 横ブランチ: トレース→アイテム名横の端子(丸ポチ)へ。name セル内なので左側は切れない */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row--option .outfit-col--name::after {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: calc(50% - 1px);
+    width: 11px;
+    height: 2px;
+    background: var(--tnx2-accent, #6fb3d2);
+    box-shadow: 0 0 4px var(--tnx2-accent-glow-sm, rgba(0, 200, 224, 0.5));
 }
 
 /* パラメータ列: 共通 */

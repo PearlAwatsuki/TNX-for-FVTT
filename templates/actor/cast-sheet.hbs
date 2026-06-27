@@ -581,9 +581,9 @@
                             </div>
                             {{!-- アイテム行 --}}
                             {{#each group.items as |row|}}
-                            <div class="outfit-row{{#if row.isOption}} outfit-row--option{{/if}}" data-item-id="{{row._id}}">
+                            <div class="outfit-row{{#if row.isNested}} outfit-row--option{{#if row.isLastOption}} outfit-row--last-option{{/if}}{{/if}}" data-item-id="{{row._id}}">
                                 <div class="outfit-row-main">
-                                    <span class="outfit-col--name"><span class="squeeze-text">{{#if row.isOption}}<span class="outfit-option-indent">┗</span>{{/if}}{{row.displayName}}</span></span>
+                                    <span class="outfit-col--name"><span class="squeeze-text">{{row.displayName}}</span>{{#each row.slotGauges}}<span class="outfit-slot-gauge outfit-slot-gauge--{{this.kind}}{{#if this.over}} is-over{{/if}}" title="{{this.kindLabel}} {{this.used}}/{{this.capacity}}">{{#each this.pips}}<i class="tnx-pip{{#if this.on}} on{{/if}}{{#if this.over}} over{{/if}}"></i>{{/each}}<b class="tnx-pip-count">{{this.used}}/{{this.capacity}}</b></span>{{/each}}{{#if row.slotLabel}}<span class="outfit-slot-tag outfit-slot-tag--{{row.slotKind}}">{{row.slotLabel}}</span>{{/if}}</span>
                                     {{#each row.colValues as |col|}}
                                     <span class="outfit-col--{{col.key}}"><span class="squeeze-text">{{col.value}}</span></span>
                                     {{/each}}

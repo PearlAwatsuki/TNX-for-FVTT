@@ -1154,13 +1154,35 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             if (hiddenItem) combineHiddenIds.add(hiddenItem.id);
         }
 
+        // 入れ子(ホスト配下)にするのは「準備済み(装備対象に準備済み)のオプション」だけ。
+        // 未準備(携帯のみ)は装備対象に装着されていないので、配下から外して独立行で通常表示する。
+        const isNestedOption = (sys) => sys.isOption && sys.parentItemId && sys.isPrepared;
+
+        // スロットゲージ(種別ごと)用: ホストの種別→容量マップ／オプションの占有スロット種別ラベル
+        const hostCapByKind = (sys) => {
+            const m = new Map();
+            for (const s of (Array.isArray(sys.slots) ? sys.slots : [])) {
+                if (s?.count?.mode !== "value") continue;
+                const cap = Number(s.count.value) || 0;
+                if (cap > 0) m.set(s.kind, (m.get(s.kind) ?? 0) + cap);
+            }
+            return m;
+        };
+        const optionSlotLabel = (sys) => {
+            const k = sys.parentSlotKind;
+            if (k && k !== "normal") return SLOT_KINDS[k] ?? k;
+            const host = this.actor.items.get(sys.parentItemId)?.system;
+            return isMajorLevelSlotMajor(host?.majorCategory)
+                ? getMajorCategoryLabel(host?.majorCategory)
+                : (getMinorCategoryLabel(host?.minorCategory) || getMajorCategoryLabel(host?.majorCategory));
+        };
+
         const optionsByParent = new Map();
         for (const item of outfitItems) {
+            if (!isNestedOption(item.system)) continue;
             const pid = item.system.parentItemId;
-            if (item.system.isOption && pid) {
-                if (!optionsByParent.has(pid)) optionsByParent.set(pid, []);
-                optionsByParent.get(pid).push(item);
-            }
+            if (!optionsByParent.has(pid)) optionsByParent.set(pid, []);
+            optionsByParent.get(pid).push(item);
         }
 
         const rowsById = new Map();
@@ -1170,7 +1192,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
         const byGroupKey = new Map();
         for (const item of outfitItems) {
-            if (item.system.isOption && item.system.parentItemId) continue;
+            if (isNestedOption(item.system)) continue; // 準備済みオプションのみ入れ子へ回す
             if (combineHiddenIds.has(item.id)) continue;
             const gk = this._getDisplayGroupKey(item.system.majorCategory);
             if (!byGroupKey.has(gk)) byGroupKey.set(gk, []);
@@ -1182,11 +1204,43 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             const rows = [];
             for (const item of groupItems) {
                 const row = rowsById.get(item.id);
-                if (row) rows.push(row);
-                for (const opt of optionsByParent.get(item.id) ?? []) {
-                    const optRow = rowsById.get(opt.id);
-                    if (optRow) rows.push(optRow);
+                const opts = optionsByParent.get(item.id) ?? [];
+                if (row) {
+                    // 容量>0 のスロットを1つ以上持つアウトフィットは常にゲージ表示(種別ごと)。
+                    // スロット:-(無スロット)も スロット:0(容量0)も非表示＝占有計算と同基準。
+                    // 何も準備していなくても 0/容量 を出す。種別名はツールチップ、色は種別ごと(--c)。
+                    const capByKind = hostCapByKind(item.system);
+                    if (capByKind.size) { // capByKind は cap>0 の種別のみ → スロット:-/0 は size 0 で除外
+                        const usedByKind = new Map();
+                        for (const o of opts) {
+                            const k = o.system.parentSlotKind || "normal";
+                            usedByKind.set(k, (usedByKind.get(k) ?? 0) + this._optionConsumption(o.system));
+                        }
+                        const kinds = [...new Set([...capByKind.keys(), ...usedByKind.keys()])];
+                        row.slotGauges = kinds.map((kind) => {
+                            const capacity = capByKind.get(kind) ?? 0;
+                            const used = usedByKind.get(kind) ?? 0;
+                            const total = Math.min(Math.max(capacity, used), 8); // 最大8ピップ
+                            return {
+                                kind, // 色分けクラス用(normal/software/hardware/surface/deep/unconscious)
+                                kindLabel: SLOT_KINDS[kind] ?? kind,
+                                used, capacity, over: used > capacity,
+                                pips: Array.from({ length: total }, (_, i) => ({ on: i < used, over: i >= capacity })),
+                            };
+                        });
+                    }
+                    rows.push(row);
                 }
+                // ホスト配下の準備済みオプションを視覚的入れ子で続ける(最終行フラグで接続線の枝端を制御)
+                opts.forEach((opt, i) => {
+                    const optRow = rowsById.get(opt.id);
+                    if (!optRow) return;
+                    optRow.isNested = true;
+                    optRow.isLastOption = (i === opts.length - 1);
+                    optRow.slotLabel = optionSlotLabel(opt.system); // 占有スロット種別(情報量)
+                    optRow.slotKind = opt.system.parentSlotKind || "normal"; // 色分けクラス用
+                    rows.push(optRow);
+                });
             }
             return { key: cfg.key, label: cfg.label, columns: cfg.columns, hasItems: rows.length > 0, items: rows };
         });
