@@ -180,5 +180,10 @@ export class OutfitBaseTemplate extends SystemDataModel {
   prepareDerivedData() {
     super.prepareDerivedData?.();
     computeItemEffectiveValues(this);
+    // オプション判定は部位行から派生する(フェーズ10。旧 isOption チェックは廃止し kind=option へ吸収)。
+    // 部位に kind=option(または解説参照の実部位 option)があれば、このアウトフィットはオプション。
+    const rows = Array.isArray(this.part) ? this.part : [];
+    this.isOption = rows.some((r) =>
+      r?.kind === "option" || (r?.kind === "reference" && r?.refSubKind === "option"));
   }
 }

@@ -139,6 +139,18 @@ export function isMajorLevelSlotMajor(majorKey) {
 }
 
 /**
+ * スロット種別を表す小分類(ソフト/ハード) → そのスロットを持つホストの小分類表記。
+ * ルール上の部位表示は「タップ」だけ(ソフト/ハードを区別しない)。software/hardware は tron 配下の
+ * 小分類だが実体はタップのスロットなので、部位名ではこの値(=「タップ」)に置き換える。
+ * ※占有リストの「タップ/ソフトウェア」は soft/hard を見分けるための便宜表記で、正本の部位表示ではない。
+ * @type {Readonly<Record<string, string>>}
+ */
+export const SLOT_KIND_MINOR_HOSTS = Object.freeze({
+  software: "タップ",
+  hardware: "タップ",
+});
+
+/**
  * 旧データ(日本語名格納)→ コードキー の対応表(大分類・小分類を一括)。
  * label と同一文字列をキーへ写像する。migrateData 用。
  * @type {Readonly<Record<string, string>>}

@@ -572,9 +572,9 @@
                         <div class="outfit-group">
                             {{!-- カラムヘッダー --}}
                             <div class="outfit-row outfit-row--header">
-                                <span class="outfit-col--name">{{group.label}}</span>
+                                <span class="outfit-col--name"><span class="squeeze-text">{{group.label}}</span></span>
                                 {{#each group.columns as |col|}}
-                                <span class="outfit-col--{{col.key}}">{{col.label}}</span>
+                                <span class="outfit-col--{{col.key}}"><span class="squeeze-text">{{col.label}}</span></span>
                                 {{/each}}
                                 <span class="outfit-col--flags"></span>
                                 <span class="outfit-col--actions"></span>
@@ -583,12 +583,9 @@
                             {{#each group.items as |row|}}
                             <div class="outfit-row{{#if row.isOption}} outfit-row--option{{/if}}" data-item-id="{{row._id}}">
                                 <div class="outfit-row-main">
-                                    <span class="outfit-col--name">
-                                        {{#if row.isOption}}<span class="outfit-option-indent">┗</span>{{/if}}
-                                        {{row.displayName}}
-                                    </span>
+                                    <span class="outfit-col--name"><span class="squeeze-text">{{#if row.isOption}}<span class="outfit-option-indent">┗</span>{{/if}}{{row.displayName}}</span></span>
                                     {{#each row.colValues as |col|}}
-                                    <span class="outfit-col--{{col.key}}">{{col.value}}</span>
+                                    <span class="outfit-col--{{col.key}}"><span class="squeeze-text">{{col.value}}</span></span>
                                     {{/each}}
                                     <span class="outfit-col--flags">
                                         {{#unless row.isResidence}}
@@ -622,7 +619,7 @@
                     </div>
 
                     {{!-- 部位占有（タブ最下部・縮小/展開・既定縮小。表示のみ・超過は赤） --}}
-                    {{#if (or partOccupancy.hasSlots isEditMode)}}
+                    {{#if (or partOccupancy.hasSlots (or partOccupancy.hasHostChips isEditMode))}}
                     <div class="tnx-part-occupancy{{#unless partOccExpanded}} collapsed{{/unless}}">
                         <div class="tnx-occ-title" data-action="togglePartOccupancy">
                             <span class="tnx-occ-toggle"><i class="fas fa-chevron-right tnx-occ-chevron"></i> 部位の占有</span>
@@ -638,7 +635,7 @@
                             {{/if}}
                         </div>
                         <div class="tnx-occ-body">
-                            {{#if partOccupancy.hasSlots}}
+                            {{#if (or partOccupancy.hasSlots partOccupancy.hasHostChips)}}
                             <div class="tnx-occ-chips">
                                 {{#each partOccupancy.slots as |slot|}}
                                 <span class="tnx-occ-chip {{#if slot.over}}tnx-occ-over{{/if}}" title="{{slot.label}}　使用 {{slot.used}} / 保有 {{slot.count}}{{#if slot.over}}（超過）{{/if}}">
@@ -650,6 +647,13 @@
                                 <span class="tnx-occ-chip tnx-occ-over" title="プリセット未登録の部位「{{u.label}}」を {{u.used}} 占有">
                                     <span class="tnx-occ-name">{{u.label}}</span>
                                     <span class="tnx-occ-count">{{u.used}}/–</span>
+                                </span>
+                                {{/each}}
+                                {{!-- ②③ 装備先(ホスト)スロット: 「スロット名（ホスト名）」を身体部位と同じ列に並べる。超過は赤 --}}
+                                {{#each partOccupancy.hostChips as |h|}}
+                                <span class="tnx-occ-chip {{#if h.over}}tnx-occ-over{{/if}}" title="{{h.label}}　使用 {{h.used}} / 容量 {{h.capacity}}{{#if h.over}}（超過）{{/if}}">
+                                    <span class="tnx-occ-name">{{h.label}}</span>
+                                    <span class="tnx-occ-count">{{h.used}}/{{h.capacity}}</span>
                                 </span>
                                 {{/each}}
                             </div>

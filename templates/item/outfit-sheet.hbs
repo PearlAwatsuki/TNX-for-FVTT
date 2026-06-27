@@ -751,8 +751,8 @@
                             任意
                         </label>
                         {{#if partMultiRow}}
-                        <span class="tnx-part-relation">
-                            <label>結合</label>
+                        <span class="tnx-part-relation" title="複数の部位をどう占有するか。かつ＝すべて占有／または＝いずれか1つ（択一）">
+                            <label>複数部位の扱い</label>
                             <select name="system.partRelation">
                                 {{selectOptions partRelationChoices selected=partRelation}}
                             </select>
@@ -855,6 +855,26 @@
                                     <input type="text" data-part-field="hostName" data-index="{{row.idx}}" value="{{row.hostName}}" placeholder="アイテム名（任意）">
                                     {{/if}}
                                 </div>
+
+                                {{!-- 装備先(キャスト所属時・カード最下段。占有はこのアイテムのスロットを消費。2層の「装備先」側) --}}
+                                {{#if ../showOptionHost}}
+                                <div class="tnx-part-equip">
+                                    <div class="tnx-part-field">
+                                        <label>装備先 <i class="fas fa-circle-question" title="このオプションを準備する先のアイテム。占有はこのアイテムのスロットを消費する"></i></label>
+                                        <select name="system.parentItemId">
+                                            {{selectOptions ../options.parentItem selected=../system.parentItemId}}
+                                        </select>
+                                    </div>
+                                    {{#if ../parentHasSlots}}
+                                    <div class="tnx-part-field">
+                                        <label>スロット種別</label>
+                                        <select name="system.parentSlotKind">
+                                            {{selectOptions ../options.parentSlot selected=../system.parentSlotKind}}
+                                        </select>
+                                    </div>
+                                    {{/if}}
+                                </div>
+                                {{/if}}
                             </div>
                             {{/if}}
 

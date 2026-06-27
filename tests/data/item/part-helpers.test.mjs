@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  computePartOccupancy, formatOptionLabel, formatPartDesignation,
+  computePartOccupancy, computeHostOccupancy, formatOptionLabel, formatPartDesignation,
 } from "../../../scripts/data/item/part-helpers.mjs";
 
 /** body part 行を作るヘルパー */
@@ -130,8 +130,9 @@ describe("formatOptionLabel()", () => {
       .toBe("武器(搭載兵器以外)");
   });
 
-  it("武器: その他特徴は括弧(武器(レーザー武器))", () => {
+  it("武器: その他特徴は括弧(武器(レーザー武器)/武器(サイバーウェア))", () => {
     expect(formatOptionLabel(opt({ hostMajor: "weapon", hostFeature: "isLaser" }))).toBe("武器(レーザー武器)");
+    expect(formatOptionLabel(opt({ hostMajor: "weapon", hostFeature: "isCyber" }))).toBe("武器(サイバーウェア)");
   });
 
   it("小分類レベル(ヴィークル): 小分類名のまま(船舶。ヴィークル(船舶)ではない)", () => {
@@ -143,9 +144,23 @@ describe("formatOptionLabel()", () => {
     expect(formatOptionLabel(opt({ hostMajor: "cyberware", hostMinor: "ianus" }))).toBe("IANUS");
   });
 
+  it("タップのソフト/ハードはルール表示では「タップ」のみ(種別区別 タップ/ソフトウェア は占有リスト専用)", () => {
+    expect(formatOptionLabel(opt({ hostMajor: "tron", hostMinor: "software" }))).toBe("タップ");
+    expect(formatOptionLabel(opt({ hostMajor: "tron", hostMinor: "hardware" }))).toBe("タップ");
+    expect(formatOptionLabel(opt({ hostMajor: "tron", hostMinor: "software", slots: 2 }))).toBe("タップ2");
+  });
+
   it("アイテム名あり: 名前を表示(数字も付く)", () => {
     expect(formatOptionLabel(opt({ hostName: "アサルトナーヴス" }))).toBe("アサルトナーヴス");
     expect(formatOptionLabel(opt({ hostName: "アサルトナーヴス", slots: 0 }))).toBe("アサルトナーヴス0");
+  });
+
+  it("特殊弾は大例外: 「武器」に畳まず「特殊弾」。ホスト名ありは「特殊弾(スリング)」", () => {
+    expect(formatOptionLabel(opt({ hostMajor: "weapon", hostMinor: "specialAmmo" }))).toBe("特殊弾");
+    expect(formatOptionLabel(opt({ hostMajor: "weapon", hostMinor: "specialAmmo", hostName: "スリング" })))
+      .toBe("特殊弾(スリング)");
+    // 数字は種別の直後・ホスト名括弧の前
+    expect(formatOptionLabel(opt({ hostMajor: "weapon", hostMinor: "specialAmmo", slots: 0 }))).toBe("特殊弾0");
   });
 });
 
@@ -192,5 +207,108 @@ describe("formatPartDesignation()", () => {
   it("部位なし(none/空)は「-」", () => {
     expect(formatPartDesignation([])).toBe("-");
     expect(formatPartDesignation([{ kind: "none" }])).toBe("-");
+  });
+});
+
+describe("computeHostOccupancy()", () => {
+  /** スロット保有ホスト */
+  const host = (id, name, slots) => ({ id, name, slots });
+  /** オプション(装備先指定済み) */
+  const opt = (name, parentItemId, parentSlotKind, slots = 1) =>
+    ({ name, parentItemId, parentSlotKind, slots });
+
+  it("基本: ホストの normal スロットにオプションの消費を当て used/free/over を返す", () => {
+    const rows = computeHostOccupancy(
+      [host("w1", "雷神刀", [{ kind: "normal", count: 2 }])],
+      [opt("特殊弾", "w1", "normal", 1)]
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      hostId: "w1", hostName: "雷神刀", kind: "normal",
+      capacity: 2, used: 1, free: 1, over: false,
+    });
+  });
+
+  it("超過: used > capacity で over=true・free は負", () => {
+    const rows = computeHostOccupancy(
+      [host("w1", "拳銃", [{ kind: "normal", count: 1 }])],
+      [opt("A", "w1", "normal", 1), opt("B", "w1", "normal", 1)]
+    );
+    expect(rows[0]).toMatchObject({ capacity: 1, used: 2, free: -1, over: true });
+  });
+
+  it("消費数: 部位表記の数字を消費(武器2=2)、0=非消費、未指定は1", () => {
+    const rows = computeHostOccupancy(
+      [host("w1", "ホスト", [{ kind: "normal", count: 5 }])],
+      [opt("二枠", "w1", "normal", 2), opt("非消費", "w1", "normal", 0),
+       { name: "既定", parentItemId: "w1", parentSlotKind: "normal" }]
+    );
+    expect(rows[0].used).toBe(3); // 2 + 0 + 1
+  });
+
+  it("種別を区別: IANUS の意識3種は別容量・別占有で集計する", () => {
+    const rows = computeHostOccupancy(
+      [host("i1", "IANUS", [
+        { kind: "normal", count: 2 },
+        { kind: "surface", count: 1 },
+        { kind: "deep", count: 1 },
+      ])],
+      [opt("表層アプリ", "i1", "surface", 1), opt("通常オプション", "i1", "normal", 1)]
+    );
+    expect(rows.find((r) => r.kind === "surface")).toMatchObject({ capacity: 1, used: 1, over: false });
+    expect(rows.find((r) => r.kind === "normal")).toMatchObject({ capacity: 2, used: 1, over: false });
+    expect(rows.find((r) => r.kind === "deep")).toMatchObject({ capacity: 1, used: 0, over: false });
+  });
+
+  it("ソフト/ハードを区別: タップの software/hardware は別枠", () => {
+    const rows = computeHostOccupancy(
+      [host("t1", "タップ", [
+        { kind: "software", count: 2 },
+        { kind: "hardware", count: 1 },
+      ])],
+      [opt("ソフトA", "t1", "software", 1), opt("ハードB", "t1", "hardware", 1)]
+    );
+    expect(rows.find((r) => r.kind === "software")).toMatchObject({ used: 1, free: 1 });
+    expect(rows.find((r) => r.kind === "hardware")).toMatchObject({ used: 1, free: 0 });
+  });
+
+  it("スロット0/無スロットのホストは拾わない(使えるスロットが無い)", () => {
+    // 無スロット(slots 空): オプションがあっても行を出さない
+    expect(computeHostOccupancy([host("s1", "無スロット", [])], [opt("A", "s1", "", 1)]))
+      .toHaveLength(0);
+    // 全スロット容量0: 同上
+    expect(computeHostOccupancy(
+      [host("s2", "0スロット", [{ kind: "normal", count: 0 }])],
+      [opt("B", "s2", "normal", 1)]
+    )).toHaveLength(0);
+  });
+
+  it("準備ゲート: 装備先が準備済みホスト一覧に無いオプションは数えない", () => {
+    const rows = computeHostOccupancy(
+      [host("w1", "準備済み", [{ kind: "normal", count: 2 }])],
+      [opt("孤児", "w_missing", "normal", 1), opt("正常", "w1", "normal", 1)]
+    );
+    const w1 = rows.find((r) => r.hostId === "w1");
+    expect(w1.used).toBe(1);
+    expect(rows.some((r) => r.hostId === "w_missing")).toBe(false);
+  });
+
+  it("容量0の種別は出さず、ホストに無い種別へのオプションは数えない", () => {
+    const rows = computeHostOccupancy(
+      [host("w1", "ホスト", [{ kind: "normal", count: 1 }, { kind: "software", count: 0 }])],
+      [opt("別種別", "w1", "software", 1)]
+    );
+    // normal(容量1)のみ。software(容量0)とそこへのオプションは出さない
+    expect(rows.map((r) => r.kind)).toEqual(["normal"]);
+    expect(rows[0]).toMatchObject({ capacity: 1, used: 0 });
+  });
+
+  it("同ホスト・同種別の複数オプションは合算し occupants に列挙する", () => {
+    const rows = computeHostOccupancy(
+      [host("w1", "ホスト", [{ kind: "normal", count: 3 }])],
+      [opt("A", "w1", "normal", 1), opt("B", "w1", "normal", 1)]
+    );
+    expect(rows[0].used).toBe(2);
+    expect(rows[0].occupants.map((o) => o.name)).toEqual(["A", "B"]);
   });
 });

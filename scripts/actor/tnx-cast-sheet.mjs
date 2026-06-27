@@ -3,9 +3,10 @@ import { TnxSkillUtils } from '../module/tnx-skill-utils.mjs';
 import { TnxHistoryMixin } from '../module/tnx-history-mixin.mjs';
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 import { getUserFlagData, TNX_FLAG_SCOPE } from '../module/user-flag-schema.mjs';
-import { OUTFIT_CATEGORIES, getMinorCategoryLabel } from '../data/item/outfit-categories.mjs';
+import { OUTFIT_CATEGORIES, getMinorCategoryLabel, getMajorCategoryLabel, isMajorLevelSlotMajor } from '../data/item/outfit-categories.mjs';
 import { formatWeaponRangeLabel } from '../item/tnx-outfit-sheet.mjs';
-import { formatPartDesignation, joinPartDesignations, computePartOccupancy } from '../data/item/part-helpers.mjs';
+import { formatPartDesignation, joinPartDesignations, computePartOccupancy, computeHostOccupancy } from '../data/item/part-helpers.mjs';
+import { SLOT_KINDS } from '../data/item/common/extensible.mjs';
 import { getPartSlotPreset, PartSlotPresetApp } from '../module/part-slot-preset-app.mjs';
 import { TnxJudgmentFlow } from '../module/tnx-judgment-flow.mjs';
 import { getComboSuits, ALL_SUITS } from '../module/tnx-judgment-engine.mjs';
@@ -280,23 +281,81 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     }
 
     /**
-     * 部位占有(キャストの部位スロット集合 vs 準備済みアウトフィットの部位)を算出する(フェーズ10)。
-     * 純粋関数 computePartOccupancy に委ね、シートはアクターのデータを最小形へ整形して渡す。
-     * @returns {{slots: Array, unlisted: Array, hasSlots: boolean, hasUnlisted: boolean}}
+     * オプションが装備先で消費するスロット数(部位表記の数字)。最初の option 行の slots を採る。
+     * 既定 1(指定なし)。0 は非消費(武器0 等)。
+     */
+    _optionConsumption(sys) {
+        const rows = Array.isArray(sys.part) ? sys.part : [];
+        const optRow = rows.find(r =>
+            r?.kind === "option" || (r?.kind === "reference" && r?.refSubKind === "option"));
+        if (!optRow) return 1;
+        const n = Number(optRow.slots);
+        return Number.isFinite(n) ? Math.max(0, n) : 1;
+    }
+
+    /**
+     * 部位占有を算出する(フェーズ10)。純粋関数に委ね、シートはアクターのデータを最小形へ整形して渡す。
+     * - ①身体部位: キャストの部位スロット集合 vs 準備済みアウトフィットの部位(computePartOccupancy)。
+     * - ②③ホストスロット: 準備済みホスト(スロット保有/スロットなし)の容量 vs 準備済みオプションの
+     *   消費(parentItemId/parentSlotKind。computeHostOccupancy)。身体部位と同列に並べるチップとして返す。
+     * @returns {{slots:Array, unlisted:Array, hasSlots:boolean, hasUnlisted:boolean,
+     *           hostChips:Array, hasHostChips:boolean}}
      */
     _preparePartOccupancy() {
         const partSlots = this.actor.system.partSlots ?? [];
-        const outfits = this.actor.items
-            .filter(i => TokyoNovaCastSheet.OUTFIT_TYPES.has(i.type))
-            .map(i => ({
-                isPrepared:   i.system.isPrepared,
-                minorCategory: i.system.minorCategory,
-                part:         i.system.part,
-                partRelation: i.system.partRelation,
-                partOptional: i.system.partOptional,
-            }));
+        const outfitItems = this.actor.items.filter(i => TokyoNovaCastSheet.OUTFIT_TYPES.has(i.type));
+
+        // ① 身体部位
+        const outfits = outfitItems.map(i => ({
+            isPrepared:   i.system.isPrepared,
+            minorCategory: i.system.minorCategory,
+            part:         i.system.part,
+            partRelation: i.system.partRelation,
+            partOptional: i.system.partOptional,
+        }));
         const { slots, unlisted } = computePartOccupancy(partSlots, outfits);
-        return { slots, unlisted, hasSlots: slots.length > 0, hasUnlisted: unlisted.length > 0 };
+
+        // ②③ ホストスロット(準備済みのみ。ホスト=非オプション、消費=オプション)
+        const prepared = outfitItems.filter(i => i.system.isPrepared);
+        const hostCandidates = prepared.filter(i => !i.system.isOption).map(i => ({
+            id:   i.id,
+            name: i.name,
+            slots: (Array.isArray(i.system.slots) ? i.system.slots : []).map(s => ({
+                kind:  s?.kind,
+                count: s?.count?.mode === "value" ? (Number(s.count.value) || 0) : 0,
+            })),
+        }));
+        const hostOptions = prepared.filter(i => i.system.isOption && i.system.parentItemId).map(i => ({
+            name:           i.name,
+            parentItemId:   i.system.parentItemId,
+            parentSlotKind: i.system.parentSlotKind,
+            slots:          this._optionConsumption(i.system),
+        }));
+        // ②③ ホスト占有チップ: 身体部位チップと同じ列に並べる。
+        // スロット名(部位名): named 種別(意識3種・soft/hard)は**その種別名のみ**(表層意識/ソフトウェア)。
+        //   normal はホストのカテゴリ名(武器は大分類・他は小分類。formatOptionLabel と同方針)。
+        // ホスト名は「同じスロット名が複数あるとき」だけ括弧で併記して区別する(括弧は半角)。
+        //   IANUS は単一準備で常に一意のため IANUS(IANUS) のような重複表記を出さない。
+        const hostRows = computeHostOccupancy(hostCandidates, hostOptions).map((r) => {
+            const sys = this.actor.items.get(r.hostId)?.system;
+            const slotName = (r.kind && r.kind !== "normal")
+                ? (SLOT_KINDS[r.kind] ?? r.kind)
+                : (isMajorLevelSlotMajor(sys?.majorCategory)
+                    ? getMajorCategoryLabel(sys?.majorCategory)
+                    : (getMinorCategoryLabel(sys?.minorCategory) || getMajorCategoryLabel(sys?.majorCategory)));
+            return { slotName, hostName: r.hostName, used: r.used, capacity: r.capacity, over: r.over };
+        });
+        const slotNameCount = new Map();
+        for (const r of hostRows) slotNameCount.set(r.slotName, (slotNameCount.get(r.slotName) ?? 0) + 1);
+        const hostChips = hostRows.map((r) => ({
+            label: slotNameCount.get(r.slotName) > 1 ? `${r.slotName}(${r.hostName})` : r.slotName,
+            used: r.used, capacity: r.capacity, over: r.over,
+        }));
+
+        return {
+            slots, unlisted, hasSlots: slots.length > 0, hasUnlisted: unlisted.length > 0,
+            hostChips, hasHostChips: hostChips.length > 0,
+        };
     }
 
     /**
@@ -480,6 +539,12 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             }
             this.element?.classList.remove("tnx-no-transitions");
         });
+    }
+
+    /** @override タブ切替後、表示されたタブの .squeeze-text を縮小し直す(非表示時は clientWidth=0 で効かないため)。 */
+    changeTab(tab, group, options) {
+        super.changeTab(tab, group, options);
+        this._applyTextSqueezing();
     }
 
     // ─── 履歴更新(TnxHistoryMixin から呼ばれる) ──────────────────────────────
@@ -1051,6 +1116,12 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             const contentWidth = el.scrollWidth;
             const isSkewedLabel = el.classList.contains('skill-label-content');
             const transformBase = isSkewedLabel ? 'skewX(25deg)' : '';
+            // 非表示タブ等で親幅が取れない(clientWidth=0)ときは縮小しない(scaleX(NaN/∞)回避)。
+            // タブ表示後に changeTab から再実行されるので、そこで正しく縮小される。
+            if (availableWidth <= 0 || contentWidth === 0) {
+                el.style.transform = transformBase;
+                continue;
+            }
             if (contentWidth > availableWidth) {
                 el.style.transform = `${transformBase} scaleX(${(availableWidth / contentWidth) * 0.95})`;
             } else {

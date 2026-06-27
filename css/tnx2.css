@@ -5756,12 +5756,23 @@ button.tnx-create-act-button span {
 /* パラメータ列: 共通 */
 .tokyo-nova.sheet.actor .tab[data-tab="outfits"] [class^="outfit-col--"]:not(.outfit-col--img):not(.outfit-col--name):not(.outfit-col--flags):not(.outfit-col--actions) {
     flex: 0 0 auto;
+    min-width: 0; /* min-width:auto(既定)だと内容でセルが伸びる。固定幅を保つ */
+    overflow: hidden;
+    /* 中央寄せは flex で行う。text-align:center だと、はみ出した squeeze-text のレイアウト箱の
+       中心がセル中央からずれ、scaleX(原点中央)が「セル中央スタート」になってしまうため。
+       flex は箱を必ずセル中央に置く(両側オーバーフロー)ので、縮小後も中央に収まる。 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
     font-size: 0.9em;
-    text-align: center;
     white-space: nowrap;
     font-stretch: condensed;
     letter-spacing: -0.04em;
     color: var(--tnx2-text-secondary);
+}
+/* 縮小要素は縮まず自然幅を保ち、flex 中央寄せで両側に均等オーバーフロー→scaleX 原点中央が効く */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] [class^="outfit-col--"]:not(.outfit-col--img):not(.outfit-col--name):not(.outfit-col--flags):not(.outfit-col--actions) .squeeze-text {
+    flex: 0 0 auto;
 }
 
 /* 個別列幅 */
@@ -6790,7 +6801,8 @@ button.tnx-create-act-button span {
 .tnx-part-fieldset .tnx-part-controls {
     display: flex;
     align-items: center;
-    gap: 14px;
+    flex-wrap: wrap; /* 狭いときは折り返す(ラベルを縦割れさせない) */
+    gap: 8px 14px;
     margin-bottom: 6px;
 }
 .tnx-part-fieldset .tnx-part-relation {
@@ -6801,6 +6813,7 @@ button.tnx-create-act-button span {
 .tnx-part-fieldset .tnx-part-relation > label {
     font-size: 0.85em;
     color: var(--tnx2-text-secondary, #aaa);
+    white-space: nowrap; /* 「複数部位の扱い」が縦書きにならないように */
 }
 .tnx-part-fieldset .tnx-part-relation select {
     flex: 0 0 8rem;
@@ -6809,6 +6822,23 @@ button.tnx-create-act-button span {
     display: flex;
     flex-direction: column;
     gap: 8px;
+}
+/* 装備先(オプション・キャスト所属時。部位 fieldset 最下部・上罫線で区切る。2層の「装備先」側) */
+.tnx-part-fieldset .tnx-part-equip {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--tnx2-border, rgba(255, 255, 255, 0.14));
+}
+.tnx-part-fieldset .tnx-part-equip .tnx-part-field {
+    flex: 1 1 8rem;
+    min-width: 7rem;
+}
+.tnx-part-fieldset .tnx-part-equip select {
+    width: 100%;
 }
 .tnx-part-fieldset .tnx-part-card {
     position: relative;

@@ -7,7 +7,7 @@ import { SLOT_KINDS } from "../data/item/common/extensible.mjs";
 import { HOUSING_AREA_RANKS, HOUSING_AREA_MOD_FIELDS } from "../data/item/housing-area.mjs";
 import { PART_KINDS, PART_REFERENCE_SUB_KINDS, PART_RELATIONS } from "../data/item/common/outfit-base.mjs";
 import { getPartSlotPreset } from "../module/part-slot-preset-app.mjs";
-import { formatPartDesignation, joinPartDesignations } from "../data/item/part-helpers.mjs";
+import { formatPartDesignation, joinPartDesignations, PART_HOST_FEATURE_LABELS } from "../data/item/part-helpers.mjs";
 
 /** 住宅エリア compendium の pack ID */
 const HOUSING_AREA_PACK = "tokyo-nova-axleration.housing-areas";
@@ -355,6 +355,8 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             }
         }
         context.parentHasSlots = Object.keys(parentSlotChoices).length > 1;
+        // 装備先 UI(部位セクション最下部)は、オプション・キャスト所属のときだけ出す
+        context.showOptionHost = system.isOption && this.item.parent?.documentName === "Actor";
 
         context.options = {
             ...context.options,
@@ -1193,7 +1195,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         const majorChoices = { "": "—" };
         for (const [k, m] of Object.entries(OUTFIT_CATEGORIES)) majorChoices[k] = m.label;
         context.partHostMajorChoices = majorChoices;
-        context.partHostFeatureChoices = { "": "—", isLaser: "レーザー武器" };
+        context.partHostFeatureChoices = { "": "—", ...PART_HOST_FEATURE_LABELS };
 
         context.partRows = (system.part ?? []).map((p, idx) => {
             // 解説参照は refSubKind を実効種別として欄を出し分ける(表示ラベルは常に「解説参照」)
