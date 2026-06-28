@@ -14,6 +14,12 @@
         {{/if}}
     </div>
 </div>
+{{#if noCombo}}
+<div class="usage-form-section">
+    <label class="usage-field-label">組み合わせ技能</label>
+    <p class="usage-empty-hint">組み合わせ不可の技能です（単独判定のみ・組み合わせ技能は設定できません）。</p>
+</div>
+{{else}}
 <div class="usage-form-section">
     <label class="usage-field-label">組み合わせ技能</label>
     <div class="usage-skill-ref-list">
@@ -40,3 +46,4 @@
     </div>
     {{/if}}
 </div>
+{{/if}}

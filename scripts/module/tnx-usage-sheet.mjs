@@ -13,6 +13,10 @@
  */
 
 import { TnxSkillUtils } from "./tnx-skill-utils.mjs";
+import { getComboSuits } from "./tnx-judgment-engine.mjs";
+import { resolveUsageSkills, comboLockAnalysis, isComboRequired } from "./skill-chain-resolution.mjs";
+
+const CHAIN_SKILL_TYPES = ["generalSkill", "styleSkill"];
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -165,6 +169,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
         context.usage      = foundry.utils.deepClone(usage);
         context.item       = this._item;
+        context.noCombo    = this._item.system?.noCombo === true; // 組み合わせ不可: コンボ(組み合わせ技能)の設定を抑止
         context.editable   = this._item.isOwner;
         context.skillOpts  = TnxSkillUtils.getSkillOptions();
         context.typeLabel  = USAGE_TYPES[usage.type] ?? usage.type;
@@ -183,32 +188,77 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             const actor = this._item.actor;
             const parentIsAction = this._item.system.isAction === true;
 
-            // ベース技能: アクション技能は常に自身に固定、非アクション技能はセレクターで選択
+            // 技能チェーン解決: アクション技能がチェーンにあると、ベースは「指定技能＋その代用」に限定する
+            // (他の無関係な技能はベースになれない)。候補が1つなら固定表示、代用が増えれば選択可能(ハードロックにしない)。
             const parentItemId = this._item.id;
-            const baseId = parentIsAction ? parentItemId : (usage.baseSkillRef?.itemId ?? "");
+            const chainRes = this._resolveComboChain();
+            const lockedByChain = !!chainRes && !chainRes.defect && chainRes.baseLocked;
+            // baseCandidates: null=全技能から選択(非ロック)、配列=その候補に限定(本体優先で先頭)
+            let baseCandidates = null;
+            if (parentIsAction) baseCandidates = [parentItemId];
+            else if (lockedByChain) baseCandidates = (chainRes.baseCandidateItemIds ?? []).slice();
+
+            const defaultBaseId = parentIsAction ? parentItemId : (chainRes && !chainRes.defect ? chainRes.baseItemId : null);
+            let baseId = parentIsAction ? parentItemId : (usage.baseSkillRef?.itemId ?? "");
+            // ロック時、現ベースが候補外(未設定含む)なら既定(指定技能・本体優先)へ寄せる
+            if (baseCandidates && !baseCandidates.includes(baseId)) baseId = defaultBaseId ?? baseCandidates[0] ?? "";
+
             const baseItem = actor?.items.get(baseId) ?? (baseId === parentItemId ? this._item : null);
             context.baseSkillName  = baseItem?.name ?? (baseId ? `(削除済み: ${baseId})` : "");
             context.baseSkillId    = baseId;
-            context.baseSkillFixed = parentIsAction;
+            // 候補が1つだけ(代用なし)なら固定表示、複数(代用あり)なら選択可能
+            context.baseSkillFixed = !!baseCandidates && baseCandidates.length <= 1;
 
-            context.availableBaseSkills = parentIsAction ? [] : (actor?.items ?? [])
-                .filter(i => SKILL_TYPES.includes(i.type) && i.id !== parentItemId)
-                .map(i => ({ id: i.id, name: i.name }))
-                .sort((a, b) => a.name.localeCompare(b.name, "ja"));
+            context.availableBaseSkills = baseCandidates
+                ? baseCandidates.map(id => ({ id, name: actor?.items.get(id)?.name ?? (id === parentItemId ? this._item.name : `(削除済み: ${id})`) }))
+                : (actor?.items ?? [])
+                    .filter(i => SKILL_TYPES.includes(i.type) && i.id !== parentItemId)
+                    .map(i => ({ id: i.id, name: i.name }))
+                    .sort((a, b) => a.name.localeCompare(b.name, "ja"));
 
             const parentIsComboMember = !!baseId && parentItemId !== baseId;
 
             const usedIds = new Set([baseId, parentItemId, ...usage.skillRefs.map(r => r.itemId)].filter(Boolean));
+
+            // 現在の参加技能(ベース＋親がコンボ＋既存コンボ)のスート積。組み合わせは共通スートで成立するため、
+            // 追加すると共通スートが空になる技能は候補から除外する。
+            const currentSystems = [
+                baseItem?.system,
+                ...(parentIsComboMember ? [this._item.system] : []),
+                ...usage.skillRefs.map(r => actor?.items.get(r.itemId)?.system),
+            ].filter(Boolean);
+            const currentSuits = getComboSuits(currentSystems);
+
+            // 組み合わせ候補: アクション技能(必ずベース)・組み合わせ不可技能(単独判定のみ)・
+            // 現在の構成と共通スートを持たない技能 は除外する。
             context.availableSkills = (actor?.items ?? [])
-                .filter(i => SKILL_TYPES.includes(i.type) && !usedIds.has(i.id) && i.system.isAction !== true)
+                .filter(i => SKILL_TYPES.includes(i.type) && !usedIds.has(i.id)
+                    && i.system.isAction !== true && i.system.noCombo !== true
+                    && currentSuits.some(suit => i.system.suits?.[suit] === true))
                 .map(i => ({ id: i.id, name: i.name }))
                 .sort((a, b) => a.name.localeCompare(b.name, "ja"));
+
+            // 技能チェーン: 「、」候補制限(どれか1つ登録まで候補をその代替に絞る)・必須コンボの削除不可表示
+            if (chainRes?.alternativeItemIds?.length
+                && !usage.skillRefs.some(r => chainRes.alternativeItemIds.includes(r.itemId))) {
+                const altSet = new Set(chainRes.alternativeItemIds);
+                context.availableSkills = context.availableSkills.filter(s => altSet.has(s.id));
+            }
+            // 削除不可(ロック)判定: ベース連鎖、または他の組み合わせ技能が要求する技能のみロックする。
+            // 単に組み合わせに居る(seed)だけでは外せる(自身が seed＝必須 で全ロックになるのを防ぐ)。
+            const allComboIds = [...(parentIsComboMember ? [parentItemId] : []), ...usage.skillRefs.map(r => r.itemId)];
+            let lockOf = () => false;
+            const lockSkillItems = this._actorSkillItems();
+            if (lockSkillItems) {
+                const { rootMandatoryIds, comboChains } = comboLockAnalysis(this._normalizeSkillItem(this._item), lockSkillItems, allComboIds);
+                lockOf = (id) => isComboRequired(id, allComboIds, rootMandatoryIds, comboChains);
+            }
 
             context.skillRefItems = [
                 ...(parentIsComboMember ? [{ idx: -1, itemId: parentItemId, name: this._item.name, isLocked: true }] : []),
                 ...usage.skillRefs.map((r, idx) => {
                     const skillItem = actor?.items.get(r.itemId);
-                    return { idx, itemId: r.itemId, name: skillItem?.name ?? `(削除済み: ${r.itemId})`, isLocked: false };
+                    return { idx, itemId: r.itemId, name: skillItem?.name ?? `(削除済み: ${r.itemId})`, isLocked: lockOf(r.itemId) };
                 }),
             ];
 
@@ -279,6 +329,15 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                     if (!itemId) return;
                     const usage = this.usage;
                     if (!usage || usage.skillRefs.some(r => r.itemId === itemId)) return;
+                    // 追加可否: アクション技能の重複(組み合わせ不可)・個数上限を事前に判定してブロック
+                    const chk = this._addComboCheck(itemId);
+                    if (!chk.allowed) {
+                        ui.notifications.warn(chk.reason === "action"
+                            ? "アクション技能同士は組み合わせできません（その技能の指定「技能」がアクション技能です）。"
+                            : `組み合わせ技能は最大 ${chk.limit} 個までです（ベース技能のレベル＋1個）。`);
+                        ev.target.value = "";
+                        return;
+                    }
                     await this._patchUsage({ skillRefs: [...usage.skillRefs, { itemId }] });
                     this.render({ force: true });
                 });
@@ -296,6 +355,9 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 });
             }
         }
+
+        // 技能チェーンの既定ベース設定・必須コンボの自動付与(冪等。変更があるときだけ update→再レンダリングで収束)
+        if (context.editable) this._enforceComboRequirements();
     }
 
     /** 制御 select が指す状態に合わない条件付きサブ入力の DOM 値をリセットする */
@@ -393,7 +455,17 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             update.damageCategory = raw["damageCategory"] ?? usage.damageCategory;
         }
 
+        // ベース変更の検知(取り消し用に変更前のベースを保持)
+        const prevBaseRef = usage.baseSkillRef?.itemId ?? "";
+        const baseChanged = (usage.type === "check" || usage.type === "attack")
+            && this._item.system.isAction !== true
+            && (update["baseSkillRef.itemId"] ?? prevBaseRef) !== prevBaseRef;
+
         await this._patchUsage(update);
+        // ベース変更等を即反映: 必須コンボの移動・ベースのコンボ除去を enforcement で行い再レンダリング(冪等)
+        await this._enforceComboRequirements();
+        // ベースを別技能に変えて個数上限を超えたら、トリムダイアログで調整(取り消しで元のベースへ戻す)
+        if (baseChanged) await this._promptTrimCombos(prevBaseRef);
     }
 
     // ─── 自動入力（参加技能の固有値を優先度で合成） ─────────────────────────────
@@ -516,5 +588,247 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             foundry.utils.setProperty(actions[idx], key, value);
         }
         await this._item.update({ "system.actions": actions });
+    }
+
+    // ─── 技能チェーン解決・必須コンボの enforcement ──────────────────────────────
+
+    /** actor 技能アイテムを解決用に正規化する。 */
+    _normalizeSkillItem(it) {
+        return {
+            id: it.id,
+            identificationKey: it.system?.identificationKey ?? "",
+            isAction: it.system?.isAction === true,
+            isSubstitute: it.system?.isSubstitute === true,
+            substituteTarget: Array.isArray(it.system?.substituteTarget) ? it.system.substituteTarget : [],
+            comboSkill: it.system?.comboSkill ?? [],
+        };
+    }
+
+    /** actor 上の技能アイテム(check/attack 用の連鎖対象)を正規化して返す。対象外は null。 */
+    _actorSkillItems() {
+        const usage = this.usage;
+        const actor = this._item.actor;
+        if (!usage || (usage.type !== "check" && usage.type !== "attack")) return null;
+        if (!actor || !CHAIN_SKILL_TYPES.includes(this._item.type)) return null;
+        return actor.items.filter(i => CHAIN_SKILL_TYPES.includes(i.type)).map(i => this._normalizeSkillItem(i));
+    }
+
+    /** 用途の「技能」欄チェーンを actor アイテムに解決する(現コンボを seed に含めて推移的に)。 */
+    _resolveComboChain() {
+        const skillItems = this._actorSkillItems();
+        if (!skillItems) return null;
+        const seedComboIds = this.usage.skillRefs.map(r => r.itemId).filter(Boolean);
+        return resolveUsageSkills(this._normalizeSkillItem(this._item), skillItems, seedComboIds);
+    }
+
+    /** 現在の実効ベース技能 id(アクション親は自身・非アクションは baseSkillRef かフォールバックで親)。 */
+    _effectiveBaseId() {
+        if (this._item.system.isAction === true) return this._item.id;
+        return this.usage?.baseSkillRef?.itemId || this._item.id;
+    }
+
+    /** ベース技能のレベル(＝組み合わせ技能の上限個数。ベース込みで level+1)。 */
+    _baseSkillLevel(baseId) {
+        const it = this._item.actor?.items.get(baseId) ?? (baseId === this._item.id ? this._item : null);
+        return Number(it?.system?.level ?? 0);
+    }
+
+    /** アイテム id がアクション技能か(アクション技能はベース専用で組み合わせ技能の欄には絶対に入らない)。 */
+    _isActionSkillId(id) {
+        const it = this._item.actor?.items.get(id) ?? (id === this._item.id ? this._item : null);
+        return it?.system?.isAction === true;
+    }
+
+    /** ベース・必須クロージャから、あるべき skillRefs を組み立てる(ベース自身＆アクション技能を除外し、必須を補完)。 */
+    _targetSkillRefs(baseId, currentRefIds, res) {
+        const parentItemId = this._item.id;
+        // アクション技能はベース専用＝コンボに絶対入れない。ベース自身も除外する。
+        const target = currentRefIds.filter(id => id !== baseId && !this._isActionSkillId(id));
+        const have = new Set(target);
+        for (const id of res.mandatoryItemIds) {
+            if (id !== baseId && id !== parentItemId && !have.has(id) && !this._isActionSkillId(id)) { target.push(id); have.add(id); }
+        }
+        return target;
+    }
+
+    /** 用途シート上の組み合わせ技能数(暗黙の親＋skillRefs)と上限・ベース。 */
+    _comboCountInfo() {
+        const baseId = this._effectiveBaseId();
+        const parentIsComboMember = baseId !== this._item.id;
+        return {
+            baseId,
+            limit: this._baseSkillLevel(baseId),
+            count: this.usage.skillRefs.length + (parentIsComboMember ? 1 : 0),
+            parentIsComboMember,
+        };
+    }
+
+    /** res(追加後の解決結果)を踏まえた実効ベース id。アクション連れ込みでのベース入れ替わりを反映する。 */
+    _resolvedBaseId(res) {
+        const parentItemId = this._item.id;
+        if (this._item.system.isAction === true) return parentItemId;
+        if (res?.baseLocked) return res.baseItemId;                                       // アクション連れ込み→入れ替わり
+        const current = this.usage.baseSkillRef?.itemId ?? "";
+        if (current) return current;
+        if (res?.baseItemId && res.baseItemId !== parentItemId) return res.baseItemId;    // 既定ベース
+        return parentItemId;
+    }
+
+    /**
+     * 技能 itemId を組み合わせに追加できるか判定する。
+     * - アクション技能の重複(参加にアクションが2つ以上＝組み合わせ不可) → reason "action"
+     * - 個数上限超過(追加後のベース入れ替わりを反映) → reason "limit"
+     * @returns {{allowed:boolean, reason?:string, limit?:number}}
+     */
+    _addComboCheck(itemId) {
+        const skillItems = this._actorSkillItems();
+        if (!skillItems) return { allowed: true }; // 解決不能なら制限しない
+        const parentItemId = this._item.id;
+        const currentRefIds = this.usage.skillRefs.map(r => r.itemId);
+        const res = resolveUsageSkills(this._normalizeSkillItem(this._item), skillItems, [...currentRefIds, itemId]);
+
+        // アクション技能の重複: 参加技能(クロージャ＋現ベース)にアクションが2つ以上 → 組み合わせ不可
+        const actionIds = new Set(res.mandatoryItemIds.filter(id => this._isActionSkillId(id)));
+        const curBase = this._effectiveBaseId();
+        if (this._isActionSkillId(curBase)) actionIds.add(curBase);
+        if (actionIds.size > 1) return { allowed: false, reason: "action" };
+
+        // 個数上限(追加後のベース入れ替わりを反映)
+        const newBaseId = this._resolvedBaseId(res);
+        const limit = this._baseSkillLevel(newBaseId);
+        const projected = this._targetSkillRefs(newBaseId, [...currentRefIds, itemId], res).length
+            + (newBaseId !== parentItemId ? 1 : 0);
+        if (projected > limit) return { allowed: false, reason: "limit", limit };
+        return { allowed: true };
+    }
+
+    /**
+     * 個数上限を超えているとき、外す技能をユーザーに選ばせて調整する(ベース変更で上限が下がった等)。
+     * チェック状態に応じてロックを再計算し、削除予定の技能が連れ込んでいた必須技能は外せるようになる。
+     * 取り消し時は prevBaseRef にベースを戻す。必須だけで超過する場合は救えないので警告して戻す。
+     */
+    async _promptTrimCombos(prevBaseRef) {
+        const info = this._comboCountInfo();
+        if (info.count <= info.limit) return;
+        const needToRemove = info.count - info.limit;
+        const skillItems = this._actorSkillItems();
+        if (!skillItems) return;
+
+        const actor = this._item.actor;
+        const entries = [];
+        if (info.parentIsComboMember) entries.push({ id: this._item.id, name: this._item.name });
+        for (const r of this.usage.skillRefs) entries.push({ id: r.itemId, name: actor?.items.get(r.itemId)?.name ?? `(削除済み: ${r.itemId})` });
+        const comboIds = entries.map(e => e.id);
+        const { rootMandatoryIds, comboChains } = comboLockAnalysis(this._normalizeSkillItem(this._item), skillItems, comboIds);
+
+        // 救えない: 外せる(必須でない)技能が不足
+        if (comboIds.filter(id => !rootMandatoryIds.includes(id)).length < needToRemove) {
+            ui.notifications.warn(`組み合わせが上限(${info.limit}個)を超えますが、必須技能だけで超過しているため調整できません。ベース技能を元に戻します。`);
+            await this._patchUsage({ "baseSkillRef.itemId": prevBaseRef });
+            await this._enforceComboRequirements();
+            return;
+        }
+
+        const locked0 = (id) => isComboRequired(id, comboIds, rootMandatoryIds, comboChains);
+        const rows = entries.map(e =>
+            `<button type="button" class="tnx-trim-item" data-action="trimToggle" data-id="${e.id}" aria-pressed="false"${locked0(e.id) ? " disabled" : ""} style="text-align:left;">${e.name}${locked0(e.id) ? "（必須）" : ""}</button>`
+        ).join("");
+        const content = `<p>組み合わせ技能が上限(${info.limit}個)を <b>${needToRemove}</b> 個超えています。外す技能を選んで「確定」してください（必須技能は外せません）。</p>
+            <div class="tnx-trim-list" style="display:flex;flex-direction:column;gap:4px;">${rows}</div>`;
+
+        const result = await foundry.applications.api.DialogV2.wait({
+            window:   { title: "組み合わせの個数調整" },
+            classes:  ["tokyo-nova"],
+            position: { width: 400 },
+            content,
+            actions: {
+                trimToggle: (_event, target) => {
+                    const pressed = target.getAttribute("aria-pressed") === "true";
+                    target.setAttribute("aria-pressed", String(!pressed));
+                    target.style.textDecoration = !pressed ? "line-through" : "";
+                    target.style.opacity = !pressed ? "0.6" : "";
+                    const items = [...target.closest(".tnx-trim-list").querySelectorAll(".tnx-trim-item")];
+                    const toRemove = items.filter(b => b.getAttribute("aria-pressed") === "true").map(b => b.dataset.id);
+                    const kept = comboIds.filter(id => !toRemove.includes(id));
+                    for (const b of items) {
+                        const locked = isComboRequired(b.dataset.id, kept, rootMandatoryIds, comboChains);
+                        if (locked && b.getAttribute("aria-pressed") === "true") {
+                            b.setAttribute("aria-pressed", "false");
+                            b.style.textDecoration = ""; b.style.opacity = "";
+                        }
+                        b.disabled = locked;
+                    }
+                },
+            },
+            buttons: [
+                { action: "ok", icon: "fas fa-check", label: "確定", default: true,
+                  callback: (_e, _b, dialog) => [...dialog.element.querySelectorAll('.tnx-trim-item[aria-pressed="true"]')].map(b => b.dataset.id) },
+                { action: "cancel", icon: "fas fa-times", label: "取り消し", callback: () => "cancel" },
+            ],
+            rejectClose: false,
+        });
+
+        if (!Array.isArray(result)) {
+            // 取り消し/閉じる: ベース変更を元に戻す
+            await this._patchUsage({ "baseSkillRef.itemId": prevBaseRef });
+            await this._enforceComboRequirements();
+            return;
+        }
+        // 選択した技能を skillRefs から外す(暗黙の親は skillRefs に無いので影響なし)
+        const toRemove = new Set(result);
+        await this._patchUsage({ skillRefs: this.usage.skillRefs.filter(r => !toRemove.has(r.itemId)) });
+        await this._enforceComboRequirements();
+        // まだ超過していれば再調整(外せる技能は足りる前提なのでいずれ収束)
+        const after = this._comboCountInfo();
+        if (after.count > after.limit) await this._promptTrimCombos(prevBaseRef);
+    }
+
+    /**
+     * 技能チェーンに基づき、用途のベース既定値と必須コンボを保つ(冪等)。
+     * - ベース未設定かつ非manual → 既定ベースを設定。
+     * - ベースが決まっているとき、mandatory のうちベース・親(暗黙コンボ)以外を全て skillRefs に自動追加
+     *   (指定技能がベースでなくなった/別アクションがベースになった場合のはじき出し対応)。
+     * 変更があったときだけ update し、true を返す。
+     */
+    async _enforceComboRequirements() {
+        const usage = this.usage;
+        if (!usage) return false;
+        const res = this._resolveComboChain();
+        if (!res || res.defect) return false; // 解決不能/不備のときは自動設定しない
+
+        const parentIsAction = this._item.system.isAction === true;
+        const parentItemId = this._item.id;
+        // アクション技能がチェーンにあると、ベースは「指定技能＋その代用」に限定する(他はベースになれない)
+        const baseCandidates = parentIsAction ? [parentItemId]
+            : (res.baseLocked ? (res.baseCandidateItemIds ?? []) : null);
+        const defaultBaseId = parentIsAction ? parentItemId : res.baseItemId;
+        let baseId = parentIsAction ? parentItemId : (usage.baseSkillRef?.itemId ?? "");
+
+        const patch = {};
+        if (baseCandidates) {
+            // ロック: 現ベースが候補外(未設定含む)なら既定(指定技能・本体優先)へ寄せる。候補内ならユーザー選択を尊重
+            if (!baseCandidates.includes(baseId)) {
+                baseId = defaultBaseId ?? baseCandidates[0] ?? "";
+                if (!parentIsAction && baseId) patch["baseSkillRef.itemId"] = baseId;
+            }
+        } else if (!baseId && !res.manual && res.baseItemId && res.baseItemId !== parentItemId) {
+            // 非ロック: ベース未設定なら既定ベースを設定(自身をベースにする no-chain は既存フォールバックに委ねる)
+            baseId = res.baseItemId;
+            patch["baseSkillRef.itemId"] = baseId;
+        }
+
+        // ベースが決まっているときのみ: ベース自身はコンボから外し、必須コンボ(クロージャ)を補完する
+        if (baseId) {
+            const current = usage.skillRefs.map(r => r.itemId);
+            const target = this._targetSkillRefs(baseId, current, res); // ベース除外＋必須補完
+            if (target.length !== current.length || target.some((id, i) => id !== current[i])) {
+                patch.skillRefs = target.map(id => ({ itemId: id }));
+            }
+        }
+
+        if (!Object.keys(patch).length) return false; // 変更なし(冪等で収束)
+        await this._patchUsage(patch);
+        this.render({ force: true }); // 反映のため即時再レンダリング(シートの開き直し不要)
+        return true;
     }
 }
