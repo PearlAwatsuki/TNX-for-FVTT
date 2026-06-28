@@ -10,6 +10,7 @@ import { SLOT_KINDS } from '../data/item/common/extensible.mjs';
 import { getPartSlotPreset, PartSlotPresetApp } from '../module/part-slot-preset-app.mjs';
 import { TnxJudgmentFlow } from '../module/tnx-judgment-flow.mjs';
 import { getComboSuits, ALL_SUITS } from '../module/tnx-judgment-engine.mjs';
+import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -265,7 +266,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
         this._getCitizenRankData(context);
         this._getAbilitiesData(context, allStyles);
-        this._prepareSkillsData(context);
+        await this._prepareSkillsData(context);
         EffectsSheetMixin.prepareEffectsContext(this.actor, context);
         context.allEffects = [
             ...context.effects.temporary,
@@ -623,7 +624,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         return slots;
     }
 
-    _prepareSkillsData(context) {
+    async _prepareSkillsData(context) {
         const generalSkills = this.actor.items
             .filter(i => i.type === 'generalSkill')
             .sort((a, b) => a.sort - b.sort);
@@ -636,9 +637,11 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             .sort((a, b) => a.sort - b.sort);
 
         const skillOptions = TnxSkillUtils.getSkillOptions();
+        // 「技能」(comboSkill)の識別キー→技能名の逆引き用に全技能辞典を読み込み、view へ渡す
+        const comboSkillNames = await loadSkillChoices([SKILL_PACKS.general, SKILL_PACKS.style, SKILL_PACKS.works]);
         context.styleSkills.forEach(item => {
             if (item.type === 'styleSkill') {
-                item.view = TnxSkillUtils.prepareStyleSkillView(item.system, skillOptions);
+                item.view = TnxSkillUtils.prepareStyleSkillView(item.system, skillOptions, comboSkillNames);
             }
         });
     }
@@ -2039,6 +2042,43 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
     // ─── 判定起動 ────────────────────────────────────────────────────────────
 
+    /**
+     * 技能ベース用途(check)の参加技能を解決する。ベース技能(用途の baseSkillRef 優先・未設定は親アイテム)＋
+     * コンボ技能(skillRefs)＋非ベースの親技能の自動追加、および全技能の共通スート(getComboSuits)を返す。
+     * 用途不備検知と判定実行で共用する。
+     */
+    static _resolveSkillSet(item, usage, actor) {
+        const baseSkillId = usage.baseSkillRef?.itemId || item.id;
+        const baseSkill = actor?.items.get(baseSkillId) ?? null;
+        const comboSkillIds = (usage.skillRefs ?? [])
+            .map(r => r.itemId)
+            .filter(id => id && actor?.items.has(id));
+        // 用途を所持する技能がベースでない(非アクション技能からの起動)場合は自動的にコンボへ追加
+        if (item.id !== baseSkillId && !comboSkillIds.includes(item.id)) comboSkillIds.push(item.id);
+        const allSkillIds = [baseSkillId, ...comboSkillIds];
+        const allSkillSystems = allSkillIds.map(id => actor?.items.get(id)?.system).filter(Boolean);
+        const validSuits = getComboSuits(allSkillSystems);
+        return { baseSkillId, baseSkill, comboSkillIds, allSkillIds, validSuits };
+    }
+
+    /**
+     * 用途不備検知(機能): 設定済みの用途に不備があれば不備内容(文字列)を、無ければ null を返す。
+     * 用途タイプごとに検知条件を足せる dispatch 構造。現状は check 用途のみ
+     * (ベース技能が解決できない・参加技能に共通スートが無い)。今後 attack 等が整ったら case を追加して拡張する。
+     */
+    static _detectUsageDefect(item, usage, actor) {
+        switch (usage.type) {
+            case "check": {
+                const { baseSkill, validSuits } = TokyoNovaCastSheet._resolveSkillSet(item, usage, actor);
+                if (!baseSkill) return "ベース技能が見つかりません";
+                if (!validSuits.length) return "参加技能に共通スートがありません";
+                return null;
+            }
+            default:
+                return null; // 他用途タイプは現状未検知(機能が整い次第拡張)
+        }
+    }
+
     static async _onStartSkillCheck(event, target) {
         event.preventDefault();
         const itemId = target.closest("[data-item-id]")?.dataset.itemId;
@@ -2046,10 +2086,11 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         const item = this.actor.items.get(itemId);
         if (!item) return;
 
-        // check タイプの用途が設定されていなければ起動しない
+        // 既定の挙動: 実行できる check(判定)用途が無ければ、解説をそのままチャット表示する(アイテムの基本機能)。
+        // check 用途が設定されていれば、その判定の実行に切り替わる。
         const checkUsages = (item.system.actions ?? []).filter(a => a.type === "check");
         if (!checkUsages.length) {
-            ui.notifications.warn(`「${item.name}」に判定用途が設定されていません。アイテムシートで用途を追加してください。`);
+            await item.postDescriptionCard();
             return;
         }
 
@@ -2062,31 +2103,15 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             if (!selectedUsage) return;
         }
 
-        // ベース技能: 用途の baseSkillRef を優先、未設定なら親アイテムにフォールバック
-        const baseSkillId = selectedUsage.baseSkillRef?.itemId || itemId;
-        const baseSkill = this.actor.items.get(baseSkillId);
-        if (!baseSkill) {
-            ui.notifications.warn("ベース技能が見つかりません。用途シートでベース技能を設定してください。");
+        // 用途不備検知: 設定済みの用途に不備があれば必ず通知して中止する
+        const defect = TokyoNovaCastSheet._detectUsageDefect(item, selectedUsage, this.actor);
+        if (defect) {
+            ui.notifications.warn(`「${item.name}」の用途に不備があります（${defect}）。`);
             return;
         }
 
-        // コンボ技能を解決し、全技能のスートの積集合を計算
-        const comboSkillIds = (selectedUsage.skillRefs ?? [])
-            .map(r => r.itemId)
-            .filter(id => id && this.actor.items.has(id));
-
-        // 用途を所持する技能がベース技能でない場合（非アクション技能から起動など）は自動追加
-        // baseSkillRef 未設定なら baseSkillId = itemId となるため、この条件は自然に不成立になる
-        if (item.id !== baseSkillId && !comboSkillIds.includes(item.id)) {
-            comboSkillIds.push(item.id);
-        }
-
-        const allSkillIds = [baseSkillId, ...comboSkillIds];
-        const allSkillSystems = allSkillIds
-            .map(id => this.actor.items.get(id)?.system)
-            .filter(Boolean);
-        const validSuits = getComboSuits(allSkillSystems);
-        if (!validSuits.length) return ui.notifications.warn("この技能（組み合わせ）には使用可能なスートがありません。");
+        // 参加技能(ベース＋コンボ)を解決して判定を実行する
+        const { baseSkill, allSkillIds, validSuits } = TokyoNovaCastSheet._resolveSkillSet(item, selectedUsage, this.actor);
 
         const skillLabel = allSkillIds
             .map(id => this.actor.items.get(id)?.name ?? "")

@@ -30,4 +30,19 @@ export class TokyoNovaItem extends Item {
         }
         super(data, context);
     }
+
+    /**
+     * D&D 方式: 用途自体が無いアイテムをロール/使用した時、アイテム名＋解説をそのままチャットに表示する。
+     * 「用途の無いアイテムは説明が提示される」というアイテムの基本機能(エラー/ダイアログにしない)。
+     */
+    async postDescriptionCard() {
+        const desc = await foundry.applications.ux.TextEditor.enrichHTML(this.system?.description ?? "", { async: true });
+        return ChatMessage.create({
+            user:    game.user.id,
+            speaker: ChatMessage.getSpeaker({ actor: this.actor ?? undefined }),
+            content: `<details class="tnx-chat-card" open><summary><h3>${this.name}</h3></summary>
+                <div class="card-content">${desc}</div></details>`,
+            flags: { "core.canPopout": true },
+        });
+    }
 }
