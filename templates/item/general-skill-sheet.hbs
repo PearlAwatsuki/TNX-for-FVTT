@@ -54,15 +54,6 @@
                     <input type="checkbox" name="system.usesBounty" {{checked system.usesBounty}}>
                 </div>
                 <fieldset class="tnx-fieldset">
-                    <legend>識別キー</legend>
-                    <div class="tnx-form-field">
-                        <div class="form-group">
-                            <label>識別キー</label>
-                            <input type="text" name="system.identificationKey" value="{{system.identificationKey}}" placeholder="識別キーを入力"/>
-                        </div>
-                    </div>
-                </fieldset>
-                <fieldset class="tnx-fieldset">
                     <legend>一般技能 設定</legend>
                     <div class="tnx-form-field">
                         <div class="form-group">
@@ -84,6 +75,16 @@
                                 <input type="checkbox" name="system.onomasticSkill.isInitial" {{checked system.onomasticSkill.isInitial}}>
                             </div>
                         {{/if}}
+                    </div>
+                </fieldset>
+
+                <fieldset class="tnx-fieldset">
+                    <legend>識別キー</legend>
+                    <div class="tnx-form-field">
+                        <div class="form-group">
+                            <label>識別キー</label>
+                            <input type="text" name="system.identificationKey" value="{{system.identificationKey}}" placeholder="識別キーを入力"/>
+                        </div>
                     </div>
                 </fieldset>
             </div>

@@ -67,16 +67,6 @@
             </fieldset>
 
             <fieldset class="tnx-fieldset">
-                <legend>識別キー</legend>
-                <div class="tnx-form-field">
-                    <div class="form-group">
-                        <label>識別キー</label>
-                        <input type="text" name="system.identificationKey" value="{{system.identificationKey}}" placeholder="識別キーを入力"/>
-                    </div>
-                </div>
-            </fieldset>
-
-            <fieldset class="tnx-fieldset">
                 <legend>神業設定</legend>
                 <div class="tnx-form-field">
                     <div class="form-group">
@@ -96,6 +86,16 @@
                         <button type="button" class="tnx-btn" data-action="createAndLinkMiracle" {{#if linkedMiracle}}disabled{{/if}} {{#if isOwnedByActor}}disabled{{/if}}>
                             <i class="fas fa-plus-square"></i> 神業アイテムを作成してリンク
                         </button>
+                    </div>
+                </div>
+            </fieldset>
+
+            <fieldset class="tnx-fieldset">
+                <legend>識別キー</legend>
+                <div class="tnx-form-field">
+                    <div class="form-group">
+                        <label>識別キー</label>
+                        <input type="text" name="system.identificationKey" value="{{system.identificationKey}}" placeholder="識別キーを入力"/>
                     </div>
                 </div>
             </fieldset>

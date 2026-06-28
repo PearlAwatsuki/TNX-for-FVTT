@@ -865,6 +865,17 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 const t = event.currentTarget;
                 const index = Number(t.dataset.index);
                 const field = t.dataset.partField;
+                // 身体部位プリセット(直下・辞典): 「その他」は自由入力欄を表示、それ以外(プリセット/—)は value へ反映
+                if (field === "bodyPreset") {
+                    const textInput = t.parentElement?.querySelector('input[data-part-field="value"]');
+                    if (t.value === "__other__") {
+                        if (textInput) { textInput.hidden = false; textInput.focus(); }
+                        return; // 保存は自由入力欄の change に任せる
+                    }
+                    if (textInput) textInput.hidden = true;
+                    this._updatePartRow(index, (row) => { row.value = t.value; }); // プリセット or "" (—でクリア)
+                    return;
+                }
                 let value;
                 if (t.type === "checkbox") value = t.checked;
                 else if (field === "slots") value = Math.max(0, Number(t.value) || 0);
@@ -1178,17 +1189,19 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         context.partOptional = system.partOptional === true; // 任意は部位全体に効く
         context.partMultiRow = (system.part?.length ?? 0) >= 2;
 
-        // 身体部位の選択肢: アクター所属=partSlots ラベル / 直下=自由入力＋datalist(プリセット)
+        // 身体部位の選択肢: アクター所属=partSlots プルダウン / 直下・辞典=プリセットのプルダウン＋(その他選択時のみ)自由入力
+        let bodyPresetSet = null;
         if (isActorOwned) {
             const choices = { "": "—" };
             for (const s of (this.item.parent.system?.partSlots ?? [])) {
                 if (s?.value) choices[s.value] = s.value;
             }
             context.partBodyChoices = choices;
-            context.partBodyDatalist = [];
         } else {
-            context.partBodyChoices = null; // null => 自由入力
-            context.partBodyDatalist = [...new Set(getPartSlotPreset().map((s) => s.value).filter(Boolean))];
+            context.partBodyChoices = null; // null => プリセットのプルダウン＋(その他)自由入力
+            const presets = [...new Set(getPartSlotPreset().map((s) => s.value).filter(Boolean))];
+            bodyPresetSet = new Set(presets);
+            context.partBodyPresetChoices = { "": "—", ...Object.fromEntries(presets.map((v) => [v, v])), "__other__": "その他（自由入力）" };
         }
 
         // ホスト大分類・その他特徴の選択肢
@@ -1242,6 +1255,9 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 showBody:   effKind === "bodyPart",
                 showOption: effKind === "option",
                 showOther:  effKind === "other",
+                // 直下・辞典の身体部位: 値がプリセット外なら「その他」(自由入力欄を表示)
+                bodyIsOther: !!bodyPresetSet && effKind === "bodyPart" && !!p.value && !bodyPresetSet.has(p.value),
+                bodyPresetSelected: !bodyPresetSet ? "" : (bodyPresetSet.has(p.value) ? p.value : (p.value ? "__other__" : "")),
                 minorChoices,
                 hostNameChoices,
             };

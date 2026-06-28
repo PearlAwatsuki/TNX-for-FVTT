@@ -85,16 +85,6 @@
         {{!-- 設定タブ --}}
         <div class="tab setting" data-group="primary" data-tab="setting">
             <div class="settings-grid">
-                <fieldset class="tnx-fieldset">
-                    <legend>識別キー</legend>
-                    <div class="tnx-form-field">
-                        <div class="form-group">
-                            <label>識別キー</label>
-                            <input type="text" name="system.identificationKey" value="{{system.identificationKey}}" placeholder="識別キーを入力"/>
-                        </div>
-                    </div>
-                </fieldset>
-
                 {{#unless isCombiner}}
                 <fieldset class="tnx-fieldset">
                     <legend>特性</legend>
@@ -760,11 +750,6 @@
                         {{/if}}
                     </div>
 
-                    {{#if partBodyDatalist.length}}
-                    <datalist id="tnx-part-bodylist">
-                        {{#each partBodyDatalist}}<option value="{{this}}"></option>{{/each}}
-                    </datalist>
-                    {{/if}}
 
                     <div class="tnx-part-cards">
                         {{#each partRows as |row|}}
@@ -797,7 +782,13 @@
                                         {{selectOptions ../partBodyChoices selected=row.value}}
                                     </select>
                                     {{else}}
-                                    <input type="text" data-part-field="value" data-index="{{row.idx}}" value="{{row.value}}" list="tnx-part-bodylist" placeholder="部位名（例: 片手持ち）">
+                                    {{!-- 直下・辞典: プリセットのプルダウン＋(その他選択時のみ)自由入力。横並び半々 --}}
+                                    <div class="tnx-part-body-row">
+                                        <select data-part-field="bodyPreset" data-index="{{row.idx}}">
+                                            {{selectOptions ../partBodyPresetChoices selected=row.bodyPresetSelected}}
+                                        </select>
+                                        <input type="text" data-part-field="value" data-index="{{row.idx}}" value="{{row.value}}" placeholder="部位名（自由入力）"{{#unless row.bodyIsOther}} hidden{{/unless}}>
+                                    </div>
                                     {{/if}}
                                 </div>
                                 <div class="tnx-part-field tnx-part-slots">
@@ -886,6 +877,16 @@
                             {{/if}}
                         </div>
                         {{/each}}
+                    </div>
+                </fieldset>
+
+                <fieldset class="tnx-fieldset">
+                    <legend>識別キー</legend>
+                    <div class="tnx-form-field">
+                        <div class="form-group">
+                            <label>識別キー</label>
+                            <input type="text" name="system.identificationKey" value="{{system.identificationKey}}" placeholder="識別キーを入力"/>
+                        </div>
                     </div>
                 </fieldset>
 

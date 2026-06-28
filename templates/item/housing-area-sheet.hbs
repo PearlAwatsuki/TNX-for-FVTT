@@ -32,16 +32,6 @@
         <div class="tab setting" data-group="primary" data-tab="setting">
             <div class="settings-grid">
                 <fieldset class="tnx-fieldset">
-                    <legend>識別キー</legend>
-                    <div class="tnx-form-field">
-                        <div class="form-group">
-                            <label>識別キー</label>
-                            <input type="text" name="system.identificationKey" value="{{system.identificationKey}}" placeholder="識別キーを入力"/>
-                        </div>
-                    </div>
-                </fieldset>
-
-                <fieldset class="tnx-fieldset">
                     <legend>エリア</legend>
                     <div class="tnx-form-field">
                         <div class="form-group">
@@ -66,6 +56,16 @@
                             </div>
                         </div>
                         {{/each}}
+                    </div>
+                </fieldset>
+
+                <fieldset class="tnx-fieldset">
+                    <legend>識別キー</legend>
+                    <div class="tnx-form-field">
+                        <div class="form-group">
+                            <label>識別キー</label>
+                            <input type="text" name="system.identificationKey" value="{{system.identificationKey}}" placeholder="識別キーを入力"/>
+                        </div>
                     </div>
                 </fieldset>
             </div>
