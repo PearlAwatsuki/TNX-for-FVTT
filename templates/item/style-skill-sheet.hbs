@@ -91,6 +91,14 @@
                     <label>アクション技能</label>
                     <input type="checkbox" name="system.isAction" {{checked system.isAction}}>
                 </div>
+                <div class="form-group">
+                    <label>報酬点を使用可能</label>
+                    <input type="checkbox" name="system.usesBounty" {{checked system.usesBounty}}>
+                </div>
+                <div class="form-group">
+                    <label>組み合わせ不可 <i class="fas fa-circle-question" title="この技能を使う組み合わせ判定はできない（単独判定のみ）。用途で組み合わせ技能を追加できなくなる"></i></label>
+                    <input type="checkbox" name="system.noCombo" {{checked system.noCombo}}>
+                </div>
                 <fieldset class="tnx-fieldset">
                     <legend>スタイル技能 詳細設定</legend>
                     <div class="tnx-form-field">
@@ -103,7 +111,9 @@
 
                         <div class="form-group">
                             <label>スタイル</label>
-                            <input type="text" name="system.style" value="{{system.style}}"/>
+                            <select name="system.style">
+                                {{selectOptions styleChoices selected=system.style}}
+                            </select>
                         </div>
 
                         <div class="form-group">
@@ -111,45 +121,6 @@
                             <select name="system.unique">
                                 {{selectOptions options.unique selected=system.unique}}
                             </select>
-                        </div>
-
-                        {{!-- 技能（Combo Skill） --}}
-                        <div class="form-group align-start">
-                            <label>技能</label>
-                            <div class="form-fields-column">
-                                {{#each system.comboSkill as |skill idx|}}
-                                    <div class="array-row">
-                                        <select name="system.comboSkill.{{idx}}.value">
-                                            {{selectOptions ../options.comboSkill selected=skill.value}}
-                                        </select>
-
-                                        {{!-- 技能名 または その他 の場合に入力欄を表示 --}}
-                                        {{#if (or (eq skill.value "skillName") (eq skill.value "other"))}}
-                                            <input type="text" name="system.comboSkill.{{idx}}.name" value="{{skill.name}}" placeholder="{{#if (eq skill.value 'other')}}内容を入力{{else}}技能名{{/if}}"/>
-                                            
-                                            {{!-- チェックボックス（2行目以降のみ） --}}
-                                            {{#if (gt idx 0)}}
-                                                <label class="checkbox-inline" title="直前の技能と結合 (&)">
-                                                    <input type="checkbox" name="system.comboSkill.{{idx}}.isMandatory" {{checked skill.isMandatory}}>
-                                                </label>
-                                            {{/if}}
-                                        {{/if}}
-
-                                        <div class="row-controls">
-                                            {{#if (eq idx 0)}}
-                                                <a class="tnx-row-btn" data-target="combo" title="行を追加">
-                                                    <i class="fas fa-plus"></i>
-                                                </a>
-                                            {{/if}}
-                                            {{#if (gte idx 1)}}
-                                                <a class="tnx-row-btn--delete" data-target="combo" data-index="{{idx}}" title="削除">
-                                                    <i class="fas fa-trash"></i>
-                                                </a>
-                                            {{/if}}
-                                        </div>
-                                    </div>
-                                {{/each}}
-                            </div>
                         </div>
 
                         {{!-- 上限 (変更なし) --}}
@@ -282,38 +253,6 @@
                                 {{/if}}
                             </div>
                         </div>
-                        {{!-- 対決 (Confrontation) --}}
-                        <div class="form-group align-start">
-                            <label>対決</label>
-                            <div class="form-fields-column">
-                                {{#each system.confrontation as |c idx|}}
-                                    <div class="array-row">
-                                        <select name="system.confrontation.{{idx}}.value">
-                                            {{selectOptions ../options.confrontation selected=c.value}}
-                                        </select>
-
-                                        {{!-- 技能名系 または その他 の場合に入力欄を表示 --}}
-                                        {{#if (or (eq c.value 'skillName') (eq c.value 'skillNameAsterisk') (eq c.value 'other'))}}
-                                            <input type="text" name="system.confrontation.{{idx}}.name" value="{{c.name}}" placeholder="{{#if (eq c.value 'other')}}内容を入力{{else}}技能名{{/if}}"/>
-                                        {{/if}}
-
-                                        <div class="row-controls">
-                                            {{!-- ...ボタン類は変更なし... --}}
-                                            {{#if (eq idx 0)}}
-                                                <a class="tnx-row-btn" data-target="confrontation">
-                                                    <i class="fas fa-plus"></i>
-                                                </a>
-                                            {{/if}}
-                                            {{#if (gte idx 1)}}
-                                                <a class="tnx-row-btn--delete" data-target="confrontation" data-index="{{idx}}">
-                                                    <i class="fas fa-trash"></i>
-                                                </a>
-                                            {{/if}}
-                                        </div>
-                                    </div>
-                                {{/each}}
-                            </div>
-                        </div>
 
                         <div class="form-group">
                             <label for="isLimit-{{item._id}}">使用回数に制限あり</label>
@@ -350,7 +289,9 @@
                             {{#if system.special.works.value}}
                                 <div class="form-group">
                                     <label>組織名</label>
-                                    <input type="text" name="system.special.works.organization" value="{{system.special.works.organization}}" placeholder="関連する組織名を入力...">
+                                    <select name="system.special.works.organization">
+                                        {{selectOptions organizationChoices selected=system.special.works.organization}}
+                                    </select>
                                 </div>
                             {{/if}}
                             
@@ -365,7 +306,9 @@
                                     <div class="form-fields-column">
                                         {{#each system.substituteTarget as |target idx|}}
                                         <div class="array-row">
-                                            <input type="text" name="system.substituteTarget.{{idx}}" value="{{target}}" placeholder="技能名"/>
+                                            <select name="system.substituteTarget.{{idx}}">
+                                                {{selectOptions ../substituteSkillChoices selected=target}}
+                                            </select>
                                             <div class="row-controls">
                                                 {{#if (eq idx 0)}}
                                                 <button type="button" class="tnx-row-btn" data-target="substitute" title="行を追加">
@@ -398,8 +341,127 @@
                                 </div>
                             {{/if}}
                         {{/if}}
+
+                        <div class="form-group">
+                            <label>取得と同時にアウトフィットを取得する</label>
+                            <input type="checkbox" name="system.acquiresOutfit" {{checked system.acquiresOutfit}}>
+                        </div>
                     </div>
                 </fieldset>
+
+                {{!-- 技能: 辞典カスケードで段階選択(2列グリッド・ラベルなし) --}}
+                <fieldset class="tnx-fieldset">
+                    <legend>技能 <a class="tnx-combo-add" data-target="combo" title="技能を追加"><i class="fas fa-plus"></i></a></legend>
+                    <div class="tnx-form-field">
+                        <div class="tnx-combo-cards">
+                            {{#each system.comboSkill as |skill idx|}}
+                                <div class="tnx-combo-card">
+                                    <div class="tnx-combo-grid">
+                                        <select name="system.comboSkill.{{idx}}.value"{{#if skill.typeFull}} class="tnx-combo-full"{{/if}}>
+                                            {{selectOptions ../options.comboSkill selected=skill.value}}
+                                        </select>
+                                        {{#if (eq skill.value "skillName")}}
+                                            {{#each skill.cascadeSteps}}
+                                            <select name="system.comboSkill.{{idx}}.{{this.field}}" data-cascade-key="{{this.key}}"{{#if this.full}} class="tnx-combo-full"{{/if}}>
+                                                {{selectOptions this.options selected=this.value}}
+                                            </select>
+                                            {{/each}}
+                                        {{else if (eq skill.value "other")}}
+                                            <input type="text" name="system.comboSkill.{{idx}}.name" value="{{skill.name}}" placeholder="内容を入力"/>
+                                        {{/if}}
+                                        {{#if (or (eq skill.value "skillName") (eq skill.value "other"))}}
+                                            {{#if (gt idx 0)}}
+                                            <label class="checkbox-inline tnx-combo-full" title="直前の技能と結合 (&)">
+                                                <input type="checkbox" name="system.comboSkill.{{idx}}.isMandatory" {{checked skill.isMandatory}}>
+                                            </label>
+                                            {{/if}}
+                                        {{/if}}
+                                    </div>
+                                    {{#if (gte idx 1)}}
+                                    <a class="tnx-combo-del" data-target="combo" data-index="{{idx}}" title="削除"><i class="fas fa-trash"></i></a>
+                                    {{/if}}
+                                </div>
+                            {{/each}}
+                        </div>
+                    </div>
+                </fieldset>
+
+                {{!-- 対決: 技能セクションと同形。「技能名」「技能名※」で辞典カスケード(技能名※は表示で ※ を付す) --}}
+                <fieldset class="tnx-fieldset">
+                    <legend>対決 <a class="tnx-combo-add" data-target="confrontation" title="対決を追加"><i class="fas fa-plus"></i></a></legend>
+                    <div class="tnx-form-field">
+                        <div class="tnx-combo-cards">
+                            {{#each system.confrontation as |c idx|}}
+                                <div class="tnx-combo-card">
+                                    <div class="tnx-combo-grid">
+                                        <select name="system.confrontation.{{idx}}.value"{{#if c.typeFull}} class="tnx-combo-full"{{/if}}>
+                                            {{selectOptions ../options.confrontation selected=c.value}}
+                                        </select>
+                                        {{#if (or (eq c.value "skillName") (eq c.value "skillNameAsterisk"))}}
+                                            {{#each c.cascadeSteps}}
+                                            <select name="system.confrontation.{{idx}}.{{this.field}}" data-cascade-key="{{this.key}}"{{#if this.full}} class="tnx-combo-full"{{/if}}>
+                                                {{selectOptions this.options selected=this.value}}
+                                            </select>
+                                            {{/each}}
+                                        {{else if (eq c.value "other")}}
+                                            <input type="text" name="system.confrontation.{{idx}}.name" value="{{c.name}}" placeholder="内容を入力"/>
+                                        {{/if}}
+                                    </div>
+                                    {{#if (gte idx 1)}}
+                                    <a class="tnx-combo-del" data-target="confrontation" data-index="{{idx}}" title="削除"><i class="fas fa-trash"></i></a>
+                                    {{/if}}
+                                </div>
+                            {{/each}}
+                        </div>
+                    </div>
+                </fieldset>
+
+                {{!-- 自動取得: acquiresOutfit か 特別なスタイル技能=トループ取得技能 のとき表示。取得アイテム/アクターは各条件で出し分け --}}
+                {{#if showAutoAcquire}}
+                <fieldset class="tnx-fieldset">
+                    <legend>自動取得（取得時）</legend>
+
+                    {{#if system.acquiresOutfit}}
+                    <div class="form-group">
+                        <label>武器使用義務 <i class="fas fa-circle-question" title="取得武器でこの技能の判定をしなければならない（オフ＝取得のみ・使用は任意）"></i></label>
+                        <input type="checkbox" name="system.weaponUseMandatory" {{checked system.weaponUseMandatory}}>
+                    </div>
+
+                    <div class="form-group align-start">
+                        <label>取得アイテム</label>
+                        <div class="style-acquire-list">
+                            {{#each autoAcquireItems}}
+                            <button type="button" class="tnx-linked-btn{{#if this.missing}} is-missing{{/if}}" data-action="viewAcquireRef" data-acquire="items" data-index="{{@index}}" data-context-menu="acquire-ref">
+                                {{#if this.img}}<img src="{{this.img}}" class="tnx-linked-btn__icon"/>{{/if}}
+                                <span class="tnx-linked-btn__label">{{this.name}}{{#if this.missing}}（削除済み）{{/if}}</span>
+                            </button>
+                            {{/each}}
+                            <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="acquire-items">
+                                <span>アイテムをここにドロップ</span>
+                            </div>
+                        </div>
+                    </div>
+                    {{/if}}
+
+                    {{#if (eq system.unique "troopAcquire")}}
+                    <div class="form-group align-start">
+                        <label>取得アクター</label>
+                        <div class="style-acquire-list">
+                            {{#each autoAcquireActors}}
+                            <button type="button" class="tnx-linked-btn{{#if this.missing}} is-missing{{/if}}" data-action="viewAcquireRef" data-acquire="actors" data-index="{{@index}}" data-context-menu="acquire-ref">
+                                {{#if this.img}}<img src="{{this.img}}" class="tnx-linked-btn__icon"/>{{/if}}
+                                <span class="tnx-linked-btn__label">{{this.name}}{{#if this.missing}}（削除済み）{{/if}}</span>
+                            </button>
+                            {{/each}}
+                            <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="acquire-actors">
+                                <span>アクターをここにドロップ</span>
+                            </div>
+                        </div>
+                    </div>
+                    {{/if}}
+                </fieldset>
+                {{/if}}
+
                 <fieldset class="tnx-fieldset">
                     <legend>識別キー</legend>
                     <div class="tnx-form-field">

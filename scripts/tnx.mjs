@@ -49,6 +49,7 @@ import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
 import { CONDITION_KINDS, CONDITION_GROUP_LABELS, getConditionKinds, buildInflictedEffectsData, readConditions } from './module/conditions.mjs';
 import { registerDamageChartTextSetting } from './module/damage-chart-text-app.mjs';
 import { registerPartSlotPresetSetting, getPartSlotPreset, initializeDefaultPartSlotPreset } from './module/part-slot-preset-app.mjs';
+import { autoAcquireForStyleSkill } from './module/style-skill-acquisition.mjs';
 import { conditionNeedsDraw, postDrawPrompt, postControlNegatePrompt, bindConditionChatButtons } from './module/condition-resolution.mjs';
 
 async function preloadHandlebarsTemplates() {
@@ -1127,6 +1128,15 @@ Hooks.once("ready", async function() {
     Hooks.on('createItem', (item) => recalcActorExp(item));
     Hooks.on('deleteItem', (item) => recalcActorExp(item));
     Hooks.on('updateItem', (item, diff, options) => recalcActorExp(item));
+
+    // スタイル技能をアクターに取得(インポート/ドロップ)した時、自動取得対象の武器を複製生成(10-2)。
+    // 多重生成を避けるため作成したユーザーのみ実行。トループ(autoAcquireActors)は保持のみ(本体生成は11)。
+    Hooks.on('createItem', (item, options, userId) => {
+        if (game.user.id !== userId) return;
+        if (item.type === "styleSkill" && item.parent?.documentName === "Actor") {
+            autoAcquireForStyleSkill(item.parent, item);
+        }
+    });
 
     // アウトフィット集計(outfitMod / appearanceModifier)は CastDataModel.prepareDerivedData で
     // 都度算出するため(B-2)、アイテム変更フックでの再集計・DB 書き戻しは不要になった。

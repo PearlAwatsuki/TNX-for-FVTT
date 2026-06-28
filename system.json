@@ -77,6 +77,17 @@
             }
         },
         {
+            "name": "organizations",
+            "label": "オーガニゼーション",
+            "system": "tokyo-nova-axleration",
+            "path": "packs/organizations",
+            "type": "Item",
+            "ownership": {
+                "PLAYER": "OBSERVER",
+                "ASSISTANT": "OWNER"
+            }
+        },
+        {
             "name": "outfits",
             "label": "アウトフィット",
             "system": "tokyo-nova-axleration",
@@ -154,6 +165,7 @@
               "works-outfits",
               "housing-areas",
               "life-paths",
+              "organizations",
               "npc",
               "draw-tables"
           ],

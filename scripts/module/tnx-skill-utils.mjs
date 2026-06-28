@@ -1,3 +1,5 @@
+import { resolveComboSkillName } from "./skill-dictionary.mjs";
+
 export class TnxSkillUtils {
 
     /** キャスト一般技能の正規ソート順（固有名詞技能はプレフィックスで代表） */
@@ -57,7 +59,8 @@ export class TnxSkillUtils {
                 "clone":            "模造技能",
                 "RSC":              "RSC技能",
                 "modification":     "改造技能",
-                "miracleChange":    "神業書き換え技能"
+                "miracleChange":    "神業書き換え技能",
+                "troopAcquire":     "トループ取得技能"
             },
             comboSkill: {
                 "blank":       "-",
@@ -202,7 +205,7 @@ export class TnxSkillUtils {
      * @param {Object} options getSkillOptions()で取得したオプション
      * @returns {Object} フォーマット済みの view オブジェクト
      */
-    static prepareStyleSkillView(systemData, options) {
+    static prepareStyleSkillView(systemData, options, skillNames = {}) {
         const view = {};
 
         // 配列変換・正規化ヘルパー
@@ -224,9 +227,11 @@ export class TnxSkillUtils {
             const name = s.name || "";
 
             if (val === 'skillName') {
-                label = name ? `〈${name}〉` : "〈〉";
+                // name は識別キー(カスケード再設計後)。表示時に辞典から技能名へ都度逆引きする
+                const display = resolveComboSkillName(name, skillNames);
+                label = display ? `〈${display}〉` : "〈〉";
             } else if (val === 'other') {
-                label = name || ""; 
+                label = name || "";
             } else {
                 label = options.comboSkill[val] || "-";
             }
@@ -249,7 +254,9 @@ export class TnxSkillUtils {
             const name = s.name || "";
 
             if (val === 'skillName' || val === 'skillNameAsterisk') {
-                label = name ? `〈${name}〉` : "〈〉";
+                // name は識別キー(カスケード化後)。表示時に辞典から技能名へ都度逆引きする。※は技能名※の印
+                const display = resolveComboSkillName(name, skillNames);
+                label = display ? `〈${display}〉` : "〈〉";
                 if (val === 'skillNameAsterisk') label += "※";
             } else if (val === 'other') {
                 label = name || "";

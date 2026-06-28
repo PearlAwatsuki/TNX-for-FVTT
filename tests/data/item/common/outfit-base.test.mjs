@@ -35,6 +35,11 @@ describe("OutfitBaseTemplate.defineSchema()", () => {
       expect(schema.isCarrying).toBeInstanceOf(MockBooleanField);
       expect(schema.isCarrying.options.initial).toBe(true);
     });
+
+    it("fromStyleSkillKey は StringField で initial が空文字(10-2 由来マーク)", () => {
+      expect(schema.fromStyleSkillKey).toBeInstanceOf(MockStringField);
+      expect(schema.fromStyleSkillKey.options.initial).toBe("");
+    });
   });
 
   describe("quantity (消費アイテムの個数、フェーズ6-2) が正しい", () => {

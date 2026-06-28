@@ -2817,6 +2817,49 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 
 .array-row input[type="text"] { flex: 1; min-width: 0; }
 
+/* 技能: 行=カード([selects の2列グリッド] + 削除)。ラベルなし・詰める(部位エディタの2列グリッド踏襲) */
+.tokyo-nova.sheet.item .tnx-combo-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.tokyo-nova.sheet.item .tnx-combo-card {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--tnx2-border, rgba(255, 255, 255, 0.14));
+    border-radius: 6px;
+    padding: 6px 8px;
+    background: var(--tnx2-bg-2, rgba(0, 0, 0, 0.18));
+}
+.tokyo-nova.sheet.item .tnx-combo-grid {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 6px;
+}
+.tokyo-nova.sheet.item .tnx-combo-grid > select,
+.tokyo-nova.sheet.item .tnx-combo-grid > input { width: 100%; min-width: 0; }
+.tokyo-nova.sheet.item .tnx-combo-full { grid-column: 1 / -1; }
+.tokyo-nova.sheet.item .tnx-combo-del {
+    flex: 0 0 auto;
+    cursor: pointer;
+    color: var(--tnx2-text-muted, #888);
+}
+.tokyo-nova.sheet.item .tnx-combo-del:hover { color: var(--tnx2-color-danger-text, #e74c3c); }
+.tokyo-nova.sheet.item .tnx-combo-add {
+    cursor: pointer;
+    opacity: 0.7;
+    font-size: 0.85em;
+}
+.tokyo-nova.sheet.item .tnx-combo-add:hover { opacity: 1; }
+/* 閲覧モードでは技能の追加・削除を隠す(部位エディタの .tnx-part-add/.tnx-part-del と同様) */
+.tokyo-nova.sheet.item.view-mode .tnx-combo-add,
+.tokyo-nova.sheet.item.view-mode .tnx-combo-del {
+    display: none;
+}
+
 .row-controls {
     display: flex;
     align-items: center;
@@ -3106,15 +3149,20 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     display: inline;
     font-size: 1.1em;
     border-bottom: none;
+    color: var(--tnx2-text-primary);
 }
 
 .chat-message .message-content .tnx-chat-card > summary::before {
-    font-family: "Font Awesome 6 Free";
-    font-weight: 900;
-    content: '\f0da';
+    content: '';
+    width: 0;
+    height: 0;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-left: 6px solid var(--tnx2-text-secondary);
     margin-right: 8px;
     transition: transform 0.2s ease-in-out;
     display: inline-block;
+    vertical-align: middle;
 }
 
 .chat-message .message-content .tnx-chat-card[open] > summary::before {
@@ -5731,8 +5779,10 @@ button.tnx-create-act-button span {
     top: 50%;
     width: 7px;
     height: 7px;
+    box-sizing: border-box;
     transform: translateY(-50%) rotate(45deg);
-    background: var(--tnx2-accent, #6fb3d2);
+    background: var(--tnx2-bg-2); /* 行背景色で中を塗り、裏を通る縦トレース線を隠す(枠線だけ＝白抜きの見た目) */
+    border: 1px solid var(--tnx2-accent, #6fb3d2);
     box-shadow: 0 0 5px var(--tnx2-accent-glow-sm, rgba(0, 200, 224, 0.9));
 }
 /* ホストのスロット使用ゲージ(種別ごと): スラントしたピップ＋使用/容量。種別名はツールチップ。
@@ -5821,7 +5871,7 @@ button.tnx-create-act-button span {
 }
 .tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--unconscious,
 .tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-tag--unconscious {
-    --c: #263ef5; /* 無意識=藍/紺(明度up) */
+    --c: #3b26f5; /* 無意識=藍/紺(明度up) */
 }
 
 /* 行本体(flex行) */
@@ -6388,7 +6438,6 @@ button.tnx-create-act-button span {
     font-weight: 700;
     color: var(--tnx2-text-secondary);
     letter-spacing: 0.05em;
-    margin-bottom: 3px;
 }
 
 .usage-field-value {
@@ -6407,6 +6456,7 @@ button.tnx-create-act-button span {
     display: flex;
     flex-direction: column;
     gap: 3px;
+    margin-bottom: 15px;
 }
 
 .usage-form-row select,
@@ -6588,7 +6638,7 @@ button.tnx-create-act-button span {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    margin-bottom: 8px;
+    margin-bottom: 5px;
 }
 
 .usage-skill-ref-row {
@@ -6967,6 +7017,7 @@ button.tnx-create-act-button span {
 }
 /* 装備先(オプション・キャスト所属時。部位 fieldset 最下部・上罫線で区切る。2層の「装備先」側) */
 .tnx-part-fieldset .tnx-part-equip {
+    grid-column: 1 / -1; /* 親 .tnx-part-option(2列グリッド)の全幅を占有し、装備先/スロット種別を横並びにする */
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
@@ -6981,6 +7032,18 @@ button.tnx-create-act-button span {
 }
 .tnx-part-fieldset .tnx-part-equip select {
     width: 100%;
+}
+
+/* スタイル技能 自動取得(10-2): 取得後ボタン(tnx-linked-btn)の縦リスト＋末尾の空インポートボックス */
+.tokyo-nova.sheet.item .style-acquire-list {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.tokyo-nova.sheet.item .style-acquire-list .tnx-linked-btn.is-missing .tnx-linked-btn__label {
+    color: var(--tnx2-text-muted, #888);
+    text-decoration: line-through;
 }
 .tnx-part-fieldset .tnx-part-card {
     position: relative;
@@ -7079,6 +7142,16 @@ button.tnx-create-act-button span {
 }
 .tnx-part-fieldset .tnx-part-target-row .tnx-part-target {
     flex: 1 1 auto;
+}
+/* 直下・辞典の身体部位: プリセットプルダウン＋(その他選択時のみ)自由入力を横並び半々 */
+.tnx-part-fieldset .tnx-part-body-row {
+    display: flex;
+    gap: 6px;
+}
+.tnx-part-fieldset .tnx-part-body-row > select,
+.tnx-part-fieldset .tnx-part-body-row > input {
+    flex: 1 1 0;
+    min-width: 0;
 }
 /* カード内コンパクトスピナー（global の flex 0 0 60px/35px を上書き） */
 .tokyo-nova.sheet.item .tnx-part-fieldset .number-input-spinner input[type="number"] {

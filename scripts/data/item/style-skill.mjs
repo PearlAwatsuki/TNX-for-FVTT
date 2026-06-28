@@ -65,6 +65,11 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
           value:       new fields.StringField({ initial: "blank" }),
           name:        new fields.StringField({ initial: "" }),
           isMandatory: new fields.BooleanField({ initial: false }),
+          // 技能名カスケードのパス(辞典区分/グループ/小分類)。最終技能は name に格納
+          // (identificationKey または @カテゴリ全体トークン)。部位の hostMajor/hostMinor と同方式。
+          skillDict:   new fields.StringField({ initial: "" }),
+          skillGroup:  new fields.StringField({ initial: "" }),
+          skillSub:    new fields.StringField({ initial: "" }),
         })
       ),
       comboSkillOther: new fields.StringField({ initial: "" }), // ★ 互換フィールド(ensureArray 参照)
@@ -97,11 +102,15 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
       targetValueNumber: new fields.NumberField({ initial: 0 }),   // ★ 同上
       targetValueOther:  new fields.StringField({ initial: "" }),  // ★ 同上
 
-      // 対決(実態: {value, name} の配列)
+      // 対決(実態: {value, name, skillDict, skillGroup, skillSub} の配列)
+      // 「技能名」「技能名※」では comboSkill と同じ辞典カスケードで技能を選択する(最終技能は name に識別キーで格納)
       confrontation: new fields.ArrayField(
         new fields.SchemaField({
           value: new fields.StringField({ initial: "blank" }),
           name:  new fields.StringField({ initial: "" }),
+          skillDict:  new fields.StringField({ initial: "" }),
+          skillGroup: new fields.StringField({ initial: "" }),
+          skillSub:   new fields.StringField({ initial: "" }),
         })
       ),
       confrontationOther: new fields.StringField({ initial: "" }), // ★ 互換フィールド(ensureArray 参照)
@@ -111,6 +120,10 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
       isFixedTarget:    new fields.BooleanField({ initial: false }),
       isEssentialSkill: new fields.BooleanField({ initial: false }),
       isSubstitute:     new fields.BooleanField({ initial: false }),
+      // 報酬点を使用可能(一般技能の usesBounty と同一。代用時も含め一貫してこの技能自身の値を使う)
+      usesBounty:       new fields.BooleanField({ initial: false }),
+      // 組み合わせ不可(この技能を使う組み合わせ判定自体が不可=単独判定のみ。用途でコンボ追加を抑止)
+      noCombo:          new fields.BooleanField({ initial: false }),
 
       // 代替ターゲット(単純な文字列配列。シートコメント: "単純な文字列の配列として扱います")
       substituteTarget: new fields.ArrayField(new fields.StringField()),
@@ -130,6 +143,27 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
       }),
 
       identificationKey: new fields.StringField({ initial: "" }),
+
+      // 自動取得(フェーズ10-2): 習得時に取得する対象。
+      // - acquiresOutfit: 「取得と同時にアウトフィットを取得する」トグル。ON で取得アイテム欄を表示・自動取得。
+      // - autoAcquireItems: 武器取得技能の対象アイテム(UUID)。取得時に複製生成。
+      // - autoAcquireActors: トループ取得技能(unique="troopAcquire")の対象アクター(UUID)。本フェーズは保持のみ(本体生成は11)。
+      // name は元が削除された場合の表示フォールバック(UUID 解決失敗時)。
+      acquiresOutfit: new fields.BooleanField({ initial: false }),
+      autoAcquireItems: new fields.ArrayField(
+        new fields.SchemaField({
+          uuid: new fields.StringField({ initial: "" }),
+          name: new fields.StringField({ initial: "" }),
+        })
+      ),
+      autoAcquireActors: new fields.ArrayField(
+        new fields.SchemaField({
+          uuid: new fields.StringField({ initial: "" }),
+          name: new fields.StringField({ initial: "" }),
+        })
+      ),
+      // 取得武器の使用義務(true=この武器で判定しなければならない / false=取得のみ・使用は任意)
+      weaponUseMandatory: new fields.BooleanField({ initial: false }),
 
       // スキルカテゴリ別経験点コスト
       special: new fields.SchemaField({

@@ -120,6 +120,33 @@ describe("StyleSkillDataModel.defineSchema()", () => {
       expect(schema.isSubstitute).toBeInstanceOf(MockBooleanField);
       expect(schema.isSubstitute.options.initial).toBe(false);
     });
+
+    for (const key of ["usesBounty", "noCombo"]) {
+      it(`${key} は BooleanField で initial が false (10-3 代用/組み合わせ不可)`, () => {
+        expect(schema[key]).toBeInstanceOf(MockBooleanField);
+        expect(schema[key].options.initial).toBe(false);
+      });
+    }
+
+    it("weaponUseMandatory は BooleanField で initial が false (10-2 武器使用義務)", () => {
+      expect(schema.weaponUseMandatory).toBeInstanceOf(MockBooleanField);
+      expect(schema.weaponUseMandatory.options.initial).toBe(false);
+    });
+
+    it("acquiresOutfit は BooleanField で initial が false (10-2 取得アイテム表示トグル)", () => {
+      expect(schema.acquiresOutfit).toBeInstanceOf(MockBooleanField);
+      expect(schema.acquiresOutfit.options.initial).toBe(false);
+    });
+  });
+
+  describe("自動取得フィールド(フェーズ10-2)", () => {
+    for (const key of ["autoAcquireItems", "autoAcquireActors"]) {
+      it(`${key} は {uuid, name} の ArrayField`, () => {
+        expect(schema[key]).toBeInstanceOf(MockArrayField);
+        expect(schema[key].element.fields.uuid).toBeInstanceOf(MockStringField);
+        expect(schema[key].element.fields.name).toBeInstanceOf(MockStringField);
+      });
+    }
   });
 
   describe("書き換え神業関連フィールド(KI-018/019 正規化済み)", () => {

@@ -86,6 +86,9 @@ export class OutfitBaseTemplate extends SystemDataModel {
       isCyber:           new fields.BooleanField({ initial: false }),
       isCarrying:        new fields.BooleanField({ initial: true }),
       isConsumption:     new fields.BooleanField({ initial: false }),
+      // スタイル技能由来マーク: 自動取得時に由来スタイル技能の識別キーを記録する(内部用・非表示)。
+      // 識別キーのプレフィックス(区切り「_」まで)が同じ由来武器を既取得なら自動取得しない(重複防止)。
+      fromStyleSkillKey: new fields.StringField({ initial: "" }),
       quantity: new fields.SchemaField({
         value: new fields.NumberField({ initial: 1, min: 0, integer: true }),
         max:   new fields.NumberField({ initial: 1, min: 0, integer: true }),
