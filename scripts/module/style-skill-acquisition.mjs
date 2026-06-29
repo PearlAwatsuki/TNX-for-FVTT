@@ -41,8 +41,35 @@ export function hasDuplicateStyleWeapon(newKey, existing) {
 }
 
 /**
+ * 取得候補が複数のとき、取得する武器を**プルダウンで1つだけ**選ばせる（複数取得は不可）。
+ * 取り消し/閉じるは -1（取得しない）。
+ * @param {string} skillName スタイル技能名
+ * @param {Array<{name:string}>} candidates 取得候補（解決済み・重複除外後）
+ * @returns {Promise<number>} 選択された候補のインデックス（取得しない場合は -1）
+ */
+async function promptSelectWeapon(skillName, candidates) {
+  const options = candidates.map((c, i) => `<option value="${i}">${c.name}</option>`).join("");
+  const content = `<p>「${skillName}」で取得する武器を1つ選んでください。</p>
+    <div class="form-group"><label>武器</label><select name="acq">${options}</select></div>`;
+  const result = await foundry.applications.api.DialogV2.wait({
+    window:   { title: "取得武器の選択" },
+    classes:  ["tokyo-nova"],
+    position: { width: 360 },
+    content,
+    buttons: [
+      { action: "ok", icon: "fas fa-check", label: "取得", default: true,
+        callback: (_e, _b, dialog) => Number(dialog.element.querySelector('select[name="acq"]').value) },
+      { action: "cancel", icon: "fas fa-times", label: "取得しない", callback: () => -1 },
+    ],
+    rejectClose: false,
+  });
+  return Number.isInteger(result) ? result : -1;
+}
+
+/**
  * styleSkill がアクターに作成された時の自動取得（Foundry 依存）。autoAcquireItems を UUID から
  * 複製生成し、由来マーク（fromStyleSkillKey）を付ける。同種（プレフィックス一致）の既取得はスキップ。
+ * **取得候補が複数のときはダイアログで選択**させる（1つなら自動取得）。
  * トループ（autoAcquireActors）は保持のみ（生成しない・11 で対応）。
  * @param {Actor} actor 取得先アクター
  * @param {Item} styleSkillItem 作成された styleSkill アイテム
@@ -58,19 +85,35 @@ export async function autoAcquireForStyleSkill(actor, styleSkillItem) {
     .filter((i) => i.system?.fromStyleSkillKey)
     .map((i) => ({ fromStyleSkillKey: i.system.fromStyleSkillKey, identificationKey: i.system.identificationKey }));
 
-  const toCreate = [];
+  // 候補を解決（fromUuid）し、同種既取得（重複）を除外する
+  const candidates = [];
   for (const ref of refs) {
     if (!ref?.uuid) continue;
     const src = await fromUuid(ref.uuid);
-    if (!src) continue; // 元アイテムが削除済み等で解決できなければ静かにスキップ(通知しない)
+    if (!src) continue; // 元アイテムが削除済み等で解決できなければ静かにスキップ
     const srcKey = src.system?.identificationKey ?? "";
-    if (hasDuplicateStyleWeapon(srcKey, existing)) continue; // 同種(プレフィックス一致)を既取得ならスキップ(通知なし)
+    if (hasDuplicateStyleWeapon(srcKey, existing)) continue; // 同種を既取得ならスキップ（候補から除外）
+    candidates.push({ src, srcKey, name: src.name });
+  }
+  if (!candidates.length) return;
+
+  // 複数候補ならプルダウンで1つだけ選択、1つなら自動取得（複数取得は不可）
+  let chosen = candidates;
+  if (candidates.length >= 2) {
+    const idx = await promptSelectWeapon(styleSkillItem.name, candidates);
+    if (idx < 0 || idx >= candidates.length) return; // 取得しない
+    chosen = [candidates[idx]];
+  }
+
+  const toCreate = [];
+  for (const { src, srcKey } of chosen) {
+    if (hasDuplicateStyleWeapon(srcKey, existing)) continue; // バッチ内の同種重複も防ぐ
     const data = src.toObject();
     delete data._id;
     data.system = data.system ?? {};
     data.system.fromStyleSkillKey = skillKey; // 由来マーク
     toCreate.push(data);
-    existing.push({ fromStyleSkillKey: skillKey, identificationKey: srcKey }); // 同バッチ内の重複も防ぐ
+    existing.push({ fromStyleSkillKey: skillKey, identificationKey: srcKey });
   }
   if (toCreate.length) await actor.createEmbeddedDocuments("Item", toCreate);
 }

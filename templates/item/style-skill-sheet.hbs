@@ -453,9 +453,12 @@
                                 <span class="tnx-linked-btn__label">{{this.name}}{{#if this.missing}}（削除済み）{{/if}}</span>
                             </button>
                             {{/each}}
+                            {{!-- トループは1つのみ。未設定のときだけドロップ枠を出す（差し替えは削除→再ドロップ） --}}
+                            {{#unless autoAcquireActors.length}}
                             <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="acquire-actors">
-                                <span>アクターをここにドロップ</span>
+                                <span>アクターをここにドロップ（1つのみ）</span>
                             </div>
+                            {{/unless}}
                         </div>
                     </div>
                     {{/if}}

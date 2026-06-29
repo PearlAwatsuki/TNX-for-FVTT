@@ -200,11 +200,15 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
             ui.notifications?.warn(wantItem ? "ここにはアイテムをドロップしてください。" : "ここにはアクターをドロップしてください。");
             return;
         }
-        const field = wantItem ? "system.autoAcquireItems" : "system.autoAcquireActors";
-        const cur = [...(wantItem ? (this.item.system.autoAcquireItems ?? []) : (this.item.system.autoAcquireActors ?? []))];
+        // トループ(acquire-actors)は1つのみ＝新しいドロップで置き換える。武器(acquire-items)は複数追加可。
+        if (!wantItem) {
+            await this.item.update({ "system.autoAcquireActors": [{ uuid: doc.uuid, name: doc.name }] });
+            return;
+        }
+        const cur = [...(this.item.system.autoAcquireItems ?? [])];
         if (cur.some((r) => r.uuid === doc.uuid)) return; // 同じものは重複追加しない
         cur.push({ uuid: doc.uuid, name: doc.name });
-        await this.item.update({ [field]: cur });
+        await this.item.update({ "system.autoAcquireItems": cur });
     }
 
     /** data-acquire(items|actors)+data-index から取得対象の配列・参照を解決する。 */
