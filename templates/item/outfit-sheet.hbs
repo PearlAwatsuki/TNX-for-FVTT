@@ -99,6 +99,21 @@
                             <input type="checkbox" name="system.isConsumption" {{checked system.isConsumption}}>
                             <span>消費アイテム</span>
                         </label>
+                        <label class="outfit-flag">
+                            <input type="checkbox" name="system.isMutantOrgan" {{checked system.isMutantOrgan}}>
+                            <span>変異器官</span>
+                        </label>
+                        <label class="outfit-flag">
+                            <input type="checkbox" name="system.isShiki" {{checked system.isShiki}}>
+                            <span>式神装備</span>
+                        </label>
+                        {{!-- 派生データ: 「派生データを持つ」が ON のときは非表示(派生元は自身が派生データではない) --}}
+                        {{#unless system.hasDerivedData}}
+                        <label class="outfit-flag" title="別アイテムから派生したデータ（常備化経験点を消費しない）">
+                            <input type="checkbox" name="system.isDerivedData" {{checked system.isDerivedData}}>
+                            <span>派生データ</span>
+                        </label>
+                        {{/unless}}
                     </div>
                 </fieldset>
                 {{/unless}}
@@ -668,6 +683,14 @@
                         </div>
                         {{/unless}}
 
+                        {{!-- 式神装備のタイプ(電脳制御値のすぐ下・式神装備 ON で表示。表示に関わる設定をここへ集約) --}}
+                        {{#if system.isShiki}}
+                        <div class="form-group">
+                            <label>タイプ</label>
+                            <select name="system.shikiType">{{selectOptions shikiTypeChoices selected=system.shikiType}}</select>
+                        </div>
+                        {{/if}}
+
                         {{!-- 部位は独立 fieldset へ分離(下記「部位」legend。フェーズ10) --}}
 
                         {{!-- タイミング(選択肢はスタイル技能と共通だが、アウトフィットは一つのみ) --}}
@@ -693,10 +716,54 @@
                             </div>
                         </div>
 
-                        <div class="form-group">
+                        {{!-- 専用: タイミングと同形(array-row・1行目に＋、2行目以降にゴミ箱削除) --}}
+                        <div class="form-group align-start">
                             <label>専用</label>
-                            <input type="text" name="system.exclusive" value="{{system.exclusive}}" placeholder="専用スタイル・ワークス"/>
+                            <div class="form-fields-column">
+                                {{#each exclusiveRows as |row|}}
+                                <div class="array-row">
+                                    <select data-exclusive-index="{{row.index}}">
+                                        <option value="">-</option>
+                                        {{#each row.groups as |grp|}}
+                                        <optgroup label="{{grp.label}}">
+                                            {{#each grp.options as |opt|}}<option value="{{opt.value}}"{{#if opt.selected}} selected{{/if}}>{{opt.label}}</option>{{/each}}
+                                        </optgroup>
+                                        {{/each}}
+                                    </select>
+                                    <div class="row-controls">
+                                        {{#if (eq row.index 0)}}
+                                        <a class="tnx-row-btn" data-exclusive-add title="専用を追加"><i class="fas fa-plus"></i></a>
+                                        {{/if}}
+                                        {{#if (gte row.index 1)}}
+                                        <a class="tnx-row-btn--delete" data-exclusive-del data-index="{{row.index}}" title="削除"><i class="fas fa-trash"></i></a>
+                                        {{/if}}
+                                    </div>
+                                </div>
+                                {{/each}}
+                            </div>
                         </div>
+
+                        {{!-- 派生データを持つ(詳細設定・使用回数の上。ON で派生データ参照UIを同セクション内に表示) --}}
+                        <div class="form-group">
+                            <label for="hasDerived-{{item._id}}" title="取得（インポート）時に派生データを自動生成する">派生データを持つ</label>
+                            <input type="checkbox" name="system.hasDerivedData" id="hasDerived-{{item._id}}" {{checked system.hasDerivedData}}>
+                        </div>
+                        {{#if system.hasDerivedData}}
+                        <div class="form-group align-start">
+                            <label>派生データ</label>
+                            <div class="style-acquire-list">
+                                {{#each derivedDataRefs}}
+                                <button type="button" class="tnx-linked-btn{{#if this.missing}} is-missing{{/if}}" data-action="viewDerivedRef" data-index="{{@index}}" data-context-menu="derived-ref">
+                                    {{#if this.img}}<img src="{{this.img}}" class="tnx-linked-btn__icon"/>{{/if}}
+                                    <span class="tnx-linked-btn__label">{{this.name}}{{#if this.missing}}（削除済み）{{/if}}</span>
+                                </button>
+                                {{/each}}
+                                <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="derived-data">
+                                    <span>派生データをここにドロップ</span>
+                                </div>
+                            </div>
+                        </div>
+                        {{/if}}
 
                         {{!-- 使用回数(スタイル技能と同形。数値入力はスピナー不使用の例外) --}}
                         <div class="form-group">

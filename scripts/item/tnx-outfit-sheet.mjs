@@ -5,9 +5,10 @@ import { ATTACK_DAMAGE_TYPES } from "../data/item/helpers.mjs";
 import { WEAPON_RANGES, WEAPON_RANGE_MIN_OPTIONS, WEAPON_RANGE_MAX_OPTIONS, WEAPON_ATTACK_AREAS } from "../data/item/weapon.mjs";
 import { SLOT_KINDS } from "../data/item/common/extensible.mjs";
 import { HOUSING_AREA_RANKS, HOUSING_AREA_MOD_FIELDS } from "../data/item/housing-area.mjs";
-import { PART_KINDS, PART_REFERENCE_SUB_KINDS, PART_RELATIONS } from "../data/item/common/outfit-base.mjs";
+import { PART_KINDS, PART_REFERENCE_SUB_KINDS, PART_RELATIONS, SHIKI_TYPES } from "../data/item/common/outfit-base.mjs";
 import { getPartSlotPreset } from "../module/part-slot-preset-app.mjs";
 import { formatPartDesignation, joinPartDesignations, PART_HOST_FEATURE_LABELS } from "../data/item/part-helpers.mjs";
+import { loadSkillChoices, STYLE_PACK, ORGANIZATION_PACK } from "../module/skill-dictionary.mjs";
 
 /** 住宅エリア compendium の pack ID */
 const HOUSING_AREA_PACK = "tokyo-nova-axleration.housing-areas";
@@ -171,6 +172,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             clearCombineSource:  TokyoNovaOutfitSheet._onClearCombineSource,
             viewCombineSource:   TokyoNovaOutfitSheet._onViewCombineSource,
             deactivateCombine:   TokyoNovaOutfitSheet._onDeactivateCombine,
+            viewDerivedRef:      TokyoNovaOutfitSheet._onViewDerivedRef,
         },
     };
 
@@ -294,6 +296,14 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
         // 部位エディタ(フェーズ10): 行ごとの種別連動 UI 用データ(文脈連動の選択肢込み)
         this._preparePartEditorData(context, system);
+
+        // 特性(10-2): 式神装備のタイプ選択肢・派生元アウトフィットの派生データ参照(名前ライブ解決)
+        context.shikiTypeChoices = { "": "-", ...SHIKI_TYPES };
+        context.derivedDataRefs = await this.constructor._resolveDerivedRefs(system.derivedDataRefs);
+
+        // 専用(10-2): スタイル/オーガニゼーション辞典を2つのオプショングループにまとめた複数行プルダウン。
+        // 名前は辞典から都度解決(保持名キャッシュなし)。自動化はしない(指定のみ)。
+        context.exclusiveRows = await this._prepareExclusiveRows(system);
 
         // slots は既定プール構成に正規化して表示する
         if (context.hasSlots) system.slots = this._normalizedSlots();
@@ -673,6 +683,12 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 push("購", buy); push("隠", hideFull);
                 push("電制", hack); push("部位", part);
         }
+        // 式神装備: タイプを「部位」の1つ前に挿入する(10-2)
+        if (system.isShiki) {
+            const typeRow = { label: "タイプ", value: SHIKI_TYPES[system.shikiType] ?? "-" };
+            const partIdx = rows.findIndex((r) => r.label === "部位");
+            if (partIdx >= 0) rows.splice(partIdx, 0, typeRow); else rows.push(typeRow);
+        }
         view.summary = rows;
 
         const majLabel = getMajorCategoryLabel(system.majorCategory);
@@ -722,6 +738,9 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
         // 住宅エリアリンクボタン: editable に関わらず閲覧コンテキストメニューを設置する
         if (context.isResidence) this._setupHousingAreaMenu();
+
+        // 派生データ参照ボタン: editable に関わらず閲覧コンテキストメニューを設置する
+        if (this.element.querySelector('[data-context-menu="derived-ref"]')) this._setupDerivedMenu();
 
         if (!context.editable) return;
 
@@ -904,6 +923,30 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             });
         }
 
+        // 専用(辞典参照配列): 行プルダウンの変更・追加・削除を全体更新で保存する
+        for (const sel of this.element.querySelectorAll("select[data-exclusive-index]")) {
+            sel.addEventListener("change", (event) => {
+                event.stopPropagation();
+                const index = Number(event.currentTarget.dataset.exclusiveIndex);
+                const token = event.currentTarget.value; // "style:key" / "organization:key" / ""
+                const sep = token.indexOf(":");
+                const entry = sep < 0 ? { type: "", key: "" }
+                    : { type: token.slice(0, sep), key: token.slice(sep + 1) };
+                this._updateExclusive((arr) => { arr[index] = entry; });
+            });
+        }
+        this.element.querySelector("[data-exclusive-add]")?.addEventListener("click", (event) => {
+            event.preventDefault();
+            this._updateExclusive((arr) => arr.push({ type: "", key: "" }));
+        });
+        for (const btn of this.element.querySelectorAll("[data-exclusive-del]")) {
+            btn.addEventListener("click", (event) => {
+                event.preventDefault();
+                const index = Number(event.currentTarget.dataset.index);
+                this._updateExclusive((arr) => { if (index >= 0 && index < arr.length) arr.splice(index, 1); });
+            });
+        }
+
         // 装備対象変更時: スロット種別をリセットする(親が変わればスロット構成も変わるため)
         this.element.querySelector('select[name="system.parentItemId"]')
             ?.addEventListener("change", (event) => {
@@ -982,6 +1025,80 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 }
             }
         }
+
+        // 派生元アウトフィット: 派生データ参照(複数可)を追加。重複は無視
+        if (area === "derived-data") {
+            const cur = [...(this.item.system.derivedDataRefs ?? [])];
+            if (cur.some((r) => r.uuid === dropped.uuid)) return;
+            cur.push({ uuid: dropped.uuid, name: dropped.name });
+            await this.item.update({ "system.derivedDataRefs": cur });
+        }
+    }
+
+    // ─── 派生データ参照(10-2) ───────────────────────────────────────────────
+    /** derivedDataRefs を表示用に解決(名前ライブ解決・削除済みフォールバック)。 */
+    static async _resolveDerivedRefs(refs) {
+        const out = [];
+        for (const r of (Array.isArray(refs) ? refs : [])) {
+            const doc = r?.uuid ? await fromUuid(r.uuid).catch(() => null) : null;
+            out.push({ uuid: r?.uuid ?? "", name: doc?.name ?? r?.name ?? "(不明)", img: doc?.img ?? null, missing: !doc });
+        }
+        return out;
+    }
+    /** data-index から派生データ参照を解決する。 */
+    _derivedRefAt(el) {
+        const index = Number(el?.dataset.index);
+        const list = this.item.system.derivedDataRefs ?? [];
+        return { index, list, ref: (index >= 0 && index < list.length) ? list[index] : null };
+    }
+    async _openDerivedRef(el, { edit = false } = {}) {
+        const { ref } = this._derivedRefAt(el);
+        const doc = ref?.uuid ? await fromUuid(ref.uuid).catch(() => null) : null;
+        if (doc) doc.sheet.render(true, edit ? {} : { editable: false });
+    }
+    async _removeDerivedRef(el) {
+        const { index, list } = this._derivedRefAt(el);
+        if (index < 0 || index >= list.length) return;
+        const cur = [...list];
+        cur.splice(index, 1);
+        await this.item.update({ "system.derivedDataRefs": cur });
+    }
+    static async _onViewDerivedRef(_event, target) { await this._openDerivedRef(target); }
+    /** 派生データ参照ボタンの右クリックメニュー(閲覧/編集/削除)。 */
+    _setupDerivedMenu() {
+        const CM = foundry.applications.ux.ContextMenu.implementation;
+        new CM(this.element, '[data-context-menu="derived-ref"]', [
+            { name: "閲覧", icon: '<i class="fas fa-eye"></i>', callback: (el) => this._openDerivedRef(el) },
+            { name: "編集", icon: '<i class="fas fa-edit"></i>', callback: (el) => this._openDerivedRef(el, { edit: true }) },
+            { name: "削除", icon: '<i class="fas fa-trash"></i>', condition: () => this.isEditable, callback: (el) => this._removeDerivedRef(el) },
+        ], { jQuery: false, fixed: true });
+    }
+
+    // ─── 専用(スタイル/オーガニゼーション辞典参照・10-2) ──────────────────────
+    /** 専用プルダウンの行データ(行ごとに2オプショングループ＋選択フラグ)を組み立てる。 */
+    async _prepareExclusiveRows(system) {
+        const [styleNames, orgNames] = await Promise.all([
+            loadSkillChoices([STYLE_PACK]),
+            loadSkillChoices([ORGANIZATION_PACK]),
+        ]);
+        const styleOpts = Object.entries(styleNames).filter(([k]) => k);
+        const orgOpts   = Object.entries(orgNames).filter(([k]) => k);
+        const stored = Array.isArray(system.exclusive) ? system.exclusive : [];
+        const exclusive = stored.length ? stored : [{ type: "", key: "" }]; // 空でも1行表示(＋を出すため。timing と同方式)
+        return exclusive.map((e, index) => ({
+            index,
+            groups: [
+                { label: "スタイル", options: styleOpts.map(([k, name]) => ({ value: `style:${k}`, label: name, selected: e.type === "style" && e.key === k })) },
+                { label: "オーガニゼーション", options: orgOpts.map(([k, name]) => ({ value: `organization:${k}`, label: name, selected: e.type === "organization" && e.key === k })) },
+            ],
+        }));
+    }
+    /** 専用配列を全体更新で保存する(配列フィールドのため。空でも1要素から始める)。 */
+    _updateExclusive(mutator) {
+        const stored = this.item.system.exclusive ?? [];
+        const arr = foundry.utils.deepClone(stored.length ? stored : [{ type: "", key: "" }]);
+        mutator(arr);
+        return this.item.update({ "system.exclusive": arr });
     }
 
     /** 住宅エリアの紐づけを解除する */

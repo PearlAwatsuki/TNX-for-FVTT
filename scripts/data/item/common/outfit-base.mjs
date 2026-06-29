@@ -26,7 +26,7 @@
  *   旧 {value,slots} データは kind 既定 "other" で自由記入扱いへ移行する(§4.2)。
  *   結合は兄弟フィールド partRelation(and/or)、or 時の装備先は partOrChoice。
  *   表示・占有ルールの正本は Outfits.md「部位管理(フェーズ10)」。
- * - exclusive は自由記述の StringField(空欄はシート閲覧時に "-" 表示)。
+ * - exclusive はスタイル/オーガニゼーション辞典参照の配列(`{type,key}[]`・複数可)。自動化なし(指定のみ)。
  * - uses.type は使用回数の種別(アクト/シーン/カット。スタイル技能の usesType と共通)。
  * - isConsumption(消費アイテム)はフェーズ6-2 で weapon の isthrow を置き換えて全種別に
  *   一般化したフラグ(2026-06-12 ユーザー確定)。true のアイテムは個数(quantity)を持つ。
@@ -74,6 +74,14 @@ export const PART_RELATIONS = Object.freeze({
   or:  "または",
 });
 
+/** 式神装備(isShiki)のタイプ(フェーズ10-2)。式神＝しきそうび。 */
+export const SHIKI_TYPES = Object.freeze({
+  attack:      "攻撃",
+  defense:     "防御",
+  drive:       "操縦",
+  independent: "独立",
+});
+
 export class OutfitBaseTemplate extends SystemDataModel {
   /** @override */
   static defineSchema() {
@@ -89,6 +97,16 @@ export class OutfitBaseTemplate extends SystemDataModel {
       // スタイル技能由来マーク: 自動取得時に由来スタイル技能の識別キーを記録する(内部用・非表示)。
       // 識別キーのプレフィックス(区切り「_」まで)が同じ由来武器を既取得なら自動取得しない(重複防止)。
       fromStyleSkillKey: new fields.StringField({ initial: "" }),
+      // 特性フラグ(フェーズ10-2)
+      isMutantOrgan:  new fields.BooleanField({ initial: false }), // 変異器官(部位オプションのホスト照合「その他特徴」に使う)
+      isShiki:        new fields.BooleanField({ initial: false }), // 式神装備(ON でタイプ欄を表示)
+      shikiType:      new fields.StringField({ initial: "" }),     // 式神のタイプ(SHIKI_TYPES: attack/defense/drive/independent)
+      isDerivedData:  new fields.BooleanField({ initial: false }), // 派生データ本体(常備化経験点を消費しない)
+      hasDerivedData: new fields.BooleanField({ initial: false }), // 派生元(アクター取得時に派生データを自動生成する)
+      derivedDataRefs: new fields.ArrayField(new fields.SchemaField({
+        uuid: new fields.StringField({ initial: "" }),
+        name: new fields.StringField({ initial: "" }),
+      })),
       quantity: new fields.SchemaField({
         value: new fields.NumberField({ initial: 1, min: 0, integer: true }),
         max:   new fields.NumberField({ initial: 1, min: 0, integer: true }),
@@ -138,7 +156,12 @@ export class OutfitBaseTemplate extends SystemDataModel {
         processName: new fields.StringField({ initial: "blank" }),
         timingOther: new fields.StringField({ initial: "" }),
       }),
-      exclusive:         new fields.StringField({ initial: "" }),
+      // 専用: スタイル/オーガニゼーション辞典への参照(複数可)。type="style"|"organization"・key=識別キー。
+      // 自動化はしない(指定のみ)。模造技能・別組織のアウトフィット取得効果との兼ね合いで enforcement を持たせない。
+      exclusive: new fields.ArrayField(new fields.SchemaField({
+        type: new fields.StringField({ initial: "" }),
+        key:  new fields.StringField({ initial: "" }),
+      })),
       // spent = 消費済み回数（D&D 方式）。残り = max - spent
       uses: new fields.SchemaField({
         isLimit: new fields.BooleanField({ initial: false }),
@@ -169,6 +192,8 @@ export class OutfitBaseTemplate extends SystemDataModel {
       const n = source.preserveExp;
       source.preserveExp = n === 0 ? { mode: "none", value: 0 } : { mode: "value", value: n };
     }
+    // 専用: 旧自由記述(string)→辞典参照配列へ。文字列は辞典キーに機械変換できないため空配列にする
+    if (typeof source.exclusive === "string") source.exclusive = [];
     migrateUsesValueToSpent(source);
     return super.migrateData(source);
   }

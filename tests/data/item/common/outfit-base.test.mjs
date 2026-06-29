@@ -54,10 +54,14 @@ describe("OutfitBaseTemplate.defineSchema()", () => {
     });
   });
 
-  describe("自由記述フィールド (フェーズ6-1) が正しい", () => {
-    it("exclusive は StringField で initial が空文字 (閲覧時に空欄は '-' 表示)", () => {
-      expect(schema.exclusive).toBeInstanceOf(MockStringField);
-      expect(schema.exclusive.options.initial).toBe("");
+  describe("exclusive (専用) が正しい (10-2: スタイル/組織辞典参照の配列化)", () => {
+    it("exclusive は ArrayField で要素は {type, key} の SchemaField (initial 空文字)", () => {
+      expect(schema.exclusive).toBeInstanceOf(MockArrayField);
+      expect(schema.exclusive.element).toBeInstanceOf(MockSchemaField);
+      expect(schema.exclusive.element.fields.type).toBeInstanceOf(MockStringField);
+      expect(schema.exclusive.element.fields.type.options.initial).toBe("");
+      expect(schema.exclusive.element.fields.key).toBeInstanceOf(MockStringField);
+      expect(schema.exclusive.element.fields.key.options.initial).toBe("");
     });
   });
 

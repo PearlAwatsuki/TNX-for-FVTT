@@ -117,3 +117,27 @@ export async function autoAcquireForStyleSkill(actor, styleSkillItem) {
   }
   if (toCreate.length) await actor.createEmbeddedDocuments("Item", toCreate);
 }
+
+/**
+ * 派生元アウトフィット（hasDerivedData）がアクターに作成された時、derivedDataRefs を全て複製生成し、
+ * 派生データ本体マーク（isDerivedData=true＝常備化経験点を消費しない）を付ける。
+ * 選択はせず全て自動生成する（派生データは親に内在＝ユーザーの選択対象でない。例: Tウェポンのタップ→武器）。
+ * @param {Actor} actor 取得先アクター
+ * @param {Item} outfitItem 作成された派生元アウトフィット
+ */
+export async function autoImportDerivedData(actor, outfitItem) {
+  const refs = Array.isArray(outfitItem?.system?.derivedDataRefs) ? outfitItem.system.derivedDataRefs : [];
+  if (!actor || !refs.length) return;
+  const toCreate = [];
+  for (const ref of refs) {
+    if (!ref?.uuid) continue;
+    const src = await fromUuid(ref.uuid);
+    if (!src) continue; // 解決できなければ静かにスキップ
+    const data = src.toObject();
+    delete data._id;
+    data.system = data.system ?? {};
+    data.system.isDerivedData = true; // 派生データ＝常備化経験点なし
+    toCreate.push(data);
+  }
+  if (toCreate.length) await actor.createEmbeddedDocuments("Item", toCreate);
+}

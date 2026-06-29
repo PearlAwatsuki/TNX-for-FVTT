@@ -2304,6 +2304,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         // 消費アイテムは preserveExp.value × 常備化個数(quantity.max)
         if (this.OUTFIT_TYPES.has(item.type)) {
             if (system.isCheckAcquired) return 0;
+            if (system.isDerivedData) return 0; // 派生データは派生元が経験点を負担するため二重計上しない
             if (system.preserveExp?.mode !== "value") return 0;
             const base = Number(system.preserveExp.value) || 0;
             return system.isConsumption ? base * (Number(system.quantity?.max) || 0) : base;

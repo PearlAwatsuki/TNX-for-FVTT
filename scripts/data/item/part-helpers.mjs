@@ -23,8 +23,9 @@ import {
  * 変異器官は 10-2 で新造。
  */
 export const PART_HOST_FEATURE_LABELS = Object.freeze({
-  isLaser: "レーザー武器",
-  isCyber: "サイバーウェア",
+  isLaser:       "レーザー武器",
+  isCyber:       "サイバーウェア",
+  isMutantOrgan: "変異器官",
 });
 
 /** 消費数の数字サフィックス(1 は無し、0/2/… は数字)。部位名の直後・絞り括弧の前に付く。 */

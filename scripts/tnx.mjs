@@ -49,7 +49,7 @@ import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
 import { CONDITION_KINDS, CONDITION_GROUP_LABELS, getConditionKinds, buildInflictedEffectsData, readConditions } from './module/conditions.mjs';
 import { registerDamageChartTextSetting } from './module/damage-chart-text-app.mjs';
 import { registerPartSlotPresetSetting, getPartSlotPreset, initializeDefaultPartSlotPreset } from './module/part-slot-preset-app.mjs';
-import { autoAcquireForStyleSkill } from './module/style-skill-acquisition.mjs';
+import { autoAcquireForStyleSkill, autoImportDerivedData } from './module/style-skill-acquisition.mjs';
 import { conditionNeedsDraw, postDrawPrompt, postControlNegatePrompt, bindConditionChatButtons } from './module/condition-resolution.mjs';
 
 async function preloadHandlebarsTemplates() {
@@ -1133,8 +1133,12 @@ Hooks.once("ready", async function() {
     // 多重生成を避けるため作成したユーザーのみ実行。トループ(autoAcquireActors)は保持のみ(本体生成は11)。
     Hooks.on('createItem', (item, options, userId) => {
         if (game.user.id !== userId) return;
-        if (item.type === "styleSkill" && item.parent?.documentName === "Actor") {
+        if (item.parent?.documentName !== "Actor") return;
+        if (item.type === "styleSkill") {
             autoAcquireForStyleSkill(item.parent, item);
+        } else if (item.system?.hasDerivedData === true) {
+            // 派生元アウトフィット: 派生データを自動生成(各々 isDerivedData=true＝経験点なし)
+            autoImportDerivedData(item.parent, item);
         }
     });
 
