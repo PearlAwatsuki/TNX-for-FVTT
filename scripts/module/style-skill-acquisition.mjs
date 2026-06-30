@@ -41,6 +41,63 @@ export function hasDuplicateStyleWeapon(newKey, existing) {
 }
 
 /**
+ * レベル自動参照(10-3)の解決。参照先の識別キーに一致する同アクター内スタイル技能のレベルを返す。
+ * 一致が無ければ null(呼び出し側は上書きしない＝この技能自身のレベルを保つ)。Foundry 非依存。
+ * @param {string} key 参照先の識別キー
+ * @param {Array<{identificationKey?:string, level?:number}>} siblings 同アクターの他スタイル技能(自分を除く)
+ * @returns {number|null} 参照先のレベル(数値)。未一致は null
+ */
+export function resolveLevelRef(key, siblings) {
+  const k = String(key ?? "").trim();
+  if (!k) return null;
+  const ref = (siblings ?? []).find((s) => s?.identificationKey === k);
+  return ref ? (Number(ref.level) || 0) : null;
+}
+
+/**
+ * スタイル技能を**スタイル単位でグループ化**し、各スタイル群の秘技/奥義の取得数(個数)と上限を付す
+ * (10-3・表示のみ・非強制)。秘技/奥義の取得数はキャラ全体でなく**スタイルごとに上限が決まる**
+ * (秘技＝スタイルレベル×2／奥義＝スタイルレベル)。取得数に含まない(excludeFromCount)・レベル自動参照
+ * (levelRefEnabled＝実体が同一技能)のブロックは二重計上を避けて除外する。
+ * スタイルに紐付かない技能(ワークス技能・style 未一致)は末尾「その他」群へ(上限なし)。Foundry 非依存。
+ * @param {Array<{id:string, style?:string, category?:string, excludeFromCount?:boolean, levelRefEnabled?:boolean}>} skills
+ * @param {Array<{key:string, name:string, level:number}>} styles アクターのスタイル(表示順)
+ * @returns {Array<{key:string, label:string, isStyle:boolean, secret:number, secretLimit:number, mystery:number, mysteryLimit:number, skillIds:string[]}>} 表示順のグループ
+ */
+export function groupStyleSkillsByStyle(skills, styles) {
+  const styleByKey = new Map();
+  (styles ?? []).forEach((s, idx) => { if (s?.key) styleByKey.set(s.key, { ...s, idx }); });
+
+  const groups = new Map();
+  const OTHER = "__other__";
+  const ensure = (key, label, sortIdx, isStyle, level) => {
+    if (!groups.has(key)) {
+      const lv = Math.max(0, Number(level) || 0);
+      groups.set(key, {
+        key, label, isStyle, sortIdx,
+        secret: 0, secretLimit: isStyle ? lv * 2 : 0,
+        mystery: 0, mysteryLimit: isStyle ? lv : 0,
+        skillIds: [],
+      });
+    }
+    return groups.get(key);
+  };
+
+  for (const sk of (skills ?? [])) {
+    const st = sk?.style ? styleByKey.get(sk.style) : null;
+    const g = st
+      ? ensure(`style:${st.key}`, st.name, st.idx, true, st.level)
+      : ensure(OTHER, "その他", Number.MAX_SAFE_INTEGER, false, 0);
+    g.skillIds.push(sk.id);
+    if (!sk?.excludeFromCount && !sk?.levelRefEnabled) {
+      if (sk?.category === "secret") g.secret++;
+      else if (sk?.category === "mystery") g.mystery++;
+    }
+  }
+  return [...groups.values()].sort((a, b) => a.sortIdx - b.sortIdx);
+}
+
+/**
  * 取得候補が複数のとき、取得する武器を**プルダウンで1つだけ**選ばせる（複数取得は不可）。
  * 取り消し/閉じるは -1（取得しない）。
  * @param {string} skillName スタイル技能名

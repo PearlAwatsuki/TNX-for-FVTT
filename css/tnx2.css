@@ -629,6 +629,29 @@
     font-weight: 400;
 }
 
+/* スタイル技能のスタイル別グループ見出し（スタイル名＋秘技/奥義の取得数バッジ・表示のみ）。 */
+.style-skill-group-header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 8px 0 2px;
+    padding-bottom: 2px;
+    border-bottom: 1px dashed var(--tnx2-border-active);
+}
+.style-skill-group-header .group-label {
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.82em;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--tnx2-text-accent);
+}
+.style-skill-group-header .style-skill-counts {
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.78em;
+    letter-spacing: 0.04em;
+    color: var(--tnx2-text-secondary);
+}
+
 .tnx-item-header {
     display: flex;
     align-items: center;
@@ -2804,6 +2827,12 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 /* ラベルを持たない行(ボタン単独など)は全幅にする */
 .tokyo-nova.sheet.item .tnx-form-field > .form-group > :only-child {
     grid-column: 1 / -1;
+}
+
+/* 技能シートのフィールドセット内トグル行: ラベル列を固定 130px でなく可変にして、
+   長いラベルの折返しとヘルプ(ⓘ)有無による行の不揃いを避ける。チェックは右端へ。 */
+.tokyo-nova.sheet.item.skill .tnx-form-field > .form-group:has(> input[type="checkbox"]) {
+    grid-template-columns: 1fr auto;
 }
 
 .array-row {

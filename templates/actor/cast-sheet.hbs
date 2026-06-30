@@ -382,8 +382,13 @@
                                         <div class="cell cell-confront">対決</div>
                                         <div class="cell cell-other"></div>
                                     </div>
+                                    {{#each styleSkillGroups as |group|}}
+                                    <div class="style-skill-group-header">
+                                        <span class="group-label">{{group.label}}</span>
+                                        {{#if group.isStyle}}<span class="style-skill-counts" title="このスタイルの秘技/奥義の取得数(表示のみ・上限は強制しません)">秘技 {{group.secret}}/{{group.secretLimit}}・奥義 {{group.mystery}}/{{group.mysteryLimit}}</span>{{/if}}
+                                    </div>
                                     <ol class="style-skills-list">
-                                        {{#each styleSkills as |item|}}
+                                        {{#each group.skills as |item|}}
                                             <li class="item style-skill-row" data-item-id="{{item._id}}">
                                                 <div class="style-skill-row-main style-skill-grid style-skill-grid--edit">
                                                     <div class="cell cell-name">
@@ -391,9 +396,9 @@
                                                     </div>
                                                     <div class="cell cell-level">
                                                         <div class="skill-level-container">
-                                                            <input type="number" class="skill-property-change" data-target="level" value="{{item.system.level}}" placeholder="Lv" />
+                                                            <input type="number" class="skill-property-change" data-target="level" value="{{item.system.level}}" placeholder="Lv" {{#if item.system.levelRef.enabled}}disabled title="参照先のレベルで自動設定されます"{{/if}} />
                                                             <div class="skill-suits-row">
-                                                                {{#each ../TNX.SUITS as |suitData key|}}
+                                                                {{#each ../../TNX.SUITS as |suitData key|}}
                                                                     <label class="suit-checkbox-tiny" title="{{suitData.label}}">
                                                                         <input type="checkbox" class="skill-property-change" data-target="suit" data-suit="{{key}}" {{checked (lookup item.system.suits key)}} />
                                                                         <i class="{{suitData.icon}}"></i>
@@ -438,6 +443,7 @@
                                             </li>
                                         {{/each}}
                                     </ol>
+                                    {{/each}}
                                 </div>
                             </div>
                         {{else}}
@@ -489,9 +495,14 @@
                                         <div class="cell cell-other"></div>
                                     </div>
 
-                                    {{!-- リスト本体 --}}
+                                    {{!-- リスト本体（スタイルごとにグループ化・各群の小見出しに取得数） --}}
+                                    {{#each styleSkillGroups as |group|}}
+                                    <div class="style-skill-group-header">
+                                        <span class="group-label">{{group.label}}</span>
+                                        {{#if group.isStyle}}<span class="style-skill-counts" title="このスタイルの秘技/奥義の取得数(表示のみ・上限は強制しません)">秘技 {{group.secret}}/{{group.secretLimit}}・奥義 {{group.mystery}}/{{group.mysteryLimit}}</span>{{/if}}
+                                    </div>
                                     <ol class="style-skills-list">
-                                        {{#each styleSkills as |item|}}
+                                        {{#each group.skills as |item|}}
                                             <li class="item style-skill-row" data-item-id="{{item._id}}">
                                                 <div class="style-skill-row-main style-skill-grid">
                                                     {{!-- 名称 --}}
@@ -549,6 +560,7 @@
                                             </li>
                                         {{/each}}
                                     </ol>
+                                    {{/each}}
                                 </div>
                             </div>
                         {{/if}}

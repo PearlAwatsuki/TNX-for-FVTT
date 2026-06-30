@@ -11,6 +11,7 @@ import { getPartSlotPreset, PartSlotPresetApp } from '../module/part-slot-preset
 import { TnxJudgmentFlow } from '../module/tnx-judgment-flow.mjs';
 import { getComboSuits, ALL_SUITS } from '../module/tnx-judgment-engine.mjs';
 import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
+import { groupStyleSkillsByStyle } from '../module/style-skill-acquisition.mjs';
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -644,6 +645,29 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
                 item.view = TnxSkillUtils.prepareStyleSkillView(item.system, skillOptions, comboSkillNames);
             }
         });
+
+        // スタイル技能をスタイル単位でグループ化し、各群に秘技/奥義の取得数＋上限を付す
+        // (秘技=スタイルレベル×2／奥義=スタイルレベル・表示のみ非強制)。除外・レベル自動参照は数えない。
+        // スタイル未一致(ワークス技能等)は末尾「その他」群へ。グループ見出しに数を出すことで
+        // 取得数を該当技能の直上・スタイル単位で示す(全体合算でなく、見出し1か所に集約もしない)。
+        const styleDescriptors = this.actor.items
+            .filter(i => i.type === 'style')
+            .map(s => ({ key: s.system.identificationKey, name: s.name, level: s.system.level }));
+        const groups = groupStyleSkillsByStyle(
+            context.styleSkills.map(i => ({
+                id:               i.id,
+                style:            i.system.style,
+                category:         i.system.styleSkillCategory,
+                excludeFromCount: i.system.excludeFromCount,
+                levelRefEnabled:  i.system.levelRef?.enabled,
+            })),
+            styleDescriptors,
+        );
+        const byId = new Map(context.styleSkills.map(i => [i.id, i]));
+        context.styleSkillGroups = groups.map(g => ({
+            ...g,
+            skills: g.skillIds.map(id => byId.get(id)).filter(Boolean),
+        }));
     }
 
     _prepareMiraclesForDisplay(miracles) {
@@ -1564,6 +1588,16 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         if (!item) return;
 
         const target = input.dataset.target;
+
+        // レベル自動参照中のスタイル技能はレベルが派生上書きされる(実体は同一技能の別ブロック)。
+        // スートは手動だがレベル・経験点には触れない(レベルは参照先で確定・二重計上しない)。
+        if (item.type === 'styleSkill' && item.system.levelRef?.enabled) {
+            if (target === "suit") {
+                await item.update({ [`system.suits.${input.dataset.suit}`]: input.checked });
+            }
+            return; // level 入力は無効化済み
+        }
+
         let newLevel  = item.system.level;
         const updateData = {};
 
@@ -1615,6 +1649,8 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             return 10;
         }
         if (item.type === 'styleSkill') {
+            // 経験点消費なし・レベル自動参照はレベル変更でも経験点を増減しない
+            if (system.expFree || system.levelRef?.enabled) return 0;
             const styleCategory = system.styleSkillCategory;
             if (styleCategory === 'special')     return system.special?.expCost     || 10;
             if (styleCategory === 'performance') return system.performance?.expCost || 2;
@@ -2287,6 +2323,8 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         }
 
         if (item.type === 'styleSkill') {
+            // 経験点消費なし(自動習得等)・レベル自動参照(実体が同一技能の別ブロック)は計上しない
+            if (system.expFree || system.levelRef?.enabled) return 0;
             if (level <= 0) return 0;
             const sCat = system.styleSkillCategory;
             if (sCat === 'secret')  return level * 20;

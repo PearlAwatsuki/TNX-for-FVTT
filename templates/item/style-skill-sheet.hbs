@@ -25,7 +25,7 @@
 
         <div class="level-display">
             <label for="system.level">レベル</label>
-            <input type="number" name="system.level" value="{{system.level}}">
+            <input type="number" name="system.level" value="{{system.level}}" {{#if system.levelRef.enabled}}disabled title="参照先のスタイル技能のレベルで自動設定されます"{{/if}}>
         </div>
     </header>
 
@@ -99,8 +99,9 @@
                     <label>組み合わせ不可 <i class="fas fa-circle-question" title="この技能を使う組み合わせ判定はできない（単独判定のみ）。用途で組み合わせ技能を追加できなくなる"></i></label>
                     <input type="checkbox" name="system.noCombo" {{checked system.noCombo}}>
                 </div>
+                {{!-- 分類: 技能の種別・スタイル・上限 --}}
                 <fieldset class="tnx-fieldset">
-                    <legend>スタイル技能 詳細設定</legend>
+                    <legend>分類</legend>
                     <div class="tnx-form-field">
                         <div class="form-group">
                             <label>種別</label>
@@ -146,7 +147,13 @@
                                 {{/if}}
                             </div>
                         </div>
+                    </div>
+                </fieldset>
 
+                {{!-- 発動: 用途の発動パラメータ --}}
+                <fieldset class="tnx-fieldset">
+                    <legend>発動</legend>
+                    <div class="tnx-form-field">
                         {{!-- タイミング (Timing) --}}
                         <div class="form-group align-start">
                             <label>タイミング</label>
@@ -280,8 +287,14 @@
                                 </div>
                             </div>
                         {{/if}}
+                    </div>
+                </fieldset>
 
-                        {{#if (eq system.styleSkillCategory "special")}}
+                {{!-- 特技専用: 特技(special)でのみ使う設定 --}}
+                {{#if (eq system.styleSkillCategory "special")}}
+                <fieldset class="tnx-fieldset">
+                    <legend>特技専用</legend>
+                    <div class="tnx-form-field">
                             <div class="form-group">
                                 <label for="isWorks-{{item._id}}">ワークス技能</label>
                                 <input type="checkbox" name="system.special.works.value" id="isWorks-{{item._id}}" {{checked system.special.works.value}}>
@@ -340,12 +353,48 @@
                                     </div>
                                 </div>
                             {{/if}}
-                        {{/if}}
+                    </div>
+                </fieldset>
+                {{/if}}
 
+                {{!-- 取得・経験点: 取得方法・経験点まわり --}}
+                <fieldset class="tnx-fieldset">
+                    <legend>取得・経験点</legend>
+                    <div class="tnx-form-field">
                         <div class="form-group">
                             <label>取得と同時にアウトフィットを取得する</label>
                             <input type="checkbox" name="system.acquiresOutfit" {{checked system.acquiresOutfit}}>
                         </div>
+
+                        {{!-- 取得・経験点 (10-3) --}}
+                        <div class="form-group">
+                            <label>経験点消費なしで取得可 <i class="fas fa-circle-question" title="自動習得(クロガネのフォルム等)・2技能セットの相方など、経験点を消費せず取得する技能。経験点の集計から除外する"></i></label>
+                            <input type="checkbox" name="system.expFree" {{checked system.expFree}}>
+                        </div>
+
+                        {{#if (or (eq system.styleSkillCategory "secret") (eq system.styleSkillCategory "mystery"))}}
+                        <div class="form-group">
+                            <label>{{#if (eq system.styleSkillCategory "secret")}}秘技{{else}}奥義{{/if}}の取得数に含まない <i class="fas fa-circle-question" title="特殊な取得条件の技能を取得数の表示カウントから除外する(表示のみ・上限は強制しない)"></i></label>
+                            <input type="checkbox" name="system.excludeFromCount" {{checked system.excludeFromCount}}>
+                        </div>
+                        {{/if}}
+
+                        <div class="form-group">
+                            <label>他スタイル技能のレベルを参照 <i class="fas fa-circle-question" title="模造技能・血脈〈魔性〉など。指定した技能のレベルでこの技能のレベル欄を上書きする(判定は通常通りそのレベルを読む)。スートは手動で選択。経験点・取得数には二重計上しない"></i></label>
+                            <input type="checkbox" name="system.levelRef.enabled" {{checked system.levelRef.enabled}}>
+                        </div>
+                        {{#if system.levelRef.enabled}}
+                        <div class="form-group">
+                            <label>参照先の技能</label>
+                            {{#if isOnActor}}
+                                <select name="system.levelRef.key">
+                                    {{selectOptions levelRefChoices selected=system.levelRef.key}}
+                                </select>
+                            {{else}}
+                                <input type="text" name="system.levelRef.key" value="{{system.levelRef.key}}" placeholder="参照先の識別キーを入力"/>
+                            {{/if}}
+                        </div>
+                        {{/if}}
                     </div>
                 </fieldset>
 

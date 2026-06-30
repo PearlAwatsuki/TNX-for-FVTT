@@ -86,6 +86,20 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
         context.autoAcquireActors = await TokyoNovaStyleSkillSheet._resolveAcquireRefs(system.autoAcquireActors);
         // 自動取得セクションは「アウトフィット取得」ON か 特別なスタイル技能=トループ取得技能 のときのみ表示
         context.showAutoAcquire = !!system.acquiresOutfit || system.unique === "troopAcquire";
+
+        // レベル自動参照(10-3): アクター上では参照先を同型スタイル技能のドロップダウンで選ぶ
+        // (入力欄→プルダウン)。識別キーを値に持ち、既存キーがあれば selected で自動選択される。
+        // 辞典/ワールド直下(アクター外)では識別キーの自由入力。
+        context.isOnActor = this.item.parent?.documentName === "Actor";
+        if (context.isOnActor) {
+            const choices = { "": "—" };
+            for (const i of this.item.parent.items) {
+                if (i.type === "styleSkill" && i.id !== this.item.id && i.system?.identificationKey) {
+                    choices[i.system.identificationKey] = i.name;
+                }
+            }
+            context.levelRefChoices = choices;
+        }
         return context;
     }
 

@@ -43,6 +43,7 @@ import { BaseTemplate } from "./common/base.mjs";
 import { UsageTemplate } from "./common/usage.mjs";
 import { SkillBaseTemplate } from "./common/skill-base.mjs";
 import { migrateUsesValueToSpent } from "./helpers.mjs";
+import { resolveLevelRef } from "../../module/style-skill-acquisition.mjs";
 
 export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, UsageTemplate, SkillBaseTemplate) {
   /** @override */
@@ -165,6 +166,25 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
       // 取得武器の使用義務(true=この武器で判定しなければならない / false=取得のみ・使用は任意)
       weaponUseMandatory: new fields.BooleanField({ initial: false }),
 
+      // 経験点消費なしで取得可(10-3): 自動習得(クロガネのフォルム等)・2技能セットの相方自動習得用。
+      // EXP 集計・レベル変更コストを 0 にする(取得・成長に経験点を消費しない)。
+      expFree: new fields.BooleanField({ initial: false }),
+
+      // 取得数カウントから除外(10-3): 秘技/奥義の取得数表示(表示のみ・非強制)から外す。
+      // 特殊な取得条件・取得方法の技能用。種別(secret/mystery)に応じて表示ラベルを出し分ける。
+      excludeFromCount: new fields.BooleanField({ initial: false }),
+
+      // 他スタイル技能レベルの自動参照(10-3): 模造技能・血脈〈魔性〉など、便宜上の別ブロックで
+      //   実体は1技能(パラメータ・効果が2組)。enabled 時、key(識別キー)の同アクター内スタイル技能の
+      //   レベルでこの技能のレベルを**派生上書き**する(prepareDerivedData)。判定は通常通り上書き後の
+      //   レベルを読むだけ(判定フローは関与しない)。スートは手動。
+      //   - dict/ワールド直下: key は識別キー文字列(入力欄)。アクター上: ドロップダウンで選択。
+      //   - 二重計上しない: 経験点コスト・取得数カウントから除外する(cast シート側)。
+      levelRef: new fields.SchemaField({
+        enabled: new fields.BooleanField({ initial: false }),
+        key:     new fields.StringField({ initial: "" }),
+      }),
+
       // スキルカテゴリ別経験点コスト
       special: new fields.SchemaField({
         expCost: new fields.NumberField({ initial: 10 }),
@@ -192,5 +212,27 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
   static migrateData(source) {
     migrateUsesValueToSpent(source);
     return super.migrateData(source);
+  }
+
+  /**
+   * @override
+   * SkillBaseTemplate が levelTotal=level を確定した後、レベル自動参照(10-3)を適用する。
+   * levelRef.enabled のとき、同アクター内の参照先スタイル技能(識別キー一致)のレベルで
+   * この技能の level / levelTotal を上書きする(派生・source 不変)。判定はこの確定値を読むだけ。
+   * 参照先が見つからない・アクター外(辞典/直下)では何もしない(指定のみ保持)。
+   */
+  prepareDerivedData() {
+    super.prepareDerivedData?.();
+    if (!this.levelRef?.enabled || !this.levelRef.key) return;
+    const item  = this.parent;
+    const actor = item?.actor;
+    if (!actor) return;
+    const siblings = actor.items
+      .filter(i => i.type === "styleSkill" && i.id !== item.id)
+      .map(i => ({ identificationKey: i.system?.identificationKey, level: i.system?.level }));
+    const refLevel = resolveLevelRef(this.levelRef.key, siblings);
+    if (refLevel === null) return;
+    this.level      = refLevel;
+    this.levelTotal = refLevel;
   }
 }

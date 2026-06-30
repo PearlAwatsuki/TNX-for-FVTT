@@ -137,6 +137,29 @@ describe("StyleSkillDataModel.defineSchema()", () => {
       expect(schema.acquiresOutfit).toBeInstanceOf(MockBooleanField);
       expect(schema.acquiresOutfit.options.initial).toBe(false);
     });
+
+    for (const key of ["expFree", "excludeFromCount"]) {
+      it(`${key} は BooleanField で initial が false (10-3 取得・経験点)`, () => {
+        expect(schema[key]).toBeInstanceOf(MockBooleanField);
+        expect(schema[key].options.initial).toBe(false);
+      });
+    }
+  });
+
+  describe("レベル自動参照フィールド(フェーズ10-3)", () => {
+    it("levelRef は SchemaField で存在する", () => {
+      expect(schema.levelRef).toBeInstanceOf(MockSchemaField);
+    });
+
+    it("levelRef.enabled は BooleanField で initial が false", () => {
+      expect(schema.levelRef.fields.enabled).toBeInstanceOf(MockBooleanField);
+      expect(schema.levelRef.fields.enabled.options.initial).toBe(false);
+    });
+
+    it("levelRef.key は StringField で initial が ''", () => {
+      expect(schema.levelRef.fields.key).toBeInstanceOf(MockStringField);
+      expect(schema.levelRef.fields.key.options.initial).toBe("");
+    });
   });
 
   describe("自動取得フィールド(フェーズ10-2)", () => {
