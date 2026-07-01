@@ -5,7 +5,6 @@ export class TokyoNovaStyleSheet extends TokyoNovaItemSheet {
     static DEFAULT_OPTIONS = {
         classes: ["tokyo-nova", "sheet", "item", "style"],
         position: { width: 600, height: 600 },
-        dragDrop: [{ dragSelector: null, dropSelector: ".tnx-import-box" }],
         actions: {
             openLinkedSheet:       TokyoNovaStyleSheet._onOpenLinkedSheet,
             createAndLinkMiracle:  TokyoNovaStyleSheet._onCreateAndLinkMiracle,
@@ -68,6 +67,16 @@ export class TokyoNovaStyleSheet extends TokyoNovaItemSheet {
                 ui.notifications.info("神業とのリンクを解除しました。");
             },
         }], { jQuery: false, fixed: true });
+
+        // 神業のドロップ配線。ApplicationV2 は DEFAULT_OPTIONS.dragDrop を自動処理しないため、
+        // アウトフィットシートと同方式で手動で束ねる（ドロップは _onDrop がリンク処理）。
+        if (this.element.querySelector(".tnx-import-box--dropzone")) {
+            new foundry.applications.ux.DragDrop.implementation({
+                dropSelector: ".tnx-import-box--dropzone",
+                permissions: { drop: () => this.isEditable },
+                callbacks: { drop: this._onDrop.bind(this) },
+            }).bind(this.element);
+        }
     }
 
     // ─── アクションハンドラ ────────────────────────────────────────────────────

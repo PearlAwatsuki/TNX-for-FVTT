@@ -12,7 +12,6 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
     static DEFAULT_OPTIONS = {
         classes: ["tokyo-nova", "sheet", "journal", "scenario", "two-column-layout"],
         position: { width: 800, height: 700 },
-        dragDrop: [{ dragSelector: null, dropSelector: ".tnx-import-box--dropzone" }],
         actions: {
             openDocument:      TnxScenarioSheet._onOpenDocument,
             launchWizard:      TnxScenarioSheet._onLaunchWizard,
@@ -109,6 +108,15 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
     _onRender(_context, _options) {
         this._setupContextMenus();
         this._setupChangeListeners();
+        // カード(デッキ/山)のドロップ配線。ApplicationV2 は DEFAULT_OPTIONS.dragDrop を自動処理しないため
+        // 手動で束ねる（アウトフィット/スタイルシートと同方式。ドロップは _onDrop がリンク処理）。
+        if (this.element.querySelector(".tnx-import-box--dropzone")) {
+            new foundry.applications.ux.DragDrop.implementation({
+                dropSelector: ".tnx-import-box--dropzone",
+                permissions: { drop: () => this.isEditable },
+                callbacks: { drop: this._onDrop.bind(this) },
+            }).bind(this.element);
+        }
         for (const [group, tab] of Object.entries(this.tabGroups)) {
             if (tab) this.changeTab(tab, group, { force: true });
         }
