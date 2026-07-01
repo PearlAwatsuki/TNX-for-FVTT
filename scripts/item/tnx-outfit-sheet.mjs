@@ -530,9 +530,20 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
     async _housingAreaChoices() {
         const pack = game.packs.get(HOUSING_AREA_PACK);
         if (!pack) return {};
-        const index = await pack.getIndex();
+        // エリア(セキュリティ・ランク)順に並べる。ランクを参照するため index に system.area を含める。
+        // 順番: レッド→イエロー→グリーン→ホワイト→サンクチュアリ→なし。
+        // 「なし」は治安が悪いのでなく、セキュリティの概念の外(たどり着けない/認識されない)エリアのため
+        // 別枠として最下部に置く。
+        // 同ランク内は辞典内の元順を保つ(Array.sort は安定ソート＝名前ではなく辞典順を維持)。
+        const index = await pack.getIndex({ fields: ["system.area"] });
+        const rankOrder = [...Object.keys(HOUSING_AREA_RANKS).filter((k) => k !== "none"), "none"];
+        const rankIdx = (e) => {
+            const i = rankOrder.indexOf(e.system?.area ?? "none");
+            return i < 0 ? rankOrder.length - 1 : i; // 該当なしは「なし」扱い(最下部)
+        };
+        const entries = [...index].sort((a, b) => rankIdx(a) - rankIdx(b));
         const choices = {};
-        for (const entry of index) choices[entry.uuid] = entry.name;
+        for (const entry of entries) choices[entry.uuid] = entry.name;
         return choices;
     }
 
@@ -758,7 +769,8 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 { flag: "isPre-play",  icon: "fa-cart-shopping",  title: "プレアクト購入" },
                 { flag: "isCarrying",  icon: "fa-suitcase",       title: "携帯中" },
                 { flag: "isPrepared",  icon: "fa-shield-halved",  title: "準備済み" },
-            ];
+            // 住宅施設は携帯しない(キャストシート同様に携帯トグルを出さない)
+            ].filter(t => !(t.flag === "isCarrying" && this.item.type === "residence"));
             const noPreserveExp = this.item.system.preserveExp?.mode !== "value";
             for (const t of toggles) {
                 const a = document.createElement("a");

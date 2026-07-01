@@ -5862,7 +5862,8 @@ button.tnx-create-act-button span {
     vertical-align: middle;
 }
 /* オプションの占有スロット種別タグ(情報量)。色は下記の種別ごと --c */
-.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-tag {
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-tag,
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-area-badge {
     --c: var(--tnx2-accent, #6fb3d2);
     margin-left: 10px;
     padding: 1px 7px;
@@ -5901,6 +5902,26 @@ button.tnx-create-act-button span {
 .tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--unconscious,
 .tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-tag--unconscious {
     --c: #3b26f5; /* 無意識=藍/紺(明度up) */
+}
+
+/* 住宅エリアのセキュリティ・ランクバッジ(10-4)。ランク名の色で色分け・なしはミュート。 */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-area-badge--red {
+    --c: #ff5a5a;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-area-badge--yellow {
+    --c: #ffe24d; /* イエロー=明るいレモン色 */
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-area-badge--green {
+    --c: #46d160;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-area-badge--white {
+    --c: #d8e2ec;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-area-badge--sanctuary {
+    --c: #e6b422; /* サンクチュアリ=特別格(メタリックゴールド・イエローと差別化) */
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-area-badge--none {
+    --c: var(--tnx2-text-secondary, #7a90a8);
 }
 
 /* 行本体(flex行) */
@@ -6864,6 +6885,20 @@ button.tnx-create-act-button span {
 }
 .tnx-part-slot-preset .tnx-psp-row:last-child {
     border-bottom: none;
+}
+/* 並び替え用グリップ(ドラッグハンドル)。専用グリップのみ draggable=true。 */
+.tnx-part-slot-preset .tnx-psp-grip {
+    flex: 0 0 auto;
+    cursor: grab;
+    color: var(--tnx2-text-muted, #4a5e72);
+    padding: 0 2px;
+    user-select: none;
+}
+.tnx-part-slot-preset .tnx-psp-grip:active {
+    cursor: grabbing;
+}
+.tnx-part-slot-preset .tnx-psp-row.dragging {
+    opacity: 0.5;
 }
 .tnx-part-slot-preset .tnx-psp-name {
     flex: 1 1 5rem;

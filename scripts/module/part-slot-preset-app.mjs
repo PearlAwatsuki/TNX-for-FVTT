@@ -45,8 +45,8 @@ export const DEFAULT_PART_SLOT_PRESET = Object.freeze((() => {
     s("片脚", 2), a("両脚", "片脚", 2), s("脚"), s("脚部"), s("靴"),
     // 全身・組織
     s("全身"), s("皮膚"), s("肌"), s("筋肉"), s("骨格"), s("細胞"), s("全身の細胞"), s("生身"), s("義体"),
-    // 装着(装着先が不定: 衣類・携帯・装飾・外付け)
-    s("アンダーウェア"), s("スーツ"), s("コート"), s("アーマー"), s("鞄"), s("装飾品"), s("護符"), s("結界"), s("操縦"),
+    // 装着(装着先が不定: 衣類・携帯・装飾・外付け)。住宅もここ(外付け系と同じ扱い)。
+    s("アンダーウェア"), s("スーツ"), s("コート"), s("アーマー"), s("鞄"), s("装飾品"), s("護符"), s("結界"), s("操縦"), s("住宅"),
     // 内的(心・電脳・霊)
     s("電脳"), s("精神"), s("魂"), s("血統"),
     // スコープ(最も非局所)
@@ -143,11 +143,42 @@ export class PartSlotPresetApp extends HandlebarsApplicationMixin(ApplicationV2)
     return { rows: this._rows };
   }
 
-  /** @override — エイリアスチェック切替で対象欄の表示を更新する。 */
+  /** @override — エイリアスチェック切替で対象欄の表示を更新する＋行のドラッグ並び替え。 */
   _onRender(context, options) {
     super._onRender?.(context, options);
     for (const cb of this.element.querySelectorAll('[data-field="occupiesOther"]')) {
       cb.addEventListener("change", () => { this._harvest(); this.render(); });
+    }
+    this._setupRowDrag();
+  }
+
+  /**
+   * 行の手動並び替え(グリップのドラッグ＆ドロップ)。専用グリップのみ draggable にして
+   * テキスト入力の選択を奪わない。ドロップ時に未保存の編集値を _harvest で保ってから並べ替える。
+   */
+  _setupRowDrag() {
+    for (const row of this.element.querySelectorAll(".tnx-psp-row")) {
+      const grip = row.querySelector(".tnx-psp-grip");
+      grip?.addEventListener("dragstart", (event) => {
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", row.dataset.index ?? "");
+        row.classList.add("dragging");
+      });
+      grip?.addEventListener("dragend", () => row.classList.remove("dragging"));
+      row.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+      });
+      row.addEventListener("drop", (event) => {
+        event.preventDefault();
+        const from = Number(event.dataTransfer.getData("text/plain"));
+        const to = Number(row.dataset.index);
+        if (!Number.isInteger(from) || !Number.isInteger(to) || from === to) return;
+        this._harvest(); // 未保存の編集値を作業配列へ取り込んでから並べ替える
+        const [moved] = this._rows.splice(from, 1);
+        this._rows.splice(to, 0, moved);
+        this.render();
+      });
     }
   }
 

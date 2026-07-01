@@ -17,11 +17,11 @@ describe("HousingAreaDataModel.defineSchema()", () => {
   });
 
   describe("area (セキュリティ・ランク、フェーズ6-4) が正しい", () => {
-    it("area は choices 付き StringField で initial が none、5 種", () => {
+    it("area は choices 付き StringField で initial が none、6 種（イエローはレッドの上・グリーンの下）", () => {
       expect(schema.area).toBeInstanceOf(MockStringField);
       expect(schema.area.options.initial).toBe("none");
       expect(Object.keys(schema.area.options.choices)).toEqual(
-        ["none", "red", "green", "white", "sanctuary"]
+        ["none", "red", "yellow", "green", "white", "sanctuary"]
       );
     });
   });

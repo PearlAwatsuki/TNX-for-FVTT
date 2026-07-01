@@ -9,7 +9,7 @@
  *
  * 住宅エリアは厳密にはアウトフィットではなく、住宅施設(residence)に対する修正値の集合
  * (2026-06-13 ユーザー確定)。住宅施設は取得時に必ず住宅エリアと組み合わせる(組み合わせは自由)。
- * - area(エリア): 住宅エリアが属するセキュリティ・ランク。なし/レッド/グリーン/ホワイト/サンクチュアリ。
+ * - area(エリア): 住宅エリアが属するセキュリティ・ランク。なし/レッド/イエロー/グリーン/ホワイト/サンクチュアリ。
  * - 各 *Mod は住宅施設の対応する値への修正値:
  *   buyRatingMod(購入値)/ preserveExpMod(常備化経験点)/
  *   appearanceTargetMod(登場判定目標値)/ cyberSecurityMod(電脳セキュリティ)/
@@ -27,6 +27,7 @@ import { BaseTemplate } from "./common/base.mjs";
 export const HOUSING_AREA_RANKS = Object.freeze({
   none:       "なし",
   red:        "レッド",
+  yellow:     "イエロー",
   green:      "グリーン",
   white:      "ホワイト",
   sanctuary:  "サンクチュアリ",

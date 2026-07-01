@@ -12,6 +12,7 @@ import { TnxJudgmentFlow } from '../module/tnx-judgment-flow.mjs';
 import { getComboSuits, ALL_SUITS } from '../module/tnx-judgment-engine.mjs';
 import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
 import { groupStyleSkillsByStyle } from '../module/style-skill-acquisition.mjs';
+import { HOUSING_AREA_RANKS } from '../data/item/housing-area.mjs';
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -81,9 +82,6 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     static OUTFIT_TYPES = new Set([
         "weapon", "armor", "cyborg", "ianus", "tron", "tap", "vehicle", "residence", "combiner", "general",
     ]);
-
-    /** 住宅エリア compendium pack ID */
-    static HOUSING_AREA_PACK = "tokyo-nova-axleration.housing-areas";
 
     /** 大分類ごとの表示設定（表示ラベル・列定義）。アイテム/サービスは「その他」にまとめる。 */
     static OUTFIT_GROUP_CONFIG = [
@@ -1299,16 +1297,18 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             }
         }
 
-        // 住宅エリアの有効値解決
+        // 住宅エリアの有効値解決＋エリア（セキュリティ・ランク）のバッジ表示用ラベル(10-4)
         let effectiveValues = null;
+        let housingAreaRank = null;
         if (item.type === "residence") {
-            const mods = await this._resolveHousingAreaMods(sys);
+            const mods = await TokyoNovaCastSheet._resolveHousingAreaMods(sys);
             if (mods) {
                 effectiveValues = {
                     appearanceTarget: (sys.appearanceTarget ?? 0) + mods.appearanceTargetMod,
                     cyberSecurity:    (sys.cyberSecurity    ?? 0) + mods.cyberSecurityMod,
                     analogSecurity:   (sys.analogSecurity   ?? 0) + mods.analogSecurityMod,
                 };
+                housingAreaRank = { key: mods.area, label: HOUSING_AREA_RANKS[mods.area] ?? mods.area };
             }
         }
 
@@ -1330,6 +1330,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             system: sys,
             isOption,
             isResidence: item.system.majorCategory === "housing",
+            housingAreaRank,
             hasOptions: optionsByParent.has(item.id),
             colValues,
             description: sys.description ?? "",
@@ -1502,16 +1503,20 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     }
 
     /** 住宅施設に紐づく住宅エリアの修正値を解決する。 */
-    async _resolveHousingAreaMods(sys) {
+    static async _resolveHousingAreaMods(sys) {
         const ref = sys.housingArea;
         if (!ref) return null;
         try {
-            const areaItem = sys.useHousingAreaDrop
-                ? await fromUuid(ref)
-                : await game.packs.get(TokyoNovaCastSheet.HOUSING_AREA_PACK)?.getDocument(ref);
-            if (!areaItem) return null;
+            // housingArea は辞典選択・ドロップのいずれも UUID を格納する（辞典は entry.uuid、
+            // ドロップは dropped.uuid）。住宅施設シートと同じく fromUuid で解決する。
+            // 旧実装は非ドロップ時に pack.getDocument(UUID) を呼んでいたが、getDocument は素の _id を
+            // 要求するため UUID では解決できず、辞典選択のエリアが供給値・バッジともに出なかった
+            // （useHousingAreaDrop は入力 UI のモード切替であり、保存形式は区別しない）。
+            const areaItem = await fromUuid(ref);
+            if (!areaItem || areaItem.type !== "housingArea") return null;
             const s = areaItem.system;
             return {
+                area:                s.area               ?? "none",
                 buyRatingMod:        s.buyRatingMod        ?? 0,
                 preserveExpMod:      s.preserveExpMod      ?? 0,
                 appearanceTargetMod: s.appearanceTargetMod ?? 0,
@@ -2266,7 +2271,19 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         }
 
         let totalItemCost = 0;
-        actor.items.forEach(item => { totalItemCost += this._calcSingleItemCost(item); });
+        for (const item of actor.items) {
+            let cost = this._calcSingleItemCost(item);
+            // 住宅施設は常備化経験点に住宅エリアの修正(preserveExpMod)を加味する(実効値=基本+エリア修正、0未満は0)。
+            // _calcSingleItemCost が計上する条件(購入判定でない/派生でない/preserveExp=value)のときだけ加味。
+            if (item.type === "residence"
+                    && !item.system.isCheckAcquired
+                    && !item.system.isDerivedData
+                    && item.system.preserveExp?.mode === "value") {
+                const mods = await this._resolveHousingAreaMods(item.system);
+                if (mods) cost = Math.max(0, cost + (Number(mods.preserveExpMod) || 0));
+            }
+            totalItemCost += cost;
+        }
 
         const realSpent  = totalAbilityCost + totalItemCost;
         const initialExp = 170;

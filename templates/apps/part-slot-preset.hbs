@@ -7,7 +7,8 @@
 
   <div class="tnx-psp-rows">
     {{#each rows as |row i|}}
-    <div class="tnx-psp-row" data-row>
+    <div class="tnx-psp-row" data-row data-index="{{i}}">
+      <span class="tnx-psp-grip" draggable="true" title="ドラッグで並び替え"><i class="fas fa-grip-vertical"></i></span>
       <input type="text" name="rows.{{i}}.value" data-field="value" value="{{row.value}}" placeholder="部位名（例: 片手持ち）" class="tnx-psp-name" />
 
       {{#unless row.occupiesOther}}
