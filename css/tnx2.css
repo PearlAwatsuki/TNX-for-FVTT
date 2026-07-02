@@ -3820,20 +3820,20 @@ body.tnx-bottom-hud-expanded #hotbar {
     cursor: default;
 }
 
-/* ── 判定待機 (judgment-pending) ─────────────────────────────────── */
+/* ── 判定待機 (check-pending) ─────────────────────────────────── */
 
-.tnx-hud .hand-area.judgment-pending {
+.tnx-hud .hand-area.check-pending {
     outline: 2px dashed rgba(255, 215, 0, 0.55);
     outline-offset: 4px;
     border-radius: 4px;
 }
 
 /* 有効スートのカードをゴールドグローで強調 */
-.tnx-hud .hand-area.judgment-pending .card-in-hand.judgment-valid {
+.tnx-hud .hand-area.check-pending .card-in-hand.check-valid {
     box-shadow: 0 0 10px 3px rgba(255, 215, 0, 0.75);
 }
 
-.tnx-hud .hand-area.judgment-pending .card-in-hand.judgment-valid:hover {
+.tnx-hud .hand-area.check-pending .card-in-hand.check-valid:hover {
     transform: translateY(-14px) scale(1.1);
     box-shadow:
         0 0 14px 4px rgba(255, 215, 0, 0.9),
@@ -3841,14 +3841,14 @@ body.tnx-bottom-hud-expanded #hotbar {
 }
 
 /* 切り札モード: 全カードをオレンジグローに切り替え */
-.tnx-hud .hand-area.judgment-pending.trump-mode .card-in-hand {
+.tnx-hud .hand-area.check-pending.trump-mode .card-in-hand {
     opacity: 1;
     filter: none;
     pointer-events: auto;
     box-shadow: 0 0 10px 3px rgba(255, 140, 0, 0.7);
 }
 
-.tnx-hud .hand-area.judgment-pending.trump-mode .card-in-hand:hover {
+.tnx-hud .hand-area.check-pending.trump-mode .card-in-hand:hover {
     transform: translateY(-14px) scale(1.1);
     box-shadow:
         0 0 14px 4px rgba(255, 140, 0, 0.9),
@@ -3857,11 +3857,11 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 /* ── 判定トリガー要素 ─────────────────────────────────────────────── */
 
-.judgment-trigger {
+.check-trigger {
     cursor: pointer;
 }
 
-.judgment-trigger:hover {
+.check-trigger:hover {
     opacity: 0.75;
 }
 
@@ -3883,14 +3883,14 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 /* スロット内のカードはスロットが transform するため個別 transform をキャンセル */
 .tnx-hud .hand-area .card-hand-slot:hover .card-in-hand,
-.tnx-hud .hand-area.judgment-pending .card-hand-slot.judgment-valid:hover .card-in-hand,
-.tnx-hud .hand-area.judgment-pending.trump-mode .card-hand-slot:hover .card-in-hand {
+.tnx-hud .hand-area.check-pending .card-hand-slot.check-valid:hover .card-in-hand,
+.tnx-hud .hand-area.check-pending.trump-mode .card-hand-slot:hover .card-in-hand {
     transform: none;
 }
 
 /* 判定有効カード・切り札モード: より強い浮き上がり */
-.tnx-hud .hand-area.judgment-pending .card-hand-slot.judgment-valid:hover,
-.tnx-hud .hand-area.judgment-pending.trump-mode .card-hand-slot:hover {
+.tnx-hud .hand-area.check-pending .card-hand-slot.check-valid:hover,
+.tnx-hud .hand-area.check-pending.trump-mode .card-hand-slot:hover {
     transform: translateY(-14px) scale(1.1);
 }
 
@@ -3928,7 +3928,7 @@ body.tnx-bottom-hud-expanded #hotbar {
 }
 
 /* スート不一致（達成値 0）: シアンではなく赤グローで警告 */
-.tnx-hud .hand-area.judgment-pending .card-hand-slot:not(.judgment-valid) .card-preview-label {
+.tnx-hud .hand-area.check-pending .card-hand-slot:not(.check-valid) .card-preview-label {
     color: #ff8080;
     text-shadow:
         0 0 8px  rgba(220, 50, 50, 0.9),
@@ -3941,17 +3941,17 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 /* ── 判定ダイアログ ────────────────────────────────────────────────── */
 
-.tnx-judgment-dialog .window-content {
+.tnx-check-dialog .window-content {
     padding: 8px 12px 12px;
 }
 
-.judgment-dialog-body {
+.check-dialog-body {
     display: flex;
     flex-direction: column;
     gap: 8px;
 }
 
-.judgment-header {
+.check-header {
     display: flex;
     align-items: baseline;
     gap: 8px;
@@ -3959,7 +3959,7 @@ body.tnx-bottom-hud-expanded #hotbar {
     border-bottom: 1px solid rgba(255, 255, 255, 0.15);
 }
 
-.judgment-type-label {
+.check-type-label {
     font-size: 0.75em;
     color: var(--tnx2-accent, #00c3ff);
     font-weight: 600;
@@ -3967,18 +3967,18 @@ body.tnx-bottom-hud-expanded #hotbar {
     letter-spacing: 0.05em;
 }
 
-.judgment-skill-label {
+.check-skill-label {
     font-size: 0.95em;
     font-weight: 600;
 }
 
-.judgment-suits {
+.check-suits {
     display: flex;
     gap: 6px;
     flex-wrap: wrap;
 }
 
-.judgment-suit-badge {
+.check-suit-badge {
     font-size: 1.3em;
     font-weight: 700;
     padding: 2px 6px;
@@ -3986,51 +3986,51 @@ body.tnx-bottom-hud-expanded #hotbar {
     background: rgba(255, 255, 255, 0.07);
 }
 
-.judgment-suit-badge.suit-heart,
-.judgment-suit-badge.suit-diamond {
+.check-suit-badge.suit-heart,
+.check-suit-badge.suit-diamond {
     color: #e05050;
 }
 
-.judgment-tn {
+.check-tn {
     display: flex;
     gap: 8px;
     align-items: baseline;
 }
 
-.judgment-tn-label {
+.check-tn-label {
     font-size: 0.8em;
     opacity: 0.7;
 }
 
-.judgment-tn-value {
+.check-tn-value {
     font-size: 1.1em;
     font-weight: 700;
 }
 
-.judgment-bounty .bounty-available {
+.check-bounty .bounty-available {
     font-size: 0.75em;
     opacity: 0.65;
 }
 
-.judgment-hint {
+.check-hint {
     font-size: 0.78em;
     opacity: 0.7;
     font-style: italic;
     margin: 0;
 }
 
-.judgment-dialog-footer {
+.check-dialog-footer {
     display: flex;
     flex-direction: column;
     gap: 4px;
     margin-top: 4px;
 }
 
-.judgment-dialog-footer .tnx-btn {
+.check-dialog-footer .tnx-btn {
     text-align: left;
 }
 
-.judgment-dialog-footer .tnx-btn.active {
+.check-dialog-footer .tnx-btn.active {
     background: rgba(255, 140, 0, 0.25);
     border-color: rgba(255, 140, 0, 0.6);
     color: #ffaa44;
@@ -4038,7 +4038,7 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 /* ── 判定結果チャットカード ────────────────────────────────────────── */
 
-.tnx-judgment-result {
+.tnx-check-result {
     border-radius: 4px;
     border: 1px solid var(--tnx2-border-active);
     background: var(--tnx2-bg-2);
@@ -6474,10 +6474,10 @@ button.tnx-create-act-button span {
 }
 
 /* ============================================================
-   Phase 8-5: 判定要求チャットカード (.tnx-judgment-request)
+   Phase 8-5: 判定要求チャットカード (.tnx-check-request)
    ============================================================ */
 
-.tnx-judgment-request {
+.tnx-check-request {
     background: var(--tnx2-card-bg, #12131f);
     border: 1px solid var(--tnx2-border-accent, #555);
     border-radius: 6px;
@@ -6485,7 +6485,7 @@ button.tnx-create-act-button span {
     font-size: 0.88em;
 }
 
-.tnx-judgment-request .jr-req-header {
+.tnx-check-request .jr-req-header {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -6494,7 +6494,7 @@ button.tnx-create-act-button span {
     border-bottom: 1px solid var(--tnx2-border, #444);
 }
 
-.tnx-judgment-request .jr-req-type-tag {
+.tnx-check-request .jr-req-type-tag {
     background: var(--tnx2-accent, #c8a84b);
     color: #1a1208;
     font-size: 0.78em;
@@ -6504,48 +6504,48 @@ button.tnx-create-act-button span {
     letter-spacing: 0.04em;
 }
 
-.tnx-judgment-request .jr-req-title {
+.tnx-check-request .jr-req-title {
     font-weight: 700;
     color: var(--tnx2-text-secondary);
     font-size: 0.85em;
     letter-spacing: 0.05em;
 }
 
-.tnx-judgment-request .jr-req-body {
+.tnx-check-request .jr-req-body {
     padding: 10px 12px;
     display: flex;
     flex-direction: column;
     gap: 8px;
 }
 
-.tnx-judgment-request .jr-req-skill-row {
+.tnx-check-request .jr-req-skill-row {
     display: flex;
     align-items: center;
     gap: 8px;
 }
 
-.tnx-judgment-request .jr-req-skill-name {
+.tnx-check-request .jr-req-skill-name {
     font-size: 1.05em;
     font-weight: 700;
     color: var(--tnx2-text, #e0e0e0);
 }
 
-.tnx-judgment-request .jr-req-suits {
+.tnx-check-request .jr-req-suits {
     display: flex;
     gap: 4px;
 }
 
-.tnx-judgment-request .jr-req-suit {
+.tnx-check-request .jr-req-suit {
     font-size: 1.1em;
     font-weight: 700;
 }
 
-.tnx-judgment-request .jr-req-suit.suit-spade   { color: #8ab4f8; }
-.tnx-judgment-request .jr-req-suit.suit-club     { color: #81c995; }
-.tnx-judgment-request .jr-req-suit.suit-heart    { color: #f28b82; }
-.tnx-judgment-request .jr-req-suit.suit-diamond  { color: #fdd663; }
+.tnx-check-request .jr-req-suit.suit-spade   { color: #8ab4f8; }
+.tnx-check-request .jr-req-suit.suit-club     { color: #81c995; }
+.tnx-check-request .jr-req-suit.suit-heart    { color: #f28b82; }
+.tnx-check-request .jr-req-suit.suit-diamond  { color: #fdd663; }
 
-.tnx-judgment-request .jr-req-description {
+.tnx-check-request .jr-req-description {
     font-size: 0.85em;
     color: var(--tnx2-text-secondary);
     margin: 0;
@@ -6553,19 +6553,19 @@ button.tnx-create-act-button span {
     border-left: 2px solid var(--tnx2-border, #444);
 }
 
-.tnx-judgment-request .jr-req-tn-row {
+.tnx-check-request .jr-req-tn-row {
     display: flex;
     align-items: center;
     gap: 8px;
     font-size: 0.88em;
 }
 
-.tnx-judgment-request .jr-req-tn-label {
+.tnx-check-request .jr-req-tn-label {
     color: var(--tnx2-text-secondary);
     font-size: 0.85em;
 }
 
-.tnx-judgment-request .jr-req-tn-value {
+.tnx-check-request .jr-req-tn-value {
     font-weight: 700;
     font-size: 1.05em;
     color: var(--tnx2-accent, #c8a84b);
@@ -6573,13 +6573,13 @@ button.tnx-create-act-button span {
     text-align: center;
 }
 
-.tnx-judgment-request .jr-req-tn-hidden {
+.tnx-check-request .jr-req-tn-hidden {
     color: var(--tnx2-text-secondary);
     font-weight: normal;
     font-size: 0.9em;
 }
 
-.tnx-judgment-request .jr-req-targets {
+.tnx-check-request .jr-req-targets {
     list-style: none;
     margin: 0;
     padding: 0;
@@ -6588,7 +6588,7 @@ button.tnx-create-act-button span {
     gap: 4px;
 }
 
-.tnx-judgment-request .jr-req-target-row {
+.tnx-check-request .jr-req-target-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -6598,33 +6598,33 @@ button.tnx-create-act-button span {
     gap: 8px;
 }
 
-.tnx-judgment-request .jr-req-actor-name {
+.tnx-check-request .jr-req-actor-name {
     font-weight: 600;
     flex: 1;
 }
 
-.tnx-judgment-request .jr-req-target-status {
+.tnx-check-request .jr-req-target-status {
     flex-shrink: 0;
 }
 
-.tnx-judgment-request .tnx-judgment-do-btn {
+.tnx-check-request .tnx-check-do-btn {
     font-size: 0.82em;
     padding: 3px 10px;
 }
 
-.tnx-judgment-request .jr-req-waiting {
+.tnx-check-request .jr-req-waiting {
     font-size: 0.82em;
     color: var(--tnx2-text-secondary);
     font-style: italic;
 }
 
-.tnx-judgment-request .jr-req-result {
+.tnx-check-request .jr-req-result {
     font-size: 0.88em;
 }
 
-.tnx-judgment-request .jr-inline-success { color: #81c995; font-weight: 700; }
-.tnx-judgment-request .jr-inline-failure  { color: #f28b82; font-weight: 700; }
-.tnx-judgment-request .jr-inline-fumble   { color: #f28b82; font-weight: 700; }
+.tnx-check-request .jr-inline-success { color: #81c995; font-weight: 700; }
+.tnx-check-request .jr-inline-failure  { color: #f28b82; font-weight: 700; }
+.tnx-check-request .jr-inline-fumble   { color: #f28b82; font-weight: 700; }
 
 /* ============================================================
    Phase 8-6: 用途シート (.tnx-usage-sheet)

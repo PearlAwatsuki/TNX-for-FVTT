@@ -4,7 +4,7 @@
  * Foundry 連携(ドロー・チャット・制御判定)は condition-resolution.mjs。
  */
 
-import { SUIT_TO_ABILITY } from './tnx-judgment-engine.mjs';
+import { SUIT_TO_ABILITY } from './tnx-check-engine.mjs';
 
 /**
  * その状態が「効果値をカードドローで決定する」必要があるか。

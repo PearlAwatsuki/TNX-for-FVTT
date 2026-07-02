@@ -40,8 +40,8 @@ import { TnxRecordSheet } from './module/tnx-record-sheet.mjs';
 import { registerDrawTableHooks } from './module/tnx-draw-table.mjs';
 import { recordCastOwnerUser } from './module/cast-ownership.mjs';
 import { TnxSocketHandler } from './module/tnx-socket-handler.mjs';
-import { TnxJudgmentFlow } from './module/tnx-judgment-flow.mjs';
-import { TnxJudgmentDialog } from './module/tnx-judgment-dialog.mjs';
+import { TnxCheckFlow } from './module/tnx-check-flow.mjs';
+import { TnxCheckDialog } from './module/tnx-check-dialog.mjs';
 import { TnxRlRequestApp } from './module/tnx-rl-request-app.mjs';
 import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
@@ -70,15 +70,15 @@ async function preloadHandlebarsTemplates() {
 
         // === Chat ===
         "systems/tokyo-nova-axleration/templates/chat/scene-card.hbs",
-        "systems/tokyo-nova-axleration/templates/chat/judgment-result.hbs",
-        "systems/tokyo-nova-axleration/templates/chat/judgment-request.hbs",
+        "systems/tokyo-nova-axleration/templates/chat/check-result.hbs",
+        "systems/tokyo-nova-axleration/templates/chat/check-request.hbs",
 
         // === App ===
         "systems/tokyo-nova-axleration/templates/app/rl-request-app.hbs",
         "systems/tokyo-nova-axleration/templates/app/usage-sheet.hbs",
 
         // === Dialogs ===
-        "systems/tokyo-nova-axleration/templates/dialog/judgment-dialog.hbs",
+        "systems/tokyo-nova-axleration/templates/dialog/check-dialog.hbs",
         "systems/tokyo-nova-axleration/templates/dialog/amount-input-dialog.hbs",
         "systems/tokyo-nova-axleration/templates/dialog/card-selection-dialog.hbs",
         "systems/tokyo-nova-axleration/templates/dialog/deal-trump-dialog.hbs",
@@ -954,7 +954,7 @@ Hooks.once("init", async function() {
         }
         if (!tokenGroup) return;
         const newTool = {
-            name:    "tnxJudgmentRequest",
+            name:    "tnxCheckRequest",
             title:   "判定要求",
             icon:    "fas fa-cards",
             button:  true,
@@ -965,11 +965,11 @@ Hooks.once("init", async function() {
         if (Array.isArray(tools)) {
             tools.push(newTool);
         } else if (tools instanceof Map) {
-            tools.set("tnxJudgmentRequest", newTool);
+            tools.set("tnxCheckRequest", newTool);
         } else if (tools && typeof tools === "object") {
-            tools.tnxJudgmentRequest = newTool;
+            tools.tnxCheckRequest = newTool;
         } else {
-            tokenGroup.tools = { tnxJudgmentRequest: newTool };
+            tokenGroup.tools = { tnxCheckRequest: newTool };
         }
     });
 
@@ -1011,8 +1011,8 @@ Hooks.once("ready", async function() {
     }, 500);
 
     // 判定フロー: ダイアログクラスを注入してグローバルに公開
-    TnxJudgmentFlow.dialogClass = TnxJudgmentDialog;
-    game.tnx.judgment = TnxJudgmentFlow;
+    TnxCheckFlow.dialogClass = TnxCheckDialog;
+    game.tnx.check = TnxCheckFlow;
 
     // システムソケットメッセージの受信（TnxSocketHandler に集約）
     game.socket.on("system.tokyo-nova-axleration", TnxSocketHandler.onMessage);
@@ -1066,7 +1066,7 @@ Hooks.once("ready", async function() {
 
     // 判定要求チャットカード: 目標値の可視性制御 + 「判定する」ボタン / 結果注入（フェーズ 8-5）
     Hooks.on("renderChatMessageHTML", (message, html) => {
-        const flagData = message.getFlag("tokyo-nova-axleration", "judgmentRequest");
+        const flagData = message.getFlag("tokyo-nova-axleration", "checkRequest");
         if (!flagData) return;
 
         // 目標値: targetValueHidden かつ非 GM の場合は非公開表示
@@ -1088,7 +1088,7 @@ Hooks.once("ready", async function() {
                 // 判定済み: 結果を表示
                 const resultEl = document.createElement("div");
                 resultEl.className = "jr-req-result";
-                if (flagData.judgmentType === "controlCheck") {
+                if (flagData.checkType === "controlCheck") {
                     resultEl.innerHTML = result.success
                         ? '<span class="jr-inline-success"><i class="fas fa-check"></i> 成功</span>'
                         : '<span class="jr-inline-failure"><i class="fas fa-times"></i> 失敗</span>';
@@ -1109,10 +1109,10 @@ Hooks.once("ready", async function() {
                 if (isMyChar || game.user.isGM) {
                     const btn = document.createElement("button");
                     btn.type      = "button";
-                    btn.className = "tnx-ring-btn tnx-judgment-do-btn";
+                    btn.className = "tnx-ring-btn tnx-check-do-btn";
                     btn.innerHTML = '<i class="fas fa-gavel"></i> 判定する';
                     btn.addEventListener("click", () => {
-                        TnxRlRequestApp.onDoJudgment(flagData, actorId, message.id);
+                        TnxRlRequestApp.onDoCheck(flagData, actorId, message.id);
                     });
                     statusEl.replaceChildren(btn);
                 } else {

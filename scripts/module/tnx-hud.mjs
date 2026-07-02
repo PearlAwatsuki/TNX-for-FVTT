@@ -1,6 +1,6 @@
 import { TnxActionHandler } from './tnx-action-handler.mjs';
-import { TnxJudgmentFlow } from './tnx-judgment-flow.mjs';
-import { getCardJudgmentValue, getAbilityBySuit, SUIT_TO_ABILITY } from './tnx-judgment-engine.mjs';
+import { TnxCheckFlow } from './tnx-check-flow.mjs';
+import { getCardCheckValue, getAbilityBySuit, SUIT_TO_ABILITY } from './tnx-check-engine.mjs';
 import { getUserFlagData } from './user-flag-schema.mjs';
 
 /** カードの suit 文字列を TNX スートキーに正規化する */
@@ -94,10 +94,10 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
         const userFlag = getUserFlagData(game.user);
 
         // 判定待機状態をコンテキストに反映
-        const judgmentCtx  = TnxJudgmentFlow.context;
-        const validSuits   = judgmentCtx?.validSuits ?? [];
-        context.judgmentPending   = TnxJudgmentFlow.isPending;
-        context.judgmentTrumpMode = TnxJudgmentFlow.trumpMode;
+        const checkCtx  = TnxCheckFlow.context;
+        const validSuits   = checkCtx?.validSuits ?? [];
+        context.checkPending   = TnxCheckFlow.isPending;
+        context.checkTrumpMode = TnxCheckFlow.trumpMode;
 
         if (userFlag.handPileId) {
             const hand = await fromUuid(userFlag.handPileId);
@@ -107,40 +107,40 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
                 // 判定中は達成値プレビューを計算する
                 let abilitiesCtx = null;
                 let jActor = null;
-                if (judgmentCtx) {
-                    jActor = game.actors.get(judgmentCtx.actorId);
-                    if (jActor) abilitiesCtx = TnxJudgmentFlow._buildAbilitiesCtx(jActor);
+                if (checkCtx) {
+                    jActor = game.actors.get(checkCtx.actorId);
+                    if (jActor) abilitiesCtx = TnxCheckFlow._buildAbilitiesCtx(jActor);
                 }
 
                 context.handCards = hand.cards.contents.map(card => {
                     const suit    = _normalizeSuit(card.suit);
                     const isJoker = card.suit === "joker";
-                    const judgmentValid = judgmentCtx !== null
+                    const checkValid = checkCtx !== null
                         && (isJoker || (suit !== null && validSuits.includes(suit)));
 
                     let preview = null;
-                    if (judgmentCtx && abilitiesCtx) {
+                    if (checkCtx && abilitiesCtx) {
                         // 判定バフ(check.)を達成値プレビューにも反映。能力値判定はスートで対象能力値が変わる
                         // ため、カード(スート)ごとに算出する。21固定は達成値 21 のためバフ非対象。
                         const checkBonus = jActor
-                            ? TnxJudgmentFlow._computeCheckBonus(jActor, judgmentCtx, SUIT_TO_ABILITY[suit]).total
+                            ? TnxCheckFlow._computeCheckBonus(jActor, checkCtx, SUIT_TO_ABILITY[suit]).total
                             : 0;
                         if (isJoker) {
                             preview = "?";
                         } else if (!suit || !validSuits.includes(suit)) {
                             // スート不一致 → 達成値 0
                             preview = "0";
-                        } else if (card.value === 1 && judgmentCtx.type !== "controlCheck") {
+                        } else if (card.value === 1 && checkCtx.type !== "controlCheck") {
                             // A: 11ルート達成値 / 21固定 を "nn/21" 形式で表示
                             const elevenPath = 11 + getAbilityBySuit(suit, abilitiesCtx).totalValue + checkBonus;
                             preview = `${elevenPath}/21`;
                         } else {
-                            const cardJudgmentValue = getCardJudgmentValue({ numericValue: card.value });
-                            if (typeof cardJudgmentValue === "number") {
-                                if (judgmentCtx.type === "controlCheck") {
-                                    preview = cardJudgmentValue;
+                            const cardCheckValue = getCardCheckValue({ numericValue: card.value });
+                            if (typeof cardCheckValue === "number") {
+                                if (checkCtx.type === "controlCheck") {
+                                    preview = cardCheckValue;
                                 } else {
-                                    preview = cardJudgmentValue + getAbilityBySuit(suit, abilitiesCtx).totalValue + checkBonus;
+                                    preview = cardCheckValue + getAbilityBySuit(suit, abilitiesCtx).totalValue + checkBonus;
                                 }
                             }
                         }
@@ -152,7 +152,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
                         name: card.name,
                         suit: suit ?? card.suit,
                         isJoker,
-                        judgmentValid,
+                        checkValid,
                         preview,
                     };
                 });
@@ -529,8 +529,8 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
         if (!cardId) return;
 
         // 判定待機中はカード選択として処理する
-        if (TnxJudgmentFlow.isPending) {
-            await TnxJudgmentFlow.executeFromHand(cardId);
+        if (TnxCheckFlow.isPending) {
+            await TnxCheckFlow.executeFromHand(cardId);
             return;
         }
 

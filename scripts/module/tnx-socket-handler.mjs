@@ -6,7 +6,7 @@
  *
  * メッセージ種別:
  *   presentAccessCard  - アクセスカード提示（既存）
- *   judgmentResult     - PL → GM: 判定結果を送信し ChatMessage を更新する
+ *   checkResult     - PL → GM: 判定結果を送信し ChatMessage を更新する
  */
 
 export class TnxSocketHandler {
@@ -23,8 +23,8 @@ export class TnxSocketHandler {
             case "presentAccessCard":
                 TnxSocketHandler._onPresentAccessCard(data);
                 break;
-            case "judgmentResult":
-                TnxSocketHandler._onJudgmentResult(data);
+            case "checkResult":
+                TnxSocketHandler._onCheckResult(data);
                 break;
         }
     }
@@ -38,7 +38,7 @@ export class TnxSocketHandler {
         }).render(true);
     }
 
-    // ─── judgmentResult ───────────────────────────────────────────────────────
+    // ─── checkResult ───────────────────────────────────────────────────────
 
     /**
      * PL が判定を完了したときに socket 経由で GM へ送信される。
@@ -47,24 +47,24 @@ export class TnxSocketHandler {
      * ペイロード:
      *   messageId  {string}  対象の ChatMessage ID
      *   actorId    {string}  判定を行ったキャスト Actor ID
-     *   result     {object}  TnxJudgmentEngine が返す判定結果オブジェクト
+     *   result     {object}  TnxCheckEngine が返す判定結果オブジェクト
      */
-    static async _onJudgmentResult(data) {
+    static async _onCheckResult(data) {
         if (!game.user.isGM) return;
 
         const { messageId, actorId, result } = data;
         const message = game.messages.get(messageId);
         if (!message) return;
 
-        const flags = message.getFlag("tokyo-nova-axleration", "judgmentRequest") ?? {};
+        const flags = message.getFlag("tokyo-nova-axleration", "checkRequest") ?? {};
         const results = foundry.utils.deepClone(flags.results ?? {});
         results[actorId] = result;
 
         const allDone = (flags.targets ?? []).every(t => results[t.actorId] !== undefined);
 
         await message.update({
-            "flags.tokyo-nova-axleration.judgmentRequest.results": results,
-            "flags.tokyo-nova-axleration.judgmentRequest.status":
+            "flags.tokyo-nova-axleration.checkRequest.results": results,
+            "flags.tokyo-nova-axleration.checkRequest.status":
                 allDone ? "completed" : "partial",
         });
     }
@@ -74,11 +74,11 @@ export class TnxSocketHandler {
      *
      * @param {string} messageId  対象 ChatMessage ID
      * @param {string} actorId    判定を行ったキャスト Actor ID
-     * @param {object} result     TnxJudgmentEngine が返す判定結果オブジェクト
+     * @param {object} result     TnxCheckEngine が返す判定結果オブジェクト
      */
-    static emitJudgmentResult(messageId, actorId, result) {
+    static emitCheckResult(messageId, actorId, result) {
         game.socket.emit("system.tokyo-nova-axleration", {
-            type: "judgmentResult",
+            type: "checkResult",
             messageId,
             actorId,
             result,

@@ -1,10 +1,10 @@
 /**
- * @fileoverview TnxJudgmentEngine - 判定計算ロジックの集約
+ * @fileoverview TnxCheckEngine - 判定計算ロジックの集約
  *
  * UI（ダイアログ・チャット）から切り離した純粋な計算層。
  * Foundry ドキュメントに依存しない（actor.system を受け取るだけ）。
  *
- * 判定ルール正本: llm-wiki/01_Wiki/Game_Rules/Judgment_Rules.md
+ * 判定ルール正本: llm-wiki/01_Wiki/Game_Rules/Check_Rules.md
  */
 
 /** スート → 能力値キー対応表 */
@@ -31,7 +31,7 @@ export const ALL_SUITS = Object.freeze(["spade", "club", "heart", "diamond"]);
  *   FIXED_21  = A の21固定選択（達成値を21に固定。能力値・報酬点を無視）
  *   number    = 通常の判定値
  */
-export function getCardJudgmentValue({ numericValue, isJoker, fixedAt21 = false, declaredValue = null, isFromDeck = false }) {
+export function getCardCheckValue({ numericValue, isJoker, fixedAt21 = false, declaredValue = null, isFromDeck = false }) {
     if (isJoker || declaredValue !== null) {
         return declaredValue ?? 0;
     }
@@ -77,21 +77,21 @@ export function getAbilityBySuit(suit, abilitiesCtx) {
  * A の21固定選択時は 21 で完全固定（能力値・報酬点を無視）。
  *
  * @param {object} opts
- * @param {number|"FUMBLE"|"FIXED_21"} opts.cardJudgmentValue  getCardJudgmentValue() の返り値
+ * @param {number|"FUMBLE"|"FIXED_21"} opts.cardCheckValue  getCardCheckValue() の返り値
  * @param {string}  opts.suit           使用したカードのスート
  * @param {object}  opts.abilitiesCtx   シートコンテキストの abilities
  * @param {number}  [opts.bountyUsed]   使用報酬点（デフォルト0）
  * @param {number}  [opts.targetValue]  目標値（成否判定に使用）
- * @returns {JudgmentCheckResult}
+ * @returns {CheckResult}
  */
-export function calcSkillCheck({ cardJudgmentValue, suit, abilitiesCtx, bountyUsed = 0, targetValue = null, checkBonus = 0 }) {
-    if (cardJudgmentValue === "FUMBLE") {
+export function calcSkillCheck({ cardCheckValue, suit, abilitiesCtx, bountyUsed = 0, targetValue = null, checkBonus = 0 }) {
+    if (cardCheckValue === "FUMBLE") {
         return { fumble: true, success: false, achievement: null, diff: null };
     }
 
     const { abilityKey, totalValue } = getAbilityBySuit(suit, abilitiesCtx);
 
-    if (cardJudgmentValue === "FIXED_21") {
+    if (cardCheckValue === "FIXED_21") {
         const achievement = 21;
         const diff        = targetValue !== null ? achievement - targetValue : null;
         return {
@@ -108,7 +108,7 @@ export function calcSkillCheck({ cardJudgmentValue, suit, abilitiesCtx, bountyUs
         };
     }
 
-    const achievement = cardJudgmentValue + totalValue + bountyUsed + checkBonus;
+    const achievement = cardCheckValue + totalValue + bountyUsed + checkBonus;
     const diff        = targetValue !== null ? achievement - targetValue : null;
     return {
         fumble:      false,
@@ -117,7 +117,7 @@ export function calcSkillCheck({ cardJudgmentValue, suit, abilitiesCtx, bountyUs
         abilityVal:  totalValue,
         bountyUsed,
         checkBonus,
-        cardValue:   cardJudgmentValue,
+        cardValue:   cardCheckValue,
         achievement,
         targetValue,
         diff,
@@ -131,18 +131,18 @@ export function calcSkillCheck({ cardJudgmentValue, suit, abilitiesCtx, bountyUs
  * カード値 ≤ 制御値実効値 → 成功。A は11として扱う（21固定なし）。
  *
  * @param {object} opts
- * @param {number|"FUMBLE"} opts.cardJudgmentValue  getCardJudgmentValue() の返り値（fixedAt21 は渡さない）
+ * @param {number|"FUMBLE"} opts.cardCheckValue  getCardCheckValue() の返り値（fixedAt21 は渡さない）
  * @param {string}  opts.suit         使用したカードのスート
  * @param {object}  opts.abilitiesCtx シートコンテキストの abilities
  * @returns {ControlCheckResult}
  */
-export function calcControlCheck({ cardJudgmentValue, suit, abilitiesCtx, checkBonus = 0 }) {
-    if (cardJudgmentValue === "FUMBLE") {
+export function calcControlCheck({ cardCheckValue, suit, abilitiesCtx, checkBonus = 0 }) {
+    if (cardCheckValue === "FUMBLE") {
         return { fumble: true, success: false, cardValue: null, controlVal: null };
     }
 
     const { abilityKey, totalControl } = getAbilityBySuit(suit, abilitiesCtx);
-    const cardValue = cardJudgmentValue === "FIXED_21" ? 11 : cardJudgmentValue;
+    const cardValue = cardCheckValue === "FIXED_21" ? 11 : cardCheckValue;
     // 制御判定バフ: 制御値を実効的に押し上げる(成功条件が緩む)
     const effectiveControl = totalControl + checkBonus;
 
@@ -170,7 +170,7 @@ export function getComboSuits(skillSystems) {
 }
 
 /**
- * @typedef {object} JudgmentCheckResult
+ * @typedef {object} CheckResult
  * @property {boolean}      fumble
  * @property {boolean}      fixedAt21
  * @property {string}       abilityKey

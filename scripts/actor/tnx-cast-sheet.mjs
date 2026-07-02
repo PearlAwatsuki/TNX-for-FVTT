@@ -8,8 +8,8 @@ import { formatWeaponRangeLabel } from '../item/tnx-outfit-sheet.mjs';
 import { formatPartDesignation, joinPartDesignations, computePartOccupancy, computeHostOccupancy } from '../data/item/part-helpers.mjs';
 import { SLOT_KINDS } from '../data/item/common/extensible.mjs';
 import { getPartSlotPreset, PartSlotPresetApp } from '../module/part-slot-preset-app.mjs';
-import { TnxJudgmentFlow } from '../module/tnx-judgment-flow.mjs';
-import { getComboSuits, ALL_SUITS } from '../module/tnx-judgment-engine.mjs';
+import { TnxCheckFlow } from '../module/tnx-check-flow.mjs';
+import { getComboSuits, ALL_SUITS } from '../module/tnx-check-engine.mjs';
 import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
 import { groupStyleSkillsByStyle } from '../module/style-skill-acquisition.mjs';
 import { HOUSING_AREA_RANKS } from '../data/item/housing-area.mjs';
@@ -2290,10 +2290,10 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         const actorBounty = (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0);
 
         // 使用回数の消費を確認（参加技能の遠隔消費を含む。残り0でチェック時はブロック）
-        const usesPlan = await TnxJudgmentFlow.planUsesConsumption(actor, allSkillIds);
+        const usesPlan = await TnxCheckFlow.planUsesConsumption(actor, allSkillIds);
         if (!usesPlan) return;
 
-        await TnxJudgmentFlow.open({
+        await TnxCheckFlow.open({
             type:            "skillCheck",
             actorId:         actor.id,
             skillIds:        allSkillIds,
@@ -2337,7 +2337,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         const ABILITY_LABELS  = { reason: "理性", passion: "感情", life: "生命", mundane: "外界" };
         const suit = ABILITY_TO_SUIT[abilityKey];
         const actor = this.actor;
-        await TnxJudgmentFlow.open({
+        await TnxCheckFlow.open({
             type:            "abilityCheck",
             actorId:         actor.id,
             skillIds:        [],
@@ -2356,7 +2356,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         const ABILITY_LABELS  = { reason: "理性", passion: "感情", life: "生命", mundane: "外界" };
         const suit  = ABILITY_TO_SUIT[abilityKey];
         const actor = this.actor;
-        await TnxJudgmentFlow.open({
+        await TnxCheckFlow.open({
             type:            "controlCheck",
             actorId:         actor.id,
             skillIds:        [],

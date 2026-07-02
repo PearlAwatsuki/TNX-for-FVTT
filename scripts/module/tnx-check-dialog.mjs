@@ -1,5 +1,5 @@
 /**
- * @fileoverview TnxJudgmentDialog - 判定コンテキスト表示ダイアログ
+ * @fileoverview TnxCheckDialog - 判定コンテキスト表示ダイアログ
  *
  * 判定中にフローティングで表示される小さなダイアログ。
  * 手札の選択は HUD 側で行う（このダイアログにカード表示はない）。
@@ -14,32 +14,32 @@
  * ×ボタンで閉じると判定をキャンセルする。
  */
 
-import { TnxJudgmentFlow } from './tnx-judgment-flow.mjs';
+import { TnxCheckFlow } from './tnx-check-flow.mjs';
 import { getUserFlagData } from './user-flag-schema.mjs';
 
 const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
 
-export class TnxJudgmentDialog extends HandlebarsApplicationMixin(ApplicationV2) {
+export class TnxCheckDialog extends HandlebarsApplicationMixin(ApplicationV2) {
 
     static DEFAULT_OPTIONS = {
-        id:      "tnx-judgment-dialog",
-        classes: ["tokyo-nova", "tnx-judgment-dialog"],
+        id:      "tnx-check-dialog",
+        classes: ["tokyo-nova", "tnx-check-dialog"],
         window:  { title: "判定", icon: "fas fa-cards", minimizable: false },
         position: { width: 300 },
         actions: {
-            drawFromDeck:    TnxJudgmentDialog._onDrawFromDeck,
-            toggleTrumpMode: TnxJudgmentDialog._onToggleTrumpMode,
-            cancel:          TnxJudgmentDialog._onCancel,
+            drawFromDeck:    TnxCheckDialog._onDrawFromDeck,
+            toggleTrumpMode: TnxCheckDialog._onToggleTrumpMode,
+            cancel:          TnxCheckDialog._onCancel,
         },
     };
 
     static PARTS = {
-        main: { template: "systems/tokyo-nova-axleration/templates/dialog/judgment-dialog.hbs" },
+        main: { template: "systems/tokyo-nova-axleration/templates/dialog/check-dialog.hbs" },
     };
 
     async _prepareContext(options) {
         const context = await super._prepareContext(options);
-        const ctx     = TnxJudgmentFlow.context;
+        const ctx     = TnxCheckFlow.context;
         if (!ctx) return { ...context, noPending: true };
 
         const TYPE_LABEL = {
@@ -67,8 +67,8 @@ export class TnxJudgmentDialog extends HandlebarsApplicationMixin(ApplicationV2)
             hasTargetValue: ctx.targetValue !== null,
             targetValue:    ctx.targetValue,
             hasTrump,
-            trumpMode:      TnxJudgmentFlow.trumpMode,
-            hint:           TnxJudgmentFlow.trumpMode
+            trumpMode:      TnxCheckFlow.trumpMode,
+            hint:           TnxCheckFlow.trumpMode
                 ? "手札から1枚を選択してください（Jokerとして使います）"
                 : "手札からカードを選択してください",
         };
@@ -77,23 +77,23 @@ export class TnxJudgmentDialog extends HandlebarsApplicationMixin(ApplicationV2)
     // ×ボタンで閉じたら判定をキャンセルする
     async _onClose(options) {
         await super._onClose(options);
-        TnxJudgmentFlow.cancel();
+        TnxCheckFlow.cancel();
     }
 
     // ─── アクションハンドラ ────────────────────────────────────────────────────
 
     static async _onDrawFromDeck(event) {
         event.preventDefault();
-        await TnxJudgmentFlow.executeFromDeck();
+        await TnxCheckFlow.executeFromDeck();
     }
 
     static async _onToggleTrumpMode(event) {
         event.preventDefault();
-        TnxJudgmentFlow.toggleTrumpMode();
+        TnxCheckFlow.toggleTrumpMode();
     }
 
     static async _onCancel(event) {
         event.preventDefault();
-        TnxJudgmentFlow.cancel();
+        TnxCheckFlow.cancel();
     }
 }

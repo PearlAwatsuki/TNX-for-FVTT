@@ -13,7 +13,7 @@
  */
 
 import { TnxSkillUtils } from "./tnx-skill-utils.mjs";
-import { getComboSuits } from "./tnx-judgment-engine.mjs";
+import { getComboSuits } from "./tnx-check-engine.mjs";
 import { resolveUsageSkills, comboLockAnalysis, isComboRequired } from "./skill-chain-resolution.mjs";
 
 const CHAIN_SKILL_TYPES = ["generalSkill", "styleSkill"];
@@ -30,7 +30,7 @@ export const USAGE_TYPES = Object.freeze({
 });
 
 // ─── 発動パラメータ優先度（自動入力で使用） ───────────────────────────────────
-// ルール正本: llm-wiki/01_Wiki/Game_Rules/Judgment_Rules.md（対象優先度・射程優先度）
+// ルール正本: llm-wiki/01_Wiki/Game_Rules/Check_Rules.md（対象優先度・射程優先度）
 
 /** 対象優先度（高→低）: 自身 > 単体※ > チーム > シーン(選択) > シーン > 範囲(選択) > 範囲 > 単体 */
 function targetRank(target, isFixed) {

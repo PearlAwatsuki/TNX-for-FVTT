@@ -2,8 +2,8 @@ import { UnlinkConfirmDialog } from '../module/tnx-dialog.mjs';
 import { TnxScenarioSettingWizard } from '../module/tnx-scenario-setting-wizard.mjs';
 import { TnxActionHandler } from '../module/tnx-action-handler.mjs';
 import { saveUserFlagCards, getUserFlagData } from '../module/user-flag-schema.mjs';
-import { TnxJudgmentFlow } from '../module/tnx-judgment-flow.mjs';
-import { ALL_SUITS } from '../module/tnx-judgment-engine.mjs';
+import { TnxCheckFlow } from '../module/tnx-check-flow.mjs';
+import { ALL_SUITS } from '../module/tnx-check-engine.mjs';
 
 const { HandlebarsApplicationMixin, DocumentSheetV2, DialogV2 } = foundry.applications.api;
 
@@ -624,7 +624,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         const tnRaw     = parseInt(row?.querySelector(".skill-tn")?.value);
         const tn        = Number.isFinite(tnRaw) ? tnRaw : null;
 
-        await TnxJudgmentFlow.open({
+        await TnxCheckFlow.open({
             type:            "skillCheck",
             actorId:         actor.id,
             skillIds:        [],

@@ -8,12 +8,12 @@
  *   1. GM が判定要求ダイアログを開く（シーンコントロール → 判定要求ボタン）
  *   2. 判定種別・技能・目標値・対象 PL を入力して送信
  *   3. ChatMessage 生成 → 全クライアントに配信
- *   4. 対象 PL が「判定する」クリック → onDoJudgment() → TnxJudgmentFlow.open()
+ *   4. 対象 PL が「判定する」クリック → onDoCheck() → TnxCheckFlow.open()
  *   5. 判定結果がチャットに追記される
  */
 
-import { getComboSuits, ALL_SUITS } from './tnx-judgment-engine.mjs';
-import { TnxJudgmentFlow } from './tnx-judgment-flow.mjs';
+import { getComboSuits, ALL_SUITS } from './tnx-check-engine.mjs';
+import { TnxCheckFlow } from './tnx-check-flow.mjs';
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -35,7 +35,7 @@ const ABILITY_TO_SUIT = Object.freeze({
     reason: "spade", passion: "club", life: "heart", mundane: "diamond",
 });
 
-const JUDGMENT_TYPE_LABELS = Object.freeze({
+const CHECK_TYPE_LABELS = Object.freeze({
     skillCheck:   "技能判定",
     abilityCheck: "能力値判定",
     controlCheck: "制御判定",
@@ -96,7 +96,7 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
         const el = this.element;
 
         // 判定種別 → 技能/能力値セクション切り替え
-        const typeSelect = el.querySelector("[name=judgmentType]");
+        const typeSelect = el.querySelector("[name=checkType]");
         typeSelect?.addEventListener("change", (e) => this._updateSections(el, e.target.value));
         this._updateSections(el, typeSelect?.value ?? "skillCheck");
 
@@ -123,8 +123,8 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
 
     /** 判定種別に応じて技能/能力値セクションを表示切替 */
-    _updateSections(el, judgmentType) {
-        const isSkill = judgmentType === "skillCheck";
+    _updateSections(el, checkType) {
+        const isSkill = checkType === "skillCheck";
         const skillSection   = el.querySelector(".skill-section");
         const abilitySection = el.querySelector(".ability-section");
         if (skillSection)   skillSection.hidden   = !isSkill;
@@ -154,16 +154,16 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
     // ─── フォーム送信ハンドラ ─────────────────────────────────────────────────
 
     static async _onSubmit(event, form, _formData) {
-        const judgmentType = form.querySelector("[name=judgmentType]")?.value ?? "skillCheck";
+        const checkType = form.querySelector("[name=checkType]")?.value ?? "skillCheck";
 
         // 技能識別キー（技能判定時のみ）
-        const identificationKey = (judgmentType === "skillCheck")
+        const identificationKey = (checkType === "skillCheck")
             ? (form.querySelector("[name=identificationKey]")?.value ?? "")
             : "";
 
         // 技能/能力値ラベル
         let skillLabel;
-        if (judgmentType === "skillCheck") {
+        if (checkType === "skillCheck") {
             if (identificationKey) {
                 const cached = TnxRlRequestApp._compendiumSkillCache?.find(
                     s => s.identificationKey === identificationKey
@@ -177,19 +177,19 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
             const abilityKey = form.querySelector("[name=abilityKey]")?.value ?? "reason";
             const abilityLabel = { reason: "理性", passion: "感情", life: "生命", mundane: "外界" }[abilityKey]
                 ?? abilityKey;
-            skillLabel = judgmentType === "controlCheck"
+            skillLabel = checkType === "controlCheck"
                 ? `${abilityLabel}（制御判定）`
                 : abilityLabel;
         }
 
         // 有効スート
         let validSuits;
-        if (judgmentType === "skillCheck" && !identificationKey) {
+        if (checkType === "skillCheck" && !identificationKey) {
             // その他: GM が明示的にスートを選択
             validSuits = [...form.querySelectorAll("[name^='suit_']:checked")]
                 .map(cb => cb.name.replace("suit_", ""));
             if (!validSuits.length) validSuits = [...ALL_SUITS];
-        } else if (judgmentType === "skillCheck") {
+        } else if (checkType === "skillCheck") {
             // 識別キーあり: PL 側の技能アイテムから getComboSuits で決定するため空
             validSuits = [];
         } else {
@@ -224,9 +224,9 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
         // チャットカード HTML を生成（GM 側は目標値を常に表示）
         const content = await foundry.applications.handlebars.renderTemplate(
-            "systems/tokyo-nova-axleration/templates/chat/judgment-request.hbs",
+            "systems/tokyo-nova-axleration/templates/chat/check-request.hbs",
             {
-                typeLabel:    JUDGMENT_TYPE_LABELS[judgmentType] ?? judgmentType,
+                typeLabel:    CHECK_TYPE_LABELS[checkType] ?? checkType,
                 skillLabel,
                 validSuits,
                 suitSymbols:  SUIT_SYMBOLS,
@@ -241,8 +241,8 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
             content,
             flags: {
                 "tokyo-nova-axleration": {
-                    judgmentRequest: {
-                        judgmentType,
+                    checkRequest: {
+                        checkType,
                         identificationKey: identificationKey || null,
                         skillLabel,
                         validSuits,
@@ -262,13 +262,13 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
     /**
      * チャットの「判定する」ボタン押下時に呼ばれる。
-     * 技能アイテムを解決し、TnxJudgmentFlow.open() に渡す。
+     * 技能アイテムを解決し、TnxCheckFlow.open() に渡す。
      *
-     * @param {object} flagData    - message.flags["tokyo-nova-axleration"].judgmentRequest
+     * @param {object} flagData    - message.flags["tokyo-nova-axleration"].checkRequest
      * @param {string} actorId     - 判定を行うキャスト Actor ID
      * @param {string} messageId   - 要求元 ChatMessage ID
      */
-    static async onDoJudgment(flagData, actorId, messageId) {
+    static async onDoCheck(flagData, actorId, messageId) {
         const actor = game.actors.get(actorId);
         if (!actor) {
             ui.notifications.warn("対象のキャストが見つかりません。");
@@ -276,7 +276,7 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
         }
 
         const {
-            judgmentType,
+            checkType,
             identificationKey,
             skillLabel,
             validSuits: flagSuits,
@@ -288,7 +288,7 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
         let resolvedValidSuits = flagSuits?.length ? [...flagSuits] : [...ALL_SUITS];
         let bountyAvailable   = 0;
 
-        if (judgmentType === "skillCheck" && identificationKey) {
+        if (checkType === "skillCheck" && identificationKey) {
             // 識別キーでキャラクター上の技能を検索
             const matchedItem = actor.items.find(
                 i => i.type === "generalSkill" && i.system.identificationKey === identificationKey
@@ -302,15 +302,15 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
             skillIds           = [matchedItem.id];
             resolvedValidSuits = getComboSuits([matchedItem.system]);
             bountyAvailable    = matchedItem.system.usesBounty === true ? actorBounty : 0;
-        } else if (judgmentType === "abilityCheck") {
+        } else if (checkType === "abilityCheck") {
             // 能力値判定: 報酬点が使用可能
             bountyAvailable = actorBounty;
         }
         // controlCheck: bountyAvailable = 0 (default)
         // skillCheck + その他: validSuits = flagSuits, bountyAvailable = 0
 
-        await TnxJudgmentFlow.open({
-            type:            judgmentType,
+        await TnxCheckFlow.open({
+            type:            checkType,
             actorId:         actor.id,
             skillIds,
             skillLabel,

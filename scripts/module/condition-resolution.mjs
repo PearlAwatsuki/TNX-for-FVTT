@@ -7,7 +7,7 @@
  * Foundry 連携(山札ドロー・チャット受付・制御判定)はその上に載せる。
  */
 
-import { getCardJudgmentValue } from './tnx-judgment-engine.mjs';
+import { getCardCheckValue } from './tnx-check-engine.mjs';
 import { TnxActionHandler } from './tnx-action-handler.mjs';
 import { CONDITION_KINDS } from './conditions.mjs';
 import { getDamageChartKind } from '../data/damage-chart.mjs';
@@ -92,8 +92,8 @@ export async function executeConditionDraw(actor, effect, kind) {
     suit = wild.suit; value = wild.value;
   } else {
     suit = card.suit;
-    const njudge = getCardJudgmentValue({ numericValue: card.value });
-    value = typeof njudge === "number" ? njudge : Number(card.value) || 0;
+    const ncheck = getCardCheckValue({ numericValue: card.value });
+    value = typeof ncheck === "number" ? ncheck : Number(card.value) || 0;
   }
   const flags = drawResultFlags(kind, suit, value);
   await effect.setFlag(SCOPE, `conditions.${kind}`, flags);
@@ -163,7 +163,7 @@ export async function postControlNegatePrompt(actor, effect, kind, controlNegate
  */
 export async function executeControlNegate(actor, effect, kind, ability, downgradeTo) {
   const card = await drawOneToDiscard();
-  const cardValue = card ? getCardJudgmentValue({ numericValue: card.value }) : null;
+  const cardValue = card ? getCardCheckValue({ numericValue: card.value }) : null;
   const controlVal = actor.system?.[ability]?.totalControl ?? 0;
   const success = typeof cardValue === "number" && cardValue <= controlVal;
   const outcome = negateOutcome(success, { downgradeTo: downgradeTo || undefined });

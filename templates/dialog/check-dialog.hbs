@@ -1,29 +1,29 @@
 {{#if noPending}}
-<div class="judgment-no-pending">判定情報がありません。</div>
+<div class="check-no-pending">判定情報がありません。</div>
 {{else}}
-<div class="judgment-dialog-body">
+<div class="check-dialog-body">
 
-    <div class="judgment-header">
-        <span class="judgment-type-label">{{typeLabel}}</span>
-        <span class="judgment-skill-label">{{skillLabel}}</span>
+    <div class="check-header">
+        <span class="check-type-label">{{typeLabel}}</span>
+        <span class="check-skill-label">{{skillLabel}}</span>
     </div>
 
-    <div class="judgment-suits">
+    <div class="check-suits">
         {{#each validSuits as |s|}}
-        <span class="judgment-suit-badge suit-{{s.key}}" title="{{s.name}}">{{s.symbol}}</span>
+        <span class="check-suit-badge suit-{{s.key}}" title="{{s.name}}">{{s.symbol}}</span>
         {{/each}}
     </div>
 
     {{#if hasTargetValue}}
-    <div class="judgment-tn">
-        <span class="judgment-tn-label">目標値</span>
-        <span class="judgment-tn-value">{{targetValue}}</span>
+    <div class="check-tn">
+        <span class="check-tn-label">目標値</span>
+        <span class="check-tn-value">{{targetValue}}</span>
     </div>
     {{/if}}
 
-    <p class="judgment-hint">{{hint}}</p>
+    <p class="check-hint">{{hint}}</p>
 
-    <footer class="judgment-dialog-footer">
+    <footer class="check-dialog-footer">
         <button type="button" class="tnx-btn" data-action="drawFromDeck">
             <i class="fas fa-cards-blank"></i> 山札から判定
         </button>

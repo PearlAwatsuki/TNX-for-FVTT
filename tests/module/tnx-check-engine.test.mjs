@@ -1,12 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
     SUIT_TO_ABILITY,
-    getCardJudgmentValue,
+    getCardCheckValue,
     getAbilityBySuit,
     calcSkillCheck,
     calcControlCheck,
     getComboSuits,
-} from "../../scripts/module/tnx-judgment-engine.mjs";
+} from "../../scripts/module/tnx-check-engine.mjs";
 
 // ─── スート対応表 ─────────────────────────────────────────────────────────────
 
@@ -17,35 +17,35 @@ describe("SUIT_TO_ABILITY", () => {
     it("diamond → mundane", () => expect(SUIT_TO_ABILITY.diamond).toBe("mundane"));
 });
 
-// ─── getCardJudgmentValue ─────────────────────────────────────────────────────
+// ─── getCardCheckValue ─────────────────────────────────────────────────────
 
-describe("getCardJudgmentValue()", () => {
+describe("getCardCheckValue()", () => {
     describe("通常カード（2〜10）", () => {
-        it("数字そのまま",    () => expect(getCardJudgmentValue({ numericValue: 7 })).toBe(7));
-        it("2 も正しく返す",  () => expect(getCardJudgmentValue({ numericValue: 2 })).toBe(2));
-        it("10 は 10",        () => expect(getCardJudgmentValue({ numericValue: 10 })).toBe(10));
+        it("数字そのまま",    () => expect(getCardCheckValue({ numericValue: 7 })).toBe(7));
+        it("2 も正しく返す",  () => expect(getCardCheckValue({ numericValue: 2 })).toBe(2));
+        it("10 は 10",        () => expect(getCardCheckValue({ numericValue: 10 })).toBe(10));
     });
 
     describe("絵札（J=11, Q=12, K=13）", () => {
-        it("手札判定では 10", () => expect(getCardJudgmentValue({ numericValue: 11 })).toBe(10));
-        it("Q も 10",          () => expect(getCardJudgmentValue({ numericValue: 12 })).toBe(10));
-        it("K も 10",          () => expect(getCardJudgmentValue({ numericValue: 13 })).toBe(10));
+        it("手札判定では 10", () => expect(getCardCheckValue({ numericValue: 11 })).toBe(10));
+        it("Q も 10",          () => expect(getCardCheckValue({ numericValue: 12 })).toBe(10));
+        it("K も 10",          () => expect(getCardCheckValue({ numericValue: 13 })).toBe(10));
         it("山札判定では FUMBLE", () => {
-            expect(getCardJudgmentValue({ numericValue: 11, isFromDeck: true })).toBe("FUMBLE");
+            expect(getCardCheckValue({ numericValue: 11, isFromDeck: true })).toBe("FUMBLE");
         });
     });
 
     describe("A（numericValue=1）", () => {
-        it("通常: 11",            () => expect(getCardJudgmentValue({ numericValue: 1 })).toBe(11));
-        it("fixedAt21: FIXED_21", () => expect(getCardJudgmentValue({ numericValue: 1, fixedAt21: true })).toBe("FIXED_21"));
+        it("通常: 11",            () => expect(getCardCheckValue({ numericValue: 1 })).toBe(11));
+        it("fixedAt21: FIXED_21", () => expect(getCardCheckValue({ numericValue: 1, fixedAt21: true })).toBe("FIXED_21"));
     });
 
     describe("Joker / 宣言値", () => {
         it("isJoker=true かつ declaredValue=9 → 9",  () => {
-            expect(getCardJudgmentValue({ numericValue: 0, isJoker: true, declaredValue: 9 })).toBe(9);
+            expect(getCardCheckValue({ numericValue: 0, isJoker: true, declaredValue: 9 })).toBe(9);
         });
         it("declaredValue のみ指定でも有効",          () => {
-            expect(getCardJudgmentValue({ numericValue: 5, declaredValue: 3 })).toBe(3);
+            expect(getCardCheckValue({ numericValue: 5, declaredValue: 3 })).toBe(3);
         });
     });
 });
@@ -85,7 +85,7 @@ describe("calcSkillCheck()", () => {
     };
 
     it("通常: cardValue + abilityVal + bountyUsed", () => {
-        const r = calcSkillCheck({ cardJudgmentValue: 8, suit: "spade", abilitiesCtx: abilities, bountyUsed: 2, targetValue: 12 });
+        const r = calcSkillCheck({ cardCheckValue: 8, suit: "spade", abilitiesCtx: abilities, bountyUsed: 2, targetValue: 12 });
         expect(r.achievement).toBe(15); // 8+5+2
         expect(r.diff).toBe(3);
         expect(r.success).toBe(true);
@@ -93,19 +93,19 @@ describe("calcSkillCheck()", () => {
     });
 
     it("目標値以下で失敗", () => {
-        const r = calcSkillCheck({ cardJudgmentValue: 3, suit: "spade", abilitiesCtx: abilities, bountyUsed: 0, targetValue: 12 });
+        const r = calcSkillCheck({ cardCheckValue: 3, suit: "spade", abilitiesCtx: abilities, bountyUsed: 0, targetValue: 12 });
         expect(r.achievement).toBe(8);
         expect(r.success).toBe(false);
     });
 
     it("FUMBLE → fumble=true", () => {
-        const r = calcSkillCheck({ cardJudgmentValue: "FUMBLE", suit: "spade", abilitiesCtx: abilities });
+        const r = calcSkillCheck({ cardCheckValue: "FUMBLE", suit: "spade", abilitiesCtx: abilities });
         expect(r.fumble).toBe(true);
         expect(r.achievement).toBeNull();
     });
 
     it("FIXED_21 → achievement=21・bountyUsed=0で固定", () => {
-        const r = calcSkillCheck({ cardJudgmentValue: "FIXED_21", suit: "club", abilitiesCtx: abilities, bountyUsed: 3, targetValue: 18 });
+        const r = calcSkillCheck({ cardCheckValue: "FIXED_21", suit: "club", abilitiesCtx: abilities, bountyUsed: 3, targetValue: 18 });
         expect(r.achievement).toBe(21);
         expect(r.bountyUsed).toBe(0);
         expect(r.fixedAt21).toBe(true);
@@ -113,7 +113,7 @@ describe("calcSkillCheck()", () => {
     });
 
     it("targetValue=null のとき success=null・diff=null", () => {
-        const r = calcSkillCheck({ cardJudgmentValue: 7, suit: "heart", abilitiesCtx: abilities });
+        const r = calcSkillCheck({ cardCheckValue: 7, suit: "heart", abilitiesCtx: abilities });
         expect(r.success).toBeNull();
         expect(r.diff).toBeNull();
         expect(r.achievement).toBe(13); // 7+6
@@ -131,30 +131,30 @@ describe("calcControlCheck()", () => {
     };
 
     it("cardValue ≤ controlVal → success=true",  () => {
-        const r = calcControlCheck({ cardJudgmentValue: 5, suit: "spade", abilitiesCtx: abilities });
+        const r = calcControlCheck({ cardCheckValue: 5, suit: "spade", abilitiesCtx: abilities });
         expect(r.success).toBe(true);
         expect(r.cardValue).toBe(5);
         expect(r.controlVal).toBe(6);
     });
 
     it("cardValue > controlVal → success=false", () => {
-        const r = calcControlCheck({ cardJudgmentValue: 7, suit: "spade", abilitiesCtx: abilities });
+        const r = calcControlCheck({ cardCheckValue: 7, suit: "spade", abilitiesCtx: abilities });
         expect(r.success).toBe(false);
     });
 
-    it("絵札（cardJudgmentValue=10）の判定",     () => {
-        const r = calcControlCheck({ cardJudgmentValue: 10, suit: "heart", abilitiesCtx: abilities });
+    it("絵札（cardCheckValue=10）の判定",     () => {
+        const r = calcControlCheck({ cardCheckValue: 10, suit: "heart", abilitiesCtx: abilities });
         expect(r.controlVal).toBe(8);
         expect(r.success).toBe(false); // 10 > 8
     });
 
     it("A は 11 として扱う（FIXED_21 は適用しない）", () => {
-        const r = calcControlCheck({ cardJudgmentValue: "FIXED_21", suit: "spade", abilitiesCtx: abilities });
+        const r = calcControlCheck({ cardCheckValue: "FIXED_21", suit: "spade", abilitiesCtx: abilities });
         expect(r.cardValue).toBe(11);
     });
 
     it("FUMBLE → fumble=true", () => {
-        const r = calcControlCheck({ cardJudgmentValue: "FUMBLE", suit: "spade", abilitiesCtx: abilities });
+        const r = calcControlCheck({ cardCheckValue: "FUMBLE", suit: "spade", abilitiesCtx: abilities });
         expect(r.fumble).toBe(true);
         expect(r.success).toBe(false);
     });

@@ -305,12 +305,12 @@
                                 <div class="ability-display">
                                     <div class="ability-label-shape"><div class="ability-label-content"><h3>{{ability.label}}</h3></div></div>
                                     <div class="ability-values-area">
-                                        <div class="ability-value-shape judgment-trigger" data-action="startAbilityCheck" data-ability-key="{{key}}" title="能力値判定を起動">
+                                        <div class="ability-value-shape check-trigger" data-action="startAbilityCheck" data-ability-key="{{key}}" title="能力値判定を起動">
                                             <div class="ability-value-content">
                                                 <input type="number" value="{{ability.totalValue}}" readonly>
                                             </div>
                                         </div>
-                                        <div class="control-value-shape judgment-trigger" data-action="startControlCheck" data-ability-key="{{key}}" title="制御判定を起動">
+                                        <div class="control-value-shape check-trigger" data-action="startControlCheck" data-ability-key="{{key}}" title="制御判定を起動">
                                             <div class="control-value-content">
                                                 <input type="number" value="{{ability.totalControl}}" readonly>
                                             </div>
@@ -456,7 +456,7 @@
                                             {{#each columnItems as |item|}}
                                                 <div class="general-skill-display item" data-item-id="{{item._id}}">
                                                     <div class="skill-label-shape">
-                                                        <a class="skill-label-content squeeze-text judgment-trigger" data-action="startSkillCheck" data-item-id="{{item._id}}" title="技能判定を起動">
+                                                        <a class="skill-label-content squeeze-text check-trigger" data-action="startSkillCheck" data-item-id="{{item._id}}" title="技能判定を起動">
                                                             {{tnxDecoratedName item}}
                                                         </a>
                                                     </div>
@@ -507,7 +507,7 @@
                                                 <div class="style-skill-row-main style-skill-grid">
                                                     {{!-- 名称 --}}
                                                     <div class="cell cell-name">
-                                                        <a class="item-name judgment-trigger" data-action="startSkillCheck" data-item-id="{{item._id}}" title="技能判定を起動">{{tnxDecoratedName item}}</a>
+                                                        <a class="item-name check-trigger" data-action="startSkillCheck" data-item-id="{{item._id}}" title="技能判定を起動">{{tnxDecoratedName item}}</a>
                                                     </div>
 
                                                     {{!-- レベル＆スート（横並びコンテナ） --}}
@@ -629,7 +629,7 @@
                         <div class="combat-ref-line">
                             <span class="combat-ref-line__kind" title="攻撃で使用している武器（攻撃力を参照）">攻撃</span>
                             {{#if combatAttackRef._id}}
-                            <a class="combat-ref-line__name judgment-trigger" data-action="startSkillCheck" data-item-id="{{combatAttackRef._id}}" title="使用（用途があれば実行・無ければ説明を表示）">{{combatAttackRef.name}}</a>
+                            <a class="combat-ref-line__name check-trigger" data-action="startSkillCheck" data-item-id="{{combatAttackRef._id}}" title="使用（用途があれば実行・無ければ説明を表示）">{{combatAttackRef.name}}</a>
                             {{else}}
                             <span class="combat-ref-line__name">{{combatAttackRef.name}}</span>
                             {{/if}}
@@ -638,7 +638,7 @@
                         <div class="combat-ref-line">
                             <span class="combat-ref-line__kind" title="パリーで使用している武器（受け値を参照）。攻撃と別の武器でもかまいません">パリー</span>
                             {{#if combatParryRef._id}}
-                            <a class="combat-ref-line__name judgment-trigger" data-action="startSkillCheck" data-item-id="{{combatParryRef._id}}" title="使用（用途があれば実行・無ければ説明を表示）">{{combatParryRef.name}}</a>
+                            <a class="combat-ref-line__name check-trigger" data-action="startSkillCheck" data-item-id="{{combatParryRef._id}}" title="使用（用途があれば実行・無ければ説明を表示）">{{combatParryRef.name}}</a>
                             {{else}}
                             <span class="combat-ref-line__name">{{combatParryRef.name}}</span>
                             {{/if}}
@@ -676,7 +676,7 @@
                             {{#if b.entries.length}}
                             <div class="combat-timing-group__entries">
                                 {{#each b.entries as |e|}}
-                                <a class="combat-timing-chip judgment-trigger" data-action="startSkillCheck" data-item-id="{{e._id}}" title="使用（用途があれば実行・無ければ説明を表示）">{{e.name}}</a>
+                                <a class="combat-timing-chip check-trigger" data-action="startSkillCheck" data-item-id="{{e._id}}" title="使用（用途があれば実行・無ければ説明を表示）">{{e.name}}</a>
                                 {{/each}}
                             </div>
                             {{/if}}
@@ -712,7 +712,7 @@
                             {{#each group.items as |row|}}
                             <div class="outfit-row{{#if row.isNested}} outfit-row--option{{#if row.isLastOption}} outfit-row--last-option{{/if}}{{/if}}" data-item-id="{{row._id}}">
                                 <div class="outfit-row-main">
-                                    <span class="outfit-col--name"><a class="squeeze-text judgment-trigger" data-action="startSkillCheck" data-item-id="{{row._id}}" title="使用（用途があれば実行・無ければ説明を表示）">{{row.displayName}}</a>{{#if row.housingAreaRank}}<span class="outfit-area-badge outfit-area-badge--{{row.housingAreaRank.key}}" title="住宅エリア：{{row.housingAreaRank.label}}">{{row.housingAreaRank.label}}</span>{{/if}}{{#each row.slotGauges}}<span class="outfit-slot-gauge outfit-slot-gauge--{{this.kind}}{{#if this.over}} is-over{{/if}}" title="{{this.kindLabel}} {{this.used}}/{{this.capacity}}">{{#each this.pips}}<i class="tnx-pip{{#if this.on}} on{{/if}}{{#if this.over}} over{{/if}}"></i>{{/each}}<b class="tnx-pip-count">{{this.used}}/{{this.capacity}}</b></span>{{/each}}{{#if row.slotLabel}}<span class="outfit-slot-tag outfit-slot-tag--{{row.slotKind}}">{{row.slotLabel}}</span>{{/if}}</span>
+                                    <span class="outfit-col--name"><a class="squeeze-text check-trigger" data-action="startSkillCheck" data-item-id="{{row._id}}" title="使用（用途があれば実行・無ければ説明を表示）">{{row.displayName}}</a>{{#if row.housingAreaRank}}<span class="outfit-area-badge outfit-area-badge--{{row.housingAreaRank.key}}" title="住宅エリア：{{row.housingAreaRank.label}}">{{row.housingAreaRank.label}}</span>{{/if}}{{#each row.slotGauges}}<span class="outfit-slot-gauge outfit-slot-gauge--{{this.kind}}{{#if this.over}} is-over{{/if}}" title="{{this.kindLabel}} {{this.used}}/{{this.capacity}}">{{#each this.pips}}<i class="tnx-pip{{#if this.on}} on{{/if}}{{#if this.over}} over{{/if}}"></i>{{/each}}<b class="tnx-pip-count">{{this.used}}/{{this.capacity}}</b></span>{{/each}}{{#if row.slotLabel}}<span class="outfit-slot-tag outfit-slot-tag--{{row.slotKind}}">{{row.slotLabel}}</span>{{/if}}</span>
                                     {{#each row.colValues as |col|}}
                                     <span class="outfit-col--{{col.key}}"><span class="squeeze-text">{{col.value}}</span></span>
                                     {{/each}}
