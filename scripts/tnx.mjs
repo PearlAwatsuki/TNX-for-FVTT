@@ -1241,15 +1241,16 @@ Hooks.once("ready", async function() {
     });
 
 });
-// ─── コンバットスピードの戦闘連動(フェーズ10-5) ─────────────────────────────
-// シートの「CS」表示は自動制御(カット進行中=カレント/それ以外=CS)。表示層の切替は
-// アクタードキュメントの更新を伴わないため、戦闘の開始/終了・参加/離脱で該当アクターを
-// 再準備(reset)して開いているシートを再描画する。
-// カット開始時はカレントに CS(実効値)を自動セットする(「セットアップ末に決定・初期値は CS」の
-// 近似。以後のセットアップ行動修正・メジャー後 0・待機 1 の自動管理はフェーズ13)。
+// ─── CS・AR の戦闘連動(フェーズ10-5 / 11) ─────────────────────────────────
+// シートの「CS」「AR」表示は自動制御(カット進行中=カレント・現在AR/それ以外=CS・付与値)。
+// 表示層の切替はアクタードキュメントの更新を伴わないため、戦闘の開始/終了・参加/離脱で
+// 該当アクターを再準備(reset)して開いているシートを再描画する。
+// カット開始時はカレントに CS(実効値)を、現在ARに付与値(実効)を自動セットする
+// (CS=「セットアップ末に決定・初期値は CS」の近似、AR=「カット進行のシーン開始時に付与」の近似。
+// 以後のセットアップ行動修正・メジャー後の消費・クリンナップ全回復等の自動管理はフェーズ13)。
 
 /** 該当アクターの派生値を再準備し、開いているシートを再描画する(全クライアント・ローカルのみ)。 */
-function refreshCombatSpeedDisplays(actors) {
+function refreshCombatStatDisplays(actors) {
     for (const actor of actors) {
         if (!actor) continue;
         actor.reset();
@@ -1257,32 +1258,36 @@ function refreshCombatSpeedDisplays(actors) {
     }
 }
 
-/** カレントへ CS 実効値を書き込む(GM のみ・カット開始時/開始済みカットへの参加時)。 */
-async function seedCombatSpeedCurrent(actors) {
+/** CSカレント・現在ARへ実効値を書き込む(GM のみ・カット開始時/開始済みカットへの参加時)。 */
+async function seedCombatStartValues(actors) {
     if (!game.user.isGM) return;
     for (const actor of actors) {
+        const update = {};
         const cs = actor?.system?.combatSpeed;
-        if (!cs) continue;
-        await actor.update({ "system.combatSpeed.current": cs.valueTotal ?? 0 });
+        if (cs) update["system.combatSpeed.current"] = cs.valueTotal ?? 0;
+        const ar = actor?.system?.actionRank;
+        if (ar) update["system.actionRank.value"] = ar.maxTotal ?? 0;
+        if (foundry.utils.isEmpty(update)) continue;
+        await actor.update(update);
     }
 }
 
 Hooks.on("combatStart", async (combat) => {
     const actors = combat.combatants.map(c => c.actor).filter(Boolean);
-    await seedCombatSpeedCurrent(actors);
-    refreshCombatSpeedDisplays(actors);
+    await seedCombatStartValues(actors);
+    refreshCombatStatDisplays(actors);
 });
 
 Hooks.on("deleteCombat", (combat) => {
-    refreshCombatSpeedDisplays(combat.combatants.map(c => c.actor).filter(Boolean));
+    refreshCombatStatDisplays(combat.combatants.map(c => c.actor).filter(Boolean));
 });
 
 Hooks.on("createCombatant", async (combatant) => {
     if (!combatant.parent?.started || !combatant.actor) return;
-    await seedCombatSpeedCurrent([combatant.actor]);
-    refreshCombatSpeedDisplays([combatant.actor]);
+    await seedCombatStartValues([combatant.actor]);
+    refreshCombatStatDisplays([combatant.actor]);
 });
 
 Hooks.on("deleteCombatant", (combatant) => {
-    if (combatant.actor) refreshCombatSpeedDisplays([combatant.actor]);
+    if (combatant.actor) refreshCombatStatDisplays([combatant.actor]);
 });

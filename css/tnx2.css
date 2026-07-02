@@ -5915,12 +5915,18 @@ button.tnx-create-act-button span {
     flex-direction: column;
     min-width: 240px;
     max-width: 100%;
+    vertical-align: top; /* CS と AR のボックスが横並びのとき上端で揃える */
     background: var(--tnx2-bg-2);
     border: 1px solid var(--tnx2-border-active);
     border-radius: var(--tnx2-radius);
     padding: 10px 16px;
     margin-bottom: 16px;
     transition: border-color var(--tnx2-transition-mid), box-shadow var(--tnx2-transition-mid);
+}
+/* AR ボックス(cs-box の意匠を共有する修飾)。CS の右に並び、幅は控えめ */
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-box--ar {
+    min-width: 180px;
+    margin-left: 12px;
 }
 /* カット進行中(CSカレント参照中)はグローで示す */
 .tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-box--cut {

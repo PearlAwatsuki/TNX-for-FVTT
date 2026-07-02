@@ -624,6 +624,47 @@
                         {{/if}}
                     </div>
 
+                    {{!-- AR ボックス(フェーズ11 追補)。CS ボックスの意匠・表示自動制御を踏襲:
+                         カット進行中=現在AR(グロー)/それ以外=実効付与値。AR は付与型
+                         (カット進行の開始時に付与・正本 Combat_Flow.md)のため基準の入力欄を持たず、
+                         編集モードは 付与＋修正＝付与値 → 現在AR の連鎖で表す。 --}}
+                    <div class="cs-box cs-box--ar{{#if system.actionRank.inCombat}} cs-box--cut{{/if}}"{{#if system.actionRank.inCombat}} data-tooltip="カット進行中: 現在ARを参照中"{{/if}}>
+                        <div class="cs-box__title">
+                            <span class="cs-box__abbr">AR</span>
+                            <span class="cs-box__name">アクションランク</span>
+                        </div>
+                        {{#if isEditMode}}
+                        <div class="cs-cascade">
+                            <div class="cs-cascade__row">
+                                <label title="カット進行の開始時に付与されます">付与</label>
+                                <input type="number" value="{{system.actionRank.grantBase}}" disabled>
+                                <span class="cs-cascade__op">＋</span>
+                                <label title="付与ARへの修正（原則は AE で解決されます。手入力は例外的な直接修正用）">修正</label>
+                                <div class="number-input-spinner">
+                                    <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.actionRank.freeMod">-</button>
+                                    <input type="number" name="system.actionRank.freeMod" value="{{system.actionRank.freeMod}}">
+                                    <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.actionRank.freeMod">+</button>
+                                </div>
+                                <span class="cs-cascade__op">＝</span>
+                                <input type="number" value="{{system.actionRank.maxTotal}}" disabled>
+                            </div>
+                            <div class="cs-cascade__aligned">
+                                <span class="cs-cascade__note cs-cascade__aligned-note"><i class="fas fa-angles-down"></i> カット開始で自動セット</span>
+                                <label title="カット進行中の残り行動権。メジャーアクションで1消費し、クリンナッププロセスで全回復します（手入力で管理します）">現在AR</label>
+                                <div class="number-input-spinner">
+                                    <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.actionRank.value">-</button>
+                                    <input type="number" name="system.actionRank.value" value="{{system.actionRank.value}}">
+                                    <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.actionRank.value">+</button>
+                                </div>
+                            </div>
+                        </div>
+                        {{else}}
+                        <div class="cs-box__value-row">
+                            <span class="cs-box__value">{{system.actionRank.displayTotal}}</span>
+                        </div>
+                        {{/if}}
+                    </div>
+
                     <div class="tnx-section-header"><h3>武器</h3></div>
                     <div class="combat-refs">
                         <div class="combat-ref-line">

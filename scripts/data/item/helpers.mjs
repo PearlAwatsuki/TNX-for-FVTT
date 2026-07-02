@@ -295,6 +295,11 @@ export function parseEffectTargetKey(key) {
       const p = after.join(".");
       return ["base", "value", "current"].includes(p) ? { scope: "cs", path: p, conditions } : null;
     }
+    // AR の着地(フェーズ11)。仮想名前空間 "ar"——max=実効付与値(actionRank.maxTotal)。
+    // 高額アウトフィットの増強等の常時修正が乗る。cs.base と同じく準備状態ゲートがかかる。
+    case "ar": {
+      return after.join(".") === "max" ? { scope: "ar", path: "max", conditions } : null;
+    }
     default: return null; // handMaxSizeMod 等はネイティブ処理に委ねる
   }
 }

@@ -21,7 +21,7 @@ globalThis.foundry = {
   },
 };
 
-const { damageField, attributeField, combatSpeedField, computeAttributeFinal, computeOutfitAggregates, resolveCombatSpeedDisplayTotal } = await import("../../scripts/data/helpers.mjs");
+const { damageField, attributeField, combatSpeedField, computeAttributeFinal, computeOutfitAggregates, resolveCombatSpeedDisplayTotal, actionRankField, resolveActionRankDisplayTotal, ACTION_RANK_GRANT } = await import("../../scripts/data/helpers.mjs");
 
 describe("damageField()", () => {
   it("呼び出せる", () => {
@@ -132,6 +132,54 @@ describe("resolveCombatSpeedDisplayTotal()（表示層の自動制御・10-5）"
   it("null でも安全に 0", () => {
     expect(resolveCombatSpeedDisplayTotal(null, true)).toBe(0);
     expect(resolveCombatSpeedDisplayTotal(null, false)).toBe(0);
+  });
+});
+
+describe("actionRankField()（AR・フェーズ11）", () => {
+  it("呼び出せる", () => {
+    expect(() => actionRankField()).not.toThrow();
+  });
+
+  it("value / freeMod を持つ SchemaField を返す", () => {
+    const field = actionRankField();
+    expect(field.fields).toHaveProperty("value");
+    expect(field.fields).toHaveProperty("freeMod");
+  });
+
+  it("基準値フィールド(base / max)を持たない（付与型: 定数＋修正で派生する）", () => {
+    const field = actionRankField();
+    expect(field.fields).not.toHaveProperty("base");
+    expect(field.fields).not.toHaveProperty("max");
+  });
+
+  it("value は initial 0・min 0（現在AR はカット中のみ意味を持つ）", () => {
+    const field = actionRankField();
+    expect(field.fields.value).toBeInstanceOf(MockNumberField);
+    expect(field.fields.value.options.initial).toBe(0);
+    expect(field.fields.value.options.min).toBe(0);
+  });
+});
+
+describe("ACTION_RANK_GRANT（付与基準値のルール定数）", () => {
+  it("カット進行のシーン開始時の付与は 1", () => {
+    expect(ACTION_RANK_GRANT).toBe(1);
+  });
+});
+
+describe("resolveActionRankDisplayTotal()（表示の自動制御・フェーズ11）", () => {
+  const ar = { value: 0, maxTotal: 2 };
+
+  it("カット(戦闘)進行中は現在AR を返す", () => {
+    expect(resolveActionRankDisplayTotal(ar, true)).toBe(0);
+  });
+
+  it("カット外は実効付与値を返す（シーン進行中は消費されない＝常に満額）", () => {
+    expect(resolveActionRankDisplayTotal(ar, false)).toBe(2);
+  });
+
+  it("null でも安全に 0", () => {
+    expect(resolveActionRankDisplayTotal(null, true)).toBe(0);
+    expect(resolveActionRankDisplayTotal(null, false)).toBe(0);
   });
 });
 

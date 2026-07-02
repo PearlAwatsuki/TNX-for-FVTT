@@ -13,7 +13,7 @@ describe("AttributesTemplate.defineSchema()", () => {
   describe("トップレベルフィールドがすべて存在する", () => {
     const expectedKeys = [
       "reason", "passion", "life", "mundane",
-      "combatSpeed",
+      "combatSpeed", "actionRank",
       "physicalDamage", "mentalDamage", "socialDamage",
     ];
     for (const key of expectedKeys) {
@@ -66,6 +66,23 @@ describe("AttributesTemplate.defineSchema()", () => {
 
     it("combatSpeed.mod を持たない（3層モデルに役割なし・フェーズ10-5 で削除）", () => {
       expect(schema.combatSpeed.fields).not.toHaveProperty("mod");
+    });
+  });
+
+  describe("actionRank (actionRankField) の構造が正しい（フェーズ11）", () => {
+    it("actionRank は SchemaField である", () => {
+      expect(schema.actionRank).toBeInstanceOf(MockSchemaField);
+    });
+
+    for (const key of ["value", "freeMod"]) {
+      it(`actionRank.${key} が存在する`, () => {
+        expect(schema.actionRank.fields).toHaveProperty(key);
+      });
+    }
+
+    it("基準値フィールド(base / max)を持たない（付与型: 定数＋修正で派生する）", () => {
+      expect(schema.actionRank.fields).not.toHaveProperty("base");
+      expect(schema.actionRank.fields).not.toHaveProperty("max");
     });
   });
 

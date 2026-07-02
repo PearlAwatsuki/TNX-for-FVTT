@@ -17,7 +17,7 @@ import { SystemDataModel } from "../abstract.mjs";
 import { BiographyTemplate } from "./common/biography.mjs";
 import { AttributesTemplate } from "./common/attributes.mjs";
 import { ActorBaseTemplate } from "./common/actor-base.mjs";
-import { computeAttributeFinal, computeOutfitAggregates, resolveCombatSpeedDisplayTotal, isActorInStartedCombat } from "../helpers.mjs";
+import { computeAttributeFinal, computeOutfitAggregates, resolveCombatSpeedDisplayTotal, resolveActionRankDisplayTotal, isActorInStartedCombat } from "../helpers.mjs";
 import { ATTACK_DAMAGE_TYPES, parseEffectTargetKey, resolveItemTotalPath, evalEffectConditions } from "../item/helpers.mjs";
 import { readConditions, gatherConditionControlPenalty } from "../../module/conditions.mjs";
 
@@ -159,6 +159,10 @@ export class CastDataModel extends SystemDataModel.mixin(
     // 表示中の CS(自動制御: カット進行中=カレント/それ以外=CS)。AE(cs.*)適用後に確定する。
     this.combatSpeed.inCombat     = isActorInStartedCombat(this.parent);
     this.combatSpeed.displayTotal = resolveCombatSpeedDisplayTotal(this.combatSpeed, this.combatSpeed.inCombat);
+    // AR 実効付与値の 0clamp と表示解決(AE(ar.max)適用後に確定。CS と同じ自動制御)
+    this.actionRank.maxTotal     = Math.max(0, this.actionRank.maxTotal);
+    this.actionRank.inCombat     = this.combatSpeed.inCombat;
+    this.actionRank.displayTotal = resolveActionRankDisplayTotal(this.actionRank, this.combatSpeed.inCombat);
   }
 
   /**
@@ -215,10 +219,10 @@ export class CastDataModel extends SystemDataModel.mixin(
     // 適用先へ展開(条件評価込み)
     const apps = [];
     for (const { effect, change, parsed, bearer } of entries) {
-      // cs.base(CSベースへの常時修正)のみ: 保持アイテムが未準備なら読み飛ばす(2026-07-02 裁定・
-      // 携帯/準備の一般原則「準備で常時効果解禁」を CS の AE 着地に適用)。isPrepared を持たない
-      // 保持元(styleSkill・アクター自身)はゲート対象外。
-      if (parsed.scope === "cs" && parsed.path === "base"
+      // cs.base(CSベースへの常時修正)・ar.max(付与ARへの常時修正)のみ: 保持アイテムが未準備なら
+      // 読み飛ばす(2026-07-02 裁定・携帯/準備の一般原則「準備で常時効果解禁」を常時系の AE 着地に
+      // 適用)。isPrepared を持たない保持元(styleSkill・アクター自身)はゲート対象外。
+      if (((parsed.scope === "cs" && parsed.path === "base") || parsed.scope === "ar")
           && bearer?.documentName === "Item" && bearer.system?.isPrepared === false) continue;
       const identity  = effect.flags?.[SCOPE]?.effectId || effect.id;
       const stackable = effect.flags?.[SCOPE]?.stackable === true;
@@ -262,6 +266,9 @@ export class CastDataModel extends SystemDataModel.mixin(
         const map = { base: "combatSpeed.baseTotal", value: "combatSpeed.valueTotal", current: "combatSpeed.currentTotal" };
         return map[parsed.path] ? [{ doc: actor, totalPath: map[parsed.path] }] : [];
       }
+      case "ar":
+        // AR(フェーズ11)。仮想名前空間 system.ar.max → 実効付与値へ。
+        return [{ doc: actor, totalPath: "actionRank.maxTotal" }];
       case "self":
         return bearer?.documentName === "Item" ? [itemApp(bearer)] : [];
       case "parent": {

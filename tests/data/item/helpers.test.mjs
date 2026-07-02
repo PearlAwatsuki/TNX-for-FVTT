@@ -277,6 +277,15 @@ describe("parseEffectTargetKey()（v2 system.<名前空間> 文法）", () => {
     expect(parseEffectTargetKey("system.cs")).toBeNull();
   });
 
+  it("値: ar.max(付与ARの実効・フェーズ11)", () => {
+    expect(parseEffectTargetKey("system.ar.max")).toMatchObject({ scope: "ar", path: "max", conditions: [] });
+  });
+
+  it("ar の未知パスは null（現在AR への AE 着地は設けない）", () => {
+    expect(parseEffectTargetKey("system.ar.value")).toBeNull();
+    expect(parseEffectTargetKey("system.ar")).toBeNull();
+  });
+
   it("判定: check.<能力値> / controlCheck.<能力値> / check.<技能>", () => {
     expect(parseEffectTargetKey("check.reason")).toMatchObject({ scope: "abilityCheck", ability: "reason" });
     expect(parseEffectTargetKey("controlCheck.reason")).toMatchObject({ scope: "controlCheck", ability: "reason" });

@@ -8,7 +8,11 @@
  */
 
 import { SystemDataModel } from "../../abstract.mjs";
-import { attributeField, combatSpeedField, resolveCombatSpeedDisplayTotal, isActorInStartedCombat } from "../../helpers.mjs";
+import {
+  attributeField, combatSpeedField, resolveCombatSpeedDisplayTotal,
+  actionRankField, resolveActionRankDisplayTotal, ACTION_RANK_GRANT,
+  isActorInStartedCombat,
+} from "../../helpers.mjs";
 
 export class AttributesTemplate extends SystemDataModel {
   /** @override */
@@ -20,6 +24,7 @@ export class AttributesTemplate extends SystemDataModel {
       life:    attributeField(),
       mundane: attributeField(),
       combatSpeed: combatSpeedField(),
+      actionRank:  actionRankField(),
       // ダメージ系は max の初期値が 21(template.json 準拠)のため damageField() は使わず直接定義
       physicalDamage: new fields.SchemaField({
         value: new fields.NumberField({ initial: 0 }),
@@ -41,20 +46,29 @@ export class AttributesTemplate extends SystemDataModel {
 
   /**
    * @override
-   * CS 3層の素の実効値(フェーズ10-5)。決定値＋freeMod のみのフォールバックで、
+   * CS 3層・AR の素の実効値(フェーズ10-5 / 11)。決定値＋freeMod のみのフォールバックで、
    * initiative 式(@system.combatSpeed.valueTotal)が cast 以外(guest/troop)でも解決できるよう
    * 共通側に置く。cast は CastDataModel._prepareCombatSpeedTotals がアウトフィット修正・
-   * ゴースト読み飛ばし込みで上書きする。
+   * ゴースト読み飛ばし込みで上書きし、AR も AE(ar.max)適用後に表示を確定し直す。
    */
   prepareDerivedData() {
     super.prepareDerivedData?.();
+    const inCombat = isActorInStartedCombat(this.parent);
+    // AR は付与型(Combat_Flow.md「アクションランク」): 基準の入力欄を持たず、定数＋修正で派生する
+    const ar = this.actionRank;
+    if (ar) {
+      ar.grantBase    = ACTION_RANK_GRANT; // シート表示用(定数の単一ソース)
+      ar.maxTotal     = Math.max(0, ACTION_RANK_GRANT + (ar.freeMod ?? 0));
+      ar.inCombat     = inCombat;
+      ar.displayTotal = resolveActionRankDisplayTotal(ar, inCombat);
+    }
     const cs = this.combatSpeed;
     if (!cs) return;
     cs.baseTotal      = (cs.base ?? 0) + (cs.freeMod ?? 0);
     cs.valueTotal     = cs.value ?? 0;
     cs.currentTotal   = cs.current ?? 0;
     cs.ghostIgnorable = 0;
-    cs.inCombat       = isActorInStartedCombat(this.parent);
+    cs.inCombat       = inCombat;
     cs.displayTotal   = resolveCombatSpeedDisplayTotal(cs, cs.inCombat);
   }
 }
