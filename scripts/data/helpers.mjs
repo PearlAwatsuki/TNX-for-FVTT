@@ -84,35 +84,50 @@ export const OUTFIT_ITEM_TYPES = new Set([
 
 /**
  * 携帯中アウトフィットから outfitMod(制御値修正・CS修正)と appearanceModifier(危険値合計)を
- * 集計する純粋関数(フェーズ9-2、B-2 派生化)。
+ * 集計する純粋関数(フェーズ9-2、B-2 派生化。CS はフェーズ10-5 でフラグ駆動化)。
  *
  * - 制御値修正: 準備済み(isPrepared)かつ携帯中のアウトフィットのみ加算。
- * - CS修正: 携帯中であれば加算(tap は常時稼働のため isPrepared 不問)。
- *   ゴースト登場中(isGhost)は物理現場不在のため無効。
+ * - CS修正(タップ・2026-07-02 裁定): 「ゴースト時は適用しない」フラグで一元化。
+ *   - フラグ OFF: 一般原則どおり準備済みでのみ加算(combatSpeed)。ゴースト無関係。
+ *   - フラグ ON: 携帯起点で別枠に加算(combatSpeedGhostIgnorable)。ゴースト登場中の
+ *     読み飛ばしは呼び出し側(CastDataModel)が行う(決定値に触れない「修正項の条件付き除外」)。
  * - 危険値(appearancePenalty): 携帯中のアウトフィットを合算(登場判定用)。
  *
  * Item に依存しないよう、items は { type, system } を持つ素オブジェクト配列で受け取る。
  *
  * @param {Array<{type:string, system:object}>} items  アクターの全アイテム
- * @param {boolean} [isGhost=false]  ゴースト登場中か
- * @returns {{ control:number, combatSpeed:number, appearance:number }}
+ * @returns {{ control:number, combatSpeed:number, combatSpeedGhostIgnorable:number, appearance:number }}
  */
-export function computeOutfitAggregates(items, isGhost = false) {
-  let control = 0, combatSpeed = 0, appearance = 0;
+export function computeOutfitAggregates(items) {
+  let control = 0, combatSpeed = 0, combatSpeedGhostIgnorable = 0, appearance = 0;
   for (const item of items) {
     if (!OUTFIT_ITEM_TYPES.has(item.type)) continue;
     const s = item.system;
     if (!s?.isCarrying) continue;
     if (s.isPrepared && s.controlMod?.mode === "value")        control     += Number(s.controlMod.value) || 0;
-    if (!isGhost && s.combatSpeedMod?.mode === "value")        combatSpeed += Number(s.combatSpeedMod.value) || 0;
+    if (s.combatSpeedMod?.mode === "value") {
+      const v = Number(s.combatSpeedMod.value) || 0;
+      if (s.combatSpeedModGhostIgnore)  combatSpeedGhostIgnorable += v;
+      else if (s.isPrepared)            combatSpeed               += v;
+    }
     if (s.appearancePenalty?.mode === "value")                appearance  += Number(s.appearancePenalty.value) || 0;
   }
-  return { control, combatSpeed, appearance };
+  return { control, combatSpeed, combatSpeedGhostIgnorable, appearance };
 }
 
 /**
- * 戦闘速度(combatSpeed)の5フィールド構造を返す SchemaField。
- * template.json > Actor.templates.attributes.combatSpeed 構造に準拠。
+ * 戦闘速度(combatSpeed)の3層モデル(フェーズ10-5・正本 Combat_Flow.md「コンバットスピード」)。
+ * 各層とも「決定値(再計算不可・保存)＋修正値(ライブ)」で表現する:
+ * - base:    CSベースの能力値項スナップショット。「プレアクト初期化」で
+ *            floor((理性+感情+生命)÷2) をその時点の実効値から焼き込む(以後追従しない)。
+ * - value:   CS(中段)。プレアクト初期化で CSベース実効値から設定。
+ * - current: CSカレント(カット中の自動管理はフェーズ13)。
+ * - freeMod: CSベースへの手動修正(ライブ加算)。
+ * シート表示は常に単一の「CS」で、3層は内部データ(ユーザー裁定 2026-07-02)。どの層を表示するかは
+ * **自動制御**: カット(戦闘)進行中=カレント／それ以外=CS。ベースは編集モードの内部参照のみ。
+ * initiative も表示中の値(displayTotal)を読む。
+ * 実効値(baseTotal/valueTotal/currentTotal/displayTotal)は派生算出する(保存しない)。
+ * 旧 mod フィールドは 3層モデルに役割がないため削除(フェーズ10-5・§4.3 承認済み)。
  *
  * @returns {foundry.data.fields.SchemaField}
  */
@@ -122,7 +137,36 @@ export function combatSpeedField() {
     value:   new fields.NumberField({ initial: 0 }),
     base:    new fields.NumberField({ initial: 0 }),
     current: new fields.NumberField({ initial: 0 }),
-    mod:     new fields.NumberField({ initial: 0 }),
     freeMod: new fields.NumberField({ initial: 0 }),
   });
+}
+
+/**
+ * シートに「CS」として表示する層の実効値を返す純粋関数(フェーズ10-5・自動制御)。
+ * カット(戦闘)進行中はカレント、それ以外は CS(中段)。initiative もこの値を読む。
+ * カット開始時にカレントへ CS が自動セットされる(tnx.mjs の戦闘フック)ため、
+ * セットアップ時点の表示・initiative は CS と一致し、セットアップ行動での修正が
+ * そのままカレントに乗る(「セットアップ末に決定・初期値は CS」の近似)。
+ * @param {{valueTotal?:number, currentTotal?:number}} cs
+ * @param {boolean} inCombat カット(開始済み戦闘)に参加中か
+ * @returns {number}
+ */
+export function resolveCombatSpeedDisplayTotal(cs, inCombat) {
+  return inCombat ? (cs?.currentTotal ?? 0) : (cs?.valueTotal ?? 0);
+}
+
+/**
+ * アクターが開始済みの戦闘(カット進行中)に参加しているか(Foundry 依存・安全ガード付き)。
+ * prepareDerivedData から呼ばれるため、game 未初期化時は false を返す。
+ * @param {Actor|null} actor
+ * @returns {boolean}
+ */
+export function isActorInStartedCombat(actor) {
+  try {
+    const combat = game?.combat;
+    if (!combat?.started || !actor) return false;
+    return !!combat.getCombatantByActor?.(actor);
+  } catch {
+    return false;
+  }
 }

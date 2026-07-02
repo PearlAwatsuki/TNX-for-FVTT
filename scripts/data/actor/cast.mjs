@@ -17,7 +17,7 @@ import { SystemDataModel } from "../abstract.mjs";
 import { BiographyTemplate } from "./common/biography.mjs";
 import { AttributesTemplate } from "./common/attributes.mjs";
 import { ActorBaseTemplate } from "./common/actor-base.mjs";
-import { computeAttributeFinal, computeOutfitAggregates } from "../helpers.mjs";
+import { computeAttributeFinal, computeOutfitAggregates, resolveCombatSpeedDisplayTotal, isActorInStartedCombat } from "../helpers.mjs";
 import { ATTACK_DAMAGE_TYPES, parseEffectTargetKey, resolveItemTotalPath, evalEffectConditions } from "../item/helpers.mjs";
 import { readConditions, gatherConditionControlPenalty } from "../../module/conditions.mjs";
 
@@ -72,6 +72,10 @@ export class CastDataModel extends SystemDataModel.mixin(
       isGhost:    new fields.BooleanField({ initial: false }),
       bounty:     new fields.NumberField({ initial: 0, integer: true }),
       bountyBase: new fields.NumberField({ initial: 0, integer: true }),
+      // 生身のデータ(フェーズ9定義・フェーズ10-6で正式化/2026-07-02 裁定)。生身はアイテムとして
+      // 用意しない(部位「-」=準備不可のため)——攻撃力 I+0・受け値 0 をアクターのデータとして保持する。
+      // 全身義体・生身変更装備(isFleshChange)はこの生身を「書き換える」(正本 Outfits.md「生身の変更」)。
+      // 防御 0 は防具・義体なしの合計 0 で自然に表現される(baseDefence は将来の種別別素値用に残置)。
       baseAttack: new fields.SchemaField({
         damageType: new fields.StringField({
           required: true,
@@ -92,6 +96,15 @@ export class CastDataModel extends SystemDataModel.mixin(
         mod:   new fields.NumberField({ initial: 0 }),
       }),
       appearanceModifier: new fields.NumberField({ initial: 0, integer: true }),
+      // 生身の書き換え元の選択(フェーズ10-6・2026-07-02 裁定)。攻撃用とパリー用で
+      // 別々の書き換え元(準備済みの全身義体/生身変更装備)を選べる(攻撃と防御で別の身体部位を
+      // 使うのは設定上も自然)。空文字=未変更の生身(baseAttack/baseGuard)が既定。
+      // シート上の便宜的な事前設定であり本義は都度宣言(=非強制・表示のみ)。
+      // 通常武器の使用は攻撃判定の用途(usage.weaponRef)に移管済みでここでは扱わない。
+      weaponRefs: new fields.SchemaField({
+        attackItemId: new fields.StringField({ initial: "" }),
+        parryItemId:  new fields.StringField({ initial: "" }),
+      }),
       // 手札上限への AE 修正(KI-020・層③)。手札上限の権威は User flag にあるが User は
       // DataModel/AE を持てないため、所有 cast の AE がここに着地し(ADD)、
       // resolveEffectiveHandMaxSize が所有ユーザーの cast から合算する。
@@ -121,6 +134,7 @@ export class CastDataModel extends SystemDataModel.mixin(
   prepareDerivedData() {
     super.prepareDerivedData?.();
     this._prepareOutfitAggregates();
+    this._prepareCombatSpeedTotals();
     const styleItems = this.parent?.items?.filter(i => i.type === "style") ?? [];
     const outfitMod  = this.outfitMod ?? {};
     for (const key of ABILITY_KEYS) {
@@ -142,6 +156,9 @@ export class CastDataModel extends SystemDataModel.mixin(
       this[key].total        = Math.max(0, this[key].total);
       this[key].totalControl = Math.max(0, this[key].totalControl);
     }
+    // 表示中の CS(自動制御: カット進行中=カレント/それ以外=CS)。AE(cs.*)適用後に確定する。
+    this.combatSpeed.inCombat     = isActorInStartedCombat(this.parent);
+    this.combatSpeed.displayTotal = resolveCombatSpeedDisplayTotal(this.combatSpeed, this.combatSpeed.inCombat);
   }
 
   /**
@@ -198,6 +215,11 @@ export class CastDataModel extends SystemDataModel.mixin(
     // 適用先へ展開(条件評価込み)
     const apps = [];
     for (const { effect, change, parsed, bearer } of entries) {
+      // cs.base(CSベースへの常時修正)のみ: 保持アイテムが未準備なら読み飛ばす(2026-07-02 裁定・
+      // 携帯/準備の一般原則「準備で常時効果解禁」を CS の AE 着地に適用)。isPrepared を持たない
+      // 保持元(styleSkill・アクター自身)はゲート対象外。
+      if (parsed.scope === "cs" && parsed.path === "base"
+          && bearer?.documentName === "Item" && bearer.system?.isPrepared === false) continue;
       const identity  = effect.flags?.[SCOPE]?.effectId || effect.id;
       const stackable = effect.flags?.[SCOPE]?.stackable === true;
       for (const { doc, totalPath } of this._resolveBuffApplications(parsed, bearer)) {
@@ -235,6 +257,11 @@ export class CastDataModel extends SystemDataModel.mixin(
     switch (parsed.scope) {
       case "ability": return [{ doc: actor, totalPath: `${parsed.path}.total` }];
       case "control": return [{ doc: actor, totalPath: `${parsed.path}.totalControl` }];
+      case "cs": {
+        // CS 3層(フェーズ10-5)。仮想名前空間 system.cs.* → combatSpeed の実効値へ。
+        const map = { base: "combatSpeed.baseTotal", value: "combatSpeed.valueTotal", current: "combatSpeed.currentTotal" };
+        return map[parsed.path] ? [{ doc: actor, totalPath: map[parsed.path] }] : [];
+      }
       case "self":
         return bearer?.documentName === "Item" ? [itemApp(bearer)] : [];
       case "parent": {
@@ -262,14 +289,34 @@ export class CastDataModel extends SystemDataModel.mixin(
    * アウトフィットは制御値・CS のみ修正する)。
    */
   _prepareOutfitAggregates() {
-    const { control, combatSpeed, appearance } =
-      computeOutfitAggregates(this.parent?.items ?? [], this.isGhost);
+    const { control, combatSpeed, combatSpeedGhostIgnorable, appearance } =
+      computeOutfitAggregates(this.parent?.items ?? []);
     this.outfitMod.control     = control;
     this.outfitMod.combatSpeed = combatSpeed;
+    // フラグON(携帯起点)のCS修正合算。ゴースト登場中の読み飛ばしとバッジ表示に使う(非スキーマ派生)。
+    this.outfitMod.combatSpeedGhostIgnorable = combatSpeedGhostIgnorable;
     this.outfitMod.reason  = 0;
     this.outfitMod.passion = 0;
     this.outfitMod.life    = 0;
     this.outfitMod.mundane = 0;
     this.appearanceModifier = appearance;
+  }
+
+  /**
+   * CS 3層の実効値を派生算出する(フェーズ10-5・正本 Combat_Flow.md「実装表現の原則」)。
+   * 各層とも「決定値(保存・再計算不可)＋修正値(ライブ)」: 決定値 base/value/current には触れず、
+   * 実効値 baseTotal/valueTotal/currentTotal を都度組み立てる。AE(system.cs.base|value|current)は
+   * この後 _applyEffectBuffs が実効値へ直接効かせる。
+   * 「読み飛ばし」＝修正項の条件付き除外: フラグON(携帯起点)のタップ修正はゴースト登場中に外す。
+   * 0clamp はしない(CS は負になりうる)。
+   */
+  _prepareCombatSpeedTotals() {
+    const cs = this.combatSpeed;
+    const ignorable = this.outfitMod.combatSpeedGhostIgnorable ?? 0;
+    cs.ghostIgnorable = ignorable; // 表示用(「X（Y）」の括弧部分)
+    cs.baseTotal = (cs.base ?? 0) + (cs.freeMod ?? 0) + (this.outfitMod.combatSpeed ?? 0)
+      + (this.isGhost ? 0 : ignorable);
+    cs.valueTotal   = cs.value   ?? 0;
+    cs.currentTotal = cs.current ?? 0;
   }
 }

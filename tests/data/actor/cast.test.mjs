@@ -138,6 +138,16 @@ describe("CastDataModel.defineSchema()", () => {
     });
   });
 
+  describe("cast 固有フィールド — weaponRefs (武器の参照宣言・フェーズ10-6)", () => {
+    it("weaponRefs は SchemaField で attackItemId / parryItemId(StringField・initial '')を持つ", () => {
+      expect(schema.weaponRefs).toBeInstanceOf(MockSchemaField);
+      for (const key of ["attackItemId", "parryItemId"]) {
+        expect(schema.weaponRefs.fields[key]).toBeInstanceOf(MockStringField);
+        expect(schema.weaponRefs.fields[key].options.initial).toBe("");
+      }
+    });
+  });
+
   describe("cast 固有フィールド — bounty / bountyBase (報酬点)", () => {
     it("bounty が NumberField で initial が 0、integer が true", () => {
       expect(schema.bounty).toBeInstanceOf(MockNumberField);

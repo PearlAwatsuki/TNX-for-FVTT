@@ -651,14 +651,17 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 push("ス", countOf("normal"));
                 push("電制", hack); push("部位", part);
                 break;
-            case "tap":
+            case "tap": {
                 push("購", buy); push("隠", hideFull);
                 push("サ", mvOpt(system.cycle));
                 push("ソ", countOf("software"));
                 push("ハ", countOf("hardware"));
-                push("CS", mvOpt(system.combatSpeedMod));
+                // ゴースト時読み飛ばしフラグONのCS修正は原作の括弧書き「CS：（-20）」を再現(2026-07-02)
+                const csLabel = mvOpt(system.combatSpeedMod);
+                push("CS", (system.combatSpeedModGhostIgnore && csLabel !== "-") ? `（${csLabel}）` : csLabel);
                 push("電制", hack); push("部位", part);
                 break;
+            }
             case "vehicle":
                 push("購", buy); push("隠", hideFull);
                 push("攻", this._attackLabel(system.attack));

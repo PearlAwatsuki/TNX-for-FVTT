@@ -57,6 +57,13 @@ describe("TapDataModel.defineSchema()", () => {
     });
   });
 
+  describe("combatSpeedModGhostIgnore（ゴースト時は適用しない・フェーズ10-5）", () => {
+    it("BooleanField で initial が false（OFF=準備起点・ゴースト無関係のフラット既定）", () => {
+      expect(schema.combatSpeedModGhostIgnore).toBeInstanceOf(MockBooleanField);
+      expect(schema.combatSpeedModGhostIgnore.options.initial).toBe(false);
+    });
+  });
+
   it("attack フィールドは含まれない(weapon 固有)", () => {
     expect(schema).not.toHaveProperty("attack");
   });

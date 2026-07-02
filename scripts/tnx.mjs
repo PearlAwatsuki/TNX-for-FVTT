@@ -1241,3 +1241,48 @@ Hooks.once("ready", async function() {
     });
 
 });
+// ─── コンバットスピードの戦闘連動(フェーズ10-5) ─────────────────────────────
+// シートの「CS」表示は自動制御(カット進行中=カレント/それ以外=CS)。表示層の切替は
+// アクタードキュメントの更新を伴わないため、戦闘の開始/終了・参加/離脱で該当アクターを
+// 再準備(reset)して開いているシートを再描画する。
+// カット開始時はカレントに CS(実効値)を自動セットする(「セットアップ末に決定・初期値は CS」の
+// 近似。以後のセットアップ行動修正・メジャー後 0・待機 1 の自動管理はフェーズ13)。
+
+/** 該当アクターの派生値を再準備し、開いているシートを再描画する(全クライアント・ローカルのみ)。 */
+function refreshCombatSpeedDisplays(actors) {
+    for (const actor of actors) {
+        if (!actor) continue;
+        actor.reset();
+        if (actor.sheet?.rendered) actor.sheet.render(false);
+    }
+}
+
+/** カレントへ CS 実効値を書き込む(GM のみ・カット開始時/開始済みカットへの参加時)。 */
+async function seedCombatSpeedCurrent(actors) {
+    if (!game.user.isGM) return;
+    for (const actor of actors) {
+        const cs = actor?.system?.combatSpeed;
+        if (!cs) continue;
+        await actor.update({ "system.combatSpeed.current": cs.valueTotal ?? 0 });
+    }
+}
+
+Hooks.on("combatStart", async (combat) => {
+    const actors = combat.combatants.map(c => c.actor).filter(Boolean);
+    await seedCombatSpeedCurrent(actors);
+    refreshCombatSpeedDisplays(actors);
+});
+
+Hooks.on("deleteCombat", (combat) => {
+    refreshCombatSpeedDisplays(combat.combatants.map(c => c.actor).filter(Boolean));
+});
+
+Hooks.on("createCombatant", async (combatant) => {
+    if (!combatant.parent?.started || !combatant.actor) return;
+    await seedCombatSpeedCurrent([combatant.actor]);
+    refreshCombatSpeedDisplays([combatant.actor]);
+});
+
+Hooks.on("deleteCombatant", (combatant) => {
+    if (combatant.actor) refreshCombatSpeedDisplays([combatant.actor]);
+});

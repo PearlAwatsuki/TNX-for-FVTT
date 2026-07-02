@@ -4,6 +4,9 @@ import { describe, it, expect } from "vitest";
 class MockNumberField {
   constructor(options = {}) { this.options = options; }
 }
+class MockStringField {
+  constructor(options = {}) { this.options = options; }
+}
 class MockSchemaField {
   constructor(fields) { this.fields = fields; }
 }
@@ -12,12 +15,13 @@ globalThis.foundry = {
   data: {
     fields: {
       NumberField: MockNumberField,
+      StringField: MockStringField,
       SchemaField: MockSchemaField,
     },
   },
 };
 
-const { damageField, attributeField, combatSpeedField, computeAttributeFinal, computeOutfitAggregates } = await import("../../scripts/data/helpers.mjs");
+const { damageField, attributeField, combatSpeedField, computeAttributeFinal, computeOutfitAggregates, resolveCombatSpeedDisplayTotal } = await import("../../scripts/data/helpers.mjs");
 
 describe("damageField()", () => {
   it("呼び出せる", () => {
@@ -93,13 +97,16 @@ describe("combatSpeedField()", () => {
     expect(() => combatSpeedField()).not.toThrow();
   });
 
-  it("value / base / current / mod / freeMod を持つ SchemaField を返す", () => {
+  it("value / base / current / freeMod を持つ SchemaField を返す（3層モデル・10-5）", () => {
     const field = combatSpeedField();
     expect(field.fields).toHaveProperty("value");
     expect(field.fields).toHaveProperty("base");
     expect(field.fields).toHaveProperty("current");
-    expect(field.fields).toHaveProperty("mod");
     expect(field.fields).toHaveProperty("freeMod");
+  });
+
+  it("旧 mod フィールドを持たない（3層モデルに役割なし・10-5 で削除）", () => {
+    expect(combatSpeedField().fields).not.toHaveProperty("mod");
   });
 
   it("各フィールドは NumberField で initial が 0", () => {
@@ -108,6 +115,23 @@ describe("combatSpeedField()", () => {
       expect(f).toBeInstanceOf(MockNumberField);
       expect(f.options.initial).toBe(0);
     }
+  });
+});
+
+describe("resolveCombatSpeedDisplayTotal()（表示層の自動制御・10-5）", () => {
+  const cs = { valueTotal: 4, currentTotal: 7 };
+
+  it("カット(戦闘)進行中はカレントを返す", () => {
+    expect(resolveCombatSpeedDisplayTotal(cs, true)).toBe(7);
+  });
+
+  it("カット外は CS(中段)を返す", () => {
+    expect(resolveCombatSpeedDisplayTotal(cs, false)).toBe(4);
+  });
+
+  it("null でも安全に 0", () => {
+    expect(resolveCombatSpeedDisplayTotal(null, true)).toBe(0);
+    expect(resolveCombatSpeedDisplayTotal(null, false)).toBe(0);
   });
 });
 
@@ -207,18 +231,34 @@ describe("computeOutfitAggregates()", () => {
       isCarrying: false, isPrepared: true,
       controlMod: ctrl(2), combatSpeedMod: ctrl(2), appearancePenalty: ctrl(2),
     })];
-    expect(computeOutfitAggregates(items)).toEqual({ control: 0, combatSpeed: 0, appearance: 0 });
+    expect(computeOutfitAggregates(items)).toEqual(
+      { control: 0, combatSpeed: 0, combatSpeedGhostIgnorable: 0, appearance: 0 });
   });
 
-  it("CS修正は isPrepared を問わず携帯中なら合算する(tap 等)", () => {
-    const items = [outfit("tap", { isCarrying: true, isPrepared: false, combatSpeedMod: ctrl(4) })];
-    expect(computeOutfitAggregates(items).combatSpeed).toBe(4);
+  // CS修正のフラグ駆動(10-5・2026-07-02 裁定): OFF=準備起点・ゴースト無関係／ON=携帯起点・別枠合算
+  it("CS修正(フラグOFF)は一般原則どおり準備済みでのみ合算する", () => {
+    const unprepared = [outfit("tap", { isCarrying: true, isPrepared: false, combatSpeedMod: ctrl(4) })];
+    const prepared   = [outfit("tap", { isCarrying: true, isPrepared: true,  combatSpeedMod: ctrl(4) })];
+    expect(computeOutfitAggregates(unprepared).combatSpeed).toBe(0);
+    expect(computeOutfitAggregates(prepared).combatSpeed).toBe(4);
+    expect(computeOutfitAggregates(prepared).combatSpeedGhostIgnorable).toBe(0);
   });
 
-  it("ゴースト登場中(isGhost)は CS修正を無効化する", () => {
-    const items = [outfit("tap", { isCarrying: true, isPrepared: true, combatSpeedMod: ctrl(4) })];
-    expect(computeOutfitAggregates(items, true).combatSpeed).toBe(0);
-    expect(computeOutfitAggregates(items, false).combatSpeed).toBe(4);
+  it("CS修正(フラグON)は携帯起点で ghostIgnorable に別枠合算する(未準備でも可)", () => {
+    const items = [outfit("tap", {
+      isCarrying: true, isPrepared: false,
+      combatSpeedMod: ctrl(-20), combatSpeedModGhostIgnore: true,
+    })];
+    const r = computeOutfitAggregates(items);
+    expect(r.combatSpeed).toBe(0);
+    expect(r.combatSpeedGhostIgnorable).toBe(-20);
+  });
+
+  it("CS修正(フラグON)でも非携帯なら合算しない(不携帯宣言=携帯フラグOFF)", () => {
+    const items = [outfit("tap", {
+      isCarrying: false, combatSpeedMod: ctrl(-20), combatSpeedModGhostIgnore: true,
+    })];
+    expect(computeOutfitAggregates(items).combatSpeedGhostIgnorable).toBe(0);
   });
 
   it("危険値(appearancePenalty)を携帯中で合算する", () => {
@@ -235,7 +275,8 @@ describe("computeOutfitAggregates()", () => {
       controlMod: { mode: "none", value: 9 },
       appearancePenalty: { mode: "none", value: 9 },
     })];
-    expect(computeOutfitAggregates(items)).toEqual({ control: 0, combatSpeed: 0, appearance: 0 });
+    expect(computeOutfitAggregates(items)).toEqual(
+      { control: 0, combatSpeed: 0, combatSpeedGhostIgnorable: 0, appearance: 0 });
   });
 
   it("アウトフィット以外の type は集計対象外", () => {

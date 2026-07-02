@@ -67,6 +67,9 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             startSkillCheck:      TokyoNovaCastSheet._onStartSkillCheck,
             startAbilityCheck:    TokyoNovaCastSheet._onStartAbilityCheck,
             startControlCheck:    TokyoNovaCastSheet._onStartControlCheck,
+            incrementField:       TokyoNovaCastSheet._onIncrementField,
+            decrementField:       TokyoNovaCastSheet._onDecrementField,
+            initCombatSpeed:      TokyoNovaCastSheet._onInitCombatSpeed,
         },
         dragDrop: [{ dragSelector: ".item-list .item, .style-skills-list .item, .skills-list-view .item, .outfit-groups-container .outfit-row:not(.outfit-row--option):not(.outfit-row--header)", dropSelector: null }],
     };
@@ -274,6 +277,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         ];
 
         context.outfitGroups = await this._prepareOutfitGroups();
+        this._prepareCombatData(context);
         context.partOccupancy = this._preparePartOccupancy();
         context.partOccExpanded = this._partOccExpanded;
 
@@ -666,6 +670,129 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             ...g,
             skills: g.skillIds.map(id => byId.get(id)).filter(Boolean),
         }));
+    }
+
+    /**
+     * 戦闘タブの表示データ(フェーズ10-6・表示中心)。正本は Outfits.md「生身・パラメータの適用宣言・
+     * 携帯/準備の適用範囲」「生身の変更」(2026-07-02)と Combat_Flow.md・Damage_Rules.md。
+     * 一覧は置かない(武器/防具の一覧はアウトフィットタブの仕事・2026-07-02 ユーザー確定)。出すのは——
+     * - 生身ライン: 攻撃用/パリー用それぞれの「現在の生身」。既定は未変更の生身
+     *   (アクターの baseAttack/baseGuard=攻I+0/受0)で、準備済みの全身義体・生身変更装備
+     *   (isFleshChange)を書き換え元として選択できる(便宜的事前設定・非強制)。
+     *   通常武器の使用は攻撃判定の用途に移管(案2)。〈二刀流〉等の合算は12の判定フロー側。
+     * - 防御力: 全ての義体を含む種別ごとの合計(S/P/I)。物理ダメージ算出の減算項(消費は12)。
+     * - タイミングごとの使用技能・アウトフィットの再表示(検索補助)。
+     * - 効果系(負傷・BS)は状態タブの領分で、戦闘タブには置かない(2026-07-02 ユーザー確定)。
+     */
+    _prepareCombatData(context) {
+        const items = this.actor.items;
+        const sys = this.actor.system;
+        const usable = (i) => !!(i.system.isPrepared || i.system.noPrepareRequired);
+        const refs = sys.weaponRefs ?? {};
+        const mvT = (f) => f?.mode === "value" ? (f.total ?? f.value) : null;
+        const bySort = (a, b) => (a.sort ?? 0) - (b.sort ?? 0);
+
+        // 選択候補: 準備済みの武器全体＋全身義体(2026-07-02 再改修)。〈二刀流〉〈黒羽の矢〉等は
+        // その技能の判定時に扱うため、ここでは「基本として選択している武器」を事前設定する。
+        // 生身変更装備(isFleshChange)・全身義体は生身のデータを書き換えていることを示すため
+        // 「生身（アウトフィット名）」と表記する(例: 全身義体セイバーセンス→「生身（セイバーセンス）」)。
+        const candidates = items
+            .filter(i => usable(i) && (i.type === "weapon" || i.type === "cyborg"))
+            .sort(bySort);
+        const displayName = (i) =>
+            (i.type === "cyborg" || i.system.isFleshChange) ? `生身（${i.name}）` : i.name;
+
+        // 攻撃用/パリー用それぞれの参照先を解決する。未選択(空)＝未変更の生身(アクターのデータ)。
+        const fleshAttack = () => {
+            const a = sys.baseAttack ?? {};
+            return `${a.damageType || "I"}+${(a.value ?? 0) + (a.mod ?? 0)}`;
+        };
+        const fleshGuard = () => String((sys.baseGuard?.value ?? 0) + (sys.baseGuard?.mod ?? 0));
+        const attackSrc = refs.attackItemId ? candidates.find(i => i.id === refs.attackItemId) : null;
+        const parrySrc  = refs.parryItemId  ? candidates.find(i => i.id === refs.parryItemId)  : null;
+        context.combatAttackRef = attackSrc ? {
+            _id: attackSrc.id, name: displayName(attackSrc),
+            attack: attackSrc.system.attack?.damageType
+                ? `${attackSrc.system.attack.damageType}+${attackSrc.system.attack.total ?? attackSrc.system.attack.value ?? 0}` : "-",
+        } : { _id: null, name: "生身", attack: fleshAttack() };
+        context.combatParryRef = parrySrc ? {
+            _id: parrySrc.id, name: displayName(parrySrc),
+            guard: mvT(parrySrc.system.guardValue) !== null ? String(mvT(parrySrc.system.guardValue)) : "-",
+        } : { _id: null, name: "生身", guard: fleshGuard() };
+        // 編集モードの選択肢(空=未変更の生身が既定)
+        const choices = { "": "生身" };
+        for (const c of candidates) choices[c.id] = displayName(c);
+        context.combatWeaponChoices = choices;
+
+        // 防御力: 全ての義体を含む種別ごとの合計(準備済みの armor/cyborg。防具は合算適用・
+        // 義体の防御力は防具と加算される。複数義体の「一種のみ適用」の厳密化は12の実効防御派生で)
+        context.combatDefenceTotal = items
+            .filter(i => (i.type === "armor" || i.type === "cyborg")
+                && usable(i) && i.system.defence?.mode === "value")
+            .reduce((t, i) => {
+                const d = i.system.defence;
+                return {
+                    S: t.S + (d.S_total ?? d.S_defence ?? 0),
+                    P: t.P + (d.P_total ?? d.P_defence ?? 0),
+                    I: t.I + (d.I_total ?? d.I_defence ?? 0),
+                };
+            }, { S: 0, P: 0, I: 0 });
+
+        // タイミングごとの使用技能・アウトフィット(2026-07-02 ユーザー確定):
+        // - 標準のプロセス/アクション(下記8つ)は空でも常に表示する。
+        // - 差し込みタイミング(その他の自由記述。例「ダメージ適用の直前」)は記述テキストごとに
+        //   グループ化し、項目がある場合のみ標準群の後ろに表示する。
+        // - 自由記述なしの「その他」と「解説参照」は「その他」群へ(項目がある場合のみ・末尾)。
+        const fixedBuckets = [
+            { kind: "process", key: "setup",      label: "セットアップ" },
+            { kind: "process", key: "initiative", label: "イニシアチブ" },
+            { kind: "action",  key: "move",       label: "ムーブ" },
+            { kind: "action",  key: "minor",      label: "マイナー" },
+            { kind: "action",  key: "major",      label: "メジャー" },
+            { kind: "action",  key: "reaction",   label: "リアクション" },
+            { kind: "action",  key: "auto",       label: "オート" },
+            { kind: "process", key: "clean-up",   label: "クリンナップ" },
+        ].map(b => ({ ...b, entries: [] }));
+        const byKey = new Map(fixedBuckets.map(b => [`${b.kind}:${b.key}`, b]));
+        const inserted = new Map(); // 差し込みタイミング(自由記述テキスト → グループ)
+        const misc = { label: "その他", entries: [] };
+        const pushEntry = (entries, item) => {
+            if (entries.some(e => e._id === item.id)) return;
+            entries.push({ _id: item.id, name: item.name, sort: item.sort ?? 0 });
+        };
+        const classify = (t, item) => {
+            if (!t) return;
+            if (t.value === "action" || t.value === "process") {
+                const name = t.value === "action" ? t.actionName : t.processName;
+                if (!name || name === "blank") return;
+                const fixed = byKey.get(`${t.value}:${name}`);
+                if (fixed) return pushEntry(fixed.entries, item);
+                // 解説参照(explanation)・その他(other)は「その他」群へ
+                if (name === "explanation" || name === "other") return pushEntry(misc.entries, item);
+                return;
+            }
+            if (t.value === "other") {
+                const label = (t.timingOther ?? "").trim();
+                if (!label) return pushEntry(misc.entries, item);
+                if (!inserted.has(label)) inserted.set(label, { label, entries: [] });
+                return pushEntry(inserted.get(label).entries, item);
+            }
+        };
+        for (const i of items) {
+            if (i.type === "styleSkill") {
+                for (const t of (Array.isArray(i.system.timing) ? i.system.timing : [])) classify(t, i);
+            } else if (TokyoNovaCastSheet.OUTFIT_TYPES.has(i.type) && usable(i)) {
+                classify(i.system.timing, i);
+            }
+        }
+        // 各タイミング内は他タブでの手動並び順(item.sort)を尊重する
+        const allGroups = [
+            ...fixedBuckets,
+            ...[...inserted.values()].filter(g => g.entries.length),
+            ...(misc.entries.length ? [misc] : []),
+        ];
+        for (const g of allGroups) g.entries.sort((a, c) => a.sort - c.sort);
+        context.combatTimings = allGroups;
     }
 
     _prepareMiraclesForDisplay(miracles) {
@@ -2245,6 +2372,48 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         // 外界(mundane)の最終実効値。prepareDerivedData が算出した単一の真実を読む。
         return actor.system.mundane.total;
     }
+
+    // ─── コンバットスピード(フェーズ10-5) ───────────────────────────────────
+
+    /** number-input-spinner の＋。data-field のパスを 1 増やす(アイテムシートと同方式)。 */
+    static async _onIncrementField(_event, target) {
+        const field = target.dataset.field;
+        if (!field) return;
+        const current = foundry.utils.getProperty(this.actor, field) ?? 0;
+        await this.actor.update({ [field]: current + 1 });
+    }
+
+    /** number-input-spinner の－。data-min があればそこで止める。 */
+    static async _onDecrementField(_event, target) {
+        const field = target.dataset.field;
+        if (!field) return;
+        const current = foundry.utils.getProperty(this.actor, field) ?? 0;
+        let next = current - 1;
+        if (target.dataset.min !== undefined) next = Math.max(next, Number(target.dataset.min));
+        await this.actor.update({ [field]: next });
+    }
+
+    /**
+     * プレアクト初期化(フェーズ10-5・正本 Combat_Flow.md): CSベースの能力値項
+     * floor((理性+感情+生命)÷2) を**その時点の実効値**から焼き込み(以後追従しない)、
+     * CS を CSベース実効値で初期化する。修正項(freeMod・タップ修正・AE)はライブのため、
+     * 現在の実効ベースからオーバーレイ分を保って value に写す。
+     */
+    static async _onInitCombatSpeed(_event, _target) {
+        const sys = this.actor.system;
+        const newBase = Math.floor(
+            ((sys.reason?.total ?? 0) + (sys.passion?.total ?? 0) + (sys.life?.total ?? 0)) / 2);
+        const overlays = (sys.combatSpeed.baseTotal ?? 0) - (sys.combatSpeed.base ?? 0);
+        const newValue = newBase + overlays;
+        await this.actor.update({
+            "system.combatSpeed.base":  newBase,
+            "system.combatSpeed.value": newValue,
+        });
+        ui.notifications?.info(`CS を決定しました（CS ${newValue}）。`);
+    }
+
+    // 武器の参照宣言(weaponRefs)は編集モードのドロップダウン(name バインド・submitOnChange)で
+    // 直接保存されるため、専用アクションは持たない(フェーズ10-6・2026-07-02)。
 
     // ─── 経験点計算(静的) ────────────────────────────────────────────────────
 

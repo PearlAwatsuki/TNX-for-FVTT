@@ -58,11 +58,15 @@ describe("AttributesTemplate.defineSchema()", () => {
       expect(schema.combatSpeed).toBeInstanceOf(MockSchemaField);
     });
 
-    for (const key of ["value", "base", "current", "mod", "freeMod"]) {
+    for (const key of ["value", "base", "current", "freeMod"]) {
       it(`combatSpeed.${key} が存在する`, () => {
         expect(schema.combatSpeed.fields).toHaveProperty(key);
       });
     }
+
+    it("combatSpeed.mod を持たない（3層モデルに役割なし・フェーズ10-5 で削除）", () => {
+      expect(schema.combatSpeed.fields).not.toHaveProperty("mod");
+    });
   });
 
   describe("ダメージフィールド(physicalDamage / mentalDamage / socialDamage)の構造が正しい", () => {

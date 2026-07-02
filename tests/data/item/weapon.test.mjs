@@ -99,7 +99,7 @@ describe("WeaponDataModel.defineSchema()", () => {
   });
 
   describe("Boolean フィールドが BooleanField で initial false である", () => {
-    for (const key of ["isLaser", "isFullAuto"]) {
+    for (const key of ["isLaser", "isFullAuto", "isFleshChange"]) {
       it(`schema.${key} は BooleanField で initial が false`, () => {
         expect(schema[key]).toBeInstanceOf(MockBooleanField);
         expect(schema[key].options.initial).toBe(false);

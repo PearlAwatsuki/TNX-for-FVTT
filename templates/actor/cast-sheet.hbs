@@ -567,7 +567,124 @@
                     </div>
                 </div>
 
-                <div class="tab combat" data-group="primary" data-tab="combat"></div>
+                <div class="tab combat" data-group="primary" data-tab="combat">
+                    {{!-- 戦闘タブ(フェーズ10-5/10-6・2026-07-02 確定仕様)。
+                         CS=公式プロファイルシートのCSボックス様式(カット進行中はグロー)。
+                         武器=生身ライン(攻撃用/パリー用の書き換え元・通常武器の使用は用途に移管)。
+                         一覧・効果系は他タブの領分で置かない。 --}}
+                    <div class="cs-box{{#if system.combatSpeed.inCombat}} cs-box--cut{{/if}}"{{#if system.combatSpeed.inCombat}} data-tooltip="カット進行中: CSカレントを参照中"{{/if}}>
+                        <div class="cs-box__title">
+                            <span class="cs-box__abbr">CS</span>
+                            <span class="cs-box__name">コンバットスピード</span>
+                        </div>
+                        {{#if isEditMode}}
+                        <div class="cs-cascade">
+                            <div class="cs-cascade__row">
+                                <label title="プレアクトの開始時に「CSを決定」で (理性＋感情＋生命)÷2 から算出されます">CSベース</label>
+                                <input type="number" value="{{system.combatSpeed.base}}" disabled>
+                                <span class="cs-cascade__op">＋</span>
+                                <label title="CSベースへの修正（原則は AE で解決されます。手入力は例外的な直接修正用）">修正</label>
+                                <div class="number-input-spinner">
+                                    <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.combatSpeed.freeMod">-</button>
+                                    <input type="number" name="system.combatSpeed.freeMod" value="{{system.combatSpeed.freeMod}}">
+                                    <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.combatSpeed.freeMod">+</button>
+                                </div>
+                                <span class="cs-cascade__op">＝</span>
+                                <input type="number" value="{{system.combatSpeed.baseTotal}}" disabled>
+                            </div>
+                            <div class="cs-cascade__link">
+                                <button type="button" class="tnx-btn tnx-btn--secondary" data-action="initCombatSpeed" title="プレアクトの開始時に使用: 現在の能力値からCSベースを算出し、CSを決定します">
+                                    <i class="fas fa-angles-down"></i> CSを決定
+                                </button>
+                            </div>
+                            {{!-- CS/CSカレントは列共有グリッド: ラベル列は最長ラベルの実幅・全体を中央寄せ --}}
+                            <div class="cs-cascade__aligned">
+                                <label title="プレアクトに決定します。アクト中に能力値が変化しても再計算されません（手入力は例外的な直接修正用）">CS</label>
+                                <div class="number-input-spinner">
+                                    <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.combatSpeed.value">-</button>
+                                    <input type="number" name="system.combatSpeed.value" value="{{system.combatSpeed.value}}">
+                                    <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.combatSpeed.value">+</button>
+                                </div>
+                                <span class="cs-cascade__note cs-cascade__aligned-note"><i class="fas fa-angles-down"></i> カット開始で自動セット</span>
+                                <label title="カット中、セットアッププロセスの最後に決定されます（手入力は例外的な直接修正用）">CSカレント</label>
+                                <div class="number-input-spinner">
+                                    <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.combatSpeed.current">-</button>
+                                    <input type="number" name="system.combatSpeed.current" value="{{system.combatSpeed.current}}">
+                                    <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.combatSpeed.current">+</button>
+                                </div>
+                            </div>
+                        </div>
+                        {{else}}
+                        <div class="cs-box__value-row">
+                            <span class="cs-box__value">{{system.combatSpeed.displayTotal}}</span>
+                            {{#if system.combatSpeed.ghostIgnorable}}
+                            <span class="cs-box__ignorable" title="ゴースト登場中は無視される修正分">（{{system.combatSpeed.ghostIgnorable}}）</span>
+                            {{/if}}
+                        </div>
+                        {{/if}}
+                    </div>
+
+                    <div class="tnx-section-header"><h3>武器</h3></div>
+                    <div class="combat-refs">
+                        <div class="combat-ref-line">
+                            <span class="combat-ref-line__kind" title="攻撃で使用している武器（攻撃力を参照）">攻撃</span>
+                            {{#if combatAttackRef._id}}
+                            <a class="combat-ref-line__name judgment-trigger" data-action="startSkillCheck" data-item-id="{{combatAttackRef._id}}" title="使用（用途があれば実行・無ければ説明を表示）">{{combatAttackRef.name}}</a>
+                            {{else}}
+                            <span class="combat-ref-line__name">{{combatAttackRef.name}}</span>
+                            {{/if}}
+                            <span class="combat-ref-line__value">攻 {{combatAttackRef.attack}}</span>
+                        </div>
+                        <div class="combat-ref-line">
+                            <span class="combat-ref-line__kind" title="パリーで使用している武器（受け値を参照）。攻撃と別の武器でもかまいません">パリー</span>
+                            {{#if combatParryRef._id}}
+                            <a class="combat-ref-line__name judgment-trigger" data-action="startSkillCheck" data-item-id="{{combatParryRef._id}}" title="使用（用途があれば実行・無ければ説明を表示）">{{combatParryRef.name}}</a>
+                            {{else}}
+                            <span class="combat-ref-line__name">{{combatParryRef.name}}</span>
+                            {{/if}}
+                            <span class="combat-ref-line__value">受 {{combatParryRef.guard}}</span>
+                        </div>
+                        {{#if isEditMode}}
+                        <div class="combat-ref-edit">
+                            <div class="combat-ref-edit__field">
+                                <label title="攻撃に使う武器を選びます。空欄＝生身。全身義体・生身変更装備は生身を書き換えるため「生身（名前）」と表記されます。便宜的な事前設定で、本義は都度宣言です">攻撃で使用</label>
+                                <select name="system.weaponRefs.attackItemId">
+                                    {{selectOptions combatWeaponChoices selected=system.weaponRefs.attackItemId}}
+                                </select>
+                            </div>
+                            <div class="combat-ref-edit__field">
+                                <label title="パリーに使う武器を選びます。攻撃と別でもかまいません（攻撃と防御で別の武器・身体部位を使えます）">パリーで使用</label>
+                                <select name="system.weaponRefs.parryItemId">
+                                    {{selectOptions combatWeaponChoices selected=system.weaponRefs.parryItemId}}
+                                </select>
+                            </div>
+                        </div>
+                        {{/if}}
+                    </div>
+
+                    <div class="tnx-section-header"><h3>防御力</h3></div>
+                    <div class="combat-def-line">
+                        <span class="combat-def-line__label" title="準備済みの防具・全身義体の防御力を種別ごとに合計した値。ダメージ種別に対応した防御力がダメージから引かれます">防(S／P／I)</span>
+                        <span class="combat-def-line__value">{{combatDefenceTotal.S}}／{{combatDefenceTotal.P}}／{{combatDefenceTotal.I}}</span>
+                    </div>
+
+                    <div class="tnx-section-header"><h3>タイミングごとの使用技能・アウトフィット</h3></div>
+                    <div class="combat-timings">
+                        {{#each combatTimings as |b|}}
+                        <div class="combat-timing-group{{#unless b.entries.length}} combat-timing-group--empty{{/unless}}">
+                            <div class="combat-timing-group__label">{{b.label}}</div>
+                            {{#if b.entries.length}}
+                            <div class="combat-timing-group__entries">
+                                {{#each b.entries as |e|}}
+                                <a class="combat-timing-chip judgment-trigger" data-action="startSkillCheck" data-item-id="{{e._id}}" title="使用（用途があれば実行・無ければ説明を表示）">{{e.name}}</a>
+                                {{/each}}
+                            </div>
+                            {{/if}}
+                        </div>
+                        {{/each}}
+                    </div>
+                </div>
+
 
                 <div class="tab outfits" data-group="primary" data-tab="outfits">
                     <div class="tnx-section-header">

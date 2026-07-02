@@ -107,6 +107,11 @@ export class WeaponDataModel extends SystemDataModel.mixin(
       isLaser:     new fields.BooleanField({ initial: false }),
       isFullAuto:  new fields.BooleanField({ initial: false }),
       FAValue:     new fields.NumberField({ initial: 0 }),
+      // 生身変更装備(フェーズ10-6・2026-07-02 裁定): 生身(武器)のデータ——攻撃力と受け値——を
+      // 書き換える装備。書き換え結果は「生身」として扱われ、生身は単一のため複数準備でも
+      // 〈二刀流〉等で相互に合算参照できない(正本 Outfits.md「生身の変更」)。
+      // 戦闘タブの書き換え元候補(攻撃用/パリー用で別選択可)の抽出に使う。
+      isFleshChange: new fields.BooleanField({ initial: false }),
       identificationKey: new fields.StringField({ initial: "" }),
     };
   }

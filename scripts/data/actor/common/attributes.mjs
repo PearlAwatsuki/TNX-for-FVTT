@@ -8,7 +8,7 @@
  */
 
 import { SystemDataModel } from "../../abstract.mjs";
-import { attributeField, combatSpeedField } from "../../helpers.mjs";
+import { attributeField, combatSpeedField, resolveCombatSpeedDisplayTotal, isActorInStartedCombat } from "../../helpers.mjs";
 
 export class AttributesTemplate extends SystemDataModel {
   /** @override */
@@ -37,5 +37,24 @@ export class AttributesTemplate extends SystemDataModel {
         max:   new fields.NumberField({ initial: 21 }),
       }),
     };
+  }
+
+  /**
+   * @override
+   * CS 3層の素の実効値(フェーズ10-5)。決定値＋freeMod のみのフォールバックで、
+   * initiative 式(@system.combatSpeed.valueTotal)が cast 以外(guest/troop)でも解決できるよう
+   * 共通側に置く。cast は CastDataModel._prepareCombatSpeedTotals がアウトフィット修正・
+   * ゴースト読み飛ばし込みで上書きする。
+   */
+  prepareDerivedData() {
+    super.prepareDerivedData?.();
+    const cs = this.combatSpeed;
+    if (!cs) return;
+    cs.baseTotal      = (cs.base ?? 0) + (cs.freeMod ?? 0);
+    cs.valueTotal     = cs.value ?? 0;
+    cs.currentTotal   = cs.current ?? 0;
+    cs.ghostIgnorable = 0;
+    cs.inCombat       = isActorInStartedCombat(this.parent);
+    cs.displayTotal   = resolveCombatSpeedDisplayTotal(cs, cs.inCombat);
   }
 }

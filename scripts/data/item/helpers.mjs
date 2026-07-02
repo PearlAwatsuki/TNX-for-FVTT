@@ -287,6 +287,14 @@ export function parseEffectTargetKey(key) {
       const prefix = sel.endsWith("*");
       return { scope: "skill", selector: prefix ? sel.slice(0, -1) : sel, prefix, path: after.slice(1).join("."), conditions };
     }
+    // CS の3層着地(フェーズ10-5・Active_Effects 大原則6)。仮想名前空間 "cs"——実スキーマパス
+    // (system.combatSpeed.*)と分けることで、アクター自身の効果がネイティブ適用と二重に効くのを防ぐ。
+    // base=CSベース実効 / value=CS実効 / current=CSカレント実効。cs.base のみ適用パスで
+    // 保持アイテムの準備状態ゲート(未準備=読み飛ばし)がかかる。
+    case "cs": {
+      const p = after.join(".");
+      return ["base", "value", "current"].includes(p) ? { scope: "cs", path: p, conditions } : null;
+    }
     default: return null; // handMaxSizeMod 等はネイティブ処理に委ねる
   }
 }

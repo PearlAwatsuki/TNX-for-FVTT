@@ -5904,6 +5904,247 @@ button.tnx-create-act-button span {
     --c: #3b26f5; /* 無意識=藍/紺(明度up) */
 }
 
+/* 戦闘タブ(10-5/10-6・2026-07-02 確定仕様)。
+   CS=公式プロファイルシートの CS ボックス様式(「CS」+「コンバットスピード」の2段ラベル+値)。
+   カット進行中(=CSカレント参照中)はボックスがグローで発光する(チップでなく光で状態を示す)。
+   編集モードはボックス内が「決定の連鎖」(ベース算出+修正 →CSを決定→ CS →自動セット→ カレント)に変形。
+   武器=生身ライン(攻撃用/パリー用の書き換え元)・防御力=種別合計・タイミング別再表示。 */
+
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-box {
+    display: inline-flex;
+    flex-direction: column;
+    min-width: 240px;
+    max-width: 100%;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    padding: 10px 16px;
+    margin-bottom: 16px;
+    transition: border-color var(--tnx2-transition-mid), box-shadow var(--tnx2-transition-mid);
+}
+/* カット進行中(CSカレント参照中)はグローで示す */
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-box--cut {
+    border-color: var(--tnx2-accent);
+    box-shadow: 0 0 10px var(--tnx2-accent-glow),
+                inset 0 0 8px var(--tnx2-accent-glow-sm);
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-box__title {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    padding-bottom: 4px;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-box__abbr {
+    font-family: var(--tnx2-font-mono);
+    font-size: 1.25em;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--tnx2-text-accent);
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-box__name {
+    font-size: 0.72em;
+    letter-spacing: 0.14em;
+    color: var(--tnx2-text-secondary);
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-box__value-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 0 2px;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-box__value {
+    font-family: var(--tnx2-font-mono);
+    font-size: 2.1em;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--tnx2-text-primary);
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-box__ignorable {
+    font-family: var(--tnx2-font-mono);
+    font-size: 1.05em;
+    color: var(--tnx2-text-muted);
+}
+
+/* 編集モード: 決定の連鎖(縦積み)。3層は同格でなく ベース→決定→CS→自動セット→カレント の流れ */
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-cascade {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding-top: 8px;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-cascade__row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-cascade__row > label {
+    font-size: 0.78em;
+    color: var(--tnx2-text-secondary);
+    white-space: nowrap;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-cascade__row > input[type="number"] {
+    width: 48px;
+    text-align: center;
+    font-family: var(--tnx2-font-mono);
+    color: var(--tnx2-text-secondary);
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-cascade__op {
+    color: var(--tnx2-text-muted);
+    font-size: 0.85em;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-cascade__link {
+    display: flex;
+    justify-content: center;
+    padding: 2px 0;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-cascade__note {
+    font-size: 0.75em;
+    color: var(--tnx2-text-muted);
+}
+/* CS と CSカレントは1つのグリッドで列を共有する: スピナー列(中央)をボックスの中心軸に置き、
+   ラベルはその左に付く(1fr | スピナー | 1fr の3列で中央列が常に中心軸に乗る)。
+   両行のスピナーは同じ中央列なので縦位置は構造的に一致する。
+   間の注記(カット開始で自動セット)は全列ぶち抜きで中央。
+   (CSベースの行は式全体でひとかたまりのため、このグリッドに参加させない) */
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-cascade__aligned {
+    display: grid;
+    grid-template-columns: 1fr max-content 1fr;
+    align-items: center;
+    column-gap: 8px;
+    row-gap: 4px;
+    width: 100%;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-cascade__aligned > label {
+    grid-column: 1;
+    justify-self: end;
+    font-size: 0.78em;
+    color: var(--tnx2-text-secondary);
+    white-space: nowrap;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-cascade__aligned > .number-input-spinner {
+    grid-column: 2;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-cascade__aligned-note {
+    grid-column: 1 / -1;
+    justify-self: center;
+    padding: 2px 0;
+}
+
+/* 生身ライン(攻撃/パリーで参照している生身) */
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-refs {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 14px;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-ref-line {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 3px 6px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    max-width: 420px;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-ref-line__kind {
+    flex: 0 0 64px;
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.78em;
+    letter-spacing: 0.06em;
+    color: var(--tnx2-text-secondary);
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-ref-line__name {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-ref-line__value {
+    margin-left: auto;
+    font-family: var(--tnx2-font-mono);
+    font-weight: 700;
+    color: var(--tnx2-text-accent);
+    white-space: nowrap;
+}
+/* 編集モード: 書き換え元の選択(攻撃で使用/パリーで使用) */
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-ref-edit {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: 6px;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-ref-edit__field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-ref-edit__field > label {
+    font-size: 0.78em;
+    color: var(--tnx2-text-muted);
+    white-space: nowrap;
+}
+
+/* 防御力(種別ごとの合計) */
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-def-line {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 3px 6px;
+    margin-bottom: 14px;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-def-line__label {
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.78em;
+    letter-spacing: 0.06em;
+    color: var(--tnx2-text-secondary);
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-def-line__value {
+    font-family: var(--tnx2-font-mono);
+    font-size: 1.25em;
+    font-weight: 700;
+    color: var(--tnx2-text-primary);
+}
+
+/* タイミングごとの使用技能・アウトフィット */
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-timings {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-timing-group__label {
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.78em;
+    letter-spacing: 0.08em;
+    color: var(--tnx2-text-accent);
+    border-bottom: 1px dashed var(--tnx2-border-active);
+    padding-bottom: 2px;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-timing-group--empty {
+    opacity: 0.45;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-timing-group__entries {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 5px;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-timing-chip {
+    font-size: 0.85em;
+    padding: 2px 10px;
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: 2px;
+    background: var(--tnx2-bg-2);
+    color: var(--tnx2-text-primary);
+    transition: color var(--tnx2-transition-fast), border-color var(--tnx2-transition-fast);
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-timing-chip:hover {
+    color: var(--tnx2-text-accent);
+    border-color: var(--tnx2-accent);
+}
+
 /* 住宅エリアのセキュリティ・ランクバッジ(10-4)。ランク名の色で色分け・なしはミュート。 */
 .tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-area-badge--red {
     --c: #ff5a5a;

@@ -30,6 +30,10 @@ export class TapDataModel extends SystemDataModel.mixin(
       ...super.defineSchema(),
       cycle:          modeValueField(["none", "value"]),
       combatSpeedMod: modeValueField(["none", "value"]),
+      // 「ゴースト時は適用しない」(フェーズ10-5・2026-07-02 裁定): CS 修正の適用を一元化するフラグ。
+      // OFF(既定)=一般原則どおり準備起点・ゴースト無関係(オリジナルデータ基準)。
+      // ON=携帯起点・ゴースト登場中は読み飛ばし・説明タブの CS 表示を（）で囲む(原作の括弧書き表記)。
+      combatSpeedModGhostIgnore: new foundry.data.fields.BooleanField({ initial: false }),
       identificationKey: new foundry.data.fields.StringField({ initial: "" }),
     };
   }

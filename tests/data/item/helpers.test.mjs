@@ -266,6 +266,17 @@ describe("parseEffectTargetKey()（v2 system.<名前空間> 文法）", () => {
     expect(parseEffectTargetKey("system.category.armor.defence.S")).toMatchObject({ scope: "category", selector: "armor", path: "defence.S" });
   });
 
+  it("値: cs の3層(base/value/current・フェーズ10-5)", () => {
+    expect(parseEffectTargetKey("system.cs.base")).toMatchObject({ scope: "cs", path: "base", conditions: [] });
+    expect(parseEffectTargetKey("system.cs.value")).toMatchObject({ scope: "cs", path: "value" });
+    expect(parseEffectTargetKey("system.cs.current")).toMatchObject({ scope: "cs", path: "current" });
+  });
+
+  it("cs の未知パスは null", () => {
+    expect(parseEffectTargetKey("system.cs.total")).toBeNull();
+    expect(parseEffectTargetKey("system.cs")).toBeNull();
+  });
+
   it("判定: check.<能力値> / controlCheck.<能力値> / check.<技能>", () => {
     expect(parseEffectTargetKey("check.reason")).toMatchObject({ scope: "abilityCheck", ability: "reason" });
     expect(parseEffectTargetKey("controlCheck.reason")).toMatchObject({ scope: "controlCheck", ability: "reason" });
