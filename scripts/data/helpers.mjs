@@ -76,7 +76,7 @@ export function computeAttributeFinal(ability, styles, outfitMod = 0, outfitCont
   };
 }
 
-/** OutfitBaseTemplate を合成するアイテム type(キャストのアウトフィット集計対象) */
+/** OutfitBaseTemplate を合成するアイテム type(アウトフィット集計・シート表示/並び替え/経験点計算の判別に共用。単一ソース) */
 export const OUTFIT_ITEM_TYPES = new Set([
   "weapon", "armor", "ianus", "cyborg", "tron", "tap",
   "vehicle", "residence", "combiner", "general",

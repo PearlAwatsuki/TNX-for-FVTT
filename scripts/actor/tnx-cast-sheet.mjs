@@ -8,6 +8,7 @@ import { formatWeaponRangeLabel } from '../item/tnx-outfit-sheet.mjs';
 import { formatPartDesignation, joinPartDesignations, computePartOccupancy, computeHostOccupancy } from '../data/item/part-helpers.mjs';
 import { SLOT_KINDS } from '../data/item/common/extensible.mjs';
 import { getPartSlotPreset, PartSlotPresetApp } from '../module/part-slot-preset-app.mjs';
+import { OUTFIT_ITEM_TYPES } from '../data/helpers.mjs';
 import { TnxCheckFlow } from '../module/tnx-check-flow.mjs';
 import { getComboSuits, ALL_SUITS } from '../module/tnx-check-engine.mjs';
 import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
@@ -80,11 +81,6 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             scrollable: [".sheet-body", ".profile-sidebar", ".tab.abilities", ".tab[data-tab='outfits']"],
         },
     };
-
-    /** アウトフィット対応 Item type の Set */
-    static OUTFIT_TYPES = new Set([
-        "weapon", "armor", "cyborg", "ianus", "tron", "tap", "vehicle", "residence", "combiner", "general",
-    ]);
 
     /** 大分類ごとの表示設定（表示ラベル・列定義）。アイテム/サービスは「その他」にまとめる。 */
     static OUTFIT_GROUP_CONFIG = [
@@ -307,7 +303,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
      */
     _preparePartOccupancy() {
         const partSlots = this.actor.system.partSlots ?? [];
-        const outfitItems = this.actor.items.filter(i => TokyoNovaCastSheet.OUTFIT_TYPES.has(i.type));
+        const outfitItems = this.actor.items.filter(i => OUTFIT_ITEM_TYPES.has(i.type));
 
         // ① 身体部位
         const outfits = outfitItems.map(i => ({
@@ -781,7 +777,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         for (const i of items) {
             if (i.type === "styleSkill") {
                 for (const t of (Array.isArray(i.system.timing) ? i.system.timing : [])) classify(t, i);
-            } else if (TokyoNovaCastSheet.OUTFIT_TYPES.has(i.type) && usable(i)) {
+            } else if (OUTFIT_ITEM_TYPES.has(i.type) && usable(i)) {
                 classify(i.system.timing, i);
             }
         }
@@ -839,12 +835,12 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         if (!target || source.id === target.id) return;
 
         // アウトフィット同士は同じ表示グループ内のみソート（グループをまたぐドロップは無視）
-        if (TokyoNovaCastSheet.OUTFIT_TYPES.has(source.type) && TokyoNovaCastSheet.OUTFIT_TYPES.has(target.type)) {
+        if (OUTFIT_ITEM_TYPES.has(source.type) && OUTFIT_ITEM_TYPES.has(target.type)) {
             const sourceGroup = this._getDisplayGroupKey(source.system.majorCategory);
             const targetGroup = this._getDisplayGroupKey(target.system.majorCategory);
             if (sourceGroup !== targetGroup) return;
             const siblings = items.filter(i =>
-                TokyoNovaCastSheet.OUTFIT_TYPES.has(i.type)
+                OUTFIT_ITEM_TYPES.has(i.type)
                 && this._getDisplayGroupKey(i.system.majorCategory) === sourceGroup
                 && i.id !== source.id
             );
@@ -1293,7 +1289,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     /** 大分類でグループ化したアウトフィット行データを構築する。 */
     async _prepareOutfitGroups() {
         const outfitItems = this.actor.items
-            .filter(i => TokyoNovaCastSheet.OUTFIT_TYPES.has(i.type))
+            .filter(i => OUTFIT_ITEM_TYPES.has(i.type))
             .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
 
         // コンバイン活性中は「コンバイナー本体」と「非見た目元ソース」をリストから隠す
@@ -2526,7 +2522,7 @@ export class TokyoNovaCastSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         // アウトフィット: 常備化経験点を集計する
         // isCheckAcquired（購入判定による入手）は経験点不要
         // 消費アイテムは preserveExp.value × 常備化個数(quantity.max)
-        if (this.OUTFIT_TYPES.has(item.type)) {
+        if (OUTFIT_ITEM_TYPES.has(item.type)) {
             if (system.isCheckAcquired) return 0;
             if (system.isDerivedData) return 0; // 派生データは派生元が経験点を負担するため二重計上しない
             if (system.preserveExp?.mode !== "value") return 0;
