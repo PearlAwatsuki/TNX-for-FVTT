@@ -128,7 +128,9 @@ export function formatPartDesignation(part, partRelation = "and", partOptional =
 }
 
 /**
- * 複数アウトフィットの部位表記を併記する(コンバイナ=両方の部位を占有)。"-" は除外して「、」連結。
+ * 複数アウトフィットの部位表記を併記する(コンバイナ=両方の部位を占有)。
+ * ルールブックの表記法則「部位：部位1+部位2」に従い「+」で連結(2026-07-02 修正・旧「、」)。
+ * "-" は除外。
  * @param {Array<{part?:Array, partRelation?:string, partOptional?:boolean}>} systems 各 system
  * @returns {string}
  */
@@ -136,7 +138,7 @@ export function joinPartDesignations(systems) {
   const designations = (systems ?? [])
     .map((s) => formatPartDesignation(s?.part, s?.partRelation, s?.partOptional))
     .filter((d) => d && d !== "-");
-  return designations.length ? designations.join("、") : "-";
+  return designations.length ? designations.join("+") : "-";
 }
 
 /**

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   computePartOccupancy, computeHostOccupancy, formatOptionLabel, formatPartDesignation,
+  joinPartDesignations,
 } from "../../../scripts/data/item/part-helpers.mjs";
 
 /** body part 行を作るヘルパー */
@@ -207,6 +208,23 @@ describe("formatPartDesignation()", () => {
   it("部位なし(none/空)は「-」", () => {
     expect(formatPartDesignation([])).toBe("-");
     expect(formatPartDesignation([{ kind: "none" }])).toBe("-");
+  });
+});
+
+describe("joinPartDesignations()（コンバイン合成の部位併記）", () => {
+  const bp = (value, slots = 1) => ({ kind: "bodyPart", value, slots });
+
+  it("ルールブックの表記法則「部位1+部位2」で連結する(旧「、」は誤り・2026-07-02 修正)", () => {
+    const s1 = { part: [bp("片手持ち")], partRelation: "and" };
+    const s2 = { part: [bp("籠手")], partRelation: "and" };
+    expect(joinPartDesignations([s1, s2])).toBe("片手持ち+籠手");
+  });
+
+  it("片方が「-」なら残る方のみ、両方「-」なら「-」", () => {
+    const s1 = { part: [bp("頭部")], partRelation: "and" };
+    const none = { part: [], partRelation: "and" };
+    expect(joinPartDesignations([s1, none])).toBe("頭部");
+    expect(joinPartDesignations([none, none])).toBe("-");
   });
 });
 
