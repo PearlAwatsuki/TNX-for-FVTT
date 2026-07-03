@@ -177,6 +177,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         context.features = this.sheetFeatures;
         // 名前固定(トループ/分身=導出名・編集不可。troop シートが上書きする)
         context.nameLocked = false;
+        // 所属(ワークス)ブロックの表示。トループは「ワークスを設定」ON のときだけ(troop シートが上書き)
+        context.showAffiliation = true;
 
         context.enrichedDescription = await foundry.applications.ux.TextEditor.enrichHTML(
             this.actor.system.description, {

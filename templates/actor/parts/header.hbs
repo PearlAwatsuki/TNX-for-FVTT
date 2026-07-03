@@ -78,6 +78,9 @@
                             </div>
                         </div>
                         {{/if}}
+                        {{!-- 所属(ワークス)。トループは「ワークスを設定」ON のときだけ表示
+                             (showAffiliation。基本はワークスを持たない＝Troops.md) --}}
+                        {{#if showAffiliation}}
                         <div class="affiliation-block">
                             <div class="view-mode-affiliation">
                                 <span class="view-mode-label">所属：</span>
@@ -97,6 +100,7 @@
                                 {{/if}}
                             </div>
                         </div>
+                        {{/if}}
                     </div>
                     <div class="view-mode-style-summary">
                         <span class="view-mode-label">スタイル：</span>

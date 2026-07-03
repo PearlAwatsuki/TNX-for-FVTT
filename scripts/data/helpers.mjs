@@ -181,6 +181,33 @@ export function actionRankField() {
 }
 
 /**
+ * トループの固定名を導出する純粋関数(フェーズ11-4・正本 Troops.md「種別と名前の規則」)。
+ * - troop: 「(スタイル名)・トループ（(トループレベル)レベル）」例: カブトワリ・トループ（2レベル）
+ *   - ワークスを設定(hasWorks)かつ組織名あり: 「(組織名)（(スタイル名)(トループレベル)レベル）」
+ *     例: トキオシティポリス（カブトワリ2レベル）。組織未設定の間はフラグ OFF と同じ挙動。
+ * - bunshin: 「(分身元キャラ)の分身」
+ * - enigma: null(名前は自由入力＝固定しない)
+ * スタイル名・分身元が無い等、導出材料が無いときも null(固定しない)。
+ *
+ * @param {{troopMode?:string, sourceName?:string, troopLevel?:number, hasWorks?:boolean}} sys
+ * @param {string|null} styleName  所持スタイルの名前(トループはスタイル1つ)
+ * @param {string|null} orgName    所属組織(organization)アイテムの名前
+ * @returns {string|null}
+ */
+export function computeTroopFixedName(sys, styleName, orgName) {
+  if (!sys) return null;
+  if (sys.troopMode === "enigma") return null;
+  if (sys.troopMode === "bunshin") {
+    const src = (sys.sourceName ?? "").trim();
+    return src ? `${src}の分身` : null;
+  }
+  if (!styleName) return null;
+  const lv = sys.troopLevel ?? 0;
+  if (sys.hasWorks && orgName) return `${orgName}（${styleName}${lv}レベル）`;
+  return `${styleName}・トループ（${lv}レベル）`;
+}
+
+/**
  * アクターが開始済みの戦闘(カット進行中)に参加しているか(Foundry 依存・安全ガード付き)。
  * prepareDerivedData から呼ばれるため、game 未初期化時は false を返す。
  * @param {Actor|null} actor

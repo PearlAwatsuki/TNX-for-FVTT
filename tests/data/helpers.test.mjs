@@ -21,7 +21,7 @@ globalThis.foundry = {
   },
 };
 
-const { damageField, attributeField, combatSpeedField, computeAttributeFinal, computeOutfitAggregates, resolveCombatSpeedDisplayTotal, actionRankField, ACTION_RANK_GRANT } = await import("../../scripts/data/helpers.mjs");
+const { damageField, attributeField, combatSpeedField, computeAttributeFinal, computeOutfitAggregates, resolveCombatSpeedDisplayTotal, actionRankField, ACTION_RANK_GRANT, computeTroopFixedName } = await import("../../scripts/data/helpers.mjs");
 
 describe("damageField()", () => {
   it("呼び出せる", () => {
@@ -163,6 +163,37 @@ describe("actionRankField()（AR・フェーズ11）", () => {
 describe("ACTION_RANK_GRANT（付与基準値のルール定数）", () => {
   it("カット進行のシーン開始時の付与は 1", () => {
     expect(ACTION_RANK_GRANT).toBe(1);
+  });
+});
+
+describe("computeTroopFixedName()（トループの固定名・フェーズ11-4）", () => {
+  it("トループ: 「(スタイル名)・トループ（(トループレベル)レベル）」", () => {
+    expect(computeTroopFixedName({ troopMode: "troop", troopLevel: 2 }, "カブトワリ", null))
+      .toBe("カブトワリ・トループ（2レベル）");
+  });
+
+  it("ワークス設定＋組織あり: 「(組織名)（(スタイル名)(トループレベル)レベル）」", () => {
+    expect(computeTroopFixedName(
+      { troopMode: "troop", troopLevel: 2, hasWorks: true }, "カブトワリ", "トキオシティポリス"
+    )).toBe("トキオシティポリス（カブトワリ2レベル）");
+  });
+
+  it("ワークス設定でも組織未設定ならフラグ OFF と同じ挙動（ユーザー指定）", () => {
+    expect(computeTroopFixedName({ troopMode: "troop", troopLevel: 1, hasWorks: true }, "カブトワリ", null))
+      .toBe("カブトワリ・トループ（1レベル）");
+  });
+
+  it("スタイルなしは null（固定しない）", () => {
+    expect(computeTroopFixedName({ troopMode: "troop", troopLevel: 1 }, null, null)).toBeNull();
+  });
+
+  it("分身: 「(分身元)の分身」・分身元未設定は null", () => {
+    expect(computeTroopFixedName({ troopMode: "bunshin", sourceName: "時雨" }, null, null)).toBe("時雨の分身");
+    expect(computeTroopFixedName({ troopMode: "bunshin", sourceName: " " }, null, null)).toBeNull();
+  });
+
+  it("エニグマは null（名前は自由入力）", () => {
+    expect(computeTroopFixedName({ troopMode: "enigma", troopLevel: 3 }, "マヤカシ", null)).toBeNull();
   });
 });
 

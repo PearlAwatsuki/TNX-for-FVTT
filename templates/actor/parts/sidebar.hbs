@@ -97,6 +97,14 @@
                         {{/each}}
                     </select>
                 </div>
+                {{#if (eq system.troopMode "troop")}}
+                {{!-- ワークスを持つトループ(2026-07-03 確定)。所属組織を設定すると名前が
+                     「組織名（スタイル名○レベル）」になる(組織未設定の間は通常のトループ名) --}}
+                <label class="works-flag-row" title="ワークスを持つトループを作る場合にオン。所属組織をドロップするとトループ名が「組織名（スタイル名○レベル）」になります">
+                    <input type="checkbox" name="system.hasWorks" {{checked system.hasWorks}}>
+                    ワークスを設定
+                </label>
+                {{/if}}
                 {{#if (eq system.troopMode "bunshin")}}
                 <div class="bounty-edit-row bounty-edit-row--plain">
                     <span class="bounty-section-label">分身元</span>

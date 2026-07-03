@@ -44,6 +44,10 @@ export class TroopDataModel extends CharacterBaseDataModel {
         initial: "troop",
         choices: Object.keys(TROOP_MODES),
       }),
+      // 「ワークスを設定」(2026-07-03 確定): トループは基本ワークスを持たないが、
+      // ワークスを持つトループは作成可能。ON かつ組織アイテムありのとき名前が
+      // 「(組織名)（(スタイル名)(トループレベル)レベル）」になる(組織未設定なら OFF と同じ挙動)。
+      hasWorks: new fields.BooleanField({ initial: false }),
       sourceName: new fields.StringField({ initial: "" }),
       troopLevel: new fields.NumberField({ initial: 0, min: 0, integer: true }),
       heads: new fields.SchemaField({

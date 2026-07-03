@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MockStringField, MockNumberField, MockSchemaField } from "../../setup.mjs";
+import { MockStringField, MockNumberField, MockSchemaField, MockBooleanField } from "../../setup.mjs";
 
 const { TroopDataModel } = await import("../../../scripts/data/actor/troop.mjs");
 const { GuestDataModel } = await import("../../../scripts/data/actor/guest.mjs");
@@ -87,14 +87,19 @@ describe("TroopDataModel.defineSchema()", () => {
     it("旧 isEnigmaMode を持たない（種別ドロップダウンに置換・2026-07-03 修正）", () => {
       expect(schema).not.toHaveProperty("isEnigmaMode");
     });
+
+    it("hasWorks（ワークスを設定）は BooleanField で initial false", () => {
+      expect(schema.hasWorks).toBeInstanceOf(MockBooleanField);
+      expect(schema.hasWorks.options.initial).toBe(false);
+    });
   });
 
-  it("guest（共通基底そのまま）との差分は heads / troopMode / sourceName / troopLevel に限られる", () => {
+  it("guest（共通基底そのまま）との差分は heads / troopMode / hasWorks / sourceName / troopLevel に限られる", () => {
     const guestKeys = new Set(Object.keys(GuestDataModel.defineSchema()));
     const troopKeys = new Set(Object.keys(schema));
     const troopOnly = [...troopKeys].filter(k => !guestKeys.has(k)).sort();
     const guestOnly = [...guestKeys].filter(k => !troopKeys.has(k));
-    expect(troopOnly).toEqual(["heads", "sourceName", "troopLevel", "troopMode"]);
+    expect(troopOnly).toEqual(["hasWorks", "heads", "sourceName", "troopLevel", "troopMode"]);
     expect(guestOnly).toEqual([]);
   });
 });

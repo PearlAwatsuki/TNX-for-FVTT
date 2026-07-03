@@ -1,6 +1,7 @@
 import { TokyoNovaCastSheet } from './actor/tnx-cast-sheet.mjs';
 import { TokyoNovaGuestSheet } from './actor/tnx-guest-sheet.mjs';
 import { TokyoNovaTroopSheet } from './actor/tnx-troop-sheet.mjs';
+import { computeTroopFixedName } from './data/helpers.mjs';
 import { CastDataModel } from './data/actor/cast.mjs';
 import { GuestDataModel } from './data/actor/guest.mjs';
 import { TroopDataModel } from './data/actor/troop.mjs';
@@ -1340,22 +1341,19 @@ Hooks.on("deleteCombatant", (combatant) => {
     if (combatant.actor) refreshCombatStatDisplays([combatant.actor]);
 });
 
-// ─── トループの名前固定(フェーズ11-4・正本 Troops.md) ─────────────────────────
-// トループ=「(スタイル名)・トループ」／分身=「(分身元キャラ)の分身」で名前を固定する
+// ─── トループの名前固定(フェーズ11-4・正本 Troops.md「種別と名前の規則」) ─────────
+// トループ=「(スタイル名)・トループ（(トループレベル)レベル）」／ワークス設定時=
+// 「(組織名)（(スタイル名)(トループレベル)レベル）」／分身=「(分身元キャラ)の分身」で固定する
 // (自由入力はエニグマのみ＝個体識別が必要なのはエニグマだけ・2026-07-03 確定)。
+// 導出は純粋関数 computeTroopFixedName(data/helpers.mjs・テスト済)。
 // 導出名と異なるときだけ update するため、update の連鎖は名前一致で収束する。
 
-/** 種別に応じた固定名を返す(エニグマ・導出材料なしは null=固定しない)。 */
+/** アクターから導出材料(スタイル名・組織名)を集めて固定名を返す。 */
 function deriveTroopFixedName(actor) {
     if (actor?.type !== "troop") return null;
-    const sys = actor.system;
-    if (sys.troopMode === "enigma") return null;
-    if (sys.troopMode === "bunshin") {
-        const src = (sys.sourceName ?? "").trim();
-        return src ? `${src}の分身` : null;
-    }
-    const style = actor.items.find(i => i.type === "style");
-    return style ? `${style.name}・トループ` : null;
+    const styleName = actor.items.find(i => i.type === "style")?.name ?? null;
+    const orgName   = actor.items.find(i => i.type === "organization")?.name ?? null;
+    return computeTroopFixedName(actor.system, styleName, orgName);
 }
 
 async function syncTroopName(actor) {
@@ -1367,24 +1365,29 @@ Hooks.on("updateActor", (actor, diff, options, userId) => {
     if (actor.type !== "troop" || userId !== game.user.id) return;
     if (diff.name !== undefined
         || diff.system?.troopMode !== undefined
-        || diff.system?.sourceName !== undefined) {
+        || diff.system?.sourceName !== undefined
+        || diff.system?.troopLevel !== undefined
+        || diff.system?.hasWorks !== undefined) {
         syncTroopName(actor);
     }
 });
 
 Hooks.on("createItem", (item, options, userId) => {
     if (userId !== game.user.id) return;
-    if (item.parent?.type === "troop" && item.type === "style") syncTroopName(item.parent);
+    if (item.parent?.type === "troop"
+        && (item.type === "style" || item.type === "organization")) syncTroopName(item.parent);
 });
 
 Hooks.on("deleteItem", (item, options, userId) => {
     if (userId !== game.user.id) return;
-    if (item.parent?.type === "troop" && item.type === "style") syncTroopName(item.parent);
+    if (item.parent?.type === "troop"
+        && (item.type === "style" || item.type === "organization")) syncTroopName(item.parent);
 });
 
 Hooks.on("updateItem", (item, diff, options, userId) => {
     if (userId !== game.user.id) return;
-    if (item.parent?.type === "troop" && item.type === "style" && diff.name !== undefined) {
+    if (item.parent?.type === "troop" && diff.name !== undefined
+        && (item.type === "style" || item.type === "organization")) {
         syncTroopName(item.parent);
     }
 });

@@ -41,8 +41,10 @@ export class TokyoNovaTroopSheet extends TnxCharacterSheetBase {
 
     async _prepareContext(options) {
         const context = await super._prepareContext(options);
-        // 名前の自由入力はエニグマのみ(トループ/分身は導出名で固定＝Troops.md)
+        // 名前の自由入力はエニグマのみ(トループ/分身は導出名で固定＝Troops.md「種別と名前の規則」)
         context.nameLocked = this.actor.system.troopMode !== "enigma";
+        // 所属(ワークス)はトループでは基本なし。「ワークスを設定」ON のときだけ表示
+        context.showAffiliation = this.actor.system.hasWorks === true;
         context.troopModeOptions = Object.entries(TROOP_MODES).map(([value, label]) => ({
             value, label, selected: value === this.actor.system.troopMode,
         }));

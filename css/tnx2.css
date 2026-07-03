@@ -1297,6 +1297,15 @@
 .tokyo-nova.sheet.actor .sidebar-heads-group .bounty-edit-row--plain .bounty-section-label {
     padding-top: 0;
 }
+/* 「ワークスを設定」フラグ行 */
+.tokyo-nova.sheet.actor .sidebar-heads-group .works-flag-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    font-size: 0.85em;
+    color: var(--tnx2-text-secondary);
+}
 
 /* 編集モード: 報酬点ラベル + 初期値 + 修正値 */
 .tokyo-nova.sheet.actor .bounty-edit-row {
@@ -1442,6 +1451,10 @@
     color: transparent;
 }
 
+/* トループレベル枠(市民ランク枠の共有)はミニラベルを LV にする(フェーズ11-4) */
+.tokyo-nova.sheet.actor .profile-header .middle-header-section .troop-level-block .view-mode-rank .view-mode-label::before {
+    content: "LV";
+}
 .tokyo-nova.sheet.actor .profile-header .middle-header-section .view-mode-rank .view-mode-label::before {
     content: "ID";
     font-family: var(--tnx2-font-mono);
