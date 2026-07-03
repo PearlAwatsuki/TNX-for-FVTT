@@ -1,0 +1,77 @@
+    <aside class="profile-sidebar column left-column cast-sidebar">
+        <div class="portrait-section">
+            <img class="profile-img" src="{{actor.img}}" data-action="editImage" title="{{actor.name}}"/>
+        </div>
+        <div class="sidebar-personal-data-group">
+            <h3 class="tnx-section-title tnx-section-title--sm">パーソナルデータ</h3>
+            <div class="personal-data-grid">
+                <div class="personal-data-item">
+                    <label data-en="AGE">年齢</label>
+                    <input type="text" name="system.age" value="{{system.age}}"/>
+                </div>
+                <div class="personal-data-item">
+                    <label data-en="GENDER">性別</label>
+                    <input type="text" name="system.gender" value="{{system.gender}}"/>
+                </div>
+                <div class="personal-data-item">
+                    <label data-en="DOB">誕生日</label>
+                    <input type="text" name="system.birthday" value="{{system.birthday}}"/>
+                </div>
+                <div class="personal-data-item">
+                    <label data-en="HEIGHT">身長</label>
+                    <input type="text" name="system.height" value="{{system.height}}"/>
+                </div>
+                <div class="personal-data-item">
+                    <label data-en="WEIGHT">体重</label>
+                    <input type="text" name="system.weight" value="{{system.weight}}"/>
+                </div>
+                <div class="personal-data-item">
+                    <label data-en="EYES">瞳の色</label>
+                    <input type="text" name="system.eyes" value="{{system.eyes}}"/>
+                </div>
+                <div class="personal-data-item">
+                    <label data-en="HAIR">髪の色</label>
+                    <input type="text" name="system.hair" value="{{system.hair}}"/>
+                </div>
+                <div class="personal-data-item">
+                    <label data-en="SKIN">肌の色</label>
+                    <input type="text" name="system.skin" value="{{system.skin}}"/>
+                </div>
+            </div>
+        </div>
+        <div class="sidebar-bounty-group">
+            {{#if isEditMode}}
+                <div class="bounty-edit-row">
+                    <span class="bounty-section-label">報酬点</span>
+                    <div class="bounty-field">
+                        <label>初期値</label>
+                        <input type="number" value="{{system.bountyBase}}" disabled>
+                    </div>
+                    <span class="bounty-separator">+</span>
+                    <div class="bounty-field">
+                        <label>修正値</label>
+                        <input type="number" name="system.bounty" value="{{system.bounty}}">
+                    </div>
+                </div>
+                <button type="button" class="bounty-recalc-btn" data-action="recalculateBounty" title="現在の外界値({{mundaneTotalValue}})を初期値として確定">
+                    <i class="fas fa-sync-alt"></i> 初期値を再計算
+                </button>
+            {{else}}
+                <div class="bounty-view-panel">
+                    <div class="bounty-view-content">
+                        <span class="bounty-view-label">報酬点</span>
+                        <div class="bounty-total-row">
+                            <i class="fas fa-coins bounty-coin-icon"></i>
+                            <span class="bounty-total">{{effectiveBounty}}</span>
+                        </div>
+                    </div>
+                    {{#if isEditable}}
+                    <div class="bounty-adjust-btns">
+                        <button type="button" class="bounty-adjust-btn" data-delta="-1" title="報酬点を1減らす" {{#if bountyAtMin}}disabled{{/if}}>−</button>
+                        <button type="button" class="bounty-adjust-btn" data-delta="1" title="報酬点を1増やす">＋</button>
+                    </div>
+                    {{/if}}
+                </div>
+            {{/if}}
+        </div>
+    </aside>

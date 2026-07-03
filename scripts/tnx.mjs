@@ -89,6 +89,15 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/dialog/usage-creation-dialog.hbs",
 
         // === Partials ===
+        // アクターシート共通部品(フェーズ11-2。cast/guest 等で共有・features フラグで差異をゲート)
+        "systems/tokyo-nova-axleration/templates/actor/parts/sidebar.hbs",
+        "systems/tokyo-nova-axleration/templates/actor/parts/header.hbs",
+        "systems/tokyo-nova-axleration/templates/actor/parts/tab-abilities.hbs",
+        "systems/tokyo-nova-axleration/templates/actor/parts/tab-combat.hbs",
+        "systems/tokyo-nova-axleration/templates/actor/parts/tab-outfits.hbs",
+        "systems/tokyo-nova-axleration/templates/actor/parts/tab-status.hbs",
+        "systems/tokyo-nova-axleration/templates/actor/parts/tab-history.hbs",
+        "systems/tokyo-nova-axleration/templates/actor/parts/tab-profile.hbs",
         "systems/tokyo-nova-axleration/templates/parts/active-effects-list.hbs",
         "systems/tokyo-nova-axleration/templates/parts/card-setup-app.hbs",
         "systems/tokyo-nova-axleration/templates/parts/scenario-setting-wizard.hbs",

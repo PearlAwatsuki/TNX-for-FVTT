@@ -1,0 +1,159 @@
+        <header class="sheet-header profile-header">
+            <div class="header-content-wrapper">
+                <div class="identity-section">
+                    <div class="identity-view-mode">
+                        {{#if system.handle}}
+                            <span class="handle-quoted-block">
+                                <span class="quote-mark">"</span>
+                                <ruby class="handle-ruby-view">
+                                    <rb>{{system.handle}}</rb>
+                                    <rt>{{system.handle_ruby}}</rt>
+                                </ruby>
+                                <span class="quote-mark">"</span>
+                            </span>
+                        {{/if}}
+                        {{#if actor.name}}
+                            <ruby class="char-name-ruby-view">
+                                <rb>{{actor.name}}</rb>
+                                <rt>{{system.charaname_ruby}}</rt>
+                            </ruby>
+                        {{else}}
+                            {{#unless system.handle}}
+                                <span class="no-name-placeholder">名前未設定</span>
+                            {{/unless}}
+                        {{/if}}
+                    </div>
+                    <div class="identity-edit-mode">
+                        <label>キャラクター名</label>
+                        <div class="char-name-block-edit">
+                            <input name="name" type="text" value="{{actor.name}}">
+                            <input name="system.charaname_ruby" type="text" value="{{system.charaname_ruby}}">
+                        </div>
+                        <label>ハンドル</label>
+                        <div class="handle-block-edit">
+                            <input name="system.handle" type="text" value="{{system.handle}}">
+                            <input name="system.handle_ruby" type="text" value="{{system.handle_ruby}}">
+                        </div>
+                    </div>
+                </div>
+                <div class="middle-header-section">
+                    <div class="rank-affiliation-wrapper">
+                        <div class="citizen-rank-block">
+                            <div class="view-mode-rank">
+                                <span class="view-mode-label">市民ランク：</span>
+                                <span class="view-mode-value">{{system.citizenRank}}</span>
+                            </div>
+                            <div class="edit-mode-rank">
+                                <label>市民ランク：</label>
+                                <select name="system.citizenRank">
+                                    {{#each citizenRankOptionsForSelect as |o|}}
+                                        <option value="{{o.value}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>
+                                    {{/each}}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="affiliation-block">
+                            <div class="view-mode-affiliation">
+                                <span class="view-mode-label">所属：</span>
+                                <span class="view-mode-value">{{affiliationDisplay}}</span>
+                            </div>
+                            <div class="edit-mode-affiliation">
+                                <label>所属：</label>
+                                {{#if equippedAffiliations.length}}
+                                    {{#each equippedAffiliations as |item|}}
+                                        <button type="button" class="item-button tnx-linked-btn" data-action="openItemSheet" data-item-id="{{item._id}}" data-context-menu="item-edit">
+                                            <img src="{{item.img}}" class="tnx-linked-btn__icon"/>
+                                            <span class="tnx-linked-btn__label">{{item.name}}</span>
+                                        </button>
+                                    {{/each}}
+                                {{else}}
+                                    <div class="tnx-import-box tnx-import-box--inline" data-drop-area="affiliation"><span>組織アイテムをここにドロップ</span></div>
+                                {{/if}}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="view-mode-style-summary">
+                        <span class="view-mode-label">スタイル：</span>
+                        <span class="style-summary-items">
+                            {{#each processedStylesForView as |s|}}
+                                <a class="style-summary-item" data-action="openItemSheet" data-item-id="{{s._id}}">{{s.repeatedName}}{{s.roleIndicatorDisplay}}</a>
+                                {{#unless @last}},&nbsp;{{/unless}}
+                            {{/each}}
+                        </span>
+                    </div>
+                    {{!-- EXP はセッション履歴を持つシート(cast)のみ(features.exp) --}}
+                    {{#if features.exp}}
+                    <div class="exp-display-section">
+                        <div class="view-mode-exp">
+                            <span>消費経験点：</span>
+                            <span class="exp-value">{{system.exp.spent}}</span>
+                        </div>
+                        <div class="edit-mode-exp">
+                            <div>
+                                <label>消費経験点：</label>
+                                <span>{{system.exp.spent}}</span>
+                            </div>
+                            <div>
+                                <label>総経験点：</label>
+                                <span>{{system.exp.total}}</span>
+                            </div>
+                            <div>
+                                <label>追加経験点：</label>
+                                <input type="number" name="system.exp.additional" value="{{system.exp.additional}}" class="exp-input">
+                            </div>
+                        </div>
+                    </div>
+                    {{/if}}
+                </div>
+                <div class="styles-and-miracle-section">
+                    {{#if isEditMode}}
+                    <div class="edit-mode-styles-miracle-block">
+                        <div class="item-slots-row">
+                            {{#each styleSlots as |slot|}}
+                                <div class="style-slot" data-item-id="{{slot._id}}">
+                                    <div class="style-slot-inner">
+                                        {{#if slot.isEmpty}}
+                                            <div class="tnx-import-box tnx-import-box--inline tnx-import-box--compact" data-drop-area="style"><span>スタイルをドロップ</span></div>
+                                        {{else}}
+                                            <button type="button" class="item-button tnx-linked-btn style-info-button" data-action="openItemSheet" data-item-id="{{slot._id}}" data-context-menu="item-edit">
+                                                <img src="{{slot.img}}" class="tnx-linked-btn__icon"/>
+                                                <span class="tnx-linked-btn__label">{{slot.name}}</span>
+                                            </button>
+                                        {{/if}}
+                                        <div class="style-role-toggle {{#if slot.isEmpty}}style-role-toggle--disabled{{/if}}" {{#unless slot.isEmpty}}data-action="toggleStyleRole"{{/unless}}>
+                                            <span class="role-indicator {{slot.roleIndicatorClass}}">{{slot.roleIndicatorDisplay}}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            {{/each}}
+                        </div>
+                        <div class="item-slots-row">
+                            {{#each miracleSlots as |slot|}}
+                                <div class="miracle-slot" data-item-id="{{slot._id}}">
+                                {{#if slot.isEmpty}}
+                                    <div class="tnx-import-box tnx-import-box--inline" data-drop-area="miracle"><span>神業をここにドロップ</span></div>
+                                {{else}}
+                                    <button type="button" class="item-button tnx-linked-btn" data-action="openItemSheet" data-item-id="{{slot._id}}" data-context-menu="item-edit">
+                                        <img src="{{slot.img}}" class="tnx-linked-btn__icon"/>{{slot.name}}
+                                    </button>
+                                {{/if}}
+                                </div>
+                            {{/each}}
+                        </div>
+                    </div>
+                    {{else}}
+                    <div class="view-mode-miracle-actions">
+                        <h3 class="tnx-section-title tnx-section-title--center">神業</h3>
+                        <div class="miracle-buttons-grid">
+                            {{#each miracleSlotsForView as |dw|}}
+                                <button type="button" class="tnx-linked-btn miracle-use-button" data-action="useMiracle" data-item-id="{{dw._id}}" {{#if dw.isPlaceholder}}disabled{{/if}} {{#if dw.isDisabled}}disabled{{/if}} data-context-menu="miracle-view">
+                                    <i class="fas fa-bolt"></i>
+                                    <span class="tnx-linked-btn__label miracle-name__label">{{dw.name}}</span>
+                                </button>
+                            {{/each}}
+                        </div>
+                    </div>
+                    {{/if}}
+                </div>
+            </div>
+        </header>

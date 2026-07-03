@@ -1,0 +1,12 @@
+                <div class="tab history" data-group="primary" data-tab="history">
+                    {{#if isEditMode}}
+                    <div class="checkbox-row">
+                        <label>
+                            <input type="checkbox" name="system.syncWithOwner"
+                                {{checked system.syncWithOwner}}>
+                            レコードシートと同期
+                        </label>
+                    </div>
+                    {{/if}}
+                    {{> "systems/tokyo-nova-axleration/templates/parts/history-list.hbs"}}
+                </div>

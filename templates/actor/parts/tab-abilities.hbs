@@ -1,0 +1,321 @@
+                <div class="tab abilities" data-group="primary" data-tab="abilities">
+                    {{#if isEditMode}}
+                        <h2 class="tnx-section-title">能力値管理</h2>
+                        <div class="abilities-grid edit-mode-layout">
+                            {{#each system.abilities as |ability key|}}
+                                <div class="ability-block">
+                                    <h3>{{ability.label}}</h3>
+                                    <div class="value-control-wrapper">
+                                        <input type="number" value="{{ability.totalValue}}" class="ability-value" disabled title="能力値">
+                                        <span class="separator">/</span>
+                                        <input type="number" value="{{ability.totalControl}}" class="control-value" disabled title="制御値">
+                                    </div>
+                                    <div class="ability-details-toggle" data-action="toggleAbilityDetails">
+                                        <span>内訳</span>
+                                        <i class="fas fa-chevron-down"></i>
+                                    </div>
+                                    <div class="ability-details-panel" style="display: none;">
+                                        <div class="ability-breakdown breakdown-row">
+                                            {{#each ability.styleContributions as |style|}}
+                                                {{#if style.name}}
+                                                    <label class="breakdown-label breakdown-label--style">{{style.name}} (SL{{style.level}})</label>
+                                                    <div class="breakdown-item">
+                                                        <input class="" type="number" value="{{style.value}}" disabled>
+                                                        <span class="separator">/</span>
+                                                        <input type="number" value="{{style.control}}" disabled>
+                                                    </div>
+                                                {{/if}}
+                                            {{/each}}
+                                            <label class="breakdown-label">アウトフィット</label>
+                                            <div class="breakdown-item">
+                                                <input type="number" value="{{ability.outfitMod}}" disabled>
+                                                <span class="separator">/</span>
+                                                <input type="number" value="{{ability.outfitControlMod}}" disabled>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="ability-main-inputs">
+                                        <label>成長</label>
+                                        <div class="input-row">
+                                            <input type="number" name="system.{{key}}.growth" value="{{ability.growth}}">
+                                            <span class="separator">/</span>
+                                            <input type="number" name="system.{{key}}.controlGrowth" value="{{ability.controlGrowth}}">
+                                        </div>
+                                        <label>修正</label>
+                                        <div class="input-row">
+                                            <input type="number" name="system.{{key}}.mod" value="{{ability.mod}}">
+                                            <span class="separator">/</span>
+                                            <input type="number" name="system.{{key}}.controlMod" value="{{ability.controlMod}}">
+                                        </div>
+                                    </div>
+                                </div>
+                            {{/each}}
+                        </div>
+                    {{else}}
+                        <h2 class="tnx-section-title">能力値</h2>
+                        <div class="abilities-grid view-mode-layout">
+                            {{#each system.abilities as |ability key|}}
+                                <div class="ability-display">
+                                    <div class="ability-label-shape"><div class="ability-label-content"><h3>{{ability.label}}</h3></div></div>
+                                    <div class="ability-values-area">
+                                        <div class="ability-value-shape check-trigger" data-action="startAbilityCheck" data-ability-key="{{key}}" title="能力値判定を起動">
+                                            <div class="ability-value-content">
+                                                <input type="number" value="{{ability.totalValue}}" readonly>
+                                            </div>
+                                        </div>
+                                        <div class="control-value-shape check-trigger" data-action="startControlCheck" data-ability-key="{{key}}" title="制御判定を起動">
+                                            <div class="control-value-content">
+                                                <input type="number" value="{{ability.totalControl}}" readonly>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {{/each}}
+                        </div>
+                    {{/if}}
+                    <div class="skills-section">
+                        {{#if isEditMode}}
+                            {{!-- 編集モード：一般技能（閲覧モード踏襲の二列レイアウト） --}}
+                            <div class="tnx-section-header">
+                                <h3>一般技能</h3>
+                                <a class="item-control item-create" data-type="generalSkill" title="追加">
+                                    <i class="fas fa-plus"></i> 追加
+                                </a>
+                            </div>
+                            <div class="skills-list-view">
+                                {{#each generalSkillColumns as |columnItems|}}
+                                    <div class="skills-column">
+                                        {{#each columnItems as |item|}}
+                                            <div class="general-skill-display general-skill-display--edit item" data-item-id="{{item._id}}">
+                                                <div class="skill-name-wrap">
+                                                    <a class="skill-name-plain squeeze-text">
+                                                        {{tnxDecoratedName item}}
+                                                    </a>
+                                                </div>
+                                                <div class="skill-meta-data">
+                                                    <div class="skill-level-container">
+                                                        <input type="number" class="skill-property-change" data-target="level" value="{{item.system.level}}" placeholder="Lv" />
+                                                        <div class="skill-suits-row">
+                                                            {{#each ../../TNX.SUITS as |suitData key|}}
+                                                                <label class="suit-checkbox-tiny" title="{{suitData.label}}">
+                                                                    <input type="checkbox" class="skill-property-change" data-target="suit" data-suit="{{key}}" {{checked (lookup item.system.suits key)}} />
+                                                                    <i class="{{suitData.icon}}"></i>
+                                                                </label>
+                                                            {{/each}}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <a class="item-menu-trigger" title="メニュー">
+                                                    <i class="fas fa-ellipsis-v"></i>
+                                                </a>
+                                            </div>
+                                        {{/each}}
+                                    </div>
+                                {{/each}}
+                            </div>
+
+                            {{!-- 編集モード：スタイル技能（閲覧モード踏襲のグリッド） --}}
+                            <div class="skills-section">
+                                <div class="tnx-section-header">
+                                    <h3>スタイル技能</h3>
+                                    <a class="item-control item-create" data-type="styleSkill" title="追加">
+                                        <i class="fas fa-plus"></i> 追加
+                                    </a>
+                                </div>
+                                <div class="style-skills-list-wrapper">
+                                    <div class="style-skill-header style-skill-grid style-skill-grid--edit">
+                                        <div class="cell cell-name">名称</div>
+                                        <div class="cell cell-level">Lv</div>
+                                        <div class="cell cell-combo">技能</div>
+                                        <div class="cell cell-max">上限</div>
+                                        <div class="cell cell-timing">タイミング</div>
+                                        <div class="cell cell-target">対象</div>
+                                        <div class="cell cell-range">射程</div>
+                                        <div class="cell cell-tn">目標値</div>
+                                        <div class="cell cell-confront">対決</div>
+                                        <div class="cell cell-other"></div>
+                                    </div>
+                                    {{#each styleSkillGroups as |group|}}
+                                    <div class="style-skill-group-header">
+                                        <span class="group-label">{{group.label}}</span>
+                                        {{#if group.isStyle}}<span class="style-skill-counts" title="このスタイルの秘技/奥義の取得数(表示のみ・上限は強制しません)">秘技 {{group.secret}}/{{group.secretLimit}}・奥義 {{group.mystery}}/{{group.mysteryLimit}}</span>{{/if}}
+                                    </div>
+                                    <ol class="style-skills-list">
+                                        {{#each group.skills as |item|}}
+                                            <li class="item style-skill-row" data-item-id="{{item._id}}">
+                                                <div class="style-skill-row-main style-skill-grid style-skill-grid--edit">
+                                                    <div class="cell cell-name">
+                                                        <a class="item-name">{{tnxDecoratedName item}}</a>
+                                                    </div>
+                                                    <div class="cell cell-level">
+                                                        <div class="skill-level-container">
+                                                            <input type="number" class="skill-property-change" data-target="level" value="{{item.system.level}}" placeholder="Lv" {{#if item.system.levelRef.enabled}}disabled title="参照先のレベルで自動設定されます"{{/if}} />
+                                                            <div class="skill-suits-row">
+                                                                {{#each ../../TNX.SUITS as |suitData key|}}
+                                                                    <label class="suit-checkbox-tiny" title="{{suitData.label}}">
+                                                                        <input type="checkbox" class="skill-property-change" data-target="suit" data-suit="{{key}}" {{checked (lookup item.system.suits key)}} />
+                                                                        <i class="{{suitData.icon}}"></i>
+                                                                    </label>
+                                                                {{/each}}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="cell cell-combo">
+                                                        <span class="squeeze-text">{{item.view.comboSkill}}</span>
+                                                    </div>
+                                                    <div class="cell cell-max">
+                                                        <span class="squeeze-text">{{item.view.maxLevel}}</span>
+                                                    </div>
+                                                    <div class="cell cell-timing">
+                                                        <span class="squeeze-text">{{item.view.timing}}</span>
+                                                    </div>
+                                                    <div class="cell cell-target">
+                                                        <span class="squeeze-text">{{item.view.target}}</span>
+                                                    </div>
+                                                    <div class="cell cell-range">
+                                                        <span class="squeeze-text">{{item.view.range}}</span>
+                                                    </div>
+                                                    <div class="cell cell-tn">
+                                                        <span class="squeeze-text">{{item.view.targetValue}}</span>
+                                                    </div>
+                                                    <div class="cell cell-confront">
+                                                        <span class="squeeze-text">{{item.view.confrontation}}</span>
+                                                    </div>
+                                                    <div class="cell cell-other">
+                                                        <button type="button" class="skill-desc-toggle" data-action="toggleSkillDesc" title="説明を表示/非表示">
+                                                            <i class="fas fa-expand"></i>
+                                                        </button>
+                                                        <a class="item-menu-trigger" title="メニュー">
+                                                            <i class="fas fa-ellipsis-v"></i>
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                                <div class="style-skill-desc-panel" style="display: none;">
+                                                    <div class="style-skill-desc-content">{{{item.system.description}}}</div>
+                                                </div>
+                                            </li>
+                                        {{/each}}
+                                    </ol>
+                                    {{/each}}
+                                </div>
+                            </div>
+                        {{else}}
+                            {{!-- 閲覧モード --}}
+                            <div class="skills-section">
+                                <h2 class="tnx-section-title">一般技能</h2>
+                                <div class="skills-list-view">
+                                    {{#each generalSkillColumns as |columnItems|}}
+                                        <div class="skills-column">
+                                            {{#each columnItems as |item|}}
+                                                <div class="general-skill-display item" data-item-id="{{item._id}}">
+                                                    <div class="skill-label-shape">
+                                                        <a class="skill-label-content squeeze-text check-trigger" data-action="startSkillCheck" data-item-id="{{item._id}}" title="技能判定を起動">
+                                                            {{tnxDecoratedName item}}
+                                                        </a>
+                                                    </div>
+                                                    <div class="skill-meta-data">
+                                                        <span class="skill-level">Lv{{item.system.level}}</span>
+                                                        <div class="skill-suits-view">
+                                                            <i class="fas fa-spade suit-icon {{#if item.system.suits.spade}}active{{else}}inactive{{/if}}"></i>
+                                                            <i class="fas fa-club suit-icon {{#if item.system.suits.club}}active{{else}}inactive{{/if}}"></i>
+                                                            <i class="fas fa-heart suit-icon {{#if item.system.suits.heart}}active{{else}}inactive{{/if}}"></i>
+                                                            <i class="fas fa-diamond suit-icon {{#if item.system.suits.diamond}}active{{else}}inactive{{/if}}"></i>
+                                                        </div>
+                                                    </div>
+                                                    <a class="item-menu-trigger" title="メニュー">
+                                                        <i class="fas fa-ellipsis-v"></i>
+                                                    </a>
+                                                </div>
+                                            {{/each}}
+                                        </div>
+                                    {{/each}}
+                                </div>
+                            </div>
+                            <div class="skills-section">
+                                <h2 class="tnx-section-title">スタイル技能</h2>
+                                <div class="style-skills-list-wrapper">
+                                    {{!-- ヘッダー行 --}}
+                                    <div class="style-skill-header style-skill-grid">
+                                        <div class="cell cell-name">名称</div>
+                                        <div class="cell cell-level">Lv</div>
+                                        <div class="cell cell-combo">技能</div>
+                                        <div class="cell cell-max">上限</div>
+                                        <div class="cell cell-timing">タイミング</div>
+                                        <div class="cell cell-target">対象</div>
+                                        <div class="cell cell-range">射程</div>
+                                        <div class="cell cell-tn">目標値</div>
+                                        <div class="cell cell-confront">対決</div>
+                                        <div class="cell cell-other"></div>
+                                    </div>
+
+                                    {{!-- リスト本体（スタイルごとにグループ化・各群の小見出しに取得数） --}}
+                                    {{#each styleSkillGroups as |group|}}
+                                    <div class="style-skill-group-header">
+                                        <span class="group-label">{{group.label}}</span>
+                                        {{#if group.isStyle}}<span class="style-skill-counts" title="このスタイルの秘技/奥義の取得数(表示のみ・上限は強制しません)">秘技 {{group.secret}}/{{group.secretLimit}}・奥義 {{group.mystery}}/{{group.mysteryLimit}}</span>{{/if}}
+                                    </div>
+                                    <ol class="style-skills-list">
+                                        {{#each group.skills as |item|}}
+                                            <li class="item style-skill-row" data-item-id="{{item._id}}">
+                                                <div class="style-skill-row-main style-skill-grid">
+                                                    {{!-- 名称 --}}
+                                                    <div class="cell cell-name">
+                                                        <a class="item-name check-trigger" data-action="startSkillCheck" data-item-id="{{item._id}}" title="技能判定を起動">{{tnxDecoratedName item}}</a>
+                                                    </div>
+
+                                                    {{!-- レベル＆スート（横並びコンテナ） --}}
+                                                    <div class="cell cell-level">
+                                                        <div class="level-container">
+                                                            <span class="level-number">{{item.system.level}}</span>
+                                                            <div class="level-suits">
+                                                                <i class="fas fa-spade suit-icon {{#if item.system.suits.spade}}active{{else}}inactive{{/if}}"></i>
+                                                                <i class="fas fa-club suit-icon {{#if item.system.suits.club}}active{{else}}inactive{{/if}}"></i>
+                                                                <i class="fas fa-heart suit-icon {{#if item.system.suits.heart}}active{{else}}inactive{{/if}}"></i>
+                                                                <i class="fas fa-diamond suit-icon {{#if item.system.suits.diamond}}active{{else}}inactive{{/if}}"></i>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {{!-- その他パラメータ --}}
+                                                    <div class="cell cell-combo">
+                                                        <span class="squeeze-text">{{item.view.comboSkill}}</span>
+                                                    </div>
+                                                    <div class="cell cell-max">
+                                                        <span class="squeeze-text">{{item.view.maxLevel}}</span>
+                                                    </div>
+                                                    <div class="cell cell-timing">
+                                                        <span class="squeeze-text">{{item.view.timing}}</span>
+                                                    </div>
+                                                    <div class="cell cell-target">
+                                                        <span class="squeeze-text">{{item.view.target}}</span>
+                                                    </div>
+                                                    <div class="cell cell-range">
+                                                        <span class="squeeze-text">{{item.view.range}}</span>
+                                                    </div>
+                                                    <div class="cell cell-tn">
+                                                        <span class="squeeze-text">{{item.view.targetValue}}</span>
+                                                    </div>
+                                                    <div class="cell cell-confront">
+                                                        <span class="squeeze-text">{{item.view.confrontation}}</span>
+                                                    </div>
+                                                    <div class="cell cell-other">
+                                                        <button type="button" class="skill-desc-toggle" data-action="toggleSkillDesc" title="説明を表示/非表示">
+                                                            <i class="fas fa-expand"></i>
+                                                        </button>
+                                                        <a class="item-menu-trigger" data-item-id="{{item._id}}" title="メニュー">
+                                                            <i class="fas fa-ellipsis-v"></i>
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                                <div class="style-skill-desc-panel" style="display: none;">
+                                                    <div class="style-skill-desc-content">{{{item.system.description}}}</div>
+                                                </div>
+                                            </li>
+                                        {{/each}}
+                                    </ol>
+                                    {{/each}}
+                                </div>
+                            </div>
+                        {{/if}}
+                    </div>
+                </div>
