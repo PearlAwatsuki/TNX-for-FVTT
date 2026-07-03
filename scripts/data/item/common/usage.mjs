@@ -58,6 +58,12 @@ export class UsageTemplate extends SystemDataModel {
                     targetValueNumber: new fields.NumberField({ initial: 0 }),
                     targetValueOther:  new fields.StringField({ initial: "" }),
 
+                    // 固定達成値(フェーズ11-5・Check_Rules「固定値判定」): 設定すると、この判定は
+                    // カードも出さず能力値も参照せず、この値がそのまま達成値になる(小分類「エキストラ」の
+                    // アウトフィットの〈知覚〉10 等)。エキストラが行える唯一の判定形(他アクターも使用可)。
+                    // null(空欄)=通常判定。
+                    fixedResult: new fields.NumberField({ initial: null, nullable: true, integer: true }),
+
                     // 対決不可: 対象がこの判定に対決（リアクション）できない状態（実機能はフェーズ13、現状は保持のみ）
                     isUnopposable: new fields.BooleanField({ initial: false }),
 

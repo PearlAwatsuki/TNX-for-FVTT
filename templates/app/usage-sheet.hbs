@@ -117,6 +117,14 @@
                            {{#unless editable}}disabled{{/unless}}>
                 </div>
 
+                {{!-- 固定達成値(フェーズ11-5・Check_Rules「固定値判定」)。空欄=通常判定のため
+                     スピナーでなく nullable の平入力 --}}
+                <div class="usage-form-row">
+                    <label class="usage-field-label">固定達成値 <i class="fas fa-circle-question" title="設定すると、この判定はカードも出さず能力値も参照せず、この値がそのまま達成値になります(〈知覚〉10 等。エキストラが行える唯一の判定形・空欄=通常判定)"></i></label>
+                    <input type="number" name="fixedResult" value="{{usage.fixedResult}}" placeholder="空欄=通常判定"
+                           {{#unless editable}}disabled{{/unless}}>
+                </div>
+
                 {{!-- 対決不可（インライントグル） --}}
                 <div class="usage-form-row usage-toggle-row">
                     <label class="usage-toggle-inline" title="対象がこの判定に対決（リアクション）できない状態">

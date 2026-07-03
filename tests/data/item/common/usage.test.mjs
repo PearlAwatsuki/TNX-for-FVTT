@@ -36,6 +36,12 @@ describe("UsageTemplate.defineSchema()", () => {
       expect(entryFields).toHaveProperty("skillRefs");
     });
 
+    it("固定達成値（fixedResult・フェーズ11-5）は nullable で initial null（空欄=通常判定）", () => {
+      expect(entryFields).toHaveProperty("fixedResult");
+      expect(entryFields.fixedResult.options.initial).toBe(null);
+      expect(entryFields.fixedResult.options.nullable).toBe(true);
+    });
+
     it("attack 固有フィールドが存在する", () => {
       expect(entryFields).toHaveProperty("weaponRef");
       expect(entryFields).toHaveProperty("damageType");

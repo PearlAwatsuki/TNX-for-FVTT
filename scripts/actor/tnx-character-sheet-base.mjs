@@ -2221,6 +2221,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
     static _detectUsageDefect(item, usage, actor) {
         switch (usage.type) {
             case "check": {
+                // 固定達成値の用途は技能・スートを使わないため不備検知の対象外(フェーズ11-5)
+                if (Number.isFinite(usage.fixedResult)) return null;
                 const { baseSkill, validSuits } = TnxCharacterSheetBase._resolveSkillSet(item, usage, actor);
                 if (!baseSkill) return "ベース技能が見つかりません";
                 if (!validSuits.length) return "参加技能に共通スートがありません";
@@ -2246,12 +2248,6 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             return;
         }
 
-        // 能力値を持たないシート(extra)は通常判定を行えない(固定値判定のみ＝Check_Rules.md「固定値判定」)
-        if (!this.sheetFeatures.abilities) {
-            ui.notifications.warn("エキストラは固定値の判定のみ行えます。");
-            return;
-        }
-
         // 用途を決定（1つなら自動選択、複数なら D&D スタイルのピッカー表示）
         let selectedUsage;
         if (checkUsages.length === 1) {
@@ -2259,6 +2255,19 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         } else {
             selectedUsage = await TnxCharacterSheetBase._promptCheckUsage(checkUsages, item.name);
             if (!selectedUsage) return;
+        }
+
+        // 固定達成値の用途(フェーズ11-5・Check_Rules「固定値判定」): カードも出さず能力値も参照せず、
+        // 記載の数値がそのまま達成値になる。エキストラが行える唯一の判定形(他アクターでも使用可)
+        if (Number.isFinite(selectedUsage.fixedResult)) {
+            await TnxCharacterSheetBase._postFixedCheckResult(this.actor, item, selectedUsage);
+            return;
+        }
+
+        // 能力値を持たないシート(extra)は通常判定を行えない(固定値判定のみ＝Check_Rules.md「固定値判定」)
+        if (!this.sheetFeatures.abilities) {
+            ui.notifications.warn("エキストラは固定値の判定のみ行えます。");
+            return;
         }
 
         // 用途不備検知: 設定済みの用途に不備があれば必ず通知して中止する
@@ -2293,6 +2302,34 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             bountyAvailable: baseSkill.system.usesBounty === true ? actorBounty : 0,
             consumeUses:     usesPlan.consumeIds,
             requestMessageId: null,
+        });
+    }
+
+    /**
+     * 固定達成値の判定結果をチャットへ出す(フェーズ11-5・Check_Rules「固定値判定」)。
+     * カード・能力値・報酬点を使わないため通常の判定フロー(TnxCheckFlow)を経由しない。
+     * flags は通常判定と同じ checkResult 形で持たせ、対決の読み取り等から同様に扱えるようにする。
+     */
+    static async _postFixedCheckResult(actor, item, usage) {
+        const label = usage.name || item.name;
+        const achievement = Number(usage.fixedResult) || 0;
+        const result = {
+            achievement,
+            cardValue: 0, abilityVal: 0, bountyUsed: 0,
+            targetValue: null, diff: null,
+            success: null, fixed: true,
+        };
+        await ChatMessage.create({
+            speaker: ChatMessage.getSpeaker({ actor }),
+            content: `<div class="tnx-chat-card tnx-fixed-check-card">
+                <h3>判定: ${label}</h3>
+                <p class="tnx-fixed-check">達成値 <b>${achievement}</b>（固定値）</p>
+            </div>`,
+            flags: {
+                "tokyo-nova-axleration": {
+                    checkResult: { actorId: actor.id, result },
+                },
+            },
         });
     }
 
