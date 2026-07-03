@@ -1,13 +1,9 @@
-{{!-- エキストラシート(フェーズ11-5・2026-07-04 再訂正)。エキストラは完全にデータを持たない
-     (名前と説明のみ)。固定値判定は「アウトフィットとして取得できるエキストラ」(小分類エキストラ・
-     キャスト/ゲスト所持)の用途で行う＝本シートの領分ではない。
+{{!-- エキストラシート(フェーズ11-5・2026-07-04 確定)。名前・パーソナルデータ・技能(固定値判定用の
+     一般技能のみ)・説明で構成する(タブなしの1ページ)。技能はスート・レベルの概念を持たず
+     「技能名＋達成値」のみ表示——達成値は check 用途の「固定達成値」から読む(設定は用途)。
      構造クラス名(cast-sheet 等)は CSS 再利用のため共有(型はアプリルートの .extra で区別)。 --}}
 <section class="sheet-profile two-column-layout cast-sheet">
-    <aside class="profile-sidebar column left-column cast-sidebar">
-        <div class="portrait-section">
-            <img class="profile-img" src="{{actor.img}}" data-action="editImage" title="{{actor.name}}"/>
-        </div>
-    </aside>
+    {{> "systems/tokyo-nova-axleration/templates/actor/parts/sidebar.hbs"}}
 
     <section class="main-content-area column right-column">
         <header class="sheet-header profile-header">
@@ -35,6 +31,40 @@
         </header>
 
         <section class="sheet-body tnx-body">
+            {{!-- 技能(固定値判定)。行構造は一般技能の閲覧表示を共有(CSS・コンテキストメニュー・
+                 並び替えの再利用)。メタ表示はレベル/スートでなく達成値 --}}
+            <div class="tnx-section-header">
+                <h3>技能</h3>
+                {{#if isEditMode}}
+                <a class="item-control item-create" data-type="generalSkill" title="追加">
+                    <i class="fas fa-plus"></i> 追加
+                </a>
+                {{/if}}
+            </div>
+            {{#if extraSkills.length}}
+            <div class="skills-list-view">
+                <div class="skills-column">
+                    {{#each extraSkills as |skill|}}
+                    <div class="general-skill-display item" data-item-id="{{skill._id}}">
+                        <div class="skill-label-shape">
+                            <a class="skill-label-content squeeze-text check-trigger" data-action="startSkillCheck" data-item-id="{{skill._id}}" title="判定（固定達成値をそのまま達成値としてチャットに出します。設定は技能の用途タブ）">
+                                {{skill.name}}
+                            </a>
+                        </div>
+                        <div class="skill-meta-data">
+                            <span class="skill-level">{{#if skill.hasFixed}}達成値 {{skill.fixed}}{{else}}—{{/if}}</span>
+                        </div>
+                        <a class="item-menu-trigger" title="メニュー">
+                            <i class="fas fa-ellipsis-v"></i>
+                        </a>
+                    </div>
+                    {{/each}}
+                </div>
+            </div>
+            {{else}}
+            <div class="tnx-occ-empty">技能はありません。{{#if isEditMode}}「追加」または一般技能のドロップで作成できます（達成値は技能の用途タブの「固定達成値」で設定します）。{{/if}}</div>
+            {{/if}}
+
             <div class="tnx-editor-section">
                 <div class="tnx-editor-section__header">
                     <label>説明</label>
