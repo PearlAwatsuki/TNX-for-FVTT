@@ -1,6 +1,7 @@
 import { TokyoNovaCastSheet } from './actor/tnx-cast-sheet.mjs';
 import { TokyoNovaGuestSheet } from './actor/tnx-guest-sheet.mjs';
 import { TokyoNovaTroopSheet } from './actor/tnx-troop-sheet.mjs';
+import { TokyoNovaExtraSheet } from './actor/tnx-extra-sheet.mjs';
 import { computeTroopFixedName, findDepartmentSkillName } from './data/helpers.mjs';
 import { CastDataModel } from './data/actor/cast.mjs';
 import { GuestDataModel } from './data/actor/guest.mjs';
@@ -566,6 +567,11 @@ Hooks.once("init", async function() {
         makeDefault: true,
         label: "プロファイルシート（トループ）"
     });
+    foundry.documents.collections.Actors.registerSheet("tokyo-nova", TokyoNovaExtraSheet, {
+        types: ["extra"],
+        makeDefault: true,
+        label: "プロファイルシート（エキストラ）"
+    });
 
     // Item Sheetの登録
     foundry.documents.collections.Items.unregisterSheet("core", foundry.appv1.sheets.ItemSheet);
@@ -859,6 +865,11 @@ Hooks.once("init", async function() {
                 "prototypeToken.displayBars": CONST.TOKEN_DISPLAY_MODES.OWNER_HOVER,
             });
             setupDefaultSkills(actor);
+        }
+
+        // エキストラ: 名前ありの端役＝リンクトークン。基本は名前のみのため技能は流し込まない(フェーズ11-5)
+        if (actor.type === "extra") {
+            await actor.update({ "prototypeToken.actorLink": true });
         }
     });
 

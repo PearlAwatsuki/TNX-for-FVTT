@@ -1,0 +1,24 @@
+{{!-- エキストラシート(フェーズ11-5)。キャストシートと同じ partial 群のシェル。
+     能力値グリッドなし(features.abilities=false・タブ名は「技能」)・戦闘/状態/履歴タブなし
+     (ダメージ・状態の概念がない=Damage_Rules.md)。
+     構造クラス名(cast-sheet 等)は CSS 再利用のため共有(型はアプリルートの .extra で区別)。 --}}
+<section class="sheet-profile two-column-layout cast-sheet">
+    {{> "systems/tokyo-nova-axleration/templates/actor/parts/sidebar.hbs"}}
+
+    <section class="main-content-area column right-column">
+        {{> "systems/tokyo-nova-axleration/templates/actor/parts/header.hbs"}}
+
+        <section class="tabbed-content">
+            <nav class="sheet-tabs tabs tnx-tabs" data-group="primary">
+                <a class="item" data-action="tab" data-tab="abilities" data-group="primary">技能</a>
+                <a class="item" data-action="tab" data-tab="outfits"   data-group="primary">アウトフィット</a>
+                <a class="item" data-action="tab" data-tab="profile"   data-group="primary">詳細</a>
+            </nav>
+            <section class="sheet-body tnx-body">
+                {{> "systems/tokyo-nova-axleration/templates/actor/parts/tab-abilities.hbs"}}
+                {{> "systems/tokyo-nova-axleration/templates/actor/parts/tab-outfits.hbs"}}
+                {{> "systems/tokyo-nova-axleration/templates/actor/parts/tab-profile.hbs"}}
+            </section>
+        </section>
+    </section>
+</section>

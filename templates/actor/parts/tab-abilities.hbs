@@ -1,4 +1,6 @@
                 <div class="tab abilities" data-group="primary" data-tab="abilities">
+                    {{!-- 能力値グリッドは attributes を持つシートのみ(features.abilities。extra は技能等のみ) --}}
+                    {{#if @root.features.abilities}}
                     {{#if isEditMode}}
                         <h2 class="tnx-section-title">能力値管理</h2>
                         <div class="abilities-grid edit-mode-layout">
@@ -76,6 +78,7 @@
                                 </div>
                             {{/each}}
                         </div>
+                    {{/if}}
                     {{/if}}
                     <div class="skills-section">
                         {{#if isEditMode}}

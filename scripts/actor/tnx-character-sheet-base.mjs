@@ -89,13 +89,14 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
      * bounty=報酬点、heads=人数/エニグマポイント(troop のみ)、
      * growth=能力値の成長欄(トループは成長しない)、personalData=パーソナルデータ、
      * citizenRank=市民ランク、handle=ハンドル(いずれも個人識別キャラでないトループは持たない)、
-     * troopLevel=トループレベル(troop のみ・能力値の決定項)。
+     * troopLevel=トループレベル(troop のみ・能力値の決定項)、
+     * abilities=能力値(attributes 非保持の extra は false・通常判定も不可)、combat=戦闘タブ。
      */
     static SHEET_FEATURES = {
         exp: false, history: false, lifePath: false,
         parts: true, miracles: true, bounty: true, heads: false,
         growth: true, personalData: true, citizenRank: true, handle: true,
-        troopLevel: false,
+        troopLevel: false, abilities: true, combat: true,
     };
 
     /** 基底の既定とマージした実効 features(派生クラスの宣言漏れで既定が欠けるのを防ぐ)。 */
@@ -296,7 +297,15 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         context.badStatuses = bsList;
 
         this._getCitizenRankData(context);
-        this._getAbilitiesData(context, allStyles);
+        if (this.sheetFeatures.abilities) {
+            this._getAbilitiesData(context, allStyles);
+        } else {
+            // 能力値を持たないシート(extra=attributes 非保持)。派生コンテキストは既定値で埋める
+            context.system.abilities = {};
+            context.mundaneTotalValue = 0;
+            context.effectiveBounty = 0;
+            context.bountyAtMin = true;
+        }
         await this._prepareSkillsData(context);
         EffectsSheetMixin.prepareEffectsContext(this.actor, context);
         context.allEffects = [
@@ -306,8 +315,10 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         ];
 
         context.outfitGroups = await this._prepareOutfitGroups();
-        this._prepareCombatData(context);
-        context.partOccupancy = this._preparePartOccupancy();
+        if (this.sheetFeatures.combat) this._prepareCombatData(context);
+        context.partOccupancy = this.sheetFeatures.parts
+            ? this._preparePartOccupancy()
+            : { slots: [], unlisted: [], hasSlots: false, hasUnlisted: false, hostChips: [], hasHostChips: false };
         context.partOccExpanded = this._partOccExpanded;
 
         return context;
@@ -2232,6 +2243,12 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const checkUsages = (item.system.actions ?? []).filter(a => a.type === "check");
         if (!checkUsages.length) {
             await item.postDescriptionCard();
+            return;
+        }
+
+        // 能力値を持たないシート(extra)は通常判定を行えない(固定値判定のみ＝Check_Rules.md「固定値判定」)
+        if (!this.sheetFeatures.abilities) {
+            ui.notifications.warn("エキストラは固定値の判定のみ行えます。");
             return;
         }
 
