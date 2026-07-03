@@ -48,10 +48,12 @@ export class TokyoNovaTroopSheet extends TnxCharacterSheetBase {
         context.troopModeOptions = Object.entries(TROOP_MODES).map(([value, label]) => ({
             value, label, selected: value === this.actor.system.troopMode,
         }));
-        // トループ/エニグマはスタイルを1つだけ＝スロットも1枠だけ表示(分身は本体同一データ=3枠)
+        // トループ/エニグマはスタイルを1つだけ＝スロットも1枠だけ表示(分身は本体同一データ=3枠)。
+        // 役割(ペルソナ/キー/シャドウ)表示も分身以外は持たない(2026-07-03 確定)
         if (this.actor.system.troopMode !== "bunshin") {
             context.styleSlots = context.styleSlots.slice(0, 1);
         }
+        context.showStyleRoles = this.actor.system.troopMode === "bunshin";
         return context;
     }
 

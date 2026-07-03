@@ -106,7 +106,7 @@
                         <span class="view-mode-label">スタイル：</span>
                         <span class="style-summary-items">
                             {{#each processedStylesForView as |s|}}
-                                <a class="style-summary-item" data-action="openItemSheet" data-item-id="{{s._id}}">{{s.repeatedName}}{{s.roleIndicatorDisplay}}</a>
+                                <a class="style-summary-item" data-action="openItemSheet" data-item-id="{{s._id}}">{{s.repeatedName}}{{#if @root.showStyleRoles}}{{s.roleIndicatorDisplay}}{{/if}}</a>
                                 {{#unless @last}},&nbsp;{{/unless}}
                             {{/each}}
                         </span>
@@ -150,9 +150,12 @@
                                                 <span class="tnx-linked-btn__label">{{slot.name}}</span>
                                             </button>
                                         {{/if}}
+                                        {{!-- 役割トグルは分身以外のトループでは出さない(showStyleRoles) --}}
+                                        {{#if @root.showStyleRoles}}
                                         <div class="style-role-toggle {{#if slot.isEmpty}}style-role-toggle--disabled{{/if}}" {{#unless slot.isEmpty}}data-action="toggleStyleRole"{{/unless}}>
                                             <span class="role-indicator {{slot.roleIndicatorClass}}">{{slot.roleIndicatorDisplay}}</span>
                                         </div>
+                                        {{/if}}
                                     </div>
                                 </div>
                             {{/each}}

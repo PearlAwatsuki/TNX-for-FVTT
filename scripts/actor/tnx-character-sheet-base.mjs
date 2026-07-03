@@ -179,6 +179,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         context.nameLocked = false;
         // 所属(ワークス)ブロックの表示。トループは「ワークスを設定」ON のときだけ(troop シートが上書き)
         context.showAffiliation = true;
+        // スタイルの役割(ペルソナ/キー/シャドウ)表示。トループ/エニグマは持たない(troop シートが上書き)
+        context.showStyleRoles = true;
 
         context.enrichedDescription = await foundry.applications.ux.TextEditor.enrichHTML(
             this.actor.system.description, {

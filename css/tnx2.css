@@ -2197,6 +2197,11 @@
     flex: 1;
     min-width: 0;
 }
+/* トループはスタイルスロットが1枠のことがある(トループ/エニグマ)ため全幅化させない。
+   3列相当の幅で固定(分身の3枠でも見た目は従来と同等) */
+.tokyo-nova.sheet.actor.troop .style-slot {
+    flex: 0 1 calc((100% - 10px) / 3);
+}
 
 .tokyo-nova.sheet.actor .sheet-controls {
     position: absolute;
