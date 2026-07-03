@@ -48,6 +48,27 @@ export class TokyoNovaTroopSheet extends TnxCharacterSheetBase {
         context.troopModeOptions = Object.entries(TROOP_MODES).map(([value, label]) => ({
             value, label, selected: value === this.actor.system.troopMode,
         }));
+        // トループ/エニグマはスタイルを1つだけ＝スロットも1枠だけ表示(分身は本体同一データ=3枠)
+        if (this.actor.system.troopMode !== "bunshin") {
+            context.styleSlots = context.styleSlots.slice(0, 1);
+        }
         return context;
+    }
+
+    /**
+     * @override
+     * トループ/エニグマはスタイルを1つしか設定できない(2026-07-03 確定・Troops.md「スタイルの数」)。
+     * 既にスタイルを持つ場合はドロップ自体を拒否する(同名の再ドロップによるレベル上昇も不可＝
+     * トループの強さはトループレベルで表す)。分身は本体とほぼ同一データのため制限しない。
+     */
+    async _onDropItem(event, data) {
+        if (this.actor.system.troopMode !== "bunshin" && data?.uuid) {
+            const dropped = await fromUuid(data.uuid).catch(() => null);
+            if (dropped?.type === "style" && this.actor.items.some(i => i.type === "style")) {
+                ui.notifications.warn("トループ／エニグマはスタイルを1つだけ持てます。");
+                return false;
+            }
+        }
+        return super._onDropItem(event, data);
     }
 }
