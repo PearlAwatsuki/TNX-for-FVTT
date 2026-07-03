@@ -26,18 +26,26 @@
                     <div class="identity-edit-mode">
                         <label>キャラクター名</label>
                         <div class="char-name-block-edit">
+                            {{#if nameLocked}}
+                            {{!-- トループ/分身は導出名で固定(Troops.md)。自由入力はエニグマのみ --}}
+                            <input type="text" value="{{actor.name}}" disabled title="名前は種別に応じて「(スタイル名)・トループ」「(分身元キャラ)の分身」で自動決定されます">
+                            {{else}}
                             <input name="name" type="text" value="{{actor.name}}">
                             <input name="system.charaname_ruby" type="text" value="{{system.charaname_ruby}}">
+                            {{/if}}
                         </div>
+                        {{#if features.handle}}
                         <label>ハンドル</label>
                         <div class="handle-block-edit">
                             <input name="system.handle" type="text" value="{{system.handle}}">
                             <input name="system.handle_ruby" type="text" value="{{system.handle_ruby}}">
                         </div>
+                        {{/if}}
                     </div>
                 </div>
                 <div class="middle-header-section">
                     <div class="rank-affiliation-wrapper">
+                        {{#if features.citizenRank}}
                         <div class="citizen-rank-block">
                             <div class="view-mode-rank">
                                 <span class="view-mode-label">市民ランク：</span>
@@ -52,6 +60,24 @@
                                 </select>
                             </div>
                         </div>
+                        {{/if}}
+                        {{#if features.troopLevel}}
+                        {{!-- トループレベル(市民ランクの代替枠。能力値=スタイル基本値+トループレベル・Troops.md) --}}
+                        <div class="citizen-rank-block troop-level-block">
+                            <div class="view-mode-rank">
+                                <span class="view-mode-label">トループレベル：</span>
+                                <span class="view-mode-value">{{system.troopLevel}}</span>
+                            </div>
+                            <div class="edit-mode-rank">
+                                <label>トループレベル：</label>
+                                <div class="number-input-spinner">
+                                    <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.troopLevel" data-min="0">-</button>
+                                    <input type="number" name="system.troopLevel" value="{{system.troopLevel}}" title="能力値はスタイルの基本値＋トループレベルで決定されます">
+                                    <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.troopLevel">+</button>
+                                </div>
+                            </div>
+                        </div>
+                        {{/if}}
                         <div class="affiliation-block">
                             <div class="view-mode-affiliation">
                                 <span class="view-mode-label">所属：</span>

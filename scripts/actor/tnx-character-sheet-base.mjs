@@ -86,11 +86,16 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
      * シートごとの機能差(テンプレート partial の features ゲート)。派生クラスが上書きする。
      * exp/history=セッション履歴系(cast のみ)、lifePath=ライフパス(cast のみ)、
      * parts=部位管理、miracles=神業(トループ級は使用不可＝Troops.md)、
-     * bounty=報酬点、heads=人数/エニグマポイント(troop のみ)。
+     * bounty=報酬点、heads=人数/エニグマポイント(troop のみ)、
+     * growth=能力値の成長欄(トループは成長しない)、personalData=パーソナルデータ、
+     * citizenRank=市民ランク、handle=ハンドル(いずれも個人識別キャラでないトループは持たない)、
+     * troopLevel=トループレベル(troop のみ・能力値の決定項)。
      */
     static SHEET_FEATURES = {
         exp: false, history: false, lifePath: false,
         parts: true, miracles: true, bounty: true, heads: false,
+        growth: true, personalData: true, citizenRank: true, handle: true,
+        troopLevel: false,
     };
 
     /** 基底の既定とマージした実効 features(派生クラスの宣言漏れで既定が欠けるのを防ぐ)。 */
@@ -170,6 +175,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         context.isEditMode = this._isEditMode && this.isEditable;
         context.cssClass = "";
         context.features = this.sheetFeatures;
+        // 名前固定(トループ/分身=導出名・編集不可。troop シートが上書きする)
+        context.nameLocked = false;
 
         context.enrichedDescription = await foundry.applications.ux.TextEditor.enrichHTML(
             this.actor.system.description, {

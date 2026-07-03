@@ -3,22 +3,35 @@
  *
  * フェーズ11-4 で CharacterBaseDataModel 継承に再構成(正本 Troops.md・2026-07-03 言語化):
  * - トループの構成はスタイル(1つ)・能力値・技能・アウトフィット・状態で、判定はキャストと同じ
- *   → 派生値パイプライン(実効値・AE 適用・アウトフィット集計・CS/AR)を共通基底から得る。
- * - biography も持つ(2026-07-03 ユーザー意向)。旧 memo は biography.description へ統合し廃止
- *   (migrateData で既存データを移行)。
+ *   → 派生値パイプライン(AE 適用・アウトフィット集計・CS/AR)を共通基底から得る。
+ * - biography も持つが、市民ランク・パーソナルデータ・ハンドルはシート非表示
+ *   (個人を識別するキャラクターではない・2026-07-03 確定)。旧 memo は biography.description へ
+ *   統合し廃止(migrateData で移行)。
+ * - 能力値は**スタイルの基本値＋トループレベル**で決定する(成長なし・2026-07-03 確定)。
  * - 基底由来のフィールドのうち報酬点・部位(partSlots)・生身(baseAttack 等)・isGhost・
- *   handMaxSizeMod はトループのルール上は未使用(シートも非表示)。スキーマ上は残るが死蔵で実害なし
- *   (GM 手札上限の合算は guest のみ・部位占有 UI は features.parts=false)。
+ *   handMaxSizeMod はトループのルール上は未使用(シートも非表示)。スキーマ上は残るが死蔵で実害なし。
  *
  * 固有フィールド:
- * - heads {value, max}: 人数。HP のように機能し、ダメージ分減少する(チャート不参照)。
+ * - troopMode: 種別「トループ(troop)/エニグマ(enigma)/分身(bunshin)」のドロップダウン切替
+ *   (2026-07-03 確定。旧 isEnigmaMode フラグは誤設計として廃止・migrateData で移行)。
+ *   - troop:   heads=人数。名前は「(スタイル名)・トループ」で固定。
+ *   - enigma:  heads=エニグマポイント。名前は自由(個体識別が必要なのはエニグマのみ)。
+ *   - bunshin: リソース管理なし(1点でも被ダメージで消滅)。名前は「(分身元キャラ)の分身」で固定。
+ * - sourceName: 分身元キャラクター名(bunshin の固定名に使用。NPC取得用途=11-6 で自動設定へ拡張予定)。
+ * - troopLevel: トループレベル。能力値の決定項(スタイル基本値＋トループレベル)。
+ * - heads {value, max}: 人数/エニグマポイント。HP のように機能しダメージ分減少する(チャート不参照)。
  *   トークンリソースバーに割り当てる。
- * - isEnigmaMode: エニグマモード(2026-07-03 確定)。ON のとき heads の意味・ラベルが
- *   「人数」から「エニグマポイント」に切り替わる(挙動は同じ＝達成値分の付与・ダメージ分減少)。
- *   分身は troop として作成し、AR=1・CS/CSカレント=0 のデータ入力で表現(専用機構なし)。
  */
 
-import { CharacterBaseDataModel } from "./common/character-base.mjs";
+import { CharacterBaseDataModel, ABILITY_KEYS } from "./common/character-base.mjs";
+import { computeAttributeFinal } from "../helpers.mjs";
+
+/** トループ種別(troopMode)の選択肢 */
+export const TROOP_MODES = {
+  troop:   "トループ",
+  enigma:  "エニグマ",
+  bunshin: "分身",
+};
 
 export class TroopDataModel extends CharacterBaseDataModel {
   /** @override */
@@ -26,24 +39,66 @@ export class TroopDataModel extends CharacterBaseDataModel {
     const fields = foundry.data.fields;
     return {
       ...super.defineSchema(),
+      troopMode: new fields.StringField({
+        required: true,
+        initial: "troop",
+        choices: Object.keys(TROOP_MODES),
+      }),
+      sourceName: new fields.StringField({ initial: "" }),
+      troopLevel: new fields.NumberField({ initial: 0, min: 0, integer: true }),
       heads: new fields.SchemaField({
         value: new fields.NumberField({ initial: 1, min: 0, integer: true }),
         max:   new fields.NumberField({ initial: 1, min: 0, integer: true }),
       }),
-      isEnigmaMode: new fields.BooleanField({ initial: false }),
     };
   }
 
   /**
    * @override
-   * 旧 memo(フェーズ6-0〜11-4)を biography.description へ移行する。
-   * description が空のときだけ写す(既存の説明を上書きしない)。
+   * - 旧 memo(フェーズ6-0〜11-4)を biography.description へ移行する(description が空のときだけ)。
+   * - 旧 isEnigmaMode(11-4 初版のみ)を troopMode へ移行する。
    */
   static migrateData(source) {
     if (source.memo && !source.description) {
       source.description = source.memo;
     }
     delete source.memo;
+    if (source.isEnigmaMode && !source.troopMode) {
+      source.troopMode = "enigma";
+    }
+    delete source.isEnigmaMode;
     return super.migrateData(source);
+  }
+
+  /**
+   * @override
+   * トループの能力値は**スタイルの基本値＋トループレベル**で決定する(成長なし・2026-07-03 確定)。
+   * computeAttributeFinal を growth=トループレベルの疑似能力値で再利用し、修正(mod)・
+   * アウトフィット修正・AE・0clamp の扱いは共通どおりとする。制御値も同式(＋トループレベル)。
+   * ※制御値へのトループレベル加算は能力値との対称実装(Code 判断・要ユーザー確認)。
+   * 分身は本体のスタイル構成をコピーする想定のため、スタイル寄与はキャスト同様レベル乗算
+   * (トループ/エニグマのスタイルは1つ・レベル1想定なので「基本値＋レベル」の表記どおりになる)。
+   */
+  _prepareAbilityTotals(styleItems) {
+    const outfitMod = this.outfitMod ?? {};
+    const lv = this.troopLevel ?? 0;
+    for (const key of ABILITY_KEYS) {
+      const styles = styleItems.map(s => ({
+        value:   s.system[key]?.value,
+        control: s.system[key]?.control,
+        level:   s.system.level,
+      }));
+      const pseudo = {
+        growth:        lv,
+        controlGrowth: lv,
+        mod:           this[key].mod,
+        controlMod:    this[key].controlMod,
+      };
+      const { total, totalControl } = computeAttributeFinal(
+        pseudo, styles, outfitMod[key] ?? 0, outfitMod.control ?? 0
+      );
+      this[key].total        = total;
+      this[key].totalControl = totalControl;
+    }
   }
 }

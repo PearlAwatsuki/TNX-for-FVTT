@@ -18,7 +18,7 @@ import { ATTACK_DAMAGE_TYPES, parseEffectTargetKey, resolveItemTotalPath, evalEf
 import { readConditions, gatherConditionControlPenalty } from "../../../module/conditions.mjs";
 
 /** 能力値キー(♠理性 / ♣感情 / ♥生命 / ♦外界) */
-const ABILITY_KEYS = ["reason", "passion", "life", "mundane"];
+export const ABILITY_KEYS = ["reason", "passion", "life", "mundane"];
 
 export class CharacterBaseDataModel extends SystemDataModel.mixin(
   BiographyTemplate, AttributesTemplate, ActorBaseTemplate
@@ -109,19 +109,7 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
     this._prepareOutfitAggregates();
     this._prepareCombatSpeedTotals();
     const styleItems = this.parent?.items?.filter(i => i.type === "style") ?? [];
-    const outfitMod  = this.outfitMod ?? {};
-    for (const key of ABILITY_KEYS) {
-      const styles = styleItems.map(s => ({
-        value:   s.system[key]?.value,
-        control: s.system[key]?.control,
-        level:   s.system.level,
-      }));
-      const { total, totalControl } = computeAttributeFinal(
-        this[key], styles, outfitMod[key] ?? 0, outfitMod.control ?? 0
-      );
-      this[key].total        = total;
-      this[key].totalControl = totalControl;
-    }
+    this._prepareAbilityTotals(styleItems);
     // バフ(ActiveEffect)を total へ直接適用 → コンディション(衰弱・酩酊)の全制御値減 → 0clamp
     this._applyEffectBuffs();
     this._applyConditionControlPenalty();
@@ -137,6 +125,27 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
     // 表示分岐はテンプレート側(inCombat)で行う。
     this.actionRank.maxTotal = Math.max(0, this.actionRank.maxTotal);
     this.actionRank.inCombat = this.combatSpeed.inCombat;
+  }
+
+  /**
+   * 能力値・制御値の実効値(total / totalControl)を書き込む(AE 適用前の base 合計)。
+   * 既定はキャスト式: growth + Σ(スタイル基本値×レベル) + mod + outfitMod。
+   * トループは「スタイル基本値＋トループレベル」式でオーバーライドする(troop.mjs・2026-07-03 確定)。
+   */
+  _prepareAbilityTotals(styleItems) {
+    const outfitMod = this.outfitMod ?? {};
+    for (const key of ABILITY_KEYS) {
+      const styles = styleItems.map(s => ({
+        value:   s.system[key]?.value,
+        control: s.system[key]?.control,
+        level:   s.system.level,
+      }));
+      const { total, totalControl } = computeAttributeFinal(
+        this[key], styles, outfitMod[key] ?? 0, outfitMod.control ?? 0
+      );
+      this[key].total        = total;
+      this[key].totalControl = totalControl;
+    }
   }
 
   /**

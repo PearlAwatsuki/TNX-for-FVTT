@@ -35,12 +35,16 @@
                                         </div>
                                     </div>
                                     <div class="ability-main-inputs">
+                                        {{!-- 成長はキャスト/ゲストのみ(features.growth。トループは
+                                             スタイル基本値+トループレベルで決定=成長しない・Troops.md) --}}
+                                        {{#if @root.features.growth}}
                                         <label>成長</label>
                                         <div class="input-row">
                                             <input type="number" name="system.{{key}}.growth" value="{{ability.growth}}">
                                             <span class="separator">/</span>
                                             <input type="number" name="system.{{key}}.controlGrowth" value="{{ability.controlGrowth}}">
                                         </div>
+                                        {{/if}}
                                         <label>修正</label>
                                         <div class="input-row">
                                             <input type="number" name="system.{{key}}.mod" value="{{ability.mod}}">

@@ -1339,3 +1339,52 @@ Hooks.on("createCombatant", async (combatant) => {
 Hooks.on("deleteCombatant", (combatant) => {
     if (combatant.actor) refreshCombatStatDisplays([combatant.actor]);
 });
+
+// ─── トループの名前固定(フェーズ11-4・正本 Troops.md) ─────────────────────────
+// トループ=「(スタイル名)・トループ」／分身=「(分身元キャラ)の分身」で名前を固定する
+// (自由入力はエニグマのみ＝個体識別が必要なのはエニグマだけ・2026-07-03 確定)。
+// 導出名と異なるときだけ update するため、update の連鎖は名前一致で収束する。
+
+/** 種別に応じた固定名を返す(エニグマ・導出材料なしは null=固定しない)。 */
+function deriveTroopFixedName(actor) {
+    if (actor?.type !== "troop") return null;
+    const sys = actor.system;
+    if (sys.troopMode === "enigma") return null;
+    if (sys.troopMode === "bunshin") {
+        const src = (sys.sourceName ?? "").trim();
+        return src ? `${src}の分身` : null;
+    }
+    const style = actor.items.find(i => i.type === "style");
+    return style ? `${style.name}・トループ` : null;
+}
+
+async function syncTroopName(actor) {
+    const fixed = deriveTroopFixedName(actor);
+    if (fixed && actor.name !== fixed) await actor.update({ name: fixed });
+}
+
+Hooks.on("updateActor", (actor, diff, options, userId) => {
+    if (actor.type !== "troop" || userId !== game.user.id) return;
+    if (diff.name !== undefined
+        || diff.system?.troopMode !== undefined
+        || diff.system?.sourceName !== undefined) {
+        syncTroopName(actor);
+    }
+});
+
+Hooks.on("createItem", (item, options, userId) => {
+    if (userId !== game.user.id) return;
+    if (item.parent?.type === "troop" && item.type === "style") syncTroopName(item.parent);
+});
+
+Hooks.on("deleteItem", (item, options, userId) => {
+    if (userId !== game.user.id) return;
+    if (item.parent?.type === "troop" && item.type === "style") syncTroopName(item.parent);
+});
+
+Hooks.on("updateItem", (item, diff, options, userId) => {
+    if (userId !== game.user.id) return;
+    if (item.parent?.type === "troop" && item.type === "style" && diff.name !== undefined) {
+        syncTroopName(item.parent);
+    }
+});

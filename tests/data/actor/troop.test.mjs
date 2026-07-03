@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MockNumberField, MockSchemaField, MockBooleanField } from "../../setup.mjs";
+import { MockStringField, MockNumberField, MockSchemaField } from "../../setup.mjs";
 
 const { TroopDataModel } = await import("../../../scripts/data/actor/troop.mjs");
 const { GuestDataModel } = await import("../../../scripts/data/actor/guest.mjs");
@@ -66,23 +66,40 @@ describe("TroopDataModel.defineSchema()", () => {
       }
     });
 
-    it("isEnigmaMode は BooleanField で initial false（エニグマモード=人数の代わりにエニグマポイント）", () => {
-      expect(schema.isEnigmaMode).toBeInstanceOf(MockBooleanField);
-      expect(schema.isEnigmaMode.options.initial).toBe(false);
+    it("troopMode は StringField で initial 'troop'（種別ドロップダウン: トループ/エニグマ/分身）", () => {
+      expect(schema.troopMode).toBeInstanceOf(MockStringField);
+      expect(schema.troopMode.options.initial).toBe("troop");
+      expect(schema.troopMode.options.choices).toEqual(["troop", "enigma", "bunshin"]);
+    });
+
+    it("sourceName（分身元キャラ名）は StringField で initial 空文字", () => {
+      expect(schema.sourceName).toBeInstanceOf(MockStringField);
+      expect(schema.sourceName.options.initial).toBe("");
+    });
+
+    it("troopLevel は NumberField で initial 0・min 0・整数（能力値=スタイル基本値+トループレベル）", () => {
+      expect(schema.troopLevel).toBeInstanceOf(MockNumberField);
+      expect(schema.troopLevel.options.initial).toBe(0);
+      expect(schema.troopLevel.options.min).toBe(0);
+      expect(schema.troopLevel.options.integer).toBe(true);
+    });
+
+    it("旧 isEnigmaMode を持たない（種別ドロップダウンに置換・2026-07-03 修正）", () => {
+      expect(schema).not.toHaveProperty("isEnigmaMode");
     });
   });
 
-  it("guest（共通基底そのまま）との差分は heads / isEnigmaMode の2フィールドに限られる", () => {
+  it("guest（共通基底そのまま）との差分は heads / troopMode / sourceName / troopLevel に限られる", () => {
     const guestKeys = new Set(Object.keys(GuestDataModel.defineSchema()));
     const troopKeys = new Set(Object.keys(schema));
     const troopOnly = [...troopKeys].filter(k => !guestKeys.has(k)).sort();
     const guestOnly = [...guestKeys].filter(k => !troopKeys.has(k));
-    expect(troopOnly).toEqual(["heads", "isEnigmaMode"]);
+    expect(troopOnly).toEqual(["heads", "sourceName", "troopLevel", "troopMode"]);
     expect(guestOnly).toEqual([]);
   });
 });
 
-describe("TroopDataModel.migrateData()（memo → biography.description 移行）", () => {
+describe("TroopDataModel.migrateData()（旧フィールド移行）", () => {
   it("description が空なら memo を写して memo を除去する", () => {
     const source = TroopDataModel.migrateData({ memo: "古いメモ" });
     expect(source.description).toBe("古いメモ");
@@ -98,5 +115,17 @@ describe("TroopDataModel.migrateData()（memo → biography.description 移行�
   it("memo が無ければ何もしない", () => {
     const source = TroopDataModel.migrateData({ description: "<p>既存</p>" });
     expect(source.description).toBe("<p>既存</p>");
+  });
+
+  it("旧 isEnigmaMode=true は troopMode 'enigma' へ移行して除去する", () => {
+    const source = TroopDataModel.migrateData({ isEnigmaMode: true });
+    expect(source.troopMode).toBe("enigma");
+    expect(source).not.toHaveProperty("isEnigmaMode");
+  });
+
+  it("旧 isEnigmaMode=false は troopMode を設定せず除去のみ", () => {
+    const source = TroopDataModel.migrateData({ isEnigmaMode: false });
+    expect(source.troopMode).toBeUndefined();
+    expect(source).not.toHaveProperty("isEnigmaMode");
   });
 });

@@ -2,6 +2,8 @@
         <div class="portrait-section">
             <img class="profile-img" src="{{actor.img}}" data-action="editImage" title="{{actor.name}}"/>
         </div>
+        {{!-- パーソナルデータは個人識別キャラのみ(features.personalData。トループは持たない) --}}
+        {{#if features.personalData}}
         <div class="sidebar-personal-data-group">
             <h3 class="tnx-section-title tnx-section-title--sm">パーソナルデータ</h3>
             <div class="personal-data-grid">
@@ -39,6 +41,7 @@
                 </div>
             </div>
         </div>
+        {{/if}}
         {{!-- 報酬点はキャスト・ゲストのみ(features.bounty。トループは持たない＝Troops.md 構成) --}}
         {{#if features.bounty}}
         <div class="sidebar-bounty-group">
@@ -78,40 +81,47 @@
         </div>
         {{/if}}
 
-        {{!-- 人数/エニグマポイント(troop・フェーズ11-4。features.heads)。heads は HP のように機能し
-             ダメージ分減少する(チャート不参照・Troops.md)。エニグマモード ON でラベル・意味が
-             「エニグマポイント」に切り替わる(挙動は同じ)。報酬点ボックスの意匠を共有する。 --}}
+        {{!-- トループ種別と人数/エニグマポイント(troop・フェーズ11-4。features.heads)。
+             種別はドロップダウン「トループ/エニグマ/分身」(Troops.md・2026-07-03 確定)。
+             heads は HP のように機能しダメージ分減少する(チャート不参照)。
+             分身は1点でも被ダメージで消滅するためリソース管理なし＝人数欄を出さない。
+             報酬点ボックスの意匠を共有し、入力は報酬点同様の平入力(スピナーなし・幅対策)。 --}}
         {{#if features.heads}}
         <div class="sidebar-bounty-group sidebar-heads-group">
             {{#if isEditMode}}
+                <div class="bounty-edit-row bounty-edit-row--plain">
+                    <span class="bounty-section-label">種別</span>
+                    <select name="system.troopMode">
+                        {{#each troopModeOptions as |o|}}
+                            <option value="{{o.value}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>
+                        {{/each}}
+                    </select>
+                </div>
+                {{#if (eq system.troopMode "bunshin")}}
+                <div class="bounty-edit-row bounty-edit-row--plain">
+                    <span class="bounty-section-label">分身元</span>
+                    <input type="text" name="system.sourceName" value="{{system.sourceName}}"
+                        placeholder="分身元キャラクター名" title="名前が「(分身元キャラ)の分身」に固定されます">
+                </div>
+                {{else}}
                 <div class="bounty-edit-row">
-                    <span class="bounty-section-label">{{#if system.isEnigmaMode}}エニグマポイント{{else}}人数{{/if}}</span>
+                    <span class="bounty-section-label" {{#if (eq system.troopMode "enigma")}}title="エニグマポイント"{{/if}}>{{#if (eq system.troopMode "enigma")}}ポイント{{else}}人数{{/if}}</span>
                     <div class="bounty-field">
                         <label>現在</label>
-                        <div class="number-input-spinner">
-                            <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.heads.value" data-min="0">-</button>
-                            <input type="number" name="system.heads.value" value="{{system.heads.value}}">
-                            <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.heads.value">+</button>
-                        </div>
+                        <input type="number" name="system.heads.value" value="{{system.heads.value}}">
                     </div>
                     <span class="bounty-separator">/</span>
                     <div class="bounty-field">
                         <label>最大</label>
-                        <div class="number-input-spinner">
-                            <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.heads.max" data-min="0">-</button>
-                            <input type="number" name="system.heads.max" value="{{system.heads.max}}">
-                            <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.heads.max">+</button>
-                        </div>
+                        <input type="number" name="system.heads.max" value="{{system.heads.max}}">
                     </div>
                 </div>
-                <label class="heads-mode-toggle" title="エニグマ(トループ級)は人数の代わりにエニグマポイントを HP にします">
-                    <input type="checkbox" name="system.isEnigmaMode" {{checked system.isEnigmaMode}}>
-                    エニグマモード
-                </label>
+                {{/if}}
             {{else}}
+                {{#unless (eq system.troopMode "bunshin")}}
                 <div class="bounty-view-panel">
                     <div class="bounty-view-content">
-                        <span class="bounty-view-label">{{#if system.isEnigmaMode}}エニグマポイント{{else}}人数{{/if}}</span>
+                        <span class="bounty-view-label">{{#if (eq system.troopMode "enigma")}}エニグマポイント{{else}}人数{{/if}}</span>
                         <div class="bounty-total-row">
                             <span class="bounty-total">{{system.heads.value}}</span>
                             <span class="heads-max">/ {{system.heads.max}}</span>
@@ -124,6 +134,7 @@
                     </div>
                     {{/if}}
                 </div>
+                {{/unless}}
             {{/if}}
         </div>
         {{/if}}

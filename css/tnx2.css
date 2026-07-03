@@ -1276,20 +1276,26 @@
     border-top: 1px solid var(--tnx2-border-subtle);
 }
 
-/* トループの人数/エニグマポイント(フェーズ11-4)。報酬点ボックスの意匠(bounty-* クラス)を
-   共有し、最大値表示とエニグマモードトグルのみ追加 */
+/* トループの種別・人数/エニグマポイント(フェーズ11-4)。報酬点ボックスの意匠(bounty-* クラス)を
+   共有。入力は報酬点同様の平入力(スピナーなし・サイドバー幅対策) */
 .tokyo-nova.sheet.actor .sidebar-heads-group .heads-max {
     font-family: var(--tnx2-font-mono);
     color: var(--tnx2-text-muted);
 }
-.tokyo-nova.sheet.actor .sidebar-heads-group .heads-mode-toggle {
-    display: flex;
+.tokyo-nova.sheet.actor .sidebar-heads-group .bounty-edit-row + .bounty-edit-row {
+    margin-top: 4px;
+}
+.tokyo-nova.sheet.actor .sidebar-heads-group select,
+.tokyo-nova.sheet.actor .sidebar-heads-group input[type="text"] {
+    flex: 1;
+    min-width: 0;
+}
+/* 種別・分身元の行はフィールド上ラベルが無いため中央揃え(報酬点のラベル位置合わせを打ち消す) */
+.tokyo-nova.sheet.actor .sidebar-heads-group .bounty-edit-row--plain {
     align-items: center;
-    justify-content: center;
-    gap: 6px;
-    margin-top: 6px;
-    font-size: 0.85em;
-    color: var(--tnx2-text-secondary);
+}
+.tokyo-nova.sheet.actor .sidebar-heads-group .bounty-edit-row--plain .bounty-section-label {
+    padding-top: 0;
 }
 
 /* 編集モード: 報酬点ラベル + 初期値 + 修正値 */
