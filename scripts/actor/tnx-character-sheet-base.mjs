@@ -2264,9 +2264,10 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             return;
         }
 
-        // 能力値を持たないシート(extra)は通常判定を行えない(固定値判定のみ＝Check_Rules.md「固定値判定」)
+        // 能力値を持たないシート(extra)は判定を行えない(エキストラは完全にデータなし＝2026-07-04。
+        // 固定値判定は所持者側＝小分類「エキストラ」アウトフィットの用途で行う)
         if (!this.sheetFeatures.abilities) {
-            ui.notifications.warn("エキストラは固定値の判定のみ行えます。");
+            ui.notifications.warn("エキストラは判定を行えません。");
             return;
         }
 

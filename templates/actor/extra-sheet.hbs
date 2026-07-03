@@ -1,24 +1,53 @@
-{{!-- エキストラシート(フェーズ11-5)。キャストシートと同じ partial 群のシェル。
-     能力値グリッドなし(features.abilities=false・タブ名は「技能」)・戦闘/状態/履歴タブなし
-     (ダメージ・状態の概念がない=Damage_Rules.md)。
+{{!-- エキストラシート(フェーズ11-5・2026-07-04 再訂正)。エキストラは完全にデータを持たない
+     (名前と説明のみ)。固定値判定は「アウトフィットとして取得できるエキストラ」(小分類エキストラ・
+     キャスト/ゲスト所持)の用途で行う＝本シートの領分ではない。
      構造クラス名(cast-sheet 等)は CSS 再利用のため共有(型はアプリルートの .extra で区別)。 --}}
 <section class="sheet-profile two-column-layout cast-sheet">
-    {{> "systems/tokyo-nova-axleration/templates/actor/parts/sidebar.hbs"}}
+    <aside class="profile-sidebar column left-column cast-sidebar">
+        <div class="portrait-section">
+            <img class="profile-img" src="{{actor.img}}" data-action="editImage" title="{{actor.name}}"/>
+        </div>
+    </aside>
 
     <section class="main-content-area column right-column">
-        {{> "systems/tokyo-nova-axleration/templates/actor/parts/header.hbs"}}
+        <header class="sheet-header profile-header">
+            <div class="header-content-wrapper">
+                <div class="identity-section">
+                    <div class="identity-view-mode">
+                        {{#if actor.name}}
+                            <ruby class="char-name-ruby-view">
+                                <rb>{{actor.name}}</rb>
+                                <rt>{{system.charaname_ruby}}</rt>
+                            </ruby>
+                        {{else}}
+                            <span class="no-name-placeholder">名前未設定</span>
+                        {{/if}}
+                    </div>
+                    <div class="identity-edit-mode">
+                        <label>キャラクター名</label>
+                        <div class="char-name-block-edit">
+                            <input name="name" type="text" value="{{actor.name}}">
+                            <input name="system.charaname_ruby" type="text" value="{{system.charaname_ruby}}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
 
-        <section class="tabbed-content">
-            <nav class="sheet-tabs tabs tnx-tabs" data-group="primary">
-                <a class="item" data-action="tab" data-tab="abilities" data-group="primary">技能</a>
-                <a class="item" data-action="tab" data-tab="outfits"   data-group="primary">アウトフィット</a>
-                <a class="item" data-action="tab" data-tab="profile"   data-group="primary">詳細</a>
-            </nav>
-            <section class="sheet-body tnx-body">
-                {{> "systems/tokyo-nova-axleration/templates/actor/parts/tab-abilities.hbs"}}
-                {{> "systems/tokyo-nova-axleration/templates/actor/parts/tab-outfits.hbs"}}
-                {{> "systems/tokyo-nova-axleration/templates/actor/parts/tab-profile.hbs"}}
-            </section>
+        <section class="sheet-body tnx-body">
+            <div class="tnx-editor-section">
+                <div class="tnx-editor-section__header">
+                    <label>説明</label>
+                    <i class="fa-solid fa-pen-to-square tnx-editor-mode-icon"></i>
+                </div>
+                <div class="tnx-editor-section__content">
+                    {{#if isEditMode}}
+                        {{editor enrichedDescription target="system.description" engine="prosemirror" button=false owner=owner editable=editable}}
+                    {{else}}
+                        <div class="tnx-editor-view-content">{{{enrichedDescription}}}</div>
+                    {{/if}}
+                </div>
+            </div>
         </section>
     </section>
 </section>
