@@ -181,6 +181,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         context.showAffiliation = true;
         // スタイルの役割(ペルソナ/キー/シャドウ)表示。トループ/エニグマは持たない(troop シートが上書き)
         context.showStyleRoles = true;
+        // 閲覧モードのスタイル概要行。トループ種別では名前にスタイルが含まれるため出さない(troop シートが上書き)
+        context.showStyleSummary = true;
 
         context.enrichedDescription = await foundry.applications.ux.TextEditor.enrichHTML(
             this.actor.system.description, {

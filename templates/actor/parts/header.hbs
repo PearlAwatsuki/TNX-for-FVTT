@@ -102,6 +102,9 @@
                         </div>
                         {{/if}}
                     </div>
+                    {{!-- スタイル概要(閲覧)。トループ種別では名前にスタイルが含まれるため出さない
+                         (showStyleSummary・2026-07-03 指示) --}}
+                    {{#if showStyleSummary}}
                     <div class="view-mode-style-summary">
                         <span class="view-mode-label">スタイル：</span>
                         <span class="style-summary-items">
@@ -111,6 +114,7 @@
                             {{/each}}
                         </span>
                     </div>
+                    {{/if}}
                     {{!-- EXP はセッション履歴を持つシート(cast)のみ(features.exp) --}}
                     {{#if features.exp}}
                     <div class="exp-display-section">

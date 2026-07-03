@@ -54,6 +54,9 @@ export class TokyoNovaTroopSheet extends TnxCharacterSheetBase {
             context.styleSlots = context.styleSlots.slice(0, 1);
         }
         context.showStyleRoles = this.actor.system.troopMode === "bunshin";
+        // トループ種別は名前が「(スタイル名)・トループ…」のためスタイル概要行は冗長＝出さない
+        // (エニグマ=自由名・分身=「○○の分身」は名前にスタイルが含まれないため残す)
+        context.showStyleSummary = this.actor.system.troopMode !== "troop";
         return context;
     }
 
