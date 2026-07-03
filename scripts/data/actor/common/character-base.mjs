@@ -2,11 +2,11 @@
  * @fileoverview CharacterBaseDataModel - キャラクター級 Actor の共通基底(フェーズ11-3 共通基底化)
  *
  * 使用 template: biography + attributes + actorBase
- * cast / guest が共有するフィールド(lifePath・partSlots・報酬点・生身・weaponRefs・
+ * cast / guest が共有するフィールド(partSlots・報酬点・生身・weaponRefs・
  * handMaxSizeMod・outfitMod 等)と派生値パイプライン(prepareDerivedData・AE 適用・
  * アウトフィット集計・CS/AR 実効値)を持つ。
- * cast 固有＝セッション履歴クラスタ(ownerUserId / syncWithOwner / history / exp)は cast.mjs が追加する
- * (ゲストは「セッション履歴以外データ的に差異なし」＝2026-07-03 確定)。
+ * cast 固有＝セッション履歴クラスタ(ownerUserId / syncWithOwner / history / exp)と lifePath は
+ * cast.mjs が追加する(ゲストが持たないのはこの2群のみ＝2026-07-03 確定・同日再訂正)。
  */
 
 import { SystemDataModel } from "../../abstract.mjs";
@@ -28,20 +28,6 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
     const fields = foundry.data.fields;
     return {
       ...super.defineSchema(),
-      lifePath: new fields.SchemaField({
-        origin: new fields.SchemaField({
-          itemUuid: new fields.StringField({ initial: "" }),
-          name:     new fields.StringField({ initial: "" }),
-        }),
-        experience: new fields.SchemaField({
-          itemUuid: new fields.StringField({ initial: "" }),
-          name:     new fields.StringField({ initial: "" }),
-        }),
-        encounter: new fields.SchemaField({
-          itemUuid: new fields.StringField({ initial: "" }),
-          name:     new fields.StringField({ initial: "" }),
-        }),
-      }),
       // 部位スロット集合(フェーズ10)。ゲーム設定のプリセットを新規キャストへ流し込む。
       // 占有計算の母数。value=部位ラベル、count=保有スロット数。キャスト側で追加/削除可。
       // occupiesOther=「指定部位を複数占有」エイリアス(両手持ち=片手持ち×2 等)。

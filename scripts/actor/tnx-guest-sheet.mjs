@@ -23,6 +23,6 @@ export class TokyoNovaGuestSheet extends TnxCharacterSheetBase {
         },
     };
 
-    /** ゲストは EXP・セッション履歴なし。部位管理はキャスト同様に持つ */
-    static SHEET_FEATURES = { exp: false, history: false, parts: true };
+    /** ゲストは EXP・セッション履歴・ライフパスなし(2026-07-03 再訂正)。部位管理はキャスト同様に持つ */
+    static SHEET_FEATURES = { exp: false, history: false, lifePath: false, parts: true };
 }

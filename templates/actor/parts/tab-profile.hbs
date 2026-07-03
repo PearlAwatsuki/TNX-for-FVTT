@@ -1,4 +1,6 @@
                 <div class="tab profile" data-group="primary" data-tab="profile">
+                    {{!-- ライフパスは cast 固有(features.lifePath。guest は持たない＝2026-07-03 再訂正) --}}
+                    {{#if features.lifePath}}
                     <section class="profile-lifepath-section">
                         <h3 class="tnx-section-title tnx-section-title--sm">ライフパス</h3>
                         <div class="lifepath-slots">
@@ -36,6 +38,7 @@
                             {{/each}}
                         </div>
                     </section>
+                    {{/if}}
 
                     <div class="tnx-editor-section">
                         <div class="tnx-editor-section__header">

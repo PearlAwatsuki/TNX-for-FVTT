@@ -83,7 +83,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
     };
 
     /** シートごとの機能差(テンプレート partial の features ゲート)。派生クラスが上書きする。 */
-    static SHEET_FEATURES = { exp: false, history: false, parts: true };
+    static SHEET_FEATURES = { exp: false, history: false, lifePath: false, parts: true };
 
     /** 大分類ごとの表示設定（表示ラベル・列定義）。アイテム/サービスは「その他」にまとめる。 */
     static OUTFIT_GROUP_CONFIG = [
@@ -165,39 +165,42 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             }
         );
 
-        const lifepathDefs = [
-            { key: "origin",     label: "出自" },
-            { key: "experience", label: "経験" },
-            { key: "encounter",  label: "邂逅" },
-        ];
-        const lifepathSlots = [];
-        for (const { key, label } of lifepathDefs) {
-            const data = this.actor.system.lifePath[key];
-            let enrichedSummary = "";
-            let displayName = data.name;
-            if (data.itemUuid) {
-                try {
-                    const liveItem = await fromUuid(data.itemUuid);
-                    if (liveItem) {
-                        displayName = liveItem.name;
-                        if (liveItem.system?.description) {
-                            enrichedSummary = await foundry.applications.ux.TextEditor.enrichHTML(
-                                liveItem.system.description,
-                                { relativeTo: liveItem, editable: false }
-                            );
+        // ライフパスは cast 固有(features.lifePath。guest は持たない＝2026-07-03 再訂正)
+        if (this.constructor.SHEET_FEATURES.lifePath) {
+            const lifepathDefs = [
+                { key: "origin",     label: "出自" },
+                { key: "experience", label: "経験" },
+                { key: "encounter",  label: "邂逅" },
+            ];
+            const lifepathSlots = [];
+            for (const { key, label } of lifepathDefs) {
+                const data = this.actor.system.lifePath[key];
+                let enrichedSummary = "";
+                let displayName = data.name;
+                if (data.itemUuid) {
+                    try {
+                        const liveItem = await fromUuid(data.itemUuid);
+                        if (liveItem) {
+                            displayName = liveItem.name;
+                            if (liveItem.system?.description) {
+                                enrichedSummary = await foundry.applications.ux.TextEditor.enrichHTML(
+                                    liveItem.system.description,
+                                    { relativeTo: liveItem, editable: false }
+                                );
+                            }
                         }
-                    }
-                } catch { /* アイテムが削除されている場合はフォールバック名を使用 */ }
+                    } catch { /* アイテムが削除されている場合はフォールバック名を使用 */ }
+                }
+                lifepathSlots.push({
+                    key,
+                    label,
+                    hasItem:       !!data.itemUuid,
+                    name:          displayName,
+                    enrichedSummary,
+                });
             }
-            lifepathSlots.push({
-                key,
-                label,
-                hasItem:       !!data.itemUuid,
-                name:          displayName,
-                enrichedSummary,
-            });
+            context.lifepathSlots = lifepathSlots;
         }
-        context.lifepathSlots = lifepathSlots;
 
         context.TNX = {
             SUITS: {

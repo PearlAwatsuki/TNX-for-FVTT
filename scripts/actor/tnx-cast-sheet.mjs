@@ -32,8 +32,8 @@ export class TokyoNovaCastSheet extends TnxCharacterSheetBase {
         },
     };
 
-    /** cast はフル機能(EXP・セッション履歴・部位管理) */
-    static SHEET_FEATURES = { exp: true, history: true, parts: true };
+    /** cast はフル機能(EXP・セッション履歴・ライフパス・部位管理) */
+    static SHEET_FEATURES = { exp: true, history: true, lifePath: true, parts: true };
 
     // ─── コンテキスト準備(cast 固有分) ────────────────────────────────────────
 

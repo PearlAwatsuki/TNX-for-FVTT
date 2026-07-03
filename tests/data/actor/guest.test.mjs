@@ -37,9 +37,9 @@ describe("GuestDataModel.defineSchema()", () => {
     }
   });
 
-  describe("キャスト共有フィールドが含まれる（フェーズ11-3・ゲストはセッション履歴以外キャストと同一）", () => {
+  describe("キャスト共有フィールドが含まれる（フェーズ11-3・ゲストはセッション履歴とライフパス以外キャストと同一）", () => {
     const sharedKeys = [
-      "lifePath", "partSlots", "isGhost",
+      "partSlots", "isGhost",
       "bounty", "bountyBase",
       "baseAttack", "baseDefence", "baseGuard",
       "appearanceModifier", "weaponRefs", "handMaxSizeMod", "outfitMod",
@@ -51,20 +51,20 @@ describe("GuestDataModel.defineSchema()", () => {
     }
   });
 
-  describe("セッション履歴クラスタ（cast 固有）を持たない", () => {
-    for (const key of ["ownerUserId", "syncWithOwner", "history", "exp"]) {
+  describe("セッション履歴クラスタ・ライフパス（cast 固有）を持たない", () => {
+    for (const key of ["ownerUserId", "syncWithOwner", "history", "exp", "lifePath"]) {
       it(`schema.${key} を持たない`, () => {
         expect(schema).not.toHaveProperty(key);
       });
     }
   });
 
-  it("cast との差分はセッション履歴クラスタの4フィールドに限られる", () => {
+  it("cast との差分はセッション履歴クラスタ＋ライフパスの5フィールドに限られる", () => {
     const castKeys  = new Set(Object.keys(CastDataModel.defineSchema()));
     const guestKeys = new Set(Object.keys(schema));
     const castOnly  = [...castKeys].filter(k => !guestKeys.has(k)).sort();
     const guestOnly = [...guestKeys].filter(k => !castKeys.has(k));
-    expect(castOnly).toEqual(["exp", "history", "ownerUserId", "syncWithOwner"]);
+    expect(castOnly).toEqual(["exp", "history", "lifePath", "ownerUserId", "syncWithOwner"]);
     expect(guestOnly).toEqual([]);
   });
 

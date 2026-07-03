@@ -29,6 +29,21 @@ export class CastDataModel extends CharacterBaseDataModel {
         total:      new fields.NumberField({ initial: 0 }),
         additional: new fields.NumberField({ initial: 0 }),
       }),
+      // ライフパスも cast 固有(ゲストは持たない＝2026-07-03 再訂正・フェーズ6 記録どおり)
+      lifePath: new fields.SchemaField({
+        origin: new fields.SchemaField({
+          itemUuid: new fields.StringField({ initial: "" }),
+          name:     new fields.StringField({ initial: "" }),
+        }),
+        experience: new fields.SchemaField({
+          itemUuid: new fields.StringField({ initial: "" }),
+          name:     new fields.StringField({ initial: "" }),
+        }),
+        encounter: new fields.SchemaField({
+          itemUuid: new fields.StringField({ initial: "" }),
+          name:     new fields.StringField({ initial: "" }),
+        }),
+      }),
     };
   }
 }
