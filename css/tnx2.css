@@ -1276,6 +1276,22 @@
     border-top: 1px solid var(--tnx2-border-subtle);
 }
 
+/* トループの人数/エニグマポイント(フェーズ11-4)。報酬点ボックスの意匠(bounty-* クラス)を
+   共有し、最大値表示とエニグマモードトグルのみ追加 */
+.tokyo-nova.sheet.actor .sidebar-heads-group .heads-max {
+    font-family: var(--tnx2-font-mono);
+    color: var(--tnx2-text-muted);
+}
+.tokyo-nova.sheet.actor .sidebar-heads-group .heads-mode-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 6px;
+    font-size: 0.85em;
+    color: var(--tnx2-text-secondary);
+}
+
 /* 編集モード: 報酬点ラベル + 初期値 + 修正値 */
 .tokyo-nova.sheet.actor .bounty-edit-row {
     display: flex;

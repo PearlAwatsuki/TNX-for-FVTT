@@ -1,5 +1,6 @@
 import { TokyoNovaCastSheet } from './actor/tnx-cast-sheet.mjs';
 import { TokyoNovaGuestSheet } from './actor/tnx-guest-sheet.mjs';
+import { TokyoNovaTroopSheet } from './actor/tnx-troop-sheet.mjs';
 import { CastDataModel } from './data/actor/cast.mjs';
 import { GuestDataModel } from './data/actor/guest.mjs';
 import { TroopDataModel } from './data/actor/troop.mjs';
@@ -540,6 +541,12 @@ Hooks.once("init", async function() {
         img:  def.img ?? "icons/svg/aura.svg",
         flags: { "tokyo-nova-axleration": { conditionKind: id } },
     }));
+
+    // トークンリソースバーの割当候補(フェーズ11-4)。トループの heads=人数/エニグマポイントが
+    // HP のように機能する(Troops.md)。他 type はチャート式ダメージのためバー非対応。
+    CONFIG.Actor.trackableAttributes = {
+        troop: { bar: ["heads"], value: [] },
+    };
     
     // Actor Sheetの登録
     foundry.documents.collections.Actors.unregisterSheet("core", foundry.appv1.sheets.ActorSheet);
@@ -552,6 +559,11 @@ Hooks.once("init", async function() {
         types: ["guest"],
         makeDefault: true,
         label: "プロファイルシート（ゲスト）"
+    });
+    foundry.documents.collections.Actors.registerSheet("tokyo-nova", TokyoNovaTroopSheet, {
+        types: ["troop"],
+        makeDefault: true,
+        label: "プロファイルシート（トループ）"
     });
 
     // Item Sheetの登録
@@ -835,6 +847,16 @@ Hooks.once("init", async function() {
         // disposition は敵味方が場合によるため既定のまま)
         if (actor.type === "guest") {
             await actor.update({ "prototypeToken.actorLink": true });
+            setupDefaultSkills(actor);
+        }
+
+        // トループ: heads(人数/エニグマポイント)をリソースバーへ既定割当(フェーズ11-4)。
+        // 判定はキャストと同じため基本13技能も流し込む。トークンは非リンク既定(複数部隊を並べる)
+        if (actor.type === "troop") {
+            await actor.update({
+                "prototypeToken.bar1.attribute": "heads",
+                "prototypeToken.displayBars": CONST.TOKEN_DISPLAY_MODES.OWNER_HOVER,
+            });
             setupDefaultSkills(actor);
         }
     });

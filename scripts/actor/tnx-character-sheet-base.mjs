@@ -82,8 +82,21 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         dragDrop: [{ dragSelector: ".item-list .item, .style-skills-list .item, .skills-list-view .item, .outfit-groups-container .outfit-row:not(.outfit-row--option):not(.outfit-row--header)", dropSelector: null }],
     };
 
-    /** シートごとの機能差(テンプレート partial の features ゲート)。派生クラスが上書きする。 */
-    static SHEET_FEATURES = { exp: false, history: false, lifePath: false, parts: true };
+    /**
+     * シートごとの機能差(テンプレート partial の features ゲート)。派生クラスが上書きする。
+     * exp/history=セッション履歴系(cast のみ)、lifePath=ライフパス(cast のみ)、
+     * parts=部位管理、miracles=神業(トループ級は使用不可＝Troops.md)、
+     * bounty=報酬点、heads=人数/エニグマポイント(troop のみ)。
+     */
+    static SHEET_FEATURES = {
+        exp: false, history: false, lifePath: false,
+        parts: true, miracles: true, bounty: true, heads: false,
+    };
+
+    /** 基底の既定とマージした実効 features(派生クラスの宣言漏れで既定が欠けるのを防ぐ)。 */
+    get sheetFeatures() {
+        return { ...TnxCharacterSheetBase.SHEET_FEATURES, ...this.constructor.SHEET_FEATURES };
+    }
 
     /** 大分類ごとの表示設定（表示ラベル・列定義）。アイテム/サービスは「その他」にまとめる。 */
     static OUTFIT_GROUP_CONFIG = [
@@ -156,7 +169,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         context.isEditable = this.isEditable;
         context.isEditMode = this._isEditMode && this.isEditable;
         context.cssClass = "";
-        context.features = this.constructor.SHEET_FEATURES;
+        context.features = this.sheetFeatures;
 
         context.enrichedDescription = await foundry.applications.ux.TextEditor.enrichHTML(
             this.actor.system.description, {
@@ -166,7 +179,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         );
 
         // ライフパスは cast 固有(features.lifePath。guest は持たない＝2026-07-03 再訂正)
-        if (this.constructor.SHEET_FEATURES.lifePath) {
+        if (this.sheetFeatures.lifePath) {
             const lifepathDefs = [
                 { key: "origin",     label: "出自" },
                 { key: "experience", label: "経験" },
@@ -843,6 +856,12 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             return false;
         }
 
+        // 神業を使用できないアクター(トループ/トループ級＝Troops.md)には神業を持たせない
+        if (item.type === "miracle" && !this.sheetFeatures.miracles) {
+            ui.notifications.warn("このアクターは神業を使用できません。");
+            return false;
+        }
+
         if (this.actor.uuid === item.parent?.uuid) {
             return this._onSortItem(event, item.toObject());
         }
@@ -936,7 +955,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                 }
                 const createdItems = await this.actor.createEmbeddedDocuments("Item", [itemData]);
                 const createdStyle = createdItems[0];
-                if (createdStyle) {
+                // スタイルインポート時の神業自動取得。神業を使用できないアクター
+                // (トループ/トループ級)ではスキップする(2026-07-03 確定・Troops.md)
+                if (createdStyle && this.sheetFeatures.miracles) {
                     const miracleUuid = createdStyle.system.miracle?.id;
                     if (miracleUuid) {
                         const sourceMiracle = await fromUuid(miracleUuid);

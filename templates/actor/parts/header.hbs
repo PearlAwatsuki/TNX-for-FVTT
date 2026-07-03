@@ -127,6 +127,8 @@
                                 </div>
                             {{/each}}
                         </div>
+                        {{!-- 神業スロットは features.miracles(トループ/トループ級は使用不可＝Troops.md) --}}
+                        {{#if features.miracles}}
                         <div class="item-slots-row">
                             {{#each miracleSlots as |slot|}}
                                 <div class="miracle-slot" data-item-id="{{slot._id}}">
@@ -140,8 +142,10 @@
                                 </div>
                             {{/each}}
                         </div>
+                        {{/if}}
                     </div>
                     {{else}}
+                    {{#if features.miracles}}
                     <div class="view-mode-miracle-actions">
                         <h3 class="tnx-section-title tnx-section-title--center">神業</h3>
                         <div class="miracle-buttons-grid">
@@ -153,6 +157,7 @@
                             {{/each}}
                         </div>
                     </div>
+                    {{/if}}
                     {{/if}}
                 </div>
             </div>

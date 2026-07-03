@@ -1,0 +1,28 @@
+{{!-- トループシート(フェーズ11-4)。キャストシートと同じ partial 群のシェル。
+     セッション履歴タブなし・神業/報酬点/部位管理は features でゲート・
+     サイドバーに人数/エニグマポイント(features.heads)。
+     構造クラス名(cast-sheet 等)は CSS 再利用のため共有(型はアプリルートの .troop で区別)。 --}}
+<section class="sheet-profile two-column-layout cast-sheet">
+    {{> "systems/tokyo-nova-axleration/templates/actor/parts/sidebar.hbs"}}
+
+    <section class="main-content-area column right-column">
+        {{> "systems/tokyo-nova-axleration/templates/actor/parts/header.hbs"}}
+
+        <section class="tabbed-content">
+            <nav class="sheet-tabs tabs tnx-tabs" data-group="primary">
+                <a class="item" data-action="tab" data-tab="abilities" data-group="primary">能力</a>
+                <a class="item" data-action="tab" data-tab="combat"    data-group="primary">戦闘</a>
+                <a class="item" data-action="tab" data-tab="outfits"   data-group="primary">アウトフィット</a>
+                <a class="item" data-action="tab" data-tab="status"    data-group="primary">状態</a>
+                <a class="item" data-action="tab" data-tab="profile"   data-group="primary">詳細</a>
+            </nav>
+            <section class="sheet-body tnx-body">
+                {{> "systems/tokyo-nova-axleration/templates/actor/parts/tab-abilities.hbs"}}
+                {{> "systems/tokyo-nova-axleration/templates/actor/parts/tab-combat.hbs"}}
+                {{> "systems/tokyo-nova-axleration/templates/actor/parts/tab-outfits.hbs"}}
+                {{> "systems/tokyo-nova-axleration/templates/actor/parts/tab-status.hbs"}}
+                {{> "systems/tokyo-nova-axleration/templates/actor/parts/tab-profile.hbs"}}
+            </section>
+        </section>
+    </section>
+</section>

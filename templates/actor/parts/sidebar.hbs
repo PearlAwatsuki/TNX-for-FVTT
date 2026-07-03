@@ -39,6 +39,8 @@
                 </div>
             </div>
         </div>
+        {{!-- 報酬点はキャスト・ゲストのみ(features.bounty。トループは持たない＝Troops.md 構成) --}}
+        {{#if features.bounty}}
         <div class="sidebar-bounty-group">
             {{#if isEditMode}}
                 <div class="bounty-edit-row">
@@ -74,4 +76,55 @@
                 </div>
             {{/if}}
         </div>
+        {{/if}}
+
+        {{!-- 人数/エニグマポイント(troop・フェーズ11-4。features.heads)。heads は HP のように機能し
+             ダメージ分減少する(チャート不参照・Troops.md)。エニグマモード ON でラベル・意味が
+             「エニグマポイント」に切り替わる(挙動は同じ)。報酬点ボックスの意匠を共有する。 --}}
+        {{#if features.heads}}
+        <div class="sidebar-bounty-group sidebar-heads-group">
+            {{#if isEditMode}}
+                <div class="bounty-edit-row">
+                    <span class="bounty-section-label">{{#if system.isEnigmaMode}}エニグマポイント{{else}}人数{{/if}}</span>
+                    <div class="bounty-field">
+                        <label>現在</label>
+                        <div class="number-input-spinner">
+                            <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.heads.value" data-min="0">-</button>
+                            <input type="number" name="system.heads.value" value="{{system.heads.value}}">
+                            <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.heads.value">+</button>
+                        </div>
+                    </div>
+                    <span class="bounty-separator">/</span>
+                    <div class="bounty-field">
+                        <label>最大</label>
+                        <div class="number-input-spinner">
+                            <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.heads.max" data-min="0">-</button>
+                            <input type="number" name="system.heads.max" value="{{system.heads.max}}">
+                            <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.heads.max">+</button>
+                        </div>
+                    </div>
+                </div>
+                <label class="heads-mode-toggle" title="エニグマ(トループ級)は人数の代わりにエニグマポイントを HP にします">
+                    <input type="checkbox" name="system.isEnigmaMode" {{checked system.isEnigmaMode}}>
+                    エニグマモード
+                </label>
+            {{else}}
+                <div class="bounty-view-panel">
+                    <div class="bounty-view-content">
+                        <span class="bounty-view-label">{{#if system.isEnigmaMode}}エニグマポイント{{else}}人数{{/if}}</span>
+                        <div class="bounty-total-row">
+                            <span class="bounty-total">{{system.heads.value}}</span>
+                            <span class="heads-max">/ {{system.heads.max}}</span>
+                        </div>
+                    </div>
+                    {{#if isEditable}}
+                    <div class="bounty-adjust-btns">
+                        <button type="button" class="bounty-adjust-btn" data-action="decrementField" data-field="system.heads.value" data-min="0" title="1減らす">−</button>
+                        <button type="button" class="bounty-adjust-btn" data-action="incrementField" data-field="system.heads.value" title="1増やす">＋</button>
+                    </div>
+                    {{/if}}
+                </div>
+            {{/if}}
+        </div>
+        {{/if}}
     </aside>
