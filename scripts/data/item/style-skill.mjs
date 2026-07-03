@@ -191,6 +191,9 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
         works: new fields.SchemaField({
           value:        new fields.BooleanField({ initial: false }),
           organization: new fields.StringField({ initial: "-" }),
+          // 部署技能(フェーズ11-4・2026-07-03 確定): 部署を表すワークス技能。取得していると
+          // 所属名(ワークス名)の表示がこの技能の名前で上書きされる(トループはトループ名の組織名部分も)。
+          isDepartment: new fields.BooleanField({ initial: false }),
         }),
       }),
       performance: new fields.SchemaField({

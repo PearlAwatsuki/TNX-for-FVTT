@@ -382,6 +382,10 @@ describe("StyleSkillDataModel.defineSchema()", () => {
       expect(schema.special.fields.works.fields.organization).toBeInstanceOf(MockStringField);
       expect(schema.special.fields.works.fields.organization.options.initial).toBe("-");
     });
+
+    it("special.works.isDepartment（部署技能・フェーズ11-4）は initial false", () => {
+      expect(schema.special.fields.works.fields.isDepartment.options.initial).toBe(false);
+    });
   });
 
   describe("performance / secret / mystery SchemaField", () => {

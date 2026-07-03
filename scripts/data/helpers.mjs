@@ -191,9 +191,29 @@ export function actionRankField() {
  *
  * @param {{troopMode?:string, sourceName?:string, troopLevel?:number, hasWorks?:boolean}} sys
  * @param {string|null} styleName  所持スタイルの名前(トループはスタイル1つ)
- * @param {string|null} orgName    所属組織(organization)アイテムの名前
+ * @param {string|null} orgName    ワークス名。所属組織(organization)アイテムの名前だが、
+ *                                 部署技能(findDepartmentSkillName)があればその名前を渡す(上書き)
  * @returns {string|null}
  */
+/**
+ * 取得済みの「部署技能」(ワークス技能の部署フラグ・フェーズ11-4)の名前を返す。
+ * 部署技能を取得している場合、所属名(ワークス名)の表示がこの技能の名前で上書きされる
+ * (トループはトループ名の組織名部分も。2026-07-03 確定)。無ければ null。
+ *
+ * @param {Iterable<{type:string, name:string, system:object}>} items  アクターの全アイテム
+ * @returns {string|null}
+ */
+export function findDepartmentSkillName(items) {
+  for (const i of (items ?? [])) {
+    if (i.type === "styleSkill"
+        && i.system?.special?.works?.value
+        && i.system.special.works.isDepartment) {
+      return i.name;
+    }
+  }
+  return null;
+}
+
 export function computeTroopFixedName(sys, styleName, orgName) {
   if (!sys) return null;
   if (sys.troopMode === "enigma") return null;

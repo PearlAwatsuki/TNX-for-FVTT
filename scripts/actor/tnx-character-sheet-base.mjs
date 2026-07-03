@@ -16,7 +16,7 @@ import { formatWeaponRangeLabel } from '../item/tnx-outfit-sheet.mjs';
 import { formatPartDesignation, joinPartDesignations, computePartOccupancy, computeHostOccupancy } from '../data/item/part-helpers.mjs';
 import { SLOT_KINDS } from '../data/item/common/extensible.mjs';
 import { getPartSlotPreset, PartSlotPresetApp } from '../module/part-slot-preset-app.mjs';
-import { OUTFIT_ITEM_TYPES } from '../data/helpers.mjs';
+import { OUTFIT_ITEM_TYPES, findDepartmentSkillName } from '../data/helpers.mjs';
 import { TnxCheckFlow } from '../module/tnx-check-flow.mjs';
 import { getComboSuits, ALL_SUITS } from '../module/tnx-check-engine.mjs';
 import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
@@ -236,8 +236,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const allStyles   = this.actor.items.filter(i => i.type === 'style');
         const allMiracles = this.actor.items.filter(i => i.type === 'miracle');
         context.equippedAffiliations = this.actor.items.filter(i => i.type === 'organization');
-        context.affiliationDisplay   = context.equippedAffiliations[0]?.name
-            || "フリーランス";
+        // 部署技能(ワークス技能の部署フラグ)を取得している場合、所属名はその技能名で上書き(2026-07-03 確定)
+        context.affiliationDisplay   = findDepartmentSkillName(this.actor.items)
+            ?? (context.equippedAffiliations[0]?.name || "フリーランス");
 
         context.styleSlots = this._prepareStyleSlots(allStyles);
 

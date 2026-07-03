@@ -1,7 +1,7 @@
 import { TokyoNovaCastSheet } from './actor/tnx-cast-sheet.mjs';
 import { TokyoNovaGuestSheet } from './actor/tnx-guest-sheet.mjs';
 import { TokyoNovaTroopSheet } from './actor/tnx-troop-sheet.mjs';
-import { computeTroopFixedName } from './data/helpers.mjs';
+import { computeTroopFixedName, findDepartmentSkillName } from './data/helpers.mjs';
 import { CastDataModel } from './data/actor/cast.mjs';
 import { GuestDataModel } from './data/actor/guest.mjs';
 import { TroopDataModel } from './data/actor/troop.mjs';
@@ -1348,12 +1348,15 @@ Hooks.on("deleteCombatant", (combatant) => {
 // 導出は純粋関数 computeTroopFixedName(data/helpers.mjs・テスト済)。
 // 導出名と異なるときだけ update するため、update の連鎖は名前一致で収束する。
 
-/** アクターから導出材料(スタイル名・組織名)を集めて固定名を返す。 */
+/** アクターから導出材料(スタイル名・ワークス名)を集めて固定名を返す。 */
 function deriveTroopFixedName(actor) {
     if (actor?.type !== "troop") return null;
     const styleName = actor.items.find(i => i.type === "style")?.name ?? null;
     const orgName   = actor.items.find(i => i.type === "organization")?.name ?? null;
-    return computeTroopFixedName(actor.system, styleName, orgName);
+    // 部署技能を取得している場合、ワークス名はその技能名で上書き(2026-07-03 確定。
+    // 例: 千早グループ（クグツ2レベル）→ 後方処理課第二班（クグツ2レベル）)
+    const worksName = findDepartmentSkillName(actor.items) ?? orgName;
+    return computeTroopFixedName(actor.system, styleName, worksName);
 }
 
 async function syncTroopName(actor) {
@@ -1372,22 +1375,27 @@ Hooks.on("updateActor", (actor, diff, options, userId) => {
     }
 });
 
+// 名前の導出材料になる型: スタイル・組織・スタイル技能(部署技能の可能性)
+const TROOP_NAME_SOURCE_TYPES = new Set(["style", "organization", "styleSkill"]);
+
 Hooks.on("createItem", (item, options, userId) => {
     if (userId !== game.user.id) return;
-    if (item.parent?.type === "troop"
-        && (item.type === "style" || item.type === "organization")) syncTroopName(item.parent);
+    if (item.parent?.type === "troop" && TROOP_NAME_SOURCE_TYPES.has(item.type)) {
+        syncTroopName(item.parent);
+    }
 });
 
 Hooks.on("deleteItem", (item, options, userId) => {
     if (userId !== game.user.id) return;
-    if (item.parent?.type === "troop"
-        && (item.type === "style" || item.type === "organization")) syncTroopName(item.parent);
+    if (item.parent?.type === "troop" && TROOP_NAME_SOURCE_TYPES.has(item.type)) {
+        syncTroopName(item.parent);
+    }
 });
 
 Hooks.on("updateItem", (item, diff, options, userId) => {
     if (userId !== game.user.id) return;
-    if (item.parent?.type === "troop" && diff.name !== undefined
-        && (item.type === "style" || item.type === "organization")) {
-        syncTroopName(item.parent);
-    }
+    if (item.parent?.type !== "troop" || !TROOP_NAME_SOURCE_TYPES.has(item.type)) return;
+    const nameChanged = diff.name !== undefined;
+    const deptChanged = item.type === "styleSkill" && diff.system?.special?.works !== undefined;
+    if (nameChanged || deptChanged) syncTroopName(item.parent);
 });

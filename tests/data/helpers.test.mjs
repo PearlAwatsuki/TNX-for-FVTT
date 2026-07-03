@@ -21,7 +21,7 @@ globalThis.foundry = {
   },
 };
 
-const { damageField, attributeField, combatSpeedField, computeAttributeFinal, computeOutfitAggregates, resolveCombatSpeedDisplayTotal, actionRankField, ACTION_RANK_GRANT, computeTroopFixedName } = await import("../../scripts/data/helpers.mjs");
+const { damageField, attributeField, combatSpeedField, computeAttributeFinal, computeOutfitAggregates, resolveCombatSpeedDisplayTotal, actionRankField, ACTION_RANK_GRANT, computeTroopFixedName, findDepartmentSkillName } = await import("../../scripts/data/helpers.mjs");
 
 describe("damageField()", () => {
   it("呼び出せる", () => {
@@ -194,6 +194,35 @@ describe("computeTroopFixedName()（トループの固定名・フェーズ11-4�
 
   it("エニグマは null（名前は自由入力）", () => {
     expect(computeTroopFixedName({ troopMode: "enigma", troopLevel: 3 }, "マヤカシ", null)).toBeNull();
+  });
+});
+
+describe("findDepartmentSkillName()（部署技能による所属名上書き・フェーズ11-4）", () => {
+  const dept = {
+    type: "styleSkill", name: "後方処理課第二班",
+    system: { special: { works: { value: true, isDepartment: true } } },
+  };
+  const worksOnly = {
+    type: "styleSkill", name: "社内政治",
+    system: { special: { works: { value: true, isDepartment: false } } },
+  };
+  const deptWithoutWorks = {
+    type: "styleSkill", name: "部署フラグのみ",
+    system: { special: { works: { value: false, isDepartment: true } } },
+  };
+
+  it("ワークス技能かつ部署技能の名前を返す", () => {
+    expect(findDepartmentSkillName([worksOnly, dept])).toBe("後方処理課第二班");
+  });
+
+  it("ワークス技能 OFF の部署フラグは無効（両方 ON が条件）", () => {
+    expect(findDepartmentSkillName([deptWithoutWorks, worksOnly])).toBeNull();
+  });
+
+  it("該当なし・空・null は null", () => {
+    expect(findDepartmentSkillName([{ type: "generalSkill", name: "x", system: {} }])).toBeNull();
+    expect(findDepartmentSkillName([])).toBeNull();
+    expect(findDepartmentSkillName(null)).toBeNull();
   });
 });
 

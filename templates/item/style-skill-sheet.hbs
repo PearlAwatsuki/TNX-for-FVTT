@@ -290,10 +290,11 @@
                     </div>
                 </fieldset>
 
-                {{!-- 特技専用: 特技(special)でのみ使う設定 --}}
+                {{!-- ワークス技能(特技のみ存在する＝Character_Creation.md。旧「特技専用」セクションを
+                     再編し、代用技能は独立セクションへ分離=2026-07-03) --}}
                 {{#if (eq system.styleSkillCategory "special")}}
                 <fieldset class="tnx-fieldset">
-                    <legend>特技専用</legend>
+                    <legend>ワークス技能</legend>
                     <div class="tnx-form-field">
                             <div class="form-group">
                                 <label for="isWorks-{{item._id}}">ワークス技能</label>
@@ -306,8 +307,19 @@
                                         {{selectOptions organizationChoices selected=system.special.works.organization}}
                                     </select>
                                 </div>
+                                <div class="form-group">
+                                    <label for="isDepartment-{{item._id}}">部署技能 <i class="fas fa-circle-question" title="部署を表すワークス技能。取得していると所属名(ワークス名)の表示がこの技能の名前で上書きされます(トループはトループ名の組織名部分も)"></i></label>
+                                    <input type="checkbox" name="system.special.works.isDepartment" id="isDepartment-{{item._id}}" {{checked system.special.works.isDepartment}}>
+                                </div>
                             {{/if}}
-                            
+                    </div>
+                </fieldset>
+                {{/if}}
+
+                {{!-- 代用技能(特技に限らない＝2026-07-03 確定。旧「特技専用」から分離) --}}
+                <fieldset class="tnx-fieldset">
+                    <legend>代用技能</legend>
+                    <div class="tnx-form-field">
                             <div class="form-group">
                                 <label for="isSubstitute-{{item._id}}">代用可能</label>
                                 <input type="checkbox" name="system.isSubstitute" id="isSubstitute-{{item._id}}" {{checked system.isSubstitute}}>
@@ -339,20 +351,25 @@
                                     </div>
                                 </div>
                             {{/if}}
+                    </div>
+                </fieldset>
 
-                            {{#if (eq system.unique "miracleChange")}}
-                                <div class="form-group">
-                                    <label>書き換え対象の神業</label>
-                                    <input type="text" name="system.rewritingMiracleName" value="{{system.rewritingMiracleName}}" placeholder="書き換え元の神業名を入力...">
+                {{!-- 神業の書き換え(unique=miracleChange のときのみ) --}}
+                {{#if (eq system.unique "miracleChange")}}
+                <fieldset class="tnx-fieldset">
+                    <legend>神業の書き換え</legend>
+                    <div class="tnx-form-field">
+                            <div class="form-group">
+                                <label>書き換え対象の神業</label>
+                                <input type="text" name="system.rewritingMiracleName" value="{{system.rewritingMiracleName}}" placeholder="書き換え元の神業名を入力...">
+                            </div>
+
+                            <div class="form-group">
+                                <label>書き換え先</label>
+                                <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="rewriting-miracle">
+                                    <span>神業アイテムをここにドロップ</span>
                                 </div>
-                           
-                                <div class="form-group">
-                                    <label>書き換え先</label>
-                                    <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="rewriting-miracle">
-                                        <span>神業アイテムをここにドロップ</span>
-                                    </div>
-                                </div>
-                            {{/if}}
+                            </div>
                     </div>
                 </fieldset>
                 {{/if}}
