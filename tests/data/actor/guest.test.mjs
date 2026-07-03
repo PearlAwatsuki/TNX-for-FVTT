@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import "../../setup.mjs";
 
 const { GuestDataModel } = await import("../../../scripts/data/actor/guest.mjs");
+const { CastDataModel }  = await import("../../../scripts/data/actor/cast.mjs");
 
 describe("GuestDataModel.defineSchema()", () => {
   const schema = GuestDataModel.defineSchema();
@@ -26,13 +27,45 @@ describe("GuestDataModel.defineSchema()", () => {
   describe("AttributesTemplate のフィールドが含まれる", () => {
     const attributeKeys = [
       "reason", "passion", "life", "mundane",
-      "combatSpeed", "physicalDamage", "mentalDamage", "socialDamage",
+      "combatSpeed", "actionRank",
+      "physicalDamage", "mentalDamage", "socialDamage",
     ];
     for (const key of attributeKeys) {
       it(`schema.${key} が存在する`, () => {
         expect(schema).toHaveProperty(key);
       });
     }
+  });
+
+  describe("キャスト共有フィールドが含まれる（フェーズ11-3・ゲストはセッション履歴以外キャストと同一）", () => {
+    const sharedKeys = [
+      "lifePath", "partSlots", "isGhost",
+      "bounty", "bountyBase",
+      "baseAttack", "baseDefence", "baseGuard",
+      "appearanceModifier", "weaponRefs", "handMaxSizeMod", "outfitMod",
+    ];
+    for (const key of sharedKeys) {
+      it(`schema.${key} が存在する`, () => {
+        expect(schema).toHaveProperty(key);
+      });
+    }
+  });
+
+  describe("セッション履歴クラスタ（cast 固有）を持たない", () => {
+    for (const key of ["ownerUserId", "syncWithOwner", "history", "exp"]) {
+      it(`schema.${key} を持たない`, () => {
+        expect(schema).not.toHaveProperty(key);
+      });
+    }
+  });
+
+  it("cast との差分はセッション履歴クラスタの4フィールドに限られる", () => {
+    const castKeys  = new Set(Object.keys(CastDataModel.defineSchema()));
+    const guestKeys = new Set(Object.keys(schema));
+    const castOnly  = [...castKeys].filter(k => !guestKeys.has(k)).sort();
+    const guestOnly = [...guestKeys].filter(k => !castKeys.has(k));
+    expect(castOnly).toEqual(["exp", "history", "ownerUserId", "syncWithOwner"]);
+    expect(guestOnly).toEqual([]);
   });
 
   describe("ActorBaseTemplate（カード管理フィールドは User flag へ一本化済み）", () => {

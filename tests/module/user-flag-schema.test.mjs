@@ -482,10 +482,30 @@ describe("gatherHandMaxSizeMod()", () => {
       { type: "cast", system: { ownerUserId: "User.u1", handMaxSizeMod: 2 } },
       { type: "cast", system: { ownerUserId: "User.u1", handMaxSizeMod: 1 } },
       { type: "cast", system: { ownerUserId: "User.u2", handMaxSizeMod: 5 } }, // 別ユーザー
-      { type: "guest", system: { ownerUserId: "User.u1", handMaxSizeMod: 9 } }, // cast でない
+      { type: "guest", system: { ownerUserId: "User.u1", handMaxSizeMod: 9 } }, // 非 GM はゲスト分を受けない
     ];
     withActors(actors, () => {
       expect(gatherHandMaxSizeMod(user)).toBe(3);
+    });
+  });
+
+  it("GM はワールド内全ゲストの修正を受ける(RL 手札上限・フェーズ11-3)", () => {
+    const gm = { uuid: "User.gm", isGM: true };
+    const actors = [
+      { type: "cast",  system: { ownerUserId: "User.gm", handMaxSizeMod: 1 } }, // GM 所有 cast は従来どおり
+      { type: "guest", system: { handMaxSizeMod: 2 } },
+      { type: "guest", system: { handMaxSizeMod: 1 } },
+      { type: "troop", system: { handMaxSizeMod: 9 } }, // guest 以外は数えない
+    ];
+    withActors(actors, () => {
+      expect(gatherHandMaxSizeMod(gm)).toBe(4);
+    });
+  });
+
+  it("非 GM はゲストの修正を受けない", () => {
+    const user = { uuid: "User.u1", isGM: false };
+    withActors([{ type: "guest", system: { handMaxSizeMod: 3 } }], () => {
+      expect(gatherHandMaxSizeMod(user)).toBe(0);
     });
   });
 

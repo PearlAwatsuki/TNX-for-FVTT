@@ -141,9 +141,13 @@ export function computeEffectiveHandMaxSize(base, mod) {
 }
 
 /**
- * 所有ユーザーの cast から手札上限 AE 修正(handMaxSizeMod)を合算する(層③)。
- * User は DataModel/AE を持てないため、所有 cast(ownerUserId === user.uuid)の
- * AE 着地値 system.handMaxSizeMod を合算する。
+ * 手札上限 AE 修正(handMaxSizeMod)を合算する(層③)。
+ * User は DataModel/AE を持てないため、アクターの AE 着地値 system.handMaxSizeMod を合算する。
+ * - プレイヤー: 所有 cast(ownerUserId === user.uuid)から。
+ * - RL(GM): ワールド内の全 guest から(フェーズ11-3・2026-07-03 確定)。ゲストは全員 RL の
+ *   持ち物のため ownerUserId 相当の絞り込みを持たない。手札上限修正は基本「メインプロセス中」
+ *   効果のため重複の懸念は実質ない(正本 Card_Operations.md「手札上限」。登場概念の導入
+ *   =フェーズ14/16/18 後に「登場中のゲストのみ」へ差し替え可能)。
  *
  * @param {User|null|undefined} user
  * @returns {number}
@@ -154,6 +158,9 @@ export function gatherHandMaxSizeMod(user) {
   for (const actor of game.actors) {
     if (actor.type === "cast" && actor.system?.ownerUserId === user.uuid) {
       mod += Number(actor.system.handMaxSizeMod) || 0;
+    }
+    if (actor.type === "guest" && user.isGM) {
+      mod += Number(actor.system?.handMaxSizeMod) || 0;
     }
   }
   return mod;

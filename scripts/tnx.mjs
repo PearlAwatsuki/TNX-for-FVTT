@@ -1,4 +1,5 @@
 import { TokyoNovaCastSheet } from './actor/tnx-cast-sheet.mjs';
+import { TokyoNovaGuestSheet } from './actor/tnx-guest-sheet.mjs';
 import { CastDataModel } from './data/actor/cast.mjs';
 import { GuestDataModel } from './data/actor/guest.mjs';
 import { TroopDataModel } from './data/actor/troop.mjs';
@@ -547,6 +548,11 @@ Hooks.once("init", async function() {
         makeDefault: true,
         label: "プロファイルシート"
     });
+    foundry.documents.collections.Actors.registerSheet("tokyo-nova", TokyoNovaGuestSheet, {
+        types: ["guest"],
+        makeDefault: true,
+        label: "プロファイルシート（ゲスト）"
+    });
 
     // Item Sheetの登録
     foundry.documents.collections.Items.unregisterSheet("core", foundry.appv1.sheets.ItemSheet);
@@ -727,7 +733,8 @@ Hooks.once("init", async function() {
     });
 
     Hooks.on("preCreateActor", (actor, data, options, userId) => {
-        if (data.type !== "cast") return;
+        // guest はセッション履歴以外キャストとデータ的に同一(フェーズ11-3)のため、部位プリセットも流し込む
+        if (data.type !== "cast" && data.type !== "guest") return;
 
         // 部位スロット集合: 未設定なら全アクター共通プリセットを流し込む(フェーズ10)
         const hasPartSlots = Array.isArray(data.system?.partSlots) && data.system.partSlots.length > 0;
@@ -737,6 +744,9 @@ Hooks.once("init", async function() {
                 actor.updateSource({ "system.partSlots": foundry.utils.deepClone(preset) });
             }
         }
+
+        // 以下の所有権設定はキャスト(プレイヤー作成)のみ。ゲストは RL の持ち物のため既定のまま
+        if (data.type !== "cast") return;
 
         const ownership = data.ownership || {};
         ownership.default = CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER;
@@ -818,6 +828,13 @@ Hooks.once("init", async function() {
                 "prototypeToken.sight.enabled": true,
                 "prototypeToken.sight.range": 1000
             });
+            setupDefaultSkills(actor);
+        }
+
+        // ゲスト: 名前あり NPC＝リンクトークン。基本13技能もキャスト同様に流し込む(フェーズ11-3。
+        // disposition は敵味方が場合によるため既定のまま)
+        if (actor.type === "guest") {
+            await actor.update({ "prototypeToken.actorLink": true });
             setupDefaultSkills(actor);
         }
     });
