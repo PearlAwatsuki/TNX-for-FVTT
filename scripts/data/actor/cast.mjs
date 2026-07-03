@@ -17,7 +17,7 @@ import { SystemDataModel } from "../abstract.mjs";
 import { BiographyTemplate } from "./common/biography.mjs";
 import { AttributesTemplate } from "./common/attributes.mjs";
 import { ActorBaseTemplate } from "./common/actor-base.mjs";
-import { computeAttributeFinal, computeOutfitAggregates, resolveCombatSpeedDisplayTotal, resolveActionRankDisplayTotal, isActorInStartedCombat } from "../helpers.mjs";
+import { computeAttributeFinal, computeOutfitAggregates, resolveCombatSpeedDisplayTotal, isActorInStartedCombat } from "../helpers.mjs";
 import { ATTACK_DAMAGE_TYPES, parseEffectTargetKey, resolveItemTotalPath, evalEffectConditions } from "../item/helpers.mjs";
 import { readConditions, gatherConditionControlPenalty } from "../../module/conditions.mjs";
 
@@ -159,10 +159,11 @@ export class CastDataModel extends SystemDataModel.mixin(
     // 表示中の CS(自動制御: カット進行中=カレント/それ以外=CS)。AE(cs.*)適用後に確定する。
     this.combatSpeed.inCombat     = isActorInStartedCombat(this.parent);
     this.combatSpeed.displayTotal = resolveCombatSpeedDisplayTotal(this.combatSpeed, this.combatSpeed.inCombat);
-    // AR 実効付与値の 0clamp と表示解決(AE(ar.max)適用後に確定。CS と同じ自動制御)
-    this.actionRank.maxTotal     = Math.max(0, this.actionRank.maxTotal);
-    this.actionRank.inCombat     = this.combatSpeed.inCombat;
-    this.actionRank.displayTotal = resolveActionRankDisplayTotal(this.actionRank, this.combatSpeed.inCombat);
+    // AR 実効付与値の 0clamp(AE(ar.max)適用後に確定)。表示はカット進行中のみ現在AR・
+    // それ以外は「なし」(付与型のためカット進行外は値を持たない・2026-07-03 裁定)——
+    // 表示分岐はテンプレート側(inCombat)で行う。
+    this.actionRank.maxTotal = Math.max(0, this.actionRank.maxTotal);
+    this.actionRank.inCombat = this.combatSpeed.inCombat;
   }
 
   /**

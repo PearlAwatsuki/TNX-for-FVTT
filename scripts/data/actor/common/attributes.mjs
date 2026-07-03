@@ -10,7 +10,7 @@
 import { SystemDataModel } from "../../abstract.mjs";
 import {
   attributeField, combatSpeedField, resolveCombatSpeedDisplayTotal,
-  actionRankField, resolveActionRankDisplayTotal, ACTION_RANK_GRANT,
+  actionRankField, ACTION_RANK_GRANT,
   isActorInStartedCombat,
 } from "../../helpers.mjs";
 
@@ -49,18 +49,18 @@ export class AttributesTemplate extends SystemDataModel {
    * CS 3層・AR の素の実効値(フェーズ10-5 / 11)。決定値＋freeMod のみのフォールバックで、
    * initiative 式(@system.combatSpeed.valueTotal)が cast 以外(guest/troop)でも解決できるよう
    * 共通側に置く。cast は CastDataModel._prepareCombatSpeedTotals がアウトフィット修正・
-   * ゴースト読み飛ばし込みで上書きし、AR も AE(ar.max)適用後に表示を確定し直す。
+   * ゴースト読み飛ばし込みで上書きし、AR も AE(ar.max)適用後に 0clamp し直す。
    */
   prepareDerivedData() {
     super.prepareDerivedData?.();
     const inCombat = isActorInStartedCombat(this.parent);
-    // AR は付与型(Combat_Flow.md「アクションランク」): 基準の入力欄を持たず、定数＋修正で派生する
+    // AR は付与型(Combat_Flow.md「アクションランク」): 基準の入力欄を持たず、定数＋修正で派生する。
+    // カット進行外は AR の値を持たない(表示「なし」・2026-07-03 裁定)——表示分岐はテンプレート側。
     const ar = this.actionRank;
     if (ar) {
-      ar.grantBase    = ACTION_RANK_GRANT; // シート表示用(定数の単一ソース)
-      ar.maxTotal     = Math.max(0, ACTION_RANK_GRANT + (ar.freeMod ?? 0));
-      ar.inCombat     = inCombat;
-      ar.displayTotal = resolveActionRankDisplayTotal(ar, inCombat);
+      ar.grantBase = ACTION_RANK_GRANT; // シート表示用(定数の単一ソース)
+      ar.maxTotal  = Math.max(0, ACTION_RANK_GRANT + (ar.freeMod ?? 0));
+      ar.inCombat  = inCombat;
     }
     const cs = this.combatSpeed;
     if (!cs) return;

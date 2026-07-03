@@ -5972,6 +5972,10 @@ button.tnx-create-act-button span {
     font-size: 1.05em;
     color: var(--tnx2-text-muted);
 }
+/* AR のカット進行外表示「—」(付与型のためカット進行外は値を持たない) */
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-box__value--none {
+    color: var(--tnx2-text-muted);
+}
 
 /* 編集モード: 決定の連鎖(縦積み)。3層は同格でなく ベース→決定→CS→自動セット→カレント の流れ */
 .tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-cascade {

@@ -167,6 +167,8 @@ export const ACTION_RANK_GRANT = 1;
  * アクションランク(AR)の { value, freeMod } SchemaField を返す(フェーズ11)。
  * value=現在AR(カット進行中のみ意味を持つ)、freeMod=付与値への手動修正(ライブ・例外的な直接介入)。
  * 実効付与値 maxTotal = ACTION_RANK_GRANT + freeMod (+ AE) は派生算出(保存しない)。
+ * 付与型のためカット進行外は AR の値を持たない——シート表示は「なし」
+ * (2026-07-03 裁定。表示分岐はテンプレート側が inCombat で行う)。
  *
  * @returns {foundry.data.fields.SchemaField}
  */
@@ -176,18 +178,6 @@ export function actionRankField() {
     value:   new fields.NumberField({ initial: 0, min: 0, integer: true }),
     freeMod: new fields.NumberField({ initial: 0, integer: true }),
   });
-}
-
-/**
- * シートに「AR」として表示する値を返す純粋関数(CS の表示自動制御と同原則)。
- * カット(戦闘)進行中は現在AR、それ以外は実効付与値
- * (シーン進行中は AR を消費できない＝常に満額、の解釈による)。
- * @param {{value?:number, maxTotal?:number}} ar
- * @param {boolean} inCombat カット(開始済み戦闘)に参加中か
- * @returns {number}
- */
-export function resolveActionRankDisplayTotal(ar, inCombat) {
-  return inCombat ? (ar?.value ?? 0) : (ar?.maxTotal ?? 0);
 }
 
 /**

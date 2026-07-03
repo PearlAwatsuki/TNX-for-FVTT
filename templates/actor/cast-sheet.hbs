@@ -660,7 +660,12 @@
                         </div>
                         {{else}}
                         <div class="cs-box__value-row">
-                            <span class="cs-box__value">{{system.actionRank.displayTotal}}</span>
+                            {{#if system.actionRank.inCombat}}
+                            <span class="cs-box__value">{{system.actionRank.value}}</span>
+                            {{else}}
+                            {{!-- カット進行外は AR を持たない(付与型・2026-07-03 裁定)＝「なし」表示 --}}
+                            <span class="cs-box__value cs-box__value--none" title="カット進行の開始時に付与されます">—</span>
+                            {{/if}}
                         </div>
                         {{/if}}
                     </div>

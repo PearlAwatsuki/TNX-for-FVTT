@@ -21,7 +21,7 @@ globalThis.foundry = {
   },
 };
 
-const { damageField, attributeField, combatSpeedField, computeAttributeFinal, computeOutfitAggregates, resolveCombatSpeedDisplayTotal, actionRankField, resolveActionRankDisplayTotal, ACTION_RANK_GRANT } = await import("../../scripts/data/helpers.mjs");
+const { damageField, attributeField, combatSpeedField, computeAttributeFinal, computeOutfitAggregates, resolveCombatSpeedDisplayTotal, actionRankField, ACTION_RANK_GRANT } = await import("../../scripts/data/helpers.mjs");
 
 describe("damageField()", () => {
   it("呼び出せる", () => {
@@ -163,23 +163,6 @@ describe("actionRankField()（AR・フェーズ11）", () => {
 describe("ACTION_RANK_GRANT（付与基準値のルール定数）", () => {
   it("カット進行のシーン開始時の付与は 1", () => {
     expect(ACTION_RANK_GRANT).toBe(1);
-  });
-});
-
-describe("resolveActionRankDisplayTotal()（表示の自動制御・フェーズ11）", () => {
-  const ar = { value: 0, maxTotal: 2 };
-
-  it("カット(戦闘)進行中は現在AR を返す", () => {
-    expect(resolveActionRankDisplayTotal(ar, true)).toBe(0);
-  });
-
-  it("カット外は実効付与値を返す（シーン進行中は消費されない＝常に満額）", () => {
-    expect(resolveActionRankDisplayTotal(ar, false)).toBe(2);
-  });
-
-  it("null でも安全に 0", () => {
-    expect(resolveActionRankDisplayTotal(null, true)).toBe(0);
-    expect(resolveActionRankDisplayTotal(null, false)).toBe(0);
   });
 });
 
