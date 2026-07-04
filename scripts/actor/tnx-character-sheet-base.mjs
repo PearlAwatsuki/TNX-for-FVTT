@@ -1099,10 +1099,13 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             condition: () => this.isEditable,
             callback:  header => openItemSheet(header, true)
         };
+        // 初期習得技能(基本13技能)の削除保護は、技能をシードされる型(能力値を持つシート)のみ。
+        // エキストラは技能を持たないのが普通のため、置いた技能は自由に削除できる(2026-07-04)
+        const protectInitial = this.sheetFeatures.abilities;
         const deleteOption = {
             name:      "削除",
             icon:      '<i class="fas fa-trash"></i>',
-            condition: header => this.isEditable && !isInitialSkill(getItemFromHeader(header)),
+            condition: header => this.isEditable && !(protectInitial && isInitialSkill(getItemFromHeader(header))),
             callback:  itemDeleteCallback
         };
         const duplicateOption = {
