@@ -43,8 +43,9 @@
             </div>
             {{#if extraSkills.length}}
             <div class="skills-list-view">
+                {{#each extraSkillColumns as |columnSkills|}}
                 <div class="skills-column">
-                    {{#each extraSkills as |skill|}}
+                    {{#each columnSkills as |skill|}}
                     <div class="general-skill-display item" data-item-id="{{skill._id}}">
                         <div class="skill-label-shape">
                             <a class="skill-label-content squeeze-text check-trigger" data-action="startSkillCheck" data-item-id="{{skill._id}}" title="判定（固定達成値をそのまま達成値としてチャットに出します。設定は技能の用途タブ）">
@@ -60,6 +61,7 @@
                     </div>
                     {{/each}}
                 </div>
+                {{/each}}
             </div>
             {{else}}
             <div class="tnx-occ-empty">技能はありません。{{#if isEditMode}}「追加」または一般技能のドロップで作成できます（達成値は技能の用途タブの「固定達成値」で設定します）。{{/if}}</div>

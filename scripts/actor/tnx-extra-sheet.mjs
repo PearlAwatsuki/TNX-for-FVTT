@@ -17,7 +17,7 @@ export class TokyoNovaExtraSheet extends TnxCharacterSheetBase {
     /** DEFAULT_OPTIONS は継承マージ(共通分は基底)。classes は配列のため上書き＝フル指定。 */
     static DEFAULT_OPTIONS = {
         classes: ["tokyo-nova", "sheet", "actor", "extra"],
-        position: { width: 720, height: 640 },
+        position: { width: 780, height: 640 },
     };
 
     static PARTS = {
@@ -44,6 +44,9 @@ export class TokyoNovaExtraSheet extends TnxCharacterSheetBase {
                 .find(a => a.type === "check" && Number.isFinite(a.fixedResult))?.fixedResult ?? null;
             return { _id: i.id, name: i.name, fixed, hasFixed: Number.isFinite(fixed) };
         });
+        // キャストの一般技能と同じ二列レイアウト(generalSkillColumns と同じ半分割)
+        const half = Math.ceil(context.extraSkills.length / 2);
+        context.extraSkillColumns = [context.extraSkills.slice(0, half), context.extraSkills.slice(half)];
         return context;
     }
 

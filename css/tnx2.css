@@ -1312,6 +1312,11 @@
     margin-top: 16px;
 }
 
+/* エキストラ: シートがキャスト(920px)より狭いため、技能二列の列間を詰めて1列分の幅を確保する */
+.tokyo-nova.sheet.actor.extra .skills-list-view {
+    gap: 24px;
+}
+
 /* 編集モード: 報酬点ラベル + 初期値 + 修正値 */
 .tokyo-nova.sheet.actor .bounty-edit-row {
     display: flex;
