@@ -505,11 +505,14 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             btn.addEventListener("click", ev => TnxCharacterSheetBase._onItemCreate.call(this, ev, ev.currentTarget));
         }
 
-        // 報酬点 ±1 ボタン(閲覧モード・ホバー表示)
-        for (const btn of el.querySelectorAll(".bounty-adjust-btn")) {
+        // 報酬点 ±1 ボタン(閲覧モード・ホバー表示)。人数/エニグマポイントの±ボタンは意匠クラス
+        // (.bounty-adjust-btn)を共有するが data-action で別処理のため、報酬点の実処理は
+        // data-delta を持つボタンにのみ束縛する(無条件束縛だと NaN が bounty に飛ぶ)
+        for (const btn of el.querySelectorAll(".bounty-adjust-btn[data-delta]")) {
             btn.addEventListener("click", ev => {
                 ev.preventDefault();
                 const delta = parseInt(ev.currentTarget.dataset.delta, 10);
+                if (!Number.isFinite(delta)) return;
                 const currentEffective = parseInt(
                     ev.currentTarget.closest(".bounty-view-panel")?.querySelector(".bounty-total")?.textContent ?? "0",
                     10
