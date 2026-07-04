@@ -124,6 +124,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             autoFill:              TnxUsageSheet._onAutoFill,
             incrementTargetValue:  TnxUsageSheet._onTvIncrement,
             decrementTargetValue:  TnxUsageSheet._onTvDecrement,
+            incrementFixedResult:  TnxUsageSheet._onFixedIncrement,
+            decrementFixedResult:  TnxUsageSheet._onFixedDecrement,
         },
     };
 
@@ -176,6 +178,9 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
         // タイプ判定フラグ
         context.isCheckType        = usage.type === "check";
+        // 固定値判定(フェーズ11-5・2026-07-04 確定): fixedResult が設定された check 用途。
+        // スート・レベル・カード・能力値を読まないため、発動タブは固定達成値のみ・効果タブは出さない
+        context.isFixedCheck       = usage.type === "check" && Number.isFinite(usage.fixedResult);
         context.isAttackType       = usage.type === "attack";
         context.isDamageType       = usage.type === "damageBoost" || usage.type === "damageReduce";
         context.isModificationType = usage.type === "modification";
@@ -427,6 +432,12 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             isUnopposable: raw["isUnopposable"] ?? usage.isUnopposable,
         };
 
+        // 固定達成値(フェーズ11-5・エキストラの技能判定)。固定値用途のマーカーを兼ねるため、
+        // 入力が空にされても null に戻さず 0 に留める(通常判定 UI へ化けるのを防ぐ)。負値は 0 clamp
+        if (Number.isFinite(usage.fixedResult)) {
+            update.fixedResult = Number.isFinite(raw["fixedResult"]) ? Math.max(0, raw["fixedResult"]) : 0;
+        }
+
         // 発動タブ: 制御 select が別の選択肢に変わったら、対応しないサブ値を残骸として残さずリセットする
         if (update.target !== "other")            update.targetOther = "";
         if (update.range !== "other")             update.rangeOther = "";
@@ -521,6 +532,19 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         if (!usage) return;
         const next = Math.max(0, (usage.targetValueNumber ?? 0) + delta);
         await this._patchUsage({ targetValueNumber: next });
+        this.render({ force: true });
+    }
+
+    // ─── 固定達成値スピナー(フェーズ11-5・固定値判定) ─────────────────────────
+
+    static async _onFixedIncrement(_event, _target) { await this._stepFixedResult(1); }
+    static async _onFixedDecrement(_event, _target) { await this._stepFixedResult(-1); }
+
+    async _stepFixedResult(delta) {
+        const usage = this.usage;
+        if (!usage) return;
+        const next = Math.max(0, (usage.fixedResult ?? 0) + delta);
+        await this._patchUsage({ fixedResult: next });
         this.render({ force: true });
     }
 

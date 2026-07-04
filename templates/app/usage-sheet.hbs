@@ -12,7 +12,9 @@
     <nav class="sheet-tabs tabs" data-group="primary">
         <a class="item" data-action="tab" data-group="primary" data-tab="identity">基本</a>
         <a class="item" data-action="tab" data-group="primary" data-tab="activation">発動</a>
+        {{#unless isFixedCheck}}
         <a class="item" data-action="tab" data-group="primary" data-tab="effects">効果</a>
+        {{/unless}}
     </nav>
 
     <section class="sheet-body usage-sheet-body">
@@ -29,6 +31,21 @@
 
         {{!-- ② 発動タブ: タイミング・対象・射程・目標値・対決 --}}
         <div class="tab" data-group="primary" data-tab="activation">
+            {{#if isFixedCheck}}
+            {{!-- 固定値判定(エキストラ直下の一般技能のみ作成可・2026-07-04 確定)。
+                 スート・レベル・カード・能力値を読まないため、通常判定の発動項目は持たない --}}
+            <div class="usage-form-grid">
+                <div class="usage-form-row">
+                    <label class="usage-field-label">固定達成値 <i class="fas fa-circle-question" title="この値がそのまま達成値になります（カードも能力値も使いません）"></i></label>
+                    <div class="number-input-spinner">
+                        <button type="button" data-action="decrementFixedResult" class="tnx-btn" {{#unless editable}}disabled{{/unless}}>-</button>
+                        <input type="number" name="fixedResult" value="{{usage.fixedResult}}"
+                               {{#unless editable}}disabled{{/unless}}>
+                        <button type="button" data-action="incrementFixedResult" class="tnx-btn" {{#unless editable}}disabled{{/unless}}>+</button>
+                    </div>
+                </div>
+            </div>
+            {{else}}
             <div class="usage-form-grid">
 
                 {{!-- タイミング --}}
@@ -117,14 +134,6 @@
                            {{#unless editable}}disabled{{/unless}}>
                 </div>
 
-                {{!-- 固定達成値(フェーズ11-5・Check_Rules「固定値判定」)。空欄=通常判定のため
-                     スピナーでなく nullable の平入力 --}}
-                <div class="usage-form-row">
-                    <label class="usage-field-label">固定達成値 <i class="fas fa-circle-question" title="設定すると、この判定はカードも出さず能力値も参照せず、この値がそのまま達成値になります(〈知覚〉10 等。エキストラが行える唯一の判定形・空欄=通常判定)"></i></label>
-                    <input type="number" name="fixedResult" value="{{usage.fixedResult}}" placeholder="空欄=通常判定"
-                           {{#unless editable}}disabled{{/unless}}>
-                </div>
-
                 {{!-- 対決不可（インライントグル） --}}
                 <div class="usage-form-row usage-toggle-row">
                     <label class="usage-toggle-inline" title="対象がこの判定に対決（リアクション）できない状態">
@@ -160,9 +169,11 @@
             </div>
             {{/if}}
             {{/if}}
+            {{/if}}
         </div>
 
-        {{!-- ③ 効果タブ: 種別固有設定 ＋ 適用される効果 --}}
+        {{!-- ③ 効果タブ: 種別固有設定 ＋ 適用される効果(固定値判定では出さない) --}}
+        {{#unless isFixedCheck}}
         <div class="tab" data-group="primary" data-tab="effects">
 
             {{!-- check: ベース技能・組み合わせ技能 --}}
@@ -276,6 +287,7 @@
             </div>
 
         </div>
+        {{/unless}}
 
     </section>
 </div>
