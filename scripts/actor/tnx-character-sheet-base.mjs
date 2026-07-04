@@ -2315,20 +2315,35 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
      * flags は通常判定と同じ checkResult 形で持たせ、対決の読み取り等から同様に扱えるようにする。
      */
     static async _postFixedCheckResult(actor, item, usage) {
-        const label = usage.name || item.name;
-        const achievement = Number(usage.fixedResult) || 0;
+        const achievement = Math.max(0, Number(usage.fixedResult) || 0);
         const result = {
             achievement,
             cardValue: 0, abilityVal: 0, bountyUsed: 0,
             targetValue: null, diff: null,
             success: null, fixed: true,
         };
+        // 通常の判定結果カード(check-result.hbs)の固定値分岐で描画する(レイアウト統一)。
+        // カードを引かないためカード行はバッジ「固定値」のみ・計算内訳は達成値の合計行のみ
+        const content = await foundry.applications.handlebars.renderTemplate(
+            "systems/tokyo-nova-axleration/templates/chat/check-result.hbs",
+            {
+                actor,
+                actorName:      actor?.name ?? "不明",
+                typeLabel:      "技能判定",
+                skillLabel:     item.name,
+                isFixedCheck:   true,
+                result,
+                checkSources:   [],
+                hasCheckBonus:  false,
+                isControlCheck: false,
+                isFixed21:      false,
+                hasTargetValue: false,
+                showSuccess:    false,
+            }
+        );
         await ChatMessage.create({
+            content,
             speaker: ChatMessage.getSpeaker({ actor }),
-            content: `<div class="tnx-chat-card tnx-fixed-check-card">
-                <h3>判定: ${label}</h3>
-                <p class="tnx-fixed-check">達成値 <b>${achievement}</b>（固定値）</p>
-            </div>`,
             flags: {
                 "tokyo-nova-axleration": {
                     checkResult: { actorId: actor.id, result },

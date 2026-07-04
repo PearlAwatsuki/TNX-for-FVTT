@@ -4180,6 +4180,7 @@ body.tnx-bottom-hud-expanded #hotbar {
 .jr-badge--trump    { background: rgba(200, 120, 0,   0.40); color: #ffbb44; }
 .jr-badge--mismatch { background: rgba(200,  50, 50,  0.35); color: #ff8888; }
 .jr-badge--fixed21  { background: rgba(200, 200, 50,  0.30); color: #eeee60; }
+.jr-badge--fixed    { background: rgba(80,  170, 200, 0.30); color: #7fd4ee; }
 
 /* 計算内訳セクション */
 .jr-calc-section {

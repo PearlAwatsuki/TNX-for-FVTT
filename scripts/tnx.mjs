@@ -783,6 +783,34 @@ Hooks.once("init", async function() {
      * GMでないユーザーが作成した場合、オーナー権限を付与する
      */
     Hooks.on("preCreateItem", (item, data, options, userId) => {
+        // 一般技能がエキストラ直下に作られる場合(辞典インポート・ドロップ等の全経路)、
+        // エキストラは固定値判定しか行えないため、元データの「判定」等の固定値以外の用途を
+        // 自動削除し、固定値用途が無ければ自動追加する(2026-07-04 確定)
+        if (data.type === "generalSkill" && item.parent?.type === "extra") {
+            const original = data.system?.actions ?? [];
+            const kept = original.filter(a => a.type === "check" && Number.isFinite(a.fixedResult));
+            if (!kept.length) {
+                kept.push({
+                    _id:             foundry.utils.randomID(),
+                    type:            "check",
+                    name:            "判定（固定値）",
+                    description:     "",
+                    timing:          { value: "blank", actionName: "blank", processName: "blank", timingOther: "" },
+                    target:          "blank",
+                    effects:         [],
+                    skillRefs:       [],
+                    weaponRef:       { itemId: "" },
+                    damageType:      "",
+                    formula:         "",
+                    damageCategory:  "",
+                    modifiableParams: [],
+                    fixedResult:     10,
+                });
+            }
+            item.updateSource({ "system.actions": kept });
+            return;
+        }
+
         // 一般技能: 用途が未設定の場合に「判定」用途を1件自動挿入する
         // baseSkillRef には親アイテム自身の ID を設定する（用途が判定の起点技能を明示的に保持）
         if (data.type === "generalSkill" && !(data.system?.actions?.length)) {

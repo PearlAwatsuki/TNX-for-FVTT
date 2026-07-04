@@ -6,7 +6,15 @@
         <span class="jr-type-tag">{{typeLabel}}</span>
     </div>
 
-    {{!-- ② カード行: スートシンボル + カード名 + バッジ群 --}}
+    {{!-- ② カード行: スートシンボル + カード名 + バッジ群（固定値判定はカードを引かないためバッジのみ） --}}
+    {{#if isFixedCheck}}
+    <div class="jr-card-row">
+        <span class="jr-card-name">カード・能力値を使用しない</span>
+        <span class="jr-badges">
+            <span class="jr-badge jr-badge--fixed">固定値</span>
+        </span>
+    </div>
+    {{else}}
     <div class="jr-card-row">
         <span class="jr-suit suit-{{suit}}">{{suitSymbol}}</span>
         <span class="jr-card-name">{{cardName}}</span>
@@ -17,9 +25,18 @@
             {{#if isFixed21}}<span class="jr-badge jr-badge--fixed21">21固定</span>{{/if}}
         </span>
     </div>
+    {{/if}}
 
     {{!-- ③ 計算・結果セクション --}}
-    {{#if result.fumble}}
+    {{#if isFixedCheck}}
+    <div class="jr-calc-section">
+        <div class="jr-calc-row jr-total-row">
+            <span class="jr-calc-label">達成値</span>
+            <span class="jr-total-num">{{result.achievement}}</span>
+        </div>
+    </div>
+
+    {{else if result.fumble}}
     <div class="jr-result jr-result--fumble">
         <i class="fas fa-skull"></i> ファンブル！（致命的失敗）
     </div>
