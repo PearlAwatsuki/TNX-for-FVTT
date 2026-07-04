@@ -175,15 +175,20 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
 
     /** 用途追加: 種別選択ダイアログ → エントリ作成 → TnxUsageSheet を開く */
     static async _onActionCreate(_event, _target) {
-        const type = await TokyoNovaItemSheet._promptUsageType();
-        if (!type) return;
+        const choice = await TokyoNovaItemSheet._promptUsageType();
+        if (!choice) return;
+
+        // 「判定（固定値）」は check 用途の作成プリセット(固定達成値を初期設定・数値は用途シートの
+        // 発動タブで変更)。エキストラや小分類「エキストラ」アウトフィットの〈知覚〉10 等に使う
+        const isFixedCheck = choice === "checkFixed";
+        const type = isFixedCheck ? "check" : choice;
 
         const newId = foundry.utils.randomID();
         const actions = foundry.utils.deepClone(this.item.system.actions ?? []);
         actions.push({
             _id:         newId,
             type,
-            name:        USAGE_TYPES[type] ?? "新規用途",
+            name:        isFixedCheck ? "判定（固定値）" : (USAGE_TYPES[type] ?? "新規用途"),
             description: "",
             timing:      { value: "blank", actionName: "blank", processName: "blank", timingOther: "" },
             target:      "blank",
@@ -194,6 +199,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             formula:     "",
             damageCategory: "",
             modifiableParams: [],
+            ...(isFixedCheck ? { fixedResult: 10 } : {}),
         });
         await this.item.update({ "system.actions": actions });
 
@@ -251,9 +257,23 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
 
     // ─── 種別選択ダイアログ ────────────────────────────────────────────────────
 
+    /**
+     * 用途作成時の選択肢。「判定（固定値）」は check 用途に固定達成値を初期設定する
+     * **作成プリセット**であり、用途タイプ(type)は増やさない(フェーズ11-5・Check_Rules「固定値判定」)。
+     */
+    static USAGE_CREATION_CHOICES = Object.freeze({
+        check:      USAGE_TYPES.check,
+        checkFixed: "判定（固定値）",
+        attack:       USAGE_TYPES.attack,
+        declaration:  USAGE_TYPES.declaration,
+        damageBoost:  USAGE_TYPES.damageBoost,
+        damageReduce: USAGE_TYPES.damageReduce,
+        modification: USAGE_TYPES.modification,
+    });
+
     /** 用途タイプを選択させる DialogV2。選択されたキーを返す。 */
     static async _promptUsageType() {
-        const options = Object.entries(USAGE_TYPES)
+        const options = Object.entries(TokyoNovaItemSheet.USAGE_CREATION_CHOICES)
             .map(([value, label]) => `<option value="${value}">${label}</option>`)
             .join("");
 

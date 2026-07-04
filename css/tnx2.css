@@ -1307,6 +1307,11 @@
     color: var(--tnx2-text-secondary);
 }
 
+/* エキストラシート: 技能セクションと説明セクションの間隔(フェーズ11-5) */
+.tokyo-nova.sheet.actor.extra .tnx-editor-section {
+    margin-top: 16px;
+}
+
 /* 編集モード: 報酬点ラベル + 初期値 + 修正値 */
 .tokyo-nova.sheet.actor .bounty-edit-row {
     display: flex;
