@@ -20,6 +20,79 @@
  */
 
 /**
+ * 本体側の同一能力を照合する(Foundry 非依存)。
+ * 識別キー一致(同タイプ)を優先し、キーが無い/一致しない場合は名前一致にフォールバックする
+ * (分身は本体とほぼ同一データ＝同じ辞典由来のコピー同士が識別キーで結ばれる規約)。
+ * @param {Array<{id:string,type:string,name:string,system:object}>} candidates 本体側アイテム
+ * @param {{type:string,name:string,system:object}} item 分身側アイテム
+ * @returns {object|null} 一致した本体側アイテム。無ければ null
+ */
+export function matchSharedItem(candidates, item) {
+    const key = item?.system?.identificationKey ?? "";
+    if (key) {
+        const byKey = (candidates ?? []).find(c => c.type === item.type && (c.system?.identificationKey ?? "") === key);
+        if (byKey) return byKey;
+    }
+    return (candidates ?? []).find(c => c.type === item?.type && c.name === item?.name) ?? null;
+}
+
+/**
+ * 分身(所有者参照つき)なら本体アクターを返す。それ以外は null(Foundry 依存)。
+ * @param {Actor|null} actor
+ * @returns {Actor|null}
+ */
+export function resolveBunshinOwner(actor) {
+    if (actor?.type !== "troop" || actor.system?.troopMode !== "bunshin") return null;
+    const uuid = actor.system?.ownerActorRef?.uuid ?? "";
+    if (!uuid) return null;
+    try { return fromUuidSync(uuid) ?? null; } catch { return null; }
+}
+
+/**
+ * 実行アクターに応じて消費先行を解決する(Foundry 依存)。
+ * 分身は使用回数を自分で管理せず**本体側カウンターを唯一の正本として共有**する(Troops.md)——
+ * 消費・残数表示とも本体側の同一能力(matchSharedItem)へ差し替え、行に targetActorId=本体を
+ * 付与する(適用は buildConsumptionPlan が targetActorId を優先)。照合できない行は
+ * 分身ローカルの消費にフォールバックする(共有が成立しない旨はダイアログ表示で分かる)。
+ * @param {Actor} actor 実行アクター
+ * @param {Item} parentItem 用途を持つアイテム
+ * @param {Array<object>} targets 用途の consumeTargets
+ * @returns {Array<object>} resolveConsumeRows と同形の行(共有行は shared/targetActorId 付き)
+ */
+export function resolveConsumeRowsForActor(actor, parentItem, targets) {
+    const owner = resolveBunshinOwner(actor);
+    if (!owner) {
+        return resolveConsumeRows(targets, {
+            parentItem,
+            getItem: (id) => actor?.items.get(id) ?? null,
+        });
+    }
+    const ownerItems = owner.items.contents ?? [];
+    const redirectedIds = new Set();
+    const redirect = (localItem) => {
+        if (!localItem) return null;
+        const counterpart = matchSharedItem(ownerItems, localItem);
+        if (counterpart) {
+            redirectedIds.add(counterpart.id);
+            return counterpart;
+        }
+        return localItem; // 本体に同一能力が無い場合はローカル消費にフォールバック
+    };
+    const rows = resolveConsumeRows(targets, {
+        parentItem: redirect(parentItem),
+        getItem: (id) => redirect(actor?.items.get(id) ?? null),
+    });
+    for (const row of rows) {
+        if (row.itemId && redirectedIds.has(row.itemId)) {
+            row.targetActorId = owner.id;
+            row.shared = true;
+            row.sharedOwnerName = owner.name;
+        }
+    }
+    return rows;
+}
+
+/**
  * 消費先設定の行を解決する(Foundry 非依存)。
  * @param {Array<{type?:string, itemId?:string, amount?:number}>} targets 用途の consumeTargets
  * @param {object} ctx
@@ -104,10 +177,11 @@ export async function promptConsumption(actor, rows, { title = "使用回数の�
         ...consumable.map(r => {
             const out = r.remaining < r.amount;
             const amountLabel = r.amount > 1 ? `×${r.amount}` : "";
+            const sharedLabel = r.shared ? `（本体「${esc(r.sharedOwnerName)}」と共有）` : "";
             return `<div class="tnx-uses-row">
                 <label>
                     <input type="checkbox" name="consume" value="${esc(r.itemId)}" checked>
-                    <span>「${esc(r.label)}」の使用回数を消費${amountLabel}</span>
+                    <span>「${esc(r.label)}」の使用回数を消費${amountLabel}${sharedLabel}</span>
                 </label>
                 <span class="tnx-uses-count${out ? " tnx-uses-out" : ""}">残り ${r.remaining}/${r.maxDisplay}</span>
             </div>`;

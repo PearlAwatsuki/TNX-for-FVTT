@@ -1,6 +1,6 @@
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 import { TnxUsageSheet, USAGE_TYPES } from "../module/tnx-usage-sheet.mjs";
-import { resolveConsumeRows, promptConsumption, applyConsumptionPlan } from "../module/usage-consumption.mjs";
+import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan, resolveBunshinOwner } from "../module/usage-consumption.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -49,6 +49,12 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             relativeTo: this.item,
             editable: context.editable,
         });
+
+        // 分身の使用回数共有(11-6・Troops.md): 分身直下のアイテムはローカルの使用回数を使わず
+        // 本体側カウンターを共有するため、使用回数ブロックを共有表示(入力無効化)にする
+        const bunshinOwner = resolveBunshinOwner(this.item.actor);
+        context.usesSharedWithOwner = !!bunshinOwner;
+        context.usesOwnerName = bunshinOwner?.name ?? "";
 
         EffectsSheetMixin.prepareEffectsContext(this.item, context);
         context.allEffects = [
@@ -246,10 +252,8 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
 
         const actor = this.item.actor;
         if (usage.type !== "check" && actor) {
-            const rows = resolveConsumeRows(usage.consumeTargets, {
-                parentItem: this.item,
-                getItem: (id) => actor.items.get(id),
-            });
+            // 分身は本体側カウンターへ差し替えて共有(Troops.md)
+            const rows = resolveConsumeRowsForActor(actor, this.item, usage.consumeTargets);
             const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${usage.name || this.item.name}` });
             if (plan === null) return;
             await applyConsumptionPlan(plan);

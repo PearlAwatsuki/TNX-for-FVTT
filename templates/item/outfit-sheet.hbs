@@ -782,12 +782,17 @@
                         {{!-- 使用回数(スタイル技能と同形。数値入力はスピナー不使用の例外) --}}
                         <div class="form-group">
                             <label for="isLimit-{{item._id}}">使用回数に制限あり</label>
-                            <input type="checkbox" name="system.uses.isLimit" id="isLimit-{{item._id}}" {{checked system.uses.isLimit}}>
+                            <input type="checkbox" name="system.uses.isLimit" id="isLimit-{{item._id}}" {{checked system.uses.isLimit}} {{#if usesSharedWithOwner}}disabled{{/if}}>
                         </div>
+                        {{#if usesSharedWithOwner}}
+                        <p class="usage-empty-hint" title="分身は使用回数を自分で管理せず、本体側の同じ能力のカウンターを消費・参照します">
+                            <i class="fas fa-link"></i> 使用回数は本体「{{usesOwnerName}}」と共有されます（このアイテムのローカル値は使われません）
+                        </p>
+                        {{/if}}
                         {{#if system.uses.isLimit}}
                             <div class="form-group">
                                 <label>種別</label>
-                                <select name="system.uses.type">
+                                <select name="system.uses.type" {{#if usesSharedWithOwner}}disabled{{/if}}>
                                     {{selectOptions options.usesType selected=system.uses.type}}
                                 </select>
                             </div>
@@ -796,12 +801,12 @@
                                 <div class="usage-inputs">
                                     <div class="usage-field">
                                         <label>消費済み</label>
-                                        <input type="number" name="system.uses.spent" value="{{system.uses.spent}}">
+                                        <input type="number" name="system.uses.spent" value="{{system.uses.spent}}" {{#if usesSharedWithOwner}}disabled{{/if}}>
                                     </div>
                                     <span class="usage-separator">/</span>
                                     <div class="usage-field">
                                         <label>最大値</label>
-                                        <input type="number" name="system.uses.max" value="{{system.uses.max}}">
+                                        <input type="number" name="system.uses.max" value="{{system.uses.max}}" {{#if usesSharedWithOwner}}disabled{{/if}}>
                                     </div>
                                 </div>
                             </div>

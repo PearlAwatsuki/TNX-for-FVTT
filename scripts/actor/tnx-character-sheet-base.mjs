@@ -18,7 +18,7 @@ import { SLOT_KINDS } from '../data/item/common/extensible.mjs';
 import { getPartSlotPreset, PartSlotPresetApp } from '../module/part-slot-preset-app.mjs';
 import { OUTFIT_ITEM_TYPES, findDepartmentSkillName } from '../data/helpers.mjs';
 import { TnxCheckFlow } from '../module/tnx-check-flow.mjs';
-import { resolveConsumeRows, promptConsumption } from '../module/usage-consumption.mjs';
+import { resolveConsumeRowsForActor, promptConsumption } from '../module/usage-consumption.mjs';
 import { getComboSuits, ALL_SUITS } from '../module/tnx-check-engine.mjs';
 import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
 import { groupStyleSkillsByStyle } from '../module/style-skill-acquisition.mjs';
@@ -2297,11 +2297,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const actorBounty = (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0);
 
         // 使用回数の消費を確認(用途の消費先設定＝consumeTargets 由来・11-6。自動スキャンは全廃・
-        // 残量不足でチェック時はブロック)。確定した平プランは判定実行時に適用される
-        const consumeRows = resolveConsumeRows(selectedUsage.consumeTargets, {
-            parentItem: item,
-            getItem: (id) => actor.items.get(id),
-        });
+        // 残量不足でチェック時はブロック)。分身は本体側カウンターへ差し替えて共有(Troops.md)。
+        // 確定した平プランは判定実行時に適用される
+        const consumeRows = resolveConsumeRowsForActor(actor, item, selectedUsage.consumeTargets);
         const usesPlan = await promptConsumption(actor, consumeRows, { title: `使用回数の消費: ${item.name}` });
         if (usesPlan === null) return;
 

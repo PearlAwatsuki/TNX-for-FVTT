@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
-const { resolveConsumeRows, buildConsumptionPlan } =
+const { resolveConsumeRows, buildConsumptionPlan, matchSharedItem } =
   await import("../../scripts/module/usage-consumption.mjs");
 
 const skill = (id, { isLimit = true, max = 3, spent = 1, name = "技能" } = {}) => ({
@@ -105,5 +105,34 @@ describe("buildConsumptionPlan()（消費プランの構築）", () => {
     const shared = [{ kind: "uses", itemId: "a", amount: 1, remaining: 2, targetActorId: "honntai" }];
     const { plan } = buildConsumptionPlan(shared, new Set(["a"]), "bunshin");
     expect(plan[0].actorId).toBe("honntai");
+  });
+});
+
+describe("matchSharedItem()（分身→本体の同一能力照合・Troops.md 使用回数共有）", () => {
+  const mk = (id, type, name, key) => ({ id, type, name, system: { identificationKey: key ?? "" } });
+  const owner = [
+    mk("o1", "styleSkill", "旧名の技能", "fireArts"),
+    mk("o2", "styleSkill", "同名の技能", ""),
+    mk("o3", "weapon",     "同名の技能", ""),
+  ];
+
+  it("識別キー一致（同タイプ）を最優先で返す（名前が違っても結ぶ）", () => {
+    const hit = matchSharedItem(owner, mk("b1", "styleSkill", "新名の技能", "fireArts"));
+    expect(hit?.id).toBe("o1");
+  });
+
+  it("キーが無ければ名前一致（同タイプ）にフォールバックする", () => {
+    const hit = matchSharedItem(owner, mk("b2", "styleSkill", "同名の技能", ""));
+    expect(hit?.id).toBe("o2");
+  });
+
+  it("タイプが違えば同名でも結ばない", () => {
+    const hit = matchSharedItem(owner, mk("b3", "tap", "同名の技能", ""));
+    expect(hit).toBeNull();
+  });
+
+  it("一致なしは null（呼び出し側でローカル消費にフォールバック）", () => {
+    const hit = matchSharedItem(owner, mk("b4", "styleSkill", "存在しない", "noKey"));
+    expect(hit).toBeNull();
   });
 });

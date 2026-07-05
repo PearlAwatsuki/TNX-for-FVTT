@@ -45,6 +45,7 @@ export default [
         setProperty: "readonly",
         // Foundry のグローバル関数・クラス
         fromUuid: "readonly",
+        fromUuidSync: "readonly",
         ContextMenu: "readonly",
         FormDataExtended: "readonly",
         JournalEntry: "readonly",
