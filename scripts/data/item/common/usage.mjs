@@ -13,9 +13,14 @@
  *   "damageBoost"  - ダメージ増加（formula・damageCategory）
  *   "damageReduce" - ダメージ軽減（formula・damageCategory）
  *   "modification" - 改造（modifiableParams）
+ *   "npcAcquire"   - NPC取得（フェーズ11-6・Troops.md「NPC取得」。トループ級の召喚/エキストラ取得）
  *
  * タイプは作成時に固定。UI 上で切り替え不可。
- * 全タイプ共通: _id / name / description / timing / target / effects
+ * 全タイプ共通: _id / name / description / timing / target / effects / consumeTargets
+ *
+ * 消費の原則(フェーズ11-6・2026-07-04 確定): 使用回数の消費は consumeTargets からのみ発生する。
+ * 親アイテムの自動消費・コンボ参加技能の遠隔消費(自動スキャン)は全廃——使用回数制限のある技能を
+ * 組み合わせに参加させる場合は、その消費を用途に手動で設定する必要がある(ユーザー了承済み)。
  *
  * skillRefs: check・attack タイプで使用。組み合わせ技能の item ID リスト。
  *   ベース技能は用途を所持するアイテム自身のため skillRefs に含まない。
@@ -104,6 +109,34 @@ export class UsageTemplate extends SystemDataModel {
                     modifiableParams: new fields.ArrayField(
                         new fields.StringField({ initial: "" })
                     ),
+
+                    // ─── 消費先設定(フェーズ11-6・2026-07-04 確定・D&D の Consumption 踏襲) ───
+                    // 全ての使用回数消費はこの設定からのみ発生する(自動スキャンは全廃)。
+                    //   type: "parent"=親アイテムの使用回数 / "itemUses"=同アクターの特定アイテムの
+                    //         使用回数(uses) / "miracleUses"=神業の使用回数(usageCount)
+                    //   itemId: type が itemUses/miracleUses のときの同アクター内 Item ID
+                    //   amount: 消費量(可変・既定1)
+                    // 既存 check 用途の互換(親×1)は migrateData で明示化する
+                    consumeTargets: new fields.ArrayField(
+                        new fields.SchemaField({
+                            type:   new fields.StringField({ initial: "parent" }),
+                            itemId: new fields.StringField({ initial: "" }),
+                            amount: new fields.NumberField({ initial: 1, min: 1, integer: true }),
+                        })
+                    ),
+
+                    // ─── NPC取得(フェーズ11-6・Troops.md「NPC取得」) ───
+                    // acquireMode: 取得類型(extra/troop/enigma/bunshin)。参照先の種類からの導出は
+                    // しない(2026-07-04 ユーザー裁定=モードは明示選択)。
+                    // acquireItemRefs: エキストラモードで派生取得する小分類「エキストラ」の
+                    // アウトフィット参照(name は参照先削除時の表示フォールバックのみ・ライブ解決原則)
+                    acquireMode: new fields.StringField({ initial: "extra" }),
+                    acquireItemRefs: new fields.ArrayField(
+                        new fields.SchemaField({
+                            uuid: new fields.StringField({ initial: "" }),
+                            name: new fields.StringField({ initial: "" }),
+                        })
+                    ),
                 })
             ),
         };
@@ -111,6 +144,8 @@ export class UsageTemplate extends SystemDataModel {
 
     /**
      * 旧データ移行: _id が無い既存エントリに randomID を付与する。
+     * 消費先設定(11-6): 設定を持たない既存の check 用途には、従来挙動(親アイテムの使用回数を
+     * 自動消費)を「親×1」の明示行として引き継ぐ(親に isLimit が無ければ実行時 no-op=従来同一)。
      * @override
      */
     static migrateData(source) {
@@ -118,6 +153,9 @@ export class UsageTemplate extends SystemDataModel {
             source.actions = source.actions.map(a => {
                 const migrated = a._id ? a : { ...a, _id: foundry.utils.randomID() };
                 if (!migrated.baseSkillRef) migrated.baseSkillRef = { itemId: "" };
+                if (migrated.consumeTargets === undefined && migrated.type === "check") {
+                    migrated.consumeTargets = [{ type: "parent", itemId: "", amount: 1 }];
+                }
                 return migrated;
             });
         }

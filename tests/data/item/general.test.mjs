@@ -51,3 +51,14 @@ describe("GeneralDataModel usage template (フェーズ6-1 追加対応)", () =>
     expect(schema).toHaveProperty("actions");
   });
 });
+
+describe("GeneralDataModel extraActorRef (フェーズ11-6・エキストラの二重表現)", () => {
+  const schema = GeneralDataModel.defineSchema();
+
+  it("extraActorRef は SchemaField{uuid, name} で initial 空文字", () => {
+    expect(schema.extraActorRef).toBeInstanceOf(MockSchemaField);
+    expect(schema.extraActorRef.fields).toHaveProperty("uuid");
+    expect(schema.extraActorRef.fields).toHaveProperty("name");
+    expect(schema.extraActorRef.fields.uuid.options.initial).toBe("");
+  });
+});

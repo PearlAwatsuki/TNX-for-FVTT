@@ -92,14 +92,21 @@ describe("TroopDataModel.defineSchema()", () => {
       expect(schema.hasWorks).toBeInstanceOf(MockBooleanField);
       expect(schema.hasWorks.options.initial).toBe(false);
     });
+
+    it("ownerActorRef（所有者=取得元アクター参照・11-6）は SchemaField{uuid, name}", () => {
+      expect(schema.ownerActorRef).toBeInstanceOf(MockSchemaField);
+      expect(schema.ownerActorRef.fields).toHaveProperty("uuid");
+      expect(schema.ownerActorRef.fields).toHaveProperty("name");
+      expect(schema.ownerActorRef.fields.uuid.options.initial).toBe("");
+    });
   });
 
-  it("guest（共通基底そのまま）との差分は heads / troopMode / hasWorks / sourceName / troopLevel に限られる", () => {
+  it("guest（共通基底そのまま）との差分は heads / troopMode / hasWorks / sourceName / troopLevel / ownerActorRef に限られる", () => {
     const guestKeys = new Set(Object.keys(GuestDataModel.defineSchema()));
     const troopKeys = new Set(Object.keys(schema));
     const troopOnly = [...troopKeys].filter(k => !guestKeys.has(k)).sort();
     const guestOnly = [...guestKeys].filter(k => !troopKeys.has(k));
-    expect(troopOnly).toEqual(["hasWorks", "heads", "sourceName", "troopLevel", "troopMode"]);
+    expect(troopOnly).toEqual(["hasWorks", "heads", "ownerActorRef", "sourceName", "troopLevel", "troopMode"]);
     expect(guestOnly).toEqual([]);
   });
 });

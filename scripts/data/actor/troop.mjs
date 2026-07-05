@@ -18,9 +18,14 @@
  *   - enigma:  heads=エニグマポイント。名前は自由(個体識別が必要なのはエニグマのみ)。
  *   - bunshin: リソース管理なし(1点でも被ダメージで消滅)。名前は「(分身元キャラ)の分身」で固定。
  * - sourceName: 分身元キャラクター名(bunshin の固定名に使用。NPC取得用途=11-6 で自動設定へ拡張予定)。
- * - troopLevel: トループレベル。能力値の決定項(スタイル基本値＋トループレベル)。
+ * - troopLevel: トループレベル(エニグマでは「エニグマレベル」呼称)。能力値の決定項(スタイル基本値＋
+ *   トループレベル)。取得技能のレベルがそのままレベルになる(2026-07-04 確定・NPC取得で転記)。
  * - heads {value, max}: 人数/エニグマポイント。HP のように機能しダメージ分減少する(チャート不参照)。
  *   トークンリソースバーに割り当てる。
+ * - ownerActorRef {uuid, name}: 所有者(取得元)アクター参照(11-6・Troops.md「事前作成と所有者記録」)。
+ *   経験点の出所の紐づけの正本——トループ級の消費経験点は取得元キャストの消費として計上される。
+ *   User でなくアクターを指す(取得元アクターの明示が必須=2026-07-04 確定)。name は参照先削除時の
+ *   表示フォールバックのみ(ライブ解決原則)。未設定=RL 作成の敵対トループ等(計上なし)。
  */
 
 import { CharacterBaseDataModel, ABILITY_KEYS } from "./common/character-base.mjs";
@@ -53,6 +58,10 @@ export class TroopDataModel extends CharacterBaseDataModel {
       heads: new fields.SchemaField({
         value: new fields.NumberField({ initial: 1, min: 0, integer: true }),
         max:   new fields.NumberField({ initial: 1, min: 0, integer: true }),
+      }),
+      ownerActorRef: new fields.SchemaField({
+        uuid: new fields.StringField({ initial: "" }),
+        name: new fields.StringField({ initial: "" }),
       }),
     };
   }
