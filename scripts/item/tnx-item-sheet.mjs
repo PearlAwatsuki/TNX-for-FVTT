@@ -1,6 +1,7 @@
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 import { TnxUsageSheet, USAGE_TYPES } from "../module/tnx-usage-sheet.mjs";
 import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan, resolveBunshinOwner } from "../module/usage-consumption.mjs";
+import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -188,7 +189,13 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         const isFixedCheck = this.item.type === "generalSkill" && this.item.parent?.type === "extra";
         let type = "check";
         if (!isFixedCheck) {
-            const choice = await TokyoNovaItemSheet._promptUsageType();
+            // 「NPC取得」を作成できるのはトループ取得技能(unique="troopAcquire")と
+            // アウトフィット系のみ(11-6・Troops.md「NPC取得」。式神符のような起動取得型を含む)
+            const allowNpcAcquire = (this.item.type === "styleSkill" && this.item.system.unique === "troopAcquire")
+                || OUTFIT_ITEM_TYPES.includes(this.item.type);
+            const choices = { ...USAGE_TYPES };
+            if (!allowNpcAcquire) delete choices.npcAcquire;
+            const choice = await TokyoNovaItemSheet._promptUsageType(choices);
             if (!choice) return;
             type = choice;
         }
@@ -209,9 +216,13 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             formula:     "",
             damageCategory: "",
             modifiableParams: [],
-            // 消費先設定(11-6): check 用途は「親アイテムの使用回数×1」を既定にする(migrateData の
-            // 互換既定と同一。親に isLimit が無ければ no-op)。他タイプは空=消費なしから設定する
-            consumeTargets: type === "check" ? [{ type: "parent", itemId: "", amount: 1 }] : [],
+            // 消費先設定(11-6): check / npcAcquire 用途は「親アイテムの使用回数×1」を既定にする
+            // (migrateData の互換既定と同一。親に isLimit が無ければ no-op)。他タイプは空から設定する
+            consumeTargets: (type === "check" || type === "npcAcquire")
+                ? [{ type: "parent", itemId: "", amount: 1 }] : [],
+            // NPC取得の既定モード: トループ取得技能=トループ / アウトフィット(式神符等)=エキストラ
+            ...(type === "npcAcquire"
+                ? { acquireMode: this.item.type === "styleSkill" ? "troop" : "extra" } : {}),
             ...(isFixedCheck ? { fixedResult: 10 } : {}),
         });
         await this.item.update({ "system.actions": actions });
@@ -283,8 +294,8 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
     // ─── 種別選択ダイアログ ────────────────────────────────────────────────────
 
     /** 用途タイプを選択させる DialogV2。選択されたキーを返す。 */
-    static async _promptUsageType() {
-        const options = Object.entries(USAGE_TYPES)
+    static async _promptUsageType(choices = USAGE_TYPES) {
+        const options = Object.entries(choices)
             .map(([value, label]) => `<option value="${value}">${label}</option>`)
             .join("");
 

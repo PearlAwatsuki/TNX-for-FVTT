@@ -48,6 +48,20 @@
             {{else}}
             <div class="usage-form-grid">
 
+                {{#if isNpcAcquireType}}
+                {{!-- NPC取得のモード(取得類型・明示選択=2026-07-04 裁定)。判定・目標値はモードで決まる:
+                     エキストラ=判定なし / トループ・エニグマ=判定(目標値なし・達成値=人数/ポイント) /
+                     分身=判定(目標値10・達成値10以上で成功) --}}
+                <div class="usage-form-row">
+                    <label class="usage-field-label">取得類型 <i class="fas fa-circle-question" title="エキストラ=判定なしでアウトフィットを取得し場に出します。トループ/エニグマ=判定の達成値が人数/エニグマポイントになります。分身=目標値10の判定で、成功すると呼び出せます"></i></label>
+                    <select name="acquireMode" {{#unless editable}}disabled{{/unless}}>
+                        {{#each acquireModeOptions}}
+                        <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                        {{/each}}
+                    </select>
+                </div>
+                {{/if}}
+
                 {{!-- タイミング --}}
                 <div class="usage-form-row">
                     <label class="usage-field-label">タイミング</label>
@@ -112,7 +126,8 @@
                            {{#unless editable}}disabled{{/unless}}>
                 </div>
 
-                {{!-- 目標値 --}}
+                {{!-- 目標値(NPC取得はモードで確定するため入力欄を出さない) --}}
+                {{#unless isNpcAcquireType}}
                 <div class="usage-form-row">
                     <label class="usage-field-label">目標値</label>
                     <select name="targetValue" {{#unless editable}}disabled{{/unless}}>
@@ -133,6 +148,12 @@
                     <input type="text" name="targetValueOther" value="{{usage.targetValueOther}}"
                            {{#unless editable}}disabled{{/unless}}>
                 </div>
+                {{else}}
+                <div class="usage-form-row">
+                    <label class="usage-field-label">目標値</label>
+                    <span class="usage-info-line">{{#if isAcquireExtraMode}}なし（判定を行いません）{{else if (eq usage.acquireMode "bunshin")}}10 固定（達成値10以上で呼び出し成功）{{else}}なし（達成値がそのまま人数/エニグマポイント）{{/if}}</span>
+                </div>
+                {{/unless}}
 
                 {{!-- 対決不可（インライントグル） --}}
                 <div class="usage-form-row usage-toggle-row">
@@ -144,6 +165,33 @@
                 </div>
 
             </div>
+
+            {{!-- NPC取得(エキストラモード): 取得アイテム(小分類エキストラのアウトフィット)の
+                 ドロップ欄(フェーズ10 の取得対象欄と同方式)。使用時に派生取得+場に出る --}}
+            {{#if isAcquireExtraMode}}
+            <div class="usage-form-section usage-acquire-section">
+                <label class="usage-field-label">取得するエキストラ <i class="fas fa-circle-question" title="使用すると、ここに設定した小分類「エキストラ」のアウトフィットを派生データとして取得し、そのエキストラアクターを場に出します（アウトフィット側の「エキストラアクター」参照が場に出る対象です）"></i></label>
+                <div class="usage-skill-ref-list">
+                    {{#each acquireItemRows as |row|}}
+                    <div class="usage-skill-ref-row">
+                        <span class="usage-skill-ref-name{{#if row.missing}} usage-ref-missing{{/if}}">{{row.name}}</span>
+                        {{#if @root.editable}}
+                        <a class="tnx-row-btn tnx-row-btn--delete" data-action="acquireRefDelete" data-index="{{row.idx}}" title="削除"><i class="fas fa-trash"></i></a>
+                        {{/if}}
+                    </div>
+                    {{/each}}
+                </div>
+                {{#if editable}}
+                <div class="usage-acquire-dropzone">
+                    <i class="fas fa-download"></i> ここに小分類「エキストラ」のアウトフィットをドロップ
+                </div>
+                {{else}}
+                {{#unless acquireItemRows.length}}
+                <p class="usage-empty-hint">（取得対象なし）</p>
+                {{/unless}}
+                {{/if}}
+            </div>
+            {{/if}}
 
             {{!-- 使用回数の消費(11-6): 全ての消費はこの設定からのみ発生する(自動スキャン全廃・
                  親アイテム・組み合わせ技能も自動では消費されない)。D&D の Consumption 踏襲 --}}
@@ -215,8 +263,8 @@
         {{#unless isFixedCheck}}
         <div class="tab" data-group="primary" data-tab="effects">
 
-            {{!-- check: ベース技能・組み合わせ技能 --}}
-            {{#if isCheckType}}
+            {{!-- check・NPC取得(判定系モード): ベース技能・組み合わせ技能 --}}
+            {{#if (or isCheckType isAcquireCheckMode)}}
             {{> "systems/tokyo-nova-axleration/templates/app/usage-sheet-combo.hbs"}}
             {{/if}}
 

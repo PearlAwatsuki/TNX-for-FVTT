@@ -7016,6 +7016,25 @@ button.tnx-create-act-button span {
     width: 92px;
 }
 
+/* ── 用途シート: NPC取得の取得アイテム欄(11-6) ── */
+.usage-acquire-section {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--tnx2-border-subtle);
+}
+.usage-acquire-dropzone {
+    margin-top: 4px;
+    padding: 10px;
+    border: 1px dashed var(--tnx2-border-subtle);
+    border-radius: 4px;
+    text-align: center;
+    font-size: 0.82em;
+    color: var(--tnx2-text-muted);
+}
+.usage-ref-missing {
+    color: #f28b82;
+}
+
 /* ── スキル参照リスト ── */
 .usage-skill-ref-list {
     display: flex;

@@ -27,6 +27,20 @@ export const USAGE_TYPES = Object.freeze({
     damageBoost:  "ダメージ増加",
     damageReduce: "ダメージ軽減",
     modification: "改造",
+    npcAcquire:   "NPC取得",
+});
+
+/**
+ * NPC取得のモード(取得類型・フェーズ11-6・Troops.md「NPC取得」)。
+ * 参照先の種類からの導出はしない=モードは明示選択(2026-07-04 ユーザー裁定)。
+ * extra=判定なしで派生取得+場に出す / troop・enigma=判定して達成値=人数・ポイント /
+ * bunshin=判定・目標値10(達成値10以上で成功)
+ */
+export const ACQUIRE_MODES = Object.freeze({
+    extra:   "エキストラ",
+    troop:   "トループ",
+    enigma:  "エニグマ",
+    bunshin: "分身",
 });
 
 // ─── 発動パラメータ優先度（自動入力で使用） ───────────────────────────────────
@@ -130,6 +144,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             consumeRowDelete:      TnxUsageSheet._onConsumeRowDelete,
             incrementConsumeAmount: TnxUsageSheet._onConsumeAmountInc,
             decrementConsumeAmount: TnxUsageSheet._onConsumeAmountDec,
+            acquireRefDelete:      TnxUsageSheet._onAcquireRefDelete,
         },
     };
 
@@ -188,8 +203,27 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         context.isAttackType       = usage.type === "attack";
         context.isDamageType       = usage.type === "damageBoost" || usage.type === "damageReduce";
         context.isModificationType = usage.type === "modification";
+
+        // NPC取得(11-6・Troops.md): モードは明示選択。エキストラモードは判定なし(取得アイテムの
+        // ドロップ欄)、トループ/エニグマ/分身モードは通常判定(参加技能=check と同じ扱い。
+        // 目標値はモードで決まるため入力欄を出さない: トループ/エニグマ=なし・分身=10固定)
+        context.isNpcAcquireType = usage.type === "npcAcquire";
+        context.isAcquireExtraMode = false;
+        if (context.isNpcAcquireType) {
+            const mode = usage.acquireMode || "extra";
+            context.isAcquireExtraMode = mode === "extra";
+            context.acquireModeOptions = Object.entries(ACQUIRE_MODES)
+                .map(([value, label]) => ({ value, label, selected: value === mode }));
+            // 取得アイテム参照(エキストラモード)は fromUuid でライブ解決(削除済みは name フォールバック)
+            context.acquireItemRows = await Promise.all((usage.acquireItemRefs ?? []).map(async (r, idx) => {
+                const doc = r.uuid ? await fromUuid(r.uuid).catch(() => null) : null;
+                return { idx, uuid: r.uuid, name: doc?.name ?? (r.name ? `${r.name}（削除済み）` : "(不明)"), missing: !doc };
+            }));
+        }
+        context.isAcquireCheckMode = context.isNpcAcquireType && !context.isAcquireExtraMode;
+
         // 技能ベースの用途（コンボ・対決表示・自動入力の対象）
-        context.showSkillParams    = context.isCheckType || context.isAttackType;
+        context.showSkillParams    = context.isCheckType || context.isAttackType || context.isAcquireCheckMode;
 
         // ベース技能・組み合わせ技能候補（check / attack）
         if (context.showSkillParams) {
@@ -404,8 +438,38 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             }
         }
 
+        // NPC取得(エキストラモード): 取得アイテムのドロップ欄(フェーズ10 の取得アクター欄と同方式)。
+        // 小分類「エキストラ」のアウトフィットのみ受け付ける(Troops.md「エキストラの二重表現」)
+        if (context.editable) {
+            const zone = this.element.querySelector(".usage-acquire-dropzone");
+            if (zone) {
+                zone.addEventListener("dragover", (ev) => ev.preventDefault());
+                zone.addEventListener("drop", (ev) => this._onAcquireDrop(ev));
+            }
+        }
+
         // 技能チェーンの既定ベース設定・必須コンボの自動付与(冪等。変更があるときだけ update→再レンダリングで収束)
         if (context.editable) this._enforceComboRequirements();
+    }
+
+    /** NPC取得(エキストラモード)の取得アイテムドロップ: 小分類「エキストラ」のアウトフィットのみ */
+    async _onAcquireDrop(event) {
+        event.preventDefault();
+        let data;
+        try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch { return; }
+        if (!data?.uuid) return;
+        const doc = await fromUuid(data.uuid).catch(() => null);
+        if (!doc || doc.documentName !== "Item" || doc.system?.minorCategory !== "extra") {
+            ui.notifications?.warn("ここには小分類「エキストラ」のアウトフィットをドロップしてください。");
+            return;
+        }
+        const usage = this.usage;
+        if (!usage) return;
+        const refs = [...(usage.acquireItemRefs ?? [])];
+        if (refs.some(r => r.uuid === doc.uuid)) return; // 重複追加しない
+        refs.push({ uuid: doc.uuid, name: doc.name });
+        await this._patchUsage({ acquireItemRefs: refs });
+        this.render({ force: true });
     }
 
     /** 制御 select が指す状態に合わない条件付きサブ入力の DOM 値をリセットする */
@@ -508,8 +572,13 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         if (update["timing.value"] !== "process") update["timing.processName"] = "blank";
         if (update["timing.value"] !== "other")   update["timing.timingOther"] = "";
 
-        // check・attack: ベース技能（アクション技能は常に自身に固定）
-        if (usage.type === "check" || usage.type === "attack") {
+        // npcAcquire: モード(明示選択)。エキストラモード以外は判定系(ベース技能を持つ)
+        if (usage.type === "npcAcquire") {
+            update.acquireMode = raw["acquireMode"] ?? usage.acquireMode ?? "extra";
+        }
+
+        // check・attack・npcAcquire(判定系): ベース技能（アクション技能は常に自身に固定）
+        if (usage.type === "check" || usage.type === "attack" || usage.type === "npcAcquire") {
             update["baseSkillRef.itemId"] = this._item.system.isAction === true
                 ? this._item.id
                 : (raw["baseSkillRef.itemId"] ?? usage.baseSkillRef?.itemId ?? "");
@@ -529,7 +598,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
         // ベース変更の検知(取り消し用に変更前のベースを保持)
         const prevBaseRef = usage.baseSkillRef?.itemId ?? "";
-        const baseChanged = (usage.type === "check" || usage.type === "attack")
+        const baseChanged = (usage.type === "check" || usage.type === "attack" || usage.type === "npcAcquire")
             && this._item.system.isAction !== true
             && (update["baseSkillRef.itemId"] ?? prevBaseRef) !== prevBaseRef;
 
@@ -635,6 +704,16 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         const rows = foundry.utils.deepClone(usage.consumeTargets);
         rows[idx].amount = Math.max(1, (rows[idx].amount ?? 1) + delta);
         await this._patchUsage({ consumeTargets: rows });
+        this.render({ force: true });
+    }
+
+    // ─── NPC取得: 取得アイテム参照(11-6) ───────────────────────────────────────
+
+    static async _onAcquireRefDelete(_event, target) {
+        const idx = Number(target.dataset.index);
+        const usage = this.usage;
+        if (!usage) return;
+        await this._patchUsage({ acquireItemRefs: (usage.acquireItemRefs ?? []).filter((_, i) => i !== idx) });
         this.render({ force: true });
     }
 
