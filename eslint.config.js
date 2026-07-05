@@ -46,6 +46,8 @@ export default [
         // Foundry のグローバル関数・クラス
         fromUuid: "readonly",
         fromUuidSync: "readonly",
+        loadTexture: "readonly",
+        PIXI: "readonly",
         ContextMenu: "readonly",
         FormDataExtended: "readonly",
         JournalEntry: "readonly",

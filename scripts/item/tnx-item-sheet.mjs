@@ -2,6 +2,7 @@ import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 import { TnxUsageSheet, USAGE_TYPES } from "../module/tnx-usage-sheet.mjs";
 import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan, resolveBunshinOwner } from "../module/usage-consumption.mjs";
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
+import { useNpcAcquire } from "../module/npc-acquisition.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -260,6 +261,13 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         if (!usageId) return;
         const usage = (this.item.system.actions ?? []).find(a => a._id === usageId);
         if (!usage) return;
+
+        // NPC取得(11-6): 専用フローに委譲(消費・対象解決・判定・転記・配置を一貫して扱う。
+        // 効果有効化は行わない=取得に特化)
+        if (usage.type === "npcAcquire") {
+            await useNpcAcquire(this.item, usage);
+            return;
+        }
 
         const actor = this.item.actor;
         if (usage.type !== "check" && actor) {

@@ -605,6 +605,13 @@ export class TnxCheckFlow {
             TnxSocketHandler.emitCheckResult(ctx.requestMessageId, ctx.actorId, result);
         }
 
+        // NPC取得(11-6): 取得判定の完了継続(heads/sourceName 転記・トークン配置)。
+        // npc-acquisition は本フロー(TnxCheckFlow.open)を import するため動的 import で循環を避ける
+        if (ctx.npcAcquire) {
+            const { completeAcquisitionFromCheck } = await import("./npc-acquisition.mjs");
+            await completeAcquisitionFromCheck(ctx.npcAcquire, result);
+        }
+
         return true;
     }
 
