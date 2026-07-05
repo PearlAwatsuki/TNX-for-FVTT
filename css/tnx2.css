@@ -379,14 +379,18 @@
 .tokyo-nova .number-input-spinner button[data-action="decrement"],
 .tokyo-nova .number-input-spinner button[data-action="decrementLevel"],
 .tokyo-nova .number-input-spinner button[data-action="decrementMaxLevel"],
-.tokyo-nova .number-input-spinner button[data-action="decrementTargetValue"] {
+.tokyo-nova .number-input-spinner button[data-action="decrementTargetValue"],
+.tokyo-nova .number-input-spinner button[data-action="decrementFixedResult"],
+.tokyo-nova .number-input-spinner button[data-action="decrementConsumeAmount"] {
     border-top-right-radius: 0;
     border-bottom-right-radius: 0;
 }
 .tokyo-nova .number-input-spinner button[data-action="increment"],
 .tokyo-nova .number-input-spinner button[data-action="incrementLevel"],
 .tokyo-nova .number-input-spinner button[data-action="incrementMaxLevel"],
-.tokyo-nova .number-input-spinner button[data-action="incrementTargetValue"] {
+.tokyo-nova .number-input-spinner button[data-action="incrementTargetValue"],
+.tokyo-nova .number-input-spinner button[data-action="incrementFixedResult"],
+.tokyo-nova .number-input-spinner button[data-action="incrementConsumeAmount"] {
     border-top-left-radius: 0;
     border-bottom-left-radius: 0;
 }
@@ -7011,9 +7015,25 @@ button.tnx-create-act-button span {
     flex: 1 1 auto;
     min-width: 0;
 }
+/* 消費量スピナー: 幅で押し込まず、部位エディタのコンパクト寸法(42px入力+24pxボタン)を踏襲する。
+   通常寸法(60+35×2=130px)のまま幅だけ絞ると固定幅の子がはみ出して隣の UI に重なるため */
 .usage-consume-amount {
     flex: 0 0 auto;
-    width: 92px;
+}
+.tnx-usage-sheet .usage-consume-row .number-input-spinner input[type="number"] {
+    flex: 0 0 42px;
+    width: 42px;
+    height: 26px;
+    font-size: 0.9em;
+    padding: 0 2px;
+}
+.tnx-usage-sheet .usage-consume-row .number-input-spinner .tnx-btn {
+    flex: 0 0 24px;
+    width: 24px;
+    min-width: 24px;
+    height: 26px;
+    padding: 0;
+    font-size: 1.1em;
 }
 
 /* ── 用途シート: NPC取得の取得アイテム欄(11-6) ── */
