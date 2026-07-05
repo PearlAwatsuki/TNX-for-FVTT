@@ -1187,6 +1187,20 @@ Hooks.once("ready", async function() {
     });
     Hooks.on("deleteActor", (actor) => recalcTroopOwnerExp(actor));
 
+    // トループ級シートの「所有者経験点」表示は描画時に所有者キャストの exp を読むだけのため、
+    // キャスト側の exp 変動では自動再描画されない。開いている該当トループ級シートを明示的に
+    // 再描画して表示を同期する(11-6)
+    Hooks.on("updateActor", (actor, changes) => {
+        if (actor.type !== "cast" || !foundry.utils.hasProperty(changes, "system.exp")) return;
+        for (const app of foundry.applications.instances.values()) {
+            const doc = app.document;
+            if (doc?.documentName === "Actor" && doc.type === "troop"
+                && (doc.system.ownerActorRef?.uuid ?? "") === actor.uuid) {
+                app.render();
+            }
+        }
+    });
+
     // 判定要求チャットカード: 目標値の可視性制御 + 「判定する」ボタン / 結果注入（フェーズ 8-5）
     Hooks.on("renderChatMessageHTML", (message, html) => {
         const flagData = message.getFlag("tokyo-nova-axleration", "checkRequest");
