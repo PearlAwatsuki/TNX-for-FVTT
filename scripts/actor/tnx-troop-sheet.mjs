@@ -67,12 +67,18 @@ export class TokyoNovaTroopSheet extends TnxCharacterSheetBase {
         // 所有者(取得元)アクター(11-6): 名前はライブ解決(削除済みは name フォールバック=ライブ解決原則)
         const ownerRef = this.actor.system.ownerActorRef ?? {};
         let ownerName = "";
+        let ownerDoc = null;
         if (ownerRef.uuid) {
-            let doc = null;
-            try { doc = fromUuidSync(ownerRef.uuid); } catch { doc = null; }
-            ownerName = doc?.name ?? (ownerRef.name ? `${ownerRef.name}（削除済み）` : "");
+            try { ownerDoc = fromUuidSync(ownerRef.uuid); } catch { ownerDoc = null; }
+            ownerName = ownerDoc?.name ?? (ownerRef.name ? `${ownerRef.name}（削除済み）` : "");
         }
         context.ownerActorName = ownerName;
+        // 取得元キャストの経験点表示(2026-07-04 ユーザー指示・トループ/エニグマのみ。分身には出さない。
+        // 消費可能な残量を所有側シートで確認できるように。出所はキャストの exp.value=User flag 同期値)
+        context.ownerExpValue = (this.actor.system.troopMode !== "bunshin" && ownerDoc?.type === "cast")
+            ? (ownerDoc.system.exp?.value ?? null)
+            : null;
+        context.showOwnerExp = Number.isFinite(context.ownerExpValue);
         return context;
     }
 

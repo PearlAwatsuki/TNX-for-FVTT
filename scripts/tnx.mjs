@@ -1146,11 +1146,46 @@ Hooks.once("ready", async function() {
         }
     }
 
+    // 所有トループ級の消費は取得元キャストに計上される(11-6・Troops.md)ため、
+    // トループ側のアイテム変動でも所有者キャストの EXP を再計算する(分身は計上対象外)
+    const recalcTroopOwnerExp = (troop) => {
+        if (troop?.type !== "troop" || troop.system?.troopMode === "bunshin") return;
+        const uuid = troop.system?.ownerActorRef?.uuid ?? "";
+        if (!uuid) return;
+        let owner = null;
+        try { owner = fromUuidSync(uuid); } catch { owner = null; }
+        if (owner?.type === "cast") TokyoNovaCastSheet.updateCastExp(owner);
+    };
+
     const recalcActorExp = (item) => {
-        if (item.parent && item.parent.type === 'cast') {
+        if (!item.parent) return;
+        if (item.parent.type === 'cast') {
             TokyoNovaCastSheet.updateCastExp(item.parent);
+        } else if (item.parent.type === 'troop') {
+            recalcTroopOwnerExp(item.parent);
         }
     };
+
+    // 所有者参照・種別の変更で計上先が移動するため、旧所有者を preUpdate で捕捉して双方を再計算する。
+    // トループ削除時も所有者の消費が減るため再計算する
+    Hooks.on("preUpdateActor", (actor, changes, options) => {
+        if (actor.type !== "troop") return;
+        if (foundry.utils.hasProperty(changes, "system.ownerActorRef")
+            || foundry.utils.hasProperty(changes, "system.troopMode")) {
+            options.tnxPrevTroopOwnerUuid = actor.system.ownerActorRef?.uuid ?? "";
+        }
+    });
+    Hooks.on("updateActor", (actor, changes, options) => {
+        if (actor.type !== "troop" || options.tnxPrevTroopOwnerUuid === undefined) return;
+        const uuids = new Set([options.tnxPrevTroopOwnerUuid, actor.system.ownerActorRef?.uuid ?? ""]);
+        for (const uuid of uuids) {
+            if (!uuid) continue;
+            let owner = null;
+            try { owner = fromUuidSync(uuid); } catch { owner = null; }
+            if (owner?.type === "cast") TokyoNovaCastSheet.updateCastExp(owner);
+        }
+    });
+    Hooks.on("deleteActor", (actor) => recalcTroopOwnerExp(actor));
 
     // 判定要求チャットカード: 目標値の可視性制御 + 「判定する」ボタン / 結果注入（フェーズ 8-5）
     Hooks.on("renderChatMessageHTML", (message, html) => {

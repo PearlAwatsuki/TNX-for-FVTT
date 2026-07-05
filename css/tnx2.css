@@ -7090,6 +7090,12 @@ button.tnx-create-act-button span {
     color: var(--tnx2-text-muted);
 }
 
+/* キャスト経験点内訳: 所有トループ級の小計行(11-6) */
+.exp-troop-subtotal {
+    font-size: 0.82em;
+    color: var(--tnx2-text-muted);
+}
+
 /* ── スキル参照リスト ── */
 .usage-skill-ref-list {
     display: flex;

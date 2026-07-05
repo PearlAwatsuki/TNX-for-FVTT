@@ -138,6 +138,13 @@
                                 <input type="number" name="system.exp.additional" value="{{system.exp.additional}}" class="exp-input">
                             </div>
                         </div>
+                        {{!-- 所有トループ級の消費小計(11-6): 消費経験点に算入済みの内訳表示 --}}
+                        {{#if ownedTroopExp}}
+                        <div class="exp-troop-subtotal" title="所有するトループ級キャラクター（トループ/エニグマ）の技能・アウトフィット取得分（消費経験点に含まれています）">
+                            <span>うち所有トループ級：</span>
+                            <span class="exp-value">{{ownedTroopExp}}</span>
+                        </div>
+                        {{/if}}
                     </div>
                     {{/if}}
                 </div>

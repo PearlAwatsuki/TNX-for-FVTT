@@ -40,6 +40,8 @@ export class TokyoNovaCastSheet extends TnxCharacterSheetBase {
     async _prepareContext(options) {
         const context = await super._prepareContext(options);
         context.history = TnxHistoryMixin._prepareHistoryForDisplay(this.actor.system.history);
+        // 所有トループ級の消費小計(11-6): 経験点内訳の表示用(算入自体は updateCastExp)
+        context.ownedTroopExp = await TokyoNovaCastSheet._sumOwnedTroopsCost(this.actor);
         return context;
     }
 
@@ -154,22 +156,14 @@ export class TokyoNovaCastSheet extends TnxCharacterSheetBase {
             totalAbilityCost += this._calcSingleAbilityCost(abilityData.controlGrowth, baseCtrl, true);
         }
 
-        let totalItemCost = 0;
-        for (const item of actor.items) {
-            let cost = this._calcSingleItemCost(item);
-            // 住宅施設は常備化経験点に住宅エリアの修正(preserveExpMod)を加味する(実効値=基本+エリア修正、0未満は0)。
-            // _calcSingleItemCost が計上する条件(購入判定でない/派生でない/preserveExp=value)のときだけ加味。
-            if (item.type === "residence"
-                    && !item.system.isCheckAcquired
-                    && !item.system.isDerivedData
-                    && item.system.preserveExp?.mode === "value") {
-                const mods = await this._resolveHousingAreaMods(item.system);
-                if (mods) cost = Math.max(0, cost + (Number(mods.preserveExpMod) || 0));
-            }
-            totalItemCost += cost;
-        }
+        const totalItemCost = await this._sumActorItemsCost(actor);
 
-        const realSpent  = totalAbilityCost + totalItemCost;
+        // 所有トループ級の合算(11-6・Troops.md「所有トループの経験点」): トループ級キャラクターの
+        // 消費経験点は**取得元キャストの消費経験点として計上**する(所有者参照が計上の前提。
+        // User でなくアクター経由=2026-07-04 確定)。分身は対象外
+        const ownedTroopCost = await this._sumOwnedTroopsCost(actor);
+
+        const realSpent  = totalAbilityCost + totalItemCost + ownedTroopCost;
         const initialExp = 170;
         const additional = Number(actor.system.exp?.additional);
 
@@ -195,6 +189,45 @@ export class TokyoNovaCastSheet extends TnxCharacterSheetBase {
                 "system.exp.value":  newValue
             }, { calcExp: false });
         }
+    }
+
+    /**
+     * アクターの所持アイテムの経験点コスト合計(住宅エリア修正込み)。
+     * キャスト本体と所有トループ級(11-6)で共用する。
+     */
+    static async _sumActorItemsCost(actor) {
+        let total = 0;
+        for (const item of actor.items) {
+            let cost = this._calcSingleItemCost(item);
+            // 住宅施設は常備化経験点に住宅エリアの修正(preserveExpMod)を加味する(実効値=基本+エリア修正、0未満は0)。
+            // _calcSingleItemCost が計上する条件(購入判定でない/派生でない/preserveExp=value)のときだけ加味。
+            if (item.type === "residence"
+                    && !item.system.isCheckAcquired
+                    && !item.system.isDerivedData
+                    && item.system.preserveExp?.mode === "value") {
+                const mods = await this._resolveHousingAreaMods(item.system);
+                if (mods) cost = Math.max(0, cost + (Number(mods.preserveExpMod) || 0));
+            }
+            total += cost;
+        }
+        return total;
+    }
+
+    /**
+     * 所有トループ級(トループ/エニグマ)の消費経験点合計(11-6・Troops.md「所有トループの経験点」)。
+     * 対象=スタイル技能の取得と成長・アウトフィットの取得・一般技能の成長(初期習得=Lv1 は既存規約で無償)。
+     * トループレベルは取得技能側で計上済みのため対象外。**分身は計上しない**(本体データのコピーのため)。
+     * 能力値成長のコストは無い(トループは能力値を成長させられない=スタイル基本値+レベルで決定)。
+     */
+    static async _sumOwnedTroopsCost(actor) {
+        let total = 0;
+        for (const troop of game.actors) {
+            if (troop.type !== "troop") continue;
+            if (troop.system.troopMode === "bunshin") continue;
+            if ((troop.system.ownerActorRef?.uuid ?? "") !== actor.uuid) continue;
+            total += await this._sumActorItemsCost(troop);
+        }
+        return total;
     }
 
     static _calcSingleAbilityCost(growth, base, isControl) {

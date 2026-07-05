@@ -108,6 +108,9 @@
                     <a class="troop-owner-clear" data-action="clearOwnerRef" title="所有者の関連付けを解除"><i class="fas fa-times"></i></a>
                     {{/if}}
                 </div>
+                {{#if showOwnerExp}}
+                <div class="troop-owner-view" title="取得元キャストの残り経験点（このキャラクターの技能・アウトフィット取得はここから消費されます）">所有者経験点: {{ownerExpValue}}</div>
+                {{/if}}
                 {{#if (eq system.troopMode "troop")}}
                 {{!-- ワークスを持つトループ(2026-07-03 確定)。所属組織を設定すると名前が
                      「組織名（スタイル名○レベル）」になる(組織未設定の間は通常のトループ名) --}}
@@ -156,6 +159,9 @@
                 {{/unless}}
                 {{#if ownerActorName}}
                 <div class="troop-owner-view" title="取得元（呼び出し元）のキャラクター">所有者: {{ownerActorName}}</div>
+                {{/if}}
+                {{#if showOwnerExp}}
+                <div class="troop-owner-view" title="取得元キャストの残り経験点（このキャラクターの技能・アウトフィット取得はここから消費されます）">所有者経験点: {{ownerExpValue}}</div>
                 {{/if}}
             {{/if}}
         </div>
