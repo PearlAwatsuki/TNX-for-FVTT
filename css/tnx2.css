@@ -7035,6 +7035,61 @@ button.tnx-create-act-button span {
     color: #f28b82;
 }
 
+/* ── トループ級: 所有者(取得元)欄(11-6) ── */
+.troop-owner-dropzone {
+    flex: 1;
+    min-width: 0;
+    padding: 2px 6px;
+    border: 1px dashed var(--tnx2-border-subtle);
+    border-radius: 3px;
+    font-size: 0.85em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.troop-owner-dropzone--empty {
+    color: var(--tnx2-text-muted);
+    text-align: center;
+}
+.troop-owner-clear {
+    flex: 0 0 auto;
+    color: var(--tnx2-text-muted);
+}
+.troop-owner-view {
+    margin-top: 4px;
+    font-size: 0.8em;
+    color: var(--tnx2-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── アウトフィット: エキストラアクター参照欄(11-6・小分類エキストラ) ── */
+.outfit-extra-actor {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    font-size: 0.85em;
+}
+.outfit-extra-actor__label {
+    flex: 0 0 auto;
+    color: var(--tnx2-text-secondary);
+}
+.extra-actor-dropzone {
+    flex: 0 1 auto;
+    min-width: 0;
+    padding: 1px 8px;
+    border: 1px dashed var(--tnx2-border-subtle);
+    border-radius: 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.extra-actor-dropzone--empty {
+    color: var(--tnx2-text-muted);
+}
+
 /* ── スキル参照リスト ── */
 .usage-skill-ref-list {
     display: flex;

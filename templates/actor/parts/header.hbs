@@ -62,14 +62,16 @@
                         </div>
                         {{/if}}
                         {{#if features.troopLevel}}
-                        {{!-- トループレベル(市民ランクの代替枠。能力値=スタイル基本値+トループレベル・Troops.md) --}}
+                        {{!-- トループレベル(市民ランクの代替枠。能力値=スタイル基本値+トループレベル・Troops.md)。
+                             エニグマでは呼称「エニグマレベル」(2026-07-04 確定・troopLevelLabel で切替)。
+                             値は取得技能のレベルがそのまま(NPC取得の起動時に転記・敵対トループは手入力) --}}
                         <div class="citizen-rank-block troop-level-block">
                             <div class="view-mode-rank">
-                                <span class="view-mode-label">トループレベル：</span>
+                                <span class="view-mode-label">{{troopLevelLabel}}：</span>
                                 <span class="view-mode-value">{{system.troopLevel}}</span>
                             </div>
                             <div class="edit-mode-rank">
-                                <label>トループレベル：</label>
+                                <label>{{troopLevelLabel}}：</label>
                                 <div class="number-input-spinner">
                                     <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.troopLevel" data-min="0">-</button>
                                     <input type="number" name="system.troopLevel" value="{{system.troopLevel}}" title="能力値はスタイルの基本値＋トループレベルで決定されます">

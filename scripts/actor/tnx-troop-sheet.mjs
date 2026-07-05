@@ -22,6 +22,9 @@ export class TokyoNovaTroopSheet extends TnxCharacterSheetBase {
     /** DEFAULT_OPTIONS は継承マージ(共通分は基底)。classes は配列のため上書き＝フル指定。 */
     static DEFAULT_OPTIONS = {
         classes: ["tokyo-nova", "sheet", "actor", "troop"],
+        actions: {
+            clearOwnerRef: TokyoNovaTroopSheet._onClearOwnerRef,
+        },
     };
 
     static PARTS = {
@@ -57,7 +60,50 @@ export class TokyoNovaTroopSheet extends TnxCharacterSheetBase {
         // トループ種別は名前が「(スタイル名)・トループ…」のためスタイル概要行は冗長＝出さない
         // (エニグマ=自由名・分身=「○○の分身」は名前にスタイルが含まれないため残す)
         context.showStyleSummary = this.actor.system.troopMode !== "troop";
+
+        // レベルの呼称: エニグマでは「エニグマレベル」(2026-07-04 確定・Troops.md)
+        context.troopLevelLabel = this.actor.system.troopMode === "enigma" ? "エニグマレベル" : "トループレベル";
+
+        // 所有者(取得元)アクター(11-6): 名前はライブ解決(削除済みは name フォールバック=ライブ解決原則)
+        const ownerRef = this.actor.system.ownerActorRef ?? {};
+        let ownerName = "";
+        if (ownerRef.uuid) {
+            let doc = null;
+            try { doc = fromUuidSync(ownerRef.uuid); } catch { doc = null; }
+            ownerName = doc?.name ?? (ownerRef.name ? `${ownerRef.name}（削除済み）` : "");
+        }
+        context.ownerActorName = ownerName;
         return context;
+    }
+
+    /** @override 所有者欄のドロップ受け(編集モードのみ) */
+    _onRender(context, options) {
+        super._onRender(context, options);
+        if (!this.isEditable) return;
+        const zone = this.element.querySelector(".troop-owner-dropzone");
+        if (zone) {
+            zone.addEventListener("dragover", (ev) => ev.preventDefault());
+            zone.addEventListener("drop", (ev) => this._onOwnerDrop(ev));
+        }
+    }
+
+    /** 所有者(取得元)のドロップ: キャスト/ゲストのアクターのみ受け付ける */
+    async _onOwnerDrop(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        let data;
+        try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch { return; }
+        if (!data?.uuid) return;
+        const doc = await fromUuid(data.uuid).catch(() => null);
+        if (!doc || doc.documentName !== "Actor" || !["cast", "guest"].includes(doc.type)) {
+            ui.notifications.warn("所有者にはキャストまたはゲストのアクターをドロップしてください。");
+            return;
+        }
+        await this.actor.update({ "system.ownerActorRef": { uuid: doc.uuid, name: doc.name } });
+    }
+
+    static async _onClearOwnerRef(_event, _target) {
+        await this.actor.update({ "system.ownerActorRef": { uuid: "", name: "" } });
     }
 
     /**

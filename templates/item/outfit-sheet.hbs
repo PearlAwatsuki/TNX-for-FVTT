@@ -45,6 +45,25 @@
                     <span class="outfit-area-badge" title="住宅エリア"><i class="fa-solid fa-city"></i> {{linkedArea.name}}</span>
                 {{/if}}
             </div>
+            {{#if isExtraOutfit}}
+            {{!-- エキストラの二重表現(11-6・Troops.md): このアウトフィットが場に出るときの
+                 共有エキストラアクター。NPC取得(エキストラモード)で取得と同時に場に出る --}}
+            <div class="outfit-extra-actor">
+                <span class="outfit-extra-actor__label" title="このアウトフィットを取得したとき場に出るエキストラアクター（共有・複製されません）。自分専用にしたい場合は新規のエキストラアクターを作成して付け替えてください">
+                    <i class="fas fa-user"></i> エキストラアクター:
+                </span>
+                {{#if isEditMode}}
+                <span class="extra-actor-dropzone{{#unless hasExtraActor}} extra-actor-dropzone--empty{{/unless}}" title="エキストラのアクターをドロップで設定">
+                    {{#if hasExtraActor}}{{extraActorName}}{{else}}アクターをドロップ{{/if}}
+                </span>
+                {{#if hasExtraActor}}
+                <a data-action="clearExtraActorRef" title="関連付けを解除"><i class="fas fa-times"></i></a>
+                {{/if}}
+                {{else}}
+                <span>{{#if hasExtraActor}}{{extraActorName}}{{else}}（未設定）{{/if}}</span>
+                {{/if}}
+            </div>
+            {{/if}}
         </div>
     </header>
 

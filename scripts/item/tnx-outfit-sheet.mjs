@@ -173,6 +173,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             viewCombineSource:   TokyoNovaOutfitSheet._onViewCombineSource,
             deactivateCombine:   TokyoNovaOutfitSheet._onDeactivateCombine,
             viewDerivedRef:      TokyoNovaOutfitSheet._onViewDerivedRef,
+            clearExtraActorRef:  TokyoNovaOutfitSheet._onClearExtraActorRef,
         },
     };
 
@@ -266,6 +267,28 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         }));
     }
 
+    /**
+     * エキストラアクターのドロップ(11-6): エキストラ型のアクターのみ受け付ける。
+     * 共有アクター前提(システムは複製しない。個人専用は新規アクターを作成して付け替える)。
+     */
+    async _onExtraActorDrop(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        let data;
+        try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch { return; }
+        if (!data?.uuid) return;
+        const doc = await fromUuid(data.uuid).catch(() => null);
+        if (!doc || doc.documentName !== "Actor" || doc.type !== "extra") {
+            ui.notifications.warn("ここにはエキストラのアクターをドロップしてください。");
+            return;
+        }
+        await this.item.update({ "system.extraActorRef": { uuid: doc.uuid, name: doc.name } });
+    }
+
+    static async _onClearExtraActorRef(_event, _target) {
+        await this.item.update({ "system.extraActorRef": { uuid: "", name: "" } });
+    }
+
     /** @override */
     async _prepareContext(options) {
         const context = await super._prepareContext(options);
@@ -281,6 +304,17 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         context.isResidence = type === "residence";
         context.isCombiner  = type === "combiner";
         context.hasSlots    = !!this.constructor.SLOT_PRESETS[type];
+
+        // エキストラの二重表現(11-6・Troops.md): 小分類「エキストラ」のみ、場に出るときの
+        // 共有エキストラアクターの参照欄を表示する(名前は fromUuid ライブ解決・削除時のみ name)
+        context.isExtraOutfit = type === "general" && system.minorCategory === "extra";
+        if (context.isExtraOutfit) {
+            const ref = system.extraActorRef ?? {};
+            const doc = ref.uuid ? await fromUuid(ref.uuid).catch(() => null) : null;
+            context.hasExtraActor = !!ref.uuid;
+            context.extraActorName = doc?.name ?? (ref.name ? `${ref.name}（削除済み）` : "");
+        }
+
         // フィールドの出し分け(複数型で共有する攻撃/防御)
         context.hasAttack  = ["weapon", "cyborg", "vehicle"].includes(type);
         context.hasGuard   = ["weapon", "cyborg"].includes(type);
@@ -736,6 +770,15 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
     /** @override */
     _onRender(context, options) {
         super._onRender(context, options);
+
+        // エキストラアクター参照(11-6): 小分類「エキストラ」のドロップ受け(編集モードのみ)
+        if (context.isExtraOutfit && context.editable) {
+            const zone = this.element.querySelector(".extra-actor-dropzone");
+            if (zone) {
+                zone.addEventListener("dragover", (ev) => ev.preventDefault());
+                zone.addEventListener("drop", (ev) => this._onExtraActorDrop(ev));
+            }
+        }
 
         // 閲覧モードでは部位エディタを読み取り専用にする(入力・スピナーを無効化。
         // 追加/削除ボタンは CSS で非表示)。設定タブは閲覧でも見えるため明示的に無効化する。
