@@ -6984,6 +6984,37 @@ button.tnx-create-act-button span {
     color: #f28b82;
     font-weight: 700;
 }
+.tnx-uses-consume .tnx-uses-problem {
+    font-size: 0.82em;
+    color: #f28b82;
+}
+
+/* ── 用途シート: 消費先設定(11-6・D&D Consumption 踏襲) ── */
+.usage-consume-section {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--tnx2-border-subtle);
+}
+.usage-consume-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+.usage-consume-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0;
+}
+.usage-consume-row select {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.usage-consume-amount {
+    flex: 0 0 auto;
+    width: 92px;
+}
 
 /* ── スキル参照リスト ── */
 .usage-skill-ref-list {

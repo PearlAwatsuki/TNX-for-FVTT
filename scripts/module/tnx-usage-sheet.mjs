@@ -126,6 +126,10 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             decrementTargetValue:  TnxUsageSheet._onTvDecrement,
             incrementFixedResult:  TnxUsageSheet._onFixedIncrement,
             decrementFixedResult:  TnxUsageSheet._onFixedDecrement,
+            consumeRowAdd:         TnxUsageSheet._onConsumeRowAdd,
+            consumeRowDelete:      TnxUsageSheet._onConsumeRowDelete,
+            incrementConsumeAmount: TnxUsageSheet._onConsumeAmountInc,
+            decrementConsumeAmount: TnxUsageSheet._onConsumeAmountDec,
         },
     };
 
@@ -290,6 +294,45 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             context.selectedWeaponName = this._item.actor?.items.get(usage.weaponRef?.itemId)?.name ?? "";
         }
 
+        // 消費先設定(11-6・全用途タイプ共通。固定値判定は消費 UI を出さない=エキストラは消費なし)。
+        // 全ての使用回数消費はこの設定からのみ発生する(自動スキャン全廃・D&D Consumption 踏襲)
+        if (!context.isFixedCheck) {
+            const actor = this._item.actor;
+            const CONSUME_TYPE_LABELS = {
+                parent:      "親アイテムの使用回数",
+                itemUses:    "アイテムの使用回数",
+                miracleUses: "神業の使用回数",
+            };
+            const usesOptions = (actor?.items ?? [])
+                .filter(i => i.system?.uses?.isLimit === true && i.id !== this._item.id)
+                .map(i => ({ id: i.id, name: i.name }))
+                .sort((a, b) => a.name.localeCompare(b.name, "ja"));
+            const miracleOptions = (actor?.items ?? [])
+                .filter(i => i.type === "miracle")
+                .map(i => ({ id: i.id, name: i.name }))
+                .sort((a, b) => a.name.localeCompare(b.name, "ja"));
+            context.consumeRows = (usage.consumeTargets ?? []).map((t, idx) => {
+                const type = t.type || "parent";
+                const options = type === "miracleUses" ? miracleOptions : usesOptions;
+                const known = options.some(o => o.id === t.itemId);
+                return {
+                    idx,
+                    type,
+                    isParent: type === "parent",
+                    amount: Math.max(1, t.amount ?? 1),
+                    itemId: t.itemId ?? "",
+                    typeOptions: Object.entries(CONSUME_TYPE_LABELS)
+                        .map(([value, label]) => ({ value, label, selected: value === type })),
+                    targetOptions: [
+                        ...options.map(o => ({ ...o, selected: o.id === t.itemId })),
+                        // 参照切れ(削除済み等)は選択状態を失わせず可視化する
+                        ...(!known && t.itemId ? [{ id: t.itemId, name: `(解決不能: ${t.itemId})`, selected: true }] : []),
+                    ],
+                };
+            });
+            context.hasConsumeActor = !!actor;
+        }
+
         // エフェクト: 用途使用時に適用する ActiveEffect の参照
         const addedIds = usage.effects.map(e => e.effectId).filter(Boolean);
         const addedSet = new Set(addedIds);
@@ -438,6 +481,24 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             update.fixedResult = Number.isFinite(raw["fixedResult"]) ? Math.max(0, raw["fixedResult"]) : 0;
         }
 
+        // 消費先設定(11-6): 行入力(consumeType-N / consumeItem-N / consumeAmount-N)から再構成する。
+        // 消費 UI が描画されているときのみ(固定値判定ビュー等では既存値を保持)
+        const consumeIdxs = Object.keys(raw)
+            .map(k => k.match(/^consumeType-(\d+)$/)?.[1])
+            .filter(v => v !== undefined)
+            .map(Number)
+            .sort((a, b) => a - b);
+        if (consumeIdxs.length || this.element?.querySelector(".usage-consume-section")) {
+            update.consumeTargets = consumeIdxs.map(i => {
+                const type = raw[`consumeType-${i}`] || "parent";
+                return {
+                    type,
+                    itemId: type === "parent" ? "" : (raw[`consumeItem-${i}`] ?? ""),
+                    amount: Math.max(1, Number(raw[`consumeAmount-${i}`]) || 1),
+                };
+            });
+        }
+
         // 発動タブ: 制御 select が別の選択肢に変わったら、対応しないサブ値を残骸として残さずリセットする
         if (update.target !== "other")            update.targetOther = "";
         if (update.range !== "other")             update.rangeOther = "";
@@ -545,6 +606,35 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         if (!usage) return;
         const next = Math.max(0, (usage.fixedResult ?? 0) + delta);
         await this._patchUsage({ fixedResult: next });
+        this.render({ force: true });
+    }
+
+    // ─── 消費先設定(11-6) ──────────────────────────────────────────────────────
+
+    static async _onConsumeRowAdd(_event, _target) {
+        const usage = this.usage;
+        if (!usage) return;
+        await this._patchUsage({ consumeTargets: [...(usage.consumeTargets ?? []), { type: "parent", itemId: "", amount: 1 }] });
+        this.render({ force: true });
+    }
+
+    static async _onConsumeRowDelete(_event, target) {
+        const idx = Number(target.dataset.rowIndex);
+        const usage = this.usage;
+        if (!usage) return;
+        await this._patchUsage({ consumeTargets: (usage.consumeTargets ?? []).filter((_, i) => i !== idx) });
+        this.render({ force: true });
+    }
+
+    static async _onConsumeAmountInc(_event, target) { await this._stepConsumeAmount(Number(target.dataset.rowIndex), 1); }
+    static async _onConsumeAmountDec(_event, target) { await this._stepConsumeAmount(Number(target.dataset.rowIndex), -1); }
+
+    async _stepConsumeAmount(idx, delta) {
+        const usage = this.usage;
+        if (!usage || !(usage.consumeTargets ?? [])[idx]) return;
+        const rows = foundry.utils.deepClone(usage.consumeTargets);
+        rows[idx].amount = Math.max(1, (rows[idx].amount ?? 1) + delta);
+        await this._patchUsage({ consumeTargets: rows });
         this.render({ force: true });
     }
 

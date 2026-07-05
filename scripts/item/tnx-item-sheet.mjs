@@ -1,5 +1,6 @@
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 import { TnxUsageSheet, USAGE_TYPES } from "../module/tnx-usage-sheet.mjs";
+import { resolveConsumeRows, promptConsumption, applyConsumptionPlan } from "../module/usage-consumption.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -202,6 +203,9 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             formula:     "",
             damageCategory: "",
             modifiableParams: [],
+            // 消費先設定(11-6): check 用途は「親アイテムの使用回数×1」を既定にする(migrateData の
+            // 互換既定と同一。親に isLimit が無ければ no-op)。他タイプは空=消費なしから設定する
+            consumeTargets: type === "check" ? [{ type: "parent", itemId: "", amount: 1 }] : [],
             ...(isFixedCheck ? { fixedResult: 10 } : {}),
         });
         await this.item.update({ "system.actions": actions });
@@ -231,12 +235,26 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
     /**
      * 用途使用（起動）: 用途が参照するアイテム上の ActiveEffect を有効化する（フェーズ9-3）。
      * 効果は削除でなく disabled=false に切り替える（転送効果と違い常駐し、終了は時間管理フェーズ）。
+     * 使用回数の消費(11-6): check 以外の用途タイプは「使用」時に消費先設定を適用する
+     * (check 用途は判定実行時に消費するためここでは消費しない)。キャンセルで使用ごと中止。
      */
     static async _onUsageUse(_event, target) {
         const usageId = target.dataset.usageId;
         if (!usageId) return;
         const usage = (this.item.system.actions ?? []).find(a => a._id === usageId);
         if (!usage) return;
+
+        const actor = this.item.actor;
+        if (usage.type !== "check" && actor) {
+            const rows = resolveConsumeRows(usage.consumeTargets, {
+                parentItem: this.item,
+                getItem: (id) => actor.items.get(id),
+            });
+            const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${usage.name || this.item.name}` });
+            if (plan === null) return;
+            await applyConsumptionPlan(plan);
+        }
+
         const ids = (usage.effects ?? []).map(e => e.effectId).filter(Boolean);
         const updates = [];
         for (const id of ids) {

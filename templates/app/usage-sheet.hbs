@@ -145,6 +145,45 @@
 
             </div>
 
+            {{!-- 使用回数の消費(11-6): 全ての消費はこの設定からのみ発生する(自動スキャン全廃・
+                 親アイテム・組み合わせ技能も自動では消費されない)。D&D の Consumption 踏襲 --}}
+            <div class="usage-form-section usage-consume-section">
+                <div class="usage-consume-header">
+                    <label class="usage-field-label">使用回数の消費 <i class="fas fa-circle-question" title="実行時に消費するカウンターの設定です。親アイテムや組み合わせ技能の使用回数は自動では消費されません——消費したい分をここに設定します（判定用途は判定実行時・他の用途は使用時に消費）"></i></label>
+                    {{#if editable}}
+                    <a class="tnx-row-btn" data-action="consumeRowAdd" title="消費先を追加"><i class="fas fa-plus"></i></a>
+                    {{/if}}
+                </div>
+                {{#each consumeRows as |row|}}
+                <div class="usage-consume-row">
+                    <select name="consumeType-{{row.idx}}" {{#unless @root.editable}}disabled{{/unless}}>
+                        {{#each row.typeOptions}}
+                        <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                        {{/each}}
+                    </select>
+                    {{#unless row.isParent}}
+                    <select name="consumeItem-{{row.idx}}" {{#unless @root.editable}}disabled{{/unless}}>
+                        <option value="">{{#if @root.hasConsumeActor}}── 対象 ──{{else}}(アクター所持時に選択可){{/if}}</option>
+                        {{#each row.targetOptions}}
+                        <option value="{{this.id}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
+                        {{/each}}
+                    </select>
+                    {{/unless}}
+                    <div class="number-input-spinner usage-consume-amount" title="消費量">
+                        <button type="button" data-action="decrementConsumeAmount" data-row-index="{{row.idx}}" class="tnx-btn" {{#unless @root.editable}}disabled{{/unless}}>-</button>
+                        <input type="number" name="consumeAmount-{{row.idx}}" value="{{row.amount}}" min="1" {{#unless @root.editable}}disabled{{/unless}}>
+                        <button type="button" data-action="incrementConsumeAmount" data-row-index="{{row.idx}}" class="tnx-btn" {{#unless @root.editable}}disabled{{/unless}}>+</button>
+                    </div>
+                    {{#if @root.editable}}
+                    <a class="tnx-row-btn tnx-row-btn--delete" data-action="consumeRowDelete" data-row-index="{{row.idx}}" title="削除"><i class="fas fa-trash"></i></a>
+                    {{/if}}
+                </div>
+                {{/each}}
+                {{#unless consumeRows.length}}
+                <p class="usage-empty-hint">（消費なし）</p>
+                {{/unless}}
+            </div>
+
             {{!-- 技能ベース用途のみ: 対決可能技能の情報表示 ＋ 自動入力 --}}
             {{#if showSkillParams}}
             <div class="usage-form-section usage-confrontation-info">
