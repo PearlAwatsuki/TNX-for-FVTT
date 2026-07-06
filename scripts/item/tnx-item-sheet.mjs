@@ -193,7 +193,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             // 「NPC取得」を作成できるのはトループ取得技能(unique="troopAcquire")と
             // アウトフィット系のみ(11-6・Troops.md「NPC取得」。式神符のような起動取得型を含む)
             const allowNpcAcquire = (this.item.type === "styleSkill" && this.item.system.unique === "troopAcquire")
-                || OUTFIT_ITEM_TYPES.includes(this.item.type);
+                || OUTFIT_ITEM_TYPES.has(this.item.type);
             const choices = { ...USAGE_TYPES };
             if (!allowNpcAcquire) delete choices.npcAcquire;
             const choice = await TokyoNovaItemSheet._promptUsageType(choices);
