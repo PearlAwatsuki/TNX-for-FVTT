@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
-const { resolveConsumeRows, buildConsumptionPlan, matchSharedItem } =
+const { resolveConsumeRows, buildConsumptionPlan, matchSharedItem, deriveConsumeTargets } =
   await import("../../scripts/module/usage-consumption.mjs");
 
 const skill = (id, { isLimit = true, max = 3, spent = 1, name = "技能" } = {}) => ({
@@ -105,6 +105,33 @@ describe("buildConsumptionPlan()（消費プランの構築）", () => {
     const shared = [{ kind: "uses", itemId: "a", amount: 1, remaining: 2, targetActorId: "honntai" }];
     const { plan } = buildConsumptionPlan(shared, new Set(["a"]), "bunshin");
     expect(plan[0].actorId).toBe("honntai");
+  });
+});
+
+describe("deriveConsumeTargets()（自動入力の消費行導出・11-6 追補）", () => {
+  it("親×1 ＋ isLimit つき参加技能(親以外)×1 を導出する", () => {
+    const skills = [
+      skill("parent1", { isLimit: true }),
+      skill("s1", { isLimit: true }),
+      skill("s2", { isLimit: false }),
+      skill("s3", { isLimit: true }),
+    ];
+    expect(deriveConsumeTargets("parent1", skills)).toEqual([
+      { type: "parent", itemId: "", amount: 1 },
+      { type: "itemUses", itemId: "s1", amount: 1 },
+      { type: "itemUses", itemId: "s3", amount: 1 },
+    ]);
+  });
+
+  it("参加技能に制限つきが無ければ親×1 のみ（既定と同一）", () => {
+    expect(deriveConsumeTargets("p", [skill("p"), skill("a", { isLimit: false })]))
+      .toEqual([{ type: "parent", itemId: "", amount: 1 }]);
+  });
+
+  it("親自身は itemUses 行にしない（parent 行が担う・二重消費防止）", () => {
+    const rows = deriveConsumeTargets("p", [skill("p", { isLimit: true })]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].type).toBe("parent");
   });
 });
 

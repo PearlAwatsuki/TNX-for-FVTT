@@ -15,6 +15,7 @@
 import { TnxSkillUtils } from "./tnx-skill-utils.mjs";
 import { getComboSuits } from "./tnx-check-engine.mjs";
 import { resolveUsageSkills, comboLockAnalysis, isComboRequired } from "./skill-chain-resolution.mjs";
+import { deriveConsumeTargets } from "./usage-consumption.mjs";
 
 const CHAIN_SKILL_TYPES = ["generalSkill", "styleSkill"];
 
@@ -110,6 +111,58 @@ function resolveTargetValue(entries) {
     }
     const typed = entries.find(e => e.targetValue && e.targetValue !== "blank" && e.targetValue !== "none");
     return typed ? { targetValue: typed.targetValue } : null;
+}
+
+/**
+ * 参加技能の固有値から発動パラメータと消費行を導出する(11-6 追補・2026-07-06 承認)。
+ * 用途作成時の一回適用と「参加技能から自動入力」ボタンの両方で使う。**ライブ追従はしない**
+ * (コンボ変更で設定を黙って書き換えない)。消費行は可視の入力補助であり、実行時の権威は
+ * consumeTargets のまま(導出規則=親×1+isLimit つき参加技能×1・deriveConsumeTargets)。
+ * @param {Item} item 用途を持つアイテム
+ * @param {object} usage 用途エントリ(平データで可)
+ * @returns {object} _patchUsage 形式のパッチ(ドットパスキーを含む)
+ */
+export function deriveUsageAutoFill(item, usage) {
+    const actor = item.actor;
+    const baseId = item.system.isAction === true ? item.id : (usage.baseSkillRef?.itemId || item.id);
+    const ids = new Set([item.id, baseId, ...(usage.skillRefs ?? []).map(r => r.itemId)].filter(Boolean));
+    const skills = [...ids].map(id => (id === item.id ? item : actor?.items.get(id))).filter(Boolean);
+
+    const patch = {};
+    const t = resolveTarget(skills.map(s => ({ target: s.system.target, isFixed: !!s.system.isFixedTarget })));
+    if (t) { patch.target = t.target; patch.isFixedTarget = t.isFixed; }
+
+    const r = resolveRange(skills.map(s => ({ range: s.system.range, isFixed: !!s.system.isFixedRange })));
+    if (r) { patch.range = r.range; patch.isFixedRange = r.isFixed; }
+
+    // 目標値: NPC取得はモードで確定する(トループ/エニグマ=なし・分身=10固定)ため導出しない
+    if (usage.type !== "npcAcquire") {
+        const tv = resolveTargetValue(skills.map(s => ({ targetValue: s.system.targetValue, number: s.system.targetValueNumber })));
+        if (tv) {
+            patch.targetValue = tv.targetValue;
+            if (tv.targetValueNumber !== undefined) patch.targetValueNumber = tv.targetValueNumber;
+        }
+    }
+
+    // タイミング: ベース技能の最初の非 blank timing を採用（best-effort）
+    const baseSkill = skills.find(s => s.id === baseId) ?? item;
+    const bt = (baseSkill.system.timing ?? []).find(x => x?.value && x.value !== "blank");
+    if (bt) {
+        patch["timing.value"]       = bt.value;
+        patch["timing.actionName"]  = bt.actionName ?? "blank";
+        patch["timing.processName"] = bt.processName ?? "blank";
+        patch["timing.timingOther"] = bt.timingOther ?? "";
+    }
+
+    // 対決不可: 参加技能が固有に「対決不可」なら true（外す方向には自動更新しない）
+    if (skills.some(s => (s.system.confrontation ?? []).some(c => c.value === "cannot"))) {
+        patch.isUnopposable = true;
+    }
+
+    // 消費行: 導出結果で置き換え(既存自動入力と同じ「明示的な上書き」の意味論)
+    patch.consumeTargets = deriveConsumeTargets(item.id, skills);
+
+    return patch;
 }
 
 export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
@@ -614,42 +667,10 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
     static async _onAutoFill(_event, _target) {
         const usage = this.usage;
         if (!usage) return;
-        const skills = this._gatherParticipatingSkills(usage);
-
-        const patch = {};
-        const t = resolveTarget(skills.map(s => ({ target: s.system.target, isFixed: !!s.system.isFixedTarget })));
-        if (t) { patch.target = t.target; patch.isFixedTarget = t.isFixed; }
-
-        const r = resolveRange(skills.map(s => ({ range: s.system.range, isFixed: !!s.system.isFixedRange })));
-        if (r) { patch.range = r.range; patch.isFixedRange = r.isFixed; }
-
-        const tv = resolveTargetValue(skills.map(s => ({ targetValue: s.system.targetValue, number: s.system.targetValueNumber })));
-        if (tv) {
-            patch.targetValue = tv.targetValue;
-            if (tv.targetValueNumber !== undefined) patch.targetValueNumber = tv.targetValueNumber;
-        }
-
-        // タイミング: ベース技能の最初の非 blank timing を採用（best-effort）
-        const baseId = this._item.system.isAction === true
-            ? this._item.id
-            : (usage.baseSkillRef?.itemId || this._item.id);
-        const baseSkill = skills.find(s => s.id === baseId) ?? this._item;
-        const bt = (baseSkill.system.timing ?? []).find(x => x?.value && x.value !== "blank");
-        if (bt) {
-            patch["timing.value"]       = bt.value;
-            patch["timing.actionName"]  = bt.actionName ?? "blank";
-            patch["timing.processName"] = bt.processName ?? "blank";
-            patch["timing.timingOther"] = bt.timingOther ?? "";
-        }
-
-        // 対決不可: 参加技能が固有に「対決不可」なら true（外す方向には自動更新しない）
-        if (skills.some(s => (s.system.confrontation ?? []).some(c => c.value === "cannot"))) {
-            patch.isUnopposable = true;
-        }
-
+        const patch = deriveUsageAutoFill(this._item, usage);
         await this._patchUsage(patch);
         this.render({ force: true });
-        ui.notifications.info("発動パラメータを自動入力しました。手編集で上書きできます。");
+        ui.notifications.info("発動パラメータと使用回数の消費を自動入力しました。手編集で上書きできます。");
     }
 
     // ─── 目標値スピナー ────────────────────────────────────────────────────────

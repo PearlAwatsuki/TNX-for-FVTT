@@ -1,5 +1,5 @@
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
-import { TnxUsageSheet, USAGE_TYPES } from "../module/tnx-usage-sheet.mjs";
+import { TnxUsageSheet, USAGE_TYPES, deriveUsageAutoFill } from "../module/tnx-usage-sheet.mjs";
 import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan, resolveBunshinOwner } from "../module/usage-consumption.mjs";
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { useNpcAcquire } from "../module/npc-acquisition.mjs";
@@ -203,7 +203,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
 
         const newId = foundry.utils.randomID();
         const actions = foundry.utils.deepClone(this.item.system.actions ?? []);
-        actions.push({
+        const entry = {
             _id:         newId,
             type,
             name:        isFixedCheck ? "判定（固定値）" : (USAGE_TYPES[type] ?? "新規用途"),
@@ -225,7 +225,17 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             ...(type === "npcAcquire"
                 ? { acquireMode: this.item.type === "styleSkill" ? "troop" : "extra" } : {}),
             ...(isFixedCheck ? { fixedResult: 10 } : {}),
-        });
+        };
+
+        // 自動入力の作成時一回適用(11-6 追補・2026-07-06 承認): 判定系用途は親技能の固有値から
+        // 発動パラメータと消費行を導出して初期値にする(以降の再導出はシートのボタンで明示的に。
+        // ライブ追従はしない)。固定値判定は発動項目を持たないため対象外
+        if (!isFixedCheck && (type === "check" || type === "attack" || type === "npcAcquire")) {
+            const patch = deriveUsageAutoFill(this.item, entry);
+            foundry.utils.mergeObject(entry, foundry.utils.expandObject(patch));
+        }
+
+        actions.push(entry);
         await this.item.update({ "system.actions": actions });
 
         // 作成直後に編集シートを開く

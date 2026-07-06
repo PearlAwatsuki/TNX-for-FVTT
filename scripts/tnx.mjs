@@ -830,6 +830,9 @@ Hooks.once("init", async function() {
                     formula:         "",
                     damageCategory:  "",
                     modifiableParams: [],
+                    // 消費既定(11-6): 手動作成・migrateData 互換と同じ「親×1」を明示する
+                    // (空配列で保存されると「消費なし」の明示と区別できなくなるため)
+                    consumeTargets:  [{ type: "parent", itemId: "", amount: 1 }],
                 }],
             });
         }

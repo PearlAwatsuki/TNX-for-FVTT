@@ -20,6 +20,24 @@
  */
 
 /**
+ * 参加技能から消費行を導出する(Foundry 非依存・11-6 追補・2026-07-06 承認)。
+ * 規則: 親×1 ＋ 使用回数制限(isLimit)つきの参加技能(親以外)それぞれ×1。
+ * これは**設定欄への可視の入力補助**であり、実行時の消費の権威は consumeTargets のまま
+ * (全廃した「実行時の隠れた自動スキャン」とは別物)。設定失念による消費漏れを防ぐ。
+ * @param {string} parentItemId 親アイテムの ID
+ * @param {Array<{id:string, system:object}>} skills 参加技能(親を含んでよい)
+ * @returns {Array<{type:string, itemId:string, amount:number}>}
+ */
+export function deriveConsumeTargets(parentItemId, skills) {
+    return [
+        { type: "parent", itemId: "", amount: 1 },
+        ...(skills ?? [])
+            .filter(s => s.id !== parentItemId && s.system?.uses?.isLimit === true)
+            .map(s => ({ type: "itemUses", itemId: s.id, amount: 1 })),
+    ];
+}
+
+/**
  * 本体側の同一能力を照合する(Foundry 非依存)。
  * 識別キー一致(同タイプ)を優先し、キーが無い/一致しない場合は名前一致にフォールバックする
  * (分身は本体とほぼ同一データ＝同じ辞典由来のコピー同士が識別キーで結ばれる規約)。
