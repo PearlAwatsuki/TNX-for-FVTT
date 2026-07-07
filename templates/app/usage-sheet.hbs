@@ -193,16 +193,17 @@
             </div>
             {{/if}}
 
-            {{!-- 技能ベース用途のみ: 対決可能技能の情報表示 ＋ 自動入力 --}}
+            {{!-- 技能ベース用途のみ: 対決可能技能の情報表示 ＋ 自動入力。
+                 対決欄の解釈(Check_Rules 2026-06-20): 無印の技能名は例示(他技能でのリアクションを
+                 排除しない)・※付きは必須——説明はフットノートでなく title で示す --}}
             {{#if showSkillParams}}
             <div class="usage-form-section usage-confrontation-info">
-                <label class="usage-field-label">対決（参加技能より）</label>
+                <label class="usage-field-label">対決（参加技能より） <i class="fas fa-circle-question" title="参加技能の対決欄に書かれた技能です。無印の技能は例示で、書かれていない技能でのリアクションを排除しません。※付きの技能は必須です"></i></label>
                 {{#if confrontationCannot}}
                 <p class="usage-info-line"><i class="fas fa-ban"></i> 対決不可の技能を含みます</p>
                 {{/if}}
                 {{#if confrontationReactions.length}}
-                <p class="usage-info-line">リアクション例: {{#each confrontationReactions}}<span class="usage-info-tag">{{this}}</span>{{/each}}</p>
-                <p class="usage-empty-hint">※例示であり、これ以外のリアクションを排除するものではありません（※付きは必須）。</p>
+                <p class="usage-info-line">{{#each confrontationReactions}}<span class="usage-info-tag">{{this}}</span>{{/each}}</p>
                 {{else}}
                 {{#unless confrontationCannot}}
                 <p class="usage-empty-hint">（参加技能に対決の指定なし）</p>

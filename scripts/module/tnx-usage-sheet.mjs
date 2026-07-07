@@ -16,6 +16,7 @@ import { TnxSkillUtils } from "./tnx-skill-utils.mjs";
 import { getComboSuits } from "./tnx-check-engine.mjs";
 import { resolveUsageSkills, comboLockAnalysis, isComboRequired } from "./skill-chain-resolution.mjs";
 import { deriveConsumeTargets } from "./usage-consumption.mjs";
+import { loadSkillChoices, SKILL_PACKS } from "./skill-dictionary.mjs";
 
 const CHAIN_SKILL_TYPES = ["generalSkill", "styleSkill"];
 
@@ -358,15 +359,19 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 }),
             ];
 
-            // 対決（情報表示）: 参加技能の固有 confrontation を読み取り、対決可能な技能と対決不可状態を可視化
+            // 対決（情報表示）: 参加技能の固有 confrontation を読み取り、対決可能な技能と対決不可状態を可視化。
+            // confrontation の name は辞典の識別キーのため、辞典から技能名へ逆引きして表示する
+            // (基底シートの comboSkill 逆引きと同じ経路。未収載キーはそのまま表示)
+            const skillNames = await loadSkillChoices([SKILL_PACKS.general, SKILL_PACKS.style, SKILL_PACKS.works]);
+            const nameOf = (key) => skillNames[key] || key;
             const skills = this._gatherParticipatingSkills(usage);
             const reactions = [];
             let inherentCannot = false;
             for (const s of skills) {
                 for (const c of (s.system.confrontation ?? [])) {
                     if (c.value === "cannot") inherentCannot = true;
-                    else if (c.value === "skillName" && c.name) reactions.push(c.name);
-                    else if (c.value === "skillNameAsterisk" && c.name) reactions.push(`${c.name}※`);
+                    else if (c.value === "skillName" && c.name) reactions.push(nameOf(c.name));
+                    else if (c.value === "skillNameAsterisk" && c.name) reactions.push(`${nameOf(c.name)}※`);
                 }
             }
             context.confrontationReactions = [...new Set(reactions)];
