@@ -60,8 +60,8 @@
                         {{/each}}
                     </select>
                 </div>
-                {{#unless isAcquireExtraMode}}
-                {{!-- 取得するアクター(判定系モード・2026-07-07 裁定=対象は用途側で設定)。
+                {{#if isAcquireRefMode}}
+                {{!-- 取得するアクター(トループ/エニグマ・2026-07-07 裁定=対象は用途側で設定)。
                      事前作成した種別一致のトループ級アクターをドロップで関連付ける --}}
                 <div class="usage-form-row">
                     <label class="usage-field-label">取得するアクター <i class="fas fa-circle-question" title="使用時に呼び出す、事前に作成した{{acquireModeLabel}}のアクターです。判定後、人数/エニグマポイントの転記とトークン配置の対象になります"></i></label>
@@ -76,7 +76,20 @@
                         {{/if}}
                     </div>
                 </div>
-                {{/unless}}
+                {{/if}}
+                {{#if isAcquireBunshinMode}}
+                {{!-- 分身は対象を設定せずそのまま召喚(2026-07-08 裁定)。複数体の可能性があるため
+                     召喚数を設定する(トークンをこの数だけ配置) --}}
+                <div class="usage-form-row">
+                    <label class="usage-field-label">召喚数 <i class="fas fa-circle-question" title="呼び出す分身の数です。判定成功時、本体から再同期した分身のトークンをこの数だけ配置します"></i></label>
+                    <div class="number-input-spinner">
+                        <button type="button" data-action="decrementAcquireCount" class="tnx-btn" {{#unless editable}}disabled{{/unless}}>-</button>
+                        <input type="number" name="acquireCount" value="{{acquireCount}}" min="1"
+                               {{#unless editable}}disabled{{/unless}}>
+                        <button type="button" data-action="incrementAcquireCount" class="tnx-btn" {{#unless editable}}disabled{{/unless}}>+</button>
+                    </div>
+                </div>
+                {{/if}}
                 {{/if}}
 
                 {{!-- タイミング --}}

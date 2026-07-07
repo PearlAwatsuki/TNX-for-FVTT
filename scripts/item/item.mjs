@@ -5,7 +5,7 @@ export class TokyoNovaItem extends Item {
     constructor(data, context) {
         if ( typeof data.img === 'undefined' ) {
             const iconMap = {
-                "miracle": "icons/svg/daze.svg",
+                "miracle": "icons/svg/wing.svg",
                 "organization": "icons/svg/tower-flag.svg",
                 "generalSkill": "icons/svg/card-hand.svg",
                 "styleSkill": "icons/svg/card-joker.svg",

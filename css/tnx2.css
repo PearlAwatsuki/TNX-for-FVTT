@@ -381,6 +381,7 @@
 .tokyo-nova .number-input-spinner button[data-action="decrementMaxLevel"],
 .tokyo-nova .number-input-spinner button[data-action="decrementTargetValue"],
 .tokyo-nova .number-input-spinner button[data-action="decrementFixedResult"],
+.tokyo-nova .number-input-spinner button[data-action="decrementAcquireCount"],
 .tokyo-nova .number-input-spinner button[data-action="decrementConsumeAmount"] {
     border-top-right-radius: 0;
     border-bottom-right-radius: 0;
@@ -390,6 +391,7 @@
 .tokyo-nova .number-input-spinner button[data-action="incrementMaxLevel"],
 .tokyo-nova .number-input-spinner button[data-action="incrementTargetValue"],
 .tokyo-nova .number-input-spinner button[data-action="incrementFixedResult"],
+.tokyo-nova .number-input-spinner button[data-action="incrementAcquireCount"],
 .tokyo-nova .number-input-spinner button[data-action="incrementConsumeAmount"] {
     border-top-left-radius: 0;
     border-bottom-left-radius: 0;
@@ -3210,6 +3212,8 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     background: var(--tnx2-bg-2);
     margin-bottom: 5px;
     overflow: hidden;
+    /* 暗色カード上で Foundry 既定(明テーマ)の暗い文字色を継承しないよう本文色を明示する */
+    color: var(--tnx2-text-primary);
 }
 
 .chat-message .message-content .tnx-chat-card > summary {

@@ -114,6 +114,84 @@ function resolveTargetValue(entries) {
     return typed ? { targetValue: typed.targetValue } : null;
 }
 
+/** actor 技能アイテムをチェーン解決用に正規化する(モジュール共通・インスタンス版は委譲) */
+function normalizeSkillItemDoc(it) {
+    return {
+        id: it.id,
+        identificationKey: it.system?.identificationKey ?? "",
+        isAction: it.system?.isAction === true,
+        isSubstitute: it.system?.isSubstitute === true,
+        substituteTarget: Array.isArray(it.system?.substituteTarget) ? it.system.substituteTarget : [],
+        comboSkill: it.system?.comboSkill ?? [],
+    };
+}
+
+/**
+ * アイテムの判定系用途に技能チェーンの既定(ベース技能・必須コンボ)を適用する(冪等)。
+ * 用途シートを開いたときの _enforceComboRequirements と同じ規則を、**アクターへの
+ * インポート(作成)直後に一括適用**する(2026-07-08 修正)。辞典/ワールドで用途を設定してから
+ * インポートすると、用途シートを開くまでベース技能の自動設定が効かなかった問題への対処。
+ * あわせて、別コレクション時代の解決不能な参照(ベース・コンボの itemId)を掃除する。
+ * @param {Item} item アクター直下の generalSkill / styleSkill
+ */
+export async function enforceUsageChainDefaultsOnImport(item) {
+    const actor = item?.actor;
+    if (!actor || !CHAIN_SKILL_TYPES.includes(item.type)) return;
+    const actions = foundry.utils.deepClone(item.system.actions ?? []);
+    if (!actions.length) return;
+
+    const skillItems = actor.items
+        .filter(i => CHAIN_SKILL_TYPES.includes(i.type))
+        .map(normalizeSkillItemDoc);
+    const isActionSkill = (id) => {
+        const it = id === item.id ? item : actor.items.get(id);
+        return it?.system?.isAction === true;
+    };
+    const parentIsAction = item.system.isAction === true;
+
+    let changed = false;
+    for (const usage of actions) {
+        if (!["check", "attack", "npcAcquire"].includes(usage.type)) continue;
+
+        // 参照の掃除: アクター上で解決できない itemId(辞典/ワールド時代の別コレクション ID)を落とす
+        const cleanedRefs = (usage.skillRefs ?? [])
+            .map(r => r.itemId)
+            .filter(id => id && actor.items.has(id));
+        let baseId = usage.baseSkillRef?.itemId ?? "";
+        if (baseId && baseId !== item.id && !actor.items.has(baseId)) baseId = "";
+
+        const res = resolveUsageSkills(normalizeSkillItemDoc(item), skillItems, cleanedRefs);
+        if (res && !res.defect) {
+            const baseCandidates = parentIsAction ? [item.id]
+                : (res.baseLocked ? (res.baseCandidateItemIds ?? []) : null);
+            if (parentIsAction) baseId = item.id;
+            else if (baseCandidates && !baseCandidates.includes(baseId)) baseId = res.baseItemId ?? baseCandidates[0] ?? "";
+            else if (!baseId && !res.manual && res.baseItemId && res.baseItemId !== item.id) baseId = res.baseItemId;
+        }
+
+        // ベース・アクション技能を除外し、必須コンボ(クロージャ)を補完する
+        const refs = cleanedRefs.filter(id => id !== baseId && !isActionSkill(id));
+        if (res && !res.defect) {
+            const have = new Set(refs);
+            for (const id of (res.mandatoryItemIds ?? [])) {
+                if (id !== baseId && id !== item.id && !have.has(id) && !isActionSkill(id)) {
+                    refs.push(id);
+                    have.add(id);
+                }
+            }
+        }
+
+        const prevBase = usage.baseSkillRef?.itemId ?? "";
+        const prevRefs = (usage.skillRefs ?? []).map(r => r.itemId);
+        if (baseId !== prevBase || refs.length !== prevRefs.length || refs.some((id, i) => id !== prevRefs[i])) {
+            usage.baseSkillRef = { ...(usage.baseSkillRef ?? {}), itemId: baseId };
+            usage.skillRefs = refs.map(id => ({ itemId: id }));
+            changed = true;
+        }
+    }
+    if (changed) await item.update({ "system.actions": actions });
+}
+
 /**
  * 参加技能の固有値から発動パラメータと消費行を導出する(11-6 追補・2026-07-06 承認)。
  * 用途作成時の一回適用と「参加技能から自動入力」ボタンの両方で使う。**ライブ追従はしない**
@@ -200,6 +278,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             decrementConsumeAmount: TnxUsageSheet._onConsumeAmountDec,
             acquireRefDelete:      TnxUsageSheet._onAcquireRefDelete,
             acquireActorClear:     TnxUsageSheet._onAcquireActorClear,
+            incrementAcquireCount: TnxUsageSheet._onAcquireCountInc,
+            decrementAcquireCount: TnxUsageSheet._onAcquireCountDec,
         },
     };
 
@@ -274,12 +354,16 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 const doc = r.uuid ? await fromUuid(r.uuid).catch(() => null) : null;
                 return { idx, uuid: r.uuid, name: doc?.name ?? (r.name ? `${r.name}（削除済み）` : "(不明)"), missing: !doc };
             }));
-            // 取得アクター参照(判定系モード・2026-07-07 裁定=対象は用途側で設定)。ライブ解決
+            // 取得アクター参照(トループ/エニグマのみ・2026-07-07 裁定=対象は用途側で設定)。ライブ解決。
+            // 分身は対象を設定せずそのまま召喚(2026-07-08 裁定)＝参照欄の代わりに召喚数を設定する
+            context.isAcquireBunshinMode = mode === "bunshin";
+            context.isAcquireRefMode = mode === "troop" || mode === "enigma";
             const aRef = usage.acquireActorRef ?? {};
             const aDoc = aRef.uuid ? await fromUuid(aRef.uuid).catch(() => null) : null;
             context.hasAcquireActor = !!aRef.uuid;
             context.acquireActorName = aDoc?.name ?? (aRef.name ? `${aRef.name}（削除済み）` : "");
             context.acquireModeLabel = ACQUIRE_MODES[mode] ?? "";
+            context.acquireCount = Math.max(1, usage.acquireCount ?? 1);
         }
         context.isAcquireCheckMode = context.isNpcAcquireType && !context.isAcquireExtraMode;
 
@@ -643,9 +727,13 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         if (update["timing.value"] !== "process") update["timing.processName"] = "blank";
         if (update["timing.value"] !== "other")   update["timing.timingOther"] = "";
 
-        // npcAcquire: モード(明示選択)。エキストラモード以外は判定系(ベース技能を持つ)
+        // npcAcquire: モード(明示選択)。エキストラモード以外は判定系(ベース技能を持つ)。
+        // 召喚数は分身モードでのみ描画されるため、入力が無いときは既存値を保持する
         if (usage.type === "npcAcquire") {
             update.acquireMode = raw["acquireMode"] ?? usage.acquireMode ?? "extra";
+            update.acquireCount = raw["acquireCount"] !== undefined
+                ? Math.max(1, Number(raw["acquireCount"]) || 1)
+                : (usage.acquireCount ?? 1);
         }
 
         // check・attack・npcAcquire(判定系): ベース技能（アクション技能は常に自身に固定）
@@ -784,6 +872,17 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         this.render({ force: true });
     }
 
+    static async _onAcquireCountInc(_event, _target) { await this._stepAcquireCount(1); }
+    static async _onAcquireCountDec(_event, _target) { await this._stepAcquireCount(-1); }
+
+    async _stepAcquireCount(delta) {
+        const usage = this.usage;
+        if (!usage) return;
+        const next = Math.max(1, (usage.acquireCount ?? 1) + delta);
+        await this._patchUsage({ acquireCount: next });
+        this.render({ force: true });
+    }
+
     // ─── skillRefs 管理 ────────────────────────────────────────────────────────
 
     static async _onSkillRefDelete(_event, target) {
@@ -852,16 +951,9 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
     // ─── 技能チェーン解決・必須コンボの enforcement ──────────────────────────────
 
-    /** actor 技能アイテムを解決用に正規化する。 */
+    /** actor 技能アイテムを解決用に正規化する(モジュール共通関数へ委譲)。 */
     _normalizeSkillItem(it) {
-        return {
-            id: it.id,
-            identificationKey: it.system?.identificationKey ?? "",
-            isAction: it.system?.isAction === true,
-            isSubstitute: it.system?.isSubstitute === true,
-            substituteTarget: Array.isArray(it.system?.substituteTarget) ? it.system.substituteTarget : [],
-            comboSkill: it.system?.comboSkill ?? [],
-        };
+        return normalizeSkillItemDoc(it);
     }
 
     /** actor 上の技能アイテム(check/attack 用の連鎖対象)を正規化して返す。対象外は null。 */

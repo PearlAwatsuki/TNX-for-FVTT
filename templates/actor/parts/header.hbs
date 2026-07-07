@@ -64,7 +64,9 @@
                         {{#if features.troopLevel}}
                         {{!-- トループレベル(市民ランクの代替枠。能力値=スタイル基本値+トループレベル・Troops.md)。
                              エニグマでは呼称「エニグマレベル」(2026-07-04 確定・troopLevelLabel で切替)。
-                             値は取得技能のレベルがそのまま(NPC取得の起動時に転記・敵対トループは手入力) --}}
+                             値は取得技能のレベルがそのまま(NPC取得の起動時に転記・敵対トループは手入力)。
+                             分身はレベル概念を持たない(本体の完全コピー・troopLevel=0 固定)ため出さない --}}
+                        {{#unless (eq system.troopMode "bunshin")}}
                         <div class="citizen-rank-block troop-level-block">
                             <div class="view-mode-rank">
                                 <span class="view-mode-label">{{troopLevelLabel}}：</span>
@@ -79,6 +81,7 @@
                                 </div>
                             </div>
                         </div>
+                        {{/unless}}
                         {{/if}}
                         {{!-- 所属(ワークス)。トループは「ワークスを設定」ON のときだけ表示
                              (showAffiliation。基本はワークスを持たない＝Troops.md) --}}

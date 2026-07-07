@@ -43,6 +43,7 @@ import { TnxHud } from './module/tnx-hud.mjs';
 import { TnxRecordSheet } from './module/tnx-record-sheet.mjs';
 import { registerDrawTableHooks } from './module/tnx-draw-table.mjs';
 import { recordCastOwnerUser } from './module/cast-ownership.mjs';
+import { enforceUsageChainDefaultsOnImport } from './module/tnx-usage-sheet.mjs';
 import { TnxSocketHandler } from './module/tnx-socket-handler.mjs';
 import { TnxCheckFlow } from './module/tnx-check-flow.mjs';
 import { TnxCheckDialog } from './module/tnx-check-dialog.mjs';
@@ -1274,6 +1275,13 @@ Hooks.once("ready", async function() {
     Hooks.on('createItem', (item, options, userId) => {
         if (game.user.id !== userId) return;
         if (item.parent?.documentName !== "Actor") return;
+        // 技能チェーンの既定(ベース技能・必須コンボ)をインポート直後に適用(2026-07-08 修正)。
+        // 辞典/ワールドで用途を設定→アクターへインポートでは、用途シートを開くまで自動設定が
+        // 効かなかったため、作成時に一括適用する(冪等・解決不能な旧参照の掃除を含む)
+        if (["generalSkill", "styleSkill"].includes(item.type)) {
+            enforceUsageChainDefaultsOnImport(item).catch(err =>
+                console.error("TNX | 用途チェーン既定の適用に失敗しました", err));
+        }
         if (item.type === "styleSkill") {
             autoAcquireForStyleSkill(item.parent, item);
         } else if (item.system?.hasDerivedData === true) {

@@ -101,18 +101,22 @@ async function useExtraAcquire(actor, item, usage) {
  * 判定完了後の転記・配置は completeAcquisitionFromCheck(ctx.npcAcquire 経由)。
  */
 async function useCheckAcquire(actor, item, usage, mode) {
-    // 対象解決: 用途側の取得アクター参照(2026-07-07 裁定・ライブ解決)
-    const refUuid = usage.acquireActorRef?.uuid ?? "";
-    const target = refUuid ? await fromUuid(refUuid).catch(() => null) : null;
-    if (!target) {
-        ui.notifications.warn(
-            `呼び出す${MODE_LABELS[mode]}が設定されていません。事前に作成した${MODE_LABELS[mode]}のアクターを、`
-            + `用途シートの「取得するアクター」にドロップしてください。`);
-        return;
-    }
-    if (target.type !== "troop" || target.system.troopMode !== mode) {
-        ui.notifications.warn(`「${target.name}」は${MODE_LABELS[mode]}のアクターではありません（用途の取得類型と一致させてください）。`);
-        return;
+    // 対象解決: トループ/エニグマは用途側の取得アクター参照(2026-07-07 裁定・ライブ解決)。
+    // 分身は対象を設定せずそのまま召喚(2026-07-08 裁定)＝判定成功時に永続1体を自動確保する
+    let target = null;
+    if (mode !== "bunshin") {
+        const refUuid = usage.acquireActorRef?.uuid ?? "";
+        target = refUuid ? await fromUuid(refUuid).catch(() => null) : null;
+        if (!target) {
+            ui.notifications.warn(
+                `呼び出す${MODE_LABELS[mode]}が設定されていません。事前に作成した${MODE_LABELS[mode]}のアクターを、`
+                + `用途シートの「取得するアクター」にドロップしてください。`);
+            return;
+        }
+        if (target.type !== "troop" || target.system.troopMode !== mode) {
+            ui.notifications.warn(`「${target.name}」は${MODE_LABELS[mode]}のアクターではありません（用途の取得類型と一致させてください）。`);
+            return;
+        }
     }
 
     // 参加技能の解決(check と同じ: ベース=用途の baseSkillRef または親・コンボ=skillRefs)
@@ -162,8 +166,41 @@ async function useCheckAcquire(actor, item, usage, mode) {
         consumeUses:     usesPlan,
         requestMessageId: null,
         // 判定完了後の取得継続(TnxCheckFlow._execute → completeAcquisitionFromCheck)
-        npcAcquire: { mode, targetActorId: target.id, summonerActorId: actor.id },
+        npcAcquire: {
+            mode,
+            targetActorId: target?.id ?? "",
+            summonerActorId: actor.id,
+            count: mode === "bunshin" ? Math.max(1, usage.acquireCount ?? 1) : 1,
+        },
     });
+}
+
+/**
+ * 召喚者の分身アクター(永続1体)を確保する(2026-07-08 裁定=分身は対象を設定せずそのまま召喚)。
+ * 既存(所有者参照=召喚者の分身)があれば使い回し、無ければ初回のみ作成する。
+ * 作成にはアクター作成権限が必要(無ければ警告のみ=D&D 同様。初回のみ RL に依頼)。
+ */
+async function ensureBunshinActor(summoner) {
+    const existing = game.actors.find(a => a.type === "troop"
+        && a.system.troopMode === "bunshin"
+        && (a.system.ownerActorRef?.uuid ?? "") === summoner.uuid);
+    if (existing) return existing;
+    try {
+        const created = await Actor.create({
+            name: `${summoner.name}の分身`,
+            type: "troop",
+            system: {
+                troopMode: "bunshin",
+                ownerActorRef: { uuid: summoner.uuid, name: summoner.name },
+            },
+        });
+        if (!created) throw new Error("Actor.create returned nothing");
+        return created;
+    } catch (err) {
+        console.error("TNX | 分身アクターの作成に失敗しました", err);
+        ui.notifications.warn("分身アクターを作成できませんでした（アクター作成権限が必要です。初回のみ RL に作成を依頼してください。以後は同じアクターを使い回します）。");
+        return null;
+    }
 }
 
 /**
@@ -199,30 +236,34 @@ async function syncBunshinFromOwner(target, owner) {
  * @param {object} result 判定結果
  */
 export async function completeAcquisitionFromCheck(payload, result) {
-    const target = game.actors.get(payload.targetActorId);
     const summoner = game.actors.get(payload.summonerActorId);
-    if (!target) return;
+    let target = payload.mode === "bunshin" ? null : game.actors.get(payload.targetActorId);
+    if (payload.mode !== "bunshin" && !target) return;
 
     const outcome = computeAcquisitionOutcome(payload.mode, result);
     if (!outcome.acquired) {
+        const label = target?.name ?? "分身";
         const reasonText = outcome.reason === "fumble" ? "ファンブルのため"
             : outcome.reason === "failed" ? "判定に失敗したため(達成値が目標値10に届かず)"
             : "達成値が 0 のため";
-        ui.notifications.warn(`${reasonText}「${target.name}」は取得されませんでした。`);
+        ui.notifications.warn(`${reasonText}「${label}」は取得されませんでした。`);
         return;
     }
 
+    let count = 1;
     if (payload.mode === "bunshin") {
-        // 差分反映方式(2026-07-07 承認): 分身はその時点の分身元のデータをコピーして現れるため、
-        // 召喚成功のたびに永続1体を本体の最新データへ丸ごと再同期する(古い分身が残らない)
-        if (summoner) {
-            try {
-                await syncBunshinFromOwner(target, summoner);
-            } catch (err) {
-                console.error("TNX | 分身の再同期に失敗しました", err);
-                ui.notifications.warn(`「${target.name}」を本体から再同期できませんでした（権限を確認してください）。`);
-            }
+        // 分身はそのまま召喚(2026-07-08 裁定): 永続1体を確保し、差分反映方式で本体の最新データへ
+        // 丸ごと再同期してから、召喚数ぶんのトークンを配置する
+        if (!summoner) return;
+        target = await ensureBunshinActor(summoner);
+        if (!target) return;
+        try {
+            await syncBunshinFromOwner(target, summoner);
+        } catch (err) {
+            console.error("TNX | 分身の再同期に失敗しました", err);
+            ui.notifications.warn(`「${target.name}」を本体から再同期できませんでした（権限を確認してください）。`);
         }
+        count = Math.max(1, payload.count ?? 1);
     } else {
         await target.update({
             "system.heads.value": outcome.heads,
@@ -231,13 +272,13 @@ export async function completeAcquisitionFromCheck(payload, result) {
     }
 
     const detail = payload.mode === "bunshin"
-        ? "呼び出しに成功しました"
+        ? `${count}体`
         : `${RESOURCE_LABELS[payload.mode]} ${outcome.heads}`;
     await ChatMessage.create({
         speaker: summoner ? ChatMessage.getSpeaker({ actor: summoner }) : undefined,
         content: `<div class="tnx-chat-card"><p>「${foundry.utils.escapeHTML(target.name)}」を取得（${detail}）。</p></div>`,
     });
 
-    await placeActorTokens(target, 1);
+    await placeActorTokens(target, count);
 }
 

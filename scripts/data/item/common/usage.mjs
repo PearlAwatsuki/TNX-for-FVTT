@@ -130,8 +130,10 @@ export class UsageTemplate extends SystemDataModel {
                     // しない(2026-07-04 ユーザー裁定=モードは明示選択)。
                     // acquireItemRefs: エキストラモードで派生取得する小分類「エキストラ」の
                     // アウトフィット参照(name は参照先削除時の表示フォールバックのみ・ライブ解決原則)
-                    // acquireActorRef: 判定系モード(troop/enigma/bunshin)で呼び出すトループ級
-                    // アクター参照(2026-07-07 ユーザー裁定=対象は用途側で設定。所有者逆引きは廃止)
+                    // acquireActorRef: トループ/エニグマで呼び出すトループ級アクター参照
+                    // (2026-07-07 ユーザー裁定=対象は用途側で設定。所有者逆引きは廃止)。
+                    // 分身は対象を設定しない(2026-07-08 裁定=そのまま召喚。永続1体を自動確保して
+                    // 本体から再同期・acquireCount 体のトークンを配置)
                     acquireMode: new fields.StringField({ initial: "extra" }),
                     acquireItemRefs: new fields.ArrayField(
                         new fields.SchemaField({
@@ -143,6 +145,8 @@ export class UsageTemplate extends SystemDataModel {
                         uuid: new fields.StringField({ initial: "" }),
                         name: new fields.StringField({ initial: "" }),
                     }),
+                    // 召喚数(分身のみ・2026-07-08 裁定=分身は複数体召喚がありうる)
+                    acquireCount: new fields.NumberField({ initial: 1, min: 1, integer: true }),
                 })
             ),
         };

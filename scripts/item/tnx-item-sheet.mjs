@@ -273,9 +273,14 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         if (!usage) return;
 
         // NPC取得(11-6): 専用フローに委譲(消費・対象解決・判定・転記・配置を一貫して扱う。
-        // 効果有効化は行わない=取得に特化)
+        // 効果有効化は行わない=取得に特化)。失敗を握りつぶさず通知する(不具合調査のため)
         if (usage.type === "npcAcquire") {
-            await useNpcAcquire(this.item, usage);
+            try {
+                await useNpcAcquire(this.item, usage);
+            } catch (err) {
+                console.error("TNX | NPC取得の実行に失敗しました", err);
+                ui.notifications.error(`NPC取得の実行に失敗しました: ${err.message}`);
+            }
             return;
         }
 
