@@ -16,7 +16,13 @@
                     <h4>{{action.name}}</h4>
                 </div>
                 <div class="tnx-item-list__column--controls">
-                    {{#if action.effects.length}}
+                    {{!-- 使用ボタン: 効果を持つ用途(有効化)に加え、NPC取得は効果なしでも
+                         使用が実行フローの起点のため常に出す(11-6) --}}
+                    {{#if (eq action.type "npcAcquire")}}
+                    <a class="action-use" data-usage-id="{{action._id}}" title="使用（NPC取得）">
+                        <i class="fas fa-bolt"></i>
+                    </a>
+                    {{else if action.effects.length}}
                     <a class="action-use" data-usage-id="{{action._id}}" title="使用（効果を有効化）">
                         <i class="fas fa-bolt"></i>
                     </a>
