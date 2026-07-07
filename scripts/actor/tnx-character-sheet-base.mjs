@@ -19,6 +19,7 @@ import { getPartSlotPreset, PartSlotPresetApp } from '../module/part-slot-preset
 import { OUTFIT_ITEM_TYPES, findDepartmentSkillName } from '../data/helpers.mjs';
 import { TnxCheckFlow } from '../module/tnx-check-flow.mjs';
 import { resolveConsumeRowsForActor, promptConsumption } from '../module/usage-consumption.mjs';
+import { useNpcAcquire } from '../module/npc-acquisition.mjs';
 import { getComboSuits, ALL_SUITS } from '../module/tnx-check-engine.mjs';
 import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
 import { groupStyleSkillsByStyle } from '../module/style-skill-acquisition.mjs';
@@ -2258,21 +2259,35 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const item = this.actor.items.get(itemId);
         if (!item) return;
 
-        // 既定の挙動: 実行できる check(判定)用途が無ければ、解説をそのままチャット表示する(アイテムの基本機能)。
-        // check 用途が設定されていれば、その判定の実行に切り替わる。
-        const checkUsages = (item.system.actions ?? []).filter(a => a.type === "check");
-        if (!checkUsages.length) {
+        // 既定の挙動: 実行できる用途(判定/NPC取得)が無ければ、解説をそのままチャット表示する
+        // (アイテムの基本機能)。用途があればその実行に切り替わる。
+        // NPC取得はアイテムロール(アクターシートの技能クリック)からも実行できる(2026-07-08 修正。
+        // 従来は check のみを拾い、NPC取得用途はここから起動できなかった)
+        const usableUsages = (item.system.actions ?? [])
+            .filter(a => a.type === "check" || a.type === "npcAcquire");
+        if (!usableUsages.length) {
             await item.postDescriptionCard();
             return;
         }
 
         // 用途を決定（1つなら自動選択、複数なら D&D スタイルのピッカー表示）
         let selectedUsage;
-        if (checkUsages.length === 1) {
-            selectedUsage = checkUsages[0];
+        if (usableUsages.length === 1) {
+            selectedUsage = usableUsages[0];
         } else {
-            selectedUsage = await TnxCharacterSheetBase._promptCheckUsage(checkUsages, item.name);
+            selectedUsage = await TnxCharacterSheetBase._promptCheckUsage(usableUsages, item.name);
             if (!selectedUsage) return;
+        }
+
+        // NPC取得は専用フローへ(消費・対象解決・判定・転記・配置を一貫して扱う)
+        if (selectedUsage.type === "npcAcquire") {
+            try {
+                await useNpcAcquire(item, selectedUsage);
+            } catch (err) {
+                console.error("TNX | NPC取得の実行に失敗しました", err);
+                ui.notifications.error(`NPC取得の実行に失敗しました: ${err.message}`);
+            }
+            return;
         }
 
         // 固定達成値の用途(フェーズ11-5・Check_Rules「固定値判定」): カードも出さず能力値も参照せず、

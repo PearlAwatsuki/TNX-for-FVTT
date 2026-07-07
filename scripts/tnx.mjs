@@ -896,7 +896,9 @@ Hooks.once("init", async function() {
                 "prototypeToken.bar1.attribute": "heads",
                 "prototypeToken.displayBars": CONST.TOKEN_DISPLAY_MODES.OWNER_HOVER,
             });
-            setupDefaultSkills(actor);
+            // 分身は本体からの再同期で全アイテムを写すため 13 技能を流し込まない(2026-07-08 修正。
+            // 非同期シードが再同期(全削除→コピー)の後に着地して二重取得になる競合の防止)
+            if (actor.system.troopMode !== "bunshin") setupDefaultSkills(actor);
         }
 
         // エキストラ: 名前ありの端役＝リンクトークン。基本は名前のみのため技能は流し込まない(フェーズ11-5)
