@@ -967,7 +967,18 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             return;
         }
 
-        if (item.type === "style" && dropArea === "style") {
+        // ライフパスはスロット(uuid 参照)で管理するため、スロット外へのドロップは素の作成に
+        // 落とさず弾く(2026-07-08。以下の種別ルーティングと同じ抜け穴封鎖)
+        if (item.type === "lifePath") {
+            ui.notifications.warn("ライフパスは詳細タブの各スロットにドロップしてください。");
+            return false;
+        }
+
+        // スタイル/神業/組織は**ドロップ位置でなくアイテム種別で**取り込みフローに載せる
+        // (2026-07-08 修正)。従来は data-drop-area(編集モードのインポートボックス)限定だったため、
+        // 閲覧モード等のボックス外ドロップが素の作成に落ち、スタイルのレベル合算・上限検証・
+        // **神業の同時インポート**を素通りしていた
+        if (item.type === "style") {
             const allStyles  = this.actor.items.filter(i => i.type === 'style');
             const totalLevel = allStyles.reduce((sum, s) => sum + (s.system.level || 1), 0);
             const existingItem = allStyles.find(i => i.name === item.name);
@@ -1019,7 +1030,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             }
         }
 
-        if (item.type === "miracle" && dropArea === "miracle") {
+        if (item.type === "miracle") {
             const allMiracles  = this.actor.items.filter(i => i.type === 'miracle');
             const existingItem = allMiracles.find(i => i.name === item.name);
             if (existingItem) {
@@ -1038,9 +1049,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             }
         }
 
-        const itemLimits = { organization: { limit: 1, area: 'affiliation' } };
+        const itemLimits = { organization: { limit: 1 } };
         const rule = itemLimits[item.type];
-        if (rule && rule.area === dropArea) {
+        if (rule) {
             const count = this.actor.items.filter(i => i.type === item.type).length;
             if (count >= rule.limit) { ui.notifications.warn(`${item.name}は${rule.limit}つまでしか所有できません。`); return false; }
             return this.actor.createEmbeddedDocuments("Item", [item.toObject()]);

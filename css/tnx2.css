@@ -3206,14 +3206,19 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
    27. チャットカード
    ================================================================ */
 
+/* TNX のチャットカードは暗色地・明色文字が既定(黒文字は使わない)。個別カードで色指定が
+   漏れても Foundry の明テーマ既定(暗色文字)を継承して沈まないよう、tnx- 接頭辞の
+   カードコンテナ全てに本文色を明示する(未実装・今後のカードへの最低保証) */
+.chat-message .message-content [class*="tnx-"] {
+    color: var(--tnx2-text-primary);
+}
+
 .chat-message .message-content .tnx-chat-card {
     border: 1px solid var(--tnx2-border-active);
     border-radius: var(--tnx2-radius);
     background: var(--tnx2-bg-2);
     margin-bottom: 5px;
     overflow: hidden;
-    /* 暗色カード上で Foundry 既定(明テーマ)の暗い文字色を継承しないよう本文色を明示する */
-    color: var(--tnx2-text-primary);
 }
 
 .chat-message .message-content .tnx-chat-card > summary {
