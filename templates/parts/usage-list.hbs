@@ -16,17 +16,11 @@
                     <h4>{{action.name}}</h4>
                 </div>
                 <div class="tnx-item-list__column--controls">
-                    {{!-- 使用ボタン: 効果を持つ用途(有効化)に加え、NPC取得は効果なしでも
-                         使用が実行フローの起点のため常に出す(11-6) --}}
-                    {{#if (eq action.type "npcAcquire")}}
-                    <a class="action-use" data-usage-id="{{action._id}}" title="使用（NPC取得）">
+                    {{!-- 使用ボタンは効果の有無にかかわらず常に描画する(2026-07-07 確定。
+                         「効果あり限定」は 9-3 の効果有効化専用時代の誤った条件だった) --}}
+                    <a class="action-use" data-usage-id="{{action._id}}" title="使用">
                         <i class="fas fa-bolt"></i>
                     </a>
-                    {{else if action.effects.length}}
-                    <a class="action-use" data-usage-id="{{action._id}}" title="使用（効果を有効化）">
-                        <i class="fas fa-bolt"></i>
-                    </a>
-                    {{/if}}
                     <a class="action-edit" data-action="edit" data-usage-id="{{action._id}}" title="編集">
                         <i class="fas fa-edit"></i>
                     </a>
