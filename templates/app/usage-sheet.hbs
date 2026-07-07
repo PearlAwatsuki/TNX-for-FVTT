@@ -60,6 +60,23 @@
                         {{/each}}
                     </select>
                 </div>
+                {{#unless isAcquireExtraMode}}
+                {{!-- 取得するアクター(判定系モード・2026-07-07 裁定=対象は用途側で設定)。
+                     事前作成した種別一致のトループ級アクターをドロップで関連付ける --}}
+                <div class="usage-form-row">
+                    <label class="usage-field-label">取得するアクター <i class="fas fa-circle-question" title="使用時に呼び出す、事前に作成した{{acquireModeLabel}}のアクターです。判定後、人数/エニグマポイントの転記とトークン配置の対象になります"></i></label>
+                    <div class="usage-field-with-fixed">
+                        <span class="usage-acquire-actor-dropzone extra-actor-dropzone{{#unless hasAcquireActor}} extra-actor-dropzone--empty{{/unless}}" title="{{acquireModeLabel}}のアクターをドロップで設定">
+                            {{#if hasAcquireActor}}{{acquireActorName}}{{else}}アクターをドロップ{{/if}}
+                        </span>
+                        {{#if hasAcquireActor}}
+                        {{#if editable}}
+                        <a data-action="acquireActorClear" title="関連付けを解除"><i class="fas fa-times"></i></a>
+                        {{/if}}
+                        {{/if}}
+                    </div>
+                </div>
+                {{/unless}}
                 {{/if}}
 
                 {{!-- タイミング --}}

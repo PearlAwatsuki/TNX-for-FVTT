@@ -4,21 +4,9 @@
  * 対象解決・帰結の規則だけをここに分離する。正本: Troops.md「NPC取得」。
  */
 
-/**
- * 所有者逆引き。使用者を所有者(ownerActorRef)として記録し、種別がモードと一致する
- * トループ級アクターを抽出する(所有者未設定=敵対トループ等は対象外)。
- * @param {Array<{type:string, system:object}>} actors 検索対象(ワールドアクター)
- * @param {string} ownerUuid 使用者(呼び出し元)の UUID
- * @param {string} mode "troop" | "enigma" | "bunshin"
- * @returns {Array<object>}
- */
-export function findOwnedTroops(actors, ownerUuid, mode) {
-    return (actors ?? []).filter(a =>
-        a.type === "troop"
-        && a.system?.troopMode === mode
-        && (a.system?.ownerActorRef?.uuid ?? "") === ownerUuid
-    );
-}
+// 旧 findOwnedTroops(所有者逆引きによる対象解決)は 2026-07-07 のユーザー裁定で廃止——
+// 呼び出す対象は用途側の取得アクター参照(acquireActorRef)で明示設定する。
+// 所有者参照(ownerActorRef)は経験点計上・分身名導出・使用回数共有の紐づけとして存続する。
 
 /**
  * 判定結果から取得の帰結を導く。

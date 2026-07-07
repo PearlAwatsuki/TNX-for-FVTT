@@ -43,6 +43,12 @@ describe("UsageTemplate.defineSchema()（フェーズ11-6 追加フィールド�
       expect(row.uuid).toBeInstanceOf(MockStringField);
       expect(row.name).toBeInstanceOf(MockStringField);
     });
+
+    it("acquireActorRef（判定系モードの取得対象・2026-07-07=用途側で設定）は SchemaField{uuid, name}", () => {
+      expect(entry.acquireActorRef).toBeInstanceOf(MockSchemaField);
+      expect(entry.acquireActorRef.fields).toHaveProperty("uuid");
+      expect(entry.acquireActorRef.fields).toHaveProperty("name");
+    });
   });
 });
 

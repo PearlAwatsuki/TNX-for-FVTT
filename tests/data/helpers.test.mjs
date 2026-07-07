@@ -188,8 +188,10 @@ describe("computeTroopFixedName()（トループの固定名・フェーズ11-4�
   });
 
   it("分身: 「(分身元)の分身」・分身元未設定は null", () => {
-    expect(computeTroopFixedName({ troopMode: "bunshin", sourceName: "時雨" }, null, null)).toBe("時雨の分身");
-    expect(computeTroopFixedName({ troopMode: "bunshin", sourceName: " " }, null, null)).toBeNull();
+    // 分身元は所有者アクターのライブ解決名を第4引数で渡す(2026-07-07・sourceName フィールドは廃止)
+    expect(computeTroopFixedName({ troopMode: "bunshin" }, null, null, "時雨")).toBe("時雨の分身");
+    expect(computeTroopFixedName({ troopMode: "bunshin" }, null, null, " ")).toBeNull();
+    expect(computeTroopFixedName({ troopMode: "bunshin" }, null, null, null)).toBeNull();
   });
 
   it("エニグマは null（名前は自由入力）", () => {

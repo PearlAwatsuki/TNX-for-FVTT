@@ -8,11 +8,11 @@
  * - troop /  通常判定(目標値なし)。対象トループ級アクターの heads(人数/エニグマポイント)に
  *   enigma:  達成値を転記する(事前作成済みアクターを直接更新・複製しない)＋トークン配置。
  * - bunshin: 通常判定・目標値10(達成値10以上で成功=目標値の一般規約)。成功時のみ配置。
- *            sourceName は所有者参照から自動設定(手入力も残す)。
+ *            分身名は所有者参照(ownerActorRef)のライブ解決名から syncTroopName が導出する。
  *
- * 対象解決は**所有者逆引き**: 使用者を ownerActorRef に記録しているトループ級アクターを
- * ワールドから探す(モード一致・複数該当は選択ダイアログ)。フェーズ10 の技能側
- * autoAcquireActors はこのフローでは使わない(残置のみ・2026-07-04 確定)。
+ * 対象解決は**用途側の取得アクター参照(acquireActorRef)**(2026-07-07 ユーザー裁定。
+ * 当初の所有者逆引きは廃止——所有者参照は経験点計上・分身名・使用回数共有の紐づけとして残る)。
+ * フェーズ10 の技能側 autoAcquireActors はこのフローでは使わない(残置のみ・2026-07-04 確定)。
  * レベル転記: 取得技能のレベルがそのままトループ/エニグマのレベルになる(起動時に転記)。
  *
  * 判定はキャストの技能判定と完全に同一(カード・報酬点・判定バフ・消費先設定)。判定完了後の
@@ -23,7 +23,7 @@ import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { getComboSuits } from "./tnx-check-engine.mjs";
 import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } from "./usage-consumption.mjs";
 import { placeActorTokens } from "./tnx-token-placement.mjs";
-import { findOwnedTroops, computeAcquisitionOutcome } from "./npc-acquisition-logic.mjs";
+import { computeAcquisitionOutcome } from "./npc-acquisition-logic.mjs";
 
 const MODE_LABELS = { extra: "エキストラ", troop: "トループ", enigma: "エニグマ", bunshin: "分身" };
 const RESOURCE_LABELS = { troop: "人数", enigma: "エニグマポイント" };
@@ -101,18 +101,18 @@ async function useExtraAcquire(actor, item, usage) {
  * 判定完了後の転記・配置は completeAcquisitionFromCheck(ctx.npcAcquire 経由)。
  */
 async function useCheckAcquire(actor, item, usage, mode) {
-    // 対象解決: 所有者逆引き+モード一致(複数該当は選択ダイアログ)
-    const candidates = findOwnedTroops(game.actors.contents, actor.uuid, mode);
-    if (!candidates.length) {
+    // 対象解決: 用途側の取得アクター参照(2026-07-07 裁定・ライブ解決)
+    const refUuid = usage.acquireActorRef?.uuid ?? "";
+    const target = refUuid ? await fromUuid(refUuid).catch(() => null) : null;
+    if (!target) {
         ui.notifications.warn(
-            `このキャラクターを所有者とする${MODE_LABELS[mode]}のアクターが見つかりません。`
-            + `呼び出す${MODE_LABELS[mode]}を事前に作成し、シートの所有者欄にこのキャラクターを設定してください。`);
+            `呼び出す${MODE_LABELS[mode]}が設定されていません。事前に作成した${MODE_LABELS[mode]}のアクターを、`
+            + `用途シートの「取得するアクター」にドロップしてください。`);
         return;
     }
-    let target = candidates[0];
-    if (candidates.length > 1) {
-        target = await promptSelectTarget(candidates, MODE_LABELS[mode]);
-        if (!target) return;
+    if (target.type !== "troop" || target.system.troopMode !== mode) {
+        ui.notifications.warn(`「${target.name}」は${MODE_LABELS[mode]}のアクターではありません（用途の取得類型と一致させてください）。`);
+        return;
     }
 
     // 参加技能の解決(check と同じ: ベース=用途の baseSkillRef または親・コンボ=skillRefs)
@@ -186,12 +186,8 @@ export async function completeAcquisitionFromCheck(payload, result) {
         return;
     }
 
-    if (payload.mode === "bunshin") {
-        // 分身元の自動設定(所有者参照からの申し送り解消。名前は syncTroopName が追従)
-        if (summoner && target.system.sourceName !== summoner.name) {
-            await target.update({ "system.sourceName": summoner.name }).catch(() => {});
-        }
-    } else {
+    // 分身は転記なし(名前は所有者参照から syncTroopName が導出・ダメージ管理も不要)
+    if (payload.mode !== "bunshin") {
         await target.update({
             "system.heads.value": outcome.heads,
             "system.heads.max":   outcome.heads,
@@ -209,21 +205,3 @@ export async function completeAcquisitionFromCheck(payload, result) {
     await placeActorTokens(target, 1);
 }
 
-/** 対象トループ級アクターの選択ダイアログ(複数該当時) */
-async function promptSelectTarget(candidates, modeLabel) {
-    const options = candidates.map((a, i) => `<option value="${i}">${foundry.utils.escapeHTML(a.name)}</option>`).join("");
-    const content = `<div class="form-group"><label>呼び出す${modeLabel}</label><select name="target">${options}</select></div>`;
-    const idx = await foundry.applications.api.DialogV2.wait({
-        window:   { title: `${modeLabel}の選択` },
-        classes:  ["tokyo-nova", "tnx-dialog"],
-        position: { width: 340 },
-        content,
-        buttons: [
-            { action: "ok", icon: "fas fa-check", label: "選択", default: true,
-              callback: (_e, _b, dialog) => Number(dialog.element.querySelector('select[name="target"]')?.value ?? -1) },
-            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
-        ],
-        close: () => null,
-    });
-    return (Number.isInteger(idx) && idx >= 0) ? candidates[idx] : null;
-}

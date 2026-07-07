@@ -199,6 +199,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             incrementConsumeAmount: TnxUsageSheet._onConsumeAmountInc,
             decrementConsumeAmount: TnxUsageSheet._onConsumeAmountDec,
             acquireRefDelete:      TnxUsageSheet._onAcquireRefDelete,
+            acquireActorClear:     TnxUsageSheet._onAcquireActorClear,
         },
     };
 
@@ -273,6 +274,12 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 const doc = r.uuid ? await fromUuid(r.uuid).catch(() => null) : null;
                 return { idx, uuid: r.uuid, name: doc?.name ?? (r.name ? `${r.name}（削除済み）` : "(不明)"), missing: !doc };
             }));
+            // 取得アクター参照(判定系モード・2026-07-07 裁定=対象は用途側で設定)。ライブ解決
+            const aRef = usage.acquireActorRef ?? {};
+            const aDoc = aRef.uuid ? await fromUuid(aRef.uuid).catch(() => null) : null;
+            context.hasAcquireActor = !!aRef.uuid;
+            context.acquireActorName = aDoc?.name ?? (aRef.name ? `${aRef.name}（削除済み）` : "");
+            context.acquireModeLabel = ACQUIRE_MODES[mode] ?? "";
         }
         context.isAcquireCheckMode = context.isNpcAcquireType && !context.isAcquireExtraMode;
 
@@ -503,6 +510,12 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             if (zone) {
                 zone.addEventListener("dragover", (ev) => ev.preventDefault());
                 zone.addEventListener("drop", (ev) => this._onAcquireDrop(ev));
+            }
+            // NPC取得(判定系モード): 取得アクターのドロップ欄(2026-07-07 裁定=対象は用途側で設定)
+            const actorZone = this.element.querySelector(".usage-acquire-actor-dropzone");
+            if (actorZone) {
+                actorZone.addEventListener("dragover", (ev) => ev.preventDefault());
+                actorZone.addEventListener("drop", (ev) => this._onAcquireActorDrop(ev));
             }
         }
 
@@ -740,6 +753,34 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         const usage = this.usage;
         if (!usage) return;
         await this._patchUsage({ acquireItemRefs: (usage.acquireItemRefs ?? []).filter((_, i) => i !== idx) });
+        this.render({ force: true });
+    }
+
+    // ─── NPC取得: 取得アクター参照(判定系モード・2026-07-07 裁定) ─────────────────
+
+    /** 取得アクターのドロップ: 取得類型と一致するトループ級アクターのみ受け付ける */
+    async _onAcquireActorDrop(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        let data;
+        try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch { return; }
+        if (!data?.uuid) return;
+        const usage = this.usage;
+        if (!usage) return;
+        const mode = usage.acquireMode || "extra";
+        const doc = await fromUuid(data.uuid).catch(() => null);
+        if (!doc || doc.documentName !== "Actor" || doc.type !== "troop" || doc.system.troopMode !== mode) {
+            ui.notifications.warn(`ここには${ACQUIRE_MODES[mode] ?? ""}のアクター（種別が一致するトループ級）をドロップしてください。`);
+            return;
+        }
+        await this._patchUsage({ acquireActorRef: { uuid: doc.uuid, name: doc.name } });
+        this.render({ force: true });
+    }
+
+    static async _onAcquireActorClear(_event, _target) {
+        const usage = this.usage;
+        if (!usage) return;
+        await this._patchUsage({ acquireActorRef: { uuid: "", name: "" } });
         this.render({ force: true });
     }
 

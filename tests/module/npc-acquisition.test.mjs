@@ -1,35 +1,10 @@
 import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
-const { findOwnedTroops, computeAcquisitionOutcome } =
+const { computeAcquisitionOutcome } =
   await import("../../scripts/module/npc-acquisition-logic.mjs");
 
-const troop = (id, mode, ownerUuid) => ({
-  id, type: "troop",
-  system: { troopMode: mode, ownerActorRef: { uuid: ownerUuid, name: "" } },
-});
-
-describe("findOwnedTroops()（所有者逆引き・Troops.md「事前作成と所有者記録」）", () => {
-  const owner = "Actor.cast1";
-  const actors = [
-    troop("t1", "troop",   owner),
-    troop("t2", "enigma",  owner),
-    troop("t3", "bunshin", owner),
-    troop("t4", "troop",   "Actor.other"),
-    troop("t5", "troop",   ""),
-    { id: "c1", type: "cast", system: {} },
-  ];
-
-  it("所有者一致かつモード一致のトループ級のみ返す", () => {
-    expect(findOwnedTroops(actors, owner, "troop").map(a => a.id)).toEqual(["t1"]);
-    expect(findOwnedTroops(actors, owner, "enigma").map(a => a.id)).toEqual(["t2"]);
-    expect(findOwnedTroops(actors, owner, "bunshin").map(a => a.id)).toEqual(["t3"]);
-  });
-
-  it("所有者未設定(敵対トループ等)・他者所有・troop 以外は対象外", () => {
-    expect(findOwnedTroops(actors, "Actor.nobody", "troop")).toEqual([]);
-  });
-});
+// 旧 findOwnedTroops(所有者逆引き)は 2026-07-07 廃止——対象は用途側の取得アクター参照で明示設定
 
 describe("computeAcquisitionOutcome()（取得の帰結・Troops.md「NPC取得」）", () => {
   it("トループ/エニグマ: 達成値がそのまま人数/エニグマポイント", () => {

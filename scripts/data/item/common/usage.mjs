@@ -130,6 +130,8 @@ export class UsageTemplate extends SystemDataModel {
                     // しない(2026-07-04 ユーザー裁定=モードは明示選択)。
                     // acquireItemRefs: エキストラモードで派生取得する小分類「エキストラ」の
                     // アウトフィット参照(name は参照先削除時の表示フォールバックのみ・ライブ解決原則)
+                    // acquireActorRef: 判定系モード(troop/enigma/bunshin)で呼び出すトループ級
+                    // アクター参照(2026-07-07 ユーザー裁定=対象は用途側で設定。所有者逆引きは廃止)
                     acquireMode: new fields.StringField({ initial: "extra" }),
                     acquireItemRefs: new fields.ArrayField(
                         new fields.SchemaField({
@@ -137,6 +139,10 @@ export class UsageTemplate extends SystemDataModel {
                             name: new fields.StringField({ initial: "" }),
                         })
                     ),
+                    acquireActorRef: new fields.SchemaField({
+                        uuid: new fields.StringField({ initial: "" }),
+                        name: new fields.StringField({ initial: "" }),
+                    }),
                 })
             ),
         };

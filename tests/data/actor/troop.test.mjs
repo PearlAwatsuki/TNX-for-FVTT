@@ -72,9 +72,8 @@ describe("TroopDataModel.defineSchema()", () => {
       expect(schema.troopMode.options.choices).toEqual(["troop", "enigma", "bunshin"]);
     });
 
-    it("sourceName（分身元キャラ名）は StringField で initial 空文字", () => {
-      expect(schema.sourceName).toBeInstanceOf(MockStringField);
-      expect(schema.sourceName.options.initial).toBe("");
+    it("sourceName を持たない（分身元は所有者参照から導出・2026-07-07 廃止）", () => {
+      expect(schema).not.toHaveProperty("sourceName");
     });
 
     it("troopLevel は NumberField で initial 0・min 0・整数（能力値=スタイル基本値+トループレベル）", () => {
@@ -101,12 +100,12 @@ describe("TroopDataModel.defineSchema()", () => {
     });
   });
 
-  it("guest（共通基底そのまま）との差分は heads / troopMode / hasWorks / sourceName / troopLevel / ownerActorRef に限られる", () => {
+  it("guest（共通基底そのまま）との差分は heads / troopMode / hasWorks / troopLevel / ownerActorRef に限られる", () => {
     const guestKeys = new Set(Object.keys(GuestDataModel.defineSchema()));
     const troopKeys = new Set(Object.keys(schema));
     const troopOnly = [...troopKeys].filter(k => !guestKeys.has(k)).sort();
     const guestOnly = [...guestKeys].filter(k => !troopKeys.has(k));
-    expect(troopOnly).toEqual(["hasWorks", "heads", "ownerActorRef", "sourceName", "troopLevel", "troopMode"]);
+    expect(troopOnly).toEqual(["hasWorks", "heads", "ownerActorRef", "troopLevel", "troopMode"]);
     expect(guestOnly).toEqual([]);
   });
 });
@@ -139,5 +138,10 @@ describe("TroopDataModel.migrateData()（旧フィールド移行）", () => {
     const source = TroopDataModel.migrateData({ isEnigmaMode: false });
     expect(source.troopMode).toBeUndefined();
     expect(source).not.toHaveProperty("isEnigmaMode");
+  });
+
+  it("旧 sourceName は除去する（分身元は所有者参照から導出・2026-07-07 廃止）", () => {
+    const source = TroopDataModel.migrateData({ sourceName: "時雨" });
+    expect(source).not.toHaveProperty("sourceName");
   });
 });

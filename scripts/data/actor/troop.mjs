@@ -17,7 +17,6 @@
  *   - troop:   heads=人数。名前は「(スタイル名)・トループ」で固定。
  *   - enigma:  heads=エニグマポイント。名前は自由(個体識別が必要なのはエニグマのみ)。
  *   - bunshin: リソース管理なし(1点でも被ダメージで消滅)。名前は「(分身元キャラ)の分身」で固定。
- * - sourceName: 分身元キャラクター名(bunshin の固定名に使用。NPC取得用途=11-6 で自動設定へ拡張予定)。
  * - troopLevel: トループレベル(エニグマでは「エニグマレベル」呼称)。能力値の決定項(スタイル基本値＋
  *   トループレベル)。取得技能のレベルがそのままレベルになる(2026-07-04 確定・NPC取得で転記)。
  * - heads {value, max}: 人数/エニグマポイント。HP のように機能しダメージ分減少する(チャート不参照)。
@@ -53,7 +52,6 @@ export class TroopDataModel extends CharacterBaseDataModel {
       // ワークスを持つトループは作成可能。ON かつ組織アイテムありのとき名前が
       // 「(組織名)（(スタイル名)(トループレベル)レベル）」になる(組織未設定なら OFF と同じ挙動)。
       hasWorks: new fields.BooleanField({ initial: false }),
-      sourceName: new fields.StringField({ initial: "" }),
       troopLevel: new fields.NumberField({ initial: 0, min: 0, integer: true }),
       heads: new fields.SchemaField({
         value: new fields.NumberField({ initial: 1, min: 0, integer: true }),
@@ -70,6 +68,8 @@ export class TroopDataModel extends CharacterBaseDataModel {
    * @override
    * - 旧 memo(フェーズ6-0〜11-4)を biography.description へ移行する(description が空のときだけ)。
    * - 旧 isEnigmaMode(11-4 初版のみ)を troopMode へ移行する。
+   * - 旧 sourceName(11-4〜11-6 の分身元テキスト入力)は廃止(2026-07-07)。分身元は所有者
+   *   アクター参照(ownerActorRef)のライブ解決名から導出するため、値は引き継がず除去する。
    */
   static migrateData(source) {
     if (source.memo && !source.description) {
@@ -80,6 +80,7 @@ export class TroopDataModel extends CharacterBaseDataModel {
       source.troopMode = "enigma";
     }
     delete source.isEnigmaMode;
+    delete source.sourceName;
     return super.migrateData(source);
   }
 

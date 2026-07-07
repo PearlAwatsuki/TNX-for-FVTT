@@ -119,13 +119,9 @@
                     ワークスを設定
                 </label>
                 {{/if}}
-                {{#if (eq system.troopMode "bunshin")}}
-                <div class="bounty-edit-row bounty-edit-row--plain">
-                    <span class="bounty-section-label">分身元</span>
-                    <input type="text" name="system.sourceName" value="{{system.sourceName}}"
-                        placeholder="分身元キャラクター名" title="名前が「(分身元キャラ)の分身」に固定されます">
-                </div>
-                {{else}}
+                {{!-- 分身元は所有者アクターから導出(2026-07-07 確定・テキスト入力は廃止)。
+                     名前は「(所有者名)の分身」に固定される --}}
+                {{#unless (eq system.troopMode "bunshin")}}
                 <div class="bounty-edit-row">
                     <span class="bounty-section-label" {{#if (eq system.troopMode "enigma")}}title="エニグマポイント"{{/if}}>{{#if (eq system.troopMode "enigma")}}ポイント{{else}}人数{{/if}}</span>
                     <div class="bounty-field">
@@ -138,7 +134,7 @@
                         <input type="number" name="system.heads.max" value="{{system.heads.max}}">
                     </div>
                 </div>
-                {{/if}}
+                {{/unless}}
             {{else}}
                 {{#unless (eq system.troopMode "bunshin")}}
                 <div class="bounty-view-panel">

@@ -185,14 +185,16 @@ export function actionRankField() {
  * - troop: 「(スタイル名)・トループ（(トループレベル)レベル）」例: カブトワリ・トループ（2レベル）
  *   - ワークスを設定(hasWorks)かつ組織名あり: 「(組織名)（(スタイル名)(トループレベル)レベル）」
  *     例: トキオシティポリス（カブトワリ2レベル）。組織未設定の間はフラグ OFF と同じ挙動。
- * - bunshin: 「(分身元キャラ)の分身」
+ * - bunshin: 「(分身元キャラ)の分身」——分身元は**所有者アクター参照のライブ解決名**を渡す
+ *   (2026-07-07 確定。旧 sourceName テキスト入力は廃止＝分身元は所有者そのもの)
  * - enigma: null(名前は自由入力＝固定しない)
  * スタイル名・分身元が無い等、導出材料が無いときも null(固定しない)。
  *
- * @param {{troopMode?:string, sourceName?:string, troopLevel?:number, hasWorks?:boolean}} sys
+ * @param {{troopMode?:string, troopLevel?:number, hasWorks?:boolean}} sys
  * @param {string|null} styleName  所持スタイルの名前(トループはスタイル1つ)
  * @param {string|null} orgName    ワークス名。所属組織(organization)アイテムの名前だが、
  *                                 部署技能(findDepartmentSkillName)があればその名前を渡す(上書き)
+ * @param {string|null} sourceName 分身元(所有者アクター)の名前(bunshin のみ使用)
  * @returns {string|null}
  */
 /**
@@ -214,11 +216,11 @@ export function findDepartmentSkillName(items) {
   return null;
 }
 
-export function computeTroopFixedName(sys, styleName, orgName) {
+export function computeTroopFixedName(sys, styleName, orgName, sourceName = null) {
   if (!sys) return null;
   if (sys.troopMode === "enigma") return null;
   if (sys.troopMode === "bunshin") {
-    const src = (sys.sourceName ?? "").trim();
+    const src = (sourceName ?? "").trim();
     return src ? `${src}の分身` : null;
   }
   if (!styleName) return null;
