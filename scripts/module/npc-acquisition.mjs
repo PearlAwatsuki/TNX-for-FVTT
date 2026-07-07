@@ -23,7 +23,7 @@ import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { getComboSuits } from "./tnx-check-engine.mjs";
 import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } from "./usage-consumption.mjs";
 import { placeActorTokens } from "./tnx-token-placement.mjs";
-import { computeAcquisitionOutcome } from "./npc-acquisition-logic.mjs";
+import { computeAcquisitionOutcome, buildBunshinAbilityMods } from "./npc-acquisition-logic.mjs";
 
 const MODE_LABELS = { extra: "エキストラ", troop: "トループ", enigma: "エニグマ", bunshin: "分身" };
 const RESOURCE_LABELS = { troop: "人数", enigma: "エニグマポイント" };
@@ -167,6 +167,32 @@ async function useCheckAcquire(actor, item, usage, mode) {
 }
 
 /**
+ * 分身アクターを本体(分身元)から再同期する(差分反映方式・2026-07-07 承認)。
+ * 分身は永続1体を使い回し、召喚のたびにその時点の本体データを丸ごと写す——
+ * 分身するたびに古い分身がワールドに残る問題を構造的に解消する(削除連動は不要)。
+ * - アイテム: 全削除→本体から複製(**神業は除外**=分身も神業不可の帰結)。keepId で複製する
+ *   ことで、用途内の参照(ベース技能・コンボ・武器・消費先の itemId)が写し先でも成立する
+ * - 能力値: 修正値=本体の修正値+成長 / 制御修正値=本体の制御修正値+制御成長 の焼き込み
+ *   (+troopLevel=0)。スタイル・アウトフィットが同一になるため実効値は本体と完全一致
+ *   (2026-07-07 確定)。CS/AR は分身の固定ルール(CS=0・AR=1)のため写さない
+ * - 所有者参照=本体を自動設定(分身名の導出・使用回数共有の紐づけ)
+ * 分身アクターへの手動編集は再同期で失われる(本体のコピーという性質上の正しい挙動)。
+ */
+async function syncBunshinFromOwner(target, owner) {
+    const oldIds = target.items.map(i => i.id);
+    if (oldIds.length) await target.deleteEmbeddedDocuments("Item", oldIds);
+    const copies = owner.items
+        .filter(i => i.type !== "miracle")
+        .map(i => i.toObject());
+    if (copies.length) await target.createEmbeddedDocuments("Item", copies, { keepId: true });
+    await target.update({
+        ...buildBunshinAbilityMods(owner.system),
+        "system.troopLevel": 0,
+        "system.ownerActorRef": { uuid: owner.uuid, name: owner.name },
+    });
+}
+
+/**
  * 判定完了後の取得継続(TnxCheckFlow._execute から呼ばれる)。
  * トループ/エニグマ: heads(現在/最大)=達成値を転記+配置。分身: 成功時のみ sourceName 自動設定+配置。
  * @param {{mode:string, targetActorId:string, summonerActorId:string}} payload ctx.npcAcquire
@@ -186,8 +212,18 @@ export async function completeAcquisitionFromCheck(payload, result) {
         return;
     }
 
-    // 分身は転記なし(名前は所有者参照から syncTroopName が導出・ダメージ管理も不要)
-    if (payload.mode !== "bunshin") {
+    if (payload.mode === "bunshin") {
+        // 差分反映方式(2026-07-07 承認): 分身はその時点の分身元のデータをコピーして現れるため、
+        // 召喚成功のたびに永続1体を本体の最新データへ丸ごと再同期する(古い分身が残らない)
+        if (summoner) {
+            try {
+                await syncBunshinFromOwner(target, summoner);
+            } catch (err) {
+                console.error("TNX | 分身の再同期に失敗しました", err);
+                ui.notifications.warn(`「${target.name}」を本体から再同期できませんでした（権限を確認してください）。`);
+            }
+        }
+    } else {
         await target.update({
             "system.heads.value": outcome.heads,
             "system.heads.max":   outcome.heads,
