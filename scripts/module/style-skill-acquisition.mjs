@@ -2,8 +2,8 @@
  * @fileoverview スタイル技能の自動取得(フェーズ10-2)。
  *
  * スタイル技能をアクターに作成(インポート/ドロップ)した時、styleSkill.autoAcquireItems で
- * 指定された武器アイテムを UUID から複製生成する。トループ取得（autoAcquireActors）は本フェーズは
- * 保持のみ（本体生成は11）。
+ * 指定された武器アイテムを UUID から複製生成する。
+ * ※旧 autoAcquireActors(トループ取得)は 2026-07-08 廃止——取得対象は NPC取得用途側で設定する。
  *
  * 重複防止: 由来武器（fromStyleSkillKey 付き）のうち、識別キーの**プレフィックス（区切り「_」まで）**が
  * 一致する同種を既に取得済みなら生成しない（専用フラグは設けない・2026-06-27 確定）。
@@ -127,7 +127,7 @@ async function promptSelectWeapon(skillName, candidates) {
  * styleSkill がアクターに作成された時の自動取得（Foundry 依存）。autoAcquireItems を UUID から
  * 複製生成し、由来マーク（fromStyleSkillKey）を付ける。同種（プレフィックス一致）の既取得はスキップ。
  * **取得候補が複数のときはダイアログで選択**させる（1つなら自動取得）。
- * トループ（autoAcquireActors）は保持のみ（生成しない・11 で対応）。
+ * ※旧 autoAcquireActors は廃止済み(2026-07-08)。
  * @param {Actor} actor 取得先アクター
  * @param {Item} styleSkillItem 作成された styleSkill アイテム
  */

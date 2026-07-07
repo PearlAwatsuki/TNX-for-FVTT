@@ -163,13 +163,15 @@ describe("StyleSkillDataModel.defineSchema()", () => {
   });
 
   describe("自動取得フィールド(フェーズ10-2)", () => {
-    for (const key of ["autoAcquireItems", "autoAcquireActors"]) {
-      it(`${key} は {uuid, name} の ArrayField`, () => {
-        expect(schema[key]).toBeInstanceOf(MockArrayField);
-        expect(schema[key].element.fields.uuid).toBeInstanceOf(MockStringField);
-        expect(schema[key].element.fields.name).toBeInstanceOf(MockStringField);
-      });
-    }
+    it("autoAcquireItems は {uuid, name} の ArrayField", () => {
+      expect(schema.autoAcquireItems).toBeInstanceOf(MockArrayField);
+      expect(schema.autoAcquireItems.element.fields.uuid).toBeInstanceOf(MockStringField);
+      expect(schema.autoAcquireItems.element.fields.name).toBeInstanceOf(MockStringField);
+    });
+
+    it("autoAcquireActors を持たない（2026-07-08 廃止・取得対象は NPC取得用途側で設定）", () => {
+      expect(schema).not.toHaveProperty("autoAcquireActors");
+    });
   });
 
   describe("書き換え神業関連フィールド(KI-018/019 正規化済み)", () => {

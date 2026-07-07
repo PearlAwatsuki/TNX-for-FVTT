@@ -487,12 +487,13 @@
                     </div>
                 </fieldset>
 
-                {{!-- 自動取得: acquiresOutfit か 特別なスタイル技能=トループ取得技能 のとき表示。取得アイテム/アクターは各条件で出し分け --}}
+                {{!-- 自動取得: acquiresOutfit のとき表示(武器取得技能の習得時自動取得)。
+                     旧「取得アクター」欄は 2026-07-08 廃止——トループ級の取得対象は
+                     NPC取得用途側で設定する(Troops.md「NPC取得」) --}}
                 {{#if showAutoAcquire}}
                 <fieldset class="tnx-fieldset">
                     <legend>自動取得（取得時）</legend>
 
-                    {{#if system.acquiresOutfit}}
                     <div class="form-group">
                         <label>武器使用義務 <i class="fas fa-circle-question" title="取得武器でこの技能の判定をしなければならない（オフ＝取得のみ・使用は任意）"></i></label>
                         <input type="checkbox" name="system.weaponUseMandatory" {{checked system.weaponUseMandatory}}>
@@ -512,27 +513,6 @@
                             </div>
                         </div>
                     </div>
-                    {{/if}}
-
-                    {{#if (eq system.unique "troopAcquire")}}
-                    <div class="form-group align-start">
-                        <label>取得アクター</label>
-                        <div class="style-acquire-list">
-                            {{#each autoAcquireActors}}
-                            <button type="button" class="tnx-linked-btn{{#if this.missing}} is-missing{{/if}}" data-action="viewAcquireRef" data-acquire="actors" data-index="{{@index}}" data-context-menu="acquire-ref">
-                                {{#if this.img}}<img src="{{this.img}}" class="tnx-linked-btn__icon"/>{{/if}}
-                                <span class="tnx-linked-btn__label">{{this.name}}{{#if this.missing}}（削除済み）{{/if}}</span>
-                            </button>
-                            {{/each}}
-                            {{!-- トループは1つのみ。未設定のときだけドロップ枠を出す（差し替えは削除→再ドロップ） --}}
-                            {{#unless autoAcquireActors.length}}
-                            <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="acquire-actors">
-                                <span>アクターをここにドロップ（1つのみ）</span>
-                            </div>
-                            {{/unless}}
-                        </div>
-                    </div>
-                    {{/if}}
                 </fieldset>
                 {{/if}}
 

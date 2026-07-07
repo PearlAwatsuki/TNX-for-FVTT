@@ -81,11 +81,11 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
             }
         }
 
-        // 自動取得対象(10-2): 名前は fromUuid でライブ解決(削除済みは name キャッシュをフォールバック表示)
+        // 自動取得対象(10-2): 名前は fromUuid でライブ解決(削除済みは name キャッシュをフォールバック表示)。
+        // 旧「取得アクター」(autoAcquireActors)は 2026-07-08 廃止——トループ級の取得対象は
+        // NPC取得用途側(acquireActorRef)で設定する
         context.autoAcquireItems  = await TokyoNovaStyleSkillSheet._resolveAcquireRefs(system.autoAcquireItems);
-        context.autoAcquireActors = await TokyoNovaStyleSkillSheet._resolveAcquireRefs(system.autoAcquireActors);
-        // 自動取得セクションは「アウトフィット取得」ON か 特別なスタイル技能=トループ取得技能 のときのみ表示
-        context.showAutoAcquire = !!system.acquiresOutfit || system.unique === "troopAcquire";
+        context.showAutoAcquire = !!system.acquiresOutfit;
 
         // レベル自動参照(10-3): アクター上では参照先を同型スタイル技能のドロップダウンで選ぶ
         // (入力欄→プルダウン)。識別キーを値に持ち、既存キーがあれば selected で自動選択される。
@@ -199,24 +199,21 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
 
     // ─── 自動取得(10-2) ────────────────────────────────────────────────────────
 
-    /** インポートボックス(data-drop-area=acquire-items|acquire-actors)へのドロップを処理。配列に追加。 */
+    /**
+     * インポートボックス(data-drop-area=acquire-items)へのドロップを処理。配列に追加。
+     * 旧「取得アクター」(acquire-actors)は 2026-07-08 廃止——トループ級の取得対象は
+     * NPC取得用途側(acquireActorRef)で設定する。
+     */
     async _onDropAcquireZone(event) {
         event.preventDefault();
-        const area = event.currentTarget?.dataset.dropArea; // "acquire-items" | "acquire-actors"
-        const wantItem = area === "acquire-items";
-        if (!wantItem && area !== "acquire-actors") return;
+        if (event.currentTarget?.dataset.dropArea !== "acquire-items") return;
         let data;
         try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch { return; }
         if (!data?.uuid) return;
         const doc = await fromUuid(data.uuid).catch(() => null);
         if (!doc) return;
-        if ((wantItem && doc.documentName !== "Item") || (!wantItem && doc.documentName !== "Actor")) {
-            ui.notifications?.warn(wantItem ? "ここにはアイテムをドロップしてください。" : "ここにはアクターをドロップしてください。");
-            return;
-        }
-        // トループ(acquire-actors)は1つのみ＝新しいドロップで置き換える。武器(acquire-items)は複数追加可。
-        if (!wantItem) {
-            await this.item.update({ "system.autoAcquireActors": [{ uuid: doc.uuid, name: doc.name }] });
+        if (doc.documentName !== "Item") {
+            ui.notifications?.warn("ここにはアイテムをドロップしてください。");
             return;
         }
         const cur = [...(this.item.system.autoAcquireItems ?? [])];
@@ -225,12 +222,11 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
         await this.item.update({ "system.autoAcquireItems": cur });
     }
 
-    /** data-acquire(items|actors)+data-index から取得対象の配列・参照を解決する。 */
+    /** data-acquire(items)+data-index から取得対象の配列・参照を解決する。 */
     _resolveAcquireTarget(el) {
-        const kind = el?.dataset.acquire; // "items" | "actors"
+        const kind = el?.dataset.acquire; // "items"
         const index = Number(el?.dataset.index);
-        const list = kind === "items" ? (this.item.system.autoAcquireItems ?? [])
-            : kind === "actors" ? (this.item.system.autoAcquireActors ?? []) : null;
+        const list = kind === "items" ? (this.item.system.autoAcquireItems ?? []) : null;
         const ref = (list && index >= 0 && index < list.length) ? list[index] : null;
         return { kind, index, list, ref };
     }
@@ -245,11 +241,10 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
     /** 取得対象を配列から削除する。 */
     async _removeAcquireRef(el) {
         const { kind, index, list } = this._resolveAcquireTarget(el);
-        if (!list || index < 0 || index >= list.length) return;
-        const field = kind === "items" ? "system.autoAcquireItems" : "system.autoAcquireActors";
+        if (!list || kind !== "items" || index < 0 || index >= list.length) return;
         const cur = [...list];
         cur.splice(index, 1);
-        await this.item.update({ [field]: cur });
+        await this.item.update({ "system.autoAcquireItems": cur });
     }
 
     /** 取得対象ボタンの左クリック: 閲覧。 */

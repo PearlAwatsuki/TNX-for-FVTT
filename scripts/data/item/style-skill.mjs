@@ -148,16 +148,11 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
       // 自動取得(フェーズ10-2): 習得時に取得する対象。
       // - acquiresOutfit: 「取得と同時にアウトフィットを取得する」トグル。ON で取得アイテム欄を表示・自動取得。
       // - autoAcquireItems: 武器取得技能の対象アイテム(UUID)。取得時に複製生成。
-      // - autoAcquireActors: トループ取得技能(unique="troopAcquire")の対象アクター(UUID)。本フェーズは保持のみ(本体生成は11)。
       // name は元が削除された場合の表示フォールバック(UUID 解決失敗時)。
+      // ※旧 autoAcquireActors(トループ取得技能の対象アクター)は 2026-07-08 廃止——
+      //   取得対象は NPC取得用途側(usage.acquireActorRef)で設定する(migrateData で除去)。
       acquiresOutfit: new fields.BooleanField({ initial: false }),
       autoAcquireItems: new fields.ArrayField(
-        new fields.SchemaField({
-          uuid: new fields.StringField({ initial: "" }),
-          name: new fields.StringField({ initial: "" }),
-        })
-      ),
-      autoAcquireActors: new fields.ArrayField(
         new fields.SchemaField({
           uuid: new fields.StringField({ initial: "" }),
           name: new fields.StringField({ initial: "" }),
@@ -214,6 +209,8 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
    */
   static migrateData(source) {
     migrateUsesValueToSpent(source);
+    // 旧 autoAcquireActors(2026-07-08 廃止): 取得対象は NPC取得用途側で設定するため除去する
+    delete source.autoAcquireActors;
     return super.migrateData(source);
   }
 
