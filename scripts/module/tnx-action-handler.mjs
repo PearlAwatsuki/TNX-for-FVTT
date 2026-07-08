@@ -206,21 +206,24 @@ export class TnxActionHandler {
      * 山札から1枚カードを表向きで捨て札にめくる(公開の汎用操作)。
      * ※旧「山札から判定する」(checkFromDeck)。山札からの判定は判定ダイアログ経由に移行済みの
      * ため、判定を意味しない「めくる」操作として改名(2026-07-09)。
+     * @returns {Promise<Card|null>} めくったカード(ダメージカード等の呼び出し元が値を使う)
      */
     static async flipFromDeck() {
         const deck = await this.getActiveDeck();
         const discardPile = await this.getActiveDiscardPile();
 
         if (!deck || deck.availableCards.length === 0) {
-            return ui.notifications.warn("山札にカードがありません。");
+            ui.notifications.warn("山札にカードがありません。");
+            return null;
         }
         if (!discardPile) {
-            return ui.notifications.warn("捨て札が設定されていません。");
+            ui.notifications.warn("捨て札が設定されていません。");
+            return null;
         }
 
         // 1. 捨て札の山に、山札から1枚カードを引く
         const drawnCards = await discardPile.draw(deck, 1, { render: false, chatNotification: false });
-        if (drawnCards.length === 0) return;
+        if (drawnCards.length === 0) return null;
 
         // 2. 引いたカードを表向きにする
         const card = drawnCards[0];
@@ -228,6 +231,7 @@ export class TnxActionHandler {
 
         // 3. 完了を通知
         ui.notifications.info(`山札から1枚めくりました： ${card.name}`);
+        return discardPile.cards.get(card.id) ?? card;
     }
 
     static async drawNeuroCard() {

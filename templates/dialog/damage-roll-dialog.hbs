@@ -1,0 +1,32 @@
+{{!-- ダメージ・ロールダイアログ(攻撃側・フェーズ12-3)。最小構成: damageBoost 選択+
+     手動修正+スタンのみ。カードを出すこと([手札から出す]/[山札から1枚めくる])が
+     確定トリガー(判定と同じ考え方)。軽減は適用時に防御側が入力する。 --}}
+<div class="tnx-damage-form">
+    <p class="tnx-damage-summary">
+        {{categoryLabel}}ダメージ{{#if targetName}}／対象: {{targetName}}{{/if}}<br>
+        ダメージカード{{#if isPhysical}} ＋ 攻撃力（{{attackSourceName}}）<b>{{attackPower}}</b>{{#if faValue}} ＋ FA <b>{{faValue}}</b>{{/if}}{{/if}} ＋ 修正
+    </p>
+
+    {{#if boostRows.length}}
+    <fieldset class="tnx-damage-group">
+        <legend>ダメージ増加（攻撃側）</legend>
+        {{#each boostRows}}
+        <label class="tnx-damage-row">
+            <input type="checkbox" class="dmg-boost" value="{{this.id}}">
+            <span>{{this.label}}{{#if this.effectDisplay}} <span class="tnx-damage-formula">{{this.effectDisplay}}</span>{{/if}}</span>
+        </label>
+        {{/each}}
+    </fieldset>
+    {{/if}}
+
+    <div class="tnx-damage-fields">
+        <div class="form-group">
+            <label>ダメージ修正（手動）</label>
+            <input type="number" name="manualMod" value="0">
+        </div>
+        <label class="tnx-damage-stun">
+            <input type="checkbox" name="stun">
+            スタン／説得（10 以上を 10 とみなす）
+        </label>
+    </div>
+</div>

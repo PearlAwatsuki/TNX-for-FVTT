@@ -1,23 +1,11 @@
 import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
-const { novaDamageCardValue, resolveNoReaction, resolveOpposed, attackReactionModes } =
+const { resolveNoReaction, resolveOpposed, attackReactionModes } =
   await import("../../scripts/module/attack-flow-logic.mjs");
 
-describe("novaDamageCardValue()（ダメージカード=命中判定のカード数字・Damage_Rules）", () => {
-  it("数値はそのまま（絵札=10 は判定値の時点で反映済み）", () => {
-    expect(novaDamageCardValue(7)).toBe(7);
-    expect(novaDamageCardValue(10)).toBe(10);
-  });
-
-  it("A の 21固定は達成値側の選択であり、ダメージカードとしては 11", () => {
-    expect(novaDamageCardValue("FIXED_21")).toBe(11);
-  });
-
-  it("ファンブルは null（命中しないため未使用）", () => {
-    expect(novaDamageCardValue("FUMBLE")).toBeNull();
-  });
-});
+// ダメージカードは命中判定のカードとは別に出す(Damage_Rules 2026-07-08 訂正)ため、
+// 命中判定値からの導出(novaDamageCardValue)は廃止された
 
 describe("resolveNoReaction()（リアクションなし=目標値に対象の制御値）", () => {
   it("達成値≥制御値で命中・差分値=達成値−制御値", () => {

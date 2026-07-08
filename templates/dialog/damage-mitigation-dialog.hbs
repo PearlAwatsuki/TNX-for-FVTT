@@ -1,23 +1,10 @@
-{{!-- ダメージ算出ダイアログ(フェーズ12-3)。カード+攻撃力+修正−軽減。
-     damageBoost/damageReduce は選択で修正/軽減に乗る(formula は @diff/@achievement 可)。 --}}
+{{!-- ダメージ軽減ダイアログ(防御側・フェーズ12-3)。ダメージ・カードの[適用]から
+     対象の操作者(または RL)に対して開く。防御力+パリー受け値は自動、damageReduce は
+     選択、社会攻撃は報酬点による軽減(2026-07-08 ユーザー指示: 防御側に別途ダイアログ)。 --}}
 <div class="tnx-damage-form">
     <p class="tnx-damage-summary">
-        ダメージカード <b>{{damageCard}}</b>
-        {{#if isPhysical}}＋ 攻撃力（{{attackSourceName}}）<b>{{attackPower}}</b>{{#if faValue}} ＋ FA <b>{{faValue}}</b>{{/if}}{{/if}}
-        {{#if targetName}}／ 対象: {{targetName}}{{/if}}
+        {{targetName}} への {{categoryLabel}}ダメージ（攻撃側合計 <b>{{raw}}</b>{{#if stun}}・スタン／説得{{/if}}）
     </p>
-
-    {{#if boostRows.length}}
-    <fieldset class="tnx-damage-group">
-        <legend>ダメージ増加（攻撃側）</legend>
-        {{#each boostRows}}
-        <label class="tnx-damage-row">
-            <input type="checkbox" class="dmg-boost" value="{{this.id}}">
-            <span>{{this.label}}{{#if this.effectDisplay}} <span class="tnx-damage-formula">{{this.effectDisplay}}</span>{{/if}}</span>
-        </label>
-        {{/each}}
-    </fieldset>
-    {{/if}}
 
     {{#if reduceRows.length}}
     <fieldset class="tnx-damage-group">
@@ -33,10 +20,6 @@
 
     <div class="tnx-damage-fields">
         <div class="form-group">
-            <label>ダメージ修正（手動）</label>
-            <input type="number" name="manualMod" value="0">
-        </div>
-        <div class="form-group">
             <label>軽減{{#if mitigationParts.length}}（自動: {{#each mitigationParts}}{{this}}{{#unless @last}}・{{/unless}}{{/each}}）{{/if}}</label>
             <input type="number" name="mitigation" value="{{autoMitigation}}">
         </div>
@@ -46,13 +29,9 @@
             <input type="number" name="bountyMitigation" value="0">
         </div>
         {{/if}}
-        <label class="tnx-damage-stun">
-            <input type="checkbox" name="stun">
-            スタン／説得（10 以上を 10 とみなす）
-        </label>
     </div>
 
-    {{!-- ライブプレビュー(12-1 設計: 最終値・参照段・負傷名)。入力変更のたびに更新される --}}
+    {{!-- ライブプレビュー(最終値・参照段・負傷名)。入力変更のたびに更新される --}}
     <div class="tnx-damage-preview">
         <span class="tnx-damage-preview-label">最終ダメージ</span>
         <span class="tnx-damage-preview-note"></span>

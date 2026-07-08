@@ -27,7 +27,7 @@ import { resolveConsumeRowsForActor, promptConsumption } from "./usage-consumpti
 import { TargetSelectionDialog } from "./tnx-dialog.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { isActorInStartedCombat } from "../data/helpers.mjs";
-import { novaDamageCardValue, resolveNoReaction, resolveOpposed, attackReactionModes } from "./attack-flow-logic.mjs";
+import { resolveNoReaction, resolveOpposed, attackReactionModes } from "./attack-flow-logic.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -165,7 +165,7 @@ export async function useAttack(item, usage) {
  * 命中判定完了後に攻撃カードを投稿する(通常の結果カードの代わり)。
  * 成否は保留(state=pending)し、リアクション導線をカード上で提供する。
  */
-export async function postAttackCard({ payload, result, suit, cardCheckValue, card, fromDeck, trumpUsed, suitMismatch }) {
+export async function postAttackCard({ payload, result, suit, card, fromDeck, trumpUsed, suitMismatch }) {
     const attacker = await fromUuid(payload.attackerUuid).catch(() => null);
     const SUIT_SYMBOL = { spade: "♠", club: "♣", heart: "♥", diamond: "♦" };
 
@@ -175,17 +175,18 @@ export async function postAttackCard({ payload, result, suit, cardCheckValue, ca
     else if (suitMismatch) { state = "miss"; resolution = "mismatch"; }
     else if (!payload.targetUuid) { state = "open"; }
 
+    // ダメージカードは命中判定のカードとは別に出す(Damage_Rules 2026-07-08 訂正)ため、
+    // 攻撃カードはダメージ値を持たない(damageRolled=ダメージ・カードを出したかのみ)
     const flags = {
         ...payload,
         state, resolution,
         achievement: result.achievement,
         suit,
-        damageCard: novaDamageCardValue(cardCheckValue),
         reactionAchievement: null,
         targetValue: null,
         diff: null,
         parryGuard: 0,
-        damageApplied: false,
+        damageRolled: false,
     };
 
     const content = await foundry.applications.handlebars.renderTemplate(
@@ -205,7 +206,6 @@ export async function postAttackCard({ payload, result, suit, cardCheckValue, ca
             weaponAttack:  payload.weaponAttack,
             damageTypeLabel: payload.damageType ? `${payload.damageType}` : "",
             faValue:       payload.faValue,
-            damageCard:    flags.damageCard,
             achievement:   result.achievement,
         }
     );
@@ -262,21 +262,21 @@ export function renderAttackCard(message, html) {
         } else {
             addLine("jr-result", "対象なし（ダメージ算出は対象を選択して行います）");
         }
-        if (!f.damageApplied) {
+        if (!f.damageRolled) {
             const attacker = resolveSync(f.attackerUuid);
             if (game.user.isGM || attacker?.isOwner) {
                 const btn = document.createElement("button");
                 btn.type = "button";
                 btn.className = "tnx-chat-btn tnx-attack-damage-btn";
-                btn.innerHTML = '<i class="fas fa-burst"></i> ダメージ算出';
+                btn.innerHTML = '<i class="fas fa-clone"></i> ダメージカードを出す';
                 btn.addEventListener("click", async () => {
-                    const { openDamageDialog } = await import("./damage-flow.mjs");
-                    openDamageDialog(message);
+                    const { openDamageRollDialog } = await import("./damage-flow.mjs");
+                    openDamageRollDialog(message);
                 });
                 area.appendChild(btn);
             }
         } else {
-            addLine("jr-tn", "（ダメージ適用済み）");
+            addLine("jr-tn", "（ダメージカードを出しました）");
         }
         return;
     }

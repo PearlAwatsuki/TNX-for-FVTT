@@ -9,8 +9,9 @@
  *   checkResult     - PL → GM: 判定結果を送信し ChatMessage を更新する
  *   attackUpdate    - PL → GM: 攻撃カード(attackCheck)のフラグ更新を委譲する（12-2。
  *                     対象側プレイヤーは攻撃者のメッセージを直接更新できないため）
- *   damageApply     - PL → GM: ダメージ適用を委譲する（12-3。BS 付与=ActiveEffect 作成や
- *                     heads 減算は対象の所有者権限が要るため）
+ *   damageUpdate    - PL → GM: ダメージ・カード(damageRoll)のフラグ更新を委譲する（12-3。
+ *                     防御側が適用結果を書き込む際、攻撃者のメッセージを直接更新できないため。
+ *                     ダメージの効果付与自体は対象の所有者クライアントで行うため委譲不要）
  */
 
 export class TnxSocketHandler {
@@ -33,8 +34,8 @@ export class TnxSocketHandler {
             case "attackUpdate":
                 TnxSocketHandler._onAttackUpdate(data);
                 break;
-            case "damageApply":
-                TnxSocketHandler._onDamageApply(data);
+            case "damageUpdate":
+                TnxSocketHandler._onDamageUpdate(data);
                 break;
         }
     }
@@ -118,24 +119,26 @@ export class TnxSocketHandler {
         });
     }
 
-    // ─── damageApply（フェーズ12-3） ──────────────────────────────────────────
+    // ─── damageUpdate（フェーズ12-3） ─────────────────────────────────────────
 
-    /**
-     * ダメージ適用を GM クライアントが代行する。二重適用を防ぐため、
-     * 複数 GM 接続時は activeGM のクライアントのみ実行する。
-     * damage-flow は attack-flow 経由で本モジュールを参照するため動的 import。
-     */
-    static async _onDamageApply(data) {
-        if (game.users.activeGM?.id !== game.user.id) return;
-        const { applyDamageDelegated } = await import("./damage-flow.mjs");
-        await applyDamageDelegated(data);
+    /** ダメージ・カードのフラグ更新を GM クライアントが代行する。 */
+    static async _onDamageUpdate(data) {
+        if (!game.user.isGM) return;
+        const message = game.messages.get(data?.messageId);
+        if (!message || !data?.patch) return;
+        const updates = {};
+        for (const [k, v] of Object.entries(data.patch)) {
+            updates[`flags.tokyo-nova-axleration.damageRoll.${k}`] = v;
+        }
+        await message.update(updates);
     }
 
-    /** ダメージ適用を GM へ委譲する（対象の所有権がない PL から呼ぶ）。 */
-    static emitDamageApply(payload) {
+    /** ダメージ・カードのフラグ更新を GM へ委譲する（防御側 PL から呼ぶ）。 */
+    static emitDamageUpdate(messageId, patch) {
         game.socket.emit("system.tokyo-nova-axleration", {
-            type: "damageApply",
-            ...payload,
+            type: "damageUpdate",
+            messageId,
+            patch,
         });
     }
 }

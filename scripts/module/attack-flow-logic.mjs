@@ -5,19 +5,6 @@
  */
 
 /**
- * ダメージカードの数字(N◎VA カード数字: 絵札=10・A=11)。
- * 命中判定で出したカードの判定値から導く。A の 21固定は達成値側の選択であり、
- * ダメージカードとしての A は 11(Damage_Rules)。ファンブル等は null(命中しないため未使用)。
- * @param {number|"FIXED_21"|"FUMBLE"} cardCheckValue
- * @returns {number|null}
- */
-export function novaDamageCardValue(cardCheckValue) {
-    if (typeof cardCheckValue === "number") return cardCheckValue;
-    if (cardCheckValue === "FIXED_21") return 11;
-    return null;
-}
-
-/**
  * リアクションなしの命中確定: 目標値=対象の制御値(出したスートに対応)。
  * 差分値は**命中(勝利)した場合にのみ**算出される(Check_Rules 2026-07-09 訂正・失敗時は null)。
  * @param {number} achievement 攻撃の達成値

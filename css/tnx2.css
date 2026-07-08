@@ -7233,13 +7233,24 @@ button.tnx-create-act-button span {
     line-height: 1;
 }
 
-/* ── ダメージ適用の結果カード(damage-result.hbs) ── */
-.tnx-damage-result .jr-result--damage {
-    background: rgba(200, 50, 50, 0.20);
+/* ── ダメージ・カード(damage-card.hbs): 状態領域と適用結果 ── */
+.tnx-damage-status {
+    padding: 8px 12px 10px;
+    border-top: 1px solid var(--tnx2-border-subtle);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.tnx-damage-status:empty {
+    display: none;
+}
+.tnx-damage-card .jr-result {
+    padding: 4px 0 0;
+}
+.tnx-damage-card .jr-result--damage {
     color: #e86060;
 }
-.tnx-damage-result .jr-result--nodamage {
-    background: rgba(120, 120, 120, 0.15);
+.tnx-damage-card .jr-result--nodamage {
     color: var(--tnx2-text-secondary);
 }
 

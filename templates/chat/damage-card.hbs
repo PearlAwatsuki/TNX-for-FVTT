@@ -1,0 +1,13 @@
+{{!-- ダメージ・カード(フェーズ12-3・D&D 5e のダメージ・ロールと同型)。
+     台帳(.tnx-damage-ledger=カード行+攻撃力+FA+修正→攻撃側合計)と状態領域
+     (.tnx-damage-status=カード追加/適用ボタン・適用後は軽減内訳+最終ダメージ)は
+     renderChatMessageHTML(damage-flow.renderDamageCard)がフラグからライブ描画する
+     (カードの追加・適用で更新されるため本文は殻のみ) --}}
+<div class="tnx-check-result tnx-damage-card tokyo-nova">
+    <div class="jr-head">
+        <span class="jr-skill-name">ダメージ</span>
+        <span class="jr-type-tag">{{categoryLabel}}</span>
+    </div>
+    <div class="jr-calc-section tnx-damage-ledger"></div>
+    <div class="tnx-damage-status"></div>
+</div>

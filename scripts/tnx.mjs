@@ -45,6 +45,7 @@ import { registerDrawTableHooks } from './module/tnx-draw-table.mjs';
 import { recordCastOwnerUser } from './module/cast-ownership.mjs';
 import { enforceUsageChainDefaultsOnImport } from './module/tnx-usage-sheet.mjs';
 import { renderAttackCard } from './module/attack-flow.mjs';
+import { renderDamageCard } from './module/damage-flow.mjs';
 import { TnxSocketHandler } from './module/tnx-socket-handler.mjs';
 import { TnxCheckFlow } from './module/tnx-check-flow.mjs';
 import { TnxCheckDialog } from './module/tnx-check-dialog.mjs';
@@ -79,7 +80,7 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/chat/check-result.hbs",
         "systems/tokyo-nova-axleration/templates/chat/check-request.hbs",
         "systems/tokyo-nova-axleration/templates/chat/attack-card.hbs",
-        "systems/tokyo-nova-axleration/templates/chat/damage-result.hbs",
+        "systems/tokyo-nova-axleration/templates/chat/damage-card.hbs",
 
         // === App ===
         "systems/tokyo-nova-axleration/templates/app/rl-request-app.hbs",
@@ -1215,6 +1216,13 @@ Hooks.once("ready", async function() {
     Hooks.on("renderChatMessageHTML", (message, html) => {
         if (message.getFlag("tokyo-nova-axleration", "attackCheck")) {
             renderAttackCard(message, html);
+        }
+    });
+
+    // ダメージ・カード(12-3): 台帳+状態領域のライブ描画(カード追加・適用で更新)
+    Hooks.on("renderChatMessageHTML", (message, html) => {
+        if (message.getFlag("tokyo-nova-axleration", "damageRoll")) {
+            renderDamageCard(message, html);
         }
     });
 

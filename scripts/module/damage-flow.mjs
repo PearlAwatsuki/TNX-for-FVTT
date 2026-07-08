@@ -1,18 +1,20 @@
 /**
- * @fileoverview ダメージ算出フロー(フェーズ12-3/12-4・正本 Damage_Rules.md)。
+ * @fileoverview ダメージフロー(フェーズ12-3/12-4・正本 Damage_Rules.md)。
  *
- * 攻撃カードの「ダメージ算出」から起動し、算出ダイアログ(カード+攻撃力+修正−軽減)で
- * 最終ダメージと参照段を確定→適用(applyDamageToTarget)。適用は対象の型で分岐する:
- * - cast/guest: applyDamageChartResult(フェーズ9 既存)でチャート参照→BS 付与
- * - troop(トループ/エニグマ): heads 減算(チャート不参照)
- * - troop(分身): 1点以上で消滅通知
- * - extra: ダメージ概念なし=適用不可警告
- *
- * damageBoost/damageReduce は同アクター/対象の用途を列挙し、formula を式ヘルパーで評価して
- * 修正に乗せる(@diff/@achievement 可)。消費先設定と連動。パリー受け値・社会の報酬点軽減も軽減へ。
- *
- * 適用(BS 付与=ActiveEffect 作成・heads 減算)は対象の所有者権限が要るため、
- * 所有権のないクライアントからは damageApply ソケットで GM に委譲する(attackUpdate と同型)。
+ * D&D 5e のダメージ・ロールと同型(2026-07-08 ユーザー確定):
+ * - 攻撃カードの命中確定後「ダメージカードを出す」→ 最小ダイアログ(damageBoost 選択・
+ *   手動修正・スタンのみ)→ [手札から出す]/[山札から1枚めくる] の**カードプレイが確定トリガー**。
+ * - ダメージカードは命中判定のカードとは**別**で、**判定ではない**(判定ルールは適用されず、
+ *   山札の絵札もファンブルにならない)。数字は N◎VA 数字(絵札=10・A=11)=N◎VA 全体に
+ *   通底する規約。ジョーカーはワイルドカード(数字を宣言)。
+ * - **複数枚は合算**(カブキ〈ラッキーストライク〉等の特殊技能で使用)。枚数・可否の検証は
+ *   システムは行わない(技能を強制しない方針と同じ)。
+ * - ダメージ・チャットカードに台帳(カード行+攻撃力+FA+修正)と攻撃側合計を表示し、
+ *   [カードを追加で出す](攻撃側)/[ダメージ適用](対象の操作者または RL)を全幅ボタンで置く。
+ * - 適用時は**防御側に軽減ダイアログ**(防御力+パリー受け値自動・damageReduce 選択・
+ *   社会の報酬点軽減・手動欄)を出して確定 → 型分岐適用(cast/guest=チャート・troop=heads
+ *   減算・分身=消滅通知・extra=不可警告)。適用者は対象の所有者のため効果付与の権限委譲は
+ *   不要。メッセージのフラグ更新のみ damageUpdate ソケットで委譲(attackUpdate と同型)。
  */
 
 import { applyDamageChartResult } from "./condition-resolution.mjs";
@@ -23,100 +25,398 @@ import { getDamageChartKind } from "../data/damage-chart.mjs";
 import { CONDITION_KINDS } from "./conditions.mjs";
 import { applyAttackPatch } from "./attack-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
+import { TnxActionHandler } from "./tnx-action-handler.mjs";
+import { CardSelectionDialog } from "./tnx-dialog.mjs";
+import { getCardCheckValue } from "./tnx-check-engine.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会" };
+const SUIT_SYMBOL = { spade: "♠", club: "♣", heart: "♥", diamond: "♦" };
+
+// ─── 起動(攻撃カードの「ダメージカードを出す」) ─────────────────────────────────
 
 /**
- * 攻撃カードからダメージ算出ダイアログを開く(命中確定後)。
- * @param {ChatMessage} message 攻撃カードのメッセージ
+ * 攻撃カードからダメージ・ロールを開始する(命中確定後・攻撃側)。
+ * 最小ダイアログで修正を決め、カードを出した瞬間にダメージ・チャットカードを投稿する。
+ * @param {ChatMessage} attackMessage 攻撃カードのメッセージ
  */
-export async function openDamageDialog(message) {
-    const f = message.getFlag(SCOPE, "attackCheck");
+export async function openDamageRollDialog(attackMessage) {
+    const f = attackMessage.getFlag(SCOPE, "attackCheck");
     if (!f) return;
-    if (f.damageApplied) { ui.notifications.info("この攻撃のダメージは適用済みです。"); return; }
+    if (f.damageRolled) { ui.notifications.info("この攻撃のダメージカードは出されています。"); return; }
 
     const attacker = await fromUuid(f.attackerUuid).catch(() => null);
-    const target = f.targetUuid ? await fromUuid(f.targetUuid).catch(() => null) : null;
-    const category = f.category || "physical";
-
-    // 差分値・達成値を式コンテキストに供給(@diff/@achievement)
-    const formulaData = buildCheckFormulaData({ diff: f.diff, achievement: f.achievement });
-
-    // 軽減の自動取得: 物理のみ防御力(対象のダメージ種別対応)+パリー受け値。精神・社会は防御力なし
-    let autoMitigation = 0;
-    const mitigationParts = [];
-    if (category === "physical" && target) {
-        const def = aggregateDefence(target.items.contents ?? []);
-        const dv = defenceForType(def, f.damageType);
-        if (dv) { autoMitigation += dv; mitigationParts.push(`防御力(${f.damageType || "?"}) ${dv}`); }
+    if (!(game.user.isGM || attacker?.isOwner)) {
+        ui.notifications.warn("ダメージカードは攻撃側（または RL）が出します。");
+        return;
     }
-    if (f.parryGuard) { autoMitigation += f.parryGuard; mitigationParts.push(`パリー受け値 ${f.parryGuard}`); }
+    const category = f.category || "physical";
+    const attackPower = category === "physical" ? (Number(f.weaponAttack) || 0) : 0;
+    const faValue = category === "physical" ? (Number(f.faValue) || 0) : 0;
 
-    // 攻撃側=damageBoost・対象側=damageReduce の用途を候補列挙(選択制)
-    const boostRows = collectDamageUsages(attacker, "damageBoost");
-    const reduceRows = collectDamageUsages(target, "damageReduce");
-
-    // formula は事前評価して確定値を出す(@diff/@achievement は判定結果で固定)。
+    // damageBoost(攻撃側)の候補。formula は事前評価(@diff/@achievement は判定結果で固定)。
     // 評価不能な自由文は数値効果なし=表示のみ(手動修正欄で反映)
+    const formulaData = buildCheckFormulaData({ diff: f.diff, achievement: f.achievement });
+    const boostRows = collectDamageUsages(attacker, "damageBoost");
     for (const r of boostRows) {
         const v = await evaluateFormula(r.formula, formulaData);
         r.value = Number.isFinite(v) ? v : null;
         r.effectDisplay = usageEffectDisplay(r, "＋");
     }
+
+    const content = await foundry.applications.handlebars.renderTemplate(
+        "systems/tokyo-nova-axleration/templates/dialog/damage-roll-dialog.hbs",
+        {
+            categoryLabel: CATEGORY_LABELS[category] ?? category,
+            isPhysical: category === "physical",
+            attackPower, faValue,
+            attackSourceName: f.attackSourceName,
+            targetName: f.targetName,
+            boostRows,
+        }
+    );
+
+    const readRollForm = (el) => ({
+        manualMod: Number(el.querySelector('[name="manualMod"]')?.value) || 0,
+        stun:      !!el.querySelector('[name="stun"]')?.checked,
+        boostIds:  [...el.querySelectorAll("input.dmg-boost:checked")].map(c => c.value),
+    });
+
+    const chosen = await foundry.applications.api.DialogV2.wait({
+        window: { title: `ダメージカードを出す: ${CATEGORY_LABELS[category] ?? category}` },
+        classes: ["tokyo-nova", "tnx-dialog", "tnx-damage-dialog"],
+        position: { width: 440 },
+        content,
+        buttons: [
+            { action: "hand", icon: "fas fa-hand", label: "手札から出す", default: true,
+              callback: (_e, _b, dialog) => ({ source: "hand", ...readRollForm(dialog.element) }) },
+            { action: "deck", icon: "fas fa-clone", label: "山札から1枚めくる",
+              callback: (_e, _b, dialog) => ({ source: "deck", ...readRollForm(dialog.element) }) },
+            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+        ],
+        close: () => null,
+    });
+    if (!chosen) return;
+
+    // カードを出す(=確定トリガー)。キャンセル・失敗時は何も消費せず中断
+    const played = chosen.source === "hand" ? await playDamageCardFromHand() : await playDamageCardFromDeck();
+    if (!played) return;
+
+    // 選択した damageBoost の記録と消費(攻撃側=自アクターのため権限問題なし)
+    const boosts = [];
+    for (const id of chosen.boostIds) {
+        const r = boostRows.find(b => b.id === id); if (!r) continue;
+        boosts.push({ label: r.label, value: r.value, formula: r.formula || "" });
+        const rows = resolveConsumeRowsForActor(attacker, attacker.items.get(r.itemId), r.usage.consumeTargets);
+        await applyConsumptionPlan(planFromRows(rows, attacker.id));
+    }
+
+    await ChatMessage.create({
+        content: await foundry.applications.handlebars.renderTemplate(
+            "systems/tokyo-nova-axleration/templates/chat/damage-card.hbs",
+            { categoryLabel: CATEGORY_LABELS[category] ?? category }
+        ),
+        speaker: attacker ? ChatMessage.getSpeaker({ actor: attacker }) : undefined,
+        flags: {
+            [SCOPE]: {
+                damageRoll: {
+                    attackMessageId: attackMessage.id,
+                    attackerUuid: f.attackerUuid,
+                    targetUuid: f.targetUuid ?? "",
+                    targetName: f.targetName ?? "",
+                    category,
+                    damageType: f.damageType ?? "",
+                    attackPower, faValue,
+                    attackSourceName: f.attackSourceName ?? "",
+                    parryGuard: Number(f.parryGuard) || 0,
+                    diff: f.diff ?? null,
+                    achievement: f.achievement ?? null,
+                    cards: [played],
+                    boosts,
+                    manualMod: chosen.manualMod,
+                    stun: chosen.stun,
+                    applied: false,
+                    appliedResult: null,
+                },
+            },
+        },
+    });
+
+    await applyAttackPatch(attackMessage, { damageRolled: true });
+}
+
+// ─── ダメージカードのプレイ(手札/山札・ジョーカー=ワイルドカード) ─────────────────
+
+/** 手札から1枚選んでダメージカードとして出す。中断・失敗は null。 */
+async function playDamageCardFromHand() {
+    const { getUserFlagData } = await import("./user-flag-schema.mjs");
+    const handId = getUserFlagData(game.user).handPileId;
+    const hand = handId ? await fromUuid(handId).catch(() => null) : null;
+    if (!hand || !hand.cards.size) {
+        ui.notifications.warn("手札にカードがありません。");
+        return null;
+    }
+    const picked = await CardSelectionDialog.prompt({
+        title: "ダメージカードを出す",
+        content: "ダメージカードとして出すカードを1枚選んでください。",
+        cards: hand.cards.contents,
+        passLabel: "このカードを出す",
+    });
+    if (!picked?.length) return null;
+    if (picked.length !== 1) {
+        ui.notifications.warn("ダメージカードは1枚ずつ出してください。");
+        return null;
+    }
+    const card = hand.cards.get(picked[0]);
+    if (!card) return null;
+    const value = await resolveDamageCardValue(card);
+    if (value === null) return null;
+    await TnxActionHandler.playCard(card.id);
+    return { name: card.name, suit: card.suit ?? "", value };
+}
+
+/** 山札から1枚めくってダメージカードとして出す。中断・失敗は null。 */
+async function playDamageCardFromDeck() {
+    const card = await TnxActionHandler.flipFromDeck();
+    if (!card) return null;
+    const value = await resolveDamageCardValue(card);
+    // ジョーカー宣言キャンセル時はカードだけめくれた状態になる(実卓と同じ=出し直し)
+    if (value === null) {
+        ui.notifications.warn("ジョーカーの数字が宣言されませんでした。もう一度カードを出してください。");
+        return null;
+    }
+    return { name: card.name, suit: card.suit ?? "", value };
+}
+
+/**
+ * ダメージカードの数字を解決する。ダメージカードは判定ではないため判定ルール
+ * (山札の絵札=ファンブル・A の21固定)は適用されず、N◎VA 数字(絵札=10・A=11)のみ使う
+ * (2026-07-08 ユーザー確定: カードの数字は N◎VA 全体に通底する規約)。
+ * ジョーカーはワイルドカード=数字を宣言(衰弱ドローと同じ前例)。
+ */
+async function resolveDamageCardValue(card) {
+    if (card.suit === "joker" || card.value === 99) {
+        return promptWildcardValue();
+    }
+    const v = getCardCheckValue({ numericValue: card.value });
+    return typeof v === "number" ? v : (Number(card.value) || 0);
+}
+
+/** ジョーカーのワイルドカード数字を宣言させる。キャンセルは null。 */
+async function promptWildcardValue() {
+    return foundry.applications.api.DialogV2.wait({
+        window: { title: "ジョーカー（ワイルドカード）" },
+        classes: ["tokyo-nova", "tnx-dialog"],
+        content: `<p>ジョーカーをワイルドカードとして使います。数字を宣言してください。</p>
+            <div class="form-group"><label>数字</label><input type="number" name="value" value="1" min="1"></div>`,
+        buttons: [
+            { action: "ok", icon: "fas fa-check", label: "この数字で確定", default: true,
+              callback: (_e, _b, dialog) => Math.max(1, Number(dialog.element.querySelector('[name="value"]')?.value) || 1) },
+            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+        ],
+        close: () => null,
+    });
+}
+
+// ─── ダメージ・チャットカードのライブ描画(renderChatMessageHTML・tnx.mjs から登録) ──
+
+/** 台帳(カード行+攻撃力+FA+修正→攻撃側合計)と状態領域(ボタン/適用結果)をフラグから描画する。 */
+export function renderDamageCard(message, html) {
+    const f = message.getFlag(SCOPE, "damageRoll");
+    if (!f) return;
+    const ledger = html.querySelector(".tnx-damage-ledger");
+    const area = html.querySelector(".tnx-damage-status");
+    if (!ledger || !area) return;
+    ledger.replaceChildren();
+    area.replaceChildren();
+
+    const esc = foundry.utils.escapeHTML;
+    const row = (parent, label, val, rowCls = "jr-calc-row", valCls = "jr-calc-val") => {
+        const div = document.createElement("div");
+        div.className = rowCls;
+        div.innerHTML = `<span class="jr-calc-label">${label}</span><span class="${valCls}">${val}</span>`;
+        parent.appendChild(div);
+    };
+    const line = (parent, cls, inner) => {
+        const div = document.createElement("div");
+        div.className = cls;
+        div.innerHTML = inner;
+        parent.appendChild(div);
+    };
+
+    // ── 台帳 ──
+    if (f.targetName) row(ledger, "対象", esc(f.targetName));
+    const { raw } = damageRollTotals(f);
+    const cards = f.cards ?? [];
+    cards.forEach((c, i) => {
+        const suitMark = SUIT_SYMBOL[c.suit] ? `<span class="jr-suit suit-${c.suit}">${SUIT_SYMBOL[c.suit]}</span> ` : "";
+        row(ledger, `ダメージカード${cards.length > 1 ? ` ${i + 1}` : ""}（${suitMark}${esc(c.name)}）`,
+            i === 0 ? String(c.value) : `＋${c.value}`);
+    });
+    if (f.category === "physical") {
+        row(ledger, `攻撃力（${esc(f.attackSourceName || "生身")}）`, `＋${f.attackPower ?? 0}`);
+        if (f.faValue) row(ledger, "FA", `＋${f.faValue}`);
+    }
+    for (const b of (f.boosts ?? [])) {
+        row(ledger, esc(b.label), Number.isFinite(b.value) ? signedDisplay("＋", b.value) : `（${esc(b.formula)}）`);
+    }
+    if (f.manualMod) row(ledger, "修正（手動）", signedDisplay("＋", f.manualMod));
+    row(ledger, `攻撃側合計${f.stun ? "（スタン／説得）" : ""}`, String(raw), "jr-calc-row jr-total-row", "jr-total-num");
+
+    // ── 状態領域 ──
+    if (f.applied && f.appliedResult) {
+        const r = f.appliedResult;
+        if (r.mitigation) row(area, `軽減${r.mitigationNote ? `（${esc(r.mitigationNote)}）` : ""}`, `−${r.mitigation}`);
+        for (const d of (r.reduces ?? [])) row(area, esc(d.label), d.display);
+        if (r.bounty) row(area, "報酬点による軽減", `−${r.bounty}`);
+        if (r.stunCapped) row(area, "スタン／説得（10 以上→10）", "→10");
+        row(area, `最終ダメージ${r.showStage ? `（参照段 ${r.stage}）` : ""}`, String(r.final), "jr-calc-row jr-total-row", "jr-total-num");
+        line(area, `jr-result ${r.final > 0 ? "jr-result--damage" : "jr-result--nodamage"}`,
+            `<i class="fas ${r.final > 0 ? "fa-burst" : "fa-shield-halved"}"></i> ${esc(r.applyText ?? "")}`);
+        return;
+    }
+
+    const attacker = resolveSync(f.attackerUuid);
+    const target = resolveSync(f.targetUuid);
+    if (game.user.isGM || attacker?.isOwner) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "tnx-chat-btn";
+        btn.innerHTML = '<i class="fas fa-clone"></i> カードを追加で出す';
+        btn.title = "特殊な技能でダメージカードを複数枚出す場合（合算）";
+        btn.addEventListener("click", () => addDamageCard(message));
+        area.appendChild(btn);
+    }
+    if (!f.targetUuid) {
+        line(area, "jr-tn", "対象未選択（適用は手動で行ってください）");
+    } else if (game.user.isGM || target?.isOwner) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "tnx-chat-btn";
+        btn.innerHTML = '<i class="fas fa-burst"></i> ダメージ適用';
+        btn.addEventListener("click", () => openMitigationDialog(message));
+        area.appendChild(btn);
+    } else {
+        line(area, "jr-tn", "（適用は対象の操作者または RL が行います）");
+    }
+}
+
+/** 攻撃側合計(カード合算+攻撃力+FA+boost+手動修正)。 */
+function damageRollTotals(f) {
+    const cardSum = (f.cards ?? []).reduce((s, c) => s + (Number(c.value) || 0), 0);
+    const boostSum = (f.boosts ?? []).reduce((s, b) => s + (Number.isFinite(b.value) ? b.value : 0), 0);
+    const raw = cardSum + (Number(f.attackPower) || 0) + (Number(f.faValue) || 0) + boostSum + (Number(f.manualMod) || 0);
+    return { cardSum, boostSum, raw };
+}
+
+function resolveSync(uuid) {
+    if (!uuid) return null;
+    try { return fromUuidSync(uuid); } catch { return null; }
+}
+
+// ─── カードの追加(複数枚=合算・攻撃側) ─────────────────────────────────────────
+
+/** ダメージカードを追加で出す(適用前まで・出すたび台帳と合計がライブ更新)。 */
+async function addDamageCard(message) {
+    const f = message.getFlag(SCOPE, "damageRoll");
+    if (!f || f.applied) return;
+    const source = await foundry.applications.api.DialogV2.wait({
+        window: { title: "カードを追加で出す" },
+        classes: ["tokyo-nova", "tnx-dialog", "tnx-usage-picker"],
+        position: { width: 320 },
+        content: "",
+        buttons: [
+            { action: "hand", icon: "fas fa-hand", label: "手札から出す", default: true, callback: () => "hand" },
+            { action: "deck", icon: "fas fa-clone", label: "山札から1枚めくる", callback: () => "deck" },
+            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+        ],
+        close: () => null,
+    });
+    if (!source) return;
+    const played = source === "hand" ? await playDamageCardFromHand() : await playDamageCardFromDeck();
+    if (!played) return;
+    await applyDamagePatch(message, { cards: [...(f.cards ?? []), played] });
+}
+
+// ─── 適用(防御側の軽減ダイアログ→型分岐適用) ─────────────────────────────────────
+
+/**
+ * ダメージ適用を開始する(対象の操作者または RL)。防御側の軽減ダイアログ
+ * (防御力+パリー受け値自動・damageReduce 選択・社会の報酬点軽減・手動欄)で確定する。
+ */
+async function openMitigationDialog(message) {
+    const f = message.getFlag(SCOPE, "damageRoll");
+    if (!f || f.applied) return;
+    const target = await fromUuid(f.targetUuid).catch(() => null);
+    if (!target) { ui.notifications.warn("対象が見つかりません。"); return; }
+    if (!(game.user.isGM || target.isOwner)) {
+        ui.notifications.warn("ダメージ適用は対象の操作者（または RL）が行います。");
+        return;
+    }
+
+    const category = f.category || "physical";
+    const { raw } = damageRollTotals(f);
+
+    // 軽減の自動取得: 物理のみ防御力(ダメージ種別対応・X は軽減なし)+パリー受け値
+    let autoMitigation = 0;
+    const mitigationParts = [];
+    if (category === "physical") {
+        const dv = defenceForType(aggregateDefence(target.items.contents ?? []), f.damageType);
+        if (dv) { autoMitigation += dv; mitigationParts.push(`防御力(${f.damageType || "?"}) ${dv}`); }
+    }
+    if (f.parryGuard) { autoMitigation += f.parryGuard; mitigationParts.push(`パリー受け値 ${f.parryGuard}`); }
+
+    // damageReduce(防御側)の候補。formula は攻撃の判定結果(@diff/@achievement)で事前評価
+    const formulaData = buildCheckFormulaData({ diff: f.diff, achievement: f.achievement });
+    const reduceRows = collectDamageUsages(target, "damageReduce");
     for (const r of reduceRows) {
         const v = await evaluateFormula(r.formula, formulaData);
         r.value = Number.isFinite(v) ? v : null;
         r.effectDisplay = usageEffectDisplay(r, "−");
     }
 
-    const attackPower = category === "physical" ? (Number(f.weaponAttack) || 0) : 0;
-    const damageCard = Number(f.damageCard) || 0;
-    const faValue = category === "physical" ? (Number(f.faValue) || 0) : 0;
-
-    // ライブプレビュー: 入力から最終値・参照段・適用先の見込みを再計算して表示する
-    const updatePreview = (root) => {
-        const v = readDamageForm(root);
-        let modifier = faValue + v.manualMod;
-        for (const id of v.boostIds) {
-            const r = boostRows.find(b => b.id === id);
-            if (r && r.value !== null) modifier += r.value;
+    const content = await foundry.applications.handlebars.renderTemplate(
+        "systems/tokyo-nova-axleration/templates/dialog/damage-mitigation-dialog.hbs",
+        {
+            categoryLabel: CATEGORY_LABELS[category] ?? category,
+            raw,
+            stun: !!f.stun,
+            isSocial: category === "social",
+            targetName: target.name,
+            autoMitigation, mitigationParts,
+            reduceRows,
         }
-        let mitigation = v.mitigation + (category === "social" ? v.bountyMitigation : 0);
+    );
+
+    const readForm = (el) => ({
+        mitigation: Number(el.querySelector('[name="mitigation"]')?.value) || 0,
+        bounty:     Number(el.querySelector('[name="bountyMitigation"]')?.value) || 0,
+        reduceIds:  [...el.querySelectorAll("input.dmg-reduce:checked")].map(c => c.value),
+    });
+
+    // ライブプレビュー: 軽減の入力から最終値・参照段・適用先の見込みを再計算
+    const updatePreview = (root) => {
+        const v = readForm(root);
+        let mitigation = v.mitigation + (category === "social" ? v.bounty : 0);
         for (const id of v.reduceIds) {
             const r = reduceRows.find(b => b.id === id);
             if (r && r.value !== null) mitigation += r.value;
         }
-        const { final, stage } = computeDamage({ damageCard, attackPower, modifier, mitigation, stun: v.stun });
+        const { final, stage } = computeDamage({ damageCard: raw, mitigation, stun: !!f.stun });
         const fin = root.querySelector(".tnx-damage-preview-final");
         const note = root.querySelector(".tnx-damage-preview-note");
         if (fin) fin.textContent = String(final);
         if (note) note.textContent = describeDamagePreview(target, category, final, stage);
     };
 
-    const content = await foundry.applications.handlebars.renderTemplate(
-        "systems/tokyo-nova-axleration/templates/dialog/damage-dialog.hbs",
-        {
-            categoryLabel: CATEGORY_LABELS[category] ?? category,
-            isPhysical: category === "physical",
-            isSocial: category === "social",
-            damageCard, attackPower,
-            attackSourceName: f.attackSourceName,
-            faValue: Number(f.faValue) || 0,
-            autoMitigation, mitigationParts,
-            boostRows, reduceRows,
-            targetName: f.targetName,
-        }
-    );
-
     const result = await foundry.applications.api.DialogV2.wait({
-        window: { title: `ダメージ算出: ${CATEGORY_LABELS[category] ?? category}` },
+        window: { title: `ダメージ軽減: ${target.name}` },
         classes: ["tokyo-nova", "tnx-dialog", "tnx-damage-dialog"],
-        position: { width: 460 },
+        position: { width: 440 },
         content,
         buttons: [
             { action: "apply", icon: "fas fa-burst", label: "ダメージ適用", default: true,
-              callback: (_e, _b, dialog) => readDamageForm(dialog.element) },
+              callback: (_e, _b, dialog) => readForm(dialog.element) },
             { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
         ],
         render: (_event, dialog) => {
@@ -129,164 +429,52 @@ export async function openDamageDialog(message) {
     });
     if (!result) return;
 
-    // 修正の合成: FA + 手動 + boost(加算) − reduce(減算)。事前評価済みの確定値を使い、
-    // 結果カード用に適用した各行の内訳(appliedBoosts/appliedReduces)を残す
-    let modifier = faValue + result.manualMod;
-    let reduceSum = 0;
-    const appliedBoosts = [];
+    // 軽減の合成と damageReduce の消費(対象=自アクターのため権限問題なし)
+    let mitigationTotal = result.mitigation;
     const appliedReduces = [];
-    const consumePlans = [];
-    for (const id of result.boostIds) {
-        const r = boostRows.find(b => b.id === id); if (!r) continue;
-        if (r.value !== null) modifier += r.value;
-        appliedBoosts.push({ label: r.label, display: r.value !== null ? signedDisplay("＋", r.value) : `（${r.formula}）` });
-        if (attacker) consumePlans.push([attacker, r]);
-    }
     for (const id of result.reduceIds) {
         const r = reduceRows.find(b => b.id === id); if (!r) continue;
-        if (r.value !== null) reduceSum += r.value;
+        if (r.value !== null) mitigationTotal += r.value;
         appliedReduces.push({ label: r.label, display: r.value !== null ? signedDisplay("−", r.value) : `（${r.formula}）` });
-        if (target) consumePlans.push([target, r]);
+        const rows = resolveConsumeRowsForActor(target, target.items.get(r.itemId), r.usage.consumeTargets);
+        await applyConsumptionPlan(planFromRows(rows, target.id));
     }
-    const bounty = category === "social" ? result.bountyMitigation : 0;
-    const mitigationTotal = result.mitigation + reduceSum + bounty;
+    const bounty = category === "social" ? result.bounty : 0;
+    mitigationTotal += bounty;
 
-    const { raw, final, stage } = computeDamage({ damageCard, attackPower, modifier, mitigation: mitigationTotal, stun: result.stun });
-
-    // 結果カードの内訳(算出の根拠を全行表示する。委譲時もそのまま GM へ渡す)
-    const breakdown = {
-        categoryLabel: CATEGORY_LABELS[category] ?? category,
-        isPhysical: category === "physical",
-        targetName: f.targetName ?? target?.name ?? "",
-        damageCard, attackPower,
-        attackSourceName: f.attackSourceName,
-        faValue,
-        manualModDisplay: result.manualMod ? signedDisplay("＋", result.manualMod) : "",
-        boosts: appliedBoosts,
-        reduces: appliedReduces,
-        mitigation: result.mitigation,
-        mitigationNote: result.mitigation === autoMitigation ? mitigationParts.join("・") : "手動入力",
-        bountyMitigation: bounty,
-        stunCapped: result.stun && Math.max(0, raw - mitigationTotal) > 10,
-        final, stage,
-        // 参照段はチャートを参照する型(cast/guest・対象未指定)でのみ意味を持つ
-        showStage: final > 0 && (!target || target.type === "cast" || target.type === "guest"),
-    };
-
-    // 対象の所有権がなければ適用を GM に委譲する(GM 不在なら消費前に中断)
-    const needsDelegate = !!target && !target.isOwner;
-    if (needsDelegate && !game.users.activeGM) {
-        ui.notifications.warn("対象の所有権がなく、GM も接続していないためダメージを適用できません。");
-        return;
-    }
-
-    // 消費先設定を適用(選択された damageBoost/damageReduce の用途)。
-    // 所有権のないアクター分(対象側の damageReduce)は GM 委譲ペイロードへ回す
-    const remotePlans = [];
-    for (const [actor, r] of consumePlans) {
-        const rows = resolveConsumeRowsForActor(actor, actor.items.get(r.itemId), r.usage.consumeTargets);
-        const plan = planFromRows(rows, actor.id);
-        if (actor.isOwner) await applyConsumptionPlan(plan);
-        else remotePlans.push(...plan);
-    }
-
-    if (needsDelegate) {
-        TnxSocketHandler.emitDamageApply({
-            messageId: message.id,
-            targetUuid: target.uuid,
-            attackerUuid: f.attackerUuid ?? null,
-            category, final, stage,
-            breakdown,
-            consumePlan: remotePlans,
-        });
-        ui.notifications.info(`「${target.name}」へのダメージ適用は GM が代行します。`);
-        return;
-    }
-
-    // 対象へ適用(型分岐)
-    let applyText = "";
-    if (target) {
-        applyText = await applyDamageToTarget(target, category, final, stage);
-    } else {
-        applyText = "対象未選択のため適用は手動";
-    }
-
-    // 攻撃カードを適用済みに(ライブ更新)+結果をチャットに残す
-    await applyAttackPatch(message, { damageApplied: true });
-    await postDamageChat(attacker, breakdown, applyText);
-}
-
-/**
- * damageApply ソケットで委譲された適用を GM クライアントで代行する。
- * 対象側の消費→適用→攻撃カードの適用済み化→結果チャットまでを一括で行う。
- */
-export async function applyDamageDelegated({ messageId, targetUuid, attackerUuid, category, final, stage, breakdown, consumePlan }) {
-    const message = game.messages.get(messageId);
-    if (message?.getFlag(SCOPE, "attackCheck")?.damageApplied) return;
-
-    const target = await fromUuid(targetUuid).catch(() => null);
-    if (!target) return;
-    if (Array.isArray(consumePlan) && consumePlan.length) await applyConsumptionPlan(consumePlan);
+    const { final, stage } = computeDamage({ damageCard: raw, mitigation: mitigationTotal, stun: !!f.stun });
     const applyText = await applyDamageToTarget(target, category, final, stage);
 
-    if (message) await applyAttackPatch(message, { damageApplied: true });
-    const attacker = attackerUuid ? await fromUuid(attackerUuid).catch(() => null) : null;
-    await postDamageChat(attacker, breakdown ?? { categoryLabel: CATEGORY_LABELS[category] ?? category, damageCard: "?", final, stage }, applyText);
-}
-
-/** ダメージ適用の結果カードを投稿する(算出の全内訳つき・damage-result.hbs)。 */
-async function postDamageChat(attacker, breakdown, applyText) {
-    const content = await foundry.applications.handlebars.renderTemplate(
-        "systems/tokyo-nova-axleration/templates/chat/damage-result.hbs",
-        { ...breakdown, applyText, applied: (breakdown.final ?? 0) > 0 }
-    );
-    await ChatMessage.create({
-        speaker: attacker ? ChatMessage.getSpeaker({ actor: attacker }) : undefined,
-        content,
+    await applyDamagePatch(message, {
+        applied: true,
+        appliedResult: {
+            mitigation: result.mitigation,
+            mitigationNote: result.mitigation === autoMitigation ? mitigationParts.join("・") : "手動入力",
+            reduces: appliedReduces,
+            bounty,
+            stunCapped: !!f.stun && Math.max(0, raw - mitigationTotal) > 10,
+            final, stage,
+            // 参照段はチャートを参照する型(cast/guest)でのみ意味を持つ
+            showStage: final > 0 && (target.type === "cast" || target.type === "guest"),
+            applyText,
+        },
     });
 }
 
-/** 符号つきの数値表示(負値は符号を反転して絶対値で示す)。 */
-function signedDisplay(sign, n) {
-    const flip = sign === "＋" ? "−" : "＋";
-    return n < 0 ? `${flip}${Math.abs(n)}` : `${sign}${n}`;
-}
+// ─── フラグ更新(権限がなければ GM へソケット委譲・attackUpdate と同型) ─────────────
 
-/** 用途行の効果表示(評価値があれば確定値・式が生数値でなければ式も併記)。 */
-function usageEffectDisplay(row, sign) {
-    if (row.value === null) return row.formula ? `${row.formula}（自動計算不可・手動修正で反映）` : "";
-    const plain = String(row.value) === String(row.formula).trim();
-    return `${signedDisplay(sign, row.value)}${plain ? "" : `（${row.formula}）`}`;
-}
-
-/** 適用先の型に応じたプレビュー文(参照段・負傷名／heads 減算／消滅／適用不可)。 */
-function describeDamagePreview(target, category, final, stage) {
-    if (!target) return final > 0 ? `参照段 ${stage}` : "";
-    if (target.type === "extra") return "エキストラ: 適用不可（宣言死）";
-    if (target.type === "troop") {
-        if (target.system.troopMode === "bunshin") return final > 0 ? "分身: 消滅" : "分身: 消滅せず";
-        const label = target.system.troopMode === "enigma" ? "エニグマポイント" : "人数";
-        return `${label} −${final}`;
+/** ダメージ・カードのフラグを更新する(全クライアントでライブ書き換え)。 */
+export async function applyDamagePatch(message, patch) {
+    if (game.user.isGM || message.isAuthor) {
+        const data = {};
+        for (const [k, v] of Object.entries(patch)) data[`flags.${SCOPE}.damageRoll.${k}`] = v;
+        await message.update(data);
+    } else {
+        TnxSocketHandler.emitDamageUpdate(message.id, patch);
     }
-    if (final <= 0) return "負傷なし";
-    const kind = getDamageChartKind(category, stage);
-    const wound = kind ? CONDITION_KINDS[kind]?.label : "";
-    return `参照段 ${stage}${wound ? `「${wound}」` : ""}`;
 }
 
-/** ダメージ算出ダイアログの入力を読む。 */
-function readDamageForm(el) {
-    const num = (name) => Number(el.querySelector(`[name="${name}"]`)?.value) || 0;
-    const checkedIds = (cls) => [...el.querySelectorAll(`input.${cls}:checked`)].map(c => c.value);
-    return {
-        manualMod:       num("manualMod"),
-        mitigation:      num("mitigation"),
-        bountyMitigation: num("bountyMitigation"),
-        stun:            !!el.querySelector('[name="stun"]')?.checked,
-        boostIds:        checkedIds("dmg-boost"),
-        reduceIds:       checkedIds("dmg-reduce"),
-    };
-}
+// ─── 共通ヘルパー ───────────────────────────────────────────────────────────────
 
 /** アクターの damageBoost/damageReduce 用途を候補として集める。 */
 function collectDamageUsages(actor, type) {
@@ -316,6 +504,34 @@ function planFromRows(rows, fallbackActorId) {
         plan.push({ actorId: row.targetActorId ?? fallbackActorId, itemId: row.itemId, kind: row.kind, amount: row.amount });
     }
     return plan;
+}
+
+/** 符号つきの数値表示(負値は符号を反転して絶対値で示す)。 */
+function signedDisplay(sign, n) {
+    const flip = sign === "＋" ? "−" : "＋";
+    return n < 0 ? `${flip}${Math.abs(n)}` : `${sign}${n}`;
+}
+
+/** 用途行の効果表示(評価値があれば確定値・式が生数値でなければ式も併記)。 */
+function usageEffectDisplay(row, sign) {
+    if (row.value === null) return row.formula ? `${row.formula}（自動計算不可・手動修正で反映）` : "";
+    const plain = String(row.value) === String(row.formula).trim();
+    return `${signedDisplay(sign, row.value)}${plain ? "" : `（${row.formula}）`}`;
+}
+
+/** 適用先の型に応じたプレビュー文(参照段・負傷名／heads 減算／消滅／適用不可)。 */
+function describeDamagePreview(target, category, final, stage) {
+    if (!target) return final > 0 ? `参照段 ${stage}` : "";
+    if (target.type === "extra") return "エキストラ: 適用不可（宣言死）";
+    if (target.type === "troop") {
+        if (target.system.troopMode === "bunshin") return final > 0 ? "分身: 消滅" : "分身: 消滅せず";
+        const label = target.system.troopMode === "enigma" ? "エニグマポイント" : "人数";
+        return `${label} −${final}`;
+    }
+    if (final <= 0) return "負傷なし";
+    const kind = getDamageChartKind(category, stage);
+    const wound = kind ? CONDITION_KINDS[kind]?.label : "";
+    return `参照段 ${stage}${wound ? `「${wound}」` : ""}`;
 }
 
 /**
