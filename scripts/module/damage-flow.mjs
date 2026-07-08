@@ -226,6 +226,9 @@ async function playHandCardForDamage(cardId) {
     const value = await resolveDamageCardValue(card);
     if (value === null) return null;
     await TnxActionHandler.playCard(card.id);
+    // 手札を使用した直後に上限まで自動補充(判定時と同じ挙動・2026-07-08 ユーザー指示)
+    await TnxActionHandler.autoReplenishHand();
+    game.tnx.hud?.render(false);
     return { name: card.name, suit: card.suit ?? "", value };
 }
 
@@ -324,7 +327,7 @@ export function renderDamageCard(message, html) {
         for (const d of (r.reduces ?? [])) row(area, esc(d.label), d.display);
         if (r.bounty) row(area, "報酬点による軽減", `−${r.bounty}`);
         if (r.stunCapped) row(area, "スタン／説得（10 以上→10）", "→10");
-        row(area, `最終ダメージ${r.showStage ? `（参照段 ${r.stage}）` : ""}`, String(r.final), "jr-calc-row jr-total-row", "jr-total-num");
+        row(area, "最終ダメージ", String(r.final), "jr-calc-row jr-total-row", "jr-total-num");
         line(area, `jr-result ${r.final > 0 ? "jr-result--damage" : "jr-result--nodamage"}`,
             `<i class="fas ${r.final > 0 ? "fa-burst" : "fa-shield-halved"}"></i> ${esc(r.applyText ?? "")}`);
         return;
@@ -465,7 +468,7 @@ async function openMitigationDialog(message) {
         reduceIds:  [...el.querySelectorAll("input.dmg-reduce:checked")].map(c => c.value),
     });
 
-    // ライブプレビュー: 軽減の入力から最終値・参照段・適用先の見込みを再計算
+    // ライブプレビュー: 軽減の入力から最終値と適用先の見込み(負傷名等)を再計算
     const updatePreview = (root) => {
         const v = readForm(root);
         let mitigation = v.mitigation + (category === "social" ? v.bounty : 0);
@@ -525,8 +528,6 @@ async function openMitigationDialog(message) {
             bounty,
             stunCapped: !!f.stun && Math.max(0, raw - mitigationTotal) > 10,
             final, stage,
-            // 参照段はチャートを参照する型(cast/guest)でのみ意味を持つ
-            showStage: final > 0 && (target.type === "cast" || target.type === "guest"),
             applyText,
         },
     });
@@ -590,9 +591,9 @@ function usageEffectDisplay(row, sign) {
     return `${signedDisplay(sign, row.value)}${plain ? "" : `（${row.formula}）`}`;
 }
 
-/** 適用先の型に応じたプレビュー文(参照段・負傷名／heads 減算／消滅／適用不可)。 */
+/** 適用先の型に応じたプレビュー文(負傷名／heads 減算／消滅／適用不可)。 */
 function describeDamagePreview(target, category, final, stage) {
-    if (!target) return final > 0 ? `参照段 ${stage}` : "";
+    if (!target) return "";
     if (target.type === "extra") return "エキストラ: 適用不可（宣言死）";
     if (target.type === "troop") {
         if (target.system.troopMode === "bunshin") return final > 0 ? "分身: 消滅" : "分身: 消滅せず";
@@ -602,7 +603,7 @@ function describeDamagePreview(target, category, final, stage) {
     if (final <= 0) return "負傷なし";
     const kind = getDamageChartKind(category, stage);
     const wound = kind ? CONDITION_KINDS[kind]?.label : "";
-    return `参照段 ${stage}${wound ? `「${wound}」` : ""}`;
+    return wound ? `「${wound}」` : "";
 }
 
 /**
@@ -636,5 +637,5 @@ export async function applyDamageToTarget(target, category, final, stage) {
     await applyDamageChartResult(target, category, final);
     const kind = getDamageChartKind(category, stage);
     const woundLabel = kind ? CONDITION_KINDS[kind]?.label : "";
-    return `${CATEGORY_LABELS[category] ?? category}チャート 段${stage}${woundLabel ? `「${woundLabel}」` : ""}を適用`;
+    return `${CATEGORY_LABELS[category] ?? category}チャート${woundLabel ? `「${woundLabel}」` : ""}を適用`;
 }

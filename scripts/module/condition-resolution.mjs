@@ -19,14 +19,14 @@ const SCOPE = "tokyo-nova-axleration";
 export { conditionNeedsDraw, drawResultFlags, negateOutcome };
 
 /**
- * ダメージ値からチャートを参照し、該当段の**負傷状態をアクターに付与**する(フェーズ9-4)。
+ * ダメージ値からチャートを参照し、該当する**負傷状態をアクターに付与**する(フェーズ9-4)。
  * 付与した負傷状態は status のみ・hideFromList(ダメージ由来=供給元が浮く)。付与で createActiveEffect
  * フックが走り、inflicts のカスケード(BS/戦闘不能)＋ドロー/controlNegate 受付が連動する。
  * ダメージ値の**算出本体(カード＋攻撃力−軽減)はフェーズ12**で、本関数はその適用入口。
  * @param {Actor} actor
  * @param {"physical"|"mental"|"social"} category
- * @param {number} value 最終ダメージ(段は min(value,21)、段0=付与なし)
- * @returns {Promise<?ActiveEffect>} 付与した負傷状態(段0/不正は null)
+ * @param {number} value 最終ダメージ(チャート参照値は min(value,21)、0=付与なし)
+ * @returns {Promise<?ActiveEffect>} 付与した負傷状態(0/不正は null)
  */
 export async function applyDamageChartResult(actor, category, value) {
   const kind = getDamageChartKind(category, value);

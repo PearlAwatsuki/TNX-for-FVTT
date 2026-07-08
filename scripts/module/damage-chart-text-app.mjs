@@ -1,7 +1,7 @@
 /**
  * @fileoverview ダメージチャート効果文の設定アプリ(フェーズ9-4)。
  *
- * §4.1 境界: 負傷名・段→効果の対応・付与条件はコード同梱。**効果文(プロセ)のみユーザー入力**で、
+ * §4.1 境界: 負傷名・チャート値→効果の対応・付与条件はコード同梱。**効果文(プロセ)のみユーザー入力**で、
  * 本アプリ(ワールド設定)に保存する。カード設定と同形=系統ごとにタブ、各 1〜21 のテキストエリア。
  * 設定キー: world 設定 "damageChartText" = { physical:{1..21}, mental:{...}, social:{...} }。
  */
@@ -17,7 +17,7 @@ const CATEGORIES = [
   { key: "social",   label: "社会", prefix: "soc"  },
 ];
 
-/** ダメージチャート効果文をワールド設定から読む(系統・段)。表示・ダメージ適用側が使う。 */
+/** ダメージチャート効果文をワールド設定から読む(系統・チャート値)。表示・ダメージ適用側が使う。 */
 export function getDamageChartText(category, tier) {
   const stored = game.settings.get(SCOPE, SETTING) ?? {};
   return stored?.[category]?.[tier] ?? "";
@@ -31,7 +31,7 @@ export function registerDamageChartTextSetting() {
   game.settings.registerMenu(SCOPE, "damageChartTextMenu", {
     name: "ダメージチャート効果文",
     label: "効果文を編集",
-    hint: "ダメージチャートの各段（肉体／精神／社会・1〜21）に表示する効果文を入力します。各段の枠組みは同梱されており、ここでは効果文のみを入力します。",
+    hint: "ダメージチャートの各値（肉体／精神／社会・1〜21）に表示する効果文を入力します。チャートの枠組みは同梱されており、ここでは効果文のみを入力します。",
     icon: "fas fa-file-lines",
     type: DamageChartTextApp,
     restricted: true,

@@ -1,12 +1,12 @@
 /**
- * @fileoverview ダメージチャートの負傷状態(肉体/精神/社会 × 1〜21段)定義。
+ * @fileoverview ダメージチャートの負傷状態(肉体/精神/社会 × 1〜21)定義。
  *
- * §4.1 境界(ユーザー確定 2026-06-23・Damage_Rules.md): 負傷名・段→効果の対応・付与する条件は
+ * §4.1 境界(ユーザー確定 2026-06-23・Damage_Rules.md): 負傷名・チャート値→効果の対応・付与する条件は
  * **同梱**する。同梱しないのは効果文(プロセ)のみ＝設定アプリでユーザー入力(本ファイルに持たない)。
  *
  * 設計(ユーザー確定 2026-06-23): BS・戦闘不能タグ・ダメージ(負傷)を**すべて同列の状態(condition)**
  * として用意し、`inflicts` で「状態の付与＝指定した別状態の自動付与」を表す(汎用カスケード)。
- * 本ファイルは負傷状態(段1〜21・段0=ダメージなしは状態なし)を定義し、conditions.mjs が
+ * 本ファイルは負傷状態(1〜21・0=ダメージなしは状態なし)を定義し、conditions.mjs が
  * CONDITION_KINDS へ統合する(BS→戦闘不能→肉体→精神→社会の順)。
  *
  * 負傷状態の def:
@@ -23,7 +23,7 @@
 
 const ABIL_LIFE = "life", ABIL_PASSION = "passion", ABIL_REASON = "reason", ABIL_MUNDANE = "mundane";
 
-/** 肉体ダメージ(段1〜21)。 */
+/** 肉体ダメージ(1〜21)。 */
 const PHYSICAL = {
   "phys-1":  { label: "内出血" },
   "phys-2":  { label: "額が割れる" },
@@ -48,7 +48,7 @@ const PHYSICAL = {
   "phys-21": { label: "頭部損傷",     inflicts: [{ kind: "dead" }] },
 };
 
-/** 精神ダメージ(段1〜21)。 */
+/** 精神ダメージ(1〜21)。 */
 const MENTAL = {
   "ment-1":  { label: "不快" },
   "ment-2":  { label: "畏怖" },
@@ -73,7 +73,7 @@ const MENTAL = {
   "ment-21": { label: "魂魄消失",   inflicts: [{ kind: "mind-break" }] },
 };
 
-/** 社会ダメージ(段1〜21)。 */
+/** 社会ダメージ(1〜21)。 */
 const SOCIAL = {
   "soc-1":  { label: "風評" },
   "soc-2":  { label: "怪聞" },
@@ -110,7 +110,7 @@ export const DAMAGE_CATEGORIES = ["physical", "mental", "social"];
 
 /**
  * 負傷状態を CONDITION_KINDS 形式(group/type/img 付き)で返す。conditions.mjs が統合する。
- * 段1〜21のみ(段0=ダメージなしは状態を作らない)。順は 肉体→精神→社会、各 1→21。
+ * 1〜21のみ(0=ダメージなしは状態を作らない)。順は 肉体→精神→社会、各 1→21。
  * @returns {Object<string, object>}
  */
 export function buildDamageStates() {
@@ -125,10 +125,10 @@ export function buildDamageStates() {
 }
 
 /**
- * 系統とダメージ値から負傷状態の kind id を返す(段は min(value,21)、段0/負値は null)。
+ * 系統とダメージ値から負傷状態の kind id を返す(チャート参照値は min(value,21)、0/負値は null)。
  * @param {"physical"|"mental"|"social"} category
  * @param {number} value 最終ダメージ
- * @returns {?string} 負傷状態の kind id(例 "phys-6")。段0 は null
+ * @returns {?string} 負傷状態の kind id(例 "phys-6")。0 は null
  */
 export function getDamageChartKind(category, value) {
   const meta = CATEGORY_META[category];

@@ -3,10 +3,11 @@
  * 正本: Damage_Rules.md「ダメージ算出の共通構造」「算出の適用順序」。
  *
  * 最終ダメージ = max(0, [ダメージカード + 攻撃力 + ダメージ修正] − 軽減)
- * チャート参照段 = min(最終ダメージ, 21)
+ * チャート参照値 = min(最終ダメージ, 21)
  * - 攻撃力は物理のみ(精神・社会は攻撃力を持たない)。
- * - 軽減(防御力・受け値)は AE を介さず生ダメージに直接引く。21 の頭打ちは参照段のみ。
- * - スタン/説得: 10 以上を全て 10 とみなす(参照段の直前・上限21の前)。
+ * - 軽減(防御力・受け値)は AE を介さず生ダメージに直接引く。21 の頭打ちはチャート参照値のみ。
+ * - スタン/説得: 10 以上を全て 10 とみなす(チャート参照の直前・上限21の前)。
+ * ※「段」「参照段」は公式に無い Code の造語のため撤廃(2026-07-08 ユーザー指示)。UI 使用禁止。
  */
 
 /**
@@ -44,7 +45,7 @@ export function defenceForType(defence, damageType) {
 }
 
 /**
- * 最終ダメージと参照段を算出する(Foundry 非依存)。
+ * 最終ダメージとチャート参照値を算出する(Foundry 非依存)。
  * @param {object} p
  * @param {number} p.damageCard  ダメージカード(命中判定のカード数字)
  * @param {number} p.attackPower 攻撃力(物理のみ・精神/社会は0)
@@ -52,7 +53,7 @@ export function defenceForType(defence, damageType) {
  * @param {number} p.mitigation  軽減の合計(防御力+受け値+報酬点等)
  * @param {boolean} [p.stun]     スタン/説得(10 以上→10)
  * @returns {{raw:number, final:number, stage:number}}
- *   raw=軽減前(カード+攻撃力+修正)、final=軽減後(下限0・スタン適用後)、stage=参照段(min(final,21))
+ *   raw=軽減前(カード+攻撃力+修正)、final=軽減後(下限0・スタン適用後)、stage=チャート参照値(min(final,21))
  */
 export function computeDamage({ damageCard = 0, attackPower = 0, modifier = 0, mitigation = 0, stun = false }) {
     const raw = (Number(damageCard) || 0) + (Number(attackPower) || 0) + (Number(modifier) || 0);
