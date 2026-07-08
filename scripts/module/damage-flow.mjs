@@ -10,6 +10,9 @@
  *
  * damageBoost/damageReduce は同アクター/対象の用途を列挙し、formula を式ヘルパーで評価して
  * 修正に乗せる(@diff/@achievement 可)。消費先設定と連動。パリー受け値・社会の報酬点軽減も軽減へ。
+ *
+ * 適用(BS 付与=ActiveEffect 作成・heads 減算)は対象の所有者権限が要るため、
+ * 所有権のないクライアントからは damageApply ソケットで GM に委譲する(attackUpdate と同型)。
  */
 
 import { applyDamageChartResult } from "./condition-resolution.mjs";
@@ -19,6 +22,7 @@ import { resolveConsumeRowsForActor, applyConsumptionPlan } from "./usage-consum
 import { getDamageChartKind } from "../data/damage-chart.mjs";
 import { CONDITION_KINDS } from "./conditions.mjs";
 import { applyAttackPatch } from "./attack-flow.mjs";
+import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会" };
@@ -103,10 +107,33 @@ export async function openDamageDialog(message) {
 
     const { final, stage } = computeDamage({ damageCard, attackPower, modifier, mitigation, stun: result.stun });
 
-    // 消費先設定を適用(選択された damageBoost/damageReduce の用途)
+    // 対象の所有権がなければ適用を GM に委譲する(GM 不在なら消費前に中断)
+    const needsDelegate = !!target && !target.isOwner;
+    if (needsDelegate && !game.users.activeGM) {
+        ui.notifications.warn("対象の所有権がなく、GM も接続していないためダメージを適用できません。");
+        return;
+    }
+
+    // 消費先設定を適用(選択された damageBoost/damageReduce の用途)。
+    // 所有権のないアクター分(対象側の damageReduce)は GM 委譲ペイロードへ回す
+    const remotePlans = [];
     for (const [actor, r] of consumePlans) {
         const rows = resolveConsumeRowsForActor(actor, actor.items.get(r.itemId), r.usage.consumeTargets);
-        await applyConsumptionPlan(planFromRows(rows, actor.id));
+        const plan = planFromRows(rows, actor.id);
+        if (actor.isOwner) await applyConsumptionPlan(plan);
+        else remotePlans.push(...plan);
+    }
+
+    if (needsDelegate) {
+        TnxSocketHandler.emitDamageApply({
+            messageId: message.id,
+            targetUuid: target.uuid,
+            attackerUuid: f.attackerUuid ?? null,
+            category, final, stage,
+            consumePlan: remotePlans,
+        });
+        ui.notifications.info(`「${target.name}」へのダメージ適用は GM が代行します。`);
+        return;
     }
 
     // 対象へ適用(型分岐)
@@ -119,6 +146,29 @@ export async function openDamageDialog(message) {
 
     // 攻撃カードを適用済みに(ライブ更新)+結果をチャットに残す
     await applyAttackPatch(message, { damageApplied: true });
+    await postDamageChat(attacker, category, final, stage, applyText);
+}
+
+/**
+ * damageApply ソケットで委譲された適用を GM クライアントで代行する。
+ * 対象側の消費→適用→攻撃カードの適用済み化→結果チャットまでを一括で行う。
+ */
+export async function applyDamageDelegated({ messageId, targetUuid, attackerUuid, category, final, stage, consumePlan }) {
+    const message = game.messages.get(messageId);
+    if (message?.getFlag(SCOPE, "attackCheck")?.damageApplied) return;
+
+    const target = await fromUuid(targetUuid).catch(() => null);
+    if (!target) return;
+    if (Array.isArray(consumePlan) && consumePlan.length) await applyConsumptionPlan(consumePlan);
+    const applyText = await applyDamageToTarget(target, category, final, stage);
+
+    if (message) await applyAttackPatch(message, { damageApplied: true });
+    const attacker = attackerUuid ? await fromUuid(attackerUuid).catch(() => null) : null;
+    await postDamageChat(attacker, category, final, stage, applyText);
+}
+
+/** ダメージ適用の結果をチャットに残す。 */
+async function postDamageChat(attacker, category, final, stage, applyText) {
     await ChatMessage.create({
         speaker: attacker ? ChatMessage.getSpeaker({ actor: attacker }) : undefined,
         content: `<div class="tnx-chat-card"><h3>ダメージ適用</h3>

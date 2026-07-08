@@ -9,6 +9,8 @@
  *   checkResult     - PL → GM: 判定結果を送信し ChatMessage を更新する
  *   attackUpdate    - PL → GM: 攻撃カード(attackCheck)のフラグ更新を委譲する（12-2。
  *                     対象側プレイヤーは攻撃者のメッセージを直接更新できないため）
+ *   damageApply     - PL → GM: ダメージ適用を委譲する（12-3。BS 付与=ActiveEffect 作成や
+ *                     heads 減算は対象の所有者権限が要るため）
  */
 
 export class TnxSocketHandler {
@@ -30,6 +32,9 @@ export class TnxSocketHandler {
                 break;
             case "attackUpdate":
                 TnxSocketHandler._onAttackUpdate(data);
+                break;
+            case "damageApply":
+                TnxSocketHandler._onDamageApply(data);
                 break;
         }
     }
@@ -110,6 +115,27 @@ export class TnxSocketHandler {
             type: "attackUpdate",
             messageId,
             patch,
+        });
+    }
+
+    // ─── damageApply（フェーズ12-3） ──────────────────────────────────────────
+
+    /**
+     * ダメージ適用を GM クライアントが代行する。二重適用を防ぐため、
+     * 複数 GM 接続時は activeGM のクライアントのみ実行する。
+     * damage-flow は attack-flow 経由で本モジュールを参照するため動的 import。
+     */
+    static async _onDamageApply(data) {
+        if (game.users.activeGM?.id !== game.user.id) return;
+        const { applyDamageDelegated } = await import("./damage-flow.mjs");
+        await applyDamageDelegated(data);
+    }
+
+    /** ダメージ適用を GM へ委譲する（対象の所有権がない PL から呼ぶ）。 */
+    static emitDamageApply(payload) {
+        game.socket.emit("system.tokyo-nova-axleration", {
+            type: "damageApply",
+            ...payload,
         });
     }
 }
