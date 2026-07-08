@@ -287,21 +287,33 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
         let skillIds          = [];
         let resolvedValidSuits = flagSuits?.length ? [...flagSuits] : [...ALL_SUITS];
         let bountyAvailable   = 0;
+        let effectiveSkillLabel = skillLabel;
+        let substitution = null;
+        let manualMod = 0;
 
         if (checkType === "skillCheck" && identificationKey) {
-            // 識別キーでキャラクター上の技能を検索
+            // 識別キーでキャラクター上の技能を検索。
+            // 代用判定(2026-07-09 ユーザー確定): 技能が指定される判定は、指定と別の技能で
+            // 任意に代用できる(可否・ペナルティ修正の裁定は卓=修正は判定者が手入力)。
+            // 指定技能を持たない場合もハードブロックせず代用判定を提示する。
+            // ※能力値判定・制御判定は代用の対象外(技能判定内でのみ代用が成立する)
             const matchedItem = actor.items.find(
                 i => i.type === "generalSkill" && i.system.identificationKey === identificationKey
             );
-            if (!matchedItem) {
-                ui.notifications.warn(
-                    `${actor.name} は「${skillLabel}」を持っていないため判定できません。`
-                );
+            const choice = await TnxRlRequestApp._promptSkillUse(actor, { matchedItem, requestedLabel: skillLabel });
+            if (!choice) return;
+            skillIds           = [choice.item.id];
+            resolvedValidSuits = getComboSuits([choice.item.system]);
+            bountyAvailable    = choice.item.system.usesBounty === true ? actorBounty : 0;
+            if (!resolvedValidSuits.length) {
+                ui.notifications.warn(`「${choice.item.name}」には使用できるスートがありません。`);
                 return;
             }
-            skillIds           = [matchedItem.id];
-            resolvedValidSuits = getComboSuits([matchedItem.system]);
-            bountyAvailable    = matchedItem.system.usesBounty === true ? actorBounty : 0;
+            if (choice.substitute) {
+                substitution = { requestedLabel: skillLabel, usedName: choice.item.name };
+                manualMod = choice.manualMod;
+                effectiveSkillLabel = choice.item.name;
+            }
         } else if (checkType === "abilityCheck") {
             // 能力値判定: 報酬点が使用可能
             bountyAvailable = actorBounty;
@@ -313,13 +325,75 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
             type:            checkType,
             actorId:         actor.id,
             skillIds,
-            skillLabel,
+            skillLabel:      effectiveSkillLabel,
             validSuits:      resolvedValidSuits,
             targetValue:     targetValue ?? null,
             bountyAvailable,
             requestMessageId: messageId,
+            // 代用判定: 使用技能・指定・手動修正(達成値に加算)を判定フローへ渡す
+            substitution,
+            manualMod,
             // 制御判定要求が controlNegate(BS の無効/降格)由来の場合、完了継続で結果を適用する
             controlNegate:   flagData.controlNegate ?? null,
         });
+    }
+
+    /**
+     * 指定技能で判定するか、代用判定(別技能+手動修正)を行うかを選ばせる(2026-07-09)。
+     * 指定技能を所持していない場合は代用判定の選択のみ提示する。
+     * @param {Actor} actor
+     * @param {{matchedItem: Item|null, requestedLabel: string}} opts
+     * @returns {Promise<?{item: Item, substitute: boolean, manualMod: number}>}
+     */
+    static async _promptSkillUse(actor, { matchedItem, requestedLabel }) {
+        if (matchedItem) {
+            const mode = await foundry.applications.api.DialogV2.wait({
+                window: { title: requestedLabel },
+                classes: ["tokyo-nova", "tnx-dialog", "tnx-usage-picker"],
+                position: { width: 340 },
+                content: "",
+                buttons: [
+                    { action: "direct", icon: "fas fa-diamond", label: `「${matchedItem.name}」で判定`, default: true, callback: () => "direct" },
+                    { action: "sub", icon: "fas fa-shuffle", label: "代用判定（別の技能で判定）", callback: () => "sub" },
+                    { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+                ],
+                close: () => null,
+            });
+            if (!mode) return null;
+            if (mode === "direct") return { item: matchedItem, substitute: false, manualMod: 0 };
+        }
+
+        // 代用判定: 技能を選び、ペナルティ等の修正を手入力する(裁定は卓)
+        const skills = actor.items
+            .filter(i => i.type === "generalSkill" || i.type === "styleSkill")
+            .sort((a, b) => a.name.localeCompare(b.name, "ja"));
+        if (!skills.length) {
+            ui.notifications.warn("代用に使える技能がありません。");
+            return null;
+        }
+        const esc = foundry.utils.escapeHTML;
+        const options = skills.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join("");
+        const res = await foundry.applications.api.DialogV2.wait({
+            window: { title: `代用判定: ${requestedLabel}` },
+            classes: ["tokyo-nova", "tnx-dialog"],
+            position: { width: 400 },
+            content: `
+                <p>指定「${esc(requestedLabel)}」${matchedItem ? "を" : "を所持していないため、"}別の技能で代用します（可否・修正の裁定は卓）。</p>
+                <div class="form-group"><label>使用する技能</label><select name="skillId">${options}</select></div>
+                <div class="form-group"><label>修正（手動・ペナルティは負数）</label><input type="number" name="manualMod" value="0"></div>`,
+            buttons: [
+                { action: "ok", icon: "fas fa-diamond", label: "この技能で判定", default: true,
+                  callback: (_e, _b, dialog) => ({
+                      skillId:   dialog.element.querySelector('[name="skillId"]')?.value ?? "",
+                      manualMod: Number(dialog.element.querySelector('[name="manualMod"]')?.value) || 0,
+                  }) },
+                { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+            ],
+            close: () => null,
+        });
+        if (!res?.skillId) return null;
+        const item = actor.items.get(res.skillId);
+        if (!item) return null;
+        return { item, substitute: true, manualMod: res.manualMod };
     }
 }

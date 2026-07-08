@@ -21,6 +21,7 @@
         <span class="jr-badges">
             {{#if fromDeck}}<span class="jr-badge jr-badge--deck">山札</span>{{/if}}
             {{#if trumpUsed}}<span class="jr-badge jr-badge--trump">切り札</span>{{/if}}
+            {{#if substitution}}<span class="jr-badge jr-badge--sub">代用</span>{{/if}}
             {{#if suitMismatch}}<span class="jr-badge jr-badge--mismatch">スート不一致</span>{{/if}}
             {{#if isFixed21}}<span class="jr-badge jr-badge--fixed21">21固定</span>{{/if}}
         </span>
@@ -79,6 +80,13 @@
 
     {{else}}
     <div class="jr-calc-section">
+        {{!-- 代用判定(2026-07-09): 指定と別の技能で判定した事実を明示(可否・修正の裁定は卓) --}}
+        {{#if substitution}}
+        <div class="jr-calc-row">
+            <span class="jr-calc-label">代用（指定技能）</span>
+            <span class="jr-calc-val">{{substitution.requestedLabel}}</span>
+        </div>
+        {{/if}}
         {{#unless isFixed21}}{{#unless suitMismatch}}
         <div class="jr-calc-row">
             <span class="jr-calc-label">カード値</span>
@@ -113,6 +121,12 @@
             <span class="jr-calc-val">+{{result.checkBonus}}</span>
         </div>
         {{/if}}
+        {{/if}}
+        {{#if manualModDisplay}}
+        <div class="jr-calc-row">
+            <span class="jr-calc-label">修正（手動）</span>
+            <span class="jr-calc-val">{{manualModDisplay}}</span>
+        </div>
         {{/if}}
         {{/unless}}{{/unless}}
         {{#if suitMismatch}}

@@ -594,9 +594,13 @@ export class TnxCheckFlow {
             if (ctx.type === "controlCheck") {
                 result = calcControlCheck({ cardCheckValue, suit, abilitiesCtx, checkBonus });
             } else {
-                result = calcSkillCheck({ cardCheckValue, suit, abilitiesCtx, bountyUsed, targetValue: ctx.targetValue, checkBonus });
+                result = calcSkillCheck({ cardCheckValue, suit, abilitiesCtx, bountyUsed, targetValue: ctx.targetValue, checkBonus, manualMod: ctx.manualMod ?? 0 });
             }
         }
+
+        // 代用判定(2026-07-09): 指定と別の技能で判定した事実を結果に載せ、
+        // 結果カードと要求カードの両方に明示する(可否・修正の裁定は卓)
+        if (ctx.substitution) result.substitution = ctx.substitution;
 
         // チャットに結果を投稿。攻撃(ctx.attack)は通常の結果カードの代わりに攻撃カードを出す
         // (成否保留・リアクション導線つき・12-2。attack-flow は本フローを import するため動的 import)
@@ -659,6 +663,11 @@ export class TnxCheckFlow {
                 result,
                 checkSources,
                 hasCheckBonus: (result.checkBonus ?? 0) !== 0,
+                // 代用判定(2026-07-09): 指定技能と手動修正を結果カードに明示する
+                substitution: result.substitution ?? null,
+                manualModDisplay: result.manualMod
+                    ? (result.manualMod > 0 ? `+${result.manualMod}` : String(result.manualMod))
+                    : "",
                 isControlCheck,
                 isFixed21:    result.fixedAt21 === true,
                 hasTargetValue: ctx.targetValue !== null,

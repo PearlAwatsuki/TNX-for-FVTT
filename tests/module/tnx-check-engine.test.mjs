@@ -118,6 +118,23 @@ describe("calcSkillCheck()", () => {
         expect(r.diff).toBeNull();
         expect(r.achievement).toBe(13); // 7+6
     });
+
+    it("手動修正(manualMod): 達成値に加算・負値=ペナルティ(代用判定・2026-07-09)", () => {
+        const plus = calcSkillCheck({ cardCheckValue: 8, suit: "spade", abilitiesCtx: abilities, manualMod: 2, targetValue: 12 });
+        expect(plus.achievement).toBe(15); // 8+5+2
+        expect(plus.manualMod).toBe(2);
+        const minus = calcSkillCheck({ cardCheckValue: 8, suit: "spade", abilitiesCtx: abilities, manualMod: -3, targetValue: 12 });
+        expect(minus.achievement).toBe(10); // 8+5-3
+        expect(minus.success).toBe(false);
+    });
+
+    it("手動修正は FUMBLE と 21固定に影響しない", () => {
+        const f = calcSkillCheck({ cardCheckValue: "FUMBLE", suit: "spade", abilitiesCtx: abilities, manualMod: 5 });
+        expect(f.fumble).toBe(true);
+        expect(f.achievement).toBeNull();
+        const fx = calcSkillCheck({ cardCheckValue: "FIXED_21", suit: "club", abilitiesCtx: abilities, manualMod: 5, targetValue: 18 });
+        expect(fx.achievement).toBe(21); // 21固定は完全固定(能力値・報酬点・修正を無視)
+    });
 });
 
 // ─── calcControlCheck ─────────────────────────────────────────────────────────

@@ -1267,7 +1267,11 @@ Hooks.once("ready", async function() {
                         : result.success === false
                             ? ' <span class="jr-inline-failure"><i class="fas fa-times"></i> 失敗</span>'
                             : '';
-                    resultEl.innerHTML = `達成値 <strong>${result.achievement ?? "—"}</strong>${mark}`;
+                    // 代用判定(2026-07-09): 指定と別の技能で判定した事実を要求カードにも明示する
+                    const subNote = result.substitution?.usedName
+                        ? ` <span class="jr-req-note">代用:${foundry.utils.escapeHTML(result.substitution.usedName)}</span>`
+                        : '';
+                    resultEl.innerHTML = `達成値 <strong>${result.achievement ?? "—"}</strong>${mark}${subNote}`;
                 }
                 statusEl.replaceChildren(resultEl);
             } else if (flagData.status !== "closed") {

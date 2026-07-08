@@ -82,9 +82,10 @@ export function getAbilityBySuit(suit, abilitiesCtx) {
  * @param {object}  opts.abilitiesCtx   シートコンテキストの abilities
  * @param {number}  [opts.bountyUsed]   使用報酬点（デフォルト0）
  * @param {number}  [opts.targetValue]  目標値（成否判定に使用）
+ * @param {number}  [opts.manualMod]    手動修正（代用判定のペナルティ等・判定者が都度入力=2026-07-09）
  * @returns {CheckResult}
  */
-export function calcSkillCheck({ cardCheckValue, suit, abilitiesCtx, bountyUsed = 0, targetValue = null, checkBonus = 0 }) {
+export function calcSkillCheck({ cardCheckValue, suit, abilitiesCtx, bountyUsed = 0, targetValue = null, checkBonus = 0, manualMod = 0 }) {
     if (cardCheckValue === "FUMBLE") {
         return { fumble: true, success: false, achievement: null, diff: null };
     }
@@ -110,7 +111,7 @@ export function calcSkillCheck({ cardCheckValue, suit, abilitiesCtx, bountyUsed 
         };
     }
 
-    const achievement = cardCheckValue + totalValue + bountyUsed + checkBonus;
+    const achievement = cardCheckValue + totalValue + bountyUsed + checkBonus + manualMod;
     const success     = targetValue !== null ? achievement >= targetValue : null;
     return {
         fumble:      false,
@@ -119,6 +120,7 @@ export function calcSkillCheck({ cardCheckValue, suit, abilitiesCtx, bountyUsed 
         abilityVal:  totalValue,
         bountyUsed,
         checkBonus,
+        manualMod,
         cardValue:   cardCheckValue,
         achievement,
         targetValue,

@@ -4222,6 +4222,7 @@ body.tnx-bottom-hud-expanded #hotbar {
 .jr-badge--mismatch { background: rgba(200,  50, 50,  0.35); color: #ff8888; }
 .jr-badge--fixed21  { background: rgba(200, 200, 50,  0.30); color: #eeee60; }
 .jr-badge--fixed    { background: rgba(80,  170, 200, 0.30); color: #7fd4ee; }
+.jr-badge--sub      { background: rgba(150, 110, 220, 0.30); color: #c9a6ff; }
 
 /* 計算内訳セクション */
 .jr-calc-section {
@@ -6711,7 +6712,8 @@ button.tnx-create-act-button span {
     padding: 3px 10px;
 }
 
-.tnx-check-request .jr-req-negate {
+.tnx-check-request .jr-req-negate,
+.tnx-check-request .jr-req-note {
     font-size: 0.82em;
     color: var(--tnx2-text-secondary);
 }
