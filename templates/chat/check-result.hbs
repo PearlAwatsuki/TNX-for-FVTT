@@ -129,6 +129,8 @@
     <div class="jr-result {{#if result.success}}jr-result--success{{else}}jr-result--failure{{/if}}">
         {{#if result.success}}<i class="fas fa-check"></i> 成功{{else}}<i class="fas fa-times"></i> 失敗{{/if}}
         {{#if hasTargetValue}}<span class="jr-tn">目標値 {{result.targetValue}}</span>{{/if}}
+        {{!-- 差分値の表示規約(Check_Rules 2026-07-08 確定): 目標値があれば判定の種類を問わず必ず表示 --}}
+        {{#if diffDisplay}}<span class="jr-tn">差分値 {{diffDisplay}}</span>{{/if}}
     </div>
     {{/if}}
 

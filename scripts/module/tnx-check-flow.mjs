@@ -640,6 +640,8 @@ export class TnxCheckFlow {
                 isControlCheck,
                 isFixed21:    result.fixedAt21 === true,
                 hasTargetValue: ctx.targetValue !== null,
+                // 差分値の表示規約(Check_Rules 2026-07-08): 目標値があれば判定の種類を問わず必ず表示
+                diffDisplay:  Number.isFinite(result.diff) ? (result.diff >= 0 ? `+${result.diff}` : `${result.diff}`) : null,
                 showSuccess:  !isControlCheck ? (ctx.targetValue !== null && !result.fumble) : !result.fumble,
                 fromDeck,
                 trumpUsed,
