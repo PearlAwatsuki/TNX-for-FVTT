@@ -25,8 +25,8 @@ describe("resolveNoReaction()（リアクションなし=目標値に対象の�
     expect(resolveNoReaction(12, 12)).toEqual({ hit: true, diff: 0, targetValue: 12 });
   });
 
-  it("未達は失敗", () => {
-    expect(resolveNoReaction(10, 12)).toEqual({ hit: false, diff: -2, targetValue: 12 });
+  it("未達は失敗・差分値は算出されない（勝利時のみ=Check_Rules 2026-07-09 訂正）", () => {
+    expect(resolveNoReaction(10, 12)).toEqual({ hit: false, diff: null, targetValue: 12 });
   });
 });
 
@@ -36,8 +36,8 @@ describe("resolveOpposed()（対決=相手の達成値を目標値として扱�
     expect(resolveOpposed(15, 15)).toEqual({ hit: true, diff: 0, targetValue: 15 });
   });
 
-  it("未満は攻撃側敗北=攻撃終了", () => {
-    expect(resolveOpposed(14, 15)).toEqual({ hit: false, diff: -1, targetValue: 15 });
+  it("未満は攻撃側敗北=攻撃終了・差分値は算出されない（勝利時のみ）", () => {
+    expect(resolveOpposed(14, 15)).toEqual({ hit: false, diff: null, targetValue: 15 });
   });
 
   it("リアクション不成立(達成値0扱い)なら攻撃達成値がそのまま差分値", () => {

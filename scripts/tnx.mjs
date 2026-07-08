@@ -1261,8 +1261,10 @@ Hooks.once("ready", async function() {
                 if (isMyChar || game.user.isGM) {
                     const btn = document.createElement("button");
                     btn.type      = "button";
-                    btn.className = "tnx-ring-btn tnx-check-do-btn";
-                    btn.innerHTML = '<i class="fas fa-gavel"></i> 判定する';
+                    // テキストボタンは丸型(tnx-ring-btn)に詰め込まない。アイコンは判定=カードのため
+                    // カードマーク(2026-07-09 修正。gavel=裁判官の木槌は「judgement」の誤訳由来)
+                    btn.className = "tnx-chat-btn tnx-check-do-btn";
+                    btn.innerHTML = '<i class="fas fa-diamond"></i> 判定する';
                     btn.addEventListener("click", () => {
                         TnxRlRequestApp.onDoCheck(flagData, actorId, message.id);
                     });

@@ -267,7 +267,7 @@ export function renderAttackCard(message, html) {
             if (game.user.isGM || attacker?.isOwner) {
                 const btn = document.createElement("button");
                 btn.type = "button";
-                btn.className = "tnx-ring-btn tnx-attack-damage-btn";
+                btn.className = "tnx-chat-btn tnx-attack-damage-btn";
                 btn.innerHTML = '<i class="fas fa-burst"></i> ダメージ算出';
                 btn.addEventListener("click", async () => {
                     const { openDamageDialog } = await import("./damage-flow.mjs");
@@ -295,7 +295,7 @@ export function renderAttackCard(message, html) {
     for (const mode of attackReactionModes(f.category)) {
         const btn = document.createElement("button");
         btn.type = "button";
-        btn.className = "tnx-ring-btn";
+        btn.className = "tnx-chat-btn";
         btn.textContent = MODE_LABELS[mode];
         if (mode !== "none") {
             const hint = mode === "reaction" ? REACTION_HINTS[f.category] : REACTION_HINTS[mode];

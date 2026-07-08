@@ -19,28 +19,31 @@ export function novaDamageCardValue(cardCheckValue) {
 
 /**
  * リアクションなしの命中確定: 目標値=対象の制御値(出したスートに対応)。
+ * 差分値は**命中(勝利)した場合にのみ**算出される(Check_Rules 2026-07-09 訂正・失敗時は null)。
  * @param {number} achievement 攻撃の達成値
  * @param {number} control     対象の対応制御値(実効値)
- * @returns {{hit: boolean, diff: number, targetValue: number}}
+ * @returns {{hit: boolean, diff: number|null, targetValue: number}}
  */
 export function resolveNoReaction(achievement, control) {
     const targetValue = Number(control) || 0;
-    const diff = (Number(achievement) || 0) - targetValue;
-    return { hit: diff >= 0, diff, targetValue };
+    const margin = (Number(achievement) || 0) - targetValue;
+    const hit = margin >= 0;
+    return { hit, diff: hit ? margin : null, targetValue };
 }
 
 /**
  * 対決の命中確定: 相手のリアクション判定の達成値を目標値として扱う(Check_Rules 確定)。
  * 攻撃達成値≥リアクション達成値で命中(達成値≥目標値の一般規約との合成)。
- * 未満は攻撃側敗北=その時点で攻撃終了(Combat_Flow)。
+ * 未満は攻撃側敗北=その時点で攻撃終了(Combat_Flow)。差分値は勝利時のみ(敗北時は null)。
  * @param {number} attackAchievement
  * @param {number} reactionAchievement リアクション不成立(ファンブル/スート不一致)は 0 を渡す
- * @returns {{hit: boolean, diff: number, targetValue: number}}
+ * @returns {{hit: boolean, diff: number|null, targetValue: number}}
  */
 export function resolveOpposed(attackAchievement, reactionAchievement) {
     const targetValue = Number(reactionAchievement) || 0;
-    const diff = (Number(attackAchievement) || 0) - targetValue;
-    return { hit: diff >= 0, diff, targetValue };
+    const margin = (Number(attackAchievement) || 0) - targetValue;
+    const hit = margin >= 0;
+    return { hit, diff: hit ? margin : null, targetValue };
 }
 
 /**

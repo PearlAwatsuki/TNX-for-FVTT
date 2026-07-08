@@ -544,6 +544,28 @@
     flex-shrink: 0;
     line-height: 1 !important;
 }
+
+/* チャットカード内のテキストボタン(判定する/リアクション/ダメージ算出等)。
+   丸型(tnx-ring-btn)に文字を詰め込まない(2026-07-09 修正)——幅は内容に応じ、通常のボタン形状 */
+.tnx-chat-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    width: auto;
+    padding: 3px 12px;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    color: var(--tnx2-text-primary);
+    font-size: 0.84em;
+    line-height: 1.4;
+    cursor: pointer;
+    transition: background var(--tnx2-transition-fast);
+}
+.tnx-chat-btn:hover {
+    background: var(--tnx2-bg-hover);
+}
 .tnx-row-btn,
 .tnx-row-btn--delete {
     flex: 0 0 24px;

@@ -91,9 +91,11 @@ export function calcSkillCheck({ cardCheckValue, suit, abilitiesCtx, bountyUsed 
 
     const { abilityKey, totalValue } = getAbilityBySuit(suit, abilitiesCtx);
 
+    // 差分値の規約(Check_Rules 2026-07-09 訂正): 差分値の算出は成否・勝敗の決定後、
+    // **成功(勝利)した場合にのみ**行われる。失敗時にマイナスの差分値は存在しない(null)
     if (cardCheckValue === "FIXED_21") {
         const achievement = 21;
-        const diff        = targetValue !== null ? achievement - targetValue : null;
+        const success     = targetValue !== null ? achievement >= targetValue : null;
         return {
             fumble:      false,
             fixedAt21:   true,
@@ -103,13 +105,13 @@ export function calcSkillCheck({ cardCheckValue, suit, abilitiesCtx, bountyUsed 
             cardValue:   "A(21固定)",
             achievement,
             targetValue,
-            diff,
-            success:     targetValue !== null ? achievement >= targetValue : null,
+            diff:        success === true ? achievement - targetValue : null,
+            success,
         };
     }
 
     const achievement = cardCheckValue + totalValue + bountyUsed + checkBonus;
-    const diff        = targetValue !== null ? achievement - targetValue : null;
+    const success     = targetValue !== null ? achievement >= targetValue : null;
     return {
         fumble:      false,
         fixedAt21:   false,
@@ -120,8 +122,8 @@ export function calcSkillCheck({ cardCheckValue, suit, abilitiesCtx, bountyUsed 
         cardValue:   cardCheckValue,
         achievement,
         targetValue,
-        diff,
-        success:     targetValue !== null ? achievement >= targetValue : null,
+        diff:        success === true ? achievement - targetValue : null,
+        success,
     };
 }
 

@@ -578,7 +578,8 @@ export class TnxCheckFlow {
         // 判定結果の計算
         let result;
         if (suitMismatch) {
-            // スート不一致 → 判定不成立。不成立ゆえに達成値 0 の失敗（カードはプレイされる）
+            // スート不一致 → 判定不成立。不成立ゆえに達成値 0 の失敗（カードはプレイされる。
+            // 差分値は成功時のみ算出される規約のため null）
             result = {
                 fumble:      false,
                 achievement: 0,
@@ -586,7 +587,7 @@ export class TnxCheckFlow {
                 abilityVal:  0,
                 bountyUsed:  0,
                 targetValue: ctx.targetValue,
-                diff:        ctx.targetValue !== null ? -ctx.targetValue : null,
+                diff:        null,
                 success:     false,
             };
         } else {

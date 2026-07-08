@@ -346,9 +346,11 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
 
         new CM(el, '.deck-card[data-action="drawFromDeck"]', [
             {
-                name: "山札から判定する",
-                icon: '<i class="fas fa-gavel"></i>',
-                callback: () => TnxActionHandler.checkFromDeck(),
+                // 山札からの判定は判定ダイアログ経由に移行済み。ここは公開で1枚めくる汎用操作
+                // (2026-07-09 改名。判定には使わないが山札をめくる必要自体はありうる)
+                name: "山札から1枚めくる",
+                icon: '<i class="fas fa-clone"></i>',
+                callback: () => TnxActionHandler.flipFromDeck(),
             },
             {
                 name: "初期手札を配布",
@@ -499,7 +501,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
 
                     if (data.sourceType === 'deck') {
                         if (dropZoneType === 'hand')    TnxActionHandler.drawCard();
-                        else if (dropZoneType === 'discard') TnxActionHandler.checkFromDeck();
+                        else if (dropZoneType === 'discard') TnxActionHandler.flipFromDeck();
                     } else if (data.sourceType === 'hand-card') {
                         if (dropZoneType === 'discard' && data.cardId) TnxActionHandler.playCard(data.cardId);
                     } else if (data.sourceType === 'neuro-deck') {
