@@ -13,7 +13,7 @@
         {{#each boostRows}}
         <label class="tnx-damage-row">
             <input type="checkbox" class="dmg-boost" value="{{this.id}}">
-            <span>{{this.label}}{{#if this.formula}} <span class="tnx-damage-formula">＋{{this.formula}}</span>{{/if}}</span>
+            <span>{{this.label}}{{#if this.effectDisplay}} <span class="tnx-damage-formula">{{this.effectDisplay}}</span>{{/if}}</span>
         </label>
         {{/each}}
     </fieldset>
@@ -25,7 +25,7 @@
         {{#each reduceRows}}
         <label class="tnx-damage-row">
             <input type="checkbox" class="dmg-reduce" value="{{this.id}}">
-            <span>{{this.label}}{{#if this.formula}} <span class="tnx-damage-formula">−{{this.formula}}</span>{{/if}}</span>
+            <span>{{this.label}}{{#if this.effectDisplay}} <span class="tnx-damage-formula">{{this.effectDisplay}}</span>{{/if}}</span>
         </label>
         {{/each}}
     </fieldset>
@@ -50,5 +50,12 @@
             <input type="checkbox" name="stun">
             スタン／説得（10 以上を 10 とみなす）
         </label>
+    </div>
+
+    {{!-- ライブプレビュー(12-1 設計: 最終値・参照段・負傷名)。入力変更のたびに更新される --}}
+    <div class="tnx-damage-preview">
+        <span class="tnx-damage-preview-label">最終ダメージ</span>
+        <span class="tnx-damage-preview-note"></span>
+        <span class="tnx-damage-preview-final">–</span>
     </div>
 </div>

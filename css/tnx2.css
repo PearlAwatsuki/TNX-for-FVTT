@@ -7202,6 +7202,44 @@ button.tnx-create-act-button span {
     margin-top: 4px;
 }
 
+/* ライブプレビュー(最終値・参照段・負傷名) */
+.tnx-damage-preview {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 6px 2px 0;
+    border-top: 1px solid var(--tnx2-border-subtle);
+}
+.tnx-damage-preview-label {
+    font-size: 0.9em;
+    font-weight: 600;
+    color: var(--tnx2-text-secondary);
+}
+.tnx-damage-preview-note {
+    flex: 1;
+    font-size: 0.85em;
+    color: var(--tnx2-text-secondary);
+    text-align: right;
+}
+.tnx-damage-preview-final {
+    font-size: 1.6em;
+    font-weight: 700;
+    font-family: var(--tnx2-font-mono);
+    color: var(--tnx2-text-accent);
+    line-height: 1;
+}
+
+/* ── ダメージ適用の結果カード(damage-result.hbs) ── */
+.tnx-damage-result .jr-result--damage {
+    background: rgba(200, 50, 50, 0.20);
+    color: #e86060;
+}
+.tnx-damage-result .jr-result--nodamage {
+    background: rgba(120, 120, 120, 0.15);
+    color: var(--tnx2-text-secondary);
+}
+
 /* ── スキル参照リスト ── */
 .usage-skill-ref-list {
     display: flex;

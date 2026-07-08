@@ -1,0 +1,79 @@
+{{!-- ダメージ適用の結果カード(フェーズ12-3)。判定結果カード(check-result.hbs)の意匠を踏襲し、
+     算出の全内訳(ダメージカード+攻撃力+修正−軽減→最終ダメージ・参照段)を台帳形式で表示する --}}
+<div class="tnx-check-result tnx-damage-result tokyo-nova">
+
+    <div class="jr-head">
+        <span class="jr-skill-name">ダメージ適用</span>
+        <span class="jr-type-tag">{{categoryLabel}}</span>
+    </div>
+
+    <div class="jr-calc-section">
+        {{#if targetName}}
+        <div class="jr-calc-row">
+            <span class="jr-calc-label">対象</span>
+            <span class="jr-calc-val">{{targetName}}</span>
+        </div>
+        {{/if}}
+        <div class="jr-calc-row">
+            <span class="jr-calc-label">ダメージカード</span>
+            <span class="jr-calc-val">{{damageCard}}</span>
+        </div>
+        {{#if isPhysical}}
+        <div class="jr-calc-row">
+            <span class="jr-calc-label">攻撃力（{{attackSourceName}}）</span>
+            <span class="jr-calc-val">＋{{attackPower}}</span>
+        </div>
+        {{#if faValue}}
+        <div class="jr-calc-row">
+            <span class="jr-calc-label">FA</span>
+            <span class="jr-calc-val">＋{{faValue}}</span>
+        </div>
+        {{/if}}
+        {{/if}}
+        {{#each boosts}}
+        <div class="jr-calc-row">
+            <span class="jr-calc-label">{{this.label}}</span>
+            <span class="jr-calc-val">{{this.display}}</span>
+        </div>
+        {{/each}}
+        {{#if manualModDisplay}}
+        <div class="jr-calc-row">
+            <span class="jr-calc-label">修正（手動）</span>
+            <span class="jr-calc-val">{{manualModDisplay}}</span>
+        </div>
+        {{/if}}
+        {{#if mitigation}}
+        <div class="jr-calc-row">
+            <span class="jr-calc-label">軽減{{#if mitigationNote}}（{{mitigationNote}}）{{/if}}</span>
+            <span class="jr-calc-val">−{{mitigation}}</span>
+        </div>
+        {{/if}}
+        {{#each reduces}}
+        <div class="jr-calc-row">
+            <span class="jr-calc-label">{{this.label}}</span>
+            <span class="jr-calc-val">{{this.display}}</span>
+        </div>
+        {{/each}}
+        {{#if bountyMitigation}}
+        <div class="jr-calc-row">
+            <span class="jr-calc-label">報酬点による軽減</span>
+            <span class="jr-calc-val">−{{bountyMitigation}}</span>
+        </div>
+        {{/if}}
+        {{#if stunCapped}}
+        <div class="jr-calc-row">
+            <span class="jr-calc-label">スタン／説得（10 以上→10）</span>
+            <span class="jr-calc-val">→10</span>
+        </div>
+        {{/if}}
+        <div class="jr-calc-row jr-total-row">
+            <span class="jr-calc-label">最終ダメージ{{#if showStage}}（参照段 {{stage}}）{{/if}}</span>
+            <span class="jr-total-num">{{final}}</span>
+        </div>
+    </div>
+
+    <div class="jr-result {{#if applied}}jr-result--damage{{else}}jr-result--nodamage{{/if}}">
+        <i class="fas {{#if applied}}fa-burst{{else}}fa-shield-halved{{/if}}"></i>
+        <span>{{applyText}}</span>
+    </div>
+</div>

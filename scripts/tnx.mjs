@@ -78,6 +78,8 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/chat/scene-card.hbs",
         "systems/tokyo-nova-axleration/templates/chat/check-result.hbs",
         "systems/tokyo-nova-axleration/templates/chat/check-request.hbs",
+        "systems/tokyo-nova-axleration/templates/chat/attack-card.hbs",
+        "systems/tokyo-nova-axleration/templates/chat/damage-result.hbs",
 
         // === App ===
         "systems/tokyo-nova-axleration/templates/app/rl-request-app.hbs",
