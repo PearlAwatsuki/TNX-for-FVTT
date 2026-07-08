@@ -137,6 +137,25 @@ export function readCondition(effect) {
 }
 
 /**
+ * アクターに適用中の負傷(等)が持つ部位スロット修正(partSlotMod)を集計する(2026-07-09)。
+ * 例: 肉体7「腕部損傷」= 片手持ち −1(適用中のみ・治療で負傷が消えれば戻る)。
+ * 同種の負傷が複数あれば加算する(両腕損傷=−2 等)。
+ * @param {Actor} actor
+ * @returns {Map<string, number>} 部位ラベル → 最大値のデルタ(負値)
+ */
+export function gatherPartSlotMods(actor) {
+  const mods = new Map();
+  for (const eff of (actor?.effects ?? [])) {
+    if (eff.disabled) continue;
+    for (const kind of getConditionKinds(eff)) {
+      const m = CONDITION_KINDS[kind]?.partSlotMod;
+      if (m?.part) mods.set(m.part, (mods.get(m.part) ?? 0) + (Number(m.delta) || 0));
+    }
+  }
+  return mods;
+}
+
+/**
  * ある状態(kind)が `inflicts` で付与する別状態の **ActiveEffect 生成データ**を返す(フェーズ9-4)。
  * 状態のみ(changes なし=コンディション)＋必要フラグ。ダメージ/カスケード由来は hideFromList=true で
  * AE 本体をリスト非表示(供給元が浮くため。状態アイコンは出る)。純粋関数(Foundry 非依存)。

@@ -640,5 +640,51 @@ export async function applyDamageToTarget(target, category, final, stage) {
     await applyDamageChartResult(target, category, final);
     const kind = getDamageChartKind(category, stage);
     const woundLabel = kind ? CONDITION_KINDS[kind]?.label : "";
-    return `${CATEGORY_LABELS[category] ?? category}チャート${woundLabel ? `「${woundLabel}」` : ""}を適用`;
+
+    // 派生ダメージ(社会9→精神・社会19→肉体 等): チャート効果が別ダメージを発生させる場合、
+    // その派生は軽減不可・直接ダメージ扱い(Damage_Rules 2026-07-09)。同じ対象へ続けて適用する
+    const derived = kind ? CONDITION_KINDS[kind]?.derivedDamage : null;
+    let derivedText = "";
+    if (derived && (target.type === "cast" || target.type === "guest")) {
+        derivedText = await applyDerivedDamage(target, derived);
+    }
+    return `${CATEGORY_LABELS[category] ?? category}チャート${woundLabel ? `「${woundLabel}」` : ""}を適用${derivedText}`;
+}
+
+/**
+ * 派生ダメージを適用する(軽減不可・直接ダメージ扱い)。山札から cards 枚めくって合算し、
+ * 指定系統のチャートを同じ対象へ適用する(軽減ダイアログを挟まない)。
+ * @param {Actor} target
+ * @param {{category:"physical"|"mental"|"social", cards:number}} derived
+ * @returns {Promise<string>} 追記用の説明文
+ */
+async function applyDerivedDamage(target, derived) {
+    const n = Math.max(1, Number(derived.cards) || 1);
+    let total = 0;
+    const drawn = [];
+    for (let i = 0; i < n; i++) {
+        const card = await TnxActionHandler.flipFromDeck();
+        if (!card) break;
+        const v = await resolveDamageCardValue(card);
+        if (v === null) continue;
+        total += v;
+        drawn.push(`${card.name}=${v}`);
+    }
+    const stage = Math.min(total, 21);
+    // 軽減を挟まず直接チャート適用(applyDamageToTarget を再帰・型分岐/更なる派生も自然に連鎖)
+    const applyText = await applyDamageToTarget(target, derived.category, total, stage);
+    const label = CATEGORY_LABELS[derived.category] ?? derived.category;
+    const esc = foundry.utils.escapeHTML;
+    await ChatMessage.create({
+        speaker: ChatMessage.getSpeaker({ actor: target }),
+        content: `<div class="tnx-check-result tnx-damage-card tokyo-nova">
+            <div class="jr-head"><span class="jr-skill-name">派生ダメージ</span><span class="jr-type-tag">${label}・軽減不可</span></div>
+            <div class="jr-calc-section">
+                ${drawn.length ? `<div class="jr-calc-row"><span class="jr-calc-label">めくったカード</span><span class="jr-calc-val">${esc(drawn.join("・"))}</span></div>` : ""}
+                <div class="jr-calc-row jr-total-row"><span class="jr-calc-label">ダメージ</span><span class="jr-total-num">${total}</span></div>
+            </div>
+            <div class="jr-result jr-result--damage"><i class="fas fa-burst"></i> ${esc(applyText)}</div>
+        </div>`,
+    });
+    return `／派生: ${label}ダメージ ${total}`;
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildDamageStates, getDamageChartKind, DAMAGE_CATEGORIES } from "../../scripts/data/damage-chart.mjs";
-import { CONDITION_KINDS, buildInflictedEffectsData } from "../../scripts/module/conditions.mjs";
+import { CONDITION_KINDS, buildInflictedEffectsData, gatherPartSlotMods } from "../../scripts/module/conditions.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -54,6 +54,38 @@ describe("ダメージ負傷状態", () => {
     expect(CONDITION_KINDS["phys-16"]).toMatchObject({ label: "斬首", inflicts: [{ kind: "dead" }] });
     expect(CONDITION_KINDS["phys-6"]).toMatchObject({ label: "胸部損傷", inflicts: [{ kind: "weakness" }] });
     expect(CONDITION_KINDS["ment-18"]).toMatchObject({ label: "パニック", inflicts: [{ kind: "pressure", ability: "reason" }] });
+  });
+
+  it("実効果: 肉体7=片手持ち部位 −1 / 社会9・19=派生ダメージ(2026-07-09)", () => {
+    expect(CONDITION_KINDS["phys-7"].partSlotMod).toEqual({ part: "片手持ち", delta: -1 });
+    expect(CONDITION_KINDS["soc-9"].derivedDamage).toEqual({ category: "mental", cards: 1 });
+    expect(CONDITION_KINDS["soc-19"].derivedDamage).toEqual({ category: "physical", cards: 1 });
+  });
+});
+
+describe("gatherPartSlotMods()（適用中の負傷による部位スロット修正）", () => {
+  // 最小モックアクター: effects コレクションと statuses から集計する
+  const woundEffect = (kind) => ({
+    disabled: false,
+    statuses: new Set([kind]),
+    flags: { "tokyo-nova-axleration": { conditionKind: kind } },
+  });
+
+  it("腕部損傷1つ → 片手持ち −1", () => {
+    const actor = { effects: [woundEffect("phys-7")] };
+    const mods = gatherPartSlotMods(actor);
+    expect(mods.get("片手持ち")).toBe(-1);
+  });
+
+  it("腕部損傷2つ(両腕) → 片手持ち −2(加算)", () => {
+    const actor = { effects: [woundEffect("phys-7"), woundEffect("phys-7")] };
+    expect(gatherPartSlotMods(actor).get("片手持ち")).toBe(-2);
+  });
+
+  it("disabled な負傷は集計しない・partSlotMod を持たない負傷は無視", () => {
+    const off = { ...woundEffect("phys-7"), disabled: true };
+    const actor = { effects: [off, woundEffect("phys-1")] };
+    expect(gatherPartSlotMods(actor).size).toBe(0);
   });
 });
 

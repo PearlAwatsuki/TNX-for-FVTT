@@ -25,7 +25,7 @@ import { getComboSuits, ALL_SUITS } from '../module/tnx-check-engine.mjs';
 import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
 import { groupStyleSkillsByStyle } from '../module/style-skill-acquisition.mjs';
 import { HOUSING_AREA_RANKS } from '../data/item/housing-area.mjs';
-import { CONDITION_KINDS } from '../module/conditions.mjs';
+import { CONDITION_KINDS, gatherPartSlotMods } from '../module/conditions.mjs';
 import { startTreatment } from '../module/treatment-flow.mjs';
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -351,7 +351,15 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
      *           hostChips:Array, hasHostChips:boolean}}
      */
     _preparePartOccupancy() {
-        const partSlots = this.actor.system.partSlots ?? [];
+        // 適用中の負傷による部位スロット修正(肉体7=片手持ち−1 等)を最大値に反映する(2026-07-09)。
+        // ベースの partSlots は編集用に保持し、占有表示のみ実効値(下限0)で計算する
+        const rawSlots = this.actor.system.partSlots ?? [];
+        const slotMods = gatherPartSlotMods(this.actor);
+        const partSlots = slotMods.size
+            ? rawSlots.map(s => slotMods.has(s.value)
+                ? { ...s, count: Math.max(0, (Number(s.count) || 0) + slotMods.get(s.value)) }
+                : s)
+            : rawSlots;
         const outfitItems = this.actor.items.filter(i => OUTFIT_ITEM_TYPES.has(i.type));
 
         // ① 身体部位
