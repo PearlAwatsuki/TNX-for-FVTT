@@ -4389,6 +4389,7 @@ body.tnx-bottom-hud-expanded #hotbar {
     font-size: 0.82em;
     font-weight: 400;
     color: var(--tnx2-text-secondary);
+    white-space: nowrap; /* 「差分値 +3」等を文字割れさせない(狭いカード対策) */
 }
 
 .tnx-card-ghost {

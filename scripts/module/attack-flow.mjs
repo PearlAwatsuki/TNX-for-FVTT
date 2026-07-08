@@ -238,34 +238,41 @@ export function renderAttackCard(message, html) {
     if (!area) return;
     area.replaceChildren();
 
+    const esc = foundry.utils.escapeHTML;
     const addLine = (cls, inner) => {
         const div = document.createElement("div");
         div.className = cls;
         div.innerHTML = inner;
         area.appendChild(div);
     };
+    // 成否は短い1行、目標値/対決/差分値は台帳行に分ける(判定結果カードと同じ構造。
+    // 1本の flex 行に詰め込むと狭いカードで日本語が文字割れするため=2026-07-09 修正)
+    const addVerdict = (cls, icon, label) =>
+        addLine(`jr-result ${cls}`, `<i class="fas ${icon}"></i> <span>${label}</span>`);
+    const addRow = (label, value) =>
+        addLine("jr-calc-row", `<span class="jr-calc-label">${label}</span><span class="jr-calc-val">${value}</span>`);
     const diffText = Number.isFinite(f.diff) ? (f.diff >= 0 ? `+${f.diff}` : `${f.diff}`) : null;
 
     if (f.state === "fumble") {
-        addLine("jr-result jr-result--fumble", '<i class="fas fa-skull"></i> ファンブル！（攻撃失敗）');
+        addVerdict("jr-result--fumble", "fa-skull", "ファンブル！（攻撃失敗）");
         return;
     }
     if (f.state === "miss") {
+        addVerdict("jr-result--failure", "fa-times", "攻撃失敗");
         const why = f.resolution === "mismatch" ? "スート不一致（判定不成立）"
             : f.resolution === "none" ? `制御値 ${f.targetValue} に届かず`
             : `${MODE_LABELS[f.resolution] ?? "リアクション"}成功（達成値 ${f.reactionAchievement}）`;
-        addLine("jr-result jr-result--failure",
-            `<i class="fas fa-times"></i> 攻撃失敗 <span class="jr-tn">${why}</span>${diffText ? ` <span class="jr-tn">差分値 ${diffText}</span>` : ""}`);
+        addRow("理由", esc(why));
         return;
     }
     if (f.state === "hit" || f.state === "open") {
         if (f.state === "hit") {
-            const how = f.resolution === "none" ? `目標値 ${f.targetValue}（制御値）`
-                : `対決勝利（${MODE_LABELS[f.resolution] ?? "リアクション"} 達成値 ${f.reactionAchievement}）`;
-            addLine("jr-result jr-result--success",
-                `<i class="fas fa-check"></i> 命中 <span class="jr-tn">${how}</span> <span class="jr-tn">差分値 ${diffText}</span>`);
+            addVerdict("jr-result--success", "fa-check", "命中");
+            if (f.resolution === "none") addRow("目標値（制御値）", f.targetValue);
+            else addRow(`対決（${MODE_LABELS[f.resolution] ?? "リアクション"}）`, `達成値 ${f.reactionAchievement}`);
+            if (diffText) addRow("差分値", diffText);
         } else {
-            addLine("jr-result", "対象なし（ダメージ算出は対象を選択して行います）");
+            addLine("tnx-attack-pending-note", "対象なし（ダメージ算出は対象を選択して行います）");
         }
         if (!f.damageRolled) {
             const attacker = resolveSync(f.attackerUuid);
