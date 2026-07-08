@@ -355,8 +355,9 @@ export async function startReaction(message, mode) {
             if (ar <= 0) { ui.notifications.warn("AR が 0 のためパリーを行えません。"); return; }
             await target.update({ "system.actionRank.value": ar - 1 });
         }
-        const parryWeapon = target.system.weaponRefs?.parry?.itemId
-            ? target.items.get(target.system.weaponRefs.parry.itemId) : null;
+        // パリー参照武器(character-base の weaponRefs.parryItemId)。未設定なら受け値なし
+        const parryId = target.system.weaponRefs?.parryItemId || "";
+        const parryWeapon = parryId ? target.items.get(parryId) : null;
         parryGuard = parryWeapon?.system.guardValue?.mode === "value"
             ? (Number(parryWeapon.system.guardValue.value) || 0) : 0;
     }

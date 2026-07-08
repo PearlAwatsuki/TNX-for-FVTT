@@ -1,0 +1,69 @@
+import { describe, it, expect } from "vitest";
+import "../setup.mjs";
+
+const { aggregateDefence, defenceForType, computeDamage } =
+  await import("../../scripts/module/damage-logic.mjs");
+
+const armor = (S, P, I, { prepared = true, mode = "value" } = {}) => ({
+  type: "armor",
+  system: { isPrepared: prepared, defence: { mode, S_defence: S, P_defence: P, I_defence: I } },
+});
+
+describe("aggregateDefence()（防御力の合算・戦闘タブ規約）", () => {
+  it("準備済み armor/cyborg の S/P/I を合算する", () => {
+    const items = [armor(3, 2, 1), { type: "cyborg", system: { isPrepared: true, defence: { mode: "value", S_total: 2, P_total: 2, I_total: 2 } } }];
+    expect(aggregateDefence(items)).toEqual({ S: 5, P: 4, I: 3 });
+  });
+
+  it("未準備・mode≠value・防具以外は除外", () => {
+    const items = [armor(3, 3, 3, { prepared: false }), armor(1, 1, 1, { mode: "none" }), { type: "weapon", system: {} }];
+    expect(aggregateDefence(items)).toEqual({ S: 0, P: 0, I: 0 });
+  });
+
+  it("S_total を S_defence より優先(派生値がある場合)", () => {
+    const items = [{ type: "armor", system: { isPrepared: true, defence: { mode: "value", S_total: 9, S_defence: 3, P_defence: 0, I_defence: 0 } } }];
+    expect(aggregateDefence(items).S).toBe(9);
+  });
+});
+
+describe("defenceForType()（ダメージ種別に対応する防御力・X は軽減なし）", () => {
+  const def = { S: 5, P: 3, I: 1 };
+  it("S/P/I はそれぞれの防御力", () => {
+    expect(defenceForType(def, "S")).toBe(5);
+    expect(defenceForType(def, "P")).toBe(3);
+    expect(defenceForType(def, "I")).toBe(1);
+  });
+  it("X（装甲無視）・未指定は 0（対応防御力なし）", () => {
+    expect(defenceForType(def, "X")).toBe(0);
+    expect(defenceForType(def, "")).toBe(0);
+  });
+});
+
+describe("computeDamage()（最終ダメージ・参照段・Damage_Rules）", () => {
+  it("max(0, カード+攻撃力+修正 − 軽減)・参照段=min(値,21)", () => {
+    expect(computeDamage({ damageCard: 8, attackPower: 5, modifier: 2, mitigation: 3 }))
+      .toEqual({ raw: 15, final: 12, stage: 12 });
+  });
+
+  it("軽減は丸める前の生ダメージに効く（21 頭打ちは参照段のみ）", () => {
+    // 35ダメージを15軽減 → 20（段20）
+    expect(computeDamage({ damageCard: 21, attackPower: 14, modifier: 0, mitigation: 15 }))
+      .toEqual({ raw: 35, final: 20, stage: 20 });
+    // 5軽減 → 30 → 段21
+    expect(computeDamage({ damageCard: 21, attackPower: 14, modifier: 0, mitigation: 5 }))
+      .toEqual({ raw: 35, final: 30, stage: 21 });
+  });
+
+  it("下限0（軽減が生ダメージを上回る）", () => {
+    expect(computeDamage({ damageCard: 3, attackPower: 0, modifier: 0, mitigation: 10 }))
+      .toEqual({ raw: 3, final: 0, stage: 0 });
+  });
+
+  it("スタン/説得: 10 以上を 10 とみなす（参照段の前・上限21の前）", () => {
+    expect(computeDamage({ damageCard: 20, attackPower: 0, modifier: 0, mitigation: 0, stun: true }))
+      .toEqual({ raw: 20, final: 10, stage: 10 });
+    // 10未満はそのまま
+    expect(computeDamage({ damageCard: 7, attackPower: 0, modifier: 0, mitigation: 0, stun: true }))
+      .toEqual({ raw: 7, final: 7, stage: 7 });
+  });
+});

@@ -7149,6 +7149,37 @@ button.tnx-create-act-button span {
     padding: 0;
 }
 
+/* ── ダメージ算出ダイアログ(12-3) ── */
+.tnx-damage-summary {
+    font-size: 0.9em;
+    color: var(--tnx2-text-secondary);
+    margin: 0 0 8px;
+}
+.tnx-damage-group {
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: 4px;
+    padding: 6px 8px;
+    margin-bottom: 8px;
+}
+.tnx-damage-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0;
+    cursor: pointer;
+}
+.tnx-damage-formula {
+    color: var(--tnx2-text-muted);
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.85em;
+}
+.tnx-damage-stun {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+}
+
 /* ── スキル参照リスト ── */
 .usage-skill-ref-list {
     display: flex;

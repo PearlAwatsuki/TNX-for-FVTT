@@ -1,0 +1,54 @@
+{{!-- ダメージ算出ダイアログ(フェーズ12-3)。カード+攻撃力+修正−軽減。
+     damageBoost/damageReduce は選択で修正/軽減に乗る(formula は @diff/@achievement 可)。 --}}
+<div class="tnx-damage-form">
+    <p class="tnx-damage-summary">
+        ダメージカード <b>{{damageCard}}</b>
+        {{#if isPhysical}}＋ 攻撃力（{{attackSourceName}}）<b>{{attackPower}}</b>{{#if faValue}} ＋ FA <b>{{faValue}}</b>{{/if}}{{/if}}
+        {{#if targetName}}／ 対象: {{targetName}}{{/if}}
+    </p>
+
+    {{#if boostRows.length}}
+    <fieldset class="tnx-damage-group">
+        <legend>ダメージ増加（攻撃側）</legend>
+        {{#each boostRows}}
+        <label class="tnx-damage-row">
+            <input type="checkbox" class="dmg-boost" value="{{this.id}}">
+            <span>{{this.label}}{{#if this.formula}} <span class="tnx-damage-formula">＋{{this.formula}}</span>{{/if}}</span>
+        </label>
+        {{/each}}
+    </fieldset>
+    {{/if}}
+
+    {{#if reduceRows.length}}
+    <fieldset class="tnx-damage-group">
+        <legend>ダメージ軽減（防御側）</legend>
+        {{#each reduceRows}}
+        <label class="tnx-damage-row">
+            <input type="checkbox" class="dmg-reduce" value="{{this.id}}">
+            <span>{{this.label}}{{#if this.formula}} <span class="tnx-damage-formula">−{{this.formula}}</span>{{/if}}</span>
+        </label>
+        {{/each}}
+    </fieldset>
+    {{/if}}
+
+    <div class="tnx-damage-fields">
+        <div class="form-group">
+            <label>ダメージ修正（手動）</label>
+            <input type="number" name="manualMod" value="0">
+        </div>
+        <div class="form-group">
+            <label>軽減{{#if mitigationParts.length}}（自動: {{#each mitigationParts}}{{this}}{{#unless @last}}・{{/unless}}{{/each}}）{{/if}}</label>
+            <input type="number" name="mitigation" value="{{autoMitigation}}">
+        </div>
+        {{#if isSocial}}
+        <div class="form-group">
+            <label>報酬点による軽減 <i class="fas fa-circle-question" title="社会攻撃はリアクションの〈信用〉判定が成立していれば報酬点で軽減できます"></i></label>
+            <input type="number" name="bountyMitigation" value="0">
+        </div>
+        {{/if}}
+        <label class="tnx-damage-stun">
+            <input type="checkbox" name="stun">
+            スタン／説得（10 以上を 10 とみなす）
+        </label>
+    </div>
+</div>
