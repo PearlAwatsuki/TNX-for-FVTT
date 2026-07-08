@@ -625,6 +625,13 @@ export class TnxCheckFlow {
             await completeReactionFromCheck(ctx.reaction, result, { suitMismatch });
         }
 
+        // controlNegate(BS の無効/降格)の完了継続: 判定は上の通常経路そのもので行われ、
+        // 継続側は成功=無効/降格・失敗=継続の適用だけを行う(2026-07-08 ユーザー裁定)
+        if (ctx.controlNegate) {
+            const { resolveControlNegateFromCheck } = await import("./condition-resolution.mjs");
+            await resolveControlNegateFromCheck(ctx.controlNegate, result);
+        }
+
         return true;
     }
 

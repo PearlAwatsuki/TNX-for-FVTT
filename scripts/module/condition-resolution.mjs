@@ -135,7 +135,11 @@ async function promptJokerWildcard(kind) {
 }
 
 /**
- * controlNegate を持つ状態が付与されたとき「制御判定」受付チャットを出す。
+ * controlNegate を持つ状態が付与されたとき「制御判定要求」カードを出す。
+ * RL 判定要求と同じ標準機構(check-request.hbs + checkRequest フラグ)を使い、「判定する」は
+ * 通常の制御判定フロー(手札から出す・山札判定・失敗する権利)をそのまま起動する。
+ * 完了時は TnxCheckFlow の完了継続(ctx.controlNegate → resolveControlNegateFromCheck)が
+ * 結果の適用だけを行う(フェーズ9 の簡易山札ドロー方式は 2026-07-08 ユーザー指示で全廃)。
  * @param {Actor} actor
  * @param {ActiveEffect} effect 付与された(無効化されうる)状態
  * @param {string} kind
@@ -143,31 +147,85 @@ async function promptJokerWildcard(kind) {
  */
 export async function postControlNegatePrompt(actor, effect, kind, controlNegate) {
   const ABIL = { reason: "理性", passion: "感情", life: "生命", mundane: "外界" };
+  const ABILITY_TO_SUIT = { reason: "spade", passion: "club", life: "heart", mundane: "diamond" };
   const label = CONDITION_KINDS[kind]?.label ?? kind;
-  const content = `<div class="tnx-condition-prompt">
-    <p><b>${label}</b> は <b>${ABIL[controlNegate.ability]}</b> の制御判定成功で${controlNegate.downgradeTo ? "降格" : "無効"}。</p>
-    <button type="button" class="tnx-condition-action" data-type="negate"
-      data-actor="${actor.uuid}" data-effect="${effect.id}" data-kind="${kind}"
-      data-ability="${controlNegate.ability}" data-downgrade="${controlNegate.downgradeTo ?? ""}">制御判定</button>
-  </div>`;
+  const ability = controlNegate.ability;
+  const skillLabel = `${ABIL[ability] ?? ability}（制御判定）`;
+  const validSuits = [ABILITY_TO_SUIT[ability] ?? "spade"];
+  const description = controlNegate.downgradeTo
+    ? `「${label}」は制御判定に成功すると「${CONDITION_KINDS[controlNegate.downgradeTo]?.label ?? controlNegate.downgradeTo}」に降格します。`
+    : `「${label}」は制御判定に成功すると無効化されます。`;
+
+  // 判定者 = 状態を受けたキャラの操作ユーザー(いなければ RL)
+  const ownerUser = game.users.find(u => !u.isGM && u.active && actor.testUserPermission(u, "OWNER"))
+    ?? game.users.find(u => !u.isGM && actor.testUserPermission(u, "OWNER"))
+    ?? null;
+  const targets = [{
+    userId:    ownerUser?.id ?? null,
+    actorId:   actor.id,
+    actorName: actor.name,
+    userName:  ownerUser?.name ?? "RL",
+  }];
+
+  const content = await foundry.applications.handlebars.renderTemplate(
+    "systems/tokyo-nova-axleration/templates/chat/check-request.hbs",
+    {
+      typeLabel: "制御判定",
+      skillLabel,
+      validSuits,
+      suitSymbols: { spade: "♠", club: "♣", heart: "♥", diamond: "♦" },
+      targetValue: null,
+      targetValueHidden: false,
+      description,
+      targets,
+    }
+  );
+
   await ChatMessage.create({
     content,
     whisper: drawWhisperUserIds("pressure", actor), // 受けたキャラ＋GM
     speaker: ChatMessage.getSpeaker({ actor }),
+    flags: {
+      [SCOPE]: {
+        checkRequest: {
+          checkType: "controlCheck",
+          identificationKey: null,
+          skillLabel,
+          validSuits,
+          targetValue: null,
+          targetValueHidden: false,
+          description,
+          targets,
+          results: {},
+          status: "pending",
+          controlNegate: {
+            actorUuid:   actor.uuid,
+            effectId:    effect.id,
+            kind,
+            ability,
+            downgradeTo: controlNegate.downgradeTo ?? "",
+          },
+        },
+      },
+    },
   });
 }
 
 /**
- * controlNegate の制御判定を実行し、結果で状態を無効/降格/維持する。
- * 制御判定は山札ドロー方式(N◎VA値 ≤ 該当制御値で成功)＝メカニクス簡易版(本式は12で判定フロー化)。
+ * 制御判定の完了継続(TnxCheckFlow._execute → ctx.controlNegate): 結果を状態に適用する。
+ * 判定そのものは通常の制御判定フローで行われており、ここでは成功=無効/降格・
+ * 失敗=状態継続の適用だけを行う(判定に独自処理を挟まない=2026-07-08 ユーザー裁定)。
+ * @param {{actorUuid:string, effectId:string, kind:string, ability:string, downgradeTo:string}} negateCtx
+ * @param {object} result calcControlCheck の判定結果
  */
-export async function executeControlNegate(actor, effect, kind, ability, downgradeTo) {
-  const card = await drawOneToDiscard();
-  const cardValue = card ? getCardCheckValue({ numericValue: card.value }) : null;
-  const controlVal = actor.system?.[ability]?.totalControl ?? 0;
-  const success = typeof cardValue === "number" && cardValue <= controlVal;
-  const outcome = negateOutcome(success, { downgradeTo: downgradeTo || undefined });
+export async function resolveControlNegateFromCheck(negateCtx, result) {
+  const { actorUuid, effectId, kind, ability, downgradeTo } = negateCtx;
+  const actor = await fromUuid(actorUuid).catch(() => null);
+  const effect = actor?.effects?.get(effectId)
+    ?? actor?.allApplicableEffects?.().find?.(e => e.id === effectId);
+  if (!actor || !effect) return ui.notifications.warn("対象の状態が見つかりません（解決済みの可能性があります）。");
 
+  const outcome = negateOutcome(result?.success === true, { downgradeTo: downgradeTo || undefined });
   const ABIL = { reason: "理性", passion: "感情", life: "生命", mundane: "外界" };
   let msg;
   if (outcome.action === "negate") {
@@ -182,7 +240,7 @@ export async function executeControlNegate(actor, effect, kind, ability, downgra
     msg = `制御判定 成功 → <b>${CONDITION_KINDS[kind]?.label}</b> を <b>${CONDITION_KINDS[outcome.to]?.label}</b> に降格`;
   } else {
     await effect.unsetFlag(SCOPE, `conditions.${kind}.pendingControlNegate`);
-    msg = `制御判定 失敗（${ABIL[ability]} ${controlVal}）→ <b>${CONDITION_KINDS[kind]?.label}</b> 継続`;
+    msg = `制御判定 失敗（${ABIL[ability] ?? ability}の制御）→ <b>${CONDITION_KINDS[kind]?.label}</b> 継続`;
   }
   await ChatMessage.create({ content: `<div class="tnx-condition-result">${msg}</div>`, speaker: ChatMessage.getSpeaker({ actor }) });
 }
@@ -198,7 +256,8 @@ export function bindConditionChatButtons(root) {
       if (!actor || !effect) return ui.notifications.warn("対象の状態が見つかりません。");
       b.disabled = true;
       if (b.dataset.type === "draw") await executeConditionDraw(actor, effect, b.dataset.kind);
-      else if (b.dataset.type === "negate") await executeControlNegate(actor, effect, b.dataset.kind, b.dataset.ability, b.dataset.downgrade);
+      // negate は判定要求カード(checkRequest)方式に移行済み(2026-07-08)。旧カードの残骸ボタン用の案内のみ
+      else if (b.dataset.type === "negate") ui.notifications.warn("この受付は旧形式です。状態を付与し直すと新しい制御判定要求カードが出ます。");
     });
   }
 }
