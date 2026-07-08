@@ -25,6 +25,8 @@ import { getComboSuits, ALL_SUITS } from '../module/tnx-check-engine.mjs';
 import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
 import { groupStyleSkillsByStyle } from '../module/style-skill-acquisition.mjs';
 import { HOUSING_AREA_RANKS } from '../data/item/housing-area.mjs';
+import { CONDITION_KINDS } from '../module/conditions.mjs';
+import { startTreatment } from '../module/treatment-flow.mjs';
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -1202,25 +1204,19 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         ];
         new CM(el, '.lifepath-item-btn[data-context-menu="lifepath-item"]', lifepathItemMenu, { jQuery: false, fixed: true });
 
-        // バッドステータス 閲覧モード: 左クリックでコンテキストメニュー
+        // バッドステータス/負傷 閲覧モード: 左クリックで「治療」(ダメージ=負傷・戦闘不能のみ)。
+        // 削除は編集モードの X ボタン(removeBadStatus)のみ(2026-07-09 ユーザー指示)
+        const isTreatableKind = (kind) => {
+            const def = CONDITION_KINDS[kind];
+            if (!def) return false;
+            return def.type === "wound" ? def.group !== "social" : def.group === "incapacitation";
+        };
         const badStatusViewMenu = [{
-            name:     "削除",
-            icon:     '<i class="fas fa-trash"></i>',
-            callback: async header => {
-                const effectId = header.dataset.effectId;
-                const statusId = header.dataset.statusId || null;
-                const effect   = this.actor.effects.get(effectId);
-                if (!effect) return;
-                if (statusId) {
-                    const newStatuses = Array.from(effect.statuses).filter(id => id !== statusId);
-                    await effect.update({ statuses: newStatuses });
-                    if (newStatuses.length === 0 && effect.changes.length === 0
-                            && !effect.flags?.["tokyo-nova-axleration"]?.isBadStatus) {
-                        await effect.delete();
-                    }
-                } else {
-                    await effect.delete();
-                }
+            name:      "治療",
+            icon:      '<i class="fas fa-briefcase-medical"></i>',
+            condition: header => isTreatableKind(header.dataset.statusId),
+            callback:  async header => {
+                await startTreatment(this.actor, header.dataset.effectId);
             }
         }];
         new CM(el, ".tnx-bs-btn--view", badStatusViewMenu, { jQuery: false, fixed: true, eventName: "click" });

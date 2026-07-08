@@ -422,6 +422,10 @@ Hooks.on("createActiveEffect", async (effect, options, userId) => {
     if (!actor || actor.documentName !== "Actor") return;
 
     // 1. カスケード: inflicts の別状態を付与(状態のみ・hideFromList)。
+    // 供給元が負傷(wound)の場合、戦闘不能(incapacitation)の inflicts は「そのダメージチャートの効果」
+    // の一部なので woundSource で負傷に紐づける(治療で負傷ごと一括除去する。BS は独立効果なので紐づけない)
+    const srcKind = getConditionKinds(effect)[0];
+    const srcIsWound = CONDITION_KINDS[srcKind]?.type === "wound";
     const data = [];
     const seen = new Set();
     for (const kind of getConditionKinds(effect)) {
@@ -429,6 +433,9 @@ Hooks.on("createActiveEffect", async (effect, options, userId) => {
             const ik = d.statuses[0];
             const idef = CONDITION_KINDS[ik];
             if (idef && !idef.stackable && (actor.statuses?.has?.(ik) || seen.has(ik))) continue;
+            if (srcIsWound && idef?.group === "incapacitation") {
+                d.flags["tokyo-nova-axleration"].woundSource = effect.id;
+            }
             seen.add(ik);
             data.push(d);
         }

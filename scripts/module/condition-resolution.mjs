@@ -32,9 +32,11 @@ export async function applyDamageChartResult(actor, category, value) {
   const kind = getDamageChartKind(category, value);
   if (!kind || !actor) return null;
   const def = CONDITION_KINDS[kind];
+  // 治療の目標値算出(「それ以外＝そのダメージの数値」)のため、発生時のダメージ値と系統を負傷に保存する。
+  // 付与で走る createActiveEffect フックが、この負傷の戦闘不能 inflicts に woundSource を紐づける(治療で一括除去)
   const [eff] = await actor.createEmbeddedDocuments("ActiveEffect", [{
     name: def?.label, img: def?.img, statuses: [kind],
-    flags: { [SCOPE]: { conditionKind: kind, hideFromList: true } },
+    flags: { [SCOPE]: { conditionKind: kind, hideFromList: true, woundValue: value, woundCategory: category } },
   }]);
   return eff ?? null;
 }

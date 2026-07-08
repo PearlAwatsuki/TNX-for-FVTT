@@ -37,6 +37,9 @@ export class TnxSocketHandler {
             case "damageUpdate":
                 TnxSocketHandler._onDamageUpdate(data);
                 break;
+            case "treatmentApply":
+                TnxSocketHandler._onTreatmentApply(data);
+                break;
         }
     }
 
@@ -145,6 +148,23 @@ export class TnxSocketHandler {
             type: "damageUpdate",
             messageId,
             patch,
+        });
+    }
+
+    // ─── treatmentApply（フェーズ12・治療） ───────────────────────────────────
+
+    /** 治療成功による状態除去を GM クライアントが代行する(複数 GM 接続時は activeGM のみ)。 */
+    static async _onTreatmentApply(data) {
+        if (game.users.activeGM?.id !== game.user.id) return;
+        const { applyTreatmentDelegated } = await import("./treatment-flow.mjs");
+        await applyTreatmentDelegated(data);
+    }
+
+    /** 治療の状態除去を GM へ委譲する（患者の所有権がない治療者クライアントから呼ぶ）。 */
+    static emitTreatmentApply(payload) {
+        game.socket.emit("system.tokyo-nova-axleration", {
+            type: "treatmentApply",
+            ...payload,
         });
     }
 }

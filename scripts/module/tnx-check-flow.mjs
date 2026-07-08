@@ -638,6 +638,12 @@ export class TnxCheckFlow {
             await completeReactionFromCheck(ctx.reaction, result, { suitMismatch });
         }
 
+        // 治療判定の完了継続(12): 成功で負傷＋紐づき戦闘不能＋非BS効果を除去する
+        if (ctx.treatment) {
+            const { resolveTreatmentFromCheck } = await import("./treatment-flow.mjs");
+            await resolveTreatmentFromCheck(ctx.treatment, result);
+        }
+
         return true;
     }
 
