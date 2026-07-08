@@ -597,8 +597,14 @@ export class TnxCheckFlow {
             }
         }
 
-        // チャットに結果を投稿
-        await TnxCheckFlow._postResultChat({ ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch, checkSources: checkInfo.sources });
+        // チャットに結果を投稿。攻撃(ctx.attack)は通常の結果カードの代わりに攻撃カードを出す
+        // (成否保留・リアクション導線つき・12-2。attack-flow は本フローを import するため動的 import)
+        if (ctx.attack) {
+            const { postAttackCard } = await import("./attack-flow.mjs");
+            await postAttackCard({ payload: ctx.attack, result, suit, cardCheckValue, card, fromDeck, trumpUsed, suitMismatch });
+        } else {
+            await TnxCheckFlow._postResultChat({ ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch, checkSources: checkInfo.sources });
+        }
 
         // RL 要求フロー: GM に結果を送信
         if (ctx.requestMessageId) {
@@ -610,6 +616,12 @@ export class TnxCheckFlow {
         if (ctx.npcAcquire) {
             const { completeAcquisitionFromCheck } = await import("./npc-acquisition.mjs");
             await completeAcquisitionFromCheck(ctx.npcAcquire, result);
+        }
+
+        // リアクション判定の完了継続(12-2): 攻撃カード上で対決を解決する
+        if (ctx.reaction) {
+            const { completeReactionFromCheck } = await import("./attack-flow.mjs");
+            await completeReactionFromCheck(ctx.reaction, result, { suitMismatch });
         }
 
         return true;

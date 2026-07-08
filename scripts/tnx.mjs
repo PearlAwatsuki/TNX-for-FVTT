@@ -44,6 +44,7 @@ import { TnxRecordSheet } from './module/tnx-record-sheet.mjs';
 import { registerDrawTableHooks } from './module/tnx-draw-table.mjs';
 import { recordCastOwnerUser } from './module/cast-ownership.mjs';
 import { enforceUsageChainDefaultsOnImport } from './module/tnx-usage-sheet.mjs';
+import { renderAttackCard } from './module/attack-flow.mjs';
 import { TnxSocketHandler } from './module/tnx-socket-handler.mjs';
 import { TnxCheckFlow } from './module/tnx-check-flow.mjs';
 import { TnxCheckDialog } from './module/tnx-check-dialog.mjs';
@@ -1204,6 +1205,14 @@ Hooks.once("ready", async function() {
                 && (doc.system.ownerActorRef?.uuid ?? "") === actor.uuid) {
                 app.render();
             }
+        }
+    });
+
+    // 攻撃カード(12-2): 状態領域のライブ描画(未解決=系統別リアクションボタン/解決後=成否表示に置換。
+    // checkRequest の結果注入と同型のフラグ+再描画方式)
+    Hooks.on("renderChatMessageHTML", (message, html) => {
+        if (message.getFlag("tokyo-nova-axleration", "attackCheck")) {
+            renderAttackCard(message, html);
         }
     });
 

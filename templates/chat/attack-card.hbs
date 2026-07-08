@@ -1,0 +1,50 @@
+{{!-- 攻撃カード(フェーズ12-2)。判定結果カード(check-result.hbs)の意匠を踏襲し、
+     成否は保留のまま投稿→リアクション導線と解決後の成否表示は .tnx-attack-status に
+     renderChatMessageHTML(attack-flow.renderAttackCard)がフラグからライブ描画する --}}
+<div class="tnx-check-result tnx-attack-card tokyo-nova">
+
+    <div class="jr-head">
+        <span class="jr-skill-name">{{skillLabel}}</span>
+        <span class="jr-type-tag">攻撃（{{categoryLabel}}）</span>
+    </div>
+
+    <div class="jr-card-row">
+        <span class="jr-suit suit-{{suit}}">{{suitSymbol}}</span>
+        <span class="jr-card-name">{{cardName}}</span>
+        <span class="jr-badges">
+            {{#if fromDeck}}<span class="jr-badge jr-badge--deck">山札</span>{{/if}}
+            {{#if trumpUsed}}<span class="jr-badge jr-badge--trump">切り札</span>{{/if}}
+            {{#if suitMismatch}}<span class="jr-badge jr-badge--mismatch">スート不一致</span>{{/if}}
+            {{#if isFixed21}}<span class="jr-badge jr-badge--fixed21">21固定</span>{{/if}}
+        </span>
+    </div>
+
+    <div class="jr-calc-section">
+        {{#if targetName}}
+        <div class="jr-calc-row">
+            <span class="jr-calc-label">対象</span>
+            <span class="jr-calc-val">{{targetName}}</span>
+        </div>
+        {{/if}}
+        {{#if isPhysical}}
+        <div class="jr-calc-row">
+            <span class="jr-calc-label">攻撃力（{{attackSourceName}}）</span>
+            <span class="jr-calc-val">{{damageTypeLabel}}{{weaponAttack}}{{#if faValue}} <span class="jr-badge jr-badge--trump">FA{{faValue}}</span>{{/if}}</span>
+        </div>
+        {{/if}}
+        {{#unless isFumble}}
+        <div class="jr-calc-row">
+            <span class="jr-calc-label">ダメージカード</span>
+            <span class="jr-calc-val">{{damageCard}}</span>
+        </div>
+        <div class="jr-calc-row jr-total-row">
+            <span class="jr-calc-label">達成値</span>
+            <span class="jr-total-num">{{achievement}}</span>
+        </div>
+        {{/unless}}
+    </div>
+
+    {{!-- 状態領域: renderChatMessageHTML がフラグから描画(pending=リアクションボタン群/
+         解決後=成否+差分値+ダメージ算出ボタンに丸ごと置換) --}}
+    <div class="tnx-attack-status"></div>
+</div>

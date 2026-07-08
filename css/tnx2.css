@@ -7125,6 +7125,30 @@ button.tnx-create-act-button span {
     color: var(--tnx2-text-muted);
 }
 
+/* ── 攻撃カード(12-2): 状態領域(リアクションボタン群/成否表示のライブ置換) ── */
+.tnx-attack-status {
+    padding: 8px 12px 10px;
+    border-top: 1px solid var(--tnx2-border-subtle);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.tnx-attack-status:empty {
+    display: none;
+}
+.tnx-attack-pending-note {
+    font-size: 0.84em;
+    color: var(--tnx2-text-secondary);
+}
+.tnx-attack-btn-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.tnx-attack-status .jr-result {
+    padding: 0;
+}
+
 /* ── スキル参照リスト ── */
 .usage-skill-ref-list {
     display: flex;

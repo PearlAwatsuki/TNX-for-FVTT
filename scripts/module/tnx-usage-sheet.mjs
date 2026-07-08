@@ -469,12 +469,19 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             context.confrontationCannot    = inherentCannot;
         }
 
-        // 武器候補（attack）
+        // 武器候補（attack）・攻撃の系統(12-2: damageCategory を attack でも使用=3系統)
         if (context.isAttackType) {
             context.availableWeapons = (this._item.actor?.items ?? [])
                 .filter(i => i.type === "weapon")
                 .map(i => ({ id: i.id, name: i.name }));
             context.selectedWeaponName = this._item.actor?.items.get(usage.weaponRef?.itemId)?.name ?? "";
+            const category = usage.damageCategory || "physical";
+            context.isAttackPhysical = category === "physical";
+            context.attackCategoryOptions = [
+                { value: "physical", label: "物理" },
+                { value: "mental",   label: "精神" },
+                { value: "social",   label: "社会" },
+            ].map(o => ({ ...o, selected: o.value === category }));
         }
 
         // 消費先設定(11-6・全用途タイプ共通。固定値判定は消費 UI を出さない=エキストラは消費なし)。
@@ -743,10 +750,15 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 : (raw["baseSkillRef.itemId"] ?? usage.baseSkillRef?.itemId ?? "");
         }
 
-        // attack 固有
+        // attack 固有(damageCategory=攻撃の系統。物理以外は武器・ダメージ種別を持たない)
         if (usage.type === "attack") {
+            update.damageCategory      = raw["damageCategory"]   ?? usage.damageCategory ?? "physical";
             update["weaponRef.itemId"] = raw["weaponRef.itemId"] ?? usage.weaponRef.itemId;
             update.damageType          = raw["damageType"]       ?? usage.damageType;
+            if (update.damageCategory !== "physical") {
+                update["weaponRef.itemId"] = "";
+                update.damageType = "";
+            }
         }
 
         // damageBoost / damageReduce 固有

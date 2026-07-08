@@ -3,6 +3,7 @@ import { TnxUsageSheet, USAGE_TYPES, deriveUsageAutoFill } from "../module/tnx-u
 import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan, resolveBunshinOwner } from "../module/usage-consumption.mjs";
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { useNpcAcquire } from "../module/npc-acquisition.mjs";
+import { useAttack } from "../module/attack-flow.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -280,6 +281,17 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             } catch (err) {
                 console.error("TNX | NPC取得の実行に失敗しました", err);
                 ui.notifications.error(`NPC取得の実行に失敗しました: ${err.message}`);
+            }
+            return;
+        }
+
+        // 攻撃(12-2): 専用フローに委譲(武器解決・対象決定・成否保留の攻撃カード・リアクション対決)
+        if (usage.type === "attack") {
+            try {
+                await useAttack(this.item, usage);
+            } catch (err) {
+                console.error("TNX | 攻撃の実行に失敗しました", err);
+                ui.notifications.error(`攻撃の実行に失敗しました: ${err.message}`);
             }
             return;
         }

@@ -7,6 +7,8 @@
  * メッセージ種別:
  *   presentAccessCard  - アクセスカード提示（既存）
  *   checkResult     - PL → GM: 判定結果を送信し ChatMessage を更新する
+ *   attackUpdate    - PL → GM: 攻撃カード(attackCheck)のフラグ更新を委譲する（12-2。
+ *                     対象側プレイヤーは攻撃者のメッセージを直接更新できないため）
  */
 
 export class TnxSocketHandler {
@@ -25,6 +27,9 @@ export class TnxSocketHandler {
                 break;
             case "checkResult":
                 TnxSocketHandler._onCheckResult(data);
+                break;
+            case "attackUpdate":
+                TnxSocketHandler._onAttackUpdate(data);
                 break;
         }
     }
@@ -82,6 +87,29 @@ export class TnxSocketHandler {
             messageId,
             actorId,
             result,
+        });
+    }
+
+    // ─── attackUpdate（フェーズ12-2） ─────────────────────────────────────────
+
+    /** 攻撃カードのフラグ更新を GM クライアントが代行する。 */
+    static async _onAttackUpdate(data) {
+        if (!game.user.isGM) return;
+        const message = game.messages.get(data?.messageId);
+        if (!message || !data?.patch) return;
+        const updates = {};
+        for (const [k, v] of Object.entries(data.patch)) {
+            updates[`flags.tokyo-nova-axleration.attackCheck.${k}`] = v;
+        }
+        await message.update(updates);
+    }
+
+    /** 攻撃カードのフラグ更新を GM へ委譲する（対象側 PL から呼ぶ）。 */
+    static emitAttackUpdate(messageId, patch) {
+        game.socket.emit("system.tokyo-nova-axleration", {
+            type: "attackUpdate",
+            messageId,
+            patch,
         });
     }
 }

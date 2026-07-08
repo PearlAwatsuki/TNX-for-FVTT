@@ -20,6 +20,7 @@ import { OUTFIT_ITEM_TYPES, findDepartmentSkillName } from '../data/helpers.mjs'
 import { TnxCheckFlow } from '../module/tnx-check-flow.mjs';
 import { resolveConsumeRowsForActor, promptConsumption } from '../module/usage-consumption.mjs';
 import { useNpcAcquire } from '../module/npc-acquisition.mjs';
+import { useAttack } from '../module/attack-flow.mjs';
 import { getComboSuits, ALL_SUITS } from '../module/tnx-check-engine.mjs';
 import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
 import { groupStyleSkillsByStyle } from '../module/style-skill-acquisition.mjs';
@@ -2259,12 +2260,12 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const item = this.actor.items.get(itemId);
         if (!item) return;
 
-        // 既定の挙動: 実行できる用途(判定/NPC取得)が無ければ、解説をそのままチャット表示する
+        // 既定の挙動: 実行できる用途(判定/攻撃/NPC取得)が無ければ、解説をそのままチャット表示する
         // (アイテムの基本機能)。用途があればその実行に切り替わる。
-        // NPC取得はアイテムロール(アクターシートの技能クリック)からも実行できる(2026-07-08 修正。
-        // 従来は check のみを拾い、NPC取得用途はここから起動できなかった)
+        // 攻撃・NPC取得もアイテムロール(アクターシートの技能クリック)から実行できる
+        // (経路の漏れを作らない=11-6/12-2 の確定方針)
         const usableUsages = (item.system.actions ?? [])
-            .filter(a => a.type === "check" || a.type === "npcAcquire");
+            .filter(a => ["check", "attack", "npcAcquire"].includes(a.type));
         if (!usableUsages.length) {
             await item.postDescriptionCard();
             return;
@@ -2286,6 +2287,17 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             } catch (err) {
                 console.error("TNX | NPC取得の実行に失敗しました", err);
                 ui.notifications.error(`NPC取得の実行に失敗しました: ${err.message}`);
+            }
+            return;
+        }
+
+        // 攻撃は専用フローへ(武器解決・対象決定・成否保留の攻撃カード・リアクション対決=12-2)
+        if (selectedUsage.type === "attack") {
+            try {
+                await useAttack(item, selectedUsage);
+            } catch (err) {
+                console.error("TNX | 攻撃の実行に失敗しました", err);
+                ui.notifications.error(`攻撃の実行に失敗しました: ${err.message}`);
             }
             return;
         }
