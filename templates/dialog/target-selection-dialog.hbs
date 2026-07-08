@@ -4,7 +4,7 @@
         <div class="form-fields">
             <select name="selection" autofocus>
                 {{#each options}}
-                <option value="{{this.value}}">{{this.label}}</option>
+                <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
                 {{/each}}
             </select>
         </div>

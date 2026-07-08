@@ -28,6 +28,7 @@ import { TargetSelectionDialog } from "./tnx-dialog.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { isActorInStartedCombat } from "../data/helpers.mjs";
 import { resolveNoReaction, resolveOpposed, attackReactionModes, formatAttackLabel } from "./attack-flow-logic.mjs";
+import { buildSkillOptions } from "./skill-select.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -43,6 +44,11 @@ const REACTION_HINTS = Object.freeze({
     parry:    "既定候補: 〈白兵〉",
     mental:   "既定候補: 〈自我〉",
     social:   "既定候補: 〈信用〉",
+});
+
+/** リアクションの規定の指定技能(正準名・プルダウンの初期選択に使う) */
+const REACTION_DEFAULT_SKILL = Object.freeze({
+    dodge: "回避", parry: "白兵", mental: "自我", social: "信用",
 });
 
 const MODE_LABELS = Object.freeze({
@@ -361,17 +367,18 @@ export async function startReaction(message, mode) {
             ? (Number(parryWeapon.system.guardValue.value) || 0) : 0;
     }
 
-    // 技能選択(強制しない): 対象の一般技能・スタイル技能から選ぶ。既定候補はヒント表示のみ
+    // 技能選択(強制しない): 対象の一般技能・スタイル技能から選ぶ。既定の指定技能は初期選択・
+    // 並び順はシートと同じ(一般→スタイル・item.sort)。既定候補はヒント表示のみ
     const skills = target.items
         .filter(i => ["generalSkill", "styleSkill"].includes(i.type)
-            && (i.system.actions ?? []).some(a => a.type === "check" && !Number.isFinite(a.fixedResult)))
-        .sort((a, b) => a.name.localeCompare(b.name, "ja"));
+            && (i.system.actions ?? []).some(a => a.type === "check" && !Number.isFinite(a.fixedResult)));
     if (!skills.length) { ui.notifications.warn("対象に判定用途を持つ技能がありません。"); return; }
     const hint = mode === "reaction" ? REACTION_HINTS[f.category] : REACTION_HINTS[mode];
+    const defaultSkill = mode === "reaction" ? REACTION_DEFAULT_SKILL[f.category] : REACTION_DEFAULT_SKILL[mode];
     const skillId = await TargetSelectionDialog.prompt({
         title: `${MODE_LABELS[mode]}: 使用技能の選択`,
         label: `${MODE_LABELS[mode]}に使用する技能を選択してください。${hint ? `（${hint}）` : ""}`,
-        options: skills.map(s => ({ value: s.id, label: s.name })),
+        options: buildSkillOptions(skills, { defaultName: defaultSkill }),
         selectLabel: "判定へ",
     });
     if (!skillId) return;

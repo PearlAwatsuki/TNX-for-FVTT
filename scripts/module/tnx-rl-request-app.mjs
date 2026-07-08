@@ -14,6 +14,7 @@
 
 import { getComboSuits, ALL_SUITS } from './tnx-check-engine.mjs';
 import { TnxCheckFlow } from './tnx-check-flow.mjs';
+import { buildSkillOptions } from './skill-select.mjs';
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -363,20 +364,20 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
             if (mode === "direct") return { item: matchedItem, substitute: false, manualMod: 0 };
         }
 
-        // 代用判定: 技能を選び、ペナルティ等の修正を手入力する(裁定は卓)
-        const skills = actor.items
-            .filter(i => i.type === "generalSkill" || i.type === "styleSkill")
-            .sort((a, b) => a.name.localeCompare(b.name, "ja"));
+        // 代用判定: 技能を選び、ペナルティ等の修正を手入力する(裁定は卓)。
+        // 並び順はシートと同じ(一般→スタイル・item.sort)
+        const skills = actor.items.filter(i => i.type === "generalSkill" || i.type === "styleSkill");
         if (!skills.length) {
             ui.notifications.warn("代用に使える技能がありません。");
             return null;
         }
         const esc = foundry.utils.escapeHTML;
-        const options = skills.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join("");
+        const options = buildSkillOptions(skills)
+            .map(o => `<option value="${o.value}">${esc(o.label)}</option>`).join("");
         const res = await foundry.applications.api.DialogV2.wait({
             window: { title: `代用判定: ${requestedLabel}` },
             classes: ["tokyo-nova", "tnx-dialog"],
-            position: { width: 400 },
+            position: { width: 360 },
             content: `
                 <p>指定「${esc(requestedLabel)}」${matchedItem ? "を" : "を所持していないため、"}別の技能で代用します（可否・修正の裁定は卓）。</p>
                 <div class="form-group"><label>使用する技能</label><select name="skillId">${options}</select></div>

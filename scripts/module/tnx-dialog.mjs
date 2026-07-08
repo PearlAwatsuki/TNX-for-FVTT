@@ -89,13 +89,14 @@ export class AmountInputDialog {
  * 複数の選択肢から一つを選ばせるための汎用ダイアログ。
  */
 export class TargetSelectionDialog {
-    static async prompt({title, label, options, selectLabel = "決定"}) {
+    static async prompt({title, label, options, selectLabel = "決定", width = 360}) {
         const template = "systems/tokyo-nova-axleration/templates/dialog/target-selection-dialog.hbs";
         const content = await foundry.applications.handlebars.renderTemplate(template, { label, options });
 
         return DialogV2.wait({
             window: { title },
-            classes: ["tokyo-nova"],
+            classes: ["tokyo-nova", "tnx-dialog"],
+            position: { width },
             content,
             buttons: [
                 {
