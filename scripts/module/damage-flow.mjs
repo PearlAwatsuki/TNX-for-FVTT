@@ -30,6 +30,7 @@ import { applyAttackPatch } from "./attack-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { TnxActionHandler } from "./tnx-action-handler.mjs";
 import { getCardCheckValue } from "./tnx-check-engine.mjs";
+import { formatAttackLabel } from "./attack-flow-logic.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会" };
@@ -122,7 +123,8 @@ export async function openDamageRollDialog(attackMessage) {
         {
             categoryLabel: CATEGORY_LABELS[category] ?? category,
             isPhysical: category === "physical",
-            attackPower, faValue,
+            attackLabel: formatAttackLabel(f.damageType, attackPower),
+            faValue,
             attackSourceName: f.attackSourceName,
             targetName: f.targetName,
             boostRows,
@@ -311,7 +313,8 @@ export function renderDamageCard(message, html) {
             i === 0 ? String(c.value) : `＋${c.value}`);
     });
     if (f.category === "physical") {
-        row(ledger, `攻撃力（${esc(f.attackSourceName || "生身")}）`, `＋${f.attackPower ?? 0}`);
+        // 攻撃力はアウトフィットの表記(種別+符号つき数値・例 I+4)を踏襲
+        row(ledger, `攻撃力（${esc(f.attackSourceName || "生身")}）`, formatAttackLabel(f.damageType, f.attackPower));
         if (f.faValue) row(ledger, "FA", `＋${f.faValue}`);
     }
     for (const b of (f.boosts ?? [])) {

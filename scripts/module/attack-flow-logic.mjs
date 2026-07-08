@@ -5,6 +5,19 @@
  */
 
 /**
+ * 攻撃力の表記(アウトフィットの攻撃力表示 `_attackLabel` を踏襲: 種別+符号つき数値。
+ * 例 "I+4"・種別なしは "+3")。「I0」「S5」のような連結表記にしない(2026-07-09 ユーザー指示)。
+ * @param {string} damageType "S"|"P"|"I"|"X"|""
+ * @param {number} value 攻撃力
+ * @returns {string}
+ */
+export function formatAttackLabel(damageType, value) {
+    const n = Number(value) || 0;
+    const sign = n >= 0 ? `+${n}` : String(n);
+    return `${damageType || ""}${sign}`;
+}
+
+/**
  * リアクションなしの命中確定: 目標値=対象の制御値(出したスートに対応)。
  * 差分値は**命中(勝利)した場合にのみ**算出される(Check_Rules 2026-07-09 訂正・失敗時は null)。
  * @param {number} achievement 攻撃の達成値

@@ -27,7 +27,7 @@ import { resolveConsumeRowsForActor, promptConsumption } from "./usage-consumpti
 import { TargetSelectionDialog } from "./tnx-dialog.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { isActorInStartedCombat } from "../data/helpers.mjs";
-import { resolveNoReaction, resolveOpposed, attackReactionModes } from "./attack-flow-logic.mjs";
+import { resolveNoReaction, resolveOpposed, attackReactionModes, formatAttackLabel } from "./attack-flow-logic.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -203,8 +203,7 @@ export async function postAttackCard({ payload, result, suit, card, fromDeck, tr
             isPhysical:    payload.category === "physical",
             targetName:    payload.targetName,
             attackSourceName: payload.attackSourceName,
-            weaponAttack:  payload.weaponAttack,
-            damageTypeLabel: payload.damageType ? `${payload.damageType}` : "",
+            attackLabel:   formatAttackLabel(payload.damageType, payload.weaponAttack),
             faValue:       payload.faValue,
             achievement:   result.achievement,
         }

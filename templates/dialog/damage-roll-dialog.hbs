@@ -5,7 +5,7 @@
 <div class="tnx-damage-form">
     <p class="tnx-damage-summary">
         {{categoryLabel}}ダメージ{{#if targetName}}／対象: {{targetName}}{{/if}}<br>
-        ダメージカード{{#if isPhysical}} ＋ 攻撃力（{{attackSourceName}}）<b>{{attackPower}}</b>{{#if faValue}} ＋ FA <b>{{faValue}}</b>{{/if}}{{/if}} ＋ 修正
+        ダメージカード{{#if isPhysical}} ＋ 攻撃力（{{attackSourceName}}）<b>{{attackLabel}}</b>{{#if faValue}} ＋ FA <b>{{faValue}}</b>{{/if}}{{/if}} ＋ 修正
     </p>
 
     {{#if boostRows.length}}

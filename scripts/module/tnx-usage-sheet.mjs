@@ -751,6 +751,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         }
 
         // attack 固有(damageCategory=攻撃の系統。物理以外は武器・ダメージ種別を持たない)
+        const prevAttackCategory = usage.type === "attack" ? (usage.damageCategory || "physical") : null;
         if (usage.type === "attack") {
             update.damageCategory      = raw["damageCategory"]   ?? usage.damageCategory ?? "physical";
             update["weaponRef.itemId"] = raw["weaponRef.itemId"] ?? usage.weaponRef.itemId;
@@ -778,6 +779,12 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         await this._enforceComboRequirements();
         // ベースを別技能に変えて個数上限を超えたら、トリムダイアログで調整(取り消しで元のベースへ戻す)
         if (baseChanged) await this._promptTrimCombos(prevBaseRef);
+
+        // 攻撃の系統変更は表示項目が変わる(武器・ダメージ種別は物理のみ)ため即再描画する。
+        // submitOnChange は再描画しないため、旧系統の入力欄が残り精神/社会でも設定できてしまっていた(2026-07-09 修正)
+        if (prevAttackCategory !== null && (update.damageCategory ?? prevAttackCategory) !== prevAttackCategory) {
+            this.render({ force: true });
+        }
     }
 
     // ─── 自動入力（参加技能の固有値を優先度で合成） ─────────────────────────────

@@ -1,11 +1,24 @@
 import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
-const { resolveNoReaction, resolveOpposed, attackReactionModes } =
+const { resolveNoReaction, resolveOpposed, attackReactionModes, formatAttackLabel } =
   await import("../../scripts/module/attack-flow-logic.mjs");
 
 // ダメージカードは命中判定のカードとは別に出す(Damage_Rules 2026-07-08 訂正)ため、
 // 命中判定値からの導出(novaDamageCardValue)は廃止された
+
+describe("formatAttackLabel()（攻撃力表記=アウトフィットの表示を踏襲・2026-07-09）", () => {
+  it("種別+符号つき数値（連結表記 I0/S5 にしない）", () => {
+    expect(formatAttackLabel("I", 4)).toBe("I+4");
+    expect(formatAttackLabel("S", 0)).toBe("S+0");
+    expect(formatAttackLabel("I", 0)).toBe("I+0");
+  });
+
+  it("種別なしは符号つき数値のみ", () => {
+    expect(formatAttackLabel("", 3)).toBe("+3");
+    expect(formatAttackLabel(undefined, 0)).toBe("+0");
+  });
+});
 
 describe("resolveNoReaction()（リアクションなし=目標値に対象の制御値）", () => {
   it("達成値≥制御値で命中・差分値=達成値−制御値", () => {
