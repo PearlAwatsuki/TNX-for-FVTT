@@ -7204,6 +7204,11 @@ button.tnx-create-act-button span {
     gap: 6px;
     margin-top: 4px;
 }
+.tnx-damage-note {
+    margin: 8px 0 0;
+    font-size: 0.85em;
+    color: var(--tnx2-text-secondary);
+}
 
 /* ライブプレビュー(最終値・参照段・負傷名) */
 .tnx-damage-preview {

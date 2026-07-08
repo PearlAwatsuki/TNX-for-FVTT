@@ -1,5 +1,6 @@
 import { TnxActionHandler } from './tnx-action-handler.mjs';
 import { TnxCheckFlow } from './tnx-check-flow.mjs';
+import { isDamageCardPending, executeDamageCardFromHand } from './damage-flow.mjs';
 import { getCardCheckValue, getAbilityBySuit, SUIT_TO_ABILITY } from './tnx-check-engine.mjs';
 import { getUserFlagData } from './user-flag-schema.mjs';
 
@@ -533,6 +534,12 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
         // 判定待機中はカード選択として処理する
         if (TnxCheckFlow.isPending) {
             await TnxCheckFlow.executeFromHand(cardId);
+            return;
+        }
+
+        // ダメージカード待機中は手札クリック=ダメージカードを出す(判定と同じ操作系・12-3)
+        if (isDamageCardPending()) {
+            await executeDamageCardFromHand(cardId);
             return;
         }
 

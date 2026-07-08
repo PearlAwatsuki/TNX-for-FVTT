@@ -3,7 +3,10 @@
  *
  * D&D 5e のダメージ・ロールと同型(2026-07-08 ユーザー確定):
  * - 攻撃カードの命中確定後「ダメージカードを出す」→ 最小ダイアログ(damageBoost 選択・
- *   手動修正・スタンのみ)→ [手札から出す]/[山札から1枚めくる] の**カードプレイが確定トリガー**。
+ *   手動修正・スタンのみ)を開いたまま待ち受け、**手札は HUD のカードを直接クリック**して出す
+ *   (判定と同じ操作系=専用の選択ダイアログは使わない)。山札はダイアログの[山札から1枚めくる]。
+ *   **カードプレイが確定トリガー**。HUD 側は TnxCheckFlow と同様に isDamageCardPending →
+ *   executeDamageCardFromHand で本モジュールへ配線される。
  * - ダメージカードは命中判定のカードとは**別**で、**判定ではない**(判定ルールは適用されず、
  *   山札の絵札もファンブルにならない)。数字は N◎VA 数字(絵札=10・A=11)=N◎VA 全体に
  *   通底する規約。ジョーカーはワイルドカード(数字を宣言)。
@@ -26,12 +29,62 @@ import { CONDITION_KINDS } from "./conditions.mjs";
 import { applyAttackPatch } from "./attack-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { TnxActionHandler } from "./tnx-action-handler.mjs";
-import { CardSelectionDialog } from "./tnx-dialog.mjs";
 import { getCardCheckValue } from "./tnx-check-engine.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会" };
 const SUIT_SYMBOL = { spade: "♠", club: "♣", heart: "♥", diamond: "♦" };
+
+/**
+ * ダメージカードの待ち受け状態(TnxCheckFlow._context と同じ役割・同時に1つ)。
+ * kind="roll"=初回(ロールダイアログを開いたまま HUD クリック待ち)・"add"=追加のカード。
+ * @type {{kind:"roll"|"add", dialog:object|null, done:boolean, [key:string]:any}|null}
+ */
+let _pending = null;
+
+/** ダメージカードの待ち受け中か(HUD の手札クリック分岐用)。 */
+export function isDamageCardPending() {
+    return _pending !== null;
+}
+
+/**
+ * HUD の手札クリックからダメージカードを出す(TnxCheckFlow.executeFromHand と同型)。
+ * @param {string} cardId
+ * @returns {Promise<boolean>} true=ダメージカードとして処理(通常のカードプレイはしない)
+ */
+export async function executeDamageCardFromHand(cardId) {
+    const ctx = _pending;
+    if (!ctx) return false;
+    // フォームはカードを出す前に読む(確定後にダイアログを閉じるため)
+    const form = ctx.kind === "roll" && ctx.dialog?.element
+        ? readRollForm(ctx.dialog.element)
+        : { manualMod: 0, stun: false, boostIds: [] };
+    const played = await playHandCardForDamage(cardId);
+    if (!played) return true; // ワイルドカード宣言キャンセル等 → 待ち受け継続
+    ctx.done = true;
+    _pending = null;
+    await ctx.dialog?.close().catch(() => {});
+    if (ctx.kind === "roll") await finalizeDamageRoll(ctx, form, played);
+    else await appendDamageCard(ctx.message, played);
+    return true;
+}
+
+/** 進行中の待ち受けを解除する(新しい待ち受けを張る前・ダイアログも閉じる)。 */
+async function cancelPending() {
+    const old = _pending;
+    if (!old) return;
+    _pending = null;
+    await old.dialog?.close().catch(() => {});
+}
+
+/** ロールダイアログの入力を読む。 */
+function readRollForm(el) {
+    return {
+        manualMod: Number(el.querySelector('[name="manualMod"]')?.value) || 0,
+        stun:      !!el.querySelector('[name="stun"]')?.checked,
+        boostIds:  [...el.querySelectorAll("input.dmg-boost:checked")].map(c => c.value),
+    };
+}
 
 // ─── 起動(攻撃カードの「ダメージカードを出す」) ─────────────────────────────────
 
@@ -76,11 +129,11 @@ export async function openDamageRollDialog(attackMessage) {
         }
     );
 
-    const readRollForm = (el) => ({
-        manualMod: Number(el.querySelector('[name="manualMod"]')?.value) || 0,
-        stun:      !!el.querySelector('[name="stun"]')?.checked,
-        boostIds:  [...el.querySelectorAll("input.dmg-boost:checked")].map(c => c.value),
-    });
+    // 待ち受け開始: ダイアログを開いたまま、手札は HUD クリック(executeDamageCardFromHand)・
+    // 山札はダイアログのボタンで出す(判定と同じ操作系)
+    await cancelPending();
+    const ctx = { kind: "roll", attackMessage, f, attacker, category, attackPower, faValue, boostRows, dialog: null, done: false };
+    _pending = ctx;
 
     const chosen = await foundry.applications.api.DialogV2.wait({
         window: { title: `ダメージカードを出す: ${CATEGORY_LABELS[category] ?? category}` },
@@ -88,23 +141,36 @@ export async function openDamageRollDialog(attackMessage) {
         position: { width: 440 },
         content,
         buttons: [
-            { action: "hand", icon: "fas fa-hand", label: "手札から出す", default: true,
-              callback: (_e, _b, dialog) => ({ source: "hand", ...readRollForm(dialog.element) }) },
             { action: "deck", icon: "fas fa-clone", label: "山札から1枚めくる",
-              callback: (_e, _b, dialog) => ({ source: "deck", ...readRollForm(dialog.element) }) },
+              callback: (_e, _b, dialog) => readRollForm(dialog.element) },
             { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
         ],
+        render: (_event, dialog) => { ctx.dialog = dialog; },
         close: () => null,
     });
-    if (!chosen) return;
+    if (_pending === ctx) _pending = null;
+    if (ctx.done) return;   // HUD の手札クリックで確定済み
+    if (!chosen) return;    // キャンセル
 
-    // カードを出す(=確定トリガー)。キャンセル・失敗時は何も消費せず中断
-    const played = chosen.source === "hand" ? await playDamageCardFromHand() : await playDamageCardFromDeck();
+    // 山札から出す(=確定トリガー)。失敗・宣言キャンセル時は何も消費せず中断
+    const played = await playDamageCardFromDeck();
     if (!played) return;
+    await finalizeDamageRoll(ctx, chosen, played);
+}
+
+/**
+ * ダメージ・ロールを確定する(カードが出た後): damageBoost の記録・消費→
+ * ダメージ・チャットカードの投稿→攻撃カードの damageRolled 化。
+ * @param {object} ctx  待ち受けコンテキスト(kind="roll")
+ * @param {{manualMod:number, stun:boolean, boostIds:string[]}} form ロールダイアログの入力
+ * @param {{name:string, suit:string, value:number}} played 出したダメージカード
+ */
+async function finalizeDamageRoll(ctx, form, played) {
+    const { attackMessage, f, attacker, category, attackPower, faValue, boostRows } = ctx;
 
     // 選択した damageBoost の記録と消費(攻撃側=自アクターのため権限問題なし)
     const boosts = [];
-    for (const id of chosen.boostIds) {
+    for (const id of form.boostIds) {
         const r = boostRows.find(b => b.id === id); if (!r) continue;
         boosts.push({ label: r.label, value: r.value, formula: r.formula || "" });
         const rows = resolveConsumeRowsForActor(attacker, attacker.items.get(r.itemId), r.usage.consumeTargets);
@@ -133,8 +199,8 @@ export async function openDamageRollDialog(attackMessage) {
                     achievement: f.achievement ?? null,
                     cards: [played],
                     boosts,
-                    manualMod: chosen.manualMod,
-                    stun: chosen.stun,
+                    manualMod: form.manualMod,
+                    stun: form.stun,
                     applied: false,
                     appliedResult: null,
                 },
@@ -145,30 +211,18 @@ export async function openDamageRollDialog(attackMessage) {
     await applyAttackPatch(attackMessage, { damageRolled: true });
 }
 
-// ─── ダメージカードのプレイ(手札/山札・ジョーカー=ワイルドカード) ─────────────────
+// ─── ダメージカードのプレイ(手札=HUD クリック/山札・ジョーカー=ワイルドカード) ────
 
-/** 手札から1枚選んでダメージカードとして出す。中断・失敗は null。 */
-async function playDamageCardFromHand() {
+/** HUD でクリックされた手札カードをダメージカードとして出す。中断・失敗は null。 */
+async function playHandCardForDamage(cardId) {
     const { getUserFlagData } = await import("./user-flag-schema.mjs");
     const handId = getUserFlagData(game.user).handPileId;
     const hand = handId ? await fromUuid(handId).catch(() => null) : null;
-    if (!hand || !hand.cards.size) {
-        ui.notifications.warn("手札にカードがありません。");
+    const card = hand?.cards.get(cardId);
+    if (!card) {
+        ui.notifications.warn("指定されたカードが手札に見つかりませんでした。");
         return null;
     }
-    const picked = await CardSelectionDialog.prompt({
-        title: "ダメージカードを出す",
-        content: "ダメージカードとして出すカードを1枚選んでください。",
-        cards: hand.cards.contents,
-        passLabel: "このカードを出す",
-    });
-    if (!picked?.length) return null;
-    if (picked.length !== 1) {
-        ui.notifications.warn("ダメージカードは1枚ずつ出してください。");
-        return null;
-    }
-    const card = hand.cards.get(picked[0]);
-    if (!card) return null;
     const value = await resolveDamageCardValue(card);
     if (value === null) return null;
     await TnxActionHandler.playCard(card.id);
@@ -316,25 +370,42 @@ function resolveSync(uuid) {
 
 // ─── カードの追加(複数枚=合算・攻撃側) ─────────────────────────────────────────
 
-/** ダメージカードを追加で出す(適用前まで・出すたび台帳と合計がライブ更新)。 */
+/**
+ * ダメージカードを追加で出す(適用前まで・出すたび台帳と合計がライブ更新)。
+ * 初回と同じ待ち受け方式: 手札は HUD クリック・山札はダイアログのボタン。
+ */
 async function addDamageCard(message) {
     const f = message.getFlag(SCOPE, "damageRoll");
     if (!f || f.applied) return;
-    const source = await foundry.applications.api.DialogV2.wait({
+
+    await cancelPending();
+    const ctx = { kind: "add", message, dialog: null, done: false };
+    _pending = ctx;
+
+    const chosen = await foundry.applications.api.DialogV2.wait({
         window: { title: "カードを追加で出す" },
-        classes: ["tokyo-nova", "tnx-dialog", "tnx-usage-picker"],
-        position: { width: 320 },
-        content: "",
+        classes: ["tokyo-nova", "tnx-dialog", "tnx-damage-dialog"],
+        position: { width: 360 },
+        content: `<p class="tnx-damage-note">手札のカードを直接クリックするか、山札からめくってください（複数枚は合算されます）。</p>`,
         buttons: [
-            { action: "hand", icon: "fas fa-hand", label: "手札から出す", default: true, callback: () => "hand" },
-            { action: "deck", icon: "fas fa-clone", label: "山札から1枚めくる", callback: () => "deck" },
+            { action: "deck", icon: "fas fa-clone", label: "山札から1枚めくる", default: true, callback: () => "deck" },
             { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
         ],
+        render: (_event, dialog) => { ctx.dialog = dialog; },
         close: () => null,
     });
-    if (!source) return;
-    const played = source === "hand" ? await playDamageCardFromHand() : await playDamageCardFromDeck();
+    if (_pending === ctx) _pending = null;
+    if (ctx.done) return;         // HUD の手札クリックで確定済み
+    if (chosen !== "deck") return;
+    const played = await playDamageCardFromDeck();
     if (!played) return;
+    await appendDamageCard(message, played);
+}
+
+/** 出したカードをダメージ・カードの台帳に追記する(合算・ライブ更新)。 */
+async function appendDamageCard(message, played) {
+    const f = message.getFlag(SCOPE, "damageRoll");
+    if (!f || f.applied) return;
     await applyDamagePatch(message, { cards: [...(f.cards ?? []), played] });
 }
 
