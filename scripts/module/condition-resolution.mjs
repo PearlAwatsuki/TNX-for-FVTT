@@ -181,9 +181,9 @@ export async function postControlNegatePrompt(actor, effect, kind, controlNegate
     }
   );
 
+  // 全体公開(2026-07-08 ユーザー指示: 直接送信=whisper にしない)
   await ChatMessage.create({
     content,
-    whisper: drawWhisperUserIds("pressure", actor), // 受けたキャラ＋GM
     speaker: ChatMessage.getSpeaker({ actor }),
     flags: {
       [SCOPE]: {
@@ -215,34 +215,39 @@ export async function postControlNegatePrompt(actor, effect, kind, controlNegate
  * 制御判定の完了継続(TnxCheckFlow._execute → ctx.controlNegate): 結果を状態に適用する。
  * 判定そのものは通常の制御判定フローで行われており、ここでは成功=無効/降格・
  * 失敗=状態継続の適用だけを行う(判定に独自処理を挟まない=2026-07-08 ユーザー裁定)。
+ * 帰結は戻り値で返し、要求カードのライブ書き換え(checkRequest の結果注入)に載せる
+ * (別の結果カードは出さない=2026-07-08 ユーザー指示)。
  * @param {{actorUuid:string, effectId:string, kind:string, ability:string, downgradeTo:string}} negateCtx
  * @param {object} result calcControlCheck の判定結果
+ * @returns {Promise<?{text:string}>} 要求カードに表示する帰結(対象未発見は null)
  */
 export async function resolveControlNegateFromCheck(negateCtx, result) {
-  const { actorUuid, effectId, kind, ability, downgradeTo } = negateCtx;
+  const { actorUuid, effectId, kind, downgradeTo } = negateCtx;
   const actor = await fromUuid(actorUuid).catch(() => null);
   const effect = actor?.effects?.get(effectId)
     ?? actor?.allApplicableEffects?.().find?.(e => e.id === effectId);
-  if (!actor || !effect) return ui.notifications.warn("対象の状態が見つかりません（解決済みの可能性があります）。");
+  if (!actor || !effect) {
+    ui.notifications.warn("対象の状態が見つかりません（解決済みの可能性があります）。");
+    return null;
+  }
 
   const outcome = negateOutcome(result?.success === true, { downgradeTo: downgradeTo || undefined });
-  const ABIL = { reason: "理性", passion: "感情", life: "生命", mundane: "外界" };
-  let msg;
+  const label = CONDITION_KINDS[kind]?.label ?? kind;
   if (outcome.action === "negate") {
     await effect.delete();
-    msg = `制御判定 成功 → <b>${CONDITION_KINDS[kind]?.label}</b> を無効化`;
-  } else if (outcome.action === "downgrade") {
+    return { text: `「${label}」を無効化` };
+  }
+  if (outcome.action === "downgrade") {
+    const toLabel = CONDITION_KINDS[outcome.to]?.label ?? outcome.to;
     await effect.delete();
     await actor.createEmbeddedDocuments("ActiveEffect", [{
       name: CONDITION_KINDS[outcome.to]?.label, img: CONDITION_KINDS[outcome.to]?.img,
       statuses: [outcome.to], flags: { [SCOPE]: { conditionKind: outcome.to, hideFromList: true } },
     }]);
-    msg = `制御判定 成功 → <b>${CONDITION_KINDS[kind]?.label}</b> を <b>${CONDITION_KINDS[outcome.to]?.label}</b> に降格`;
-  } else {
-    await effect.unsetFlag(SCOPE, `conditions.${kind}.pendingControlNegate`);
-    msg = `制御判定 失敗（${ABIL[ability] ?? ability}の制御）→ <b>${CONDITION_KINDS[kind]?.label}</b> 継続`;
+    return { text: `「${label}」→「${toLabel}」に降格` };
   }
-  await ChatMessage.create({ content: `<div class="tnx-condition-result">${msg}</div>`, speaker: ChatMessage.getSpeaker({ actor }) });
+  await effect.unsetFlag(SCOPE, `conditions.${kind}.pendingControlNegate`);
+  return { text: `「${label}」は継続` };
 }
 
 /** チャットの受付ボタン(.tnx-condition-action)を解決処理に配線する(renderChatMessageHTML フックで呼ぶ)。 */

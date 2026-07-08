@@ -82,12 +82,18 @@ export class TnxSocketHandler {
 
     /**
      * 判定結果を GM へ送信するヘルパー（PL 側から呼ぶ）。
+     * GM 自身が判定した場合、socket.emit は自クライアントに届かないため直接処理する
+     * (未処理だと要求カードにボタンが残り再判定できてしまう=2026-07-08 修正)。
      *
      * @param {string} messageId  対象 ChatMessage ID
      * @param {string} actorId    判定を行ったキャスト Actor ID
      * @param {object} result     TnxCheckEngine が返す判定結果オブジェクト
      */
     static emitCheckResult(messageId, actorId, result) {
+        if (game.user.isGM) {
+            TnxSocketHandler._onCheckResult({ messageId, actorId, result });
+            return;
+        }
         game.socket.emit("system.tokyo-nova-axleration", {
             type: "checkResult",
             messageId,

@@ -607,6 +607,15 @@ export class TnxCheckFlow {
             await TnxCheckFlow._postResultChat({ ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch, checkSources: checkInfo.sources });
         }
 
+        // controlNegate(BS の無効/降格)の完了継続: 判定は上の通常経路そのもので行われ、
+        // ここでは結果の適用のみ行う(2026-07-08 ユーザー裁定)。帰結テキストを result に載せ、
+        // 下の emitCheckResult 経由で要求カードをライブ書き換えする(別の結果カードは出さない)
+        if (ctx.controlNegate) {
+            const { resolveControlNegateFromCheck } = await import("./condition-resolution.mjs");
+            const negate = await resolveControlNegateFromCheck(ctx.controlNegate, result);
+            if (negate) result.negateOutcome = negate;
+        }
+
         // RL 要求フロー: GM に結果を送信
         if (ctx.requestMessageId) {
             TnxSocketHandler.emitCheckResult(ctx.requestMessageId, ctx.actorId, result);
@@ -623,13 +632,6 @@ export class TnxCheckFlow {
         if (ctx.reaction) {
             const { completeReactionFromCheck } = await import("./attack-flow.mjs");
             await completeReactionFromCheck(ctx.reaction, result, { suitMismatch });
-        }
-
-        // controlNegate(BS の無効/降格)の完了継続: 判定は上の通常経路そのもので行われ、
-        // 継続側は成功=無効/降格・失敗=継続の適用だけを行う(2026-07-08 ユーザー裁定)
-        if (ctx.controlNegate) {
-            const { resolveControlNegateFromCheck } = await import("./condition-resolution.mjs");
-            await resolveControlNegateFromCheck(ctx.controlNegate, result);
         }
 
         return true;

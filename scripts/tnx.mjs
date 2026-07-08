@@ -1251,9 +1251,14 @@ Hooks.once("ready", async function() {
                 const resultEl = document.createElement("div");
                 resultEl.className = "jr-req-result";
                 if (flagData.checkType === "controlCheck") {
-                    resultEl.innerHTML = result.success
+                    // controlNegate 由来の要求は帰結(無効化/降格/継続)もライブ書き換えで表示する
+                    const negateText = result.negateOutcome?.text
+                        ? ` <span class="jr-req-negate">${foundry.utils.escapeHTML(result.negateOutcome.text)}</span>`
+                        : "";
+                    resultEl.innerHTML = (result.success
                         ? '<span class="jr-inline-success"><i class="fas fa-check"></i> 成功</span>'
-                        : '<span class="jr-inline-failure"><i class="fas fa-times"></i> 失敗</span>';
+                        : '<span class="jr-inline-failure"><i class="fas fa-times"></i> 失敗</span>')
+                        + negateText;
                 } else if (result.fumble) {
                     resultEl.innerHTML = '<span class="jr-inline-fumble"><i class="fas fa-skull"></i> ファンブル</span>';
                 } else {

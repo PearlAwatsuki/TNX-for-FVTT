@@ -6711,6 +6711,11 @@ button.tnx-create-act-button span {
     padding: 3px 10px;
 }
 
+.tnx-check-request .jr-req-negate {
+    font-size: 0.82em;
+    color: var(--tnx2-text-secondary);
+}
+
 .tnx-check-request .jr-req-waiting {
     font-size: 0.82em;
     color: var(--tnx2-text-secondary);
