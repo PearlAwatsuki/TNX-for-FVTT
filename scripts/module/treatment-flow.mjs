@@ -155,10 +155,11 @@ export async function resolveTreatmentFromCheck(ctx, result) {
     const patient = await fromUuid(ctx.patientUuid).catch(() => null);
     if (!patient) return;
 
+    const { postConditionOutcome } = await import("./condition-resolution.mjs");
     if (result?.success !== true) {
-        await ChatMessage.create({
-            speaker: ChatMessage.getSpeaker({ actor: patient }),
-            content: `<div class="tnx-condition-result"><i class="fas fa-times"></i> 治療 失敗 → <b>${foundry.utils.escapeHTML(ctx.woundLabel)}</b> は回復しませんでした。</div>`,
+        await postConditionOutcome(patient, {
+            title: "治療", tag: "失敗", status: "failure",
+            label: ctx.woundLabel, text: "は回復しませんでした。",
         });
         return;
     }
@@ -173,9 +174,9 @@ export async function resolveTreatmentFromCheck(ctx, result) {
         return;
     }
 
-    await ChatMessage.create({
-        speaker: ChatMessage.getSpeaker({ actor: patient }),
-        content: `<div class="tnx-condition-result"><i class="fas fa-check"></i> 治療 成功 → <b>${foundry.utils.escapeHTML(ctx.woundLabel)}</b> を回復（BS は個別の解除条件で回復）。</div>`,
+    await postConditionOutcome(patient, {
+        title: "治療", tag: "成功", status: "success",
+        label: ctx.woundLabel, text: "を回復（BS は個別の解除条件で回復）。",
     });
 }
 

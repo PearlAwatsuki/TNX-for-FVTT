@@ -4352,6 +4352,28 @@ body.tnx-bottom-hud-expanded #hotbar {
     color: #ff6060;
 }
 
+.jr-result--info {
+    background: rgba(120, 150, 200, 0.18);
+    color: #a8c4ee;
+}
+
+/* 状態の解決/受付カード(治療・カード決定ドロー。condition-outcome/condition-prompt.hbs) */
+.tnx-condition-card .jr-result--damage {
+    background: rgba(200, 50, 50, 0.20);
+    color: #e86060;
+}
+.tnx-condition-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 10px;
+}
+.tnx-condition-note {
+    margin: 0;
+    font-size: 0.88em;
+    color: var(--tnx2-text-secondary);
+}
+
 .jr-mismatch-label {
     display: flex;
     align-items: center;

@@ -53,6 +53,29 @@ export function drawWhisperUserIds(kind, actor) {
 
 // ───────── Foundry 連携 ─────────
 
+/** 状態解決カードのステータス → アイコン。 */
+const OUTCOME_ICON = Object.freeze({
+  success: "fa-check", failure: "fa-times", damage: "fa-burst", info: "fa-circle-info",
+});
+
+/**
+ * 状態の解決結果カードを投稿する(治療・カード決定ドロー等の共通)。
+ * 判定結果カードと同じ意匠(condition-outcome.hbs)で出す。素のインライン div は使わない。
+ * @param {?Actor} speakerActor
+ * @param {{title:string, tag?:string, status?:string, label?:string, text?:string, whisper?:string[]}} opts
+ */
+export async function postConditionOutcome(speakerActor, { title, tag = "", status = "info", label = "", text = "", whisper } = {}) {
+  const content = await foundry.applications.handlebars.renderTemplate(
+    "systems/tokyo-nova-axleration/templates/chat/condition-outcome.hbs",
+    { title, tag, status, icon: OUTCOME_ICON[status] ?? OUTCOME_ICON.info, label, text }
+  );
+  await ChatMessage.create({
+    content,
+    speaker: speakerActor ? ChatMessage.getSpeaker({ actor: speakerActor }) : undefined,
+    ...(whisper ? { whisper } : {}),
+  });
+}
+
 /** 山札から1枚、捨て札へ引いてカードを返す(受付なし・即時)。山札空は null。 */
 async function drawOneToDiscard() {
   const deck = await TnxActionHandler.getActiveDeck();
@@ -70,11 +93,14 @@ async function drawOneToDiscard() {
  */
 export async function postDrawPrompt(actor, effect, kind) {
   const label = CONDITION_KINDS[kind]?.label ?? kind;
-  const content = `<div class="tnx-condition-prompt">
-    <p><b>${label}</b> の効果をカードで決定します。</p>
-    <button type="button" class="tnx-condition-action" data-type="draw"
-      data-actor="${actor.uuid}" data-effect="${effect.id}" data-kind="${kind}">山札を引く</button>
-  </div>`;
+  const content = await foundry.applications.handlebars.renderTemplate(
+    "systems/tokyo-nova-axleration/templates/chat/condition-prompt.hbs",
+    {
+      label, promptText: "この状態の効果をカードで決定します。",
+      type: "draw", buttonLabel: "山札を引く",
+      actorUuid: actor.uuid, effectId: effect.id, kind,
+    }
+  );
   await ChatMessage.create({
     content,
     whisper: drawWhisperUserIds(kind, actor),
@@ -104,9 +130,9 @@ export async function executeConditionDraw(actor, effect, kind) {
   const detail = kind === "weakness"
     ? `${ABIL[flags.targetAbility] ?? "?"}の制御値 -${flags.magnitude}`
     : `${ABIL[flags.targetAbility] ?? "?"}を使う判定が不可`;
-  await ChatMessage.create({
-    content: `<div class="tnx-condition-result"><b>${CONDITION_KINDS[kind]?.label}</b>: ${detail}</div>`,
-    speaker: ChatMessage.getSpeaker({ actor }),
+  await postConditionOutcome(actor, {
+    title: "効果決定", tag: CONDITION_KINDS[kind]?.label ?? kind,
+    status: "info", text: detail,
   });
 }
 
