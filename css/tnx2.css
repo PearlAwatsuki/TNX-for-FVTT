@@ -548,12 +548,13 @@
 /* チャットカード内のテキストボタン(判定する/リアクション/ダメージ算出等)。
    丸型(tnx-ring-btn)に文字を詰め込まない(2026-07-09 修正)——幅は内容に応じ、通常のボタン形状 */
 .tnx-chat-btn {
-    display: inline-flex;
+    /* チャットカード内のボタンは D&D 5e に倣い全幅・縦積み(2026-07-08 ユーザー指示) */
+    display: flex;
     align-items: center;
     justify-content: center;
     gap: 5px;
-    width: auto;
-    padding: 3px 12px;
+    width: 100%;
+    padding: 6px 12px;
     background: var(--tnx2-bg-2);
     border: 1px solid var(--tnx2-border-active);
     border-radius: var(--tnx2-radius);
@@ -6700,7 +6701,9 @@ button.tnx-create-act-button span {
 }
 
 .tnx-check-request .jr-req-target-status {
-    flex-shrink: 0;
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
 }
 
 .tnx-check-request .tnx-check-do-btn {
@@ -7164,8 +7167,8 @@ button.tnx-create-act-button span {
 }
 .tnx-attack-btn-row {
     display: flex;
+    flex-direction: column;
     gap: 6px;
-    flex-wrap: wrap;
 }
 .tnx-attack-status .jr-result {
     padding: 0;
@@ -7354,15 +7357,18 @@ button.tnx-create-act-button span {
     padding: 5px 8px;
 }
 
-/* ── 用途ピッカー（D&D スタイル縦ボタン） ── */
-.tnx-usage-picker .dialog-buttons {
+/* ── 用途ピッカー（D&D スタイル縦ボタン） ──
+   DialogV2(v13) のボタンは footer.form-footer に描画される(.dialog-buttons は V1 の残骸で
+   セレクタが効かず横並びになっていた=2026-07-08 ユーザー指摘で修正) */
+.tnx-usage-picker .form-footer {
     flex-direction: column;
     gap: 4px;
     padding: 8px;
 }
-.tnx-usage-picker .dialog-buttons button {
+.tnx-usage-picker .form-footer button {
+    position: relative;
     width: 100%;
-    justify-content: flex-start;
+    justify-content: center;
     padding: 8px 12px;
     font-size: 0.95em;
     background: var(--tnx2-bg-3);
@@ -7372,15 +7378,18 @@ button.tnx-create-act-button span {
     cursor: pointer;
     transition: background 0.15s;
 }
-.tnx-usage-picker .dialog-buttons button:hover {
-    background: var(--tnx2-accent-dim, rgba(255,255,255,0.08));
+.tnx-usage-picker .form-footer button i {
+    position: absolute;
+    left: 12px;
 }
-.tnx-usage-picker .dialog-buttons button[data-action="cancel"] {
+.tnx-usage-picker .form-footer button:hover {
+    background: var(--tnx2-accent-dim, rgba(255, 255, 255, 0.08));
+}
+.tnx-usage-picker .form-footer button[data-action="cancel"] {
     margin-top: 4px;
     border-color: transparent;
     color: var(--tnx2-text-secondary);
     font-size: 0.82em;
-    justify-content: center;
 }
 
 /* ============================================================
