@@ -680,7 +680,8 @@
                             </div>
                         </div>
 
-                        {{#unless isResidence}}
+                        {{!-- 危険値: 住宅施設・住宅オプション・住宅アクセサリは危険値を持たないため非表示(2026-07-09) --}}
+                        {{#unless hidesAppearancePenalty}}
                         <div class="form-group">
                             <label>危険値</label>
                             <div class="form-fields {{#if (eq system.appearancePenalty.mode "value")}}split-fields{{/if}}">

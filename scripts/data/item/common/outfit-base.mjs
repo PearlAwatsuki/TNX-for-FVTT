@@ -42,7 +42,6 @@
 import { SystemDataModel } from "../../abstract.mjs";
 import { getMajorCategoryChoices, getMinorCategoryChoices, LEGACY_CATEGORY_MAP } from "../outfit-categories.mjs";
 import { modeValueField, migrateUsesValueToSpent, computeItemEffectiveValues } from "../helpers.mjs";
-import { formatPartDesignation } from "../part-helpers.mjs";
 
 /**
  * 部位行の種別(フェーズ10・2026-06-26 確定)。公式の「部位」指定を自由入力 + フラグで表現する。
@@ -215,11 +214,11 @@ export class OutfitBaseTemplate extends SystemDataModel {
     this.isOption = rows.some((r) =>
       r?.kind === "option" || (r?.kind === "reference" && r?.refSubKind === "option"));
 
-    // 部位「-」(占有部位なし)のアウトフィットは**準備できない**(2026-07-09 ユーザー・ルール反映)。
-    // 準備フラグは**オフに強制(派生)**し、トグルは非表示にする。未準備でもデータ/効果が適用される
-    // ように noPrepareRequired を立てる(手動 noPrepareRequired の他用途も尊重)。
-    // isPrepared を派生で false に上書きしても、適用側は isPrepared||noPrepareRequired で判定するため効く。
-    this.isPartless = formatPartDesignation(this.part, this.partRelation, this.partOptional) === "-";
+    // 部位「-」(**種別ドロップダウンで「-」= kind:none を選択**)のアウトフィットは**準備できない**
+    // (2026-07-09 ユーザー・ルール反映)。※身体部位を選んで値が未選択なだけの状態は「-」ではないので
+    // 対象外(kind で判定する。formatPartDesignation は空 bodyPart も「-」にするため使わない)。
+    // 準備フラグはオフに強制(派生)しトグル非表示。未準備でもデータ/効果を適用するため noPrepareRequired。
+    this.isPartless = this.partOptional !== true && !rows.some(r => r?.kind && r.kind !== "none");
     if (this.isPartless) {
       this.noPrepareRequired = true;
       this.isPrepared = false; // 準備できない=常にオフ

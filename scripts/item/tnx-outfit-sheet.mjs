@@ -304,6 +304,10 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         context.isResidence = type === "residence";
         context.isCombiner  = type === "combiner";
         context.hasSlots    = !!this.constructor.SLOT_PRESETS[type];
+        // 住宅オプション・住宅アクセサリ(一般アイテムのカテゴリ)は危険値を持たない(2026-07-09 ユーザー)。
+        // 危険値の設定行を隠し、概要は隠匿値のみ表示する。住宅施設(residence)も危険値なし
+        context.hidesAppearancePenalty = context.isResidence
+            || system.minorCategory === "housingOption" || system.minorCategory === "housingAccessory";
 
         // エキストラの二重表現(11-6・Troops.md): 小分類「エキストラ」のみ、場に出るときの
         // 共有エキストラアクターの参照欄を表示する(名前は fromUuid ライブ解決・削除時のみ name)
@@ -628,7 +632,9 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             : system.hide.mode === "value" ? num(system.hide.total ?? system.hide.value)
             : "-";
         const penaltyVal = mvOpt(system.appearancePenalty);
-        const hideFull = `${hideVal}／${penaltyVal}`;
+        // 住宅オプション・住宅アクセサリは危険値なし=隠匿値のみ表示(2026-07-09)。他は「隠／危険」併記
+        const noPenaltyCategory = system.minorCategory === "housingOption" || system.minorCategory === "housingAccessory";
+        const hideFull = noPenaltyCategory ? `${hideVal}` : `${hideVal}／${penaltyVal}`;
 
         // 電脳制御値(除外対象: 符号なし)
         const hack = mv(system.hack);
