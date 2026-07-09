@@ -866,7 +866,9 @@
                                         {{selectOptions ../partKindChoices selected=row.kind}}
                                     </select>
                                 </div>
+                                {{#unless (eq row.idx 0)}}
                                 <a class="tnx-part-del" data-index="{{row.idx}}" title="この行を削除"><i class="fas fa-trash"></i></a>
+                                {{/unless}}
                             </div>
 
                             {{#if row.isReference}}

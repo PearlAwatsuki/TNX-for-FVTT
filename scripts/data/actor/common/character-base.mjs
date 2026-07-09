@@ -205,8 +205,10 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
       // cs.base(CSベースへの常時修正)・ar.max(付与ARへの常時修正)のみ: 保持アイテムが未準備なら
       // 読み飛ばす(2026-07-02 裁定・携帯/準備の一般原則「準備で常時効果解禁」を常時系の AE 着地に
       // 適用)。isPrepared を持たない保持元(styleSkill・アクター自身)はゲート対象外。
+      // 部位「-」等の準備不要品(noPrepareRequired)は未準備でも常時効果を適用する(2026-07-09)
       if (((parsed.scope === "cs" && parsed.path === "base") || parsed.scope === "ar")
-          && bearer?.documentName === "Item" && bearer.system?.isPrepared === false) continue;
+          && bearer?.documentName === "Item" && bearer.system?.isPrepared === false
+          && !bearer.system?.noPrepareRequired) continue;
       const identity  = effect.flags?.[SCOPE]?.effectId || effect.id;
       const stackable = effect.flags?.[SCOPE]?.stackable === true;
       for (const { doc, totalPath } of this._resolveBuffApplications(parsed, bearer)) {

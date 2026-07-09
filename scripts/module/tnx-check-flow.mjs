@@ -432,7 +432,7 @@ export class TnxCheckFlow {
         const prepared = [];
         for (const item of (actor.items ?? [])) {
             const s = item.system;
-            if (!s || s.isPrepared !== true) continue; // 準備中アウトフィットのみ
+            if (!s || !(s.isPrepared === true || s.noPrepareRequired === true)) continue; // 準備中(または準備不要=部位「-」)のみ
             const hack = s.hack?.mode === "value" ? (s.hack.total ?? s.hack.value ?? null) : null;
             prepared.push({
                 majorCategory: s.majorCategory, minorCategory: s.minorCategory,

@@ -815,8 +815,10 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 { flag: "isPre-play",  icon: "fa-cart-shopping",  title: "プレアクト購入" },
                 { flag: "isCarrying",  icon: "fa-suitcase",       title: "携帯中" },
                 { flag: "isPrepared",  icon: "fa-shield-halved",  title: "準備済み" },
-            // 住宅施設は携帯しない(キャストシート同様に携帯トグルを出さない)
-            ].filter(t => !(t.flag === "isCarrying" && this.item.type === "residence"));
+            // 住宅施設は携帯しない(キャストシート同様に携帯トグルを出さない)。
+            // 部位「-」は準備できない=準備トグルを出さない(準備不要で常時適用・2026-07-09)
+            ].filter(t => !(t.flag === "isCarrying" && this.item.type === "residence"))
+             .filter(t => !(t.flag === "isPrepared" && this.item.system.isPartless === true));
             const noPreserveExp = this.item.system.preserveExp?.mode !== "value";
             for (const t of toggles) {
                 const a = document.createElement("a");
@@ -958,8 +960,13 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 else if (field === "slots") value = Math.max(0, Number(t.value) || 0);
                 else value = t.value;
                 this._updatePartRow(index, (row) => {
-                    row[field] = value;
-                    if (field === "hostMajor") row.hostMinor = ""; // 大分類変更で小分類をリセット
+                    if (field === "kind") {
+                        // 種別変更時は他フィールドを既定にリセットする(裏に前の種別の値が残らないように・2026-07-09 修正)
+                        Object.assign(row, this.constructor.blankPartRow, { kind: value });
+                    } else {
+                        row[field] = value;
+                        if (field === "hostMajor") row.hostMinor = ""; // 大分類変更で小分類をリセット
+                    }
                 });
             });
         }

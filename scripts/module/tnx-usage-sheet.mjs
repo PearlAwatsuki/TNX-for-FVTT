@@ -207,26 +207,30 @@ export function deriveUsageAutoFill(item, usage) {
     const baseId = item.system.isAction === true ? item.id : (usage.baseSkillRef?.itemId || item.id);
     const ids = new Set([item.id, baseId, ...(usage.skillRefs ?? []).map(r => r.itemId)].filter(Boolean));
     const skills = [...ids].map(id => (id === item.id ? item : actor?.items.get(id))).filter(Boolean);
+    // 発動パラメータ(target/range/timing/targetValue/confrontation)は**技能**の固有値から導出する。
+    // アウトフィット(式神符等)への NPC取得用途など非技能ベースでは、これらは技能形でないため対象外
+    // (2026-07-09 修正: 旧実装は item.system.timing 等を無条件に読み .find で TypeError)。
+    const skillItems = skills.filter(s => s.type === "generalSkill" || s.type === "styleSkill");
 
     const patch = {};
-    const t = resolveTarget(skills.map(s => ({ target: s.system.target, isFixed: !!s.system.isFixedTarget })));
+    const t = resolveTarget(skillItems.map(s => ({ target: s.system.target, isFixed: !!s.system.isFixedTarget })));
     if (t) { patch.target = t.target; patch.isFixedTarget = t.isFixed; }
 
-    const r = resolveRange(skills.map(s => ({ range: s.system.range, isFixed: !!s.system.isFixedRange })));
+    const r = resolveRange(skillItems.map(s => ({ range: s.system.range, isFixed: !!s.system.isFixedRange })));
     if (r) { patch.range = r.range; patch.isFixedRange = r.isFixed; }
 
     // 目標値: NPC取得はモードで確定する(トループ/エニグマ=なし・分身=10固定)ため導出しない
     if (usage.type !== "npcAcquire") {
-        const tv = resolveTargetValue(skills.map(s => ({ targetValue: s.system.targetValue, number: s.system.targetValueNumber })));
+        const tv = resolveTargetValue(skillItems.map(s => ({ targetValue: s.system.targetValue, number: s.system.targetValueNumber })));
         if (tv) {
             patch.targetValue = tv.targetValue;
             if (tv.targetValueNumber !== undefined) patch.targetValueNumber = tv.targetValueNumber;
         }
     }
 
-    // タイミング: ベース技能の最初の非 blank timing を採用（best-effort）
-    const baseSkill = skills.find(s => s.id === baseId) ?? item;
-    const bt = (baseSkill.system.timing ?? []).find(x => x?.value && x.value !== "blank");
+    // タイミング: ベース技能の最初の非 blank timing を採用（best-effort・非技能ベースはスキップ）
+    const baseSkill = skillItems.find(s => s.id === baseId) ?? null;
+    const bt = (Array.isArray(baseSkill?.system.timing) ? baseSkill.system.timing : []).find(x => x?.value && x.value !== "blank");
     if (bt) {
         patch["timing.value"]       = bt.value;
         patch["timing.actionName"]  = bt.actionName ?? "blank";
@@ -235,7 +239,7 @@ export function deriveUsageAutoFill(item, usage) {
     }
 
     // 対決不可: 参加技能が固有に「対決不可」なら true（外す方向には自動更新しない）
-    if (skills.some(s => (s.system.confrontation ?? []).some(c => c.value === "cannot"))) {
+    if (skillItems.some(s => (s.system.confrontation ?? []).some(c => c.value === "cannot"))) {
         patch.isUnopposable = true;
     }
 

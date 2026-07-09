@@ -42,6 +42,7 @@
 import { SystemDataModel } from "../../abstract.mjs";
 import { getMajorCategoryChoices, getMinorCategoryChoices, LEGACY_CATEGORY_MAP } from "../outfit-categories.mjs";
 import { modeValueField, migrateUsesValueToSpent, computeItemEffectiveValues } from "../helpers.mjs";
+import { formatPartDesignation } from "../part-helpers.mjs";
 
 /**
  * 部位行の種別(フェーズ10・2026-06-26 確定)。公式の「部位」指定を自由入力 + フラグで表現する。
@@ -213,5 +214,11 @@ export class OutfitBaseTemplate extends SystemDataModel {
     const rows = Array.isArray(this.part) ? this.part : [];
     this.isOption = rows.some((r) =>
       r?.kind === "option" || (r?.kind === "reference" && r?.refSubKind === "option"));
+
+    // 部位「-」(占有部位なし)のアウトフィットは準備できない=**準備不要**として扱う
+    // (2026-07-09 ユーザー・ルール反映)。準備トグルは非表示にし、未準備でもデータ/効果が適用される。
+    // 手動 noPrepareRequired との OR(部位「-」以外の準備不要品も尊重)。
+    this.isPartless = formatPartDesignation(this.part, this.partRelation, this.partOptional) === "-";
+    if (this.isPartless) this.noPrepareRequired = true;
   }
 }

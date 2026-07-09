@@ -104,11 +104,13 @@ export function computeOutfitAggregates(items) {
     if (!OUTFIT_ITEM_TYPES.has(item.type)) continue;
     const s = item.system;
     if (!s?.isCarrying) continue;
-    if (s.isPrepared && s.controlMod?.mode === "value")        control     += Number(s.controlMod.value) || 0;
+    // 準備で解禁される常時効果は、部位「-」等の準備不要品(noPrepareRequired)も適用する(2026-07-09)
+    const applies = !!(s.isPrepared || s.noPrepareRequired);
+    if (applies && s.controlMod?.mode === "value")            control     += Number(s.controlMod.value) || 0;
     if (s.combatSpeedMod?.mode === "value") {
       const v = Number(s.combatSpeedMod.value) || 0;
       if (s.combatSpeedModGhostIgnore)  combatSpeedGhostIgnorable += v;
-      else if (s.isPrepared)            combatSpeed               += v;
+      else if (applies)                 combatSpeed               += v;
     }
     if (s.appearancePenalty?.mode === "value")                appearance  += Number(s.appearancePenalty.value) || 0;
   }
