@@ -27,6 +27,7 @@ import { groupStyleSkillsByStyle } from '../module/style-skill-acquisition.mjs';
 import { HOUSING_AREA_RANKS } from '../data/item/housing-area.mjs';
 import { CONDITION_KINDS, gatherPartSlotMods } from '../module/conditions.mjs';
 import { startTreatment } from '../module/treatment-flow.mjs';
+import { startVehicleMove } from '../module/vehicle-move.mjs';
 import { isAttackUsage } from '../data/item/common/usage.mjs';
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -81,6 +82,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             startSkillCheck:      TnxCharacterSheetBase._onStartSkillCheck,
             startAbilityCheck:    TnxCharacterSheetBase._onStartAbilityCheck,
             startControlCheck:    TnxCharacterSheetBase._onStartControlCheck,
+            startVehicleMove:     TnxCharacterSheetBase._onStartVehicleMove,
             incrementField:       TnxCharacterSheetBase._onIncrementField,
             decrementField:       TnxCharacterSheetBase._onDecrementField,
             initCombatSpeed:      TnxCharacterSheetBase._onInitCombatSpeed,
@@ -804,6 +806,20 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                 for (const t of (Array.isArray(i.system.timing) ? i.system.timing : [])) classify(t, i);
             } else if (OUTFIT_ITEM_TYPES.has(i.type) && usable(i)) {
                 classify(i.system.timing, i);
+            }
+        }
+        // ヴィークル操縦移動(2026-07-09): 操縦中はメジャーアクションでも移動できる。準備済みで
+        // 対応する操縦が設定されたヴィークルごとに、メジャー欄へ「移動」の合成アクションを出す。
+        // 用途ではない(アイテム単位 timing に依存せずアクション自身の timing=メジャーで置く)ため、
+        // 専用トリガー(startVehicleMove)で操縦判定を起動する。
+        const majorBucket = byKey.get("action:major");
+        if (majorBucket) {
+            for (const v of items) {
+                if (v.type !== "vehicle" || !usable(v) || !v.system.operateSkillKey) continue;
+                majorBucket.entries.push({
+                    _id: v.id, name: `移動（${v.name}）`, sort: v.sort ?? 0,
+                    action: "startVehicleMove", isMove: true,
+                });
             }
         }
         // 各タイミング内は他タブでの手動並び順(item.sort)を尊重する
@@ -2359,6 +2375,24 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             consumeUses:     usesPlan,
             requestMessageId: null,
         });
+    }
+
+    /**
+     * ヴィークル操縦移動の起動(フェーズ12・Outfits.md/Combat_Flow.md)。戦闘タブのタイミング節
+     * (メジャー)に準備済みヴィークルごとの合成アクションとして出す。対応する操縦で判定し、
+     * 達成値÷10 段階の移動が可能(段階移動の適用は移動・位置の機構へ後付け)。
+     */
+    static async _onStartVehicleMove(event, target) {
+        event.preventDefault();
+        const itemId = target.closest("[data-item-id]")?.dataset.itemId;
+        const vehicle = itemId ? this.actor.items.get(itemId) : null;
+        if (!vehicle) return;
+        try {
+            await startVehicleMove(this.actor, vehicle);
+        } catch (err) {
+            console.error("TNX | 操縦移動の実行に失敗しました", err);
+            ui.notifications.error(`操縦移動の実行に失敗しました: ${err.message}`);
+        }
     }
 
     /**

@@ -6265,6 +6265,11 @@ button.tnx-create-act-button span {
     color: var(--tnx2-text-accent);
     border-color: var(--tnx2-accent);
 }
+/* 操縦移動の合成アクション(2026-07-09): 再表示チップと区別してアクセント境界にする。 */
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-timing-chip--move {
+    border-color: var(--tnx2-accent);
+    color: var(--tnx2-text-accent);
+}
 
 /* 住宅エリアのセキュリティ・ランクバッジ(10-4)。ランク名の色で色分け・なしはミュート。 */
 .tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-area-badge--red {

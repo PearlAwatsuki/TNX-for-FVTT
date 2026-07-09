@@ -353,6 +353,14 @@
                     <legend>ヴィークルデータ</legend>
                     <div class="tnx-form-field">
                         <div class="form-group">
+                            <label>対応する操縦</label>
+                            <div class="form-fields">
+                                <select name="system.operateSkillKey">
+                                    {{selectOptions operateSkillChoices selected=system.operateSkillKey}}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
                             <label>移動力(SF)</label>
                             <div class="form-fields {{#if (eq system.speedFactor.mode "value")}}split-fields{{/if}}">
                                 <select name="system.speedFactor.mode">

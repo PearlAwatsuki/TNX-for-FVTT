@@ -8,7 +8,7 @@ import { HOUSING_AREA_RANKS, HOUSING_AREA_MOD_FIELDS } from "../data/item/housin
 import { PART_KINDS, PART_REFERENCE_SUB_KINDS, PART_RELATIONS, SHIKI_TYPES } from "../data/item/common/outfit-base.mjs";
 import { getPartSlotPreset } from "../module/part-slot-preset-app.mjs";
 import { formatPartDesignation, joinPartDesignations, PART_HOST_FEATURE_LABELS } from "../data/item/part-helpers.mjs";
-import { loadSkillChoices, STYLE_PACK, ORGANIZATION_PACK } from "../module/skill-dictionary.mjs";
+import { loadSkillChoices, loadOnomasticChoices, STYLE_PACK, ORGANIZATION_PACK } from "../module/skill-dictionary.mjs";
 
 /** 住宅エリア compendium の pack ID */
 const HOUSING_AREA_PACK = "tokyo-nova-axleration.housing-areas";
@@ -323,6 +323,11 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         context.hasAttack  = ["weapon", "cyborg", "vehicle"].includes(type);
         context.hasGuard   = ["weapon", "cyborg"].includes(type);
         context.hasDefence = ["armor", "cyborg", "vehicle"].includes(type);
+
+        // ヴィークルの「対応する操縦」(辞典 operate_ 技能)の選択肢。操縦移動判定・搭乗ドッジ上書きに使う
+        if (context.isVehicle) {
+            context.operateSkillChoices = await loadOnomasticChoices("operate");
+        }
 
         // part は編集 UI 用に最低 1 行を保証する(保存はしない。表示用の正規化のみ)
         if (!Array.isArray(system.part)) {

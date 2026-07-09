@@ -153,7 +153,7 @@
                             {{#if b.entries.length}}
                             <div class="combat-timing-group__entries">
                                 {{#each b.entries as |e|}}
-                                <a class="combat-timing-chip check-trigger" data-action="startSkillCheck" data-item-id="{{e._id}}" title="使用（用途があれば実行・無ければ説明を表示）">{{e.name}}</a>
+                                <a class="combat-timing-chip check-trigger{{#if e.isMove}} combat-timing-chip--move{{/if}}" data-action="{{#if e.action}}{{e.action}}{{else}}startSkillCheck{{/if}}" data-item-id="{{e._id}}" title="{{#if e.isMove}}操縦移動（対応する操縦で判定・達成値÷10 段階）{{else}}使用（用途があれば実行・無ければ説明を表示）{{/if}}">{{e.name}}</a>
                                 {{/each}}
                             </div>
                             {{/if}}

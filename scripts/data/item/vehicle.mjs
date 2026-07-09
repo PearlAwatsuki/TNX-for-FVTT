@@ -2,7 +2,8 @@
  * @fileoverview VehicleDataModel - 乗り物 Item の DataModel
  *
  * 使用 template: base + outfitBase + extensible + usage
- * 固有フィールド: attack / defence(mode/S/P/I) / speedFactor / passenger / controlMod / identificationKey
+ * 固有フィールド: attack / defence(mode/S/P/I) / speedFactor / passenger / controlMod /
+ *   identificationKey / operateSkillKey(対応する操縦=辞典 operate_ 技能の識別キー)
  *
  * 準拠データ: template.json > Item.vehicle
  *
@@ -33,6 +34,8 @@ export class VehicleDataModel extends SystemDataModel.mixin(
       passenger:   modeValueField(["none", "value"]),
       controlMod:  modeValueField(["none", "value"]),
       identificationKey: new foundry.data.fields.StringField({ initial: "" }),
+      // 対応する操縦(辞典 operate_ 技能の識別キー)。操縦移動判定・搭乗時のドッジ上書き判断に使う
+      operateSkillKey:   new foundry.data.fields.StringField({ initial: "" }),
     };
   }
 

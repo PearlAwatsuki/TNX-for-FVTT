@@ -603,10 +603,14 @@ export class TnxCheckFlow {
         if (ctx.substitution) result.substitution = ctx.substitution;
 
         // チャットに結果を投稿。攻撃(ctx.attack)は通常の結果カードの代わりに攻撃カードを出す
-        // (成否保留・リアクション導線つき・12-2。attack-flow は本フローを import するため動的 import)
+        // (成否保留・リアクション導線つき・12-2。attack-flow は本フローを import するため動的 import)。
+        // 移動(ctx.movement)も通常カードの代わりに移動結果カードを出す(達成値÷10 段階・12)。
         if (ctx.attack) {
             const { postAttackCard } = await import("./attack-flow.mjs");
             await postAttackCard({ payload: ctx.attack, result, suit, cardCheckValue, card, fromDeck, trumpUsed, suitMismatch });
+        } else if (ctx.movement) {
+            const { postMovementCard } = await import("./vehicle-move.mjs");
+            await postMovementCard({ payload: ctx.movement, result, suit, card, fromDeck, trumpUsed, suitMismatch });
         } else {
             await TnxCheckFlow._postResultChat({ ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch, checkSources: checkInfo.sources });
         }

@@ -211,6 +211,24 @@ export async function loadSkillEntries(packName) {
 }
 
 /**
+ * 一般技能辞典から、指定した固有名詞小分類(識別キープレフィックス)の技能を `{key: name}` の
+ * 選択肢オブジェクトにする(先頭に "" → "-")。例: prefix="operate" で〈操縦〉各種。
+ * ヴィークルの「対応する操縦」プルダウン等に使う。
+ * @param {string} prefix ONOMASTIC_TYPES のキー(例 "operate")
+ * @returns {Promise<Record<string, string>>}
+ */
+export async function loadOnomasticChoices(prefix) {
+  const general = await loadSkillEntries(SKILL_PACKS.general);
+  const choices = { "": "-" };
+  for (const e of general) {
+    if (e.generalSkillCategory === "onomasticSkill" && idKeyPrefix(e.identificationKey) === prefix) {
+      choices[e.identificationKey] = e.name;
+    }
+  }
+  return choices;
+}
+
+/**
  * 複数辞典をまとめて `{key: name}` の選択肢オブジェクトにする(先頭に "" → "-")。
  * selectOptions ヘルパーにそのまま渡せる。
  * @param {string[]} packNames compendium 完全名の配列
