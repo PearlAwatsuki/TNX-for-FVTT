@@ -63,7 +63,7 @@ describe("combineWeaponAttack()（複数武器の攻撃力合算・2026-07-09 �
 
   it("武器なしは生身(baseAttack)にフォールバック", () => {
     expect(combineWeaponAttack([], "", { value: 3, damageType: "I" }))
-      .toEqual({ weaponAttack: 3, damageType: "I", faValue: 0, attackSourceName: "生身" });
+      .toEqual({ weaponAttack: 3, damageType: "I", attackSourceName: "生身", faOptions: [] });
   });
 
   it("生身の種別未設定は I 既定", () => {
@@ -72,7 +72,7 @@ describe("combineWeaponAttack()（複数武器の攻撃力合算・2026-07-09 �
 
   it("単一武器はその攻撃力・種別・名前", () => {
     expect(combineWeaponAttack([W("刀", 4, "S")], "", {}))
-      .toEqual({ weaponAttack: 4, damageType: "S", faValue: 0, attackSourceName: "刀" });
+      .toEqual({ weaponAttack: 4, damageType: "S", attackSourceName: "刀", faOptions: [] });
   });
 
   it("複数武器は攻撃力を合算し名前を連結", () => {
@@ -91,10 +91,28 @@ describe("combineWeaponAttack()（複数武器の攻撃力合算・2026-07-09 �
     expect(combineWeaponAttack([W("刀", 4, "S")], "P").damageType).toBe("P");
   });
 
-  it("FA は主武器(先頭)からのみ取る(合算しない)", () => {
-    // 先頭がフルオート
-    expect(combineWeaponAttack([W("FA銃", 5, "I", true, 3), W("刀", 4, "S")], "").faValue).toBe(3);
-    // 先頭がフルオートでない → 2 個目が FA でも 0
-    expect(combineWeaponAttack([W("刀", 4, "S"), W("FA銃", 5, "I", true, 3)], "").faValue).toBe(0);
+  it("FAは自動加算せず faOptions として返す(ダメージダイアログで武器ごとに選択)", () => {
+    const r = combineWeaponAttack([
+      { itemId: "w1", name: "FA銃", attackValue: 5, damageType: "I", isFullAuto: true, faValue: 3, consumesAmmo: true },
+      { itemId: "w2", name: "刀",   attackValue: 4, damageType: "S", isFullAuto: false, faValue: 0 },
+    ], "");
+    expect(r.weaponAttack).toBe(9); // 攻撃力は合算(FAは別)
+    expect(r.faOptions).toEqual([{ itemId: "w1", name: "FA銃", faValue: 3, consumesAmmo: true }]);
+  });
+
+  it("FA武器が無ければ faOptions は空", () => {
+    expect(combineWeaponAttack([W("刀", 4, "S")], "").faOptions).toEqual([]);
+    expect(combineWeaponAttack([], "", {}).faOptions).toEqual([]);
+  });
+
+  it("複数のFA武器は両方 faOptions に載る(両方選べば両方加算)・残弾消費有無も伝わる", () => {
+    // 自動給弾のFA武器は残弾を追跡しない(consumesAmmo=false)
+    const r = combineWeaponAttack([
+      { itemId: "a", name: "自動給弾FA銃", attackValue: 5, damageType: "I", isFullAuto: true, faValue: 3, consumesAmmo: false },
+      { itemId: "b", name: "通常FA銃",   attackValue: 4, damageType: "I", isFullAuto: true, faValue: 2, consumesAmmo: true },
+    ], "");
+    expect(r.faOptions.map(o => o.itemId)).toEqual(["a", "b"]);
+    expect(r.faOptions[0].consumesAmmo).toBe(false);
+    expect(r.faOptions[1].consumesAmmo).toBe(true);
   });
 });

@@ -29,7 +29,7 @@
         {{#if isPhysical}}
         <div class="cr-calc-row">
             <span class="cr-calc-label">攻撃力（{{attackSourceName}}）</span>
-            <span class="cr-calc-val">{{attackLabel}}{{#if faValue}} <span class="cr-badge cr-badge--trump">FA{{faValue}}</span>{{/if}}</span>
+            <span class="cr-calc-val">{{attackLabel}}{{#if hasFa}} <span class="cr-badge cr-badge--trump" title="ダメージ算出時に武器ごとに FA 射撃を選べます">FA可</span>{{/if}}</span>
         </div>
         {{/if}}
         {{#unless isFumble}}

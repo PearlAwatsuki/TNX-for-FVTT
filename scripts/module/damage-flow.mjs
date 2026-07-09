@@ -31,6 +31,7 @@ import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { TnxActionHandler } from "./tnx-action-handler.mjs";
 import { getCardCheckValue } from "./tnx-check-engine.mjs";
 import { formatAttackLabel } from "./attack-flow-logic.mjs";
+import { consumeFaAmmo } from "./weapon-ammo.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会" };
@@ -59,7 +60,7 @@ export async function executeDamageCardFromHand(cardId) {
     // フォームはカードを出す前に読む(確定後にダイアログを閉じるため)
     const form = ctx.kind === "roll" && ctx.dialog?.element
         ? readRollForm(ctx.dialog.element)
-        : { manualMod: 0, stun: false, boostIds: [] };
+        : { manualMod: 0, stun: false, boostIds: [], faItemIds: [] };
     const played = await playHandCardForDamage(cardId);
     if (!played) return true; // ワイルドカード宣言キャンセル等 → 待ち受け継続
     ctx.done = true;
@@ -81,9 +82,10 @@ async function cancelPending() {
 /** ロールダイアログの入力を読む。 */
 function readRollForm(el) {
     return {
-        manualMod: Number(el.querySelector('[name="manualMod"]')?.value) || 0,
-        stun:      !!el.querySelector('[name="stun"]')?.checked,
-        boostIds:  [...el.querySelectorAll("input.dmg-boost:checked")].map(c => c.value),
+        manualMod:  Number(el.querySelector('[name="manualMod"]')?.value) || 0,
+        stun:       !!el.querySelector('[name="stun"]')?.checked,
+        boostIds:   [...el.querySelectorAll("input.dmg-boost:checked")].map(c => c.value),
+        faItemIds:  [...el.querySelectorAll("input.dmg-fa:checked")].map(c => c.value),
     };
 }
 
@@ -106,7 +108,8 @@ export async function openDamageRollDialog(attackMessage) {
     }
     const category = f.category || "physical";
     const attackPower = category === "physical" ? (Number(f.weaponAttack) || 0) : 0;
-    const faValue = category === "physical" ? (Number(f.faValue) || 0) : 0;
+    // FA は自動加算せず、FA 可能武器を候補として出しダイアログで武器ごとに選ぶ(2026-07-09)
+    const faOptions = category === "physical" ? (f.faOptions ?? []) : [];
 
     // damageBoost(攻撃側)の候補。formula は事前評価(@diff/@achievement は判定結果で固定)。
     // 評価不能な自由文は数値効果なし=表示のみ(手動修正欄で反映)
@@ -124,7 +127,7 @@ export async function openDamageRollDialog(attackMessage) {
             categoryLabel: CATEGORY_LABELS[category] ?? category,
             isPhysical: category === "physical",
             attackLabel: formatAttackLabel(f.damageType, attackPower),
-            faValue,
+            faOptions,
             attackSourceName: f.attackSourceName,
             targetName: f.targetName,
             boostRows,
@@ -134,7 +137,7 @@ export async function openDamageRollDialog(attackMessage) {
     // 待ち受け開始: ダイアログを開いたまま、手札は HUD クリック(executeDamageCardFromHand)・
     // 山札はダイアログのボタンで出す(判定と同じ操作系)
     await cancelPending();
-    const ctx = { kind: "roll", attackMessage, f, attacker, category, attackPower, faValue, boostRows, dialog: null, done: false };
+    const ctx = { kind: "roll", attackMessage, f, attacker, category, attackPower, faOptions, boostRows, dialog: null, done: false };
     _pending = ctx;
 
     const chosen = await foundry.applications.api.DialogV2.wait({
@@ -168,7 +171,16 @@ export async function openDamageRollDialog(attackMessage) {
  * @param {{name:string, suit:string, value:number}} played 出したダメージカード
  */
 async function finalizeDamageRoll(ctx, form, played) {
-    const { attackMessage, f, attacker, category, attackPower, faValue, boostRows } = ctx;
+    const { attackMessage, f, attacker, category, attackPower, faOptions, boostRows } = ctx;
+
+    // FA 射撃(武器ごとに任意選択・2026-07-09): 選んだ FA 武器の FA 値を合算しダメージへ。
+    // 選んだ武器の残弾を空にする(自動給弾を除く=consumeFaAmmo が判定)。
+    const chosenFa = (faOptions ?? []).filter(o => (form.faItemIds ?? []).includes(o.itemId));
+    const faValue = chosenFa.reduce((s, o) => s + (Number(o.faValue) || 0), 0);
+    for (const o of chosenFa) {
+        const weapon = o.itemId ? attacker?.items.get(o.itemId) : null;
+        if (weapon) await consumeFaAmmo(weapon);
+    }
 
     // 選択した damageBoost の記録と消費(攻撃側=自アクターのため権限問題なし)
     const boosts = [];

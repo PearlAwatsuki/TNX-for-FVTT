@@ -3,7 +3,7 @@
  *
  * 使用 template: base + outfitBase + extensible + usage
  * 固有フィールド: attack / guardValue / range / attackArea / isLaser /
- *               isFullAuto / FAValue / identificationKey
+ *               isFullAuto / FAValue / ammo / identificationKey
  *
  * 準拠データ: template.json > Item.weapon
  *
@@ -17,8 +17,13 @@
  *   最長射程の選択肢から「至近」を除く(最低射程でのみ意味を持つため)。
  * - guardValue は受け値(略号「受」)。パリィ失敗時にダメージから引かれる値。
  *   「なし / 数値」の {mode,value} 構造。
- * - isFullAuto: フルオート射撃可能。FAValue が FAn の n(ダメージに加算)。
- *   フルオート射撃後は弾倉が空になりマイナーアクションで交換が必要(自動化はフェーズ7 以降)。
+ * - isFullAuto: フルオート射撃可能。FAValue が FAn の n(ダメージに加算)。FA は自動加算せず
+ *   ダメージ算出ダイアログで武器ごとに選択する(2026-07-09 ユーザー確定)。
+ * - ammo: 残弾(射撃武器・搭載兵器のみ)。mode = none(概念なし)/value(装弾数を数字で表示)/
+ *   arbitrary(残弾の有無だけ=任意)。empty = 現在空か(実行時状態)。FA 射撃で空になり、
+ *   リロード(マイナーアクション)で満タンに戻る。通常射撃では減らない。
+ *   ※自動給弾の FA 武器は「isFullAuto=true かつ ammo.mode=none(-)」で表現する
+ *   (残弾を追跡しなければ FA しても空にならない。専用フラグは不要=2026-07-10 ユーザー確定)。
  */
 
 import { SystemDataModel } from "../abstract.mjs";
@@ -107,6 +112,16 @@ export class WeaponDataModel extends SystemDataModel.mixin(
       isLaser:     new fields.BooleanField({ initial: false }),
       isFullAuto:  new fields.BooleanField({ initial: false }),
       FAValue:     new fields.NumberField({ initial: 0 }),
+      // 残弾(射撃武器・搭載兵器のみ UI 表示。2026-07-09 ユーザー確定):
+      //   mode  = none(概念なし)/value(装弾数を数字表示)/arbitrary(有無だけ=任意)
+      //   value = 装弾数(mode=value の表示。満タン時の数)
+      //   empty = 現在空か(FA 射撃で true・リロードで false。通常射撃では変化しない)
+      ammo: new fields.SchemaField({
+        mode:  new fields.StringField({ required: true, blank: false, initial: "none",
+          choices: { none: "-", value: "数字", arbitrary: "任意" } }),
+        value: new fields.NumberField({ initial: 0, min: 0, integer: true }),
+        empty: new fields.BooleanField({ initial: false }),
+      }),
       // 生身変更装備(フェーズ10-6・2026-07-02 裁定): 生身(武器)のデータ——攻撃力と受け値——を
       // 書き換える装備。書き換え結果は「生身」として扱われ、生身は単一のため複数準備でも
       // 〈二刀流〉等で相互に合算参照できない(正本 Outfits.md「生身の変更」)。

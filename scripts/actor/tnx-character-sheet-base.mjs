@@ -28,6 +28,7 @@ import { HOUSING_AREA_RANKS } from '../data/item/housing-area.mjs';
 import { CONDITION_KINDS, gatherPartSlotMods } from '../module/conditions.mjs';
 import { startTreatment } from '../module/treatment-flow.mjs';
 import { startVehicleMove } from '../module/vehicle-move.mjs';
+import { isAmmoEmpty, reloadWeapon } from '../module/weapon-ammo.mjs';
 import { isAttackUsage } from '../data/item/common/usage.mjs';
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -83,6 +84,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             startAbilityCheck:    TnxCharacterSheetBase._onStartAbilityCheck,
             startControlCheck:    TnxCharacterSheetBase._onStartControlCheck,
             startVehicleMove:     TnxCharacterSheetBase._onStartVehicleMove,
+            startReload:          TnxCharacterSheetBase._onStartReload,
             incrementField:       TnxCharacterSheetBase._onIncrementField,
             decrementField:       TnxCharacterSheetBase._onDecrementField,
             initCombatSpeed:      TnxCharacterSheetBase._onInitCombatSpeed,
@@ -820,6 +822,18 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                 majorBucket.entries.push({
                     _id: v.id, name: `移動（${v.name}）`, sort: v.sort ?? 0,
                     action: "startVehicleMove", isMove: true,
+                });
+            }
+        }
+        // リロード(2026-07-09): 残弾が空(0/なし)の準備済み武器ごとに、マイナー欄へ「リロード」を
+        // 合成アクションで出す。実行で残弾を全回復(FA 射撃以外では減らない)。
+        const minorBucket = byKey.get("action:minor");
+        if (minorBucket) {
+            for (const w of items) {
+                if (w.type !== "weapon" || !usable(w) || !isAmmoEmpty(w.system.ammo)) continue;
+                minorBucket.entries.push({
+                    _id: w.id, name: `リロード（${w.name}）`, sort: w.sort ?? 0,
+                    action: "startReload", isReload: true,
                 });
             }
         }
@@ -2394,6 +2408,19 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             console.error("TNX | 操縦移動の実行に失敗しました", err);
             ui.notifications.error(`操縦移動の実行に失敗しました: ${err.message}`);
         }
+    }
+
+    /**
+     * リロード(フェーズ12・マイナーアクション)。残弾が空の準備済み武器を満タンに戻す。
+     * 戦闘タブのタイミング節(マイナー)に合成アクションとして出る(残弾は FA 射撃で空になる)。
+     */
+    static async _onStartReload(event, target) {
+        event.preventDefault();
+        const itemId = target.closest("[data-item-id]")?.dataset.itemId;
+        const weapon = itemId ? this.actor.items.get(itemId) : null;
+        if (!weapon) return;
+        await reloadWeapon(weapon);
+        ui.notifications.info(`「${weapon.name}」をリロードしました（残弾を回復）。`);
     }
 
     /**

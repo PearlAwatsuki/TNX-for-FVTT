@@ -18,14 +18,15 @@ export function formatAttackLabel(damageType, value) {
 }
 
 /**
- * 複数武器の攻撃力合算とダメージ種別・FA・表示名の解決(2026-07-09)。
+ * 複数武器の攻撃力合算とダメージ種別・FA 候補・表示名の解決(2026-07-09)。
  * 複数武器の攻撃力を合算する能力を表現する。攻撃力は全参照武器の合計。ダメージ種別は
  * override(usage.damageType)優先→単一/同一ならその種別→**別々なら先頭**(編集時に damageType で選択)。
- * FA(フルオート)は**主武器＝先頭**からのみ取る(合算対象外)。武器が無ければ生身(baseAttack)。
- * @param {Array<{name:string, attackValue:number, damageType:string, isFullAuto:boolean, faValue:number}>} weapons
+ * **FA(フルオート)は自動加算せず**、FA 可能武器を faOptions として返す(ダメージ算出ダイアログで
+ * 武器ごとに選択・選んだものの FA 値を合算=2026-07-09 ユーザー確定)。武器が無ければ生身(baseAttack)。
+ * @param {Array<{itemId?:string, name:string, attackValue:number, damageType:string, isFullAuto:boolean, faValue:number, consumesAmmo?:boolean}>} weapons
  * @param {string} damageTypeOverride usage.damageType(空なら自動)
  * @param {{value?:number, damageType?:string}} baseAttack 生身攻撃(武器なし時)
- * @returns {{weaponAttack:number, damageType:string, faValue:number, attackSourceName:string}}
+ * @returns {{weaponAttack:number, damageType:string, attackSourceName:string, faOptions:Array<{itemId:string, name:string, faValue:number, consumesAmmo:boolean}>}}
  */
 export function combineWeaponAttack(weapons, damageTypeOverride = "", baseAttack = {}) {
     const list = (weapons ?? []).filter(Boolean);
@@ -33,17 +34,18 @@ export function combineWeaponAttack(weapons, damageTypeOverride = "", baseAttack
         return {
             weaponAttack:     Number(baseAttack.value) || 0,
             damageType:       damageTypeOverride || baseAttack.damageType || "I",
-            faValue:          0,
             attackSourceName: "生身",
+            faOptions:        [],
         };
     }
     const weaponAttack = list.reduce((s, w) => s + (Number(w.attackValue) || 0), 0);
     const types = [...new Set(list.map(w => w.damageType).filter(Boolean))];
     const damageType = damageTypeOverride || (types.length === 1 ? types[0] : (types[0] || ""));
-    const primary = list[0];
-    const faValue = primary.isFullAuto ? (Number(primary.faValue) || 0) : 0;
     const attackSourceName = list.map(w => w.name).join("＋");
-    return { weaponAttack, damageType, faValue, attackSourceName };
+    const faOptions = list
+        .filter(w => w.isFullAuto)
+        .map(w => ({ itemId: w.itemId ?? "", name: w.name, faValue: Number(w.faValue) || 0, consumesAmmo: w.consumesAmmo === true }));
+    return { weaponAttack, damageType, attackSourceName, faOptions };
 }
 
 /**

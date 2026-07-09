@@ -5,8 +5,20 @@
 <div class="tnx-damage-form">
     <p class="tnx-damage-summary">
         {{categoryLabel}}ダメージ{{#if targetName}}／対象: {{targetName}}{{/if}}<br>
-        ダメージカード{{#if isPhysical}} ＋ 攻撃力（{{attackSourceName}}）<b>{{attackLabel}}</b>{{#if faValue}} ＋ FA <b>{{faValue}}</b>{{/if}}{{/if}} ＋ 修正
+        ダメージカード{{#if isPhysical}} ＋ 攻撃力（{{attackSourceName}}）<b>{{attackLabel}}</b>{{/if}} ＋ 修正
     </p>
+
+    {{#if faOptions.length}}
+    <fieldset class="tnx-damage-group">
+        <legend>フルオート射撃（武器ごとに選択）</legend>
+        {{#each faOptions}}
+        <label class="tnx-damage-row">
+            <input type="checkbox" class="dmg-fa" value="{{this.itemId}}">
+            <span>{{this.name}} <span class="tnx-damage-formula">＋FA {{this.faValue}}</span>{{#if this.consumesAmmo}} <span class="tnx-damage-formula" title="FA射撃で残弾が空になります">※残弾を消費</span>{{/if}}</span>
+        </label>
+        {{/each}}
+    </fieldset>
+    {{/if}}
 
     {{#if boostRows.length}}
     <fieldset class="tnx-damage-group">

@@ -28,6 +28,7 @@ import { TargetSelectionDialog } from "./tnx-dialog.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { isActorInStartedCombat } from "../data/helpers.mjs";
 import { resolveNoReaction, resolveOpposed, attackReactionModes, formatAttackLabel, combineWeaponAttack } from "./attack-flow-logic.mjs";
+import { hasAmmoTracking } from "./weapon-ammo.mjs";
 import { buildSkillOptions } from "./skill-select.mjs";
 import { actorSkillsWithRole } from "./skill-roles.mjs";
 
@@ -80,19 +81,22 @@ export async function useAttack(item, usage) {
 
     // 武器解決(物理のみ): weaponRefs(複数可) → 生身(baseAttack)フォールバック。
     // 複数武器は攻撃力を合算する(合算能力の表現・2026-07-09。純ロジックは combineWeaponAttack)。
-    let weaponAttack = 0, damageType = "", faValue = 0, attackSourceName = "";
+    // FA は自動加算せず faOptions として持ち回し、ダメージ算出ダイアログで武器ごとに選択する。
+    let weaponAttack = 0, damageType = "", attackSourceName = "", faOptions = [];
     if (category === "physical") {
         const weapons = (usage.weaponRefs ?? [])
             .map(r => (r?.itemId ? actor.items.get(r.itemId) : null))
             .filter(Boolean)
             .map(w => ({
+                itemId:      w.id,
                 name:        w.name,
                 attackValue: Number(w.system.attack?.value) || 0,
                 damageType:  w.system.attack?.damageType || "",
                 isFullAuto:  w.system.isFullAuto === true,
                 faValue:     Number(w.system.FAValue) || 0,
+                consumesAmmo: hasAmmoTracking(w.system.ammo),
             }));
-        ({ weaponAttack, damageType, faValue, attackSourceName } =
+        ({ weaponAttack, damageType, attackSourceName, faOptions } =
             combineWeaponAttack(weapons, usage.damageType, actor.system.baseAttack ?? {}));
     }
 
@@ -168,7 +172,7 @@ export async function useAttack(item, usage) {
             attackerUuid: actor.uuid,
             attackerName: actor.name,
             targetUuid, targetName,
-            category, damageType, weaponAttack, faValue, attackSourceName,
+            category, damageType, weaponAttack, faOptions, attackSourceName,
             skillLabel,
             usageName: usage.name || item.name,
         },
@@ -220,7 +224,8 @@ export async function postAttackCard({ payload, result, suit, card, fromDeck, tr
             targetName:    payload.targetName,
             attackSourceName: payload.attackSourceName,
             attackLabel:   formatAttackLabel(payload.damageType, payload.weaponAttack),
-            faValue:       payload.faValue,
+            // FA は自動加算せずダメージ算出ダイアログで選択するため、ここでは「FA 可」表示のみ
+            hasFa:         (payload.faOptions?.length ?? 0) > 0,
             achievement:   result.achievement,
         }
     );
