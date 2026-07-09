@@ -6966,6 +6966,28 @@ button.tnx-create-act-button span {
     margin-bottom: 12px;
 }
 
+/* 判定・ダメージの構成(式)の表示(2026-07-10): 用途シートで達成値/ダメージの組み立てを示す。 */
+.usage-formula-line {
+    margin: 8px 0 0;
+    padding: 6px 8px;
+    border-left: 2px solid var(--tnx2-accent);
+    background: var(--tnx2-bg-3);
+    color: var(--tnx2-text-secondary);
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.82em;
+    line-height: 1.5;
+}
+.usage-formula-line b {
+    color: var(--tnx2-text-accent);
+    font-weight: 700;
+}
+
+/* 用途シート内の fieldset は既存の .tnx-fieldset を流用。内側 section の下マージンを詰める。 */
+.usage-sheet-body .tnx-fieldset > .usage-form-section:last-child,
+.usage-sheet-body .tnx-fieldset > .usage-form-grid:last-child {
+    margin-bottom: 0;
+}
+
 .usage-textarea {
     width: 100%;
     background: var(--tnx2-bg-3);

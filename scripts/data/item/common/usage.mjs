@@ -114,6 +114,10 @@ export class UsageTemplate extends SystemDataModel {
                     // attack: ダメージ種別 ("S" | "P" | "I")。複数武器で種別が別々のときの選択にも使う
                     damageType: new fields.StringField({ initial: "" }),
 
+                    // check: 判定ボーナス(達成値へ加算する式・全判定用途で有効。2026-07-10 ユーザー確定)。
+                    // @diff/@achievement は結果由来で判定前には使えないため、実質フラット値/算術式。
+                    checkBonus: new fields.StringField({ initial: "" }),
+
                     // damageBoost・damageReduce: 効果量（計算式 or 固定値文字列）
                     formula: new fields.StringField({ initial: "" }),
 

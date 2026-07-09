@@ -177,6 +177,7 @@ export async function useAttack(item, usage) {
         bountyAvailable: baseSkill.system.usesBounty === true ? actorBounty : 0,
         consumeUses:     usesPlan,
         requestMessageId: null,
+        checkBonusFormula: usage.checkBonus,
         attack: {
             attackerUuid: actor.uuid,
             attackerName: actor.name,
@@ -467,6 +468,7 @@ export async function startReaction(message, mode) {
         bountyAvailable: baseSkill.system.usesBounty === true ? reactorBounty : 0,
         consumeUses:     usesPlan,
         requestMessageId: null,
+        checkBonusFormula: usage?.checkBonus,
         reaction: { attackMessageId: message.id, mode, parryGuard },
     });
 }

@@ -46,9 +46,11 @@
                 </div>
             </div>
             {{else}}
-            <div class="usage-form-grid">
 
                 {{#if isNpcAcquireType}}
+                <fieldset class="tnx-fieldset">
+                    <legend>取得</legend>
+                    <div class="usage-form-grid">
                 {{!-- NPC取得のモード(取得類型・明示選択=2026-07-04 裁定)。判定・目標値はモードで決まる:
                      エキストラ=判定なし / トループ・エニグマ=判定(目標値なし・達成値=人数/ポイント) /
                      分身=判定(目標値10・達成値10以上で成功) --}}
@@ -90,8 +92,13 @@
                     </div>
                 </div>
                 {{/if}}
+                    </div>
+                </fieldset>
                 {{/if}}
 
+            <fieldset class="tnx-fieldset">
+                <legend>タイミング</legend>
+                <div class="usage-form-grid">
                 {{!-- タイミング --}}
                 <div class="usage-form-row">
                     <label class="usage-field-label">タイミング</label>
@@ -117,7 +124,12 @@
                            value="{{usage.timing.timingOther}}"
                            {{#unless editable}}disabled{{/unless}}>
                 </div>
+                </div>
+            </fieldset>
 
+            <fieldset class="tnx-fieldset">
+                <legend>対象・射程</legend>
+                <div class="usage-form-grid">
                 {{!-- 対象（変更不可※をインライン） --}}
                 <div class="usage-form-row">
                     <label class="usage-field-label">対象</label>
@@ -155,7 +167,12 @@
                     <input type="text" name="rangeOther" value="{{usage.rangeOther}}"
                            {{#unless editable}}disabled{{/unless}}>
                 </div>
+                </div>
+            </fieldset>
 
+            <fieldset class="tnx-fieldset">
+                <legend>目標値・対決</legend>
+                <div class="usage-form-grid">
                 {{!-- 目標値(NPC取得はモードで確定するため入力欄を出さない) --}}
                 {{#unless isNpcAcquireType}}
                 <div class="usage-form-row">
@@ -193,8 +210,8 @@
                         <span>対決不可</span>
                     </label>
                 </div>
-
-            </div>
+                </div>
+            </fieldset>
 
             {{!-- NPC取得(エキストラモード): 取得アイテム(小分類エキストラのアウトフィット)の
                  ドロップ欄(フェーズ10 の取得対象欄と同方式)。使用時に派生取得+場に出る --}}
@@ -227,8 +244,8 @@
                  対決欄の解釈(Check_Rules 2026-06-20): 無印の技能名は例示(他技能でのリアクションを
                  排除しない)・※付きは必須——説明はフットノートでなく title で示す --}}
             {{#if showSkillParams}}
-            <div class="usage-form-section usage-confrontation-info">
-                <label class="usage-field-label">対決（参加技能より） <i class="fas fa-circle-question" title="参加技能の対決欄に書かれた技能です。無印の技能は例示で、書かれていない技能でのリアクションを排除しません。※付きの技能は必須です"></i></label>
+            <fieldset class="tnx-fieldset usage-confrontation-info">
+                <legend title="参加技能の対決欄に書かれた技能です。無印の技能は例示で、書かれていない技能でのリアクションを排除しません。※付きの技能は必須です">対決（参加技能より）</legend>
                 {{#if confrontationCannot}}
                 <p class="usage-info-line"><i class="fas fa-ban"></i> 対決不可の技能を含みます</p>
                 {{/if}}
@@ -239,7 +256,7 @@
                 <p class="usage-empty-hint">（参加技能に対決の指定なし）</p>
                 {{/unless}}
                 {{/if}}
-            </div>
+            </fieldset>
             {{#if editable}}
             <div class="usage-autofill-row">
                 <a class="tnx-btn tnx-btn--sm" data-action="autoFill" title="参加技能の固有値から発動パラメータと使用回数の消費（親×1＋使用回数制限つき参加技能×1）を導出して上書きします">
@@ -252,9 +269,9 @@
             {{!-- 使用回数の消費(11-6): 全ての消費はこの設定からのみ発生する(自動スキャン全廃・
                  親アイテム・組み合わせ技能も自動では消費されない)。D&D の Consumption 踏襲。
                  位置はタブ末尾(対決不可→対決情報→自動入力の連続を分断しない・2026-07-05 ユーザー確認) --}}
-            <div class="usage-form-section usage-consume-section">
+            <fieldset class="tnx-fieldset usage-consume-section">
+                <legend title="実行時に消費するカウンターの設定です。親アイテムや組み合わせ技能の使用回数は自動では消費されません——消費したい分をここに設定します（判定用途は判定実行時・他の用途は使用時に消費）">使用回数の消費</legend>
                 <div class="usage-consume-header">
-                    <label class="usage-field-label">使用回数の消費 <i class="fas fa-circle-question" title="実行時に消費するカウンターの設定です。親アイテムや組み合わせ技能の使用回数は自動では消費されません——消費したい分をここに設定します（判定用途は判定実行時・他の用途は使用時に消費）"></i></label>
                     {{#if editable}}
                     <a class="tnx-row-btn" data-action="consumeRowAdd" title="消費先を追加"><i class="fas fa-plus"></i></a>
                     {{/if}}
@@ -287,7 +304,7 @@
                 {{#unless consumeRows.length}}
                 <p class="usage-empty-hint">（消費なし）</p>
                 {{/unless}}
-            </div>
+            </fieldset>
             {{/if}}
         </div>
 
@@ -297,13 +314,29 @@
 
             {{!-- check・NPC取得(判定系モード): ベース技能・組み合わせ技能。攻撃は判定の一種 --}}
             {{#if (or isCheckType isAcquireCheckMode)}}
-            {{> "systems/tokyo-nova-axleration/templates/app/usage-sheet-combo.hbs"}}
+            <fieldset class="tnx-fieldset">
+                <legend>参加技能</legend>
+                {{> "systems/tokyo-nova-axleration/templates/app/usage-sheet-combo.hbs"}}
+            </fieldset>
             {{/if}}
+
+            {{!-- 判定: 判定ボーナス(式)＋達成値の構成(全判定用途・2026-07-10 ユーザー確定)。
+                 達成値 = カード+能力値+報酬点+判定バフ で構成され、ここで用途固有の加算(式)を足す --}}
+            {{#if isCheckType}}
+            <fieldset class="tnx-fieldset">
+                <legend>判定</legend>
+                <div class="usage-form-row">
+                    <label class="usage-field-label">判定ボーナス <i class="fas fa-circle-question" title="達成値に加算する式です（例: 2、1+1）。判定前のため @差分値 等の結果参照は使えません＝実質は数値・算術式です"></i></label>
+                    <input type="text" name="checkBonus" value="{{usage.checkBonus}}" placeholder="例: 2"
+                           {{#unless editable}}disabled{{/unless}}>
+                </div>
+                <p class="usage-formula-line">達成値 ＝ カード ＋ 能力値 ＋ 報酬点 ＋ 判定バフ{{#if usage.checkBonus}} ＋ <b>{{usage.checkBonus}}</b>{{/if}}</p>
+            </fieldset>
 
             {{!-- 攻撃プロファイル(2026-07-09): 攻撃は判定の一種。「攻撃に使う」トグルで系統・武器・種別を出す。
                  系統=Damage_Rules の3系統。武器・ダメージ種別は物理のみ(精神・社会は攻撃力を持たない) --}}
-            {{#if isCheckType}}
-            <div class="usage-form-section usage-attack-section">
+            <fieldset class="tnx-fieldset usage-attack-section">
+                <legend>攻撃</legend>
                 <label class="usage-toggle-inline" title="この判定を攻撃（ダメージを与える行動）として使う場合にオンにします。オフなら通常の判定です">
                     <input type="checkbox" name="isAttack" {{checked isAttack}} {{#unless editable}}disabled{{/unless}}>
                     <span>この判定を攻撃に使う</span>
@@ -354,35 +387,39 @@
                         </select>
                     </div>
                     {{/if}}
+                    <p class="usage-formula-line">{{#if isAttackPhysical}}ダメージ ＝ ダメージカード ＋ 攻撃力{{#if selectedWeapons.length}}（合算）{{else}}（生身）{{/if}} ＋ ダメージ修正 − 軽減{{else}}ダメージ ＝ ダメージカード ＋ ダメージ修正（精神／社会は攻撃力・防御力なし）{{/if}}</p>
                 </div>
                 {{/if}}
-            </div>
+            </fieldset>
             {{/if}}
 
             {{!-- damageBoost / damageReduce: 計算式・カテゴリ --}}
             {{#if isDamageType}}
-            <div class="usage-form-grid">
-                <div class="usage-form-row">
-                    <label class="usage-field-label">効果量（計算式）</label>
-                    <input type="text" name="formula" value="{{usage.formula}}"
-                           placeholder="例: @card, @card + 3, 5"
-                           {{#unless editable}}disabled{{/unless}}>
+            <fieldset class="tnx-fieldset">
+                <legend>効果量</legend>
+                <div class="usage-form-grid">
+                    <div class="usage-form-row">
+                        <label class="usage-field-label">効果量（計算式）</label>
+                        <input type="text" name="formula" value="{{usage.formula}}"
+                               placeholder="例: @card, @card + 3, 5"
+                               {{#unless editable}}disabled{{/unless}}>
+                    </div>
+                    <div class="usage-form-row">
+                        <label class="usage-field-label">適用カテゴリ</label>
+                        <select name="damageCategory" {{#unless editable}}disabled{{/unless}}>
+                            <option value="">── 選択 ──</option>
+                            <option value="physical" {{#if (eq usage.damageCategory "physical")}}selected{{/if}}>物理</option>
+                            <option value="mental"   {{#if (eq usage.damageCategory "mental")}}selected{{/if}}>精神</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="usage-form-row">
-                    <label class="usage-field-label">適用カテゴリ</label>
-                    <select name="damageCategory" {{#unless editable}}disabled{{/unless}}>
-                        <option value="">── 選択 ──</option>
-                        <option value="physical" {{#if (eq usage.damageCategory "physical")}}selected{{/if}}>物理</option>
-                        <option value="mental"   {{#if (eq usage.damageCategory "mental")}}selected{{/if}}>精神</option>
-                    </select>
-                </div>
-            </div>
+            </fieldset>
             {{/if}}
 
             {{!-- modification: 改造可能パラメータ --}}
             {{#if isModificationType}}
-            <div class="usage-form-section">
-                <label class="usage-field-label">改造可能パラメータ</label>
+            <fieldset class="tnx-fieldset">
+                <legend>改造可能パラメータ</legend>
                 <div class="usage-param-list">
                     {{#each usage.modifiableParams}}
                     <div class="usage-param-row">
@@ -404,12 +441,12 @@
                     </a>
                 </div>
                 {{/if}}
-            </div>
+            </fieldset>
             {{/if}}
 
             {{!-- 適用される効果（ActiveEffect） --}}
-            <div class="usage-form-section usage-effects-section">
-                <label class="usage-field-label usage-section-head">適用される効果</label>
+            <fieldset class="tnx-fieldset usage-effects-section">
+                <legend>適用される効果</legend>
                 <div class="usage-effect-list">
                     {{#each addedEffects}}
                     <div class="usage-skill-ref-row">
@@ -437,7 +474,7 @@
                    アイテムシートの「エフェクト」タブで追加すると、ここで選択できます。</p>
                 {{/unless}}
                 {{/if}}
-            </div>
+            </fieldset>
 
         </div>
         {{/unless}}

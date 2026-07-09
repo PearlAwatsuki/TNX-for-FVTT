@@ -17,6 +17,7 @@
 
 import { getCardCheckValue, calcSkillCheck, calcControlCheck, ALL_SUITS, SUIT_TO_ABILITY } from './tnx-check-engine.mjs';
 import { gatherCheckBonusSources } from '../data/item/helpers.mjs';
+import { evaluateFormula } from './tnx-formula.mjs';
 import { readConditions, gatherConditionCheckSources, getCheckBlock, computeJammingPenalty } from './conditions.mjs';
 import { TnxActionHandler } from './tnx-action-handler.mjs';
 import { TnxSocketHandler } from './tnx-socket-handler.mjs';
@@ -564,7 +565,16 @@ export class TnxCheckFlow {
         const abilitiesCtx = suitMismatch ? null : TnxCheckFlow._buildAbilitiesCtx(actor);
         // 判定バフ(check 時・同一効果の重複適用不可)を算出。内訳(sources)はチャットの内訳表示に使う
         const checkInfo  = suitMismatch ? { total: 0, sources: [] } : TnxCheckFlow._computeCheckBonus(actor, ctx, SUIT_TO_ABILITY[suit]);
-        const checkBonus = checkInfo.total;
+        let checkBonus = checkInfo.total;
+        // 用途の判定ボーナス(達成値へ加算する式・2026-07-10)。結果由来キーは判定前に使えないため
+        // 実質フラット値/算術式(評価不能は無視)。内訳に「判定ボーナス（用途）」として載せる
+        if (!suitMismatch && ctx.checkBonusFormula) {
+            const bonus = await evaluateFormula(ctx.checkBonusFormula, {});
+            if (Number.isFinite(bonus) && bonus !== 0) {
+                checkBonus += bonus;
+                checkInfo.sources.push({ name: "判定ボーナス（用途）", value: bonus });
+            }
+        }
 
         // 報酬点の使用を決定（スート不一致・制御判定・ファンブル確定はスキップ）
         let bountyUsed = 0;
