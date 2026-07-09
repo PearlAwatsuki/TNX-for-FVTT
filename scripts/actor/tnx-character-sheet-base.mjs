@@ -747,10 +747,11 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         for (const c of candidates) choices[c.id] = displayName(c);
         context.combatWeaponChoices = choices;
 
-        // 防御力: 全ての義体を含む種別ごとの合計(準備済みの armor/cyborg。防具は合算適用・
-        // 義体の防御力は防具と加算される。複数義体の「一種のみ適用」の厳密化は12の実効防御派生で)
+        // 防御力: 全ての義体を含む種別ごとの合計(準備済みの armor/cyborg/vehicle。防具は合算適用・
+        // 義体の防御力は防具と加算される。搭乗中(準備済み)ヴィークルの防御力も加算する(2026-07-09
+        // ユーザー確定)。複数義体の「一種のみ適用」の厳密化は12の実効防御派生で)
         context.combatDefenceTotal = items
-            .filter(i => (i.type === "armor" || i.type === "cyborg")
+            .filter(i => (i.type === "armor" || i.type === "cyborg" || i.type === "vehicle")
                 && usable(i) && i.system.defence?.mode === "value")
             .reduce((t, i) => {
                 const d = i.system.defence;
