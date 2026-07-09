@@ -28,7 +28,7 @@ import { TargetSelectionDialog } from "./tnx-dialog.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { isActorInStartedCombat } from "../data/helpers.mjs";
 import { resolveNoReaction, resolveOpposed, attackReactionModes, formatAttackLabel, combineWeaponAttack } from "./attack-flow-logic.mjs";
-import { hasAmmoTracking } from "./weapon-ammo.mjs";
+import { hasAmmoTracking, consumeNormalAmmo } from "./weapon-ammo.mjs";
 import { buildSkillOptions } from "./skill-select.mjs";
 import { actorSkillsWithRole } from "./skill-roles.mjs";
 
@@ -157,6 +157,15 @@ export async function useAttack(item, usage) {
         .filter(Boolean)
         .join("+");
     const actorBounty = (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0);
+
+    // 通常(非FA)射撃の残弾消費: 数字モードの武器を 1 減らす(任意は FA でのみ空・2026-07-10)。
+    // 物理攻撃のみ。FA による消費はダメージ算出時(consumeFaAmmo)に別途行う。
+    if (category === "physical") {
+        for (const r of (usage.weaponRefs ?? [])) {
+            const w = r?.itemId ? actor.items.get(r.itemId) : null;
+            if (w) await consumeNormalAmmo(w);
+        }
+    }
 
     await TnxCheckFlow.open({
         type:            "skillCheck",

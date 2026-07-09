@@ -324,11 +324,13 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         context.hasGuard   = ["weapon", "cyborg"].includes(type);
         context.hasDefence = ["armor", "cyborg", "vehicle"].includes(type);
 
-        // 残弾(射撃武器・搭載兵器のみ・2026-07-09)。空になるのは FA 射撃のみ・リロードで回復
+        // 残弾(射撃武器・搭載兵器のみ・2026-07-09〜10)。数字は通常射撃で減り、任意は FA で空。
         context.hasAmmo = type === "weapon"
             && (system.minorCategory === "ranged" || system.minorCategory === "mounted");
         if (context.hasAmmo) {
             context.ammoModeOptions = { none: "-", value: "数字", arbitrary: "任意" };
+            // 数字モードの現在残弾(null=満タン=value)。シートで確認できるよう表示する
+            context.ammoRemaining = system.ammo?.current ?? (Number(system.ammo?.value) || 0);
         }
 
         // ヴィークルの「対応する操縦」(辞典 operate_ 技能)の選択肢。操縦移動判定・搭乗ドッジ上書きに使う

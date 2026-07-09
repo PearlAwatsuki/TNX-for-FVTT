@@ -19,9 +19,10 @@
  *   「なし / 数値」の {mode,value} 構造。
  * - isFullAuto: フルオート射撃可能。FAValue が FAn の n(ダメージに加算)。FA は自動加算せず
  *   ダメージ算出ダイアログで武器ごとに選択する(2026-07-09 ユーザー確定)。
- * - ammo: 残弾(射撃武器・搭載兵器のみ)。mode = none(概念なし)/value(装弾数を数字で表示)/
- *   arbitrary(残弾の有無だけ=任意)。empty = 現在空か(実行時状態)。FA 射撃で空になり、
- *   リロード(マイナーアクション)で満タンに戻る。通常射撃では減らない。
+ * - ammo: 残弾(射撃武器・搭載兵器のみ)。mode = none(概念なし)/value(装弾数=数字。FA以外用)/
+ *   arbitrary(残弾の有無だけ=任意。FA 武器用)。current = 現在の残弾(実行時。null=満タン(数字)/
+ *   あり(任意)・0=空)。**数字は通常(非FA)射撃で1減り、任意は FA 射撃で空になる**
+ *   (2026-07-10 ユーザー確定)。空(0)の武器はリロード(マイナーアクション)で満タンに戻る。
  *   ※自動給弾の FA 武器は「isFullAuto=true かつ ammo.mode=none(-)」で表現する
  *   (残弾を追跡しなければ FA しても空にならない。専用フラグは不要=2026-07-10 ユーザー確定)。
  */
@@ -112,15 +113,16 @@ export class WeaponDataModel extends SystemDataModel.mixin(
       isLaser:     new fields.BooleanField({ initial: false }),
       isFullAuto:  new fields.BooleanField({ initial: false }),
       FAValue:     new fields.NumberField({ initial: 0 }),
-      // 残弾(射撃武器・搭載兵器のみ UI 表示。2026-07-09 ユーザー確定):
-      //   mode  = none(概念なし)/value(装弾数を数字表示)/arbitrary(有無だけ=任意)
-      //   value = 装弾数(mode=value の表示。満タン時の数)
-      //   empty = 現在空か(FA 射撃で true・リロードで false。通常射撃では変化しない)
+      // 残弾(射撃武器・搭載兵器のみ UI 表示。2026-07-09〜10 ユーザー確定):
+      //   mode    = none(概念なし)/value(装弾数=数字。FA以外用)/arbitrary(有無だけ=任意。FA武器用)
+      //   value   = 装弾数(mode=value の満タン時の数=最大値。シートで設定)
+      //   current = 現在の残弾(実行時。null=満タン(数字)/あり(任意)・0=空)。
+      //             数字は通常(非FA)射撃で1減り、任意は FA 射撃で空に。リロードで満タン(null)へ。
       ammo: new fields.SchemaField({
-        mode:  new fields.StringField({ required: true, blank: false, initial: "none",
+        mode:    new fields.StringField({ required: true, blank: false, initial: "none",
           choices: { none: "-", value: "数字", arbitrary: "任意" } }),
-        value: new fields.NumberField({ initial: 0, min: 0, integer: true }),
-        empty: new fields.BooleanField({ initial: false }),
+        value:   new fields.NumberField({ initial: 0, min: 0, integer: true }),
+        current: new fields.NumberField({ initial: null, nullable: true, min: 0, integer: true }),
       }),
       // 生身変更装備(フェーズ10-6・2026-07-02 裁定): 生身(武器)のデータ——攻撃力と受け値——を
       // 書き換える装備。書き換え結果は「生身」として扱われ、生身は単一のため複数準備でも
@@ -144,6 +146,10 @@ export class WeaponDataModel extends SystemDataModel.mixin(
       }
       // 旧: max が "close"(新スキーマに存在しない) → "none" に変換
       if (source.range.max === "close") source.range.max = "none";
+    }
+    // 残弾: 旧 empty(真偽) → current(数値・null=満タン/0=空)へ移行(2026-07-10)
+    if (source.ammo && source.ammo.current === undefined && source.ammo.empty !== undefined) {
+      source.ammo.current = source.ammo.empty ? 0 : null;
     }
     return super.migrateData(source);
   }

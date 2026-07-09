@@ -278,7 +278,7 @@
                                  自動給弾のFA武器は残弾を「-」にする(FAしても空にならない) --}}
                             {{#if hasAmmo}}
                                 <div class="form-group">
-                                    <label title="残弾。数字=装弾数の表示／任意=有無だけ。FA射撃で空になり、リロードで満タンに戻る">残弾</label>
+                                    <label title="残弾。数字=装弾数（通常射撃で減る）／任意=有無だけ（FA射撃で空）。空はリロードで満タンに戻る">残弾</label>
                                     <div class="form-fields {{#if (eq system.ammo.mode "value")}}split-fields{{/if}}">
                                         <select name="system.ammo.mode">
                                             {{selectOptions ammoModeOptions selected=system.ammo.mode}}
@@ -289,6 +289,7 @@
                                                 <input type="number" name="system.ammo.value" value="{{system.ammo.value}}" min="0">
                                                 <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.ammo.value">+</button>
                                             </div>
+                                            <span class="tnx-ammo-remaining" title="現在の残弾（満タン＝装弾数）">残り {{ammoRemaining}}</span>
                                         {{/if}}
                                     </div>
                                 </div>
