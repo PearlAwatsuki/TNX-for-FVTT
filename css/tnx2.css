@@ -6866,12 +6866,23 @@ button.tnx-create-act-button span {
     padding: 2px 0;
 }
 
-/* 技能の役割チェック(skillRoles・2026-07-09) */
+/* 技能の役割チェック(skillRoles・2026-07-09。特性セクション内) */
+.skill-roles-block {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--tnx2-border-subtle);
+}
+.skill-roles-label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 0.82em;
+    font-weight: 700;
+    color: var(--tnx2-text-secondary);
+}
 .skill-roles-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 4px 12px;
-    margin: 4px 0;
 }
 .skill-role-chk {
     display: flex;
@@ -6879,11 +6890,6 @@ button.tnx-create-act-button span {
     gap: 6px;
     font-size: 0.9em;
     cursor: pointer;
-}
-.skill-roles-hint {
-    margin: 4px 0 0;
-    font-size: 0.8em;
-    color: var(--tnx2-text-secondary);
 }
 
 /* 発動タブの設定項目は2カラムグリッドで密度を上げる(縦積みで見辛い問題の改善・2026-07-09)。

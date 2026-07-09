@@ -88,6 +88,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             context.skillRoleOptions = Object.entries(SKILL_ROLES).map(([key, def]) => ({
                 key, label: def.label, checked: active.includes(key),
             }));
+            context.showNoCombo = this.item.type === "styleSkill"; // 組み合わせ不可はスタイル技能のみ
         }
 
         return context;

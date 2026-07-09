@@ -1,0 +1,37 @@
+{{!-- 技能の特性(2026-07-09): 散在していた真偽フラグと役割を1セクションに集約(アウトフィットの「特性」に倣う)。
+     役割=治療/ドッジ/パリー/各リアクション/各攻撃の既定の使用技能を名前でなく役割で持つ。 --}}
+<fieldset class="tnx-fieldset">
+    <legend>特性</legend>
+    <div class="outfit-flags">
+        <label class="outfit-flag">
+            <input type="checkbox" name="system.isAction" {{checked system.isAction}}>
+            <span>アクション技能</span>
+        </label>
+        <label class="outfit-flag">
+            <input type="checkbox" name="system.usesBounty" {{checked system.usesBounty}}>
+            <span>報酬点を使用可能</span>
+        </label>
+        {{#if showNoCombo}}
+        <label class="outfit-flag" title="この技能は組み合わせ判定に参加できない">
+            <input type="checkbox" name="system.noCombo" {{checked system.noCombo}}>
+            <span>組み合わせ不可</span>
+        </label>
+        {{/if}}
+    </div>
+
+    {{#if skillRoleOptions}}
+    <div class="skill-roles-block">
+        <span class="skill-roles-label">役割</span>
+        <div class="skill-roles-grid">
+            {{#each skillRoleOptions}}
+            <label class="skill-role-chk">
+                <input type="checkbox" {{#if this.checked}}checked{{/if}}
+                       data-action="toggleSkillRole" data-role="{{this.key}}"
+                       {{#unless @root.editable}}disabled{{/unless}}>
+                <span>{{this.label}}</span>
+            </label>
+            {{/each}}
+        </div>
+    </div>
+    {{/if}}
+</fieldset>

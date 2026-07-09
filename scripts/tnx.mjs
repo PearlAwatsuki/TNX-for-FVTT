@@ -115,7 +115,7 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/parts/prosemirror-editor.hbs",
         "systems/tokyo-nova-axleration/templates/parts/history-list.hbs",
         "systems/tokyo-nova-axleration/templates/parts/usage-list.hbs",
-        "systems/tokyo-nova-axleration/templates/item/parts/skill-roles.hbs",
+        "systems/tokyo-nova-axleration/templates/item/parts/skill-traits.hbs",
         "systems/tokyo-nova-axleration/templates/parts/bad-status-list.hbs",
         "systems/tokyo-nova-axleration/templates/app/usage-sheet-combo.hbs",
 
