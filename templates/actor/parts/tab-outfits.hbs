@@ -32,7 +32,10 @@
                                         {{#unless row.isResidence}}
                                         <button type="button" class="outfit-flag-btn{{#if row.system.isCarrying}} active{{/if}}" data-action="toggleOutfitFlag" data-flag="isCarrying" title="携帯中"><i class="fa-solid fa-suitcase"></i></button>
                                         {{/unless}}
+                                        {{!-- 部位「-」は準備できない=準備トグルを出さない(準備不要で常時適用・2026-07-09) --}}
+                                        {{#unless row.system.isPartless}}
                                         <button type="button" class="outfit-flag-btn{{#if row.system.isPrepared}} active{{/if}}" data-action="toggleOutfitFlag" data-flag="isPrepared" title="準備済み" {{#unless row.system.isCarrying}}disabled{{/unless}}><i class="fa-solid fa-shield-halved"></i></button>
+                                        {{/unless}}
                                     </span>
                                     <span class="outfit-col--actions">
                                         <button type="button" class="skill-desc-toggle" data-action="toggleOutfitDesc" title="説明を表示/非表示">

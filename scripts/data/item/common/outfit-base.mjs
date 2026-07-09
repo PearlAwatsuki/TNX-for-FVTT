@@ -215,10 +215,14 @@ export class OutfitBaseTemplate extends SystemDataModel {
     this.isOption = rows.some((r) =>
       r?.kind === "option" || (r?.kind === "reference" && r?.refSubKind === "option"));
 
-    // 部位「-」(占有部位なし)のアウトフィットは準備できない=**準備不要**として扱う
-    // (2026-07-09 ユーザー・ルール反映)。準備トグルは非表示にし、未準備でもデータ/効果が適用される。
-    // 手動 noPrepareRequired との OR(部位「-」以外の準備不要品も尊重)。
+    // 部位「-」(占有部位なし)のアウトフィットは**準備できない**(2026-07-09 ユーザー・ルール反映)。
+    // 準備フラグは**オフに強制(派生)**し、トグルは非表示にする。未準備でもデータ/効果が適用される
+    // ように noPrepareRequired を立てる(手動 noPrepareRequired の他用途も尊重)。
+    // isPrepared を派生で false に上書きしても、適用側は isPrepared||noPrepareRequired で判定するため効く。
     this.isPartless = formatPartDesignation(this.part, this.partRelation, this.partOptional) === "-";
-    if (this.isPartless) this.noPrepareRequired = true;
+    if (this.isPartless) {
+      this.noPrepareRequired = true;
+      this.isPrepared = false; // 準備できない=常にオフ
+    }
   }
 }
