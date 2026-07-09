@@ -183,6 +183,7 @@ export async function useAttack(item, usage) {
             attackerName: actor.name,
             targetUuid, targetName,
             category, damageType, weaponAttack, faOptions, attackSourceName,
+            damageBonus: usage.damageBonus,
             skillLabel,
             usageName: usage.name || item.name,
         },

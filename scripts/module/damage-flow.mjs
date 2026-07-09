@@ -121,6 +121,11 @@ export async function openDamageRollDialog(attackMessage) {
         r.effectDisplay = usageEffectDisplay(r, "＋");
     }
 
+    // 攻撃用途のダメージ修正(式・2026-07-10)。判定ボーナスと対で、ダメージへ加算する。
+    // ここで評価(@diff/@achievement 使用可)して固定し、ダメージカードの合計へ乗せる
+    const damageBonusVal = await evaluateFormula(f.damageBonus, formulaData);
+    const damageBonus = Number.isFinite(damageBonusVal) ? damageBonusVal : 0;
+
     const content = await foundry.applications.handlebars.renderTemplate(
         "systems/tokyo-nova-axleration/templates/dialog/damage-roll-dialog.hbs",
         {
@@ -131,13 +136,14 @@ export async function openDamageRollDialog(attackMessage) {
             attackSourceName: f.attackSourceName,
             targetName: f.targetName,
             boostRows,
+            damageBonus,
         }
     );
 
     // 待ち受け開始: ダイアログを開いたまま、手札は HUD クリック(executeDamageCardFromHand)・
     // 山札はダイアログのボタンで出す(判定と同じ操作系)
     await cancelPending();
-    const ctx = { kind: "roll", attackMessage, f, attacker, category, attackPower, faOptions, boostRows, dialog: null, done: false };
+    const ctx = { kind: "roll", attackMessage, f, attacker, category, attackPower, faOptions, boostRows, damageBonus, dialog: null, done: false };
     _pending = ctx;
 
     const chosen = await foundry.applications.api.DialogV2.wait({
@@ -171,7 +177,7 @@ export async function openDamageRollDialog(attackMessage) {
  * @param {{name:string, suit:string, value:number}} played 出したダメージカード
  */
 async function finalizeDamageRoll(ctx, form, played) {
-    const { attackMessage, f, attacker, category, attackPower, faOptions, boostRows } = ctx;
+    const { attackMessage, f, attacker, category, attackPower, faOptions, boostRows, damageBonus } = ctx;
 
     // FA 射撃(武器ごとに任意選択・2026-07-09): 選んだ FA 武器の FA 値を合算しダメージへ。
     // 選んだ武器の残弾を空にする(自動給弾を除く=consumeFaAmmo が判定)。
@@ -206,7 +212,7 @@ async function finalizeDamageRoll(ctx, form, played) {
                     targetName: f.targetName ?? "",
                     category,
                     damageType: f.damageType ?? "",
-                    attackPower, faValue,
+                    attackPower, faValue, damageBonus,
                     attackSourceName: f.attackSourceName ?? "",
                     parryGuard: Number(f.parryGuard) || 0,
                     diff: f.diff ?? null,
@@ -329,6 +335,7 @@ export function renderDamageCard(message, html) {
         row(ledger, `攻撃力（${esc(f.attackSourceName || "生身")}）`, formatAttackLabel(f.damageType, f.attackPower));
         if (f.faValue) row(ledger, "FA", `＋${f.faValue}`);
     }
+    if (f.damageBonus) row(ledger, "ダメージ修正（用途）", signedDisplay("＋", f.damageBonus));
     for (const b of (f.boosts ?? [])) {
         row(ledger, esc(b.label), Number.isFinite(b.value) ? signedDisplay("＋", b.value) : `（${esc(b.formula)}）`);
     }
@@ -373,11 +380,12 @@ export function renderDamageCard(message, html) {
     }
 }
 
-/** 攻撃側合計(カード合算+攻撃力+FA+boost+手動修正)。 */
+/** 攻撃側合計(カード合算+攻撃力+FA+用途のダメージ修正+boost+手動修正)。 */
 function damageRollTotals(f) {
     const cardSum = (f.cards ?? []).reduce((s, c) => s + (Number(c.value) || 0), 0);
     const boostSum = (f.boosts ?? []).reduce((s, b) => s + (Number.isFinite(b.value) ? b.value : 0), 0);
-    const raw = cardSum + (Number(f.attackPower) || 0) + (Number(f.faValue) || 0) + boostSum + (Number(f.manualMod) || 0);
+    const raw = cardSum + (Number(f.attackPower) || 0) + (Number(f.faValue) || 0)
+        + (Number(f.damageBonus) || 0) + boostSum + (Number(f.manualMod) || 0);
     return { cardSum, boostSum, raw };
 }
 

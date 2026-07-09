@@ -118,6 +118,10 @@ export class UsageTemplate extends SystemDataModel {
                     // @diff/@achievement は結果由来で判定前には使えないため、実質フラット値/算術式。
                     checkBonus: new fields.StringField({ initial: "" }),
 
+                    // attack: ダメージ修正(ダメージへ加算する式・攻撃用途。2026-07-10 ユーザー確定)。
+                    // ダメージ算出時に評価するため @diff/@achievement を使える(damageBoost の formula と同型)。
+                    damageBonus: new fields.StringField({ initial: "" }),
+
                     // damageBoost・damageReduce: 効果量（計算式 or 固定値文字列）
                     formula: new fields.StringField({ initial: "" }),
 

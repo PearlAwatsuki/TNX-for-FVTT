@@ -737,6 +737,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
             // 判定ボーナス(達成値へ加算する式・全判定用途)。入力欄は check 用途でのみ描画される
             checkBonus: raw["checkBonus"] ?? usage.checkBonus,
+            // ダメージ修正(ダメージへ加算する式・攻撃用途)。入力欄は攻撃オン時のみ描画される
+            damageBonus: raw["damageBonus"] ?? usage.damageBonus,
         };
 
         // 固定達成値(フェーズ11-5・エキストラの技能判定)。固定値用途のマーカーを兼ねるため、
