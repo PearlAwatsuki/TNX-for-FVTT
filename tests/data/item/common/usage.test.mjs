@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { MockArrayField, MockSchemaField, MockStringField } from "../../../setup.mjs";
 
-const { UsageTemplate } = await import("../../../../scripts/data/item/common/usage.mjs");
+const { UsageTemplate, isAttackUsage } = await import("../../../../scripts/data/item/common/usage.mjs");
 
 describe("UsageTemplate.defineSchema()", () => {
   const schema = UsageTemplate.defineSchema();
@@ -157,5 +157,31 @@ describe("UsageTemplate.migrateData()", () => {
   it("actions が undefined のとき何もしない", () => {
     const source = {};
     expect(() => UsageTemplate.migrateData(source)).not.toThrow();
+  });
+
+  it("攻撃は判定に統合(2026-07-09): type=attack → check(damageCategory 保持)", () => {
+    const source = { actions: [{ _id: "a", type: "attack", damageCategory: "mental" }] };
+    const result = UsageTemplate.migrateData(source);
+    expect(result.actions[0].type).toBe("check");
+    expect(result.actions[0].damageCategory).toBe("mental");
+  });
+
+  it("系統未設定の旧攻撃は物理とみなす", () => {
+    const source = { actions: [{ _id: "a", type: "attack" }] };
+    const result = UsageTemplate.migrateData(source);
+    expect(result.actions[0].type).toBe("check");
+    expect(result.actions[0].damageCategory).toBe("physical");
+  });
+});
+
+describe("isAttackUsage()（攻撃=damageCategory 付きの check・2026-07-09）", () => {
+  it("check かつ damageCategory 設定=攻撃", () => {
+    expect(isAttackUsage({ type: "check", damageCategory: "physical" })).toBe(true);
+    expect(isAttackUsage({ type: "check", damageCategory: "" })).toBe(false);
+    expect(isAttackUsage({ type: "check" })).toBe(false);
+  });
+  it("check 以外は damageCategory があっても攻撃でない(damageBoost 等)", () => {
+    expect(isAttackUsage({ type: "damageBoost", damageCategory: "physical" })).toBe(false);
+    expect(isAttackUsage({ type: "declaration", damageCategory: "physical" })).toBe(false);
   });
 });

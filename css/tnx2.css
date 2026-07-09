@@ -6866,17 +6866,48 @@ button.tnx-create-act-button span {
     padding: 2px 0;
 }
 
-.usage-form-grid {
+/* 技能の役割チェック(skillRoles・2026-07-09) */
+.skill-roles-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px 12px;
+    margin: 4px 0;
+}
+.skill-role-chk {
     display: flex;
-    flex-direction: column;
-    gap: 10px;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9em;
+    cursor: pointer;
+}
+.skill-roles-hint {
+    margin: 4px 0 0;
+    font-size: 0.8em;
+    color: var(--tnx2-text-secondary);
+}
+
+/* 発動タブの設定項目は2カラムグリッドで密度を上げる(縦積みで見辛い問題の改善・2026-07-09)。
+   非表示(display:none)のサブ項目はグリッドから外れて詰まる */
+.usage-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 16px;
 }
 
 .usage-form-row {
     display: flex;
     flex-direction: column;
     gap: 3px;
-    margin-bottom: 15px;
+    margin-bottom: 0;
+}
+
+/* トグル行・自由入力サブは全幅で見やすく */
+.usage-form-row.usage-toggle-row,
+.usage-form-row.timing-other-sub,
+.usage-form-row.target-other-sub,
+.usage-form-row.range-other-sub,
+.usage-form-row.tv-other-sub {
+    grid-column: 1 / -1;
 }
 
 .usage-form-row select,

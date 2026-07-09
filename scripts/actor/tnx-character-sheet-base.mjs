@@ -27,6 +27,7 @@ import { groupStyleSkillsByStyle } from '../module/style-skill-acquisition.mjs';
 import { HOUSING_AREA_RANKS } from '../data/item/housing-area.mjs';
 import { CONDITION_KINDS, gatherPartSlotMods } from '../module/conditions.mjs';
 import { startTreatment } from '../module/treatment-flow.mjs';
+import { isAttackUsage } from '../data/item/common/usage.mjs';
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -2268,8 +2269,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // (アイテムの基本機能)。用途があればその実行に切り替わる。
         // 攻撃・NPC取得もアイテムロール(アクターシートの技能クリック)から実行できる
         // (経路の漏れを作らない=11-6/12-2 の確定方針)
+        // 攻撃は判定の一種(damageCategory 付きの check)。check/npcAcquire を実行対象にする
         const usableUsages = (item.system.actions ?? [])
-            .filter(a => ["check", "attack", "npcAcquire"].includes(a.type));
+            .filter(a => ["check", "npcAcquire"].includes(a.type));
         if (!usableUsages.length) {
             await item.postDescriptionCard();
             return;
@@ -2295,8 +2297,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             return;
         }
 
-        // 攻撃は専用フローへ(武器解決・対象決定・成否保留の攻撃カード・リアクション対決=12-2)
-        if (selectedUsage.type === "attack") {
+        // 攻撃(damageCategory 付きの check)は専用フローへ(武器解決・対象決定・成否保留の
+        // 攻撃カード・リアクション対決=12-2)
+        if (isAttackUsage(selectedUsage)) {
             try {
                 await useAttack(item, selectedUsage);
             } catch (err) {
@@ -2403,11 +2406,12 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
 
     /** 複数の check 用途を D&D スタイルの縦ボタンダイアログで選択させる */
     static async _promptCheckUsage(usages, skillName) {
-        const TYPE_ICONS = { check: "fas fa-diamond", attack: "fas fa-burst", npcAcquire: "fas fa-users" };
+        const iconFor = (u) => u.type === "npcAcquire" ? "fas fa-users"
+            : isAttackUsage(u) ? "fas fa-burst" : "fas fa-diamond";
         const buttons = [
             ...usages.map((u, i) => ({
                 action:   String(i),
-                icon:     TYPE_ICONS[u.type] ?? "fas fa-diamond",
+                icon:     iconFor(u),
                 label:    u.name || "判定",
                 callback: () => i,
             })),

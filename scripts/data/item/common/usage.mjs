@@ -7,9 +7,11 @@
  * SystemDataModel.mixin() の引数として各 Item DataModel に合成して使う。
  *
  * actions[].type の値域:
- *   "check"        - 判定（技能判定）
- *   "attack"       - 攻撃（weaponRef・damageType・skillRefs）
- *   "declaration"  - 宣言（神業を含む）
+ *   "check"        - 判定（技能判定）。**攻撃は判定の一種**(2026-07-09 新設計・ユーザー方針):
+ *                    check のうち damageCategory が設定されているものが攻撃(weaponRef・damageType は
+ *                    物理のみの攻撃プロファイル)。「白兵判定」はルール上ひとつで、攻撃かどうかは帰結。
+ *                    旧 type="attack" は migrateData で check + damageCategory に移行する。
+ *   "declaration"  - 宣言（判定なしで使える能力＝神業を含む。判定を伴わないため独立タイプ）
  *   "damageBoost"  - ダメージ増加（formula・damageCategory）
  *   "damageReduce" - ダメージ軽減（formula・damageCategory）
  *   "modification" - 改造（modifiableParams）
@@ -27,6 +29,16 @@
  */
 
 import { SystemDataModel } from "../../abstract.mjs";
+
+/**
+ * 攻撃用途か(2026-07-09 新設計): 攻撃は判定(check)の一種で、damageCategory が設定されているもの。
+ * 「白兵判定」はルール上ひとつであり、攻撃かどうかは帰結(ダメージ段へ入るか)なので用途タイプを分けない。
+ * @param {{type?:string, damageCategory?:string}} usage
+ * @returns {boolean}
+ */
+export function isAttackUsage(usage) {
+    return usage?.type === "check" && !!usage?.damageCategory;
+}
 
 export class UsageTemplate extends SystemDataModel {
     /** @override */
@@ -161,7 +173,12 @@ export class UsageTemplate extends SystemDataModel {
     static migrateData(source) {
         if (Array.isArray(source.actions)) {
             source.actions = source.actions.map(a => {
-                const migrated = a._id ? a : { ...a, _id: foundry.utils.randomID() };
+                let migrated = a._id ? a : { ...a, _id: foundry.utils.randomID() };
+                // 攻撃は判定の一種へ統合(2026-07-09): type="attack" → "check"(damageCategory は攻撃系統として保持)。
+                // 系統未設定の旧攻撃は物理とみなす。
+                if (migrated.type === "attack") {
+                    migrated = { ...migrated, type: "check", damageCategory: migrated.damageCategory || "physical" };
+                }
                 if (!migrated.baseSkillRef) migrated.baseSkillRef = { itemId: "" };
                 if (migrated.consumeTargets === undefined && migrated.type === "check") {
                     migrated.consumeTargets = [{ type: "parent", itemId: "", amount: 1 }];

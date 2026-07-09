@@ -4,6 +4,8 @@ import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan, re
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { useNpcAcquire } from "../module/npc-acquisition.mjs";
 import { useAttack } from "../module/attack-flow.mjs";
+import { isAttackUsage } from "../data/item/common/usage.mjs";
+import { SKILL_ROLES, getSkillRoles } from "../module/skill-roles.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -30,8 +32,21 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             toggleEditMode: TokyoNovaItemSheet._onToggleEditMode,
             incrementField: TokyoNovaItemSheet._onIncrementField,
             decrementField: TokyoNovaItemSheet._onDecrementField,
+            toggleSkillRole: TokyoNovaItemSheet._onToggleSkillRole,
         },
     };
+
+    /**
+     * 技能の役割(skillRoles)をトグルする(2026-07-09 新設計)。役割チェックの ON/OFF。
+     * 表示は実効役割(getSkillRoles=フィールド or 正準名の既定)。初回編集で既定が明示化される。
+     */
+    static async _onToggleSkillRole(_event, target) {
+        const role = target.dataset.role;
+        if (!role || !SKILL_ROLES[role]) return;
+        const current = getSkillRoles(this.item);
+        const next = current.includes(role) ? current.filter(r => r !== role) : [...current, role];
+        await this.item.update({ "system.skillRoles": next });
+    }
 
     /** @override */
     async _prepareContext(options) {
@@ -65,6 +80,15 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             ...context.effects.passive,
             ...context.effects.inactive,
         ];
+
+        // 技能の役割(2026-07-09 新設計): 治療/ドッジ/パリー/各リアクション/各攻撃の既定技能を
+        // 名前でなく役割で持つ。技能アイテムのみ役割チェックを出す(実効役割=フィールド or 正準名の既定)
+        if (this.item.type === "generalSkill" || this.item.type === "styleSkill") {
+            const active = getSkillRoles(this.item);
+            context.skillRoleOptions = Object.entries(SKILL_ROLES).map(([key, def]) => ({
+                key, label: def.label, checked: active.includes(key),
+            }));
+        }
 
         return context;
     }
@@ -231,7 +255,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         // 自動入力の作成時一回適用(11-6 追補・2026-07-06 承認): 判定系用途は親技能の固有値から
         // 発動パラメータと消費行を導出して初期値にする(以降の再導出はシートのボタンで明示的に。
         // ライブ追従はしない)。固定値判定は発動項目を持たないため対象外
-        if (!isFixedCheck && (type === "check" || type === "attack" || type === "npcAcquire")) {
+        if (!isFixedCheck && (type === "check" || type === "npcAcquire")) {
             const patch = deriveUsageAutoFill(this.item, entry);
             foundry.utils.mergeObject(entry, foundry.utils.expandObject(patch));
         }
@@ -285,8 +309,9 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             return;
         }
 
-        // 攻撃(12-2): 専用フローに委譲(武器解決・対象決定・成否保留の攻撃カード・リアクション対決)
-        if (usage.type === "attack") {
+        // 攻撃(12-2): 攻撃は判定の一種(damageCategory 付きの check)。専用フローに委譲
+        // (武器解決・対象決定・成否保留の攻撃カード・リアクション対決)
+        if (isAttackUsage(usage)) {
             try {
                 await useAttack(this.item, usage);
             } catch (err) {

@@ -22,9 +22,10 @@ const CHAIN_SKILL_TYPES = ["generalSkill", "styleSkill"];
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
+// 攻撃は判定(check)の一種に統合(2026-07-09)＝独立タイプとして選ばせない。
+// 既存の attack 用途は migrateData で check + damageCategory に移行する。
 export const USAGE_TYPES = Object.freeze({
     check:        "判定",
-    attack:       "攻撃",
     declaration:  "宣言",
     damageBoost:  "ダメージ増加",
     damageReduce: "ダメージ軽減",
@@ -151,7 +152,7 @@ export async function enforceUsageChainDefaultsOnImport(item) {
 
     let changed = false;
     for (const usage of actions) {
-        if (!["check", "attack", "npcAcquire"].includes(usage.type)) continue;
+        if (!["check", "npcAcquire"].includes(usage.type)) continue;
 
         // 参照の掃除: アクター上で解決できない itemId(辞典/ワールド時代の別コレクション ID)を落とす
         const cleanedRefs = (usage.skillRefs ?? [])
@@ -254,7 +255,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
     static DEFAULT_OPTIONS = {
         classes: ["tokyo-nova", "tnx-usage-sheet"],
-        position: { width: 500, height: 520 },
+        position: { width: 640, height: 560 },
         window: { resizable: true },
         tag: "form",
         form: {
@@ -335,7 +336,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         // 固定値判定(フェーズ11-5・2026-07-04 確定): fixedResult が設定された check 用途。
         // スート・レベル・カード・能力値を読まないため、発動タブは固定達成値のみ・効果タブは出さない
         context.isFixedCheck       = usage.type === "check" && Number.isFinite(usage.fixedResult);
-        context.isAttackType       = usage.type === "attack";
+        // 攻撃は判定の一種(2026-07-09): check かつ damageCategory 設定=攻撃。固定値判定は攻撃にしない
+        context.isAttack           = context.isCheckType && !context.isFixedCheck && !!usage.damageCategory;
         context.isDamageType       = usage.type === "damageBoost" || usage.type === "damageReduce";
         context.isModificationType = usage.type === "modification";
 
@@ -367,8 +369,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         }
         context.isAcquireCheckMode = context.isNpcAcquireType && !context.isAcquireExtraMode;
 
-        // 技能ベースの用途（コンボ・対決表示・自動入力の対象）
-        context.showSkillParams    = context.isCheckType || context.isAttackType || context.isAcquireCheckMode;
+        // 技能ベースの用途（コンボ・対決表示・自動入力の対象）。攻撃は check なのでここに含まれる
+        context.showSkillParams    = context.isCheckType || context.isAcquireCheckMode;
 
         // ベース技能・組み合わせ技能候補（check / attack）
         if (context.showSkillParams) {
@@ -469,14 +471,15 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             context.confrontationCannot    = inherentCannot;
         }
 
-        // 武器候補（attack）・攻撃の系統(12-2: damageCategory を attack でも使用=3系統)
-        if (context.isAttackType) {
+        // 攻撃プロファイル(判定を攻撃に使う場合の武器・系統)。攻撃は check の一種なので、
+        // 固定値でない check 用途にプロファイル欄を出す(トグルで有効化=isAttack)。物理のみ武器・種別
+        if (context.isCheckType && !context.isFixedCheck) {
             context.availableWeapons = (this._item.actor?.items ?? [])
                 .filter(i => i.type === "weapon")
                 .map(i => ({ id: i.id, name: i.name }));
             context.selectedWeaponName = this._item.actor?.items.get(usage.weaponRef?.itemId)?.name ?? "";
             const category = usage.damageCategory || "physical";
-            context.isAttackPhysical = category === "physical";
+            context.isAttackPhysical = context.isAttack && category === "physical";
             context.attackCategoryOptions = [
                 { value: "physical", label: "物理" },
                 { value: "mental",   label: "精神" },
@@ -743,22 +746,32 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 : (usage.acquireCount ?? 1);
         }
 
-        // check・attack・npcAcquire(判定系): ベース技能（アクション技能は常に自身に固定）
-        if (usage.type === "check" || usage.type === "attack" || usage.type === "npcAcquire") {
+        // check・npcAcquire(判定系): ベース技能（アクション技能は常に自身に固定）
+        if (usage.type === "check" || usage.type === "npcAcquire") {
             update["baseSkillRef.itemId"] = this._item.system.isAction === true
                 ? this._item.id
                 : (raw["baseSkillRef.itemId"] ?? usage.baseSkillRef?.itemId ?? "");
         }
 
-        // attack 固有(damageCategory=攻撃の系統。物理以外は武器・ダメージ種別を持たない)
-        const prevAttackCategory = usage.type === "attack" ? (usage.damageCategory || "physical") : null;
-        if (usage.type === "attack") {
-            update.damageCategory      = raw["damageCategory"]   ?? usage.damageCategory ?? "physical";
-            update["weaponRef.itemId"] = raw["weaponRef.itemId"] ?? usage.weaponRef.itemId;
-            update.damageType          = raw["damageType"]       ?? usage.damageType;
-            if (update.damageCategory !== "physical") {
+        // 攻撃プロファイル(2026-07-09): 攻撃は check の一種。「攻撃に使う」トグル(isAttack)が
+        // オンなら damageCategory=系統を設定(物理のみ武器・ダメージ種別)。オフなら damageCategory を空に。
+        // 固定値判定は攻撃にしない
+        const prevAttackCategory = usage.type === "check" && !Number.isFinite(usage.fixedResult)
+            ? (usage.damageCategory || "") : null;
+        if (usage.type === "check" && !Number.isFinite(usage.fixedResult)) {
+            const isAttack = raw["isAttack"] ?? false;
+            if (isAttack) {
+                update.damageCategory      = raw["damageCategory"]   || usage.damageCategory || "physical";
+                update["weaponRef.itemId"] = raw["weaponRef.itemId"] ?? usage.weaponRef.itemId;
+                update.damageType          = raw["damageType"]       ?? usage.damageType;
+                if (update.damageCategory !== "physical") {
+                    update["weaponRef.itemId"] = "";
+                    update.damageType = "";
+                }
+            } else {
+                update.damageCategory      = "";
                 update["weaponRef.itemId"] = "";
-                update.damageType = "";
+                update.damageType          = "";
             }
         }
 
@@ -770,7 +783,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
         // ベース変更の検知(取り消し用に変更前のベースを保持)
         const prevBaseRef = usage.baseSkillRef?.itemId ?? "";
-        const baseChanged = (usage.type === "check" || usage.type === "attack" || usage.type === "npcAcquire")
+        const baseChanged = (usage.type === "check" || usage.type === "npcAcquire")
             && this._item.system.isAction !== true
             && (update["baseSkillRef.itemId"] ?? prevBaseRef) !== prevBaseRef;
 
@@ -780,8 +793,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         // ベースを別技能に変えて個数上限を超えたら、トリムダイアログで調整(取り消しで元のベースへ戻す)
         if (baseChanged) await this._promptTrimCombos(prevBaseRef);
 
-        // 攻撃の系統変更は表示項目が変わる(武器・ダメージ種別は物理のみ)ため即再描画する。
-        // submitOnChange は再描画しないため、旧系統の入力欄が残り精神/社会でも設定できてしまっていた(2026-07-09 修正)
+        // 攻撃プロファイルの有無/系統変更は表示項目が変わる(武器・ダメージ種別は物理のみ)ため即再描画する。
+        // submitOnChange は再描画しないため、旧系統の入力欄が残る問題を防ぐ(2026-07-09)
         if (prevAttackCategory !== null && (update.damageCategory ?? prevAttackCategory) !== prevAttackCategory) {
             this.render({ force: true });
         }
@@ -975,11 +988,11 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         return normalizeSkillItemDoc(it);
     }
 
-    /** actor 上の技能アイテム(check/attack 用の連鎖対象)を正規化して返す。対象外は null。 */
+    /** actor 上の技能アイテム(check=攻撃含む・連鎖対象)を正規化して返す。対象外は null。 */
     _actorSkillItems() {
         const usage = this.usage;
         const actor = this._item.actor;
-        if (!usage || (usage.type !== "check" && usage.type !== "attack")) return null;
+        if (!usage || usage.type !== "check") return null;
         if (!actor || !CHAIN_SKILL_TYPES.includes(this._item.type)) return null;
         return actor.items.filter(i => CHAIN_SKILL_TYPES.includes(i.type)).map(i => this._normalizeSkillItem(i));
     }
