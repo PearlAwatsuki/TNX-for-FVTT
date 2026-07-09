@@ -256,7 +256,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             target:      "blank",
             effects:     [],
             skillRefs:   [],
-            weaponRef:   { itemId: "" },
+            weaponRefs:  [],
             damageType:  "",
             formula:     "",
             damageCategory: "",

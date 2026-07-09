@@ -73,7 +73,7 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
       // 別々の書き換え元(準備済みの全身義体/生身変更装備)を選べる(攻撃と防御で別の身体部位を
       // 使うのは設定上も自然)。空文字=未変更の生身(baseAttack/baseGuard)が既定。
       // シート上の便宜的な事前設定であり本義は都度宣言(=非強制・表示のみ)。
-      // 通常武器の使用は攻撃判定の用途(usage.weaponRef)に移管済みでここでは扱わない。
+      // 通常武器の使用は攻撃判定の用途(usage.weaponRefs)に移管済みでここでは扱わない。
       weaponRefs: new fields.SchemaField({
         attackItemId: new fields.StringField({ initial: "" }),
         parryItemId:  new fields.StringField({ initial: "" }),

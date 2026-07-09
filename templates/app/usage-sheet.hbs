@@ -320,16 +320,32 @@
                     </div>
                     {{#if isAttackPhysical}}
                     <div class="usage-form-row">
-                        <label class="usage-field-label">使用武器 <i class="fas fa-circle-question" title="未選択の場合は生身（アクターの生身攻撃力）で攻撃します"></i></label>
-                        <select name="weaponRef.itemId" {{#unless editable}}disabled{{/unless}}>
-                            <option value="">── 生身 ──</option>
-                            {{#each availableWeapons}}
-                            <option value="{{this.id}}" {{#if (eq this.id ../usage.weaponRef.itemId)}}selected{{/if}}>{{this.name}}</option>
+                        <label class="usage-field-label">使用武器 <i class="fas fa-circle-question" title="未選択なら生身で攻撃します。2 個以上選ぶと攻撃力を合算します（複数武器合算能力の表現）"></i></label>
+                        <div class="usage-skill-ref-list">
+                            {{#each selectedWeapons}}
+                            <div class="usage-skill-ref-row">
+                                <span class="usage-skill-ref-name">{{this.name}}{{#if this.attackLabel}}（{{this.attackLabel}}）{{/if}}</span>
+                                {{#if ../editable}}
+                                <a class="usage-icon-btn" data-action="weaponRefDelete" data-idx="{{this.idx}}" title="この武器を外す"><i class="fas fa-times"></i></a>
+                                {{/if}}
+                            </div>
+                            {{else}}
+                            <p class="usage-empty-hint">── 生身 ──</p>
                             {{/each}}
-                        </select>
+                        </div>
+                        {{#if editable}}
+                        <div class="usage-skill-ref-add">
+                            <select class="weapon-ref-select">
+                                <option value="">── 武器・ヴィークルを追加 ──</option>
+                                {{#each availableWeapons}}
+                                <option value="{{this.id}}">{{this.name}}</option>
+                                {{/each}}
+                            </select>
+                        </div>
+                        {{/if}}
                     </div>
                     <div class="usage-form-row">
-                        <label class="usage-field-label">ダメージ種別 <i class="fas fa-circle-question" title="未選択の場合は使用武器（または生身）の種別を使います"></i></label>
+                        <label class="usage-field-label">ダメージ種別 <i class="fas fa-circle-question" title="単一/同一なら「武器に従う」で自動。複数武器で種別が別々のときはここでどちらかを選びます"></i></label>
                         <select name="damageType" {{#unless editable}}disabled{{/unless}}>
                             <option value="">── 武器に従う ──</option>
                             <option value="S" {{#if (eq usage.damageType "S")}}selected{{/if}}>S（斬撃）</option>

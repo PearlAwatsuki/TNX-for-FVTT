@@ -27,7 +27,7 @@ import { resolveConsumeRowsForActor, promptConsumption } from "./usage-consumpti
 import { TargetSelectionDialog } from "./tnx-dialog.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { isActorInStartedCombat } from "../data/helpers.mjs";
-import { resolveNoReaction, resolveOpposed, attackReactionModes, formatAttackLabel } from "./attack-flow-logic.mjs";
+import { resolveNoReaction, resolveOpposed, attackReactionModes, formatAttackLabel, combineWeaponAttack } from "./attack-flow-logic.mjs";
 import { buildSkillOptions } from "./skill-select.mjs";
 import { actorSkillsWithRole } from "./skill-roles.mjs";
 
@@ -78,20 +78,22 @@ export async function useAttack(item, usage) {
     }
     const category = usage.damageCategory || "physical";
 
-    // 武器解決(物理のみ): weaponRef → 生身(baseAttack)フォールバック
+    // 武器解決(物理のみ): weaponRefs(複数可) → 生身(baseAttack)フォールバック。
+    // 複数武器は攻撃力を合算する(合算能力の表現・2026-07-09。純ロジックは combineWeaponAttack)。
     let weaponAttack = 0, damageType = "", faValue = 0, attackSourceName = "";
     if (category === "physical") {
-        const weapon = usage.weaponRef?.itemId ? actor.items.get(usage.weaponRef.itemId) : null;
-        if (weapon) {
-            weaponAttack = Number(weapon.system.attack?.value) || 0;
-            damageType = usage.damageType || weapon.system.attack?.damageType || "";
-            faValue = weapon.system.isFullAuto ? (Number(weapon.system.FAValue) || 0) : 0;
-            attackSourceName = weapon.name;
-        } else {
-            weaponAttack = Number(actor.system.baseAttack?.value) || 0;
-            damageType = usage.damageType || actor.system.baseAttack?.damageType || "I";
-            attackSourceName = "生身";
-        }
+        const weapons = (usage.weaponRefs ?? [])
+            .map(r => (r?.itemId ? actor.items.get(r.itemId) : null))
+            .filter(Boolean)
+            .map(w => ({
+                name:        w.name,
+                attackValue: Number(w.system.attack?.value) || 0,
+                damageType:  w.system.attack?.damageType || "",
+                isFullAuto:  w.system.isFullAuto === true,
+                faValue:     Number(w.system.FAValue) || 0,
+            }));
+        ({ weaponAttack, damageType, faValue, attackSourceName } =
+            combineWeaponAttack(weapons, usage.damageType, actor.system.baseAttack ?? {}));
     }
 
     // 対象決定: ターゲット指定 → 選択ダイアログ(シーン上のトークン) → 対象なし許容

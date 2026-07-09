@@ -103,12 +103,15 @@ export class UsageTemplate extends SystemDataModel {
                         })
                     ),
 
-                    // attack: 使用武器参照
-                    weaponRef: new fields.SchemaField({
-                        itemId: new fields.StringField({ initial: "" }),
-                    }),
+                    // attack: 使用武器参照(複数可)。2 個目以降を加えると攻撃力を合算する
+                    // (複数武器の攻撃力合算能力の表現・2026-07-09)。武器・ヴィークルを参照できる
+                    weaponRefs: new fields.ArrayField(
+                        new fields.SchemaField({
+                            itemId: new fields.StringField({ initial: "" }),
+                        })
+                    ),
 
-                    // attack: ダメージ種別 ("S" | "P" | "I")
+                    // attack: ダメージ種別 ("S" | "P" | "I")。複数武器で種別が別々のときの選択にも使う
                     damageType: new fields.StringField({ initial: "" }),
 
                     // damageBoost・damageReduce: 効果量（計算式 or 固定値文字列）
@@ -178,6 +181,12 @@ export class UsageTemplate extends SystemDataModel {
                 // 系統未設定の旧攻撃は物理とみなす。
                 if (migrated.type === "attack") {
                     migrated = { ...migrated, type: "check", damageCategory: migrated.damageCategory || "physical" };
+                }
+                // 使用武器参照の複数化(2026-07-09): 旧 weaponRef(単一) → weaponRefs(配列)。
+                // 空 itemId は空配列に(生身扱い)。
+                if (migrated.weaponRefs === undefined && migrated.weaponRef !== undefined) {
+                    const id = migrated.weaponRef?.itemId || "";
+                    migrated = { ...migrated, weaponRefs: id ? [{ itemId: id }] : [] };
                 }
                 if (!migrated.baseSkillRef) migrated.baseSkillRef = { itemId: "" };
                 if (migrated.consumeTargets === undefined && migrated.type === "check") {

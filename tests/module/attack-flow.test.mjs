@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
-const { resolveNoReaction, resolveOpposed, attackReactionModes, formatAttackLabel } =
+const { resolveNoReaction, resolveOpposed, attackReactionModes, formatAttackLabel, combineWeaponAttack } =
   await import("../../scripts/module/attack-flow-logic.mjs");
 
 // ダメージカードは命中判定のカードとは別に出す(Damage_Rules 2026-07-08 訂正)ため、
@@ -54,5 +54,47 @@ describe("attackReactionModes()（系統別のリアクション導線・2026-07
   it("精神・社会=リアクション/リアクションしない の2択", () => {
     expect(attackReactionModes("mental")).toEqual(["reaction", "none"]);
     expect(attackReactionModes("social")).toEqual(["reaction", "none"]);
+  });
+});
+
+describe("combineWeaponAttack()（複数武器の攻撃力合算・2026-07-09 確定）", () => {
+  const W = (name, attackValue, damageType, isFullAuto = false, faValue = 0) =>
+    ({ name, attackValue, damageType, isFullAuto, faValue });
+
+  it("武器なしは生身(baseAttack)にフォールバック", () => {
+    expect(combineWeaponAttack([], "", { value: 3, damageType: "I" }))
+      .toEqual({ weaponAttack: 3, damageType: "I", faValue: 0, attackSourceName: "生身" });
+  });
+
+  it("生身の種別未設定は I 既定", () => {
+    expect(combineWeaponAttack([], "", {}).damageType).toBe("I");
+  });
+
+  it("単一武器はその攻撃力・種別・名前", () => {
+    expect(combineWeaponAttack([W("刀", 4, "S")], "", {}))
+      .toEqual({ weaponAttack: 4, damageType: "S", faValue: 0, attackSourceName: "刀" });
+  });
+
+  it("複数武器は攻撃力を合算し名前を連結", () => {
+    const r = combineWeaponAttack([W("刀", 4, "S"), W("小刀", 2, "S")], "", {});
+    expect(r.weaponAttack).toBe(6);
+    expect(r.attackSourceName).toBe("刀＋小刀");
+    expect(r.damageType).toBe("S"); // 同一種別ならその種別
+  });
+
+  it("種別が別々のときは override が無ければ先頭の種別", () => {
+    expect(combineWeaponAttack([W("刀", 4, "S"), W("拳銃", 3, "I")], "").damageType).toBe("S");
+  });
+
+  it("ダメージ種別 override は常に優先(別々のときの選択)", () => {
+    expect(combineWeaponAttack([W("刀", 4, "S"), W("拳銃", 3, "I")], "I").damageType).toBe("I");
+    expect(combineWeaponAttack([W("刀", 4, "S")], "P").damageType).toBe("P");
+  });
+
+  it("FA は主武器(先頭)からのみ取る(合算しない)", () => {
+    // 先頭がフルオート
+    expect(combineWeaponAttack([W("FA銃", 5, "I", true, 3), W("刀", 4, "S")], "").faValue).toBe(3);
+    // 先頭がフルオートでない → 2 個目が FA でも 0
+    expect(combineWeaponAttack([W("刀", 4, "S"), W("FA銃", 5, "I", true, 3)], "").faValue).toBe(0);
   });
 });

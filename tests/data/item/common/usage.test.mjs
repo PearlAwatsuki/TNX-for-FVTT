@@ -43,7 +43,7 @@ describe("UsageTemplate.defineSchema()", () => {
     });
 
     it("attack 固有フィールドが存在する", () => {
-      expect(entryFields).toHaveProperty("weaponRef");
+      expect(entryFields).toHaveProperty("weaponRefs");
       expect(entryFields).toHaveProperty("damageType");
     });
 

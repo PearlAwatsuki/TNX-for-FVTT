@@ -269,6 +269,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         },
         actions: {
             skillRefDelete:        TnxUsageSheet._onSkillRefDelete,
+            weaponRefDelete:       TnxUsageSheet._onWeaponRefDelete,
             effectRemove:          TnxUsageSheet._onEffectRemove,
             paramAdd:              TnxUsageSheet._onParamAdd,
             paramDelete:           TnxUsageSheet._onParamDelete,
@@ -478,10 +479,24 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         // 攻撃プロファイル(判定を攻撃に使う場合の武器・系統)。攻撃は check の一種なので、
         // 固定値でない check 用途にプロファイル欄を出す(トグルで有効化=isAttack)。物理のみ武器・種別
         if (context.isCheckType && !context.isFixedCheck) {
-            context.availableWeapons = (this._item.actor?.items ?? [])
-                .filter(i => i.type === "weapon")
+            const actorItems = this._item.actor?.items ?? [];
+            const refs = usage.weaponRefs ?? [];
+            const refIds = new Set(refs.map(r => r.itemId).filter(Boolean));
+            // 選択済み武器(表示行・攻撃力ラベル付き)。複数選ぶと攻撃力を合算する(2026-07-09)
+            context.selectedWeapons = refs.map((r, idx) => {
+                const w = this._item.actor?.items.get(r.itemId);
+                const atk = w?.system.attack ?? {};
+                const val = Number(atk.total ?? atk.value) || 0;
+                return {
+                    idx, id: r.itemId,
+                    name: w?.name ?? "（不明な武器）",
+                    attackLabel: w ? `${atk.damageType || ""}${val >= 0 ? `+${val}` : val}` : "",
+                };
+            });
+            // 追加候補: 武器＋ヴィークル(未選択のみ)。ヴィークルは attack を持つため武器として扱える
+            context.availableWeapons = actorItems
+                .filter(i => (i.type === "weapon" || i.type === "vehicle") && !refIds.has(i.id))
                 .map(i => ({ id: i.id, name: i.name }));
-            context.selectedWeaponName = this._item.actor?.items.get(usage.weaponRef?.itemId)?.name ?? "";
             const category = usage.damageCategory || "physical";
             context.isAttackPhysical = context.isAttack && category === "physical";
             context.attackCategoryOptions = [
@@ -584,6 +599,19 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                         return;
                     }
                     await this._patchUsage({ skillRefs: [...usage.skillRefs, { itemId }] });
+                    this.render({ force: true });
+                });
+            }
+
+            // 使用武器(攻撃プロファイル): ドロップダウン選択で即時追加(複数選ぶと攻撃力を合算)
+            for (const select of this.element.querySelectorAll("select.weapon-ref-select")) {
+                select.addEventListener("change", async (ev) => {
+                    const itemId = ev.target.value;
+                    if (!itemId) return;
+                    const usage = this.usage;
+                    const refs = usage?.weaponRefs ?? [];
+                    if (!usage || refs.some(r => r.itemId === itemId)) { ev.target.value = ""; return; }
+                    await this._patchUsage({ weaponRefs: [...refs, { itemId }] });
                     this.render({ force: true });
                 });
             }
@@ -765,17 +793,18 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         if (usage.type === "check" && !Number.isFinite(usage.fixedResult)) {
             const isAttack = raw["isAttack"] ?? false;
             if (isAttack) {
-                update.damageCategory      = raw["damageCategory"]   || usage.damageCategory || "physical";
-                update["weaponRef.itemId"] = raw["weaponRef.itemId"] ?? usage.weaponRef.itemId;
-                update.damageType          = raw["damageType"]       ?? usage.damageType;
+                update.damageCategory = raw["damageCategory"] || usage.damageCategory || "physical";
+                update.damageType     = raw["damageType"]     ?? usage.damageType;
+                // weaponRefs は行の追加/削除アクション(_patchUsage)で管理し submit では触らない。
+                // 非物理系統は武器・種別を持たないためクリアする
                 if (update.damageCategory !== "physical") {
-                    update["weaponRef.itemId"] = "";
+                    update.weaponRefs = [];
                     update.damageType = "";
                 }
             } else {
-                update.damageCategory      = "";
-                update["weaponRef.itemId"] = "";
-                update.damageType          = "";
+                update.damageCategory = "";
+                update.weaponRefs     = [];
+                update.damageType     = "";
             }
         }
 
@@ -928,6 +957,17 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
         const skillRefs = usage.skillRefs.filter((_, i) => i !== idx);
         await this._patchUsage({ skillRefs });
+        this.render({ force: true });
+    }
+
+    // ─── weaponRefs 管理(攻撃プロファイル・複数武器の合算) ────────────────────────
+
+    static async _onWeaponRefDelete(_event, target) {
+        const idx = Number(target.dataset.idx);
+        const usage = this.usage;
+        if (!usage) return;
+        const weaponRefs = (usage.weaponRefs ?? []).filter((_, i) => i !== idx);
+        await this._patchUsage({ weaponRefs });
         this.render({ force: true });
     }
 

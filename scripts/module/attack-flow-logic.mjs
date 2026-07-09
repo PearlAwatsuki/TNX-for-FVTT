@@ -18,6 +18,35 @@ export function formatAttackLabel(damageType, value) {
 }
 
 /**
+ * 複数武器の攻撃力合算とダメージ種別・FA・表示名の解決(2026-07-09)。
+ * 複数武器の攻撃力を合算する能力を表現する。攻撃力は全参照武器の合計。ダメージ種別は
+ * override(usage.damageType)優先→単一/同一ならその種別→**別々なら先頭**(編集時に damageType で選択)。
+ * FA(フルオート)は**主武器＝先頭**からのみ取る(合算対象外)。武器が無ければ生身(baseAttack)。
+ * @param {Array<{name:string, attackValue:number, damageType:string, isFullAuto:boolean, faValue:number}>} weapons
+ * @param {string} damageTypeOverride usage.damageType(空なら自動)
+ * @param {{value?:number, damageType?:string}} baseAttack 生身攻撃(武器なし時)
+ * @returns {{weaponAttack:number, damageType:string, faValue:number, attackSourceName:string}}
+ */
+export function combineWeaponAttack(weapons, damageTypeOverride = "", baseAttack = {}) {
+    const list = (weapons ?? []).filter(Boolean);
+    if (!list.length) {
+        return {
+            weaponAttack:     Number(baseAttack.value) || 0,
+            damageType:       damageTypeOverride || baseAttack.damageType || "I",
+            faValue:          0,
+            attackSourceName: "生身",
+        };
+    }
+    const weaponAttack = list.reduce((s, w) => s + (Number(w.attackValue) || 0), 0);
+    const types = [...new Set(list.map(w => w.damageType).filter(Boolean))];
+    const damageType = damageTypeOverride || (types.length === 1 ? types[0] : (types[0] || ""));
+    const primary = list[0];
+    const faValue = primary.isFullAuto ? (Number(primary.faValue) || 0) : 0;
+    const attackSourceName = list.map(w => w.name).join("＋");
+    return { weaponAttack, damageType, faValue, attackSourceName };
+}
+
+/**
  * リアクションなしの命中確定: 目標値=対象の制御値(出したスートに対応)。
  * 差分値は**命中(勝利)した場合にのみ**算出される(Check_Rules 2026-07-09 訂正・失敗時は null)。
  * @param {number} achievement 攻撃の達成値
