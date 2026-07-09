@@ -33,7 +33,8 @@ export async function applyDamageChartResult(actor, category, value) {
   if (!kind || !actor) return null;
   const def = CONDITION_KINDS[kind];
   // 治療の目標値算出(「それ以外＝そのダメージの数値」)のため、発生時のダメージ値と系統を負傷に保存する。
-  // 付与で走る createActiveEffect フックが、この負傷の戦闘不能 inflicts に woundSource を紐づける(治療で一括除去)
+  // 付与で走る createActiveEffect フックが、この負傷の inflicts(戦闘不能・BS)に woundSource を紐づける
+  // (治療は非BSを除去・制御判定の無効化はダメージ全体を除去)
   const [eff] = await actor.createEmbeddedDocuments("ActiveEffect", [{
     name: def?.label, img: def?.img, statuses: [kind],
     flags: { [SCOPE]: { conditionKind: kind, hideFromList: true, woundValue: value, woundCategory: category } },
@@ -246,11 +247,11 @@ export async function postControlNegatePrompt(actor, effect, kind, controlNegate
  * 帰結は戻り値で返し、要求カードのライブ書き換え(checkRequest の結果注入)に載せる
  * (別の結果カードは出さない=2026-07-08 ユーザー指示)。
  *
- * 戦闘不能を与えるダメージ(腹部損傷=気絶・心臓停止=仮死 等)は、その戦闘不能が**ダメージそのもの**
- * であり、負傷と戦闘不能タグは区別されない(2026-07-09 ユーザー裁定)。したがって:
- * - **無効化**: 戦闘不能タグに紐づく負傷(woundSource)も含め**ダメージ全体を消滅**させる
- *   (戦闘不能タグだけを外して負傷を残さない)。BS 由来の制御判定は woundSource を持たないため
- *   従来どおりその状態のみ無効化する(BS は独立効果・治療で残す規約と整合)。
+ * 制御判定「無効」を持つダメージ(腹部損傷=気絶・心臓停止=仮死・恐怖=恐慌 等)は、その効果が
+ * **ダメージそのもの**であり、負傷と付与状態(戦闘不能/BS)は区別されない(2026-07-09 ユーザー裁定)。したがって:
+ * - **無効化**: 付与状態に紐づく負傷(woundSource)も含め**ダメージ全体を消滅**させる(戦闘不能でも
+ *   BS でも同様=タグだけ外して負傷を残さない)。※通常の〈医療〉治療は BS を残す(独立効果)が、
+ *   制御判定の「無効」はダメージ自体を resist するので付与状態ごと消える。
  * - **降格**(仮死→気絶 等): 降格後の戦闘不能を負傷に紐づけ直す(治療目標値・シーン終了回復が
  *   正しく効くように)。負傷そのものは残る(表記は元のまま=表示上の名残・機能は正しい)。
  * @param {{actorUuid:string, effectId:string, kind:string, ability:string, downgradeTo:string}} negateCtx
@@ -269,7 +270,7 @@ export async function resolveControlNegateFromCheck(negateCtx, result) {
 
   const outcome = negateOutcome(result?.success === true, { downgradeTo: downgradeTo || undefined });
   const label = CONDITION_KINDS[kind]?.label ?? kind;
-  const woundId = effect.flags?.[SCOPE]?.woundSource || ""; // 戦闘不能=負傷に紐づく(BS は持たない)
+  const woundId = effect.flags?.[SCOPE]?.woundSource || ""; // 付与状態(戦闘不能/BS)=負傷に紐づく
 
   if (outcome.action === "negate") {
     // 戦闘不能の無効化はダメージ全体(負傷＋その戦闘不能＋同じ負傷由来の紐づき)を消滅させる

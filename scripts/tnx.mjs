@@ -424,8 +424,10 @@ Hooks.on("createActiveEffect", async (effect, options, userId) => {
     if (!actor || actor.documentName !== "Actor") return;
 
     // 1. カスケード: inflicts の別状態を付与(状態のみ・hideFromList)。
-    // 供給元が負傷(wound)の場合、戦闘不能(incapacitation)の inflicts は「そのダメージチャートの効果」
-    // の一部なので woundSource で負傷に紐づける(治療で負傷ごと一括除去する。BS は独立効果なので紐づけない)
+    // 供給元が負傷(wound)の場合、その inflicts は「そのダメージチャートの効果」なので woundSource で
+    // 負傷に紐づける(戦闘不能も BS も含め全て)。消費側で扱いを分ける:
+    //   ・治療(〈医療〉): 負傷＋紐づきの非BSを除去し BS は残す(BS は独立効果)。
+    //   ・制御判定の無効化: 負傷＋紐づき全て(BS 含む)を除去=ダメージ自体が無効(2026-07-09 裁定)。
     const srcKind = getConditionKinds(effect)[0];
     const srcIsWound = CONDITION_KINDS[srcKind]?.type === "wound";
     const data = [];
@@ -435,7 +437,7 @@ Hooks.on("createActiveEffect", async (effect, options, userId) => {
             const ik = d.statuses[0];
             const idef = CONDITION_KINDS[ik];
             if (idef && !idef.stackable && (actor.statuses?.has?.(ik) || seen.has(ik))) continue;
-            if (srcIsWound && idef?.group === "incapacitation") {
+            if (srcIsWound) {
                 d.flags["tokyo-nova-axleration"].woundSource = effect.id;
             }
             seen.add(ik);

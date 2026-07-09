@@ -64,12 +64,15 @@ export function resolveTreatmentInstance(patient, effect) {
     return null; // BS 等は治療対象でない
 }
 
-/** 負傷 → 治療インスタンス(紐づく戦闘不能を含め除去対象を集め、目標値を決める)。 */
+/** 負傷 → 治療インスタンス(紐づく戦闘不能・非BS効果を除去対象に集め、目標値を決める)。 */
 function buildWoundInstance(patient, wound) {
     const woundKind = getConditionKinds(wound)[0];
     if (CONDITION_KINDS[woundKind]?.group === "social") return null; // 社会は治療不可
-    // 紐づく戦闘不能(woundSource=この負傷)を集める。BS は紐づかない(独立)ので対象外
-    const linked = patient.effects.filter(e => e.flags?.[SCOPE]?.woundSource === wound.id);
+    // 紐づき(woundSource=この負傷)のうち **BS 以外**(戦闘不能・非BS効果)を除去対象にする。
+    // BS は独立効果なので治療では残す(BS 自身の解除条件で回復)。※制御判定の無効化では BS も消す(別経路)
+    const linked = patient.effects.filter(e =>
+        e.flags?.[SCOPE]?.woundSource === wound.id
+        && CONDITION_KINDS[getConditionKinds(e)[0]]?.group !== "bs");
     const removeIds = [wound.id, ...linked.map(e => e.id)];
 
     // 目標値: 紐づく戦闘不能があればその種別(仮死/昏睡=20 優先・気絶/失神=15)、なければ負傷のダメージ値
