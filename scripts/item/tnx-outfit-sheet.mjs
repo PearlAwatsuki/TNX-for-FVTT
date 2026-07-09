@@ -817,13 +817,16 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             header.querySelector(".outfit-header-toggles")?.remove();
             const wrap = document.createElement("div");
             wrap.className = "outfit-header-toggles";
+            // 住宅施設・住宅オプション・住宅アクセサリは携帯しない=携帯トグルを出さない(2026-07-09)
+            const noCarrying = this.item.type === "residence"
+                || this.item.system.minorCategory === "housingOption"
+                || this.item.system.minorCategory === "housingAccessory";
             const toggles = [
                 { flag: "isPre-play",  icon: "fa-cart-shopping",  title: "プレアクト購入" },
                 { flag: "isCarrying",  icon: "fa-suitcase",       title: "携帯中" },
                 { flag: "isPrepared",  icon: "fa-shield-halved",  title: "準備済み" },
-            // 住宅施設は携帯しない(キャストシート同様に携帯トグルを出さない)。
             // 部位「-」は準備できない=準備トグルを出さない(準備不要で常時適用・2026-07-09)
-            ].filter(t => !(t.flag === "isCarrying" && this.item.type === "residence"))
+            ].filter(t => !(t.flag === "isCarrying" && noCarrying))
              .filter(t => !(t.flag === "isPrepared" && this.item.system.isPartless === true));
             const noPreserveExp = this.item.system.preserveExp?.mode !== "value";
             for (const t of toggles) {
