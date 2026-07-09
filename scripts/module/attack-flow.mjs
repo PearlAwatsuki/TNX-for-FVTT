@@ -29,6 +29,7 @@ import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { isActorInStartedCombat } from "../data/helpers.mjs";
 import { resolveNoReaction, resolveOpposed, attackReactionModes, formatAttackLabel } from "./attack-flow-logic.mjs";
 import { buildSkillOptions } from "./skill-select.mjs";
+import { actorSkillsWithRole } from "./skill-roles.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -50,6 +51,13 @@ const REACTION_HINTS = Object.freeze({
 const REACTION_DEFAULT_SKILL = Object.freeze({
     dodge: "回避", parry: "白兵", mental: "自我", social: "信用",
 });
+
+/** リアクションモード → 技能役割(役割ベース検出。reaction は系統で自我/信用に分岐) */
+function reactionRole(mode, category) {
+    if (mode === "dodge") return "dodge";
+    if (mode === "parry") return "parry";
+    return category === "social" ? "socialReaction" : "mentalReaction";
+}
 
 const MODE_LABELS = Object.freeze({
     dodge: "ドッジ", parry: "パリー", reaction: "リアクション", none: "リアクションしない",
@@ -374,37 +382,40 @@ export async function startReaction(message, mode) {
             ? (Number(parryWeapon.system.guardValue.value) || 0) : 0;
     }
 
-    // 技能選択(強制しない): 対象の一般技能・スタイル技能から選ぶ。既定の指定技能は初期選択・
-    // 並び順はシートと同じ(一般→スタイル・item.sort)。既定候補はヒント表示のみ
-    const skills = target.items
-        .filter(i => ["generalSkill", "styleSkill"].includes(i.type)
-            && (i.system.actions ?? []).some(a => a.type === "check" && !Number.isFinite(a.fixedResult)));
-    if (!skills.length) { ui.notifications.warn("対象に判定用途を持つ技能がありません。"); return; }
+    // 技能選択(強制しない): リアクション役割(dodge/parry/mentalReaction/socialReaction)を持つ
+    // 技能を検出。役割技能が無ければ全技能から選ばせる(移行フォールバック)。既定は先頭を初期選択
+    const role = reactionRole(mode, f.category);
+    let candidates = actorSkillsWithRole(target, role);
+    if (!candidates.length) {
+        candidates = target.items
+            .filter(i => ["generalSkill", "styleSkill"].includes(i.type))
+            .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
+    }
+    if (!candidates.length) { ui.notifications.warn("対象に使用できる技能がありません。"); return; }
     const hint = mode === "reaction" ? REACTION_HINTS[f.category] : REACTION_HINTS[mode];
     const defaultSkill = mode === "reaction" ? REACTION_DEFAULT_SKILL[f.category] : REACTION_DEFAULT_SKILL[mode];
     const skillId = await TargetSelectionDialog.prompt({
         title: `${MODE_LABELS[mode]}: 使用技能の選択`,
         label: `${MODE_LABELS[mode]}に使用する技能を選択してください。${hint ? `（${hint}）` : ""}`,
-        options: buildSkillOptions(skills, { defaultName: defaultSkill }),
+        options: buildSkillOptions(candidates, { defaultName: defaultSkill }),
         selectLabel: "判定へ",
     });
     if (!skillId) return;
     const skill = target.items.get(skillId);
-    const usage = (skill.system.actions ?? []).find(a => a.type === "check" && !Number.isFinite(a.fixedResult));
-    if (!usage) { ui.notifications.warn(`「${skill.name}」に判定用途がありません。`); return; }
 
-    // 参加技能・消費(通常の判定と同じ)
-    const baseId = usage.baseSkillRef?.itemId || skill.id;
+    // 参加技能・消費(用途があれば combo/消費・無ければ技能そのものをベースに判定)
+    const usage = (skill.system.actions ?? []).find(a => a.type === "check" && !Number.isFinite(a.fixedResult)) ?? null;
+    const baseId = usage?.baseSkillRef?.itemId || skill.id;
     const baseSkill = baseId === skill.id ? skill : target.items.get(baseId);
-    const comboIds = (usage.skillRefs ?? []).map(r => r.itemId).filter(id => id && target.items.has(id));
+    const comboIds = (usage?.skillRefs ?? []).map(r => r.itemId).filter(id => id && target.items.has(id));
     if (skill.id !== baseId && !comboIds.includes(skill.id)) comboIds.push(skill.id);
     const allSkillIds = [baseId, ...comboIds.filter(id => id !== baseId)];
     const validSuits = getComboSuits(allSkillIds.map(id => target.items.get(id)?.system).filter(Boolean));
     if (!baseSkill || !validSuits.length) {
-        ui.notifications.warn(`「${skill.name}」の用途に不備があります（ベース技能・共通スートを確認してください）。`);
+        ui.notifications.warn(`「${skill.name}」で使用できるスートがありません。`);
         return;
     }
-    const rows = resolveConsumeRowsForActor(target, skill, usage.consumeTargets);
+    const rows = usage ? resolveConsumeRowsForActor(target, skill, usage.consumeTargets) : [];
     const usesPlan = await promptConsumption(target, rows, { title: `使用回数の消費: ${skill.name}` });
     if (usesPlan === null) return;
 

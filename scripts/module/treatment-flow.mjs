@@ -22,6 +22,7 @@ import { TargetSelectionDialog } from "./tnx-dialog.mjs";
 import { buildSkillOptions } from "./skill-select.mjs";
 import { resolveConsumeRowsForActor, promptConsumption } from "./usage-consumption.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
+import { actorSkillsWithRole } from "./skill-roles.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const TREAT_SKILL_NAME = "医療";
@@ -105,26 +106,26 @@ export async function startTreatment(patient, effectId) {
     const treater = await pickTreater();
     if (!treater) return;
 
-    // 〈医療〉技能の解決(既定選択)。無ければ代用判定(別技能＋手動修正)
-    const medic = findCheckSkill(treater, TREAT_SKILL_NAME);
-    let skill = medic;
+    // 治療役割(treatment)を持つ技能を検出(名前一致でなく役割で。既定=医療)。
+    // 無ければ代用判定(別技能＋手動修正)。役割技能が複数なら先頭(sort 順)を使う
+    const roleSkills = actorSkillsWithRole(treater, "treatment");
+    let skill = roleSkills[0] ?? null;
     let substitution = null;
     let manualMod = 0;
-    if (!medic) {
+    if (!skill) {
         const sub = await promptSubstituteSkill(treater);
         if (!sub) return;
         skill = sub.skill;
         substitution = { requestedLabel: `〈${TREAT_SKILL_NAME}〉（治療）`, usedName: sub.skill.name };
         manualMod = sub.manualMod;
     }
-    const usage = (skill.system.actions ?? []).find(a => a.type === "check" && !Number.isFinite(a.fixedResult));
-    if (!usage) { ui.notifications.warn(`「${skill.name}」に判定用途がありません。`); return; }
-
+    // 用途があれば combo/消費を解決・無ければ技能そのものをベースに判定する
+    const usage = (skill.system.actions ?? []).find(a => a.type === "check" && !Number.isFinite(a.fixedResult)) ?? null;
     const resolved = resolveCheckSkillSet(treater, skill, usage);
-    if (!resolved) { ui.notifications.warn(`「${skill.name}」の用途に不備があります。`); return; }
+    if (!resolved) { ui.notifications.warn(`「${skill.name}」で使用できるスートがありません。`); return; }
 
-    // 消費(通常の判定と同じ)
-    const rows = resolveConsumeRowsForActor(treater, skill, usage.consumeTargets);
+    // 消費(用途があるときのみ)
+    const rows = usage ? resolveConsumeRowsForActor(treater, skill, usage.consumeTargets) : [];
     const usesPlan = await promptConsumption(treater, rows, { title: `使用回数の消費: ${skill.name}` });
     if (usesPlan === null) return;
 
@@ -213,18 +214,9 @@ async function pickTreater() {
     return id ? game.actors.get(id) : null;
 }
 
-/** 名前の技能で check 用途(固定値でない)を持つものを返す。 */
-function findCheckSkill(actor, name) {
-    return actor.items.find(i =>
-        ["generalSkill", "styleSkill"].includes(i.type) && i.name === name
-        && (i.system.actions ?? []).some(a => a.type === "check" && !Number.isFinite(a.fixedResult))) ?? null;
-}
-
-/** 〈医療〉が無い場合の代用判定: 別技能を選び手動修正を入力する。 */
+/** 〈医療〉役割の技能が無い場合の代用判定: 別技能を選び手動修正を入力する。 */
 async function promptSubstituteSkill(actor) {
-    const skills = actor.items.filter(i =>
-        ["generalSkill", "styleSkill"].includes(i.type)
-        && (i.system.actions ?? []).some(a => a.type === "check" && !Number.isFinite(a.fixedResult)));
+    const skills = actor.items.filter(i => i.type === "generalSkill" || i.type === "styleSkill");
     if (!skills.length) { ui.notifications.warn(`「${actor.name}」に判定できる技能がありません。`); return null; }
     const esc = foundry.utils.escapeHTML;
     const options = buildSkillOptions(skills).map(o => `<option value="${o.value}">${esc(o.label)}</option>`).join("");
@@ -252,9 +244,10 @@ async function promptSubstituteSkill(actor) {
 
 /** check 用途からベース技能・参加技能・共通スートを解決する(startReaction と同型)。 */
 function resolveCheckSkillSet(actor, skill, usage) {
-    const baseId = usage.baseSkillRef?.itemId || skill.id;
+    // 用途があれば baseSkillRef/skillRefs で combo を解決・無ければ技能そのものをベースにする
+    const baseId = usage?.baseSkillRef?.itemId || skill.id;
     const baseSkill = baseId === skill.id ? skill : actor.items.get(baseId);
-    const comboIds = (usage.skillRefs ?? []).map(r => r.itemId).filter(id => id && actor.items.has(id));
+    const comboIds = (usage?.skillRefs ?? []).map(r => r.itemId).filter(id => id && actor.items.has(id));
     if (skill.id !== baseId && !comboIds.includes(skill.id)) comboIds.push(skill.id);
     const allSkillIds = [baseId, ...comboIds.filter(id => id !== baseId)];
     const validSuits = getComboSuits(allSkillIds.map(id => actor.items.get(id)?.system).filter(Boolean));

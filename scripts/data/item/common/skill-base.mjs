@@ -23,6 +23,10 @@ export class SkillBaseTemplate extends SystemDataModel {
         club:    new fields.BooleanField({ initial: false }),
       }),
       isAction: new fields.BooleanField({ initial: false }),
+      // 役割(2026-07-09 新設計): この技能が担う既定行動(治療/ドッジ/パリー/各リアクション/各攻撃)。
+      // 名前一致でなく役割で検出する。スタイル技能は「規定以外の技能をベースに所定の行動が行える」
+      // ことを、そのスタイル技能自身がこの役割を持つことで表す(skill-roles.mjs の SKILL_ROLES)。
+      skillRoles: new fields.ArrayField(new fields.StringField({ initial: "" })),
     };
   }
 
