@@ -10,14 +10,14 @@
  * ブリッジとして与える(コンペンディウムに役割を設定すれば以後はフィールドが使われる)。
  */
 
-/** 役割キー → 表示ラベルと分類(reaction/attack/treatment・系統)。 */
+/** 役割キー → 表示ラベルと分類(reaction/attack/treatment・系統)。
+ * 白兵・射撃はルール上まとめて「物理攻撃」(2026-07-09 ユーザー・実ルールに即す)。 */
 export const SKILL_ROLES = Object.freeze({
     dodge:          { label: "ドッジ",         kind: "reaction",  category: "physical" },
     parry:          { label: "パリー",         kind: "reaction",  category: "physical" },
     mentalReaction: { label: "精神リアクション", kind: "reaction",  category: "mental"   },
     socialReaction: { label: "社会リアクション", kind: "reaction",  category: "social"   },
-    meleeAttack:    { label: "白兵攻撃",       kind: "attack",    category: "physical" },
-    rangedAttack:   { label: "射撃攻撃",       kind: "attack",    category: "physical" },
+    physicalAttack: { label: "物理攻撃",       kind: "attack",    category: "physical" },
     mentalAttack:   { label: "精神攻撃",       kind: "attack",    category: "mental"   },
     socialAttack:   { label: "社会攻撃",       kind: "attack",    category: "social"   },
     treatment:      { label: "治療",           kind: "treatment"                        },
@@ -31,9 +31,9 @@ export const SKILL_ROLE_KEYS = Object.freeze(Object.keys(SKILL_ROLES));
  */
 export const DEFAULT_SKILL_ROLES_BY_NAME = Object.freeze({
     "回避": ["dodge"],
-    "操縦": ["dodge"],                 // ヴィークル搭乗時のドッジ(搭乗中は回避を不可にする文脈ブロックは13)
-    "白兵": ["parry", "meleeAttack"],
-    "射撃": ["rangedAttack"],
+    "操縦": ["dodge"],                 // ヴィークル搭乗時のドッジ(準備済みヴィークルで搭乗判定・回避ブロックは別途)
+    "白兵": ["parry", "physicalAttack"],
+    "射撃": ["physicalAttack"],
     "心理": ["mentalAttack"],
     "圧力": ["socialAttack"],
     "自我": ["mentalReaction"],

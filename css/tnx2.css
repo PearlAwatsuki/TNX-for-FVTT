@@ -6866,6 +6866,21 @@ button.tnx-create-act-button span {
     padding: 2px 0;
 }
 
+/* 技能の特性フラグ(2026-07-09): 短いフラグは間隔を広めに横並び・ラベルが長いものは1行を占有 */
+.skill-traits-flags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 24px;
+}
+.skill-traits-flags .outfit-flag {
+    flex: 0 0 auto;
+    margin: 0;
+}
+.skill-traits-flags .outfit-flag--wide {
+    flex: 0 0 100%;
+}
+
 /* 技能の役割チェック(skillRoles・2026-07-09。特性セクション内) */
 .skill-roles-block {
     margin-top: 8px;

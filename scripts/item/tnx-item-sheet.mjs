@@ -88,7 +88,25 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             context.skillRoleOptions = Object.entries(SKILL_ROLES).map(([key, def]) => ({
                 key, label: def.label, checked: active.includes(key),
             }));
-            context.showNoCombo = this.item.type === "styleSkill"; // 組み合わせ不可はスタイル技能のみ
+            // 特性(2026-07-09): 散在していた真偽フラグを1セクションに集約。フラグがオンのとき
+            // 各詳細セクションが表示される(wide=ラベルが長く1行占有)。detail は元の位置に残しゲート
+            const flags = [
+                { name: "system.isAction",   label: "アクション技能",   checked: !!system.isAction },
+                { name: "system.usesBounty", label: "報酬点を使用可能", checked: !!system.usesBounty },
+            ];
+            if (this.item.type === "styleSkill") {
+                flags.push({ name: "system.noCombo", label: "組み合わせ不可", checked: !!system.noCombo });
+                flags.push({ name: "system.uses.isLimit", label: "使用回数に制限あり", checked: !!system.uses?.isLimit, disabled: !!context.usesSharedWithOwner });
+                if (system.styleSkillCategory === "special")
+                    flags.push({ name: "system.special.works.value", label: "ワークス技能", checked: !!system.special?.works?.value });
+                flags.push({ name: "system.isSubstitute", label: "代用可能", checked: !!system.isSubstitute });
+                flags.push({ name: "system.acquiresOutfit", label: "取得と同時にアウトフィットを取得する", checked: !!system.acquiresOutfit, wide: true });
+                flags.push({ name: "system.expFree", label: "経験点消費なしで取得可", checked: !!system.expFree, wide: true });
+                if (system.styleSkillCategory === "secret" || system.styleSkillCategory === "mystery")
+                    flags.push({ name: "system.excludeFromCount", label: `${system.styleSkillCategory === "secret" ? "秘技" : "奥義"}の取得数に含まない`, checked: !!system.excludeFromCount, wide: true });
+                flags.push({ name: "system.levelRef.enabled", label: "他スタイル技能のレベルを参照", checked: !!system.levelRef?.enabled, wide: true });
+            }
+            context.traitFlags = flags;
         }
 
         return context;

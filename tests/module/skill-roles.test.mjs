@@ -5,8 +5,10 @@ const { SKILL_ROLES, SKILL_ROLE_KEYS, getSkillRoles, actorSkillsWithRole } =
   await import("../../scripts/module/skill-roles.mjs");
 
 describe("SKILL_ROLES 定義", () => {
-  it("9 役割・各役割は kind を持つ", () => {
-    expect(SKILL_ROLE_KEYS).toHaveLength(9);
+  it("8 役割(白兵・射撃は物理攻撃に統合)・各役割は kind を持つ", () => {
+    expect(SKILL_ROLE_KEYS).toHaveLength(8);
+    expect(SKILL_ROLES.physicalAttack).toBeDefined();
+    expect(SKILL_ROLES.meleeAttack).toBeUndefined();
     for (const [k, def] of Object.entries(SKILL_ROLES)) {
       expect(["reaction", "attack", "treatment"], k).toContain(def.kind);
     }
@@ -19,8 +21,8 @@ describe("getSkillRoles()（フィールドが権威・未設定は正準名の�
     expect(getSkillRoles(skill)).toEqual(["dodge", "treatment"]);
   });
 
-  it("skillRoles 未設定の既定技能は正準名で既定役割(白兵=パリー+白兵攻撃)", () => {
-    expect(getSkillRoles({ name: "白兵", system: { skillRoles: [] } })).toEqual(["parry", "meleeAttack"]);
+  it("skillRoles 未設定の既定技能は正準名で既定役割(白兵=パリー+物理攻撃)", () => {
+    expect(getSkillRoles({ name: "白兵", system: { skillRoles: [] } })).toEqual(["parry", "physicalAttack"]);
     expect(getSkillRoles({ name: "医療", system: {} })).toEqual(["treatment"]);
     expect(getSkillRoles({ name: "回避", system: { skillRoles: [] } })).toEqual(["dodge"]);
   });
@@ -40,7 +42,7 @@ describe("actorSkillsWithRole()（役割を持つ技能を sort 順で検出）"
   it("該当役割の一般・スタイル技能のみ・sort 順", () => {
     const actor = mkActor([
       { type: "generalSkill", name: "医療",   sort: 20, system: { skillRoles: ["treatment"] } },
-      { type: "generalSkill", name: "白兵",   sort: 10, system: { skillRoles: [] } }, // 既定=parry+meleeAttack
+      { type: "generalSkill", name: "白兵",   sort: 10, system: { skillRoles: [] } }, // 既定=parry+physicalAttack
       { type: "styleSkill",   name: "特殊治療", sort: 5,  system: { skillRoles: ["treatment"] } },
       { type: "generalSkill", name: "無関係", sort: 1,  system: { skillRoles: [] } },
       { type: "armor",        name: "防具",   sort: 0,  system: { skillRoles: ["treatment"] } }, // 技能でない=除外

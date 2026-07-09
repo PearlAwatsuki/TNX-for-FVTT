@@ -251,13 +251,10 @@
                             </div>
                         </div>
 
-                        <div class="form-group">
-                            <label for="isLimit-{{item._id}}">使用回数に制限あり</label>
-                            <input type="checkbox" name="system.uses.isLimit" id="isLimit-{{item._id}}" {{checked system.uses.isLimit}} {{#if usesSharedWithOwner}}disabled{{/if}}>
-                        </div>
+                        {{!-- 「使用回数に制限あり」トグルは特性セクションへ移動(2026-07-09)。オン時に詳細を表示 --}}
                         {{#if usesSharedWithOwner}}
                         <p class="usage-empty-hint" title="分身は使用回数を自分で管理せず、本体側の同じ能力のカウンターを消費・参照します">
-                            <i class="fas fa-link"></i> 使用回数は本体「{{usesOwnerName}}」と共有されます（このアイテムのローカル値は使われません）
+                            <i class="fas fa-link"></i> 使用回数は本体「{{usesOwnerName}}」と共有されます
                         </p>
                         {{/if}}
                         {{#if system.uses.isLimit}}
@@ -285,17 +282,11 @@
                     </div>
                 </fieldset>
 
-                {{!-- ワークス技能(特技のみ存在する＝Character_Creation.md。旧「特技専用」セクションを
-                     再編し、代用技能は独立セクションへ分離=2026-07-03) --}}
-                {{#if (eq system.styleSkillCategory "special")}}
+                {{!-- ワークス技能: 「ワークス技能」トグルは特性へ移動。オン時のみ詳細セクションを表示(2026-07-09) --}}
+                {{#if system.special.works.value}}
                 <fieldset class="tnx-fieldset">
                     <legend>ワークス技能</legend>
                     <div class="tnx-form-field">
-                            <div class="form-group">
-                                <label for="isWorks-{{item._id}}">ワークス技能</label>
-                                <input type="checkbox" name="system.special.works.value" id="isWorks-{{item._id}}" {{checked system.special.works.value}}>
-                            </div>
-                            {{#if system.special.works.value}}
                                 <div class="form-group">
                                     <label>組織名</label>
                                     <select name="system.special.works.organization">
@@ -306,21 +297,15 @@
                                     <label for="isDepartment-{{item._id}}">部署技能 <i class="fas fa-circle-question" title="部署を表すワークス技能。取得していると所属名(ワークス名)の表示がこの技能の名前で上書きされます(トループはトループ名の組織名部分も)"></i></label>
                                     <input type="checkbox" name="system.special.works.isDepartment" id="isDepartment-{{item._id}}" {{checked system.special.works.isDepartment}}>
                                 </div>
-                            {{/if}}
                     </div>
                 </fieldset>
                 {{/if}}
 
-                {{!-- 代用技能(特技に限らない＝2026-07-03 確定。旧「特技専用」から分離) --}}
+                {{!-- 代用技能: 「代用可能」トグルは特性へ移動。オン時のみ代用対象を表示(2026-07-09) --}}
+                {{#if system.isSubstitute}}
                 <fieldset class="tnx-fieldset">
                     <legend>代用技能</legend>
                     <div class="tnx-form-field">
-                            <div class="form-group">
-                                <label for="isSubstitute-{{item._id}}">代用可能</label>
-                                <input type="checkbox" name="system.isSubstitute" id="isSubstitute-{{item._id}}" {{checked system.isSubstitute}}>
-                            </div>
-
-                            {{#if system.isSubstitute}}
                                 <div class="form-group align-start">
                                     <label>代用対象</label>
                                     <div class="form-fields-column">
@@ -345,9 +330,9 @@
                                         {{/each}}
                                     </div>
                                 </div>
-                            {{/if}}
                     </div>
                 </fieldset>
+                {{/if}}
 
                 {{!-- 神業の書き換え(unique=miracleChange のときのみ) --}}
                 {{#if (eq system.unique "miracleChange")}}
@@ -369,33 +354,12 @@
                 </fieldset>
                 {{/if}}
 
-                {{!-- 取得・経験点: 取得方法・経験点まわり --}}
+                {{!-- 取得・経験点のフラグ(取得と同時にアウトフィット取得・経験点消費なし・取得数に含まない・
+                     他技能レベル参照)は特性へ移動(2026-07-09)。参照先の詳細は参照オン時のみ表示 --}}
+                {{#if system.levelRef.enabled}}
                 <fieldset class="tnx-fieldset">
-                    <legend>取得・経験点</legend>
+                    <legend>レベル参照</legend>
                     <div class="tnx-form-field">
-                        <div class="form-group">
-                            <label>取得と同時にアウトフィットを取得する</label>
-                            <input type="checkbox" name="system.acquiresOutfit" {{checked system.acquiresOutfit}}>
-                        </div>
-
-                        {{!-- 取得・経験点 (10-3) --}}
-                        <div class="form-group">
-                            <label>経験点消費なしで取得可 <i class="fas fa-circle-question" title="自動習得(クロガネのフォルム等)・2技能セットの相方など、経験点を消費せず取得する技能。経験点の集計から除外する"></i></label>
-                            <input type="checkbox" name="system.expFree" {{checked system.expFree}}>
-                        </div>
-
-                        {{#if (or (eq system.styleSkillCategory "secret") (eq system.styleSkillCategory "mystery"))}}
-                        <div class="form-group">
-                            <label>{{#if (eq system.styleSkillCategory "secret")}}秘技{{else}}奥義{{/if}}の取得数に含まない <i class="fas fa-circle-question" title="特殊な取得条件の技能を取得数の表示カウントから除外する(表示のみ・上限は強制しない)"></i></label>
-                            <input type="checkbox" name="system.excludeFromCount" {{checked system.excludeFromCount}}>
-                        </div>
-                        {{/if}}
-
-                        <div class="form-group">
-                            <label>他スタイル技能のレベルを参照 <i class="fas fa-circle-question" title="模造技能・血脈〈魔性〉など。指定した技能のレベルでこの技能のレベル欄を上書きする(判定は通常通りそのレベルを読む)。スートは手動で選択。経験点・取得数には二重計上しない"></i></label>
-                            <input type="checkbox" name="system.levelRef.enabled" {{checked system.levelRef.enabled}}>
-                        </div>
-                        {{#if system.levelRef.enabled}}
                         <div class="form-group">
                             <label>参照先の技能</label>
                             {{#if isOnActor}}
@@ -406,9 +370,9 @@
                                 <input type="text" name="system.levelRef.key" value="{{system.levelRef.key}}" placeholder="参照先の識別キーを入力"/>
                             {{/if}}
                         </div>
-                        {{/if}}
                     </div>
                 </fieldset>
+                {{/if}}
 
                 {{!-- 技能: 辞典カスケードで段階選択(2列グリッド・ラベルなし) --}}
                 <fieldset class="tnx-fieldset">
