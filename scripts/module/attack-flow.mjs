@@ -301,18 +301,18 @@ export function renderAttackCard(message, html) {
         return;
     }
 
-    // state === "pending": 系統別のリアクション導線(対象の所有者と GM に表示)
+    // state === "pending": リアクション導線。ドッジ/パリー/リアクションは攻撃対象に限らず
+    // 他者が代行できる(操縦者が同乗者を庇う等・2026-07-09 確定)ため全員に表示し、実行アクター
+    // (リアクター)の権限は押下時に判定する。「リアクションしない」は対象自身の宣言(制御値で
+    // 受ける)なので対象の操作者(か GM)に限定する。
     const target = resolveSync(f.targetUuid);
-    const canReact = game.user.isGM || target?.isOwner;
+    const canDeclareNone = game.user.isGM || target?.isOwner;
     addLine("tnx-attack-pending-note",
-        `対象: ${foundry.utils.escapeHTML(f.targetName || "?")} — リアクションを選択してください`);
-    if (!canReact) {
-        addLine("cr-tn", "（対象の操作者の選択待ち）");
-        return;
-    }
+        `対象: ${esc(f.targetName || "?")} — リアクションを選択してください`);
     const btnRow = document.createElement("div");
     btnRow.className = "tnx-attack-btn-row";
     for (const mode of attackReactionModes(f.category)) {
+        if (mode === "none" && !canDeclareNone) continue;
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "tnx-chat-btn";
@@ -333,6 +333,27 @@ export function renderAttackCard(message, html) {
 function resolveSync(uuid) {
     if (!uuid) return null;
     try { return fromUuidSync(uuid); } catch { return null; }
+}
+
+/**
+ * リアクションを行うアクター(リアクター)を解決する。リアクションは攻撃対象に限らず他者が
+ * 代行できる(操縦者が同乗者を庇う等・他者の被攻撃に代理反応する技能が複数存在する。
+ * 2026-07-09 ユーザー確定)。既定は選択トークン→割り当てキャラクター。権限が無ければ弾く
+ * (GM は常に可)。命中結果は従来どおり攻撃対象(f.targetUuid)に返る。
+ * @returns {Actor|null} 解決できなければ警告して null
+ */
+function resolveReactor() {
+    const controlled = canvas?.tokens?.controlled ?? [];
+    const actor = controlled[0]?.actor ?? game.user.character ?? null;
+    if (!actor) {
+        ui.notifications.warn("リアクションを行うキャラクターのトークンを選択してください。");
+        return null;
+    }
+    if (!actor.isOwner) {
+        ui.notifications.warn(`「${actor.name}」を操作する権限がありません。`);
+        return null;
+    }
+    return actor;
 }
 
 // ─── 命中確定(リアクションなし/対決) ─────────────────────────────────────────
@@ -359,25 +380,23 @@ export async function handleNoReaction(message) {
  */
 export async function startReaction(message, mode) {
     const f = message.getFlag(SCOPE, "attackCheck");
-    const target = await fromUuid(f.targetUuid).catch(() => null);
-    if (!target) { ui.notifications.warn("対象を解決できません。"); return; }
-    if (!game.user.isGM && !target.isOwner) {
-        ui.notifications.warn("リアクションは対象の操作者（または RL）が行います。");
-        return;
-    }
+    // リアクター(実行アクター)は攻撃対象に限らない(他者が代行可)。選択トークン→割り当てキャラ、
+    // 権限が無ければ弾く。判定は reactor 自身の技能・値で行い、命中結果は攻撃対象に返る。
+    const reactor = resolveReactor();
+    if (!reactor) return;
 
     // パリー: カット進行中は AR>0 を検証し AR−1 を即時適用(カット進行外は検証・消費なし)。
     // 受け値: パリー参照武器(weaponRefs.parry)の guardValue(判定成立なら敗北でも軽減に加算)
     let parryGuard = 0;
     if (mode === "parry") {
-        if (isActorInStartedCombat(target)) {
-            const ar = target.system.actionRank?.value ?? 0;
+        if (isActorInStartedCombat(reactor)) {
+            const ar = reactor.system.actionRank?.value ?? 0;
             if (ar <= 0) { ui.notifications.warn("AR が 0 のためパリーを行えません。"); return; }
-            await target.update({ "system.actionRank.value": ar - 1 });
+            await reactor.update({ "system.actionRank.value": ar - 1 });
         }
         // パリー参照武器(character-base の weaponRefs.parryItemId)。未設定なら受け値なし
-        const parryId = target.system.weaponRefs?.parryItemId || "";
-        const parryWeapon = parryId ? target.items.get(parryId) : null;
+        const parryId = reactor.system.weaponRefs?.parryItemId || "";
+        const parryWeapon = parryId ? reactor.items.get(parryId) : null;
         parryGuard = parryWeapon?.system.guardValue?.mode === "value"
             ? (Number(parryWeapon.system.guardValue.value) || 0) : 0;
     }
@@ -385,13 +404,13 @@ export async function startReaction(message, mode) {
     // 技能選択(強制しない): リアクション役割(dodge/parry/mentalReaction/socialReaction)を持つ
     // 技能を検出。役割技能が無ければ全技能から選ばせる(移行フォールバック)。既定は先頭を初期選択
     const role = reactionRole(mode, f.category);
-    let candidates = actorSkillsWithRole(target, role);
+    let candidates = actorSkillsWithRole(reactor, role);
     if (!candidates.length) {
-        candidates = target.items
+        candidates = reactor.items
             .filter(i => ["generalSkill", "styleSkill"].includes(i.type))
             .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
     }
-    if (!candidates.length) { ui.notifications.warn("対象に使用できる技能がありません。"); return; }
+    if (!candidates.length) { ui.notifications.warn(`「${reactor.name}」に使用できる技能がありません。`); return; }
     const hint = mode === "reaction" ? REACTION_HINTS[f.category] : REACTION_HINTS[mode];
     const defaultSkill = mode === "reaction" ? REACTION_DEFAULT_SKILL[f.category] : REACTION_DEFAULT_SKILL[mode];
     const skillId = await TargetSelectionDialog.prompt({
@@ -401,35 +420,35 @@ export async function startReaction(message, mode) {
         selectLabel: "判定へ",
     });
     if (!skillId) return;
-    const skill = target.items.get(skillId);
+    const skill = reactor.items.get(skillId);
 
     // 参加技能・消費(用途があれば combo/消費・無ければ技能そのものをベースに判定)
     const usage = (skill.system.actions ?? []).find(a => a.type === "check" && !Number.isFinite(a.fixedResult)) ?? null;
     const baseId = usage?.baseSkillRef?.itemId || skill.id;
-    const baseSkill = baseId === skill.id ? skill : target.items.get(baseId);
-    const comboIds = (usage?.skillRefs ?? []).map(r => r.itemId).filter(id => id && target.items.has(id));
+    const baseSkill = baseId === skill.id ? skill : reactor.items.get(baseId);
+    const comboIds = (usage?.skillRefs ?? []).map(r => r.itemId).filter(id => id && reactor.items.has(id));
     if (skill.id !== baseId && !comboIds.includes(skill.id)) comboIds.push(skill.id);
     const allSkillIds = [baseId, ...comboIds.filter(id => id !== baseId)];
-    const validSuits = getComboSuits(allSkillIds.map(id => target.items.get(id)?.system).filter(Boolean));
+    const validSuits = getComboSuits(allSkillIds.map(id => reactor.items.get(id)?.system).filter(Boolean));
     if (!baseSkill || !validSuits.length) {
         ui.notifications.warn(`「${skill.name}」で使用できるスートがありません。`);
         return;
     }
-    const rows = usage ? resolveConsumeRowsForActor(target, skill, usage.consumeTargets) : [];
-    const usesPlan = await promptConsumption(target, rows, { title: `使用回数の消費: ${skill.name}` });
+    const rows = usage ? resolveConsumeRowsForActor(reactor, skill, usage.consumeTargets) : [];
+    const usesPlan = await promptConsumption(reactor, rows, { title: `使用回数の消費: ${skill.name}` });
     if (usesPlan === null) return;
 
-    const skillLabel = allSkillIds.map(id => target.items.get(id)?.name ?? "").filter(Boolean).join("+");
-    const targetBounty = (target.system.bountyBase ?? 0) + (target.system.bounty ?? 0);
+    const skillLabel = allSkillIds.map(id => reactor.items.get(id)?.name ?? "").filter(Boolean).join("+");
+    const reactorBounty = (reactor.system.bountyBase ?? 0) + (reactor.system.bounty ?? 0);
 
     await TnxCheckFlow.open({
         type:            "skillCheck",
-        actorId:         target.id,
+        actorId:         reactor.id,
         skillIds:        allSkillIds,
         skillLabel,
         validSuits,
         targetValue:     null,
-        bountyAvailable: baseSkill.system.usesBounty === true ? targetBounty : 0,
+        bountyAvailable: baseSkill.system.usesBounty === true ? reactorBounty : 0,
         consumeUses:     usesPlan,
         requestMessageId: null,
         reaction: { attackMessageId: message.id, mode, parryGuard },
