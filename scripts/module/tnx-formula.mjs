@@ -24,6 +24,20 @@ export function buildCheckFormulaData(result) {
 }
 
 /**
+ * 判定/ダメージの式に供給する評価データを組み立てる(2026-07-10 ユーザー要望:
+ * 「AE で参照できる値は式でも参照できるべき」)。アクターのロールデータ(`getRollData()`)を
+ * 基に、判定結果(`@diff`/`@achievement`)を重ねる。ロールデータは AE と同じ `system.*` パスを
+ * `@system.*` として公開する(initiative の `@system.combatSpeed.displayTotal` と同じ流儀)。
+ * @param {Actor|null} actor
+ * @param {{diff?: number|null, achievement?: number|null}} [result] 判定結果(判定前は省略)
+ * @returns {object} evaluateFormula に渡す data
+ */
+export function buildFormulaData(actor, result = null) {
+    const rollData = actor?.getRollData?.() ?? {};
+    return result ? { ...rollData, ...buildCheckFormulaData(result) } : { ...rollData };
+}
+
+/**
  * 純数値の速判定(Foundry 非依存)。数値でなければ null。
  * @param {string} formula
  * @returns {number|null}

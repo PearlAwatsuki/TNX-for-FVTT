@@ -17,7 +17,7 @@
 
 import { getCardCheckValue, calcSkillCheck, calcControlCheck, ALL_SUITS, SUIT_TO_ABILITY } from './tnx-check-engine.mjs';
 import { gatherCheckBonusSources } from '../data/item/helpers.mjs';
-import { evaluateFormula } from './tnx-formula.mjs';
+import { evaluateFormula, buildFormulaData } from './tnx-formula.mjs';
 import { readConditions, gatherConditionCheckSources, getCheckBlock, computeJammingPenalty } from './conditions.mjs';
 import { TnxActionHandler } from './tnx-action-handler.mjs';
 import { TnxSocketHandler } from './tnx-socket-handler.mjs';
@@ -566,10 +566,11 @@ export class TnxCheckFlow {
         // 判定バフ(check 時・同一効果の重複適用不可)を算出。内訳(sources)はチャットの内訳表示に使う
         const checkInfo  = suitMismatch ? { total: 0, sources: [] } : TnxCheckFlow._computeCheckBonus(actor, ctx, SUIT_TO_ABILITY[suit]);
         let checkBonus = checkInfo.total;
-        // 用途の判定ボーナス(達成値へ加算する式・2026-07-10)。結果由来キーは判定前に使えないため
-        // 実質フラット値/算術式(評価不能は無視)。内訳に「判定ボーナス（用途）」として載せる
+        // 用途の判定ボーナス(達成値へ加算する式・2026-07-10)。攻撃者のロールデータ(@system.*=AE と
+        // 同じ値)を供給して評価する。結果由来キー(@diff/@achievement)は判定前のため使えない。
+        // 評価不能(自由文・ダイス)は無視。内訳に「判定ボーナス（用途）」として載せる
         if (!suitMismatch && ctx.checkBonusFormula) {
-            const bonus = await evaluateFormula(ctx.checkBonusFormula, {});
+            const bonus = await evaluateFormula(ctx.checkBonusFormula, buildFormulaData(actor));
             if (Number.isFinite(bonus) && bonus !== 0) {
                 checkBonus += bonus;
                 checkInfo.sources.push({ name: "判定ボーナス（用途）", value: bonus });

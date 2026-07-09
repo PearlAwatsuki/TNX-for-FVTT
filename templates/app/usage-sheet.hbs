@@ -326,8 +326,8 @@
             <fieldset class="tnx-fieldset">
                 <legend>判定</legend>
                 <div class="usage-form-row">
-                    <label class="usage-field-label">判定ボーナス <i class="fas fa-circle-question" title="達成値に加算する式です（例: 2、1+1）。判定前のため @差分値 等の結果参照は使えません＝実質は数値・算術式です"></i></label>
-                    <input type="text" name="checkBonus" value="{{usage.checkBonus}}" placeholder="例: 2"
+                    <label class="usage-field-label">判定ボーナス <i class="fas fa-circle-question" title="達成値に加算する式です（例: 2、@system.life.total）。AE と同じ system.* の値を @system.… で参照できます（判定前のため結果由来の @diff/@achievement は使えません）"></i></label>
+                    <input type="text" name="checkBonus" value="{{usage.checkBonus}}" placeholder="例: 2、@system.life.total"
                            {{#unless editable}}disabled{{/unless}}>
                 </div>
                 <p class="usage-formula-line">達成値 ＝ カード ＋ 能力値 ＋ 報酬点 ＋ 判定バフ{{#if usage.checkBonus}} ＋ <b>{{usage.checkBonus}}</b>{{/if}}</p>
@@ -388,8 +388,8 @@
                     </div>
                     {{/if}}
                     <div class="usage-form-row">
-                        <label class="usage-field-label">ダメージ修正 <i class="fas fa-circle-question" title="ダメージに加算する式です（例: 2、@diff）。ダメージ算出時に評価するため、判定結果の @diff（差分値）・@achievement（達成値）が使えます"></i></label>
-                        <input type="text" name="damageBonus" value="{{usage.damageBonus}}" placeholder="例: 2、@diff"
+                        <label class="usage-field-label">ダメージ修正 <i class="fas fa-circle-question" title="ダメージに加算する式です（例: 2、@system.life.total、@diff）。AE と同じ system.* の値を @system.… で参照でき、ダメージ算出時に評価するため判定結果の @diff（差分値）・@achievement（達成値）も使えます"></i></label>
+                        <input type="text" name="damageBonus" value="{{usage.damageBonus}}" placeholder="例: 2、@system.life.total、@diff"
                                {{#unless editable}}disabled{{/unless}}>
                     </div>
                     <p class="usage-formula-line">{{#if isAttackPhysical}}ダメージ ＝ ダメージカード ＋ 攻撃力{{#if selectedWeapons.length}}（合算）{{else}}（生身）{{/if}}{{#if usage.damageBonus}} ＋ <b>{{usage.damageBonus}}</b>{{else}} ＋ ダメージ修正{{/if}} − 軽減{{else}}ダメージ ＝ ダメージカード{{#if usage.damageBonus}} ＋ <b>{{usage.damageBonus}}</b>{{else}} ＋ ダメージ修正{{/if}}（精神／社会は攻撃力・防御力なし）{{/if}}</p>

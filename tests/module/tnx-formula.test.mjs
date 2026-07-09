@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
-const { buildCheckFormulaData, parsePlainNumber, evaluateFormula } =
+const { buildCheckFormulaData, buildFormulaData, parsePlainNumber, evaluateFormula } =
   await import("../../scripts/module/tnx-formula.mjs");
 
 describe("buildCheckFormulaData()（式評価用の判定結果コンテキスト・Check_Rules「差分値」）", () => {
@@ -13,6 +13,27 @@ describe("buildCheckFormulaData()（式評価用の判定結果コンテキス�
   it("目標値なし(diff=null)・欠損は 0 として供給する", () => {
     expect(buildCheckFormulaData({ diff: null, achievement: null })).toEqual({ diff: 0, achievement: 0 });
     expect(buildCheckFormulaData(undefined)).toEqual({ diff: 0, achievement: 0 });
+  });
+});
+
+describe("buildFormulaData()（AE と同じ system.* を式に供給・2026-07-10）", () => {
+  // getRollData() は AE と同じ system.* パスを @system.* として公開する(initiative と同流儀)
+  const actor = { getRollData: () => ({ system: { life: { total: 8 }, reason: { total: 5 } } }) };
+
+  it("アクターのロールデータ(@system.*)を供給する", () => {
+    expect(buildFormulaData(actor)).toEqual({ system: { life: { total: 8 }, reason: { total: 5 } } });
+  });
+
+  it("判定結果(@diff/@achievement)を重ねる", () => {
+    expect(buildFormulaData(actor, { diff: 7, achievement: 22 })).toEqual({
+      system: { life: { total: 8 }, reason: { total: 5 } },
+      diff: 7, achievement: 22,
+    });
+  });
+
+  it("アクターが無ければ空(＋結果のみ)", () => {
+    expect(buildFormulaData(null)).toEqual({});
+    expect(buildFormulaData(null, { diff: 3, achievement: 10 })).toEqual({ diff: 3, achievement: 10 });
   });
 });
 

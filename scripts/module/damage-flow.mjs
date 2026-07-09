@@ -22,7 +22,7 @@
 
 import { applyDamageChartResult } from "./condition-resolution.mjs";
 import { aggregateDefence, defenceForType, computeDamage } from "./damage-logic.mjs";
-import { evaluateFormula, buildCheckFormulaData } from "./tnx-formula.mjs";
+import { evaluateFormula, buildFormulaData } from "./tnx-formula.mjs";
 import { resolveConsumeRowsForActor, applyConsumptionPlan } from "./usage-consumption.mjs";
 import { getDamageChartKind } from "../data/damage-chart.mjs";
 import { CONDITION_KINDS } from "./conditions.mjs";
@@ -111,9 +111,10 @@ export async function openDamageRollDialog(attackMessage) {
     // FA は自動加算せず、FA 可能武器を候補として出しダイアログで武器ごとに選ぶ(2026-07-09)
     const faOptions = category === "physical" ? (f.faOptions ?? []) : [];
 
-    // damageBoost(攻撃側)の候補。formula は事前評価(@diff/@achievement は判定結果で固定)。
-    // 評価不能な自由文は数値効果なし=表示のみ(手動修正欄で反映)
-    const formulaData = buildCheckFormulaData({ diff: f.diff, achievement: f.achievement });
+    // damageBoost(攻撃側)の候補。formula は事前評価(@diff/@achievement は判定結果で固定・
+    // 攻撃者のロールデータ @system.* も供給=AE と同じ値を式で参照可)。評価不能な自由文は
+    // 数値効果なし=表示のみ(手動修正欄で反映)
+    const formulaData = buildFormulaData(attacker, { diff: f.diff, achievement: f.achievement });
     const boostRows = collectDamageUsages(attacker, "damageBoost");
     for (const r of boostRows) {
         const v = await evaluateFormula(r.formula, formulaData);
@@ -463,8 +464,9 @@ async function openMitigationDialog(message) {
     }
     if (f.parryGuard) { autoMitigation += f.parryGuard; mitigationParts.push(`パリー受け値 ${f.parryGuard}`); }
 
-    // damageReduce(防御側)の候補。formula は攻撃の判定結果(@diff/@achievement)で事前評価
-    const formulaData = buildCheckFormulaData({ diff: f.diff, achievement: f.achievement });
+    // damageReduce(防御側)の候補。formula は攻撃の判定結果(@diff/@achievement)＋防御側の
+    // ロールデータ(@system.*=AE と同じ値)で事前評価
+    const formulaData = buildFormulaData(target, { diff: f.diff, achievement: f.achievement });
     const reduceRows = collectDamageUsages(target, "damageReduce");
     for (const r of reduceRows) {
         const v = await evaluateFormula(r.formula, formulaData);
