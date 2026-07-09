@@ -290,10 +290,10 @@ export function renderDamageCard(message, html) {
     area.replaceChildren();
 
     const esc = foundry.utils.escapeHTML;
-    const row = (parent, label, val, rowCls = "jr-calc-row", valCls = "jr-calc-val") => {
+    const row = (parent, label, val, rowCls = "cr-calc-row", valCls = "cr-calc-val") => {
         const div = document.createElement("div");
         div.className = rowCls;
-        div.innerHTML = `<span class="jr-calc-label">${label}</span><span class="${valCls}">${val}</span>`;
+        div.innerHTML = `<span class="cr-calc-label">${label}</span><span class="${valCls}">${val}</span>`;
         parent.appendChild(div);
     };
     const line = (parent, cls, inner) => {
@@ -308,7 +308,7 @@ export function renderDamageCard(message, html) {
     const { raw } = damageRollTotals(f);
     const cards = f.cards ?? [];
     cards.forEach((c, i) => {
-        const suitMark = SUIT_SYMBOL[c.suit] ? `<span class="jr-suit suit-${c.suit}">${SUIT_SYMBOL[c.suit]}</span> ` : "";
+        const suitMark = SUIT_SYMBOL[c.suit] ? `<span class="cr-suit suit-${c.suit}">${SUIT_SYMBOL[c.suit]}</span> ` : "";
         row(ledger, `ダメージカード${cards.length > 1 ? ` ${i + 1}` : ""}（${suitMark}${esc(c.name)}）`,
             i === 0 ? String(c.value) : `＋${c.value}`);
     });
@@ -321,7 +321,7 @@ export function renderDamageCard(message, html) {
         row(ledger, esc(b.label), Number.isFinite(b.value) ? signedDisplay("＋", b.value) : `（${esc(b.formula)}）`);
     }
     if (f.manualMod) row(ledger, "修正（手動）", signedDisplay("＋", f.manualMod));
-    row(ledger, `攻撃側合計${f.stun ? "（スタン／説得）" : ""}`, String(raw), "jr-calc-row jr-total-row", "jr-total-num");
+    row(ledger, `攻撃側合計${f.stun ? "（スタン／説得）" : ""}`, String(raw), "cr-calc-row cr-total-row", "cr-total-num");
 
     // ── 状態領域 ──
     if (f.applied && f.appliedResult) {
@@ -330,8 +330,8 @@ export function renderDamageCard(message, html) {
         for (const d of (r.reduces ?? [])) row(area, esc(d.label), d.display);
         if (r.bounty) row(area, "報酬点による軽減", `−${r.bounty}`);
         if (r.stunCapped) row(area, "スタン／説得（10 以上→10）", "→10");
-        row(area, "最終ダメージ", String(r.final), "jr-calc-row jr-total-row", "jr-total-num");
-        line(area, `jr-result ${r.final > 0 ? "jr-result--damage" : "jr-result--nodamage"}`,
+        row(area, "最終ダメージ", String(r.final), "cr-calc-row cr-total-row", "cr-total-num");
+        line(area, `cr-result ${r.final > 0 ? "cr-result--damage" : "cr-result--nodamage"}`,
             `<i class="fas ${r.final > 0 ? "fa-burst" : "fa-shield-halved"}"></i> ${esc(r.applyText ?? "")}`);
         return;
     }
@@ -348,7 +348,7 @@ export function renderDamageCard(message, html) {
         area.appendChild(btn);
     }
     if (!f.targetUuid) {
-        line(area, "jr-tn", "対象未選択（適用は手動で行ってください）");
+        line(area, "cr-tn", "対象未選択（適用は手動で行ってください）");
     } else if (game.user.isGM || target?.isOwner) {
         const btn = document.createElement("button");
         btn.type = "button";
@@ -357,7 +357,7 @@ export function renderDamageCard(message, html) {
         btn.addEventListener("click", () => openMitigationDialog(message));
         area.appendChild(btn);
     } else {
-        line(area, "jr-tn", "（適用は対象の操作者または RL が行います）");
+        line(area, "cr-tn", "（適用は対象の操作者または RL が行います）");
     }
 }
 
@@ -678,12 +678,12 @@ async function applyDerivedDamage(target, derived) {
     await ChatMessage.create({
         speaker: ChatMessage.getSpeaker({ actor: target }),
         content: `<div class="tnx-check-result tnx-damage-card tokyo-nova">
-            <div class="jr-head"><span class="jr-skill-name">派生ダメージ</span><span class="jr-type-tag">${label}・軽減不可</span></div>
-            <div class="jr-calc-section">
-                ${drawn.length ? `<div class="jr-calc-row"><span class="jr-calc-label">めくったカード</span><span class="jr-calc-val">${esc(drawn.join("・"))}</span></div>` : ""}
-                <div class="jr-calc-row jr-total-row"><span class="jr-calc-label">ダメージ</span><span class="jr-total-num">${total}</span></div>
+            <div class="cr-head"><span class="cr-skill-name">派生ダメージ</span><span class="cr-type-tag">${label}・軽減不可</span></div>
+            <div class="cr-calc-section">
+                ${drawn.length ? `<div class="cr-calc-row"><span class="cr-calc-label">めくったカード</span><span class="cr-calc-val">${esc(drawn.join("・"))}</span></div>` : ""}
+                <div class="cr-calc-row cr-total-row"><span class="cr-calc-label">ダメージ</span><span class="cr-total-num">${total}</span></div>
             </div>
-            <div class="jr-result jr-result--damage"><i class="fas fa-burst"></i> ${esc(applyText)}</div>
+            <div class="cr-result cr-result--damage"><i class="fas fa-burst"></i> ${esc(applyText)}</div>
         </div>`,
     });
     return `／派生: ${label}ダメージ ${total}`;

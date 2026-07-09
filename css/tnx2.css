@@ -4134,7 +4134,7 @@ body.tnx-bottom-hud-expanded #hotbar {
 }
 
 /* ヘッダー: スキル名 | 判定種別バッジ */
-.jr-head {
+.cr-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -4144,7 +4144,7 @@ body.tnx-bottom-hud-expanded #hotbar {
     border-bottom: 1px solid var(--tnx2-border-subtle);
 }
 
-.jr-skill-name {
+.cr-skill-name {
     font-size: 1.05em;
     font-weight: 700;
     color: var(--tnx2-text-primary);
@@ -4152,7 +4152,7 @@ body.tnx-bottom-hud-expanded #hotbar {
     min-width: 0;
 }
 
-.jr-type-tag {
+.cr-type-tag {
     flex-shrink: 0;
     font-size: 0.72em;
     font-weight: 600;
@@ -4165,7 +4165,7 @@ body.tnx-bottom-hud-expanded #hotbar {
 }
 
 /* カード行: スートシンボル | カード名 | バッジ群 */
-.jr-card-row {
+.cr-card-row {
     display: flex;
     align-items: center;
     gap: 7px;
@@ -4173,24 +4173,24 @@ body.tnx-bottom-hud-expanded #hotbar {
     border-bottom: 1px solid var(--tnx2-border-subtle);
 }
 
-.jr-suit {
+.cr-suit {
     font-size: 1.65em;
     font-weight: 700;
     line-height: 1;
     flex-shrink: 0;
 }
 
-.jr-suit.suit-heart,
-.jr-suit.suit-diamond {
+.cr-suit.suit-heart,
+.cr-suit.suit-diamond {
     color: #e05050;
 }
 
-.jr-suit.suit-spade,
-.jr-suit.suit-club {
+.cr-suit.suit-spade,
+.cr-suit.suit-club {
     color: var(--tnx2-text-primary);
 }
 
-.jr-card-name {
+.cr-card-name {
     font-size: 0.9em;
     color: var(--tnx2-text-secondary);
     flex: 1;
@@ -4200,7 +4200,7 @@ body.tnx-bottom-hud-expanded #hotbar {
     white-space: nowrap;
 }
 
-.jr-badges {
+.cr-badges {
     display: flex;
     gap: 3px;
     flex-shrink: 0;
@@ -4208,7 +4208,7 @@ body.tnx-bottom-hud-expanded #hotbar {
     justify-content: flex-end;
 }
 
-.jr-badge {
+.cr-badge {
     display: inline-block;
     font-size: 0.68em;
     padding: 1px 5px;
@@ -4217,34 +4217,34 @@ body.tnx-bottom-hud-expanded #hotbar {
     white-space: nowrap;
 }
 
-.jr-badge--deck     { background: rgba(100, 100, 200, 0.35); color: #aaaaee; }
-.jr-badge--trump    { background: rgba(200, 120, 0,   0.40); color: #ffbb44; }
-.jr-badge--mismatch { background: rgba(200,  50, 50,  0.35); color: #ff8888; }
-.jr-badge--fixed21  { background: rgba(200, 200, 50,  0.30); color: #eeee60; }
-.jr-badge--fixed    { background: rgba(80,  170, 200, 0.30); color: #7fd4ee; }
-.jr-badge--sub      { background: rgba(150, 110, 220, 0.30); color: #c9a6ff; }
+.cr-badge--deck     { background: rgba(100, 100, 200, 0.35); color: #aaaaee; }
+.cr-badge--trump    { background: rgba(200, 120, 0,   0.40); color: #ffbb44; }
+.cr-badge--mismatch { background: rgba(200,  50, 50,  0.35); color: #ff8888; }
+.cr-badge--fixed21  { background: rgba(200, 200, 50,  0.30); color: #eeee60; }
+.cr-badge--fixed    { background: rgba(80,  170, 200, 0.30); color: #7fd4ee; }
+.cr-badge--sub      { background: rgba(150, 110, 220, 0.30); color: #c9a6ff; }
 
 /* 計算内訳セクション */
-.jr-calc-section {
+.cr-calc-section {
     padding: 8px 12px 6px;
     display: flex;
     flex-direction: column;
     gap: 3px;
 }
 
-.jr-calc-row {
+.cr-calc-row {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
     padding: 1px 0;
 }
 
-.jr-calc-label {
+.cr-calc-label {
     font-size: 0.9em;
     color: var(--tnx2-text-secondary);
 }
 
-.jr-calc-val {
+.cr-calc-val {
     font-size: 1em;
     font-family: var(--tnx2-font-mono);
     color: var(--tnx2-text-primary);
@@ -4253,20 +4253,20 @@ body.tnx-bottom-hud-expanded #hotbar {
 }
 
 /* 達成値合計行 */
-.jr-total-row {
+.cr-total-row {
     margin-top: 5px;
     padding-top: 7px;
     border-top: 1px solid var(--tnx2-border-subtle);
     align-items: center;
 }
 
-.jr-total-row .jr-calc-label {
+.cr-total-row .cr-calc-label {
     font-size: 0.95em;
     font-weight: 600;
     color: var(--tnx2-text-primary);
 }
 
-.jr-total-num {
+.cr-total-num {
     font-size: 1.8em;
     font-weight: 700;
     font-family: var(--tnx2-font-mono);
@@ -4276,16 +4276,16 @@ body.tnx-bottom-hud-expanded #hotbar {
 }
 
 /* 判定ボーナス行＝開閉トグル (▶判定ボーナス … +N、開くとエフェクト名一覧) */
-.jr-bonus-summary {
+.cr-bonus-summary {
     cursor: pointer;
     list-style: none;
 }
 
-.jr-bonus-summary::-webkit-details-marker {
+.cr-bonus-summary::-webkit-details-marker {
     display: none;
 }
 
-.jr-bonus-summary .jr-calc-label::before {
+.cr-bonus-summary .cr-calc-label::before {
     content: "\25B6"; /* ▶ */
     display: inline-block;
     margin-right: 4px;
@@ -4294,11 +4294,11 @@ body.tnx-bottom-hud-expanded #hotbar {
     transition: transform 0.12s ease;
 }
 
-.jr-bonus[open] .jr-bonus-summary .jr-calc-label::before {
+.cr-bonus[open] .cr-bonus-summary .cr-calc-label::before {
     transform: rotate(90deg);
 }
 
-.jr-bonus-list {
+.cr-bonus-list {
     list-style: none;
     margin: 3px 0 0;
     padding: 4px 6px;
@@ -4307,7 +4307,7 @@ body.tnx-bottom-hud-expanded #hotbar {
     background: var(--tnx2-bg-subtle, rgba(0, 0, 0, 0.12));
 }
 
-.jr-bonus-list li {
+.cr-bonus-list li {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
@@ -4315,20 +4315,20 @@ body.tnx-bottom-hud-expanded #hotbar {
     padding: 1px 0;
 }
 
-.jr-bonus-name {
+.cr-bonus-name {
     color: var(--tnx2-text-secondary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.jr-bonus-num {
+.cr-bonus-num {
     font-family: var(--tnx2-font-mono);
     color: var(--tnx2-text-primary);
 }
 
 /* 結果フッター (成功 / 失敗 / ファンブル) */
-.jr-result {
+.cr-result {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -4337,28 +4337,28 @@ body.tnx-bottom-hud-expanded #hotbar {
     font-weight: 700;
 }
 
-.jr-result--success {
+.cr-result--success {
     background: rgba(50, 180, 80, 0.20);
     color: #60e880;
 }
 
-.jr-result--failure {
+.cr-result--failure {
     background: rgba(200, 50, 50, 0.20);
     color: #e86060;
 }
 
-.jr-result--fumble {
+.cr-result--fumble {
     background: rgba(180, 0, 0, 0.32);
     color: #ff6060;
 }
 
-.jr-result--info {
+.cr-result--info {
     background: rgba(120, 150, 200, 0.18);
     color: #a8c4ee;
 }
 
 /* 状態の解決/受付カード(治療・カード決定ドロー。condition-outcome/condition-prompt.hbs) */
-.tnx-condition-card .jr-result--damage {
+.tnx-condition-card .cr-result--damage {
     background: rgba(200, 50, 50, 0.20);
     color: #e86060;
 }
@@ -4374,7 +4374,7 @@ body.tnx-bottom-hud-expanded #hotbar {
     color: var(--tnx2-text-secondary);
 }
 
-.jr-mismatch-label {
+.cr-mismatch-label {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -4384,7 +4384,7 @@ body.tnx-bottom-hud-expanded #hotbar {
     color: #e86060;
 }
 
-.jr-tn {
+.cr-tn {
     margin-left: auto;
     font-size: 0.82em;
     font-weight: 400;
@@ -6606,7 +6606,7 @@ button.tnx-create-act-button span {
     font-size: 0.88em;
 }
 
-.tnx-check-request .jr-req-header {
+.tnx-check-request .cr-req-header {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -6615,7 +6615,7 @@ button.tnx-create-act-button span {
     border-bottom: 1px solid var(--tnx2-border, #444);
 }
 
-.tnx-check-request .jr-req-type-tag {
+.tnx-check-request .cr-req-type-tag {
     background: var(--tnx2-accent, #c8a84b);
     color: #1a1208;
     font-size: 0.78em;
@@ -6625,48 +6625,48 @@ button.tnx-create-act-button span {
     letter-spacing: 0.04em;
 }
 
-.tnx-check-request .jr-req-title {
+.tnx-check-request .cr-req-title {
     font-weight: 700;
     color: var(--tnx2-text-secondary);
     font-size: 0.85em;
     letter-spacing: 0.05em;
 }
 
-.tnx-check-request .jr-req-body {
+.tnx-check-request .cr-req-body {
     padding: 10px 12px;
     display: flex;
     flex-direction: column;
     gap: 8px;
 }
 
-.tnx-check-request .jr-req-skill-row {
+.tnx-check-request .cr-req-skill-row {
     display: flex;
     align-items: center;
     gap: 8px;
 }
 
-.tnx-check-request .jr-req-skill-name {
+.tnx-check-request .cr-req-skill-name {
     font-size: 1.05em;
     font-weight: 700;
     color: var(--tnx2-text, #e0e0e0);
 }
 
-.tnx-check-request .jr-req-suits {
+.tnx-check-request .cr-req-suits {
     display: flex;
     gap: 4px;
 }
 
-.tnx-check-request .jr-req-suit {
+.tnx-check-request .cr-req-suit {
     font-size: 1.1em;
     font-weight: 700;
 }
 
-.tnx-check-request .jr-req-suit.suit-spade   { color: #8ab4f8; }
-.tnx-check-request .jr-req-suit.suit-club     { color: #81c995; }
-.tnx-check-request .jr-req-suit.suit-heart    { color: #f28b82; }
-.tnx-check-request .jr-req-suit.suit-diamond  { color: #fdd663; }
+.tnx-check-request .cr-req-suit.suit-spade   { color: #8ab4f8; }
+.tnx-check-request .cr-req-suit.suit-club     { color: #81c995; }
+.tnx-check-request .cr-req-suit.suit-heart    { color: #f28b82; }
+.tnx-check-request .cr-req-suit.suit-diamond  { color: #fdd663; }
 
-.tnx-check-request .jr-req-description {
+.tnx-check-request .cr-req-description {
     font-size: 0.85em;
     color: var(--tnx2-text-secondary);
     margin: 0;
@@ -6674,19 +6674,19 @@ button.tnx-create-act-button span {
     border-left: 2px solid var(--tnx2-border, #444);
 }
 
-.tnx-check-request .jr-req-tn-row {
+.tnx-check-request .cr-req-tn-row {
     display: flex;
     align-items: center;
     gap: 8px;
     font-size: 0.88em;
 }
 
-.tnx-check-request .jr-req-tn-label {
+.tnx-check-request .cr-req-tn-label {
     color: var(--tnx2-text-secondary);
     font-size: 0.85em;
 }
 
-.tnx-check-request .jr-req-tn-value {
+.tnx-check-request .cr-req-tn-value {
     font-weight: 700;
     font-size: 1.05em;
     color: var(--tnx2-accent, #c8a84b);
@@ -6694,13 +6694,13 @@ button.tnx-create-act-button span {
     text-align: center;
 }
 
-.tnx-check-request .jr-req-tn-hidden {
+.tnx-check-request .cr-req-tn-hidden {
     color: var(--tnx2-text-secondary);
     font-weight: normal;
     font-size: 0.9em;
 }
 
-.tnx-check-request .jr-req-targets {
+.tnx-check-request .cr-req-targets {
     list-style: none;
     margin: 0;
     padding: 0;
@@ -6709,7 +6709,7 @@ button.tnx-create-act-button span {
     gap: 4px;
 }
 
-.tnx-check-request .jr-req-target-row {
+.tnx-check-request .cr-req-target-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -6719,12 +6719,12 @@ button.tnx-create-act-button span {
     gap: 8px;
 }
 
-.tnx-check-request .jr-req-actor-name {
+.tnx-check-request .cr-req-actor-name {
     font-weight: 600;
     flex: 1;
 }
 
-.tnx-check-request .jr-req-target-status {
+.tnx-check-request .cr-req-target-status {
     flex: 1;
     display: flex;
     justify-content: flex-end;
@@ -6735,25 +6735,25 @@ button.tnx-create-act-button span {
     padding: 3px 10px;
 }
 
-.tnx-check-request .jr-req-negate,
-.tnx-check-request .jr-req-note {
+.tnx-check-request .cr-req-negate,
+.tnx-check-request .cr-req-note {
     font-size: 0.82em;
     color: var(--tnx2-text-secondary);
 }
 
-.tnx-check-request .jr-req-waiting {
+.tnx-check-request .cr-req-waiting {
     font-size: 0.82em;
     color: var(--tnx2-text-secondary);
     font-style: italic;
 }
 
-.tnx-check-request .jr-req-result {
+.tnx-check-request .cr-req-result {
     font-size: 0.88em;
 }
 
-.tnx-check-request .jr-inline-success { color: #81c995; font-weight: 700; }
-.tnx-check-request .jr-inline-failure  { color: #f28b82; font-weight: 700; }
-.tnx-check-request .jr-inline-fumble   { color: #f28b82; font-weight: 700; }
+.tnx-check-request .cr-inline-success { color: #81c995; font-weight: 700; }
+.tnx-check-request .cr-inline-failure  { color: #f28b82; font-weight: 700; }
+.tnx-check-request .cr-inline-fumble   { color: #f28b82; font-weight: 700; }
 
 /* ============================================================
    Phase 8-6: 用途シート (.tnx-usage-sheet)
@@ -7200,7 +7200,7 @@ button.tnx-create-act-button span {
     flex-direction: column;
     gap: 6px;
 }
-.tnx-attack-status .jr-result {
+.tnx-attack-status .cr-result {
     padding: 0;
 }
 
@@ -7279,13 +7279,13 @@ button.tnx-create-act-button span {
 .tnx-damage-status:empty {
     display: none;
 }
-.tnx-damage-card .jr-result {
+.tnx-damage-card .cr-result {
     padding: 4px 0 0;
 }
-.tnx-damage-card .jr-result--damage {
+.tnx-damage-card .cr-result--damage {
     color: #e86060;
 }
-.tnx-damage-card .jr-result--nodamage {
+.tnx-damage-card .cr-result--nodamage {
     color: var(--tnx2-text-secondary);
 }
 

@@ -1241,44 +1241,44 @@ Hooks.once("ready", async function() {
         if (!flagData) return;
 
         // 目標値: targetValueHidden かつ非 GM の場合は非公開表示
-        const tnEl = html.querySelector(".jr-req-tn-value");
+        const tnEl = html.querySelector(".cr-req-tn-value");
         if (tnEl && flagData.targetValueHidden && !game.user.isGM) {
             tnEl.textContent = "（非公開）";
-            tnEl.classList.add("jr-req-tn-hidden");
+            tnEl.classList.add("cr-req-tn-hidden");
         }
 
         // 各対象行: 結果がある場合は結果表示、未判定の場合はボタンまたは「待機中」
-        for (const row of html.querySelectorAll(".jr-req-target-row")) {
+        for (const row of html.querySelectorAll(".cr-req-target-row")) {
             const actorId  = row.dataset.actorId;
             const userId   = row.dataset.userId;
-            const statusEl = row.querySelector(".jr-req-target-status");
+            const statusEl = row.querySelector(".cr-req-target-status");
             if (!statusEl) continue;
 
             const result = flagData.results?.[actorId];
             if (result) {
                 // 判定済み: 結果を表示
                 const resultEl = document.createElement("div");
-                resultEl.className = "jr-req-result";
+                resultEl.className = "cr-req-result";
                 if (flagData.checkType === "controlCheck") {
                     // controlNegate 由来の要求は帰結(無効化/降格/継続)もライブ書き換えで表示する
                     const negateText = result.negateOutcome?.text
-                        ? ` <span class="jr-req-negate">${foundry.utils.escapeHTML(result.negateOutcome.text)}</span>`
+                        ? ` <span class="cr-req-negate">${foundry.utils.escapeHTML(result.negateOutcome.text)}</span>`
                         : "";
                     resultEl.innerHTML = (result.success
-                        ? '<span class="jr-inline-success"><i class="fas fa-check"></i> 成功</span>'
-                        : '<span class="jr-inline-failure"><i class="fas fa-times"></i> 失敗</span>')
+                        ? '<span class="cr-inline-success"><i class="fas fa-check"></i> 成功</span>'
+                        : '<span class="cr-inline-failure"><i class="fas fa-times"></i> 失敗</span>')
                         + negateText;
                 } else if (result.fumble) {
-                    resultEl.innerHTML = '<span class="jr-inline-fumble"><i class="fas fa-skull"></i> ファンブル</span>';
+                    resultEl.innerHTML = '<span class="cr-inline-fumble"><i class="fas fa-skull"></i> ファンブル</span>';
                 } else {
                     const mark = result.success === true
-                        ? ' <span class="jr-inline-success"><i class="fas fa-check"></i> 成功</span>'
+                        ? ' <span class="cr-inline-success"><i class="fas fa-check"></i> 成功</span>'
                         : result.success === false
-                            ? ' <span class="jr-inline-failure"><i class="fas fa-times"></i> 失敗</span>'
+                            ? ' <span class="cr-inline-failure"><i class="fas fa-times"></i> 失敗</span>'
                             : '';
                     // 代用判定(2026-07-09): 指定と別の技能で判定した事実を要求カードにも明示する
                     const subNote = result.substitution?.usedName
-                        ? ` <span class="jr-req-note">代用:${foundry.utils.escapeHTML(result.substitution.usedName)}</span>`
+                        ? ` <span class="cr-req-note">代用:${foundry.utils.escapeHTML(result.substitution.usedName)}</span>`
                         : '';
                     resultEl.innerHTML = `達成値 <strong>${result.achievement ?? "—"}</strong>${mark}${subNote}`;
                 }
@@ -1299,7 +1299,7 @@ Hooks.once("ready", async function() {
                     statusEl.replaceChildren(btn);
                 } else {
                     const waiting = document.createElement("span");
-                    waiting.className = "jr-req-waiting";
+                    waiting.className = "cr-req-waiting";
                     waiting.textContent = "待機中…";
                     statusEl.replaceChildren(waiting);
                 }

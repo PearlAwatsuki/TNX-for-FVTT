@@ -3,39 +3,39 @@
      renderChatMessageHTML(attack-flow.renderAttackCard)がフラグからライブ描画する --}}
 <div class="tnx-check-result tnx-attack-card tokyo-nova">
 
-    <div class="jr-head">
-        <span class="jr-skill-name">{{skillLabel}}</span>
-        <span class="jr-type-tag">攻撃（{{categoryLabel}}）</span>
+    <div class="cr-head">
+        <span class="cr-skill-name">{{skillLabel}}</span>
+        <span class="cr-type-tag">攻撃（{{categoryLabel}}）</span>
     </div>
 
-    <div class="jr-card-row">
-        <span class="jr-suit suit-{{suit}}">{{suitSymbol}}</span>
-        <span class="jr-card-name">{{cardName}}</span>
-        <span class="jr-badges">
-            {{#if fromDeck}}<span class="jr-badge jr-badge--deck">山札</span>{{/if}}
-            {{#if trumpUsed}}<span class="jr-badge jr-badge--trump">切り札</span>{{/if}}
-            {{#if suitMismatch}}<span class="jr-badge jr-badge--mismatch">スート不一致</span>{{/if}}
-            {{#if isFixed21}}<span class="jr-badge jr-badge--fixed21">21固定</span>{{/if}}
+    <div class="cr-card-row">
+        <span class="cr-suit suit-{{suit}}">{{suitSymbol}}</span>
+        <span class="cr-card-name">{{cardName}}</span>
+        <span class="cr-badges">
+            {{#if fromDeck}}<span class="cr-badge cr-badge--deck">山札</span>{{/if}}
+            {{#if trumpUsed}}<span class="cr-badge cr-badge--trump">切り札</span>{{/if}}
+            {{#if suitMismatch}}<span class="cr-badge cr-badge--mismatch">スート不一致</span>{{/if}}
+            {{#if isFixed21}}<span class="cr-badge cr-badge--fixed21">21固定</span>{{/if}}
         </span>
     </div>
 
-    <div class="jr-calc-section">
+    <div class="cr-calc-section">
         {{#if targetName}}
-        <div class="jr-calc-row">
-            <span class="jr-calc-label">対象</span>
-            <span class="jr-calc-val">{{targetName}}</span>
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">対象</span>
+            <span class="cr-calc-val">{{targetName}}</span>
         </div>
         {{/if}}
         {{#if isPhysical}}
-        <div class="jr-calc-row">
-            <span class="jr-calc-label">攻撃力（{{attackSourceName}}）</span>
-            <span class="jr-calc-val">{{attackLabel}}{{#if faValue}} <span class="jr-badge jr-badge--trump">FA{{faValue}}</span>{{/if}}</span>
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">攻撃力（{{attackSourceName}}）</span>
+            <span class="cr-calc-val">{{attackLabel}}{{#if faValue}} <span class="cr-badge cr-badge--trump">FA{{faValue}}</span>{{/if}}</span>
         </div>
         {{/if}}
         {{#unless isFumble}}
-        <div class="jr-calc-row jr-total-row">
-            <span class="jr-calc-label">達成値</span>
-            <span class="jr-total-num">{{achievement}}</span>
+        <div class="cr-calc-row cr-total-row">
+            <span class="cr-calc-label">達成値</span>
+            <span class="cr-total-num">{{achievement}}</span>
         </div>
         {{/unless}}
     </div>

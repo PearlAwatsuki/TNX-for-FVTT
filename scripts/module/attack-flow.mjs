@@ -248,17 +248,17 @@ export function renderAttackCard(message, html) {
     // 成否は短い1行、目標値/対決/差分値は台帳行に分ける(判定結果カードと同じ構造。
     // 1本の flex 行に詰め込むと狭いカードで日本語が文字割れするため=2026-07-09 修正)
     const addVerdict = (cls, icon, label) =>
-        addLine(`jr-result ${cls}`, `<i class="fas ${icon}"></i> <span>${label}</span>`);
+        addLine(`cr-result ${cls}`, `<i class="fas ${icon}"></i> <span>${label}</span>`);
     const addRow = (label, value) =>
-        addLine("jr-calc-row", `<span class="jr-calc-label">${label}</span><span class="jr-calc-val">${value}</span>`);
+        addLine("cr-calc-row", `<span class="cr-calc-label">${label}</span><span class="cr-calc-val">${value}</span>`);
     const diffText = Number.isFinite(f.diff) ? (f.diff >= 0 ? `+${f.diff}` : `${f.diff}`) : null;
 
     if (f.state === "fumble") {
-        addVerdict("jr-result--fumble", "fa-skull", "ファンブル！（攻撃失敗）");
+        addVerdict("cr-result--fumble", "fa-skull", "ファンブル！（攻撃失敗）");
         return;
     }
     if (f.state === "miss") {
-        addVerdict("jr-result--failure", "fa-times", "攻撃失敗");
+        addVerdict("cr-result--failure", "fa-times", "攻撃失敗");
         const why = f.resolution === "mismatch" ? "スート不一致（判定不成立）"
             : f.resolution === "none" ? `制御値 ${f.targetValue} に届かず`
             : `${MODE_LABELS[f.resolution] ?? "リアクション"}成功（達成値 ${f.reactionAchievement}）`;
@@ -267,7 +267,7 @@ export function renderAttackCard(message, html) {
     }
     if (f.state === "hit" || f.state === "open") {
         if (f.state === "hit") {
-            addVerdict("jr-result--success", "fa-check", "命中");
+            addVerdict("cr-result--success", "fa-check", "命中");
             if (f.resolution === "none") addRow("目標値（制御値）", f.targetValue);
             else addRow(`対決（${MODE_LABELS[f.resolution] ?? "リアクション"}）`, `達成値 ${f.reactionAchievement}`);
             if (diffText) addRow("差分値", diffText);
@@ -288,7 +288,7 @@ export function renderAttackCard(message, html) {
                 area.appendChild(btn);
             }
         } else {
-            addLine("jr-tn", "（ダメージカードを出しました）");
+            addLine("cr-tn", "（ダメージカードを出しました）");
         }
         return;
     }
@@ -299,7 +299,7 @@ export function renderAttackCard(message, html) {
     addLine("tnx-attack-pending-note",
         `対象: ${foundry.utils.escapeHTML(f.targetName || "?")} — リアクションを選択してください`);
     if (!canReact) {
-        addLine("jr-tn", "（対象の操作者の選択待ち）");
+        addLine("cr-tn", "（対象の操作者の選択待ち）");
         return;
     }
     const btnRow = document.createElement("div");

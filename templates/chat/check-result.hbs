@@ -1,150 +1,150 @@
 <div class="tnx-check-result tokyo-nova">
 
     {{!-- ① ヘッダー: スキル名 + 判定種別バッジ --}}
-    <div class="jr-head">
-        <span class="jr-skill-name">{{skillLabel}}</span>
-        <span class="jr-type-tag">{{typeLabel}}</span>
+    <div class="cr-head">
+        <span class="cr-skill-name">{{skillLabel}}</span>
+        <span class="cr-type-tag">{{typeLabel}}</span>
     </div>
 
     {{!-- ② カード行: スートシンボル + カード名 + バッジ群（固定値判定はカードを引かないためバッジのみ） --}}
     {{#if isFixedCheck}}
-    <div class="jr-card-row">
-        <span class="jr-card-name">カード・能力値を使用しない</span>
-        <span class="jr-badges">
-            <span class="jr-badge jr-badge--fixed">固定値</span>
+    <div class="cr-card-row">
+        <span class="cr-card-name">カード・能力値を使用しない</span>
+        <span class="cr-badges">
+            <span class="cr-badge cr-badge--fixed">固定値</span>
         </span>
     </div>
     {{else}}
-    <div class="jr-card-row">
-        <span class="jr-suit suit-{{suit}}">{{suitSymbol}}</span>
-        <span class="jr-card-name">{{cardName}}</span>
-        <span class="jr-badges">
-            {{#if fromDeck}}<span class="jr-badge jr-badge--deck">山札</span>{{/if}}
-            {{#if trumpUsed}}<span class="jr-badge jr-badge--trump">切り札</span>{{/if}}
-            {{#if substitution}}<span class="jr-badge jr-badge--sub">代用</span>{{/if}}
-            {{#if suitMismatch}}<span class="jr-badge jr-badge--mismatch">スート不一致</span>{{/if}}
-            {{#if isFixed21}}<span class="jr-badge jr-badge--fixed21">21固定</span>{{/if}}
+    <div class="cr-card-row">
+        <span class="cr-suit suit-{{suit}}">{{suitSymbol}}</span>
+        <span class="cr-card-name">{{cardName}}</span>
+        <span class="cr-badges">
+            {{#if fromDeck}}<span class="cr-badge cr-badge--deck">山札</span>{{/if}}
+            {{#if trumpUsed}}<span class="cr-badge cr-badge--trump">切り札</span>{{/if}}
+            {{#if substitution}}<span class="cr-badge cr-badge--sub">代用</span>{{/if}}
+            {{#if suitMismatch}}<span class="cr-badge cr-badge--mismatch">スート不一致</span>{{/if}}
+            {{#if isFixed21}}<span class="cr-badge cr-badge--fixed21">21固定</span>{{/if}}
         </span>
     </div>
     {{/if}}
 
     {{!-- ③ 計算・結果セクション --}}
     {{#if isFixedCheck}}
-    <div class="jr-calc-section">
-        <div class="jr-calc-row jr-total-row">
-            <span class="jr-calc-label">達成値</span>
-            <span class="jr-total-num">{{result.achievement}}</span>
+    <div class="cr-calc-section">
+        <div class="cr-calc-row cr-total-row">
+            <span class="cr-calc-label">達成値</span>
+            <span class="cr-total-num">{{result.achievement}}</span>
         </div>
     </div>
 
     {{else if result.fumble}}
-    <div class="jr-result jr-result--fumble">
+    <div class="cr-result cr-result--fumble">
         <i class="fas fa-skull"></i> ファンブル！（致命的失敗）
     </div>
 
     {{else if isControlCheck}}
-    <div class="jr-calc-section">
-        <div class="jr-calc-row">
-            <span class="jr-calc-label">カード値</span>
-            <span class="jr-calc-val">{{result.cardValue}}</span>
+    <div class="cr-calc-section">
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">カード値</span>
+            <span class="cr-calc-val">{{result.cardValue}}</span>
         </div>
-        <div class="jr-calc-row">
-            <span class="jr-calc-label">制御値</span>
-            <span class="jr-calc-val">{{result.controlVal}}</span>
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">制御値</span>
+            <span class="cr-calc-val">{{result.controlVal}}</span>
         </div>
         {{#if hasCheckBonus}}
         {{#if checkSources.length}}
-        <details class="jr-bonus">
-            <summary class="jr-calc-row jr-bonus-summary">
-                <span class="jr-calc-label">判定ボーナス</span>
-                <span class="jr-calc-val">+{{result.checkBonus}}</span>
+        <details class="cr-bonus">
+            <summary class="cr-calc-row cr-bonus-summary">
+                <span class="cr-calc-label">判定ボーナス</span>
+                <span class="cr-calc-val">+{{result.checkBonus}}</span>
             </summary>
-            <ul class="jr-bonus-list">
+            <ul class="cr-bonus-list">
                 {{#each checkSources}}
-                <li><span class="jr-bonus-name">{{this.name}}</span><span class="jr-bonus-num">+{{this.value}}</span></li>
+                <li><span class="cr-bonus-name">{{this.name}}</span><span class="cr-bonus-num">+{{this.value}}</span></li>
                 {{/each}}
             </ul>
         </details>
         {{else}}
-        <div class="jr-calc-row">
-            <span class="jr-calc-label">判定ボーナス</span>
-            <span class="jr-calc-val">+{{result.checkBonus}}</span>
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">判定ボーナス</span>
+            <span class="cr-calc-val">+{{result.checkBonus}}</span>
         </div>
         {{/if}}
         {{/if}}
     </div>
-    <div class="jr-result {{#if result.success}}jr-result--success{{else}}jr-result--failure{{/if}}">
+    <div class="cr-result {{#if result.success}}cr-result--success{{else}}cr-result--failure{{/if}}">
         {{#if result.success}}<i class="fas fa-check"></i>{{else}}<i class="fas fa-times"></i>{{/if}}
         <span>{{result.cardValue}} ≤ {{result.effectiveControl}} → {{#if result.success}}成功{{else}}失敗{{/if}}</span>
     </div>
 
     {{else}}
-    <div class="jr-calc-section">
+    <div class="cr-calc-section">
         {{!-- 代用判定(2026-07-09): 指定と別の技能で判定した事実を明示(可否・修正の裁定は卓) --}}
         {{#if substitution}}
-        <div class="jr-calc-row">
-            <span class="jr-calc-label">代用（指定技能）</span>
-            <span class="jr-calc-val">{{substitution.requestedLabel}}</span>
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">代用（指定技能）</span>
+            <span class="cr-calc-val">{{substitution.requestedLabel}}</span>
         </div>
         {{/if}}
         {{#unless isFixed21}}{{#unless suitMismatch}}
-        <div class="jr-calc-row">
-            <span class="jr-calc-label">カード値</span>
-            <span class="jr-calc-val">{{result.cardValue}}</span>
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">カード値</span>
+            <span class="cr-calc-val">{{result.cardValue}}</span>
         </div>
-        <div class="jr-calc-row">
-            <span class="jr-calc-label">{{abilityLabel}}</span>
-            <span class="jr-calc-val">+{{result.abilityVal}}</span>
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">{{abilityLabel}}</span>
+            <span class="cr-calc-val">+{{result.abilityVal}}</span>
         </div>
         {{#if result.bountyUsed}}
-        <div class="jr-calc-row">
-            <span class="jr-calc-label">報酬点</span>
-            <span class="jr-calc-val">+{{result.bountyUsed}}</span>
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">報酬点</span>
+            <span class="cr-calc-val">+{{result.bountyUsed}}</span>
         </div>
         {{/if}}
         {{#if hasCheckBonus}}
         {{#if checkSources.length}}
-        <details class="jr-bonus">
-            <summary class="jr-calc-row jr-bonus-summary">
-                <span class="jr-calc-label">判定ボーナス</span>
-                <span class="jr-calc-val">+{{result.checkBonus}}</span>
+        <details class="cr-bonus">
+            <summary class="cr-calc-row cr-bonus-summary">
+                <span class="cr-calc-label">判定ボーナス</span>
+                <span class="cr-calc-val">+{{result.checkBonus}}</span>
             </summary>
-            <ul class="jr-bonus-list">
+            <ul class="cr-bonus-list">
                 {{#each checkSources}}
-                <li><span class="jr-bonus-name">{{this.name}}</span><span class="jr-bonus-num">+{{this.value}}</span></li>
+                <li><span class="cr-bonus-name">{{this.name}}</span><span class="cr-bonus-num">+{{this.value}}</span></li>
                 {{/each}}
             </ul>
         </details>
         {{else}}
-        <div class="jr-calc-row">
-            <span class="jr-calc-label">判定ボーナス</span>
-            <span class="jr-calc-val">+{{result.checkBonus}}</span>
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">判定ボーナス</span>
+            <span class="cr-calc-val">+{{result.checkBonus}}</span>
         </div>
         {{/if}}
         {{/if}}
         {{#if manualModDisplay}}
-        <div class="jr-calc-row">
-            <span class="jr-calc-label">修正（手動）</span>
-            <span class="jr-calc-val">{{manualModDisplay}}</span>
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">修正（手動）</span>
+            <span class="cr-calc-val">{{manualModDisplay}}</span>
         </div>
         {{/if}}
         {{/unless}}{{/unless}}
         {{#if suitMismatch}}
-        <div class="jr-mismatch-label">
+        <div class="cr-mismatch-label">
             <i class="fas fa-times"></i> 判定不成立
         </div>
         {{/if}}
-        <div class="jr-calc-row jr-total-row">
-            <span class="jr-calc-label">達成値</span>
-            <span class="jr-total-num">{{result.achievement}}</span>
+        <div class="cr-calc-row cr-total-row">
+            <span class="cr-calc-label">達成値</span>
+            <span class="cr-total-num">{{result.achievement}}</span>
         </div>
     </div>
     {{#if showSuccess}}
-    <div class="jr-result {{#if result.success}}jr-result--success{{else}}jr-result--failure{{/if}}">
+    <div class="cr-result {{#if result.success}}cr-result--success{{else}}cr-result--failure{{/if}}">
         {{#if result.success}}<i class="fas fa-check"></i> 成功{{else}}<i class="fas fa-times"></i> 失敗{{/if}}
-        {{#if hasTargetValue}}<span class="jr-tn">目標値 {{result.targetValue}}</span>{{/if}}
+        {{#if hasTargetValue}}<span class="cr-tn">目標値 {{result.targetValue}}</span>{{/if}}
         {{!-- 差分値の表示規約(Check_Rules 2026-07-08 確定): 目標値があれば判定の種類を問わず必ず表示 --}}
-        {{#if diffDisplay}}<span class="jr-tn">差分値 {{diffDisplay}}</span>{{/if}}
+        {{#if diffDisplay}}<span class="cr-tn">差分値 {{diffDisplay}}</span>{{/if}}
     </div>
     {{/if}}
 
