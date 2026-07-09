@@ -428,6 +428,8 @@ Hooks.on("createActiveEffect", async (effect, options, userId) => {
     // 負傷に紐づける(戦闘不能も BS も含め全て)。消費側で扱いを分ける:
     //   ・治療(〈医療〉): 負傷＋紐づきの非BSを除去し BS は残す(BS は独立効果)。
     //   ・制御判定の無効化: 負傷＋紐づき全て(BS 含む)を除去=ダメージ自体が無効(2026-07-09 裁定)。
+    // ※BS の回復(BS 自身の解除条件・解除効果・将来の自動回復=15)は **その BS のみ**を除去し、
+    //   woundSource を辿って負傷を消してはならない(BS を回復してもダメージは治療されない=2026-07-09)。
     const srcKind = getConditionKinds(effect)[0];
     const srcIsWound = CONDITION_KINDS[srcKind]?.type === "wound";
     const data = [];
