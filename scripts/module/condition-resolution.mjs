@@ -245,6 +245,14 @@ export async function postControlNegatePrompt(actor, effect, kind, controlNegate
  * 失敗=状態継続の適用だけを行う(判定に独自処理を挟まない=2026-07-08 ユーザー裁定)。
  * 帰結は戻り値で返し、要求カードのライブ書き換え(checkRequest の結果注入)に載せる
  * (別の結果カードは出さない=2026-07-08 ユーザー指示)。
+ *
+ * 戦闘不能を与えるダメージ(腹部損傷=気絶・心臓停止=仮死 等)は、その戦闘不能が**ダメージそのもの**
+ * であり、負傷と戦闘不能タグは区別されない(2026-07-09 ユーザー裁定)。したがって:
+ * - **無効化**: 戦闘不能タグに紐づく負傷(woundSource)も含め**ダメージ全体を消滅**させる
+ *   (戦闘不能タグだけを外して負傷を残さない)。BS 由来の制御判定は woundSource を持たないため
+ *   従来どおりその状態のみ無効化する(BS は独立効果・治療で残す規約と整合)。
+ * - **降格**(仮死→気絶 等): 降格後の戦闘不能を負傷に紐づけ直す(治療目標値・シーン終了回復が
+ *   正しく効くように)。負傷そのものは残る(表記は元のまま=表示上の名残・機能は正しい)。
  * @param {{actorUuid:string, effectId:string, kind:string, ability:string, downgradeTo:string}} negateCtx
  * @param {object} result calcControlCheck の判定結果
  * @returns {Promise<?{text:string}>} 要求カードに表示する帰結(対象未発見は null)
@@ -261,16 +269,26 @@ export async function resolveControlNegateFromCheck(negateCtx, result) {
 
   const outcome = negateOutcome(result?.success === true, { downgradeTo: downgradeTo || undefined });
   const label = CONDITION_KINDS[kind]?.label ?? kind;
+  const woundId = effect.flags?.[SCOPE]?.woundSource || ""; // 戦闘不能=負傷に紐づく(BS は持たない)
+
   if (outcome.action === "negate") {
-    await effect.delete();
-    return { text: `「${label}」を無効化` };
+    // 戦闘不能の無効化はダメージ全体(負傷＋その戦闘不能＋同じ負傷由来の紐づき)を消滅させる
+    const ids = new Set([effect.id]);
+    if (woundId && actor.effects.get(woundId)) {
+      ids.add(woundId);
+      for (const e of actor.effects) if (e.flags?.[SCOPE]?.woundSource === woundId) ids.add(e.id);
+    }
+    await actor.deleteEmbeddedDocuments("ActiveEffect", [...ids].filter(id => actor.effects.get(id)));
+    return { text: woundId ? `「${label}」を無効化（ダメージ消滅）` : `「${label}」を無効化` };
   }
   if (outcome.action === "downgrade") {
     const toLabel = CONDITION_KINDS[outcome.to]?.label ?? outcome.to;
     await effect.delete();
+    // 降格後の戦闘不能も同じ負傷に紐づけ直す(治療目標値=特殊値・シーン終了回復が効くように)
     await actor.createEmbeddedDocuments("ActiveEffect", [{
       name: CONDITION_KINDS[outcome.to]?.label, img: CONDITION_KINDS[outcome.to]?.img,
-      statuses: [outcome.to], flags: { [SCOPE]: { conditionKind: outcome.to, hideFromList: true } },
+      statuses: [outcome.to],
+      flags: { [SCOPE]: { conditionKind: outcome.to, hideFromList: true, ...(woundId ? { woundSource: woundId } : {}) } },
     }]);
     return { text: `「${label}」→「${toLabel}」に降格` };
   }
