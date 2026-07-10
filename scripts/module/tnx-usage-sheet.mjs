@@ -270,6 +270,10 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         actions: {
             skillRefDelete:        TnxUsageSheet._onSkillRefDelete,
             weaponRefDelete:       TnxUsageSheet._onWeaponRefDelete,
+            checkBonusAdd:         TnxUsageSheet._onCheckBonusAdd,
+            checkBonusDelete:      TnxUsageSheet._onCheckBonusDelete,
+            damageBonusAdd:        TnxUsageSheet._onDamageBonusAdd,
+            damageBonusDelete:     TnxUsageSheet._onDamageBonusDelete,
             effectRemove:          TnxUsageSheet._onEffectRemove,
             paramAdd:              TnxUsageSheet._onParamAdd,
             paramDelete:           TnxUsageSheet._onParamDelete,
@@ -504,6 +508,31 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 { value: "mental",   label: "精神" },
                 { value: "social",   label: "社会" },
             ].map(o => ({ ...o, selected: o.value === category }));
+
+            // 判定ボーナス/ダメージ修正の行(式＋供給元)。供給元はチャットの帰属表示専用(識別キーを保存し
+            // 表示は逆引きした現在名)。式は @system.*・@item.<識別キー>.system.* を参照可(2026-07-10)。
+            // 供給元候補(グループ化): 組み合わせスタイル技能(一般技能除外)＋使用武器。値=識別キー・
+            // 表示=現在のアイテム名。識別キーを持つものだけ(帰属できる供給元)を出す
+            const getItem = (id) => this._item.actor?.items.get(id);
+            const skillItemIds = [...new Set([usage.baseSkillRef?.itemId, ...(usage.skillRefs ?? []).map(r => r.itemId)].filter(Boolean))];
+            const styleSourceOpts = skillItemIds
+                .map(getItem)
+                .filter(it => it && it.type === "styleSkill" && it.system.identificationKey)
+                .map(it => ({ value: it.system.identificationKey, label: it.name }));
+            const weaponSourceOpts = (usage.weaponRefs ?? [])
+                .map(r => getItem(r.itemId))
+                .filter(it => it && it.system.identificationKey)
+                .map(it => ({ value: it.system.identificationKey, label: it.name }));
+            const sourceGroups = [];
+            if (styleSourceOpts.length)  sourceGroups.push({ label: "組み合わせ技能", options: styleSourceOpts });
+            if (weaponSourceOpts.length) sourceGroups.push({ label: "使用武器", options: weaponSourceOpts });
+            // 行ごとに selected 付きの供給元グループを作る(テンプレートの深いネスト回避)
+            const rowGroups = (source) => sourceGroups.map(g => ({
+                label: g.label,
+                options: g.options.map(o => ({ value: o.value, label: o.label, selected: o.value === source })),
+            }));
+            context.checkBonusRows  = (usage.checkBonuses  ?? []).map((r, idx) => ({ idx, formula: r.formula, source: r.source, sourceGroups: rowGroups(r.source) }));
+            context.damageBonusRows = (usage.damageBonuses ?? []).map((r, idx) => ({ idx, formula: r.formula, source: r.source, sourceGroups: rowGroups(r.source) }));
         }
 
         // 消費先設定(11-6・全用途タイプ共通。固定値判定は消費 UI を出さない=エキストラは消費なし)。
@@ -734,12 +763,16 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             targetValueOther:  raw["targetValueOther"]  ?? usage.targetValueOther,
 
             isUnopposable: raw["isUnopposable"] ?? usage.isUnopposable,
-
-            // 判定ボーナス(達成値へ加算する式・全判定用途)。入力欄は check 用途でのみ描画される
-            checkBonus: raw["checkBonus"] ?? usage.checkBonus,
-            // ダメージ修正(ダメージへ加算する式・攻撃用途)。入力欄は攻撃オン時のみ描画される
-            damageBonus: raw["damageBonus"] ?? usage.damageBonus,
         };
+
+        // 判定ボーナス/ダメージ修正の行(式＋供給元)を indexed 入力から再構成する(consumeTargets と同型)。
+        // check 用途のみ行 UI を描画する。空式の行は捨てる。ダメージ修正は攻撃オン時のみ保持(2026-07-10)
+        if (usage.type === "check" && !Number.isFinite(usage.fixedResult)) {
+            update.checkBonuses = TnxUsageSheet._collectBonusRows(raw, "checkBonus");
+            update.damageBonuses = (raw["isAttack"] ?? false)
+                ? TnxUsageSheet._collectBonusRows(raw, "damageBonus")
+                : [];
+        }
 
         // 固定達成値(フェーズ11-5・エキストラの技能判定)。固定値用途のマーカーを兼ねるため、
         // 入力が空にされても null に戻さず 0 に留める(通常判定 UI へ化けるのを防ぐ)。負値は 0 clamp
@@ -901,6 +934,48 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         const rows = foundry.utils.deepClone(usage.consumeTargets);
         rows[idx].amount = Math.max(1, (rows[idx].amount ?? 1) + delta);
         await this._patchUsage({ consumeTargets: rows });
+        this.render({ force: true });
+    }
+
+    // ─── 判定ボーナス/ダメージ修正の行(式＋供給元・2026-07-10) ─────────────────────
+
+    /** indexed 入力(<prefix>Formula-N / <prefix>Source-N)から行配列を再構成(空式は捨てる)。 */
+    static _collectBonusRows(raw, prefix) {
+        const re = new RegExp(`^${prefix}Formula-(\\d+)$`);
+        const idxs = Object.keys(raw)
+            .map(k => k.match(re)?.[1])
+            .filter(v => v !== undefined)
+            .map(Number)
+            .sort((a, b) => a - b);
+        return idxs
+            .map(i => ({ formula: (raw[`${prefix}Formula-${i}`] ?? "").trim(), source: raw[`${prefix}Source-${i}`] ?? "" }))
+            .filter(r => r.formula);
+    }
+
+    static async _onCheckBonusAdd(_event, _target) {
+        const usage = this.usage;
+        if (!usage) return;
+        await this._patchUsage({ checkBonuses: [...(usage.checkBonuses ?? []), { formula: "", source: "" }] });
+        this.render({ force: true });
+    }
+    static async _onCheckBonusDelete(_event, target) {
+        const usage = this.usage;
+        if (!usage) return;
+        const idx = Number(target.dataset.idx);
+        await this._patchUsage({ checkBonuses: (usage.checkBonuses ?? []).filter((_, i) => i !== idx) });
+        this.render({ force: true });
+    }
+    static async _onDamageBonusAdd(_event, _target) {
+        const usage = this.usage;
+        if (!usage) return;
+        await this._patchUsage({ damageBonuses: [...(usage.damageBonuses ?? []), { formula: "", source: "" }] });
+        this.render({ force: true });
+    }
+    static async _onDamageBonusDelete(_event, target) {
+        const usage = this.usage;
+        if (!usage) return;
+        const idx = Number(target.dataset.idx);
+        await this._patchUsage({ damageBonuses: (usage.damageBonuses ?? []).filter((_, i) => i !== idx) });
         this.render({ force: true });
     }
 

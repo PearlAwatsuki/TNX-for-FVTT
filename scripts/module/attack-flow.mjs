@@ -177,13 +177,13 @@ export async function useAttack(item, usage) {
         bountyAvailable: baseSkill.system.usesBounty === true ? actorBounty : 0,
         consumeUses:     usesPlan,
         requestMessageId: null,
-        checkBonusFormula: usage.checkBonus,
+        checkBonuses:    usage.checkBonuses ?? [],
         attack: {
             attackerUuid: actor.uuid,
             attackerName: actor.name,
             targetUuid, targetName,
             category, damageType, weaponAttack, faOptions, attackSourceName,
-            damageBonus: usage.damageBonus,
+            damageBonuses: usage.damageBonuses ?? [],
             skillLabel,
             usageName: usage.name || item.name,
         },
@@ -469,7 +469,7 @@ export async function startReaction(message, mode) {
         bountyAvailable: baseSkill.system.usesBounty === true ? reactorBounty : 0,
         consumeUses:     usesPlan,
         requestMessageId: null,
-        checkBonusFormula: usage?.checkBonus,
+        checkBonuses:    usage?.checkBonuses ?? [],
         reaction: { attackMessageId: message.id, mode, parryGuard },
     });
 }

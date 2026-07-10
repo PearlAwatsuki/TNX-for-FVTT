@@ -2389,7 +2389,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             bountyAvailable: baseSkill.system.usesBounty === true ? actorBounty : 0,
             consumeUses:     usesPlan,
             requestMessageId: null,
-            checkBonusFormula: selectedUsage.checkBonus,
+            checkBonuses:    selectedUsage.checkBonuses ?? [],
         });
     }
 

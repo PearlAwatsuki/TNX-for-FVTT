@@ -114,13 +114,25 @@ export class UsageTemplate extends SystemDataModel {
                     // attack: ダメージ種別 ("S" | "P" | "I")。複数武器で種別が別々のときの選択にも使う
                     damageType: new fields.StringField({ initial: "" }),
 
-                    // check: 判定ボーナス(達成値へ加算する式・全判定用途で有効。2026-07-10 ユーザー確定)。
-                    // @diff/@achievement は結果由来で判定前には使えないため、実質フラット値/算術式。
-                    checkBonus: new fields.StringField({ initial: "" }),
+                    // check: 判定ボーナス(達成値へ加算する式の行・全判定用途。2026-07-10 ユーザー確定)。
+                    // 各行 = { formula: 式, source: 供給元の識別キー(組み合わせスタイル技能/使用武器。空=用途) }。
+                    // 供給元を持たせることで「どの能力から供給された加算か」をチャットで識別できる。
+                    // 式は @system.*(アクター=AEキー)・@item.system.*(供給元アイテム=AEキー)・@diff/@achievement を参照可。
+                    checkBonuses: new fields.ArrayField(
+                        new fields.SchemaField({
+                            formula: new fields.StringField({ initial: "" }),
+                            source:  new fields.StringField({ initial: "" }),
+                        })
+                    ),
 
-                    // attack: ダメージ修正(ダメージへ加算する式・攻撃用途。2026-07-10 ユーザー確定)。
-                    // ダメージ算出時に評価するため @diff/@achievement を使える(damageBoost の formula と同型)。
-                    damageBonus: new fields.StringField({ initial: "" }),
+                    // attack: ダメージ修正(ダメージへ加算する式の行・攻撃用途)。checkBonuses と同型。
+                    // ダメージ算出時に評価するため @diff/@achievement も使える。
+                    damageBonuses: new fields.ArrayField(
+                        new fields.SchemaField({
+                            formula: new fields.StringField({ initial: "" }),
+                            source:  new fields.StringField({ initial: "" }),
+                        })
+                    ),
 
                     // damageBoost・damageReduce: 効果量（計算式 or 固定値文字列）
                     formula: new fields.StringField({ initial: "" }),
@@ -195,6 +207,16 @@ export class UsageTemplate extends SystemDataModel {
                 if (migrated.weaponRefs === undefined && migrated.weaponRef !== undefined) {
                     const id = migrated.weaponRef?.itemId || "";
                     migrated = { ...migrated, weaponRefs: id ? [{ itemId: id }] : [] };
+                }
+                // 判定ボーナス/ダメージ修正の行化(2026-07-10): 旧 checkBonus/damageBonus(単一式) →
+                // checkBonuses/damageBonuses(行の配列・供給元つき)。空文字は空配列に。
+                if (migrated.checkBonuses === undefined && migrated.checkBonus !== undefined) {
+                    const f = migrated.checkBonus || "";
+                    migrated = { ...migrated, checkBonuses: f ? [{ formula: f, source: "" }] : [] };
+                }
+                if (migrated.damageBonuses === undefined && migrated.damageBonus !== undefined) {
+                    const f = migrated.damageBonus || "";
+                    migrated = { ...migrated, damageBonuses: f ? [{ formula: f, source: "" }] : [] };
                 }
                 if (!migrated.baseSkillRef) migrated.baseSkillRef = { itemId: "" };
                 if (migrated.consumeTargets === undefined && migrated.type === "check") {

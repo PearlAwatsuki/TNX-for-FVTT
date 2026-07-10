@@ -6966,6 +6966,42 @@ button.tnx-create-act-button span {
     margin-bottom: 12px;
 }
 
+/* 判定ボーナス/ダメージ修正の行(式＋供給元・2026-07-10)。式を全幅・供給元は控えめに右へ。 */
+.usage-bonus-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+.usage-bonus-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.usage-bonus-formula {
+    flex: 1 1 auto;
+    min-width: 0;
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-border-subtle);
+    color: var(--tnx2-text-primary);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 0.88em;
+}
+.usage-bonus-source {
+    flex: 0 1 42%;
+    min-width: 0;
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-border-subtle);
+    color: var(--tnx2-text-secondary);
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-size: 0.82em;
+}
+.usage-bonus-formula:focus,
+.usage-bonus-source:focus { border-color: var(--tnx2-accent); outline: none; }
+.usage-bonus-add { margin-bottom: 4px; }
+
 /* 判定・ダメージの構成(式)の表示(2026-07-10): 用途シートで達成値/ダメージの組み立てを示す。 */
 .usage-formula-line {
     margin: 8px 0 0;

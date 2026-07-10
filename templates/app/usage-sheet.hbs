@@ -325,12 +325,12 @@
             {{#if isCheckType}}
             <fieldset class="tnx-fieldset">
                 <legend>判定</legend>
-                <div class="usage-form-row">
-                    <label class="usage-field-label">判定ボーナス <i class="fas fa-circle-question" title="達成値に加算する式です（例: 2、@system.life.total）。AE と同じ system.* の値を @system.… で参照できます（判定前のため結果由来の @diff/@achievement は使えません）"></i></label>
-                    <input type="text" name="checkBonus" value="{{usage.checkBonus}}" placeholder="例: 2、@system.life.total"
-                           {{#unless editable}}disabled{{/unless}}>
-                </div>
-                <p class="usage-formula-line">達成値 ＝ カード ＋ 能力値 ＋ 報酬点 ＋ 判定バフ{{#if usage.checkBonus}} ＋ <b>{{usage.checkBonus}}</b>{{/if}}</p>
+                <label class="usage-field-label">判定ボーナス <i class="fas fa-circle-question" title="達成値に加算する式の行。式は @system.*（アクター）・@item.<識別キー>.system.*（所持アイテム＝AE と同じキー）を参照できます（判定前のため @diff/@achievement は不可）。供給元はチャットで帰属を表示するための任意設定です"></i></label>
+                {{> "systems/tokyo-nova-axleration/templates/app/usage-sheet-bonus-rows.hbs"
+                    rows=checkBonusRows prefix="checkBonus" addAction="checkBonusAdd" deleteAction="checkBonusDelete"
+                    addLabel="判定ボーナスを追加" placeholder="式（例: 2、@item.<識別キー>.system.level）"
+                    emptyHint="（判定ボーナスなし）" editable=editable}}
+                <p class="usage-formula-line">達成値 ＝ カード ＋ 能力値 ＋ 報酬点 ＋ 判定バフ ＋ 判定ボーナス</p>
             </fieldset>
 
             {{!-- 攻撃プロファイル(2026-07-09): 攻撃は判定の一種。「攻撃に使う」トグルで系統・武器・種別を出す。
@@ -387,12 +387,12 @@
                         </select>
                     </div>
                     {{/if}}
-                    <div class="usage-form-row">
-                        <label class="usage-field-label">ダメージ修正 <i class="fas fa-circle-question" title="ダメージに加算する式です（例: 2、@system.life.total、@diff）。AE と同じ system.* の値を @system.… で参照でき、ダメージ算出時に評価するため判定結果の @diff（差分値）・@achievement（達成値）も使えます"></i></label>
-                        <input type="text" name="damageBonus" value="{{usage.damageBonus}}" placeholder="例: 2、@system.life.total、@diff"
-                               {{#unless editable}}disabled{{/unless}}>
-                    </div>
-                    <p class="usage-formula-line">{{#if isAttackPhysical}}ダメージ ＝ ダメージカード ＋ 攻撃力{{#if selectedWeapons.length}}（合算）{{else}}（生身）{{/if}}{{#if usage.damageBonus}} ＋ <b>{{usage.damageBonus}}</b>{{else}} ＋ ダメージ修正{{/if}} − 軽減{{else}}ダメージ ＝ ダメージカード{{#if usage.damageBonus}} ＋ <b>{{usage.damageBonus}}</b>{{else}} ＋ ダメージ修正{{/if}}（精神／社会は攻撃力・防御力なし）{{/if}}</p>
+                    <label class="usage-field-label">ダメージ修正 <i class="fas fa-circle-question" title="ダメージに加算する式の行。式は @system.*（アクター）・@item.<識別キー>.system.*（所持アイテム＝AE と同じキー・例「選んだ武器の攻撃力」＝@item.<武器の識別キー>.system.attack.value）・@diff/@achievement を参照できます。供給元はチャットで帰属を表示するための任意設定です"></i></label>
+                    {{> "systems/tokyo-nova-axleration/templates/app/usage-sheet-bonus-rows.hbs"
+                        rows=damageBonusRows prefix="damageBonus" addAction="damageBonusAdd" deleteAction="damageBonusDelete"
+                        addLabel="ダメージ修正を追加" placeholder="式（例: @item.<武器の識別キー>.system.attack.value）"
+                        emptyHint="（ダメージ修正なし）" editable=editable}}
+                    <p class="usage-formula-line">{{#if isAttackPhysical}}ダメージ ＝ ダメージカード ＋ 攻撃力{{#if selectedWeapons.length}}（合算）{{else}}（生身）{{/if}} ＋ ダメージ修正 − 軽減{{else}}ダメージ ＝ ダメージカード ＋ ダメージ修正（精神／社会は攻撃力・防御力なし）{{/if}}</p>
                 </div>
                 {{/if}}
             </fieldset>

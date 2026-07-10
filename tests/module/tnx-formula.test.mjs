@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
-const { buildCheckFormulaData, buildFormulaData, parsePlainNumber, evaluateFormula } =
+const { buildCheckFormulaData, buildFormulaData, evaluateBonusRows, parsePlainNumber, evaluateFormula } =
   await import("../../scripts/module/tnx-formula.mjs");
 
 describe("buildCheckFormulaData()（式評価用の判定結果コンテキスト・Check_Rules「差分値」）", () => {
@@ -16,24 +16,55 @@ describe("buildCheckFormulaData()（式評価用の判定結果コンテキス�
   });
 });
 
-describe("buildFormulaData()（AE と同じ system.* を式に供給・2026-07-10）", () => {
-  // getRollData() は AE と同じ system.* パスを @system.* として公開する(initiative と同流儀)
-  const actor = { getRollData: () => ({ system: { life: { total: 8 }, reason: { total: 5 } } }) };
+describe("buildFormulaData()（AE と同じ system.* / @item.<識別キー> を式に供給・2026-07-10）", () => {
+  // getRollData() は AE と同じ system.* を @system.* として公開(initiative と同流儀)。
+  // 所持アイテムは識別キーで @item.<key>.system.* として公開する。
+  const actor = {
+    getRollData: () => ({ system: { life: { total: 8 } } }),
+    items: [
+      { system: { identificationKey: "operate_car", attack: { value: 4 } } },
+      { system: { identificationKey: "", level: 3 } }, // 識別キー無し → @item に載せない
+    ],
+  };
 
-  it("アクターのロールデータ(@system.*)を供給する", () => {
-    expect(buildFormulaData(actor)).toEqual({ system: { life: { total: 8 }, reason: { total: 5 } } });
-  });
-
-  it("判定結果(@diff/@achievement)を重ねる", () => {
-    expect(buildFormulaData(actor, { diff: 7, achievement: 22 })).toEqual({
-      system: { life: { total: 8 }, reason: { total: 5 } },
-      diff: 7, achievement: 22,
+  it("アクターの @system.* ＋ 所持アイテムの @item.<識別キー>.system.* を供給する", () => {
+    expect(buildFormulaData(actor)).toEqual({
+      system: { life: { total: 8 } },
+      item: { operate_car: { system: { identificationKey: "operate_car", attack: { value: 4 } } } },
     });
   });
 
-  it("アクターが無ければ空(＋結果のみ)", () => {
-    expect(buildFormulaData(null)).toEqual({});
-    expect(buildFormulaData(null, { diff: 3, achievement: 10 })).toEqual({ diff: 3, achievement: 10 });
+  it("判定結果(@diff/@achievement)を重ねる", () => {
+    const d = buildFormulaData(actor, { diff: 7, achievement: 22 });
+    expect(d.diff).toBe(7);
+    expect(d.achievement).toBe(22);
+    expect(d.item.operate_car.system.attack.value).toBe(4); // @item.<key>.system.attack.value
+  });
+
+  it("アクターが無ければ system 無し・item は空", () => {
+    expect(buildFormulaData(null)).toEqual({ item: {} });
+    expect(buildFormulaData(null, { diff: 3, achievement: 10 })).toEqual({ diff: 3, achievement: 10, item: {} });
+  });
+});
+
+describe("evaluateBonusRows()（判定/ダメージの行を評価＋供給元帰属・2026-07-10）", () => {
+  const actor = {
+    getRollData: () => ({ system: {} }),
+    items: [{ name: "〈スタイルX〉", type: "styleSkill", system: { identificationKey: "style_x" } }],
+  };
+
+  it("各行の式(数値)を合計し、供給元は逆引きした現在名で帰属する(なしは用途)", async () => {
+    const { total, sources } = await evaluateBonusRows(
+      [{ formula: "2", source: "style_x" }, { formula: "3", source: "" }], actor);
+    expect(total).toBe(5);
+    expect(sources).toEqual([{ name: "〈スタイルX〉", value: 2 }, { name: "用途", value: 3 }]);
+  });
+
+  it("評価不能(テスト環境の Roll 不在)・0 の行は除外", async () => {
+    const { total, sources } = await evaluateBonusRows(
+      [{ formula: "0", source: "" }, { formula: "@item.style_x.system.level", source: "style_x" }], actor);
+    expect(total).toBe(0);
+    expect(sources).toEqual([]);
   });
 });
 
