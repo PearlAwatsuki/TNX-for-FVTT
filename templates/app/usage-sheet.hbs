@@ -347,7 +347,7 @@
                 <input type="text" name="checkBonusSelf" value="{{checkBonusSelf}}"
                        placeholder="式（例: @item.self.system.levelTotal、2）"
                        {{#unless editable}}disabled{{/unless}}>
-                <label class="usage-field-label">判定ボーナス（供給元つき・追加） <i class="fas fa-circle-question" title="組み合わせ技能・使用武器などから供給される追加の加算。式は @system.*（アクター）・@item.<識別キー>.system.*（所持アイテム＝AE と同じキー）・@item.self（親アイテム）を参照できます（判定前のため @diff/@achievement は不可）。供給元はチャットで帰属を表示するための任意設定です"></i></label>
+                <label class="usage-field-label">判定ボーナス（供給元つき・追加） <i class="fas fa-circle-question" title="組み合わせ技能・使用武器などから供給される追加の加算。式は @system.*（アクター）・@item.<識別キー>.system.*（所持アイテム＝AE と同じキー）・@item.self（親アイテム）・@card（判定に使用したカードの値）を参照できます（判定確定前のため @diff/@achievement は不可）。供給元はチャットで帰属を表示するための任意設定です"></i></label>
                 {{> "systems/tokyo-nova-axleration/templates/app/usage-sheet-bonus-rows.hbs"
                     rows=checkBonusRows prefix="checkBonus" addAction="checkBonusAdd" deleteAction="checkBonusDelete"
                     addLabel="判定ボーナスを追加" placeholder="式（例: 2、@item.<識別キー>.system.level）"
@@ -413,7 +413,7 @@
                     <input type="text" name="damageBonusSelf" value="{{damageBonusSelf}}"
                            placeholder="式（例: @item.self.system.attack.total）"
                            {{#unless editable}}disabled{{/unless}}>
-                    <label class="usage-field-label">ダメージ修正（供給元つき・追加） <i class="fas fa-circle-question" title="組み合わせ技能・使用武器などから供給される追加の加算。式は @system.*（アクター）・@item.<識別キー>.system.*（所持アイテム＝AE と同じキー・例「選んだ武器の攻撃力」＝@item.<武器の識別キー>.system.attack.value）・@item.self（親アイテム）・@target.*（対象）・@diff/@achievement を参照できます。供給元はチャットで帰属を表示するための任意設定です"></i></label>
+                    <label class="usage-field-label">ダメージ修正（供給元つき・追加） <i class="fas fa-circle-question" title="組み合わせ技能・使用武器などから供給される追加の加算。式は @system.*（アクター）・@item.<識別キー>.system.*（所持アイテム＝AE と同じキー・例「選んだ武器の攻撃力」＝@item.<武器の識別キー>.system.attack.value）・@item.self（親アイテム）・@target.*（対象）・@diff/@achievement・@card（命中判定に使用したカードの値）を参照できます。供給元はチャットで帰属を表示するための任意設定です"></i></label>
                     {{> "systems/tokyo-nova-axleration/templates/app/usage-sheet-bonus-rows.hbs"
                         rows=damageBonusRows prefix="damageBonus" addAction="damageBonusAdd" deleteAction="damageBonusDelete"
                         addLabel="ダメージ修正を追加" placeholder="式（例: @item.<武器の識別キー>.system.attack.value）"

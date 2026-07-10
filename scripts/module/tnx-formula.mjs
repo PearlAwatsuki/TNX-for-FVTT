@@ -16,13 +16,16 @@ import { targetStyleWorksKeys } from "../data/item/helpers.mjs";
 
 /**
  * 判定結果(checkResult.result)から式評価用のデータオブジェクトを作る(Foundry 非依存)。
- * @param {{diff?: number|null, achievement?: number|null}} result
- * @returns {{diff: number, achievement: number}}
+ * card=判定に使用したカードの値(N◎VA数字・2026-07-11)。カードプレイ後(判定ボーナス評価時)から
+ * 参照できる(diff/achievement は判定確定後のみ=それ以前は 0)。
+ * @param {{diff?: number|null, achievement?: number|null, cardValue?: number|null}} result
+ * @returns {{diff: number, achievement: number, card: number}}
  */
 export function buildCheckFormulaData(result) {
     return {
         diff:        Number.isFinite(result?.diff) ? result.diff : 0,
         achievement: Number.isFinite(result?.achievement) ? result.achievement : 0,
+        card:        Number.isFinite(result?.cardValue) ? result.cardValue : 0,
     };
 }
 

@@ -5,14 +5,18 @@ const { buildCheckFormulaData, buildFormulaData, evaluateBonusRows, evaluateSelf
   await import("../../scripts/module/tnx-formula.mjs");
 
 describe("buildCheckFormulaData()（式評価用の判定結果コンテキスト・Check_Rules「差分値」）", () => {
-  it("diff / achievement を数値で供給する", () => {
-    expect(buildCheckFormulaData({ diff: 7, achievement: 22 })).toEqual({ diff: 7, achievement: 22 });
-    expect(buildCheckFormulaData({ diff: -3, achievement: 12 })).toEqual({ diff: -3, achievement: 12 });
+  it("diff / achievement / card を数値で供給する", () => {
+    expect(buildCheckFormulaData({ diff: 7, achievement: 22, cardValue: 10 })).toEqual({ diff: 7, achievement: 22, card: 10 });
+    expect(buildCheckFormulaData({ diff: -3, achievement: 12 })).toEqual({ diff: -3, achievement: 12, card: 0 });
   });
 
   it("目標値なし(diff=null)・欠損は 0 として供給する", () => {
-    expect(buildCheckFormulaData({ diff: null, achievement: null })).toEqual({ diff: 0, achievement: 0 });
-    expect(buildCheckFormulaData(undefined)).toEqual({ diff: 0, achievement: 0 });
+    expect(buildCheckFormulaData({ diff: null, achievement: null })).toEqual({ diff: 0, achievement: 0, card: 0 });
+    expect(buildCheckFormulaData(undefined)).toEqual({ diff: 0, achievement: 0, card: 0 });
+  });
+
+  it("カード値の表示用文字列(21固定の 'A(21固定)' 等)は 0 に落ちる（数値は持ち回り側で供給）", () => {
+    expect(buildCheckFormulaData({ cardValue: "A(21固定)" }).card).toBe(0);
   });
 });
 
@@ -43,7 +47,7 @@ describe("buildFormulaData()（AE と同じ system.* / @item.<識別キー> を�
 
   it("アクターが無ければ system 無し・item は空", () => {
     expect(buildFormulaData(null)).toEqual({ item: {} });
-    expect(buildFormulaData(null, { diff: 3, achievement: 10 })).toEqual({ diff: 3, achievement: 10, item: {} });
+    expect(buildFormulaData(null, { diff: 3, achievement: 10 })).toEqual({ diff: 3, achievement: 10, card: 0, item: {} });
   });
 
   it("bearer 指定で相対参照 @item.self / @item.parent（装備先ホスト）を供給する", () => {

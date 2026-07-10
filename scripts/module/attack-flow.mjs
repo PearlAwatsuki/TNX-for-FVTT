@@ -212,7 +212,7 @@ export async function useAttack(item, usage) {
  * 成否は保留(state=pending)し、リアクション導線をカード上で提供する。
  * recheckCtx: 再判定用スナップショット(あればカードに「再判定」ボタンが出る・2026-07-11)。
  */
-export async function postAttackCard({ payload, result, suit, card, fromDeck, trumpUsed, suitMismatch, recheckCtx = null, isRecheck = false }) {
+export async function postAttackCard({ payload, result, suit, cardCheckValue = null, card, fromDeck, trumpUsed, suitMismatch, recheckCtx = null, isRecheck = false }) {
     const attacker = await fromUuid(payload.attackerUuid).catch(() => null);
     const SUIT_SYMBOL = { spade: "♠", club: "♣", heart: "♥", diamond: "♦" };
 
@@ -228,6 +228,8 @@ export async function postAttackCard({ payload, result, suit, card, fromDeck, tr
         ...payload,
         state, resolution,
         achievement: result.achievement,
+        // 判定に使用したカードの値(N◎VA数字・式の @card 用。21固定は A の数字=11・2026-07-11)
+        cardValue: cardCheckValue === "FIXED_21" ? 11 : (Number.isFinite(cardCheckValue) ? cardCheckValue : 0),
         suit,
         reactionAchievement: null,
         targetValue: null,

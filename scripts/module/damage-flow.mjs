@@ -116,7 +116,7 @@ export async function openDamageRollDialog(attackMessage) {
     const targetActor = await resolveTargetActor(f.targetUuid);
     // 用途の親アイテム(@item.self の解決に使う。攻撃者所持のアイテム)
     const parentItem = f.sourceItemId ? attacker?.items.get(f.sourceItemId) : null;
-    const result = { diff: f.diff, achievement: f.achievement };
+    const result = { diff: f.diff, achievement: f.achievement, cardValue: f.cardValue ?? null };
 
     // damageBoost(攻撃側)の候補。formula は事前評価(@diff/@achievement は判定結果で固定・
     // 攻撃者のロールデータ @system.*・攻撃対象 @target.*・用途の親 @item.self も供給)。
@@ -242,6 +242,7 @@ async function finalizeDamageRoll(ctx, form, played) {
                     parryGuard: Number(f.parryGuard) || 0,
                     diff: f.diff ?? null,
                     achievement: f.achievement ?? null,
+                    cardValue: f.cardValue ?? null,   // 命中判定のカード値(式の @card 用)
                     cards: [played],
                     boosts,
                     manualMod: form.manualMod,
@@ -515,7 +516,7 @@ async function openMitigationDialog(message) {
 
     // damageReduce(防御側)の候補。formula は攻撃の判定結果(@diff/@achievement)＋防御側の
     // ロールデータ(@system.*=AE と同じ値)で事前評価
-    const formulaData = buildFormulaData(target, { diff: f.diff, achievement: f.achievement });
+    const formulaData = buildFormulaData(target, { diff: f.diff, achievement: f.achievement, cardValue: f.cardValue ?? null });
     const reduceRows = collectDamageUsages(target, "damageReduce");
     for (const r of reduceRows) {
         const v = await evaluateFormula(r.formula, formulaData);

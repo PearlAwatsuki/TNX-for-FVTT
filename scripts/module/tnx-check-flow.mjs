@@ -565,16 +565,20 @@ export class TnxCheckFlow {
         let checkBonus = checkInfo.total;
         // 用途の判定ボーナス(達成値へ加算する式・2026-07-10)。①用途自身の修正値(専用欄・親アイテム名で
         // 帰属)②供給元つきの追加行、の順に評価。式は @item.self=用途の親アイテム・@item.<識別キー>・
-        // アクター @system.* を参照可。内訳に「判定ボーナス（供給元名）」として載せる。判定前のため @diff は不可
+        // アクター @system.*・@card(判定に使用したカードの値=カードプレイ後のため参照可・2026-07-11)を
+        // 参照可。内訳に「判定ボーナス（供給元名）」として載せる。判定確定前のため @diff/@achievement は 0
         if (!suitMismatch) {
             const parentItem = ctx.sourceItemId ? actor.items.get(ctx.sourceItemId) : null;
-            const self = await evaluateSelfBonus(ctx.checkBonusSelf, actor, null, null, parentItem);
+            const cardNumeric = cardCheckValue === "FIXED_21" ? 11
+                : (Number.isFinite(cardCheckValue) ? cardCheckValue : 0);
+            const partial = { cardValue: cardNumeric };
+            const self = await evaluateSelfBonus(ctx.checkBonusSelf, actor, partial, null, parentItem);
             if (self) {
                 checkBonus += self.value;
                 checkInfo.sources.push({ name: `判定ボーナス（${self.name}）`, value: self.value });
             }
             if (ctx.checkBonuses?.length) {
-                const { total, sources } = await evaluateBonusRows(ctx.checkBonuses, actor, null, null, null, parentItem);
+                const { total, sources } = await evaluateBonusRows(ctx.checkBonuses, actor, partial, null, null, parentItem);
                 checkBonus += total;
                 for (const s of sources) checkInfo.sources.push({ name: `判定ボーナス（${s.name}）`, value: s.value });
             }
