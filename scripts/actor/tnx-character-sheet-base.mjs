@@ -21,6 +21,7 @@ import { TnxCheckFlow } from '../module/tnx-check-flow.mjs';
 import { resolveConsumeRowsForActor, promptConsumption } from '../module/usage-consumption.mjs';
 import { useNpcAcquire } from '../module/npc-acquisition.mjs';
 import { useAttack } from '../module/attack-flow.mjs';
+import { prepareUsageEffectPayload } from '../module/usage-effects.mjs';
 import { getComboSuits, ALL_SUITS } from '../module/tnx-check-engine.mjs';
 import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
 import { groupStyleSkillsByStyle } from '../module/style-skill-acquisition.mjs';
@@ -2379,6 +2380,11 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const usesPlan = await promptConsumption(actor, consumeRows, { title: `使用回数の消費: ${item.name}` });
         if (usesPlan === null) return;
 
+        // 用途の適用効果: ターゲットしたキャラクターへ付与するペイロードを用意(ノーターゲットは確認)。
+        // 判定結果カードに載せ、対象所有者/GM がボタンで付与する(2026-07-10)
+        const usageEffects = await prepareUsageEffectPayload(actor, item, selectedUsage);
+        if (usageEffects === "cancel") return;
+
         await TnxCheckFlow.open({
             type:            "skillCheck",
             actorId:         actor.id,
@@ -2392,6 +2398,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             checkBonuses:    selectedUsage.checkBonuses ?? [],
             checkBonusSelf:  selectedUsage.checkBonusSelf ?? "",
             sourceItemId:    item.id,   // 用途の親アイテム(@item.self の解決に使う)
+            usageEffects,               // 付与効果ペイロード(null=効果なし)
         });
     }
 

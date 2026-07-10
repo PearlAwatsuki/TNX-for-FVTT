@@ -46,6 +46,7 @@ import { recordCastOwnerUser } from './module/cast-ownership.mjs';
 import { enforceUsageChainDefaultsOnImport } from './module/tnx-usage-sheet.mjs';
 import { renderAttackCard } from './module/attack-flow.mjs';
 import { renderDamageCard } from './module/damage-flow.mjs';
+import { renderUsageEffectButton } from './module/usage-effects.mjs';
 import { TnxSocketHandler } from './module/tnx-socket-handler.mjs';
 import { TnxCheckFlow } from './module/tnx-check-flow.mjs';
 import { TnxCheckDialog } from './module/tnx-check-dialog.mjs';
@@ -1243,6 +1244,14 @@ Hooks.once("ready", async function() {
     Hooks.on("renderChatMessageHTML", (message, html) => {
         if (message.getFlag("tokyo-nova-axleration", "damageRoll")) {
             renderDamageCard(message, html);
+        }
+    });
+
+    // 用途の適用効果(2026-07-10): usageEffects フラグを持つカード(判定結果/攻撃/用途使用)に
+    // 「効果を適用」ボタンを描画。対象所有者/GM が押すと対象へ AE を複製付与する。
+    Hooks.on("renderChatMessageHTML", (message, html) => {
+        if (message.getFlag("tokyo-nova-axleration", "usageEffects")) {
+            renderUsageEffectButton(message, html);
         }
     });
 

@@ -4,6 +4,7 @@ import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan, re
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { useNpcAcquire } from "../module/npc-acquisition.mjs";
 import { useAttack } from "../module/attack-flow.mjs";
+import { prepareUsageEffectPayload } from "../module/usage-effects.mjs";
 import { isAttackUsage } from "../data/item/common/usage.mjs";
 import { SKILL_ROLES, getSkillRoles } from "../module/skill-roles.mjs";
 
@@ -351,22 +352,23 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             await applyConsumptionPlan(plan);
         }
 
-        // 効果は {itemId, effectId}(親=空／組み合わせ技能／使用武器)。各効果をその供給元アイテムで
-        // 有効化する(2026-07-10 で親以外にも対応)。
-        const getHost = (itemId) => (!itemId || itemId === this.item.id) ? this.item : actor?.items.get(itemId);
-        const byHost = new Map();
-        for (const e of (usage.effects ?? [])) {
-            const host = e.effectId ? getHost(e.itemId) : null;
-            if (!host?.effects.has(e.effectId)) continue;
-            if (!byHost.has(host)) byHost.set(host, []);
-            byHost.get(host).push({ _id: e.effectId, disabled: false });
+        // 用途の適用効果: ターゲットしたキャラクターへ付与する(判定を伴わない用途=宣言等・2026-07-10)。
+        // 使用カードを出し、対象所有者/GM がボタンで付与する(自己バフは自分をターゲット)。
+        if (!actor) { ui.notifications?.info(`「${usage.name || "用途"}」を使用しました。`); return; }
+        const usageEffects = await prepareUsageEffectPayload(actor, this.item, usage);
+        if (usageEffects === "cancel") return;
+        if (usageEffects) {
+            const esc = foundry.utils.escapeHTML;
+            await ChatMessage.create({
+                speaker: ChatMessage.getSpeaker({ actor }),
+                content: `<div class="tnx-chat-card tnx-usage-use-card">`
+                    + `<p class="tnx-usage-use-head">「${esc(usage.name || this.item.name)}」を使用</p>`
+                    + `<div class="tnx-usage-effect-area"></div></div>`,
+                flags: { "tokyo-nova-axleration": { usageEffects } },
+            });
+        } else {
+            ui.notifications?.info(`「${usage.name || "用途"}」を使用しました。`);
         }
-        let enabled = 0;
-        for (const [host, updates] of byHost) {
-            await host.updateEmbeddedDocuments("ActiveEffect", updates);
-            enabled += updates.length;
-        }
-        ui.notifications?.info(`「${usage.name || "用途"}」を使用：${enabled}件の効果を有効化しました。`);
     }
 
     static async _onActionDelete(_event, target) {

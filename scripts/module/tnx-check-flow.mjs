@@ -710,6 +710,8 @@ export class TnxCheckFlow {
             flags: {
                 "tokyo-nova-axleration": {
                     checkResult: { actorId: ctx.actorId, result },
+                    // 用途の適用効果(あれば)。カードに「効果を適用」ボタンを出す(2026-07-10)
+                    ...(ctx.usageEffects ? { usageEffects: ctx.usageEffects } : {}),
                 },
             },
         });

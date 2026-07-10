@@ -32,6 +32,7 @@ import { hasAmmoTracking, consumeNormalAmmo } from "./weapon-ammo.mjs";
 import { buildSkillOptions } from "./skill-select.mjs";
 import { actorSkillsWithRole } from "./skill-roles.mjs";
 import { resolveOperateSkill } from "./vehicle-move.mjs";
+import { prepareUsageEffectPayload } from "./usage-effects.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -153,6 +154,11 @@ export async function useAttack(item, usage) {
     const usesPlan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${item.name}` });
     if (usesPlan === null) return;
 
+    // 用途の適用効果: ターゲットしたキャラクターへ付与するペイロード(攻撃対象がそのまま対象。
+    // ノーターゲットは確認)。攻撃カードに載せ、対象所有者/GM がボタンで付与する(2026-07-10)
+    const usageEffects = await prepareUsageEffectPayload(actor, item, usage);
+    if (usageEffects === "cancel") return;
+
     const skillLabel = allSkillIds
         .map(id => (id === item.id ? item : actor.items.get(id))?.name ?? "")
         .filter(Boolean)
@@ -191,6 +197,7 @@ export async function useAttack(item, usage) {
             sourceItemId: item.id,
             skillLabel,
             usageName: usage.name || item.name,
+            usageEffects,   // 付与効果ペイロード(null=効果なし)。攻撃カードのフラグへ
         },
     });
 }
@@ -254,6 +261,8 @@ export async function postAttackCard({ payload, result, suit, card, fromDeck, tr
                 // 対決読み取り等の互換のため通常判定と同じ checkResult も持たせる
                 checkResult: { actorId: attacker?.id ?? "", result },
                 attackCheck: flags,
+                // 用途の適用効果(あれば)。攻撃カードに「効果を適用」ボタンを出す(2026-07-10)
+                ...(payload.usageEffects ? { usageEffects: payload.usageEffects } : {}),
             },
         },
     });

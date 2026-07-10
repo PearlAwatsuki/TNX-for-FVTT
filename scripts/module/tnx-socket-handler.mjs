@@ -40,6 +40,9 @@ export class TnxSocketHandler {
             case "treatmentApply":
                 TnxSocketHandler._onTreatmentApply(data);
                 break;
+            case "usageEffectApplied":
+                TnxSocketHandler._onUsageEffectApplied(data);
+                break;
         }
     }
 
@@ -165,6 +168,24 @@ export class TnxSocketHandler {
         game.socket.emit("system.tokyo-nova-axleration", {
             type: "treatmentApply",
             ...payload,
+        });
+    }
+
+    // ─── usageEffectApplied（フェーズ12・用途の効果付与） ─────────────────────────
+
+    /** 用途効果カードの「適用済み」フラグ更新を GM クライアントが代行する。 */
+    static async _onUsageEffectApplied(data) {
+        if (!game.user.isGM) return;
+        const message = game.messages.get(data?.messageId);
+        if (!message) return;
+        await message.update({ "flags.tokyo-nova-axleration.usageEffects.applied": true });
+    }
+
+    /** 用途効果カードの適用済みフラグ更新を GM へ委譲する（メッセージ非作者の対象所有者から呼ぶ）。 */
+    static emitUsageEffectApplied(messageId) {
+        game.socket.emit("system.tokyo-nova-axleration", {
+            type: "usageEffectApplied",
+            messageId,
         });
     }
 }
