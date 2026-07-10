@@ -215,6 +215,11 @@ async function finalizeDamageRoll(ctx, form, played) {
         await applyConsumptionPlan(planFromRows(rows, attacker.id));
     }
 
+    // 用途の適用効果はフローの一番最後(2026-07-11 ユーザー確定)=ダメージ算出後に適用する。
+    // 攻撃カードのペイロードをダメージカードへ引き継ぐ(適用済み状態ごと。攻撃カード側の表示は
+    // damageRolled で消える=適用ボタンはこのカードに一本化される)
+    const usageEffects = attackMessage.getFlag(SCOPE, "usageEffects") ?? null;
+
     await ChatMessage.create({
         content: await foundry.applications.handlebars.renderTemplate(
             "systems/tokyo-nova-axleration/templates/chat/damage-card.hbs",
@@ -223,6 +228,7 @@ async function finalizeDamageRoll(ctx, form, played) {
         speaker: attacker ? ChatMessage.getSpeaker({ actor: attacker }) : undefined,
         flags: {
             [SCOPE]: {
+                ...(usageEffects ? { usageEffects } : {}),
                 damageRoll: {
                     attackMessageId: attackMessage.id,
                     attackerUuid: f.attackerUuid,

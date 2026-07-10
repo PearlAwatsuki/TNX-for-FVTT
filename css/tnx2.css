@@ -7348,23 +7348,20 @@ button.tnx-create-act-button span {
     padding: 0;
 }
 
-/* ── 用途の適用効果ブロック(結果カード共通・2026-07-10) ── */
+/* ── 用途の適用効果ブロック(結果カード共通・2026-07-10) ──
+   カード内側の余白に合わせる(見出しは cr-head を使用・2026-07-11) */
 .tnx-usage-effect-block {
     display: flex;
     flex-direction: column;
     gap: 6px;
     margin-top: 8px;
-    padding-top: 8px;
+    padding: 8px 10px;
     border-top: 1px solid var(--tnx2-border-subtle, rgb(0 0 0 / 12%));
 }
 .tnx-usage-effect-note {
     margin: 0;
     font-size: 0.84em;
     color: var(--tnx2-text-secondary);
-}
-.tnx-usage-use-head {
-    margin: 0 0 4px;
-    font-weight: 600;
 }
 
 /* ── ダメージ算出ダイアログ(12-3) ── */

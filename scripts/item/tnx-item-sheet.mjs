@@ -359,10 +359,12 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         if (usageEffects === "cancel") return;
         if (usageEffects) {
             const esc = foundry.utils.escapeHTML;
+            // 既存の結果カード様式(cr-head=暗い背景の見出し)を踏襲する
             await ChatMessage.create({
                 speaker: ChatMessage.getSpeaker({ actor }),
-                content: `<div class="tnx-chat-card tnx-usage-use-card">`
-                    + `<p class="tnx-usage-use-head">「${esc(usage.name || this.item.name)}」を使用</p>`
+                content: `<div class="tnx-check-result tnx-usage-use-card tokyo-nova">`
+                    + `<div class="cr-head"><span class="cr-skill-name">${esc(usage.name || this.item.name)}</span>`
+                    + `<span class="cr-type-tag">使用</span></div>`
                     + `<div class="tnx-usage-effect-area"></div></div>`,
                 flags: { "tokyo-nova-axleration": { usageEffects } },
             });
