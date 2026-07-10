@@ -70,6 +70,11 @@ describe("UsageTemplate.defineSchema()", () => {
       expect(entryFields.allowRecheck.options.initial).toBe(false);
     });
 
+    it("再判定を付与（grantRecheck・2026-07-11）は BooleanField で initial false", () => {
+      expect(entryFields.grantRecheck).toBeInstanceOf(MockBooleanField);
+      expect(entryFields.grantRecheck.options.initial).toBe(false);
+    });
+
     it("用途自身の修正値（専用欄・checkBonusSelf / damageBonusSelf）が StringField・initial 空", () => {
       expect(entryFields.checkBonusSelf).toBeInstanceOf(MockStringField);
       expect(entryFields.checkBonusSelf.options.initial).toBe("");

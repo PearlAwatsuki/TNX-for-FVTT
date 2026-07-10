@@ -727,17 +727,18 @@ export class TnxCheckFlow {
 
     /**
      * 再判定(カードを出し直して判定値を再決定・2026-07-11 ユーザー確定)用のコンテキストを、
-     * 結果カードのフラグに保存できる形で組み立てる。**用途の「再判定可能」(allowRecheck)が ON の
-     * 判定でのみ**作る(再判定は特定技能の能力で可能になるもの。判定は全て用途を経由するため、
-     * 用途側の設定で全ケースを表せる)。継続処理を持つ判定(リアクション/NPC取得/治療/移動/
-     * controlNegate)は再実行に状態機械のリセットが要るため当面対象外(null)。
+     * 結果カードのフラグに保存できる形で組み立てる。**スナップショットは常時保存**し、
+     * 「再判定」ボタンの表示だけを用途の「再判定可能」(allowRecheck)でゲートする——
+     * 事後付与(grantRecheck=達成値クリック)が判定後に働くための前提。継続処理を持つ判定
+     * (リアクション/NPC取得/治療/移動/controlNegate)は再実行に状態機械のリセットが要るため
+     * 当面対象外(null)。
      * @param {object} ctx 判定コンテキスト
      * @returns {object|null}
      */
     static _buildRecheckContext(ctx) {
-        if (ctx.allowRecheck !== true) return null;
         if (ctx.reaction || ctx.npcAcquire || ctx.treatment || ctx.movement || ctx.controlNegate) return null;
         return {
+            allowRecheck:    ctx.allowRecheck === true, // true=結果カードに「再判定」ボタンを出す
             type:            ctx.type,
             actorId:         ctx.actorId,
             skillIds:        ctx.skillIds ?? [],
@@ -758,10 +759,15 @@ export class TnxCheckFlow {
     }
 
     /**
-     * 再判定を開始する(結果カードの「再判定」ボタンから)。保存済みコンテキストで判定フローを
-     * 開き直す(カードを出し直して判定値を再決定)。使用回数は元判定で消費済みのため再消費しない。
+     * 再判定を開始する(結果カードの「再判定」ボタン/再判定付与の達成値クリックから)。
+     * 保存済みコンテキストで判定フローを開き直す(カードを出し直して判定値を再決定)。
+     * 使用回数は元判定で消費済みのため再消費しない。
+     * @param {ChatMessage} message 再判定する結果カード
+     * @param {object} [opts]
+     * @param {Item|null} [opts.mergeSkill] 組み合わせに追加する技能(再判定付与の起動技能)
+     * @param {Array} [opts.consumeUses] 付与用途の消費プラン(判定実行時に適用)
      */
-    static async startRecheck(message) {
+    static async startRecheck(message, { mergeSkill = null, consumeUses = [] } = {}) {
         const rc = message.getFlag("tokyo-nova-axleration", "checkRecheck");
         if (!rc) return;
         const actor = game.actors.get(rc.actorId);
@@ -770,18 +776,36 @@ export class TnxCheckFlow {
             ui.notifications.warn(`「${actor.name}」の再判定は所有者（または RL）が行います。`);
             return;
         }
+
+        // 再判定付与: 起動技能を組み合わせる(スート積を再計算・skillIds に加えることで
+        // その技能の判定バフ(check.*)も判定時に自然に効く)
+        let skillIds   = rc.skillIds;
+        let skillLabel = rc.skillLabel;
+        let validSuits = rc.validSuits;
+        if (mergeSkill) {
+            if (!skillIds.includes(mergeSkill.id)) {
+                skillIds   = [...skillIds, mergeSkill.id];
+                skillLabel = skillLabel ? `${skillLabel}+${mergeSkill.name}` : mergeSkill.name;
+            }
+            validSuits = (validSuits ?? []).filter(s => mergeSkill.system.suits?.[s] === true);
+            if (!validSuits.length) {
+                ui.notifications.warn(`「${mergeSkill.name}」と元の判定に共通スートがないため、組み合わせて再判定できません。`);
+                return;
+            }
+        }
+
         const bounty = rc.bountyAllowed
             ? (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0)
             : 0;
         await TnxCheckFlow.open({
             type:            rc.type,
             actorId:         rc.actorId,
-            skillIds:        rc.skillIds,
-            skillLabel:      rc.skillLabel,
-            validSuits:      rc.validSuits,
+            skillIds,
+            skillLabel,
+            validSuits,
             targetValue:     rc.targetValue,
             bountyAvailable: bounty,
-            consumeUses:     [],   // 使用回数は元判定で消費済み(再消費しない)
+            consumeUses,     // 元判定の消費は済み。付与用途の消費プランのみ(通常の再判定は空)
             requestMessageId: rc.requestMessageId,
             checkBonuses:    rc.checkBonuses,
             checkBonusSelf:  rc.checkBonusSelf,
@@ -790,9 +814,58 @@ export class TnxCheckFlow {
             manualMod:       rc.manualMod,
             ...(rc.attack ? { attack: rc.attack } : {}),
             ...(rc.usageEffects ? { usageEffects: rc.usageEffects } : {}),
-            allowRecheck:    true, // 再判定可能な用途由来(出し直した結果カードにもボタンを出す)
+            allowRecheck:    rc.allowRecheck === true, // 元と同じゲート(付与再判定でボタンは増やさない)
             isRecheck:       true,
         });
+    }
+
+    // ─── 再判定付与(grantRecheck・2026-07-11) ─────────────────────────────────
+    // 「再判定を付与」用途の使用で「達成値クリック待ち」モードに入り、結果カードの達成値クリックで
+    // その判定に起動技能を組み合わせた再判定を起動する。
+
+    /** @type {{actorId:string, skillItemId:string, skillName:string, consumeUses:Array}|null} */
+    static _grantState = null;
+
+    static get isGrantPending() { return TnxCheckFlow._grantState !== null; }
+
+    /**
+     * 再判定付与モードを開始する(grantRecheck 用途の使用から)。同じ用途の再使用でキャンセル。
+     * 発動条件(失敗時のみ・山札のみ等)は自動強制しない(卓裁定=効果を自動化しない現行原則)。
+     * @param {Actor} actor 付与用途の使用者
+     * @param {Item} skill 付与用途の親技能(=再判定に組み合わせる技能)
+     * @param {{consumeUses?:Array}} [opts]
+     */
+    static startRecheckGrant(actor, skill, { consumeUses = [] } = {}) {
+        if (TnxCheckFlow._grantState?.skillItemId === skill.id) {
+            TnxCheckFlow.cancelRecheckGrant();
+            ui.notifications.info("再判定の付与をキャンセルしました。");
+            return;
+        }
+        TnxCheckFlow._grantState = {
+            actorId: actor.id, skillItemId: skill.id, skillName: skill.name, consumeUses,
+        };
+        document.body.classList.add("tnx-recheck-grant-pending");
+        ui.notifications.info(`結果カードの達成値をクリックすると、その判定に「${skill.name}」を組み合わせて再判定します（「${skill.name}」をもう一度使用するとキャンセル）。`);
+    }
+
+    static cancelRecheckGrant() {
+        TnxCheckFlow._grantState = null;
+        document.body.classList.remove("tnx-recheck-grant-pending");
+    }
+
+    /**
+     * 達成値クリック(再判定付与モード中)の処理。クリックした結果カードの判定に起動技能を
+     * 組み合わせて再判定を起動する。
+     */
+    static async _onGrantAchievementClick(message) {
+        const state = TnxCheckFlow._grantState;
+        if (!state) return; // 付与モード外のクリックは無視(通常表示)
+        const grantActor = game.actors.get(state.actorId);
+        const skill = grantActor?.items.get(state.skillItemId);
+        if (!skill) { TnxCheckFlow.cancelRecheckGrant(); return; }
+        const opts = { mergeSkill: skill, consumeUses: state.consumeUses };
+        TnxCheckFlow.cancelRecheckGrant();
+        await TnxCheckFlow.startRecheck(message, opts);
     }
 
     static _closeDialog() {
@@ -816,15 +889,30 @@ export class TnxCheckFlow {
 
 
 /**
- * 結果カード/攻撃カードに「再判定」ボタンを描画する(renderChatMessageHTML・tnx.mjs から登録)。
- * checkRecheck フラグを持つカードにのみ効く。押下時の権限判定は startRecheck 側(所有者/RL)。
+ * 結果カード/攻撃カードの再判定装飾を描画する(renderChatMessageHTML・tnx.mjs から登録)。
+ * checkRecheck フラグ(スナップショット=常時保存)を持つカードにのみ効く。
+ * - 「再判定」ボタン: 用途の「再判定可能」(allowRecheck)が ON の判定でのみ表示。
+ * - 達成値クリック: 常時バインド(再判定付与モード中のみ反応=その判定に起動技能を組み合わせて再判定)。
+ * 押下時の権限判定は startRecheck 側(所有者/RL)。
  */
 export function renderRecheckButton(message, html) {
     const rc = message.getFlag("tokyo-nova-axleration", "checkRecheck");
     if (!rc) return;
-    const host = html.querySelector(".tnx-chat-card") ?? html;
-    if (host.querySelector(".tnx-recheck-area")) return; // 二重描画防止
+    const host = html.querySelector(".tnx-check-result") ?? html.querySelector(".tnx-chat-card") ?? html;
 
+    // 達成値クリック(再判定付与): 達成値行の数値をクリック可能に(付与モード外のクリックは無視)
+    for (const row of host.querySelectorAll(".cr-calc-row, .cr-total-row")) {
+        const label = row.querySelector(".cr-calc-label");
+        const num = row.querySelector(".cr-total-num");
+        if (!label || !num || label.textContent.trim() !== "達成値") continue;
+        if (num.classList.contains("tnx-recheck-target")) continue; // 二重バインド防止
+        num.classList.add("tnx-recheck-target");
+        num.addEventListener("click", () => TnxCheckFlow._onGrantAchievementClick(message));
+    }
+
+    // 再判定ボタン(用途の「再判定可能」ON のときのみ)
+    if (rc.allowRecheck !== true) return;
+    if (host.querySelector(".tnx-recheck-area")) return; // 二重描画防止
     const area = document.createElement("div");
     area.className = "tnx-recheck-area";
     const btn = document.createElement("button");

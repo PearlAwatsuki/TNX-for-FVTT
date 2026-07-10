@@ -4234,6 +4234,18 @@ body.tnx-bottom-hud-expanded #hotbar {
     border-top: 1px solid var(--tnx2-border-subtle, rgb(0 0 0 / 12%));
 }
 
+/* 再判定付与モード中: 結果カードの達成値がクリック可能であることを示す */
+.tnx-recheck-grant-pending .tnx-recheck-target {
+    cursor: pointer;
+    border-radius: 4px;
+    outline: 1px dashed rgb(127 232 172 / 70%);
+    outline-offset: 2px;
+}
+
+.tnx-recheck-grant-pending .tnx-recheck-target:hover {
+    background: rgb(80 200 130 / 25%);
+}
+
 /* 計算内訳セクション */
 .cr-calc-section {
     padding: 8px 12px 6px;

@@ -332,6 +332,11 @@
                                {{#unless editable}}disabled{{/unless}}>
                         <span>再判定可能</span>
                     </label>
+                    <label class="usage-toggle-inline" title="この用途を使用すると判定は行わず、結果カードの達成値をクリックして「その判定にこの技能を組み合わせた再判定」を起動できるようになります（発動条件の裁定は卓）">
+                        <input type="checkbox" name="grantRecheck" {{checked usage.grantRecheck}}
+                               {{#unless editable}}disabled{{/unless}}>
+                        <span>再判定を付与</span>
+                    </label>
                 </div>
                 <label class="usage-field-label">この用途の判定修正値 <i class="fas fa-circle-question" title="この用途の親アイテムが持つ判定修正値。式で @item.self（＝この用途の親アイテム）を参照できます（例 @item.self.system.levelTotal）。供給元つきの追加行とは別枠の専用欄です"></i></label>
                 <input type="text" name="checkBonusSelf" value="{{checkBonusSelf}}"

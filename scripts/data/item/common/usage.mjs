@@ -146,6 +146,13 @@ export class UsageTemplate extends SystemDataModel {
                     // 特定技能の能力の表現。判定は全て用途を経由するため、この設定で全ケースを表せる。
                     allowRecheck: new fields.BooleanField({ initial: false }),
 
+                    // check: 再判定を付与(2026-07-11 ユーザー確定)。ON の用途は使用しても判定を行わず、
+                    // 「達成値クリック待ち」モードに入る。既存の結果カードの達成値をクリックすると、
+                    // その判定に**この用途の親技能を組み合わせた状態で**再判定が起動する
+                    // (「失敗した判定にこの技能を組み合わせてやり直す」系の能力の表現。
+                    // 発動条件(失敗時のみ・山札のみ等)は自動強制しない=卓裁定)。
+                    grantRecheck: new fields.BooleanField({ initial: false }),
+
                     // attack: ダメージ修正(ダメージへ加算する式の行・攻撃用途)。checkBonuses と同型。
                     // ダメージ算出時に評価するため @diff/@achievement も使える。
                     damageBonuses: new fields.ArrayField(

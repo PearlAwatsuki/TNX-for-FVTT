@@ -2340,6 +2340,17 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             return;
         }
 
+        // 再判定を付与(2026-07-11): 判定を行わず「達成値クリック待ち」モードに入る。
+        // 結果カードの達成値クリックで、その判定にこの技能を組み合わせた再判定が起動する。
+        // 消費は付与用途の consumeTargets(プランを持ち回り、再判定の実行時に適用)
+        if (selectedUsage.type === "check" && selectedUsage.grantRecheck === true) {
+            const grantRows = resolveConsumeRowsForActor(this.actor, item, selectedUsage.consumeTargets);
+            const grantPlan = await promptConsumption(this.actor, grantRows, { title: `使用回数の消費: ${item.name}` });
+            if (grantPlan === null) return;
+            TnxCheckFlow.startRecheckGrant(this.actor, item, { consumeUses: grantPlan });
+            return;
+        }
+
         // 攻撃(damageCategory 付きの check)は専用フローへ(武器解決・対象決定・成否保留の
         // 攻撃カード・リアクション対決=12-2)
         if (isAttackUsage(selectedUsage)) {
