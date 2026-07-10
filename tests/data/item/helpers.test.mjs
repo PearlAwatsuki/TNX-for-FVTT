@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
-const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources } = await import("../../../scripts/data/item/helpers.mjs");
+const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, collectActorEffectBuffs } = await import("../../../scripts/data/item/helpers.mjs");
 
 describe("defenceField()", () => {
   it("呼び出せる", () => {
@@ -238,6 +238,49 @@ describe("gatherCheckBonusSources()（チャット内訳）", () => {
   });
 });
 
+describe("damageVsChangeMatches()（ダメージ対象バフ・攻撃対象のスタイル/ワークスで照合）", () => {
+  const crit = { styles: ["ayakashi", "kabutowari"], works: ["kabuki"] };
+  it("対象が持つスタイル/ワークスに一致すれば true", () => {
+    expect(damageVsChangeMatches("damage.vsStyle.ayakashi", crit)).toBe(true);
+    expect(damageVsChangeMatches("damage.vsStyle.tatara", crit)).toBe(false);
+    expect(damageVsChangeMatches("damage.vsWorks.kabuki", crit)).toBe(true);
+    expect(damageVsChangeMatches("damage.vsWorks.union", crit)).toBe(false);
+  });
+  it("判定バフキー(check.*)や値バフキーは damageVs として照合しない", () => {
+    expect(damageVsChangeMatches("check.style.ayakashi", crit)).toBe(false);
+    expect(damageVsChangeMatches("system.ability.reason", crit)).toBe(false);
+  });
+});
+
+describe("gatherDamageVsSources()（対象バフの内訳・判定バフと同じ重複規約）", () => {
+  const crit = { styles: ["ayakashi"], works: [] };
+  it("寄与を name+value で返す（identity 単位で最大採用・stackable は列挙）", () => {
+    const effs = [
+      { identity: "tokkou", name: "アヤカシ特効", changes: [{ key: "damage.vsStyle.ayakashi", value: "3" }] },
+      { identity: "tokkou", name: "アヤカシ特効", changes: [{ key: "damage.vsStyle.ayakashi", value: "5" }] },
+      { identity: "stk", name: "重ねがけ", stackable: true, changes: [{ key: "damage.vsStyle.ayakashi", value: "2" }] },
+      { identity: "miss", name: "対象外", changes: [{ key: "damage.vsStyle.tatara", value: "9" }] },
+    ];
+    expect(gatherDamageVsSources(effs, crit)).toEqual([
+      { name: "アヤカシ特効", value: 5 },
+      { name: "重ねがけ", value: 2 },
+    ]);
+  });
+});
+
+describe("collectActorEffectBuffs()（アクター＋所有アイテムの effects を正規形に）", () => {
+  it("自身と所有アイテムの effects を identity/name/stackable/active/changes で集める", () => {
+    const actor = {
+      effects: [{ id: "a1", name: "自前", active: true, changes: [{ key: "check.melee", value: "1" }] }],
+      items: [{ effects: [{ id: "i1", name: "装備", active: true, flags: { "tokyo-nova-axleration": { effectId: "eid", stackable: true } }, changes: [] }] }],
+    };
+    const out = collectActorEffectBuffs(actor);
+    expect(out).toHaveLength(2);
+    expect(out[0]).toMatchObject({ identity: "a1", name: "自前", stackable: false });
+    expect(out[1]).toMatchObject({ identity: "eid", name: "装備", stackable: true });
+  });
+});
+
 describe("resolveItemTotalPath()", () => {
   it("modeValue/attack は <param>.total", () => {
     expect(resolveItemTotalPath("attack")).toBe("attack.total");
@@ -311,6 +354,13 @@ describe("parseEffectTargetKey()（v2 system.<名前空間> 文法）", () => {
     expect(parseEffectTargetKey("check.works.kabuki")).toMatchObject({ scope: "skillCheck", group: "works", selector: "kabuki" });
     // 制御判定はグループ不可(能力値のみ)
     expect(parseEffectTargetKey("controlCheck.style.kabutowari")).toBeNull();
+  });
+
+  it("ダメージ対象バフ: damage.vsStyle.<キー> / damage.vsWorks.<キー>", () => {
+    expect(parseEffectTargetKey("damage.vsStyle.ayakashi")).toMatchObject({ scope: "damageVs", group: "style", selector: "ayakashi" });
+    expect(parseEffectTargetKey("damage.vsWorks.kabuki")).toMatchObject({ scope: "damageVs", group: "works", selector: "kabuki" });
+    expect(parseEffectTargetKey("damage.vsStyle")).toBeNull();   // セレクタ無し
+    expect(parseEffectTargetKey("damage.other.x")).toBeNull();   // 未知サブキー
   });
 
   it("条件付き [hack>=3] / 複数 ;", () => {

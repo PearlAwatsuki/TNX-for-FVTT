@@ -214,14 +214,22 @@ export function checkChangeMatches(key, criteria) {
  * @param {{type:"skill"|"ability"|"control", skillKeys?:string[], ability?:string}} criteria
  * @returns {Array<{name:string, value:number}>}
  */
-export function gatherCheckBonusSources(effects, criteria) {
+/**
+ * 効果一覧を「変更キーの述語 predicate」で集計し、重複排除して寄与一覧を返す共通処理。
+ * 判定バフ・ダメージ対象バフで共用(同一効果=identity 単位で最大1回・別効果はスタック・
+ * stackable は常に列挙)。
+ * @param {Array<object>} effects
+ * @param {(key:string)=>boolean} predicate
+ * @returns {Array<{name:string, value:number}>}
+ */
+function _gatherBonusSources(effects, predicate) {
   const byIdentity = new Map();
   const stackables = [];
   for (const eff of (effects ?? [])) {
     if (eff.active === false) continue;
     let matched = null;
     for (const change of (eff.changes ?? [])) {
-      if (!checkChangeMatches(change.key, criteria)) continue;
+      if (!predicate(change.key)) continue;
       const v = Number(change.value) || 0;
       matched = matched === null ? v : Math.max(matched, v);
     }
@@ -237,6 +245,10 @@ export function gatherCheckBonusSources(effects, criteria) {
   return [...byIdentity.values(), ...stackables];
 }
 
+export function gatherCheckBonusSources(effects, criteria) {
+  return _gatherBonusSources(effects, (key) => checkChangeMatches(key, criteria));
+}
+
 /**
  * 判定バフの合計ボーナスを算出する(フェーズ9-3 v2)。{@link gatherCheckBonusSources} の値の総和。
  *
@@ -246,6 +258,53 @@ export function gatherCheckBonusSources(effects, criteria) {
  */
 export function computeCheckBonus(effects, criteria) {
   return gatherCheckBonusSources(effects, criteria).reduce((sum, e) => sum + e.value, 0);
+}
+
+/**
+ * ダメージ対象バフ(`damage.vsStyle.*` / `damage.vsWorks.*`)の変更キーが、
+ * 攻撃対象のスタイル/ワークスに合致するか(2026-07-10)。値バフでなくダメージ算出時に評価する。
+ * @param {string} key  change.key
+ * @param {{styles?:string[], works?:string[]}} criteria  攻撃対象が持つスタイル識別キー/組織識別キー
+ * @returns {boolean}
+ */
+export function damageVsChangeMatches(key, criteria) {
+  const p = parseEffectTargetKey(key);
+  if (!p || p.scope !== "damageVs" || !criteria) return false;
+  if (p.group === "style") return (criteria.styles ?? []).includes(p.selector);
+  if (p.group === "works") return (criteria.works ?? []).includes(p.selector);
+  return false;
+}
+
+/**
+ * ダメージ対象バフの寄与一覧(重複排除済み)。攻撃対象のスタイル/ワークスで照合する。
+ * チャット台帳の内訳表示(効果名＋値)に用いる。判定バフと同じ重複規約。
+ * @param {Array<object>} effects  攻撃者の effects(正規形・{@link collectActorEffectBuffs})
+ * @param {{styles?:string[], works?:string[]}} criteria  攻撃対象の持つスタイル/組織
+ * @returns {Array<{name:string, value:number}>}
+ */
+export function gatherDamageVsSources(effects, criteria) {
+  return _gatherBonusSources(effects, (key) => damageVsChangeMatches(key, criteria));
+}
+
+/**
+ * アクター自身＋全所有アイテムの effects を、バフ集計用の正規形にして返す。
+ * 判定バフ(判定時)・ダメージ対象バフ(ダメージ時)で共用する。
+ * @param {Actor} actor
+ * @param {string} scope  フラグスコープ(パッケージID)
+ * @returns {Array<{identity:string, name:string, stackable:boolean, active:boolean, changes:Array}>}
+ */
+export function collectActorEffectBuffs(actor, scope = "tokyo-nova-axleration") {
+  const out = [];
+  const push = (e) => out.push({
+    identity:  e.flags?.[scope]?.effectId || e.id,
+    name:      e.name,
+    stackable: e.flags?.[scope]?.stackable === true,
+    active:    e.active,
+    changes:   e.changes,
+  });
+  for (const e of (actor?.effects ?? [])) push(e);
+  for (const item of (actor?.items ?? [])) for (const e of (item.effects ?? [])) push(e);
+  return out;
 }
 
 export function parseEffectTargetKey(key) {
@@ -277,6 +336,17 @@ export function parseEffectTargetKey(key) {
     }
     const prefix = x.endsWith("*");
     return { scope: "skillCheck", selector: prefix ? x.slice(0, -1) : x, prefix, conditions };
+  }
+
+  // ダメージ対象バフ(2026-07-10): damage.vsStyle.<スタイル識別キー> / damage.vsWorks.<組織識別キー>。
+  // 値バフでなくダメージ算出時に集計し、攻撃対象のスタイル/所属で照合する(判定バフのダメージ・
+  // 対象参照版)。AE では対象が見えないため、check.* と同じく適用パスからは除外し実行時に評価する。
+  if (segs[0] === "damage") {
+    if ((segs[1] === "vsStyle" || segs[1] === "vsWorks") && segs.length > 2) {
+      const group = segs[1] === "vsStyle" ? "style" : "works";
+      return { scope: "damageVs", group, selector: segs.slice(2).join("."), conditions };
+    }
+    return null;
   }
 
   // 値バフ: system.<名前空間>.…

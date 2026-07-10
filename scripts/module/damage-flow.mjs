@@ -32,6 +32,7 @@ import { TnxActionHandler } from "./tnx-action-handler.mjs";
 import { getCardCheckValue } from "./tnx-check-engine.mjs";
 import { formatAttackLabel } from "./attack-flow-logic.mjs";
 import { consumeFaAmmo } from "./weapon-ammo.mjs";
+import { gatherDamageVsSources, collectActorEffectBuffs } from "../data/item/helpers.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会" };
@@ -128,6 +129,13 @@ export async function openDamageRollDialog(attackMessage) {
     const { total: damageBonus, sources: damageBonusRows } =
         await evaluateBonusRows(f.damageBonuses, attacker, { diff: f.diff, achievement: f.achievement });
 
+    // 攻撃対象のスタイル/ワークスに応じた AE ダメージバフ(damage.vsStyle/vsWorks・2026-07-10)。
+    // 判定バフのダメージ・対象参照版=ダメージ算出時に相手を見てフラットボーナスを足す。台帳では
+    // 用途のダメージ修正と同じ行(供給元=効果名で帰属)として並べる。
+    const vsRows = await collectDamageVsBonuses(attacker, f.targetUuid);
+    const damageBonusRowsAll = [...damageBonusRows, ...vsRows];
+    const damageBonusTotal = damageBonus + vsRows.reduce((s, r) => s + (Number(r.value) || 0), 0);
+
     const content = await foundry.applications.handlebars.renderTemplate(
         "systems/tokyo-nova-axleration/templates/dialog/damage-roll-dialog.hbs",
         {
@@ -138,14 +146,14 @@ export async function openDamageRollDialog(attackMessage) {
             attackSourceName: f.attackSourceName,
             targetName: f.targetName,
             boostRows,
-            damageBonus,
+            damageBonus: damageBonusTotal,
         }
     );
 
     // 待ち受け開始: ダイアログを開いたまま、手札は HUD クリック(executeDamageCardFromHand)・
     // 山札はダイアログのボタンで出す(判定と同じ操作系)
     await cancelPending();
-    const ctx = { kind: "roll", attackMessage, f, attacker, category, attackPower, faOptions, boostRows, damageBonusRows, dialog: null, done: false };
+    const ctx = { kind: "roll", attackMessage, f, attacker, category, attackPower, faOptions, boostRows, damageBonusRows: damageBonusRowsAll, dialog: null, done: false };
     _pending = ctx;
 
     const chosen = await foundry.applications.api.DialogV2.wait({
@@ -383,6 +391,31 @@ export function renderDamageCard(message, html) {
     } else {
         line(area, "cr-tn", "（適用は対象の操作者または RL が行います）");
     }
+}
+
+/**
+ * 攻撃対象のスタイル/ワークスに応じた AE ダメージバフ(`damage.vsStyle.*` / `damage.vsWorks.*`)を
+ * 集計する。攻撃対象が持つスタイル(`type:"style"` アイテムの識別キー)・ワークス(ワークス技能の
+ * 組織)で照合し、供給元(効果名)別のフラット寄与を返す。判定バフのダメージ・対象参照版。
+ * @param {Actor} attacker
+ * @param {string} targetUuid  攻撃対象(命中確定済み)
+ * @returns {Promise<Array<{name:string, value:number}>>}
+ */
+async function collectDamageVsBonuses(attacker, targetUuid) {
+    if (!attacker || !targetUuid) return [];
+    const resolved = await fromUuid(targetUuid).catch(() => null);
+    const target = resolved?.actor ?? resolved;   // トークンドキュメントならアクターへ
+    if (!target?.items) return [];
+    const items = target.items.contents ?? target.items;
+    const styles = [...new Set([...items]
+        .filter(i => i.type === "style")
+        .map(i => i.system?.identificationKey).filter(Boolean))];
+    const works = [...new Set([...items]
+        .filter(i => i.type === "styleSkill")
+        .map(i => i.system?.special?.works?.organization)
+        .filter(o => o && o !== "-"))];
+    if (!styles.length && !works.length) return [];
+    return gatherDamageVsSources(collectActorEffectBuffs(attacker), { styles, works });
 }
 
 /** 攻撃側合計(カード合算+攻撃力+FA+用途のダメージ修正+boost+手動修正)。 */

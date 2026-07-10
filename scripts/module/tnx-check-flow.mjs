@@ -16,7 +16,7 @@
  */
 
 import { getCardCheckValue, calcSkillCheck, calcControlCheck, ALL_SUITS, SUIT_TO_ABILITY } from './tnx-check-engine.mjs';
-import { gatherCheckBonusSources } from '../data/item/helpers.mjs';
+import { gatherCheckBonusSources, collectActorEffectBuffs } from '../data/item/helpers.mjs';
 import { evaluateBonusRows } from './tnx-formula.mjs';
 import { readConditions, gatherConditionCheckSources, getCheckBlock, computeJammingPenalty } from './conditions.mjs';
 import { TnxActionHandler } from './tnx-action-handler.mjs';
@@ -381,17 +381,7 @@ export class TnxCheckFlow {
      */
     static _computeCheckBonus(actor, ctx, abilityKey) {
         if (!actor) return { total: 0, sources: [] };
-        const SCOPE = "tokyo-nova-axleration";
-        const effects = [];
-        const push = (e) => effects.push({
-            identity:  e.flags?.[SCOPE]?.effectId || e.id,
-            name:      e.name,
-            stackable: e.flags?.[SCOPE]?.stackable === true,
-            active:    e.active,
-            changes:   e.changes,
-        });
-        for (const e of (actor.effects ?? [])) push(e);
-        for (const item of (actor.items ?? [])) for (const e of (item.effects ?? [])) push(e);
+        const effects = collectActorEffectBuffs(actor);
 
         let criteria;
         if (ctx.type === "controlCheck") {

@@ -175,14 +175,16 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
    *   category:<小分類/大分類キー>・skill:<識別キー[*]>(レベル等)。条件 [path op value] も評価する。
    * モード(ADD/OVERRIDE/MULTIPLY 等)は effect.apply でネイティブ処理し、priority 順に適用。
    *
-   * - **判定バフ(check./controlCheck.)は判定実行時に評価する別系統**のためここでは扱わない。
+   * - **判定バフ(check./controlCheck.)・ダメージ対象バフ(damage.vs*)は実行時に評価する別系統**の
+   *   ためここでは扱わない(対象が見えないため値バフとして焼き込めない)。
    * - アクター自身＋全所有アイテムの effects を走査(transfer 非依存)。アイテム/能力値の base→total は
    *   既に算出済みで、ここで total を改変する(base は不変)。0clamp は呼び出し側で適用後に行う。
    */
   _applyEffectBuffs() {
     const actor = this.parent;
     if (!actor?.items) return;
-    const CHECK_SCOPES = new Set(["abilityCheck", "controlCheck", "skillCheck"]);
+    // 実行時評価の別系統(判定バフ・ダメージ対象バフ)は値バフの適用対象外
+    const CHECK_SCOPES = new Set(["abilityCheck", "controlCheck", "skillCheck", "damageVs"]);
 
     const entries = [];
     const collect = (effects, bearer) => {
