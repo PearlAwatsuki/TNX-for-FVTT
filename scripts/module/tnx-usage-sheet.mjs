@@ -842,6 +842,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             update.checkBonusSelf = raw["checkBonusSelf"] ?? usage.checkBonusSelf ?? "";
             update.allowRecheck = raw["allowRecheck"] ?? usage.allowRecheck ?? false;
             update.grantRecheck = raw["grantRecheck"] ?? usage.grantRecheck ?? false;
+            update.modifyCheck  = raw["modifyCheck"]  ?? usage.modifyCheck  ?? false;
             const isAtk = raw["isAttack"] ?? false;
             update.damageBonuses  = isAtk ? TnxUsageSheet._collectBonusRows(raw, "damageBonus") : [];
             update.damageBonusSelf = isAtk ? (raw["damageBonusSelf"] ?? usage.damageBonusSelf ?? "") : "";

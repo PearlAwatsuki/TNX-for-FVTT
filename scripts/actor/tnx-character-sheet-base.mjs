@@ -2340,14 +2340,16 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             return;
         }
 
-        // 再判定を付与(2026-07-11): 判定を行わず「達成値クリック待ち」モードに入る。
-        // 結果カードの達成値クリックで、その判定にこの技能を組み合わせた再判定が起動する。
-        // 消費は付与用途の consumeTargets(プランを持ち回り、再判定の実行時に適用)
-        if (selectedUsage.type === "check" && selectedUsage.grantRecheck === true) {
+        // 達成値クリック系の用途(2026-07-11): 判定を行わず「達成値クリック待ち」モードに入る。
+        // 再判定を付与=クリックした判定にこの技能を組み合わせた再判定を起動。
+        // 判定を修正=クリックした判定に事後ボーナス/ペナルティを適用。
+        // 消費は用途の consumeTargets(プランを持ち回り、発動時に適用)
+        if (selectedUsage.type === "check" && (selectedUsage.grantRecheck === true || selectedUsage.modifyCheck === true)) {
+            const kind = selectedUsage.grantRecheck === true ? "recheck" : "modify";
             const grantRows = resolveConsumeRowsForActor(this.actor, item, selectedUsage.consumeTargets);
             const grantPlan = await promptConsumption(this.actor, grantRows, { title: `使用回数の消費: ${item.name}` });
             if (grantPlan === null) return;
-            TnxCheckFlow.startRecheckGrant(this.actor, item, { consumeUses: grantPlan });
+            TnxCheckFlow.startAchievementAction(kind, this.actor, item, { usageId: selectedUsage._id, consumeUses: grantPlan });
             return;
         }
 

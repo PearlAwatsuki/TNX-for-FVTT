@@ -153,6 +153,13 @@ export class UsageTemplate extends SystemDataModel {
                     // 発動条件(失敗時のみ・山札のみ等)は自動強制しない=卓裁定)。
                     grantRecheck: new fields.BooleanField({ initial: false }),
 
+                    // check: 判定を修正(2026-07-11 ユーザー確定)。ON の用途は使用しても判定を行わず、
+                    // 「達成値クリック待ち」モードに入る。達成値クリックで**その判定に事後的な
+                    // ボーナス/ペナルティを適用**する(値=この用途の判定修正値(checkBonusSelf・式)。
+                    // 空なら手入力)。事後修正された判定を再判定すると修正はリセットされる
+                    // (再判定は元の構成から再実行するため)。
+                    modifyCheck: new fields.BooleanField({ initial: false }),
+
                     // attack: ダメージ修正(ダメージへ加算する式の行・攻撃用途)。checkBonuses と同型。
                     // ダメージ算出時に評価するため @diff/@achievement も使える。
                     damageBonuses: new fields.ArrayField(

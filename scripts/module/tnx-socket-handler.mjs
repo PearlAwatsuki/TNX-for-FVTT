@@ -43,6 +43,9 @@ export class TnxSocketHandler {
             case "usageEffectApplied":
                 TnxSocketHandler._onUsageEffectApplied(data);
                 break;
+            case "checkModify":
+                TnxSocketHandler._onCheckModify(data);
+                break;
         }
     }
 
@@ -186,6 +189,30 @@ export class TnxSocketHandler {
         game.socket.emit("system.tokyo-nova-axleration", {
             type: "usageEffectApplied",
             messageId,
+        });
+    }
+
+    // ─── checkModify（フェーズ12・判定の事後修正） ────────────────────────────────
+
+    /** 判定の事後修正のフラグ更新を GM クライアントが代行する(自システムのフラグのみ受理)。 */
+    static async _onCheckModify(data) {
+        if (!game.user.isGM) return;
+        const message = game.messages.get(data?.messageId);
+        if (!message || !data?.patch) return;
+        const updates = {};
+        for (const [k, v] of Object.entries(data.patch)) {
+            if (!k.startsWith("flags.tokyo-nova-axleration.")) continue; // 自スコープ外は無視
+            updates[k] = v;
+        }
+        if (Object.keys(updates).length) await message.update(updates);
+    }
+
+    /** 判定の事後修正のフラグ更新を GM へ委譲する（非作者クライアント=他者の判定への修正から呼ぶ）。 */
+    static emitCheckModify(messageId, patch) {
+        game.socket.emit("system.tokyo-nova-axleration", {
+            type: "checkModify",
+            messageId,
+            patch,
         });
     }
 }

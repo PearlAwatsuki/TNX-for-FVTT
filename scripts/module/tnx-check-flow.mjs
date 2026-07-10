@@ -819,53 +819,148 @@ export class TnxCheckFlow {
         });
     }
 
-    // ─── 再判定付与(grantRecheck・2026-07-11) ─────────────────────────────────
-    // 「再判定を付与」用途の使用で「達成値クリック待ち」モードに入り、結果カードの達成値クリックで
-    // その判定に起動技能を組み合わせた再判定を起動する。
+    // ─── 達成値クリック待ちアクション(2026-07-11) ─────────────────────────────
+    // 用途の使用で「達成値クリック待ち」モードに入り、結果カードの達成値クリックで発動する
+    // 事後系メカニクスの共通機構。kind で動作を分岐する:
+    //   - "recheck"(再判定を付与): その判定に起動技能を組み合わせた再判定を起動
+    //   - "modify"(判定を修正): その判定に事後的なボーナス/ペナルティを適用
+    // 排他(同時に1つ)・同じ用途の再使用でキャンセル。発動条件(失敗時のみ等)は自動強制しない(卓裁定)。
 
-    /** @type {{actorId:string, skillItemId:string, skillName:string, consumeUses:Array}|null} */
-    static _grantState = null;
+    /** @type {{kind:"recheck"|"modify", actorId:string, skillItemId:string, skillName:string, usageId:string, consumeUses:Array}|null} */
+    static _clickState = null;
 
-    static get isGrantPending() { return TnxCheckFlow._grantState !== null; }
+    static get isGrantPending() { return TnxCheckFlow._clickState !== null; }
 
     /**
-     * 再判定付与モードを開始する(grantRecheck 用途の使用から)。同じ用途の再使用でキャンセル。
-     * 発動条件(失敗時のみ・山札のみ等)は自動強制しない(卓裁定=効果を自動化しない現行原則)。
-     * @param {Actor} actor 付与用途の使用者
-     * @param {Item} skill 付与用途の親技能(=再判定に組み合わせる技能)
-     * @param {{consumeUses?:Array}} [opts]
+     * 達成値クリック待ちモードを開始する。
+     * @param {"recheck"|"modify"} kind
+     * @param {Actor} actor 用途の使用者
+     * @param {Item} skill 用途の親技能
+     * @param {{usageId?:string, consumeUses?:Array}} [opts]
      */
-    static startRecheckGrant(actor, skill, { consumeUses = [] } = {}) {
-        if (TnxCheckFlow._grantState?.skillItemId === skill.id) {
-            TnxCheckFlow.cancelRecheckGrant();
-            ui.notifications.info("再判定の付与をキャンセルしました。");
+    static startAchievementAction(kind, actor, skill, { usageId = "", consumeUses = [] } = {}) {
+        if (TnxCheckFlow._clickState?.skillItemId === skill.id && TnxCheckFlow._clickState?.kind === kind) {
+            TnxCheckFlow.cancelAchievementAction();
+            ui.notifications.info(kind === "recheck" ? "再判定の付与をキャンセルしました。" : "判定の修正をキャンセルしました。");
             return;
         }
-        TnxCheckFlow._grantState = {
-            actorId: actor.id, skillItemId: skill.id, skillName: skill.name, consumeUses,
+        TnxCheckFlow._clickState = {
+            kind, actorId: actor.id, skillItemId: skill.id, skillName: skill.name, usageId, consumeUses,
         };
         document.body.classList.add("tnx-recheck-grant-pending");
-        ui.notifications.info(`結果カードの達成値をクリックすると、その判定に「${skill.name}」を組み合わせて再判定します（「${skill.name}」をもう一度使用するとキャンセル）。`);
+        ui.notifications.info(kind === "recheck"
+            ? `結果カードの達成値をクリックすると、その判定に「${skill.name}」を組み合わせて再判定します（「${skill.name}」をもう一度使用するとキャンセル）。`
+            : `結果カードの達成値をクリックすると、その判定に「${skill.name}」の修正を適用します（「${skill.name}」をもう一度使用するとキャンセル）。`);
     }
 
-    static cancelRecheckGrant() {
-        TnxCheckFlow._grantState = null;
+    static cancelAchievementAction() {
+        TnxCheckFlow._clickState = null;
         document.body.classList.remove("tnx-recheck-grant-pending");
     }
 
-    /**
-     * 達成値クリック(再判定付与モード中)の処理。クリックした結果カードの判定に起動技能を
-     * 組み合わせて再判定を起動する。
-     */
+    /** 達成値クリック(クリック待ちモード中)の処理。kind に応じて再判定/修正を発動する。 */
     static async _onGrantAchievementClick(message) {
-        const state = TnxCheckFlow._grantState;
-        if (!state) return; // 付与モード外のクリックは無視(通常表示)
-        const grantActor = game.actors.get(state.actorId);
-        const skill = grantActor?.items.get(state.skillItemId);
-        if (!skill) { TnxCheckFlow.cancelRecheckGrant(); return; }
-        const opts = { mergeSkill: skill, consumeUses: state.consumeUses };
-        TnxCheckFlow.cancelRecheckGrant();
-        await TnxCheckFlow.startRecheck(message, opts);
+        const state = TnxCheckFlow._clickState;
+        if (!state) return; // モード外のクリックは無視(通常表示)
+        const actor = game.actors.get(state.actorId);
+        const skill = actor?.items.get(state.skillItemId);
+        if (!skill) { TnxCheckFlow.cancelAchievementAction(); return; }
+        TnxCheckFlow.cancelAchievementAction();
+        if (state.kind === "recheck") {
+            await TnxCheckFlow.startRecheck(message, { mergeSkill: skill, consumeUses: state.consumeUses });
+        } else {
+            await TnxCheckFlow._applyCheckModify(message, { actor, skill, usageId: state.usageId, consumeUses: state.consumeUses });
+        }
+    }
+
+    /**
+     * 判定の事後修正(modifyCheck)を適用する。値=用途の「この用途の判定修正値」(checkBonusSelf・式)を
+     * 使用者のデータで評価(空・評価不能なら手入力)。フラグの達成値を更新し、目標値つき判定は
+     * 成否・差分値を再計算、攻撃カードは解決済みなら対決を再解決する(ダメージカード算出後は不可)。
+     * 修正の内訳はフラグ checkMods に積み、カードにライブ描画する。
+     * 事後修正された判定を再判定すると修正はリセットされる(再判定はスナップショット=元の構成から
+     * 再実行するため・2026-07-11 ユーザー確定)。
+     */
+    static async _applyCheckModify(message, { actor, skill, usageId, consumeUses }) {
+        const SCOPE = "tokyo-nova-axleration";
+        const rc = message.getFlag(SCOPE, "checkRecheck");
+        const attackF = message.getFlag(SCOPE, "attackCheck");
+        const checkF = message.getFlag(SCOPE, "checkResult");
+        if (!checkF && !attackF) return;
+
+        // ダメージ算出後の攻撃は修正不可(算出済みダメージの巻き戻しは整合を壊す)
+        if (attackF?.damageRolled) {
+            ui.notifications.warn("ダメージカードを出した後の攻撃判定は修正できません。");
+            return;
+        }
+
+        // 修正値: 用途の判定修正値(式・@item.self=親技能)を評価。空/評価不能/0 は手入力
+        const usage = (skill.system.actions ?? []).find(a => a._id === usageId) ?? null;
+        let mod = null;
+        const self = await evaluateSelfBonus(usage?.checkBonusSelf ?? "", actor, null, null, skill);
+        if (self) mod = self.value;
+        if (mod === null) {
+            const { AmountInputDialog } = await import("./tnx-dialog.mjs");
+            mod = await AmountInputDialog.prompt({
+                title: `判定の修正: ${skill.name}`,
+                label: "達成値への修正値（ペナルティは負の値）",
+                initialValue: 0, min: -99, max: 99,
+            });
+            if (!Number.isFinite(mod) || mod === 0) return;
+        }
+
+        // 消費(用途の consumeTargets)は適用の確定時
+        if (consumeUses?.length) await applyConsumptionPlan(consumeUses);
+
+        // 達成値の更新と帰結の再計算
+        const prevAch = Number(attackF?.achievement ?? checkF?.result?.achievement) || 0;
+        const newAch = prevAch + mod;
+        const mods = foundry.utils.deepClone(message.getFlag(SCOPE, "checkMods") ?? { rows: [] });
+        mods.rows.push({ label: skill.name, value: mod });
+        mods.achievement = newAch;
+
+        const patch = {};
+        patch[`flags.${SCOPE}.checkMods`] = mods;
+        if (checkF) {
+            patch[`flags.${SCOPE}.checkResult.result.achievement`] = newAch;
+            // 目標値つきは成否・差分値を再計算(差分値は成功時のみ=Check_Rules)
+            const tv = rc?.targetValue ?? null;
+            if (tv !== null && !attackF) {
+                const success = newAch >= tv;
+                const diff = success ? newAch - tv : null;
+                patch[`flags.${SCOPE}.checkResult.result.diff`] = diff;
+                mods.success = success;
+                mods.diff = diff;
+                mods.targetValue = tv;
+            }
+        }
+        if (attackF) {
+            patch[`flags.${SCOPE}.attackCheck.achievement`] = newAch;
+            // 解決済みなら保存済みの相手値に対して再解決(pending は以後の解決が新しい値を使う)
+            if (attackF.state === "hit" || attackF.state === "miss") {
+                const { resolveNoReaction, resolveOpposed } = await import("./attack-flow-logic.mjs");
+                const r = attackF.resolution === "none"
+                    ? resolveNoReaction(newAch, attackF.targetValue)
+                    : resolveOpposed(newAch, attackF.reactionAchievement ?? 0);
+                patch[`flags.${SCOPE}.attackCheck.state`] = r.hit ? "hit" : "miss";
+                patch[`flags.${SCOPE}.attackCheck.diff`] = r.diff;
+            }
+        }
+
+        // フラグ更新(非作者・非GM は GM へ委譲=他者の判定へのペナルティ等)
+        if (game.user.isGM || message.isAuthor) {
+            await message.update(patch);
+        } else {
+            TnxSocketHandler.emitCheckModify(message.id, patch);
+        }
+
+        // 判定要求由来なら要求カードの結果表示を追随させる
+        if (rc?.requestMessageId && checkF) {
+            const result = foundry.utils.deepClone(checkF.result);
+            result.achievement = newAch;
+            if (mods.diff !== undefined) result.diff = mods.diff;
+            TnxSocketHandler.emitCheckResult(rc.requestMessageId, rc.actorId, result);
+        }
     }
 
     static _closeDialog() {
@@ -900,7 +995,7 @@ export function renderRecheckButton(message, html) {
     if (!rc) return;
     const host = html.querySelector(".tnx-check-result") ?? html.querySelector(".tnx-chat-card") ?? html;
 
-    // 達成値クリック(再判定付与): 達成値行の数値をクリック可能に(付与モード外のクリックは無視)
+    // 達成値クリック(再判定付与/判定を修正): 達成値行の数値をクリック可能に(モード外のクリックは無視)
     for (const row of host.querySelectorAll(".cr-calc-row, .cr-total-row")) {
         const label = row.querySelector(".cr-calc-label");
         const num = row.querySelector(".cr-total-num");
@@ -908,6 +1003,32 @@ export function renderRecheckButton(message, html) {
         if (num.classList.contains("tnx-recheck-target")) continue; // 二重バインド防止
         num.classList.add("tnx-recheck-target");
         num.addEventListener("click", () => TnxCheckFlow._onGrantAchievementClick(message));
+    }
+
+    // 事後修正の内訳(判定を修正・フラグ checkMods からライブ描画)
+    const mods = message.getFlag("tokyo-nova-axleration", "checkMods");
+    if (mods?.rows?.length) {
+        const esc = foundry.utils.escapeHTML;
+        let area = host.querySelector(".tnx-checkmod-area");
+        if (area) area.remove(); // フラグ更新でのライブ再描画に備え作り直す
+        area = document.createElement("div");
+        area.className = "tnx-checkmod-area";
+        const line = (label, val, cls = "") => {
+            const div = document.createElement("div");
+            div.className = `cr-calc-row ${cls}`.trim();
+            div.innerHTML = `<span class="cr-calc-label">${label}</span><span class="${cls ? "cr-total-num" : "cr-calc-val"}">${val}</span>`;
+            area.appendChild(div);
+        };
+        for (const r of mods.rows) {
+            const v = Number(r.value) || 0;
+            line(`事後修正（${esc(r.label)}）`, v >= 0 ? `+${v}` : String(v));
+        }
+        line("修正後の達成値", String(mods.achievement), "cr-total-row");
+        if (mods.targetValue !== undefined && mods.success !== undefined) {
+            const diffText = Number.isFinite(mods.diff) ? `（差分値 +${mods.diff}）` : "";
+            line("修正後の成否", mods.success ? `成功${diffText}` : "失敗");
+        }
+        host.appendChild(area);
     }
 
     // 再判定ボタン(用途の「再判定可能」ON のときのみ)
