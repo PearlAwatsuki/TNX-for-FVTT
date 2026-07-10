@@ -2390,6 +2390,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             consumeUses:     usesPlan,
             requestMessageId: null,
             checkBonuses:    selectedUsage.checkBonuses ?? [],
+            checkBonusSelf:  selectedUsage.checkBonusSelf ?? "",
+            sourceItemId:    item.id,   // 用途の親アイテム(@item.self の解決に使う)
         });
     }
 

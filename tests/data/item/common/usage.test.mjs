@@ -56,6 +56,21 @@ describe("UsageTemplate.defineSchema()", () => {
       expect(entryFields).toHaveProperty("modifiableParams");
     });
 
+    it("用途自身の修正値（専用欄・checkBonusSelf / damageBonusSelf）が StringField・initial 空", () => {
+      expect(entryFields.checkBonusSelf).toBeInstanceOf(MockStringField);
+      expect(entryFields.checkBonusSelf.options.initial).toBe("");
+      expect(entryFields.damageBonusSelf).toBeInstanceOf(MockStringField);
+      expect(entryFields.damageBonusSelf.options.initial).toBe("");
+    });
+
+    it("effects 要素は itemId ＋ effectId を持つ（供給元アイテムを明示）", () => {
+      const effFields = entryFields.effects.element.fields;
+      expect(effFields).toHaveProperty("itemId");
+      expect(effFields).toHaveProperty("effectId");
+      expect(effFields.itemId.options.initial).toBe("");
+      expect(effFields.effectId.options.initial).toBe("");
+    });
+
     it("type / name / description は StringField である", () => {
       expect(entryFields.type).toBeInstanceOf(MockStringField);
       expect(entryFields.name).toBeInstanceOf(MockStringField);

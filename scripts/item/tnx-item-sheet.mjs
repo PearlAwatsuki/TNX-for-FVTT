@@ -351,13 +351,22 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             await applyConsumptionPlan(plan);
         }
 
-        const ids = (usage.effects ?? []).map(e => e.effectId).filter(Boolean);
-        const updates = [];
-        for (const id of ids) {
-            if (this.item.effects.has(id)) updates.push({ _id: id, disabled: false });
+        // 効果は {itemId, effectId}(親=空／組み合わせ技能／使用武器)。各効果をその供給元アイテムで
+        // 有効化する(2026-07-10 で親以外にも対応)。
+        const getHost = (itemId) => (!itemId || itemId === this.item.id) ? this.item : actor?.items.get(itemId);
+        const byHost = new Map();
+        for (const e of (usage.effects ?? [])) {
+            const host = e.effectId ? getHost(e.itemId) : null;
+            if (!host?.effects.has(e.effectId)) continue;
+            if (!byHost.has(host)) byHost.set(host, []);
+            byHost.get(host).push({ _id: e.effectId, disabled: false });
         }
-        if (updates.length) await this.item.updateEmbeddedDocuments("ActiveEffect", updates);
-        ui.notifications?.info(`「${usage.name || "用途"}」を使用：${updates.length}件の効果を有効化しました。`);
+        let enabled = 0;
+        for (const [host, updates] of byHost) {
+            await host.updateEmbeddedDocuments("ActiveEffect", updates);
+            enabled += updates.length;
+        }
+        ui.notifications?.info(`「${usage.name || "用途"}」を使用：${enabled}件の効果を有効化しました。`);
     }
 
     static async _onActionDelete(_event, target) {

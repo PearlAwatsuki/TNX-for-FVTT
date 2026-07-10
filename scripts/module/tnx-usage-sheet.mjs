@@ -533,6 +533,9 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             }));
             context.checkBonusRows  = (usage.checkBonuses  ?? []).map((r, idx) => ({ idx, formula: r.formula, source: r.source, sourceGroups: rowGroups(r.source) }));
             context.damageBonusRows = (usage.damageBonuses ?? []).map((r, idx) => ({ idx, formula: r.formula, source: r.source, sourceGroups: rowGroups(r.source) }));
+            // 用途自身の修正値(専用欄・供給元つきの追加行とは別枠。式で @item.self=親アイテムを参照可)
+            context.checkBonusSelf  = usage.checkBonusSelf ?? "";
+            context.damageBonusSelf = usage.damageBonusSelf ?? "";
         }
 
         // 消費先設定(11-6・全用途タイプ共通。固定値判定は消費 UI を出さない=エキストラは消費なし)。
@@ -574,17 +577,40 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             context.hasConsumeActor = !!actor;
         }
 
-        // エフェクト: 用途使用時に適用する ActiveEffect の参照
-        const addedIds = usage.effects.map(e => e.effectId).filter(Boolean);
-        const addedSet = new Set(addedIds);
-        context.addedEffects = addedIds.map(id => {
-            const eff = this._item.effects.get(id);
-            return { id, name: eff?.name ?? `(削除済み: ${id})` };
+        // エフェクト: 用途使用時に適用する ActiveEffect の参照。供給元は親アイテム(空 itemId)＋参加技能
+        // (ベース＋組み合わせ)＋使用武器(2026-07-10)。保存は {itemId, effectId}(親は itemId 空で互換)。
+        const parentId = this._item.id;
+        const effActor = this._item.actor;
+        const getEffItem = (id) => (!id || id === parentId ? this._item : effActor?.items.get(id));
+        const contribIds = [];
+        for (const id of [parentId, usage.baseSkillRef?.itemId, ...(usage.skillRefs ?? []).map(r => r.itemId),
+                          ...(usage.weaponRefs ?? []).map(r => r.itemId)].filter(Boolean)) {
+            if (!contribIds.includes(id)) contribIds.push(id);
+        }
+        const contribItems = contribIds.map(id => (id === parentId ? this._item : effActor?.items.get(id))).filter(Boolean);
+        const addedKey = (itemId, effectId) => `${itemId || parentId}:${effectId}`;
+        const addedSet = new Set((usage.effects ?? []).map(e => addedKey(e.itemId, e.effectId)));
+        // 追加済み: 保存値(itemId 空=親)をそのまま remove ハンドラへ渡す
+        context.addedEffects = (usage.effects ?? []).map(e => {
+            const host = getEffItem(e.itemId);
+            const eff = host?.effects.get(e.effectId);
+            const fromParent = !e.itemId || e.itemId === parentId;
+            return {
+                itemId: e.itemId ?? "", effectId: e.effectId,
+                name: eff?.name ?? `(削除済み: ${e.effectId})`,
+                sourceName: fromParent ? "" : (host?.name ?? ""),   // 親由来は帰属表示を省く
+            };
         });
-        context.availableEffects = this._item.effects
-            .filter(e => !addedSet.has(e.id))
-            .map(e => ({ id: e.id, name: e.name }));
-        context.hasAnyEffect = this._item.effects.size > 0;
+        // 未追加の効果を供給元アイテムごとにグループ化(選択値=`itemId|effectId`・親は itemId 空)
+        context.availableEffectGroups = contribItems
+            .map(it => ({
+                label: it.name,
+                options: [...it.effects]
+                    .filter(e => !addedSet.has(addedKey(it.id, e.id)))
+                    .map(e => ({ value: `${it.id === parentId ? "" : it.id}|${e.id}`, name: e.name })),
+            }))
+            .filter(g => g.options.length);
+        context.hasAnyEffect = contribItems.some(it => it.effects.size > 0);
 
         return context;
     }
@@ -645,14 +671,18 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 });
             }
 
-            // エフェクト: ドロップダウン選択で即時追加
+            // エフェクト: ドロップダウン選択で即時追加。選択値=`itemId|effectId`(親は itemId 空)
             for (const select of this.element.querySelectorAll("select.effect-select")) {
                 select.addEventListener("change", async (ev) => {
-                    const effectId = ev.target.value;
+                    const raw = ev.target.value;
+                    if (!raw) return;
+                    const sep = raw.indexOf("|");
+                    const itemId = sep >= 0 ? raw.slice(0, sep) : "";
+                    const effectId = sep >= 0 ? raw.slice(sep + 1) : raw;
                     if (!effectId) return;
                     const usage = this.usage;
-                    if (!usage || usage.effects.some(e => e.effectId === effectId)) return;
-                    await this._patchUsage({ effects: [...usage.effects, { effectId }] });
+                    if (!usage || usage.effects.some(e => (e.itemId || "") === itemId && e.effectId === effectId)) { ev.target.value = ""; return; }
+                    await this._patchUsage({ effects: [...usage.effects, { itemId, effectId }] });
                     this.render({ force: true });
                 });
             }
@@ -782,9 +812,10 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         // check 用途のみ行 UI を描画する。空式の行は捨てる。ダメージ修正は攻撃オン時のみ保持(2026-07-10)
         if (usage.type === "check" && !Number.isFinite(usage.fixedResult)) {
             update.checkBonuses = TnxUsageSheet._collectBonusRows(raw, "checkBonus");
-            update.damageBonuses = (raw["isAttack"] ?? false)
-                ? TnxUsageSheet._collectBonusRows(raw, "damageBonus")
-                : [];
+            update.checkBonusSelf = raw["checkBonusSelf"] ?? usage.checkBonusSelf ?? "";
+            const isAtk = raw["isAttack"] ?? false;
+            update.damageBonuses  = isAtk ? TnxUsageSheet._collectBonusRows(raw, "damageBonus") : [];
+            update.damageBonusSelf = isAtk ? (raw["damageBonusSelf"] ?? usage.damageBonusSelf ?? "") : "";
         }
 
         // 固定達成値(フェーズ11-5・エキストラの技能判定)。固定値用途のマーカーを兼ねるため、
@@ -1068,10 +1099,12 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
     static async _onEffectRemove(_event, target) {
         const effectId = target.dataset.effectId;
+        const itemId = target.dataset.itemId ?? "";
         const usage = this.usage;
         if (!usage || !effectId) return;
 
-        const effects = usage.effects.filter(e => e.effectId !== effectId);
+        // itemId＋effectId で1件だけ外す(供給元アイテムが異なる同名/同IDの取り違えを避ける)
+        const effects = usage.effects.filter(e => !((e.itemId || "") === itemId && e.effectId === effectId));
         await this._patchUsage({ effects });
         this.render({ force: true });
     }

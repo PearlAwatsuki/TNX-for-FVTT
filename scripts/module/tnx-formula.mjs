@@ -118,12 +118,13 @@ export function evaluateFormulaSync(formula, data = {}) {
  * @param {{diff?:number|null, achievement?:number|null}|null} [result] 判定結果(判定前は null)
  * @param {Record<string,string>|null} [dictNames] 辞典フォールバック名
  * @param {Actor|null} [target] 攻撃対象(ダメージ修正で `@target.*` を参照する場合。判定では null)
+ * @param {object|null} [bearer] 用途の親アイテム(`@item.self` を式で参照可にする)
  * @returns {Promise<{total:number, sources:Array<{name:string, value:number}>}>}
  */
-export async function evaluateBonusRows(rows, actor, result = null, dictNames = null, target = null) {
+export async function evaluateBonusRows(rows, actor, result = null, dictNames = null, target = null, bearer = null) {
     let total = 0;
     const sources = [];
-    const data = buildFormulaData(actor, result, null, target); // @item/@target は全行で共通
+    const data = buildFormulaData(actor, result, bearer, target); // @item/@target は全行で共通
     for (const row of (rows ?? [])) {
         const val = await evaluateFormula(row?.formula, data);
         if (!Number.isFinite(val) || val === 0) continue;
@@ -131,6 +132,24 @@ export async function evaluateBonusRows(rows, actor, result = null, dictNames = 
         sources.push({ name: resolveItemNameByKey(actor, row?.source, dictNames) || "用途", value: val });
     }
     return { total, sources };
+}
+
+/**
+ * 用途自身の修正値(専用欄・checkBonusSelf / damageBonusSelf)を評価する(2026-07-10)。供給元つきの
+ * 追加行(evaluateBonusRows)とは別枠の、その用途の親アイテムが持つ修正値。式では `@item.self`＝
+ * 親アイテムを参照でき、台帳の帰属名は**親アイテム名**(bearer.name・なければ "用途")。
+ * @param {string} formula
+ * @param {Actor|null} actor
+ * @param {{diff?:number|null, achievement?:number|null}|null} [result]
+ * @param {Actor|null} [target] 攻撃対象(ダメージ側で `@target.*`)
+ * @param {object|null} [bearer] 用途の親アイテム(`@item.self`・帰属名)
+ * @returns {Promise<{name:string, value:number}|null>} 評価不能・0 は null
+ */
+export async function evaluateSelfBonus(formula, actor, result = null, target = null, bearer = null) {
+    const data = buildFormulaData(actor, result, bearer, target);
+    const val = await evaluateFormula(formula, data);
+    if (!Number.isFinite(val) || val === 0) return null;
+    return { name: bearer?.name || "用途", value: val };
 }
 
 /**

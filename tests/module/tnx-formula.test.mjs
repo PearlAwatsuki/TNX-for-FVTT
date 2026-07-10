@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
-const { buildCheckFormulaData, buildFormulaData, evaluateBonusRows, parsePlainNumber, evaluateFormula, evaluateFormulaSync } =
+const { buildCheckFormulaData, buildFormulaData, evaluateBonusRows, evaluateSelfBonus, parsePlainNumber, evaluateFormula, evaluateFormulaSync } =
   await import("../../scripts/module/tnx-formula.mjs");
 
 describe("buildCheckFormulaData()（式評価用の判定結果コンテキスト・Check_Rules「差分値」）", () => {
@@ -106,6 +106,25 @@ describe("evaluateBonusRows()（判定/ダメージの行を評価＋供給元�
       [{ formula: "0", source: "" }, { formula: "@item.style_x.system.level", source: "style_x" }], actor);
     expect(total).toBe(0);
     expect(sources).toEqual([]);
+  });
+});
+
+describe("evaluateSelfBonus()（用途自身の修正値・専用欄・親アイテム名で帰属・2026-07-10）", () => {
+  const actor = { getRollData: () => ({ system: {} }), items: [] };
+  const bearer = { name: "〈カブトワリ〉の刃", system: { identificationKey: "kabutowari", attack: { total: 4 } } };
+
+  it("数値を評価し、帰属名は親アイテム名(bearer.name)", async () => {
+    expect(await evaluateSelfBonus("3", actor, null, null, bearer)).toEqual({ name: "〈カブトワリ〉の刃", value: 3 });
+  });
+
+  it("bearer なしは帰属名 '用途'", async () => {
+    expect(await evaluateSelfBonus("2", actor)).toEqual({ name: "用途", value: 2 });
+  });
+
+  it("空・0・評価不能(Roll 不在の式)は null", async () => {
+    expect(await evaluateSelfBonus("", actor, null, null, bearer)).toBeNull();
+    expect(await evaluateSelfBonus("0", actor, null, null, bearer)).toBeNull();
+    expect(await evaluateSelfBonus("@item.self.system.attack.total", actor, null, null, bearer)).toBeNull();
   });
 });
 

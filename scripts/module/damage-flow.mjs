@@ -22,7 +22,7 @@
 
 import { applyDamageChartResult } from "./condition-resolution.mjs";
 import { aggregateDefence, defenceForType, computeDamage } from "./damage-logic.mjs";
-import { evaluateFormula, buildFormulaData, evaluateBonusRows } from "./tnx-formula.mjs";
+import { evaluateFormula, buildFormulaData, evaluateBonusRows, evaluateSelfBonus } from "./tnx-formula.mjs";
 import { resolveConsumeRowsForActor, applyConsumptionPlan } from "./usage-consumption.mjs";
 import { getDamageChartKind } from "../data/damage-chart.mjs";
 import { CONDITION_KINDS } from "./conditions.mjs";
@@ -114,11 +114,14 @@ export async function openDamageRollDialog(attackMessage) {
 
     // 攻撃対象(防御側)を一度だけ解決する。式の @target.* と AE ダメージ対象バフの照合に用いる。
     const targetActor = await resolveTargetActor(f.targetUuid);
+    // 用途の親アイテム(@item.self の解決に使う。攻撃者所持のアイテム)
+    const parentItem = f.sourceItemId ? attacker?.items.get(f.sourceItemId) : null;
+    const result = { diff: f.diff, achievement: f.achievement };
 
     // damageBoost(攻撃側)の候補。formula は事前評価(@diff/@achievement は判定結果で固定・
-    // 攻撃者のロールデータ @system.* と攻撃対象 @target.* も供給=AE と同じ値を式で参照可)。
+    // 攻撃者のロールデータ @system.*・攻撃対象 @target.*・用途の親 @item.self も供給)。
     // 評価不能な自由文は数値効果なし=表示のみ(手動修正欄で反映)
-    const formulaData = buildFormulaData(attacker, { diff: f.diff, achievement: f.achievement }, null, targetActor);
+    const formulaData = buildFormulaData(attacker, result, parentItem, targetActor);
     const boostRows = collectDamageUsages(attacker, "damageBoost");
     for (const r of boostRows) {
         const v = await evaluateFormula(r.formula, formulaData);
@@ -126,11 +129,13 @@ export async function openDamageRollDialog(attackMessage) {
         r.effectDisplay = usageEffectDisplay(r, "＋");
     }
 
-    // 攻撃用途のダメージ修正(式の行・2026-07-10)。各行を評価し、供給元名で帰属して台帳に出す。
-    // 式は @system.*・@item.<識別キー>.system.*・@target.*(対象のスタイル/値)・@diff/@achievement を
-    // 参照可。供給元は逆引きした現在のアイテム名(表示帰属のみ・生キーは表示しない)。
-    const { total: damageBonus, sources: damageBonusRows } =
-        await evaluateBonusRows(f.damageBonuses, attacker, { diff: f.diff, achievement: f.achievement }, null, targetActor);
+    // 用途自身のダメージ修正(専用欄・@item.self=用途の親アイテム・台帳は親名で帰属)＋供給元つきの
+    // 追加行(式は @system.*・@item.<識別キー>.*・@item.self・@target.*・@diff/@achievement を参照可)。
+    const selfDamage = await evaluateSelfBonus(f.damageBonusSelf, attacker, result, targetActor, parentItem);
+    const { total: rowsTotal, sources: rowSources } =
+        await evaluateBonusRows(f.damageBonuses, attacker, result, null, targetActor, parentItem);
+    const damageBonusRows = [...(selfDamage ? [selfDamage] : []), ...rowSources];
+    const damageBonus = (selfDamage?.value ?? 0) + rowsTotal;
 
     // 攻撃対象のスタイル/ワークスに応じた AE ダメージバフ(damage.vsStyle/vsWorks・2026-07-10)。
     // 判定バフのダメージ・対象参照版=ダメージ算出時に相手を見てフラットボーナスを足す。台帳では

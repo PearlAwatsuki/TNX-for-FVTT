@@ -84,9 +84,12 @@ export class UsageTemplate extends SystemDataModel {
                     // 対決不可: 対象がこの判定に対決（リアクション）できない状態（実機能はフェーズ13、現状は保持のみ）
                     isUnopposable: new fields.BooleanField({ initial: false }),
 
-                    // この用途使用時に付与する ActiveEffect の参照
+                    // この用途使用時に付与する ActiveEffect の参照。itemId=効果が乗っているアイテム
+                    // (親アイテム＝空／組み合わせ技能／使用武器のいずれか。2026-07-10 で itemId 追加)。
+                    // itemId 空＝親アイテム(this._item)の効果を指す(旧データの互換)。
                     effects: new fields.ArrayField(
                         new fields.SchemaField({
+                            itemId:   new fields.StringField({ initial: "" }),
                             effectId: new fields.StringField({ initial: "" }),
                         })
                     ),
@@ -125,6 +128,11 @@ export class UsageTemplate extends SystemDataModel {
                         })
                     ),
 
+                    // check: 用途自身の判定修正値(専用欄・供給元つきの追加行とは別枠・2026-07-10)。
+                    // その用途の親アイテムが持つ修正値を入れる欄。式では @item.self=用途の親アイテムを
+                    // 参照でき(識別キー不要)、台帳では親アイテム名で帰属する。
+                    checkBonusSelf: new fields.StringField({ initial: "" }),
+
                     // attack: ダメージ修正(ダメージへ加算する式の行・攻撃用途)。checkBonuses と同型。
                     // ダメージ算出時に評価するため @diff/@achievement も使える。
                     damageBonuses: new fields.ArrayField(
@@ -133,6 +141,10 @@ export class UsageTemplate extends SystemDataModel {
                             source:  new fields.StringField({ initial: "" }),
                         })
                     ),
+
+                    // attack: 用途自身のダメージ修正値(専用欄・checkBonusSelf のダメージ版・2026-07-10)。
+                    // 親アイテムが持つダメージ修正を入れる欄。式で @item.self を参照可・台帳は親名で帰属。
+                    damageBonusSelf: new fields.StringField({ initial: "" }),
 
                     // damageBoost・damageReduce: 効果量（計算式 or 固定値文字列）
                     formula: new fields.StringField({ initial: "" }),

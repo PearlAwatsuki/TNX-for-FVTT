@@ -17,7 +17,7 @@
 
 import { getCardCheckValue, calcSkillCheck, calcControlCheck, ALL_SUITS, SUIT_TO_ABILITY } from './tnx-check-engine.mjs';
 import { gatherCheckBonusSources, collectActorEffectBuffs } from '../data/item/helpers.mjs';
-import { evaluateBonusRows } from './tnx-formula.mjs';
+import { evaluateBonusRows, evaluateSelfBonus } from './tnx-formula.mjs';
 import { readConditions, gatherConditionCheckSources, getCheckBlock, computeJammingPenalty } from './conditions.mjs';
 import { TnxActionHandler } from './tnx-action-handler.mjs';
 import { TnxSocketHandler } from './tnx-socket-handler.mjs';
@@ -563,13 +563,21 @@ export class TnxCheckFlow {
         // 判定バフ(check 時・同一効果の重複適用不可)を算出。内訳(sources)はチャットの内訳表示に使う
         const checkInfo  = suitMismatch ? { total: 0, sources: [] } : TnxCheckFlow._computeCheckBonus(actor, ctx, SUIT_TO_ABILITY[suit]);
         let checkBonus = checkInfo.total;
-        // 用途の判定ボーナス(達成値へ加算する式の行・2026-07-10)。各行を供給元アイテムの
-        // @item.system.* とアクターの @system.* で評価し、内訳に「判定ボーナス（供給元名）」として
-        // 載せる(供給元名は逆引きした現在のアイテム名・生キーは表示しない)。判定前のため @diff は不可
-        if (!suitMismatch && ctx.checkBonuses?.length) {
-            const { total, sources } = await evaluateBonusRows(ctx.checkBonuses, actor);
-            checkBonus += total;
-            for (const s of sources) checkInfo.sources.push({ name: `判定ボーナス（${s.name}）`, value: s.value });
+        // 用途の判定ボーナス(達成値へ加算する式・2026-07-10)。①用途自身の修正値(専用欄・親アイテム名で
+        // 帰属)②供給元つきの追加行、の順に評価。式は @item.self=用途の親アイテム・@item.<識別キー>・
+        // アクター @system.* を参照可。内訳に「判定ボーナス（供給元名）」として載せる。判定前のため @diff は不可
+        if (!suitMismatch) {
+            const parentItem = ctx.sourceItemId ? actor.items.get(ctx.sourceItemId) : null;
+            const self = await evaluateSelfBonus(ctx.checkBonusSelf, actor, null, null, parentItem);
+            if (self) {
+                checkBonus += self.value;
+                checkInfo.sources.push({ name: `判定ボーナス（${self.name}）`, value: self.value });
+            }
+            if (ctx.checkBonuses?.length) {
+                const { total, sources } = await evaluateBonusRows(ctx.checkBonuses, actor, null, null, null, parentItem);
+                checkBonus += total;
+                for (const s of sources) checkInfo.sources.push({ name: `判定ボーナス（${s.name}）`, value: s.value });
+            }
         }
 
         // 報酬点の使用を決定（スート不一致・制御判定・ファンブル確定はスキップ）

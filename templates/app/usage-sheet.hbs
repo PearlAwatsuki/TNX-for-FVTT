@@ -325,12 +325,16 @@
             {{#if isCheckType}}
             <fieldset class="tnx-fieldset">
                 <legend>判定</legend>
-                <label class="usage-field-label">判定ボーナス <i class="fas fa-circle-question" title="達成値に加算する式の行。式は @system.*（アクター）・@item.<識別キー>.system.*（所持アイテム＝AE と同じキー）を参照できます（判定前のため @diff/@achievement は不可）。供給元はチャットで帰属を表示するための任意設定です"></i></label>
+                <label class="usage-field-label">この用途の判定修正値 <i class="fas fa-circle-question" title="この用途の親アイテムが持つ判定修正値。式で @item.self（＝この用途の親アイテム）を参照できます（例 @item.self.system.levelTotal）。供給元つきの追加行とは別枠の専用欄です"></i></label>
+                <input type="text" name="checkBonusSelf" value="{{checkBonusSelf}}"
+                       placeholder="式（例: @item.self.system.levelTotal、2）"
+                       {{#unless editable}}disabled{{/unless}}>
+                <label class="usage-field-label">判定ボーナス（供給元つき・追加） <i class="fas fa-circle-question" title="組み合わせ技能・使用武器などから供給される追加の加算。式は @system.*（アクター）・@item.<識別キー>.system.*（所持アイテム＝AE と同じキー）・@item.self（親アイテム）を参照できます（判定前のため @diff/@achievement は不可）。供給元はチャットで帰属を表示するための任意設定です"></i></label>
                 {{> "systems/tokyo-nova-axleration/templates/app/usage-sheet-bonus-rows.hbs"
                     rows=checkBonusRows prefix="checkBonus" addAction="checkBonusAdd" deleteAction="checkBonusDelete"
                     addLabel="判定ボーナスを追加" placeholder="式（例: 2、@item.<識別キー>.system.level）"
-                    emptyHint="（判定ボーナスなし）" editable=editable}}
-                <p class="usage-formula-line">達成値 ＝ カード ＋ 能力値 ＋ 報酬点 ＋ 判定バフ ＋ 判定ボーナス</p>
+                    emptyHint="（追加の判定ボーナスなし）" editable=editable}}
+                <p class="usage-formula-line">達成値 ＝ カード ＋ 能力値 ＋ 報酬点 ＋ 判定バフ ＋ 判定修正値 ＋ 判定ボーナス</p>
             </fieldset>
 
             {{!-- 攻撃プロファイル(2026-07-09): 攻撃は判定の一種。「攻撃に使う」トグルで系統・武器・種別を出す。
@@ -387,12 +391,16 @@
                         </select>
                     </div>
                     {{/if}}
-                    <label class="usage-field-label">ダメージ修正 <i class="fas fa-circle-question" title="ダメージに加算する式の行。式は @system.*（アクター）・@item.<識別キー>.system.*（所持アイテム＝AE と同じキー・例「選んだ武器の攻撃力」＝@item.<武器の識別キー>.system.attack.value）・@diff/@achievement を参照できます。供給元はチャットで帰属を表示するための任意設定です"></i></label>
+                    <label class="usage-field-label">この用途のダメージ修正値 <i class="fas fa-circle-question" title="この用途の親アイテムが持つダメージ修正値。式で @item.self（＝この用途の親アイテム）を参照できます（例 @item.self.system.attack.total）。供給元つきの追加行とは別枠の専用欄です"></i></label>
+                    <input type="text" name="damageBonusSelf" value="{{damageBonusSelf}}"
+                           placeholder="式（例: @item.self.system.attack.total）"
+                           {{#unless editable}}disabled{{/unless}}>
+                    <label class="usage-field-label">ダメージ修正（供給元つき・追加） <i class="fas fa-circle-question" title="組み合わせ技能・使用武器などから供給される追加の加算。式は @system.*（アクター）・@item.<識別キー>.system.*（所持アイテム＝AE と同じキー・例「選んだ武器の攻撃力」＝@item.<武器の識別キー>.system.attack.value）・@item.self（親アイテム）・@target.*（対象）・@diff/@achievement を参照できます。供給元はチャットで帰属を表示するための任意設定です"></i></label>
                     {{> "systems/tokyo-nova-axleration/templates/app/usage-sheet-bonus-rows.hbs"
                         rows=damageBonusRows prefix="damageBonus" addAction="damageBonusAdd" deleteAction="damageBonusDelete"
                         addLabel="ダメージ修正を追加" placeholder="式（例: @item.<武器の識別キー>.system.attack.value）"
-                        emptyHint="（ダメージ修正なし）" editable=editable}}
-                    <p class="usage-formula-line">{{#if isAttackPhysical}}ダメージ ＝ ダメージカード ＋ 攻撃力{{#if selectedWeapons.length}}（合算）{{else}}（生身）{{/if}} ＋ ダメージ修正 − 軽減{{else}}ダメージ ＝ ダメージカード ＋ ダメージ修正（精神／社会は攻撃力・防御力なし）{{/if}}</p>
+                        emptyHint="（追加のダメージ修正なし）" editable=editable}}
+                    <p class="usage-formula-line">{{#if isAttackPhysical}}ダメージ ＝ ダメージカード ＋ 攻撃力{{#if selectedWeapons.length}}（合算）{{else}}（生身）{{/if}} ＋ ダメージ修正値 ＋ ダメージ修正 − 軽減{{else}}ダメージ ＝ ダメージカード ＋ ダメージ修正値 ＋ ダメージ修正（精神／社会は攻撃力・防御力なし）{{/if}}</p>
                 </div>
                 {{/if}}
             </fieldset>
@@ -455,9 +463,9 @@
                 <div class="usage-effect-list">
                     {{#each addedEffects}}
                     <div class="usage-skill-ref-row">
-                        <span class="usage-skill-ref-name">{{this.name}}</span>
+                        <span class="usage-skill-ref-name">{{this.name}}{{#if this.sourceName}} <small>（{{this.sourceName}}）</small>{{/if}}</span>
                         {{#if ../editable}}
-                        <a class="usage-icon-btn" data-action="effectRemove" data-effect-id="{{this.id}}"
+                        <a class="usage-icon-btn" data-action="effectRemove" data-item-id="{{this.itemId}}" data-effect-id="{{this.effectId}}"
                            title="解除"><i class="fas fa-times"></i></a>
                         {{/if}}
                     </div>
@@ -469,14 +477,18 @@
                 <div class="usage-skill-ref-add">
                     <select class="effect-select">
                         <option value="">── 追加する効果を選択 ──</option>
-                        {{#each availableEffects}}
-                        <option value="{{this.id}}">{{this.name}}</option>
+                        {{#each availableEffectGroups}}
+                        <optgroup label="{{this.label}}">
+                            {{#each this.options}}
+                            <option value="{{this.value}}">{{this.name}}</option>
+                            {{/each}}
+                        </optgroup>
                         {{/each}}
                     </select>
                 </div>
                 {{#unless hasAnyEffect}}
-                <p class="usage-empty-hint">このアイテムに ActiveEffect がありません。<br>
-                   アイテムシートの「エフェクト」タブで追加すると、ここで選択できます。</p>
+                <p class="usage-empty-hint">親アイテム・組み合わせ技能・使用武器に ActiveEffect がありません。<br>
+                   各アイテムシートの「エフェクト」タブで追加すると、ここで選択できます。</p>
                 {{/unless}}
                 {{/if}}
             </fieldset>

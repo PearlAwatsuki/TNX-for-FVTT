@@ -178,12 +178,16 @@ export async function useAttack(item, usage) {
         consumeUses:     usesPlan,
         requestMessageId: null,
         checkBonuses:    usage.checkBonuses ?? [],
+        checkBonusSelf:  usage.checkBonusSelf ?? "",
+        sourceItemId:    item.id,   // 用途の親アイテム(@item.self の解決に使う)
         attack: {
             attackerUuid: actor.uuid,
             attackerName: actor.name,
             targetUuid, targetName,
             category, damageType, weaponAttack, faOptions, attackSourceName,
             damageBonuses: usage.damageBonuses ?? [],
+            damageBonusSelf: usage.damageBonusSelf ?? "",
+            sourceItemId: item.id,
             skillLabel,
             usageName: usage.name || item.name,
         },
@@ -470,6 +474,8 @@ export async function startReaction(message, mode) {
         consumeUses:     usesPlan,
         requestMessageId: null,
         checkBonuses:    usage?.checkBonuses ?? [],
+        checkBonusSelf:  usage?.checkBonusSelf ?? "",
+        sourceItemId:    skill.id,   // リアクション用途の親アイテム(@item.self)
         reaction: { attackMessageId: message.id, mode, parryGuard },
     });
 }
