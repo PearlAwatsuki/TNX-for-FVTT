@@ -940,6 +940,16 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             return this._onSortItem(event, item.toObject());
         }
 
+        // 一般技能: 正規ソート順(GENERAL_SKILL_SORT_PREFIXES)の位置に挿入する sort を振って作成する
+        // (2026-07-10)。辞典ドロップは辞典側の sort 値を持ち込んで並びが崩れていたため、＋ボタンからの
+        // 作成(_calcInsertSortValue)と同じ挿入挙動に揃える。識別キーなしの自作技能は末尾。
+        if (item.type === "generalSkill") {
+            const data = item.toObject();
+            const existingSkills = this.actor.items.filter(i => i.type === "generalSkill");
+            data.sort = TnxCharacterSheetBase._calcInsertSortValue(existingSkills, data.system?.identificationKey ?? "");
+            return this.actor.createEmbeddedDocuments("Item", [data]);
+        }
+
         // コンバイナー（source1/source2 設定済み）: 3 アイテムを一括インポートして活性化する
         if (item.type === "combiner"
                 && item.system.combine?.source1
@@ -2006,7 +2016,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             const identificationKey = selected === "other" ? "" : `${selected}_`;
             const isOnomasticType   = selected !== "other";
             const existingSkills = this.actor.items.filter(i => i.type === 'generalSkill');
-            const sortValue = TnxCharacterSheetBase._calcInsertSortValue(existingSkills, selected);
+            // 識別キー空("other")は getSkillSortPosition が Infinity を返し末尾挿入になる
+            const sortValue = TnxCharacterSheetBase._calcInsertSortValue(existingSkills, identificationKey);
 
             return Item.create({
                 name:   nameMap[selected] ?? "新規一般技能",
@@ -2030,13 +2041,13 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
     }
 
     /**
-     * 固有名詞技能をソート順の適切な位置に挿入するための sort 値を計算する。
-     * prefix グループの最後の要素と次グループの先頭要素の中間値を返す。
+     * 一般技能を正規ソート順の適切な位置に挿入するための sort 値を計算する。
+     * 同グループの最後の要素と次グループの先頭要素の中間値を返す。
+     * @param {Item[]} existingSkills アクターの一般技能
+     * @param {string} identificationKey 挿入する技能の識別キー(空・未知＝末尾)
      */
-    static _calcInsertSortValue(existingSkills, prefix) {
-        const targetPos = prefix === "other"
-            ? Infinity
-            : TnxSkillUtils.getSkillSortPosition(`${prefix}_`);
+    static _calcInsertSortValue(existingSkills, identificationKey) {
+        const targetPos = TnxSkillUtils.getSkillSortPosition(identificationKey);
         let prevSort = 0;
         let nextSort = Infinity;
         for (const skill of existingSkills) {
