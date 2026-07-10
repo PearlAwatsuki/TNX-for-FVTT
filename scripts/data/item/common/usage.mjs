@@ -125,6 +125,11 @@ export class UsageTemplate extends SystemDataModel {
                     // attack: ダメージ種別 ("S" | "P" | "I")。複数武器で種別が別々のときの選択にも使う
                     damageType: new fields.StringField({ initial: "" }),
 
+                    // attack: スタン可能(肉体攻撃=スタン・精神攻撃=説得・2026-07-11 ユーザー確定)。
+                    // ON の攻撃のみ、ダメージ確定の直前に「スタン/説得を適用するか」のダイアログを出す
+                    // (OFF ならダイアログ自体を出さない)。適用=最終ダメージ 10 以上を 10 とみなす。
+                    canStun: new fields.BooleanField({ initial: false }),
+
                     // check: 判定ボーナス(達成値へ加算する式の行・全判定用途。2026-07-10 ユーザー確定)。
                     // 各行 = { formula: 式, source: 供給元の識別キー(組み合わせスタイル技能/使用武器。空=用途) }。
                     // 供給元を持たせることで「どの能力から供給された加算か」をチャットで識別できる。

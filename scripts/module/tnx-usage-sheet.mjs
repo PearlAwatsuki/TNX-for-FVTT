@@ -846,6 +846,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             const isAtk = raw["isAttack"] ?? false;
             update.damageBonuses  = isAtk ? TnxUsageSheet._collectBonusRows(raw, "damageBonus") : [];
             update.damageBonusSelf = isAtk ? (raw["damageBonusSelf"] ?? usage.damageBonusSelf ?? "") : "";
+            update.canStun = isAtk ? (raw["canStun"] ?? usage.canStun ?? false) : false;
         }
 
         // 固定達成値(フェーズ11-5・エキストラの技能判定)。固定値用途のマーカーを兼ねるため、

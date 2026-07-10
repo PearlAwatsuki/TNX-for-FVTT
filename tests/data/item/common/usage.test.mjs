@@ -47,6 +47,11 @@ describe("UsageTemplate.defineSchema()", () => {
       expect(entryFields).toHaveProperty("damageType");
     });
 
+    it("スタン可能（canStun・2026-07-11）は BooleanField で initial false", () => {
+      expect(entryFields.canStun).toBeInstanceOf(MockBooleanField);
+      expect(entryFields.canStun.options.initial).toBe(false);
+    });
+
     it("damageBoost/damageReduce 固有フィールドが存在する", () => {
       expect(entryFields).toHaveProperty("formula");
       expect(entryFields).toHaveProperty("damageCategory");

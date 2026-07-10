@@ -61,7 +61,7 @@ export async function executeDamageCardFromHand(cardId) {
     // フォームはカードを出す前に読む(確定後にダイアログを閉じるため)
     const form = ctx.kind === "roll" && ctx.dialog?.element
         ? readRollForm(ctx.dialog.element)
-        : { manualMod: 0, stun: false, boostIds: [], faItemIds: [] };
+        : { manualMod: 0, boostIds: [], faItemIds: [] };
     const played = await playHandCardForDamage(cardId);
     if (!played) return true; // ワイルドカード宣言キャンセル等 → 待ち受け継続
     ctx.done = true;
@@ -84,7 +84,6 @@ async function cancelPending() {
 function readRollForm(el) {
     return {
         manualMod:  Number(el.querySelector('[name="manualMod"]')?.value) || 0,
-        stun:       !!el.querySelector('[name="stun"]')?.checked,
         boostIds:   [...el.querySelectorAll("input.dmg-boost:checked")].map(c => c.value),
         faItemIds:  [...el.querySelectorAll("input.dmg-fa:checked")].map(c => c.value),
     };
@@ -243,10 +242,11 @@ async function finalizeDamageRoll(ctx, form, played) {
                     diff: f.diff ?? null,
                     achievement: f.achievement ?? null,
                     cardValue: f.cardValue ?? null,   // 命中判定のカード値(式の @card 用)
+                    canStun: f.canStun === true,      // スタン可能(適用の選択はダメージ確定直前)
                     cards: [played],
                     boosts,
                     manualMod: form.manualMod,
-                    stun: form.stun,
+                    stun: false,   // スタン/説得は適用時(ダメージ確定直前)に選択する(2026-07-11)
                     applied: false,
                     appliedResult: null,
                 },
@@ -524,12 +524,18 @@ async function openMitigationDialog(message) {
         r.effectDisplay = usageEffectDisplay(r, "−");
     }
 
+    // スタン/説得(2026-07-11 ユーザー確定): 用途の「スタン可能」ON の攻撃のみ、ダメージ確定の
+    // 直前に適用するかを選ぶ(肉体=スタン・精神=説得。社会は対象外)
+    const stunLabel = category === "mental" ? "説得" : "スタン";
+    const stunEligible = f.canStun === true && (category === "physical" || category === "mental");
+
     const content = await foundry.applications.handlebars.renderTemplate(
         "systems/tokyo-nova-axleration/templates/dialog/damage-mitigation-dialog.hbs",
         {
             categoryLabel: CATEGORY_LABELS[category] ?? category,
             raw,
-            stun: !!f.stun,
+            canStun: stunEligible,
+            stunLabel,
             isSocial: category === "social",
             targetName: target.name,
             autoMitigation, mitigationParts,
@@ -551,7 +557,8 @@ async function openMitigationDialog(message) {
             const r = reduceRows.find(b => b.id === id);
             if (r && r.value !== null) mitigation += r.value;
         }
-        const { final, stage } = computeDamage({ damageCard: raw, mitigation, stun: !!f.stun });
+        // プレビューはスタン未適用の値(適用の選択は確定直前の別ダイアログ)
+        const { final, stage } = computeDamage({ damageCard: raw, mitigation });
         const fin = root.querySelector(".tnx-damage-preview-final");
         const note = root.querySelector(".tnx-damage-preview-note");
         if (fin) fin.textContent = String(final);
@@ -591,17 +598,32 @@ async function openMitigationDialog(message) {
     const bounty = category === "social" ? result.bounty : 0;
     mitigationTotal += bounty;
 
-    const { final, stage } = computeDamage({ damageCard: raw, mitigation: mitigationTotal, stun: !!f.stun });
+    // スタン/説得の適用選択(ダメージ確定の直前・「スタン可能」ON の攻撃のみ・2026-07-11)
+    let stun = false;
+    if (stunEligible) {
+        stun = await foundry.applications.api.DialogV2.confirm({
+            window: { title: `${stunLabel}の適用` },
+            classes: ["tokyo-nova", "tnx-dialog"],
+            content: `<p>この攻撃は${stunLabel}が可能です。${stunLabel}を適用しますか？</p>`
+                + `<p>（適用すると最終ダメージ 10 以上を 10 とみなします）</p>`,
+            yes: { label: `${stunLabel}を適用`, icon: "fas fa-hand-fist" },
+            no:  { label: "適用しない", icon: "fas fa-xmark" },
+            modal: true,
+        });
+    }
+
+    const { final, stage } = computeDamage({ damageCard: raw, mitigation: mitigationTotal, stun });
     const applyText = await applyDamageToTarget(target, category, final, stage);
 
     await applyDamagePatch(message, {
         applied: true,
+        stun,   // 台帳の「攻撃側合計（スタン／説得）」表示用
         appliedResult: {
             mitigation: result.mitigation,
             mitigationNote: result.mitigation === autoMitigation ? mitigationParts.join("・") : "手動入力",
             reduces: appliedReduces,
             bounty,
-            stunCapped: !!f.stun && Math.max(0, raw - mitigationTotal) > 10,
+            stunCapped: stun && Math.max(0, raw - mitigationTotal) > 10,
             final, stage,
             applyText,
         },

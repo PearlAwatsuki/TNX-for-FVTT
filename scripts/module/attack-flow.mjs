@@ -198,6 +198,7 @@ export async function useAttack(item, usage) {
             damageBonuses: usage.damageBonuses ?? [],
             damageBonusSelf: usage.damageBonusSelf ?? "",
             sourceItemId: item.id,
+            canStun: usage.canStun === true,   // スタン可能(2026-07-11・ダメージ確定直前に選択)
             skillLabel,
             usageName: usage.name || item.name,
             usageEffects,   // 付与効果ペイロード(null=効果なし)。攻撃カードのフラグへ

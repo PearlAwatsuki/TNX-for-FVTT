@@ -373,6 +373,15 @@
                             {{/each}}
                         </select>
                     </div>
+                    {{!-- スタン可能(2026-07-11): ON の攻撃のみ、ダメージ確定の直前に
+                         「スタン/説得を適用するか」のダイアログが出る --}}
+                    <div class="usage-form-row usage-toggle-row">
+                        <label class="usage-toggle-inline" title="この攻撃でスタン（精神攻撃では説得）を行えます。ダメージが確定する直前に適用するかを選ぶダイアログが出ます（適用＝最終ダメージ 10 以上を 10 とみなす）。オフならダイアログは出ません">
+                            <input type="checkbox" name="canStun" {{checked usage.canStun}}
+                                   {{#unless editable}}disabled{{/unless}}>
+                            <span>スタン可能（精神攻撃では説得）</span>
+                        </label>
+                    </div>
                     {{#if isAttackPhysical}}
                     <div class="usage-form-row">
                         <label class="usage-field-label">使用武器 <i class="fas fa-circle-question" title="未選択なら生身で攻撃します。2 個以上選ぶと攻撃力を合算します（複数武器合算能力の表現）"></i></label>

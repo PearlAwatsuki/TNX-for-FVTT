@@ -3,7 +3,7 @@
      選択、社会攻撃は報酬点による軽減(2026-07-08 ユーザー指示: 防御側に別途ダイアログ)。 --}}
 <div class="tnx-damage-form">
     <p class="tnx-damage-summary">
-        {{targetName}} への {{categoryLabel}}ダメージ（攻撃側合計 <b>{{raw}}</b>{{#if stun}}・スタン／説得{{/if}}）
+        {{targetName}} への {{categoryLabel}}ダメージ（攻撃側合計 <b>{{raw}}</b>{{#if canStun}}・{{stunLabel}}可（確定前に選択）{{/if}}）
     </p>
 
     {{#if reduceRows.length}}
