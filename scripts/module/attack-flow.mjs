@@ -209,8 +209,9 @@ export async function useAttack(item, usage) {
 /**
  * 命中判定完了後に攻撃カードを投稿する(通常の結果カードの代わり)。
  * 成否は保留(state=pending)し、リアクション導線をカード上で提供する。
+ * recheckCtx: 再判定用スナップショット(あればカードに「再判定」ボタンが出る・2026-07-11)。
  */
-export async function postAttackCard({ payload, result, suit, card, fromDeck, trumpUsed, suitMismatch }) {
+export async function postAttackCard({ payload, result, suit, card, fromDeck, trumpUsed, suitMismatch, recheckCtx = null, isRecheck = false }) {
     const attacker = await fromUuid(payload.attackerUuid).catch(() => null);
     const SUIT_SYMBOL = { spade: "♠", club: "♣", heart: "♥", diamond: "♦" };
 
@@ -252,6 +253,7 @@ export async function postAttackCard({ payload, result, suit, card, fromDeck, tr
             // FA は自動加算せずダメージ算出ダイアログで選択するため、ここでは「FA 可」表示のみ
             hasFa:         (payload.faOptions?.length ?? 0) > 0,
             achievement:   result.achievement,
+            isRecheck,     // 再判定による出し直しカードには「再判定」タグを出す(2026-07-11)
         }
     );
 
@@ -265,6 +267,8 @@ export async function postAttackCard({ payload, result, suit, card, fromDeck, tr
                 attackCheck: flags,
                 // 用途の適用効果(あれば)。攻撃カードに「効果を適用」ボタンを出す(2026-07-10)
                 ...(payload.usageEffects ? { usageEffects: payload.usageEffects } : {}),
+                // 再判定(あれば)。攻撃カードに「再判定」ボタンを出す(2026-07-11)
+                ...(recheckCtx ? { checkRecheck: recheckCtx } : {}),
             },
         },
     });

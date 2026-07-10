@@ -616,17 +616,22 @@ export class TnxCheckFlow {
         // 結果カードと要求カードの両方に明示する(可否・修正の裁定は卓)
         if (ctx.substitution) result.substitution = ctx.substitution;
 
+        // 再判定コンテキスト(2026-07-11): 結果カードに「再判定(カードを出し直す)」ボタンを出すための
+        // 再実行用スナップショット。継続処理を持つ判定(リアクション/NPC取得/治療/移動/controlNegate)は
+        // 状態機械のリセットが必要なため当面対象外(申し送り)
+        const recheckCtx = TnxCheckFlow._buildRecheckContext(ctx);
+
         // チャットに結果を投稿。攻撃(ctx.attack)は通常の結果カードの代わりに攻撃カードを出す
         // (成否保留・リアクション導線つき・12-2。attack-flow は本フローを import するため動的 import)。
         // 移動(ctx.movement)も通常カードの代わりに移動結果カードを出す(達成値÷10 段階・12)。
         if (ctx.attack) {
             const { postAttackCard } = await import("./attack-flow.mjs");
-            await postAttackCard({ payload: ctx.attack, result, suit, cardCheckValue, card, fromDeck, trumpUsed, suitMismatch });
+            await postAttackCard({ payload: ctx.attack, result, suit, cardCheckValue, card, fromDeck, trumpUsed, suitMismatch, recheckCtx, isRecheck: ctx.isRecheck === true });
         } else if (ctx.movement) {
             const { postMovementCard } = await import("./vehicle-move.mjs");
             await postMovementCard({ payload: ctx.movement, result, suit, card, fromDeck, trumpUsed, suitMismatch });
         } else {
-            await TnxCheckFlow._postResultChat({ ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch, checkSources: checkInfo.sources });
+            await TnxCheckFlow._postResultChat({ ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch, checkSources: checkInfo.sources, recheckCtx });
         }
 
         // controlNegate(BS の無効/降格)の完了継続: 判定は上の通常経路そのもので行われ、
@@ -701,6 +706,7 @@ export class TnxCheckFlow {
                 fromDeck,
                 trumpUsed,
                 suitMismatch,
+                isRecheck: ctx.isRecheck === true, // 再判定の結果カードには「再判定」タグを出す
             }
         );
 
@@ -712,8 +718,77 @@ export class TnxCheckFlow {
                     checkResult: { actorId: ctx.actorId, result },
                     // 用途の適用効果(あれば)。カードに「効果を適用」ボタンを出す(2026-07-10)
                     ...(ctx.usageEffects ? { usageEffects: ctx.usageEffects } : {}),
+                    // 再判定(あれば)。カードに「再判定」ボタンを出す(2026-07-11)
+                    ...(recheckCtx ? { checkRecheck: recheckCtx } : {}),
                 },
             },
+        });
+    }
+
+    /**
+     * 再判定(カードを出し直して判定値を再決定・2026-07-11 ユーザー確定)用のコンテキストを、
+     * 結果カードのフラグに保存できる形で組み立てる。可否・回数の強制はしない(信頼ベース・
+     * 使用回数系と同思想)。継続処理を持つ判定(リアクション/NPC取得/治療/移動/controlNegate)は
+     * 再実行に状態機械のリセットが要るため当面対象外(null)。
+     * @param {object} ctx 判定コンテキスト
+     * @returns {object|null}
+     */
+    static _buildRecheckContext(ctx) {
+        if (ctx.reaction || ctx.npcAcquire || ctx.treatment || ctx.movement || ctx.controlNegate) return null;
+        return {
+            type:            ctx.type,
+            actorId:         ctx.actorId,
+            skillIds:        ctx.skillIds ?? [],
+            skillLabel:      ctx.skillLabel ?? "",
+            validSuits:      ctx.validSuits ?? [],
+            targetValue:     ctx.targetValue ?? null,
+            // 報酬点は「使えるか」だけ保存し、量は再判定時点の所持から取り直す(元判定の消費を反映)
+            bountyAllowed:   (ctx.bountyAvailable ?? 0) > 0,
+            checkBonuses:    ctx.checkBonuses ?? [],
+            checkBonusSelf:  ctx.checkBonusSelf ?? "",
+            sourceItemId:    ctx.sourceItemId ?? "",
+            substitution:    ctx.substitution ?? null,
+            manualMod:       ctx.manualMod ?? 0,
+            requestMessageId: ctx.requestMessageId ?? null,
+            ...(ctx.attack ? { attack: ctx.attack } : {}),
+            ...(ctx.usageEffects ? { usageEffects: ctx.usageEffects } : {}),
+        };
+    }
+
+    /**
+     * 再判定を開始する(結果カードの「再判定」ボタンから)。保存済みコンテキストで判定フローを
+     * 開き直す(カードを出し直して判定値を再決定)。使用回数は元判定で消費済みのため再消費しない。
+     */
+    static async startRecheck(message) {
+        const rc = message.getFlag("tokyo-nova-axleration", "checkRecheck");
+        if (!rc) return;
+        const actor = game.actors.get(rc.actorId);
+        if (!actor) { ui.notifications.warn("再判定するアクターが見つかりません。"); return; }
+        if (!(game.user.isGM || actor.isOwner)) {
+            ui.notifications.warn(`「${actor.name}」の再判定は所有者（または RL）が行います。`);
+            return;
+        }
+        const bounty = rc.bountyAllowed
+            ? (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0)
+            : 0;
+        await TnxCheckFlow.open({
+            type:            rc.type,
+            actorId:         rc.actorId,
+            skillIds:        rc.skillIds,
+            skillLabel:      rc.skillLabel,
+            validSuits:      rc.validSuits,
+            targetValue:     rc.targetValue,
+            bountyAvailable: bounty,
+            consumeUses:     [],   // 使用回数は元判定で消費済み(再消費しない)
+            requestMessageId: rc.requestMessageId,
+            checkBonuses:    rc.checkBonuses,
+            checkBonusSelf:  rc.checkBonusSelf,
+            sourceItemId:    rc.sourceItemId,
+            substitution:    rc.substitution,
+            manualMod:       rc.manualMod,
+            ...(rc.attack ? { attack: rc.attack } : {}),
+            ...(rc.usageEffects ? { usageEffects: rc.usageEffects } : {}),
+            isRecheck:       true,
         });
     }
 
@@ -734,4 +809,27 @@ export class TnxCheckFlow {
             }
         }
     }
+}
+
+
+/**
+ * 結果カード/攻撃カードに「再判定」ボタンを描画する(renderChatMessageHTML・tnx.mjs から登録)。
+ * checkRecheck フラグを持つカードにのみ効く。押下時の権限判定は startRecheck 側(所有者/RL)。
+ */
+export function renderRecheckButton(message, html) {
+    const rc = message.getFlag("tokyo-nova-axleration", "checkRecheck");
+    if (!rc) return;
+    const host = html.querySelector(".tnx-chat-card") ?? html;
+    if (host.querySelector(".tnx-recheck-area")) return; // 二重描画防止
+
+    const area = document.createElement("div");
+    area.className = "tnx-recheck-area";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "tnx-chat-btn";
+    btn.textContent = "再判定（カードを出し直す）";
+    btn.title = "この判定をカードから出し直して判定値を再決定します（可否・回数の裁定は卓で行ってください）";
+    btn.addEventListener("click", () => TnxCheckFlow.startRecheck(message));
+    area.appendChild(btn);
+    host.appendChild(area);
 }

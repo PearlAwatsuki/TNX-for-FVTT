@@ -21,6 +21,7 @@
         <span class="cr-badges">
             {{#if fromDeck}}<span class="cr-badge cr-badge--deck">山札</span>{{/if}}
             {{#if trumpUsed}}<span class="cr-badge cr-badge--trump">切り札</span>{{/if}}
+            {{#if isRecheck}}<span class="cr-badge cr-badge--recheck">再判定</span>{{/if}}
             {{#if substitution}}<span class="cr-badge cr-badge--sub">代用</span>{{/if}}
             {{#if suitMismatch}}<span class="cr-badge cr-badge--mismatch">スート不一致</span>{{/if}}
             {{#if isFixed21}}<span class="cr-badge cr-badge--fixed21">21固定</span>{{/if}}

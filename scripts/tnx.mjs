@@ -48,7 +48,7 @@ import { renderAttackCard } from './module/attack-flow.mjs';
 import { renderDamageCard } from './module/damage-flow.mjs';
 import { renderUsageEffectButton } from './module/usage-effects.mjs';
 import { TnxSocketHandler } from './module/tnx-socket-handler.mjs';
-import { TnxCheckFlow } from './module/tnx-check-flow.mjs';
+import { TnxCheckFlow, renderRecheckButton } from './module/tnx-check-flow.mjs';
 import { TnxCheckDialog } from './module/tnx-check-dialog.mjs';
 import { TnxRlRequestApp } from './module/tnx-rl-request-app.mjs';
 import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
@@ -1252,6 +1252,14 @@ Hooks.once("ready", async function() {
     Hooks.on("renderChatMessageHTML", (message, html) => {
         if (message.getFlag("tokyo-nova-axleration", "usageEffects")) {
             renderUsageEffectButton(message, html);
+        }
+    });
+
+    // 再判定(2026-07-11): checkRecheck フラグを持つカード(判定結果/攻撃)に「再判定」ボタンを描画。
+    // 押すとカードを出し直して判定値を再決定する(可否・回数の裁定は卓=信頼ベース)。
+    Hooks.on("renderChatMessageHTML", (message, html) => {
+        if (message.getFlag("tokyo-nova-axleration", "checkRecheck")) {
+            renderRecheckButton(message, html);
         }
     });
 
