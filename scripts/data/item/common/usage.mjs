@@ -99,10 +99,13 @@ export class UsageTemplate extends SystemDataModel {
                         itemId: new fields.StringField({ initial: "" }),
                     }),
 
-                    // check・attack: 組み合わせ技能 item ID リスト（ベース技能は含まない）
+                    // check・attack: 組み合わせ技能 item ID リスト（ベース技能は含まない）。
+                    // ignoreComboSkill=その参加技能の指定技能(comboSkill)の自動追加をスキップし、単体で
+                    // 参加させる(2026-07-10)。〈技能AⅡ〉系の「指定技能を無視して組み合わせられる」効果の表現。
                     skillRefs: new fields.ArrayField(
                         new fields.SchemaField({
-                            itemId: new fields.StringField({ initial: "" }),
+                            itemId:           new fields.StringField({ initial: "" }),
+                            ignoreComboSkill: new fields.BooleanField({ initial: false }),
                         })
                     ),
 

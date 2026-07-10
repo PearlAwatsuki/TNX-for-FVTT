@@ -26,6 +26,12 @@
         {{#each skillRefItems}}
         <div class="usage-skill-ref-row">
             <span class="usage-skill-ref-name">{{this.name}}</span>
+            {{#if this.canIgnoreCombo}}
+            <label class="usage-ref-ignore-combo" title="この技能の指定技能（組み合わせ相手）を自動追加せず、この技能だけを組み合わせに入れます（〈技能AⅡ〉系の「指定技能を無視して組み合わせられる」効果の表現）">
+                <input type="checkbox" data-action="toggleIgnoreCombo" data-idx="{{this.idx}}" {{checked this.ignoreComboSkill}} {{#unless ../editable}}disabled{{/unless}}>
+                <span>指定技能を無視</span>
+            </label>
+            {{/if}}
             {{#if ../editable}}{{#unless this.isLocked}}
             <a class="usage-icon-btn" data-action="skillRefDelete" data-idx="{{this.idx}}"
                title="削除"><i class="fas fa-times"></i></a>

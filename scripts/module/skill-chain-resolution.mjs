@@ -175,16 +175,20 @@ function buildResolver(rootItem, skillItems) {
   return { byKey, byId, idOf, candidatesFor, chainOf, chainIds };
 }
 
-export function resolveUsageSkills(rootItem, skillItems, seedComboIds = []) {
+export function resolveUsageSkills(rootItem, skillItems, seedComboIds = [], ignoreSeedIds = []) {
   const { byKey, byId, idOf, candidatesFor, chainOf } = buildResolver(rootItem, skillItems);
   const r = chainOf(rootItem);
+  const ignoreSet = ignoreSeedIds instanceof Set ? ignoreSeedIds : new Set(ignoreSeedIds);
 
   // 必須クロージャ: 起点の連鎖に加え、現在の組み合わせ技能(seed)それぞれの連鎖も推移的に含める
-  // (例: 技能:白兵 の用途に 技能:電脳 の技能を組み合わせたら、電脳も必須コンボに入る)
+  // (例: 技能:白兵 の用途に 技能:電脳 の技能を組み合わせたら、電脳も必須コンボに入る)。
+  // ただし ignoreSeedIds の seed は「指定技能を無視して単体参加」＝連鎖の必須を引き込まない
+  // (〈技能AⅡ〉系の効果。seed 自身は skillRefs としてそのまま参加する)。
   const mandatoryKeys = new Set(r.mandatoryKeys);
   for (const id of seedComboIds) {
     const seed = byId.get(id);
     if (!seed) continue;
+    if (ignoreSet.has(id)) continue; // 指定技能を無視: 必須(指定技能)の自動追加をしない
     const sr = chainOf(seed);
     if (sr.defect) { if (seed.identificationKey) mandatoryKeys.add(seed.identificationKey); continue; }
     for (const k of sr.mandatoryKeys) mandatoryKeys.add(k);

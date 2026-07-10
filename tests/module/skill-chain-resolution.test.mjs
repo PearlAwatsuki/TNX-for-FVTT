@@ -224,6 +224,17 @@ describe("resolveUsageSkills() (actor アイテム橋渡し)", () => {
     expect(r.mandatoryItemIds).toContain("i3"); // B 自身
   });
 
+  it("ignoreSeedIds の seed は指定技能を必須へ引き込まない(単体参加・2026-07-10)", () => {
+    // 上と同じ構成で B(技能:電脳) を「指定技能を無視」で足すと、電脳(cyber)は自動追加されない
+    const root = item("i1", "A", [{ value: "skillName", name: "assault" }]);
+    const assault = item("i2", "assault", [{ value: "none" }]);
+    const b = item("i3", "B", [{ value: "skillName", name: "cyber" }]);
+    const cyber = item("i4", "cyber", [{ value: "none" }]);
+    const r = resolveUsageSkills(root, [root, assault, b, cyber], ["i3"], ["i3"]);
+    expect(r.mandatoryItemIds).not.toContain("i4"); // 電脳(cyber)は連れてこない
+    expect(r.mandatoryItemIds).toContain("i2");      // ベース側(白兵)は従来どおり
+  });
+
   it("組み合わせに足した技能がアクション技能を連れ込むと、ベースがそのアクションに入れ替わる", () => {
     const root = item("i1", "A", [{ value: "none" }]);                       // 起点は連鎖なし
     const b = item("i3", "B", [{ value: "skillName", name: "assault" }]);     // B の技能=白兵(アクション)
