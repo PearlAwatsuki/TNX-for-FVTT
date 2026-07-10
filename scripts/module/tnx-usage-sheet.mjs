@@ -24,11 +24,10 @@ const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
 // 攻撃は判定(check)の一種に統合(2026-07-09)＝独立タイプとして選ばせない。
 // 既存の attack 用途は migrateData で check + damageCategory に移行する。
+// 旧 damageBoost/damageReduce(ダメージ増加/軽減)は廃止(2026-07-11)＝migrateData で宣言へ変換
 export const USAGE_TYPES = Object.freeze({
     check:        "判定",
     declaration:  "宣言",
-    damageBoost:  "ダメージ増加",
-    damageReduce: "ダメージ軽減",
     modification: "改造",
     npcAcquire:   "NPC取得",
 });
@@ -350,7 +349,6 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         context.isFixedCheck       = usage.type === "check" && Number.isFinite(usage.fixedResult);
         // 攻撃は判定の一種(2026-07-09): check かつ damageCategory 設定=攻撃。固定値判定は攻撃にしない
         context.isAttack           = context.isCheckType && !context.isFixedCheck && !!usage.damageCategory;
-        context.isDamageType       = usage.type === "damageBoost" || usage.type === "damageReduce";
         context.isModificationType = usage.type === "modification";
 
         // NPC取得(11-6・Troops.md): モードは明示選択。エキストラモードは判定なし(取得アイテムの
@@ -919,12 +917,6 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 update.weaponRefs     = [];
                 update.damageType     = "";
             }
-        }
-
-        // damageBoost / damageReduce 固有
-        if (usage.type === "damageBoost" || usage.type === "damageReduce") {
-            update.formula        = raw["formula"]        ?? usage.formula;
-            update.damageCategory = raw["damageCategory"] ?? usage.damageCategory;
         }
 
         // ベース変更の検知(取り消し用に変更前のベースを保持)

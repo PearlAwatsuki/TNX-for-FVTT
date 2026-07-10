@@ -433,29 +433,6 @@
             </fieldset>
             {{/if}}
 
-            {{!-- damageBoost / damageReduce: 計算式・カテゴリ --}}
-            {{#if isDamageType}}
-            <fieldset class="tnx-fieldset">
-                <legend>効果量</legend>
-                <div class="usage-form-grid">
-                    <div class="usage-form-row">
-                        <label class="usage-field-label">効果量（計算式）</label>
-                        <input type="text" name="formula" value="{{usage.formula}}"
-                               placeholder="例: @card, @card + 3, 5"
-                               {{#unless editable}}disabled{{/unless}}>
-                    </div>
-                    <div class="usage-form-row">
-                        <label class="usage-field-label">適用カテゴリ</label>
-                        <select name="damageCategory" {{#unless editable}}disabled{{/unless}}>
-                            <option value="">── 選択 ──</option>
-                            <option value="physical" {{#if (eq usage.damageCategory "physical")}}selected{{/if}}>物理</option>
-                            <option value="mental"   {{#if (eq usage.damageCategory "mental")}}selected{{/if}}>精神</option>
-                        </select>
-                    </div>
-                </div>
-            </fieldset>
-            {{/if}}
-
             {{!-- modification: 改造可能パラメータ --}}
             {{#if isModificationType}}
             <fieldset class="tnx-fieldset">

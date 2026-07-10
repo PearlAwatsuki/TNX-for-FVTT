@@ -49,7 +49,7 @@ export function defenceForType(defence, damageType) {
  * @param {object} p
  * @param {number} p.damageCard  ダメージカード(命中判定のカード数字)
  * @param {number} p.attackPower 攻撃力(物理のみ・精神/社会は0)
- * @param {number} p.modifier    ダメージ修正の合計(damageBoost−damageReduce・手動含む)
+ * @param {number} p.modifier    ダメージ修正の合計(用途のダメージ修正・手動含む)
  * @param {number} p.mitigation  軽減の合計(防御力+受け値+報酬点等)
  * @param {boolean} [p.stun]     スタン/説得(10 以上→10)
  * @returns {{raw:number, final:number, stage:number}}

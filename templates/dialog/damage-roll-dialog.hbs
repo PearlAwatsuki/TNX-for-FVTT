@@ -1,5 +1,5 @@
-{{!-- ダメージ・ロールダイアログ(攻撃側・フェーズ12-3)。最小構成: damageBoost 選択+
-     手動修正+スタンのみ。カードを出すことが確定トリガー(判定と同じ操作系):
+{{!-- ダメージ・ロールダイアログ(攻撃側・フェーズ12-3)。最小構成: FA 選択+手動修正。
+     カードを出すことが確定トリガー(判定と同じ操作系):
      手札=HUD のカードを直接クリック・山札=下の[山札から1枚めくる]。
      軽減は適用時に防御側が入力する。 --}}
 <div class="tnx-damage-form">
@@ -15,18 +15,6 @@
         <label class="tnx-damage-row">
             <input type="checkbox" class="dmg-fa" value="{{this.itemId}}">
             <span>{{this.name}} <span class="tnx-damage-formula">＋FA {{this.faValue}}</span>{{#if this.consumesAmmo}} <span class="tnx-damage-formula" title="FA射撃で残弾が空になります">※残弾を消費</span>{{/if}}</span>
-        </label>
-        {{/each}}
-    </fieldset>
-    {{/if}}
-
-    {{#if boostRows.length}}
-    <fieldset class="tnx-damage-group">
-        <legend>ダメージ増加（攻撃側）</legend>
-        {{#each boostRows}}
-        <label class="tnx-damage-row">
-            <input type="checkbox" class="dmg-boost" value="{{this.id}}">
-            <span>{{this.label}}{{#if this.effectDisplay}} <span class="tnx-damage-formula">{{this.effectDisplay}}</span>{{/if}}</span>
         </label>
         {{/each}}
     </fieldset>

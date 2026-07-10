@@ -12,9 +12,10 @@
  *                    物理のみの攻撃プロファイル)。「白兵判定」はルール上ひとつで、攻撃かどうかは帰結。
  *                    旧 type="attack" は migrateData で check + damageCategory に移行する。
  *   "declaration"  - 宣言（判定なしで使える能力＝神業を含む。判定を伴わないため独立タイプ）
- *   "damageBoost"  - ダメージ増加（formula・damageCategory）
- *   "damageReduce" - ダメージ軽減（formula・damageCategory）
  *   "modification" - 改造（modifiableParams）
+ *   ※旧 "damageBoost"/"damageReduce"(ダメージ増加/軽減)は廃止(2026-07-11 ユーザー確定)。
+ *     ダメージ増加は攻撃用途のダメージ修正行(組み合わせ技能を供給元に)・軽減は軽減ダイアログの
+ *     手動欄で表す。既存データは migrateData で declaration(宣言)へ変換する。
  *   "npcAcquire"   - NPC取得（フェーズ11-6・Troops.md「NPC取得」。トループ級の召喚/エキストラ取得）
  *
  * タイプは作成時に固定。UI 上で切り替え不可。
@@ -178,10 +179,7 @@ export class UsageTemplate extends SystemDataModel {
                     // 親アイテムが持つダメージ修正を入れる欄。式で @item.self を参照可・台帳は親名で帰属。
                     damageBonusSelf: new fields.StringField({ initial: "" }),
 
-                    // damageBoost・damageReduce: 効果量（計算式 or 固定値文字列）
-                    formula: new fields.StringField({ initial: "" }),
-
-                    // damageBoost・damageReduce: 適用カテゴリ ("physical" | "mental")
+                    // check(攻撃): 攻撃系統 ("physical" | "mental" | "social")。設定されている check が攻撃
                     damageCategory: new fields.StringField({ initial: "" }),
 
                     // modification: 改造可能なパラメータ名リスト
@@ -245,6 +243,11 @@ export class UsageTemplate extends SystemDataModel {
                 // 系統未設定の旧攻撃は物理とみなす。
                 if (migrated.type === "attack") {
                     migrated = { ...migrated, type: "check", damageCategory: migrated.damageCategory || "physical" };
+                }
+                // ダメージ増加/軽減タイプの廃止(2026-07-11): 宣言(判定なしで使える能力)へ変換。
+                // 数値効果は攻撃用途のダメージ修正行/軽減ダイアログの手動欄で表す(効果はテキストに残る)
+                if (migrated.type === "damageBoost" || migrated.type === "damageReduce") {
+                    migrated = { ...migrated, type: "declaration" };
                 }
                 // 使用武器参照の複数化(2026-07-09): 旧 weaponRef(単一) → weaponRefs(配列)。
                 // 空 itemId は空配列に(生身扱い)。

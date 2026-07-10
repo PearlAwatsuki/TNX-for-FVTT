@@ -52,9 +52,9 @@ describe("UsageTemplate.defineSchema()", () => {
       expect(entryFields.canStun.options.initial).toBe(false);
     });
 
-    it("damageBoost/damageReduce 固有フィールドが存在する", () => {
-      expect(entryFields).toHaveProperty("formula");
+    it("攻撃系統(damageCategory)が存在し、旧 formula(効果量)は廃止済み(2026-07-11)", () => {
       expect(entryFields).toHaveProperty("damageCategory");
+      expect(entryFields).not.toHaveProperty("formula");
     });
 
     it("modification 固有フィールドが存在する", () => {
@@ -172,6 +172,16 @@ describe("UsageTemplate.defineSchema()", () => {
 });
 
 describe("UsageTemplate.migrateData()", () => {
+  it("旧 damageBoost/damageReduce は declaration(宣言)へ変換される(2026-07-11 廃止)", () => {
+    const source = { actions: [
+      { _id: "a", type: "damageBoost", name: "増加" },
+      { _id: "b", type: "damageReduce", name: "軽減" },
+    ] };
+    const result = UsageTemplate.migrateData(source);
+    expect(result.actions[0].type).toBe("declaration");
+    expect(result.actions[1].type).toBe("declaration");
+  });
+
   it("_id が無いエントリに randomID を付与する", () => {
     const source = { actions: [{ type: "check", name: "テスト", description: "" }] };
     const result = UsageTemplate.migrateData(source);
@@ -224,8 +234,8 @@ describe("isAttackUsage()（攻撃=damageCategory 付きの check・2026-07-09�
     expect(isAttackUsage({ type: "check", damageCategory: "" })).toBe(false);
     expect(isAttackUsage({ type: "check" })).toBe(false);
   });
-  it("check 以外は damageCategory があっても攻撃でない(damageBoost 等)", () => {
-    expect(isAttackUsage({ type: "damageBoost", damageCategory: "physical" })).toBe(false);
+  it("check 以外は damageCategory があっても攻撃でない(declaration 等)", () => {
+    expect(isAttackUsage({ type: "declaration", damageCategory: "physical" })).toBe(false);
     expect(isAttackUsage({ type: "declaration", damageCategory: "physical" })).toBe(false);
   });
 });

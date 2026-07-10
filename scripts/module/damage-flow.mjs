@@ -2,8 +2,8 @@
  * @fileoverview ダメージフロー(フェーズ12-3/12-4・正本 Damage_Rules.md)。
  *
  * D&D 5e のダメージ・ロールと同型(2026-07-08 ユーザー確定):
- * - 攻撃カードの命中確定後「ダメージカードを出す」→ 最小ダイアログ(damageBoost 選択・
- *   手動修正・スタンのみ)を開いたまま待ち受け、**手札は HUD のカードを直接クリック**して出す
+ * - 攻撃カードの命中確定後「ダメージカードを出す」→ 最小ダイアログ(FA 選択・手動修正)を
+ *   開いたまま待ち受け、**手札は HUD のカードを直接クリック**して出す
  *   (判定と同じ操作系=専用の選択ダイアログは使わない)。山札はダイアログの[山札から1枚めくる]。
  *   **カードプレイが確定トリガー**。HUD 側は TnxCheckFlow と同様に isDamageCardPending →
  *   executeDamageCardFromHand で本モジュールへ配線される。
@@ -14,16 +14,15 @@
  *   システムは行わない(技能を強制しない方針と同じ)。
  * - ダメージ・チャットカードに台帳(カード行+攻撃力+FA+修正)と攻撃側合計を表示し、
  *   [カードを追加で出す](攻撃側)/[ダメージ適用](対象の操作者または RL)を全幅ボタンで置く。
- * - 適用時は**防御側に軽減ダイアログ**(防御力+パリー受け値自動・damageReduce 選択・
- *   社会の報酬点軽減・手動欄)を出して確定 → 型分岐適用(cast/guest=チャート・troop=heads
+ * - 適用時は**防御側に軽減ダイアログ**(防御力+パリー受け値自動・社会の報酬点軽減・手動欄)を
+ *   出して確定 → 型分岐適用(cast/guest=チャート・troop=heads
  *   減算・分身=消滅通知・extra=不可警告)。適用者は対象の所有者のため効果付与の権限委譲は
  *   不要。メッセージのフラグ更新のみ damageUpdate ソケットで委譲(attackUpdate と同型)。
  */
 
 import { applyDamageChartResult } from "./condition-resolution.mjs";
 import { aggregateDefence, defenceForType, computeDamage } from "./damage-logic.mjs";
-import { evaluateFormula, buildFormulaData, evaluateBonusRows, evaluateSelfBonus } from "./tnx-formula.mjs";
-import { resolveConsumeRowsForActor, applyConsumptionPlan } from "./usage-consumption.mjs";
+import { evaluateBonusRows, evaluateSelfBonus } from "./tnx-formula.mjs";
 import { getDamageChartKind } from "../data/damage-chart.mjs";
 import { CONDITION_KINDS } from "./conditions.mjs";
 import { applyAttackPatch } from "./attack-flow.mjs";
@@ -61,7 +60,7 @@ export async function executeDamageCardFromHand(cardId) {
     // フォームはカードを出す前に読む(確定後にダイアログを閉じるため)
     const form = ctx.kind === "roll" && ctx.dialog?.element
         ? readRollForm(ctx.dialog.element)
-        : { manualMod: 0, boostIds: [], faItemIds: [] };
+        : { manualMod: 0, faItemIds: [] };
     const played = await playHandCardForDamage(cardId);
     if (!played) return true; // ワイルドカード宣言キャンセル等 → 待ち受け継続
     ctx.done = true;
@@ -84,7 +83,6 @@ async function cancelPending() {
 function readRollForm(el) {
     return {
         manualMod:  Number(el.querySelector('[name="manualMod"]')?.value) || 0,
-        boostIds:   [...el.querySelectorAll("input.dmg-boost:checked")].map(c => c.value),
         faItemIds:  [...el.querySelectorAll("input.dmg-fa:checked")].map(c => c.value),
     };
 }
@@ -117,17 +115,6 @@ export async function openDamageRollDialog(attackMessage) {
     const parentItem = f.sourceItemId ? attacker?.items.get(f.sourceItemId) : null;
     const result = { diff: f.diff, achievement: f.achievement, cardValue: f.cardValue ?? null };
 
-    // damageBoost(攻撃側)の候補。formula は事前評価(@diff/@achievement は判定結果で固定・
-    // 攻撃者のロールデータ @system.*・攻撃対象 @target.*・用途の親 @item.self も供給)。
-    // 評価不能な自由文は数値効果なし=表示のみ(手動修正欄で反映)
-    const formulaData = buildFormulaData(attacker, result, parentItem, targetActor);
-    const boostRows = collectDamageUsages(attacker, "damageBoost");
-    for (const r of boostRows) {
-        const v = await evaluateFormula(r.formula, formulaData);
-        r.value = Number.isFinite(v) ? v : null;
-        r.effectDisplay = usageEffectDisplay(r, "＋");
-    }
-
     // 用途自身のダメージ修正(専用欄・@item.self=用途の親アイテム・台帳は親名で帰属)＋供給元つきの
     // 追加行(式は @system.*・@item.<識別キー>.*・@item.self・@target.*・@diff/@achievement を参照可)。
     const selfDamage = await evaluateSelfBonus(f.damageBonusSelf, attacker, result, targetActor, parentItem);
@@ -152,7 +139,6 @@ export async function openDamageRollDialog(attackMessage) {
             faOptions,
             attackSourceName: f.attackSourceName,
             targetName: f.targetName,
-            boostRows,
             damageBonus: damageBonusTotal,
         }
     );
@@ -160,7 +146,7 @@ export async function openDamageRollDialog(attackMessage) {
     // 待ち受け開始: ダイアログを開いたまま、手札は HUD クリック(executeDamageCardFromHand)・
     // 山札はダイアログのボタンで出す(判定と同じ操作系)
     await cancelPending();
-    const ctx = { kind: "roll", attackMessage, f, attacker, category, attackPower, faOptions, boostRows, damageBonusRows: damageBonusRowsAll, dialog: null, done: false };
+    const ctx = { kind: "roll", attackMessage, f, attacker, category, attackPower, faOptions, damageBonusRows: damageBonusRowsAll, dialog: null, done: false };
     _pending = ctx;
 
     const chosen = await foundry.applications.api.DialogV2.wait({
@@ -187,14 +173,14 @@ export async function openDamageRollDialog(attackMessage) {
 }
 
 /**
- * ダメージ・ロールを確定する(カードが出た後): damageBoost の記録・消費→
+ * ダメージ・ロールを確定する(カードが出た後):
  * ダメージ・チャットカードの投稿→攻撃カードの damageRolled 化。
  * @param {object} ctx  待ち受けコンテキスト(kind="roll")
- * @param {{manualMod:number, stun:boolean, boostIds:string[]}} form ロールダイアログの入力
+ * @param {{manualMod:number, faItemIds:string[]}} form ロールダイアログの入力
  * @param {{name:string, suit:string, value:number}} played 出したダメージカード
  */
 async function finalizeDamageRoll(ctx, form, played) {
-    const { attackMessage, f, attacker, category, attackPower, faOptions, boostRows, damageBonusRows } = ctx;
+    const { attackMessage, f, attacker, category, attackPower, faOptions, damageBonusRows } = ctx;
 
     // FA 射撃(武器ごとに任意選択・2026-07-09): 選んだ FA 武器の FA 値を合算しダメージへ。
     // 選んだ武器の残弾を空にする(自動給弾を除く=consumeFaAmmo が判定)。
@@ -203,15 +189,6 @@ async function finalizeDamageRoll(ctx, form, played) {
     for (const o of chosenFa) {
         const weapon = o.itemId ? attacker?.items.get(o.itemId) : null;
         if (weapon) await consumeFaAmmo(weapon);
-    }
-
-    // 選択した damageBoost の記録と消費(攻撃側=自アクターのため権限問題なし)
-    const boosts = [];
-    for (const id of form.boostIds) {
-        const r = boostRows.find(b => b.id === id); if (!r) continue;
-        boosts.push({ label: r.label, value: r.value, formula: r.formula || "" });
-        const rows = resolveConsumeRowsForActor(attacker, attacker.items.get(r.itemId), r.usage.consumeTargets);
-        await applyConsumptionPlan(planFromRows(rows, attacker.id));
     }
 
     // 用途の適用効果はフローの一番最後(2026-07-11 ユーザー確定)=ダメージ算出後に適用する。
@@ -244,7 +221,6 @@ async function finalizeDamageRoll(ctx, form, played) {
                     cardValue: f.cardValue ?? null,   // 命中判定のカード値(式の @card 用)
                     canStun: f.canStun === true,      // スタン可能(適用の選択はダメージ確定直前)
                     cards: [played],
-                    boosts,
                     manualMod: form.manualMod,
                     stun: false,   // スタン/説得は適用時(ダメージ確定直前)に選択する(2026-07-11)
                     applied: false,
@@ -364,9 +340,6 @@ export function renderDamageCard(message, html) {
     for (const b of (f.damageBonuses ?? [])) {
         row(ledger, `ダメージ修正（${esc(b.name || "用途")}）`, signedDisplay("＋", b.value));
     }
-    for (const b of (f.boosts ?? [])) {
-        row(ledger, esc(b.label), Number.isFinite(b.value) ? signedDisplay("＋", b.value) : `（${esc(b.formula)}）`);
-    }
     if (f.manualMod) row(ledger, "修正（手動）", signedDisplay("＋", f.manualMod));
     row(ledger, `攻撃側合計${f.stun ? "（スタン／説得）" : ""}`, String(raw), "cr-calc-row cr-total-row", "cr-total-num");
 
@@ -374,7 +347,6 @@ export function renderDamageCard(message, html) {
     if (f.applied && f.appliedResult) {
         const r = f.appliedResult;
         if (r.mitigation) row(area, `軽減${r.mitigationNote ? `（${esc(r.mitigationNote)}）` : ""}`, `−${r.mitigation}`);
-        for (const d of (r.reduces ?? [])) row(area, esc(d.label), d.display);
         if (r.bounty) row(area, "報酬点による軽減", `−${r.bounty}`);
         if (r.stunCapped) row(area, "スタン／説得（10 以上→10）", "→10");
         row(area, "最終ダメージ", String(r.final), "cr-calc-row cr-total-row", "cr-total-num");
@@ -430,14 +402,13 @@ function collectDamageVsBonuses(attacker, target) {
     return gatherDamageVsSources(collectActorEffectBuffs(attacker), { styles, works });
 }
 
-/** 攻撃側合計(カード合算+攻撃力+FA+用途のダメージ修正+boost+手動修正)。 */
+/** 攻撃側合計(カード合算+攻撃力+FA+用途のダメージ修正+手動修正)。 */
 function damageRollTotals(f) {
     const cardSum = (f.cards ?? []).reduce((s, c) => s + (Number(c.value) || 0), 0);
-    const boostSum = (f.boosts ?? []).reduce((s, b) => s + (Number.isFinite(b.value) ? b.value : 0), 0);
     const bonusSum = (f.damageBonuses ?? []).reduce((s, b) => s + (Number(b.value) || 0), 0);
     const raw = cardSum + (Number(f.attackPower) || 0) + (Number(f.faValue) || 0)
-        + bonusSum + boostSum + (Number(f.manualMod) || 0);
-    return { cardSum, boostSum, raw };
+        + bonusSum + (Number(f.manualMod) || 0);
+    return { cardSum, raw };
 }
 
 function resolveSync(uuid) {
@@ -490,7 +461,7 @@ async function appendDamageCard(message, played) {
 
 /**
  * ダメージ適用を開始する(対象の操作者または RL)。防御側の軽減ダイアログ
- * (防御力+パリー受け値自動・damageReduce 選択・社会の報酬点軽減・手動欄)で確定する。
+ * (防御力+パリー受け値自動・社会の報酬点軽減・手動欄)で確定する。
  */
 async function openMitigationDialog(message) {
     const f = message.getFlag(SCOPE, "damageRoll");
@@ -514,16 +485,6 @@ async function openMitigationDialog(message) {
     }
     if (f.parryGuard) { autoMitigation += f.parryGuard; mitigationParts.push(`パリー受け値 ${f.parryGuard}`); }
 
-    // damageReduce(防御側)の候補。formula は攻撃の判定結果(@diff/@achievement)＋防御側の
-    // ロールデータ(@system.*=AE と同じ値)で事前評価
-    const formulaData = buildFormulaData(target, { diff: f.diff, achievement: f.achievement, cardValue: f.cardValue ?? null });
-    const reduceRows = collectDamageUsages(target, "damageReduce");
-    for (const r of reduceRows) {
-        const v = await evaluateFormula(r.formula, formulaData);
-        r.value = Number.isFinite(v) ? v : null;
-        r.effectDisplay = usageEffectDisplay(r, "−");
-    }
-
     // スタン/説得(2026-07-11 ユーザー確定): 用途の「スタン可能」ON の攻撃のみ、ダメージ確定の
     // 直前に適用するかを選ぶ(肉体=スタン・精神=説得。社会は対象外)
     const stunLabel = category === "mental" ? "説得" : "スタン";
@@ -539,24 +500,18 @@ async function openMitigationDialog(message) {
             isSocial: category === "social",
             targetName: target.name,
             autoMitigation, mitigationParts,
-            reduceRows,
         }
     );
 
     const readForm = (el) => ({
         mitigation: Number(el.querySelector('[name="mitigation"]')?.value) || 0,
         bounty:     Number(el.querySelector('[name="bountyMitigation"]')?.value) || 0,
-        reduceIds:  [...el.querySelectorAll("input.dmg-reduce:checked")].map(c => c.value),
     });
 
     // ライブプレビュー: 軽減の入力から最終値と適用先の見込み(負傷名等)を再計算
     const updatePreview = (root) => {
         const v = readForm(root);
-        let mitigation = v.mitigation + (category === "social" ? v.bounty : 0);
-        for (const id of v.reduceIds) {
-            const r = reduceRows.find(b => b.id === id);
-            if (r && r.value !== null) mitigation += r.value;
-        }
+        const mitigation = v.mitigation + (category === "social" ? v.bounty : 0);
         // プレビューはスタン未適用の値(適用の選択は確定直前の別ダイアログ)
         const { final, stage } = computeDamage({ damageCard: raw, mitigation });
         const fin = root.querySelector(".tnx-damage-preview-final");
@@ -585,16 +540,8 @@ async function openMitigationDialog(message) {
     });
     if (!result) return;
 
-    // 軽減の合成と damageReduce の消費(対象=自アクターのため権限問題なし)
+    // 軽減の合成(手動+社会の報酬点。用途タイプのダメージ軽減は廃止=手動軽減欄に入力する・2026-07-11)
     let mitigationTotal = result.mitigation;
-    const appliedReduces = [];
-    for (const id of result.reduceIds) {
-        const r = reduceRows.find(b => b.id === id); if (!r) continue;
-        if (r.value !== null) mitigationTotal += r.value;
-        appliedReduces.push({ label: r.label, display: r.value !== null ? signedDisplay("−", r.value) : `（${r.formula}）` });
-        const rows = resolveConsumeRowsForActor(target, target.items.get(r.itemId), r.usage.consumeTargets);
-        await applyConsumptionPlan(planFromRows(rows, target.id));
-    }
     const bounty = category === "social" ? result.bounty : 0;
     mitigationTotal += bounty;
 
@@ -621,7 +568,6 @@ async function openMitigationDialog(message) {
         appliedResult: {
             mitigation: result.mitigation,
             mitigationNote: result.mitigation === autoMitigation ? mitigationParts.join("・") : "手動入力",
-            reduces: appliedReduces,
             bounty,
             stunCapped: stun && Math.max(0, raw - mitigationTotal) > 10,
             final, stage,
@@ -645,47 +591,10 @@ export async function applyDamagePatch(message, patch) {
 
 // ─── 共通ヘルパー ───────────────────────────────────────────────────────────────
 
-/** アクターの damageBoost/damageReduce 用途を候補として集める。 */
-function collectDamageUsages(actor, type) {
-    if (!actor) return [];
-    const rows = [];
-    for (const item of actor.items) {
-        for (const usage of (item.system.actions ?? [])) {
-            if (usage.type !== type) continue;
-            rows.push({
-                id: `${item.id}.${usage._id}`,
-                itemId: item.id,
-                usage,
-                label: `${item.name}${usage.name && usage.name !== item.name ? ` / ${usage.name}` : ""}`,
-                formula: usage.formula || "",
-            });
-        }
-    }
-    return rows;
-}
-
-/** resolveConsumeRows の行から適用プランを組む(全チェック消費・残量不足は消費しない)。 */
-function planFromRows(rows, fallbackActorId) {
-    const plan = [];
-    for (const row of rows) {
-        if (row.inert || row.problem || !row.kind) continue;
-        if ((row.remaining ?? 0) < row.amount) continue;
-        plan.push({ actorId: row.targetActorId ?? fallbackActorId, itemId: row.itemId, kind: row.kind, amount: row.amount });
-    }
-    return plan;
-}
-
 /** 符号つきの数値表示(負値は符号を反転して絶対値で示す)。 */
 function signedDisplay(sign, n) {
     const flip = sign === "＋" ? "−" : "＋";
     return n < 0 ? `${flip}${Math.abs(n)}` : `${sign}${n}`;
-}
-
-/** 用途行の効果表示(評価値があれば確定値・式が生数値でなければ式も併記)。 */
-function usageEffectDisplay(row, sign) {
-    if (row.value === null) return row.formula ? `${row.formula}（自動計算不可・手動修正で反映）` : "";
-    const plain = String(row.value) === String(row.formula).trim();
-    return `${signedDisplay(sign, row.value)}${plain ? "" : `（${row.formula}）`}`;
 }
 
 /** 適用先の型に応じたプレビュー文(負傷名／heads 減算／消滅／適用不可)。 */

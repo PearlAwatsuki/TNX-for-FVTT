@@ -1,22 +1,10 @@
 {{!-- ダメージ軽減ダイアログ(防御側・フェーズ12-3)。ダメージ・カードの[適用]から
-     対象の操作者(または RL)に対して開く。防御力+パリー受け値は自動、damageReduce は
-     選択、社会攻撃は報酬点による軽減(2026-07-08 ユーザー指示: 防御側に別途ダイアログ)。 --}}
+     対象の操作者(または RL)に対して開く。防御力+パリー受け値は自動、社会攻撃は報酬点による
+     軽減(2026-07-08 ユーザー指示: 防御側に別途ダイアログ)。技能等による軽減は手動欄に入力する。 --}}
 <div class="tnx-damage-form">
     <p class="tnx-damage-summary">
         {{targetName}} への {{categoryLabel}}ダメージ（攻撃側合計 <b>{{raw}}</b>{{#if canStun}}・{{stunLabel}}可（確定前に選択）{{/if}}）
     </p>
-
-    {{#if reduceRows.length}}
-    <fieldset class="tnx-damage-group">
-        <legend>ダメージ軽減（防御側）</legend>
-        {{#each reduceRows}}
-        <label class="tnx-damage-row">
-            <input type="checkbox" class="dmg-reduce" value="{{this.id}}">
-            <span>{{this.label}}{{#if this.effectDisplay}} <span class="tnx-damage-formula">{{this.effectDisplay}}</span>{{/if}}</span>
-        </label>
-        {{/each}}
-    </fieldset>
-    {{/if}}
 
     <div class="tnx-damage-fields">
         <div class="form-group">
