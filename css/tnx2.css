@@ -7122,6 +7122,9 @@ button.tnx-create-act-button span {
 .usage-form-row.usage-toggle-row {
     flex-direction: row;
     align-items: center;
+    /* トグル同士の間隔。基底 .usage-form-row の gap(3px)のままだとチェックボックスと
+       ラベルの間隔(6px)より狭く、どのラベルがどのチェックか読めない(2026-07-11 修正) */
+    gap: 20px;
     margin-top: 4px;
     padding-top: 8px;
     border-top: 1px dashed var(--tnx2-border-subtle);
