@@ -38,7 +38,7 @@ export function buildCheckFormulaData(result) {
  * @param {{diff?: number|null, achievement?: number|null}|null} [result] 判定結果(判定前は null)
  * @returns {object} evaluateFormula に渡す data
  */
-export function buildFormulaData(actor, result = null) {
+export function buildFormulaData(actor, result = null, bearer = null) {
     const data = { ...(actor?.getRollData?.() ?? {}) };
     if (result) Object.assign(data, buildCheckFormulaData(result));
     // @item.<識別キー>.system.* : アクターの任意アイテムを識別キーで参照(system 全体)
@@ -47,8 +47,39 @@ export function buildFormulaData(actor, result = null) {
         const key = it?.system?.identificationKey;
         if (key) items[key] = { system: it.system };
     }
+    // AE 値用の相対参照(2026-07-10): @item.self=効果が乗るアイテム自身・
+    // @item.parent=その親(装備先ホスト・parentItemId)。判定/ダメージの式では bearer なし。
+    if (bearer) {
+        items.self = { system: bearer.system };
+        const parentId = bearer.system?.parentItemId;
+        const parent = parentId ? actor?.items?.get(parentId) : null;
+        if (parent) items.parent = { system: parent.system };
+    }
     data.item = items;
     return data;
+}
+
+/**
+ * 式を**同期**で決定的評価する(AE 値の評価用・`prepareDerivedData` は同期のため)。
+ * 数値は Roll を介さず即返し、`@…` を含む決定的式は `Roll.evaluateSync` で解く。ダイス・構文エラー・
+ * 評価不能は null。
+ * @param {string} formula
+ * @param {object} data 参照キーのデータ(buildFormulaData の結果等)
+ * @returns {number|null}
+ */
+export function evaluateFormulaSync(formula, data = {}) {
+    const plain = parsePlainNumber(formula);
+    if (plain !== null) return plain;
+    const f = String(formula ?? "").trim();
+    if (!f) return null;
+    try {
+        const roll = new Roll(f, data);
+        if (!roll.isDeterministic) return null; // ダイスを含む式は機械適用しない
+        roll.evaluateSync({ strict: false });
+        return Number.isFinite(roll.total) ? roll.total : null;
+    } catch {
+        return null;
+    }
 }
 
 /**

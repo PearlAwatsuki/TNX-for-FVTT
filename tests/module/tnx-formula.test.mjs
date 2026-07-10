@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
-const { buildCheckFormulaData, buildFormulaData, evaluateBonusRows, parsePlainNumber, evaluateFormula } =
+const { buildCheckFormulaData, buildFormulaData, evaluateBonusRows, parsePlainNumber, evaluateFormula, evaluateFormulaSync } =
   await import("../../scripts/module/tnx-formula.mjs");
 
 describe("buildCheckFormulaData()（式評価用の判定結果コンテキスト・Check_Rules「差分値」）", () => {
@@ -44,6 +44,29 @@ describe("buildFormulaData()（AE と同じ system.* / @item.<識別キー> を�
   it("アクターが無ければ system 無し・item は空", () => {
     expect(buildFormulaData(null)).toEqual({ item: {} });
     expect(buildFormulaData(null, { diff: 3, achievement: 10 })).toEqual({ diff: 3, achievement: 10, item: {} });
+  });
+
+  it("bearer 指定で相対参照 @item.self / @item.parent（装備先ホスト）を供給する", () => {
+    const host = { id: "host1", system: { identificationKey: "host_key", attack: { total: 9 } } };
+    const items = [host]; items.get = (id) => items.find(i => i.id === id);
+    const actor = { getRollData: () => ({ system: {} }), items };
+    const bearer = { system: { identificationKey: "opt", parentItemId: "host1", appearancePenalty: { total: 3 } } };
+    const d = buildFormulaData(actor, null, bearer);
+    expect(d.item.self.system.appearancePenalty.total).toBe(3); // @item.self.*（乗るアイテム自身）
+    expect(d.item.parent.system.attack.total).toBe(9);          // @item.parent.*（装備先ホスト）
+    expect(d.item.host_key.system.attack.total).toBe(9);        // 識別キーでも引ける
+  });
+});
+
+describe("evaluateFormulaSync()（AE 値の同期評価・2026-07-10）", () => {
+  it("純数値は Roll を介さず即返し", () => {
+    expect(evaluateFormulaSync("5")).toBe(5);
+    expect(evaluateFormulaSync("-2")).toBe(-2);
+  });
+
+  it("空・評価不能(テスト環境の Roll 不在)は null", () => {
+    expect(evaluateFormulaSync("")).toBeNull();
+    expect(evaluateFormulaSync("2 + @system.life.total", { system: { life: { total: 3 } } })).toBeNull();
   });
 });
 

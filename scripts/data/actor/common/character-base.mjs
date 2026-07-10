@@ -16,6 +16,7 @@ import { ActorBaseTemplate } from "./actor-base.mjs";
 import { computeAttributeFinal, computeOutfitAggregates, resolveCombatSpeedDisplayTotal, isActorInStartedCombat } from "../../helpers.mjs";
 import { ATTACK_DAMAGE_TYPES, parseEffectTargetKey, resolveItemTotalPath, evalEffectConditions } from "../../item/helpers.mjs";
 import { readConditions, gatherConditionControlPenalty } from "../../../module/conditions.mjs";
+import { parsePlainNumber, evaluateFormulaSync, buildFormulaData } from "../../../module/tnx-formula.mjs";
 
 /** 能力値キー(♠理性 / ♣感情 / ♥生命 / ♦外界) */
 export const ABILITY_KEYS = ["reason", "passion", "life", "mundane"];
@@ -199,7 +200,7 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
     if (!entries.length) return;
     const SCOPE = "tokyo-nova-axleration";
 
-    // 適用先へ展開(条件評価込み)
+    // 適用先へ展開(条件評価込み)。値はまだ評価しない(bearer を持ち回る)
     const apps = [];
     for (const { effect, change, parsed, bearer } of entries) {
       // cs.base(CSベースへの常時修正)・ar.max(付与ARへの常時修正)のみ: 保持アイテムが未準備なら
@@ -213,28 +214,48 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
       const stackable = effect.flags?.[SCOPE]?.stackable === true;
       for (const { doc, totalPath } of this._resolveBuffApplications(parsed, bearer)) {
         if (!evalEffectConditions(doc.system, parsed.conditions)) continue;
-        apps.push({ effect, change, doc, totalPath, identity, stackable });
+        apps.push({ effect, change, doc, totalPath, identity, stackable, bearer });
       }
     }
 
-    // 同一効果の重複適用不可: 非 stackable は (対象, パス, モード, identity)ごとに最大値1つだけ。
-    // stackable は重複排除しない。
-    const best = new Map();
-    const finalApps = [];
+    // 値の式参照(2026-07-10): change.value がリテラル数値でなく式(@system.*・@item.<識別キー>.*・
+    // 相対 @item.self/@item.parent)なら評価する。式値はリテラル値の AE 適用後の total を参照するため
+    // 「リテラル先→式後」の2フェーズで適用する(式値どうしは相互参照しない=ユーザー確定・順不同で確定)。
+    const literalApps = [];
+    const formulaApps = [];
     for (const app of apps) {
-      if (app.stackable) { finalApps.push(app); continue; }
-      const k = `${app.doc.id}|${app.totalPath}|${app.change.mode}|${app.identity}`;
-      const prev = best.get(k);
-      if (!prev || (Number(app.change.value) || 0) > (Number(prev.change.value) || 0)) best.set(k, app);
+      const lit = parsePlainNumber(app.change.value);
+      if (lit !== null) { app.value = lit; literalApps.push(app); }
+      else formulaApps.push(app);
     }
-    for (const app of best.values()) finalApps.push(app);
 
-    // Foundry 既定の優先度(mode×10)で安定適用する
-    finalApps.sort((a, b) =>
-      ((a.change.priority ?? a.change.mode * 10) - (b.change.priority ?? b.change.mode * 10)));
-    for (const { effect, change, doc, totalPath } of finalApps) {
-      effect.apply(doc, { ...change, key: `system.${totalPath}` });
+    const applyPhase = (phaseApps) => {
+      // 同一効果の重複適用不可: 非 stackable は (対象, パス, モード, identity)ごとに最大値1つだけ。
+      const best = new Map();
+      const finalApps = [];
+      for (const app of phaseApps) {
+        if (app.stackable) { finalApps.push(app); continue; }
+        const k = `${app.doc.id}|${app.totalPath}|${app.change.mode}|${app.identity}`;
+        const prev = best.get(k);
+        if (!prev || (app.value ?? 0) > (prev.value ?? 0)) best.set(k, app);
+      }
+      for (const app of best.values()) finalApps.push(app);
+      // Foundry 既定の優先度(mode×10)で安定適用する
+      finalApps.sort((a, b) =>
+        ((a.change.priority ?? a.change.mode * 10) - (b.change.priority ?? b.change.mode * 10)));
+      for (const { effect, change, doc, totalPath, value } of finalApps) {
+        effect.apply(doc, { ...change, key: `system.${totalPath}`, value: String(value) });
+      }
+    };
+
+    // フェーズ1: リテラル値を適用(base→total を確定)
+    applyPhase(literalApps);
+    // フェーズ2: リテラル適用後の total を参照して式値を評価 → 適用(評価不能・非数は 0)
+    for (const app of formulaApps) {
+      const v = evaluateFormulaSync(app.change.value, buildFormulaData(actor, null, app.bearer));
+      app.value = Number.isFinite(v) ? v : 0;
     }
+    applyPhase(formulaApps);
   }
 
   /** v2 セレクタを {適用先ドキュメント, total系systemパス} の配列へ解決する。 */
