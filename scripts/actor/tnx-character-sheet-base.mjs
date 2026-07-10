@@ -22,7 +22,7 @@ import { resolveConsumeRowsForActor, promptConsumption } from '../module/usage-c
 import { useNpcAcquire } from '../module/npc-acquisition.mjs';
 import { useAttack } from '../module/attack-flow.mjs';
 import { prepareUsageEffectPayload } from '../module/usage-effects.mjs';
-import { getComboSuits, ALL_SUITS } from '../module/tnx-check-engine.mjs';
+import { getComboSuits, comboUsesBounty, ALL_SUITS } from '../module/tnx-check-engine.mjs';
 import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
 import { groupStyleSkillsByStyle } from '../module/style-skill-acquisition.mjs';
 import { HOUSING_AREA_RANKS } from '../data/item/housing-area.mjs';
@@ -2374,7 +2374,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         }
 
         // 参加技能(ベース＋コンボ)を解決して判定を実行する
-        const { baseSkill, allSkillIds, validSuits } = TnxCharacterSheetBase._resolveSkillSet(item, selectedUsage, this.actor);
+        const { allSkillIds, validSuits } = TnxCharacterSheetBase._resolveSkillSet(item, selectedUsage, this.actor);
 
         const skillLabel = allSkillIds
             .map(id => this.actor.items.get(id)?.name ?? "")
@@ -2403,7 +2403,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             skillLabel,
             validSuits,
             targetValue:     null,
-            bountyAvailable: baseSkill.system.usesBounty === true ? actorBounty : 0,
+            // 報酬点: 参加技能のいずれかが usesBounty なら可(ベース限定は誤り・2026-07-10 ユーザー確定)
+            bountyAvailable: comboUsesBounty(allSkillIds.map(id => actor.items.get(id)?.system)) ? actorBounty : 0,
             consumeUses:     usesPlan,
             requestMessageId: null,
             checkBonuses:    selectedUsage.checkBonuses ?? [],

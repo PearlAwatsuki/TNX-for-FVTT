@@ -22,7 +22,7 @@
  */
 
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
-import { getComboSuits, SUIT_TO_ABILITY } from "./tnx-check-engine.mjs";
+import { getComboSuits, comboUsesBounty, SUIT_TO_ABILITY } from "./tnx-check-engine.mjs";
 import { resolveConsumeRowsForActor, promptConsumption } from "./usage-consumption.mjs";
 import { TargetSelectionDialog } from "./tnx-dialog.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
@@ -143,7 +143,8 @@ export async function useAttack(item, usage) {
     const comboIds = (usage.skillRefs ?? []).map(r => r.itemId).filter(id => id && actor.items.has(id));
     if (item.id !== baseId && !comboIds.includes(item.id)) comboIds.push(item.id);
     const allSkillIds = [baseId, ...comboIds.filter(id => id !== baseId)];
-    const validSuits = getComboSuits(allSkillIds.map(id => (id === item.id ? item : actor.items.get(id))?.system).filter(Boolean));
+    const skillSystems = allSkillIds.map(id => (id === item.id ? item : actor.items.get(id))?.system).filter(Boolean);
+    const validSuits = getComboSuits(skillSystems);
     if (!validSuits.length) {
         ui.notifications.warn(`「${item.name}」の用途に不備があります（参加技能に共通スートがありません）。`);
         return;
@@ -181,7 +182,8 @@ export async function useAttack(item, usage) {
         skillLabel,
         validSuits,
         targetValue:     null, // 成否は攻撃カード上で確定(リアクションなし=制御値/対決=相手の達成値)
-        bountyAvailable: baseSkill.system.usesBounty === true ? actorBounty : 0,
+        // 報酬点: 参加技能のいずれかが usesBounty なら可(ベース限定は誤り・2026-07-10 ユーザー確定)
+        bountyAvailable: comboUsesBounty(skillSystems) ? actorBounty : 0,
         consumeUses:     usesPlan,
         requestMessageId: null,
         checkBonuses:    usage.checkBonuses ?? [],
@@ -500,7 +502,8 @@ export async function startReaction(message, mode) {
     const comboIds = (usage?.skillRefs ?? []).map(r => r.itemId).filter(id => id && reactor.items.has(id));
     if (skill.id !== baseId && !comboIds.includes(skill.id)) comboIds.push(skill.id);
     const allSkillIds = [baseId, ...comboIds.filter(id => id !== baseId)];
-    const validSuits = getComboSuits(allSkillIds.map(id => reactor.items.get(id)?.system).filter(Boolean));
+    const reactorSkillSystems = allSkillIds.map(id => reactor.items.get(id)?.system).filter(Boolean);
+    const validSuits = getComboSuits(reactorSkillSystems);
     if (!baseSkill || !validSuits.length) {
         ui.notifications.warn(`「${skill.name}」で使用できるスートがありません。`);
         return;
@@ -519,7 +522,8 @@ export async function startReaction(message, mode) {
         skillLabel,
         validSuits,
         targetValue:     null,
-        bountyAvailable: baseSkill.system.usesBounty === true ? reactorBounty : 0,
+        // 報酬点: 参加技能のいずれかが usesBounty なら可(2026-07-10 ユーザー確定)
+        bountyAvailable: comboUsesBounty(reactorSkillSystems) ? reactorBounty : 0,
         consumeUses:     usesPlan,
         requestMessageId: null,
         checkBonuses:    usage?.checkBonuses ?? [],

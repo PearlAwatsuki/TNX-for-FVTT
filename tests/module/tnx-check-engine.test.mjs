@@ -6,6 +6,7 @@ import {
     calcSkillCheck,
     calcControlCheck,
     getComboSuits,
+    comboUsesBounty,
 } from "../../scripts/module/tnx-check-engine.mjs";
 
 // ─── スート対応表 ─────────────────────────────────────────────────────────────
@@ -199,5 +200,19 @@ describe("getComboSuits()", () => {
         const a = { suits: { spade: true,  club: false, heart: false, diamond: false } };
         const b = { suits: { spade: false, club: true,  heart: false, diamond: false } };
         expect(getComboSuits([a, b])).toEqual([]);
+    });
+});
+
+describe("comboUsesBounty()（報酬点: 参加技能のいずれかが usesBounty なら可・2026-07-10）", () => {
+    it("ベースでなくても、組み合わせに usesBounty 技能が居れば true", () => {
+        const base  = { usesBounty: false };
+        const combo = { usesBounty: true };
+        expect(comboUsesBounty([base, combo])).toBe(true);
+    });
+
+    it("全員 usesBounty なし（スタイル技能の undefined 含む）は false", () => {
+        expect(comboUsesBounty([{ usesBounty: false }, {}])).toBe(false);
+        expect(comboUsesBounty([])).toBe(false);
+        expect(comboUsesBounty(null)).toBe(false);
     });
 });

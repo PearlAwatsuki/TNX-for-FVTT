@@ -20,7 +20,7 @@
  */
 
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
-import { getComboSuits } from "./tnx-check-engine.mjs";
+import { getComboSuits, comboUsesBounty } from "./tnx-check-engine.mjs";
 import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } from "./usage-consumption.mjs";
 import { placeActorTokens } from "./tnx-token-placement.mjs";
 import { computeAcquisitionOutcome, buildBunshinAbilityMods } from "./npc-acquisition-logic.mjs";
@@ -129,7 +129,8 @@ async function useCheckAcquire(actor, item, usage, mode) {
     const comboIds = (usage.skillRefs ?? []).map(r => r.itemId).filter(id => id && actor.items.has(id));
     if (item.id !== baseId && !comboIds.includes(item.id)) comboIds.push(item.id);
     const allSkillIds = [baseId, ...comboIds.filter(id => id !== baseId)];
-    const validSuits = getComboSuits(allSkillIds.map(id => (id === item.id ? item : actor.items.get(id))?.system).filter(Boolean));
+    const skillSystems = allSkillIds.map(id => (id === item.id ? item : actor.items.get(id))?.system).filter(Boolean);
+    const validSuits = getComboSuits(skillSystems);
     if (!validSuits.length) {
         ui.notifications.warn(`「${item.name}」の用途に不備があります（参加技能に共通スートがありません）。`);
         return;
@@ -162,7 +163,8 @@ async function useCheckAcquire(actor, item, usage, mode) {
         skillLabel,
         validSuits,
         targetValue:     mode === "bunshin" ? 10 : null,
-        bountyAvailable: baseSkill.system.usesBounty === true ? actorBounty : 0,
+        // 報酬点: 参加技能のいずれかが usesBounty なら可(2026-07-10 ユーザー確定)
+        bountyAvailable: comboUsesBounty(skillSystems) ? actorBounty : 0,
         consumeUses:     usesPlan,
         requestMessageId: null,
         // 判定完了後の取得継続(TnxCheckFlow._execute → completeAcquisitionFromCheck)

@@ -16,7 +16,7 @@
 
 import { CONDITION_KINDS } from "./conditions.mjs";
 import { getConditionKinds } from "./conditions.mjs";
-import { getComboSuits } from "./tnx-check-engine.mjs";
+import { getComboSuits, comboUsesBounty } from "./tnx-check-engine.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TargetSelectionDialog } from "./tnx-dialog.mjs";
 import { buildSkillOptions } from "./skill-select.mjs";
@@ -137,7 +137,8 @@ export async function startTreatment(patient, effectId) {
         skillLabel:      substitution ? skill.name : resolved.skillLabel,
         validSuits:      resolved.validSuits,
         targetValue:     instance.targetValue,
-        bountyAvailable: resolved.baseSkill.system.usesBounty === true ? actorBounty : 0,
+        // 報酬点: 参加技能のいずれかが usesBounty なら可(2026-07-10 ユーザー確定)
+        bountyAvailable: comboUsesBounty(resolved.skillSystems) ? actorBounty : 0,
         consumeUses:     usesPlan,
         substitution,
         manualMod,
@@ -250,8 +251,9 @@ function resolveCheckSkillSet(actor, skill, usage) {
     const comboIds = (usage?.skillRefs ?? []).map(r => r.itemId).filter(id => id && actor.items.has(id));
     if (skill.id !== baseId && !comboIds.includes(skill.id)) comboIds.push(skill.id);
     const allSkillIds = [baseId, ...comboIds.filter(id => id !== baseId)];
-    const validSuits = getComboSuits(allSkillIds.map(id => actor.items.get(id)?.system).filter(Boolean));
+    const skillSystems = allSkillIds.map(id => actor.items.get(id)?.system).filter(Boolean);
+    const validSuits = getComboSuits(skillSystems);
     if (!baseSkill || !validSuits.length) return null;
     const skillLabel = allSkillIds.map(id => actor.items.get(id)?.name ?? "").filter(Boolean).join("+");
-    return { baseSkill, allSkillIds, validSuits, skillLabel };
+    return { baseSkill, allSkillIds, skillSystems, validSuits, skillLabel };
 }

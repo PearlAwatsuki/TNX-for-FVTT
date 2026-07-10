@@ -12,7 +12,7 @@
  *   5. 判定結果がチャットに追記される
  */
 
-import { getComboSuits, ALL_SUITS } from './tnx-check-engine.mjs';
+import { getComboSuits, comboUsesBounty, ALL_SUITS } from './tnx-check-engine.mjs';
 import { TnxCheckFlow } from './tnx-check-flow.mjs';
 import { buildSkillOptions } from './skill-select.mjs';
 import { findItemByIdentificationKey } from './identification.mjs';
@@ -304,7 +304,7 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
             if (!choice) return;
             skillIds           = [choice.item.id];
             resolvedValidSuits = getComboSuits([choice.item.system]);
-            bountyAvailable    = choice.item.system.usesBounty === true ? actorBounty : 0;
+            bountyAvailable    = comboUsesBounty([choice.item.system]) ? actorBounty : 0; // 単独技能(2026-07-10 統一)
             if (!resolvedValidSuits.length) {
                 ui.notifications.warn(`「${choice.item.name}」には使用できるスートがありません。`);
                 return;

@@ -174,6 +174,19 @@ export function getComboSuits(skillSystems) {
 }
 
 /**
+ * 参加技能(ベース＋組み合わせ)のいずれかが報酬点使用可能技能(usesBounty)なら true。
+ * **報酬点使用可能技能を組み合わせていれば、ベース技能でなくても報酬点を使用できる**
+ * (2026-07-10 ユーザー確定。旧実装のベース技能のみ判定は誤り)。
+ * usesBounty フィールドを持たない技能(スタイル技能等)は undefined → false。
+ *
+ * @param {Array<{usesBounty?: boolean}>} skillSystems 参加技能の system オブジェクト
+ * @returns {boolean}
+ */
+export function comboUsesBounty(skillSystems) {
+    return (skillSystems ?? []).some(s => s?.usesBounty === true);
+}
+
+/**
  * @typedef {object} CheckResult
  * @property {boolean}      fumble
  * @property {boolean}      fixedAt21

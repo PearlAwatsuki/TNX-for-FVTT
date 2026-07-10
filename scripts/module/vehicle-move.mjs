@@ -13,7 +13,7 @@
  */
 
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
-import { getComboSuits } from "./tnx-check-engine.mjs";
+import { getComboSuits, comboUsesBounty } from "./tnx-check-engine.mjs";
 import { movementStagesFromAchievement } from "./vehicle-move-logic.mjs";
 import { findItemByIdentificationKey } from "./identification.mjs";
 
@@ -59,7 +59,7 @@ export async function startVehicleMove(actor, vehicle) {
     skillLabel:      skill.name,
     validSuits,
     targetValue:     null,
-    bountyAvailable: skill.system.usesBounty === true ? actorBounty : 0,
+    bountyAvailable: comboUsesBounty([skill.system]) ? actorBounty : 0, // 単独技能(コンボなし・2026-07-10 統一)
     consumeUses:     [],
     requestMessageId: null,
     movement: { actorId: actor.id, vehicleName: vehicle.name, skillName: skill.name },
