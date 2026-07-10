@@ -184,7 +184,7 @@ const ABILITY_NAMES = ["reason", "passion", "life", "mundane"];
 /**
  * 判定バフの変更キーが、判定の条件(criteria)に合致するか(フェーズ9-3 v2)。
  * @param {string} key  change.key
- * @param {{type:"skill"|"ability"|"control", skillKeys?:string[], ability?:string}} criteria
+ * @param {{type:"skill"|"ability"|"control", skills?:{key:string,style?:string,organization?:string}[], skillKeys?:string[], ability?:string}} criteria
  * @returns {boolean}
  */
 export function checkChangeMatches(key, criteria) {
@@ -194,8 +194,12 @@ export function checkChangeMatches(key, criteria) {
   if (criteria.type === "control") return p.scope === "controlCheck" && p.ability === criteria.ability;
   if (criteria.type === "skill") {
     if (p.scope !== "skillCheck") return false;
-    return (criteria.skillKeys ?? []).some(k =>
-      p.prefix ? !!k?.startsWith?.(p.selector) : k === p.selector);
+    // criteria.skills（{key,style,organization}）優先。旧 skillKeys は key のみとして後方互換受理。
+    const skills = criteria.skills ?? (criteria.skillKeys ?? []).map(k => ({ key: k }));
+    if (p.group === "style") return skills.some(s => s.style === p.selector);
+    if (p.group === "works") return skills.some(s => s.organization === p.selector);
+    return skills.some(s =>
+      p.prefix ? !!s.key?.startsWith?.(p.selector) : s.key === p.selector);
   }
   return false;
 }
@@ -257,7 +261,8 @@ export function parseEffectTargetKey(key) {
   const segs = work.split(".").filter(Boolean);
   if (segs.length < 2) return null;
 
-  // 判定バフ: check.<能力値|技能識別キー[*]> / controlCheck.<能力値>
+  // 判定バフ: check.<能力値|技能識別キー[*]|style.<スタイル識別キー>|works.<組織識別キー>> /
+  //          controlCheck.<能力値>
   if (segs[0] === "check" || segs[0] === "controlCheck") {
     const x = segs[1];
     const isControl = segs[0] === "controlCheck";
@@ -265,6 +270,11 @@ export function parseEffectTargetKey(key) {
       return { scope: isControl ? "controlCheck" : "abilityCheck", ability: x, conditions };
     }
     if (isControl) return null; // 制御判定は能力値のみ
+    // グループ参照(2026-07-10): check.style.<スタイル識別キー>(そのスタイルのスタイル技能)/
+    // check.works.<組織識別キー>(そのワークスのワークス技能)。識別キー前方一致(*)は据え置き。
+    if ((x === "style" || x === "works") && segs.length > 2) {
+      return { scope: "skillCheck", group: x, selector: segs.slice(2).join("."), conditions };
+    }
     const prefix = x.endsWith("*");
     return { scope: "skillCheck", selector: prefix ? x.slice(0, -1) : x, prefix, conditions };
   }

@@ -151,6 +151,19 @@ describe("checkChangeMatches()", () => {
     expect(checkChangeMatches("check.melee", { type: "skill", skillKeys: ["shooting"] })).toBe(false);
     expect(checkChangeMatches("check.society_*", { type: "skill", skillKeys: ["society_police"] })).toBe(true);
   });
+  it("グループ参照(スタイル/ワークス)は criteria.skills の style/organization で照合", () => {
+    const crit = { type: "skill", skills: [
+      { key: "kabutowari_cut", style: "kabutowari", organization: "" },
+      { key: "society_media",  style: "",          organization: "kabuki" },
+    ] };
+    expect(checkChangeMatches("check.style.kabutowari", crit)).toBe(true);
+    expect(checkChangeMatches("check.style.ayakashi", crit)).toBe(false);
+    expect(checkChangeMatches("check.works.kabuki", crit)).toBe(true);
+    expect(checkChangeMatches("check.works.union", crit)).toBe(false);
+    // 完全一致/プレフィックスも同じ criteria.skills で動く
+    expect(checkChangeMatches("check.society_*", crit)).toBe(true);
+    expect(checkChangeMatches("check.kabutowari_cut", crit)).toBe(true);
+  });
   it("能力値判定 / 制御判定", () => {
     expect(checkChangeMatches("check.reason", { type: "ability", ability: "reason" })).toBe(true);
     expect(checkChangeMatches("check.reason", { type: "ability", ability: "passion" })).toBe(false);
@@ -291,6 +304,13 @@ describe("parseEffectTargetKey()（v2 system.<名前空間> 文法）", () => {
     expect(parseEffectTargetKey("controlCheck.reason")).toMatchObject({ scope: "controlCheck", ability: "reason" });
     expect(parseEffectTargetKey("check.melee")).toMatchObject({ scope: "skillCheck", selector: "melee", prefix: false });
     expect(parseEffectTargetKey("check.society_*")).toMatchObject({ scope: "skillCheck", selector: "society_", prefix: true });
+  });
+
+  it("判定グループ参照: check.style.<キー> / check.works.<キー>", () => {
+    expect(parseEffectTargetKey("check.style.kabutowari")).toMatchObject({ scope: "skillCheck", group: "style", selector: "kabutowari" });
+    expect(parseEffectTargetKey("check.works.kabuki")).toMatchObject({ scope: "skillCheck", group: "works", selector: "kabuki" });
+    // 制御判定はグループ不可(能力値のみ)
+    expect(parseEffectTargetKey("controlCheck.style.kabutowari")).toBeNull();
   });
 
   it("条件付き [hack>=3] / 複数 ;", () => {

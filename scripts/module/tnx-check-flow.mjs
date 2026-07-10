@@ -399,10 +399,17 @@ export class TnxCheckFlow {
         } else if (ctx.type === "abilityCheck" || !(ctx.skillIds?.length)) {
             criteria = { type: "ability", ability: abilityKey };
         } else {
-            const skillKeys = (ctx.skillIds ?? [])
-                .map(id => actor.items.get(id)?.system?.identificationKey)
-                .filter(Boolean);
-            criteria = { type: "skill", skillKeys };
+            // 識別キーに加え、スタイル(system.style)・組織(system.special.works.organization)も
+            // criteria に載せ、check.style.<キー> / check.works.<キー> のグループ参照を可能にする。
+            const skills = (ctx.skillIds ?? [])
+                .map(id => actor.items.get(id))
+                .filter(it => it?.system?.identificationKey)
+                .map(it => ({
+                    key: it.system.identificationKey,
+                    style: it.system.style ?? "",
+                    organization: it.system.special?.works?.organization ?? "",
+                }));
+            criteria = { type: "skill", skills };
         }
         const sources = gatherCheckBonusSources(effects, criteria);
 
