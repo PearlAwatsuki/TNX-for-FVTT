@@ -224,15 +224,29 @@ describe("resolveUsageSkills() (actor アイテム橋渡し)", () => {
     expect(r.mandatoryItemIds).toContain("i3"); // B 自身
   });
 
-  it("ignoreSeedIds の seed は指定技能を必須へ引き込まない(単体参加・2026-07-10)", () => {
-    // 上と同じ構成で B(技能:電脳) を「指定技能を無視」で足すと、電脳(cyber)は自動追加されない
+  it("ignoreComboKeys の指定技能は seed 連鎖の必須へ引き込まない(単体参加・2026-07-10)", () => {
+    // 用途の「無視する指定技能」に cyber を設定 → B(技能:電脳)を足しても電脳は自動追加されない
     const root = item("i1", "A", [{ value: "skillName", name: "assault" }]);
     const assault = item("i2", "assault", [{ value: "none" }]);
     const b = item("i3", "B", [{ value: "skillName", name: "cyber" }]);
     const cyber = item("i4", "cyber", [{ value: "none" }]);
-    const r = resolveUsageSkills(root, [root, assault, b, cyber], ["i3"], ["i3"]);
+    const r = resolveUsageSkills(root, [root, assault, b, cyber], ["i3"], ["cyber"]);
     expect(r.mandatoryItemIds).not.toContain("i4"); // 電脳(cyber)は連れてこない
-    expect(r.mandatoryItemIds).toContain("i2");      // ベース側(白兵)は従来どおり
+    expect(r.mandatoryItemIds).toContain("i3");      // B 自身は参加
+    expect(r.mandatoryItemIds).toContain("i2");      // 起点(用途の親)側の連鎖には適用しない
+  });
+
+  it("ignoreComboKeys でアクションの指定技能を無視すると、ベース入れ替えも起きない(2026-07-10)", () => {
+    // 〈技能AⅡ〉系の本命ケース: 親の指定技能(assault=アクション)がベースのまま、
+    // 技能:射撃(shooting=アクション) の B を単体参加させる(射撃は入らない=アクション重複しない)
+    const root = item("i1", "A", [{ value: "skillName", name: "assault" }]);
+    const assault = item("i2", "assault", [{ value: "none" }], { isAction: true });
+    const b = item("i3", "B", [{ value: "skillName", name: "shooting" }]);
+    const shooting = item("i4", "shooting", [{ value: "none" }], { isAction: true });
+    const r = resolveUsageSkills(root, [root, assault, b, shooting], ["i3"], ["shooting"]);
+    expect(r.baseItemId).toBe("i2");                 // ベースは親の指定技能(白兵)のまま
+    expect(r.mandatoryItemIds).not.toContain("i4");  // 射撃は入らない
+    expect(r.mandatoryItemIds).toContain("i3");      // B は単体参加
   });
 
   it("組み合わせに足した技能がアクション技能を連れ込むと、ベースがそのアクションに入れ替わる", () => {

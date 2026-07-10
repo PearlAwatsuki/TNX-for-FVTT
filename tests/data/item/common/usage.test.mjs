@@ -56,6 +56,15 @@ describe("UsageTemplate.defineSchema()", () => {
       expect(entryFields).toHaveProperty("modifiableParams");
     });
 
+    it("無視する指定技能（ignoreComboSkills・2026-07-10）は StringField の ArrayField", () => {
+      expect(entryFields.ignoreComboSkills).toBeInstanceOf(MockArrayField);
+      expect(entryFields.ignoreComboSkills.element).toBeInstanceOf(MockStringField);
+    });
+
+    it("skillRefs の要素は itemId のみ（per-row の無視フラグは持たない＝用途側設定に一本化）", () => {
+      expect(Object.keys(entryFields.skillRefs.element.fields)).toEqual(["itemId"]);
+    });
+
     it("用途自身の修正値（専用欄・checkBonusSelf / damageBonusSelf）が StringField・initial 空", () => {
       expect(entryFields.checkBonusSelf).toBeInstanceOf(MockStringField);
       expect(entryFields.checkBonusSelf.options.initial).toBe("");

@@ -26,12 +26,6 @@
         {{#each skillRefItems}}
         <div class="usage-skill-ref-row">
             <span class="usage-skill-ref-name">{{this.name}}</span>
-            {{#if this.canIgnoreCombo}}
-            <label class="usage-ref-ignore-combo" title="この技能の指定技能（組み合わせ相手）を自動追加せず、この技能だけを組み合わせに入れます（〈技能AⅡ〉系の「指定技能を無視して組み合わせられる」効果の表現）">
-                <input type="checkbox" data-action="toggleIgnoreCombo" data-idx="{{this.idx}}" {{checked this.ignoreComboSkill}} {{#unless ../editable}}disabled{{/unless}}>
-                <span>指定技能を無視</span>
-            </label>
-            {{/if}}
             {{#if ../editable}}{{#unless this.isLocked}}
             <a class="usage-icon-btn" data-action="skillRefDelete" data-idx="{{this.idx}}"
                title="削除"><i class="fas fa-times"></i></a>
@@ -47,6 +41,33 @@
             <option value="">── 追加する技能を選択 ──</option>
             {{#each availableSkills}}
             <option value="{{this.id}}">{{this.name}}</option>
+            {{/each}}
+        </select>
+    </div>
+    {{/if}}
+
+    {{!-- 無視する指定技能(2026-07-10): 設定した技能を指定「技能」とするスタイル技能は、
+         指定技能を自動追加せず単体で組み合わせに参加できる(指定技能がアクションでも弾かれない) --}}
+    <label class="usage-field-label">無視する指定技能 <i class="fas fa-circle-question" title="ここに設定した技能を指定「技能」（組み合わせ相手）とするスタイル技能は、その指定技能を自動追加せず単体で組み合わせに参加できます（「技能：〈X〉のスタイル技能とも組み合わせ可能になる」系の効果の表現。指定技能がアクション技能でも弾かれなくなります）"></i></label>
+    <div class="usage-skill-ref-list">
+        {{#each ignoreComboRows}}
+        <div class="usage-skill-ref-row">
+            <span class="usage-skill-ref-name">{{this.name}}</span>
+            {{#if ../editable}}
+            <a class="usage-icon-btn" data-action="ignoreComboDelete" data-key="{{this.key}}"
+               title="削除"><i class="fas fa-times"></i></a>
+            {{/if}}
+        </div>
+        {{else}}
+        <p class="usage-empty-hint">（なし）</p>
+        {{/each}}
+    </div>
+    {{#if editable}}
+    <div class="usage-skill-ref-add">
+        <select class="ignore-combo-select">
+            <option value="">── 無視する指定技能を選択 ──</option>
+            {{#each ignoreComboChoices}}
+            <option value="{{this.key}}">{{this.name}}</option>
             {{/each}}
         </select>
     </div>

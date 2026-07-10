@@ -7453,19 +7453,6 @@ button.tnx-create-act-button span {
     color: var(--tnx2-text-primary);
 }
 
-/* 参加技能の「指定技能を無視(単体参加)」トグル(2026-07-10) */
-.usage-ref-ignore-combo {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    margin-left: auto;
-    margin-right: 8px;
-    font-size: 0.78em;
-    color: var(--tnx2-text-secondary);
-    white-space: nowrap;
-    cursor: pointer;
-}
-
 .usage-skill-ref-add,
 .usage-param-add {
     display: flex;

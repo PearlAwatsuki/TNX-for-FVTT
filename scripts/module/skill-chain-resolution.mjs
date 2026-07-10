@@ -175,23 +175,27 @@ function buildResolver(rootItem, skillItems) {
   return { byKey, byId, idOf, candidatesFor, chainOf, chainIds };
 }
 
-export function resolveUsageSkills(rootItem, skillItems, seedComboIds = [], ignoreSeedIds = []) {
+export function resolveUsageSkills(rootItem, skillItems, seedComboIds = [], ignoreComboKeys = []) {
   const { byKey, byId, idOf, candidatesFor, chainOf } = buildResolver(rootItem, skillItems);
   const r = chainOf(rootItem);
-  const ignoreSet = ignoreSeedIds instanceof Set ? ignoreSeedIds : new Set(ignoreSeedIds);
+  // 用途の「無視する指定技能」(識別キー・2026-07-10): ここにある技能は seed 連鎖の必須へ引き込まない
+  // ＝その技能を指定「技能」とするスタイル技能が**単体で**参加できる(指定技能がアクションでも
+  // 弾かれない)。〈技能AⅡ〉系の効果の表現。起点(用途の親)自身の連鎖には適用しない(ベース決定の根幹)。
+  const ignoreSet = ignoreComboKeys instanceof Set ? ignoreComboKeys : new Set(ignoreComboKeys);
 
   // 必須クロージャ: 起点の連鎖に加え、現在の組み合わせ技能(seed)それぞれの連鎖も推移的に含める
-  // (例: 技能:白兵 の用途に 技能:電脳 の技能を組み合わせたら、電脳も必須コンボに入る)。
-  // ただし ignoreSeedIds の seed は「指定技能を無視して単体参加」＝連鎖の必須を引き込まない
-  // (〈技能AⅡ〉系の効果。seed 自身は skillRefs としてそのまま参加する)。
+  // (例: 技能:白兵 の用途に 技能:電脳 の技能を組み合わせたら、電脳も必須コンボに入る)
   const mandatoryKeys = new Set(r.mandatoryKeys);
   for (const id of seedComboIds) {
     const seed = byId.get(id);
     if (!seed) continue;
-    if (ignoreSet.has(id)) continue; // 指定技能を無視: 必須(指定技能)の自動追加をしない
     const sr = chainOf(seed);
     if (sr.defect) { if (seed.identificationKey) mandatoryKeys.add(seed.identificationKey); continue; }
-    for (const k of sr.mandatoryKeys) mandatoryKeys.add(k);
+    for (const k of sr.mandatoryKeys) {
+      // 無視対象の指定技能はスキップ(seed 自身は常に参加)
+      if (k !== seed.identificationKey && ignoreSet.has(k)) continue;
+      mandatoryKeys.add(k);
+    }
   }
 
   // ベース再決定: 全クロージャ(起点＋seed の連鎖)にアクション技能があればそれがベース。

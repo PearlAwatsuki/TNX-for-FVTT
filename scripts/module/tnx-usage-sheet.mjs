@@ -161,10 +161,9 @@ export async function enforceUsageChainDefaultsOnImport(item) {
         let baseId = usage.baseSkillRef?.itemId ?? "";
         if (baseId && baseId !== item.id && !actor.items.has(baseId)) baseId = "";
 
-        // ignoreComboSkill(指定技能を無視して単体参加)の保持と、その seed の指定技能を必須補完から除外
-        const ignoreMap = new Map((usage.skillRefs ?? []).map(r => [r.itemId, r.ignoreComboSkill === true]));
-        const ignoreSeedIds = [...ignoreMap].filter(([, v]) => v).map(([id]) => id).filter(id => actor.items.has(id));
-        const res = resolveUsageSkills(normalizeSkillItemDoc(item), skillItems, cleanedRefs, ignoreSeedIds);
+        // 用途の「無視する指定技能」を反映(該当技能の指定技能を必須補完で再追加しない)
+        const ignoreKeys = (usage.ignoreComboSkills ?? []).filter(Boolean);
+        const res = resolveUsageSkills(normalizeSkillItemDoc(item), skillItems, cleanedRefs, ignoreKeys);
         if (res && !res.defect) {
             const baseCandidates = parentIsAction ? [item.id]
                 : (res.baseLocked ? (res.baseCandidateItemIds ?? []) : null);
@@ -189,7 +188,7 @@ export async function enforceUsageChainDefaultsOnImport(item) {
         const prevRefs = (usage.skillRefs ?? []).map(r => r.itemId);
         if (baseId !== prevBase || refs.length !== prevRefs.length || refs.some((id, i) => id !== prevRefs[i])) {
             usage.baseSkillRef = { ...(usage.baseSkillRef ?? {}), itemId: baseId };
-            usage.skillRefs = refs.map(id => ({ itemId: id, ignoreComboSkill: ignoreMap.get(id) === true }));
+            usage.skillRefs = refs.map(id => ({ itemId: id }));
             changed = true;
         }
     }
@@ -272,7 +271,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         },
         actions: {
             skillRefDelete:        TnxUsageSheet._onSkillRefDelete,
-            toggleIgnoreCombo:     TnxUsageSheet._onToggleIgnoreCombo,
+            ignoreComboDelete:     TnxUsageSheet._onIgnoreComboDelete,
             weaponRefDelete:       TnxUsageSheet._onWeaponRefDelete,
             checkBonusAdd:         TnxUsageSheet._onCheckBonusAdd,
             checkBonusDelete:      TnxUsageSheet._onCheckBonusDelete,
@@ -458,16 +457,10 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             }
 
             context.skillRefItems = [
-                ...(parentIsComboMember ? [{ idx: -1, itemId: parentItemId, name: this._item.name, isLocked: true, canIgnoreCombo: false }] : []),
+                ...(parentIsComboMember ? [{ idx: -1, itemId: parentItemId, name: this._item.name, isLocked: true }] : []),
                 ...usage.skillRefs.map((r, idx) => {
                     const skillItem = actor?.items.get(r.itemId);
-                    return {
-                        idx, itemId: r.itemId,
-                        name: skillItem?.name ?? `(削除済み: ${r.itemId})`,
-                        isLocked: lockOf(r.itemId),
-                        canIgnoreCombo: true,
-                        ignoreComboSkill: r.ignoreComboSkill === true,
-                    };
+                    return { idx, itemId: r.itemId, name: skillItem?.name ?? `(削除済み: ${r.itemId})`, isLocked: lockOf(r.itemId) };
                 }),
             ];
 
@@ -488,6 +481,17 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             }
             context.confrontationReactions = [...new Set(reactions)];
             context.confrontationCannot    = inherentCannot;
+
+            // 無視する指定技能(2026-07-10): この用途で設定した技能を指定「技能」とするスタイル技能は、
+            // 指定技能を自動追加せず単体で組み合わせに参加できる(〈技能AⅡ〉系の効果)。
+            // 保存は辞典の識別キー・表示は逆引きした技能名(未収載キーはそのまま)
+            const ignoreKeys = this._ignoreComboKeys();
+            context.ignoreComboRows = ignoreKeys.map(key => ({ key, name: nameOf(key) }));
+            const usedIgnore = new Set(ignoreKeys);
+            context.ignoreComboChoices = Object.entries(skillNames)
+                .filter(([key]) => key && !usedIgnore.has(key))
+                .map(([key, name]) => ({ key, name }))
+                .sort((a, b) => a.name.localeCompare(b.name, "ja"));
         }
 
         // 攻撃プロファイル(判定を攻撃に使う場合の武器・系統)。攻撃は check の一種なので、
@@ -654,16 +658,29 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                     if (!itemId) return;
                     const usage = this.usage;
                     if (!usage || usage.skillRefs.some(r => r.itemId === itemId)) return;
-                    // 追加可否: アクション技能の重複(組み合わせ不可)・個数上限を事前に判定してブロック
+                    // 追加可否: アクション技能の重複(組み合わせ不可)・個数上限を事前に判定してブロック。
+                    // 「無視する指定技能」設定済みの技能は指定技能を引き込まないため、ここで弾かれない
                     const chk = this._addComboCheck(itemId);
                     if (!chk.allowed) {
                         ui.notifications.warn(chk.reason === "action"
-                            ? "アクション技能同士は組み合わせできません（その技能の指定「技能」がアクション技能です）。"
+                            ? "アクション技能同士は組み合わせできません（その技能の指定「技能」がアクション技能です。組み合わせを可能にする効果がある場合は、参加技能の「無視する指定技能」に指定技能を設定してください）。"
                             : `組み合わせ技能は最大 ${chk.limit} 個までです（ベース技能のレベル＋1個）。`);
                         ev.target.value = "";
                         return;
                     }
                     await this._patchUsage({ skillRefs: [...usage.skillRefs, { itemId }] });
+                    this.render({ force: true });
+                });
+            }
+
+            // 無視する指定技能: ドロップダウン選択で即時追加(2026-07-10)
+            for (const select of this.element.querySelectorAll("select.ignore-combo-select")) {
+                select.addEventListener("change", async (ev) => {
+                    const key = ev.target.value;
+                    if (!key) return;
+                    const usage = this.usage;
+                    if (!usage || (usage.ignoreComboSkills ?? []).includes(key)) { ev.target.value = ""; return; }
+                    await this._patchUsage({ ignoreComboSkills: [...(usage.ignoreComboSkills ?? []), key] });
                     this.render({ force: true });
                 });
             }
@@ -1094,15 +1111,31 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         this.render({ force: true });
     }
 
-    /** 参加技能の「指定技能を無視(単体参加)」を切り替える(2026-07-10)。 */
-    static async _onToggleIgnoreCombo(_event, target) {
-        const idx = Number(target.dataset.idx);
+    /** 「無視する指定技能」の行を削除する(2026-07-10)。解除で指定技能(アクション)が引き込まれて
+     * アクション重複になる場合は解除できない(先に該当の参加技能を外す)。 */
+    static async _onIgnoreComboDelete(_event, target) {
+        const key = target.dataset.key;
         const usage = this.usage;
-        if (!usage || !Number.isInteger(idx) || idx < 0) return;
-        const skillRefs = usage.skillRefs.map((r, i) =>
-            i === idx ? { itemId: r.itemId, ignoreComboSkill: !r.ignoreComboSkill } : { itemId: r.itemId, ignoreComboSkill: r.ignoreComboSkill === true });
-        await this._patchUsage({ skillRefs });
+        if (!usage || !key) return;
+        const next = (usage.ignoreComboSkills ?? []).filter(k => k !== key);
+        if (this._comboActionConflict(next)) {
+            ui.notifications.warn("この設定を外すと指定「技能」(アクション技能)が引き込まれ、アクション技能同士になるため外せません。先に該当の組み合わせ技能を外してください。");
+            return;
+        }
+        await this._patchUsage({ ignoreComboSkills: next });
         this.render({ force: true });
+    }
+
+    /** 指定の「無視する指定技能」構成でアクション技能が2つ以上参加になるか(現ベース込み)。 */
+    _comboActionConflict(ignoreKeys) {
+        const skillItems = this._actorSkillItems();
+        if (!skillItems) return false;
+        const seedIds = this.usage.skillRefs.map(r => r.itemId).filter(Boolean);
+        const res = resolveUsageSkills(this._normalizeSkillItem(this._item), skillItems, seedIds, ignoreKeys.filter(Boolean));
+        const actionIds = new Set(res.mandatoryItemIds.filter(id => this._isActionSkillId(id)));
+        const curBase = this._effectiveBaseId();
+        if (this._isActionSkillId(curBase)) actionIds.add(curBase);
+        return actionIds.size > 1;
     }
 
     // ─── weaponRefs 管理(攻撃プロファイル・複数武器の合算) ────────────────────────
@@ -1193,9 +1226,13 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         const skillItems = this._actorSkillItems();
         if (!skillItems) return null;
         const seedComboIds = this.usage.skillRefs.map(r => r.itemId).filter(Boolean);
-        // ignoreComboSkill の参加技能は指定技能の自動追加をスキップ(単体参加)
-        const ignoreSeedIds = this.usage.skillRefs.filter(r => r.ignoreComboSkill).map(r => r.itemId).filter(Boolean);
-        return resolveUsageSkills(this._normalizeSkillItem(this._item), skillItems, seedComboIds, ignoreSeedIds);
+        return resolveUsageSkills(this._normalizeSkillItem(this._item), skillItems, seedComboIds,
+            this._ignoreComboKeys());
+    }
+
+    /** 用途の「無視する指定技能」(識別キー配列・空要素除去)。 */
+    _ignoreComboKeys() {
+        return (this.usage?.ignoreComboSkills ?? []).filter(Boolean);
     }
 
     /** 現在の実効ベース技能 id(アクション親は自身・非アクションは baseSkillRef かフォールバックで親)。 */
@@ -1262,8 +1299,9 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         if (!skillItems) return { allowed: true }; // 解決不能なら制限しない
         const parentItemId = this._item.id;
         const currentRefIds = this.usage.skillRefs.map(r => r.itemId);
-        const ignoreSeedIds = this.usage.skillRefs.filter(r => r.ignoreComboSkill).map(r => r.itemId).filter(Boolean);
-        const res = resolveUsageSkills(this._normalizeSkillItem(this._item), skillItems, [...currentRefIds, itemId], ignoreSeedIds);
+        // 用途の「無視する指定技能」を反映して判定する(該当技能は指定技能を引き込まず単体参加
+        // ＝指定技能がアクションでもここで弾かれない)
+        const res = resolveUsageSkills(this._normalizeSkillItem(this._item), skillItems, [...currentRefIds, itemId], this._ignoreComboKeys());
 
         // アクション技能の重複: 参加技能(クロージャ＋現ベース)にアクションが2つ以上 → 組み合わせ不可
         const actionIds = new Set(res.mandatoryItemIds.filter(id => this._isActionSkillId(id)));
