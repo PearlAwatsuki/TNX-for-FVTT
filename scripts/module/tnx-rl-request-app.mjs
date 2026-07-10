@@ -15,6 +15,7 @@
 import { getComboSuits, ALL_SUITS } from './tnx-check-engine.mjs';
 import { TnxCheckFlow } from './tnx-check-flow.mjs';
 import { buildSkillOptions } from './skill-select.mjs';
+import { findItemByIdentificationKey } from './identification.mjs';
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -298,9 +299,7 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
             // 任意に代用できる(可否・ペナルティ修正の裁定は卓=修正は判定者が手入力)。
             // 指定技能を持たない場合もハードブロックせず代用判定を提示する。
             // ※能力値判定・制御判定は代用の対象外(技能判定内でのみ代用が成立する)
-            const matchedItem = actor.items.find(
-                i => i.type === "generalSkill" && i.system.identificationKey === identificationKey
-            );
+            const matchedItem = findItemByIdentificationKey(actor, identificationKey, { type: "generalSkill" });
             const choice = await TnxRlRequestApp._promptSkillUse(actor, { matchedItem, requestedLabel: skillLabel });
             if (!choice) return;
             skillIds           = [choice.item.id];

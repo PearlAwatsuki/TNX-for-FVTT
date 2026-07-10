@@ -15,6 +15,7 @@
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { getComboSuits } from "./tnx-check-engine.mjs";
 import { movementStagesFromAchievement } from "./vehicle-move-logic.mjs";
+import { findItemByIdentificationKey } from "./identification.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -25,11 +26,7 @@ const SCOPE = "tokyo-nova-axleration";
  * @returns {Item|null}
  */
 export function resolveOperateSkill(actor, vehicle) {
-  const key = vehicle?.system?.operateSkillKey || "";
-  if (!key) return null;
-  return actor?.items?.find(
-    i => i.type === "generalSkill" && i.system.identificationKey === key
-  ) ?? null;
+  return findItemByIdentificationKey(actor, vehicle?.system?.operateSkillKey || "", { type: "generalSkill" });
 }
 
 /**
