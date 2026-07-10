@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
-const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, collectActorEffectBuffs } = await import("../../../scripts/data/item/helpers.mjs");
+const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, collectActorEffectBuffs, targetStyleWorksKeys } = await import("../../../scripts/data/item/helpers.mjs");
 
 describe("defenceField()", () => {
   it("呼び出せる", () => {
@@ -265,6 +265,23 @@ describe("gatherDamageVsSources()（対象バフの内訳・判定バフと同�
       { name: "アヤカシ特効", value: 5 },
       { name: "重ねがけ", value: 2 },
     ]);
+  });
+});
+
+describe("targetStyleWorksKeys()（攻撃対象のスタイル/ワークス識別キー）", () => {
+  it("type:style の識別キーと styleSkill の組織を集める（重複排除・'-'除外・対象外型は無視）", () => {
+    const target = { items: [
+      { type: "style", system: { identificationKey: "ayakashi" } },
+      { type: "style", system: { identificationKey: "ayakashi" } },
+      { type: "styleSkill", system: { special: { works: { organization: "kabuki" } } } },
+      { type: "styleSkill", system: { special: { works: { organization: "-" } } } },
+      { type: "weapon", system: { identificationKey: "gun" } },
+    ] };
+    expect(targetStyleWorksKeys(target)).toEqual({ styles: ["ayakashi"], works: ["kabuki"] });
+  });
+  it("対象なし・アイテムなしは空配列", () => {
+    expect(targetStyleWorksKeys(null)).toEqual({ styles: [], works: [] });
+    expect(targetStyleWorksKeys({ items: [] })).toEqual({ styles: [], works: [] });
   });
 });
 

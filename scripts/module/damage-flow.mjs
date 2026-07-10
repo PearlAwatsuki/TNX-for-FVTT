@@ -32,7 +32,7 @@ import { TnxActionHandler } from "./tnx-action-handler.mjs";
 import { getCardCheckValue } from "./tnx-check-engine.mjs";
 import { formatAttackLabel } from "./attack-flow-logic.mjs";
 import { consumeFaAmmo } from "./weapon-ammo.mjs";
-import { gatherDamageVsSources, collectActorEffectBuffs } from "../data/item/helpers.mjs";
+import { gatherDamageVsSources, collectActorEffectBuffs, targetStyleWorksKeys } from "../data/item/helpers.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会" };
@@ -112,10 +112,13 @@ export async function openDamageRollDialog(attackMessage) {
     // FA は自動加算せず、FA 可能武器を候補として出しダイアログで武器ごとに選ぶ(2026-07-09)
     const faOptions = category === "physical" ? (f.faOptions ?? []) : [];
 
+    // 攻撃対象(防御側)を一度だけ解決する。式の @target.* と AE ダメージ対象バフの照合に用いる。
+    const targetActor = await resolveTargetActor(f.targetUuid);
+
     // damageBoost(攻撃側)の候補。formula は事前評価(@diff/@achievement は判定結果で固定・
-    // 攻撃者のロールデータ @system.* も供給=AE と同じ値を式で参照可)。評価不能な自由文は
-    // 数値効果なし=表示のみ(手動修正欄で反映)
-    const formulaData = buildFormulaData(attacker, { diff: f.diff, achievement: f.achievement });
+    // 攻撃者のロールデータ @system.* と攻撃対象 @target.* も供給=AE と同じ値を式で参照可)。
+    // 評価不能な自由文は数値効果なし=表示のみ(手動修正欄で反映)
+    const formulaData = buildFormulaData(attacker, { diff: f.diff, achievement: f.achievement }, null, targetActor);
     const boostRows = collectDamageUsages(attacker, "damageBoost");
     for (const r of boostRows) {
         const v = await evaluateFormula(r.formula, formulaData);
@@ -124,15 +127,15 @@ export async function openDamageRollDialog(attackMessage) {
     }
 
     // 攻撃用途のダメージ修正(式の行・2026-07-10)。各行を評価し、供給元名で帰属して台帳に出す。
-    // 式は @system.*・@item.<識別キー>.system.*・@diff/@achievement を参照可。供給元は逆引きした
-    // 現在のアイテム名(表示帰属のみ・生キーは表示しない)。
+    // 式は @system.*・@item.<識別キー>.system.*・@target.*(対象のスタイル/値)・@diff/@achievement を
+    // 参照可。供給元は逆引きした現在のアイテム名(表示帰属のみ・生キーは表示しない)。
     const { total: damageBonus, sources: damageBonusRows } =
-        await evaluateBonusRows(f.damageBonuses, attacker, { diff: f.diff, achievement: f.achievement });
+        await evaluateBonusRows(f.damageBonuses, attacker, { diff: f.diff, achievement: f.achievement }, null, targetActor);
 
     // 攻撃対象のスタイル/ワークスに応じた AE ダメージバフ(damage.vsStyle/vsWorks・2026-07-10)。
     // 判定バフのダメージ・対象参照版=ダメージ算出時に相手を見てフラットボーナスを足す。台帳では
     // 用途のダメージ修正と同じ行(供給元=効果名で帰属)として並べる。
-    const vsRows = await collectDamageVsBonuses(attacker, f.targetUuid);
+    const vsRows = collectDamageVsBonuses(attacker, targetActor);
     const damageBonusRowsAll = [...damageBonusRows, ...vsRows];
     const damageBonusTotal = damageBonus + vsRows.reduce((s, r) => s + (Number(r.value) || 0), 0);
 
@@ -393,27 +396,24 @@ export function renderDamageCard(message, html) {
     }
 }
 
+/** 攻撃対象(命中確定済み)のアクターを解決する。トークンドキュメントならアクターへ。 */
+async function resolveTargetActor(targetUuid) {
+    if (!targetUuid) return null;
+    const resolved = await fromUuid(targetUuid).catch(() => null);
+    return resolved?.actor ?? resolved ?? null;
+}
+
 /**
  * 攻撃対象のスタイル/ワークスに応じた AE ダメージバフ(`damage.vsStyle.*` / `damage.vsWorks.*`)を
  * 集計する。攻撃対象が持つスタイル(`type:"style"` アイテムの識別キー)・ワークス(ワークス技能の
  * 組織)で照合し、供給元(効果名)別のフラット寄与を返す。判定バフのダメージ・対象参照版。
  * @param {Actor} attacker
- * @param {string} targetUuid  攻撃対象(命中確定済み)
- * @returns {Promise<Array<{name:string, value:number}>>}
+ * @param {Actor|null} target  解決済みの攻撃対象アクター
+ * @returns {Array<{name:string, value:number}>}
  */
-async function collectDamageVsBonuses(attacker, targetUuid) {
-    if (!attacker || !targetUuid) return [];
-    const resolved = await fromUuid(targetUuid).catch(() => null);
-    const target = resolved?.actor ?? resolved;   // トークンドキュメントならアクターへ
-    if (!target?.items) return [];
-    const items = target.items.contents ?? target.items;
-    const styles = [...new Set([...items]
-        .filter(i => i.type === "style")
-        .map(i => i.system?.identificationKey).filter(Boolean))];
-    const works = [...new Set([...items]
-        .filter(i => i.type === "styleSkill")
-        .map(i => i.system?.special?.works?.organization)
-        .filter(o => o && o !== "-"))];
+function collectDamageVsBonuses(attacker, target) {
+    if (!attacker || !target?.items) return [];
+    const { styles, works } = targetStyleWorksKeys(target);
     if (!styles.length && !works.length) return [];
     return gatherDamageVsSources(collectActorEffectBuffs(attacker), { styles, works });
 }

@@ -293,6 +293,25 @@ export function gatherDamageVsSources(effects, criteria) {
  * @param {string} scope  フラグスコープ(パッケージID)
  * @returns {Array<{identity:string, name:string, stackable:boolean, active:boolean, changes:Array}>}
  */
+/**
+ * アクター(攻撃対象)が持つスタイル/ワークスの識別キー一覧を返す。ダメージ対象バフの照合
+ * (`damage.vs*`)と、ダメージ式の `@target.style.*` / `@target.works.*` で共用する。
+ * スタイル＝`type:"style"` アイテムの識別キー。ワークス＝ワークス技能(styleSkill)の組織。
+ * @param {Actor} target
+ * @returns {{styles:string[], works:string[]}}
+ */
+export function targetStyleWorksKeys(target) {
+  const items = target?.items?.contents ?? target?.items ?? [];
+  const styles = [...new Set([...items]
+    .filter(i => i.type === "style")
+    .map(i => i.system?.identificationKey).filter(Boolean))];
+  const works = [...new Set([...items]
+    .filter(i => i.type === "styleSkill")
+    .map(i => i.system?.special?.works?.organization)
+    .filter(o => o && o !== "-"))];
+  return { styles, works };
+}
+
 export function collectActorEffectBuffs(actor, scope = "tokyo-nova-axleration") {
   const out = [];
   const push = (e) => out.push({

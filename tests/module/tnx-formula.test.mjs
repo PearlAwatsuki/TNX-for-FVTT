@@ -56,6 +56,24 @@ describe("buildFormulaData()（AE と同じ system.* / @item.<識別キー> を�
     expect(d.item.parent.system.attack.total).toBe(9);          // @item.parent.*（装備先ホスト）
     expect(d.item.host_key.system.attack.total).toBe(9);        // 識別キーでも引ける
   });
+
+  it("target 指定で @target.system.* と @target.style/works（1/0・欠損も0）を供給する", () => {
+    const target = {
+      getRollData: () => ({ system: { life: { total: 6 } } }),
+      items: [
+        { type: "style", system: { identificationKey: "ayakashi" } },
+        { type: "styleSkill", system: { special: { works: { organization: "kabuki" } } } },
+      ],
+    };
+    const d = buildFormulaData(actor, null, null, target);
+    expect(d.target.system.life.total).toBe(6);   // @target.system.*（対象の実効値）
+    expect(d.target.style.ayakashi).toBe(1);       // 所持スタイル → 1
+    expect(d.target.style.tatara).toBe(0);         // 未所持（欠損キー）→ 0
+    expect(d.target.works.kabuki).toBe(1);
+    expect(d.target.works.union).toBe(0);
+    // target を渡さなければ @target は無い（判定・AE 値では非供給）
+    expect(buildFormulaData(actor).target).toBeUndefined();
+  });
 });
 
 describe("evaluateFormulaSync()（AE 値の同期評価・2026-07-10）", () => {

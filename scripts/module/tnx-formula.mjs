@@ -12,6 +12,7 @@
  */
 
 import { resolveItemNameByKey } from "./identification.mjs";
+import { targetStyleWorksKeys } from "../data/item/helpers.mjs";
 
 /**
  * 判定結果(checkResult.result)から式評価用のデータオブジェクトを作る(Foundry 非依存)。
@@ -36,9 +37,13 @@ export function buildCheckFormulaData(result) {
  * 「選んだ武器の攻撃力をダメージに加算」＝ダメージ修正の式に `@item.<武器の識別キー>.system.attack.value`)。
  * @param {Actor|null} actor
  * @param {{diff?: number|null, achievement?: number|null}|null} [result] 判定結果(判定前は null)
+ * @param {object|null} [bearer] AE 値の相対参照用(効果が乗るアイテム)。判定/ダメージの式では null
+ * @param {Actor|null} [target] 攻撃対象(防御側)。**ダメージの式でのみ**供給する。`@target.system.*`
+ *   (対象の実効値・AE 込み)と `@target.style.<識別キー>` / `@target.works.<組織キー>`(対象が持てば
+ *   1・なければ 0＝欠損キーも 0)を公開する。判定・AE 値では null。
  * @returns {object} evaluateFormula に渡す data
  */
-export function buildFormulaData(actor, result = null, bearer = null) {
+export function buildFormulaData(actor, result = null, bearer = null, target = null) {
     const data = { ...(actor?.getRollData?.() ?? {}) };
     if (result) Object.assign(data, buildCheckFormulaData(result));
     // @item.<識別キー>.system.* : アクターの任意アイテムを識別キーで参照(system 全体)
@@ -56,7 +61,27 @@ export function buildFormulaData(actor, result = null, bearer = null) {
         if (parent) items.parent = { system: parent.system };
     }
     data.item = items;
+    if (target) data.target = buildTargetData(target);
     return data;
+}
+
+/**
+ * `@target.*` のデータを組み立てる。`system.*` は対象の getRollData(AE 込み実効値)、
+ * `style` / `works` は「対象が持てば 1・なければ 0」を返す Proxy(**欠損キーも 0**＝未所持スタイルを
+ * 式で参照してもエラーにせず 0 として評価させる)。例: `@target.style.ayakashi * 5`。
+ * @param {Actor} target
+ * @returns {object}
+ */
+function buildTargetData(target) {
+    const td = { ...(target.getRollData?.() ?? {}) };
+    const { styles, works } = targetStyleWorksKeys(target);
+    const flag = (list) => {
+        const set = new Set(list);
+        return new Proxy({}, { get: (_o, k) => (typeof k === "string" && set.has(k)) ? 1 : 0 });
+    };
+    td.style = flag(styles);
+    td.works = flag(works);
+    return td;
 }
 
 /**
@@ -92,12 +117,13 @@ export function evaluateFormulaSync(formula, data = {}) {
  * @param {Actor|null} actor
  * @param {{diff?:number|null, achievement?:number|null}|null} [result] 判定結果(判定前は null)
  * @param {Record<string,string>|null} [dictNames] 辞典フォールバック名
+ * @param {Actor|null} [target] 攻撃対象(ダメージ修正で `@target.*` を参照する場合。判定では null)
  * @returns {Promise<{total:number, sources:Array<{name:string, value:number}>}>}
  */
-export async function evaluateBonusRows(rows, actor, result = null, dictNames = null) {
+export async function evaluateBonusRows(rows, actor, result = null, dictNames = null, target = null) {
     let total = 0;
     const sources = [];
-    const data = buildFormulaData(actor, result); // @item マップは全行で共通
+    const data = buildFormulaData(actor, result, null, target); // @item/@target は全行で共通
     for (const row of (rows ?? [])) {
         const val = await evaluateFormula(row?.formula, data);
         if (!Number.isFinite(val) || val === 0) continue;
