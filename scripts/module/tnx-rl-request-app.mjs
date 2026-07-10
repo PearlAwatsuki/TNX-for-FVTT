@@ -314,10 +314,8 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
                 manualMod = choice.manualMod;
                 effectiveSkillLabel = choice.item.name;
             }
-        } else if (checkType === "abilityCheck") {
-            // 能力値判定: 報酬点が使用可能
-            bountyAvailable = actorBounty;
         }
+        // abilityCheck: bountyAvailable = 0 (能力値判定では報酬点を消費できない・2026-07-10 ユーザー確定)
         // controlCheck: bountyAvailable = 0 (default)
         // skillCheck + その他: validSuits = flagSuits, bountyAvailable = 0
 

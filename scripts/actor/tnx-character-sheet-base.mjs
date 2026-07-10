@@ -2528,7 +2528,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             skillLabel:      ABILITY_LABELS[abilityKey] ?? abilityKey,
             validSuits:      suit ? [suit] : [...ALL_SUITS],
             targetValue:     null,
-            bountyAvailable: (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0),
+            bountyAvailable: 0, // 能力値判定では報酬点を消費できない(2026-07-10 ユーザー確定)
             requestMessageId: null,
         });
     }
