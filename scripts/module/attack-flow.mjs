@@ -31,6 +31,7 @@ import { resolveNoReaction, resolveOpposed, attackReactionModes, formatAttackLab
 import { hasAmmoTracking, consumeNormalAmmo } from "./weapon-ammo.mjs";
 import { buildSkillOptions } from "./skill-select.mjs";
 import { actorSkillsWithRole } from "./skill-roles.mjs";
+import { resolveOperateSkill } from "./vehicle-move.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -42,7 +43,7 @@ export const ATTACK_CATEGORY_LABELS = Object.freeze({
 
 /** リアクションの既定候補の案内(技能は強制しない=表示のみ) */
 const REACTION_HINTS = Object.freeze({
-    dodge:    "既定候補: 〈回避〉（ヴィークル搭乗時は対応する〈操縦〉）",
+    dodge:    "既定候補: 〈回避〉（ヴィークル搭乗中は対応する〈操縦〉のみ・回避は不可）",
     parry:    "既定候補: 〈白兵〉",
     mental:   "既定候補: 〈自我〉",
     social:   "既定候補: 〈信用〉",
@@ -396,6 +397,27 @@ export async function handleNoReaction(message) {
 }
 
 /**
+ * ヴィークル搭乗中で対応する〈操縦〉技能を持たずドッジできないとき、パリー/制御値受けへ誘導する
+ * (2026-07-10 ユーザー確定)。搭乗中は回避ブロックのため、回避へのフォールバックはしない。
+ */
+async function promptVehicleDodgeFallback(reactor, vehicle, message) {
+    const esc = foundry.utils.escapeHTML;
+    const choice = await foundry.applications.api.DialogV2.wait({
+        window: { title: "ドッジ不可（操縦技能なし）" },
+        classes: ["tokyo-nova", "tnx-dialog"],
+        content: `<p>「${esc(reactor.name)}」は「${esc(vehicle.name)}」に対応する〈操縦〉技能を持たないため、搭乗中はドッジできません。</p>`
+            + `<p>パリーするか、制御値で受けるかを選んでください。</p>`,
+        buttons: [
+            { action: "parry", icon: "fas fa-shield-halved", label: "パリー", callback: () => "parry" },
+            { action: "none",  icon: "fas fa-user-shield",   label: "制御値で受ける", callback: () => "none" },
+            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+        ],
+    });
+    if (choice === "parry") await startReaction(message, "parry");
+    else if (choice === "none") await handleNoReaction(message);
+}
+
+/**
  * リアクション(ドッジ/パリー/精神・社会のリアクション)を開始する。
  * 技能は強制しない(既定候補は案内のみ)。判定は通常の技能判定フローで行い、
  * 完了時に completeReactionFromCheck が対決を解決する。
@@ -423,14 +445,32 @@ export async function startReaction(message, mode) {
             ? (Number(parryWeapon.system.guardValue.value) || 0) : 0;
     }
 
+    // ヴィークル搭乗中(準備済みヴィークル=部位「操縦」は1枠のため常に1つ)はドッジ＝対応する〈操縦〉
+    // のみ(回避・他技能はブロック・Damage_Rules「ドッジ」)。操縦技能を持たなければドッジ不可で、
+    // パリー/制御値受けへフォールバックさせる(2026-07-10 ユーザー確定)。
+    let candidates = null;
+    if (mode === "dodge") {
+        const vehicle = reactor.items.find(i => i.type === "vehicle" && i.system.isPrepared && i.system.operateSkillKey);
+        if (vehicle) {
+            const operateSkill = resolveOperateSkill(reactor, vehicle);
+            if (!operateSkill) {
+                await promptVehicleDodgeFallback(reactor, vehicle, message);
+                return;
+            }
+            candidates = [operateSkill]; // 操縦のみに差し替え(回避ブロック)
+        }
+    }
+
     // 技能選択(強制しない): リアクション役割(dodge/parry/mentalReaction/socialReaction)を持つ
     // 技能を検出。役割技能が無ければ全技能から選ばせる(移行フォールバック)。既定は先頭を初期選択
     const role = reactionRole(mode, f.category);
-    let candidates = actorSkillsWithRole(reactor, role);
-    if (!candidates.length) {
-        candidates = reactor.items
-            .filter(i => ["generalSkill", "styleSkill"].includes(i.type))
-            .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
+    if (!candidates) {
+        candidates = actorSkillsWithRole(reactor, role);
+        if (!candidates.length) {
+            candidates = reactor.items
+                .filter(i => ["generalSkill", "styleSkill"].includes(i.type))
+                .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
+        }
     }
     if (!candidates.length) { ui.notifications.warn(`「${reactor.name}」に使用できる技能がありません。`); return; }
     const hint = mode === "reaction" ? REACTION_HINTS[f.category] : REACTION_HINTS[mode];
