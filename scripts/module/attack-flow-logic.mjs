@@ -63,9 +63,11 @@ export function resolveNoReaction(achievement, control) {
 }
 
 /**
- * 対決の命中確定: 相手のリアクション判定の達成値を目標値として扱う(Check_Rules 確定)。
- * 攻撃達成値≥リアクション達成値で命中(達成値≥目標値の一般規約との合成)。
- * 未満は攻撃側敗北=その時点で攻撃終了(Combat_Flow)。差分値は勝利時のみ(敗北時は null)。
+ * 対決の命中確定: 相手のリアクション判定の達成値と比べる(Check_Rules 確定)。
+ * **受動有利**: 攻撃(能動)側はリアクション(受動)側を**上回れば**命中し、**同値はリアクション側の勝利**
+ * =攻撃側敗北(トーキョーN◎VA の対決は受動有利の原則。「目標値≥」の一般規約とは別＝相手の達成値は
+ * 固定目標値でなく対決相手の値)。未満/同値は攻撃側敗北=その時点で攻撃終了(Combat_Flow)。
+ * 差分値は勝利時のみ(敗北時は null)。
  * @param {number} attackAchievement
  * @param {number} reactionAchievement リアクション不成立(ファンブル/スート不一致)は 0 を渡す
  * @returns {{hit: boolean, diff: number|null, targetValue: number}}
@@ -73,7 +75,7 @@ export function resolveNoReaction(achievement, control) {
 export function resolveOpposed(attackAchievement, reactionAchievement) {
     const targetValue = Number(reactionAchievement) || 0;
     const margin = (Number(attackAchievement) || 0) - targetValue;
-    const hit = margin >= 0;
+    const hit = margin > 0;   // 受動有利: 同値(margin=0)はリアクション側の勝利=攻撃側敗北
     return { hit, diff: hit ? margin : null, targetValue };
 }
 

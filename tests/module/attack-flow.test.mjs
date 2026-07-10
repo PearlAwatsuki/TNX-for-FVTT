@@ -31,10 +31,13 @@ describe("resolveNoReaction()（リアクションなし=目標値に対象の�
   });
 });
 
-describe("resolveOpposed()（対決=相手の達成値を目標値として扱う・Check_Rules/Combat_Flow）", () => {
-  it("攻撃達成値≥リアクション達成値で命中（達成値≥目標値の一般規約との合成）", () => {
+describe("resolveOpposed()（対決=受動有利・相手の達成値を上回れば命中・Check_Rules/Combat_Flow）", () => {
+  it("攻撃達成値がリアクション達成値を上回れば命中", () => {
     expect(resolveOpposed(18, 15)).toEqual({ hit: true, diff: 3, targetValue: 15 });
-    expect(resolveOpposed(15, 15)).toEqual({ hit: true, diff: 0, targetValue: 15 });
+  });
+
+  it("同値はリアクション（受動）側の勝利＝攻撃側敗北（受動有利）", () => {
+    expect(resolveOpposed(15, 15)).toEqual({ hit: false, diff: null, targetValue: 15 });
   });
 
   it("未満は攻撃側敗北=攻撃終了・差分値は算出されない（勝利時のみ）", () => {
