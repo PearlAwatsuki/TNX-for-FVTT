@@ -2411,6 +2411,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             checkBonusSelf:  selectedUsage.checkBonusSelf ?? "",
             sourceItemId:    item.id,   // 用途の親アイテム(@item.self の解決に使う)
             usageEffects,               // 付与効果ペイロード(null=効果なし)
+            allowRecheck:    selectedUsage.allowRecheck === true, // 再判定可能(用途の設定・2026-07-11)
         });
     }
 

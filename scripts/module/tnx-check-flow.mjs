@@ -727,13 +727,15 @@ export class TnxCheckFlow {
 
     /**
      * 再判定(カードを出し直して判定値を再決定・2026-07-11 ユーザー確定)用のコンテキストを、
-     * 結果カードのフラグに保存できる形で組み立てる。可否・回数の強制はしない(信頼ベース・
-     * 使用回数系と同思想)。継続処理を持つ判定(リアクション/NPC取得/治療/移動/controlNegate)は
-     * 再実行に状態機械のリセットが要るため当面対象外(null)。
+     * 結果カードのフラグに保存できる形で組み立てる。**用途の「再判定可能」(allowRecheck)が ON の
+     * 判定でのみ**作る(再判定は特定技能の能力で可能になるもの。判定は全て用途を経由するため、
+     * 用途側の設定で全ケースを表せる)。継続処理を持つ判定(リアクション/NPC取得/治療/移動/
+     * controlNegate)は再実行に状態機械のリセットが要るため当面対象外(null)。
      * @param {object} ctx 判定コンテキスト
      * @returns {object|null}
      */
     static _buildRecheckContext(ctx) {
+        if (ctx.allowRecheck !== true) return null;
         if (ctx.reaction || ctx.npcAcquire || ctx.treatment || ctx.movement || ctx.controlNegate) return null;
         return {
             type:            ctx.type,
@@ -788,6 +790,7 @@ export class TnxCheckFlow {
             manualMod:       rc.manualMod,
             ...(rc.attack ? { attack: rc.attack } : {}),
             ...(rc.usageEffects ? { usageEffects: rc.usageEffects } : {}),
+            allowRecheck:    true, // 再判定可能な用途由来(出し直した結果カードにもボタンを出す)
             isRecheck:       true,
         });
     }

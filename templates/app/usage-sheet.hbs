@@ -325,6 +325,14 @@
             {{#if isCheckType}}
             <fieldset class="tnx-fieldset">
                 <legend>判定</legend>
+                {{!-- 再判定可能(2026-07-11): ON の用途からの判定は結果カードに「再判定」ボタンが出る --}}
+                <div class="usage-form-row usage-toggle-row">
+                    <label class="usage-toggle-inline" title="この用途からの判定の結果カードに「再判定（カードを出し直す）」ボタンを出します（判定値の再決定。再判定を可能にする能力の表現）">
+                        <input type="checkbox" name="allowRecheck" {{checked usage.allowRecheck}}
+                               {{#unless editable}}disabled{{/unless}}>
+                        <span>再判定可能</span>
+                    </label>
+                </div>
                 <label class="usage-field-label">この用途の判定修正値 <i class="fas fa-circle-question" title="この用途の親アイテムが持つ判定修正値。式で @item.self（＝この用途の親アイテム）を参照できます（例 @item.self.system.levelTotal）。供給元つきの追加行とは別枠の専用欄です"></i></label>
                 <input type="text" name="checkBonusSelf" value="{{checkBonusSelf}}"
                        placeholder="式（例: @item.self.system.levelTotal、2）"

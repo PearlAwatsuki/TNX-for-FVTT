@@ -141,6 +141,11 @@ export class UsageTemplate extends SystemDataModel {
                     // 参照でき(識別キー不要)、台帳では親アイテム名で帰属する。
                     checkBonusSelf: new fields.StringField({ initial: "" }),
 
+                    // check: 再判定可能(2026-07-11 ユーザー確定)。ON の用途からの判定は、結果カードに
+                    // 「再判定(カードを出し直す)」ボタンが出る(判定値の再決定)。再判定を可能にする
+                    // 特定技能の能力の表現。判定は全て用途を経由するため、この設定で全ケースを表せる。
+                    allowRecheck: new fields.BooleanField({ initial: false }),
+
                     // attack: ダメージ修正(ダメージへ加算する式の行・攻撃用途)。checkBonuses と同型。
                     // ダメージ算出時に評価するため @diff/@achievement も使える。
                     damageBonuses: new fields.ArrayField(

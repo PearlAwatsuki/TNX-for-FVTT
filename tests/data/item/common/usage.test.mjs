@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MockArrayField, MockSchemaField, MockStringField } from "../../../setup.mjs";
+import { MockArrayField, MockBooleanField, MockSchemaField, MockStringField } from "../../../setup.mjs";
 
 const { UsageTemplate, isAttackUsage } = await import("../../../../scripts/data/item/common/usage.mjs");
 
@@ -63,6 +63,11 @@ describe("UsageTemplate.defineSchema()", () => {
 
     it("skillRefs の要素は itemId のみ（per-row の無視フラグは持たない＝用途側設定に一本化）", () => {
       expect(Object.keys(entryFields.skillRefs.element.fields)).toEqual(["itemId"]);
+    });
+
+    it("再判定可能（allowRecheck・2026-07-11）は BooleanField で initial false", () => {
+      expect(entryFields.allowRecheck).toBeInstanceOf(MockBooleanField);
+      expect(entryFields.allowRecheck.options.initial).toBe(false);
     });
 
     it("用途自身の修正値（専用欄・checkBonusSelf / damageBonusSelf）が StringField・initial 空", () => {

@@ -189,6 +189,7 @@ export async function useAttack(item, usage) {
         checkBonuses:    usage.checkBonuses ?? [],
         checkBonusSelf:  usage.checkBonusSelf ?? "",
         sourceItemId:    item.id,   // 用途の親アイテム(@item.self の解決に使う)
+        allowRecheck:    usage.allowRecheck === true, // 再判定可能(用途の設定・2026-07-11)
         attack: {
             attackerUuid: actor.uuid,
             attackerName: actor.name,
