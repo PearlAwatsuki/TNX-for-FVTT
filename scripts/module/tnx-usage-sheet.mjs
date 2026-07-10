@@ -676,6 +676,19 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
         // 技能チェーンの既定ベース設定・必須コンボの自動付与(冪等。変更があるときだけ update→再レンダリングで収束)
         if (context.editable) this._enforceComboRequirements();
+
+        // 再描画後にスクロール位置を復元する(行の追加/削除等の操作でリセットされるのを防ぐ・2026-07-10)
+        const scrollTop = this._usageScrollTop ?? 0;
+        if (scrollTop) requestAnimationFrame(() => {
+            const body = this.element?.querySelector(".usage-sheet-body");
+            if (body) body.scrollTop = scrollTop;
+        });
+    }
+
+    /** @override — 再描画前にスクロール位置を保存する(操作でスクロールが飛ぶのを防ぐ・2026-07-10) */
+    async _preRender(context, options) {
+        await super._preRender?.(context, options);
+        this._usageScrollTop = this.element?.querySelector(".usage-sheet-body")?.scrollTop ?? 0;
     }
 
     /** NPC取得(エキストラモード)の取得アイテムドロップ: 小分類「エキストラ」のアウトフィットのみ */
