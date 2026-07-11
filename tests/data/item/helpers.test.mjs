@@ -402,6 +402,13 @@ describe("parseEffectTargetKey()（v2 system.<名前空間> 文法）", () => {
     expect(parseEffectTargetKey("controlCheck.suitChange")).toBeNull();
   });
 
+  it("ダメージタグ改変: damage.replaceTag.<タグ> / damage.addTag.<タグ>（支配タグ・2026-07-12）", () => {
+    expect(parseEffectTargetKey("damage.replaceTag.stupor")).toMatchObject({ scope: "damageTag", mode: "replace", tag: "stupor" });
+    expect(parseEffectTargetKey("damage.replaceTag.mind-break")).toMatchObject({ scope: "damageTag", mode: "replace", tag: "mind-break" });
+    expect(parseEffectTargetKey("damage.addTag.erased")).toMatchObject({ scope: "damageTag", mode: "add", tag: "erased" });
+    expect(parseEffectTargetKey("damage.replaceTag")).toBeNull(); // タグ無し
+  });
+
   it("ダメージ対象バフ: damage.vsStyle.<キー> / damage.vsWorks.<キー>", () => {
     expect(parseEffectTargetKey("damage.vsStyle.ayakashi")).toMatchObject({ scope: "damageVs", group: "style", selector: "ayakashi" });
     expect(parseEffectTargetKey("damage.vsWorks.kabuki")).toMatchObject({ scope: "damageVs", group: "works", selector: "kabuki" });

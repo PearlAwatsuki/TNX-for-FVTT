@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CONDITION_KINDS, readCondition, readConditions, getConditionKind, getConditionKinds, gatherConditionCheckSources, getCheckBlock, gatherConditionControlPenalty, computeJammingPenalty }
+import { CONDITION_KINDS, readCondition, readConditions, getConditionKind, getConditionKinds, gatherConditionCheckSources, getCheckBlock, gatherConditionControlPenalty, computeJammingPenalty, buildInflictedEffectsData, applyDamageTagMods }
   from "../../scripts/module/conditions.mjs";
 
 /** 準備アウトフィット記述子の略記 */
@@ -200,5 +200,61 @@ describe("getCheckBlock()（重圧）", () => {
   it("上方判定でなければ(制御判定)禁止しない", () => {
     const conds = [readCondition(condEffect({ kind: "pressure", targetAbility: "life" }))];
     expect(getCheckBlock(conds, { upward: false, ability: "life" }).blocked).toBe(false);
+  });
+});
+
+
+describe("applyDamageTagMods()（ダメージタグ改変・支配タグ・2026-07-12）", () => {
+  const stuporData = () => buildInflictedEffectsData("ment-11", { hidden: true }); // 自我危機: stupor + controlNegate
+  const erasedData = () => buildInflictedEffectsData("soc-11", { hidden: true });  // 追放: erased
+
+  it("mods 無し/空はそのまま返す", () => {
+    const list = stuporData();
+    expect(applyDamageTagMods(list, null)).toBe(list);
+    expect(applyDamageTagMods(list, { replace: new Map(), add: new Map() })).toEqual(list);
+  });
+
+  it("replace: 昏睡→支配（名前/statuses/conditionKind を置換・replacedFrom を記録）", () => {
+    const [d] = applyDamageTagMods(stuporData(), { replace: new Map([["stupor", "dominated"]]) });
+    expect(d.statuses).toEqual(["dominated"]);
+    expect(d.name).toBe("支配");
+    expect(d.flags[SCOPE].conditionKind).toBe("dominated");
+    expect(d.flags[SCOPE].replacedFrom).toBe("stupor");
+  });
+
+  it("replace: チャート項目由来の条件(controlNegate)は新タグへ引き継ぐ", () => {
+    const [d] = applyDamageTagMods(stuporData(), { replace: new Map([["stupor", "dominated"]]) });
+    expect(d.flags[SCOPE].conditions.dominated.pendingControlNegate).toBeDefined();
+    expect(d.flags[SCOPE].conditions.stupor).toBeUndefined();
+  });
+
+  it("replace: 未知のタグキーは無視（元のまま）", () => {
+    const [d] = applyDamageTagMods(stuporData(), { replace: new Map([["stupor", "unknownTag"]]) });
+    expect(d.statuses).toEqual(["stupor"]);
+  });
+
+  it("add: 抹殺に支配を追加（元タグは残る・addedFrom を記録）", () => {
+    const out = applyDamageTagMods(erasedData(), { add: new Map([["erased", ["dominated"]]]) });
+    expect(out.map(d => d.statuses[0])).toEqual(["erased", "dominated"]);
+    expect(out[1].name).toBe("支配");
+    expect(out[1].flags[SCOPE].addedFrom).toBe("erased");
+    expect(out[1].flags[SCOPE].hideFromList).toBe(true);
+  });
+
+  it("add: 対象外のタグには追加されない・未知の追加タグは無視", () => {
+    const none = applyDamageTagMods(stuporData(), { add: new Map([["erased", ["dominated"]]]) });
+    expect(none).toHaveLength(1);
+    const bad = applyDamageTagMods(erasedData(), { add: new Map([["erased", ["unknownTag"]]]) });
+    expect(bad).toHaveLength(1);
+  });
+});
+
+describe("CONDITION_KINDS: 支配（dominated・2026-07-12）", () => {
+  it("マーカータグ（type なし＝行動ブロックもロスト処理も持たない・非重複・戦闘不能グループ）", () => {
+    const def = CONDITION_KINDS["dominated"];
+    expect(def.label).toBe("支配");
+    expect(def.group).toBe("incapacitation");
+    expect(def.type).toBeUndefined();
+    expect(def.stackable).toBe(false);
   });
 });

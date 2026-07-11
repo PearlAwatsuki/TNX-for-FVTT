@@ -54,7 +54,8 @@ import { TnxRlRequestApp } from './module/tnx-rl-request-app.mjs';
 import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
 import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
-import { CONDITION_KINDS, CONDITION_GROUP_LABELS, getConditionKinds, buildInflictedEffectsData, readConditions } from './module/conditions.mjs';
+import { CONDITION_KINDS, CONDITION_GROUP_LABELS, getConditionKinds, buildInflictedEffectsData, applyDamageTagMods, readConditions } from './module/conditions.mjs';
+import { gatherDamageTagMods } from './data/item/helpers.mjs';
 import { registerDamageChartTextSetting } from './module/damage-chart-text-app.mjs';
 import { registerPartSlotPresetSetting, getPartSlotPreset, initializeDefaultPartSlotPreset } from './module/part-slot-preset-app.mjs';
 import { autoAcquireForStyleSkill, autoImportDerivedData } from './module/style-skill-acquisition.mjs';
@@ -436,10 +437,15 @@ Hooks.on("createActiveEffect", async (effect, options, userId) => {
     //   woundSource を辿って負傷を消してはならない(BS を回復してもダメージは治療されない=2026-07-09)。
     const srcKind = getConditionKinds(effect)[0];
     const srcIsWound = CONDITION_KINDS[srcKind]?.type === "wound";
+    // タグ改変(2026-07-12・支配タグ): 負傷(ダメージチャート)由来の付与のみ、対象自身の AE
+    // (damage.replaceTag/addTag)でタグを置換/追加する(例 昏睡/精神崩壊→支配・抹殺に支配を追加)
+    const tagMods = srcIsWound ? gatherDamageTagMods(actor) : null;
     const data = [];
     const seen = new Set();
     for (const kind of getConditionKinds(effect)) {
-        for (const d of buildInflictedEffectsData(kind, { hidden: true })) {
+        let list = buildInflictedEffectsData(kind, { hidden: true });
+        if (tagMods) list = applyDamageTagMods(list, tagMods);
+        for (const d of list) {
             const ik = d.statuses[0];
             const idef = CONDITION_KINDS[ik];
             if (idef && !idef.stackable && (actor.statuses?.has?.(ik) || seen.has(ik))) continue;

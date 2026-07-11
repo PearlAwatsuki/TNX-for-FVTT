@@ -58,6 +58,12 @@ const BS_AND_INCAPACITATION = {
   "dead":       { label: "完全死亡", group: "incapacitation", img: "icons/svg/blood.svg",       type: "terminal", stackable: false },
   "mind-break": { label: "精神崩壊", group: "incapacitation", img: "icons/svg/blood.svg",       type: "terminal", stackable: false },
   "erased":     { label: "抹殺",     group: "incapacitation", img: "icons/svg/blood.svg",       type: "terminal", stackable: false }, // 社会(適用はセッション終了後)
+  // 支配(2026-07-12 ユーザー確定): 特殊な精神ダメージのタグ。支配されたキャラクターは RL 操作に
+  // なる=自動化なしで運用できる範囲(type なし=行動ブロックもロスト処理も持たないマーカー)。
+  // 付与は主にタグ改変 AE(damage.replaceTag/addTag)経由: 昏睡/精神崩壊の上書き・抹殺への追加。
+  // 解除: 上書き由来=昏睡と同じ(治療目標値20・replacedFrom フラグが根拠)/追加由来=追加元の
+  // チャートの治療と同時(woundSource 紐づきで除去)。
+  "dominated":  { label: "支配",     group: "incapacitation", img: "icons/svg/padlock.svg",     stackable: false },
 };
 
 /**
@@ -187,6 +193,61 @@ export function buildInflictedEffectsData(kind, { hidden = true } = {}) {
       statuses: [inf.kind],
       flags:    { [SCOPE]: flags },
     });
+  }
+  return out;
+}
+
+/**
+ * ダメージチャートのタグ改変(2026-07-12 ユーザー確定・支配タグの導入)を inflicts 生成データへ
+ * 適用する(Foundry 非依存・純関数)。対象側の AE(damage.replaceTag.<元タグ>/damage.addTag.<元タグ>・
+ * 値=CONDITION_KINDS のタグキー)で:
+ * - replace: 付与されようとするタグを別のタグへ置き換える(例 昏睡/精神崩壊→支配)。
+ *   置換後の効果に `replacedFrom`(元タグ)を記録する=上書き由来の支配は治療で「昏睡と同じ」
+ *   (目標値20)とする根拠。チャート項目由来の条件(controlNegate 等)は新タグへ引き継ぐ
+ *   (無効化条件はダメージ結果の性質として持ち越し=Code 既定・要調整なら見直し)。
+ * - add: 元タグが付与されるとき追加のタグも付与する(例 抹殺に支配を追加)。`addedFrom` を記録。
+ *   追加分も同じ負傷に紐づく(woundSource 付与は呼び出し側の共通処理)=追加元チャートの治療で
+ *   同時に解除される(ユーザー裁定)。
+ * 未知のタグキー(CONDITION_KINDS に無い値)は無視する。
+ * @param {Array<object>} dataList buildInflictedEffectsData の結果
+ * @param {{replace?: Map<string,string>, add?: Map<string,string[]>}|null} mods
+ * @returns {Array<object>}
+ */
+export function applyDamageTagMods(dataList, mods) {
+  if (!mods) return dataList;
+  const out = [];
+  for (const d of (dataList ?? [])) {
+    const orig = d.statuses?.[0];
+    let entry = d;
+    const to = mods.replace?.get?.(orig);
+    if (to && to !== orig && CONDITION_KINDS[to]) {
+      const ndef = CONDITION_KINDS[to];
+      const f = d.flags?.[SCOPE] ?? {};
+      const conds = f.conditions?.[orig];
+      entry = {
+        ...d,
+        name:     ndef.label,
+        img:      ndef.img ?? "icons/svg/aura.svg",
+        statuses: [to],
+        flags: { [SCOPE]: {
+          conditionKind: to,
+          hideFromList:  f.hideFromList === true,
+          replacedFrom:  orig,
+          ...(conds ? { conditions: { [to]: conds } } : {}),
+        } },
+      };
+    }
+    out.push(entry);
+    for (const addTo of (mods.add?.get?.(orig) ?? [])) {
+      const adef = CONDITION_KINDS[addTo];
+      if (!adef || addTo === entry.statuses?.[0]) continue;
+      out.push({
+        name:     adef.label,
+        img:      adef.img ?? "icons/svg/aura.svg",
+        statuses: [addTo],
+        flags:    { [SCOPE]: { conditionKind: addTo, hideFromList: true, addedFrom: orig } },
+      });
+    }
   }
   return out;
 }

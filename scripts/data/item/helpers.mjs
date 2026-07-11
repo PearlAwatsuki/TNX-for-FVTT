@@ -337,6 +337,34 @@ export function targetStyleWorksKeys(target) {
 }
 
 /**
+ * ダメージタグ改変 AE(damage.replaceTag/addTag・2026-07-12)を対象アクターから収集する。
+ * 値=CONDITION_KINDS のタグキー(文字列・妥当性は適用側 applyDamageTagMods が検証)。
+ * replace は同一元タグにつき先勝ち1つ・add は重複排除で蓄積する。
+ * @param {Actor} actor ダメージを受ける側
+ * @returns {{replace: Map<string,string>, add: Map<string,string[]>}}
+ */
+export function gatherDamageTagMods(actor) {
+  const replace = new Map();
+  const add = new Map();
+  for (const e of collectActorEffectBuffs(actor)) {
+    if (!e.active) continue;
+    for (const c of (e.changes ?? [])) {
+      const p = parseEffectTargetKey(c.key);
+      if (p?.scope !== "damageTag") continue;
+      const to = String(c.value ?? "").trim();
+      if (!to) continue;
+      if (p.mode === "replace") {
+        if (!replace.has(p.tag)) replace.set(p.tag, to);
+      } else {
+        const arr = add.get(p.tag) ?? [];
+        if (!arr.includes(to)) { arr.push(to); add.set(p.tag, arr); }
+      }
+    }
+  }
+  return { replace, add };
+}
+
+/**
  * スート変更 AE(`check.suitChange`・2026-07-12)を持つか。
  * 失効は当面手動(「1回の判定」Duration の自動失効は時間管理フェーズで持続時間側に足す。
  * 持続時間と AE キーは独立=キーは今から付与できる)。
@@ -410,6 +438,17 @@ export function parseEffectTargetKey(key) {
   // - damage.vsStyle.<スタイル識別キー> / damage.vsWorks.<組織識別キー>(2026-07-10):
   //   攻撃対象のスタイル/所属で照合する対象条件つきダメージ +値
   if (segs[0] === "damage") {
+    // ダメージタグ改変(2026-07-12 ユーザー確定・支配タグ): チャート適用時にタグ(戦闘不能等)を
+    // 置換/追加する**対象側** AE。damage.replaceTag.<元タグ>=新タグ / damage.addTag.<元タグ>=追加タグ
+    // (値=CONDITION_KINDS のタグキー。例 damage.replaceTag.stupor=dominated・damage.addTag.erased=dominated)
+    if ((segs[1] === "replaceTag" || segs[1] === "addTag") && segs.length > 2) {
+      return {
+        scope: "damageTag",
+        mode: segs[1] === "replaceTag" ? "replace" : "add",
+        tag: segs.slice(2).join("."),
+        conditions,
+      };
+    }
     if (segs[1] === "dealt") {
       const cat = segs.length > 2 ? segs[2] : null;
       if (cat !== null && !["physical", "mental", "social"].includes(cat)) return null;

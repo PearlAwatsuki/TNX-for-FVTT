@@ -81,7 +81,11 @@ function buildWoundInstance(patient, wound) {
     let incapTv = null;
     for (const e of linked) {
         const k = getConditionKinds(e)[0];
-        const tv = INCAP_TARGET_VALUE[k];
+        // 支配(2026-07-12 ユーザー裁定): 上書き由来(replacedFrom あり=昏睡/精神崩壊の置換)は
+        // 「昏睡と同じ」=目標値20。タグ追加由来は目標値に関与しない(除去は紐づきで負傷と同時)
+        const tv = k === "dominated"
+            ? (e.flags?.[SCOPE]?.replacedFrom ? 20 : undefined)
+            : INCAP_TARGET_VALUE[k];
         if (tv !== undefined) incapTv = incapTv === null ? tv : Math.max(incapTv, tv);
     }
     if (incapTv !== null) targetValue = incapTv;
