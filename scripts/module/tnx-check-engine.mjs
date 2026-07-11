@@ -187,6 +187,21 @@ export function comboUsesBounty(skillSystems) {
 }
 
 /**
+ * カードのスート表記を正規形(spade/club/heart/diamond)へ正規化する(Foundry 非依存)。
+ * Foundry 標準デッキは複数形("spades" 等)のため、単数/複数の両方を受ける。未知は null。
+ * @param {string} rawSuit
+ * @returns {"spade"|"club"|"heart"|"diamond"|null}
+ */
+export function normalizeSuit(rawSuit) {
+    const s = (rawSuit ?? "").toLowerCase();
+    if (s === "spades"   || s === "spade")    return "spade";
+    if (s === "clubs"    || s === "club")     return "club";
+    if (s === "hearts"   || s === "heart")    return "heart";
+    if (s === "diamonds" || s === "diamond")  return "diamond";
+    return null;
+}
+
+/**
  * @typedef {object} CheckResult
  * @property {boolean}      fumble
  * @property {boolean}      fixedAt21

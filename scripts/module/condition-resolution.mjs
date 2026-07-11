@@ -7,7 +7,7 @@
  * Foundry 連携(山札ドロー・チャット受付・制御判定)はその上に載せる。
  */
 
-import { getCardCheckValue } from './tnx-check-engine.mjs';
+import { getCardCheckValue, normalizeSuit } from './tnx-check-engine.mjs';
 import { TnxActionHandler } from './tnx-action-handler.mjs';
 import { CONDITION_KINDS } from './conditions.mjs';
 import { getDamageChartKind } from '../data/damage-chart.mjs';
@@ -107,14 +107,18 @@ export async function postDrawPrompt(actor, effect, kind) {
 export async function executeConditionDraw(actor, effect, kind) {
   let suit, value;
   const card = await drawOneToDiscard();
-  const isJoker = !card || card.suit === "joker" || card.value === 99;
+  // スートは正規化して読む(Foundry 標準デッキは複数形 "spades" 等のため。未正規化のままだと
+  // SUIT_TO_ABILITY に合致せず対応能力値が「？」になる=2026-07-11 ユーザー報告で修正)。
+  // 正規化できないスートもジョーカー扱いでワイルドカード指定に流す
+  const normalized = card ? normalizeSuit(card.suit) : null;
+  const isJoker = !card || card.suit === "joker" || card.value === 99 || !normalized;
   if (isJoker) {
     const wild = await promptJokerWildcard(kind); // 引き直し or ワイルドカード指定
     if (wild === "redraw") return executeConditionDraw(actor, effect, kind);
     if (!wild) return; // キャンセル
     suit = wild.suit; value = wild.value;
   } else {
-    suit = card.suit;
+    suit = normalized;
     const ncheck = getCardCheckValue({ numericValue: card.value });
     value = typeof ncheck === "number" ? ncheck : Number(card.value) || 0;
   }

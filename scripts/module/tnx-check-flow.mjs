@@ -15,7 +15,7 @@
  * ルール正本: llm-wiki/01_Wiki/Game_Rules/Check_Rules.md
  */
 
-import { getCardCheckValue, calcSkillCheck, calcControlCheck, ALL_SUITS, SUIT_TO_ABILITY } from './tnx-check-engine.mjs';
+import { getCardCheckValue, calcSkillCheck, calcControlCheck, normalizeSuit, ALL_SUITS, SUIT_TO_ABILITY } from './tnx-check-engine.mjs';
 import { gatherCheckBonusSources, collectActorEffectBuffs } from '../data/item/helpers.mjs';
 import { evaluateBonusRows, evaluateSelfBonus } from './tnx-formula.mjs';
 import { readConditions, gatherConditionCheckSources, getCheckBlock, computeJammingPenalty } from './conditions.mjs';
@@ -237,12 +237,7 @@ export class TnxCheckFlow {
     // ─── プライベートヘルパー ──────────────────────────────────────────────────
 
     static _normalizeSuit(rawSuit) {
-        const s = (rawSuit ?? "").toLowerCase();
-        if (s === "spades"   || s === "spade")   return "spade";
-        if (s === "clubs"    || s === "club")     return "club";
-        if (s === "hearts"   || s === "heart")    return "heart";
-        if (s === "diamonds" || s === "diamond")  return "diamond";
-        return null;
+        return normalizeSuit(rawSuit); // 純関数へ委譲(tnx-check-engine・衰弱/重圧ドローと共用)
     }
 
     static _isJoker(card) {

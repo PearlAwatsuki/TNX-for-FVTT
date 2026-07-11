@@ -7,6 +7,7 @@ import {
     calcControlCheck,
     getComboSuits,
     comboUsesBounty,
+    normalizeSuit,
 } from "../../scripts/module/tnx-check-engine.mjs";
 
 // ─── スート対応表 ─────────────────────────────────────────────────────────────
@@ -200,6 +201,22 @@ describe("getComboSuits()", () => {
         const a = { suits: { spade: true,  club: false, heart: false, diamond: false } };
         const b = { suits: { spade: false, club: true,  heart: false, diamond: false } };
         expect(getComboSuits([a, b])).toEqual([]);
+    });
+});
+
+describe("normalizeSuit()（スート正規化・Foundry標準デッキは複数形・2026-07-11）", () => {
+    it("単数/複数どちらも正規形に揃える", () => {
+        expect(normalizeSuit("spades")).toBe("spade");
+        expect(normalizeSuit("spade")).toBe("spade");
+        expect(normalizeSuit("Hearts")).toBe("heart");
+        expect(normalizeSuit("diamonds")).toBe("diamond");
+        expect(normalizeSuit("clubs")).toBe("club");
+    });
+
+    it("未知・空・joker は null", () => {
+        expect(normalizeSuit("joker")).toBeNull();
+        expect(normalizeSuit("")).toBeNull();
+        expect(normalizeSuit(undefined)).toBeNull();
     });
 });
 
