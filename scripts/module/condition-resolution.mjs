@@ -9,6 +9,7 @@
 
 import { getCardCheckValue, normalizeSuit } from './tnx-check-engine.mjs';
 import { TnxActionHandler } from './tnx-action-handler.mjs';
+import { TnxSocketHandler } from './tnx-socket-handler.mjs';
 import { CONDITION_KINDS } from './conditions.mjs';
 import { getDamageChartKind } from '../data/damage-chart.mjs';
 import { conditionNeedsDraw, drawResultFlags, negateOutcome } from './condition-resolution-core.mjs';
@@ -81,7 +82,10 @@ async function drawOneToDiscard() {
 }
 
 /**
- * 付与された状態(衰弱/重圧でドロー要)に対し「BS受付」チャットを出す。ボタン押下でドロー解決。
+ * 付与された状態(衰弱/重圧でドロー要)に対し「効果決定」チャットを出す。
+ * ボタンと結果はカードを分けず、同一カードの状態領域をフラグ(conditionDraw)から
+ * ライブ描画する(未解決=山札を引くボタン/解決後=結果表示に置換。checkRequest/攻撃カードと
+ * 同型・2026-07-12 ユーザー指示でカード2枚方式を廃止)。
  * @param {Actor} actor
  * @param {ActiveEffect} effect
  * @param {string} kind
@@ -90,22 +94,74 @@ export async function postDrawPrompt(actor, effect, kind) {
   const label = CONDITION_KINDS[kind]?.label ?? kind;
   const content = await foundry.applications.handlebars.renderTemplate(
     "systems/tokyo-nova-axleration/templates/chat/condition-prompt.hbs",
-    {
-      label, promptText: "この状態の効果をカードで決定します。",
-      type: "draw", buttonLabel: "山札を引く",
-      actorUuid: actor.uuid, effectId: effect.id, kind,
-    }
+    { label, promptText: "この状態の効果をカードで決定します。" }
   );
   // 全体公開(2026-07-11 ユーザー確定: 個人送信チャットは判定要求の任意選択以外に存在させない)
   await ChatMessage.create({
     content,
     speaker: ChatMessage.getSpeaker({ actor }),
+    flags: {
+      [SCOPE]: {
+        conditionDraw: {
+          actorUuid: actor.uuid, effectId: effect.id, kind,
+          resolved: false, suit: "", value: null, detail: "",
+        },
+      },
+    },
   });
 }
 
+/**
+ * 効果決定カードの状態領域をフラグから描画する(renderChatMessageHTML・tnx.mjs から登録)。
+ * 未解決=「山札を引く」ボタン/解決後=引いたカード+効果の結果表示。
+ */
+export function renderConditionDrawCard(message, html) {
+  const f = message.getFlag(SCOPE, "conditionDraw");
+  if (!f) return;
+  const area = html.querySelector(".tnx-condition-status");
+  if (!area) return;
+  area.replaceChildren();
+
+  const esc = foundry.utils.escapeHTML;
+  if (f.resolved) {
+    const SUIT_SYMBOL = { spade: "♠", club: "♣", heart: "♥", diamond: "♦" };
+    if (f.suit) {
+      const row = document.createElement("div");
+      row.className = "cr-calc-row";
+      row.innerHTML = `<span class="cr-calc-label">引いたカード</span>`
+        + `<span class="cr-calc-val"><span class="cr-suit suit-${esc(f.suit)}">${SUIT_SYMBOL[f.suit] ?? ""}</span>`
+        + `${f.value ? ` ${f.value}` : ""}${f.wild ? "（ワイルドカード指定）" : ""}</span>`;
+      area.appendChild(row);
+    }
+    const line = document.createElement("div");
+    line.className = "cr-result cr-result--info";
+    line.innerHTML = `<i class="fas fa-circle-info"></i> <span>${esc(f.detail ?? "")}</span>`;
+    area.appendChild(line);
+    return;
+  }
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "tnx-chat-btn";
+  btn.innerHTML = '<i class="fas fa-diamond"></i> 山札を引く';
+  btn.addEventListener("click", async () => {
+    const actor = await fromUuid(f.actorUuid).catch(() => null);
+    const effect = actor?.effects?.get(f.effectId)
+      ?? actor?.allApplicableEffects?.().find?.(e => e.id === f.effectId);
+    if (!actor || !effect) return ui.notifications.warn("対象の状態が見つかりません。");
+    btn.disabled = true;
+    try {
+      await executeConditionDraw(actor, effect, f.kind, message);
+    } finally {
+      btn.disabled = false; // キャンセル時に押し直せるように(解決済みなら再描画で消える)
+    }
+  });
+  area.appendChild(btn);
+}
+
 /** ドローを実行して結果を condition フラグに書き、チャットに記録する。 */
-export async function executeConditionDraw(actor, effect, kind) {
-  let suit, value;
+export async function executeConditionDraw(actor, effect, kind, message = null) {
+  let suit, value, wild = false;
   const card = await drawOneToDiscard();
   // スートは正規化して読む(Foundry 標準デッキは複数形 "spades" 等のため。未正規化のままだと
   // SUIT_TO_ABILITY に合致せず対応能力値が「？」になる=2026-07-11 ユーザー報告で修正)。
@@ -113,10 +169,10 @@ export async function executeConditionDraw(actor, effect, kind) {
   const normalized = card ? normalizeSuit(card.suit) : null;
   const isJoker = !card || card.suit === "joker" || card.value === 99 || !normalized;
   if (isJoker) {
-    const wild = await promptJokerWildcard(kind); // 引き直し or ワイルドカード指定
-    if (wild === "redraw") return executeConditionDraw(actor, effect, kind);
-    if (!wild) return; // キャンセル
-    suit = wild.suit; value = wild.value;
+    const wildPick = await promptJokerWildcard(kind); // 引き直し or ワイルドカード指定
+    if (wildPick === "redraw") return executeConditionDraw(actor, effect, kind, message);
+    if (!wildPick) return; // キャンセル
+    suit = wildPick.suit; value = wildPick.value; wild = true;
   } else {
     suit = normalized;
     const ncheck = getCardCheckValue({ numericValue: card.value });
@@ -129,6 +185,22 @@ export async function executeConditionDraw(actor, effect, kind) {
   const detail = kind === "weakness"
     ? `${ABIL[flags.targetAbility] ?? "?"}の制御値 -${flags.magnitude}`
     : `${ABIL[flags.targetAbility] ?? "?"}を使う判定が不可`;
+
+  // 効果決定カード自身の状態領域を結果表示に置き換える(カードを分けない・2026-07-12)。
+  // フラグ更新は非作者なら GM へ委譲(checkModify=自スコープフラグ限定の汎用パッチ委譲を流用)
+  if (message) {
+    const patch = {
+      [`flags.${SCOPE}.conditionDraw.resolved`]: true,
+      [`flags.${SCOPE}.conditionDraw.suit`]: suit,
+      [`flags.${SCOPE}.conditionDraw.value`]: value,
+      [`flags.${SCOPE}.conditionDraw.wild`]: wild,
+      [`flags.${SCOPE}.conditionDraw.detail`]: detail,
+    };
+    if (game.user.isGM || message.isAuthor) await message.update(patch);
+    else TnxSocketHandler.emitCheckModify(message.id, patch);
+    return;
+  }
+  // 旧形式カード(フラグ無し・保存済みの静的ボタン)からの呼び出しは従来どおり別カードで記録
   await postConditionOutcome(actor, {
     title: "効果決定", tag: CONDITION_KINDS[kind]?.label ?? kind,
     status: "info", text: detail,

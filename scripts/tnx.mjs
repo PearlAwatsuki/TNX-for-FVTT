@@ -58,7 +58,7 @@ import { CONDITION_KINDS, CONDITION_GROUP_LABELS, getConditionKinds, buildInflic
 import { registerDamageChartTextSetting } from './module/damage-chart-text-app.mjs';
 import { registerPartSlotPresetSetting, getPartSlotPreset, initializeDefaultPartSlotPreset } from './module/part-slot-preset-app.mjs';
 import { autoAcquireForStyleSkill, autoImportDerivedData } from './module/style-skill-acquisition.mjs';
-import { conditionNeedsDraw, postDrawPrompt, postControlNegatePrompt, bindConditionChatButtons } from './module/condition-resolution.mjs';
+import { conditionNeedsDraw, postDrawPrompt, postControlNegatePrompt, bindConditionChatButtons, renderConditionDrawCard } from './module/condition-resolution.mjs';
 
 async function preloadHandlebarsTemplates() {
     const templatePaths = [
@@ -462,8 +462,11 @@ Hooks.on("createActiveEffect", async (effect, options, userId) => {
 });
 
 // チャットの受付ボタン(ドロー/制御判定)を解決処理に配線する(フェーズ9-4)。
+// 効果決定カード(conditionDraw フラグ)は状態領域をライブ描画する(ボタン→結果の置換・2026-07-12)。
 Hooks.on("renderChatMessageHTML", (message, html) => {
-    bindConditionChatButtons(html instanceof HTMLElement ? html : html?.[0]);
+    const root = html instanceof HTMLElement ? html : html?.[0];
+    bindConditionChatButtons(root);
+    renderConditionDrawCard(message, root);
 });
 
 Hooks.once("init", async function() {
