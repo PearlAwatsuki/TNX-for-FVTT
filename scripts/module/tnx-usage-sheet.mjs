@@ -573,6 +573,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 parent:      "親アイテムの使用回数",
                 itemUses:    "アイテムの使用回数",
                 miracleUses: "神業の使用回数",
+                actionRank:  "AR（アクションランク）",
             };
             const usesOptions = (actor?.items ?? [])
                 .filter(i => i.system?.uses?.isLimit === true && i.id !== this._item.id)
@@ -589,7 +590,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 return {
                     idx,
                     type,
-                    isParent: type === "parent",
+                    // 対象アイテム選択を持たない種別(親=自明・AR=アクター自身のリソース)
+                    noTarget: type === "parent" || type === "actionRank",
                     amount: Math.max(1, t.amount ?? 1),
                     itemId: t.itemId ?? "",
                     typeOptions: Object.entries(CONSUME_TYPE_LABELS)
@@ -897,15 +899,21 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             .filter(v => v !== undefined)
             .map(Number)
             .sort((a, b) => a - b);
+        let consumeTypeChanged = false;
         if (consumeIdxs.length || this.element?.querySelector(".usage-consume-section")) {
             update.consumeTargets = consumeIdxs.map(i => {
                 const type = raw[`consumeType-${i}`] || "parent";
                 return {
                     type,
-                    itemId: type === "parent" ? "" : (raw[`consumeItem-${i}`] ?? ""),
+                    // 親・AR は対象アイテムを持たない
+                    itemId: (type === "parent" || type === "actionRank") ? "" : (raw[`consumeItem-${i}`] ?? ""),
                     amount: Math.max(1, Number(raw[`consumeAmount-${i}`]) || 1),
                 };
             });
+            // 種別の変更は対象アイテム選択の出し入れを伴うため再描画する(親/AR は選択欄なし)
+            const prevTypes = (usage.consumeTargets ?? []).map(t => t.type || "parent");
+            consumeTypeChanged = update.consumeTargets.length === prevTypes.length
+                && update.consumeTargets.some((t, i) => t.type !== prevTypes[i]);
         }
 
         // 発動タブ: 制御 select が別の選択肢に変わったら、対応しないサブ値を残骸として残さずリセットする
@@ -977,8 +985,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         if (prevAttackCategory !== null && (update.damageCategory ?? prevAttackCategory) !== prevAttackCategory) {
             this.render({ force: true });
         }
-        // 宣言の修正フラグ変更も式欄の出し入れがあるため即再描画する
-        if (declModifyChanged) this.render({ force: true });
+        // 宣言の修正フラグ変更・消費種別の変更も入力欄の出し入れがあるため即再描画する
+        if (declModifyChanged || consumeTypeChanged) this.render({ force: true });
     }
 
     // ─── 自動入力（参加技能の固有値を優先度で合成） ─────────────────────────────

@@ -10,8 +10,13 @@
  *   "parent"      - 親アイテム(用途を持つアイテム自身)の使用回数。親が神業なら usageCount を消費
  *   "itemUses"    - 同アクターの特定アイテムの使用回数(uses.isLimit のもの)
  *   "miracleUses" - 神業の使用回数(usageCount.value)
+ *   "actionRank"  - 実行アクターの AR(2026-07-12 ユーザー確定)。パリー等「AR を消費する」能力の
+ *                   表現で、旧パリー専用の自動 AR−1 を置換=AR 消費もこの設定からのみ発生する。
+ *                   カット進行外は AR を追跡しないため no-op(従来のパリー挙動と同じ=検証・消費なし)。
+ *                   分身でも本体へ差し替えない(AR は実行アクター自身の戦闘リソース)
  *
- * カウンター種別(kind): "uses"=uses.spent 加算 / "miracleUses"=usageCount.value 減算。
+ * カウンター種別(kind): "uses"=uses.spent 加算 / "miracleUses"=usageCount.value 減算 /
+ * "ar"=actionRank.value 減算(アクター更新)。
  * 行の解決(resolveConsumeRows)は Foundry 非依存の純粋関数(テスト対象)。
  * ダイアログ(promptConsumption)と適用(applyConsumptionPlan)のみ Foundry に依存する。
  *
@@ -78,11 +83,14 @@ export function resolveBunshinOwner(actor) {
  * @returns {Array<object>} resolveConsumeRows と同形の行(共有行は shared/targetActorId 付き)
  */
 export function resolveConsumeRowsForActor(actor, parentItem, targets) {
+    // AR は実行アクター自身の戦闘リソース(分身でも本体へ差し替えない)
+    const actionRank = actor?.system?.actionRank ?? null;
     const owner = resolveBunshinOwner(actor);
     if (!owner) {
         return resolveConsumeRows(targets, {
             parentItem,
             getItem: (id) => actor?.items.get(id) ?? null,
+            actionRank,
         });
     }
     const ownerItems = owner.items.contents ?? [];
@@ -99,6 +107,7 @@ export function resolveConsumeRowsForActor(actor, parentItem, targets) {
     const rows = resolveConsumeRows(targets, {
         parentItem: redirect(parentItem),
         getItem: (id) => redirect(actor?.items.get(id) ?? null),
+        actionRank,
     });
     for (const row of rows) {
         if (row.itemId && redirectedIds.has(row.itemId)) {
@@ -120,10 +129,23 @@ export function resolveConsumeRowsForActor(actor, parentItem, targets) {
  * @returns {Array<object>} 解決済み行。消費可能行は kind/remaining/maxDisplay を持つ。
  *          inert=true は無害な no-op(親に制限なし等)、problem は設定不備(消費されない)
  */
-export function resolveConsumeRows(targets, { parentItem, getItem }) {
+export function resolveConsumeRows(targets, { parentItem, getItem, actionRank = null }) {
     return (targets ?? []).map((t) => {
         const type = t.type || "parent";
         const amount = Math.max(1, Number(t.amount) || 1);
+        // AR の消費(2026-07-12): 対象アイテムを持たない=実行アクターの actionRank.value を減らす。
+        // カット進行外(inCombat でない)は AR を追跡しないため no-op(検証・消費なし)。
+        // itemId はチェックボックス識別用のセンチネル(実アイテム ID と衝突しない)
+        if (type === "actionRank") {
+            if (actionRank?.inCombat !== true) {
+                return { type, amount, itemId: "@ar", label: "AR", inert: true };
+            }
+            return {
+                type, kind: "ar", amount, itemId: "@ar", label: "AR",
+                remaining: Math.max(0, actionRank.value ?? 0),
+                maxDisplay: actionRank.maxTotal ?? 0,
+            };
+        }
         const item = type === "parent" ? parentItem : (getItem?.(t.itemId ?? "") ?? null);
         if (!item) {
             return { type, amount, itemId: t.itemId ?? "", label: "(対象が見つかりません)", problem: "notFound" };
@@ -196,10 +218,14 @@ export async function promptConsumption(actor, rows, { title = "使用回数の�
             const out = r.remaining < r.amount;
             const amountLabel = r.amount > 1 ? `×${r.amount}` : "";
             const sharedLabel = r.shared ? `（本体「${esc(r.sharedOwnerName)}」と共有）` : "";
+            // AR 行は「使用回数」でなくアクターの AR を消費する文言にする
+            const text = r.kind === "ar"
+                ? `AR を消費${amountLabel || "×1"}`
+                : `「${esc(r.label)}」の使用回数を消費${amountLabel}${sharedLabel}`;
             return `<div class="tnx-uses-row">
                 <label>
                     <input type="checkbox" name="consume" value="${esc(r.itemId)}" checked>
-                    <span>「${esc(r.label)}」の使用回数を消費${amountLabel}${sharedLabel}</span>
+                    <span>${text}</span>
                 </label>
                 <span class="tnx-uses-count${out ? " tnx-uses-out" : ""}">残り ${r.remaining}/${r.maxDisplay}</span>
             </div>`;
@@ -253,8 +279,15 @@ export async function applyConsumptionPlan(plan) {
     for (const [actorId, rows] of byActor) {
         const actor = game.actors.get(actorId);
         if (!actor) continue;
+        // AR の消費(kind="ar"・アクター更新。0 clamp=適用時点の値で再計算)
+        const arAmount = rows.filter(r => r.kind === "ar").reduce((s, r) => s + (Number(r.amount) || 0), 0);
+        if (arAmount > 0) {
+            const v = actor.system.actionRank?.value ?? 0;
+            await actor.update({ "system.actionRank.value": Math.max(0, v - arAmount) });
+        }
         const updates = [];
         for (const row of rows) {
+            if (row.kind === "ar") continue;
             const item = actor.items.get(row.itemId);
             if (!item) continue;
             if (row.kind === "miracleUses") {

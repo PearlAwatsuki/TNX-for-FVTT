@@ -11,9 +11,9 @@
  * - 攻撃カード: 成否保留で投稿し、リアクション導線を系統別に表示(物理=ドッジ/パリー/
  *   リアクションしない・精神/社会=リアクション/リアクションしない)。**解決後はボタン領域を
  *   丸ごと成否表示に置換**(フラグ+renderChatMessageHTML のライブ書き換え=checkRequest と同型)。
- * - パリー: カット進行中は AR>0 検証+AR−1 を即時適用(規約の「メインプロセス終了時」への
- *   厳密化はフェーズ13 のプロセス管理で載せ替え可能)。判定成立なら敗北でも受け値を
- *   ダメージ軽減へ(parryGuard)。
+ * - パリー: 判定成立なら敗北でも受け値をダメージ軽減へ(parryGuard)。AR−1 は専用の自動化を
+ *   廃止(2026-07-12 ユーザー確定)——AR 消費は用途の消費先設定(consumeTargets の
+ *   type="actionRank")に一本化され、パリー技能の用途に「AR を消費」を設定して表す。
  * - 対決: 受動有利=攻撃達成値がリアクション達成値を上回れば命中・同値/未満は攻撃側敗北(攻撃終了)。
  * - リアクションの宣言タイミング・回数の進行管理はフェーズ13(ここでは強制しない)。
  *
@@ -26,7 +26,6 @@ import { getComboSuits, comboUsesBounty, SUIT_TO_ABILITY } from "./tnx-check-eng
 import { resolveConsumeRowsForActor, promptConsumption } from "./usage-consumption.mjs";
 import { TargetSelectionDialog } from "./tnx-dialog.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
-import { isActorInStartedCombat } from "../data/helpers.mjs";
 import { resolveNoReaction, resolveOpposed, attackReactionModes, formatAttackLabel, combineWeaponAttack } from "./attack-flow-logic.mjs";
 import { hasAmmoTracking, consumeNormalAmmo } from "./weapon-ammo.mjs";
 import { buildSkillOptions } from "./skill-select.mjs";
@@ -448,15 +447,10 @@ export async function startReaction(message, mode) {
     const reactor = resolveReactor();
     if (!reactor) return;
 
-    // パリー: カット進行中は AR>0 を検証し AR−1 を即時適用(カット進行外は検証・消費なし)。
-    // 受け値: パリー参照武器(weaponRefs.parry)の guardValue(判定成立なら敗北でも軽減に加算)
+    // パリー: 受け値=パリー参照武器(weaponRefs.parry)の guardValue(判定成立なら敗北でも軽減に加算)。
+    // AR−1 の専用自動化は廃止(2026-07-12)——パリー技能の用途の消費先設定(AR を消費)が担う
     let parryGuard = 0;
     if (mode === "parry") {
-        if (isActorInStartedCombat(reactor)) {
-            const ar = reactor.system.actionRank?.value ?? 0;
-            if (ar <= 0) { ui.notifications.warn("AR が 0 のためパリーを行えません。"); return; }
-            await reactor.update({ "system.actionRank.value": ar - 1 });
-        }
         // パリー参照武器(character-base の weaponRefs.parryItemId)。未設定なら受け値なし
         const parryId = reactor.system.weaponRefs?.parryItemId || "";
         const parryWeapon = parryId ? reactor.items.get(parryId) : null;

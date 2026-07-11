@@ -71,6 +71,55 @@ describe("resolveConsumeRows()（消費先設定の解決・11-6）", () => {
     expect(rows[0].amount).toBe(1);
     expect(rows[1].amount).toBe(1);
   });
+
+  describe("actionRank（AR の消費・2026-07-12＝パリー専用自動化の置換）", () => {
+    it("カット進行中: kind ar・残量 = actionRank.value・itemId はセンチネル @ar", () => {
+      const [row] = resolveConsumeRows(
+        [{ type: "actionRank", amount: 1 }],
+        { parentItem: skill("p1"), getItem: () => null, actionRank: { value: 2, maxTotal: 3, inCombat: true } },
+      );
+      expect(row.kind).toBe("ar");
+      expect(row.remaining).toBe(2);
+      expect(row.maxDisplay).toBe(3);
+      expect(row.itemId).toBe("@ar");
+      expect(row.label).toBe("AR");
+    });
+
+    it("カット進行外: inert（AR を追跡しないため検証・消費なし＝従来のパリー挙動）", () => {
+      const [row] = resolveConsumeRows(
+        [{ type: "actionRank", amount: 1 }],
+        { parentItem: skill("p1"), getItem: () => null, actionRank: { value: 3, maxTotal: 3, inCombat: false } },
+      );
+      expect(row.inert).toBe(true);
+      expect(row.kind).toBeUndefined();
+    });
+
+    it("actionRank コンテキスト無し（アクター無し等）: inert", () => {
+      const [row] = resolveConsumeRows(
+        [{ type: "actionRank", amount: 1 }],
+        { parentItem: skill("p1"), getItem: () => null },
+      );
+      expect(row.inert).toBe(true);
+    });
+
+    it("AR 0 でチェック済みなら shortage（原則ブロック・チェックを外せば実行可）", () => {
+      const [row] = resolveConsumeRows(
+        [{ type: "actionRank", amount: 1 }],
+        { parentItem: skill("p1"), getItem: () => null, actionRank: { value: 0, maxTotal: 3, inCombat: true } },
+      );
+      const result = buildConsumptionPlan([row], new Set(["@ar"]), "actor1");
+      expect(result.shortage).toBeDefined();
+    });
+
+    it("プラン化: kind ar・実行アクターに帰属（分身でも本体へ差し替えない）", () => {
+      const [row] = resolveConsumeRows(
+        [{ type: "actionRank", amount: 2 }],
+        { parentItem: skill("p1"), getItem: () => null, actionRank: { value: 3, maxTotal: 3, inCombat: true } },
+      );
+      const { plan } = buildConsumptionPlan([row], new Set(["@ar"]), "actor1");
+      expect(plan).toEqual([{ actorId: "actor1", itemId: "@ar", kind: "ar", amount: 2 }]);
+    });
+  });
 });
 
 describe("buildConsumptionPlan()（消費プランの構築）", () => {
