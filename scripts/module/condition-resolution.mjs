@@ -42,16 +42,6 @@ export async function applyDamageChartResult(actor, category, value) {
   return eff ?? null;
 }
 
-/** ドロー主体(GM か 受けたキャラの所有者か)を返す。衰弱=RL(GM)、重圧=受けたキャラ。 */
-export function drawWhisperUserIds(kind, actor) {
-  const gmIds = game.users.filter(u => u.isGM).map(u => u.id);
-  if (kind === "pressure") {
-    const owners = game.users.filter(u => !u.isGM && actor?.testUserPermission?.(u, "OWNER")).map(u => u.id);
-    return [...new Set([...owners, ...gmIds])];
-  }
-  return gmIds; // 衰弱 等は RL
-}
-
 // ───────── Foundry 連携 ─────────
 
 /** 状態解決カードのステータス → アイコン。 */
@@ -63,9 +53,9 @@ const OUTCOME_ICON = Object.freeze({
  * 状態の解決結果カードを投稿する(治療・カード決定ドロー等の共通)。
  * 判定結果カードと同じ意匠(condition-outcome.hbs)で出す。素のインライン div は使わない。
  * @param {?Actor} speakerActor
- * @param {{title:string, tag?:string, status?:string, label?:string, text?:string, whisper?:string[]}} opts
+ * @param {{title:string, tag?:string, status?:string, label?:string, text?:string}} opts
  */
-export async function postConditionOutcome(speakerActor, { title, tag = "", status = "info", label = "", text = "", whisper } = {}) {
+export async function postConditionOutcome(speakerActor, { title, tag = "", status = "info", label = "", text = "" } = {}) {
   const content = await foundry.applications.handlebars.renderTemplate(
     "systems/tokyo-nova-axleration/templates/chat/condition-outcome.hbs",
     { title, tag, status, icon: OUTCOME_ICON[status] ?? OUTCOME_ICON.info, label, text }
@@ -73,7 +63,6 @@ export async function postConditionOutcome(speakerActor, { title, tag = "", stat
   await ChatMessage.create({
     content,
     speaker: speakerActor ? ChatMessage.getSpeaker({ actor: speakerActor }) : undefined,
-    ...(whisper ? { whisper } : {}),
   });
 }
 
@@ -82,8 +71,13 @@ async function drawOneToDiscard() {
   const deck = await TnxActionHandler.getActiveDeck();
   const discard = await TnxActionHandler.getActiveDiscardPile();
   if (!deck || !discard || !deck.availableCards?.length) return null;
-  const [card] = await deck.draw(discard, 1, { chatNotification: false });
-  return card ?? null;
+  // Cards#draw は「this へ from から引く」= 捨て札.draw(山札)。逆向き(deck.draw(discard))だと
+  // 捨て札から引こうとして "not available cards" エラーになる(2026-07-11 ユーザー報告で修正)。
+  // draw 直後は裏向き(face:-1)で suit が読めないため、表向きにして捨て札山から再取得する
+  const [drawn] = await discard.draw(deck, 1, { chatNotification: false });
+  if (!drawn) return null;
+  await discard.updateEmbeddedDocuments("Card", [{ _id: drawn.id, face: 0 }]);
+  return discard.cards.get(drawn.id) ?? drawn;
 }
 
 /**
@@ -102,9 +96,9 @@ export async function postDrawPrompt(actor, effect, kind) {
       actorUuid: actor.uuid, effectId: effect.id, kind,
     }
   );
+  // 全体公開(2026-07-11 ユーザー確定: 個人送信チャットは判定要求の任意選択以外に存在させない)
   await ChatMessage.create({
     content,
-    whisper: drawWhisperUserIds(kind, actor),
     speaker: ChatMessage.getSpeaker({ actor }),
   });
 }
