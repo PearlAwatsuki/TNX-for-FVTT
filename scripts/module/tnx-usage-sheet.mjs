@@ -353,9 +353,11 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         context.isModifyDamage     = context.isCheckType && !context.isFixedCheck && usage.modifyDamage === true;
         // 攻撃モードのラジオ値(排他の表現。両フラグ立ちは isAttack 優先で正規化表示)
         context.attackMode         = context.isAttack ? "attack" : (context.isModifyDamage ? "modifyDamage" : "none");
-        // 判定モードのラジオ値(2026-07-11): 通常/再判定を付与/判定を修正(判定用途に「なし」は無い)
+        // 判定モードのラジオ値(2026-07-11/12): 通常/再判定を付与/判定を修正/スートを変更
+        // (判定用途に「なし」は無い)
         context.checkMode          = usage.grantRecheck === true ? "grant"
-            : (usage.modifyCheck === true ? "modify" : "normal");
+            : (usage.modifyCheck === true ? "modify"
+                : (usage.grantSuitChange === true ? "suitChange" : "normal"));
         context.isModificationType = usage.type === "modification";
         // 宣言(declaration)の判定/ダメージ修正(2026-07-12 ユーザー確定): バフ宣言の表現。
         // 判定用途とレイアウトを揃えた〈判定〉〈ダメージ〉fieldset・チェックボックス2つは独立
@@ -855,14 +857,20 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         if (usage.type === "check" && !Number.isFinite(usage.fixedResult)) {
             update.checkBonuses = TnxUsageSheet._collectBonusRows(raw, "checkBonus");
             update.checkBonusSelf = raw["checkBonusSelf"] ?? usage.checkBonusSelf ?? "";
-            // 判定モード(ラジオ・2026-07-11): normal/grant/modify。排他はラジオが保証。
-            // 再判定可能(allowRecheck)は「判定を行う用途」の性質のため通常モードでのみ保持
+            // 判定モード(ラジオ・2026-07-11/12): normal/grant/modify/suitChange。排他はラジオが保証。
+            // 再判定可能(allowRecheck)・スート変更可能(allowSuitChange)は「判定を行う用途」の性質の
+            // ため通常モードでのみ保持
             const checkMode = raw["checkMode"]
-                ?? (usage.grantRecheck === true ? "grant" : (usage.modifyCheck === true ? "modify" : "normal"));
-            update.grantRecheck = checkMode === "grant";
-            update.modifyCheck  = checkMode === "modify";
+                ?? (usage.grantRecheck === true ? "grant"
+                    : (usage.modifyCheck === true ? "modify"
+                        : (usage.grantSuitChange === true ? "suitChange" : "normal")));
+            update.grantRecheck    = checkMode === "grant";
+            update.modifyCheck     = checkMode === "modify";
+            update.grantSuitChange = checkMode === "suitChange";
             update.allowRecheck = checkMode === "normal"
                 ? (raw["allowRecheck"] ?? usage.allowRecheck ?? false) : false;
+            update.allowSuitChange = checkMode === "normal"
+                ? (raw["allowSuitChange"] ?? usage.allowSuitChange ?? false) : false;
             const mode = raw["attackMode"] ?? (usage.damageCategory ? "attack" : (usage.modifyDamage ? "modifyDamage" : "none"));
             const isAtk = mode === "attack";
             const isModD = mode === "modifyDamage";
@@ -883,6 +891,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             update.modifyDamage = raw["modifyDamage"] ?? prevMD;
             update.checkBonusSelf  = update.modifyCheck  ? (raw["checkBonusSelf"]  ?? usage.checkBonusSelf  ?? "") : "";
             update.damageBonusSelf = update.modifyDamage ? (raw["damageBonusSelf"] ?? usage.damageBonusSelf ?? "") : "";
+            // スートを変更(次の判定・2026-07-12): 式欄を持たないため再描画は不要
+            update.grantSuitChange = raw["grantSuitChange"] ?? (usage.grantSuitChange === true);
             declModifyChanged = update.modifyCheck !== prevMC || update.modifyDamage !== prevMD;
         }
 

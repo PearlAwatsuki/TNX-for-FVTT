@@ -340,14 +340,23 @@
                         <input type="radio" name="checkMode" value="modify" {{checked (eq checkMode "modify")}} {{#unless editable}}disabled{{/unless}}>
                         <span>判定を修正</span>
                     </label>
+                    <label class="usage-toggle-inline" title="この用途を使用すると判定は行わず「スート変更待ち」になり、次に自分が行う判定で使用できないスートのカードを出したとき、使用可能なスートに変更できます（制御判定は対象外。もう一度使用するとキャンセル）">
+                        <input type="radio" name="checkMode" value="suitChange" {{checked (eq checkMode "suitChange")}} {{#unless editable}}disabled{{/unless}}>
+                        <span>スートを変更</span>
+                    </label>
                 </div>
                 {{#if (eq checkMode "normal")}}
-                {{!-- 再判定可能は「判定を行う用途」の性質のため通常モードでのみ表示 --}}
+                {{!-- 再判定可能・スート変更可能は「判定を行う用途」の性質のため通常モードでのみ表示 --}}
                 <div class="usage-form-row usage-toggle-row">
                     <label class="usage-toggle-inline" title="この用途からの判定の結果カードに「再判定（カードを出し直す）」ボタンを出します（判定値の再決定。再判定を可能にする能力の表現）">
                         <input type="checkbox" name="allowRecheck" {{checked usage.allowRecheck}}
                                {{#unless editable}}disabled{{/unless}}>
                         <span>再判定可能</span>
+                    </label>
+                    <label class="usage-toggle-inline" title="この用途からの判定で、使用できないスートのカードを出したとき、スート不一致にせず使用可能なスートに変更できます（選択ダイアログ。組み合わせたスタイル技能の効果の表現。制御判定は対象外）">
+                        <input type="checkbox" name="allowSuitChange" {{checked usage.allowSuitChange}}
+                               {{#unless editable}}disabled{{/unless}}>
+                        <span>スート変更可能</span>
                     </label>
                 </div>
                 {{/if}}
@@ -506,6 +515,13 @@
                        placeholder="式（例: @item.self.system.levelTotal、2、-3）"
                        {{#unless editable}}disabled{{/unless}}>
                 {{/if}}
+                <div class="usage-form-row usage-toggle-row">
+                    <label class="usage-toggle-inline" title="この用途を使用すると「スート変更待ち」になり、次に自分が行う判定で使用できないスートのカードを出したとき、使用可能なスートに変更できます（制御判定は対象外。もう一度使用するとキャンセル。他者への付与は「適用される効果」に AE（キー check.suitChange）を設定して行います）">
+                        <input type="checkbox" name="grantSuitChange" {{checked usage.grantSuitChange}}
+                               {{#unless editable}}disabled{{/unless}}>
+                        <span>スートを変更（次の判定）</span>
+                    </label>
+                </div>
             </fieldset>
 
             <fieldset class="tnx-fieldset">

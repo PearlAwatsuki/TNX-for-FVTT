@@ -396,6 +396,12 @@ describe("parseEffectTargetKey()（v2 system.<名前空間> 文法）", () => {
     expect(parseEffectTargetKey("controlCheck.style.kabutowari")).toBeNull();
   });
 
+  it("スート変更マーカー: check.suitChange（値不要・2026-07-12）", () => {
+    expect(parseEffectTargetKey("check.suitChange")).toMatchObject({ scope: "suitChange" });
+    // 制御判定は対象外(能力値のみのため null)
+    expect(parseEffectTargetKey("controlCheck.suitChange")).toBeNull();
+  });
+
   it("ダメージ対象バフ: damage.vsStyle.<キー> / damage.vsWorks.<キー>", () => {
     expect(parseEffectTargetKey("damage.vsStyle.ayakashi")).toMatchObject({ scope: "damageVs", group: "style", selector: "ayakashi" });
     expect(parseEffectTargetKey("damage.vsWorks.kabuki")).toMatchObject({ scope: "damageVs", group: "works", selector: "kabuki" });

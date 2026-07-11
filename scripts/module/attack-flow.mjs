@@ -189,6 +189,7 @@ export async function useAttack(item, usage) {
         checkBonusSelf:  usage.checkBonusSelf ?? "",
         sourceItemId:    item.id,   // 用途の親アイテム(@item.self の解決に使う)
         allowRecheck:    usage.allowRecheck === true, // 再判定可能(用途の設定・2026-07-11)
+        allowSuitChange: usage.allowSuitChange === true, // スート変更可能(用途の設定・2026-07-12)
         attack: {
             attackerUuid: actor.uuid,
             attackerName: actor.name,
@@ -247,6 +248,10 @@ export async function postAttackCard({ payload, result, suit, cardCheckValue = n
             suitSymbol:    SUIT_SYMBOL[suit] ?? "",
             cardName:      card?.name ?? "",
             fromDeck, trumpUsed, suitMismatch,
+            // スート変更(2026-07-12): 使用不可スートを使用可能スートへ変更した事実を明示
+            suitChangedDisplay: result.suitChangedFrom
+                ? `${SUIT_SYMBOL[result.suitChangedFrom] ?? result.suitChangedFrom} → ${SUIT_SYMBOL[suit] ?? suit}`
+                : null,
             isFixed21:     result.fixedAt21 === true,
             isFumble:      result.fumble === true,
             isPhysical:    payload.category === "physical",
@@ -531,6 +536,7 @@ export async function startReaction(message, mode) {
         checkBonuses:    usage?.checkBonuses ?? [],
         checkBonusSelf:  usage?.checkBonusSelf ?? "",
         sourceItemId:    skill.id,   // リアクション用途の親アイテム(@item.self)
+        allowSuitChange: usage?.allowSuitChange === true, // スート変更可能(用途の設定・2026-07-12)
         reaction: { attackMessageId: message.id, mode, parryGuard },
     });
 }

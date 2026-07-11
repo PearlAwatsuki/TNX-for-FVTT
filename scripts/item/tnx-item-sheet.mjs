@@ -332,16 +332,18 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         }
 
         // クリック待ち系の用途(2026-07-11/12): 判定を行わず「クリック待ち」モードに入る
-        // (アイテムロール使用)。check の再判定を付与/判定を修正/ダメージを修正に加え、
-        // 宣言(declaration)の判定を修正/ダメージを修正も同経路(バフ宣言・2026-07-12)。
-        // 両フラグ ON は「判定を修正」を先に振る(排他 UI にはしない・両方 ON の運用は想定しない)。
+        // (アイテムロール使用)。check の再判定を付与/判定を修正/ダメージを修正/スートを変更に加え、
+        // 宣言(declaration)の判定を修正/ダメージを修正/スートを変更も同経路(バフ宣言・2026-07-12)。
+        // 複数フラグ ON は下記の順で先に振る(排他 UI にはしない・複数 ON の運用は想定しない)。
         // アクターシートの技能クリックと同じ優先順(攻撃より先)に置く
         if ((usage.type === "check" || usage.type === "declaration")
-            && (usage.grantRecheck === true || usage.modifyCheck === true || usage.modifyDamage === true)) {
+            && (usage.grantRecheck === true || usage.modifyCheck === true
+                || usage.modifyDamage === true || usage.grantSuitChange === true)) {
             const actor = this.item.actor;
             if (!actor) { ui.notifications.warn("アクターが所持しているアイテムから使用してください。"); return; }
             const kind = usage.grantRecheck === true ? "recheck"
-                : (usage.modifyCheck === true ? "modify" : "modifyDamage");
+                : (usage.modifyCheck === true ? "modify"
+                    : (usage.modifyDamage === true ? "modifyDamage" : "suitChange"));
             const rows = resolveConsumeRowsForActor(actor, this.item, usage.consumeTargets);
             const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${this.item.name}` });
             if (plan === null) return;

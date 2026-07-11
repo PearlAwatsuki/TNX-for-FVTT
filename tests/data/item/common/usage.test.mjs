@@ -81,6 +81,13 @@ describe("UsageTemplate.defineSchema()", () => {
       expect(entryFields.allowRecheck.options.initial).toBe(false);
     });
 
+    it("スート変更可能（allowSuitChange）／スートを変更（grantSuitChange・2026-07-12）は BooleanField で initial false", () => {
+      expect(entryFields.allowSuitChange).toBeInstanceOf(MockBooleanField);
+      expect(entryFields.allowSuitChange.options.initial).toBe(false);
+      expect(entryFields.grantSuitChange).toBeInstanceOf(MockBooleanField);
+      expect(entryFields.grantSuitChange.options.initial).toBe(false);
+    });
+
     it("再判定を付与（grantRecheck・2026-07-11）は BooleanField で initial false", () => {
       expect(entryFields.grantRecheck).toBeInstanceOf(MockBooleanField);
       expect(entryFields.grantRecheck.options.initial).toBe(false);

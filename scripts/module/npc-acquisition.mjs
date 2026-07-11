@@ -167,6 +167,7 @@ async function useCheckAcquire(actor, item, usage, mode) {
         bountyAvailable: comboUsesBounty(skillSystems) ? actorBounty : 0,
         consumeUses:     usesPlan,
         requestMessageId: null,
+        allowSuitChange: usage.allowSuitChange === true, // スート変更可能(用途の設定・2026-07-12)
         // 判定完了後の取得継続(TnxCheckFlow._execute → completeAcquisitionFromCheck)
         npcAcquire: {
             mode,

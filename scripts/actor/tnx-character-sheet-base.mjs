@@ -2317,7 +2317,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // (修正フラグ無しの宣言は従来どおり解説カード=既存挙動を変えない)
         const usableUsages = (item.system.actions ?? [])
             .filter(a => ["check", "npcAcquire"].includes(a.type)
-                || (a.type === "declaration" && (a.modifyCheck === true || a.modifyDamage === true)));
+                || (a.type === "declaration"
+                    && (a.modifyCheck === true || a.modifyDamage === true || a.grantSuitChange === true)));
         if (!usableUsages.length) {
             await item.postDescriptionCard();
             return;
@@ -2347,13 +2348,16 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 再判定を付与=達成値クリックでその判定にこの技能を組み合わせた再判定を起動。
         // 判定を修正=達成値クリックでその判定に事後ボーナス/ペナルティを適用。
         // ダメージを修正=ダメージカードの攻撃側合計クリックでそのダメージに修正を適用。
-        // 宣言(declaration)の判定を修正/ダメージを修正も同経路(バフ宣言・2026-07-12)。
-        // 両フラグ ON は「判定を修正」を先に振る(排他 UI にはしない・両方 ON の運用は想定しない)。
+        // スートを変更=次の自分の判定で使用不可スートを出したとき使用可能スートへ変更(2026-07-12)。
+        // 宣言(declaration)の判定を修正/ダメージを修正/スートを変更も同経路(バフ宣言・2026-07-12)。
+        // 複数フラグ ON は上記の順で先に振る(排他 UI にはしない・複数 ON の運用は想定しない)。
         // 消費は用途の consumeTargets(プランを持ち回り、発動時に適用)
         if ((selectedUsage.type === "check" || selectedUsage.type === "declaration")
-            && (selectedUsage.grantRecheck === true || selectedUsage.modifyCheck === true || selectedUsage.modifyDamage === true)) {
+            && (selectedUsage.grantRecheck === true || selectedUsage.modifyCheck === true
+                || selectedUsage.modifyDamage === true || selectedUsage.grantSuitChange === true)) {
             const kind = selectedUsage.grantRecheck === true ? "recheck"
-                : (selectedUsage.modifyCheck === true ? "modify" : "modifyDamage");
+                : (selectedUsage.modifyCheck === true ? "modify"
+                    : (selectedUsage.modifyDamage === true ? "modifyDamage" : "suitChange"));
             const grantRows = resolveConsumeRowsForActor(this.actor, item, selectedUsage.consumeTargets);
             const grantPlan = await promptConsumption(this.actor, grantRows, { title: `使用回数の消費: ${item.name}` });
             if (grantPlan === null) return;
@@ -2433,6 +2437,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             sourceItemId:    item.id,   // 用途の親アイテム(@item.self の解決に使う)
             usageEffects,               // 付与効果ペイロード(null=効果なし)
             allowRecheck:    selectedUsage.allowRecheck === true, // 再判定可能(用途の設定・2026-07-11)
+            allowSuitChange: selectedUsage.allowSuitChange === true, // スート変更可能(用途の設定・2026-07-12)
         });
     }
 

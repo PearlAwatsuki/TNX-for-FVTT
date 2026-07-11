@@ -162,6 +162,20 @@ export class UsageTemplate extends SystemDataModel {
                     // 特定技能の能力の表現。判定は全て用途を経由するため、この設定で全ケースを表せる。
                     allowRecheck: new fields.BooleanField({ initial: false }),
 
+                    // check: スート変更可能(2026-07-12 ユーザー確定)。ON の用途からの判定では、
+                    // 使用できないスートのカードを出したとき、スート不一致にせず使用可能なスートへ
+                    // 変更できる(選択ダイアログ)。「組み合わせた判定に使用したカードのスートを
+                    // 使用可能なものに変更する」スタイル技能の効果の用途側設定(ignoreComboSkills と
+                    // 同じ型)。無印「判定」の機構のため制御判定は対象外(用語規約)。
+                    allowSuitChange: new fields.BooleanField({ initial: false }),
+
+                    // check/declaration: スートを変更(次の判定・2026-07-12 ユーザー確定)。ON の用途は
+                    // 使用しても判定を行わず「スート変更待ち」に入る(アイテムロール使用・再使用で
+                    // キャンセル)。次に自分が行う判定で使用不可スートを出したとき、使用可能スートへの
+                    // 変更が適用される(消費は適用確定時)。他者へは AE `check.suitChange` の付与で表す
+                    // (「1回の判定」Duration の自動失効は時間管理フェーズ=持続時間と AE キーは独立)。
+                    grantSuitChange: new fields.BooleanField({ initial: false }),
+
                     // check: 再判定を付与(2026-07-11 ユーザー確定)。ON の用途は使用しても判定を行わず、
                     // 「達成値クリック待ち」モードに入る。既存の結果カードの達成値をクリックすると、
                     // その判定に**この用途の親技能を組み合わせた状態で**再判定が起動する

@@ -89,6 +89,13 @@
         </div>
         {{/if}}
         {{#unless isFixed21}}{{#unless suitMismatch}}
+        {{!-- スート変更(2026-07-12): 使用不可スートを使用可能スートへ変更した事実を明示 --}}
+        {{#if suitChangedDisplay}}
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">スート変更</span>
+            <span class="cr-calc-val">{{suitChangedDisplay}}</span>
+        </div>
+        {{/if}}
         <div class="cr-calc-row">
             <span class="cr-calc-label">カード値</span>
             <span class="cr-calc-val">{{result.cardValue}}</span>

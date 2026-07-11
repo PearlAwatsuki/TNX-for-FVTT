@@ -336,6 +336,23 @@ export function targetStyleWorksKeys(target) {
   return { styles, works };
 }
 
+/**
+ * スート変更 AE(`check.suitChange`・2026-07-12)を持つか。
+ * 失効は当面手動(「1回の判定」Duration の自動失効は時間管理フェーズで持続時間側に足す。
+ * 持続時間と AE キーは独立=キーは今から付与できる)。
+ * @param {Actor} actor
+ * @returns {boolean}
+ */
+export function actorHasSuitChangeBuff(actor) {
+  for (const e of collectActorEffectBuffs(actor)) {
+    if (!e.active) continue;
+    for (const c of (e.changes ?? [])) {
+      if (parseEffectTargetKey(c.key)?.scope === "suitChange") return true;
+    }
+  }
+  return false;
+}
+
 export function collectActorEffectBuffs(actor, scope = "tokyo-nova-axleration") {
   const out = [];
   const push = (e) => out.push({
@@ -372,6 +389,13 @@ export function parseEffectTargetKey(key) {
       return { scope: isControl ? "controlCheck" : "abilityCheck", ability: x, conditions };
     }
     if (isControl) return null; // 制御判定は能力値のみ
+    // スート変更マーカー(2026-07-12 ユーザー確定): check.suitChange＝値不要のマーカーキー。
+    // 「判定で使用できないスートのカードを使用可能なスートに変更できる」効果の AE 付与形
+    // (用途の適用効果で対象へ付与=他者バフ)。判定バフと同じ実行時系統=値バフ適用からは除外。
+    // 無印「判定」の機構のため制御判定には効かない(判定フロー側でゲート)
+    if (x === "suitChange") {
+      return { scope: "suitChange", conditions };
+    }
     // グループ参照(2026-07-10): check.style.<スタイル識別キー>(そのスタイルのスタイル技能)/
     // check.works.<組織識別キー>(そのワークスのワークス技能)。識別キー前方一致(*)は据え置き。
     if ((x === "style" || x === "works") && segs.length > 2) {
