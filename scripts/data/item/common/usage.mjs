@@ -132,7 +132,8 @@ export class UsageTemplate extends SystemDataModel {
                     // (OFF ならダイアログ自体を出さない)。適用=最終ダメージ 10 以上を 10 とみなす。
                     canStun: new fields.BooleanField({ initial: false }),
 
-                    // check: ダメージを修正(2026-07-11 ユーザー確定・攻撃セクション所属＝isAttack と排他)。
+                    // check/declaration: ダメージを修正(2026-07-11 ユーザー確定。check では攻撃セクション
+                    // 所属＝isAttack と排他ラジオ・宣言では独立チェックボックス=2026-07-12)。
                     // ON の用途は判定を行わず、**アイテムロールから使用**する: 使用で「ダメージクリック
                     // 待ち」モードに入り、ダメージ・チャットカードのダメージ(攻撃側合計)をクリックすると
                     // 修正値(damageBonusSelf・式。増加=正/軽減=負)がそのダメージへ適用される。
@@ -168,11 +169,12 @@ export class UsageTemplate extends SystemDataModel {
                     // 発動条件(失敗時のみ・山札のみ等)は自動強制しない=卓裁定)。
                     grantRecheck: new fields.BooleanField({ initial: false }),
 
-                    // check: 判定を修正(2026-07-11 ユーザー確定)。ON の用途は使用しても判定を行わず、
-                    // 「達成値クリック待ち」モードに入る。達成値クリックで**その判定に事後的な
-                    // ボーナス/ペナルティを適用**する(値=この用途の判定修正値(checkBonusSelf・式)。
+                    // check/declaration: 判定を修正(2026-07-11 ユーザー確定)。ON の用途は使用しても
+                    // 判定を行わず、「達成値クリック待ち」モードに入る。達成値クリックで**その判定に
+                    // 事後的なボーナス/ペナルティを適用**する(値=この用途の判定修正値(checkBonusSelf・式)。
                     // 空なら手入力)。事後修正された判定を再判定すると修正はリセットされる
-                    // (再判定は元の構成から再実行するため)。
+                    // (再判定は元の構成から再実行するため)。宣言でも設定可(バフ宣言の表現・2026-07-12。
+                    // 判定の前に使用→判定後にクリックで「直前使用のバフ」も表せる)。
                     modifyCheck: new fields.BooleanField({ initial: false }),
 
                     // attack: ダメージ修正(ダメージへ加算する式の行・攻撃用途)。checkBonuses と同型。

@@ -488,6 +488,44 @@
             </fieldset>
             {{/if}}
 
+            {{!-- 宣言: 判定/ダメージへの修正(2026-07-12 ユーザー確定・バフ宣言の表現)。
+                 判定用途とレイアウトを揃えた 2 fieldset・チェックボックスは独立(排他にしない) --}}
+            {{#if isDeclarationType}}
+            <fieldset class="tnx-fieldset">
+                <legend>判定</legend>
+                <div class="usage-form-row usage-toggle-row">
+                    <label class="usage-toggle-inline" title="この用途を使用すると判定は行わず「達成値クリック待ち」になり、結果カードの達成値をクリックすると下の修正値がその判定へ適用されます（ボーナス＝正・ペナルティ＝負・空なら適用時に手入力）。判定の前に使用しておき、判定後にクリックしても構いません">
+                        <input type="checkbox" name="modifyCheck" {{checked usage.modifyCheck}}
+                               {{#unless editable}}disabled{{/unless}}>
+                        <span>判定を修正</span>
+                    </label>
+                </div>
+                {{#if usage.modifyCheck}}
+                <label class="usage-field-label">判定修正（式） <i class="fas fa-circle-question" title="達成値へ適用する修正値。式は @item.self（この用途の親アイテム）・@system.*・@item.<識別キー>.* を参照できます"></i></label>
+                <input type="text" name="checkBonusSelf" value="{{checkBonusSelf}}"
+                       placeholder="式（例: @item.self.system.levelTotal、2、-3）"
+                       {{#unless editable}}disabled{{/unless}}>
+                {{/if}}
+            </fieldset>
+
+            <fieldset class="tnx-fieldset">
+                <legend>ダメージ</legend>
+                <div class="usage-form-row usage-toggle-row">
+                    <label class="usage-toggle-inline" title="この用途を使用すると「ダメージクリック待ち」になり、ダメージ・チャットカードのダメージ（攻撃側合計）をクリックすると下の修正値が適用されます（増加＝正・軽減＝負・空なら適用時に手入力。有効なのはダメージ算出後〜適用前）">
+                        <input type="checkbox" name="modifyDamage" {{checked usage.modifyDamage}}
+                               {{#unless editable}}disabled{{/unless}}>
+                        <span>ダメージを修正</span>
+                    </label>
+                </div>
+                {{#if usage.modifyDamage}}
+                <label class="usage-field-label">ダメージ修正（式） <i class="fas fa-circle-question" title="ダメージへ適用する修正値。式は @item.self（この用途の親アイテム）・@system.*・@item.<識別キー>.*・@card・@diff/@achievement を参照できます"></i></label>
+                <input type="text" name="damageBonusSelf" value="{{damageBonusSelf}}"
+                       placeholder="式（例: -@item.self.system.levelTotal、@card、-5）"
+                       {{#unless editable}}disabled{{/unless}}>
+                {{/if}}
+            </fieldset>
+            {{/if}}
+
             {{!-- 適用される効果（ActiveEffect） --}}
             <fieldset class="tnx-fieldset usage-effects-section">
                 <legend>適用される効果</legend>

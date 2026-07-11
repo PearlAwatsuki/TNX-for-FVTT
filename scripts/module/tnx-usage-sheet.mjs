@@ -357,6 +357,14 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         context.checkMode          = usage.grantRecheck === true ? "grant"
             : (usage.modifyCheck === true ? "modify" : "normal");
         context.isModificationType = usage.type === "modification";
+        // 宣言(declaration)の判定/ダメージ修正(2026-07-12 ユーザー確定): バフ宣言の表現。
+        // 判定用途とレイアウトを揃えた〈判定〉〈ダメージ〉fieldset・チェックボックス2つは独立
+        // (排他 UI にしない。両方 ON の運用は想定せず、使用時は「判定を修正」が先に振られる)
+        context.isDeclarationType  = usage.type === "declaration";
+        if (context.isDeclarationType) {
+            context.checkBonusSelf  = usage.checkBonusSelf ?? "";
+            context.damageBonusSelf = usage.damageBonusSelf ?? "";
+        }
 
         // NPC取得(11-6・Troops.md): モードは明示選択。エキストラモードは判定なし(取得アイテムの
         // ドロップ欄)、トループ/エニグマ/分身モードは通常判定(参加技能=check と同じ扱い。
@@ -862,6 +870,20 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             update.canStun = isAtk ? (raw["canStun"] ?? usage.canStun ?? false) : false;
         }
 
+        // 宣言(declaration)の判定/ダメージ修正(2026-07-12): チェックボックス2つは独立(排他にしない)。
+        // OFF にした側の式はクリアする(check 用途の非選択側クリアと同じ扱い)。
+        // 表示切り替え(式欄の出し入れ)があるためフラグ変更時は再描画する
+        let declModifyChanged = false;
+        if (usage.type === "declaration") {
+            const prevMC = usage.modifyCheck === true;
+            const prevMD = usage.modifyDamage === true;
+            update.modifyCheck  = raw["modifyCheck"]  ?? prevMC;
+            update.modifyDamage = raw["modifyDamage"] ?? prevMD;
+            update.checkBonusSelf  = update.modifyCheck  ? (raw["checkBonusSelf"]  ?? usage.checkBonusSelf  ?? "") : "";
+            update.damageBonusSelf = update.modifyDamage ? (raw["damageBonusSelf"] ?? usage.damageBonusSelf ?? "") : "";
+            declModifyChanged = update.modifyCheck !== prevMC || update.modifyDamage !== prevMD;
+        }
+
         // 固定達成値(フェーズ11-5・エキストラの技能判定)。固定値用途のマーカーを兼ねるため、
         // 入力が空にされても null に戻さず 0 に留める(通常判定 UI へ化けるのを防ぐ)。負値は 0 clamp
         if (Number.isFinite(usage.fixedResult)) {
@@ -955,6 +977,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         if (prevAttackCategory !== null && (update.damageCategory ?? prevAttackCategory) !== prevAttackCategory) {
             this.render({ force: true });
         }
+        // 宣言の修正フラグ変更も式欄の出し入れがあるため即再描画する
+        if (declModifyChanged) this.render({ force: true });
     }
 
     // ─── 自動入力（参加技能の固有値を優先度で合成） ─────────────────────────────

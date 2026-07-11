@@ -2312,9 +2312,12 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // (アイテムの基本機能)。用途があればその実行に切り替わる。
         // 攻撃・NPC取得もアイテムロール(アクターシートの技能クリック)から実行できる
         // (経路の漏れを作らない=11-6/12-2 の確定方針)
-        // 攻撃は判定の一種(damageCategory 付きの check)。check/npcAcquire を実行対象にする
+        // 攻撃は判定の一種(damageCategory 付きの check)。check/npcAcquire に加え、
+        // 修正フラグ付きの宣言(判定を修正/ダメージを修正=バフ宣言・2026-07-12)も実行対象にする
+        // (修正フラグ無しの宣言は従来どおり解説カード=既存挙動を変えない)
         const usableUsages = (item.system.actions ?? [])
-            .filter(a => ["check", "npcAcquire"].includes(a.type));
+            .filter(a => ["check", "npcAcquire"].includes(a.type)
+                || (a.type === "declaration" && (a.modifyCheck === true || a.modifyDamage === true)));
         if (!usableUsages.length) {
             await item.postDescriptionCard();
             return;
@@ -2344,8 +2347,10 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 再判定を付与=達成値クリックでその判定にこの技能を組み合わせた再判定を起動。
         // 判定を修正=達成値クリックでその判定に事後ボーナス/ペナルティを適用。
         // ダメージを修正=ダメージカードの攻撃側合計クリックでそのダメージに修正を適用。
+        // 宣言(declaration)の判定を修正/ダメージを修正も同経路(バフ宣言・2026-07-12)。
+        // 両フラグ ON は「判定を修正」を先に振る(排他 UI にはしない・両方 ON の運用は想定しない)。
         // 消費は用途の consumeTargets(プランを持ち回り、発動時に適用)
-        if (selectedUsage.type === "check"
+        if ((selectedUsage.type === "check" || selectedUsage.type === "declaration")
             && (selectedUsage.grantRecheck === true || selectedUsage.modifyCheck === true || selectedUsage.modifyDamage === true)) {
             const kind = selectedUsage.grantRecheck === true ? "recheck"
                 : (selectedUsage.modifyCheck === true ? "modify" : "modifyDamage");
