@@ -34,6 +34,7 @@ import { getCardCheckValue } from "./tnx-check-engine.mjs";
 import { formatAttackLabel } from "./attack-flow-logic.mjs";
 import { consumeFaAmmo } from "./weapon-ammo.mjs";
 import { gatherDamageVsSources, gatherDamageDealtSources, collectActorEffectBuffs, targetStyleWorksKeys } from "../data/item/helpers.mjs";
+import { applyUsageEffectsFromMessage } from "./usage-effects.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会" };
@@ -624,6 +625,11 @@ async function openMitigationDialog(message) {
             modal: true,
         });
     }
+
+    // 適用効果の同時適用(2026-07-12 ユーザー確定): 用途の適用効果はダメージ適用と**同時に自動で**
+    // 対象へ付与する(手動ボタンの押し順=順序依存を消す。チャート適用より先に付与するため、
+    // タグ改変 AE(damage.replaceTag/addTag)が同じクリックの中で正しく効く)。未適用時のみ動く
+    await applyUsageEffectsFromMessage(message);
 
     const { final, stage } = computeDamage({ damageCard: raw, mitigation: mitigationTotal, stun });
     const applyText = await applyDamageToTarget(target, category, final, stage);

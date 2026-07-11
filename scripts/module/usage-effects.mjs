@@ -122,6 +122,16 @@ export function renderUsageEffectButton(message, html) {
         return;
     }
 
+    // ダメージカードでは、効果はダメージ適用と**同時に自動付与**される(2026-07-12 ユーザー確定=
+    // 押し順の順序依存を消す)。ダメージ適用に至る経路がある間はボタンを出さず予告のみ表示する。
+    // 対象未選択(適用ボタンが出ない)・適用済みで効果だけ未適用(旧カード等)は手動ボタンを残す
+    const damageF = message.getFlag(SCOPE, "damageRoll");
+    if (damageF && damageF.targetUuid && !damageF.applied) {
+        block.innerHTML = `<p class="tnx-usage-effect-note">付与効果: ${names} → ${targetNames}（ダメージ適用と同時に付与されます）</p>`;
+        host.appendChild(block);
+        return;
+    }
+
     block.innerHTML = `<p class="tnx-usage-effect-note">付与効果: ${names} → ${targetNames}</p>`;
     const btn = document.createElement("button");
     btn.type = "button";
