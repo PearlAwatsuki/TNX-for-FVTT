@@ -353,6 +353,9 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         context.isBoostDamage      = context.isCheckType && !context.isFixedCheck && usage.boostDamage === true;
         // 攻撃モードのラジオ値(排他の表現。両フラグ立ちは isAttack 優先で正規化表示)
         context.attackMode         = context.isAttack ? "attack" : (context.isBoostDamage ? "boost" : "none");
+        // 判定モードのラジオ値(2026-07-11): 通常/再判定を付与/判定を修正(判定用途に「なし」は無い)
+        context.checkMode          = usage.grantRecheck === true ? "grant"
+            : (usage.modifyCheck === true ? "modify" : "normal");
         context.isModificationType = usage.type === "modification";
 
         // NPC取得(11-6・Troops.md): モードは明示選択。エキストラモードは判定なし(取得アイテムの
@@ -842,9 +845,14 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         if (usage.type === "check" && !Number.isFinite(usage.fixedResult)) {
             update.checkBonuses = TnxUsageSheet._collectBonusRows(raw, "checkBonus");
             update.checkBonusSelf = raw["checkBonusSelf"] ?? usage.checkBonusSelf ?? "";
-            update.allowRecheck = raw["allowRecheck"] ?? usage.allowRecheck ?? false;
-            update.grantRecheck = raw["grantRecheck"] ?? usage.grantRecheck ?? false;
-            update.modifyCheck  = raw["modifyCheck"]  ?? usage.modifyCheck  ?? false;
+            // 判定モード(ラジオ・2026-07-11): normal/grant/modify。排他はラジオが保証。
+            // 再判定可能(allowRecheck)は「判定を行う用途」の性質のため通常モードでのみ保持
+            const checkMode = raw["checkMode"]
+                ?? (usage.grantRecheck === true ? "grant" : (usage.modifyCheck === true ? "modify" : "normal"));
+            update.grantRecheck = checkMode === "grant";
+            update.modifyCheck  = checkMode === "modify";
+            update.allowRecheck = checkMode === "normal"
+                ? (raw["allowRecheck"] ?? usage.allowRecheck ?? false) : false;
             const mode = raw["attackMode"] ?? (usage.damageCategory ? "attack" : (usage.boostDamage ? "boost" : "none"));
             const isAtk = mode === "attack";
             const isBoost = mode === "boost";

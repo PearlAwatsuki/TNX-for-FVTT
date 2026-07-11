@@ -325,24 +325,32 @@
             {{#if isCheckType}}
             <fieldset class="tnx-fieldset">
                 <legend>判定</legend>
-                {{!-- 再判定可能(2026-07-11): ON の用途からの判定は結果カードに「再判定」ボタンが出る --}}
+                {{!-- 判定モード(排他のためラジオ・2026-07-11): 通常=判定を行う / 再判定を付与 / 判定を修正。
+                     判定用途である限り「なし」は存在しない(最初の選択肢=通常の判定) --}}
+                <div class="usage-form-row usage-toggle-row">
+                    <label class="usage-toggle-inline" title="通常の判定として使用します">
+                        <input type="radio" name="checkMode" value="normal" {{checked (eq checkMode "normal")}} {{#unless editable}}disabled{{/unless}}>
+                        <span>通常</span>
+                    </label>
+                    <label class="usage-toggle-inline" title="この用途を使用すると判定は行わず、結果カードの達成値をクリックして「その判定にこの技能を組み合わせた再判定」を起動できるようになります（発動条件の裁定は卓）">
+                        <input type="radio" name="checkMode" value="grant" {{checked (eq checkMode "grant")}} {{#unless editable}}disabled{{/unless}}>
+                        <span>再判定を付与</span>
+                    </label>
+                    <label class="usage-toggle-inline" title="この用途を使用すると判定は行わず、結果カードの達成値をクリックして「その判定への事後ボーナス/ペナルティ」を適用できるようになります（値＝この用途の判定修正値。空なら手入力。事後修正された判定を再判定すると修正はリセットされます）">
+                        <input type="radio" name="checkMode" value="modify" {{checked (eq checkMode "modify")}} {{#unless editable}}disabled{{/unless}}>
+                        <span>判定を修正</span>
+                    </label>
+                </div>
+                {{#if (eq checkMode "normal")}}
+                {{!-- 再判定可能は「判定を行う用途」の性質のため通常モードでのみ表示 --}}
                 <div class="usage-form-row usage-toggle-row">
                     <label class="usage-toggle-inline" title="この用途からの判定の結果カードに「再判定（カードを出し直す）」ボタンを出します（判定値の再決定。再判定を可能にする能力の表現）">
                         <input type="checkbox" name="allowRecheck" {{checked usage.allowRecheck}}
                                {{#unless editable}}disabled{{/unless}}>
                         <span>再判定可能</span>
                     </label>
-                    <label class="usage-toggle-inline" title="この用途を使用すると判定は行わず、結果カードの達成値をクリックして「その判定にこの技能を組み合わせた再判定」を起動できるようになります（発動条件の裁定は卓）">
-                        <input type="checkbox" name="grantRecheck" {{checked usage.grantRecheck}}
-                               {{#unless editable}}disabled{{/unless}}>
-                        <span>再判定を付与</span>
-                    </label>
-                    <label class="usage-toggle-inline" title="この用途を使用すると判定は行わず、結果カードの達成値をクリックして「その判定への事後ボーナス/ペナルティ」を適用できるようになります（値＝この用途の判定修正値。空なら手入力。事後修正された判定を再判定すると修正はリセットされます）">
-                        <input type="checkbox" name="modifyCheck" {{checked usage.modifyCheck}}
-                               {{#unless editable}}disabled{{/unless}}>
-                        <span>判定を修正</span>
-                    </label>
                 </div>
+                {{/if}}
                 <label class="usage-field-label">この用途の判定修正値 <i class="fas fa-circle-question" title="この用途の親アイテムが持つ判定修正値。式で @item.self（＝この用途の親アイテム）を参照できます（例 @item.self.system.levelTotal）。供給元つきの追加行とは別枠の専用欄です"></i></label>
                 <input type="text" name="checkBonusSelf" value="{{checkBonusSelf}}"
                        placeholder="式（例: @item.self.system.levelTotal、2）"
