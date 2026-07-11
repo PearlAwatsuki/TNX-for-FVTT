@@ -343,6 +343,13 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             return;
         }
 
+        // ダメージ増加(2026-07-11): 待ち受け中のダメージ算出へ登録(アイテムロール使用)
+        if (usage.type === "check" && usage.boostDamage === true) {
+            const { useDamageBoost } = await import("../module/damage-flow.mjs");
+            await useDamageBoost(this.item, usage);
+            return;
+        }
+
         const actor = this.item.actor;
         if (usage.type !== "check" && actor) {
             // 分身は本体側カウンターへ差し替えて共有(Troops.md)

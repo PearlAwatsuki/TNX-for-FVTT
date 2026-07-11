@@ -131,6 +131,13 @@ export class UsageTemplate extends SystemDataModel {
                     // (OFF ならダイアログ自体を出さない)。適用=最終ダメージ 10 以上を 10 とみなす。
                     canStun: new fields.BooleanField({ initial: false }),
 
+                    // check: ダメージを増加(2026-07-11 ユーザー確定・攻撃セクション所属＝isAttack と排他)。
+                    // ON の用途は判定を行わず、**アイテムロールから使用**する: ダメージカードの待ち受け中
+                    // (算出ダイアログが開いてカードを出す前)にクリックすると算出へ登録され(再クリックで
+                    // 解除)、カードプレイと同時に効果量(damageBonusSelf・式)がダメージへ合算される
+                    // ＝「タイミング：ダメージ算出」の技能の表現。待ち受け外の使用は不成立(警告)。
+                    boostDamage: new fields.BooleanField({ initial: false }),
+
                     // check: 判定ボーナス(達成値へ加算する式の行・全判定用途。2026-07-10 ユーザー確定)。
                     // 各行 = { formula: 式, source: 供給元の識別キー(組み合わせスタイル技能/使用武器。空=用途) }。
                     // 供給元を持たせることで「どの能力から供給された加算か」をチャットで識別できる。
@@ -175,8 +182,9 @@ export class UsageTemplate extends SystemDataModel {
                         })
                     ),
 
-                    // attack: 用途自身のダメージ修正値(専用欄・checkBonusSelf のダメージ版・2026-07-10)。
-                    // 親アイテムが持つダメージ修正を入れる欄。式で @item.self を参照可・台帳は親名で帰属。
+                    // attack/boostDamage: 用途自身のダメージ修正値(専用欄・checkBonusSelf のダメージ版・
+                    // 2026-07-10)。親アイテムが持つダメージ修正を入れる欄。式で @item.self を参照可・
+                    // 台帳は親名で帰属。boostDamage ではダメージ増加の効果量(式)としてこの欄を使う。
                     damageBonusSelf: new fields.StringField({ initial: "" }),
 
                     // check(攻撃): 攻撃系統 ("physical" | "mental" | "social")。設定されている check が攻撃

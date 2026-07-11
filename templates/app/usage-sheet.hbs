@@ -359,10 +359,24 @@
                  系統=Damage_Rules の3系統。武器・ダメージ種別は物理のみ(精神・社会は攻撃力を持たない) --}}
             <fieldset class="tnx-fieldset usage-attack-section">
                 <legend>攻撃</legend>
-                <label class="usage-toggle-inline" title="この判定を攻撃（ダメージを与える行動）として使う場合にオンにします。オフなら通常の判定です">
-                    <input type="checkbox" name="isAttack" {{checked isAttack}} {{#unless editable}}disabled{{/unless}}>
-                    <span>この判定を攻撃に使う</span>
-                </label>
+                <div class="usage-form-row usage-toggle-row">
+                    <label class="usage-toggle-inline" title="この判定を攻撃（ダメージを与える行動）として使う場合にオンにします。オフなら通常の判定です">
+                        <input type="checkbox" name="isAttack" {{checked isAttack}} {{#unless editable}}disabled{{/unless}}>
+                        <span>この判定を攻撃に使う</span>
+                    </label>
+                    <label class="usage-toggle-inline" title="この用途を「ダメージ増加」にします（「攻撃に使う」とは排他）。使用は技能のクリックから: ダメージカードの待ち受け中に使用すると算出へ登録され（再使用で解除）、カードを出すと同時に下のダメージ増加（式）が合算されます">
+                        <input type="checkbox" name="boostDamage" {{checked isBoostDamage}} {{#unless editable}}disabled{{/unless}}>
+                        <span>ダメージを増加</span>
+                    </label>
+                </div>
+                {{#if isBoostDamage}}
+                <div class="usage-form-section">
+                    <label class="usage-field-label">ダメージ増加（式） <i class="fas fa-circle-question" title="ダメージカードの待ち受け中にこの技能を使用すると、カードプレイと同時にこの式の値がダメージへ合算されます。式は @item.self（この技能）・@system.*・@item.<識別キー>.*・@card・@diff/@achievement・@target.* を参照できます"></i></label>
+                    <input type="text" name="damageBonusSelf" value="{{damageBonusSelf}}"
+                           placeholder="式（例: @card、@item.self.system.levelTotal、5）"
+                           {{#unless editable}}disabled{{/unless}}>
+                </div>
+                {{/if}}
                 {{#if isAttack}}
                 <div class="usage-form-section">
                     <div class="usage-form-row">

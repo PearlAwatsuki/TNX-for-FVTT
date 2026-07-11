@@ -52,6 +52,11 @@ describe("UsageTemplate.defineSchema()", () => {
       expect(entryFields.canStun.options.initial).toBe(false);
     });
 
+    it("ダメージを増加（boostDamage・2026-07-11 再設計＝アイテムロール使用）は BooleanField で initial false", () => {
+      expect(entryFields.boostDamage).toBeInstanceOf(MockBooleanField);
+      expect(entryFields.boostDamage.options.initial).toBe(false);
+    });
+
     it("攻撃系統(damageCategory)が存在し、旧 formula(効果量)は廃止済み(2026-07-11)", () => {
       expect(entryFields).toHaveProperty("damageCategory");
       expect(entryFields).not.toHaveProperty("formula");

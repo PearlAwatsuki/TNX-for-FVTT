@@ -21,6 +21,7 @@ import { TnxCheckFlow } from '../module/tnx-check-flow.mjs';
 import { resolveConsumeRowsForActor, promptConsumption } from '../module/usage-consumption.mjs';
 import { useNpcAcquire } from '../module/npc-acquisition.mjs';
 import { useAttack } from '../module/attack-flow.mjs';
+import { useDamageBoost } from '../module/damage-flow.mjs';
 import { prepareUsageEffectPayload } from '../module/usage-effects.mjs';
 import { getComboSuits, comboUsesBounty, ALL_SUITS } from '../module/tnx-check-engine.mjs';
 import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
@@ -2350,6 +2351,13 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             const grantPlan = await promptConsumption(this.actor, grantRows, { title: `使用回数の消費: ${item.name}` });
             if (grantPlan === null) return;
             TnxCheckFlow.startAchievementAction(kind, this.actor, item, { usageId: selectedUsage._id, consumeUses: grantPlan });
+            return;
+        }
+
+        // ダメージ増加(2026-07-11): 判定を行わず、待ち受け中のダメージ算出へ登録する
+        // (アイテムロール使用・カードプレイと同時に発効。待ち受け外は警告)
+        if (selectedUsage.type === "check" && selectedUsage.boostDamage === true) {
+            await useDamageBoost(item, selectedUsage);
             return;
         }
 

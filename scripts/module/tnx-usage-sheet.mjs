@@ -349,6 +349,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         context.isFixedCheck       = usage.type === "check" && Number.isFinite(usage.fixedResult);
         // 攻撃は判定の一種(2026-07-09): check かつ damageCategory 設定=攻撃。固定値判定は攻撃にしない
         context.isAttack           = context.isCheckType && !context.isFixedCheck && !!usage.damageCategory;
+        // ダメージ増加(2026-07-11): 攻撃セクション所属のフラグ(isAttack と排他)。使用はアイテムロール
+        context.isBoostDamage      = context.isCheckType && !context.isFixedCheck && usage.boostDamage === true;
         context.isModificationType = usage.type === "modification";
 
         // NPC取得(11-6・Troops.md): モードは明示選択。エキストラモードは判定なし(取得アイテムの
@@ -842,8 +844,10 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             update.grantRecheck = raw["grantRecheck"] ?? usage.grantRecheck ?? false;
             update.modifyCheck  = raw["modifyCheck"]  ?? usage.modifyCheck  ?? false;
             const isAtk = raw["isAttack"] ?? false;
+            const isBoost = raw["boostDamage"] ?? false;
             update.damageBonuses  = isAtk ? TnxUsageSheet._collectBonusRows(raw, "damageBonus") : [];
-            update.damageBonusSelf = isAtk ? (raw["damageBonusSelf"] ?? usage.damageBonusSelf ?? "") : "";
+            // damageBonusSelf は攻撃の「ダメージ修正値」/ダメージ増加の「効果量」を兼ねる(2026-07-11)
+            update.damageBonusSelf = (isAtk || isBoost) ? (raw["damageBonusSelf"] ?? usage.damageBonusSelf ?? "") : "";
             update.canStun = isAtk ? (raw["canStun"] ?? usage.canStun ?? false) : false;
         }
 
@@ -902,7 +906,15 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         const prevAttackCategory = usage.type === "check" && !Number.isFinite(usage.fixedResult)
             ? (usage.damageCategory || "") : null;
         if (usage.type === "check" && !Number.isFinite(usage.fixedResult)) {
-            const isAttack = raw["isAttack"] ?? false;
+            // 「攻撃に使う」と「ダメージを増加」は排他(2026-07-11)。両方オンになった場合は
+            // 今回オンにした方(前回状態から変わった方)を優先する
+            let isAttack = raw["isAttack"] ?? false;
+            let boost    = raw["boostDamage"] ?? false;
+            if (isAttack && boost) {
+                if (usage.boostDamage !== true) isAttack = false; // 今回 boost を入れた
+                else boost = false;                                // 今回 attack を入れた
+            }
+            update.boostDamage = boost;
             if (isAttack) {
                 update.damageCategory = raw["damageCategory"] || usage.damageCategory || "physical";
                 update.damageType     = raw["damageType"]     ?? usage.damageType;

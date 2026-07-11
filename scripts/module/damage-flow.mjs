@@ -23,6 +23,7 @@
 import { applyDamageChartResult } from "./condition-resolution.mjs";
 import { aggregateDefence, defenceForType, computeDamage } from "./damage-logic.mjs";
 import { evaluateBonusRows, evaluateSelfBonus } from "./tnx-formula.mjs";
+import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } from "./usage-consumption.mjs";
 import { getDamageChartKind } from "../data/damage-chart.mjs";
 import { CONDITION_KINDS } from "./conditions.mjs";
 import { applyAttackPatch } from "./attack-flow.mjs";
@@ -146,7 +147,7 @@ export async function openDamageRollDialog(attackMessage) {
     // 待ち受け開始: ダイアログを開いたまま、手札は HUD クリック(executeDamageCardFromHand)・
     // 山札はダイアログのボタンで出す(判定と同じ操作系)
     await cancelPending();
-    const ctx = { kind: "roll", attackMessage, f, attacker, category, attackPower, faOptions, damageBonusRows: damageBonusRowsAll, dialog: null, done: false };
+    const ctx = { kind: "roll", attackMessage, f, attacker, category, attackPower, faOptions, damageBonusRows: damageBonusRowsAll, targetActor, pendingBoosts: [], dialog: null, done: false };
     _pending = ctx;
 
     const chosen = await foundry.applications.api.DialogV2.wait({
@@ -191,6 +192,20 @@ async function finalizeDamageRoll(ctx, form, played) {
         if (weapon) await consumeFaAmmo(weapon);
     }
 
+    // ダメージ増加(boostDamage 用途・2026-07-11): 待ち受け中にアイテムロールで登録されたものを
+    // カードプレイと同時に評価して合算する(「タイミング：ダメージ算出」＝宣言はクリック先行・
+    // 発効は確定トリガーでアトミック)。消費(クリック時に確定したプラン)もここで適用
+    const boosts = [];
+    for (const b of (ctx.pendingBoosts ?? [])) {
+        const skillItem = attacker?.items.get(b.itemId) ?? null;
+        const val = await evaluateSelfBonus(b.formula, attacker,
+            { diff: f.diff, achievement: f.achievement, cardValue: f.cardValue ?? null },
+            ctx.targetActor ?? null, skillItem);
+        if (val) boosts.push({ name: b.name, value: val.value });
+        else ui.notifications.warn(`「${b.name}」のダメージ増加式を評価できません（手動修正で反映してください）。`);
+        if (b.consumeUses?.length) await applyConsumptionPlan(b.consumeUses);
+    }
+
     // 用途の適用効果はフローの一番最後(2026-07-11 ユーザー確定)=ダメージ算出後に適用する。
     // 攻撃カードのペイロードをダメージカードへ引き継ぐ(適用済み状態ごと。攻撃カード側の表示は
     // damageRolled で消える=適用ボタンはこのカードに一本化される)
@@ -214,6 +229,7 @@ async function finalizeDamageRoll(ctx, form, played) {
                     damageType: f.damageType ?? "",
                     attackPower, faValue,
                     damageBonuses: damageBonusRows,
+                    boosts,   // ダメージ増加(boostDamage 用途・アイテムロール登録分)
                     attackSourceName: f.attackSourceName ?? "",
                     parryGuard: Number(f.parryGuard) || 0,
                     diff: f.diff ?? null,
@@ -340,6 +356,9 @@ export function renderDamageCard(message, html) {
     for (const b of (f.damageBonuses ?? [])) {
         row(ledger, `ダメージ修正（${esc(b.name || "用途")}）`, signedDisplay("＋", b.value));
     }
+    for (const b of (f.boosts ?? [])) {
+        row(ledger, `ダメージ増加（${esc(b.name || "用途")}）`, signedDisplay("＋", b.value));
+    }
     if (f.manualMod) row(ledger, "修正（手動）", signedDisplay("＋", f.manualMod));
     row(ledger, `攻撃側合計${f.stun ? "（スタン／説得）" : ""}`, String(raw), "cr-calc-row cr-total-row", "cr-total-num");
 
@@ -380,6 +399,41 @@ export function renderDamageCard(message, html) {
     }
 }
 
+/**
+ * ダメージ増加用途の使用(アイテムロールから・2026-07-11 ユーザー確定)。
+ * ダメージカードの待ち受け中(算出ダイアログが開いてカードを出す前)のみ有効:
+ * 現在の算出へ登録し(再使用で解除=トグル)、カードプレイと同時に効果量(damageBonusSelf)が
+ * 合算される。消費はここでプロンプトし、カードプレイ確定時に適用する。
+ * ※ダイアログ内の選択肢からの使用は行わない(使用は必ずアイテムロール)
+ * @param {Item} item ダメージ増加用途を持つ技能
+ * @param {object} usage boostDamage=true の用途エントリ
+ */
+export async function useDamageBoost(item, usage) {
+    const actor = item.actor;
+    if (!actor) { ui.notifications.warn("ダメージ増加はアクターが所持している技能から使用してください。"); return; }
+    const ctx = _pending;
+    if (!ctx || ctx.kind !== "roll") {
+        ui.notifications.warn("ダメージ算出中ではありません（攻撃の「ダメージカードを出す」からカードを出すまでの間に使用してください）。");
+        return;
+    }
+    if (ctx.attacker?.id !== actor.id) {
+        ui.notifications.warn("このダメージ算出は別のキャラクターが行っています（増加できるのは攻撃者自身の技能のみ）。");
+        return;
+    }
+    const key = `${item.id}.${usage._id}`;
+    const idx = (ctx.pendingBoosts ?? []).findIndex(b => b.key === key);
+    if (idx >= 0) {
+        ctx.pendingBoosts.splice(idx, 1);
+        ui.notifications.info(`「${usage.name || item.name}」のダメージ増加を解除しました。`);
+        return;
+    }
+    const rows = resolveConsumeRowsForActor(actor, item, usage.consumeTargets);
+    const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${item.name}` });
+    if (plan === null) return;
+    ctx.pendingBoosts.push({ key, itemId: item.id, name: usage.name || item.name, formula: usage.damageBonusSelf || "", consumeUses: plan });
+    ui.notifications.info(`「${usage.name || item.name}」をダメージ算出に組み込みました（カードを出すと適用されます）。`);
+}
+
 /** 攻撃対象(命中確定済み)のアクターを解決する。トークンドキュメントならアクターへ。 */
 async function resolveTargetActor(targetUuid) {
     if (!targetUuid) return null;
@@ -406,8 +460,9 @@ function collectDamageVsBonuses(attacker, target) {
 function damageRollTotals(f) {
     const cardSum = (f.cards ?? []).reduce((s, c) => s + (Number(c.value) || 0), 0);
     const bonusSum = (f.damageBonuses ?? []).reduce((s, b) => s + (Number(b.value) || 0), 0);
+    const boostSum = (f.boosts ?? []).reduce((s, b) => s + (Number(b.value) || 0), 0);
     const raw = cardSum + (Number(f.attackPower) || 0) + (Number(f.faValue) || 0)
-        + bonusSum + (Number(f.manualMod) || 0);
+        + bonusSum + boostSum + (Number(f.manualMod) || 0);
     return { cardSum, raw };
 }
 
