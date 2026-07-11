@@ -91,12 +91,11 @@ export function renderUsageEffectButton(message, html) {
     const payload = message.getFlag(SCOPE, "usageEffects");
     if (!payload?.effects?.length) return;
 
-    // 効果の適用はフローの一番最後(2026-07-11 ユーザー確定)。攻撃カードでは、
-    // ダメージが算出されるまで出さない——命中確定後(state=hit)かつダメージカード未算出のときのみ表示
-    // (ダメージが発生しない攻撃向け)。ダメージカードを出した後はダメージカード側に表示される
-    // (finalizeDamageRoll がペイロードをコピー)。ミス(miss)は効果適用なし。
+    // 効果の適用はフローの一番最後(2026-07-11 ユーザー確定)。攻撃(=ダメージフローを持つ)では
+    // **ダメージ・チャットカードへの表示に一本化**する——攻撃カード側には一切出さない
+    // (finalizeDamageRoll がペイロードをダメージカードへコピーし、そちらのフックで描画される)。
     const attackF = message.getFlag(SCOPE, "attackCheck");
-    if (attackF && (attackF.state !== "hit" || attackF.damageRolled)) return;
+    if (attackF) return;
 
     // 差し込み先: 既存のカード本文の末尾(専用の器があればそこ、無ければカード直下)
     const host = html.querySelector(".tnx-usage-effect-area")

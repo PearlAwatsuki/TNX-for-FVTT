@@ -706,7 +706,7 @@ export async function applyDamageToTarget(target, category, final, stage) {
     if (derived && (target.type === "cast" || target.type === "guest")) {
         derivedText = await applyDerivedDamage(target, derived);
     }
-    return `${CATEGORY_LABELS[category] ?? category}チャート${woundLabel ? `「${woundLabel}」` : ""}を適用${derivedText}`;
+    return `${CATEGORY_LABELS[category] ?? category}ダメージチャート${woundLabel ? `「${woundLabel}」` : ""}を適用${derivedText}`;
 }
 
 /**
