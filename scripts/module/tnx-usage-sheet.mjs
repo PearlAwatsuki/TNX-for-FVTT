@@ -104,6 +104,25 @@ function resolveRange(entries) {
     return { range: best.range, isFixed: best.isFixed };
 }
 
+/**
+ * 使用武器(weaponRefs)の射程を解決する(射程「武器」の実体解決・2026-07-12 ユーザー確定)。
+ * 武器の射程は {min, max}(max="none"=単一射程=min)。実効射程=最長(max 優先・単一は min)。
+ * 複数武器は最短を採用(「※複数は最短」の既定を踏襲・Code 既定)。解決不能は null。
+ */
+function resolveWeaponRangeValue(usage, item, actor) {
+    const ranges = (usage.weaponRefs ?? [])
+        .map(r => (r.itemId === item.id ? item : actor?.items.get(r.itemId)))
+        .filter(Boolean)
+        .map(w => {
+            const rg = w.system?.range ?? {};
+            const eff = rg.max && rg.max !== "none" ? rg.max : rg.min;
+            return eff && eff !== "none" ? eff : null;
+        })
+        .filter(Boolean);
+    if (!ranges.length) return null;
+    return ranges.reduce((a, b) => (RANGE_PHYSICAL[b] ?? 99) < (RANGE_PHYSICAL[a] ?? 99) ? b : a);
+}
+
 /** 参加技能群の目標値を解決。数値があれば最大、なければ最初の非blank型を採用 */
 function resolveTargetValue(entries) {
     const numerics = entries.filter(e => e.targetValue === "number");
@@ -218,7 +237,17 @@ export function deriveUsageAutoFill(item, usage) {
     if (t) { patch.target = t.target; patch.isFixedTarget = t.isFixed; }
 
     const r = resolveRange(skillItems.map(s => ({ range: s.system.range, isFixed: !!s.system.isFixedRange })));
-    if (r) { patch.range = r.range; patch.isFixedRange = r.isFixed; }
+    if (r) {
+        patch.range = r.range;
+        patch.isFixedRange = r.isFixed;
+        // 射程「武器」(2026-07-12 ユーザー確定): 優先度はそのまま(武器=至近※に次ぐ)で、
+        // 「武器」が勝った場合に使用する武器(weaponRefs)の実射程へ解決して具体値を設定する
+        // (武器未設定・射程なしなら「武器」のまま=従来表示)
+        if (r.range === "weapon") {
+            const wr = resolveWeaponRangeValue(usage, item, actor);
+            if (wr) patch.range = wr;
+        }
+    }
 
     // 目標値: NPC取得はモードで確定する(トループ/エニグマ=なし・分身=10固定)ため導出しない
     if (usage.type !== "npcAcquire") {
