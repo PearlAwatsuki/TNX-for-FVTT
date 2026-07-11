@@ -359,14 +359,19 @@
                  系統=Damage_Rules の3系統。武器・ダメージ種別は物理のみ(精神・社会は攻撃力を持たない) --}}
             <fieldset class="tnx-fieldset usage-attack-section">
                 <legend>攻撃</legend>
+                {{!-- 攻撃モード(排他のためラジオ・2026-07-11): なし=通常判定 / 攻撃に使う / ダメージ増加 --}}
                 <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline" title="この判定を攻撃（ダメージを与える行動）として使う場合にオンにします。オフなら通常の判定です">
-                        <input type="checkbox" name="isAttack" {{checked isAttack}} {{#unless editable}}disabled{{/unless}}>
-                        <span>この判定を攻撃に使う</span>
+                    <label class="usage-toggle-inline" title="通常の判定として使います（攻撃にもダメージ増加にも使いません）">
+                        <input type="radio" name="attackMode" value="none" {{checked (eq attackMode "none")}} {{#unless editable}}disabled{{/unless}}>
+                        <span>なし</span>
                     </label>
-                    <label class="usage-toggle-inline" title="この用途を「ダメージ増加」にします（「攻撃に使う」とは排他）。使用は技能のクリックから: ダメージカードの待ち受け中に使用すると算出へ登録され（再使用で解除）、カードを出すと同時に下のダメージ増加（式）が合算されます">
-                        <input type="checkbox" name="boostDamage" {{checked isBoostDamage}} {{#unless editable}}disabled{{/unless}}>
-                        <span>ダメージを増加</span>
+                    <label class="usage-toggle-inline" title="この判定を攻撃（ダメージを与える行動）として使います">
+                        <input type="radio" name="attackMode" value="attack" {{checked (eq attackMode "attack")}} {{#unless editable}}disabled{{/unless}}>
+                        <span>攻撃に使う</span>
+                    </label>
+                    <label class="usage-toggle-inline" title="この用途を「ダメージ増加」にします。使用は技能のクリックから: ダメージカードの待ち受け中に使用すると算出へ登録され（再使用で解除）、カードを出すと同時に下のダメージ増加（式）が合算されます">
+                        <input type="radio" name="attackMode" value="boost" {{checked (eq attackMode "boost")}} {{#unless editable}}disabled{{/unless}}>
+                        <span>ダメージ増加</span>
                     </label>
                 </div>
                 {{#if isBoostDamage}}
