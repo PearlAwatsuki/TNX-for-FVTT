@@ -15,7 +15,9 @@
  * @condition.woundValue(負傷のダメージ値・同)を参照できる。空なら用途の目標値(数値)を使う。
  *
  * 除去の意味論(既存規約の流用):
- * - BS/戦闘不能=その効果のみ(woundSource は辿らない=「BS を回復してもダメージは治療されない」)
+ * - BS=その効果のみ(woundSource は辿らない=「BS を回復してもダメージは治療されない」)
+ * - 戦闘不能=**元となる負傷(ダメージ)ごと治療する**(2026-07-13 ユーザー確定。戦闘不能はダメージ
+ *   そのもの=2026-07-09 裁定。紐づく負傷があればその除去範囲へ展開・孤立は単体除去)
  * - 負傷=治療と同じ範囲(負傷+紐づき戦闘不能+非BS。BS は残る)
  * - 除去の権限が無ければ treatmentApply ソケットで GM 委譲(治療と同じ経路)
  *
@@ -60,14 +62,25 @@ function buildRemovalPlan(patient, effects) {
     let magnitude = 0;
     let woundValue = 0;
     const labels = [];
+    const addWoundRange = (wound) => {
+        for (const id of woundRemovalIds(patient, wound)) ids.add(id);
+        woundValue = Math.max(woundValue, Number(wound.flags?.[SCOPE]?.woundValue) || 0);
+    };
     for (const e of effects) {
         const kind = getConditionKinds(e)[0];
         const def = CONDITION_KINDS[kind];
         labels.push(def?.label ?? e.name);
         if (def?.type === "wound") {
-            for (const id of woundRemovalIds(patient, e)) ids.add(id);
-            woundValue = Math.max(woundValue, Number(e.flags?.[SCOPE]?.woundValue) || 0);
+            addWoundRange(e);
+        } else if (def?.group === "incapacitation") {
+            // 戦闘不能=元となる負傷(ダメージ)ごと治療する(2026-07-13 ユーザー確定。戦闘不能は
+            // ダメージそのもの=2026-07-09 裁定・医療の治療と同じ扱い)。孤立(手動付与)は単体除去
+            const woundId = e.flags?.[SCOPE]?.woundSource || "";
+            const wound = woundId ? patient.effects.get(woundId) : null;
+            if (wound) addWoundRange(wound);
+            else ids.add(e.id);
         } else {
+            // BS=その効果のみ(BS を回復してもダメージは治療されない=既存規約)
             ids.add(e.id);
         }
         magnitude = Math.max(magnitude, Number(readCondition(e)?.magnitude) || 0);
@@ -84,9 +97,13 @@ async function promptRecoverySelection(patient, candidates, usage) {
         const def = CONDITION_KINDS[kind];
         const mag = Number(readCondition(e)?.magnitude) || 0;
         const wv = Number(e.flags?.[SCOPE]?.woundValue) || 0;
+        const linkedWound = def?.group === "incapacitation" && e.flags?.[SCOPE]?.woundSource
+            ? patient.effects.get(e.flags[SCOPE].woundSource) : null;
         const extra = def?.type === "wound"
             ? `（ダメージ値 ${wv}・紐づく戦闘不能・効果も除去）`
-            : (mag ? `（強度 ${mag}）` : "");
+            : linkedWound
+                ? `（元の負傷「${CONDITION_KINDS[getConditionKinds(linkedWound)[0]]?.label ?? linkedWound.name}」ごと治療）`
+                : (mag ? `（強度 ${mag}）` : "");
         const input = usage.recoveryAll
             ? `<input type="checkbox" checked disabled>`
             : `<input type="checkbox" name="recover" value="${esc(e.id)}">`;

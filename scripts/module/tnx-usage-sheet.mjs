@@ -1009,6 +1009,13 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 update.recoveryCount = Math.max(1, Number(raw["recoveryCount"]) || (usage.recoveryCount ?? 1));
                 update.recoveryTargetFormula = raw["recoveryTargetFormula"] ?? usage.recoveryTargetFormula ?? "";
                 recoveryUiChanged ||= update.recoveryAll !== prevAll;
+            } else {
+                // OFF は設定をリセットする(再 ON でまっさらから始める=2026-07-13 ユーザー指示)
+                update.recoveryTargets = [];
+                update.recoveryExcludes = [];
+                update.recoveryAll = false;
+                update.recoveryCount = 1;
+                update.recoveryTargetFormula = "";
             }
             recoveryUiChanged ||= update.recovery !== prevRec;
         }
