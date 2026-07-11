@@ -70,11 +70,12 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
         mod:   new fields.NumberField({ initial: 0 }),
       }),
       appearanceModifier: new fields.NumberField({ initial: 0, integer: true }),
-      // 生身の書き換え元の選択(フェーズ10-6・2026-07-02 裁定)。攻撃用とパリー用で
-      // 別々の書き換え元(準備済みの全身義体/生身変更装備)を選べる(攻撃と防御で別の身体部位を
-      // 使うのは設定上も自然)。空文字=未変更の生身(baseAttack/baseGuard)が既定。
-      // シート上の便宜的な事前設定であり本義は都度宣言(=非強制・表示のみ)。
-      // 通常武器の使用は攻撃判定の用途(usage.weaponRefs)に移管済みでここでは扱わない。
+      // 戦闘タブの「攻撃で使用」「パリーで使用」(フェーズ10-6・2026-07-02 裁定)。
+      // 攻撃用とパリー用で別々に、準備済みの武器/全身義体/生身変更装備を選べる。
+      // 空文字=未変更の生身(baseAttack/baseGuard)が既定。
+      // **attackItemId は攻撃の使用武器の一本目**(2026-07-13 ユーザー確定・旧「表示のみ」を上書き):
+      // 攻撃フロー・用途シートの表示・射程「武器」の解決が読む(attack-weapons.mjs)。
+      // 用途の weaponRefs は2本目以降の追加分(複数武器合算能力)。
       weaponRefs: new fields.SchemaField({
         attackItemId: new fields.StringField({ initial: "" }),
         parryItemId:  new fields.StringField({ initial: "" }),

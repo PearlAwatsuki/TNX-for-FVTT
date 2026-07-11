@@ -28,6 +28,7 @@ import { TargetSelectionDialog } from "./tnx-dialog.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { resolveNoReaction, resolveOpposed, attackReactionModes, formatAttackLabel, combineWeaponAttack } from "./attack-flow-logic.mjs";
 import { hasAmmoTracking, consumeNormalAmmo } from "./weapon-ammo.mjs";
+import { resolveAttackWeapons, attackWeaponDisplayName } from "./attack-weapons.mjs";
 import { buildSkillOptions } from "./skill-select.mjs";
 import { actorSkillsWithRole } from "./skill-roles.mjs";
 import { resolveOperateSkill } from "./vehicle-move.mjs";
@@ -80,17 +81,17 @@ export async function useAttack(item, usage) {
     }
     const category = usage.damageCategory || "physical";
 
-    // 武器解決(物理のみ): weaponRefs(複数可) → 生身(baseAttack)フォールバック。
-    // 複数武器は攻撃力を合算する(合算能力の表現・2026-07-09。純ロジックは combineWeaponAttack)。
+    // 武器解決(物理のみ・2026-07-13 ユーザー確定): **一本目=戦闘タブの「攻撃で使用」**
+    // (actor.system.weaponRefs.attackItemId・空欄=生身)・用途の weaponRefs は2本目以降の追加分。
+    // どちらも無ければ生身(baseAttack)フォールバック。複数武器は攻撃力を合算する
+    // (合算能力の表現・2026-07-09。純ロジックは combineWeaponAttack)。
     // FA は自動加算せず faOptions として持ち回し、ダメージ算出ダイアログで武器ごとに選択する。
     let weaponAttack = 0, damageType = "", attackSourceName = "", faOptions = [];
     if (category === "physical") {
-        const weapons = (usage.weaponRefs ?? [])
-            .map(r => (r?.itemId ? actor.items.get(r.itemId) : null))
-            .filter(Boolean)
+        const weapons = resolveAttackWeapons(actor, usage, item)
             .map(w => ({
                 itemId:      w.id,
-                name:        w.name,
+                name:        attackWeaponDisplayName(w),
                 attackValue: Number(w.system.attack?.value) || 0,
                 damageType:  w.system.attack?.damageType || "",
                 isFullAuto:  w.system.isFullAuto === true,
@@ -167,10 +168,10 @@ export async function useAttack(item, usage) {
 
     // 通常(非FA)射撃の残弾消費: 数字モードの武器を 1 減らす(任意は FA でのみ空・2026-07-10)。
     // 物理攻撃のみ。FA による消費はダメージ算出時(consumeFaAmmo)に別途行う。
+    // 対象はシートの「攻撃で使用」武器＋用途の追加分(実際に使用する武器全体・2026-07-13)
     if (category === "physical") {
-        for (const r of (usage.weaponRefs ?? [])) {
-            const w = r?.itemId ? actor.items.get(r.itemId) : null;
-            if (w) await consumeNormalAmmo(w);
+        for (const w of resolveAttackWeapons(actor, usage, item)) {
+            await consumeNormalAmmo(w);
         }
     }
 

@@ -17,6 +17,7 @@ import { getComboSuits } from "./tnx-check-engine.mjs";
 import { resolveUsageSkills, comboLockAnalysis, isComboRequired } from "./skill-chain-resolution.mjs";
 import { deriveConsumeTargets } from "./usage-consumption.mjs";
 import { CONDITION_KINDS } from "./conditions.mjs";
+import { resolveAttackWeapons, attackWeaponDisplayName, resolveAttackRangeValue } from "./attack-weapons.mjs";
 import { loadSkillChoices, SKILL_PACKS } from "./skill-dictionary.mjs";
 
 const CHAIN_SKILL_TYPES = ["generalSkill", "styleSkill"];
@@ -115,22 +116,12 @@ function resolveRange(entries) {
 }
 
 /**
- * 使用武器(weaponRefs)の射程を解決する(射程「武器」の実体解決・2026-07-12 ユーザー確定)。
- * 武器の射程は {min, max}(max="none"=単一射程=min)。実効射程=最長(max 優先・単一は min)。
- * 複数武器は最短を採用(「※複数は最短」の既定を踏襲・Code 既定)。解決不能は null。
+ * 使用武器の射程を解決する(射程「武器」の実体解決・2026-07-13 再設計)。
+ * 一本目=シートの「攻撃で使用」武器・以降=用途の追加分(resolveAttackWeapons)。
+ * 武器が無い(生身)・射程を持たない場合は至近(close)=生身の射程(ユーザー確定)。
  */
 function resolveWeaponRangeValue(usage, item, actor) {
-    const ranges = (usage.weaponRefs ?? [])
-        .map(r => (r.itemId === item.id ? item : actor?.items.get(r.itemId)))
-        .filter(Boolean)
-        .map(w => {
-            const rg = w.system?.range ?? {};
-            const eff = rg.max && rg.max !== "none" ? rg.max : rg.min;
-            return eff && eff !== "none" ? eff : null;
-        })
-        .filter(Boolean);
-    if (!ranges.length) return null;
-    return ranges.reduce((a, b) => (RANGE_PHYSICAL[b] ?? 99) < (RANGE_PHYSICAL[a] ?? 99) ? b : a);
+    return resolveAttackRangeValue(resolveAttackWeapons(actor, usage, item));
 }
 
 /** 参加技能群の目標値を解決。数値があれば最大、なければ最初の非blank型を採用 */
@@ -250,12 +241,11 @@ export function deriveUsageAutoFill(item, usage) {
     if (r) {
         patch.range = r.range;
         patch.isFixedRange = r.isFixed;
-        // 射程「武器」(2026-07-12 ユーザー確定): 優先度はそのまま(武器=至近※に次ぐ)で、
-        // 「武器」が勝った場合に使用する武器(weaponRefs)の実射程へ解決して具体値を設定する
-        // (武器未設定・射程なしなら「武器」のまま=従来表示)
+        // 射程「武器」(2026-07-13 再設計): 優先度はそのまま(武器=至近※に次ぐ)で、「武器」が
+        // 勝った場合に使用武器(一本目=シートの「攻撃で使用」・以降=用途の追加分)の実射程へ解決する。
+        // 武器が無い(生身)なら至近=生身の射程(ユーザー確定)
         if (r.range === "weapon") {
-            const wr = resolveWeaponRangeValue(usage, item, actor);
-            if (wr) patch.range = wr;
+            patch.range = resolveWeaponRangeValue(usage, item, actor);
         }
     }
 
@@ -308,7 +298,7 @@ function deriveWeaponRangeLive(item, usage) {
         .filter(s => s && (s.type === "generalSkill" || s.type === "styleSkill"));
     const r = resolveRange(skills.map(s => ({ range: s.system.range, isFixed: !!s.system.isFixedRange })));
     if (!r || r.range !== "weapon") return null;
-    return { range: resolveWeaponRangeValue(usage, item, actor) ?? "weapon", isFixedRange: r.isFixed };
+    return { range: resolveWeaponRangeValue(usage, item, actor), isFixedRange: r.isFixed };
 }
 
 export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
@@ -610,20 +600,33 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             const actorItems = this._item.actor?.items ?? [];
             const refs = usage.weaponRefs ?? [];
             const refIds = new Set(refs.map(r => r.itemId).filter(Boolean));
-            // 選択済み武器(表示行・攻撃力ラベル付き)。複数選ぶと攻撃力を合算する(2026-07-09)
-            context.selectedWeapons = refs.map((r, idx) => {
-                const w = this._item.actor?.items.get(r.itemId);
+            // 一本目の武器=シートの「攻撃で使用」(戦闘タブ・空欄=生身。2026-07-13 ユーザー確定)。
+            // 用途の weaponRefs は2本目以降の追加分。表示もこの実体に合わせる
+            const sheetActor = this._item.actor;
+            const sheetWeaponId = sheetActor?.system?.weaponRefs?.attackItemId || "";
+            const sheetWeapon = sheetWeaponId ? sheetActor?.items.get(sheetWeaponId) : null;
+            const atkLabel = (w) => {
                 const atk = w?.system.attack ?? {};
                 const val = Number(atk.total ?? atk.value) || 0;
+                return `${atk.damageType || ""}${val >= 0 ? `+${val}` : val}`;
+            };
+            const base = sheetActor?.system?.baseAttack ?? {};
+            context.sheetAttackWeapon = sheetWeapon
+                ? { name: attackWeaponDisplayName(sheetWeapon), attackLabel: atkLabel(sheetWeapon) }
+                : { name: "生身", attackLabel: `${base.damageType || "I"}+${(base.value ?? 0) + (base.mod ?? 0)}` };
+            // 選択済みの追加武器(表示行・攻撃力ラベル付き)。攻撃力はシート武器と合算される(2026-07-09)
+            context.selectedWeapons = refs.map((r, idx) => {
+                const w = sheetActor?.items.get(r.itemId);
                 return {
                     idx, id: r.itemId,
-                    name: w?.name ?? "（不明な武器）",
-                    attackLabel: w ? `${atk.damageType || ""}${val >= 0 ? `+${val}` : val}` : "",
+                    name: w ? attackWeaponDisplayName(w) : "（不明な武器）",
+                    attackLabel: w ? atkLabel(w) : "",
                 };
             });
-            // 追加候補: 武器＋ヴィークル(未選択のみ)。ヴィークルは attack を持つため武器として扱える
+            // 追加候補: 武器＋ヴィークル(未選択・シート武器以外)。ヴィークルは attack を持つため武器扱い
             context.availableWeapons = actorItems
-                .filter(i => (i.type === "weapon" || i.type === "vehicle") && !refIds.has(i.id))
+                .filter(i => (i.type === "weapon" || i.type === "vehicle")
+                    && !refIds.has(i.id) && i.id !== sheetWeaponId)
                 .map(i => ({ id: i.id, name: i.name }));
             const category = usage.damageCategory || "physical";
             context.isAttackPhysical = context.isAttack && category === "physical";
