@@ -559,11 +559,13 @@ Hooks.once("init", async function() {
     // トーキョーN◎VA の状態(BS・戦闘不能・負傷)を CONDITION_KINDS から生成する(フェーズ9-4)。
     // id = conditionKind。flags に conditionKind を持たせ、貼付時に condition として認識させる。
     // 順は CONDITION_KINDS の統合順(BS→戦闘不能→肉体→精神→社会)。効果値はインスタンス毎に詳細タブで設定。
+    // hideFromList: トークン右クリック「ステータス効果の設定」からの付与でも、ダメージ適用と同様に
+    // バッジのみ追加しシートのアクティブエフェクト一覧には行を出さない(2026-07-11 ユーザー確定)
     CONFIG.statusEffects = Object.entries(CONDITION_KINDS).map(([id, def]) => ({
         id,
         name: def.label,
         img:  def.img ?? "icons/svg/aura.svg",
-        flags: { "tokyo-nova-axleration": { conditionKind: id } },
+        flags: { "tokyo-nova-axleration": { conditionKind: id, hideFromList: true } },
     }));
 
     // トークンリソースバーの割当候補(フェーズ11-4)。トループの heads=人数/エニグマポイントが

@@ -36,6 +36,11 @@ export function resolveUsageEffectData(actor, parentItem, usage) {
         delete data._id;
         data.disabled = false;   // 付与先で有効化
         data.transfer = false;   // アクターに直接乗る効果として付与(横断バフでない)
+        // トークン演出(2026-07-11 ユーザー指摘): コアの浮遊テキスト(+効果名)は statuses/changes が
+        // 無いと出ず、トークン上のアイコンは temporary(statuses あり or 持続時間あり)でないと出ない。
+        // statuses が空の効果には付与マーカーの status を注入し、コアの標準演出を全クライアントで
+        // 発火させる(CONFIG.statusEffects 未登録の id は HUD パレットには出ない=バッジ表示専用)
+        if (!(data.statuses?.length)) data.statuses = ["tnx-applied"];
         out.push({ name: eff.name, data });
     }
     return out;
@@ -136,7 +141,6 @@ export async function applyUsageEffectsFromMessage(message) {
     if (!payload?.effects?.length || payload.applied) return;
 
     let appliedAny = false;
-    const appliedTo = [];
     const denied = [];
     for (const t of (payload.targets ?? [])) {
         const resolved = await fromUuid(t.uuid).catch(() => null);
@@ -145,29 +149,15 @@ export async function applyUsageEffectsFromMessage(message) {
         if (!(game.user.isGM || actor.isOwner)) { denied.push(actor.name); continue; }
         await actor.createEmbeddedDocuments("ActiveEffect", payload.effects.map(e => e.data));
         appliedAny = true;
-        appliedTo.push(actor);
     }
 
     if (denied.length) {
         ui.notifications.warn(`「${denied.join("・")}」への効果付与は対象の操作者（か RL）が行います。`);
     }
     if (!appliedAny) return;
-
-    // 適用をサイレントにしない(2026-07-11 ユーザー指摘): 適用者へ通知し、全員が見える
-    // 適用チャットカードを出す(何が誰に付与されたかの告知。既存カード意匠=cr-head を踏襲)
-    const esc = foundry.utils.escapeHTML;
-    const effectNames = payload.effects.map(e => esc(e.name)).join("・");
-    const targetNames = appliedTo.map(a => esc(a.name)).join("・");
-    ui.notifications.info(`効果を適用しました: ${payload.effects.map(e => e.name).join("・")} → ${appliedTo.map(a => a.name).join("・")}`);
-    await ChatMessage.create({
-        speaker: ChatMessage.getSpeaker({ actor: appliedTo[0] }),
-        content: `<div class="tnx-check-result tnx-usage-effect-card tokyo-nova">`
-            + `<div class="cr-head"><span class="cr-skill-name">効果の適用</span><span class="cr-type-tag">ActiveEffect</span></div>`
-            + `<div class="cr-calc-section">`
-            + `<div class="cr-calc-row"><span class="cr-calc-label">効果</span><span class="cr-calc-val">${effectNames}</span></div>`
-            + `<div class="cr-calc-row"><span class="cr-calc-label">対象</span><span class="cr-calc-val">${targetNames}</span></div>`
-            + `</div></div>`,
-    });
+    // 適用の可視化は Foundry 標準のトークン演出に任せる(+効果名の浮遊テキスト・トークンのアイコン。
+    // resolveUsageEffectData の statuses 注入で演出条件を満たす)。独自の通知・チャットカードは
+    // 出さない(2026-07-11 ユーザー指摘で撤去)
 
     // カードを適用済みに(全対象へ付与済みとみなす。author/GM でなければ GM へ委譲)
     if (game.user.isGM || message.isAuthor) {
