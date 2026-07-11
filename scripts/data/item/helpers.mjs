@@ -287,6 +287,30 @@ export function gatherDamageVsSources(effects, criteria) {
 }
 
 /**
+ * 与えるダメージバフ(`damage.dealt[.<系統>]`)の変更キーが、攻撃の系統に合致するか(2026-07-11)。
+ * 系統なしの `damage.dealt` は全系統に合致する。
+ * @param {string} key  change.key
+ * @param {"physical"|"mental"|"social"} category  攻撃の系統
+ * @returns {boolean}
+ */
+export function damageDealtChangeMatches(key, category) {
+  const p = parseEffectTargetKey(key);
+  if (!p || p.scope !== "damageDealt") return false;
+  return p.category === null || p.category === category;
+}
+
+/**
+ * 与えるダメージバフの寄与一覧(重複排除済み)。ダメージ算出時に攻撃者の effects から集計する。
+ * チャット台帳の内訳表示(効果名＋値)に用いる。判定バフと同じ重複規約。
+ * @param {Array<object>} effects  攻撃者の effects(正規形・{@link collectActorEffectBuffs})
+ * @param {"physical"|"mental"|"social"} category  攻撃の系統
+ * @returns {Array<{name:string, value:number}>}
+ */
+export function gatherDamageDealtSources(effects, category) {
+  return _gatherBonusSources(effects, (key) => damageDealtChangeMatches(key, category));
+}
+
+/**
  * アクター自身＋全所有アイテムの effects を、バフ集計用の正規形にして返す。
  * 判定バフ(判定時)・ダメージ対象バフ(ダメージ時)で共用する。
  * @param {Actor} actor
@@ -357,10 +381,16 @@ export function parseEffectTargetKey(key) {
     return { scope: "skillCheck", selector: prefix ? x.slice(0, -1) : x, prefix, conditions };
   }
 
-  // ダメージ対象バフ(2026-07-10): damage.vsStyle.<スタイル識別キー> / damage.vsWorks.<組織識別キー>。
-  // 値バフでなくダメージ算出時に集計し、攻撃対象のスタイル/所属で照合する(判定バフのダメージ・
-  // 対象参照版)。AE では対象が見えないため、check.* と同じく適用パスからは除外し実行時に評価する。
+  // ダメージバフ(実行時評価の別系統・check.* と同じく適用パスからは除外):
+  // - damage.dealt[.<系統>](2026-07-11): 与えるダメージ +値(系統なし=全系統。physical/mental/social)
+  // - damage.vsStyle.<スタイル識別キー> / damage.vsWorks.<組織識別キー>(2026-07-10):
+  //   攻撃対象のスタイル/所属で照合する対象条件つきダメージ +値
   if (segs[0] === "damage") {
+    if (segs[1] === "dealt") {
+      const cat = segs.length > 2 ? segs[2] : null;
+      if (cat !== null && !["physical", "mental", "social"].includes(cat)) return null;
+      return { scope: "damageDealt", category: cat, conditions };
+    }
     if ((segs[1] === "vsStyle" || segs[1] === "vsWorks") && segs.length > 2) {
       const group = segs[1] === "vsStyle" ? "style" : "works";
       return { scope: "damageVs", group, selector: segs.slice(2).join("."), conditions };

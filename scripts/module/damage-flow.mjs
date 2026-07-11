@@ -32,7 +32,7 @@ import { TnxActionHandler } from "./tnx-action-handler.mjs";
 import { getCardCheckValue } from "./tnx-check-engine.mjs";
 import { formatAttackLabel } from "./attack-flow-logic.mjs";
 import { consumeFaAmmo } from "./weapon-ammo.mjs";
-import { gatherDamageVsSources, collectActorEffectBuffs, targetStyleWorksKeys } from "../data/item/helpers.mjs";
+import { gatherDamageVsSources, gatherDamageDealtSources, collectActorEffectBuffs, targetStyleWorksKeys } from "../data/item/helpers.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会" };
@@ -124,12 +124,14 @@ export async function openDamageRollDialog(attackMessage) {
     const damageBonusRows = [...(selfDamage ? [selfDamage] : []), ...rowSources];
     const damageBonus = (selfDamage?.value ?? 0) + rowsTotal;
 
-    // 攻撃対象のスタイル/ワークスに応じた AE ダメージバフ(damage.vsStyle/vsWorks・2026-07-10)。
-    // 判定バフのダメージ・対象参照版=ダメージ算出時に相手を見てフラットボーナスを足す。台帳では
-    // 用途のダメージ修正と同じ行(供給元=効果名で帰属)として並べる。
+    // AE ダメージバフ(実行時評価・台帳では用途のダメージ修正と同じ行=供給元は効果名で帰属):
+    // - damage.dealt[.<系統>](2026-07-11): 与えるダメージ +値(この攻撃の系統に合致するもの)
+    // - damage.vsStyle/vsWorks(2026-07-10): 攻撃対象のスタイル/所属条件つき +値
+    const dealtRows = gatherDamageDealtSources(collectActorEffectBuffs(attacker), category);
     const vsRows = collectDamageVsBonuses(attacker, targetActor);
-    const damageBonusRowsAll = [...damageBonusRows, ...vsRows];
-    const damageBonusTotal = damageBonus + vsRows.reduce((s, r) => s + (Number(r.value) || 0), 0);
+    const aeRows = [...dealtRows, ...vsRows];
+    const damageBonusRowsAll = [...damageBonusRows, ...aeRows];
+    const damageBonusTotal = damageBonus + aeRows.reduce((s, r) => s + (Number(r.value) || 0), 0);
 
     const content = await foundry.applications.handlebars.renderTemplate(
         "systems/tokyo-nova-axleration/templates/dialog/damage-roll-dialog.hbs",

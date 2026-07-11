@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
-const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, collectActorEffectBuffs, targetStyleWorksKeys } = await import("../../../scripts/data/item/helpers.mjs");
+const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, damageDealtChangeMatches, gatherDamageDealtSources, collectActorEffectBuffs, targetStyleWorksKeys } = await import("../../../scripts/data/item/helpers.mjs");
 
 describe("defenceField()", () => {
   it("呼び出せる", () => {
@@ -252,6 +252,29 @@ describe("damageVsChangeMatches()（ダメージ対象バフ・攻撃対象の�
   });
 });
 
+describe("damageDealtChangeMatches() / gatherDamageDealtSources()（与えるダメージバフ・2026-07-11）", () => {
+  it("系統なし(damage.dealt)は全系統・系統つきは一致時のみ", () => {
+    expect(damageDealtChangeMatches("damage.dealt", "physical")).toBe(true);
+    expect(damageDealtChangeMatches("damage.dealt", "social")).toBe(true);
+    expect(damageDealtChangeMatches("damage.dealt.physical", "physical")).toBe(true);
+    expect(damageDealtChangeMatches("damage.dealt.physical", "mental")).toBe(false);
+    expect(damageDealtChangeMatches("damage.vsStyle.ayakashi", "physical")).toBe(false); // 別スコープ
+  });
+
+  it("寄与を name+value で返す（identity 最大採用・判定バフと同じ重複規約）", () => {
+    const effs = [
+      { identity: "a", name: "剛力", changes: [{ key: "damage.dealt", value: "2" }] },
+      { identity: "a", name: "剛力", changes: [{ key: "damage.dealt.physical", value: "4" }] },
+      { identity: "b", name: "精神集中", changes: [{ key: "damage.dealt.mental", value: "3" }] },
+    ];
+    expect(gatherDamageDealtSources(effs, "physical")).toEqual([{ name: "剛力", value: 4 }]);
+    expect(gatherDamageDealtSources(effs, "mental")).toEqual([
+      { name: "剛力", value: 2 },
+      { name: "精神集中", value: 3 },
+    ]);
+  });
+});
+
 describe("gatherDamageVsSources()（対象バフの内訳・判定バフと同じ重複規約）", () => {
   const crit = { styles: ["ayakashi"], works: [] };
   it("寄与を name+value で返す（identity 単位で最大採用・stackable は列挙）", () => {
@@ -378,6 +401,13 @@ describe("parseEffectTargetKey()（v2 system.<名前空間> 文法）", () => {
     expect(parseEffectTargetKey("damage.vsWorks.kabuki")).toMatchObject({ scope: "damageVs", group: "works", selector: "kabuki" });
     expect(parseEffectTargetKey("damage.vsStyle")).toBeNull();   // セレクタ無し
     expect(parseEffectTargetKey("damage.other.x")).toBeNull();   // 未知サブキー
+  });
+
+  it("与えるダメージバフ: damage.dealt[.<系統>](2026-07-11)", () => {
+    expect(parseEffectTargetKey("damage.dealt")).toMatchObject({ scope: "damageDealt", category: null });
+    expect(parseEffectTargetKey("damage.dealt.physical")).toMatchObject({ scope: "damageDealt", category: "physical" });
+    expect(parseEffectTargetKey("damage.dealt.social")).toMatchObject({ scope: "damageDealt", category: "social" });
+    expect(parseEffectTargetKey("damage.dealt.slash")).toBeNull(); // 未知系統
   });
 
   it("条件付き [hack>=3] / 複数 ;", () => {
