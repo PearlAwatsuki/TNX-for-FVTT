@@ -16,6 +16,7 @@ import { TnxSkillUtils } from "./tnx-skill-utils.mjs";
 import { getComboSuits } from "./tnx-check-engine.mjs";
 import { resolveUsageSkills, comboLockAnalysis, isComboRequired } from "./skill-chain-resolution.mjs";
 import { deriveConsumeTargets } from "./usage-consumption.mjs";
+import { CONDITION_KINDS } from "./conditions.mjs";
 import { loadSkillChoices, SKILL_PACKS } from "./skill-dictionary.mjs";
 
 const CHAIN_SKILL_TYPES = ["generalSkill", "styleSkill"];
@@ -43,6 +44,15 @@ export const ACQUIRE_MODES = Object.freeze({
     troop:   "トループ",
     enigma:  "エニグマ",
     bunshin: "分身",
+});
+
+/** 回復範囲の大分類ラベル(group=CONDITION_KINDS の group 値・2026-07-13)。 */
+const RECOVERY_GROUP_LABELS = Object.freeze({
+    bs:             "BS",
+    incapacitation: "戦闘不能",
+    physical:       "負傷（肉体）",
+    mental:         "負傷（精神）",
+    social:         "負傷（社会）",
 });
 
 // ─── 発動パラメータ優先度（自動入力で使用） ───────────────────────────────────
@@ -315,6 +325,11 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             decrementFixedResult:  TnxUsageSheet._onFixedDecrement,
             consumeRowAdd:         TnxUsageSheet._onConsumeRowAdd,
             consumeRowDelete:      TnxUsageSheet._onConsumeRowDelete,
+            recoveryRowAdd:        TnxUsageSheet._onRecoveryRowAdd,
+            recoveryRowDelete:     TnxUsageSheet._onRecoveryRowDelete,
+            recoveryExcludeDelete: TnxUsageSheet._onRecoveryExcludeDelete,
+            incrementRecoveryCount: TnxUsageSheet._onRecoveryCountInc,
+            decrementRecoveryCount: TnxUsageSheet._onRecoveryCountDec,
             incrementConsumeAmount: TnxUsageSheet._onConsumeAmountInc,
             decrementConsumeAmount: TnxUsageSheet._onConsumeAmountDec,
             acquireRefDelete:      TnxUsageSheet._onAcquireRefDelete,
@@ -395,6 +410,36 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         if (context.isDeclarationType) {
             context.checkBonusSelf  = usage.checkBonusSelf ?? "";
             context.damageBonusSelf = usage.damageBonusSelf ?? "";
+        }
+
+        // 回復(2026-07-13 ユーザー確定): BS/戦闘不能/負傷を除去する回復・治療系の設定。
+        // check/declaration の両方で設定可能。範囲=大分類(グループ)→小分類(タグ)の行(OR)・
+        // 除外=タグ(タグ自身+そのタグを与える負傷を除く=「指定タグを含むもの以外すべて」)
+        context.isRecoveryCapable = (context.isCheckType && !context.isFixedCheck) || context.isDeclarationType;
+        if (context.isRecoveryCapable) {
+            context.isRecovery      = usage.recovery === true;
+            context.recoveryAll     = usage.recoveryAll === true;
+            context.recoveryCountValue   = Math.max(1, usage.recoveryCount ?? 1);
+            context.recoveryTargetFormula = usage.recoveryTargetFormula ?? "";
+            const kindOptionsFor = (group) => Object.entries(CONDITION_KINDS)
+                .filter(([, def]) => def.group === group)
+                .map(([value, def]) => ({ value, label: def.label }));
+            context.recoveryRows = (usage.recoveryTargets ?? []).map((r, idx) => ({
+                idx,
+                groupOptions: Object.entries(RECOVERY_GROUP_LABELS)
+                    .map(([value, label]) => ({ value, label, selected: value === r.group })),
+                kindOptions: [
+                    { value: "", label: "（グループ全体）", selected: !r.kind },
+                    ...kindOptionsFor(r.group).map(o => ({ ...o, selected: o.value === r.kind })),
+                ],
+            }));
+            // 除外タグ: 負傷以外(BS/戦闘不能)のタグから選ぶ(負傷は「そのタグを与える」経由で除外される)
+            const excludeSet = new Set(usage.recoveryExcludes ?? []);
+            context.recoveryExcludeRows = [...excludeSet]
+                .map(k => ({ key: k, label: CONDITION_KINDS[k]?.label ?? k }));
+            context.recoveryExcludeChoices = Object.entries(CONDITION_KINDS)
+                .filter(([k, def]) => def.type !== "wound" && !excludeSet.has(k))
+                .map(([value, def]) => ({ value, label: def.label }));
         }
 
         // NPC取得(11-6・Troops.md): モードは明示選択。エキストラモードは判定なし(取得アイテムの
@@ -719,6 +764,18 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 });
             }
 
+            // 回復の除外タグ: ドロップダウン選択で即時追加(2026-07-13)
+            for (const select of this.element.querySelectorAll("select.recovery-exclude-select")) {
+                select.addEventListener("change", async (ev) => {
+                    const key = ev.target.value;
+                    if (!key) return;
+                    const usage = this.usage;
+                    if (!usage || (usage.recoveryExcludes ?? []).includes(key)) { ev.target.value = ""; return; }
+                    await this._patchUsage({ recoveryExcludes: [...(usage.recoveryExcludes ?? []), key] });
+                    this.render({ force: true });
+                });
+            }
+
             // 無視する指定技能: ドロップダウン選択で即時追加(2026-07-10)
             for (const select of this.element.querySelectorAll("select.ignore-combo-select")) {
                 select.addEventListener("change", async (ev) => {
@@ -925,6 +982,37 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             declModifyChanged = update.modifyCheck !== prevMC || update.modifyDamage !== prevMD;
         }
 
+        // 回復(2026-07-13): check/declaration 共通。行(recoveryGroup-N/recoveryKind-N)は
+        // indexed 入力から再構成(consumeTargets 同型)。トグル・該当すべて・グループ変更は
+        // 表示項目が変わるため再描画する
+        let recoveryUiChanged = false;
+        if ((usage.type === "check" && !Number.isFinite(usage.fixedResult)) || usage.type === "declaration") {
+            const prevRec = usage.recovery === true;
+            const prevAll = usage.recoveryAll === true;
+            update.recovery = raw["recovery"] ?? prevRec;
+            if (update.recovery) {
+                const recIdxs = Object.keys(raw)
+                    .map(k => k.match(/^recoveryGroup-(\d+)$/)?.[1])
+                    .filter(v => v !== undefined)
+                    .map(Number)
+                    .sort((a, b) => a - b);
+                if (recIdxs.length || this.element?.querySelector(".usage-recovery-rows")) {
+                    update.recoveryTargets = recIdxs.map(i => ({
+                        group: raw[`recoveryGroup-${i}`] || "bs",
+                        kind:  raw[`recoveryKind-${i}`] ?? "",
+                    }));
+                    const prevGroups = (usage.recoveryTargets ?? []).map(t => t.group);
+                    recoveryUiChanged ||= update.recoveryTargets.length === prevGroups.length
+                        && update.recoveryTargets.some((t, i) => t.group !== prevGroups[i]);
+                }
+                update.recoveryAll = raw["recoveryAll"] ?? prevAll;
+                update.recoveryCount = Math.max(1, Number(raw["recoveryCount"]) || (usage.recoveryCount ?? 1));
+                update.recoveryTargetFormula = raw["recoveryTargetFormula"] ?? usage.recoveryTargetFormula ?? "";
+                recoveryUiChanged ||= update.recoveryAll !== prevAll;
+            }
+            recoveryUiChanged ||= update.recovery !== prevRec;
+        }
+
         // 固定達成値(フェーズ11-5・エキストラの技能判定)。固定値用途のマーカーを兼ねるため、
         // 入力が空にされても null に戻さず 0 に留める(通常判定 UI へ化けるのを防ぐ)。負値は 0 clamp
         if (Number.isFinite(usage.fixedResult)) {
@@ -1024,8 +1112,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         if (prevAttackCategory !== null && (update.damageCategory ?? prevAttackCategory) !== prevAttackCategory) {
             this.render({ force: true });
         }
-        // 宣言の修正フラグ変更・消費種別の変更も入力欄の出し入れがあるため即再描画する
-        if (declModifyChanged || consumeTypeChanged) this.render({ force: true });
+        // 宣言の修正フラグ変更・消費種別の変更・回復設定の変更も入力欄の出し入れがあるため即再描画する
+        if (declModifyChanged || consumeTypeChanged || recoveryUiChanged) this.render({ force: true });
     }
 
     // ─── 自動入力（参加技能の固有値を優先度で合成） ─────────────────────────────
@@ -1194,6 +1282,48 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
         const skillRefs = usage.skillRefs.filter((_, i) => i !== idx);
         await this._patchUsage({ skillRefs });
+        this.render({ force: true });
+    }
+
+    // ─── 回復設定(2026-07-13) ───────────────────────────────────────────────
+
+    static async _onRecoveryRowAdd(_event, _target) {
+        const usage = this.usage;
+        if (!usage) return;
+        await this._patchUsage({ recoveryTargets: [...(usage.recoveryTargets ?? []), { group: "bs", kind: "" }] });
+        this.render({ force: true });
+    }
+
+    static async _onRecoveryRowDelete(_event, target) {
+        const idx = Number(target.dataset.rowIndex);
+        const usage = this.usage;
+        if (!usage) return;
+        const rows = [...(usage.recoveryTargets ?? [])];
+        if (idx < 0 || idx >= rows.length) return;
+        rows.splice(idx, 1);
+        await this._patchUsage({ recoveryTargets: rows });
+        this.render({ force: true });
+    }
+
+    static async _onRecoveryExcludeDelete(_event, target) {
+        const key = target.dataset.key;
+        const usage = this.usage;
+        if (!usage || !key) return;
+        await this._patchUsage({ recoveryExcludes: (usage.recoveryExcludes ?? []).filter(k => k !== key) });
+        this.render({ force: true });
+    }
+
+    static async _onRecoveryCountInc(_event, _target) {
+        const usage = this.usage;
+        if (!usage) return;
+        await this._patchUsage({ recoveryCount: Math.max(1, (usage.recoveryCount ?? 1) + 1) });
+        this.render({ force: true });
+    }
+
+    static async _onRecoveryCountDec(_event, _target) {
+        const usage = this.usage;
+        if (!usage) return;
+        await this._patchUsage({ recoveryCount: Math.max(1, (usage.recoveryCount ?? 1) - 1) });
         this.render({ force: true });
     }
 

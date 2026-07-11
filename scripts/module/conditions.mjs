@@ -198,6 +198,39 @@ export function buildInflictedEffectsData(kind, { hidden = true } = {}) {
 }
 
 /**
+ * 回復対象範囲(用途の recoveryTargets 行 {group, kind})にタグが合致するか(純関数)。
+ * group=CONDITION_KINDS の group 値(bs/incapacitation/physical/mental/social)・
+ * kind 空=そのグループ全体。複数行は OR。
+ * @param {string} kind
+ * @param {Array<{group?:string, kind?:string}>} rows
+ * @returns {boolean}
+ */
+export function recoveryKindMatches(kind, rows) {
+  const def = CONDITION_KINDS[kind];
+  if (!def) return false;
+  return (rows ?? []).some(r => r?.group === def.group && (!r.kind || r.kind === kind));
+}
+
+/**
+ * タグが回復の除外指定(用途の recoveryExcludes・ダメージ効果タグのキー配列)に当たるか(純関数)。
+ * 「指定したタグを含むもの以外すべて」(2026-07-13 ユーザー確定)の表現:
+ * 除外タグ自身に加え、**そのタグを与える負傷**(inflicts に含む。例: 除外=完全死亡なら斬首・
+ * 頭部損傷も)を除外する。ルール上の通例は「完全死亡」「精神崩壊」を除外に設定する
+ * (これらはダメージ全回復系でも治療不可=神業のみ。「抹殺」は未確定のため技能ごとの設定に委ねる)。
+ * システムはハードコードで強制しない=技能を強制しない方針・除外は用途の設定が担う。
+ * @param {string} kind
+ * @param {string[]} excludes
+ * @returns {boolean}
+ */
+export function recoveryKindExcluded(kind, excludes) {
+  const ex = excludes ?? [];
+  if (!ex.length) return false;
+  if (ex.includes(kind)) return true;
+  const def = CONDITION_KINDS[kind];
+  return def?.type === "wound" && (def.inflicts ?? []).some(i => ex.includes(i.kind));
+}
+
+/**
  * ダメージチャートのタグ改変(2026-07-12 ユーザー確定・支配タグの導入)を inflicts 生成データへ
  * 適用する(Foundry 非依存・純関数)。対象側の AE(damage.replaceTag.<元タグ>/damage.addTag.<元タグ>・
  * 値=CONDITION_KINDS のタグキー)で:

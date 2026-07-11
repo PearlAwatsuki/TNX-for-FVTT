@@ -176,6 +176,29 @@ export class UsageTemplate extends SystemDataModel {
                     // (「1回の判定」Duration の自動失効は時間管理フェーズ=持続時間と AE キーは独立)。
                     grantSuitChange: new fields.BooleanField({ initial: false }),
 
+                    // check/declaration: 回復(2026-07-13 ユーザー確定)。BS/戦闘不能/負傷を除去する
+                    // 回復・治療系スタイル技能の表現。使用はアイテムロール→対象解決→**対象が現在
+                    // 受けている状態から回復対象を選択**→宣言=即除去/判定=成功で除去(ctx.recovery)。
+                    // - recoveryTargets: 範囲の行 {group, kind}(group=bs/incapacitation/physical/
+                    //   mental/social・kind 空=グループ全体・複数行 OR)。社会負傷の回復は専用スタイル
+                    //   技能か神業のみの経路=範囲に「負傷(社会)」を設定した用途がそれ。
+                    // - recoveryExcludes: 除外タグ(タグ自身+そのタグを与える負傷を除外=「指定タグを
+                    //   含むもの以外すべて」)。通例は完全死亡・精神崩壊を除外(全回復系でも治療不可)。
+                    // - recoveryAll: 該当すべてを回復 / recoveryCount: 回復数(All=false のとき)。
+                    // - recoveryTargetFormula: 目標値の式(@condition.magnitude=選択した状態の強度・
+                    //   @condition.woundValue=負傷のダメージ値。空=用途の目標値設定)。
+                    recovery: new fields.BooleanField({ initial: false }),
+                    recoveryTargets: new fields.ArrayField(
+                        new fields.SchemaField({
+                            group: new fields.StringField({ initial: "" }),
+                            kind:  new fields.StringField({ initial: "" }),
+                        })
+                    ),
+                    recoveryExcludes: new fields.ArrayField(new fields.StringField()),
+                    recoveryAll: new fields.BooleanField({ initial: false }),
+                    recoveryCount: new fields.NumberField({ initial: 1, integer: true, min: 1 }),
+                    recoveryTargetFormula: new fields.StringField({ initial: "" }),
+
                     // check: 再判定を付与(2026-07-11 ユーザー確定)。ON の用途は使用しても判定を行わず、
                     // 「達成値クリック待ち」モードに入る。既存の結果カードの達成値をクリックすると、
                     // その判定に**この用途の親技能を組み合わせた状態で**再判定が起動する

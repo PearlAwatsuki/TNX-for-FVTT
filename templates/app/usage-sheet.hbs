@@ -542,6 +542,97 @@
             </fieldset>
             {{/if}}
 
+            {{!-- 回復(2026-07-13): BS/戦闘不能/負傷を除去する回復・治療系の設定(check/declaration 両対応)。
+                 範囲=大分類→小分類の行(OR)・除外=タグ(タグ自身+そのタグを与える負傷を除く) --}}
+            {{#if isRecoveryCapable}}
+            <fieldset class="tnx-fieldset usage-recovery-section">
+                <legend>回復</legend>
+                <div class="usage-form-row usage-toggle-row">
+                    <label class="usage-toggle-inline" title="この用途を回復（BS・戦闘不能・負傷の除去）にします。使用すると対象（ターゲット・無ければ確認して自分）が現在受けている状態から回復対象を選び、宣言はそのまま除去、判定は成功で除去します">
+                        <input type="checkbox" name="recovery" {{checked usage.recovery}}
+                               {{#unless editable}}disabled{{/unless}}>
+                        <span>回復を行う</span>
+                    </label>
+                </div>
+                {{#if isRecovery}}
+                <label class="usage-field-label">回復対象の範囲 <i class="fas fa-circle-question" title="回復できる状態の範囲です。大分類（BS／戦闘不能／負傷の系統）と小分類（個別のタグ。空＝グループ全体）で指定し、複数行はいずれかに該当すれば回復候補になります。社会負傷の治療は専用スタイル技能か神業のみの経路＝ここに「負傷（社会）」を設定した用途がそれにあたります"></i></label>
+                <div class="usage-recovery-rows">
+                    {{#each recoveryRows as |row|}}
+                    <div class="usage-consume-row">
+                        <select name="recoveryGroup-{{row.idx}}" {{#unless @root.editable}}disabled{{/unless}}>
+                            {{#each row.groupOptions}}
+                            <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                            {{/each}}
+                        </select>
+                        <select name="recoveryKind-{{row.idx}}" {{#unless @root.editable}}disabled{{/unless}}>
+                            {{#each row.kindOptions}}
+                            <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                            {{/each}}
+                        </select>
+                        {{#if @root.editable}}
+                        <a class="usage-icon-btn" data-action="recoveryRowDelete" data-row-index="{{row.idx}}"
+                           title="削除"><i class="fas fa-times"></i></a>
+                        {{/if}}
+                    </div>
+                    {{else}}
+                    <p class="usage-empty-hint">（範囲なし＝回復対象がありません）</p>
+                    {{/each}}
+                    {{#if editable}}
+                    <a class="tnx-row-btn" data-action="recoveryRowAdd" title="範囲を追加"><i class="fas fa-plus"></i></a>
+                    {{/if}}
+                </div>
+                <label class="usage-field-label">除外タグ <i class="fas fa-circle-question" title="指定したダメージ効果タグ自身と、そのタグを与える負傷を回復対象から除外します（「指定タグを含むもの以外すべて」の表現）。通例は「完全死亡」「精神崩壊」を除外します（ダメージ全回復系の技能でも治療不可＝神業のみ）。「抹殺」は未確定のため技能ごとに設定してください"></i></label>
+                <div class="usage-skill-ref-list">
+                    {{#each recoveryExcludeRows}}
+                    <div class="usage-skill-ref-row">
+                        <span class="usage-skill-ref-name">{{this.label}}</span>
+                        {{#if ../editable}}
+                        <a class="usage-icon-btn" data-action="recoveryExcludeDelete" data-key="{{this.key}}"
+                           title="削除"><i class="fas fa-times"></i></a>
+                        {{/if}}
+                    </div>
+                    {{else}}
+                    <p class="usage-empty-hint">（なし）</p>
+                    {{/each}}
+                </div>
+                {{#if editable}}
+                <div class="usage-skill-ref-add">
+                    <select class="recovery-exclude-select">
+                        <option value="">── 除外するタグを選択 ──</option>
+                        {{#each recoveryExcludeChoices}}
+                        <option value="{{this.value}}">{{this.label}}</option>
+                        {{/each}}
+                    </select>
+                </div>
+                {{/if}}
+                <div class="usage-form-row usage-toggle-row">
+                    <label class="usage-toggle-inline" title="範囲に該当するすべての状態をまとめて回復します（例: BS：捕縛すべて・BS すべて・ダメージすべて）">
+                        <input type="checkbox" name="recoveryAll" {{checked usage.recoveryAll}}
+                               {{#unless editable}}disabled{{/unless}}>
+                        <span>該当すべてを回復</span>
+                    </label>
+                </div>
+                {{#unless recoveryAll}}
+                <div class="usage-form-row">
+                    <label class="usage-field-label">回復数 <i class="fas fa-circle-question" title="1回の使用で回復できる状態の数です（使用時に対象の状態一覧から選びます）"></i></label>
+                    <div class="number-input-spinner">
+                        <button type="button" data-action="decrementRecoveryCount" class="tnx-btn" {{#unless editable}}disabled{{/unless}}>-</button>
+                        <input type="number" name="recoveryCount" value="{{recoveryCountValue}}" min="1"
+                               {{#unless editable}}disabled{{/unless}}>
+                        <button type="button" data-action="incrementRecoveryCount" class="tnx-btn" {{#unless editable}}disabled{{/unless}}>+</button>
+                    </div>
+                </div>
+                {{/unless}}
+                {{#if isCheckType}}
+                <label class="usage-field-label">目標値（式） <i class="fas fa-circle-question" title="回復判定の目標値。@condition.magnitude（選択した状態の強度・複数選択時は最大）・@condition.woundValue（負傷のダメージ値・同）・@system.*・@item.self などを参照できます。空なら発動タブの目標値設定を使います"></i></label>
+                <input type="text" name="recoveryTargetFormula" value="{{recoveryTargetFormula}}"
+                       placeholder="式（例: 10 + @condition.magnitude、@condition.woundValue）"
+                       {{#unless editable}}disabled{{/unless}}>
+                {{/if}}
+                {{/if}}
+            </fieldset>
+            {{/if}}
+
             {{!-- 適用される効果（ActiveEffect） --}}
             <fieldset class="tnx-fieldset usage-effects-section">
                 <legend>適用される効果</legend>

@@ -20,6 +20,7 @@ import { OUTFIT_ITEM_TYPES, findDepartmentSkillName } from '../data/helpers.mjs'
 import { TnxCheckFlow } from '../module/tnx-check-flow.mjs';
 import { resolveConsumeRowsForActor, promptConsumption } from '../module/usage-consumption.mjs';
 import { useNpcAcquire } from '../module/npc-acquisition.mjs';
+import { useRecovery } from '../module/recovery-flow.mjs';
 import { useAttack } from '../module/attack-flow.mjs';
 import { prepareUsageEffectPayload } from '../module/usage-effects.mjs';
 import { getComboSuits, comboUsesBounty, ALL_SUITS } from '../module/tnx-check-engine.mjs';
@@ -2318,7 +2319,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const usableUsages = (item.system.actions ?? [])
             .filter(a => ["check", "npcAcquire"].includes(a.type)
                 || (a.type === "declaration"
-                    && (a.modifyCheck === true || a.modifyDamage === true || a.grantSuitChange === true)));
+                    && (a.modifyCheck === true || a.modifyDamage === true
+                        || a.grantSuitChange === true || a.recovery === true)));
         if (!usableUsages.length) {
             await item.postDescriptionCard();
             return;
@@ -2362,6 +2364,17 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             const grantPlan = await promptConsumption(this.actor, grantRows, { title: `使用回数の消費: ${item.name}` });
             if (grantPlan === null) return;
             TnxCheckFlow.startAchievementAction(kind, this.actor, item, { usageId: selectedUsage._id, consumeUses: grantPlan });
+            return;
+        }
+
+        // 回復(2026-07-13): 専用フローへ(対象解決→回復対象の選択→宣言=即除去/判定=完了継続)
+        if (selectedUsage.recovery === true) {
+            try {
+                await useRecovery(item, selectedUsage);
+            } catch (err) {
+                console.error("TNX | 回復の実行に失敗しました", err);
+                ui.notifications.error(`回復の実行に失敗しました: ${err.message}`);
+            }
             return;
         }
 

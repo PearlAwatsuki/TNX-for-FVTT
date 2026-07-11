@@ -81,6 +81,18 @@ describe("UsageTemplate.defineSchema()", () => {
       expect(entryFields.allowRecheck.options.initial).toBe(false);
     });
 
+    it("回復（recovery・2026-07-13）の設定フィールド群が存在する", () => {
+      expect(entryFields.recovery).toBeInstanceOf(MockBooleanField);
+      expect(entryFields.recovery.options.initial).toBe(false);
+      expect(entryFields.recoveryTargets).toBeInstanceOf(MockArrayField);
+      expect(Object.keys(entryFields.recoveryTargets.element.fields)).toEqual(["group", "kind"]);
+      expect(entryFields.recoveryExcludes).toBeInstanceOf(MockArrayField);
+      expect(entryFields.recoveryExcludes.element).toBeInstanceOf(MockStringField);
+      expect(entryFields.recoveryAll.options.initial).toBe(false);
+      expect(entryFields.recoveryCount.options.initial).toBe(1);
+      expect(entryFields.recoveryTargetFormula).toBeInstanceOf(MockStringField);
+    });
+
     it("スート変更可能（allowSuitChange）／スートを変更（grantSuitChange・2026-07-12）は BooleanField で initial false", () => {
       expect(entryFields.allowSuitChange).toBeInstanceOf(MockBooleanField);
       expect(entryFields.allowSuitChange.options.initial).toBe(false);

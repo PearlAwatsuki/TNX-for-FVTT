@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CONDITION_KINDS, readCondition, readConditions, getConditionKind, getConditionKinds, gatherConditionCheckSources, getCheckBlock, gatherConditionControlPenalty, computeJammingPenalty, buildInflictedEffectsData, applyDamageTagMods }
+import { CONDITION_KINDS, readCondition, readConditions, getConditionKind, getConditionKinds, gatherConditionCheckSources, getCheckBlock, gatherConditionControlPenalty, computeJammingPenalty, buildInflictedEffectsData, applyDamageTagMods, recoveryKindMatches, recoveryKindExcluded }
   from "../../scripts/module/conditions.mjs";
 
 /** 準備アウトフィット記述子の略記 */
@@ -256,5 +256,42 @@ describe("CONDITION_KINDS: 支配（dominated・2026-07-12）", () => {
     expect(def.group).toBe("incapacitation");
     expect(def.type).toBeUndefined();
     expect(def.stackable).toBe(false);
+  });
+});
+
+
+describe("回復の範囲照合・除外（recoveryKindMatches / recoveryKindExcluded・2026-07-13）", () => {
+  it("範囲: kind 指定は完全一致・kind 空はグループ全体・複数行は OR", () => {
+    expect(recoveryKindMatches("panic", [{ group: "bs", kind: "panic" }])).toBe(true);
+    expect(recoveryKindMatches("weakness", [{ group: "bs", kind: "panic" }])).toBe(false);
+    expect(recoveryKindMatches("weakness", [{ group: "bs", kind: "" }])).toBe(true);
+    expect(recoveryKindMatches("faint", [{ group: "bs", kind: "" }, { group: "incapacitation", kind: "" }])).toBe(true);
+    // 負傷はグループ=系統(physical/mental/social)
+    expect(recoveryKindMatches("phys-6", [{ group: "physical", kind: "" }])).toBe(true);
+    expect(recoveryKindMatches("ment-11", [{ group: "physical", kind: "" }])).toBe(false);
+    expect(recoveryKindMatches("soc-11", [{ group: "social", kind: "" }])).toBe(true);
+  });
+
+  it("範囲: 未知タグ・空行は不一致", () => {
+    expect(recoveryKindMatches("unknown", [{ group: "bs", kind: "" }])).toBe(false);
+    expect(recoveryKindMatches("panic", [])).toBe(false);
+    expect(recoveryKindMatches("panic", null)).toBe(false);
+  });
+
+  it("除外: タグ自身と「そのタグを与える負傷」の両方を除外（指定タグを含むもの以外すべて）", () => {
+    const ex = ["dead", "mind-break"];
+    expect(recoveryKindExcluded("dead", ex)).toBe(true);
+    expect(recoveryKindExcluded("phys-16", ex)).toBe(true);   // 斬首=完全死亡を与える
+    expect(recoveryKindExcluded("phys-21", ex)).toBe(true);   // 頭部損傷=完全死亡
+    expect(recoveryKindExcluded("ment-16", ex)).toBe(true);   // 自我崩壊=精神崩壊
+    expect(recoveryKindExcluded("ment-21", ex)).toBe(true);   // 魂魄消失=精神崩壊
+    expect(recoveryKindExcluded("phys-6", ex)).toBe(false);   // 胸部損傷(衰弱)は除外されない
+    expect(recoveryKindExcluded("stupor", ex)).toBe(false);
+  });
+
+  it("除外: 抹殺は設定次第（ハードコードで強制しない＝未確定は卓裁定）", () => {
+    expect(recoveryKindExcluded("erased", [])).toBe(false);
+    expect(recoveryKindExcluded("erased", ["erased"])).toBe(true);
+    expect(recoveryKindExcluded("soc-11", ["erased"])).toBe(true); // 追放=抹殺を与える
   });
 });

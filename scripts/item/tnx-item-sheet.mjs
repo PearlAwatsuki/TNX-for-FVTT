@@ -352,6 +352,18 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             return;
         }
 
+        // 回復(2026-07-13): 専用フローへ(対象解決→回復対象の選択→宣言=即除去/判定=完了継続)
+        if (usage.recovery === true) {
+            try {
+                const { useRecovery } = await import("../module/recovery-flow.mjs");
+                await useRecovery(this.item, usage);
+            } catch (err) {
+                console.error("TNX | 回復の実行に失敗しました", err);
+                ui.notifications.error(`回復の実行に失敗しました: ${err.message}`);
+            }
+            return;
+        }
+
         // 攻撃(12-2): 攻撃は判定の一種(damageCategory 付きの check)。専用フローに委譲
         // (武器解決・対象決定・成否保留の攻撃カード・リアクション対決)
         if (isAttackUsage(usage)) {

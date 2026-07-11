@@ -722,6 +722,12 @@ export class TnxCheckFlow {
             await resolveTreatmentFromCheck(ctx.treatment, result);
         }
 
+        // 回復判定の完了継続(2026-07-13): 成功で選択済みの状態(BS/戦闘不能/負傷)を除去する
+        if (ctx.recovery) {
+            const { resolveRecoveryFromCheck } = await import("./recovery-flow.mjs");
+            await resolveRecoveryFromCheck(ctx.recovery, result);
+        }
+
         return true;
     }
 
@@ -795,7 +801,7 @@ export class TnxCheckFlow {
      * @returns {object|null}
      */
     static _buildRecheckContext(ctx) {
-        if (ctx.reaction || ctx.npcAcquire || ctx.treatment || ctx.movement || ctx.controlNegate) return null;
+        if (ctx.reaction || ctx.npcAcquire || ctx.treatment || ctx.recovery || ctx.movement || ctx.controlNegate) return null;
         return {
             allowRecheck:    ctx.allowRecheck === true, // true=結果カードに「再判定」ボタンを出す
             allowSuitChange: ctx.allowSuitChange === true, // スート変更可能(用途の設定・再判定でも維持)
