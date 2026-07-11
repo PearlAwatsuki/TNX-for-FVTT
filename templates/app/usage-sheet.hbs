@@ -191,8 +191,9 @@
                     </div>
                 </div>
                 <div class="usage-form-row tv-other-sub">
-                    <label class="usage-field-label">目標値（自由入力）</label>
+                    <label class="usage-field-label">目標値（自由入力・式） <i class="fas fa-circle-question" title="式を入力すると判定の目標値として評価されます（@system.*・@item.self など。回復の判定では @condition.magnitude=選択した状態の強度・@condition.woundValue=負傷のダメージ値も参照可）。式として評価できない内容は目標値なし＝記入内容の表示のみ（卓裁定）になります。「解説参照」「その他」の両方で使えます"></i></label>
                     <input type="text" name="targetValueOther" value="{{usage.targetValueOther}}"
+                           placeholder="式または自由文（例: 10 + @condition.magnitude）"
                            {{#unless editable}}disabled{{/unless}}>
                 </div>
                 {{else}}
@@ -624,10 +625,7 @@
                 </div>
                 {{/unless}}
                 {{#if isCheckType}}
-                <label class="usage-field-label">目標値（式） <i class="fas fa-circle-question" title="回復判定の目標値。@condition.magnitude（選択した状態の強度・複数選択時は最大）・@condition.woundValue（負傷のダメージ値・同）・@system.*・@item.self などを参照できます。空なら発動タブの目標値設定を使います"></i></label>
-                <input type="text" name="recoveryTargetFormula" value="{{recoveryTargetFormula}}"
-                       placeholder="式（例: 10 + @condition.magnitude、@condition.woundValue）"
-                       {{#unless editable}}disabled{{/unless}}>
+                <p class="usage-formula-line">目標値は発動タブの目標値設定を使います（「解説参照」「その他」の式は @condition.magnitude／@condition.woundValue を参照できます）</p>
                 {{/if}}
                 {{/if}}
             </fieldset>

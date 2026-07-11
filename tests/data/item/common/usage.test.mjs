@@ -90,7 +90,8 @@ describe("UsageTemplate.defineSchema()", () => {
       expect(entryFields.recoveryExcludes.element).toBeInstanceOf(MockStringField);
       expect(entryFields.recoveryAll.options.initial).toBe(false);
       expect(entryFields.recoveryCount.options.initial).toBe(1);
-      expect(entryFields.recoveryTargetFormula).toBeInstanceOf(MockStringField);
+      // 回復専用の目標値式は廃止(2026-07-13・発動タブの目標値へ一本化)
+      expect(entryFields).not.toHaveProperty("recoveryTargetFormula");
     });
 
     it("スート変更可能（allowSuitChange）／スートを変更（grantSuitChange・2026-07-12）は BooleanField で initial false", () => {
@@ -217,6 +218,20 @@ describe("UsageTemplate.migrateData()", () => {
     const source = { actions: [{ _id: "a", type: "check", boostDamage: true, modifyDamage: false }] };
     const result = UsageTemplate.migrateData(source);
     expect(result.actions[0].modifyDamage).toBe(false);
+  });
+
+  it("旧 recoveryTargetFormula は目標値「その他」へ移送される(2026-07-13 一本化)", () => {
+    const source = { actions: [{ _id: "a", type: "check", recoveryTargetFormula: "10 + @condition.magnitude" }] };
+    const result = UsageTemplate.migrateData(source);
+    expect(result.actions[0].targetValueOther).toBe("10 + @condition.magnitude");
+    expect(result.actions[0].targetValue).toBe("other");
+  });
+
+  it("recoveryTargetFormula の移送は既存の目標値設定を上書きしない", () => {
+    const source = { actions: [{ _id: "a", type: "check", recoveryTargetFormula: "5", targetValue: "number", targetValueOther: "既存" }] };
+    const result = UsageTemplate.migrateData(source);
+    expect(result.actions[0].targetValueOther).toBe("既存");
+    expect(result.actions[0].targetValue).toBe("number");
   });
 
   it("_id が無いエントリに randomID を付与する", () => {

@@ -185,8 +185,9 @@ export class UsageTemplate extends SystemDataModel {
                     // - recoveryExcludes: 除外タグ(タグ自身+そのタグを与える負傷を除外=「指定タグを
                     //   含むもの以外すべて」)。通例は完全死亡・精神崩壊を除外(全回復系でも治療不可)。
                     // - recoveryAll: 該当すべてを回復 / recoveryCount: 回復数(All=false のとき)。
-                    // - recoveryTargetFormula: 目標値の式(@condition.magnitude=選択した状態の強度・
-                    //   @condition.woundValue=負傷のダメージ値。空=用途の目標値設定)。
+                    // - 目標値は発動タブの目標値設定に一本化(2026-07-13・回復専用の式欄
+                    //   recoveryTargetFormula は廃止=migrateData で目標値「その他」へ移送)。
+                    //   解説参照/その他の式は @condition.magnitude/@condition.woundValue を参照可。
                     recovery: new fields.BooleanField({ initial: false }),
                     recoveryTargets: new fields.ArrayField(
                         new fields.SchemaField({
@@ -197,7 +198,6 @@ export class UsageTemplate extends SystemDataModel {
                     recoveryExcludes: new fields.ArrayField(new fields.StringField()),
                     recoveryAll: new fields.BooleanField({ initial: false }),
                     recoveryCount: new fields.NumberField({ initial: 1, integer: true, min: 1 }),
-                    recoveryTargetFormula: new fields.StringField({ initial: "" }),
 
                     // check: 再判定を付与(2026-07-11 ユーザー確定)。ON の用途は使用しても判定を行わず、
                     // 「達成値クリック待ち」モードに入る。既存の結果カードの達成値をクリックすると、
@@ -301,6 +301,16 @@ export class UsageTemplate extends SystemDataModel {
                 // 旧「ダメージを増加」(boostDamage)は「ダメージを修正」(modifyDamage)へ置換(2026-07-11)
                 if (migrated.boostDamage === true && migrated.modifyDamage === undefined) {
                     migrated = { ...migrated, modifyDamage: true };
+                }
+                // 回復専用の目標値式(recoveryTargetFormula)は発動タブの目標値へ一本化(2026-07-13)。
+                // 設定済みの式は目標値「その他」の自由記入欄へ移送する(既存値があれば触らない)
+                if (migrated.recoveryTargetFormula && !migrated.targetValueOther) {
+                    migrated = {
+                        ...migrated,
+                        targetValueOther: migrated.recoveryTargetFormula,
+                        ...(!migrated.targetValue || ["blank", "none"].includes(migrated.targetValue)
+                            ? { targetValue: "other" } : {}),
+                    };
                 }
                 // 使用武器参照の複数化(2026-07-09): 旧 weaponRef(単一) → weaponRefs(配列)。
                 // 空 itemId は空配列に(生身扱い)。

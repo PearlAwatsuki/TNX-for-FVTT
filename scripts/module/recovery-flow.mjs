@@ -11,8 +11,9 @@
  *    該当すべて(recoveryAll)は一覧確認のみ・それ以外は recoveryCount 個まで選択)
  * 3. declaration 用途=消費適用→即除去 / check 用途=判定へ(ctx.recovery 完了継続・成功で除去)
  *
- * 目標値: recoveryTargetFormula(式)が @condition.magnitude(選択した状態の強度・複数は最大)と
- * @condition.woundValue(負傷のダメージ値・同)を参照できる。空なら用途の目標値(数値)を使う。
+ * 目標値: 発動タブの目標値設定に一本化(2026-07-13・回復専用の式欄は廃止)。解説参照/その他の
+ * 自由記入欄の式は @condition.magnitude(選択した状態の強度・複数は最大)と
+ * @condition.woundValue(負傷のダメージ値・同)を参照できる(resolveUsageTargetValue に注入)。
  *
  * 除去の意味論(既存規約の流用):
  * - BS=その効果のみ(woundSource は辿らない=「BS を回復してもダメージは治療されない」)
@@ -31,7 +32,7 @@ import { getComboSuits, comboUsesBounty } from "./tnx-check-engine.mjs";
 import { CONDITION_KINDS, getConditionKinds, recoveryKindMatches, recoveryKindExcluded, readCondition } from "./conditions.mjs";
 import { postConditionOutcome } from "./condition-resolution.mjs";
 import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } from "./usage-consumption.mjs";
-import { buildFormulaData, evaluateFormula, parsePlainNumber } from "./tnx-formula.mjs";
+import { resolveUsageTargetValue } from "./usage-target-value.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -208,23 +209,12 @@ export async function useRecovery(item, usage) {
         return;
     }
 
-    // 判定(check): 目標値を解決して通常の判定フローへ(完了継続 ctx.recovery)
-    let targetValue = usage.targetValue === "number" ? (Number(usage.targetValueNumber) || 0) : null;
-    if (usage.recoveryTargetFormula) {
-        const plain = parsePlainNumber(usage.recoveryTargetFormula);
-        if (plain !== null) {
-            targetValue = plain;
-        } else {
-            const data = buildFormulaData(actor, null, item);
-            data.condition = { magnitude: plan.magnitude, woundValue: plan.woundValue };
-            const v = await evaluateFormula(usage.recoveryTargetFormula, data);
-            if (v === null) {
-                ui.notifications.warn("回復の目標値の式を評価できません（用途の目標値設定を使います）。");
-            } else {
-                targetValue = v;
-            }
-        }
-    }
+    // 判定(check): 目標値を解決して通常の判定フローへ(完了継続 ctx.recovery)。
+    // 発動タブの目標値設定に一本化(2026-07-13)——解説参照/その他の式には選択した状態の
+    // @condition.magnitude/@condition.woundValue を注入する
+    const targetValue = await resolveUsageTargetValue(usage, actor, item, {
+        condition: { magnitude: plan.magnitude, woundValue: plan.woundValue },
+    });
 
     const baseId = usage.baseSkillRef?.itemId || item.id;
     const comboIds = (usage.skillRefs ?? []).map(r => r.itemId).filter(id => id && actor.items.has(id));

@@ -289,6 +289,28 @@ export function deriveUsageAutoFill(item, usage) {
     return patch;
 }
 
+/**
+ * 射程「武器」のライブ再解決(2026-07-13 ユーザー指摘で追加)。使用武器の変更時に、参加技能の
+ * 射程優先度の勝者が「武器」である用途に限り、射程を武器の実射程へ解決したパッチを返す
+ * (勝者が武器でない=手動設定や他射程が勝つ用途には触らない・武器未解決は「武器」表示に戻す)。
+ * 自動入力の「ライブ追従はしない」原則の例外——射程「武器」は値の実体が使用武器に委譲されて
+ * おり、武器の選択に追従しないと値が成立しないため。
+ * @param {Item} item 用途を持つアイテム
+ * @param {object} usage 用途エントリ(weaponRefs 更新後の状態)
+ * @returns {?{range:string, isFixedRange:boolean}}
+ */
+function deriveWeaponRangeLive(item, usage) {
+    const actor = item.actor;
+    const baseId = item.system.isAction === true ? item.id : (usage.baseSkillRef?.itemId || item.id);
+    const ids = new Set([item.id, baseId, ...(usage.skillRefs ?? []).map(r => r.itemId)].filter(Boolean));
+    const skills = [...ids]
+        .map(id => (id === item.id ? item : actor?.items.get(id)))
+        .filter(s => s && (s.type === "generalSkill" || s.type === "styleSkill"));
+    const r = resolveRange(skills.map(s => ({ range: s.system.range, isFixed: !!s.system.isFixedRange })));
+    if (!r || r.range !== "weapon") return null;
+    return { range: resolveWeaponRangeValue(usage, item, actor) ?? "weapon", isFixedRange: r.isFixed };
+}
+
 export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
     constructor(item, usageId, options = {}) {
@@ -420,7 +442,6 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             context.isRecovery      = usage.recovery === true;
             context.recoveryAll     = usage.recoveryAll === true;
             context.recoveryCountValue   = Math.max(1, usage.recoveryCount ?? 1);
-            context.recoveryTargetFormula = usage.recoveryTargetFormula ?? "";
             const kindOptionsFor = (group) => Object.entries(CONDITION_KINDS)
                 .filter(([, def]) => def.group === group)
                 .map(([value, def]) => ({ value, label: def.label }));
@@ -745,6 +766,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             // 組み合わせ技能: ドロップダウン選択で即時追加
             for (const select of this.element.querySelectorAll("select.skill-ref-select")) {
                 select.addEventListener("change", async (ev) => {
+                    ev.stopPropagation(); // submitOnChange との競合防止(actions 全配列の後勝ち上書きを防ぐ)
                     const itemId = ev.target.value;
                     if (!itemId) return;
                     const usage = this.usage;
@@ -767,6 +789,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             // 回復の除外タグ: ドロップダウン選択で即時追加(2026-07-13)
             for (const select of this.element.querySelectorAll("select.recovery-exclude-select")) {
                 select.addEventListener("change", async (ev) => {
+                    ev.stopPropagation(); // フォームの submitOnChange を発火させない(actions 全配列書き込みの競合防止)
                     const key = ev.target.value;
                     if (!key) return;
                     const usage = this.usage;
@@ -779,6 +802,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             // 無視する指定技能: ドロップダウン選択で即時追加(2026-07-10)
             for (const select of this.element.querySelectorAll("select.ignore-combo-select")) {
                 select.addEventListener("change", async (ev) => {
+                    ev.stopPropagation(); // submitOnChange との競合防止
                     const key = ev.target.value;
                     if (!key) return;
                     const usage = this.usage;
@@ -791,12 +815,16 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             // 使用武器(攻撃プロファイル): ドロップダウン選択で即時追加(複数選ぶと攻撃力を合算)
             for (const select of this.element.querySelectorAll("select.weapon-ref-select")) {
                 select.addEventListener("change", async (ev) => {
+                    ev.stopPropagation(); // submitOnChange との競合防止
                     const itemId = ev.target.value;
                     if (!itemId) return;
                     const usage = this.usage;
                     const refs = usage?.weaponRefs ?? [];
                     if (!usage || refs.some(r => r.itemId === itemId)) { ev.target.value = ""; return; }
                     await this._patchUsage({ weaponRefs: [...refs, { itemId }] });
+                    // 射程「武器」の用途は、武器の変更に射程を追従させる(2026-07-13)
+                    const rangePatch = deriveWeaponRangeLive(this._item, this.usage);
+                    if (rangePatch) await this._patchUsage(rangePatch);
                     this.render({ force: true });
                 });
             }
@@ -804,6 +832,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             // エフェクト: ドロップダウン選択で即時追加。選択値=`itemId|effectId`(親は itemId 空)
             for (const select of this.element.querySelectorAll("select.effect-select")) {
                 select.addEventListener("change", async (ev) => {
+                    ev.stopPropagation(); // submitOnChange との競合防止
                     const raw = ev.target.value;
                     if (!raw) return;
                     const sep = raw.indexOf("|");
@@ -886,7 +915,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         if (sel("range")  !== "other") setVal("rangeOther", "");
         const tvv = sel("targetValue");
         if (tvv !== "number") setVal("targetValueNumber", "0");
-        if (tvv !== "other")  setVal("targetValueOther", "");
+        // 自由記入欄(式)は「その他」「解説参照」の両方で使う(2026-07-13)
+        if (tvv !== "other" && tvv !== "explanation") setVal("targetValueOther", "");
     }
 
     /** timing / target / range / targetValue のサブ入力欄の表示を選択値に追従させる */
@@ -904,7 +934,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
         const tvv = val("targetValue");
         toggle(".tv-number-sub", tvv === "number");
-        toggle(".tv-other-sub",  tvv === "other");
+        // 「解説参照」「その他」は式を入力できる自由記入欄を出す(2026-07-13 ユーザー確定)
+        toggle(".tv-other-sub",  tvv === "other" || tvv === "explanation");
     }
 
     // ─── フォーム送信（auto-submit on change） ─────────────────────────────────
@@ -1007,7 +1038,6 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 }
                 update.recoveryAll = raw["recoveryAll"] ?? prevAll;
                 update.recoveryCount = Math.max(1, Number(raw["recoveryCount"]) || (usage.recoveryCount ?? 1));
-                update.recoveryTargetFormula = raw["recoveryTargetFormula"] ?? usage.recoveryTargetFormula ?? "";
                 recoveryUiChanged ||= update.recoveryAll !== prevAll;
             } else {
                 // OFF は設定をリセットする(再 ON でまっさらから始める=2026-07-13 ユーザー指示)
@@ -1015,7 +1045,6 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 update.recoveryExcludes = [];
                 update.recoveryAll = false;
                 update.recoveryCount = 1;
-                update.recoveryTargetFormula = "";
             }
             recoveryUiChanged ||= update.recovery !== prevRec;
         }
@@ -1054,7 +1083,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         if (update.target !== "other")            update.targetOther = "";
         if (update.range !== "other")             update.rangeOther = "";
         if (update.targetValue !== "number")      update.targetValueNumber = 0;
-        if (update.targetValue !== "other")       update.targetValueOther = "";
+        if (update.targetValue !== "other" && update.targetValue !== "explanation") update.targetValueOther = "";
         if (update["timing.value"] !== "action")  update["timing.actionName"]  = "blank";
         if (update["timing.value"] !== "process") update["timing.processName"] = "blank";
         if (update["timing.value"] !== "other")   update["timing.timingOther"] = "";
@@ -1369,6 +1398,9 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         if (!usage) return;
         const weaponRefs = (usage.weaponRefs ?? []).filter((_, i) => i !== idx);
         await this._patchUsage({ weaponRefs });
+        // 射程「武器」の用途は、武器の変更に射程を追従させる(2026-07-13)
+        const rangePatch = deriveWeaponRangeLive(this._item, this.usage);
+        if (rangePatch) await this._patchUsage(rangePatch);
         this.render({ force: true });
     }
 

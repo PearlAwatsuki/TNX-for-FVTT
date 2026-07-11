@@ -21,6 +21,7 @@ import { TnxCheckFlow } from '../module/tnx-check-flow.mjs';
 import { resolveConsumeRowsForActor, promptConsumption } from '../module/usage-consumption.mjs';
 import { useNpcAcquire } from '../module/npc-acquisition.mjs';
 import { useRecovery } from '../module/recovery-flow.mjs';
+import { resolveUsageTargetValue } from '../module/usage-target-value.mjs';
 import { useAttack } from '../module/attack-flow.mjs';
 import { prepareUsageEffectPayload } from '../module/usage-effects.mjs';
 import { getComboSuits, comboUsesBounty, ALL_SUITS } from '../module/tnx-check-engine.mjs';
@@ -2440,7 +2441,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             skillIds:        allSkillIds,
             skillLabel,
             validSuits,
-            targetValue:     null,
+            // 目標値(2026-07-13 ユーザー確定): 数字=そのまま目標値・解説参照/その他=自由記入欄の
+            // 式を評価(空/評価不能はなし)・制御値/達成値/登場目標値=別メカニクス(具体値は引かない)
+            targetValue:     await resolveUsageTargetValue(selectedUsage, actor, item),
             // 報酬点: 参加技能のいずれかが usesBounty なら可(ベース限定は誤り・2026-07-10 ユーザー確定)
             bountyAvailable: comboUsesBounty(allSkillIds.map(id => actor.items.get(id)?.system)) ? actorBounty : 0,
             consumeUses:     usesPlan,
