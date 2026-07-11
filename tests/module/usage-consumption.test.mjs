@@ -85,21 +85,26 @@ describe("resolveConsumeRows()（消費先設定の解決・11-6）", () => {
       expect(row.label).toBe("AR");
     });
 
-    it("カット進行外: inert（AR を追跡しないため検証・消費なし＝従来のパリー挙動）", () => {
+    it("カット進行外: 消費不可＝残量 0 扱いで原則ブロック（AR を消費する能力は進行外では使えない・2026-07-12 ユーザー訂正）", () => {
       const [row] = resolveConsumeRows(
         [{ type: "actionRank", amount: 1 }],
         { parentItem: skill("p1"), getItem: () => null, actionRank: { value: 3, maxTotal: 3, inCombat: false } },
       );
-      expect(row.inert).toBe(true);
-      expect(row.kind).toBeUndefined();
+      expect(row.kind).toBe("ar");
+      expect(row.remaining).toBe(0);
+      expect(row.outOfCombat).toBe(true);
+      const result = buildConsumptionPlan([row], new Set(["@ar"]), "actor1");
+      expect(result.shortage).toBeDefined();
     });
 
-    it("actionRank コンテキスト無し（アクター無し等）: inert", () => {
+    it("actionRank コンテキスト無し（アクター無し等）も消費不可扱い", () => {
       const [row] = resolveConsumeRows(
         [{ type: "actionRank", amount: 1 }],
         { parentItem: skill("p1"), getItem: () => null },
       );
-      expect(row.inert).toBe(true);
+      expect(row.kind).toBe("ar");
+      expect(row.remaining).toBe(0);
+      expect(row.outOfCombat).toBe(true);
     });
 
     it("AR 0 でチェック済みなら shortage（原則ブロック・チェックを外せば実行可）", () => {

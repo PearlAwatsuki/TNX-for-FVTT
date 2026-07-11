@@ -12,7 +12,9 @@
  *   "miracleUses" - 神業の使用回数(usageCount.value)
  *   "actionRank"  - 実行アクターの AR(2026-07-12 ユーザー確定)。パリー等「AR を消費する」能力の
  *                   表現で、旧パリー専用の自動 AR−1 を置換=AR 消費もこの設定からのみ発生する。
- *                   カット進行外は AR を追跡しないため no-op(従来のパリー挙動と同じ=検証・消費なし)。
+ *                   **カット進行外は AR を消費できないため原則使用不可**(消費要求は進行外でも生きる・
+ *                   支払えない=原則ブロック。チェックを外せば卓裁定で実行可。2026-07-12 ユーザー訂正:
+ *                   当初の「進行外は no-op」は誤り)。
  *                   分身でも本体へ差し替えない(AR は実行アクター自身の戦闘リソース)
  *
  * カウンター種別(kind): "uses"=uses.spent 加算 / "miracleUses"=usageCount.value 減算 /
@@ -134,16 +136,16 @@ export function resolveConsumeRows(targets, { parentItem, getItem, actionRank = 
         const type = t.type || "parent";
         const amount = Math.max(1, Number(t.amount) || 1);
         // AR の消費(2026-07-12): 対象アイテムを持たない=実行アクターの actionRank.value を減らす。
-        // カット進行外(inCombat でない)は AR を追跡しないため no-op(検証・消費なし)。
+        // カット進行外(inCombat でない)は AR を消費できない=残量 0 扱いで原則ブロック
+        // (「AR を消費する能力は進行外では使えない」=ユーザー確定。チェックを外せば卓裁定で実行可)。
         // itemId はチェックボックス識別用のセンチネル(実アイテム ID と衝突しない)
         if (type === "actionRank") {
-            if (actionRank?.inCombat !== true) {
-                return { type, amount, itemId: "@ar", label: "AR", inert: true };
-            }
+            const inCombat = actionRank?.inCombat === true;
             return {
                 type, kind: "ar", amount, itemId: "@ar", label: "AR",
-                remaining: Math.max(0, actionRank.value ?? 0),
-                maxDisplay: actionRank.maxTotal ?? 0,
+                remaining: inCombat ? Math.max(0, actionRank.value ?? 0) : 0,
+                maxDisplay: actionRank?.maxTotal ?? 0,
+                outOfCombat: !inCombat,
             };
         }
         const item = type === "parent" ? parentItem : (getItem?.(t.itemId ?? "") ?? null);
@@ -218,16 +220,20 @@ export async function promptConsumption(actor, rows, { title = "使用回数の�
             const out = r.remaining < r.amount;
             const amountLabel = r.amount > 1 ? `×${r.amount}` : "";
             const sharedLabel = r.shared ? `（本体「${esc(r.sharedOwnerName)}」と共有）` : "";
-            // AR 行は「使用回数」でなくアクターの AR を消費する文言にする
+            // AR 行は「使用回数」でなくアクターの AR を消費する文言にする。
+            // カット進行外は消費不可(残量 0 扱い=原則ブロック)である旨を残量欄に示す
             const text = r.kind === "ar"
                 ? `AR を消費${amountLabel || "×1"}`
                 : `「${esc(r.label)}」の使用回数を消費${amountLabel}${sharedLabel}`;
+            const count = r.kind === "ar" && r.outOfCombat
+                ? "カット進行外（消費不可）"
+                : `残り ${r.remaining}/${r.maxDisplay}`;
             return `<div class="tnx-uses-row">
                 <label>
                     <input type="checkbox" name="consume" value="${esc(r.itemId)}" checked>
                     <span>${text}</span>
                 </label>
-                <span class="tnx-uses-count${out ? " tnx-uses-out" : ""}">残り ${r.remaining}/${r.maxDisplay}</span>
+                <span class="tnx-uses-count${out ? " tnx-uses-out" : ""}">${count}</span>
             </div>`;
         }),
         ...problems.map(r => `<div class="tnx-uses-row tnx-uses-problem">
@@ -259,7 +265,12 @@ export async function promptConsumption(actor, rows, { title = "使用回数の�
 
     const built = buildConsumptionPlan(rows, new Set(result), actor?.id ?? "");
     if (built.shortage) {
-        ui.notifications.warn(`「${built.shortage.label}」の使用回数が足りません（残り ${built.shortage.remaining}・消費 ${built.shortage.amount}）。消費チェックを外すと実行できます。`);
+        const s = built.shortage;
+        ui.notifications.warn(s.kind === "ar"
+            ? (s.outOfCombat
+                ? "カット進行外のため AR を消費できません（AR を消費する能力はカット進行中にのみ使用できます）。消費チェックを外すと実行できます。"
+                : `AR が足りません（残り ${s.remaining}・消費 ${s.amount}）。消費チェックを外すと実行できます。`)
+            : `「${s.label}」の使用回数が足りません（残り ${s.remaining}・消費 ${s.amount}）。消費チェックを外すと実行できます。`);
         return null;
     }
     return built.plan;
