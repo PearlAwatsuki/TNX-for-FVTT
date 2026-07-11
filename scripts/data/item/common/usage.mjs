@@ -14,8 +14,9 @@
  *   "declaration"  - 宣言（判定なしで使える能力＝神業を含む。判定を伴わないため独立タイプ）
  *   "modification" - 改造（modifiableParams）
  *   ※旧 "damageBoost"/"damageReduce"(ダメージ増加/軽減)は廃止(2026-07-11 ユーザー確定)。
- *     ダメージ増加は攻撃用途のダメージ修正行(組み合わせ技能を供給元に)・軽減は軽減ダイアログの
- *     手動欄で表す。既存データは migrateData で declaration(宣言)へ変換する。
+ *     ダメージの増減は check 用途のフラグ modifyDamage(ダメージを修正・アイテムロール使用→
+ *     ダメージカードの攻撃側合計クリックで適用。増加=正・軽減=負)か、攻撃用途のダメージ修正行
+ *     (組み合わせ技能を供給元に)で表す。既存データは migrateData で declaration(宣言)へ変換する。
  *   "npcAcquire"   - NPC取得（フェーズ11-6・Troops.md「NPC取得」。トループ級の召喚/エキストラ取得）
  *
  * タイプは作成時に固定。UI 上で切り替え不可。
@@ -131,12 +132,13 @@ export class UsageTemplate extends SystemDataModel {
                     // (OFF ならダイアログ自体を出さない)。適用=最終ダメージ 10 以上を 10 とみなす。
                     canStun: new fields.BooleanField({ initial: false }),
 
-                    // check: ダメージを増加(2026-07-11 ユーザー確定・攻撃セクション所属＝isAttack と排他)。
-                    // ON の用途は判定を行わず、**アイテムロールから使用**する: ダメージカードの待ち受け中
-                    // (算出ダイアログが開いてカードを出す前)にクリックすると算出へ登録され(再クリックで
-                    // 解除)、カードプレイと同時に効果量(damageBonusSelf・式)がダメージへ合算される
-                    // ＝「タイミング：ダメージ算出」の技能の表現。待ち受け外の使用は不成立(警告)。
-                    boostDamage: new fields.BooleanField({ initial: false }),
+                    // check: ダメージを修正(2026-07-11 ユーザー確定・攻撃セクション所属＝isAttack と排他)。
+                    // ON の用途は判定を行わず、**アイテムロールから使用**する: 使用で「ダメージクリック
+                    // 待ち」モードに入り、ダメージ・チャットカードのダメージ(攻撃側合計)をクリックすると
+                    // 修正値(damageBonusSelf・式。増加=正/軽減=負)がそのダメージへ適用される。
+                    // 有効なのは算出後〜適用前(適用済みカードは不可)。増加技能(タイミング：ダメージ算出)は
+                    // カードが出た直後にクリックして表す(旧 boostDamage の待ち受け登録方式は置換・廃止)。
+                    modifyDamage: new fields.BooleanField({ initial: false }),
 
                     // check: 判定ボーナス(達成値へ加算する式の行・全判定用途。2026-07-10 ユーザー確定)。
                     // 各行 = { formula: 式, source: 供給元の識別キー(組み合わせスタイル技能/使用武器。空=用途) }。
@@ -182,9 +184,9 @@ export class UsageTemplate extends SystemDataModel {
                         })
                     ),
 
-                    // attack/boostDamage: 用途自身のダメージ修正値(専用欄・checkBonusSelf のダメージ版・
+                    // attack/modifyDamage: 用途自身のダメージ修正値(専用欄・checkBonusSelf のダメージ版・
                     // 2026-07-10)。親アイテムが持つダメージ修正を入れる欄。式で @item.self を参照可・
-                    // 台帳は親名で帰属。boostDamage ではダメージ増加の効果量(式)としてこの欄を使う。
+                    // 台帳は親名で帰属。modifyDamage ではダメージ修正値(増加=正/軽減=負)としてこの欄を使う。
                     damageBonusSelf: new fields.StringField({ initial: "" }),
 
                     // check(攻撃): 攻撃系統 ("physical" | "mental" | "social")。設定されている check が攻撃
@@ -256,6 +258,10 @@ export class UsageTemplate extends SystemDataModel {
                 // 数値効果は攻撃用途のダメージ修正行/軽減ダイアログの手動欄で表す(効果はテキストに残る)
                 if (migrated.type === "damageBoost" || migrated.type === "damageReduce") {
                     migrated = { ...migrated, type: "declaration" };
+                }
+                // 旧「ダメージを増加」(boostDamage)は「ダメージを修正」(modifyDamage)へ置換(2026-07-11)
+                if (migrated.boostDamage === true && migrated.modifyDamage === undefined) {
+                    migrated = { ...migrated, modifyDamage: true };
                 }
                 // 使用武器参照の複数化(2026-07-09): 旧 weaponRef(単一) → weaponRefs(配列)。
                 // 空 itemId は空配列に(生身扱い)。

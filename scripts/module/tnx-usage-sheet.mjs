@@ -349,10 +349,10 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         context.isFixedCheck       = usage.type === "check" && Number.isFinite(usage.fixedResult);
         // 攻撃は判定の一種(2026-07-09): check かつ damageCategory 設定=攻撃。固定値判定は攻撃にしない
         context.isAttack           = context.isCheckType && !context.isFixedCheck && !!usage.damageCategory;
-        // ダメージ増加(2026-07-11): 攻撃セクション所属(isAttack と排他=ラジオ)。使用はアイテムロール
-        context.isBoostDamage      = context.isCheckType && !context.isFixedCheck && usage.boostDamage === true;
+        // ダメージを修正(2026-07-11): 攻撃セクション所属(isAttack と排他=ラジオ)。使用はアイテムロール
+        context.isModifyDamage     = context.isCheckType && !context.isFixedCheck && usage.modifyDamage === true;
         // 攻撃モードのラジオ値(排他の表現。両フラグ立ちは isAttack 優先で正規化表示)
-        context.attackMode         = context.isAttack ? "attack" : (context.isBoostDamage ? "boost" : "none");
+        context.attackMode         = context.isAttack ? "attack" : (context.isModifyDamage ? "modifyDamage" : "none");
         // 判定モードのラジオ値(2026-07-11): 通常/再判定を付与/判定を修正(判定用途に「なし」は無い)
         context.checkMode          = usage.grantRecheck === true ? "grant"
             : (usage.modifyCheck === true ? "modify" : "normal");
@@ -853,12 +853,12 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             update.modifyCheck  = checkMode === "modify";
             update.allowRecheck = checkMode === "normal"
                 ? (raw["allowRecheck"] ?? usage.allowRecheck ?? false) : false;
-            const mode = raw["attackMode"] ?? (usage.damageCategory ? "attack" : (usage.boostDamage ? "boost" : "none"));
+            const mode = raw["attackMode"] ?? (usage.damageCategory ? "attack" : (usage.modifyDamage ? "modifyDamage" : "none"));
             const isAtk = mode === "attack";
-            const isBoost = mode === "boost";
+            const isModD = mode === "modifyDamage";
             update.damageBonuses  = isAtk ? TnxUsageSheet._collectBonusRows(raw, "damageBonus") : [];
-            // damageBonusSelf は攻撃の「ダメージ修正値」/ダメージ増加の「効果量」を兼ねる(2026-07-11)
-            update.damageBonusSelf = (isAtk || isBoost) ? (raw["damageBonusSelf"] ?? usage.damageBonusSelf ?? "") : "";
+            // damageBonusSelf は攻撃の「ダメージ修正値」/ダメージを修正の「修正値」を兼ねる(2026-07-11)
+            update.damageBonusSelf = (isAtk || isModD) ? (raw["damageBonusSelf"] ?? usage.damageBonusSelf ?? "") : "";
             update.canStun = isAtk ? (raw["canStun"] ?? usage.canStun ?? false) : false;
         }
 
@@ -917,11 +917,11 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         const prevAttackCategory = usage.type === "check" && !Number.isFinite(usage.fixedResult)
             ? (usage.damageCategory || "") : null;
         if (usage.type === "check" && !Number.isFinite(usage.fixedResult)) {
-            // 攻撃モード(ラジオ・2026-07-11): none=通常判定 / attack=攻撃 / boost=ダメージ増加。
+            // 攻撃モード(ラジオ・2026-07-11): none=通常判定 / attack=攻撃 / modifyDamage=ダメージを修正。
             // 排他はラジオが保証する(チェックボックス2つの後勝ち判定は廃止)
-            const mode = raw["attackMode"] ?? (usage.damageCategory ? "attack" : (usage.boostDamage ? "boost" : "none"));
+            const mode = raw["attackMode"] ?? (usage.damageCategory ? "attack" : (usage.modifyDamage ? "modifyDamage" : "none"));
             const isAttack = mode === "attack";
-            update.boostDamage = mode === "boost";
+            update.modifyDamage = mode === "modifyDamage";
             if (isAttack) {
                 update.damageCategory = raw["damageCategory"] || usage.damageCategory || "physical";
                 update.damageType     = raw["damageType"]     ?? usage.damageType;

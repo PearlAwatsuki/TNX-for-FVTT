@@ -819,37 +819,56 @@ export class TnxCheckFlow {
     }
 
     // ─── 達成値クリック待ちアクション(2026-07-11) ─────────────────────────────
-    // 用途の使用で「達成値クリック待ち」モードに入り、結果カードの達成値クリックで発動する
-    // 事後系メカニクスの共通機構。kind で動作を分岐する:
-    //   - "recheck"(再判定を付与): その判定に起動技能を組み合わせた再判定を起動
-    //   - "modify"(判定を修正): その判定に事後的なボーナス/ペナルティを適用
+    // 用途の使用で「クリック待ち」モードに入り、チャットカードのクリックで発動する
+    // 事後系メカニクスの共通機構。kind で動作とクリック先を分岐する:
+    //   - "recheck"(再判定を付与): 結果カードの達成値クリック=その判定に起動技能を組み合わせた再判定
+    //   - "modify"(判定を修正): 結果カードの達成値クリック=その判定に事後ボーナス/ペナルティを適用
+    //   - "modifyDamage"(ダメージを修正): ダメージカードの攻撃側合計クリック=そのダメージに修正を適用
+    //     (発動処理は damage-flow.handleDamageModifyClick。状態は peekAchievementAction で覗く)
     // 排他(同時に1つ)・同じ用途の再使用でキャンセル。発動条件(失敗時のみ等)は自動強制しない(卓裁定)。
 
-    /** @type {{kind:"recheck"|"modify", actorId:string, skillItemId:string, skillName:string, usageId:string, consumeUses:Array}|null} */
+    /** @type {{kind:"recheck"|"modify"|"modifyDamage", actorId:string, skillItemId:string, skillName:string, usageId:string, consumeUses:Array}|null} */
     static _clickState = null;
 
     static get isGrantPending() { return TnxCheckFlow._clickState !== null; }
 
+    /** クリック待ち状態を kind 指定で覗く(発動側の判定用・damage-flow のダメージクリックが使用)。 */
+    static peekAchievementAction(kind) {
+        return TnxCheckFlow._clickState?.kind === kind ? TnxCheckFlow._clickState : null;
+    }
+
     /**
-     * 達成値クリック待ちモードを開始する。
-     * @param {"recheck"|"modify"} kind
+     * クリック待ちモードを開始する。
+     * @param {"recheck"|"modify"|"modifyDamage"} kind
      * @param {Actor} actor 用途の使用者
      * @param {Item} skill 用途の親技能
      * @param {{usageId?:string, consumeUses?:Array}} [opts]
      */
     static startAchievementAction(kind, actor, skill, { usageId = "", consumeUses = [] } = {}) {
+        const MSG = {
+            recheck: {
+                cancel: "再判定の付与をキャンセルしました。",
+                start:  `結果カードの達成値をクリックすると、その判定に「${skill.name}」を組み合わせて再判定します（「${skill.name}」をもう一度使用するとキャンセル）。`,
+            },
+            modify: {
+                cancel: "判定の修正をキャンセルしました。",
+                start:  `結果カードの達成値をクリックすると、その判定に「${skill.name}」の修正を適用します（「${skill.name}」をもう一度使用するとキャンセル）。`,
+            },
+            modifyDamage: {
+                cancel: "ダメージの修正をキャンセルしました。",
+                start:  `ダメージ・チャットカードのダメージ（攻撃側合計）をクリックすると、そのダメージに「${skill.name}」の修正を適用します（「${skill.name}」をもう一度使用するとキャンセル）。`,
+            },
+        }[kind];
         if (TnxCheckFlow._clickState?.skillItemId === skill.id && TnxCheckFlow._clickState?.kind === kind) {
             TnxCheckFlow.cancelAchievementAction();
-            ui.notifications.info(kind === "recheck" ? "再判定の付与をキャンセルしました。" : "判定の修正をキャンセルしました。");
+            ui.notifications.info(MSG.cancel);
             return;
         }
         TnxCheckFlow._clickState = {
             kind, actorId: actor.id, skillItemId: skill.id, skillName: skill.name, usageId, consumeUses,
         };
         document.body.classList.add("tnx-recheck-grant-pending");
-        ui.notifications.info(kind === "recheck"
-            ? `結果カードの達成値をクリックすると、その判定に「${skill.name}」を組み合わせて再判定します（「${skill.name}」をもう一度使用するとキャンセル）。`
-            : `結果カードの達成値をクリックすると、その判定に「${skill.name}」の修正を適用します（「${skill.name}」をもう一度使用するとキャンセル）。`);
+        ui.notifications.info(MSG.start);
     }
 
     static cancelAchievementAction() {
@@ -861,6 +880,7 @@ export class TnxCheckFlow {
     static async _onGrantAchievementClick(message) {
         const state = TnxCheckFlow._clickState;
         if (!state) return; // モード外のクリックは無視(通常表示)
+        if (state.kind === "modifyDamage") return; // ダメージクリック待ちは達成値クリックでは発動しない(damage-flow 側)
         const actor = game.actors.get(state.actorId);
         const skill = actor?.items.get(state.skillItemId);
         if (!skill) { TnxCheckFlow.cancelAchievementAction(); return; }

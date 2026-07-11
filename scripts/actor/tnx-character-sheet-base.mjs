@@ -21,7 +21,6 @@ import { TnxCheckFlow } from '../module/tnx-check-flow.mjs';
 import { resolveConsumeRowsForActor, promptConsumption } from '../module/usage-consumption.mjs';
 import { useNpcAcquire } from '../module/npc-acquisition.mjs';
 import { useAttack } from '../module/attack-flow.mjs';
-import { useDamageBoost } from '../module/damage-flow.mjs';
 import { prepareUsageEffectPayload } from '../module/usage-effects.mjs';
 import { getComboSuits, comboUsesBounty, ALL_SUITS } from '../module/tnx-check-engine.mjs';
 import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
@@ -2341,23 +2340,19 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             return;
         }
 
-        // 達成値クリック系の用途(2026-07-11): 判定を行わず「達成値クリック待ち」モードに入る。
-        // 再判定を付与=クリックした判定にこの技能を組み合わせた再判定を起動。
-        // 判定を修正=クリックした判定に事後ボーナス/ペナルティを適用。
+        // クリック待ち系の用途(2026-07-11): 判定を行わず「クリック待ち」モードに入る。
+        // 再判定を付与=達成値クリックでその判定にこの技能を組み合わせた再判定を起動。
+        // 判定を修正=達成値クリックでその判定に事後ボーナス/ペナルティを適用。
+        // ダメージを修正=ダメージカードの攻撃側合計クリックでそのダメージに修正を適用。
         // 消費は用途の consumeTargets(プランを持ち回り、発動時に適用)
-        if (selectedUsage.type === "check" && (selectedUsage.grantRecheck === true || selectedUsage.modifyCheck === true)) {
-            const kind = selectedUsage.grantRecheck === true ? "recheck" : "modify";
+        if (selectedUsage.type === "check"
+            && (selectedUsage.grantRecheck === true || selectedUsage.modifyCheck === true || selectedUsage.modifyDamage === true)) {
+            const kind = selectedUsage.grantRecheck === true ? "recheck"
+                : (selectedUsage.modifyCheck === true ? "modify" : "modifyDamage");
             const grantRows = resolveConsumeRowsForActor(this.actor, item, selectedUsage.consumeTargets);
             const grantPlan = await promptConsumption(this.actor, grantRows, { title: `使用回数の消費: ${item.name}` });
             if (grantPlan === null) return;
             TnxCheckFlow.startAchievementAction(kind, this.actor, item, { usageId: selectedUsage._id, consumeUses: grantPlan });
-            return;
-        }
-
-        // ダメージ増加(2026-07-11): 判定を行わず、待ち受け中のダメージ算出へ登録する
-        // (アイテムロール使用・カードプレイと同時に発効。待ち受け外は警告)
-        if (selectedUsage.type === "check" && selectedUsage.boostDamage === true) {
-            await useDamageBoost(item, selectedUsage);
             return;
         }
 

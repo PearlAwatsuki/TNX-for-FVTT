@@ -343,10 +343,16 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             return;
         }
 
-        // ダメージ増加(2026-07-11): 待ち受け中のダメージ算出へ登録(アイテムロール使用)
-        if (usage.type === "check" && usage.boostDamage === true) {
-            const { useDamageBoost } = await import("../module/damage-flow.mjs");
-            await useDamageBoost(this.item, usage);
+        // ダメージを修正(2026-07-11): 判定を行わず「ダメージクリック待ち」モードに入る
+        // (アイテムロール使用・ダメージカードの攻撃側合計クリックで修正値を適用)
+        if (usage.type === "check" && usage.modifyDamage === true) {
+            const actor = this.item.actor;
+            if (!actor) { ui.notifications.warn("ダメージ修正はアクターが所持している技能から使用してください。"); return; }
+            const rows = resolveConsumeRowsForActor(actor, this.item, usage.consumeTargets);
+            const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${this.item.name}` });
+            if (plan === null) return;
+            const { TnxCheckFlow } = await import("../module/tnx-check-flow.mjs");
+            TnxCheckFlow.startAchievementAction("modifyDamage", actor, this.item, { usageId: usage._id, consumeUses: plan });
             return;
         }
 

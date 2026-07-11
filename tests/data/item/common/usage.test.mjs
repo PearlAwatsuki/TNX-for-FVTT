@@ -52,9 +52,10 @@ describe("UsageTemplate.defineSchema()", () => {
       expect(entryFields.canStun.options.initial).toBe(false);
     });
 
-    it("ダメージを増加（boostDamage・2026-07-11 再設計＝アイテムロール使用）は BooleanField で initial false", () => {
-      expect(entryFields.boostDamage).toBeInstanceOf(MockBooleanField);
-      expect(entryFields.boostDamage.options.initial).toBe(false);
+    it("ダメージを修正（modifyDamage・2026-07-11＝アイテムロール使用・旧 boostDamage を置換）は BooleanField で initial false", () => {
+      expect(entryFields.modifyDamage).toBeInstanceOf(MockBooleanField);
+      expect(entryFields.modifyDamage.options.initial).toBe(false);
+      expect(entryFields).not.toHaveProperty("boostDamage");
     });
 
     it("攻撃系統(damageCategory)が存在し、旧 formula(効果量)は廃止済み(2026-07-11)", () => {
@@ -185,6 +186,18 @@ describe("UsageTemplate.migrateData()", () => {
     const result = UsageTemplate.migrateData(source);
     expect(result.actions[0].type).toBe("declaration");
     expect(result.actions[1].type).toBe("declaration");
+  });
+
+  it("旧 boostDamage=true は modifyDamage=true へ変換される(2026-07-11 置換)", () => {
+    const source = { actions: [{ _id: "a", type: "check", boostDamage: true }] };
+    const result = UsageTemplate.migrateData(source);
+    expect(result.actions[0].modifyDamage).toBe(true);
+  });
+
+  it("modifyDamage が既に設定済みなら boostDamage で上書きしない", () => {
+    const source = { actions: [{ _id: "a", type: "check", boostDamage: true, modifyDamage: false }] };
+    const result = UsageTemplate.migrateData(source);
+    expect(result.actions[0].modifyDamage).toBe(false);
   });
 
   it("_id が無いエントリに randomID を付与する", () => {

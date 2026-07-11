@@ -367,9 +367,9 @@
                  系統=Damage_Rules の3系統。武器・ダメージ種別は物理のみ(精神・社会は攻撃力を持たない) --}}
             <fieldset class="tnx-fieldset usage-attack-section">
                 <legend>攻撃</legend>
-                {{!-- 攻撃モード(排他のためラジオ・2026-07-11): なし=通常判定 / 攻撃に使う / ダメージ増加 --}}
+                {{!-- 攻撃モード(排他のためラジオ・2026-07-11): なし=通常判定 / 攻撃に使う / ダメージを修正 --}}
                 <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline" title="通常の判定として使います（攻撃にもダメージ増加にも使いません）">
+                    <label class="usage-toggle-inline" title="通常の判定として使います（攻撃にもダメージ修正にも使いません）">
                         <input type="radio" name="attackMode" value="none" {{checked (eq attackMode "none")}} {{#unless editable}}disabled{{/unless}}>
                         <span>なし</span>
                     </label>
@@ -377,16 +377,16 @@
                         <input type="radio" name="attackMode" value="attack" {{checked (eq attackMode "attack")}} {{#unless editable}}disabled{{/unless}}>
                         <span>攻撃に使う</span>
                     </label>
-                    <label class="usage-toggle-inline" title="この用途を「ダメージ増加」にします。使用は技能のクリックから: ダメージカードの待ち受け中に使用すると算出へ登録され（再使用で解除）、カードを出すと同時に下のダメージ増加（式）が合算されます">
-                        <input type="radio" name="attackMode" value="boost" {{checked (eq attackMode "boost")}} {{#unless editable}}disabled{{/unless}}>
-                        <span>ダメージ増加</span>
+                    <label class="usage-toggle-inline" title="この用途を「ダメージを修正」にします。使用は技能のクリックから: 使用するとダメージクリック待ちになり、ダメージ・チャットカードのダメージ（攻撃側合計）をクリックすると下の修正値が適用されます（増加＝正・軽減＝負。有効なのはダメージ算出後〜適用前）">
+                        <input type="radio" name="attackMode" value="modifyDamage" {{checked (eq attackMode "modifyDamage")}} {{#unless editable}}disabled{{/unless}}>
+                        <span>ダメージを修正</span>
                     </label>
                 </div>
-                {{#if isBoostDamage}}
+                {{#if isModifyDamage}}
                 <div class="usage-form-section">
-                    <label class="usage-field-label">ダメージ増加（式） <i class="fas fa-circle-question" title="ダメージカードの待ち受け中にこの技能を使用すると、カードプレイと同時にこの式の値がダメージへ合算されます。式は @item.self（この技能）・@system.*・@item.<識別キー>.*・@card・@diff/@achievement・@target.* を参照できます"></i></label>
+                    <label class="usage-field-label">ダメージ修正（式） <i class="fas fa-circle-question" title="この技能を使用してからダメージ・チャットカードのダメージ（攻撃側合計）をクリックすると、この式の値がそのダメージへ適用されます（増加＝正・軽減＝負・空なら適用時に手入力）。式は @item.self（この技能）・@system.*・@item.<識別キー>.*・@card・@diff/@achievement を参照できます"></i></label>
                     <input type="text" name="damageBonusSelf" value="{{damageBonusSelf}}"
-                           placeholder="式（例: @card、@item.self.system.levelTotal、5）"
+                           placeholder="式（例: -@item.self.system.levelTotal、@card、-5）"
                            {{#unless editable}}disabled{{/unless}}>
                 </div>
                 {{/if}}

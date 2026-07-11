@@ -23,10 +23,11 @@
 import { applyDamageChartResult } from "./condition-resolution.mjs";
 import { aggregateDefence, defenceForType, computeDamage } from "./damage-logic.mjs";
 import { evaluateBonusRows, evaluateSelfBonus } from "./tnx-formula.mjs";
-import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } from "./usage-consumption.mjs";
+import { applyConsumptionPlan } from "./usage-consumption.mjs";
 import { getDamageChartKind } from "../data/damage-chart.mjs";
 import { CONDITION_KINDS } from "./conditions.mjs";
 import { applyAttackPatch } from "./attack-flow.mjs";
+import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { TnxActionHandler } from "./tnx-action-handler.mjs";
 import { getCardCheckValue } from "./tnx-check-engine.mjs";
@@ -149,7 +150,7 @@ export async function openDamageRollDialog(attackMessage) {
     // 待ち受け開始: ダイアログを開いたまま、手札は HUD クリック(executeDamageCardFromHand)・
     // 山札はダイアログのボタンで出す(判定と同じ操作系)
     await cancelPending();
-    const ctx = { kind: "roll", attackMessage, f, attacker, category, attackPower, faOptions, damageBonusRows: damageBonusRowsAll, targetActor, pendingBoosts: [], dialog: null, done: false };
+    const ctx = { kind: "roll", attackMessage, f, attacker, category, attackPower, faOptions, damageBonusRows: damageBonusRowsAll, targetActor, dialog: null, done: false };
     _pending = ctx;
 
     const chosen = await foundry.applications.api.DialogV2.wait({
@@ -194,20 +195,6 @@ async function finalizeDamageRoll(ctx, form, played) {
         if (weapon) await consumeFaAmmo(weapon);
     }
 
-    // ダメージ増加(boostDamage 用途・2026-07-11): 待ち受け中にアイテムロールで登録されたものを
-    // カードプレイと同時に評価して合算する(「タイミング：ダメージ算出」＝宣言はクリック先行・
-    // 発効は確定トリガーでアトミック)。消費(クリック時に確定したプラン)もここで適用
-    const boosts = [];
-    for (const b of (ctx.pendingBoosts ?? [])) {
-        const skillItem = attacker?.items.get(b.itemId) ?? null;
-        const val = await evaluateSelfBonus(b.formula, attacker,
-            { diff: f.diff, achievement: f.achievement, cardValue: f.cardValue ?? null },
-            ctx.targetActor ?? null, skillItem);
-        if (val) boosts.push({ name: b.name, value: val.value });
-        else ui.notifications.warn(`「${b.name}」のダメージ増加式を評価できません（手動修正で反映してください）。`);
-        if (b.consumeUses?.length) await applyConsumptionPlan(b.consumeUses);
-    }
-
     // 用途の適用効果はフローの一番最後(2026-07-11 ユーザー確定)=ダメージ算出後に適用する。
     // 攻撃カードのペイロードをダメージカードへ引き継ぐ(適用済み状態ごと。攻撃カード側の表示は
     // damageRolled で消える=適用ボタンはこのカードに一本化される)
@@ -231,7 +218,7 @@ async function finalizeDamageRoll(ctx, form, played) {
                     damageType: f.damageType ?? "",
                     attackPower, faValue,
                     damageBonuses: damageBonusRows,
-                    boosts,   // ダメージ増加(boostDamage 用途・アイテムロール登録分)
+                    mods: [],   // 事後修正(modifyDamage 用途・攻撃側合計クリックで適用)
                     attackSourceName: f.attackSourceName ?? "",
                     parryGuard: Number(f.parryGuard) || 0,
                     diff: f.diff ?? null,
@@ -358,11 +345,21 @@ export function renderDamageCard(message, html) {
     for (const b of (f.damageBonuses ?? [])) {
         row(ledger, `ダメージ修正（${esc(b.name || "用途")}）`, signedDisplay("＋", b.value));
     }
-    for (const b of (f.boosts ?? [])) {
-        row(ledger, `ダメージ増加（${esc(b.name || "用途")}）`, signedDisplay("＋", b.value));
-    }
     if (f.manualMod) row(ledger, "修正（手動）", signedDisplay("＋", f.manualMod));
+    // 事後修正(modifyDamage 用途・攻撃側合計クリックで適用済みの行)
+    for (const m of (f.mods ?? [])) {
+        row(ledger, `事後修正（${esc(m.label || "用途")}）`, signedDisplay("＋", m.value));
+    }
     row(ledger, `攻撃側合計${f.stun ? "（スタン／説得）" : ""}`, String(raw), "cr-calc-row cr-total-row", "cr-total-num");
+    // ダメージクリック待ち(modifyDamage): 適用前のダメージの攻撃側合計をクリック可能に
+    // (達成値クリックと同じ装飾クラス。モード外のクリックは無視)
+    if (!f.applied) {
+        const totalNum = ledger.lastElementChild?.querySelector(".cr-total-num");
+        if (totalNum && !totalNum.classList.contains("tnx-recheck-target")) {
+            totalNum.classList.add("tnx-recheck-target");
+            totalNum.addEventListener("click", () => handleDamageModifyClick(message));
+        }
+    }
 
     // ── 状態領域 ──
     if (f.applied && f.appliedResult) {
@@ -402,38 +399,50 @@ export function renderDamageCard(message, html) {
 }
 
 /**
- * ダメージ増加用途の使用(アイテムロールから・2026-07-11 ユーザー確定)。
- * ダメージカードの待ち受け中(算出ダイアログが開いてカードを出す前)のみ有効:
- * 現在の算出へ登録し(再使用で解除=トグル)、カードプレイと同時に効果量(damageBonusSelf)が
- * 合算される。消費はここでプロンプトし、カードプレイ確定時に適用する。
- * ※ダイアログ内の選択肢からの使用は行わない(使用は必ずアイテムロール)
- * @param {Item} item ダメージ増加用途を持つ技能
- * @param {object} usage boostDamage=true の用途エントリ
+ * ダメージ・チャットカードの攻撃側合計クリック(ダメージクリック待ちモード中)の処理。
+ * 用途「ダメージを修正」(modifyDamage)のアイテムロール使用で TnxCheckFlow のクリック待ちに入り、
+ * ここで修正値(damageBonusSelf・式。空/評価不能なら手入力)をそのダメージへ適用する
+ * (増加=正・軽減=負)。有効なのはダメージ算出後〜適用前(適用済みは警告)。
+ * 修正の内訳はフラグ mods に積み、台帳へ「事後修正」行としてライブ描画される。
+ * @param {ChatMessage} message ダメージ・チャットカードのメッセージ
  */
-export async function useDamageBoost(item, usage) {
-    const actor = item.actor;
-    if (!actor) { ui.notifications.warn("ダメージ増加はアクターが所持している技能から使用してください。"); return; }
-    const ctx = _pending;
-    if (!ctx || ctx.kind !== "roll") {
-        ui.notifications.warn("ダメージ算出中ではありません（攻撃の「ダメージカードを出す」からカードを出すまでの間に使用してください）。");
+export async function handleDamageModifyClick(message) {
+    const state = TnxCheckFlow.peekAchievementAction("modifyDamage");
+    if (!state) return; // モード外のクリックは無視(通常表示)
+    const f = message.getFlag(SCOPE, "damageRoll");
+    if (!f) return;
+    if (f.applied) {
+        ui.notifications.warn("適用済みのダメージは修正できません。");
         return;
     }
-    if (ctx.attacker?.id !== actor.id) {
-        ui.notifications.warn("このダメージ算出は別のキャラクターが行っています（増加できるのは攻撃者自身の技能のみ）。");
-        return;
+    const actor = game.actors.get(state.actorId);
+    const skill = actor?.items.get(state.skillItemId);
+    if (!skill) { TnxCheckFlow.cancelAchievementAction(); return; }
+    TnxCheckFlow.cancelAchievementAction();
+
+    // 修正値: 用途のダメージ修正値(式・@item.self=親技能・@card/@diff/@achievement=命中判定由来)。
+    // 空/評価不能/0 は手入力(軽減は負の値)
+    const usage = (skill.system.actions ?? []).find(a => a._id === state.usageId) ?? null;
+    const targetActor = await resolveTargetActor(f.targetUuid);
+    let mod = null;
+    const self = await evaluateSelfBonus(usage?.damageBonusSelf ?? "", actor,
+        { diff: f.diff ?? null, achievement: f.achievement ?? null, cardValue: f.cardValue ?? null },
+        targetActor, skill);
+    if (self) mod = self.value;
+    if (mod === null) {
+        const { AmountInputDialog } = await import("./tnx-dialog.mjs");
+        mod = await AmountInputDialog.prompt({
+            title: `ダメージの修正: ${skill.name}`,
+            label: "ダメージへの修正値（軽減は負の値）",
+            initialValue: 0, min: -99, max: 99,
+        });
+        if (!Number.isFinite(mod) || mod === 0) return;
     }
-    const key = `${item.id}.${usage._id}`;
-    const idx = (ctx.pendingBoosts ?? []).findIndex(b => b.key === key);
-    if (idx >= 0) {
-        ctx.pendingBoosts.splice(idx, 1);
-        ui.notifications.info(`「${usage.name || item.name}」のダメージ増加を解除しました。`);
-        return;
-    }
-    const rows = resolveConsumeRowsForActor(actor, item, usage.consumeTargets);
-    const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${item.name}` });
-    if (plan === null) return;
-    ctx.pendingBoosts.push({ key, itemId: item.id, name: usage.name || item.name, formula: usage.damageBonusSelf || "", consumeUses: plan });
-    ui.notifications.info(`「${usage.name || item.name}」をダメージ算出に組み込みました（カードを出すと適用されます）。`);
+
+    // 消費(用途の consumeTargets・クリック待ち開始時に確定したプラン)は適用の確定時
+    if (state.consumeUses?.length) await applyConsumptionPlan(state.consumeUses);
+
+    await applyDamagePatch(message, { mods: [...(f.mods ?? []), { label: state.skillName, value: mod }] });
 }
 
 /** 攻撃対象(命中確定済み)のアクターを解決する。トークンドキュメントならアクターへ。 */
@@ -458,13 +467,13 @@ function collectDamageVsBonuses(attacker, target) {
     return gatherDamageVsSources(collectActorEffectBuffs(attacker), { styles, works });
 }
 
-/** 攻撃側合計(カード合算+攻撃力+FA+用途のダメージ修正+手動修正)。 */
+/** 攻撃側合計(カード合算+攻撃力+FA+用途のダメージ修正+手動修正+事後修正)。 */
 function damageRollTotals(f) {
     const cardSum = (f.cards ?? []).reduce((s, c) => s + (Number(c.value) || 0), 0);
     const bonusSum = (f.damageBonuses ?? []).reduce((s, b) => s + (Number(b.value) || 0), 0);
-    const boostSum = (f.boosts ?? []).reduce((s, b) => s + (Number(b.value) || 0), 0);
+    const modsSum = (f.mods ?? []).reduce((s, m) => s + (Number(m.value) || 0), 0);
     const raw = cardSum + (Number(f.attackPower) || 0) + (Number(f.faValue) || 0)
-        + bonusSum + boostSum + (Number(f.manualMod) || 0);
+        + bonusSum + modsSum + (Number(f.manualMod) || 0);
     return { cardSum, raw };
 }
 
