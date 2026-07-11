@@ -136,6 +136,7 @@ export async function applyUsageEffectsFromMessage(message) {
     if (!payload?.effects?.length || payload.applied) return;
 
     let appliedAny = false;
+    const appliedTo = [];
     const denied = [];
     for (const t of (payload.targets ?? [])) {
         const resolved = await fromUuid(t.uuid).catch(() => null);
@@ -144,12 +145,29 @@ export async function applyUsageEffectsFromMessage(message) {
         if (!(game.user.isGM || actor.isOwner)) { denied.push(actor.name); continue; }
         await actor.createEmbeddedDocuments("ActiveEffect", payload.effects.map(e => e.data));
         appliedAny = true;
+        appliedTo.push(actor);
     }
 
     if (denied.length) {
         ui.notifications.warn(`「${denied.join("・")}」への効果付与は対象の操作者（か RL）が行います。`);
     }
     if (!appliedAny) return;
+
+    // 適用をサイレントにしない(2026-07-11 ユーザー指摘): 適用者へ通知し、全員が見える
+    // 適用チャットカードを出す(何が誰に付与されたかの告知。既存カード意匠=cr-head を踏襲)
+    const esc = foundry.utils.escapeHTML;
+    const effectNames = payload.effects.map(e => esc(e.name)).join("・");
+    const targetNames = appliedTo.map(a => esc(a.name)).join("・");
+    ui.notifications.info(`効果を適用しました: ${payload.effects.map(e => e.name).join("・")} → ${appliedTo.map(a => a.name).join("・")}`);
+    await ChatMessage.create({
+        speaker: ChatMessage.getSpeaker({ actor: appliedTo[0] }),
+        content: `<div class="tnx-check-result tnx-usage-effect-card tokyo-nova">`
+            + `<div class="cr-head"><span class="cr-skill-name">効果の適用</span><span class="cr-type-tag">ActiveEffect</span></div>`
+            + `<div class="cr-calc-section">`
+            + `<div class="cr-calc-row"><span class="cr-calc-label">効果</span><span class="cr-calc-val">${effectNames}</span></div>`
+            + `<div class="cr-calc-row"><span class="cr-calc-label">対象</span><span class="cr-calc-val">${targetNames}</span></div>`
+            + `</div></div>`,
+    });
 
     // カードを適用済みに(全対象へ付与済みとみなす。author/GM でなければ GM へ委譲)
     if (game.user.isGM || message.isAuthor) {
