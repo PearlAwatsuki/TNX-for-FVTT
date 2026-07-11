@@ -170,6 +170,11 @@ describe("checkChangeMatches()", () => {
     expect(checkChangeMatches("controlCheck.reason", { type: "control", ability: "reason" })).toBe(true);
     expect(checkChangeMatches("check.reason", { type: "control", ability: "reason" })).toBe(false);
   });
+  it("判定全般（check.all・2026-07-13）: 技能判定・能力値判定に合致し制御判定には合致しない", () => {
+    expect(checkChangeMatches("check.all", { type: "skill", skillKeys: ["melee"] })).toBe(true);
+    expect(checkChangeMatches("check.all", { type: "ability", ability: "reason" })).toBe(true);
+    expect(checkChangeMatches("check.all", { type: "control", ability: "reason" })).toBe(false);
+  });
 });
 
 describe("computeCheckBonus()（同一効果の重複適用不可）", () => {
@@ -394,6 +399,12 @@ describe("parseEffectTargetKey()（v2 system.<名前空間> 文法）", () => {
     expect(parseEffectTargetKey("check.works.kabuki")).toMatchObject({ scope: "skillCheck", group: "works", selector: "kabuki" });
     // 制御判定はグループ不可(能力値のみ)
     expect(parseEffectTargetKey("controlCheck.style.kabutowari")).toBeNull();
+  });
+
+  it("判定全般: check.all（無印「判定」＝能力値+技能判定・2026-07-13）", () => {
+    expect(parseEffectTargetKey("check.all")).toMatchObject({ scope: "anyCheck" });
+    // 制御判定は対象外(能力値のみのため null)
+    expect(parseEffectTargetKey("controlCheck.all")).toBeNull();
   });
 
   it("スート変更マーカー: check.suitChange（値不要・2026-07-12）", () => {

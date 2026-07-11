@@ -184,7 +184,7 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
     const actor = this.parent;
     if (!actor?.items) return;
     // 実行時評価の別系統(判定バフ・ダメージバフ)は値バフの適用対象外
-    const CHECK_SCOPES = new Set(["abilityCheck", "controlCheck", "skillCheck", "damageVs", "damageDealt", "suitChange", "damageTag"]);
+    const CHECK_SCOPES = new Set(["abilityCheck", "controlCheck", "skillCheck", "anyCheck", "damageVs", "damageDealt", "suitChange", "damageTag"]);
 
     const entries = [];
     const collect = (effects, bearer) => {

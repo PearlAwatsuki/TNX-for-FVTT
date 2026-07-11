@@ -190,6 +190,8 @@ const ABILITY_NAMES = ["reason", "passion", "life", "mundane"];
 export function checkChangeMatches(key, criteria) {
   const p = parseEffectTargetKey(key);
   if (!p || !criteria) return false;
+  // 判定全般(check.all・2026-07-13): 無印「判定」=能力値判定+技能判定に合致(制御判定は対象外)
+  if (p.scope === "anyCheck") return criteria.type === "skill" || criteria.type === "ability";
   if (criteria.type === "ability") return p.scope === "abilityCheck" && p.ability === criteria.ability;
   if (criteria.type === "control") return p.scope === "controlCheck" && p.ability === criteria.ability;
   if (criteria.type === "skill") {
@@ -417,6 +419,12 @@ export function parseEffectTargetKey(key) {
       return { scope: isControl ? "controlCheck" : "abilityCheck", ability: x, conditions };
     }
     if (isControl) return null; // 制御判定は能力値のみ
+    // 判定全般(2026-07-13 ユーザー確定): check.all＝無印「判定」(能力値判定+技能判定)すべてへの
+    // 判定バフ。用語規約どおり制御判定には掛からない(controlCheck.all は現状なし=必要時に追加)。
+    // ※"all" は予約語(識別キーとしては使えない)
+    if (x === "all") {
+      return { scope: "anyCheck", conditions };
+    }
     // スート変更マーカー(2026-07-12 ユーザー確定): check.suitChange＝値不要のマーカーキー。
     // 「判定で使用できないスートのカードを使用可能なスートに変更できる」効果の AE 付与形
     // (用途の適用効果で対象へ付与=他者バフ)。判定バフと同じ実行時系統=値バフ適用からは除外。
