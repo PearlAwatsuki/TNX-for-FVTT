@@ -55,7 +55,7 @@ import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/u
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
 import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
 import { CONDITION_KINDS, CONDITION_GROUP_LABELS, getConditionKinds, buildInflictedEffectsData, applyDamageTagMods, readConditions } from './module/conditions.mjs';
-import { gatherDamageTagMods, parseEffectTargetKey, itemChangeTargets, buildTransferredEffectData } from './data/item/helpers.mjs';
+import { gatherDamageTagMods, parseEffectTargetKey, buildTransferredEffectData } from './data/item/helpers.mjs';
 import { registerDamageChartTextSetting } from './module/damage-chart-text-app.mjs';
 import { registerPartSlotPresetSetting, getPartSlotPreset, initializeDefaultPartSlotPreset } from './module/part-slot-preset-app.mjs';
 import { autoAcquireForStyleSkill, autoImportDerivedData } from './module/style-skill-acquisition.mjs';
@@ -508,13 +508,15 @@ Hooks.on("createActiveEffect", async (effect, options, userId) => {
     }
 });
 
-// アイテム狙いの AE の物理転送(2026-07-13 ユーザー確定=完全同期をやめる)。
-// 効果の作成/更新時と、アイテムがアクターに追加された時に、アイテム狙いの変更
-// (item.<識別キー>/system.skill/system.category/item.parent 等)を**対象アイテム上の実体コピー**
-// (キーは item.self.system.* に書き換え)として作る。コピーは対象アイテムの通常の効果=
-// 無条件にそのアイテムへ効く。供給元との同期はしない(編集・削除は互いに独立)。
-// 既に同じ供給元(transferredFrom)からのコピーがあるアイテムには作らない(重複防止・
-// 供給元の効果を保存し直すと不足分だけ追加される=後付けの反映手段)。
+// アイテム狙いの AE の物理転送(2026-07-13 ユーザー確定)+片方向同期(2026-07-12 ユーザー指摘=
+// 「後から元のエフェクト側を更新した場合に反映されない」)。**供給元が正**:
+// - 効果の作成/更新時と、アイテムがアクターに追加された時に、アイテム狙いの変更
+//   (item.<識別キー>/system.skill/system.category/item.parent 等)を**対象アイテム上の実体コピー**
+//   (キーは item.self.system.* に書き換え)として作成/上書きする。
+// - 供給元がそのアイテムを狙わなくなったら(キー変更等)、コピーを除去する。
+// - 供給元の効果・供給元アイテムの削除でも、コピーを除去する。
+// コピーは対象アイテムの通常の効果=無条件にそのアイテムへ効く。コピー側の手動編集・切替は
+// 供給元の次の更新で上書きされる(供給元が正の帰結)。
 const TNX_TRANSFER_SCOPE = "tokyo-nova-axleration";
 
 async function materializeItemTransfers(actor, effect, bearer) {
@@ -524,16 +526,26 @@ async function materializeItemTransfers(actor, effect, bearer) {
         const p = parseEffectTargetKey(c.key);
         return p && ["skill", "category", "parent"].includes(p.scope);
     });
-    if (!hasItemTarget) return;
     for (const item of actor.items) {
-        if (item === bearer && !(effect.changes ?? []).some(c => {
-            const p = parseEffectTargetKey(c.key);
-            return p && itemChangeTargets(p, item, bearer);
-        })) continue;
-        const exists = item.effects.some(e => e.flags?.[TNX_TRANSFER_SCOPE]?.transferredFrom === effect.uuid);
-        if (exists) continue;
-        const data = buildTransferredEffectData(effect, item, bearer);
-        if (data) await item.createEmbeddedDocuments("ActiveEffect", [data]);
+        const copy = item.effects.find(e => e.flags?.[TNX_TRANSFER_SCOPE]?.transferredFrom === effect.uuid);
+        if (!hasItemTarget && !copy) continue;
+        const data = hasItemTarget ? buildTransferredEffectData(effect, item, bearer) : null;
+        if (data) {
+            if (copy) await copy.update(data); // 供給元が正: コピーを供給元の現在値で上書き
+            else await item.createEmbeddedDocuments("ActiveEffect", [data]);
+        } else if (copy) {
+            await copy.delete(); // 供給元がこのアイテムを狙わなくなった→コピー除去
+        }
+    }
+}
+
+/** 供給元(uuid 群)由来の転送コピーをアクターの全アイテムから除去する。 */
+async function removeItemTransferCopies(actor, sourceUuids) {
+    for (const item of actor.items) {
+        const ids = item.effects
+            .filter(e => sourceUuids.includes(e.flags?.[TNX_TRANSFER_SCOPE]?.transferredFrom))
+            .map(e => e.id);
+        if (ids.length) await item.deleteEmbeddedDocuments("ActiveEffect", ids);
     }
 }
 
@@ -546,10 +558,28 @@ Hooks.on("createActiveEffect", async (effect, _options, userId) => {
 
 Hooks.on("updateActiveEffect", async (effect, changed, _options, userId) => {
     if (game.user.id !== userId) return;
-    if (!("changes" in (changed ?? {})) && !("disabled" in (changed ?? {}))) return;
+    if (!["changes", "disabled", "name", "img"].some(k => k in (changed ?? {}))) return;
     const parent = effect.parent;
     const actor = parent?.documentName === "Actor" ? parent : parent?.actor;
     if (actor) await materializeItemTransfers(actor, effect, parent);
+});
+
+// 供給元の効果が削除されたら転送コピーも除去する(供給元が正・2026-07-12)
+Hooks.on("deleteActiveEffect", async (effect, _options, userId) => {
+    if (game.user.id !== userId) return;
+    if (effect.flags?.[TNX_TRANSFER_SCOPE]?.transferredFrom) return; // コピー自身の削除は独立
+    const parent = effect.parent;
+    const actor = parent?.documentName === "Actor" ? parent : parent?.actor;
+    if (actor) await removeItemTransferCopies(actor, [effect.uuid]);
+});
+
+// 供給元アイテムごと削除された場合(内包効果の deleteActiveEffect は発火しない)
+Hooks.on("deleteItem", async (item, _options, userId) => {
+    if (game.user.id !== userId) return;
+    const actor = item.actor;
+    if (!actor) return;
+    const uuids = item.effects.map(e => e.uuid);
+    if (uuids.length) await removeItemTransferCopies(actor, uuids);
 });
 
 // アイテムがアクターに追加されたとき: 既存の供給元効果からこのアイテムへ向く転送を実体化する

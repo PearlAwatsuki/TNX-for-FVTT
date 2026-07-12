@@ -392,11 +392,12 @@ export function itemChangeTargets(parsed, item, bearer) {
 }
 
 /**
- * アイテム狙いの AE の**物理転送**(2026-07-13 ユーザー確定=完全同期をやめる):
+ * アイテム狙いの AE の**物理転送**(2026-07-13 ユーザー確定)のコピーデータを組み立てる:
  * 効果の変更のうち対象アイテムに向くもの(skill/category/parent)を、**キーを
  * `item.self.system.<パス>` に書き換えた実体コピー**として対象アイテム上に作る。
  * コピーは対象アイテムの通常の効果=**無条件でそのアイテムに効く**(遠隔の再照合なし)。
- * 供給元との同期はしない(編集・削除は互いに独立。供給元の由来は transferredFrom フラグと origin)。
+ * 同期は**供給元が正の片方向**(2026-07-12): 供給元の更新でコピーは本データで上書きされ、
+ * 供給元の削除・狙い外れでコピーは除去される(tnx.mjs のフック群)。由来は transferredFrom フラグと origin。
  * @param {ActiveEffect} effect 供給元の効果
  * @param {Item} targetItem 転送先アイテム
  * @param {Document} bearer 効果の保持元
@@ -419,7 +420,7 @@ export function buildTransferredEffectData(effect, targetItem, bearer, scope = "
     changes,
     flags: { [scope]: {
       transferredFrom: effect.uuid,
-      // 表示用の供給元名(「転送された効果」セクションで名前に添える)。無同期のため転送時点の名前
+      // 表示用の供給元名(「転送された効果」セクションで名前に添える)。供給元の効果更新時に取り直される
       transferredSourceName: bearer?.name ?? "",
     } },
   };
