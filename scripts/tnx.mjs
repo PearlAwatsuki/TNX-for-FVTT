@@ -55,7 +55,7 @@ import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/u
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
 import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
 import { CONDITION_KINDS, CONDITION_GROUP_LABELS, getConditionKinds, buildInflictedEffectsData, applyDamageTagMods, readConditions } from './module/conditions.mjs';
-import { gatherDamageTagMods } from './data/item/helpers.mjs';
+import { gatherDamageTagMods, parseEffectTargetKey, itemChangeTargets, buildTransferredEffectData } from './data/item/helpers.mjs';
 import { registerDamageChartTextSetting } from './module/damage-chart-text-app.mjs';
 import { registerPartSlotPresetSetting, getPartSlotPreset, initializeDefaultPartSlotPreset } from './module/part-slot-preset-app.mjs';
 import { autoAcquireForStyleSkill, autoImportDerivedData } from './module/style-skill-acquisition.mjs';
@@ -505,6 +505,62 @@ Hooks.on("createActiveEffect", async (effect, options, userId) => {
         if (conditionNeedsDraw(c.kind, c)) await postDrawPrompt(actor, effect, c.kind);
         const cn = perKind[c.kind]?.pendingControlNegate;
         if (cn) await postControlNegatePrompt(actor, effect, c.kind, cn);
+    }
+});
+
+// アイテム狙いの AE の物理転送(2026-07-13 ユーザー確定=完全同期をやめる)。
+// 効果の作成/更新時と、アイテムがアクターに追加された時に、アイテム狙いの変更
+// (item.<識別キー>/system.skill/system.category/item.parent 等)を**対象アイテム上の実体コピー**
+// (キーは item.self.system.* に書き換え)として作る。コピーは対象アイテムの通常の効果=
+// 無条件にそのアイテムへ効く。供給元との同期はしない(編集・削除は互いに独立)。
+// 既に同じ供給元(transferredFrom)からのコピーがあるアイテムには作らない(重複防止・
+// 供給元の効果を保存し直すと不足分だけ追加される=後付けの反映手段)。
+const TNX_TRANSFER_SCOPE = "tokyo-nova-axleration";
+
+async function materializeItemTransfers(actor, effect, bearer) {
+    if (!actor || actor.documentName !== "Actor") return;
+    if (effect.flags?.[TNX_TRANSFER_SCOPE]?.transferredFrom) return; // コピー自身からは転送しない
+    const hasItemTarget = (effect.changes ?? []).some(c => {
+        const p = parseEffectTargetKey(c.key);
+        return p && ["skill", "category", "parent"].includes(p.scope);
+    });
+    if (!hasItemTarget) return;
+    for (const item of actor.items) {
+        if (item === bearer && !(effect.changes ?? []).some(c => {
+            const p = parseEffectTargetKey(c.key);
+            return p && itemChangeTargets(p, item, bearer);
+        })) continue;
+        const exists = item.effects.some(e => e.flags?.[TNX_TRANSFER_SCOPE]?.transferredFrom === effect.uuid);
+        if (exists) continue;
+        const data = buildTransferredEffectData(effect, item, bearer);
+        if (data) await item.createEmbeddedDocuments("ActiveEffect", [data]);
+    }
+}
+
+Hooks.on("createActiveEffect", async (effect, _options, userId) => {
+    if (game.user.id !== userId) return;
+    const parent = effect.parent;
+    const actor = parent?.documentName === "Actor" ? parent : parent?.actor;
+    if (actor) await materializeItemTransfers(actor, effect, parent);
+});
+
+Hooks.on("updateActiveEffect", async (effect, changed, _options, userId) => {
+    if (game.user.id !== userId) return;
+    if (!("changes" in (changed ?? {})) && !("disabled" in (changed ?? {}))) return;
+    const parent = effect.parent;
+    const actor = parent?.documentName === "Actor" ? parent : parent?.actor;
+    if (actor) await materializeItemTransfers(actor, effect, parent);
+});
+
+// アイテムがアクターに追加されたとき: 既存の供給元効果からこのアイテムへ向く転送を実体化する
+Hooks.on("createItem", async (item, _options, userId) => {
+    if (game.user.id !== userId) return;
+    const actor = item.actor;
+    if (!actor) return;
+    for (const e of actor.effects) await materializeItemTransfers(actor, e, actor);
+    for (const it of actor.items) {
+        if (it.id === item.id) continue;
+        for (const e of it.effects) await materializeItemTransfers(actor, e, it);
     }
 });
 

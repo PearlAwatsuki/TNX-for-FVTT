@@ -369,44 +369,56 @@ export function gatherDamageTagMods(actor) {
 }
 
 /**
- * このアイテムへ「転送」されて効いている他所由来の効果を集める(2026-07-13 ユーザー確定)。
- * 対象アイテムのエフェクト一覧に「転送された効果」セクションとして表示する。
- * 行は通常の効果行と同じ(名前は斜体+供給元名)。編集・切替・削除は供給元の効果に効く
- * (resolveEffect がアクター側も探すため通常のアクションがそのまま機能する)。
- * キーの羅列は表示しない(内部キーを UI に出さない規約・2026-07-13 ユーザー指摘で撤去)。
- * 適用の実体は従来どおりアクターの単一適用パス(実体コピーは作らない=二重適用・同期問題を避ける)。
- * @param {Item} item
- * @returns {Array<{id:string, name:string, img:string, sourceName:string, durationLabel:string, disabled:boolean}>}
+ * アイテム狙いの変更(スコープ skill/category/parent)がこのアイテムに向くか(純関数)。
+ * @param {object} parsed parseEffectTargetKey の結果
+ * @param {Item} item 対象候補
+ * @param {Document} bearer 効果の保持元(parent スコープの解決に使う)
+ * @returns {boolean}
  */
-export function collectTransferredItemEffects(item) {
-  const actor = item?.actor;
-  if (!actor) return [];
-  const out = [];
-  const consider = (effect, bearer) => {
-    if (effect.parent === item) return; // 自身の効果は通常リストに出る
-    if (effect.flags?.["tokyo-nova-axleration"]?.hideFromList) return;
-    let hit = false;
-    for (const c of (effect.changes ?? [])) {
-      const p = parseEffectTargetKey(c.key);
-      if (!p?.path) continue;
-      hit = (p.scope === "skill" && (p.prefix
-          ? item.system?.identificationKey?.startsWith?.(p.selector)
-          : item.system?.identificationKey === p.selector))
-        || (p.scope === "category"
-          && (item.system?.minorCategory === p.selector || item.system?.majorCategory === p.selector))
-        || (p.scope === "parent" && bearer?.system?.parentItemId === item.id);
-      if (hit) break;
-    }
-    if (hit) {
-      out.push({ id: effect.id, name: effect.name, img: effect.img,
-        sourceName: bearer?.name ?? actor.name,
-        durationLabel: effect.duration?.label ?? "",
-        disabled: effect.disabled === true });
-    }
+export function itemChangeTargets(parsed, item, bearer) {
+  if (!parsed?.path) return false;
+  if (parsed.scope === "skill") {
+    return parsed.prefix
+      ? !!item.system?.identificationKey?.startsWith?.(parsed.selector)
+      : item.system?.identificationKey === parsed.selector;
+  }
+  if (parsed.scope === "category") {
+    return item.system?.minorCategory === parsed.selector || item.system?.majorCategory === parsed.selector;
+  }
+  if (parsed.scope === "parent") {
+    return bearer?.documentName === "Item" && bearer?.system?.parentItemId === item.id;
+  }
+  return false;
+}
+
+/**
+ * アイテム狙いの AE の**物理転送**(2026-07-13 ユーザー確定=完全同期をやめる):
+ * 効果の変更のうち対象アイテムに向くもの(skill/category/parent)を、**キーを
+ * `item.self.system.<パス>` に書き換えた実体コピー**として対象アイテム上に作る。
+ * コピーは対象アイテムの通常の効果=**無条件でそのアイテムに効く**(遠隔の再照合なし)。
+ * 供給元との同期はしない(編集・削除は互いに独立。供給元の由来は transferredFrom フラグと origin)。
+ * @param {ActiveEffect} effect 供給元の効果
+ * @param {Item} targetItem 転送先アイテム
+ * @param {Document} bearer 効果の保持元
+ * @returns {?object} createEmbeddedDocuments("ActiveEffect") 用データ。向く変更が無ければ null
+ */
+export function buildTransferredEffectData(effect, targetItem, bearer, scope = "tokyo-nova-axleration") {
+  const changes = [];
+  for (const c of (effect.changes ?? [])) {
+    const parsed = parseEffectTargetKey(c.key);
+    if (!parsed || !itemChangeTargets(parsed, targetItem, bearer)) continue;
+    changes.push({ ...c, key: `item.self.system.${parsed.path}` });
+  }
+  if (!changes.length) return null;
+  return {
+    name: effect.name,
+    img: effect.img,
+    disabled: effect.disabled === true,
+    transfer: false,
+    origin: effect.uuid,
+    changes,
+    flags: { [scope]: { transferredFrom: effect.uuid } },
   };
-  for (const e of (actor.effects ?? [])) consider(e, actor);
-  for (const it of (actor.items ?? [])) for (const e of (it.effects ?? [])) consider(e, it);
-  return out;
 }
 
 /** カード数字の上書き値(A〜K)→N◎VA 以前の生の数字(A=1・J=11・Q=12・K=13)。 */

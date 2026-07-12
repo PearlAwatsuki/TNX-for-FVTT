@@ -310,18 +310,15 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
         return [{ doc: actor, totalPath: "baseAttack.damageTypeTotal" }];
       case "self":
         return bearer?.documentName === "Item" ? [itemApp(bearer)] : [];
-      case "parent": {
-        const pid = bearer?.system?.parentItemId;
-        const p = pid ? items.get(pid) : null;
-        return p ? [itemApp(p)] : [];
-      }
+      case "parent":
+        return []; // 物理転送(上記)が担う
+      // skill/category/parent(遠隔のアイテム狙い)の直接適用は廃止(2026-07-13 ユーザー確定):
+      // これらのキーは**対象アイテムへの物理転送**(materializeItemTransfers・キーを item.self に
+      // 書き換えた実体コピー)が担い、コピーが self スコープで無条件に適用される。
+      // ここで遠隔適用すると転送コピーと二重になるため適用しない
       case "category":
-        return [...items].filter(i =>
-          i.system?.minorCategory === parsed.selector || i.system?.majorCategory === parsed.selector).map(itemApp);
       case "skill":
-        return [...items].filter(i => parsed.prefix
-          ? i.system?.identificationKey?.startsWith?.(parsed.selector)
-          : i.system?.identificationKey === parsed.selector).map(itemApp);
+        return [];
       default:
         return [];
     }

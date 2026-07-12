@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
-const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, damageDealtChangeMatches, gatherDamageDealtSources, collectActorEffectBuffs, targetStyleWorksKeys, actorCardValueOverride } = await import("../../../scripts/data/item/helpers.mjs");
+const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, damageDealtChangeMatches, gatherDamageDealtSources, collectActorEffectBuffs, targetStyleWorksKeys, actorCardValueOverride, itemChangeTargets, buildTransferredEffectData } = await import("../../../scripts/data/item/helpers.mjs");
 
 describe("defenceField()", () => {
   it("呼び出せる", () => {
@@ -347,6 +347,47 @@ describe("actorCardValueOverride()（カード数字の上書き・2026-07-13）
     const inactive = mkActor("A");
     inactive.effects[0].active = false;
     expect(actorCardValueOverride(inactive)).toBeNull();
+  });
+});
+
+describe("物理転送（itemChangeTargets / buildTransferredEffectData・2026-07-13）", () => {
+  const weapon = { documentName: "Item", id: "w1", system: { identificationKey: "buki", minorCategory: "melee", majorCategory: "weapon" } };
+  const optionBearer = { documentName: "Item", id: "o1", system: { parentItemId: "w1" } };
+  const effect = (changes) => ({
+    uuid: "Actor.a.Item.o1.ActiveEffect.e1", name: "強化", img: "icons/svg/aura.svg",
+    disabled: false, changes,
+  });
+
+  it("識別キー/カテゴリ/parent の変更が対象アイテムに向くか判定できる", () => {
+    const pk = (k) => parseEffectTargetKey(k);
+    expect(itemChangeTargets(pk("item.buki.system.attack.value"), weapon, optionBearer)).toBe(true);
+    expect(itemChangeTargets(pk("item.hoka.system.attack.value"), weapon, optionBearer)).toBe(false);
+    expect(itemChangeTargets(pk("system.category.melee.attack"), weapon, optionBearer)).toBe(true);
+    expect(itemChangeTargets(pk("item.parent.system.attack.damageType"), weapon, optionBearer)).toBe(true);
+    expect(itemChangeTargets(pk("item.parent.system.attack.damageType"), weapon, { documentName: "Item", id: "x", system: { parentItemId: "zzz" } })).toBe(false);
+    expect(itemChangeTargets(pk("item.self.system.attack"), weapon, optionBearer)).toBe(false); // self は転送対象外
+  });
+
+  it("転送コピー: 向く変更だけを item.self.system.* に書き換えて生成（由来フラグつき）", () => {
+    const e = effect([
+      { key: "item.buki.system.attack.damageType", mode: 5, value: "S" },
+      { key: "item.parent.system.attack.value", mode: 2, value: "2" },
+      { key: "system.ability.reason.value", mode: 2, value: "1" }, // アクター向け=転送しない
+    ]);
+    const data = buildTransferredEffectData(e, weapon, optionBearer);
+    expect(data.changes.map(c => c.key)).toEqual([
+      "item.self.system.attack.damageType",
+      "item.self.system.attack.value",
+    ]);
+    expect(data.changes[0].value).toBe("S");
+    expect(data.origin).toBe(e.uuid);
+    expect(data.flags["tokyo-nova-axleration"].transferredFrom).toBe(e.uuid);
+    expect(data.transfer).toBe(false);
+  });
+
+  it("向く変更が無ければ null", () => {
+    const e = effect([{ key: "system.ability.reason.value", mode: 2, value: "1" }]);
+    expect(buildTransferredEffectData(e, weapon, optionBearer)).toBeNull();
   });
 });
 
