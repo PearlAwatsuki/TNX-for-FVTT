@@ -9,14 +9,14 @@ foundry.utils.setProperty ??= (obj, path, value) => {
   const parts = path.split(".");
   let cur = obj;
   for (const p of parts.slice(0, -1)) {
-    if (cur[p] == null) cur[p] = {};
+    if (cur[p] === null || cur[p] === undefined) cur[p] = {};
     cur = cur[p];
   }
   cur[parts.at(-1)] = value;
   return true;
 };
 foundry.utils.getProperty ??= (obj, path) =>
-  path.split(".").reduce((o, p) => (o == null ? undefined : o[p]), obj);
+  path.split(".").reduce((o, p) => o?.[p], obj);
 
 const { CharacterBaseDataModel } = await import("../../../../scripts/data/actor/common/character-base.mjs");
 
