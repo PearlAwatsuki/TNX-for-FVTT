@@ -727,6 +727,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 itemId: e.itemId ?? "", effectId: e.effectId,
                 name: eff?.name ?? `(削除済み: ${e.effectId})`,
                 sourceName: fromParent ? "" : (host?.name ?? ""),   // 親由来は帰属表示を省く
+                // 付与先(AE 設定・2026-07-13 再設計)。既定の「対象」は表示せず「自分」だけタグを出す
+                grantSelf: eff?.flags?.["tokyo-nova-axleration"]?.grantTarget === "self",
             };
         });
         // 未追加の効果を供給元アイテムごとにグループ化(選択値=`itemId|effectId`・親は itemId 空)

@@ -616,7 +616,7 @@
                 <div class="usage-effect-list">
                     {{#each addedEffects}}
                     <div class="usage-skill-ref-row">
-                        <span class="usage-skill-ref-name">{{this.name}}{{#if this.sourceName}} <small>（{{this.sourceName}}）</small>{{/if}}</span>
+                        <span class="usage-skill-ref-name">{{this.name}}{{#if this.sourceName}} <small>（{{this.sourceName}}）</small>{{/if}}{{#if this.grantSelf}} <small>（自分に付与）</small>{{/if}}</span>
                         {{#if ../editable}}
                         <a class="usage-icon-btn" data-action="effectRemove" data-item-id="{{this.itemId}}" data-effect-id="{{this.effectId}}"
                            title="解除"><i class="fas fa-times"></i></a>

@@ -14,7 +14,7 @@ import { BiographyTemplate } from "./biography.mjs";
 import { AttributesTemplate } from "./attributes.mjs";
 import { ActorBaseTemplate } from "./actor-base.mjs";
 import { computeAttributeFinal, computeOutfitAggregates, resolveCombatSpeedDisplayTotal, isActorInStartedCombat } from "../../helpers.mjs";
-import { ATTACK_DAMAGE_TYPES, parseEffectTargetKey, resolveItemTotalPath, evalEffectConditions } from "../../item/helpers.mjs";
+import { ATTACK_DAMAGE_TYPES, parseEffectTargetKey, resolveItemTotalPath, evalEffectConditions, effectAutoApplies } from "../../item/helpers.mjs";
 import { readConditions, gatherConditionControlPenalty } from "../../../module/conditions.mjs";
 import { parsePlainNumber, evaluateFormulaSync, buildFormulaData } from "../../../module/tnx-formula.mjs";
 
@@ -162,7 +162,10 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
     const conditions = [];
     for (const e of (actor.effects ?? [])) conditions.push(...readConditions(e));
     for (const item of (actor.items ?? [])) {
-      for (const e of (item.effects ?? [])) conditions.push(...readConditions(e));
+      for (const e of (item.effects ?? [])) {
+        if (!effectAutoApplies(e)) continue; // 使用時付与用ペイロードは自動では効かない
+        conditions.push(...readConditions(e));
+      }
     }
     // 衰弱(数字なし)=対応1能力値のみ、衰弱(-数字)・酩酊=全制御値。
     const { all, byAbility } = gatherConditionControlPenalty(conditions);
@@ -174,14 +177,17 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
 
   /**
    * 値バフ(ActiveEffect)を v2 キー文法で解決して**実効値 total へ直接適用**する(フェーズ9-3 v2)。
-   * 対象スコープ: ability/control(キャラ値)・self(効果の親アイテム)・parent(その親アウトフィット)・
-   *   category:<小分類/大分類キー>・skill:<識別キー[*]>(レベル等)。条件 [path op value] も評価する。
+   * 対象スコープ: ability/control(キャラ値)・self(素のパラメータキー=効果が乗るアイテム自身)。
+   *   category/skill(アイテム狙い)は物理転送が担い、ここでは適用しない。条件 [path op value] も評価する。
    * モード(ADD/OVERRIDE/MULTIPLY 等)は effect.apply でネイティブ処理し、priority 順に適用。
    *
    * - **判定バフ(check./controlCheck.)・ダメージ対象バフ(damage.vs*)は実行時に評価する別系統**の
    *   ためここでは扱わない(対象が見えないため値バフとして焼き込めない)。
-   * - アクター自身＋全所有アイテムの effects を走査(transfer 非依存)。アイテム/能力値の base→total は
-   *   既に算出済みで、ここで total を改変する(base は不変)。0clamp は呼び出し側で適用後に行う。
+   * - アクター自身＋全所有アイテムの effects を走査。**自動適用ゲート**(2026-07-13 再設計):
+   *   「効果を対象に自動適用」オフのアイテム上の効果=使用時付与用ペイロードは収集しない
+   *   (effectAutoApplies)。「準備先(親アイテム)に適用」の効果は準備先への転送コピーが担うため
+   *   供給元自身は適用しない。アイテム/能力値の base→total は既に算出済みで、ここで total を
+   *   改変する(base は不変)。0clamp は呼び出し側で適用後に行う。
    */
   _applyEffectBuffs() {
     const actor = this.parent;
@@ -192,11 +198,15 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
     // 文字列に加算モードは意味を成さないため、設定モードに関わらず**常に上書き(OVERRIDE)**で適用する
     const STRING_OVERRIDE_PATHS = new Set(["attack.damageType", "attack.damageTypeTotal"]);
     const isStringScope = (parsed) => parsed.scope === "baseAttackType" || STRING_OVERRIDE_PATHS.has(parsed.path ?? "");
+    const SCOPE_FLAGS = "tokyo-nova-axleration";
 
     const entries = [];
     const collect = (effects, bearer) => {
       for (const effect of (effects ?? [])) {
         if (!effect.active) continue;
+        if (!effectAutoApplies(effect)) continue;
+        // 準備先(親アイテム)に適用: 供給元の素のキーは準備先ホスト上の転送コピーが適用する
+        if (effect.flags?.[SCOPE_FLAGS]?.applyToParent === true && bearer?.documentName === "Item") continue;
         for (const change of (effect.changes ?? [])) {
           const parsed = parseEffectTargetKey(change.key);
           if (!parsed || CHECK_SCOPES.has(parsed.scope)) continue;
@@ -309,11 +319,11 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
         // 生身のダメージ種別上書き(2026-07-13)。実効フィールドへ(素値は不変)
         return [{ doc: actor, totalPath: "baseAttack.damageTypeTotal" }];
       case "self":
+        // 素のパラメータキー(2026-07-13 再設計): 効果が乗るアイテム自身。転送/付与コピーもこの
+        // スコープで着地する(コピーは対象アイテム上にあるため bearer=対象)
         return bearer?.documentName === "Item" ? [itemApp(bearer)] : [];
-      case "parent":
-        return []; // 物理転送(上記)が担う
-      // skill/category/parent(遠隔のアイテム狙い)の直接適用は廃止(2026-07-13 ユーザー確定):
-      // これらのキーは**対象アイテムへの物理転送**(materializeItemTransfers・キーを item.self に
+      // skill/category(遠隔のアイテム狙い)の直接適用は廃止(2026-07-13 ユーザー確定):
+      // これらのキーは**対象アイテムへの物理転送**(materializeItemTransfers・素のパラメータキーに
       // 書き換えた実体コピー)が担い、コピーが self スコープで無条件に適用される。
       // ここで遠隔適用すると転送コピーと二重になるため適用しない
       case "category":

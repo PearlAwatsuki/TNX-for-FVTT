@@ -2,8 +2,9 @@ import { describe, it, expect, vi } from "vitest";
 import "../../../setup.mjs";
 
 // 実行検証(2026-07-13): アイテム AE の適用エンジン(_applyEffectBuffs)を実コードのまま走らせる。
-// 「item.self.system.attack.damageType で書き換わらない」報告に対し、エンジン経路を
-// 推測でなく実行で確認するためのテスト。
+// 「素のパラメータキーで書き換わらない」報告に対し、エンジン経路を推測でなく実行で確認するための
+// テスト。2026-07-13 再設計で綴りは item.self.system.* → 素の system.* へ移行し、
+// 自動適用ゲート(transfer)が加わった。
 // - setProperty / deepClone は setup に無いためここで補う(実装は Foundry 相当の最小)
 foundry.utils.setProperty ??= (obj, path, value) => {
   const parts = path.split(".");
@@ -21,11 +22,11 @@ foundry.utils.getProperty ??= (obj, path) =>
 const { CharacterBaseDataModel } = await import("../../../../scripts/data/actor/common/character-base.mjs");
 
 /** 効果モック(実 ActiveEffect の読み取り面だけ)。apply は呼び出し記録用。 */
-function effectMock({ id = "e1", changes, disabled = false }) {
+function effectMock({ id = "e1", changes, disabled = false, transfer = true, flags = {} }) {
   return {
     id, name: "テスト効果", img: "",
-    active: !disabled, disabled,
-    flags: {},
+    active: !disabled, disabled, transfer,
+    flags,
     changes,
     apply: vi.fn(),
   };
@@ -33,7 +34,7 @@ function effectMock({ id = "e1", changes, disabled = false }) {
 
 /** 武器モック(実 prepareDerivedData 後の形: total=base / damageTypeTotal=base 済み)。 */
 function weaponMock(effects = []) {
-  return {
+  const weapon = {
     id: "w1", documentName: "Item", name: "新規白兵武器",
     system: {
       identificationKey: "",
@@ -42,6 +43,9 @@ function weaponMock(effects = []) {
     },
     effects,
   };
+  // 実 ActiveEffect と同じく parent がアイテムを指す(自動適用ゲートの判定に使う)
+  for (const e of effects) e.parent = weapon;
+  return weapon;
 }
 
 function runBuffs(items, actorEffects = []) {
@@ -57,31 +61,28 @@ function runBuffs(items, actorEffects = []) {
 }
 
 describe("_applyEffectBuffs 実行検証（アイテム AE・2026-07-13）", () => {
-  it("item.self.system.attack.damageType（上書き・値 S）→ 実効 damageTypeTotal が S になり素値は不変", () => {
-    const weapon = weaponMock();
-    weapon.effects = [effectMock({ changes: [
-      { key: "item.self.system.attack.damageType", mode: 5, value: "S" },
-    ] })];
+  it("system.attack.damageType（上書き・値 S）→ 実効 damageTypeTotal が S になり素値は不変", () => {
+    const weapon = weaponMock([effectMock({ changes: [
+      { key: "system.attack.damageType", mode: 5, value: "S" },
+    ] })]);
     runBuffs([weapon]);
     expect(weapon.system.attack.damageTypeTotal).toBe("S");
     expect(weapon.system.attack.damageType).toBe("I"); // 設定欄(素値)は絶対に触らない
   });
 
   it("モードが追加(ADD)でも種別は上書きとして適用される（文字列に加算は無意味）", () => {
-    const weapon = weaponMock();
-    weapon.effects = [effectMock({ changes: [
-      { key: "item.self.system.attack.damageType", mode: 2, value: "P" },
-    ] })];
+    const weapon = weaponMock([effectMock({ changes: [
+      { key: "system.attack.damageType", mode: 2, value: "P" },
+    ] })]);
     runBuffs([weapon]);
     expect(weapon.system.attack.damageTypeTotal).toBe("P");
   });
 
-  it("item.self.system.attack.value（追加）→ effect.apply が実効パス attack.total へモードそのまま委譲", () => {
-    const weapon = weaponMock();
+  it("system.attack.value（追加）→ effect.apply が実効パス attack.total へモードそのまま委譲", () => {
     const eff = effectMock({ changes: [
-      { key: "item.self.system.attack.value", mode: 2, value: "2" },
+      { key: "system.attack.value", mode: 2, value: "2" },
     ] });
-    weapon.effects = [eff];
+    const weapon = weaponMock([eff]);
     runBuffs([weapon]);
     expect(eff.apply).toHaveBeenCalledTimes(1);
     const [doc, change] = eff.apply.mock.calls[0];
@@ -92,29 +93,63 @@ describe("_applyEffectBuffs 実行検証（アイテム AE・2026-07-13）", () 
   });
 
   it("値が空（セレクト未選択）の種別上書きは何もしない", () => {
-    const weapon = weaponMock();
-    weapon.effects = [effectMock({ changes: [
-      { key: "item.self.system.attack.damageType", mode: 5, value: "" },
-    ] })];
+    const weapon = weaponMock([effectMock({ changes: [
+      { key: "system.attack.damageType", mode: 5, value: "" },
+    ] })]);
     runBuffs([weapon]);
     expect(weapon.system.attack.damageTypeTotal).toBe("I");
   });
 
-  it("キーの綴り違い（tem.self.…）はパースされず何も起きない", () => {
-    const weapon = weaponMock();
-    weapon.effects = [effectMock({ changes: [
-      { key: "tem.self.system.attack.damageType", mode: 5, value: "S" },
-    ] })];
+  it("旧綴り（item.self.system.…）は廃止済みでパースされず何も起きない", () => {
+    const weapon = weaponMock([effectMock({ changes: [
+      { key: "item.self.system.attack.damageType", mode: 5, value: "S" },
+    ] })]);
     runBuffs([weapon]);
     expect(weapon.system.attack.damageTypeTotal).toBe("I");
   });
 
   it("無効化された効果は適用されない", () => {
-    const weapon = weaponMock();
-    weapon.effects = [effectMock({ disabled: true, changes: [
-      { key: "item.self.system.attack.damageType", mode: 5, value: "S" },
-    ] })];
+    const weapon = weaponMock([effectMock({ disabled: true, changes: [
+      { key: "system.attack.damageType", mode: 5, value: "S" },
+    ] })]);
     runBuffs([weapon]);
     expect(weapon.system.attack.damageTypeTotal).toBe("I");
+  });
+
+  it("自動適用オフ（transfer=false）のペイロードは適用されない（2026-07-13 再設計）", () => {
+    const weapon = weaponMock([effectMock({ transfer: false, changes: [
+      { key: "system.attack.damageType", mode: 5, value: "S" },
+      { key: "system.attack.value", mode: 2, value: "2" },
+    ] })]);
+    runBuffs([weapon]);
+    expect(weapon.system.attack.damageTypeTotal).toBe("I");
+    expect(weapon.effects[0].apply).not.toHaveBeenCalled();
+  });
+
+  it("転送コピー（transferredFrom）は transfer=false でも適用される（実体化済みインスタンス）", () => {
+    const weapon = weaponMock([effectMock({ transfer: false,
+      flags: { "tokyo-nova-axleration": { transferredFrom: "Actor.a.Item.o1.ActiveEffect.e9" } },
+      changes: [{ key: "system.attack.damageType", mode: 5, value: "S" }],
+    })]);
+    runBuffs([weapon]);
+    expect(weapon.system.attack.damageTypeTotal).toBe("S");
+  });
+
+  it("付与コピー（grantedFrom）は transfer=false でも適用される（使用時付与の着地）", () => {
+    const weapon = weaponMock([effectMock({ transfer: false,
+      flags: { "tokyo-nova-axleration": { grantedFrom: "Actor.a.Item.s1.ActiveEffect.e9" } },
+      changes: [{ key: "system.attack.value", mode: 2, value: "3" }],
+    })]);
+    runBuffs([weapon]);
+    expect(weapon.effects[0].apply).toHaveBeenCalledTimes(1);
+  });
+
+  it("「準備先（親アイテム）に適用」の供給元自身は適用されない（準備先の転送コピーが担う）", () => {
+    const weapon = weaponMock([effectMock({
+      flags: { "tokyo-nova-axleration": { applyToParent: true } },
+      changes: [{ key: "system.attack.value", mode: 2, value: "2" }],
+    })]);
+    runBuffs([weapon]);
+    expect(weapon.effects[0].apply).not.toHaveBeenCalled();
   });
 });

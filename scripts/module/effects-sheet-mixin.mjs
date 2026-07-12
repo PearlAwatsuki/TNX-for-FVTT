@@ -16,7 +16,7 @@ export const EffectsSheetMixin = {
      * @param {object} context
      */
     prepareEffectsContext(document, context) {
-        const effects = { temporary: [], passive: [], inactive: [], transferred: [] };
+        const effects = { temporary: [], passive: [], inactive: [], transferred: [], payload: [] };
         const source = (typeof document.allApplicableEffects === "function")
             ? document.allApplicableEffects()
             : document.effects;
@@ -36,6 +36,14 @@ export const EffectsSheetMixin = {
                     durationLabel: effect.duration?.label ?? "",
                     sourceName: flags.transferredSourceName ?? "",
                 });
+                continue;
+            }
+            // 使用時付与用ペイロード(2026-07-13 再設計): 「効果を対象に自動適用」オフの効果は
+            // 自動では効かず、用途の「適用される効果」でのみ付与される。無効(disabled)と
+            // 混同しないよう専用セクションに分ける(付与コピー grantedFrom は通常の効果として扱う)
+            if (document.documentName === "Item" && effect.transfer === false
+                && flags.grantedFrom === undefined) {
+                effects.payload.push(effect);
                 continue;
             }
             if (effect.disabled) effects.inactive.push(effect);

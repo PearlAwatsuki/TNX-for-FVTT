@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
-const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, damageDealtChangeMatches, gatherDamageDealtSources, collectActorEffectBuffs, targetStyleWorksKeys, actorCardValueOverride, itemChangeTargets, buildTransferredEffectData } = await import("../../../scripts/data/item/helpers.mjs");
+const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, damageDealtChangeMatches, gatherDamageDealtSources, collectActorEffectBuffs, targetStyleWorksKeys, actorCardValueOverride, itemChangeTargets, buildTransferredEffectData, effectAutoApplies, analyzeGrantLanding, itemGrantCandidates, rewriteGrantChangesForItem } = await import("../../../scripts/data/item/helpers.mjs");
 
 describe("defenceField()", () => {
   it("呼び出せる", () => {
@@ -350,40 +350,69 @@ describe("actorCardValueOverride()（カード数字の上書き・2026-07-13）
   });
 });
 
-describe("物理転送（itemChangeTargets / buildTransferredEffectData・2026-07-13）", () => {
-  const weapon = { documentName: "Item", id: "w1", system: { identificationKey: "buki", minorCategory: "melee", majorCategory: "weapon" } };
+describe("物理転送（itemChangeTargets / buildTransferredEffectData・2026-07-13 再設計）", () => {
+  const weapon = { documentName: "Item", id: "w1", type: "weapon", system: { identificationKey: "buki", minorCategory: "melee", majorCategory: "weapon" } };
+  const genSkill = { documentName: "Item", id: "s1", type: "generalSkill", system: { identificationKey: "shanai" } };
   const optionBearer = { documentName: "Item", id: "o1", name: "強化オプション", system: { parentItemId: "w1" } };
-  const effect = (changes) => ({
+  const effect = (changes, flags = {}) => ({
     uuid: "Actor.a.Item.o1.ActiveEffect.e1", name: "強化", img: "icons/svg/aura.svg",
-    disabled: false, changes,
+    disabled: false, changes, flags,
   });
 
-  it("識別キー/カテゴリ/parent の変更が対象アイテムに向くか判定できる", () => {
+  it("識別キー/カテゴリの変更が対象アイテムに向くか判定できる", () => {
     const pk = (k) => parseEffectTargetKey(k);
-    expect(itemChangeTargets(pk("item.buki.system.attack.value"), weapon, optionBearer)).toBe(true);
-    expect(itemChangeTargets(pk("item.hoka.system.attack.value"), weapon, optionBearer)).toBe(false);
-    expect(itemChangeTargets(pk("system.category.melee.attack"), weapon, optionBearer)).toBe(true);
-    expect(itemChangeTargets(pk("item.parent.system.attack.damageType"), weapon, optionBearer)).toBe(true);
-    expect(itemChangeTargets(pk("item.parent.system.attack.damageType"), weapon, { documentName: "Item", id: "x", system: { parentItemId: "zzz" } })).toBe(false);
-    expect(itemChangeTargets(pk("item.self.system.attack"), weapon, optionBearer)).toBe(false); // self は転送対象外
+    expect(itemChangeTargets(pk("item.buki.system.attack.value"), weapon)).toBe(true);
+    expect(itemChangeTargets(pk("item.hoka.system.attack.value"), weapon)).toBe(false);
+    expect(itemChangeTargets(pk("system.category.melee.attack"), weapon)).toBe(true);
+    expect(itemChangeTargets(pk("system.attack.value"), weapon)).toBe(false); // 素のキーは転送対象外
   });
 
-  it("転送コピー: 向く変更だけを item.self.system.* に書き換えて生成（由来フラグつき）", () => {
+  it("疑似分類: system.category.generalSkill/styleSkill はアイテムタイプで束ねる", () => {
+    const pk = (k) => parseEffectTargetKey(k);
+    expect(itemChangeTargets(pk("system.category.generalSkill.level"), genSkill)).toBe(true);
+    expect(itemChangeTargets(pk("system.category.generalSkill.level"), weapon)).toBe(false);
+    expect(itemChangeTargets(pk("system.category.styleSkill.level"), genSkill)).toBe(false);
+  });
+
+  it("転送コピー: 向く変更だけを素のキー（system.*）に書き換えて生成（由来フラグつき）", () => {
     const e = effect([
       { key: "item.buki.system.attack.damageType", mode: 5, value: "S" },
-      { key: "item.parent.system.attack.value", mode: 2, value: "2" },
+      { key: "system.category.melee.attack", mode: 2, value: "2" },
       { key: "system.ability.reason.value", mode: 2, value: "1" }, // アクター向け=転送しない
     ]);
     const data = buildTransferredEffectData(e, weapon, optionBearer);
     expect(data.changes.map(c => c.key)).toEqual([
-      "item.self.system.attack.damageType",
-      "item.self.system.attack.value",
+      "system.attack.damageType",
+      "system.attack",
     ]);
     expect(data.changes[0].value).toBe("S");
     expect(data.origin).toBe(e.uuid);
     expect(data.flags["tokyo-nova-axleration"].transferredFrom).toBe(e.uuid);
     expect(data.flags["tokyo-nova-axleration"].transferredSourceName).toBe("強化オプション");
     expect(data.transfer).toBe(false);
+  });
+
+  it("準備先（applyToParent）: 素のキーの変更を準備先ホストへそのまま転送（混在は落ちる）", () => {
+    const flags = { "tokyo-nova-axleration": { applyToParent: true } };
+    const e = effect([
+      { key: "system.attack.value", mode: 2, value: "2" },
+      { key: "system.category.melee.attack", mode: 2, value: "9" }, // 混在非対応=落ちる
+      { key: "check.melee", mode: 2, value: "1" },                  // 実行時系統=落ちる
+    ], flags);
+    const data = buildTransferredEffectData(e, weapon, optionBearer);
+    expect(data.changes.map(c => c.key)).toEqual(["system.attack.value"]);
+    // 準備先でないアイテムへは転送しない
+    expect(buildTransferredEffectData(e, genSkill, optionBearer)).toBeNull();
+    // 準備されていない(bearer が Item でない/parentItemId 不一致)なら転送しない
+    expect(buildTransferredEffectData(e, weapon, { documentName: "Item", id: "x", system: { parentItemId: "" } })).toBeNull();
+  });
+
+  it("同一性と重複可を供給元から引き継ぐ（effectId / stackable）", () => {
+    const flags = { "tokyo-nova-axleration": { effectId: "dic-001", stackable: true } };
+    const e = effect([{ key: "item.buki.system.attack.value", mode: 2, value: "2" }], flags);
+    const data = buildTransferredEffectData(e, weapon, optionBearer);
+    expect(data.flags["tokyo-nova-axleration"].effectId).toBe("dic-001");
+    expect(data.flags["tokyo-nova-axleration"].stackable).toBe(true);
   });
 
   it("向く変更が無ければ null", () => {
@@ -430,9 +459,17 @@ describe("parseEffectTargetKey()（v2 system.<名前空間> 文法）", () => {
     expect(parseEffectTargetKey("system.control.reason")).toMatchObject({ scope: "control", path: "reason" });
   });
 
-  it("値: self / parent", () => {
-    expect(parseEffectTargetKey("system.self.attack")).toMatchObject({ scope: "self", path: "attack" });
-    expect(parseEffectTargetKey("system.parent.attack")).toMatchObject({ scope: "parent", path: "attack" });
+  it("値: 素のパラメータキー＝効果が乗るアイテム自身（2026-07-13 再設計）", () => {
+    expect(parseEffectTargetKey("system.attack.value")).toMatchObject({ scope: "self", path: "attack.value" });
+    expect(parseEffectTargetKey("system.attack.damageType")).toMatchObject({ scope: "self", path: "attack.damageType" });
+    expect(parseEffectTargetKey("system.level")).toMatchObject({ scope: "self", path: "level" });
+  });
+
+  it("廃止済みの旧綴り（self/parent/skill 名前空間）は死にキー（null）", () => {
+    expect(parseEffectTargetKey("system.self.attack")).toBeNull();
+    expect(parseEffectTargetKey("system.parent.attack")).toBeNull();
+    expect(parseEffectTargetKey("system.skill.melee.level")).toBeNull();
+    expect(parseEffectTargetKey("system.skill.society_*.level")).toBeNull();
   });
 
   it("値: category(小分類・大分類とも)", () => {
@@ -440,9 +477,9 @@ describe("parseEffectTargetKey()（v2 system.<名前空間> 文法）", () => {
     expect(parseEffectTargetKey("system.category.weapon.attack")).toMatchObject({ scope: "category", selector: "weapon", path: "attack" });
   });
 
-  it("値: skill レベル(完全一致・プレフィックス)", () => {
-    expect(parseEffectTargetKey("system.skill.melee.level")).toMatchObject({ scope: "skill", selector: "melee", prefix: false, path: "level" });
-    expect(parseEffectTargetKey("system.skill.society_*.level")).toMatchObject({ scope: "skill", selector: "society_", prefix: true, path: "level" });
+  it("疑似分類: system.category.generalSkill/styleSkill（2026-07-13 再設計）", () => {
+    expect(parseEffectTargetKey("system.category.generalSkill.level")).toMatchObject({ scope: "category", selector: "generalSkill", path: "level" });
+    expect(parseEffectTargetKey("system.category.styleSkill.level")).toMatchObject({ scope: "category", selector: "styleSkill", path: "level" });
   });
 
   it("パスにドットを含む(defence.S)", () => {
@@ -526,17 +563,16 @@ describe("parseEffectTargetKey()（v2 system.<名前空間> 文法）", () => {
     expect(parseEffectTargetKey("system.baseAttack.value")).toBeNull(); // 他はネイティブ
   });
 
-  it("アイテム着地の統一記法: item.<識別キー>.system.*（式と同じ綴り・2026-07-13）", () => {
+  it("アイテム狙いの識別キー記法: item.<識別キー>.system.*（式と同じ綴り・2026-07-13）", () => {
     expect(parseEffectTargetKey("item.melee.system.attack.value"))
       .toMatchObject({ scope: "skill", selector: "melee", prefix: false, path: "attack.value" });
     expect(parseEffectTargetKey("item.society_*.system.level"))
       .toMatchObject({ scope: "skill", selector: "society_", prefix: true, path: "level" });
     expect(parseEffectTargetKey("item.buki.system.attack.damageType"))
       .toMatchObject({ scope: "skill", selector: "buki", path: "attack.damageType" });
-    expect(parseEffectTargetKey("item.self.system.attack"))
-      .toMatchObject({ scope: "self", path: "attack" });
-    expect(parseEffectTargetKey("item.parent.system.attack"))
-      .toMatchObject({ scope: "parent", path: "attack" });
+    // self/parent セレクタは廃止(自身=素のキー・準備先=AE 設定のチェック)
+    expect(parseEffectTargetKey("item.self.system.attack")).toBeNull();
+    expect(parseEffectTargetKey("item.parent.system.attack")).toBeNull();
     expect(parseEffectTargetKey("item.melee.attack")).toBeNull(); // system 抜きは不可
   });
 
@@ -547,12 +583,68 @@ describe("parseEffectTargetKey()（v2 system.<名前空間> 文法）", () => {
       .toEqual([{ path: "hack", op: ">=", value: 3 }, { path: "guardValue", op: ">", value: 0 }]);
   });
 
-  it("不正・未知名前空間・ネイティブキーは null", () => {
+  it("不正・ネイティブキーは null（未知名前空間は素のパラメータキーとして解釈）", () => {
     expect(parseEffectTargetKey("")).toBeNull();
     expect(parseEffectTargetKey("noDotKey")).toBeNull();
-    expect(parseEffectTargetKey("system.handMaxSizeMod")).toBeNull();   // ネイティブ
-    expect(parseEffectTargetKey("system.unknown.x")).toBeNull();
+    expect(parseEffectTargetKey("system.handMaxSizeMod")).toBeNull();   // ネイティブ(KI-020)
+    expect(parseEffectTargetKey("system.unknown.x")).toMatchObject({ scope: "self", path: "unknown.x" });
     expect(parseEffectTargetKey(undefined)).toBeNull();
+  });
+});
+
+describe("自動適用ゲート（effectAutoApplies・2026-07-13 再設計）", () => {
+  const onItem = (over = {}) => ({ parent: { documentName: "Item" }, transfer: true, flags: {}, ...over });
+
+  it("アクター上の効果・親なしは常に生きる", () => {
+    expect(effectAutoApplies({ parent: { documentName: "Actor" }, transfer: false, flags: {} })).toBe(true);
+    expect(effectAutoApplies({ transfer: false, flags: {} })).toBe(true);
+  });
+  it("アイテム上の効果は transfer（効果を対象に自動適用）がゲート", () => {
+    expect(effectAutoApplies(onItem())).toBe(true);
+    expect(effectAutoApplies(onItem({ transfer: false }))).toBe(false);
+  });
+  it("実体化済みインスタンス（転送コピー/付与コピー）は transfer=false でも生きる", () => {
+    expect(effectAutoApplies(onItem({ transfer: false, flags: { "tokyo-nova-axleration": { transferredFrom: "x" } } }))).toBe(true);
+    expect(effectAutoApplies(onItem({ transfer: false, flags: { "tokyo-nova-axleration": { grantedFrom: "x" } } }))).toBe(true);
+  });
+});
+
+describe("使用時付与のアイテム着地（analyzeGrantLanding / itemGrantCandidates / rewriteGrantChangesForItem）", () => {
+  const weapon  = { id: "w1", type: "weapon", name: "ブレード", system: { identificationKey: "buki", minorCategory: "melee", majorCategory: "weapon", attack: {} } };
+  const weapon2 = { id: "w2", type: "weapon", name: "ガン",     system: { identificationKey: "", minorCategory: "ranged", majorCategory: "weapon", attack: {} } };
+  const armor   = { id: "a1", type: "armor",  name: "アーマー", system: { minorCategory: "bodyArmor", majorCategory: "armor", defence: {} } };
+  const skill   = { id: "s1", type: "generalSkill", name: "社内政治", system: { identificationKey: "shanai", level: 1 } };
+  const items = [weapon, weapon2, armor, skill];
+
+  it("着地種別: アイテム狙いキーが1つでもあればアイテム着地、無ければアクター着地", () => {
+    expect(analyzeGrantLanding([{ key: "system.attack.value" }])).toBe("item");
+    expect(analyzeGrantLanding([{ key: "system.category.melee.attack" }])).toBe("item");
+    expect(analyzeGrantLanding([{ key: "item.buki.system.attack.value" }])).toBe("item");
+    expect(analyzeGrantLanding([{ key: "check.melee" }, { key: "system.ability.reason.value" }])).toBe("actor");
+    expect(analyzeGrantLanding([])).toBe("actor");
+  });
+
+  it("候補: 素のキーは全アウトフィット（対象パラメータ持ちのみ）", () => {
+    const c = itemGrantCandidates(items, [{ key: "system.attack.value" }]);
+    expect(c.map(i => i.id)).toEqual(["w1", "w2"]); // attack を持たない防具・技能は除外
+  });
+
+  it("候補: 分類・疑似分類・識別キーで絞る", () => {
+    expect(itemGrantCandidates(items, [{ key: "system.category.melee.attack" }]).map(i => i.id)).toEqual(["w1"]);
+    expect(itemGrantCandidates(items, [{ key: "system.category.generalSkill.level" }]).map(i => i.id)).toEqual(["s1"]);
+    expect(itemGrantCandidates(items, [{ key: "item.buki.system.attack.value" }]).map(i => i.id)).toEqual(["w1"]);
+  });
+
+  it("書き換え: アイテム狙いの変更だけを素のキーへ正規化（アクター向けは落とす）", () => {
+    const changes = [
+      { key: "system.category.melee.attack", mode: 2, value: "5" },
+      { key: "item.buki.system.attack.damageType", mode: 5, value: "S" },
+      { key: "system.attack.value", mode: 2, value: "1" },
+      { key: "check.melee", mode: 2, value: "1" }, // 混在非対応=落ちる
+    ];
+    expect(rewriteGrantChangesForItem(changes).map(c => c.key)).toEqual([
+      "system.attack", "system.attack.damageType", "system.attack.value",
+    ]);
   });
 });
 

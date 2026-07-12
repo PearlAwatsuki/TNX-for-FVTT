@@ -74,6 +74,16 @@ export const OUTFIT_CATEGORIES = Object.freeze({
 });
 
 /**
+ * アウトフィットとして扱う Item type の集合(OUTFIT_CATEGORIES の types から導出)。
+ * 「全てのアウトフィットから選択」(使用時付与のアイテム着地・2026-07-13 再設計)の既定候補判定に使う。
+ * @type {ReadonlySet<string>}
+ */
+export const OUTFIT_TYPES = Object.freeze(new Set(
+  Object.values(OUTFIT_CATEGORIES).flatMap(major =>
+    Object.values(major.minors).flatMap(minor => minor.types)),
+));
+
+/**
  * majorCategory の choices({キー: label})。Foundry StringField はこの形式で
  * 「値=キー / 表示=label」のドロップダウンを生成する。
  * @returns {Record<string, string>}

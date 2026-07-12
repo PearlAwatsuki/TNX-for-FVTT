@@ -1,6 +1,6 @@
 import { TokyoNovaItemSheet } from "./tnx-item-sheet.mjs";
 import { TnxSkillUtils } from "../module/tnx-skill-utils.mjs";
-import { OUTFIT_CATEGORIES, getMajorCategoryLabel, getMinorCategoryLabel } from "../data/item/outfit-categories.mjs";
+import { OUTFIT_CATEGORIES, OUTFIT_TYPES, getMajorCategoryLabel, getMinorCategoryLabel } from "../data/item/outfit-categories.mjs";
 import { ATTACK_DAMAGE_TYPES } from "../data/item/helpers.mjs";
 import { WEAPON_RANGES, WEAPON_RANGE_MIN_OPTIONS, WEAPON_RANGE_MAX_OPTIONS, WEAPON_ATTACK_AREAS } from "../data/item/weapon.mjs";
 import { SLOT_KINDS } from "../data/item/common/extensible.mjs";
@@ -392,14 +392,10 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         const parentItemChoices = { "": "-" };
         const parentSlotChoices = { "": "-" };
         if (system.isOption && this.item.parent?.documentName === "Actor") {
-            const outfitTypes = new Set([
-                "weapon","armor","cyborg","ianus","tron","tap",
-                "vehicle","residence","combiner","general",
-            ]);
             const selfMajor = system.majorCategory;
             for (const sibling of this.item.parent.items) {
                 if (sibling.id === this.item.id) continue;
-                if (!outfitTypes.has(sibling.type)) continue;
+                if (!OUTFIT_TYPES.has(sibling.type)) continue;
                 if (sibling.system.isOption) continue;
                 if (sibling.system.majorCategory !== selfMajor) continue;
                 parentItemChoices[sibling.id] = sibling.name;

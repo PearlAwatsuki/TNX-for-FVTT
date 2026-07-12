@@ -302,7 +302,8 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
 
     // 上書き系キーの値入力を選択式にする(2026-07-13 ユーザー確定・ベタ打ちさせない):
     // - check.cardValue: 判定に使用したカードの数字の上書き(A〜K)
-    // - *.attack.damageType: ダメージ種別の上書き(S/P/I/X。system.skill.<識別キー>.attack.damageType 等)
+    // - *.attack.damageType: ダメージ種別の上書き(S/P/I/X。system.attack.damageType /
+    //   item.<識別キー>.system.attack.damageType 等)
     const VALUE_CHOICE_RULES = [
         { match: (k) => k === "check.cardValue",
           options: ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"] },
@@ -355,6 +356,68 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
     const anchor = root.querySelector('[name="transfer"], [name="disabled"]')?.closest(".form-group");
     if (anchor) anchor.after(group);
     else (root.querySelector('.tab[data-tab="details"]') ?? root.querySelector("form"))?.appendChild(group);
+
+    // 自動適用ゲート(2026-07-13 再設計): ネイティブ transfer を「効果を対象に自動適用」として使う。
+    // 対象はキーが示すもの(キャラ値・アイテムのパラメータ・分類/識別キー該当アイテム)。
+    // オンのとき=常時自動適用。オフのとき=使用時付与用ペイロード(用途の「適用される効果」でのみ付与)
+    const transferInput = root.querySelector('[name="transfer"]');
+    const transferGroup = transferInput?.closest(".form-group");
+    if (transferGroup) {
+        const label = transferGroup.querySelector("label");
+        if (label) {
+            label.textContent = "効果を対象に自動適用";
+            label.title = "オフの効果は用途の「適用される効果」として使用時にのみ付与できます。";
+        }
+        const hint = transferGroup.querySelector("p.hint");
+        if (hint) hint.textContent = "オンなら効果がキーの示す対象へ常時自動で適用されます。";
+    }
+
+    // 準備先(親アイテム)に適用(自動適用オンのときのみ意味を持つ): 素のパラメータキーの効果を
+    // このアイテムの準備先ホストに効かせる(準備で転送・解除で除去)。アイテム上の効果でのみ表示
+    let parentGroup = null;
+    if (app.document?.parent?.documentName === "Item") {
+        const cur = app.document.getFlag?.("tokyo-nova-axleration", "applyToParent") === true;
+        parentGroup = document.createElement("div");
+        parentGroup.classList.add("form-group", "tnx-apply-parent-field");
+        parentGroup.innerHTML = `
+            <label>準備先（親アイテム）に適用</label>
+            <div class="form-fields">
+                <input type="checkbox" ${cur ? "checked" : ""}>
+            </div>
+            <p class="hint">このアイテムを準備している親アイテムのパラメータに効かせる場合にチェック。</p>`;
+        parentGroup.querySelector("input")?.addEventListener("change", (ev) => {
+            app.document?.setFlag("tokyo-nova-axleration", "applyToParent", ev.currentTarget.checked);
+        });
+        (transferGroup ?? anchor)?.after(parentGroup);
+    }
+
+    // 付与先(自動適用オフ=ペイロードのときのみ意味を持つ): 使用時にこの効果を誰に付与するか。
+    // 対象=ターゲットしたキャラクター(既定)/自分=使用者(用途解決時に即時付与=代償デバフ等)
+    const grantCur = app.document?.getFlag?.("tokyo-nova-axleration", "grantTarget") === "self" ? "self" : "target";
+    const grantGroup = document.createElement("div");
+    grantGroup.classList.add("form-group", "tnx-grant-target-field");
+    grantGroup.innerHTML = `
+        <label>付与先</label>
+        <div class="form-fields">
+            <select>
+                <option value="target"${grantCur === "target" ? " selected" : ""}>対象</option>
+                <option value="self"${grantCur === "self" ? " selected" : ""}>自分</option>
+            </select>
+        </div>
+        <p class="hint">使用時にこの効果を付与する相手（対象＝ターゲット、自分＝使用者）。</p>`;
+    grantGroup.querySelector("select")?.addEventListener("change", (ev) => {
+        app.document?.setFlag("tokyo-nova-axleration", "grantTarget", ev.currentTarget.value);
+    });
+    (parentGroup ?? transferGroup ?? anchor)?.after(grantGroup);
+
+    // モードで出し分け: 準備先=自動適用オンのとき、付与先=オフのときだけ表示する
+    const syncModeFields = () => {
+        const auto = transferInput ? !!transferInput.checked : true;
+        if (parentGroup) parentGroup.style.display = auto ? "" : "none";
+        grantGroup.style.display = auto ? "none" : "";
+    };
+    syncModeFields();
+    transferInput?.addEventListener("change", syncModeFields);
 
     // コンディション(BS)の効果値フィールドを詳細タブの**末尾**に注入する(フェーズ9-4)。
     // - BS 種別ごとに <fieldset><legend>BS名</legend> で囲む(箇条書きの羅列を避ける)。
@@ -508,28 +571,37 @@ Hooks.on("createActiveEffect", async (effect, options, userId) => {
     }
 });
 
-// アイテム狙いの AE の物理転送(2026-07-13 ユーザー確定)+片方向同期(2026-07-12 ユーザー指摘=
+// アイテム狙いの AE の物理転送(2026-07-13 再設計)+片方向同期(2026-07-12 ユーザー指摘=
 // 「後から元のエフェクト側を更新した場合に反映されない」)。**供給元が正**:
-// - 効果の作成/更新時と、アイテムがアクターに追加された時に、アイテム狙いの変更
-//   (item.<識別キー>/system.skill/system.category/item.parent 等)を**対象アイテム上の実体コピー**
-//   (キーは item.self.system.* に書き換え)として作成/上書きする。
-// - 供給元がそのアイテムを狙わなくなったら(キー変更等)、コピーを除去する。
-// - 供給元の効果・供給元アイテムの削除でも、コピーを除去する。
+// - 効果の作成/更新時・アイテムの追加/装着系更新時に、**自動適用(transfer)オン**の効果の
+//   アイテム狙いの変更(item.<識別キー>/system.category)を**対象アイテム上の実体コピー**
+//   (キーは素の system.<パス> に書き換え)として作成/上書きする。
+// - 「準備先(親アイテム)に適用」(flags.applyToParent)の効果は、素のパラメータキーの変更を
+//   準備先ホスト(bearer.system.parentItemId)へ転送する(準備で転送・解除で除去)。
+// - 自動適用オフ(=使用時付与用ペイロード)は転送しない。オフへの切替・狙い外れ・供給元の削除で
+//   コピーを除去する。
 // コピーは対象アイテムの通常の効果=無条件にそのアイテムへ効く。コピー側の手動編集・切替は
 // 供給元の次の更新で上書きされる(供給元が正の帰結)。
 const TNX_TRANSFER_SCOPE = "tokyo-nova-axleration";
 
 async function materializeItemTransfers(actor, effect, bearer) {
     if (!actor || actor.documentName !== "Actor") return;
-    if (effect.flags?.[TNX_TRANSFER_SCOPE]?.transferredFrom) return; // コピー自身からは転送しない
-    const hasItemTarget = (effect.changes ?? []).some(c => {
+    const flags = effect.flags?.[TNX_TRANSFER_SCOPE] ?? {};
+    // 実体化済みインスタンス(転送コピー/使用時付与コピー)は転送の供給元にならない
+    if (flags.transferredFrom || flags.grantedFrom) return;
+    const isAuto = effect.transfer !== false; // 自動適用ゲート(オフ=ペイロード)
+    const toParent = flags.applyToParent === true && bearer?.documentName === "Item";
+    const hasItemTarget = isAuto && !toParent && (effect.changes ?? []).some(c => {
         const p = parseEffectTargetKey(c.key);
-        return p && ["skill", "category", "parent"].includes(p.scope);
+        return p && ["skill", "category"].includes(p.scope);
     });
+    const targets = (item) => (isAuto && toParent)
+        ? bearer.system?.parentItemId === item.id
+        : hasItemTarget;
     for (const item of actor.items) {
         const copy = item.effects.find(e => e.flags?.[TNX_TRANSFER_SCOPE]?.transferredFrom === effect.uuid);
-        if (!hasItemTarget && !copy) continue;
-        const data = hasItemTarget ? buildTransferredEffectData(effect, item, bearer) : null;
+        if (!targets(item) && !copy) continue;
+        const data = targets(item) ? buildTransferredEffectData(effect, item, bearer) : null;
         if (data) {
             if (copy) await copy.update(data); // 供給元が正: コピーを供給元の現在値で上書き
             else await item.createEmbeddedDocuments("ActiveEffect", [data]);
@@ -558,7 +630,8 @@ Hooks.on("createActiveEffect", async (effect, _options, userId) => {
 
 Hooks.on("updateActiveEffect", async (effect, changed, _options, userId) => {
     if (game.user.id !== userId) return;
-    if (!["changes", "disabled", "name", "img"].some(k => k in (changed ?? {}))) return;
+    // transfer(自動適用ゲート)・flags(準備先チェック等)の切替でも転送を再評価する(2026-07-13 再設計)
+    if (!["changes", "disabled", "name", "img", "transfer", "flags"].some(k => k in (changed ?? {}))) return;
     const parent = effect.parent;
     const actor = parent?.documentName === "Actor" ? parent : parent?.actor;
     if (actor) await materializeItemTransfers(actor, effect, parent);
@@ -567,7 +640,8 @@ Hooks.on("updateActiveEffect", async (effect, changed, _options, userId) => {
 // 供給元の効果が削除されたら転送コピーも除去する(供給元が正・2026-07-12)
 Hooks.on("deleteActiveEffect", async (effect, _options, userId) => {
     if (game.user.id !== userId) return;
-    if (effect.flags?.[TNX_TRANSFER_SCOPE]?.transferredFrom) return; // コピー自身の削除は独立
+    const flags = effect.flags?.[TNX_TRANSFER_SCOPE] ?? {};
+    if (flags.transferredFrom || flags.grantedFrom) return; // コピー自身の削除は独立
     const parent = effect.parent;
     const actor = parent?.documentName === "Actor" ? parent : parent?.actor;
     if (actor) await removeItemTransferCopies(actor, [effect.uuid]);
@@ -590,6 +664,21 @@ Hooks.on("createItem", async (item, _options, userId) => {
     for (const e of actor.effects) await materializeItemTransfers(actor, e, actor);
     for (const it of actor.items) {
         if (it.id === item.id) continue;
+        for (const e of it.effects) await materializeItemTransfers(actor, e, it);
+    }
+});
+
+// アイテムの装着系フィールドが変わったとき: 転送を再評価する(2026-07-13 再設計)。
+// 準備/解除(parentItemId)で準備先転送が付け外しされ、分類・識別キーの変更で
+// アイテム狙い転送の照合が変わる(従来はここが穴で、装着変更が反映されなかった)
+Hooks.on("updateItem", async (item, changed, _options, userId) => {
+    if (game.user.id !== userId) return;
+    const actor = item.actor;
+    if (!actor) return;
+    const sys = changed?.system ?? {};
+    if (!["parentItemId", "identificationKey", "majorCategory", "minorCategory"].some(k => k in sys)) return;
+    for (const e of actor.effects) await materializeItemTransfers(actor, e, actor);
+    for (const it of actor.items) {
         for (const e of it.effects) await materializeItemTransfers(actor, e, it);
     }
 });

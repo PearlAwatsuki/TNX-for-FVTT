@@ -32,6 +32,37 @@
             </li>
         {{/each}}
     </ol>
+    {{!-- 使用時付与用(2026-07-13 再設計): 「効果を対象に自動適用」オフのペイロード。
+         自動では効かず、用途の「適用される効果」で使用時にのみ付与される --}}
+    {{#if effects.payload.length}}
+    <div class="tnx-item-list__row tnx-item-list__row--header">
+        <div class="tnx-item-list__column--main">使用時付与用</div>
+        <div class="tnx-item-list__column--duration">効果時間</div>
+        <div class="tnx-item-list__column--controls"></div>
+    </div>
+    <ol class="item-list-body">
+        {{#each effects.payload as |effect|}}
+        <li class="tnx-item-list__row" data-effect-id="{{effect.id}}">
+            <div class="tnx-item-list__column--main">
+                <img class="effect-image" src="{{effect.img}}" alt="{{effect.name}}"/>
+                <h4 class="{{#if effect.disabled}}disabled{{/if}}">{{effect.name}}</h4>
+            </div>
+            <div class="tnx-item-list__column--duration">{{effect.duration.label}}</div>
+            <div class="tnx-item-list__column--controls">
+                <a class="tnx-icon-ctrl" data-action="toggleEffect" title="切り替え">
+                    <i class="fas fa-power-off"></i>
+                </a>
+                <a class="tnx-icon-ctrl" data-action="editEffect" title="編集">
+                    <i class="fas fa-edit"></i>
+                </a>
+                <a class="tnx-icon-ctrl" data-action="deleteEffect" title="削除">
+                    <i class="fas fa-trash"></i>
+                </a>
+            </div>
+        </li>
+        {{/each}}
+    </ol>
+    {{/if}}
     {{!-- 転送された効果(2026-07-13): 他アイテム由来の転送コピー。名前は斜体+供給元名で
          区別し、操作(切替・編集・削除)は通常の効果と同じ(コピー自身に効く) --}}
     {{#if effects.transferred.length}}

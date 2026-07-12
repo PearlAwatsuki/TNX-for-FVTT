@@ -16,6 +16,8 @@
  * 各 DataModel で広く使われるようになったため helpers.mjs に集約した。
  */
 
+import { OUTFIT_TYPES } from "./outfit-categories.mjs";
+
 /**
  * 旧 uses.value（残り回数）→ uses.spent（消費済み回数）へのデータ移行。
  * spent = max - value（[0, max] にクランプ）。style-skill と outfit-base の uses で共用。
@@ -368,14 +370,17 @@ export function gatherDamageTagMods(actor) {
   return { replace, add };
 }
 
+/** 疑似分類(2026-07-13 再設計): 分類キーの名前空間で技能をアイテムタイプごと束ねる予約語。 */
+const PSEUDO_CATEGORY_TYPES = Object.freeze(["generalSkill", "styleSkill"]);
+
 /**
- * アイテム狙いの変更(スコープ skill/category/parent)がこのアイテムに向くか(純関数)。
+ * アイテム狙いの変更(スコープ skill/category)がこのアイテムに向くか(純関数)。
+ * 準備先(旧 parent スコープ)はキーでなく AE 設定「準備先(親アイテム)に適用」で表すため、ここでは扱わない。
  * @param {object} parsed parseEffectTargetKey の結果
  * @param {Item} item 対象候補
- * @param {Document} bearer 効果の保持元(parent スコープの解決に使う)
  * @returns {boolean}
  */
-export function itemChangeTargets(parsed, item, bearer) {
+export function itemChangeTargets(parsed, item) {
   if (!parsed?.path) return false;
   if (parsed.scope === "skill") {
     return parsed.prefix
@@ -383,32 +388,40 @@ export function itemChangeTargets(parsed, item, bearer) {
       : item.system?.identificationKey === parsed.selector;
   }
   if (parsed.scope === "category") {
+    // 疑似分類: 一般技能/スタイル技能はアウトフィット分類を持たないためアイテムタイプで照合する
+    if (PSEUDO_CATEGORY_TYPES.includes(parsed.selector)) return item.type === parsed.selector;
     return item.system?.minorCategory === parsed.selector || item.system?.majorCategory === parsed.selector;
-  }
-  if (parsed.scope === "parent") {
-    return bearer?.documentName === "Item" && bearer?.system?.parentItemId === item.id;
   }
   return false;
 }
 
 /**
- * アイテム狙いの AE の**物理転送**(2026-07-13 ユーザー確定)のコピーデータを組み立てる:
- * 効果の変更のうち対象アイテムに向くもの(skill/category/parent)を、**キーを
- * `item.self.system.<パス>` に書き換えた実体コピー**として対象アイテム上に作る。
+ * 自動適用 AE の**物理転送**(2026-07-13 再設計)のコピーデータを組み立てる:
+ * - アイテム狙いの変更(識別キー item.<キー>/分類 system.category.<キー>)のうち対象アイテムに
+ *   向くものを、**素のパラメータキー(system.<パス>)に書き換えた実体コピー**として対象上に作る。
+ * - 「準備先(親アイテム)に適用」フラグ付きの効果は、素のパラメータキーの変更を準備先ホスト
+ *   (bearer.system.parentItemId === targetItem.id)へそのまま転送する(混在非対応=素のキーのみ有効)。
  * コピーは対象アイテムの通常の効果=**無条件でそのアイテムに効く**(遠隔の再照合なし)。
  * 同期は**供給元が正の片方向**(2026-07-12): 供給元の更新でコピーは本データで上書きされ、
  * 供給元の削除・狙い外れでコピーは除去される(tnx.mjs のフック群)。由来は transferredFrom フラグと origin。
+ * 重複排除の同一性(effectId)と重複可(stackable)は供給元から引き継ぐ。
  * @param {ActiveEffect} effect 供給元の効果
  * @param {Item} targetItem 転送先アイテム
  * @param {Document} bearer 効果の保持元
  * @returns {?object} createEmbeddedDocuments("ActiveEffect") 用データ。向く変更が無ければ null
  */
 export function buildTransferredEffectData(effect, targetItem, bearer, scope = "tokyo-nova-axleration") {
+  const srcFlags = effect.flags?.[scope] ?? {};
+  const toParent = srcFlags.applyToParent === true;
+  if (toParent && (bearer?.documentName !== "Item" || bearer.system?.parentItemId !== targetItem.id)) return null;
   const changes = [];
   for (const c of (effect.changes ?? [])) {
     const parsed = parseEffectTargetKey(c.key);
-    if (!parsed || !itemChangeTargets(parsed, targetItem, bearer)) continue;
-    changes.push({ ...c, key: `item.self.system.${parsed.path}` });
+    if (!parsed) continue;
+    if (toParent) {
+      if (parsed.scope !== "self") continue; // 準備先転送は素のパラメータキーのみ(混在非対応)
+    } else if (!itemChangeTargets(parsed, targetItem)) continue;
+    changes.push({ ...c, key: `system.${parsed.path}` });
   }
   if (!changes.length) return null;
   return {
@@ -422,6 +435,8 @@ export function buildTransferredEffectData(effect, targetItem, bearer, scope = "
       transferredFrom: effect.uuid,
       // 表示用の供給元名(「転送された効果」セクションで名前に添える)。供給元の効果更新時に取り直される
       transferredSourceName: bearer?.name ?? "",
+      ...(srcFlags.stackable === true ? { stackable: true } : {}),
+      ...(srcFlags.effectId ? { effectId: srcFlags.effectId } : {}),
     } },
   };
 }
@@ -466,6 +481,22 @@ export function actorHasSuitChangeBuff(actor) {
   return false;
 }
 
+/**
+ * 自動適用ゲート(2026-07-13 再設計・ユーザー確定): ネイティブ transfer チェック=
+ * 「効果を対象に自動適用」。オフのアイテム上の効果は**使用時付与用ペイロード**であり、
+ * 値バフ・実行時系統(判定/ダメージ)・物理転送のいずれにも自動では乗らない。
+ * アクター上の効果と、実体化済みインスタンス(転送コピー transferredFrom / 付与コピー grantedFrom)
+ * は常に生きる(無効化手段は disabled のみ)。
+ * @param {ActiveEffect} effect
+ * @returns {boolean} 自動適用の収集対象なら true
+ */
+export function effectAutoApplies(effect, scope = "tokyo-nova-axleration") {
+  if (effect?.parent?.documentName !== "Item") return true;
+  const f = effect.flags?.[scope] ?? {};
+  if (f.transferredFrom !== undefined || f.grantedFrom !== undefined) return true;
+  return effect.transfer !== false;
+}
+
 export function collectActorEffectBuffs(actor, scope = "tokyo-nova-axleration") {
   const out = [];
   const push = (e) => out.push({
@@ -476,7 +507,72 @@ export function collectActorEffectBuffs(actor, scope = "tokyo-nova-axleration") 
     changes:   e.changes,
   });
   for (const e of (actor?.effects ?? [])) push(e);
-  for (const item of (actor?.items ?? [])) for (const e of (item.effects ?? [])) push(e);
+  for (const item of (actor?.items ?? [])) {
+    for (const e of (item.effects ?? [])) {
+      if (!effectAutoApplies(e, scope)) continue; // ペイロードは自動収集しない
+      push(e);
+    }
+  }
+  return out;
+}
+
+/**
+ * 使用時付与(2026-07-13 再設計)のペイロードの着地種別を changes から導く。
+ * アイテム狙いキー(素の system.<パス>/分類/識別キー)が1つでもあれば**アイテム着地**で、
+ * アクター向けの変更は落ちる(混在非対応=ユーザー確定)。それ以外は**アクター着地**。
+ * @param {Array<object>} changes AE の changes
+ * @returns {"item"|"actor"}
+ */
+export function analyzeGrantLanding(changes) {
+  for (const c of (changes ?? [])) {
+    const p = parseEffectTargetKey(c?.key);
+    if (p && ["self", "skill", "category"].includes(p.scope)) return "item";
+  }
+  return "actor";
+}
+
+/**
+ * アイテム着地ペイロードの付与先候補を絞り込む(2026-07-13 再設計・ユーザー確定)。
+ * - 識別キー/分類(疑似分類含む)の変更があればそれで絞る(全変更に合致するアイテムのみ)
+ * - 素のパラメータキーだけなら既定は**全アウトフィット**。対象パラメータを持たないアイテムは除く
+ * @param {Iterable<Item>} items 付与先アクターの所持アイテム
+ * @param {Array<object>} changes ペイロードの changes
+ * @returns {Item[]}
+ */
+export function itemGrantCandidates(items, changes) {
+  const selectors = [];
+  const paramHeads = [];
+  for (const c of (changes ?? [])) {
+    const p = parseEffectTargetKey(c?.key);
+    if (!p) continue;
+    if (p.scope === "skill" || p.scope === "category") selectors.push(p);
+    else if (p.scope === "self") paramHeads.push(p.path.split(".")[0]);
+  }
+  if (!selectors.length && !paramHeads.length) return [];
+  const out = [];
+  for (const item of (items ?? [])) {
+    if (selectors.length) {
+      if (!selectors.every(p => itemChangeTargets(p, item))) continue;
+    } else if (!OUTFIT_TYPES.has(item.type)) continue;
+    if (!paramHeads.every(head => item.system?.[head] !== undefined)) continue;
+    out.push(item);
+  }
+  return out;
+}
+
+/**
+ * アイテム着地ペイロードの changes を、付与先アイテム上で効く素のキーへ正規化する。
+ * アクター向け・実行時系統の変更は落とす(混在非対応)。
+ * @param {Array<object>} changes
+ * @returns {Array<object>}
+ */
+export function rewriteGrantChangesForItem(changes) {
+  const out = [];
+  for (const c of (changes ?? [])) {
+    const p = parseEffectTargetKey(c?.key);
+    if (!p || !["self", "skill", "category"].includes(p.scope)) continue;
+    out.push({ ...c, key: `system.${p.path}` });
+  }
   return out;
 }
 
@@ -558,15 +654,15 @@ export function parseEffectTargetKey(key) {
     return null;
   }
 
-  // アイテム着地の統一記法(2026-07-13 ユーザー指摘で追加): item.<識別キー>.system.<パラメータ>。
-  // 式(@item.<識別キー>.system.*)と同じ文法で AE キーを書けるようにする(v2 の
-  // system.skill.<識別キー>.* / system.self.* / system.parent.* と同義のエイリアス。
-  // 式とキーで綴りが食い違う二重文法の解消)。category はアイテム個体でないため対象外
+  // アイテム狙いの識別キー記法: item.<識別キー>.system.<パラメータ>。式(@item.<識別キー>.system.*)と
+  // 同じ文法で AE キーを書く(唯一の綴り。旧同義形 system.skill.<識別キー>.* は 2026-07-13 の
+  // 再設計で廃止)。self/parent セレクタも廃止: 自身は素の system.<パス>(下の default)、準備先は
+  // AE 設定の「準備先(親アイテム)に適用」チェックで表す(キーは対象パラメータと絞り込みだけを語る)。
+  // ※式(@item.self/@item.parent)は「値を引いてくる」参照なので self/parent が残る(キーとは別物)
   if (segs[0] === "item" && segs.length >= 4 && segs[2] === "system") {
     const sel = segs[1];
     const path = segs.slice(3).join(".");
-    if (sel === "self")   return { scope: "self",   path, conditions };
-    if (sel === "parent") return { scope: "parent", path, conditions };
+    if (sel === "self" || sel === "parent") return null; // 廃止済みの旧綴り(死にキー)
     const prefix = sel.endsWith("*");
     return { scope: "skill", selector: prefix ? sel.slice(0, -1) : sel, prefix, path, conditions };
   }
@@ -578,17 +674,9 @@ export function parseEffectTargetKey(key) {
   switch (ns) {
     case "ability": return after.length ? { scope: "ability", path: after.join("."), conditions } : null;
     case "control": return after.length ? { scope: "control", path: after.join("."), conditions } : null;
-    case "self":    return after.length ? { scope: "self",    path: after.join("."), conditions } : null;
-    case "parent":  return after.length ? { scope: "parent",  path: after.join("."), conditions } : null;
     case "category":
       if (after.length < 2) return null;
       return { scope: "category", selector: after[0], path: after.slice(1).join("."), conditions };
-    case "skill": {
-      if (after.length < 2) return null;
-      const sel = after[0];
-      const prefix = sel.endsWith("*");
-      return { scope: "skill", selector: prefix ? sel.slice(0, -1) : sel, prefix, path: after.slice(1).join("."), conditions };
-    }
     // CS の3層着地(フェーズ10-5・Active_Effects 大原則6)。仮想名前空間 "cs"——実スキーマパス
     // (system.combatSpeed.*)と分けることで、アクター自身の効果がネイティブ適用と二重に効くのを防ぐ。
     // base=CSベース実効 / value=CS実効 / current=CSカレント実効。cs.base のみ適用パスで
@@ -607,7 +695,22 @@ export function parseEffectTargetKey(key) {
     case "ar": {
       return after.join(".") === "max" ? { scope: "ar", path: "max", conditions } : null;
     }
-    default: return null; // handMaxSizeMod 等はネイティブ処理に委ねる
+    // 廃止済みの旧綴り(2026-07-13 再設計): 自身は素の system.<パス>、準備先は AE 設定の
+    // 「準備先(親アイテム)に適用」、識別キーは item.<識別キー>.system.* に一本化した。
+    // 素のキーと紛れて誤解釈しないよう明示的に死にキーにする
+    case "self":
+    case "parent":
+    case "skill":
+      return null;
+    default: {
+      // 素のパラメータキー(2026-07-13 再設計・ユーザー確定): 予約名前空間以外の system.<パス>は
+      // 「この効果(またはその転送/付与コピー)が乗っているアイテム自身」のパラメータを指す。
+      // 旧 system.self.*/item.self.system.* の後継で、転送コピー・付与コピーもこの綴りで着地する。
+      // handMaxSizeMod はネイティブ着地の特例(KI-020)のためここでは扱わない
+      const path = segs.slice(1).join(".");
+      if (path === "handMaxSizeMod") return null;
+      return { scope: "self", path, conditions };
+    }
   }
 }
 
