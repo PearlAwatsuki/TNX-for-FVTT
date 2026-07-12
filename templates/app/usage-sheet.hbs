@@ -424,7 +424,7 @@
                         <label class="usage-field-label">使用武器 <i class="fas fa-circle-question" title="一本目の武器はアクターシート戦闘タブの「攻撃で使用」設定です（空欄＝生身）。ここで追加した武器は2本目以降として攻撃力を合算します（複数武器合算能力の表現）"></i></label>
                         <div class="usage-skill-ref-list">
                             <div class="usage-skill-ref-row">
-                                <span class="usage-skill-ref-name">{{sheetAttackWeapon.name}}（{{sheetAttackWeapon.attackLabel}}）<span class="usage-empty-hint">（シートの「攻撃で使用」）</span></span>
+                                <span class="usage-skill-ref-name">{{sheetAttackWeapon.name}}（{{sheetAttackWeapon.attackLabel}}）</span>
                             </div>
                             {{#each selectedWeapons}}
                             <div class="usage-skill-ref-row">
@@ -438,7 +438,7 @@
                         {{#if editable}}
                         <div class="usage-skill-ref-add">
                             <select class="weapon-ref-select">
-                                <option value="">── 武器・ヴィークルを追加（2本目以降・合算） ──</option>
+                                <option value="">── 武器・ヴィークルを追加 ──</option>
                                 {{#each availableWeapons}}
                                 <option value="{{this.id}}">{{this.name}}</option>
                                 {{/each}}
