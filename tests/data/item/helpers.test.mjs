@@ -107,6 +107,8 @@ describe("computeItemEffectiveValues()（v2: total=base）", () => {
     computeItemEffectiveValues(sys);
     expect(sys.guardValue.total).toBe(3);
     expect(sys.attack.total).toBe(4);
+    // ダメージ種別の実効値(2026-07-13): 上書き AE の着地先(素値 damageType は不変)
+    expect(sys.attack.damageTypeTotal).toBe("I");
   });
 
   it("defence は S/P/I それぞれ total=base", () => {
@@ -349,8 +351,21 @@ describe("actorCardValueOverride()（カード数字の上書き・2026-07-13）
 });
 
 describe("resolveItemTotalPath()", () => {
-  it("attack.damageType は total を持たない=そのまま上書きパス（2026-07-13）", () => {
-    expect(resolveItemTotalPath("attack.damageType")).toBe("attack.damageType");
+  it("フルパス正規化(2026-07-13): 素値/実効どちらの綴りでも必ず実効(total 系)へ着地する", () => {
+    expect(resolveItemTotalPath("attack.value")).toBe("attack.total");
+    expect(resolveItemTotalPath("attack.total")).toBe("attack.total");
+    expect(resolveItemTotalPath("attack")).toBe("attack.total");
+    expect(resolveItemTotalPath("guardValue.value")).toBe("guardValue.total");
+    expect(resolveItemTotalPath("level")).toBe("levelTotal");
+    expect(resolveItemTotalPath("levelTotal")).toBe("levelTotal");
+    expect(resolveItemTotalPath("defence.S")).toBe("defence.S_total");
+    expect(resolveItemTotalPath("defence.S_defence")).toBe("defence.S_total");
+    expect(resolveItemTotalPath("defence.S_total")).toBe("defence.S_total");
+  });
+
+  it("ダメージ種別は実効フィールドへ(設定欄の素値には書かない・2026-07-13 訂正)", () => {
+    expect(resolveItemTotalPath("attack.damageType")).toBe("attack.damageTypeTotal");
+    expect(resolveItemTotalPath("attack.damageTypeTotal")).toBe("attack.damageTypeTotal");
   });
   it("modeValue/attack は <param>.total", () => {
     expect(resolveItemTotalPath("attack")).toBe("attack.total");
@@ -462,6 +477,11 @@ describe("parseEffectTargetKey()（v2 system.<名前空間> 文法）", () => {
     expect(parseEffectTargetKey("damage.dealt.physical")).toMatchObject({ scope: "damageDealt", category: "physical" });
     expect(parseEffectTargetKey("damage.dealt.social")).toMatchObject({ scope: "damageDealt", category: "social" });
     expect(parseEffectTargetKey("damage.dealt.slash")).toBeNull(); // 未知系統
+  });
+
+  it("生身のダメージ種別上書き: system.baseAttack.damageType → 実効フィールドへ（2026-07-13）", () => {
+    expect(parseEffectTargetKey("system.baseAttack.damageType")).toMatchObject({ scope: "baseAttackType" });
+    expect(parseEffectTargetKey("system.baseAttack.value")).toBeNull(); // 他はネイティブ
   });
 
   it("アイテム着地の統一記法: item.<識別キー>.system.*（式と同じ綴り・2026-07-13）", () => {

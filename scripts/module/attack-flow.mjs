@@ -93,13 +93,15 @@ export async function useAttack(item, usage) {
                 itemId:      w.id,
                 name:        attackWeaponDisplayName(w),
                 attackValue: Number(w.system.attack?.value) || 0,
-                damageType:  w.system.attack?.damageType || "",
+                damageType:  w.system.attack?.damageTypeTotal || w.system.attack?.damageType || "",
                 isFullAuto:  w.system.isFullAuto === true,
                 faValue:     Number(w.system.FAValue) || 0,
                 consumesAmmo: hasAmmoTracking(w.system.ammo),
             }));
+        const baseAtk = actor.system.baseAttack ?? {};
         ({ weaponAttack, damageType, attackSourceName, faOptions } =
-            combineWeaponAttack(weapons, usage.damageType, actor.system.baseAttack ?? {}));
+            combineWeaponAttack(weapons, usage.damageType,
+                { ...baseAtk, damageType: baseAtk.damageTypeTotal || baseAtk.damageType }));
     }
 
     // 対象決定: ターゲット指定 → 選択ダイアログ(シーン上のトークン) → 対象なし許容

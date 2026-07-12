@@ -607,12 +607,12 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             const atkLabel = (w) => {
                 const atk = w?.system.attack ?? {};
                 const val = Number(atk.total ?? atk.value) || 0;
-                return `${atk.damageType || ""}${val >= 0 ? `+${val}` : val}`;
+                return `${atk.damageTypeTotal || atk.damageType || ""}${val >= 0 ? `+${val}` : val}`;
             };
             const base = sheetActor?.system?.baseAttack ?? {};
             context.sheetAttackWeapon = sheetWeapon
                 ? { name: attackWeaponDisplayName(sheetWeapon), attackLabel: atkLabel(sheetWeapon) }
-                : { name: "生身", attackLabel: `${base.damageType || "I"}+${(base.value ?? 0) + (base.mod ?? 0)}` };
+                : { name: "生身", attackLabel: `${base.damageTypeTotal || base.damageType || "I"}+${(base.value ?? 0) + (base.mod ?? 0)}` };
             // 選択済みの追加武器(表示行・攻撃力ラベル付き)。攻撃力はシート武器と合算される(2026-07-09)
             context.selectedWeapons = refs.map((r, idx) => {
                 const w = sheetActor?.items.get(r.itemId);

@@ -32,4 +32,25 @@
             </li>
         {{/each}}
     </ol>
+    {{!-- 転送された効果(2026-07-13): 他のアイテム/アクター由来でこのアイテムに効いている効果。
+         キーは self 表記(item.self.system.*)で表示・読み取り専用(実体は供給元にある) --}}
+    {{#if effects.transferred.length}}
+    <div class="tnx-item-list__row tnx-item-list__row--header">
+        <div class="tnx-item-list__column--main">転送された効果</div>
+        <div class="tnx-item-list__column--duration">このアイテムへの適用キー</div>
+        <div class="tnx-item-list__column--controls"></div>
+    </div>
+    <ol class="item-list-body">
+        {{#each effects.transferred as |row|}}
+        <li class="tnx-item-list__row" title="供給元: {{row.sourceName}}（編集・削除は供給元の効果で行います）">
+            <div class="tnx-item-list__column--main">
+                <img class="effect-image" src="{{row.img}}" alt="{{row.name}}"/>
+                <h4><em>{{row.name}}（{{row.sourceName}}）</em></h4>
+            </div>
+            <div class="tnx-item-list__column--duration">{{row.keys}}</div>
+            <div class="tnx-item-list__column--controls"></div>
+        </li>
+        {{/each}}
+    </ol>
+    {{/if}}
 </div>

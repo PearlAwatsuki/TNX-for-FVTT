@@ -2,6 +2,8 @@
  * ActiveEffectリストを持つシートに共通の機能を提供するMixin。
  * V2 シートでは ACTIONS を DEFAULT_OPTIONS.actions に展開して使う。
  */
+import { collectTransferredItemEffects } from "../data/item/helpers.mjs";
+
 export const EffectsSheetMixin = {
 
     /**
@@ -29,6 +31,11 @@ export const EffectsSheetMixin = {
             if (effect.disabled) effects.inactive.push(effect);
             else if (effect.isTemporary) effects.temporary.push(effect);
             else effects.passive.push(effect);
+        }
+        // 転送された効果(2026-07-13): アイテムには、他所由来でこのアイテムに効いている効果を
+        // self 表記のキーつきで明示表示する(遠隔のまま見えないのは不自然=ユーザー確定)
+        if (document.documentName === "Item" && document.actor) {
+            effects.transferred = collectTransferredItemEffects(document);
         }
         context.effects = effects;
     },

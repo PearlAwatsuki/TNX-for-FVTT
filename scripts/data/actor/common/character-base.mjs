@@ -113,6 +113,8 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
     const styleItems = this.parent?.items?.filter(i => i.type === "style") ?? [];
     this._prepareAbilityTotals(styleItems);
     // バフ(ActiveEffect)を total へ直接適用 → コンディション(衰弱・酩酊)の全制御値減 → 0clamp
+    // 生身のダメージ種別の実効値(2026-07-13): 既定=素値。上書き AE はこの後の適用パスで乗る
+    if (this.baseAttack) this.baseAttack.damageTypeTotal = this.baseAttack.damageType || "I";
     this._applyEffectBuffs();
     this._applyConditionControlPenalty();
     for (const key of ABILITY_KEYS) {
@@ -186,8 +188,10 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
     if (!actor?.items) return;
     // 実行時評価の別系統(判定バフ・ダメージバフ)は値バフの適用対象外
     const CHECK_SCOPES = new Set(["abilityCheck", "controlCheck", "skillCheck", "anyCheck", "damageVs", "damageDealt", "suitChange", "damageTag", "cardValue"]);
-    // 文字列フィールドの上書きパス(数値の加算でなく値の置き換え・2026-07-13。モードは「上書き」を想定)
-    const STRING_OVERRIDE_PATHS = new Set(["attack.damageType"]);
+    // 文字列フィールドの上書きパス(数値の加算でなく値の置き換え・2026-07-13)。
+    // 文字列に加算モードは意味を成さないため、設定モードに関わらず**常に上書き(OVERRIDE)**で適用する
+    const STRING_OVERRIDE_PATHS = new Set(["attack.damageType", "attack.damageTypeTotal"]);
+    const isStringScope = (parsed) => parsed.scope === "baseAttackType" || STRING_OVERRIDE_PATHS.has(parsed.path ?? "");
 
     const entries = [];
     const collect = (effects, bearer) => {
@@ -220,7 +224,7 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
       for (const { doc, totalPath } of this._resolveBuffApplications(parsed, bearer)) {
         if (!evalEffectConditions(doc.system, parsed.conditions)) continue;
         apps.push({ effect, change, doc, totalPath, identity, stackable, bearer,
-            isString: STRING_OVERRIDE_PATHS.has(parsed.path ?? "") });
+            isString: isStringScope(parsed) });
       }
     }
 
@@ -259,8 +263,11 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
       // Foundry 既定の優先度(mode×10)で安定適用する
       finalApps.sort((a, b) =>
         ((a.change.priority ?? a.change.mode * 10) - (b.change.priority ?? b.change.mode * 10)));
-      for (const { effect, change, doc, totalPath, value } of finalApps) {
-        effect.apply(doc, { ...change, key: `system.${totalPath}`, value: String(value) });
+      for (const app of finalApps) {
+        const { effect, change, doc, totalPath, value } = app;
+        // 文字列上書きは常に OVERRIDE(加算モードで元の値を壊さない)
+        const mode = app.isString ? CONST.ACTIVE_EFFECT_MODES.OVERRIDE : change.mode;
+        effect.apply(doc, { ...change, mode, key: `system.${totalPath}`, value: String(value) });
       }
     };
 
@@ -293,6 +300,9 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
       case "ar":
         // AR(フェーズ11)。仮想名前空間 system.ar.max → 実効付与値へ。
         return [{ doc: actor, totalPath: "actionRank.maxTotal" }];
+      case "baseAttackType":
+        // 生身のダメージ種別上書き(2026-07-13)。実効フィールドへ(素値は不変)
+        return [{ doc: actor, totalPath: "baseAttack.damageTypeTotal" }];
       case "self":
         return bearer?.documentName === "Item" ? [itemApp(bearer)] : [];
       case "parent": {

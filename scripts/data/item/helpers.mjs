@@ -125,6 +125,8 @@ export function computeItemEffectiveValues(system) {
     if (field && typeof field === "object" && typeof field.value === "number"
         && ("mode" in field || "damageType" in field)) {
       field.total = field.value;
+      // ダメージ種別の実効値(2026-07-13): 上書き AE の着地先。設定欄(素値 damageType)は不変
+      if ("damageType" in field) field.damageTypeTotal = field.damageType ?? "";
     }
   }
   // defence(S/P/I)
@@ -366,6 +368,46 @@ export function gatherDamageTagMods(actor) {
   return { replace, add };
 }
 
+/**
+ * このアイテムへ「転送」されて効いている他所由来の効果を集める(2026-07-13 ユーザー確定)。
+ * 遠隔のまま見えないのは不自然——対象アイテムのエフェクト一覧に、一時効果/無効効果と同じ形式の
+ * **転送セクション**として明示表示する(供給元名つき・読み取り専用)。表示キーは self 表記
+ * (item.self.system.<パス>)へ変換する=そのアイテムへの効果として認識できる形。
+ * 適用の実体は従来どおりアクターの単一適用パス(実体コピーは作らない=二重適用・同期問題を避ける)。
+ * @param {Item} item
+ * @returns {Array<{id:string, name:string, img:string, sourceName:string, keys:string}>}
+ */
+export function collectTransferredItemEffects(item) {
+  const actor = item?.actor;
+  if (!actor) return [];
+  const out = [];
+  const consider = (effect, bearer) => {
+    if (effect.parent === item) return; // 自身の効果は通常リストに出る
+    if (!effect.active) return;
+    if (effect.flags?.["tokyo-nova-axleration"]?.hideFromList) return;
+    const keys = [];
+    for (const c of (effect.changes ?? [])) {
+      const p = parseEffectTargetKey(c.key);
+      if (!p?.path) continue;
+      const hit =
+        (p.scope === "skill" && (p.prefix
+          ? item.system?.identificationKey?.startsWith?.(p.selector)
+          : item.system?.identificationKey === p.selector))
+        || (p.scope === "category"
+          && (item.system?.minorCategory === p.selector || item.system?.majorCategory === p.selector))
+        || (p.scope === "parent" && bearer?.system?.parentItemId === item.id);
+      if (hit) keys.push(`item.self.system.${p.path}`);
+    }
+    if (keys.length) {
+      out.push({ id: effect.id, name: effect.name, img: effect.img,
+        sourceName: bearer?.name ?? actor.name, keys: keys.join(" ・ ") });
+    }
+  };
+  for (const e of (actor.effects ?? [])) consider(e, actor);
+  for (const it of (actor.items ?? [])) for (const e of (it.effects ?? [])) consider(e, it);
+  return out;
+}
+
 /** カード数字の上書き値(A〜K)→N◎VA 以前の生の数字(A=1・J=11・Q=12・K=13)。 */
 const CARD_LETTER_TO_NUMERIC = Object.freeze({ A: 1, J: 11, Q: 12, K: 13 });
 
@@ -533,6 +575,11 @@ export function parseEffectTargetKey(key) {
     // (system.combatSpeed.*)と分けることで、アクター自身の効果がネイティブ適用と二重に効くのを防ぐ。
     // base=CSベース実効 / value=CS実効 / current=CSカレント実効。cs.base のみ適用パスで
     // 保持アイテムの準備状態ゲート(未準備=読み飛ばし)がかかる。
+    // 生身のダメージ種別上書き(2026-07-13): 実効フィールド baseAttack.damageTypeTotal へ着地
+    // (設定欄=素値 baseAttack.damageType は不変)。他の baseAttack キーは従来どおりネイティブ
+    case "baseAttack": {
+      return after.join(".") === "damageType" ? { scope: "baseAttackType", conditions } : null;
+    }
     case "cs": {
       const p = after.join(".");
       return ["base", "value", "current"].includes(p) ? { scope: "cs", path: p, conditions } : null;
@@ -578,15 +625,29 @@ export function evalEffectConditions(system, conditions) {
  * @returns {string}
  */
 export function resolveItemTotalPath(param) {
-  // ダメージ種別の上書き(2026-07-13): 文字列フィールドは total を持たない=そのまま上書きする
-  if (param === "attack.damageType") return "attack.damageType";
-  if (param.startsWith("defence.")) return `defence.${param.split(".")[1]}_total`;
+  // ダメージ種別の上書き(2026-07-13 訂正): 実効フィールド damageTypeTotal へ着地する。
+  // **設定欄(素値 attack.damageType)には絶対に書かない**(base 不変の大原則)
+  if (param === "attack.damageType" || param === "attack.damageTypeTotal") return "attack.damageTypeTotal";
+  // フルパス正規化(2026-07-13): 統一記法(item.<識別キー>.system.*)では式と同じ綴り
+  // (….value / ….total / levelTotal 等)で書かれるため、素値/実効のどちらの綴りでも
+  // **必ず実効(total 系)へ**着地させる(素値を書き換えない・モード=追加/上書きは total 上で効く)
+  let p = param.replace(/\.(value|total)$/, "");
+  const bareTotals = {
+    levelTotal: "level", FAValueTotal: "FAValue",
+    appearanceTargetTotal: "appearanceTarget",
+    cyberSecurityTotal: "cyberSecurity", analogSecurityTotal: "analogSecurity",
+  };
+  if (bareTotals[p]) p = bareTotals[p];
+  if (p.startsWith("defence.")) {
+    const k = p.split(".")[1].replace(/_(defence|total)$/, "");
+    return `defence.${k}_total`;
+  }
   const bare = {
     level: "levelTotal", FAValue: "FAValueTotal",
     appearanceTarget: "appearanceTargetTotal",
     cyberSecurity: "cyberSecurityTotal", analogSecurity: "analogSecurityTotal",
   };
-  return bare[param] ?? `${param}.total`;
+  return bare[p] ?? `${p}.total`;
 }
 
 /** 条件パスの数値を解決する。`X.total`(派生実効値)があれば優先、無ければ `X.value` / 素の値。 */

@@ -733,15 +733,15 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 攻撃用/パリー用それぞれの参照先を解決する。未選択(空)＝未変更の生身(アクターのデータ)。
         const fleshAttack = () => {
             const a = sys.baseAttack ?? {};
-            return `${a.damageType || "I"}+${(a.value ?? 0) + (a.mod ?? 0)}`;
+            return `${a.damageTypeTotal || a.damageType || "I"}+${(a.value ?? 0) + (a.mod ?? 0)}`;
         };
         const fleshGuard = () => String((sys.baseGuard?.value ?? 0) + (sys.baseGuard?.mod ?? 0));
         const attackSrc = refs.attackItemId ? candidates.find(i => i.id === refs.attackItemId) : null;
         const parrySrc  = refs.parryItemId  ? candidates.find(i => i.id === refs.parryItemId)  : null;
         context.combatAttackRef = attackSrc ? {
             _id: attackSrc.id, name: displayName(attackSrc),
-            attack: attackSrc.system.attack?.damageType
-                ? `${attackSrc.system.attack.damageType}+${attackSrc.system.attack.total ?? attackSrc.system.attack.value ?? 0}` : "-",
+            attack: (attackSrc.system.attack?.damageTypeTotal || attackSrc.system.attack?.damageType)
+                ? `${attackSrc.system.attack.damageTypeTotal || attackSrc.system.attack.damageType}+${attackSrc.system.attack.total ?? attackSrc.system.attack.value ?? 0}` : "-",
         } : { _id: null, name: "生身", attack: fleshAttack() };
         context.combatParryRef = parrySrc ? {
             _id: parrySrc.id, name: displayName(parrySrc),
