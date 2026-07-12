@@ -55,6 +55,17 @@ export const EffectsSheetMixin = {
             const e = item.effects?.get(effectId);
             if (e) return e;
         }
+        // アイテムシートの「転送された効果」行: 供給元(アクター/他アイテム)の効果を解決する
+        // (操作=編集・切替・削除は供給元の効果に効く・2026-07-13)
+        const actor = document.documentName === "Item" ? document.actor : null;
+        if (actor) {
+            const e = actor.effects?.get(effectId);
+            if (e) return e;
+            for (const item of actor.items) {
+                const ie = item.effects?.get(effectId);
+                if (ie) return ie;
+            }
+        }
         return null;
     },
 

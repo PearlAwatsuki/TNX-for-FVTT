@@ -370,12 +370,13 @@ export function gatherDamageTagMods(actor) {
 
 /**
  * このアイテムへ「転送」されて効いている他所由来の効果を集める(2026-07-13 ユーザー確定)。
- * 遠隔のまま見えないのは不自然——対象アイテムのエフェクト一覧に、一時効果/無効効果と同じ形式の
- * **転送セクション**として明示表示する(供給元名つき・読み取り専用)。表示キーは self 表記
- * (item.self.system.<パス>)へ変換する=そのアイテムへの効果として認識できる形。
+ * 対象アイテムのエフェクト一覧に「転送された効果」セクションとして表示する。
+ * 行は通常の効果行と同じ(名前は斜体+供給元名)。編集・切替・削除は供給元の効果に効く
+ * (resolveEffect がアクター側も探すため通常のアクションがそのまま機能する)。
+ * キーの羅列は表示しない(内部キーを UI に出さない規約・2026-07-13 ユーザー指摘で撤去)。
  * 適用の実体は従来どおりアクターの単一適用パス(実体コピーは作らない=二重適用・同期問題を避ける)。
  * @param {Item} item
- * @returns {Array<{id:string, name:string, img:string, sourceName:string, keys:string}>}
+ * @returns {Array<{id:string, name:string, img:string, sourceName:string, durationLabel:string, disabled:boolean}>}
  */
 export function collectTransferredItemEffects(item) {
   const actor = item?.actor;
@@ -383,24 +384,24 @@ export function collectTransferredItemEffects(item) {
   const out = [];
   const consider = (effect, bearer) => {
     if (effect.parent === item) return; // 自身の効果は通常リストに出る
-    if (!effect.active) return;
     if (effect.flags?.["tokyo-nova-axleration"]?.hideFromList) return;
-    const keys = [];
+    let hit = false;
     for (const c of (effect.changes ?? [])) {
       const p = parseEffectTargetKey(c.key);
       if (!p?.path) continue;
-      const hit =
-        (p.scope === "skill" && (p.prefix
+      hit = (p.scope === "skill" && (p.prefix
           ? item.system?.identificationKey?.startsWith?.(p.selector)
           : item.system?.identificationKey === p.selector))
         || (p.scope === "category"
           && (item.system?.minorCategory === p.selector || item.system?.majorCategory === p.selector))
         || (p.scope === "parent" && bearer?.system?.parentItemId === item.id);
-      if (hit) keys.push(`item.self.system.${p.path}`);
+      if (hit) break;
     }
-    if (keys.length) {
+    if (hit) {
       out.push({ id: effect.id, name: effect.name, img: effect.img,
-        sourceName: bearer?.name ?? actor.name, keys: keys.join(" ・ ") });
+        sourceName: bearer?.name ?? actor.name,
+        durationLabel: effect.duration?.label ?? "",
+        disabled: effect.disabled === true });
     }
   };
   for (const e of (actor.effects ?? [])) consider(e, actor);

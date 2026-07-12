@@ -265,9 +265,14 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
         ((a.change.priority ?? a.change.mode * 10) - (b.change.priority ?? b.change.mode * 10)));
       for (const app of finalApps) {
         const { effect, change, doc, totalPath, value } = app;
-        // 文字列上書きは常に OVERRIDE(加算モードで元の値を壊さない)
-        const mode = app.isString ? CONST.ACTIVE_EFFECT_MODES.OVERRIDE : change.mode;
-        effect.apply(doc, { ...change, mode, key: `system.${totalPath}`, value: String(value) });
+        // 文字列上書き(ダメージ種別等)は effect.apply を経由せず直接代入する:
+        // 実効フィールドはスキーマ外のためコアの型キャストに乗らず、モードも常に上書き
+        // (加算は意味を成さない)ため(2026-07-13・「AE が効かない」報告の対処)
+        if (app.isString) {
+          foundry.utils.setProperty(doc, `system.${totalPath}`, String(value));
+          continue;
+        }
+        effect.apply(doc, { ...change, key: `system.${totalPath}`, value: String(value) });
       }
     };
 
