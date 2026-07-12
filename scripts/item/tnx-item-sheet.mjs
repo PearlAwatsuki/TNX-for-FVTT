@@ -1,7 +1,6 @@
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 import { TnxUsageSheet, USAGE_TYPES, deriveUsageAutoFill } from "../module/tnx-usage-sheet.mjs";
 import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan, resolveBunshinOwner } from "../module/usage-consumption.mjs";
-import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { useNpcAcquire } from "../module/npc-acquisition.mjs";
 import { useAttack } from "../module/attack-flow.mjs";
 import { prepareUsageEffectPayload } from "../module/usage-effects.mjs";
@@ -235,13 +234,8 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         const isFixedCheck = this.item.type === "generalSkill" && this.item.parent?.type === "extra";
         let type = "check";
         if (!isFixedCheck) {
-            // 「NPC取得」を作成できるのはトループ取得技能(unique="troopAcquire")と
-            // アウトフィット系のみ(11-6・Troops.md「NPC取得」。式神符のような起動取得型を含む)
-            const allowNpcAcquire = (this.item.type === "styleSkill" && this.item.system.unique === "troopAcquire")
-                || OUTFIT_ITEM_TYPES.has(this.item.type);
-            const choices = { ...USAGE_TYPES };
-            if (!allowNpcAcquire) delete choices.npcAcquire;
-            const choice = await TokyoNovaItemSheet._promptUsageType(choices);
+            // タイプは判定/宣言のみ(2026-07-13 一本化)。NPC取得は用途の設定(効果タブ)へ移管
+            const choice = await TokyoNovaItemSheet._promptUsageType(USAGE_TYPES);
             if (!choice) return;
             type = choice;
         }
@@ -264,20 +258,17 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             formula:     "",
             damageCategory: "",
             modifiableParams: [],
-            // 消費先設定(11-6): check / npcAcquire 用途は「親アイテムの使用回数×1」を既定にする
-            // (migrateData の互換既定と同一。親に isLimit が無ければ no-op)。他タイプは空から設定する
-            consumeTargets: (type === "check" || type === "npcAcquire")
+            // 消費先設定(11-6): check 用途は「親アイテムの使用回数×1」を既定にする
+            // (migrateData の互換既定と同一。親に isLimit が無ければ no-op)。宣言は空から設定する
+            consumeTargets: type === "check"
                 ? [{ type: "parent", itemId: "", amount: 1 }] : [],
-            // NPC取得の既定モード: トループ取得技能=トループ / アウトフィット(式神符等)=エキストラ
-            ...(type === "npcAcquire"
-                ? { acquireMode: this.item.type === "styleSkill" ? "troop" : "extra" } : {}),
             ...(isFixedCheck ? { fixedResult: 10 } : {}),
         };
 
         // 自動入力の作成時一回適用(11-6 追補・2026-07-06 承認): 判定系用途は親技能の固有値から
         // 発動パラメータと消費行を導出して初期値にする(以降の再導出はシートのボタンで明示的に。
         // ライブ追従はしない)。固定値判定は発動項目を持たないため対象外
-        if (!isFixedCheck && (type === "check" || type === "npcAcquire")) {
+        if (!isFixedCheck && type === "check") {
             const patch = deriveUsageAutoFill(this.item, entry);
             foundry.utils.mergeObject(entry, foundry.utils.expandObject(patch));
         }
@@ -321,7 +312,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
 
         // NPC取得(11-6): 専用フローに委譲(消費・対象解決・判定・転記・配置を一貫して扱う。
         // 効果有効化は行わない=取得に特化)。失敗を握りつぶさず通知する(不具合調査のため)
-        if (usage.type === "npcAcquire") {
+        if (usage.npcAcquire === true) {
             try {
                 await useNpcAcquire(this.item, usage);
             } catch (err) {

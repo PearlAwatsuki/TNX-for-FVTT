@@ -17,6 +17,7 @@ import { getComboSuits } from "./tnx-check-engine.mjs";
 import { resolveUsageSkills, comboLockAnalysis, isComboRequired } from "./skill-chain-resolution.mjs";
 import { deriveConsumeTargets } from "./usage-consumption.mjs";
 import { CONDITION_KINDS } from "./conditions.mjs";
+import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { resolveAttackWeapons, attackWeaponDisplayName, resolveAttackRangeValue } from "./attack-weapons.mjs";
 import { loadSkillChoices, SKILL_PACKS } from "./skill-dictionary.mjs";
 
@@ -24,14 +25,12 @@ const CHAIN_SKILL_TYPES = ["generalSkill", "styleSkill"];
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
-// 攻撃は判定(check)の一種に統合(2026-07-09)＝独立タイプとして選ばせない。
-// 既存の attack 用途は migrateData で check + damageCategory に移行する。
-// 旧 damageBoost/damageReduce(ダメージ増加/軽減)は廃止(2026-07-11)＝migrateData で宣言へ変換
+// 用途タイプは check/declaration の2つに一本化(2026-07-13 ユーザー確定)。
+// 攻撃=check+damageCategory(2026-07-09)・旧 damageBoost/damageReduce=宣言へ変換(2026-07-11)・
+// 旧 modification=check へ移行・旧 npcAcquire=フラグ化(いずれも migrateData)
 export const USAGE_TYPES = Object.freeze({
     check:        "判定",
     declaration:  "宣言",
-    modification: "改造",
-    npcAcquire:   "NPC取得",
 });
 
 /**
@@ -171,7 +170,7 @@ export async function enforceUsageChainDefaultsOnImport(item) {
 
     let changed = false;
     for (const usage of actions) {
-        if (!["check", "npcAcquire"].includes(usage.type)) continue;
+        if (usage.type !== "check") continue;
 
         // 参照の掃除: アクター上で解決できない itemId(辞典/ワールド時代の別コレクション ID)を落とす
         const cleanedRefs = (usage.skillRefs ?? [])
@@ -250,7 +249,7 @@ export function deriveUsageAutoFill(item, usage) {
     }
 
     // 目標値: NPC取得はモードで確定する(トループ/エニグマ=なし・分身=10固定)ため導出しない
-    if (usage.type !== "npcAcquire") {
+    if (usage.npcAcquire !== true) {
         const tv = resolveTargetValue(skillItems.map(s => ({ targetValue: s.system.targetValue, number: s.system.targetValueNumber })));
         if (tv) {
             patch.targetValue = tv.targetValue;
@@ -328,8 +327,6 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             damageBonusAdd:        TnxUsageSheet._onDamageBonusAdd,
             damageBonusDelete:     TnxUsageSheet._onDamageBonusDelete,
             effectRemove:          TnxUsageSheet._onEffectRemove,
-            paramAdd:              TnxUsageSheet._onParamAdd,
-            paramDelete:           TnxUsageSheet._onParamDelete,
             autoFill:              TnxUsageSheet._onAutoFill,
             incrementTargetValue:  TnxUsageSheet._onTvIncrement,
             decrementTargetValue:  TnxUsageSheet._onTvDecrement,
@@ -414,7 +411,6 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         context.checkMode          = usage.grantRecheck === true ? "grant"
             : (usage.modifyCheck === true ? "modify"
                 : (usage.grantSuitChange === true ? "suitChange" : "normal"));
-        context.isModificationType = usage.type === "modification";
         // 宣言(declaration)の判定/ダメージ修正(2026-07-12 ユーザー確定): バフ宣言の表現。
         // 判定用途とレイアウトを揃えた〈判定〉〈ダメージ〉fieldset・チェックボックス2つは独立
         // (排他 UI にしない。両方 ON の運用は想定せず、使用時は「判定を修正」が先に振られる)
@@ -453,10 +449,13 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 .map(([value, def]) => ({ value, label: def.label }));
         }
 
-        // NPC取得(11-6・Troops.md): モードは明示選択。エキストラモードは判定なし(取得アイテムの
-        // ドロップ欄)、トループ/エニグマ/分身モードは通常判定(参加技能=check と同じ扱い。
-        // 目標値はモードで決まるため入力欄を出さない: トループ/エニグマ=なし・分身=10固定)
-        context.isNpcAcquireType = usage.type === "npcAcquire";
+        // NPC取得(11-6・Troops.md/2026-07-13 タイプ→フラグへ移管): check/declaration のどちらにも
+        // 設定できる。設定 UI は効果タブ・設定できるのはトループ取得技能とアウトフィット
+        // (旧タイプの作成ゲートを移管)。モードは明示選択・実行はモード駆動で従来どおり
+        // (エキストラ=判定なし・トループ/エニグマ/分身=判定。目標値はモードで決まるため入力欄を出さない)
+        context.canNpcAcquire = (this._item.type === "styleSkill" && this._item.system.unique === "troopAcquire")
+            || OUTFIT_ITEM_TYPES.has(this._item.type);
+        context.isNpcAcquireType = usage.npcAcquire === true;
         context.isAcquireExtraMode = false;
         if (context.isNpcAcquireType) {
             const mode = usage.acquireMode || "extra";
@@ -1091,17 +1090,30 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         if (update["timing.value"] !== "process") update["timing.processName"] = "blank";
         if (update["timing.value"] !== "other")   update["timing.timingOther"] = "";
 
-        // npcAcquire: モード(明示選択)。エキストラモード以外は判定系(ベース技能を持つ)。
+        // NPC取得(2026-07-13 フラグ化): check/declaration 共通。OFF はモード・参照・召喚数を
+        // リセットする(再 ON でまっさらから=回復と同じ意味論)。モード変更は表示項目が変わるため再描画。
         // 召喚数は分身モードでのみ描画されるため、入力が無いときは既存値を保持する
-        if (usage.type === "npcAcquire") {
-            update.acquireMode = raw["acquireMode"] ?? usage.acquireMode ?? "extra";
-            update.acquireCount = raw["acquireCount"] !== undefined
-                ? Math.max(1, Number(raw["acquireCount"]) || 1)
-                : (usage.acquireCount ?? 1);
+        if ((usage.type === "check" && !Number.isFinite(usage.fixedResult)) || usage.type === "declaration") {
+            const prevNA = usage.npcAcquire === true;
+            update.npcAcquire = raw["npcAcquire"] ?? prevNA;
+            if (update.npcAcquire) {
+                const defMode = this._item.type === "styleSkill" ? "troop" : "extra";
+                update.acquireMode = raw["acquireMode"] ?? (prevNA ? (usage.acquireMode || defMode) : defMode);
+                update.acquireCount = raw["acquireCount"] !== undefined
+                    ? Math.max(1, Number(raw["acquireCount"]) || 1)
+                    : (usage.acquireCount ?? 1);
+                recoveryUiChanged ||= update.acquireMode !== usage.acquireMode;
+            } else if (prevNA) {
+                update.acquireMode = "extra";
+                update.acquireItemRefs = [];
+                update.acquireActorRef = { uuid: "", name: "" };
+                update.acquireCount = 1;
+            }
+            recoveryUiChanged ||= update.npcAcquire !== prevNA;
         }
 
-        // check・npcAcquire(判定系): ベース技能（アクション技能は常に自身に固定）
-        if (usage.type === "check" || usage.type === "npcAcquire") {
+        // check: ベース技能（アクション技能は常に自身に固定）
+        if (usage.type === "check") {
             update["baseSkillRef.itemId"] = this._item.system.isAction === true
                 ? this._item.id
                 : (raw["baseSkillRef.itemId"] ?? usage.baseSkillRef?.itemId ?? "");
@@ -1136,7 +1148,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
         // ベース変更の検知(取り消し用に変更前のベースを保持)
         const prevBaseRef = usage.baseSkillRef?.itemId ?? "";
-        const baseChanged = (usage.type === "check" || usage.type === "npcAcquire")
+        const baseChanged = usage.type === "check"
             && this._item.system.isAction !== true
             && (update["baseSkillRef.itemId"] ?? prevBaseRef) !== prevBaseRef;
 
@@ -1418,32 +1430,6 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         // itemId＋effectId で1件だけ外す(供給元アイテムが異なる同名/同IDの取り違えを避ける)
         const effects = usage.effects.filter(e => !((e.itemId || "") === itemId && e.effectId === effectId));
         await this._patchUsage({ effects });
-        this.render({ force: true });
-    }
-
-    // ─── modifiableParams 管理 ─────────────────────────────────────────────────
-
-    static async _onParamAdd(_event, _target) {
-        const input = this.element.querySelector("input.param-input");
-        const val = input?.value?.trim();
-        if (!val) return;
-
-        const usage = this.usage;
-        if (!usage) return;
-
-        const modifiableParams = [...(usage.modifiableParams ?? []), val];
-        await this._patchUsage({ modifiableParams });
-        if (input) input.value = "";
-        this.render({ force: true });
-    }
-
-    static async _onParamDelete(_event, target) {
-        const idx = Number(target.dataset.idx);
-        const usage = this.usage;
-        if (!usage) return;
-
-        const modifiableParams = (usage.modifiableParams ?? []).filter((_, i) => i !== idx);
-        await this._patchUsage({ modifiableParams });
         this.render({ force: true });
     }
 

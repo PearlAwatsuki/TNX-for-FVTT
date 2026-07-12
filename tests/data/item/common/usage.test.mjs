@@ -63,8 +63,13 @@ describe("UsageTemplate.defineSchema()", () => {
       expect(entryFields).not.toHaveProperty("formula");
     });
 
-    it("modification 固有フィールドが存在する", () => {
+    it("改造可能パラメータは温存される（旧 modification タイプは廃止・2026-07-13）", () => {
       expect(entryFields).toHaveProperty("modifiableParams");
+    });
+
+    it("NPC取得（npcAcquire・2026-07-13 タイプ→フラグ化）は BooleanField で initial false", () => {
+      expect(entryFields.npcAcquire).toBeInstanceOf(MockBooleanField);
+      expect(entryFields.npcAcquire.options.initial).toBe(false);
     });
 
     it("無視する指定技能（ignoreComboSkills・2026-07-10）は StringField の ArrayField", () => {
@@ -218,6 +223,28 @@ describe("UsageTemplate.migrateData()", () => {
     const source = { actions: [{ _id: "a", type: "check", boostDamage: true, modifyDamage: false }] };
     const result = UsageTemplate.migrateData(source);
     expect(result.actions[0].modifyDamage).toBe(false);
+  });
+
+  it("用途タイプの一本化(2026-07-13): modification → check（modifiableParams 温存）", () => {
+    const source = { actions: [{ _id: "a", type: "modification", modifiableParams: ["攻撃力"] }] };
+    const result = UsageTemplate.migrateData(source);
+    expect(result.actions[0].type).toBe("check");
+    expect(result.actions[0].modifiableParams).toEqual(["攻撃力"]);
+  });
+
+  it("旧 npcAcquire タイプはフラグ化: エキストラ=宣言・判定系モード=判定", () => {
+    const source = { actions: [
+      { _id: "a", type: "npcAcquire", acquireMode: "extra" },
+      { _id: "b", type: "npcAcquire", acquireMode: "troop" },
+      { _id: "c", type: "npcAcquire", acquireMode: "bunshin" },
+      { _id: "d", type: "npcAcquire" },
+    ] };
+    const result = UsageTemplate.migrateData(source);
+    expect(result.actions[0].type).toBe("declaration");
+    expect(result.actions[1].type).toBe("check");
+    expect(result.actions[2].type).toBe("check");
+    expect(result.actions[3].type).toBe("declaration"); // モード未設定はエキストラ既定
+    for (const a of result.actions) expect(a.npcAcquire).toBe(true);
   });
 
   it("旧 recoveryTargetFormula は目標値「その他」へ移送される(2026-07-13 一本化)", () => {

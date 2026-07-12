@@ -2318,10 +2318,10 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 修正フラグ付きの宣言(判定を修正/ダメージを修正=バフ宣言・2026-07-12)も実行対象にする
         // (修正フラグ無しの宣言は従来どおり解説カード=既存挙動を変えない)
         const usableUsages = (item.system.actions ?? [])
-            .filter(a => ["check", "npcAcquire"].includes(a.type)
+            .filter(a => a.type === "check"
                 || (a.type === "declaration"
                     && (a.modifyCheck === true || a.modifyDamage === true
-                        || a.grantSuitChange === true || a.recovery === true)));
+                        || a.grantSuitChange === true || a.recovery === true || a.npcAcquire === true)));
         if (!usableUsages.length) {
             await item.postDescriptionCard();
             return;
@@ -2336,8 +2336,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             if (!selectedUsage) return;
         }
 
-        // NPC取得は専用フローへ(消費・対象解決・判定・転記・配置を一貫して扱う)
-        if (selectedUsage.type === "npcAcquire") {
+        // NPC取得(2026-07-13 フラグ化)は専用フローへ(消費・対象解決・判定・転記・配置を一貫して扱う)
+        if (selectedUsage.npcAcquire === true) {
             try {
                 await useNpcAcquire(item, selectedUsage);
             } catch (err) {

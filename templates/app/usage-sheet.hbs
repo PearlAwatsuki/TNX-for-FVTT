@@ -47,55 +47,6 @@
             </div>
             {{else}}
 
-                {{#if isNpcAcquireType}}
-                <fieldset class="tnx-fieldset">
-                    <legend>取得</legend>
-                    <div class="usage-form-grid">
-                {{!-- NPC取得のモード(取得類型・明示選択=2026-07-04 裁定)。判定・目標値はモードで決まる:
-                     エキストラ=判定なし / トループ・エニグマ=判定(目標値なし・達成値=人数/ポイント) /
-                     分身=判定(目標値10・達成値10以上で成功) --}}
-                <div class="usage-form-row">
-                    <label class="usage-field-label">取得類型 <i class="fas fa-circle-question" title="取得の類型を選びます（判定の有無と達成値の扱いが変わります）"></i></label>
-                    <select name="acquireMode" {{#unless editable}}disabled{{/unless}}>
-                        {{#each acquireModeOptions}}
-                        <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
-                        {{/each}}
-                    </select>
-                </div>
-                {{#if isAcquireRefMode}}
-                {{!-- 取得するアクター(トループ/エニグマ・2026-07-07 裁定=対象は用途側で設定)。
-                     事前作成した種別一致のトループ級アクターをドロップで関連付ける --}}
-                <div class="usage-form-row">
-                    <label class="usage-field-label">取得するアクター <i class="fas fa-circle-question" title="使用時に呼び出すアクターです"></i></label>
-                    <div class="usage-field-with-fixed">
-                        <span class="usage-acquire-actor-dropzone extra-actor-dropzone{{#unless hasAcquireActor}} extra-actor-dropzone--empty{{/unless}}" title="{{acquireModeLabel}}のアクターをドロップで設定">
-                            {{#if hasAcquireActor}}{{acquireActorName}}{{else}}アクターをドロップ{{/if}}
-                        </span>
-                        {{#if hasAcquireActor}}
-                        {{#if editable}}
-                        <a data-action="acquireActorClear" title="関連付けを解除"><i class="fas fa-times"></i></a>
-                        {{/if}}
-                        {{/if}}
-                    </div>
-                </div>
-                {{/if}}
-                {{#if isAcquireBunshinMode}}
-                {{!-- 分身は対象を設定せずそのまま召喚(2026-07-08 裁定)。複数体の可能性があるため
-                     召喚数を設定する(トークンをこの数だけ配置) --}}
-                <div class="usage-form-row">
-                    <label class="usage-field-label">召喚数 <i class="fas fa-circle-question" title="呼び出す分身の数です"></i></label>
-                    <div class="number-input-spinner">
-                        <button type="button" data-action="decrementAcquireCount" class="tnx-btn" {{#unless editable}}disabled{{/unless}}>-</button>
-                        <input type="number" name="acquireCount" value="{{acquireCount}}" min="1"
-                               {{#unless editable}}disabled{{/unless}}>
-                        <button type="button" data-action="incrementAcquireCount" class="tnx-btn" {{#unless editable}}disabled{{/unless}}>+</button>
-                    </div>
-                </div>
-                {{/if}}
-                    </div>
-                </fieldset>
-                {{/if}}
-
             <fieldset class="tnx-fieldset">
                 <legend>タイミング</legend>
                 <div class="usage-form-grid">
@@ -214,33 +165,6 @@
                 </div>
             </fieldset>
 
-            {{!-- NPC取得(エキストラモード): 取得アイテム(小分類エキストラのアウトフィット)の
-                 ドロップ欄(フェーズ10 の取得対象欄と同方式)。使用時に派生取得+場に出る --}}
-            {{#if isAcquireExtraMode}}
-            <div class="usage-form-section usage-acquire-section">
-                <label class="usage-field-label">取得するエキストラ <i class="fas fa-circle-question" title="使用時に取得するアウトフィットです"></i></label>
-                <div class="usage-skill-ref-list">
-                    {{#each acquireItemRows as |row|}}
-                    <div class="usage-skill-ref-row">
-                        <span class="usage-skill-ref-name{{#if row.missing}} usage-ref-missing{{/if}}">{{row.name}}</span>
-                        {{#if @root.editable}}
-                        <a class="tnx-row-btn tnx-row-btn--delete" data-action="acquireRefDelete" data-index="{{row.idx}}" title="削除"><i class="fas fa-trash"></i></a>
-                        {{/if}}
-                    </div>
-                    {{/each}}
-                </div>
-                {{#if editable}}
-                <div class="usage-acquire-dropzone">
-                    <i class="fas fa-download"></i> ここに小分類「エキストラ」のアウトフィットをドロップ
-                </div>
-                {{else}}
-                {{#unless acquireItemRows.length}}
-                <p class="usage-empty-hint">（取得対象なし）</p>
-                {{/unless}}
-                {{/if}}
-            </div>
-            {{/if}}
-
             {{!-- 技能ベース用途のみ: 対決可能技能の情報表示 ＋ 自動入力。
                  対決欄の解釈(Check_Rules 2026-06-20): 無印の技能名は例示(他技能でのリアクションを
                  排除しない)・※付きは必須——説明はフットノートでなく title で示す --}}
@@ -314,7 +238,7 @@
         <div class="tab" data-group="primary" data-tab="effects">
 
             {{!-- check・NPC取得(判定系モード): ベース技能・組み合わせ技能。攻撃は判定の一種 --}}
-            {{#if (or isCheckType isAcquireCheckMode)}}
+            {{#if isCheckType}}
             <fieldset class="tnx-fieldset">
                 <legend>参加技能</legend>
                 {{> "systems/tokyo-nova-axleration/templates/app/usage-sheet-combo.hbs"}}
@@ -471,34 +395,6 @@
             </fieldset>
             {{/if}}
 
-            {{!-- modification: 改造可能パラメータ --}}
-            {{#if isModificationType}}
-            <fieldset class="tnx-fieldset">
-                <legend>改造可能パラメータ</legend>
-                <div class="usage-param-list">
-                    {{#each usage.modifiableParams}}
-                    <div class="usage-param-row">
-                        <span class="usage-param-name">{{this}}</span>
-                        {{#if ../editable}}
-                        <a class="usage-icon-btn" data-action="paramDelete" data-idx="{{@index}}"
-                           title="削除"><i class="fas fa-times"></i></a>
-                        {{/if}}
-                    </div>
-                    {{else}}
-                    <p class="usage-empty-hint">（なし）</p>
-                    {{/each}}
-                </div>
-                {{#if editable}}
-                <div class="usage-param-add">
-                    <input class="param-input" type="text" placeholder="パラメータ名">
-                    <a class="tnx-btn tnx-btn--sm" data-action="paramAdd">
-                        <i class="fas fa-plus"></i> 追加
-                    </a>
-                </div>
-                {{/if}}
-            </fieldset>
-            {{/if}}
-
             {{!-- 宣言: 判定/ダメージへの修正(2026-07-12 ユーザー確定・バフ宣言の表現)。
                  判定用途とレイアウトを揃えた 2 fieldset・チェックボックスは独立(排他にしない) --}}
             {{#if isDeclarationType}}
@@ -540,6 +436,91 @@
                 <input type="text" name="damageBonusSelf" value="{{damageBonusSelf}}"
                        placeholder="式（例: -@item.self.system.levelTotal、@card、-5）"
                        {{#unless editable}}disabled{{/unless}}>
+                {{/if}}
+            </fieldset>
+            {{/if}}
+
+            {{!-- NPC取得(Troops.md・2026-07-13 タイプ→設定へ移管): check/declaration の
+                 どちらの用途にも設定できる(エキストラ=判定なし・トループ/エニグマ/分身=判定。
+                 実行はモード駆動で従来どおり)。設定できるのはトループ取得技能とアウトフィット --}}
+            {{#if canNpcAcquire}}
+            <fieldset class="tnx-fieldset">
+                <legend>NPC取得</legend>
+                <div class="usage-form-row usage-toggle-row">
+                    <label class="usage-toggle-inline" title="使用時に NPC（エキストラ／トループ／エニグマ／分身）を取得します">
+                        <input type="checkbox" name="npcAcquire" {{checked usage.npcAcquire}}
+                               {{#unless editable}}disabled{{/unless}}>
+                        <span>NPC取得を行う</span>
+                    </label>
+                </div>
+                {{#if isNpcAcquireType}}
+                <div class="usage-form-grid">
+                {{!-- NPC取得のモード(取得類型・明示選択=2026-07-04 裁定)。判定・目標値はモードで決まる:
+                     エキストラ=判定なし / トループ・エニグマ=判定(目標値なし・達成値=人数/ポイント) /
+                     分身=判定(目標値10・達成値10以上で成功) --}}
+                <div class="usage-form-row">
+                    <label class="usage-field-label">取得類型 <i class="fas fa-circle-question" title="取得の類型を選びます（判定の有無と達成値の扱いが変わります）"></i></label>
+                    <select name="acquireMode" {{#unless editable}}disabled{{/unless}}>
+                        {{#each acquireModeOptions}}
+                        <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                        {{/each}}
+                    </select>
+                </div>
+                {{#if isAcquireRefMode}}
+                {{!-- 取得するアクター(トループ/エニグマ・2026-07-07 裁定=対象は用途側で設定)。
+                     事前作成した種別一致のトループ級アクターをドロップで関連付ける --}}
+                <div class="usage-form-row">
+                    <label class="usage-field-label">取得するアクター <i class="fas fa-circle-question" title="使用時に呼び出すアクターです"></i></label>
+                    <div class="usage-field-with-fixed">
+                        <span class="usage-acquire-actor-dropzone extra-actor-dropzone{{#unless hasAcquireActor}} extra-actor-dropzone--empty{{/unless}}" title="{{acquireModeLabel}}のアクターをドロップで設定">
+                            {{#if hasAcquireActor}}{{acquireActorName}}{{else}}アクターをドロップ{{/if}}
+                        </span>
+                        {{#if hasAcquireActor}}
+                        {{#if editable}}
+                        <a data-action="acquireActorClear" title="関連付けを解除"><i class="fas fa-times"></i></a>
+                        {{/if}}
+                        {{/if}}
+                    </div>
+                </div>
+                {{/if}}
+                {{#if isAcquireBunshinMode}}
+                {{!-- 分身は対象を設定せずそのまま召喚(2026-07-08 裁定)。複数体の可能性があるため
+                     召喚数を設定する(トークンをこの数だけ配置) --}}
+                <div class="usage-form-row">
+                    <label class="usage-field-label">召喚数 <i class="fas fa-circle-question" title="呼び出す分身の数です"></i></label>
+                    <div class="number-input-spinner">
+                        <button type="button" data-action="decrementAcquireCount" class="tnx-btn" {{#unless editable}}disabled{{/unless}}>-</button>
+                        <input type="number" name="acquireCount" value="{{acquireCount}}" min="1"
+                               {{#unless editable}}disabled{{/unless}}>
+                        <button type="button" data-action="incrementAcquireCount" class="tnx-btn" {{#unless editable}}disabled{{/unless}}>+</button>
+                    </div>
+                </div>
+                {{/if}}
+                    </div>
+                {{#if isAcquireExtraMode}}
+            <div class="usage-form-section usage-acquire-section">
+                <label class="usage-field-label">取得するエキストラ <i class="fas fa-circle-question" title="使用時に取得するアウトフィットです"></i></label>
+                <div class="usage-skill-ref-list">
+                    {{#each acquireItemRows as |row|}}
+                    <div class="usage-skill-ref-row">
+                        <span class="usage-skill-ref-name{{#if row.missing}} usage-ref-missing{{/if}}">{{row.name}}</span>
+                        {{#if @root.editable}}
+                        <a class="tnx-row-btn tnx-row-btn--delete" data-action="acquireRefDelete" data-index="{{row.idx}}" title="削除"><i class="fas fa-trash"></i></a>
+                        {{/if}}
+                    </div>
+                    {{/each}}
+                </div>
+                {{#if editable}}
+                <div class="usage-acquire-dropzone">
+                    <i class="fas fa-download"></i> ここに小分類「エキストラ」のアウトフィットをドロップ
+                </div>
+                {{else}}
+                {{#unless acquireItemRows.length}}
+                <p class="usage-empty-hint">（取得対象なし）</p>
+                {{/unless}}
+                {{/if}}
+            </div>
+            {{/if}}
                 {{/if}}
             </fieldset>
             {{/if}}

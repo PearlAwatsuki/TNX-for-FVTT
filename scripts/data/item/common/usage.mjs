@@ -12,12 +12,15 @@
  *                    物理のみの攻撃プロファイル)。「白兵判定」はルール上ひとつで、攻撃かどうかは帰結。
  *                    旧 type="attack" は migrateData で check + damageCategory に移行する。
  *   "declaration"  - 宣言（判定なしで使える能力＝神業を含む。判定を伴わないため独立タイプ）
- *   "modification" - 改造（modifiableParams）
+ *   ※タイプは check/declaration の2つに一本化(2026-07-13 ユーザー確定=他タイプが組み合わせ
+ *     判定の不確定要素になるため)。旧 "modification"(改造)は廃止=check へ移行(改造は判定で行う。
+ *     機能未実装のため modifiableParams はデータ温存のみ)。旧 "npcAcquire" は**フラグ化**
+ *     (npcAcquire=true)=判定/宣言のどちらにも設定できる(migrateData でエキストラ=宣言・
+ *     トループ/エニグマ/分身=判定へ移行。実行はモード駆動で従来どおり)。
  *   ※旧 "damageBoost"/"damageReduce"(ダメージ増加/軽減)は廃止(2026-07-11 ユーザー確定)。
  *     ダメージの増減は check 用途のフラグ modifyDamage(ダメージを修正・アイテムロール使用→
  *     ダメージカードの攻撃側合計クリックで適用。増加=正・軽減=負)か、攻撃用途のダメージ修正行
  *     (組み合わせ技能を供給元に)で表す。既存データは migrateData で declaration(宣言)へ変換する。
- *   "npcAcquire"   - NPC取得（フェーズ11-6・Troops.md「NPC取得」。トループ級の召喚/エキストラ取得）
  *
  * タイプは作成時に固定。UI 上で切り替え不可。
  * 全タイプ共通: _id / name / description / timing / target / effects / consumeTargets
@@ -252,6 +255,9 @@ export class UsageTemplate extends SystemDataModel {
                     ),
 
                     // ─── NPC取得(フェーズ11-6・Troops.md「NPC取得」) ───
+                    // npcAcquire: NPC取得を行う(2026-07-13 タイプ→フラグへ移管)。check/declaration の
+                    // どちらにも設定できる(設定 UI は効果タブ・トループ取得技能とアウトフィットのみ)。
+                    npcAcquire: new fields.BooleanField({ initial: false }),
                     // acquireMode: 取得類型(extra/troop/enigma/bunshin)。参照先の種類からの導出は
                     // しない(2026-07-04 ユーザー裁定=モードは明示選択)。
                     // acquireItemRefs: エキストラモードで派生取得する小分類「エキストラ」の
@@ -301,6 +307,19 @@ export class UsageTemplate extends SystemDataModel {
                 // 旧「ダメージを増加」(boostDamage)は「ダメージを修正」(modifyDamage)へ置換(2026-07-11)
                 if (migrated.boostDamage === true && migrated.modifyDamage === undefined) {
                     migrated = { ...migrated, modifyDamage: true };
+                }
+                // 用途タイプの一本化(2026-07-13 ユーザー確定): タイプは check/declaration のみ。
+                // - 旧 modification(改造)は check へ(改造は判定で行う。機能未実装・modifiableParams は温存)
+                // - 旧 npcAcquire はフラグ化: エキストラ(判定なし)=宣言・トループ/エニグマ/分身=判定
+                if (migrated.type === "modification") {
+                    migrated = { ...migrated, type: "check" };
+                }
+                if (migrated.type === "npcAcquire") {
+                    migrated = {
+                        ...migrated,
+                        npcAcquire: true,
+                        type: (migrated.acquireMode ?? "extra") === "extra" ? "declaration" : "check",
+                    };
                 }
                 // 回復専用の目標値式(recoveryTargetFormula)は発動タブの目標値へ一本化(2026-07-13)。
                 // 設定済みの式は目標値「その他」の自由記入欄へ移送する(既存値があれば触らない)

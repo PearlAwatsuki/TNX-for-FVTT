@@ -31,7 +31,7 @@ const RESOURCE_LABELS = { troop: "人数", enigma: "エニグマポイント" };
 /**
  * NPC取得用途の使用(エントリポイント。usage-list の「使用」ボタンから)。
  * @param {Item} item 用途を持つアイテム
- * @param {object} usage npcAcquire 用途エントリ
+ * @param {object} usage npcAcquire=true の用途エントリ(取得設定・実行はモード駆動)
  */
 export async function useNpcAcquire(item, usage) {
     const actor = item.actor;
