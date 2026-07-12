@@ -293,9 +293,10 @@ async function performUnsyncSeparation(castActor, ownerUser) {
 // 派生値を DB に書き戻すフック方式(updateCastOutfitMods / updateCastAppearanceModifier /
 // recalcOutfitAggregates)・起動時スキャン・isGhost 変更時の再集計は撤去。
 
-// ActiveEffect 設定シートの詳細タブに「重複可」チェックボックスを注入する(フェーズ9-3 v2)。
-// 同名(同一 identity)効果は既定で重複適用不可。チェック時のみスタックする。
-// flags.tokyo-nova-axleration.stackable に保存(change で明示 setFlag、フォーム依存を避ける)。
+// ActiveEffect 設定シートの詳細タブに TNX の設定(重複可・準備先・付与先)を注入する(フェーズ9-3 v2/v3)。
+// 注入フィールドは name="flags.tokyo-nova-axleration.*" を与えて**ネイティブ項目と同じフォーム送信で
+// 保存**する(2026-07-13 ユーザー指摘で是正: 即時 setFlag はドキュメント更新→シート再描画で
+// 未保存のフォーム状態(transfer のオン等)を巻き戻すため廃止)。
 Hooks.on("renderActiveEffectConfig", (app, element) => {
     const root = element instanceof HTMLElement ? element : element?.[0];
     if (!root) return;
@@ -347,12 +348,9 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
     group.innerHTML = `
         <label>重複可</label>
         <div class="form-fields">
-            <input type="checkbox" ${current ? "checked" : ""}>
+            <input type="checkbox" name="flags.tokyo-nova-axleration.stackable" ${current ? "checked" : ""}>
         </div>
         <p class="hint">同名（同一）効果でも重複して適用する場合にチェック。未チェックなら重複適用不可。</p>`;
-    group.querySelector("input")?.addEventListener("change", (ev) => {
-        app.document?.setFlag("tokyo-nova-axleration", "stackable", ev.currentTarget.checked);
-    });
     const anchor = root.querySelector('[name="transfer"], [name="disabled"]')?.closest(".form-group");
     if (anchor) anchor.after(group);
     else (root.querySelector('.tab[data-tab="details"]') ?? root.querySelector("form"))?.appendChild(group);
@@ -382,12 +380,9 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
         parentGroup.innerHTML = `
             <label>準備先（親アイテム）に適用</label>
             <div class="form-fields">
-                <input type="checkbox" ${cur ? "checked" : ""}>
+                <input type="checkbox" name="flags.tokyo-nova-axleration.applyToParent" ${cur ? "checked" : ""}>
             </div>
             <p class="hint">このアイテムを準備している親アイテムのパラメータに効かせる場合にチェック。</p>`;
-        parentGroup.querySelector("input")?.addEventListener("change", (ev) => {
-            app.document?.setFlag("tokyo-nova-axleration", "applyToParent", ev.currentTarget.checked);
-        });
         (transferGroup ?? anchor)?.after(parentGroup);
     }
 
@@ -399,15 +394,12 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
     grantGroup.innerHTML = `
         <label>付与先</label>
         <div class="form-fields">
-            <select>
+            <select name="flags.tokyo-nova-axleration.grantTarget">
                 <option value="target"${grantCur === "target" ? " selected" : ""}>対象</option>
                 <option value="self"${grantCur === "self" ? " selected" : ""}>自分</option>
             </select>
         </div>
         <p class="hint">使用時にこの効果を付与する相手（対象＝ターゲット、自分＝使用者）。</p>`;
-    grantGroup.querySelector("select")?.addEventListener("change", (ev) => {
-        app.document?.setFlag("tokyo-nova-axleration", "grantTarget", ev.currentTarget.value);
-    });
     (parentGroup ?? transferGroup ?? anchor)?.after(grantGroup);
 
     // モードで出し分け: 準備先=自動適用オンのとき、付与先=オフのときだけ表示する
