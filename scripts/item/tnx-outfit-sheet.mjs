@@ -69,7 +69,8 @@ const COMBINE_PARAM_DEFS = Object.freeze([
         key: "attack", label: "攻撃力",
         exists: (s) => s.attack !== undefined,
         get: (s) => s.attack,
-        fmt: (v) => `${v.damageType || ""}+${v.value ?? 0}`,
+        // 表示は実効値(AE 込み・2026-07-13): 種別=damageTypeTotal・値=total
+        fmt: (v) => `${v.damageTypeTotal || v.damageType || ""}+${v.total ?? v.value ?? 0}`,
         eq: (a, b) => a.damageType === b.damageType && (a.value ?? 0) === (b.value ?? 0),
     },
     {
@@ -772,12 +773,12 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
     /**
      * 攻撃力の表記(「攻：I+4」のダメージ種別 + 値部分)。
-     * 表示は AE 込み実効値(attack.total)。なければ base(value)。
-     * @param {{damageType: string, value: number, total?: number}} attack
+     * 表示は AE 込み実効値(damageTypeTotal・attack.total)。なければ base。
+     * @param {{damageType: string, damageTypeTotal?: string, value: number, total?: number}} attack
      * @returns {string}
      */
     _attackLabel(attack) {
-        const type = attack.damageType || "";
+        const type = attack.damageTypeTotal || attack.damageType || "";
         const value = attack.total ?? attack.value ?? 0;
         if (!type && !value) return "-";
         const sign = value >= 0 ? `+${value}` : String(value);

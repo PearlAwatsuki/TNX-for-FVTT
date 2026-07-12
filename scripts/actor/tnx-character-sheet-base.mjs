@@ -1560,9 +1560,11 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                 const d = mvT(sys.appearancePenalty) ?? "-";
                 return (h === "-" && d === "-") ? "-" : `${h}／${d}`;
             }
-            case "attack":
-                return sys.attack?.damageType
-                    ? `${sys.attack.damageType}+${sys.attack.total ?? sys.attack.value ?? 0}` : "-";
+            case "attack": {
+                // 表示は実効値(AE 込み・2026-07-13): 種別=damageTypeTotal・値=total
+                const dt = sys.attack?.damageTypeTotal || sys.attack?.damageType;
+                return dt ? `${dt}+${sys.attack.total ?? sys.attack.value ?? 0}` : "-";
+            }
             case "guard":
                 return mvT(sys.guardValue) !== null ? String(mvT(sys.guardValue)) : "-";
             case "range":
@@ -1648,8 +1650,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             }
             case "attack": {
                 const s = chosenSys("attack");
-                return s.attack?.damageType
-                    ? `${s.attack.damageType}+${s.attack.value ?? 0}` : "-";
+                // 表示は実効値(AE 込み・2026-07-13)
+                const dt = s.attack?.damageTypeTotal || s.attack?.damageType;
+                return dt ? `${dt}+${s.attack.total ?? s.attack.value ?? 0}` : "-";
             }
             case "guard": {
                 const s = chosenSys("guardValue");
