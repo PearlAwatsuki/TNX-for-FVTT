@@ -366,6 +366,29 @@ export function gatherDamageTagMods(actor) {
   return { replace, add };
 }
 
+/** カード数字の上書き値(A〜K)→N◎VA 以前の生の数字(A=1・J=11・Q=12・K=13)。 */
+const CARD_LETTER_TO_NUMERIC = Object.freeze({ A: 1, J: 11, Q: 12, K: 13 });
+
+/**
+ * カード数字の上書き AE(`check.cardValue`・2026-07-13)を解決する。
+ * 値は A〜K(選択式)。以降の数字規約(手札の絵札=10・A の21固定選択・山札の絵札=FUMBLE)は
+ * 上書き後の数字に従う。複数あれば最初の有効値(先勝ち)。
+ * @param {Actor} actor
+ * @returns {?number} 生のカード数字(1〜13)。無し/不正は null
+ */
+export function actorCardValueOverride(actor) {
+  for (const e of collectActorEffectBuffs(actor)) {
+    if (!e.active) continue;
+    for (const c of (e.changes ?? [])) {
+      if (parseEffectTargetKey(c.key)?.scope !== "cardValue") continue;
+      const raw = String(c.value ?? "").trim().toUpperCase();
+      const n = CARD_LETTER_TO_NUMERIC[raw] ?? (/^([2-9]|10)$/.test(raw) ? Number(raw) : null);
+      if (n !== null) return n;
+    }
+  }
+  return null;
+}
+
 /**
  * スート変更 AE(`check.suitChange`・2026-07-12)を持つか。
  * 失効は当面手動(「1回の判定」Duration の自動失効は時間管理フェーズで持続時間側に足す。
@@ -424,6 +447,12 @@ export function parseEffectTargetKey(key) {
     // ※"all" は予約語(識別キーとしては使えない)
     if (x === "all") {
       return { scope: "anyCheck", conditions };
+    }
+    // カード数字の上書き(2026-07-13 ユーザー確定): check.cardValue＝判定に使用したカードの
+    // 数字を A〜K で上書きする(値は選択式・実行時系統=値バフ適用から除外)。
+    // 無印「判定」の機構のため制御判定には効かない(判定フロー側でゲート)
+    if (x === "cardValue") {
+      return { scope: "cardValue", conditions };
     }
     // スート変更マーカー(2026-07-12 ユーザー確定): check.suitChange＝値不要のマーカーキー。
     // 「判定で使用できないスートのカードを使用可能なスートに変更できる」効果の AE 付与形
@@ -536,6 +565,8 @@ export function evalEffectConditions(system, conditions) {
  * @returns {string}
  */
 export function resolveItemTotalPath(param) {
+  // ダメージ種別の上書き(2026-07-13): 文字列フィールドは total を持たない=そのまま上書きする
+  if (param === "attack.damageType") return "attack.damageType";
   if (param.startsWith("defence.")) return `defence.${param.split(".")[1]}_total`;
   const bare = {
     level: "levelTotal", FAValue: "FAValueTotal",

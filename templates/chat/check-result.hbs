@@ -96,6 +96,13 @@
             <span class="cr-calc-val">{{suitChangedDisplay}}</span>
         </div>
         {{/if}}
+        {{!-- カード数字の上書き(AE check.cardValue・2026-07-13) --}}
+        {{#if cardOverrideDisplay}}
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">数字上書き</span>
+            <span class="cr-calc-val">{{cardOverrideDisplay}}</span>
+        </div>
+        {{/if}}
         <div class="cr-calc-row">
             <span class="cr-calc-label">カード値</span>
             <span class="cr-calc-val">{{result.cardValue}}</span>

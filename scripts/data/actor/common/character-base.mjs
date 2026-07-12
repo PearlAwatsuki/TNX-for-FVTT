@@ -185,7 +185,9 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
     const actor = this.parent;
     if (!actor?.items) return;
     // 実行時評価の別系統(判定バフ・ダメージバフ)は値バフの適用対象外
-    const CHECK_SCOPES = new Set(["abilityCheck", "controlCheck", "skillCheck", "anyCheck", "damageVs", "damageDealt", "suitChange", "damageTag"]);
+    const CHECK_SCOPES = new Set(["abilityCheck", "controlCheck", "skillCheck", "anyCheck", "damageVs", "damageDealt", "suitChange", "damageTag", "cardValue"]);
+    // 文字列フィールドの上書きパス(数値の加算でなく値の置き換え・2026-07-13。モードは「上書き」を想定)
+    const STRING_OVERRIDE_PATHS = new Set(["attack.damageType"]);
 
     const entries = [];
     const collect = (effects, bearer) => {
@@ -217,7 +219,8 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
       const stackable = effect.flags?.[SCOPE]?.stackable === true;
       for (const { doc, totalPath } of this._resolveBuffApplications(parsed, bearer)) {
         if (!evalEffectConditions(doc.system, parsed.conditions)) continue;
-        apps.push({ effect, change, doc, totalPath, identity, stackable, bearer });
+        apps.push({ effect, change, doc, totalPath, identity, stackable, bearer,
+            isString: STRING_OVERRIDE_PATHS.has(parsed.path ?? "") });
       }
     }
 
@@ -226,7 +229,14 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
     // 「リテラル先→式後」の2フェーズで適用する(式値どうしは相互参照しない=ユーザー確定・順不同で確定)。
     const literalApps = [];
     const formulaApps = [];
+    const stringApps = [];
     for (const app of apps) {
+      // 文字列上書き(attack.damageType 等): 値は生文字列(空は無視)。数値評価は通さない
+      if (app.isString) {
+        const v = String(app.change.value ?? "").trim();
+        if (v) { app.value = v; stringApps.push(app); }
+        continue;
+      }
       const lit = parsePlainNumber(app.change.value);
       if (lit !== null) { app.value = lit; literalApps.push(app); }
       else formulaApps.push(app);
@@ -240,7 +250,10 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
         if (app.stackable) { finalApps.push(app); continue; }
         const k = `${app.doc.id}|${app.totalPath}|${app.change.mode}|${app.identity}`;
         const prev = best.get(k);
-        if (!prev || (app.value ?? 0) > (prev.value ?? 0)) best.set(k, app);
+        // 文字列上書きは大小比較しない(同一効果内の重複は先勝ち)
+        const better = !prev || (typeof app.value === "number" && typeof prev.value === "number"
+            && app.value > prev.value);
+        if (better) best.set(k, app);
       }
       for (const app of best.values()) finalApps.push(app);
       // Foundry 既定の優先度(mode×10)で安定適用する
@@ -253,6 +266,8 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
 
     // フェーズ1: リテラル値を適用(base→total を確定)
     applyPhase(literalApps);
+    // 文字列上書き(ダメージ種別等)はリテラルと同段で適用(式は数値のみ=文字列は式評価を通さない)
+    applyPhase(stringApps);
     // フェーズ2: リテラル適用後の total を参照して式値を評価 → 適用(評価不能・非数は 0)
     for (const app of formulaApps) {
       const v = evaluateFormulaSync(app.change.value, buildFormulaData(actor, null, app.bearer));

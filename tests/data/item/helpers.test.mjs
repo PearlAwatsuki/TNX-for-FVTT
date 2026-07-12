@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
-const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, damageDealtChangeMatches, gatherDamageDealtSources, collectActorEffectBuffs, targetStyleWorksKeys } = await import("../../../scripts/data/item/helpers.mjs");
+const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, damageDealtChangeMatches, gatherDamageDealtSources, collectActorEffectBuffs, targetStyleWorksKeys, actorCardValueOverride } = await import("../../../scripts/data/item/helpers.mjs");
 
 describe("defenceField()", () => {
   it("呼び出せる", () => {
@@ -326,7 +326,32 @@ describe("collectActorEffectBuffs()（アクター＋所有アイテムの effec
   });
 });
 
+describe("actorCardValueOverride()（カード数字の上書き・2026-07-13）", () => {
+  const mkActor = (value) => ({
+    effects: [{ id: "e1", active: true, flags: {}, changes: [{ key: "check.cardValue", value }] }],
+    items: [],
+  });
+  it("A/J/Q/K は 1/11/12/13・数字はそのまま", () => {
+    expect(actorCardValueOverride(mkActor("A"))).toBe(1);
+    expect(actorCardValueOverride(mkActor("J"))).toBe(11);
+    expect(actorCardValueOverride(mkActor("Q"))).toBe(12);
+    expect(actorCardValueOverride(mkActor("K"))).toBe(13);
+    expect(actorCardValueOverride(mkActor("7"))).toBe(7);
+    expect(actorCardValueOverride(mkActor("10"))).toBe(10);
+  });
+  it("不正値・空・非アクティブは null", () => {
+    expect(actorCardValueOverride(mkActor("15"))).toBeNull();
+    expect(actorCardValueOverride(mkActor(""))).toBeNull();
+    const inactive = mkActor("A");
+    inactive.effects[0].active = false;
+    expect(actorCardValueOverride(inactive)).toBeNull();
+  });
+});
+
 describe("resolveItemTotalPath()", () => {
+  it("attack.damageType は total を持たない=そのまま上書きパス（2026-07-13）", () => {
+    expect(resolveItemTotalPath("attack.damageType")).toBe("attack.damageType");
+  });
   it("modeValue/attack は <param>.total", () => {
     expect(resolveItemTotalPath("attack")).toBe("attack.total");
     expect(resolveItemTotalPath("guardValue")).toBe("guardValue.total");
@@ -405,6 +430,11 @@ describe("parseEffectTargetKey()（v2 system.<名前空間> 文法）", () => {
     expect(parseEffectTargetKey("check.all")).toMatchObject({ scope: "anyCheck" });
     // 制御判定は対象外(能力値のみのため null)
     expect(parseEffectTargetKey("controlCheck.all")).toBeNull();
+  });
+
+  it("カード数字の上書き: check.cardValue（値は A〜K・2026-07-13）", () => {
+    expect(parseEffectTargetKey("check.cardValue")).toMatchObject({ scope: "cardValue" });
+    expect(parseEffectTargetKey("controlCheck.cardValue")).toBeNull(); // 制御判定は対象外
   });
 
   it("スート変更マーカー: check.suitChange（値不要・2026-07-12）", () => {

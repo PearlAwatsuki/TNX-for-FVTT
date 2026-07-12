@@ -16,7 +16,7 @@
  */
 
 import { getCardCheckValue, calcSkillCheck, calcControlCheck, normalizeSuit, ALL_SUITS, SUIT_TO_ABILITY } from './tnx-check-engine.mjs';
-import { gatherCheckBonusSources, collectActorEffectBuffs, actorHasSuitChangeBuff } from '../data/item/helpers.mjs';
+import { gatherCheckBonusSources, collectActorEffectBuffs, actorHasSuitChangeBuff, actorCardValueOverride } from '../data/item/helpers.mjs';
 import { evaluateBonusRows, evaluateSelfBonus } from './tnx-formula.mjs';
 import { readConditions, gatherConditionCheckSources, getCheckBlock, computeJammingPenalty } from './conditions.mjs';
 import { TnxActionHandler } from './tnx-action-handler.mjs';
@@ -35,6 +35,9 @@ import { applyConsumptionPlan } from './usage-consumption.mjs';
  * @property {number}        bountyAvailable  - 使用可能報酬点
  * @property {string|null}   requestMessageId - RL 要求 ChatMessage ID（自発判定は null）
  */
+
+/** カードの生の数字→表記(A/J/Q/K・その他は数字)。 */
+const CARD_NUM_LABEL = (n) => ({ 1: "A", 11: "J", 12: "Q", 13: "K" }[n] ?? String(n));
 
 const SUIT_LABELS = Object.freeze({
     spade:   "♠ スペード（理性）",
@@ -143,17 +146,23 @@ export class TnxCheckFlow {
 
         const suit = TnxCheckFlow._normalizeSuit(card.suit);
 
+        // カード数字の上書き(AE check.cardValue・2026-07-13): 出したカードの数字を A〜K として
+        // 扱い直す(以降の規約=A の21固定選択などは上書き後の数字に従う)。ジョーカー/切り札の
+        // 宣言には適用しない。無印「判定」の機構のため制御判定は対象外
+        const cardNumeric = TnxCheckFlow._cardValueOverride(ctx) ?? card.value;
+        const cardOverride = cardNumeric !== card.value ? { from: card.value, to: cardNumeric } : null;
+
         // スート不一致 → スート変更(2026-07-12)があれば使用可能スートへ置き換えて成立、
         // なければ判定不成立による失敗（起動は拒否しない。カードをプレイしてチャットに投稿）
         if (!suit || !ctx.validSuits.includes(suit)) {
             const changed = await TnxCheckFlow._trySuitChange(suit, ctx);
             if (changed) {
-                if (card.value === 1 && ctx.type !== "controlCheck") {
-                    return TnxCheckFlow._handleAceChoice(card, changed, ctx, { suitChangedFrom: suit ?? null });
+                if (cardNumeric === 1 && ctx.type !== "controlCheck") {
+                    return TnxCheckFlow._handleAceChoice(card, changed, ctx, { suitChangedFrom: suit ?? null, cardOverride });
                 }
                 return TnxCheckFlow._execute({
-                    card, cardCheckValue: getCardCheckValue({ numericValue: card.value }),
-                    suit: changed, ctx, suitChangedFrom: suit ?? null,
+                    card, cardCheckValue: getCardCheckValue({ numericValue: cardNumeric }),
+                    suit: changed, ctx, suitChangedFrom: suit ?? null, cardOverride,
                 });
             }
             return TnxCheckFlow._execute({
@@ -162,13 +171,13 @@ export class TnxCheckFlow {
         }
 
         // A: 11 か 21固定を選択（制御判定は選択不要）
-        if (card.value === 1 && ctx.type !== "controlCheck") {
-            return TnxCheckFlow._handleAceChoice(card, suit, ctx);
+        if (cardNumeric === 1 && ctx.type !== "controlCheck") {
+            return TnxCheckFlow._handleAceChoice(card, suit, ctx, { cardOverride });
         }
 
         // 通常カード
-        const cardCheckValue = getCardCheckValue({ numericValue: card.value });
-        return TnxCheckFlow._execute({ card, cardCheckValue, suit, ctx });
+        const cardCheckValue = getCardCheckValue({ numericValue: cardNumeric });
+        return TnxCheckFlow._execute({ card, cardCheckValue, suit, ctx, cardOverride });
     }
 
     /**
@@ -229,33 +238,45 @@ export class TnxCheckFlow {
             return TnxCheckFlow._execute({ card, cardCheckValue, suit: declaredSuit, ctx, fromDeck: true });
         }
 
+        // カード数字の上書き(AE check.cardValue・2026-07-13): 山札でも上書き後の数字に規約が従う
+        // (K 等へ上書きすれば山札の絵札=FUMBLE)。制御判定は対象外
+        const cardNumeric = TnxCheckFlow._cardValueOverride(ctx) ?? card.value;
+        const cardOverride = cardNumeric !== card.value ? { from: card.value, to: cardNumeric } : null;
+
         // 山札判定: 絵札 → FUMBLE（スート不一致チェックより先）
-        const cardCheckValue = getCardCheckValue({ numericValue: card.value, isFromDeck: true });
+        const cardCheckValue = getCardCheckValue({ numericValue: cardNumeric, isFromDeck: true });
         if (cardCheckValue === "FUMBLE") {
-            return TnxCheckFlow._execute({ card, cardCheckValue, suit: suit ?? ctx.validSuits[0] ?? "spade", ctx, fromDeck: true });
+            return TnxCheckFlow._execute({ card, cardCheckValue, suit: suit ?? ctx.validSuits[0] ?? "spade", ctx, fromDeck: true, cardOverride });
         }
 
         // スート不一致 → スート変更(2026-07-12)があれば置き換え、なければ不成立（手札判定と同様）
         if (!suit || !ctx.validSuits.includes(suit)) {
             const changed = await TnxCheckFlow._trySuitChange(suit, ctx);
             if (changed) {
-                if (card.value === 1 && ctx.type !== "controlCheck") {
-                    return TnxCheckFlow._handleAceChoice(card, changed, ctx, { fromDeck: true, suitChangedFrom: suit ?? null });
+                if (cardNumeric === 1 && ctx.type !== "controlCheck") {
+                    return TnxCheckFlow._handleAceChoice(card, changed, ctx, { fromDeck: true, suitChangedFrom: suit ?? null, cardOverride });
                 }
-                return TnxCheckFlow._execute({ card, cardCheckValue, suit: changed, ctx, fromDeck: true, suitChangedFrom: suit ?? null });
+                return TnxCheckFlow._execute({ card, cardCheckValue, suit: changed, ctx, fromDeck: true, suitChangedFrom: suit ?? null, cardOverride });
             }
             return TnxCheckFlow._execute({
                 card, cardCheckValue: null, suit: suit ?? "spade", ctx, fromDeck: true, suitMismatch: true,
             });
         }
 
-        return TnxCheckFlow._execute({ card, cardCheckValue, suit, ctx, fromDeck: true });
+        return TnxCheckFlow._execute({ card, cardCheckValue, suit, ctx, fromDeck: true, cardOverride });
     }
 
     // ─── プライベートヘルパー ──────────────────────────────────────────────────
 
     static _normalizeSuit(rawSuit) {
         return normalizeSuit(rawSuit); // 純関数へ委譲(tnx-check-engine・衰弱/重圧ドローと共用)
+    }
+
+    /** カード数字の上書き(AE check.cardValue・2026-07-13)。無印判定のみ(制御判定は対象外)。 */
+    static _cardValueOverride(ctx) {
+        if (ctx.type === "controlCheck") return null;
+        const actor = game.actors.get(ctx.actorId);
+        return actor ? actorCardValueOverride(actor) : null;
     }
 
     static _isJoker(card) {
@@ -565,7 +586,7 @@ export class TnxCheckFlow {
     // _consumeUses は廃止。全ての消費は用途の消費先設定(consumeTargets)からのみ発生し、
     // 解決・確認・適用は usage-consumption.mjs が担う(ctx.consumeUses には適用可能な平プランが入る)
 
-    static async _execute({ card, cardCheckValue, suit, ctx, fromDeck = false, trumpUsed = false, suitMismatch = false, suitChangedFrom = null }) {
+    static async _execute({ card, cardCheckValue, suit, ctx, fromDeck = false, trumpUsed = false, suitMismatch = false, suitChangedFrom = null, cardOverride = null }) {
         const actor = game.actors.get(ctx.actorId);
         if (!actor) {
             ui.notifications.error("判定するキャストが見つかりません。");
@@ -671,6 +692,9 @@ export class TnxCheckFlow {
         // スート変更(2026-07-12): 元スートを結果に載せ、内訳に「スート変更（元→後）」を明示する
         if (suitChangedFrom !== null) result.suitChangedFrom = suitChangedFrom;
 
+        // カード数字の上書き(2026-07-13): 元→後を内訳に明示する
+        if (cardOverride) result.cardOverride = cardOverride;
+
         // 再判定コンテキスト(2026-07-11): 結果カードに「再判定(カードを出し直す)」ボタンを出すための
         // 再実行用スナップショット。継続処理を持つ判定(リアクション/NPC取得/治療/移動/controlNegate)は
         // 状態機械のリセットが必要なため当面対象外(申し送り)
@@ -762,6 +786,10 @@ export class TnxCheckFlow {
                 // スート変更(2026-07-12): 元→後を内訳に明示する
                 suitChangedDisplay: result.suitChangedFrom
                     ? `${SUIT_SYMBOL[result.suitChangedFrom] ?? result.suitChangedFrom} → ${SUIT_SYMBOL[suit] ?? suit}`
+                    : null,
+                // カード数字の上書き(2026-07-13): 元→後(A/J/Q/K 表記)を内訳に明示する
+                cardOverrideDisplay: result.cardOverride
+                    ? `${CARD_NUM_LABEL(result.cardOverride.from)} → ${CARD_NUM_LABEL(result.cardOverride.to)}`
                     : null,
                 isFixed21:    result.fixedAt21 === true,
                 hasTargetValue: ctx.targetValue !== null,

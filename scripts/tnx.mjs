@@ -298,7 +298,48 @@ async function performUnsyncSeparation(castActor, ownerUser) {
 // flags.tokyo-nova-axleration.stackable に保存(change で明示 setFlag、フォーム依存を避ける)。
 Hooks.on("renderActiveEffectConfig", (app, element) => {
     const root = element instanceof HTMLElement ? element : element?.[0];
-    if (!root || root.querySelector(".tnx-stackable-field")) return;
+    if (!root) return;
+
+    // 上書き系キーの値入力を選択式にする(2026-07-13 ユーザー確定・ベタ打ちさせない):
+    // - check.cardValue: 判定に使用したカードの数字の上書き(A〜K)
+    // - *.attack.damageType: ダメージ種別の上書き(S/P/I/X。system.skill.<識別キー>.attack.damageType 等)
+    const VALUE_CHOICE_RULES = [
+        { match: (k) => k === "check.cardValue",
+          options: ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"] },
+        { match: (k) => k.endsWith(".attack.damageType") || k === "system.baseAttack.damageType",
+          options: ["S", "P", "I", "X"] },
+    ];
+    const syncChangeValueInputs = () => {
+        for (const keyInput of root.querySelectorAll('[name^="changes."][name$=".key"]')) {
+            const valueName = keyInput.name.replace(/\.key$/, ".value");
+            const valueEl = root.querySelector(`[name="${CSS.escape(valueName)}"]`);
+            if (!valueEl) continue;
+            const rule = VALUE_CHOICE_RULES.find(r => r.match((keyInput.value ?? "").trim()));
+            if (rule) {
+                const sig = rule.options.join(",");
+                if (valueEl.tagName === "SELECT" && valueEl.dataset.tnxChoices === sig) continue;
+                const sel = document.createElement("select");
+                sel.name = valueEl.name;
+                sel.dataset.tnxChoices = sig;
+                sel.innerHTML = ['<option value="">──</option>',
+                    ...rule.options.map(o => `<option value="${o}"${valueEl.value === o ? " selected" : ""}>${o}</option>`),
+                ].join("");
+                valueEl.replaceWith(sel);
+            } else if (valueEl.tagName === "SELECT" && valueEl.dataset.tnxChoices) {
+                const inp = document.createElement("input");
+                inp.type = "text";
+                inp.name = valueEl.name;
+                inp.value = valueEl.value;
+                valueEl.replaceWith(inp);
+            }
+        }
+    };
+    syncChangeValueInputs();
+    root.addEventListener("change", (ev) => {
+        if (typeof ev.target?.name === "string" && ev.target.name.endsWith(".key")) syncChangeValueInputs();
+    });
+
+    if (root.querySelector(".tnx-stackable-field")) return;
     const current = app.document?.getFlag?.("tokyo-nova-axleration", "stackable") === true;
     const group = document.createElement("div");
     group.classList.add("form-group", "tnx-stackable-field");
