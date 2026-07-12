@@ -16,7 +16,7 @@ export const EffectsSheetMixin = {
      * @param {object} context
      */
     prepareEffectsContext(document, context) {
-        const effects = { temporary: [], passive: [], inactive: [] };
+        const effects = { temporary: [], passive: [], inactive: [], transferred: [] };
         const source = (typeof document.allApplicableEffects === "function")
             ? document.allApplicableEffects()
             : document.effects;
@@ -25,7 +25,19 @@ export const EffectsSheetMixin = {
         for (const effect of source) {
             // ダメージ/カスケード由来の状態は AE 本体をリスト非表示にする(供給元が浮くため。
             // 状態自体はトークンのステータスアイコンで見える。技能由来 BS はフラグなし=表示)。
-            if (effect.flags?.["tokyo-nova-axleration"]?.hideFromList) continue;
+            const flags = effect.flags?.["tokyo-nova-axleration"] ?? {};
+            if (flags.hideFromList) continue;
+            // 転送コピー(2026-07-13): 他アイテム由来であることを「転送された効果」セクションで
+            // 明示する(物理コピー=このアイテム自身の効果なので通常の操作がそのまま効く)
+            if (flags.transferredFrom !== undefined) {
+                effects.transferred.push({
+                    id: effect.id, name: effect.name, img: effect.img,
+                    disabled: effect.disabled === true,
+                    durationLabel: effect.duration?.label ?? "",
+                    sourceName: flags.transferredSourceName ?? "",
+                });
+                continue;
+            }
             if (effect.disabled) effects.inactive.push(effect);
             else if (effect.isTemporary) effects.temporary.push(effect);
             else effects.passive.push(effect);

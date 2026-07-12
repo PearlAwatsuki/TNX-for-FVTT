@@ -417,7 +417,11 @@ export function buildTransferredEffectData(effect, targetItem, bearer, scope = "
     transfer: false,
     origin: effect.uuid,
     changes,
-    flags: { [scope]: { transferredFrom: effect.uuid } },
+    flags: { [scope]: {
+      transferredFrom: effect.uuid,
+      // 表示用の供給元名(「転送された効果」セクションで名前に添える)。無同期のため転送時点の名前
+      transferredSourceName: bearer?.name ?? "",
+    } },
   };
 }
 

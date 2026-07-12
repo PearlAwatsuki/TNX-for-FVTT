@@ -352,7 +352,7 @@ describe("actorCardValueOverride()（カード数字の上書き・2026-07-13）
 
 describe("物理転送（itemChangeTargets / buildTransferredEffectData・2026-07-13）", () => {
   const weapon = { documentName: "Item", id: "w1", system: { identificationKey: "buki", minorCategory: "melee", majorCategory: "weapon" } };
-  const optionBearer = { documentName: "Item", id: "o1", system: { parentItemId: "w1" } };
+  const optionBearer = { documentName: "Item", id: "o1", name: "強化オプション", system: { parentItemId: "w1" } };
   const effect = (changes) => ({
     uuid: "Actor.a.Item.o1.ActiveEffect.e1", name: "強化", img: "icons/svg/aura.svg",
     disabled: false, changes,
@@ -382,6 +382,7 @@ describe("物理転送（itemChangeTargets / buildTransferredEffectData・2026-0
     expect(data.changes[0].value).toBe("S");
     expect(data.origin).toBe(e.uuid);
     expect(data.flags["tokyo-nova-axleration"].transferredFrom).toBe(e.uuid);
+    expect(data.flags["tokyo-nova-axleration"].transferredSourceName).toBe("強化オプション");
     expect(data.transfer).toBe(false);
   });
 
