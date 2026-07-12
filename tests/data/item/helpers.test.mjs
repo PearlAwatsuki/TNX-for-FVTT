@@ -464,6 +464,20 @@ describe("parseEffectTargetKey()（v2 system.<名前空間> 文法）", () => {
     expect(parseEffectTargetKey("damage.dealt.slash")).toBeNull(); // 未知系統
   });
 
+  it("アイテム着地の統一記法: item.<識別キー>.system.*（式と同じ綴り・2026-07-13）", () => {
+    expect(parseEffectTargetKey("item.melee.system.attack.value"))
+      .toMatchObject({ scope: "skill", selector: "melee", prefix: false, path: "attack.value" });
+    expect(parseEffectTargetKey("item.society_*.system.level"))
+      .toMatchObject({ scope: "skill", selector: "society_", prefix: true, path: "level" });
+    expect(parseEffectTargetKey("item.buki.system.attack.damageType"))
+      .toMatchObject({ scope: "skill", selector: "buki", path: "attack.damageType" });
+    expect(parseEffectTargetKey("item.self.system.attack"))
+      .toMatchObject({ scope: "self", path: "attack" });
+    expect(parseEffectTargetKey("item.parent.system.attack"))
+      .toMatchObject({ scope: "parent", path: "attack" });
+    expect(parseEffectTargetKey("item.melee.attack")).toBeNull(); // system 抜きは不可
+  });
+
   it("条件付き [hack>=3] / 複数 ;", () => {
     expect(parseEffectTargetKey("system.category.melee[hack>=3].attack").conditions)
       .toEqual([{ path: "hack", op: ">=", value: 3 }]);

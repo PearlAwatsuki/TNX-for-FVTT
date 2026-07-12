@@ -498,6 +498,19 @@ export function parseEffectTargetKey(key) {
     return null;
   }
 
+  // アイテム着地の統一記法(2026-07-13 ユーザー指摘で追加): item.<識別キー>.system.<パラメータ>。
+  // 式(@item.<識別キー>.system.*)と同じ文法で AE キーを書けるようにする(v2 の
+  // system.skill.<識別キー>.* / system.self.* / system.parent.* と同義のエイリアス。
+  // 式とキーで綴りが食い違う二重文法の解消)。category はアイテム個体でないため対象外
+  if (segs[0] === "item" && segs.length >= 4 && segs[2] === "system") {
+    const sel = segs[1];
+    const path = segs.slice(3).join(".");
+    if (sel === "self")   return { scope: "self",   path, conditions };
+    if (sel === "parent") return { scope: "parent", path, conditions };
+    const prefix = sel.endsWith("*");
+    return { scope: "skill", selector: prefix ? sel.slice(0, -1) : sel, prefix, path, conditions };
+  }
+
   // 値バフ: system.<名前空間>.…
   if (segs[0] !== "system") return null;
   const ns = segs[1];
