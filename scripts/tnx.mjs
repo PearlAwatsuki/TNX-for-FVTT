@@ -386,27 +386,30 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
         (transferGroup ?? anchor)?.after(parentGroup);
     }
 
-    // 付与先(自動適用オフ=ペイロードのときのみ意味を持つ): 使用時にこの効果を誰に付与するか。
-    // 対象=ターゲットしたキャラクター(既定)/自分=使用者(用途解決時に即時付与=代償デバフ等)
-    const grantCur = app.document?.getFlag?.("tokyo-nova-axleration", "grantTarget") === "self" ? "self" : "target";
-    const grantGroup = document.createElement("div");
-    grantGroup.classList.add("form-group", "tnx-grant-target-field");
-    grantGroup.innerHTML = `
-        <label>付与先</label>
-        <div class="form-fields">
-            <select name="flags.tokyo-nova-axleration.grantTarget">
-                <option value="target"${grantCur === "target" ? " selected" : ""}>対象</option>
-                <option value="self"${grantCur === "self" ? " selected" : ""}>自分</option>
-            </select>
-        </div>
-        <p class="hint">使用時にこの効果を付与する相手（対象＝ターゲット、自分＝使用者）。</p>`;
-    (parentGroup ?? transferGroup ?? anchor)?.after(grantGroup);
+    // 付与先: 使用時にこの効果を誰に付与するか。対象=ターゲットしたキャラクター(既定)/
+    // 自分=使用者(用途解決時に即時付与=代償デバフ等)。**自動適用とは直交**(2026-07-13 ユーザー指摘で
+    // 是正: 用途の適用効果は自動適用オンの効果も選択できるため、transfer で出し分けると設定に
+    // 到達できない)。用途の効果はアイテム由来のみなので、アイテム上の効果で常時表示する
+    if (app.document?.parent?.documentName === "Item") {
+        const grantCur = app.document.getFlag?.("tokyo-nova-axleration", "grantTarget") === "self" ? "self" : "target";
+        const grantGroup = document.createElement("div");
+        grantGroup.classList.add("form-group", "tnx-grant-target-field");
+        grantGroup.innerHTML = `
+            <label>付与先</label>
+            <div class="form-fields">
+                <select name="flags.tokyo-nova-axleration.grantTarget">
+                    <option value="target"${grantCur === "target" ? " selected" : ""}>対象</option>
+                    <option value="self"${grantCur === "self" ? " selected" : ""}>自分</option>
+                </select>
+            </div>
+            <p class="hint">用途の「適用される効果」でこの効果を付与する相手（対象＝ターゲット、自分＝使用者）。</p>`;
+        (parentGroup ?? transferGroup ?? anchor)?.after(grantGroup);
+    }
 
-    // モードで出し分け: 準備先=自動適用オンのとき、付与先=オフのときだけ表示する
+    // 出し分け: 準備先=自動適用オンのときだけ表示する(常時自動適用の乗り先修飾のため。
+    // 使用時付与ではコピー作成時に applyToParent を落とす=オフ時に意味を持つ経路が無い)
     const syncModeFields = () => {
-        const auto = transferInput ? !!transferInput.checked : true;
-        if (parentGroup) parentGroup.style.display = auto ? "" : "none";
-        grantGroup.style.display = auto ? "none" : "";
+        if (parentGroup) parentGroup.style.display = (transferInput ? !!transferInput.checked : true) ? "" : "none";
     };
     syncModeFields();
     transferInput?.addEventListener("change", syncModeFields);

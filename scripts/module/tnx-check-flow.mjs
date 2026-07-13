@@ -917,7 +917,8 @@ export class TnxCheckFlow {
     // ─── 達成値クリック待ちアクション(2026-07-11) ─────────────────────────────
     // 用途の使用で「クリック待ち」モードに入り、チャットカードのクリックで発動する
     // 事後系メカニクスの共通機構。kind で動作とクリック先を分岐する:
-    //   - "recheck"(再判定を付与): 結果カードの達成値クリック=その判定に起動技能を組み合わせた再判定
+    //   - "recheck"(再判定を付与): 結果カードの達成値クリック=その判定に起動技能を組み合わせた再判定。
+    //     宣言用途からの付与は判定でない=参加技能が無いため組み合わせずに再判定する(merge=false・2026-07-13)
     //   - "modify"(判定を修正): 結果カードの達成値クリック=その判定に事後ボーナス/ペナルティを適用
     //   - "modifyDamage"(ダメージを修正): ダメージカードの攻撃側合計クリック=そのダメージに修正を適用
     //     (発動処理は damage-flow.handleDamageModifyClick。状態は peekAchievementAction で覗く)
@@ -925,7 +926,7 @@ export class TnxCheckFlow {
     //     (発動処理は _trySuitChange。クリックでなく判定のカードプレイが発動点)
     // 排他(同時に1つ)・同じ用途の再使用でキャンセル。発動条件(失敗時のみ等)は自動強制しない(卓裁定)。
 
-    /** @type {{kind:"recheck"|"modify"|"modifyDamage"|"suitChange", actorId:string, skillItemId:string, skillName:string, usageId:string, consumeUses:Array}|null} */
+    /** @type {{kind:"recheck"|"modify"|"modifyDamage"|"suitChange", actorId:string, skillItemId:string, skillName:string, usageId:string, consumeUses:Array, merge:boolean}|null} */
     static _clickState = null;
 
     static get isGrantPending() { return TnxCheckFlow._clickState !== null; }
@@ -940,13 +941,17 @@ export class TnxCheckFlow {
      * @param {"recheck"|"modify"|"modifyDamage"|"suitChange"} kind
      * @param {Actor} actor 用途の使用者
      * @param {Item} skill 用途の親技能
-     * @param {{usageId?:string, consumeUses?:Array}} [opts]
+     * @param {{usageId?:string, consumeUses?:Array, merge?:boolean}} [opts]
+     *   merge: 再判定の付与で起動技能を組み合わせるか(check 用途=true。宣言用途は判定でない=
+     *   参加技能が無いため false で素の再判定権のみ付与・2026-07-13 ユーザー確定)
      */
-    static startAchievementAction(kind, actor, skill, { usageId = "", consumeUses = [] } = {}) {
+    static startAchievementAction(kind, actor, skill, { usageId = "", consumeUses = [], merge = true } = {}) {
         const MSG = {
             recheck: {
                 cancel: "再判定の付与をキャンセルしました。",
-                start:  `結果カードの達成値をクリックすると、その判定に「${skill.name}」を組み合わせて再判定します（「${skill.name}」をもう一度使用するとキャンセル）。`,
+                start:  merge
+                    ? `結果カードの達成値をクリックすると、その判定に「${skill.name}」を組み合わせて再判定します（「${skill.name}」をもう一度使用するとキャンセル）。`
+                    : `結果カードの達成値をクリックすると、その判定を再判定します（「${skill.name}」をもう一度使用するとキャンセル）。`,
             },
             modify: {
                 cancel: "判定の修正をキャンセルしました。",

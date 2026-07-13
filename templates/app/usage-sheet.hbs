@@ -400,6 +400,15 @@
             {{#if isDeclarationType}}
             <fieldset class="tnx-fieldset">
                 <legend>判定</legend>
+                {{!-- 再判定を付与(2026-07-13 ユーザー確定): 宣言は判定でない=参加技能が無いため、
+                     組み合わせなしの素の再判定権を事後付与する(check 用途の付与は親技能を組み合わせる) --}}
+                <div class="usage-form-row usage-toggle-row">
+                    <label class="usage-toggle-inline" title="使用後、結果カードの達成値をクリックすると、その判定を再判定します">
+                        <input type="checkbox" name="grantRecheck" {{checked usage.grantRecheck}}
+                               {{#unless editable}}disabled{{/unless}}>
+                        <span>再判定を付与</span>
+                    </label>
+                </div>
                 <div class="usage-form-row usage-toggle-row">
                     <label class="usage-toggle-inline" title="使用後、結果カードの達成値をクリックすると、下の修正値をその判定に適用します">
                         <input type="checkbox" name="modifyCheck" {{checked usage.modifyCheck}}

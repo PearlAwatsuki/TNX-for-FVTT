@@ -1001,7 +1001,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             update.canStun = isAtk ? (raw["canStun"] ?? usage.canStun ?? false) : false;
         }
 
-        // 宣言(declaration)の判定/ダメージ修正(2026-07-12): チェックボックス2つは独立(排他にしない)。
+        // 宣言(declaration)の判定/ダメージ修正(2026-07-12): チェックボックスは独立(排他にしない)。
         // OFF にした側の式はクリアする(check 用途の非選択側クリアと同じ扱い)。
         // 表示切り替え(式欄の出し入れ)があるためフラグ変更時は再描画する
         let declModifyChanged = false;
@@ -1012,6 +1012,9 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             update.modifyDamage = raw["modifyDamage"] ?? prevMD;
             update.checkBonusSelf  = update.modifyCheck  ? (raw["checkBonusSelf"]  ?? usage.checkBonusSelf  ?? "") : "";
             update.damageBonusSelf = update.modifyDamage ? (raw["damageBonusSelf"] ?? usage.damageBonusSelf ?? "") : "";
+            // 再判定を付与(2026-07-13): 宣言は組み合わせなしの素の再判定権を事後付与する。
+            // 式欄を持たないため再描画は不要
+            update.grantRecheck = raw["grantRecheck"] ?? (usage.grantRecheck === true);
             // スートを変更(次の判定・2026-07-12): 式欄を持たないため再描画は不要
             update.grantSuitChange = raw["grantSuitChange"] ?? (usage.grantSuitChange === true);
             declModifyChanged = update.modifyCheck !== prevMC || update.modifyDamage !== prevMD;
