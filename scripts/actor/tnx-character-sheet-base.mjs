@@ -594,6 +594,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
 
         this._activateContextMenus(el);
         this._applyTextSqueezing();
+        // セッション初のシート描画はフォント読み込み前に走り得て、scrollWidth を代替フォントの
+        // 字幅で誤計測する(縮小されず見切れる)。フォント確定後に測り直す(読み込み済みなら即解決)
+        document.fonts?.ready.then(() => this._applyTextSqueezing());
 
         // 再描画後にスクロール位置を復元する
         const saved = this._scrollPositions;
