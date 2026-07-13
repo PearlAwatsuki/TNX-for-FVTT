@@ -66,6 +66,9 @@ export class TnxSkillUtils {
                 "blank":       "-",
                 "none":        "なし",
                 "single":      "単独",
+                // 宣言: 判定を行わない宣言型の「技能：宣言」表記(2026-07-14 復元・選択肢の欠落を
+                // ユーザー指摘。連鎖解決では skillName 以外の値と同じく葉として扱われる)
+                "declaration": "宣言",
                 "dodge":       "ドッジ",
                 "parry":       "パリー",
                 "skillName":   "技能名",
