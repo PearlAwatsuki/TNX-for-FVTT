@@ -2318,12 +2318,12 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 攻撃・NPC取得もアイテムロール(アクターシートの技能クリック)から実行できる
         // (経路の漏れを作らない=11-6/12-2 の確定方針)
         // 攻撃は判定の一種(damageCategory 付きの check)。check/npcAcquire に加え、
-        // 修正フラグ付きの宣言(判定を修正/ダメージを修正=バフ宣言・2026-07-12)も実行対象にする
-        // (修正フラグ無しの宣言は従来どおり解説カード=既存挙動を変えない)
+        // 事後系フラグ付きの宣言(再判定を付与/判定を修正/ダメージを修正=バフ宣言・2026-07-12/13)も
+        // 実行対象にする(フラグ無しの宣言は従来どおり解説カード=既存挙動を変えない)
         const usableUsages = (item.system.actions ?? [])
             .filter(a => a.type === "check"
                 || (a.type === "declaration"
-                    && (a.modifyCheck === true || a.modifyDamage === true
+                    && (a.grantRecheck === true || a.modifyCheck === true || a.modifyDamage === true
                         || a.grantSuitChange === true || a.recovery === true || a.npcAcquire === true)));
         if (!usableUsages.length) {
             await item.postDescriptionCard();
@@ -2355,7 +2355,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 判定を修正=達成値クリックでその判定に事後ボーナス/ペナルティを適用。
         // ダメージを修正=ダメージカードの攻撃側合計クリックでそのダメージに修正を適用。
         // スートを変更=次の自分の判定で使用不可スートを出したとき使用可能スートへ変更(2026-07-12)。
-        // 宣言(declaration)の判定を修正/ダメージを修正/スートを変更も同経路(バフ宣言・2026-07-12)。
+        // 宣言(declaration)の再判定を付与/判定を修正/ダメージを修正/スートを変更も同経路
+        // (バフ宣言・2026-07-12。再判定を付与は 2026-07-13=判定でないため組み合わせなし)。
         // 複数フラグ ON は上記の順で先に振る(排他 UI にはしない・複数 ON の運用は想定しない)。
         // 消費は用途の consumeTargets(プランを持ち回り、発動時に適用)
         if ((selectedUsage.type === "check" || selectedUsage.type === "declaration")
@@ -2367,7 +2368,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             const grantRows = resolveConsumeRowsForActor(this.actor, item, selectedUsage.consumeTargets);
             const grantPlan = await promptConsumption(this.actor, grantRows, { title: `使用回数の消費: ${item.name}` });
             if (grantPlan === null) return;
-            TnxCheckFlow.startAchievementAction(kind, this.actor, item, { usageId: selectedUsage._id, consumeUses: grantPlan });
+            TnxCheckFlow.startAchievementAction(kind, this.actor, item, {
+                usageId: selectedUsage._id, consumeUses: grantPlan, merge: selectedUsage.type === "check",
+            });
             return;
         }
 

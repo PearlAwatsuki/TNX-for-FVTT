@@ -972,7 +972,7 @@ export class TnxCheckFlow {
             return;
         }
         TnxCheckFlow._clickState = {
-            kind, actorId: actor.id, skillItemId: skill.id, skillName: skill.name, usageId, consumeUses,
+            kind, actorId: actor.id, skillItemId: skill.id, skillName: skill.name, usageId, consumeUses, merge,
         };
         document.body.classList.add("tnx-recheck-grant-pending");
         ui.notifications.info(MSG.start);
@@ -994,7 +994,8 @@ export class TnxCheckFlow {
         if (!skill) { TnxCheckFlow.cancelAchievementAction(); return; }
         TnxCheckFlow.cancelAchievementAction();
         if (state.kind === "recheck") {
-            await TnxCheckFlow.startRecheck(message, { mergeSkill: skill, consumeUses: state.consumeUses });
+            // 宣言用途からの付与(merge=false)は組み合わせずに元の構成のまま再判定する
+            await TnxCheckFlow.startRecheck(message, { mergeSkill: state.merge === false ? null : skill, consumeUses: state.consumeUses });
         } else {
             await TnxCheckFlow._applyCheckModify(message, { actor, skill, usageId: state.usageId, consumeUses: state.consumeUses });
         }
