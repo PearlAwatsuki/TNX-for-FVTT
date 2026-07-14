@@ -147,6 +147,8 @@ export function computeItemEffectiveValues(system) {
   for (const base of ["FAValue", "appearanceTarget", "cyberSecurity", "analogSecurity"]) {
     if (typeof system[base] === "number") system[`${base}Total`] = system[base];
   }
+  // 特性フラグの実効値(フェーズ12。AE のオン/オフ上書きはここへ着地する)
+  computeFlagEffectiveValues(system);
 }
 
 /**
@@ -184,6 +186,89 @@ export function parseEffectConditions(str) {
  * @returns {{scope:string, selector?:string, path:string, conditions:Array}|null}
  */
 const ABILITY_NAMES = ["reason", "passion", "life", "mundane"];
+
+/**
+ * AE で切り替えられる特性フラグの opt-in レジストリ(フェーズ12・ユーザー確定)。
+ * 「特性(アイテムの性質でルール挙動・照合に効く)」のみを載せる——状態(isPrepared/isCarrying 等の
+ * ユーザー操作)・構造(isOption/isDerivedData 等のデータ管理)・変更不可マーカー(isFixedRange 等)は
+ * 対象外。登録=着地(`<フラグ>Total`)の派生と読み手の実効読み化が済んでいる印。
+ * 追加時は読み手を grep で全数掃引してから登録すること(着地だけ作って効かない状態を残さない)。
+ * @type {ReadonlyArray<string>}
+ */
+export const AE_FLAG_PARAMS = Object.freeze([
+  // 武器
+  "isFullAuto", "isLaser", "isFleshChange",
+  // アウトフィット共通
+  "isCyber", "isMutantOrgan", "isShiki", "noPrepareRequired", "isConsumption",
+  // 技能(共通)
+  "usesBounty",
+  "suits.spade", "suits.heart", "suits.diamond", "suits.club",
+  // ※ isAction / noCombo は「特性」だが**構造的読み手**(用途チェーン設定・辞典構築)が
+  //   フラグを読んで**永続設定を書き込む**ため、実行時 AE 上書きと両立させるには
+  //   チェーン再解決の設計が要る(config 書き手は base を読み、実行時解決は実効を読む必要がある)。
+  //   実効読みへの一括掃引が構造的に安全でないため、今回のレジストリからは外す(将来別設計で扱う)。
+]);
+
+/** フラグの素パス → 実効パス(`suits.spade`→`suits.spadeTotal`・`isFullAuto`→`isFullAutoTotal`)。 */
+export function flagTotalPath(path) {
+  const segs = String(path).split(".");
+  segs.push(`${segs.pop()}Total`);
+  return segs.join(".");
+}
+
+/** ドット区切りパスで system から値を引く(Foundry 非依存・テストでも動く)。 */
+function getFlagPath(obj, path) {
+  return String(path).split(".").reduce((o, k) => (o === null || o === undefined ? undefined : o[k]), obj);
+}
+
+/**
+ * 特性フラグの**実効値**を読む(フェーズ12)。AE のオン/オフ上書きが着地した `<フラグ>Total` が
+ * あればそれ、無ければ base。AE 未適用(直下・辞典アイテム)でも base を安全に読める。
+ * ルール挙動・照合が真偽フラグを読む箇所は**必ず本関数を経由**する(base 直読みは AE が効かない)。
+ * @param {object} system アイテムの system
+ * @param {string} path フラグの素パス("isFullAuto" / "suits.spade" 等)
+ * @returns {boolean}
+ */
+export function readFlag(system, path) {
+  const t = getFlagPath(system, flagTotalPath(path));
+  if (typeof t === "boolean") return t;
+  return getFlagPath(system, path) === true;
+}
+
+/** 実効綴りの集合(resolveItemTotalPath の正規化と、適用パスの boolean 判別に使う)。 */
+export const AE_FLAG_TOTAL_PATHS = Object.freeze(new Set(AE_FLAG_PARAMS.map(flagTotalPath)));
+
+/**
+ * 特性フラグの実効値(`<フラグ>Total`)を base から派生する(フェーズ12)。
+ * computeItemEffectiveValues(アウトフィット)と SkillBaseTemplate(技能)の両方から呼ぶ。
+ * base のフラグは書き換えず、AE はアクターの適用パスで実効側を上書きする。
+ * @param {object} system アイテムの system データ
+ */
+export function computeFlagEffectiveValues(system) {
+  for (const path of AE_FLAG_PARAMS) {
+    const segs = path.split(".");
+    let obj = system;
+    for (let i = 0; i < segs.length - 1; i++) {
+      obj = obj?.[segs[i]];
+      if (!obj) break;
+    }
+    const last = segs[segs.length - 1];
+    if (obj && typeof obj[last] === "boolean") obj[`${last}Total`] = obj[last];
+  }
+}
+
+/**
+ * 真偽フラグ AE の値を解釈する(フェーズ12)。オン/オフの選択式注入が書く "true"/"false" のほか、
+ * 手打ちの 1/0・on/off 等も受ける。解釈不能は null(=その変更を無視)。
+ * @param {*} raw change.value
+ * @returns {boolean|null}
+ */
+export function parseBooleanFlagValue(raw) {
+  const v = String(raw ?? "").trim().toLowerCase();
+  if (["1", "true", "on", "yes", "オン"].includes(v)) return true;
+  if (["0", "false", "off", "no", "オフ"].includes(v)) return false;
+  return null;
+}
 
 /**
  * 判定バフの変更キーが、判定の条件(criteria)に合致するか(フェーズ9-3 v2)。
@@ -419,9 +504,11 @@ export function buildTransferredEffectData(effect, targetItem, bearer, scope = "
     const parsed = parseEffectTargetKey(c.key);
     if (!parsed) continue;
     if (toParent) {
-      if (parsed.scope !== "self") continue; // 準備先転送は素のパラメータキーのみ(混在非対応)
+      // 準備先転送は素のキーのみ(混在非対応)。partAdd(system.part.<キー>)と name も素のキー形
+      if (!["self", "partAdd", "itemName"].includes(parsed.scope)) continue;
     } else if (!itemChangeTargets(parsed, targetItem)) continue;
-    changes.push({ ...c, key: `system.${parsed.path}` });
+    // 名前装飾はドキュメント直下の `name` へ(フェーズ12)。それ以外は素の system.<パス>
+    changes.push({ ...c, key: (parsed.scope === "itemName" || parsed.path === "name") ? "name" : `system.${parsed.path}` });
   }
   if (!changes.length) return null;
   return {
@@ -570,8 +657,9 @@ export function rewriteGrantChangesForItem(changes) {
   const out = [];
   for (const c of (changes ?? [])) {
     const p = parseEffectTargetKey(c?.key);
-    if (!p || !["self", "skill", "category"].includes(p.scope)) continue;
-    out.push({ ...c, key: `system.${p.path}` });
+    if (!p || !["self", "skill", "category", "partAdd", "itemName"].includes(p.scope)) continue;
+    // 名前装飾はドキュメント直下の `name`(system 外)へ書き換える(フェーズ12)
+    out.push({ ...c, key: (p.scope === "itemName" || p.path === "name") ? "name" : `system.${p.path}` });
   }
   return out;
 }
@@ -587,6 +675,12 @@ export function parseEffectTargetKey(key) {
     work = condMatch[1] + condMatch[3];
   }
   const segs = work.split(".").filter(Boolean);
+  // 名前装飾(フェーズ12・アイテムのみ): 素のキー `name`＝効果(またはそのコピー)が乗っている
+  // アイテム自身の名前。値の `{}` は現在の名前に置換(ベタ打ちは上書き)。適用は in-memory
+  // (source 不変)・priority 順の重ね掛け。ネイティブの name 適用は抑止する(tnx.mjs)。
+  if (segs.length === 1 && segs[0] === "name") {
+    return { scope: "itemName", conditions };
+  }
   if (segs.length < 2) return null;
 
   // 判定バフ: check.<能力値|技能識別キー[*]|style.<スタイル識別キー>|works.<組織識別キー>> /
@@ -666,6 +760,14 @@ export function parseEffectTargetKey(key) {
     const prefix = sel.endsWith("*");
     return { scope: "skill", selector: prefix ? sel.slice(0, -1) : sel, prefix, path, conditions };
   }
+  // 識別キー狙いの名前装飾(フェーズ12): item.<識別キー>.name。物理転送で対象アイテム上の
+  // 実体コピー(素のキー `name`)になる。転送時のキー書き換えは path==="name" を特別扱いする
+  if (segs[0] === "item" && segs.length === 3 && segs[2] === "name") {
+    const sel = segs[1];
+    if (sel === "self" || sel === "parent") return null;
+    const prefix = sel.endsWith("*");
+    return { scope: "skill", selector: prefix ? sel.slice(0, -1) : sel, prefix, path: "name", conditions };
+  }
 
   // 値バフ: system.<名前空間>.…
   if (segs[0] !== "system") return null;
@@ -695,6 +797,12 @@ export function parseEffectTargetKey(key) {
     case "ar": {
       return after.join(".") === "max" ? { scope: "ar", path: "max", conditions } : null;
     }
+    // アクター部位スロットの増減(フェーズ12)。仮想名前空間 "partSlot"——実フィールド
+    // partSlots と綴りを分けてネイティブ二重適用を防ぐ(cs/ar と同じ流儀)。
+    // 値=増減数(式も可)。着地は partSlotsEffective(base は不変)。cs.base と同じ準備ゲートあり。
+    case "partSlot": {
+      return after.length ? { scope: "partSlot", selector: after.join("."), conditions } : null;
+    }
     // 廃止済みの旧綴り(2026-07-13 再設計): 自身は素の system.<パス>、準備先は AE 設定の
     // 「準備先(親アイテム)に適用」、識別キーは item.<識別キー>.system.* に一本化した。
     // 素のキーと紛れて誤解釈しないよう明示的に死にキーにする
@@ -709,6 +817,16 @@ export function parseEffectTargetKey(key) {
       // handMaxSizeMod はネイティブ着地の特例(KI-020)のためここでは扱わない
       const path = segs.slice(1).join(".");
       if (path === "handMaxSizeMod") return null;
+      // 名前は素のキー `name`(system 外)が正——system.name は誤記として無効化する
+      if (path === "name") return null;
+      // アイテム部位行の追加(フェーズ12): system.part.<部位キー>。値=and/or(:消費数)。
+      // part は ArrayField のため素のパラメータキーとしての正当な用法が無く、予約しても衝突しない。
+      // 識別キー/分類狙い(item.<キー>.system.part.<部位キー> 等)は物理転送でこの綴りのコピーになる
+      if (path === "part") return null;
+      if (path.startsWith("part.")) {
+        const selector = path.slice("part.".length);
+        return selector ? { scope: "partAdd", selector, path, conditions } : null;
+      }
       return { scope: "self", path, conditions };
     }
   }
@@ -759,6 +877,10 @@ export function resolveItemTotalPath(param) {
     cyberSecurityTotal: "cyberSecurity", analogSecurityTotal: "analogSecurity",
   };
   if (bareTotals[p]) p = bareTotals[p];
+  // 特性フラグ(フェーズ12): 素の綴り(isFullAuto/suits.spade 等)も実効綴り(…Total)も
+  // 実効フィールドへ正規化して着地する(base 不変の大原則は数値と同じ)
+  if (AE_FLAG_TOTAL_PATHS.has(p)) return p;
+  if (AE_FLAG_PARAMS.includes(p)) return flagTotalPath(p);
   if (p.startsWith("defence.")) {
     const k = p.split(".")[1].replace(/_(defence|total)$/, "");
     return `defence.${k}_total`;

@@ -242,7 +242,7 @@ export async function promptConsumption(actor, rows, { title = "使用回数の�
     ].join("");
 
     const content = `<div class="tnx-uses-consume">
-        <p class="tnx-uses-note">用途に設定された消費先です。チェックを外すと消費せずに実行します。</p>
+        <p class="tnx-uses-note">チェックを外すと消費せずに実行します。</p>
         ${htmlRows}
     </div>`;
 

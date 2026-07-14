@@ -104,7 +104,10 @@ export function computeOutfitAggregates(items) {
     if (!OUTFIT_ITEM_TYPES.has(item.type)) continue;
     const s = item.system;
     if (!s?.isCarrying) continue;
-    // 準備で解禁される常時効果は、部位「-」等の準備不要品(noPrepareRequired)も適用する(2026-07-09)
+    // 準備で解禁される常時効果は、部位「-」等の準備不要品(noPrepareRequired)も適用する(2026-07-09)。
+    // ※ここは _applyEffectBuffs より前(prepareDerivedData 前半)で走るため base を読む——AE による
+    //   noPrepareRequired の反転はまだ乗っていない(フェーズ12・順序境界)。実行時ゲート
+    //   (ダメージ/判定/戦闘表示)は AE 後に走るため実効(readFlag)を読む。
     const applies = !!(s.isPrepared || s.noPrepareRequired);
     if (applies && s.controlMod?.mode === "value")            control     += Number(s.controlMod.value) || 0;
     if (s.combatSpeedMod?.mode === "value") {

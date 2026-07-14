@@ -98,23 +98,42 @@ function rowDesignation(row) {
  * - partOptional(部位全体の任意) → 「任意(A、B…)」(連結は「、」)。その他行を含めば末尾「など」。素は「任意」
  * - and → 「A+B」 / or → 身体部位「A、もしくはB」・スロット持ちホスト「A／B」
  * - その他行を含む → 末尾「など」
+ * - additions(フェーズ12・AE 追加行): and 追加=「(既存)+C」・or 追加=「(既存)、もしくはC」。
+ *   ラベルの解決(部位キー→現在ラベル)は呼び出し側で済ませて渡す。
  * @param {Array} part part 行配列
  * @param {string} [partRelation] "and" | "or"
  * @param {boolean} [partOptional] 部位全体が任意か(行ごとではなく part 全体に効く)
+ * @param {{and?: Array<{label:string}>, or?: Array<{label:string}>}} [additions] AE 追加行(表示ラベル解決済み)
  * @returns {string}
  */
-export function formatPartDesignation(part, partRelation = "and", partOptional = false) {
+export function formatPartDesignation(part, partRelation = "and", partOptional = false, additions = null) {
   const rows = (Array.isArray(part) ? part : []).filter((r) => r && r.kind !== "none");
   const labels = rows.map(rowDesignation).filter((l) => l !== "");
   const hasOther = rows.some((r) => r.kind === "other");
+  const andLabels = (additions?.and ?? []).map((r) => String(r?.label ?? "").trim()).filter(Boolean);
+  const orLabels  = (additions?.or ?? []).map((r) => String(r?.label ?? "").trim()).filter(Boolean);
+
+  /** AE 追加行を base 表記へ併記する(and=「+C」・or=「、もしくはC」)。 */
+  const withAdditions = (base) => {
+    let out = base;
+    if (andLabels.length) {
+      out = (out && out !== "-") ? `${out}+${andLabels.join("+")}` : andLabels.join("+");
+    }
+    if (orLabels.length) {
+      const alts = orLabels.join("、もしくは");
+      out = (out && out !== "-") ? `${out}、もしくは${alts}` : alts;
+    }
+    return out || "-";
+  };
 
   if (partOptional) {
     // 任意は部位全体に効く: 「任意(A、B…)」。その他を含めば「など」を内側末尾へ。素の任意は「任意」
+    // 任意の部位は占有しない=AE 追加行も併記しない(占有計算と対応)
     if (!labels.length) return "任意";
     return `任意(${labels.join("、")}${hasOther ? "など" : ""})`;
   }
-  if (!rows.length) return "-";
-  if (!labels.length) return hasOther ? "など" : "-";
+  if (!rows.length) return withAdditions("-");
+  if (!labels.length) return withAdditions(hasOther ? "など" : "-");
 
   let joined;
   if (rows.length >= 2 && partRelation === "or") {
@@ -124,30 +143,89 @@ export function formatPartDesignation(part, partRelation = "and", partOptional =
   } else {
     joined = labels.join("、");
   }
-  return hasOther ? `${joined}など` : joined;
+  return withAdditions(hasOther ? `${joined}など` : joined);
 }
 
 /**
  * 複数アウトフィットの部位表記を併記する(コンバイナ=両方の部位を占有)。
  * ルールブックの表記法則「部位：部位1+部位2」に従い「+」で連結(2026-07-02 修正・旧「、」)。
- * "-" は除外。
- * @param {Array<{part?:Array, partRelation?:string, partOptional?:boolean}>} systems 各 system
+ * "-" は除外。partAdditions(AE 追加行・表示解決済み)を持つ system はそれも併記する(フェーズ12)。
+ * @param {Array<{part?:Array, partRelation?:string, partOptional?:boolean,
+ *                partAdditions?:{and?:Array,or?:Array}}>} systems 各 system
  * @returns {string}
  */
 export function joinPartDesignations(systems) {
   const designations = (systems ?? [])
-    .map((s) => formatPartDesignation(s?.part, s?.partRelation, s?.partOptional))
+    .map((s) => formatPartDesignation(s?.part, s?.partRelation, s?.partOptional, s?.partAdditions))
     .filter((d) => d && d !== "-");
   return designations.length ? designations.join("+") : "-";
 }
 
+/** 部位スロット集合からキー→現在ラベルを引く(完全一致・先勝ち。未解決は "")。 */
+export function findPartLabelByKey(slots, key) {
+  const k = String(key ?? "").trim();
+  if (!k) return "";
+  const row = (Array.isArray(slots) ? slots : []).find((s) => String(s?.key ?? "").trim() === k);
+  return row ? String(row.value ?? "").trim() : "";
+}
+
+/** 部位スロット集合からラベル→キーを引く(完全一致・先勝ち。未解決は "")。 */
+export function findPartKeyByLabel(slots, label) {
+  const l = String(label ?? "").trim();
+  if (!l) return "";
+  const row = (Array.isArray(slots) ? slots : []).find((s) => String(s?.value ?? "").trim() === l);
+  return row ? String(row.key ?? "").trim() : "";
+}
+
+/**
+ * 表示用に part 行のラベルを partKey から現在ラベルへ解決した複製を返す(フェーズ12)。
+ * 「保存する参照はキー・表示は逆引きした現在名」の原則——部位のリネームに表示が追従する。
+ * キー未解決(削除・無キー)は保存ラベルへフォールバック。身体部位行のみ対象。
+ * @param {Array} rows part 行配列
+ * @param {Array} slots 部位スロット集合(アクター=partSlotsEffective / 直下・辞典=プリセット)
+ * @returns {Array}
+ */
+export function resolvePartRowsForDisplay(rows, slots) {
+  return (Array.isArray(rows) ? rows : []).map((r) => {
+    const effKind = r?.kind === "reference" ? r?.refSubKind : r?.kind;
+    if (effKind !== "bodyPart") return r;
+    const label = findPartLabelByKey(slots, r?.partKey);
+    return label && label !== r.value ? { ...r, value: label } : r;
+  });
+}
+
+/**
+ * AE 追加部位行(partAdded)を表示用 {and:[{label}], or:[{label}]} へ解決する(フェーズ12)。
+ * ラベルは部位キーから逆引き(未解決はキーをそのまま表示)。追加行が無ければ null。
+ * @param {Array<PartAddedRow>} partAdded
+ * @param {Array} slots 部位スロット集合
+ * @returns {?{and:Array<{label:string}>, or:Array<{label:string}>}}
+ */
+export function resolvePartAdditions(partAdded, slots) {
+  const rows = Array.isArray(partAdded) ? partAdded : [];
+  if (!rows.length) return null;
+  const resolve = (r) => ({ label: findPartLabelByKey(slots, r?.key) || String(r?.key ?? "").trim() });
+  return {
+    and: rows.filter((r) => r?.relation === "and").map(resolve),
+    or:  rows.filter((r) => r?.relation === "or").map(resolve),
+  };
+}
+
 /**
  * @typedef {Object} PartSlotDef キャストの部位スロット定義(cast.system.partSlots の1要素)
+ * @property {string} [key] 部位キー(フェーズ12。AE・part 行・エイリアスからの安定参照)
  * @property {string} value 部位ラベル
  * @property {number} count 実スロット数(occupiesOther 時は無視)
  * @property {boolean} [occupiesOther] 「指定部位を複数占有」エイリアス
- * @property {string} [targetPart] 占有先の部位ラベル(エイリアス時)
+ * @property {string} [targetPart] 占有先の部位ラベル(エイリアス時・後方互換)
+ * @property {string} [targetKey] 占有先の部位キー(エイリアス時。ラベルより優先)
  * @property {number} [targetCount] 占有先を消費する数(エイリアス時)
+ *
+ * @typedef {Object} PartAddedRow AE による追加部位行(item.system.partAdded の1要素)
+ * @property {string} key 部位キー
+ * @property {"and"|"or"} relation 既存部位との関係(and=追加占有 / or=択一候補)
+ * @property {number} slots 消費数
+ * @property {string} [source] 供給元の効果名(表示用)
  *
  * @typedef {Object} OutfitOccupant 占有計算に渡すアウトフィットの最小データ
  * @property {boolean} isPrepared 準備済みか
@@ -155,45 +233,73 @@ export function joinPartDesignations(systems) {
  * @property {Array} part part 行配列
  * @property {string} [partRelation] "and" | "or"
  * @property {number} [partOrChoice] or 時に占有する行 index
+ * @property {PartAddedRow[]} [partAdded] AE による追加部位行(フェーズ12)
+ * @property {string} [partAltChoice] or 追加行を選んだときの部位キー(空=base を占有)
  */
 
 /**
  * 部位占有を算出する。
- * @param {PartSlotDef[]} partSlots キャストの部位スロット集合
+ * 照合はキー優先・ラベル後方互換(フェーズ12): スロットの同一性トークンは key(無ければラベル)。
+ * アイテム part 行は partKey で引き、無ければラベルで引く(辞典・既存データはラベルのみ)。
+ * AE 追加行(partAdded): and=常に追加占有 / or=partAltChoice で選ばれたとき base 行の代わりに占有。
+ * @param {PartSlotDef[]} partSlots キャストの部位スロット集合(実効値=partSlotsEffective を渡す)
  * @param {OutfitOccupant[]} outfits 占有計算対象のアウトフィット群(全件渡してよい。準備済みのみ数える)
- * @returns {{slots: Array<{label:string,count:number,used:number,free:number,over:boolean}>,
+ * @returns {{slots: Array<{key:string,label:string,count:number,used:number,free:number,over:boolean}>,
  *           unlisted: Array<{label:string,used:number}>}}
- *   slots: プリセット掲載スロットごとの占有。unlisted: リスト外ラベルへの消費(非カウント枠)。
+ *   slots: プリセット掲載スロットごとの占有。unlisted: リスト外ラベル/キーへの消費(非カウント枠)。
  */
 export function computePartOccupancy(partSlots = [], outfits = []) {
-  const realOrder = [];          // ラベルの登場順を保持
-  const realCount = new Map();   // label -> count
-  const aliases   = new Map();   // label -> { targetPart, targetCount }
+  const realOrder = [];          // 同一性トークン(key||label)の登場順を保持
+  const realCount = new Map();   // token -> count
+  const labels    = new Map();   // token -> 表示ラベル
+  const keys      = new Map();   // token -> 部位キー(無キー行は "")
+  const keyIndex  = new Map();   // key -> token
+  const labelIndex = new Map();  // label -> token
+  const aliases   = new Map();   // token -> { targetPart, targetKey, targetCount }
 
   for (const s of (partSlots ?? [])) {
     const label = String(s?.value ?? "").trim();
-    if (!label) continue;
+    const key   = String(s?.key ?? "").trim();
+    if (!label && !key) continue;
+    const token = key || label;
     if (s.occupiesOther) {
-      aliases.set(label, {
-        targetPart:  String(s.targetPart ?? "").trim(),
-        targetCount: Math.max(0, Number(s.targetCount) || 0),
-      });
-    } else if (!realCount.has(label)) {
-      realCount.set(label, Math.max(0, Number(s.count) || 0));
-      realOrder.push(label);
+      if (!aliases.has(token)) {
+        aliases.set(token, {
+          targetPart:  String(s.targetPart ?? "").trim(),
+          targetKey:   String(s.targetKey ?? "").trim(),
+          targetCount: Math.max(0, Number(s.targetCount) || 0),
+        });
+        if (key && !keyIndex.has(key)) keyIndex.set(key, token);
+        if (label && !labelIndex.has(label)) labelIndex.set(label, token);
+      }
+    } else if (!realCount.has(token)) {
+      realCount.set(token, Math.max(0, Number(s.count) || 0));
+      labels.set(token, label || key);
+      keys.set(token, key);
+      realOrder.push(token);
+      if (key && !keyIndex.has(key)) keyIndex.set(key, token);
+      if (label && !labelIndex.has(label)) labelIndex.set(label, token);
     }
   }
 
+  /** 消費参照(キー/ラベル)をスロットの同一性トークンへ解決する。未掲載は参照値そのまま。 */
+  const resolveToken = (key, label) => {
+    if (key && keyIndex.has(key)) return keyIndex.get(key);
+    if (label && labelIndex.has(label)) return labelIndex.get(label);
+    return label || key;
+  };
+
   const used = new Map();
-  /** ラベルへ amount 消費。エイリアスは指定部位へ targetCount 倍で再帰展開(循環ガード付き)。 */
-  const addConsume = (label, amount, depth = 0) => {
-    if (amount <= 0 || depth > 16) return;
-    const alias = aliases.get(label);
+  /** トークンへ amount 消費。エイリアスは指定部位へ targetCount 倍で再帰展開(循環ガード付き)。 */
+  const addConsume = (token, amount, depth = 0) => {
+    if (!token || amount <= 0 || depth > 16) return;
+    const alias = aliases.get(token);
     if (alias) {
-      if (alias.targetPart) addConsume(alias.targetPart, amount * alias.targetCount, depth + 1);
+      const target = resolveToken(alias.targetKey, alias.targetPart);
+      if (target && target !== token) addConsume(target, amount * alias.targetCount, depth + 1);
       return;
     }
-    used.set(label, (used.get(label) ?? 0) + amount);
+    used.set(token, (used.get(token) ?? 0) + amount);
   };
 
   for (const outfit of (outfits ?? [])) {
@@ -201,6 +307,12 @@ export function computePartOccupancy(partSlots = [], outfits = []) {
     if (outfit.minorCategory === "housingAccessory") continue; // 非消費: 住宅アクセサリ
     if (outfit.partOptional) continue;                         // 非消費: 任意(部位全体)
     const rows = Array.isArray(outfit.part) ? outfit.part : [];
+    const added = Array.isArray(outfit.partAdded) ? outfit.partAdded : [];
+    const addedAnd = added.filter((r) => r?.relation === "and");
+    const addedOr  = added.filter((r) => r?.relation === "or");
+    const alt = String(outfit.partAltChoice ?? "").trim();
+    // or 追加行を装備先に選んでいる(かつその行がまだ生きている)ときは base の代わりに占有
+    const chosenOr = alt ? addedOr.find((r) => String(r?.key ?? "").trim() === alt) : null;
 
     const consumeRow = (row) => {
       if (!row) return;
@@ -208,32 +320,85 @@ export function computePartOccupancy(partSlots = [], outfits = []) {
       if (effKind !== "bodyPart") return;       // 身体部位のみ(オプション等は対象外)
       const slots = Math.max(0, Number(row.slots) || 0);
       const label = String(row.value ?? "").trim();
-      if (slots === 0 || !label) return;        // 非消費: slots=0
-      addConsume(label, slots);
+      const key   = String(row.partKey ?? "").trim();
+      if (slots === 0 || (!label && !key)) return; // 非消費: slots=0
+      addConsume(resolveToken(key, label), slots);
     };
 
-    if (outfit.partRelation === "or" && rows.length >= 2) {
+    const consumeAdded = (row) => {
+      const slots = Math.max(0, Number(row?.slots) || 0);
+      const key = String(row?.key ?? "").trim();
+      if (!slots || !key) return;
+      addConsume(resolveToken(key, ""), slots);
+    };
+
+    if (chosenOr) {
+      consumeAdded(chosenOr);
+    } else if (outfit.partRelation === "or" && rows.length >= 2) {
       // 択一: 装備先トグルで選んだ1行だけ占有
       const idx = Math.max(0, Math.min(rows.length - 1, Number(outfit.partOrChoice) || 0));
       consumeRow(rows[idx]);
     } else {
       for (const row of rows) consumeRow(row);
     }
+    // and 追加行は択一の結果に関わらず常に占有する(フェーズ12・ユーザー確定)
+    for (const row of addedAnd) consumeAdded(row);
   }
 
-  const slots = realOrder.map((label) => {
-    const count = realCount.get(label) ?? 0;
-    const u = used.get(label) ?? 0;
-    return { label, count, used: u, free: count - u, over: u > count };
+  const slots = realOrder.map((token) => {
+    const count = realCount.get(token) ?? 0;
+    const u = used.get(token) ?? 0;
+    return { key: keys.get(token) ?? "", label: labels.get(token) ?? token,
+      count, used: u, free: count - u, over: u > count };
   });
 
-  // プリセット未掲載ラベルへの消費(非カウント枠。表示は別扱い)
+  // プリセット未掲載ラベル/キーへの消費(非カウント枠。表示は別扱い)
   const unlisted = [];
-  for (const [label, u] of used) {
-    if (!realCount.has(label)) unlisted.push({ label, used: u });
+  for (const [token, u] of used) {
+    if (!realCount.has(token)) unlisted.push({ label: labels.get(token) ?? token, used: u });
   }
 
   return { slots, unlisted };
+}
+
+/**
+ * 実効部位スロット(partSlotsEffective)を合成する純粋関数(フェーズ12)。
+ * base の partSlots に、AE デルタ(system.partSlot.<部位キー>)と負傷の partSlotMod を加算する。
+ * - 照合はキー優先・ラベル後方互換(負傷レジストリの旧ラベル指定も引ける)。
+ * - 未知の参照は**正のデルタのときだけ**新規実効スロットとして追加する(負は既存のみ=
+ *   タイプミスや他ワールド向けの行が幽霊部位を作らない片側ガード)。ラベルは未解決のため
+ *   参照トークンをそのまま表示に使う(プリセットへ登録すれば以後はそのラベルで表示される)。
+ * - count は 0 でクランプ。base 配列は変更しない。
+ * @param {PartSlotDef[]} baseSlots
+ * @param {Record<string, number>} [aeDeltas] 部位キー -> 増減
+ * @param {Map<string, number>|Record<string, number>} [woundMods] キーまたはラベル -> 増減
+ * @returns {PartSlotDef[]}
+ */
+export function buildEffectivePartSlots(baseSlots = [], aeDeltas = {}, woundMods = new Map()) {
+  const rows = (Array.isArray(baseSlots) ? baseSlots : []).map((r) => ({ ...r }));
+  const findRow = (token) => {
+    if (!token) return null;
+    return rows.find((r) => String(r.key ?? "").trim() === token)
+      ?? rows.find((r) => String(r.value ?? "").trim() === token)
+      ?? null;
+  };
+  const apply = (token, delta) => {
+    const d = Number(delta) || 0;
+    if (!token || !d) return;
+    const row = findRow(String(token).trim());
+    if (row) {
+      if (!row.occupiesOther) row.count = Math.max(0, (Number(row.count) || 0) + d);
+      return;
+    }
+    if (d > 0) {
+      rows.push({ key: String(token).trim(), value: String(token).trim(), count: d,
+        occupiesOther: false, targetPart: "", targetKey: "", targetCount: 1 });
+    }
+  };
+  for (const [k, d] of Object.entries(aeDeltas ?? {})) apply(k, d);
+  const wm = woundMods instanceof Map ? woundMods : new Map(Object.entries(woundMods ?? {}));
+  for (const [k, d] of wm) apply(k, d);
+  return rows;
 }
 
 /**

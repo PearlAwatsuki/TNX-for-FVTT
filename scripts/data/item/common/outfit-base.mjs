@@ -130,10 +130,13 @@ export class OutfitBaseTemplate extends SystemDataModel {
       hack:              modeValueField(["none", "value"]),
       // 部位行(フェーズ10 で種別ベースへ拡張)。value/slots は維持。kind 既定 "other" は
       // 旧 {value,slots} データを「その他(自由記入)」へ移行する(§4.2: 文字列から種別を推測しない)。
+      // partKey=部位キー(フェーズ12): 身体部位行の安定参照。占有照合はキー優先・ラベル(value)
+      // 後方互換。表示はキーからの逆引きラベルを優先する。
       part: new fields.ArrayField(
         new fields.SchemaField({
           kind:             new fields.StringField({ initial: "other", choices: PART_KINDS }),
           value:            new fields.StringField({ initial: "" }),
+          partKey:          new fields.StringField({ initial: "" }),
           slots:            new fields.NumberField({ initial: 1, min: 0, integer: true }),
           hostMajor:        new fields.StringField({ initial: "" }),
           hostMinor:        new fields.StringField({ initial: "" }),
@@ -147,6 +150,9 @@ export class OutfitBaseTemplate extends SystemDataModel {
       // partOptional=任意は**部位全体**に効く(重複可・占有非カウント。行ごとではない)。
       partRelation: new fields.StringField({ initial: "and", choices: PART_RELATIONS }),
       partOrChoice: new fields.NumberField({ initial: 0, min: 0, integer: true }),
+      // AE の or 追加部位(system.part.<キー> 値=or)を選んだときの装備先(部位キー)。
+      // 空文字=本来の部位(base part)を占有。効果が失効すれば自動的に base へ戻る(フェーズ12)。
+      partAltChoice: new fields.StringField({ initial: "" }),
       partOptional: new fields.BooleanField({ initial: false }),
       // 部位「-」品など、準備していなくても使用可能な例外フラグ(2026-06-26)
       noPrepareRequired: new fields.BooleanField({ initial: false }),
@@ -208,6 +214,9 @@ export class OutfitBaseTemplate extends SystemDataModel {
   prepareDerivedData() {
     super.prepareDerivedData?.();
     computeItemEffectiveValues(this);
+    // AE による部位行の追加(フェーズ12・system.part.<部位キー> 値=and/or)。アクターの適用パス
+    // (_applyEffectBuffs)がここへ {key, relation, slots, source} を積む。base の part は不変。
+    this.partAdded = [];
     // オプション判定は部位行から派生する(フェーズ10。旧 isOption チェックは廃止し kind=option へ吸収)。
     // 部位に kind=option(または解説参照の実部位 option)があれば、このアウトフィットはオプション。
     const rows = Array.isArray(this.part) ? this.part : [];
@@ -221,6 +230,7 @@ export class OutfitBaseTemplate extends SystemDataModel {
     this.isPartless = this.partOptional !== true && !rows.some(r => r?.kind && r.kind !== "none");
     if (this.isPartless) {
       this.noPrepareRequired = true;
+      this.noPrepareRequiredTotal = true; // 実効フラグも同期(computeItemEffectiveValues 後の強制のため)
       this.isPrepared = false; // 準備できない=常にオフ
     }
   }

@@ -58,7 +58,7 @@
                         <input type="number" name="system.bounty" value="{{system.bounty}}">
                     </div>
                 </div>
-                <button type="button" class="bounty-recalc-btn" data-action="recalculateBounty" title="現在の外界値({{mundaneTotalValue}})を初期値として確定">
+                <button type="button" class="bounty-recalc-btn" data-action="recalculateBounty">
                     <i class="fas fa-sync-alt"></i> 初期値を再計算
                 </button>
             {{else}}
@@ -100,8 +100,8 @@
                 {{!-- 所有者(取得元)アクター(11-6・Troops.md「事前作成と所有者記録」)。
                      経験点の出所の紐づけの正本・NPC取得の対象解決(逆引き)・分身の使用回数共有の要 --}}
                 <div class="bounty-edit-row bounty-edit-row--plain">
-                    <span class="bounty-section-label" title="このトループ級キャラクターの取得元（呼び出し元）。技能・アウトフィットの経験点はこのキャラクターから消費され、NPC取得用途の呼び出し対象になります">所有者</span>
-                    <span class="troop-owner-dropzone{{#unless ownerActorName}} troop-owner-dropzone--empty{{/unless}}" title="キャスト／ゲストのアクターをドロップで設定">
+                    <span class="bounty-section-label">所有者</span>
+                    <span class="troop-owner-dropzone{{#unless ownerActorName}} troop-owner-dropzone--empty{{/unless}}">
                         {{#if ownerActorName}}{{ownerActorName}}{{else}}アクターをドロップ{{/if}}
                     </span>
                     {{#if ownerActorName}}
@@ -109,12 +109,12 @@
                     {{/if}}
                 </div>
                 {{#if showOwnerExp}}
-                <div class="troop-owner-view" title="取得元キャストの残り経験点（このキャラクターの技能・アウトフィット取得はここから消費されます）">所有者経験点: {{ownerExpValue}}</div>
+                <div class="troop-owner-view">所有者経験点: {{ownerExpValue}}</div>
                 {{/if}}
                 {{#if (eq system.troopMode "troop")}}
                 {{!-- ワークスを持つトループ(2026-07-03 確定)。所属組織を設定すると名前が
                      「組織名（スタイル名○レベル）」になる(組織未設定の間は通常のトループ名) --}}
-                <label class="works-flag-row" title="ワークスを持つトループを作る場合にオン。所属組織をドロップするとトループ名が「組織名（スタイル名○レベル）」になります">
+                <label class="works-flag-row">
                     <input type="checkbox" name="system.hasWorks" {{checked system.hasWorks}}>
                     ワークスを設定
                 </label>
@@ -154,10 +154,10 @@
                 </div>
                 {{/unless}}
                 {{#if ownerActorName}}
-                <div class="troop-owner-view" title="取得元（呼び出し元）のキャラクター">所有者: {{ownerActorName}}</div>
+                <div class="troop-owner-view">所有者: {{ownerActorName}}</div>
                 {{/if}}
                 {{#if showOwnerExp}}
-                <div class="troop-owner-view" title="取得元キャストの残り経験点（このキャラクターの技能・アウトフィット取得はここから消費されます）">所有者経験点: {{ownerExpValue}}</div>
+                <div class="troop-owner-view">所有者経験点: {{ownerExpValue}}</div>
                 {{/if}}
             {{/if}}
         </div>

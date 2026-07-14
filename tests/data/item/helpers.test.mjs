@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
-const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, damageDealtChangeMatches, gatherDamageDealtSources, collectActorEffectBuffs, targetStyleWorksKeys, actorCardValueOverride, itemChangeTargets, buildTransferredEffectData, effectAutoApplies, analyzeGrantLanding, itemGrantCandidates, rewriteGrantChangesForItem } = await import("../../../scripts/data/item/helpers.mjs");
+const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, damageDealtChangeMatches, gatherDamageDealtSources, collectActorEffectBuffs, targetStyleWorksKeys, actorCardValueOverride, itemChangeTargets, buildTransferredEffectData, effectAutoApplies, analyzeGrantLanding, itemGrantCandidates, rewriteGrantChangesForItem, AE_FLAG_PARAMS, flagTotalPath, readFlag, computeFlagEffectiveValues, parseBooleanFlagValue } = await import("../../../scripts/data/item/helpers.mjs");
 
 describe("defenceField()", () => {
   it("呼び出せる", () => {
@@ -450,6 +450,78 @@ describe("resolveItemTotalPath()", () => {
     expect(resolveItemTotalPath("level")).toBe("levelTotal");
     expect(resolveItemTotalPath("FAValue")).toBe("FAValueTotal");
     expect(resolveItemTotalPath("cyberSecurity")).toBe("cyberSecurityTotal");
+  });
+
+  it("特性フラグ(フェーズ12): 素/実効どちらの綴りも実効フィールドへ", () => {
+    expect(resolveItemTotalPath("isFullAuto")).toBe("isFullAutoTotal");
+    expect(resolveItemTotalPath("isFullAutoTotal")).toBe("isFullAutoTotal");
+    expect(resolveItemTotalPath("suits.spade")).toBe("suits.spadeTotal");
+    expect(resolveItemTotalPath("suits.spadeTotal")).toBe("suits.spadeTotal");
+  });
+});
+
+describe("特性フラグ AE(フェーズ12)", () => {
+  it("flagTotalPath: 素パス → 実効パス(末尾に Total)", () => {
+    expect(flagTotalPath("isFullAuto")).toBe("isFullAutoTotal");
+    expect(flagTotalPath("suits.spade")).toBe("suits.spadeTotal");
+  });
+
+  it("AE_FLAG_PARAMS は特性系のみ(構造的な isAction/noCombo は含まない)", () => {
+    expect(AE_FLAG_PARAMS).toContain("isFullAuto");
+    expect(AE_FLAG_PARAMS).toContain("suits.spade");
+    expect(AE_FLAG_PARAMS).toContain("usesBounty");
+    expect(AE_FLAG_PARAMS).not.toContain("isAction");
+    expect(AE_FLAG_PARAMS).not.toContain("noCombo");
+  });
+
+  it("computeFlagEffectiveValues: base から <フラグ>Total を派生(ネストも)", () => {
+    const sys = { isFullAuto: true, suits: { spade: true, heart: false } };
+    computeFlagEffectiveValues(sys);
+    expect(sys.isFullAutoTotal).toBe(true);
+    expect(sys.suits.spadeTotal).toBe(true);
+    expect(sys.suits.heartTotal).toBe(false);
+  });
+
+  it("readFlag: 実効(Total)があればそれ、無ければ base", () => {
+    expect(readFlag({ isFullAuto: true }, "isFullAuto")).toBe(true);         // base のみ
+    expect(readFlag({ isFullAuto: true, isFullAutoTotal: false }, "isFullAuto")).toBe(false); // AE で off
+    expect(readFlag({ suits: { spade: false, spadeTotal: true } }, "suits.spade")).toBe(true);
+    expect(readFlag({}, "isFullAuto")).toBe(false);
+  });
+
+  it("parseBooleanFlagValue: true/false 系文字列と 1/0 を解釈、不能は null", () => {
+    expect(parseBooleanFlagValue("true")).toBe(true);
+    expect(parseBooleanFlagValue("1")).toBe(true);
+    expect(parseBooleanFlagValue("オン")).toBe(true);
+    expect(parseBooleanFlagValue("false")).toBe(false);
+    expect(parseBooleanFlagValue("0")).toBe(false);
+    expect(parseBooleanFlagValue("xyz")).toBeNull();
+  });
+});
+
+describe("parseEffectTargetKey()（フェーズ12: 名前装飾・部位)", () => {
+  it("名前装飾: 素のキー name＝乗っているアイテム自身の名前", () => {
+    expect(parseEffectTargetKey("name")).toMatchObject({ scope: "itemName", conditions: [] });
+  });
+
+  it("名前装飾: 識別キー狙い item.<キー>.name", () => {
+    expect(parseEffectTargetKey("item.longsword.name")).toMatchObject({ scope: "skill", selector: "longsword", path: "name" });
+  });
+
+  it("system.name は誤記として無効(死にキー)", () => {
+    expect(parseEffectTargetKey("system.name")).toBeNull();
+  });
+
+  it("アクター部位スロット増減: system.partSlot.<部位キー>", () => {
+    expect(parseEffectTargetKey("system.partSlot.one-hand")).toMatchObject({ scope: "partSlot", selector: "one-hand", conditions: [] });
+  });
+
+  it("アイテム部位行の追加: system.part.<部位キー>", () => {
+    expect(parseEffectTargetKey("system.part.overhead")).toMatchObject({ scope: "partAdd", selector: "overhead", path: "part.overhead" });
+  });
+
+  it("system.part(セレクタ無し)は無効", () => {
+    expect(parseEffectTargetKey("system.part")).toBeNull();
   });
 });
 

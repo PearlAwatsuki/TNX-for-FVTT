@@ -1,6 +1,4 @@
 <div class="tnx-psp-body">
-  <p class="tnx-psp-hint hint">新規キャストへ流し込む部位スロット（体部位）の初期集合です。value＝部位ラベル、count＝保有数。「両手持ち」等は<strong>指定部位を複数占有</strong>で「片手持ち×2」のように設定できます（排他部位・ルール追加にも対応）。</p>
-
   <datalist id="tnx-psp-parts">
     {{#each rows as |row|}}{{#if row.value}}<option value="{{row.value}}"></option>{{/if}}{{/each}}
   </datalist>
@@ -10,6 +8,7 @@
     <div class="tnx-psp-row" data-row data-index="{{i}}">
       <span class="tnx-psp-grip" draggable="true" title="ドラッグで並び替え"><i class="fas fa-grip-vertical"></i></span>
       <input type="text" name="rows.{{i}}.value" data-field="value" value="{{row.value}}" placeholder="部位名（例: 片手持ち）" class="tnx-psp-name" />
+      <input type="text" name="rows.{{i}}.key" data-field="key" value="{{row.key}}" placeholder="キー（空欄で自動）" class="tnx-psp-key" />
 
       {{#unless row.occupiesOther}}
       <div class="number-input-spinner tnx-spinner--sm">
@@ -21,7 +20,7 @@
       <input type="hidden" name="rows.{{i}}.count" data-field="count" value="{{row.count}}">
       {{/unless}}
 
-      <label class="tnx-psp-alias-toggle" title="この部位を占有すると指定部位を複数消費する（両手持ち＝片手持ち×2 等）">
+      <label class="tnx-psp-alias-toggle">
         <input type="checkbox" name="rows.{{i}}.occupiesOther" data-field="occupiesOther" {{checked row.occupiesOther}}>
         複数占有
       </label>
@@ -36,8 +35,10 @@
           <button type="button" class="tnx-btn" data-action="increment">＋</button>
         </div>
       </span>
+      <input type="hidden" name="rows.{{i}}.targetKey" data-field="targetKey" value="{{row.targetKey}}">
       {{else}}
       <input type="hidden" name="rows.{{i}}.targetPart" data-field="targetPart" value="{{row.targetPart}}">
+      <input type="hidden" name="rows.{{i}}.targetKey" data-field="targetKey" value="{{row.targetKey}}">
       <input type="hidden" name="rows.{{i}}.targetCount" data-field="targetCount" value="{{row.targetCount}}">
       {{/if}}
 

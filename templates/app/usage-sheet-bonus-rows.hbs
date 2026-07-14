@@ -8,7 +8,6 @@
                value="{{this.formula}}" placeholder="{{../placeholder}}"
                {{#unless ../editable}}disabled{{/unless}}>
         <select class="usage-bonus-source" name="{{../prefix}}Source-{{this.idx}}"
-                title="供給元（チャットカードでどの能力からの加算かを表示するための帰属・任意）"
                 {{#unless ../editable}}disabled{{/unless}}>
             <option value="" {{#unless this.source}}selected{{/unless}}>― 用途（供給元なし） ―</option>
             {{#each this.sourceGroups}}

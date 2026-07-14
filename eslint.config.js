@@ -24,6 +24,7 @@ export default [
         foundry: "readonly",
         Actor: "readonly",
         Item: "readonly",
+        ActiveEffect: "readonly",
         ActorSheet: "readonly",
         ItemSheet: "readonly",
         Application: "readonly",

@@ -112,6 +112,10 @@ export class WeaponDataModel extends SystemDataModel.mixin(
       }),
       isLaser:     new fields.BooleanField({ initial: false }),
       isFullAuto:  new fields.BooleanField({ initial: false }),
+      // スタン可能(2026-07-15 ユーザー確定): この武器でスタン攻撃を宣言できる(物理攻撃の能力ゲート)。
+      // 攻撃に使う武器のいずれかが true なら、判定ダイアログに「スタン攻撃として実行」チェックが出る。
+      // 用途の canStun(スタイル技能の効果によるスタン付与)・生身(武器なし)も可否に含める。
+      canStun:     new fields.BooleanField({ initial: false }),
       FAValue:     new fields.NumberField({ initial: 0 }),
       // 残弾(射撃武器・搭載兵器のみ UI 表示。2026-07-09〜10 ユーザー確定):
       //   mode    = none(概念なし)/value(装弾数=数字。FA以外用)/arbitrary(有無だけ=任意。FA武器用)

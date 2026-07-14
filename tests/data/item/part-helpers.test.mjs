@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   computePartOccupancy, computeHostOccupancy, formatOptionLabel, formatPartDesignation,
-  joinPartDesignations,
+  joinPartDesignations, buildEffectivePartSlots, findPartLabelByKey, findPartKeyByLabel,
+  resolvePartRowsForDisplay, resolvePartAdditions,
 } from "../../../scripts/data/item/part-helpers.mjs";
 
 /** body part 行を作るヘルパー */
@@ -328,5 +329,123 @@ describe("computeHostOccupancy()", () => {
     );
     expect(rows[0].used).toBe(2);
     expect(rows[0].occupants.map((o) => o.name)).toEqual(["A", "B"]);
+  });
+});
+
+// ─── フェーズ12: 部位キー / 部位 AE ──────────────────────────────────────────
+
+describe("部位キーの照合(computePartOccupancy・フェーズ12)", () => {
+  it("part 行の partKey でスロットキーへ照合し、表示は現在ラベルを返す", () => {
+    const partSlots = [{ key: "one-hand", value: "片手持ち", count: 2 }];
+    // ラベルは食い違う(リネーム後)が partKey で当てる
+    const outfits = [prepared([{ kind: "bodyPart", value: "旧ラベル", partKey: "one-hand", slots: 1 }])];
+    const { slots } = computePartOccupancy(partSlots, outfits);
+    expect(slots[0]).toMatchObject({ key: "one-hand", label: "片手持ち", used: 1, free: 1 });
+  });
+
+  it("partKey が無い行はラベルで後方互換照合する(辞典・既存データ)", () => {
+    const partSlots = [{ key: "one-hand", value: "片手持ち", count: 2 }];
+    const outfits = [prepared([body("片手持ち", 1)])];
+    const { slots } = computePartOccupancy(partSlots, outfits);
+    expect(slots[0].used).toBe(1);
+  });
+
+  it("エイリアスは targetKey で解決する", () => {
+    const partSlots = [
+      { key: "one-hand", value: "片手持ち", count: 2 },
+      { key: "two-hands", value: "両手持ち", occupiesOther: true, targetKey: "one-hand", targetCount: 2 },
+    ];
+    const outfits = [prepared([{ kind: "bodyPart", value: "両手持ち", partKey: "two-hands", slots: 1 }])];
+    const { slots } = computePartOccupancy(partSlots, outfits);
+    expect(slots).toHaveLength(1);
+    expect(slots[0]).toMatchObject({ key: "one-hand", used: 2 });
+  });
+});
+
+describe("AE 追加部位行(partAdded・フェーズ12)", () => {
+  const slots = [{ key: "overhead", value: "頭上", count: 1 }, { key: "one-hand", value: "片手持ち", count: 2 }];
+
+  it("and 追加は既存占有に加えて常に占有する", () => {
+    const outfits = [prepared(
+      [{ kind: "bodyPart", value: "片手持ち", partKey: "one-hand", slots: 1 }],
+      { partAdded: [{ key: "overhead", relation: "and", slots: 1 }] },
+    )];
+    const { slots: occ } = computePartOccupancy(slots, outfits);
+    expect(occ.find((s) => s.key === "one-hand").used).toBe(1);
+    expect(occ.find((s) => s.key === "overhead").used).toBe(1);
+  });
+
+  it("or 追加は partAltChoice で選ばれたとき base の代わりに占有する", () => {
+    const base = [{ kind: "bodyPart", value: "片手持ち", partKey: "one-hand", slots: 1 }];
+    const added = [{ key: "overhead", relation: "or", slots: 1 }];
+    // 未選択: base を占有
+    let occ = computePartOccupancy(slots, [prepared(base, { partAdded: added })]).slots;
+    expect(occ.find((s) => s.key === "one-hand").used).toBe(1);
+    expect(occ.find((s) => s.key === "overhead").used).toBe(0);
+    // 選択: or 追加行(頭上)を占有し base は占有しない
+    occ = computePartOccupancy(slots, [prepared(base, { partAdded: added, partAltChoice: "overhead" })]).slots;
+    expect(occ.find((s) => s.key === "one-hand").used).toBe(0);
+    expect(occ.find((s) => s.key === "overhead").used).toBe(1);
+  });
+});
+
+describe("buildEffectivePartSlots()（フェーズ12）", () => {
+  const base = [{ key: "one-hand", value: "片手持ち", count: 2 }];
+
+  it("AE デルタを既存スロットの count に加算する(キー照合)", () => {
+    const eff = buildEffectivePartSlots(base, { "one-hand": 1 });
+    expect(eff.find((s) => s.key === "one-hand").count).toBe(3);
+  });
+
+  it("負のデルタは 0 でクランプ", () => {
+    const eff = buildEffectivePartSlots(base, { "one-hand": -5 });
+    expect(eff.find((s) => s.key === "one-hand").count).toBe(0);
+  });
+
+  it("未知キーは正のデルタのときだけ新規スロットを作る(負は無視)", () => {
+    expect(buildEffectivePartSlots(base, { tsubasa: 1 }).some((s) => s.key === "tsubasa")).toBe(true);
+    expect(buildEffectivePartSlots(base, { ghost: -1 }).some((s) => s.key === "ghost")).toBe(false);
+  });
+
+  it("負傷 partSlotMod(Map・キー)も合成する", () => {
+    const eff = buildEffectivePartSlots(base, {}, new Map([["one-hand", -1]]));
+    expect(eff.find((s) => s.key === "one-hand").count).toBe(1);
+  });
+});
+
+describe("部位ラベル逆引き / 表示解決(フェーズ12)", () => {
+  const slots = [{ key: "one-hand", value: "片手持ち", count: 2 }];
+
+  it("findPartLabelByKey / findPartKeyByLabel", () => {
+    expect(findPartLabelByKey(slots, "one-hand")).toBe("片手持ち");
+    expect(findPartKeyByLabel(slots, "片手持ち")).toBe("one-hand");
+    expect(findPartLabelByKey(slots, "unknown")).toBe("");
+  });
+
+  it("resolvePartRowsForDisplay: 身体部位行のラベルを現在ラベルへ差し替える", () => {
+    const rows = [{ kind: "bodyPart", value: "旧", partKey: "one-hand", slots: 1 }];
+    expect(resolvePartRowsForDisplay(rows, slots)[0].value).toBe("片手持ち");
+  });
+
+  it("resolvePartAdditions: and/or をラベル解決して分類する", () => {
+    const added = [{ key: "one-hand", relation: "and", slots: 1 }, { key: "unknown", relation: "or", slots: 1 }];
+    const res = resolvePartAdditions(added, slots);
+    expect(res.and).toEqual([{ label: "片手持ち" }]);
+    expect(res.or).toEqual([{ label: "unknown" }]); // 未解決はキーをそのまま表示
+    expect(resolvePartAdditions([], slots)).toBeNull();
+  });
+});
+
+describe("formatPartDesignation() の AE 追加併記(フェーズ12)", () => {
+  it("and 追加は「(既存)+C」", () => {
+    const s = formatPartDesignation([{ kind: "bodyPart", value: "片手持ち", slots: 1 }], "and", false,
+      { and: [{ label: "頭上" }], or: [] });
+    expect(s).toBe("片手持ち+頭上");
+  });
+
+  it("or 追加は「(既存)、もしくはC」", () => {
+    const s = formatPartDesignation([{ kind: "bodyPart", value: "片手持ち", slots: 1 }], "and", false,
+      { and: [], or: [{ label: "頭上" }] });
+    expect(s).toBe("片手持ち、もしくは頭上");
   });
 });

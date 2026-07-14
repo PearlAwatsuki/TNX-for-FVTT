@@ -14,6 +14,8 @@
  * (「生身であったとしても生身の射程（当然至近）が読み取られてしかるべき」=ユーザー確定)。
  */
 
+import { readFlag } from "../data/item/helpers.mjs";
+
 /** 射程の物理的な短さ順(tnx-usage-sheet の RANGE_PHYSICAL と同値・複数武器の最短採用に使用)。 */
 const RANGE_ORDER = { close: 0, short: 1, middle: 2, long: 3, superLong: 4 };
 
@@ -45,7 +47,8 @@ export function resolveAttackWeapons(actor, usage, parentItem = null) {
  * @returns {string}
  */
 export function attackWeaponDisplayName(item) {
-    return (item?.type === "cyborg" || item?.system?.isFleshChange) ? `生身（${item.name}）` : (item?.name ?? "");
+    const fleshChange = item?.system ? readFlag(item.system, "isFleshChange") : false;
+    return (item?.type === "cyborg" || fleshChange) ? `生身（${item.name}）` : (item?.name ?? "");
 }
 
 /**

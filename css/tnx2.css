@@ -4115,6 +4115,20 @@ body.tnx-bottom-hud-expanded #hotbar {
     flex: 0 0 auto;
 }
 
+/* スタン/説得の宣言トグル(2026-07-15): 攻撃の判定のみ・既定オフのインラインチェック */
+.check-stun-toggle {
+    display: flex;
+    justify-content: center;
+}
+
+.tnx-check-inline-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82em;
+    cursor: pointer;
+}
+
 .check-hint {
     font-size: 0.78em;
     opacity: 0.7;
@@ -7689,6 +7703,13 @@ button.tnx-create-act-button span {
 .tnx-part-slot-preset .tnx-psp-name {
     flex: 1 1 5rem;
     min-width: 4rem;
+}
+/* 部位キー列(フェーズ12)。ウィンドウ幅は 780px へ拡幅済み=名前列を狭めずに追加する */
+.tnx-part-slot-preset .tnx-psp-key {
+    flex: 1 1 7rem;
+    min-width: 6rem;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.85em;
 }
 /* コンパクトスピナー: グローバルの flex 0 0 60px/35px を上書きして密な行に収める
    (width だけでは flex-basis に負けて効かない。flex ごと上書きする) */

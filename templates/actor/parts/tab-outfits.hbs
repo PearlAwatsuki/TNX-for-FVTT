@@ -24,7 +24,7 @@
                             {{#each group.items as |row|}}
                             <div class="outfit-row{{#if row.isNested}} outfit-row--option{{#if row.isLastOption}} outfit-row--last-option{{/if}}{{/if}}" data-item-id="{{row._id}}">
                                 <div class="outfit-row-main">
-                                    <span class="outfit-col--name"><a class="squeeze-text check-trigger" data-action="startSkillCheck" data-item-id="{{row._id}}" title="使用（用途があれば実行・無ければ説明を表示）">{{row.displayName}}</a>{{#if row.housingAreaRank}}<span class="outfit-area-badge outfit-area-badge--{{row.housingAreaRank.key}}" title="住宅エリア：{{row.housingAreaRank.label}}">{{row.housingAreaRank.label}}</span>{{/if}}{{#each row.slotGauges}}<span class="outfit-slot-gauge outfit-slot-gauge--{{this.kind}}{{#if this.over}} is-over{{/if}}" title="{{this.kindLabel}} {{this.used}}/{{this.capacity}}">{{#each this.pips}}<i class="tnx-pip{{#if this.on}} on{{/if}}{{#if this.over}} over{{/if}}"></i>{{/each}}<b class="tnx-pip-count">{{this.used}}/{{this.capacity}}</b></span>{{/each}}{{#if row.slotLabel}}<span class="outfit-slot-tag outfit-slot-tag--{{row.slotKind}}">{{row.slotLabel}}</span>{{/if}}</span>
+                                    <span class="outfit-col--name"><a class="squeeze-text check-trigger" data-action="startSkillCheck" data-item-id="{{row._id}}">{{row.displayName}}</a>{{#if row.housingAreaRank}}<span class="outfit-area-badge outfit-area-badge--{{row.housingAreaRank.key}}" title="住宅エリア：{{row.housingAreaRank.label}}">{{row.housingAreaRank.label}}</span>{{/if}}{{#each row.slotGauges}}<span class="outfit-slot-gauge outfit-slot-gauge--{{this.kind}}{{#if this.over}} is-over{{/if}}" title="{{this.kindLabel}} {{this.used}}/{{this.capacity}}">{{#each this.pips}}<i class="tnx-pip{{#if this.on}} on{{/if}}{{#if this.over}} over{{/if}}"></i>{{/each}}<b class="tnx-pip-count">{{this.used}}/{{this.capacity}}</b></span>{{/each}}{{#if row.slotLabel}}<span class="outfit-slot-tag outfit-slot-tag--{{row.slotKind}}">{{row.slotLabel}}</span>{{/if}}</span>
                                     {{#each row.colValues as |col|}}
                                     <span class="outfit-col--{{col.key}}"><span class="squeeze-text">{{col.value}}</span></span>
                                     {{/each}}
@@ -71,10 +71,10 @@
                             <span class="tnx-occ-toggle"><i class="fas fa-chevron-right tnx-occ-chevron"></i> 部位の占有</span>
                             {{#if isEditMode}}
                             <span class="tnx-occ-actions">
-                                <a class="tnx-occ-edit" data-action="editPartSlots" title="このキャストの部位スロットを編集">
+                                <a class="tnx-occ-edit" data-action="editPartSlots">
                                     <i class="fas fa-pen"></i> 編集
                                 </a>
-                                <a class="tnx-occ-load" data-action="loadPartPreset" title="ゲーム設定の部位プリセットを読み込み、このキャストの部位スロットを作成（既存は置換）">
+                                <a class="tnx-occ-load" data-action="loadPartPreset">
                                     <i class="fas fa-download"></i> プリセットを読み込む
                                 </a>
                             </span>

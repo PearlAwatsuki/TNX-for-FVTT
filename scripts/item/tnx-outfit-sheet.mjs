@@ -7,7 +7,8 @@ import { SLOT_KINDS } from "../data/item/common/extensible.mjs";
 import { HOUSING_AREA_RANKS, HOUSING_AREA_MOD_FIELDS } from "../data/item/housing-area.mjs";
 import { PART_KINDS, PART_REFERENCE_SUB_KINDS, PART_RELATIONS, SHIKI_TYPES } from "../data/item/common/outfit-base.mjs";
 import { getPartSlotPreset } from "../module/part-slot-preset-app.mjs";
-import { formatPartDesignation, joinPartDesignations, PART_HOST_FEATURE_LABELS } from "../data/item/part-helpers.mjs";
+import { formatPartDesignation, joinPartDesignations, PART_HOST_FEATURE_LABELS, resolvePartRowsForDisplay, resolvePartAdditions, findPartKeyByLabel } from "../data/item/part-helpers.mjs";
+import { readFlag } from "../data/item/helpers.mjs";
 import { loadSkillChoices, loadOnomasticChoices, STYLE_PACK, ORGANIZATION_PACK } from "../module/skill-dictionary.mjs";
 
 /** 住宅エリア compendium の pack ID */
@@ -551,9 +552,17 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 ? `${maj1}／${min1}、${min2}`
                 : `${maj1}／${min1}、${maj2}／${min2}`;
 
+            const mergedSlotsCtx = this.item.parent?.system?.partSlotsEffective
+                ?? this.item.parent?.system?.partSlots ?? getPartSlotPreset();
+            const resolvedPartSys = (src) => ({
+                part: resolvePartRowsForDisplay(src.system.part, mergedSlotsCtx),
+                partRelation: src.system.partRelation,
+                partOptional: src.system.partOptional,
+                partAdditions: resolvePartAdditions(src.system.partAdded, mergedSlotsCtx),
+            });
             result.merged = {
                 name: appearSrc.name,
-                part: joinPartDesignations([s1.system, s2.system]),
+                part: joinPartDesignations([resolvedPartSys(s1), resolvedPartSys(s2)]),
                 category,
                 preserveExpTotal,
                 // 電制: どちらか高い方(両方なしなら -)
@@ -649,7 +658,13 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
         // 電脳制御値(除外対象: 符号なし)
         const hack = mv(system.hack);
-        const part = formatPartDesignation(system.part, system.partRelation, system.partOptional);
+        // 部位表記: 部位キーの逆引きで現在ラベルへ解決し、AE 追加行(partAdded)も併記する(フェーズ12)
+        const partSlotsCtx = this.item.parent?.system?.partSlotsEffective
+            ?? this.item.parent?.system?.partSlots ?? getPartSlotPreset();
+        const part = formatPartDesignation(
+            resolvePartRowsForDisplay(system.part, partSlotsCtx),
+            system.partRelation, system.partOptional,
+            resolvePartAdditions(this.item.system.partAdded, partSlotsCtx));
         const defence = () => {
             const d = system.defence;
             if (d?.mode !== "value") return "-";
@@ -748,8 +763,8 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 push("購", buy); push("隠", hideFull);
                 push("電制", hack); push("部位", part);
         }
-        // 式神装備: タイプを「部位」の1つ前に挿入する(10-2)
-        if (system.isShiki) {
+        // 式神装備: タイプを「部位」の1つ前に挿入する(10-2)。実効フラグで判定(フェーズ12)
+        if (readFlag(system, "isShiki")) {
             const typeRow = { label: "タイプ", value: SHIKI_TYPES[system.shikiType] ?? "-" };
             const partIdx = rows.findIndex((r) => r.label === "部位");
             if (partIdx >= 0) rows.splice(partIdx, 0, typeRow); else rows.push(typeRow);
@@ -1391,17 +1406,21 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         context.partOptional = system.partOptional === true; // 任意は部位全体に効く
         context.partMultiRow = (system.part?.length ?? 0) >= 2;
 
-        // 身体部位の選択肢: アクター所属=partSlots プルダウン / 直下・辞典=プリセットのプルダウン＋(その他選択時のみ)自由入力
+        // 身体部位の選択肢: アクター所属=部位スロットのプルダウン / 直下・辞典=プリセットのプルダウン＋(その他選択時のみ)自由入力
+        // アクター所属は実効部位(partSlotsEffective=AE 追加込み)から出す(フェーズ12)
+        const partSlotsCtx = isActorOwned
+            ? (this.item.parent.system?.partSlotsEffective ?? this.item.parent.system?.partSlots ?? [])
+            : getPartSlotPreset();
         let bodyPresetSet = null;
         if (isActorOwned) {
             const choices = { "": "—" };
-            for (const s of (this.item.parent.system?.partSlots ?? [])) {
+            for (const s of partSlotsCtx) {
                 if (s?.value) choices[s.value] = s.value;
             }
             context.partBodyChoices = choices;
         } else {
             context.partBodyChoices = null; // null => プリセットのプルダウン＋(その他)自由入力
-            const presets = [...new Set(getPartSlotPreset().map((s) => s.value).filter(Boolean))];
+            const presets = [...new Set(partSlotsCtx.map((s) => s.value).filter(Boolean))];
             bodyPresetSet = new Set(presets);
             context.partBodyPresetChoices = { "": "—", ...Object.fromEntries(presets.map((v) => [v, v])), "__other__": "その他（自由入力）" };
         }
@@ -1415,6 +1434,11 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         context.partRows = (system.part ?? []).map((p, idx) => {
             // 解説参照は refSubKind を実効種別として欄を出し分ける(表示ラベルは常に「解説参照」)
             const effKind = p.kind === "reference" ? (p.refSubKind ?? "none") : p.kind;
+            // 身体部位の表示ラベルは partKey の逆引きを優先(部位のリネームに追従・フェーズ12)
+            const bodyLabel = effKind === "bodyPart"
+                ? (partSlotsCtx.find((s) => s?.key && s.key === p.partKey)?.value || p.value)
+                : p.value;
+            p = (bodyLabel !== p.value) ? { ...p, value: bodyLabel } : p;
 
             const minorChoices = { "": "—" };
             const major = OUTFIT_CATEGORIES[p.hostMajor];
@@ -1430,14 +1454,15 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                     const sm = sib.system;
                     if (p.hostMajor) {
                         const majorMatch = sm.majorCategory === p.hostMajor
-                            || (p.hostMajor === "cyberware" && sm.isCyber === true);
+                            || (p.hostMajor === "cyberware" && readFlag(sm, "isCyber"));
                         if (!majorMatch) continue;
                     }
                     if (p.hostMinor) {
                         const minorMatch = sm.minorCategory === p.hostMinor;
                         if (p.hostMinorExclude ? minorMatch : !minorMatch) continue;
                     }
-                    if (p.hostFeature && sm[p.hostFeature] !== true) continue;
+                    // ホスト特徴(isLaser/isCyber/isMutantOrgan)は実効フラグで照合(フェーズ12)
+                    if (p.hostFeature && !readFlag(sm, p.hostFeature)) continue;
                     hostNameChoices[sib.name] = sib.name;
                 }
             }
@@ -1480,13 +1505,30 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
     /**
      * 指定行を書き換えて配列全体を保存する。
+     * 身体部位行はラベル(value)から部位キー(partKey)を解決して同期する(フェーズ12。
+     * 参照はキーで持ち、占有照合・表示逆引きがリネームに耐える)。ラベル・種別が変わった
+     * ときだけ解決し直す——他フィールドの編集でリネーム済みラベルからキーを消さないため。
      * @param {number} index 行番号
      * @param {(row: {value: string, slots: number}) => void} mutate 行を書き換える関数
      */
     async _updatePartRow(index, mutate) {
         const list = this._normalizedPart();
         if (!list[index]) return;
+        const prev = { value: list[index].value, kind: list[index].kind, refSubKind: list[index].refSubKind };
         mutate(list[index]);
+        const row = list[index];
+        const identityChanged = row.value !== prev.value || row.kind !== prev.kind
+            || row.refSubKind !== prev.refSubKind;
+        if (identityChanged || !row.partKey) {
+            const effKind = row.kind === "reference" ? row.refSubKind : row.kind;
+            if (effKind === "bodyPart") {
+                const slots = this.item.parent?.system?.partSlotsEffective
+                    ?? this.item.parent?.system?.partSlots ?? getPartSlotPreset();
+                row.partKey = findPartKeyByLabel(slots, row.value);
+            } else {
+                row.partKey = "";
+            }
+        }
         await this.item.update({ "system.part": list });
     }
 

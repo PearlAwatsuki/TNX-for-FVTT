@@ -146,8 +146,9 @@ export function readCondition(effect) {
  * アクターに適用中の負傷(等)が持つ部位スロット修正(partSlotMod)を集計する(2026-07-09)。
  * 例: 肉体7「腕部損傷」= 片手持ち −1(適用中のみ・治療で負傷が消えれば戻る)。
  * 同種の負傷が複数あれば加算する(両腕損傷=−2 等)。
+ * 合成は partSlotsEffective(character-base → buildEffectivePartSlots)が行う(フェーズ12)。
  * @param {Actor} actor
- * @returns {Map<string, number>} 部位ラベル → 最大値のデルタ(負値)
+ * @returns {Map<string, number>} 部位キー(旧データはラベル) → デルタ(負値)。照合はキー優先・ラベル後方互換
  */
 export function gatherPartSlotMods(actor) {
   const mods = new Map();

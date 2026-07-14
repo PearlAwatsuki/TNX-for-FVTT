@@ -55,6 +55,10 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
 
         context.item = this.item;
         context.system = system;
+        // 名前入力欄は素値(_source.name)を編集する(フェーズ12): 名前装飾 AE は item.name を
+        // in-memory で書き換えるため、表示に item.name を使うと装飾後の名前を素値として保存してしまう。
+        // 一覧・チャット等の表示は装飾後(item.name)を使い、編集欄だけ素値を読む。
+        context.sourceName = this.item._source.name;
         context.owner = this.document.isOwner;
         // cssClass: edit/view-mode は root 要素で管理するため section には渡さない
         context.cssClass = "";

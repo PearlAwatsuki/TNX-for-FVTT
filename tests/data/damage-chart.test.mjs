@@ -57,7 +57,8 @@ describe("ダメージ負傷状態", () => {
   });
 
   it("実効果: 肉体7=片手持ち部位 −1 / 社会9・19=派生ダメージ(2026-07-09)", () => {
-    expect(CONDITION_KINDS["phys-7"].partSlotMod).toEqual({ part: "片手持ち", delta: -1 });
+    // partSlotMod.part は部位キー(フェーズ12・one-hand=片手持ち)
+    expect(CONDITION_KINDS["phys-7"].partSlotMod).toEqual({ part: "one-hand", delta: -1 });
     expect(CONDITION_KINDS["soc-9"].derivedDamage).toEqual({ category: "mental", cards: 1 });
     expect(CONDITION_KINDS["soc-19"].derivedDamage).toEqual({ category: "physical", cards: 1 });
   });
@@ -74,12 +75,12 @@ describe("gatherPartSlotMods()（適用中の負傷による部位スロット�
   it("腕部損傷1つ → 片手持ち −1", () => {
     const actor = { effects: [woundEffect("phys-7")] };
     const mods = gatherPartSlotMods(actor);
-    expect(mods.get("片手持ち")).toBe(-1);
+    expect(mods.get("one-hand")).toBe(-1);
   });
 
   it("腕部損傷2つ(両腕) → 片手持ち −2(加算)", () => {
     const actor = { effects: [woundEffect("phys-7"), woundEffect("phys-7")] };
-    expect(gatherPartSlotMods(actor).get("片手持ち")).toBe(-2);
+    expect(gatherPartSlotMods(actor).get("one-hand")).toBe(-2);
   });
 
   it("disabled な負傷は集計しない・partSlotMod を持たない負傷は無視", () => {

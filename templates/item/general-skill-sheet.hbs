@@ -4,7 +4,7 @@
         <div class="header-fields">
             <h1 class="charname">
                 {{#if isEditMode}}
-                    <input name="name" type="text" value="{{item.name}}" placeholder="一般技能名"/>
+                    <input name="name" type="text" value="{{sourceName}}" placeholder="一般技能名"/>
                 {{else}}
                     <span class="charname-view">{{tnxDecoratedName item}}</span>
                 {{/if}}

@@ -33,6 +33,7 @@ import { buildSkillOptions } from "./skill-select.mjs";
 import { actorSkillsWithRole } from "./skill-roles.mjs";
 import { resolveOperateSkill } from "./vehicle-move.mjs";
 import { prepareUsageEffectPayload } from "./usage-effects.mjs";
+import { readFlag } from "../data/item/helpers.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -86,20 +87,24 @@ export async function useAttack(item, usage) {
     // どちらも無ければ生身(baseAttack)フォールバック。複数武器は攻撃力を合算する
     // (合算能力の表現・2026-07-09。純ロジックは combineWeaponAttack)。
     // FA は自動加算せず faOptions として持ち回し、ダメージ算出ダイアログで武器ごとに選択する。
-    let weaponAttack = 0, damageType = "", attackSourceName = "", faOptions = [];
+    let weaponAttack = 0, damageType = "", attackSourceName = "", faOptions = [], stunCapable = false;
     if (category === "physical") {
         // 数値は実効値(total=AE込み)を読む(UI 表示と同じ値・素値 value は編集用ベース。
         // 素値読みで表示と食い違っていたのをユーザー指摘で修正=2026-07-14)
-        const weapons = resolveAttackWeapons(actor, usage, item)
+        const rawWeapons = resolveAttackWeapons(actor, usage, item);
+        const weapons = rawWeapons
             .map(w => ({
                 itemId:      w.id,
                 name:        attackWeaponDisplayName(w),
                 attackValue: Number(w.system.attack?.total ?? w.system.attack?.value) || 0,
                 damageType:  w.system.attack?.damageTypeTotal || w.system.attack?.damageType || "",
-                isFullAuto:  w.system.isFullAuto === true,
+                isFullAuto:  readFlag(w.system, "isFullAuto"),
                 faValue:     Number(w.system.FAValueTotal ?? w.system.FAValue) || 0,
                 consumesAmmo: hasAmmoTracking(w.system.ammo),
             }));
+        // スタン可能(2026-07-15): 使用武器のいずれかがスタン可能 ∨ 生身(武器なし) ∨ 用途.canStun(技能効果)
+        stunCapable = usage.canStun === true || rawWeapons.length === 0
+            || rawWeapons.some(w => w.system.canStun === true);
         // 生身は value+mod が実効(AE はネイティブに value/mod へ乗る・UI 表示も value+mod)
         const baseAtk = actor.system.baseAttack ?? {};
         ({ weaponAttack, damageType, attackSourceName, faOptions } =
@@ -109,36 +114,45 @@ export async function useAttack(item, usage) {
             }));
     }
 
-    // 対象決定: ターゲット指定 → 選択ダイアログ(シーン上のトークン) → 対象なし許容
-    let targetUuid = "", targetName = "";
-    const targeted = [...game.user.targets][0];
-    if (targeted?.actor) {
-        targetUuid = targeted.actor.uuid;
-        targetName = targeted.actor.name;
-    } else {
+    // 対象決定(2026-07-15 ユーザー確定): Foundry のターゲット(レティクル)を**全件**使う。判定も
+    // ダメージも一括で全対象へ適用する(対象数の自動化はしない・一体に絞るダイアログは出さない)。
+    // 未ターゲットのときだけ選択ダイアログを出し、選んだトークンには**必ずレティクルを付与**して
+    // 進める(内部だけで対象を決めず、必ずターゲットされた対象に効果が及ぶようにする)。
+    let targets = [...game.user.targets]
+        .filter(t => t.actor)
+        .map(t => ({ uuid: t.actor.uuid, name: t.actor.name }));
+    if (!targets.length) {
         const seen = new Set();
         const options = [{ value: "", label: "（対象なし）" }];
         if (canvas?.ready) {
             for (const t of canvas.tokens.placeables) {
                 const a = t.actor;
-                if (!a || a.uuid === actor.uuid || seen.has(a.uuid)) continue;
-                seen.add(a.uuid);
-                options.push({ value: a.uuid, label: a.name });
+                if (!a || a.uuid === actor.uuid || seen.has(t.id)) continue;
+                seen.add(t.id);
+                options.push({ value: t.id, label: a.name });
             }
         }
         const sel = await TargetSelectionDialog.prompt({
             title: "攻撃対象の選択",
-            label: "攻撃の対象を選択してください（Foundry のターゲット指定があればそちらが優先されます）。",
+            label: "攻撃の対象を選択してください（トークンをターゲットしておくと複数対象を一括で狙えます）。",
             options,
             selectLabel: "決定",
         });
         if (sel === null || sel === undefined) return; // キャンセル
         if (sel) {
-            const doc = await fromUuid(sel).catch(() => null);
-            targetUuid = doc ? sel : "";
-            targetName = doc?.name ?? "";
+            const token = canvas.tokens?.get(sel);
+            if (token?.actor) {
+                token.setTarget(true, { releaseOthers: true }); // 必ずレティクルを付与
+                targets = [{ uuid: token.actor.uuid, name: token.actor.name }];
+            }
         }
     }
+
+    // 当面は先頭のレティクル対象で単体処理する。**複数対象の一括**(判定・ダメージを対象配列化して
+    // 全対象へ適用)は、攻撃カード/リアクション状態機械/ダメージ適用の対象配列化=大きい中核改修の
+    // ため後続で段階実装する(2026-07-15。それまで攻撃カード等は単体前提のまま)。
+    const targetUuid = targets[0]?.uuid ?? "";
+    const targetName = targets[0]?.name ?? "";
 
     // 参加技能の解決(check と同じ: ベース=baseSkillRef または親・コンボ=skillRefs)
     const baseId = usage.baseSkillRef?.itemId || item.id;
@@ -206,7 +220,8 @@ export async function useAttack(item, usage) {
             damageBonuses: usage.damageBonuses ?? [],
             damageBonusSelf: usage.damageBonusSelf ?? "",
             sourceItemId: item.id,
-            canStun: usage.canStun === true,   // スタン可能(2026-07-11・ダメージ確定直前に選択)
+            stunCapable,                       // スタン攻撃を宣言できるか(物理・武器/生身/用途canStun 由来・2026-07-15)
+            stunDeclared: false,               // 判定ダイアログのトグルで宣言される(2026-07-15)
             skillLabel,
             usageName: usage.name || item.name,
             usageEffects,   // 付与効果ペイロード(null=効果なし)。攻撃カードのフラグへ

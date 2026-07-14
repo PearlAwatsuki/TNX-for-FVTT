@@ -7,6 +7,8 @@
  * 判定ルール正本: llm-wiki/01_Wiki/Game_Rules/Check_Rules.md
  */
 
+import { readFlag } from "../data/item/helpers.mjs";
+
 /** スート → 能力値キー対応表 */
 export const SUIT_TO_ABILITY = Object.freeze({
     spade:   "reason",
@@ -172,7 +174,8 @@ export function calcControlCheck({ cardCheckValue, suit, abilitiesCtx, checkBonu
  */
 export function getComboSuits(skillSystems) {
     if (!skillSystems.length) return [...ALL_SUITS];
-    return ALL_SUITS.filter(suit => skillSystems.every(s => s.suits?.[suit] === true));
+    // 使用スートは実効フラグ(AE のオン/オフ込み・フェーズ12)で判定する
+    return ALL_SUITS.filter(suit => skillSystems.every(s => readFlag(s, `suits.${suit}`)));
 }
 
 /**
@@ -185,7 +188,8 @@ export function getComboSuits(skillSystems) {
  * @returns {boolean}
  */
 export function comboUsesBounty(skillSystems) {
-    return (skillSystems ?? []).some(s => s?.usesBounty === true);
+    // 報酬点使用可否は実効フラグ(AE 込み・フェーズ12)で判定する
+    return (skillSystems ?? []).some(s => readFlag(s, "usesBounty"));
 }
 
 /**

@@ -6,7 +6,7 @@
             <h1 class="charname-container">
                 {{#if isEditMode}}
                     <input class="furigana-input" name="system.furigana" type="text" value="{{system.furigana}}" placeholder="フリガナ" />
-                    <input class="itemname-input" name="name" type="text" value="{{item.name}}" placeholder="技能"/>
+                    <input class="itemname-input" name="name" type="text" value="{{sourceName}}" placeholder="技能"/>
                 {{else}}
                     <span class="furigana-view">{{system.furigana}}</span>
                     <span class="charname-view">{{tnxDecoratedName item}}</span>
@@ -25,7 +25,7 @@
 
         <div class="level-display">
             <label for="system.level">レベル</label>
-            <input type="number" name="system.level" value="{{system.level}}" {{#if system.levelRef.enabled}}disabled title="参照先のスタイル技能のレベルで自動設定されます"{{/if}}>
+            <input type="number" name="system.level" value="{{system.level}}" {{#if system.levelRef.enabled}}disabled{{/if}}>
         </div>
     </header>
 
@@ -253,7 +253,7 @@
 
                         {{!-- 「使用回数に制限あり」トグルは特性セクションへ移動(2026-07-09)。オン時に詳細を表示 --}}
                         {{#if usesSharedWithOwner}}
-                        <p class="usage-empty-hint" title="分身は使用回数を自分で管理せず、本体側の同じ能力のカウンターを消費・参照します">
+                        <p class="usage-empty-hint">
                             <i class="fas fa-link"></i> 使用回数は本体「{{usesOwnerName}}」と共有されます
                         </p>
                         {{/if}}
@@ -294,7 +294,7 @@
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label for="isDepartment-{{item._id}}">部署技能 <i class="fas fa-circle-question" title="部署を表すワークス技能。取得していると所属名(ワークス名)の表示がこの技能の名前で上書きされます(トループはトループ名の組織名部分も)"></i></label>
+                                    <label for="isDepartment-{{item._id}}">部署技能</label>
                                     <input type="checkbox" name="system.special.works.isDepartment" id="isDepartment-{{item._id}}" {{checked system.special.works.isDepartment}}>
                                 </div>
                     </div>
@@ -449,7 +449,7 @@
                     <legend>自動取得（取得時）</legend>
 
                     <div class="form-group">
-                        <label>武器使用義務 <i class="fas fa-circle-question" title="取得武器でこの技能の判定をしなければならない（オフ＝取得のみ・使用は任意）"></i></label>
+                        <label>武器使用義務</label>
                         <input type="checkbox" name="system.weaponUseMandatory" {{checked system.weaponUseMandatory}}>
                     </div>
 

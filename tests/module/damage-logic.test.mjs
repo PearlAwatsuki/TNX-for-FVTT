@@ -39,31 +39,38 @@ describe("defenceForType()（ダメージ種別に対応する防御力・X は�
   });
 });
 
-describe("computeDamage()（最終ダメージ・参照段・Damage_Rules）", () => {
-  it("max(0, カード+攻撃力+修正 − 軽減)・参照段=min(値,21)", () => {
+describe("computeDamage()（攻撃側合計→軽減→チャート参照値・Damage_Rules）", () => {
+  it("max(0, カード+攻撃力+修正 − 軽減)・参照値=min(値,21)", () => {
     expect(computeDamage({ damageCard: 8, attackPower: 5, modifier: 2, mitigation: 3 }))
-      .toEqual({ raw: 15, final: 12, stage: 12 });
+      .toEqual({ raw: 15, attack: 15, final: 12, stage: 12 });
   });
 
-  it("軽減は丸める前の生ダメージに効く（21 頭打ちは参照段のみ）", () => {
-    // 35ダメージを15軽減 → 20（段20）
+  it("軽減は丸める前の生ダメージに効く（21 頭打ちは参照値のみ）", () => {
+    // 35ダメージを15軽減 → 20
     expect(computeDamage({ damageCard: 21, attackPower: 14, modifier: 0, mitigation: 15 }))
-      .toEqual({ raw: 35, final: 20, stage: 20 });
-    // 5軽減 → 30 → 段21
+      .toEqual({ raw: 35, attack: 35, final: 20, stage: 20 });
+    // 5軽減 → 30 → 参照値21
     expect(computeDamage({ damageCard: 21, attackPower: 14, modifier: 0, mitigation: 5 }))
-      .toEqual({ raw: 35, final: 30, stage: 21 });
+      .toEqual({ raw: 35, attack: 35, final: 30, stage: 21 });
   });
 
   it("下限0（軽減が生ダメージを上回る）", () => {
     expect(computeDamage({ damageCard: 3, attackPower: 0, modifier: 0, mitigation: 10 }))
-      .toEqual({ raw: 3, final: 0, stage: 0 });
+      .toEqual({ raw: 3, attack: 3, final: 0, stage: 0 });
   });
 
-  it("スタン/説得: 10 以上を 10 とみなす（参照段の前・上限21の前）", () => {
+  it("スタン/説得: 攻撃側合計を10上限にする（ダメージ算出の最後・軽減より前）", () => {
+    // 軽減0: 20 → 攻撃側10 → 最終10
     expect(computeDamage({ damageCard: 20, attackPower: 0, modifier: 0, mitigation: 0, stun: true }))
-      .toEqual({ raw: 20, final: 10, stage: 10 });
+      .toEqual({ raw: 20, attack: 10, final: 10, stage: 10 });
     // 10未満はそのまま
     expect(computeDamage({ damageCard: 7, attackPower: 0, modifier: 0, mitigation: 0, stun: true }))
-      .toEqual({ raw: 7, final: 7, stage: 7 });
+      .toEqual({ raw: 7, attack: 7, final: 7, stage: 7 });
+  });
+
+  it("スタン/説得の10上限は軽減の前＝軽減が意味を持つ", () => {
+    // 攻撃側合計20を10にそろえてから5軽減 → 最終5（軽減後にキャップすると10になってしまう）
+    expect(computeDamage({ damageCard: 20, attackPower: 0, modifier: 0, mitigation: 5, stun: true }))
+      .toEqual({ raw: 20, attack: 10, final: 5, stage: 5 });
   });
 });

@@ -36,7 +36,7 @@
                  スート・レベル・カード・能力値を読まないため、通常判定の発動項目は持たない --}}
             <div class="usage-form-grid">
                 <div class="usage-form-row">
-                    <label class="usage-field-label">固定達成値 <i class="fas fa-circle-question" title="この値がそのまま達成値になります（カードも能力値も使いません）"></i></label>
+                    <label class="usage-field-label">固定達成値</label>
                     <div class="number-input-spinner">
                         <button type="button" data-action="decrementFixedResult" class="tnx-btn" {{#unless editable}}disabled{{/unless}}>-</button>
                         <input type="number" name="fixedResult" value="{{usage.fixedResult}}"
@@ -88,7 +88,7 @@
                         <select name="target" {{#unless editable}}disabled{{/unless}}>
                             {{selectOptions skillOpts.target selected=usage.target}}
                         </select>
-                        <label class="usage-fixed-toggle" title="変更不可（※）：効果による対象変更を受けない">
+                        <label class="usage-fixed-toggle" title="変更不可">
                             <input type="checkbox" name="isFixedTarget" {{checked usage.isFixedTarget}}
                                    {{#unless editable}}disabled{{/unless}}><span>※</span>
                         </label>
@@ -107,7 +107,7 @@
                         <select name="range" {{#unless editable}}disabled{{/unless}}>
                             {{selectOptions skillOpts.range selected=usage.range}}
                         </select>
-                        <label class="usage-fixed-toggle" title="変更不可（※）：効果による射程変更を受けない">
+                        <label class="usage-fixed-toggle" title="変更不可">
                             <input type="checkbox" name="isFixedRange" {{checked usage.isFixedRange}}
                                    {{#unless editable}}disabled{{/unless}}><span>※</span>
                         </label>
@@ -142,7 +142,7 @@
                     </div>
                 </div>
                 <div class="usage-form-row tv-other-sub">
-                    <label class="usage-field-label">目標値（自由入力・式） <i class="fas fa-circle-question" title="式を入力すると判定の目標値になります（式でない内容は表示のみ）"></i></label>
+                    <label class="usage-field-label">目標値（自由入力・式）</label>
                     <input type="text" name="targetValueOther" value="{{usage.targetValueOther}}"
                            placeholder="式または自由文（例: 10 + @condition.magnitude）"
                            {{#unless editable}}disabled{{/unless}}>
@@ -156,7 +156,7 @@
 
                 {{!-- 対決不可（インライントグル） --}}
                 <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline" title="対象がこの判定に対決（リアクション）できない状態">
+                    <label class="usage-toggle-inline">
                         <input type="checkbox" name="isUnopposable" {{checked usage.isUnopposable}}
                                {{#unless editable}}disabled{{/unless}}>
                         <span>対決不可</span>
@@ -167,10 +167,10 @@
 
             {{!-- 技能ベース用途のみ: 対決可能技能の情報表示 ＋ 自動入力。
                  対決欄の解釈(Check_Rules 2026-06-20): 無印の技能名は例示(他技能でのリアクションを
-                 排除しない)・※付きは必須——説明はフットノートでなく title で示す --}}
+                 排除しない)・※付きは必須 --}}
             {{#if showSkillParams}}
             <fieldset class="tnx-fieldset usage-confrontation-info">
-                <legend title="参加技能の対決欄に書かれた技能です（※付きは必須）">対決（参加技能より）</legend>
+                <legend>対決（参加技能より）</legend>
                 {{#if confrontationCannot}}
                 <p class="usage-info-line"><i class="fas fa-ban"></i> 対決不可の技能を含みます</p>
                 {{/if}}
@@ -184,7 +184,7 @@
             </fieldset>
             {{#if editable}}
             <div class="usage-autofill-row">
-                <a class="tnx-btn tnx-btn--sm" data-action="autoFill" title="参加技能の固有値から発動パラメータと消費を導出して上書きします">
+                <a class="tnx-btn tnx-btn--sm" data-action="autoFill">
                     <i class="fas fa-wand-magic-sparkles"></i> 参加技能から自動入力
                 </a>
             </div>
@@ -195,7 +195,7 @@
                  親アイテム・組み合わせ技能も自動では消費されない)。D&D の Consumption 踏襲。
                  位置はタブ末尾(対決不可→対決情報→自動入力の連続を分断しない・2026-07-05 ユーザー確認) --}}
             <fieldset class="tnx-fieldset usage-consume-section">
-                <legend title="実行時に消費するカウンターを設定します（設定した分だけ消費されます）">使用回数の消費</legend>
+                <legend>使用回数の消費</legend>
                 <div class="usage-consume-header">
                     {{#if editable}}
                     <a class="tnx-row-btn" data-action="consumeRowAdd" title="消費先を追加"><i class="fas fa-plus"></i></a>
@@ -253,19 +253,19 @@
                 {{!-- 判定モード(排他のためラジオ・2026-07-11): 通常=判定を行う / 再判定を付与 / 判定を修正。
                      判定用途である限り「なし」は存在しない(最初の選択肢=通常の判定) --}}
                 <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline" title="通常の判定として使用します">
+                    <label class="usage-toggle-inline">
                         <input type="radio" name="checkMode" value="normal" {{checked (eq checkMode "normal")}} {{#unless editable}}disabled{{/unless}}>
                         <span>通常</span>
                     </label>
-                    <label class="usage-toggle-inline" title="使用後、結果カードの達成値をクリックすると、その判定にこの技能を組み合わせて再判定します">
+                    <label class="usage-toggle-inline">
                         <input type="radio" name="checkMode" value="grant" {{checked (eq checkMode "grant")}} {{#unless editable}}disabled{{/unless}}>
                         <span>再判定を付与</span>
                     </label>
-                    <label class="usage-toggle-inline" title="使用後、結果カードの達成値をクリックすると、その判定に判定修正値を適用します">
+                    <label class="usage-toggle-inline">
                         <input type="radio" name="checkMode" value="modify" {{checked (eq checkMode "modify")}} {{#unless editable}}disabled{{/unless}}>
                         <span>判定を修正</span>
                     </label>
-                    <label class="usage-toggle-inline" title="使用後、次の自分の判定で使用できないスートのカードを使用可能なスートに変更できます">
+                    <label class="usage-toggle-inline">
                         <input type="radio" name="checkMode" value="suitChange" {{checked (eq checkMode "suitChange")}} {{#unless editable}}disabled{{/unless}}>
                         <span>スートを変更</span>
                     </label>
@@ -273,23 +273,23 @@
                 {{#if (eq checkMode "normal")}}
                 {{!-- 再判定可能・スート変更可能は「判定を行う用途」の性質のため通常モードでのみ表示 --}}
                 <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline" title="この判定の結果カードに「再判定」ボタンを表示します">
+                    <label class="usage-toggle-inline">
                         <input type="checkbox" name="allowRecheck" {{checked usage.allowRecheck}}
                                {{#unless editable}}disabled{{/unless}}>
                         <span>再判定可能</span>
                     </label>
-                    <label class="usage-toggle-inline" title="この判定で使用できないスートのカードを、使用可能なスートに変更できます">
+                    <label class="usage-toggle-inline">
                         <input type="checkbox" name="allowSuitChange" {{checked usage.allowSuitChange}}
                                {{#unless editable}}disabled{{/unless}}>
                         <span>スート変更可能</span>
                     </label>
                 </div>
                 {{/if}}
-                <label class="usage-field-label">この用途の判定修正値 <i class="fas fa-circle-question" title="親アイテム自身の判定修正値です（式が使えます）"></i></label>
+                <label class="usage-field-label">この用途の判定修正値</label>
                 <input type="text" name="checkBonusSelf" value="{{checkBonusSelf}}"
                        placeholder="式（例: @item.self.system.levelTotal、2）"
                        {{#unless editable}}disabled{{/unless}}>
-                <label class="usage-field-label">判定ボーナス（供給元つき・追加） <i class="fas fa-circle-question" title="組み合わせ技能や使用武器から供給される追加の加算です"></i></label>
+                <label class="usage-field-label">判定ボーナス（供給元つき・追加）</label>
                 {{> "systems/tokyo-nova-axleration/templates/app/usage-sheet-bonus-rows.hbs"
                     rows=checkBonusRows prefix="checkBonus" addAction="checkBonusAdd" deleteAction="checkBonusDelete"
                     addLabel="判定ボーナスを追加" placeholder="式（例: 2、@item.<識別キー>.system.level）"
@@ -303,22 +303,22 @@
                 <legend>攻撃</legend>
                 {{!-- 攻撃モード(排他のためラジオ・2026-07-11): なし=通常判定 / 攻撃に使う / ダメージを修正 --}}
                 <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline" title="通常の判定として使います">
+                    <label class="usage-toggle-inline">
                         <input type="radio" name="attackMode" value="none" {{checked (eq attackMode "none")}} {{#unless editable}}disabled{{/unless}}>
                         <span>なし</span>
                     </label>
-                    <label class="usage-toggle-inline" title="この判定を攻撃（ダメージを与える行動）として使います">
+                    <label class="usage-toggle-inline">
                         <input type="radio" name="attackMode" value="attack" {{checked (eq attackMode "attack")}} {{#unless editable}}disabled{{/unless}}>
                         <span>攻撃に使う</span>
                     </label>
-                    <label class="usage-toggle-inline" title="使用後、ダメージ・チャットカードの攻撃側合計をクリックすると、下の修正値をそのダメージに適用します">
+                    <label class="usage-toggle-inline">
                         <input type="radio" name="attackMode" value="modifyDamage" {{checked (eq attackMode "modifyDamage")}} {{#unless editable}}disabled{{/unless}}>
                         <span>ダメージを修正</span>
                     </label>
                 </div>
                 {{#if isModifyDamage}}
                 <div class="usage-form-section">
-                    <label class="usage-field-label">ダメージ修正（式） <i class="fas fa-circle-question" title="ダメージへ適用する修正値です（増加＝正・軽減＝負。空なら適用時に手入力）"></i></label>
+                    <label class="usage-field-label">ダメージ修正（式）</label>
                     <input type="text" name="damageBonusSelf" value="{{damageBonusSelf}}"
                            placeholder="式（例: -@item.self.system.levelTotal、@card、-5）"
                            {{#unless editable}}disabled{{/unless}}>
@@ -327,25 +327,25 @@
                 {{#if isAttack}}
                 <div class="usage-form-section">
                     <div class="usage-form-row">
-                        <label class="usage-field-label">攻撃の系統 <i class="fas fa-circle-question" title="攻撃の系統です（防御力で軽減されるのは物理のみ）"></i></label>
+                        <label class="usage-field-label">攻撃の系統</label>
                         <select name="damageCategory" {{#unless editable}}disabled{{/unless}}>
                             {{#each attackCategoryOptions}}
                             <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
                             {{/each}}
                         </select>
                     </div>
-                    {{!-- スタン可能(2026-07-11): ON の攻撃のみ、ダメージ確定の直前に
-                         「スタン/説得を適用するか」のダイアログが出る --}}
+                    {{#if isAttackPhysical}}
+                    {{!-- スタン可能: 物理攻撃のみの能力ゲート。ON の物理攻撃は攻撃の判定ダイアログで
+                         「スタンとして行う」を宣言できる（説得は精神攻撃で常時・canStun 不要） --}}
                     <div class="usage-form-row usage-toggle-row">
-                        <label class="usage-toggle-inline" title="ダメージ確定の直前に、スタン（精神攻撃では説得）を適用するか選べます">
+                        <label class="usage-toggle-inline">
                             <input type="checkbox" name="canStun" {{checked usage.canStun}}
                                    {{#unless editable}}disabled{{/unless}}>
-                            <span>スタン可能（精神攻撃では説得）</span>
+                            <span>スタン可能</span>
                         </label>
                     </div>
-                    {{#if isAttackPhysical}}
                     <div class="usage-form-row">
-                        <label class="usage-field-label">使用武器 <i class="fas fa-circle-question" title="一本目はシートの「攻撃で使用」の武器です。追加した武器は攻撃力を合算します"></i></label>
+                        <label class="usage-field-label">使用武器</label>
                         <div class="usage-skill-ref-list">
                             <div class="usage-skill-ref-row">
                                 <span class="usage-skill-ref-name">{{sheetAttackWeapon.name}}（{{sheetAttackWeapon.attackLabel}}）</span>
@@ -371,7 +371,7 @@
                         {{/if}}
                     </div>
                     <div class="usage-form-row">
-                        <label class="usage-field-label">ダメージ種別 <i class="fas fa-circle-question" title="複数武器で種別が異なるときに選びます（通常は武器に従う）"></i></label>
+                        <label class="usage-field-label">ダメージ種別</label>
                         <select name="damageType" {{#unless editable}}disabled{{/unless}}>
                             <option value="">── 武器に従う ──</option>
                             <option value="S" {{#if (eq usage.damageType "S")}}selected{{/if}}>S（斬撃）</option>
@@ -380,11 +380,11 @@
                         </select>
                     </div>
                     {{/if}}
-                    <label class="usage-field-label">この用途のダメージ修正値 <i class="fas fa-circle-question" title="親アイテム自身のダメージ修正値です（式が使えます）"></i></label>
+                    <label class="usage-field-label">この用途のダメージ修正値</label>
                     <input type="text" name="damageBonusSelf" value="{{damageBonusSelf}}"
                            placeholder="式（例: @item.self.system.attack.total）"
                            {{#unless editable}}disabled{{/unless}}>
-                    <label class="usage-field-label">ダメージ修正（供給元つき・追加） <i class="fas fa-circle-question" title="組み合わせ技能や使用武器から供給される追加の加算です"></i></label>
+                    <label class="usage-field-label">ダメージ修正（供給元つき・追加）</label>
                     {{> "systems/tokyo-nova-axleration/templates/app/usage-sheet-bonus-rows.hbs"
                         rows=damageBonusRows prefix="damageBonus" addAction="damageBonusAdd" deleteAction="damageBonusDelete"
                         addLabel="ダメージ修正を追加" placeholder="式（例: @item.<武器の識別キー>.system.attack.value）"
@@ -403,27 +403,27 @@
                 {{!-- 再判定を付与(2026-07-13 ユーザー確定): 宣言は判定でない=参加技能が無いため、
                      組み合わせなしの素の再判定権を事後付与する(check 用途の付与は親技能を組み合わせる) --}}
                 <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline" title="使用後、結果カードの達成値をクリックすると、その判定を再判定します">
+                    <label class="usage-toggle-inline">
                         <input type="checkbox" name="grantRecheck" {{checked usage.grantRecheck}}
                                {{#unless editable}}disabled{{/unless}}>
                         <span>再判定を付与</span>
                     </label>
                 </div>
                 <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline" title="使用後、結果カードの達成値をクリックすると、下の修正値をその判定に適用します">
+                    <label class="usage-toggle-inline">
                         <input type="checkbox" name="modifyCheck" {{checked usage.modifyCheck}}
                                {{#unless editable}}disabled{{/unless}}>
                         <span>判定を修正</span>
                     </label>
                 </div>
                 {{#if usage.modifyCheck}}
-                <label class="usage-field-label">判定修正（式） <i class="fas fa-circle-question" title="判定へ適用する修正値です（ボーナス＝正・ペナルティ＝負。空なら適用時に手入力）"></i></label>
+                <label class="usage-field-label">判定修正（式）</label>
                 <input type="text" name="checkBonusSelf" value="{{checkBonusSelf}}"
                        placeholder="式（例: @item.self.system.levelTotal、2、-3）"
                        {{#unless editable}}disabled{{/unless}}>
                 {{/if}}
                 <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline" title="使用後、次の自分の判定で使用できないスートのカードを使用可能なスートに変更できます">
+                    <label class="usage-toggle-inline">
                         <input type="checkbox" name="grantSuitChange" {{checked usage.grantSuitChange}}
                                {{#unless editable}}disabled{{/unless}}>
                         <span>スートを変更（次の判定）</span>
@@ -434,14 +434,14 @@
             <fieldset class="tnx-fieldset">
                 <legend>ダメージ</legend>
                 <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline" title="使用後、ダメージ・チャットカードの攻撃側合計をクリックすると、下の修正値をそのダメージに適用します">
+                    <label class="usage-toggle-inline">
                         <input type="checkbox" name="modifyDamage" {{checked usage.modifyDamage}}
                                {{#unless editable}}disabled{{/unless}}>
                         <span>ダメージを修正</span>
                     </label>
                 </div>
                 {{#if usage.modifyDamage}}
-                <label class="usage-field-label">ダメージ修正（式） <i class="fas fa-circle-question" title="ダメージへ適用する修正値です（増加＝正・軽減＝負。空なら適用時に手入力）"></i></label>
+                <label class="usage-field-label">ダメージ修正（式）</label>
                 <input type="text" name="damageBonusSelf" value="{{damageBonusSelf}}"
                        placeholder="式（例: -@item.self.system.levelTotal、@card、-5）"
                        {{#unless editable}}disabled{{/unless}}>
@@ -456,7 +456,7 @@
             <fieldset class="tnx-fieldset">
                 <legend>NPC取得</legend>
                 <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline" title="使用時に NPC（エキストラ／トループ／エニグマ／分身）を取得します">
+                    <label class="usage-toggle-inline">
                         <input type="checkbox" name="npcAcquire" {{checked usage.npcAcquire}}
                                {{#unless editable}}disabled{{/unless}}>
                         <span>NPC取得を行う</span>
@@ -468,7 +468,7 @@
                      エキストラ=判定なし / トループ・エニグマ=判定(目標値なし・達成値=人数/ポイント) /
                      分身=判定(目標値10・達成値10以上で成功) --}}
                 <div class="usage-form-row">
-                    <label class="usage-field-label">取得類型 <i class="fas fa-circle-question" title="取得の類型を選びます（判定の有無と達成値の扱いが変わります）"></i></label>
+                    <label class="usage-field-label">取得類型</label>
                     <select name="acquireMode" {{#unless editable}}disabled{{/unless}}>
                         {{#each acquireModeOptions}}
                         <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
@@ -479,9 +479,9 @@
                 {{!-- 取得するアクター(トループ/エニグマ・2026-07-07 裁定=対象は用途側で設定)。
                      事前作成した種別一致のトループ級アクターをドロップで関連付ける --}}
                 <div class="usage-form-row">
-                    <label class="usage-field-label">取得するアクター <i class="fas fa-circle-question" title="使用時に呼び出すアクターです"></i></label>
+                    <label class="usage-field-label">取得するアクター</label>
                     <div class="usage-field-with-fixed">
-                        <span class="usage-acquire-actor-dropzone extra-actor-dropzone{{#unless hasAcquireActor}} extra-actor-dropzone--empty{{/unless}}" title="{{acquireModeLabel}}のアクターをドロップで設定">
+                        <span class="usage-acquire-actor-dropzone extra-actor-dropzone{{#unless hasAcquireActor}} extra-actor-dropzone--empty{{/unless}}">
                             {{#if hasAcquireActor}}{{acquireActorName}}{{else}}アクターをドロップ{{/if}}
                         </span>
                         {{#if hasAcquireActor}}
@@ -496,7 +496,7 @@
                 {{!-- 分身は対象を設定せずそのまま召喚(2026-07-08 裁定)。複数体の可能性があるため
                      召喚数を設定する(トークンをこの数だけ配置) --}}
                 <div class="usage-form-row">
-                    <label class="usage-field-label">召喚数 <i class="fas fa-circle-question" title="呼び出す分身の数です"></i></label>
+                    <label class="usage-field-label">召喚数</label>
                     <div class="number-input-spinner">
                         <button type="button" data-action="decrementAcquireCount" class="tnx-btn" {{#unless editable}}disabled{{/unless}}>-</button>
                         <input type="number" name="acquireCount" value="{{acquireCount}}" min="1"
@@ -508,7 +508,7 @@
                     </div>
                 {{#if isAcquireExtraMode}}
             <div class="usage-form-section usage-acquire-section">
-                <label class="usage-field-label">取得するエキストラ <i class="fas fa-circle-question" title="使用時に取得するアウトフィットです"></i></label>
+                <label class="usage-field-label">取得するエキストラ</label>
                 <div class="usage-skill-ref-list">
                     {{#each acquireItemRows as |row|}}
                     <div class="usage-skill-ref-row">
@@ -540,14 +540,14 @@
             <fieldset class="tnx-fieldset usage-recovery-section">
                 <legend>回復</legend>
                 <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline" title="対象が受けている状態から回復対象を選んで除去します（判定用途は成功で除去）">
+                    <label class="usage-toggle-inline">
                         <input type="checkbox" name="recovery" {{checked usage.recovery}}
                                {{#unless editable}}disabled{{/unless}}>
                         <span>回復を行う</span>
                     </label>
                 </div>
                 {{#if isRecovery}}
-                <label class="usage-field-label">回復対象の範囲 <i class="fas fa-circle-question" title="回復できる状態の範囲です（小分類が空欄ならグループ全体）"></i></label>
+                <label class="usage-field-label">回復対象の範囲</label>
                 <div class="usage-recovery-rows">
                     {{#each recoveryRows as |row|}}
                     <div class="usage-consume-row">
@@ -567,13 +567,13 @@
                         {{/if}}
                     </div>
                     {{else}}
-                    <p class="usage-empty-hint">（範囲なし＝回復対象がありません）</p>
+                    <p class="usage-empty-hint">（範囲なし）</p>
                     {{/each}}
                     {{#if editable}}
                     <a class="tnx-row-btn" data-action="recoveryRowAdd" title="範囲を追加"><i class="fas fa-plus"></i></a>
                     {{/if}}
                 </div>
-                <label class="usage-field-label">除外タグ <i class="fas fa-circle-question" title="指定したタグと、そのタグを与える負傷を回復対象から除外します"></i></label>
+                <label class="usage-field-label">除外タグ</label>
                 <div class="usage-skill-ref-list">
                     {{#each recoveryExcludeRows}}
                     <div class="usage-skill-ref-row">
@@ -598,7 +598,7 @@
                 </div>
                 {{/if}}
                 <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline" title="範囲に該当するすべての状態をまとめて回復します">
+                    <label class="usage-toggle-inline">
                         <input type="checkbox" name="recoveryAll" {{checked usage.recoveryAll}}
                                {{#unless editable}}disabled{{/unless}}>
                         <span>該当すべてを回復</span>
@@ -606,7 +606,7 @@
                 </div>
                 {{#unless recoveryAll}}
                 <div class="usage-form-row">
-                    <label class="usage-field-label">回復数 <i class="fas fa-circle-question" title="1回の使用で回復できる状態の数です"></i></label>
+                    <label class="usage-field-label">回復数</label>
                     <div class="number-input-spinner">
                         <button type="button" data-action="decrementRecoveryCount" class="tnx-btn" {{#unless editable}}disabled{{/unless}}>-</button>
                         <input type="number" name="recoveryCount" value="{{recoveryCountValue}}" min="1"
@@ -649,8 +649,7 @@
                     </select>
                 </div>
                 {{#unless hasAnyEffect}}
-                <p class="usage-empty-hint">親アイテム・組み合わせ技能・使用武器に ActiveEffect がありません。<br>
-                   各アイテムシートの「エフェクト」タブで追加すると、ここで選択できます。</p>
+                <p class="usage-empty-hint">（追加できる効果がありません）</p>
                 {{/unless}}
                 {{/if}}
             </fieldset>

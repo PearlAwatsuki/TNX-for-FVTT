@@ -11,6 +11,7 @@ import { TnxCharacterSheetBase } from './tnx-character-sheet-base.mjs';
 import { TnxHistoryMixin } from '../module/tnx-history-mixin.mjs';
 import { getUserFlagData, TNX_FLAG_SCOPE } from '../module/user-flag-schema.mjs';
 import { OUTFIT_ITEM_TYPES } from '../data/helpers.mjs';
+import { readFlag } from '../data/item/helpers.mjs';
 
 export class TokyoNovaCastSheet extends TnxCharacterSheetBase {
 
@@ -279,7 +280,7 @@ export class TokyoNovaCastSheet extends TnxCharacterSheetBase {
             if (system.isDerivedData) return 0; // 派生データは派生元が経験点を負担するため二重計上しない
             if (system.preserveExp?.mode !== "value") return 0;
             const base = Number(system.preserveExp.value) || 0;
-            return system.isConsumption ? base * (Number(system.quantity?.max) || 0) : base;
+            return readFlag(system, "isConsumption") ? base * (Number(system.quantity?.max) || 0) : base;
         }
 
         return Number(item.system.expCost) || 0;

@@ -3,7 +3,7 @@
      軽減(2026-07-08 ユーザー指示: 防御側に別途ダイアログ)。技能等による軽減は手動欄に入力する。 --}}
 <div class="tnx-damage-form">
     <p class="tnx-damage-summary">
-        {{targetName}} への {{categoryLabel}}ダメージ（攻撃側合計 <b>{{raw}}</b>{{#if canStun}}・{{stunLabel}}可（確定前に選択）{{/if}}）
+        {{targetName}} への {{categoryLabel}}ダメージ（攻撃側合計 <b>{{attackTotal}}</b>{{#if stun}}・{{stunLabel}}宣言（10上限）{{/if}}）
     </p>
 
     <div class="tnx-damage-fields">
@@ -17,7 +17,7 @@
         </div>
         {{#if isSocial}}
         <div class="form-group">
-            <label>報酬点による軽減 <i class="fas fa-circle-question" title="社会攻撃はリアクションの〈信用〉判定が成立していれば報酬点で軽減できます"></i></label>
+            <label>報酬点による軽減</label>
             <div class="number-input-spinner">
                 <button type="button" class="tnx-btn" data-action="decrement" aria-label="Decrease">-</button>
                 <input type="number" name="bountyMitigation" value="0" min="0" max="99">

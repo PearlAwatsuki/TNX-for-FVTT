@@ -31,7 +31,8 @@ const PHYSICAL = {
   "phys-4":  { label: "嗅味覚消失" },
   "phys-5":  { label: "背部裂傷" },
   "phys-6":  { label: "胸部損傷",     inflicts: [{ kind: "weakness" }] },
-  "phys-7":  { label: "腕部損傷",     notes: "片腕使用不可", partSlotMod: { part: "片手持ち", delta: -1 } },
+  // partSlotMod.part は部位キー(フェーズ12・one-hand=片手持ち)。照合はキー優先・旧ラベルも後方互換で引ける
+  "phys-7":  { label: "腕部損傷",     notes: "片腕使用不可", partSlotMod: { part: "one-hand", delta: -1 } },
   "phys-8":  { label: "衝撃",         inflicts: [{ kind: "confusion" }] },
   "phys-9":  { label: "朦朧",         inflicts: [{ kind: "doped-minor" }] },
   "phys-10": { label: "腹部損傷",     inflicts: [{ kind: "faint", controlNegate: { ability: ABIL_LIFE } }] },

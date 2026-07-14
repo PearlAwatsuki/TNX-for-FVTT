@@ -57,7 +57,18 @@ export class TnxCheckDialog extends HandlebarsApplicationMixin(ApplicationV2) {
         const trumpPile = userFlag.trumpCardPileId ? await fromUuid(userFlag.trumpCardPileId) : null;
         const hasTrump  = (trumpPile?.cards.size ?? 0) > 0;
 
+        // スタン/説得の宣言トグル(攻撃の判定のみ・2026-07-15 ユーザー確定): 物理攻撃かつ canStun→
+        // スタン、精神攻撃→説得(常時)、社会・非攻撃→出さない。既定オフ・宣言は攻撃ペイロードに載る
+        const atk = ctx.attack;
+        let stunOption = null;
+        if (atk?.category === "physical" && atk.stunCapable) {
+            stunOption = { label: "スタン攻撃として実行", checked: atk.stunDeclared === true };
+        } else if (atk?.category === "mental") {
+            stunOption = { label: "説得として実行", checked: atk.stunDeclared === true };
+        }
+
         return {
+            stunOption,
             ...context,
             typeLabel:      TYPE_LABEL[ctx.type] ?? ctx.type,
             skillLabel:     ctx.skillLabel,
@@ -88,6 +99,9 @@ export class TnxCheckDialog extends HandlebarsApplicationMixin(ApplicationV2) {
         input?.addEventListener("change", () => {
             TnxCheckFlow.setManualMod(Number(input.value) || 0);
         });
+        // スタン/説得の宣言トグルを判定コンテキストへ同期する(カードプレイ時に読まれる・2026-07-15)
+        const stunInput = this.element.querySelector('input[name="stunDeclared"]');
+        stunInput?.addEventListener("change", () => TnxCheckFlow.setStunDeclared(stunInput.checked));
     }
 
     // ×ボタンで閉じたら判定をキャンセルする

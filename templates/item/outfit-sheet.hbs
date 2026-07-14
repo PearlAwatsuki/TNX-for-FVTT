@@ -6,7 +6,7 @@
             <div class="charname-row">
                 <h1 class="charname">
                     {{#if isEditMode}}
-                        <input name="name" type="text" value="{{item.name}}" placeholder="アウトフィット名"/>
+                        <input name="name" type="text" value="{{sourceName}}" placeholder="アウトフィット名"/>
                     {{else}}
                         <span class="charname-view">{{tnxDecoratedName item}}</span>
                     {{/if}}
@@ -49,11 +49,11 @@
             {{!-- エキストラの二重表現(11-6・Troops.md): このアウトフィットが場に出るときの
                  共有エキストラアクター。NPC取得(エキストラモード)で取得と同時に場に出る --}}
             <div class="outfit-extra-actor">
-                <span class="outfit-extra-actor__label" title="このアウトフィットを取得したとき場に出るエキストラアクター（共有・複製されません）。自分専用にしたい場合は新規のエキストラアクターを作成して付け替えてください">
+                <span class="outfit-extra-actor__label">
                     <i class="fas fa-user"></i> エキストラアクター:
                 </span>
                 {{#if isEditMode}}
-                <span class="extra-actor-dropzone{{#unless hasExtraActor}} extra-actor-dropzone--empty{{/unless}}" title="エキストラのアクターをドロップで設定">
+                <span class="extra-actor-dropzone{{#unless hasExtraActor}} extra-actor-dropzone--empty{{/unless}}">
                     {{#if hasExtraActor}}{{extraActorName}}{{else}}アクターをドロップ{{/if}}
                 </span>
                 {{#if hasExtraActor}}
@@ -123,7 +123,7 @@
                             <span>変異器官</span>
                         </label>
                         {{#if isWeapon}}
-                        <label class="outfit-flag" title="生身（武器）の攻撃力・受け値を書き換える装備。書き換え結果は「生身」として扱われます（戦闘タブで攻撃用・パリー用に選択）">
+                        <label class="outfit-flag">
                             <input type="checkbox" name="system.isFleshChange" {{checked system.isFleshChange}}>
                             <span>生身変更装備</span>
                         </label>
@@ -134,7 +134,7 @@
                         </label>
                         {{!-- 派生データ: 「派生データを持つ」が ON のときは非表示(派生元は自身が派生データではない) --}}
                         {{#unless system.hasDerivedData}}
-                        <label class="outfit-flag" title="別アイテムから派生したデータ（常備化経験点を消費しない）">
+                        <label class="outfit-flag">
                             <input type="checkbox" name="system.isDerivedData" {{checked system.isDerivedData}}>
                             <span>派生データ</span>
                         </label>
@@ -264,6 +264,10 @@
                                 <label>フルオート</label>
                                 <input type="checkbox" name="system.isFullAuto" {{checked system.isFullAuto}}>
                             </div>
+                            <div class="form-group">
+                                <label>スタン可能</label>
+                                <input type="checkbox" name="system.canStun" {{checked system.canStun}}>
+                            </div>
                             {{#if system.isFullAuto}}
                                 <div class="form-group">
                                     <label>FA値</label>
@@ -278,7 +282,7 @@
                                  自動給弾のFA武器は残弾を「-」にする(FAしても空にならない) --}}
                             {{#if hasAmmo}}
                                 <div class="form-group">
-                                    <label title="残弾。数字=装弾数（通常射撃で減る）／任意=有無だけ（FA射撃で空）。空はリロードで満タンに戻る">残弾</label>
+                                    <label>残弾</label>
                                     <div class="form-fields {{#if (eq system.ammo.mode "value")}}split-fields{{/if}}">
                                         <select name="system.ammo.mode">
                                             {{selectOptions ammoModeOptions selected=system.ammo.mode}}
@@ -359,7 +363,7 @@
                                 </div>
                                 {{!-- 2行目: ゴースト時読み飛ばしフラグ(2026-07-02 裁定。「変更不可（※）」と同形式) --}}
                                 <div class="checkbox-row">
-                                    <label title="ON=携帯時点で適用し、ゴースト登場中は読み飛ばす（原作の括弧書き「CS：（-20）」のタップ）。OFF=通常どおり準備済みでのみ適用">ゴースト時は適用しない</label>
+                                    <label>ゴースト時は適用しない</label>
                                     <input type="checkbox" name="system.combatSpeedModGhostIgnore" {{checked system.combatSpeedModGhostIgnore}}>
                                 </div>
                             </div>
@@ -807,7 +811,7 @@
 
                         {{!-- 派生データを持つ(詳細設定・使用回数の上。ON で派生データ参照UIを同セクション内に表示) --}}
                         <div class="form-group">
-                            <label for="hasDerived-{{item._id}}" title="取得（インポート）時に派生データを自動生成する">派生データを持つ</label>
+                            <label for="hasDerived-{{item._id}}">派生データを持つ</label>
                             <input type="checkbox" name="system.hasDerivedData" id="hasDerived-{{item._id}}" {{checked system.hasDerivedData}}>
                         </div>
                         {{#if system.hasDerivedData}}
@@ -833,7 +837,7 @@
                             <input type="checkbox" name="system.uses.isLimit" id="isLimit-{{item._id}}" {{checked system.uses.isLimit}} {{#if usesSharedWithOwner}}disabled{{/if}}>
                         </div>
                         {{#if usesSharedWithOwner}}
-                        <p class="usage-empty-hint" title="分身は使用回数を自分で管理せず、本体側の同じ能力のカウンターを消費・参照します">
+                        <p class="usage-empty-hint">
                             <i class="fas fa-link"></i> 使用回数は本体「{{usesOwnerName}}」と共有されます（このアイテムのローカル値は使われません）
                         </p>
                         {{/if}}
@@ -870,12 +874,12 @@
                     </legend>
 
                     <div class="tnx-part-controls">
-                        <label class="tnx-part-optional" title="任意＝重複可・占有数に数えない（部位全体に効く）">
+                        <label class="tnx-part-optional">
                             <input type="checkbox" name="system.partOptional" {{checked partOptional}}>
                             任意
                         </label>
                         {{#if partMultiRow}}
-                        <span class="tnx-part-relation" title="複数の部位をどう占有するか。かつ＝すべて占有／または＝いずれか1つ（択一）">
+                        <span class="tnx-part-relation">
                             <label>複数部位の扱い</label>
                             <select name="system.partRelation">
                                 {{selectOptions partRelationChoices selected=partRelation}}
@@ -902,7 +906,7 @@
 
                             {{#if row.isReference}}
                             <div class="tnx-part-field tnx-part-refsub">
-                                <label>実部位<span class="tnx-part-note">（表示は常に「解説参照」）</span></label>
+                                <label>実部位</label>
                                 <select data-part-field="refSubKind" data-index="{{row.idx}}">
                                     {{selectOptions ../partRefSubChoices selected=row.refSubKind}}
                                 </select>
@@ -928,7 +932,7 @@
                                     {{/if}}
                                 </div>
                                 <div class="tnx-part-field tnx-part-slots">
-                                    <label>消費数 <i class="fas fa-circle-question" title="占有するスロット数（0＝非消費）"></i></label>
+                                    <label>消費数</label>
                                     <div class="number-input-spinner tnx-spinner--sm">
                                         <button type="button" class="tnx-btn" data-action="decrementPart" data-index="{{row.idx}}">－</button>
                                         <input type="number" data-part-field="slots" data-index="{{row.idx}}" value="{{row.slots}}" min="0">
@@ -965,7 +969,7 @@
                                     </select>
                                 </div>
                                 <div class="tnx-part-field tnx-part-slots">
-                                    <label>消費数 <i class="fas fa-circle-question" title="占有するスロット数（0＝非消費）"></i></label>
+                                    <label>消費数</label>
                                     <div class="number-input-spinner tnx-spinner--sm">
                                         <button type="button" class="tnx-btn" data-action="decrementPart" data-index="{{row.idx}}">－</button>
                                         <input type="number" data-part-field="slots" data-index="{{row.idx}}" value="{{row.slots}}" min="0">
@@ -987,7 +991,7 @@
                                 {{#if ../showOptionHost}}
                                 <div class="tnx-part-equip">
                                     <div class="tnx-part-field">
-                                        <label>装備先 <i class="fas fa-circle-question" title="このオプションを準備する先のアイテム。占有はこのアイテムのスロットを消費する"></i></label>
+                                        <label>装備先</label>
                                         <select name="system.parentItemId">
                                             {{selectOptions ../options.parentItem selected=../system.parentItemId}}
                                         </select>

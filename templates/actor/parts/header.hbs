@@ -28,7 +28,7 @@
                         <div class="char-name-block-edit">
                             {{#if nameLocked}}
                             {{!-- トループ/分身は導出名で固定(Troops.md)。自由入力はエニグマのみ --}}
-                            <input type="text" value="{{actor.name}}" disabled title="名前は種別に応じて「(スタイル名)・トループ」「(分身元キャラ)の分身」で自動決定されます">
+                            <input type="text" value="{{actor.name}}" disabled>
                             {{else}}
                             <input name="name" type="text" value="{{actor.name}}">
                             <input name="system.charaname_ruby" type="text" value="{{system.charaname_ruby}}">
@@ -76,7 +76,7 @@
                                 <label>{{troopLevelLabel}}：</label>
                                 <div class="number-input-spinner">
                                     <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.troopLevel" data-min="0">-</button>
-                                    <input type="number" name="system.troopLevel" value="{{system.troopLevel}}" title="能力値はスタイルの基本値＋トループレベルで決定されます">
+                                    <input type="number" name="system.troopLevel" value="{{system.troopLevel}}">
                                     <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.troopLevel">+</button>
                                 </div>
                             </div>
@@ -143,7 +143,7 @@
                         </div>
                         {{!-- 所有トループ級の消費小計(11-6): 消費経験点に算入済みの内訳表示 --}}
                         {{#if ownedTroopExp}}
-                        <div class="exp-troop-subtotal" title="所有するトループ級キャラクター（トループ/エニグマ）の技能・アウトフィット取得分（消費経験点に含まれています）">
+                        <div class="exp-troop-subtotal">
                             <span>うち所有トループ級：</span>
                             <span class="exp-value">{{ownedTroopExp}}</span>
                         </div>

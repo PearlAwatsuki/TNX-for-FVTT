@@ -227,10 +227,9 @@ async function finalizeDamageRoll(ctx, form, played) {
                     diff: f.diff ?? null,
                     achievement: f.achievement ?? null,
                     cardValue: f.cardValue ?? null,   // 命中判定のカード値(式の @card 用)
-                    canStun: f.canStun === true,      // スタン可能(適用の選択はダメージ確定直前)
                     cards: [played],
                     manualMod: form.manualMod,
-                    stun: false,   // スタン/説得は適用時(ダメージ確定直前)に選択する(2026-07-11)
+                    stun: f.stunDeclared === true,   // 攻撃宣言時のスタン/説得(攻撃側合計を10上限・軽減より前)
                     applied: false,
                     appliedResult: null,
                 },
@@ -333,7 +332,7 @@ export function renderDamageCard(message, html) {
 
     // ── 台帳 ──
     if (f.targetName) row(ledger, "対象", esc(f.targetName));
-    const { raw } = damageRollTotals(f);
+    const { raw, attack } = damageRollTotals(f);
     const cards = f.cards ?? [];
     cards.forEach((c, i) => {
         const suitMark = SUIT_SYMBOL[c.suit] ? `<span class="cr-suit suit-${c.suit}">${SUIT_SYMBOL[c.suit]}</span> ` : "";
@@ -354,7 +353,8 @@ export function renderDamageCard(message, html) {
         row(ledger, `事後修正（${esc(m.label || "用途")}）`,
             m.overrideTo !== undefined ? `→${m.overrideTo}` : signedDisplay("＋", m.value));
     }
-    row(ledger, `攻撃側合計${f.stun ? "（スタン／説得）" : ""}`, String(raw), "cr-calc-row cr-total-row", "cr-total-num");
+    if (f.stun && raw > 10) row(ledger, "スタン／説得（10上限）", `${raw} → 10`);
+    row(ledger, `攻撃側合計${f.stun ? "（スタン／説得）" : ""}`, String(attack), "cr-calc-row cr-total-row", "cr-total-num");
     // ダメージクリック待ち(modifyDamage): 適用前のダメージの攻撃側合計をクリック可能に
     // (達成値クリックと同じ装飾クラス。モード外のクリックは無視)
     if (!f.applied) {
@@ -370,7 +370,6 @@ export function renderDamageCard(message, html) {
         const r = f.appliedResult;
         if (r.mitigation) row(area, `軽減${r.mitigationNote ? `（${esc(r.mitigationNote)}）` : ""}`, `−${r.mitigation}`);
         if (r.bounty) row(area, "報酬点による軽減", `−${r.bounty}`);
-        if (r.stunCapped) row(area, "スタン／説得（10 以上→10）", "→10");
         row(area, "最終ダメージ", String(r.final), "cr-calc-row cr-total-row", "cr-total-num");
         line(area, `cr-result ${r.final > 0 ? "cr-result--damage" : "cr-result--nodamage"}`,
             `<i class="fas ${r.final > 0 ? "fa-burst" : "fa-shield-halved"}"></i> ${esc(r.applyText ?? "")}`);
@@ -384,7 +383,6 @@ export function renderDamageCard(message, html) {
         btn.type = "button";
         btn.className = "tnx-chat-btn";
         btn.innerHTML = '<i class="fas fa-clone"></i> カードを追加で出す';
-        btn.title = "特殊な技能でダメージカードを複数枚出す場合（合算）";
         btn.addEventListener("click", () => addDamageCard(message));
         area.appendChild(btn);
     }
@@ -510,7 +508,9 @@ function damageRollTotals(f) {
     const modsSum = (f.mods ?? []).reduce((s, m) => s + (Number(m.value) || 0), 0);
     const raw = cardSum + (Number(f.attackPower) || 0) + (Number(f.faValue) || 0)
         + bonusSum + modsSum + (Number(f.manualMod) || 0);
-    return { cardSum, raw };
+    // スタン/説得: 攻撃側合計を10上限に（軽減より前・ダメージ算出の最後）
+    const attack = f.stun && raw > 10 ? 10 : raw;
+    return { cardSum, raw, attack };
 }
 
 function resolveSync(uuid) {
@@ -576,7 +576,7 @@ async function openMitigationDialog(message) {
     }
 
     const category = f.category || "physical";
-    const { raw } = damageRollTotals(f);
+    const { raw, attack } = damageRollTotals(f);
 
     // 軽減の自動取得: 物理のみ防御力(ダメージ種別対応・X は軽減なし)+パリー受け値
     let autoMitigation = 0;
@@ -587,17 +587,17 @@ async function openMitigationDialog(message) {
     }
     if (f.parryGuard) { autoMitigation += f.parryGuard; mitigationParts.push(`パリー受け値 ${f.parryGuard}`); }
 
-    // スタン/説得(2026-07-11 ユーザー確定): 用途の「スタン可能」ON の攻撃のみ、ダメージ確定の
-    // 直前に適用するかを選ぶ(肉体=スタン・精神=説得。社会は対象外)
+    // スタン/説得は攻撃宣言時に確定済み(f.stun)。適用ではキャップ済みの攻撃側合計から軽減するだけで
+    // 再確認しない(2026-07-15 ユーザー確定)。肉体=スタン・精神=説得
+    const stun = f.stun === true;
     const stunLabel = category === "mental" ? "説得" : "スタン";
-    const stunEligible = f.canStun === true && (category === "physical" || category === "mental");
 
     const content = await foundry.applications.handlebars.renderTemplate(
         "systems/tokyo-nova-axleration/templates/dialog/damage-mitigation-dialog.hbs",
         {
             categoryLabel: CATEGORY_LABELS[category] ?? category,
-            raw,
-            canStun: stunEligible,
+            attackTotal: attack,
+            stun,
             stunLabel,
             isSocial: category === "social",
             targetName: target.name,
@@ -614,8 +614,8 @@ async function openMitigationDialog(message) {
     const updatePreview = (root) => {
         const v = readForm(root);
         const mitigation = v.mitigation + (category === "social" ? v.bounty : 0);
-        // プレビューはスタン未適用の値(適用の選択は確定直前の別ダイアログ)
-        const { final, stage } = computeDamage({ damageCard: raw, mitigation });
+        // スタン/説得は攻撃側合計を10上限にしてから軽減(computeDamage が算出段階でキャップ)
+        const { final, stage } = computeDamage({ damageCard: raw, mitigation, stun });
         const fin = root.querySelector(".tnx-damage-preview-final");
         const note = root.querySelector(".tnx-damage-preview-note");
         if (fin) fin.textContent = String(final);
@@ -649,36 +649,21 @@ async function openMitigationDialog(message) {
     const bounty = category === "social" ? result.bounty : 0;
     mitigationTotal += bounty;
 
-    // スタン/説得の適用選択(ダメージ確定の直前・「スタン可能」ON の攻撃のみ・2026-07-11)
-    let stun = false;
-    if (stunEligible) {
-        stun = await foundry.applications.api.DialogV2.confirm({
-            window: { title: `${stunLabel}の適用` },
-            classes: ["tokyo-nova", "tnx-dialog"],
-            content: `<p>この攻撃は${stunLabel}が可能です。${stunLabel}を適用しますか？</p>`
-                + `<p>（適用すると最終ダメージ 10 以上を 10 とみなします）</p>`,
-            yes: { label: `${stunLabel}を適用`, icon: "fas fa-hand-fist" },
-            no:  { label: "適用しない", icon: "fas fa-xmark" },
-            modal: true,
-        });
-    }
-
     // 適用効果の同時適用(2026-07-12 ユーザー確定): 用途の適用効果はダメージ適用と**同時に自動で**
     // 対象へ付与する(手動ボタンの押し順=順序依存を消す。チャート適用より先に付与するため、
     // タグ改変 AE(damage.replaceTag/addTag)が同じクリックの中で正しく効く)。未適用時のみ動く
     await applyUsageEffectsFromMessage(message);
 
     const { final, stage } = computeDamage({ damageCard: raw, mitigation: mitigationTotal, stun });
-    const applyText = await applyDamageToTarget(target, category, final, stage);
+    // 説得(精神攻撃のスタン宣言)は、チャートの効果タグ(戦闘不能)を付けず BS のみ付与する
+    const applyText = await applyDamageToTarget(target, category, final, stage, { persuade: stun && category === "mental" });
 
     await applyDamagePatch(message, {
         applied: true,
-        stun,   // 台帳の「攻撃側合計（スタン／説得）」表示用
         appliedResult: {
             mitigation: result.mitigation,
             mitigationNote: result.mitigation === autoMitigation ? mitigationParts.join("・") : "手動入力",
             bounty,
-            stunCapped: stun && Math.max(0, raw - mitigationTotal) > 10,
             final, stage,
             applyText,
         },
@@ -725,7 +710,7 @@ function describeDamagePreview(target, category, final, stage) {
  * 対象へダメージを適用する(型分岐・12-4)。適用内容の説明文を返す。
  * @returns {Promise<string>}
  */
-export async function applyDamageToTarget(target, category, final, stage) {
+export async function applyDamageToTarget(target, category, final, stage, { persuade = false } = {}) {
     if (target.type === "extra") {
         ui.notifications.warn(`「${target.name}」はエキストラのためダメージの概念がありません（宣言で死亡）。`);
         return "エキストラ: ダメージ適用なし（宣言死）";
@@ -749,7 +734,7 @@ export async function applyDamageToTarget(target, category, final, stage) {
     }
     // cast/guest: チャート参照→負傷状態付与(フェーズ9 既存機構。BS カスケード等が連動)
     if (final <= 0) return "ダメージ 0（負傷なし）";
-    await applyDamageChartResult(target, category, final);
+    await applyDamageChartResult(target, category, final, { persuade });
     const kind = getDamageChartKind(category, stage);
     const woundLabel = kind ? CONDITION_KINDS[kind]?.label : "";
 

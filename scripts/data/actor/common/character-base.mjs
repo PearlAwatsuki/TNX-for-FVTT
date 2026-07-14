@@ -14,8 +14,9 @@ import { BiographyTemplate } from "./biography.mjs";
 import { AttributesTemplate } from "./attributes.mjs";
 import { ActorBaseTemplate } from "./actor-base.mjs";
 import { computeAttributeFinal, computeOutfitAggregates, resolveCombatSpeedDisplayTotal, isActorInStartedCombat } from "../../helpers.mjs";
-import { ATTACK_DAMAGE_TYPES, parseEffectTargetKey, resolveItemTotalPath, evalEffectConditions, effectAutoApplies } from "../../item/helpers.mjs";
-import { readConditions, gatherConditionControlPenalty } from "../../../module/conditions.mjs";
+import { ATTACK_DAMAGE_TYPES, parseEffectTargetKey, resolveItemTotalPath, evalEffectConditions, effectAutoApplies, AE_FLAG_TOTAL_PATHS, parseBooleanFlagValue } from "../../item/helpers.mjs";
+import { buildEffectivePartSlots } from "../../item/part-helpers.mjs";
+import { readConditions, gatherConditionControlPenalty, gatherPartSlotMods } from "../../../module/conditions.mjs";
 import { parsePlainNumber, evaluateFormulaSync, buildFormulaData } from "../../../module/tnx-formula.mjs";
 
 /** 能力値キー(♠理性 / ♣感情 / ♥生命 / ♦外界) */
@@ -31,15 +32,20 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
       ...super.defineSchema(),
       // 部位スロット集合(フェーズ10)。ゲーム設定のプリセットを新規キャストへ流し込む。
       // 占有計算の母数。value=部位ラベル、count=保有スロット数。キャスト側で追加/削除可。
+      // key=部位キー(フェーズ12): AE(system.partSlot.<キー>)・アイテム part 行(partKey)・
+      //   エイリアス(targetKey)からの安定参照。表示は常にラベルへ逆引きする。
+      //   既存データへの付与は migratePartSlotKeys(ready 一回)が行う。
       // occupiesOther=「指定部位を複数占有」エイリアス(両手持ち=片手持ち×2 等)。
-      //   true のとき、この部位を占有すると targetPart を targetCount だけ消費する
-      //   (count は無視)。排他部位やルール追加にもユーザー設定で対応できる。
+      //   true のとき、この部位を占有すると targetKey(後方互換: targetPart ラベル)を
+      //   targetCount だけ消費する(count は無視)。排他部位やルール追加にもユーザー設定で対応できる。
       partSlots: new fields.ArrayField(
         new fields.SchemaField({
+          key:           new fields.StringField({ initial: "" }),
           value:         new fields.StringField({ initial: "" }),
           count:         new fields.NumberField({ initial: 1, min: 0, integer: true }),
           occupiesOther: new fields.BooleanField({ initial: false }),
           targetPart:    new fields.StringField({ initial: "" }),
+          targetKey:     new fields.StringField({ initial: "" }),
           targetCount:   new fields.NumberField({ initial: 1, min: 0, integer: true }),
         })
       ),
@@ -115,12 +121,18 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
     // バフ(ActiveEffect)を total へ直接適用 → コンディション(衰弱・酩酊)の全制御値減 → 0clamp
     // 生身のダメージ種別の実効値(2026-07-13): 既定=素値。上書き AE はこの後の適用パスで乗る
     if (this.baseAttack) this.baseAttack.damageTypeTotal = this.baseAttack.damageType || "I";
+    // 部位スロットの AE デルタ(フェーズ12・system.partSlot.<部位キー>)。適用パスが積む
+    this.partSlotDeltas = {};
     this._applyEffectBuffs();
     this._applyConditionControlPenalty();
     for (const key of ABILITY_KEYS) {
       this[key].total        = Math.max(0, this[key].total);
       this[key].totalControl = Math.max(0, this[key].totalControl);
     }
+    // 実効部位スロット(フェーズ12): base + AE デルタ + 負傷 partSlotMod。占有計算・装備先候補が読む。
+    // 負傷合成は従来シート側で行っていたものをここへ一本化した(base の partSlots は編集用に不変)
+    this.partSlotsEffective = buildEffectivePartSlots(
+      this.partSlots, this.partSlotDeltas, gatherPartSlotMods(this.parent));
     // 表示中の CS(自動制御: カット進行中=カレント/それ以外=CS)。AE(cs.*)適用後に確定する。
     this.combatSpeed.inCombat     = isActorInStartedCombat(this.parent);
     this.combatSpeed.displayTotal = resolveCombatSpeedDisplayTotal(this.combatSpeed, this.combatSpeed.inCombat);
@@ -221,16 +233,34 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
 
     // 適用先へ展開(条件評価込み)。値はまだ評価しない(bearer を持ち回る)
     const apps = [];
+    const nameApps = [];     // 名前装飾(フェーズ12・キー name)
+    const partAddApps = [];  // 部位行の追加(フェーズ12・system.part.<部位キー>)
     for (const { effect, change, parsed, bearer } of entries) {
-      // cs.base(CSベースへの常時修正)・ar.max(付与ARへの常時修正)のみ: 保持アイテムが未準備なら
-      // 読み飛ばす(2026-07-02 裁定・携帯/準備の一般原則「準備で常時効果解禁」を常時系の AE 着地に
-      // 適用)。isPrepared を持たない保持元(styleSkill・アクター自身)はゲート対象外。
+      // cs.base(CSベースへの常時修正)・ar.max(付与ARへの常時修正)・partSlot(部位スロット増減)のみ:
+      // 保持アイテムが未準備なら読み飛ばす(2026-07-02 裁定・携帯/準備の一般原則「準備で常時効果解禁」を
+      // 常時系の AE 着地に適用)。isPrepared を持たない保持元(styleSkill・アクター自身)はゲート対象外。
       // 部位「-」等の準備不要品(noPrepareRequired)は未準備でも常時効果を適用する(2026-07-09)
-      if (((parsed.scope === "cs" && parsed.path === "base") || parsed.scope === "ar")
+      if (((parsed.scope === "cs" && parsed.path === "base") || parsed.scope === "ar"
+          || parsed.scope === "partSlot")
           && bearer?.documentName === "Item" && bearer.system?.isPrepared === false
-          && !bearer.system?.noPrepareRequired) continue;
+          && !(bearer.system?.noPrepareRequiredTotal ?? bearer.system?.noPrepareRequired)) continue;
       const identity  = effect.flags?.[SCOPE]?.effectId || effect.id;
       const stackable = effect.flags?.[SCOPE]?.stackable === true;
+      // 名前装飾: 効果が乗るアイテム自身の名前を実行時に飾る(in-memory・source 不変)。
+      // total パスへの着地ではないため通常の適用フェーズとは別に末尾で適用する
+      if (parsed.scope === "itemName") {
+        if (bearer?.documentName !== "Item") continue;
+        if (!evalEffectConditions(bearer.system, parsed.conditions)) continue;
+        nameApps.push({ effect, change, doc: bearer, identity, stackable });
+        continue;
+      }
+      // 部位行の追加: 効果が乗るアイテムの実効 part(partAdded)へ積む。値=and/or[:消費数]
+      if (parsed.scope === "partAdd") {
+        if (bearer?.documentName !== "Item" || !Array.isArray(bearer.system?.partAdded)) continue;
+        if (!evalEffectConditions(bearer.system, parsed.conditions)) continue;
+        partAddApps.push({ effect, change, doc: bearer, selector: parsed.selector, identity, stackable });
+        continue;
+      }
       for (const { doc, totalPath } of this._resolveBuffApplications(parsed, bearer)) {
         if (!evalEffectConditions(doc.system, parsed.conditions)) continue;
         apps.push({ effect, change, doc, totalPath, identity, stackable, bearer,
@@ -245,6 +275,13 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
     const formulaApps = [];
     const stringApps = [];
     for (const app of apps) {
+      // 特性フラグ(フェーズ12): 着地が <フラグ>Total ならオン/オフの上書き。値は真偽として解釈し、
+      // モード不問で常に上書き(数値評価・式は通さない)。解釈不能な値は無視
+      if (!app.isString && AE_FLAG_TOTAL_PATHS.has(app.totalPath)) {
+        const b = parseBooleanFlagValue(app.change.value);
+        if (b !== null) { app.isBoolean = true; app.value = b; stringApps.push(app); }
+        continue;
+      }
       // 文字列上書き(attack.damageType 等): 値は生文字列(空は無視)。数値評価は通さない
       if (app.isString) {
         const v = String(app.change.value ?? "").trim();
@@ -275,6 +312,11 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
         ((a.change.priority ?? a.change.mode * 10) - (b.change.priority ?? b.change.mode * 10)));
       for (const app of finalApps) {
         const { effect, change, doc, totalPath, value } = app;
+        // 特性フラグ(フェーズ12)は真偽値を直接代入(実効フィールドはスキーマ外・常に上書き)
+        if (app.isBoolean) {
+          foundry.utils.setProperty(doc, `system.${totalPath}`, value === true);
+          continue;
+        }
         // 文字列上書き(ダメージ種別等)は effect.apply を経由せず直接代入する:
         // 実効フィールドはスキーマ外のためコアの型キャストに乗らず、モードも常に上書き
         // (加算は意味を成さない)ため(2026-07-13・「AE が効かない」報告の対処)
@@ -296,6 +338,41 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
       app.value = Number.isFinite(v) ? v : 0;
     }
     applyPhase(formulaApps);
+
+    const byPriority = (a, b) =>
+      ((a.change.priority ?? a.change.mode * 10) - (b.change.priority ?? b.change.mode * 10));
+
+    // 部位行の追加(フェーズ12): 値=and/or[:消費数](数省略=1)。非 stackable は
+    // (アイテム, 部位キー, 関係, identity)ごとに1回。実効 part(partAdded)へ積む(base 不変)
+    const seenPartAdd = new Set();
+    for (const app of partAddApps.sort(byPriority)) {
+      const m = String(app.change.value ?? "").trim().match(/^(and|or)(?::(\d+))?$/i);
+      if (!m) continue;
+      const relation = m[1].toLowerCase();
+      const slots = m[2] !== undefined ? Math.max(0, Number(m[2])) : 1;
+      if (!slots) continue;
+      if (!app.stackable) {
+        const k = `${app.doc.id}|${app.selector}|${relation}|${app.identity}`;
+        if (seenPartAdd.has(k)) continue;
+        seenPartAdd.add(k);
+      }
+      app.doc.system.partAdded.push({ key: app.selector, relation, slots, source: app.effect.name });
+    }
+
+    // 名前装飾(フェーズ12): priority 順に順次適用。値の {} は現在の名前(直前の結果)に置換、
+    // 含まなければそのまま上書き。非 stackable は (アイテム, identity)ごとに1回(先勝ち)。
+    // in-memory のみ=シートの名前入力欄は _source.name を編集するため焼き込まれない
+    const seenName = new Set();
+    for (const app of nameApps.sort(byPriority)) {
+      const v = String(app.change.value ?? "");
+      if (!v.trim()) continue;
+      if (!app.stackable) {
+        const k = `${app.doc.id}|${app.identity}`;
+        if (seenName.has(k)) continue;
+        seenName.add(k);
+      }
+      app.doc.name = v.includes("{}") ? v.replaceAll("{}", app.doc.name ?? "") : v;
+    }
   }
 
   /** v2 セレクタを {適用先ドキュメント, total系systemパス} の配列へ解決する。 */
@@ -315,6 +392,14 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
       case "ar":
         // AR(フェーズ11)。仮想名前空間 system.ar.max → 実効付与値へ。
         return [{ doc: actor, totalPath: "actionRank.maxTotal" }];
+      case "partSlot": {
+        // 部位スロット増減(フェーズ12)。仮想名前空間 system.partSlot.<部位キー> →
+        // 非スキーマの partSlotDeltas.<キー> へネイティブのモードで効かせ、
+        // prepareDerivedData 末尾の buildEffectivePartSlots が base と合成する。
+        this.partSlotDeltas ??= {};
+        if (!(parsed.selector in this.partSlotDeltas)) this.partSlotDeltas[parsed.selector] = 0;
+        return [{ doc: actor, totalPath: `partSlotDeltas.${parsed.selector}` }];
+      }
       case "baseAttackType":
         // 生身のダメージ種別上書き(2026-07-13)。実効フィールドへ(素値は不変)
         return [{ doc: actor, totalPath: "baseAttack.damageTypeTotal" }];

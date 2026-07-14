@@ -398,7 +398,6 @@ function injectDeckSelector(element, table, flagValue) {
                 <option value="${NEURO_SENTINEL}" ${flagValue === NEURO_SENTINEL ? "selected" : ""}>ニューロデッキ</option>
             </select>
         </div>
-        <p class="hint">トランプ: 54 枚仮想ドロー（ジョーカー 2 枚・その他各 4 枚）、ランダムスート付き。ニューロデッキ: シーン設定のニューロデッキからのカードドローで結果を出力します。</p>
     `;
     formulaGroup.after(group);
 

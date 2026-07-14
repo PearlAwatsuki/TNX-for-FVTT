@@ -18,6 +18,7 @@ import { resolveUsageSkills, comboLockAnalysis, isComboRequired } from "./skill-
 import { deriveConsumeTargets } from "./usage-consumption.mjs";
 import { CONDITION_KINDS } from "./conditions.mjs";
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
+import { readFlag } from "../data/item/helpers.mjs";
 import { resolveAttackWeapons, attackWeaponDisplayName, resolveAttackRangeValue } from "./attack-weapons.mjs";
 import { loadSkillChoices, SKILL_PACKS } from "./skill-dictionary.mjs";
 
@@ -535,7 +536,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             context.availableSkills = (actor?.items ?? [])
                 .filter(i => SKILL_TYPES.includes(i.type) && !usedIds.has(i.id)
                     && i.system.isAction !== true && i.system.noCombo !== true
-                    && currentSuits.some(suit => i.system.suits?.[suit] === true))
+                    && currentSuits.some(suit => readFlag(i.system, `suits.${suit}`)))
                 .map(i => ({ id: i.id, name: i.name }))
                 .sort((a, b) => a.name.localeCompare(b.name, "ja"));
 
@@ -998,7 +999,10 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             update.damageBonuses  = isAtk ? TnxUsageSheet._collectBonusRows(raw, "damageBonus") : [];
             // damageBonusSelf は攻撃の「ダメージ修正値」/ダメージを修正の「修正値」を兼ねる(2026-07-11)
             update.damageBonusSelf = (isAtk || isModD) ? (raw["damageBonusSelf"] ?? usage.damageBonusSelf ?? "") : "";
-            update.canStun = isAtk ? (raw["canStun"] ?? usage.canStun ?? false) : false;
+            // スタン可能は物理攻撃のみの能力ゲート(精神は説得が常時可・社会は無)
+            const damageCategory = raw["damageCategory"] ?? usage.damageCategory ?? "";
+            update.canStun = (isAtk && damageCategory === "physical")
+                ? (raw["canStun"] ?? usage.canStun ?? false) : false;
         }
 
         // 宣言(declaration)の判定/ダメージ修正(2026-07-12): チェックボックスは独立(排他にしない)。

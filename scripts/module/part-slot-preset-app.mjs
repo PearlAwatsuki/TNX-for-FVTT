@@ -13,46 +13,161 @@
 const SCOPE = "tokyo-nova-axleration";
 const SETTING = "partSlotPreset";
 const SETTING_INIT = "partSlotPresetInitialized";
+// 部位キーのスキーマ版(フェーズ12)。付与済みでも版が上がれば再移行する=キー命名の変更を
+// 既存ワールドへ波及させる。1=英語キー(2026-07-15・旧ローマ字キーからの差し替えを含む)。
+const SETTING_KEY_SCHEME = "partSlotKeyScheme";
+const PART_KEY_SCHEME = 1;
 
 /**
  * デフォルト体部位プリセット(頭→足順。フェーズ10・ユーザー確定 2026-06-27)。
  * §4.1: 部位ラベルの語彙集（構造的最小限）として同梱。ホスト種別（武器/IANUS 等）は
  * オプション側で指定するため非掲載。両X はエイリアス(片X×2)。ワールド初回ロードで自動設定し、
  * 以降はユーザー編集を保持する。
- * @type {ReadonlyArray<{value:string,count:number,occupiesOther:boolean,targetPart:string,targetCount:number}>}
+ *
+ * key=部位キー(フェーズ12・AE/コードからの安定参照)。ラベルはユーザーが自由にリネームできるため、
+ * 参照は常にキーで持ち、表示時にラベルへ逆引きする(識別キー・分類コードキーと同じ原則)。
+ * 既定ラベルのキーは英語(2026-07-15 ユーザー確定)。近縁ラベルは接頭/接尾で 1:1 を保つ
+ * (頭髪=head-hair / 髪=hair、皮膚=skin / 肌=complexion 等)。「〜部」は "-part"
+ * (頭部=head-part・眼部=eye-part・腕部=arm-part・脚部=leg-part。後頭部のみ occiput)。
+ * 両X はエイリアス(片X×2)。キーに "." は使えない(AE キー文法のセグメント区切りのため)。
+ * @type {ReadonlyArray<{key:string,value:string,count:number,occupiesOther:boolean,targetPart:string,targetKey:string,targetCount:number}>}
  */
 export const DEFAULT_PART_SLOT_PRESET = Object.freeze((() => {
-  const s = (value, count = 1) => ({ value, count, occupiesOther: false, targetPart: "", targetCount: 1 });
-  const a = (value, targetPart, targetCount = 2) => ({ value, count: 1, occupiesOther: true, targetPart, targetCount });
+  const s = (key, value, count = 1) =>
+    ({ key, value, count, occupiesOther: false, targetPart: "", targetKey: "", targetCount: 1 });
+  const a = (key, value, targetKey, targetPart, targetCount = 2) =>
+    ({ key, value, count: 1, occupiesOther: true, targetPart, targetKey, targetCount });
   return [
     // 頭・顔・五感(装着は群末尾)
-    s("頭部"), s("頭"), s("後頭部"), s("頭上"), s("頭髪"), s("髪"), s("顔"), s("頬"),
-    s("眼部"), s("眼球"), s("涙腺"), s("鼻"),
-    s("耳"), s("両耳"), s("内耳"), s("口腔"), s("唇"), s("唇の皮膚"), s("舌"),
-    s("ゴーグル"), s("コンタクトレンズ"), s("マスク"), s("ヘルメット"),
+    s("head-part", "頭部"), s("head", "頭"), s("occiput", "後頭部"), s("overhead", "頭上"),
+    s("head-hair", "頭髪"), s("hair", "髪"), s("face", "顔"), s("cheek", "頬"),
+    s("eye-part", "眼部"), s("eyeball", "眼球"), s("tear-gland", "涙腺"), s("nose", "鼻"),
+    s("ear", "耳"), s("both-ears", "両耳"), s("inner-ear", "内耳"), s("mouth", "口腔"),
+    s("lips", "唇"), s("lip-skin", "唇の皮膚"), s("tongue", "舌"),
+    s("goggles", "ゴーグル"), s("contact-lens", "コンタクトレンズ"), s("mask", "マスク"), s("helmet", "ヘルメット"),
     // 脳・神経
-    s("脳"), s("大脳"), s("小脳"), s("脳皮質"), s("脳下垂体"), s("神経"),
+    s("brain", "脳"), s("cerebrum", "大脳"), s("cerebellum", "小脳"), s("cortex", "脳皮質"),
+    s("pituitary", "脳下垂体"), s("nerve", "神経"),
     // 首・肩
-    s("首"), s("喉"), s("肩"), s("肩胛骨"),
+    s("neck", "首"), s("throat", "喉"), s("shoulder", "肩"), s("scapula", "肩胛骨"),
     // 胴
-    s("胴体"), s("背中"), s("脇腹"), s("腰"), s("下半身"),
+    s("torso", "胴体"), s("back", "背中"), s("flank", "脇腹"), s("waist", "腰"), s("lower-body", "下半身"),
     // 内臓
-    s("心臓"), s("肺"), s("血液"), s("血管"), s("内臓"), s("消化器官"), s("消化器"), s("骨髄"),
+    s("heart", "心臓"), s("lungs", "肺"), s("blood", "血液"), s("blood-vessels", "血管"),
+    s("viscera", "内臓"), s("digestive-organs", "消化器官"), s("digestive-tract", "消化器"), s("marrow", "骨髄"),
     // 腕・手
-    s("片手持ち", 2), a("両手持ち", "片手持ち", 2), s("籠手"), s("手"), s("指", 2), s("爪"),
-    s("片腕", 2), a("両腕", "片腕", 2), s("腕"), s("腕部"),
+    s("one-hand", "片手持ち", 2), a("two-hands", "両手持ち", "one-hand", "片手持ち", 2),
+    s("gauntlet", "籠手"), s("hand", "手"), s("finger", "指", 2), s("nail", "爪"),
+    s("one-arm", "片腕", 2), a("two-arms", "両腕", "one-arm", "片腕", 2), s("arm", "腕"), s("arm-part", "腕部"),
     // 脚・足(靴=足の装着)
-    s("片脚", 2), a("両脚", "片脚", 2), s("脚"), s("脚部"), s("靴"),
+    s("one-leg", "片脚", 2), a("two-legs", "両脚", "one-leg", "片脚", 2),
+    s("leg", "脚"), s("leg-part", "脚部"), s("shoes", "靴"),
     // 全身・組織
-    s("全身"), s("皮膚"), s("肌"), s("筋肉"), s("骨格"), s("細胞"), s("全身の細胞"), s("生身"), s("義体"),
+    s("full-body", "全身"), s("skin", "皮膚"), s("complexion", "肌"), s("muscle", "筋肉"), s("skeleton", "骨格"),
+    s("cells", "細胞"), s("all-cells", "全身の細胞"), s("flesh", "生身"), s("cyber-body", "義体"),
     // 装着(装着先が不定: 衣類・携帯・装飾・外付け)。住宅もここ(外付け系と同じ扱い)。
-    s("アンダーウェア"), s("スーツ"), s("コート"), s("アーマー"), s("鞄"), s("装飾品"), s("護符"), s("結界"), s("操縦"), s("住宅"),
+    s("underwear", "アンダーウェア"), s("suit", "スーツ"), s("coat", "コート"), s("armor", "アーマー"),
+    s("bag", "鞄"), s("accessory", "装飾品"), s("amulet", "護符"), s("ward", "結界"),
+    s("piloting", "操縦"), s("housing", "住宅"),
     // 内的(心・電脳・霊)
-    s("電脳"), s("精神"), s("魂"), s("血統"),
+    s("cyberbrain", "電脳"), s("mind", "精神"), s("soul", "魂"), s("bloodline", "血統"),
     // スコープ(最も非局所)
-    s("各部"), s("独立"),
+    s("each-part", "各部"), s("independent", "独立"),
   ];
 })());
+
+/** 既定ラベル → 既定キーの対応表(既存データへの自動キー付与に使う)。 */
+export const DEFAULT_PART_LABEL_TO_KEY = Object.freeze(
+  Object.fromEntries(DEFAULT_PART_SLOT_PRESET.map((r) => [r.value, r.key]))
+);
+
+/** カスタム部位のキーを生成する(既定ラベル対応表に無いラベル用。永続化前提で一度だけ振る)。 */
+function generatePartKey() {
+  return `part-${foundry.utils.randomID(8)}`;
+}
+
+/**
+ * 部位スロット行配列へキーを付与する(無キー行のみ)。既定ラベルは対応表・カスタムは生成キー。
+ * エイリアス行の targetKey も targetPart ラベルから解決する。
+ * @param {Array<object>} rows
+ * @returns {Array<object>|null} 変更があれば新配列、無ければ null
+ */
+export function assignPartSlotKeys(rows) {
+  if (!Array.isArray(rows) || !rows.length) return null;
+  let changed = false;
+  const out = rows.map((r) => ({ ...r }));
+  const seen = new Set(out.map((r) => r?.key).filter(Boolean));
+  for (const r of out) {
+    if (!r.key) {
+      let k = DEFAULT_PART_LABEL_TO_KEY[String(r.value ?? "").trim()] ?? generatePartKey();
+      while (seen.has(k)) k = generatePartKey(); // 同ラベルの重複行は生成キーで一意化
+      r.key = k;
+      seen.add(k);
+      changed = true;
+    }
+  }
+  for (const r of out) {
+    if (r.occupiesOther && !r.targetKey && r.targetPart) {
+      const label = String(r.targetPart).trim();
+      const t = out.find((x) => x !== r && String(x.value ?? "").trim() === label)?.key
+        ?? DEFAULT_PART_LABEL_TO_KEY[label] ?? "";
+      if (t) { r.targetKey = t; changed = true; }
+    }
+  }
+  return changed ? out : null;
+}
+
+/**
+ * 部位スロット行配列を**既定キー体系へ揃える**(移行用・フェーズ12)。
+ * `assignPartSlotKeys`(空キーだけ埋める)と異なり、**既定ラベルに一致する行はキーを既定
+ * (英語)キーへ上書き**する——旧ローマ字キーで焼き込まれた既存ワールドを英語キーへ自己修復する。
+ * カスタムラベル(既定に無い)の行はキーを尊重(無ければ生成)。
+ * @param {Array<object>} rows
+ * @returns {Array<object>|null} 変更があれば新配列、無ければ null
+ */
+export function reconcilePartSlotKeys(rows) {
+  if (!Array.isArray(rows) || !rows.length) return null;
+  let changed = false;
+  const out = rows.map((r) => ({ ...r }));
+  const seen = new Set();
+  for (const r of out) {
+    const def = DEFAULT_PART_LABEL_TO_KEY[String(r.value ?? "").trim()];
+    let k = def ?? (r.key || generatePartKey()); // 既定ラベル=英語キーへ上書き / カスタムは尊重
+    while (seen.has(k)) k = generatePartKey();    // 万一の重複は生成キーで一意化
+    if (k !== r.key) { r.key = k; changed = true; }
+    seen.add(k);
+  }
+  for (const r of out) {
+    if (!r.occupiesOther) continue;
+    const label = String(r.targetPart ?? "").trim();
+    const t = DEFAULT_PART_LABEL_TO_KEY[label]
+      ?? out.find((x) => x !== r && String(x.value ?? "").trim() === label)?.key ?? "";
+    if (t && t !== r.targetKey) { r.targetKey = t; changed = true; }
+  }
+  return changed ? out : null;
+}
+
+/**
+ * 既存データへの部位キー移行(ready・GM・スキーマ版でゲート。フェーズ12)。
+ * プリセット設定と全アクターの partSlots を既定キー体系へ揃える(reconcilePartSlotKeys)。
+ * **版番号ゲート**のため、キー命名を変えて `PART_KEY_SCHEME` を上げれば既存ワールドにも波及する
+ * (旧ローマ字→英語の差し替えもこれで自己修復。旧 boolean フラグ方式では再移行できなかった)。
+ * migrateData(in-memory)ではカスタムラベルの生成キーがロードごとに変わり参照が不安定になるため、
+ * 一回きりの書き込みで確定させる。アイテムの part 行(部位参照)は書き換えない=照合のラベル後方互換で吸収する。
+ */
+export async function migratePartSlotKeys() {
+  if (!game.user.isGM) return;
+  if ((Number(game.settings.get(SCOPE, SETTING_KEY_SCHEME)) || 0) >= PART_KEY_SCHEME) return;
+  const preset = reconcilePartSlotKeys(getPartSlotPreset());
+  if (preset) await game.settings.set(SCOPE, SETTING, preset);
+  for (const actor of game.actors) {
+    const rows = actor.system?.partSlots;
+    if (!Array.isArray(rows) || !rows.length) continue;
+    const updated = reconcilePartSlotKeys(rows.map((r) => foundry.utils.deepClone(r)));
+    if (updated) await actor.update({ "system.partSlots": updated });
+  }
+  await game.settings.set(SCOPE, SETTING_KEY_SCHEME, PART_KEY_SCHEME);
+}
 
 /** 部位スロットプリセットをワールド設定から読む(配列)。流し込み・占有計算が使う。 */
 export function getPartSlotPreset() {
@@ -68,6 +183,11 @@ export function registerPartSlotPresetSetting() {
   // 初回初期化済みフラグ(ワールド初回ロードでデフォルトを流し込んだら true。以降は再設定しない)
   game.settings.register(SCOPE, SETTING_INIT, {
     scope: "world", config: false, type: Boolean, default: false,
+  });
+  // 部位キーのスキーマ版(フェーズ12。migratePartSlotKeys のゲート。旧 boolean フラグ
+  // partSlotKeysMigrated は廃止＝未登録の残存値は無害に無視される)
+  game.settings.register(SCOPE, SETTING_KEY_SCHEME, {
+    scope: "world", config: false, type: Number, default: 0,
   });
   game.settings.registerMenu(SCOPE, "partSlotPresetMenu", {
     name: "部位スロットプリセット",
@@ -102,7 +222,8 @@ export class PartSlotPresetApp extends HandlebarsApplicationMixin(ApplicationV2)
     id: "tnx-part-slot-preset",
     tag: "form",
     classes: ["application", "tokyo-nova", "standard-form", "tnx-part-slot-preset"],
-    position: { width: 600, height: 620 },
+    // フェーズ12: 部位キー列の追加に合わせて拡幅(現行幅に詰め込まず、キー列ぶんを広げる)
+    position: { width: 780, height: 620 },
     window: { title: "部位スロットプリセット", icon: "fas fa-person" },
     form: { handler: PartSlotPresetApp.#onSubmit, submitOnChange: false, closeOnSubmit: true },
     actions: {
@@ -188,10 +309,12 @@ export class PartSlotPresetApp extends HandlebarsApplicationMixin(ApplicationV2)
     const rows = [];
     for (const row of this.element.querySelectorAll("[data-row]")) {
       rows.push({
+        key:           (row.querySelector('[data-field="key"]')?.value ?? "").trim(),
         value:         row.querySelector('[data-field="value"]')?.value ?? "",
         count:         Math.max(0, Number(row.querySelector('[data-field="count"]')?.value) || 0),
         occupiesOther: row.querySelector('[data-field="occupiesOther"]')?.checked ?? false,
         targetPart:    row.querySelector('[data-field="targetPart"]')?.value ?? "",
+        targetKey:     row.querySelector('[data-field="targetKey"]')?.value ?? "",
         targetCount:   Math.max(0, Number(row.querySelector('[data-field="targetCount"]')?.value) || 0),
       });
     }
@@ -200,7 +323,7 @@ export class PartSlotPresetApp extends HandlebarsApplicationMixin(ApplicationV2)
 
   static #onAddRow() {
     this._harvest();
-    this._rows.push({ value: "", count: 1, occupiesOther: false, targetPart: "", targetCount: 1 });
+    this._rows.push({ key: "", value: "", count: 1, occupiesOther: false, targetPart: "", targetKey: "", targetCount: 1 });
     this.render();
   }
 
@@ -231,22 +354,44 @@ export class PartSlotPresetApp extends HandlebarsApplicationMixin(ApplicationV2)
     input.value = isNaN(min) ? v - 1 : Math.max(v - 1, min);
   }
 
-  /** 行を整形して保存(空 value 行は捨てる。非エイリアス行は target* を捨てる)。 */
+  /**
+   * 行を整形して保存(空 value 行は捨てる。非エイリアス行は target* を捨てる)。
+   * 部位キー: 空キーは自動付与(既定ラベル=対応表・カスタム=生成)。重複キーは後行を自動で振り直して警告。
+   * キーに "." は使えない(AE キー文法のセグメント区切り)ため除去する。
+   */
   static async #onSubmit(_event, _form, formData) {
     const data = foundry.utils.expandObject(formData.object);
     const arr = Array.isArray(data.rows) ? data.rows : Object.values(data.rows ?? {});
-    const cleaned = arr
+    let cleaned = arr
       .map((r) => {
         const occupiesOther = r?.occupiesOther === true || r?.occupiesOther === "true";
         return {
+          key:           String(r?.key ?? "").trim().replaceAll(".", ""),
           value:         String(r?.value ?? "").trim(),
           count:         Math.max(0, Number(r?.count) || 0),
           occupiesOther,
           targetPart:    occupiesOther ? String(r?.targetPart ?? "").trim() : "",
+          targetKey:     occupiesOther ? String(r?.targetKey ?? "").trim() : "",
           targetCount:   occupiesOther ? Math.max(0, Number(r?.targetCount) || 0) : 1,
         };
       })
       .filter((r) => r.value);
+    // 重複キーは後行を空へ戻して自動付与に回す(参照はキーで持つため一意が前提)
+    const seen = new Set();
+    let hadDup = false;
+    for (const r of cleaned) {
+      if (!r.key) continue;
+      if (seen.has(r.key)) { r.key = ""; hadDup = true; }
+      else seen.add(r.key);
+    }
+    if (hadDup) ui.notifications.warn("部位キーが重複していたため、後の行に別のキーを自動付与しました。");
+    cleaned = assignPartSlotKeys(cleaned) ?? cleaned;
+    // エイリアスの占有先キーをラベルから解決し直す(ラベル編集への追従)
+    for (const r of cleaned) {
+      if (!r.occupiesOther || !r.targetPart) continue;
+      const t = cleaned.find((x) => x !== r && x.value === r.targetPart);
+      if (t) r.targetKey = t.key;
+    }
     if (this._actor) await this._actor.update({ "system.partSlots": cleaned });
     else await game.settings.set(SCOPE, SETTING, cleaned);
   }

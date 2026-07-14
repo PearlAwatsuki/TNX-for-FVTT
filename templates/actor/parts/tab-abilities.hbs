@@ -145,7 +145,7 @@
                                     {{#each styleSkillGroups as |group|}}
                                     <div class="style-skill-group-header">
                                         <span class="group-label">{{group.label}}</span>
-                                        {{#if group.isStyle}}<span class="style-skill-counts" title="このスタイルの秘技/奥義の取得数(表示のみ・上限は強制しません)">秘技 {{group.secret}}/{{group.secretLimit}}・奥義 {{group.mystery}}/{{group.mysteryLimit}}</span>{{/if}}
+                                        {{#if group.isStyle}}<span class="style-skill-counts">秘技 {{group.secret}}/{{group.secretLimit}}・奥義 {{group.mystery}}/{{group.mysteryLimit}}</span>{{/if}}
                                     </div>
                                     <ol class="style-skills-list">
                                         {{#each group.skills as |item|}}
@@ -156,7 +156,7 @@
                                                     </div>
                                                     <div class="cell cell-level">
                                                         <div class="skill-level-container">
-                                                            <input type="number" class="skill-property-change" data-target="level" value="{{item.system.level}}" placeholder="Lv" {{#if item.system.levelRef.enabled}}disabled title="参照先のレベルで自動設定されます"{{/if}} />
+                                                            <input type="number" class="skill-property-change" data-target="level" value="{{item.system.level}}" placeholder="Lv" {{#if item.system.levelRef.enabled}}disabled{{/if}} />
                                                             <div class="skill-suits-row">
                                                                 {{#each ../../TNX.SUITS as |suitData key|}}
                                                                     <label class="suit-checkbox-tiny" title="{{suitData.label}}">
@@ -259,7 +259,7 @@
                                     {{#each styleSkillGroups as |group|}}
                                     <div class="style-skill-group-header">
                                         <span class="group-label">{{group.label}}</span>
-                                        {{#if group.isStyle}}<span class="style-skill-counts" title="このスタイルの秘技/奥義の取得数(表示のみ・上限は強制しません)">秘技 {{group.secret}}/{{group.secretLimit}}・奥義 {{group.mystery}}/{{group.mysteryLimit}}</span>{{/if}}
+                                        {{#if group.isStyle}}<span class="style-skill-counts">秘技 {{group.secret}}/{{group.secretLimit}}・奥義 {{group.mystery}}/{{group.mysteryLimit}}</span>{{/if}}
                                     </div>
                                     <ol class="style-skills-list">
                                         {{#each group.skills as |item|}}

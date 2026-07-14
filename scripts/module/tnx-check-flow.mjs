@@ -16,7 +16,7 @@
  */
 
 import { getCardCheckValue, calcSkillCheck, calcControlCheck, normalizeSuit, ALL_SUITS, SUIT_TO_ABILITY } from './tnx-check-engine.mjs';
-import { gatherCheckBonusSources, collectActorEffectBuffs, actorHasSuitChangeBuff, actorCardValueOverride } from '../data/item/helpers.mjs';
+import { gatherCheckBonusSources, collectActorEffectBuffs, actorHasSuitChangeBuff, actorCardValueOverride, readFlag } from '../data/item/helpers.mjs';
 import { evaluateBonusRows, evaluateSelfBonus } from './tnx-formula.mjs';
 import { readConditions, gatherConditionCheckSources, getCheckBlock, computeJammingPenalty } from './conditions.mjs';
 import { TnxActionHandler } from './tnx-action-handler.mjs';
@@ -104,6 +104,14 @@ export class TnxCheckFlow {
      */
     static setManualMod(value) {
         if (TnxCheckFlow._context) TnxCheckFlow._context.manualMod = Number(value) || 0;
+    }
+
+    /**
+     * スタン/説得の宣言を設定する(攻撃の判定ダイアログのトグルから・2026-07-15 ユーザー確定)。
+     * 攻撃ペイロードに載り、攻撃カード→ダメージカードへ引き継がれ、攻撃側合計を10上限にする。
+     */
+    static setStunDeclared(value) {
+        if (TnxCheckFlow._context?.attack) TnxCheckFlow._context.attack.stunDeclared = value === true;
     }
 
 
@@ -507,7 +515,7 @@ export class TnxCheckFlow {
         const prepared = [];
         for (const item of (actor.items ?? [])) {
             const s = item.system;
-            if (!s || !(s.isPrepared === true || s.noPrepareRequired === true)) continue; // 準備中(または準備不要=部位「-」)のみ
+            if (!s || !(s.isPrepared === true || readFlag(s, "noPrepareRequired"))) continue; // 準備中(または準備不要=部位「-」)のみ
             const hack = s.hack?.mode === "value" ? (s.hack.total ?? s.hack.value ?? null) : null;
             prepared.push({
                 majorCategory: s.majorCategory, minorCategory: s.minorCategory,
@@ -978,7 +986,7 @@ export class TnxCheckFlow {
                 skillIds   = [...skillIds, mergeSkill.id];
                 skillLabel = skillLabel ? `${skillLabel}+${mergeSkill.name}` : mergeSkill.name;
             }
-            validSuits = (validSuits ?? []).filter(s => mergeSkill.system.suits?.[s] === true);
+            validSuits = (validSuits ?? []).filter(s => readFlag(mergeSkill.system, `suits.${s}`));
             if (!validSuits.length) {
                 ui.notifications.warn(`「${mergeSkill.name}」と元の判定に共通スートがないため、組み合わせて再判定できません。`);
                 return;
@@ -1293,7 +1301,7 @@ export function renderRecheckButton(message, html) {
         if (!label || !num || label.textContent.trim() !== "達成値") continue;
         if (canDirect) {
             num.classList.add("tnx-recheck-ready");
-            num.title = "クリックで再判定（この判定をやり直します）";
+            num.title = "クリックで再判定";
         }
         if (num.classList.contains("tnx-recheck-target")) continue; // 二重バインド防止
         num.classList.add("tnx-recheck-target");

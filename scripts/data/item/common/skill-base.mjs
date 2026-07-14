@@ -9,6 +9,7 @@
  */
 
 import { SystemDataModel } from "../../abstract.mjs";
+import { computeFlagEffectiveValues } from "../helpers.mjs";
 
 export class SkillBaseTemplate extends SystemDataModel {
   /** @override */
@@ -38,5 +39,8 @@ export class SkillBaseTemplate extends SystemDataModel {
   prepareDerivedData() {
     super.prepareDerivedData?.();
     this.levelTotal = this.level ?? 0;
+    // 特性フラグの実効値(フェーズ12): suits.*Total / isActionTotal / usesBountyTotal / noComboTotal 等。
+    // AE のオン/オフ上書きはアクターの適用パスが実効側へ効かせる(base 不変)
+    computeFlagEffectiveValues(this);
   }
 }

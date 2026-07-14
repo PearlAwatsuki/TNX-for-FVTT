@@ -13,10 +13,11 @@ import { TnxSkillUtils } from '../module/tnx-skill-utils.mjs';
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 import { OUTFIT_CATEGORIES, getMinorCategoryLabel, getMajorCategoryLabel, isMajorLevelSlotMajor } from '../data/item/outfit-categories.mjs';
 import { formatWeaponRangeLabel } from '../item/tnx-outfit-sheet.mjs';
-import { formatPartDesignation, joinPartDesignations, computePartOccupancy, computeHostOccupancy } from '../data/item/part-helpers.mjs';
+import { formatPartDesignation, joinPartDesignations, computePartOccupancy, computeHostOccupancy, resolvePartRowsForDisplay, resolvePartAdditions } from '../data/item/part-helpers.mjs';
 import { SLOT_KINDS } from '../data/item/common/extensible.mjs';
 import { getPartSlotPreset, PartSlotPresetApp } from '../module/part-slot-preset-app.mjs';
 import { OUTFIT_ITEM_TYPES, findDepartmentSkillName } from '../data/helpers.mjs';
+import { readFlag } from '../data/item/helpers.mjs';
 import { TnxCheckFlow } from '../module/tnx-check-flow.mjs';
 import { resolveConsumeRowsForActor, promptConsumption } from '../module/usage-consumption.mjs';
 import { useNpcAcquire } from '../module/npc-acquisition.mjs';
@@ -28,7 +29,7 @@ import { getComboSuits, comboUsesBounty, ALL_SUITS } from '../module/tnx-check-e
 import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
 import { groupStyleSkillsByStyle } from '../module/style-skill-acquisition.mjs';
 import { HOUSING_AREA_RANKS } from '../data/item/housing-area.mjs';
-import { CONDITION_KINDS, gatherPartSlotMods } from '../module/conditions.mjs';
+import { CONDITION_KINDS } from '../module/conditions.mjs';
 import { startTreatment } from '../module/treatment-flow.mjs';
 import { startVehicleMove } from '../module/vehicle-move.mjs';
 import { isAmmoEmpty, reloadWeapon } from '../module/weapon-ammo.mjs';
@@ -362,15 +363,10 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
      *           hostChips:Array, hasHostChips:boolean}}
      */
     _preparePartOccupancy() {
-        // 適用中の負傷による部位スロット修正(肉体7=片手持ち−1 等)を最大値に反映する(2026-07-09)。
-        // ベースの partSlots は編集用に保持し、占有表示のみ実効値(下限0)で計算する
-        const rawSlots = this.actor.system.partSlots ?? [];
-        const slotMods = gatherPartSlotMods(this.actor);
-        const partSlots = slotMods.size
-            ? rawSlots.map(s => slotMods.has(s.value)
-                ? { ...s, count: Math.max(0, (Number(s.count) || 0) + slotMods.get(s.value)) }
-                : s)
-            : rawSlots;
+        // 実効部位スロット(フェーズ12): AE(system.partSlot.<キー>)＋負傷 partSlotMod 込みの
+        // partSlotsEffective を派生(character-base)から読む。base の partSlots は編集用に不変。
+        // (負傷合成は旧シート内実装を派生へ一本化した・2026-07-09→フェーズ12)
+        const partSlots = this.actor.system.partSlotsEffective ?? this.actor.system.partSlots ?? [];
         const outfitItems = this.actor.items.filter(i => OUTFIT_ITEM_TYPES.has(i.type));
 
         // ① 身体部位
@@ -380,6 +376,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             part:         i.system.part,
             partRelation: i.system.partRelation,
             partOptional: i.system.partOptional,
+            partAdded:    i.system.partAdded,       // AE による追加部位行(フェーズ12)
+            partAltChoice: i.system.partAltChoice,  // or 追加行を選んだ装備先(部位キー)
         }));
         const { slots, unlisted } = computePartOccupancy(partSlots, outfits);
 
@@ -731,7 +729,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
     _prepareCombatData(context) {
         const items = this.actor.items;
         const sys = this.actor.system;
-        const usable = (i) => !!(i.system.isPrepared || i.system.noPrepareRequired);
+        const usable = (i) => !!(i.system.isPrepared || readFlag(i.system, "noPrepareRequired"));
         const refs = sys.weaponRefs ?? {};
         const mvT = (f) => f?.mode === "value" ? (f.total ?? f.value) : null;
         const bySort = (a, b) => (a.sort ?? 0) - (b.sort ?? 0);
@@ -744,7 +742,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             .filter(i => usable(i) && (i.type === "weapon" || i.type === "cyborg"))
             .sort(bySort);
         const displayName = (i) =>
-            (i.type === "cyborg" || i.system.isFleshChange) ? `生身（${i.name}）` : i.name;
+            (i.type === "cyborg" || readFlag(i.system, "isFleshChange")) ? `生身（${i.name}）` : i.name;
 
         // 攻撃用/パリー用それぞれの参照先を解決する。未選択(空)＝未変更の生身(アクターのデータ)。
         const fleshAttack = () => {
@@ -1540,11 +1538,13 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const gk = this._getDisplayGroupKey(sys.majorCategory);
         const cfg = TnxCharacterSheetBase.OUTFIT_GROUP_CONFIG.find(c => c.key === gk)
             ?? TnxCharacterSheetBase.OUTFIT_GROUP_CONFIG.at(-1);
+        // 部位列の表示文脈(フェーズ12): 部位キーの逆引き用スロット集合(AE 追加込みの実効)
+        const partCtx = { slots: this.actor.system.partSlotsEffective ?? this.actor.system.partSlots ?? [] };
         const colValues = cfg.columns.map(col => ({
             key:   col.key,
             value: (combinerItem)
-                ? TnxCharacterSheetBase._computeCombinedColValue(col.key, combinerItem, mergeSrc1, mergeSrc2)
-                : TnxCharacterSheetBase._computeColValue(col.key, sys, effectiveValues),
+                ? TnxCharacterSheetBase._computeCombinedColValue(col.key, combinerItem, mergeSrc1, mergeSrc2, partCtx)
+                : TnxCharacterSheetBase._computeColValue(col.key, sys, effectiveValues, partCtx),
         }));
 
         return {
@@ -1567,7 +1567,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
     }
 
     /** 1 列分の表示値を計算する。表示は AE 込み実効値(total)。編集入力は base のまま(フェーズ9-3)。 */
-    static _computeColValue(key, sys, effectiveValues) {
+    static _computeColValue(key, sys, effectiveValues, partCtx = null) {
         // {mode,value,effectMod} の実効値。mode=value 以外は null
         const mvT = (f) => f?.mode === "value" ? (f.total ?? f.value) : null;
         switch (key) {
@@ -1621,8 +1621,13 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                 return effectiveValues
                     ? `${effectiveValues.cyberSecurity}／${effectiveValues.analogSecurity}`
                     : `${sys.cyberSecurity ?? 0}／${sys.analogSecurity ?? 0}`;
-            case "part":
-                return formatPartDesignation(sys.part, sys.partRelation, sys.partOptional);
+            case "part": {
+                // 部位キーの逆引き＋AE 追加行の併記(フェーズ12)
+                const slots = partCtx?.slots ?? [];
+                return formatPartDesignation(
+                    resolvePartRowsForDisplay(sys.part, slots), sys.partRelation, sys.partOptional,
+                    resolvePartAdditions(sys.partAdded, slots));
+            }
             default:
                 return "-";
         }
@@ -1636,7 +1641,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
      * @param {Item} srcItem2 ソース2（combine.source2）
      * @returns {string}
      */
-    static _computeCombinedColValue(key, combinerItem, srcItem1, srcItem2) {
+    static _computeCombinedColValue(key, combinerItem, srcItem1, srcItem2, partCtx = null) {
         const csys   = combinerItem.system;
         const params = csys.combine.params ?? {};
         const s1sys  = srcItem1.system;
@@ -1722,10 +1727,19 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                 const total = slotVal(s1sys, "hardware") + slotVal(s2sys, "hardware");
                 return total > 0 ? String(total) : "-";
             }
-            case "part":
-                return joinPartDesignations([s1sys, s2sys]);
+            case "part": {
+                // 部位キーの逆引き＋AE 追加行の併記(フェーズ12)
+                const slots = partCtx?.slots ?? [];
+                const resolved = (sys) => ({
+                    part: resolvePartRowsForDisplay(sys.part, slots),
+                    partRelation: sys.partRelation,
+                    partOptional: sys.partOptional,
+                    partAdditions: resolvePartAdditions(sys.partAdded, slots),
+                });
+                return joinPartDesignations([resolved(s1sys), resolved(s2sys)]);
+            }
             default:
-                return TnxCharacterSheetBase._computeColValue(key, appearSys, null);
+                return TnxCharacterSheetBase._computeColValue(key, appearSys, null, partCtx);
         }
     }
 

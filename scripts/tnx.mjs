@@ -28,6 +28,7 @@ import { PlayingCardsDataModel } from './data/card/playing-cards.mjs';
 import { NeuroCardsDataModel } from './data/card/neuro-cards.mjs';
 import { OtherDataModel } from './data/card/other.mjs';
 import { TokyoNovaItem } from './item/item.mjs';
+import { TokyoNovaActiveEffect } from './module/active-effect.mjs';
 import { TokyoNovaStyleSheet } from './item/tnx-style-sheet.mjs';
 import { TokyoNovaMiracleSheet } from './item/tnx-miracle-sheet.mjs';
 import { TokyoNovaGeneralSkillSheet } from './item/tnx-general-skill-sheet.mjs';
@@ -55,9 +56,9 @@ import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/u
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
 import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
 import { CONDITION_KINDS, CONDITION_GROUP_LABELS, getConditionKinds, buildInflictedEffectsData, applyDamageTagMods, readConditions } from './module/conditions.mjs';
-import { gatherDamageTagMods, parseEffectTargetKey, buildTransferredEffectData } from './data/item/helpers.mjs';
+import { gatherDamageTagMods, parseEffectTargetKey, buildTransferredEffectData, readFlag, AE_FLAG_PARAMS } from './data/item/helpers.mjs';
 import { registerDamageChartTextSetting } from './module/damage-chart-text-app.mjs';
-import { registerPartSlotPresetSetting, getPartSlotPreset, initializeDefaultPartSlotPreset } from './module/part-slot-preset-app.mjs';
+import { registerPartSlotPresetSetting, getPartSlotPreset, initializeDefaultPartSlotPreset, migratePartSlotKeys } from './module/part-slot-preset-app.mjs';
 import { autoAcquireForStyleSkill, autoImportDerivedData } from './module/style-skill-acquisition.mjs';
 import { conditionNeedsDraw, postDrawPrompt, postControlNegatePrompt, bindConditionChatButtons, renderConditionDrawCard } from './module/condition-resolution.mjs';
 
@@ -303,13 +304,23 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
 
     // 上書き系キーの値入力を選択式にする(2026-07-13 ユーザー確定・ベタ打ちさせない):
     // - check.cardValue: 判定に使用したカードの数字の上書き(A〜K)
-    // - *.attack.damageType: ダメージ種別の上書き(S/P/I/X。system.attack.damageType /
-    //   item.<識別キー>.system.attack.damageType 等)
+    // - *.attack.damageType: ダメージ種別の上書き(S/P/I/X)
+    // - 特性フラグ(フェーズ12): オン/オフ(true/false)
+    // options は {value,label} 可(未指定は value=label)。
+    const opt = (value, label) => ({ value, label: label ?? value });
+    const flagKeyParam = (key) => {
+        const p = parseEffectTargetKey(key);
+        if (!p?.path) return null;
+        const base = p.path.replace(/Total$/, "");
+        return AE_FLAG_PARAMS.includes(base) ? base : (AE_FLAG_PARAMS.includes(p.path) ? p.path : null);
+    };
     const VALUE_CHOICE_RULES = [
         { match: (k) => k === "check.cardValue",
-          options: ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"] },
+          options: ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"].map(o => opt(o)) },
         { match: (k) => k.endsWith(".attack.damageType") || k === "system.baseAttack.damageType",
-          options: ["S", "P", "I", "X"] },
+          options: ["S", "P", "I", "X"].map(o => opt(o)) },
+        // 特性フラグのオン/オフ(フェーズ12)。キーが登録フラグを指すとき値をオン/オフの選択に
+        { match: (k) => !!flagKeyParam(k), options: [opt("true", "オン"), opt("false", "オフ")] },
     ];
     const syncChangeValueInputs = () => {
         for (const keyInput of root.querySelectorAll('[name^="changes."][name$=".key"]')) {
@@ -318,13 +329,14 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
             if (!valueEl) continue;
             const rule = VALUE_CHOICE_RULES.find(r => r.match((keyInput.value ?? "").trim()));
             if (rule) {
-                const sig = rule.options.join(",");
+                const sig = rule.options.map(o => o.value).join(",");
                 if (valueEl.tagName === "SELECT" && valueEl.dataset.tnxChoices === sig) continue;
+                const cur = valueEl.value;
                 const sel = document.createElement("select");
                 sel.name = valueEl.name;
                 sel.dataset.tnxChoices = sig;
                 sel.innerHTML = ['<option value="">──</option>',
-                    ...rule.options.map(o => `<option value="${o}"${valueEl.value === o ? " selected" : ""}>${o}</option>`),
+                    ...rule.options.map(o => `<option value="${o.value}"${cur === o.value ? " selected" : ""}>${o.label}</option>`),
                 ].join("");
                 valueEl.replaceWith(sel);
             } else if (valueEl.tagName === "SELECT" && valueEl.dataset.tnxChoices) {
@@ -334,8 +346,38 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
                 inp.value = valueEl.value;
                 valueEl.replaceWith(inp);
             }
+            // 部位行の追加(system.part.<部位キー> 等)の値は and/or[:消費数]。自由入力を保ったまま
+            // datalist で補助する(消費数付き and:2 も打てるよう select にはしない・フェーズ12)
+            const parsed = parseEffectTargetKey((keyInput.value ?? "").trim());
+            if (parsed?.scope === "partAdd" && valueEl.tagName === "INPUT") {
+                valueEl.setAttribute("list", "tnx-ae-part-relation");
+            } else if (valueEl.tagName === "INPUT" && valueEl.getAttribute("list") === "tnx-ae-part-relation") {
+                valueEl.removeAttribute("list");
+            }
         }
     };
+    // キー入力の補助 datalist(部位スロットキー・部位キー・名前装飾・登録フラグの候補)。
+    // 自由入力を妨げないオートコンプリート(フェーズ12)。
+    if (!root.querySelector("#tnx-ae-key-suggestions")) {
+        const partKeys = [...new Set(getPartSlotPreset().map(s => s?.key).filter(Boolean))];
+        const keyList = document.createElement("datalist");
+        keyList.id = "tnx-ae-key-suggestions";
+        keyList.innerHTML = [
+            "name",
+            ...partKeys.map(k => `system.partSlot.${k}`),
+            ...partKeys.map(k => `system.part.${k}`),
+            ...AE_FLAG_PARAMS.map(f => `system.${f}`),
+        ].map(v => `<option value="${v}"></option>`).join("");
+        root.appendChild(keyList);
+        const relList = document.createElement("datalist");
+        relList.id = "tnx-ae-part-relation";
+        relList.innerHTML = ["and", "or", "and:2", "or:2"].map(v => `<option value="${v}"></option>`).join("");
+        root.appendChild(relList);
+    }
+    // キー入力の候補付けは毎レンダー(変更行の追加にも追従)
+    for (const keyInput of root.querySelectorAll('[name^="changes."][name$=".key"]')) {
+        keyInput.setAttribute("list", "tnx-ae-key-suggestions");
+    }
     syncChangeValueInputs();
     root.addEventListener("change", (ev) => {
         if (typeof ev.target?.name === "string" && ev.target.name.endsWith(".key")) syncChangeValueInputs();
@@ -349,8 +391,7 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
         <label>重複可</label>
         <div class="form-fields">
             <input type="checkbox" name="flags.tokyo-nova-axleration.stackable" ${current ? "checked" : ""}>
-        </div>
-        <p class="hint">同名（同一）効果でも重複して適用する場合にチェック。未チェックなら重複適用不可。</p>`;
+        </div>`;
     const anchor = root.querySelector('[name="transfer"], [name="disabled"]')?.closest(".form-group");
     if (anchor) anchor.after(group);
     else (root.querySelector('.tab[data-tab="details"]') ?? root.querySelector("form"))?.appendChild(group);
@@ -364,7 +405,6 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
         const label = transferGroup.querySelector("label");
         if (label) {
             label.textContent = "効果を対象に自動適用";
-            label.title = "オフの効果は用途の「適用される効果」として使用時にのみ付与できます。";
         }
         const hint = transferGroup.querySelector("p.hint");
         if (hint) hint.textContent = "オンなら効果がキーの示す対象へ常時自動で適用されます。";
@@ -381,8 +421,7 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
             <label>準備先（親アイテム）に適用</label>
             <div class="form-fields">
                 <input type="checkbox" name="flags.tokyo-nova-axleration.applyToParent" ${cur ? "checked" : ""}>
-            </div>
-            <p class="hint">このアイテムを準備している親アイテムのパラメータに効かせる場合にチェック。</p>`;
+            </div>`;
         (transferGroup ?? anchor)?.after(parentGroup);
     }
 
@@ -401,8 +440,7 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
                     <option value="target"${grantCur === "target" ? " selected" : ""}>対象</option>
                     <option value="self"${grantCur === "self" ? " selected" : ""}>自分</option>
                 </select>
-            </div>
-            <p class="hint">用途の「適用される効果」でこの効果を付与する相手（対象＝ターゲット、自分＝使用者）。</p>`;
+            </div>`;
         (parentGroup ?? transferGroup ?? anchor)?.after(grantGroup);
     }
 
@@ -539,6 +577,9 @@ Hooks.on("createActiveEffect", async (effect, options, userId) => {
     // タグ改変(2026-07-12・支配タグ): 負傷(ダメージチャート)由来の付与のみ、対象自身の AE
     // (damage.replaceTag/addTag)でタグを置換/追加する(例 昏睡/精神崩壊→支配・抹殺に支配を追加)
     const tagMods = srcIsWound ? gatherDamageTagMods(actor) : null;
+    // 説得(2026-07-15 ユーザー確定): 精神攻撃の説得は、精神ダメージの「効果タグ」＝戦闘不能
+    // (incapacitation グループ・支配含む)を付けず「説得に応じる」形にする。BS は通常どおり付与する。
+    const persuade = effect.flags?.["tokyo-nova-axleration"]?.persuade === true;
     const data = [];
     const seen = new Set();
     for (const kind of getConditionKinds(effect)) {
@@ -547,6 +588,7 @@ Hooks.on("createActiveEffect", async (effect, options, userId) => {
         for (const d of list) {
             const ik = d.statuses[0];
             const idef = CONDITION_KINDS[ik];
+            if (persuade && idef?.group === "incapacitation") continue; // 説得: 戦闘不能タグ(支配含む)を付けない
             if (idef && !idef.stackable && (actor.statuses?.has?.(ik) || seen.has(ik))) continue;
             if (srcIsWound) {
                 d.flags["tokyo-nova-axleration"].woundSource = effect.id;
@@ -820,7 +862,7 @@ Hooks.once("init", async function() {
             const prefix = { secret: "†", mystery: "※", performance: "＠" }[system.styleSkillCategory] ?? "";
             return prefix + name;
         }
-        if (system.isCyber === true && system.majorCategory !== "cyberware") return `${name}※`;
+        if (readFlag(system, "isCyber") && system.majorCategory !== "cyberware") return `${name}※`;
         return name;
     });
 
@@ -829,6 +871,8 @@ Hooks.once("init", async function() {
 
     await preloadHandlebarsTemplates();
     CONFIG.Item.documentClass = TokyoNovaItem;
+    // 名前装飾(フェーズ12)のためネイティブ AE 適用の一点(Actor への `name`)だけ抑止する
+    CONFIG.ActiveEffect.documentClass = TokyoNovaActiveEffect;
 
     // ActiveEffect の転送モードを新方式にする(フェーズ9-3)。
     // レガシー(true)では「アイテムに乗せた効果がアイテム自身に適用されない」(モードA 不成立)、
@@ -1502,6 +1546,10 @@ Hooks.once("ready", async function() {
 
     // 部位スロットプリセット: ワールド初回ロードでデフォルト体部位を自動設定(GM のみ・1回)
     await initializeDefaultPartSlotPreset();
+
+    // 部位キーの付与移行(フェーズ12・GM のみ・1回): プリセット設定と全アクターの partSlots に
+    // 無キー行のキーを永続化する(既定ラベル=対応表・カスタム=生成キー)
+    await migratePartSlotKeys();
 
     // 下バー展開時はホットバーを退避する。HUD 初期描画前に body クラスを付与して
     // 「ホットバー表示→直後に非表示」のチラつきを防ぐ(下バー収納の既定は false=展開)。
