@@ -218,7 +218,6 @@ export async function useAttack(item, usage) {
  */
 export async function postAttackCard({ payload, result, suit, cardCheckValue = null, card, fromDeck, trumpUsed, suitMismatch, recheckCtx = null, isRecheck = false }) {
     const attacker = await fromUuid(payload.attackerUuid).catch(() => null);
-    const SUIT_SYMBOL = { spade: "♠", club: "♣", heart: "♥", diamond: "♦" };
 
     let state = "pending";
     let resolution = null;
@@ -242,7 +241,32 @@ export async function postAttackCard({ payload, result, suit, cardCheckValue = n
         damageRolled: false,
     };
 
-    const content = await foundry.applications.handlebars.renderTemplate(
+    const content = await buildAttackCardContent({ payload, result, suit, card, fromDeck, trumpUsed, suitMismatch, isRecheck });
+
+    await ChatMessage.create({
+        content,
+        speaker: attacker ? ChatMessage.getSpeaker({ actor: attacker }) : undefined,
+        flags: {
+            [SCOPE]: {
+                // 対決読み取り等の互換のため通常判定と同じ checkResult も持たせる
+                checkResult: { actorId: attacker?.id ?? "", result },
+                attackCheck: flags,
+                // 用途の適用効果(あれば)。攻撃カードに「効果を適用」ボタンを出す(2026-07-10)
+                ...(payload.usageEffects ? { usageEffects: payload.usageEffects } : {}),
+                // 再判定(あれば)。攻撃カードに「再判定」ボタンを出す(2026-07-11)
+                ...(recheckCtx ? { checkRecheck: recheckCtx } : {}),
+            },
+        },
+    });
+}
+
+/**
+ * 攻撃カードの本文を構築する(新規投稿と再判定の置き換え着地で共用・2026-07-14 抽出)。
+ * 状態領域(成否・ボタン群)は flags からのライブ描画(renderAttackCard)のため本文には含まれない。
+ */
+export async function buildAttackCardContent({ payload, result, suit, card, fromDeck, trumpUsed, suitMismatch, isRecheck = false }) {
+    const SUIT_SYMBOL = { spade: "♠", club: "♣", heart: "♥", diamond: "♦" };
+    return foundry.applications.handlebars.renderTemplate(
         "systems/tokyo-nova-axleration/templates/chat/attack-card.hbs",
         {
             skillLabel:    payload.skillLabel,
@@ -264,25 +288,9 @@ export async function postAttackCard({ payload, result, suit, cardCheckValue = n
             // FA は自動加算せずダメージ算出ダイアログで選択するため、ここでは「FA 可」表示のみ
             hasFa:         (payload.faOptions?.length ?? 0) > 0,
             achievement:   result.achievement,
-            isRecheck,     // 再判定による出し直しカードには「再判定」タグを出す(2026-07-11)
+            isRecheck,     // 再判定で置き換えたカードには「再判定」タグを出す(2026-07-14 置き換え着地)
         }
     );
-
-    await ChatMessage.create({
-        content,
-        speaker: attacker ? ChatMessage.getSpeaker({ actor: attacker }) : undefined,
-        flags: {
-            [SCOPE]: {
-                // 対決読み取り等の互換のため通常判定と同じ checkResult も持たせる
-                checkResult: { actorId: attacker?.id ?? "", result },
-                attackCheck: flags,
-                // 用途の適用効果(あれば)。攻撃カードに「効果を適用」ボタンを出す(2026-07-10)
-                ...(payload.usageEffects ? { usageEffects: payload.usageEffects } : {}),
-                // 再判定(あれば)。攻撃カードに「再判定」ボタンを出す(2026-07-11)
-                ...(recheckCtx ? { checkRecheck: recheckCtx } : {}),
-            },
-        },
-    });
 }
 
 // ─── 攻撃カードのライブ描画(renderChatMessageHTML・tnx.mjs から登録) ─────────────

@@ -88,3 +88,37 @@ export function resolveOpposed(attackAchievement, reactionAchievement) {
 export function attackReactionModes(category) {
     return category === "physical" ? ["dodge", "parry", "none"] : ["reaction", "none"];
 }
+
+/**
+ * 再判定(置き換え着地・2026-07-14 ユーザー確定)後の攻撃カード状態を導く。
+ * リアクションのやり直しはしない——解決済み(リアクション/制御値受けが済んでいる)なら
+ * **保存済みの相手値**で成否・差分を再解決する。元がリアクション未実施の失敗(スート不一致/
+ * ファンブル)や未解決(pending/open)なら、新しい結果から状態を導き直す(初回のリアクション機会は生きる)。
+ * @param {{state:string, resolution:string|null, targetValue:number|null, reactionAchievement:number|null, targetUuid:string|null}} prev 元の攻撃フラグ
+ * @param {{achievement:number, fumble:boolean, suitMismatch:boolean}} next 再判定の結果
+ * @returns {{state:string, resolution:string|null, diff:number|null, targetValue?:number|null, reactionAchievement?:number|null, parryGuard?:number}}
+ *   置き換え後の状態(仕切り直し時は targetValue/reactionAchievement/parryGuard も初期化して返す)
+ */
+export function resolveAttackRecheckState(prev, next) {
+    // 新しい判定自体の失敗はリアクション以前に確定する
+    if (next.fumble) return { state: "fumble", resolution: "fumble", diff: null };
+    if (next.suitMismatch) return { state: "miss", resolution: "mismatch", diff: null };
+    // 解決済み: 保存済みの相手値で再解決(リアクションはやり直さない)
+    if (prev.state === "hit" || prev.state === "miss") {
+        if (prev.resolution === "none") {
+            const r = resolveNoReaction(next.achievement, prev.targetValue ?? 0);
+            return { state: r.hit ? "hit" : "miss", resolution: "none", diff: r.diff };
+        }
+        if (prev.resolution === "dodge" || prev.resolution === "parry" || prev.resolution === "reaction") {
+            const r = resolveOpposed(next.achievement, prev.reactionAchievement ?? 0);
+            return { state: r.hit ? "hit" : "miss", resolution: prev.resolution, diff: r.diff };
+        }
+        // 元が mismatch/fumble 由来の失敗=リアクション未実施 → 下の仕切り直しへ
+    }
+    // 未解決(pending/open)・リアクション未実施の失敗: 新しい結果で仕切り直す
+    return {
+        state: prev.targetUuid ? "pending" : "open",
+        resolution: null, diff: null,
+        targetValue: null, reactionAchievement: null, parryGuard: 0,
+    };
+}

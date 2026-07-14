@@ -446,6 +446,27 @@ export async function handleDamageModifyClick(message) {
     await applyDamagePatch(message, { mods: [...(f.mods ?? []), { label: state.skillName, value: mod }] });
 }
 
+/**
+ * GMメニュー「ダメージを修正(手動)」(2026-07-14 ユーザー確定): 手入力の修正値を mods 行(手動修正)
+ * として合算する(用途経由の modifyDamage と同じ着地・消費なし)。適用済みのダメージは修正できない。
+ */
+export async function manualEditDamage(message) {
+    const f = message.getFlag(SCOPE, "damageRoll");
+    if (!f) return;
+    if (f.applied) {
+        ui.notifications.warn("適用済みのダメージは修正できません。");
+        return;
+    }
+    const { AmountInputDialog } = await import("./tnx-dialog.mjs");
+    const mod = await AmountInputDialog.prompt({
+        title: "ダメージを修正（手動）",
+        label: "ダメージへの修正値（軽減は負の値）",
+        initialValue: 0, min: -99, max: 99,
+    });
+    if (!Number.isFinite(mod) || mod === 0) return;
+    await applyDamagePatch(message, { mods: [...(f.mods ?? []), { label: "手動修正", value: mod }] });
+}
+
 /** 攻撃対象(命中確定済み)のアクターを解決する。トークンドキュメントならアクターへ。 */
 async function resolveTargetActor(targetUuid) {
     if (!targetUuid) return null;

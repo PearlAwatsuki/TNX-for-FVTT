@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
-const { resolveNoReaction, resolveOpposed, attackReactionModes, formatAttackLabel, combineWeaponAttack } =
+const { resolveNoReaction, resolveOpposed, attackReactionModes, formatAttackLabel, combineWeaponAttack,
+  resolveAttackRecheckState } =
   await import("../../scripts/module/attack-flow-logic.mjs");
 
 // ダメージカードは命中判定のカードとは別に出す(Damage_Rules 2026-07-08 訂正)ため、
@@ -57,6 +58,54 @@ describe("attackReactionModes()（系統別のリアクション導線・2026-07
   it("精神・社会=リアクション/リアクションしない の2択", () => {
     expect(attackReactionModes("mental")).toEqual(["reaction", "none"]);
     expect(attackReactionModes("social")).toEqual(["reaction", "none"]);
+  });
+});
+
+describe("resolveAttackRecheckState()（再判定の置き換え着地・リアクションやり直しなし・2026-07-14 確定）", () => {
+  it("新しい判定のファンブル/スート不一致はリアクション以前に失敗が確定する", () => {
+    expect(resolveAttackRecheckState({ state: "hit", resolution: "dodge", reactionAchievement: 12 },
+      { achievement: 0, fumble: true, suitMismatch: false }))
+      .toEqual({ state: "fumble", resolution: "fumble", diff: null });
+    expect(resolveAttackRecheckState({ state: "pending", resolution: null, targetUuid: "t" },
+      { achievement: 0, fumble: false, suitMismatch: true }))
+      .toEqual({ state: "miss", resolution: "mismatch", diff: null });
+  });
+
+  it("制御値受け(resolution=none)で解決済みなら保存済みの目標値で再解決する", () => {
+    expect(resolveAttackRecheckState({ state: "miss", resolution: "none", targetValue: 12 },
+      { achievement: 15, fumble: false, suitMismatch: false }))
+      .toEqual({ state: "hit", resolution: "none", diff: 3 });
+    expect(resolveAttackRecheckState({ state: "hit", resolution: "none", targetValue: 12 },
+      { achievement: 10, fumble: false, suitMismatch: false }))
+      .toEqual({ state: "miss", resolution: "none", diff: null });
+  });
+
+  it("リアクションで解決済みなら保存済みの相手値で再解決する（やり直しはしない・受動有利）", () => {
+    expect(resolveAttackRecheckState({ state: "miss", resolution: "dodge", reactionAchievement: 15 },
+      { achievement: 16, fumble: false, suitMismatch: false }))
+      .toEqual({ state: "hit", resolution: "dodge", diff: 1 });
+    // 同値は受動側の勝利のまま
+    expect(resolveAttackRecheckState({ state: "miss", resolution: "parry", reactionAchievement: 15 },
+      { achievement: 15, fumble: false, suitMismatch: false }))
+      .toEqual({ state: "miss", resolution: "parry", diff: null });
+  });
+
+  it("未解決(pending/open)は新しい達成値で仕切り直す（初回のリアクション機会は生きる）", () => {
+    expect(resolveAttackRecheckState({ state: "pending", resolution: null, targetUuid: "t" },
+      { achievement: 14, fumble: false, suitMismatch: false }))
+      .toEqual({ state: "pending", resolution: null, diff: null, targetValue: null, reactionAchievement: null, parryGuard: 0 });
+    expect(resolveAttackRecheckState({ state: "open", resolution: null, targetUuid: null },
+      { achievement: 14, fumble: false, suitMismatch: false }))
+      .toEqual({ state: "open", resolution: null, diff: null, targetValue: null, reactionAchievement: null, parryGuard: 0 });
+  });
+
+  it("元がスート不一致/ファンブル失敗（リアクション未実施）なら仕切り直してリアクション機会が生じる", () => {
+    expect(resolveAttackRecheckState({ state: "miss", resolution: "mismatch", targetUuid: "t" },
+      { achievement: 14, fumble: false, suitMismatch: false }))
+      .toEqual({ state: "pending", resolution: null, diff: null, targetValue: null, reactionAchievement: null, parryGuard: 0 });
+    expect(resolveAttackRecheckState({ state: "fumble", resolution: "fumble", targetUuid: null },
+      { achievement: 14, fumble: false, suitMismatch: false }))
+      .toEqual({ state: "open", resolution: null, diff: null, targetValue: null, reactionAchievement: null, parryGuard: 0 });
   });
 });
 

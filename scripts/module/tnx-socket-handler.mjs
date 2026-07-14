@@ -194,14 +194,15 @@ export class TnxSocketHandler {
 
     // ─── checkModify（フェーズ12・判定の事後修正） ────────────────────────────────
 
-    /** 判定の事後修正のフラグ更新を GM クライアントが代行する(自システムのフラグのみ受理)。 */
+    /** 判定の事後修正/再判定置き換えの更新を GM クライアントが代行する(自スコープの flags と
+     *  content=カード本文のみ受理。再判定の置き換え着地は本文の差し替えを含む=2026-07-14)。 */
     static async _onCheckModify(data) {
         if (!game.user.isGM) return;
         const message = game.messages.get(data?.messageId);
         if (!message || !data?.patch) return;
         const updates = {};
         for (const [k, v] of Object.entries(data.patch)) {
-            if (!k.startsWith("flags.tokyo-nova-axleration.")) continue; // 自スコープ外は無視
+            if (k !== "content" && !k.startsWith("flags.tokyo-nova-axleration.")) continue; // 自スコープ外は無視
             updates[k] = v;
         }
         if (Object.keys(updates).length) await message.update(updates);

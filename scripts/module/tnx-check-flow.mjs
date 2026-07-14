@@ -695,17 +695,20 @@ export class TnxCheckFlow {
         // カード数字の上書き(2026-07-13): 元→後を内訳に明示する
         if (cardOverride) result.cardOverride = cardOverride;
 
-        // 再判定コンテキスト(2026-07-11): 結果カードに「再判定(カードを出し直す)」ボタンを出すための
-        // 再実行用スナップショット。継続処理を持つ判定(リアクション/NPC取得/治療/移動/controlNegate)は
-        // 状態機械のリセットが必要なため当面対象外(申し送り)
+        // 再判定コンテキスト(2026-07-11): 元の構成から再実行するためのスナップショット(常時保存)。
+        // 継続処理を持つ判定(リアクション/NPC取得/治療/移動/controlNegate)は状態機械のリセットが
+        // 必要なため当面対象外(申し送り)
         const recheckCtx = TnxCheckFlow._buildRecheckContext(ctx);
 
         // チャットに結果を投稿。攻撃(ctx.attack)は通常の結果カードの代わりに攻撃カードを出す
         // (成否保留・リアクション導線つき・12-2。attack-flow は本フローを import するため動的 import)。
         // 移動(ctx.movement)も通常カードの代わりに移動結果カードを出す(達成値÷10 段階・12)。
-        if (ctx.attack) {
+        // 再判定(ctx.recheckMessageId)は新カードを出さず、元カードの達成値を置き換える(2026-07-14 確定)。
+        if (ctx.recheckMessageId) {
+            await TnxCheckFlow._applyRecheckReplacement({ ctx, card, suit, result, cardCheckValue, fromDeck, trumpUsed, suitMismatch, checkSources: checkInfo.sources });
+        } else if (ctx.attack) {
             const { postAttackCard } = await import("./attack-flow.mjs");
-            await postAttackCard({ payload: ctx.attack, result, suit, cardCheckValue, card, fromDeck, trumpUsed, suitMismatch, recheckCtx, isRecheck: ctx.isRecheck === true });
+            await postAttackCard({ payload: ctx.attack, result, suit, cardCheckValue, card, fromDeck, trumpUsed, suitMismatch, recheckCtx });
         } else if (ctx.movement) {
             const { postMovementCard } = await import("./vehicle-move.mjs");
             await postMovementCard({ payload: ctx.movement, result, suit, card, fromDeck, trumpUsed, suitMismatch });
@@ -757,12 +760,32 @@ export class TnxCheckFlow {
 
     static async _postResultChat({ ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch = false, checkSources = [], recheckCtx = null }) {
         const actor = game.actors.get(ctx.actorId);
+        const content = await TnxCheckFlow._renderResultContent({ ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch, checkSources });
+
+        await ChatMessage.create({
+            content,
+            speaker: actor ? ChatMessage.getSpeaker({ actor }) : undefined,
+            flags: {
+                "tokyo-nova-axleration": {
+                    checkResult: { actorId: ctx.actorId, result },
+                    // 用途の適用効果(あれば)。カードに「効果を適用」ボタンを出す(2026-07-10)
+                    ...(ctx.usageEffects ? { usageEffects: ctx.usageEffects } : {}),
+                    // 再判定スナップショット(あれば・常時保存)。導線は数字クリック/付与/GMメニュー(2026-07-14)
+                    ...(recheckCtx ? { checkRecheck: recheckCtx } : {}),
+                },
+            },
+        });
+    }
+
+    /** 結果カードの本文を構築する(新規投稿と再判定の置き換え着地で共用・2026-07-14 抽出)。 */
+    static async _renderResultContent({ ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch = false, checkSources = [], isRecheck = false }) {
+        const actor = game.actors.get(ctx.actorId);
         const SUIT_SYMBOL   = { spade: "♠", club: "♣", heart: "♥", diamond: "♦" };
         const TYPE_LABEL    = { skillCheck: "技能判定", controlCheck: "制御判定", abilityCheck: "能力値判定" };
         const ABILITY_LABEL = { reason: "理性", passion: "感情", life: "生命", mundane: "外界" };
 
         const isControlCheck = ctx.type === "controlCheck";
-        const content = await foundry.applications.handlebars.renderTemplate(
+        return foundry.applications.handlebars.renderTemplate(
             "systems/tokyo-nova-axleration/templates/chat/check-result.hbs",
             {
                 actor,
@@ -799,32 +822,75 @@ export class TnxCheckFlow {
                 fromDeck,
                 trumpUsed,
                 suitMismatch,
-                isRecheck: ctx.isRecheck === true, // 再判定の結果カードには「再判定」タグを出す
+                isRecheck, // 再判定で置き換えたカードには「再判定」タグを出す(2026-07-14 置き換え着地)
             }
         );
+    }
 
-        await ChatMessage.create({
-            content,
-            speaker: actor ? ChatMessage.getSpeaker({ actor }) : undefined,
-            flags: {
-                "tokyo-nova-axleration": {
-                    checkResult: { actorId: ctx.actorId, result },
-                    // 用途の適用効果(あれば)。カードに「効果を適用」ボタンを出す(2026-07-10)
-                    ...(ctx.usageEffects ? { usageEffects: ctx.usageEffects } : {}),
-                    // 再判定(あれば)。カードに「再判定」ボタンを出す(2026-07-11)
-                    ...(recheckCtx ? { checkRecheck: recheckCtx } : {}),
-                },
-            },
-        });
+    /**
+     * 再判定の置き換え着地(2026-07-14 ユーザー確定)。新カードを投稿せず、元の結果カード/攻撃カードの
+     * 達成値を再判定の結果で置き換える。内訳も新しい判定の構成のみに差し替える(元判定に働いた
+     * 一回性の増強はルール上失われるため=事後修正 checkMods もリセット)。
+     * - 攻撃: リアクションのやり直しはしない=解決済みなら保存済みの相手値で成否・差分を再解決
+     *   (resolveAttackRecheckState)。ダメージ算出後は startRecheck 側でタイミング不可として弾く。
+     * - 一度だけ: checkRecheck.rechecked=true(再判定系は「1度だけ」の能力)。以後の導線は閉じる。
+     * - 非作者は GM へソケット委譲(checkModify・content 込み)。
+     */
+    static async _applyRecheckReplacement({ ctx, card, suit, result, cardCheckValue = null, fromDeck, trumpUsed, suitMismatch = false, checkSources = [] }) {
+        const SCOPE = "tokyo-nova-axleration";
+        const message = game.messages.get(ctx.recheckMessageId);
+        if (!message) { ui.notifications.warn("再判定する元のカードが見つかりません。"); return; }
+
+        const patch = {
+            [`flags.${SCOPE}.checkRecheck.rechecked`]: true,
+            [`flags.${SCOPE}.-=checkMods`]: null,
+            [`flags.${SCOPE}.checkResult`]: { actorId: ctx.actorId, result },
+        };
+
+        if (ctx.attack) {
+            const prev = message.getFlag(SCOPE, "attackCheck") ?? {};
+            const { buildAttackCardContent } = await import("./attack-flow.mjs");
+            const { resolveAttackRecheckState } = await import("./attack-flow-logic.mjs");
+            const st = resolveAttackRecheckState(prev, {
+                achievement: result.achievement, fumble: result.fumble === true, suitMismatch,
+            });
+            patch.content = await buildAttackCardContent({
+                payload: ctx.attack, result, suit, card, fromDeck, trumpUsed, suitMismatch, isRecheck: true,
+            });
+            patch[`flags.${SCOPE}.attackCheck.achievement`] = result.achievement;
+            patch[`flags.${SCOPE}.attackCheck.cardValue`] =
+                cardCheckValue === "FIXED_21" ? 11 : (Number.isFinite(cardCheckValue) ? cardCheckValue : 0);
+            patch[`flags.${SCOPE}.attackCheck.suit`] = suit;
+            patch[`flags.${SCOPE}.attackCheck.state`] = st.state;
+            patch[`flags.${SCOPE}.attackCheck.resolution`] = st.resolution;
+            patch[`flags.${SCOPE}.attackCheck.diff`] = st.diff;
+            if (st.targetValue !== undefined) {
+                // 仕切り直し(リアクション未実施へ戻る): 対決系の保存値を初期化する
+                patch[`flags.${SCOPE}.attackCheck.targetValue`] = st.targetValue;
+                patch[`flags.${SCOPE}.attackCheck.reactionAchievement`] = st.reactionAchievement;
+                patch[`flags.${SCOPE}.attackCheck.parryGuard`] = st.parryGuard;
+            }
+        } else {
+            patch.content = await TnxCheckFlow._renderResultContent({
+                ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch, checkSources, isRecheck: true,
+            });
+        }
+
+        // フラグ・本文の更新(非作者・非GM は GM へ委譲=事後修正と同じ経路)
+        if (game.user.isGM || message.isAuthor) {
+            await message.update(patch);
+        } else {
+            TnxSocketHandler.emitCheckModify(message.id, patch);
+        }
     }
 
     /**
      * 再判定(カードを出し直して判定値を再決定・2026-07-11 ユーザー確定)用のコンテキストを、
      * 結果カードのフラグに保存できる形で組み立てる。**スナップショットは常時保存**し、
-     * 「再判定」ボタンの表示だけを用途の「再判定可能」(allowRecheck)でゲートする——
-     * 事後付与(grantRecheck=達成値クリック)が判定後に働くための前提。継続処理を持つ判定
-     * (リアクション/NPC取得/治療/移動/controlNegate)は再実行に状態機械のリセットが要るため
-     * 当面対象外(null)。
+     * プレイヤーの直接入口(数字クリック)だけを用途の「再判定可能」(allowRecheck)でゲートする——
+     * 事後付与(grantRecheck=達成値クリック)や GM メニューが判定後に働くための前提。
+     * 継続処理を持つ判定(リアクション/NPC取得/治療/移動/controlNegate)は再実行に状態機械の
+     * リセットが要るため当面対象外(null)。
      * @param {object} ctx 判定コンテキスト
      * @returns {object|null}
      */
@@ -853,8 +919,29 @@ export class TnxCheckFlow {
     }
 
     /**
-     * 再判定を開始する(結果カードの「再判定」ボタン/再判定付与の達成値クリックから)。
-     * 保存済みコンテキストで判定フローを開き直す(カードを出し直して判定値を再決定)。
+     * 再判定を不可にする理由を返す(なければ null)。導線3種(数字クリック/付与クリック/GMメニュー)と
+     * startRecheck 本体が共用する。
+     * - 一度だけ(2026-07-14 ユーザー確定): 再判定系は「1度だけ」の能力=置き換え済みカードは不可。
+     * - ダメージ算出後(2026-07-14 ユーザー確定): 再判定系のタイミングは「判定の成功/失敗時」であり、
+     *   ダメージ算出後はタイミングが合わないため不可(巻き戻し禁止ではなくタイミング不一致が理由)。
+     * @param {ChatMessage} message
+     * @returns {string|null} 警告文(可能なら null)
+     */
+    static recheckBlockReason(message) {
+        const SCOPE = "tokyo-nova-axleration";
+        const rc = message.getFlag(SCOPE, "checkRecheck");
+        if (!rc) return "このカードは再判定できません。";
+        if (rc.rechecked === true) return "この判定は再判定済みです（再判定は一度だけ）。";
+        if (message.getFlag(SCOPE, "attackCheck")?.damageRolled === true) {
+            return "ダメージ算出後はタイミングが合わないため再判定できません。";
+        }
+        return null;
+    }
+
+    /**
+     * 再判定を開始する(数字クリック/再判定付与の達成値クリック/GMメニューから)。
+     * 保存済みコンテキストで判定フローを開き直し(カードを出し直して判定値を再決定)、
+     * 完了時に元カードの達成値を置き換える(recheckMessageId・2026-07-14 確定)。
      * 使用回数は元判定で消費済みのため再消費しない。
      * @param {ChatMessage} message 再判定する結果カード
      * @param {object} [opts]
@@ -864,6 +951,8 @@ export class TnxCheckFlow {
     static async startRecheck(message, { mergeSkill = null, consumeUses = [] } = {}) {
         const rc = message.getFlag("tokyo-nova-axleration", "checkRecheck");
         if (!rc) return;
+        const blocked = TnxCheckFlow.recheckBlockReason(message);
+        if (blocked) { ui.notifications.warn(blocked); return; }
         const actor = game.actors.get(rc.actorId);
         if (!actor) { ui.notifications.warn("再判定するアクターが見つかりません。"); return; }
         if (!(game.user.isGM || actor.isOwner)) {
@@ -908,9 +997,10 @@ export class TnxCheckFlow {
             manualMod:       rc.manualMod,
             ...(rc.attack ? { attack: rc.attack } : {}),
             ...(rc.usageEffects ? { usageEffects: rc.usageEffects } : {}),
-            allowRecheck:    rc.allowRecheck === true, // 元と同じゲート(付与再判定でボタンは増やさない)
+            allowRecheck:    rc.allowRecheck === true, // 元と同じゲート(付与再判定で権利は増やさない)
             allowSuitChange: rc.allowSuitChange === true,
             isRecheck:       true,
+            recheckMessageId: message.id, // 置き換え着地(2026-07-14): 完了時に元カードの達成値を置き換える
         });
     }
 
@@ -983,12 +1073,29 @@ export class TnxCheckFlow {
         document.body.classList.remove("tnx-recheck-grant-pending");
     }
 
-    /** 達成値クリック(クリック待ちモード中)の処理。kind に応じて再判定/修正を発動する。 */
+    /**
+     * 達成値クリックの処理。クリック待ちモード中は kind に応じて再判定/修正を発動する。
+     * モード外は「再判定可能」(allowRecheck)のプレイヤー入口(2026-07-14 確定)=素の再判定を起動する
+     * (対象外・権利のないクリックは静かに無視=装飾も出ていない)。
+     */
     static async _onGrantAchievementClick(message) {
         const state = TnxCheckFlow._clickState;
-        if (!state) return; // モード外のクリックは無視(通常表示)
+        if (!state) {
+            const rc = message.getFlag("tokyo-nova-axleration", "checkRecheck");
+            if (rc?.allowRecheck !== true) return;
+            if (TnxCheckFlow.recheckBlockReason(message)) return;
+            const actor = game.actors.get(rc.actorId);
+            if (!(game.user.isGM || actor?.isOwner)) return;
+            await TnxCheckFlow.startRecheck(message);
+            return;
+        }
         if (state.kind === "modifyDamage") return; // ダメージクリック待ちは達成値クリックでは発動しない(damage-flow 側)
         if (state.kind === "suitChange") return;   // スート変更待ちの発動点は判定のカードプレイ(_trySuitChange)
+        if (state.kind === "recheck") {
+            // 不可(再判定済み/ダメージ算出後)はモードを維持したまま警告する(別のカードを選び直せる)
+            const blocked = TnxCheckFlow.recheckBlockReason(message);
+            if (blocked) { ui.notifications.warn(blocked); return; }
+        }
         const actor = game.actors.get(state.actorId);
         const skill = actor?.items.get(state.skillItemId);
         if (!skill) { TnxCheckFlow.cancelAchievementAction(); return; }
@@ -1008,33 +1115,43 @@ export class TnxCheckFlow {
      * 修正の内訳はフラグ checkMods に積み、カードにライブ描画する。
      * 事後修正された判定を再判定すると修正はリセットされる(再判定はスナップショット=元の構成から
      * 再実行するため・2026-07-11 ユーザー確定)。
+     * manual: GMメニュー「達成値を修正(手動)」からの裁定ツール経路({label, mod} 確定済み・
+     * 消費なし・ダメージ算出後も制限しない=2026-07-14)。
      */
-    static async _applyCheckModify(message, { actor, skill, usageId, consumeUses }) {
+    static async _applyCheckModify(message, { actor, skill, usageId, consumeUses, manual = null } = {}) {
         const SCOPE = "tokyo-nova-axleration";
         const rc = message.getFlag(SCOPE, "checkRecheck");
         const attackF = message.getFlag(SCOPE, "attackCheck");
         const checkF = message.getFlag(SCOPE, "checkResult");
         if (!checkF && !attackF) return;
 
-        // ダメージ算出後の攻撃は修正不可(算出済みダメージの巻き戻しは整合を壊す)
-        if (attackF?.damageRolled) {
+        // ダメージ算出後の攻撃は修正不可(算出済みダメージの巻き戻しは整合を壊す)。
+        // 手動修正(GMメニュー・manual)は卓の最終裁定ツールのため制限しない(2026-07-14)
+        if (attackF?.damageRolled && !manual) {
             ui.notifications.warn("ダメージカードを出した後の攻撃判定は修正できません。");
             return;
         }
 
-        // 修正値: 用途の判定修正値(式・@item.self=親技能)を評価。空/評価不能/0 は手入力
-        const usage = (skill.system.actions ?? []).find(a => a._id === usageId) ?? null;
-        let mod = null;
-        const self = await evaluateSelfBonus(usage?.checkBonusSelf ?? "", actor, null, null, skill);
-        if (self) mod = self.value;
-        if (mod === null) {
-            const { AmountInputDialog } = await import("./tnx-dialog.mjs");
-            mod = await AmountInputDialog.prompt({
-                title: `判定の修正: ${skill.name}`,
-                label: "達成値への修正値（ペナルティは負の値）",
-                initialValue: 0, min: -99, max: 99,
-            });
-            if (!Number.isFinite(mod) || mod === 0) return;
+        let mod, label;
+        if (manual) {
+            // 手動修正(GMメニュー「達成値を修正」): 差分は呼び出し側で確定済み
+            ({ mod, label } = manual);
+        } else {
+            // 修正値: 用途の判定修正値(式・@item.self=親技能)を評価。空/評価不能/0 は手入力
+            const usage = (skill.system.actions ?? []).find(a => a._id === usageId) ?? null;
+            mod = null;
+            label = skill.name;
+            const self = await evaluateSelfBonus(usage?.checkBonusSelf ?? "", actor, null, null, skill);
+            if (self) mod = self.value;
+            if (mod === null) {
+                const { AmountInputDialog } = await import("./tnx-dialog.mjs");
+                mod = await AmountInputDialog.prompt({
+                    title: `判定の修正: ${skill.name}`,
+                    label: "達成値への修正値（ペナルティは負の値）",
+                    initialValue: 0, min: -99, max: 99,
+                });
+                if (!Number.isFinite(mod) || mod === 0) return;
+            }
         }
 
         // 消費(用途の consumeTargets)は適用の確定時
@@ -1044,7 +1161,7 @@ export class TnxCheckFlow {
         const prevAch = Number(attackF?.achievement ?? checkF?.result?.achievement) || 0;
         const newAch = prevAch + mod;
         const mods = foundry.utils.deepClone(message.getFlag(SCOPE, "checkMods") ?? { rows: [] });
-        mods.rows.push({ label: skill.name, value: mod });
+        mods.rows.push({ label, value: mod });
         mods.achievement = newAch;
 
         const patch = {};
@@ -1091,6 +1208,27 @@ export class TnxCheckFlow {
         }
     }
 
+    /**
+     * GMメニュー「達成値を修正(手動)」(2026-07-14 ユーザー確定): 新しい達成値を入力し、現在値との
+     * 差分を事後修正(手動修正)として適用する。処理が壊れた時の卓の最終裁定ツールのため制限しない
+     * (ダメージ算出後も可)。
+     */
+    static async manualEditAchievement(message) {
+        const SCOPE = "tokyo-nova-axleration";
+        const attackF = message.getFlag(SCOPE, "attackCheck");
+        const checkF = message.getFlag(SCOPE, "checkResult");
+        if (!checkF && !attackF) return;
+        const current = Number(attackF?.achievement ?? checkF?.result?.achievement) || 0;
+        const { AmountInputDialog } = await import("./tnx-dialog.mjs");
+        const next = await AmountInputDialog.prompt({
+            title: "達成値を修正（手動）",
+            label: `新しい達成値（現在 ${current}）`,
+            initialValue: current, min: 0, max: 99,
+        });
+        if (!Number.isFinite(next) || next === current) return;
+        await TnxCheckFlow._applyCheckModify(message, { manual: { label: "手動修正", mod: next - current } });
+    }
+
     static _closeDialog() {
         for (const app of foundry.applications.instances.values()) {
             if (app.id === "tnx-check-dialog") {
@@ -1114,8 +1252,9 @@ export class TnxCheckFlow {
 /**
  * 結果カード/攻撃カードの再判定装飾を描画する(renderChatMessageHTML・tnx.mjs から登録)。
  * checkRecheck フラグ(スナップショット=常時保存)を持つカードにのみ効く。
- * - 「再判定」ボタン: 用途の「再判定可能」(allowRecheck)が ON の判定でのみ表示。
- * - 達成値クリック: 常時バインド(再判定付与モード中のみ反応=その判定に起動技能を組み合わせて再判定)。
+ * - 達成値クリック: 常時バインド。クリック待ちモード中は付与/修正の発動、モード外は
+ *   「再判定可能」(allowRecheck)のプレイヤー入口(素の再判定・2026-07-14 確定=カード上のボタンは廃止)。
+ * - 再判定可能な数字には常設の装飾(tnx-recheck-ready)を出す(所有者/RL のみ・一度だけ消費で消える)。
  * 押下時の権限判定は startRecheck 側(所有者/RL)。
  */
 export function renderRecheckButton(message, html) {
@@ -1123,11 +1262,21 @@ export function renderRecheckButton(message, html) {
     if (!rc) return;
     const host = html.querySelector(".tnx-check-result") ?? html.querySelector(".tnx-chat-card") ?? html;
 
-    // 達成値クリック(再判定付与/判定を修正): 達成値行の数値をクリック可能に(モード外のクリックは無視)
+    // 「再判定可能」の直接入口を装飾でも示せるか(表示ゲート。クリック側にも同じ検査がある)
+    const actor = game.actors.get(rc.actorId);
+    const canDirect = rc.allowRecheck === true
+        && !TnxCheckFlow.recheckBlockReason(message)
+        && (game.user.isGM || actor?.isOwner === true);
+
+    // 達成値クリック(再判定可能/再判定付与/判定を修正): 達成値行の数値をクリック可能に
     for (const row of host.querySelectorAll(".cr-calc-row, .cr-total-row")) {
         const label = row.querySelector(".cr-calc-label");
         const num = row.querySelector(".cr-total-num");
         if (!label || !num || label.textContent.trim() !== "達成値") continue;
+        if (canDirect) {
+            num.classList.add("tnx-recheck-ready");
+            num.title = "クリックで再判定（この判定をやり直します）";
+        }
         if (num.classList.contains("tnx-recheck-target")) continue; // 二重バインド防止
         num.classList.add("tnx-recheck-target");
         num.addEventListener("click", () => TnxCheckFlow._onGrantAchievementClick(message));
@@ -1159,17 +1308,6 @@ export function renderRecheckButton(message, html) {
         host.appendChild(area);
     }
 
-    // 再判定ボタン(用途の「再判定可能」ON のときのみ)
-    if (rc.allowRecheck !== true) return;
-    if (host.querySelector(".tnx-recheck-area")) return; // 二重描画防止
-    const area = document.createElement("div");
-    area.className = "tnx-recheck-area";
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "tnx-chat-btn";
-    btn.textContent = "再判定（カードを出し直す）";
-    btn.title = "この判定をカードから出し直して判定値を再決定します（可否・回数の裁定は卓で行ってください）";
-    btn.addEventListener("click", () => TnxCheckFlow.startRecheck(message));
-    area.appendChild(btn);
-    host.appendChild(area);
+    // 全幅の「再判定」ボタンは廃止(2026-07-14): 導線は数字クリック(allowRecheck)・
+    // 再判定の付与(クリック待ち)・GM の右クリックメニューに集約した
 }

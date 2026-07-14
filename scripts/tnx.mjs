@@ -1477,12 +1477,54 @@ Hooks.once("ready", async function() {
         }
     });
 
-    // 再判定(2026-07-11): checkRecheck フラグを持つカード(判定結果/攻撃)に「再判定」ボタンを描画。
-    // 押すとカードを出し直して判定値を再決定する(可否・回数の裁定は卓=信頼ベース)。
+    // 再判定(2026-07-11→2026-07-14 置き換え着地): checkRecheck フラグを持つカード(判定結果/攻撃)の
+    // 達成値を装飾する(モード外クリック=allowRecheck の素の再判定・モード中=付与/修正の発動)。
     Hooks.on("renderChatMessageHTML", (message, html) => {
         if (message.getFlag("tokyo-nova-axleration", "checkRecheck")) {
             renderRecheckButton(message, html);
         }
+    });
+
+    // 判定・ダメージへの特殊処理の正規の置き場=チャットカードの右クリックメニュー(GM のみ表示・
+    // 2026-07-14 ユーザー確定)。用途フラグ(再判定を付与/判定を修正/ダメージを修正)のアイテムロールは
+    // 同じ内部機能への例外的な外部アクセス(クリック待ち経由=メニュー不要)。
+    Hooks.on("getChatMessageContextOptions", (_app, options) => {
+        const SCOPE = "tokyo-nova-axleration";
+        const msgOf = (li) => game.messages.get(li.dataset.messageId);
+        options.push(
+            {
+                name: "再判定（この判定をやり直す）",
+                icon: '<i class="fas fa-rotate-right"></i>',
+                condition: (li) => {
+                    if (!game.user.isGM) return false;
+                    const m = msgOf(li);
+                    return !!m?.getFlag(SCOPE, "checkRecheck") && !TnxCheckFlow.recheckBlockReason(m);
+                },
+                callback: (li) => TnxCheckFlow.startRecheck(msgOf(li)),
+            },
+            {
+                name: "達成値を修正（手動）",
+                icon: '<i class="fas fa-pen"></i>',
+                // スナップショット持ちのカードに限る: 継続処理系(移動/治療等)は達成値だけ書き換えると
+                // 適用済みの帰結と乖離し、事後修正のライブ描画もスナップショット持ちでしか動かない
+                condition: (li) => game.user.isGM && !!msgOf(li)?.getFlag(SCOPE, "checkRecheck"),
+                callback: (li) => TnxCheckFlow.manualEditAchievement(msgOf(li)),
+            },
+            {
+                name: "ダメージを修正（手動）",
+                icon: '<i class="fas fa-burst"></i>',
+                condition: (li) => {
+                    if (!game.user.isGM) return false;
+                    const m = msgOf(li);
+                    const f = m?.getFlag(SCOPE, "damageRoll");
+                    return !!f && f.applied !== true;
+                },
+                callback: async (li) => {
+                    const { manualEditDamage } = await import("./module/damage-flow.mjs");
+                    await manualEditDamage(msgOf(li));
+                },
+            },
+        );
     });
 
     // 判定要求チャットカード: 目標値の可視性制御 + 「判定する」ボタン / 結果注入（フェーズ 8-5）
