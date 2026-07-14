@@ -686,6 +686,114 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
     renderConditionDrawCard(message, root);
 });
 
+// ─── チャットカードのライブ描画(フラグ→表示)はトップレベルで登録する ─────────────
+// チャットログの初期描画(既存メッセージの一括レンダリング)は ready 発火前に走るため、
+// ready 内で登録するとリロード直後の表示分にフックが効かない(ダメージカードは本文が殻の
+// ため「内容がすべて消える」ように見えていた=2026-07-14 ユーザー報告で是正)。
+
+// 攻撃カード(12-2): 状態領域のライブ描画(未解決=系統別リアクションボタン/解決後=成否表示に置換。
+// checkRequest の結果注入と同型のフラグ+再描画方式)
+Hooks.on("renderChatMessageHTML", (message, html) => {
+    if (message.getFlag("tokyo-nova-axleration", "attackCheck")) {
+        renderAttackCard(message, html);
+    }
+});
+
+// ダメージ・カード(12-3): 台帳+状態領域のライブ描画(カード追加・適用で更新)
+Hooks.on("renderChatMessageHTML", (message, html) => {
+    if (message.getFlag("tokyo-nova-axleration", "damageRoll")) {
+        renderDamageCard(message, html);
+    }
+});
+
+// 用途の適用効果(2026-07-10): usageEffects フラグを持つカード(判定結果/攻撃/用途使用)に
+// 「効果を適用」ボタンを描画。対象所有者/GM が押すと対象へ AE を複製付与する。
+Hooks.on("renderChatMessageHTML", (message, html) => {
+    if (message.getFlag("tokyo-nova-axleration", "usageEffects")) {
+        renderUsageEffectButton(message, html);
+    }
+});
+
+// 再判定(2026-07-11→2026-07-14 置き換え着地): checkRecheck フラグを持つカード(判定結果/攻撃)の
+// 達成値を装飾する(モード外クリック=allowRecheck の素の再判定・モード中=付与/修正の発動)。
+Hooks.on("renderChatMessageHTML", (message, html) => {
+    if (message.getFlag("tokyo-nova-axleration", "checkRecheck")) {
+        renderRecheckButton(message, html);
+    }
+});
+
+// 判定要求チャットカード: 目標値の可視性制御 + 「判定する」ボタン / 結果注入（フェーズ 8-5）
+Hooks.on("renderChatMessageHTML", (message, html) => {
+    const flagData = message.getFlag("tokyo-nova-axleration", "checkRequest");
+    if (!flagData) return;
+
+    // 目標値: targetValueHidden かつ非 GM の場合は非公開表示
+    const tnEl = html.querySelector(".cr-req-tn-value");
+    if (tnEl && flagData.targetValueHidden && !game.user.isGM) {
+        tnEl.textContent = "（非公開）";
+        tnEl.classList.add("cr-req-tn-hidden");
+    }
+
+    // 各対象行: 結果がある場合は結果表示、未判定の場合はボタンまたは「待機中」
+    for (const row of html.querySelectorAll(".cr-req-target-row")) {
+        const actorId  = row.dataset.actorId;
+        const userId   = row.dataset.userId;
+        const statusEl = row.querySelector(".cr-req-target-status");
+        if (!statusEl) continue;
+
+        const result = flagData.results?.[actorId];
+        if (result) {
+            // 判定済み: 結果を表示
+            const resultEl = document.createElement("div");
+            resultEl.className = "cr-req-result";
+            if (flagData.checkType === "controlCheck") {
+                // controlNegate 由来の要求は帰結(無効化/降格/継続)もライブ書き換えで表示する
+                const negateText = result.negateOutcome?.text
+                    ? ` <span class="cr-req-negate">${foundry.utils.escapeHTML(result.negateOutcome.text)}</span>`
+                    : "";
+                resultEl.innerHTML = (result.success
+                    ? '<span class="cr-inline-success"><i class="fas fa-check"></i> 成功</span>'
+                    : '<span class="cr-inline-failure"><i class="fas fa-times"></i> 失敗</span>')
+                    + negateText;
+            } else if (result.fumble) {
+                resultEl.innerHTML = '<span class="cr-inline-fumble"><i class="fas fa-skull"></i> ファンブル</span>';
+            } else {
+                const mark = result.success === true
+                    ? ' <span class="cr-inline-success"><i class="fas fa-check"></i> 成功</span>'
+                    : result.success === false
+                        ? ' <span class="cr-inline-failure"><i class="fas fa-times"></i> 失敗</span>'
+                        : '';
+                // 代用判定(2026-07-09): 指定と別の技能で判定した事実を要求カードにも明示する
+                const subNote = result.substitution?.usedName
+                    ? ` <span class="cr-req-note">代用:${foundry.utils.escapeHTML(result.substitution.usedName)}</span>`
+                    : '';
+                resultEl.innerHTML = `達成値 <strong>${result.achievement ?? "—"}</strong>${mark}${subNote}`;
+            }
+            statusEl.replaceChildren(resultEl);
+        } else if (flagData.status !== "closed") {
+            // 未判定
+            const isMyChar = game.user.id === userId;
+            if (isMyChar || game.user.isGM) {
+                const btn = document.createElement("button");
+                btn.type      = "button";
+                // テキストボタンは丸型(tnx-ring-btn)に詰め込まない。アイコンは判定=カードのため
+                // カードマーク(2026-07-09 修正。gavel=裁判官の木槌は「judgement」の誤訳由来)
+                btn.className = "tnx-chat-btn tnx-check-do-btn";
+                btn.innerHTML = '<i class="fas fa-diamond"></i> 判定する';
+                btn.addEventListener("click", () => {
+                    TnxRlRequestApp.onDoCheck(flagData, actorId, message.id);
+                });
+                statusEl.replaceChildren(btn);
+            } else {
+                const waiting = document.createElement("span");
+                waiting.className = "cr-req-waiting";
+                waiting.textContent = "待機中…";
+                statusEl.replaceChildren(waiting);
+            }
+        }
+    }
+});
+
 Hooks.once("init", async function() {
     game.tnx = game.tnx || {}
     game.tnx.refreshSheets = handleRefreshSheets;
@@ -1510,109 +1618,6 @@ Hooks.once("ready", async function() {
             if (doc?.documentName === "Actor" && doc.type === "troop"
                 && (doc.system.ownerActorRef?.uuid ?? "") === actor.uuid) {
                 app.render();
-            }
-        }
-    });
-
-    // 攻撃カード(12-2): 状態領域のライブ描画(未解決=系統別リアクションボタン/解決後=成否表示に置換。
-    // checkRequest の結果注入と同型のフラグ+再描画方式)
-    Hooks.on("renderChatMessageHTML", (message, html) => {
-        if (message.getFlag("tokyo-nova-axleration", "attackCheck")) {
-            renderAttackCard(message, html);
-        }
-    });
-
-    // ダメージ・カード(12-3): 台帳+状態領域のライブ描画(カード追加・適用で更新)
-    Hooks.on("renderChatMessageHTML", (message, html) => {
-        if (message.getFlag("tokyo-nova-axleration", "damageRoll")) {
-            renderDamageCard(message, html);
-        }
-    });
-
-    // 用途の適用効果(2026-07-10): usageEffects フラグを持つカード(判定結果/攻撃/用途使用)に
-    // 「効果を適用」ボタンを描画。対象所有者/GM が押すと対象へ AE を複製付与する。
-    Hooks.on("renderChatMessageHTML", (message, html) => {
-        if (message.getFlag("tokyo-nova-axleration", "usageEffects")) {
-            renderUsageEffectButton(message, html);
-        }
-    });
-
-    // 再判定(2026-07-11→2026-07-14 置き換え着地): checkRecheck フラグを持つカード(判定結果/攻撃)の
-    // 達成値を装飾する(モード外クリック=allowRecheck の素の再判定・モード中=付与/修正の発動)。
-    Hooks.on("renderChatMessageHTML", (message, html) => {
-        if (message.getFlag("tokyo-nova-axleration", "checkRecheck")) {
-            renderRecheckButton(message, html);
-        }
-    });
-
-    // 判定要求チャットカード: 目標値の可視性制御 + 「判定する」ボタン / 結果注入（フェーズ 8-5）
-    Hooks.on("renderChatMessageHTML", (message, html) => {
-        const flagData = message.getFlag("tokyo-nova-axleration", "checkRequest");
-        if (!flagData) return;
-
-        // 目標値: targetValueHidden かつ非 GM の場合は非公開表示
-        const tnEl = html.querySelector(".cr-req-tn-value");
-        if (tnEl && flagData.targetValueHidden && !game.user.isGM) {
-            tnEl.textContent = "（非公開）";
-            tnEl.classList.add("cr-req-tn-hidden");
-        }
-
-        // 各対象行: 結果がある場合は結果表示、未判定の場合はボタンまたは「待機中」
-        for (const row of html.querySelectorAll(".cr-req-target-row")) {
-            const actorId  = row.dataset.actorId;
-            const userId   = row.dataset.userId;
-            const statusEl = row.querySelector(".cr-req-target-status");
-            if (!statusEl) continue;
-
-            const result = flagData.results?.[actorId];
-            if (result) {
-                // 判定済み: 結果を表示
-                const resultEl = document.createElement("div");
-                resultEl.className = "cr-req-result";
-                if (flagData.checkType === "controlCheck") {
-                    // controlNegate 由来の要求は帰結(無効化/降格/継続)もライブ書き換えで表示する
-                    const negateText = result.negateOutcome?.text
-                        ? ` <span class="cr-req-negate">${foundry.utils.escapeHTML(result.negateOutcome.text)}</span>`
-                        : "";
-                    resultEl.innerHTML = (result.success
-                        ? '<span class="cr-inline-success"><i class="fas fa-check"></i> 成功</span>'
-                        : '<span class="cr-inline-failure"><i class="fas fa-times"></i> 失敗</span>')
-                        + negateText;
-                } else if (result.fumble) {
-                    resultEl.innerHTML = '<span class="cr-inline-fumble"><i class="fas fa-skull"></i> ファンブル</span>';
-                } else {
-                    const mark = result.success === true
-                        ? ' <span class="cr-inline-success"><i class="fas fa-check"></i> 成功</span>'
-                        : result.success === false
-                            ? ' <span class="cr-inline-failure"><i class="fas fa-times"></i> 失敗</span>'
-                            : '';
-                    // 代用判定(2026-07-09): 指定と別の技能で判定した事実を要求カードにも明示する
-                    const subNote = result.substitution?.usedName
-                        ? ` <span class="cr-req-note">代用:${foundry.utils.escapeHTML(result.substitution.usedName)}</span>`
-                        : '';
-                    resultEl.innerHTML = `達成値 <strong>${result.achievement ?? "—"}</strong>${mark}${subNote}`;
-                }
-                statusEl.replaceChildren(resultEl);
-            } else if (flagData.status !== "closed") {
-                // 未判定
-                const isMyChar = game.user.id === userId;
-                if (isMyChar || game.user.isGM) {
-                    const btn = document.createElement("button");
-                    btn.type      = "button";
-                    // テキストボタンは丸型(tnx-ring-btn)に詰め込まない。アイコンは判定=カードのため
-                    // カードマーク(2026-07-09 修正。gavel=裁判官の木槌は「judgement」の誤訳由来)
-                    btn.className = "tnx-chat-btn tnx-check-do-btn";
-                    btn.innerHTML = '<i class="fas fa-diamond"></i> 判定する';
-                    btn.addEventListener("click", () => {
-                        TnxRlRequestApp.onDoCheck(flagData, actorId, message.id);
-                    });
-                    statusEl.replaceChildren(btn);
-                } else {
-                    const waiting = document.createElement("span");
-                    waiting.className = "cr-req-waiting";
-                    waiting.textContent = "待機中…";
-                    statusEl.replaceChildren(waiting);
-                }
             }
         }
     });
