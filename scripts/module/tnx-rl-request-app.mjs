@@ -371,6 +371,7 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
         const esc = foundry.utils.escapeHTML;
         const options = buildSkillOptions(skills)
             .map(o => `<option value="${o.value}">${esc(o.label)}</option>`).join("");
+        const { spinnerDialogActions } = await import("./tnx-dialog.mjs");
         const res = await foundry.applications.api.DialogV2.wait({
             window: { title: `代用判定: ${requestedLabel}` },
             classes: ["tokyo-nova", "tnx-dialog"],
@@ -378,7 +379,14 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
             content: `
                 <p>指定「${esc(requestedLabel)}」${matchedItem ? "を" : "を所持していないため、"}別の技能で代用します（可否・修正の裁定は卓）。</p>
                 <div class="form-group"><label>使用する技能</label><select name="skillId">${options}</select></div>
-                <div class="form-group"><label>修正（手動・ペナルティは負数）</label><input type="number" name="manualMod" value="0"></div>`,
+                <div class="form-group"><label>修正（手動・ペナルティは負数）</label>
+                    <div class="number-input-spinner">
+                        <button type="button" class="tnx-btn" data-action="decrement" aria-label="Decrease">-</button>
+                        <input type="number" name="manualMod" value="0" min="-99" max="99">
+                        <button type="button" class="tnx-btn" data-action="increment" aria-label="Increase">+</button>
+                    </div>
+                </div>`,
+            actions: spinnerDialogActions,
             buttons: [
                 { action: "ok", icon: "fas fa-diamond", label: "この技能で判定", default: true,
                   callback: (_e, _b, dialog) => ({

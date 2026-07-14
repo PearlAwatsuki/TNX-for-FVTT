@@ -36,35 +36,48 @@ export class DeckCreationDialog {
 }
 
 /**
+ * number-input-spinner の ± ボタン用の共通 DialogV2 アクション。
+ * step 後に input イベントを発火する(ライブプレビュー等のリスナーへ変更を伝えるため)。
+ */
+export const spinnerDialogActions = {
+    decrement: (_event, target) => {
+        const input = target.closest(".number-input-spinner")?.querySelector("input[type='number']");
+        input?.stepDown();
+        input?.dispatchEvent(new Event("input", { bubbles: true }));
+    },
+    increment: (_event, target) => {
+        const input = target.closest(".number-input-spinner")?.querySelector("input[type='number']");
+        input?.stepUp();
+        input?.dispatchEvent(new Event("input", { bubbles: true }));
+    },
+};
+
+/**
  * 数値を入力させるための汎用ダイアログ。
+ * allowOverride(2026-07-14): 「上書き」チェックボックスを表示し、戻り値を
+ * `{ value, override }` にする(加減算か上書きかは呼び出し側が解釈する)。
  */
 export class AmountInputDialog {
-    static async prompt({title, label, initialValue = 1, min = 1, max = 99}) {
+    static async prompt({title, label, initialValue = 1, min = 1, max = 99, okLabel = "ドロー", allowOverride = false, overrideLabel = "上書き（入力値をそのまま新しい値にする）"}) {
         const template = "systems/tokyo-nova-axleration/templates/dialog/amount-input-dialog.hbs";
-        const content = await foundry.applications.handlebars.renderTemplate(template, { label, initialValue, min, max });
+        const content = await foundry.applications.handlebars.renderTemplate(template, { label, initialValue, min, max, allowOverride, overrideLabel });
 
         const result = await DialogV2.wait({
             window: { title },
             classes: ["tokyo-nova", "tnx-amount-dialog"],
             position: { width: 480 },
             content,
-            actions: {
-                decrement: (_event, target) => {
-                    target.closest(".number-input-spinner")
-                        ?.querySelector("input[type='number']")?.stepDown();
-                },
-                increment: (_event, target) => {
-                    target.closest(".number-input-spinner")
-                        ?.querySelector("input[type='number']")?.stepUp();
-                },
-            },
+            actions: spinnerDialogActions,
             buttons: [
                 {
                     action: "ok",
                     icon: "fas fa-check",
-                    label: "ドロー",
+                    label: okLabel,
                     default: true,
-                    callback: (_event, _button, dialog) => parseInt(dialog.element.querySelector('input[name="amount"]')?.value),
+                    callback: (_event, _button, dialog) => ({
+                        value: parseInt(dialog.element.querySelector('input[name="amount"]')?.value),
+                        override: dialog.element.querySelector('input[name="override"]')?.checked === true,
+                    }),
                 },
                 {
                     action: "cancel",
@@ -77,11 +90,11 @@ export class AmountInputDialog {
         });
 
         if (result === null) return null;
-        if (isNaN(result) || result < min) {
+        if (isNaN(result.value) || result.value < min) {
             ui.notifications.warn(`入力値は${min}以上である必要があります。`);
             return null;
         }
-        return result;
+        return allowOverride ? result : result.value;
     }
 }
 

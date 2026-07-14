@@ -167,6 +167,19 @@ describe("calcControlCheck()", () => {
         expect(r.success).toBe(false); // 10 > 8
     });
 
+    it("状況修正（手動・2026-07-14）は制御値へ加算され成功条件が緩む", () => {
+        const r = calcControlCheck({ cardCheckValue: 7, suit: "spade", abilitiesCtx: abilities, manualMod: 2 });
+        expect(r.effectiveControl).toBe(8); // 6 + 2
+        expect(r.success).toBe(true);       // 7 ≤ 8
+    });
+
+    it("負の状況修正は成功条件を厳しくする（制御値素値は不変）", () => {
+        const r = calcControlCheck({ cardCheckValue: 5, suit: "spade", abilitiesCtx: abilities, manualMod: -2 });
+        expect(r.controlVal).toBe(6);
+        expect(r.effectiveControl).toBe(4); // 6 - 2
+        expect(r.success).toBe(false);      // 5 > 4
+    });
+
     it("A は 11 として扱う（FIXED_21 は適用しない）", () => {
         const r = calcControlCheck({ cardCheckValue: "FIXED_21", suit: "spade", abilitiesCtx: abilities });
         expect(r.cardValue).toBe(11);

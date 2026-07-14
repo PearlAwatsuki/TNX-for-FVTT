@@ -30,6 +30,8 @@ export class TnxCheckDialog extends HandlebarsApplicationMixin(ApplicationV2) {
             drawFromDeck:    TnxCheckDialog._onDrawFromDeck,
             toggleTrumpMode: TnxCheckDialog._onToggleTrumpMode,
             cancel:          TnxCheckDialog._onCancel,
+            modDecrement:    TnxCheckDialog._onModStep,
+            modIncrement:    TnxCheckDialog._onModStep,
         },
     };
 
@@ -68,10 +70,24 @@ export class TnxCheckDialog extends HandlebarsApplicationMixin(ApplicationV2) {
             targetValue:    ctx.targetValue,
             hasTrump,
             trumpMode:      TnxCheckFlow.trumpMode,
+            // 状況ボーナス/ペナルティの手動入力(2026-07-14 ユーザー確定=全ての判定で入力可能に)。
+            // 通常判定=達成値へ加算・制御判定=制御値(成功条件)へ加算。代用判定・再判定の
+            // 引き継ぎ値(ctx.manualMod)が初期値に入る
+            manualMod:      ctx.manualMod ?? 0,
+            manualModLabel: ctx.type === "controlCheck" ? "制御値への修正（手動）" : "修正値（手動）",
             hint:           TnxCheckFlow.trumpMode
                 ? "手札から1枚を選択してください（Jokerとして使います）"
                 : "手札からカードを選択してください",
         };
+    }
+
+    /** @override 修正値入力の変更を判定コンテキストへ同期する(カードプレイ時に読まれる)。 */
+    _onRender(context, options) {
+        super._onRender?.(context, options);
+        const input = this.element.querySelector('input[name="checkManualMod"]');
+        input?.addEventListener("change", () => {
+            TnxCheckFlow.setManualMod(Number(input.value) || 0);
+        });
     }
 
     // ×ボタンで閉じたら判定をキャンセルする
@@ -95,5 +111,15 @@ export class TnxCheckDialog extends HandlebarsApplicationMixin(ApplicationV2) {
     static async _onCancel(event) {
         event.preventDefault();
         TnxCheckFlow.cancel();
+    }
+
+    /** 修正値スピナーの ± ボタン。step 後にコンテキストへ同期する。 */
+    static _onModStep(event, target) {
+        event.preventDefault();
+        const input = target.closest(".number-input-spinner")?.querySelector('input[name="checkManualMod"]');
+        if (!input) return;
+        if (target.dataset.action === "modIncrement") input.stepUp();
+        else input.stepDown();
+        TnxCheckFlow.setManualMod(Number(input.value) || 0);
     }
 }

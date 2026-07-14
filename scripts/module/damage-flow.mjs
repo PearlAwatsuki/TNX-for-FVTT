@@ -154,11 +154,13 @@ export async function openDamageRollDialog(attackMessage) {
     const ctx = { kind: "roll", attackMessage, f, attacker, category, attackPower, faOptions, damageBonusRows: damageBonusRowsAll, targetActor, dialog: null, done: false };
     _pending = ctx;
 
+    const { spinnerDialogActions } = await import("./tnx-dialog.mjs");
     const chosen = await foundry.applications.api.DialogV2.wait({
         window: { title: `ダメージカードを出す: ${CATEGORY_LABELS[category] ?? category}` },
         classes: ["tokyo-nova", "tnx-dialog", "tnx-damage-dialog"],
         position: { width: 440 },
         content,
+        actions: spinnerDialogActions,
         buttons: [
             { action: "deck", icon: "fas fa-clone", label: "山札から1枚めくる",
               callback: (_e, _b, dialog) => readRollForm(dialog.element) },
@@ -347,9 +349,10 @@ export function renderDamageCard(message, html) {
         row(ledger, `ダメージ修正（${esc(b.name || "用途")}）`, signedDisplay("＋", b.value));
     }
     if (f.manualMod) row(ledger, "修正（手動）", signedDisplay("＋", f.manualMod));
-    // 事後修正(modifyDamage 用途・攻撃側合計クリックで適用済みの行)
+    // 事後修正(modifyDamage 用途・攻撃側合計クリックで適用済みの行)。上書きは「→N」表記
     for (const m of (f.mods ?? [])) {
-        row(ledger, `事後修正（${esc(m.label || "用途")}）`, signedDisplay("＋", m.value));
+        row(ledger, `事後修正（${esc(m.label || "用途")}）`,
+            m.overrideTo !== undefined ? `→${m.overrideTo}` : signedDisplay("＋", m.value));
     }
     row(ledger, `攻撃側合計${f.stun ? "（スタン／説得）" : ""}`, String(raw), "cr-calc-row cr-total-row", "cr-total-num");
     // ダメージクリック待ち(modifyDamage): 適用前のダメージの攻撃側合計をクリック可能に
@@ -430,20 +433,27 @@ export async function handleDamageModifyClick(message) {
         { diff: f.diff ?? null, achievement: f.achievement ?? null, cardValue: f.cardValue ?? null },
         targetActor, skill);
     if (self) mod = self.value;
+    let overrideTo;
     if (mod === null) {
+        // 手入力は「上書き」チェック可=入力値をそのまま新しい攻撃側合計にする(2026-07-14)
         const { AmountInputDialog } = await import("./tnx-dialog.mjs");
-        mod = await AmountInputDialog.prompt({
+        const input = await AmountInputDialog.prompt({
             title: `ダメージの修正: ${skill.name}`,
             label: "ダメージへの修正値（軽減は負の値）",
-            initialValue: 0, min: -99, max: 99,
+            initialValue: 0, min: -99, max: 99, okLabel: "適用",
+            allowOverride: true, overrideLabel: "上書き（入力値をそのまま新しい攻撃側合計にする）",
         });
-        if (!Number.isFinite(mod) || mod === 0) return;
+        if (!input || !Number.isFinite(input.value)) return;
+        if (input.override) { overrideTo = input.value; mod = input.value - damageRollTotals(f).raw; }
+        else mod = input.value;
+        if (mod === 0 && overrideTo === undefined) return;
     }
 
     // 消費(用途の consumeTargets・クリック待ち開始時に確定したプラン)は適用の確定時
     if (state.consumeUses?.length) await applyConsumptionPlan(state.consumeUses);
 
-    await applyDamagePatch(message, { mods: [...(f.mods ?? []), { label: state.skillName, value: mod }] });
+    await applyDamagePatch(message, { mods: [...(f.mods ?? []),
+        { label: state.skillName, value: mod, ...(overrideTo !== undefined ? { overrideTo } : {}) }] });
 }
 
 /**
@@ -455,14 +465,20 @@ export async function handleDamageModifyClick(message) {
 export async function manualEditDamage(message) {
     const f = message.getFlag(SCOPE, "damageRoll");
     if (!f) return;
+    const current = damageRollTotals(f).raw;
     const { AmountInputDialog } = await import("./tnx-dialog.mjs");
-    const mod = await AmountInputDialog.prompt({
-        title: "ダメージを修正（手動）",
+    const input = await AmountInputDialog.prompt({
+        title: `ダメージを修正（攻撃側合計 ${current}）`,
         label: "ダメージへの修正値（軽減は負の値）",
-        initialValue: 0, min: -99, max: 99,
+        initialValue: 0, min: -99, max: 99, okLabel: "適用",
+        allowOverride: true, overrideLabel: "上書き（入力値をそのまま新しい攻撃側合計にする）",
     });
-    if (!Number.isFinite(mod) || mod === 0) return;
-    await applyDamagePatch(message, { mods: [...(f.mods ?? []), { label: "手動修正", value: mod }] });
+    if (!input || !Number.isFinite(input.value)) return;
+    const overrideTo = input.override ? input.value : undefined;
+    const mod = input.override ? input.value - current : input.value;
+    if (mod === 0 && overrideTo === undefined) return;
+    await applyDamagePatch(message, { mods: [...(f.mods ?? []),
+        { label: "手動修正", value: mod, ...(overrideTo !== undefined ? { overrideTo } : {}) }] });
 }
 
 /** 攻撃対象(命中確定済み)のアクターを解決する。トークンドキュメントならアクターへ。 */
@@ -606,11 +622,13 @@ async function openMitigationDialog(message) {
         if (note) note.textContent = describeDamagePreview(target, category, final, stage);
     };
 
+    const { spinnerDialogActions } = await import("./tnx-dialog.mjs");
     const result = await foundry.applications.api.DialogV2.wait({
         window: { title: `ダメージ軽減: ${target.name}` },
         classes: ["tokyo-nova", "tnx-dialog", "tnx-damage-dialog"],
         position: { width: 440 },
         content,
+        actions: spinnerDialogActions,
         buttons: [
             { action: "apply", icon: "fas fa-burst", label: "ダメージ適用", default: true,
               callback: (_e, _b, dialog) => readForm(dialog.element) },

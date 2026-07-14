@@ -7,4 +7,12 @@
             <button type="button" class="tnx-btn" data-action="increment" aria-label="Increase">+</button>
         </div>
     </div>
+    {{#if allowOverride}}
+    <div class="form-group">
+        <label class="checkbox-inline">
+            <input type="checkbox" name="override">
+            <span>{{overrideLabel}}</span>
+        </label>
+    </div>
+    {{/if}}
 </form>

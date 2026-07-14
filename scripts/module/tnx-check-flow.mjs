@@ -98,6 +98,14 @@ export class TnxCheckFlow {
         game.tnx.hud?.render(false);
     }
 
+    /**
+     * 状況修正(手動)を設定する(判定ダイアログのスピナーから・2026-07-14 ユーザー確定)。
+     * 通常判定=達成値へ加算・制御判定=制御値(成功条件)へ加算。カードプレイ時に読まれる。
+     */
+    static setManualMod(value) {
+        if (TnxCheckFlow._context) TnxCheckFlow._context.manualMod = Number(value) || 0;
+    }
+
 
     /**
      * 手札カードをクリックして判定を実行する（HUD _onPlayCard から呼ぶ）。
@@ -679,7 +687,7 @@ export class TnxCheckFlow {
             };
         } else {
             if (ctx.type === "controlCheck") {
-                result = calcControlCheck({ cardCheckValue, suit, abilitiesCtx, checkBonus });
+                result = calcControlCheck({ cardCheckValue, suit, abilitiesCtx, checkBonus, manualMod: ctx.manualMod ?? 0 });
             } else {
                 result = calcSkillCheck({ cardCheckValue, suit, abilitiesCtx, bountyUsed, targetValue: ctx.targetValue, checkBonus, manualMod: ctx.manualMod ?? 0 });
             }
@@ -1132,12 +1140,14 @@ export class TnxCheckFlow {
             return;
         }
 
-        let mod, label;
+        const prevAch = Number(attackF?.achievement ?? checkF?.result?.achievement) || 0;
+        let mod, label, overrideTo;
         if (manual) {
-            // 手動修正(GMメニュー「達成値を修正」): 差分は呼び出し側で確定済み
-            ({ mod, label } = manual);
+            // 手動修正(GMメニュー「達成値を修正」): 差分/上書きは呼び出し側で確定済み
+            ({ mod, label, overrideTo } = manual);
         } else {
             // 修正値: 用途の判定修正値(式・@item.self=親技能)を評価。空/評価不能/0 は手入力
+            // (手入力は「上書き」チェック可=入力値をそのまま新しい達成値にする・2026-07-14)
             const usage = (skill.system.actions ?? []).find(a => a._id === usageId) ?? null;
             mod = null;
             label = skill.name;
@@ -1145,23 +1155,26 @@ export class TnxCheckFlow {
             if (self) mod = self.value;
             if (mod === null) {
                 const { AmountInputDialog } = await import("./tnx-dialog.mjs");
-                mod = await AmountInputDialog.prompt({
+                const input = await AmountInputDialog.prompt({
                     title: `判定の修正: ${skill.name}`,
                     label: "達成値への修正値（ペナルティは負の値）",
-                    initialValue: 0, min: -99, max: 99,
+                    initialValue: 0, min: -99, max: 99, okLabel: "適用",
+                    allowOverride: true, overrideLabel: "上書き（入力値をそのまま新しい達成値にする）",
                 });
-                if (!Number.isFinite(mod) || mod === 0) return;
+                if (!input || !Number.isFinite(input.value)) return;
+                if (input.override) { overrideTo = input.value; mod = input.value - prevAch; }
+                else mod = input.value;
+                if (mod === 0 && overrideTo === undefined) return;
             }
         }
 
         // 消費(用途の consumeTargets)は適用の確定時
         if (consumeUses?.length) await applyConsumptionPlan(consumeUses);
 
-        // 達成値の更新と帰結の再計算
-        const prevAch = Number(attackF?.achievement ?? checkF?.result?.achievement) || 0;
+        // 達成値の更新と帰結の再計算(上書きは差分に正規化済み=既存の合算機構にそのまま乗る)
         const newAch = prevAch + mod;
         const mods = foundry.utils.deepClone(message.getFlag(SCOPE, "checkMods") ?? { rows: [] });
-        mods.rows.push({ label, value: mod });
+        mods.rows.push({ label, value: mod, ...(overrideTo !== undefined ? { overrideTo } : {}) });
         mods.achievement = newAch;
 
         const patch = {};
@@ -1209,9 +1222,9 @@ export class TnxCheckFlow {
     }
 
     /**
-     * GMメニュー「達成値を修正(手動)」(2026-07-14 ユーザー確定): 新しい達成値を入力し、現在値との
-     * 差分を事後修正(手動修正)として適用する。処理が壊れた時の卓の最終裁定ツールのため制限しない
-     * (ダメージ算出後も可)。
+     * GMメニュー「達成値を修正(手動)」(2026-07-14 ユーザー確定): 加減算(既定)か上書き(チェック)で
+     * 達成値を修正し、事後修正(手動修正)行として適用する。処理が壊れた時の卓の最終裁定ツールの
+     * ため制限しない(ダメージ算出後も可)。
      */
     static async manualEditAchievement(message) {
         const SCOPE = "tokyo-nova-axleration";
@@ -1220,13 +1233,18 @@ export class TnxCheckFlow {
         if (!checkF && !attackF) return;
         const current = Number(attackF?.achievement ?? checkF?.result?.achievement) || 0;
         const { AmountInputDialog } = await import("./tnx-dialog.mjs");
-        const next = await AmountInputDialog.prompt({
-            title: "達成値を修正（手動）",
-            label: `新しい達成値（現在 ${current}）`,
-            initialValue: current, min: 0, max: 99,
+        const input = await AmountInputDialog.prompt({
+            title: `達成値を修正（現在 ${current}）`,
+            label: "達成値への修正値（ペナルティは負の値）",
+            initialValue: 0, min: -99, max: 99, okLabel: "適用",
+            allowOverride: true, overrideLabel: "上書き（入力値をそのまま新しい達成値にする）",
         });
-        if (!Number.isFinite(next) || next === current) return;
-        await TnxCheckFlow._applyCheckModify(message, { manual: { label: "手動修正", mod: next - current } });
+        if (!input || !Number.isFinite(input.value)) return;
+        const manual = input.override
+            ? { label: "手動修正", mod: input.value - current, overrideTo: input.value }
+            : { label: "手動修正", mod: input.value };
+        if (manual.mod === 0 && manual.overrideTo === undefined) return;
+        await TnxCheckFlow._applyCheckModify(message, { manual });
     }
 
     static _closeDialog() {
@@ -1298,7 +1316,8 @@ export function renderRecheckButton(message, html) {
         };
         for (const r of mods.rows) {
             const v = Number(r.value) || 0;
-            line(`事後修正（${esc(r.label)}）`, v >= 0 ? `+${v}` : String(v));
+            // 上書き(2026-07-14)は「→N」表記(内部では差分に正規化して合算している)
+            line(`事後修正（${esc(r.label)}）`, r.overrideTo !== undefined ? `→${r.overrideTo}` : (v >= 0 ? `+${v}` : String(v)));
         }
         line("修正後の達成値", String(mods.achievement), "cr-total-row");
         if (mods.targetValue !== undefined && mods.success !== undefined) {

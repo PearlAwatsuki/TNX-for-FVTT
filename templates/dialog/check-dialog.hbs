@@ -21,6 +21,15 @@
     </div>
     {{/if}}
 
+    <div class="check-manual-mod">
+        <label title="状況ボーナス／ペナルティを入力します（ペナルティは負の値）">{{manualModLabel}}</label>
+        <div class="number-input-spinner">
+            <button type="button" class="tnx-btn" data-action="modDecrement" aria-label="Decrease">-</button>
+            <input type="number" name="checkManualMod" value="{{manualMod}}" min="-99" max="99">
+            <button type="button" class="tnx-btn" data-action="modIncrement" aria-label="Increase">+</button>
+        </div>
+    </div>
+
     <p class="check-hint">{{hint}}</p>
 
     <footer class="check-dialog-footer">

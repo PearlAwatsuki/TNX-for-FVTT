@@ -53,6 +53,13 @@
             <span class="cr-calc-label">制御値</span>
             <span class="cr-calc-val">{{result.controlVal}}</span>
         </div>
+        {{!-- 状況修正(手動・2026-07-14): 制御値へ加算(成功条件の緩和/厳格化) --}}
+        {{#if manualModDisplay}}
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">修正（手動）</span>
+            <span class="cr-calc-val">{{manualModDisplay}}</span>
+        </div>
+        {{/if}}
         {{#if hasCheckBonus}}
         {{#if checkSources.length}}
         <details class="cr-bonus">

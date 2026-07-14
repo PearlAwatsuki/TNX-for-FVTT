@@ -138,23 +138,25 @@ export function calcSkillCheck({ cardCheckValue, suit, abilitiesCtx, bountyUsed 
  * @param {number|"FUMBLE"} opts.cardCheckValue  getCardCheckValue() の返り値（fixedAt21 は渡さない）
  * @param {string}  opts.suit         使用したカードのスート
  * @param {object}  opts.abilitiesCtx シートコンテキストの abilities
+ * @param {number}  [opts.manualMod]  状況修正（手動・制御値へ加算=成功条件の緩和/厳格化。2026-07-14）
  * @returns {ControlCheckResult}
  */
-export function calcControlCheck({ cardCheckValue, suit, abilitiesCtx, checkBonus = 0 }) {
+export function calcControlCheck({ cardCheckValue, suit, abilitiesCtx, checkBonus = 0, manualMod = 0 }) {
     if (cardCheckValue === "FUMBLE") {
         return { fumble: true, success: false, cardValue: null, controlVal: null };
     }
 
     const { abilityKey, totalControl } = getAbilityBySuit(suit, abilitiesCtx);
     const cardValue = cardCheckValue === "FIXED_21" ? 11 : cardCheckValue;
-    // 制御判定バフ: 制御値を実効的に押し上げる(成功条件が緩む)
-    const effectiveControl = totalControl + checkBonus;
+    // 制御判定バフ+状況修正(手動): 制御値を実効的に押し上げる(成功条件が緩む。負なら厳しくなる)
+    const effectiveControl = totalControl + checkBonus + manualMod;
 
     return {
         fumble:     false,
         abilityKey,
         controlVal: totalControl,
         checkBonus,
+        manualMod,
         effectiveControl,
         cardValue,
         success:    cardValue <= effectiveControl,

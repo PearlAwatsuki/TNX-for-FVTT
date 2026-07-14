@@ -4098,6 +4098,23 @@ body.tnx-bottom-hud-expanded #hotbar {
     opacity: 0.65;
 }
 
+/* 状況修正(手動)のスピナー行(2026-07-14): ラベル+スピナーを1行に */
+.check-manual-mod {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.check-manual-mod > label {
+    font-size: 0.8em;
+    opacity: 0.7;
+}
+
+.check-manual-mod .number-input-spinner {
+    flex: 0 0 auto;
+}
+
 .check-hint {
     font-size: 0.78em;
     opacity: 0.7;

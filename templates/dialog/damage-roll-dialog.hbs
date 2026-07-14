@@ -23,7 +23,11 @@
     <div class="tnx-damage-fields">
         <div class="form-group">
             <label>ダメージ修正（手動）</label>
-            <input type="number" name="manualMod" value="0">
+            <div class="number-input-spinner">
+                <button type="button" class="tnx-btn" data-action="decrement" aria-label="Decrease">-</button>
+                <input type="number" name="manualMod" value="0" min="-99" max="99">
+                <button type="button" class="tnx-btn" data-action="increment" aria-label="Increase">+</button>
+            </div>
         </div>
     </div>
 
