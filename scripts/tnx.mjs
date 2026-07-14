@@ -999,14 +999,28 @@ Hooks.once("init", async function() {
             {
                 name: "ダメージを修正（手動）",
                 icon: '<i class="fas fa-burst"></i>',
-                condition: (li) => {
-                    if (!game.user.isGM) return false;
-                    const f = msgOf(li)?.getFlag(SCOPE, "damageRoll");
-                    return !!f && f.applied !== true;
-                },
+                // 達成値の手動修正と同じ最終裁定ツール=適用済みでも制限しない(2026-07-14 ユーザー確定)
+                condition: (li) => game.user.isGM && !!msgOf(li)?.getFlag(SCOPE, "damageRoll"),
                 callback: async (li) => {
                     const { manualEditDamage } = await import("./module/damage-flow.mjs");
                     await manualEditDamage(msgOf(li));
+                },
+            },
+            {
+                name: "ダメージ処理をリセット",
+                icon: '<i class="fas fa-rotate-left"></i>',
+                // 攻撃カードの damageRolled を戻し「ダメージカードを出す」ボタンを復活させる=算出の
+                // やり直し(2026-07-14 ユーザー確定)。出済みのダメージカードは残る(整理は手動)。
+                // タイミング系ゲート(再判定・事後修正)もリセット後は自然に再び開く
+                condition: (li) => {
+                    if (!game.user.isGM) return false;
+                    const f = msgOf(li)?.getFlag(SCOPE, "attackCheck");
+                    return !!f && f.damageRolled === true;
+                },
+                callback: async (li) => {
+                    const { applyAttackPatch } = await import("./module/attack-flow.mjs");
+                    await applyAttackPatch(msgOf(li), { damageRolled: false });
+                    ui.notifications.info("ダメージ処理をリセットしました（出済みのダメージカードは必要に応じて削除してください）。");
                 },
             },
         );

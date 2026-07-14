@@ -448,15 +448,13 @@ export async function handleDamageModifyClick(message) {
 
 /**
  * GMメニュー「ダメージを修正(手動)」(2026-07-14 ユーザー確定): 手入力の修正値を mods 行(手動修正)
- * として合算する(用途経由の modifyDamage と同じ着地・消費なし)。適用済みのダメージは修正できない。
+ * として合算する(用途経由の modifyDamage と同じ着地・消費なし)。達成値の手動修正と同じく
+ * 卓の最終裁定ツールのため適用済みでも制限しない(2026-07-14 ユーザー確定・適用済みの実ダメージは
+ * 巻き戻さない=台帳の記録訂正。用途経由の modifyDamage は従来どおり適用前まで)。
  */
 export async function manualEditDamage(message) {
     const f = message.getFlag(SCOPE, "damageRoll");
     if (!f) return;
-    if (f.applied) {
-        ui.notifications.warn("適用済みのダメージは修正できません。");
-        return;
-    }
     const { AmountInputDialog } = await import("./tnx-dialog.mjs");
     const mod = await AmountInputDialog.prompt({
         title: "ダメージを修正（手動）",
