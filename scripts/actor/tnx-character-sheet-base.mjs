@@ -45,6 +45,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
     /** 部位占有パネルの展開状態(既定は縮小)。再描画をまたいで保持する。 */
     _partOccExpanded = false;
 
+    /** ラベル縮小(squeeze-text)の再計測用 ResizeObserver。_onRender で observe・close で解除。 */
+    _squeezeResizeObserver = null;
+
     static DEFAULT_OPTIONS = {
         classes: ["tokyo-nova", "sheet", "actor"],
         position: { width: 920, height: 1000 },
@@ -594,9 +597,13 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
 
         this._activateContextMenus(el);
         this._applyTextSqueezing();
-        // セッション初のシート描画はフォント読み込み前に走り得て、scrollWidth を代替フォントの
-        // 字幅で誤計測する(縮小されず見切れる)。フォント確定後に測り直す(読み込み済みなら即解決)
-        document.fonts?.ready.then(() => this._applyTextSqueezing());
+        // 初回描画の計測はウィンドウ幅(position)の適用前に走り得て、shrink-to-fit の仮幅
+        // (実測で本来の約2倍)を親幅に「収まっている」と誤判定する(縮小不発・幅確定後に見切れる)。
+        // 幅確定・手動リサイズを含む「フレームのサイズが変わったら測り直す」に一元化する
+        // (transform は box を変えないため観測が再帰発火することはない)
+        this._squeezeResizeObserver ??= new ResizeObserver(() => this._applyTextSqueezing());
+        this._squeezeResizeObserver.disconnect();
+        this._squeezeResizeObserver.observe(el);
 
         // 再描画後にスクロール位置を復元する
         const saved = this._scrollPositions;
@@ -615,6 +622,12 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
     changeTab(tab, group, options) {
         super.changeTab(tab, group, options);
         this._applyTextSqueezing();
+    }
+
+    /** @override シートを閉じたらラベル縮小の ResizeObserver を解除する(フレームは破棄される)。 */
+    _onClose(options) {
+        super._onClose(options);
+        this._squeezeResizeObserver?.disconnect();
     }
 
     // ─── データ準備ヘルパー ────────────────────────────────────────────────────
