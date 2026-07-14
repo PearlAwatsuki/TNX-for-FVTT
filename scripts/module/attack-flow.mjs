@@ -88,20 +88,25 @@ export async function useAttack(item, usage) {
     // FA は自動加算せず faOptions として持ち回し、ダメージ算出ダイアログで武器ごとに選択する。
     let weaponAttack = 0, damageType = "", attackSourceName = "", faOptions = [];
     if (category === "physical") {
+        // 数値は実効値(total=AE込み)を読む(UI 表示と同じ値・素値 value は編集用ベース。
+        // 素値読みで表示と食い違っていたのをユーザー指摘で修正=2026-07-14)
         const weapons = resolveAttackWeapons(actor, usage, item)
             .map(w => ({
                 itemId:      w.id,
                 name:        attackWeaponDisplayName(w),
-                attackValue: Number(w.system.attack?.value) || 0,
+                attackValue: Number(w.system.attack?.total ?? w.system.attack?.value) || 0,
                 damageType:  w.system.attack?.damageTypeTotal || w.system.attack?.damageType || "",
                 isFullAuto:  w.system.isFullAuto === true,
-                faValue:     Number(w.system.FAValue) || 0,
+                faValue:     Number(w.system.FAValueTotal ?? w.system.FAValue) || 0,
                 consumesAmmo: hasAmmoTracking(w.system.ammo),
             }));
+        // 生身は value+mod が実効(AE はネイティブに value/mod へ乗る・UI 表示も value+mod)
         const baseAtk = actor.system.baseAttack ?? {};
         ({ weaponAttack, damageType, attackSourceName, faOptions } =
-            combineWeaponAttack(weapons, usage.damageType,
-                { ...baseAtk, damageType: baseAtk.damageTypeTotal || baseAtk.damageType }));
+            combineWeaponAttack(weapons, usage.damageType, {
+                value: (Number(baseAtk.value) || 0) + (Number(baseAtk.mod) || 0),
+                damageType: baseAtk.damageTypeTotal || baseAtk.damageType,
+            }));
     }
 
     // 対象決定: ターゲット指定 → 選択ダイアログ(シーン上のトークン) → 対象なし許容
@@ -467,11 +472,18 @@ export async function startReaction(message, mode) {
     // AR−1 の専用自動化は廃止(2026-07-12)——パリー技能の用途の消費先設定(AR を消費)が担う
     let parryGuard = 0;
     if (mode === "parry") {
-        // パリー参照武器(character-base の weaponRefs.parryItemId)。未設定なら受け値なし
+        // パリー参照武器(character-base の weaponRefs.parryItemId)。受け値は実効値(total=AE込み)を
+        // 読み、未選択=生身(baseGuard.value+mod=戦闘タブ表示と同じ値)にフォールバックする
+        // (2026-07-14・攻撃力と同じ素値読み/生身無視の是正)
         const parryId = reactor.system.weaponRefs?.parryItemId || "";
         const parryWeapon = parryId ? reactor.items.get(parryId) : null;
-        parryGuard = parryWeapon?.system.guardValue?.mode === "value"
-            ? (Number(parryWeapon.system.guardValue.value) || 0) : 0;
+        if (parryWeapon) {
+            parryGuard = parryWeapon.system.guardValue?.mode === "value"
+                ? (Number(parryWeapon.system.guardValue.total ?? parryWeapon.system.guardValue.value) || 0) : 0;
+        } else {
+            const bg = reactor.system.baseGuard ?? {};
+            parryGuard = (Number(bg.value) || 0) + (Number(bg.mod) || 0);
+        }
     }
 
     // ヴィークル搭乗中(準備済みヴィークル=部位「操縦」は1枠のため常に1つ)はドッジ＝対応する〈操縦〉
