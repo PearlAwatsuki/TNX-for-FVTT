@@ -60,7 +60,8 @@ const MENTAL = {
   "ment-7":  { label: "戦慄",       inflicts: [{ kind: "weakness" }] },
   "ment-8":  { label: "恐怖",       inflicts: [{ kind: "panic", controlNegate: { ability: ABIL_PASSION } }] },
   "ment-9":  { label: "動転",       notes: "手に持った物を落とす（感情の制御判定で無効）" },
-  "ment-10": { label: "恐慌",       inflicts: [{ kind: "swoon", controlNegate: { ability: ABIL_PASSION } }] },
+  // 元資料は「恐慌」だが誤り(BS「恐慌」との名称衝突・エラッタ相当)。正=「茫然自失」(2026-07-15 ユーザー確定)
+  "ment-10": { label: "茫然自失",   inflicts: [{ kind: "swoon", controlNegate: { ability: ABIL_PASSION } }] },
   "ment-11": { label: "自我危機",   inflicts: [{ kind: "stupor", controlNegate: { ability: ABIL_REASON, downgradeTo: "swoon" } }] },
   "ment-12": { label: "驚愕",       notes: "アクションランク -1" },
   "ment-13": { label: "硬直",       inflicts: [{ kind: "panic" }, { kind: "confusion" }] },

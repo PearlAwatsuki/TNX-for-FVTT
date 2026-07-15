@@ -353,8 +353,10 @@ export function renderDamageCard(message, html) {
         row(ledger, `事後修正（${esc(m.label || "用途")}）`,
             m.overrideTo !== undefined ? `→${m.overrideTo}` : signedDisplay("＋", m.value));
     }
-    if (f.stun && raw > 10) row(ledger, "スタン／説得（10上限）", `${raw} → 10`);
-    row(ledger, `攻撃側合計${f.stun ? "（スタン／説得）" : ""}`, String(attack), "cr-calc-row cr-total-row", "cr-total-num");
+    // 物理攻撃＝スタン・精神攻撃＝説得(別メカニクス。系統ごとに専用表記・2026-07-15 ユーザー指摘)
+    const stunLabel = f.category === "mental" ? "説得" : "スタン";
+    if (f.stun && raw > 10) row(ledger, `${stunLabel}（10上限）`, `${raw} → 10`);
+    row(ledger, `攻撃側合計${f.stun ? `（${stunLabel}）` : ""}`, String(attack), "cr-calc-row cr-total-row", "cr-total-num");
     // ダメージクリック待ち(modifyDamage): 適用前のダメージの攻撃側合計をクリック可能に
     // (達成値クリックと同じ装飾クラス。モード外のクリックは無視)
     if (!f.applied) {

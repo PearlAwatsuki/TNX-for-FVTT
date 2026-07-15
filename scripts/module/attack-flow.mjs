@@ -37,10 +37,12 @@ import { readFlag } from "../data/item/helpers.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
+// 攻撃系統の明示表記(2026-07-15 ユーザー指摘: 判定カードで物理/精神/社会攻撃を明示)。
+// ※物理攻撃が与えるのは肉体ダメージ(攻撃名とダメージ名がずれるのは物理のみ)。
 export const ATTACK_CATEGORY_LABELS = Object.freeze({
-    physical: "物理",
-    mental:   "精神",
-    social:   "社会",
+    physical: "物理攻撃",
+    mental:   "精神攻撃",
+    social:   "社会攻撃",
 });
 
 /** リアクションの既定候補の案内(技能は強制しない=表示のみ) */
