@@ -12,8 +12,6 @@
  *   操縦技能インスタンスを解決する。同フィールドは搭乗時のドッジ上書き判断にも流用できる。
  */
 
-import { TnxCheckFlow } from "./tnx-check-flow.mjs";
-import { getComboSuits, comboUsesBounty } from "./tnx-check-engine.mjs";
 import { movementStagesFromAchievement } from "./vehicle-move-logic.mjs";
 import { findItemByIdentificationKey } from "./identification.mjs";
 
@@ -45,23 +43,11 @@ export async function startVehicleMove(actor, vehicle) {
     ui.notifications.warn(`「${vehicle.name}」に対応する操縦技能を所持していません。`);
     return;
   }
-  const validSuits = getComboSuits([skill.system].filter(Boolean));
-  if (!validSuits.length) {
-    ui.notifications.warn(`「${skill.name}」で使用できるスートがありません。`);
-    return;
-  }
-  const actorBounty = (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0);
-
-  await TnxCheckFlow.open({
-    type:            "skillCheck",
-    actorId:         actor.id,
-    skillIds:        [skill.id],
-    skillLabel:      skill.name,
-    validSuits,
-    targetValue:     null,
-    bountyAvailable: comboUsesBounty([skill.system]) ? actorBounty : 0, // 単独技能(コンボなし・2026-07-10 統一)
-    consumeUses:     [],
-    requestMessageId: null,
+  // 起動は唯一の起動関数へ集約(2026-07-15 ユーザー確定)。操縦技能の用途・コンボ・消費・判定ボーナス・
+  // 適用効果もシートの技能クリックと全く同じ処理で解決し、ここでは移動文脈だけを注入する
+  // (組み合わせの可否はユーザー/RL が決めるものでシステムは制限しない)。
+  const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
+  await TnxCharacterSheetBase._activateItemCheck(actor, skill, {
     movement: { actorId: actor.id, vehicleName: vehicle.name, skillName: skill.name },
   });
 }
@@ -70,15 +56,14 @@ export async function startVehicleMove(actor, vehicle) {
  * 移動結果カードを投稿する(判定完了時・TnxCheckFlow._execute から。通常の結果カードの代わり)。
  * 達成値÷10(切り捨て)を移動段階として表示する。段階移動の適用は移動・位置の機構へ後付け。
  */
-export async function postMovementCard({ payload, result, suit, card, fromDeck, trumpUsed, suitMismatch }) {
-  const actor = payload.actorId ? game.actors.get(payload.actorId) : null;
+/** 移動結果カードの本文を構築する(新規投稿と再判定の再描画で共用・2026-07-15)。 */
+export async function buildMovementCardContent({ payload, result, suit, card, fromDeck, trumpUsed, suitMismatch, isRecheck = false }) {
   const SUIT_SYMBOL = { spade: "♠", club: "♣", heart: "♥", diamond: "♦" };
   const isFumble = result.fumble === true;
   const failed = isFumble || suitMismatch;
   const achievement = failed ? 0 : (result.achievement ?? 0);
   const stages = failed ? 0 : movementStagesFromAchievement(achievement);
-
-  const content = await foundry.applications.handlebars.renderTemplate(
+  return foundry.applications.handlebars.renderTemplate(
     "systems/tokyo-nova-axleration/templates/chat/vehicle-move-card.hbs",
     {
       vehicleName: payload.vehicleName,
@@ -89,12 +74,23 @@ export async function postMovementCard({ payload, result, suit, card, fromDeck, 
       fromDeck, trumpUsed,
       isFumble, suitMismatch,
       achievement, stages,
+      isRecheck,
     }
   );
+}
 
+export async function postMovementCard({ payload, result, suit, card, fromDeck, trumpUsed, suitMismatch, recheckCtx = null }) {
+  const actor = payload.actorId ? game.actors.get(payload.actorId) : null;
+  const content = await buildMovementCardContent({ payload, result, suit, card, fromDeck, trumpUsed, suitMismatch });
   await ChatMessage.create({
     content,
     speaker: actor ? ChatMessage.getSpeaker({ actor }) : undefined,
-    flags: { [SCOPE]: { checkResult: { actorId: actor?.id ?? "", result } } },
+    // 再判定スナップショット(あれば)=移動カードにも再判定/修正の導線(達成値÷10 段階を表示のみ更新)。
+    // 操縦技能の適用効果(あれば)も移動カードに載せる(統一起動で用意されるため・renderUsageEffectButton 発火)
+    flags: { [SCOPE]: {
+      checkResult: { actorId: actor?.id ?? "", result },
+      ...(recheckCtx ? { checkRecheck: recheckCtx } : {}),
+      ...(recheckCtx?.usageEffects ? { usageEffects: recheckCtx.usageEffects } : {}),
+    } },
   });
 }

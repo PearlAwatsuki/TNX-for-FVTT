@@ -16,11 +16,8 @@
 
 import { CONDITION_KINDS } from "./conditions.mjs";
 import { getConditionKinds } from "./conditions.mjs";
-import { getComboSuits, comboUsesBounty } from "./tnx-check-engine.mjs";
-import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TargetSelectionDialog } from "./tnx-dialog.mjs";
 import { buildSkillOptions } from "./skill-select.mjs";
-import { resolveConsumeRowsForActor, promptConsumption } from "./usage-consumption.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { actorSkillsWithRole } from "./skill-roles.mjs";
 
@@ -123,34 +120,14 @@ export async function startTreatment(patient, effectId) {
         substitution = { requestedLabel: `〈${TREAT_SKILL_NAME}〉（治療）`, usedName: sub.skill.name };
         manualMod = sub.manualMod;
     }
-    // 用途があれば combo/消費を解決・無ければ技能そのものをベースに判定する
-    const usage = (skill.system.actions ?? []).find(a => a.type === "check" && !Number.isFinite(a.fixedResult)) ?? null;
-    const resolved = resolveCheckSkillSet(treater, skill, usage);
-    if (!resolved) { ui.notifications.warn(`「${skill.name}」で使用できるスートがありません。`); return; }
-
-    // 消費(用途があるときのみ)
-    const rows = usage ? resolveConsumeRowsForActor(treater, skill, usage.consumeTargets) : [];
-    const usesPlan = await promptConsumption(treater, rows, { title: `使用回数の消費: ${skill.name}` });
-    if (usesPlan === null) return;
-
-    const actorBounty = (treater.system.bountyBase ?? 0) + (treater.system.bounty ?? 0);
-    await TnxCheckFlow.open({
-        type:            "skillCheck",
-        actorId:         treater.id,
-        skillIds:        resolved.allSkillIds,
-        skillLabel:      substitution ? skill.name : resolved.skillLabel,
-        validSuits:      resolved.validSuits,
-        targetValue:     instance.targetValue,
-        // 報酬点: 参加技能のいずれかが usesBounty なら可(2026-07-10 ユーザー確定)
-        bountyAvailable: comboUsesBounty(resolved.skillSystems) ? actorBounty : 0,
-        consumeUses:     usesPlan,
-        substitution,
-        manualMod,
-        treatment: {
-            patientUuid: patient.uuid,
-            woundLabel:  instance.label,
-            removeIds:   instance.removeIds,
-        },
+    // 起動は唯一の起動関数へ集約(2026-07-15 ユーザー確定)。用途・コンボ・消費・判定ボーナス・適用効果は
+    // シートの技能クリックと全く同じ処理で解決し、ここでは治療文脈(目標値上書き・代用・除去対象)だけを
+    // 注入する(組み合わせの可否はユーザー/RL が決めるものでシステムは制限しない)。
+    const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
+    await TnxCharacterSheetBase._activateItemCheck(treater, skill, {
+        targetValue: instance.targetValue,
+        substitution, manualMod,
+        treatment: { patientUuid: patient.uuid, woundLabel: instance.label, removeIds: instance.removeIds },
     });
 }
 
@@ -255,17 +232,3 @@ async function promptSubstituteSkill(actor) {
     return skill ? { skill, manualMod: res.manualMod } : null;
 }
 
-/** check 用途からベース技能・参加技能・共通スートを解決する(startReaction と同型)。 */
-function resolveCheckSkillSet(actor, skill, usage) {
-    // 用途があれば baseSkillRef/skillRefs で combo を解決・無ければ技能そのものをベースにする
-    const baseId = usage?.baseSkillRef?.itemId || skill.id;
-    const baseSkill = baseId === skill.id ? skill : actor.items.get(baseId);
-    const comboIds = (usage?.skillRefs ?? []).map(r => r.itemId).filter(id => id && actor.items.has(id));
-    if (skill.id !== baseId && !comboIds.includes(skill.id)) comboIds.push(skill.id);
-    const allSkillIds = [baseId, ...comboIds.filter(id => id !== baseId)];
-    const skillSystems = allSkillIds.map(id => actor.items.get(id)?.system).filter(Boolean);
-    const validSuits = getComboSuits(skillSystems);
-    if (!baseSkill || !validSuits.length) return null;
-    const skillLabel = allSkillIds.map(id => actor.items.get(id)?.name ?? "").filter(Boolean).join("+");
-    return { baseSkill, allSkillIds, skillSystems, validSuits, skillLabel };
-}

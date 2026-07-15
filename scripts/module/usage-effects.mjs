@@ -169,19 +169,28 @@ async function grantUsageEffect(targetActor, entry) {
 /**
  * 用途の付与効果ペイロードを作る(結果カードのフラグに載せる形)。効果が無ければ null(何もしない)、
  * キャンセルされたら "cancel"(用途を中止)。付与先「自分」の効果はここで**即時付与**する。
+ * @param {object} [options]
+ * @param {Array<{uuid:string,name:string}>|null} [options.targetOverride] 対象を確定済みで渡す
+ *   (非 null なら captureUsageTargets の確認を挟まずこの配列を対象にする)。リアクションで攻撃者を
+ *   対象にする用途(リアクションの対象は「なし」=攻撃者へ返す・2026-07-15)。空配列=対象なし。
  * @returns {Promise<{effects:Array, targets:Array, applied:boolean, selfApplied?:string[]}|null|"cancel">}
  */
-export async function prepareUsageEffectPayload(actor, parentItem, usage) {
+export async function prepareUsageEffectPayload(actor, parentItem, usage, { targetOverride = null } = {}) {
     const entries = resolveUsageEffectData(actor, parentItem, usage);
     if (!entries.length) return null;
     const selfEntries = entries.filter(e => e.grantTarget === "self");
     const targetEntries = entries.filter(e => e.grantTarget === "target");
 
-    // 対象向けの効果があるときだけターゲットを確定する(自分向けのみなら確認は不要)
+    // 対象向けの効果があるときだけターゲットを確定する(自分向けのみなら確認は不要)。
+    // targetOverride(リアクション=攻撃者)が渡されていれば確認を挟まずそれを対象にする。
     let targets = [];
     if (targetEntries.length) {
-        targets = await captureUsageTargets(actor);
-        if (targets === null) return "cancel";
+        if (targetOverride !== null) {
+            targets = targetOverride;
+        } else {
+            targets = await captureUsageTargets(actor);
+            if (targets === null) return "cancel";
+        }
     }
 
     // 付与先「自分」: 用途解決時に即時付与(代償を後回しにしない)。付与先選択のキャンセルは用途中止
@@ -232,11 +241,12 @@ export function renderUsageEffectButton(message, html) {
     const esc = foundry.utils.escapeHTML;
     const block = document.createElement("div");
     block.className = "tnx-usage-effect-block";
-    const names = payload.effects.map(e => esc(e.name)).join("・");
-    const targetNames = (payload.targets ?? []).map(t => esc(t.name)).join("・") || "（対象なし）";
+    // 名前は「」で個別に囲う(名前自体が「・」を含みうるため区切りを明示・2026-07-15 ユーザー指摘)
+    const names = payload.effects.map(e => `「${esc(e.name)}」`).join("・");
+    const targetNames = (payload.targets ?? []).map(t => `「${esc(t.name)}」`).join("・") || "（対象なし）";
     // 付与先「自分」の効果は用途解決時に付与済み(2026-07-13 再設計)
     const selfNote = payload.selfApplied?.length
-        ? `<p class="tnx-usage-effect-note"><i class="fas fa-check"></i> 自分へ付与済み: ${payload.selfApplied.map(n => esc(n)).join("・")}</p>`
+        ? `<p class="tnx-usage-effect-note"><i class="fas fa-check"></i> 自分へ付与済み: ${payload.selfApplied.map(n => `「${esc(n)}」`).join("・")}</p>`
         : "";
 
     if (payload.applied) {
@@ -249,7 +259,7 @@ export function renderUsageEffectButton(message, html) {
     // 押し順の順序依存を消す)。ダメージ適用に至る経路がある間はボタンを出さず予告のみ表示する。
     // 対象未選択(適用ボタンが出ない)・適用済みで効果だけ未適用(旧カード等)は手動ボタンを残す
     const damageF = message.getFlag(SCOPE, "damageRoll");
-    if (damageF && damageF.targetUuid && !damageF.applied) {
+    if (damageF && (damageF.targets?.length ?? 0) > 0 && !damageF.applied) {
         block.innerHTML = `${selfNote}<p class="tnx-usage-effect-note">付与効果: ${names} → ${targetNames}（ダメージ適用と同時に付与されます）</p>`;
         host.appendChild(block);
         return;
@@ -292,7 +302,7 @@ export async function applyUsageEffectsFromMessage(message) {
     }
 
     if (denied.length) {
-        ui.notifications.warn(`「${denied.join("・")}」への効果付与は対象の操作者（か RL）が行います。`);
+        ui.notifications.warn(`${denied.map(n => `「${n}」`).join("・")}への効果付与は対象の操作者（か RL）が行います。`);
     }
     if (cancelled || !appliedAny) return;
     // 適用の可視化は Foundry 標準のトークン演出に任せる(+効果名の浮遊テキスト・トークンのアイコン。

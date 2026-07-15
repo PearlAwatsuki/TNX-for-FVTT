@@ -29,7 +29,8 @@ import { getComboSuits, comboUsesBounty, ALL_SUITS } from '../module/tnx-check-e
 import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
 import { groupStyleSkillsByStyle } from '../module/style-skill-acquisition.mjs';
 import { HOUSING_AREA_RANKS } from '../data/item/housing-area.mjs';
-import { CONDITION_KINDS } from '../module/conditions.mjs';
+import { CONDITION_KINDS, readConditions, getConditionKind } from '../module/conditions.mjs';
+import { openConditionEditDialog } from '../module/condition-edit.mjs';
 import { startTreatment } from '../module/treatment-flow.mjs';
 import { startVehicleMove } from '../module/vehicle-move.mjs';
 import { isAmmoEmpty, reloadWeapon } from '../module/weapon-ammo.mjs';
@@ -285,6 +286,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const bsList = [];
         this.actor.effects.forEach(e => {
             if (e.disabled) return;
+            const conds = readConditions(e);
+            const bsFlags = e.flags?.["tokyo-nova-axleration"];
             let hasStatusCondition = false;
             if (e.statuses && e.statuses.size > 0) {
                 e.statuses.forEach(statusId => {
@@ -294,20 +297,22 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                             id:      e.id,
                             statusId,
                             name:    statusConfig.name,
+                            valueSuffix: TnxCharacterSheetBase._bsValueSuffix(this.actor, conds.find(c => c.kind === statusId)),
                             img:     statusConfig.img,
-                            details: e.flags?.["tokyo-nova-axleration"]?.details || ""
+                            details: bsFlags?.details || ""
                         });
                         hasStatusCondition = true;
                     }
                 });
             }
-            if (!hasStatusCondition && e.flags?.["tokyo-nova-axleration"]?.isBadStatus) {
+            if (!hasStatusCondition && bsFlags?.isBadStatus) {
                 bsList.push({
                     id:      e.id,
                     statusId: null,
                     name:    e.name,
+                    valueSuffix: TnxCharacterSheetBase._bsValueSuffix(this.actor, conds[0]),
                     img:     e.img,
-                    details: e.flags?.["tokyo-nova-axleration"]?.details || ""
+                    details: bsFlags?.details || ""
                 });
             }
         });
@@ -1278,14 +1283,36 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             if (!def) return false;
             return def.type === "wound" ? def.group !== "social" : def.group === "incapacitation";
         };
-        const badStatusViewMenu = [{
-            name:      "治療",
-            icon:      '<i class="fas fa-briefcase-medical"></i>',
-            condition: header => isTreatableKind(header.dataset.statusId),
-            callback:  async header => {
-                await startTreatment(this.actor, header.dataset.effectId);
+        // 効果値を持つ BS(邪毒/電子妨害/衰弱/重圧/萎縮/憎悪/捕縛)は「効果を編集」で任意編集できる。
+        // kind は status id、無い場合(isBadStatus フォールバック)は効果の conditionKind から解決する。
+        const kindOf = header => {
+            const sid = header.dataset.statusId;
+            if (sid && CONDITION_KINDS[sid]) return sid;
+            return getConditionKind(this.actor.effects.get(header.dataset.effectId));
+        };
+        const hasEditableFields = (kind) => {
+            const def = CONDITION_KINDS[kind];
+            return !!def && (def.magnitudeField || def.abilityField || def.targetField || def.weaponField);
+        };
+        const badStatusViewMenu = [
+            {
+                name:      "治療",
+                icon:      '<i class="fas fa-briefcase-medical"></i>',
+                condition: header => isTreatableKind(header.dataset.statusId),
+                callback:  async header => {
+                    await startTreatment(this.actor, header.dataset.effectId);
+                }
+            },
+            {
+                name:      "効果を編集",
+                icon:      '<i class="fas fa-sliders"></i>',
+                condition: header => hasEditableFields(kindOf(header)),
+                callback:  async header => {
+                    const effect = this.actor.effects.get(header.dataset.effectId);
+                    if (effect) await openConditionEditDialog(this.actor, effect, kindOf(header));
+                }
             }
-        }];
+        ];
         new CM(el, ".tnx-bs-btn--view", badStatusViewMenu, { jQuery: false, fixed: true, eventName: "click" });
 
         // アウトフィット行のコンテキストメニュー
@@ -2295,6 +2322,45 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         await this.actor.update({ "system.bountyBase": TnxCharacterSheetBase._computeMundaneTotalValue(this.actor) });
     }
 
+    /**
+     * BS バッジに付す効果値/対象の表記を返す(2026-07-15・正本 Bad_Status.md の表記に従う)。
+     * 値/対象が「効果や名前で決まるもの」(酩酊(大/小)・恐慌 等)は空文字＝表示しない。
+     * カードで決まるもの(重圧の指定なし・衰弱のスート引き)も、引いた後は保存された値/対象を表示する。
+     * @param {Actor} actor バッジの持ち主(対象武器=このアクターの武器・生身の解決に使う)
+     * @param {object|null} cond readConditions の 1 要素
+     * @returns {string} 名前に続けて表示する表記(例 「2」「（生命）」「（-3）」「（対象名）」)
+     */
+    static _bsValueSuffix(actor, cond) {
+        const def = cond?.def;
+        if (!def || def.fixedMagnitude !== undefined) return ""; // 固定値/名前で明示=表示なし
+        const ABIL = { reason: "理性", passion: "感情", life: "生命", mundane: "外界" };
+        // 変動する強度(邪毒・電子妨害): 名前に数字を直付け(括弧なし)。Bad_Status `[BS：邪毒n]`/`[BS：電子妨害n]`
+        if (def.magnitudeField && (def.type === "continuous" || def.type === "computed")) {
+            return cond.magnitude ? String(cond.magnitude) : "";
+        }
+        // 衰弱: 全制御値版=（-n）/ スート引き版=（能力値の制御値 -n）。Bad_Status `[BS：衰弱(-数字)]`
+        if (def.magnitudeField && def.apply === "control") {
+            if (cond.targetAbility) return `（${ABIL[cond.targetAbility] ?? "?"}の制御値 -${cond.magnitude}）`;
+            return cond.magnitude ? `（-${cond.magnitude}）` : "";
+        }
+        // 重圧: 対象能力値。Bad_Status `[BS：重圧(生命)]`(指定なし=カード決定後に埋まる)
+        if (def.abilityField) {
+            return cond.targetAbility ? `（${ABIL[cond.targetAbility] ?? "?"}）` : "";
+        }
+        // 萎縮/憎悪: 対象アクター名(逆引きした現在名)
+        if (def.targetField && cond.targetUuid) {
+            const a = fromUuidSync(cond.targetUuid);
+            return a?.name ? `（${a.name}）` : "";
+        }
+        // 捕縛: 対象武器名(このアクターの武器・空=生身)
+        if (def.weaponField) {
+            const id = cond.targetWeapon;
+            const name = id ? (actor?.items?.get(id)?.name ?? "?") : "生身";
+            return `（${name}）`;
+        }
+        return "";
+    }
+
     // ─── 判定起動 ────────────────────────────────────────────────────────────
 
     /**
@@ -2342,7 +2408,22 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         if (!itemId) return;
         const item = this.actor.items.get(itemId);
         if (!item) return;
+        await TnxCharacterSheetBase._activateItemCheck(this.actor, item);
+    }
 
+    /**
+     * 技能/アイテムの用途起動＝**唯一の起動関数**(2026-07-15 ユーザー確定)。シートの技能クリックだけで
+     * なく、リアクション・治療・操縦移動・判定要求など**あらゆる技能起動はこの 1 関数を通す**
+     * (入口は多くてよいが、起動処理を実際に行うのはここだけ)。用途選択→分岐(NPC取得/バフ宣言/回復/
+     * 攻撃/固定値)→通常判定(不備検知・参加技能解決・消費・適用効果・目標値・判定ボーナス→
+     * TnxCheckFlow.open)。**組み合わせ(コンボ)の可否はユーザー/RL が決めるものであり、システム側は
+     * 一切制限しない。** extraOpen は各入口が注入する追加文脈(reaction/treatment/movement/
+     * requestMessageId/substitution/manualMod・目標値上書き等)で、通常判定の open へ最後に合流する。
+     * @param {Actor} actor 起動アクター
+     * @param {Item} item 起動する技能/アイテム
+     * @param {object} [extraOpen] TnxCheckFlow.open へ合流する追加パラメータ(既定値を上書き可)
+     */
+    static async _activateItemCheck(actor, item, extraOpen = {}) {
         // 既定の挙動: 実行できる用途(判定/攻撃/NPC取得)が無ければ、解説をそのままチャット表示する
         // (アイテムの基本機能)。用途があればその実行に切り替わる。
         // 攻撃・NPC取得もアイテムロール(アクターシートの技能クリック)から実行できる
@@ -2395,10 +2476,10 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             const kind = selectedUsage.grantRecheck === true ? "recheck"
                 : (selectedUsage.modifyCheck === true ? "modify"
                     : (selectedUsage.modifyDamage === true ? "modifyDamage" : "suitChange"));
-            const grantRows = resolveConsumeRowsForActor(this.actor, item, selectedUsage.consumeTargets);
-            const grantPlan = await promptConsumption(this.actor, grantRows, { title: `使用回数の消費: ${item.name}` });
+            const grantRows = resolveConsumeRowsForActor(actor, item, selectedUsage.consumeTargets);
+            const grantPlan = await promptConsumption(actor, grantRows, { title: `使用回数の消費: ${item.name}` });
             if (grantPlan === null) return;
-            TnxCheckFlow.startAchievementAction(kind, this.actor, item, {
+            TnxCheckFlow.startAchievementAction(kind, actor, item, {
                 usageId: selectedUsage._id, consumeUses: grantPlan, merge: selectedUsage.type === "check",
             });
             return;
@@ -2430,33 +2511,32 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 固定達成値の用途(フェーズ11-5・Check_Rules「固定値判定」): カードも出さず能力値も参照せず、
         // 記載の数値がそのまま達成値になる。エキストラが行える唯一の判定形(他アクターでも使用可)
         if (Number.isFinite(selectedUsage.fixedResult)) {
-            await TnxCharacterSheetBase._postFixedCheckResult(this.actor, item, selectedUsage);
+            await TnxCharacterSheetBase._postFixedCheckResult(actor, item, selectedUsage);
             return;
         }
 
-        // 能力値を持たないシート(extra)は通常判定を行えない(固定値判定のみ＝Check_Rules「固定値判定」。
+        // 能力値を持たないアクター(extra)は通常判定を行えない(固定値判定のみ＝Check_Rules「固定値判定」。
         // 固定達成値の用途は上の分岐で処理済み)
-        if (!this.sheetFeatures.abilities) {
+        if (actor.type === "extra") {
             ui.notifications.warn("エキストラは固定値の判定のみ行えます。");
             return;
         }
 
         // 用途不備検知: 設定済みの用途に不備があれば必ず通知して中止する
-        const defect = TnxCharacterSheetBase._detectUsageDefect(item, selectedUsage, this.actor);
+        const defect = TnxCharacterSheetBase._detectUsageDefect(item, selectedUsage, actor);
         if (defect) {
             ui.notifications.warn(`「${item.name}」の用途に不備があります（${defect}）。`);
             return;
         }
 
         // 参加技能(ベース＋コンボ)を解決して判定を実行する
-        const { allSkillIds, validSuits } = TnxCharacterSheetBase._resolveSkillSet(item, selectedUsage, this.actor);
+        const { allSkillIds, validSuits } = TnxCharacterSheetBase._resolveSkillSet(item, selectedUsage, actor);
 
         const skillLabel = allSkillIds
-            .map(id => this.actor.items.get(id)?.name ?? "")
+            .map(id => actor.items.get(id)?.name ?? "")
             .filter(Boolean)
             .join("+");
 
-        const actor = this.actor;
         const actorBounty = (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0);
 
         // 使用回数の消費を確認(用途の消費先設定＝consumeTargets 由来・11-6。自動スキャンは全廃・
@@ -2466,10 +2546,36 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const usesPlan = await promptConsumption(actor, consumeRows, { title: `使用回数の消費: ${item.name}` });
         if (usesPlan === null) return;
 
+        // リアクションの適用効果は攻撃者へ返す(リアクションの対象は「なし」=万一 AE があれば攻撃者に
+        // 付与・2026-07-15 ユーザー確定)。攻撃者を対象上書きとして渡し、対象確認ダイアログを挟まない。
+        let effectTargetOverride = null;
+        if (extraOpen.reaction) {
+            effectTargetOverride = [];
+            const atkMsg = extraOpen.reaction.attackMessageId
+                ? game.messages.get(extraOpen.reaction.attackMessageId) : null;
+            const atkF = atkMsg?.getFlag(game.system.id, "attackCheck");
+            if (atkF?.attackerUuid) {
+                const atkDoc = await fromUuid(atkF.attackerUuid).catch(() => null);
+                const atkActor = atkDoc?.actor ?? atkDoc;
+                if (atkActor) effectTargetOverride = [{ uuid: atkActor.uuid, name: atkActor.name }];
+            }
+        }
+
         // 用途の適用効果: ターゲットしたキャラクターへ付与するペイロードを用意(ノーターゲットは確認)。
         // 判定結果カードに載せ、対象所有者/GM がボタンで付与する(2026-07-10)
-        const usageEffects = await prepareUsageEffectPayload(actor, item, selectedUsage);
+        const usageEffects = await prepareUsageEffectPayload(actor, item, selectedUsage,
+            effectTargetOverride !== null ? { targetOverride: effectTargetOverride } : {});
         if (usageEffects === "cancel") return;
+
+        // リアクション用途の追加挙動(範囲攻撃へのリアクション/攻撃を失敗させる)を reaction 文脈へ載せる
+        // (完了継続 completeReactionFromCheck が参照する・2026-07-15)
+        if (extraOpen.reaction) {
+            extraOpen.reaction = {
+                ...extraOpen.reaction,
+                reactionAreaAttack: selectedUsage.reactionAreaAttack === true,
+                reactionFailsAttack: selectedUsage.reactionFailsAttack === true,
+            };
+        }
 
         await TnxCheckFlow.open({
             type:            "skillCheck",
@@ -2490,6 +2596,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             usageEffects,               // 付与効果ペイロード(null=効果なし)
             allowRecheck:    selectedUsage.allowRecheck === true, // 再判定可能(用途の設定・2026-07-11)
             allowSuitChange: selectedUsage.allowSuitChange === true, // スート変更可能(用途の設定・2026-07-12)
+            // 各入口が注入する追加文脈(reaction/treatment/movement/requestMessageId・目標値上書き等)を
+            // 最後に合流(既定値を上書き可)。起動集約の要=各入口はここに文脈を載せるだけ(2026-07-15)
+            ...extraOpen,
         });
     }
 

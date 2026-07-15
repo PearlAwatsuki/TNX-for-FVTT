@@ -35,6 +35,7 @@ import { formatAttackLabel } from "./attack-flow-logic.mjs";
 import { consumeFaAmmo } from "./weapon-ammo.mjs";
 import { gatherDamageVsSources, gatherDamageDealtSources, collectActorEffectBuffs, targetStyleWorksKeys } from "../data/item/helpers.mjs";
 import { applyUsageEffectsFromMessage } from "./usage-effects.mjs";
+import { spinnerDialogActions } from "./tnx-dialog.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会" };
@@ -112,8 +113,10 @@ export async function openDamageRollDialog(attackMessage) {
     // FA は自動加算せず、FA 可能武器を候補として出しダイアログで武器ごとに選ぶ(2026-07-09)
     const faOptions = category === "physical" ? (f.faOptions ?? []) : [];
 
-    // 攻撃対象(防御側)を一度だけ解決する。式の @target.* と AE ダメージ対象バフの照合に用いる。
-    const targetActor = await resolveTargetActor(f.targetUuid);
+    // 命中した対象(複数対象一括・2026-07-15): 攻撃側合計は共有・軽減とチャートは対象ごと。
+    // 対象依存の攻撃側加算(@target.*・vsStyle/vsWorks)は共有値のため先頭命中対象で評価する(近似)。
+    const hitTargets = (f.targets ?? []).filter(t => t.state === "hit");
+    const targetActor = await resolveTargetActor(hitTargets[0]?.uuid);
     // 用途の親アイテム(@item.self の解決に使う。攻撃者所持のアイテム)
     const parentItem = f.sourceItemId ? attacker?.items.get(f.sourceItemId) : null;
     const result = { diff: f.diff, achievement: f.achievement, cardValue: f.cardValue ?? null };
@@ -143,7 +146,7 @@ export async function openDamageRollDialog(attackMessage) {
             attackLabel: formatAttackLabel(f.damageType, attackPower),
             faOptions,
             attackSourceName: f.attackSourceName,
-            targetName: f.targetName,
+            targetName: hitTargets.map(t => `「${t.name}」`).join("・") || "（対象なし）",
             damageBonus: damageBonusTotal,
         }
     );
@@ -151,10 +154,9 @@ export async function openDamageRollDialog(attackMessage) {
     // 待ち受け開始: ダイアログを開いたまま、手札は HUD クリック(executeDamageCardFromHand)・
     // 山札はダイアログのボタンで出す(判定と同じ操作系)
     await cancelPending();
-    const ctx = { kind: "roll", attackMessage, f, attacker, category, attackPower, faOptions, damageBonusRows: damageBonusRowsAll, targetActor, dialog: null, done: false };
+    const ctx = { kind: "roll", attackMessage, f, attacker, category, attackPower, faOptions, damageBonusRows: damageBonusRowsAll, targetActor, hitTargets, dialog: null, done: false };
     _pending = ctx;
 
-    const { spinnerDialogActions } = await import("./tnx-dialog.mjs");
     const chosen = await foundry.applications.api.DialogV2.wait({
         window: { title: `ダメージカードを出す: ${CATEGORY_LABELS[category] ?? category}` },
         classes: ["tokyo-nova", "tnx-dialog", "tnx-damage-dialog"],
@@ -187,7 +189,7 @@ export async function openDamageRollDialog(attackMessage) {
  * @param {{name:string, suit:string, value:number}} played 出したダメージカード
  */
 async function finalizeDamageRoll(ctx, form, played) {
-    const { attackMessage, f, attacker, category, attackPower, faOptions, damageBonusRows } = ctx;
+    const { attackMessage, f, attacker, category, attackPower, faOptions, damageBonusRows, hitTargets } = ctx;
 
     // FA 射撃(武器ごとに任意選択・2026-07-09): 選んだ FA 武器の FA 値を合算しダメージへ。
     // 選んだ武器の残弾を空にする(自動給弾を除く=consumeFaAmmo が判定)。
@@ -215,15 +217,15 @@ async function finalizeDamageRoll(ctx, form, played) {
                 damageRoll: {
                     attackMessageId: attackMessage.id,
                     attackerUuid: f.attackerUuid,
-                    targetUuid: f.targetUuid ?? "",
-                    targetName: f.targetName ?? "",
+                    // 命中対象(複数対象一括・2026-07-15): 攻撃側合計は共有・軽減とチャートは対象ごと。
+                    // parryGuard は各対象のリアクション(パリー成立)で決まった受け値を引き継ぐ
+                    targets: (hitTargets ?? []).map(t => ({ uuid: t.uuid, name: t.name, parryGuard: Number(t.parryGuard) || 0 })),
                     category,
                     damageType: f.damageType ?? "",
                     attackPower, faValue,
                     damageBonuses: damageBonusRows,
                     mods: [],   // 事後修正(modifyDamage 用途・攻撃側合計クリックで適用)
                     attackSourceName: f.attackSourceName ?? "",
-                    parryGuard: Number(f.parryGuard) || 0,
                     diff: f.diff ?? null,
                     achievement: f.achievement ?? null,
                     cardValue: f.cardValue ?? null,   // 命中判定のカード値(式の @card 用)
@@ -294,7 +296,13 @@ async function promptWildcardValue() {
         window: { title: "ジョーカー（ワイルドカード）" },
         classes: ["tokyo-nova", "tnx-dialog"],
         content: `<p>ジョーカーをワイルドカードとして使います。数字を宣言してください。</p>
-            <div class="form-group"><label>数字</label><input type="number" name="value" value="1" min="1"></div>`,
+            <div class="form-group"><label>数字</label>
+                <div class="number-input-spinner">
+                    <button type="button" class="tnx-btn" data-action="decrement" aria-label="Decrease">-</button>
+                    <input type="number" name="value" value="1" min="1">
+                    <button type="button" class="tnx-btn" data-action="increment" aria-label="Increase">+</button>
+                </div></div>`,
+        actions: spinnerDialogActions,
         buttons: [
             { action: "ok", icon: "fas fa-check", label: "この数字で確定", default: true,
               callback: (_e, _b, dialog) => Math.max(1, Number(dialog.element.querySelector('[name="value"]')?.value) || 1) },
@@ -331,7 +339,10 @@ export function renderDamageCard(message, html) {
     };
 
     // ── 台帳 ──
-    if (f.targetName) row(ledger, "対象", esc(f.targetName));
+    // 対象(複数対象一括・2026-07-15): 命中対象の名前を列挙。攻撃側合計は共有・軽減は対象ごと
+    const dmgTargets = f.targets ?? [];
+    if (dmgTargets.length) row(ledger, dmgTargets.length > 1 ? `対象（${dmgTargets.length}体）` : "対象",
+        dmgTargets.map(t => `「${esc(t.name)}」`).join("・"));
     const { raw, attack } = damageRollTotals(f);
     const cards = f.cards ?? [];
     cards.forEach((c, i) => {
@@ -368,18 +379,37 @@ export function renderDamageCard(message, html) {
     }
 
     // ── 状態領域 ──
+    // 適用後(複数対象一括): 対象ごとに軽減・最終ダメージ・適用先を表示する
     if (f.applied && f.appliedResult) {
-        const r = f.appliedResult;
-        if (r.mitigation) row(area, `軽減${r.mitigationNote ? `（${esc(r.mitigationNote)}）` : ""}`, `−${r.mitigation}`);
-        if (r.bounty) row(area, "報酬点による軽減", `−${r.bounty}`);
-        row(area, "最終ダメージ", String(r.final), "cr-calc-row cr-total-row", "cr-total-num");
-        line(area, `cr-result ${r.final > 0 ? "cr-result--damage" : "cr-result--nodamage"}`,
-            `<i class="fas ${r.final > 0 ? "fa-burst" : "fa-shield-halved"}"></i> ${esc(r.applyText ?? "")}`);
+        // 別のダメージとして適用した場合は差し替え先の系統を明示(元系統で軽減→この系統のチャートへ)
+        if (f.appliedResult.applyCategory) {
+            line(area, "tnx-damage-altnote",
+                `<i class="fas fa-shuffle"></i> 「${esc(CATEGORY_LABELS[f.appliedResult.applyCategory] ?? f.appliedResult.applyCategory)}」ダメージとして適用`);
+        }
+        for (const tr of (f.appliedResult.targets ?? [])) {
+            if (tr.defenderMod) row(area, `${esc(tr.name)}: ダメージ修正（防御側）`, signedDisplay("＋", tr.defenderMod));
+            row(area, `${esc(tr.name)}: 軽減${tr.mitigationNote ? `（${esc(tr.mitigationNote)}）` : ""}`, `−${tr.mitigation ?? 0}`);
+            if (tr.bounty) row(area, `${esc(tr.name)}: 報酬点による軽減`, `−${tr.bounty}`);
+            row(area, `${esc(tr.name)}: 最終ダメージ`, String(tr.final), "cr-calc-row cr-total-row", "cr-total-num");
+            line(area, `cr-result ${tr.final > 0 ? "cr-result--damage" : "cr-result--nodamage"}`,
+                `<i class="fas ${tr.final > 0 ? "fa-burst" : "fa-shield-halved"}"></i> ${esc(tr.name)}: ${esc(tr.applyText ?? "")}`);
+        }
         return;
     }
 
+    // 対象ごとの適用予定ダメージ(2026-07-15): 攻撃側合計(共有)に、その対象の防御側 modifyDamage と
+    // 自動軽減を反映した見込み。防御側は攻撃側合計クリック(modifyDamage)で自分の対象だけ下げられる。
+    // 手動軽減は適用時のダイアログで最終調整するため、ここは「予定」表示。
+    for (const t of dmgTargets) {
+        const p = targetPlannedPreview(f, t);
+        const parts = [];
+        if (p.auto) parts.push(`自動軽減 −${p.auto}`);
+        if (p.modsSum) parts.push(`修正 ${signedDisplay("＋", p.modsSum)}`);
+        row(area, `${esc(t.name)}: 適用予定${parts.length ? `（${parts.join("・")}）` : ""}`,
+            String(p.final), "cr-calc-row cr-total-row", "cr-total-num");
+    }
+
     const attacker = resolveSync(f.attackerUuid);
-    const target = resolveSync(f.targetUuid);
     if (game.user.isGM || attacker?.isOwner) {
         const btn = document.createElement("button");
         btn.type = "button";
@@ -388,15 +418,35 @@ export function renderDamageCard(message, html) {
         btn.addEventListener("click", () => addDamageCard(message));
         area.appendChild(btn);
     }
-    if (!f.targetUuid) {
+    // ダメージ適用は1ボタン(複数対象一括・2026-07-15): 各自が算出後〜適用前の増強/軽減を切り終えたら、
+    // RL(GM)か攻撃者が押して全対象へ一括適用する(アクセス=RL と攻撃者・ユーザー確定)。
+    const canApply = game.user.isGM || attacker?.isOwner;
+    if (!dmgTargets.length) {
         line(area, "cr-tn", "対象未選択（適用は手動で行ってください）");
-    } else if (game.user.isGM || target?.isOwner) {
+    } else if (canApply) {
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "tnx-chat-btn";
         btn.innerHTML = '<i class="fas fa-burst"></i> ダメージ適用';
         btn.addEventListener("click", () => openMitigationDialog(message));
         area.appendChild(btn);
+        // 別のダメージとして適用(2026-07-16 ユーザー確定): 展開式で他系統のチャートへ適用する導線。
+        // 軽減は元系統のまま行い、軽減後の値を選んだ系統のチャートへ流す(常に選べる=RL裁量)。
+        const details = document.createElement("details");
+        details.className = "tnx-damage-altapply";
+        const summary = document.createElement("summary");
+        summary.innerHTML = '<i class="fas fa-shuffle"></i> 別のダメージとして適用';
+        details.appendChild(summary);
+        for (const cat of ["physical", "mental", "social"]) {
+            if (cat === f.category) continue;
+            const alt = document.createElement("button");
+            alt.type = "button";
+            alt.className = "tnx-chat-btn";
+            alt.innerHTML = `<i class="fas fa-burst"></i> 「${CATEGORY_LABELS[cat]}」ダメージとして適用`;
+            alt.addEventListener("click", () => openMitigationDialog(message, cat));
+            details.appendChild(alt);
+        }
+        area.appendChild(details);
     } else {
         line(area, "cr-tn", "（適用は対象の操作者または RL が行います）");
     }
@@ -424,10 +474,18 @@ export async function handleDamageModifyClick(message) {
     if (!skill) { TnxCheckFlow.cancelAchievementAction(); return; }
     TnxCheckFlow.cancelAchievementAction();
 
+    // 使用者が命中対象の一人(=防御側)なら、その対象の予定ダメージにだけ効かせる(per-target・2026-07-15
+    // ユーザー確定)。攻撃側/GM 代行は共有の攻撃側合計(全対象の起点)に効かせる。発動方法(攻撃側合計
+    // クリック)は不変。上書きの基準も対象ごと(その対象の攻撃側合計)にする。
+    const targetIndex = (f.targets ?? []).findIndex(t => resolveSync(t.uuid)?.id === actor.id);
+    const baseTotal = targetIndex >= 0
+        ? damageRollTotals(f).raw + (f.targets[targetIndex].mods ?? []).reduce((s, m) => s + (Number(m.value) || 0), 0)
+        : damageRollTotals(f).raw;
+
     // 修正値: 用途のダメージ修正値(式・@item.self=親技能・@card/@diff/@achievement=命中判定由来)。
     // 空/評価不能/0 は手入力(軽減は負の値)
     const usage = (skill.system.actions ?? []).find(a => a._id === state.usageId) ?? null;
-    const targetActor = await resolveTargetActor(f.targetUuid);
+    const targetActor = await resolveTargetActor((f.targets ?? [])[targetIndex >= 0 ? targetIndex : 0]?.uuid);
     let mod = null;
     const self = await evaluateSelfBonus(usage?.damageBonusSelf ?? "", actor,
         { diff: f.diff ?? null, achievement: f.achievement ?? null, cardValue: f.cardValue ?? null },
@@ -444,7 +502,7 @@ export async function handleDamageModifyClick(message) {
             allowOverride: true, overrideLabel: "上書き（入力値をそのまま新しい攻撃側合計にする）",
         });
         if (!input || !Number.isFinite(input.value)) return;
-        if (input.override) { overrideTo = input.value; mod = input.value - damageRollTotals(f).raw; }
+        if (input.override) { overrideTo = input.value; mod = input.value - baseTotal; }
         else mod = input.value;
         if (mod === 0 && overrideTo === undefined) return;
     }
@@ -452,8 +510,16 @@ export async function handleDamageModifyClick(message) {
     // 消費(用途の consumeTargets・クリック待ち開始時に確定したプラン)は適用の確定時
     if (state.consumeUses?.length) await applyConsumptionPlan(state.consumeUses);
 
-    await applyDamagePatch(message, { mods: [...(f.mods ?? []),
-        { label: state.skillName, value: mod, ...(overrideTo !== undefined ? { overrideTo } : {}) }] });
+    const modRow = { label: state.skillName, value: mod, ...(overrideTo !== undefined ? { overrideTo } : {}) };
+    if (targetIndex >= 0) {
+        // 防御側=その対象の mods に積む(対象ごと)
+        const targets = foundry.utils.deepClone(f.targets ?? []);
+        targets[targetIndex].mods = [...(targets[targetIndex].mods ?? []), modRow];
+        await applyDamagePatch(message, { targets });
+    } else {
+        // 攻撃側/GM=共有の攻撃側合計に積む(全対象の起点)
+        await applyDamagePatch(message, { mods: [...(f.mods ?? []), modRow] });
+    }
 }
 
 /**
@@ -515,6 +581,28 @@ function damageRollTotals(f) {
     return { cardSum, raw, attack };
 }
 
+/**
+ * 対象ごとの適用予定ダメージ(2026-07-15): 共有の攻撃側合計に、その対象の防御側 modifyDamage と
+ * 自動軽減(物理=防御力・パリー受け値)を反映した適用前の見込み値。手動軽減はダイアログで最終調整するため
+ * ここには含めない。防御側の軽減が他対象へ波及しないよう、mods はその対象の攻撃側合計にだけ乗せる。
+ * @param {object} f damageRoll フラグ
+ * @param {object} t f.targets の要素
+ */
+function targetPlannedPreview(f, t) {
+    const modsSum = (t.mods ?? []).reduce((s, m) => s + (Number(m.value) || 0), 0);
+    const targetRaw = damageRollTotals(f).raw + modsSum;
+    const category = f.category || "physical";
+    const actor = resolveSync(t.uuid);
+    let auto = 0;
+    if (actor && category === "physical") {
+        const dv = defenceForType(aggregateDefence(actor.items.contents ?? []), f.damageType);
+        if (dv) auto += dv;
+    }
+    if (t.parryGuard) auto += Number(t.parryGuard) || 0;
+    const { final } = computeDamage({ damageCard: targetRaw, mitigation: auto, stun: f.stun === true });
+    return { final, auto, modsSum };
+}
+
 function resolveSync(uuid) {
     if (!uuid) return null;
     try { return fromUuidSync(uuid); } catch { return null; }
@@ -564,76 +652,111 @@ async function appendDamageCard(message, played) {
 // ─── 適用(防御側の軽減ダイアログ→型分岐適用) ─────────────────────────────────────
 
 /**
- * ダメージ適用を開始する(対象の操作者または RL)。防御側の軽減ダイアログ
- * (防御力+パリー受け値自動・社会の報酬点軽減・手動欄)で確定する。
+ * ダメージ適用を開始する(複数対象一括・2026-07-15)。命中対象を1ダイアログにまとめ、対象ごとの
+ * 軽減欄(防御力+パリー受け値自動・社会の報酬点・手動)で確定し、全対象へ適用する。
+ * GM か命中対象のいずれかの操作者が押せる。
+ *
+ * **別のダメージとして適用(2026-07-16 ユーザー確定)**: applyCategory を渡すと、軽減は元の系統
+ * (f.category)のまま行い(防具軽減など全部)、その**軽減後の最終値を applyCategory のチャートへ**
+ * 適用する(値は再計算せずそのまま保持。系統のみ差し替え=参照チャートが変わる)。null=元系統どおり。
+ * @param {ChatMessage} message
+ * @param {"physical"|"mental"|"social"|null} [applyCategory] 差し替え先の系統(チャート)
  */
-async function openMitigationDialog(message) {
+async function openMitigationDialog(message, applyCategory = null) {
     const f = message.getFlag(SCOPE, "damageRoll");
     if (!f || f.applied) return;
-    const target = await fromUuid(f.targetUuid).catch(() => null);
-    if (!target) { ui.notifications.warn("対象が見つかりません。"); return; }
-    if (!(game.user.isGM || target.isOwner)) {
+
+    // 命中対象を解決
+    const resolvedTargets = [];
+    for (const t of (f.targets ?? [])) {
+        const actor = await fromUuid(t.uuid).catch(() => null);
+        // t.mods=その対象の防御側 modifyDamage(per-target・2026-07-15)。攻撃側合計へ対象ごとに反映する
+        if (actor) resolvedTargets.push({ actor, name: t.name, parryGuard: Number(t.parryGuard) || 0, mods: t.mods ?? [] });
+    }
+    if (!resolvedTargets.length) { ui.notifications.warn("対象が見つかりません。"); return; }
+    if (!(game.user.isGM || resolvedTargets.some(r => r.actor.isOwner))) {
         ui.notifications.warn("ダメージ適用は対象の操作者（または RL）が行います。");
         return;
     }
 
+    // 軽減・値の算出は元の系統(category)で行う。参照するチャート(applyCat)だけ差し替え可
     const category = f.category || "physical";
+    const applyCat = applyCategory || category;
+    const isAltApply = applyCat !== category;
     const { raw, attack } = damageRollTotals(f);
-
-    // 軽減の自動取得: 物理のみ防御力(ダメージ種別対応・X は軽減なし)+パリー受け値
-    let autoMitigation = 0;
-    const mitigationParts = [];
-    if (category === "physical") {
-        const dv = defenceForType(aggregateDefence(target.items.contents ?? []), f.damageType);
-        if (dv) { autoMitigation += dv; mitigationParts.push(`防御力(${f.damageType || "?"}) ${dv}`); }
-    }
-    if (f.parryGuard) { autoMitigation += f.parryGuard; mitigationParts.push(`パリー受け値 ${f.parryGuard}`); }
-
-    // スタン/説得は攻撃宣言時に確定済み(f.stun)。適用ではキャップ済みの攻撃側合計から軽減するだけで
-    // 再確認しない(2026-07-15 ユーザー確定)。肉体=スタン・精神=説得
-    const stun = f.stun === true;
+    const stun = f.stun === true;                                    // 攻撃宣言で確定済み(再確認しない)
     const stunLabel = category === "mental" ? "説得" : "スタン";
+    const isSocial = category === "social";
+    const esc = foundry.utils.escapeHTML;
 
-    const content = await foundry.applications.handlebars.renderTemplate(
-        "systems/tokyo-nova-axleration/templates/dialog/damage-mitigation-dialog.hbs",
-        {
-            categoryLabel: CATEGORY_LABELS[category] ?? category,
-            attackTotal: attack,
-            stun,
-            stunLabel,
-            isSocial: category === "social",
-            targetName: target.name,
-            autoMitigation, mitigationParts,
+    // 対象ごとの自動軽減(物理=種別対応の防御力・X は軽減なし＋パリー受け値)を算出
+    const rows = resolvedTargets.map((r, i) => {
+        let auto = 0; const parts = [];
+        if (category === "physical") {
+            const dv = defenceForType(aggregateDefence(r.actor.items.contents ?? []), f.damageType);
+            if (dv) { auto += dv; parts.push(`防御力(${f.damageType || "?"}) ${dv}`); }
         }
-    );
-
-    const readForm = (el) => ({
-        mitigation: Number(el.querySelector('[name="mitigation"]')?.value) || 0,
-        bounty:     Number(el.querySelector('[name="bountyMitigation"]')?.value) || 0,
+        if (r.parryGuard) { auto += r.parryGuard; parts.push(`パリー受け値 ${r.parryGuard}`); }
+        // その対象の防御側 modifyDamage を攻撃側合計へ反映(共有 raw + 対象ごとの mods)。負=軽減
+        const modsSum = (r.mods ?? []).reduce((s, m) => s + (Number(m.value) || 0), 0);
+        return { ...r, index: i, autoMitigation: auto, mitigationParts: parts, targetRaw: raw + modsSum, modsSum };
     });
 
-    // ライブプレビュー: 軽減の入力から最終値と適用先の見込み(負傷名等)を再計算
+    // 複数対象の軽減をまとめた1ダイアログ(対象ごとに軽減欄＋ライブプレビュー)
+    const rowsHtml = rows.map(r => `
+        <div class="tnx-damage-target-row" data-index="${r.index}">
+            <div class="tnx-damage-target-name">${esc(r.name)}</div>
+            <div class="form-group">
+                <label>軽減${r.mitigationParts.length ? `（自動: ${esc(r.mitigationParts.join("・"))}）` : ""}</label>
+                <div class="number-input-spinner">
+                    <button type="button" class="tnx-btn" data-action="decrement" aria-label="Decrease">-</button>
+                    <input type="number" name="mitigation-${r.index}" value="${r.autoMitigation}" min="-99" max="99">
+                    <button type="button" class="tnx-btn" data-action="increment" aria-label="Increase">+</button>
+                </div>
+            </div>
+            ${isSocial ? `<div class="form-group"><label>報酬点による軽減</label>
+                <div class="number-input-spinner">
+                    <button type="button" class="tnx-btn" data-action="decrement" aria-label="Decrease">-</button>
+                    <input type="number" name="bounty-${r.index}" value="0" min="0" max="99">
+                    <button type="button" class="tnx-btn" data-action="increment" aria-label="Increase">+</button>
+                </div></div>` : ""}
+            <div class="tnx-damage-preview"><span class="tnx-damage-preview-label">最終ダメージ</span><span class="tnx-damage-preview-note" data-note="${r.index}"></span><span class="tnx-damage-preview-final" data-final="${r.index}">–</span></div>
+        </div>`).join("");
+    // 別のダメージとして適用: 元系統で軽減し、軽減後の値を applyCat のチャートへ流す旨を明示
+    const altNote = isAltApply
+        ? `<p class="tnx-damage-altnote"><i class="fas fa-shuffle"></i> 「${CATEGORY_LABELS[category] ?? category}」で軽減し、軽減後の値を「${CATEGORY_LABELS[applyCat] ?? applyCat}」ダメージチャートへ適用します。</p>`
+        : "";
+    const content = `<div class="tnx-damage-form">
+        <p class="tnx-damage-summary">${CATEGORY_LABELS[category] ?? category}ダメージ（攻撃側合計 <b>${attack}</b>${stun ? `・${stunLabel}宣言（10上限）` : ""}）を <b>${rows.length}</b> 体へ</p>
+        ${altNote}
+        ${rowsHtml}
+    </div>`;
+
+    const readRow = (root, i) => ({
+        mitigation: Number(root.querySelector(`[name="mitigation-${i}"]`)?.value) || 0,
+        bounty:     Number(root.querySelector(`[name="bounty-${i}"]`)?.value) || 0,
+    });
     const updatePreview = (root) => {
-        const v = readForm(root);
-        const mitigation = v.mitigation + (category === "social" ? v.bounty : 0);
-        // スタン/説得は攻撃側合計を10上限にしてから軽減(computeDamage が算出段階でキャップ)
-        const { final, stage } = computeDamage({ damageCard: raw, mitigation, stun });
-        const fin = root.querySelector(".tnx-damage-preview-final");
-        const note = root.querySelector(".tnx-damage-preview-note");
-        if (fin) fin.textContent = String(final);
-        if (note) note.textContent = describeDamagePreview(target, category, final, stage);
+        for (const r of rows) {
+            const v = readRow(root, r.index);
+            const mitigation = v.mitigation + (isSocial ? v.bounty : 0);
+            const { final, stage } = computeDamage({ damageCard: r.targetRaw, mitigation, stun });
+            const fin  = root.querySelector(`[data-final="${r.index}"]`);
+            const note = root.querySelector(`[data-note="${r.index}"]`);
+            if (fin)  fin.textContent = String(final);
+            if (note) note.textContent = describeDamagePreview(r.actor, applyCat, final, stage);
+        }
     };
 
-    const { spinnerDialogActions } = await import("./tnx-dialog.mjs");
     const result = await foundry.applications.api.DialogV2.wait({
-        window: { title: `ダメージ軽減: ${target.name}` },
+        window: { title: `ダメージ軽減: ${rows.length}体` },
         classes: ["tokyo-nova", "tnx-dialog", "tnx-damage-dialog"],
-        position: { width: 440 },
+        position: { width: 460 },
         content,
-        actions: spinnerDialogActions,
+        actions: spinnerDialogActions, // ± ボタン(number-input-spinner)。step 後に input 発火→ライブプレビュー更新
         buttons: [
-            { action: "apply", icon: "fas fa-burst", label: "ダメージ適用", default: true,
-              callback: (_e, _b, dialog) => readForm(dialog.element) },
+            { action: "apply", icon: "fas fa-burst", label: "ダメージ適用（全対象）", default: true,
+              callback: (_e, _b, dialog) => rows.map(r => readRow(dialog.element, r.index)) },
             { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
         ],
         render: (_event, dialog) => {
@@ -646,29 +769,34 @@ async function openMitigationDialog(message) {
     });
     if (!result) return;
 
-    // 軽減の合成(手動+社会の報酬点。用途タイプのダメージ軽減は廃止=手動軽減欄に入力する・2026-07-11)
-    let mitigationTotal = result.mitigation;
-    const bounty = category === "social" ? result.bounty : 0;
-    mitigationTotal += bounty;
-
-    // 適用効果の同時適用(2026-07-12 ユーザー確定): 用途の適用効果はダメージ適用と**同時に自動で**
-    // 対象へ付与する(手動ボタンの押し順=順序依存を消す。チャート適用より先に付与するため、
-    // タグ改変 AE(damage.replaceTag/addTag)が同じクリックの中で正しく効く)。未適用時のみ動く
+    // 適用効果の同時適用(2026-07-12 ユーザー確定): チャート適用より先に付与(未適用時のみ)
     await applyUsageEffectsFromMessage(message);
 
-    const { final, stage } = computeDamage({ damageCard: raw, mitigation: mitigationTotal, stun });
-    // 説得(精神攻撃のスタン宣言)は、チャートの効果タグ(戦闘不能)を付けず BS のみ付与する
-    const applyText = await applyDamageToTarget(target, category, final, stage, { persuade: stun && category === "mental" });
+    // 全対象へ適用(対象ごとに軽減→最終→チャート・スタン/説得は算出段階で10上限済み)
+    const appliedTargets = [];
+    for (const r of rows) {
+        const v = result[r.index] ?? { mitigation: 0, bounty: 0 };
+        const bounty = isSocial ? v.bounty : 0;
+        const mitigationTotal = v.mitigation + bounty;
+        // r.targetRaw=共有攻撃側合計にその対象の防御側 modifyDamage を反映済み(per-target)
+        const { final, stage } = computeDamage({ damageCard: r.targetRaw, mitigation: mitigationTotal, stun });
+        // 説得(精神攻撃のスタン宣言)は、チャートの効果タグ(戦闘不能)を付けず BS のみ付与する。
+        // 別系統として適用する場合は説得の意味論が対応しないため付けない(元系統=精神の通常適用時のみ)
+        const applyText = await applyDamageToTarget(r.actor, applyCat, final, stage,
+            { persuade: stun && category === "mental" && applyCat === "mental" });
+        appliedTargets.push({
+            name: r.name,
+            mitigation: v.mitigation,
+            mitigationNote: v.mitigation === r.autoMitigation ? r.mitigationParts.join("・") : "手動入力",
+            // 防御側 modifyDamage の合計(あれば適用済み表示に出す)
+            defenderMod: r.modsSum || 0,
+            bounty, final, stage, applyText,
+        });
+    }
 
     await applyDamagePatch(message, {
         applied: true,
-        appliedResult: {
-            mitigation: result.mitigation,
-            mitigationNote: result.mitigation === autoMitigation ? mitigationParts.join("・") : "手動入力",
-            bounty,
-            final, stage,
-            applyText,
-        },
+        appliedResult: { targets: appliedTargets, ...(isAltApply ? { applyCategory: applyCat } : {}) },
     });
 }
 

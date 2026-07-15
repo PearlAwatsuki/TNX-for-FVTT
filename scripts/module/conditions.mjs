@@ -37,9 +37,10 @@ const BS_AND_INCAPACITATION = {
   "poison":       { label: "邪毒",     group: "bs", img: "icons/svg/poison.svg",     type: "continuous", magnitudeField: true, stackable: false },
   // 重圧: 能力値は指定/未指定(受ける際に引く)あり。abilityField 空欄可(空欄=指定なし=カードで決定)。
   "pressure":     { label: "重圧",     group: "bs", img: "icons/svg/down.svg",       type: "block", block: "abilityCheck", abilityField: "optional", abilityBlankLabel: "指定なし（カードで決定）", stackable: false },
-  // 衰弱: 数字なし=引いたスート1つの制御値を引いた数字分(対象・数字とも引く)/ (-数字)=全制御値。
-  // 対象は選択でなく引いて決まるため abilityField なし。当面 magnitude のみ(空欄=全制御)。
-  "weakness":     { label: "衰弱",     group: "bs", img: "icons/svg/degen.svg",      type: "numeric", apply: "control", magnitudeField: true, stackable: true },
+  // 衰弱: 数字なし=引いたスート1つの制御値を引いた数字分/ (-数字)=全制御値。通常は引いて決まるが、
+  // 手動編集(効果編集ダイアログ)で対象制御値も指定できるよう abilityField 追加(空=全制御値)。
+  // 適用側は targetAbility 指定=その制御値のみ/未指定=全制御値を既に扱う(conditions.mjs §3①)。
+  "weakness":     { label: "衰弱",     group: "bs", img: "icons/svg/degen.svg",      type: "numeric", apply: "control", magnitudeField: true, abilityField: "optional", stackable: true },
   "capture":      { label: "捕縛",     group: "bs", img: "icons/svg/net.svg",        type: "block", block: "attackWith", weaponField: true, stackable: true },
   // 酩酊: 減少量は固定(小-2 / 大-5)。小↔大は別BSで重なる。
   "doped-major":  { label: "酩酊(大)", group: "bs", img: "icons/svg/daze.svg",       type: "numeric", apply: "checkAndControl", fixedMagnitude: 5, stackable: false },
@@ -131,6 +132,7 @@ export function readConditions(effect) {
       magnitude,
       targetAbility: v.targetAbility || f.targetAbility || null,
       targetUuid:    v.targetUuid || f.targetUuid || null,
+      targetWeapon:  v.targetWeapon || f.targetWeapon || null,
       targetMode:    def?.targetMode ?? null,
       durationUnit:  v.durationUnit ?? f.durationUnit ?? null,
     };

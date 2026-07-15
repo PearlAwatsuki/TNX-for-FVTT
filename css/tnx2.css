@@ -1158,7 +1158,8 @@
     border: none;
 }
 .tokyo-nova.sheet.actor .tnx-bs-label {
-    flex: 1;
+    /* 効果名は内容幅を保つ(効果値と分離・2026-07-15)。極端に長い名前だけ省略 */
+    flex: 0 1 auto;
     font-size: 0.88em;
     font-family: var(--tnx2-font-mono);
     color: var(--tnx2-text-secondary);
@@ -1166,6 +1167,21 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+/* 効果値: 残り幅に入りきらない場合は squeeze-text(scaleX)で縮小して収める(衰弱の長い効果値等) */
+.tokyo-nova.sheet.actor .tnx-bs-value-wrap {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+}
+.tokyo-nova.sheet.actor .tnx-bs-value {
+    display: inline-block;
+    white-space: nowrap;
+    transform-origin: left center;
+    font-size: 0.88em;
+    font-family: var(--tnx2-font-mono);
+    color: var(--tnx2-text-primary);
+    line-height: 1.2;
 }
 
 /* 編集モード: ホバーで削除インジケーター */
@@ -4289,6 +4305,9 @@ body.tnx-bottom-hud-expanded #hotbar {
 .cr-calc-label {
     font-size: 0.9em;
     color: var(--tnx2-text-secondary);
+    /* 短いラベル(攻撃/目標値 等)は折り返さず横に保ち、長い値側を折り返させる(2026-07-15) */
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .cr-calc-val {
@@ -4297,6 +4316,9 @@ body.tnx-bottom-hud-expanded #hotbar {
     color: var(--tnx2-text-primary);
     text-align: right;
     min-width: 2.5em;
+    /* ラベルを潰さず、長い内容(攻撃者→対象名 等)はこちらで折り返す */
+    overflow-wrap: anywhere;
+    padding-left: 5px;
 }
 
 /* 達成値合計行 */
@@ -4311,6 +4333,12 @@ body.tnx-bottom-hud-expanded #hotbar {
     font-size: 0.95em;
     font-weight: 600;
     color: var(--tnx2-text-primary);
+    /* 合計行だけは例外: 対象名込みの長いラベルを折り返させ、右の数値を潰さない(2026-07-15)。
+       基底の nowrap/flex-shrink:0 を打ち消す */
+    flex-shrink: 1;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .cr-total-num {
@@ -4320,6 +4348,9 @@ body.tnx-bottom-hud-expanded #hotbar {
     color: var(--tnx2-text-accent);
     text-align: right;
     line-height: 1;
+    /* 合計値は一続きの数字として保つ(狭いカードでの縦折り返しを防ぐ・2026-07-15) */
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 /* 判定ボーナス行＝開閉トグル (▶判定ボーナス … +N、開くとエフェクト名一覧) */
@@ -5304,6 +5335,25 @@ body.tnx-bottom-hud-expanded #hotbar {
 .tnx-amount-dialog .number-input-spinner {
     flex-shrink: 0;
     margin-top: 2px;
+}
+
+/* 技能/対象選択ダイアログ: ラベルを全幅で上に置き(折り返さず読める)、プルダウンは広げない
+   (2026-07-15 ユーザー指摘: ラベル領域は広く・プルダウンは狭いまま) */
+.tnx-select-dialog .form-group {
+    flex-direction: column;
+    align-items: stretch;
+}
+.tnx-select-dialog .form-group > label {
+    flex: none;
+    width: 100%;
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+.tnx-select-dialog .form-fields {
+    flex: none;
+}
+.tnx-select-dialog select {
+    max-width: 240px;
 }
 
 /* ================================================================
@@ -7376,6 +7426,70 @@ button.tnx-create-act-button span {
     padding: 0;
 }
 
+/* ── 攻撃カードの目標リスト(複数対象一括・D&D 風・2026-07-15) ── */
+.tnx-attack-targets {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin: 4px 0;
+}
+.tnx-attack-targets__head {
+    font-size: 0.8em;
+    color: var(--tnx2-text-secondary);
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    padding-bottom: 2px;
+}
+.tnx-attack-target {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.86em;
+    padding: 2px 0;
+}
+.tnx-attack-target__icon {
+    flex: 0 0 auto;
+    opacity: 0.8;
+}
+.tnx-attack-target__name {
+    flex: 1 1 auto;
+    font-weight: 600;
+}
+.tnx-attack-target__val {
+    flex: 0 0 auto;
+    color: var(--tnx2-text-secondary);
+}
+.tnx-attack-target__verdict {
+    flex: 0 0 auto;
+    font-size: 0.9em;
+}
+.tnx-attack-target--hit .tnx-attack-target__verdict {
+    color: #e86060;
+}
+.tnx-attack-target--pending .tnx-attack-target__verdict {
+    color: var(--tnx2-text-accent);
+}
+
+/* ── 個別リアクションカード(複数対象一括・2026-07-15): 状態領域の余白を他カードに合わせる。
+   解決後は目標値/差分を cr-calc-section へ足し成否は cr-result フルバナー(check-result と同型)、
+   未解決の注記/ボタンはカード内側余白のラッパへ入れる ── */
+.tnx-reaction-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 12px 10px;
+}
+
+/* ── 軽減ダイアログの対象ごとの行(複数対象一括) ── */
+.tnx-damage-target-row {
+    border-top: 1px solid var(--tnx2-border-subtle);
+    padding-top: 6px;
+    margin-top: 6px;
+}
+.tnx-damage-target-name {
+    font-weight: 600;
+    margin-bottom: 3px;
+}
+
 /* ── 用途の適用効果ブロック(結果カード共通・2026-07-10) ──
    カード内側の余白に合わせる(見出しは cr-head を使用・2026-07-11) */
 .tnx-usage-effect-block {
@@ -7466,6 +7580,28 @@ button.tnx-create-act-button span {
 }
 .tnx-damage-status:empty {
     display: none;
+}
+
+/* 別のダメージとして適用: 展開式の追加導線(2026-07-16) */
+.tnx-damage-altapply {
+    border-top: 1px dashed var(--tnx2-border-subtle);
+    padding-top: 6px;
+}
+.tnx-damage-altapply > summary {
+    padding: 2px 0;
+    color: var(--tnx2-text-secondary);
+    font-size: 0.85em;
+    cursor: pointer;
+}
+.tnx-damage-altapply > button {
+    margin-top: 6px;
+}
+.tnx-damage-altnote {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--tnx2-text-secondary);
+    font-size: 0.85em;
 }
 .tnx-damage-card .cr-result {
     padding: 4px 0 0;

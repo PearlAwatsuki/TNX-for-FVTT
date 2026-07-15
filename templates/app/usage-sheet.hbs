@@ -297,6 +297,23 @@
                 <p class="usage-formula-line">達成値 ＝ カード ＋ 能力値 ＋ 報酬点 ＋ 判定バフ ＋ 判定修正値 ＋ 判定ボーナス</p>
             </fieldset>
 
+            {{!-- リアクション(2026-07-15): リアクション用途の追加挙動。当面は全用途に表示。 --}}
+            <fieldset class="tnx-fieldset">
+                <legend>リアクション</legend>
+                <div class="usage-form-row usage-toggle-row">
+                    <label class="usage-toggle-inline">
+                        <input type="checkbox" name="reactionAreaAttack" {{checked usage.reactionAreaAttack}}
+                               {{#unless editable}}disabled{{/unless}}>
+                        <span>範囲攻撃へのリアクション</span>
+                    </label>
+                    <label class="usage-toggle-inline">
+                        <input type="checkbox" name="reactionFailsAttack" {{checked usage.reactionFailsAttack}}
+                               {{#unless editable}}disabled{{/unless}}>
+                        <span>攻撃を失敗させる</span>
+                    </label>
+                </div>
+            </fieldset>
+
             {{!-- 攻撃プロファイル(2026-07-09): 攻撃は判定の一種。「攻撃に使う」トグルで系統・武器・種別を出す。
                  系統=Damage_Rules の3系統。武器・ダメージ種別は物理のみ(精神・社会は攻撃力を持たない) --}}
             <fieldset class="tnx-fieldset usage-attack-section">

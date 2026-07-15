@@ -727,46 +727,52 @@ export class TnxCheckFlow {
             await postAttackCard({ payload: ctx.attack, result, suit, cardCheckValue, card, fromDeck, trumpUsed, suitMismatch, recheckCtx });
         } else if (ctx.movement) {
             const { postMovementCard } = await import("./vehicle-move.mjs");
-            await postMovementCard({ payload: ctx.movement, result, suit, card, fromDeck, trumpUsed, suitMismatch });
-        } else {
+            await postMovementCard({ payload: ctx.movement, result, suit, card, fromDeck, trumpUsed, suitMismatch, recheckCtx });
+        } else if (!ctx.reaction) {
+            // リアクションは通常の結果カードを出さない(2026-07-15 ユーザー確定)。書き換わった
+            // リアクションカードが結果カードそのもの。再判定/修正の導線もリアクションカードへ載せる
+            // (recheckCtx は下の completeReactionFromCheck がリアクションカードに保存する)。
             await TnxCheckFlow._postResultChat({ ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch, checkSources: checkInfo.sources, recheckCtx });
         }
 
         // controlNegate(BS の無効/降格)の完了継続: 判定は上の通常経路そのもので行われ、
         // ここでは結果の適用のみ行う(2026-07-08 ユーザー裁定)。帰結テキストを result に載せ、
         // 下の emitCheckResult 経由で要求カードをライブ書き換えする(別の結果カードは出さない)
-        if (ctx.controlNegate) {
+        // 継続処理の初回適用。再判定(ctx.recheckMessageId)では _applyRecheckReplacement 内の
+        // _rerunContinuation が種別ごとに再実行するため、ここでは二重実行しないようゲートする(2026-07-15)。
+        if (!ctx.recheckMessageId && ctx.controlNegate) {
             const { resolveControlNegateFromCheck } = await import("./condition-resolution.mjs");
             const negate = await resolveControlNegateFromCheck(ctx.controlNegate, result);
             if (negate) result.negateOutcome = negate;
         }
 
-        // RL 要求フロー: GM に結果を送信
+        // RL 要求フロー: GM に結果を送信(再判定でも要求カードは追随させるためゲートしない)
         if (ctx.requestMessageId) {
             TnxSocketHandler.emitCheckResult(ctx.requestMessageId, ctx.actorId, result);
         }
 
         // NPC取得(11-6): 取得判定の完了継続(heads/sourceName 転記・トークン配置)。
         // npc-acquisition は本フロー(TnxCheckFlow.open)を import するため動的 import で循環を避ける
-        if (ctx.npcAcquire) {
+        if (!ctx.recheckMessageId && ctx.npcAcquire) {
             const { completeAcquisitionFromCheck } = await import("./npc-acquisition.mjs");
             await completeAcquisitionFromCheck(ctx.npcAcquire, result);
         }
 
-        // リアクション判定の完了継続(12-2): 攻撃カード上で対決を解決する
-        if (ctx.reaction) {
+        // リアクション判定の完了継続(12-2): 攻撃カード上で対決を解決し、リアクションカードを結果カード化。
+        // recheckCtx をリアクションカードに保存し、再判定/修正の導線をそこに載せる(2026-07-15)。
+        if (!ctx.recheckMessageId && ctx.reaction) {
             const { completeReactionFromCheck } = await import("./attack-flow.mjs");
-            await completeReactionFromCheck(ctx.reaction, result, { suitMismatch });
+            await completeReactionFromCheck(ctx.reaction, result, { suitMismatch, recheckCtx });
         }
 
         // 治療判定の完了継続(12): 成功で負傷＋紐づき戦闘不能＋非BS効果を除去する
-        if (ctx.treatment) {
+        if (!ctx.recheckMessageId && ctx.treatment) {
             const { resolveTreatmentFromCheck } = await import("./treatment-flow.mjs");
             await resolveTreatmentFromCheck(ctx.treatment, result);
         }
 
         // 回復判定の完了継続(2026-07-13): 成功で選択済みの状態(BS/戦闘不能/負傷)を除去する
-        if (ctx.recovery) {
+        if (!ctx.recheckMessageId && ctx.recovery) {
             const { resolveRecoveryFromCheck } = await import("./recovery-flow.mjs");
             await resolveRecoveryFromCheck(ctx.recovery, result);
         }
@@ -857,6 +863,9 @@ export class TnxCheckFlow {
         const message = game.messages.get(ctx.recheckMessageId);
         if (!message) { ui.notifications.warn("再判定する元のカードが見つかりません。"); return; }
 
+        // 継続判定(治療/回復/controlNegate=B)の「失敗→成功のみ適用」ゲート用に旧成否を控える
+        const oldSuccess = message.getFlag(SCOPE, "checkResult")?.result?.success === true;
+
         const patch = {
             [`flags.${SCOPE}.checkRecheck.rechecked`]: true,
             [`flags.${SCOPE}.-=checkMods`]: null,
@@ -864,12 +873,15 @@ export class TnxCheckFlow {
         };
 
         if (ctx.attack) {
+            // 命中判定は全対象で共有(複数対象一括・2026-07-15)。再ロールした達成値で対象リスト全体を
+            // 再解決し(リアクションのやり直しはしない)、上位状態も導き直す。
             const prev = message.getFlag(SCOPE, "attackCheck") ?? {};
-            const { buildAttackCardContent } = await import("./attack-flow.mjs");
-            const { resolveAttackRecheckState } = await import("./attack-flow-logic.mjs");
-            const st = resolveAttackRecheckState(prev, {
-                achievement: result.achievement, fumble: result.fumble === true, suitMismatch,
+            const { buildAttackCardContent, rebuildRecheckedTargets } = await import("./attack-flow.mjs");
+            const newTargets = await rebuildRecheckedTargets(prev.targets ?? [], {
+                achievement: result.achievement, fumble: result.fumble === true, suitMismatch, suit,
             });
+            const overall = result.fumble ? "fumble"
+                : (suitMismatch ? "miss" : ((prev.targets?.length) ? "active" : "open"));
             patch.content = await buildAttackCardContent({
                 payload: ctx.attack, result, suit, card, fromDeck, trumpUsed, suitMismatch, isRecheck: true,
             });
@@ -877,15 +889,17 @@ export class TnxCheckFlow {
             patch[`flags.${SCOPE}.attackCheck.cardValue`] =
                 cardCheckValue === "FIXED_21" ? 11 : (Number.isFinite(cardCheckValue) ? cardCheckValue : 0);
             patch[`flags.${SCOPE}.attackCheck.suit`] = suit;
-            patch[`flags.${SCOPE}.attackCheck.state`] = st.state;
-            patch[`flags.${SCOPE}.attackCheck.resolution`] = st.resolution;
-            patch[`flags.${SCOPE}.attackCheck.diff`] = st.diff;
-            if (st.targetValue !== undefined) {
-                // 仕切り直し(リアクション未実施へ戻る): 対決系の保存値を初期化する
-                patch[`flags.${SCOPE}.attackCheck.targetValue`] = st.targetValue;
-                patch[`flags.${SCOPE}.attackCheck.reactionAchievement`] = st.reactionAchievement;
-                patch[`flags.${SCOPE}.attackCheck.parryGuard`] = st.parryGuard;
-            }
+            patch[`flags.${SCOPE}.attackCheck.state`] = overall;
+            patch[`flags.${SCOPE}.attackCheck.targets`] = newTargets;
+        } else if (ctx.movement) {
+            // 操縦移動は通常結果カードでなく移動カード。達成値÷10 段階を新達成値で描き直す(表示のみ=A)
+            const { buildMovementCardContent } = await import("./vehicle-move.mjs");
+            patch.content = await buildMovementCardContent({
+                payload: ctx.movement, result, suit, card, fromDeck, trumpUsed, suitMismatch, isRecheck: true,
+            });
+        } else if (ctx.reaction) {
+            // リアクションは元カードがリアクションカード(結果カード化済み)。本文は attackReaction フラグから
+            // renderReactionCard が描くため上書きしない。下の _rerunContinuation が対決を再解決し表示を更新する。
         } else {
             patch.content = await TnxCheckFlow._renderResultContent({
                 ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch, checkSources, isRecheck: true,
@@ -895,9 +909,22 @@ export class TnxCheckFlow {
         // フラグ・本文の更新(非作者・非GM は GM へ委譲=事後修正と同じ経路)
         if (game.user.isGM || message.isAuthor) {
             await message.update(patch);
+            // 攻撃の再判定: 未解決の個別リアクションカードを新しい攻撃達成値へ追従(全体失敗なら削除)。
+            // 攻撃カードの author=攻撃者か GM がここに来るため、リアクションカードも更新権限がある(2026-07-15)
+            if (ctx.attack) {
+                const { refreshReactionCardsAfterRecheck } = await import("./attack-flow.mjs");
+                await refreshReactionCardsAfterRecheck(message, {
+                    achievement: result.achievement, suit,
+                    wholeFail: result.fumble === true || suitMismatch === true,
+                });
+            }
         } else {
             TnxSocketHandler.emitCheckModify(message.id, patch);
         }
+
+        // 継続処理の再実行(2026-07-15・リアクション対決再解決/治療等の失敗→成功のみ適用/NPC・移動は表示のみ)。
+        // 各ハンドラが所有権に応じて GM 委譲するため、再判定者クライアントでそのまま呼ぶ。
+        await TnxCheckFlow._rerunContinuation(ctx, result, { oldSuccess });
     }
 
     /**
@@ -905,13 +932,17 @@ export class TnxCheckFlow {
      * 結果カードのフラグに保存できる形で組み立てる。**スナップショットは常時保存**し、
      * プレイヤーの直接入口(数字クリック)だけを用途の「再判定可能」(allowRecheck)でゲートする——
      * 事後付与(grantRecheck=達成値クリック)や GM メニューが判定後に働くための前提。
-     * 継続処理を持つ判定(リアクション/NPC取得/治療/移動/controlNegate)は再実行に状態機械の
-     * リセットが要るため当面対象外(null)。
+     * 継続処理を持つ判定の再判定(2026-07-15 ユーザー確定・全種対応)。継続文脈を rc に載せ、
+     * 再判定/修正の着地で `_rerunContinuation` が種別ごとに再実行する(A=対決再解決/B=失敗→成功のみ適用/
+     * C=表示のみ)。よって除外はしない(スナップショットは常時保存)。
      * @param {object} ctx 判定コンテキスト
      * @returns {object|null}
      */
     static _buildRecheckContext(ctx) {
-        if (ctx.reaction || ctx.npcAcquire || ctx.treatment || ctx.recovery || ctx.movement || ctx.controlNegate) return null;
+        const cont = {};
+        for (const k of ["reaction", "treatment", "recovery", "controlNegate", "npcAcquire", "movement"]) {
+            if (ctx[k]) cont[k] = ctx[k];
+        }
         return {
             allowRecheck:    ctx.allowRecheck === true, // true=結果カードに「再判定」ボタンを出す
             allowSuitChange: ctx.allowSuitChange === true, // スート変更可能(用途の設定・再判定でも維持)
@@ -931,7 +962,39 @@ export class TnxCheckFlow {
             requestMessageId: ctx.requestMessageId ?? null,
             ...(ctx.attack ? { attack: ctx.attack } : {}),
             ...(ctx.usageEffects ? { usageEffects: ctx.usageEffects } : {}),
+            ...cont, // 継続文脈(reaction/treatment/recovery/controlNegate/npcAcquire/movement)
         };
+    }
+
+    /**
+     * 継続処理を再判定/修正の結果で再実行する(2026-07-15・A/B/C 別)。
+     * - A(リアクション): 対決を再解決(両方向・副作用なし=`allowResolved`で解決済みでも再解決)。
+     * - B(治療/回復/controlNegate): **失敗→成功の遷移でのみ**副作用を適用(冪等な除去ハンドラを再呼び)。
+     *   成功→失敗は表示のみ(手動復元)。旧成否 `oldSuccess` で遷移をゲート。
+     * - C(NPC取得)・移動: 表示のみ(ここでは再実行しない。移動カードの再描画は _applyRecheckReplacement)。
+     * @param {object} cc 継続キーを持つオブジェクト(ctx か checkRecheck スナップショット)
+     * @param {object} result 新しい判定結果(success/achievement/fumble)
+     * @param {{oldSuccess?:boolean}} [opts] 旧成否(B の遷移ゲート)
+     */
+    static async _rerunContinuation(cc, result, { oldSuccess = false } = {}) {
+        if (!cc) return;
+        if (cc.reaction) {
+            const { completeReactionFromCheck } = await import("./attack-flow.mjs");
+            await completeReactionFromCheck(cc.reaction, result, { allowResolved: true });
+            return;
+        }
+        const applyGate = result.success === true && oldSuccess !== true; // 失敗→成功のみ(B)
+        if (cc.treatment && applyGate) {
+            const { resolveTreatmentFromCheck } = await import("./treatment-flow.mjs");
+            await resolveTreatmentFromCheck(cc.treatment, result);
+        } else if (cc.recovery && applyGate) {
+            const { resolveRecoveryFromCheck } = await import("./recovery-flow.mjs");
+            await resolveRecoveryFromCheck(cc.recovery, result);
+        } else if (cc.controlNegate && applyGate) {
+            const { resolveControlNegateFromCheck } = await import("./condition-resolution.mjs");
+            await resolveControlNegateFromCheck(cc.controlNegate, result);
+        }
+        // npcAcquire / movement: 表示のみ(再実行なし)
     }
 
     /**
@@ -1013,6 +1076,13 @@ export class TnxCheckFlow {
             manualMod:       rc.manualMod,
             ...(rc.attack ? { attack: rc.attack } : {}),
             ...(rc.usageEffects ? { usageEffects: rc.usageEffects } : {}),
+            // 継続文脈を再判定の実行 ctx へ引き継ぐ(_applyRecheckReplacement が種別ごとに再実行する・2026-07-15)
+            ...(rc.reaction ? { reaction: rc.reaction } : {}),
+            ...(rc.treatment ? { treatment: rc.treatment } : {}),
+            ...(rc.recovery ? { recovery: rc.recovery } : {}),
+            ...(rc.controlNegate ? { controlNegate: rc.controlNegate } : {}),
+            ...(rc.npcAcquire ? { npcAcquire: rc.npcAcquire } : {}),
+            ...(rc.movement ? { movement: rc.movement } : {}),
             allowRecheck:    rc.allowRecheck === true, // 元と同じゲート(付与再判定で権利は増やさない)
             allowSuitChange: rc.allowSuitChange === true,
             isRecheck:       true,
@@ -1148,6 +1218,14 @@ export class TnxCheckFlow {
             return;
         }
 
+        // A の 21固定=バフもデバフも無視する完全固定(2026-07-15 ユーザー確定)。engine 段階でも報酬点・
+        // 能力値・判定バフ/ボーナス・状況修正は無視済みだが、通常経路の事後修正(用途「判定を修正」)も弾く。
+        // GM 手動(manual)は管理者権限の最終裁定として通す。
+        if (checkF?.result?.fixedAt21 === true && !manual) {
+            ui.notifications.warn("21固定（Aの完全固定）の判定は事後修正できません。");
+            return;
+        }
+
         const prevAch = Number(attackF?.achievement ?? checkF?.result?.achievement) || 0;
         let mod, label, overrideTo;
         if (manual) {
@@ -1179,20 +1257,23 @@ export class TnxCheckFlow {
         // 消費(用途の consumeTargets)は適用の確定時
         if (consumeUses?.length) await applyConsumptionPlan(consumeUses);
 
-        // 達成値の更新と帰結の再計算(上書きは差分に正規化済み=既存の合算機構にそのまま乗る)
-        const newAch = prevAch + mod;
+        // 達成値の更新と帰結の再計算(上書きは差分に正規化済み=既存の合算機構にそのまま乗る)。
+        // 事後修正でも達成値は 0 未満にならない(下限クランプ・2026-07-15 ユーザー確定)
+        const newAch = Math.max(0, prevAch + mod);
         const mods = foundry.utils.deepClone(message.getFlag(SCOPE, "checkMods") ?? { rows: [] });
         mods.rows.push({ label, value: mod, ...(overrideTo !== undefined ? { overrideTo } : {}) });
         mods.achievement = newAch;
 
         const patch = {};
         patch[`flags.${SCOPE}.checkMods`] = mods;
+        let newSuccess = checkF?.result?.success === true; // 継続再実行の遷移判定用(目標値つきは下で更新)
         if (checkF) {
             patch[`flags.${SCOPE}.checkResult.result.achievement`] = newAch;
             // 目標値つきは成否・差分値を再計算(差分値は成功時のみ=Check_Rules)
             const tv = rc?.targetValue ?? null;
             if (tv !== null && !attackF) {
                 const success = newAch >= tv;
+                newSuccess = success;
                 const diff = success ? newAch - tv : null;
                 patch[`flags.${SCOPE}.checkResult.result.diff`] = diff;
                 mods.success = success;
@@ -1227,6 +1308,11 @@ export class TnxCheckFlow {
             if (mods.diff !== undefined) result.diff = mods.diff;
             TnxSocketHandler.emitCheckResult(rc.requestMessageId, rc.actorId, result);
         }
+
+        // 継続処理の再実行(再判定と同型・2026-07-15): rc に載る継続文脈を新達成値で再実行。
+        // リアクション=対決再解決/治療・回復・controlNegate=失敗→成功のみ適用/NPC・移動=表示のみ。
+        await TnxCheckFlow._rerunContinuation(rc, { achievement: newAch, success: newSuccess, fumble: false },
+            { oldSuccess: checkF?.result?.success === true });
     }
 
     /**

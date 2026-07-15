@@ -9,6 +9,7 @@
             data-tooltip="{{bs.details}}">
             <img src="{{bs.img}}" class="tnx-bs-icon"/>
             <span class="tnx-bs-label">{{bs.name}}</span>
+            {{#if bs.valueSuffix}}<span class="tnx-bs-value-wrap"><span class="tnx-bs-value squeeze-text">{{bs.valueSuffix}}</span></span>{{/if}}
             {{#if ../isEditMode}}<i class="fas fa-times tnx-bs-remove"></i>{{/if}}
         </button>
         {{/each}}

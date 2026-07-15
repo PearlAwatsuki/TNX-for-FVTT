@@ -972,6 +972,10 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             targetValueOther:  raw["targetValueOther"]  ?? usage.targetValueOther,
 
             isUnopposable: raw["isUnopposable"] ?? usage.isUnopposable,
+
+            // リアクション用途の追加挙動(2026-07-15・全用途で保持)
+            reactionAreaAttack:  raw["reactionAreaAttack"]  ?? usage.reactionAreaAttack,
+            reactionFailsAttack: raw["reactionFailsAttack"] ?? usage.reactionFailsAttack,
         };
 
         // 判定ボーナス/ダメージ修正の行(式＋供給元)を indexed 入力から再構成する(consumeTargets と同型)。

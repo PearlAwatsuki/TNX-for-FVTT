@@ -1,0 +1,21 @@
+{{!-- 個別リアクションカード(フェーズ12・複数対象一括・2026-07-15)。攻撃対象ごとに投稿し、
+     表示は GM＋対象所有者に whisper。未解決=リアクションボタン/解決後=判定結果様の表示は
+     renderChatMessageHTML(attack-flow.renderReactionCard)がフラグ(attackReaction)から描画する。
+     結果確定で whisper が解除され全体公開される。 --}}
+<div class="tnx-check-result tnx-reaction-card tokyo-nova">
+    <div class="cr-head">
+        <span class="cr-skill-name">リアクション</span>
+        <span class="cr-type-tag">{{categoryLabel}}</span>
+    </div>
+    <div class="cr-calc-section">
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">攻撃</span>
+            <span class="cr-calc-val">{{attackerName}} → {{targetName}}</span>
+        </div>
+        <div class="cr-calc-row cr-total-row">
+            <span class="cr-calc-label">攻撃達成値 <span class="cr-suit suit-{{suit}}">{{suitSymbol}}</span></span>
+            <span class="cr-total-num">{{achievement}}</span>
+        </div>
+    </div>
+    <div class="tnx-reaction-status"></div>
+</div>

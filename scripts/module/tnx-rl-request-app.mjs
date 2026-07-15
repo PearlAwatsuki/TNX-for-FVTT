@@ -12,7 +12,7 @@
  *   5. 判定結果がチャットに追記される
  */
 
-import { getComboSuits, comboUsesBounty, ALL_SUITS } from './tnx-check-engine.mjs';
+import { ALL_SUITS } from './tnx-check-engine.mjs';
 import { TnxCheckFlow } from './tnx-check-flow.mjs';
 import { buildSkillOptions } from './skill-select.mjs';
 import { findItemByIdentificationKey } from './identification.mjs';
@@ -285,52 +285,35 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
             targetValue,
         } = flagData;
 
-        const actorBounty = (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0);
-        let skillIds          = [];
-        let resolvedValidSuits = flagSuits?.length ? [...flagSuits] : [...ALL_SUITS];
-        let bountyAvailable   = 0;
-        let effectiveSkillLabel = skillLabel;
-        let substitution = null;
-        let manualMod = 0;
-
+        // 技能判定(識別キーで技能を指定): 起動は唯一の起動関数へ集約(2026-07-15 ユーザー確定)。
+        // 用途・コンボ・消費・判定ボーナス・適用効果はシートの技能クリックと全く同じ処理で解決し、
+        // ここでは判定要求文脈(要求元・目標値・代用)だけを注入する。
+        // 代用判定(2026-07-09): 指定技能を持たなくてもハードブロックせず、別技能で代用できる
+        // (可否・ペナルティの裁定は卓=修正は判定者が手入力)。組み合わせの可否はユーザー/RL が決める。
+        // ※能力値判定・制御判定・技能名のみ(識別キー無し)の要求は技能アイテムを起動しないため直接 open。
         if (checkType === "skillCheck" && identificationKey) {
-            // 識別キーでキャラクター上の技能を検索。
-            // 代用判定(2026-07-09 ユーザー確定): 技能が指定される判定は、指定と別の技能で
-            // 任意に代用できる(可否・ペナルティ修正の裁定は卓=修正は判定者が手入力)。
-            // 指定技能を持たない場合もハードブロックせず代用判定を提示する。
-            // ※能力値判定・制御判定は代用の対象外(技能判定内でのみ代用が成立する)
             const matchedItem = findItemByIdentificationKey(actor, identificationKey, { type: "generalSkill" });
             const choice = await TnxRlRequestApp._promptSkillUse(actor, { matchedItem, requestedLabel: skillLabel });
             if (!choice) return;
-            skillIds           = [choice.item.id];
-            resolvedValidSuits = getComboSuits([choice.item.system]);
-            bountyAvailable    = comboUsesBounty([choice.item.system]) ? actorBounty : 0; // 単独技能(2026-07-10 統一)
-            if (!resolvedValidSuits.length) {
-                ui.notifications.warn(`「${choice.item.name}」には使用できるスートがありません。`);
-                return;
-            }
+            const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
+            const extra = { requestMessageId: messageId, targetValue: targetValue ?? null };
             if (choice.substitute) {
-                substitution = { requestedLabel: skillLabel, usedName: choice.item.name };
-                manualMod = choice.manualMod;
-                effectiveSkillLabel = choice.item.name;
+                extra.substitution = { requestedLabel: skillLabel, usedName: choice.item.name };
+                extra.manualMod = choice.manualMod;
             }
+            await TnxCharacterSheetBase._activateItemCheck(actor, choice.item, extra);
+            return;
         }
-        // abilityCheck: bountyAvailable = 0 (能力値判定では報酬点を消費できない・2026-07-10 ユーザー確定)
-        // controlCheck: bountyAvailable = 0 (default)
-        // skillCheck + その他: validSuits = flagSuits, bountyAvailable = 0
 
         await TnxCheckFlow.open({
             type:            checkType,
             actorId:         actor.id,
-            skillIds,
-            skillLabel:      effectiveSkillLabel,
-            validSuits:      resolvedValidSuits,
+            skillIds:        [],
+            skillLabel,
+            validSuits:      flagSuits?.length ? [...flagSuits] : [...ALL_SUITS],
             targetValue:     targetValue ?? null,
-            bountyAvailable,
+            bountyAvailable: 0,
             requestMessageId: messageId,
-            // 代用判定: 使用技能・指定・手動修正(達成値に加算)を判定フローへ渡す
-            substitution,
-            manualMod,
             // 制御判定要求が controlNegate(BS の無効/降格)由来の場合、完了継続で結果を適用する
             controlNegate:   flagData.controlNegate ?? null,
         });

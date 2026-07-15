@@ -113,7 +113,9 @@ export function calcSkillCheck({ cardCheckValue, suit, abilitiesCtx, bountyUsed 
         };
     }
 
-    const achievement = cardCheckValue + totalValue + bountyUsed + checkBonus + manualMod;
+    // 達成値は 0 未満にならない(ルール・2026-07-15 ユーザー確定)。AE 等のペナルティで計算途中は
+    // 負になり得るが、最終的な達成値は 0 まで戻す(下限クランプ)
+    const achievement = Math.max(0, cardCheckValue + totalValue + bountyUsed + checkBonus + manualMod);
     const success     = targetValue !== null ? achievement >= targetValue : null;
     return {
         fumble:      false,

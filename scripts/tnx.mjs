@@ -45,7 +45,7 @@ import { TnxRecordSheet } from './module/tnx-record-sheet.mjs';
 import { registerDrawTableHooks } from './module/tnx-draw-table.mjs';
 import { recordCastOwnerUser } from './module/cast-ownership.mjs';
 import { enforceUsageChainDefaultsOnImport } from './module/tnx-usage-sheet.mjs';
-import { renderAttackCard } from './module/attack-flow.mjs';
+import { renderAttackCard, renderReactionCard } from './module/attack-flow.mjs';
 import { renderDamageCard } from './module/damage-flow.mjs';
 import { renderUsageEffectButton } from './module/usage-effects.mjs';
 import { TnxSocketHandler } from './module/tnx-socket-handler.mjs';
@@ -491,8 +491,15 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
                     bind: (el) => el.addEventListener("change", (e) => setK(kind, "targetUuid", e.currentTarget.value.trim())) });
             }
             if (def.weaponField) {
-                fields.push({ label: "対象武器(識別キー)", html: `<input type="text" value="${v.targetWeapon ?? ""}" placeholder="識別キー">`,
-                    bind: (el) => el.addEventListener("change", (e) => setK(kind, "targetWeapon", e.currentTarget.value.trim())) });
+                // 対象武器の指定(捕縛): 対象キャラの武器＋生身から選ぶ。空=生身(攻撃の「攻撃で使用」と同型)。
+                // 保存はアイテム ID(生身=空)。効果は対象アクター上の効果なので parent の武器を列挙する。
+                const parentActor = app.document?.parent;
+                const weapons = parentActor?.items?.filter?.(i => i.type === "weapon") ?? [];
+                const cur = v.targetWeapon ?? "";
+                const opts = `<option value="" ${cur === "" ? "selected" : ""}>生身</option>`
+                    + weapons.map(i => `<option value="${i.id}" ${i.id === cur ? "selected" : ""}>${foundry.utils.escapeHTML(i.name)}</option>`).join("");
+                fields.push({ label: "対象武器", html: `<select>${opts}</select>`,
+                    bind: (el) => el.addEventListener("change", (e) => setK(kind, "targetWeapon", e.currentTarget.value)) });
             }
             if (!fields.length) continue; // 効果値なし/固定値の BS は欄を出さない
             const fs = document.createElement("fieldset");
@@ -738,6 +745,13 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
 Hooks.on("renderChatMessageHTML", (message, html) => {
     if (message.getFlag("tokyo-nova-axleration", "attackCheck")) {
         renderAttackCard(message, html);
+    }
+});
+
+// 個別リアクションカード(12・複数対象一括・2026-07-15): GM＋対象所有者に whisper・解決で全体公開
+Hooks.on("renderChatMessageHTML", (message, html) => {
+    if (message.getFlag("tokyo-nova-axleration", "attackReaction")) {
+        renderReactionCard(message, html);
     }
 });
 

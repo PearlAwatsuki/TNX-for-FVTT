@@ -137,6 +137,17 @@ describe("calcSkillCheck()", () => {
         const fx = calcSkillCheck({ cardCheckValue: "FIXED_21", suit: "club", abilitiesCtx: abilities, manualMod: 5, targetValue: 18 });
         expect(fx.achievement).toBe(21); // 21固定は完全固定(能力値・報酬点・修正を無視)
     });
+
+    it("達成値は 0 未満にならない(下限クランプ・2026-07-15 ユーザー確定)", () => {
+        // 大きなペナルティで計算途中は負でも、最終達成値は 0 まで戻す
+        const r = calcSkillCheck({ cardCheckValue: 2, suit: "spade", abilitiesCtx: abilities, manualMod: -20, targetValue: 12 });
+        expect(r.achievement).toBe(0); // 2+5-20 = -13 → 0
+        expect(r.success).toBe(false);
+        // 負の能力値実効値(AE ペナルティ)でも 0 下限
+        const negAbility = { reason: { totalValue: -30, totalControl: 0 } };
+        const r2 = calcSkillCheck({ cardCheckValue: 3, suit: "spade", abilitiesCtx: negAbility });
+        expect(r2.achievement).toBe(0); // 3+(-30) = -27 → 0
+    });
 });
 
 // ─── calcControlCheck ─────────────────────────────────────────────────────────

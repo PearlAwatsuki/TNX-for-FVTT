@@ -217,6 +217,16 @@ export class UsageTemplate extends SystemDataModel {
                     // 判定の前に使用→判定後にクリックで「直前使用のバフ」も表せる)。
                     modifyCheck: new fields.BooleanField({ initial: false }),
 
+                    // check(リアクション): リアクション用途の追加挙動(2026-07-15 ユーザー確定)。用途の
+                    // 「リアクション」セクションで設定する。両者は独立(成功/勝利が引き金)。
+                    // - reactionAreaAttack: 範囲攻撃へのリアクション。リアクション成功時、同じ攻撃の
+                    //   全対象を回避で解決する(リアクションした本人も対象の一人)。
+                    // - reactionFailsAttack: 攻撃を失敗させる。リアクションの勝利時、攻撃を「失敗」状態に
+                    //   する(全対象が被弾しない=各自がリアクションせずとも良い。攻撃者の行動はメイン
+                    //   プロセス終了時に通常消費・追加の状態は付与しない)。
+                    reactionAreaAttack: new fields.BooleanField({ initial: false }),
+                    reactionFailsAttack: new fields.BooleanField({ initial: false }),
+
                     // attack: ダメージ修正(ダメージへ加算する式の行・攻撃用途)。checkBonuses と同型。
                     // ダメージ算出時に評価するため @diff/@achievement も使える。
                     damageBonuses: new fields.ArrayField(
