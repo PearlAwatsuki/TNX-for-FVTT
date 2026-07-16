@@ -310,9 +310,5 @@ export async function applyUsageEffectsFromMessage(message) {
     // 出さない(2026-07-11 ユーザー指摘で撤去)
 
     // カードを適用済みに(全対象へ付与済みとみなす。author/GM でなければ GM へ委譲)
-    if (game.user.isGM || message.isAuthor) {
-        await message.update({ [`flags.${SCOPE}.usageEffects.applied`]: true });
-    } else {
-        TnxSocketHandler.emitUsageEffectApplied(message.id);
-    }
+    await TnxSocketHandler.applyMessagePatch(message, { applied: true }, "usageEffects");
 }

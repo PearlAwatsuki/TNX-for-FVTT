@@ -241,17 +241,10 @@ export async function executeConditionDraw(actor, effect, kind, message = null) 
     : `${ABIL[flags.targetAbility] ?? "?"}を使う判定が不可`;
 
   // 効果決定カード自身の状態領域を結果表示に置き換える(カードを分けない・2026-07-12)。
-  // フラグ更新は非作者なら GM へ委譲(checkModify=自スコープフラグ限定の汎用パッチ委譲を流用)
+  // フラグ更新は非作者なら GM へ委譲(applyMessagePatch=自スコープフラグ限定の汎用パッチ委譲)
   if (message) {
-    const patch = {
-      [`flags.${SCOPE}.conditionDraw.resolved`]: true,
-      [`flags.${SCOPE}.conditionDraw.suit`]: suit,
-      [`flags.${SCOPE}.conditionDraw.value`]: value,
-      [`flags.${SCOPE}.conditionDraw.wild`]: wild,
-      [`flags.${SCOPE}.conditionDraw.detail`]: detail,
-    };
-    if (game.user.isGM || message.isAuthor) await message.update(patch);
-    else TnxSocketHandler.emitCheckModify(message.id, patch);
+    await TnxSocketHandler.applyMessagePatch(message,
+      { resolved: true, suit, value, wild, detail }, "conditionDraw");
     return;
   }
   // 旧形式カード(フラグ無し・保存済みの静的ボタン)からの呼び出しは従来どおり別カードで記録

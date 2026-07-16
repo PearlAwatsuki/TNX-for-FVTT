@@ -900,7 +900,7 @@ export class TnxCheckFlow {
      * - 攻撃: リアクションのやり直しはしない=解決済みなら保存済みの相手値で成否・差分を再解決
      *   (resolveAttackRecheckState)。ダメージ算出後は startRecheck 側でタイミング不可として弾く。
      * - 一度だけ: checkRecheck.rechecked=true(再判定系は「1度だけ」の能力)。以後の導線は閉じる。
-     * - 非作者は GM へソケット委譲(checkModify・content 込み)。
+     * - 非作者は GM へソケット委譲(applyMessagePatch・content 込み)。
      */
     static async _applyRecheckReplacement({ ctx, card, suit, result, cardCheckValue = null, fromDeck, trumpUsed, suitMismatch = false, checkSources = [] }) {
         const SCOPE = "tokyo-nova-axleration";
@@ -950,20 +950,16 @@ export class TnxCheckFlow {
             });
         }
 
-        // フラグ・本文の更新(非作者・非GM は GM へ委譲=事後修正と同じ経路)
-        if (game.user.isGM || message.isAuthor) {
-            await message.update(patch);
-            // 攻撃の再判定: 未解決の個別リアクションカードを新しい攻撃達成値へ追従(全体失敗なら削除)。
-            // 攻撃カードの author=攻撃者か GM がここに来るため、リアクションカードも更新権限がある(2026-07-15)
-            if (ctx.attack) {
-                const { refreshReactionCardsAfterRecheck } = await import("./attack-flow.mjs");
-                await refreshReactionCardsAfterRecheck(message, {
-                    achievement: result.achievement, suit,
-                    wholeFail: result.fumble === true || suitMismatch === true,
-                });
-            }
-        } else {
-            TnxSocketHandler.emitCheckModify(message.id, patch);
+        // フラグ・本文の更新(非作者・非GM は GM へ委譲=applyMessagePatch)
+        await TnxSocketHandler.applyMessagePatch(message, patch);
+        // 攻撃の再判定: 未解決の個別リアクションカードを新しい攻撃達成値へ追従(全体失敗なら削除)。
+        // 攻撃カードの author=攻撃者か GM の場合のみ(従来どおり。リアクションカードの更新権限がある)
+        if (ctx.attack && (game.user.isGM || message.isAuthor)) {
+            const { refreshReactionCardsAfterRecheck } = await import("./attack-flow.mjs");
+            await refreshReactionCardsAfterRecheck(message, {
+                achievement: result.achievement, suit,
+                wholeFail: result.fumble === true || suitMismatch === true,
+            });
         }
 
         // 継続処理の再実行(2026-07-15・リアクション対決再解決/治療等の失敗→成功のみ適用/NPC・移動は表示のみ)。
@@ -1381,12 +1377,8 @@ export class TnxCheckFlow {
             }
         }
 
-        // フラグ更新(非作者・非GM は GM へ委譲=他者の判定へのペナルティ等)
-        if (game.user.isGM || message.isAuthor) {
-            await message.update(patch);
-        } else {
-            TnxSocketHandler.emitCheckModify(message.id, patch);
-        }
+        // フラグ更新(非作者・非GM は GM へ委譲=他者の判定へのペナルティ等・applyMessagePatch)
+        await TnxSocketHandler.applyMessagePatch(message, patch);
 
         // 判定要求由来なら要求カードの結果表示を追随させる
         if (rc?.requestMessageId && checkF) {

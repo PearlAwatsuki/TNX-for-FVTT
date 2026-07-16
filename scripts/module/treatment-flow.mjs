@@ -150,7 +150,7 @@ export async function resolveTreatmentFromCheck(ctx, result) {
         return;
     }
 
-    // 除去は患者の所有権が要る。非所有クライアントは GM へ委譲(attackUpdate と同型)
+    // 除去は患者の所有権が要る。非所有クライアントは GM へ委譲(treatmentApply ソケット)
     if (patient.isOwner) {
         await patient.deleteEmbeddedDocuments("ActiveEffect", ctx.removeIds.filter(id => patient.effects.get(id)));
     } else if (game.users.activeGM) {

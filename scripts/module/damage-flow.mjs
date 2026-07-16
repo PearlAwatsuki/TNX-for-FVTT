@@ -17,7 +17,7 @@
  * - 適用時は**防御側に軽減ダイアログ**(防御力+パリー受け値自動・社会の報酬点軽減・手動欄)を
  *   出して確定 → 型分岐適用(cast/guest=チャート・troop=heads
  *   減算・分身=消滅通知・extra=不可警告)。適用者は対象の所有者のため効果付与の権限委譲は
- *   不要。メッセージのフラグ更新のみ damageUpdate ソケットで委譲(attackUpdate と同型)。
+ *   不要。メッセージのフラグ更新のみ GM へ委譲(applyMessagePatch・2026-07-16 一本化)。
  */
 
 import { applyDamageChartResult } from "./condition-resolution.mjs";
@@ -853,17 +853,11 @@ async function openMitigationDialog(message, applyCategory = null) {
     });
 }
 
-// ─── フラグ更新(権限がなければ GM へソケット委譲・attackUpdate と同型) ─────────────
+// ─── フラグ更新(権限がなければ GM へソケット委譲=applyMessagePatch に一本化・2026-07-16) ──
 
 /** ダメージ・カードのフラグを更新する(全クライアントでライブ書き換え)。 */
 export async function applyDamagePatch(message, patch) {
-    if (game.user.isGM || message.isAuthor) {
-        const data = {};
-        for (const [k, v] of Object.entries(patch)) data[`flags.${SCOPE}.damageRoll.${k}`] = v;
-        await message.update(data);
-    } else {
-        TnxSocketHandler.emitDamageUpdate(message.id, patch);
-    }
+    await TnxSocketHandler.applyMessagePatch(message, patch, "damageRoll");
 }
 
 // ─── 共通ヘルパー ───────────────────────────────────────────────────────────────

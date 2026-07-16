@@ -854,17 +854,11 @@ export async function completeCoveringFromCheck(payload, result, { suitMismatch 
     ui.notifications.info(`「${coverer.name}」が「${t.name}」をカバーしました。`);
 }
 
-// ─── フラグ更新(権限がなければ GM へソケット委譲) ──────────────────────────────
+// ─── フラグ更新(権限がなければ GM へソケット委譲=applyMessagePatch に一本化・2026-07-16) ──
 
 /** 攻撃カードのフラグを更新する(全クライアントでライブ書き換え)。 */
 export async function applyAttackPatch(message, patch) {
-    if (game.user.isGM || message.isAuthor) {
-        const data = {};
-        for (const [k, v] of Object.entries(patch)) data[`flags.${SCOPE}.attackCheck.${k}`] = v;
-        await message.update(data);
-    } else {
-        TnxSocketHandler.emitAttackUpdate(message.id, patch);
-    }
+    await TnxSocketHandler.applyMessagePatch(message, patch, "attackCheck");
 }
 
 /** 攻撃カードの特定対象(targets[index])を更新する(配列ごと差し替え・権限委譲は applyAttackPatch)。 */
@@ -876,19 +870,12 @@ async function applyAttackTargetPatch(attackMsg, index, patch) {
     await applyAttackPatch(attackMsg, { targets });
 }
 
-/** リアクションカードを更新する。GM/作者はフラグ更新・非作者はフラグのみ委譲。カードは投稿時から全体公開。
- *  extraFlags は attackReaction 以外の生フラグパス(結果カード化の checkResult/checkRecheck 等)を同時に更新する。 */
+/** リアクションカードを更新する。GM/作者は直接・非作者は GM へ委譲(applyMessagePatch)。カードは
+ *  投稿時から全体公開。extraFlags は attackReaction 以外の生フラグパス(結果カード化の
+ *  checkResult/checkRecheck 等)を同時に更新する。 */
 async function applyReactionPatch(reactionMsg, patch, extraFlags = {}) {
-    if (game.user.isGM || reactionMsg.isAuthor) {
-        const data = {};
-        for (const [k, v] of Object.entries(patch)) data[`flags.${SCOPE}.attackReaction.${k}`] = v;
-        Object.assign(data, extraFlags);
-        await reactionMsg.update(data);
-    } else {
-        // 非作者(対象所有者)はフラグのみ GM へ委譲(公開結果は攻撃カードの目標リストに出る)
-        const data = {};
-        for (const [k, v] of Object.entries(patch)) data[`flags.${SCOPE}.attackReaction.${k}`] = v;
-        Object.assign(data, extraFlags);
-        TnxSocketHandler.emitCheckModify(reactionMsg.id, data);
-    }
+    const data = {};
+    for (const [k, v] of Object.entries(patch)) data[`flags.${SCOPE}.attackReaction.${k}`] = v;
+    Object.assign(data, extraFlags);
+    await TnxSocketHandler.applyMessagePatch(reactionMsg, data);
 }

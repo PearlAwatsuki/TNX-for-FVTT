@@ -5,14 +5,17 @@
  * メッセージ種別ごとに振り分ける。
  *
  * メッセージ種別:
- *   presentAccessCard  - アクセスカード提示（既存）
- *   checkResult     - PL → GM: 判定結果を送信し ChatMessage を更新する
- *   attackUpdate    - PL → GM: 攻撃カード(attackCheck)のフラグ更新を委譲する（12-2。
- *                     対象側プレイヤーは攻撃者のメッセージを直接更新できないため）
- *   damageUpdate    - PL → GM: ダメージ・カード(damageRoll)のフラグ更新を委譲する（12-3。
- *                     防御側が適用結果を書き込む際、攻撃者のメッセージを直接更新できないため。
- *                     ダメージの効果付与自体は対象の所有者クライアントで行うため委譲不要）
+ *   presentAccessCard - アクセスカード提示（既存）
+ *   checkResult    - PL → GM: 判定結果を送信し要求カード(checkRequest)を更新する
+ *   treatmentApply - PL → GM: 治療/回復の状態除去を委譲する（対象の所有権がない場合）
+ *   messagePatch   - PL → GM: ChatMessage の自スコープフラグ/本文の更新を委譲する
+ *                    （メッセージ非作者は他者のカードを直接更新できないため。攻撃カード・
+ *                    ダメージカード・リアクションカード・事後修正・効果適用済み等、フラグ
+ *                    更新の委譲はすべてこの1種別に一本化＝2026-07-16。旧 attackUpdate/
+ *                    damageUpdate/usageEffectApplied/checkModify を統合）
  */
+
+const SCOPE = "tokyo-nova-axleration";
 
 export class TnxSocketHandler {
     /**
@@ -31,20 +34,11 @@ export class TnxSocketHandler {
             case "checkResult":
                 TnxSocketHandler._onCheckResult(data);
                 break;
-            case "attackUpdate":
-                TnxSocketHandler._onAttackUpdate(data);
-                break;
-            case "damageUpdate":
-                TnxSocketHandler._onDamageUpdate(data);
-                break;
             case "treatmentApply":
                 TnxSocketHandler._onTreatmentApply(data);
                 break;
-            case "usageEffectApplied":
-                TnxSocketHandler._onUsageEffectApplied(data);
-                break;
-            case "checkModify":
-                TnxSocketHandler._onCheckModify(data);
+            case "messagePatch":
+                TnxSocketHandler._onMessagePatch(data);
                 break;
         }
     }
@@ -111,52 +105,6 @@ export class TnxSocketHandler {
         });
     }
 
-    // ─── attackUpdate（フェーズ12-2） ─────────────────────────────────────────
-
-    /** 攻撃カードのフラグ更新を GM クライアントが代行する。 */
-    static async _onAttackUpdate(data) {
-        if (!game.user.isGM) return;
-        const message = game.messages.get(data?.messageId);
-        if (!message || !data?.patch) return;
-        const updates = {};
-        for (const [k, v] of Object.entries(data.patch)) {
-            updates[`flags.tokyo-nova-axleration.attackCheck.${k}`] = v;
-        }
-        await message.update(updates);
-    }
-
-    /** 攻撃カードのフラグ更新を GM へ委譲する（対象側 PL から呼ぶ）。 */
-    static emitAttackUpdate(messageId, patch) {
-        game.socket.emit("system.tokyo-nova-axleration", {
-            type: "attackUpdate",
-            messageId,
-            patch,
-        });
-    }
-
-    // ─── damageUpdate（フェーズ12-3） ─────────────────────────────────────────
-
-    /** ダメージ・カードのフラグ更新を GM クライアントが代行する。 */
-    static async _onDamageUpdate(data) {
-        if (!game.user.isGM) return;
-        const message = game.messages.get(data?.messageId);
-        if (!message || !data?.patch) return;
-        const updates = {};
-        for (const [k, v] of Object.entries(data.patch)) {
-            updates[`flags.tokyo-nova-axleration.damageRoll.${k}`] = v;
-        }
-        await message.update(updates);
-    }
-
-    /** ダメージ・カードのフラグ更新を GM へ委譲する（防御側 PL から呼ぶ）。 */
-    static emitDamageUpdate(messageId, patch) {
-        game.socket.emit("system.tokyo-nova-axleration", {
-            type: "damageUpdate",
-            messageId,
-            patch,
-        });
-    }
-
     // ─── treatmentApply（フェーズ12・治療） ───────────────────────────────────
 
     /** 治療成功による状態除去を GM クライアントが代行する(複数 GM 接続時は activeGM のみ)。 */
@@ -174,46 +122,44 @@ export class TnxSocketHandler {
         });
     }
 
-    // ─── usageEffectApplied（フェーズ12・用途の効果付与） ─────────────────────────
+    // ─── messagePatch（メッセージ更新の汎用委譲・2026-07-16 一本化） ──────────────
 
-    /** 用途効果カードの「適用済み」フラグ更新を GM クライアントが代行する。 */
-    static async _onUsageEffectApplied(data) {
-        if (!game.user.isGM) return;
-        const message = game.messages.get(data?.messageId);
-        if (!message) return;
-        await message.update({ "flags.tokyo-nova-axleration.usageEffects.applied": true });
-    }
-
-    /** 用途効果カードの適用済みフラグ更新を GM へ委譲する（メッセージ非作者の対象所有者から呼ぶ）。 */
-    static emitUsageEffectApplied(messageId) {
-        game.socket.emit("system.tokyo-nova-axleration", {
-            type: "usageEffectApplied",
-            messageId,
-        });
-    }
-
-    // ─── checkModify（フェーズ12・判定の事後修正） ────────────────────────────────
-
-    /** 判定の事後修正/再判定置き換えの更新を GM クライアントが代行する(自スコープの flags と
-     *  content=カード本文のみ受理。再判定の置き換え着地は本文の差し替えを含む=2026-07-14)。 */
-    static async _onCheckModify(data) {
+    /** メッセージ更新を GM クライアントが代行する(自スコープの flags と content=カード本文のみ
+     *  受理。再判定の置き換え着地は本文の差し替えを含む=2026-07-14)。 */
+    static async _onMessagePatch(data) {
         if (!game.user.isGM) return;
         const message = game.messages.get(data?.messageId);
         if (!message || !data?.patch) return;
         const updates = {};
         for (const [k, v] of Object.entries(data.patch)) {
-            if (k !== "content" && !k.startsWith("flags.tokyo-nova-axleration.")) continue; // 自スコープ外は無視
+            if (k !== "content" && !k.startsWith(`flags.${SCOPE}.`)) continue; // 自スコープ外は無視
             updates[k] = v;
         }
         if (Object.keys(updates).length) await message.update(updates);
     }
 
-    /** 判定の事後修正のフラグ更新を GM へ委譲する（非作者クライアント=他者の判定への修正から呼ぶ）。 */
-    static emitCheckModify(messageId, patch) {
-        game.socket.emit("system.tokyo-nova-axleration", {
-            type: "checkModify",
-            messageId,
-            patch,
-        });
+    /**
+     * ChatMessage の自スコープフラグ/本文を更新する**唯一の経路**(2026-07-16 一本化)。
+     * GM か作者は直接 update・それ以外は GM クライアントへソケット委譲する。従来は攻撃カード・
+     * ダメージカード・リアクションカード・事後修正・効果適用済み・BSドロー結果がそれぞれ
+     * 「isGM/isAuthor で update / emit」を複製していた。
+     * @param {ChatMessage} message 更新するメッセージ
+     * @param {object} patch 更新パス(生パス。flags.<scope>.* か content のみ)
+     * @param {string|null} [flagPrefix] 省略形: patch のキーを flags.<scope>.<flagPrefix>.<キー> に展開する
+     */
+    static async applyMessagePatch(message, patch, flagPrefix = null) {
+        const data = {};
+        for (const [k, v] of Object.entries(patch)) {
+            data[flagPrefix ? `flags.${SCOPE}.${flagPrefix}.${k}` : k] = v;
+        }
+        if (game.user.isGM || message.isAuthor) {
+            await message.update(data);
+        } else {
+            game.socket.emit("system.tokyo-nova-axleration", {
+                type: "messagePatch",
+                messageId: message.id,
+                patch: data,
+            });
+        }
     }
 }
