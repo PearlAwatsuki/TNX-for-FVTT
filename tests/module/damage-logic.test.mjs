@@ -24,6 +24,14 @@ describe("aggregateDefence()（防御力の合算・戦闘タブ規約）", () =
     const items = [{ type: "armor", system: { isPrepared: true, defence: { mode: "value", S_total: 9, S_defence: 3, P_defence: 0, I_defence: 0 } } }];
     expect(aggregateDefence(items).S).toBe(9);
   });
+
+  it("搭乗中(準備済み)ヴィークルの防御力も合算する(戦闘タブ合計と一致・2026-07-16)", () => {
+    const items = [
+      armor(2, 2, 2),
+      { type: "vehicle", system: { isPrepared: true, defence: { mode: "value", S_defence: 4, P_defence: 3, I_defence: 1 } } },
+    ];
+    expect(aggregateDefence(items)).toEqual({ S: 6, P: 5, I: 3 });
+  });
 });
 
 describe("defenceForType()（ダメージ種別に対応する防御力・X は軽減なし）", () => {

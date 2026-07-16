@@ -15,15 +15,17 @@
 import { readFlag } from "../data/item/helpers.mjs";
 
 /**
- * 種別ごとの防御力を集計する(戦闘タブの合算規約と同一・Foundry 非依存)。
- * 準備済み(または準備不要)の armor/cyborg の defence(mode=value)を S/P/I 別に合算する。
- * @param {Array<{type:string, system:object}>} items アクターのアイテム
+ * 種別ごとの防御力を集計する(戦闘タブの合計 combatDefenceTotal と同一・Foundry 非依存)。
+ * 準備済み(または準備不要)の **armor/cyborg/vehicle** の defence(mode=value)を S/P/I 別に合算する。
+ * 搭乗中(準備済み)ヴィークルの防御力も含む(2026-07-09 ユーザー確定)。戦闘タブと同じ値を
+ * ダメージ算出でも使うため、装備防具から直接ではなくこの合計を用いる(2026-07-16 ユーザー指摘)。
+ * @param {Iterable<{type:string, system:object}>} items アクターのアイテム(配列/Collection)
  * @returns {{S:number, P:number, I:number}}
  */
 export function aggregateDefence(items) {
     const out = { S: 0, P: 0, I: 0 };
     for (const i of (items ?? [])) {
-        if (i.type !== "armor" && i.type !== "cyborg") continue;
+        if (i.type !== "armor" && i.type !== "cyborg" && i.type !== "vehicle") continue;
         const s = i.system ?? {};
         if (!(s.isPrepared || readFlag(s, "noPrepareRequired"))) continue;
         if (s.defence?.mode !== "value") continue;

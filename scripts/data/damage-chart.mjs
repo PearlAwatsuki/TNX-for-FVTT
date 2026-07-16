@@ -12,11 +12,17 @@
  * 負傷状態の def:
  * - label:   負傷名(同梱)
  * - group:   "physical" | "mental" | "social"(ドロップダウンのグループ)
- * - type:    "wound"(直接の数値/遮断効果は持たない。効果は inflicts と notes)
+ * - type:    "wound"(別状態のカスケードは inflicts、負傷自身の直接効果は下記フィールドで表す)
  * - inflicts:[{ kind, ability?, controlNegate?, duration? }] 付与する別状態(BS/戦闘不能)
  *     - controlNegate:{ ability, downgradeTo? } 指定能力値の制御判定成功で無効/降格
  *     - duration: "治療まで" 等(発火は13/15)
- * - notes:   条件で未モデル化の機構効果(技能使用不可・アクションランク等。発火は12/13/15)
+ * - notes:   条件で未モデル化の機構効果(アクションランク等・発火は13/15)。人間向けの説明文
+ * - 負傷自身の直接効果(2026-07-16 ユーザー確定・負傷そのものが課す。BS へのカスケードではない):
+ *     - skillPenalty:{ skillKey, value } 特定技能の上方判定に -value(眼部損傷=〈知覚〉-5)。技能は識別キーで指定
+ *     - skillBlock:{ skillKey } or { category:"society"|"contact" } 特定技能の使用(判定)不可=警告のみ。
+ *       固定は skillKey(信用=stature 等)、カテゴリ選択は付与時にユーザーが該当技能を選び targetSkill に確定
+ *     - bountyBlock:true 報酬点の使用不可(技能判定時の消費ダイアログをスキップ)
+ *     - sceneDeferred:true 「次シーン」発火=付与時は休眠(pendingScene)、発火機構(13/15)が有効化する
  *
  * カード決定型(衰弱・能力値未指定の重圧)は付与時に Conditions.md §8 のドロー機構へ繋ぐ(未実装)。
  */
@@ -39,7 +45,7 @@ const PHYSICAL = {
   "phys-11": { label: "心臓停止",     inflicts: [{ kind: "coma", controlNegate: { ability: ABIL_LIFE, downgradeTo: "faint" } }] },
   "phys-12": { label: "脚部損傷",     inflicts: [{ kind: "confusion", duration: "治療まで" }] },
   "phys-13": { label: "消化器系損傷", inflicts: [{ kind: "weakness" }] },
-  "phys-14": { label: "眼部損傷",     notes: "治療されるまで〈知覚〉判定 -5" },
+  "phys-14": { label: "眼部損傷",     notes: "治療されるまで〈知覚〉判定 -5", skillPenalty: { skillKey: "perception", value: 5 } },
   "phys-15": { label: "動脈切断",     inflicts: [{ kind: "faint" }] },
   "phys-16": { label: "斬首",         inflicts: [{ kind: "dead" }] },
   "phys-17": { label: "腰部損傷",     inflicts: [{ kind: "confusion", duration: "治療まで" }] },
@@ -82,16 +88,16 @@ const SOCIAL = {
   "soc-3":  { label: "怪文書" },
   "soc-4":  { label: "監視" },
   "soc-5":  { label: "汚名" },
-  "soc-6":  { label: "信用失墜",     notes: "次シーン〈信用〉と報酬点 使用不可" },
-  "soc-7":  { label: "スキャンダル", notes: "次シーン〈社会〉ひとつ使用不可" },
-  "soc-8":  { label: "信頼喪失",     notes: "次シーン〈コネ〉ひとつ使用不可" },
+  "soc-6":  { label: "信用失墜",     notes: "次シーン〈信用〉と報酬点 使用不可", skillBlock: { skillKey: "stature" }, bountyBlock: true, sceneDeferred: true },
+  "soc-7":  { label: "スキャンダル", notes: "次シーン〈社会〉ひとつ使用不可", skillBlock: { category: "society" }, sceneDeferred: true },
+  "soc-8":  { label: "信頼喪失",     notes: "次シーン〈コネ〉ひとつ使用不可", skillBlock: { category: "contact" }, sceneDeferred: true },
   "soc-9":  { label: "強迫",         notes: "山札1枚の[精神ダメージ]を受ける", derivedDamage: { category: "mental", cards: 1 } },
   "soc-10": { label: "盗聴",         notes: "次シーンの会話は盗聴される" },
   "soc-11": { label: "追放",         inflicts: [{ kind: "erased" }] },
   "soc-12": { label: "フィーバー",   inflicts: [{ kind: "doped-minor" }] },
-  "soc-13": { label: "口座凍結",     notes: "治療するまで〈信用〉と報酬点 使用不可" },
-  "soc-14": { label: "造反",         notes: "治療するまで〈社会〉ひとつ使用不可" },
-  "soc-15": { label: "人脈消失",     notes: "治療するまで〈コネ〉ひとつ使用不可" },
+  "soc-13": { label: "口座凍結",     notes: "治療するまで〈信用〉と報酬点 使用不可", skillBlock: { skillKey: "stature" }, bountyBlock: true },
+  "soc-14": { label: "造反",         notes: "治療するまで〈社会〉ひとつ使用不可", skillBlock: { category: "society" } },
+  "soc-15": { label: "人脈消失",     notes: "治療するまで〈コネ〉ひとつ使用不可", skillBlock: { category: "contact" } },
   "soc-16": { label: "襲撃",         inflicts: [{ kind: "pressure", duration: "治療まで" }] },
   "soc-17": { label: "逮捕令状",     notes: "即座に退場。次シーン登場不可" },
   "soc-18": { label: "権力剥奪",     inflicts: [{ kind: "pressure", ability: ABIL_MUNDANE, duration: "治療まで" }] },

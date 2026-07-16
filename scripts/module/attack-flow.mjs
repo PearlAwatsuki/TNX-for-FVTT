@@ -456,8 +456,20 @@ export function renderAttackCard(message, html) {
         const list = document.createElement("div");
         list.className = "tnx-attack-targets";
         list.innerHTML = `<div class="tnx-attack-targets__head"><i class="fas fa-crosshairs"></i> 目標</div>`;
-        for (const t of targets) {
+        for (let ti = 0; ti < targets.length; ti++) {
+            const t = targets[ti];
             const row = document.createElement("div");
+            // カバー済み: この対象は誰かにカバーされた(ダメージはカバーした側へ・ダメージカードで展開)
+            if (t.coveredBy) {
+                // カバー行は情報を1つに絞る(固定幅要素を2つ並べると狭い幅で内部折り返しするため)。
+                // 「ダメージなし」はシールドアイコン＋「がカバー」で自明なので verdict には出さない
+                row.className = "tnx-attack-target tnx-attack-target--miss";
+                row.innerHTML = `<span class="tnx-attack-target__icon"><i class="fas fa-user-shield"></i></span>`
+                    + `<span class="tnx-attack-target__name">${esc(t.name || "?")}</span>`
+                    + `<span class="tnx-attack-target__verdict">${esc(t.coveredBy.name)}がカバー</span>`;
+                list.appendChild(row);
+                continue;
+            }
             row.className = `tnx-attack-target tnx-attack-target--${t.state}`;
             const icon = t.state === "hit" ? "fa-burst" : (t.state === "miss" ? "fa-shield-halved" : "fa-hourglass-half");
             const verdict = t.state === "hit" ? "命中" : (t.state === "miss" ? "回避/失敗" : "リアクション待ち");
@@ -472,6 +484,12 @@ export function renderAttackCard(message, html) {
                 + `<span class="tnx-attack-target__name">${esc(t.name || "?")}</span>`
                 + `<span class="tnx-attack-target__val">${esc(valueText)}</span>`
                 + `<span class="tnx-attack-target__verdict">${verdict}</span>`;
+            // カバー待ち受け中: 命中対象をクリックしてカバーできる(ダメージ算出の直前=ダメージカードを
+            // 出す前のみ)。モード外のクリックは handleCoveringClick 側で無視される(常設ハンドラ)。
+            if (t.state === "hit" && !f.damageRolled) {
+                row.classList.add("tnx-attack-coverable");
+                row.addEventListener("click", () => handleCoveringClick(message, ti));
+            }
             list.appendChild(row);
         }
         area.appendChild(list);
@@ -531,26 +549,25 @@ export function renderReactionCard(message, html) {
             d.innerHTML = `<span class="cr-calc-label">${label}</span><span class="${valCls}">${esc(String(value))}</span>`;
             calc.appendChild(d);
         };
-        // 誰がリアクションしたか(=クリックしたユーザーのキャラ)を明示。対象と別人なら肩代わり
         const modeLabel = MODE_LABELS[f.resolution] ?? "";
-        const reactionRowVal = f.reactorName ? `「${f.reactorName}」（${modeLabel}）` : modeLabel;
+        // 別人が代行したときだけ実行者名を添える(自分のリアクションは名前が自明なので繰り返さない)
+        const isCover = f.reactorName && f.reactorName !== f.targetName;
         if (f.resolution === "none") {
-            addRow("リアクション", reactionRowVal);
-            addRow("目標値（制御値）", f.control ?? 0);
+            // リアクションしない=制御値で受けた。制御値と成否で十分(「リアクションしない」は繰り返さない)
+            addRow("制御値", f.control ?? 0);
         } else {
-            // カードをプレイしたリアクション: 実行者とモードを添え、達成値を「達成値」総計行にする。この行を
-            // renderRecheckButton が再判定/修正の対象として拾う(このカードが結果カードそのもの・2026-07-15)
-            addRow("リアクション", reactionRowVal);
+            // カードをプレイしたリアクション: モード＋達成値。達成値の総計行を renderRecheckButton が
+            // 再判定/修正の対象として拾う(このカードが結果カードそのもの・2026-07-15)
+            addRow("リアクション", isCover ? `${modeLabel}（${f.reactorName}）` : modeLabel);
             addRow("達成値", f.reactionAchievement ?? 0, "cr-calc-row cr-total-row", "cr-total-num");
         }
         if (Number.isFinite(f.diff)) addRow("差分値", f.diff >= 0 ? `+${f.diff}` : `${f.diff}`);
-        // 成否表記(2026-07-15 ユーザー確定): ルールに無い言い換え(「受け」「回避／受け」)は使わない。
-        // リアクション成功=攻撃無効に統一。ただし「リアクションしない」で被弾しなかった場合はリアクション
-        // をしていないため「攻撃無効」(ルール語)とする
+        // 成否表記(2026-07-15 ユーザー確定): ルールに無い言い換え(「受け」等)は使わない。リアクション成功=
+        // 攻撃無効。リアクションしないで被弾しなかった場合はリアクションしていないため「攻撃無効」(ルール語)
         const notHitLabel = f.resolution === "none" ? "攻撃無効" : "リアクション成功";
         const verdict = document.createElement("div");
         verdict.className = `cr-result ${hit ? "cr-result--failure" : "cr-result--success"}`;
-        verdict.innerHTML = `<i class="fas ${hit ? "fa-burst" : "fa-shield-halved"}"></i> <span>${hit ? "被弾（攻撃命中）" : notHitLabel}</span>`;
+        verdict.innerHTML = `<i class="fas ${hit ? "fa-burst" : "fa-shield-halved"}"></i> <span>${hit ? "被弾" : notHitLabel}</span>`;
         area.appendChild(verdict);
         return;
     }
@@ -825,6 +842,56 @@ export async function completeReactionFromCheck(payload, result, { suitMismatch 
 
     // 全対象回避の場合、まだ未解決の他対象リアクションカードは不要になるので閉じる(権限のある側のみ)
     if (triggerAllAvoid) await closeUnresolvedReactionCards(attackMsg, payload.targetIndex);
+}
+
+// ─── カバー(ダメージ算出の直前に、他者への予定ダメージを自身へ付け替える・2026-07-16 ユーザー確定) ──
+
+/**
+ * カバー待ち受け中に、攻撃カードの命中対象がクリックされたときの処理。ダメージ算出の直前=ダメージ
+ * カードを出す前(!damageRolled)のみ。その対象を文脈にカバーの判定(唯一の起動関数 `_activateItemCheck`・
+ * covering 文脈)を起動する。成功で completeCoveringFromCheck が攻撃カードへ印を付ける。モード外の
+ * クリックは無視(通常表示)。
+ * @param {ChatMessage} attackMessage 攻撃カード
+ * @param {number} targetIndex attackCheck.targets のインデックス
+ */
+export async function handleCoveringClick(attackMessage, targetIndex) {
+    const state = TnxCheckFlow.peekAchievementAction("covering");
+    if (!state) return; // モード外のクリックは無視
+    const f = attackMessage.getFlag(SCOPE, "attackCheck");
+    if (!f || f.damageRolled) { ui.notifications.warn("ダメージカードを出した後はカバーできません。"); return; }
+    const t = (f.targets ?? [])[targetIndex];
+    if (!t || t.state !== "hit" || t.coveredBy) return; // 命中していない/カバー済みは対象にしない
+    const actor = game.actors.get(state.actorId);
+    const skill = actor?.items.get(state.skillItemId);
+    if (!skill) { TnxCheckFlow.cancelAchievementAction(); return; }
+    TnxCheckFlow.cancelAchievementAction();
+    const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
+    await TnxCharacterSheetBase._activateItemCheck(actor, skill, {
+        covering: { attackMessageId: attackMessage.id, targetIndex, usageId: state.usageId },
+    });
+}
+
+/**
+ * カバーの完了継続(判定成功で攻撃カードの対象にカバーの印を付ける)。目標値「なし」運用ではスート一致
+ * (不成立でない)で成功(result.success は null=未比較のため false 以外で成立)。成功なら対象に coveredBy
+ * を付ける——ダメージカードを出すとき buildDamageTargets がこれを展開し、元対象は被弾なし・カバーした側
+ * (受け値なし)へ付け替える。カバーした側が元々命中対象なら自分の行(受け値あり)は別に残る。
+ * @param {{attackMessageId:string, targetIndex:number}} payload
+ * @param {object} result 判定結果
+ * @param {{suitMismatch?:boolean, coverer:Actor|null}} [opts]
+ */
+export async function completeCoveringFromCheck(payload, result, { suitMismatch = false, coverer = null } = {}) {
+    const attackMsg = game.messages.get(payload.attackMessageId);
+    if (!attackMsg) return;
+    const f = attackMsg.getFlag(SCOPE, "attackCheck");
+    if (!f) return;
+    if (f.damageRolled) { ui.notifications.warn("ダメージカードを出した後はカバーできません。"); return; }
+    const t = (f.targets ?? [])[payload.targetIndex];
+    if (!t || t.state !== "hit" || t.coveredBy || !coverer) { ui.notifications.warn("この対象はカバーできません。"); return; }
+    const ok = !result.fumble && !suitMismatch && result.success !== false;
+    if (!ok) { ui.notifications.info(`「${coverer.name}」のカバーは成立しませんでした。`); return; }
+    await applyAttackTargetPatch(attackMsg, payload.targetIndex, { coveredBy: { uuid: coverer.uuid, name: coverer.name } });
+    ui.notifications.info(`「${coverer.name}」が「${t.name}」をカバーしました。`);
 }
 
 // ─── フラグ更新(権限がなければ GM へソケット委譲) ──────────────────────────────

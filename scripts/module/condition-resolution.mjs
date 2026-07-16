@@ -10,9 +10,10 @@
 import { getCardCheckValue, normalizeSuit } from './tnx-check-engine.mjs';
 import { TnxActionHandler } from './tnx-action-handler.mjs';
 import { TnxSocketHandler } from './tnx-socket-handler.mjs';
-import { CONDITION_KINDS } from './conditions.mjs';
+import { CONDITION_KINDS, readConditions } from './conditions.mjs';
 import { getDamageChartKind } from '../data/damage-chart.mjs';
 import { conditionNeedsDraw, drawResultFlags, negateOutcome } from './condition-resolution-core.mjs';
+import { idKeyPrefix, ONOMASTIC_TYPES } from './skill-dictionary.mjs';
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -34,8 +35,9 @@ export async function applyDamageChartResult(actor, category, value, { persuade 
   if (!kind || !actor) return null;
   const def = CONDITION_KINDS[kind];
   // 治療の目標値算出(「それ以外＝そのダメージの数値」)のため、発生時のダメージ値と系統を負傷に保存する。
-  // 付与で走る createActiveEffect フックが、この負傷の inflicts(戦闘不能・BS)に woundSource を紐づける
-  // (治療は非BSを除去・制御判定の無効化はダメージ全体を除去)。
+  // 付与で走る createActiveEffect フックが、この負傷の inflicts(戦闘不能・BS)への woundSource 紐づけ・
+  // 社会/コネの選択(promptWoundSkillSelection)を担う(付与経路を問わない=2026-07-16 是正)。
+  // 休眠(次シーン)は def.sceneDeferred から readConditions が導出する(フラグ設定不要)。
   // persuade=説得(精神)は、フック側で戦闘不能タグ(効果タグ)を付けない目印。BS は通常どおり付与。
   const [eff] = await actor.createEmbeddedDocuments("ActiveEffect", [{
     name: def?.label, img: def?.img, statuses: [kind],
@@ -43,6 +45,56 @@ export async function applyDamageChartResult(actor, category, value, { persuade 
       ...(persuade ? { persuade: true } : {}) } },
   }]);
   return eff ?? null;
+}
+
+/**
+ * 選択型(社会/コネ)の負傷が付与されたとき、使用不可にする技能を選ばせて targetSkill を確定する。
+ * createActiveEffect フックから呼ぶ(付与経路を問わない=ダメージ適用でもトークントグルでも手動でも)。
+ * 既に確定済み・候補ゼロはスキップ。付与ユーザー(=対象の所有者/GM・フック `userId` 一致)の画面で選ぶ。
+ * @param {Actor} actor
+ * @param {ActiveEffect} effect
+ */
+export async function promptWoundSkillSelection(actor, effect) {
+  for (const c of readConditions(effect)) {
+    const cat = c.def?.skillBlock?.category;
+    if (!cat || c.targetSkill) continue; // 選択型のみ・確定済みはスキップ
+    const picked = await promptSelectRestrictedSkill(actor, cat, c.def.label);
+    if (picked) await effect.setFlag(SCOPE, `conditions.${c.kind}.targetSkill`, picked);
+  }
+}
+
+/**
+ * 社会/コネ「ひとつ使用不可」(造反/人脈消失/スキャンダル/信頼喪失)の対象技能を、付与時に選ばせる。
+ * 候補は対象アクターが所持する該当プレフィックス(society_/contact_)の一般技能。保存は識別キー・表示は
+ * 技能名(名前で識別しない)。候補が無ければ通知して null(使用不可にする技能なし=負傷自体は付与される)。
+ * @param {Actor} actor
+ * @param {"society"|"contact"} category
+ * @param {string} woundLabel
+ * @returns {Promise<?string>} 選択した技能の識別キー(null=候補なし/キャンセル)
+ */
+async function promptSelectRestrictedSkill(actor, category, woundLabel) {
+  const esc = foundry.utils.escapeHTML;
+  const catLabel = ONOMASTIC_TYPES[category] ?? category;
+  const candidates = (actor.items ?? []).filter(it =>
+    it.type === "generalSkill" && idKeyPrefix(it.system?.identificationKey) === category);
+  if (!candidates.length) {
+    ui.notifications.info(`「${woundLabel}」: 対象は〈${catLabel}〉技能を持たないため、使用不可にする技能がありません。`);
+    return null;
+  }
+  const opts = candidates
+    .map(it => `<option value="${esc(it.system.identificationKey)}">${esc(it.name)}</option>`)
+    .join("");
+  return foundry.applications.api.DialogV2.wait({
+    window:  { title: `${woundLabel}: 使用不可にする〈${catLabel}〉を選択` },
+    classes: ["tokyo-nova"],
+    content: `<div class="form-group"><label>使用不可にする〈${catLabel}〉技能</label>`
+      + `<div class="form-fields"><select name="skill">${opts}</select></div></div>`,
+    buttons: [
+      { action: "ok", icon: "fas fa-check", label: "決定", default: true,
+        callback: (_e, _btn, dlg) => dlg.element.querySelector('[name="skill"]').value || null },
+    ],
+    close: () => null,
+  });
 }
 
 // ───────── Foundry 連携 ─────────

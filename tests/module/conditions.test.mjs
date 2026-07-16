@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CONDITION_KINDS, readCondition, readConditions, getConditionKind, getConditionKinds, gatherConditionCheckSources, getCheckBlock, gatherConditionControlPenalty, computeJammingPenalty, buildInflictedEffectsData, applyDamageTagMods, recoveryKindMatches, recoveryKindExcluded, ignoreRuleMatches, gatherIgnoreRules, getEffectiveConditions }
+import { CONDITION_KINDS, readCondition, readConditions, getConditionKind, getConditionKinds, gatherConditionCheckSources, getCheckBlock, gatherConditionControlPenalty, computeJammingPenalty, buildInflictedEffectsData, applyDamageTagMods, recoveryKindMatches, recoveryKindExcluded, ignoreRuleMatches, gatherIgnoreRules, getEffectiveConditions, gatherSkillUseWarnings, hasBountyBlock }
   from "../../scripts/module/conditions.mjs";
 
 /** 準備アウトフィット記述子の略記 */
@@ -17,6 +17,13 @@ function condEffect({ kind, magnitude, targetAbility, targetUuid, name, id = "e1
     active,
     flags: { [SCOPE]: { conditionKind: kind, magnitude, targetAbility, targetUuid, stackable, effectId: id } },
   };
+}
+
+/** def を直接指定した実効コンディション行(getEffectiveConditions 相当)を作る。
+ *  負傷固有効果(skillPenalty/skillBlock/bountyBlock)は def に、選択結果/休眠はインスタンスに載る。 */
+function condRow({ kind = "x", def = {}, name = "効果", active = true, magnitude = 0,
+  targetSkill = null, pendingScene = false, stackable = false } = {}) {
+  return { kind, def, name, active, magnitude, targetSkill, pendingScene, stackable, targetMode: def.targetMode ?? null };
 }
 
 describe("readCondition()", () => {
@@ -64,6 +71,27 @@ describe("readCondition()", () => {
     expect(getConditionKind({ statuses: ["interference"] })).toBe("interference"); // 配列でも可
     expect(getConditionKind({ statuses: new Set(["dead"]) })).toBe("dead");
     expect(getConditionKind({ statuses: new Set(["not-a-condition"]) })).toBeNull();
+  });
+
+  it("負傷の選択技能(targetSkill)はインスタンスフラグから読む", () => {
+    const eff = { id: "s", name: "造反", active: true, statuses: new Set(["soc-14"]),
+      flags: { [SCOPE]: { conditions: { "soc-14": { targetSkill: "society_police" } } } } };
+    const c = readConditions(eff)[0];
+    expect(c.targetSkill).toBe("society_police");
+    expect(c.pendingScene).toBe(false); // soc-14 は sceneDeferred でない=休眠しない
+  });
+
+  it("休眠(pendingScene)は sceneDeferred な負傷が sceneFired 未設定のとき true・発火で false", () => {
+    const mk = (flags) => readConditions({ id: "d", name: "信用失墜", active: true, statuses: new Set(["soc-6"]),
+      flags: { [SCOPE]: flags } })[0];
+    expect(mk({}).pendingScene).toBe(true);                                                  // 付与直後=休眠(経路不問)
+    expect(mk({ conditions: { "soc-6": { sceneFired: true } } }).pendingScene).toBe(false);  // 発火後=有効
+  });
+
+  it("targetSkill / pendingScene の既定は null / false（sceneDeferred でない BS）", () => {
+    const c = readCondition(condEffect({ kind: "doped-minor" }));
+    expect(c.targetSkill).toBeNull();
+    expect(c.pendingScene).toBe(false);
   });
 });
 
@@ -121,6 +149,97 @@ describe("gatherConditionCheckSources()", () => {
     expect(gatherConditionCheckSources(cower, { isAttack: true, targetMatched: false })).toEqual([]);
     const hatred = [readCondition(condEffect({ kind: "hatred" }))];
     expect(gatherConditionCheckSources(hatred, { isAttack: true, targetMatched: true })).toEqual([]);
+  });
+});
+
+describe("gatherConditionCheckSources()：特定技能への達成値ペナルティ(skillPenalty・眼部損傷)", () => {
+  const eye = (skillKey = "perception") =>
+    condRow({ kind: "phys-14", name: "眼部損傷", def: { skillPenalty: { skillKey, value: 5 } } });
+
+  it("判定参加技能に対象キーが含まれれば上方判定 -value", () => {
+    expect(gatherConditionCheckSources([eye()], { upward: true, skillKeys: ["perception", "assault"] }))
+      .toEqual([{ name: "眼部損傷", value: -5 }]);
+  });
+
+  it("参加技能(組み合わせ含む)に対象キーが無ければ不適用", () => {
+    expect(gatherConditionCheckSources([eye()], { upward: true, skillKeys: ["assault", "shooting"] })).toEqual([]);
+  });
+
+  it("上方判定でなければ(制御判定)不適用", () => {
+    expect(gatherConditionCheckSources([eye()], { upward: false, skillKeys: ["perception"] })).toEqual([]);
+  });
+
+  it("休眠(pendingScene)なら不適用", () => {
+    const dormant = { ...eye(), pendingScene: true };
+    expect(gatherConditionCheckSources([dormant], { upward: true, skillKeys: ["perception"] })).toEqual([]);
+  });
+});
+
+describe("gatherSkillUseWarnings()：特定技能の使用不可(skillBlock・警告のみ)", () => {
+  const credit = () => condRow({ kind: "soc-13", name: "口座凍結", def: { skillBlock: { skillKey: "credit" } } });
+  const society = (targetSkill) =>
+    condRow({ kind: "soc-14", name: "造反", def: { skillBlock: { category: "society" } }, targetSkill });
+
+  it("固定キー(信用)が判定参加技能に含まれれば警告名を返す", () => {
+    expect(gatherSkillUseWarnings([credit()], ["credit", "assault"])).toEqual(["口座凍結"]);
+  });
+
+  it("選択型は付与時の targetSkill で照合する", () => {
+    expect(gatherSkillUseWarnings([society("society_police")], ["society_police"])).toEqual(["造反"]);
+    expect(gatherSkillUseWarnings([society("society_police")], ["society_media"])).toEqual([]);
+  });
+
+  it("参加技能に含まれなければ警告しない", () => {
+    expect(gatherSkillUseWarnings([credit()], ["assault"])).toEqual([]);
+  });
+
+  it("休眠(pendingScene)は警告しない", () => {
+    expect(gatherSkillUseWarnings([{ ...credit(), pendingScene: true }], ["credit"])).toEqual([]);
+  });
+
+  it("同じ kind は重複して警告しない", () => {
+    expect(gatherSkillUseWarnings([credit(), credit()], ["credit"])).toEqual(["口座凍結"]);
+  });
+});
+
+describe("hasBountyBlock()：報酬点の使用不可(bountyBlock)", () => {
+  const frozen = () => condRow({ kind: "soc-13", name: "口座凍結", def: { bountyBlock: true } });
+
+  it("bountyBlock を持つ有効な行があれば true", () => {
+    expect(hasBountyBlock([frozen()])).toBe(true);
+  });
+
+  it("bountyBlock を持たなければ false", () => {
+    expect(hasBountyBlock([condRow({ kind: "phys-14", def: { skillPenalty: { skillKey: "perception", value: 5 } } })])).toBe(false);
+    expect(hasBountyBlock([])).toBe(false);
+  });
+
+  it("休眠(pendingScene)は数えない", () => {
+    expect(hasBountyBlock([{ ...frozen(), pendingScene: true }])).toBe(false);
+  });
+});
+
+describe("負傷の直接効果フィールド（damage-chart → CONDITION_KINDS・2026-07-16）", () => {
+  it("眼部損傷は〈知覚=perception〉上方判定 -5 (skillPenalty)", () => {
+    expect(CONDITION_KINDS["phys-14"].skillPenalty).toEqual({ skillKey: "perception", value: 5 });
+  });
+
+  it("治療まで系: 口座凍結=信用固定+報酬点不可 / 造反=社会選択 / 人脈消失=コネ選択（sceneDeferred なし）", () => {
+    expect(CONDITION_KINDS["soc-13"].skillBlock).toEqual({ skillKey: "stature" });
+    expect(CONDITION_KINDS["soc-13"].bountyBlock).toBe(true);
+    expect(CONDITION_KINDS["soc-13"].sceneDeferred).toBeUndefined();
+    expect(CONDITION_KINDS["soc-14"].skillBlock).toEqual({ category: "society" });
+    expect(CONDITION_KINDS["soc-15"].skillBlock).toEqual({ category: "contact" });
+  });
+
+  it("次シーン系: 信用失墜/スキャンダル/信頼喪失は sceneDeferred=true", () => {
+    expect(CONDITION_KINDS["soc-6"].skillBlock).toEqual({ skillKey: "stature" });
+    expect(CONDITION_KINDS["soc-6"].bountyBlock).toBe(true);
+    expect(CONDITION_KINDS["soc-6"].sceneDeferred).toBe(true);
+    expect(CONDITION_KINDS["soc-7"].skillBlock).toEqual({ category: "society" });
+    expect(CONDITION_KINDS["soc-7"].sceneDeferred).toBe(true);
+    expect(CONDITION_KINDS["soc-8"].skillBlock).toEqual({ category: "contact" });
+    expect(CONDITION_KINDS["soc-8"].sceneDeferred).toBe(true);
   });
 });
 

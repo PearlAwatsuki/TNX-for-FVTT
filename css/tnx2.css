@@ -3976,6 +3976,12 @@ body.tnx-bottom-hud-expanded #hotbar {
     opacity: 0.75;
 }
 
+/* 重圧で起動不可の能力値判定トリガー(クリック不可・淡色) */
+.check-blocked {
+    cursor: not-allowed;
+    opacity: 0.4;
+}
+
 /* ── 手札スロット ── */
 
 .tnx-hud .hand-cards-row .card-hand-slot {
@@ -4296,14 +4302,14 @@ body.tnx-bottom-hud-expanded #hotbar {
     background: rgb(80 200 130 / 25%);
 }
 
-/* カバー: 待ち受け中に、クリックしてカバーできる命中対象の行(2026-07-16・再判定装飾と同じ語彙) */
-.tnx-recheck-grant-pending .tnx-damage-coverable {
+/* カバー: 待ち受け中に、攻撃カードの命中対象の行をクリックしてカバーできる(2026-07-16・再判定装飾と同じ語彙) */
+.tnx-recheck-grant-pending .tnx-attack-coverable {
     cursor: pointer;
     border-radius: 4px;
     outline: 1px dashed rgb(127 232 172 / 70%);
     outline-offset: 2px;
 }
-.tnx-recheck-grant-pending .tnx-damage-coverable:hover {
+.tnx-recheck-grant-pending .tnx-attack-coverable:hover {
     background: rgb(80 200 130 / 25%);
 }
 
@@ -7628,6 +7634,15 @@ button.tnx-create-act-button span {
     margin: 2px 0 4px;
     color: var(--tnx2-text-secondary);
     font-size: 0.9em;
+}
+/* 対象ごとの軽減内訳(名前を繰り返さない小注記・2026-07-16 はみ出し回避)。cr-tn は white-space:nowrap の
+   ため使わず、必ず折り返す独自クラスにする(nowrap の下では overflow-wrap が効かない=はみ出し切れの原因) */
+.tnx-damage-sub {
+    padding-left: 10px;
+    color: var(--tnx2-text-secondary);
+    font-size: 0.82em;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 .tnx-damage-card .cr-result {
     padding: 4px 0 0;

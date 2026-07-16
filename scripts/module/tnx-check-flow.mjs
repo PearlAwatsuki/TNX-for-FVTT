@@ -18,7 +18,7 @@
 import { getCardCheckValue, calcSkillCheck, calcControlCheck, normalizeSuit, ALL_SUITS, SUIT_TO_ABILITY } from './tnx-check-engine.mjs';
 import { gatherCheckBonusSources, collectActorEffectBuffs, actorHasSuitChangeBuff, actorCardValueOverride, readFlag } from '../data/item/helpers.mjs';
 import { evaluateBonusRows, evaluateSelfBonus } from './tnx-formula.mjs';
-import { getEffectiveConditions, gatherConditionCheckSources, getCheckBlock, computeJammingPenalty } from './conditions.mjs';
+import { getEffectiveConditions, gatherConditionCheckSources, getCheckBlock, gatherSkillUseWarnings, computeJammingPenalty } from './conditions.mjs';
 import { TnxActionHandler } from './tnx-action-handler.mjs';
 import { TnxSocketHandler } from './tnx-socket-handler.mjs';
 import { getUserFlagData } from './user-flag-schema.mjs';
@@ -68,6 +68,11 @@ export class TnxCheckFlow {
      * @param {CheckContext} context
      */
     static async open(context) {
+        // 判定起動時点のブロック(警告を出して開かない): 負傷の技能使用不可・重圧の能力値判定。
+        // ②使用不可は 2026-07-16 改訂で「警告のみ」→重圧に合わせて完全ブロックへ(ユーザー裁定)。
+        const blockReason = TnxCheckFlow._activationBlockReason(context);
+        if (blockReason) { ui.notifications.warn(blockReason); return; }
+
         TnxCheckFlow.cancel({ _noRefresh: true });
         TnxCheckFlow._context   = foundry.utils.deepClone(context);
         TnxCheckFlow._trumpMode = false;
@@ -76,6 +81,34 @@ export class TnxCheckFlow {
             await new TnxCheckFlow.dialogClass().render(true);
         }
         game.tnx.hud?.render(false);
+    }
+
+    /**
+     * 判定の起動をブロックすべき理由(警告文)を返す。無ければ null。
+     * - 技能使用不可(負傷 skillBlock): 参加技能(組み合わせ含む)に該当があれば起動不可。技能の識別は
+     *   名前でなく識別キーで行い、選択型(社会/コネ)は付与時に確定した targetSkill を用いる。
+     * - 能力値判定 × 重圧: 対象能力値の能力値判定は起動不可(制御判定は可)。技能判定の重圧は
+     *   使うスート=能力値がカードで決まるためカードプレイ時(_execute)で判定する。
+     * @param {CheckContext} context
+     * @returns {?string}
+     */
+    static _activationBlockReason(context) {
+        const actor = game.actors.get(context?.actorId);
+        if (!actor) return null;
+        const conds = TnxCheckFlow._gatherConditions(actor);
+
+        if (context?.skillIds?.length) {
+            const skillKeys = context.skillIds
+                .map(id => actor.items.get(id)?.system?.identificationKey)
+                .filter(Boolean);
+            const warns = gatherSkillUseWarnings(conds, skillKeys);
+            if (warns.length) return `「${warns.join("」「")}」により、この判定に使う技能は使用不可です。`;
+        }
+        if (context?.type === "abilityCheck") {
+            const block = getCheckBlock(conds, { upward: true, ability: SUIT_TO_ABILITY[context.validSuits?.[0]] });
+            if (block.blocked) return `「${block.by}」により、その能力値を使う判定はできません。`;
+        }
+        return null;
     }
 
     /**
@@ -492,10 +525,15 @@ export class TnxCheckFlow {
         // 萎縮/憎悪の発火に必要な isAttack/targetMatched は攻撃判定モデル＝フェーズ12 が供給する)。
         const conditions  = TnxCheckFlow._gatherConditions(actor);
         const upward      = ctx.type !== "controlCheck";
+        // 特定技能への達成値ペナルティ(眼部損傷)照合用: 参加技能(組み合わせ含む)の識別キー。
+        const skillKeys = (ctx.skillIds ?? [])
+            .map(id => actor.items.get(id)?.system?.identificationKey)
+            .filter(Boolean);
         const condSources = gatherConditionCheckSources(conditions, {
             upward,
             isAttack:      ctx.isAttack === true,
             targetMatched: ctx.targetMatched === true,
+            skillKeys,
         });
         const jamSource = TnxCheckFlow._computeJammingSource(actor, conditions, upward);
         const all = [...sources, ...condSources, ...(jamSource ? [jamSource] : [])];
@@ -763,10 +801,10 @@ export class TnxCheckFlow {
             await completeReactionFromCheck(ctx.reaction, result, { suitMismatch, recheckCtx });
         }
 
-        // カバーの完了継続(2026-07-16): 成功なら対象の予定ダメージをカバーした側へ付け替える。
-        // 目標値「なし」運用ではスート一致(=不成立でない)で成功(result.success は null=未比較)。
+        // カバーの完了継続(2026-07-16): 成功なら攻撃カードの対象にカバーの印を付ける(ダメージカードを
+        // 出すとき付け替えられる)。目標値「なし」運用ではスート一致(=不成立でない)で成功(success は null)。
         if (!ctx.recheckMessageId && ctx.covering) {
-            const { completeCoveringFromCheck } = await import("./damage-flow.mjs");
+            const { completeCoveringFromCheck } = await import("./attack-flow.mjs");
             const coverer = game.actors.get(ctx.actorId);
             await completeCoveringFromCheck(ctx.covering, result, { suitMismatch, coverer });
         }

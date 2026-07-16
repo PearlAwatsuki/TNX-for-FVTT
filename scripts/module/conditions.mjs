@@ -134,6 +134,12 @@ export function readConditions(effect) {
       targetAbility: v.targetAbility || f.targetAbility || null,
       targetUuid:    v.targetUuid || f.targetUuid || null,
       targetWeapon:  v.targetWeapon || f.targetWeapon || null,
+      // 負傷が使用不可/ペナルティにする「特定技能」の選択結果(社会/コネの付与時確定・識別キー)。
+      // 固定技能(知覚/信用)は def 側に持つため、ここは選択型のみ埋まる。
+      targetSkill:   v.targetSkill || f.targetSkill || null,
+      // 次シーン発火の休眠: sceneDeferred な負傷は発火(=13/15 が sceneFired を立てる)まで休眠。
+      // 付与経路に依らず def から導出する(instance フラグの設定漏れを避ける)。
+      pendingScene:  def?.sceneDeferred === true && (v.sceneFired ?? f.sceneFired) !== true,
       targetMode:    def?.targetMode ?? null,
       durationUnit:  v.durationUnit ?? f.durationUnit ?? null,
     };
@@ -415,7 +421,7 @@ export function gatherConditionCheckSources(conditions, ctx) {
   // condition の非 stackable は「同じ kind は重複しない」(同名 BS は複数発生しない)。
   // よって dedup キーは effect identity でなく **kind**。stackable(萎縮等)は重ねる。
   for (const c of (conditions ?? [])) {
-    if (!c || !c.active) continue;
+    if (!c || !c.active || c.pendingScene) continue;
     // 数値修正型: 上方判定の達成値に -magnitude(制御は派生側で別途)
     if (c.def?.type === "numeric" && /check/i.test(c.def?.apply ?? "")) {
       if (ctx?.upward && c.magnitude) {
@@ -427,6 +433,14 @@ export function gatherConditionCheckSources(conditions, ctx) {
       const hit = c.targetMode === "include" ? ctx.targetMatched : !ctx.targetMatched;
       if (hit) {
         entries.push({ identity: c.kind, stackable: c.stackable, name: c.name, value: -(c.def.penalty ?? 0) });
+      }
+    }
+    // 特定技能への達成値ペナルティ(眼部損傷=〈知覚〉-5): 判定参加技能(組み合わせ含む)に
+    // 対象識別キーが含まれれば -value。技能の識別は名前でなく識別キーで行う。
+    if (c.def?.skillPenalty && ctx?.upward) {
+      const sp = c.def.skillPenalty;
+      if (sp.skillKey && (ctx.skillKeys ?? []).includes(sp.skillKey)) {
+        entries.push({ identity: c.kind, stackable: c.stackable, name: c.name, value: -(sp.value ?? 0) });
       }
     }
   }
@@ -515,4 +529,41 @@ export function getCheckBlock(conditions, ctx) {
     }
   }
   return { blocked: false, by: null };
+}
+
+/**
+ * 特定技能の使用不可(負傷の `skillBlock`)に該当する判定について、警告すべきコンディション名を返す。
+ * 重圧の完全ブロック(getCheckBlock)と異なり**警告のみ**(判定は続行する。ユーザー裁定 2026-07-16)。
+ * 照合キーは固定型=def.skillBlock.skillKey(知覚以外の信用等)、選択型(社会/コネ)=付与時に確定した
+ * インスタンスの `targetSkill`。技能の識別は名前でなく識別キーで行う。判定参加技能(組み合わせ含む)の
+ * いずれかが対象キーに一致すれば警告する。同 kind は重複して警告しない。
+ * @param {Array<object>} conditions readConditions 済み(effectIgnored 除外前提)の配列
+ * @param {string[]} skillKeys 判定に参加する技能の識別キー
+ * @returns {string[]} 警告すべきコンディションの表示名
+ */
+export function gatherSkillUseWarnings(conditions, skillKeys) {
+  const keys = new Set(skillKeys ?? []);
+  const seen = new Set();
+  const out = [];
+  for (const c of (conditions ?? [])) {
+    if (!c?.active || c.pendingScene) continue;
+    const sb = c.def?.skillBlock;
+    if (!sb) continue;
+    const target = sb.skillKey || c.targetSkill; // 固定 or 付与時選択
+    if (target && keys.has(target) && !seen.has(c.kind)) {
+      seen.add(c.kind);
+      out.push(c.name);
+    }
+  }
+  return out;
+}
+
+/**
+ * 報酬点の使用不可(負傷の `bountyBlock`)なコンディションがあるか。技能判定時の使用可能報酬点を
+ * 0 に落とし、消費ダイアログ自体をスキップする判断に使う(ユーザー裁定 2026-07-16)。
+ * @param {Array<object>} conditions readConditions 済み(effectIgnored 除外前提)の配列
+ * @returns {boolean}
+ */
+export function hasBountyBlock(conditions) {
+  return (conditions ?? []).some(c => c?.active && !c.pendingScene && c.def?.bountyBlock === true);
 }

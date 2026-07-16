@@ -65,18 +65,18 @@
         <details class="cr-bonus">
             <summary class="cr-calc-row cr-bonus-summary">
                 <span class="cr-calc-label">判定ボーナス</span>
-                <span class="cr-calc-val">+{{result.checkBonus}}</span>
+                <span class="cr-calc-val">{{signed result.checkBonus}}</span>
             </summary>
             <ul class="cr-bonus-list">
                 {{#each checkSources}}
-                <li><span class="cr-bonus-name">{{this.name}}</span><span class="cr-bonus-num">+{{this.value}}</span></li>
+                <li><span class="cr-bonus-name">{{this.name}}</span><span class="cr-bonus-num">{{signed this.value}}</span></li>
                 {{/each}}
             </ul>
         </details>
         {{else}}
         <div class="cr-calc-row">
             <span class="cr-calc-label">判定ボーナス</span>
-            <span class="cr-calc-val">+{{result.checkBonus}}</span>
+            <span class="cr-calc-val">{{signed result.checkBonus}}</span>
         </div>
         {{/if}}
         {{/if}}
@@ -129,18 +129,18 @@
         <details class="cr-bonus">
             <summary class="cr-calc-row cr-bonus-summary">
                 <span class="cr-calc-label">判定ボーナス</span>
-                <span class="cr-calc-val">+{{result.checkBonus}}</span>
+                <span class="cr-calc-val">{{signed result.checkBonus}}</span>
             </summary>
             <ul class="cr-bonus-list">
                 {{#each checkSources}}
-                <li><span class="cr-bonus-name">{{this.name}}</span><span class="cr-bonus-num">+{{this.value}}</span></li>
+                <li><span class="cr-bonus-name">{{this.name}}</span><span class="cr-bonus-num">{{signed this.value}}</span></li>
                 {{/each}}
             </ul>
         </details>
         {{else}}
         <div class="cr-calc-row">
             <span class="cr-calc-label">判定ボーナス</span>
-            <span class="cr-calc-val">+{{result.checkBonus}}</span>
+            <span class="cr-calc-val">{{signed result.checkBonus}}</span>
         </div>
         {{/if}}
         {{/if}}

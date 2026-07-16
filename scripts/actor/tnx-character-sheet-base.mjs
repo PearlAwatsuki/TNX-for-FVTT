@@ -24,12 +24,13 @@ import { useNpcAcquire } from '../module/npc-acquisition.mjs';
 import { useRecovery } from '../module/recovery-flow.mjs';
 import { resolveUsageTargetValue } from '../module/usage-target-value.mjs';
 import { useAttack } from '../module/attack-flow.mjs';
+import { aggregateDefence } from '../module/damage-logic.mjs';
 import { prepareUsageEffectPayload } from '../module/usage-effects.mjs';
 import { getComboSuits, comboUsesBounty, ALL_SUITS } from '../module/tnx-check-engine.mjs';
 import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
 import { groupStyleSkillsByStyle } from '../module/style-skill-acquisition.mjs';
 import { HOUSING_AREA_RANKS } from '../data/item/housing-area.mjs';
-import { CONDITION_KINDS, readConditions, getConditionKind, getEffectiveConditions } from '../module/conditions.mjs';
+import { CONDITION_KINDS, readConditions, getConditionKind, getEffectiveConditions, hasBountyBlock, getCheckBlock } from '../module/conditions.mjs';
 import { openConditionEditDialog } from '../module/condition-edit.mjs';
 import { startTreatment } from '../module/treatment-flow.mjs';
 import { startVehicleMove } from '../module/vehicle-move.mjs';
@@ -779,20 +780,10 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         for (const c of candidates) choices[c.id] = displayName(c);
         context.combatWeaponChoices = choices;
 
-        // 防御力: 全ての義体を含む種別ごとの合計(準備済みの armor/cyborg/vehicle。防具は合算適用・
-        // 義体の防御力は防具と加算される。搭乗中(準備済み)ヴィークルの防御力も加算する(2026-07-09
-        // ユーザー確定)。複数義体の「一種のみ適用」の厳密化は12の実効防御派生で)
-        context.combatDefenceTotal = items
-            .filter(i => (i.type === "armor" || i.type === "cyborg" || i.type === "vehicle")
-                && usable(i) && i.system.defence?.mode === "value")
-            .reduce((t, i) => {
-                const d = i.system.defence;
-                return {
-                    S: t.S + (d.S_total ?? d.S_defence ?? 0),
-                    P: t.P + (d.P_total ?? d.P_defence ?? 0),
-                    I: t.I + (d.I_total ?? d.I_defence ?? 0),
-                };
-            }, { S: 0, P: 0, I: 0 });
+        // 防御力: 種別ごとの合計(準備済みの armor/cyborg/vehicle。防具・義体は合算適用・搭乗中
+        // ヴィークルの防御力も加算する・2026-07-09 ユーザー確定)。ダメージ算出でも同じ値を使うため、
+        // 合算はダメージ算出と同一の aggregateDefence に一本化する(2026-07-16 ユーザー指摘=戦闘タブの合計)。
+        context.combatDefenceTotal = aggregateDefence(items);
 
         // タイミングごとの使用技能・アウトフィット(2026-07-02 ユーザー確定):
         // - 標準のプロセス/アクション(下記8つ)は空でも常に表示する。
@@ -1846,6 +1837,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         };
 
         const outfitMod = context.system.outfitMod ?? {};
+        // 重圧(能力値判定不可)の対象能力値は起動不可にする(クリック不可・カードプレイまで遅らせない)。
+        const blockConds = TnxCheckFlow._gatherConditions(this.actor);
         for (const key of abilityKeys) {
             const ability = context.system[key];
             const styleContributions = equippedStyles.map(style => {
@@ -1872,6 +1865,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                 // styleTotalValue 等はスタイル内訳表示(styleContributions)専用。
                 totalValue:   this.actor.system[key].total,
                 totalControl: this.actor.system[key].totalControl,
+                // 重圧でこの能力値の能力値判定が不可なら、シート上でクリック不可にする(制御判定は可)。
+                checkBlocked: getCheckBlock(blockConds, { upward: true, ability: key }).blocked,
             };
         }
         context.mundaneTotalValue = context.system.abilities.mundane.totalValue;
@@ -2578,6 +2573,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             .join("+");
 
         const actorBounty = (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0);
+        // 報酬点使用不可(口座凍結/信用失墜)の負傷があれば消費できない=可能報酬点を 0 にし、
+        // 使用ダイアログ自体を出さない(ユーザー裁定 2026-07-16)。休眠(次シーン未発火)は数えない。
+        const bountyBlocked = hasBountyBlock(TnxCheckFlow._gatherConditions(actor));
 
         // 使用回数の消費を確認(用途の消費先設定＝consumeTargets 由来・11-6。自動スキャンは全廃・
         // 残量不足でチェック時はブロック)。分身は本体側カウンターへ差し替えて共有(Troops.md)。
@@ -2627,7 +2625,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             // 式を評価(空/評価不能はなし)・制御値/達成値/登場目標値=別メカニクス(具体値は引かない)
             targetValue:     await resolveUsageTargetValue(selectedUsage, actor, item),
             // 報酬点: 参加技能のいずれかが usesBounty なら可(ベース限定は誤り・2026-07-10 ユーザー確定)
-            bountyAvailable: comboUsesBounty(allSkillIds.map(id => actor.items.get(id)?.system)) ? actorBounty : 0,
+            bountyAvailable: (comboUsesBounty(allSkillIds.map(id => actor.items.get(id)?.system)) && !bountyBlocked) ? actorBounty : 0,
             consumeUses:     usesPlan,
             requestMessageId: null,
             checkBonuses:    selectedUsage.checkBonuses ?? [],

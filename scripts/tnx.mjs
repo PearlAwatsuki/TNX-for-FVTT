@@ -60,7 +60,7 @@ import { gatherDamageTagMods, parseEffectTargetKey, buildTransferredEffectData, 
 import { registerDamageChartTextSetting } from './module/damage-chart-text-app.mjs';
 import { registerPartSlotPresetSetting, getPartSlotPreset, initializeDefaultPartSlotPreset, migratePartSlotKeys } from './module/part-slot-preset-app.mjs';
 import { autoAcquireForStyleSkill, autoImportDerivedData } from './module/style-skill-acquisition.mjs';
-import { conditionNeedsDraw, postDrawPrompt, postControlNegatePrompt, bindConditionChatButtons, renderConditionDrawCard } from './module/condition-resolution.mjs';
+import { conditionNeedsDraw, postDrawPrompt, postControlNegatePrompt, promptWoundSkillSelection, bindConditionChatButtons, renderConditionDrawCard } from './module/condition-resolution.mjs';
 
 async function preloadHandlebarsTemplates() {
     const templatePaths = [
@@ -621,6 +621,9 @@ Hooks.on("createActiveEffect", async (effect, options, userId) => {
         const cn = perKind[c.kind]?.pendingControlNegate;
         if (cn) await postControlNegatePrompt(actor, effect, c.kind, cn);
     }
+    // 3. 選択型負傷(造反/人脈消失/スキャンダル/信頼喪失=社会/コネ「ひとつ」)の使用不可対象を、
+    //    付与ユーザーに選ばせて targetSkill を確定する(付与経路を問わない=2026-07-16 是正)。
+    await promptWoundSkillSelection(actor, effect);
 });
 
 // アイテム狙いの AE の物理転送(2026-07-13 再設計)+片方向同期(2026-07-12 ユーザー指摘=
@@ -868,6 +871,13 @@ Hooks.once("init", async function() {
     if (chatNotifSetting) chatNotifSetting.default = "pip";
     Handlebars.registerHelper('add', function(a, b) {
         return a + b;
+    });
+
+    // 符号付き表記(判定修正の内訳等)。負値は "-n"、0以上は "+n"。ハードコードの "+" 前置だと
+    // マイナス修正が "+-n" になるため(眼部損傷 -5 等)、必ず本ヘルパーで符号を付ける。
+    Handlebars.registerHelper('signed', function(n) {
+        const v = Number(n) || 0;
+        return v >= 0 ? `+${v}` : `${v}`;
     });
 
     // アイテム名の表示マーカー(2026-06-12 ユーザー確定ルール)

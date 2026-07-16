@@ -218,8 +218,10 @@ async function finalizeDamageRoll(ctx, form, played) {
                     attackMessageId: attackMessage.id,
                     attackerUuid: f.attackerUuid,
                     // 命中対象(複数対象一括・2026-07-15): 攻撃側合計は共有・軽減とチャートは対象ごと。
-                    // parryGuard は各対象のリアクション(パリー成立)で決まった受け値を引き継ぐ
-                    targets: (hitTargets ?? []).map(t => ({ uuid: t.uuid, name: t.name, parryGuard: Number(t.parryGuard) || 0 })),
+                    // parryGuard は各対象のリアクション(パリー成立)で決まった受け値を引き継ぐ。
+                    // カバー(2026-07-16): 攻撃カードで付いた coveredBy を展開＝元対象(被弾なし)＋カバー行
+                    // (カバーした側・受け値なし)。カバーした側が元々対象なら自分の行(受け値あり)も別に残る。
+                    targets: buildDamageTargets(hitTargets),
                     category,
                     damageType: f.damageType ?? "",
                     attackPower, faValue,
@@ -339,7 +341,8 @@ export function renderDamageCard(message, html) {
     };
 
     // ── 台帳 ──
-    // 対象(複数対象一括・2026-07-15): 命中対象の名前を列挙。攻撃側合計は共有・軽減は対象ごと
+    // 対象(複数対象一括・2026-07-15): 被弾者を列挙。カバーされた元対象は buildDamageTargets で載っていない
+    // (カバーした側の行だけ)ので、ここは実際の被弾者だけ＝「対象N体」も正しく数える(2026-07-16 是正)。
     const dmgTargets = f.targets ?? [];
     if (dmgTargets.length) row(ledger, dmgTargets.length > 1 ? `対象（${dmgTargets.length}体）` : "対象",
         dmgTargets.map(t => `「${esc(t.name)}」`).join("・"));
@@ -387,19 +390,17 @@ export function renderDamageCard(message, html) {
                 `<i class="fas fa-shuffle"></i> 「${esc(CATEGORY_LABELS[f.appliedResult.applyCategory] ?? f.appliedResult.applyCategory)}」ダメージとして適用`);
         }
         for (const tr of (f.appliedResult.targets ?? [])) {
-            // カバーされた対象は被弾しなかった旨だけ記録
-            if (tr.covered) {
-                line(area, "cr-tn", `「${esc(tr.name)}」: 「${esc(tr.covered)}」がカバー（ダメージなし）`);
-                continue;
-            }
-            const nameLabel = tr.coveringFor ? `${esc(tr.name)}（「${esc(tr.coveringFor)}」をカバー）` : esc(tr.name);
-            if (tr.defenderMod) row(area, `${nameLabel}: ダメージ修正（防御側）`, signedDisplay("＋", tr.defenderMod));
-            if (tr.autoMitigation) row(area, `${nameLabel}: 防御力・受け値${tr.mitigationParts ? `（${esc(tr.mitigationParts)}）` : ""}`, `−${tr.autoMitigation}`);
-            if (tr.manual) row(area, `${nameLabel}: 手動軽減`, `−${tr.manual}`);
-            if (tr.bounty) row(area, `${nameLabel}: 報酬点による軽減`, `−${tr.bounty}`);
-            row(area, `${nameLabel}: 最終ダメージ`, String(tr.final), "cr-calc-row cr-total-row", "cr-total-num");
+            // 対象ごとに見出し(名前)は1回だけ＝軽減の内訳は名前を繰り返さない小注記に畳む(はみ出し回避)
+            const nameLabel = tr.coveringFor ? `${esc(tr.name)}（${esc(tr.coveringFor)}をカバー）` : esc(tr.name);
+            row(area, nameLabel, String(tr.final), "cr-calc-row cr-total-row", "cr-total-num");
+            const parts = [];
+            if (tr.defenderMod) parts.push(`ダメージ修正 ${signedDisplay("＋", tr.defenderMod)}`);
+            if (tr.autoMitigation) parts.push(`防御力・受け値 −${tr.autoMitigation}`);
+            if (tr.manual) parts.push(`手動軽減 −${tr.manual}`);
+            if (tr.bounty) parts.push(`報酬点 −${tr.bounty}`);
+            if (parts.length) line(area, "tnx-damage-sub", esc(parts.join("・")));
             line(area, `cr-result ${tr.final > 0 ? "cr-result--damage" : "cr-result--nodamage"}`,
-                `<i class="fas ${tr.final > 0 ? "fa-burst" : "fa-shield-halved"}"></i> ${nameLabel}: ${esc(tr.applyText ?? "")}`);
+                `<i class="fas ${tr.final > 0 ? "fa-burst" : "fa-shield-halved"}"></i> ${esc(tr.applyText ?? "")}`);
         }
         return;
     }
@@ -407,28 +408,16 @@ export function renderDamageCard(message, html) {
     // 対象ごとの最終ダメージ(2026-07-16 ユーザー確定): 防御力・受け値は「ダメージ算出」で適用済み＝各行に
     // 軽減後の最終ダメージを表示する。攻撃側合計はレジャーに残す(攻撃側の事後増強のため)。社会の報酬点軽減と
     // 手動の状況軽減だけ適用時のダイアログで入れる。
-    for (let ti = 0; ti < dmgTargets.length; ti++) {
-        const t = dmgTargets[ti];
-        // カバーされた対象は被弾しない(誰がカバーしたかを明示)
-        if (t.coveredBy) {
-            row(area, esc(t.name), `「${esc(t.coveredBy.name)}」がカバー（ダメージなし）`);
-            continue;
-        }
+    for (const t of dmgTargets) {
+        // 対象ごとに見出し(名前)＝最終ダメージを1行・軽減の内訳は名前を繰り返さない小注記に畳む(はみ出し回避)
         const p = targetPlannedPreview(f, t);
+        const nameLabel = t.coveringFor ? `${esc(t.name)}（${esc(t.coveringFor)}をカバー）` : esc(t.name);
+        row(area, nameLabel, String(p.final), "cr-calc-row cr-total-row", "cr-total-num");
         const parts = [];
         if (p.defence) parts.push(`防御力 −${p.defence}`);
         if (p.parry) parts.push(`受け値 −${p.parry}`);
         if (p.modsSum) parts.push(`修正 ${signedDisplay("＋", p.modsSum)}`);
-        const nameLabel = t.coveringFor ? `${esc(t.name)}（「${esc(t.coveringFor)}」をカバー）` : esc(t.name);
-        row(area, `${nameLabel}: ダメージ${parts.length ? `（${parts.join("・")}）` : ""}`,
-            String(p.final), "cr-calc-row cr-total-row", "cr-total-num");
-        // カバー待ち受け中に、元の命中対象(カバー済み/カバー行でない)の行をクリックしてカバーできる。
-        // モード外のクリックは handleCoveringClick 側で無視される(常設ハンドラ・modifyDamage と同型)。
-        if (!f.applied && !t.coveringFor) {
-            const rowEl = area.lastElementChild;
-            rowEl.classList.add("tnx-damage-coverable");
-            rowEl.addEventListener("click", () => handleCoveringClick(message, ti));
-        }
+        if (parts.length) line(area, "tnx-damage-sub", esc(parts.join("・")));
     }
 
     const attacker = resolveSync(f.attackerUuid);
@@ -544,60 +533,6 @@ export async function handleDamageModifyClick(message) {
     }
 }
 
-// ─── カバー(ダメージの受け手を付け替える・2026-07-16 ユーザー確定) ───────────────────
-
-/**
- * カバー待ち受け中に、ダメージカードのカバーする対象がクリックされたときの処理。
- * その対象を文脈にカバーの判定(唯一の起動関数 `_activateItemCheck`・covering 文脈)を起動する。
- * 成功で completeCoveringFromCheck が受け手を付け替える。モード外のクリックは無視(通常表示)。
- * @param {ChatMessage} message ダメージ・チャットカード
- * @param {number} targetIndex damageRoll.targets のインデックス
- */
-export async function handleCoveringClick(message, targetIndex) {
-    const state = TnxCheckFlow.peekAchievementAction("covering");
-    if (!state) return; // モード外のクリックは無視
-    const f = message.getFlag(SCOPE, "damageRoll");
-    if (!f || f.applied) { ui.notifications.warn("適用済みのダメージはカバーできません。"); return; }
-    const t = (f.targets ?? [])[targetIndex];
-    if (!t || t.coveredBy || t.coveringFor) return; // カバー済み/カバー行は対象にしない
-    const actor = game.actors.get(state.actorId);
-    const skill = actor?.items.get(state.skillItemId);
-    if (!skill) { TnxCheckFlow.cancelAchievementAction(); return; }
-    TnxCheckFlow.cancelAchievementAction();
-    const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
-    await TnxCharacterSheetBase._activateItemCheck(actor, skill, {
-        covering: { damageMessageId: message.id, targetIndex, usageId: state.usageId },
-    });
-}
-
-/**
- * カバーの完了継続(判定成功でダメージの受け手を付け替える)。目標値「なし」運用ではスート一致
- * (不成立でない)で成功(result.success は null=未比較のため false 以外で成立)。成功なら対象の予定
- * ダメージをカバーした側へ付け替える——元対象はダメージなし(coveredBy)、カバーした側の行を追加
- * (自身の防御力で算出・受け値は参照しない=parryGuard 0)。カバーした側が元々対象なら自分の行(受け値
- * あり)＋カバーした行(受け値なし)が別々に適用される。
- * @param {{damageMessageId:string, targetIndex:number}} payload
- * @param {object} result 判定結果
- * @param {{suitMismatch?:boolean, coverer:Actor|null}} [opts]
- */
-export async function completeCoveringFromCheck(payload, result, { suitMismatch = false, coverer = null } = {}) {
-    const message = game.messages.get(payload.damageMessageId);
-    if (!message) return;
-    const f = message.getFlag(SCOPE, "damageRoll");
-    if (!f) return;
-    if (f.applied) { ui.notifications.warn("適用済みのダメージはカバーできません。"); return; }
-    const targets = f.targets ?? [];
-    const t = targets[payload.targetIndex];
-    if (!t || t.coveredBy || t.coveringFor || !coverer) { ui.notifications.warn("この対象はカバーできません。"); return; }
-    const ok = !result.fumble && !suitMismatch && result.success !== false;
-    if (!ok) { ui.notifications.info(`「${coverer.name}」のカバーは成立しませんでした。`); return; }
-    const next = foundry.utils.deepClone(targets);
-    next[payload.targetIndex].coveredBy = { name: coverer.name };
-    next.push({ uuid: coverer.uuid, name: coverer.name, parryGuard: 0, mods: [], coveringFor: t.name });
-    await applyDamagePatch(message, { targets: next });
-    ui.notifications.info(`「${coverer.name}」が「${t.name}」をカバーしました。`);
-}
-
 /**
  * GMメニュー「ダメージを修正(手動)」(2026-07-14 ユーザー確定): 手入力の修正値を mods 行(手動修正)
  * として合算する(用途経由の modifyDamage と同じ着地・消費なし)。達成値の手動修正と同じく
@@ -643,6 +578,24 @@ function collectDamageVsBonuses(attacker, target) {
     const { styles, works } = targetStyleWorksKeys(target);
     if (!styles.length && !works.length) return [];
     return gatherDamageVsSources(collectActorEffectBuffs(attacker), { styles, works });
+}
+
+/**
+ * 攻撃カードの命中対象からダメージカードの対象行を組み立てる。カバー(coveredBy)が付いた元対象は
+ * 被弾しないのでダメージカードに載せず、**カバーした側の行だけ**作る(uuid=カバー側・受け値なし・
+ * coveringFor で誰をカバーしたか)。カバーした側が元々命中対象なら、その自分の行(受け値あり)は別に残る。
+ * @param {Array<{uuid:string,name:string,parryGuard?:number,coveredBy?:{uuid:string,name:string}}>} hitTargets
+ */
+function buildDamageTargets(hitTargets) {
+    const out = [];
+    for (const t of (hitTargets ?? [])) {
+        if (t.coveredBy) {
+            out.push({ uuid: t.coveredBy.uuid, name: t.coveredBy.name, parryGuard: 0, coveringFor: t.name });
+        } else {
+            out.push({ uuid: t.uuid, name: t.name, parryGuard: Number(t.parryGuard) || 0 });
+        }
+    }
+    return out;
 }
 
 /** 攻撃側合計(カード合算+攻撃力+FA+用途のダメージ修正+手動修正+事後修正)。 */
@@ -744,10 +697,9 @@ async function openMitigationDialog(message, applyCategory = null) {
     const f = message.getFlag(SCOPE, "damageRoll");
     if (!f || f.applied) return;
 
-    // 命中対象を解決。カバーされた対象(coveredBy)は被弾しないので除外する(カバーした側の行=coveringFor は含む)
+    // 命中対象を解決(カバーされた元対象は buildDamageTargets で載っていない=カバーした側の行だけ)
     const resolvedTargets = [];
     for (const t of (f.targets ?? [])) {
-        if (t.coveredBy) continue;
         const actor = await fromUuid(t.uuid).catch(() => null);
         // t.mods=その対象の防御側 modifyDamage(per-target・2026-07-15)。攻撃側合計へ対象ごとに反映する
         if (actor) resolvedTargets.push({ actor, name: t.name, parryGuard: Number(t.parryGuard) || 0, mods: t.mods ?? [], coveringFor: t.coveringFor ?? null });
@@ -785,7 +737,7 @@ async function openMitigationDialog(message, applyCategory = null) {
     // 手動の状況軽減と、社会の報酬点軽減だけ(2026-07-16 ユーザー確定=ダイアログ縮小)。
     const rowsHtml = rows.map(r => `
         <div class="tnx-damage-target-row" data-index="${r.index}">
-            <div class="tnx-damage-target-name">${esc(r.name)}${r.coveringFor ? `（「${esc(r.coveringFor)}」をカバー）` : ""}</div>
+            <div class="tnx-damage-target-name">${esc(r.name)}${r.coveringFor ? `（${esc(r.coveringFor)}をカバー）` : ""}</div>
             <div class="tnx-damage-fixed">防御力・受け値（適用済み）: <b>−${r.autoMitigation}</b>${r.mitigationParts.length ? `（${esc(r.mitigationParts.join("・"))}）` : ""}</div>
             <div class="form-group">
                 <label>手動の状況軽減</label>
@@ -877,10 +829,6 @@ async function openMitigationDialog(message, applyCategory = null) {
             defenderMod: r.modsSum || 0,
             bounty, final, stage, applyText,
         });
-    }
-    // カバーされた対象は被弾しない(記録として適用済み表示に残す)
-    for (const t of (f.targets ?? [])) {
-        if (t.coveredBy) appliedTargets.push({ name: t.name, covered: t.coveredBy.name });
     }
 
     await applyDamagePatch(message, {
