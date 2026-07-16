@@ -20,7 +20,7 @@
  */
 
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
-import { getComboSuits, comboUsesBounty } from "./tnx-check-engine.mjs";
+import { buildUsageCheckContext } from "./usage-check-context.mjs";
 import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } from "./usage-consumption.mjs";
 import { placeActorTokens } from "./tnx-token-placement.mjs";
 import { computeAcquisitionOutcome, buildBunshinAbilityMods } from "./npc-acquisition-logic.mjs";
@@ -119,23 +119,6 @@ async function useCheckAcquire(actor, item, usage, mode) {
         }
     }
 
-    // 参加技能の解決(check と同じ: ベース=用途の baseSkillRef または親・コンボ=skillRefs)
-    const baseId = usage.baseSkillRef?.itemId || item.id;
-    const baseSkill = baseId === item.id ? item : actor.items.get(baseId);
-    if (!baseSkill) {
-        ui.notifications.warn(`「${item.name}」の用途に不備があります（ベース技能が見つかりません）。`);
-        return;
-    }
-    const comboIds = (usage.skillRefs ?? []).map(r => r.itemId).filter(id => id && actor.items.has(id));
-    if (item.id !== baseId && !comboIds.includes(item.id)) comboIds.push(item.id);
-    const allSkillIds = [baseId, ...comboIds.filter(id => id !== baseId)];
-    const skillSystems = allSkillIds.map(id => (id === item.id ? item : actor.items.get(id))?.system).filter(Boolean);
-    const validSuits = getComboSuits(skillSystems);
-    if (!validSuits.length) {
-        ui.notifications.warn(`「${item.name}」の用途に不備があります（参加技能に共通スートがありません）。`);
-        return;
-    }
-
     // レベル転記(2026-07-04 確定: 取得技能のレベルがそのままトループ/エニグマのレベル。分身は対象外)
     if (mode !== "bunshin") {
         const level = Number(item.system.level) || 0;
@@ -145,29 +128,17 @@ async function useCheckAcquire(actor, item, usage, mode) {
         }
     }
 
-    // 消費(判定系は check と同じく判定実行時に適用。ダイアログは起動時)
-    const rows = resolveConsumeRowsForActor(actor, item, usage.consumeTargets);
-    const usesPlan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${item.name}` });
-    if (usesPlan === null) return;
-
-    const skillLabel = allSkillIds
-        .map(id => (id === item.id ? item : actor.items.get(id))?.name ?? "")
-        .filter(Boolean)
-        .join("+");
-    const actorBounty = (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0);
+    // 参加技能・報酬点・消費・適用効果・目標値・判定ボーナスは判定起動の共通前段で解決する
+    // (2026-07-16 一本化。従来この経路だけ判定ボーナス(checkBonusSelf/checkBonuses)・適用効果・
+    // 目標値欄・再判定可能・報酬点ブロックを読み落としていた)
+    const base = await buildUsageCheckContext(actor, item, usage);
+    if (!base) return;
 
     await TnxCheckFlow.open({
-        type:            "skillCheck",
-        actorId:         actor.id,
-        skillIds:        allSkillIds,
-        skillLabel,
-        validSuits,
-        targetValue:     mode === "bunshin" ? 10 : null,
-        // 報酬点: 参加技能のいずれかが usesBounty なら可(2026-07-10 ユーザー確定)
-        bountyAvailable: comboUsesBounty(skillSystems) ? actorBounty : 0,
-        consumeUses:     usesPlan,
-        requestMessageId: null,
-        allowSuitChange: usage.allowSuitChange === true, // スート変更可能(用途の設定・2026-07-12)
+        ...base,
+        // 分身=目標値10(Troops.md のルール固定・達成値10以上で成功)。トループ/エニグマは用途の
+        // 目標値欄に従う(通常は「なし」=達成値分の人数/ポイントを取得)
+        targetValue: mode === "bunshin" ? 10 : base.targetValue,
         // 判定完了後の取得継続(TnxCheckFlow._execute → completeAcquisitionFromCheck)
         npcAcquire: {
             mode,

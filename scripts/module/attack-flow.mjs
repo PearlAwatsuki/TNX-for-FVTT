@@ -22,8 +22,8 @@
  */
 
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
-import { getComboSuits, comboUsesBounty, SUIT_TO_ABILITY } from "./tnx-check-engine.mjs";
-import { resolveConsumeRowsForActor, promptConsumption } from "./usage-consumption.mjs";
+import { SUIT_TO_ABILITY } from "./tnx-check-engine.mjs";
+import { buildUsageCheckContext } from "./usage-check-context.mjs";
 import { TargetSelectionDialog } from "./tnx-dialog.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { resolveNoReaction, resolveOpposed, attackReactionModes, formatAttackLabel, combineWeaponAttack, resolveAttackRecheckState } from "./attack-flow-logic.mjs";
@@ -32,7 +32,6 @@ import { resolveAttackWeapons, attackWeaponDisplayName } from "./attack-weapons.
 import { buildSkillOptions } from "./skill-select.mjs";
 import { actorSkillsWithRole } from "./skill-roles.mjs";
 import { resolveOperateSkill } from "./vehicle-move.mjs";
-import { prepareUsageEffectPayload } from "./usage-effects.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
@@ -142,38 +141,11 @@ export async function useAttack(item, usage) {
         }
     }
 
-    // 参加技能の解決(check と同じ: ベース=baseSkillRef または親・コンボ=skillRefs)
-    const baseId = usage.baseSkillRef?.itemId || item.id;
-    const baseSkill = baseId === item.id ? item : actor.items.get(baseId);
-    if (!baseSkill) {
-        ui.notifications.warn(`「${item.name}」の用途に不備があります（ベース技能が見つかりません）。`);
-        return;
-    }
-    const comboIds = (usage.skillRefs ?? []).map(r => r.itemId).filter(id => id && actor.items.has(id));
-    if (item.id !== baseId && !comboIds.includes(item.id)) comboIds.push(item.id);
-    const allSkillIds = [baseId, ...comboIds.filter(id => id !== baseId)];
-    const skillSystems = allSkillIds.map(id => (id === item.id ? item : actor.items.get(id))?.system).filter(Boolean);
-    const validSuits = getComboSuits(skillSystems);
-    if (!validSuits.length) {
-        ui.notifications.warn(`「${item.name}」の用途に不備があります（参加技能に共通スートがありません）。`);
-        return;
-    }
-
-    // 消費(消費先設定・判定実行時に適用)
-    const rows = resolveConsumeRowsForActor(actor, item, usage.consumeTargets);
-    const usesPlan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${item.name}` });
-    if (usesPlan === null) return;
-
-    // 用途の適用効果: ターゲットしたキャラクターへ付与するペイロード(攻撃対象がそのまま対象。
-    // ノーターゲットは確認)。攻撃カードに載せ、対象所有者/GM がボタンで付与する(2026-07-10)
-    const usageEffects = await prepareUsageEffectPayload(actor, item, usage);
-    if (usageEffects === "cancel") return;
-
-    const skillLabel = allSkillIds
-        .map(id => (id === item.id ? item : actor.items.get(id))?.name ?? "")
-        .filter(Boolean)
-        .join("+");
-    const actorBounty = (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0);
+    // 参加技能・報酬点・消費・適用効果は判定起動の共通前段で解決する(2026-07-16 一本化。従来この
+    // 経路だけ報酬点ブロック(口座凍結/信用失墜)を読み落としていた)。攻撃対象の決定(上)を先に済ませて
+    // から呼ぶ=適用効果のターゲット解決が攻撃対象と一致する
+    const base = await buildUsageCheckContext(actor, item, usage);
+    if (!base) return;
 
     // 通常(非FA)射撃の残弾消費: 数字モードの武器を 1 減らす(任意は FA でのみ空・2026-07-10)。
     // 物理攻撃のみ。FA による消費はダメージ算出時(consumeFaAmmo)に別途行う。
@@ -185,21 +157,9 @@ export async function useAttack(item, usage) {
     }
 
     await TnxCheckFlow.open({
-        type:            "skillCheck",
-        actorId:         actor.id,
-        skillIds:        allSkillIds,
-        skillLabel,
-        validSuits,
-        targetValue:     null, // 成否は攻撃カード上で確定(リアクションなし=制御値/対決=相手の達成値)
-        // 報酬点: 参加技能のいずれかが usesBounty なら可(ベース限定は誤り・2026-07-10 ユーザー確定)
-        bountyAvailable: comboUsesBounty(skillSystems) ? actorBounty : 0,
-        consumeUses:     usesPlan,
-        requestMessageId: null,
-        checkBonuses:    usage.checkBonuses ?? [],
-        checkBonusSelf:  usage.checkBonusSelf ?? "",
-        sourceItemId:    item.id,   // 用途の親アイテム(@item.self の解決に使う)
-        allowRecheck:    usage.allowRecheck === true, // 再判定可能(用途の設定・2026-07-11)
-        allowSuitChange: usage.allowSuitChange === true, // スート変更可能(用途の設定・2026-07-12)
+        ...base,
+        targetValue:  null, // 成否は攻撃カード上で確定(リアクションなし=制御値/対決=相手の達成値)
+        usageEffects: null, // 適用効果は攻撃ペイロードで運ぶ(攻撃カード→ダメージカードに一本化)
         attack: {
             attackerUuid: actor.uuid,
             attackerName: actor.name,
@@ -210,9 +170,9 @@ export async function useAttack(item, usage) {
             sourceItemId: item.id,
             stunCapable,                       // スタン攻撃を宣言できるか(物理・武器/生身/用途canStun 由来・2026-07-15)
             stunDeclared: false,               // 判定ダイアログのトグルで宣言される(2026-07-15)
-            skillLabel,
+            skillLabel: base.skillLabel,
             usageName: usage.name || item.name,
-            usageEffects,   // 付与効果ペイロード(null=効果なし)。攻撃カードのフラグへ
+            usageEffects: base.usageEffects,   // 付与効果ペイロード(null=効果なし)。攻撃カードのフラグへ
         },
     });
 }

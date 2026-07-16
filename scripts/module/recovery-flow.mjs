@@ -28,11 +28,10 @@
 
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
-import { getComboSuits, comboUsesBounty } from "./tnx-check-engine.mjs";
+import { buildUsageCheckContext } from "./usage-check-context.mjs";
 import { CONDITION_KINDS, getConditionKinds, recoveryKindMatches, recoveryKindExcluded, readCondition } from "./conditions.mjs";
 import { postConditionOutcome } from "./condition-resolution.mjs";
 import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } from "./usage-consumption.mjs";
-import { resolveUsageTargetValue } from "./usage-target-value.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -193,13 +192,11 @@ export async function useRecovery(item, usage) {
     if (!selected) return;
     const plan = buildRemovalPlan(patient, selected);
 
-    // 消費(consumeTargets): 宣言=ここで適用・判定=カードプレイ時に適用(既存の check と同じ)
-    const rows = resolveConsumeRowsForActor(actor, item, usage.consumeTargets);
-    const usesPlan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${item.name}` });
-    if (usesPlan === null) return;
-
-    // 宣言(判定なし): 即除去
+    // 宣言(判定なし): 消費(使用時に確定・適用)→即除去
     if (usage.type !== "check") {
+        const rows = resolveConsumeRowsForActor(actor, item, usage.consumeTargets);
+        const usesPlan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${item.name}` });
+        if (usesPlan === null) return;
         await applyConsumptionPlan(usesPlan);
         if (!await applyRecoveryRemoval(patient, plan.removeIds)) return;
         await postConditionOutcome(patient, {
@@ -209,41 +206,18 @@ export async function useRecovery(item, usage) {
         return;
     }
 
-    // 判定(check): 目標値を解決して通常の判定フローへ(完了継続 ctx.recovery)。
-    // 発動タブの目標値設定に一本化(2026-07-13)——解説参照/その他の式には選択した状態の
-    // @condition.magnitude/@condition.woundValue を注入する
-    const targetValue = await resolveUsageTargetValue(usage, actor, item, {
-        condition: { magnitude: plan.magnitude, woundValue: plan.woundValue },
+    // 判定(check): 共通前段(不備検知・参加技能・報酬点・消費・適用効果・目標値)で解決して通常の
+    // 判定フローへ(2026-07-16 一本化。従来この経路だけ適用効果・再判定可能・報酬点ブロックを
+    // 読み落としていた)。目標値は発動タブの設定に一本化(2026-07-13)——解説参照/その他の式には
+    // 選択した状態の @condition.magnitude/@condition.woundValue を注入する
+    const base = await buildUsageCheckContext(actor, item, usage, {
+        targetValueExtra: { condition: { magnitude: plan.magnitude, woundValue: plan.woundValue } },
     });
-
-    const baseId = usage.baseSkillRef?.itemId || item.id;
-    const comboIds = (usage.skillRefs ?? []).map(r => r.itemId).filter(id => id && actor.items.has(id));
-    if (item.id !== baseId && !comboIds.includes(item.id)) comboIds.push(item.id);
-    const allSkillIds = [baseId, ...comboIds.filter(id => id !== baseId)];
-    const skillSystems = allSkillIds.map(id => actor.items.get(id)?.system).filter(Boolean);
-    const validSuits = getComboSuits(skillSystems);
-    if (!actor.items.get(baseId) || !validSuits.length) {
-        ui.notifications.warn(`「${item.name}」で使用できるスートがありません。`);
-        return;
-    }
-    const skillLabel = allSkillIds.map(id => actor.items.get(id)?.name ?? "").filter(Boolean).join("+");
-    const actorBounty = (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0);
+    if (!base) return;
 
     await TnxCheckFlow.open({
-        type:            "skillCheck",
-        actorId:         actor.id,
-        skillIds:        allSkillIds,
-        skillLabel,
-        validSuits,
-        targetValue,
-        bountyAvailable: comboUsesBounty(skillSystems) ? actorBounty : 0,
-        consumeUses:     usesPlan,
-        requestMessageId: null,
-        checkBonuses:    usage.checkBonuses ?? [],
-        checkBonusSelf:  usage.checkBonusSelf ?? "",
-        sourceItemId:    item.id,
-        allowSuitChange: usage.allowSuitChange === true,
-        // 完了継続(TnxCheckFlow._execute → resolveRecoveryFromCheck)。継続処理のため再判定対象外
+        ...base,
+        // 完了継続(TnxCheckFlow._execute → resolveRecoveryFromCheck)
         recovery: {
             patientUuid: patient.uuid,
             removeIds:   plan.removeIds,

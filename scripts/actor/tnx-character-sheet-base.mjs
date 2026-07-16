@@ -19,18 +19,18 @@ import { getPartSlotPreset, PartSlotPresetApp } from '../module/part-slot-preset
 import { OUTFIT_ITEM_TYPES, findDepartmentSkillName } from '../data/helpers.mjs';
 import { readFlag } from '../data/item/helpers.mjs';
 import { TnxCheckFlow } from '../module/tnx-check-flow.mjs';
-import { resolveConsumeRowsForActor, promptConsumption } from '../module/usage-consumption.mjs';
+import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } from '../module/usage-consumption.mjs';
 import { useNpcAcquire } from '../module/npc-acquisition.mjs';
 import { useRecovery } from '../module/recovery-flow.mjs';
-import { resolveUsageTargetValue } from '../module/usage-target-value.mjs';
+import { buildUsageCheckContext } from '../module/usage-check-context.mjs';
 import { useAttack } from '../module/attack-flow.mjs';
 import { aggregateDefence } from '../module/damage-logic.mjs';
 import { prepareUsageEffectPayload } from '../module/usage-effects.mjs';
-import { getComboSuits, comboUsesBounty, ALL_SUITS } from '../module/tnx-check-engine.mjs';
+import { ALL_SUITS } from '../module/tnx-check-engine.mjs';
 import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
 import { groupStyleSkillsByStyle } from '../module/style-skill-acquisition.mjs';
 import { HOUSING_AREA_RANKS } from '../data/item/housing-area.mjs';
-import { CONDITION_KINDS, readConditions, getConditionKind, getEffectiveConditions, hasBountyBlock, getCheckBlock, gatherSkillUseWarnings } from '../module/conditions.mjs';
+import { CONDITION_KINDS, readConditions, getConditionKind, getEffectiveConditions, getCheckBlock, gatherSkillUseWarnings } from '../module/conditions.mjs';
 import { applyTriggerDisable } from '../module/ui-trigger-disable.mjs';
 import { openConditionEditDialog } from '../module/condition-edit.mjs';
 import { startTreatment } from '../module/treatment-flow.mjs';
@@ -2398,44 +2398,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
 
     // ─── 判定起動 ────────────────────────────────────────────────────────────
 
-    /**
-     * 技能ベース用途(check)の参加技能を解決する。ベース技能(用途の baseSkillRef 優先・未設定は親アイテム)＋
-     * コンボ技能(skillRefs)＋非ベースの親技能の自動追加、および全技能の共通スート(getComboSuits)を返す。
-     * 用途不備検知と判定実行で共用する。
-     */
-    static _resolveSkillSet(item, usage, actor) {
-        const baseSkillId = usage.baseSkillRef?.itemId || item.id;
-        const baseSkill = actor?.items.get(baseSkillId) ?? null;
-        const comboSkillIds = (usage.skillRefs ?? [])
-            .map(r => r.itemId)
-            .filter(id => id && actor?.items.has(id));
-        // 用途を所持する技能がベースでない(非アクション技能からの起動)場合は自動的にコンボへ追加
-        if (item.id !== baseSkillId && !comboSkillIds.includes(item.id)) comboSkillIds.push(item.id);
-        const allSkillIds = [baseSkillId, ...comboSkillIds];
-        const allSkillSystems = allSkillIds.map(id => actor?.items.get(id)?.system).filter(Boolean);
-        const validSuits = getComboSuits(allSkillSystems);
-        return { baseSkillId, baseSkill, comboSkillIds, allSkillIds, validSuits };
-    }
-
-    /**
-     * 用途不備検知(機能): 設定済みの用途に不備があれば不備内容(文字列)を、無ければ null を返す。
-     * 用途タイプごとに検知条件を足せる dispatch 構造。現状は check 用途のみ
-     * (ベース技能が解決できない・参加技能に共通スートが無い)。今後 attack 等が整ったら case を追加して拡張する。
-     */
-    static _detectUsageDefect(item, usage, actor) {
-        switch (usage.type) {
-            case "check": {
-                // 固定達成値の用途は技能・スートを使わないため不備検知の対象外(フェーズ11-5)
-                if (Number.isFinite(usage.fixedResult)) return null;
-                const { baseSkill, validSuits } = TnxCharacterSheetBase._resolveSkillSet(item, usage, actor);
-                if (!baseSkill) return "ベース技能が見つかりません";
-                if (!validSuits.length) return "参加技能に共通スートがありません";
-                return null;
-            }
-            default:
-                return null; // 他用途タイプは現状未検知(機能が整い次第拡張)
-        }
-    }
+    // 参加技能の解決(旧 _resolveSkillSet)と用途不備検知(旧 _detectUsageDefect)は、判定起動の
+    // 共通前段(usage-check-context.mjs の resolveUsageSkillSet / detectUsageDefect)へ移設した
+    // (2026-07-16 一本化。攻撃/NPC取得/回復の専用フローと共用するため)。
 
     static async _onStartSkillCheck(event, target) {
         event.preventDefault();
@@ -2448,40 +2413,46 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
 
     /**
      * 技能/アイテムの用途起動＝**唯一の起動関数**(2026-07-15 ユーザー確定)。シートの技能クリックだけで
-     * なく、リアクション・治療・操縦移動・判定要求など**あらゆる技能起動はこの 1 関数を通す**
-     * (入口は多くてよいが、起動処理を実際に行うのはここだけ)。用途選択→分岐(NPC取得/バフ宣言/回復/
-     * 攻撃/固定値)→通常判定(不備検知・参加技能解決・消費・適用効果・目標値・判定ボーナス→
-     * TnxCheckFlow.open)。**組み合わせ(コンボ)の可否はユーザー/RL が決めるものであり、システム側は
+     * なく、リアクション・治療・操縦移動・判定要求・アイテムシートの使用ボタンなど**あらゆる技能起動は
+     * この 1 関数を通す**(入口は多くてよいが、起動処理を実際に行うのはここだけ)。用途選択→分岐
+     * (カバー/NPC取得/バフ宣言/回復/攻撃/固定値/宣言使用)→通常判定(共通前段=buildUsageCheckContext
+     * →TnxCheckFlow.open)。**組み合わせ(コンボ)の可否はユーザー/RL が決めるものであり、システム側は
      * 一切制限しない。** extraOpen は各入口が注入する追加文脈(reaction/treatment/movement/
      * requestMessageId/substitution/manualMod・目標値上書き等)で、通常判定の open へ最後に合流する。
+     * usageId は用途の直接指定(アイテムシートの使用ボタン=ピッカーを出さない・2026-07-16 統合)。
      * @param {Actor} actor 起動アクター
      * @param {Item} item 起動する技能/アイテム
      * @param {object} [extraOpen] TnxCheckFlow.open へ合流する追加パラメータ(既定値を上書き可)
      */
     static async _activateItemCheck(actor, item, extraOpen = {}) {
+        // usageId(用途の直接指定)は起動制御のみに使い、open へは流さない
+        const { usageId: directUsageId, ...openExtra } = extraOpen;
+
         // 既定の挙動: 実行できる用途(判定/攻撃/NPC取得)が無ければ、解説をそのままチャット表示する
         // (アイテムの基本機能)。用途があればその実行に切り替わる。
         // 攻撃・NPC取得もアイテムロール(アクターシートの技能クリック)から実行できる
         // (経路の漏れを作らない=11-6/12-2 の確定方針)
         // 攻撃は判定の一種(damageCategory 付きの check)。check/npcAcquire に加え、
         // 事後系フラグ付きの宣言(再判定を付与/判定を修正/ダメージを修正=バフ宣言・2026-07-12/13)も
-        // 実行対象にする(フラグ無しの宣言は従来どおり解説カード=既存挙動を変えない)
+        // 実行対象にする(フラグ無しの宣言=直接指定時のみ宣言使用・技能クリックでは従来どおり解説カード)
         const usableUsages = (item.system.actions ?? [])
             .filter(a => a.type === "check"
                 || (a.type === "declaration"
                     && (a.grantRecheck === true || a.modifyCheck === true || a.modifyDamage === true
                         || a.grantSuitChange === true || a.recovery === true || a.npcAcquire === true)));
-        if (!usableUsages.length) {
+
+        // 用途を決定（直接指定→カバー再入の引き継ぎ→1つなら自動選択→複数はピッカー表示）。
+        // カバーの判定起動(covering)は、待ち受け開始時に確定した用途を再選択せず引き継ぐ。
+        let selectedUsage;
+        if (directUsageId) {
+            selectedUsage = (item.system.actions ?? []).find(a => a._id === directUsageId) ?? null;
+            if (!selectedUsage) return;
+        } else if (openExtra.covering?.usageId) {
+            selectedUsage = (item.system.actions ?? []).find(a => a._id === openExtra.covering.usageId) ?? null;
+            if (!selectedUsage) return;
+        } else if (!usableUsages.length) {
             await item.postDescriptionCard();
             return;
-        }
-
-        // 用途を決定（1つなら自動選択、複数なら D&D スタイルのピッカー表示）。
-        // カバーの判定起動(extraOpen.covering)は、待ち受け開始時に確定した用途を再選択せず引き継ぐ。
-        let selectedUsage;
-        if (extraOpen.covering?.usageId) {
-            selectedUsage = (item.system.actions ?? []).find(a => a._id === extraOpen.covering.usageId) ?? null;
-            if (!selectedUsage) return;
         } else if (usableUsages.length === 1) {
             selectedUsage = usableUsages[0];
         } else {
@@ -2491,8 +2462,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
 
         // カバー(2026-07-16 ユーザー確定): アイテムロールで使用したら「カバー待ち受け」に入り、ダメージ
         // カードのカバーする対象クリックで判定を起動する(covering 文脈つきで本関数へ再入=下の通常判定へ
-        // 合流)。再入時(extraOpen.covering)はこの分岐を通さず通常判定を行う。
-        if (selectedUsage.covering === true && !extraOpen.covering) {
+        // 合流)。再入時(openExtra.covering)はこの分岐を通さず通常判定を行う。
+        if (selectedUsage.covering === true && !openExtra.covering) {
             TnxCheckFlow.startAchievementAction("covering", actor, item, { usageId: selectedUsage._id });
             return;
         }
@@ -2562,47 +2533,21 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             return;
         }
 
-        // 能力値を持たないアクター(extra)は通常判定を行えない(固定値判定のみ＝Check_Rules「固定値判定」。
-        // 固定達成値の用途は上の分岐で処理済み)
-        if (actor.type === "extra") {
-            ui.notifications.warn("エキストラは固定値の判定のみ行えます。");
+        // 宣言(実行フラグなし)の使用: 判定を行わず消費と適用効果だけ処理する。用途の直接指定
+        // (アイテムシートの使用ボタン)のみ到達する——技能クリックの usableUsages には入らないため、
+        // 従来のアイテムロール挙動(解説カード)は変わらない(2026-07-16 アイテムシートから移設・統合)
+        if (selectedUsage.type === "declaration") {
+            await TnxCharacterSheetBase._useDeclarationUsage(actor, item, selectedUsage);
             return;
         }
-
-        // 用途不備検知: 設定済みの用途に不備があれば必ず通知して中止する
-        const defect = TnxCharacterSheetBase._detectUsageDefect(item, selectedUsage, actor);
-        if (defect) {
-            ui.notifications.warn(`「${item.name}」の用途に不備があります（${defect}）。`);
-            return;
-        }
-
-        // 参加技能(ベース＋コンボ)を解決して判定を実行する
-        const { allSkillIds, validSuits } = TnxCharacterSheetBase._resolveSkillSet(item, selectedUsage, actor);
-
-        const skillLabel = allSkillIds
-            .map(id => actor.items.get(id)?.name ?? "")
-            .filter(Boolean)
-            .join("+");
-
-        const actorBounty = (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0);
-        // 報酬点使用不可(口座凍結/信用失墜)の負傷があれば消費できない=可能報酬点を 0 にし、
-        // 使用ダイアログ自体を出さない(ユーザー裁定 2026-07-16)。休眠(次シーン未発火)は数えない。
-        const bountyBlocked = hasBountyBlock(TnxCheckFlow._gatherConditions(actor));
-
-        // 使用回数の消費を確認(用途の消費先設定＝consumeTargets 由来・11-6。自動スキャンは全廃・
-        // 残量不足でチェック時はブロック)。分身は本体側カウンターへ差し替えて共有(Troops.md)。
-        // 確定した平プランは判定実行時に適用される
-        const consumeRows = resolveConsumeRowsForActor(actor, item, selectedUsage.consumeTargets);
-        const usesPlan = await promptConsumption(actor, consumeRows, { title: `使用回数の消費: ${item.name}` });
-        if (usesPlan === null) return;
 
         // リアクションの適用効果は攻撃者へ返す(リアクションの対象は「なし」=万一 AE があれば攻撃者に
         // 付与・2026-07-15 ユーザー確定)。攻撃者を対象上書きとして渡し、対象確認ダイアログを挟まない。
-        let effectTargetOverride = null;
-        if (extraOpen.reaction) {
+        let effectTargetOverride;
+        if (openExtra.reaction) {
             effectTargetOverride = [];
-            const atkMsg = extraOpen.reaction.attackMessageId
-                ? game.messages.get(extraOpen.reaction.attackMessageId) : null;
+            const atkMsg = openExtra.reaction.attackMessageId
+                ? game.messages.get(openExtra.reaction.attackMessageId) : null;
             const atkF = atkMsg?.getFlag(game.system.id, "attackCheck");
             if (atkF?.attackerUuid) {
                 const atkDoc = await fromUuid(atkF.attackerUuid).catch(() => null);
@@ -2611,44 +2556,58 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             }
         }
 
-        // 用途の適用効果: ターゲットしたキャラクターへ付与するペイロードを用意(ノーターゲットは確認)。
-        // 判定結果カードに載せ、対象所有者/GM がボタンで付与する(2026-07-10)
-        const usageEffects = await prepareUsageEffectPayload(actor, item, selectedUsage,
-            effectTargetOverride !== null ? { targetOverride: effectTargetOverride } : {});
-        if (usageEffects === "cancel") return;
+        // 判定起動の共通前段(エキストラ制限・不備検知・参加技能・報酬点・消費・適用効果・目標値)。
+        // 攻撃/NPC取得/回復の専用フローも同じ前段を通る(2026-07-16 一本化)
+        const base = await buildUsageCheckContext(actor, item, selectedUsage, { effectTargetOverride });
+        if (!base) return;
 
         // リアクション用途の追加挙動(範囲攻撃へのリアクション/攻撃を失敗させる)を reaction 文脈へ載せる
         // (完了継続 completeReactionFromCheck が参照する・2026-07-15)
-        if (extraOpen.reaction) {
-            extraOpen.reaction = {
-                ...extraOpen.reaction,
+        if (openExtra.reaction) {
+            openExtra.reaction = {
+                ...openExtra.reaction,
                 reactionAreaAttack: selectedUsage.reactionAreaAttack === true,
                 reactionFailsAttack: selectedUsage.reactionFailsAttack === true,
             };
         }
 
         await TnxCheckFlow.open({
-            type:            "skillCheck",
-            actorId:         actor.id,
-            skillIds:        allSkillIds,
-            skillLabel,
-            validSuits,
-            // 目標値(2026-07-13 ユーザー確定): 数字=そのまま目標値・解説参照/その他=自由記入欄の
-            // 式を評価(空/評価不能はなし)・制御値/達成値/登場目標値=別メカニクス(具体値は引かない)
-            targetValue:     await resolveUsageTargetValue(selectedUsage, actor, item),
-            // 報酬点: 参加技能のいずれかが usesBounty なら可(ベース限定は誤り・2026-07-10 ユーザー確定)
-            bountyAvailable: (comboUsesBounty(allSkillIds.map(id => actor.items.get(id)?.system)) && !bountyBlocked) ? actorBounty : 0,
-            consumeUses:     usesPlan,
-            requestMessageId: null,
-            checkBonuses:    selectedUsage.checkBonuses ?? [],
-            checkBonusSelf:  selectedUsage.checkBonusSelf ?? "",
-            sourceItemId:    item.id,   // 用途の親アイテム(@item.self の解決に使う)
-            usageEffects,               // 付与効果ペイロード(null=効果なし)
-            allowRecheck:    selectedUsage.allowRecheck === true, // 再判定可能(用途の設定・2026-07-11)
-            allowSuitChange: selectedUsage.allowSuitChange === true, // スート変更可能(用途の設定・2026-07-12)
+            ...base,
             // 各入口が注入する追加文脈(reaction/treatment/movement/requestMessageId・目標値上書き等)を
             // 最後に合流(既定値を上書き可)。起動集約の要=各入口はここに文脈を載せるだけ(2026-07-15)
-            ...extraOpen,
+            ...openExtra,
+        });
+    }
+
+    /**
+     * 宣言(実行フラグなし)の使用(2026-07-16 アイテムシートの使用ボタンから移設): 判定を行わず、
+     * 使用回数の消費(使用時に確定・適用)→適用効果ペイロード(あれば使用カードに「効果を適用」
+     * ボタンを出す)。効果が無ければ使用の通知のみ。
+     */
+    static async _useDeclarationUsage(actor, item, usage) {
+        // 分身は本体側カウンターへ差し替えて共有(Troops.md)
+        const rows = resolveConsumeRowsForActor(actor, item, usage.consumeTargets);
+        const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${usage.name || item.name}` });
+        if (plan === null) return;
+        await applyConsumptionPlan(plan);
+
+        // 用途の適用効果: ターゲットしたキャラクターへ付与する(判定を伴わない用途=宣言等・2026-07-10)。
+        // 使用カードを出し、対象所有者/GM がボタンで付与する(自己バフは自分をターゲット)。
+        const usageEffects = await prepareUsageEffectPayload(actor, item, usage);
+        if (usageEffects === "cancel") return;
+        if (!usageEffects) {
+            ui.notifications?.info(`「${usage.name || "用途"}」を使用しました。`);
+            return;
+        }
+        const esc = foundry.utils.escapeHTML;
+        // 既存の結果カード様式(cr-head=暗い背景の見出し)を踏襲する
+        await ChatMessage.create({
+            speaker: ChatMessage.getSpeaker({ actor }),
+            content: `<div class="tnx-check-result tnx-usage-use-card tokyo-nova">`
+                + `<div class="cr-head"><span class="cr-skill-name">${esc(usage.name || item.name)}</span>`
+                + `<span class="cr-type-tag">使用</span></div>`
+                + `<div class="tnx-usage-effect-area"></div></div>`,
+            flags: { "tokyo-nova-axleration": { usageEffects } },
         });
     }
 

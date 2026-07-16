@@ -1,10 +1,6 @@
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 import { TnxUsageSheet, USAGE_TYPES, deriveUsageAutoFill } from "../module/tnx-usage-sheet.mjs";
-import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan, resolveBunshinOwner } from "../module/usage-consumption.mjs";
-import { useNpcAcquire } from "../module/npc-acquisition.mjs";
-import { useAttack } from "../module/attack-flow.mjs";
-import { prepareUsageEffectPayload } from "../module/usage-effects.mjs";
-import { isAttackUsage } from "../data/item/common/usage.mjs";
+import { resolveBunshinOwner } from "../module/usage-consumption.mjs";
 import { SKILL_ROLES, getSkillRoles } from "../module/skill-roles.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -303,105 +299,24 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
     }
 
     /**
-     * 用途使用（起動）: 用途が参照するアイテム上の ActiveEffect を有効化する（フェーズ9-3）。
-     * 効果は削除でなく disabled=false に切り替える（転送効果と違い常駐し、終了は時間管理フェーズ）。
-     * 使用回数の消費(11-6): check 以外の用途タイプは「使用」時に消費先設定を適用する
-     * (check 用途は判定実行時に消費するためここでは消費しない)。キャンセルで使用ごと中止。
+     * 用途使用（起動）: 唯一の起動関数 `_activateItemCheck` へ用途 ID を直接指定して委譲する
+     * (2026-07-16 統合。従来ここに在ったNPC取得/クリック待ち/回復/攻撃/宣言使用の分岐は、
+     * アクターシートの技能クリックと同じディスパッチャの複製であり、後から足した分岐=カバー・
+     * 固定値がこちらに反映されないドリフトが起きていた)。入口は薄く=actor/item を解決して呼ぶだけ。
      */
     static async _onUsageUse(_event, target) {
         const usageId = target.dataset.usageId;
         if (!usageId) return;
         const usage = (this.item.system.actions ?? []).find(a => a._id === usageId);
         if (!usage) return;
-
-        // NPC取得(11-6): 専用フローに委譲(消費・対象解決・判定・転記・配置を一貫して扱う。
-        // 効果有効化は行わない=取得に特化)。失敗を握りつぶさず通知する(不具合調査のため)
-        if (usage.npcAcquire === true) {
-            try {
-                await useNpcAcquire(this.item, usage);
-            } catch (err) {
-                console.error("TNX | NPC取得の実行に失敗しました", err);
-                ui.notifications.error(`NPC取得の実行に失敗しました: ${err.message}`);
-            }
-            return;
-        }
-
-        // クリック待ち系の用途(2026-07-11/12): 判定を行わず「クリック待ち」モードに入る
-        // (アイテムロール使用)。check の再判定を付与/判定を修正/ダメージを修正/スートを変更に加え、
-        // 宣言(declaration)の再判定を付与/判定を修正/ダメージを修正/スートを変更も同経路
-        // (バフ宣言・2026-07-12。再判定を付与は 2026-07-13=判定でないため組み合わせなし)。
-        // 複数フラグ ON は下記の順で先に振る(排他 UI にはしない・複数 ON の運用は想定しない)。
-        // アクターシートの技能クリックと同じ優先順(攻撃より先)に置く
-        if ((usage.type === "check" || usage.type === "declaration")
-            && (usage.grantRecheck === true || usage.modifyCheck === true
-                || usage.modifyDamage === true || usage.grantSuitChange === true)) {
-            const actor = this.item.actor;
-            if (!actor) { ui.notifications.warn("アクターが所持しているアイテムから使用してください。"); return; }
-            const kind = usage.grantRecheck === true ? "recheck"
-                : (usage.modifyCheck === true ? "modify"
-                    : (usage.modifyDamage === true ? "modifyDamage" : "suitChange"));
-            const rows = resolveConsumeRowsForActor(actor, this.item, usage.consumeTargets);
-            const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${this.item.name}` });
-            if (plan === null) return;
-            const { TnxCheckFlow } = await import("../module/tnx-check-flow.mjs");
-            TnxCheckFlow.startAchievementAction(kind, actor, this.item, {
-                usageId: usage._id, consumeUses: plan, merge: usage.type === "check",
-            });
-            return;
-        }
-
-        // 回復(2026-07-13): 専用フローへ(対象解決→回復対象の選択→宣言=即除去/判定=完了継続)
-        if (usage.recovery === true) {
-            try {
-                const { useRecovery } = await import("../module/recovery-flow.mjs");
-                await useRecovery(this.item, usage);
-            } catch (err) {
-                console.error("TNX | 回復の実行に失敗しました", err);
-                ui.notifications.error(`回復の実行に失敗しました: ${err.message}`);
-            }
-            return;
-        }
-
-        // 攻撃(12-2): 攻撃は判定の一種(damageCategory 付きの check)。専用フローに委譲
-        // (武器解決・対象決定・成否保留の攻撃カード・リアクション対決)
-        if (isAttackUsage(usage)) {
-            try {
-                await useAttack(this.item, usage);
-            } catch (err) {
-                console.error("TNX | 攻撃の実行に失敗しました", err);
-                ui.notifications.error(`攻撃の実行に失敗しました: ${err.message}`);
-            }
-            return;
-        }
-
         const actor = this.item.actor;
-        if (usage.type !== "check" && actor) {
-            // 分身は本体側カウンターへ差し替えて共有(Troops.md)
-            const rows = resolveConsumeRowsForActor(actor, this.item, usage.consumeTargets);
-            const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${usage.name || this.item.name}` });
-            if (plan === null) return;
-            await applyConsumptionPlan(plan);
+        if (!actor) {
+            // スタンドアロン(未所持)アイテム: 判定・消費・付与はアクター前提のため実行できない
+            ui.notifications.warn("アクターが所持しているアイテムから使用してください。");
+            return;
         }
-
-        // 用途の適用効果: ターゲットしたキャラクターへ付与する(判定を伴わない用途=宣言等・2026-07-10)。
-        // 使用カードを出し、対象所有者/GM がボタンで付与する(自己バフは自分をターゲット)。
-        if (!actor) { ui.notifications?.info(`「${usage.name || "用途"}」を使用しました。`); return; }
-        const usageEffects = await prepareUsageEffectPayload(actor, this.item, usage);
-        if (usageEffects === "cancel") return;
-        if (usageEffects) {
-            const esc = foundry.utils.escapeHTML;
-            // 既存の結果カード様式(cr-head=暗い背景の見出し)を踏襲する
-            await ChatMessage.create({
-                speaker: ChatMessage.getSpeaker({ actor }),
-                content: `<div class="tnx-check-result tnx-usage-use-card tokyo-nova">`
-                    + `<div class="cr-head"><span class="cr-skill-name">${esc(usage.name || this.item.name)}</span>`
-                    + `<span class="cr-type-tag">使用</span></div>`
-                    + `<div class="tnx-usage-effect-area"></div></div>`,
-                flags: { "tokyo-nova-axleration": { usageEffects } },
-            });
-        } else {
-            ui.notifications?.info(`「${usage.name || "用途"}」を使用しました。`);
-        }
+        const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
+        await TnxCharacterSheetBase._activateItemCheck(actor, this.item, { usageId });
     }
 
     static async _onActionDelete(_event, target) {
