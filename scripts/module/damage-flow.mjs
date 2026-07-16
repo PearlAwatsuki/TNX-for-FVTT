@@ -34,7 +34,7 @@ import { TnxActionHandler } from "./tnx-action-handler.mjs";
 import { getCardCheckValue } from "./tnx-check-engine.mjs";
 import { formatAttackLabel } from "./attack-flow-logic.mjs";
 import { consumeFaAmmo } from "./weapon-ammo.mjs";
-import { gatherDamageVsSources, gatherDamageDealtSources, collectActorEffectBuffs, targetStyleWorksKeys } from "../data/item/helpers.mjs";
+import { gatherDamageVsSources, gatherDamageDealtSources, gatherDamageTakenSources, collectActorEffectBuffs, targetStyleWorksKeys } from "../data/item/helpers.mjs";
 import { applyUsageEffectsFromMessage } from "./usage-effects.mjs";
 import { spinnerDialogActions } from "./tnx-dialog.mjs";
 
@@ -398,7 +398,10 @@ export function renderDamageCard(message, html) {
             const nameLabel = tr.coveringFor ? `${esc(tr.name)}（${esc(tr.coveringFor)}をカバー）` : esc(tr.name);
             row(area, nameLabel, String(tr.final), "cr-calc-row cr-total-row", "cr-total-num");
             const parts = [];
-            if (tr.autoMitigation) parts.push(`防御力・受け値 −${tr.autoMitigation}`);
+            // 新形式=算出時軽減の内訳(防御力・受け値・受けるダメージ軽減 AE を符号つきで格納・2026-07-17)。
+            // 旧カード(内訳なし/旧形式)は合計のみの旧表示にフォールバック
+            if (tr.mitigationParts) parts.push(tr.mitigationParts);
+            else if (tr.autoMitigation) parts.push(`防御力・受け値 −${tr.autoMitigation}`);
             if (tr.stunCapped) parts.push(`${stunLabel}（10上限）`);
             if (tr.defenderMod) parts.push(`ダメージ修正 ${signedDisplay("＋", tr.defenderMod)}`);
             if (tr.bounty) parts.push(`報酬点 −${tr.bounty}`);
@@ -435,6 +438,10 @@ export function renderDamageCard(message, html) {
         const parts = [];
         if (p.defence) parts.push(`防御力 −${p.defence}`);
         if (p.parry) parts.push(`受け値 −${p.parry}`);
+        // 受けるダメージ軽減 AE(恒久軽減・効果名で帰属)。負=軽減・正=増加を符号つきで示す
+        for (const tr of (p.takenRows ?? [])) {
+            if (tr.value) parts.push(`${tr.name} ${signedDisplay("＋", tr.value)}`);
+        }
         if (p.capped) parts.push(`${stunLabel}（10上限）`);
         if (p.otherModsSum) parts.push(`修正 ${signedDisplay("＋", p.otherModsSum)}`);
         if (p.bountySum) parts.push(`報酬点 −${Math.abs(p.bountySum)}`);
@@ -661,6 +668,28 @@ function collectDamageVsBonuses(attacker, target) {
 }
 
 /**
+ * 受けるダメージ軽減 AE(`damage.taken[.<系統|種別>]`・`damage.fromStyle/fromWorks.*`・2026-07-17)を
+ * **受け手(対象)の effects** から集計する。値=受けるダメージへの加算(負=軽減・正=増加)で、
+ * 恒久軽減の成分としてダメージ算出時(スタン/説得の10上限の**前**)に効く(2026-07-16 裁定の順序)。
+ * 攻撃者条件(from*)は攻撃者のスタイル/ワークスで照合(vsStyle/vsWorks の対称)。対象ごとに
+ * 評価するため、攻撃側 vs* のような先頭対象近似は生じない。
+ * @param {Actor|null} defender ダメージを受ける側
+ * @param {object} f damageRoll フラグ(category / damageType / attackerUuid を参照)
+ * @returns {Array<{name:string, value:number}>}
+ */
+function collectDamageTakenRows(defender, f) {
+    if (!defender) return [];
+    const attacker = resolveSync(f.attackerUuid);
+    const { styles, works } = attacker ? targetStyleWorksKeys(attacker) : { styles: [], works: [] };
+    return gatherDamageTakenSources(collectActorEffectBuffs(defender), {
+        category: f.category || "physical",
+        damageType: f.damageType || "",
+        attackerStyles: styles,
+        attackerWorks: works,
+    });
+}
+
+/**
  * 攻撃カードの命中対象からダメージカードの対象行を組み立てる。カバー(coveredBy)が付いた元対象は
  * 被弾しないのでダメージカードに載せず、**カバーした側の行だけ**作る(uuid=カバー側・受け値なし・
  * coveringFor で誰をカバーしたか)。カバーした側が元々命中対象なら、その自分の行(受け値あり)は別に残る。
@@ -729,9 +758,13 @@ function targetPlannedPreview(f, t) {
         if (dv) defence = dv;
     }
     const parry = Number(t.parryGuard) || 0;
-    const auto = defence + parry;
+    // 受けるダメージ軽減 AE(taken・負=軽減)は恒久軽減の成分=防御力・受け値と同じ算出時に効く。
+    // 符号を反転して軽減合計へ合流(正値=増加は軽減を目減りさせる)
+    const takenRows = actor ? collectDamageTakenRows(actor, f) : [];
+    const takenSum = takenRows.reduce((s, r) => s + (Number(r.value) || 0), 0);
+    const auto = defence + parry - takenSum;
     const { final, capped } = damageRollTotals(f, { permanentMitigation: auto, extraPostMods: modsSum });
-    return { final, auto, defence, parry, modsSum, bountySum, otherModsSum: modsSum - bountySum, capped };
+    return { final, auto, defence, parry, takenRows, modsSum, bountySum, otherModsSum: modsSum - bountySum, capped };
 }
 
 function resolveSync(uuid) {
@@ -820,14 +853,21 @@ async function openMitigationDialog(message, applyCategory = null) {
     const stunLabel = category === "mental" ? "説得" : "スタン";
     const esc = foundry.utils.escapeHTML;
 
-    // 対象ごとの自動軽減(物理=種別対応の防御力・X は軽減なし＋パリー受け値)を算出
+    // 対象ごとの自動軽減(物理=種別対応の防御力・X は軽減なし＋パリー受け値＋受けるダメージ軽減 AE)を算出
     const rows = resolvedTargets.map((r, i) => {
         let auto = 0; const parts = [];
         if (category === "physical") {
             const dv = defenceForType(aggregateDefence(r.actor.items.contents ?? []), f.damageType);
-            if (dv) { auto += dv; parts.push(`防御力(${f.damageType || "?"}) ${dv}`); }
+            if (dv) { auto += dv; parts.push(`防御力(${f.damageType || "?"}) −${dv}`); }
         }
-        if (r.parryGuard) { auto += r.parryGuard; parts.push(`パリー受け値 ${r.parryGuard}`); }
+        if (r.parryGuard) { auto += r.parryGuard; parts.push(`パリー受け値 −${r.parryGuard}`); }
+        // 受けるダメージ軽減 AE(恒久軽減・2026-07-17)。値=受けるダメージへの加算(負=軽減)なので
+        // 符号を反転して軽減合計へ合流。内訳は効果名で帰属(符号つき)
+        for (const tr of collectDamageTakenRows(r.actor, f)) {
+            if (!tr.value) continue;
+            auto -= tr.value;
+            parts.push(`${tr.name} ${signedDisplay("＋", tr.value)}`);
+        }
         // その対象の防御側 modifyDamage(事後修正)。共有の攻撃側合計と同じ段=10上限の後に乗せる。負=軽減
         const modsSum = (r.mods ?? []).reduce((s, m) => s + (Number(m.value) || 0), 0);
         return { ...r, index: i, autoMitigation: auto, mitigationParts: parts, modsSum };
@@ -839,7 +879,7 @@ async function openMitigationDialog(message, applyCategory = null) {
     const rowsHtml = rows.map(r => `
         <div class="tnx-damage-target-row" data-index="${r.index}">
             <div class="tnx-damage-target-name">${esc(r.name)}${r.coveringFor ? `（${esc(r.coveringFor)}をカバー）` : ""}</div>
-            <div class="tnx-damage-fixed">防御力・受け値（適用済み）: <b>−${r.autoMitigation}</b>${r.mitigationParts.length ? `（${esc(r.mitigationParts.join("・"))}）` : ""}</div>
+            <div class="tnx-damage-fixed">軽減（算出済み）: <b>${signedDisplay("−", r.autoMitigation)}</b>${r.mitigationParts.length ? `（${esc(r.mitigationParts.join("・"))}）` : ""}</div>
             <div class="form-group">
                 <label>手動の状況軽減</label>
                 <div class="number-input-spinner">

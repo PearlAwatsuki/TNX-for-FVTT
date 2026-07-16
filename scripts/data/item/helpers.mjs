@@ -313,16 +313,20 @@ export function checkChangeMatches(key, criteria) {
  * @param {(key:string)=>boolean} predicate
  * @returns {Array<{name:string, value:number}>}
  */
-function _gatherBonusSources(effects, predicate) {
+function _gatherBonusSources(effects, predicate, { pick = "max" } = {}) {
+  // pick=「同一効果内・同一 identity 間で採る値」の方向。効果の保持者に最も有利な1つを採る
+  // (重複適用不可の一般原則)。攻撃側バフは最大(max)、受け手側の軽減(damage.taken 系)は
+  // 最小(min・最も負=最も軽減)が「最有利」になる。
   const byIdentity = new Map();
   const stackables = [];
+  const better = (a, b) => (pick === "min" ? a < b : a > b);
   for (const eff of (effects ?? [])) {
     if (eff.active === false) continue;
     let matched = null;
     for (const change of (eff.changes ?? [])) {
       if (!predicate(change.key)) continue;
       const v = Number(change.value) || 0;
-      matched = matched === null ? v : Math.max(matched, v);
+      matched = matched === null || better(v, matched) ? v : matched;
     }
     if (matched === null) continue;
     const entry = { name: eff.name || "(無名効果)", value: matched };
@@ -330,7 +334,7 @@ function _gatherBonusSources(effects, predicate) {
       stackables.push(entry);
     } else {
       const prev = byIdentity.get(eff.identity);
-      if (!prev || matched > prev.value) byIdentity.set(eff.identity, entry);
+      if (!prev || better(matched, prev.value)) byIdentity.set(eff.identity, entry);
     }
   }
   return [...byIdentity.values(), ...stackables];
@@ -399,6 +403,41 @@ export function damageDealtChangeMatches(key, category) {
  */
 export function gatherDamageDealtSources(effects, category) {
   return _gatherBonusSources(effects, (key) => damageDealtChangeMatches(key, category));
+}
+
+/**
+ * 受けるダメージ軽減 AE(`damage.taken[.<系統|種別>]`・`damage.fromStyle/fromWorks.*`・2026-07-17)の
+ * 変更キーが、この攻撃(系統・ダメージ種別・攻撃者のスタイル/ワークス)に合致するか。
+ * 値=受けるダメージへの加算(負=軽減)。恒久軽減としてダメージ算出時(10上限の前)に効く。
+ * @param {string} key  change.key
+ * @param {{category:string, damageType?:string, attackerStyles?:string[], attackerWorks?:string[]}} criteria
+ * @returns {boolean}
+ */
+export function damageTakenChangeMatches(key, criteria) {
+  const p = parseEffectTargetKey(key);
+  if (!p || !criteria) return false;
+  if (p.scope === "damageTaken") {
+    if (p.category !== null && p.category !== criteria.category) return false;
+    if (p.damageType !== null && p.damageType !== (criteria.damageType || "")) return false;
+    return true;
+  }
+  if (p.scope === "damageFrom") {
+    if (p.group === "style") return (criteria.attackerStyles ?? []).includes(p.selector);
+    if (p.group === "works") return (criteria.attackerWorks ?? []).includes(p.selector);
+  }
+  return false;
+}
+
+/**
+ * 受けるダメージ軽減の寄与一覧(重複排除済み)。ダメージ算出時に**受け手(対象)の effects** から
+ * 集計する。taken と from* を1回の走査で束ねるため、同一効果に両キーが併記されても重複適用しない
+ * (重複適用不可の一般原則)。「最も有利」は受け手基準=**最小値**(最も負=最も軽減)。
+ * @param {Array<object>} effects  受け手の effects(正規形・{@link collectActorEffectBuffs})
+ * @param {{category:string, damageType?:string, attackerStyles?:string[], attackerWorks?:string[]}} criteria
+ * @returns {Array<{name:string, value:number}>}
+ */
+export function gatherDamageTakenSources(effects, criteria) {
+  return _gatherBonusSources(effects, (key) => damageTakenChangeMatches(key, criteria), { pick: "min" });
 }
 
 /**
@@ -744,6 +783,26 @@ export function parseEffectTargetKey(key) {
     if ((segs[1] === "vsStyle" || segs[1] === "vsWorks") && segs.length > 2) {
       const group = segs[1] === "vsStyle" ? "style" : "works";
       return { scope: "damageVs", group, selector: segs.slice(2).join("."), conditions };
+    }
+    // 受けるダメージ軽減(対象側・2026-07-17): damage.taken[.<系統|ダメージ種別>]。値=受ける
+    // ダメージへの加算(負=軽減・正=増加)。恒久軽減としてダメージ算出時(10上限の前)に効く。
+    // ダメージ種別(S/P/I/X)は肉体攻撃のみ持つため、種別セレクタは category=physical を含意する
+    if (segs[1] === "taken") {
+      const sel = segs.length > 2 ? segs.slice(2).join(".") : null;
+      if (sel === null) return { scope: "damageTaken", category: null, damageType: null, conditions };
+      if (["physical", "mental", "social"].includes(sel)) {
+        return { scope: "damageTaken", category: sel, damageType: null, conditions };
+      }
+      if (["S", "P", "I", "X"].includes(sel)) {
+        return { scope: "damageTaken", category: "physical", damageType: sel, conditions };
+      }
+      return null;
+    }
+    // 受けるダメージ軽減の攻撃者条件(2026-07-17): damage.fromStyle.<スタイル識別キー> /
+    // damage.fromWorks.<組織識別キー>＝攻撃者がそのスタイル/ワークスを持つとき(vsStyle/vsWorks の対称)
+    if ((segs[1] === "fromStyle" || segs[1] === "fromWorks") && segs.length > 2) {
+      const group = segs[1] === "fromStyle" ? "style" : "works";
+      return { scope: "damageFrom", group, selector: segs.slice(2).join("."), conditions };
     }
     return null;
   }

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
-const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, damageDealtChangeMatches, gatherDamageDealtSources, collectActorEffectBuffs, targetStyleWorksKeys, actorCardValueOverride, itemChangeTargets, buildTransferredEffectData, effectAutoApplies, analyzeGrantLanding, itemGrantCandidates, rewriteGrantChangesForItem, AE_FLAG_PARAMS, flagTotalPath, readFlag, computeFlagEffectiveValues, parseBooleanFlagValue } = await import("../../../scripts/data/item/helpers.mjs");
+const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, damageDealtChangeMatches, gatherDamageDealtSources, damageTakenChangeMatches, gatherDamageTakenSources, collectActorEffectBuffs, targetStyleWorksKeys, actorCardValueOverride, itemChangeTargets, buildTransferredEffectData, effectAutoApplies, analyzeGrantLanding, itemGrantCandidates, rewriteGrantChangesForItem, AE_FLAG_PARAMS, flagTotalPath, readFlag, computeFlagEffectiveValues, parseBooleanFlagValue } = await import("../../../scripts/data/item/helpers.mjs");
 
 describe("defenceField()", () => {
   it("呼び出せる", () => {
@@ -295,6 +295,60 @@ describe("gatherDamageVsSources()（対象バフの内訳・判定バフと同�
       { name: "アヤカシ特効", value: 5 },
       { name: "重ねがけ", value: 2 },
     ]);
+  });
+});
+
+describe("damageTakenChangeMatches() / gatherDamageTakenSources()（受けるダメージ軽減AE・2026-07-17）", () => {
+  const crit = { category: "physical", damageType: "S", attackerStyles: ["kabuki"], attackerWorks: ["union"] };
+
+  it("parseEffectTargetKey: taken は系統/ダメージ種別セレクタ・from は攻撃者のスタイル/ワークス", () => {
+    expect(parseEffectTargetKey("damage.taken")).toMatchObject({ scope: "damageTaken", category: null, damageType: null });
+    expect(parseEffectTargetKey("damage.taken.physical")).toMatchObject({ scope: "damageTaken", category: "physical", damageType: null });
+    expect(parseEffectTargetKey("damage.taken.mental")).toMatchObject({ scope: "damageTaken", category: "mental", damageType: null });
+    expect(parseEffectTargetKey("damage.taken.S")).toMatchObject({ scope: "damageTaken", category: "physical", damageType: "S" });
+    expect(parseEffectTargetKey("damage.taken.X")).toMatchObject({ scope: "damageTaken", category: "physical", damageType: "X" });
+    expect(parseEffectTargetKey("damage.taken.slash")).toBeNull();  // 未知セレクタ
+    expect(parseEffectTargetKey("damage.fromStyle.kabuki")).toMatchObject({ scope: "damageFrom", group: "style", selector: "kabuki" });
+    expect(parseEffectTargetKey("damage.fromWorks.union")).toMatchObject({ scope: "damageFrom", group: "works", selector: "union" });
+    expect(parseEffectTargetKey("damage.fromStyle")).toBeNull();    // セレクタ無し
+  });
+
+  it("照合: 系統・ダメージ種別・攻撃者スタイル/ワークス", () => {
+    expect(damageTakenChangeMatches("damage.taken", crit)).toBe(true);
+    expect(damageTakenChangeMatches("damage.taken.physical", crit)).toBe(true);
+    expect(damageTakenChangeMatches("damage.taken.mental", crit)).toBe(false);
+    expect(damageTakenChangeMatches("damage.taken.S", crit)).toBe(true);
+    expect(damageTakenChangeMatches("damage.taken.P", crit)).toBe(false);
+    // 種別キーは精神/社会攻撃(種別なし)に合致しない
+    expect(damageTakenChangeMatches("damage.taken.S", { category: "mental", damageType: "" })).toBe(false);
+    expect(damageTakenChangeMatches("damage.fromStyle.kabuki", crit)).toBe(true);
+    expect(damageTakenChangeMatches("damage.fromStyle.tatara", crit)).toBe(false);
+    expect(damageTakenChangeMatches("damage.fromWorks.union", crit)).toBe(true);
+    expect(damageTakenChangeMatches("damage.dealt", crit)).toBe(false); // 攻撃側キーは対象外
+  });
+
+  it("寄与: 受け手に最有利=最小値で identity 重複排除・stackable は列挙・正値(増加)も通す", () => {
+    const effs = [
+      { identity: "guard", name: "鉄壁", changes: [{ key: "damage.taken", value: "-2" }, { key: "damage.taken.S", value: "-5" }] },
+      { identity: "guard", name: "鉄壁", changes: [{ key: "damage.taken", value: "-3" }] },
+      { identity: "curse", name: "呪い", changes: [{ key: "damage.taken", value: "2" }] },
+      { identity: "stk", name: "重ねがけ", stackable: true, changes: [{ key: "damage.taken", value: "-1" }] },
+      { identity: "anti", name: "対カブキ", changes: [{ key: "damage.fromStyle.kabuki", value: "-4" }] },
+      { identity: "miss", name: "対象外", changes: [{ key: "damage.fromStyle.tatara", value: "-9" }] },
+    ];
+    expect(gatherDamageTakenSources(effs, crit)).toEqual([
+      { name: "鉄壁", value: -5 },
+      { name: "呪い", value: 2 },
+      { name: "対カブキ", value: -4 },
+      { name: "重ねがけ", value: -1 },
+    ]);
+  });
+
+  it("taken と fromStyle が同一効果に併記されても1回だけ（最小値・重複適用不可の一般原則）", () => {
+    const effs = [
+      { identity: "dual", name: "二重取り", changes: [{ key: "damage.taken", value: "-2" }, { key: "damage.fromStyle.kabuki", value: "-6" }] },
+    ];
+    expect(gatherDamageTakenSources(effs, crit)).toEqual([{ name: "二重取り", value: -6 }]);
   });
 });
 

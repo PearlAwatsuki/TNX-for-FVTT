@@ -367,6 +367,13 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
             "ignore.damage.physical", "ignore.damage.mental", "ignore.damage.social",
             ...bsKinds.map(k => `ignore.bs.${k}`),
         ];
+        // ダメージバフ(与える側)と受けるダメージ軽減(受け手側・2026-07-17)の固定キー。
+        // 識別キーを後続に取る vsStyle/vsWorks・fromStyle/fromWorks は候補にしない(check.* と同じ扱い)
+        const damageKeys = [
+            "damage.dealt", "damage.dealt.physical", "damage.dealt.mental", "damage.dealt.social",
+            "damage.taken", "damage.taken.physical", "damage.taken.mental", "damage.taken.social",
+            "damage.taken.S", "damage.taken.P", "damage.taken.I", "damage.taken.X",
+        ];
         const keyList = document.createElement("datalist");
         keyList.id = "tnx-ae-key-suggestions";
         keyList.innerHTML = [
@@ -375,6 +382,7 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
             ...partKeys.map(k => `system.part.${k}`),
             ...AE_FLAG_PARAMS.map(f => `system.${f}`),
             ...ignoreKeys,
+            ...damageKeys,
         ].map(v => `<option value="${v}"></option>`).join("");
         root.appendChild(keyList);
         const relList = document.createElement("datalist");

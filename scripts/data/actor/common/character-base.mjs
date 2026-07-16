@@ -200,7 +200,7 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
     const actor = this.parent;
     if (!actor?.items) return;
     // 実行時評価の別系統(判定バフ・ダメージバフ)は値バフの適用対象外
-    const CHECK_SCOPES = new Set(["abilityCheck", "controlCheck", "skillCheck", "anyCheck", "damageVs", "damageDealt", "suitChange", "damageTag", "cardValue"]);
+    const CHECK_SCOPES = new Set(["abilityCheck", "controlCheck", "skillCheck", "anyCheck", "damageVs", "damageDealt", "damageTaken", "damageFrom", "suitChange", "damageTag", "cardValue"]);
     // 文字列フィールドの上書きパス(数値の加算でなく値の置き換え・2026-07-13)。
     // 文字列に加算モードは意味を成さないため、設定モードに関わらず**常に上書き(OVERRIDE)**で適用する
     const STRING_OVERRIDE_PATHS = new Set(["attack.damageType", "attack.damageTypeTotal"]);
