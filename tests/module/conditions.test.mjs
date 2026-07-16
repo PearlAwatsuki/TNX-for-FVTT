@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CONDITION_KINDS, readCondition, readConditions, getConditionKind, getConditionKinds, gatherConditionCheckSources, getCheckBlock, gatherConditionControlPenalty, computeJammingPenalty, buildInflictedEffectsData, applyDamageTagMods, recoveryKindMatches, recoveryKindExcluded }
+import { CONDITION_KINDS, readCondition, readConditions, getConditionKind, getConditionKinds, gatherConditionCheckSources, getCheckBlock, gatherConditionControlPenalty, computeJammingPenalty, buildInflictedEffectsData, applyDamageTagMods, recoveryKindMatches, recoveryKindExcluded, ignoreRuleMatches, gatherIgnoreRules, getEffectiveConditions }
   from "../../scripts/module/conditions.mjs";
 
 /** 準備アウトフィット記述子の略記 */
@@ -293,5 +293,95 @@ describe("回復の範囲照合・除外（recoveryKindMatches / recoveryKindExc
     expect(recoveryKindExcluded("erased", [])).toBe(false);
     expect(recoveryKindExcluded("erased", ["erased"])).toBe(true);
     expect(recoveryKindExcluded("soc-11", ["erased"])).toBe(true); // 追放=抹殺を与える
+  });
+});
+
+describe("コンディション効果の無視ゲート（ignore.*・フェーズ12）", () => {
+  describe("ignoreRuleMatches()", () => {
+    it("all はあらゆる効果に一致", () => {
+      expect(ignoreRuleMatches({ mode: "all" }, { group: "bs", kind: "poison", damageCategory: null })).toBe(true);
+      expect(ignoreRuleMatches({ mode: "all" }, { group: "incapacitation", kind: "faint", damageCategory: "physical" })).toBe(true);
+    });
+    it("group はグループ一致のみ", () => {
+      expect(ignoreRuleMatches({ mode: "group", group: "bs" }, { group: "bs", kind: "poison" })).toBe(true);
+      expect(ignoreRuleMatches({ mode: "group", group: "bs" }, { group: "physical", kind: "phys-7" })).toBe(false);
+    });
+    it("kind は種別一致のみ", () => {
+      expect(ignoreRuleMatches({ mode: "kind", kind: "poison" }, { group: "bs", kind: "poison" })).toBe(true);
+      expect(ignoreRuleMatches({ mode: "kind", kind: "poison" }, { group: "bs", kind: "doped-minor" })).toBe(false);
+    });
+    it("damage は damageCategory があるときだけ・系統 null は全ダメージ由来", () => {
+      expect(ignoreRuleMatches({ mode: "damage", category: "physical" }, { damageCategory: "physical" })).toBe(true);
+      expect(ignoreRuleMatches({ mode: "damage", category: "physical" }, { damageCategory: "mental" })).toBe(false);
+      expect(ignoreRuleMatches({ mode: "damage", category: null }, { damageCategory: "social" })).toBe(true);
+      expect(ignoreRuleMatches({ mode: "damage", category: null }, { damageCategory: null })).toBe(false); // 由来なしは対象外
+    });
+  });
+
+  describe("gatherIgnoreRules()", () => {
+    it("有効な effects の ignore.* キーだけを規則化する", () => {
+      const buffs = [
+        { active: true, changes: [{ key: "ignore.bs", value: "" }, { key: "system.attack.value", value: 2 }] },
+        { active: true, changes: [{ key: "ignore.damage.physical", value: "" }] },
+        { active: false, changes: [{ key: "ignore.all", value: "" }] }, // 無効は無視
+      ];
+      expect(gatherIgnoreRules(buffs)).toEqual([
+        { scope: "ignore", mode: "group", group: "bs", conditions: [] },
+        { scope: "ignore", mode: "damage", category: "physical", conditions: [] },
+      ]);
+    });
+  });
+
+  describe("getEffectiveConditions()（effectIgnored 注釈・woundCategory 解決）", () => {
+    const eff = (id, kind, flags = {}, changes = []) => ({
+      id, disabled: false, active: true, statuses: new Set([kind]), name: kind, changes,
+      flags: { [SCOPE]: { conditionKind: kind, ...flags } },
+    });
+    const ignoreEff = (id, key) => ({ id, disabled: false, active: true, statuses: new Set(), name: "ig", changes: [{ key, value: "" }], flags: {} });
+    const flagOf = (conds, kind) => conds.find(c => c.kind === kind)?.effectIgnored;
+
+    it("ignore なし → 全て effectIgnored=false", () => {
+      const actor = { effects: [eff("b", "poison")], items: [] };
+      expect(getEffectiveConditions(actor).every(c => c.effectIgnored === false)).toBe(true);
+    });
+
+    it("ignore.bs → BS のみ無視・負傷(group=physical)は残る", () => {
+      const actor = { effects: [ignoreEff("ig", "ignore.bs"), eff("b", "poison"), eff("w", "phys-7")], items: [] };
+      const conds = getEffectiveConditions(actor);
+      expect(flagOf(conds, "poison")).toBe(true);
+      expect(flagOf(conds, "phys-7")).toBe(false);
+    });
+
+    it("ignore.damage.physical → 負傷自身＋woundSource で肉体由来のみ無視", () => {
+      const actor = { effects: [
+        ignoreEff("ig", "ignore.damage.physical"),
+        eff("w1", "phys-7", { woundCategory: "physical" }),
+        eff("b1", "poison", { woundSource: "w1" }),   // 肉体由来
+        eff("b2", "doped-minor"),                      // 直接付与(由来なし)
+      ], items: [] };
+      const conds = getEffectiveConditions(actor);
+      expect(flagOf(conds, "phys-7")).toBe(true);
+      expect(flagOf(conds, "poison")).toBe(true);
+      expect(flagOf(conds, "doped-minor")).toBe(false);
+    });
+
+    it("ignore.damage.mental は肉体由来を無視しない", () => {
+      const actor = { effects: [ignoreEff("ig", "ignore.damage.mental"), eff("w1", "phys-7", { woundCategory: "physical" })], items: [] };
+      expect(flagOf(getEffectiveConditions(actor), "phys-7")).toBe(false);
+    });
+
+    it("ignore.all → 全て無視", () => {
+      const actor = { effects: [ignoreEff("ig", "ignore.all"), eff("b", "poison"), eff("w", "phys-7")], items: [] };
+      expect(getEffectiveConditions(actor).every(c => c.effectIgnored === true)).toBe(true);
+    });
+
+    it("手動フラグ manuallyIgnored → ルール無しでも effectIgnored=true(卓ツール)", () => {
+      const actor = { effects: [eff("b", "poison", { manuallyIgnored: true }), eff("b2", "doped-minor")], items: [] };
+      const conds = getEffectiveConditions(actor);
+      expect(flagOf(conds, "poison")).toBe(true);
+      expect(conds.find(c => c.kind === "poison")?.manuallyIgnored).toBe(true);
+      // 手動フラグの無い別 BS は無視されない
+      expect(flagOf(conds, "doped-minor")).toBe(false);
+    });
   });
 });

@@ -16,7 +16,7 @@ import { ActorBaseTemplate } from "./actor-base.mjs";
 import { computeAttributeFinal, computeOutfitAggregates, resolveCombatSpeedDisplayTotal, isActorInStartedCombat } from "../../helpers.mjs";
 import { ATTACK_DAMAGE_TYPES, parseEffectTargetKey, resolveItemTotalPath, evalEffectConditions, effectAutoApplies, AE_FLAG_TOTAL_PATHS, parseBooleanFlagValue } from "../../item/helpers.mjs";
 import { buildEffectivePartSlots } from "../../item/part-helpers.mjs";
-import { readConditions, gatherConditionControlPenalty, gatherPartSlotMods } from "../../../module/conditions.mjs";
+import { getEffectiveConditions, gatherConditionControlPenalty, gatherPartSlotMods } from "../../../module/conditions.mjs";
 import { parsePlainNumber, evaluateFormulaSync, buildFormulaData } from "../../../module/tnx-formula.mjs";
 
 /** 能力値キー(♠理性 / ♣感情 / ♥生命 / ♦外界) */
@@ -130,9 +130,10 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
       this[key].totalControl = Math.max(0, this[key].totalControl);
     }
     // 実効部位スロット(フェーズ12): base + AE デルタ + 負傷 partSlotMod。占有計算・装備先候補が読む。
-    // 負傷合成は従来シート側で行っていたものをここへ一本化した(base の partSlots は編集用に不変)
+    // 負傷合成は従来シート側で行っていたものをここへ一本化した(base の partSlots は編集用に不変)。
+    // 無視ゲート済み(effectIgnored)の負傷の partSlotMod は効かない=getEffectiveConditions 経由。
     this.partSlotsEffective = buildEffectivePartSlots(
-      this.partSlots, this.partSlotDeltas, gatherPartSlotMods(this.parent));
+      this.partSlots, this.partSlotDeltas, gatherPartSlotMods(getEffectiveConditions(this.parent)));
     // 表示中の CS(自動制御: カット進行中=カレント/それ以外=CS)。AE(cs.*)適用後に確定する。
     this.combatSpeed.inCombat     = isActorInStartedCombat(this.parent);
     this.combatSpeed.displayTotal = resolveCombatSpeedDisplayTotal(this.combatSpeed, this.combatSpeed.inCombat);
@@ -171,15 +172,9 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
   _applyConditionControlPenalty() {
     const actor = this.parent;
     if (!actor) return;
-    const conditions = [];
-    for (const e of (actor.effects ?? [])) conditions.push(...readConditions(e));
-    for (const item of (actor.items ?? [])) {
-      for (const e of (item.effects ?? [])) {
-        if (!effectAutoApplies(e)) continue; // 使用時付与用ペイロードは自動では効かない
-        conditions.push(...readConditions(e));
-      }
-    }
+    // 実効コンディション(無視ゲート済み=effectIgnored を除く。使用時付与ペイロード・無効も除外済み)。
     // 衰弱(数字なし)=対応1能力値のみ、衰弱(-数字)・酩酊=全制御値。
+    const conditions = getEffectiveConditions(actor).filter(c => !c.effectIgnored);
     const { all, byAbility } = gatherConditionControlPenalty(conditions);
     for (const key of ABILITY_KEYS) {
       const p = all + (byAbility[key] ?? 0);

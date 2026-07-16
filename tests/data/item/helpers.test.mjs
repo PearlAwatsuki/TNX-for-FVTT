@@ -525,6 +525,36 @@ describe("parseEffectTargetKey()（フェーズ12: 名前装飾・部位)", () =
   });
 });
 
+describe("parseEffectTargetKey()（コンディション効果の無視ゲート ignore.*・フェーズ12）", () => {
+  it("ignore.all＝あらゆる効果", () => {
+    expect(parseEffectTargetKey("ignore.all")).toMatchObject({ scope: "ignore", mode: "all", conditions: [] });
+  });
+
+  it("ignore.bs＝全BSの効果(グループ)", () => {
+    expect(parseEffectTargetKey("ignore.bs")).toMatchObject({ scope: "ignore", mode: "group", group: "bs", conditions: [] });
+  });
+
+  it("ignore.bs.<kind>＝個別BS", () => {
+    expect(parseEffectTargetKey("ignore.bs.poison")).toMatchObject({ scope: "ignore", mode: "kind", kind: "poison", conditions: [] });
+  });
+
+  it("ignore.damage＝ダメージ由来の効果すべて(全系統)", () => {
+    expect(parseEffectTargetKey("ignore.damage")).toMatchObject({ scope: "ignore", mode: "damage", category: null, conditions: [] });
+  });
+
+  it("ignore.damage.<系統>＝その系統のダメージ由来の効果", () => {
+    expect(parseEffectTargetKey("ignore.damage.physical")).toMatchObject({ scope: "ignore", mode: "damage", category: "physical", conditions: [] });
+    expect(parseEffectTargetKey("ignore.damage.mental")).toMatchObject({ scope: "ignore", mode: "damage", category: "mental" });
+    expect(parseEffectTargetKey("ignore.damage.social")).toMatchObject({ scope: "ignore", mode: "damage", category: "social" });
+  });
+
+  it("未知の系統・セレクタは無効", () => {
+    expect(parseEffectTargetKey("ignore.damage.bogus")).toBeNull();
+    expect(parseEffectTargetKey("ignore")).toBeNull();
+    expect(parseEffectTargetKey("ignore.bogus")).toBeNull();
+  });
+});
+
 describe("parseEffectTargetKey()（v2 system.<名前空間> 文法）", () => {
   it("値: ability / control", () => {
     expect(parseEffectTargetKey("system.ability.reason")).toMatchObject({ scope: "ability", path: "reason", conditions: [] });

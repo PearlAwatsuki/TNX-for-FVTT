@@ -748,6 +748,30 @@ export function parseEffectTargetKey(key) {
     return null;
   }
 
+  // コンディション効果の無視ゲート(フェーズ12・ユーザー確定): 自分が受けているコンディションの
+  // 効果(数値ペナルティ・行動制限の両方)を消費段階で無視する対象自己ゲート。タグ・BS・負傷は残す。
+  // 値不要のマーカーキー(check.suitChange と同型)。実行時系統＝恒常の値バフ適用からは除外する。
+  // - ignore.all              : あらゆる効果
+  // - ignore.bs               : 全BSの効果(グループ)
+  // - ignore.bs.<kind>        : 個別BS(例 ignore.bs.poison=邪毒)
+  // - ignore.damage[.<系統>]  : ダメージ由来の効果すべて(系統なし=全系統)。負傷自身＋付随BS＋付随戦闘不能
+  //   を woundCategory / woundSource→woundCategory で「物理/精神/社会由来か」を辿って照合(消費側)
+  if (segs[0] === "ignore") {
+    const x = segs[1];
+    if (x === "all") return { scope: "ignore", mode: "all", conditions };
+    if (x === "bs") {
+      return segs.length > 2
+        ? { scope: "ignore", mode: "kind", kind: segs.slice(2).join("."), conditions }
+        : { scope: "ignore", mode: "group", group: "bs", conditions };
+    }
+    if (x === "damage") {
+      const cat = segs.length > 2 ? segs[2] : null;
+      if (cat !== null && !["physical", "mental", "social"].includes(cat)) return null;
+      return { scope: "ignore", mode: "damage", category: cat, conditions };
+    }
+    return null;
+  }
+
   // アイテム狙いの識別キー記法: item.<識別キー>.system.<パラメータ>。式(@item.<識別キー>.system.*)と
   // 同じ文法で AE キーを書く(唯一の綴り。旧同義形 system.skill.<識別キー>.* は 2026-07-13 の
   // 再設計で廃止)。self/parent セレクタも廃止: 自身は素の system.<パス>(下の default)、準備先は

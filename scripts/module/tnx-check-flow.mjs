@@ -18,7 +18,7 @@
 import { getCardCheckValue, calcSkillCheck, calcControlCheck, normalizeSuit, ALL_SUITS, SUIT_TO_ABILITY } from './tnx-check-engine.mjs';
 import { gatherCheckBonusSources, collectActorEffectBuffs, actorHasSuitChangeBuff, actorCardValueOverride, readFlag } from '../data/item/helpers.mjs';
 import { evaluateBonusRows, evaluateSelfBonus } from './tnx-formula.mjs';
-import { readConditions, gatherConditionCheckSources, getCheckBlock, computeJammingPenalty } from './conditions.mjs';
+import { getEffectiveConditions, gatherConditionCheckSources, getCheckBlock, computeJammingPenalty } from './conditions.mjs';
 import { TnxActionHandler } from './tnx-action-handler.mjs';
 import { TnxSocketHandler } from './tnx-socket-handler.mjs';
 import { getUserFlagData } from './user-flag-schema.mjs';
@@ -534,12 +534,10 @@ export class TnxCheckFlow {
      */
     static _gatherConditions(actor) {
         if (!actor) return [];
-        const out = [];
-        for (const e of (actor.effects ?? [])) out.push(...readConditions(e));
-        for (const item of (actor.items ?? [])) {
-            for (const e of (item.effects ?? [])) out.push(...readConditions(e));
-        }
-        return out;
+        // 実効コンディションのうち、無視ゲート済み(effectIgnored)を除いた=効果が実際に適用される行。
+        // 存在自体(バッヂ表示・回復)は別経路(getEffectiveConditions を経由=ignore ゲートの単一正本)。
+        // ここは達成値ペナルティ・電子妨害・重圧ブロックの消費に使う。
+        return getEffectiveConditions(actor).filter(c => !c.effectIgnored);
     }
 
     /**

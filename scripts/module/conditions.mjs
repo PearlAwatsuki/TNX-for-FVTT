@@ -11,6 +11,7 @@
  */
 
 import { buildDamageStates } from "../data/damage-chart.mjs";
+import { parseEffectTargetKey, collectActorEffectBuffs, effectAutoApplies } from "../data/item/helpers.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -145,23 +146,110 @@ export function readCondition(effect) {
 }
 
 /**
- * アクターに適用中の負傷(等)が持つ部位スロット修正(partSlotMod)を集計する(2026-07-09)。
+ * 適用中の負傷(等)が持つ部位スロット修正(partSlotMod)を集計する(2026-07-09/フェーズ12)。
  * 例: 肉体7「腕部損傷」= 片手持ち −1(適用中のみ・治療で負傷が消えれば戻る)。
  * 同種の負傷が複数あれば加算する(両腕損傷=−2 等)。
- * 合成は partSlotsEffective(character-base → buildEffectivePartSlots)が行う(フェーズ12)。
- * @param {Actor} actor
+ * 入力は **実効コンディション行**(`getEffectiveConditions` の出力)。無効(active=false)・
+ * **無視ゲート済み(effectIgnored)** の行は集計しない。合成は partSlotsEffective(character-base →
+ * buildEffectivePartSlots)が行う。
+ * @param {Array<object>} conditions readConditions + effectIgnored 済みの行(getEffectiveConditions)
  * @returns {Map<string, number>} 部位キー(旧データはラベル) → デルタ(負値)。照合はキー優先・ラベル後方互換
  */
-export function gatherPartSlotMods(actor) {
+export function gatherPartSlotMods(conditions) {
   const mods = new Map();
-  for (const eff of (actor?.effects ?? [])) {
-    if (eff.disabled) continue;
-    for (const kind of getConditionKinds(eff)) {
-      const m = CONDITION_KINDS[kind]?.partSlotMod;
-      if (m?.part) mods.set(m.part, (mods.get(m.part) ?? 0) + (Number(m.delta) || 0));
-    }
+  for (const c of (conditions ?? [])) {
+    if (!c || c.active === false || c.effectIgnored) continue;
+    const m = c.def?.partSlotMod;
+    if (m?.part) mods.set(m.part, (mods.get(m.part) ?? 0) + (Number(m.delta) || 0));
   }
   return mods;
+}
+
+// ───────── コンディション効果の無視ゲート(ignore.*・フェーズ12・ユーザー確定) ─────────
+// 「自分が受けているコンディションの効果(数値ペナルティ・行動制限の両方)を消費段階で無視する」
+// 対象自己ゲート。タグ・BS・負傷そのものは残す(除去しない)。正本キー: Active_Effects.md「無視ゲート」。
+// 実効コンディションを実効果として読む箇所は必ず getEffectiveConditions を経由する(生の
+// readConditions/actor.effects 直読みは ignore が効かない=readFlag と同じ「必ず経由」規約)。
+
+/**
+ * 無視ルール(parseEffectTargetKey の scope:"ignore")が、あるコンディションに一致するか(純関数)。
+ * @param {{mode:string, group?:string, kind?:string, category?:?string}} rule
+ * @param {{group?:?string, kind?:string, damageCategory?:?string}} ctx コンディションの分類/由来系統
+ * @returns {boolean}
+ */
+export function ignoreRuleMatches(rule, { group, kind, damageCategory } = {}) {
+  if (!rule) return false;
+  switch (rule.mode) {
+    case "all":    return true;
+    case "group":  return rule.group === group;
+    case "kind":   return rule.kind === kind;
+    // ダメージ由来系統(無視は damageCategory があるときだけ・系統 null=全ダメージ由来)
+    case "damage": return damageCategory !== null && damageCategory !== undefined
+      && (rule.category === null || rule.category === damageCategory);
+    default:       return false;
+  }
+}
+
+/**
+ * 正規形の effects(collectActorEffectBuffs 相当)から ignore.* ルールを集める(純関数)。
+ * 各ルールに供給元(効果名 `source`)を添える(バッヂ tooltip「『〈供給元〉』により無視」用)。
+ * @param {Array<{name?:string, active?:boolean, changes?:Array<{key:string}>}>} effectBuffs
+ * @returns {Array<object>} parseEffectTargetKey の scope:"ignore" 結果 + { source }
+ */
+export function gatherIgnoreRules(effectBuffs) {
+  const rules = [];
+  for (const e of (effectBuffs ?? [])) {
+    if (e?.active === false) continue;
+    for (const c of (e?.changes ?? [])) {
+      const p = parseEffectTargetKey(c?.key);
+      if (p?.scope === "ignore") rules.push({ ...p, source: e?.name });
+    }
+  }
+  return rules;
+}
+
+/**
+ * アクターの実効コンディション一覧を返す唯一の正規アクセサ(フェーズ12)。各行(readConditions の要素)に
+ * `effectIgnored`(その効果が ignore ゲートで無視されているか)を付与する。コンディションを**実効果として
+ * 読む箇所は必ず本関数を経由**し、`effectIgnored` の行を飛ばす。存在自体(タグ・回復・治療・カスケード・
+ * バッヂ表示)は別途 readConditions/actor.effects を使う(無視されても残るため)。
+ * ダメージ由来系統は各効果の woundCategory(負傷自身)または woundSource→元負傷の woundCategory で辿る。
+ * @param {Actor} actor
+ * @returns {Array<object>} readConditions の各行 + { effectIgnored:boolean }
+ */
+export function getEffectiveConditions(actor) {
+  const rules = gatherIgnoreRules(collectActorEffectBuffs(actor));
+  // 負傷(woundCategory を持つ効果) id → 系統
+  const woundCat = new Map();
+  for (const e of (actor?.effects ?? [])) {
+    const wc = e.flags?.[SCOPE]?.woundCategory;
+    if (wc) woundCat.set(e.id, wc);
+  }
+  const out = [];
+  const consume = (effect) => {
+    if (effect?.disabled) return;
+    const f = effect?.flags?.[SCOPE] ?? {};
+    let damageCategory = f.woundCategory ?? null;
+    if (!damageCategory && f.woundSource) damageCategory = woundCat.get(f.woundSource) ?? null;
+    // 手動オーバーライド(卓ツール・バッヂのコンテキストメニュー): このインスタンスの効果を止める。
+    // ignore.* AE ルールと同じ effectIgnored に合流する(第2ソース)。
+    const manuallyIgnored = f.manuallyIgnored === true;
+    for (const c of readConditions(effect)) {
+      const group = c.def?.group ?? null;
+      const matched = rules.filter(r => ignoreRuleMatches(r, { group, kind: c.kind, damageCategory }));
+      // 供給元名(重複排除・tooltip 用)。ルール由来のみ(手動は別途 manuallyIgnored で示す)
+      const ignoredBy = [...new Set(matched.map(r => r.source).filter(Boolean))].join("・");
+      out.push({ ...c, effectIgnored: manuallyIgnored || matched.length > 0, ignoredBy, manuallyIgnored });
+    }
+  };
+  for (const e of (actor?.effects ?? [])) consume(e);
+  for (const item of (actor?.items ?? [])) {
+    for (const e of (item.effects ?? [])) {
+      if (!effectAutoApplies(e)) continue; // 使用時付与用ペイロードは自動では効かない
+      consume(e);
+    }
+  }
+  return out;
 }
 
 /**

@@ -1206,6 +1206,15 @@
     border-color: var(--tnx2-border-active);
 }
 
+/* 無視ゲート(ignore.*): 効果を発揮していない BS はバッヂを残しつつ取り消し線＋淡色で示す */
+.tokyo-nova.sheet.actor .tnx-bs-btn--ignored {
+    opacity: 0.55;
+}
+.tokyo-nova.sheet.actor .tnx-bs-btn--ignored .tnx-bs-label,
+.tokyo-nova.sheet.actor .tnx-bs-btn--ignored .tnx-bs-value {
+    text-decoration: line-through;
+}
+
 /* 空状態 */
 .tokyo-nova.sheet.actor .tnx-bs-empty {
     grid-column: 1 / -1;

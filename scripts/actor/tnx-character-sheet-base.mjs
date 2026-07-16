@@ -29,7 +29,7 @@ import { getComboSuits, comboUsesBounty, ALL_SUITS } from '../module/tnx-check-e
 import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
 import { groupStyleSkillsByStyle } from '../module/style-skill-acquisition.mjs';
 import { HOUSING_AREA_RANKS } from '../data/item/housing-area.mjs';
-import { CONDITION_KINDS, readConditions, getConditionKind } from '../module/conditions.mjs';
+import { CONDITION_KINDS, readConditions, getConditionKind, getEffectiveConditions } from '../module/conditions.mjs';
 import { openConditionEditDialog } from '../module/condition-edit.mjs';
 import { startTreatment } from '../module/treatment-flow.mjs';
 import { startVehicleMove } from '../module/vehicle-move.mjs';
@@ -283,6 +283,10 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         context.processedStylesForView = this._prepareStylesForView(allStyles);
 
 
+        // 無視ゲート(ignore.*): 実効コンディションの effectIgnored/ignoredBy を identity で引ける表に。
+        // バッヂ自体は残す(存在は消えない)=無視中の行だけ取り消し線＋供給元 tooltip を添える。
+        const ignoreByIdentity = new Map(
+            getEffectiveConditions(this.actor).map(c => [c.identity, { ignored: c.effectIgnored, by: c.ignoredBy, manual: c.manuallyIgnored }]));
         const bsList = [];
         this.actor.effects.forEach(e => {
             if (e.disabled) return;
@@ -293,26 +297,30 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                 e.statuses.forEach(statusId => {
                     const statusConfig = CONFIG.statusEffects.find(s => s.id === statusId);
                     if (statusConfig) {
+                        const ig = ignoreByIdentity.get(`${e.id}:${statusId}`);
                         bsList.push({
                             id:      e.id,
                             statusId,
                             name:    statusConfig.name,
                             valueSuffix: TnxCharacterSheetBase._bsValueSuffix(this.actor, conds.find(c => c.kind === statusId)),
                             img:     statusConfig.img,
-                            details: bsFlags?.details || ""
+                            details: ig?.ignored ? (ig.manual ? "手動で無視中" : (ig.by ? `「${ig.by}」により無視` : "効果を無視中")) : (bsFlags?.details || ""),
+                            ignored: ig?.ignored === true,
                         });
                         hasStatusCondition = true;
                     }
                 });
             }
             if (!hasStatusCondition && bsFlags?.isBadStatus) {
+                const ig = ignoreByIdentity.get(conds[0]?.identity);
                 bsList.push({
                     id:      e.id,
                     statusId: null,
                     name:    e.name,
                     valueSuffix: TnxCharacterSheetBase._bsValueSuffix(this.actor, conds[0]),
                     img:     e.img,
-                    details: bsFlags?.details || ""
+                    details: ig?.ignored ? (ig.manual ? "手動で無視中" : (ig.by ? `「${ig.by}」により無視` : "効果を無視中")) : (bsFlags?.details || ""),
+                    ignored: ig?.ignored === true,
                 });
             }
         });
@@ -1310,6 +1318,26 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                 callback:  async header => {
                     const effect = this.actor.effects.get(header.dataset.effectId);
                     if (effect) await openConditionEditDialog(this.actor, effect, kindOf(header));
+                }
+            },
+            // 手動オーバーライド(卓ツール): このインスタンスの効果を止める/戻す。バッヂ(タグ)は残り、
+            // 消費側の抑止・取り消し線は ignore.* AE と同じ effectIgnored 経路に合流する(manuallyIgnored フラグ)。
+            {
+                name:      "効果を無視する",
+                icon:      '<i class="fas fa-ban"></i>',
+                condition: header => this.actor.effects.get(header.dataset.effectId)?.getFlag("tokyo-nova-axleration", "manuallyIgnored") !== true,
+                callback:  async header => {
+                    const effect = this.actor.effects.get(header.dataset.effectId);
+                    if (effect) await effect.setFlag("tokyo-nova-axleration", "manuallyIgnored", true);
+                }
+            },
+            {
+                name:      "無視を解除する",
+                icon:      '<i class="fas fa-arrow-rotate-left"></i>',
+                condition: header => this.actor.effects.get(header.dataset.effectId)?.getFlag("tokyo-nova-axleration", "manuallyIgnored") === true,
+                callback:  async header => {
+                    const effect = this.actor.effects.get(header.dataset.effectId);
+                    if (effect) await effect.unsetFlag("tokyo-nova-axleration", "manuallyIgnored");
                 }
             }
         ];

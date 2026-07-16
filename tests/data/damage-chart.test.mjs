@@ -64,29 +64,21 @@ describe("ダメージ負傷状態", () => {
   });
 });
 
-describe("gatherPartSlotMods()（適用中の負傷による部位スロット修正）", () => {
-  // 最小モックアクター: effects コレクションと statuses から集計する
-  const woundEffect = (kind) => ({
-    disabled: false,
-    statuses: new Set([kind]),
-    flags: { "tokyo-nova-axleration": { conditionKind: kind } },
-  });
+describe("gatherPartSlotMods()（適用中の負傷による部位スロット修正・実効コンディション入力）", () => {
+  // getEffectiveConditions の出力(コンディション行)を受け取る純関数。
+  const entry = (kind, over = {}) => ({ kind, def: CONDITION_KINDS[kind], active: true, effectIgnored: false, ...over });
 
   it("腕部損傷1つ → 片手持ち −1", () => {
-    const actor = { effects: [woundEffect("phys-7")] };
-    const mods = gatherPartSlotMods(actor);
-    expect(mods.get("one-hand")).toBe(-1);
+    expect(gatherPartSlotMods([entry("phys-7")]).get("one-hand")).toBe(-1);
   });
 
   it("腕部損傷2つ(両腕) → 片手持ち −2(加算)", () => {
-    const actor = { effects: [woundEffect("phys-7"), woundEffect("phys-7")] };
-    expect(gatherPartSlotMods(actor).get("one-hand")).toBe(-2);
+    expect(gatherPartSlotMods([entry("phys-7"), entry("phys-7")]).get("one-hand")).toBe(-2);
   });
 
-  it("disabled な負傷は集計しない・partSlotMod を持たない負傷は無視", () => {
-    const off = { ...woundEffect("phys-7"), disabled: true };
-    const actor = { effects: [off, woundEffect("phys-1")] };
-    expect(gatherPartSlotMods(actor).size).toBe(0);
+  it("無効/無視/partSlotMod を持たない負傷は集計しない", () => {
+    const conds = [entry("phys-7", { active: false }), entry("phys-7", { effectIgnored: true }), entry("phys-1")];
+    expect(gatherPartSlotMods(conds).size).toBe(0);
   });
 });
 

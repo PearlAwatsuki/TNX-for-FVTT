@@ -356,10 +356,17 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
             }
         }
     };
-    // キー入力の補助 datalist(部位スロットキー・部位キー・名前装飾・登録フラグの候補)。
+    // キー入力の補助 datalist(部位スロットキー・部位キー・名前装飾・登録フラグ・無視ゲートの候補)。
     // 自由入力を妨げないオートコンプリート(フェーズ12)。
     if (!root.querySelector("#tnx-ae-key-suggestions")) {
         const partKeys = [...new Set(getPartSlotPreset().map(s => s?.key).filter(Boolean))];
+        // コンディション効果の無視ゲート(ignore.*): all / 全BS / 個別BS / ダメージ由来(全・系統別)
+        const bsKinds = Object.entries(CONDITION_KINDS).filter(([, d]) => d?.group === "bs").map(([k]) => k);
+        const ignoreKeys = [
+            "ignore.all", "ignore.bs", "ignore.damage",
+            "ignore.damage.physical", "ignore.damage.mental", "ignore.damage.social",
+            ...bsKinds.map(k => `ignore.bs.${k}`),
+        ];
         const keyList = document.createElement("datalist");
         keyList.id = "tnx-ae-key-suggestions";
         keyList.innerHTML = [
@@ -367,6 +374,7 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
             ...partKeys.map(k => `system.partSlot.${k}`),
             ...partKeys.map(k => `system.part.${k}`),
             ...AE_FLAG_PARAMS.map(f => `system.${f}`),
+            ...ignoreKeys,
         ].map(v => `<option value="${v}"></option>`).join("");
         root.appendChild(keyList);
         const relList = document.createElement("datalist");

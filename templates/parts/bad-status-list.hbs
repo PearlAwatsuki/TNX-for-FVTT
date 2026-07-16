@@ -2,7 +2,7 @@
     <div class="tnx-bs-grid">
         {{#each badStatuses as |bs|}}
         <button type="button"
-            class="tnx-bs-btn {{#if ../isEditMode}}tnx-bs-btn--edit{{else}}tnx-bs-btn--view{{/if}}"
+            class="tnx-bs-btn {{#if ../isEditMode}}tnx-bs-btn--edit{{else}}tnx-bs-btn--view{{/if}}{{#if bs.ignored}} tnx-bs-btn--ignored{{/if}}"
             {{#if ../isEditMode}}data-action="removeBadStatus"{{/if}}
             data-effect-id="{{bs.id}}"
             data-status-id="{{bs.statusId}}"
