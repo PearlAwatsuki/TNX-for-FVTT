@@ -18,7 +18,7 @@
 import { getCardCheckValue, calcSkillCheck, calcControlCheck, normalizeSuit, ALL_SUITS, SUIT_TO_ABILITY } from './tnx-check-engine.mjs';
 import { gatherCheckBonusSources, collectActorEffectBuffs, actorHasSuitChangeBuff, actorCardValueOverride, readFlag } from '../data/item/helpers.mjs';
 import { evaluateBonusRows, evaluateSelfBonus } from './tnx-formula.mjs';
-import { getEffectiveConditions, gatherConditionCheckSources, getCheckBlock, gatherSkillUseWarnings, computeJammingPenalty } from './conditions.mjs';
+import { getEffectiveConditions, gatherConditionCheckSources, getCheckBlock, gatherSkillUseWarnings, computeJammingPenalty, hasBountyBlock } from './conditions.mjs';
 import { TnxActionHandler } from './tnx-action-handler.mjs';
 import { TnxSocketHandler } from './tnx-socket-handler.mjs';
 import { getUserFlagData } from './user-flag-schema.mjs';
@@ -708,10 +708,15 @@ export class TnxCheckFlow {
         // 報酬点の使用を決定（スート不一致・制御判定・ファンブル確定はスキップ）
         let bountyUsed = 0;
         if (!suitMismatch && ctx.type !== "controlCheck" && cardCheckValue !== "FUMBLE") {
+            // 報酬点使用不可(口座凍結/信用失墜)の一元ゲート(2026-07-16): 消費時点のアクター状態で
+            // 判定するため、ここ(ダイアログ直前)の一点で全経路(用途経由・情報収集・再判定)を塞ぐ。
+            // 0 ならダイアログ自体を出さない(_promptBountyUsage の早期 return)
+            const bountyAvailable = hasBountyBlock(TnxCheckFlow._gatherConditions(actor))
+                ? 0 : (ctx.bountyAvailable ?? 0);
             // 報酬点 0 時のベース達成値を先計算してダイアログに表示
             const baseResult       = calcSkillCheck({ cardCheckValue, suit, abilitiesCtx, bountyUsed: 0, targetValue: ctx.targetValue, checkBonus });
             const baseAchievement  = typeof baseResult.achievement === "number" ? baseResult.achievement : null;
-            bountyUsed = await TnxCheckFlow._promptBountyUsage(ctx.bountyAvailable ?? 0, { baseAchievement });
+            bountyUsed = await TnxCheckFlow._promptBountyUsage(bountyAvailable, { baseAchievement });
         }
 
         // 判定結果の計算

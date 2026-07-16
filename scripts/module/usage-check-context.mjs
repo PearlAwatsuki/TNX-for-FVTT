@@ -11,7 +11,6 @@
  */
 
 import { getComboSuits, comboUsesBounty } from "./tnx-check-engine.mjs";
-import { getEffectiveConditions, hasBountyBlock } from "./conditions.mjs";
 import { resolveConsumeRowsForActor, promptConsumption } from "./usage-consumption.mjs";
 import { prepareUsageEffectPayload } from "./usage-effects.mjs";
 import { resolveUsageTargetValue } from "./usage-target-value.mjs";
@@ -56,7 +55,7 @@ export function detectUsageDefect(item, usage, actor) {
 
 /**
  * 通常判定の open コンテキスト共通部を組み立てる(判定起動の共通前段)。
- * エキストラ制限 → 不備検知 → 参加技能解決 → 報酬点(usesBounty×報酬点ブロック) →
+ * エキストラ制限 → 不備検知 → 参加技能解決 → 報酬点(usesBounty) →
  * 使用回数の消費確認 → 適用効果ペイロード → 目標値解決、の順で確定する。
  * 呼び出し側は戻り値に固有ペイロード(attack/npcAcquire/recovery/extraOpen)を重ねて
  * TnxCheckFlow.open へ渡す(targetValue 等の上書きも呼び出し側で行う)。
@@ -96,11 +95,10 @@ export async function buildUsageCheckContext(actor, item, usage, {
         .join("+");
 
     // 報酬点: 参加技能のいずれかが usesBounty なら可(ベース限定は誤り・2026-07-10 ユーザー確定)。
-    // 報酬点使用不可(口座凍結/信用失墜)の負傷があれば消費できない=可能報酬点を 0 にし、
-    // 使用ダイアログ自体を出さない(ユーザー裁定 2026-07-16)。無視ゲート済み(effectIgnored)は数えない
+    // 報酬点使用不可(口座凍結/信用失墜)は消費時点の状態で判定するため、ここでは見ない——
+    // TnxCheckFlow._execute の報酬点ダイアログ直前の一元ゲートが全経路(情報収集・再判定含む)を塞ぐ
     const actorBounty = (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0);
-    const bountyBlocked = hasBountyBlock(getEffectiveConditions(actor).filter(c => !c.effectIgnored));
-    const bountyAvailable = (comboUsesBounty(allSkillSystems) && !bountyBlocked) ? actorBounty : 0;
+    const bountyAvailable = comboUsesBounty(allSkillSystems) ? actorBounty : 0;
 
     // 使用回数の消費を確認(用途の消費先設定＝consumeTargets 由来・11-6。残量不足でチェック時は
     // ブロック)。分身は本体側カウンターへ差し替えて共有(Troops.md)。確定した平プランは判定実行時に適用
