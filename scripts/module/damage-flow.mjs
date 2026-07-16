@@ -346,7 +346,7 @@ export function renderDamageCard(message, html) {
     const dmgTargets = f.targets ?? [];
     if (dmgTargets.length) row(ledger, dmgTargets.length > 1 ? `対象（${dmgTargets.length}体）` : "対象",
         dmgTargets.map(t => `「${esc(t.name)}」`).join("・"));
-    const { calc, attack } = damageRollTotals(f);
+    const { attackerTotal } = damageRollTotals(f);
     const cards = f.cards ?? [];
     cards.forEach((c, i) => {
         const suitMark = SUIT_SYMBOL[c.suit] ? `<span class="cr-suit suit-${c.suit}">${SUIT_SYMBOL[c.suit]}</span> ` : "";
@@ -363,16 +363,16 @@ export function renderDamageCard(message, html) {
     }
     if (f.manualMod) row(ledger, "修正（手動）", signedDisplay("＋", f.manualMod));
     // 物理攻撃＝スタン・精神攻撃＝説得(別メカニクス。系統ごとに専用表記・2026-07-15 ユーザー指摘)。
-    // 10上限は算出の最後＝事後修正より前に表示する(適用順どおりの台帳・2026-07-16 ユーザー裁定)
+    // 10上限は恒久軽減(防御力・受け値=対象ごと)の後＝算出の一番最後(2026-07-16 裁定=KI-024)の
+    // ため、共有台帳には出さず各対象行の内訳に表示する
     const stunLabel = f.category === "mental" ? "説得" : "スタン";
-    if (f.stun && calc > 10) row(ledger, `${stunLabel}（10上限）`, `${calc} → 10`);
-    // 事後修正(modifyDamage 用途・攻撃側合計クリックで適用済みの行=算出後〜適用前・10上限の後)。
-    // 上書きは「→N」表記
+    // 事後修正(modifyDamage 用途・攻撃側合計クリックで適用済みの行=算出後〜適用前・対象ごとの
+    // 10上限の後に乗る)。上書きは「→N」表記
     for (const m of (f.mods ?? [])) {
         row(ledger, `事後修正（${esc(m.label || "用途")}）`,
             m.overrideTo !== undefined ? `→${m.overrideTo}` : signedDisplay("＋", m.value));
     }
-    row(ledger, `攻撃側合計${f.stun ? `（${stunLabel}）` : ""}`, String(attack), "cr-calc-row cr-total-row", "cr-total-num");
+    row(ledger, `攻撃側合計${f.stun ? `（${stunLabel}宣言）` : ""}`, String(attackerTotal), "cr-calc-row cr-total-row", "cr-total-num");
     // ダメージクリック待ち(modifyDamage): 適用前のダメージの攻撃側合計をクリック可能に
     // (達成値クリックと同じ装飾クラス。モード外のクリックは無視)
     if (!f.applied) {
@@ -392,12 +392,14 @@ export function renderDamageCard(message, html) {
                 `<i class="fas fa-shuffle"></i> 「${esc(CATEGORY_LABELS[f.appliedResult.applyCategory] ?? f.appliedResult.applyCategory)}」ダメージとして適用`);
         }
         for (const tr of (f.appliedResult.targets ?? [])) {
-            // 対象ごとに見出し(名前)は1回だけ＝軽減の内訳は名前を繰り返さない小注記に畳む(はみ出し回避)
+            // 対象ごとに見出し(名前)は1回だけ＝軽減の内訳は名前を繰り返さない小注記に畳む(はみ出し回避)。
+            // 内訳は適用順(恒久軽減→10上限→事後修正→手動→報酬点)に並べる(2026-07-16 裁定)
             const nameLabel = tr.coveringFor ? `${esc(tr.name)}（${esc(tr.coveringFor)}をカバー）` : esc(tr.name);
             row(area, nameLabel, String(tr.final), "cr-calc-row cr-total-row", "cr-total-num");
             const parts = [];
-            if (tr.defenderMod) parts.push(`ダメージ修正 ${signedDisplay("＋", tr.defenderMod)}`);
             if (tr.autoMitigation) parts.push(`防御力・受け値 −${tr.autoMitigation}`);
+            if (tr.stunCapped) parts.push(`${stunLabel}（10上限）`);
+            if (tr.defenderMod) parts.push(`ダメージ修正 ${signedDisplay("＋", tr.defenderMod)}`);
             if (tr.manual) parts.push(`手動軽減 −${tr.manual}`);
             if (tr.bounty) parts.push(`報酬点 −${tr.bounty}`);
             if (parts.length) line(area, "tnx-damage-sub", esc(parts.join("・")));
@@ -411,13 +413,15 @@ export function renderDamageCard(message, html) {
     // 軽減後の最終ダメージを表示する。攻撃側合計はレジャーに残す(攻撃側の事後増強のため)。社会の報酬点軽減と
     // 手動の状況軽減だけ適用時のダイアログで入れる。
     for (const t of dmgTargets) {
-        // 対象ごとに見出し(名前)＝最終ダメージを1行・軽減の内訳は名前を繰り返さない小注記に畳む(はみ出し回避)
+        // 対象ごとに見出し(名前)＝最終ダメージを1行・軽減の内訳は名前を繰り返さない小注記に畳む(はみ出し回避)。
+        // 内訳は適用順(防御力・受け値→10上限→事後修正)に並べる(2026-07-16 裁定=KI-024)
         const p = targetPlannedPreview(f, t);
         const nameLabel = t.coveringFor ? `${esc(t.name)}（${esc(t.coveringFor)}をカバー）` : esc(t.name);
         row(area, nameLabel, String(p.final), "cr-calc-row cr-total-row", "cr-total-num");
         const parts = [];
         if (p.defence) parts.push(`防御力 −${p.defence}`);
         if (p.parry) parts.push(`受け値 −${p.parry}`);
+        if (p.capped) parts.push(`${stunLabel}（10上限）`);
         if (p.modsSum) parts.push(`修正 ${signedDisplay("＋", p.modsSum)}`);
         if (parts.length) line(area, "tnx-damage-sub", esc(parts.join("・")));
     }
@@ -491,11 +495,12 @@ export async function handleDamageModifyClick(message) {
     // ユーザー確定)。攻撃側/GM 代行は共有の攻撃側合計(全対象の起点)に効かせる。発動方法(攻撃側合計
     // クリック)は不変。上書きの基準も対象ごと(その対象の攻撃側合計)にする。
     const targetIndex = (f.targets ?? []).findIndex(t => resolveSync(t.uuid)?.id === actor.id);
-    // 上書きの基準=表示中の攻撃側合計(10上限+既存の事後修正まで反映済み)。事後修正は上限の後に
-    // 乗るため、基準も上限後の値でとる(上限前 raw を基準にすると上書き結果がずれる)
+    // 上書きの基準=表示中の攻撃側合計(攻撃側の数字＝共有事後修正込み。10上限・軽減は対象ごとの
+    // 算出に掛かるため基準には含めない)。防御側(命中対象)はその対象の事後修正も基準に足す
+    const totals = damageRollTotals(f);
     const baseTotal = targetIndex >= 0
-        ? damageRollTotals(f, { extraPostMods: (f.targets[targetIndex].mods ?? []).reduce((s, m) => s + (Number(m.value) || 0), 0) }).attack
-        : damageRollTotals(f).attack;
+        ? totals.attackerTotal + (f.targets[targetIndex].mods ?? []).reduce((s, m) => s + (Number(m.value) || 0), 0)
+        : totals.attackerTotal;
 
     // 修正値: 用途のダメージ修正値(式・@item.self=親技能・@card/@diff/@achievement=命中判定由来)。
     // 空/評価不能/0 は手入力(軽減は負の値)
@@ -546,8 +551,8 @@ export async function handleDamageModifyClick(message) {
 export async function manualEditDamage(message) {
     const f = message.getFlag(SCOPE, "damageRoll");
     if (!f) return;
-    // 手動修正も mods(事後修正=10上限の後)に積むため、基準は表示中の攻撃側合計(上限後)
-    const current = damageRollTotals(f).attack;
+    // 手動修正も mods(事後修正)に積むため、基準は表示中の攻撃側合計(共有事後修正込みの攻撃側の数字)
+    const current = damageRollTotals(f).attackerTotal;
     const { AmountInputDialog } = await import("./tnx-dialog.mjs");
     const input = await AmountInputDialog.prompt({
         title: `ダメージを修正（攻撃側合計 ${current}）`,
@@ -604,32 +609,36 @@ function buildDamageTargets(hitTargets) {
 }
 
 /**
- * ダメージの合計(Damage_Rules「算出の適用順序」)。攻撃側の加算(カード合算+攻撃力+FA+用途の
- * ダメージ修正+手動修正)→スタン/説得の10上限(防御側の減算より前)→事後修正(mods=modifyDamage・
- * 算出後〜適用前=上限の後に乗る・2026-07-16 ユーザー裁定)→mitigation(防御力・受け値=算出の内＋
- * 適用時の手動/報酬点軽減)。extraPostMods は対象ごとの防御側事後修正(t.mods)を同じ段に合流させる。
- * @returns {{cardSum:number, calc:number, attack:number, final:number, stage:number}}
- *   calc=攻撃側の加算合計(上限前)・attack=上限+事後修正後・final/stage=mitigation 反映後
+ * ダメージの合計(Damage_Rules「算出の適用順序」1〜6・2026-07-16 裁定=KI-024)。
+ * 攻撃側の加算(カード合算+攻撃力+FA+用途のダメージ修正+手動修正)→恒久軽減(防御力・受け値=
+ * permanentMitigation・対象ごと)→スタン/説得の10上限(算出の一番最後)→事後修正(mods=modifyDamage・
+ * 算出後〜適用前=キャップ後に乗る)→適用時の軽減(applyMitigation=手動・社会報酬点)。
+ * extraPostMods は対象ごとの防御側事後修正(t.mods)を共有の事後修正と同じ段に合流させる。
+ * @returns {{cardSum:number, modsSum:number, attackerTotal:number, raw:number, calc:number,
+ *   attack:number, final:number, stage:number, capped:boolean}}
+ *   attackerTotal=攻撃側の数字(共有台帳の「攻撃側合計」＝raw+共有事後修正。上限・軽減に依存しない)
  */
-function damageRollTotals(f, { extraPostMods = 0, mitigation = 0 } = {}) {
+function damageRollTotals(f, { permanentMitigation = 0, extraPostMods = 0, applyMitigation = 0 } = {}) {
     const cardSum = (f.cards ?? []).reduce((s, c) => s + (Number(c.value) || 0), 0);
     const bonusSum = (f.damageBonuses ?? []).reduce((s, b) => s + (Number(b.value) || 0), 0);
     const modsSum = (f.mods ?? []).reduce((s, m) => s + (Number(m.value) || 0), 0);
-    const { raw, attack, final, stage } = computeDamage({
+    const r = computeDamage({
         damageCard: cardSum,
         attackPower: (Number(f.attackPower) || 0) + (Number(f.faValue) || 0),
         modifier: bonusSum + (Number(f.manualMod) || 0),
+        mitigation: permanentMitigation,
         postModifier: modsSum + extraPostMods,
-        mitigation,
+        applyMitigation,
         stun: f.stun === true,
     });
-    return { cardSum, calc: raw, attack, final, stage };
+    return { cardSum, modsSum, attackerTotal: r.raw + modsSum, ...r };
 }
 
 /**
- * 対象ごとの適用予定ダメージ(2026-07-15): 共有の攻撃側合計に、その対象の防御側 modifyDamage と
- * 自動軽減(物理=防御力・パリー受け値)を反映した適用前の見込み値。手動軽減はダイアログで最終調整するため
- * ここには含めない。防御側の軽減が他対象へ波及しないよう、mods はその対象の攻撃側合計にだけ乗せる。
+ * 対象ごとの適用予定ダメージ(2026-07-15): 共有の攻撃側合計に、その対象の恒久軽減(物理=防御力・
+ * パリー受け値=算出の内)→スタン/説得の10上限→防御側 modifyDamage(事後修正)を反映した適用前の
+ * 見込み値。手動軽減はダイアログで最終調整するためここには含めない。防御側の軽減が他対象へ
+ * 波及しないよう、mods はその対象の値にだけ乗せる。
  * @param {object} f damageRoll フラグ
  * @param {object} t f.targets の要素
  */
@@ -645,8 +654,8 @@ function targetPlannedPreview(f, t) {
     }
     const parry = Number(t.parryGuard) || 0;
     const auto = defence + parry;
-    const { final } = damageRollTotals(f, { extraPostMods: modsSum, mitigation: auto });
-    return { final, auto, defence, parry, modsSum };
+    const { final, capped } = damageRollTotals(f, { permanentMitigation: auto, extraPostMods: modsSum });
+    return { final, auto, defence, parry, modsSum, capped };
 }
 
 function resolveSync(uuid) {
@@ -729,7 +738,7 @@ async function openMitigationDialog(message, applyCategory = null) {
     const category = f.category || "physical";
     const applyCat = applyCategory || category;
     const isAltApply = applyCat !== category;
-    const { attack } = damageRollTotals(f);
+    const { attackerTotal } = damageRollTotals(f);
     const stun = f.stun === true;                                    // 攻撃宣言で確定済み(再確認しない)
     const stunLabel = category === "mental" ? "説得" : "スタン";
     const isSocial = category === "social";
@@ -775,7 +784,7 @@ async function openMitigationDialog(message, applyCategory = null) {
         ? `<p class="tnx-damage-altnote"><i class="fas fa-shuffle"></i> 「${CATEGORY_LABELS[category] ?? category}」で軽減し、軽減後の値を「${CATEGORY_LABELS[applyCat] ?? applyCat}」ダメージチャートへ適用します。</p>`
         : "";
     const content = `<div class="tnx-damage-form">
-        <p class="tnx-damage-summary">${CATEGORY_LABELS[category] ?? category}ダメージ（攻撃側合計 <b>${attack}</b>${stun ? `・${stunLabel}宣言（10上限）` : ""}）を <b>${rows.length}</b> 体へ</p>
+        <p class="tnx-damage-summary">${CATEGORY_LABELS[category] ?? category}ダメージ（攻撃側合計 <b>${attackerTotal}</b>${stun ? `・${stunLabel}宣言（10上限）` : ""}）を <b>${rows.length}</b> 体へ</p>
         ${altNote}
         ${rowsHtml}
     </div>`;
@@ -787,10 +796,13 @@ async function openMitigationDialog(message, applyCategory = null) {
     const updatePreview = (root) => {
         for (const r of rows) {
             const v = readRow(root, r.index);
-            // 防御力・受け値(autoMitigation)は算出で適用済み。ここでは手動軽減と社会報酬点だけ足す
-            // (いずれも10上限より後の線形減算=mitigation に一括)
-            const mitigation = r.autoMitigation + v.manual + (isSocial ? v.bounty : 0);
-            const { final, stage } = damageRollTotals(f, { extraPostMods: r.modsSum, mitigation });
+            // 防御力・受け値(autoMitigation)=恒久軽減(算出の内・10上限の前)。手動軽減と社会報酬点は
+            // 適用時の軽減(10上限・事後修正より後)=applyMitigation(2026-07-16 裁定=KI-024)
+            const { final, stage } = damageRollTotals(f, {
+                permanentMitigation: r.autoMitigation,
+                extraPostMods: r.modsSum,
+                applyMitigation: v.manual + (isSocial ? v.bounty : 0),
+            });
             const fin  = root.querySelector(`[data-final="${r.index}"]`);
             const note = root.querySelector(`[data-note="${r.index}"]`);
             if (fin)  fin.textContent = String(final);
@@ -822,15 +834,18 @@ async function openMitigationDialog(message, applyCategory = null) {
     // 適用効果の同時適用(2026-07-12 ユーザー確定): チャート適用より先に付与(未適用時のみ)
     await applyUsageEffectsFromMessage(message);
 
-    // 全対象へ適用(対象ごとに軽減→最終→チャート・スタン/説得は算出段階で10上限済み)
+    // 全対象へ適用(対象ごとに恒久軽減→10上限→事後修正→適用時軽減→最終→チャート・2026-07-16 裁定)
     const appliedTargets = [];
     for (const r of rows) {
         const v = result[r.index] ?? { manual: 0, bounty: 0 };
         const bounty = isSocial ? v.bounty : 0;
-        // 防御力・受け値(autoMitigation)は算出で適用済み。手動軽減と社会報酬点をここで足す
-        // (10上限より後の線形減算=mitigation に一括)。r.modsSum=その対象の防御側事後修正(per-target)
-        const mitigationTotal = r.autoMitigation + v.manual + bounty;
-        const { final, stage } = damageRollTotals(f, { extraPostMods: r.modsSum, mitigation: mitigationTotal });
+        // 防御力・受け値(autoMitigation)=恒久軽減(算出の内・10上限の前)。手動軽減と社会報酬点は
+        // 適用時の軽減(applyMitigation)。r.modsSum=その対象の防御側事後修正(per-target・キャップ後)
+        const { final, stage, capped } = damageRollTotals(f, {
+            permanentMitigation: r.autoMitigation,
+            extraPostMods: r.modsSum,
+            applyMitigation: v.manual + bounty,
+        });
         // 説得(精神攻撃のスタン宣言)は、チャートの効果タグ(戦闘不能)を付けず BS のみ付与する。
         // 別系統として適用する場合は説得の意味論が対応しないため付けない(元系統=精神の通常適用時のみ)
         const applyText = await applyDamageToTarget(r.actor, applyCat, final, stage,
@@ -843,6 +858,8 @@ async function openMitigationDialog(message, applyCategory = null) {
             manual: v.manual,
             // 防御側 modifyDamage の合計(あれば適用済み表示に出す)
             defenderMod: r.modsSum || 0,
+            // スタン/説得の10上限がこの対象で効いたか(適用済み表示の内訳用・2026-07-16 裁定)
+            stunCapped: capped,
             bounty, final, stage, applyText,
         });
     }

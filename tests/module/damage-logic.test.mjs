@@ -47,57 +47,58 @@ describe("defenceForType()（ダメージ種別に対応する防御力・X は�
   });
 });
 
-describe("computeDamage()（攻撃側合計→軽減→チャート参照値・Damage_Rules）", () => {
-  it("max(0, カード+攻撃力+修正 − 軽減)・参照値=min(値,21)", () => {
+describe("computeDamage()（攻撃側合計→恒久軽減→10上限→事後修正→適用時軽減・Damage_Rules 1〜6）", () => {
+  it("max(0, カード+攻撃力+修正 − 恒久軽減)・参照値=min(値,21)", () => {
     expect(computeDamage({ damageCard: 8, attackPower: 5, modifier: 2, mitigation: 3 }))
-      .toEqual({ raw: 15, attack: 15, final: 12, stage: 12 });
+      .toEqual({ raw: 15, calc: 12, attack: 12, final: 12, stage: 12, capped: false });
   });
 
-  it("軽減は丸める前の生ダメージに効く（21 頭打ちは参照値のみ）", () => {
+  it("恒久軽減は丸める前の生ダメージに効く（21 頭打ちは参照値のみ）", () => {
     // 35ダメージを15軽減 → 20
     expect(computeDamage({ damageCard: 21, attackPower: 14, modifier: 0, mitigation: 15 }))
-      .toEqual({ raw: 35, attack: 35, final: 20, stage: 20 });
+      .toEqual({ raw: 35, calc: 20, attack: 20, final: 20, stage: 20, capped: false });
     // 5軽減 → 30 → 参照値21
     expect(computeDamage({ damageCard: 21, attackPower: 14, modifier: 0, mitigation: 5 }))
-      .toEqual({ raw: 35, attack: 35, final: 30, stage: 21 });
+      .toEqual({ raw: 35, calc: 30, attack: 30, final: 30, stage: 21, capped: false });
   });
 
   it("下限0（軽減が生ダメージを上回る）", () => {
     expect(computeDamage({ damageCard: 3, attackPower: 0, modifier: 0, mitigation: 10 }))
-      .toEqual({ raw: 3, attack: 3, final: 0, stage: 0 });
+      .toEqual({ raw: 3, calc: -7, attack: -7, final: 0, stage: 0, capped: false });
   });
 
-  it("スタン/説得: 攻撃側合計を10上限にする（ダメージ算出の最後・軽減より前）", () => {
-    // 軽減0: 20 → 攻撃側10 → 最終10
+  it("スタン/説得: 恒久軽減を引いた後＝算出の一番最後に10上限（2026-07-16 裁定=KI-024）", () => {
+    // KI-024 の正例: 攻撃側合計18・防御力5 → 13 → 10（旧実装 min(18,10)−5=5 は過小で誤り）
+    expect(computeDamage({ damageCard: 18, attackPower: 0, modifier: 0, mitigation: 5, stun: true }))
+      .toEqual({ raw: 18, calc: 10, attack: 10, final: 10, stage: 10, capped: true });
+    // 恒久軽減で10以下まで下がれば上限は掛からない
+    expect(computeDamage({ damageCard: 20, attackPower: 0, modifier: 0, mitigation: 15, stun: true }))
+      .toEqual({ raw: 20, calc: 5, attack: 5, final: 5, stage: 5, capped: false });
+    // 軽減0: 20 → 10
     expect(computeDamage({ damageCard: 20, attackPower: 0, modifier: 0, mitigation: 0, stun: true }))
-      .toEqual({ raw: 20, attack: 10, final: 10, stage: 10 });
+      .toEqual({ raw: 20, calc: 10, attack: 10, final: 10, stage: 10, capped: true });
     // 10未満はそのまま
     expect(computeDamage({ damageCard: 7, attackPower: 0, modifier: 0, mitigation: 0, stun: true }))
-      .toEqual({ raw: 7, attack: 7, final: 7, stage: 7 });
-  });
-
-  it("スタン/説得の10上限は防御側の減算の前＝軽減が意味を持つ", () => {
-    // 攻撃側合計20を10にそろえてから防御力5を減算 → 最終5（減算後にキャップすると10になってしまう）
-    expect(computeDamage({ damageCard: 20, attackPower: 0, modifier: 0, mitigation: 5, stun: true }))
-      .toEqual({ raw: 20, attack: 10, final: 5, stage: 5 });
+      .toEqual({ raw: 7, calc: 7, attack: 7, final: 7, stage: 7, capped: false });
   });
 
   it("事後修正(postModifier)は10上限の後に乗る（算出後〜適用前・2026-07-16 ユーザー裁定）", () => {
-    // 攻撃側合計15 → 10上限 → 事後修正−5 → 5（上限前に合算すると min(15−5,10)=10 になってしまう）
-    expect(computeDamage({ damageCard: 15, postModifier: -5, mitigation: 0, stun: true }))
-      .toEqual({ raw: 15, attack: 5, final: 5, stage: 5 });
-    // 正の事後修正は上限の後に加算＝10を超えられる
-    expect(computeDamage({ damageCard: 15, postModifier: 3, mitigation: 0, stun: true }))
-      .toEqual({ raw: 15, attack: 13, final: 13, stage: 13 });
+    // 15 → 10上限 → 事後修正−5 → 5（上限前に合算すると min(15−5,10)=10 になってしまう）
+    expect(computeDamage({ damageCard: 15, postModifier: -5, stun: true }))
+      .toEqual({ raw: 15, calc: 10, attack: 5, final: 5, stage: 5, capped: true });
+    // 正の事後修正は上限の後に加算＝10を超えられる（恒久軽減 15−3=12 → 10 → +3）
+    expect(computeDamage({ damageCard: 15, mitigation: 3, postModifier: 3, stun: true }))
+      .toEqual({ raw: 15, calc: 10, attack: 13, final: 13, stage: 13, capped: true });
   });
 
-  it("事後修正はスタン/説得でなければ単純加算（既存挙動の維持）", () => {
-    expect(computeDamage({ damageCard: 8, attackPower: 0, modifier: 0, postModifier: 2, mitigation: 3 }))
-      .toEqual({ raw: 8, attack: 10, final: 7, stage: 7 });
+  it("適用時の軽減(applyMitigation=手動・報酬点)は事後修正のさらに後に引く", () => {
+    // 18 − 防御5 = 13 → 10上限 → 手動軽減4 → 6
+    expect(computeDamage({ damageCard: 18, mitigation: 5, applyMitigation: 4, stun: true }))
+      .toEqual({ raw: 18, calc: 10, attack: 10, final: 6, stage: 6, capped: true });
   });
 
-  it("事後修正の後の減算（防御力・受け値・適用時軽減）で下限0", () => {
-    expect(computeDamage({ damageCard: 12, postModifier: -1, mitigation: 20, stun: true }))
-      .toEqual({ raw: 12, attack: 9, final: 0, stage: 0 });
+  it("スタン/説得でなければ各段は単純な線形加減算", () => {
+    expect(computeDamage({ damageCard: 8, postModifier: 2, applyMitigation: 3 }))
+      .toEqual({ raw: 8, calc: 8, attack: 10, final: 7, stage: 7, capped: false });
   });
 });
