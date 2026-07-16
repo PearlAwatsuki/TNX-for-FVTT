@@ -811,6 +811,12 @@
     gap: 6px;
     align-items: center;
 }
+/* 効果リストのみ: ヘッダー(＋1個)と行(3ボタン)で操作列の幅が変わると、左隣の
+   固定幅「効果時間」列の位置がヘッダーと行でずれるため、操作列を固定幅・右寄せにする */
+.tnx-item-list--effects .tnx-item-list__column--controls {
+    flex: 0 0 64px;
+    justify-content: flex-end;
+}
 .tnx-item-list .effect-image {
     width: 24px;
     height: 24px;
@@ -7312,11 +7318,14 @@ button.tnx-create-act-button span {
     padding-top: 10px;
     border-top: 1px solid var(--tnx2-border-subtle);
 }
-.usage-consume-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 4px;
+/* legend 内の行追加（部位エディタの .tnx-part-add と同型・編集可否はテンプレート側で制御） */
+.tnx-usage-sheet .usage-legend-add {
+    cursor: pointer;
+    opacity: 0.7;
+    font-size: 0.85em;
+}
+.tnx-usage-sheet .usage-legend-add:hover {
+    opacity: 1;
 }
 .usage-consume-row {
     display: flex;
