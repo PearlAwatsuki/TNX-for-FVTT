@@ -972,19 +972,72 @@ export class TnxCheckFlow {
     }
 
     /**
+     * 完了継続(判定完了後の後処理)のレジストリ(2026-07-16 一本化)。**継続文脈のキーと再実行
+     * ポリシーの正本**——スナップショット保存(_buildRecheckContext)・再判定への引き継ぎ
+     * (startRecheck)・再実行(_rerunContinuation)はこの表から導出する。従来は種別リストが
+     * 3箇所に複製されており、種別追加時の漏れ(カバーが再判定に引き継がれない)が起きていた。
+     * 初回実行は _execute 内の分岐のまま(呼び出しシグネチャ・result への反映・実行順が種別ごとに
+     * 固有のため)。**新しい継続種別は、この表と _execute の両方に追加する。**
+     * rerun: 再判定/事後修正の着地からの再実行(2026-07-15 ユーザー確定・全種対応)。
+     * - reaction: 対決の再解決(副作用なし=解決済みでも再解決)
+     * - treatment/recovery/controlNegate: 失敗→成功の遷移でのみ副作用を適用(冪等な除去)
+     *   = rerunOnSuccessOnly。成功→失敗は表示のみ(手動復元)
+     * - covering: 成立なら印を付け直す(付与済み/ダメージ算出後は completeCoveringFromCheck の
+     *   内部ガードが弾く)
+     * - npcAcquire/movement: 表示のみ(rerun なし。移動カードの再描画は _applyRecheckReplacement)
+     */
+    static CONTINUATIONS = Object.freeze({
+        reaction: {
+            async rerun(cc, result) {
+                const { completeReactionFromCheck } = await import("./attack-flow.mjs");
+                await completeReactionFromCheck(cc, result, { allowResolved: true });
+            },
+        },
+        treatment: {
+            rerunOnSuccessOnly: true,
+            async rerun(cc, result) {
+                const { resolveTreatmentFromCheck } = await import("./treatment-flow.mjs");
+                await resolveTreatmentFromCheck(cc, result);
+            },
+        },
+        recovery: {
+            rerunOnSuccessOnly: true,
+            async rerun(cc, result) {
+                const { resolveRecoveryFromCheck } = await import("./recovery-flow.mjs");
+                await resolveRecoveryFromCheck(cc, result);
+            },
+        },
+        controlNegate: {
+            rerunOnSuccessOnly: true,
+            async rerun(cc, result) {
+                const { resolveControlNegateFromCheck } = await import("./condition-resolution.mjs");
+                await resolveControlNegateFromCheck(cc, result);
+            },
+        },
+        covering: {
+            async rerun(cc, result, { actorId } = {}) {
+                const { completeCoveringFromCheck } = await import("./attack-flow.mjs");
+                await completeCoveringFromCheck(cc, result, { coverer: game.actors.get(actorId) ?? null });
+            },
+        },
+        npcAcquire: {},
+        movement: {},
+    });
+
+    /**
      * 再判定(カードを出し直して判定値を再決定・2026-07-11 ユーザー確定)用のコンテキストを、
      * 結果カードのフラグに保存できる形で組み立てる。**スナップショットは常時保存**し、
      * プレイヤーの直接入口(数字クリック)だけを用途の「再判定可能」(allowRecheck)でゲートする——
      * 事後付与(grantRecheck=達成値クリック)や GM メニューが判定後に働くための前提。
      * 継続処理を持つ判定の再判定(2026-07-15 ユーザー確定・全種対応)。継続文脈を rc に載せ、
-     * 再判定/修正の着地で `_rerunContinuation` が種別ごとに再実行する(A=対決再解決/B=失敗→成功のみ適用/
-     * C=表示のみ)。よって除外はしない(スナップショットは常時保存)。
+     * 再判定/修正の着地で `_rerunContinuation` が種別ごとに再実行する(ポリシーは CONTINUATIONS)。
+     * よって除外はしない(スナップショットは常時保存)。
      * @param {object} ctx 判定コンテキスト
      * @returns {object|null}
      */
     static _buildRecheckContext(ctx) {
         const cont = {};
-        for (const k of ["reaction", "treatment", "recovery", "controlNegate", "npcAcquire", "movement"]) {
+        for (const k of Object.keys(TnxCheckFlow.CONTINUATIONS)) {
             if (ctx[k]) cont[k] = ctx[k];
         }
         return {
@@ -1011,34 +1064,22 @@ export class TnxCheckFlow {
     }
 
     /**
-     * 継続処理を再判定/修正の結果で再実行する(2026-07-15・A/B/C 別)。
-     * - A(リアクション): 対決を再解決(両方向・副作用なし=`allowResolved`で解決済みでも再解決)。
-     * - B(治療/回復/controlNegate): **失敗→成功の遷移でのみ**副作用を適用(冪等な除去ハンドラを再呼び)。
-     *   成功→失敗は表示のみ(手動復元)。旧成否 `oldSuccess` で遷移をゲート。
-     * - C(NPC取得)・移動: 表示のみ(ここでは再実行しない。移動カードの再描画は _applyRecheckReplacement)。
+     * 継続処理を再判定/修正の結果で再実行する(2026-07-15)。種別と再実行ポリシーは
+     * CONTINUATIONS レジストリが正本(2026-07-16 一本化)。継続は1判定に1種のため、
+     * 最初に見つかったキーだけを扱う(従来の分岐と同じ)。
      * @param {object} cc 継続キーを持つオブジェクト(ctx か checkRecheck スナップショット)
      * @param {object} result 新しい判定結果(success/achievement/fumble)
-     * @param {{oldSuccess?:boolean}} [opts] 旧成否(B の遷移ゲート)
+     * @param {{oldSuccess?:boolean}} [opts] 旧成否(rerunOnSuccessOnly の遷移ゲート)
      */
     static async _rerunContinuation(cc, result, { oldSuccess = false } = {}) {
         if (!cc) return;
-        if (cc.reaction) {
-            const { completeReactionFromCheck } = await import("./attack-flow.mjs");
-            await completeReactionFromCheck(cc.reaction, result, { allowResolved: true });
-            return;
-        }
-        const applyGate = result.success === true && oldSuccess !== true; // 失敗→成功のみ(B)
-        if (cc.treatment && applyGate) {
-            const { resolveTreatmentFromCheck } = await import("./treatment-flow.mjs");
-            await resolveTreatmentFromCheck(cc.treatment, result);
-        } else if (cc.recovery && applyGate) {
-            const { resolveRecoveryFromCheck } = await import("./recovery-flow.mjs");
-            await resolveRecoveryFromCheck(cc.recovery, result);
-        } else if (cc.controlNegate && applyGate) {
-            const { resolveControlNegateFromCheck } = await import("./condition-resolution.mjs");
-            await resolveControlNegateFromCheck(cc.controlNegate, result);
-        }
-        // npcAcquire / movement: 表示のみ(再実行なし)
+        const key = Object.keys(TnxCheckFlow.CONTINUATIONS).find(k => cc[k]);
+        if (!key) return;
+        const def = TnxCheckFlow.CONTINUATIONS[key];
+        if (!def.rerun) return; // npcAcquire / movement: 表示のみ(再実行なし)
+        // 失敗→成功の遷移でのみ副作用を適用(冪等な除去ハンドラを再呼び)。成功→失敗は表示のみ(手動復元)
+        if (def.rerunOnSuccessOnly && !(result.success === true && oldSuccess !== true)) return;
+        await def.rerun(cc[key], result, { oldSuccess, actorId: cc.actorId });
     }
 
     /**
@@ -1120,13 +1161,10 @@ export class TnxCheckFlow {
             manualMod:       rc.manualMod,
             ...(rc.attack ? { attack: rc.attack } : {}),
             ...(rc.usageEffects ? { usageEffects: rc.usageEffects } : {}),
-            // 継続文脈を再判定の実行 ctx へ引き継ぐ(_applyRecheckReplacement が種別ごとに再実行する・2026-07-15)
-            ...(rc.reaction ? { reaction: rc.reaction } : {}),
-            ...(rc.treatment ? { treatment: rc.treatment } : {}),
-            ...(rc.recovery ? { recovery: rc.recovery } : {}),
-            ...(rc.controlNegate ? { controlNegate: rc.controlNegate } : {}),
-            ...(rc.npcAcquire ? { npcAcquire: rc.npcAcquire } : {}),
-            ...(rc.movement ? { movement: rc.movement } : {}),
+            // 継続文脈を再判定の実行 ctx へ引き継ぐ(_applyRecheckReplacement が種別ごとに再実行する・
+            // 2026-07-15)。種別は CONTINUATIONS レジストリから導出(2026-07-16 一本化)
+            ...Object.fromEntries(Object.keys(TnxCheckFlow.CONTINUATIONS)
+                .filter(k => rc[k]).map(k => [k, rc[k]])),
             allowRecheck:    rc.allowRecheck === true, // 元と同じゲート(付与再判定で権利は増やさない)
             allowSuitChange: rc.allowSuitChange === true,
             isRecheck:       true,
@@ -1146,7 +1184,7 @@ export class TnxCheckFlow {
     //     (発動処理は _trySuitChange。クリックでなく判定のカードプレイが発動点)
     // 排他(同時に1つ)・同じ用途の再使用でキャンセル。発動条件(失敗時のみ等)は自動強制しない(卓裁定)。
 
-    /** @type {{kind:"recheck"|"modify"|"modifyDamage"|"suitChange", actorId:string, skillItemId:string, skillName:string, usageId:string, consumeUses:Array, merge:boolean}|null} */
+    /** @type {{kind:"recheck"|"modify"|"modifyDamage"|"suitChange"|"covering", actorId:string, skillItemId:string, skillName:string, usageId:string, consumeUses:Array, merge:boolean}|null} */
     static _clickState = null;
 
     static get isGrantPending() { return TnxCheckFlow._clickState !== null; }
