@@ -346,7 +346,7 @@ export function renderDamageCard(message, html) {
     const dmgTargets = f.targets ?? [];
     if (dmgTargets.length) row(ledger, dmgTargets.length > 1 ? `対象（${dmgTargets.length}体）` : "対象",
         dmgTargets.map(t => `「${esc(t.name)}」`).join("・"));
-    const { raw, attack } = damageRollTotals(f);
+    const { calc, attack } = damageRollTotals(f);
     const cards = f.cards ?? [];
     cards.forEach((c, i) => {
         const suitMark = SUIT_SYMBOL[c.suit] ? `<span class="cr-suit suit-${c.suit}">${SUIT_SYMBOL[c.suit]}</span> ` : "";
@@ -362,14 +362,16 @@ export function renderDamageCard(message, html) {
         row(ledger, `ダメージ修正（${esc(b.name || "用途")}）`, signedDisplay("＋", b.value));
     }
     if (f.manualMod) row(ledger, "修正（手動）", signedDisplay("＋", f.manualMod));
-    // 事後修正(modifyDamage 用途・攻撃側合計クリックで適用済みの行)。上書きは「→N」表記
+    // 物理攻撃＝スタン・精神攻撃＝説得(別メカニクス。系統ごとに専用表記・2026-07-15 ユーザー指摘)。
+    // 10上限は算出の最後＝事後修正より前に表示する(適用順どおりの台帳・2026-07-16 ユーザー裁定)
+    const stunLabel = f.category === "mental" ? "説得" : "スタン";
+    if (f.stun && calc > 10) row(ledger, `${stunLabel}（10上限）`, `${calc} → 10`);
+    // 事後修正(modifyDamage 用途・攻撃側合計クリックで適用済みの行=算出後〜適用前・10上限の後)。
+    // 上書きは「→N」表記
     for (const m of (f.mods ?? [])) {
         row(ledger, `事後修正（${esc(m.label || "用途")}）`,
             m.overrideTo !== undefined ? `→${m.overrideTo}` : signedDisplay("＋", m.value));
     }
-    // 物理攻撃＝スタン・精神攻撃＝説得(別メカニクス。系統ごとに専用表記・2026-07-15 ユーザー指摘)
-    const stunLabel = f.category === "mental" ? "説得" : "スタン";
-    if (f.stun && raw > 10) row(ledger, `${stunLabel}（10上限）`, `${raw} → 10`);
     row(ledger, `攻撃側合計${f.stun ? `（${stunLabel}）` : ""}`, String(attack), "cr-calc-row cr-total-row", "cr-total-num");
     // ダメージクリック待ち(modifyDamage): 適用前のダメージの攻撃側合計をクリック可能に
     // (達成値クリックと同じ装飾クラス。モード外のクリックは無視)
@@ -489,9 +491,11 @@ export async function handleDamageModifyClick(message) {
     // ユーザー確定)。攻撃側/GM 代行は共有の攻撃側合計(全対象の起点)に効かせる。発動方法(攻撃側合計
     // クリック)は不変。上書きの基準も対象ごと(その対象の攻撃側合計)にする。
     const targetIndex = (f.targets ?? []).findIndex(t => resolveSync(t.uuid)?.id === actor.id);
+    // 上書きの基準=表示中の攻撃側合計(10上限+既存の事後修正まで反映済み)。事後修正は上限の後に
+    // 乗るため、基準も上限後の値でとる(上限前 raw を基準にすると上書き結果がずれる)
     const baseTotal = targetIndex >= 0
-        ? damageRollTotals(f).raw + (f.targets[targetIndex].mods ?? []).reduce((s, m) => s + (Number(m.value) || 0), 0)
-        : damageRollTotals(f).raw;
+        ? damageRollTotals(f, { extraPostMods: (f.targets[targetIndex].mods ?? []).reduce((s, m) => s + (Number(m.value) || 0), 0) }).attack
+        : damageRollTotals(f).attack;
 
     // 修正値: 用途のダメージ修正値(式・@item.self=親技能・@card/@diff/@achievement=命中判定由来)。
     // 空/評価不能/0 は手入力(軽減は負の値)
@@ -542,7 +546,8 @@ export async function handleDamageModifyClick(message) {
 export async function manualEditDamage(message) {
     const f = message.getFlag(SCOPE, "damageRoll");
     if (!f) return;
-    const current = damageRollTotals(f).raw;
+    // 手動修正も mods(事後修正=10上限の後)に積むため、基準は表示中の攻撃側合計(上限後)
+    const current = damageRollTotals(f).attack;
     const { AmountInputDialog } = await import("./tnx-dialog.mjs");
     const input = await AmountInputDialog.prompt({
         title: `ダメージを修正（攻撃側合計 ${current}）`,
@@ -598,16 +603,27 @@ function buildDamageTargets(hitTargets) {
     return out;
 }
 
-/** 攻撃側合計(カード合算+攻撃力+FA+用途のダメージ修正+手動修正+事後修正)。 */
-function damageRollTotals(f) {
+/**
+ * ダメージの合計(Damage_Rules「算出の適用順序」)。攻撃側の加算(カード合算+攻撃力+FA+用途の
+ * ダメージ修正+手動修正)→スタン/説得の10上限(防御側の減算より前)→事後修正(mods=modifyDamage・
+ * 算出後〜適用前=上限の後に乗る・2026-07-16 ユーザー裁定)→mitigation(防御力・受け値=算出の内＋
+ * 適用時の手動/報酬点軽減)。extraPostMods は対象ごとの防御側事後修正(t.mods)を同じ段に合流させる。
+ * @returns {{cardSum:number, calc:number, attack:number, final:number, stage:number}}
+ *   calc=攻撃側の加算合計(上限前)・attack=上限+事後修正後・final/stage=mitigation 反映後
+ */
+function damageRollTotals(f, { extraPostMods = 0, mitigation = 0 } = {}) {
     const cardSum = (f.cards ?? []).reduce((s, c) => s + (Number(c.value) || 0), 0);
     const bonusSum = (f.damageBonuses ?? []).reduce((s, b) => s + (Number(b.value) || 0), 0);
     const modsSum = (f.mods ?? []).reduce((s, m) => s + (Number(m.value) || 0), 0);
-    const raw = cardSum + (Number(f.attackPower) || 0) + (Number(f.faValue) || 0)
-        + bonusSum + modsSum + (Number(f.manualMod) || 0);
-    // スタン/説得: 攻撃側合計を10上限に（軽減より前・ダメージ算出の最後）
-    const attack = f.stun && raw > 10 ? 10 : raw;
-    return { cardSum, raw, attack };
+    const { raw, attack, final, stage } = computeDamage({
+        damageCard: cardSum,
+        attackPower: (Number(f.attackPower) || 0) + (Number(f.faValue) || 0),
+        modifier: bonusSum + (Number(f.manualMod) || 0),
+        postModifier: modsSum + extraPostMods,
+        mitigation,
+        stun: f.stun === true,
+    });
+    return { cardSum, calc: raw, attack, final, stage };
 }
 
 /**
@@ -619,7 +635,6 @@ function damageRollTotals(f) {
  */
 function targetPlannedPreview(f, t) {
     const modsSum = (t.mods ?? []).reduce((s, m) => s + (Number(m.value) || 0), 0);
-    const targetRaw = damageRollTotals(f).raw + modsSum;
     const category = f.category || "physical";
     const actor = resolveSync(t.uuid);
     // 防御力・受け値は「ダメージ算出」の一部＝各キャラの最終ダメージに含めて表示する(2026-07-16 ユーザー確定)
@@ -630,7 +645,7 @@ function targetPlannedPreview(f, t) {
     }
     const parry = Number(t.parryGuard) || 0;
     const auto = defence + parry;
-    const { final } = computeDamage({ damageCard: targetRaw, mitigation: auto, stun: f.stun === true });
+    const { final } = damageRollTotals(f, { extraPostMods: modsSum, mitigation: auto });
     return { final, auto, defence, parry, modsSum };
 }
 
@@ -714,7 +729,7 @@ async function openMitigationDialog(message, applyCategory = null) {
     const category = f.category || "physical";
     const applyCat = applyCategory || category;
     const isAltApply = applyCat !== category;
-    const { raw, attack } = damageRollTotals(f);
+    const { attack } = damageRollTotals(f);
     const stun = f.stun === true;                                    // 攻撃宣言で確定済み(再確認しない)
     const stunLabel = category === "mental" ? "説得" : "スタン";
     const isSocial = category === "social";
@@ -728,9 +743,9 @@ async function openMitigationDialog(message, applyCategory = null) {
             if (dv) { auto += dv; parts.push(`防御力(${f.damageType || "?"}) ${dv}`); }
         }
         if (r.parryGuard) { auto += r.parryGuard; parts.push(`パリー受け値 ${r.parryGuard}`); }
-        // その対象の防御側 modifyDamage を攻撃側合計へ反映(共有 raw + 対象ごとの mods)。負=軽減
+        // その対象の防御側 modifyDamage(事後修正)。共有の攻撃側合計と同じ段=10上限の後に乗せる。負=軽減
         const modsSum = (r.mods ?? []).reduce((s, m) => s + (Number(m.value) || 0), 0);
-        return { ...r, index: i, autoMitigation: auto, mitigationParts: parts, targetRaw: raw + modsSum, modsSum };
+        return { ...r, index: i, autoMitigation: auto, mitigationParts: parts, modsSum };
     });
 
     // 複数対象の適用をまとめた1ダイアログ。防御力・受け値は算出で適用済み(固定表示)。ここで入れるのは
@@ -773,8 +788,9 @@ async function openMitigationDialog(message, applyCategory = null) {
         for (const r of rows) {
             const v = readRow(root, r.index);
             // 防御力・受け値(autoMitigation)は算出で適用済み。ここでは手動軽減と社会報酬点だけ足す
+            // (いずれも10上限より後の線形減算=mitigation に一括)
             const mitigation = r.autoMitigation + v.manual + (isSocial ? v.bounty : 0);
-            const { final, stage } = computeDamage({ damageCard: r.targetRaw, mitigation, stun });
+            const { final, stage } = damageRollTotals(f, { extraPostMods: r.modsSum, mitigation });
             const fin  = root.querySelector(`[data-final="${r.index}"]`);
             const note = root.querySelector(`[data-note="${r.index}"]`);
             if (fin)  fin.textContent = String(final);
@@ -812,9 +828,9 @@ async function openMitigationDialog(message, applyCategory = null) {
         const v = result[r.index] ?? { manual: 0, bounty: 0 };
         const bounty = isSocial ? v.bounty : 0;
         // 防御力・受け値(autoMitigation)は算出で適用済み。手動軽減と社会報酬点をここで足す
+        // (10上限より後の線形減算=mitigation に一括)。r.modsSum=その対象の防御側事後修正(per-target)
         const mitigationTotal = r.autoMitigation + v.manual + bounty;
-        // r.targetRaw=共有攻撃側合計にその対象の防御側 modifyDamage を反映済み(per-target)
-        const { final, stage } = computeDamage({ damageCard: r.targetRaw, mitigation: mitigationTotal, stun });
+        const { final, stage } = damageRollTotals(f, { extraPostMods: r.modsSum, mitigation: mitigationTotal });
         // 説得(精神攻撃のスタン宣言)は、チャートの効果タグ(戦闘不能)を付けず BS のみ付与する。
         // 別系統として適用する場合は説得の意味論が対応しないため付けない(元系統=精神の通常適用時のみ)
         const applyText = await applyDamageToTarget(r.actor, applyCat, final, stage,
