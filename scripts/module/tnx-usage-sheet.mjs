@@ -19,7 +19,8 @@ import { deriveConsumeTargets } from "./usage-consumption.mjs";
 import { CONDITION_KINDS } from "./conditions.mjs";
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
-import { resolveAttackWeapons, attackWeaponDisplayName, resolveAttackRangeValue } from "./attack-weapons.mjs";
+import { resolveAttackWeapons, attackWeaponDisplayName, resolveAttackRangeSpan } from "./attack-weapons.mjs";
+import { WEAPON_RANGE_MAX_OPTIONS } from "../data/item/weapon.mjs";
 import { loadSkillChoices, SKILL_PACKS } from "./skill-dictionary.mjs";
 
 const CHAIN_SKILL_TYPES = ["generalSkill", "styleSkill"];
@@ -76,6 +77,9 @@ function targetRank(target, isFixed) {
 /** 射程の物理的な短さ順（小さいほど近い）。※複数時の「短い方を優先」に使用 */
 const RANGE_PHYSICAL = { close: 0, short: 1, middle: 2, long: 3, superLong: 4, weapon: 5 };
 
+/** 幅(最長射程)を持てる射程値=物理射程。武器/なし/解説参照/その他/blank は単点のみ */
+const RANGE_SPAN_CAPABLE = new Set(["close", "short", "middle", "long", "superLong"]);
+
 /** 射程優先度（高→低）: 至近※ > 武器 > 超遠 > 遠 > 中 > 近 > 至近 */
 function rangeRank(range, isFixed) {
     if (range === "close" && isFixed) return 7;
@@ -119,9 +123,11 @@ function resolveRange(entries) {
  * 使用武器の射程を解決する(射程「武器」の実体解決・2026-07-13 再設計)。
  * 一本目=シートの「攻撃で使用」武器・以降=用途の追加分(resolveAttackWeapons)。
  * 武器が無い(生身)・射程を持たない場合は至近(close)=生身の射程(ユーザー確定)。
+ * 2026-07-16: 「近〜遠」等の幅を単一値に潰さず {range, rangeMax} で返す(rangeMax="none"=単点)。
  */
-function resolveWeaponRangeValue(usage, item, actor) {
-    return resolveAttackRangeValue(resolveAttackWeapons(actor, usage, item));
+function resolveWeaponRangeSpan(usage, item, actor) {
+    const span = resolveAttackRangeSpan(resolveAttackWeapons(actor, usage, item));
+    return { range: span.min, rangeMax: span.max };
 }
 
 /** 参加技能群の目標値を解決。数値があれば最大、なければ最初の非blank型を採用 */
@@ -240,12 +246,13 @@ export function deriveUsageAutoFill(item, usage) {
     const r = resolveRange(skillItems.map(s => ({ range: s.system.range, isFixed: !!s.system.isFixedRange })));
     if (r) {
         patch.range = r.range;
+        patch.rangeMax = "none"; // 技能由来の射程は単点
         patch.isFixedRange = r.isFixed;
         // 射程「武器」(2026-07-13 再設計): 優先度はそのまま(武器=至近※に次ぐ)で、「武器」が
         // 勝った場合に使用武器(一本目=シートの「攻撃で使用」・以降=用途の追加分)の実射程へ解決する。
-        // 武器が無い(生身)なら至近=生身の射程(ユーザー確定)
+        // 武器が無い(生身)なら至近=生身の射程(ユーザー確定)。幅のある武器は幅のまま(2026-07-16)
         if (r.range === "weapon") {
-            patch.range = resolveWeaponRangeValue(usage, item, actor);
+            Object.assign(patch, resolveWeaponRangeSpan(usage, item, actor));
         }
     }
 
@@ -287,7 +294,7 @@ export function deriveUsageAutoFill(item, usage) {
  * おり、武器の選択に追従しないと値が成立しないため。
  * @param {Item} item 用途を持つアイテム
  * @param {object} usage 用途エントリ(weaponRefs 更新後の状態)
- * @returns {?{range:string, isFixedRange:boolean}}
+ * @returns {?{range:string, rangeMax:string, isFixedRange:boolean}}
  */
 function deriveWeaponRangeLive(item, usage) {
     const actor = item.actor;
@@ -298,7 +305,7 @@ function deriveWeaponRangeLive(item, usage) {
         .filter(s => s && (s.type === "generalSkill" || s.type === "styleSkill"));
     const r = resolveRange(skills.map(s => ({ range: s.system.range, isFixed: !!s.system.isFixedRange })));
     if (!r || r.range !== "weapon") return null;
-    return { range: resolveWeaponRangeValue(usage, item, actor), isFixedRange: r.isFixed };
+    return { ...resolveWeaponRangeSpan(usage, item, actor), isFixedRange: r.isFixed };
 }
 
 export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
@@ -395,6 +402,9 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         context.editable   = this._item.isOwner;
         context.skillOpts  = TnxSkillUtils.getSkillOptions();
         context.typeLabel  = USAGE_TYPES[usage.type] ?? usage.type;
+        // 射程の幅(2026-07-16): 物理射程のときのみ最長射程セレクトを出す(武器エディタの min〜max と同形)
+        context.showRangeMax    = RANGE_SPAN_CAPABLE.has(usage.range);
+        context.rangeMaxOptions = WEAPON_RANGE_MAX_OPTIONS;
 
         // タイプ判定フラグ
         context.isCheckType        = usage.type === "check";
@@ -964,6 +974,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             isFixedTarget: raw["isFixedTarget"] ?? usage.isFixedTarget,
 
             range:        raw["range"]        ?? usage.range,
+            rangeMax:     raw["rangeMax"]     ?? usage.rangeMax ?? "none",
             rangeOther:   raw["rangeOther"]   ?? usage.rangeOther,
             isFixedRange: raw["isFixedRange"] ?? usage.isFixedRange,
 
@@ -1099,6 +1110,10 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         // 発動タブ: 制御 select が別の選択肢に変わったら、対応しないサブ値を残骸として残さずリセットする
         if (update.target !== "other")            update.targetOther = "";
         if (update.range !== "other")             update.rangeOther = "";
+        // 物理射程以外は幅を持たない(最長射程の残骸を残さない)
+        if (!RANGE_SPAN_CAPABLE.has(update.range)) update.rangeMax = "none";
+        // 最長射程セレクトの出し入れ(物理射程⇄それ以外)は再描画が要る(submitOnChange は再描画しない)
+        const rangeUiChanged = RANGE_SPAN_CAPABLE.has(update.range) !== RANGE_SPAN_CAPABLE.has(usage.range);
         if (update.targetValue !== "number")      update.targetValueNumber = 0;
         if (update.targetValue !== "other" && update.targetValue !== "explanation") update.targetValueOther = "";
         if (update["timing.value"] !== "action")  update["timing.actionName"]  = "blank";
@@ -1178,8 +1193,9 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         if (prevAttackCategory !== null && (update.damageCategory ?? prevAttackCategory) !== prevAttackCategory) {
             this.render({ force: true });
         }
-        // 宣言の修正フラグ変更・消費種別の変更・回復設定の変更も入力欄の出し入れがあるため即再描画する
-        if (declModifyChanged || consumeTypeChanged || recoveryUiChanged) this.render({ force: true });
+        // 宣言の修正フラグ変更・消費種別の変更・回復設定の変更・射程の幅の出し入れも
+        // 入力欄の出し入れがあるため即再描画する
+        if (declModifyChanged || consumeTypeChanged || recoveryUiChanged || rangeUiChanged) this.render({ force: true });
     }
 
     // ─── 自動入力（参加技能の固有値を優先度で合成） ─────────────────────────────

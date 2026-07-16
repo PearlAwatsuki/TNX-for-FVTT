@@ -12,6 +12,8 @@
  * 射程: 武器の実効射程=最長(max 優先・max="none" の単一射程は min)。複数武器は最短を採用
  * (「※複数は最短」の既定)。**武器が無い(生身)・射程を持たない場合は至近(close)**
  * (「生身であったとしても生身の射程（当然至近）が読み取られてしかるべき」=ユーザー確定)。
+ * 2026-07-16: 「近〜遠」等の幅が単一値に潰れて読めない問題への対応として幅解決
+ * (resolveAttackRangeSpan)を追加。単一値解決はその上限と一致する(挙動不変)。
  */
 
 import { readFlag } from "../data/item/helpers.mjs";
@@ -51,21 +53,45 @@ export function attackWeaponDisplayName(item) {
     return (item?.type === "cyborg" || fleshChange) ? `生身（${item.name}）` : (item?.name ?? "");
 }
 
+/** RANGE_ORDER の逆引き(短さ順の射程キー配列)。 */
+const RANGE_KEYS = Object.entries(RANGE_ORDER).sort((a, b) => a[1] - b[1]).map(([k]) => k);
+
 /**
- * 使用武器群から射程「武器」の実体射程を解決する(純関数)。
+ * 使用武器群から射程「武器」の実体射程を**幅**({min,max})で解決する(純関数・2026-07-16)。
+ * 各武器の幅=[range.min, range.max](max="none" は単点)。複数武器は幅の**交差**を採る
+ * (下限=各下限の最長・上限=各実効射程の最短=従来の resolveAttackRangeValue と同値)。
+ * 交差が成立しない組み合わせは従来どおり単点(最短実効)へフォールバックする。
+ * 射程を持つ武器が無ければ**至近(close)の単点**=生身の射程。
+ * @param {Array<{system?:{range?:{min?:string, max?:string}}}>} weapons
+ * @returns {{min: string, max: string}} 射程キーの幅。max="none"=単点
+ */
+export function resolveAttackRangeSpan(weapons) {
+    const spans = (weapons ?? [])
+        .map(w => {
+            const rg = w?.system?.range ?? {};
+            const hiKey = rg.max && rg.max !== "none" ? rg.max : rg.min;
+            if (!hiKey || hiKey === "none" || !(hiKey in RANGE_ORDER)) return null;
+            const loKey = (rg.min && rg.min in RANGE_ORDER) ? rg.min : hiKey;
+            return { lo: RANGE_ORDER[loKey], hi: RANGE_ORDER[hiKey] };
+        })
+        .filter(Boolean);
+    if (!spans.length) return { min: "close", max: "none" }; // 生身(武器なし・射程なし)=至近
+    const lo = Math.max(...spans.map(s => s.lo));
+    const hi = Math.min(...spans.map(s => s.hi));
+    // lo===hi は単点。lo>hi(交差なし)も従来の単点(最短実効=hi)へフォールバック
+    if (lo >= hi) return { min: RANGE_KEYS[hi], max: "none" };
+    return { min: RANGE_KEYS[lo], max: RANGE_KEYS[hi] };
+}
+
+/**
+ * 使用武器群から射程「武器」の実体射程を単一値で解決する(純関数)。
  * 各武器の実効射程=最長(max 優先・max="none" は min)。複数は最短を採用。
  * 射程を持つ武器が無ければ**至近(close)**=生身の射程。
+ * 幅表現(resolveAttackRangeSpan)の上限と常に一致する。
  * @param {Array<{system?:{range?:{min?:string, max?:string}}}>} weapons
  * @returns {string} 射程キー(close/short/middle/long/superLong)
  */
 export function resolveAttackRangeValue(weapons) {
-    const ranges = (weapons ?? [])
-        .map(w => {
-            const rg = w?.system?.range ?? {};
-            const eff = rg.max && rg.max !== "none" ? rg.max : rg.min;
-            return eff && eff !== "none" && eff in RANGE_ORDER ? eff : null;
-        })
-        .filter(Boolean);
-    if (!ranges.length) return "close"; // 生身(武器なし・射程なし)=至近
-    return ranges.reduce((a, b) => (RANGE_ORDER[b] < RANGE_ORDER[a] ? b : a));
+    const span = resolveAttackRangeSpan(weapons);
+    return span.max !== "none" ? span.max : span.min;
 }

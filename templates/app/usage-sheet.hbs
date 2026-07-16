@@ -100,13 +100,20 @@
                            {{#unless editable}}disabled{{/unless}}>
                 </div>
 
-                {{!-- 射程（変更不可※をインライン） --}}
+                {{!-- 射程（変更不可※をインライン）。物理射程は最長射程で「近～遠」等の幅を
+                     表現できる（武器エディタの min～max と同形・なし=単点） --}}
                 <div class="usage-form-row">
                     <label class="usage-field-label">射程</label>
                     <div class="usage-field-with-fixed">
                         <select name="range" {{#unless editable}}disabled{{/unless}}>
                             {{selectOptions skillOpts.range selected=usage.range}}
                         </select>
+                        {{#if showRangeMax}}
+                        <span class="usage-range-separator">～</span>
+                        <select name="rangeMax" {{#unless editable}}disabled{{/unless}}>
+                            {{selectOptions rangeMaxOptions selected=usage.rangeMax}}
+                        </select>
+                        {{/if}}
                         <label class="usage-fixed-toggle" title="変更不可">
                             <input type="checkbox" name="isFixedRange" {{checked usage.isFixedRange}}
                                    {{#unless editable}}disabled{{/unless}}><span>※</span>

@@ -7193,6 +7193,11 @@ button.tnx-create-act-button span {
     flex: 1;
     min-width: 0;
 }
+/* 射程の幅(min～max)の区切り。セレクト2個時は flex:1 ずつで等分される */
+.usage-field-with-fixed .usage-range-separator {
+    flex: 0 0 auto;
+    color: var(--tnx2-text-muted);
+}
 .usage-fixed-toggle {
     display: inline-flex;
     align-items: center;

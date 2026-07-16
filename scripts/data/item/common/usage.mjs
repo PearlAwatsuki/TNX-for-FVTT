@@ -72,6 +72,9 @@ export class UsageTemplate extends SystemDataModel {
 
                     // 射程 (getSkillOptions().range 準拠)
                     range:        new fields.StringField({ initial: "blank" }),
+                    // 最長射程(2026-07-16): 武器の range.{min,max} と同じ幅表現。"none"=単点(従来と同義)。
+                    // range が物理射程(至近〜超遠)のときのみ意味を持つ(例: range="short"+rangeMax="long"=近〜遠)
+                    rangeMax:     new fields.StringField({ initial: "none" }),
                     rangeOther:   new fields.StringField({ initial: "" }),    // range === "other" の自由入力
                     isFixedRange: new fields.BooleanField({ initial: false }), // 変更不可（※）: AE による射程変更を抑止（実機能はフェーズ13）
 
