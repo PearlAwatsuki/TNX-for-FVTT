@@ -765,6 +765,14 @@ export class TnxCheckFlow {
             await completeReactionFromCheck(ctx.reaction, result, { suitMismatch, recheckCtx });
         }
 
+        // カバーの完了継続(2026-07-16): 成功なら対象の予定ダメージをカバーした側へ付け替える。
+        // 目標値「なし」運用ではスート一致(=不成立でない)で成功(result.success は null=未比較)。
+        if (!ctx.recheckMessageId && ctx.covering) {
+            const { completeCoveringFromCheck } = await import("./damage-flow.mjs");
+            const coverer = game.actors.get(ctx.actorId);
+            await completeCoveringFromCheck(ctx.covering, result, { suitMismatch, coverer });
+        }
+
         // 治療判定の完了継続(12): 成功で負傷＋紐づき戦闘不能＋非BS効果を除去する
         if (!ctx.recheckMessageId && ctx.treatment) {
             const { resolveTreatmentFromCheck } = await import("./treatment-flow.mjs");
@@ -1141,6 +1149,10 @@ export class TnxCheckFlow {
                 cancel: "スートの変更をキャンセルしました。",
                 start:  `次に自分が行う判定で使用できないスートのカードを出したとき、使用可能なスートに変更できます（「${skill.name}」をもう一度使用するとキャンセル）。`,
             },
+            covering: {
+                cancel: "カバーをキャンセルしました。",
+                start:  `ダメージ・チャットカードのカバーする対象をクリックすると、「${skill.name}」でカバーの判定を行います（「${skill.name}」をもう一度使用するとキャンセル）。`,
+            },
         }[kind];
         if (TnxCheckFlow._clickState?.skillItemId === skill.id && TnxCheckFlow._clickState?.kind === kind) {
             TnxCheckFlow.cancelAchievementAction();
@@ -1176,6 +1188,7 @@ export class TnxCheckFlow {
             return;
         }
         if (state.kind === "modifyDamage") return; // ダメージクリック待ちは達成値クリックでは発動しない(damage-flow 側)
+        if (state.kind === "covering") return;     // カバー待ちの発動点はダメージカードの対象クリック(damage-flow 側)
         if (state.kind === "suitChange") return;   // スート変更待ちの発動点は判定のカードプレイ(_trySuitChange)
         if (state.kind === "recheck") {
             // 不可(再判定済み/ダメージ算出後)はモードを維持したまま警告する(別のカードを選び直せる)

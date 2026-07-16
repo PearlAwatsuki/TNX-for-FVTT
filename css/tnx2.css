@@ -4287,6 +4287,17 @@ body.tnx-bottom-hud-expanded #hotbar {
     background: rgb(80 200 130 / 25%);
 }
 
+/* カバー: 待ち受け中に、クリックしてカバーできる命中対象の行(2026-07-16・再判定装飾と同じ語彙) */
+.tnx-recheck-grant-pending .tnx-damage-coverable {
+    cursor: pointer;
+    border-radius: 4px;
+    outline: 1px dashed rgb(127 232 172 / 70%);
+    outline-offset: 2px;
+}
+.tnx-recheck-grant-pending .tnx-damage-coverable:hover {
+    background: rgb(80 200 130 / 25%);
+}
+
 /* 計算内訳セクション */
 .cr-calc-section {
     padding: 8px 12px 6px;
@@ -7602,6 +7613,12 @@ button.tnx-create-act-button span {
     gap: 6px;
     color: var(--tnx2-text-secondary);
     font-size: 0.85em;
+}
+/* 適用ダイアログ: 算出で適用済みの防御力・受け値(固定表示) */
+.tnx-damage-fixed {
+    margin: 2px 0 4px;
+    color: var(--tnx2-text-secondary);
+    font-size: 0.9em;
 }
 .tnx-damage-card .cr-result {
     padding: 4px 0 0;

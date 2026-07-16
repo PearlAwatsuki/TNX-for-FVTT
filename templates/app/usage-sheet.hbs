@@ -311,6 +311,11 @@
                                {{#unless editable}}disabled{{/unless}}>
                         <span>攻撃を失敗させる</span>
                     </label>
+                    <label class="usage-toggle-inline">
+                        <input type="checkbox" name="covering" {{checked usage.covering}}
+                               {{#unless editable}}disabled{{/unless}}>
+                        <span>カバー</span>
+                    </label>
                 </div>
             </fieldset>
 

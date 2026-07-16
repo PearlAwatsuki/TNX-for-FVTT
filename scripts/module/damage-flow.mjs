@@ -387,26 +387,48 @@ export function renderDamageCard(message, html) {
                 `<i class="fas fa-shuffle"></i> 「${esc(CATEGORY_LABELS[f.appliedResult.applyCategory] ?? f.appliedResult.applyCategory)}」ダメージとして適用`);
         }
         for (const tr of (f.appliedResult.targets ?? [])) {
-            if (tr.defenderMod) row(area, `${esc(tr.name)}: ダメージ修正（防御側）`, signedDisplay("＋", tr.defenderMod));
-            row(area, `${esc(tr.name)}: 軽減${tr.mitigationNote ? `（${esc(tr.mitigationNote)}）` : ""}`, `−${tr.mitigation ?? 0}`);
-            if (tr.bounty) row(area, `${esc(tr.name)}: 報酬点による軽減`, `−${tr.bounty}`);
-            row(area, `${esc(tr.name)}: 最終ダメージ`, String(tr.final), "cr-calc-row cr-total-row", "cr-total-num");
+            // カバーされた対象は被弾しなかった旨だけ記録
+            if (tr.covered) {
+                line(area, "cr-tn", `「${esc(tr.name)}」: 「${esc(tr.covered)}」がカバー（ダメージなし）`);
+                continue;
+            }
+            const nameLabel = tr.coveringFor ? `${esc(tr.name)}（「${esc(tr.coveringFor)}」をカバー）` : esc(tr.name);
+            if (tr.defenderMod) row(area, `${nameLabel}: ダメージ修正（防御側）`, signedDisplay("＋", tr.defenderMod));
+            if (tr.autoMitigation) row(area, `${nameLabel}: 防御力・受け値${tr.mitigationParts ? `（${esc(tr.mitigationParts)}）` : ""}`, `−${tr.autoMitigation}`);
+            if (tr.manual) row(area, `${nameLabel}: 手動軽減`, `−${tr.manual}`);
+            if (tr.bounty) row(area, `${nameLabel}: 報酬点による軽減`, `−${tr.bounty}`);
+            row(area, `${nameLabel}: 最終ダメージ`, String(tr.final), "cr-calc-row cr-total-row", "cr-total-num");
             line(area, `cr-result ${tr.final > 0 ? "cr-result--damage" : "cr-result--nodamage"}`,
-                `<i class="fas ${tr.final > 0 ? "fa-burst" : "fa-shield-halved"}"></i> ${esc(tr.name)}: ${esc(tr.applyText ?? "")}`);
+                `<i class="fas ${tr.final > 0 ? "fa-burst" : "fa-shield-halved"}"></i> ${nameLabel}: ${esc(tr.applyText ?? "")}`);
         }
         return;
     }
 
-    // 対象ごとの適用予定ダメージ(2026-07-15): 攻撃側合計(共有)に、その対象の防御側 modifyDamage と
-    // 自動軽減を反映した見込み。防御側は攻撃側合計クリック(modifyDamage)で自分の対象だけ下げられる。
-    // 手動軽減は適用時のダイアログで最終調整するため、ここは「予定」表示。
-    for (const t of dmgTargets) {
+    // 対象ごとの最終ダメージ(2026-07-16 ユーザー確定): 防御力・受け値は「ダメージ算出」で適用済み＝各行に
+    // 軽減後の最終ダメージを表示する。攻撃側合計はレジャーに残す(攻撃側の事後増強のため)。社会の報酬点軽減と
+    // 手動の状況軽減だけ適用時のダイアログで入れる。
+    for (let ti = 0; ti < dmgTargets.length; ti++) {
+        const t = dmgTargets[ti];
+        // カバーされた対象は被弾しない(誰がカバーしたかを明示)
+        if (t.coveredBy) {
+            row(area, esc(t.name), `「${esc(t.coveredBy.name)}」がカバー（ダメージなし）`);
+            continue;
+        }
         const p = targetPlannedPreview(f, t);
         const parts = [];
-        if (p.auto) parts.push(`自動軽減 −${p.auto}`);
+        if (p.defence) parts.push(`防御力 −${p.defence}`);
+        if (p.parry) parts.push(`受け値 −${p.parry}`);
         if (p.modsSum) parts.push(`修正 ${signedDisplay("＋", p.modsSum)}`);
-        row(area, `${esc(t.name)}: 適用予定${parts.length ? `（${parts.join("・")}）` : ""}`,
+        const nameLabel = t.coveringFor ? `${esc(t.name)}（「${esc(t.coveringFor)}」をカバー）` : esc(t.name);
+        row(area, `${nameLabel}: ダメージ${parts.length ? `（${parts.join("・")}）` : ""}`,
             String(p.final), "cr-calc-row cr-total-row", "cr-total-num");
+        // カバー待ち受け中に、元の命中対象(カバー済み/カバー行でない)の行をクリックしてカバーできる。
+        // モード外のクリックは handleCoveringClick 側で無視される(常設ハンドラ・modifyDamage と同型)。
+        if (!f.applied && !t.coveringFor) {
+            const rowEl = area.lastElementChild;
+            rowEl.classList.add("tnx-damage-coverable");
+            rowEl.addEventListener("click", () => handleCoveringClick(message, ti));
+        }
     }
 
     const attacker = resolveSync(f.attackerUuid);
@@ -522,6 +544,60 @@ export async function handleDamageModifyClick(message) {
     }
 }
 
+// ─── カバー(ダメージの受け手を付け替える・2026-07-16 ユーザー確定) ───────────────────
+
+/**
+ * カバー待ち受け中に、ダメージカードのカバーする対象がクリックされたときの処理。
+ * その対象を文脈にカバーの判定(唯一の起動関数 `_activateItemCheck`・covering 文脈)を起動する。
+ * 成功で completeCoveringFromCheck が受け手を付け替える。モード外のクリックは無視(通常表示)。
+ * @param {ChatMessage} message ダメージ・チャットカード
+ * @param {number} targetIndex damageRoll.targets のインデックス
+ */
+export async function handleCoveringClick(message, targetIndex) {
+    const state = TnxCheckFlow.peekAchievementAction("covering");
+    if (!state) return; // モード外のクリックは無視
+    const f = message.getFlag(SCOPE, "damageRoll");
+    if (!f || f.applied) { ui.notifications.warn("適用済みのダメージはカバーできません。"); return; }
+    const t = (f.targets ?? [])[targetIndex];
+    if (!t || t.coveredBy || t.coveringFor) return; // カバー済み/カバー行は対象にしない
+    const actor = game.actors.get(state.actorId);
+    const skill = actor?.items.get(state.skillItemId);
+    if (!skill) { TnxCheckFlow.cancelAchievementAction(); return; }
+    TnxCheckFlow.cancelAchievementAction();
+    const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
+    await TnxCharacterSheetBase._activateItemCheck(actor, skill, {
+        covering: { damageMessageId: message.id, targetIndex, usageId: state.usageId },
+    });
+}
+
+/**
+ * カバーの完了継続(判定成功でダメージの受け手を付け替える)。目標値「なし」運用ではスート一致
+ * (不成立でない)で成功(result.success は null=未比較のため false 以外で成立)。成功なら対象の予定
+ * ダメージをカバーした側へ付け替える——元対象はダメージなし(coveredBy)、カバーした側の行を追加
+ * (自身の防御力で算出・受け値は参照しない=parryGuard 0)。カバーした側が元々対象なら自分の行(受け値
+ * あり)＋カバーした行(受け値なし)が別々に適用される。
+ * @param {{damageMessageId:string, targetIndex:number}} payload
+ * @param {object} result 判定結果
+ * @param {{suitMismatch?:boolean, coverer:Actor|null}} [opts]
+ */
+export async function completeCoveringFromCheck(payload, result, { suitMismatch = false, coverer = null } = {}) {
+    const message = game.messages.get(payload.damageMessageId);
+    if (!message) return;
+    const f = message.getFlag(SCOPE, "damageRoll");
+    if (!f) return;
+    if (f.applied) { ui.notifications.warn("適用済みのダメージはカバーできません。"); return; }
+    const targets = f.targets ?? [];
+    const t = targets[payload.targetIndex];
+    if (!t || t.coveredBy || t.coveringFor || !coverer) { ui.notifications.warn("この対象はカバーできません。"); return; }
+    const ok = !result.fumble && !suitMismatch && result.success !== false;
+    if (!ok) { ui.notifications.info(`「${coverer.name}」のカバーは成立しませんでした。`); return; }
+    const next = foundry.utils.deepClone(targets);
+    next[payload.targetIndex].coveredBy = { name: coverer.name };
+    next.push({ uuid: coverer.uuid, name: coverer.name, parryGuard: 0, mods: [], coveringFor: t.name });
+    await applyDamagePatch(message, { targets: next });
+    ui.notifications.info(`「${coverer.name}」が「${t.name}」をカバーしました。`);
+}
+
 /**
  * GMメニュー「ダメージを修正(手動)」(2026-07-14 ユーザー確定): 手入力の修正値を mods 行(手動修正)
  * として合算する(用途経由の modifyDamage と同じ着地・消費なし)。達成値の手動修正と同じく
@@ -593,14 +669,16 @@ function targetPlannedPreview(f, t) {
     const targetRaw = damageRollTotals(f).raw + modsSum;
     const category = f.category || "physical";
     const actor = resolveSync(t.uuid);
-    let auto = 0;
+    // 防御力・受け値は「ダメージ算出」の一部＝各キャラの最終ダメージに含めて表示する(2026-07-16 ユーザー確定)
+    let defence = 0;
     if (actor && category === "physical") {
         const dv = defenceForType(aggregateDefence(actor.items.contents ?? []), f.damageType);
-        if (dv) auto += dv;
+        if (dv) defence = dv;
     }
-    if (t.parryGuard) auto += Number(t.parryGuard) || 0;
+    const parry = Number(t.parryGuard) || 0;
+    const auto = defence + parry;
     const { final } = computeDamage({ damageCard: targetRaw, mitigation: auto, stun: f.stun === true });
-    return { final, auto, modsSum };
+    return { final, auto, defence, parry, modsSum };
 }
 
 function resolveSync(uuid) {
@@ -666,12 +744,13 @@ async function openMitigationDialog(message, applyCategory = null) {
     const f = message.getFlag(SCOPE, "damageRoll");
     if (!f || f.applied) return;
 
-    // 命中対象を解決
+    // 命中対象を解決。カバーされた対象(coveredBy)は被弾しないので除外する(カバーした側の行=coveringFor は含む)
     const resolvedTargets = [];
     for (const t of (f.targets ?? [])) {
+        if (t.coveredBy) continue;
         const actor = await fromUuid(t.uuid).catch(() => null);
         // t.mods=その対象の防御側 modifyDamage(per-target・2026-07-15)。攻撃側合計へ対象ごとに反映する
-        if (actor) resolvedTargets.push({ actor, name: t.name, parryGuard: Number(t.parryGuard) || 0, mods: t.mods ?? [] });
+        if (actor) resolvedTargets.push({ actor, name: t.name, parryGuard: Number(t.parryGuard) || 0, mods: t.mods ?? [], coveringFor: t.coveringFor ?? null });
     }
     if (!resolvedTargets.length) { ui.notifications.warn("対象が見つかりません。"); return; }
     if (!(game.user.isGM || resolvedTargets.some(r => r.actor.isOwner))) {
@@ -702,15 +781,17 @@ async function openMitigationDialog(message, applyCategory = null) {
         return { ...r, index: i, autoMitigation: auto, mitigationParts: parts, targetRaw: raw + modsSum, modsSum };
     });
 
-    // 複数対象の軽減をまとめた1ダイアログ(対象ごとに軽減欄＋ライブプレビュー)
+    // 複数対象の適用をまとめた1ダイアログ。防御力・受け値は算出で適用済み(固定表示)。ここで入れるのは
+    // 手動の状況軽減と、社会の報酬点軽減だけ(2026-07-16 ユーザー確定=ダイアログ縮小)。
     const rowsHtml = rows.map(r => `
         <div class="tnx-damage-target-row" data-index="${r.index}">
-            <div class="tnx-damage-target-name">${esc(r.name)}</div>
+            <div class="tnx-damage-target-name">${esc(r.name)}${r.coveringFor ? `（「${esc(r.coveringFor)}」をカバー）` : ""}</div>
+            <div class="tnx-damage-fixed">防御力・受け値（適用済み）: <b>−${r.autoMitigation}</b>${r.mitigationParts.length ? `（${esc(r.mitigationParts.join("・"))}）` : ""}</div>
             <div class="form-group">
-                <label>軽減${r.mitigationParts.length ? `（自動: ${esc(r.mitigationParts.join("・"))}）` : ""}</label>
+                <label>手動の状況軽減</label>
                 <div class="number-input-spinner">
                     <button type="button" class="tnx-btn" data-action="decrement" aria-label="Decrease">-</button>
-                    <input type="number" name="mitigation-${r.index}" value="${r.autoMitigation}" min="-99" max="99">
+                    <input type="number" name="manual-${r.index}" value="0" min="-99" max="99">
                     <button type="button" class="tnx-btn" data-action="increment" aria-label="Increase">+</button>
                 </div>
             </div>
@@ -733,13 +814,14 @@ async function openMitigationDialog(message, applyCategory = null) {
     </div>`;
 
     const readRow = (root, i) => ({
-        mitigation: Number(root.querySelector(`[name="mitigation-${i}"]`)?.value) || 0,
-        bounty:     Number(root.querySelector(`[name="bounty-${i}"]`)?.value) || 0,
+        manual: Number(root.querySelector(`[name="manual-${i}"]`)?.value) || 0,
+        bounty: Number(root.querySelector(`[name="bounty-${i}"]`)?.value) || 0,
     });
     const updatePreview = (root) => {
         for (const r of rows) {
             const v = readRow(root, r.index);
-            const mitigation = v.mitigation + (isSocial ? v.bounty : 0);
+            // 防御力・受け値(autoMitigation)は算出で適用済み。ここでは手動軽減と社会報酬点だけ足す
+            const mitigation = r.autoMitigation + v.manual + (isSocial ? v.bounty : 0);
             const { final, stage } = computeDamage({ damageCard: r.targetRaw, mitigation, stun });
             const fin  = root.querySelector(`[data-final="${r.index}"]`);
             const note = root.querySelector(`[data-note="${r.index}"]`);
@@ -749,7 +831,7 @@ async function openMitigationDialog(message, applyCategory = null) {
     };
 
     const result = await foundry.applications.api.DialogV2.wait({
-        window: { title: `ダメージ軽減: ${rows.length}体` },
+        window: { title: `ダメージ適用: ${rows.length}体` },
         classes: ["tokyo-nova", "tnx-dialog", "tnx-damage-dialog"],
         position: { width: 460 },
         content,
@@ -775,9 +857,10 @@ async function openMitigationDialog(message, applyCategory = null) {
     // 全対象へ適用(対象ごとに軽減→最終→チャート・スタン/説得は算出段階で10上限済み)
     const appliedTargets = [];
     for (const r of rows) {
-        const v = result[r.index] ?? { mitigation: 0, bounty: 0 };
+        const v = result[r.index] ?? { manual: 0, bounty: 0 };
         const bounty = isSocial ? v.bounty : 0;
-        const mitigationTotal = v.mitigation + bounty;
+        // 防御力・受け値(autoMitigation)は算出で適用済み。手動軽減と社会報酬点をここで足す
+        const mitigationTotal = r.autoMitigation + v.manual + bounty;
         // r.targetRaw=共有攻撃側合計にその対象の防御側 modifyDamage を反映済み(per-target)
         const { final, stage } = computeDamage({ damageCard: r.targetRaw, mitigation: mitigationTotal, stun });
         // 説得(精神攻撃のスタン宣言)は、チャートの効果タグ(戦闘不能)を付けず BS のみ付与する。
@@ -786,12 +869,18 @@ async function openMitigationDialog(message, applyCategory = null) {
             { persuade: stun && category === "mental" && applyCat === "mental" });
         appliedTargets.push({
             name: r.name,
-            mitigation: v.mitigation,
-            mitigationNote: v.mitigation === r.autoMitigation ? r.mitigationParts.join("・") : "手動入力",
+            coveringFor: r.coveringFor ?? null,
+            autoMitigation: r.autoMitigation,
+            mitigationParts: r.mitigationParts.join("・"),
+            manual: v.manual,
             // 防御側 modifyDamage の合計(あれば適用済み表示に出す)
             defenderMod: r.modsSum || 0,
             bounty, final, stage, applyText,
         });
+    }
+    // カバーされた対象は被弾しない(記録として適用済み表示に残す)
+    for (const t of (f.targets ?? [])) {
+        if (t.coveredBy) appliedTargets.push({ name: t.name, covered: t.coveredBy.name });
     }
 
     await applyDamagePatch(message, {

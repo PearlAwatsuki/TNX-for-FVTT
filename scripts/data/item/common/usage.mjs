@@ -227,6 +227,12 @@ export class UsageTemplate extends SystemDataModel {
                     reactionAreaAttack: new fields.BooleanField({ initial: false }),
                     reactionFailsAttack: new fields.BooleanField({ initial: false }),
 
+                    // カバー(2026-07-16 ユーザー確定): ダメージ算出の直前に、他者への予定ダメージを自身へ
+                    // 付け替える行動。アイテムロールで使用→ダメージカードのカバーする対象をクリック→
+                    // 通常判定(目標値は「なし」運用=スート一致で成功が多い)→成功で付け替え。付け替えた分は
+                    // 自身の防御力で算出・受け値は参照しない(自分ではリアクションしていないため)。
+                    covering: new fields.BooleanField({ initial: false }),
+
                     // attack: ダメージ修正(ダメージへ加算する式の行・攻撃用途)。checkBonuses と同型。
                     // ダメージ算出時に評価するため @diff/@achievement も使える。
                     damageBonuses: new fields.ArrayField(

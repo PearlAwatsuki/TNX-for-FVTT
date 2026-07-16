@@ -2441,13 +2441,25 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             return;
         }
 
-        // 用途を決定（1つなら自動選択、複数なら D&D スタイルのピッカー表示）
+        // 用途を決定（1つなら自動選択、複数なら D&D スタイルのピッカー表示）。
+        // カバーの判定起動(extraOpen.covering)は、待ち受け開始時に確定した用途を再選択せず引き継ぐ。
         let selectedUsage;
-        if (usableUsages.length === 1) {
+        if (extraOpen.covering?.usageId) {
+            selectedUsage = (item.system.actions ?? []).find(a => a._id === extraOpen.covering.usageId) ?? null;
+            if (!selectedUsage) return;
+        } else if (usableUsages.length === 1) {
             selectedUsage = usableUsages[0];
         } else {
             selectedUsage = await TnxCharacterSheetBase._promptCheckUsage(usableUsages, item.name);
             if (!selectedUsage) return;
+        }
+
+        // カバー(2026-07-16 ユーザー確定): アイテムロールで使用したら「カバー待ち受け」に入り、ダメージ
+        // カードのカバーする対象クリックで判定を起動する(covering 文脈つきで本関数へ再入=下の通常判定へ
+        // 合流)。再入時(extraOpen.covering)はこの分岐を通さず通常判定を行う。
+        if (selectedUsage.covering === true && !extraOpen.covering) {
+            TnxCheckFlow.startAchievementAction("covering", actor, item, { usageId: selectedUsage._id });
+            return;
         }
 
         // NPC取得(2026-07-13 フラグ化)は専用フローへ(消費・対象解決・判定・転記・配置を一貫して扱う)
