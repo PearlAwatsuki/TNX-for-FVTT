@@ -221,6 +221,12 @@ describe("computeCheckBonus()（同一効果の重複適用不可）", () => {
     const effs = [{ identity: "e1", active: false, changes: [{ key: "check.society_*", value: "5" }] }];
     expect(computeCheckBonus(effs, crit)).toBe(0);
   });
+
+  it("1つの効果の複数の該当行は合算される（行は効果の内容・2026-07-17 裁定）", () => {
+    // 禁止は「同名効果の二重適用」(インスタンス単位)であり、1効果内の行は畳み込まない
+    const effs = [{ identity: "e1", changes: [{ key: "check.all", value: "1" }, { key: "check.society_police", value: "2" }] }];
+    expect(computeCheckBonus(effs, crit)).toBe(3);
+  });
 });
 
 describe("gatherCheckBonusSources()（チャット内訳）", () => {
@@ -327,7 +333,7 @@ describe("damageTakenChangeMatches() / gatherDamageTakenSources()（受けるダ
     expect(damageTakenChangeMatches("damage.dealt", crit)).toBe(false); // 攻撃側キーは対象外
   });
 
-  it("寄与: 受け手に最有利=最小値で identity 重複排除・stackable は列挙・正値(増加)も通す", () => {
+  it("寄与: 効果内の該当行は合算・同一 identity のインスタンスは最も効果の大きい(最小)1つ・stackable は累積", () => {
     const effs = [
       { identity: "guard", name: "鉄壁", changes: [{ key: "damage.taken", value: "-2" }, { key: "damage.taken.S", value: "-5" }] },
       { identity: "guard", name: "鉄壁", changes: [{ key: "damage.taken", value: "-3" }] },
@@ -337,18 +343,18 @@ describe("damageTakenChangeMatches() / gatherDamageTakenSources()（受けるダ
       { identity: "miss", name: "対象外", changes: [{ key: "damage.fromStyle.tatara", value: "-9" }] },
     ];
     expect(gatherDamageTakenSources(effs, crit)).toEqual([
-      { name: "鉄壁", value: -5 },
+      { name: "鉄壁", value: -7 },   // 行の合算(-2-5)がインスタンス値。同 identity の -3 より効果大
       { name: "呪い", value: 2 },
       { name: "対カブキ", value: -4 },
       { name: "重ねがけ", value: -1 },
     ]);
   });
 
-  it("taken と fromStyle が同一効果に併記されても1回だけ（最小値・重複適用不可の一般原則）", () => {
+  it("taken と fromStyle が同一効果に併記されたら、どちらもその効果の内容として効く（合算・2026-07-17 裁定）", () => {
     const effs = [
-      { identity: "dual", name: "二重取り", changes: [{ key: "damage.taken", value: "-2" }, { key: "damage.fromStyle.kabuki", value: "-6" }] },
+      { identity: "dual", name: "複合軽減", changes: [{ key: "damage.taken", value: "-2" }, { key: "damage.fromStyle.kabuki", value: "-6" }] },
     ];
-    expect(gatherDamageTakenSources(effs, crit)).toEqual([{ name: "二重取り", value: -6 }]);
+    expect(gatherDamageTakenSources(effs, crit)).toEqual([{ name: "複合軽減", value: -8 }]);
   });
 });
 

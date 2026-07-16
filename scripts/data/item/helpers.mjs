@@ -314,27 +314,29 @@ export function checkChangeMatches(key, criteria) {
  * @returns {Array<{name:string, value:number}>}
  */
 function _gatherBonusSources(effects, predicate, { pick = "max" } = {}) {
-  // pick=「同一効果内・同一 identity 間で採る値」の方向。効果の保持者に最も有利な1つを採る
-  // (重複適用不可の一般原則)。攻撃側バフは最大(max)、受け手側の軽減(damage.taken 系)は
-  // 最小(min・最も負=最も軽減)が「最有利」になる。
+  // 禁止されるのは「同名効果の二重適用」(2026-07-17 ユーザー裁定で是正)——
+  // 1つの効果が持つ該当行は**すべてその効果の内容として合算**する(行の畳み込みはしない。
+  // 旧実装の「効果内で最有利1行」は Code の過大一般化で誤り)。同一 identity(同名効果)の
+  // インスタンスが複数あるときだけ「最も効果の大きい」1つを採る——pick はその方向
+  // (攻撃側バフ=max・受け手側の damage.taken 系=min=最も負)。stackable(重複可)は例外で、
+  // 「この効果は重複する」と明記された重ねがけ型＝付与された分だけ累積する。
   const byIdentity = new Map();
   const stackables = [];
   const better = (a, b) => (pick === "min" ? a < b : a > b);
   for (const eff of (effects ?? [])) {
     if (eff.active === false) continue;
-    let matched = null;
+    let total = null;
     for (const change of (eff.changes ?? [])) {
       if (!predicate(change.key)) continue;
-      const v = Number(change.value) || 0;
-      matched = matched === null || better(v, matched) ? v : matched;
+      total = (total ?? 0) + (Number(change.value) || 0);
     }
-    if (matched === null) continue;
-    const entry = { name: eff.name || "(無名効果)", value: matched };
+    if (total === null) continue;
+    const entry = { name: eff.name || "(無名効果)", value: total };
     if (eff.stackable) {
       stackables.push(entry);
     } else {
       const prev = byIdentity.get(eff.identity);
-      if (!prev || better(matched, prev.value)) byIdentity.set(eff.identity, entry);
+      if (!prev || better(total, prev.value)) byIdentity.set(eff.identity, entry);
     }
   }
   return [...byIdentity.values(), ...stackables];
@@ -429,9 +431,10 @@ export function damageTakenChangeMatches(key, criteria) {
 }
 
 /**
- * 受けるダメージ軽減の寄与一覧(重複排除済み)。ダメージ算出時に**受け手(対象)の effects** から
- * 集計する。taken と from* を1回の走査で束ねるため、同一効果に両キーが併記されても重複適用しない
- * (重複適用不可の一般原則)。「最も有利」は受け手基準=**最小値**(最も負=最も軽減)。
+ * 受けるダメージ軽減の寄与一覧。ダメージ算出時に**受け手(対象)の effects** から集計する。
+ * taken と from* を1回の走査で照合するため、同一効果に両キーが併記されていても**効果の内容として
+ * 合算した1行**になる(同名効果のインスタンスが複数あるときの「最も効果の大きい」採用も
+ * インスタンスの合算値どうしで比較できる)。採用方向は受け手基準=**最小値**(最も負=最も軽減)。
  * @param {Array<object>} effects  受け手の effects(正規形・{@link collectActorEffectBuffs})
  * @param {{category:string, damageType?:string, attackerStyles?:string[], attackerWorks?:string[]}} criteria
  * @returns {Array<{name:string, value:number}>}
