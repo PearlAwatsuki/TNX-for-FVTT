@@ -18,6 +18,7 @@
  */
 
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
+import { resolveTargetRefsOrSelf } from "./target-resolution.mjs";
 import { analyzeGrantLanding, itemGrantCandidates, rewriteGrantChangesForItem } from "../data/item/helpers.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
@@ -72,26 +73,11 @@ export function resolveUsageEffectData(actor, parentItem, usage) {
  * @returns {Promise<Array<{uuid:string, name:string}>|null>} null=キャンセル(用途中止)
  */
 export async function captureUsageTargets(actor) {
-    const targeted = [...(game.user?.targets ?? [])]
-        .map(t => t?.actor)
-        .filter(Boolean);
-    if (targeted.length) {
-        const byUuid = new Map(targeted.map(a => [a.uuid, { uuid: a.uuid, name: a.name }]));
-        return [...byUuid.values()];
-    }
     // ノーターゲット: 原則ターゲット必須のため確認を挟む(誤って未ターゲットで撃った事故を防ぐ)。
-    // 続行を選べば自分自身が対象になる(自己バフ)。
-    const proceed = await foundry.applications.api.DialogV2.confirm({
-        window: { title: "ターゲット未選択" },
-        classes: ["tokyo-nova", "tnx-dialog"],
-        content: `<p>効果を付与する対象がターゲットされていません。</p>`
-            + `<p>「${foundry.utils.escapeHTML(actor?.name ?? "")}」自身を対象に付与して続行しますか？</p>`,
-        yes: { label: "自分を対象に続行", icon: "fas fa-user-check" },
-        no:  { label: "キャンセル", icon: "fas fa-times" },
-        modal: true,
-    });
-    if (!proceed) return null;
-    return actor ? [{ uuid: actor.uuid, name: actor.name }] : [];
+    // 続行を選べば自分自身が対象になる(自己バフ)。解決は target-resolution に一本化(2026-07-16)
+    return resolveTargetRefsOrSelf(actor,
+        "効果を付与する対象がターゲットされていません。",
+        `「${foundry.utils.escapeHTML(actor?.name ?? "")}」自身を対象に付与して続行しますか？`);
 }
 
 /**

@@ -24,6 +24,7 @@
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { SUIT_TO_ABILITY } from "./tnx-check-engine.mjs";
 import { buildUsageCheckContext } from "./usage-check-context.mjs";
+import { resolveAttackTargetRefs } from "./target-resolution.mjs";
 import { TargetSelectionDialog } from "./tnx-dialog.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { resolveNoReaction, resolveOpposed, attackReactionModes, formatAttackLabel, combineWeaponAttack, resolveAttackRecheckState } from "./attack-flow-logic.mjs";
@@ -109,37 +110,9 @@ export async function useAttack(item, usage) {
 
     // 対象決定(2026-07-15 ユーザー確定): Foundry のターゲット(レティクル)を**全件**使う。判定も
     // ダメージも一括で全対象へ適用する(対象数の自動化はしない・一体に絞るダイアログは出さない)。
-    // 未ターゲットのときだけ選択ダイアログを出し、選んだトークンには**必ずレティクルを付与**して
-    // 進める(内部だけで対象を決めず、必ずターゲットされた対象に効果が及ぶようにする)。
-    let targets = [...game.user.targets]
-        .filter(t => t.actor)
-        .map(t => ({ uuid: t.actor.uuid, name: t.actor.name }));
-    if (!targets.length) {
-        const seen = new Set();
-        const options = [{ value: "", label: "（対象なし）" }];
-        if (canvas?.ready) {
-            for (const t of canvas.tokens.placeables) {
-                const a = t.actor;
-                if (!a || a.uuid === actor.uuid || seen.has(t.id)) continue;
-                seen.add(t.id);
-                options.push({ value: t.id, label: a.name });
-            }
-        }
-        const sel = await TargetSelectionDialog.prompt({
-            title: "攻撃対象の選択",
-            label: "攻撃の対象を選択してください（トークンをターゲットしておくと複数対象を一括で狙えます）。",
-            options,
-            selectLabel: "決定",
-        });
-        if (sel === null || sel === undefined) return; // キャンセル
-        if (sel) {
-            const token = canvas.tokens?.get(sel);
-            if (token?.actor) {
-                token.setTarget(true, { releaseOthers: true }); // 必ずレティクルを付与
-                targets = [{ uuid: token.actor.uuid, name: token.actor.name }];
-            }
-        }
-    }
+    // 未ターゲット時のトークン選択＋レティクル付与は target-resolution に一本化(2026-07-16)
+    const targets = await resolveAttackTargetRefs(actor);
+    if (targets === null) return; // キャンセル
 
     // 参加技能・報酬点・消費・適用効果は判定起動の共通前段で解決する(2026-07-16 一本化。従来この
     // 経路だけ報酬点ブロック(口座凍結/信用失墜)を読み落としていた)。攻撃対象の決定(上)を先に済ませて

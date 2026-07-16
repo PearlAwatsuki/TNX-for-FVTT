@@ -29,6 +29,7 @@
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { buildUsageCheckContext } from "./usage-check-context.mjs";
+import { resolveSingleTargetOrSelf } from "./target-resolution.mjs";
 import { CONDITION_KINDS, getConditionKinds, recoveryKindMatches, recoveryKindExcluded, readCondition } from "./conditions.mjs";
 import { postConditionOutcome } from "./condition-resolution.mjs";
 import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } from "./usage-consumption.mjs";
@@ -137,20 +138,9 @@ async function promptRecoverySelection(patient, candidates, usage) {
     return candidates.filter(e => picked.includes(e.id));
 }
 
-/** 回復対象(1体)を解決する。ターゲット優先・無ければ確認して自分。null=中止。 */
+/** 回復対象(1体)を解決する。ターゲット優先・無ければ確認して自分(target-resolution)。null=中止。 */
 async function resolveRecoveryPatient(actor) {
-    const targeted = [...(game.user?.targets ?? [])].map(t => t?.actor).filter(Boolean);
-    if (targeted.length) return targeted[0];
-    const proceed = await foundry.applications.api.DialogV2.confirm({
-        window: { title: "ターゲット未選択" },
-        classes: ["tokyo-nova", "tnx-dialog"],
-        content: `<p>回復する対象がターゲットされていません。</p>`
-            + `<p>「${foundry.utils.escapeHTML(actor?.name ?? "")}」自身を対象に続行しますか？</p>`,
-        yes: { label: "自分を対象に続行", icon: "fas fa-user-check" },
-        no:  { label: "キャンセル", icon: "fas fa-times" },
-        modal: true,
-    });
-    return proceed ? actor : null;
+    return resolveSingleTargetOrSelf(actor, "回復する対象がターゲットされていません。");
 }
 
 /** 除去を実行する(所有権が無ければ treatmentApply ソケットで GM 委譲=治療と同じ経路)。 */
