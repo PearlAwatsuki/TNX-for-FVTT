@@ -717,6 +717,13 @@ export class TnxCheckFlow {
             const baseResult       = calcSkillCheck({ cardCheckValue, suit, abilitiesCtx, bountyUsed: 0, targetValue: ctx.targetValue, checkBonus });
             const baseAchievement  = typeof baseResult.achievement === "number" ? baseResult.achievement : null;
             bountyUsed = await TnxCheckFlow._promptBountyUsage(bountyAvailable, { baseAchievement });
+            // 使用した報酬点をアクターから自動減算する(2026-07-17 ユーザー裁定。フェーズ8 の
+            // エンジン先行実装以来、達成値への加算のみで記帳が未実装だった)。有効報酬点
+            // (bountyBase+bounty)の増減は bounty 側に載せる(シートの±ボタン・社会ダメージの
+            // 報酬点軽減と同じ着地)。実行者=アクターの操作者のため権限は自然に足りる
+            if (bountyUsed > 0) {
+                await actor.update({ "system.bounty": (actor.system.bounty ?? 0) - bountyUsed });
+            }
         }
 
         // 判定結果の計算
