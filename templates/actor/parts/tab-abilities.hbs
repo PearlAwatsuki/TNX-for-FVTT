@@ -64,19 +64,11 @@
                                 <div class="ability-display">
                                     <div class="ability-label-shape"><div class="ability-label-content"><h3>{{ability.label}}</h3></div></div>
                                     <div class="ability-values-area">
-                                        {{#if ability.checkBlocked}}
-                                        <div class="ability-value-shape check-blocked" title="重圧により、この能力値を使う判定はできません">
-                                            <div class="ability-value-content">
-                                                <input type="number" value="{{ability.totalValue}}" readonly>
-                                            </div>
-                                        </div>
-                                        {{else}}
                                         <div class="ability-value-shape check-trigger" data-action="startAbilityCheck" data-ability-key="{{key}}" title="能力値判定を起動">
                                             <div class="ability-value-content">
                                                 <input type="number" value="{{ability.totalValue}}" readonly>
                                             </div>
                                         </div>
-                                        {{/if}}
                                         <div class="control-value-shape check-trigger" data-action="startControlCheck" data-ability-key="{{key}}" title="制御判定を起動">
                                             <div class="control-value-content">
                                                 <input type="number" value="{{ability.totalControl}}" readonly>

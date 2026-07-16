@@ -30,7 +30,8 @@ import { getComboSuits, comboUsesBounty, ALL_SUITS } from '../module/tnx-check-e
 import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
 import { groupStyleSkillsByStyle } from '../module/style-skill-acquisition.mjs';
 import { HOUSING_AREA_RANKS } from '../data/item/housing-area.mjs';
-import { CONDITION_KINDS, readConditions, getConditionKind, getEffectiveConditions, hasBountyBlock, getCheckBlock } from '../module/conditions.mjs';
+import { CONDITION_KINDS, readConditions, getConditionKind, getEffectiveConditions, hasBountyBlock, getCheckBlock, gatherSkillUseWarnings } from '../module/conditions.mjs';
+import { applyTriggerDisable } from '../module/ui-trigger-disable.mjs';
 import { openConditionEditDialog } from '../module/condition-edit.mjs';
 import { startTreatment } from '../module/treatment-flow.mjs';
 import { startVehicleMove } from '../module/vehicle-move.mjs';
@@ -520,6 +521,21 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             });
             header.prepend(toggleBtn);
         }
+
+        // 使用不可の判定トリガーをグレーアウト＋クリック不能に(再利用: applyTriggerDisable)。
+        // ・技能: 負傷の使用不可(skillBlock)に該当する技能(造反/人脈消失/口座凍結 等)。
+        // ・能力値判定: 重圧の対象能力値(制御判定トリガーは対象外=重圧でも制御は可)。
+        const blockConds = TnxCheckFlow._gatherConditions(this.actor);
+        applyTriggerDisable(el, '[data-action="startSkillCheck"][data-item-id]', (t) => {
+            const key = this.actor.items.get(t.dataset.itemId)?.system?.identificationKey;
+            if (!key) return null;
+            const names = gatherSkillUseWarnings(blockConds, [key]);
+            return names.length ? { reason: `「${names.join("」「")}」により使用不可` } : null;
+        });
+        applyTriggerDisable(el, '[data-action="startAbilityCheck"][data-ability-key]', (t) => {
+            const b = getCheckBlock(blockConds, { upward: true, ability: t.dataset.abilityKey });
+            return b.blocked ? { reason: `「${b.by}」により、この能力値を使う判定はできません` } : null;
+        });
 
         // スキルプロパティ変更(EXP 連動あり、data-action 外で処理)
         for (const input of el.querySelectorAll(".skill-property-change")) {
@@ -1837,8 +1853,6 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         };
 
         const outfitMod = context.system.outfitMod ?? {};
-        // 重圧(能力値判定不可)の対象能力値は起動不可にする(クリック不可・カードプレイまで遅らせない)。
-        const blockConds = TnxCheckFlow._gatherConditions(this.actor);
         for (const key of abilityKeys) {
             const ability = context.system[key];
             const styleContributions = equippedStyles.map(style => {
@@ -1865,8 +1879,6 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                 // styleTotalValue 等はスタイル内訳表示(styleContributions)専用。
                 totalValue:   this.actor.system[key].total,
                 totalControl: this.actor.system[key].totalControl,
-                // 重圧でこの能力値の能力値判定が不可なら、シート上でクリック不可にする(制御判定は可)。
-                checkBlocked: getCheckBlock(blockConds, { upward: true, ability: key }).blocked,
             };
         }
         context.mundaneTotalValue = context.system.abilities.mundane.totalValue;

@@ -3976,8 +3976,9 @@ body.tnx-bottom-hud-expanded #hotbar {
     opacity: 0.75;
 }
 
-/* 重圧で起動不可の能力値判定トリガー(クリック不可・淡色) */
-.check-blocked {
+/* 判定トリガーの無効化(グレーアウト＋クリック不能)の共通クラス。技能の使用不可(負傷)・
+   重圧の能力値判定不可などで applyTriggerDisable が付与する(再利用) */
+.tnx-trigger-disabled {
     cursor: not-allowed;
     opacity: 0.4;
 }
