@@ -14,10 +14,11 @@
  *   システムは行わない(技能を強制しない方針と同じ)。
  * - ダメージ・チャットカードに台帳(カード行+攻撃力+FA+修正)と攻撃側合計を表示し、
  *   [カードを追加で出す](攻撃側)/[ダメージ適用](対象の操作者または RL)を全幅ボタンで置く。
- * - 適用時は**防御側に軽減ダイアログ**(防御力+パリー受け値自動・社会の報酬点軽減・手動欄)を
- *   出して確定 → 型分岐適用(cast/guest=チャート・troop=heads
- *   減算・分身=消滅通知・extra=不可警告)。適用者は対象の所有者のため効果付与の権限委譲は
- *   不要。メッセージのフラグ更新のみ GM へ委譲(applyMessagePatch・2026-07-16 一本化)。
+ * - 適用時は**軽減ダイアログ**(防御力+パリー受け値自動・手動の状況軽減)で確定 → 型分岐適用
+ *   (cast/guest=チャート・troop=heads 減算・分身=消滅通知・extra=不可警告)。
+ *   社会の報酬点軽減は**リアクション成立時に対象行の数字クリック**(算出後〜適用前・実減算・
+ *   2026-07-17 ユーザー確定=promptBountyMitigation)。メッセージのフラグ更新のみ GM へ委譲
+ *   (applyMessagePatch・2026-07-16 一本化)。
  */
 
 import { applyDamageChartResult } from "./condition-resolution.mjs";
@@ -25,7 +26,7 @@ import { aggregateDefence, defenceForType, computeDamage } from "./damage-logic.
 import { evaluateBonusRows, evaluateSelfBonus } from "./tnx-formula.mjs";
 import { applyConsumptionPlan } from "./usage-consumption.mjs";
 import { getDamageChartKind } from "../data/damage-chart.mjs";
-import { CONDITION_KINDS } from "./conditions.mjs";
+import { CONDITION_KINDS, getEffectiveConditions, hasBountyBlock } from "./conditions.mjs";
 import { applyAttackPatch } from "./attack-flow.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
@@ -400,8 +401,8 @@ export function renderDamageCard(message, html) {
             if (tr.autoMitigation) parts.push(`防御力・受け値 −${tr.autoMitigation}`);
             if (tr.stunCapped) parts.push(`${stunLabel}（10上限）`);
             if (tr.defenderMod) parts.push(`ダメージ修正 ${signedDisplay("＋", tr.defenderMod)}`);
-            if (tr.manual) parts.push(`手動軽減 −${tr.manual}`);
             if (tr.bounty) parts.push(`報酬点 −${tr.bounty}`);
+            if (tr.manual) parts.push(`手動軽減 −${tr.manual}`);
             if (parts.length) line(area, "tnx-damage-sub", esc(parts.join("・")));
             line(area, `cr-result ${tr.final > 0 ? "cr-result--damage" : "cr-result--nodamage"}`,
                 `<i class="fas ${tr.final > 0 ? "fa-burst" : "fa-shield-halved"}"></i> ${esc(tr.applyText ?? "")}`);
@@ -412,17 +413,31 @@ export function renderDamageCard(message, html) {
     // 対象ごとの最終ダメージ(2026-07-16 ユーザー確定): 防御力・受け値は「ダメージ算出」で適用済み＝各行に
     // 軽減後の最終ダメージを表示する。攻撃側合計はレジャーに残す(攻撃側の事後増強のため)。社会の報酬点軽減と
     // 手動の状況軽減だけ適用時のダイアログで入れる。
-    for (const t of dmgTargets) {
+    for (let i = 0; i < dmgTargets.length; i++) {
+        const t = dmgTargets[i];
         // 対象ごとに見出し(名前)＝最終ダメージを1行・軽減の内訳は名前を繰り返さない小注記に畳む(はみ出し回避)。
-        // 内訳は適用順(防御力・受け値→10上限→事後修正)に並べる(2026-07-16 裁定=KI-024)
+        // 内訳は適用順(防御力・受け値→10上限→事後修正→報酬点)に並べる(2026-07-16 裁定=KI-024)
         const p = targetPlannedPreview(f, t);
         const nameLabel = t.coveringFor ? `${esc(t.name)}（${esc(t.coveringFor)}をカバー）` : esc(t.name);
         row(area, nameLabel, String(p.final), "cr-calc-row cr-total-row", "cr-total-num");
+        // 社会ダメージの報酬点による軽減(2026-07-17 ユーザー確定): リアクション判定が成立
+        // (一般定義=ファンブル/スート不一致でなければ成立・勝敗不問)した対象は、適用前まで
+        // 自分の最終ダメージの数字をクリックして報酬点で軽減できる(対象の所有者/RL のみ装飾)
+        if (f.category === "social" && t.reactionEstablished === true) {
+            const tActor = resolveSync(t.uuid);
+            const num = area.lastElementChild?.querySelector(".cr-total-num");
+            if (num && (game.user.isGM || tActor?.isOwner === true)) {
+                num.classList.add("tnx-recheck-ready", "tnx-recheck-target");
+                num.title = "クリックで報酬点による軽減";
+                num.addEventListener("click", () => promptBountyMitigation(message, i));
+            }
+        }
         const parts = [];
         if (p.defence) parts.push(`防御力 −${p.defence}`);
         if (p.parry) parts.push(`受け値 −${p.parry}`);
         if (p.capped) parts.push(`${stunLabel}（10上限）`);
-        if (p.modsSum) parts.push(`修正 ${signedDisplay("＋", p.modsSum)}`);
+        if (p.otherModsSum) parts.push(`修正 ${signedDisplay("＋", p.otherModsSum)}`);
+        if (p.bountySum) parts.push(`報酬点 −${Math.abs(p.bountySum)}`);
         if (parts.length) line(area, "tnx-damage-sub", esc(parts.join("・")));
     }
 
@@ -543,6 +558,61 @@ export async function handleDamageModifyClick(message) {
 }
 
 /**
+ * 社会ダメージの報酬点による軽減(2026-07-17 ユーザー確定)。
+ * - 起動条件: その対象の**リアクション判定が成立**していること(一般定義=ファンブル/スート不一致で
+ *   なければ成立・勝敗不問・Check_Rules「判定の成立」)。「リアクションしない」(制御値受け)は不可。
+ * - タイミング: ダメージ軽減技能(modifyDamage=事後修正)と同じ**算出後〜適用前**。導線は
+ *   ダメージカードの**その対象行の数字クリック**(対象の所有者/RL)。適用ダイアログの報酬点欄は撤去。
+ * - 消費: 所持報酬点(bountyBase+bounty)を上限に、宣言時に **system.bounty から実減算**する。
+ *   報酬点使用不可(口座凍結/信用失墜)は消費時点でゲート(判定の報酬点と同じ規約)。
+ * - 着地: その対象の t.mods(per-target 事後修正)へ「報酬点による軽減 −N」行(bounty マーカー=
+ *   内訳で「報酬点 −N」に分離表示)。フラグ更新は applyDamagePatch(非作者は GM 委譲)。
+ * @param {ChatMessage} message ダメージ・チャットカード
+ * @param {number} targetIndex f.targets のインデックス
+ */
+async function promptBountyMitigation(message, targetIndex) {
+    const f = message.getFlag(SCOPE, "damageRoll");
+    if (!f) return;
+    if (f.applied) { ui.notifications.warn("適用済みのダメージは軽減できません。"); return; }
+    if ((f.category || "physical") !== "social") return;
+    const t = (f.targets ?? [])[targetIndex];
+    if (!t || t.reactionEstablished !== true) return;
+    const actor = await resolveTargetActor(t.uuid);
+    if (!actor) return;
+    if (!(game.user.isGM || actor.isOwner)) {
+        ui.notifications.warn(`報酬点による軽減は「${actor.name}」の操作者（または RL）が行います。`);
+        return;
+    }
+    // 報酬点使用不可(口座凍結/信用失墜)は消費時点の状態でゲート(無視ゲート済みの行は数えない)
+    if (hasBountyBlock(getEffectiveConditions(actor).filter(c => !c.effectIgnored))) {
+        ui.notifications.warn(`「${actor.name}」は報酬点を使用できない状態です。`);
+        return;
+    }
+    const available = (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0);
+    if (available <= 0) {
+        ui.notifications.warn(`「${actor.name}」に使用できる報酬点がありません。`);
+        return;
+    }
+    const { AmountInputDialog } = await import("./tnx-dialog.mjs");
+    // allowOverride なしの prompt は数値をそのまま返す(キャンセル=null)
+    const input = await AmountInputDialog.prompt({
+        title: `報酬点による軽減: ${actor.name}`,
+        label: `使用する報酬点（0〜${available}・1点 = 軽減 1）`,
+        initialValue: 0, min: 0, max: available, okLabel: "軽減",
+    });
+    if (input === null) return;
+    const amount = Math.max(0, Math.min(Number(input) || 0, available));
+    if (!amount) return;
+    // 実減算(有効報酬点 = bountyBase + bounty。増減は bounty 側に載せる=シートの±ボタンと同じ着地)
+    await actor.update({ "system.bounty": (actor.system.bounty ?? 0) - amount });
+    const targets = foundry.utils.deepClone(f.targets ?? []);
+    if (!targets[targetIndex]) return;
+    targets[targetIndex].mods = [...(targets[targetIndex].mods ?? []),
+        { label: "報酬点による軽減", value: -amount, bounty: true }];
+    await applyDamagePatch(message, { targets });
+}
+
+/**
  * GMメニュー「ダメージを修正(手動)」(2026-07-14 ユーザー確定): 手入力の修正値を mods 行(手動修正)
  * として合算する(用途経由の modifyDamage と同じ着地・消費なし)。達成値の手動修正と同じく
  * 卓の最終裁定ツールのため適用済みでも制限しない(2026-07-14 ユーザー確定・適用済みの実ダメージは
@@ -594,15 +664,17 @@ function collectDamageVsBonuses(attacker, target) {
  * 攻撃カードの命中対象からダメージカードの対象行を組み立てる。カバー(coveredBy)が付いた元対象は
  * 被弾しないのでダメージカードに載せず、**カバーした側の行だけ**作る(uuid=カバー側・受け値なし・
  * coveringFor で誰をカバーしたか)。カバーした側が元々命中対象なら、その自分の行(受け値あり)は別に残る。
- * @param {Array<{uuid:string,name:string,parryGuard?:number,coveredBy?:{uuid:string,name:string}}>} hitTargets
+ * reactionEstablished=その対象のリアクション判定の成立(一般定義・勝敗不問)。社会ダメージの
+ * 報酬点軽減の起動条件(2026-07-17)。カバーした側は自分ではリアクションしていないため受け値と同様に不成立扱い。
+ * @param {Array<{uuid:string,name:string,parryGuard?:number,reactionEstablished?:boolean,coveredBy?:{uuid:string,name:string}}>} hitTargets
  */
 function buildDamageTargets(hitTargets) {
     const out = [];
     for (const t of (hitTargets ?? [])) {
         if (t.coveredBy) {
-            out.push({ uuid: t.coveredBy.uuid, name: t.coveredBy.name, parryGuard: 0, coveringFor: t.name });
+            out.push({ uuid: t.coveredBy.uuid, name: t.coveredBy.name, parryGuard: 0, reactionEstablished: false, coveringFor: t.name });
         } else {
-            out.push({ uuid: t.uuid, name: t.name, parryGuard: Number(t.parryGuard) || 0 });
+            out.push({ uuid: t.uuid, name: t.name, parryGuard: Number(t.parryGuard) || 0, reactionEstablished: t.reactionEstablished === true });
         }
     }
     return out;
@@ -644,6 +716,10 @@ function damageRollTotals(f, { permanentMitigation = 0, extraPostMods = 0, apply
  */
 function targetPlannedPreview(f, t) {
     const modsSum = (t.mods ?? []).reduce((s, m) => s + (Number(m.value) || 0), 0);
+    // 報酬点による軽減(bounty マーカー行・2026-07-17)は同じ事後修正の段だが、内訳表示では
+    // 「報酬点 −N」として技能等の「修正」と分けて示す
+    const bountySum = (t.mods ?? []).filter(m => m.bounty === true)
+        .reduce((s, m) => s + (Number(m.value) || 0), 0);
     const category = f.category || "physical";
     const actor = resolveSync(t.uuid);
     // 防御力・受け値は「ダメージ算出」の一部＝各キャラの最終ダメージに含めて表示する(2026-07-16 ユーザー確定)
@@ -655,7 +731,7 @@ function targetPlannedPreview(f, t) {
     const parry = Number(t.parryGuard) || 0;
     const auto = defence + parry;
     const { final, capped } = damageRollTotals(f, { permanentMitigation: auto, extraPostMods: modsSum });
-    return { final, auto, defence, parry, modsSum, capped };
+    return { final, auto, defence, parry, modsSum, bountySum, otherModsSum: modsSum - bountySum, capped };
 }
 
 function resolveSync(uuid) {
@@ -708,7 +784,8 @@ async function appendDamageCard(message, played) {
 
 /**
  * ダメージ適用を開始する(複数対象一括・2026-07-15)。命中対象を1ダイアログにまとめ、対象ごとの
- * 軽減欄(防御力+パリー受け値自動・社会の報酬点・手動)で確定し、全対象へ適用する。
+ * 軽減欄(防御力+パリー受け値自動・手動の状況軽減)で確定し、全対象へ適用する。
+ * 社会の報酬点軽減は本ダイアログでなく対象行クリック(promptBountyMitigation・2026-07-17)。
  * GM か命中対象のいずれかの操作者が押せる。
  *
  * **別のダメージとして適用(2026-07-16 ユーザー確定)**: applyCategory を渡すと、軽減は元の系統
@@ -741,7 +818,6 @@ async function openMitigationDialog(message, applyCategory = null) {
     const { attackerTotal } = damageRollTotals(f);
     const stun = f.stun === true;                                    // 攻撃宣言で確定済み(再確認しない)
     const stunLabel = category === "mental" ? "説得" : "スタン";
-    const isSocial = category === "social";
     const esc = foundry.utils.escapeHTML;
 
     // 対象ごとの自動軽減(物理=種別対応の防御力・X は軽減なし＋パリー受け値)を算出
@@ -758,7 +834,8 @@ async function openMitigationDialog(message, applyCategory = null) {
     });
 
     // 複数対象の適用をまとめた1ダイアログ。防御力・受け値は算出で適用済み(固定表示)。ここで入れるのは
-    // 手動の状況軽減と、社会の報酬点軽減だけ(2026-07-16 ユーザー確定=ダイアログ縮小)。
+    // 手動の状況軽減だけ(2026-07-16 ユーザー確定=ダイアログ縮小。社会の報酬点軽減は 2026-07-17 に
+    // リアクション成立時の対象行クリック=算出後〜適用前の事後修正へ移動し、この欄は撤去)。
     const rowsHtml = rows.map(r => `
         <div class="tnx-damage-target-row" data-index="${r.index}">
             <div class="tnx-damage-target-name">${esc(r.name)}${r.coveringFor ? `（${esc(r.coveringFor)}をカバー）` : ""}</div>
@@ -771,12 +848,6 @@ async function openMitigationDialog(message, applyCategory = null) {
                     <button type="button" class="tnx-btn" data-action="increment" aria-label="Increase">+</button>
                 </div>
             </div>
-            ${isSocial ? `<div class="form-group"><label>報酬点による軽減</label>
-                <div class="number-input-spinner">
-                    <button type="button" class="tnx-btn" data-action="decrement" aria-label="Decrease">-</button>
-                    <input type="number" name="bounty-${r.index}" value="0" min="0" max="99">
-                    <button type="button" class="tnx-btn" data-action="increment" aria-label="Increase">+</button>
-                </div></div>` : ""}
             <div class="tnx-damage-preview"><span class="tnx-damage-preview-label">最終ダメージ</span><span class="tnx-damage-preview-note" data-note="${r.index}"></span><span class="tnx-damage-preview-final" data-final="${r.index}">–</span></div>
         </div>`).join("");
     // 別のダメージとして適用: 元系統で軽減し、軽減後の値を applyCat のチャートへ流す旨を明示
@@ -791,17 +862,16 @@ async function openMitigationDialog(message, applyCategory = null) {
 
     const readRow = (root, i) => ({
         manual: Number(root.querySelector(`[name="manual-${i}"]`)?.value) || 0,
-        bounty: Number(root.querySelector(`[name="bounty-${i}"]`)?.value) || 0,
     });
     const updatePreview = (root) => {
         for (const r of rows) {
             const v = readRow(root, r.index);
-            // 防御力・受け値(autoMitigation)=恒久軽減(算出の内・10上限の前)。手動軽減と社会報酬点は
+            // 防御力・受け値(autoMitigation)=恒久軽減(算出の内・10上限の前)。手動軽減は
             // 適用時の軽減(10上限・事後修正より後)=applyMitigation(2026-07-16 裁定=KI-024)
             const { final, stage } = damageRollTotals(f, {
                 permanentMitigation: r.autoMitigation,
                 extraPostMods: r.modsSum,
-                applyMitigation: v.manual + (isSocial ? v.bounty : 0),
+                applyMitigation: v.manual,
             });
             const fin  = root.querySelector(`[data-final="${r.index}"]`);
             const note = root.querySelector(`[data-note="${r.index}"]`);
@@ -837,30 +907,33 @@ async function openMitigationDialog(message, applyCategory = null) {
     // 全対象へ適用(対象ごとに恒久軽減→10上限→事後修正→適用時軽減→最終→チャート・2026-07-16 裁定)
     const appliedTargets = [];
     for (const r of rows) {
-        const v = result[r.index] ?? { manual: 0, bounty: 0 };
-        const bounty = isSocial ? v.bounty : 0;
-        // 防御力・受け値(autoMitigation)=恒久軽減(算出の内・10上限の前)。手動軽減と社会報酬点は
-        // 適用時の軽減(applyMitigation)。r.modsSum=その対象の防御側事後修正(per-target・キャップ後)
+        const v = result[r.index] ?? { manual: 0 };
+        // 防御力・受け値(autoMitigation)=恒久軽減(算出の内・10上限の前)。手動軽減は適用時の軽減
+        // (applyMitigation)。r.modsSum=その対象の防御側事後修正(per-target・キャップ後。
+        // 報酬点による軽減=bounty マーカー行もこの段=対象行クリックで宣言済みの値・2026-07-17)
         const { final, stage, capped } = damageRollTotals(f, {
             permanentMitigation: r.autoMitigation,
             extraPostMods: r.modsSum,
-            applyMitigation: v.manual + bounty,
+            applyMitigation: v.manual,
         });
         // 説得(精神攻撃のスタン宣言)は、チャートの効果タグ(戦闘不能)を付けず BS のみ付与する。
         // 別系統として適用する場合は説得の意味論が対応しないため付けない(元系統=精神の通常適用時のみ)
         const applyText = await applyDamageToTarget(r.actor, applyCat, final, stage,
             { persuade: stun && category === "mental" && applyCat === "mental" });
+        // 報酬点による軽減(bounty マーカー行)は適用済み表示で「報酬点 −N」に分離する(正の数で記録)
+        const bountySum = (r.mods ?? []).filter(m => m.bounty === true)
+            .reduce((s, m) => s + (Number(m.value) || 0), 0);
         appliedTargets.push({
             name: r.name,
             coveringFor: r.coveringFor ?? null,
             autoMitigation: r.autoMitigation,
             mitigationParts: r.mitigationParts.join("・"),
             manual: v.manual,
-            // 防御側 modifyDamage の合計(あれば適用済み表示に出す)
-            defenderMod: r.modsSum || 0,
+            // 防御側 modifyDamage の合計(報酬点行を除く・あれば適用済み表示に出す)
+            defenderMod: (r.modsSum - bountySum) || 0,
             // スタン/説得の10上限がこの対象で効いたか(適用済み表示の内訳用・2026-07-16 裁定)
             stunCapped: capped,
-            bounty, final, stage, applyText,
+            bounty: Math.abs(bountySum), final, stage, applyText,
         });
     }
 

@@ -179,6 +179,9 @@ export async function postAttackCard({ payload, result, suit, cardCheckValue = n
             controlValue: targetActor?.system?.[ability]?.totalControl ?? 0,
             state: (state === "fumble" || state === "miss") ? "miss" : "pending",
             resolution: null, reactionAchievement: null, diff: null, parryGuard: 0,
+            // リアクション判定の成立(一般定義=ファンブル/スート不一致でなければ成立・勝敗不問・
+            // Check_Rules「判定の成立」)。社会ダメージの報酬点軽減の起動条件(2026-07-17)
+            reactionEstablished: false,
         });
     }
 
@@ -322,6 +325,7 @@ export async function rebuildRecheckedTargets(prevTargets, next) {
             nt.controlValue = actor?.system?.[ability]?.totalControl ?? t.controlValue ?? 0;
             nt.reactionAchievement = null;
             nt.parryGuard = 0;
+            nt.reactionEstablished = false; // リアクション自体をやり直すため成立も初期化
         }
         out.push(nt);
     }
@@ -726,6 +730,9 @@ export async function completeReactionFromCheck(payload, result, { suitMismatch 
         resolution: payload.mode,
         reactionAchievement: reactAch,
         diff,
+        // 判定の成立(一般定義=ファンブル/スート不一致でなければ成立・勝敗不問)。
+        // 社会ダメージの報酬点軽減の起動条件としてダメージカードへ引き継ぐ(2026-07-17)
+        reactionEstablished: ok,
         // 受け値はパリー成立時のみ有効(勝利時は攻撃無効のため実質使用されない)
         parryGuard: payload.mode === "parry" && ok ? (payload.parryGuard ?? 0) : 0,
     };
