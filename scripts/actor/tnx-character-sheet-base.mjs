@@ -2728,7 +2728,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
 
     /** 複数の check 用途を D&D スタイルの縦ボタンダイアログで選択させる */
     static async _promptCheckUsage(usages, skillName) {
-        const iconFor = (u) => u.type === "npcAcquire" ? "fas fa-users"
+        // NPC取得は 2026-07-13 のフラグ化で type でなく usage.npcAcquire に載る(旧 type 参照は死に分岐)
+        const iconFor = (u) => u.npcAcquire === true ? "fas fa-users"
             : isAttackUsage(u) ? "fas fa-burst" : "fas fa-diamond";
         const buttons = [
             ...usages.map((u, i) => ({
