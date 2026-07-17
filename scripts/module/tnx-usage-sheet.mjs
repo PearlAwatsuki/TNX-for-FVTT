@@ -457,7 +457,6 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         context.noCombo    = this._item.system?.noCombo === true; // 組み合わせ不可: コンボ(組み合わせ技能)の設定を抑止
         context.editable   = this._item.isOwner;
         context.skillOpts  = TnxSkillUtils.getSkillOptions();
-        context.typeLabel  = USAGE_TYPES[usage.type] ?? usage.type;
         // 用途名の既定は空(2026-07-17 ユーザー確定): placeholder は空のときの実効名
         // 「タイプ名（親アイテム名）」(usageDisplayName と同一形式・例:「判定（ペネトレイト）」)
         context.namePlaceholder = usageDisplayName({ type: usage.type }, this._item.name);

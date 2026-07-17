@@ -59,8 +59,6 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         // 戦闘タブ・カードと同一形式)。テンプレート側での表示名の再実装は表示ずれの温床のため禁止
         context.usageList = (this.item.system.actions ?? []).map((a) => ({
             id: a._id,
-            type: a.type,
-            typeLabel: USAGE_TYPES[a.type] ?? a.type,
             displayName: usageDisplayName(a, this.item.name),
         }));
         context.isEditMode = this._isEditMode && context.editable;

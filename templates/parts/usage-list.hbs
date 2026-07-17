@@ -9,12 +9,13 @@
     </div>
 
     <ol class="item-list-body">
-        {{!-- 表示名・タイプラベルはシート側(usageList=usageDisplayName)で決定済みの値のみを描画する。
-             テンプレート内で表示名を組み立てない(表示ずれの温床・2026-07-17 一本化) --}}
+        {{!-- 表示名はシート側(usageList=usageDisplayName)で決定済みの値のみを描画する。
+             テンプレート内で表示名を組み立てない(表示ずれの温床・2026-07-17 一本化)。
+             種別タグは全廃(長いタイプ名が用途名を圧迫するため=2026-07-18 ユーザー指示。
+             タイプは空名時の実効名「タイプ名（親アイテム名）」で判別できる) --}}
         {{#each usageList as |row|}}
             <li class="tnx-item-list__row">
                 <div class="tnx-item-list__column--main">
-                    <span class="usage-type-tag usage-type--{{row.type}}">{{row.typeLabel}}</span>
                     <h4>{{row.displayName}}</h4>
                 </div>
                 <div class="tnx-item-list__column--controls">

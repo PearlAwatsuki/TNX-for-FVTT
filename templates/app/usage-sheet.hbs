@@ -3,10 +3,10 @@
          ガード無しだと空コンテキストの selectOptions が例外を投げ、閉じられないゾンビ描画になる) --}}
     {{#if usage}}
 
-    {{!-- ヘッダー: 種別バッジ + 名前 --}}
+    {{!-- ヘッダー: 名前のみ(種別バッジは長いタイプ名が名前欄を圧迫するため全廃=2026-07-18 ユーザー指示。
+         タイプは実効名「タイプ名（親アイテム名）」=placeholder・タイトルで示される) --}}
     <header class="usage-sheet-header">
-        <span class="usage-type-badge usage-type--{{usage.type}}">{{typeLabel}}</span>
-        {{!-- 用途名の既定は空(2026-07-17): 空のときの実効名=親アイテム名を placeholder で示す --}}
+        {{!-- 用途名の既定は空(2026-07-17): 空のときの実効名を placeholder で示す --}}
         <input class="usage-name-input" type="text" name="name"
                value="{{usage.name}}" placeholder="{{namePlaceholder}}"
                {{#unless editable}}disabled{{/unless}}>
