@@ -140,9 +140,11 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
         const pack = game.packs.get("tokyo-nova-axleration.general-skills");
         if (!pack) return [];
         try {
-            const docs = await pack.getDocuments();
-            const skills = docs
-                .filter(d => d.system.identificationKey)
+            // インデックスで読む(2026-07-17 是正): getDocuments はキャッシュ文書を差し替えて
+            // 開いている辞典シートを孤児化させる(skill-dictionary.mjs と同じ理由)
+            const docs = await pack.getIndex({ fields: ["system.identificationKey"] });
+            const skills = [...docs]
+                .filter(d => d.system?.identificationKey)
                 .map(d => ({ identificationKey: d.system.identificationKey, name: d.name }))
                 .sort((a, b) => a.name.localeCompare(b.name, "ja"));
             TnxRlRequestApp._compendiumSkillCache = skills;

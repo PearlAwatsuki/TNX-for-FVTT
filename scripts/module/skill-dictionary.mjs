@@ -184,8 +184,21 @@ export async function loadSkillEntries(packName) {
   const pack = game.packs?.get(packName);
   if (!pack) return [];
   try {
-    const docs = await pack.getDocuments();
-    const entries = docs
+    // インデックスで読む(getDocuments 禁止・2026-07-17 是正): getDocuments はパック内の
+    // 全キャッシュ文書を**新しいインスタンスに差し替える**ため、開いている辞典アイテムの
+    // シートが孤児インスタンスに取り残され、以後の更新(用途の削除等)が画面に反映されなく
+    // なる(データは更新されるのにシートだけ古いまま)。必要な値はインデックスで全て取れる
+    const docs = await pack.getIndex({
+      fields: [
+        "system.identificationKey",
+        "system.generalSkillCategory",
+        "system.style",
+        "system.special.works.organization",
+        "system.isAction",
+        "system.suits",
+      ],
+    });
+    const entries = [...docs]
       .filter((d) => d.system?.identificationKey)
       .map((d) => ({
         identificationKey: d.system.identificationKey,

@@ -52,9 +52,15 @@ export async function updateUsageActions(item, mutate) {
     const key = item.uuid ?? item.id;
     const prev = actionsWriteQueues.get(key) ?? Promise.resolve();
     const next = prev.catch(() => {}).then(async () => {
-        const actions = foundry.utils.deepClone(item.system.actions ?? []);
+        // コンペンディウム文書は、パックの一括再取得(getDocuments)等でコレクションの
+        // インスタンスが差し替わり得る——シートが掴んだままの旧インスタンスは以後の更新を
+        // 受け取らない「孤児」になる(2026-07-17 特定: 辞典アイテムの用途削除が画面に残る
+        // 実因)。書き込み直前に正準(現行キャッシュ)の文書へ解決してから読み書きすることで、
+        // 孤児経由の stale 全配列上書き(並行編集の巻き戻し)を封じる
+        const doc = (item.pack ? await fromUuid(item.uuid).catch(() => null) : null) ?? item;
+        const actions = foundry.utils.deepClone(doc.system.actions ?? []);
         const result = await mutate(actions);
-        if (result) await item.update({ "system.actions": result });
+        if (result) await doc.update({ "system.actions": result });
     });
     actionsWriteQueues.set(key, next);
     try {

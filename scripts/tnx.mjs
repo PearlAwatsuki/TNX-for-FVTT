@@ -141,14 +141,20 @@ async function setupDefaultSkills(actor) {
             return;
         }
 
-        const documents = await pack.getDocuments();
-        if (documents.length === 0) return;
-
-        // 無条件取得技能 + 社会：N◎VA のみをインポート
-        const toImport = documents.filter(doc =>
-            doc.system.generalSkillCategory === 'initialSkill'
-            || doc.system.identificationKey === 'society_nova'
+        // インデックスで対象を絞ってから個別取得する(2026-07-17 是正): getDocuments の一括
+        // 再取得はパック内の全キャッシュ文書を新インスタンスへ差し替え、開いている辞典シートを
+        // 孤児化させる(用途削除が画面に反映されない実因と同経路)。getDocument はキャッシュ優先で
+        // 差し替えを起こさない
+        const index = await pack.getIndex({
+            fields: ["system.generalSkillCategory", "system.identificationKey"],
+        });
+        const wanted = [...index].filter(e =>
+            e.system?.generalSkillCategory === 'initialSkill'
+            || e.system?.identificationKey === 'society_nova'
         );
+        const toImport = (await Promise.all(wanted.map(e => pack.getDocument(e._id))))
+            .filter(Boolean);
+        if (toImport.length === 0) return;
 
         // 正規ソート順でソートし、sort 値を付与
         const sorted = [...toImport].sort((a, b) =>
