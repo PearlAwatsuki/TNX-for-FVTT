@@ -103,11 +103,18 @@ export function hasConfrontationSection(type) {
 }
 
 /**
- * 用途の実効表示名: 名前が空なら親アイテム名(2026-07-17 ユーザー確定=既定空+プレースホルダー)。
- * @param {{name?: string}} usage
+ * 用途の実効表示名: 名前が空なら「タイプ名（親アイテム名）」(2026-07-17 ユーザー確定・
+ * 用途シートの placeholder と同形。例:「判定（ペネトレイト）」)。一覧・タイトル・戦闘タブ・
+ * カード・通知の全表示箇所でこの一形式に統一する(親名のみの旧形式は同名行が並ぶと判別不能)。
+ * @param {{name?: string, type?: string}} usage
  * @param {string} parentName 親アイテム名
  * @returns {string}
  */
 export function usageDisplayName(usage, parentName) {
-    return (usage?.name ?? "").trim() || parentName || "";
+    const name = (usage?.name ?? "").trim();
+    if (name) return name;
+    const label = USAGE_TYPE_LABELS[usage?.type] ?? usage?.type ?? "";
+    if (!label) return parentName || "";
+    if (!parentName) return label;
+    return `${label}（${parentName}）`;
 }

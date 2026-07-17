@@ -9,23 +9,24 @@
     </div>
 
     <ol class="item-list-body">
-        {{#each system.actions as |action|}}
+        {{!-- 表示名・タイプラベルはシート側(usageList=usageDisplayName)で決定済みの値のみを描画する。
+             テンプレート内で表示名を組み立てない(表示ずれの温床・2026-07-17 一本化) --}}
+        {{#each usageList as |row|}}
             <li class="tnx-item-list__row">
                 <div class="tnx-item-list__column--main">
-                    <span class="usage-type-tag usage-type--{{action.type}}">{{lookup ../options.usageTypeLabels action.type}}</span>
-                    {{!-- 名前が空のときの実効名=親アイテム名(2026-07-17) --}}
-                    <h4>{{#if action.name}}{{action.name}}{{else}}{{../item.name}}{{/if}}</h4>
+                    <span class="usage-type-tag usage-type--{{row.type}}">{{row.typeLabel}}</span>
+                    <h4>{{row.displayName}}</h4>
                 </div>
                 <div class="tnx-item-list__column--controls">
                     {{!-- 使用ボタンは効果の有無にかかわらず常に描画する(2026-07-07 確定。
                          「効果あり限定」は 9-3 の効果有効化専用時代の誤った条件だった) --}}
-                    <a class="action-use" data-action="usageUse" data-usage-id="{{action._id}}" title="使用">
+                    <a class="action-use" data-action="usageUse" data-usage-id="{{row.id}}" title="使用">
                         <i class="fas fa-bolt"></i>
                     </a>
-                    <a class="action-edit" data-action="usageEdit" data-usage-id="{{action._id}}" title="編集">
+                    <a class="action-edit" data-action="usageEdit" data-usage-id="{{row.id}}" title="編集">
                         <i class="fas fa-edit"></i>
                     </a>
-                    <a class="action-delete" data-action="usageDelete" data-usage-id="{{action._id}}" title="削除">
+                    <a class="action-delete" data-action="usageDelete" data-usage-id="{{row.id}}" title="削除">
                         <i class="fas fa-trash"></i>
                     </a>
                 </div>

@@ -61,10 +61,13 @@ describe("用途タイプ(行動種別・2026-07-17 確定)", () => {
         }
     });
 
-    it("実効表示名: 空なら親アイテム名(2026-07-17 用途名既定空)", () => {
+    it("実効表示名: 空なら「タイプ名（親アイテム名）」(2026-07-17 用途名既定空・全表示箇所統一)", () => {
+        expect(usageDisplayName({ name: "", type: "check" }, "ペネトレイト")).toBe("判定（ペネトレイト）");
+        expect(usageDisplayName({ name: "  ", type: "physicalAttack" }, "ペネトレイト")).toBe("物理攻撃（ペネトレイト）");
+        expect(usageDisplayName({ name: "貫き", type: "check" }, "ペネトレイト")).toBe("貫き");
+        // 親名が無い(スタンドアロン等)場合はタイプ名のみ・タイプ不明は親名フォールバック
+        expect(usageDisplayName({ name: "", type: "treatment" }, "")).toBe("治療");
         expect(usageDisplayName({ name: "" }, "ペネトレイト")).toBe("ペネトレイト");
-        expect(usageDisplayName({ name: "  " }, "ペネトレイト")).toBe("ペネトレイト");
-        expect(usageDisplayName({ name: "貫き" }, "ペネトレイト")).toBe("貫き");
     });
 });
 

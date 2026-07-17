@@ -19,7 +19,7 @@ import { deriveConsumeTargets } from "./usage-consumption.mjs";
 import { CONDITION_KINDS } from "./conditions.mjs";
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
-import { resolveAttackWeapons, attackWeaponDisplayName, resolveAttackRangeSpan } from "./attack-weapons.mjs";
+import { resolveAttackWeapons, attackWeaponDisplayName, resolveAttackRangeSpan, attackWeaponKindEligible } from "./attack-weapons.mjs";
 import { WEAPON_RANGE_MAX_OPTIONS } from "../data/item/weapon.mjs";
 import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, SKILL_PACKS } from "./skill-dictionary.mjs";
 import {
@@ -424,7 +424,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
     }
 
     get title() {
-        // 名前が空のときの実効名=親アイテム名(2026-07-17 ユーザー確定)
+        // 名前が空のときの実効名=「タイプ名（親アイテム名）」(2026-07-17 ユーザー確定)
         const name = usageDisplayName(this.usage, this._item?.name);
         return name ? `用途: ${name}` : "用途";
     }
@@ -458,9 +458,9 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         context.editable   = this._item.isOwner;
         context.skillOpts  = TnxSkillUtils.getSkillOptions();
         context.typeLabel  = USAGE_TYPES[usage.type] ?? usage.type;
-        // 用途名の既定は空(2026-07-17 ユーザー確定): placeholder は「用途名（親アイテム名）」
-        // =空のときに呼ばれる実効の用途名（タイプ名）と親アイテム名。例: 「判定（ペネトレイト）」
-        context.namePlaceholder = `${USAGE_TYPES[usage.type] ?? usage.type}（${this._item.name}）`;
+        // 用途名の既定は空(2026-07-17 ユーザー確定): placeholder は空のときの実効名
+        // 「タイプ名（親アイテム名）」(usageDisplayName と同一形式・例:「判定（ペネトレイト）」)
+        context.namePlaceholder = usageDisplayName({ type: usage.type }, this._item.name);
         // 射程の幅(2026-07-16): 物理射程のときのみ最長射程セレクトを出す(武器エディタの min〜max と同形)
         context.showRangeMax    = RANGE_SPAN_CAPABLE.has(usage.range);
         context.rangeMaxOptions = WEAPON_RANGE_MAX_OPTIONS;
@@ -714,10 +714,15 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 return `${atk.damageTypeTotal || atk.damageType || ""}${val >= 0 ? `+${val}` : val}`;
             };
             const base = sheetActor?.system?.baseAttack ?? {};
-            // 生身は白兵武器(2026-07-17 ユーザー確定)——射撃攻撃では一本目が生身なら「武器なし」になる
-            context.sheetAttackWeapon = sheetWeapon
+            // 生身は白兵武器(2026-07-17 ユーザー確定)。一本目も区分の適格判定(攻撃フローと同じ
+            // attackWeaponKindEligible)を通す——射撃では生身・白兵専用武器は使えず「武器なし」、
+            // 白兵では射撃専用武器が選ばれていれば生身フォールバック(実行時と同じ解決)
+            const sheetEligible = attackWeaponKindEligible(sheetWeapon, context.attackWeaponKind);
+            context.sheetAttackWeapon = sheetEligible
                 ? { name: attackWeaponDisplayName(sheetWeapon), attackLabel: atkLabel(sheetWeapon) }
-                : { name: "生身", attackLabel: `${base.damageTypeTotal || base.damageType || "I"}+${(base.value ?? 0) + (base.mod ?? 0)}` };
+                : (context.attackWeaponKind === "ranged"
+                    ? { name: "武器なし", attackLabel: "" }
+                    : { name: "生身", attackLabel: `${base.damageTypeTotal || base.damageType || "I"}+${(base.value ?? 0) + (base.mod ?? 0)}` });
             // 選択済みの追加武器(表示行・攻撃力ラベル付き)。攻撃力はシート武器と合算される(2026-07-09)
             context.selectedWeapons = refs.map((r, idx) => {
                 const w = sheetActor?.items.get(r.itemId);

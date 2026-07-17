@@ -53,6 +53,22 @@ export function attackWeaponDisplayName(item) {
     return (item?.type === "cyborg" || fleshChange) ? `生身（${item.name}）` : (item?.name ?? "");
 }
 
+/**
+ * 白兵/射撃の区分で使用武器として適格か(2026-07-17 ユーザー確定・攻撃フローと用途シート表示の
+ * 共通判定=一本化)。射撃=射撃武器フラグの武器のみ(生身では行えない)。白兵=白兵武器フラグ・
+ * 生身書き換え装備(cyborg/isFleshChange)。
+ * @param {{type?:string, system?:object}} weapon
+ * @param {"melee"|"ranged"} kind
+ * @returns {boolean}
+ */
+export function attackWeaponKindEligible(weapon, kind) {
+    if (!weapon) return false;
+    return kind === "ranged"
+        ? weapon.system?.isRangedWeapon === true
+        : (weapon.system?.isMeleeWeapon === true || weapon.type === "cyborg"
+            || (weapon.system ? readFlag(weapon.system, "isFleshChange") : false));
+}
+
 /** RANGE_ORDER の逆引き(短さ順の射程キー配列)。 */
 const RANGE_KEYS = Object.entries(RANGE_ORDER).sort((a, b) => a[1] - b[1]).map(([k]) => k);
 

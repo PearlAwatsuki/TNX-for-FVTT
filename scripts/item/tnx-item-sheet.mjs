@@ -1,6 +1,6 @@
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 import { TnxUsageSheet, USAGE_TYPES, deriveUsageAutoFill, updateUsageActions } from "../module/tnx-usage-sheet.mjs";
-import { defaultConfrontationForType, executionFormOf } from "../module/usage-types.mjs";
+import { defaultConfrontationForType, executionFormOf, usageDisplayName } from "../module/usage-types.mjs";
 import { resolveBunshinOwner } from "../module/usage-consumption.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -55,6 +55,14 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         context.options = {
             usageTypeLabels: USAGE_TYPES,
         };
+        // 用途一覧の表示行: 表示名は usageDisplayName の一箇所で決める(placeholder・タイトル・
+        // 戦闘タブ・カードと同一形式)。テンプレート側での表示名の再実装は表示ずれの温床のため禁止
+        context.usageList = (this.item.system.actions ?? []).map((a) => ({
+            id: a._id,
+            type: a.type,
+            typeLabel: USAGE_TYPES[a.type] ?? a.type,
+            displayName: usageDisplayName(a, this.item.name),
+        }));
         context.isEditMode = this._isEditMode && context.editable;
 
         context.enrichedDescription = await foundry.applications.ux.TextEditor.enrichHTML(system.description, {
@@ -216,7 +224,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         const entry = {
             _id:         newId,
             type,
-            // 用途名の既定は空(2026-07-17 ユーザー確定): 空のときの実効名=親アイテム名
+            // 用途名の既定は空(2026-07-17 ユーザー確定): 空のときの実効名=「タイプ名（親アイテム名）」
             name:        "",
             description: "",
             timing:      { value: "blank", actionName: "blank", processName: "blank", timingOther: "" },

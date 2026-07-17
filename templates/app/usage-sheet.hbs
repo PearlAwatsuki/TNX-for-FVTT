@@ -415,7 +415,7 @@
                         <label class="usage-field-label">使用武器</label>
                         <div class="usage-skill-ref-list">
                             <div class="usage-skill-ref-row">
-                                <span class="usage-skill-ref-name">{{sheetAttackWeapon.name}}（{{sheetAttackWeapon.attackLabel}}）</span>
+                                <span class="usage-skill-ref-name">{{sheetAttackWeapon.name}}{{#if sheetAttackWeapon.attackLabel}}（{{sheetAttackWeapon.attackLabel}}）{{/if}}</span>
                             </div>
                             {{#each selectedWeapons}}
                             <div class="usage-skill-ref-row">

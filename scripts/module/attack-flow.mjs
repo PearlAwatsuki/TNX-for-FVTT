@@ -29,7 +29,7 @@ import { TargetSelectionDialog } from "./tnx-dialog.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { resolveNoReaction, resolveOpposed, formatAttackLabel, combineWeaponAttack, resolveAttackRecheckState } from "./attack-flow-logic.mjs";
 import { hasAmmoTracking, consumeNormalAmmo } from "./weapon-ammo.mjs";
-import { resolveAttackWeapons, attackWeaponDisplayName } from "./attack-weapons.mjs";
+import { resolveAttackWeapons, attackWeaponDisplayName, attackWeaponKindEligible } from "./attack-weapons.mjs";
 import { buildSkillOptions } from "./skill-select.mjs";
 import { movementStagesFromAchievement } from "./vehicle-move-logic.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
@@ -88,10 +88,8 @@ export async function useAttack(item, usage) {
         // cyborg 含む)は白兵武器として扱う。射撃攻撃は純粋な生身では行えない=射撃武器フラグの
         // 武器を準備していなければ「準備している武器が無い」扱いで判定不可
         const kind = usage.attackWeaponKind === "ranged" ? "ranged" : "melee";
-        const kindEligible = (w) => kind === "ranged"
-            ? w.system.isRangedWeapon === true
-            : (w.system.isMeleeWeapon === true || w.type === "cyborg" || readFlag(w.system, "isFleshChange"));
-        usedWeapons = resolveAttackWeapons(actor, usage, item).filter(kindEligible);
+        // 適格判定は attackWeaponKindEligible に一本化(用途シートの使用武器表示と同じ判定)
+        usedWeapons = resolveAttackWeapons(actor, usage, item).filter(w => attackWeaponKindEligible(w, kind));
         if (kind === "ranged" && !usedWeapons.length) {
             ui.notifications.warn("準備している武器が無いため、射撃攻撃を行えません。");
             return;

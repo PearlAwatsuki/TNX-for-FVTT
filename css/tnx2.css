@@ -6950,19 +6950,42 @@ button.tnx-create-act-button span {
     border-bottom-color: var(--tnx2-accent);
 }
 
-/* ── 種別バッジ カラー ── */
+/* ── 種別バッジ カラー ──
+   行動種別16種(usage-types.mjs)を kind で色分け:
+   判定=青 / 宣言=紫 / 攻撃3種=赤 / リアクション6種=緑 / その他の行動5種=シアン。
+   旧タイプ(attack/damageBoost/damageReduce)の色は再編で廃止 */
 .usage-type-badge.usage-type--check,
 .usage-type-tag.usage-type--check       { background: #1e3a5f; color: #7ab8f5; }
-.usage-type-badge.usage-type--attack,
-.usage-type-tag.usage-type--attack      { background: #5f1e1e; color: #f58080; }
 .usage-type-badge.usage-type--declaration,
 .usage-type-tag.usage-type--declaration { background: #3a1e5f; color: #b07af5; }
-.usage-type-badge.usage-type--damageBoost,
-.usage-type-tag.usage-type--damageBoost { background: #5f3a1e; color: #f5a87a; }
-.usage-type-badge.usage-type--damageReduce,
-.usage-type-tag.usage-type--damageReduce{ background: #1e5f2a; color: #7af59a; }
+.usage-type-badge.usage-type--physicalAttack,
+.usage-type-tag.usage-type--physicalAttack,
+.usage-type-badge.usage-type--mentalAttack,
+.usage-type-tag.usage-type--mentalAttack,
+.usage-type-badge.usage-type--socialAttack,
+.usage-type-tag.usage-type--socialAttack { background: #5f1e1e; color: #f58080; }
+.usage-type-badge.usage-type--dodge,
+.usage-type-tag.usage-type--dodge,
+.usage-type-badge.usage-type--parry,
+.usage-type-tag.usage-type--parry,
+.usage-type-badge.usage-type--mentalReaction,
+.usage-type-tag.usage-type--mentalReaction,
+.usage-type-badge.usage-type--socialReaction,
+.usage-type-tag.usage-type--socialReaction,
+.usage-type-badge.usage-type--moveBlockReaction,
+.usage-type-tag.usage-type--moveBlockReaction,
+.usage-type-badge.usage-type--escapeBlockReaction,
+.usage-type-tag.usage-type--escapeBlockReaction { background: #1e5f2a; color: #7af59a; }
+.usage-type-badge.usage-type--move,
+.usage-type-tag.usage-type--move,
+.usage-type-badge.usage-type--escape,
+.usage-type-tag.usage-type--escape,
+.usage-type-badge.usage-type--treatment,
+.usage-type-tag.usage-type--treatment,
 .usage-type-badge.usage-type--modification,
-.usage-type-tag.usage-type--modification{ background: #1e4a5f; color: #7ad8f5; }
+.usage-type-tag.usage-type--modification,
+.usage-type-badge.usage-type--covering,
+.usage-type-tag.usage-type--covering { background: #1e4a5f; color: #7ad8f5; }
 
 /* ── 用途リスト内の小バッジ ── */
 .usage-type-tag {
