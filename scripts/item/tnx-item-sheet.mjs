@@ -1,5 +1,5 @@
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
-import { TnxUsageSheet, USAGE_TYPES, deriveUsageAutoFill } from "../module/tnx-usage-sheet.mjs";
+import { TnxUsageSheet, USAGE_TYPES, deriveUsageAutoFill, updateUsageActions } from "../module/tnx-usage-sheet.mjs";
 import { defaultConfrontationForType, executionFormOf } from "../module/usage-types.mjs";
 import { resolveBunshinOwner } from "../module/usage-consumption.mjs";
 
@@ -224,7 +224,6 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         }
 
         const newId = foundry.utils.randomID();
-        const actions = foundry.utils.deepClone(this.item.system.actions ?? []);
         const entry = {
             _id:         newId,
             type,
@@ -257,8 +256,12 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             foundry.utils.mergeObject(entry, foundry.utils.expandObject(patch));
         }
 
-        actions.push(entry);
-        await this.item.update({ "system.actions": actions });
+        // 直列キュー経由(2026-07-17): 開いている用途シートの submit/enforcement と競合しても
+        // 最新の actions に対して追記する(stale 全配列上書きの最後勝ちで消えない)
+        await updateUsageActions(this.item, (actions) => {
+            actions.push(entry);
+            return actions;
+        });
 
         // 作成直後に編集シートを開く
         const sheet = new TnxUsageSheet(this.item, newId);
@@ -314,12 +317,14 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             if (app instanceof TnxUsageSheet && app._usageId === usageId) app.close();
         }
 
-        const actions = foundry.utils.deepClone(this.item.system.actions ?? []);
-        const idx = actions.findIndex(a => a._id === usageId);
-        if (idx >= 0) {
+        // 直列キュー経由(2026-07-17): 用途シートの submit/enforcement の in-flight 書き込みと
+        // 競合しても、削除は必ず最新の actions へ適用される(復活レースの根絶)
+        await updateUsageActions(this.item, (actions) => {
+            const idx = actions.findIndex(a => a._id === usageId);
+            if (idx === -1) return null;
             actions.splice(idx, 1);
-            await this.item.update({ "system.actions": actions });
-        }
+            return actions;
+        });
     }
 
     // ─── 種別選択ダイアログ ────────────────────────────────────────────────────

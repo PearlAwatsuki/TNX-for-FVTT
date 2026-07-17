@@ -34,6 +34,36 @@ const CHAIN_SKILL_TYPES = ["generalSkill", "styleSkill"];
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
+// ─── system.actions の直列書き込みキュー(2026-07-17) ─────────────────────────────
+// 用途は1フィールドの配列(system.actions)に同居するため、並行する全配列書き込み
+// (用途シートの submitOnChange/必須コンボ enforcement と、一覧の追加/削除)が最後勝ちで
+// 互いを巻き戻す——削除した用途が in-flight の書き込みで復活する等。アイテムごとに
+// 書き込みを直列化し、mutate は**直前の書き込み完了後の最新 actions** を受け取って
+// 新しい配列(null=変更なし)を返す。これで stale スナップショットの全配列上書きが消える。
+const actionsWriteQueues = new Map(); // item.uuid → Promise
+
+/**
+ * system.actions を直列に書き換える(全書き込み経路はこれを通す)。
+ * @param {Item} item 用途を持つアイテム
+ * @param {(actions: Array<object>) => (Array<object>|null|Promise<Array<object>|null>)} mutate
+ *        最新の actions(ディープコピー)を受け取り、新配列を返す(null=変更なし・書き込みしない)
+ */
+export async function updateUsageActions(item, mutate) {
+    const key = item.uuid ?? item.id;
+    const prev = actionsWriteQueues.get(key) ?? Promise.resolve();
+    const next = prev.catch(() => {}).then(async () => {
+        const actions = foundry.utils.deepClone(item.system.actions ?? []);
+        const result = await mutate(actions);
+        if (result) await item.update({ "system.actions": result });
+    });
+    actionsWriteQueues.set(key, next);
+    try {
+        await next;
+    } finally {
+        if (actionsWriteQueues.get(key) === next) actionsWriteQueues.delete(key);
+    }
+}
+
 // 用途タイプ=行動種別16種(2026-07-17 ユーザー確定)。正本は usage-types.mjs の USAGE_TYPE_DEFS。
 // 旧 check/declaration 一本化(2026-07-13)からの移行は usage.mjs の migrateData。
 export const USAGE_TYPES = USAGE_TYPE_LABELS;
@@ -221,7 +251,8 @@ export async function enforceUsageChainDefaultsOnImport(item) {
             changed = true;
         }
     }
-    if (changed) await item.update({ "system.actions": actions });
+    // 直列キュー経由(2026-07-17): シート側の書き込みと競合しないよう actions 書き込みを一元化
+    if (changed) await updateUsageActions(item, () => actions);
 }
 
 /**
@@ -1070,16 +1101,17 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
         // 判定ボーナス/ダメージ修正の行(式＋供給元)を indexed 入力から再構成する(consumeTargets と同型)。
         // 判定を行う用途すべてで行 UI を描画する(2026-07-17 再編)。空式の行は捨てる
+        let modeUiChanged = false; // 判定モード/ダメージを修正の切替=式欄等の出し入れがあるため再描画する
         if (executionFormOf(usage) === "check" && !Number.isFinite(usage.fixedResult)) {
             update.checkBonuses = TnxUsageSheet._collectBonusRows(raw, "checkBonus");
             update.checkBonusSelf = raw["checkBonusSelf"] ?? usage.checkBonusSelf ?? "";
             // 判定モード(ラジオ・2026-07-11/12): normal/grant/modify/suitChange。排他はラジオが保証。
             // 再判定可能(allowRecheck)・スート変更可能(allowSuitChange)は「判定を行う用途」の性質の
             // ため通常モードでのみ保持
-            const checkMode = raw["checkMode"]
-                ?? (usage.grantRecheck === true ? "grant"
-                    : (usage.modifyCheck === true ? "modify"
-                        : (usage.grantSuitChange === true ? "suitChange" : "normal")));
+            const prevCheckMode = usage.grantRecheck === true ? "grant"
+                : (usage.modifyCheck === true ? "modify"
+                    : (usage.grantSuitChange === true ? "suitChange" : "normal"));
+            const checkMode = raw["checkMode"] ?? prevCheckMode;
             update.grantRecheck    = checkMode === "grant";
             update.modifyCheck     = checkMode === "modify";
             update.grantSuitChange = checkMode === "suitChange";
@@ -1098,6 +1130,9 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             // スタン可能は物理攻撃のみの能力ゲート(精神は説得が常時可・社会は無)
             update.canStun = usage.type === "physicalAttack"
                 ? (raw["canStun"] ?? usage.canStun ?? false) : false;
+            // 「ダメージを修正」のオン/オフ=式欄の出し入れ・判定モード切替=サブトグルの出し入れ
+            modeUiChanged = (usage.type === "check" && isModD !== (usage.modifyDamage === true))
+                || checkMode !== prevCheckMode;
         }
 
         // 宣言(declaration)の判定/ダメージ修正(2026-07-12): チェックボックスは独立(排他にしない)。
@@ -1282,11 +1317,11 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         // ベースを別技能に変えて個数上限を超えたら、トリムダイアログで調整(取り消しで元のベースへ戻す)
         if (baseChanged) await this._promptTrimCombos(prevBaseRef);
 
-        // 白兵/射撃の変更(武器候補の絞り込み)・宣言の修正フラグ変更・消費種別の変更・治療設定の変更・
-        // 射程の幅・対決欄の種別/カスケード変更は入力欄の出し入れがあるため即再描画する
-        // (submitOnChange は再描画しない・2026-07-09)
-        if (attackKindChanged || declModifyChanged || consumeTypeChanged || recoveryUiChanged
-            || rangeUiChanged || confrontationUiChanged) {
+        // 白兵/射撃の変更(武器候補の絞り込み)・判定モード/ダメージを修正の切替・宣言の修正フラグ変更・
+        // 消費種別の変更・治療設定の変更・射程の幅・対決欄の種別/カスケード変更は入力欄の出し入れが
+        // あるため即再描画する(submitOnChange は再描画しない・2026-07-09)
+        if (attackKindChanged || modeUiChanged || declModifyChanged || consumeTypeChanged
+            || recoveryUiChanged || rangeUiChanged || confrontationUiChanged) {
             this.render({ force: true });
         }
     }
@@ -1591,13 +1626,16 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
      * @param {object} patch  ドット記法キーを含むパッチオブジェクト
      */
     async _patchUsage(patch) {
-        const actions = foundry.utils.deepClone(this._item.system.actions ?? []);
-        const idx = actions.findIndex(a => a._id === this._usageId);
-        if (idx === -1) return;
-        for (const [key, value] of Object.entries(patch)) {
-            foundry.utils.setProperty(actions[idx], key, value);
-        }
-        await this._item.update({ "system.actions": actions });
+        // 直列キュー経由(2026-07-17): 常に最新の actions に対して自分の用途だけを書き換える
+        // (削除済みなら何もしない=stale 上書きで消えた用途を復活させない)
+        await updateUsageActions(this._item, (actions) => {
+            const idx = actions.findIndex(a => a._id === this._usageId);
+            if (idx === -1) return null;
+            for (const [key, value] of Object.entries(patch)) {
+                foundry.utils.setProperty(actions[idx], key, value);
+            }
+            return actions;
+        });
     }
 
     // ─── 技能チェーン解決・必須コンボの enforcement ──────────────────────────────
