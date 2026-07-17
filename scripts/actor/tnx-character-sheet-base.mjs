@@ -827,7 +827,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             if (entries.some(e => e._id === item.id && e.usageId === usage._id)) return;
             entries.push({
                 _id: item.id, usageId: usage._id,
-                name: usageDisplayName(usage, itemDisplayName(item)),
+                name: usageDisplayName(usage, item.name),
                 sort: item.sort ?? 0,
             });
         };
@@ -2436,7 +2436,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         } else if (usableUsages.length === 1) {
             selectedUsage = usableUsages[0];
         } else {
-            selectedUsage = await TnxCharacterSheetBase._promptCheckUsage(usableUsages, itemDisplayName(item));
+            selectedUsage = await TnxCharacterSheetBase._promptCheckUsage(usableUsages, item.name);
             if (!selectedUsage) return;
         }
 
@@ -2615,7 +2615,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const usageEffects = await prepareUsageEffectPayload(actor, item, usage);
         if (usageEffects === "cancel") return;
         if (!usageEffects) {
-            ui.notifications?.info(`「${usageDisplayName(usage, itemDisplayName(item)) || "用途"}」を使用しました。`);
+            ui.notifications?.info(`「${usageDisplayName(usage, item.name) || "用途"}」を使用しました。`);
             return;
         }
         const esc = foundry.utils.escapeHTML;

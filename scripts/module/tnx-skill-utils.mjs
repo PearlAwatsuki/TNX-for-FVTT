@@ -1,4 +1,5 @@
 import { resolveComboSkillName } from "./skill-dictionary.mjs";
+import { formatSkillName } from "./identification.mjs";
 
 export class TnxSkillUtils {
 
@@ -230,9 +231,10 @@ export class TnxSkillUtils {
             const name = s.name || "";
 
             if (val === 'skillName') {
-                // name は識別キー(カスケード再設計後)。表示時に辞典から技能名へ都度逆引きする
+                // name は識別キー(カスケード再設計後)。表示時に辞典から技能名へ都度逆引きし、
+                // 〈〉付与は formatSkillName に一本化(2026-07-18・二重〈〉解消)。未解決は「〈〉」プレースホルダ
                 const display = resolveComboSkillName(name, skillNames);
-                label = display ? `〈${display}〉` : "〈〉";
+                label = formatSkillName(display) || "〈〉";
             } else if (val === 'other') {
                 label = name || "";
             } else {
@@ -257,9 +259,10 @@ export class TnxSkillUtils {
             const name = s.name || "";
 
             if (val === 'skillName' || val === 'skillNameAsterisk') {
-                // name は識別キー(カスケード化後)。表示時に辞典から技能名へ都度逆引きする。※は技能名※の印
+                // name は識別キー(カスケード化後)。表示時に辞典から技能名へ都度逆引きし、〈〉付与は
+                // formatSkillName に一本化(2026-07-18)。※は技能名※の印(〈〉の外に付す)
                 const display = resolveComboSkillName(name, skillNames);
-                label = display ? `〈${display}〉` : "〈〉";
+                label = formatSkillName(display) || "〈〉";
                 if (val === 'skillNameAsterisk') label += "※";
             } else if (val === 'other') {
                 label = name || "";

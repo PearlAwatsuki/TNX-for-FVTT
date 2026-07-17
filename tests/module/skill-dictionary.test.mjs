@@ -29,15 +29,15 @@ describe("wholeCategoryToken / isWholeCategoryToken", () => {
 describe("resolveComboSkillName()", () => {
   const skillNames = { assault: "白兵", society_police: "社会：警察" };
 
-  it("識別キーを辞典で技能名に逆引きし 〈〉 整形する(2026-07-18 ユーザー確定)", () => {
-    expect(resolveComboSkillName("assault", skillNames)).toBe("〈白兵〉");
-    expect(resolveComboSkillName("society_police", skillNames)).toBe("〈社会：警察〉");
+  it("識別キーを辞典で技能名に逆引きする(素の名前・〈〉付与は表示側 formatSkillName に一本化 2026-07-18)", () => {
+    expect(resolveComboSkillName("assault", skillNames)).toBe("白兵");
+    expect(resolveComboSkillName("society_police", skillNames)).toBe("社会：警察");
   });
 
-  it("カテゴリ全体トークンをカテゴリ名に解決する(スタイル例外/固有名詞小分類・〈〉整形)", () => {
-    expect(resolveComboSkillName("@element", skillNames)).toBe("〈元力〉");
-    expect(resolveComboSkillName("@bloodline", skillNames)).toBe("〈血脈〉");
-    expect(resolveComboSkillName("@society", skillNames)).toBe("〈社会〉");
+  it("カテゴリ全体トークンをカテゴリ名に解決する(スタイル例外/固有名詞小分類・素の名前)", () => {
+    expect(resolveComboSkillName("@element", skillNames)).toBe("元力");
+    expect(resolveComboSkillName("@bloodline", skillNames)).toBe("血脈");
+    expect(resolveComboSkillName("@society", skillNames)).toBe("社会");
   });
 
   it("辞典に無いキーは生値、空値は空文字(フォールバック)", () => {

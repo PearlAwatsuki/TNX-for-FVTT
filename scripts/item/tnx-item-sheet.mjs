@@ -1,7 +1,6 @@
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 import { TnxUsageSheet, USAGE_TYPES, deriveUsageAutoFill, updateUsageActions } from "../module/tnx-usage-sheet.mjs";
 import { defaultConfrontationForType, executionFormOf, usageDisplayName } from "../module/usage-types.mjs";
-import { itemDisplayName } from "../module/identification.mjs";
 import { resolveBunshinOwner } from "../module/usage-consumption.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -60,8 +59,8 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         // 戦闘タブ・カードと同一形式)。テンプレート側での表示名の再実装は表示ずれの温床のため禁止
         context.usageList = (this.item.system.actions ?? []).map((a) => ({
             id: a._id,
-            // 親が技能なら 〈〉 整形(2026-07-18: 技能名の表示は名前欄・アクター技能リスト以外で 〈〉)
-            displayName: usageDisplayName(a, itemDisplayName(this.item)),
+            // 用途名の技能名部分は〈〉で囲わない(2026-07-18 ユーザー確定): 親アイテム名は素の名前
+            displayName: usageDisplayName(a, this.item.name),
         }));
         context.isEditMode = this._isEditMode && context.editable;
 

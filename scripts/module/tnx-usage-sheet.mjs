@@ -485,8 +485,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
     get title() {
         // 名前が空のときの実効名=「タイプ名（親アイテム名）」(2026-07-17 ユーザー確定)。
-        // 親が技能なら 〈〉 整形(2026-07-18)
-        const name = usageDisplayName(this.usage, itemDisplayName(this._item));
+        // 用途名の技能名部分は〈〉で囲わない(2026-07-18)=親アイテム名は素の名前
+        const name = usageDisplayName(this.usage, this._item?.name);
         return name ? `用途: ${name}` : "用途";
     }
 
@@ -519,8 +519,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         context.editable   = this._item.isOwner;
         context.skillOpts  = TnxSkillUtils.getSkillOptions();
         // 用途名の既定は空(2026-07-17 ユーザー確定): placeholder は空のときの実効名
-        // 「タイプ名（親アイテム名）」(usageDisplayName と同一形式・親が技能なら 〈〉 整形)
-        context.namePlaceholder = usageDisplayName({ type: usage.type }, itemDisplayName(this._item));
+        // 「タイプ名（親アイテム名）」(usageDisplayName と同一形式・技能名部分は〈〉なし=素の名前)
+        context.namePlaceholder = usageDisplayName({ type: usage.type }, this._item.name);
         // 射程の幅(2026-07-16): 物理射程のときのみ最長射程セレクトを出す(武器エディタの min〜max と同形)
         context.showRangeMax    = RANGE_SPAN_CAPABLE.has(usage.range);
         context.rangeMaxOptions = WEAPON_RANGE_MAX_OPTIONS;

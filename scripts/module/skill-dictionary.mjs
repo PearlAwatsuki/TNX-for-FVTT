@@ -88,12 +88,13 @@ export function isWholeCategoryToken(value) {
 export function resolveComboSkillName(value, skillNames = {}) {
   const v = String(value ?? "").trim();
   if (!v) return "";
-  // 技能名の表示は 〈〉 整形(2026-07-18 ユーザー確定)。辞典で解決できない生値はそのまま返す
+  // 解決に専念し**素の技能名**を返す(2026-07-18 一本化): 〈〉付与は表示側で formatSkillName が唯一行う。
+  // 辞典で解決できない生値はそのまま返す
   if (isWholeCategoryToken(v)) {
     const kind = v.slice(1);
-    return formatSkillName(STYLE_WHOLE_CATEGORY_PREFIXES[kind] ?? ONOMASTIC_TYPES[kind] ?? kind);
+    return STYLE_WHOLE_CATEGORY_PREFIXES[kind] ?? ONOMASTIC_TYPES[kind] ?? kind;
   }
-  return skillNames[v] ? formatSkillName(skillNames[v]) : v;
+  return skillNames[v] ?? v;
 }
 
 /**
@@ -111,7 +112,7 @@ function buildStyleSkillOptions(styleSkills) {
     const prefix = idKeyPrefix(e.identificationKey);
     const wholeLabel = STYLE_WHOLE_CATEGORY_PREFIXES[prefix];
     if (wholeLabel && !inserted.has(prefix)) {
-      opts[wholeCategoryToken(prefix)] = `〈${wholeLabel}〉（カテゴリ全体）`;
+      opts[wholeCategoryToken(prefix)] = `${formatSkillName(wholeLabel)}（カテゴリ全体）`;
       inserted.add(prefix);
     }
     opts[e.identificationKey] = formatSkillName(e.name);
@@ -152,7 +153,7 @@ export function buildSkillCascadeSteps(data, path = {}) {
       push("sub", "小分類", subOpts, path.sub);
       if (path.sub) {
         // 小分類リストの先頭にカテゴリ全体(〈社会〉等)を置く
-        const opts = { "": "-", [wholeCategoryToken(path.sub)]: `〈${ONOMASTIC_TYPES[path.sub] ?? path.sub}〉（カテゴリ全体）` };
+        const opts = { "": "-", [wholeCategoryToken(path.sub)]: `${formatSkillName(ONOMASTIC_TYPES[path.sub] ?? path.sub)}（カテゴリ全体）` };
         for (const e of general.filter((x) => x.generalSkillCategory === "onomasticSkill" && idKeyPrefix(x.identificationKey) === path.sub)) opts[e.identificationKey] = formatSkillName(e.name);
         push("skill", "技能名", opts, path.skill);
       }
