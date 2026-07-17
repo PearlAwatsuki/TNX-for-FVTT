@@ -35,3 +35,28 @@ export function resolveItemNameByKey(actor, key, dictNames = null) {
     if (dictNames && dictNames[key]) return dictNames[key];
     return "";
 }
+
+/**
+ * 技能名の表示整形(2026-07-18 ユーザー確定): **アイテム名欄・アクターシートの技能リスト以外**で
+ * 技能名を表示するときは必ず 〈〉 で囲い、秘技/奥義/演出特技の識別マーク(†・※・@)は省く。
+ * @param {string} name 技能名(素の item.name)
+ * @returns {string} 「〈名前〉」(空は "")
+ */
+export function formatSkillName(name) {
+    // 既に 〈〉 付きの入力も受ける(冪等・二重囲い防止)
+    const stripped = String(name ?? "").replace(/[〈〉†※@]/g, "").trim();
+    return stripped ? `〈${stripped}〉` : "";
+}
+
+/**
+ * アイテムの表示ラベル: 技能(一般/スタイル)は formatSkillName で 〈〉 整形・それ以外は素の名前。
+ * 用途の実効名「タイプ名（親アイテム名）」の親名部分など、技能か否かが混在する表示に使う。
+ * @param {{type?: string, name?: string}|null} item
+ * @returns {string}
+ */
+export function itemDisplayName(item) {
+    if (!item) return "";
+    return (item.type === "generalSkill" || item.type === "styleSkill")
+        ? formatSkillName(item.name)
+        : (item.name ?? "");
+}

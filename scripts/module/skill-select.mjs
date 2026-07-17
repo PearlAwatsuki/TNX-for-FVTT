@@ -7,6 +7,8 @@
  *   (正準名で照合。規定が無い/所持していなければ先頭のまま)。
  */
 
+import { formatSkillName } from "./identification.mjs";
+
 /** 一般技能(sort 順) → スタイル技能(sort 順) の順に並べ替える。 */
 export function orderSkills(items) {
     const bySort = (a, b) => (a.sort ?? 0) - (b.sort ?? 0);
@@ -27,6 +29,7 @@ export function buildSkillOptions(items, { defaultName = "" } = {}) {
     return ordered.map(s => {
         const selected = !matched && !!defaultName && s.name === defaultName;
         if (selected) matched = true;
-        return { value: s.id, label: s.name, selected };
+        // 技能名の表示は 〈〉 整形(2026-07-18 ユーザー確定・識別マークは省く)
+        return { value: s.id, label: formatSkillName(s.name), selected };
     });
 }

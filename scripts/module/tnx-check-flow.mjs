@@ -23,6 +23,7 @@ import { TnxActionHandler } from './tnx-action-handler.mjs';
 import { TnxSocketHandler } from './tnx-socket-handler.mjs';
 import { getUserFlagData } from './user-flag-schema.mjs';
 import { applyConsumptionPlan } from './usage-consumption.mjs';
+import { formatSkillName } from './identification.mjs';
 
 /**
  * @typedef {object} CheckContext
@@ -1150,11 +1151,13 @@ export class TnxCheckFlow {
         if (mergeSkill) {
             if (!skillIds.includes(mergeSkill.id)) {
                 skillIds   = [...skillIds, mergeSkill.id];
-                skillLabel = skillLabel ? `${skillLabel}+${mergeSkill.name}` : mergeSkill.name;
+                // 技能名の表示は 〈〉 整形(2026-07-18)
+                const mergeLabel = formatSkillName(mergeSkill.name);
+                skillLabel = skillLabel ? `${skillLabel}+${mergeLabel}` : mergeLabel;
             }
             validSuits = (validSuits ?? []).filter(s => readFlag(mergeSkill.system, `suits.${s}`));
             if (!validSuits.length) {
-                ui.notifications.warn(`「${mergeSkill.name}」と元の判定に共通スートがないため、組み合わせて再判定できません。`);
+                ui.notifications.warn(`${formatSkillName(mergeSkill.name)}と元の判定に共通スートがないため、組み合わせて再判定できません。`);
                 return;
             }
         }

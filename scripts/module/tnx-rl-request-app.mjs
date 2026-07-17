@@ -15,7 +15,7 @@
 import { ALL_SUITS } from './tnx-check-engine.mjs';
 import { TnxCheckFlow } from './tnx-check-flow.mjs';
 import { buildSkillOptions } from './skill-select.mjs';
-import { findItemByIdentificationKey } from './identification.mjs';
+import { findItemByIdentificationKey, formatSkillName } from './identification.mjs';
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -168,14 +168,15 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
         // 技能/能力値ラベル
         let skillLabel;
         if (checkType === "skillCheck") {
+            // 技能名の表示は 〈〉 整形(2026-07-18・識別マーク省去。キー未解決の生値はそのまま)
             if (identificationKey) {
                 const cached = TnxRlRequestApp._compendiumSkillCache?.find(
                     s => s.identificationKey === identificationKey
                 );
-                skillLabel = cached?.name ?? identificationKey;
+                skillLabel = cached?.name ? formatSkillName(cached.name) : identificationKey;
             } else {
-                skillLabel = form.querySelector("[name=customSkillName]")?.value?.trim()
-                    || "（指定技能）";
+                const custom = form.querySelector("[name=customSkillName]")?.value?.trim();
+                skillLabel = custom ? formatSkillName(custom) : "（指定技能）";
             }
         } else {
             const abilityKey = form.querySelector("[name=abilityKey]")?.value ?? "reason";

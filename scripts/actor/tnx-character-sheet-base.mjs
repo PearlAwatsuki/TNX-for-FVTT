@@ -35,7 +35,8 @@ import { applyTriggerDisable } from '../module/ui-trigger-disable.mjs';
 import { openConditionEditDialog } from '../module/condition-edit.mjs';
 import { startTreatment } from '../module/treatment-flow.mjs';
 import { isAttackUsage } from '../data/item/common/usage.mjs';
-import { executionFormOf, usesVehicle, usageDisplayName, USAGE_TYPE_LABELS, isReactionType } from '../module/usage-types.mjs';
+import { executionFormOf, usesVehicle, usageDisplayName, isReactionType } from '../module/usage-types.mjs';
+import { itemDisplayName } from '../module/identification.mjs';
 import { isOpposedConfrontation } from '../module/confrontation-logic.mjs';
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -826,7 +827,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             if (entries.some(e => e._id === item.id && e.usageId === usage._id)) return;
             entries.push({
                 _id: item.id, usageId: usage._id,
-                name: usageDisplayName(usage, item.name),
+                name: usageDisplayName(usage, itemDisplayName(item)),
                 sort: item.sort ?? 0,
             });
         };
@@ -2435,7 +2436,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         } else if (usableUsages.length === 1) {
             selectedUsage = usableUsages[0];
         } else {
-            selectedUsage = await TnxCharacterSheetBase._promptCheckUsage(usableUsages, item.name);
+            selectedUsage = await TnxCharacterSheetBase._promptCheckUsage(usableUsages, itemDisplayName(item));
             if (!selectedUsage) return;
         }
 
@@ -2614,7 +2615,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const usageEffects = await prepareUsageEffectPayload(actor, item, usage);
         if (usageEffects === "cancel") return;
         if (!usageEffects) {
-            ui.notifications?.info(`「${usageDisplayName(usage, item.name) || "用途"}」を使用しました。`);
+            ui.notifications?.info(`「${usageDisplayName(usage, itemDisplayName(item)) || "用途"}」を使用しました。`);
             return;
         }
         const esc = foundry.utils.escapeHTML;
@@ -2668,7 +2669,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                 actor,
                 actorName:      actor?.name ?? "不明",
                 typeLabel:      "技能判定",
-                skillLabel:     item.name,
+                skillLabel:     itemDisplayName(item),
                 isFixedCheck:   true,
                 result,
                 checkSources:   [],
@@ -2696,9 +2697,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const iconFor = (u) => u.npcAcquire === true ? "fas fa-users"
             : isAttackUsage(u) ? "fas fa-burst"
                 : isReactionType(u.type) ? "fas fa-shield-halved" : "fas fa-diamond";
-        // 名前が空のときは「タイプ名（親アイテム名）」(用途名 placeholder と同じ規約・2026-07-17)
-        const labelFor = (u) => u.name
-            || `${USAGE_TYPE_LABELS[u.type] ?? u.type}（${skillName}）`;
+        // 名前が空のときは実効名「タイプ名（親アイテム名）」(usageDisplayName と同一規約。
+        // skillName は呼び出し側で 〈〉 整形済み・2026-07-18)
+        const labelFor = (u) => usageDisplayName(u, skillName);
         const buttons = [
             ...usages.map((u, i) => ({
                 action:   String(i),

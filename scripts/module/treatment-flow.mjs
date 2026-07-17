@@ -18,6 +18,7 @@ import { CONDITION_KINDS } from "./conditions.mjs";
 import { getConditionKinds } from "./conditions.mjs";
 import { TargetSelectionDialog } from "./tnx-dialog.mjs";
 import { buildSkillOptions } from "./skill-select.mjs";
+import { formatSkillName } from "./identification.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
@@ -118,7 +119,7 @@ export async function startTreatment(patient, effectId) {
         const sub = await promptSubstituteSkill(treater);
         if (!sub) return;
         skill = sub.skill;
-        substitution = { requestedLabel: "治療", usedName: sub.skill.name };
+        substitution = { requestedLabel: "治療", usedName: formatSkillName(sub.skill.name) };
         manualMod = sub.manualMod;
     }
     // 起動は唯一の起動関数へ集約(2026-07-15 ユーザー確定)。用途・コンボ・消費・判定ボーナス・適用効果は

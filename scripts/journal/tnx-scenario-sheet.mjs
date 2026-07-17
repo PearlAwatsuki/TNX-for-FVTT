@@ -4,6 +4,7 @@ import { TnxActionHandler } from '../module/tnx-action-handler.mjs';
 import { saveUserFlagCards, getUserFlagData } from '../module/user-flag-schema.mjs';
 import { TnxCheckFlow } from '../module/tnx-check-flow.mjs';
 import { ALL_SUITS } from '../module/tnx-check-engine.mjs';
+import { formatSkillName } from '../module/identification.mjs';
 
 const { HandlebarsApplicationMixin, DocumentSheetV2, DialogV2 } = foundry.applications.api;
 
@@ -620,7 +621,9 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             return ui.notifications.warn("ユーザーにキャラクターが割り当てられていません。プレイヤー設定でキャラクターを選択してください。");
         }
         const row       = target.closest(".skill-check-row");
-        const skillName = row?.querySelector(".skill-name")?.value?.trim() || "（技能不明）";
+        // 技能名の表示は 〈〉 整形(2026-07-18・識別マーク省去)。未入力はプレースホルダーのまま
+        const rawSkill  = row?.querySelector(".skill-name")?.value?.trim() || "";
+        const skillName = rawSkill ? formatSkillName(rawSkill) : "（技能不明）";
         const tnRaw     = parseInt(row?.querySelector(".skill-tn")?.value);
         const tn        = Number.isFinite(tnRaw) ? tnRaw : null;
 

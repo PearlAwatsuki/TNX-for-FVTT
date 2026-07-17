@@ -15,6 +15,7 @@ import { resolveConsumeRowsForActor, promptConsumption } from "./usage-consumpti
 import { prepareUsageEffectPayload } from "./usage-effects.mjs";
 import { resolveUsageTargetValue } from "./usage-target-value.mjs";
 import { executionFormOf } from "./usage-types.mjs";
+import { formatSkillName } from "./identification.mjs";
 
 /**
  * 技能ベース用途(check)の参加技能を解決する。ベース技能(用途の baseSkillRef 優先・未設定は親アイテム)＋
@@ -85,8 +86,9 @@ export async function buildUsageCheckContext(actor, item, usage, {
 
     // 参加技能(ベース＋コンボ)の解決
     const { allSkillIds, allSkillSystems, validSuits } = resolveUsageSkillSet(item, usage, actor);
+    // 技能名の表示は 〈〉 整形(2026-07-18 ユーザー確定): 例「〈白兵〉+〈運動〉」
     const skillLabel = allSkillIds
-        .map(id => actor.items.get(id)?.name ?? "")
+        .map(id => formatSkillName(actor.items.get(id)?.name ?? ""))
         .filter(Boolean)
         .join("+");
 

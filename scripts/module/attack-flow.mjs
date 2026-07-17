@@ -38,7 +38,7 @@ import {
     confrontationReactionTypes, confrontationSkillRows, confrontationHasCannot,
     asteriskSkillKeys, isOpposedConfrontation,
 } from "./confrontation-logic.mjs";
-import { findItemByIdentificationKey, resolveItemNameByKey } from "./identification.mjs";
+import { findItemByIdentificationKey, resolveItemNameByKey, itemDisplayName } from "./identification.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -158,7 +158,7 @@ export async function useAttack(item, usage) {
             stunCapable,                       // スタン攻撃を宣言できるか(物理・武器/生身/用途canStun 由来・2026-07-15)
             stunDeclared: false,               // 判定ダイアログのトグルで宣言される(2026-07-15)
             skillLabel: base.skillLabel,
-            usageName: usageDisplayName(usage, item.name),
+            usageName: usageDisplayName(usage, itemDisplayName(item)),
             usageEffects: base.usageEffects,   // 付与効果ペイロード(null=効果なし)。攻撃カードのフラグへ
         },
     });
@@ -207,7 +207,7 @@ export async function useOpposedCheck(item, usage, openExtra = {}) {
             sourceItemId: item.id,
             stunCapable: false, stunDeclared: false,
             skillLabel: base.skillLabel,
-            usageName: usageDisplayName(usage, item.name),
+            usageName: usageDisplayName(usage, itemDisplayName(item)),
             usageEffects: base.usageEffects,
             ...(movement ? { movement } : {}),
         },

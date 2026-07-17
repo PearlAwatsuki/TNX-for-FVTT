@@ -27,10 +27,35 @@ import {
     executionFormOf, defaultConfrontationForType, usageDisplayName,
 } from "./usage-types.mjs";
 import { USAGE_CONFRONTATION_OPTIONS, mergeConfrontationRows } from "./confrontation-logic.mjs";
-import { findItemByIdentificationKey } from "./identification.mjs";
+import { findItemByIdentificationKey, formatSkillName, itemDisplayName } from "./identification.mjs";
 import { hasAmmoTracking } from "./weapon-ammo.mjs";
 
 const CHAIN_SKILL_TYPES = ["generalSkill", "styleSkill"];
+
+/**
+ * 用途の技能参照(ベース・組み合わせ)を解決する「同輩」技能一覧(2026-07-18 ユーザー是正)。
+ * アクター所持=アクターの技能・辞典(コンペンディウム)アイテム=同じパックの技能・
+ * ワールド直下=ワールドの技能。従来はアクター所持しか見ておらず、辞典/ワールド直下の
+ * 用途ではベース技能・組み合わせが解決されなかった。パックは getDocument(キャッシュ優先=
+ * 差し替えを起こさない)で個別に読む——getDocuments の一括再取得は開いているシートを
+ * 孤児化させるため使わない(KI-026)。
+ * @param {Item} item 用途を持つアイテム
+ * @returns {Promise<Item[]>} 同輩の技能(generalSkill/styleSkill。item 自身が技能なら含む)
+ */
+export async function resolveUsageSiblingSkills(item) {
+    const isSkill = (t) => CHAIN_SKILL_TYPES.includes(t);
+    if (item.actor) return item.actor.items.filter(i => isSkill(i.type));
+    if (item.pack) {
+        const pack = game.packs.get(item.pack);
+        if (!pack) return isSkill(item.type) ? [item] : [];
+        const index = await pack.getIndex();
+        const ids = [...index].filter(e => isSkill(e.type)).map(e => e._id);
+        const docs = await Promise.all(ids.map(id =>
+            id === item.id ? item : pack.getDocument(id).catch(() => null)));
+        return docs.filter(Boolean);
+    }
+    return game.items.filter(i => isSkill(i.type));
+}
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -274,7 +299,10 @@ export async function deriveUsageAutoFill(item, usage) {
     const actor = item.actor;
     const baseId = item.system.isAction === true ? item.id : (usage.baseSkillRef?.itemId || item.id);
     const ids = new Set([item.id, baseId, ...(usage.skillRefs ?? []).map(r => r.itemId)].filter(Boolean));
-    const skills = [...ids].map(id => (id === item.id ? item : actor?.items.get(id))).filter(Boolean);
+    // 参照解決は同輩コレクション(2026-07-18 是正: 辞典/ワールド直下でもベース・組み合わせを解決)
+    const siblings = await resolveUsageSiblingSkills(item);
+    const siblingById = new Map(siblings.map(i => [i.id, i]));
+    const skills = [...ids].map(id => (id === item.id ? item : siblingById.get(id))).filter(Boolean);
     // 発動パラメータ(target/range/timing/targetValue/confrontation)は**技能**の固有値から導出する。
     // アウトフィット(式神符等)への NPC取得用途など非技能ベースでは、これらは技能形でないため対象外
     // (2026-07-09 修正: 旧実装は item.system.timing 等を無条件に読み .find で TypeError)。
@@ -437,8 +465,9 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
     }
 
     get title() {
-        // 名前が空のときの実効名=「タイプ名（親アイテム名）」(2026-07-17 ユーザー確定)
-        const name = usageDisplayName(this.usage, this._item?.name);
+        // 名前が空のときの実効名=「タイプ名（親アイテム名）」(2026-07-17 ユーザー確定)。
+        // 親が技能なら 〈〉 整形(2026-07-18)
+        const name = usageDisplayName(this.usage, itemDisplayName(this._item));
         return name ? `用途: ${name}` : "用途";
     }
 
@@ -471,8 +500,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         context.editable   = this._item.isOwner;
         context.skillOpts  = TnxSkillUtils.getSkillOptions();
         // 用途名の既定は空(2026-07-17 ユーザー確定): placeholder は空のときの実効名
-        // 「タイプ名（親アイテム名）」(usageDisplayName と同一形式・例:「判定（ペネトレイト）」)
-        context.namePlaceholder = usageDisplayName({ type: usage.type }, this._item.name);
+        // 「タイプ名（親アイテム名）」(usageDisplayName と同一形式・親が技能なら 〈〉 整形)
+        context.namePlaceholder = usageDisplayName({ type: usage.type }, itemDisplayName(this._item));
         // 射程の幅(2026-07-16): 物理射程のときのみ最長射程セレクトを出す(武器エディタの min〜max と同形)
         context.showRangeMax    = RANGE_SPAN_CAPABLE.has(usage.range);
         context.rangeMaxOptions = WEAPON_RANGE_MAX_OPTIONS;
@@ -593,9 +622,14 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
         // ベース技能・組み合わせ技能候補（check / attack）
         if (context.showSkillParams) {
-            const SKILL_TYPES = ["generalSkill", "styleSkill"];
-            const actor = this._item.actor;
             const parentIsAction = this._item.system.isAction === true;
+
+            // 同輩技能(2026-07-18 是正): アクター所持だけでなく辞典/ワールド直下でも、同じ
+            // コレクションの技能でベース・組み合わせを解決する。アクションハンドラ(チェーン
+            // enforcement 等)からも使うため直近レンダーのキャッシュとして持つ
+            const siblingSkills = await resolveUsageSiblingSkills(this._item);
+            this._siblingSkills = siblingSkills;
+            const skillById = new Map(siblingSkills.map(i => [i.id, i]));
 
             // 技能チェーン解決: アクション技能がチェーンにあると、ベースは「指定技能＋その代用」に限定する
             // (他の無関係な技能はベースになれない)。候補が1つなら固定表示、代用が増えれば選択可能(ハードロックにしない)。
@@ -612,17 +646,21 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             // ロック時、現ベースが候補外(未設定含む)なら既定(指定技能・本体優先)へ寄せる
             if (baseCandidates && !baseCandidates.includes(baseId)) baseId = defaultBaseId ?? baseCandidates[0] ?? "";
 
-            const baseItem = actor?.items.get(baseId) ?? (baseId === parentItemId ? this._item : null);
-            context.baseSkillName  = baseItem?.name ?? (baseId ? `(削除済み: ${baseId})` : "");
+            const baseItem = skillById.get(baseId) ?? (baseId === parentItemId ? this._item : null);
+            // 技能名の表示は 〈〉 整形(2026-07-18 ユーザー確定: 名前欄・アクターシートの技能リスト以外)
+            context.baseSkillName  = baseItem ? formatSkillName(baseItem.name) : (baseId ? `(削除済み: ${baseId})` : "");
             context.baseSkillId    = baseId;
             // 候補が1つだけ(代用なし)なら固定表示、複数(代用あり)なら選択可能
             context.baseSkillFixed = !!baseCandidates && baseCandidates.length <= 1;
 
             context.availableBaseSkills = baseCandidates
-                ? baseCandidates.map(id => ({ id, name: actor?.items.get(id)?.name ?? (id === parentItemId ? this._item.name : `(削除済み: ${id})`) }))
-                : (actor?.items ?? [])
-                    .filter(i => SKILL_TYPES.includes(i.type) && i.id !== parentItemId)
-                    .map(i => ({ id: i.id, name: i.name }))
+                ? baseCandidates.map(id => {
+                    const s = skillById.get(id) ?? (id === parentItemId ? this._item : null);
+                    return { id, name: s ? formatSkillName(s.name) : `(削除済み: ${id})` };
+                })
+                : siblingSkills
+                    .filter(i => i.id !== parentItemId)
+                    .map(i => ({ id: i.id, name: formatSkillName(i.name) }))
                     .sort((a, b) => a.name.localeCompare(b.name, "ja"));
 
             const parentIsComboMember = !!baseId && parentItemId !== baseId;
@@ -634,17 +672,17 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             const currentSystems = [
                 baseItem?.system,
                 ...(parentIsComboMember ? [this._item.system] : []),
-                ...usage.skillRefs.map(r => actor?.items.get(r.itemId)?.system),
+                ...usage.skillRefs.map(r => skillById.get(r.itemId)?.system),
             ].filter(Boolean);
             const currentSuits = getComboSuits(currentSystems);
 
             // 組み合わせ候補: アクション技能(必ずベース)・組み合わせ不可技能(単独判定のみ)・
             // 現在の構成と共通スートを持たない技能 は除外する。
-            context.availableSkills = (actor?.items ?? [])
-                .filter(i => SKILL_TYPES.includes(i.type) && !usedIds.has(i.id)
+            context.availableSkills = siblingSkills
+                .filter(i => !usedIds.has(i.id)
                     && i.system.isAction !== true && i.system.noCombo !== true
                     && currentSuits.some(suit => readFlag(i.system, `suits.${suit}`)))
-                .map(i => ({ id: i.id, name: i.name }))
+                .map(i => ({ id: i.id, name: formatSkillName(i.name) }))
                 .sort((a, b) => a.name.localeCompare(b.name, "ja"));
 
             // 技能チェーン: 「、」候補制限(どれか1つ登録まで候補をその代替に絞る)・必須コンボの削除不可表示
@@ -664,10 +702,10 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             }
 
             context.skillRefItems = [
-                ...(parentIsComboMember ? [{ idx: -1, itemId: parentItemId, name: this._item.name, isLocked: true }] : []),
+                ...(parentIsComboMember ? [{ idx: -1, itemId: parentItemId, name: itemDisplayName(this._item), isLocked: true }] : []),
                 ...usage.skillRefs.map((r, idx) => {
-                    const skillItem = actor?.items.get(r.itemId);
-                    return { idx, itemId: r.itemId, name: skillItem?.name ?? `(削除済み: ${r.itemId})`, isLocked: lockOf(r.itemId) };
+                    const skillItem = skillById.get(r.itemId);
+                    return { idx, itemId: r.itemId, name: skillItem ? formatSkillName(skillItem.name) : `(削除済み: ${r.itemId})`, isLocked: lockOf(r.itemId) };
                 }),
             ];
 
@@ -679,12 +717,12 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             // 指定技能を自動追加せず単体で組み合わせに参加できる(〈技能AⅡ〉系の効果)。
             // 保存は辞典の識別キー・表示は逆引きした技能名(未収載キーはそのまま)
             const ignoreKeys = this._ignoreComboKeys();
-            context.ignoreComboRows = ignoreKeys.map(key => ({ key, name: nameOf(key) }));
+            context.ignoreComboRows = ignoreKeys.map(key => ({ key, name: formatSkillName(nameOf(key)) || key }));
             const usedIgnore = new Set(ignoreKeys);
             context.ignoreComboChoices = Object.entries(skillNames)
                 .filter(([key]) => key && !usedIgnore.has(key))
-                .map(([key, name]) => ({ key, name }))
-                .sort((a, b) => a.name.localeCompare(b.name, "ja"));
+                .sort((a, b) => a[1].localeCompare(b[1], "ja"))
+                .map(([key, name]) => ({ key, name: formatSkillName(name) }));
         }
 
         // 対決欄: **全タイプが持つ**(2026-07-18 ユーザー裁定: リアクション用途でも対決「なし」で
@@ -775,12 +813,13 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             // 表示は逆引きした現在名)。式は @system.*・@item.<識別キー>.system.* を参照可(2026-07-10)。
             // 供給元候補(グループ化): 組み合わせスタイル技能(一般技能除外)＋使用武器。値=識別キー・
             // 表示=現在のアイテム名。識別キーを持つものだけ(帰属できる供給元)を出す
-            const getItem = (id) => this._item.actor?.items.get(id);
+            // 技能は同輩キャッシュ(辞典/ワールド直下でも解決・2026-07-18)・武器はアクター所持のみ
+            const getItem = (id) => this._siblingSkills?.find(i => i.id === id) ?? this._item.actor?.items.get(id);
             const skillItemIds = [...new Set([usage.baseSkillRef?.itemId, ...(usage.skillRefs ?? []).map(r => r.itemId)].filter(Boolean))];
             const styleSourceOpts = skillItemIds
                 .map(getItem)
                 .filter(it => it && it.type === "styleSkill" && it.system.identificationKey)
-                .map(it => ({ value: it.system.identificationKey, label: it.name }));
+                .map(it => ({ value: it.system.identificationKey, label: formatSkillName(it.name) }));
             const weaponSourceOpts = (usage.weaponRefs ?? [])
                 .map(r => getItem(r.itemId))
                 .filter(it => it && it.system.identificationKey)
@@ -813,7 +852,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             };
             const usesOptions = (actor?.items ?? [])
                 .filter(i => i.system?.uses?.isLimit === true && i.id !== this._item.id)
-                .map(i => ({ id: i.id, name: i.name }))
+                .map(i => ({ id: i.id, name: itemDisplayName(i) })) // 技能は 〈〉 整形(2026-07-18)
                 .sort((a, b) => a.name.localeCompare(b.name, "ja"));
             const miracleOptions = (actor?.items ?? [])
                 .filter(i => i.type === "miracle")
@@ -1681,13 +1720,21 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         return normalizeSkillItemDoc(it);
     }
 
-    /** actor 上の技能アイテム(判定を行う用途=攻撃・リアクション等を含む・連鎖対象)を正規化して返す。対象外は null。 */
+    /**
+     * 同輩の技能アイテム(判定を行う用途=攻撃・リアクション等を含む・連鎖対象)を正規化して返す。対象外は null。
+     * アクター所持はアクターの技能・辞典/ワールド直下は直近レンダーの同輩キャッシュ
+     * (resolveUsageSiblingSkills・2026-07-18 是正=アクター外でもベース技能・連鎖を解決する)
+     */
     _actorSkillItems() {
         const usage = this.usage;
-        const actor = this._item.actor;
         if (!usage || executionFormOf(usage) !== "check") return null;
-        if (!actor || !CHAIN_SKILL_TYPES.includes(this._item.type)) return null;
-        return actor.items.filter(i => CHAIN_SKILL_TYPES.includes(i.type)).map(i => this._normalizeSkillItem(i));
+        if (!CHAIN_SKILL_TYPES.includes(this._item.type)) return null;
+        const actor = this._item.actor;
+        const skills = actor
+            ? actor.items.filter(i => CHAIN_SKILL_TYPES.includes(i.type))
+            : this._siblingSkills;
+        if (!skills) return null;
+        return skills.map(i => this._normalizeSkillItem(i));
     }
 
     /** 用途の「技能」欄チェーンを actor アイテムに解決する(現コンボを seed に含めて推移的に)。 */

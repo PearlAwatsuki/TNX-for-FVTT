@@ -8,6 +8,8 @@
  * 対象辞典(system.json packs): general-skills(一般技能) / style-skills(スタイル技能) / works-skills(ワークス専用技能)。
  */
 
+import { formatSkillName } from "./identification.mjs";
+
 /** pack 名 → 表示用ラベル(辞典名)。将来のオプショングループ化に使う。 */
 export const SKILL_PACKS = {
   general: "tokyo-nova-axleration.general-skills",
@@ -86,11 +88,12 @@ export function isWholeCategoryToken(value) {
 export function resolveComboSkillName(value, skillNames = {}) {
   const v = String(value ?? "").trim();
   if (!v) return "";
+  // 技能名の表示は 〈〉 整形(2026-07-18 ユーザー確定)。辞典で解決できない生値はそのまま返す
   if (isWholeCategoryToken(v)) {
     const kind = v.slice(1);
-    return STYLE_WHOLE_CATEGORY_PREFIXES[kind] ?? ONOMASTIC_TYPES[kind] ?? kind;
+    return formatSkillName(STYLE_WHOLE_CATEGORY_PREFIXES[kind] ?? ONOMASTIC_TYPES[kind] ?? kind);
   }
-  return skillNames[v] ?? v;
+  return skillNames[v] ? formatSkillName(skillNames[v]) : v;
 }
 
 /**
@@ -111,7 +114,7 @@ function buildStyleSkillOptions(styleSkills) {
       opts[wholeCategoryToken(prefix)] = `〈${wholeLabel}〉（カテゴリ全体）`;
       inserted.add(prefix);
     }
-    opts[e.identificationKey] = e.name;
+    opts[e.identificationKey] = formatSkillName(e.name);
   }
   return opts;
 }
@@ -139,7 +142,7 @@ export function buildSkillCascadeSteps(data, path = {}) {
     push("group", "種別", { "": "-", initialSkill: "無条件取得技能", onomasticSkill: "固有名詞技能" }, path.group);
     if (path.group === "initialSkill") {
       const opts = { "": "-" };
-      for (const e of general.filter((x) => x.generalSkillCategory === "initialSkill")) opts[e.identificationKey] = e.name;
+      for (const e of general.filter((x) => x.generalSkillCategory === "initialSkill")) opts[e.identificationKey] = formatSkillName(e.name);
       push("skill", "技能名", opts, path.skill);
     } else if (path.group === "onomasticSkill") {
       const subOpts = { "": "-" };
@@ -150,7 +153,7 @@ export function buildSkillCascadeSteps(data, path = {}) {
       if (path.sub) {
         // 小分類リストの先頭にカテゴリ全体(〈社会〉等)を置く
         const opts = { "": "-", [wholeCategoryToken(path.sub)]: `〈${ONOMASTIC_TYPES[path.sub] ?? path.sub}〉（カテゴリ全体）` };
-        for (const e of general.filter((x) => x.generalSkillCategory === "onomasticSkill" && idKeyPrefix(x.identificationKey) === path.sub)) opts[e.identificationKey] = e.name;
+        for (const e of general.filter((x) => x.generalSkillCategory === "onomasticSkill" && idKeyPrefix(x.identificationKey) === path.sub)) opts[e.identificationKey] = formatSkillName(e.name);
         push("skill", "技能名", opts, path.skill);
       }
     }
@@ -165,7 +168,7 @@ export function buildSkillCascadeSteps(data, path = {}) {
     push("group", "組織", orgOpts, path.group);
     if (path.group) {
       const opts = { "": "-" };
-      for (const e of works.filter((x) => x.organization === path.group)) opts[e.identificationKey] = e.name;
+      for (const e of works.filter((x) => x.organization === path.group)) opts[e.identificationKey] = formatSkillName(e.name);
       push("skill", "技能名", opts, path.skill);
     }
   }
