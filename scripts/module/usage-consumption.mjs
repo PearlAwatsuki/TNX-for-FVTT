@@ -140,10 +140,9 @@ export function resolveConsumeRows(targets, { parentItem, getItem, actionRank = 
         const type = t.type || "item";
         const resource = t.resource || "uses";
         const rawAmount = Number(t.amount);
-        // 残弾のみ負値=回復を許容(リロード表現)。他は従来どおり1以上
-        const amount = (type === "item" && resource === "ammo")
-            ? (Number.isFinite(rawAmount) && rawAmount !== 0 ? rawAmount : 1)
-            : Math.max(1, rawAmount || 1);
+        // 消費数はロックしない(2026-07-18 ユーザー確定): 0/負値(=回復・使用回数の回復も可)を許容。
+        // 未設定(NaN)のみ 1。0 は実行時 no-op(適用で何も起きない)
+        const amount = Number.isFinite(rawAmount) ? rawAmount : 1;
         // AR の消費(2026-07-12): 対象アイテムを持たない=実行アクターの actionRank.value を減らす。
         // カット進行外(inCombat でない)は AR を消費できない=残量 0 扱いで原則ブロック。
         // itemId はチェックボックス識別用のセンチネル(実アイテム ID と衝突しない)
@@ -322,10 +321,12 @@ export async function applyConsumptionPlan(plan) {
                 const next = nextAmmoCurrent(item.system?.ammo, row.amount);
                 if (next !== undefined) updates.push({ _id: item.id, "system.ammo.current": next });
             } else {
-                // 使用回数(神業も同じ uses・2026-07-18 一本化)。max は実効値(AE込み)でクランプ
+                // 使用回数(神業も同じ uses・2026-07-18 一本化)。max は実効値(AE込み)でクランプ。
+                // 負の消費数=回復(spent 減少)も許容するため 0〜max でクランプ
                 const u = item.system.uses ?? {};
                 if (u.isLimit !== true) continue;
-                updates.push({ _id: item.id, "system.uses.spent": Math.min(u.max ?? 0, (u.spent ?? 0) + row.amount) });
+                const nextSpent = Math.max(0, Math.min(u.max ?? 0, (u.spent ?? 0) + row.amount));
+                updates.push({ _id: item.id, "system.uses.spent": nextSpent });
             }
         }
         if (updates.length) await actor.updateEmbeddedDocuments("Item", updates);

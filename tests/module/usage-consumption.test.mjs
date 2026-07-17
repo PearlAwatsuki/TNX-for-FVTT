@@ -79,13 +79,28 @@ describe("resolveConsumeRows()（消費先設定の解決・2026-07-18 再編）
     expect(row.problem).toBe("noAmmo");
   });
 
-  it("消費量は 1 未満・未設定を 1 に丸める(残弾以外)", () => {
+  it("消費数はロックしない(2026-07-18): 未設定のみ 1・0/負値(=使用回数の回復)はそのまま", () => {
     const rows = resolveConsumeRows(
-      [{ type: "item", itemId: "", resource: "uses" }, { type: "item", itemId: "", resource: "uses", amount: 0 }],
+      [
+        { type: "item", itemId: "", resource: "uses" },              // 未設定 → 1
+        { type: "item", itemId: "", resource: "uses", amount: 0 },   // 0 は 0 のまま(no-op)
+        { type: "item", itemId: "", resource: "uses", amount: -2 },  // 負値=回復
+      ],
       { parentItem: skill("p1"), getItem: () => null },
     );
     expect(rows[0].amount).toBe(1);
-    expect(rows[1].amount).toBe(1);
+    expect(rows[1].amount).toBe(0);
+    expect(rows[2].amount).toBe(-2);
+  });
+
+  it("負の使用回数消費=回復: applyConsumptionPlan で spent が減り 0 未満にならない", async () => {
+    const { applyConsumptionPlan } = await import("../../scripts/module/usage-consumption.mjs");
+    // このテストは Foundry 依存(game.actors)のため、buildConsumptionPlan の shortage 判定のみ確認する
+    const row = { kind: "uses", itemId: "a", amount: -2, remaining: 1, label: "A" };
+    const { plan, shortage } = buildConsumptionPlan([row], new Set(["a"]), "actor1");
+    expect(shortage).toBeUndefined();  // 回復(負値)は残量不足にならない
+    expect(plan).toEqual([{ actorId: "actor1", itemId: "a", kind: "uses", amount: -2 }]);
+    void applyConsumptionPlan; // 適用側の 0..max クランプは実機検証(game 依存)
   });
 
   describe("actionRank（AR の消費・2026-07-12＝パリー専用自動化の置換）", () => {

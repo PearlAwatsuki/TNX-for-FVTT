@@ -249,12 +249,12 @@
                                     {{/each}}
                                 </select>
                                 {{/unless}}
-                                {{!-- 消費数(グリッド全幅・ラベル付き)。残弾は負値=回復のため min を付けない --}}
-                                <div class="usage-consume-amount tnx-combo-full">
+                                {{!-- 消費数(グリッドのセル・ラベル付き)。値のロックはしない(0/負値=回復も可・2026-07-18) --}}
+                                <div class="usage-consume-amount">
                                     <label>消費数</label>
                                     <div class="number-input-spinner" title="消費数（負値=回復）">
                                         <button type="button" data-action="decrementConsumeAmount" data-row-index="{{row.idx}}" class="tnx-btn" {{#unless @root.editable}}disabled{{/unless}}>-</button>
-                                        <input type="number" name="consumeAmount-{{row.idx}}" value="{{row.amount}}" {{#unless row.isAmmo}}min="1"{{/unless}} {{#unless @root.editable}}disabled{{/unless}}>
+                                        <input type="number" name="consumeAmount-{{row.idx}}" value="{{row.amount}}" {{#unless @root.editable}}disabled{{/unless}}>
                                         <button type="button" data-action="incrementConsumeAmount" data-row-index="{{row.idx}}" class="tnx-btn" {{#unless @root.editable}}disabled{{/unless}}>+</button>
                                     </div>
                                 </div>

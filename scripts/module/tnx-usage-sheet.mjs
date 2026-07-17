@@ -915,10 +915,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                     isActionRank,
                     isAmmo: !isActionRank && resource === "ammo",
                     itemId: t.itemId ?? "",
-                    // 負値=回復(残弾のリロード表現)。残弾以外は1以上
-                    amount: (!isActionRank && resource === "ammo")
-                        ? (Number.isFinite(amount) && amount !== 0 ? amount : 1)
-                        : Math.max(1, amount || 1),
+                    // 消費数はロックしない(2026-07-18 ユーザー確定): 0/負値(=回復)も許容。未設定のみ 1
+                    amount: Number.isFinite(amount) ? amount : 1,
                     typeOptions: Object.entries(TYPE_LABELS)
                         .map(([value, label]) => ({ value, label, selected: value === type })),
                     itemOptions: [
@@ -1328,10 +1326,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                     // AR は対象アイテムを持たない。item は空="このアイテム自身"
                     itemId: isItem ? (raw[`consumeItem-${i}`] ?? "") : "",
                     resource,
-                    // 残弾は負値=回復(リロード表現)を許容。他は1以上
-                    amount: (isItem && resource === "ammo")
-                        ? (Number.isFinite(rawAmount) && rawAmount !== 0 ? rawAmount : 1)
-                        : Math.max(1, rawAmount || 1),
+                    // 消費数はロックしない(2026-07-18): 0/負値(=回復)も許容。未入力(NaN)のみ 1
+                    amount: Number.isFinite(rawAmount) ? rawAmount : 1,
                 };
             });
             // 種別/資源/対象の変更は選択欄・資源候補の出し入れを伴うため再描画する
@@ -1512,14 +1508,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         const usage = this.usage;
         if (!usage || !(usage.consumeTargets ?? [])[idx]) return;
         const rows = foundry.utils.deepClone(usage.consumeTargets);
-        // 残弾は負値=回復(リロード表現)を許容(0 は飛ばす)。他は1以上
-        if (rows[idx].type === "item" && rows[idx].resource === "ammo") {
-            let next = (rows[idx].amount ?? 1) + delta;
-            if (next === 0) next += delta;
-            rows[idx].amount = next;
-        } else {
-            rows[idx].amount = Math.max(1, (rows[idx].amount ?? 1) + delta);
-        }
+        // 消費数はロックしない(2026-07-18 ユーザー確定): 0/負値(=回復)も許容(クランプ・0スキップなし)
+        rows[idx].amount = (Number(rows[idx].amount) || 0) + delta;
         await this._patchUsage({ consumeTargets: rows });
         this.render({ force: true });
     }

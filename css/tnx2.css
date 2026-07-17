@@ -7340,13 +7340,14 @@ button.tnx-create-act-button span {
     padding: 0;
     font-size: 1.1em;
 }
-/* 消費数セル(消費ブロックのグリッド全幅・2026-07-18): 「消費数」ラベル + コンパクトなスピナーを
-   左寄せで並べ、グリッドの他セル(select)と縦位置を揃える。スピナー既定の右寄せ/固定幅による
-   はみ出し・ずれを解消する */
+/* 消費数セル(消費ブロックのグリッドセル・2026-07-18 是正): 「消費数」ラベル + コンパクトなスピナーを
+   1つのグリッドセル(他 select と同じ 1fr)に収め、resource セルの隣(グリッド内)に整列させる。
+   セル幅内に収まるよう入力欄は縮小可(min-width:0)にする */
 .tnx-usage-sheet .usage-consume-amount {
+    min-width: 0;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
 }
 .tnx-usage-sheet .usage-consume-amount > label {
     flex: 0 0 auto;
@@ -7355,11 +7356,14 @@ button.tnx-create-act-button span {
     white-space: nowrap;
 }
 .tnx-usage-sheet .usage-consume-amount .number-input-spinner {
+    flex: 1 1 auto;
+    min-width: 0;
     justify-content: flex-start;
 }
 .tnx-usage-sheet .usage-consume-amount .number-input-spinner input[type="number"] {
-    flex: 0 0 48px;
-    width: 48px;
+    flex: 1 1 40px;
+    width: auto;
+    min-width: 32px;
     height: 26px;
     font-size: 0.9em;
     padding: 0 2px;
