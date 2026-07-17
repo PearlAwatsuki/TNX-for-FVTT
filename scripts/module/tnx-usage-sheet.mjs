@@ -1334,7 +1334,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         const patch = deriveUsageAutoFill(this._item, usage);
         await this._patchUsage(patch);
         this.render({ force: true });
-        ui.notifications.info("発動パラメータと使用回数の消費を自動入力しました。手編集で上書きできます。");
+        ui.notifications.info("発動パラメータ・対決・使用回数の消費を自動入力しました。手編集で上書きできます。");
     }
 
     // ─── 目標値スピナー ────────────────────────────────────────────────────────
