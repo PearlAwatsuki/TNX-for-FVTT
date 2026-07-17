@@ -14,6 +14,7 @@ import { getComboSuits, comboUsesBounty } from "./tnx-check-engine.mjs";
 import { resolveConsumeRowsForActor, promptConsumption } from "./usage-consumption.mjs";
 import { prepareUsageEffectPayload } from "./usage-effects.mjs";
 import { resolveUsageTargetValue } from "./usage-target-value.mjs";
+import { executionFormOf } from "./usage-types.mjs";
 
 /**
  * 技能ベース用途(check)の参加技能を解決する。ベース技能(用途の baseSkillRef 優先・未設定は親アイテム)＋
@@ -36,21 +37,16 @@ export function resolveUsageSkillSet(item, usage, actor) {
 
 /**
  * 用途不備検知(機能): 設定済みの用途に不備があれば不備内容(文字列)を、無ければ null を返す。
- * 用途タイプごとに検知条件を足せる dispatch 構造(旧 TnxCharacterSheetBase._detectUsageDefect)。
+ * 2026-07-17 行動種別再編: 判定を行う用途すべて(攻撃・リアクション・移動・治療(判定形)等)が対象
+ * (旧 type==="check" 限定だと新タイプがベース技能・共通スートの検知を素通りする)。
  */
 export function detectUsageDefect(item, usage, actor) {
-    switch (usage.type) {
-        case "check": {
-            // 固定達成値の用途は技能・スートを使わないため不備検知の対象外(フェーズ11-5)
-            if (Number.isFinite(usage.fixedResult)) return null;
-            const { baseSkill, validSuits } = resolveUsageSkillSet(item, usage, actor);
-            if (!baseSkill) return "ベース技能が見つかりません";
-            if (!validSuits.length) return "参加技能に共通スートがありません";
-            return null;
-        }
-        default:
-            return null; // 他用途タイプは現状未検知(機能が整い次第拡張)
-    }
+    // 宣言形は判定を行わない・固定達成値の用途は技能・スートを使わないため対象外(フェーズ11-5)
+    if (executionFormOf(usage) !== "check" || Number.isFinite(usage.fixedResult)) return null;
+    const { baseSkill, validSuits } = resolveUsageSkillSet(item, usage, actor);
+    if (!baseSkill) return "ベース技能が見つかりません";
+    if (!validSuits.length) return "参加技能に共通スートがありません";
+    return null;
 }
 
 /**

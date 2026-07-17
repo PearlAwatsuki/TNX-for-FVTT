@@ -270,8 +270,8 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         const usageId = target.dataset.usageId;
         if (!usageId) return;
 
-        // 既に同じ用途のシートが開いていれば前面に出す
-        const existing = Object.values(foundry.applications.instances)
+        // 既に同じ用途のシートが開いていれば前面に出す(instances は Map・Object.values では列挙されない)
+        const existing = [...foundry.applications.instances.values()]
             .find(a => a instanceof TnxUsageSheet && a._usageId === usageId);
         if (existing) {
             existing.bringToTop();
@@ -308,8 +308,9 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         if (!usageId) return;
 
         // 開いている用途シートは先に閉じる(2026-07-17): 消えた用途を指したままのシートが
-        // 以後の更新のたびに空描画で残らないように(テンプレート側の usage ガードと二重の防御)
-        for (const app of Object.values(foundry.applications.instances)) {
+        // 以後の更新のたびに空描画で残らないように(テンプレート側の usage ガードと二重の防御)。
+        // instances は Map のため values() で列挙する(Object.values は常に空)
+        for (const app of foundry.applications.instances.values()) {
             if (app instanceof TnxUsageSheet && app._usageId === usageId) app.close();
         }
 

@@ -421,8 +421,9 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         context.editable   = this._item.isOwner;
         context.skillOpts  = TnxSkillUtils.getSkillOptions();
         context.typeLabel  = USAGE_TYPES[usage.type] ?? usage.type;
-        // 用途名の既定は空(2026-07-17 ユーザー確定): 空のときの実効名=親アイテム名を placeholder で示す
-        context.namePlaceholder = this._item.name;
+        // 用途名の既定は空(2026-07-17 ユーザー確定): placeholder は「用途名（親アイテム名）」
+        // =空のときに呼ばれる実効の用途名（タイプ名）と親アイテム名。例: 「判定（ペネトレイト）」
+        context.namePlaceholder = `${USAGE_TYPES[usage.type] ?? usage.type}（${this._item.name}）`;
         // 射程の幅(2026-07-16): 物理射程のときのみ最長射程セレクトを出す(武器エディタの min〜max と同形)
         context.showRangeMax    = RANGE_SPAN_CAPABLE.has(usage.range);
         context.rangeMaxOptions = WEAPON_RANGE_MAX_OPTIONS;

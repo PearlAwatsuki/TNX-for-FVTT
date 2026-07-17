@@ -2696,9 +2696,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const iconFor = (u) => u.npcAcquire === true ? "fas fa-users"
             : isAttackUsage(u) ? "fas fa-burst"
                 : isReactionType(u.type) ? "fas fa-shield-halved" : "fas fa-diamond";
-        // 名前が空のときの実効名=親アイテム名(2026-07-17)。無名どうしはタイプ名で見分ける
+        // 名前が空のときは「タイプ名（親アイテム名）」(用途名 placeholder と同じ規約・2026-07-17)
         const labelFor = (u) => u.name
-            || `${skillName}（${USAGE_TYPE_LABELS[u.type] ?? u.type}）`;
+            || `${USAGE_TYPE_LABELS[u.type] ?? u.type}（${skillName}）`;
         const buttons = [
             ...usages.map((u, i) => ({
                 action:   String(i),
