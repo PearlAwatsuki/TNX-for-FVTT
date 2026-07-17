@@ -168,12 +168,15 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
     }
 
     /**
-     * 用途一覧(usage-list.hbs)のクリックを委譲で処理する(初回のみバインド・2026-07-17)。
-     * 要素(フレーム)は再レンダーをまたいで持続するため、パーツ差し替えでリスナーが消えない。
+     * 用途一覧(usage-list.hbs)のクリックを委譲で処理する(フレーム単位でバインド・2026-07-17)。
+     * フレームは再レンダーをまたいで持続するためパーツ差し替えでリスナーが消えないが、
+     * シートを閉じて開き直すと**同じ App インスタンスのまま新しいフレームが作られる**
+     * (AppV2 の isFirstRender 再突入)。ブール旗の「一度だけ」ガードだと開き直し後の
+     * フレームに未バインドで全ボタンが無反応になるため、バインド済みかは要素自身で判定する。
      */
     _bindUsageListDelegation() {
-        if (this._usageListDelegated) return;
-        this._usageListDelegated = true;
+        if (this._usageListDelegatedEl === this.element) return;
+        this._usageListDelegatedEl = this.element;
         this.element.addEventListener("click", (ev) => {
             const target = ev.target.closest(
                 ".action-create, .action-use[data-usage-id], .action-edit[data-usage-id], .action-delete[data-usage-id]");
