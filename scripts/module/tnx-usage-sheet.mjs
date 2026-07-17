@@ -23,7 +23,7 @@ import { resolveAttackWeapons, attackWeaponDisplayName, resolveAttackRangeSpan, 
 import { WEAPON_RANGE_MAX_OPTIONS } from "../data/item/weapon.mjs";
 import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, loadSkillUsageTypeIndex, loadDictionarySkillItems, SKILL_PACKS } from "./skill-dictionary.mjs";
 import {
-    USAGE_TYPE_LABELS, isAttackType, attackCategoryOf, isReactionType, usesVehicle,
+    USAGE_TYPE_LABELS, isAttackType, attackCategoryOf, isReactionType,
     executionFormOf, defaultConfrontationForType, usageDisplayName, effectiveBaseSkillId,
 } from "./usage-types.mjs";
 import { USAGE_CONFRONTATION_OPTIONS, mergeConfrontationRows } from "./confrontation-logic.mjs";
@@ -561,9 +561,12 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 { value: "declaration", label: "宣言",  selected: executionFormOf(usage) === "declaration" },
             ];
         }
-        // 使用ヴィークル(2026-07-17): 移動/リアクション（移動妨害）は準備済みヴィークルの単一参照。
-        // 空=実行時に準備済みヴィークルを自動解決(準備済みが無ければ判定不可=実行時ブロック)
-        context.showVehicleRef = usesVehicle(usage.type);
+        // 使用ヴィークル(2026-07-18 一般化): 用途フラグ requiresVehicle(ヴィークル準備時)がオンのとき
+        // 準備済みヴィークルの単一参照欄を表示。空=実行時に準備済みヴィークルを自動解決
+        // (準備済みが無ければ判定不可=実行時ブロック)。移動/リアクション（移動妨害）は既定オン
+        context.showVehicleRef = usage.requiresVehicle === true;
+        // 「ヴィークル準備時」トグルを判定セクションに出すか(判定を行う用途・固定値判定を除く)
+        context.showRequiresVehicleToggle = context.isCheckType && !context.isFixedCheck;
         if (context.showVehicleRef) {
             const vehicles = (this._item.actor?.items ?? [])
                 .filter(i => i.type === "vehicle" && i.system.isPrepared);
@@ -1204,9 +1207,16 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             update.ignoresUnopposable = raw["ignoresUnopposable"] ?? (usage.ignoresUnopposable === true);
         }
 
-        // 使用ヴィークル(2026-07-17): 移動/リアクション（移動妨害）の単一参照(空=準備済みを自動解決)
-        if (usesVehicle(usage.type)) {
-            update["vehicleRef.itemId"] = raw["vehicleRefItemId"] ?? usage.vehicleRef?.itemId ?? "";
+        // ヴィークル準備時(2026-07-18 一般化): 判定を行う用途で「ヴィークル準備時」トグル+使用ヴィークル
+        // 単一参照(空=準備済みを自動解決)。トグルの切替は使用ヴィークル欄の出し入れを伴うため再描画する
+        let vehicleUiChanged = false;
+        if (executionFormOf(usage) === "check" && !Number.isFinite(usage.fixedResult)) {
+            const prevReq = usage.requiresVehicle === true;
+            update.requiresVehicle = raw["requiresVehicle"] ?? prevReq;
+            if (update.requiresVehicle) {
+                update["vehicleRef.itemId"] = raw["vehicleRefItemId"] ?? usage.vehicleRef?.itemId ?? "";
+            }
+            vehicleUiChanged = update.requiresVehicle !== prevReq;
         }
 
         // 判定ボーナス/ダメージ修正の行(式＋供給元)を indexed 入力から再構成する(consumeTargets と同型)。
@@ -1435,7 +1445,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         // 消費種別の変更・治療設定の変更・射程の幅・対決欄の種別/カスケード変更は入力欄の出し入れが
         // あるため即再描画する(submitOnChange は再描画しない・2026-07-09)
         if (attackKindChanged || modeUiChanged || declModifyChanged || consumeUiChanged
-            || recoveryUiChanged || rangeUiChanged || confrontationUiChanged) {
+            || recoveryUiChanged || rangeUiChanged || confrontationUiChanged || vehicleUiChanged) {
             this.render({ force: true });
         }
     }

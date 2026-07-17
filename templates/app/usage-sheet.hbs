@@ -325,6 +325,17 @@
                     </label>
                 </div>
                 {{/if}}
+                {{!-- ヴィークル準備時(2026-07-18 一般化): オンで「使用ヴィークル」セクションを表示し、
+                     準備済みヴィークルが無ければ判定不可になる。移動/リアクション（移動妨害）は既定オン --}}
+                {{#if showRequiresVehicleToggle}}
+                <div class="usage-form-row usage-toggle-row">
+                    <label class="usage-toggle-inline">
+                        <input type="checkbox" name="requiresVehicle" {{checked usage.requiresVehicle}}
+                               {{#unless editable}}disabled{{/unless}}>
+                        <span>ヴィークル準備時</span>
+                    </label>
+                </div>
+                {{/if}}
                 <label class="usage-field-label">この用途の判定修正値</label>
                 <input type="text" name="checkBonusSelf" value="{{checkBonusSelf}}"
                        placeholder="式（例: @item.self.system.levelTotal、2）"
@@ -361,7 +372,7 @@
             </fieldset>
             {{/if}}
 
-            {{!-- 使用ヴィークル(2026-07-17): 移動/リアクション（移動妨害）の単一参照。
+            {{!-- 使用ヴィークル(2026-07-18 一般化): 「ヴィークル準備時」トグルがオンのとき表示する単一参照。
                  準備済みヴィークルが無い場合は判定できない(実行時ブロック) --}}
             {{#if showVehicleRef}}
             <fieldset class="tnx-fieldset">

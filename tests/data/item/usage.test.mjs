@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MockStringField, MockNumberField, MockSchemaField, MockArrayField } from "../../setup.mjs";
+import { MockStringField, MockNumberField, MockSchemaField, MockArrayField, MockBooleanField } from "../../setup.mjs";
 
 const { UsageTemplate } = await import("../../../scripts/data/item/common/usage.mjs");
 
@@ -48,6 +48,29 @@ describe("UsageTemplate.defineSchema()（フェーズ11-6 追加フィールド�
         { type: "item", itemId: "w1", resource: "ammo", amount: -3 },
         { type: "actionRank", itemId: "", resource: "uses", amount: 1 },
       ]);
+    });
+  });
+
+  describe("ヴィークル準備時 requiresVehicle（2026-07-18 一般化）", () => {
+    it("requiresVehicle は BooleanField で initial false", () => {
+      expect(entry.requiresVehicle).toBeInstanceOf(MockBooleanField);
+      expect(entry.requiresVehicle.options.initial).toBe(false);
+    });
+
+    it("migrateData: 移動/リアクション（移動妨害）で未設定なら既定オン・他タイプはオフのまま", () => {
+      const src = UsageTemplate.migrateData({ actions: [
+        { _id: "a", type: "move" },
+        { _id: "b", type: "moveBlockReaction" },
+        { _id: "c", type: "check" },
+      ] });
+      expect(src.actions[0].requiresVehicle).toBe(true);
+      expect(src.actions[1].requiresVehicle).toBe(true);
+      expect(src.actions[2].requiresVehicle).toBeUndefined();
+    });
+
+    it("migrateData: 既に requiresVehicle を持つ用途は変更しない", () => {
+      const src = UsageTemplate.migrateData({ actions: [{ _id: "a", type: "move", requiresVehicle: false }] });
+      expect(src.actions[0].requiresVehicle).toBe(false);
     });
   });
 

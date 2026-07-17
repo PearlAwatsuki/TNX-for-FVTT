@@ -30,7 +30,7 @@
  */
 
 import { SystemDataModel } from "../../abstract.mjs";
-import { isAttackType, isReactionType, defaultConfrontationForType } from "../../../module/usage-types.mjs";
+import { isAttackType, isReactionType, usesVehicle, defaultConfrontationForType } from "../../../module/usage-types.mjs";
 
 /**
  * 攻撃用途か。攻撃は行動種別タイプ(物理攻撃/精神攻撃/社会攻撃)で表す(2026-07-17 再編。
@@ -111,7 +111,11 @@ export class UsageTemplate extends SystemDataModel {
                     // 他タイプはタイプ自体が形式を決めるためこの欄を読まない(executionFormOf)。
                     executionForm: new fields.StringField({ initial: "check" }),
 
-                    // 移動/リアクション（移動妨害）: 使用ヴィークル(完全に単一参照・2026-07-17 ユーザー確定)。
+                    // ヴィークル準備時(2026-07-18 一般化ユーザー確定): オンにすると「使用ヴィークル」欄を
+                    // 表示し、準備済みヴィークルが無ければ判定不可になる。任意の判定用途で使える
+                    // (旧・タイプ固定 usesVehicle の一般化)。移動/リアクション（移動妨害）は既定オン。
+                    requiresVehicle: new fields.BooleanField({ initial: false }),
+                    // 使用ヴィークル(完全に単一参照・2026-07-17 ユーザー確定)。
                     // 空=実行時に準備済みヴィークルを自動解決。準備済みヴィークルが無ければ判定不可。
                     vehicleRef: new fields.SchemaField({
                         itemId: new fields.StringField({ initial: "" }),
@@ -438,6 +442,11 @@ export class UsageTemplate extends SystemDataModel {
                             { value: "cannot", name: "", skillDict: "", skillGroup: "", skillSub: "" },
                         ],
                     };
+                }
+                // ヴィークル準備時の一般化(2026-07-18): 旧・タイプ固定(移動/リアクション（移動妨害）)を
+                // 用途フラグ requiresVehicle へ。未設定の該当タイプは既定オンにして従来挙動を保つ
+                if (migrated.requiresVehicle === undefined && usesVehicle(migrated.type)) {
+                    migrated = { ...migrated, requiresVehicle: true };
                 }
                 // 消費先設定の type 再編(2026-07-18): 旧 type(parent/itemUses/miracleUses/ammo/actionRank)を
                 // 新モデル {type:"item"|"actionRank", itemId, resource:"uses"|"ammo"} へ移行。

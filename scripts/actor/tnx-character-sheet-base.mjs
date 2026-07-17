@@ -35,7 +35,7 @@ import { applyTriggerDisable } from '../module/ui-trigger-disable.mjs';
 import { openConditionEditDialog } from '../module/condition-edit.mjs';
 import { startTreatment } from '../module/treatment-flow.mjs';
 import { isAttackUsage } from '../data/item/common/usage.mjs';
-import { executionFormOf, usesVehicle, usageDisplayName, isReactionType } from '../module/usage-types.mjs';
+import { executionFormOf, usageDisplayName, isReactionType } from '../module/usage-types.mjs';
 import { itemDisplayName } from '../module/identification.mjs';
 import { isOpposedConfrontation } from '../module/confrontation-logic.mjs';
 
@@ -2438,10 +2438,10 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             return;
         }
 
-        // 使用ヴィークル(2026-07-17 ユーザー確定): 移動/リアクション（移動妨害）は準備済みヴィークルが
+        // ヴィークル準備時(2026-07-18 一般化): 用途フラグ requiresVehicle がオンなら準備済みヴィークルが
         // 無ければ判定できない。参照は完全に単一(空=準備済みを自動解決)。移動タイプは移動文脈
         // (達成値÷10 段階の移動カード)をここで注入する(旧・戦闘タブの合成アクションを置換)
-        if (usesVehicle(selectedUsage.type)) {
+        if (selectedUsage.requiresVehicle === true) {
             const refId = selectedUsage.vehicleRef?.itemId || "";
             let vehicle = null;
             if (refId) {

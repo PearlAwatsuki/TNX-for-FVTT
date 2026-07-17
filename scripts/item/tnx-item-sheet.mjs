@@ -1,6 +1,6 @@
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 import { TnxUsageSheet, USAGE_TYPES, deriveUsageAutoFill, updateUsageActions } from "../module/tnx-usage-sheet.mjs";
-import { defaultConfrontationForType, executionFormOf, usageDisplayName } from "../module/usage-types.mjs";
+import { defaultConfrontationForType, executionFormOf, usageDisplayName, usesVehicle } from "../module/usage-types.mjs";
 import { resolveBunshinOwner } from "../module/usage-consumption.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -237,6 +237,8 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             modifiableParams: [],
             // 対決欄の系統既定(2026-07-17): 攻撃=物理はドッジ+パリー等・移動/離脱は各妨害リアクション行
             confrontation: defaultConfrontationForType(type),
+            // ヴィークル準備時(2026-07-18 一般化): 移動/リアクション（移動妨害）は既定オン
+            requiresVehicle: usesVehicle(type),
             // 消費先設定: 既定は空(2026-07-17 ユーザー指示=無条件の「親×1」既定行は全廃。
             // 使用回数制限つきの参加技能の行は自動入力 deriveConsumeTargets が敷く)
             consumeTargets: [],
