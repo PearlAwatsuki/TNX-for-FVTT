@@ -18,7 +18,7 @@ describe("UsageTemplate.defineSchema()（フェーズ11-6 追加フィールド�
       expect(entry.consumeTargets.element).toBeInstanceOf(MockSchemaField);
     });
 
-    it("行は type(initial 'parent') / itemId / amount(initial 1・min 1・整数) を持つ", () => {
+    it("行は type(initial 'parent') / itemId / amount(initial 1・整数・負値可=残弾回復) を持つ", () => {
       const row = entry.consumeTargets.element.fields;
       expect(row.type).toBeInstanceOf(MockStringField);
       expect(row.type.options.initial).toBe("parent");
@@ -26,7 +26,8 @@ describe("UsageTemplate.defineSchema()（フェーズ11-6 追加フィールド�
       expect(row.itemId.options.initial).toBe("");
       expect(row.amount).toBeInstanceOf(MockNumberField);
       expect(row.amount.options.initial).toBe(1);
-      expect(row.amount.options.min).toBe(1);
+      // 負値=回復(ammo のリロード表現・2026-07-17)のため min は設けない
+      expect(row.amount.options.min).toBeUndefined();
       expect(row.amount.options.integer).toBe(true);
     });
   });

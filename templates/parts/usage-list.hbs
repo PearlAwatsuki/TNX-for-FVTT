@@ -13,7 +13,8 @@
             <li class="tnx-item-list__row">
                 <div class="tnx-item-list__column--main">
                     <span class="usage-type-tag usage-type--{{action.type}}">{{lookup ../options.usageTypeLabels action.type}}</span>
-                    <h4>{{action.name}}</h4>
+                    {{!-- 名前が空のときの実効名=親アイテム名(2026-07-17) --}}
+                    <h4>{{#if action.name}}{{action.name}}{{else}}{{../item.name}}{{/if}}</h4>
                 </div>
                 <div class="tnx-item-list__column--controls">
                     {{!-- 使用ボタンは効果の有無にかかわらず常に描画する(2026-07-07 確定。

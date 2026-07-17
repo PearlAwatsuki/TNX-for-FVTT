@@ -3,8 +3,9 @@
     {{!-- ヘッダー: 種別バッジ + 名前 --}}
     <header class="usage-sheet-header">
         <span class="usage-type-badge usage-type--{{usage.type}}">{{typeLabel}}</span>
+        {{!-- 用途名の既定は空(2026-07-17): 空のときの実効名=親アイテム名を placeholder で示す --}}
         <input class="usage-name-input" type="text" name="name"
-               value="{{usage.name}}" placeholder="用途名"
+               value="{{usage.name}}" placeholder="{{namePlaceholder}}"
                {{#unless editable}}disabled{{/unless}}>
     </header>
 
@@ -129,7 +130,7 @@
             </fieldset>
 
             <fieldset class="tnx-fieldset">
-                <legend>目標値・対決</legend>
+                <legend>目標値</legend>
                 <div class="usage-form-grid">
                 {{!-- 目標値(NPC取得はモードで確定するため入力欄を出さない) --}}
                 {{#unless isNpcAcquireType}}
@@ -161,34 +162,46 @@
                 </div>
                 {{/unless}}
 
-                {{!-- 対決不可（インライントグル） --}}
-                <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline">
-                        <input type="checkbox" name="isUnopposable" {{checked usage.isUnopposable}}
-                               {{#unless editable}}disabled{{/unless}}>
-                        <span>対決不可</span>
-                    </label>
-                </div>
                 </div>
             </fieldset>
 
-            {{!-- 技能ベース用途のみ: 対決可能技能の情報表示 ＋ 自動入力。
-                 対決欄の解釈(Check_Rules 2026-06-20): 無印の技能名は例示(他技能でのリアクションを
-                 排除しない)・※付きは必須 --}}
-            {{#if showSkillParams}}
-            <fieldset class="tnx-fieldset usage-confrontation-info">
-                <legend>対決（参加技能より）</legend>
-                {{#if confrontationCannot}}
-                <p class="usage-info-line"><i class="fas fa-ban"></i> 対決不可の技能を含みます</p>
-                {{/if}}
-                {{#if confrontationReactions.length}}
-                <p class="usage-info-line">{{#each confrontationReactions}}<span class="usage-info-tag">{{this}}</span>{{/each}}</p>
-                {{else}}
-                {{#unless confrontationCannot}}
-                <p class="usage-empty-hint">（参加技能に対決の指定なし）</p>
-                {{/unless}}
-                {{/if}}
+            {{!-- 対決欄(2026-07-17 ユーザー確定・Check_Rules「対決の解釈(是正)」): 拘束リスト。
+                 手段行=リアクション用途タイプと1:1・技能名/技能名※は辞典カスケード・「不可」は
+                 マスク(下地の行と並存保存)。「-」「なし」以外の行があればこの判定は対決判定になる --}}
+            {{#if showConfrontation}}
+            <fieldset class="tnx-fieldset usage-confrontation-section">
+                <legend>
+                    対決
+                    {{#if editable}}
+                    <a class="usage-legend-add" data-action="confrontRowAdd" title="対決を追加"><i class="fas fa-plus"></i></a>
+                    {{/if}}
+                </legend>
+                <div class="usage-confrontation-rows">
+                    {{#each confrontationRows as |row|}}
+                    <div class="usage-consume-row">
+                        <select name="confrontValue-{{row.idx}}" {{#unless @root.editable}}disabled{{/unless}}>
+                            {{#each row.valueOptions}}
+                            <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                            {{/each}}
+                        </select>
+                        {{#each row.cascadeSteps}}
+                        <select name="confront-{{row.idx}}-{{this.field}}" {{#unless @root.editable}}disabled{{/unless}}>
+                            {{selectOptions this.options selected=this.value}}
+                        </select>
+                        {{/each}}
+                        {{#if @root.editable}}
+                        <a class="tnx-row-btn tnx-row-btn--delete" data-action="confrontRowDelete" data-row-index="{{row.idx}}" title="削除"><i class="fas fa-trash"></i></a>
+                        {{/if}}
+                    </div>
+                    {{/each}}
+                    {{#unless confrontationRows.length}}
+                    <p class="usage-empty-hint">（対決の指定なし）</p>
+                    {{/unless}}
+                </div>
             </fieldset>
+            {{/if}}
+
+            {{#if showSkillParams}}
             {{#if editable}}
             <div class="usage-autofill-row">
                 <a class="tnx-btn tnx-btn--sm" data-action="autoFill">
@@ -223,9 +236,10 @@
                         {{/each}}
                     </select>
                     {{/unless}}
+                    {{!-- 残弾は負値=回復(リロード表現・2026-07-17)のため min を付けない --}}
                     <div class="number-input-spinner usage-consume-amount" title="消費量">
                         <button type="button" data-action="decrementConsumeAmount" data-row-index="{{row.idx}}" class="tnx-btn" {{#unless @root.editable}}disabled{{/unless}}>-</button>
-                        <input type="number" name="consumeAmount-{{row.idx}}" value="{{row.amount}}" min="1" {{#unless @root.editable}}disabled{{/unless}}>
+                        <input type="number" name="consumeAmount-{{row.idx}}" value="{{row.amount}}" {{#unless row.isAmmo}}min="1"{{/unless}} {{#unless @root.editable}}disabled{{/unless}}>
                         <button type="button" data-action="incrementConsumeAmount" data-row-index="{{row.idx}}" class="tnx-btn" {{#unless @root.editable}}disabled{{/unless}}>+</button>
                     </div>
                     {{#if @root.editable}}
@@ -304,7 +318,8 @@
                 <p class="usage-formula-line">達成値 ＝ カード ＋ 能力値 ＋ 報酬点 ＋ 判定バフ ＋ 判定修正値 ＋ 判定ボーナス</p>
             </fieldset>
 
-            {{!-- リアクション(2026-07-15): リアクション用途の追加挙動。当面は全用途に表示。 --}}
+            {{!-- リアクション(2026-07-15→2026-07-17): リアクションタイプの追加挙動と対決不可無視 --}}
+            {{#if isReactionUsage}}
             <fieldset class="tnx-fieldset">
                 <legend>リアクション</legend>
                 <div class="usage-form-row usage-toggle-row">
@@ -318,38 +333,39 @@
                                {{#unless editable}}disabled{{/unless}}>
                         <span>攻撃を失敗させる</span>
                     </label>
-                </div>
-            </fieldset>
-
-            {{!-- カバーリング(2026-07-16 リアクションから分離): 他者への攻撃に割り込む固有メカニクスで
-                 リアクションではないため独立セクションとする --}}
-            <fieldset class="tnx-fieldset">
-                <legend>カバーリング</legend>
-                <div class="usage-form-row usage-toggle-row">
                     <label class="usage-toggle-inline">
-                        <input type="checkbox" name="covering" {{checked usage.covering}}
+                        <input type="checkbox" name="ignoresUnopposable" {{checked usage.ignoresUnopposable}}
                                {{#unless editable}}disabled{{/unless}}>
-                        <span>カバーを行う</span>
+                        <span>対決不可にもリアクション可</span>
                     </label>
                 </div>
             </fieldset>
+            {{/if}}
 
-            {{!-- 攻撃プロファイル(2026-07-09): 攻撃は判定の一種。「攻撃に使う」トグルで系統・武器・種別を出す。
-                 系統=Damage_Rules の3系統。武器・ダメージ種別は物理のみ(精神・社会は攻撃力を持たない) --}}
+            {{!-- 使用ヴィークル(2026-07-17): 移動/リアクション（移動妨害）の単一参照。
+                 準備済みヴィークルが無い場合は判定できない(実行時ブロック) --}}
+            {{#if showVehicleRef}}
+            <fieldset class="tnx-fieldset">
+                <legend>使用ヴィークル</legend>
+                <div class="usage-form-row">
+                    <select name="vehicleRefItemId" {{#unless editable}}disabled{{/unless}}>
+                        {{#each vehicleOptions}}
+                        <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                        {{/each}}
+                    </select>
+                </div>
+            </fieldset>
+            {{/if}}
+
+            {{!-- ダメージを修正(2026-07-11→2026-07-17): 汎用の判定タイプのみの使用の仕方フラグ
+                 (攻撃はタイプ化で分離・排他ラジオは廃止) --}}
+            {{#if (eq usage.type "check")}}
             <fieldset class="tnx-fieldset usage-attack-section">
-                <legend>攻撃</legend>
-                {{!-- 攻撃モード(排他のためラジオ・2026-07-11): なし=通常判定 / 攻撃に使う / ダメージを修正 --}}
+                <legend>ダメージ</legend>
                 <div class="usage-form-row usage-toggle-row">
                     <label class="usage-toggle-inline">
-                        <input type="radio" name="attackMode" value="none" {{checked (eq attackMode "none")}} {{#unless editable}}disabled{{/unless}}>
-                        <span>なし</span>
-                    </label>
-                    <label class="usage-toggle-inline">
-                        <input type="radio" name="attackMode" value="attack" {{checked (eq attackMode "attack")}} {{#unless editable}}disabled{{/unless}}>
-                        <span>攻撃に使う</span>
-                    </label>
-                    <label class="usage-toggle-inline">
-                        <input type="radio" name="attackMode" value="modifyDamage" {{checked (eq attackMode "modifyDamage")}} {{#unless editable}}disabled{{/unless}}>
+                        <input type="checkbox" name="modifyDamage" {{checked usage.modifyDamage}}
+                               {{#unless editable}}disabled{{/unless}}>
                         <span>ダメージを修正</span>
                     </label>
                 </div>
@@ -361,17 +377,28 @@
                            {{#unless editable}}disabled{{/unless}}>
                 </div>
                 {{/if}}
-                {{#if isAttack}}
+            </fieldset>
+            {{/if}}
+
+            {{!-- 攻撃(2026-07-17 再編: 攻撃は行動種別タイプ=系統はタイプが持つ)。
+                 武器・ダメージ種別は物理のみ(精神・社会は攻撃力を持たない) --}}
+            {{#if isAttack}}
+            <fieldset class="tnx-fieldset usage-attack-section">
+                <legend>攻撃</legend>
                 <div class="usage-form-section">
+                    {{#if isPhysicalAttack}}
+                    {{!-- 白兵/射撃(2026-07-17): 射撃攻撃は生身では行えない=射撃武器フラグの武器で
+                         候補を絞り、準備が無ければ実行時に「武器なし」でブロックされる --}}
                     <div class="usage-form-row">
-                        <label class="usage-field-label">攻撃の系統</label>
-                        <select name="damageCategory" {{#unless editable}}disabled{{/unless}}>
-                            {{#each attackCategoryOptions}}
+                        <label class="usage-field-label">攻撃の種類</label>
+                        <select name="attackWeaponKind" {{#unless editable}}disabled{{/unless}}>
+                            {{#each attackWeaponKindOptions}}
                             <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
                             {{/each}}
                         </select>
                     </div>
-                    {{#if isAttackPhysical}}
+                    {{/if}}
+                    {{#if isPhysicalAttack}}
                     {{!-- スタン可能: 物理攻撃のみの能力ゲート。ON の物理攻撃は攻撃の判定ダイアログで
                          「スタンとして行う」を宣言できる（説得は精神攻撃で常時・canStun 不要） --}}
                     <div class="usage-form-row usage-toggle-row">
@@ -426,10 +453,10 @@
                         rows=damageBonusRows prefix="damageBonus" addAction="damageBonusAdd" deleteAction="damageBonusDelete"
                         addLabel="ダメージ修正を追加" placeholder="式（例: @item.<武器の識別キー>.system.attack.value）"
                         emptyHint="（追加のダメージ修正なし）" editable=editable}}
-                    <p class="usage-formula-line">{{#if isAttackPhysical}}ダメージ ＝ ダメージカード ＋ 攻撃力{{#if selectedWeapons.length}}（合算）{{else}}（生身）{{/if}} ＋ ダメージ修正値 ＋ ダメージ修正 − 軽減{{else}}ダメージ ＝ ダメージカード ＋ ダメージ修正値 ＋ ダメージ修正（精神／社会は攻撃力・防御力なし）{{/if}}</p>
+                    <p class="usage-formula-line">{{#if isPhysicalAttack}}ダメージ ＝ ダメージカード ＋ 攻撃力{{#if selectedWeapons.length}}（合算）{{else}}（生身）{{/if}} ＋ ダメージ修正値 ＋ ダメージ修正 − 軽減{{else}}ダメージ ＝ ダメージカード ＋ ダメージ修正値 ＋ ダメージ修正（精神／社会は攻撃力・防御力なし）{{/if}}</p>
                 </div>
-                {{/if}}
             </fieldset>
+            {{/if}}
             {{/if}}
 
             {{!-- 宣言: 判定/ダメージへの修正(2026-07-12 ユーザー確定・バフ宣言の表現)。
@@ -571,17 +598,19 @@
             </fieldset>
             {{/if}}
 
-            {{!-- 回復(2026-07-13): BS/戦闘不能/負傷を除去する回復・治療系の設定(check/declaration 両対応)。
+            {{!-- 治療(2026-07-13→2026-07-17 タイプ化): BS/戦闘不能/負傷を除去する設定。
+                 実行形式(判定/宣言)は用途の設定で固定(1つのタイプで両形式をカバー・2026-07-17 裁定)。
                  範囲=大分類→小分類の行(OR)・除外=タグ(タグ自身+そのタグを与える負傷を除く) --}}
             {{#if isRecoveryCapable}}
             <fieldset class="tnx-fieldset usage-recovery-section">
-                <legend>回復</legend>
-                <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline">
-                        <input type="checkbox" name="recovery" {{checked usage.recovery}}
-                               {{#unless editable}}disabled{{/unless}}>
-                        <span>回復を行う</span>
-                    </label>
+                <legend>治療</legend>
+                <div class="usage-form-row">
+                    <label class="usage-field-label">実行形式</label>
+                    <select name="executionForm" {{#unless editable}}disabled{{/unless}}>
+                        {{#each executionFormOptions}}
+                        <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                        {{/each}}
+                    </select>
                 </div>
                 {{#if isRecovery}}
                 <label class="usage-field-label">回復対象の範囲</label>

@@ -34,9 +34,9 @@ import { CONDITION_KINDS, readConditions, getConditionKind, getEffectiveConditio
 import { applyTriggerDisable } from '../module/ui-trigger-disable.mjs';
 import { openConditionEditDialog } from '../module/condition-edit.mjs';
 import { startTreatment } from '../module/treatment-flow.mjs';
-import { startVehicleMove } from '../module/vehicle-move.mjs';
-import { isAmmoEmpty, reloadWeapon } from '../module/weapon-ammo.mjs';
 import { isAttackUsage } from '../data/item/common/usage.mjs';
+import { executionFormOf, usesVehicle, usageDisplayName, USAGE_TYPE_LABELS, isReactionType } from '../module/usage-types.mjs';
+import { isOpposedConfrontation } from '../module/confrontation-logic.mjs';
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -93,8 +93,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             startSkillCheck:      TnxCharacterSheetBase._onStartSkillCheck,
             startAbilityCheck:    TnxCharacterSheetBase._onStartAbilityCheck,
             startControlCheck:    TnxCharacterSheetBase._onStartControlCheck,
-            startVehicleMove:     TnxCharacterSheetBase._onStartVehicleMove,
-            startReload:          TnxCharacterSheetBase._onStartReload,
+            startUsageUse:        TnxCharacterSheetBase._onStartUsageUse,
             incrementField:       TnxCharacterSheetBase._onIncrementField,
             decrementField:       TnxCharacterSheetBase._onDecrementField,
             initCombatSpeed:      TnxCharacterSheetBase._onInitCombatSpeed,
@@ -801,7 +800,11 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 合算はダメージ算出と同一の aggregateDefence に一本化する(2026-07-16 ユーザー指摘=戦闘タブの合計)。
         context.combatDefenceTotal = aggregateDefence(items);
 
-        // タイミングごとの使用技能・アウトフィット(2026-07-02 ユーザー確定):
+        // タイミングごとの使用技能・アウトフィット(2026-07-02 確定→2026-07-17 用途駆動化):
+        // **アイテムの timing でなく用途の timing で束ね、各行はその用途を直接起動するボタン**にする
+        // (ユーザー確定)。行の実効名=用途名(空なら親アイテム名)。旧・合成アクション(移動・リロード)は
+        // オミット——移動=〈操縦〉の移動タイプ用途・リロード=射撃武器のリロード用途(マイナー+残弾への
+        // マイナス消費)に一本化。
         // - 標準のプロセス/アクション(下記8つ)は空でも常に表示する。
         // - 差し込みタイミング(その他の自由記述。例「ダメージ適用の直前」)は記述テキストごとに
         //   グループ化し、項目がある場合のみ標準群の後ろに表示する。
@@ -819,59 +822,37 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const byKey = new Map(fixedBuckets.map(b => [`${b.kind}:${b.key}`, b]));
         const inserted = new Map(); // 差し込みタイミング(自由記述テキスト → グループ)
         const misc = { label: "その他", entries: [] };
-        const pushEntry = (entries, item) => {
-            if (entries.some(e => e._id === item.id)) return;
-            entries.push({ _id: item.id, name: item.name, sort: item.sort ?? 0 });
+        const pushEntry = (entries, item, usage) => {
+            if (entries.some(e => e._id === item.id && e.usageId === usage._id)) return;
+            entries.push({
+                _id: item.id, usageId: usage._id,
+                name: usageDisplayName(usage, item.name),
+                sort: item.sort ?? 0,
+            });
         };
-        const classify = (t, item) => {
+        const classify = (t, item, usage) => {
             if (!t) return;
             if (t.value === "action" || t.value === "process") {
                 const name = t.value === "action" ? t.actionName : t.processName;
                 if (!name || name === "blank") return;
                 const fixed = byKey.get(`${t.value}:${name}`);
-                if (fixed) return pushEntry(fixed.entries, item);
+                if (fixed) return pushEntry(fixed.entries, item, usage);
                 // 解説参照(explanation)・その他(other)は「その他」群へ
-                if (name === "explanation" || name === "other") return pushEntry(misc.entries, item);
+                if (name === "explanation" || name === "other") return pushEntry(misc.entries, item, usage);
                 return;
             }
             if (t.value === "other") {
                 const label = (t.timingOther ?? "").trim();
-                if (!label) return pushEntry(misc.entries, item);
+                if (!label) return pushEntry(misc.entries, item, usage);
                 if (!inserted.has(label)) inserted.set(label, { label, entries: [] });
-                return pushEntry(inserted.get(label).entries, item);
+                return pushEntry(inserted.get(label).entries, item, usage);
             }
         };
         for (const i of items) {
-            if (i.type === "styleSkill") {
-                for (const t of (Array.isArray(i.system.timing) ? i.system.timing : [])) classify(t, i);
-            } else if (OUTFIT_ITEM_TYPES.has(i.type) && usable(i)) {
-                classify(i.system.timing, i);
-            }
-        }
-        // ヴィークル操縦移動(2026-07-09): 操縦中はメジャーアクションでも移動できる。準備済みで
-        // 対応する操縦が設定されたヴィークルごとに、メジャー欄へ「移動」の合成アクションを出す。
-        // 用途ではない(アイテム単位 timing に依存せずアクション自身の timing=メジャーで置く)ため、
-        // 専用トリガー(startVehicleMove)で操縦判定を起動する。
-        const majorBucket = byKey.get("action:major");
-        if (majorBucket) {
-            for (const v of items) {
-                if (v.type !== "vehicle" || !usable(v) || !v.system.operateSkillKey) continue;
-                majorBucket.entries.push({
-                    _id: v.id, name: `移動（${v.name}）`, sort: v.sort ?? 0,
-                    action: "startVehicleMove", isMove: true,
-                });
-            }
-        }
-        // リロード(2026-07-09): 残弾が空(0/なし)の準備済み武器ごとに、マイナー欄へ「リロード」を
-        // 合成アクションで出す。実行で残弾を全回復(FA 射撃以外では減らない)。
-        const minorBucket = byKey.get("action:minor");
-        if (minorBucket) {
-            for (const w of items) {
-                if (w.type !== "weapon" || !usable(w) || !isAmmoEmpty(w.system.ammo)) continue;
-                minorBucket.entries.push({
-                    _id: w.id, name: `リロード（${w.name}）`, sort: w.sort ?? 0,
-                    action: "startReload", isReload: true,
-                });
+            const isSkill = i.type === "generalSkill" || i.type === "styleSkill";
+            if (!isSkill && !(OUTFIT_ITEM_TYPES.has(i.type) && usable(i))) continue;
+            for (const usage of (i.system.actions ?? [])) {
+                classify(usage.timing, i, usage);
             }
         }
         // 各タイミング内は他タブでの手動並び順(item.sort)を尊重する
@@ -2428,18 +2409,16 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // usageId(用途の直接指定)は起動制御のみに使い、open へは流さない
         const { usageId: directUsageId, ...openExtra } = extraOpen;
 
-        // 既定の挙動: 実行できる用途(判定/攻撃/NPC取得)が無ければ、解説をそのままチャット表示する
-        // (アイテムの基本機能)。用途があればその実行に切り替わる。
-        // 攻撃・NPC取得もアイテムロール(アクターシートの技能クリック)から実行できる
-        // (経路の漏れを作らない=11-6/12-2 の確定方針)
-        // 攻撃は判定の一種(damageCategory 付きの check)。check/npcAcquire に加え、
-        // 事後系フラグ付きの宣言(再判定を付与/判定を修正/ダメージを修正=バフ宣言・2026-07-12/13)も
-        // 実行対象にする(フラグ無しの宣言=直接指定時のみ宣言使用・技能クリックでは従来どおり解説カード)
+        // 既定の挙動: 実行できる用途が無ければ、解説をそのままチャット表示する(アイテムの基本機能)。
+        // 用途があればその実行に切り替わる(経路の漏れを作らない=11-6/12-2 の確定方針)。
+        // 2026-07-17 行動種別再編: 判定を行う用途(攻撃・リアクション・移動・治療(判定形)等)すべてに加え、
+        // 事後系フラグ付きの宣言(再判定を付与/判定を修正/ダメージを修正=バフ宣言・2026-07-12/13)と
+        // 宣言形の治療・NPC取得宣言も実行対象にする(フラグ無しの宣言=直接指定時のみ宣言使用)
         const usableUsages = (item.system.actions ?? [])
-            .filter(a => a.type === "check"
-                || (a.type === "declaration"
+            .filter(a => executionFormOf(a) === "check"
+                || (executionFormOf(a) === "declaration"
                     && (a.grantRecheck === true || a.modifyCheck === true || a.modifyDamage === true
-                        || a.grantSuitChange === true || a.recovery === true || a.npcAcquire === true)));
+                        || a.grantSuitChange === true || a.type === "treatment" || a.npcAcquire === true)));
 
         // 用途を決定（直接指定→カバー再入の引き継ぎ→1つなら自動選択→複数はピッカー表示）。
         // カバーの判定起動(covering)は、待ち受け開始時に確定した用途を再選択せず引き継ぐ。
@@ -2460,12 +2439,33 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             if (!selectedUsage) return;
         }
 
-        // カバー(2026-07-16 ユーザー確定): アイテムロールで使用したら「カバー待ち受け」に入り、ダメージ
-        // カードのカバーする対象クリックで判定を起動する(covering 文脈つきで本関数へ再入=下の通常判定へ
-        // 合流)。再入時(openExtra.covering)はこの分岐を通さず通常判定を行う。
-        if (selectedUsage.covering === true && !openExtra.covering) {
+        // カバー(2026-07-16→2026-07-17 タイプ化): アイテムロールで使用したら「カバー待ち受け」に入り、
+        // ダメージカードのカバーする対象クリックで判定を起動する(covering 文脈つきで本関数へ再入=下の
+        // 通常判定へ合流)。再入時(openExtra.covering)はこの分岐を通さず通常判定を行う。
+        if (selectedUsage.type === "covering" && !openExtra.covering) {
             TnxCheckFlow.startAchievementAction("covering", actor, item, { usageId: selectedUsage._id });
             return;
+        }
+
+        // 使用ヴィークル(2026-07-17 ユーザー確定): 移動/リアクション（移動妨害）は準備済みヴィークルが
+        // 無ければ判定できない。参照は完全に単一(空=準備済みを自動解決)。移動タイプは移動文脈
+        // (達成値÷10 段階の移動カード)をここで注入する(旧・戦闘タブの合成アクションを置換)
+        if (usesVehicle(selectedUsage.type)) {
+            const refId = selectedUsage.vehicleRef?.itemId || "";
+            let vehicle = null;
+            if (refId) {
+                const v = actor.items.get(refId);
+                vehicle = (v && v.type === "vehicle" && v.system.isPrepared) ? v : null;
+            } else {
+                vehicle = actor.items.find(i => i.type === "vehicle" && i.system.isPrepared) ?? null;
+            }
+            if (!vehicle) {
+                ui.notifications.warn("準備済みのヴィークルが無いため、この判定は行えません。");
+                return;
+            }
+            if (selectedUsage.type === "move" && !openExtra.movement) {
+                openExtra.movement = { actorId: actor.id, vehicleName: vehicle.name, skillName: item.name };
+            }
         }
 
         // NPC取得(2026-07-13 フラグ化)は専用フローへ(消費・対象解決・判定・転記・配置を一貫して扱う)
@@ -2503,25 +2503,43 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             return;
         }
 
-        // 回復(2026-07-13): 専用フローへ(対象解決→回復対象の選択→宣言=即除去/判定=完了継続)
-        if (selectedUsage.recovery === true) {
+        // 治療(2026-07-13→2026-07-17 タイプ化): 専用フローへ(対象解決→回復対象の選択→
+        // 宣言形=即除去/判定形=完了継続。実行形式は用途の設定 executionForm)。
+        // 負傷カード起点の治療(openExtra.treatment=目標値・除去対象が確定済み)は通常判定へ合流する
+        if (selectedUsage.type === "treatment" && !openExtra.treatment) {
             try {
                 await useRecovery(item, selectedUsage);
             } catch (err) {
-                console.error("TNX | 回復の実行に失敗しました", err);
-                ui.notifications.error(`回復の実行に失敗しました: ${err.message}`);
+                console.error("TNX | 治療の実行に失敗しました", err);
+                ui.notifications.error(`治療の実行に失敗しました: ${err.message}`);
             }
             return;
         }
 
-        // 攻撃(damageCategory 付きの check)は専用フローへ(武器解決・対象決定・成否保留の
-        // 攻撃カード・リアクション対決=12-2)
+        // 攻撃(攻撃タイプ・2026-07-17 再編)は専用フローへ(武器解決・対象決定・成否保留の
+        // 対決判定カード・リアクション対決=12-2)
         if (isAttackUsage(selectedUsage)) {
             try {
                 await useAttack(item, selectedUsage);
             } catch (err) {
                 console.error("TNX | 攻撃の実行に失敗しました", err);
                 ui.notifications.error(`攻撃の実行に失敗しました: ${err.message}`);
+            }
+            return;
+        }
+
+        // 対決判定(2026-07-17 ユーザー確定): 対決欄に「-」「なし」以外の行がある判定は、成否保留の
+        // 対決判定カードへ(攻撃は上の専用フローが同カードを出す)。リアクション・カバー・判定要求の
+        // 文脈で行う判定は対決の入れ子にしない(その判定自体が対決・要求の解決側のため)
+        if (executionFormOf(selectedUsage) === "check" && !Number.isFinite(selectedUsage.fixedResult)
+            && isOpposedConfrontation(selectedUsage.confrontation)
+            && !openExtra.reaction && !openExtra.covering && !openExtra.requestMessageId) {
+            try {
+                const { useOpposedCheck } = await import("../module/attack-flow.mjs");
+                await useOpposedCheck(item, selectedUsage, openExtra);
+            } catch (err) {
+                console.error("TNX | 対決判定の実行に失敗しました", err);
+                ui.notifications.error(`対決判定の実行に失敗しました: ${err.message}`);
             }
             return;
         }
@@ -2596,7 +2614,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const usageEffects = await prepareUsageEffectPayload(actor, item, usage);
         if (usageEffects === "cancel") return;
         if (!usageEffects) {
-            ui.notifications?.info(`「${usage.name || "用途"}」を使用しました。`);
+            ui.notifications?.info(`「${usageDisplayName(usage, item.name) || "用途"}」を使用しました。`);
             return;
         }
         const esc = foundry.utils.escapeHTML;
@@ -2612,34 +2630,21 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
     }
 
     /**
-     * ヴィークル操縦移動の起動(フェーズ12・Outfits.md/Combat_Flow.md)。戦闘タブのタイミング節
-     * (メジャー)に準備済みヴィークルごとの合成アクションとして出す。対応する操縦で判定し、
-     * 達成値÷10 段階の移動が可能(段階移動の適用は移動・位置の機構へ後付け)。
+     * 戦闘タブのタイミング節から用途を直接起動する(2026-07-17 用途駆動化)。
+     * 旧・合成アクション(操縦移動/リロード)は移動タイプ用途・リロード用途に一本化されオミット。
      */
-    static async _onStartVehicleMove(event, target) {
+    static async _onStartUsageUse(event, target) {
         event.preventDefault();
-        const itemId = target.closest("[data-item-id]")?.dataset.itemId;
-        const vehicle = itemId ? this.actor.items.get(itemId) : null;
-        if (!vehicle) return;
+        const itemId = target.dataset.itemId;
+        const usageId = target.dataset.usageId;
+        const item = itemId ? this.actor.items.get(itemId) : null;
+        if (!item || !usageId) return;
         try {
-            await startVehicleMove(this.actor, vehicle);
+            await TnxCharacterSheetBase._activateItemCheck(this.actor, item, { usageId });
         } catch (err) {
-            console.error("TNX | 操縦移動の実行に失敗しました", err);
-            ui.notifications.error(`操縦移動の実行に失敗しました: ${err.message}`);
+            console.error("TNX | 用途の実行に失敗しました", err);
+            ui.notifications.error(`用途の実行に失敗しました: ${err.message}`);
         }
-    }
-
-    /**
-     * リロード(フェーズ12・マイナーアクション)。残弾が空の準備済み武器を満タンに戻す。
-     * 戦闘タブのタイミング節(マイナー)に合成アクションとして出る(残弾は FA 射撃で空になる)。
-     */
-    static async _onStartReload(event, target) {
-        event.preventDefault();
-        const itemId = target.closest("[data-item-id]")?.dataset.itemId;
-        const weapon = itemId ? this.actor.items.get(itemId) : null;
-        if (!weapon) return;
-        await reloadWeapon(weapon);
-        ui.notifications.info(`「${weapon.name}」をリロードしました（残弾を回復）。`);
     }
 
     /**
@@ -2685,16 +2690,20 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         });
     }
 
-    /** 複数の check 用途を D&D スタイルの縦ボタンダイアログで選択させる */
+    /** 複数の実行可能用途を D&D スタイルの縦ボタンダイアログで選択させる */
     static async _promptCheckUsage(usages, skillName) {
         // NPC取得は 2026-07-13 のフラグ化で type でなく usage.npcAcquire に載る(旧 type 参照は死に分岐)
         const iconFor = (u) => u.npcAcquire === true ? "fas fa-users"
-            : isAttackUsage(u) ? "fas fa-burst" : "fas fa-diamond";
+            : isAttackUsage(u) ? "fas fa-burst"
+                : isReactionType(u.type) ? "fas fa-shield-halved" : "fas fa-diamond";
+        // 名前が空のときの実効名=親アイテム名(2026-07-17)。無名どうしはタイプ名で見分ける
+        const labelFor = (u) => u.name
+            || `${skillName}（${USAGE_TYPE_LABELS[u.type] ?? u.type}）`;
         const buttons = [
             ...usages.map((u, i) => ({
                 action:   String(i),
                 icon:     iconFor(u),
-                label:    u.name || "判定",
+                label:    labelFor(u),
                 callback: () => i,
             })),
             { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },

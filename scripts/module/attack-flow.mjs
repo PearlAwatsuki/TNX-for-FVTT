@@ -27,13 +27,18 @@ import { buildUsageCheckContext } from "./usage-check-context.mjs";
 import { resolveAttackTargetRefs } from "./target-resolution.mjs";
 import { TargetSelectionDialog } from "./tnx-dialog.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
-import { resolveNoReaction, resolveOpposed, attackReactionModes, formatAttackLabel, combineWeaponAttack, resolveAttackRecheckState } from "./attack-flow-logic.mjs";
+import { resolveNoReaction, resolveOpposed, formatAttackLabel, combineWeaponAttack, resolveAttackRecheckState } from "./attack-flow-logic.mjs";
 import { hasAmmoTracking, consumeNormalAmmo } from "./weapon-ammo.mjs";
 import { resolveAttackWeapons, attackWeaponDisplayName } from "./attack-weapons.mjs";
 import { buildSkillOptions } from "./skill-select.mjs";
-import { actorSkillsWithRole } from "./skill-roles.mjs";
-import { resolveOperateSkill } from "./vehicle-move.mjs";
+import { movementStagesFromAchievement } from "./vehicle-move-logic.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
+import { USAGE_TYPE_LABELS, attackCategoryOf, usageDisplayName, executionFormOf } from "./usage-types.mjs";
+import {
+    confrontationReactionTypes, confrontationSkillRows, confrontationHasCannot,
+    asteriskSkillKeys, isOpposedConfrontation,
+} from "./confrontation-logic.mjs";
+import { findItemByIdentificationKey, resolveItemNameByKey } from "./identification.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -45,20 +50,15 @@ export const ATTACK_CATEGORY_LABELS = Object.freeze({
     social:   "社会攻撃",
 });
 
-/** リアクションの規定の指定技能(正準名・プルダウンの初期選択に使う) */
-const REACTION_DEFAULT_SKILL = Object.freeze({
-    dodge: "回避", parry: "白兵", mental: "自我", social: "信用",
-});
-
-/** リアクションモード → 技能役割(役割ベース検出。reaction は系統で自我/信用に分岐) */
-function reactionRole(mode, category) {
-    if (mode === "dodge") return "dodge";
-    if (mode === "parry") return "parry";
-    return category === "social" ? "socialReaction" : "mentalReaction";
-}
-
+// リアクション導線の表示ラベル(2026-07-17 再編: 手段=リアクション用途タイプと1:1。
+// 「既定技能」(手段→技能の既定対応)は完全廃止=資格・候補は用途タイプの所持で決まる)。
+// reaction=技能名行由来の汎用リアクション・none=リアクションしない。旧データの resolution
+// 表示互換(dodge/parry/reaction)もこの表で賄う
 const MODE_LABELS = Object.freeze({
-    dodge: "ドッジ", parry: "パリー", reaction: "リアクション", none: "リアクションしない",
+    ...Object.fromEntries(["dodge", "parry", "mentalReaction", "socialReaction",
+        "moveBlockReaction", "escapeBlockReaction"].map(k => [k, USAGE_TYPE_LABELS[k]])),
+    reaction: "リアクション",
+    none:     "リアクションしない",
 });
 
 // ─── 起動(attack 用途の使用) ─────────────────────────────────────────────────
@@ -74,7 +74,7 @@ export async function useAttack(item, usage) {
         ui.notifications.warn("攻撃はアクターが所持しているアイテムからのみ使用できます。");
         return;
     }
-    const category = usage.damageCategory || "physical";
+    const category = attackCategoryOf(usage.type) || "physical";
 
     // 武器解決(物理のみ・2026-07-13 ユーザー確定): **一本目=戦闘タブの「攻撃で使用」**
     // (actor.system.weaponRefs.attackItemId・空欄=生身)・用途の weaponRefs は2本目以降の追加分。
@@ -82,11 +82,23 @@ export async function useAttack(item, usage) {
     // (合算能力の表現・2026-07-09。純ロジックは combineWeaponAttack)。
     // FA は自動加算せず faOptions として持ち回し、ダメージ算出ダイアログで武器ごとに選択する。
     let weaponAttack = 0, damageType = "", attackSourceName = "", faOptions = [], stunCapable = false;
+    let usedWeapons = [];
     if (category === "physical") {
+        // 白兵/射撃の区分フラグで使用武器を絞る(2026-07-17 ユーザー確定)。生身(生身書き換え装備・
+        // cyborg 含む)は白兵武器として扱う。射撃攻撃は純粋な生身では行えない=射撃武器フラグの
+        // 武器を準備していなければ「準備している武器が無い」扱いで判定不可
+        const kind = usage.attackWeaponKind === "ranged" ? "ranged" : "melee";
+        const kindEligible = (w) => kind === "ranged"
+            ? w.system.isRangedWeapon === true
+            : (w.system.isMeleeWeapon === true || w.type === "cyborg" || readFlag(w.system, "isFleshChange"));
+        usedWeapons = resolveAttackWeapons(actor, usage, item).filter(kindEligible);
+        if (kind === "ranged" && !usedWeapons.length) {
+            ui.notifications.warn("準備している武器が無いため、射撃攻撃を行えません。");
+            return;
+        }
         // 数値は実効値(total=AE込み)を読む(UI 表示と同じ値・素値 value は編集用ベース。
         // 素値読みで表示と食い違っていたのをユーザー指摘で修正=2026-07-14)
-        const rawWeapons = resolveAttackWeapons(actor, usage, item);
-        const weapons = rawWeapons
+        const weapons = usedWeapons
             .map(w => ({
                 itemId:      w.id,
                 name:        attackWeaponDisplayName(w),
@@ -97,8 +109,8 @@ export async function useAttack(item, usage) {
                 consumesAmmo: hasAmmoTracking(w.system.ammo),
             }));
         // スタン可能(2026-07-15): 使用武器のいずれかがスタン可能 ∨ 生身(武器なし) ∨ 用途.canStun(技能効果)
-        stunCapable = usage.canStun === true || rawWeapons.length === 0
-            || rawWeapons.some(w => w.system.canStun === true);
+        stunCapable = usage.canStun === true || usedWeapons.length === 0
+            || usedWeapons.some(w => w.system.canStun === true);
         // 生身は value+mod が実効(AE はネイティブに value/mod へ乗る・UI 表示も value+mod)
         const baseAtk = actor.system.baseAttack ?? {};
         ({ weaponAttack, damageType, attackSourceName, faOptions } =
@@ -122,21 +134,25 @@ export async function useAttack(item, usage) {
 
     // 通常(非FA)射撃の残弾消費: 数字モードの武器を 1 減らす(任意は FA でのみ空・2026-07-10)。
     // 物理攻撃のみ。FA による消費はダメージ算出時(consumeFaAmmo)に別途行う。
-    // 対象はシートの「攻撃で使用」武器＋用途の追加分(実際に使用する武器全体・2026-07-13)
+    // 対象は区分フラグで絞った実際の使用武器(2026-07-17)
     if (category === "physical") {
-        for (const w of resolveAttackWeapons(actor, usage, item)) {
+        for (const w of usedWeapons) {
             await consumeNormalAmmo(w);
         }
     }
 
     await TnxCheckFlow.open({
         ...base,
-        targetValue:  null, // 成否は攻撃カード上で確定(リアクションなし=制御値/対決=相手の達成値)
+        targetValue:  null, // 成否は対決判定カード上で確定(リアクションなし=制御値/対決=相手の達成値)
         usageEffects: null, // 適用効果は攻撃ペイロードで運ぶ(攻撃カード→ダメージカードに一本化)
         attack: {
             attackerUuid: actor.uuid,
             attackerName: actor.name,
             targets,   // 命中判定は全対象で共有・postAttackCard が対象ごとの状態へ展開(2026-07-15)
+            isAttack: true,                    // 対決判定カードの攻撃項目を出す(2026-07-17 一般化)
+            usageType: usage.type,
+            // 対決欄(2026-07-17): リアクション導線の正本(手段行・技能名行・不可マスク)
+            confrontation: foundry.utils.deepClone(usage.confrontation ?? []),
             category, damageType, weaponAttack, faOptions, attackSourceName,
             damageBonuses: usage.damageBonuses ?? [],
             damageBonusSelf: usage.damageBonusSelf ?? "",
@@ -144,9 +160,60 @@ export async function useAttack(item, usage) {
             stunCapable,                       // スタン攻撃を宣言できるか(物理・武器/生身/用途canStun 由来・2026-07-15)
             stunDeclared: false,               // 判定ダイアログのトグルで宣言される(2026-07-15)
             skillLabel: base.skillLabel,
-            usageName: usage.name || item.name,
+            usageName: usageDisplayName(usage, item.name),
             usageEffects: base.usageEffects,   // 付与効果ペイロード(null=効果なし)。攻撃カードのフラグへ
         },
+    });
+}
+
+/**
+ * 非攻撃の対決判定を起動する(2026-07-17 一般化)。対決欄に有効行のある判定タイプ
+ * (判定/移動/離脱)が対象で、攻撃カードを一般化した対決判定カード(成否保留・対決欄由来の
+ * リアクション導線)へ乗せる。攻撃専用項目(武器・ダメージ)は出さない。
+ * 移動文脈(openExtra.movement)は対決判定カードに畳み込む(達成値÷10 段階を条件表示)。
+ * @param {Item} item 用途を持つアイテム
+ * @param {object} usage 対決欄に有効行のある判定系用途
+ * @param {object} [openExtra] 起動元の追加文脈(TnxCheckFlow.open へ合流)
+ */
+export async function useOpposedCheck(item, usage, openExtra = {}) {
+    const actor = item.actor;
+    if (!actor) {
+        ui.notifications.warn("対決判定はアクターが所持しているアイテムからのみ使用できます。");
+        return;
+    }
+    // 対象: 攻撃と同じ規約(Foundry のターゲット全件→未選択は選択ダイアログ・「対象なし」も許容)。
+    // 対象なしの対決はカード上のオープンなリアクション導線で受ける(操縦移動など)
+    const targets = await resolveAttackTargetRefs(actor);
+    if (targets === null) return;
+
+    const base = await buildUsageCheckContext(actor, item, usage);
+    if (!base) return;
+
+    // 移動文脈は対決判定カードのペイロードへ畳み込む(ctx.movement のままだと _execute が
+    // 移動カード側の分岐に入るため。非対決の移動は従来どおり移動カード)
+    const { movement, ...restExtra } = openExtra;
+
+    await TnxCheckFlow.open({
+        ...base,
+        targetValue:  null, // 成否は対決判定カード上で確定(対決=相手の達成値)
+        usageEffects: null, // 適用効果はペイロードで運ぶ(攻撃カードと同じ一本化)
+        attack: {
+            attackerUuid: actor.uuid,
+            attackerName: actor.name,
+            targets,
+            isAttack: false,                   // 攻撃専用項目(武器・ダメージ)は出さない
+            usageType: usage.type,
+            confrontation: foundry.utils.deepClone(usage.confrontation ?? []),
+            category: "", damageType: "", weaponAttack: 0, faOptions: [], attackSourceName: "",
+            damageBonuses: [], damageBonusSelf: "",
+            sourceItemId: item.id,
+            stunCapable: false, stunDeclared: false,
+            skillLabel: base.skillLabel,
+            usageName: usageDisplayName(usage, item.name),
+            usageEffects: base.usageEffects,
+            ...(movement ? { movement } : {}),
+        },
+        ...restExtra,
     });
 }
 
@@ -161,28 +228,44 @@ export async function postAttackCard({ payload, result, suit, cardCheckValue = n
     const attacker = await fromUuid(payload.attackerUuid).catch(() => null);
 
     // 全体の状態(命中判定は全対象で共有・2026-07-15 複数対象一括): ファンブル/スート不一致は
-    // 攻撃全体が失敗。対象なしは open。それ以外は対象ごとに解決(active)
+    // 判定全体が失敗。対象なしは open。それ以外は対象ごとに解決(active)
     let state;
     if (result.fumble) state = "fumble";
     else if (suitMismatch) state = "miss";
     else if (!(payload.targets?.length)) state = "open";
     else state = "active";
 
-    // 対象ごとの状態。controlValue=リアクションしなければ目標値になる対象の制御値(攻撃スート対応)。
-    // fumble/miss(スート不一致)は全対象を miss とし、リアクション導線を出さない
+    // リアクション導線の有無は対決欄が正(2026-07-17 ユーザー確定)。「-」「なし」だけの攻撃は
+    // 対決判定にならない=対象は制御値で確定する(リアクション不能)
+    const opposed = isOpposedConfrontation(payload.confrontation);
+
+    // 対象ごとの状態。controlValue=リアクションしなければ目標値になる対象の制御値(攻撃スート対応・
+    // 攻撃のみ)。fumble/miss(スート不一致)は全対象を miss とし、リアクション導線を出さない
+    const isAttack = payload.isAttack !== false;
     const ability = SUIT_TO_ABILITY[suit];
     const targets = [];
     for (const t of (payload.targets ?? [])) {
         const targetActor = await fromUuid(t.uuid).catch(() => null);
-        targets.push({
+        const entry = {
             uuid: t.uuid, name: t.name,
-            controlValue: targetActor?.system?.[ability]?.totalControl ?? 0,
+            controlValue: isAttack ? (targetActor?.system?.[ability]?.totalControl ?? 0) : 0,
             state: (state === "fumble" || state === "miss") ? "miss" : "pending",
             resolution: null, reactionAchievement: null, diff: null, parryGuard: 0,
             // リアクション判定の成立(一般定義=ファンブル/スート不一致でなければ成立・勝敗不問・
             // Check_Rules「判定の成立」)。社会ダメージの報酬点軽減の起動条件(2026-07-17)
             reactionEstablished: false,
-        });
+        };
+        // 非対決(対決欄なし)の攻撃: リアクション不能=制御値で即確定(2026-07-17 ユーザー確定)。
+        // 非攻撃の対決判定は useOpposedCheck が対決欄ありのときだけ通すためここには来ない
+        if (entry.state === "pending" && !opposed) {
+            const r = isAttack
+                ? resolveNoReaction(result.achievement ?? 0, entry.controlValue)
+                : { hit: true, diff: null };
+            entry.state = r.hit ? "hit" : "miss";
+            entry.resolution = "none";
+            entry.diff = r.diff;
+        }
+        targets.push(entry);
     }
 
     // ダメージカードは命中判定のカードとは別に出す(Damage_Rules 2026-07-08)ため、攻撃カードは
@@ -196,6 +279,9 @@ export async function postAttackCard({ payload, result, suit, cardCheckValue = n
         cardValue: cardCheckValue === "FIXED_21" ? 11 : (Number.isFinite(cardCheckValue) ? cardCheckValue : 0),
         suit,
         damageRolled: false,
+        // 対象なしの対決(操縦移動など・2026-07-17): カード上のオープンなリアクション導線で受ける。
+        // 先着のリアクションで解決し、「リアクションしない」(実行者/RL)で確定できる
+        ...(opposed && state === "open" ? { openReaction: { resolved: false } } : {}),
     };
 
     const content = await buildAttackCardContent({ payload, result, suit, card, fromDeck, trumpUsed, suitMismatch, isRecheck });
@@ -216,10 +302,10 @@ export async function postAttackCard({ payload, result, suit, cardCheckValue = n
         },
     });
 
-    // 対象ごとの個別リアクションカードを投稿(active のときのみ)。全体公開する——単体対象への攻撃でも
-    // 他者がリアクションを代行でき(範囲攻撃へのリアクション等)、公開でないと肩代わりできないため
-    // (2026-07-15 ユーザー確定=全て公開)。攻撃カードの目標リストは反応結果で更新される。
-    if (state === "active") {
+    // 対象ごとの個別リアクションカードを投稿(active かつ対決判定のときのみ)。全体公開する——
+    // 単体対象への攻撃でも他者がリアクションを代行でき(範囲攻撃へのリアクション等)、公開でないと
+    // 肩代わりできないため(2026-07-15 ユーザー確定=全て公開)。目標リストは反応結果で更新される。
+    if (state === "active" && opposed) {
         for (let i = 0; i < targets.length; i++) {
             await postReactionCard(attackMsg, i);
         }
@@ -234,13 +320,16 @@ export async function postAttackCard({ payload, result, suit, cardCheckValue = n
  * @param {number} targetIndex attackCheck.targets のインデックス
  */
 /** 個別リアクションカードの本文を構築する(新規投稿と再判定後のリフレッシュで共用・2026-07-15)。 */
-async function buildReactionCardContent({ attackerName, targetName, category, suit, achievement }) {
+async function buildReactionCardContent({ attackerName, targetName, category, suit, achievement, isAttack = true, usageType = "" }) {
     const SUIT_SYMBOL = { spade: "♠", club: "♣", heart: "♥", diamond: "♦" };
     return foundry.applications.handlebars.renderTemplate(
         "systems/tokyo-nova-axleration/templates/chat/reaction-card.hbs",
         {
             attackerName, targetName,
-            categoryLabel: ATTACK_CATEGORY_LABELS[category] ?? category,
+            categoryLabel: isAttack
+                ? (ATTACK_CATEGORY_LABELS[category] ?? category)
+                : (USAGE_TYPE_LABELS[usageType] ?? "判定"),
+            isAttack,
             suit, suitSymbol: SUIT_SYMBOL[suit] ?? "",
             achievement,
         }
@@ -255,6 +344,7 @@ export async function postReactionCard(attackMsg, targetIndex) {
     const content = await buildReactionCardContent({
         attackerName: f.attackerName, targetName: t.name,
         category: f.category, suit: f.suit, achievement: f.achievement,
+        isAttack: f.isAttack !== false, usageType: f.usageType ?? "",
     });
     await ChatMessage.create({
         content,
@@ -263,6 +353,7 @@ export async function postReactionCard(attackMsg, targetIndex) {
             attackMessageId: attackMsg.id, targetIndex,
             targetUuid: t.uuid, targetName: t.name,
             category: f.category, suit: f.suit, achievement: f.achievement,
+            isAttack: f.isAttack !== false, usageType: f.usageType ?? "",
             resolved: false,
         } } },
     });
@@ -278,7 +369,10 @@ export async function buildAttackCardContent({ payload, result, suit, card, from
         "systems/tokyo-nova-axleration/templates/chat/attack-card.hbs",
         {
             skillLabel:    payload.skillLabel,
-            categoryLabel: ATTACK_CATEGORY_LABELS[payload.category] ?? payload.category,
+            // 攻撃=系統表記・非攻撃の対決判定=用途タイプのラベル(移動/離脱/判定・2026-07-17 一般化)
+            categoryLabel: payload.isAttack === false
+                ? (USAGE_TYPE_LABELS[payload.usageType] ?? "判定")
+                : (ATTACK_CATEGORY_LABELS[payload.category] ?? payload.category),
             suit,
             suitSymbol:    SUIT_SYMBOL[suit] ?? "",
             cardName:      card?.name ?? "",
@@ -351,6 +445,7 @@ export async function refreshReactionCardsAfterRecheck(attackMessage, next) {
         const content = await buildReactionCardContent({
             attackerName: af?.attackerName, targetName: rf.targetName,
             category: rf.category, suit: next.suit, achievement: next.achievement,
+            isAttack: rf.isAttack !== false, usageType: rf.usageType ?? "",
         });
         await rc.update({
             content,
@@ -362,7 +457,7 @@ export async function refreshReactionCardsAfterRecheck(attackMessage, next) {
 
 // ─── 攻撃カードのライブ描画(renderChatMessageHTML・tnx.mjs から登録) ─────────────
 
-/** 攻撃カードの状態領域を flags から描画する(未解決=ボタン群/解決後=成否表示に置換)。 */
+/** 対決判定カード(旧・攻撃カード)の状態領域を flags から描画する(未解決=ボタン群/解決後=成否表示に置換)。 */
 export function renderAttackCard(message, html) {
     const f = message.getFlag(SCOPE, "attackCheck");
     if (!f) return;
@@ -371,6 +466,9 @@ export function renderAttackCard(message, html) {
     area.replaceChildren();
 
     const esc = foundry.utils.escapeHTML;
+    // 攻撃でしか必要のない項目は攻撃時のみ表示(2026-07-17 一般化・旧カードはフラグ無し=攻撃)
+    const isAttack = f.isAttack !== false;
+    const failWord = isAttack ? "攻撃失敗" : "判定失敗";
     const addLine = (cls, inner) => {
         const div = document.createElement("div");
         div.className = cls;
@@ -380,14 +478,22 @@ export function renderAttackCard(message, html) {
     const addVerdict = (cls, icon, label) =>
         addLine(`cr-result ${cls}`, `<i class="fas ${icon}"></i> <span>${label}</span>`);
 
-    if (f.state === "fumble") { addVerdict("cr-result--fumble", "fa-skull", "ファンブル！（攻撃失敗）"); return; }
-    if (f.state === "miss") { addVerdict("cr-result--failure", "fa-times", "攻撃失敗（スート不一致・判定不成立）"); return; }
-    // 攻撃を失敗させる(リアクション成功)で攻撃全体が失敗した場合。対象一覧は下に続けて表示する(全対象回避)
-    if (f.state === "failed") { addVerdict("cr-result--failure", "fa-times", "攻撃失敗（リアクションによる）"); }
+    // 移動(2026-07-17 統合): 達成値÷10(切り捨て)段階を条件表示。全体失敗・対決敗北は 0 段階
+    const renderMovementLine = () => {
+        if (!f.movement) return;
+        const failed = f.state === "fumble" || f.state === "miss" || f.state === "failed";
+        const stages = failed ? 0 : movementStagesFromAchievement(Number(f.achievement) || 0);
+        addLine("cr-tn", `移動（${esc(f.movement.vehicleName ?? "")}・達成値÷10 切り捨て）: ${stages} 段階`);
+    };
+
+    if (f.state === "fumble") { addVerdict("cr-result--fumble", "fa-skull", `ファンブル！（${failWord}）`); renderMovementLine(); return; }
+    if (f.state === "miss") { addVerdict("cr-result--failure", "fa-times", `${failWord}（スート不一致・判定不成立）`); renderMovementLine(); return; }
+    // 攻撃を失敗させる/対決敗北(リアクション成功)で全体が失敗した場合。対象一覧は下に続けて表示する
+    if (f.state === "failed") { addVerdict("cr-result--failure", "fa-times", `${failWord}（リアクションによる）`); }
 
     // 目標リスト(D&D 風・2026-07-15 複数対象一括): 各対象の防御値(リアクションしなければ目標値に
-    // なる制御値)と、防御側の解決による結果(命中/回避・達成値)を表示。リアクションボタンは
-    // 対象ごとの個別カード(GM＋対象所有者に whisper)側にあり、攻撃カードには置かない。
+    // なる制御値=攻撃のみ)と、防御側の解決による結果(命中/回避・達成値)を表示。リアクションボタンは
+    // 対象ごとの個別カード側にあり、このカードには置かない。
     const targets = f.targets ?? [];
     if (targets.length) {
         const list = document.createElement("div");
@@ -409,35 +515,65 @@ export function renderAttackCard(message, html) {
             }
             row.className = `tnx-attack-target tnx-attack-target--${t.state}`;
             const icon = t.state === "hit" ? "fa-burst" : (t.state === "miss" ? "fa-shield-halved" : "fa-hourglass-half");
-            const verdict = t.state === "hit" ? "命中" : (t.state === "miss" ? "回避/失敗" : "リアクション待ち");
+            const verdict = t.state === "hit" ? (isAttack ? "命中" : "成功")
+                : (t.state === "miss" ? (isAttack ? "回避/失敗" : "失敗") : "リアクション待ち");
+            const noneText = isAttack ? `制御値 ${t.controlValue}` : "リアクションなし";
             const valueText = t.state === "pending"
-                ? `制御値 ${t.controlValue}`
+                ? (isAttack ? `制御値 ${t.controlValue}` : "")
                 : (t.resolution === "areaCover"
                     ? "範囲攻撃へのリアクション"
                     : t.resolution === "none"
-                        ? `制御値 ${t.controlValue}`
+                        ? noneText
                         : `${MODE_LABELS[t.resolution] ?? "対決"} 達成値 ${t.reactionAchievement}`);
             row.innerHTML = `<span class="tnx-attack-target__icon"><i class="fas ${icon}"></i></span>`
                 + `<span class="tnx-attack-target__name">${esc(t.name || "?")}</span>`
                 + `<span class="tnx-attack-target__val">${esc(valueText)}</span>`
                 + `<span class="tnx-attack-target__verdict">${verdict}</span>`;
-            // カバー待ち受け中: 命中対象をクリックしてカバーできる(ダメージ算出の直前=ダメージカードを
-            // 出す前のみ)。モード外のクリックは handleCoveringClick 側で無視される(常設ハンドラ)。
-            if (t.state === "hit" && !f.damageRolled) {
+            // カバー待ち受け中(攻撃のみ): 命中対象をクリックしてカバーできる(ダメージ算出の直前=
+            // ダメージカードを出す前のみ)。モード外のクリックは handleCoveringClick 側で無視される。
+            if (isAttack && t.state === "hit" && !f.damageRolled) {
                 row.classList.add("tnx-attack-coverable");
                 row.addEventListener("click", () => handleCoveringClick(message, ti));
             }
             list.appendChild(row);
         }
         area.appendChild(list);
-    } else if (f.state === "open") {
-        addLine("tnx-attack-pending-note", "対象なし（ダメージ算出は対象を選択して行います）");
+    } else if (f.state === "open" && !f.openReaction) {
+        if (isAttack) addLine("tnx-attack-pending-note", "対象なし（ダメージ算出は対象を選択して行います）");
     }
 
-    // ダメージカードを出す(攻撃側): 全対象が解決済み(pending なし)で命中が1体以上、または対象なし
+    // 対象なしの対決(操縦移動など・2026-07-17): カード上のオープンなリアクション導線。
+    // 先着のリアクションで解決し、「リアクションしない」(実行者/RL)で確定する
+    if (f.openReaction) {
+        const o = f.openReaction;
+        if (o.resolved) {
+            if (o.mode) {
+                const calc = html.querySelector(".cr-calc-section") ?? area;
+                const addRow = (label, value) => {
+                    const d = document.createElement("div");
+                    d.className = "cr-calc-row";
+                    d.innerHTML = `<span class="cr-calc-label">${esc(label)}</span><span class="cr-calc-val">${esc(String(value))}</span>`;
+                    calc.appendChild(d);
+                };
+                addRow("リアクション", `${MODE_LABELS[o.mode] ?? "対決"}（${o.reactorName ?? "?"}）`);
+                addRow("リアクション達成値", o.reactionAchievement ?? 0);
+                if (f.state !== "failed") addVerdict("cr-result--success", "fa-check", "判定成功（対決勝利）");
+            }
+        } else if (f.state === "open") {
+            area.appendChild(buildReactionButtonRow(f, {
+                onMode: (mode) => startOpenReaction(message, mode),
+                onNone: () => handleOpenNoReaction(message),
+                canDecline: game.user.isGM || resolveSync(f.attackerUuid)?.isOwner === true,
+            }));
+        }
+    }
+
+    renderMovementLine();
+
+    // ダメージカードを出す(攻撃のみ): 全対象が解決済み(pending なし)で命中が1体以上、または対象なし
     const allResolved = targets.every(t => t.state !== "pending");
     const anyHit = targets.some(t => t.state === "hit");
-    if (!targets.length || (allResolved && anyHit)) {
+    if (isAttack && (!targets.length || (allResolved && anyHit))) {
         if (!f.damageRolled) {
             const attacker = resolveSync(f.attackerUuid);
             if (game.user.isGM || attacker?.isOwner) {
@@ -457,6 +593,43 @@ export function renderAttackCard(message, html) {
     }
 }
 
+/**
+ * 対決欄からリアクション導線のボタン列を作る(個別リアクションカードとオープンリアクションで共用・
+ * 2026-07-17)。手段行=リアクション用途タイプのボタン・技能名行があれば汎用「リアクション」・
+ * 「リアクションしない」は canDecline のときのみ。導線は隠さず、資格(該当用途タイプの技能を
+ * レベル1以上で所持・不可マスク)は押下時に判定して弾く(2026-07-17 ユーザー確定)。
+ */
+function buildReactionButtonRow(attackFlags, { onMode, onNone, canDecline }) {
+    const rows = attackFlags.confrontation ?? [];
+    const wrap = document.createElement("div");
+    wrap.className = "tnx-reaction-actions";
+    if (confrontationHasCannot(rows)) {
+        const note = document.createElement("div");
+        note.className = "tnx-attack-pending-note";
+        note.textContent = "対決不可";
+        wrap.appendChild(note);
+    }
+    const btnRow = document.createElement("div");
+    btnRow.className = "tnx-attack-btn-row";
+    const addBtn = (label, handler) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "tnx-chat-btn";
+        btn.textContent = label;
+        btn.addEventListener("click", handler);
+        btnRow.appendChild(btn);
+    };
+    for (const type of confrontationReactionTypes(rows)) {
+        addBtn(MODE_LABELS[type] ?? type, () => onMode(type));
+    }
+    if (confrontationSkillRows(rows).length) {
+        addBtn(MODE_LABELS.reaction, () => onMode("reaction"));
+    }
+    if (canDecline) addBtn(MODE_LABELS.none, onNone);
+    wrap.appendChild(btnRow);
+    return wrap;
+}
+
 function resolveSync(uuid) {
     if (!uuid) return null;
     try { return fromUuidSync(uuid); } catch { return null; }
@@ -474,6 +647,7 @@ export function renderReactionCard(message, html) {
     if (!area) return;
     area.replaceChildren();
     const esc = foundry.utils.escapeHTML;
+    const isAttack = f.isAttack !== false;
 
     if (f.resolved) {
         // 目標値/差分は計算セクションへ足し、成否はフルバナーで表示(check-result と同型・
@@ -490,8 +664,8 @@ export function renderReactionCard(message, html) {
         // 別人が代行したときだけ実行者名を添える(自分のリアクションは名前が自明なので繰り返さない)
         const isCover = f.reactorName && f.reactorName !== f.targetName;
         if (f.resolution === "none") {
-            // リアクションしない=制御値で受けた。制御値と成否で十分(「リアクションしない」は繰り返さない)
-            addRow("制御値", f.control ?? 0);
+            // リアクションしない=攻撃は制御値で受けた(制御値と成否で十分)。非攻撃は制御値を持たない
+            if (isAttack) addRow("制御値", f.control ?? 0);
         } else {
             // カードをプレイしたリアクション: モード＋達成値。達成値の総計行を renderRecheckButton が
             // 再判定/修正の対象として拾う(このカードが結果カードそのもの・2026-07-15)
@@ -500,43 +674,36 @@ export function renderReactionCard(message, html) {
         }
         if (Number.isFinite(f.diff)) addRow("差分値", f.diff >= 0 ? `+${f.diff}` : `${f.diff}`);
         // 成否表記(2026-07-15 ユーザー確定): ルールに無い言い換え(「受け」等)は使わない。リアクション成功=
-        // 攻撃無効。リアクションしないで被弾しなかった場合はリアクションしていないため「攻撃無効」(ルール語)
-        const notHitLabel = f.resolution === "none" ? "攻撃無効" : "リアクション成功";
+        // 攻撃無効。リアクションしないで被弾しなかった場合はリアクションしていないため「攻撃無効」(ルール語)。
+        // 非攻撃の対決(2026-07-17): 被弾/攻撃無効の語は使えないため「相手の判定成立/リアクション成功」
+        const hitLabel = isAttack ? "被弾" : "相手の判定成立";
+        const notHitLabel = f.resolution === "none"
+            ? (isAttack ? "攻撃無効" : "判定不成立")
+            : "リアクション成功";
         const verdict = document.createElement("div");
         verdict.className = `cr-result ${hit ? "cr-result--failure" : "cr-result--success"}`;
-        verdict.innerHTML = `<i class="fas ${hit ? "fa-burst" : "fa-shield-halved"}"></i> <span>${hit ? "被弾" : notHitLabel}</span>`;
+        verdict.innerHTML = `<i class="fas ${hit ? "fa-burst" : "fa-shield-halved"}"></i> <span>${hit ? hitLabel : notHitLabel}</span>`;
         area.appendChild(verdict);
         return;
     }
 
-    // 未解決: リアクションボタン。ドッジ/パリー/精神・社会リアクションは他者も代行できる(範囲攻撃への
-    // リアクション等・2026-07-15 ユーザー確定=全公開で肩代わり可)ため全員に出す。実行アクターは
-    // startReaction 側で reactor(選択トークン→割り当てキャラ)を解決する。「リアクションしない」は
-    // 対象自身の宣言なので GM か対象所有者のみ。操作領域はカード内側余白に合わせたラッパへ入れる。
+    // 未解決: リアクション導線は対決欄から導出する(2026-07-17 ユーザー確定=手段行・技能名行が正。
+    // 資格は押下時に判定して弾くため、ボタンは全員に出す=他者の代行も可・2026-07-15)。実行アクターは
+    // startReaction 側で reactor(割り当てキャラ→選択トークン)を解決する。「リアクションしない」は
+    // 対象自身の宣言なので GM か対象所有者のみ。
+    const attackF = game.messages.get(f.attackMessageId)?.getFlag(SCOPE, "attackCheck");
     const target = resolveSync(f.targetUuid);
     const canDeclineForTarget = game.user.isGM || target?.isOwner;
-    const actions = document.createElement("div");
-    actions.className = "tnx-reaction-actions";
+    const wrap = buildReactionButtonRow(attackF ?? { confrontation: [] }, {
+        onMode: (mode) => startReaction(message, mode),
+        onNone: () => handleNoReaction(message),
+        canDecline: canDeclineForTarget,
+    });
     const note = document.createElement("div");
     note.className = "tnx-attack-pending-note";
-    note.textContent = `攻撃達成値 ${f.achievement} — リアクションを選択してください`;
-    actions.appendChild(note);
-    const btnRow = document.createElement("div");
-    btnRow.className = "tnx-attack-btn-row";
-    for (const mode of attackReactionModes(f.category)) {
-        if (mode === "none" && !canDeclineForTarget) continue; // 「リアクションしない」は対象/RL のみ
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "tnx-chat-btn";
-        btn.textContent = MODE_LABELS[mode];
-        btn.addEventListener("click", () => {
-            if (mode === "none") handleNoReaction(message);
-            else startReaction(message, mode);
-        });
-        btnRow.appendChild(btn);
-    }
-    actions.appendChild(btnRow);
-    area.appendChild(actions);
+    note.textContent = `${isAttack ? "攻撃達成値" : "相手の達成値"} ${f.achievement} — リアクションを選択してください`;
+    wrap.prepend(note);
+    area.appendChild(wrap);
 }
 
 /**
@@ -580,7 +747,8 @@ async function closeUnresolvedReactionCards(attackMessage, exceptIndex) {
 
 // ─── 命中確定(リアクションなし/対決) ─────────────────────────────────────────
 
-/** 「リアクションしない」(個別リアクションカードから): 制御値で成否を確定し攻撃カードの目標を更新。 */
+/** 「リアクションしない」(個別リアクションカードから): 攻撃=制御値で成否を確定・
+ *  非攻撃の対決=相手の判定がそのまま成立(制御値を持たない・2026-07-17)。 */
 export async function handleNoReaction(reactionMsg) {
     const r = reactionMsg.getFlag(SCOPE, "attackReaction");
     if (!r || r.resolved) return;
@@ -594,6 +762,13 @@ export async function handleNoReaction(reactionMsg) {
     // 既に解決済み(範囲攻撃へのリアクション/攻撃を失敗させるで回避確定)の対象は再解決しない(2026-07-15)。
     const at = attackMsg?.getFlag(SCOPE, "attackCheck")?.targets?.[r.targetIndex];
     if (at && at.state !== "pending") { ui.notifications.info("この対象への攻撃は既に解決済みです。"); return; }
+    if (r.isAttack === false) {
+        if (attackMsg) await applyAttackTargetPatch(attackMsg, r.targetIndex,
+            { state: "hit", resolution: "none", reactionAchievement: null, diff: null, parryGuard: 0 });
+        await applyReactionPatch(reactionMsg,
+            { resolved: true, resolution: "none", control: null, hit: true, diff: null, reactorName: target.name });
+        return;
+    }
     const ability = SUIT_TO_ABILITY[r.suit];
     const control = target.system[ability]?.totalControl ?? 0;
     const { hit, diff } = resolveNoReaction(r.achievement, control);
@@ -605,41 +780,111 @@ export async function handleNoReaction(reactionMsg) {
 }
 
 /**
- * ヴィークル搭乗中で対応する〈操縦〉技能を持たずドッジできないとき、パリー/制御値受けへ誘導する
- * (2026-07-10 ユーザー確定)。搭乗中は回避ブロックのため、回避へのフォールバックはしない。
+ * 対決欄とリアクターの状態から、リアクションに使用する技能を選ばせる(2026-07-17 再編)。
+ * 資格はここ=押下時に判定して弾く(導線は隠さない・ユーザー確定):
+ * - 手段行(mode=リアクション用途タイプ): そのタイプの用途を持つ技能をレベル1以上で所持。
+ * - 技能名行(mode="reaction"): 列挙された無印技能のどれかをレベル1以上で所持。
+ * - ※(必須)行: その技能すべてをレベル1以上で所持していなければ不可。候補=※技能。
+ * - 「不可」マスク: 「対決不可にもリアクション可」(ignoresUnopposable)の用途を持つ技能のみ通る
+ *   (その場合も下地の対決拘束は受ける)。
+ * - **対決の特殊処理はヴィークル操縦時のみ**: 操縦中(準備済みヴィークル)のリアクターは、対決が
+ *   自動的に「〈操縦〉※」になる(リアクター側状態由来・下地を置き換え・不可マスクは残る)。
+ * 技能→用途の既定対応(旧・既定技能)は完全廃止=候補・資格は用途タイプの所持だけで決まる。
+ * @returns {Promise<?{skill: Item, usageId: ?string}>} null=不適格・キャンセル(警告はここで出す)
  */
-async function promptVehicleDodgeFallback(reactor, vehicle, reactionMsg) {
-    const esc = foundry.utils.escapeHTML;
-    const choice = await foundry.applications.api.DialogV2.wait({
-        window: { title: "ドッジ不可（操縦技能なし）" },
-        classes: ["tokyo-nova", "tnx-dialog"],
-        content: `<p>「${esc(reactor.name)}」は「${esc(vehicle.name)}」に対応する〈操縦〉技能を持たないため、搭乗中はドッジできません。</p>`
-            + `<p>パリーするか、制御値で受けるかを選んでください。</p>`,
-        buttons: [
-            { action: "parry", icon: "fas fa-shield-halved", label: "パリー", callback: () => "parry" },
-            { action: "none",  icon: "fas fa-user-shield",   label: "制御値で受ける", callback: () => "none" },
-            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
-        ],
+async function selectReactionSkill(reactor, confrontationRows, mode) {
+    let rows = confrontationRows ?? [];
+    const vehicle = reactor.items.find(i => i.type === "vehicle" && i.system.isPrepared && i.system.operateSkillKey);
+    if (vehicle) {
+        rows = [
+            ...(confrontationHasCannot(rows) ? [{ value: "cannot", name: "" }] : []),
+            { value: "skillNameAsterisk", name: vehicle.system.operateSkillKey },
+        ];
+    }
+    const cannot = confrontationHasCannot(rows);
+    const levelOk = (s) => (Number(s.system.levelTotal ?? s.system.level) || 0) >= 1;
+    // 不可マスク下では「対決不可にもリアクション可」の用途だけが使える
+    const usageEligible = (a, type) => executionFormOf(a) === "check"
+        && (!type || a.type === type)
+        && (!cannot || a.ignoresUnopposable === true);
+    const skillEligible = (s, type) => levelOk(s) && (s.system.actions ?? []).some(a => usageEligible(a, type));
+
+    // ※(必須)技能: すべて所持していなければリアクション不可。候補は※技能そのもの
+    // (「必ずコンボに含める」=※技能を起点に判定する。コンボの構成はその用途の設定が担う)
+    const asterisks = asteriskSkillKeys(rows);
+    let candidates;
+    const typeMode = mode !== "reaction" ? mode : null;
+    if (asterisks.length) {
+        candidates = [];
+        for (const key of asterisks) {
+            const s = findItemByIdentificationKey(reactor, key);
+            if (!s || !levelOk(s)) {
+                const name = resolveItemNameByKey(reactor, key) || key;
+                ui.notifications.warn(`このリアクションには「${name}」（レベル1以上）が必要です。`);
+                return null;
+            }
+            candidates.push(s);
+        }
+        candidates = candidates.filter(s => (s.system.actions ?? []).some(a => usageEligible(a, null)));
+    } else if (typeMode) {
+        // 手段行: そのリアクション用途タイプを持つ技能(2026-07-17=用途タイプが資格の正)
+        candidates = reactor.items
+            .filter(i => (i.type === "generalSkill" || i.type === "styleSkill") && skillEligible(i, typeMode))
+            .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
+    } else {
+        // 技能名行(無印): 列挙のどれか1つがコンボに含まれていればよい=列挙技能を候補にする
+        candidates = confrontationSkillRows(rows)
+            .filter(row => !row.asterisk)
+            .map(row => findItemByIdentificationKey(reactor, row.key))
+            .filter(s => s && skillEligible(s, null));
+    }
+
+    if (!candidates.length) {
+        ui.notifications.warn(cannot
+            ? "この判定は対決不可のため、リアクションできません。"
+            : "リアクションに使用できる技能がありません（該当する用途をレベル1以上の技能で所持している必要があります）。");
+        return null;
+    }
+
+    const skillId = await TargetSelectionDialog.prompt({
+        title: `${MODE_LABELS[mode] ?? "リアクション"}: 使用技能の選択`,
+        label: `${MODE_LABELS[mode] ?? "リアクション"}に使用する技能を選択`,
+        options: buildSkillOptions(candidates),
+        selectLabel: "判定へ",
     });
-    if (choice === "parry") await startReaction(reactionMsg, "parry");
-    else if (choice === "none") await handleNoReaction(reactionMsg);
+    if (!skillId) return null;
+    const skill = reactor.items.get(skillId);
+    if (!skill) return null;
+
+    // 手段行は該当タイプの用途がただ1つなら直接起動する(複数なら通常のピッカーに委ねる)
+    let usageId = null;
+    if (typeMode) {
+        const matches = (skill.system.actions ?? []).filter(a => usageEligible(a, typeMode));
+        if (matches.length === 1) usageId = matches[0]._id;
+    }
+    return { skill, usageId };
 }
 
 /**
- * リアクション(ドッジ/パリー/精神・社会のリアクション)を開始する。
- * 技能は強制しない(既定候補は案内のみ)。判定は通常の技能判定フローで行い、
- * 完了時に completeReactionFromCheck が対決を解決する。
+ * リアクションを開始する(個別リアクションカードから)。mode=リアクション用途タイプ
+ * ("dodge"/"parry"/"mentalReaction"…)か "reaction"(技能名行由来の汎用)。
+ * 判定は通常の技能判定フローで行い、完了時に completeReactionFromCheck が対決を解決する。
  */
 export async function startReaction(reactionMsg, mode) {
     const r = reactionMsg.getFlag(SCOPE, "attackReaction");
     if (!r || r.resolved) return;
     // 既に解決済み(範囲攻撃へのリアクション/攻撃を失敗させるで回避確定)の対象は再解決しない(2026-07-15)。
-    const at0 = game.messages.get(r.attackMessageId)?.getFlag(SCOPE, "attackCheck")?.targets?.[r.targetIndex];
+    const attackMsg = game.messages.get(r.attackMessageId);
+    const attackF = attackMsg?.getFlag(SCOPE, "attackCheck");
+    const at0 = attackF?.targets?.[r.targetIndex];
     if (at0 && at0.state !== "pending") { ui.notifications.info("この対象への攻撃は既に解決済みです。"); return; }
-    // リアクター(実行アクター)は攻撃対象に限らない(他者が代行可)。選択トークン→割り当てキャラ、
+    // リアクター(実行アクター)は攻撃対象に限らない(他者が代行可)。割り当てキャラ→選択トークン、
     // 権限が無ければ弾く。判定は reactor 自身の技能・値で行い、命中結果は攻撃対象に返る。
     const reactor = resolveReactor();
     if (!reactor) return;
+
+    const sel = await selectReactionSkill(reactor, attackF?.confrontation ?? [], mode);
+    if (!sel) return;
 
     // パリー: 受け値=パリー参照武器(weaponRefs.parry)の guardValue(判定成立なら敗北でも軽減に加算)。
     // AR−1 の専用自動化は廃止(2026-07-12)——パリー技能の用途の消費先設定(AR を消費)が担う
@@ -659,52 +904,51 @@ export async function startReaction(reactionMsg, mode) {
         }
     }
 
-    // ヴィークル搭乗中(準備済みヴィークル=部位「操縦」は1枠のため常に1つ)はドッジ＝対応する〈操縦〉
-    // のみ(回避・他技能はブロック・Damage_Rules「ドッジ」)。操縦技能を持たなければドッジ不可で、
-    // パリー/制御値受けへフォールバックさせる(2026-07-10 ユーザー確定)。
-    let candidates = null;
-    if (mode === "dodge") {
-        const vehicle = reactor.items.find(i => i.type === "vehicle" && i.system.isPrepared && i.system.operateSkillKey);
-        if (vehicle) {
-            const operateSkill = resolveOperateSkill(reactor, vehicle);
-            if (!operateSkill) {
-                await promptVehicleDodgeFallback(reactor, vehicle, reactionMsg);
-                return;
-            }
-            candidates = [operateSkill]; // 操縦のみに差し替え(回避ブロック)
-        }
-    }
-
-    // 技能選択(強制しない): リアクション役割(dodge/parry/mentalReaction/socialReaction)を持つ
-    // 技能を検出。役割技能が無ければ全技能から選ばせる(移行フォールバック)。既定は先頭を初期選択
-    const role = reactionRole(mode, r.category);
-    if (!candidates) {
-        candidates = actorSkillsWithRole(reactor, role);
-        if (!candidates.length) {
-            candidates = reactor.items
-                .filter(i => ["generalSkill", "styleSkill"].includes(i.type))
-                .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
-        }
-    }
-    if (!candidates.length) { ui.notifications.warn(`「${reactor.name}」に使用できる技能がありません。`); return; }
-    const defaultSkill = mode === "reaction" ? REACTION_DEFAULT_SKILL[r.category] : REACTION_DEFAULT_SKILL[mode];
-    const skillId = await TargetSelectionDialog.prompt({
-        title: `${MODE_LABELS[mode]}: 使用技能の選択`,
-        label: `${MODE_LABELS[mode]}に使用する技能を選択`,
-        options: buildSkillOptions(candidates, { defaultName: defaultSkill }),
-        selectLabel: "判定へ",
-    });
-    if (!skillId) return;
-    const skill = reactor.items.get(skillId);
-    if (!skill) return;
-
     // 起動は唯一の起動関数へ集約(2026-07-15 ユーザー確定)。用途・コンボ・消費・判定ボーナス・適用効果は
     // シートの技能クリックと全く同じ処理で解決し、ここではリアクション文脈だけを注入する
     // (組み合わせの可否はユーザー/RL が決めるものでシステムは制限しない)。
     const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
-    await TnxCharacterSheetBase._activateItemCheck(reactor, skill, {
+    await TnxCharacterSheetBase._activateItemCheck(reactor, sel.skill, {
+        ...(sel.usageId ? { usageId: sel.usageId } : {}),
         reaction: { reactionMessageId: reactionMsg.id, attackMessageId: r.attackMessageId, targetIndex: r.targetIndex, mode, parryGuard },
     });
+}
+
+/**
+ * 対象なしの対決のリアクションを開始する(対決判定カード上のオープン導線・2026-07-17)。
+ * 先着のリアクションで解決する。完了時は completeReactionFromCheck(open)が対決を解決し、
+ * リアクション側勝利で判定全体を「失敗」にする(例: 操縦移動なら移動不可)。
+ */
+export async function startOpenReaction(attackMsg, mode) {
+    const f = attackMsg.getFlag(SCOPE, "attackCheck");
+    if (!f?.openReaction || f.openReaction.resolved || f.state !== "open") {
+        ui.notifications.info("この判定は既に解決済みです。");
+        return;
+    }
+    const reactor = resolveReactor();
+    if (!reactor) return;
+    const sel = await selectReactionSkill(reactor, f.confrontation ?? [], mode);
+    if (!sel) return;
+    const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
+    await TnxCharacterSheetBase._activateItemCheck(reactor, sel.skill, {
+        ...(sel.usageId ? { usageId: sel.usageId } : {}),
+        reaction: {
+            attackMessageId: attackMsg.id, reactionMessageId: null, targetIndex: null,
+            open: true, mode, parryGuard: 0, reactorId: reactor.id,
+        },
+    });
+}
+
+/** 「リアクションしない」(オープン対決・実行者/RL): 導線を閉じ、判定をそのまま確定する。 */
+export async function handleOpenNoReaction(attackMsg) {
+    const f = attackMsg.getFlag(SCOPE, "attackCheck");
+    if (!f?.openReaction || f.openReaction.resolved) return;
+    const attacker = resolveSync(f.attackerUuid);
+    if (!game.user.isGM && !(attacker?.isOwner)) {
+        ui.notifications.warn("「リアクションしない」の確定は実行者の操作者（または RL）が行います。");
+        return;
+    }
+    await applyAttackPatch(attackMsg, { openReaction: { resolved: true, mode: null } });
 }
 
 /**
@@ -718,6 +962,31 @@ export async function completeReactionFromCheck(payload, result, { suitMismatch 
     const reactionMsg = payload.reactionMessageId ? game.messages.get(payload.reactionMessageId) : null;
     if (!attackMsg) return;
     const f = attackMsg.getFlag(SCOPE, "attackCheck");
+
+    // オープン対決(対象なし・2026-07-17): 先着のリアクションで解決する。リアクション側勝利で
+    // 判定全体を「失敗」に(例: 操縦移動なら移動不可)。再判定/修正の再解決(allowResolved)は
+    // 自分が解決した対決(同一リアクター)のみ適用する
+    if (payload.open === true) {
+        const o = f?.openReaction;
+        if (!o) return;
+        if (o.resolved && !(allowResolved && o.reactorId && o.reactorId === payload.reactorId)) return;
+        if (!o.resolved && allowResolved) return;
+        const okOpen = !result.fumble && !suitMismatch;
+        const reactAchOpen = okOpen ? (result.achievement ?? 0) : 0;
+        const opposedOpen = resolveOpposed(f.achievement, reactAchOpen);
+        await applyAttackPatch(attackMsg, {
+            state: opposedOpen.hit ? "open" : "failed",
+            openReaction: {
+                resolved: true, mode: payload.mode,
+                reactorId: payload.reactorId ?? "",
+                reactorName: game.actors.get(payload.reactorId)?.name ?? "?",
+                reactionAchievement: reactAchOpen,
+                established: okOpen,
+            },
+        });
+        return;
+    }
+
     const t = f?.targets?.[payload.targetIndex];
     // 通常は未解決のみ。再判定/修正での対決再解決(allowResolved)は解決済み(hit/miss)でも再解決する(2026-07-15)
     if (!t || (t.state !== "pending" && !allowResolved)) return;

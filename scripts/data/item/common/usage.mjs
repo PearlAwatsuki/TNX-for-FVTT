@@ -6,43 +6,40 @@
  *                vehicle / residence / combiner / general
  * SystemDataModel.mixin() の引数として各 Item DataModel に合成して使う。
  *
- * actions[].type の値域:
- *   "check"        - 判定（技能判定）。**攻撃は判定の一種**(2026-07-09 新設計・ユーザー方針):
- *                    check のうち damageCategory が設定されているものが攻撃(weaponRef・damageType は
- *                    物理のみの攻撃プロファイル)。「白兵判定」はルール上ひとつで、攻撃かどうかは帰結。
- *                    旧 type="attack" は migrateData で check + damageCategory に移行する。
- *   "declaration"  - 宣言（判定なしで使える能力＝神業を含む。判定を伴わないため独立タイプ）
- *   ※タイプは check/declaration の2つに一本化(2026-07-13 ユーザー確定=他タイプが組み合わせ
- *     判定の不確定要素になるため)。旧 "modification"(改造)は廃止=check へ移行(改造は判定で行う。
- *     機能未実装のため modifiableParams はデータ温存のみ)。旧 "npcAcquire" は**フラグ化**
- *     (npcAcquire=true)=判定/宣言のどちらにも設定できる(migrateData でエキストラ=宣言・
- *     トループ/エニグマ/分身=判定へ移行。実行はモード駆動で従来どおり)。
- *   ※旧 "damageBoost"/"damageReduce"(ダメージ増加/軽減)は廃止(2026-07-11 ユーザー確定)。
- *     ダメージの増減は check 用途のフラグ modifyDamage(ダメージを修正・アイテムロール使用→
- *     ダメージカードの攻撃側合計クリックで適用。増加=正・軽減=負)か、攻撃用途のダメージ修正行
- *     (組み合わせ技能を供給元に)で表す。既存データは migrateData で declaration(宣言)へ変換する。
+ * actions[].type の値域: **行動種別の16タイプ**(2026-07-17 ユーザー確定・正本は
+ * scripts/module/usage-types.mjs の USAGE_TYPE_DEFS と Check_Rules.md「用途タイプ」)。
+ *   判定(check)・宣言(declaration)／物理攻撃・精神攻撃・社会攻撃／ドッジ・パリー・
+ *   リアクション（精神攻撃）（社会攻撃）（移動妨害）（離脱妨害）／移動・離脱・治療・改造・カバー。
+ *   「技能クリック以外から起動し、可能な技能を識別する必要がある行動」だけをタイプにする。
+ *   - 攻撃は damageCategory フラグから攻撃タイプへ移行(系統はタイプが持つ)。
+ *   - カバー(covering)・回復(recovery)のフラグはタイプへ移行(治療は executionForm で判定/宣言を選ぶ)。
+ *   - NPC取得は用途内で機能が完結する(識別不要)ためタイプにせずフラグのまま。
+ *   - 2026-07-13 の check/declaration 一本化で排除したのは「メカニクスのタイプ化」であり、
+ *     行動種別タイプは組み合わせと衝突しない(行動は常に1つの用途から起動される)。
  *
  * タイプは作成時に固定。UI 上で切り替え不可。
  * 全タイプ共通: _id / name / description / timing / target / effects / consumeTargets
+ * name の既定は空(2026-07-17 ユーザー確定): 空のときの実効名=親アイテム名(usageDisplayName)。
  *
  * 消費の原則(フェーズ11-6・2026-07-04 確定): 使用回数の消費は consumeTargets からのみ発生する。
  * 親アイテムの自動消費・コンボ参加技能の遠隔消費(自動スキャン)は全廃——使用回数制限のある技能を
  * 組み合わせに参加させる場合は、その消費を用途に手動で設定する必要がある(ユーザー了承済み)。
  *
- * skillRefs: check・attack タイプで使用。組み合わせ技能の item ID リスト。
+ * skillRefs: 判定を行うタイプで使用。組み合わせ技能の item ID リスト。
  *   ベース技能は用途を所持するアイテム自身のため skillRefs に含まない。
  */
 
 import { SystemDataModel } from "../../abstract.mjs";
+import { isAttackType, defaultConfrontationForType } from "../../../module/usage-types.mjs";
 
 /**
- * 攻撃用途か(2026-07-09 新設計): 攻撃は判定(check)の一種で、damageCategory が設定されているもの。
- * 「白兵判定」はルール上ひとつであり、攻撃かどうかは帰結(ダメージ段へ入るか)なので用途タイプを分けない。
- * @param {{type?:string, damageCategory?:string}} usage
+ * 攻撃用途か。攻撃は行動種別タイプ(物理攻撃/精神攻撃/社会攻撃)で表す(2026-07-17 再編。
+ * 旧 check+damageCategory は migrateData で攻撃タイプへ移行済み)。
+ * @param {{type?:string}} usage
  * @returns {boolean}
  */
 export function isAttackUsage(usage) {
-    return usage?.type === "check" && !!usage?.damageCategory;
+    return isAttackType(usage?.type);
 }
 
 export class UsageTemplate extends SystemDataModel {
@@ -89,8 +86,42 @@ export class UsageTemplate extends SystemDataModel {
                     // null(空欄)=通常判定。
                     fixedResult: new fields.NumberField({ initial: null, nullable: true, integer: true }),
 
-                    // 対決不可: 対象がこの判定に対決（リアクション）できない状態（実機能はフェーズ13、現状は保持のみ）
-                    isUnopposable: new fields.BooleanField({ initial: false }),
+                    // ─── 対決欄(2026-07-17 ユーザー確定・Check_Rules「対決の解釈(是正)」) ───
+                    // 拘束リスト: ※がなくても列挙された手段・技能によってしかリアクションできない。
+                    // 行の形はスタイル技能の confrontation と同形(技能名系は辞典カスケード・name=識別キー)。
+                    // value の値域は用途独自(USAGE_CONFRONTATION_OPTIONS): blank/skillName/skillNameAsterisk/
+                    // 手段行(リアクション用途タイプと1:1)/none/cannot。「不可」はマスクであり、下地の行は
+                    // 無視・無効化に備えて並存保存する。旧 isUnopposable トグルは行「不可」へ一本化(migrateData)。
+                    confrontation: new fields.ArrayField(
+                        new fields.SchemaField({
+                            value: new fields.StringField({ initial: "blank" }),
+                            name:  new fields.StringField({ initial: "" }),
+                            skillDict:  new fields.StringField({ initial: "" }),
+                            skillGroup: new fields.StringField({ initial: "" }),
+                            skillSub:   new fields.StringField({ initial: "" }),
+                        })
+                    ),
+
+                    // リアクション系用途: 対決不可にもリアクション可(2026-07-17 ユーザー確定)。
+                    // 「対決:不可」を無視できるが、下地の対決拘束は受ける(下地を満たさなければ不可)。
+                    ignoresUnopposable: new fields.BooleanField({ initial: false }),
+
+                    // 治療タイプ: 実行形式("check"=判定 / "declaration"=宣言)。1つのタイプで両形式を
+                    // カバーし、どちらで動くかは用途の設定で固定する(2026-07-17 ユーザー確定)。
+                    // 他タイプはタイプ自体が形式を決めるためこの欄を読まない(executionFormOf)。
+                    executionForm: new fields.StringField({ initial: "check" }),
+
+                    // 移動/リアクション（移動妨害）: 使用ヴィークル(完全に単一参照・2026-07-17 ユーザー確定)。
+                    // 空=実行時に準備済みヴィークルを自動解決。準備済みヴィークルが無ければ判定不可。
+                    vehicleRef: new fields.SchemaField({
+                        itemId: new fields.StringField({ initial: "" }),
+                    }),
+
+                    // 物理攻撃: 白兵攻撃("melee")か射撃攻撃("ranged")か(2026-07-17 ユーザー確定)。
+                    // 武器識別のためでなく「射撃攻撃は純粋な生身では行えない」の表現——射撃攻撃は
+                    // 「射撃武器」フラグの武器を準備していなければ判定不可。生身は白兵武器なので
+                    // 白兵攻撃は基本的に常に可。既定=白兵。
+                    attackWeaponKind: new fields.StringField({ initial: "melee" }),
 
                     // この用途使用時に付与する ActiveEffect の参照。itemId=効果が乗っているアイテム
                     // (親アイテム＝空／組み合わせ技能／使用武器のいずれか。2026-07-10 で itemId 追加)。
@@ -194,7 +225,8 @@ export class UsageTemplate extends SystemDataModel {
                     // - 目標値は発動タブの目標値設定に一本化(2026-07-13・回復専用の式欄
                     //   recoveryTargetFormula は廃止=migrateData で目標値「その他」へ移送)。
                     //   解説参照/その他の式は @condition.magnitude/@condition.woundValue を参照可。
-                    recovery: new fields.BooleanField({ initial: false }),
+                    // ※旧 recovery フラグは治療タイプへ移行(2026-07-17 再編・migrateData)。
+                    //   回復範囲の設定群は治療タイプの設定として温存する。
                     recoveryTargets: new fields.ArrayField(
                         new fields.SchemaField({
                             group: new fields.StringField({ initial: "" }),
@@ -230,11 +262,9 @@ export class UsageTemplate extends SystemDataModel {
                     reactionAreaAttack: new fields.BooleanField({ initial: false }),
                     reactionFailsAttack: new fields.BooleanField({ initial: false }),
 
-                    // カバー(2026-07-16 ユーザー確定): ダメージ算出の直前に、他者への予定ダメージを自身へ
-                    // 付け替える行動。アイテムロールで使用→ダメージカードのカバーする対象をクリック→
-                    // 通常判定(目標値は「なし」運用=スート一致で成功が多い)→成功で付け替え。付け替えた分は
-                    // 自身の防御力で算出・受け値は参照しない(自分ではリアクションしていないため)。
-                    covering: new fields.BooleanField({ initial: false }),
+                    // ※旧 covering フラグはカバータイプへ移行(2026-07-17 再編・migrateData)。
+                    //   カバー: ダメージ算出の直前に他者への予定ダメージを自身へ付け替える行動
+                    //   (アイテムロールで使用→ダメージカードの対象クリック→判定成功で付け替え)。
 
                     // attack: ダメージ修正(ダメージへ加算する式の行・攻撃用途)。checkBonuses と同型。
                     // ダメージ算出時に評価するため @diff/@achievement も使える。
@@ -250,8 +280,8 @@ export class UsageTemplate extends SystemDataModel {
                     // 台帳は親名で帰属。modifyDamage ではダメージ修正値(増加=正/軽減=負)としてこの欄を使う。
                     damageBonusSelf: new fields.StringField({ initial: "" }),
 
-                    // check(攻撃): 攻撃系統 ("physical" | "mental" | "social")。設定されている check が攻撃
-                    damageCategory: new fields.StringField({ initial: "" }),
+                    // ※旧 damageCategory(攻撃系統)は攻撃タイプへ移行(2026-07-17 再編・migrateData)。
+                    //   系統はタイプが持つ(attackCategoryOf)。
 
                     // modification: 改造可能なパラメータ名リスト
                     modifiableParams: new fields.ArrayField(
@@ -261,15 +291,18 @@ export class UsageTemplate extends SystemDataModel {
                     // ─── 消費先設定(フェーズ11-6・2026-07-04 確定・D&D の Consumption 踏襲) ───
                     // 全ての使用回数消費はこの設定からのみ発生する(自動スキャンは全廃)。
                     //   type: "parent"=親アイテムの使用回数 / "itemUses"=同アクターの特定アイテムの
-                    //         使用回数(uses) / "miracleUses"=神業の使用回数(usageCount)
-                    //   itemId: type が itemUses/miracleUses のときの同アクター内 Item ID
-                    //   amount: 消費量(可変・既定1)
+                    //         使用回数(uses) / "miracleUses"=神業の使用回数(usageCount) /
+                    //         "ammo"=武器の残弾(2026-07-17 追加。リロード用途=マイナス量で回復・
+                    //         上限は装弾数でクランプ・装弾数「任意」は満タンへ)
+                    //   itemId: type が itemUses/miracleUses/ammo のときの同アクター内 Item ID
+                    //   amount: 消費量(可変・既定1)。負値は回復(ammo のリロード表現・2026-07-17)。
+                    //           0 は実行時に無視する
                     // 既存 check 用途の互換(親×1)は migrateData で明示化する
                     consumeTargets: new fields.ArrayField(
                         new fields.SchemaField({
                             type:   new fields.StringField({ initial: "parent" }),
                             itemId: new fields.StringField({ initial: "" }),
-                            amount: new fields.NumberField({ initial: 1, min: 1, integer: true }),
+                            amount: new fields.NumberField({ initial: 1, integer: true }),
                         })
                     ),
 
@@ -369,6 +402,42 @@ export class UsageTemplate extends SystemDataModel {
                 if (!migrated.baseSkillRef) migrated.baseSkillRef = { itemId: "" };
                 if (migrated.consumeTargets === undefined && migrated.type === "check") {
                     migrated.consumeTargets = [{ type: "parent", itemId: "", amount: 1 }];
+                }
+                // ─── 行動種別への再編(2026-07-17 ユーザー確定) ───
+                // 攻撃: check+damageCategory → 攻撃タイプ(系統はタイプが持つ)。
+                // 白兵/射撃の選択は既定=白兵(旧データは区分を持たないため。射撃攻撃は手動で切り替える)
+                if (migrated.type === "check" && migrated.damageCategory) {
+                    const t = { physical: "physicalAttack", mental: "mentalAttack", social: "socialAttack" };
+                    migrated = { ...migrated, type: t[migrated.damageCategory] ?? "physicalAttack" };
+                }
+                // カバー: covering フラグ → カバータイプ
+                if (migrated.covering === true && migrated.type === "check") {
+                    migrated = { ...migrated, type: "covering" };
+                }
+                // 回復: recovery フラグ → 治療タイプ(実行形式は旧タイプを引き継ぐ=判定/宣言両用の設定化)
+                if (migrated.recovery === true && (migrated.type === "check" || migrated.type === "declaration")) {
+                    migrated = {
+                        ...migrated,
+                        executionForm: migrated.type === "declaration" ? "declaration" : "check",
+                        type: "treatment",
+                    };
+                }
+                // 対決欄の系統既定(2026-07-17): 対決欄を持たない既存データに、タイプの既定行を敷く
+                // (物理攻撃=ドッジ+パリー等・全て enum)。以後はユーザー編集が正
+                if (migrated.confrontation === undefined) {
+                    const defaults = defaultConfrontationForType(migrated.type);
+                    if (defaults.length) migrated = { ...migrated, confrontation: defaults };
+                }
+                // 対決不可トグルの一本化(2026-07-17): isUnopposable=true → 対決欄の「不可」行へ
+                if (migrated.isUnopposable === true
+                    && !(migrated.confrontation ?? []).some(c => c?.value === "cannot")) {
+                    migrated = {
+                        ...migrated,
+                        confrontation: [
+                            ...(migrated.confrontation ?? []),
+                            { value: "cannot", name: "", skillDict: "", skillGroup: "", skillSub: "" },
+                        ],
+                    };
                 }
                 return migrated;
             });

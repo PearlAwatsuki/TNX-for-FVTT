@@ -58,9 +58,35 @@ describe("UsageTemplate.defineSchema()", () => {
       expect(entryFields).not.toHaveProperty("boostDamage");
     });
 
-    it("攻撃系統(damageCategory)が存在し、旧 formula(効果量)は廃止済み(2026-07-11)", () => {
-      expect(entryFields).toHaveProperty("damageCategory");
+    it("旧 damageCategory は攻撃タイプへ移行済み(2026-07-17 再編)・旧 formula(効果量)も廃止済み", () => {
+      expect(entryFields).not.toHaveProperty("damageCategory");
       expect(entryFields).not.toHaveProperty("formula");
+      // 物理攻撃の白兵/射撃選択(2026-07-17・既定=白兵)
+      expect(entryFields.attackWeaponKind).toBeInstanceOf(MockStringField);
+      expect(entryFields.attackWeaponKind.options.initial).toBe("melee");
+    });
+
+    it("対決欄(confrontation・2026-07-17)はスタイル技能と同形の行配列", () => {
+      expect(entryFields.confrontation).toBeInstanceOf(MockArrayField);
+      expect(Object.keys(entryFields.confrontation.element.fields))
+        .toEqual(["value", "name", "skillDict", "skillGroup", "skillSub"]);
+      expect(entryFields.confrontation.element.fields.value.options.initial).toBe("blank");
+      // 対決不可トグルは行「不可」へ一本化(2026-07-17)
+      expect(entryFields).not.toHaveProperty("isUnopposable");
+    });
+
+    it("対決不可にもリアクション可(ignoresUnopposable・2026-07-17)は BooleanField で initial false", () => {
+      expect(entryFields.ignoresUnopposable).toBeInstanceOf(MockBooleanField);
+      expect(entryFields.ignoresUnopposable.options.initial).toBe(false);
+    });
+
+    it("治療の実行形式(executionForm・2026-07-17)は StringField で initial 'check'", () => {
+      expect(entryFields.executionForm).toBeInstanceOf(MockStringField);
+      expect(entryFields.executionForm.options.initial).toBe("check");
+    });
+
+    it("使用ヴィークル(vehicleRef・2026-07-17)は単一参照 SchemaField{itemId}", () => {
+      expect(Object.keys(entryFields.vehicleRef.fields)).toEqual(["itemId"]);
     });
 
     it("改造可能パラメータは温存される（旧 modification タイプは廃止・2026-07-13）", () => {
@@ -86,9 +112,8 @@ describe("UsageTemplate.defineSchema()", () => {
       expect(entryFields.allowRecheck.options.initial).toBe(false);
     });
 
-    it("回復（recovery・2026-07-13）の設定フィールド群が存在する", () => {
-      expect(entryFields.recovery).toBeInstanceOf(MockBooleanField);
-      expect(entryFields.recovery.options.initial).toBe(false);
+    it("回復範囲の設定フィールド群が存在する（旧 recovery フラグは治療タイプへ移行・2026-07-17）", () => {
+      expect(entryFields).not.toHaveProperty("recovery");
       expect(entryFields.recoveryTargets).toBeInstanceOf(MockArrayField);
       expect(Object.keys(entryFields.recoveryTargets.element.fields)).toEqual(["group", "kind"]);
       expect(entryFields.recoveryExcludes).toBeInstanceOf(MockArrayField);
@@ -292,29 +317,66 @@ describe("UsageTemplate.migrateData()", () => {
     expect(() => UsageTemplate.migrateData(source)).not.toThrow();
   });
 
-  it("攻撃は判定に統合(2026-07-09): type=attack → check(damageCategory 保持)", () => {
-    const source = { actions: [{ _id: "a", type: "attack", damageCategory: "mental" }] };
+  it("旧攻撃(type=attack / check+damageCategory)は攻撃タイプへ移行する(2026-07-17 再編)", () => {
+    const source = { actions: [
+      { _id: "a", type: "attack", damageCategory: "mental" },
+      { _id: "b", type: "check", damageCategory: "social" },
+    ] };
     const result = UsageTemplate.migrateData(source);
-    expect(result.actions[0].type).toBe("check");
-    expect(result.actions[0].damageCategory).toBe("mental");
+    expect(result.actions[0].type).toBe("mentalAttack");
+    expect(result.actions[1].type).toBe("socialAttack");
   });
 
-  it("系統未設定の旧攻撃は物理とみなす", () => {
+  it("系統未設定の旧攻撃は物理攻撃タイプとみなす", () => {
     const source = { actions: [{ _id: "a", type: "attack" }] };
     const result = UsageTemplate.migrateData(source);
-    expect(result.actions[0].type).toBe("check");
-    expect(result.actions[0].damageCategory).toBe("physical");
+    expect(result.actions[0].type).toBe("physicalAttack");
+  });
+
+  it("カバー/回復フラグはタイプへ移行(2026-07-17): covering→カバー・recovery→治療(実行形式は旧タイプ)", () => {
+    const source = { actions: [
+      { _id: "a", type: "check", covering: true },
+      { _id: "b", type: "check", recovery: true },
+      { _id: "c", type: "declaration", recovery: true },
+    ] };
+    const result = UsageTemplate.migrateData(source);
+    expect(result.actions[0].type).toBe("covering");
+    expect(result.actions[1].type).toBe("treatment");
+    expect(result.actions[1].executionForm).toBe("check");
+    expect(result.actions[2].type).toBe("treatment");
+    expect(result.actions[2].executionForm).toBe("declaration");
+  });
+
+  it("対決欄の系統既定を敷く(2026-07-17): 旧攻撃に物理=ドッジ+パリー等・既存の対決欄は触らない", () => {
+    const source = { actions: [
+      { _id: "a", type: "check", damageCategory: "physical" },
+      { _id: "b", type: "check", damageCategory: "mental", confrontation: [] },
+      { _id: "c", type: "check" },
+    ] };
+    const result = UsageTemplate.migrateData(source);
+    expect(result.actions[0].confrontation.map(r => r.value)).toEqual(["dodge", "parry"]);
+    expect(result.actions[1].confrontation).toEqual([]); // 既存(空で確定済み)は上書きしない
+    expect(result.actions[2].confrontation).toBeUndefined(); // 判定タイプは既定なし
+  });
+
+  it("対決不可トグルの一本化(2026-07-17): isUnopposable=true → 対決欄の「不可」行(重複追加しない)", () => {
+    const source = { actions: [
+      { _id: "a", type: "check", isUnopposable: true },
+      { _id: "b", type: "check", isUnopposable: true, confrontation: [{ value: "cannot", name: "", skillDict: "", skillGroup: "", skillSub: "" }] },
+    ] };
+    const result = UsageTemplate.migrateData(source);
+    expect(result.actions[0].confrontation.map(r => r.value)).toEqual(["cannot"]);
+    expect(result.actions[1].confrontation.map(r => r.value)).toEqual(["cannot"]);
   });
 });
 
-describe("isAttackUsage()（攻撃=damageCategory 付きの check・2026-07-09）", () => {
-  it("check かつ damageCategory 設定=攻撃", () => {
-    expect(isAttackUsage({ type: "check", damageCategory: "physical" })).toBe(true);
-    expect(isAttackUsage({ type: "check", damageCategory: "" })).toBe(false);
+describe("isAttackUsage()（攻撃=攻撃タイプ・2026-07-17 再編）", () => {
+  it("攻撃タイプ3種のみ攻撃", () => {
+    expect(isAttackUsage({ type: "physicalAttack" })).toBe(true);
+    expect(isAttackUsage({ type: "mentalAttack" })).toBe(true);
+    expect(isAttackUsage({ type: "socialAttack" })).toBe(true);
     expect(isAttackUsage({ type: "check" })).toBe(false);
-  });
-  it("check 以外は damageCategory があっても攻撃でない(declaration 等)", () => {
-    expect(isAttackUsage({ type: "declaration", damageCategory: "physical" })).toBe(false);
-    expect(isAttackUsage({ type: "declaration", damageCategory: "physical" })).toBe(false);
+    expect(isAttackUsage({ type: "declaration" })).toBe(false);
+    expect(isAttackUsage({ type: "dodge" })).toBe(false);
   });
 });

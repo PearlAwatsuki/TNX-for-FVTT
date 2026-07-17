@@ -19,10 +19,8 @@ import { getConditionKinds } from "./conditions.mjs";
 import { TargetSelectionDialog } from "./tnx-dialog.mjs";
 import { buildSkillOptions } from "./skill-select.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
-import { actorSkillsWithRole } from "./skill-roles.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
-const TREAT_SKILL_NAME = "医療";
 
 /** 戦闘不能タグの治療目標値(気絶/失神=15・仮死/昏睡=20)。 */
 const INCAP_TARGET_VALUE = Object.freeze({ faint: 15, swoon: 15, coma: 20, stupor: 20 });
@@ -107,17 +105,20 @@ export async function startTreatment(patient, effectId) {
     const treater = await pickTreater();
     if (!treater) return;
 
-    // 治療役割(treatment)を持つ技能を検出(名前一致でなく役割で。既定=医療)。
-    // 無ければ代用判定(別技能＋手動修正)。役割技能が複数なら先頭(sort 順)を使う
-    const roleSkills = actorSkillsWithRole(treater, "treatment");
-    let skill = roleSkills[0] ?? null;
+    // 治療タイプの用途を持つ技能を検出(2026-07-17 再編: 役割検出でなく用途タイプの所持が資格)。
+    // 無ければ代用判定(別技能＋手動修正)。複数なら先頭(sort 順)を使う
+    const typeSkills = (treater?.items ?? [])
+        .filter(i => (i.type === "generalSkill" || i.type === "styleSkill")
+            && (i.system.actions ?? []).some(a => a.type === "treatment"))
+        .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
+    let skill = typeSkills[0] ?? null;
     let substitution = null;
     let manualMod = 0;
     if (!skill) {
         const sub = await promptSubstituteSkill(treater);
         if (!sub) return;
         skill = sub.skill;
-        substitution = { requestedLabel: `〈${TREAT_SKILL_NAME}〉（治療）`, usedName: sub.skill.name };
+        substitution = { requestedLabel: "治療", usedName: sub.skill.name };
         manualMod = sub.manualMod;
     }
     // 起動は唯一の起動関数へ集約(2026-07-15 ユーザー確定)。用途・コンボ・消費・判定ボーナス・適用効果は
@@ -204,10 +205,10 @@ async function promptSubstituteSkill(actor) {
     const options = buildSkillOptions(skills).map(o => `<option value="${o.value}">${esc(o.label)}</option>`).join("");
     const { spinnerDialogActions } = await import("./tnx-dialog.mjs");
     const res = await foundry.applications.api.DialogV2.wait({
-        window: { title: `代用判定: 〈${TREAT_SKILL_NAME}〉（治療）` },
+        window: { title: "代用判定: 治療" },
         classes: ["tokyo-nova", "tnx-dialog"],
         position: { width: 360 },
-        content: `<p>「${esc(actor.name)}」は〈${TREAT_SKILL_NAME}〉を所持していないため、別の技能で代用します（可否・修正の裁定は卓）。</p>
+        content: `<p>「${esc(actor.name)}」は治療の用途を持つ技能が無いため、別の技能で代用します（可否・修正の裁定は卓）。</p>
             <div class="form-group"><label>使用する技能</label><select name="skillId">${options}</select></div>
             <div class="form-group"><label>修正（手動・ペナルティは負数）</label>
                 <div class="number-input-spinner">

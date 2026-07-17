@@ -152,8 +152,10 @@
                             <div class="combat-timing-group__label">{{b.label}}</div>
                             {{#if b.entries.length}}
                             <div class="combat-timing-group__entries">
+                                {{!-- 用途駆動(2026-07-17): 各行はその用途を直接起動するボタン。
+                                     表示名=用途名(空なら親アイテム名) --}}
                                 {{#each b.entries as |e|}}
-                                <a class="combat-timing-chip check-trigger{{#if e.isMove}} combat-timing-chip--move{{/if}}{{#if e.isReload}} combat-timing-chip--move{{/if}}" data-action="{{#if e.action}}{{e.action}}{{else}}startSkillCheck{{/if}}" data-item-id="{{e._id}}">{{e.name}}</a>
+                                <a class="combat-timing-chip check-trigger" data-action="startUsageUse" data-item-id="{{e._id}}" data-usage-id="{{e.usageId}}">{{e.name}}</a>
                                 {{/each}}
                             </div>
                             {{/if}}

@@ -1,15 +1,14 @@
 /**
- * @fileoverview ヴィークル操縦移動フロー(フェーズ12・正本 Outfits.md / Combat_Flow.md)。
+ * @fileoverview ヴィークル操縦移動の結果カード(フェーズ12・正本 Outfits.md / Combat_Flow.md)。
  *
  * 操縦中はメジャーアクションでも移動できる。対応する〈操縦〉で判定し、達成値÷10(切り捨て)段階の
- * 移動が可能。**段階移動そのものの適用は移動・位置の機構に依存する**ため、本モジュールは「移動の
- * 判定」を起動し結果(段階数)を提示するところまでを担う(判定は今／適用は担当機構が入ってから)。
+ * 移動が可能。**段階移動そのものの適用は移動・位置の機構に依存する**(判定は今／適用は担当機構が
+ * 入ってから)。
  *
- * 設計(2026-07-09 ユーザー確定):
- * - **用途にはしない**。用途は戦闘タブでアイテム単位の timing に振り分けられるため、ヴィークル全体を
- *   メジャーに固定することになり筋が悪い。移動は戦闘タブのタイミング節に**合成アクション**として出す。
- * - **対応する操縦**はヴィークルの `operateSkillKey`(辞典 operate_ 技能の識別キー)から、アクターの
- *   操縦技能インスタンスを解決する。同フィールドは搭乗時のドッジ上書き判断にも流用できる。
+ * 2026-07-17 用途タイプ再編: 起動は〈操縦〉技能の**移動タイプ用途**(使用ヴィークル=単一参照・
+ * 準備済みが無ければ判定不可)に一本化され、旧・戦闘タブの合成アクション(startVehicleMove)は
+ * 廃止。**対決欄に有効行がある移動は対決判定カード**(attack-flow・移動行の条件表示)に乗り、
+ * ここに残るのは**非対決の移動**の結果カードのみ。
  */
 
 import { movementStagesFromAchievement } from "./vehicle-move-logic.mjs";
@@ -19,37 +18,13 @@ const SCOPE = "tokyo-nova-axleration";
 
 /**
  * ヴィークルの対応操縦キー(operateSkillKey)から、アクターの操縦技能を解決する。
+ * (搭乗時の対決置き換え「〈操縦〉※」の解決と同じキーを使う)
  * @param {Actor} actor
  * @param {Item} vehicle
  * @returns {Item|null}
  */
 export function resolveOperateSkill(actor, vehicle) {
   return findItemByIdentificationKey(actor, vehicle?.system?.operateSkillKey || "", { type: "generalSkill" });
-}
-
-/**
- * ヴィークル操縦移動(メジャーアクション)を起動する。対応する操縦で判定→達成値÷10 段階。
- * @param {Actor} actor 操縦者
- * @param {Item} vehicle 準備済みヴィークル
- */
-export async function startVehicleMove(actor, vehicle) {
-  if (!actor || !vehicle) return;
-  if (!vehicle.system.operateSkillKey) {
-    ui.notifications.warn(`「${vehicle.name}」に対応する操縦が設定されていません（ヴィークルのシートで設定してください）。`);
-    return;
-  }
-  const skill = resolveOperateSkill(actor, vehicle);
-  if (!skill) {
-    ui.notifications.warn(`「${vehicle.name}」に対応する操縦技能を所持していません。`);
-    return;
-  }
-  // 起動は唯一の起動関数へ集約(2026-07-15 ユーザー確定)。操縦技能の用途・コンボ・消費・判定ボーナス・
-  // 適用効果もシートの技能クリックと全く同じ処理で解決し、ここでは移動文脈だけを注入する
-  // (組み合わせの可否はユーザー/RL が決めるものでシステムは制限しない)。
-  const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
-  await TnxCharacterSheetBase._activateItemCheck(actor, skill, {
-    movement: { actorId: actor.id, vehicleName: vehicle.name, skillName: skill.name },
-  });
 }
 
 /**

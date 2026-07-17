@@ -1,6 +1,6 @@
-{{!-- 技能の特性(2026-07-09): 散在していた真偽フラグと役割を1セクションに集約(アウトフィットの「特性」に倣う)。
+{{!-- 技能の特性(2026-07-09): 散在していた真偽フラグを1セクションに集約(アウトフィットの「特性」に倣う)。
      フラグがオンのとき各詳細セクションが表示される。ラベルが長いフラグ(wide)は1行を占有する。
-     役割=治療/ドッジ/パリー/各リアクション/各攻撃の既定の使用技能を名前でなく役割で持つ。 --}}
+     旧「役割」(skillRoles)は廃止(2026-07-17 再編)——資格・候補の判定は用途タイプの所持のみ。 --}}
 <fieldset class="tnx-fieldset">
     <legend>特性</legend>
     <div class="skill-traits-flags">
@@ -11,20 +11,4 @@
         </label>
         {{/each}}
     </div>
-
-    {{#if skillRoleOptions}}
-    <div class="skill-roles-block">
-        <span class="skill-roles-label">役割</span>
-        <div class="skill-roles-grid">
-            {{#each skillRoleOptions}}
-            <label class="skill-role-chk">
-                <input type="checkbox" {{#if this.checked}}checked{{/if}}
-                       data-action="toggleSkillRole" data-role="{{this.key}}"
-                       {{#unless @root.editable}}disabled{{/unless}}>
-                <span>{{this.label}}</span>
-            </label>
-            {{/each}}
-        </div>
-    </div>
-    {{/if}}
 </fieldset>

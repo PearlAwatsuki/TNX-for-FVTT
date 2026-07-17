@@ -122,6 +122,16 @@
                             <input type="checkbox" name="system.isMutantOrgan" {{checked system.isMutantOrgan}}>
                             <span>変異器官</span>
                         </label>
+                        {{!-- 武器区分(2026-07-17): 運用判別は分類でなくこのフラグ(搭載兵器・生体装備にも
+                             区分があるため全アウトフィットで設定可)。分類変更時は分類の既定で敷き直される --}}
+                        <label class="outfit-flag">
+                            <input type="checkbox" name="system.isMeleeWeapon" {{checked system.isMeleeWeapon}}>
+                            <span>白兵武器</span>
+                        </label>
+                        <label class="outfit-flag">
+                            <input type="checkbox" name="system.isRangedWeapon" {{checked system.isRangedWeapon}}>
+                            <span>射撃武器</span>
+                        </label>
                         {{#if isWeapon}}
                         <label class="outfit-flag">
                             <input type="checkbox" name="system.isFleshChange" {{checked system.isFleshChange}}>

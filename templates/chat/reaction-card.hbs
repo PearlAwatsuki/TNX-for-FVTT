@@ -9,11 +9,11 @@
     </div>
     <div class="cr-calc-section">
         <div class="cr-calc-row">
-            <span class="cr-calc-label">攻撃</span>
+            <span class="cr-calc-label">{{#if isAttack}}攻撃{{else}}対決{{/if}}</span>
             <span class="cr-calc-val">{{attackerName}} → {{targetName}}</span>
         </div>
         <div class="cr-calc-row cr-total-row">
-            <span class="cr-calc-label">攻撃達成値 <span class="cr-suit suit-{{suit}}">{{suitSymbol}}</span></span>
+            <span class="cr-calc-label">{{#if isAttack}}攻撃達成値{{else}}相手の達成値{{/if}} <span class="cr-suit suit-{{suit}}">{{suitSymbol}}</span></span>
             <span class="cr-total-num">{{achievement}}</span>
         </div>
     </div>

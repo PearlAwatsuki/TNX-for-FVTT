@@ -1,0 +1,113 @@
+/**
+ * @fileoverview 用途タイプ(行動種別)の正本レジストリ(2026-07-17 ユーザー確定・Foundry 非依存)。
+ * 正本: Check_Rules.md「用途タイプ」行動種別への再編。
+ *
+ * タイプ＝行動種別(16種)。「技能クリック以外の場所から起動し、可能な技能を識別する必要がある
+ * 行動」だけをタイプにする(リアクション・治療・カバー・移動・離脱など)。判定要求の延長
+ * (情報収集・登場判定=可能技能が毎回明示される)や、用途内で機能が完結するもの(NPC取得)は
+ * タイプにせずフラグのまま。旧 check/declaration の2タイプ+damageCategory 等のフラグ構成からの
+ * 移行は usage.mjs の migrateData が行う。
+ *
+ * kind:
+ * - generic:  判定/宣言(汎用)
+ * - attack:   攻撃(attackCategory=系統。対決判定カードに攻撃項目を出す)
+ * - reaction: リアクション(対決欄の「手段」行と 1:1。資格=このタイプの用途を持つ技能の所持)
+ * - action:   その他の行動(移動・離脱・治療・改造・カバー)
+ */
+
+/** タイプキー → 定義。キーは保存値(migrateData・シート・起動ディスパッチの正本)。 */
+export const USAGE_TYPE_DEFS = Object.freeze({
+    check:               { label: "判定",                     kind: "generic" },
+    declaration:         { label: "宣言",                     kind: "generic" },
+    physicalAttack:      { label: "物理攻撃",                 kind: "attack", attackCategory: "physical" },
+    mentalAttack:        { label: "精神攻撃",                 kind: "attack", attackCategory: "mental" },
+    socialAttack:        { label: "社会攻撃",                 kind: "attack", attackCategory: "social" },
+    dodge:               { label: "ドッジ",                   kind: "reaction" },
+    parry:               { label: "パリー",                   kind: "reaction" },
+    mentalReaction:      { label: "リアクション（精神攻撃）", kind: "reaction" },
+    socialReaction:      { label: "リアクション（社会攻撃）", kind: "reaction" },
+    moveBlockReaction:   { label: "リアクション（移動妨害）", kind: "reaction", usesVehicle: true },
+    escapeBlockReaction: { label: "リアクション（離脱妨害）", kind: "reaction" },
+    move:                { label: "移動",                     kind: "action", usesVehicle: true },
+    escape:              { label: "離脱",                     kind: "action" },
+    treatment:           { label: "治療",                     kind: "action", selectableForm: true },
+    modification:        { label: "改造",                     kind: "action" },
+    covering:            { label: "カバー",                   kind: "action" },
+});
+
+/** タイプキー → 表示ラベル(用途作成ダイアログ・用途一覧・シートのタグ表示)。 */
+export const USAGE_TYPE_LABELS = Object.freeze(
+    Object.fromEntries(Object.entries(USAGE_TYPE_DEFS).map(([k, d]) => [k, d.label]))
+);
+
+/** 攻撃タイプか。 */
+export function isAttackType(type) {
+    return USAGE_TYPE_DEFS[type]?.kind === "attack";
+}
+
+/** 攻撃タイプの系統("physical"|"mental"|"social")。攻撃タイプ以外は ""。 */
+export function attackCategoryOf(type) {
+    return USAGE_TYPE_DEFS[type]?.attackCategory ?? "";
+}
+
+/** リアクションタイプか(対決欄の手段行と 1:1)。 */
+export function isReactionType(type) {
+    return USAGE_TYPE_DEFS[type]?.kind === "reaction";
+}
+
+/** 使用ヴィークルを要するタイプか(移動/リアクション（移動妨害）・準備済みヴィークルが無ければ判定不可)。 */
+export function usesVehicle(type) {
+    return USAGE_TYPE_DEFS[type]?.usesVehicle === true;
+}
+
+/**
+ * 用途の実行形式("check"=判定 / "declaration"=宣言)。
+ * 宣言タイプ=宣言。治療タイプのみ用途の設定(executionForm)で判定/宣言を選ぶ
+ * (「1つのタイプで両形式をカバーする」2026-07-17 ユーザー裁定)。他は全て判定。
+ * @param {{type?: string, executionForm?: string}} usage
+ * @returns {"check"|"declaration"}
+ */
+export function executionFormOf(usage) {
+    const type = usage?.type;
+    if (type === "declaration") return "declaration";
+    if (USAGE_TYPE_DEFS[type]?.selectableForm) {
+        return usage?.executionForm === "declaration" ? "declaration" : "check";
+    }
+    return "check";
+}
+
+/**
+ * タイプの系統既定の対決行(作成時・自動入力で敷く。全て enum 値=技能名・辞典キーのハードコード無し)。
+ * 物理攻撃→ドッジ+パリー / 精神攻撃→リアクション（精神攻撃） / 社会攻撃→リアクション（社会攻撃） /
+ * 移動→リアクション（移動妨害） / 離脱→リアクション（離脱妨害）(2026-07-17 ユーザー確定)。
+ * @param {string} type
+ * @returns {Array<{value: string, name: string, skillDict: string, skillGroup: string, skillSub: string}>}
+ */
+export function defaultConfrontationForType(type) {
+    const values = {
+        physicalAttack: ["dodge", "parry"],
+        mentalAttack:   ["mentalReaction"],
+        socialAttack:   ["socialReaction"],
+        move:           ["moveBlockReaction"],
+        escape:         ["escapeBlockReaction"],
+    }[type] ?? [];
+    return values.map(v => ({ value: v, name: "", skillDict: "", skillGroup: "", skillSub: "" }));
+}
+
+/**
+ * 対決欄セクションを持つタイプか(判定・攻撃・移動・離脱)。
+ * リアクション/治療/改造/カバー/宣言は対決欄を持たない(リアクションされる側にならない)。
+ */
+export function hasConfrontationSection(type) {
+    return type === "check" || type === "move" || type === "escape" || isAttackType(type);
+}
+
+/**
+ * 用途の実効表示名: 名前が空なら親アイテム名(2026-07-17 ユーザー確定=既定空+プレースホルダー)。
+ * @param {{name?: string}} usage
+ * @param {string} parentName 親アイテム名
+ * @returns {string}
+ */
+export function usageDisplayName(usage, parentName) {
+    return (usage?.name ?? "").trim() || parentName || "";
+}

@@ -1,7 +1,7 @@
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 import { TnxUsageSheet, USAGE_TYPES, deriveUsageAutoFill } from "../module/tnx-usage-sheet.mjs";
+import { defaultConfrontationForType, executionFormOf } from "../module/usage-types.mjs";
 import { resolveBunshinOwner } from "../module/usage-consumption.mjs";
-import { SKILL_ROLES, getSkillRoles } from "../module/skill-roles.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -28,21 +28,8 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             toggleEditMode: TokyoNovaItemSheet._onToggleEditMode,
             incrementField: TokyoNovaItemSheet._onIncrementField,
             decrementField: TokyoNovaItemSheet._onDecrementField,
-            toggleSkillRole: TokyoNovaItemSheet._onToggleSkillRole,
         },
     };
-
-    /**
-     * 技能の役割(skillRoles)をトグルする(2026-07-09 新設計)。役割チェックの ON/OFF。
-     * 表示は実効役割(getSkillRoles=フィールド or 正準名の既定)。初回編集で既定が明示化される。
-     */
-    static async _onToggleSkillRole(_event, target) {
-        const role = target.dataset.role;
-        if (!role || !SKILL_ROLES[role]) return;
-        const current = getSkillRoles(this.item);
-        const next = current.includes(role) ? current.filter(r => r !== role) : [...current, role];
-        await this.item.update({ "system.skillRoles": next });
-    }
 
     /** @override */
     async _prepareContext(options) {
@@ -81,13 +68,9 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             ...context.effects.inactive,
         ];
 
-        // 技能の役割(2026-07-09 新設計): 治療/ドッジ/パリー/各リアクション/各攻撃の既定技能を
-        // 名前でなく役割で持つ。技能アイテムのみ役割チェックを出す(実効役割=フィールド or 正準名の既定)
+        // 技能の役割(skillRoles)は廃止(2026-07-17 再編): 資格・候補の判定は用途タイプの所持のみ
+        // (ドッジ=ドッジ用途を持つ技能 等)。役割チェック UI は撤去した
         if (this.item.type === "generalSkill" || this.item.type === "styleSkill") {
-            const active = getSkillRoles(this.item);
-            context.skillRoleOptions = Object.entries(SKILL_ROLES).map(([key, def]) => ({
-                key, label: def.label, checked: active.includes(key),
-            }));
             // 特性(2026-07-09): 散在していた真偽フラグを1セクションに集約。フラグがオンのとき
             // 各詳細セクションが表示される(wide=ラベルが長く1行占有)。detail は元の位置に残しゲート
             const flags = [
@@ -245,7 +228,8 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         const entry = {
             _id:         newId,
             type,
-            name:        isFixedCheck ? "判定（固定値）" : (USAGE_TYPES[type] ?? "新規用途"),
+            // 用途名の既定は空(2026-07-17 ユーザー確定): 空のときの実効名=親アイテム名
+            name:        "",
             description: "",
             timing:      { value: "blank", actionName: "blank", processName: "blank", timingOther: "" },
             target:      "blank",
@@ -255,12 +239,12 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             damageType:  "",
             checkBonuses: [],
             damageBonuses: [],
-            formula:     "",
-            damageCategory: "",
             modifiableParams: [],
-            // 消費先設定(11-6): check 用途は「親アイテムの使用回数×1」を既定にする
+            // 対決欄の系統既定(2026-07-17): 攻撃=物理はドッジ+パリー等・移動/離脱は各妨害リアクション行
+            confrontation: defaultConfrontationForType(type),
+            // 消費先設定(11-6): 判定を行う用途は「親アイテムの使用回数×1」を既定にする
             // (migrateData の互換既定と同一。親に isLimit が無ければ no-op)。宣言は空から設定する
-            consumeTargets: type === "check"
+            consumeTargets: executionFormOf({ type }) === "check"
                 ? [{ type: "parent", itemId: "", amount: 1 }] : [],
             ...(isFixedCheck ? { fixedResult: 10 } : {}),
         };
@@ -268,7 +252,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         // 自動入力の作成時一回適用(11-6 追補・2026-07-06 承認): 判定系用途は親技能の固有値から
         // 発動パラメータと消費行を導出して初期値にする(以降の再導出はシートのボタンで明示的に。
         // ライブ追従はしない)。固定値判定は発動項目を持たないため対象外
-        if (!isFixedCheck && type === "check") {
+        if (!isFixedCheck && executionFormOf(entry) === "check") {
             const patch = deriveUsageAutoFill(this.item, entry);
             foundry.utils.mergeObject(entry, foundry.utils.expandObject(patch));
         }

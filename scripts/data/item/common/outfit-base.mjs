@@ -82,6 +82,23 @@ export const SHIKI_TYPES = Object.freeze({
   independent: "独立",
 });
 
+/**
+ * 分類(小分類キー)→武器区分フラグの既定(2026-07-17 ユーザー確定):
+ * 白兵武器→白兵/射撃武器→射撃/搭載兵器→射撃/生体装備→白兵。該当なし=null(未指定=両 OFF・
+ * 武器オプション/特殊弾等)。migrateData の初期敷設と、分類変更時の敷き直し(シート側)で使う。
+ * @param {string} minorCategory 小分類キー
+ * @returns {?{melee: boolean, ranged: boolean}}
+ */
+export function defaultWeaponKindForCategory(minorCategory) {
+  switch (minorCategory) {
+    case "melee":   return { melee: true,  ranged: false };
+    case "ranged":  return { melee: false, ranged: true };
+    case "mounted": return { melee: false, ranged: true };
+    case "biotech": return { melee: true,  ranged: false };
+    default:        return null;
+  }
+}
+
 export class OutfitBaseTemplate extends SystemDataModel {
   /** @override */
   static defineSchema() {
@@ -99,6 +116,13 @@ export class OutfitBaseTemplate extends SystemDataModel {
       fromStyleSkillKey: new fields.StringField({ initial: "" }),
       // 特性フラグ(フェーズ10-2)
       isMutantOrgan:  new fields.BooleanField({ initial: false }), // 変異器官(部位オプションのホスト照合「その他特徴」に使う)
+      // 武器区分(2026-07-17 ユーザー確定): 白兵武器/射撃武器。**運用判別は分類でなくこのフラグ**
+      // (搭載兵器・生体装備にも区分があるため)。独立ブール(両 ON=白兵/射撃兼用武器・両 OFF=
+      // 武器オプション/特殊弾等)。既定は分類から敷く(白兵武器→白兵/射撃武器・搭載兵器→射撃/
+      // 生体装備→白兵=migrateData と分類変更時の敷き直し)。射撃攻撃は射撃武器フラグの武器を
+      // 準備していなければ判定不可・生身は白兵武器扱い。残弾セクションは射撃武器フラグ ON で表示。
+      isMeleeWeapon:  new fields.BooleanField({ initial: false }),
+      isRangedWeapon: new fields.BooleanField({ initial: false }),
       isShiki:        new fields.BooleanField({ initial: false }), // 式神装備(ON でタイプ欄を表示)
       shikiType:      new fields.StringField({ initial: "" }),     // 式神のタイプ(SHIKI_TYPES: attack/defense/drive/independent)
       isDerivedData:  new fields.BooleanField({ initial: false }), // 派生データ本体(常備化経験点を消費しない)
@@ -200,6 +224,15 @@ export class OutfitBaseTemplate extends SystemDataModel {
     }
     // 専用: 旧自由記述(string)→辞典参照配列へ。文字列は辞典キーに機械変換できないため空配列にする
     if (typeof source.exclusive === "string") source.exclusive = [];
+    // 武器区分フラグの既定敷設(2026-07-17): フラグ未保存の既存データに分類の既定を敷く
+    // (以後の運用判別・手動変更はフラグが正。分類変更時の敷き直しはシート側)
+    if (source.isMeleeWeapon === undefined && source.isRangedWeapon === undefined) {
+      const seed = defaultWeaponKindForCategory(source.minorCategory);
+      if (seed) {
+        source.isMeleeWeapon  = seed.melee;
+        source.isRangedWeapon = seed.ranged;
+      }
+    }
     migrateUsesValueToSpent(source);
     return super.migrateData(source);
   }

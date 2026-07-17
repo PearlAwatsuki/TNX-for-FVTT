@@ -21,19 +21,22 @@ import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
 import { resolveAttackWeapons, attackWeaponDisplayName, resolveAttackRangeSpan } from "./attack-weapons.mjs";
 import { WEAPON_RANGE_MAX_OPTIONS } from "../data/item/weapon.mjs";
-import { loadSkillChoices, SKILL_PACKS } from "./skill-dictionary.mjs";
+import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, SKILL_PACKS } from "./skill-dictionary.mjs";
+import {
+    USAGE_TYPE_LABELS, isAttackType, isReactionType, usesVehicle,
+    executionFormOf, defaultConfrontationForType, hasConfrontationSection, usageDisplayName,
+} from "./usage-types.mjs";
+import { USAGE_CONFRONTATION_OPTIONS, mergeConfrontationRows } from "./confrontation-logic.mjs";
+import { findItemByIdentificationKey } from "./identification.mjs";
+import { hasAmmoTracking } from "./weapon-ammo.mjs";
 
 const CHAIN_SKILL_TYPES = ["generalSkill", "styleSkill"];
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
-// 用途タイプは check/declaration の2つに一本化(2026-07-13 ユーザー確定)。
-// 攻撃=check+damageCategory(2026-07-09)・旧 damageBoost/damageReduce=宣言へ変換(2026-07-11)・
-// 旧 modification=check へ移行・旧 npcAcquire=フラグ化(いずれも migrateData)
-export const USAGE_TYPES = Object.freeze({
-    check:        "判定",
-    declaration:  "宣言",
-});
+// 用途タイプ=行動種別16種(2026-07-17 ユーザー確定)。正本は usage-types.mjs の USAGE_TYPE_DEFS。
+// 旧 check/declaration 一本化(2026-07-13)からの移行は usage.mjs の migrateData。
+export const USAGE_TYPES = USAGE_TYPE_LABELS;
 
 /**
  * NPC取得のモード(取得類型・フェーズ11-6・Troops.md「NPC取得」)。
@@ -177,7 +180,8 @@ export async function enforceUsageChainDefaultsOnImport(item) {
 
     let changed = false;
     for (const usage of actions) {
-        if (usage.type !== "check") continue;
+        // 判定を行う用途すべて(攻撃・リアクション・移動等の行動種別タイプを含む・2026-07-17 再編)
+        if (executionFormOf(usage) !== "check") continue;
 
         // 参照の掃除: アクター上で解決できない itemId(辞典/ワールド時代の別コレクション ID)を落とす
         const cleanedRefs = (usage.skillRefs ?? [])
@@ -275,10 +279,22 @@ export function deriveUsageAutoFill(item, usage) {
         patch["timing.timingOther"] = bt.timingOther ?? "";
     }
 
-    // 対決不可: 参加技能が固有に「対決不可」なら true（外す方向には自動更新しない）
-    if (skillItems.some(s => (s.system.confrontation ?? []).some(c => c.value === "cannot"))) {
-        patch.isUnopposable = true;
-    }
+    // 対決欄の合算(2026-07-17 ユーザー確定): 用途の既存行(手入力・タイプ既定)を保持したまま、
+    // タイプの系統既定＋参加技能(スタイル技能)の対決行を追記合算する。完全一致は吸収し、
+    // 無印技能名行は「既にある手段行の用途タイプをその技能が持つ」なら吸収(既定技能でなく
+    // 技能の能力で判定=リアクション用途タイプの所持)。不可はマスクとして下地と並存する
+    const skillHasReactionType = (key, typeKey) => {
+        const it = actor ? findItemByIdentificationKey(actor, key) : null;
+        return !!it && (it.system?.actions ?? []).some(a => a.type === typeKey);
+    };
+    patch.confrontation = mergeConfrontationRows(
+        usage.confrontation ?? [],
+        [
+            ...defaultConfrontationForType(usage.type),
+            ...skillItems.filter(s => s.type === "styleSkill").flatMap(s => s.system.confrontation ?? []),
+        ],
+        { skillHasReactionType }
+    );
 
     // 消費行: 導出結果で置き換え(既存自動入力と同じ「明示的な上書き」の意味論)
     patch.consumeTargets = deriveConsumeTargets(item.id, skills);
@@ -342,6 +358,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             decrementFixedResult:  TnxUsageSheet._onFixedDecrement,
             consumeRowAdd:         TnxUsageSheet._onConsumeRowAdd,
             consumeRowDelete:      TnxUsageSheet._onConsumeRowDelete,
+            confrontRowAdd:        TnxUsageSheet._onConfrontRowAdd,
+            confrontRowDelete:     TnxUsageSheet._onConfrontRowDelete,
             recoveryRowAdd:        TnxUsageSheet._onRecoveryRowAdd,
             recoveryRowDelete:     TnxUsageSheet._onRecoveryRowDelete,
             recoveryExcludeDelete: TnxUsageSheet._onRecoveryExcludeDelete,
@@ -369,7 +387,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
     }
 
     get title() {
-        const name = this.usage?.name;
+        // 名前が空のときの実効名=親アイテム名(2026-07-17 ユーザー確定)
+        const name = usageDisplayName(this.usage, this._item?.name);
         return name ? `用途: ${name}` : "用途";
     }
 
@@ -402,21 +421,25 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         context.editable   = this._item.isOwner;
         context.skillOpts  = TnxSkillUtils.getSkillOptions();
         context.typeLabel  = USAGE_TYPES[usage.type] ?? usage.type;
+        // 用途名の既定は空(2026-07-17 ユーザー確定): 空のときの実効名=親アイテム名を placeholder で示す
+        context.namePlaceholder = this._item.name;
         // 射程の幅(2026-07-16): 物理射程のときのみ最長射程セレクトを出す(武器エディタの min〜max と同形)
         context.showRangeMax    = RANGE_SPAN_CAPABLE.has(usage.range);
         context.rangeMaxOptions = WEAPON_RANGE_MAX_OPTIONS;
 
-        // タイプ判定フラグ
-        context.isCheckType        = usage.type === "check";
-        // 固定値判定(フェーズ11-5・2026-07-04 確定): fixedResult が設定された check 用途。
+        // タイプ判定フラグ(2026-07-17 行動種別再編): isCheckType=「判定を行う用途」(攻撃・
+        // リアクション・移動等の判定系タイプを含む。治療は実行形式の設定に従う)
+        context.isCheckType        = executionFormOf(usage) === "check";
+        // 固定値判定(フェーズ11-5・2026-07-04 確定): fixedResult が設定された判定用途。
         // スート・レベル・カード・能力値を読まないため、発動タブは固定達成値のみ・効果タブは出さない
-        context.isFixedCheck       = usage.type === "check" && Number.isFinite(usage.fixedResult);
-        // 攻撃は判定の一種(2026-07-09): check かつ damageCategory 設定=攻撃。固定値判定は攻撃にしない
-        context.isAttack           = context.isCheckType && !context.isFixedCheck && !!usage.damageCategory;
-        // ダメージを修正(2026-07-11): 攻撃セクション所属(isAttack と排他=ラジオ)。使用はアイテムロール
-        context.isModifyDamage     = context.isCheckType && !context.isFixedCheck && usage.modifyDamage === true;
-        // 攻撃モードのラジオ値(排他の表現。両フラグ立ちは isAttack 優先で正規化表示)
-        context.attackMode         = context.isAttack ? "attack" : (context.isModifyDamage ? "modifyDamage" : "none");
+        context.isFixedCheck       = context.isCheckType && Number.isFinite(usage.fixedResult);
+        // 攻撃=攻撃タイプ(物理/精神/社会・2026-07-17 再編。系統はタイプが持つ)
+        context.isAttack           = isAttackType(usage.type);
+        // 物理攻撃の白兵/射撃選択(2026-07-17): 射撃攻撃は生身では行えない(武器候補の絞り込みと実行時ブロック)
+        context.isPhysicalAttack   = usage.type === "physicalAttack";
+        context.attackWeaponKind   = usage.attackWeaponKind === "ranged" ? "ranged" : "melee";
+        // ダメージを修正(2026-07-11→2026-07-17): 汎用の判定タイプのみの使用の仕方フラグ(攻撃はタイプ化で分離)
+        context.isModifyDamage     = usage.type === "check" && usage.modifyDamage === true;
         // 判定モードのラジオ値(2026-07-11/12): 通常/再判定を付与/判定を修正/スートを変更
         // (判定用途に「なし」は無い)
         context.checkMode          = usage.grantRecheck === true ? "grant"
@@ -430,13 +453,37 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             context.checkBonusSelf  = usage.checkBonusSelf ?? "";
             context.damageBonusSelf = usage.damageBonusSelf ?? "";
         }
+        // リアクションタイプ(2026-07-17): リアクション設定(範囲/攻撃を失敗させる/対決不可無視)を出す
+        context.isReactionUsage    = isReactionType(usage.type);
+        // 治療タイプ(2026-07-17): 実行形式(判定/宣言)は用途の設定で固定・回復範囲の設定を持つ
+        context.isTreatment        = usage.type === "treatment";
+        if (context.isTreatment) {
+            context.executionFormOptions = [
+                { value: "check",       label: "判定",  selected: executionFormOf(usage) === "check" },
+                { value: "declaration", label: "宣言",  selected: executionFormOf(usage) === "declaration" },
+            ];
+        }
+        // 使用ヴィークル(2026-07-17): 移動/リアクション（移動妨害）は準備済みヴィークルの単一参照。
+        // 空=実行時に準備済みヴィークルを自動解決(準備済みが無ければ判定不可=実行時ブロック)
+        context.showVehicleRef = usesVehicle(usage.type);
+        if (context.showVehicleRef) {
+            const vehicles = (this._item.actor?.items ?? [])
+                .filter(i => i.type === "vehicle" && i.system.isPrepared);
+            const selId = usage.vehicleRef?.itemId ?? "";
+            context.vehicleOptions = [
+                { value: "", label: "自動（準備済みヴィークル）", selected: !selId },
+                ...vehicles.map(v => ({ value: v.id, label: v.name, selected: v.id === selId })),
+                ...(selId && !vehicles.some(v => v.id === selId)
+                    ? [{ value: selId, label: `(解決不能: ${selId})`, selected: true }] : []),
+            ];
+        }
 
-        // 回復(2026-07-13 ユーザー確定): BS/戦闘不能/負傷を除去する回復・治療系の設定。
-        // check/declaration の両方で設定可能。範囲=大分類(グループ)→小分類(タグ)の行(OR)・
+        // 回復範囲(2026-07-13→2026-07-17): 治療タイプの設定(旧 recovery トグルはタイプへ移行)。
+        // 範囲=大分類(グループ)→小分類(タグ)の行(OR)・
         // 除外=タグ(タグ自身+そのタグを与える負傷を除く=「指定タグを含むもの以外すべて」)
-        context.isRecoveryCapable = (context.isCheckType && !context.isFixedCheck) || context.isDeclarationType;
+        context.isRecoveryCapable = context.isTreatment;
         if (context.isRecoveryCapable) {
-            context.isRecovery      = usage.recovery === true;
+            context.isRecovery      = true;
             context.recoveryAll     = usage.recoveryAll === true;
             context.recoveryCountValue   = Math.max(1, usage.recoveryCount ?? 1);
             const kindOptionsFor = (group) => Object.entries(CONDITION_KINDS)
@@ -574,23 +621,9 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 }),
             ];
 
-            // 対決（情報表示）: 参加技能の固有 confrontation を読み取り、対決可能な技能と対決不可状態を可視化。
-            // confrontation の name は辞典の識別キーのため、辞典から技能名へ逆引きして表示する
-            // (基底シートの comboSkill 逆引きと同じ経路。未収載キーはそのまま表示)
+            // 識別キー→技能名の逆引き(無視する指定技能の表示用。未収載キーはそのまま表示)
             const skillNames = await loadSkillChoices([SKILL_PACKS.general, SKILL_PACKS.style, SKILL_PACKS.works]);
             const nameOf = (key) => skillNames[key] || key;
-            const skills = this._gatherParticipatingSkills(usage);
-            const reactions = [];
-            let inherentCannot = false;
-            for (const s of skills) {
-                for (const c of (s.system.confrontation ?? [])) {
-                    if (c.value === "cannot") inherentCannot = true;
-                    else if (c.value === "skillName" && c.name) reactions.push(nameOf(c.name));
-                    else if (c.value === "skillNameAsterisk" && c.name) reactions.push(`${nameOf(c.name)}※`);
-                }
-            }
-            context.confrontationReactions = [...new Set(reactions)];
-            context.confrontationCannot    = inherentCannot;
 
             // 無視する指定技能(2026-07-10): この用途で設定した技能を指定「技能」とするスタイル技能は、
             // 指定技能を自動追加せず単体で組み合わせに参加できる(〈技能AⅡ〉系の効果)。
@@ -604,12 +637,34 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 .sort((a, b) => a.name.localeCompare(b.name, "ja"));
         }
 
-        // 攻撃プロファイル(判定を攻撃に使う場合の武器・系統)。攻撃は check の一種なので、
-        // 固定値でない check 用途にプロファイル欄を出す(トグルで有効化=isAttack)。物理のみ武器・種別
-        if (context.isCheckType && !context.isFixedCheck) {
+        // 対決欄(2026-07-17 ユーザー確定): 判定・攻撃・移動・離脱タイプの編集可能な行UI。
+        // 行の形はスタイル技能の対決と同形(技能名系は辞典カスケード)・値は用途独自の選択肢
+        // (手段行=リアクション用途タイプと1:1)。「不可」はマスクで下地の行と並存保存する
+        context.showConfrontation = hasConfrontationSection(usage.type) && !context.isFixedCheck;
+        if (context.showConfrontation) {
+            const cascadeData = await loadCascadeData();
+            context.confrontationRows = (usage.confrontation ?? []).map((c, idx) => {
+                const isSkill = c.value === "skillName" || c.value === "skillNameAsterisk";
+                return {
+                    idx,
+                    valueOptions: Object.entries(USAGE_CONFRONTATION_OPTIONS)
+                        .map(([value, label]) => ({ value, label, selected: value === (c.value || "blank") })),
+                    cascadeSteps: isSkill
+                        ? buildSkillCascadeSteps(cascadeData,
+                            { dict: c.skillDict, group: c.skillGroup, sub: c.skillSub, skill: c.name })
+                        : [],
+                };
+            });
+        }
+
+        // 攻撃プロファイル(2026-07-17 再編: 攻撃は行動種別タイプ)。物理攻撃のみ武器・ダメージ種別を
+        // 持ち、白兵/射撃の選択(attackWeaponKind)で使用武器の候補を区分フラグで絞り込む
+        // (射撃攻撃は生身では行えない=射撃武器フラグの武器が無ければ実行時ブロック)
+        if (context.isPhysicalAttack && !context.isFixedCheck) {
             const actorItems = this._item.actor?.items ?? [];
             const refs = usage.weaponRefs ?? [];
             const refIds = new Set(refs.map(r => r.itemId).filter(Boolean));
+            const kindFlag = context.attackWeaponKind === "ranged" ? "isRangedWeapon" : "isMeleeWeapon";
             // 一本目の武器=シートの「攻撃で使用」(戦闘タブ・空欄=生身。2026-07-13 ユーザー確定)。
             // 用途の weaponRefs は2本目以降の追加分。表示もこの実体に合わせる
             const sheetActor = this._item.actor;
@@ -621,6 +676,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 return `${atk.damageTypeTotal || atk.damageType || ""}${val >= 0 ? `+${val}` : val}`;
             };
             const base = sheetActor?.system?.baseAttack ?? {};
+            // 生身は白兵武器(2026-07-17 ユーザー確定)——射撃攻撃では一本目が生身なら「武器なし」になる
             context.sheetAttackWeapon = sheetWeapon
                 ? { name: attackWeaponDisplayName(sheetWeapon), attackLabel: atkLabel(sheetWeapon) }
                 : { name: "生身", attackLabel: `${base.damageTypeTotal || base.damageType || "I"}+${(base.value ?? 0) + (base.mod ?? 0)}` };
@@ -633,19 +689,20 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                     attackLabel: w ? atkLabel(w) : "",
                 };
             });
-            // 追加候補: 武器＋ヴィークル(未選択・シート武器以外)。ヴィークルは attack を持つため武器扱い
+            // 追加候補: 白兵/射撃の区分フラグで絞り込む(2026-07-17。ヴィークル等もフラグがあれば候補)
             context.availableWeapons = actorItems
                 .filter(i => (i.type === "weapon" || i.type === "vehicle")
+                    && i.system[kindFlag] === true
                     && !refIds.has(i.id) && i.id !== sheetWeaponId)
                 .map(i => ({ id: i.id, name: i.name }));
-            const category = usage.damageCategory || "physical";
-            context.isAttackPhysical = context.isAttack && category === "physical";
-            context.attackCategoryOptions = [
-                { value: "physical", label: "物理" },
-                { value: "mental",   label: "精神" },
-                { value: "social",   label: "社会" },
-            ].map(o => ({ ...o, selected: o.value === category }));
+            context.attackWeaponKindOptions = [
+                { value: "melee",  label: "白兵攻撃", selected: context.attackWeaponKind === "melee" },
+                { value: "ranged", label: "射撃攻撃", selected: context.attackWeaponKind === "ranged" },
+            ];
+        }
 
+        // 判定ボーナス/ダメージ修正の行: 判定を行う用途すべて(2026-07-17 再編)
+        if (context.isCheckType && !context.isFixedCheck) {
             // 判定ボーナス/ダメージ修正の行(式＋供給元)。供給元はチャットの帰属表示専用(識別キーを保存し
             // 表示は逆引きした現在名)。式は @system.*・@item.<識別キー>.system.* を参照可(2026-07-10)。
             // 供給元候補(グループ化): 組み合わせスタイル技能(一般技能除外)＋使用武器。値=識別キー・
@@ -684,6 +741,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 itemUses:    "アイテムの使用回数",
                 miracleUses: "神業の使用回数",
                 actionRank:  "AR（アクションランク）",
+                ammo:        "武器の残弾",
             };
             const usesOptions = (actor?.items ?? [])
                 .filter(i => i.system?.uses?.isLimit === true && i.id !== this._item.id)
@@ -693,16 +751,28 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 .filter(i => i.type === "miracle")
                 .map(i => ({ id: i.id, name: i.name }))
                 .sort((a, b) => a.name.localeCompare(b.name, "ja"));
+            // 残弾(2026-07-17): 残弾管理(数字/任意)のある武器。親アイテム自身も選べる(武器のリロード
+            // 用途=自分の残弾へのマイナス消費、をアイテム単体で設定できるように)
+            const ammoOptions = (actor?.items ?? [])
+                .filter(i => i.type === "weapon" && hasAmmoTracking(i.system?.ammo))
+                .map(i => ({ id: i.id, name: i.name }))
+                .sort((a, b) => a.name.localeCompare(b.name, "ja"));
             context.consumeRows = (usage.consumeTargets ?? []).map((t, idx) => {
                 const type = t.type || "parent";
-                const options = type === "miracleUses" ? miracleOptions : usesOptions;
+                const options = type === "miracleUses" ? miracleOptions
+                    : (type === "ammo" ? ammoOptions : usesOptions);
                 const known = options.some(o => o.id === t.itemId);
+                const amount = Number(t.amount);
                 return {
                     idx,
                     type,
                     // 対象アイテム選択を持たない種別(親=自明・AR=アクター自身のリソース)
                     noTarget: type === "parent" || type === "actionRank",
-                    amount: Math.max(1, t.amount ?? 1),
+                    // 負値=回復(残弾のリロード表現・2026-07-17)。残弾以外は従来どおり1以上
+                    amount: type === "ammo"
+                        ? (Number.isFinite(amount) && amount !== 0 ? amount : 1)
+                        : Math.max(1, amount || 1),
+                    isAmmo: type === "ammo",
                     itemId: t.itemId ?? "",
                     typeOptions: Object.entries(CONSUME_TYPE_LABELS)
                         .map(([value, label]) => ({ value, label, selected: value === type })),
@@ -982,18 +1052,24 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             targetValueNumber: raw["targetValueNumber"] ?? usage.targetValueNumber,
             targetValueOther:  raw["targetValueOther"]  ?? usage.targetValueOther,
 
-            isUnopposable: raw["isUnopposable"] ?? usage.isUnopposable,
-
             // リアクション用途の追加挙動(2026-07-15・全用途で保持)
             reactionAreaAttack:  raw["reactionAreaAttack"]  ?? usage.reactionAreaAttack,
             reactionFailsAttack: raw["reactionFailsAttack"] ?? usage.reactionFailsAttack,
-            // カバー(2026-07-16・全用途で保持)
-            covering:            raw["covering"]            ?? usage.covering,
         };
 
+        // 対決不可にもリアクション可(2026-07-17): リアクションタイプの設定
+        if (isReactionType(usage.type)) {
+            update.ignoresUnopposable = raw["ignoresUnopposable"] ?? (usage.ignoresUnopposable === true);
+        }
+
+        // 使用ヴィークル(2026-07-17): 移動/リアクション（移動妨害）の単一参照(空=準備済みを自動解決)
+        if (usesVehicle(usage.type)) {
+            update["vehicleRef.itemId"] = raw["vehicleRefItemId"] ?? usage.vehicleRef?.itemId ?? "";
+        }
+
         // 判定ボーナス/ダメージ修正の行(式＋供給元)を indexed 入力から再構成する(consumeTargets と同型)。
-        // check 用途のみ行 UI を描画する。空式の行は捨てる。ダメージ修正は攻撃オン時のみ保持(2026-07-10)
-        if (usage.type === "check" && !Number.isFinite(usage.fixedResult)) {
+        // 判定を行う用途すべてで行 UI を描画する(2026-07-17 再編)。空式の行は捨てる
+        if (executionFormOf(usage) === "check" && !Number.isFinite(usage.fixedResult)) {
             update.checkBonuses = TnxUsageSheet._collectBonusRows(raw, "checkBonus");
             update.checkBonusSelf = raw["checkBonusSelf"] ?? usage.checkBonusSelf ?? "";
             // 判定モード(ラジオ・2026-07-11/12): normal/grant/modify/suitChange。排他はラジオが保証。
@@ -1010,15 +1086,16 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 ? (raw["allowRecheck"] ?? usage.allowRecheck ?? false) : false;
             update.allowSuitChange = checkMode === "normal"
                 ? (raw["allowSuitChange"] ?? usage.allowSuitChange ?? false) : false;
-            const mode = raw["attackMode"] ?? (usage.damageCategory ? "attack" : (usage.modifyDamage ? "modifyDamage" : "none"));
-            const isAtk = mode === "attack";
-            const isModD = mode === "modifyDamage";
+            // 攻撃タイプ(2026-07-17): ダメージ修正行は攻撃のみ。「ダメージを修正」は汎用の判定タイプ
+            // のみの使用の仕方フラグ(攻撃タイプ化で排他ラジオは廃止)
+            const isAtk = isAttackType(usage.type);
+            const isModD = usage.type === "check" && (raw["modifyDamage"] ?? usage.modifyDamage) === true;
+            if (usage.type === "check") update.modifyDamage = isModD;
             update.damageBonuses  = isAtk ? TnxUsageSheet._collectBonusRows(raw, "damageBonus") : [];
             // damageBonusSelf は攻撃の「ダメージ修正値」/ダメージを修正の「修正値」を兼ねる(2026-07-11)
             update.damageBonusSelf = (isAtk || isModD) ? (raw["damageBonusSelf"] ?? usage.damageBonusSelf ?? "") : "";
             // スタン可能は物理攻撃のみの能力ゲート(精神は説得が常時可・社会は無)
-            const damageCategory = raw["damageCategory"] ?? usage.damageCategory ?? "";
-            update.canStun = (isAtk && damageCategory === "physical")
+            update.canStun = usage.type === "physicalAttack"
                 ? (raw["canStun"] ?? usage.canStun ?? false) : false;
         }
 
@@ -1041,40 +1118,33 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             declModifyChanged = update.modifyCheck !== prevMC || update.modifyDamage !== prevMD;
         }
 
-        // 回復(2026-07-13): check/declaration 共通。行(recoveryGroup-N/recoveryKind-N)は
-        // indexed 入力から再構成(consumeTargets 同型)。トグル・該当すべて・グループ変更は
-        // 表示項目が変わるため再描画する
+        // 治療(2026-07-17 再編): 実行形式(判定/宣言)は用途の設定で固定・回復範囲の行
+        // (recoveryGroup-N/recoveryKind-N)は indexed 入力から再構成(consumeTargets 同型)。
+        // 実行形式・該当すべて・グループ変更は表示項目が変わるため再描画する
         let recoveryUiChanged = false;
-        if ((usage.type === "check" && !Number.isFinite(usage.fixedResult)) || usage.type === "declaration") {
-            const prevRec = usage.recovery === true;
+        if (usage.type === "treatment") {
+            const prevForm = executionFormOf(usage);
+            update.executionForm = (raw["executionForm"] ?? usage.executionForm) === "declaration"
+                ? "declaration" : "check";
+            recoveryUiChanged ||= update.executionForm !== prevForm;
             const prevAll = usage.recoveryAll === true;
-            update.recovery = raw["recovery"] ?? prevRec;
-            if (update.recovery) {
-                const recIdxs = Object.keys(raw)
-                    .map(k => k.match(/^recoveryGroup-(\d+)$/)?.[1])
-                    .filter(v => v !== undefined)
-                    .map(Number)
-                    .sort((a, b) => a - b);
-                if (recIdxs.length || this.element?.querySelector(".usage-recovery-rows")) {
-                    update.recoveryTargets = recIdxs.map(i => ({
-                        group: raw[`recoveryGroup-${i}`] || "bs",
-                        kind:  raw[`recoveryKind-${i}`] ?? "",
-                    }));
-                    const prevGroups = (usage.recoveryTargets ?? []).map(t => t.group);
-                    recoveryUiChanged ||= update.recoveryTargets.length === prevGroups.length
-                        && update.recoveryTargets.some((t, i) => t.group !== prevGroups[i]);
-                }
-                update.recoveryAll = raw["recoveryAll"] ?? prevAll;
-                update.recoveryCount = Math.max(1, Number(raw["recoveryCount"]) || (usage.recoveryCount ?? 1));
-                recoveryUiChanged ||= update.recoveryAll !== prevAll;
-            } else {
-                // OFF は設定をリセットする(再 ON でまっさらから始める=2026-07-13 ユーザー指示)
-                update.recoveryTargets = [];
-                update.recoveryExcludes = [];
-                update.recoveryAll = false;
-                update.recoveryCount = 1;
+            const recIdxs = Object.keys(raw)
+                .map(k => k.match(/^recoveryGroup-(\d+)$/)?.[1])
+                .filter(v => v !== undefined)
+                .map(Number)
+                .sort((a, b) => a - b);
+            if (recIdxs.length || this.element?.querySelector(".usage-recovery-rows")) {
+                update.recoveryTargets = recIdxs.map(i => ({
+                    group: raw[`recoveryGroup-${i}`] || "bs",
+                    kind:  raw[`recoveryKind-${i}`] ?? "",
+                }));
+                const prevGroups = (usage.recoveryTargets ?? []).map(t => t.group);
+                recoveryUiChanged ||= update.recoveryTargets.length === prevGroups.length
+                    && update.recoveryTargets.some((t, i) => t.group !== prevGroups[i]);
             }
-            recoveryUiChanged ||= update.recovery !== prevRec;
+            update.recoveryAll = raw["recoveryAll"] ?? prevAll;
+            update.recoveryCount = Math.max(1, Number(raw["recoveryCount"]) || (usage.recoveryCount ?? 1));
+            recoveryUiChanged ||= update.recoveryAll !== prevAll;
         }
 
         // 固定達成値(フェーズ11-5・エキストラの技能判定)。固定値用途のマーカーを兼ねるため、
@@ -1094,11 +1164,15 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         if (consumeIdxs.length || this.element?.querySelector(".usage-consume-section")) {
             update.consumeTargets = consumeIdxs.map(i => {
                 const type = raw[`consumeType-${i}`] || "parent";
+                const rawAmount = Number(raw[`consumeAmount-${i}`]);
                 return {
                     type,
                     // 親・AR は対象アイテムを持たない
                     itemId: (type === "parent" || type === "actionRank") ? "" : (raw[`consumeItem-${i}`] ?? ""),
-                    amount: Math.max(1, Number(raw[`consumeAmount-${i}`]) || 1),
+                    // 残弾は負値=回復(リロード表現・2026-07-17)を許容。他は従来どおり1以上
+                    amount: type === "ammo"
+                        ? (Number.isFinite(rawAmount) && rawAmount !== 0 ? rawAmount : 1)
+                        : Math.max(1, rawAmount || 1),
                 };
             });
             // 種別の変更は対象アイテム選択の出し入れを伴うため再描画する(親/AR は選択欄なし)
@@ -1142,43 +1216,62 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             recoveryUiChanged ||= update.npcAcquire !== prevNA;
         }
 
-        // check: ベース技能（アクション技能は常に自身に固定）
-        if (usage.type === "check") {
+        // ベース技能（アクション技能は常に自身に固定）: 判定を行う用途すべて(2026-07-17 再編)
+        if (executionFormOf(usage) === "check") {
             update["baseSkillRef.itemId"] = this._item.system.isAction === true
                 ? this._item.id
                 : (raw["baseSkillRef.itemId"] ?? usage.baseSkillRef?.itemId ?? "");
         }
 
-        // 攻撃プロファイル(2026-07-09): 攻撃は check の一種。「攻撃に使う」トグル(isAttack)が
-        // オンなら damageCategory=系統を設定(物理のみ武器・ダメージ種別)。オフなら damageCategory を空に。
-        // 固定値判定は攻撃にしない
-        const prevAttackCategory = usage.type === "check" && !Number.isFinite(usage.fixedResult)
-            ? (usage.damageCategory || "") : null;
-        if (usage.type === "check" && !Number.isFinite(usage.fixedResult)) {
-            // 攻撃モード(ラジオ・2026-07-11): none=通常判定 / attack=攻撃 / modifyDamage=ダメージを修正。
-            // 排他はラジオが保証する(チェックボックス2つの後勝ち判定は廃止)
-            const mode = raw["attackMode"] ?? (usage.damageCategory ? "attack" : (usage.modifyDamage ? "modifyDamage" : "none"));
-            const isAttack = mode === "attack";
-            update.modifyDamage = mode === "modifyDamage";
-            if (isAttack) {
-                update.damageCategory = raw["damageCategory"] || usage.damageCategory || "physical";
-                update.damageType     = raw["damageType"]     ?? usage.damageType;
-                // weaponRefs は行の追加/削除アクション(_patchUsage)で管理し submit では触らない。
-                // 非物理系統は武器・種別を持たないためクリアする
-                if (update.damageCategory !== "physical") {
-                    update.weaponRefs = [];
-                    update.damageType = "";
+        // 物理攻撃の白兵/射撃(2026-07-17): 変更時は武器候補の絞り込みが変わるため再描画する。
+        // 非物理の攻撃タイプは武器・ダメージ種別を持たない
+        let attackKindChanged = false;
+        if (usage.type === "physicalAttack") {
+            const prevKind = usage.attackWeaponKind === "ranged" ? "ranged" : "melee";
+            update.attackWeaponKind = (raw["attackWeaponKind"] ?? prevKind) === "ranged" ? "ranged" : "melee";
+            update.damageType = raw["damageType"] ?? usage.damageType;
+            attackKindChanged = update.attackWeaponKind !== prevKind;
+        } else if (isAttackType(usage.type)) {
+            update.weaponRefs = [];
+            update.damageType = "";
+        }
+
+        // 対決欄(2026-07-17): 行入力(confrontValue-N / confront-N-<field>)から再構成する。
+        // 上流カスケードの変更は下流をリセット(スタイル技能の対決カスケードと同じ規則)。
+        // 種別・カスケードの変更は段の出し入れがあるため再描画する
+        let confrontationUiChanged = false;
+        const confIdxs = Object.keys(raw)
+            .map(k => k.match(/^confrontValue-(\d+)$/)?.[1])
+            .filter(v => v !== undefined)
+            .map(Number)
+            .sort((a, b) => a - b);
+        if (confIdxs.length || this.element?.querySelector(".usage-confrontation-rows")) {
+            const prev = usage.confrontation ?? [];
+            update.confrontation = confIdxs.map(i => {
+                const p = prev[i] ?? {};
+                const value = raw[`confrontValue-${i}`] || "blank";
+                const row = { value, name: "", skillDict: "", skillGroup: "", skillSub: "" };
+                if (value === "skillName" || value === "skillNameAsterisk") {
+                    // 種別が技能名系に変わった直後はカスケード初期状態(空)から始める
+                    const wasSkill = p.value === "skillName" || p.value === "skillNameAsterisk";
+                    row.skillDict  = raw[`confront-${i}-skillDict`]  ?? (wasSkill ? p.skillDict  : "") ?? "";
+                    row.skillGroup = raw[`confront-${i}-skillGroup`] ?? (wasSkill ? p.skillGroup : "") ?? "";
+                    row.skillSub   = raw[`confront-${i}-skillSub`]   ?? (wasSkill ? p.skillSub   : "") ?? "";
+                    row.name       = raw[`confront-${i}-name`]       ?? (wasSkill ? p.name       : "") ?? "";
+                    if (row.skillDict !== (p.skillDict ?? "")) { row.skillGroup = ""; row.skillSub = ""; row.name = ""; }
+                    else if (row.skillGroup !== (p.skillGroup ?? "")) { row.skillSub = ""; row.name = ""; }
+                    else if (row.skillSub !== (p.skillSub ?? "")) { row.name = ""; }
                 }
-            } else {
-                update.damageCategory = "";
-                update.weaponRefs     = [];
-                update.damageType     = "";
-            }
+                confrontationUiChanged ||= value !== (p.value ?? "blank")
+                    || row.skillDict !== (p.skillDict ?? "") || row.skillGroup !== (p.skillGroup ?? "")
+                    || row.skillSub !== (p.skillSub ?? "") || row.name !== (p.name ?? "");
+                return row;
+            });
         }
 
         // ベース変更の検知(取り消し用に変更前のベースを保持)
         const prevBaseRef = usage.baseSkillRef?.itemId ?? "";
-        const baseChanged = usage.type === "check"
+        const baseChanged = executionFormOf(usage) === "check"
             && this._item.system.isAction !== true
             && (update["baseSkillRef.itemId"] ?? prevBaseRef) !== prevBaseRef;
 
@@ -1188,14 +1281,13 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         // ベースを別技能に変えて個数上限を超えたら、トリムダイアログで調整(取り消しで元のベースへ戻す)
         if (baseChanged) await this._promptTrimCombos(prevBaseRef);
 
-        // 攻撃プロファイルの有無/系統変更は表示項目が変わる(武器・ダメージ種別は物理のみ)ため即再描画する。
-        // submitOnChange は再描画しないため、旧系統の入力欄が残る問題を防ぐ(2026-07-09)
-        if (prevAttackCategory !== null && (update.damageCategory ?? prevAttackCategory) !== prevAttackCategory) {
+        // 白兵/射撃の変更(武器候補の絞り込み)・宣言の修正フラグ変更・消費種別の変更・治療設定の変更・
+        // 射程の幅・対決欄の種別/カスケード変更は入力欄の出し入れがあるため即再描画する
+        // (submitOnChange は再描画しない・2026-07-09)
+        if (attackKindChanged || declModifyChanged || consumeTypeChanged || recoveryUiChanged
+            || rangeUiChanged || confrontationUiChanged) {
             this.render({ force: true });
         }
-        // 宣言の修正フラグ変更・消費種別の変更・回復設定の変更・射程の幅の出し入れも
-        // 入力欄の出し入れがあるため即再描画する
-        if (declModifyChanged || consumeTypeChanged || recoveryUiChanged || rangeUiChanged) this.render({ force: true });
     }
 
     // ─── 自動入力（参加技能の固有値を優先度で合成） ─────────────────────────────
@@ -1259,8 +1351,35 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         const usage = this.usage;
         if (!usage || !(usage.consumeTargets ?? [])[idx]) return;
         const rows = foundry.utils.deepClone(usage.consumeTargets);
-        rows[idx].amount = Math.max(1, (rows[idx].amount ?? 1) + delta);
+        // 残弾は負値=回復(リロード表現・2026-07-17)を許容(0 は飛ばす)。他は従来どおり1以上
+        if (rows[idx].type === "ammo") {
+            let next = (rows[idx].amount ?? 1) + delta;
+            if (next === 0) next += delta;
+            rows[idx].amount = next;
+        } else {
+            rows[idx].amount = Math.max(1, (rows[idx].amount ?? 1) + delta);
+        }
         await this._patchUsage({ consumeTargets: rows });
+        this.render({ force: true });
+    }
+
+    // ─── 対決欄の行(2026-07-17) ─────────────────────────────────────────────────
+
+    static async _onConfrontRowAdd(_event, _target) {
+        const usage = this.usage;
+        if (!usage) return;
+        await this._patchUsage({ confrontation: [
+            ...(usage.confrontation ?? []),
+            { value: "blank", name: "", skillDict: "", skillGroup: "", skillSub: "" },
+        ] });
+        this.render({ force: true });
+    }
+
+    static async _onConfrontRowDelete(_event, target) {
+        const usage = this.usage;
+        const idx = Number(target.dataset.rowIndex);
+        if (!usage || !Number.isFinite(idx)) return;
+        await this._patchUsage({ confrontation: (usage.confrontation ?? []).filter((_, i) => i !== idx) });
         this.render({ force: true });
     }
 
@@ -1487,11 +1606,11 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         return normalizeSkillItemDoc(it);
     }
 
-    /** actor 上の技能アイテム(check=攻撃含む・連鎖対象)を正規化して返す。対象外は null。 */
+    /** actor 上の技能アイテム(判定を行う用途=攻撃・リアクション等を含む・連鎖対象)を正規化して返す。対象外は null。 */
     _actorSkillItems() {
         const usage = this.usage;
         const actor = this._item.actor;
-        if (!usage || usage.type !== "check") return null;
+        if (!usage || executionFormOf(usage) !== "check") return null;
         if (!actor || !CHAIN_SKILL_TYPES.includes(this._item.type)) return null;
         return actor.items.filter(i => CHAIN_SKILL_TYPES.includes(i.type)).map(i => this._normalizeSkillItem(i));
     }

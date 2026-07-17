@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
-const { resolveNoReaction, resolveOpposed, attackReactionModes, formatAttackLabel, combineWeaponAttack,
+const { resolveNoReaction, resolveOpposed, formatAttackLabel, combineWeaponAttack,
   resolveAttackRecheckState } =
   await import("../../scripts/module/attack-flow-logic.mjs");
 
@@ -50,16 +50,8 @@ describe("resolveOpposed()（対決=受動有利・相手の達成値を上回�
   });
 });
 
-describe("attackReactionModes()（系統別のリアクション導線・2026-07-08 確定）", () => {
-  it("物理=ドッジ/パリー/リアクションしない", () => {
-    expect(attackReactionModes("physical")).toEqual(["dodge", "parry", "none"]);
-  });
-
-  it("精神・社会=リアクション/リアクションしない の2択", () => {
-    expect(attackReactionModes("mental")).toEqual(["reaction", "none"]);
-    expect(attackReactionModes("social")).toEqual(["reaction", "none"]);
-  });
-});
+// 旧 attackReactionModes(系統別のリアクション導線)は廃止(2026-07-17):
+// 導線は対決欄から導出する(confrontation-logic.test.mjs が担う)
 
 describe("resolveAttackRecheckState()（再判定の置き換え着地・リアクションやり直しなし・2026-07-14 確定）", () => {
   it("新しい判定のファンブル/スート不一致はリアクション以前に失敗が確定する", () => {

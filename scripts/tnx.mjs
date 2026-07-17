@@ -3,6 +3,8 @@ import { TokyoNovaGuestSheet } from './actor/tnx-guest-sheet.mjs';
 import { TokyoNovaTroopSheet } from './actor/tnx-troop-sheet.mjs';
 import { TokyoNovaExtraSheet } from './actor/tnx-extra-sheet.mjs';
 import { computeTroopFixedName, findDepartmentSkillName } from './data/helpers.mjs';
+import { defaultWeaponKindForCategory } from './data/item/common/outfit-base.mjs';
+import { canonicalizeSkillActions } from './module/usage-type-migration.mjs';
 import { CastDataModel } from './data/actor/cast.mjs';
 import { GuestDataModel } from './data/actor/guest.mjs';
 import { TroopDataModel } from './data/actor/troop.mjs';
@@ -731,6 +733,18 @@ Hooks.on("createItem", async (item, _options, userId) => {
     }
 });
 
+// 武器区分フラグの分類既定(2026-07-17 ユーザー確定): 分類(小分類)を変更したら、その分類の
+// 既定(白兵武器→白兵/射撃武器・搭載兵器→射撃/生体装備→白兵/該当なし=両OFF)で敷き直す
+// (自動入力と同じ「明示的な上書き」の意味論。以後の手動変更はそのまま生きる)
+Hooks.on("preUpdateItem", (item, changes) => {
+    const minor = changes?.system?.minorCategory;
+    if (minor === undefined || item.system?.isMeleeWeapon === undefined) return;
+    if (minor === item.system.minorCategory) return;
+    const seed = defaultWeaponKindForCategory(minor) ?? { melee: false, ranged: false };
+    changes.system.isMeleeWeapon  = seed.melee;
+    changes.system.isRangedWeapon = seed.ranged;
+});
+
 // アイテムの装着系フィールドが変わったとき: 転送を再評価する(2026-07-13 再設計)。
 // 準備/解除(parentItemId)で準備先転送が付け外しされ、分類・識別キーの変更で
 // アイテム狙い転送の照合が変わる(従来はここが穴で、装着変更が反映されなかった)
@@ -1089,6 +1103,11 @@ Hooks.once("init", async function() {
         requiresReload: true
     });
 
+    // 正準名ブリッジの一回限り移行(2026-07-17)の実行済みフラグ(ready フックでゲート)
+    game.settings.register("tokyo-nova-axleration", "usageTypeCanonicalMigrated", {
+        scope: "world", config: false, type: Boolean, default: false,
+    });
+
     game.settings.register("tokyo-nova-axleration", "shuffleOnDeckReset", {
         name: "山札リセット時にシャッフル",
         hint: "山札のリセット（全回収）や捨て札の回収を行った際、自動的に山札をシャッフルします。",
@@ -1289,7 +1308,8 @@ Hooks.once("init", async function() {
                 kept.push({
                     _id:             foundry.utils.randomID(),
                     type:            "check",
-                    name:            "判定（固定値）",
+                    // 用途名の既定は空(2026-07-17): 実効名=親アイテム名
+                    name:            "",
                     description:     "",
                     timing:          { value: "blank", actionName: "blank", processName: "blank", timingOther: "" },
                     target:          "blank",
@@ -1299,8 +1319,6 @@ Hooks.once("init", async function() {
                     damageType:      "",
                     checkBonuses:    [],
                     damageBonuses:   [],
-                    formula:         "",
-                    damageCategory:  "",
                     modifiableParams: [],
                     fixedResult:     10,
                 });
@@ -1316,7 +1334,8 @@ Hooks.once("init", async function() {
                 "system.actions": [{
                     _id:             foundry.utils.randomID(),
                     type:            "check",
-                    name:            "判定",
+                    // 用途名の既定は空(2026-07-17): 実効名=親アイテム名
+                    name:            "",
                     description:     "",
                     timing:          { value: "blank", actionName: "blank", processName: "blank", timingOther: "" },
                     target:          "blank",
@@ -1327,14 +1346,23 @@ Hooks.once("init", async function() {
                     damageType:      "",
                     checkBonuses:    [],
                     damageBonuses:   [],
-                    formula:         "",
-                    damageCategory:  "",
                     modifiableParams: [],
                     // 消費既定(11-6): 手動作成・migrateData 互換と同じ「親×1」を明示する
                     // (空配列で保存されると「消費なし」の明示と区別できなくなるため)
                     consumeTargets:  [{ type: "parent", itemId: "", amount: 1 }],
                 }],
             });
+        }
+
+        // 正準名の用途正規化(2026-07-17・インポート/ドロップ/手動作成の全経路・自動挿入の後):
+        // 回避→ドッジ・白兵→パリー・自我/信用→各リアクション・医療→治療・操縦→移動/
+        // リアクション（移動妨害）の追加。実行時の資格判定は用途タイプの所持のみ(旧 skillRoles 廃止)
+        if (data.type === "generalSkill") {
+            const src = item._source?.system ?? {};
+            const canonical = canonicalizeSkillActions(
+                { name: item.name, identificationKey: src.identificationKey ?? "", actions: src.actions ?? [] },
+                () => foundry.utils.randomID());
+            if (canonical) item.updateSource({ "system.actions": canonical });
         }
 
         // 作成者がGMの場合はデフォルト処理に任せる（通常はOwnerになる）
@@ -1590,6 +1618,27 @@ Hooks.once("ready", async function() {
     // 部位キーの付与移行(フェーズ12・GM のみ・1回): プリセット設定と全アクターの partSlots に
     // 無キー行のキーを永続化する(既定ラベル=対応表・カスタム=生成キー)
     await migratePartSlotKeys();
+
+    // 正準名ブリッジの一回限り移行(2026-07-17 ユーザー承認・GM のみ・1回): 既定一般技能の用途を
+    // 行動種別タイプへ付け替える(回避→ドッジ・白兵→パリー・自我/信用→各リアクション・医療→治療・
+    // 操縦→移動/リアクション（移動妨害）の追加)。以後の資格・候補判定は用途タイプの所持のみ
+    // (skillRoles・正準名既定は廃止=この移行とインポート時正規化だけが対応表を使う)
+    if (game.user.isGM && !game.settings.get("tokyo-nova-axleration", "usageTypeCanonicalMigrated")) {
+        const migrateSkill = async (item) => {
+            if (item.type !== "generalSkill") return;
+            const src = item.toObject().system ?? {};
+            const next = canonicalizeSkillActions(
+                { name: item.name, identificationKey: src.identificationKey ?? "", actions: src.actions ?? [] },
+                () => foundry.utils.randomID());
+            if (next) await item.update({ "system.actions": next });
+        };
+        for (const it of game.items.contents) await migrateSkill(it);
+        for (const actor of game.actors.contents) {
+            for (const it of actor.items.contents) await migrateSkill(it);
+        }
+        await game.settings.set("tokyo-nova-axleration", "usageTypeCanonicalMigrated", true);
+        console.log("TNX | 用途タイプの正準名移行を完了しました");
+    }
 
     // 下バー展開時はホットバーを退避する。HUD 初期描画前に body クラスを付与して
     // 「ホットバー表示→直後に非表示」のチラつきを防ぐ(下バー収納の既定は false=展開)。

@@ -33,6 +33,7 @@ import { resolveSingleTargetOrSelf } from "./target-resolution.mjs";
 import { CONDITION_KINDS, getConditionKinds, recoveryKindMatches, recoveryKindExcluded, readCondition } from "./conditions.mjs";
 import { postConditionOutcome } from "./condition-resolution.mjs";
 import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } from "./usage-consumption.mjs";
+import { executionFormOf } from "./usage-types.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -158,15 +159,16 @@ async function applyRecoveryRemoval(patient, removeIds) {
 }
 
 /**
- * 回復用途を使用する(アイテムロールから。declaration=即時/check=判定へ)。
- * @param {Item} item 回復用途を持つ技能
- * @param {object} usage recovery=true の用途エントリ
+ * 治療用途を使用する(アイテムロールから・2026-07-17 タイプ化)。実行形式は用途の設定
+ * (executionForm): 宣言=即時除去/判定=判定へ(完了継続で除去)。
+ * @param {Item} item 治療タイプの用途を持つ技能
+ * @param {object} usage type="treatment" の用途エントリ
  */
 export async function useRecovery(item, usage) {
     const actor = item.actor;
-    if (!actor) { ui.notifications.warn("回復はアクターが所持している技能から使用してください。"); return; }
+    if (!actor) { ui.notifications.warn("治療はアクターが所持している技能から使用してください。"); return; }
     if (!(usage.recoveryTargets ?? []).length) {
-        ui.notifications.warn("回復対象の範囲が設定されていません（用途の〈回復〉で設定してください）。");
+        ui.notifications.warn("回復対象の範囲が設定されていません（用途の〈治療〉で設定してください）。");
         return;
     }
 
@@ -182,8 +184,8 @@ export async function useRecovery(item, usage) {
     if (!selected) return;
     const plan = buildRemovalPlan(patient, selected);
 
-    // 宣言(判定なし): 消費(使用時に確定・適用)→即除去
-    if (usage.type !== "check") {
+    // 宣言形(判定なし・実行形式は用途の設定=2026-07-17): 消費(使用時に確定・適用)→即除去
+    if (executionFormOf(usage) !== "check") {
         const rows = resolveConsumeRowsForActor(actor, item, usage.consumeTargets);
         const usesPlan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${item.name}` });
         if (usesPlan === null) return;

@@ -59,6 +59,35 @@ export async function consumeFaAmmo(weapon) {
 }
 
 /**
+ * 残弾増減後の current 値を返す(用途の消費先「残弾」・2026-07-17 ユーザー確定。純ロジック)。
+ * amount>0=消費・amount<0=回復(リロード用途=マイナス消費の表現)。
+ * - 数字(value): current から増減し 0〜装弾数でクランプ。満タンに達したら null(満タン)へ。
+ * - 任意(arbitrary): 量の概念が無いため、消費=空(0)・回復=満タン(null)。
+ * - none(追跡なし)は undefined(変更なし)。
+ * @param {{mode?:string, value?:number, current?:number|null}} ammo
+ * @param {number} amount
+ * @returns {number|null|undefined}
+ */
+export function nextAmmoCurrent(ammo, amount) {
+  if (!hasAmmoTracking(ammo) || !Number.isFinite(amount) || amount === 0) return undefined;
+  if (ammo.mode === "arbitrary") return amount > 0 ? 0 : null;
+  const full = Number(ammo.value) || 0;
+  const next = Math.max(0, Math.min(full, (ammo.current ?? full) - amount));
+  return next >= full ? null : next;
+}
+
+/**
+ * 武器の残弾を増減する(用途の消費先「残弾」の適用)。
+ * @param {Item} weapon
+ * @param {number} amount 正=消費・負=回復
+ */
+export async function adjustAmmo(weapon, amount) {
+  const next = nextAmmoCurrent(weapon?.system?.ammo, amount);
+  if (next === undefined) return;
+  await weapon.update({ "system.ammo.current": next });
+}
+
+/**
  * 通常(非FA)射撃による残弾消費。**数字モードのみ 1 減らす**(0 未満にしない)。
  * 任意(FA武器)・none(追跡なし)は減らない(2026-07-10 ユーザー確定)。
  * @param {Item} weapon

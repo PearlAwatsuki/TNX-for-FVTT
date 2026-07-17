@@ -776,10 +776,12 @@ export class TnxCheckFlow {
         } else if (ctx.movement) {
             const { postMovementCard } = await import("./vehicle-move.mjs");
             await postMovementCard({ payload: ctx.movement, result, suit, card, fromDeck, trumpUsed, suitMismatch, recheckCtx });
-        } else if (!ctx.reaction) {
+        } else if (!ctx.reaction || ctx.reaction.open === true) {
             // リアクションは通常の結果カードを出さない(2026-07-15 ユーザー確定)。書き換わった
             // リアクションカードが結果カードそのもの。再判定/修正の導線もリアクションカードへ載せる
             // (recheckCtx は下の completeReactionFromCheck がリアクションカードに保存する)。
+            // 例外: オープン対決(対象なしの対決判定・2026-07-17)のリアクションは個別カードを
+            // 持たないため通常の結果カードを出す(再判定/修正の導線もそこに載る)
             await TnxCheckFlow._postResultChat({ ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch, checkSources: checkInfo.sources, recheckCtx });
         }
 
@@ -936,8 +938,16 @@ export class TnxCheckFlow {
             const newTargets = await rebuildRecheckedTargets(prev.targets ?? [], {
                 achievement: result.achievement, fumble: result.fumble === true, suitMismatch, suit,
             });
-            const overall = result.fumble ? "fumble"
+            let overall = result.fumble ? "fumble"
                 : (suitMismatch ? "miss" : ((prev.targets?.length) ? "active" : "open"));
+            // オープン対決(対象なし・2026-07-17): 解決済みなら保存済みのリアクション達成値で再解決する
+            // (リアクションのやり直しはしない=対象リストの再解決と同型)
+            if (prev.openReaction?.resolved && prev.openReaction.mode
+                && overall === "open") {
+                const { resolveOpposed } = await import("./attack-flow-logic.mjs");
+                const { hit } = resolveOpposed(result.achievement ?? 0, prev.openReaction.reactionAchievement ?? 0);
+                if (!hit) overall = "failed";
+            }
             patch.content = await buildAttackCardContent({
                 payload: ctx.attack, result, suit, card, fromDeck, trumpUsed, suitMismatch, isRecheck: true,
             });
@@ -1386,6 +1396,13 @@ export class TnxCheckFlow {
                     : resolveOpposed(newAch, attackF.reactionAchievement ?? 0);
                 patch[`flags.${SCOPE}.attackCheck.state`] = r.hit ? "hit" : "miss";
                 patch[`flags.${SCOPE}.attackCheck.diff`] = r.diff;
+            }
+            // オープン対決(対象なし・2026-07-17): 解決済みなら保存済みのリアクション達成値で再解決
+            if (attackF.openReaction?.resolved && attackF.openReaction.mode
+                && (attackF.state === "open" || attackF.state === "failed")) {
+                const { resolveOpposed } = await import("./attack-flow-logic.mjs");
+                const { hit } = resolveOpposed(newAch, attackF.openReaction.reactionAchievement ?? 0);
+                patch[`flags.${SCOPE}.attackCheck.state`] = hit ? "open" : "failed";
             }
         }
 

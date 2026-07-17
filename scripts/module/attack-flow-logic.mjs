@@ -79,15 +79,8 @@ export function resolveOpposed(attackAchievement, reactionAchievement) {
     return { hit, diff: hit ? margin : null, targetValue };
 }
 
-/**
- * 攻撃系統ごとのリアクション導線(2026-07-08 確定)。
- * パリー/ドッジは物理攻撃のリアクション。精神・社会は「リアクション」「リアクションしない」の2択。
- * @param {"physical"|"mental"|"social"} category
- * @returns {string[]} モード配列("dodge"|"parry"|"reaction"|"none")
- */
-export function attackReactionModes(category) {
-    return category === "physical" ? ["dodge", "parry", "none"] : ["reaction", "none"];
-}
+// 旧 attackReactionModes(系統別のリアクション導線・2026-07-08)は廃止(2026-07-17 ユーザー確定):
+// リアクション導線は役割検出でなく**対決欄**(手段行=リアクション用途タイプ・技能名行)から導出する。
 
 /**
  * 再判定(置き換え着地・2026-07-14 ユーザー確定)後の攻撃カード状態を導く。
