@@ -101,13 +101,12 @@ describe("resolveAttackRecheckState()（再判定の置き換え着地・リア�
   });
 });
 
-describe("combineWeaponAttack()（複数武器の攻撃力合算・2026-07-09 確定）", () => {
-  const W = (name, attackValue, damageType, isFullAuto = false, faValue = 0) =>
-    ({ name, attackValue, damageType, isFullAuto, faValue });
+describe("combineWeaponAttack()（複数武器の攻撃力合算・2026-07-18 FA撤去）", () => {
+  const W = (name, attackValue, damageType) => ({ name, attackValue, damageType });
 
-  it("武器なしは生身(baseAttack)にフォールバック", () => {
+  it("武器なしは生身(baseAttack)にフォールバック(faOptions は返さない)", () => {
     expect(combineWeaponAttack([], "", { value: 3, damageType: "I" }))
-      .toEqual({ weaponAttack: 3, damageType: "I", attackSourceName: "生身", faOptions: [] });
+      .toEqual({ weaponAttack: 3, damageType: "I", attackSourceName: "生身" });
   });
 
   it("生身の種別未設定は I 既定", () => {
@@ -116,7 +115,7 @@ describe("combineWeaponAttack()（複数武器の攻撃力合算・2026-07-09 �
 
   it("単一武器はその攻撃力・種別・名前", () => {
     expect(combineWeaponAttack([W("刀", 4, "S")], "", {}))
-      .toEqual({ weaponAttack: 4, damageType: "S", attackSourceName: "刀", faOptions: [] });
+      .toEqual({ weaponAttack: 4, damageType: "S", attackSourceName: "刀" });
   });
 
   it("複数武器は攻撃力を合算し名前を連結", () => {
@@ -135,28 +134,8 @@ describe("combineWeaponAttack()（複数武器の攻撃力合算・2026-07-09 �
     expect(combineWeaponAttack([W("刀", 4, "S")], "P").damageType).toBe("P");
   });
 
-  it("FAは自動加算せず faOptions として返す(ダメージダイアログで武器ごとに選択)", () => {
-    const r = combineWeaponAttack([
-      { itemId: "w1", name: "FA銃", attackValue: 5, damageType: "I", isFullAuto: true, faValue: 3, consumesAmmo: true },
-      { itemId: "w2", name: "刀",   attackValue: 4, damageType: "S", isFullAuto: false, faValue: 0 },
-    ], "");
-    expect(r.weaponAttack).toBe(9); // 攻撃力は合算(FAは別)
-    expect(r.faOptions).toEqual([{ itemId: "w1", name: "FA銃", faValue: 3, consumesAmmo: true }]);
-  });
-
-  it("FA武器が無ければ faOptions は空", () => {
-    expect(combineWeaponAttack([W("刀", 4, "S")], "").faOptions).toEqual([]);
-    expect(combineWeaponAttack([], "", {}).faOptions).toEqual([]);
-  });
-
-  it("複数のFA武器は両方 faOptions に載る(両方選べば両方加算)・残弾消費有無も伝わる", () => {
-    // 自動給弾のFA武器は残弾を追跡しない(consumesAmmo=false)
-    const r = combineWeaponAttack([
-      { itemId: "a", name: "自動給弾FA銃", attackValue: 5, damageType: "I", isFullAuto: true, faValue: 3, consumesAmmo: false },
-      { itemId: "b", name: "通常FA銃",   attackValue: 4, damageType: "I", isFullAuto: true, faValue: 2, consumesAmmo: true },
-    ], "");
-    expect(r.faOptions.map(o => o.itemId)).toEqual(["a", "b"]);
-    expect(r.faOptions[0].consumesAmmo).toBe(false);
-    expect(r.faOptions[1].consumesAmmo).toBe(true);
+  it("FA 値は自動加算しない(2026-07-18): 戻り値に faOptions は含まれない", () => {
+    const r = combineWeaponAttack([W("刀", 4, "S")], "");
+    expect(r).not.toHaveProperty("faOptions");
   });
 });

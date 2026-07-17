@@ -28,11 +28,9 @@ import { resolveAttackTargetRefs } from "./target-resolution.mjs";
 import { TargetSelectionDialog } from "./tnx-dialog.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { resolveNoReaction, resolveOpposed, formatAttackLabel, combineWeaponAttack, resolveAttackRecheckState } from "./attack-flow-logic.mjs";
-import { hasAmmoTracking, consumeNormalAmmo } from "./weapon-ammo.mjs";
 import { resolveAttackWeapons, attackWeaponDisplayName, attackWeaponKindEligible } from "./attack-weapons.mjs";
 import { buildSkillOptions } from "./skill-select.mjs";
 import { movementStagesFromAchievement } from "./vehicle-move-logic.mjs";
-import { readFlag } from "../data/item/helpers.mjs";
 import { USAGE_TYPE_LABELS, attackCategoryOf, usageDisplayName, executionFormOf } from "./usage-types.mjs";
 import {
     confrontationReactionTypes, confrontationSkillRows, confrontationHasCannot,
@@ -80,16 +78,16 @@ export async function useAttack(item, usage) {
     // (actor.system.weaponRefs.attackItemId・空欄=生身)・用途の weaponRefs は2本目以降の追加分。
     // どちらも無ければ生身(baseAttack)フォールバック。複数武器は攻撃力を合算する
     // (合算能力の表現・2026-07-09。純ロジックは combineWeaponAttack)。
-    // FA は自動加算せず faOptions として持ち回し、ダメージ算出ダイアログで武器ごとに選択する。
-    let weaponAttack = 0, damageType = "", attackSourceName = "", faOptions = [], stunCapable = false;
-    let usedWeapons = [];
+    // FA(フルオート)の自動加算は廃止(2026-07-18 ユーザー確定)——FA 値は用途のダメージボーナス式で
+    // 手動参照(@item.<識別キー>.system.FAValueTotal)する。残弾の自動消費も廃止(用途の消費設定のみ)。
+    let weaponAttack = 0, damageType = "", attackSourceName = "", stunCapable = false;
     if (category === "physical") {
         // 白兵/射撃の区分フラグで使用武器を絞る(2026-07-17 ユーザー確定)。生身(生身書き換え装備・
         // cyborg 含む)は白兵武器として扱う。射撃攻撃は純粋な生身では行えない=射撃武器フラグの
         // 武器を準備していなければ「準備している武器が無い」扱いで判定不可
         const kind = usage.attackWeaponKind === "ranged" ? "ranged" : "melee";
         // 適格判定は attackWeaponKindEligible に一本化(用途シートの使用武器表示と同じ判定)
-        usedWeapons = resolveAttackWeapons(actor, usage, item).filter(w => attackWeaponKindEligible(w, kind));
+        const usedWeapons = resolveAttackWeapons(actor, usage, item).filter(w => attackWeaponKindEligible(w, kind));
         if (kind === "ranged" && !usedWeapons.length) {
             ui.notifications.warn("準備している武器が無いため、射撃攻撃を行えません。");
             return;
@@ -102,16 +100,13 @@ export async function useAttack(item, usage) {
                 name:        attackWeaponDisplayName(w),
                 attackValue: Number(w.system.attack?.total ?? w.system.attack?.value) || 0,
                 damageType:  w.system.attack?.damageTypeTotal || w.system.attack?.damageType || "",
-                isFullAuto:  readFlag(w.system, "isFullAuto"),
-                faValue:     Number(w.system.FAValueTotal ?? w.system.FAValue) || 0,
-                consumesAmmo: hasAmmoTracking(w.system.ammo),
             }));
         // スタン可能(2026-07-15): 使用武器のいずれかがスタン可能 ∨ 生身(武器なし) ∨ 用途.canStun(技能効果)
         stunCapable = usage.canStun === true || usedWeapons.length === 0
             || usedWeapons.some(w => w.system.canStun === true);
         // 生身は value+mod が実効(AE はネイティブに value/mod へ乗る・UI 表示も value+mod)
         const baseAtk = actor.system.baseAttack ?? {};
-        ({ weaponAttack, damageType, attackSourceName, faOptions } =
+        ({ weaponAttack, damageType, attackSourceName } =
             combineWeaponAttack(weapons, usage.damageType, {
                 value: (Number(baseAtk.value) || 0) + (Number(baseAtk.mod) || 0),
                 damageType: baseAtk.damageTypeTotal || baseAtk.damageType,
@@ -130,14 +125,8 @@ export async function useAttack(item, usage) {
     const base = await buildUsageCheckContext(actor, item, usage);
     if (!base) return;
 
-    // 通常(非FA)射撃の残弾消費: 数字モードの武器を 1 減らす(任意は FA でのみ空・2026-07-10)。
-    // 物理攻撃のみ。FA による消費はダメージ算出時(consumeFaAmmo)に別途行う。
-    // 対象は区分フラグで絞った実際の使用武器(2026-07-17)
-    if (category === "physical") {
-        for (const w of usedWeapons) {
-            await consumeNormalAmmo(w);
-        }
-    }
+    // 残弾の自動消費は廃止(2026-07-18 ユーザー確定): 通常射撃・FA射撃を問わず、残弾の消費は
+    // 用途の消費設定(resource="ammo")からのみ発生する(buildUsageCheckContext 内で処理済み)。
 
     await TnxCheckFlow.open({
         ...base,
@@ -151,7 +140,7 @@ export async function useAttack(item, usage) {
             usageType: usage.type,
             // 対決欄(2026-07-17): リアクション導線の正本(手段行・技能名行・不可マスク)
             confrontation: foundry.utils.deepClone(usage.confrontation ?? []),
-            category, damageType, weaponAttack, faOptions, attackSourceName,
+            category, damageType, weaponAttack, attackSourceName,
             damageBonuses: usage.damageBonuses ?? [],
             damageBonusSelf: usage.damageBonusSelf ?? "",
             sourceItemId: item.id,
@@ -202,7 +191,7 @@ export async function useOpposedCheck(item, usage, openExtra = {}) {
             isAttack: false,                   // 攻撃専用項目(武器・ダメージ)は出さない
             usageType: usage.type,
             confrontation: foundry.utils.deepClone(usage.confrontation ?? []),
-            category: "", damageType: "", weaponAttack: 0, faOptions: [], attackSourceName: "",
+            category: "", damageType: "", weaponAttack: 0, attackSourceName: "",
             damageBonuses: [], damageBonusSelf: "",
             sourceItemId: item.id,
             stunCapable: false, stunDeclared: false,
@@ -384,8 +373,6 @@ export async function buildAttackCardContent({ payload, result, suit, card, from
             isPhysical:    payload.category === "physical",
             attackSourceName: payload.attackSourceName,
             attackLabel:   formatAttackLabel(payload.damageType, payload.weaponAttack),
-            // FA は自動加算せずダメージ算出ダイアログで選択するため、ここでは「FA 可」表示のみ
-            hasFa:         (payload.faOptions?.length ?? 0) > 0,
             achievement:   result.achievement,
             isRecheck,     // 再判定で置き換えたカードには「再判定」タグを出す(2026-07-14 置き換え着地)
         }

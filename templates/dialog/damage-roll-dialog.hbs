@@ -1,24 +1,12 @@
-{{!-- ダメージ・ロールダイアログ(攻撃側・フェーズ12-3)。最小構成: FA 選択+手動修正。
+{{!-- ダメージ・ロールダイアログ(攻撃側・フェーズ12-3)。最小構成: 手動修正のみ。
      カードを出すことが確定トリガー(判定と同じ操作系):
      手札=HUD のカードを直接クリック・山札=下の[山札から1枚めくる]。
-     軽減は適用時に防御側が入力する。 --}}
+     FA 値は用途のダメージボーナス式で加算する(2026-07-18 手動一本化)。軽減は適用時に防御側が入力する。 --}}
 <div class="tnx-damage-form">
     <p class="tnx-damage-summary">
         {{categoryLabel}}ダメージ{{#if targetName}}／対象: {{targetName}}{{/if}}<br>
         ダメージカード{{#if isPhysical}} ＋ 攻撃力（{{attackSourceName}}）<b>{{attackLabel}}</b>{{/if}}{{#if damageBonus}} ＋ ダメージ修正 <b>{{damageBonus}}</b>{{/if}} ＋ 修正
     </p>
-
-    {{#if faOptions.length}}
-    <fieldset class="tnx-damage-group">
-        <legend>フルオート射撃（武器ごとに選択）</legend>
-        {{#each faOptions}}
-        <label class="tnx-damage-row">
-            <input type="checkbox" class="dmg-fa" value="{{this.itemId}}">
-            <span>{{this.name}} <span class="tnx-damage-formula">＋FA {{this.faValue}}</span>{{#if this.consumesAmmo}} <span class="tnx-damage-formula" title="FA射撃で残弾が空になります">※残弾を消費</span>{{/if}}</span>
-        </label>
-        {{/each}}
-    </fieldset>
-    {{/if}}
 
     <div class="tnx-damage-fields">
         <div class="form-group">

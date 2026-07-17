@@ -327,10 +327,11 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         context.hasDefence = ["armor", "cyborg", "vehicle"].includes(type);
 
         // 残弾(2026-07-17: 表示は「射撃武器」フラグで判定=分類ベースから変更。区分は搭載兵器・
-        // 生体装備にもあるため)。数字は通常射撃で減り、任意は FA で空。ammo スキーマは weapon のみ
+        // 生体装備にもあるため)。「任意」は廃止(2026-07-18)——具体的残弾数の無い武器は残弾1(value=1)。
+        // 消費・回復は自動では行わず用途の消費設定から。ammo スキーマは weapon のみ
         context.hasAmmo = type === "weapon" && system.isRangedWeapon === true;
         if (context.hasAmmo) {
-            context.ammoModeOptions = { none: "-", value: "数字", arbitrary: "任意" };
+            context.ammoModeOptions = { none: "-", value: "数字" };
             // 数字モードの現在残弾(null=満タン=value)。シートで確認できるよう表示する
             context.ammoRemaining = system.ammo?.current ?? (Number(system.ammo?.value) || 0);
         }

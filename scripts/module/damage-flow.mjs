@@ -33,7 +33,6 @@ import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { TnxActionHandler } from "./tnx-action-handler.mjs";
 import { getCardCheckValue } from "./tnx-check-engine.mjs";
 import { formatAttackLabel } from "./attack-flow-logic.mjs";
-import { consumeFaAmmo } from "./weapon-ammo.mjs";
 import { gatherDamageVsSources, gatherDamageDealtSources, gatherDamageTakenSources, collectActorEffectBuffs, targetStyleWorksKeys } from "../data/item/helpers.mjs";
 import { applyUsageEffectsFromMessage } from "./usage-effects.mjs";
 import { spinnerDialogActions } from "./tnx-dialog.mjs";
@@ -65,7 +64,7 @@ export async function executeDamageCardFromHand(cardId) {
     // フォームはカードを出す前に読む(確定後にダイアログを閉じるため)
     const form = ctx.kind === "roll" && ctx.dialog?.element
         ? readRollForm(ctx.dialog.element)
-        : { manualMod: 0, faItemIds: [] };
+        : { manualMod: 0 };
     const played = await playHandCardForDamage(cardId);
     if (!played) return true; // ワイルドカード宣言キャンセル等 → 待ち受け継続
     ctx.done = true;
@@ -88,7 +87,6 @@ async function cancelPending() {
 function readRollForm(el) {
     return {
         manualMod:  Number(el.querySelector('[name="manualMod"]')?.value) || 0,
-        faItemIds:  [...el.querySelectorAll("input.dmg-fa:checked")].map(c => c.value),
     };
 }
 
@@ -111,8 +109,8 @@ export async function openDamageRollDialog(attackMessage) {
     }
     const category = f.category || "physical";
     const attackPower = category === "physical" ? (Number(f.weaponAttack) || 0) : 0;
-    // FA は自動加算せず、FA 可能武器を候補として出しダイアログで武器ごとに選ぶ(2026-07-09)
-    const faOptions = category === "physical" ? (f.faOptions ?? []) : [];
+    // FA(フルオート)の自動加算は廃止(2026-07-18 ユーザー確定)——FA 値は用途のダメージボーナス式で
+    // 手動参照する。ダメージダイアログの FA 選択・FA 値加算・残弾消費はすべて撤去。
 
     // 命中した対象(複数対象一括・2026-07-15): 攻撃側合計は共有・軽減とチャートは対象ごと。
     // 対象依存の攻撃側加算(@target.*・vsStyle/vsWorks)は共有値のため先頭命中対象で評価する(近似)。
@@ -145,7 +143,6 @@ export async function openDamageRollDialog(attackMessage) {
             categoryLabel: CATEGORY_LABELS[category] ?? category,
             isPhysical: category === "physical",
             attackLabel: formatAttackLabel(f.damageType, attackPower),
-            faOptions,
             attackSourceName: f.attackSourceName,
             targetName: hitTargets.map(t => `「${t.name}」`).join("・") || "（対象なし）",
             damageBonus: damageBonusTotal,
@@ -155,7 +152,7 @@ export async function openDamageRollDialog(attackMessage) {
     // 待ち受け開始: ダイアログを開いたまま、手札は HUD クリック(executeDamageCardFromHand)・
     // 山札はダイアログのボタンで出す(判定と同じ操作系)
     await cancelPending();
-    const ctx = { kind: "roll", attackMessage, f, attacker, category, attackPower, faOptions, damageBonusRows: damageBonusRowsAll, targetActor, hitTargets, dialog: null, done: false };
+    const ctx = { kind: "roll", attackMessage, f, attacker, category, attackPower, damageBonusRows: damageBonusRowsAll, targetActor, hitTargets, dialog: null, done: false };
     _pending = ctx;
 
     const chosen = await foundry.applications.api.DialogV2.wait({
@@ -186,20 +183,11 @@ export async function openDamageRollDialog(attackMessage) {
  * ダメージ・ロールを確定する(カードが出た後):
  * ダメージ・チャットカードの投稿→攻撃カードの damageRolled 化。
  * @param {object} ctx  待ち受けコンテキスト(kind="roll")
- * @param {{manualMod:number, faItemIds:string[]}} form ロールダイアログの入力
+ * @param {{manualMod:number}} form ロールダイアログの入力
  * @param {{name:string, suit:string, value:number}} played 出したダメージカード
  */
 async function finalizeDamageRoll(ctx, form, played) {
-    const { attackMessage, f, attacker, category, attackPower, faOptions, damageBonusRows, hitTargets } = ctx;
-
-    // FA 射撃(武器ごとに任意選択・2026-07-09): 選んだ FA 武器の FA 値を合算しダメージへ。
-    // 選んだ武器の残弾を空にする(自動給弾を除く=consumeFaAmmo が判定)。
-    const chosenFa = (faOptions ?? []).filter(o => (form.faItemIds ?? []).includes(o.itemId));
-    const faValue = chosenFa.reduce((s, o) => s + (Number(o.faValue) || 0), 0);
-    for (const o of chosenFa) {
-        const weapon = o.itemId ? attacker?.items.get(o.itemId) : null;
-        if (weapon) await consumeFaAmmo(weapon);
-    }
+    const { attackMessage, f, attacker, category, attackPower, damageBonusRows, hitTargets } = ctx;
 
     // 用途の適用効果はフローの一番最後(2026-07-11 ユーザー確定)=ダメージ算出後に適用する。
     // 攻撃カードのペイロードをダメージカードへ引き継ぐ(適用済み状態ごと。攻撃カード側の表示は
@@ -225,7 +213,7 @@ async function finalizeDamageRoll(ctx, form, played) {
                     targets: buildDamageTargets(hitTargets),
                     category,
                     damageType: f.damageType ?? "",
-                    attackPower, faValue,
+                    attackPower,
                     damageBonuses: damageBonusRows,
                     mods: [],   // 事後修正(modifyDamage 用途・攻撃側合計クリックで適用)
                     attackSourceName: f.attackSourceName ?? "",
@@ -355,9 +343,9 @@ export function renderDamageCard(message, html) {
             i === 0 ? String(c.value) : `＋${c.value}`);
     });
     if (f.category === "physical") {
-        // 攻撃力はアウトフィットの表記(種別+符号つき数値・例 I+4)を踏襲
+        // 攻撃力はアウトフィットの表記(種別+符号つき数値・例 I+4)を踏襲。
+        // FA 値は用途のダメージ修正(下の damageBonuses)として現れる(2026-07-18 手動一本化)
         row(ledger, `攻撃力（${esc(f.attackSourceName || "生身")}）`, formatAttackLabel(f.damageType, f.attackPower));
-        if (f.faValue) row(ledger, "FA", `＋${f.faValue}`);
     }
     for (const b of (f.damageBonuses ?? [])) {
         row(ledger, `ダメージ修正（${esc(b.name || "用途")}）`, signedDisplay("＋", b.value));
@@ -711,7 +699,7 @@ function buildDamageTargets(hitTargets) {
 
 /**
  * ダメージの合計(Damage_Rules「算出の適用順序」1〜6・2026-07-16 裁定=KI-024)。
- * 攻撃側の加算(カード合算+攻撃力+FA+用途のダメージ修正+手動修正)→恒久軽減(防御力・受け値=
+ * 攻撃側の加算(カード合算+攻撃力+用途のダメージ修正(FA 値含む)+手動修正)→恒久軽減(防御力・受け値=
  * permanentMitigation・対象ごと)→スタン/説得の10上限(算出の一番最後)→事後修正(mods=modifyDamage・
  * 算出後〜適用前=キャップ後に乗る)→適用時の軽減(applyMitigation=手動・社会報酬点)。
  * extraPostMods は対象ごとの防御側事後修正(t.mods)を共有の事後修正と同じ段に合流させる。
@@ -725,7 +713,7 @@ function damageRollTotals(f, { permanentMitigation = 0, extraPostMods = 0, apply
     const modsSum = (f.mods ?? []).reduce((s, m) => s + (Number(m.value) || 0), 0);
     const r = computeDamage({
         damageCard: cardSum,
-        attackPower: (Number(f.attackPower) || 0) + (Number(f.faValue) || 0),
+        attackPower: Number(f.attackPower) || 0,
         modifier: bonusSum + (Number(f.manualMod) || 0),
         mitigation: permanentMitigation,
         postModifier: modsSum + extraPostMods,

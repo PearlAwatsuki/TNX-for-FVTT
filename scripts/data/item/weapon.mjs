@@ -17,14 +17,13 @@
  *   最長射程の選択肢から「至近」を除く(最低射程でのみ意味を持つため)。
  * - guardValue は受け値(略号「受」)。パリィ失敗時にダメージから引かれる値。
  *   「なし / 数値」の {mode,value} 構造。
- * - isFullAuto: フルオート射撃可能。FAValue が FAn の n(ダメージに加算)。FA は自動加算せず
- *   ダメージ算出ダイアログで武器ごとに選択する(2026-07-09 ユーザー確定)。
- * - ammo: 残弾(射撃武器・搭載兵器のみ)。mode = none(概念なし)/value(装弾数=数字。FA以外用)/
- *   arbitrary(残弾の有無だけ=任意。FA 武器用)。current = 現在の残弾(実行時。null=満タン(数字)/
- *   あり(任意)・0=空)。**数字は通常(非FA)射撃で1減り、任意は FA 射撃で空になる**
- *   (2026-07-10 ユーザー確定)。空(0)の武器はリロード(マイナーアクション)で満タンに戻る。
- *   ※自動給弾の FA 武器は「isFullAuto=true かつ ammo.mode=none(-)」で表現する
- *   (残弾を追跡しなければ FA しても空にならない。専用フラグは不要=2026-07-10 ユーザー確定)。
+ * - isFullAuto: フルオート射撃可能。FAValue が FAn の n。**FA 値の自動加算は廃止**(2026-07-18)——
+ *   ダメージに乗せたいときは用途のダメージボーナス式で @item.<識別キー>.system.FAValueTotal を手動参照。
+ * - ammo: 残弾(射撃武器・搭載兵器のみ)。mode = none(概念なし=自動給弾)/value(装弾数=数字)。
+ *   「任意」は廃止(2026-07-18)——具体的残弾数の無い武器(FA武器等)は残弾1(value=1)。
+ *   current = 現在の残弾(実行時。null=満タン・0=空)。**残弾の消費・回復は自動では行わず、
+ *   全て用途の消費設定(resource="ammo"・負値=回復=リロード)から行う**(2026-07-18 ユーザー確定)。
+ *   ※自動給弾の武器は ammo.mode=none(-) で表現(残弾を追跡しない)。
  */
 
 import { SystemDataModel } from "../abstract.mjs";
@@ -117,14 +116,15 @@ export class WeaponDataModel extends SystemDataModel.mixin(
       // 用途の canStun(スタイル技能の効果によるスタン付与)・生身(武器なし)も可否に含める。
       canStun:     new fields.BooleanField({ initial: false }),
       FAValue:     new fields.NumberField({ initial: 0 }),
-      // 残弾(射撃武器・搭載兵器のみ UI 表示。2026-07-09〜10 ユーザー確定):
-      //   mode    = none(概念なし)/value(装弾数=数字。FA以外用)/arbitrary(有無だけ=任意。FA武器用)
+      // 残弾(射撃武器・搭載兵器のみ UI 表示。2026-07-09〜10・2026-07-18 再設計):
+      //   mode    = none(概念なし・自動給弾)/value(装弾数=数字)。「任意」は廃止(2026-07-18 ユーザー確定)
+      //             ——具体的な残弾数が無い武器(FA武器等)は**残弾1**(value=1)として扱う。
       //   value   = 装弾数(mode=value の満タン時の数=最大値。シートで設定)
-      //   current = 現在の残弾(実行時。null=満タン(数字)/あり(任意)・0=空)。
-      //             数字は通常(非FA)射撃で1減り、任意は FA 射撃で空に。リロードで満タン(null)へ。
+      //   current = 現在の残弾(実行時。null=満タン・0=空)。
+      //   **残弾の消費・回復は自動では行わず、全て用途の消費設定から行う**(2026-07-18)。
       ammo: new fields.SchemaField({
         mode:    new fields.StringField({ required: true, blank: false, initial: "none",
-          choices: { none: "-", value: "数字", arbitrary: "任意" } }),
+          choices: { none: "-", value: "数字" } }),
         value:   new fields.NumberField({ initial: 0, min: 0, integer: true }),
         current: new fields.NumberField({ initial: null, nullable: true, min: 0, integer: true }),
       }),
@@ -154,6 +154,12 @@ export class WeaponDataModel extends SystemDataModel.mixin(
     // 残弾: 旧 empty(真偽) → current(数値・null=満タン/0=空)へ移行(2026-07-10)
     if (source.ammo && source.ammo.current === undefined && source.ammo.empty !== undefined) {
       source.ammo.current = source.ammo.empty ? 0 : null;
+    }
+    // 残弾「任意」廃止(2026-07-18): 具体的残弾数の無い武器は残弾1(value=1)へ移行。
+    // current の 0=空/null=満タン はそのまま(満タン=1発)
+    if (source.ammo && source.ammo.mode === "arbitrary") {
+      source.ammo.mode = "value";
+      if (!(Number(source.ammo.value) > 0)) source.ammo.value = 1;
     }
     return super.migrateData(source);
   }
