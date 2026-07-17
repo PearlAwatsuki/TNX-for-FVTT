@@ -297,7 +297,7 @@ export class UsageTemplate extends SystemDataModel {
                     //   itemId: type が itemUses/miracleUses/ammo のときの同アクター内 Item ID
                     //   amount: 消費量(可変・既定1)。負値は回復(ammo のリロード表現・2026-07-17)。
                     //           0 は実行時に無視する
-                    // 既存 check 用途の互換(親×1)は migrateData で明示化する
+                    // 既定は空(2026-07-17 ユーザー指示=旧・無条件の「親×1」既定行は全廃)
                     consumeTargets: new fields.ArrayField(
                         new fields.SchemaField({
                             type:   new fields.StringField({ initial: "parent" }),
@@ -398,9 +398,8 @@ export class UsageTemplate extends SystemDataModel {
                     migrated = { ...migrated, damageBonuses: f ? [{ formula: f, source: "" }] : [] };
                 }
                 if (!migrated.baseSkillRef) migrated.baseSkillRef = { itemId: "" };
-                if (migrated.consumeTargets === undefined && migrated.type === "check") {
-                    migrated.consumeTargets = [{ type: "parent", itemId: "", amount: 1 }];
-                }
+                // 旧「親×1」互換既定行の明示化(11-6)は全廃(2026-07-17 ユーザー指示=そもそも不要。
+                // 消費先未設定の旧用途は空=消費なしとして扱う)
                 // ─── 行動種別への再編(2026-07-17 ユーザー確定) ───
                 // 攻撃: check+damageCategory → 攻撃タイプ(系統はタイプが持つ)。
                 // 白兵/射撃の選択は既定=白兵(旧データは区分を持たないため。射撃攻撃は手動で切り替える)

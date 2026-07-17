@@ -33,7 +33,9 @@ import { hasAmmoTracking, ammoRemaining, nextAmmoCurrent } from "./weapon-ammo.m
 
 /**
  * 参加技能から消費行を導出する(Foundry 非依存・11-6 追補・2026-07-06 承認)。
- * 規則: 親×1 ＋ 使用回数制限(isLimit)つきの参加技能(親以外)それぞれ×1。
+ * 規則: 使用回数制限(isLimit)つきの参加技能それぞれ×1(親は type="parent")。
+ * 旧・無条件の「親×1」既定行は全廃(2026-07-17 ユーザー指示「そもそもいらない」)——
+ * 制限の無い親の行は実行時 no-op の飾りでしかなかった。
  * これは**設定欄への可視の入力補助**であり、実行時の消費の権威は consumeTargets のまま
  * (全廃した「実行時の隠れた自動スキャン」とは別物)。設定失念による消費漏れを防ぐ。
  * @param {string} parentItemId 親アイテムの ID
@@ -41,12 +43,11 @@ import { hasAmmoTracking, ammoRemaining, nextAmmoCurrent } from "./weapon-ammo.m
  * @returns {Array<{type:string, itemId:string, amount:number}>}
  */
 export function deriveConsumeTargets(parentItemId, skills) {
-    return [
-        { type: "parent", itemId: "", amount: 1 },
-        ...(skills ?? [])
-            .filter(s => s.id !== parentItemId && s.system?.uses?.isLimit === true)
-            .map(s => ({ type: "itemUses", itemId: s.id, amount: 1 })),
-    ];
+    return (skills ?? [])
+        .filter(s => s.system?.uses?.isLimit === true)
+        .map(s => s.id === parentItemId
+            ? { type: "parent", itemId: "", amount: 1 }
+            : { type: "itemUses", itemId: s.id, amount: 1 });
 }
 
 /**

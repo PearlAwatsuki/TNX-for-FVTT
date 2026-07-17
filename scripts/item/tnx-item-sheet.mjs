@@ -253,10 +253,9 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             modifiableParams: [],
             // 対決欄の系統既定(2026-07-17): 攻撃=物理はドッジ+パリー等・移動/離脱は各妨害リアクション行
             confrontation: defaultConfrontationForType(type),
-            // 消費先設定(11-6): 判定を行う用途は「親アイテムの使用回数×1」を既定にする
-            // (migrateData の互換既定と同一。親に isLimit が無ければ no-op)。宣言は空から設定する
-            consumeTargets: executionFormOf({ type }) === "check"
-                ? [{ type: "parent", itemId: "", amount: 1 }] : [],
+            // 消費先設定: 既定は空(2026-07-17 ユーザー指示=無条件の「親×1」既定行は全廃。
+            // 使用回数制限つきの参加技能の行は自動入力 deriveConsumeTargets が敷く)
+            consumeTargets: [],
             ...(isFixedCheck ? { fixedResult: 10 } : {}),
         };
 

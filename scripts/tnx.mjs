@@ -1347,9 +1347,8 @@ Hooks.once("init", async function() {
                     checkBonuses:    [],
                     damageBonuses:   [],
                     modifiableParams: [],
-                    // 消費既定(11-6): 手動作成・migrateData 互換と同じ「親×1」を明示する
-                    // (空配列で保存されると「消費なし」の明示と区別できなくなるため)
-                    consumeTargets:  [{ type: "parent", itemId: "", amount: 1 }],
+                    // 消費既定は空(2026-07-17 ユーザー指示=無条件の「親×1」既定行は全廃)
+                    consumeTargets:  [],
                 }],
             });
         }

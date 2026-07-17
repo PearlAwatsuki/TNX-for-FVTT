@@ -53,25 +53,19 @@ describe("UsageTemplate.defineSchema()（フェーズ11-6 追加フィールド�
   });
 });
 
-describe("UsageTemplate.migrateData()（消費先設定の互換移行）", () => {
-  it("consumeTargets を持たない check 用途は「親×1」を明示化する", () => {
+describe("UsageTemplate.migrateData()（消費先設定・2026-07-17 親×1互換既定の全廃）", () => {
+  it("consumeTargets を持たない用途にも既定行を足さない（旧・親×1 明示化はユーザー指示で全廃）", () => {
     const source = UsageTemplate.migrateData({
-      actions: [{ _id: "a1", type: "check" }],
-    });
-    expect(source.actions[0].consumeTargets).toEqual([{ type: "parent", itemId: "", amount: 1 }]);
-  });
-
-  it("consumeTargets を既に持つ check 用途は変更しない（空配列=消費なしの明示も保持）", () => {
-    const source = UsageTemplate.migrateData({
-      actions: [{ _id: "a1", type: "check", consumeTargets: [] }],
-    });
-    expect(source.actions[0].consumeTargets).toEqual([]);
-  });
-
-  it("check 以外の用途タイプには既定行を足さない", () => {
-    const source = UsageTemplate.migrateData({
-      actions: [{ _id: "a1", type: "declaration" }],
+      actions: [{ _id: "a1", type: "check" }, { _id: "a2", type: "declaration" }],
     });
     expect(source.actions[0].consumeTargets).toBeUndefined();
+    expect(source.actions[1].consumeTargets).toBeUndefined();
+  });
+
+  it("consumeTargets を既に持つ用途は変更しない", () => {
+    const source = UsageTemplate.migrateData({
+      actions: [{ _id: "a1", type: "check", consumeTargets: [{ type: "parent", itemId: "", amount: 1 }] }],
+    });
+    expect(source.actions[0].consumeTargets).toEqual([{ type: "parent", itemId: "", amount: 1 }]);
   });
 });

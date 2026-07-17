@@ -162,8 +162,8 @@ describe("buildConsumptionPlan()（消費プランの構築）", () => {
   });
 });
 
-describe("deriveConsumeTargets()（自動入力の消費行導出・11-6 追補）", () => {
-  it("親×1 ＋ isLimit つき参加技能(親以外)×1 を導出する", () => {
+describe("deriveConsumeTargets()（自動入力の消費行導出・11-6 追補→2026-07-17 親×1既定行の全廃）", () => {
+  it("isLimit つき参加技能×1 のみ導出する（親は parent 行・無条件の親×1 は敷かない）", () => {
     const skills = [
       skill("parent1", { isLimit: true }),
       skill("s1", { isLimit: true }),
@@ -177,9 +177,9 @@ describe("deriveConsumeTargets()（自動入力の消費行導出・11-6 追補�
     ]);
   });
 
-  it("参加技能に制限つきが無ければ親×1 のみ（既定と同一）", () => {
-    expect(deriveConsumeTargets("p", [skill("p"), skill("a", { isLimit: false })]))
-      .toEqual([{ type: "parent", itemId: "", amount: 1 }]);
+  it("制限つきが1つも無ければ空（旧・親×1 既定はユーザー指示で全廃）", () => {
+    expect(deriveConsumeTargets("p", [skill("p", { isLimit: false }), skill("a", { isLimit: false })]))
+      .toEqual([]);
   });
 
   it("親自身は itemUses 行にしない（parent 行が担う・二重消費防止）", () => {
