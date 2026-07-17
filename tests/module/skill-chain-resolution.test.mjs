@@ -257,6 +257,27 @@ describe("resolveUsageSkills() (actor アイテム橋渡し)", () => {
     expect(r.baseItemId).toBe("i2");   // 白兵(アクション)が新ベース
     expect(r.baseLocked).toBe(true);
   });
+
+  it("ベース技能を seed に含めると、その技能自身の連鎖の必須参加技能も補完される(2026-07-18)", () => {
+    // 親(起点)は連鎖なし。ベース技能 B(技能:電脳) を seed にすると 電脳 が必須コンボへ入る
+    // (ベース技能をそのシートで直接編集したときと同じ組み合わせ参加の自動解決)
+    const root = item("i1", "A", [{ value: "none" }]);
+    const b = item("i2", "B", [{ value: "skillName", name: "cyber" }]);
+    const cyber = item("i3", "cyber", [{ value: "none" }]);
+    const r = resolveUsageSkills(root, [root, b, cyber], ["i2"]); // i2=ベース技能を seed に
+    expect(r.mandatoryItemIds).toContain("i2"); // B 自身
+    expect(r.mandatoryItemIds).toContain("i3"); // 電脳(cyber)＝B の連鎖の必須
+  });
+
+  it("ベース技能の連鎖にアクション技能があれば、そのアクションがベースになる(2026-07-18)", () => {
+    const root = item("i1", "A", [{ value: "none" }]);
+    const b = item("i2", "B", [{ value: "skillName", name: "assault" }]);      // B は白兵(アクション)基盤
+    const assaultAction = item("i3", "assault", [{ value: "none" }], { isAction: true });
+    const r = resolveUsageSkills(root, [root, b, assaultAction], ["i2"]);
+    expect(r.baseItemId).toBe("i3");   // 白兵(アクション)がベース
+    expect(r.baseLocked).toBe(true);
+    expect(r.mandatoryItemIds).toContain("i2"); // B も参加
+  });
 });
 
 describe("comboLockAnalysis() / isComboRequired() (トリムダイアログ)", () => {

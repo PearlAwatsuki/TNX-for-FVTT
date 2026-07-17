@@ -23,7 +23,7 @@ import { resolveAttackWeapons, attackWeaponDisplayName, resolveAttackRangeSpan, 
 import { WEAPON_RANGE_MAX_OPTIONS } from "../data/item/weapon.mjs";
 import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, loadSkillUsageTypeIndex, SKILL_PACKS } from "./skill-dictionary.mjs";
 import {
-    USAGE_TYPE_LABELS, isAttackType, isReactionType, usesVehicle,
+    USAGE_TYPE_LABELS, isAttackType, attackCategoryOf, isReactionType, usesVehicle,
     executionFormOf, defaultConfrontationForType, usageDisplayName,
 } from "./usage-types.mjs";
 import { USAGE_CONFRONTATION_OPTIONS, mergeConfrontationRows } from "./confrontation-logic.mjs";
@@ -226,9 +226,13 @@ function normalizeSkillItemDoc(it) {
  */
 export async function enforceUsageChainDefaultsOnImport(item) {
     const actor = item?.actor;
-    if (!actor || !CHAIN_SKILL_TYPES.includes(item.type)) return;
+    if (!actor) return;
     const actions = foundry.utils.deepClone(item.system.actions ?? []);
     if (!actions.length) return;
+    // 親が技能でない(アウトフィット等)場合も、ベース技能を持つ用途があれば連鎖を解決する
+    // (2026-07-18 ユーザー確定: ベース技能の連鎖も自動解決)。持たなければ従来どおり何もしない
+    if (!CHAIN_SKILL_TYPES.includes(item.type)
+        && !actions.some(a => a.baseSkillRef?.itemId)) return;
 
     const skillItems = actor.items
         .filter(i => CHAIN_SKILL_TYPES.includes(i.type))
@@ -251,9 +255,14 @@ export async function enforceUsageChainDefaultsOnImport(item) {
         let baseId = usage.baseSkillRef?.itemId ?? "";
         if (baseId && baseId !== item.id && !actor.items.has(baseId)) baseId = "";
 
-        // 用途の「無視する指定技能」を反映(該当技能の指定技能を必須補完で再追加しない)
+        // 用途の「無視する指定技能」を反映(該当技能の指定技能を必須補完で再追加しない)。
+        // ベース技能も seed に含める(2026-07-18): ベース技能自身の連鎖の必須参加技能を補完する
         const ignoreKeys = (usage.ignoreComboSkills ?? []).filter(Boolean);
-        const res = resolveUsageSkills(normalizeSkillItemDoc(item), skillItems, cleanedRefs, ignoreKeys);
+        const seedIds = [
+            ...(baseId && baseId !== item.id ? [baseId] : []),
+            ...cleanedRefs,
+        ].filter(Boolean);
+        const res = resolveUsageSkills(normalizeSkillItemDoc(item), skillItems, seedIds, ignoreKeys);
         if (res && !res.defect) {
             const baseCandidates = parentIsAction ? [item.id]
                 : (res.baseLocked ? (res.baseCandidateItemIds ?? []) : null);
@@ -312,14 +321,21 @@ export async function deriveUsageAutoFill(item, usage) {
     const t = resolveTarget(skillItems.map(s => ({ target: s.system.target, isFixed: !!s.system.isFixedTarget })));
     if (t) { patch.target = t.target; patch.isFixedTarget = t.isFixed; }
 
-    const r = resolveRange(skillItems.map(s => ({ range: s.system.range, isFixed: !!s.system.isFixedRange })));
+    // 精神攻撃・社会攻撃は武器を持たない(2026-07-18 ユーザー確定): 「射程：武器」は解決できないため
+    // 射程候補から除外する。従来は resolveWeaponRangeSpan が武器不在時に至近へ落としており、
+    // 精神/社会攻撃の射程が裏で生身(至近)に化けていた。除外すると、残る参加技能の実射程
+    // =最も上流のベース技能の射程が採られる(どれも「武器」だけなら射程は未設定のまま=至近にしない)。
+    const isNonPhysicalAttack = isAttackType(usage.type) && attackCategoryOf(usage.type) !== "physical";
+    const rangeEntries = skillItems.map(s => ({ range: s.system.range, isFixed: !!s.system.isFixedRange }));
+    const r = resolveRange(isNonPhysicalAttack ? rangeEntries.filter(e => e.range !== "weapon") : rangeEntries);
     if (r) {
         patch.range = r.range;
         patch.rangeMax = "none"; // 技能由来の射程は単点
         patch.isFixedRange = r.isFixed;
         // 射程「武器」(2026-07-13 再設計): 優先度はそのまま(武器=至近※に次ぐ)で、「武器」が
         // 勝った場合に使用武器(一本目=シートの「攻撃で使用」・以降=用途の追加分)の実射程へ解決する。
-        // 武器が無い(生身)なら至近=生身の射程(ユーザー確定)。幅のある武器は幅のまま(2026-07-16)
+        // 武器が無い(生身)なら至近=生身の射程(ユーザー確定)。幅のある武器は幅のまま(2026-07-16)。
+        // ※非物理攻撃は上で「武器」を除外済みなのでここには来ない
         if (r.range === "weapon") {
             Object.assign(patch, resolveWeaponRangeSpan(usage, item, actor));
         }
@@ -391,6 +407,9 @@ export async function deriveUsageAutoFill(item, usage) {
  * @returns {?{range:string, rangeMax:string, isFixedRange:boolean}}
  */
 function deriveWeaponRangeLive(item, usage) {
+    // 精神/社会攻撃は武器を持たない=武器射程の追従対象外(2026-07-18)。weaponRefs UI 自体が物理攻撃
+    // 限定のため通常ここに来ないが、念のためガードする
+    if (isAttackType(usage.type) && attackCategoryOf(usage.type) !== "physical") return null;
     const actor = item.actor;
     const baseId = item.system.isAction === true ? item.id : (usage.baseSkillRef?.itemId || item.id);
     const ids = new Set([item.id, baseId, ...(usage.skillRefs ?? []).map(r => r.itemId)].filter(Boolean));
@@ -1658,7 +1677,11 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
     _comboActionConflict(ignoreKeys) {
         const skillItems = this._actorSkillItems();
         if (!skillItems) return false;
-        const seedIds = this.usage.skillRefs.map(r => r.itemId).filter(Boolean);
+        const baseId = this.usage.baseSkillRef?.itemId;
+        const seedIds = [
+            ...(baseId && baseId !== this._item.id ? [baseId] : []),
+            ...this.usage.skillRefs.map(r => r.itemId),
+        ].filter(Boolean);
         const res = resolveUsageSkills(this._normalizeSkillItem(this._item), skillItems, seedIds, ignoreKeys.filter(Boolean));
         const actionIds = new Set(res.mandatoryItemIds.filter(id => this._isActionSkillId(id)));
         const curBase = this._effectiveBaseId();
@@ -1728,7 +1751,9 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
     _actorSkillItems() {
         const usage = this.usage;
         if (!usage || executionFormOf(usage) !== "check") return null;
-        if (!CHAIN_SKILL_TYPES.includes(this._item.type)) return null;
+        // 親が技能でなくても(アウトフィット等)、ベース技能が設定されていればその連鎖を解決する
+        // (2026-07-18 ユーザー確定: 「ベース技能として設定された技能のベース技能」も自動解決)
+        if (!CHAIN_SKILL_TYPES.includes(this._item.type) && !usage.baseSkillRef?.itemId) return null;
         const actor = this._item.actor;
         const skills = actor
             ? actor.items.filter(i => CHAIN_SKILL_TYPES.includes(i.type))
@@ -1737,11 +1762,20 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         return skills.map(i => this._normalizeSkillItem(i));
     }
 
-    /** 用途の「技能」欄チェーンを actor アイテムに解決する(現コンボを seed に含めて推移的に)。 */
+    /**
+     * 用途の「技能」欄チェーンを actor アイテムに解決する(現コンボ＋ベース技能を seed に含めて推移的に)。
+     * ベース技能を seed に含めるのは 2026-07-18 ユーザー確定: **ベース技能自身に「技能」連鎖がある場合、
+     * その必須参加技能を組み合わせへ自動解決する**(ベース技能をそのシートで直接編集したときと同じ)。
+     * seed の連鎖は resolveUsageSkills が推移的に必須クロージャへ畳み込む。
+     */
     _resolveComboChain() {
         const skillItems = this._actorSkillItems();
         if (!skillItems) return null;
-        const seedComboIds = this.usage.skillRefs.map(r => r.itemId).filter(Boolean);
+        const baseId = this.usage.baseSkillRef?.itemId;
+        const seedComboIds = [
+            ...(baseId && baseId !== this._item.id ? [baseId] : []),
+            ...this.usage.skillRefs.map(r => r.itemId),
+        ].filter(Boolean);
         return resolveUsageSkills(this._normalizeSkillItem(this._item), skillItems, seedComboIds,
             this._ignoreComboKeys());
     }
@@ -1815,9 +1849,14 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         if (!skillItems) return { allowed: true }; // 解決不能なら制限しない
         const parentItemId = this._item.id;
         const currentRefIds = this.usage.skillRefs.map(r => r.itemId);
+        const baseId = this.usage.baseSkillRef?.itemId;
         // 用途の「無視する指定技能」を反映して判定する(該当技能は指定技能を引き込まず単体参加
-        // ＝指定技能がアクションでもここで弾かれない)
-        const res = resolveUsageSkills(this._normalizeSkillItem(this._item), skillItems, [...currentRefIds, itemId], this._ignoreComboKeys());
+        // ＝指定技能がアクションでもここで弾かれない)。ベース技能も seed=その連鎖の必須も見込む
+        const seeds = [
+            ...(baseId && baseId !== parentItemId ? [baseId] : []),
+            ...currentRefIds, itemId,
+        ].filter(Boolean);
+        const res = resolveUsageSkills(this._normalizeSkillItem(this._item), skillItems, seeds, this._ignoreComboKeys());
 
         // アクション技能の重複: 参加技能(クロージャ＋現ベース)にアクションが2つ以上 → 組み合わせ不可
         const actionIds = new Set(res.mandatoryItemIds.filter(id => this._isActionSkillId(id)));
