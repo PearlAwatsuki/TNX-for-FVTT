@@ -7340,6 +7340,38 @@ button.tnx-create-act-button span {
     padding: 0;
     font-size: 1.1em;
 }
+/* 消費数セル(消費ブロックのグリッド全幅・2026-07-18): 「消費数」ラベル + コンパクトなスピナーを
+   左寄せで並べ、グリッドの他セル(select)と縦位置を揃える。スピナー既定の右寄せ/固定幅による
+   はみ出し・ずれを解消する */
+.tnx-usage-sheet .usage-consume-amount {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.tnx-usage-sheet .usage-consume-amount > label {
+    flex: 0 0 auto;
+    font-size: 0.82em;
+    color: var(--tnx2-text-secondary);
+    white-space: nowrap;
+}
+.tnx-usage-sheet .usage-consume-amount .number-input-spinner {
+    justify-content: flex-start;
+}
+.tnx-usage-sheet .usage-consume-amount .number-input-spinner input[type="number"] {
+    flex: 0 0 48px;
+    width: 48px;
+    height: 26px;
+    font-size: 0.9em;
+    padding: 0 2px;
+}
+.tnx-usage-sheet .usage-consume-amount .number-input-spinner .tnx-btn {
+    flex: 0 0 24px;
+    width: 24px;
+    min-width: 24px;
+    height: 26px;
+    padding: 0;
+    font-size: 1.1em;
+}
 
 /* ── 用途シート: NPC取得の取得アイテム欄(11-6) ── */
 .usage-acquire-section {

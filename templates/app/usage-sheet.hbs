@@ -249,11 +249,14 @@
                                     {{/each}}
                                 </select>
                                 {{/unless}}
-                                {{!-- 残弾は負値=回復(リロード表現)のため min を付けない --}}
-                                <div class="number-input-spinner usage-consume-amount tnx-combo-full" title="消費量（負値=回復）">
-                                    <button type="button" data-action="decrementConsumeAmount" data-row-index="{{row.idx}}" class="tnx-btn" {{#unless @root.editable}}disabled{{/unless}}>-</button>
-                                    <input type="number" name="consumeAmount-{{row.idx}}" value="{{row.amount}}" {{#unless row.isAmmo}}min="1"{{/unless}} {{#unless @root.editable}}disabled{{/unless}}>
-                                    <button type="button" data-action="incrementConsumeAmount" data-row-index="{{row.idx}}" class="tnx-btn" {{#unless @root.editable}}disabled{{/unless}}>+</button>
+                                {{!-- 消費数(グリッド全幅・ラベル付き)。残弾は負値=回復のため min を付けない --}}
+                                <div class="usage-consume-amount tnx-combo-full">
+                                    <label>消費数</label>
+                                    <div class="number-input-spinner" title="消費数（負値=回復）">
+                                        <button type="button" data-action="decrementConsumeAmount" data-row-index="{{row.idx}}" class="tnx-btn" {{#unless @root.editable}}disabled{{/unless}}>-</button>
+                                        <input type="number" name="consumeAmount-{{row.idx}}" value="{{row.amount}}" {{#unless row.isAmmo}}min="1"{{/unless}} {{#unless @root.editable}}disabled{{/unless}}>
+                                        <button type="button" data-action="incrementConsumeAmount" data-row-index="{{row.idx}}" class="tnx-btn" {{#unless @root.editable}}disabled{{/unless}}>+</button>
+                                    </div>
                                 </div>
                             </div>
                             {{#if @root.editable}}
