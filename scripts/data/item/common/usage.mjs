@@ -288,21 +288,20 @@ export class UsageTemplate extends SystemDataModel {
                         new fields.StringField({ initial: "" })
                     ),
 
-                    // ─── 消費先設定(フェーズ11-6・2026-07-04 確定・D&D の Consumption 踏襲) ───
-                    // 全ての使用回数消費はこの設定からのみ発生する(自動スキャンは全廃)。
-                    //   type: "parent"=親アイテムの使用回数 / "itemUses"=同アクターの特定アイテムの
-                    //         使用回数(uses) / "miracleUses"=神業の使用回数(usageCount) /
-                    //         "ammo"=武器の残弾(2026-07-17 追加。リロード用途=マイナス量で回復・
-                    //         上限は装弾数でクランプ・装弾数「任意」は満タンへ)
-                    //   itemId: type が itemUses/miracleUses/ammo のときの同アクター内 Item ID
-                    //   amount: 消費量(可変・既定1)。負値は回復(ammo のリロード表現・2026-07-17)。
-                    //           0 は実行時に無視する
-                    // 既定は空(2026-07-17 ユーザー指示=旧・無条件の「親×1」既定行は全廃)
+                    // ─── 消費先設定(フェーズ11-6・2026-07-18 再編・D&D の Consumption 踏襲) ───
+                    // 全ての使用回数・残弾消費はこの設定からのみ発生する(自動スキャンは全廃)。
+                    //   type:     "item"(アイテムの資源を消費) / "actionRank"(AR を消費)。
+                    //   itemId:   type="item" のとき、空="このアイテム自身"(用途の親)・値=同アクター内 Item ID。
+                    //   resource: type="item" のとき "uses"(使用回数=uses.spent。神業も同じ) / "ammo"(武器の残弾)。
+                    //   amount:   消費量(可変・既定1)。負値は回復(残弾のリロード表現)。0 は実行時に無視。
+                    // 既定は空(2026-07-17 ユーザー指示=旧・無条件の「親×1」既定行は全廃)。
+                    // 旧 type(parent/itemUses/miracleUses/ammo)は migrateData で item+resource へ移行。
                     consumeTargets: new fields.ArrayField(
                         new fields.SchemaField({
-                            type:   new fields.StringField({ initial: "parent" }),
-                            itemId: new fields.StringField({ initial: "" }),
-                            amount: new fields.NumberField({ initial: 1, integer: true }),
+                            type:     new fields.StringField({ initial: "item" }),
+                            itemId:   new fields.StringField({ initial: "" }),
+                            resource: new fields.StringField({ initial: "uses" }),
+                            amount:   new fields.NumberField({ initial: 1, integer: true }),
                         })
                     ),
 
@@ -438,6 +437,23 @@ export class UsageTemplate extends SystemDataModel {
                             ...(migrated.confrontation ?? []),
                             { value: "cannot", name: "", skillDict: "", skillGroup: "", skillSub: "" },
                         ],
+                    };
+                }
+                // 消費先設定の type 再編(2026-07-18): 旧 type(parent/itemUses/miracleUses/ammo/actionRank)を
+                // 新モデル {type:"item"|"actionRank", itemId, resource:"uses"|"ammo"} へ移行。
+                // parent→item/self/uses・itemUses/miracleUses→item/itemId/uses・ammo→item/itemId/ammo。
+                if (Array.isArray(migrated.consumeTargets) && migrated.consumeTargets.some(t => t && t.resource === undefined)) {
+                    migrated = {
+                        ...migrated,
+                        consumeTargets: migrated.consumeTargets.map(t => {
+                            if (!t || t.resource !== undefined) return t; // 移行済みはそのまま
+                            const amount = t.amount ?? 1;
+                            if (t.type === "actionRank") return { type: "actionRank", itemId: "", resource: "uses", amount };
+                            if (t.type === "ammo")       return { type: "item", itemId: t.itemId ?? "", resource: "ammo", amount };
+                            if (t.type === "parent")     return { type: "item", itemId: "", resource: "uses", amount };
+                            // itemUses / miracleUses / その他 → item + uses
+                            return { type: "item", itemId: t.itemId ?? "", resource: "uses", amount };
+                        }),
                     };
                 }
                 return migrated;

@@ -2,15 +2,15 @@
  * @fileoverview MiracleDataModel - 神業 Item の DataModel
  *
  * 使用 template: base + usage
- * 固有フィールド: furigana / usageCondition / isKill / isDefence / isAll / isUsed /
- *               usageCount(value / total / mod)
+ * 固有フィールド: furigana / usageCondition / isKill / isDefence / isAll / isUsed / uses
  *
- * 準拠データ: template.json > Item.miracle
- *
- * 注意:
- * - usageCount は神業の母数管理に使われ、tnx.mjs の preUpdateItem / preDeleteItem フックが
- *   参照する。DataModel は構造を template.json に忠実に定義するのみ。ロジックには触れない。
- * - usageCount.value / total の初期値は 1(0 ではない)。template.json に忠実に従う。
+ * 注意(2026-07-18 神業の使用回数を汎用 uses へ一本化):
+ * - 旧 `usageCount {value(母数), total(残り), mod(バフ)}` を廃し、他アイテムと同じ汎用
+ *   `uses {isLimit, type, max, spent}` を持つ(残り = max − spent)。特例カウンター・特例消費 kind を廃止。
+ * - **母数 = uses.max = 連動スタイルのレベルと同一**(ユーザー確定)。tnx.mjs の preUpdateItem/
+ *   preDeleteItem フックがスタイルレベルに合わせて uses.max を維持する。「ファイト！」等の万能神業
+ *   による母数増加は AE で uses.max を増やす(専用の加算欄は設けない)。
+ * - 「使用済み(isUsed)」フラグは残り使用回数リセットのトリガー。true→false で spent=0(満タンへ)。
  */
 
 import { SystemDataModel } from "../abstract.mjs";
@@ -29,12 +29,31 @@ export class MiracleDataModel extends SystemDataModel.mixin(BaseTemplate, UsageT
       isDefence:      new fields.BooleanField({ initial: false }),
       isAll:          new fields.BooleanField({ initial: false }),
       isUsed:         new fields.BooleanField({ initial: false }),
-      usageCount: new fields.SchemaField({
-        value: new fields.NumberField({ initial: 1 }),
-        total: new fields.NumberField({ initial: 1 }),
-        mod:   new fields.NumberField({ initial: 0 }),
+      // 汎用の使用回数(残り = max − spent)。神業は常に母数を持つため isLimit 既定 true・母数(max)
+      // 既定 1。母数はスタイルレベル連動(tnx.mjs)で維持される
+      uses: new fields.SchemaField({
+        isLimit: new fields.BooleanField({ initial: true }),
+        type:    new fields.StringField({ initial: "" }),
+        max:     new fields.NumberField({ initial: 1 }),
+        spent:   new fields.NumberField({ initial: 0 }),
       }),
       identificationKey: new fields.StringField({ initial: "" }),
     };
+  }
+
+  /** @override — 旧 usageCount(value=母数/total=残り/mod=バフ) → 汎用 uses への移行(2026-07-18) */
+  static migrateData(source) {
+    if (source.usageCount && source.uses === undefined) {
+      const value = Number(source.usageCount.value) || 0;   // 旧・母数
+      const total = Number(source.usageCount.total) || 0;   // 旧・残り
+      const mod   = Number(source.usageCount.mod) || 0;     // 旧・母数バフ
+      const max = Math.max(1, value + mod);                 // 実効母数を保存(バフは以後 AE 化)
+      source.uses = {
+        isLimit: true, type: "",
+        max,
+        spent: Math.max(0, max - total),                    // 残り total を spent へ換算
+      };
+    }
+    return super.migrateData(source);
   }
 }

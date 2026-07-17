@@ -871,55 +871,58 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             context.damageBonusSelf = usage.damageBonusSelf ?? "";
         }
 
-        // 消費先設定(11-6・全用途タイプ共通。固定値判定は消費 UI を出さない=エキストラは消費なし)。
-        // 全ての使用回数消費はこの設定からのみ発生する(自動スキャン全廃・D&D Consumption 踏襲)
+        // 消費先設定(2026-07-18 再編・全用途タイプ共通。固定値判定は消費 UI を出さない)。
+        // 二段選択: [アイテム / AR] → (アイテム時)[このアイテム自身 / 各アイテム] → [使用回数 / 残弾数]。
+        // 神業の使用回数も汎用 uses に一本化したため特例なし。全消費はこの設定からのみ発生する。
         if (!context.isFixedCheck) {
             const actor = this._item.actor;
-            const CONSUME_TYPE_LABELS = {
-                parent:      "親アイテムの使用回数",
-                itemUses:    "アイテムの使用回数",
-                miracleUses: "神業の使用回数",
-                actionRank:  "AR（アクションランク）",
-                ammo:        "武器の残弾",
+            const parentId = this._item.id;
+            // 資源を持つアイテムか(使用回数制限あり ∨ 残弾ありの武器)。神業は uses.isLimit=true で含まれる
+            const hasUsesRes  = (it) => it?.system?.uses?.isLimit === true;
+            const hasAmmoRes  = (it) => it?.type === "weapon" && hasAmmoTracking(it?.system?.ammo);
+            const resourcesFor = (it) => {
+                const out = [];
+                if (hasUsesRes(it)) out.push({ value: "uses", label: "使用回数" });
+                if (hasAmmoRes(it)) out.push({ value: "ammo", label: "残弾数" });
+                if (!out.length) out.push({ value: "uses", label: "使用回数" }); // 空にしない
+                return out;
             };
-            const usesOptions = (actor?.items ?? [])
-                .filter(i => i.system?.uses?.isLimit === true && i.id !== this._item.id)
-                .map(i => ({ id: i.id, name: itemDisplayName(i) })) // 技能は 〈〉 整形(2026-07-18)
-                .sort((a, b) => a.name.localeCompare(b.name, "ja"));
-            const miracleOptions = (actor?.items ?? [])
-                .filter(i => i.type === "miracle")
-                .map(i => ({ id: i.id, name: i.name }))
-                .sort((a, b) => a.name.localeCompare(b.name, "ja"));
-            // 残弾(2026-07-17): 残弾管理(数字/任意)のある武器。親アイテム自身も選べる(武器のリロード
-            // 用途=自分の残弾へのマイナス消費、をアイテム単体で設定できるように)
-            const ammoOptions = (actor?.items ?? [])
-                .filter(i => i.type === "weapon" && hasAmmoTracking(i.system?.ammo))
-                .map(i => ({ id: i.id, name: i.name }))
-                .sort((a, b) => a.name.localeCompare(b.name, "ja"));
+            // 候補: 「このアイテム自身」(id="") ＋ 資源を持つ同アクターのアイテム(親は自身が代表)
+            const itemCandidates = [
+                { id: "", name: "このアイテム自身" },
+                ...(actor?.items ?? [])
+                    .filter(i => i.id !== parentId && (hasUsesRes(i) || hasAmmoRes(i)))
+                    .map(i => ({ id: i.id, name: itemDisplayName(i) })) // 技能は 〈〉 整形
+                    .sort((a, b) => a.name.localeCompare(b.name, "ja")),
+            ];
+            const TYPE_LABELS = { item: "アイテム", actionRank: "AR" };
             context.consumeRows = (usage.consumeTargets ?? []).map((t, idx) => {
-                const type = t.type || "parent";
-                const options = type === "miracleUses" ? miracleOptions
-                    : (type === "ammo" ? ammoOptions : usesOptions);
-                const known = options.some(o => o.id === t.itemId);
+                const type = t.type || "item";
+                const resource = t.resource || "uses";
+                const isActionRank = type === "actionRank";
+                const selectedItem = isActionRank ? null
+                    : (t.itemId ? (actor?.items.get(t.itemId) ?? null) : this._item);
+                const known = isActionRank || !t.itemId || itemCandidates.some(o => o.id === t.itemId);
                 const amount = Number(t.amount);
+                const resourceOpts = resourcesFor(selectedItem);
                 return {
                     idx,
                     type,
-                    // 対象アイテム選択を持たない種別(親=自明・AR=アクター自身のリソース)
-                    noTarget: type === "parent" || type === "actionRank",
-                    // 負値=回復(残弾のリロード表現・2026-07-17)。残弾以外は従来どおり1以上
-                    amount: type === "ammo"
+                    resource,
+                    isActionRank,
+                    isAmmo: !isActionRank && resource === "ammo",
+                    itemId: t.itemId ?? "",
+                    // 負値=回復(残弾のリロード表現)。残弾以外は1以上
+                    amount: (!isActionRank && resource === "ammo")
                         ? (Number.isFinite(amount) && amount !== 0 ? amount : 1)
                         : Math.max(1, amount || 1),
-                    isAmmo: type === "ammo",
-                    itemId: t.itemId ?? "",
-                    typeOptions: Object.entries(CONSUME_TYPE_LABELS)
+                    typeOptions: Object.entries(TYPE_LABELS)
                         .map(([value, label]) => ({ value, label, selected: value === type })),
-                    targetOptions: [
-                        ...options.map(o => ({ ...o, selected: o.id === t.itemId })),
-                        // 参照切れ(削除済み等)は選択状態を失わせず可視化する
+                    itemOptions: [
+                        ...itemCandidates.map(o => ({ ...o, selected: o.id === (t.itemId ?? "") })),
                         ...(!known && t.itemId ? [{ id: t.itemId, name: `(解決不能: ${t.itemId})`, selected: true }] : []),
                     ],
+                    resourceOptions: resourceOpts.map(o => ({ ...o, selected: o.value === resource })),
                 };
             });
             context.hasConsumeActor = !!actor;
@@ -1296,32 +1299,36 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             update.fixedResult = Number.isFinite(raw["fixedResult"]) ? Math.max(0, raw["fixedResult"]) : 0;
         }
 
-        // 消費先設定(11-6): 行入力(consumeType-N / consumeItem-N / consumeAmount-N)から再構成する。
-        // 消費 UI が描画されているときのみ(固定値判定ビュー等では既存値を保持)
+        // 消費(2026-07-18 再編): 行入力(consumeType-N / consumeItem-N / consumeResource-N / consumeAmount-N)
+        // から再構成する。消費 UI が描画されているときのみ(固定値判定ビュー等では既存値を保持)
         const consumeIdxs = Object.keys(raw)
             .map(k => k.match(/^consumeType-(\d+)$/)?.[1])
             .filter(v => v !== undefined)
             .map(Number)
             .sort((a, b) => a - b);
-        let consumeTypeChanged = false;
+        let consumeUiChanged = false;
         if (consumeIdxs.length || this.element?.querySelector(".usage-consume-section")) {
             update.consumeTargets = consumeIdxs.map(i => {
-                const type = raw[`consumeType-${i}`] || "parent";
+                const type = raw[`consumeType-${i}`] || "item";
+                const isItem = type === "item";
+                const resource = isItem ? (raw[`consumeResource-${i}`] || "uses") : "uses";
                 const rawAmount = Number(raw[`consumeAmount-${i}`]);
                 return {
                     type,
-                    // 親・AR は対象アイテムを持たない
-                    itemId: (type === "parent" || type === "actionRank") ? "" : (raw[`consumeItem-${i}`] ?? ""),
-                    // 残弾は負値=回復(リロード表現・2026-07-17)を許容。他は従来どおり1以上
-                    amount: type === "ammo"
+                    // AR は対象アイテムを持たない。item は空="このアイテム自身"
+                    itemId: isItem ? (raw[`consumeItem-${i}`] ?? "") : "",
+                    resource,
+                    // 残弾は負値=回復(リロード表現)を許容。他は1以上
+                    amount: (isItem && resource === "ammo")
                         ? (Number.isFinite(rawAmount) && rawAmount !== 0 ? rawAmount : 1)
                         : Math.max(1, rawAmount || 1),
                 };
             });
-            // 種別の変更は対象アイテム選択の出し入れを伴うため再描画する(親/AR は選択欄なし)
-            const prevTypes = (usage.consumeTargets ?? []).map(t => t.type || "parent");
-            consumeTypeChanged = update.consumeTargets.length === prevTypes.length
-                && update.consumeTargets.some((t, i) => t.type !== prevTypes[i]);
+            // 種別/資源/対象の変更は選択欄・資源候補の出し入れを伴うため再描画する
+            const prev = usage.consumeTargets ?? [];
+            consumeUiChanged = update.consumeTargets.length !== prev.length
+                || update.consumeTargets.some((t, i) => t.type !== (prev[i]?.type ?? "item")
+                    || t.itemId !== (prev[i]?.itemId ?? "") || t.resource !== (prev[i]?.resource ?? "uses"));
         }
 
         // 発動タブ: 制御 select が別の選択肢に変わったら、対応しないサブ値を残骸として残さずリセットする
@@ -1427,7 +1434,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         // 白兵/射撃の変更(武器候補の絞り込み)・判定モード/ダメージを修正の切替・宣言の修正フラグ変更・
         // 消費種別の変更・治療設定の変更・射程の幅・対決欄の種別/カスケード変更は入力欄の出し入れが
         // あるため即再描画する(submitOnChange は再描画しない・2026-07-09)
-        if (attackKindChanged || modeUiChanged || declModifyChanged || consumeTypeChanged
+        if (attackKindChanged || modeUiChanged || declModifyChanged || consumeUiChanged
             || recoveryUiChanged || rangeUiChanged || confrontationUiChanged) {
             this.render({ force: true });
         }
@@ -1475,7 +1482,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
     static async _onConsumeRowAdd(_event, _target) {
         const usage = this.usage;
         if (!usage) return;
-        await this._patchUsage({ consumeTargets: [...(usage.consumeTargets ?? []), { type: "parent", itemId: "", amount: 1 }] });
+        // 既定行=「このアイテム自身」の使用回数×1(2026-07-18 再編)
+        await this._patchUsage({ consumeTargets: [...(usage.consumeTargets ?? []), { type: "item", itemId: "", resource: "uses", amount: 1 }] });
         this.render({ force: true });
     }
 
@@ -1494,8 +1502,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         const usage = this.usage;
         if (!usage || !(usage.consumeTargets ?? [])[idx]) return;
         const rows = foundry.utils.deepClone(usage.consumeTargets);
-        // 残弾は負値=回復(リロード表現・2026-07-17)を許容(0 は飛ばす)。他は従来どおり1以上
-        if (rows[idx].type === "ammo") {
+        // 残弾は負値=回復(リロード表現)を許容(0 は飛ばす)。他は1以上
+        if (rows[idx].type === "item" && rows[idx].resource === "ammo") {
             let next = (rows[idx].amount ?? 1) + delta;
             if (next === 0) next += delta;
             rows[idx].amount = next;

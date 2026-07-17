@@ -1441,13 +1441,14 @@ Hooks.once("init", async function() {
 
     Hooks.on("preDeleteItem", async (item, options, userId) => {
         if (item.type === "miracle" && item.actor) {
-            const usage = item.system.usageCount;
-            if (usage.value > 1) {
-                const newValue = usage.value - 1;
-                const newTotal = Math.max(0, usage.total - 1);
+            // 母数(uses.max)が2以上なら削除でなく-1(多重取得の1つを外す)。2026-07-18 uses 一本化
+            const uses = item.system.uses ?? {};
+            const max = Number(uses.max) || 0;
+            if (max > 1) {
+                const newMax = max - 1;
                 await item.update({
-                    'system.usageCount.value': newValue,
-                    'system.usageCount.total': newTotal
+                    "system.uses.max": newMax,
+                    "system.uses.spent": Math.min(Number(uses.spent) || 0, newMax),
                 });
                 ui.notifications.info(`神業「${item.name}」の母数を-1しました。`);
                 return false;
@@ -1481,18 +1482,10 @@ Hooks.once("init", async function() {
     Hooks.on("preUpdateItem", async(item, changes) => {
         // 更新されるアイテムが神業の場合の処理
         if (item.type === "miracle") {
-            // 「使用済み(isUsed)」フラグが true → false に変更されたかチェック
+            // 「使用済み(isUsed)」フラグが true → false に変更されたら残りを満タンへ(spent=0)。2026-07-18 uses 一本化
             const newIsUsed = foundry.utils.getProperty(changes, "system.isUsed");
             if (item.system.isUsed === true && newIsUsed === false) {
-                
-                //残り使用回数(total)を最大値(value + mod)にリセットする
-                const usage = item.system.usageCount;
-                const value = usage.value || 0;
-                const mod = usage.mod || 0;
-                const newTotal = value + mod;
-    
-                // 進行中の更新データ(changes)に、totalの変更を追加する
-                foundry.utils.setProperty(changes, "system.usageCount.total", newTotal);
+                foundry.utils.setProperty(changes, "system.uses.spent", 0);
                 ui.notifications.info(`神業「${item.name}」の使用回数がリセットされました。`);
             }
         }
@@ -1502,7 +1495,9 @@ Hooks.once("init", async function() {
             const oldLevel = item.system.level || 1;
             const newLevel = foundry.utils.getProperty(changes, "system.level");
     
-            // レベル変更時の神業使用回数 増減処理
+            // レベル変更時の神業母数(uses.max)連動(2026-07-18 uses 一本化):
+            // 母数 = 連動スタイルの合計レベル(上限3・「母数=スタイルレベルと同一」ユーザー確定)。
+            // 万能神業(ファイト！等)による増加は AE で uses.max に乗る(ここでは基礎値のみ維持)。
             if (newLevel !== undefined && newLevel !== oldLevel) {
                 (async () => {
                     try {
@@ -1512,36 +1507,17 @@ Hooks.once("init", async function() {
                         if (!sourceMiracle) return;
                         const existingMiracle = item.actor.items.find(i => i.type === 'miracle' && i.name === sourceMiracle.name);
                         if (!existingMiracle) return;
-    
-                        const usage = existingMiracle.system.usageCount;
-                        const currentValue = usage.value || 1;
-                        const currentTotal = usage.total || 0;
-    
-                        if (newLevel > oldLevel) {
-                            // レベル上昇時の処理
-                            const newValue = Math.min(3, currentValue + 1);
-                            const newTotal = newValue + (usage.mod || 0);
-                            await existingMiracle.update({ "system.usageCount.value": newValue, "system.usageCount.total": newTotal });
-                            ui.notifications.info(`神業「${existingMiracle.name}」の母数が+1されました。`);
-                        } else {
-                            // レベル減少時の処理（修正版）
-                            
-                            // この神業に関連する、アクターが所持する全スタイルを取得
-                            const allLinkedStyles = item.actor.items.filter(i => i.type === 'style' && i.system.miracle?.id === miracleUuid);
-                            
-                            // スタイルの合計レベルを計算（更新中のアイテムは newLevel を使用）
-                            const totalStyleLevel = allLinkedStyles.reduce((sum, s) => {
-                                if (s.id === item.id) return sum + newLevel;
-                                return sum + (s.system.level || 1);
-                            }, 0);
 
-                            // 「現在の神業母数」が「新しい合計スタイルレベル」より大きい場合のみ減らす
-                            if (currentValue > totalStyleLevel) {
-                                const newValue = Math.max(1, currentValue - 1);
-                                const newTotal = Math.max(0, currentTotal - 1);
-                                await existingMiracle.update({ "system.usageCount.value": newValue, "system.usageCount.total": newTotal });
-                                ui.notifications.info(`神業「${existingMiracle.name}」の母数を-1しました。`);
-                            }
+                        // 連動スタイル(同じ神業を指す)の合計レベル(更新中は newLevel を使う)→ 上限3
+                        const allLinkedStyles = item.actor.items.filter(i => i.type === 'style' && i.system.miracle?.id === miracleUuid);
+                        const totalStyleLevel = allLinkedStyles.reduce((sum, s) =>
+                            sum + (s.id === item.id ? newLevel : (s.system.level || 1)), 0);
+                        const newMax = Math.max(1, Math.min(3, totalStyleLevel));
+                        const curMax = Number(existingMiracle.system.uses?.max) || 0;
+                        if (newMax !== curMax) {
+                            const spent = Math.min(Number(existingMiracle.system.uses?.spent) || 0, newMax);
+                            await existingMiracle.update({ "system.uses.max": newMax, "system.uses.spent": spent });
+                            ui.notifications.info(`神業「${existingMiracle.name}」の母数を${newMax > curMax ? "+" : "-"}1しました。`);
                         }
                     } catch (e) { console.error(`TokyoNOVA | Error updating Divine Work usage count:`, e); }
                 })();

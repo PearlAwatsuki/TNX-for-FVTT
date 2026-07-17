@@ -7,14 +7,18 @@ const { resolveConsumeRows, buildConsumptionPlan, matchSharedItem, deriveConsume
 const skill = (id, { isLimit = true, max = 3, spent = 1, name = "技能" } = {}) => ({
   id, type: "styleSkill", name, system: { uses: { isLimit, max, spent } },
 });
-const miracle = (id, { value = 1, total = 1, mod = 0, name = "神業" } = {}) => ({
-  id, type: "miracle", name, system: { usageCount: { value, total, mod } },
+// 神業も汎用 uses に一本化(2026-07-18)
+const miracle = (id, { isLimit = true, max = 2, spent = 1, name = "神業" } = {}) => ({
+  id, type: "miracle", name, system: { uses: { isLimit, max, spent } },
+});
+const weapon = (id, { value = 6, current = null, name = "武器" } = {}) => ({
+  id, type: "weapon", name, system: { ammo: { mode: "value", value, current } },
 });
 
-describe("resolveConsumeRows()（消費先設定の解決・11-6）", () => {
-  it("parent(uses 制限あり): kind uses・残量 = max - spent", () => {
+describe("resolveConsumeRows()（消費先設定の解決・2026-07-18 再編）", () => {
+  it("item/self/uses(制限あり): kind uses・残量 = max - spent・itemId は親", () => {
     const [row] = resolveConsumeRows(
-      [{ type: "parent", amount: 1 }],
+      [{ type: "item", itemId: "", resource: "uses", amount: 1 }],
       { parentItem: skill("p1", { max: 3, spent: 1 }), getItem: () => null },
     );
     expect(row.kind).toBe("uses");
@@ -23,29 +27,29 @@ describe("resolveConsumeRows()（消費先設定の解決・11-6）", () => {
     expect(row.itemId).toBe("p1");
   });
 
-  it("parent(制限なし): inert（親×1 互換行が従来同一=無消費になる）", () => {
+  it("item/self/uses(制限なし): inert(無消費)", () => {
     const [row] = resolveConsumeRows(
-      [{ type: "parent", amount: 1 }],
+      [{ type: "item", itemId: "", resource: "uses", amount: 1 }],
       { parentItem: skill("p1", { isLimit: false }), getItem: () => null },
     );
     expect(row.inert).toBe(true);
     expect(row.kind).toBeUndefined();
   });
 
-  it("parent が神業: kind miracleUses・残量 = usageCount.value・表示分母 = total + mod", () => {
+  it("item/self/uses が神業: 特例なし=汎用 uses と同じ kind uses(残量=max−spent)", () => {
     const [row] = resolveConsumeRows(
-      [{ type: "parent", amount: 1 }],
-      { parentItem: miracle("m1", { value: 1, total: 1, mod: 1 }), getItem: () => null },
+      [{ type: "item", itemId: "", resource: "uses", amount: 1 }],
+      { parentItem: miracle("m1", { max: 2, spent: 1 }), getItem: () => null },
     );
-    expect(row.kind).toBe("miracleUses");
+    expect(row.kind).toBe("uses");
     expect(row.remaining).toBe(1);
     expect(row.maxDisplay).toBe(2);
   });
 
-  it("itemUses: getItem で解決し、見つからなければ problem notFound", () => {
+  it("item/itemId/uses: getItem で解決し、見つからなければ problem notFound", () => {
     const items = { s2: skill("s2", { max: 2, spent: 0, name: "別技能" }) };
     const rows = resolveConsumeRows(
-      [{ type: "itemUses", itemId: "s2", amount: 2 }, { type: "itemUses", itemId: "zz", amount: 1 }],
+      [{ type: "item", itemId: "s2", resource: "uses", amount: 2 }, { type: "item", itemId: "zz", resource: "uses", amount: 1 }],
       { parentItem: skill("p1"), getItem: (id) => items[id] ?? null },
     );
     expect(rows[0].kind).toBe("uses");
@@ -54,18 +58,30 @@ describe("resolveConsumeRows()（消費先設定の解決・11-6）", () => {
     expect(rows[1].problem).toBe("notFound");
   });
 
-  it("miracleUses が神業以外を指すと problem notMiracle", () => {
-    const items = { s2: skill("s2") };
-    const [row] = resolveConsumeRows(
-      [{ type: "miracleUses", itemId: "s2" }],
+  it("item/itemId/ammo: kind ammo・残量=残弾・maxDisplay=装弾数・負値=回復を許容", () => {
+    const items = { w1: weapon("w1", { value: 6, current: 4 }) };
+    const rows = resolveConsumeRows(
+      [{ type: "item", itemId: "w1", resource: "ammo", amount: 1 }, { type: "item", itemId: "w1", resource: "ammo", amount: -3 }],
       { parentItem: skill("p1"), getItem: (id) => items[id] ?? null },
     );
-    expect(row.problem).toBe("notMiracle");
+    expect(rows[0].kind).toBe("ammo");
+    expect(rows[0].remaining).toBe(4);
+    expect(rows[0].maxDisplay).toBe(6);
+    expect(rows[1].amount).toBe(-3); // 回復
   });
 
-  it("消費量は 1 未満・未設定を 1 に丸める", () => {
+  it("ammo が残弾管理のない対象を指すと problem noAmmo", () => {
+    const items = { s2: skill("s2") };
+    const [row] = resolveConsumeRows(
+      [{ type: "item", itemId: "s2", resource: "ammo", amount: 1 }],
+      { parentItem: skill("p1"), getItem: (id) => items[id] ?? null },
+    );
+    expect(row.problem).toBe("noAmmo");
+  });
+
+  it("消費量は 1 未満・未設定を 1 に丸める(残弾以外)", () => {
     const rows = resolveConsumeRows(
-      [{ type: "parent" }, { type: "parent", amount: 0 }],
+      [{ type: "item", itemId: "", resource: "uses" }, { type: "item", itemId: "", resource: "uses", amount: 0 }],
       { parentItem: skill("p1"), getItem: () => null },
     );
     expect(rows[0].amount).toBe(1);
@@ -130,7 +146,7 @@ describe("resolveConsumeRows()（消費先設定の解決・11-6）", () => {
 describe("buildConsumptionPlan()（消費プランの構築）", () => {
   const rows = [
     { kind: "uses", itemId: "a", amount: 1, remaining: 2, label: "A" },
-    { kind: "miracleUses", itemId: "b", amount: 1, remaining: 1, label: "B" },
+    { kind: "ammo", itemId: "b", amount: 1, remaining: 1, label: "B" },
     { inert: true, itemId: "c", amount: 1 },
     { problem: "notFound", itemId: "d", amount: 1 },
   ];
@@ -139,13 +155,13 @@ describe("buildConsumptionPlan()（消費プランの構築）", () => {
     const { plan } = buildConsumptionPlan(rows, new Set(["a", "b", "c", "d"]), "actor1");
     expect(plan).toEqual([
       { actorId: "actor1", itemId: "a", kind: "uses", amount: 1 },
-      { actorId: "actor1", itemId: "b", kind: "miracleUses", amount: 1 },
+      { actorId: "actor1", itemId: "b", kind: "ammo", amount: 1 },
     ]);
   });
 
   it("チェックを外した行は消費しない", () => {
     const { plan } = buildConsumptionPlan(rows, new Set(["b"]), "actor1");
-    expect(plan).toEqual([{ actorId: "actor1", itemId: "b", kind: "miracleUses", amount: 1 }]);
+    expect(plan).toEqual([{ actorId: "actor1", itemId: "b", kind: "ammo", amount: 1 }]);
   });
 
   it("残量不足の行がチェック済みなら shortage を返す（原則ブロック）", () => {
@@ -162,8 +178,8 @@ describe("buildConsumptionPlan()（消費プランの構築）", () => {
   });
 });
 
-describe("deriveConsumeTargets()（自動入力の消費行導出・11-6 追補→2026-07-17 親×1既定行の全廃）", () => {
-  it("isLimit つき参加技能×1 のみ導出する（親は parent 行・無条件の親×1 は敷かない）", () => {
+describe("deriveConsumeTargets()（自動入力の消費行導出・2026-07-18 item/resource へ）", () => {
+  it("isLimit つき参加技能×1 のみ導出する（親は itemId 空=このアイテム自身）", () => {
     const skills = [
       skill("parent1", { isLimit: true }),
       skill("s1", { isLimit: true }),
@@ -171,9 +187,9 @@ describe("deriveConsumeTargets()（自動入力の消費行導出・11-6 追補�
       skill("s3", { isLimit: true }),
     ];
     expect(deriveConsumeTargets("parent1", skills)).toEqual([
-      { type: "parent", itemId: "", amount: 1 },
-      { type: "itemUses", itemId: "s1", amount: 1 },
-      { type: "itemUses", itemId: "s3", amount: 1 },
+      { type: "item", itemId: "", resource: "uses", amount: 1 },
+      { type: "item", itemId: "s1", resource: "uses", amount: 1 },
+      { type: "item", itemId: "s3", resource: "uses", amount: 1 },
     ]);
   });
 
@@ -182,10 +198,9 @@ describe("deriveConsumeTargets()（自動入力の消費行導出・11-6 追補�
       .toEqual([]);
   });
 
-  it("親自身は itemUses 行にしない（parent 行が担う・二重消費防止）", () => {
+  it("親自身は itemId 空（このアイテム自身）で1行・二重消費防止", () => {
     const rows = deriveConsumeTargets("p", [skill("p", { isLimit: true })]);
-    expect(rows).toHaveLength(1);
-    expect(rows[0].type).toBe("parent");
+    expect(rows).toEqual([{ type: "item", itemId: "", resource: "uses", amount: 1 }]);
   });
 });
 

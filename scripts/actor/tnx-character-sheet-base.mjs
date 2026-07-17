@@ -870,13 +870,10 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const slots = [];
         miracles.forEach(item => {
             const itemData = item.toObject(false);
-            const usage    = itemData.system.usageCount;
-            if (typeof usage !== 'object' || usage === null) {
-                console.error(`アイテム「${item.name}」のusageCountが不正なデータです:`, usage);
-                return;
-            }
-            const maxUses       = (usage.value) + (usage.mod);
-            const remainingUses = usage.total;
+            // 神業も汎用 uses(残り = max − spent)に一本化(2026-07-18)。実効 max は item.system(AE込み)から読む
+            const uses = item.system.uses ?? {};
+            const maxUses       = Math.max(0, Number(uses.max) || 0);
+            const remainingUses = Math.max(0, maxUses - (Number(uses.spent) || 0));
             for (let i = 0; i < maxUses; i++) {
                 slots.push({ ...itemData, isPlaceholder: false, instanceIndex: i, isDisabled: i >= remainingUses });
             }
@@ -1078,23 +1075,17 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                             const allMiracles    = this.actor.items.filter(i => i.type === 'miracle');
                             const existingMiracle = allMiracles.find(i => i.name === sourceMiracle.name);
                             if (existingMiracle) {
-                                const { mod, value } = existingMiracle.system.usageCount;
-                                const newValue = Math.min(3, value + 1);
+                                // 母数(uses.max)+1・上限3、満タンへ(spent=0)。2026-07-18 uses 一本化
+                                const newMax = Math.min(3, (Number(existingMiracle.system.uses?.max) || 0) + 1);
                                 ui.notifications.info(`神業「${existingMiracle.name}」の母数が+1されました。`);
-                                await existingMiracle.update({
-                                    'system.usageCount.value': newValue,
-                                    'system.usageCount.total': newValue + mod
-                                });
+                                await existingMiracle.update({ "system.uses.max": newMax, "system.uses.spent": 0 });
                             } else if (allMiracles.length >= 3) {
                                 ui.notifications.warn("神業は3種類までしか所有できません。");
                             } else {
-                                const miracleData = sourceMiracle.toObject();
-                                if (!foundry.utils.hasProperty(miracleData, "system.usageCount.value")) {
-                                    const mod = foundry.utils.getProperty(miracleData, "system.usageCount.mod");
-                                    foundry.utils.setProperty(miracleData, "system.usageCount", { value: 1, total: 1 + mod, mod, used: 0 });
-                                }
-                                await this.actor.createEmbeddedDocuments("Item", [miracleData]);
-                                ui.notifications.info(`神業「${miracleData.name}」がスタイル「${createdStyle.name}」から追加されました。`);
+                                // uses は DataModel の既定(isLimit:true/max:1/spent:0)で作成。母数のレベル連動は
+                                // preUpdateItem(スタイルレベル変更)が維持する
+                                await this.actor.createEmbeddedDocuments("Item", [sourceMiracle.toObject()]);
+                                ui.notifications.info(`神業「${sourceMiracle.name}」がスタイル「${createdStyle.name}」から追加されました。`);
                             }
                         }
                     }
@@ -1107,18 +1098,13 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             const allMiracles  = this.actor.items.filter(i => i.type === 'miracle');
             const existingItem = allMiracles.find(i => i.name === item.name);
             if (existingItem) {
-                const { mod, value } = existingItem.system.usageCount;
-                const newValue = Math.min(3, value + 1);
+                // 母数(uses.max)+1・上限3、満タンへ(spent=0)。2026-07-18 uses 一本化
+                const newMax = Math.min(3, (Number(existingItem.system.uses?.max) || 0) + 1);
                 ui.notifications.info(`神業「${existingItem.name}」の母数が+1されました。`);
-                return existingItem.update({ 'system.usageCount.value': newValue, 'system.usageCount.total': newValue + mod });
+                return existingItem.update({ "system.uses.max": newMax, "system.uses.spent": 0 });
             } else {
                 if (allMiracles.length >= 3) { ui.notifications.warn("神業は3種類までしか所有できません。"); return false; }
-                const itemData = item.toObject();
-                if (!foundry.utils.hasProperty(itemData, "system.usageCount.value")) {
-                    const mod = foundry.utils.getProperty(itemData, "system.usageCount.mod");
-                    foundry.utils.setProperty(itemData, "system.usageCount", { value: 1, total: 1 + mod, mod, used: 0 });
-                }
-                return this.actor.createEmbeddedDocuments("Item", [itemData]);
+                return this.actor.createEmbeddedDocuments("Item", [item.toObject()]);
             }
         }
 
@@ -1159,10 +1145,11 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             if (!item) return;
 
             if (item.type === 'miracle') {
-                const usage = item.system.usageCount;
-                if (usage && usage.value > 1) {
-                    const newValue = usage.value - 1;
-                    await item.update({ 'system.usageCount.value': newValue, 'system.usageCount.total': Math.max(0, usage.total - 1) });
+                // 母数(uses.max)が2以上なら削除でなく-1(多重取得の1つを外す)。spent は新 max にクランプ
+                const uses = item.system.uses;
+                if (uses && (Number(uses.max) || 0) > 1) {
+                    const newMax = (Number(uses.max) || 0) - 1;
+                    await item.update({ "system.uses.max": newMax, "system.uses.spent": Math.min(Number(uses.spent) || 0, newMax) });
                     ui.notifications.info(`神業「${item.name}」の母数を-1しました。`);
                     return;
                 }
@@ -2191,12 +2178,15 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             }
         }
 
-        const remainingUses = originalMiracle.system.usageCount.total;
+        // 残り = uses.max − spent。使用で spent+1(2026-07-18 uses 一本化)
+        const uses = originalMiracle.system.uses ?? {};
+        const maxUses = Math.max(0, Number(uses.max) || 0);
+        const remainingUses = Math.max(0, maxUses - (Number(uses.spent) || 0));
         if (remainingUses <= 0) { ui.notifications.warn(`神業「${originalMiracle.name}」はこれ以上使用できません。`); return; }
 
         await originalMiracle.update({
-            "system.usageCount.total": remainingUses - 1,
-            "system.isUsed":           remainingUses - 1 === 0
+            "system.uses.spent": Math.min(maxUses, (Number(uses.spent) || 0) + 1),
+            "system.isUsed":     remainingUses - 1 === 0
         });
 
         const enrichHTML = foundry.applications.ux.TextEditor.enrichHTML.bind(foundry.applications.ux.TextEditor);

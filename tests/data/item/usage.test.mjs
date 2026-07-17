@@ -18,17 +18,36 @@ describe("UsageTemplate.defineSchema()（フェーズ11-6 追加フィールド�
       expect(entry.consumeTargets.element).toBeInstanceOf(MockSchemaField);
     });
 
-    it("行は type(initial 'parent') / itemId / amount(initial 1・整数・負値可=残弾回復) を持つ", () => {
+    it("行は type(initial 'item') / itemId / resource(initial 'uses') / amount(initial 1・整数・負値可=残弾回復) を持つ", () => {
       const row = entry.consumeTargets.element.fields;
       expect(row.type).toBeInstanceOf(MockStringField);
-      expect(row.type.options.initial).toBe("parent");
+      expect(row.type.options.initial).toBe("item");
       expect(row.itemId).toBeInstanceOf(MockStringField);
       expect(row.itemId.options.initial).toBe("");
+      expect(row.resource).toBeInstanceOf(MockStringField);
+      expect(row.resource.options.initial).toBe("uses");
       expect(row.amount).toBeInstanceOf(MockNumberField);
       expect(row.amount.options.initial).toBe(1);
-      // 負値=回復(ammo のリロード表現・2026-07-17)のため min は設けない
+      // 負値=回復(ammo のリロード表現)のため min は設けない
       expect(row.amount.options.min).toBeUndefined();
       expect(row.amount.options.integer).toBe(true);
+    });
+
+    it("migrateData: 旧 type(parent/itemUses/miracleUses/ammo/actionRank) → item/resource へ移行", () => {
+      const src = UsageTemplate.migrateData({ actions: [{ _id: "a", type: "check", consumeTargets: [
+        { type: "parent", itemId: "", amount: 1 },
+        { type: "itemUses", itemId: "s1", amount: 2 },
+        { type: "miracleUses", itemId: "m1", amount: 1 },
+        { type: "ammo", itemId: "w1", amount: -3 },
+        { type: "actionRank", itemId: "", amount: 1 },
+      ] }] });
+      expect(src.actions[0].consumeTargets).toEqual([
+        { type: "item", itemId: "", resource: "uses", amount: 1 },
+        { type: "item", itemId: "s1", resource: "uses", amount: 2 },
+        { type: "item", itemId: "m1", resource: "uses", amount: 1 },
+        { type: "item", itemId: "w1", resource: "ammo", amount: -3 },
+        { type: "actionRank", itemId: "", resource: "uses", amount: 1 },
+      ]);
     });
   });
 
@@ -62,10 +81,10 @@ describe("UsageTemplate.migrateData()（消費先設定・2026-07-17 親×1互�
     expect(source.actions[1].consumeTargets).toBeUndefined();
   });
 
-  it("consumeTargets を既に持つ用途は変更しない", () => {
+    it("新スキーマ(resource つき)の consumeTargets は変更しない", () => {
     const source = UsageTemplate.migrateData({
-      actions: [{ _id: "a1", type: "check", consumeTargets: [{ type: "parent", itemId: "", amount: 1 }] }],
+      actions: [{ _id: "a1", type: "check", consumeTargets: [{ type: "item", itemId: "", resource: "uses", amount: 1 }] }],
     });
-    expect(source.actions[0].consumeTargets).toEqual([{ type: "parent", itemId: "", amount: 1 }]);
+    expect(source.actions[0].consumeTargets).toEqual([{ type: "item", itemId: "", resource: "uses", amount: 1 }]);
   });
 });

@@ -48,10 +48,11 @@
                         <input type="checkbox" id="isUsed" name="system.isUsed" {{checked system.isUsed}}>
                     </div>
                     <div class="form-group">
-                        <label>残り使用回数</label>
+                        <label>残り使用回数（母数 {{miracleMax}}）</label>
                         <div class="number-input-spinner">
                             <button type="button" data-action="decrementLevel" class="tnx-btn">-</button>
-                            <input class="ability-value" type="number" name="system.usageCount.total" value="{{system.usageCount.total}}" {{#if system.isUsed}} disabled {{/if}}>
+                            {{!-- 残り = uses.max − spent。+/- で spent を調整する(直接編集不可・2026-07-18) --}}
+                            <input class="ability-value" type="number" value="{{miracleRemaining}}" readonly>
                             <button type="button" data-action="incrementLevel" class="tnx-btn">+</button>
                         </div>
                     </div>

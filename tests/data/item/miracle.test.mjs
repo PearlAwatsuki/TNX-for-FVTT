@@ -50,30 +50,36 @@ describe("MiracleDataModel.defineSchema()", () => {
     }
   });
 
-  describe("usageCount の構造が正しい", () => {
-    it("schema.usageCount が SchemaField で存在する", () => {
-      expect(schema.usageCount).toBeInstanceOf(MockSchemaField);
+  describe("使用回数(uses)の構造が正しい(2026-07-18 汎用 uses へ一本化)", () => {
+    it("schema.uses が SchemaField で存在し、usageCount は廃止", () => {
+      expect(schema.uses).toBeInstanceOf(MockSchemaField);
+      expect(schema).not.toHaveProperty("usageCount");
     });
 
-    it("usageCount に value / total / mod が存在する", () => {
-      expect(schema.usageCount.fields).toHaveProperty("value");
-      expect(schema.usageCount.fields).toHaveProperty("total");
-      expect(schema.usageCount.fields).toHaveProperty("mod");
+    it("uses に isLimit / type / max / spent が存在する", () => {
+      for (const k of ["isLimit", "type", "max", "spent"]) expect(schema.uses.fields).toHaveProperty(k);
     });
 
-    it("usageCount.value は NumberField で initial が 1(0 ではない)", () => {
-      expect(schema.usageCount.fields.value).toBeInstanceOf(MockNumberField);
-      expect(schema.usageCount.fields.value.options.initial).toBe(1);
+    it("uses.isLimit は既定 true(神業は常に母数を持つ)・max 既定 1・spent 既定 0", () => {
+      expect(schema.uses.fields.isLimit).toBeInstanceOf(MockBooleanField);
+      expect(schema.uses.fields.isLimit.options.initial).toBe(true);
+      expect(schema.uses.fields.max).toBeInstanceOf(MockNumberField);
+      expect(schema.uses.fields.max.options.initial).toBe(1);
+      expect(schema.uses.fields.spent.options.initial).toBe(0);
+    });
+  });
+
+  describe("migrateData(): 旧 usageCount → uses への移行", () => {
+    it("value=母数/total=残り/mod=バフ → max=value+mod・spent=max−total", () => {
+      const src = MiracleDataModel.migrateData({ usageCount: { value: 2, total: 1, mod: 1 } });
+      expect(src.uses.max).toBe(3);        // 2 + 1
+      expect(src.uses.spent).toBe(2);      // 3 − 1(残り)
+      expect(src.uses.isLimit).toBe(true);
     });
 
-    it("usageCount.total は NumberField で initial が 1(0 ではない)", () => {
-      expect(schema.usageCount.fields.total).toBeInstanceOf(MockNumberField);
-      expect(schema.usageCount.fields.total.options.initial).toBe(1);
-    });
-
-    it("usageCount.mod は NumberField で initial が 0", () => {
-      expect(schema.usageCount.fields.mod).toBeInstanceOf(MockNumberField);
-      expect(schema.usageCount.fields.mod.options.initial).toBe(0);
+    it("uses が既にあれば移行しない", () => {
+      const src = MiracleDataModel.migrateData({ uses: { isLimit: true, max: 5, spent: 2 }, usageCount: { value: 1, total: 1, mod: 0 } });
+      expect(src.uses).toEqual({ isLimit: true, max: 5, spent: 2 });
     });
   });
 

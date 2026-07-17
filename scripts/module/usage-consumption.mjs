@@ -6,23 +6,18 @@
  * 使用回数制限のある技能を組み合わせに参加させる場合は、その消費を用途に手動で設定する。
  * UI は D&D 5e の消費先(Consumption)設定を踏襲(行の追加/削除・消費量可変)。
  *
- * 消費先の種別(consumeTargets[].type):
- *   "parent"      - 親アイテム(用途を持つアイテム自身)の使用回数。親が神業なら usageCount を消費
- *   "itemUses"    - 同アクターの特定アイテムの使用回数(uses.isLimit のもの)
- *   "miracleUses" - 神業の使用回数(usageCount.value)
+ * 消費先の種別(consumeTargets[].type・2026-07-18 再編):
+ *   "item"        - アイテムの資源を消費。itemId 空="このアイテム自身"(用途の親)・値=同アクター内 Item ID。
+ *                   resource="uses"(使用回数=uses.spent。神業も同じ uses に一本化) / "ammo"(武器の残弾)。
  *   "actionRank"  - 実行アクターの AR(2026-07-12 ユーザー確定)。パリー等「AR を消費する」能力の
  *                   表現で、旧パリー専用の自動 AR−1 を置換=AR 消費もこの設定からのみ発生する。
  *                   **カット進行外は AR を消費できないため原則使用不可**(消費要求は進行外でも生きる・
- *                   支払えない=原則ブロック。チェックを外せば卓裁定で実行可。2026-07-12 ユーザー訂正:
- *                   当初の「進行外は no-op」は誤り)。
- *                   分身でも本体へ差し替えない(AR は実行アクター自身の戦闘リソース)
- *   "ammo"        - 武器の残弾(2026-07-17 ユーザー確定)。**負の量=回復**でリロード用途
- *                   (タイミング: マイナー+残弾へのマイナス消費)を表現する。数字は装弾数で
- *                   クランプ・任意は消費=空/回復=満タン(nextAmmoCurrent)
+ *                   支払えない=原則ブロック。チェックを外せば卓裁定で実行可)。
+ *                   分身でも本体へ差し替えない(AR は実行アクター自身の戦闘リソース)。
+ *   残弾は**負の量=回復**でリロード用途(タイミング: マイナー+残弾へのマイナス消費)を表現する。
  *
- * カウンター種別(kind): "uses"=uses.spent 加算 / "miracleUses"=usageCount.value 減算 /
- * "ar"=actionRank.value 減算(アクター更新) / "ammo"=ammo.current 増減(武器更新)。
- * 行の解決(resolveConsumeRows)は Foundry 非依存の純粋関数(テスト対象)。
+ * カウンター種別(kind): "uses"=uses.spent 加算(神業も同じ) / "ar"=actionRank.value 減算(アクター更新) /
+ * "ammo"=ammo.current 増減(武器更新)。行の解決(resolveConsumeRows)は Foundry 非依存の純粋関数。
  * ダイアログ(promptConsumption)と適用(applyConsumptionPlan)のみ Foundry に依存する。
  *
  * 分身の使用回数共有(Troops.md): 分身アクターでの消費は、所有者参照から本体側の同一
@@ -45,9 +40,12 @@ import { hasAmmoTracking, ammoRemaining, nextAmmoCurrent } from "./weapon-ammo.m
 export function deriveConsumeTargets(parentItemId, skills) {
     return (skills ?? [])
         .filter(s => s.system?.uses?.isLimit === true)
-        .map(s => s.id === parentItemId
-            ? { type: "parent", itemId: "", amount: 1 }
-            : { type: "itemUses", itemId: s.id, amount: 1 });
+        .map(s => ({
+            type: "item",
+            itemId: s.id === parentItemId ? "" : s.id,  // 空="このアイテム自身"
+            resource: "uses",
+            amount: 1,
+        }));
 }
 
 /**
@@ -139,15 +137,15 @@ export function resolveConsumeRowsForActor(actor, parentItem, targets) {
  */
 export function resolveConsumeRows(targets, { parentItem, getItem, actionRank = null }) {
     return (targets ?? []).map((t) => {
-        const type = t.type || "parent";
+        const type = t.type || "item";
+        const resource = t.resource || "uses";
         const rawAmount = Number(t.amount);
-        // 残弾のみ負値=回復を許容(リロード表現・2026-07-17)。他は従来どおり1以上
-        const amount = type === "ammo"
+        // 残弾のみ負値=回復を許容(リロード表現)。他は従来どおり1以上
+        const amount = (type === "item" && resource === "ammo")
             ? (Number.isFinite(rawAmount) && rawAmount !== 0 ? rawAmount : 1)
             : Math.max(1, rawAmount || 1);
         // AR の消費(2026-07-12): 対象アイテムを持たない=実行アクターの actionRank.value を減らす。
-        // カット進行外(inCombat でない)は AR を消費できない=残量 0 扱いで原則ブロック
-        // (「AR を消費する能力は進行外では使えない」=ユーザー確定。チェックを外せば卓裁定で実行可)。
+        // カット進行外(inCombat でない)は AR を消費できない=残量 0 扱いで原則ブロック。
         // itemId はチェックボックス識別用のセンチネル(実アイテム ID と衝突しない)
         if (type === "actionRank") {
             const inCombat = actionRank?.inCombat === true;
@@ -158,13 +156,13 @@ export function resolveConsumeRows(targets, { parentItem, getItem, actionRank = 
                 outOfCombat: !inCombat,
             };
         }
-        const item = type === "parent" ? parentItem : (getItem?.(t.itemId ?? "") ?? null);
+        // type="item": itemId 空="このアイテム自身"(用途の親)・値=同アクター内アイテム
+        const item = t.itemId ? (getItem?.(t.itemId) ?? null) : parentItem;
         if (!item) {
             return { type, amount, itemId: t.itemId ?? "", label: "(対象が見つかりません)", problem: "notFound" };
         }
-        // 残弾(2026-07-17): 武器の残弾を消費(正)/回復(負=リロード)。
-        // 回復(負)は残量チェックの対象外(remaining≥負値は常に成立)
-        if (type === "ammo") {
+        // 残弾: 武器の残弾を消費(正)/回復(負=リロード)。回復(負)は残量チェックの対象外
+        if (resource === "ammo") {
             const ammo = item.system?.ammo;
             if (item.type !== "weapon" || !hasAmmoTracking(ammo)) {
                 return { type, amount, itemId: item.id, label: item.name, problem: "noAmmo" };
@@ -172,30 +170,17 @@ export function resolveConsumeRows(targets, { parentItem, getItem, actionRank = 
             return {
                 type, kind: "ammo", amount, itemId: item.id, label: item.name,
                 remaining: ammoRemaining(ammo),
-                maxDisplay: ammo.mode === "value" ? (Number(ammo.value) || 0) : "任意",
+                maxDisplay: Math.max(1, Number(ammo.value) || 0),
             };
         }
-        const isMiracle = item.type === "miracle";
-        if (type === "miracleUses" && !isMiracle) {
-            return { type, amount, itemId: item.id, label: item.name, problem: "notMiracle" };
+        // 使用回数(resource="uses"): 神業も汎用 uses に一本化(2026-07-18)=特例なし
+        const u = item.system?.uses;
+        if (u?.isLimit !== true) {
+            return { type, amount, itemId: item.id, label: item.name, inert: true };
         }
-        const kind = (type === "miracleUses" || (type === "parent" && isMiracle)) ? "miracleUses" : "uses";
-
-        if (kind === "uses") {
-            const u = item.system?.uses;
-            // 制限なしは no-op(親×1 の互換行が親に isLimit 無しでも従来同一=無消費になる要)
-            if (u?.isLimit !== true) {
-                return { type, amount, itemId: item.id, label: item.name, inert: true };
-            }
-            const max = u.max ?? 0;
-            const remaining = Math.max(0, max - (u.spent ?? 0));
-            return { type, kind, amount, itemId: item.id, label: item.name, remaining, maxDisplay: max };
-        }
-
-        const c = item.system?.usageCount ?? {};
-        const remaining = Math.max(0, c.value ?? 0);
-        const maxDisplay = (c.total ?? 0) + (c.mod ?? 0);
-        return { type, kind, amount, itemId: item.id, label: item.name, remaining, maxDisplay };
+        const max = u.max ?? 0;
+        const remaining = Math.max(0, max - (u.spent ?? 0));
+        return { type, kind: "uses", amount, itemId: item.id, label: item.name, remaining, maxDisplay: max };
     });
 }
 
@@ -238,7 +223,7 @@ export async function promptConsumption(actor, rows, { title = "使用回数の�
 
     const esc = (s) => foundry.utils.escapeHTML(String(s ?? ""));
     const PROBLEM_LABEL = {
-        notFound: "対象が見つかりません", notMiracle: "対象が神業ではありません",
+        notFound: "対象が見つかりません",
         noAmmo: "残弾管理のない武器です",
     };
     const htmlRows = [
@@ -332,14 +317,12 @@ export async function applyConsumptionPlan(plan) {
             if (row.kind === "ar") continue;
             const item = actor.items.get(row.itemId);
             if (!item) continue;
-            if (row.kind === "miracleUses") {
-                const c = item.system.usageCount ?? {};
-                updates.push({ _id: item.id, "system.usageCount.value": Math.max(0, (c.value ?? 0) - row.amount) });
-            } else if (row.kind === "ammo") {
-                // 残弾(2026-07-17): 正=消費・負=回復(リロード)。クランプは nextAmmoCurrent
+            if (row.kind === "ammo") {
+                // 残弾: 正=消費・負=回復(リロード)。クランプは nextAmmoCurrent
                 const next = nextAmmoCurrent(item.system?.ammo, row.amount);
                 if (next !== undefined) updates.push({ _id: item.id, "system.ammo.current": next });
             } else {
+                // 使用回数(神業も同じ uses・2026-07-18 一本化)。max は実効値(AE込み)でクランプ
                 const u = item.system.uses ?? {};
                 if (u.isLimit !== true) continue;
                 updates.push({ _id: item.id, "system.uses.spent": Math.min(u.max ?? 0, (u.spent ?? 0) + row.amount) });

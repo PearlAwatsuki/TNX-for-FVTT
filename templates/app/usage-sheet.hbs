@@ -217,45 +217,55 @@
             {{/if}}
             {{/if}}
 
-            {{!-- 使用回数の消費(11-6): 全ての消費はこの設定からのみ発生する(自動スキャン全廃・
-                 親アイテム・組み合わせ技能も自動では消費されない)。D&D の Consumption 踏襲。
-                 位置はタブ末尾(対決不可→対決情報→自動入力の連続を分断しない・2026-07-05 ユーザー確認) --}}
+            {{!-- 消費(2026-07-18 再編): 全ての消費はこの設定からのみ発生する(自動スキャン全廃)。
+                 二段選択のブロック=[アイテム/AR]→(アイテム時)[このアイテム自身/各アイテム]→[使用回数/残弾数]。
+                 神業の使用回数も汎用 uses に一本化。見た目はスタイル技能の対決/技能ブロック(tnx-combo-card)を踏襲 --}}
             <fieldset class="tnx-fieldset usage-consume-section">
                 <legend>
-                    使用回数の消費
+                    消費
                     {{#if editable}}
-                    <a class="usage-legend-add" data-action="consumeRowAdd" title="消費先を追加"><i class="fas fa-plus"></i></a>
+                    <a class="tnx-combo-add" data-action="consumeRowAdd" title="消費を追加"><i class="fas fa-plus"></i></a>
                     {{/if}}
                 </legend>
-                {{#each consumeRows as |row|}}
-                <div class="usage-consume-row">
-                    <select name="consumeType-{{row.idx}}" {{#unless @root.editable}}disabled{{/unless}}>
-                        {{#each row.typeOptions}}
-                        <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                <div class="tnx-form-field">
+                    <div class="tnx-combo-cards">
+                        {{#each consumeRows as |row|}}
+                        <div class="tnx-combo-card">
+                            <div class="tnx-combo-grid">
+                                <select name="consumeType-{{row.idx}}" {{#unless @root.editable}}disabled{{/unless}}>
+                                    {{#each row.typeOptions}}
+                                    <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                                    {{/each}}
+                                </select>
+                                {{#unless row.isActionRank}}
+                                <select name="consumeItem-{{row.idx}}" {{#unless @root.editable}}disabled{{/unless}}>
+                                    {{#each row.itemOptions}}
+                                    <option value="{{this.id}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
+                                    {{/each}}
+                                </select>
+                                <select name="consumeResource-{{row.idx}}" {{#unless @root.editable}}disabled{{/unless}}>
+                                    {{#each row.resourceOptions}}
+                                    <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                                    {{/each}}
+                                </select>
+                                {{/unless}}
+                                {{!-- 残弾は負値=回復(リロード表現)のため min を付けない --}}
+                                <div class="number-input-spinner usage-consume-amount tnx-combo-full" title="消費量（負値=回復）">
+                                    <button type="button" data-action="decrementConsumeAmount" data-row-index="{{row.idx}}" class="tnx-btn" {{#unless @root.editable}}disabled{{/unless}}>-</button>
+                                    <input type="number" name="consumeAmount-{{row.idx}}" value="{{row.amount}}" {{#unless row.isAmmo}}min="1"{{/unless}} {{#unless @root.editable}}disabled{{/unless}}>
+                                    <button type="button" data-action="incrementConsumeAmount" data-row-index="{{row.idx}}" class="tnx-btn" {{#unless @root.editable}}disabled{{/unless}}>+</button>
+                                </div>
+                            </div>
+                            {{#if @root.editable}}
+                            <a class="tnx-combo-del" data-action="consumeRowDelete" data-row-index="{{row.idx}}" title="削除"><i class="fas fa-trash"></i></a>
+                            {{/if}}
+                        </div>
                         {{/each}}
-                    </select>
-                    {{#unless row.noTarget}}
-                    <select name="consumeItem-{{row.idx}}" {{#unless @root.editable}}disabled{{/unless}}>
-                        <option value="">{{#if @root.hasConsumeActor}}── 対象 ──{{else}}(アクター所持時に選択可){{/if}}</option>
-                        {{#each row.targetOptions}}
-                        <option value="{{this.id}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
-                        {{/each}}
-                    </select>
-                    {{/unless}}
-                    {{!-- 残弾は負値=回復(リロード表現・2026-07-17)のため min を付けない --}}
-                    <div class="number-input-spinner usage-consume-amount" title="消費量">
-                        <button type="button" data-action="decrementConsumeAmount" data-row-index="{{row.idx}}" class="tnx-btn" {{#unless @root.editable}}disabled{{/unless}}>-</button>
-                        <input type="number" name="consumeAmount-{{row.idx}}" value="{{row.amount}}" {{#unless row.isAmmo}}min="1"{{/unless}} {{#unless @root.editable}}disabled{{/unless}}>
-                        <button type="button" data-action="incrementConsumeAmount" data-row-index="{{row.idx}}" class="tnx-btn" {{#unless @root.editable}}disabled{{/unless}}>+</button>
                     </div>
-                    {{#if @root.editable}}
-                    <a class="tnx-row-btn tnx-row-btn--delete" data-action="consumeRowDelete" data-row-index="{{row.idx}}" title="削除"><i class="fas fa-trash"></i></a>
-                    {{/if}}
+                    {{#unless consumeRows.length}}
+                    <p class="usage-empty-hint">（消費なし）</p>
+                    {{/unless}}
                 </div>
-                {{/each}}
-                {{#unless consumeRows.length}}
-                <p class="usage-empty-hint">（消費なし）</p>
-                {{/unless}}
             </fieldset>
             {{/if}}
         </div>
