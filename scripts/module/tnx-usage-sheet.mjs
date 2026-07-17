@@ -21,7 +21,7 @@ import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
 import { resolveAttackWeapons, attackWeaponDisplayName, resolveAttackRangeSpan, attackWeaponKindEligible } from "./attack-weapons.mjs";
 import { WEAPON_RANGE_MAX_OPTIONS } from "../data/item/weapon.mjs";
-import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, loadSkillUsageTypeIndex, SKILL_PACKS } from "./skill-dictionary.mjs";
+import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, loadSkillUsageTypeIndex, loadDictionarySkillItems, SKILL_PACKS } from "./skill-dictionary.mjs";
 import {
     USAGE_TYPE_LABELS, isAttackType, attackCategoryOf, isReactionType, usesVehicle,
     executionFormOf, defaultConfrontationForType, usageDisplayName,
@@ -45,16 +45,13 @@ const CHAIN_SKILL_TYPES = ["generalSkill", "styleSkill"];
 export async function resolveUsageSiblingSkills(item) {
     const isSkill = (t) => CHAIN_SKILL_TYPES.includes(t);
     if (item.actor) return item.actor.items.filter(i => isSkill(i.type));
-    if (item.pack) {
-        const pack = game.packs.get(item.pack);
-        if (!pack) return isSkill(item.type) ? [item] : [];
-        const index = await pack.getIndex();
-        const ids = [...index].filter(e => isSkill(e.type)).map(e => e._id);
-        const docs = await Promise.all(ids.map(id =>
-            id === item.id ? item : pack.getDocument(id).catch(() => null)));
-        return docs.filter(Boolean);
-    }
-    return game.items.filter(i => isSkill(i.type));
+    // アクター非所持(ワールド直下・辞典内を問わず)は**技能辞典**を参照する(2026-07-18 統一)。
+    // 旧実装の「辞典=同パック限定／ワールド直下=game.items」という区別を撤去——プルダウンが
+    // 辞典を参照する以上、ワールド直下からも辞典を参照できてしかるべき(ユーザー確定)。
+    const dict = await loadDictionarySkillItems();
+    // 編集中アイテム自身が技能なら live 版で辞典エントリを上書きする(未保存の編集を反映)
+    if (isSkill(item.type)) return [item, ...dict.filter(s => s.id !== item.id)];
+    return dict;
 }
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;

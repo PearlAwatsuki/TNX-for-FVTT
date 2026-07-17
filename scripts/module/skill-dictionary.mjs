@@ -248,6 +248,38 @@ export async function loadSkillUsageTypeIndex() {
 }
 
 /**
+ * 全技能辞典(一般・スタイル・ワークス)の技能を、チェーン解決・自動入力・候補表示に使える
+ * 軽量な技能オブジェクト `{id, name, type, system}` の配列で返す(2026-07-18 統一)。
+ * アクター非所持の用途(ワールド直下・辞典内を問わず)のベース技能/組み合わせ候補はここを参照する
+ * ——辞典アイテムの同パック限定/ワールド直下は game.items のみ、という区別を撤去する。
+ * getIndex で必要フィールドだけを引く(文書インスタンスを作らない＝KI-026 の孤児化を起こさない)。
+ * @returns {Promise<Array<{id:string, name:string, type:string, system:object}>>}
+ */
+export async function loadDictionarySkillItems() {
+  const fields = [
+    "system.identificationKey", "system.isAction", "system.isSubstitute", "system.substituteTarget",
+    "system.comboSkill", "system.confrontation", "system.target", "system.isFixedTarget",
+    "system.range", "system.isFixedRange", "system.targetValue", "system.targetValueNumber",
+    "system.timing", "system.suits", "system.level", "system.uses",
+  ];
+  const out = [];
+  for (const packName of [SKILL_PACKS.general, SKILL_PACKS.style, SKILL_PACKS.works]) {
+    const pack = game.packs?.get(packName);
+    if (!pack) continue;
+    try {
+      const index = await pack.getIndex({ fields });
+      for (const e of index) {
+        if (e.type !== "generalSkill" && e.type !== "styleSkill") continue;
+        out.push({ id: e._id, name: e.name, type: e.type, system: foundry.utils.deepClone(e.system ?? {}) });
+      }
+    } catch (err) {
+      console.error(`TokyoNOVA | Failed to load skill items from ${packName}:`, err);
+    }
+  }
+  return out;
+}
+
+/**
  * 一般技能辞典から、指定した固有名詞小分類(識別キープレフィックス)の技能を `{key: name}` の
  * 選択肢オブジェクトにする(先頭に "" → "-")。例: prefix="operate" で〈操縦〉各種。
  * ヴィークルの「対応する操縦」プルダウン等に使う。
