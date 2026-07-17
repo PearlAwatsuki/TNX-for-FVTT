@@ -6996,6 +6996,10 @@ button.tnx-create-act-button span {
     border-radius: 3px;
     margin-right: 6px;
     vertical-align: middle;
+    /* 長いタイプ名(リアクション（精神攻撃）等)でタグ内折り返し→行高が膨らみ
+       用途名の縦位置がずれるのを防ぐ: タグは1行固定・非圧縮(あふれは用途名側の ellipsis が吸収) */
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 /* ── タブ ── */
