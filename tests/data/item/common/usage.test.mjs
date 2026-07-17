@@ -359,6 +359,18 @@ describe("UsageTemplate.migrateData()", () => {
     expect(result.actions[2].confrontation).toBeUndefined(); // 判定タイプは既定なし
   });
 
+  it("リアクション系の対決欄: 未設定/空配列に「なし」を敷く(2026-07-18 裁定=対決欄は全タイプが持つ)", () => {
+    const source = { actions: [
+      { _id: "a", type: "dodge" },
+      { _id: "b", type: "parry", confrontation: [] },
+      { _id: "c", type: "mentalReaction", confrontation: [{ value: "none", name: "", skillDict: "", skillGroup: "", skillSub: "" }] },
+    ] };
+    const result = UsageTemplate.migrateData(source);
+    expect(result.actions[0].confrontation.map(r => r.value)).toEqual(["none"]);
+    expect(result.actions[1].confrontation.map(r => r.value)).toEqual(["none"]);
+    expect(result.actions[2].confrontation.map(r => r.value)).toEqual(["none"]);
+  });
+
   it("対決不可トグルの一本化(2026-07-17): isUnopposable=true → 対決欄の「不可」行(重複追加しない)", () => {
     const source = { actions: [
       { _id: "a", type: "check", isUnopposable: true },

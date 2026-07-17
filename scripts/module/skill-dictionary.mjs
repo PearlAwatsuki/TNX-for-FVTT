@@ -196,6 +196,7 @@ export async function loadSkillEntries(packName) {
         "system.special.works.organization",
         "system.isAction",
         "system.suits",
+        "system.actions",
       ],
     });
     const entries = [...docs]
@@ -213,6 +214,9 @@ export async function loadSkillEntries(packName) {
         organization: d.system.special?.works?.organization ?? "",
         isAction: d.system.isAction === true,
         suits: { ...(d.system.suits ?? {}) },
+        // 用途タイプの所持(2026-07-18): 対決欄の無印技能名行の吸収判定に使う(その技能が手段の
+        // リアクション用途タイプを持つか)。アクター未所持(辞典アイテム編集等)でも参照できる索引
+        usageTypes: [...new Set((d.system.actions ?? []).map((a) => a?.type).filter(Boolean))],
       }))
       .sort((a, b) => a.name.localeCompare(b.name, "ja"));
     _cache.set(packName, entries);
@@ -221,6 +225,22 @@ export async function loadSkillEntries(packName) {
     console.error(`TokyoNOVA | Failed to load skill compendium ${packName}:`, e);
     return [];
   }
+}
+
+/**
+ * 全技能辞典(一般・スタイル・ワークス)の「識別キー → 所持する用途タイプの Set」索引を返す。
+ * 対決欄の無印技能名行の吸収判定(その技能が手段のリアクション用途タイプを持つか)に使う。
+ * アクター未所持の技能(辞典アイテムの編集時など)を参照するための辞典側の真実(2026-07-18)。
+ * @returns {Promise<Map<string, Set<string>>>}
+ */
+export async function loadSkillUsageTypeIndex() {
+  const map = new Map();
+  for (const packName of [SKILL_PACKS.general, SKILL_PACKS.style, SKILL_PACKS.works]) {
+    for (const e of await loadSkillEntries(packName)) {
+      map.set(e.identificationKey, new Set(e.usageTypes ?? []));
+    }
+  }
+  return map;
 }
 
 /**

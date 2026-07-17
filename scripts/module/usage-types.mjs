@@ -80,6 +80,8 @@ export function executionFormOf(usage) {
  * タイプの系統既定の対決行(作成時・自動入力で敷く。全て enum 値=技能名・辞典キーのハードコード無し)。
  * 物理攻撃→ドッジ+パリー / 精神攻撃→リアクション（精神攻撃） / 社会攻撃→リアクション（社会攻撃） /
  * 移動→リアクション（移動妨害） / 離脱→リアクション（離脱妨害）(2026-07-17 ユーザー確定)。
+ * リアクション系→「なし」(2026-07-18 ユーザー裁定: リアクション用途でも対決「なし」で設定自体は
+ * される=対決欄は全タイプが持つ。旧「リアクション等は対決欄を持たない」は Code の過大一般化で撤回)。
  * @param {string} type
  * @returns {Array<{value: string, name: string, skillDict: string, skillGroup: string, skillSub: string}>}
  */
@@ -90,16 +92,8 @@ export function defaultConfrontationForType(type) {
         socialAttack:   ["socialReaction"],
         move:           ["moveBlockReaction"],
         escape:         ["escapeBlockReaction"],
-    }[type] ?? [];
+    }[type] ?? (isReactionType(type) ? ["none"] : []);
     return values.map(v => ({ value: v, name: "", skillDict: "", skillGroup: "", skillSub: "" }));
-}
-
-/**
- * 対決欄セクションを持つタイプか(判定・攻撃・移動・離脱)。
- * リアクション/治療/改造/カバー/宣言は対決欄を持たない(リアクションされる側にならない)。
- */
-export function hasConfrontationSection(type) {
-    return type === "check" || type === "move" || type === "escape" || isAttackType(type);
 }
 
 /**

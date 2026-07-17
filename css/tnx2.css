@@ -2956,13 +2956,16 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 
 .array-row input[type="text"] { flex: 1; min-width: 0; }
 
-/* 技能: 行=カード([selects の2列グリッド] + 削除)。ラベルなし・詰める(部位エディタの2列グリッド踏襲) */
-.tokyo-nova.sheet.item .tnx-combo-cards {
+/* 技能: 行=カード([selects の2列グリッド] + 削除)。ラベルなし・詰める(部位エディタの2列グリッド踏襲)。
+   用途シートの対決セクションも同構造を踏襲する(2026-07-18)ため .tnx-usage-sheet にも適用 */
+.tokyo-nova.sheet.item .tnx-combo-cards,
+.tokyo-nova.tnx-usage-sheet .tnx-combo-cards {
     display: flex;
     flex-direction: column;
     gap: 6px;
 }
-.tokyo-nova.sheet.item .tnx-combo-card {
+.tokyo-nova.sheet.item .tnx-combo-card,
+.tokyo-nova.tnx-usage-sheet .tnx-combo-card {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -2971,7 +2974,8 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     padding: 6px 8px;
     background: var(--tnx2-bg-2, rgba(0, 0, 0, 0.18));
 }
-.tokyo-nova.sheet.item .tnx-combo-grid {
+.tokyo-nova.sheet.item .tnx-combo-grid,
+.tokyo-nova.tnx-usage-sheet .tnx-combo-grid {
     flex: 1 1 auto;
     min-width: 0;
     display: grid;
@@ -2979,20 +2983,27 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     gap: 4px 6px;
 }
 .tokyo-nova.sheet.item .tnx-combo-grid > select,
-.tokyo-nova.sheet.item .tnx-combo-grid > input { width: 100%; min-width: 0; }
-.tokyo-nova.sheet.item .tnx-combo-full { grid-column: 1 / -1; }
-.tokyo-nova.sheet.item .tnx-combo-del {
+.tokyo-nova.sheet.item .tnx-combo-grid > input,
+.tokyo-nova.tnx-usage-sheet .tnx-combo-grid > select,
+.tokyo-nova.tnx-usage-sheet .tnx-combo-grid > input { width: 100%; min-width: 0; }
+.tokyo-nova.sheet.item .tnx-combo-full,
+.tokyo-nova.tnx-usage-sheet .tnx-combo-full { grid-column: 1 / -1; }
+.tokyo-nova.sheet.item .tnx-combo-del,
+.tokyo-nova.tnx-usage-sheet .tnx-combo-del {
     flex: 0 0 auto;
     cursor: pointer;
     color: var(--tnx2-text-muted, #888);
 }
-.tokyo-nova.sheet.item .tnx-combo-del:hover { color: var(--tnx2-color-danger-text, #e74c3c); }
-.tokyo-nova.sheet.item .tnx-combo-add {
+.tokyo-nova.sheet.item .tnx-combo-del:hover,
+.tokyo-nova.tnx-usage-sheet .tnx-combo-del:hover { color: var(--tnx2-color-danger-text, #e74c3c); }
+.tokyo-nova.sheet.item .tnx-combo-add,
+.tokyo-nova.tnx-usage-sheet .tnx-combo-add {
     cursor: pointer;
     opacity: 0.7;
     font-size: 0.85em;
 }
-.tokyo-nova.sheet.item .tnx-combo-add:hover { opacity: 1; }
+.tokyo-nova.sheet.item .tnx-combo-add:hover,
+.tokyo-nova.tnx-usage-sheet .tnx-combo-add:hover { opacity: 1; }
 /* 閲覧モードでは技能の追加・削除を隠す(部位エディタの .tnx-part-add/.tnx-part-del と同様) */
 .tokyo-nova.sheet.item.view-mode .tnx-combo-add,
 .tokyo-nova.sheet.item.view-mode .tnx-combo-del {

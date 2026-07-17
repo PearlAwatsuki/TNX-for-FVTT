@@ -21,10 +21,10 @@ import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
 import { resolveAttackWeapons, attackWeaponDisplayName, resolveAttackRangeSpan, attackWeaponKindEligible } from "./attack-weapons.mjs";
 import { WEAPON_RANGE_MAX_OPTIONS } from "../data/item/weapon.mjs";
-import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, SKILL_PACKS } from "./skill-dictionary.mjs";
+import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, loadSkillUsageTypeIndex, SKILL_PACKS } from "./skill-dictionary.mjs";
 import {
     USAGE_TYPE_LABELS, isAttackType, isReactionType, usesVehicle,
-    executionFormOf, defaultConfrontationForType, hasConfrontationSection, usageDisplayName,
+    executionFormOf, defaultConfrontationForType, usageDisplayName,
 } from "./usage-types.mjs";
 import { USAGE_CONFRONTATION_OPTIONS, mergeConfrontationRows } from "./confrontation-logic.mjs";
 import { findItemByIdentificationKey } from "./identification.mjs";
@@ -268,9 +268,9 @@ export async function enforceUsageChainDefaultsOnImport(item) {
  * consumeTargets のまま(導出規則=親×1+isLimit つき参加技能×1・deriveConsumeTargets)。
  * @param {Item} item 用途を持つアイテム
  * @param {object} usage 用途エントリ(平データで可)
- * @returns {object} _patchUsage 形式のパッチ(ドットパスキーを含む)
+ * @returns {Promise<object>} _patchUsage 形式のパッチ(ドットパスキーを含む)
  */
-export function deriveUsageAutoFill(item, usage) {
+export async function deriveUsageAutoFill(item, usage) {
     const actor = item.actor;
     const baseId = item.system.isAction === true ? item.id : (usage.baseSkillRef?.itemId || item.id);
     const ids = new Set([item.id, baseId, ...(usage.skillRefs ?? []).map(r => r.itemId)].filter(Boolean));
@@ -320,18 +320,31 @@ export function deriveUsageAutoFill(item, usage) {
     // タイプの系統既定＋参加技能(スタイル技能)の対決行を追記合算する。完全一致は吸収し、
     // 無印技能名行は「既にある手段行の用途タイプをその技能が持つ」なら吸収(既定技能でなく
     // 技能の能力で判定=リアクション用途タイプの所持)。不可はマスクとして下地と並存する
-    const skillHasReactionType = (key, typeKey) => {
-        const it = actor ? findItemByIdentificationKey(actor, key) : null;
-        return !!it && (it.system?.actions ?? []).some(a => a.type === typeKey);
-    };
-    patch.confrontation = mergeConfrontationRows(
-        usage.confrontation ?? [],
-        [
-            ...defaultConfrontationForType(usage.type),
-            ...skillItems.filter(s => s.type === "styleSkill").flatMap(s => s.system.confrontation ?? []),
-        ],
-        { skillHasReactionType }
-    );
+    if (isReactionType(usage.type)) {
+        // リアクション系タイプの対決は「なし」(2026-07-18 ユーザー裁定: リアクションされる側に
+        // ならない)。参加技能の対決行は合算しない——既存行が無ければ「なし」を敷くだけ
+        patch.confrontation = (usage.confrontation ?? []).length
+            ? usage.confrontation
+            : defaultConfrontationForType(usage.type);
+    } else {
+        // 吸収の技能参照(2026-07-18 是正): 従来はアクター所持アイテムしか見ておらず、辞典アイテム
+        // 上の編集(actor 無し)では吸収が一切働かなかった。アクター所持ならその実体(手元の編集が正)、
+        // 未所持なら技能辞典の用途タイプ索引で判定する
+        const dictTypes = await loadSkillUsageTypeIndex();
+        const skillHasReactionType = (key, typeKey) => {
+            const it = actor ? findItemByIdentificationKey(actor, key) : null;
+            if (it) return (it.system?.actions ?? []).some(a => a.type === typeKey);
+            return dictTypes.get(key)?.has(typeKey) === true;
+        };
+        patch.confrontation = mergeConfrontationRows(
+            usage.confrontation ?? [],
+            [
+                ...defaultConfrontationForType(usage.type),
+                ...skillItems.filter(s => s.type === "styleSkill").flatMap(s => s.system.confrontation ?? []),
+            ],
+            { skillHasReactionType }
+        );
+    }
 
     // 消費行: 導出結果で置き換え(既存自動入力と同じ「明示的な上書き」の意味論)
     patch.consumeTargets = deriveConsumeTargets(item.id, skills);
@@ -674,22 +687,35 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 .sort((a, b) => a.name.localeCompare(b.name, "ja"));
         }
 
-        // 対決欄(2026-07-17 ユーザー確定): 判定・攻撃・移動・離脱タイプの編集可能な行UI。
-        // 行の形はスタイル技能の対決と同形(技能名系は辞典カスケード)・値は用途独自の選択肢
+        // 対決欄: **全タイプが持つ**(2026-07-18 ユーザー裁定: リアクション用途でも対決「なし」で
+        // 設定自体はされる。旧「判定・攻撃・移動・離脱のみ」のゲートは撤回)。行の見た目・構造は
+        // スタイル技能シートの対決セクション(tnx-combo-card/grid)を踏襲し、値は用途独自の選択肢
         // (手段行=リアクション用途タイプと1:1)。「不可」はマスクで下地の行と並存保存する
-        context.showConfrontation = hasConfrontationSection(usage.type) && !context.isFixedCheck;
+        context.showConfrontation = !context.isFixedCheck;
         if (context.showConfrontation) {
             const cascadeData = await loadCascadeData();
-            context.confrontationRows = (usage.confrontation ?? []).map((c, idx) => {
+            // スタイル技能と同じく最低1行を表示する(空=blank 行。保存されても無効行で無害)
+            const confRows = (usage.confrontation ?? []).length
+                ? usage.confrontation
+                : [{ value: "blank", name: "", skillDict: "", skillGroup: "", skillSub: "" }];
+            context.confrontationRows = confRows.map((c, idx) => {
                 const isSkill = c.value === "skillName" || c.value === "skillNameAsterisk";
+                const cascadeSteps = isSkill
+                    ? buildSkillCascadeSteps(cascadeData,
+                        { dict: c.skillDict, group: c.skillGroup, sub: c.skillSub, skill: c.name })
+                    : [];
+                // 2列グリッドの敷き方はスタイル技能シートと同じ: 技能名系以外は種別セレクトが全幅、
+                // 技能名系は種別+段で埋め、(1+段数)が奇数なら最後の段を全幅にする
+                const typeFull = !isSkill;
+                if (cascadeSteps.length && (1 + cascadeSteps.length) % 2 === 1) {
+                    cascadeSteps[cascadeSteps.length - 1].full = true;
+                }
                 return {
                     idx,
+                    typeFull,
                     valueOptions: Object.entries(USAGE_CONFRONTATION_OPTIONS)
                         .map(([value, label]) => ({ value, label, selected: value === (c.value || "blank") })),
-                    cascadeSteps: isSkill
-                        ? buildSkillCascadeSteps(cascadeData,
-                            { dict: c.skillDict, group: c.skillGroup, sub: c.skillSub, skill: c.name })
-                        : [],
+                    cascadeSteps,
                 };
             });
         }
@@ -1291,7 +1317,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             .filter(v => v !== undefined)
             .map(Number)
             .sort((a, b) => a - b);
-        if (confIdxs.length || this.element?.querySelector(".usage-confrontation-rows")) {
+        if (confIdxs.length || this.element?.querySelector(".usage-confrontation-section")) {
             const prev = usage.confrontation ?? [];
             update.confrontation = confIdxs.map(i => {
                 const p = prev[i] ?? {};
@@ -1341,7 +1367,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
     static async _onAutoFill(_event, _target) {
         const usage = this.usage;
         if (!usage) return;
-        const patch = deriveUsageAutoFill(this._item, usage);
+        const patch = await deriveUsageAutoFill(this._item, usage);
         await this._patchUsage(patch);
         this.render({ force: true });
         ui.notifications.info("発動パラメータ・対決・使用回数の消費を自動入力しました。手編集で上書きできます。");

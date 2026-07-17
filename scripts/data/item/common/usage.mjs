@@ -30,7 +30,7 @@
  */
 
 import { SystemDataModel } from "../../abstract.mjs";
-import { isAttackType, defaultConfrontationForType } from "../../../module/usage-types.mjs";
+import { isAttackType, isReactionType, defaultConfrontationForType } from "../../../module/usage-types.mjs";
 
 /**
  * 攻撃用途か。攻撃は行動種別タイプ(物理攻撃/精神攻撃/社会攻撃)で表す(2026-07-17 再編。
@@ -420,8 +420,12 @@ export class UsageTemplate extends SystemDataModel {
                     };
                 }
                 // 対決欄の系統既定(2026-07-17): 対決欄を持たない既存データに、タイプの既定行を敷く
-                // (物理攻撃=ドッジ+パリー等・全て enum)。以後はユーザー編集が正
-                if (migrated.confrontation === undefined) {
+                // (物理攻撃=ドッジ+パリー等・全て enum)。以後はユーザー編集が正。
+                // リアクション系は空配列にも「なし」を敷く(2026-07-18 裁定=全タイプが対決欄を持つ。
+                // 旧実装はリアクション系に対決セクション自体を出しておらず、空配列はその時代の
+                // 産物でユーザー編集ではないため上書きして安全)
+                if (migrated.confrontation === undefined
+                    || (isReactionType(migrated.type) && (migrated.confrontation ?? []).length === 0)) {
                     const defaults = defaultConfrontationForType(migrated.type);
                     if (defaults.length) migrated = { ...migrated, confrontation: defaults };
                 }

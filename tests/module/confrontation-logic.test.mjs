@@ -14,7 +14,6 @@ import {
     defaultConfrontationForType,
     executionFormOf,
     attackCategoryOf,
-    hasConfrontationSection,
     usageDisplayName,
 } from "../../scripts/module/usage-types.mjs";
 
@@ -37,6 +36,12 @@ describe("用途タイプ(行動種別・2026-07-17 確定)", () => {
         for (const r of defaultConfrontationForType("physicalAttack")) expect(r.name).toBe("");
     });
 
+    it("リアクション系タイプの既定対決は「なし」(2026-07-18 裁定=対決欄は全タイプが持つ)", () => {
+        for (const t of ["dodge", "parry", "mentalReaction", "socialReaction", "moveBlockReaction", "escapeBlockReaction"]) {
+            expect(defaultConfrontationForType(t).map(r => r.value)).toEqual(["none"]);
+        }
+    });
+
     it("実行形式: 宣言=宣言・治療=用途の設定(既定は判定)・他は判定", () => {
         expect(executionFormOf({ type: "declaration" })).toBe("declaration");
         expect(executionFormOf({ type: "treatment" })).toBe("check");
@@ -52,14 +57,8 @@ describe("用途タイプ(行動種別・2026-07-17 確定)", () => {
         expect(attackCategoryOf("check")).toBe("");
     });
 
-    it("対決欄セクションを持つのは判定・攻撃・移動・離脱", () => {
-        for (const t of ["check", "physicalAttack", "mentalAttack", "socialAttack", "move", "escape"]) {
-            expect(hasConfrontationSection(t)).toBe(true);
-        }
-        for (const t of ["declaration", "dodge", "parry", "treatment", "modification", "covering"]) {
-            expect(hasConfrontationSection(t)).toBe(false);
-        }
-    });
+    // 「対決欄セクションを持つタイプ」の絞り込み(hasConfrontationSection)は 2026-07-18 に撤回・
+    // 全廃した(リアクション用途でも対決「なし」が設定される=対決欄は全タイプが持つ)
 
     it("実効表示名: 空なら「タイプ名（親アイテム名）」(2026-07-17 用途名既定空・全表示箇所統一)", () => {
         expect(usageDisplayName({ name: "", type: "check" }, "ペネトレイト")).toBe("判定（ペネトレイト）");

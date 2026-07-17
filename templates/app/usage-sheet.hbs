@@ -168,38 +168,41 @@
                 </div>
             </fieldset>
 
-            {{!-- 対決欄(2026-07-17 ユーザー確定・Check_Rules「対決の解釈(是正)」): 拘束リスト。
-                 手段行=リアクション用途タイプと1:1・技能名/技能名※は辞典カスケード・「不可」は
-                 マスク(下地の行と並存保存)。「-」「なし」以外の行があればこの判定は対決判定になる --}}
+            {{!-- 対決欄(2026-07-17 確定+2026-07-18 是正・Check_Rules「対決の解釈(是正)」): 拘束リスト。
+                 全タイプが対決欄を持つ(リアクション系は「なし」)。見た目・構造はスタイル技能シートの
+                 対決セクション(tnx-combo-card/grid)を踏襲。手段行=リアクション用途タイプと1:1・
+                 技能名/技能名※は辞典カスケード・「不可」はマスク(下地の行と並存保存)。
+                 「-」「なし」以外の行があればこの判定は対決判定になる --}}
             {{#if showConfrontation}}
             <fieldset class="tnx-fieldset usage-confrontation-section">
                 <legend>
                     対決
                     {{#if editable}}
-                    <a class="usage-legend-add" data-action="confrontRowAdd" title="対決を追加"><i class="fas fa-plus"></i></a>
+                    <a class="tnx-combo-add" data-action="confrontRowAdd" title="対決を追加"><i class="fas fa-plus"></i></a>
                     {{/if}}
                 </legend>
-                <div class="usage-confrontation-rows">
-                    {{#each confrontationRows as |row|}}
-                    <div class="usage-consume-row">
-                        <select name="confrontValue-{{row.idx}}" {{#unless @root.editable}}disabled{{/unless}}>
-                            {{#each row.valueOptions}}
-                            <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
-                            {{/each}}
-                        </select>
-                        {{#each row.cascadeSteps}}
-                        <select name="confront-{{row.idx}}-{{this.field}}" {{#unless @root.editable}}disabled{{/unless}}>
-                            {{selectOptions this.options selected=this.value}}
-                        </select>
+                <div class="tnx-form-field">
+                    <div class="tnx-combo-cards">
+                        {{#each confrontationRows as |row|}}
+                        <div class="tnx-combo-card">
+                            <div class="tnx-combo-grid">
+                                <select name="confrontValue-{{row.idx}}"{{#if row.typeFull}} class="tnx-combo-full"{{/if}} {{#unless @root.editable}}disabled{{/unless}}>
+                                    {{#each row.valueOptions}}
+                                    <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                                    {{/each}}
+                                </select>
+                                {{#each row.cascadeSteps}}
+                                <select name="confront-{{row.idx}}-{{this.field}}"{{#if this.full}} class="tnx-combo-full"{{/if}} {{#unless @root.editable}}disabled{{/unless}}>
+                                    {{selectOptions this.options selected=this.value}}
+                                </select>
+                                {{/each}}
+                            </div>
+                            {{#if @root.editable}}{{#if (gte row.idx 1)}}
+                            <a class="tnx-combo-del" data-action="confrontRowDelete" data-row-index="{{row.idx}}" title="削除"><i class="fas fa-trash"></i></a>
+                            {{/if}}{{/if}}
+                        </div>
                         {{/each}}
-                        {{#if @root.editable}}
-                        <a class="tnx-row-btn tnx-row-btn--delete" data-action="confrontRowDelete" data-row-index="{{row.idx}}" title="削除"><i class="fas fa-trash"></i></a>
-                        {{/if}}
                     </div>
-                    {{/each}}
-                    {{#unless confrontationRows.length}}
-                    <p class="usage-empty-hint">（対決の指定なし）</p>
-                    {{/unless}}
                 </div>
             </fieldset>
             {{/if}}

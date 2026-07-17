@@ -246,7 +246,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         // 発動パラメータと消費行を導出して初期値にする(以降の再導出はシートのボタンで明示的に。
         // ライブ追従はしない)。固定値判定は発動項目を持たないため対象外
         if (!isFixedCheck && executionFormOf(entry) === "check") {
-            const patch = deriveUsageAutoFill(this.item, entry);
+            const patch = await deriveUsageAutoFill(this.item, entry);
             foundry.utils.mergeObject(entry, foundry.utils.expandObject(patch));
         }
 
