@@ -360,12 +360,10 @@ export class UsageTemplate extends SystemDataModel {
                 if (migrated.boostDamage === true && migrated.modifyDamage === undefined) {
                     migrated = { ...migrated, modifyDamage: true };
                 }
-                // 用途タイプの一本化(2026-07-13 ユーザー確定): タイプは check/declaration のみ。
-                // - 旧 modification(改造)は check へ(改造は判定で行う。機能未実装・modifiableParams は温存)
-                // - 旧 npcAcquire はフラグ化: エキストラ(判定なし)=宣言・トループ/エニグマ/分身=判定
-                if (migrated.type === "modification") {
-                    migrated = { ...migrated, type: "check" };
-                }
+                // 用途タイプの一本化(2026-07-13)のうち、旧 modification→check の変換は削除
+                // (2026-07-17 行動種別再編で「改造」タイプが復活したため。残しておくと新規作成した
+                // 改造用途がロードのたびに判定へ化ける)。旧 npcAcquire のフラグ化は継続:
+                // エキストラ(判定なし)=宣言・トループ/エニグマ/分身=判定
                 if (migrated.type === "npcAcquire") {
                     migrated = {
                         ...migrated,

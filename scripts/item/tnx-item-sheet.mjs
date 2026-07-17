@@ -307,6 +307,12 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         const usageId = target.dataset.usageId;
         if (!usageId) return;
 
+        // 開いている用途シートは先に閉じる(2026-07-17): 消えた用途を指したままのシートが
+        // 以後の更新のたびに空描画で残らないように(テンプレート側の usage ガードと二重の防御)
+        for (const app of Object.values(foundry.applications.instances)) {
+            if (app instanceof TnxUsageSheet && app._usageId === usageId) app.close();
+        }
+
         const actions = foundry.utils.deepClone(this.item.system.actions ?? []);
         const idx = actions.findIndex(a => a._id === usageId);
         if (idx >= 0) {

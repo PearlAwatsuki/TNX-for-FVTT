@@ -250,10 +250,10 @@ describe("UsageTemplate.migrateData()", () => {
     expect(result.actions[0].modifyDamage).toBe(false);
   });
 
-  it("用途タイプの一本化(2026-07-13): modification → check（modifiableParams 温存）", () => {
+  it("改造(modification)は行動種別タイプとして保持される(2026-07-17 再編・旧 check 変換は削除)", () => {
     const source = { actions: [{ _id: "a", type: "modification", modifiableParams: ["攻撃力"] }] };
     const result = UsageTemplate.migrateData(source);
-    expect(result.actions[0].type).toBe("check");
+    expect(result.actions[0].type).toBe("modification");
     expect(result.actions[0].modifiableParams).toEqual(["攻撃力"]);
   });
 

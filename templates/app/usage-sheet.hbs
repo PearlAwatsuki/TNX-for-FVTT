@@ -1,4 +1,7 @@
 <div class="tnx-usage-sheet-inner">
+    {{!-- 用途が解決できない場合(削除済み等)は描画しない(_prepareContext が close する。
+         ガード無しだと空コンテキストの selectOptions が例外を投げ、閉じられないゾンビ描画になる) --}}
+    {{#if usage}}
 
     {{!-- ヘッダー: 種別バッジ + 名前 --}}
     <header class="usage-sheet-header">
@@ -724,4 +727,5 @@
         {{/unless}}
 
     </section>
+    {{/if}}
 </div>
