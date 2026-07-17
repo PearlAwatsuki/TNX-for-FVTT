@@ -99,6 +99,12 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
     _onRender(context, _options) {
         const el = this.element;
 
+        // 用途一覧のクリックは委譲リスナー1本で処理する(初回のみバインド・2026-07-17 是正)。
+        // 従来の「毎レンダー後にボタンへ個別バインド」は、_onRender 内の先行処理が一度でも
+        // 例外を投げるとバインドまで到達せず、以降ボタンが無反応になる脆さがあった
+        // (削除は DB に反映されるのに一覧のボタンが死ぬ)。委譲なら再レンダーの影響を受けない
+        this._bindUsageListDelegation();
+
         // edit/view モード CSS クラスを同期
         el.classList.toggle("edit-mode", !!context.isEditMode);
         el.classList.toggle("view-mode", !context.isEditMode);
@@ -127,57 +133,63 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             header.prepend(btn);
         }
 
-        const ProseMirrorEl = customElements.get("prose-mirror");
-        if (ProseMirrorEl) {
-            for (const contentDiv of el.querySelectorAll(".editor-content[data-edit]")) {
-                const editorDiv = contentDiv.closest("div.editor");
-                if (!editorDiv) continue;
-                const fieldName = contentDiv.dataset.edit;
-                const pm = ProseMirrorEl.create({
-                    name: fieldName,
-                    value: foundry.utils.getProperty(this.document, fieldName) ?? "",
-                    enriched: contentDiv.innerHTML,
-                    toggled: true,
-                });
-                pm.dataset.documentUuid = this.document.uuid;
-                editorDiv.replaceWith(pm);
-                // トグルボタンをヘッダーへ移動する（Foundry デフォルトはhover時のみ表示・エリア右上絶対配置）
-                const section = pm.closest(".tnx-editor-section");
-                const sectionHeader = section?.querySelector(".tnx-editor-section__header");
-                if (sectionHeader) {
-                    const moveBtn = () => {
-                        const btn = pm.querySelector("button.toggle");
-                        if (btn) sectionHeader.appendChild(btn);
-                    };
-                    requestAnimationFrame(moveBtn);
-                    pm.addEventListener("close", () => requestAnimationFrame(moveBtn));
+        // エディタ差し替えは失敗しても他のリスナー・表示処理を巻き添えにしない(2026-07-17 隔離)
+        try {
+            const ProseMirrorEl = customElements.get("prose-mirror");
+            if (ProseMirrorEl) {
+                for (const contentDiv of el.querySelectorAll(".editor-content[data-edit]")) {
+                    const editorDiv = contentDiv.closest("div.editor");
+                    if (!editorDiv) continue;
+                    const fieldName = contentDiv.dataset.edit;
+                    const pm = ProseMirrorEl.create({
+                        name: fieldName,
+                        value: foundry.utils.getProperty(this.document, fieldName) ?? "",
+                        enriched: contentDiv.innerHTML,
+                        toggled: true,
+                    });
+                    pm.dataset.documentUuid = this.document.uuid;
+                    editorDiv.replaceWith(pm);
+                    // トグルボタンをヘッダーへ移動する（Foundry デフォルトはhover時のみ表示・エリア右上絶対配置）
+                    const section = pm.closest(".tnx-editor-section");
+                    const sectionHeader = section?.querySelector(".tnx-editor-section__header");
+                    if (sectionHeader) {
+                        const moveBtn = () => {
+                            const btn = pm.querySelector("button.toggle");
+                            if (btn) sectionHeader.appendChild(btn);
+                        };
+                        requestAnimationFrame(moveBtn);
+                        pm.addEventListener("close", () => requestAnimationFrame(moveBtn));
+                    }
                 }
             }
+        } catch (err) {
+            console.error("TNX | 説明エディタの差し替えに失敗しました", err);
         }
+    }
 
-        // usage-list.hbs は data-action ではなく直接リスナーで対応する
-        el.querySelector(".action-create")?.addEventListener("click", (ev) => {
+    /**
+     * 用途一覧(usage-list.hbs)のクリックを委譲で処理する(初回のみバインド・2026-07-17)。
+     * 要素(フレーム)は再レンダーをまたいで持続するため、パーツ差し替えでリスナーが消えない。
+     */
+    _bindUsageListDelegation() {
+        if (this._usageListDelegated) return;
+        this._usageListDelegated = true;
+        this.element.addEventListener("click", (ev) => {
+            const target = ev.target.closest(
+                ".action-create, .action-use[data-usage-id], .action-edit[data-usage-id], .action-delete[data-usage-id]");
+            if (!target || !this.element.contains(target)) return;
+            if (!this.document.isOwner) return;
             ev.preventDefault();
-            TokyoNovaItemSheet._onActionCreate.call(this, ev, ev.currentTarget);
+            if (target.classList.contains("action-create")) {
+                TokyoNovaItemSheet._onActionCreate.call(this, ev, target);
+            } else if (target.classList.contains("action-use")) {
+                TokyoNovaItemSheet._onUsageUse.call(this, ev, target);
+            } else if (target.classList.contains("action-edit")) {
+                TokyoNovaItemSheet._onUsageEdit.call(this, ev, target);
+            } else {
+                TokyoNovaItemSheet._onActionDelete.call(this, ev, target);
+            }
         });
-        for (const btn of el.querySelectorAll(".action-use[data-usage-id]")) {
-            btn.addEventListener("click", (ev) => {
-                ev.preventDefault();
-                TokyoNovaItemSheet._onUsageUse.call(this, ev, ev.currentTarget);
-            });
-        }
-        for (const btn of el.querySelectorAll(".action-edit[data-usage-id]")) {
-            btn.addEventListener("click", (ev) => {
-                ev.preventDefault();
-                TokyoNovaItemSheet._onUsageEdit.call(this, ev, ev.currentTarget);
-            });
-        }
-        for (const btn of el.querySelectorAll(".action-delete[data-usage-id]")) {
-            btn.addEventListener("click", (ev) => {
-                ev.preventDefault();
-                TokyoNovaItemSheet._onActionDelete.call(this, ev, ev.currentTarget);
-            });
-        }
     }
 
     // ─── アクションハンドラ ────────────────────────────────────────────────────
