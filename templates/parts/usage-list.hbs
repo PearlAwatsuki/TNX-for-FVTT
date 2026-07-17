@@ -2,7 +2,7 @@
     <div class="tnx-item-list__row tnx-item-list__row--header">
         <div class="tnx-item-list__column--main">用途一覧</div>
         <div class="tnx-item-list__column--controls">
-            <a class="action-create" title="用途を追加">
+            <a class="action-create" data-action="usageCreate" title="用途を追加">
                 <i class="fas fa-plus"></i>
             </a>
         </div>
@@ -19,13 +19,13 @@
                 <div class="tnx-item-list__column--controls">
                     {{!-- 使用ボタンは効果の有無にかかわらず常に描画する(2026-07-07 確定。
                          「効果あり限定」は 9-3 の効果有効化専用時代の誤った条件だった) --}}
-                    <a class="action-use" data-usage-id="{{action._id}}" title="使用">
+                    <a class="action-use" data-action="usageUse" data-usage-id="{{action._id}}" title="使用">
                         <i class="fas fa-bolt"></i>
                     </a>
-                    <a class="action-edit" data-action="edit" data-usage-id="{{action._id}}" title="編集">
+                    <a class="action-edit" data-action="usageEdit" data-usage-id="{{action._id}}" title="編集">
                         <i class="fas fa-edit"></i>
                     </a>
-                    <a class="action-delete" data-action="delete" data-usage-id="{{action._id}}" title="削除">
+                    <a class="action-delete" data-action="usageDelete" data-usage-id="{{action._id}}" title="削除">
                         <i class="fas fa-trash"></i>
                     </a>
                 </div>

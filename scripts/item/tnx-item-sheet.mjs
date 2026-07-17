@@ -28,6 +28,13 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             toggleEditMode: TokyoNovaItemSheet._onToggleEditMode,
             incrementField: TokyoNovaItemSheet._onIncrementField,
             decrementField: TokyoNovaItemSheet._onDecrementField,
+            // 用途一覧(usage-list.hbs)はコア標準の data-action ディスパッチで配線する(2026-07-17 是正)。
+            // コアはフレームを作るたびにディスパッチャを配線するため、開き直し・再レンダーで死なない
+            // (自前リスナーの寿命管理=毎レンダー個別バインド/委譲一回バインドはどちらも死に方があり全廃)
+            usageCreate: TokyoNovaItemSheet._onActionCreate,
+            usageUse:    TokyoNovaItemSheet._onUsageUse,
+            usageEdit:   TokyoNovaItemSheet._onUsageEdit,
+            usageDelete: TokyoNovaItemSheet._onActionDelete,
         },
     };
 
@@ -99,12 +106,6 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
     _onRender(context, _options) {
         const el = this.element;
 
-        // 用途一覧のクリックは委譲リスナー1本で処理する(初回のみバインド・2026-07-17 是正)。
-        // 従来の「毎レンダー後にボタンへ個別バインド」は、_onRender 内の先行処理が一度でも
-        // 例外を投げるとバインドまで到達せず、以降ボタンが無反応になる脆さがあった
-        // (削除は DB に反映されるのに一覧のボタンが死ぬ)。委譲なら再レンダーの影響を受けない
-        this._bindUsageListDelegation();
-
         // edit/view モード CSS クラスを同期
         el.classList.toggle("edit-mode", !!context.isEditMode);
         el.classList.toggle("view-mode", !context.isEditMode);
@@ -167,34 +168,6 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         }
     }
 
-    /**
-     * 用途一覧(usage-list.hbs)のクリックを委譲で処理する(フレーム単位でバインド・2026-07-17)。
-     * フレームは再レンダーをまたいで持続するためパーツ差し替えでリスナーが消えないが、
-     * シートを閉じて開き直すと**同じ App インスタンスのまま新しいフレームが作られる**
-     * (AppV2 の isFirstRender 再突入)。ブール旗の「一度だけ」ガードだと開き直し後の
-     * フレームに未バインドで全ボタンが無反応になるため、バインド済みかは要素自身で判定する。
-     */
-    _bindUsageListDelegation() {
-        if (this._usageListDelegatedEl === this.element) return;
-        this._usageListDelegatedEl = this.element;
-        this.element.addEventListener("click", (ev) => {
-            const target = ev.target.closest(
-                ".action-create, .action-use[data-usage-id], .action-edit[data-usage-id], .action-delete[data-usage-id]");
-            if (!target || !this.element.contains(target)) return;
-            if (!this.document.isOwner) return;
-            ev.preventDefault();
-            if (target.classList.contains("action-create")) {
-                TokyoNovaItemSheet._onActionCreate.call(this, ev, target);
-            } else if (target.classList.contains("action-use")) {
-                TokyoNovaItemSheet._onUsageUse.call(this, ev, target);
-            } else if (target.classList.contains("action-edit")) {
-                TokyoNovaItemSheet._onUsageEdit.call(this, ev, target);
-            } else {
-                TokyoNovaItemSheet._onActionDelete.call(this, ev, target);
-            }
-        });
-    }
-
     // ─── アクションハンドラ ────────────────────────────────────────────────────
 
     static async _onToggleEditMode(_event, _target) {
@@ -226,6 +199,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
 
     /** 用途追加: 種別選択ダイアログ → エントリ作成 → TnxUsageSheet を開く */
     static async _onActionCreate(_event, _target) {
+        if (!this.document.isOwner) return;
         // 「判定（固定値）」を作成できるのは**エキストラ直下の一般技能のみ**(2026-07-04 確定)。
         // エキストラの技能は固定値判定しか行えないため選択ダイアログを出さず直接作成する。
         // それ以外のアイテムでは固定値プリセットは提供しない(通常の用途タイプ選択)
@@ -272,10 +246,16 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
 
         // 直列キュー経由(2026-07-17): 開いている用途シートの submit/enforcement と競合しても
         // 最新の actions に対して追記する(stale 全配列上書きの最後勝ちで消えない)
-        await updateUsageActions(this.item, (actions) => {
-            actions.push(entry);
-            return actions;
-        });
+        try {
+            await updateUsageActions(this.item, (actions) => {
+                actions.push(entry);
+                return actions;
+            });
+        } catch (err) {
+            console.error("TNX | 用途の追加に失敗しました", err);
+            ui.notifications.error("用途の追加に失敗しました。コンソールを確認してください。");
+            return;
+        }
 
         // 作成直後に編集シートを開く
         const sheet = new TnxUsageSheet(this.item, newId);
@@ -284,6 +264,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
 
     /** 用途編集: TnxUsageSheet を開く */
     static async _onUsageEdit(_event, target) {
+        if (!this.document.isOwner) return;
         const usageId = target.dataset.usageId;
         if (!usageId) return;
 
@@ -306,6 +287,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
      * 固定値がこちらに反映されないドリフトが起きていた)。入口は薄く=actor/item を解決して呼ぶだけ。
      */
     static async _onUsageUse(_event, target) {
+        if (!this.document.isOwner) return;
         const usageId = target.dataset.usageId;
         if (!usageId) return;
         const usage = (this.item.system.actions ?? []).find(a => a._id === usageId);
@@ -321,6 +303,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
     }
 
     static async _onActionDelete(_event, target) {
+        if (!this.document.isOwner) return;
         const usageId = target.dataset.usageId;
         if (!usageId) return;
 
@@ -333,12 +316,17 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
 
         // 直列キュー経由(2026-07-17): 用途シートの submit/enforcement の in-flight 書き込みと
         // 競合しても、削除は必ず最新の actions へ適用される(復活レースの根絶)
-        await updateUsageActions(this.item, (actions) => {
-            const idx = actions.findIndex(a => a._id === usageId);
-            if (idx === -1) return null;
-            actions.splice(idx, 1);
-            return actions;
-        });
+        try {
+            await updateUsageActions(this.item, (actions) => {
+                const idx = actions.findIndex(a => a._id === usageId);
+                if (idx === -1) return null;
+                actions.splice(idx, 1);
+                return actions;
+            });
+        } catch (err) {
+            console.error("TNX | 用途の削除に失敗しました", err);
+            ui.notifications.error("用途の削除に失敗しました。コンソールを確認してください。");
+        }
     }
 
     // ─── 種別選択ダイアログ ────────────────────────────────────────────────────
