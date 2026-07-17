@@ -14,7 +14,7 @@ import { getComboSuits, comboUsesBounty } from "./tnx-check-engine.mjs";
 import { resolveConsumeRowsForActor, promptConsumption } from "./usage-consumption.mjs";
 import { prepareUsageEffectPayload } from "./usage-effects.mjs";
 import { resolveUsageTargetValue } from "./usage-target-value.mjs";
-import { executionFormOf } from "./usage-types.mjs";
+import { executionFormOf, effectiveBaseSkillId } from "./usage-types.mjs";
 import { formatSkillName } from "./identification.mjs";
 
 /**
@@ -23,7 +23,8 @@ import { formatSkillName } from "./identification.mjs";
  * 用途不備検知と判定実行で共用する(旧 TnxCharacterSheetBase._resolveSkillSet)。
  */
 export function resolveUsageSkillSet(item, usage, actor) {
-    const baseSkillId = usage.baseSkillRef?.itemId || item.id;
+    // ベース id は共通リゾルバに集約(2026-07-18)。起動時の最終フォールバック(未永続の瞬間に親へ)。
+    const baseSkillId = effectiveBaseSkillId(usage, item);
     const baseSkill = actor?.items.get(baseSkillId) ?? null;
     const comboSkillIds = (usage.skillRefs ?? [])
         .map(r => r.itemId)

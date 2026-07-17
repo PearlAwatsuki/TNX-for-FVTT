@@ -24,7 +24,7 @@ import { WEAPON_RANGE_MAX_OPTIONS } from "../data/item/weapon.mjs";
 import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, loadSkillUsageTypeIndex, loadDictionarySkillItems, SKILL_PACKS } from "./skill-dictionary.mjs";
 import {
     USAGE_TYPE_LABELS, isAttackType, attackCategoryOf, isReactionType, usesVehicle,
-    executionFormOf, defaultConfrontationForType, usageDisplayName,
+    executionFormOf, defaultConfrontationForType, usageDisplayName, effectiveBaseSkillId,
 } from "./usage-types.mjs";
 import { USAGE_CONFRONTATION_OPTIONS, mergeConfrontationRows } from "./confrontation-logic.mjs";
 import { findItemByIdentificationKey, formatSkillName, itemDisplayName } from "./identification.mjs";
@@ -260,12 +260,17 @@ export async function enforceUsageChainDefaultsOnImport(item) {
             ...cleanedRefs,
         ].filter(Boolean);
         const res = resolveUsageSkills(normalizeSkillItemDoc(item), skillItems, seedIds, ignoreKeys);
+        // 実効ベースを解決して**常に永続化**する(2026-07-18 統一。_enforceComboRequirements と同じ規則)。
+        // 自己ベース(親自身)もここで item.id へ張り直す=インポートで親 id が変わっても陳腐化しない
+        const parentIsChainSkill = CHAIN_SKILL_TYPES.includes(item.type);
         if (res && !res.defect) {
             const baseCandidates = parentIsAction ? [item.id]
                 : (res.baseLocked ? (res.baseCandidateItemIds ?? []) : null);
             if (parentIsAction) baseId = item.id;
-            else if (baseCandidates && !baseCandidates.includes(baseId)) baseId = res.baseItemId ?? baseCandidates[0] ?? "";
-            else if (!baseId && !res.manual && res.baseItemId && res.baseItemId !== item.id) baseId = res.baseItemId;
+            else if (baseCandidates) baseId = baseCandidates.includes(baseId) ? baseId : (res.baseItemId || baseCandidates[0] || "");
+            else if (res.manual) { /* & グループ=ベース曖昧: 自動設定しない */ }
+            else if (parentIsChainSkill) baseId = baseId || res.baseItemId || item.id;
+            // アウトフィット親等: baseId はユーザー設定のまま
         }
 
         // ベース・アクション技能を除外し、必須コンボ(クロージャ)を補完する
@@ -303,7 +308,7 @@ export async function enforceUsageChainDefaultsOnImport(item) {
  */
 export async function deriveUsageAutoFill(item, usage) {
     const actor = item.actor;
-    const baseId = item.system.isAction === true ? item.id : (usage.baseSkillRef?.itemId || item.id);
+    const baseId = effectiveBaseSkillId(usage, item);
     const ids = new Set([item.id, baseId, ...(usage.skillRefs ?? []).map(r => r.itemId)].filter(Boolean));
     // 参照解決は同輩コレクション(2026-07-18 是正: 辞典/ワールド直下でもベース・組み合わせを解決)
     const siblings = await resolveUsageSiblingSkills(item);
@@ -408,7 +413,7 @@ function deriveWeaponRangeLive(item, usage) {
     // 限定のため通常ここに来ないが、念のためガードする
     if (isAttackType(usage.type) && attackCategoryOf(usage.type) !== "physical") return null;
     const actor = item.actor;
-    const baseId = item.system.isAction === true ? item.id : (usage.baseSkillRef?.itemId || item.id);
+    const baseId = effectiveBaseSkillId(usage, item);
     const ids = new Set([item.id, baseId, ...(usage.skillRefs ?? []).map(r => r.itemId)].filter(Boolean));
     const skills = [...ids]
         .map(id => (id === item.id ? item : actor?.items.get(id)))
@@ -490,9 +495,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
     /** 用途の参加技能（親＋ベース＋コンボ）を Item 配列で返す（check / attack 用） */
     _gatherParticipatingSkills(usage) {
         const actor = this._item.actor;
-        const baseId = this._item.system.isAction === true
-            ? this._item.id
-            : (usage.baseSkillRef?.itemId || this._item.id);
+        const baseId = effectiveBaseSkillId(usage, this._item);
         const ids = new Set([this._item.id, baseId, ...usage.skillRefs.map(r => r.itemId)].filter(Boolean));
         return [...ids]
             .map(id => (id === this._item.id ? this._item : actor?.items.get(id)))
@@ -657,10 +660,16 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             if (parentIsAction) baseCandidates = [parentItemId];
             else if (lockedByChain) baseCandidates = (chainRes.baseCandidateItemIds ?? []).slice();
 
+            const parentIsChainSkill = CHAIN_SKILL_TYPES.includes(this._item.type);
             const defaultBaseId = parentIsAction ? parentItemId : (chainRes && !chainRes.defect ? chainRes.baseItemId : null);
             let baseId = parentIsAction ? parentItemId : (usage.baseSkillRef?.itemId ?? "");
             // ロック時、現ベースが候補外(未設定含む)なら既定(指定技能・本体優先)へ寄せる
             if (baseCandidates && !baseCandidates.includes(baseId)) baseId = defaultBaseId ?? baseCandidates[0] ?? "";
+            // 非ロック・未設定は連鎖の解決ベース(指定技能があれば末端・無ければ親自身)を既定に(2026-07-18 統一)。
+            // 親が技能のときのみ自己ベースを既定にする(アウトフィット親はユーザーがベース技能を明示設定)
+            else if (!baseCandidates && !baseId && !chainRes?.manual && parentIsChainSkill) {
+                baseId = defaultBaseId || parentItemId;
+            }
 
             const baseItem = skillById.get(baseId) ?? (baseId === parentItemId ? this._item : null);
             // 技能名の表示は 〈〉 整形(2026-07-18 ユーザー確定: 名前欄・アクターシートの技能リスト以外)
@@ -669,15 +678,22 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             // 候補が1つだけ(代用なし)なら固定表示、複数(代用あり)なら選択可能
             context.baseSkillFixed = !!baseCandidates && baseCandidates.length <= 1;
 
+            // 非ロック候補: 親が技能なら自己(＝親をベース)を先頭に含める(2026-07-18: base=親を明示選択可能に)。
+            // 指定技能があるスタイル技能の既定ベースは末端だが、自己選択の余地は残す(手動上書き)
+            const selfBaseOption = parentIsChainSkill
+                ? [{ id: parentItemId, name: formatSkillName(this._item.name) }] : [];
             context.availableBaseSkills = baseCandidates
                 ? baseCandidates.map(id => {
                     const s = skillById.get(id) ?? (id === parentItemId ? this._item : null);
                     return { id, name: s ? formatSkillName(s.name) : `(削除済み: ${id})` };
                 })
-                : siblingSkills
-                    .filter(i => i.id !== parentItemId)
-                    .map(i => ({ id: i.id, name: formatSkillName(i.name) }))
-                    .sort((a, b) => a.name.localeCompare(b.name, "ja"));
+                : [
+                    ...selfBaseOption,
+                    ...siblingSkills
+                        .filter(i => i.id !== parentItemId)
+                        .map(i => ({ id: i.id, name: formatSkillName(i.name) }))
+                        .sort((a, b) => a.name.localeCompare(b.name, "ja")),
+                ];
 
             const parentIsComboMember = !!baseId && parentItemId !== baseId;
 
@@ -1782,10 +1798,9 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         return (this.usage?.ignoreComboSkills ?? []).filter(Boolean);
     }
 
-    /** 現在の実効ベース技能 id(アクション親は自身・非アクションは baseSkillRef かフォールバックで親)。 */
+    /** 現在の実効ベース技能 id(共通リゾルバ effectiveBaseSkillId に集約・2026-07-18)。 */
     _effectiveBaseId() {
-        if (this._item.system.isAction === true) return this._item.id;
-        return this.usage?.baseSkillRef?.itemId || this._item.id;
+        return effectiveBaseSkillId(this.usage, this._item);
     }
 
     /** ベース技能のレベル(＝組み合わせ技能の上限個数。ベース込みで level+1)。 */
@@ -1966,24 +1981,27 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
         const parentIsAction = this._item.system.isAction === true;
         const parentItemId = this._item.id;
+        const parentIsChainSkill = CHAIN_SKILL_TYPES.includes(this._item.type);
         // アクション技能がチェーンにあると、ベースは「指定技能＋その代用」に限定する(他はベースになれない)
         const baseCandidates = parentIsAction ? [parentItemId]
             : (res.baseLocked ? (res.baseCandidateItemIds ?? []) : null);
-        const defaultBaseId = parentIsAction ? parentItemId : res.baseItemId;
-        let baseId = parentIsAction ? parentItemId : (usage.baseSkillRef?.itemId ?? "");
+        const curBase = usage.baseSkillRef?.itemId ?? "";
+
+        // 実効ベースを決めて**常に永続化**する(2026-07-18 統一・アクション/非アクション共通)。
+        // 空フォールバック依存を廃し baseSkillRef を単一の真実にする。
+        // - アクション → 親自身
+        // - ロック(チェーンにアクション) → 現ベースが候補内ならユーザー選択尊重・候補外/未設定は既定へ
+        // - & グループ(全員非アクション)=ベース曖昧(manual) → 自動設定しない(ユーザーが選ぶ)
+        // - 非ロック → ユーザー設定尊重・未設定は連鎖の解決ベース(指定技能があれば末端・無ければ親自身)
+        let baseId;
+        if (parentIsAction) baseId = parentItemId;
+        else if (baseCandidates) baseId = baseCandidates.includes(curBase) ? curBase : (res.baseItemId || baseCandidates[0] || "");
+        else if (res.manual) baseId = curBase;
+        else if (parentIsChainSkill) baseId = curBase || res.baseItemId || parentItemId;
+        else baseId = curBase; // アウトフィット親等: ユーザーが設定したベースのみ
 
         const patch = {};
-        if (baseCandidates) {
-            // ロック: 現ベースが候補外(未設定含む)なら既定(指定技能・本体優先)へ寄せる。候補内ならユーザー選択を尊重
-            if (!baseCandidates.includes(baseId)) {
-                baseId = defaultBaseId ?? baseCandidates[0] ?? "";
-                if (!parentIsAction && baseId) patch["baseSkillRef.itemId"] = baseId;
-            }
-        } else if (!baseId && !res.manual && res.baseItemId && res.baseItemId !== parentItemId) {
-            // 非ロック: ベース未設定なら既定ベースを設定(自身をベースにする no-chain は既存フォールバックに委ねる)
-            baseId = res.baseItemId;
-            patch["baseSkillRef.itemId"] = baseId;
-        }
+        if (baseId && baseId !== curBase) patch["baseSkillRef.itemId"] = baseId;
 
         // ベースが決まっているときのみ: ベース自身はコンボから外し、必須コンボ(クロージャ)を補完する
         if (baseId) {

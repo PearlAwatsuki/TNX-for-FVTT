@@ -97,6 +97,21 @@ export function defaultConfrontationForType(type) {
 }
 
 /**
+ * 用途の実効ベース技能 id の唯一の解決関数(2026-07-18 集約)。散在していた
+ * `usage.baseSkillRef?.itemId || item.id` の重複を一本化する。
+ * アクション技能は常に自身がベース。非アクションは baseSkillRef があればそれ、無ければ親自身。
+ * ベースは用途設定確定時に永続化されるため通常は baseSkillRef が埋まっている——この関数は
+ * 未永続の瞬間(作成直後など)の最終フォールバックとして親自身を返す安全網。
+ * @param {{baseSkillRef?: {itemId?: string}}} usage
+ * @param {{id: string, system?: {isAction?: boolean}}} item 用途の親アイテム
+ * @returns {string}
+ */
+export function effectiveBaseSkillId(usage, item) {
+    if (item?.system?.isAction === true) return item.id;
+    return usage?.baseSkillRef?.itemId || item?.id || "";
+}
+
+/**
  * 用途の実効表示名: 名前が空なら「タイプ名（親アイテム名）」(2026-07-17 ユーザー確定・
  * 用途シートの placeholder と同形。例:「判定（ペネトレイト）」)。一覧・タイトル・戦闘タブ・
  * カード・通知の全表示箇所でこの一形式に統一する(親名のみの旧形式は同名行が並ぶと判別不能)。
