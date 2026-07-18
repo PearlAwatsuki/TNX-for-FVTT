@@ -31,7 +31,7 @@ import { ALL_SUITS } from '../module/tnx-check-engine.mjs';
 import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
 import { groupStyleSkillsByStyle } from '../module/style-skill-acquisition.mjs';
 import { HOUSING_AREA_RANKS } from '../data/item/housing-area.mjs';
-import { CONDITION_KINDS, readConditions, getConditionKind, getEffectiveConditions, getCheckBlock, gatherSkillUseWarnings } from '../module/conditions.mjs';
+import { CONDITION_KINDS, readConditions, getConditionKind, getEffectiveConditions, getCheckBlock, gatherSkillUseWarnings, woundChartValue } from '../module/conditions.mjs';
 import { applyTriggerDisable } from '../module/ui-trigger-disable.mjs';
 import { openConditionEditDialog } from '../module/condition-edit.mjs';
 import { startTreatment } from '../module/treatment-flow.mjs';
@@ -305,7 +305,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                             id:      e.id,
                             statusId,
                             name:    statusConfig.name,
-                            valueSuffix: TnxCharacterSheetBase._bsValueSuffix(this.actor, conds.find(c => c.kind === statusId)),
+                            valueSuffix: TnxCharacterSheetBase._bsValueSuffix(this.actor, conds.find(c => c.kind === statusId), e),
                             img:     statusConfig.img,
                             details: ig?.ignored ? (ig.manual ? "手動で無視中" : (ig.by ? `「${ig.by}」により無視` : "効果を無視中")) : (bsFlags?.details || ""),
                             ignored: ig?.ignored === true,
@@ -320,7 +320,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                     id:      e.id,
                     statusId: null,
                     name:    e.name,
-                    valueSuffix: TnxCharacterSheetBase._bsValueSuffix(this.actor, conds[0]),
+                    valueSuffix: TnxCharacterSheetBase._bsValueSuffix(this.actor, conds[0], e),
                     img:     e.img,
                     details: ig?.ignored ? (ig.manual ? "手動で無視中" : (ig.by ? `「${ig.by}」により無視` : "効果を無視中")) : (bsFlags?.details || ""),
                     ignored: ig?.ignored === true,
@@ -2345,16 +2345,23 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
     }
 
     /**
-     * BS バッジに付す効果値/対象の表記を返す(2026-07-15・正本 Bad_Status.md の表記に従う)。
+     * BS/負傷バッジに付す効果値/対象の表記を返す(2026-07-15・正本 Bad_Status.md の表記に従う)。
      * 値/対象が「効果や名前で決まるもの」(酩酊(大/小)・恐慌 等)は空文字＝表示しない。
      * カードで決まるもの(重圧の指定なし・衰弱のスート引き)も、引いた後は保存された値/対象を表示する。
      * @param {Actor} actor バッジの持ち主(対象武器=このアクターの武器・生身の解決に使う)
      * @param {object|null} cond readConditions の 1 要素
+     * @param {ActiveEffect|null} effect バッジの元 AE(負傷のチャート値の読み取りに使う)
      * @returns {string} 名前に続けて表示する表記(例 「2」「（生命）」「（-3）」「（対象名）」)
      */
-    static _bsValueSuffix(actor, cond) {
+    static _bsValueSuffix(actor, cond, effect = null) {
         const def = cond?.def;
         if (!def || def.fixedMagnitude !== undefined) return ""; // 固定値/名前で明示=表示なし
+        // 負傷: チャート値を数字直付けで表示(邪毒と同型・2026-07-18 ユーザー指摘で表示化。
+        // 保存された woundValue 優先・手動付与は kind から導出=woundChartValue)
+        if (def.type === "wound") {
+            const v = woundChartValue(effect);
+            return v ? String(v) : "";
+        }
         const ABIL = { reason: "理性", passion: "感情", life: "生命", mundane: "外界" };
         // 変動する強度(邪毒・電子妨害): 名前に数字を直付け(括弧なし)。Bad_Status `[BS：邪毒n]`/`[BS：電子妨害n]`
         if (def.magnitudeField && (def.type === "continuous" || def.type === "computed")) {

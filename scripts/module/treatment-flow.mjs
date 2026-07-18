@@ -5,7 +5,8 @@
  * =recovery-flow)であり、本モジュールは入口の照合だけを担う:
  * 1. クリックされた状態をダメージインスタンス(負傷＋紐づき戦闘不能/支配)の kind 集合へ展開する
  *    (負傷と紐づく戦闘不能は同じ一つのダメージ=2026-07-09 ユーザー裁定。どの行をクリックしても同じ集合)。
- * 2. 治療者=起動した利用者の担当キャラクター(治療は常に自分の技能で行う=2026-07-18 ユーザー確定)。
+ * 2. 治療者=操作可能なキャスト/ゲストから選択(既定=担当キャラクター・1体なら即決)。担当キャラ固定は
+ *    不備(RL は複数のゲストを操作する=2026-07-18 ユーザー是正)。治療に使う技能はその治療者自身のもの。
  * 3. 治療者のアイテムから kind 集合に範囲適合(recoveryTargets/recoveryExcludes)する治療用途を検出。
  *    無ければ「治療できる技能が無い」で中止(代用判定は廃止=2026-07-18)。
  * 4. _activateItemCheck へ prebound 文脈(患者・クリック状態)を注入して起動(起動関数の一本化規範)。
@@ -68,13 +69,10 @@ export async function startTreatment(patient, effectId) {
         return;
     }
 
-    // 治療者=起動した利用者の担当キャラクター(治療は常に自分の技能で行う=2026-07-18 ユーザー確定)。
-    // RL がゲスト等に治療させる場合は、その治療者の技能のアイテムロール(患者をターゲット)から行う
-    const treater = game.user.character;
-    if (!treater) {
-        ui.notifications.warn("担当キャラクターが設定されていません。治療者の技能から直接使用してください。");
-        return;
-    }
+    // 治療者の選択: 操作可能なキャスト/ゲスト(既定=担当キャラ)。担当キャラ固定は RL(複数ゲスト操作)で
+    // 破綻するため選択制(2026-07-18 ユーザー是正)。治療に使う技能は選んだ治療者自身のものだけを照合する
+    const treater = await pickTreater();
+    if (!treater) return;
 
     // 範囲適合する治療用途の全数収集(アイテム型は不問=アイテムロール経路と同じ資格)。
     // 通常は除外設定の規約(通常ダメージ用途=戦闘不能系タグ全除外)でちょうど1つに決まる
@@ -115,6 +113,26 @@ export async function startTreatment(patient, effectId) {
         usageId: picked.usage._id,
         treatment: { patientUuid: patient.uuid, effectId: effect.id },
     });
+}
+
+/** 治療者を選ぶ(操作可能なキャスト/ゲスト。既定=担当キャラ)。1体だけなら即返す。 */
+async function pickTreater() {
+    const candidates = game.actors.filter(a =>
+        (a.type === "cast" || a.type === "guest") && (game.user.isGM || a.isOwner));
+    if (!candidates.length) { ui.notifications.warn("治療を行えるキャラクターがいません。"); return null; }
+    if (candidates.length === 1) return candidates[0];
+
+    const mine = game.user.character?.id;
+    const options = candidates
+        .sort((a, b) => a.name.localeCompare(b.name, "ja"))
+        .map(a => ({ value: a.id, label: a.name, selected: a.id === mine }));
+    const id = await TargetSelectionDialog.prompt({
+        title: "治療者の選択",
+        label: "治療を行うキャラクターを選択してください。",
+        options,
+        selectLabel: "治療へ",
+    });
+    return id ? game.actors.get(id) : null;
 }
 
 /** GM が委譲された治療/回復の状態除去を代行する(treatmentApply ソケット)。 */
