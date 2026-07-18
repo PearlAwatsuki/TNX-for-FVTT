@@ -1183,13 +1183,14 @@
     font-family: var(--tnx2-font-mono);
     color: var(--tnx2-text-secondary);
 }
-/* 効果値/チャート値の強調(2026-07-18 ユーザー確定)。順序はテンプレート側:
+/* 効果値/チャート値の強調(2026-07-18 ユーザー確定: 大きめ・淡色・グロー)。順序はテンプレート側:
    BS=「効果名n」・ダメージ=「nチャート名」 */
 .tokyo-nova.sheet.actor .tnx-bs-value {
-    font-size: 0.95em;
+    font-size: 1.2em;
     font-family: var(--tnx2-font-mono);
     font-weight: 700;
-    color: var(--tnx2-accent, #6fb3d2);
+    color: #99e6f2; /* アクセント(#00c8e0)の淡色 */
+    text-shadow: 0 0 6px rgba(0, 200, 224, 0.5);
 }
 
 /* 編集モード: ホバーで削除インジケーター */
