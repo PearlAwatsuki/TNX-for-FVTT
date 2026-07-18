@@ -137,6 +137,17 @@ export class UsageTemplate extends SystemDataModel {
                         })
                     ),
 
+                    // attack: 「1点でもダメージを与えたら適用される効果」の2つ目のリスト
+                    // (2026-07-18 ユーザー確定)。effects=一般(攻撃では命中時)・こちら=ダメージ時。
+                    // タイミングはこのリスト所属で決まる(AE 側には持たせない)。条件の判定はコード化
+                    // せず、ダメージカードの「効果を適用」ボタンを押す/押さないの卓判断に委ねる
+                    damageEffects: new fields.ArrayField(
+                        new fields.SchemaField({
+                            itemId:   new fields.StringField({ initial: "" }),
+                            effectId: new fields.StringField({ initial: "" }),
+                        })
+                    ),
+
                     // check・attack: ベース技能参照（用途が明示的に保持。作成時に親アイテムのIDで自動設定）
                     baseSkillRef: new fields.SchemaField({
                         itemId: new fields.StringField({ initial: "" }),

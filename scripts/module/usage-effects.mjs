@@ -4,11 +4,13 @@
  * 攻撃に限らず全用途が対象。
  *
  * - **付与先(AE 設定・flags.grantTarget)**: 「対象」(既定)=ターゲットしたキャラクターへ、
- *   結果カードの「効果を適用」ボタン(またはダメージ適用連動)で付与。「自分」=使用者へ、
+ *   カードの「効果を適用」ボタンで付与。「自分」=使用者へ、
  *   **用途解決時に即時自動付与**(代償デバフ等を後回しにしない。付与先選択のキャンセルは用途中止)。
- * - **適用タイミング(AE 設定・flags.grantTiming・2026-07-18)**: 攻撃で対象に与える効果の2種。
- *   「ダメージ時」(既定)=ダメージ適用時に最終適用値≥1 の対象へ・「命中時」=攻撃カードの
- *   「効果を適用」ボタンで命中対象へ(**自動付与しない**=卓がカバー宣言後に押せばカバー側へ乗る)。
+ * - **適用タイミング(2026-07-18 ユーザー確定)**: 攻撃用途は効果リストが2つ——`effects`=一般
+ *   (攻撃では命中時=攻撃カードの「効果を適用」ボタン。カバー宣言後に押せばカバー側へ乗る)・
+ *   `damageEffects`=ダメージ時(ダメージカードのボタン)。タイミングは**リスト所属**で決まり
+ *   AE 側には持たせない。「1点でも与えたら」等の条件はコード化せず、ボタンを押す/押さない・
+ *   除外ダイアログ(複数対象)の卓判断に委ねる。自動付与はどこにも無い(付与先「自分」の即時のみ)。
  * - **着地(changes のキーで判断)**: アイテム狙いキー(素の system.<パス>/分類/識別キー)が
  *   1つでもあれば**アイテム着地**=付与先アクターの所持アイテムから選択して付与(候補はキーで絞る。
  *   1件なら無確認・0件は通知してスキップ)。それ以外は**アクター着地**(従来どおり)。混在は非対応。
@@ -37,37 +39,44 @@ const SCOPE = "tokyo-nova-axleration";
  */
 export function resolveUsageEffectData(actor, parentItem, usage) {
     const out = [];
-    for (const ref of (usage?.effects ?? [])) {
-        if (!ref?.effectId) continue;
-        const host = (!ref.itemId || ref.itemId === parentItem?.id)
-            ? parentItem
-            : actor?.items?.get(ref.itemId);
-        const eff = host?.effects?.get(ref.effectId);
-        if (!eff) continue;
-        const data = eff.toObject();
-        delete data._id;
-        data.disabled = false;   // 付与先で有効化
-        data.transfer = false;   // 付与先に直接乗る一回性のインスタンス(自動転送の供給元にしない)
-        // トークン演出(2026-07-11 ユーザー指摘): コアの浮遊テキスト(+効果名)は statuses/changes が
-        // 無いと出ず、トークン上のアイコンは temporary(statuses あり or 持続時間あり)でないと出ない。
-        // statuses が空の効果には付与マーカーの status を注入し、コアの標準演出を全クライアントで
-        // 発火させる(CONFIG.statusEffects 未登録の id は HUD パレットには出ない=バッジ表示専用)
-        if (!(data.statuses?.length)) data.statuses = ["tnx-applied"];
-        // 由来と同一性(2026-07-13 再設計): grantedFrom=付与コピーの印(転送の供給元にならない)。
-        // effectId=重複排除・置き換えリフレッシュの同一性(供給元に無ければ供給元 uuid を刻む)
-        data.flags = data.flags ?? {};
-        const f = data.flags[SCOPE] = { ...(data.flags[SCOPE] ?? {}) };
-        f.grantedFrom = eff.uuid;
-        if (!f.effectId) f.effectId = eff.uuid;
-        delete f.applyToParent; // 付与コピーに準備先転送は無関係
-        out.push({
-            name: eff.name,
-            data,
-            grantTarget: eff.flags?.[SCOPE]?.grantTarget === "self" ? "self" : "target",
-            // 適用タイミング(2026-07-18): 攻撃フローでのみ意味を持つ。既定=ダメージ時(既存データ無移行)
-            timing: eff.flags?.[SCOPE]?.grantTiming === "hit" ? "hit" : "damage",
-            landing: analyzeGrantLanding(data.changes),
-        });
+    // タイミングはリスト所属で決まる(2026-07-18 ユーザー確定=AE 側には持たせない)。
+    // effects=一般(攻撃では命中時・非攻撃では従来どおり)・damageEffects=攻撃専用のダメージ時
+    const lists = [
+        { refs: usage?.effects ?? [], timing: "hit" },
+        { refs: usage?.damageEffects ?? [], timing: "damage" },
+    ];
+    for (const { refs, timing } of lists) {
+        for (const ref of refs) {
+            if (!ref?.effectId) continue;
+            const host = (!ref.itemId || ref.itemId === parentItem?.id)
+                ? parentItem
+                : actor?.items?.get(ref.itemId);
+            const eff = host?.effects?.get(ref.effectId);
+            if (!eff) continue;
+            const data = eff.toObject();
+            delete data._id;
+            data.disabled = false;   // 付与先で有効化
+            data.transfer = false;   // 付与先に直接乗る一回性のインスタンス(自動転送の供給元にしない)
+            // トークン演出(2026-07-11 ユーザー指摘): コアの浮遊テキスト(+効果名)は statuses/changes が
+            // 無いと出ず、トークン上のアイコンは temporary(statuses あり or 持続時間あり)でないと出ない。
+            // statuses が空の効果には付与マーカーの status を注入し、コアの標準演出を全クライアントで
+            // 発火させる(CONFIG.statusEffects 未登録の id は HUD パレットには出ない=バッジ表示専用)
+            if (!(data.statuses?.length)) data.statuses = ["tnx-applied"];
+            // 由来と同一性(2026-07-13 再設計): grantedFrom=付与コピーの印(転送の供給元にならない)。
+            // effectId=重複排除・置き換えリフレッシュの同一性(供給元に無ければ供給元 uuid を刻む)
+            data.flags = data.flags ?? {};
+            const f = data.flags[SCOPE] = { ...(data.flags[SCOPE] ?? {}) };
+            f.grantedFrom = eff.uuid;
+            if (!f.effectId) f.effectId = eff.uuid;
+            delete f.applyToParent; // 付与コピーに準備先転送は無関係
+            out.push({
+                name: eff.name,
+                data,
+                grantTarget: eff.flags?.[SCOPE]?.grantTarget === "self" ? "self" : "target",
+                timing,
+                landing: analyzeGrantLanding(data.changes),
+            });
+        }
     }
     return out;
 }
@@ -87,7 +96,7 @@ export function splitEffectsByTiming(effects) {
 
 /**
  * 対決判定カード(attackCheck フラグ持ち)での効果ブロックの出し分け(KI-028 是正・2026-07-18)。
- * - "attack": 攻撃。ボタンはダメージカードへ一本化(カード上は付与済みノートのみ)
+ * - "attack": 攻撃。一般(命中時)効果はこのカードのボタン・ダメージ時効果はダメージカードのボタン
  * - "button": 非攻撃対決の解決後(または終端状態)。結果カードと同じ手動ボタンを出す(適用判断は卓)
  * - "hide":   非攻撃対決の未解決。フロー終端(2026-07-11 確定)前なのでまだ出さない
  * @param {object|null} f attackCheck フラグ
@@ -218,9 +227,23 @@ export async function applyHitEffectsFromMessage(message) {
     if (!payload?.effects?.length || payload.hitApplied) return;
     const entries = splitEffectsByTiming(payload.effects).hit.filter(e => e?.data);
     if (!entries.length) return;
-    const refs = hitEffectTargetRefs(message.getFlag(SCOPE, "attackCheck")?.targets);
-    if (!refs.length) return;
+    // 複数対象は除外ダイアログで確定(2026-07-18 ユーザー確定)
+    const refs = await confirmEffectTargets(
+        hitEffectTargetRefs(message.getFlag(SCOPE, "attackCheck")?.targets));
+    if (!refs) return;
 
+    const { appliedAny, cancelled, granted } = await grantEffectsToRefs(refs, entries);
+    if (cancelled || !appliedAny) return;
+    await TnxSocketHandler.applyMessagePatch(message, { hitApplied: true, hitGranted: granted }, "usageEffects");
+}
+
+/**
+ * 効果エントリ群を対象群へ付与する共通ループ(押下者の権限で付与・権限が無い対象は警告)。
+ * @param {Array<{uuid:string, name:string}>} refs 適用先
+ * @param {Array<{name:string, data:object}>} entries 効果エントリ(データ持ちのみ渡す)
+ * @returns {Promise<{appliedAny:boolean, cancelled:boolean, granted:Array<{uuid:string,name:string}>}>}
+ */
+async function grantEffectsToRefs(refs, entries) {
     let appliedAny = false;
     let cancelled = false;
     const denied = [];
@@ -229,40 +252,49 @@ export async function applyHitEffectsFromMessage(message) {
         const resolved = await fromUuid(ref.uuid).catch(() => null);
         const actor = resolved?.actor ?? resolved;
         if (!actor?.createEmbeddedDocuments) continue;
-        if (!(game.user.isGM || actor.isOwner)) { denied.push(ref.name); continue; }
+        if (!(game.user.isGM || actor.isOwner)) { denied.push(actor.name ?? ref.name); continue; }
         let grantedThis = false;
         for (const e of entries) {
             const r = await grantUsageEffect(actor, e);
             if (r === "cancel") { cancelled = true; continue; }
-            appliedAny = true;
+            appliedAny = true; // skip(候補なし)も適用済み扱い(通知済み・再押下で解決しないため)
             grantedThis = true;
         }
         if (grantedThis) granted.push({ uuid: ref.uuid, name: ref.name });
     }
-
     if (denied.length) {
         ui.notifications.warn(`${denied.map(n => `「${n}」`).join("・")}への効果付与は対象の操作者（か RL）が行います。`);
     }
-    if (cancelled || !appliedAny) return;
-    await TnxSocketHandler.applyMessagePatch(message, { hitApplied: true, hitGranted: granted }, "usageEffects");
+    return { appliedAny, cancelled, granted };
 }
 
 /**
- * ダメージ時効果をダメージ適用時に1対象へ付与する(2026-07-18)。呼び出し側が
- * **最終適用値≥1** の対象にのみ呼ぶ(1未満は付与しない=裁定)。適用者=ダメージ適用の
- * 押下者(対象の所有者か RL)。権限が無い対象は警告してスキップ(ダメージ適用と同じ前提)。
- * @param {Actor} actor 付与先(ダメージを受けた対象。カバー時はカバーした側)
- * @param {Array<{name:string, data:object}>} entries ダメージ時の効果エントリ
- * @returns {Promise<boolean>} 付与を実行したか
+ * 「効果を適用」の適用先を確定する共通ダイアログ(2026-07-18 ユーザー確定)。
+ * 対象1体はそのまま(ダイアログなし)・0体は null。2体以上はチェックボックスで除外を選べる
+ * (全員チェック済みが初期状態。例: ダメージ0だった対象を外す)。キャンセル・全除外は
+ * null=適用しない(ボタンは残る)。
+ * @param {Array<{uuid:string, name:string}>} refs 候補の対象
+ * @returns {Promise<Array<{uuid:string, name:string}>|null>}
  */
-export async function grantDamageTimedEffects(actor, entries) {
-    if (!actor?.createEmbeddedDocuments || !entries?.length) return false;
-    if (!(game.user.isGM || actor.isOwner)) {
-        ui.notifications.warn(`「${actor.name}」への効果付与は対象の操作者（か RL）が行います。`);
-        return false;
-    }
-    for (const e of entries) await grantUsageEffect(actor, e);
-    return true;
+async function confirmEffectTargets(refs) {
+    if ((refs?.length ?? 0) <= 1) return refs?.length ? refs : null;
+    const esc = foundry.utils.escapeHTML;
+    const rows = refs.map((r, i) => `<div class="tnx-uses-row"><label>
+        <input type="checkbox" name="t-${i}" checked><span>${esc(r.name)}</span></label></div>`).join("");
+    const picked = await foundry.applications.api.DialogV2.wait({
+        window: { title: "効果の適用先" },
+        classes: ["tokyo-nova", "tnx-dialog"],
+        position: { width: 360 },
+        content: `<p>効果を適用する対象を選択:</p>${rows}`,
+        buttons: [
+            { action: "apply", icon: "fas fa-check", label: "適用", default: true,
+              callback: (_e, _b, dialog) => refs.filter((_r, i) => dialog.element.querySelector(`[name="t-${i}"]`)?.checked) },
+            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+        ],
+        rejectClose: false,
+        close: () => null,
+    });
+    return (picked && picked.length) ? picked : null;
 }
 
 /**
@@ -360,7 +392,7 @@ export function renderUsageEffectButton(message, html) {
             let hitNote = "";
             let showButton = false;
             if (hitEntries.length && payload.hitApplied) {
-                hitNote = `<p class="tnx-usage-effect-note"><i class="fas fa-check"></i> 命中時効果を適用済み: `
+                hitNote = `<p class="tnx-usage-effect-note"><i class="fas fa-check"></i> 効果を適用済み: `
                     + `${hitNames} → ${nameList((payload.hitGranted ?? []).map(t => t.name)) || "（対象なし）"}</p>`;
             } else if (hitEntries.length) {
                 // 全対象の解決後・命中が1体以上のとき表示。適用先=現時点の命中対象(カバー宣言済みは
@@ -368,7 +400,7 @@ export function renderUsageEffectButton(message, html) {
                 const refs = hitEffectTargetRefs(attackF.targets);
                 const resolvedAll = (attackF.targets ?? []).every(t => t?.state !== "pending");
                 if (resolvedAll && refs.length) {
-                    hitNote = `<p class="tnx-usage-effect-note">命中時効果: ${hitNames} → ${nameList(refs.map(r => r.name))}</p>`;
+                    hitNote = `<p class="tnx-usage-effect-note">付与効果: ${hitNames} → ${nameList(refs.map(r => r.name))}</p>`;
                     showButton = true;
                 }
             }
@@ -392,28 +424,20 @@ export function renderUsageEffectButton(message, html) {
     const damageF = message.getFlag(SCOPE, "damageRoll");
 
     if (payload.applied) {
-        // appliedTargets=ダメージ適用で実際に付与した対象(2026-07-18・最終適用値≥1)。
-        // 無ければ旧カード互換=用途時の対象を表示
+        // appliedTargets=実際に付与した対象(除外ダイアログで確定・2026-07-18)。無ければ旧カード互換
         const applied = payload.appliedTargets ?? payload.targets ?? [];
-        const doneNote = applied.length
-            ? `効果を適用済み: ${names} → ${nameList(applied.map(t => t.name))}`
-            : `効果は付与されませんでした（最終ダメージ 1 点未満）: ${names}`;
-        append(`${selfNote}<p class="tnx-usage-effect-note"><i class="fas fa-check"></i> ${doneNote}</p>`);
+        append(`${selfNote}<p class="tnx-usage-effect-note"><i class="fas fa-check"></i> 効果を適用済み: `
+            + `${names} → ${nameList(applied.map(t => t.name)) || "（対象なし）"}</p>`);
         return;
     }
 
-    // ダメージカードでは、効果はダメージ適用と**同時に自動付与**される(2026-07-12 ユーザー確定=
-    // 押し順の順序依存を消す)。付与されるのは最終適用値が1以上の対象のみ(2026-07-18 裁定)。
-    // ダメージ適用に至る経路がある間はボタンを出さず予告のみ表示する。対象未選択(適用ボタンが
-    // 出ない)・適用済みで効果だけ未適用(旧カード等)は手動ボタンを残す
-    if (damageF && (damageF.targets?.length ?? 0) > 0 && !damageF.applied) {
-        const targetNames = nameList(damageF.targets.map(t => t.name)) || "（対象なし）";
-        append(`${selfNote}<p class="tnx-usage-effect-note">付与効果: ${names} → ${targetNames}（ダメージ適用時・1点以上の対象へ付与）</p>`);
-        return;
-    }
-
-    const targetNames = nameList((payload.targets ?? []).map(t => t.name)) || "（対象なし）";
-    block.innerHTML = `${selfNote}<p class="tnx-usage-effect-note">付与効果: ${names} → ${targetNames}</p>`;
+    // 未適用: 手動ボタン(2026-07-18 ユーザー確定=ダメージ時も自動付与しない。「1点でも」等の
+    // 条件はコード化せず、押す/押さない・除外ダイアログの卓判断に委ねる)。
+    // ダメージカードの適用先はカードの対象(命中対象のカバー展開済み)
+    const refTargets = (damageF?.targets?.length ? damageF.targets : (payload.targets ?? []));
+    const qualifier = damageF ? "（ダメージ時）" : "";
+    const targetNames = nameList(refTargets.map(t => t.name)) || "（対象なし）";
+    block.innerHTML = `${selfNote}<p class="tnx-usage-effect-note">付与効果${qualifier}: ${names} → ${targetNames}</p>`;
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "tnx-chat-btn";
@@ -425,38 +449,29 @@ export function renderUsageEffectButton(message, html) {
 
 /**
  * カードの付与効果を対象へ適用する(対象所有者/GM のみ)。付与＝対象アクター(アイテム着地なら
- * 選択したアイテム)へ AE を複製生成。完了後、カードを「適用済み」にする(権限が無ければ GM へ
- * ソケット委譲)。付与先選択をキャンセルした場合は適用済みにしない(ボタンが残り、やり直せる。
+ * 選択したアイテム)へ AE を複製生成。適用先はダメージカードなら**カードの対象**(命中対象の
+ * カバー展開済み=2026-07-18)、それ以外は用途時の対象。複数対象は除外ダイアログで確定する。
+ * 完了後、カードを「適用済み」にし実際の適用先を記録する(権限が無ければ GM へソケット委譲)。
+ * 付与先選択をキャンセルした場合は適用済みにしない(ボタンが残り、やり直せる。
  * 既付与分は置き換えリフレッシュで二重にならない)。
  */
 export async function applyUsageEffectsFromMessage(message) {
     const payload = message.getFlag(SCOPE, "usageEffects");
     if (!payload?.effects?.length || payload.applied) return;
 
-    let appliedAny = false;
-    let cancelled = false;
-    const denied = [];
-    for (const t of (payload.targets ?? [])) {
-        const resolved = await fromUuid(t.uuid).catch(() => null);
-        const actor = resolved?.actor ?? resolved;
-        if (!actor?.createEmbeddedDocuments) continue;
-        if (!(game.user.isGM || actor.isOwner)) { denied.push(actor.name); continue; }
-        for (const e of payload.effects) {
-            if (!e?.data) continue;
-            const r = await grantUsageEffect(actor, e);
-            if (r === "cancel") { cancelled = true; continue; }
-            appliedAny = true; // skip(候補なし)も適用済み扱い(通知済み・再押下で解決しないため)
-        }
-    }
+    const damageTargets = message.getFlag(SCOPE, "damageRoll")?.targets;
+    const baseRefs = ((damageTargets?.length ? damageTargets : payload.targets) ?? [])
+        .map(t => ({ uuid: t.uuid, name: t.name }));
+    const refs = await confirmEffectTargets(baseRefs);
+    if (!refs) return;
 
-    if (denied.length) {
-        ui.notifications.warn(`${denied.map(n => `「${n}」`).join("・")}への効果付与は対象の操作者（か RL）が行います。`);
-    }
+    const entries = payload.effects.filter(e => e?.data);
+    const { appliedAny, cancelled, granted } = await grantEffectsToRefs(refs, entries);
     if (cancelled || !appliedAny) return;
     // 適用の可視化は Foundry 標準のトークン演出に任せる(+効果名の浮遊テキスト・トークンのアイコン。
     // resolveUsageEffectData の statuses 注入で演出条件を満たす)。独自の通知・チャットカードは
     // 出さない(2026-07-11 ユーザー指摘で撤去)
 
-    // カードを適用済みに(全対象へ付与済みとみなす。author/GM でなければ GM へ委譲)
-    await TnxSocketHandler.applyMessagePatch(message, { applied: true }, "usageEffects");
+    // カードを適用済みに(実際の適用先を記録。author/GM でなければ GM へ委譲)
+    await TnxSocketHandler.applyMessagePatch(message, { applied: true, appliedTargets: granted }, "usageEffects");
 }

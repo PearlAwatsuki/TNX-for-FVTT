@@ -34,7 +34,7 @@ import { TnxActionHandler } from "./tnx-action-handler.mjs";
 import { getCardCheckValue } from "./tnx-check-engine.mjs";
 import { formatAttackLabel } from "./attack-flow-logic.mjs";
 import { gatherDamageVsSources, gatherDamageDealtSources, gatherDamageTakenSources, collectActorEffectBuffs, targetStyleWorksKeys } from "../data/item/helpers.mjs";
-import { splitEffectsByTiming, grantDamageTimedEffects } from "./usage-effects.mjs";
+import { splitEffectsByTiming } from "./usage-effects.mjs";
 import { spinnerDialogActions } from "./tnx-dialog.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
@@ -189,10 +189,10 @@ export async function openDamageRollDialog(attackMessage) {
 async function finalizeDamageRoll(ctx, form, played) {
     const { attackMessage, f, attacker, category, attackPower, damageBonusRows, hitTargets } = ctx;
 
-    // 用途の適用効果(2026-07-11「フローの一番最後」＋2026-07-18 タイミング2種):
-    // 命中時効果は命中解決で付与済み(攻撃カード側にノート表示)。ダメージカードへは
-    // **ダメージ時効果だけ**を引き継ぎ、ダメージ適用時に最終適用値≥1 の対象へ付与する。
-    // 対象なし攻撃(RL 手動運用)は命中解決が無い=命中時効果も従来どおり手動ボタンで拾えるよう残す。
+    // 用途の適用効果(2026-07-18 確定): 一般(命中時)効果は攻撃カードの「効果を適用」ボタンが担う。
+    // ダメージカードへは**ダメージ時効果(damageEffects 由来)だけ**を引き継ぎ、このカードの
+    // 「効果を適用」ボタンで手動適用する(「1点でも」等の条件はコード化せず卓判断)。
+    // 対象なし攻撃(RL 手動運用)は命中解決が無い=一般効果も従来どおりこのカードのボタンで拾えるよう残す。
     // 自分付与・命中時付与のノートは攻撃カード側に出すため持ち込まない(重複表示しない)
     const attackEffects = attackMessage.getFlag(SCOPE, "usageEffects") ?? null;
     const dataEntries = (attackEffects?.effects ?? []).filter(e => e?.data);
@@ -940,13 +940,8 @@ async function openMitigationDialog(message, applyCategory = null) {
     });
     if (!result) return;
 
-    // 適用効果の同時適用(2026-07-12 ユーザー確定・2026-07-18 タイミング2種): ダメージ時効果は
-    // 対象ごとの最終適用値が確定した時点で、**1以上の対象にのみ**チャート適用より先に付与する
-    const effPayload = message.getFlag(SCOPE, "usageEffects");
-    const damageEffectEntries = (effPayload && !effPayload.applied)
-        ? splitEffectsByTiming(effPayload.effects).damage.filter(e => e?.data)
-        : [];
-    const effectAppliedTargets = [];
+    // 適用効果はここでは付与しない(2026-07-18 ユーザー確定=ダメージ時効果もカードの
+    // 「効果を適用」ボタンで手動適用。「1点でも」等の条件はコード化せず卓判断に委ねる)
 
     // 全対象へ適用(対象ごとに恒久軽減→10上限→事後修正→適用時軽減→最終→チャート・2026-07-16 裁定)
     const appliedTargets = [];
@@ -960,12 +955,6 @@ async function openMitigationDialog(message, applyCategory = null) {
             extraPostMods: r.modsSum,
             applyMitigation: v.manual,
         });
-        // ダメージ時効果: 最終適用値が1以上の対象へ、チャート適用より先に付与する(2026-07-18 裁定。
-        // カバー時は実際にダメージを受けるカバー側=この行の対象に付与される)
-        if (damageEffectEntries.length && final >= 1) {
-            await grantDamageTimedEffects(r.actor, damageEffectEntries);
-            effectAppliedTargets.push({ name: r.name });
-        }
         // 説得(精神攻撃のスタン宣言)は、チャートの効果タグ(戦闘不能)を付けず BS のみ付与する。
         // 別系統として適用する場合は説得の意味論が対応しないため付けない(元系統=精神の通常適用時のみ)
         const applyText = await applyDamageToTarget(r.actor, applyCat, final, stage,
@@ -985,15 +974,6 @@ async function openMitigationDialog(message, applyCategory = null) {
             stunCapped: capped,
             bounty: Math.abs(bountySum), final, stage, applyText,
         });
-    }
-
-    // 適用効果の完了記録: 実際に付与した対象(最終適用値≥1)をカードのノートに残す。
-    // 全対象が1未満なら appliedTargets 空=「付与されませんでした」表示
-    if (damageEffectEntries.length) {
-        await TnxSocketHandler.applyMessagePatch(message, {
-            applied: true,
-            appliedTargets: effectAppliedTargets,
-        }, "usageEffects");
     }
 
     await applyDamagePatch(message, {

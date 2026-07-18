@@ -43,28 +43,27 @@ describe("resolveUsageEffectData()（用途effects→付与用AEデータ・2026
   });
 });
 
-describe("適用タイミング（AE flags.grantTiming・2026-07-18 攻撃の適用効果タイミング2種）", () => {
-  const SCOPE = "tokyo-nova-axleration";
-  const mkTimedEffect = (id, name, flags = {}) => ({
-    id, name,
-    flags: { [SCOPE]: flags },
-    toObject: () => ({ _id: id, name, disabled: true, transfer: true, flags: { [SCOPE]: { ...flags } } }),
+describe("適用タイミング（用途のリスト所属で決定・2026-07-18 確定設計）", () => {
+  const mk = (id, name) => ({ id, name, toObject: () => ({ _id: id, name, disabled: true, transfer: true }) });
+  const parent = { id: "p", effects: { get: (id) => (id === "e1" ? mk("e1", "毒") : mk("e2", "呪い")) } };
+
+  it("effects（一般）→ timing='hit'・damageEffects（攻撃専用の2つ目のリスト）→ timing='damage'", () => {
+    const out = resolveUsageEffectData(null, parent, {
+      effects: [{ itemId: "", effectId: "e1" }],
+      damageEffects: [{ itemId: "", effectId: "e2" }],
+    });
+    expect(out.map(e => [e.name, e.timing])).toEqual([["毒", "hit"], ["呪い", "damage"]]);
   });
 
-  it("grantTiming='hit' の効果は timing='hit' で解決される", () => {
-    const parent = { id: "p", effects: { get: () => mkTimedEffect("e1", "毒", { grantTiming: "hit" }) } };
-    const out = resolveUsageEffectData(null, parent, { effects: [{ itemId: "", effectId: "e1" }] });
-    expect(out).toHaveLength(1);
+  it("AE 側の grantTiming フラグは読まない（撤去済み・効果側にタイミング概念は無い）", () => {
+    const flagged = {
+      id: "e3", name: "旧設定つき",
+      flags: { "tokyo-nova-axleration": { grantTiming: "damage" } },
+      toObject: () => ({ _id: "e3", name: "旧設定つき", disabled: true, transfer: true }),
+    };
+    const host = { id: "p2", effects: { get: () => flagged } };
+    const out = resolveUsageEffectData(null, host, { effects: [{ itemId: "", effectId: "e3" }] });
     expect(out[0].timing).toBe("hit");
-  });
-
-  it("grantTiming 未設定・不明値は timing='damage'（既定=既存データ無移行）", () => {
-    const parent = { id: "p", effects: { get: (id) =>
-      (id === "e1" ? mkTimedEffect("e1", "呪い", {}) : mkTimedEffect("e2", "謎", { grantTiming: "sometime" })) } };
-    const out = resolveUsageEffectData(null, parent, { effects: [
-      { itemId: "", effectId: "e1" }, { itemId: "", effectId: "e2" },
-    ] });
-    expect(out.map(e => e.timing)).toEqual(["damage", "damage"]);
   });
 });
 
@@ -86,18 +85,13 @@ describe("splitEffectsByTiming()（ペイロードの二股・2026-07-18）", ()
 });
 
 describe("prepareUsageEffectPayload()（timing のペイロード伝搬・2026-07-18 是正）", () => {
-  const SCOPE = "tokyo-nova-axleration";
-  const mkEffect = (id, name, flags = {}) => ({
-    id, name,
-    flags: { [SCOPE]: flags },
-    toObject: () => ({ _id: id, name, disabled: true, transfer: true, flags: { [SCOPE]: { ...flags } } }),
-  });
+  const mkEffect = (id, name) => ({ id, name, toObject: () => ({ _id: id, name, disabled: true, transfer: true }) });
 
-  it("対象向けエントリに timing が載る（欠落すると命中時効果がダメージ時扱いになる＝実機報告バグ）", async () => {
+  it("対象向けエントリにリスト所属の timing が載る（欠落すると二股が全て一括扱いになる＝実機報告バグ）", async () => {
     const parent = { id: "p", effects: { get: (id) =>
-      (id === "e1" ? mkEffect("e1", "毒", { grantTiming: "hit" }) : mkEffect("e2", "呪い", {})) } };
+      (id === "e1" ? mkEffect("e1", "毒") : mkEffect("e2", "呪い")) } };
     const payload = await prepareUsageEffectPayload(null, parent,
-      { effects: [{ itemId: "", effectId: "e1" }, { itemId: "", effectId: "e2" }] },
+      { effects: [{ itemId: "", effectId: "e1" }], damageEffects: [{ itemId: "", effectId: "e2" }] },
       { targetOverride: [{ uuid: "u1", name: "A" }] });
     expect(payload.effects.map(e => e.timing)).toEqual(["hit", "damage"]);
   });

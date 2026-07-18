@@ -968,9 +968,9 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         }
         const contribItems = contribIds.map(id => (id === parentId ? this._item : effActor?.items.get(id))).filter(Boolean);
         const addedKey = (itemId, effectId) => `${itemId || parentId}:${effectId}`;
-        const addedSet = new Set((usage.effects ?? []).map(e => addedKey(e.itemId, e.effectId)));
-        // 追加済み: 保存値(itemId 空=親)をそのまま remove ハンドラへ渡す
-        context.addedEffects = (usage.effects ?? []).map(e => {
+        // 追加済みリストの行(保存値=itemId 空=親をそのまま remove ハンドラへ渡す)。
+        // 一般=effects と攻撃専用のダメージ時=damageEffects で共用(2026-07-18)
+        const buildAdded = (list) => (list ?? []).map(e => {
             const host = getEffItem(e.itemId);
             const eff = host?.effects.get(e.effectId);
             const fromParent = !e.itemId || e.itemId === parentId;
@@ -980,20 +980,25 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 sourceName: fromParent ? "" : (host?.name ?? ""),   // 親由来は帰属表示を省く
                 // 付与先(AE 設定・2026-07-13 再設計)。既定の「対象」は表示せず「自分」だけタグを出す
                 grantSelf: eff?.flags?.["tokyo-nova-axleration"]?.grantTarget === "self",
-                // 適用タイミング(AE 設定・2026-07-18)。既定の「ダメージ時」は表示せず「命中時」だけタグを出す
-                grantOnHit: eff?.flags?.["tokyo-nova-axleration"]?.grantTarget !== "self"
-                    && eff?.flags?.["tokyo-nova-axleration"]?.grantTiming === "hit",
             };
         });
-        // 未追加の効果を供給元アイテムごとにグループ化(選択値=`itemId|effectId`・親は itemId 空)
-        context.availableEffectGroups = contribItems
-            .map(it => ({
-                label: it.name,
-                options: [...it.effects]
-                    .filter(e => !addedSet.has(addedKey(it.id, e.id)))
-                    .map(e => ({ value: `${it.id === parentId ? "" : it.id}|${e.id}`, name: e.name })),
-            }))
-            .filter(g => g.options.length);
+        context.addedEffects = buildAdded(usage.effects);
+        context.addedDamageEffects = buildAdded(usage.damageEffects);
+        // 未追加の効果を供給元アイテムごとにグループ化(選択値=`itemId|effectId`・親は itemId 空)。
+        // 除外はリストごと(同じ効果を一般とダメージ時の両方へ入れることは妨げない)
+        const buildGroups = (list) => {
+            const addedSet = new Set((list ?? []).map(e => addedKey(e.itemId, e.effectId)));
+            return contribItems
+                .map(it => ({
+                    label: it.name,
+                    options: [...it.effects]
+                        .filter(e => !addedSet.has(addedKey(it.id, e.id)))
+                        .map(e => ({ value: `${it.id === parentId ? "" : it.id}|${e.id}`, name: e.name })),
+                }))
+                .filter(g => g.options.length);
+        };
+        context.availableEffectGroups = buildGroups(usage.effects);
+        context.availableDamageEffectGroups = buildGroups(usage.damageEffects);
         context.hasAnyEffect = contribItems.some(it => it.effects.size > 0);
 
         return context;
@@ -1100,7 +1105,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 });
             }
 
-            // エフェクト: ドロップダウン選択で即時追加。選択値=`itemId|effectId`(親は itemId 空)
+            // エフェクト: ドロップダウン選択で即時追加。選択値=`itemId|effectId`(親は itemId 空)。
+            // 追加先リストは data-effect-list で決まる(既定=effects・攻撃のダメージ時=damageEffects)
             for (const select of this.element.querySelectorAll("select.effect-select")) {
                 select.addEventListener("change", async (ev) => {
                     ev.stopPropagation(); // submitOnChange との競合防止
@@ -1111,8 +1117,10 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                     const effectId = sep >= 0 ? raw.slice(sep + 1) : raw;
                     if (!effectId) return;
                     const usage = this.usage;
-                    if (!usage || usage.effects.some(e => (e.itemId || "") === itemId && e.effectId === effectId)) { ev.target.value = ""; return; }
-                    await this._patchUsage({ effects: [...usage.effects, { itemId, effectId }] });
+                    const listKey = ev.target.dataset.effectList === "damageEffects" ? "damageEffects" : "effects";
+                    const list = usage?.[listKey] ?? [];
+                    if (!usage || list.some(e => (e.itemId || "") === itemId && e.effectId === effectId)) { ev.target.value = ""; return; }
+                    await this._patchUsage({ [listKey]: [...list, { itemId, effectId }] });
                     this.render({ force: true });
                 });
             }
@@ -1783,9 +1791,11 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         const usage = this.usage;
         if (!usage || !effectId) return;
 
-        // itemId＋effectId で1件だけ外す(供給元アイテムが異なる同名/同IDの取り違えを避ける)
-        const effects = usage.effects.filter(e => !((e.itemId || "") === itemId && e.effectId === effectId));
-        await this._patchUsage({ effects });
+        // itemId＋effectId で1件だけ外す(供給元アイテムが異なる同名/同IDの取り違えを避ける)。
+        // 対象リストは data-effect-list で決まる(既定=effects・攻撃のダメージ時=damageEffects)
+        const listKey = target.dataset.effectList === "damageEffects" ? "damageEffects" : "effects";
+        const list = (usage[listKey] ?? []).filter(e => !((e.itemId || "") === itemId && e.effectId === effectId));
+        await this._patchUsage({ [listKey]: list });
         this.render({ force: true });
     }
 

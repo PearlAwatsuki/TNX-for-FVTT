@@ -752,13 +752,13 @@
             </fieldset>
             {{/if}}
 
-            {{!-- 適用される効果（ActiveEffect） --}}
+            {{!-- 適用される効果（ActiveEffect）: 一般リスト（攻撃では命中時に適用） --}}
             <fieldset class="tnx-fieldset usage-effects-section">
                 <legend>適用される効果</legend>
                 <div class="usage-effect-list">
                     {{#each addedEffects}}
                     <div class="usage-skill-ref-row">
-                        <span class="usage-skill-ref-name">{{this.name}}{{#if this.sourceName}} <small>（{{this.sourceName}}）</small>{{/if}}{{#if this.grantSelf}} <small>（自分に付与）</small>{{/if}}{{#if this.grantOnHit}} <small>（命中時）</small>{{/if}}</span>
+                        <span class="usage-skill-ref-name">{{this.name}}{{#if this.sourceName}} <small>（{{this.sourceName}}）</small>{{/if}}{{#if this.grantSelf}} <small>（自分に付与）</small>{{/if}}</span>
                         {{#if ../editable}}
                         <a class="usage-icon-btn" data-action="effectRemove" data-item-id="{{this.itemId}}" data-effect-id="{{this.effectId}}"
                            title="解除"><i class="fas fa-times"></i></a>
@@ -786,6 +786,44 @@
                 {{/unless}}
                 {{/if}}
             </fieldset>
+
+            {{!-- 適用される効果（ダメージ時）: 攻撃専用の2つ目のリスト（2026-07-18）。
+                  「1点でも与えたら」等の条件判定はコード化せず、ダメージカードの適用ボタンの押下判断に委ねる --}}
+            {{#if isAttack}}
+            <fieldset class="tnx-fieldset usage-effects-section">
+                <legend>適用される効果（ダメージ時）</legend>
+                <div class="usage-effect-list">
+                    {{#each addedDamageEffects}}
+                    <div class="usage-skill-ref-row">
+                        <span class="usage-skill-ref-name">{{this.name}}{{#if this.sourceName}} <small>（{{this.sourceName}}）</small>{{/if}}{{#if this.grantSelf}} <small>（自分に付与）</small>{{/if}}</span>
+                        {{#if ../editable}}
+                        <a class="usage-icon-btn" data-action="effectRemove" data-effect-list="damageEffects" data-item-id="{{this.itemId}}" data-effect-id="{{this.effectId}}"
+                           title="解除"><i class="fas fa-times"></i></a>
+                        {{/if}}
+                    </div>
+                    {{else}}
+                    <p class="usage-empty-hint">（適用される効果なし）</p>
+                    {{/each}}
+                </div>
+                {{#if editable}}
+                <div class="usage-skill-ref-add">
+                    <select class="effect-select" data-effect-list="damageEffects">
+                        <option value="">── 追加する効果を選択 ──</option>
+                        {{#each availableDamageEffectGroups}}
+                        <optgroup label="{{this.label}}">
+                            {{#each this.options}}
+                            <option value="{{this.value}}">{{this.name}}</option>
+                            {{/each}}
+                        </optgroup>
+                        {{/each}}
+                    </select>
+                </div>
+                {{#unless hasAnyEffect}}
+                <p class="usage-empty-hint">（追加できる効果がありません）</p>
+                {{/unless}}
+                {{/if}}
+            </fieldset>
+            {{/if}}
 
         </div>
         {{/unless}}
