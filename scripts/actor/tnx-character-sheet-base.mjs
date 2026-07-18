@@ -17,11 +17,12 @@ import { formatPartDesignation, joinPartDesignations, computePartOccupancy, comp
 import { SLOT_KINDS } from '../data/item/common/extensible.mjs';
 import { getPartSlotPreset, PartSlotPresetApp } from '../module/part-slot-preset-app.mjs';
 import { OUTFIT_ITEM_TYPES, findDepartmentSkillName } from '../data/helpers.mjs';
-import { readFlag } from '../data/item/helpers.mjs';
+import { readFlag, isOutfitUnusable, isOutfitDestroyed, isOutfitMalfunctioning } from '../data/item/helpers.mjs';
 import { TnxCheckFlow } from '../module/tnx-check-flow.mjs';
 import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } from '../module/usage-consumption.mjs';
 import { useNpcAcquire } from '../module/npc-acquisition.mjs';
 import { useRecovery } from '../module/recovery-flow.mjs';
+import { useRepair } from '../module/repair-flow.mjs';
 import { buildUsageCheckContext } from '../module/usage-check-context.mjs';
 import { useAttack } from '../module/attack-flow.mjs';
 import { aggregateDefence } from '../module/damage-logic.mjs';
@@ -1578,6 +1579,13 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                 : TnxCharacterSheetBase._computeColValue(col.key, sys, effectiveValues, partCtx),
         }));
 
+        // 故障/破壊(2026-07-18): 表示クラス(破壊=グレー+取消線 優先・故障=赤+取消線)と、
+        // サービス/バックグラウンドの携帯/準備トグル非表示フラグ。実効値(sys=派生済み system)で判定。
+        const isMalfunctioning = isOutfitMalfunctioning(sys);
+        const isDestroyed = isOutfitDestroyed(sys);
+        const brokenClass = isDestroyed ? "outfit-name--destroyed"
+            : (isMalfunctioning ? "outfit-name--malfunction" : "");
+
         return {
             _id: item.id,
             displayName,
@@ -1587,6 +1595,11 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             isResidence: item.system.majorCategory === "housing",
             housingAreaRank,
             hasOptions: optionsByParent.has(item.id),
+            isMalfunctioning,
+            isDestroyed,
+            brokenClass,
+            // サービス/バックグラウンドは必ず準備・携帯(未準備にできない)=携帯/準備トグルを出さない(2026-07-18)
+            hidePrepareToggles: sys.minorCategory === "background",
             colValues,
             description: sys.description ?? "",
             combineInfo: combinerItem ? {
@@ -2400,6 +2413,15 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // usageId(用途の直接指定)は起動制御のみに使い、open へは流さない
         const { usageId: directUsageId, ...openExtra } = extraOpen;
 
+        // 故障/破壊(2026-07-18): 故障または破壊したアウトフィットはロール(使用)できない。修理用途は
+        // 〈製作〉技能側にあるため対象外——ここでブロックされるのは壊れたアウトフィット自身のロール
+        // (その武器を使う攻撃判定の禁止は useAttack 側)。サービス大分類は免疫(isOutfitUnusable=false)。
+        if (OUTFIT_ITEM_TYPES.has(item.type) && isOutfitUnusable(item.system)) {
+            const state = isOutfitDestroyed(item.system) ? "破壊" : "故障";
+            ui.notifications.warn(`「${item.name}」は${state}しているため使用できません。`);
+            return;
+        }
+
         // 既定の挙動: 実行できる用途が無ければ、解説をそのままチャット表示する(アイテムの基本機能)。
         // 用途があればその実行に切り替わる(経路の漏れを作らない=11-6/12-2 の確定方針)。
         // 2026-07-17 行動種別再編: 判定を行う用途(攻撃・リアクション・移動・治療(判定形)等)すべてに加え、
@@ -2503,6 +2525,18 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             } catch (err) {
                 console.error("TNX | 治療の実行に失敗しました", err);
                 ui.notifications.error(`治療の実行に失敗しました: ${err.message}`);
+            }
+            return;
+        }
+
+        // 修理(2026-07-18 タイプ化): 専用フローへ(対象解決→修理可能な故障アウトフィットの選択→
+        // 判定へ。完了継続 ctx.repair が成功で故障を解除)。判定のみ(selectableForm なし)。
+        if (selectedUsage.type === "repair" && !openExtra.repair) {
+            try {
+                await useRepair(item, selectedUsage);
+            } catch (err) {
+                console.error("TNX | 修理の実行に失敗しました", err);
+                ui.notifications.error(`修理の実行に失敗しました: ${err.message}`);
             }
             return;
         }

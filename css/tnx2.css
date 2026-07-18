@@ -6031,6 +6031,16 @@ button.tnx-create-act-button span {
     background: var(--tnx2-bg-hover);
 }
 
+/* 故障/破壊(2026-07-18): 故障=名前を赤+取消線・破壊=名前をグレーアウト+取消線。ロール不可 */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--name a.outfit-name--malfunction {
+    color: var(--tnx2-danger, #e74c3c);
+    text-decoration: line-through;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--name a.outfit-name--destroyed {
+    color: var(--tnx2-text-muted, #888);
+    text-decoration: line-through;
+}
+
 /* 案「回路トレース＋スロットゲージ＋装着ノード」(組み合わせ): 表を貫く発光縦トレース＋各オプション
    への横ブランチ、その先端に塗りつぶしの菱形「装着ノード」(端子=一工夫)。ホスト行にスロット使用
    ゲージ、オプションに占有スロット種別タグ。未準備は独立行で通常表示。 */

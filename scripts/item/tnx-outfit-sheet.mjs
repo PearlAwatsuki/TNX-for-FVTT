@@ -848,13 +848,21 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             const noCarrying = this.item.type === "residence"
                 || this.item.system.minorCategory === "housingOption"
                 || this.item.system.minorCategory === "housingAccessory";
+            // サービス大分類は故障/破壊しない(免疫)。サービス/バックグラウンドは必ず準備・携帯される
+            // (未準備にできない)=携帯/準備トグルを出さない(2026-07-18 ユーザー確定)。
+            const isServiceImmune = this.item.system.majorCategory === "service";
+            const isBackground = this.item.system.minorCategory === "background";
             const toggles = [
-                { flag: "isPre-play",  icon: "fa-cart-shopping",  title: "プレアクト購入" },
-                { flag: "isCarrying",  icon: "fa-suitcase",       title: "携帯中" },
-                { flag: "isPrepared",  icon: "fa-shield-halved",  title: "準備済み" },
+                { flag: "isPre-play",    icon: "fa-cart-shopping",       title: "プレアクト購入" },
+                { flag: "isCarrying",    icon: "fa-suitcase",            title: "携帯中" },
+                { flag: "isPrepared",    icon: "fa-shield-halved",       title: "準備済み" },
+                { flag: "isMalfunction", icon: "fa-triangle-exclamation", title: "故障" },
+                { flag: "isDestroyed",   icon: "fa-burst",               title: "破壊" },
             // 部位「-」は準備できない=準備トグルを出さない(準備不要で常時適用・2026-07-09)
             ].filter(t => !(t.flag === "isCarrying" && noCarrying))
-             .filter(t => !(t.flag === "isPrepared" && this.item.system.isPartless === true));
+             .filter(t => !(t.flag === "isPrepared" && this.item.system.isPartless === true))
+             .filter(t => !((t.flag === "isCarrying" || t.flag === "isPrepared") && isBackground))
+             .filter(t => !((t.flag === "isMalfunction" || t.flag === "isDestroyed") && isServiceImmune));
             const noPreserveExp = this.item.system.preserveExp?.mode !== "value";
             for (const t of toggles) {
                 const a = document.createElement("a");

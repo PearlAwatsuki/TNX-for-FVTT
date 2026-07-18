@@ -29,6 +29,7 @@ import { TargetSelectionDialog } from "./tnx-dialog.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { resolveNoReaction, resolveOpposed, formatAttackLabel, combineWeaponAttack, resolveAttackRecheckState } from "./attack-flow-logic.mjs";
 import { resolveAttackWeapons, attackWeaponDisplayName, attackWeaponKindEligible } from "./attack-weapons.mjs";
+import { isOutfitUnusable, isOutfitDestroyed } from "../data/item/helpers.mjs";
 import { buildSkillOptions } from "./skill-select.mjs";
 import { movementStagesFromAchievement } from "./vehicle-move-logic.mjs";
 import { USAGE_TYPE_LABELS, attackCategoryOf, usageDisplayName, executionFormOf } from "./usage-types.mjs";
@@ -88,6 +89,13 @@ export async function useAttack(item, usage) {
         const kind = usage.attackWeaponKind === "ranged" ? "ranged" : "melee";
         // 適格判定は attackWeaponKindEligible に一本化(用途シートの使用武器表示と同じ判定)
         const usedWeapons = resolveAttackWeapons(actor, usage, item).filter(w => attackWeaponKindEligible(w, kind));
+        // 故障/破壊(2026-07-18): 使用武器が故障/破壊しているとその武器を使う攻撃は行えない。
+        const brokenWeapon = usedWeapons.find(w => isOutfitUnusable(w.system));
+        if (brokenWeapon) {
+            const state = isOutfitDestroyed(brokenWeapon.system) ? "破壊" : "故障";
+            ui.notifications.warn(`「${brokenWeapon.name}」は${state}しているため、攻撃に使用できません。`);
+            return;
+        }
         if (kind === "ranged" && !usedWeapons.length) {
             ui.notifications.warn("準備している武器が無いため、射撃攻撃を行えません。");
             return;
