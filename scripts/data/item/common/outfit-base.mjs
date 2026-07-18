@@ -111,6 +111,12 @@ export class OutfitBaseTemplate extends SystemDataModel {
       isCyber:           new fields.BooleanField({ initial: false }),
       isCarrying:        new fields.BooleanField({ initial: true }),
       isConsumption:     new fields.BooleanField({ initial: false }),
+      // 故障/破壊(2026-07-18 ユーザー確定): どちらも使用不可状態。故障は〈製作〉の修理用途で解除可、
+      // 破壊は基本アクト終了まで直らない。どちらもアクト間に持ち越さない(消費アイテムと同じ・自動
+      // リセットは将来フェーズ)。サービス大分類は免疫(prepareDerivedData で実効を false 固定)。
+      // AE で付与/解除するため AE_FLAG_PARAMS に登録(実効読みは isOutfit* ヘルパー=helpers.mjs)。
+      isMalfunction:     new fields.BooleanField({ initial: false }),
+      isDestroyed:       new fields.BooleanField({ initial: false }),
       // スタイル技能由来マーク: 自動取得時に由来スタイル技能の識別キーを記録する(内部用・非表示)。
       // 識別キーのプレフィックス(区切り「_」まで)が同じ由来武器を既取得なら自動取得しない(重複防止)。
       fromStyleSkillKey: new fields.StringField({ initial: "" }),
@@ -265,6 +271,22 @@ export class OutfitBaseTemplate extends SystemDataModel {
       this.noPrepareRequired = true;
       this.noPrepareRequiredTotal = true; // 実効フラグも同期(computeItemEffectiveValues 後の強制のため)
       this.isPrepared = false; // 準備できない=常にオフ
+    }
+
+    // 故障/破壊の免疫(2026-07-18): サービス大分類は故障も破壊もされない。AE で true にされても
+    // 実効フラグを false へ落とす(照合の一本化は isOutfit* ヘルパーだが、実効値の一貫性のため
+    // ここでも落とす)。
+    if (this.majorCategory === "service") {
+      this.isMalfunctionTotal = false;
+      this.isDestroyedTotal = false;
+    }
+
+    // サービス/バックグラウンド(2026-07-18 ユーザー確定): 必ず準備・携帯され、未準備にできない。
+    // 携帯/準備フラグを派生で true に固定(シート側でトグルを非表示)。isPartless の「準備できない=
+    // オフ」より優先する(背景は常時適用の分類)。
+    if (this.minorCategory === "background") {
+      this.isPrepared = true;
+      this.isCarrying = true;
     }
   }
 }

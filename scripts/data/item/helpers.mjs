@@ -200,6 +200,8 @@ export const AE_FLAG_PARAMS = Object.freeze([
   "isFullAuto", "isLaser", "isFleshChange",
   // アウトフィット共通
   "isCyber", "isMutantOrgan", "isShiki", "noPrepareRequired", "isConsumption",
+  // 故障/破壊(使用不可状態・AE で付与/解除可能。サービス大分類は免疫=isOutfit* ヘルパーで無効化)
+  "isMalfunction", "isDestroyed",
   // 技能(共通)
   "usesBounty",
   "suits.spade", "suits.heart", "suits.diamond", "suits.club",
@@ -237,6 +239,42 @@ export function readFlag(system, path) {
 
 /** 実効綴りの集合(resolveItemTotalPath の正規化と、適用パスの boolean 判別に使う)。 */
 export const AE_FLAG_TOTAL_PATHS = Object.freeze(new Set(AE_FLAG_PARAMS.map(flagTotalPath)));
+
+/**
+ * サービス大分類のアウトフィットは故障/破壊しない(免疫・2026-07-18 ユーザー確定)。
+ * @param {object} system アウトフィットの system
+ * @returns {boolean}
+ */
+export function isOutfitServiceImmune(system) {
+  return system?.majorCategory === "service";
+}
+
+/**
+ * アウトフィットが故障中か(実効フラグ・AE 反映済み)。サービス大分類は常に false。
+ * @param {object} system
+ * @returns {boolean}
+ */
+export function isOutfitMalfunctioning(system) {
+  return !isOutfitServiceImmune(system) && readFlag(system, "isMalfunction");
+}
+
+/**
+ * アウトフィットが破壊済みか(実効フラグ・AE 反映済み)。サービス大分類は常に false。
+ * @param {object} system
+ * @returns {boolean}
+ */
+export function isOutfitDestroyed(system) {
+  return !isOutfitServiceImmune(system) && readFlag(system, "isDestroyed");
+}
+
+/**
+ * アウトフィットが故障または破壊で使用不可か。ロール禁止・攻撃武器不可の共通判定に使う。
+ * @param {object} system
+ * @returns {boolean}
+ */
+export function isOutfitUnusable(system) {
+  return isOutfitMalfunctioning(system) || isOutfitDestroyed(system);
+}
 
 /**
  * 特性フラグの実効値(`<フラグ>Total`)を base から派生する(フェーズ12)。

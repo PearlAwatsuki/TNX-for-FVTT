@@ -230,4 +230,47 @@ describe("OutfitBaseTemplate.defineSchema()", () => {
       expect(src.uses.value).toBeUndefined();
     });
   });
+
+  describe("故障/破壊(2026-07-18)", () => {
+    for (const key of ["isMalfunction", "isDestroyed"]) {
+      it(`${key} は BooleanField で initial が false`, () => {
+        expect(schema[key]).toBeInstanceOf(MockBooleanField);
+        expect(schema[key].options.initial).toBe(false);
+      });
+    }
+  });
+});
+
+describe("OutfitBaseTemplate.prepareDerivedData()（故障/破壊・準備固定・2026-07-18）", () => {
+  /** prepareDerivedData を素のオブジェクトへ適用して派生後の状態を返す。 */
+  const derive = (over = {}) => {
+    const sys = {
+      majorCategory: "", minorCategory: "",
+      part: [], partOptional: false,
+      isPrepared: true, isCarrying: true,
+      isMalfunction: false, isDestroyed: false,
+      ...over,
+    };
+    OutfitBaseTemplate.prototype.prepareDerivedData.call(sys);
+    return sys;
+  };
+
+  it("非サービスの故障/破壊は実効(Total)に反映される", () => {
+    const sys = derive({ majorCategory: "weapon", isMalfunction: true, isDestroyed: true, part: [{ kind: "bodyPart" }] });
+    expect(sys.isMalfunctionTotal).toBe(true);
+    expect(sys.isDestroyedTotal).toBe(true);
+  });
+
+  it("サービス大分類は免疫=実効の故障/破壊を false に落とす", () => {
+    const sys = derive({ majorCategory: "service", isMalfunction: true, isDestroyed: true, part: [{ kind: "bodyPart" }] });
+    expect(sys.isMalfunctionTotal).toBe(false);
+    expect(sys.isDestroyedTotal).toBe(false);
+  });
+
+  it("サービス/バックグラウンドは準備・携帯を強制 true(部位なしでも準備される)", () => {
+    // 部位なし=通常は isPartless で isPrepared=false だが、バックグラウンドはそれを上書きする
+    const sys = derive({ majorCategory: "service", minorCategory: "background", isPrepared: false, isCarrying: false, part: [] });
+    expect(sys.isPrepared).toBe(true);
+    expect(sys.isCarrying).toBe(true);
+  });
 });

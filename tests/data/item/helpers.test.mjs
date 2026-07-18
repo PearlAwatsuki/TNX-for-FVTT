@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
-const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, damageDealtChangeMatches, gatherDamageDealtSources, damageTakenChangeMatches, gatherDamageTakenSources, collectActorEffectBuffs, targetStyleWorksKeys, actorCardValueOverride, itemChangeTargets, buildTransferredEffectData, effectAutoApplies, analyzeGrantLanding, itemGrantCandidates, rewriteGrantChangesForItem, AE_FLAG_PARAMS, flagTotalPath, readFlag, computeFlagEffectiveValues, parseBooleanFlagValue } = await import("../../../scripts/data/item/helpers.mjs");
+const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, damageDealtChangeMatches, gatherDamageDealtSources, damageTakenChangeMatches, gatherDamageTakenSources, collectActorEffectBuffs, targetStyleWorksKeys, actorCardValueOverride, itemChangeTargets, buildTransferredEffectData, effectAutoApplies, analyzeGrantLanding, itemGrantCandidates, rewriteGrantChangesForItem, AE_FLAG_PARAMS, flagTotalPath, readFlag, computeFlagEffectiveValues, parseBooleanFlagValue, isOutfitServiceImmune, isOutfitMalfunctioning, isOutfitDestroyed, isOutfitUnusable } = await import("../../../scripts/data/item/helpers.mjs");
 
 describe("defenceField()", () => {
   it("呼び出せる", () => {
@@ -556,6 +556,44 @@ describe("特性フラグ AE(フェーズ12)", () => {
     expect(parseBooleanFlagValue("false")).toBe(false);
     expect(parseBooleanFlagValue("0")).toBe(false);
     expect(parseBooleanFlagValue("xyz")).toBeNull();
+  });
+
+  it("AE_FLAG_PARAMS は故障/破壊を含む(AE で書き換え可能・2026-07-18)", () => {
+    expect(AE_FLAG_PARAMS).toContain("isMalfunction");
+    expect(AE_FLAG_PARAMS).toContain("isDestroyed");
+  });
+});
+
+describe("アウトフィット故障/破壊ヘルパー(2026-07-18)", () => {
+  it("isOutfitServiceImmune: サービス大分類のみ true", () => {
+    expect(isOutfitServiceImmune({ majorCategory: "service" })).toBe(true);
+    expect(isOutfitServiceImmune({ majorCategory: "weapon" })).toBe(false);
+    expect(isOutfitServiceImmune({})).toBe(false);
+  });
+
+  it("isOutfitMalfunctioning: 実効フラグ(AE 反映)。サービスは常に false", () => {
+    // base のみ
+    expect(isOutfitMalfunctioning({ majorCategory: "weapon", isMalfunction: true })).toBe(true);
+    // AE で on(Total)
+    expect(isOutfitMalfunctioning({ majorCategory: "weapon", isMalfunction: false, isMalfunctionTotal: true })).toBe(true);
+    // AE で off
+    expect(isOutfitMalfunctioning({ majorCategory: "weapon", isMalfunction: true, isMalfunctionTotal: false })).toBe(false);
+    // サービス免疫
+    expect(isOutfitMalfunctioning({ majorCategory: "service", isMalfunction: true })).toBe(false);
+    expect(isOutfitMalfunctioning({ majorCategory: "service", isMalfunctionTotal: true })).toBe(false);
+  });
+
+  it("isOutfitDestroyed: 実効フラグ。サービスは常に false", () => {
+    expect(isOutfitDestroyed({ majorCategory: "vehicle", isDestroyed: true })).toBe(true);
+    expect(isOutfitDestroyed({ majorCategory: "vehicle", isDestroyed: false, isDestroyedTotal: true })).toBe(true);
+    expect(isOutfitDestroyed({ majorCategory: "service", isDestroyed: true })).toBe(false);
+  });
+
+  it("isOutfitUnusable: 故障または破壊で true", () => {
+    expect(isOutfitUnusable({ majorCategory: "weapon", isMalfunction: true })).toBe(true);
+    expect(isOutfitUnusable({ majorCategory: "weapon", isDestroyed: true })).toBe(true);
+    expect(isOutfitUnusable({ majorCategory: "weapon" })).toBe(false);
+    expect(isOutfitUnusable({ majorCategory: "service", isMalfunction: true, isDestroyed: true })).toBe(false);
   });
 });
 
