@@ -23,7 +23,7 @@
  */
 
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
-import { resolveTargetRefsOrSelf } from "./target-resolution.mjs";
+import { currentTargetActors } from "./target-resolution.mjs";
 import { analyzeGrantLanding, itemGrantCandidates, rewriteGrantChangesForItem } from "../data/item/helpers.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
@@ -112,16 +112,15 @@ export function attackCardEffectMode(f) {
 
 /**
  * 用途使用時にターゲットしたキャラクターを確定する。付与先「対象」の効果がある用途でのみ呼ぶ。
- * ターゲットが居れば全員(重複 uuid は畳む)、居なければ確認ダイアログ。
- * @param {Actor} actor 用途使用者(ノーターゲット時の既定対象=自分)
- * @returns {Promise<Array<{uuid:string, name:string}>|null>} null=キャンセル(用途中止)
+ * 対象は起動時の対象解決(決定表駆動・2026-07-18)で確定済みのレティクルが正——自身/単体の
+ * 自動セルフでセルフバフも成立するため、旧「自分を対象に続行」確認は廃止。ノーターゲット
+ * (対象なし群の用途)は対象なしのまま運ぶ(レティクル無しへの働きかけは基本的にできない)。
+ * @returns {Array<{uuid:string, name:string}>} 現在ターゲット中の対象(重複 uuid は畳む)
  */
-export async function captureUsageTargets(actor) {
-    // ノーターゲット: 原則ターゲット必須のため確認を挟む(誤って未ターゲットで撃った事故を防ぐ)。
-    // 続行を選べば自分自身が対象になる(自己バフ)。解決は target-resolution に一本化(2026-07-16)
-    return resolveTargetRefsOrSelf(actor,
-        "効果を付与する対象がターゲットされていません。",
-        `「${foundry.utils.escapeHTML(actor?.name ?? "")}」自身を対象に付与して続行しますか？`);
+export function captureUsageTargets() {
+    const targeted = currentTargetActors();
+    const byUuid = new Map(targeted.map(a => [a.uuid, { uuid: a.uuid, name: a.name }]));
+    return [...byUuid.values()];
 }
 
 /**
@@ -302,7 +301,7 @@ async function confirmEffectTargets(refs) {
  * キャンセルされたら "cancel"(用途を中止)。付与先「自分」の効果はここで**即時付与**する。
  * @param {object} [options]
  * @param {Array<{uuid:string,name:string}>|null} [options.targetOverride] 対象を確定済みで渡す
- *   (非 null なら captureUsageTargets の確認を挟まずこの配列を対象にする)。リアクションで攻撃者を
+ *   (非 null なら現在のレティクルを読まずこの配列を対象にする)。リアクションで攻撃者を
  *   対象にする用途(リアクションの対象は「なし」=攻撃者へ返す・2026-07-15)。空配列=対象なし。
  * @returns {Promise<{effects:Array, targets:Array, applied:boolean, selfApplied?:string[]}|null|"cancel">}
  */
@@ -312,16 +311,11 @@ export async function prepareUsageEffectPayload(actor, parentItem, usage, { targ
     const selfEntries = entries.filter(e => e.grantTarget === "self");
     const targetEntries = entries.filter(e => e.grantTarget === "target");
 
-    // 対象向けの効果があるときだけターゲットを確定する(自分向けのみなら確認は不要)。
-    // targetOverride(リアクション=攻撃者)が渡されていれば確認を挟まずそれを対象にする。
+    // 対象向けの効果があるときだけターゲットを読む(起動時の対象解決=決定表駆動で確定済みの
+    // レティクルが正・2026-07-18)。targetOverride(リアクション=攻撃者)が渡されていればそれを対象にする。
     let targets = [];
     if (targetEntries.length) {
-        if (targetOverride !== null) {
-            targets = targetOverride;
-        } else {
-            targets = await captureUsageTargets(actor);
-            if (targets === null) return "cancel";
-        }
+        targets = targetOverride !== null ? targetOverride : captureUsageTargets();
     }
 
     // 付与先「自分」: 用途解決時に即時付与(代償を後回しにしない)。付与先選択のキャンセルは用途中止

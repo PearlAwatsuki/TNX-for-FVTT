@@ -103,6 +103,12 @@
                     <input type="text" name="targetOther" value="{{usage.targetOther}}"
                            {{#unless editable}}disabled{{/unless}}>
                 </div>
+                {{!-- 自身に適用できない（「自身以外の対象に」系の効果の識別・2026-07-18） --}}
+                <div class="usage-form-row">
+                    <label class="usage-field-label">自身に適用できない</label>
+                    <input type="checkbox" name="cannotTargetSelf" {{checked usage.cannotTargetSelf}}
+                           {{#unless editable}}disabled{{/unless}}>
+                </div>
 
                 {{!-- 射程（変更不可※をインライン）。物理射程は最長射程で「近～遠」等の幅を
                      表現できる（武器エディタの min～max と同形・なし=単点） --}}

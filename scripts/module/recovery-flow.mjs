@@ -36,7 +36,7 @@
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { buildUsageCheckContext } from "./usage-check-context.mjs";
-import { resolveSingleTargetOrSelf } from "./target-resolution.mjs";
+import { resolveUsageTargetRefs } from "./target-resolution.mjs";
 import { CONDITION_KINDS, getConditionKinds, recoveryKindMatches, recoveryKindExcluded, readCondition, woundChartValue } from "./conditions.mjs";
 import { postConditionOutcome } from "./condition-resolution.mjs";
 import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } from "./usage-consumption.mjs";
@@ -147,9 +147,16 @@ async function promptRecoverySelection(patient, candidates, usage) {
     return candidates.filter(e => picked.includes(e.id));
 }
 
-/** 回復対象(1体)を解決する。ターゲット優先・無ければ確認して自分(target-resolution)。null=中止。 */
-async function resolveRecoveryPatient(actor) {
-    return resolveSingleTargetOrSelf(actor, "回復する対象がターゲットされていません。");
+/** 回復対象(1体)を解決する(決定表駆動・2026-07-18)。対象「単体」未ターゲットは自動セルフ。
+ *  複数ターゲット時は先頭の1体(回復は1体対象・数の自動化はしない)。null=中止。 */
+async function resolveRecoveryPatient(actor, usage) {
+    const refs = await resolveUsageTargetRefs(actor, usage);
+    if (refs === null) return null;
+    if (!refs.length) {
+        ui.notifications.warn("回復する対象がターゲットされていません（用途の対象を設定するか、対象をターゲットしてください）。");
+        return null;
+    }
+    return fromUuid(refs[0].uuid).catch(() => null);
 }
 
 /** 除去を実行する(所有権が無ければ treatmentApply ソケットで GM 委譲=治療と同じ経路)。 */
@@ -193,7 +200,7 @@ export async function useRecovery(item, usage, prebound = null) {
         if (!effect) { ui.notifications.warn("治療対象の状態が見つかりません。"); return; }
         selected = [effect];
     } else {
-        patient = await resolveRecoveryPatient(actor);
+        patient = await resolveRecoveryPatient(actor, usage);
         if (!patient) return;
 
         const candidates = listRecoverableEffects(patient, usage);

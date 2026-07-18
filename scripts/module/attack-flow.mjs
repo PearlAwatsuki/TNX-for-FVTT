@@ -24,7 +24,7 @@
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { SUIT_TO_ABILITY } from "./tnx-check-engine.mjs";
 import { buildUsageCheckContext } from "./usage-check-context.mjs";
-import { resolveAttackTargetRefs } from "./target-resolution.mjs";
+import { resolveUsageTargetRefs } from "./target-resolution.mjs";
 import { TargetSelectionDialog } from "./tnx-dialog.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { resolveNoReaction, resolveOpposed, formatAttackLabel, combineWeaponAttack, resolveAttackRecheckState } from "./attack-flow-logic.mjs";
@@ -121,11 +121,11 @@ export async function useAttack(item, usage) {
             }));
     }
 
-    // 対象決定(2026-07-15 ユーザー確定): Foundry のターゲット(レティクル)を**全件**使う。判定も
-    // ダメージも一括で全対象へ適用する(対象数の自動化はしない・一体に絞るダイアログは出さない)。
-    // 未ターゲット時のトークン選択＋レティクル付与は target-resolution に一本化(2026-07-16)
-    const targets = await resolveAttackTargetRefs(actor);
-    if (targets === null) return; // キャンセル
+    // 対象決定(2026-07-18 決定表駆動): 用途の「対決」×「対象」で解決する(レティクル全件・
+    // 対象数の自動化はしない)。対象なし群(-/解説参照/その他)は対象なし=オープンリアクションへ。
+    // 未ターゲット時のダイアログ/自動セルフ・妥当性警告は target-resolution に一本化
+    const targets = await resolveUsageTargetRefs(actor, usage);
+    if (targets === null) return; // キャンセル/ターゲット不正
 
     // 参加技能・報酬点・消費・適用効果は判定起動の共通前段で解決する(2026-07-16 一本化。従来この
     // 経路だけ報酬点ブロック(口座凍結/信用失墜)を読み落としていた)。攻撃対象の決定(上)を先に済ませて
@@ -176,9 +176,9 @@ export async function useOpposedCheck(item, usage, openExtra = {}) {
         ui.notifications.warn("対決判定はアクターが所持しているアイテムからのみ使用できます。");
         return;
     }
-    // 対象: 攻撃と同じ規約(Foundry のターゲット全件→未選択は選択ダイアログ・「対象なし」も許容)。
-    // 対象なしの対決はカード上のオープンなリアクション導線で受ける(操縦移動など)
-    const targets = await resolveAttackTargetRefs(actor);
+    // 対象: 攻撃と同じ決定表駆動(2026-07-18)。対象なし群(移動・離脱の既定=対象「-」等)は
+    // 対象要求をせず、カード上のオープンなリアクション導線で受ける(KI-030 是正)
+    const targets = await resolveUsageTargetRefs(actor, usage);
     if (targets === null) return;
 
     const base = await buildUsageCheckContext(actor, item, usage);

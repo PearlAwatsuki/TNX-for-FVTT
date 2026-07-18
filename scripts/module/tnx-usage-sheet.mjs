@@ -1236,6 +1236,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             target:        raw["target"]        ?? usage.target,
             targetOther:   raw["targetOther"]   ?? usage.targetOther,
             isFixedTarget: raw["isFixedTarget"] ?? usage.isFixedTarget,
+            // 自身に適用できない(2026-07-18): 自動セルフ解決の抑止フラグ
+            cannotTargetSelf: raw["cannotTargetSelf"] ?? usage.cannotTargetSelf,
 
             range:        raw["range"]        ?? usage.range,
             rangeMax:     raw["rangeMax"]     ?? usage.rangeMax ?? "none",

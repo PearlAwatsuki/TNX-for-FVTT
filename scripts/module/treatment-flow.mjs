@@ -106,6 +106,10 @@ export async function startTreatment(patient, effectId) {
         picked = matches[Number(idx)] ?? matches[0];
     }
 
+    // 状態タブ起点は患者(状態の所有アクター)へレティクルを自動付与する(2026-07-18 ユーザー確定)——
+    // 以後の対象解決(決定表駆動)と適用効果が患者をターゲットとして読める
+    patient.getActiveTokens?.()[0]?.setTarget(true, { releaseOthers: true });
+
     // 起動は唯一の起動関数へ集約(2026-07-15 ユーザー確定)。患者とクリック状態を prebound 文脈として
     // 注入するだけで、実行(消費・宣言/判定・除去)は recovery-flow が担う
     const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");

@@ -85,6 +85,12 @@ export async function buildUsageCheckContext(actor, item, usage, {
         return null;
     }
 
+    // 対象解決(2026-07-18 決定表駆動): 用途の「対象」×「対決」で解決する(自身/単体の自動セルフ・
+    // 妥当性警告・未ターゲット時ダイアログ)。攻撃/対決フローは呼び出し前に解決済み=レティクルが
+    // 立っているためここでは素通りする。適用効果の対象はこの時点のレティクルが正
+    const { resolveUsageTargetRefs } = await import("./target-resolution.mjs");
+    if (await resolveUsageTargetRefs(actor, usage) === null) return null;
+
     // 参加技能(ベース＋コンボ)の解決
     const { allSkillIds, allSkillSystems, validSuits } = resolveUsageSkillSet(item, usage, actor);
     // 技能名の表示は 〈〉 整形(2026-07-18 ユーザー確定): 例「〈白兵〉+〈運動〉」

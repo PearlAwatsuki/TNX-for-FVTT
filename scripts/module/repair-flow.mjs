@@ -17,7 +17,7 @@
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { buildUsageCheckContext } from "./usage-check-context.mjs";
-import { resolveSingleTargetOrSelf } from "./target-resolution.mjs";
+import { resolveUsageTargetRefs } from "./target-resolution.mjs";
 import { postConditionOutcome } from "./condition-resolution.mjs";
 import { itemDisplayName } from "./identification.mjs";
 import { isOutfitMalfunctioning } from "../data/item/helpers.mjs";
@@ -82,7 +82,14 @@ export async function useRepair(item, usage) {
         return;
     }
 
-    const target = await resolveSingleTargetOrSelf(actor, "修理する対象がターゲットされていません。");
+    // 対象解決(決定表駆動・2026-07-18): 対象「単体」未ターゲットは自動セルフ。複数時は先頭の1体
+    const refs = await resolveUsageTargetRefs(actor, usage);
+    if (refs === null) return;
+    if (!refs.length) {
+        ui.notifications.warn("修理する対象がターゲットされていません（用途の対象を設定するか、対象をターゲットしてください）。");
+        return;
+    }
+    const target = await fromUuid(refs[0].uuid).catch(() => null);
     if (!target) return;
 
     const candidates = listRepairableOutfits(target, usage);
