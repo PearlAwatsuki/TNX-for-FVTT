@@ -22,7 +22,8 @@ import { buildFormulaData, evaluateFormula } from "./tnx-formula.mjs";
  * @param {object} usage 用途エントリ
  * @param {Actor|null} actor 実行アクター
  * @param {Item|null} bearerItem 用途の親アイテム(@item.self)
- * @param {{condition?: {magnitude:number, woundValue:number}}} [extra] 追加の式コンテキスト(回復等)
+ * @param {{condition?: {magnitude:number, woundValue:number}}} [extra] 追加の式コンテキスト
+ *   (治療用途。woundValue=治療対象のダメージのチャート値)
  * @returns {Promise<number|null>} 目標値。null=目標値なし(成否は他メカニクス/卓裁定)
  */
 export async function resolveUsageTargetValue(usage, actor, bearerItem, extra = {}) {

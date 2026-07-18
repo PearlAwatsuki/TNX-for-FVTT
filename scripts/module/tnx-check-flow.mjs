@@ -824,13 +824,8 @@ export class TnxCheckFlow {
             await completeCoveringFromCheck(ctx.covering, result, { suitMismatch, coverer });
         }
 
-        // 治療判定の完了継続(12): 成功で負傷＋紐づき戦闘不能＋非BS効果を除去する
-        if (!ctx.recheckMessageId && ctx.treatment) {
-            const { resolveTreatmentFromCheck } = await import("./treatment-flow.mjs");
-            await resolveTreatmentFromCheck(ctx.treatment, result);
-        }
-
-        // 回復判定の完了継続(2026-07-13): 成功で選択済みの状態(BS/戦闘不能/負傷)を除去する
+        // 回復判定の完了継続(2026-07-13): 成功で選択済みの状態(BS/戦闘不能/負傷)を除去する。
+        // 治療メニュー起点も同じ recovery 継続に一本化(2026-07-18・旧 ctx.treatment は廃止)
         if (!ctx.recheckMessageId && ctx.recovery) {
             const { resolveRecoveryFromCheck } = await import("./recovery-flow.mjs");
             await resolveRecoveryFromCheck(ctx.recovery, result);
@@ -1005,7 +1000,7 @@ export class TnxCheckFlow {
      * 固有のため)。**新しい継続種別は、この表と _execute の両方に追加する。**
      * rerun: 再判定/事後修正の着地からの再実行(2026-07-15 ユーザー確定・全種対応)。
      * - reaction: 対決の再解決(副作用なし=解決済みでも再解決)
-     * - treatment/recovery/controlNegate: 失敗→成功の遷移でのみ副作用を適用(冪等な除去)
+     * - recovery/repair/controlNegate: 失敗→成功の遷移でのみ副作用を適用(冪等な除去)
      *   = rerunOnSuccessOnly。成功→失敗は表示のみ(手動復元)
      * - covering: 成立なら印を付け直す(付与済み/ダメージ算出後は completeCoveringFromCheck の
      *   内部ガードが弾く)
@@ -1016,13 +1011,6 @@ export class TnxCheckFlow {
             async rerun(cc, result) {
                 const { completeReactionFromCheck } = await import("./attack-flow.mjs");
                 await completeReactionFromCheck(cc, result, { allowResolved: true });
-            },
-        },
-        treatment: {
-            rerunOnSuccessOnly: true,
-            async rerun(cc, result) {
-                const { resolveTreatmentFromCheck } = await import("./treatment-flow.mjs");
-                await resolveTreatmentFromCheck(cc, result);
             },
         },
         recovery: {
@@ -1091,7 +1079,7 @@ export class TnxCheckFlow {
             requestMessageId: ctx.requestMessageId ?? null,
             ...(ctx.attack ? { attack: ctx.attack } : {}),
             ...(ctx.usageEffects ? { usageEffects: ctx.usageEffects } : {}),
-            ...cont, // 継続文脈(reaction/treatment/recovery/controlNegate/npcAcquire/movement)
+            ...cont, // 継続文脈(CONTINUATIONS の各キー)
         };
     }
 

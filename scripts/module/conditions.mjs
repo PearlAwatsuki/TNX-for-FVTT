@@ -328,6 +328,22 @@ export function recoveryKindExcluded(kind, excludes) {
 }
 
 /**
+ * ダメージインスタンスの kind 集合(負傷＋紐づき戦闘不能/支配)を、治療用途の回復範囲が治療できるか
+ * (純関数・2026-07-18 治療の用途一本化)。いずれかの kind が範囲(recoveryTargets)に合致し、かつ
+ * 除外(recoveryExcludes)に当たらなければ可。通常ダメージ用の治療用途は戦闘不能系タグを全て除外に
+ * 入れる設定規約(2026-07-18 ユーザー確定)により、戦闘不能を伴うダメージは負傷 kind の除外展開
+ * (recoveryKindExcluded の inflicts 展開)で自動的に脱落し、タグ側 kind に合致する用途だけが残る。
+ * @param {{recoveryTargets?: Array<{group?:string, kind?:string}>, recoveryExcludes?: string[]}} usage
+ * @param {string[]} kinds ダメージインスタンスの kind 集合
+ * @returns {boolean}
+ */
+export function usageCanTreatKinds(usage, kinds) {
+  return (kinds ?? []).some(k =>
+    recoveryKindMatches(k, usage?.recoveryTargets)
+    && !recoveryKindExcluded(k, usage?.recoveryExcludes));
+}
+
+/**
  * ダメージチャートのタグ改変(2026-07-12 ユーザー確定・支配タグの導入)を inflicts 生成データへ
  * 適用する(Foundry 非依存・純関数)。対象側の AE(damage.replaceTag.<元タグ>/damage.addTag.<元タグ>・
  * 値=CONDITION_KINDS のタグキー)で:

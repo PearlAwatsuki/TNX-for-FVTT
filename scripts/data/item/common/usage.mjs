@@ -228,7 +228,12 @@ export class UsageTemplate extends SystemDataModel {
                     // - recoveryAll: 該当すべてを回復 / recoveryCount: 回復数(All=false のとき)。
                     // - 目標値は発動タブの目標値設定に一本化(2026-07-13・回復専用の式欄
                     //   recoveryTargetFormula は廃止=migrateData で目標値「その他」へ移送)。
-                    //   解説参照/その他の式は @condition.magnitude/@condition.woundValue を参照可。
+                    //   解説参照/その他の式は @condition.magnitude/@condition.woundValue を参照可
+                    //   (woundValue=治療対象のダメージのチャート値)。
+                    // - 治療メニュー(シートの状態クリック)起点も同じ用途起動へ一本化(2026-07-18
+                    //   ユーザー確定・入口照合は treatment-flow)。旧・目標値ハードコード(気絶15等)は
+                    //   廃止——分岐は範囲＋目標値設定で表現し、通常ダメージ用の用途は戦闘不能系タグを
+                    //   全て除外に入れる設定規約とする。
                     // ※旧 recovery フラグは治療タイプへ移行(2026-07-17 再編・migrateData)。
                     //   回復範囲の設定群は治療タイプの設定として温存する。
                     recoveryTargets: new fields.ArrayField(

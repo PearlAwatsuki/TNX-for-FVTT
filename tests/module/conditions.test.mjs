@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CONDITION_KINDS, readCondition, readConditions, getConditionKind, getConditionKinds, gatherConditionCheckSources, getCheckBlock, gatherConditionControlPenalty, computeJammingPenalty, buildInflictedEffectsData, applyDamageTagMods, recoveryKindMatches, recoveryKindExcluded, ignoreRuleMatches, gatherIgnoreRules, getEffectiveConditions, gatherSkillUseWarnings, hasBountyBlock }
+import { CONDITION_KINDS, readCondition, readConditions, getConditionKind, getConditionKinds, gatherConditionCheckSources, getCheckBlock, gatherConditionControlPenalty, computeJammingPenalty, buildInflictedEffectsData, applyDamageTagMods, recoveryKindMatches, recoveryKindExcluded, usageCanTreatKinds, ignoreRuleMatches, gatherIgnoreRules, getEffectiveConditions, gatherSkillUseWarnings, hasBountyBlock }
   from "../../scripts/module/conditions.mjs";
 
 /** 準備アウトフィット記述子の略記 */
@@ -412,6 +412,46 @@ describe("回復の範囲照合・除外（recoveryKindMatches / recoveryKindExc
     expect(recoveryKindExcluded("erased", [])).toBe(false);
     expect(recoveryKindExcluded("erased", ["erased"])).toBe(true);
     expect(recoveryKindExcluded("soc-11", ["erased"])).toBe(true); // 追放=抹殺を与える
+  });
+});
+
+describe("治療用途の照合（usageCanTreatKinds・2026-07-18 治療の用途一本化）", () => {
+  // 戦闘不能系タグ全8種(気絶/失神/仮死/昏睡/完全死亡/精神崩壊/抹殺/支配)
+  const INCAP_ALL = ["faint", "swoon", "coma", "stupor", "dead", "mind-break", "erased", "dominated"];
+  // 設定規約: 通常ダメージ用の治療用途=負傷(肉体/精神)＋戦闘不能系タグを全て除外
+  const normal = {
+    recoveryTargets:  [{ group: "physical", kind: "" }, { group: "mental", kind: "" }],
+    recoveryExcludes: INCAP_ALL,
+  };
+  const faintSwoon = { recoveryTargets: [{ group: "incapacitation", kind: "faint" }, { group: "incapacitation", kind: "swoon" }], recoveryExcludes: [] };
+  const comaStupor = { recoveryTargets: [{ group: "incapacitation", kind: "coma" }, { group: "incapacitation", kind: "stupor" }, { group: "incapacitation", kind: "dominated" }], recoveryExcludes: [] };
+
+  it("通常用途: 戦闘不能を伴わない負傷にのみ合致（伴う負傷は除外の inflicts 展開で脱落）", () => {
+    expect(usageCanTreatKinds(normal, ["phys-6"])).toBe(true);            // 胸部損傷(BS のみ)
+    expect(usageCanTreatKinds(normal, ["phys-10", "faint"])).toBe(false); // 腹部損傷=気絶を与える
+    expect(usageCanTreatKinds(normal, ["phys-11", "coma"])).toBe(false);  // 心臓停止=仮死
+    expect(usageCanTreatKinds(normal, ["phys-16", "dead"])).toBe(false);  // 斬首=完全死亡(神業のみ)
+  });
+
+  it("タグ側用途: 紐づく戦闘不能の kind で合致（どの行をクリックしても同じインスタンス集合）", () => {
+    expect(usageCanTreatKinds(faintSwoon, ["phys-10", "faint"])).toBe(true);
+    expect(usageCanTreatKinds(faintSwoon, ["phys-11", "coma"])).toBe(false);
+    expect(usageCanTreatKinds(comaStupor, ["phys-11", "coma"])).toBe(true);
+    expect(usageCanTreatKinds(comaStupor, ["ment-11", "dominated"])).toBe(true); // 上書き支配
+    expect(usageCanTreatKinds(faintSwoon, ["faint"])).toBe(true);  // 孤立戦闘不能
+    expect(usageCanTreatKinds(normal, ["faint"])).toBe(false);
+  });
+
+  it("社会負傷: 範囲に社会を持つ専用用途のみ合致（ハードブロックは廃止＝範囲設定が正）", () => {
+    const social = { recoveryTargets: [{ group: "social", kind: "" }], recoveryExcludes: [] };
+    expect(usageCanTreatKinds(normal, ["soc-11"])).toBe(false);
+    expect(usageCanTreatKinds(social, ["soc-11"])).toBe(true);
+  });
+
+  it("空集合・未設定は不一致", () => {
+    expect(usageCanTreatKinds(normal, [])).toBe(false);
+    expect(usageCanTreatKinds(normal, null)).toBe(false);
+    expect(usageCanTreatKinds({}, ["phys-6"])).toBe(false);
   });
 });
 

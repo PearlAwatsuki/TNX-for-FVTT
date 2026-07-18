@@ -1262,11 +1262,13 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         new CM(el, '.lifepath-item-btn[data-context-menu="lifepath-item"]', lifepathItemMenu, { jQuery: false, fixed: true });
 
         // バッドステータス/負傷 閲覧モード: 左クリックで「治療」(ダメージ=負傷・戦闘不能のみ)。
-        // 削除は編集モードの X ボタン(removeBadStatus)のみ(2026-07-09 ユーザー指示)
+        // 削除は編集モードの X ボタン(removeBadStatus)のみ(2026-07-09 ユーザー指示)。
+        // 社会の負傷もメニュー対象(2026-07-18 一本化: 治療可否は用途の範囲設定が決める。
+        // 社会を範囲に持つ専用スタイル技能があれば治療でき、無ければ照合で「技能が無い」になる)
         const isTreatableKind = (kind) => {
             const def = CONDITION_KINDS[kind];
             if (!def) return false;
-            return def.type === "wound" ? def.group !== "social" : def.group === "incapacitation";
+            return def.type === "wound" || def.group === "incapacitation";
         };
         // 効果値を持つ BS(邪毒/電子妨害/衰弱/重圧/萎縮/憎悪/捕縛)は「効果を編集」で任意編集できる。
         // kind は status id、無い場合(isBadStatus フォールバック)は効果の conditionKind から解決する。
@@ -2402,8 +2404,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
      * この 1 関数を通す**(入口は多くてよいが、起動処理を実際に行うのはここだけ)。用途選択→分岐
      * (カバー/NPC取得/バフ宣言/回復/攻撃/固定値/宣言使用)→通常判定(共通前段=buildUsageCheckContext
      * →TnxCheckFlow.open)。**組み合わせ(コンボ)の可否はユーザー/RL が決めるものであり、システム側は
-     * 一切制限しない。** extraOpen は各入口が注入する追加文脈(reaction/treatment/movement/
-     * requestMessageId/substitution/manualMod・目標値上書き等)で、通常判定の open へ最後に合流する。
+     * 一切制限しない。** extraOpen は各入口が注入する追加文脈(reaction/movement/requestMessageId/
+     * substitution/manualMod・目標値上書き等)で、通常判定の open へ最後に合流する。treatment は
+     * 治療メニュー起点の prebound 文脈で、回復フローの分岐が消費する(open へは流れない・2026-07-18)。
      * usageId は用途の直接指定(アイテムシートの使用ボタン=ピッカーを出さない・2026-07-16 統合)。
      * @param {Actor} actor 起動アクター
      * @param {Item} item 起動する技能/アイテム
@@ -2516,12 +2519,12 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             return;
         }
 
-        // 治療(2026-07-13→2026-07-17 タイプ化): 専用フローへ(対象解決→回復対象の選択→
-        // 宣言形=即除去/判定形=完了継続。実行形式は用途の設定 executionForm)。
-        // 負傷カード起点の治療(openExtra.treatment=目標値・除去対象が確定済み)は通常判定へ合流する
-        if (selectedUsage.type === "treatment" && !openExtra.treatment) {
+        // 治療(2026-07-13→2026-07-17 タイプ化→2026-07-18 一本化): 常に回復フローへ。
+        // 治療メニュー起点(openExtra.treatment=患者・クリック状態が確定済み)は prebound 文脈として
+        // 渡し、対象解決・回復対象の選択をスキップする(宣言形=即除去/判定形=完了継続 ctx.recovery)
+        if (selectedUsage.type === "treatment") {
             try {
-                await useRecovery(item, selectedUsage);
+                await useRecovery(item, selectedUsage, openExtra.treatment ?? null);
             } catch (err) {
                 console.error("TNX | 治療の実行に失敗しました", err);
                 ui.notifications.error(`治療の実行に失敗しました: ${err.message}`);

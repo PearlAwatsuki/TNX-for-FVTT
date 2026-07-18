@@ -11,9 +11,16 @@
  *    該当すべて(recoveryAll)は一覧確認のみ・それ以外は recoveryCount 個まで選択)
  * 3. declaration 用途=消費適用→即除去 / check 用途=判定へ(ctx.recovery 完了継続・成功で除去)
  *
+ * 治療メニュー(シートの状態クリック=treatment-flow)起点も本フローへ一本化(2026-07-18 ユーザー確定):
+ * 入口が範囲照合を済ませ、患者とクリック状態を prebound 文脈で渡す(手順1・2をスキップ)。
+ * 旧・治療専用の目標値ハードコード(気絶/失神=15 等)と完了継続 ctx.treatment は廃止——目標値の
+ * 分岐は用途の範囲指定＋目標値設定で表現する(通常ダメージ用の用途は戦闘不能系タグを全て除外に
+ * 入れる設定規約)。
+ *
  * 目標値: 発動タブの目標値設定に一本化(2026-07-13・回復専用の式欄は廃止)。解説参照/その他の
  * 自由記入欄の式は @condition.magnitude(選択した状態の強度・複数は最大)と
- * @condition.woundValue(負傷のダメージ値・同)を参照できる(resolveUsageTargetValue に注入)。
+ * @condition.woundValue(負傷のダメージ値=治療対象のダメージのチャート値・同)を参照できる
+ * (resolveUsageTargetValue に注入)。
  *
  * 除去の意味論(既存規約の流用):
  * - BS=その効果のみ(woundSource は辿らない=「BS を回復してもダメージは治療されない」)
@@ -161,27 +168,41 @@ async function applyRecoveryRemoval(patient, removeIds) {
 /**
  * 治療用途を使用する(アイテムロールから・2026-07-17 タイプ化)。実行形式は用途の設定
  * (executionForm): 宣言=即時除去/判定=判定へ(完了継続で除去)。
- * @param {Item} item 治療タイプの用途を持つ技能
+ * 治療メニュー(状態クリック)起点は prebound 文脈(患者・クリック状態が確定済み)で呼ばれ、
+ * 対象解決と回復対象の選択をスキップする(2026-07-18 一本化。範囲照合は入口=startTreatment が
+ * ダメージインスタンスの kind 集合で済ませている——負傷行クリックにタグ範囲の用途が合致する
+ * 組み合わせがあるため、ここでクリック状態単体の範囲を再検査しない)。
+ * @param {Item} item 治療タイプの用途を持つアイテム
  * @param {object} usage type="treatment" の用途エントリ
+ * @param {?{patientUuid:string, effectId:string}} [prebound] 治療メニュー起点の確定済み文脈
  */
-export async function useRecovery(item, usage) {
+export async function useRecovery(item, usage, prebound = null) {
     const actor = item.actor;
-    if (!actor) { ui.notifications.warn("治療はアクターが所持している技能から使用してください。"); return; }
+    if (!actor) { ui.notifications.warn("治療はアクターが所持しているアイテムから使用してください。"); return; }
     if (!(usage.recoveryTargets ?? []).length) {
         ui.notifications.warn("回復対象の範囲が設定されていません（用途の〈治療〉で設定してください）。");
         return;
     }
 
-    const patient = await resolveRecoveryPatient(actor);
-    if (!patient) return;
+    let patient;
+    let selected;
+    if (prebound) {
+        patient = await fromUuid(prebound.patientUuid).catch(() => null);
+        const effect = patient?.effects?.get(prebound.effectId);
+        if (!effect) { ui.notifications.warn("治療対象の状態が見つかりません。"); return; }
+        selected = [effect];
+    } else {
+        patient = await resolveRecoveryPatient(actor);
+        if (!patient) return;
 
-    const candidates = listRecoverableEffects(patient, usage);
-    if (!candidates.length) {
-        ui.notifications.warn(`「${patient.name}」に回復対象となる状態がありません。`);
-        return;
+        const candidates = listRecoverableEffects(patient, usage);
+        if (!candidates.length) {
+            ui.notifications.warn(`「${patient.name}」に回復対象となる状態がありません。`);
+            return;
+        }
+        selected = await promptRecoverySelection(patient, candidates, usage);
+        if (!selected) return;
     }
-    const selected = await promptRecoverySelection(patient, candidates, usage);
-    if (!selected) return;
     const plan = buildRemovalPlan(patient, selected);
 
     // 宣言形(判定なし・実行形式は用途の設定=2026-07-17): 消費(使用時に確定・適用)→即除去
@@ -193,7 +214,7 @@ export async function useRecovery(item, usage) {
         if (!await applyRecoveryRemoval(patient, plan.removeIds)) return;
         await postConditionOutcome(patient, {
             title: usage.name || item.name, tag: "回復", status: "success",
-            label: plan.label, text: "を回復（BS の紐づく負傷は残る＝ダメージは治療されない）。",
+            label: plan.label, text: "を回復。",
         });
         return;
     }
@@ -241,6 +262,6 @@ export async function resolveRecoveryFromCheck(ctx, result) {
     if (!await applyRecoveryRemoval(patient, ctx.removeIds)) return;
     await postConditionOutcome(patient, {
         title: ctx.usageName, tag: "回復", status: "success",
-        label: ctx.label, text: "を回復（BS の紐づく負傷は残る＝ダメージは治療されない）。",
+        label: ctx.label, text: "を回復。",
     });
 }
