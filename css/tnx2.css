@@ -7826,7 +7826,9 @@ button.tnx-create-act-button span {
     position: relative;
     width: 100%;
     justify-content: center;
-    padding: 8px 12px;
+    /* 左右 36px はアイコン(absolute left:12px)の領域確保。長い用途名が折り返しても
+       行箱がアイコンに重ならない(KI-031)。対称にして中央寄せの見た目を保つ */
+    padding: 8px 36px;
     font-size: 0.95em;
     background: var(--tnx2-bg-3);
     border: 1px solid var(--tnx2-border-subtle);
