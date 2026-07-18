@@ -1,7 +1,7 @@
-{{!-- 個別リアクションカード(フェーズ12・複数対象一括・2026-07-15)。攻撃対象ごとに投稿し、
-     表示は GM＋対象所有者に whisper。未解決=リアクションボタン/解決後=判定結果様の表示は
-     renderChatMessageHTML(attack-flow.renderReactionCard)がフラグ(attackReaction)から描画する。
-     結果確定で whisper が解除され全体公開される。 --}}
+{{!-- 個別リアクションカード(フェーズ12・2026-07-18 大改修)。リアクションすると決めたキャラクター
+     ごとにシークレット(GM＋本人)で作成され、解決時に whisper が解除され全体公開される。
+     未解決=リアクションボタン/解決後=判定結果様の表示は renderChatMessageHTML
+     (attack-flow.renderReactionCard)がフラグ(attackReaction)から描画する。 --}}
 <div class="tnx-check-result tnx-reaction-card tokyo-nova">
     <div class="cr-head">
         <span class="cr-skill-name">リアクション</span>
@@ -10,8 +10,14 @@
     <div class="cr-calc-section">
         <div class="cr-calc-row">
             <span class="cr-calc-label">{{#if isAttack}}攻撃{{else}}対決{{/if}}</span>
-            <span class="cr-calc-val">{{attackerName}} → {{targetName}}</span>
+            <span class="cr-calc-val">{{attackerName}}{{#if targetName}} → {{targetName}}{{/if}}</span>
         </div>
+        {{#if reactorName}}
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">リアクター</span>
+            <span class="cr-calc-val">{{reactorName}}</span>
+        </div>
+        {{/if}}
         <div class="cr-calc-row cr-total-row">
             <span class="cr-calc-label">{{#if isAttack}}攻撃達成値{{else}}相手の達成値{{/if}} <span class="cr-suit suit-{{suit}}">{{suitSymbol}}</span></span>
             <span class="cr-total-num">{{achievement}}</span>

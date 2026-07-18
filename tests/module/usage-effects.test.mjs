@@ -139,9 +139,14 @@ describe("attackCardEffectMode()（対決判定カードでの効果ブロック
     expect(attackCardEffectMode({ isAttack: false, state: "active", targets: [{ state: "hit" }, { state: "miss" }] })).toBe("button");
   });
 
-  it("非攻撃対決（対象なし=オープン）: openReaction.resolved で 'button'", () => {
+  it("非攻撃対決（対象なし=オープン・旧形式）: openReaction.resolved で 'button'", () => {
     expect(attackCardEffectMode({ isAttack: false, state: "open", targets: [], openReaction: { resolved: false } })).toBe("hide");
     expect(attackCardEffectMode({ isAttack: false, state: "open", targets: [], openReaction: { resolved: true } })).toBe("button");
+  });
+
+  it("非攻撃対決（オープン・2026-07-18 任意・複数化）: 終端が無い（ライブ成否）ため常に 'button'（押す時機は卓判断）", () => {
+    expect(attackCardEffectMode({ isAttack: false, state: "open", targets: [], openReactions: [] })).toBe("button");
+    expect(attackCardEffectMode({ isAttack: false, state: "open", targets: [], openReactions: [{ established: true }] })).toBe("button");
   });
 
   it("全体の終端状態（fumble/miss/failed）は対象が pending でも 'button'（結果カードの無条件表示と同じ=卓判断）", () => {

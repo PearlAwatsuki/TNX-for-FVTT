@@ -20,11 +20,14 @@ import {
 const row = (value, name = "") => ({ value, name, skillDict: "", skillGroup: "", skillSub: "" });
 
 describe("用途タイプ(行動種別・2026-07-17 確定)", () => {
-    it("リアクションタイプは対決欄の手段行と1:1(修理タイプ追加後=17種・2026-07-18)", () => {
-        expect(Object.keys(USAGE_TYPE_DEFS)).toHaveLength(17);
+    it("リアクションタイプは対決欄の手段行と1:1(汎用リアクション追加後=18種・2026-07-18)", () => {
+        expect(Object.keys(USAGE_TYPE_DEFS)).toHaveLength(18);
         expect(USAGE_TYPE_DEFS.repair).toEqual({ label: "修理", kind: "action" });
+        // 汎用「リアクション」(2026-07-18): 系統フラグなし=あらゆる対決判定への資格(適否は卓)。
+        // kind=reaction のため対決欄の手段行にも自動で入る(明示的に汎用リアクションを許す用途向け)
+        expect(USAGE_TYPE_DEFS.reaction).toEqual({ label: "リアクション", kind: "reaction" });
         expect(CONFRONTATION_REACTION_VALUES).toEqual(
-            ["dodge", "parry", "mentalReaction", "socialReaction", "moveBlockReaction", "escapeBlockReaction"]);
+            ["dodge", "parry", "mentalReaction", "socialReaction", "moveBlockReaction", "escapeBlockReaction", "reaction"]);
     });
 
     it("系統既定の対決行は全て enum(技能名・辞典キーなし)", () => {
@@ -38,7 +41,7 @@ describe("用途タイプ(行動種別・2026-07-17 確定)", () => {
     });
 
     it("リアクション系タイプの既定対決は「なし」(2026-07-18 裁定=対決欄は全タイプが持つ)", () => {
-        for (const t of ["dodge", "parry", "mentalReaction", "socialReaction", "moveBlockReaction", "escapeBlockReaction"]) {
+        for (const t of ["dodge", "parry", "mentalReaction", "socialReaction", "moveBlockReaction", "escapeBlockReaction", "reaction"]) {
             expect(defaultConfrontationForType(t).map(r => r.value)).toEqual(["none"]);
         }
     });

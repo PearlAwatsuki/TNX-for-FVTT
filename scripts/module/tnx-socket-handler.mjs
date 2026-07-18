@@ -144,15 +144,16 @@ export class TnxSocketHandler {
 
     // ─── messagePatch（メッセージ更新の汎用委譲・2026-07-16 一本化） ──────────────
 
-    /** メッセージ更新を GM クライアントが代行する(自スコープの flags と content=カード本文のみ
-     *  受理。再判定の置き換え着地は本文の差し替えを含む=2026-07-14)。 */
+    /** メッセージ更新を GM クライアントが代行する(自スコープの flags と content=カード本文、
+     *  および whisper=リアクションカードの公開切替(シークレット解除・2026-07-18)のみ受理。
+     *  再判定の置き換え着地は本文の差し替えを含む=2026-07-14)。 */
     static async _onMessagePatch(data) {
         if (!game.user.isGM) return;
         const message = game.messages.get(data?.messageId);
         if (!message || !data?.patch) return;
         const updates = {};
         for (const [k, v] of Object.entries(data.patch)) {
-            if (k !== "content" && !k.startsWith(`flags.${SCOPE}.`)) continue; // 自スコープ外は無視
+            if (k !== "content" && k !== "whisper" && !k.startsWith(`flags.${SCOPE}.`)) continue; // 自スコープ外は無視
             updates[k] = v;
         }
         if (Object.keys(updates).length) await message.update(updates);

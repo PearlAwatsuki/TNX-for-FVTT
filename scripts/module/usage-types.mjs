@@ -28,6 +28,10 @@ export const USAGE_TYPE_DEFS = Object.freeze({
     socialReaction:      { label: "リアクション（社会攻撃）", kind: "reaction" },
     moveBlockReaction:   { label: "リアクション（移動妨害）", kind: "reaction", usesVehicle: true },
     escapeBlockReaction: { label: "リアクション（離脱妨害）", kind: "reaction" },
+    // 汎用「リアクション」(2026-07-18 ユーザー確定): 系統フラグを持たず**あらゆる対決判定への
+    // リアクション資格**を持つ(適否は卓が都度判断・システムはブロックしない)。系統別タイプとは
+    // 統合しない——系統別の資格ゲート(一般則)は維持され、本タイプは細則(例外能力)の受け皿
+    reaction:            { label: "リアクション",             kind: "reaction" },
     move:                { label: "移動",                     kind: "action", usesVehicle: true },
     escape:              { label: "離脱",                     kind: "action" },
     treatment:           { label: "治療",                     kind: "action", selectableForm: true },

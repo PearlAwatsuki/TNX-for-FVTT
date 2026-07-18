@@ -106,7 +106,10 @@ export function attackCardEffectMode(f) {
     if (!f || f.isAttack !== false) return "attack";
     // 全体の終端状態: 対象ごとの解決が走らないまま終わる(fumble/miss=判定不成立・failed=対決敗北)
     if (["fumble", "miss", "failed"].includes(f.state)) return "button";
-    if (f.openReaction) return f.openReaction.resolved === true ? "button" : "hide";
+    // オープンリアクション(2026-07-18 任意・複数化): 明示の確定操作が無い(ライブ成否)ため終端も無い。
+    // ボタンは常時表示し、押す時機は卓判断(v3 原則)
+    if (f.openReactions) return "button";
+    if (f.openReaction) return f.openReaction.resolved === true ? "button" : "hide"; // 旧形式(先着1件)
     return (f.targets ?? []).every(t => t?.state !== "pending") ? "button" : "hide";
 }
 

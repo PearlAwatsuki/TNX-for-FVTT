@@ -777,12 +777,11 @@ export class TnxCheckFlow {
         } else if (ctx.movement) {
             const { postMovementCard } = await import("./vehicle-move.mjs");
             await postMovementCard({ payload: ctx.movement, result, suit, card, fromDeck, trumpUsed, suitMismatch, recheckCtx });
-        } else if (!ctx.reaction || ctx.reaction.open === true) {
+        } else if (!ctx.reaction) {
             // リアクションは通常の結果カードを出さない(2026-07-15 ユーザー確定)。書き換わった
             // リアクションカードが結果カードそのもの。再判定/修正の導線もリアクションカードへ載せる
             // (recheckCtx は下の completeReactionFromCheck がリアクションカードに保存する)。
-            // 例外: オープン対決(対象なしの対決判定・2026-07-17)のリアクションは個別カードを
-            // 持たないため通常の結果カードを出す(再判定/修正の導線もそこに載る)
+            // オープンリアクションも 2026-07-18 大改修でリアクターごとの個別カードを持つため同じ扱い
             await TnxCheckFlow._postResultChat({ ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch, checkSources: checkInfo.sources, recheckCtx });
         }
 
@@ -942,13 +941,19 @@ export class TnxCheckFlow {
             });
             let overall = result.fumble ? "fumble"
                 : (suitMismatch ? "miss" : ((prev.targets?.length) ? "active" : "open"));
-            // オープン対決(対象なし・2026-07-17): 解決済みなら保存済みのリアクション達成値で再解決する
+            // オープンリアクション(対象なし): 保存済みのリアクション達成値で再解決する
             // (リアクションのやり直しはしない=対象リストの再解決と同型)
-            if (prev.openReaction?.resolved && prev.openReaction.mode
-                && overall === "open") {
-                const { resolveOpposed } = await import("./attack-flow-logic.mjs");
-                const { hit } = resolveOpposed(result.achievement ?? 0, prev.openReaction.reactionAchievement ?? 0);
-                if (!hit) overall = "failed";
+            if (overall === "open") {
+                if (prev.openReactions?.length) {
+                    // 2026-07-18 任意・複数化: 成立の最高達成値1件との受動有利で再導出
+                    const { resolveOpenReactions } = await import("./reaction-logic.mjs");
+                    if (resolveOpenReactions(result.achievement ?? 0, prev.openReactions).failed) overall = "failed";
+                } else if (prev.openReaction?.resolved && prev.openReaction.mode) {
+                    // 旧形式(先着1件・2026-07-17)の互換
+                    const { resolveOpposed } = await import("./attack-flow-logic.mjs");
+                    const { hit } = resolveOpposed(result.achievement ?? 0, prev.openReaction.reactionAchievement ?? 0);
+                    if (!hit) overall = "failed";
+                }
             }
             patch.content = await buildAttackCardContent({
                 payload: ctx.attack, result, suit, card, fromDeck, trumpUsed, suitMismatch, isRecheck: true,
@@ -1401,12 +1406,19 @@ export class TnxCheckFlow {
                 patch[`flags.${SCOPE}.attackCheck.state`] = r.hit ? "hit" : "miss";
                 patch[`flags.${SCOPE}.attackCheck.diff`] = r.diff;
             }
-            // オープン対決(対象なし・2026-07-17): 解決済みなら保存済みのリアクション達成値で再解決
-            if (attackF.openReaction?.resolved && attackF.openReaction.mode
-                && (attackF.state === "open" || attackF.state === "failed")) {
-                const { resolveOpposed } = await import("./attack-flow-logic.mjs");
-                const { hit } = resolveOpposed(newAch, attackF.openReaction.reactionAchievement ?? 0);
-                patch[`flags.${SCOPE}.attackCheck.state`] = hit ? "open" : "failed";
+            // オープンリアクション: 保存済みのリアクション達成値で再解決(ライブ成否)
+            if (attackF.state === "open" || attackF.state === "failed") {
+                if (attackF.openReactions?.length) {
+                    // 2026-07-18 任意・複数化: 成立の最高達成値1件との受動有利で再導出
+                    const { resolveOpenReactions } = await import("./reaction-logic.mjs");
+                    const { failed } = resolveOpenReactions(newAch, attackF.openReactions);
+                    patch[`flags.${SCOPE}.attackCheck.state`] = failed ? "failed" : "open";
+                } else if (attackF.openReaction?.resolved && attackF.openReaction.mode) {
+                    // 旧形式(先着1件・2026-07-17)の互換
+                    const { resolveOpposed } = await import("./attack-flow-logic.mjs");
+                    const { hit } = resolveOpposed(newAch, attackF.openReaction.reactionAchievement ?? 0);
+                    patch[`flags.${SCOPE}.attackCheck.state`] = hit ? "open" : "failed";
+                }
             }
         }
 

@@ -7541,6 +7541,33 @@ button.tnx-create-act-button span {
     color: var(--tnx2-text-accent);
 }
 
+/* 対象行クリック=リアクションの入口(2026-07-18 大改修) */
+.tnx-attack-clickable {
+    cursor: pointer;
+    border-radius: 3px;
+}
+.tnx-attack-clickable:hover {
+    background: rgb(255 255 255 / 6%);
+}
+
+/* 併存リアクションのサブ行(2026-07-18): 手段（リアクター名）と達成値/不成立を対象行の下に列挙 */
+.tnx-attack-target-sub {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 0 0 0 22px; /* 対象行のアイコン幅ぶん字下げ */
+    font-size: 0.78em;
+    color: var(--tnx2-text-secondary);
+}
+.tnx-attack-target-sub__label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.tnx-attack-target-sub__val {
+    flex: 0 0 auto;
+}
+
 /* ── 個別リアクションカード(複数対象一括・2026-07-15): 状態領域の余白を他カードに合わせる。
    解決後は目標値/差分を cr-calc-section へ足し成否は cr-result フルバナー(check-result と同型)、
    未解決の注記/ボタンはカード内側余白のラッパへ入れる ── */
