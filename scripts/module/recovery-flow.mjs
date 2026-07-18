@@ -37,7 +37,7 @@ import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { buildUsageCheckContext } from "./usage-check-context.mjs";
 import { resolveSingleTargetOrSelf } from "./target-resolution.mjs";
-import { CONDITION_KINDS, getConditionKinds, recoveryKindMatches, recoveryKindExcluded, readCondition } from "./conditions.mjs";
+import { CONDITION_KINDS, getConditionKinds, recoveryKindMatches, recoveryKindExcluded, readCondition, woundChartValue } from "./conditions.mjs";
 import { postConditionOutcome } from "./condition-resolution.mjs";
 import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } from "./usage-consumption.mjs";
 import { executionFormOf } from "./usage-types.mjs";
@@ -73,7 +73,8 @@ function buildRemovalPlan(patient, effects) {
     const labels = [];
     const addWoundRange = (wound) => {
         for (const id of woundRemovalIds(patient, wound)) ids.add(id);
-        woundValue = Math.max(woundValue, Number(wound.flags?.[SCOPE]?.woundValue) || 0);
+        // チャート値: 保存値優先・無ければ kind から導出(手動付与の負傷は woundValue を持たない)
+        woundValue = Math.max(woundValue, woundChartValue(wound));
     };
     for (const e of effects) {
         const kind = getConditionKinds(e)[0];
@@ -105,7 +106,7 @@ async function promptRecoverySelection(patient, candidates, usage) {
         const kind = getConditionKinds(e)[0];
         const def = CONDITION_KINDS[kind];
         const mag = Number(readCondition(e)?.magnitude) || 0;
-        const wv = Number(e.flags?.[SCOPE]?.woundValue) || 0;
+        const wv = woundChartValue(e);
         const linkedWound = def?.group === "incapacitation" && e.flags?.[SCOPE]?.woundSource
             ? patient.effects.get(e.flags[SCOPE].woundSource) : null;
         const extra = def?.type === "wound"

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildDamageStates, getDamageChartKind, DAMAGE_CATEGORIES } from "../../scripts/data/damage-chart.mjs";
+import { buildDamageStates, getDamageChartKind, getDamageChartValue, DAMAGE_CATEGORIES } from "../../scripts/data/damage-chart.mjs";
 import { CONDITION_KINDS, buildInflictedEffectsData, gatherPartSlotMods } from "../../scripts/module/conditions.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
@@ -48,6 +48,18 @@ describe("ダメージ負傷状態", () => {
     expect(getDamageChartKind("social", 21)).toBe("soc-21");
     expect(getDamageChartKind("physical", 0)).toBeNull();        // ダメージなし
     expect(getDamageChartKind("bogus", 5)).toBeNull();
+  });
+
+  it("getDamageChartValue: 負傷 kind → チャート値の逆引き・負傷以外は 0", () => {
+    expect(getDamageChartValue("phys-6")).toBe(6);
+    expect(getDamageChartValue("ment-13")).toBe(13);
+    expect(getDamageChartValue("soc-21")).toBe(21);
+    expect(getDamageChartValue("faint")).toBe(0);      // 戦闘不能タグ
+    expect(getDamageChartValue("weakness")).toBe(0);   // BS
+    expect(getDamageChartValue("phys-0")).toBe(0);
+    expect(getDamageChartValue("phys-22")).toBe(0);
+    expect(getDamageChartValue("bogus-5")).toBe(0);
+    expect(getDamageChartValue(null)).toBe(0);
   });
 
   it("負傷の代表例が正しい(斬首→完全死亡 / 胸部損傷→衰弱 / パニック→重圧(理性))", () => {

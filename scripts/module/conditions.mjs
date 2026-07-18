@@ -10,7 +10,7 @@
  * 本モジュールは純粋関数(Foundry 非依存)に徹し、actor / item / targets の解決は呼び出し側で行う。
  */
 
-import { buildDamageStates } from "../data/damage-chart.mjs";
+import { buildDamageStates, getDamageChartValue } from "../data/damage-chart.mjs";
 import { parseEffectTargetKey, collectActorEffectBuffs, effectAutoApplies } from "../data/item/helpers.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
@@ -341,6 +341,21 @@ export function usageCanTreatKinds(usage, kinds) {
   return (kinds ?? []).some(k =>
     recoveryKindMatches(k, usage?.recoveryTargets)
     && !recoveryKindExcluded(k, usage?.recoveryExcludes));
+}
+
+/**
+ * 負傷のチャート値(治療目標値式 @condition.woundValue に載せる値)を返す(純関数)。
+ * 保存された woundValue(発生時の最終ダメージ値・21 超もあり得る=保存値のみが知る)を優先し、
+ * 無ければ kind のチャート行番号から導出する——ダメージ適用フロー(applyDamageChartResult)を
+ * 通らずに付与された負傷(トークンのステータストグル・手動作成)は woundValue フラグを持たないため。
+ * 負傷でない効果(BS・戦闘不能タグ等)は 0。
+ * @param {ActiveEffect|object} effect
+ * @returns {number}
+ */
+export function woundChartValue(effect) {
+  const stored = Number(effect?.flags?.[SCOPE]?.woundValue);
+  if (Number.isFinite(stored) && stored > 0) return stored;
+  return getDamageChartValue(getConditionKinds(effect)[0]);
 }
 
 /**

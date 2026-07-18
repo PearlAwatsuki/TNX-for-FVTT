@@ -145,3 +145,18 @@ export function getDamageChartKind(category, value) {
   if (tier === 0) return null;
   return `${meta.prefix}-${tier}`;
 }
+
+/**
+ * 負傷状態の kind id からチャート値(1〜21)を返す(getDamageChartKind の逆引き)。
+ * ダメージ適用フローを通らず付与された負傷(トークントグル・手動作成)は woundValue フラグを
+ * 持たないため、チャート値の導出元として使う。負傷 kind でない id(BS・戦闘不能・未知)は 0。
+ * @param {string} kind 例 "phys-6"
+ * @returns {number}
+ */
+export function getDamageChartValue(kind) {
+  const m = /^([a-z]+)-(\d+)$/.exec(String(kind ?? ""));
+  if (!m) return 0;
+  if (!DAMAGE_CATEGORIES.some(cat => CATEGORY_META[cat].prefix === m[1])) return 0;
+  const tier = Number(m[2]);
+  return tier >= 1 && tier <= 21 ? tier : 0;
+}

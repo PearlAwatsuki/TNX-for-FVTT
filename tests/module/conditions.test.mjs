@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CONDITION_KINDS, readCondition, readConditions, getConditionKind, getConditionKinds, gatherConditionCheckSources, getCheckBlock, gatherConditionControlPenalty, computeJammingPenalty, buildInflictedEffectsData, applyDamageTagMods, recoveryKindMatches, recoveryKindExcluded, usageCanTreatKinds, ignoreRuleMatches, gatherIgnoreRules, getEffectiveConditions, gatherSkillUseWarnings, hasBountyBlock }
+import { CONDITION_KINDS, readCondition, readConditions, getConditionKind, getConditionKinds, gatherConditionCheckSources, getCheckBlock, gatherConditionControlPenalty, computeJammingPenalty, buildInflictedEffectsData, applyDamageTagMods, recoveryKindMatches, recoveryKindExcluded, usageCanTreatKinds, woundChartValue, ignoreRuleMatches, gatherIgnoreRules, getEffectiveConditions, gatherSkillUseWarnings, hasBountyBlock }
   from "../../scripts/module/conditions.mjs";
 
 /** 準備アウトフィット記述子の略記 */
@@ -452,6 +452,24 @@ describe("治療用途の照合（usageCanTreatKinds・2026-07-18 治療の用�
     expect(usageCanTreatKinds(normal, [])).toBe(false);
     expect(usageCanTreatKinds(normal, null)).toBe(false);
     expect(usageCanTreatKinds({}, ["phys-6"])).toBe(false);
+  });
+});
+
+describe("負傷のチャート値（woundChartValue・保存値優先＋kind 導出フォールバック）", () => {
+  it("保存された woundValue(ダメージ適用フロー由来)を優先する（21 超は保存値のみが知る）", () => {
+    const eff = { statuses: new Set(["phys-21"]), flags: { [SCOPE]: { conditionKind: "phys-21", woundValue: 25 } } };
+    expect(woundChartValue(eff)).toBe(25);
+  });
+
+  it("woundValue が無い負傷(トークントグル/手動付与)は kind のチャート行番号から導出する", () => {
+    expect(woundChartValue({ statuses: new Set(["phys-10"]), flags: {} })).toBe(10);
+    expect(woundChartValue({ statuses: new Set(["soc-11"]), flags: { [SCOPE]: {} } })).toBe(11);
+  });
+
+  it("負傷でない効果(BS・戦闘不能タグ)・不正値は 0", () => {
+    expect(woundChartValue({ statuses: new Set(["faint"]), flags: {} })).toBe(0);
+    expect(woundChartValue({ statuses: new Set(["weakness"]), flags: { [SCOPE]: { woundValue: 0 } } })).toBe(0);
+    expect(woundChartValue(null)).toBe(0);
   });
 });
 
