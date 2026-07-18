@@ -1378,17 +1378,6 @@ Hooks.once("init", async function() {
             });
         }
 
-        // 正準名の用途正規化(2026-07-17・インポート/ドロップ/手動作成の全経路・自動挿入の後):
-        // 回避→ドッジ・白兵→パリー・自我/信用→各リアクション・医療→治療・操縦→移動/
-        // リアクション（移動妨害）の追加。実行時の資格判定は用途タイプの所持のみ(旧 skillRoles 廃止)
-        if (data.type === "generalSkill") {
-            const src = item._source?.system ?? {};
-            const canonical = canonicalizeSkillActions(
-                { name: item.name, identificationKey: src.identificationKey ?? "", actions: src.actions ?? [] },
-                () => foundry.utils.randomID());
-            if (canonical) item.updateSource({ "system.actions": canonical });
-        }
-
         // 作成者がGMの場合はデフォルト処理に任せる（通常はOwnerになる）
         const user = game.users.get(userId);
         if (user && user.isGM) return;
