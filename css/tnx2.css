@@ -1148,6 +1148,9 @@
     padding: 4px 8px;
     height: 36px;
     min-height: unset;
+    /* グリッドアイテムの最小幅を 0 に: 1fr トラックが内容(min-content)で押し広げられず全セル等幅に
+       固定される(衰弱の長い効果値等)。あふれた文字列は squeeze-text の縮小が全文を収める */
+    min-width: 0;
     background: var(--tnx2-bg-2);
     border: 1px solid var(--tnx2-border-subtle);
     border-radius: var(--tnx2-radius);
