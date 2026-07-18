@@ -7355,15 +7355,17 @@ button.tnx-create-act-button span {
     color: var(--tnx2-text-secondary);
     white-space: nowrap;
 }
+/* スピナーはセルいっぱいに伸ばさずコンパクト固定幅・右寄せ(2026-07-18: セル右端=select の右端に揃える)。
+   ラベル「消費数」は左端に置き、間を margin-left:auto で空ける */
 .tnx-usage-sheet .usage-consume-amount .number-input-spinner {
-    flex: 1 1 auto;
-    min-width: 0;
-    justify-content: flex-start;
+    flex: 0 0 auto;
+    justify-content: flex-end;
+    margin-left: auto;
 }
 .tnx-usage-sheet .usage-consume-amount .number-input-spinner input[type="number"] {
-    flex: 1 1 40px;
-    width: auto;
-    min-width: 32px;
+    flex: 0 0 44px;
+    width: 44px;
+    min-width: 44px;
     height: 26px;
     font-size: 0.9em;
     padding: 0 2px;
