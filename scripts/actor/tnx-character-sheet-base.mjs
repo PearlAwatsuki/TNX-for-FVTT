@@ -305,7 +305,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                             id:      e.id,
                             statusId,
                             name:    statusConfig.name,
-                            valueSuffix: TnxCharacterSheetBase._bsValueSuffix(this.actor, conds.find(c => c.kind === statusId), e),
+                            valueText:  TnxCharacterSheetBase._bsValueText(this.actor, conds.find(c => c.kind === statusId), e),
+                            // ダメージ(負傷)は「nチャート名」・BS は「効果名n」の順(2026-07-18 ユーザー確定)
+                            valueFirst: CONDITION_KINDS[statusId]?.type === "wound",
                             img:     statusConfig.img,
                             details: ig?.ignored ? (ig.manual ? "手動で無視中" : (ig.by ? `「${ig.by}」により無視` : "効果を無視中")) : (bsFlags?.details || ""),
                             ignored: ig?.ignored === true,
@@ -320,7 +322,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                     id:      e.id,
                     statusId: null,
                     name:    e.name,
-                    valueSuffix: TnxCharacterSheetBase._bsValueSuffix(this.actor, conds[0], e),
+                    valueText:  TnxCharacterSheetBase._bsValueText(this.actor, conds[0], e),
+                    valueFirst: conds[0]?.def?.type === "wound",
                     img:     e.img,
                     details: ig?.ignored ? (ig.manual ? "手動で無視中" : (ig.by ? `「${ig.by}」により無視` : "効果を無視中")) : (bsFlags?.details || ""),
                     ignored: ig?.ignored === true,
@@ -2348,12 +2351,14 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
      * BS/負傷バッジに付す効果値/対象の表記を返す(2026-07-15・正本 Bad_Status.md の表記に従う)。
      * 値/対象が「効果や名前で決まるもの」(酩酊(大/小)・恐慌 等)は空文字＝表示しない。
      * カードで決まるもの(重圧の指定なし・衰弱のスート引き)も、引いた後は保存された値/対象を表示する。
+     * 表示順はテンプレート側(valueFirst): BS=名前の後「効果名n」・負傷=名前の前「nチャート名」
+     * (2026-07-18 ユーザー確定)。
      * @param {Actor} actor バッジの持ち主(対象武器=このアクターの武器・生身の解決に使う)
      * @param {object|null} cond readConditions の 1 要素
      * @param {ActiveEffect|null} effect バッジの元 AE(負傷のチャート値の読み取りに使う)
-     * @returns {string} 名前に続けて表示する表記(例 「2」「（生命）」「（-3）」「（対象名）」)
+     * @returns {string} 効果値/対象の表記(例 「2」「（生命）」「（-3）」「（対象名）」)
      */
-    static _bsValueSuffix(actor, cond, effect = null) {
+    static _bsValueText(actor, cond, effect = null) {
         const def = cond?.def;
         if (!def || def.fixedMagnitude !== undefined) return ""; // 固定値/名前で明示=表示なし
         // 負傷: チャート値を数字直付けで表示(邪毒と同型・2026-07-18 ユーザー指摘で表示化。

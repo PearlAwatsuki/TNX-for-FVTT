@@ -8,8 +8,8 @@
             data-status-id="{{bs.statusId}}"
             data-tooltip="{{bs.details}}">
             <img src="{{bs.img}}" class="tnx-bs-icon"/>
-            <span class="tnx-bs-label">{{bs.name}}</span>
-            {{#if bs.valueSuffix}}<span class="tnx-bs-value-wrap"><span class="tnx-bs-value squeeze-text">{{bs.valueSuffix}}</span></span>{{/if}}
+            {{! 効果名+効果値は一まとまりで中央寄せ。順序: BS=「効果名n」・ダメージ=「nチャート名」(valueFirst) }}
+            <span class="tnx-bs-text-wrap"><span class="tnx-bs-text squeeze-text">{{#if bs.valueFirst}}{{#if bs.valueText}}<span class="tnx-bs-value">{{bs.valueText}}</span>{{/if}}{{/if}}<span class="tnx-bs-label">{{bs.name}}</span>{{#unless bs.valueFirst}}{{#if bs.valueText}}<span class="tnx-bs-value">{{bs.valueText}}</span>{{/if}}{{/unless}}</span></span>
             {{#if ../isEditMode}}<i class="fas fa-times tnx-bs-remove"></i>{{/if}}
         </button>
         {{/each}}

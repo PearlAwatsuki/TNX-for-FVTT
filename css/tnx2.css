@@ -1163,31 +1163,33 @@
     object-fit: contain;
     border: none;
 }
-.tokyo-nova.sheet.actor .tnx-bs-label {
-    /* 効果名は内容幅を保つ(効果値と分離・2026-07-15)。極端に長い名前だけ省略 */
-    flex: 0 1 auto;
-    font-size: 0.88em;
-    font-family: var(--tnx2-font-mono);
-    color: var(--tnx2-text-secondary);
-    line-height: 1.2;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-/* 効果値: 残り幅に入りきらない場合は squeeze-text(scaleX)で縮小して収める(衰弱の長い効果値等) */
-.tokyo-nova.sheet.actor .tnx-bs-value-wrap {
+/* 効果名+効果値の一まとまりを残り幅の中央に置く(2026-07-18)。text-align でなく flex 中央寄せ
+   =はみ出した squeeze-text の scaleX(原点中央)が中央で効く(アウトフィット表のパラメータ列と
+   同じ手法)。入りきらない場合は squeeze-text で縮小 */
+.tokyo-nova.sheet.actor .tnx-bs-text-wrap {
+    display: flex;
     flex: 1 1 0;
     min-width: 0;
     overflow: hidden;
+    justify-content: center;
+    align-items: center;
 }
-.tokyo-nova.sheet.actor .tnx-bs-value {
-    display: inline-block;
-    white-space: nowrap;
-    transform-origin: left center;
+.tokyo-nova.sheet.actor .tnx-bs-text {
+    flex: 0 0 auto;
+    line-height: 1.2;
+}
+.tokyo-nova.sheet.actor .tnx-bs-label {
     font-size: 0.88em;
     font-family: var(--tnx2-font-mono);
-    color: var(--tnx2-text-primary);
-    line-height: 1.2;
+    color: var(--tnx2-text-secondary);
+}
+/* 効果値/チャート値の強調(2026-07-18 ユーザー確定)。順序はテンプレート側:
+   BS=「効果名n」・ダメージ=「nチャート名」 */
+.tokyo-nova.sheet.actor .tnx-bs-value {
+    font-size: 0.95em;
+    font-family: var(--tnx2-font-mono);
+    font-weight: 700;
+    color: var(--tnx2-accent, #6fb3d2);
 }
 
 /* 編集モード: ホバーで削除インジケーター */
@@ -1216,8 +1218,7 @@
 .tokyo-nova.sheet.actor .tnx-bs-btn--ignored {
     opacity: 0.55;
 }
-.tokyo-nova.sheet.actor .tnx-bs-btn--ignored .tnx-bs-label,
-.tokyo-nova.sheet.actor .tnx-bs-btn--ignored .tnx-bs-value {
+.tokyo-nova.sheet.actor .tnx-bs-btn--ignored .tnx-bs-text {
     text-decoration: line-through;
 }
 
