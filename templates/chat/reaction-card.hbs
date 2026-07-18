@@ -1,8 +1,38 @@
-{{!-- 個別リアクションカード(フェーズ12・2026-07-18 大改修)。リアクションすると決めたキャラクター
-     ごとにシークレット(GM＋本人)で作成され、解決時に whisper が解除され全体公開される。
-     未解決=リアクションボタン/解決後=判定結果様の表示は renderChatMessageHTML
-     (attack-flow.renderReactionCard)がフラグ(attackReaction)から描画する。 --}}
+{{!-- 個別リアクションカード(対象ありの対決・2026-07-18 大改修)。リアクションすると決めた
+     キャラクターごとにシークレット(GM＋本人)で作成され、解決時に本文が「リアクション判定の
+     結果カード」(基底=check-card-head/check-calc-rows に対決情報を足す形式・2026-07-19 基底化)へ
+     再構築されて whisper が解除され全体公開される。
+     未解決=手段ボタン/解決後=差分値・成否バナーは renderChatMessageHTML
+     (attack-flow.renderReactionCard)がフラグ(attackReaction)から .tnx-reaction-status へ描画する。 --}}
 <div class="tnx-check-result tnx-reaction-card tokyo-nova">
+{{#if resolved}}
+    {{> "systems/tokyo-nova-axleration/templates/chat/parts/check-card-head.hbs"}}
+    <div class="cr-calc-section">
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">{{#if isAttack}}攻撃{{else}}対決{{/if}}</span>
+            <span class="cr-calc-val">{{attackerName}}{{#if targetName}} → {{targetName}}{{/if}}</span>
+        </div>
+        {{#if reactorName}}
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">リアクター</span>
+            <span class="cr-calc-val">{{reactorName}}</span>
+        </div>
+        {{/if}}
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">{{#if isAttack}}攻撃達成値{{else}}相手の達成値{{/if}} <span class="cr-suit suit-{{attackSuit}}">{{attackSuitSymbol}}</span></span>
+            <span class="cr-calc-val">{{attackAchievement}}</span>
+        </div>
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">リアクション</span>
+            <span class="cr-calc-val">{{modeLabel}}</span>
+        </div>
+        {{> "systems/tokyo-nova-axleration/templates/chat/parts/check-calc-rows.hbs"}}
+        <div class="cr-calc-row cr-total-row">
+            <span class="cr-calc-label">達成値</span>
+            <span class="cr-total-num">{{result.achievement}}</span>
+        </div>
+    </div>
+{{else}}
     <div class="cr-head">
         <span class="cr-skill-name">リアクション</span>
         <span class="cr-type-tag">{{categoryLabel}}</span>
@@ -23,5 +53,6 @@
             <span class="cr-total-num">{{achievement}}</span>
         </div>
     </div>
+{{/if}}
     <div class="tnx-reaction-status"></div>
 </div>

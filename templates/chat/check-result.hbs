@@ -1,35 +1,10 @@
+{{!-- 判定結果カード(基底の参照実装・2026-07-19 基底化)。ヘッダー/カード行=check-card-head・
+     標準計算行=check-calc-rows の基底部品を合成し、総計行と成否バナーを足す。
+     コンテキストは check-card-context.mjs の buildCheckCardContext(+固有分)が正。 --}}
 <div class="tnx-check-result tokyo-nova">
 
-    {{!-- ① ヘッダー: スキル名 + 判定種別バッジ --}}
-    <div class="cr-head">
-        <span class="cr-skill-name">{{skillLabel}}</span>
-        <span class="cr-type-tag">{{typeLabel}}</span>
-    </div>
+    {{> "systems/tokyo-nova-axleration/templates/chat/parts/check-card-head.hbs"}}
 
-    {{!-- ② カード行: スートシンボル + カード名 + バッジ群（固定値判定はカードを引かないためバッジのみ） --}}
-    {{#if isFixedCheck}}
-    <div class="cr-card-row">
-        <span class="cr-card-name">カード・能力値を使用しない</span>
-        <span class="cr-badges">
-            <span class="cr-badge cr-badge--fixed">固定値</span>
-        </span>
-    </div>
-    {{else}}
-    <div class="cr-card-row">
-        <span class="cr-suit suit-{{suit}}">{{suitSymbol}}</span>
-        <span class="cr-card-name">{{cardName}}</span>
-        <span class="cr-badges">
-            {{#if fromDeck}}<span class="cr-badge cr-badge--deck">山札</span>{{/if}}
-            {{#if trumpUsed}}<span class="cr-badge cr-badge--trump">切り札</span>{{/if}}
-            {{#if isRecheck}}<span class="cr-badge cr-badge--recheck">再判定</span>{{/if}}
-            {{#if substitution}}<span class="cr-badge cr-badge--sub">代用</span>{{/if}}
-            {{#if suitMismatch}}<span class="cr-badge cr-badge--mismatch">スート不一致</span>{{/if}}
-            {{#if isFixed21}}<span class="cr-badge cr-badge--fixed21">21固定</span>{{/if}}
-        </span>
-    </div>
-    {{/if}}
-
-    {{!-- ③ 計算・結果セクション --}}
     {{#if isFixedCheck}}
     <div class="cr-calc-section">
         <div class="cr-calc-row cr-total-row">
@@ -88,74 +63,7 @@
 
     {{else}}
     <div class="cr-calc-section">
-        {{!-- 代用判定(2026-07-09): 指定と別の技能で判定した事実を明示(可否・修正の裁定は卓) --}}
-        {{#if substitution}}
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">代用（指定技能）</span>
-            <span class="cr-calc-val">{{substitution.requestedLabel}}</span>
-        </div>
-        {{/if}}
-        {{#unless isFixed21}}{{#unless suitMismatch}}
-        {{!-- スート変更(2026-07-12): 使用不可スートを使用可能スートへ変更した事実を明示 --}}
-        {{#if suitChangedDisplay}}
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">スート変更</span>
-            <span class="cr-calc-val">{{suitChangedDisplay}}</span>
-        </div>
-        {{/if}}
-        {{!-- カード数字の上書き(AE check.cardValue・2026-07-13) --}}
-        {{#if cardOverrideDisplay}}
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">数字上書き</span>
-            <span class="cr-calc-val">{{cardOverrideDisplay}}</span>
-        </div>
-        {{/if}}
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">カード値</span>
-            <span class="cr-calc-val">{{result.cardValue}}</span>
-        </div>
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">{{abilityLabel}}</span>
-            <span class="cr-calc-val">+{{result.abilityVal}}</span>
-        </div>
-        {{#if result.bountyUsed}}
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">報酬点</span>
-            <span class="cr-calc-val">+{{result.bountyUsed}}</span>
-        </div>
-        {{/if}}
-        {{#if hasCheckBonus}}
-        {{#if checkSources.length}}
-        <details class="cr-bonus">
-            <summary class="cr-calc-row cr-bonus-summary">
-                <span class="cr-calc-label">判定ボーナス</span>
-                <span class="cr-calc-val">{{signed result.checkBonus}}</span>
-            </summary>
-            <ul class="cr-bonus-list">
-                {{#each checkSources}}
-                <li><span class="cr-bonus-name">{{this.name}}</span><span class="cr-bonus-num">{{signed this.value}}</span></li>
-                {{/each}}
-            </ul>
-        </details>
-        {{else}}
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">判定ボーナス</span>
-            <span class="cr-calc-val">{{signed result.checkBonus}}</span>
-        </div>
-        {{/if}}
-        {{/if}}
-        {{#if manualModDisplay}}
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">修正（手動）</span>
-            <span class="cr-calc-val">{{manualModDisplay}}</span>
-        </div>
-        {{/if}}
-        {{/unless}}{{/unless}}
-        {{#if suitMismatch}}
-        <div class="cr-mismatch-label">
-            <i class="fas fa-times"></i> 判定不成立
-        </div>
-        {{/if}}
+        {{> "systems/tokyo-nova-axleration/templates/chat/parts/check-calc-rows.hbs"}}
         <div class="cr-calc-row cr-total-row">
             <span class="cr-calc-label">達成値</span>
             <span class="cr-total-num">{{result.achievement}}</span>

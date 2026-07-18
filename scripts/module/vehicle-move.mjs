@@ -13,6 +13,7 @@
 
 import { movementStagesFromAchievement } from "./vehicle-move-logic.mjs";
 import { findItemByIdentificationKey } from "./identification.mjs";
+import { buildCheckCardContext } from "./check-card-context.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -31,32 +32,28 @@ export function resolveOperateSkill(actor, vehicle) {
  * 移動結果カードを投稿する(判定完了時・TnxCheckFlow._execute から。通常の結果カードの代わり)。
  * 達成値÷10(切り捨て)を移動段階として表示する。段階移動の適用は移動・位置の機構へ後付け。
  */
-/** 移動結果カードの本文を構築する(新規投稿と再判定の再描画で共用・2026-07-15)。 */
-export async function buildMovementCardContent({ payload, result, suit, card, fromDeck, trumpUsed, suitMismatch, isRecheck = false }) {
-  const SUIT_SYMBOL = { spade: "♠", club: "♣", heart: "♥", diamond: "♦" };
-  const isFumble = result.fumble === true;
-  const failed = isFumble || suitMismatch;
-  const achievement = failed ? 0 : (result.achievement ?? 0);
-  const stages = failed ? 0 : movementStagesFromAchievement(achievement);
+/** 移動結果カードの本文を構築する(新規投稿と再判定の再描画で共用・2026-07-15)。
+ *  判定結果カードの基底(buildCheckCardContext)に移動情報(段階数)を足す形式(2026-07-19 基底化)。 */
+export async function buildMovementCardContent({ payload, result, suit, card, fromDeck, trumpUsed, suitMismatch, checkSources = [], isRecheck = false }) {
+  const failed = result.fumble === true || suitMismatch;
+  const stages = failed ? 0 : movementStagesFromAchievement(result.achievement ?? 0);
   return foundry.applications.handlebars.renderTemplate(
     "systems/tokyo-nova-axleration/templates/chat/vehicle-move-card.hbs",
     {
-      vehicleName: payload.vehicleName,
-      skillName:   payload.skillName,
-      suit,
-      suitSymbol:  SUIT_SYMBOL[suit] ?? "",
-      cardName:    card?.name ?? "",
-      fromDeck, trumpUsed,
-      isFumble, suitMismatch,
-      achievement, stages,
-      isRecheck,
+      ...buildCheckCardContext({
+        skillLabel: payload.skillName,
+        typeLabel:  `移動（${payload.vehicleName ?? ""}）`,
+        card, suit, result, fromDeck, trumpUsed, suitMismatch, checkSources, isRecheck,
+      }),
+      // 移動固有の追加情報
+      stages,
     }
   );
 }
 
-export async function postMovementCard({ payload, result, suit, card, fromDeck, trumpUsed, suitMismatch, recheckCtx = null }) {
+export async function postMovementCard({ payload, result, suit, card, fromDeck, trumpUsed, suitMismatch, checkSources = [], recheckCtx = null }) {
   const actor = payload.actorId ? game.actors.get(payload.actorId) : null;
-  const content = await buildMovementCardContent({ payload, result, suit, card, fromDeck, trumpUsed, suitMismatch });
+  const content = await buildMovementCardContent({ payload, result, suit, card, fromDeck, trumpUsed, suitMismatch, checkSources });
   await ChatMessage.create({
     content,
     speaker: actor ? ChatMessage.getSpeaker({ actor }) : undefined,

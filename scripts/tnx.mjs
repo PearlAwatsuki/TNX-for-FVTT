@@ -81,10 +81,14 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/journal/scenario-sheet.hbs",
 
         // === Chat ===
+        // 判定結果系カードの基底部品(2026-07-19 基底化): 全カードが参照するためパーシャルとして先読み
+        "systems/tokyo-nova-axleration/templates/chat/parts/check-card-head.hbs",
+        "systems/tokyo-nova-axleration/templates/chat/parts/check-calc-rows.hbs",
         "systems/tokyo-nova-axleration/templates/chat/scene-card.hbs",
         "systems/tokyo-nova-axleration/templates/chat/check-result.hbs",
         "systems/tokyo-nova-axleration/templates/chat/check-request.hbs",
         "systems/tokyo-nova-axleration/templates/chat/attack-card.hbs",
+        "systems/tokyo-nova-axleration/templates/chat/reaction-card.hbs",
         "systems/tokyo-nova-axleration/templates/chat/vehicle-move-card.hbs",
         "systems/tokyo-nova-axleration/templates/chat/damage-card.hbs",
         "systems/tokyo-nova-axleration/templates/chat/condition-outcome.hbs",

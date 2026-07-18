@@ -1,54 +1,28 @@
-{{!-- 攻撃カード(フェーズ12-2)。判定結果カード(check-result.hbs)の意匠を踏襲し、
-     成否は保留のまま投稿→リアクション導線と解決後の成否表示は .tnx-attack-status に
-     renderChatMessageHTML(attack-flow.renderAttackCard)がフラグからライブ描画する --}}
+{{!-- 対決判定カード(旧・攻撃カード)。判定結果カードの基底(check-card-head/check-calc-rows)に
+     攻撃情報(攻撃力行)を足す形式(2026-07-19 基底化=従来はカード値・能力値等の内訳を独自設計で
+     落としていた)。成否は保留のまま投稿→対象リスト・リアクション導線・解決後の成否表示は
+     .tnx-attack-status に renderChatMessageHTML(attack-flow.renderAttackCard)がフラグからライブ描画 --}}
 <div class="tnx-check-result tnx-attack-card tokyo-nova">
 
-    <div class="cr-head">
-        <span class="cr-skill-name">{{skillLabel}}</span>
-        <span class="cr-type-tag">{{categoryLabel}}</span>
-    </div>
+    {{> "systems/tokyo-nova-axleration/templates/chat/parts/check-card-head.hbs"}}
 
-    <div class="cr-card-row">
-        <span class="cr-suit suit-{{suit}}">{{suitSymbol}}</span>
-        <span class="cr-card-name">{{cardName}}</span>
-        <span class="cr-badges">
-            {{#if fromDeck}}<span class="cr-badge cr-badge--deck">山札</span>{{/if}}
-            {{#if trumpUsed}}<span class="cr-badge cr-badge--trump">切り札</span>{{/if}}
-            {{#if isRecheck}}<span class="cr-badge cr-badge--recheck">再判定</span>{{/if}}
-            {{#if suitMismatch}}<span class="cr-badge cr-badge--mismatch">スート不一致</span>{{/if}}
-            {{#if isFixed21}}<span class="cr-badge cr-badge--fixed21">21固定</span>{{/if}}
-        </span>
-    </div>
-
+    {{#unless result.fumble}}
     <div class="cr-calc-section">
-        {{#if targetName}}
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">対象</span>
-            <span class="cr-calc-val">{{targetName}}</span>
-        </div>
-        {{/if}}
-        {{!-- スート変更(2026-07-12): 使用不可スートを使用可能スートへ変更した事実を明示 --}}
-        {{#if suitChangedDisplay}}
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">スート変更</span>
-            <span class="cr-calc-val">{{suitChangedDisplay}}</span>
-        </div>
-        {{/if}}
+        {{> "systems/tokyo-nova-axleration/templates/chat/parts/check-calc-rows.hbs"}}
         {{#if isPhysical}}
         <div class="cr-calc-row">
             <span class="cr-calc-label">攻撃力（{{attackSourceName}}）</span>
             <span class="cr-calc-val">{{attackLabel}}</span>
         </div>
         {{/if}}
-        {{#unless isFumble}}
         <div class="cr-calc-row cr-total-row">
             <span class="cr-calc-label">達成値</span>
-            <span class="cr-total-num">{{achievement}}</span>
+            <span class="cr-total-num">{{result.achievement}}</span>
         </div>
-        {{/unless}}
     </div>
+    {{/unless}}
 
-    {{!-- 状態領域: renderChatMessageHTML がフラグから描画(pending=リアクションボタン群/
-         解決後=成否+差分値+ダメージ算出ボタンに丸ごと置換) --}}
+    {{!-- 状態領域: renderChatMessageHTML がフラグから描画(対象リスト=リアクション入口/
+         オープンリアクション/解決後=成否+差分値+ダメージ算出ボタン) --}}
     <div class="tnx-attack-status"></div>
 </div>

@@ -1,0 +1,68 @@
+{{!-- 判定結果カードの基底②: 標準計算行(代用/スート変更/数字上書き/カード値/能力値/報酬点/
+     判定ボーナス/修正(手動)/不成立ラベル)。**達成値の総計行は含まない**——各カードが固有行
+     (攻撃力等)を足してから総計行を閉じる(2026-07-19 基底化)。cr-calc-section の内側で使う。 --}}
+{{#if substitution}}
+<div class="cr-calc-row">
+    <span class="cr-calc-label">代用（指定技能）</span>
+    <span class="cr-calc-val">{{substitution.requestedLabel}}</span>
+</div>
+{{/if}}
+{{#unless isFixed21}}{{#unless suitMismatch}}
+{{#if suitChangedDisplay}}
+<div class="cr-calc-row">
+    <span class="cr-calc-label">スート変更</span>
+    <span class="cr-calc-val">{{suitChangedDisplay}}</span>
+</div>
+{{/if}}
+{{#if cardOverrideDisplay}}
+<div class="cr-calc-row">
+    <span class="cr-calc-label">数字上書き</span>
+    <span class="cr-calc-val">{{cardOverrideDisplay}}</span>
+</div>
+{{/if}}
+<div class="cr-calc-row">
+    <span class="cr-calc-label">カード値</span>
+    <span class="cr-calc-val">{{result.cardValue}}</span>
+</div>
+<div class="cr-calc-row">
+    <span class="cr-calc-label">{{abilityLabel}}</span>
+    <span class="cr-calc-val">+{{result.abilityVal}}</span>
+</div>
+{{#if result.bountyUsed}}
+<div class="cr-calc-row">
+    <span class="cr-calc-label">報酬点</span>
+    <span class="cr-calc-val">+{{result.bountyUsed}}</span>
+</div>
+{{/if}}
+{{#if hasCheckBonus}}
+{{#if checkSources.length}}
+<details class="cr-bonus">
+    <summary class="cr-calc-row cr-bonus-summary">
+        <span class="cr-calc-label">判定ボーナス</span>
+        <span class="cr-calc-val">{{signed result.checkBonus}}</span>
+    </summary>
+    <ul class="cr-bonus-list">
+        {{#each checkSources}}
+        <li><span class="cr-bonus-name">{{this.name}}</span><span class="cr-bonus-num">{{signed this.value}}</span></li>
+        {{/each}}
+    </ul>
+</details>
+{{else}}
+<div class="cr-calc-row">
+    <span class="cr-calc-label">判定ボーナス</span>
+    <span class="cr-calc-val">{{signed result.checkBonus}}</span>
+</div>
+{{/if}}
+{{/if}}
+{{#if manualModDisplay}}
+<div class="cr-calc-row">
+    <span class="cr-calc-label">修正（手動）</span>
+    <span class="cr-calc-val">{{manualModDisplay}}</span>
+</div>
+{{/if}}
+{{/unless}}{{/unless}}
+{{#if suitMismatch}}
+<div class="cr-mismatch-label">
+    <i class="fas fa-times"></i> 判定不成立
+</div>
+{{/if}}

@@ -24,6 +24,7 @@ import { TnxSocketHandler } from './tnx-socket-handler.mjs';
 import { getUserFlagData } from './user-flag-schema.mjs';
 import { applyConsumptionPlan } from './usage-consumption.mjs';
 import { formatSkillName } from './identification.mjs';
+import { buildCheckCardContext } from './check-card-context.mjs';
 
 /**
  * @typedef {object} CheckContext
@@ -36,9 +37,6 @@ import { formatSkillName } from './identification.mjs';
  * @property {number}        bountyAvailable  - 使用可能報酬点
  * @property {string|null}   requestMessageId - RL 要求 ChatMessage ID（自発判定は null）
  */
-
-/** カードの生の数字→表記(A/J/Q/K・その他は数字)。 */
-const CARD_NUM_LABEL = (n) => ({ 1: "A", 11: "J", 12: "Q", 13: "K" }[n] ?? String(n));
 
 const SUIT_LABELS = Object.freeze({
     spade:   "♠ スペード（理性）",
@@ -773,15 +771,17 @@ export class TnxCheckFlow {
             await TnxCheckFlow._applyRecheckReplacement({ ctx, card, suit, result, cardCheckValue, fromDeck, trumpUsed, suitMismatch, checkSources: checkInfo.sources });
         } else if (ctx.attack) {
             const { postAttackCard } = await import("./attack-flow.mjs");
-            await postAttackCard({ payload: ctx.attack, result, suit, cardCheckValue, card, fromDeck, trumpUsed, suitMismatch, recheckCtx });
+            await postAttackCard({ payload: ctx.attack, result, suit, cardCheckValue, card, fromDeck, trumpUsed, suitMismatch, checkSources: checkInfo.sources, recheckCtx });
         } else if (ctx.movement) {
             const { postMovementCard } = await import("./vehicle-move.mjs");
-            await postMovementCard({ payload: ctx.movement, result, suit, card, fromDeck, trumpUsed, suitMismatch, recheckCtx });
-        } else if (!ctx.reaction) {
-            // リアクションは通常の結果カードを出さない(2026-07-15 ユーザー確定)。書き換わった
-            // リアクションカードが結果カードそのもの。再判定/修正の導線もリアクションカードへ載せる
+            await postMovementCard({ payload: ctx.movement, result, suit, card, fromDeck, trumpUsed, suitMismatch, checkSources: checkInfo.sources, recheckCtx });
+        } else if (!ctx.reaction || ctx.reaction.open === true) {
+            // 対象ありのリアクションは通常の結果カードを出さない(2026-07-15 ユーザー確定)。書き換わった
+            // シークレットリアクションカードが結果カードそのもの。再判定/修正の導線もそこへ載せる
             // (recheckCtx は下の completeReactionFromCheck がリアクションカードに保存する)。
-            // オープンリアクションも 2026-07-18 大改修でリアクターごとの個別カードを持つため同じ扱い
+            // オープンリアクション(2026-07-19 ユーザー是正)は**通常の結果カード**を出す——カード値・
+            // 能力値等の計算内訳を持つ個別カードがリアクターごとに公開で残る(対決の帰結は能動側の
+            // 対決判定カードにライブ表示)。再判定/修正の導線もこのカードに載る
             await TnxCheckFlow._postResultChat({ ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch, checkSources: checkInfo.sources, recheckCtx });
         }
 
@@ -810,9 +810,13 @@ export class TnxCheckFlow {
 
         // リアクション判定の完了継続(12-2): 攻撃カード上で対決を解決し、リアクションカードを結果カード化。
         // recheckCtx をリアクションカードに保存し、再判定/修正の導線をそこに載せる(2026-07-15)。
+        // render=結果カード化の本文再構築コンテキスト(基底＋対決情報・2026-07-19 基底化)
         if (!ctx.recheckMessageId && ctx.reaction) {
             const { completeReactionFromCheck } = await import("./attack-flow.mjs");
-            await completeReactionFromCheck(ctx.reaction, result, { suitMismatch, recheckCtx });
+            await completeReactionFromCheck(ctx.reaction, result, {
+                suitMismatch, recheckCtx,
+                render: { skillLabel: ctx.skillLabel, card, suit, fromDeck, trumpUsed, checkSources: checkInfo.sources },
+            });
         }
 
         // カバーの完了継続(2026-07-16): 成功なら攻撃カードの対象にカバーの印を付ける(ダメージカードを
@@ -858,52 +862,29 @@ export class TnxCheckFlow {
         });
     }
 
-    /** 結果カードの本文を構築する(新規投稿と再判定の置き換え着地で共用・2026-07-14 抽出)。 */
+    /** 結果カードの本文を構築する(新規投稿と再判定の置き換え着地で共用・2026-07-14 抽出)。
+     *  基底コンテキスト(buildCheckCardContext=カード行・標準計算行)に結果カード固有分
+     *  (成否・目標値・差分値・制御判定)を足す(2026-07-19 基底化)。 */
     static async _renderResultContent({ ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch = false, checkSources = [], isRecheck = false }) {
         const actor = game.actors.get(ctx.actorId);
-        const SUIT_SYMBOL   = { spade: "♠", club: "♣", heart: "♥", diamond: "♦" };
-        const TYPE_LABEL    = { skillCheck: "技能判定", controlCheck: "制御判定", abilityCheck: "能力値判定" };
-        const ABILITY_LABEL = { reason: "理性", passion: "感情", life: "生命", mundane: "外界" };
-
+        const TYPE_LABEL = { skillCheck: "技能判定", controlCheck: "制御判定", abilityCheck: "能力値判定" };
         const isControlCheck = ctx.type === "controlCheck";
         return foundry.applications.handlebars.renderTemplate(
             "systems/tokyo-nova-axleration/templates/chat/check-result.hbs",
             {
+                ...buildCheckCardContext({
+                    skillLabel: ctx.skillLabel,
+                    typeLabel:  TYPE_LABEL[ctx.type] ?? ctx.type,
+                    card, suit, result, fromDeck, trumpUsed, suitMismatch, checkSources, isRecheck,
+                }),
                 actor,
                 actorName:    actor?.name ?? "不明",
-                typeLabel:    TYPE_LABEL[ctx.type] ?? ctx.type,
-                skillLabel:   ctx.skillLabel,
                 cardImg:      card.img,
-                cardName:     card.name,
-                suit,
-                suitSymbol:   SUIT_SYMBOL[suit] ?? "",
-                abilityLabel: ABILITY_LABEL[result.abilityKey] ?? "",
-                result,
-                checkSources,
-                hasCheckBonus: (result.checkBonus ?? 0) !== 0,
-                // 代用判定(2026-07-09): 指定技能と手動修正を結果カードに明示する
-                substitution: result.substitution ?? null,
-                manualModDisplay: result.manualMod
-                    ? (result.manualMod > 0 ? `+${result.manualMod}` : String(result.manualMod))
-                    : "",
                 isControlCheck,
-                // スート変更(2026-07-12): 元→後を内訳に明示する
-                suitChangedDisplay: result.suitChangedFrom
-                    ? `${SUIT_SYMBOL[result.suitChangedFrom] ?? result.suitChangedFrom} → ${SUIT_SYMBOL[suit] ?? suit}`
-                    : null,
-                // カード数字の上書き(2026-07-13): 元→後(A/J/Q/K 表記)を内訳に明示する
-                cardOverrideDisplay: result.cardOverride
-                    ? `${CARD_NUM_LABEL(result.cardOverride.from)} → ${CARD_NUM_LABEL(result.cardOverride.to)}`
-                    : null,
-                isFixed21:    result.fixedAt21 === true,
                 hasTargetValue: ctx.targetValue !== null,
                 // 差分値の表示規約(Check_Rules 2026-07-08): 目標値があれば判定の種類を問わず必ず表示
                 diffDisplay:  Number.isFinite(result.diff) ? (result.diff >= 0 ? `+${result.diff}` : `${result.diff}`) : null,
                 showSuccess:  !isControlCheck ? (ctx.targetValue !== null && !result.fumble) : !result.fumble,
-                fromDeck,
-                trumpUsed,
-                suitMismatch,
-                isRecheck, // 再判定で置き換えたカードには「再判定」タグを出す(2026-07-14 置き換え着地)
             }
         );
     }
@@ -956,7 +937,7 @@ export class TnxCheckFlow {
                 }
             }
             patch.content = await buildAttackCardContent({
-                payload: ctx.attack, result, suit, card, fromDeck, trumpUsed, suitMismatch, isRecheck: true,
+                payload: ctx.attack, result, suit, card, fromDeck, trumpUsed, suitMismatch, checkSources, isRecheck: true,
             });
             patch[`flags.${SCOPE}.attackCheck.achievement`] = result.achievement;
             patch[`flags.${SCOPE}.attackCheck.cardValue`] =
@@ -968,11 +949,23 @@ export class TnxCheckFlow {
             // 操縦移動は通常結果カードでなく移動カード。達成値÷10 段階を新達成値で描き直す(表示のみ=A)
             const { buildMovementCardContent } = await import("./vehicle-move.mjs");
             patch.content = await buildMovementCardContent({
-                payload: ctx.movement, result, suit, card, fromDeck, trumpUsed, suitMismatch, isRecheck: true,
+                payload: ctx.movement, result, suit, card, fromDeck, trumpUsed, suitMismatch, checkSources, isRecheck: true,
             });
-        } else if (ctx.reaction) {
-            // リアクションは元カードがリアクションカード(結果カード化済み)。本文は attackReaction フラグから
-            // renderReactionCard が描くため上書きしない。下の _rerunContinuation が対決を再解決し表示を更新する。
+        } else if (ctx.reaction && ctx.reaction.open !== true) {
+            // 対象ありのリアクション: 元カードが「リアクション判定の結果カード」。本文を基底＋対決情報で
+            // 再構築する(2026-07-19 基底化=内訳も新しい判定の構成に差し替え)。対決の再解決・フラグ更新は
+            // 下の _rerunContinuation(completeReactionFromCheck allowResolved)が行う。
+            // オープンリアクションは通常の結果カードのため下の通常再描画に乗せる
+            const { buildReactionResultContent } = await import("./attack-flow.mjs");
+            const rf = message.getFlag(SCOPE, "attackReaction");
+            if (rf) {
+                patch.content = await buildReactionResultContent({
+                    reactionFlags: rf, mode: ctx.reaction.mode,
+                    skillLabel: ctx.skillLabel, card, suit, result,
+                    fromDeck, trumpUsed, suitMismatch, checkSources, isRecheck: true,
+                });
+                patch[`flags.${SCOPE}.attackReaction.contentResolved`] = true;
+            }
         } else {
             patch.content = await TnxCheckFlow._renderResultContent({
                 ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch, checkSources, isRecheck: true,

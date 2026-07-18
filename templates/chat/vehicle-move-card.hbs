@@ -1,33 +1,22 @@
-{{!-- ヴィークル操縦移動カード(フェーズ12)。判定結果カード(check-result.hbs)の意匠を踏襲。
+{{!-- ヴィークル操縦移動カード(フェーズ12・2026-07-19 基底化)。判定結果カードの基底
+     (check-card-head/check-calc-rows)に移動情報(達成値÷10 段階)を足す形式。
      対応する操縦で判定し、達成値÷10(切り捨て)段階の移動が可能。
      段階移動そのものの適用は移動・位置の機構へ後付け(ここでは段階数の提示まで)。 --}}
 <div class="tnx-check-result tnx-move-card tokyo-nova">
 
-    <div class="cr-head">
-        <span class="cr-skill-name">{{skillName}}</span>
-        <span class="cr-type-tag">移動（{{vehicleName}}）</span>
-    </div>
+    {{> "systems/tokyo-nova-axleration/templates/chat/parts/check-card-head.hbs"}}
 
-    <div class="cr-card-row">
-        <span class="cr-suit suit-{{suit}}">{{suitSymbol}}</span>
-        <span class="cr-card-name">{{cardName}}</span>
-        <span class="cr-badges">
-            {{#if fromDeck}}<span class="cr-badge cr-badge--deck">山札</span>{{/if}}
-            {{#if trumpUsed}}<span class="cr-badge cr-badge--trump">切り札</span>{{/if}}
-            {{#if suitMismatch}}<span class="cr-badge cr-badge--mismatch">スート不一致</span>{{/if}}
-        </span>
-    </div>
-
-    {{#if isFumble}}
+    {{#if result.fumble}}
     <div class="cr-result cr-result--fumble"><i class="fas fa-skull"></i> <span>ファンブル！（移動失敗）</span></div>
     {{else}}
         {{#if suitMismatch}}
         <div class="cr-result cr-result--failure"><i class="fas fa-times"></i> <span>スート不一致（判定不成立・移動なし）</span></div>
         {{else}}
         <div class="cr-calc-section">
+            {{> "systems/tokyo-nova-axleration/templates/chat/parts/check-calc-rows.hbs"}}
             <div class="cr-calc-row cr-total-row">
                 <span class="cr-calc-label">達成値</span>
-                <span class="cr-total-num">{{achievement}}</span>
+                <span class="cr-total-num">{{result.achievement}}</span>
             </div>
             <div class="cr-calc-row">
                 <span class="cr-calc-label">移動（達成値÷10・切り捨て）</span>

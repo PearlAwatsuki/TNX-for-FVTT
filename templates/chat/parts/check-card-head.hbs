@@ -1,0 +1,29 @@
+{{!-- 判定結果カードの基底①: ヘッダー(技能名+種別タグ)+カード行(スート/カード名/バッジ群)。
+     全ての判定結果系カード(結果/対決判定/リアクション結果/移動)がこれに情報を足す形式で使う
+     (2026-07-19 基底化)。コンテキストは check-card-context.mjs の buildCheckCardContext が正。 --}}
+<div class="cr-head">
+    <span class="cr-skill-name">{{skillLabel}}</span>
+    <span class="cr-type-tag">{{typeLabel}}</span>
+</div>
+
+{{#if isFixedCheck}}
+<div class="cr-card-row">
+    <span class="cr-card-name">カード・能力値を使用しない</span>
+    <span class="cr-badges">
+        <span class="cr-badge cr-badge--fixed">固定値</span>
+    </span>
+</div>
+{{else}}
+<div class="cr-card-row">
+    <span class="cr-suit suit-{{suit}}">{{suitSymbol}}</span>
+    <span class="cr-card-name">{{cardName}}</span>
+    <span class="cr-badges">
+        {{#if fromDeck}}<span class="cr-badge cr-badge--deck">山札</span>{{/if}}
+        {{#if trumpUsed}}<span class="cr-badge cr-badge--trump">切り札</span>{{/if}}
+        {{#if isRecheck}}<span class="cr-badge cr-badge--recheck">再判定</span>{{/if}}
+        {{#if substitution}}<span class="cr-badge cr-badge--sub">代用</span>{{/if}}
+        {{#if suitMismatch}}<span class="cr-badge cr-badge--mismatch">スート不一致</span>{{/if}}
+        {{#if isFixed21}}<span class="cr-badge cr-badge--fixed21">21固定</span>{{/if}}
+    </span>
+</div>
+{{/if}}
