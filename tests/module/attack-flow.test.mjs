@@ -139,3 +139,33 @@ describe("combineWeaponAttack()（複数武器の攻撃力合算・2026-07-18 FA
     expect(r).not.toHaveProperty("faOptions");
   });
 });
+
+const { newlyHitTargets } = await import("../../scripts/module/attack-flow-logic.mjs");
+
+describe("newlyHitTargets()（命中への遷移対象の抽出＝命中時効果の付与トリガー・2026-07-18）", () => {
+  it("miss/pending から hit へ遷移した対象だけを返す（既に hit だった対象は返さない）", () => {
+    const prev = [
+      { uuid: "a", state: "miss" },
+      { uuid: "b", state: "hit" },
+      { uuid: "c", state: "pending" },
+    ];
+    const next = [
+      { uuid: "a", state: "hit" },
+      { uuid: "b", state: "hit" },
+      { uuid: "c", state: "hit" },
+    ];
+    expect(newlyHitTargets(prev, next).map(t => t.uuid)).toEqual(["a", "c"]);
+  });
+
+  it("hit でない対象は返さない", () => {
+    const prev = [{ uuid: "a", state: "pending" }];
+    const next = [{ uuid: "a", state: "miss" }];
+    expect(newlyHitTargets(prev, next)).toEqual([]);
+  });
+
+  it("prev が空（初回解決）は hit の対象すべてを返す", () => {
+    const next = [{ uuid: "a", state: "hit" }, { uuid: "b", state: "miss" }];
+    expect(newlyHitTargets([], next).map(t => t.uuid)).toEqual(["a"]);
+    expect(newlyHitTargets(null, next).map(t => t.uuid)).toEqual(["a"]);
+  });
+});

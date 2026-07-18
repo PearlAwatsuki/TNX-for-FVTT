@@ -932,6 +932,7 @@ export class TnxCheckFlow {
             [`flags.${SCOPE}.checkResult`]: { actorId: ctx.actorId, result },
         };
 
+        let recheckNewlyHit = []; // 再判定で新たに hit へ遷移した対象(命中時効果の付与用・2026-07-18)
         if (ctx.attack) {
             // 命中判定は全対象で共有(複数対象一括・2026-07-15)。再ロールした達成値で対象リスト全体を
             // 再解決し(リアクションのやり直しはしない)、上位状態も導き直す。
@@ -940,6 +941,10 @@ export class TnxCheckFlow {
             const newTargets = await rebuildRecheckedTargets(prev.targets ?? [], {
                 achievement: result.achievement, fumble: result.fumble === true, suitMismatch, suit,
             });
+            if (ctx.attack.isAttack !== false) {
+                const { newlyHitTargets } = await import("./attack-flow-logic.mjs");
+                recheckNewlyHit = newlyHitTargets(prev.targets ?? [], newTargets);
+            }
             let overall = result.fumble ? "fumble"
                 : (suitMismatch ? "miss" : ((prev.targets?.length) ? "active" : "open"));
             // オープン対決(対象なし・2026-07-17): 解決済みなら保存済みのリアクション達成値で再解決する
@@ -976,6 +981,14 @@ export class TnxCheckFlow {
 
         // フラグ・本文の更新(非作者・非GM は GM へ委譲=applyMessagePatch)
         await TnxSocketHandler.applyMessagePatch(message, patch);
+
+        // 命中時効果(2026-07-18): 再判定の置き換えで新たに hit へ遷移した対象へ付与する
+        // (既に hit だった対象は付与済み・hit→miss の覆りは手動で復元=2026-07-18 裁定)。
+        // 遷移はパッチ前のスナップショットで算出済み(recheckNewlyHit)
+        if (recheckNewlyHit.length) {
+            const { grantHitTimedEffects } = await import("./usage-effects.mjs");
+            await grantHitTimedEffects(message, recheckNewlyHit);
+        }
         // 攻撃の再判定: 未解決の個別リアクションカードを新しい攻撃達成値へ追従(全体失敗なら削除)。
         // 攻撃カードの author=攻撃者か GM の場合のみ(従来どおり。リアクションカードの更新権限がある)
         if (ctx.attack && (game.user.isGM || message.isAuthor)) {

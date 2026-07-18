@@ -466,6 +466,25 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
                 </select>
             </div>`;
         (parentGroup ?? transferGroup ?? anchor)?.after(grantGroup);
+
+        // 適用タイミング(2026-07-18): 攻撃で対象に与える効果の2種——命中時/ダメージ時(1点以上)。
+        // 攻撃フローでのみ効く(非攻撃用途は区分なし)。付与先「自分」は解決時即時付与のため無関係=非表示
+        const timingCur = app.document.getFlag?.("tokyo-nova-axleration", "grantTiming") === "hit" ? "hit" : "damage";
+        const timingGroup = document.createElement("div");
+        timingGroup.classList.add("form-group", "tnx-grant-timing-field");
+        timingGroup.innerHTML = `
+            <label>適用タイミング</label>
+            <div class="form-fields">
+                <select name="flags.tokyo-nova-axleration.grantTiming">
+                    <option value="damage"${timingCur === "damage" ? " selected" : ""}>ダメージ時（1点以上）</option>
+                    <option value="hit"${timingCur === "hit" ? " selected" : ""}>命中時</option>
+                </select>
+            </div>`;
+        grantGroup.after(timingGroup);
+        const grantSelect = grantGroup.querySelector("select");
+        const syncTiming = () => { timingGroup.style.display = grantSelect?.value === "self" ? "none" : ""; };
+        syncTiming();
+        grantSelect?.addEventListener("change", syncTiming);
     }
 
     // 出し分け: 準備先=自動適用オンのときだけ表示する(常時自動適用の乗り先修飾のため。
