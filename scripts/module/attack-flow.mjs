@@ -27,8 +27,7 @@ import { buildUsageCheckContext } from "./usage-check-context.mjs";
 import { resolveAttackTargetRefs } from "./target-resolution.mjs";
 import { TargetSelectionDialog } from "./tnx-dialog.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
-import { resolveNoReaction, resolveOpposed, formatAttackLabel, combineWeaponAttack, resolveAttackRecheckState, newlyHitTargets } from "./attack-flow-logic.mjs";
-import { grantHitTimedEffects } from "./usage-effects.mjs";
+import { resolveNoReaction, resolveOpposed, formatAttackLabel, combineWeaponAttack, resolveAttackRecheckState } from "./attack-flow-logic.mjs";
 import { resolveAttackWeapons, attackWeaponDisplayName, attackWeaponKindEligible } from "./attack-weapons.mjs";
 import { isOutfitUnusable, isOutfitDestroyed } from "../data/item/helpers.mjs";
 import { buildSkillOptions } from "./skill-select.mjs";
@@ -305,12 +304,6 @@ export async function postAttackCard({ payload, result, suit, cardCheckValue = n
         for (let i = 0; i < targets.length; i++) {
             await postReactionCard(attackMsg, i);
         }
-    }
-
-    // 命中時効果(2026-07-18): 非対決の攻撃は投稿時点で命中が確定している(resolveNoReaction)。
-    // 確定済みの対象へ即時付与する(対決ありはリアクション解決時=completeReactionFromCheck)
-    if (isAttack) {
-        await grantHitTimedEffects(attackMsg, newlyHitTargets([], targets));
     }
 }
 
@@ -1029,12 +1022,6 @@ export async function completeReactionFromCheck(payload, result, { suitMismatch 
         await applyAttackPatch(attackMsg, patch);
     } else {
         await applyAttackTargetPatch(attackMsg, payload.targetIndex, thisPatch);
-    }
-
-    // 命中時効果(2026-07-18): この対象が hit へ遷移したら付与する(再解決で既に hit だった対象は
-    // 付与済み=再付与しない。全対象回避(triggerAllAvoid)はこの対象も miss なので来ない)
-    if (f.isAttack !== false && thisPatch.state === "hit" && t.state !== "hit") {
-        await grantHitTimedEffects(attackMsg, [{ uuid: t.uuid, name: t.name }]);
     }
 
     if (reactionMsg) {

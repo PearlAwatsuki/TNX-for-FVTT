@@ -40,9 +40,6 @@ export class TnxSocketHandler {
             case "repairApply":
                 TnxSocketHandler._onRepairApply(data);
                 break;
-            case "usageEffectGrant":
-                TnxSocketHandler._onUsageEffectGrant(data);
-                break;
             case "messagePatch":
                 TnxSocketHandler._onMessagePatch(data);
                 break;
@@ -141,24 +138,6 @@ export class TnxSocketHandler {
     static emitRepairApply(payload) {
         game.socket.emit("system.tokyo-nova-axleration", {
             type: "repairApply",
-            ...payload,
-        });
-    }
-
-    // ─── usageEffectGrant（フェーズ12・適用効果の付与委譲・2026-07-18） ──────────────
-
-    /** 適用効果の付与(命中時/ダメージ時の自動付与)を GM クライアントが代行する
-     *  (複数 GM 接続時は activeGM のみ)。 */
-    static async _onUsageEffectGrant(data) {
-        if (game.users.activeGM?.id !== game.user.id) return;
-        const { grantUsageEffectsDelegated } = await import("./usage-effects.mjs");
-        await grantUsageEffectsDelegated(data);
-    }
-
-    /** 効果付与を GM へ委譲する（付与先の所有権が無いクライアントから呼ぶ）。 */
-    static emitUsageEffectGrant(payload) {
-        game.socket.emit("system.tokyo-nova-axleration", {
-            type: "usageEffectGrant",
             ...payload,
         });
     }

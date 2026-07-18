@@ -111,17 +111,3 @@ export function resolveAttackRecheckState(prev, next) {
         targetValue: null, reactionAchievement: null, parryGuard: 0,
     };
 }
-
-/**
- * 対象リストの置き換えで新たに「命中」へ遷移した対象を返す(2026-07-18)。
- * 命中時効果の付与トリガー——既に hit だった対象は付与済みのため返さない(再付与は
- * 置き換えリフレッシュで無害だが、卓が手動で外した効果を無関係な再解決で復活させない)。
- * 対応はインデックスで取る(rebuildRecheckedTargets は順序・件数を保存する)。
- * @param {Array<{state:string}>|null} prevTargets 置き換え前の attackCheck.targets
- * @param {Array<{state:string}>|null} nextTargets 置き換え後の targets
- * @returns {Array<object>} nextTargets のうち新規に hit になった要素
- */
-export function newlyHitTargets(prevTargets, nextTargets) {
-    const prev = prevTargets ?? [];
-    return (nextTargets ?? []).filter((t, i) => t?.state === "hit" && prev[i]?.state !== "hit");
-}

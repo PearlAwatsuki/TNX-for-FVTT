@@ -6,6 +6,9 @@
  * - **付与先(AE 設定・flags.grantTarget)**: 「対象」(既定)=ターゲットしたキャラクターへ、
  *   結果カードの「効果を適用」ボタン(またはダメージ適用連動)で付与。「自分」=使用者へ、
  *   **用途解決時に即時自動付与**(代償デバフ等を後回しにしない。付与先選択のキャンセルは用途中止)。
+ * - **適用タイミング(AE 設定・flags.grantTiming・2026-07-18)**: 攻撃で対象に与える効果の2種。
+ *   「ダメージ時」(既定)=ダメージ適用時に最終適用値≥1 の対象へ・「命中時」=攻撃カードの
+ *   「効果を適用」ボタンで命中対象へ(**自動付与しない**=卓がカバー宣言後に押せばカバー側へ乗る)。
  * - **着地(changes のキーで判断)**: アイテム狙いキー(素の system.<パス>/分類/識別キー)が
  *   1つでもあれば**アイテム着地**=付与先アクターの所持アイテムから選択して付与(候補はキーで絞る。
  *   1件なら無確認・0件は通知してスキップ)。それ以外は**アクター着地**(従来どおり)。混在は非対応。
@@ -185,70 +188,81 @@ async function grantUsageEffect(targetActor, entry) {
 }
 
 /**
- * 効果エントリ群を1アクターへ付与する。所有者/GM は直接、権限が無ければ GM へソケット委譲する
- * (命中時/ダメージ時の自動付与用・2026-07-18。手動ボタンの applyUsageEffectsFromMessage は
- * 従来どおり押下者の権限で付与し、権限が無い対象は警告する)。
- * @param {Actor} actor 付与先
- * @param {Array<{name:string, data:object}>} entries 付与する効果(データ持ちのみ)
+ * 命中時効果の適用先を攻撃カードの対象リストから解決する(2026-07-18 是正)。
+ * 命中(hit)した対象のみ。**カバー宣言済みの対象はカバーした側へ付け替える**
+ * (「カバー時は効果もダメージもカバー側」裁定)。カバーした側が自分も命中対象なら1件に畳む。
+ * @param {Array<{uuid:string,name:string,state:string,coveredBy?:{uuid:string,name:string}}>|null} targets
+ * @returns {Array<{uuid:string, name:string}>}
  */
-async function grantEntriesToActor(actor, entries) {
-    if (!actor?.createEmbeddedDocuments || !entries?.length) return;
-    if (game.user.isGM || actor.isOwner) {
-        for (const e of entries) await grantUsageEffect(actor, e);
-    } else {
-        TnxSocketHandler.emitUsageEffectGrant({ targetUuid: actor.uuid, entries });
+export function hitEffectTargetRefs(targets) {
+    const out = [];
+    for (const t of (targets ?? [])) {
+        if (t?.state !== "hit") continue;
+        const ref = t.coveredBy
+            ? { uuid: t.coveredBy.uuid, name: t.coveredBy.name }
+            : { uuid: t.uuid, name: t.name };
+        if (!out.some(r => r.uuid === ref.uuid)) out.push(ref);
     }
+    return out;
 }
 
 /**
- * 命中時効果(timing="hit")を、命中が確定した対象へ自動付与する(2026-07-18)。
- * 攻撃カードの投稿(非対決の即時解決)・リアクション解決・再判定の置き換えで、対象が hit へ
- * **遷移した**ときに呼ぶ(遷移トリガー＝newlyHitTargets。ダメージカードの有無に依存しない)。
- * 付与した対象は usageEffects.hitGranted に記録し、攻撃カードの付与済みノートに使う。
- * @param {ChatMessage} attackMessage 攻撃カード
- * @param {Array<{uuid:string, name:string}>} targetRefs hit へ遷移した対象
+ * 攻撃カードの「効果を適用」ボタン: 命中時効果(timing="hit")を現在の命中対象へ付与する
+ * (2026-07-18 是正=**自動付与しない**・v3 原則へ回帰。押すのは対象の所有者か RL。手動だから
+ * こそカバー宣言後に押せば付け替え先=カバー側へ正しく適用できる)。
+ * 適用先は押下時点の hitEffectTargetRefs で解決。完了で usageEffects.hitApplied=true と
+ * 適用先(hitGranted)を記録し、ボタンは適用済みノートに変わる。
  */
-export async function grantHitTimedEffects(attackMessage, targetRefs) {
-    const payload = attackMessage?.getFlag(SCOPE, "usageEffects");
-    const entries = splitEffectsByTiming(payload?.effects).hit.filter(e => e?.data);
-    if (!entries.length || !targetRefs?.length) return;
+export async function applyHitEffectsFromMessage(message) {
+    const payload = message.getFlag(SCOPE, "usageEffects");
+    if (!payload?.effects?.length || payload.hitApplied) return;
+    const entries = splitEffectsByTiming(payload.effects).hit.filter(e => e?.data);
+    if (!entries.length) return;
+    const refs = hitEffectTargetRefs(message.getFlag(SCOPE, "attackCheck")?.targets);
+    if (!refs.length) return;
 
-    for (const t of targetRefs) {
-        const resolved = await fromUuid(t.uuid).catch(() => null);
+    let appliedAny = false;
+    let cancelled = false;
+    const denied = [];
+    const granted = [];
+    for (const ref of refs) {
+        const resolved = await fromUuid(ref.uuid).catch(() => null);
         const actor = resolved?.actor ?? resolved;
-        await grantEntriesToActor(actor, entries);
+        if (!actor?.createEmbeddedDocuments) continue;
+        if (!(game.user.isGM || actor.isOwner)) { denied.push(ref.name); continue; }
+        let grantedThis = false;
+        for (const e of entries) {
+            const r = await grantUsageEffect(actor, e);
+            if (r === "cancel") { cancelled = true; continue; }
+            appliedAny = true;
+            grantedThis = true;
+        }
+        if (grantedThis) granted.push({ uuid: ref.uuid, name: ref.name });
     }
 
-    // 付与済みの記録(カードのノート用。再付与の判定には使わない=遷移トリガーが正)
-    const merged = [...(payload.hitGranted ?? [])];
-    for (const t of targetRefs) {
-        if (!merged.some(g => g.uuid === t.uuid)) merged.push({ uuid: t.uuid, name: t.name });
+    if (denied.length) {
+        ui.notifications.warn(`${denied.map(n => `「${n}」`).join("・")}への効果付与は対象の操作者（か RL）が行います。`);
     }
-    await TnxSocketHandler.applyMessagePatch(attackMessage, { hitGranted: merged }, "usageEffects");
+    if (cancelled || !appliedAny) return;
+    await TnxSocketHandler.applyMessagePatch(message, { hitApplied: true, hitGranted: granted }, "usageEffects");
 }
 
 /**
  * ダメージ時効果をダメージ適用時に1対象へ付与する(2026-07-18)。呼び出し側が
- * **最終適用値≥1** の対象にのみ呼ぶ(1未満は付与しない=2026-07-18 裁定)。
+ * **最終適用値≥1** の対象にのみ呼ぶ(1未満は付与しない=裁定)。適用者=ダメージ適用の
+ * 押下者(対象の所有者か RL)。権限が無い対象は警告してスキップ(ダメージ適用と同じ前提)。
  * @param {Actor} actor 付与先(ダメージを受けた対象。カバー時はカバーした側)
  * @param {Array<{name:string, data:object}>} entries ダメージ時の効果エントリ
+ * @returns {Promise<boolean>} 付与を実行したか
  */
 export async function grantDamageTimedEffects(actor, entries) {
-    await grantEntriesToActor(actor, entries);
-}
-
-/**
- * ソケット委譲された効果付与を GM クライアントで実行する(TnxSocketHandler._onUsageEffectGrant)。
- * @param {{targetUuid:string, entries:Array<{name:string, data:object}>}} data
- */
-export async function grantUsageEffectsDelegated({ targetUuid, entries }) {
-    const resolved = await fromUuid(targetUuid).catch(() => null);
-    const actor = resolved?.actor ?? resolved;
-    if (!actor?.createEmbeddedDocuments) return;
-    for (const e of (entries ?? [])) {
-        if (!e?.data) continue;
-        await grantUsageEffect(actor, e);
+    if (!actor?.createEmbeddedDocuments || !entries?.length) return false;
+    if (!(game.user.isGM || actor.isOwner)) {
+        ui.notifications.warn(`「${actor.name}」への効果付与は対象の操作者（か RL）が行います。`);
+        return false;
     }
+    for (const e of entries) await grantUsageEffect(actor, e);
+    return true;
 }
 
 /**
@@ -294,7 +308,9 @@ export async function prepareUsageEffectPayload(actor, parentItem, usage, { targ
         };
     }
     return {
-        effects: targetEntries.map(e => ({ name: e.name, data: e.data })),
+        // timing を必ず載せる(2026-07-18 是正: 落とすと splitEffectsByTiming が全てダメージ時と
+        // 見なし、命中時効果がダメージ適用時に付与される)
+        effects: targetEntries.map(e => ({ name: e.name, data: e.data, timing: e.timing })),
         targets,
         applied: false,
         ...(selfApplied.length ? { selfApplied } : {}),
@@ -330,21 +346,43 @@ export function renderUsageEffectButton(message, html) {
     const append = (inner) => { block.innerHTML = inner; host.appendChild(block); };
 
     // 対決判定カード(attackCheck)の出し分け(2026-07-18 タイミング2種＋KI-028 是正):
-    // - 攻撃: 適用ボタンはダメージカードへ一本化(2026-07-11 ユーザー確定)。カード上は
-    //   自分付与ノートと命中時効果の付与済みノート(命中解決で自動付与=grantHitTimedEffects)のみ
+    // - 攻撃: ダメージ時効果のボタンはダメージカードへ一本化(2026-07-11 ユーザー確定)。
+    //   **命中時効果はこのカードの手動ボタンで適用**(2026-07-18 是正=自動付与しない。手動だから
+    //   こそカバー宣言後に押せばカバー側へ正しく適用できる)。自分付与はノート表示のみ
     // - 非攻撃対決: ダメージフローを持たないため、解決後に結果カードと同じ手動ボタンを出す
     const attackF = message.getFlag(SCOPE, "attackCheck");
     if (attackF) {
         const mode = attackCardEffectMode(attackF);
         if (mode === "hide") return;
         if (mode === "attack") {
-            let hitNote = "";
             const hitEntries = splitEffectsByTiming(payload.effects).hit;
-            if (hitEntries.length && payload.hitGranted?.length) {
-                hitNote = `<p class="tnx-usage-effect-note"><i class="fas fa-check"></i> 命中時効果を付与済み: `
-                    + `${nameList(hitEntries.map(e => e.name))} → ${nameList(payload.hitGranted.map(t => t.name))}</p>`;
+            const hitNames = nameList(hitEntries.map(e => e.name));
+            let hitNote = "";
+            let showButton = false;
+            if (hitEntries.length && payload.hitApplied) {
+                hitNote = `<p class="tnx-usage-effect-note"><i class="fas fa-check"></i> 命中時効果を適用済み: `
+                    + `${hitNames} → ${nameList((payload.hitGranted ?? []).map(t => t.name)) || "（対象なし）"}</p>`;
+            } else if (hitEntries.length) {
+                // 全対象の解決後・命中が1体以上のとき表示。適用先=現時点の命中対象(カバー宣言済みは
+                // カバー側へ付け替え)。押下時に hitEffectTargetRefs で再解決される
+                const refs = hitEffectTargetRefs(attackF.targets);
+                const resolvedAll = (attackF.targets ?? []).every(t => t?.state !== "pending");
+                if (resolvedAll && refs.length) {
+                    hitNote = `<p class="tnx-usage-effect-note">命中時効果: ${hitNames} → ${nameList(refs.map(r => r.name))}</p>`;
+                    showButton = true;
+                }
             }
-            if (selfNote || hitNote) append(`${selfNote}${hitNote}`);
+            if (!selfNote && !hitNote) return;
+            block.innerHTML = `${selfNote}${hitNote}`;
+            if (showButton) {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "tnx-chat-btn";
+                btn.textContent = "効果を適用";
+                btn.addEventListener("click", () => applyHitEffectsFromMessage(message));
+                block.appendChild(btn);
+            }
+            host.appendChild(block);
             return;
         }
         // mode === "button": 非攻撃対決の解決後 → 下の通常描画(手動ボタン)へ

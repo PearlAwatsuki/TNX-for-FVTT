@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 
-const { resolveUsageEffectData, splitEffectsByTiming, attackCardEffectMode } =
+const { resolveUsageEffectData, splitEffectsByTiming, attackCardEffectMode,
+        prepareUsageEffectPayload, hitEffectTargetRefs } =
     await import("../../scripts/module/usage-effects.mjs");
 
 // toObject を持つ簡易 effect / effects コレクション
@@ -81,6 +82,55 @@ describe("splitEffectsByTiming()（ペイロードの二股・2026-07-18）", ()
   it("空・null は両方空配列", () => {
     expect(splitEffectsByTiming([])).toEqual({ hit: [], damage: [] });
     expect(splitEffectsByTiming(null)).toEqual({ hit: [], damage: [] });
+  });
+});
+
+describe("prepareUsageEffectPayload()（timing のペイロード伝搬・2026-07-18 是正）", () => {
+  const SCOPE = "tokyo-nova-axleration";
+  const mkEffect = (id, name, flags = {}) => ({
+    id, name,
+    flags: { [SCOPE]: flags },
+    toObject: () => ({ _id: id, name, disabled: true, transfer: true, flags: { [SCOPE]: { ...flags } } }),
+  });
+
+  it("対象向けエントリに timing が載る（欠落すると命中時効果がダメージ時扱いになる＝実機報告バグ）", async () => {
+    const parent = { id: "p", effects: { get: (id) =>
+      (id === "e1" ? mkEffect("e1", "毒", { grantTiming: "hit" }) : mkEffect("e2", "呪い", {})) } };
+    const payload = await prepareUsageEffectPayload(null, parent,
+      { effects: [{ itemId: "", effectId: "e1" }, { itemId: "", effectId: "e2" }] },
+      { targetOverride: [{ uuid: "u1", name: "A" }] });
+    expect(payload.effects.map(e => e.timing)).toEqual(["hit", "damage"]);
+  });
+});
+
+describe("hitEffectTargetRefs()（命中時効果の適用先＝命中対象＋カバー付け替え・2026-07-18 是正）", () => {
+  it("hit の対象だけを返す（miss/pending は除外）", () => {
+    const refs = hitEffectTargetRefs([
+      { uuid: "a", name: "A", state: "hit" },
+      { uuid: "b", name: "B", state: "miss" },
+      { uuid: "c", name: "C", state: "pending" },
+    ]);
+    expect(refs).toEqual([{ uuid: "a", name: "A" }]);
+  });
+
+  it("カバー宣言済みの対象はカバーした側へ付け替える（効果もダメージもカバー側＝2026-07-18 裁定）", () => {
+    const refs = hitEffectTargetRefs([
+      { uuid: "a", name: "A", state: "hit", coveredBy: { uuid: "x", name: "X" } },
+    ]);
+    expect(refs).toEqual([{ uuid: "x", name: "X" }]);
+  });
+
+  it("カバーした側が自分も命中対象なら1件に畳む", () => {
+    const refs = hitEffectTargetRefs([
+      { uuid: "a", name: "A", state: "hit", coveredBy: { uuid: "x", name: "X" } },
+      { uuid: "x", name: "X", state: "hit" },
+    ]);
+    expect(refs).toEqual([{ uuid: "x", name: "X" }]);
+  });
+
+  it("空・null は空配列", () => {
+    expect(hitEffectTargetRefs([])).toEqual([]);
+    expect(hitEffectTargetRefs(null)).toEqual([]);
   });
 });
 

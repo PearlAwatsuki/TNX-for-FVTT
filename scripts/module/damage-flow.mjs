@@ -201,6 +201,7 @@ async function finalizeDamageRoll(ctx, form, played) {
     if (attackEffects && carriedEntries.length) {
         usageEffects = { ...attackEffects, effects: carriedEntries };
         delete usageEffects.hitGranted;
+        delete usageEffects.hitApplied;
         delete usageEffects.selfApplied;
     }
 
