@@ -836,6 +836,12 @@ export class TnxCheckFlow {
             await resolveRecoveryFromCheck(ctx.recovery, result);
         }
 
+        // 修理判定の完了継続(2026-07-18): 成功で選択アウトフィットの故障(isMalfunction)を解除する
+        if (!ctx.recheckMessageId && ctx.repair) {
+            const { resolveRepairFromCheck } = await import("./repair-flow.mjs");
+            await resolveRepairFromCheck(ctx.repair, result);
+        }
+
         return true;
     }
 
@@ -1024,6 +1030,13 @@ export class TnxCheckFlow {
             async rerun(cc, result) {
                 const { resolveRecoveryFromCheck } = await import("./recovery-flow.mjs");
                 await resolveRecoveryFromCheck(cc, result);
+            },
+        },
+        repair: {
+            rerunOnSuccessOnly: true,
+            async rerun(cc, result) {
+                const { resolveRepairFromCheck } = await import("./repair-flow.mjs");
+                await resolveRepairFromCheck(cc, result);
             },
         },
         controlNegate: {

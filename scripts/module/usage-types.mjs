@@ -2,7 +2,7 @@
  * @fileoverview 用途タイプ(行動種別)の正本レジストリ(2026-07-17 ユーザー確定・Foundry 非依存)。
  * 正本: Check_Rules.md「用途タイプ」行動種別への再編。
  *
- * タイプ＝行動種別(16種)。「技能クリック以外の場所から起動し、可能な技能を識別する必要がある
+ * タイプ＝行動種別。「技能クリック以外の場所から起動し、可能な技能を識別する必要がある
  * 行動」だけをタイプにする(リアクション・治療・カバー・移動・離脱など)。判定要求の延長
  * (情報収集・登場判定=可能技能が毎回明示される)や、用途内で機能が完結するもの(NPC取得)は
  * タイプにせずフラグのまま。旧 check/declaration の2タイプ+damageCategory 等のフラグ構成からの
@@ -31,6 +31,7 @@ export const USAGE_TYPE_DEFS = Object.freeze({
     move:                { label: "移動",                     kind: "action", usesVehicle: true },
     escape:              { label: "離脱",                     kind: "action" },
     treatment:           { label: "治療",                     kind: "action", selectableForm: true },
+    repair:              { label: "修理",                     kind: "action" },
     modification:        { label: "改造",                     kind: "action" },
     covering:            { label: "カバー",                   kind: "action" },
 });

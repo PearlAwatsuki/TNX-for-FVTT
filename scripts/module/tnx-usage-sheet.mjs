@@ -19,6 +19,7 @@ import { deriveConsumeTargets } from "./usage-consumption.mjs";
 import { CONDITION_KINDS } from "./conditions.mjs";
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
+import { OUTFIT_CATEGORIES, getMinorCategoryLabel } from "../data/item/outfit-categories.mjs";
 import { resolveAttackWeapons, attackWeaponDisplayName, resolveAttackRangeSpan, attackWeaponKindEligible } from "./attack-weapons.mjs";
 import { WEAPON_RANGE_MAX_OPTIONS } from "../data/item/weapon.mjs";
 import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, loadSkillUsageTypeIndex, loadDictionarySkillItems, SKILL_PACKS } from "./skill-dictionary.mjs";
@@ -92,7 +93,7 @@ export async function updateUsageActions(item, mutate) {
     }
 }
 
-// 用途タイプ=行動種別16種(2026-07-17 ユーザー確定)。正本は usage-types.mjs の USAGE_TYPE_DEFS。
+// 用途タイプ=行動種別(2026-07-17 ユーザー確定)。正本は usage-types.mjs の USAGE_TYPE_DEFS。
 // 旧 check/declaration 一本化(2026-07-13)からの移行は usage.mjs の migrateData。
 export const USAGE_TYPES = USAGE_TYPE_LABELS;
 
@@ -462,6 +463,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             recoveryRowAdd:        TnxUsageSheet._onRecoveryRowAdd,
             recoveryRowDelete:     TnxUsageSheet._onRecoveryRowDelete,
             recoveryExcludeDelete: TnxUsageSheet._onRecoveryExcludeDelete,
+            repairCategoryDelete:  TnxUsageSheet._onRepairCategoryDelete,
             incrementRecoveryCount: TnxUsageSheet._onRecoveryCountInc,
             decrementRecoveryCount: TnxUsageSheet._onRecoveryCountDec,
             incrementConsumeAmount: TnxUsageSheet._onConsumeAmountInc,
@@ -606,6 +608,31 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             context.recoveryExcludeChoices = Object.entries(CONDITION_KINDS)
                 .filter(([k, def]) => def.type !== "wound" && !excludeSet.has(k))
                 .map(([value, def]) => ({ value, label: def.label }));
+        }
+
+        // 修理(2026-07-18): この用途で修理できるアウトフィットの小分類ホワイトリスト。
+        // 選択済み=行表示(大分類/小分類ラベル)・追加=大分類 optgroup + 小分類 option の1セレクト。
+        // サービス大分類は故障/破壊しない(免疫)ため候補から除外する。
+        context.isRepair = usage.type === "repair";
+        if (context.isRepair) {
+            const selected = new Set(usage.repairableCategories ?? []);
+            const minorMajor = {}; // 小分類キー → 大分類ラベル(行表示用)
+            for (const major of Object.values(OUTFIT_CATEGORIES)) {
+                for (const minorKey of Object.keys(major.minors)) minorMajor[minorKey] = major.label;
+            }
+            context.repairCategoryRows = [...selected].map(k => ({
+                key: k,
+                label: `${minorMajor[k] ?? ""}／${getMinorCategoryLabel(k) || k}`,
+            }));
+            context.repairCategoryChoices = Object.entries(OUTFIT_CATEGORIES)
+                .filter(([majorKey]) => majorKey !== "service")
+                .map(([, major]) => ({
+                    label: major.label,
+                    minors: Object.entries(major.minors)
+                        .filter(([minorKey]) => !selected.has(minorKey))
+                        .map(([minorKey, minor]) => ({ value: minorKey, label: minor.label })),
+                }))
+                .filter(g => g.minors.length);
         }
 
         // NPC取得(11-6・Troops.md/2026-07-13 タイプ→フラグへ移管): check/declaration のどちらにも
@@ -1023,6 +1050,19 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                     const usage = this.usage;
                     if (!usage || (usage.recoveryExcludes ?? []).includes(key)) { ev.target.value = ""; return; }
                     await this._patchUsage({ recoveryExcludes: [...(usage.recoveryExcludes ?? []), key] });
+                    this.render({ force: true });
+                });
+            }
+
+            // 修理できる分類(小分類キー): ドロップダウン選択で即時追加(2026-07-18)
+            for (const select of this.element.querySelectorAll("select.repair-category-select")) {
+                select.addEventListener("change", async (ev) => {
+                    ev.stopPropagation();
+                    const key = ev.target.value;
+                    if (!key) return;
+                    const usage = this.usage;
+                    if (!usage || (usage.repairableCategories ?? []).includes(key)) { ev.target.value = ""; return; }
+                    await this._patchUsage({ repairableCategories: [...(usage.repairableCategories ?? []), key] });
                     this.render({ force: true });
                 });
             }
@@ -1662,6 +1702,14 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         const usage = this.usage;
         if (!usage || !key) return;
         await this._patchUsage({ recoveryExcludes: (usage.recoveryExcludes ?? []).filter(k => k !== key) });
+        this.render({ force: true });
+    }
+
+    static async _onRepairCategoryDelete(_event, target) {
+        const key = target.dataset.key;
+        const usage = this.usage;
+        if (!usage || !key) return;
+        await this._patchUsage({ repairableCategories: (usage.repairableCategories ?? []).filter(k => k !== key) });
         this.render({ force: true });
     }
 

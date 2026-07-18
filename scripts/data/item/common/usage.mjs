@@ -241,6 +241,12 @@ export class UsageTemplate extends SystemDataModel {
                     recoveryAll: new fields.BooleanField({ initial: false }),
                     recoveryCount: new fields.NumberField({ initial: 1, integer: true, min: 1 }),
 
+                    // 修理(2026-07-18 ユーザー確定・repair タイプ): この用途で修理できるアウトフィットの
+                    // 小分類キーのホワイトリスト。使用→対象解決(未ターゲット=自分)→対象所持の故障
+                    // アウトフィットのうち小分類が合致するものを選択→判定成功で故障(isMalfunction)を解除。
+                    // 空=どの故障アウトフィットも列挙しない(未設定は修理対象なし)。破壊は修理対象外。
+                    repairableCategories: new fields.ArrayField(new fields.StringField()),
+
                     // check: 再判定を付与(2026-07-11 ユーザー確定)。ON の用途は使用しても判定を行わず、
                     // 「達成値クリック待ち」モードに入る。既存の結果カードの達成値をクリックすると、
                     // その判定に**この用途の親技能を組み合わせた状態で**再判定が起動する

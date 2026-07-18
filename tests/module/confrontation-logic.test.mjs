@@ -20,8 +20,9 @@ import {
 const row = (value, name = "") => ({ value, name, skillDict: "", skillGroup: "", skillSub: "" });
 
 describe("用途タイプ(行動種別・2026-07-17 確定)", () => {
-    it("16種で、リアクションタイプは対決欄の手段行と1:1", () => {
-        expect(Object.keys(USAGE_TYPE_DEFS)).toHaveLength(16);
+    it("リアクションタイプは対決欄の手段行と1:1(修理タイプ追加後=17種・2026-07-18)", () => {
+        expect(Object.keys(USAGE_TYPE_DEFS)).toHaveLength(17);
+        expect(USAGE_TYPE_DEFS.repair).toEqual({ label: "修理", kind: "action" });
         expect(CONFRONTATION_REACTION_VALUES).toEqual(
             ["dodge", "parry", "mentalReaction", "socialReaction", "moveBlockReaction", "escapeBlockReaction"]);
     });

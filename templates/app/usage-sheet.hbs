@@ -715,6 +715,43 @@
             </fieldset>
             {{/if}}
 
+            {{!-- 修理(2026-07-18): この用途で修理できるアウトフィットの小分類ホワイトリスト。
+                 使用→対象解決(未ターゲット=自分)→対象所持の故障アウトフィットのうち小分類が合致する
+                 ものを選択→判定成功で故障を解除。サービス大分類は免疫のため候補に出ない。 --}}
+            {{#if isRepair}}
+            <fieldset class="tnx-fieldset usage-repair-section">
+                <legend>修理</legend>
+                <label class="usage-field-label">修理できるアウトフィットの分類</label>
+                <div class="usage-skill-ref-list">
+                    {{#each repairCategoryRows}}
+                    <div class="usage-skill-ref-row">
+                        <span class="usage-skill-ref-name">{{this.label}}</span>
+                        {{#if ../editable}}
+                        <a class="usage-icon-btn" data-action="repairCategoryDelete" data-key="{{this.key}}"
+                           title="削除"><i class="fas fa-times"></i></a>
+                        {{/if}}
+                    </div>
+                    {{else}}
+                    <p class="usage-empty-hint">（なし）</p>
+                    {{/each}}
+                </div>
+                {{#if editable}}
+                <div class="usage-skill-ref-add">
+                    <select class="repair-category-select">
+                        <option value="">── 修理できる分類を追加 ──</option>
+                        {{#each repairCategoryChoices}}
+                        <optgroup label="{{this.label}}">
+                            {{#each this.minors}}
+                            <option value="{{this.value}}">{{this.label}}</option>
+                            {{/each}}
+                        </optgroup>
+                        {{/each}}
+                    </select>
+                </div>
+                {{/if}}
+            </fieldset>
+            {{/if}}
+
             {{!-- 適用される効果（ActiveEffect） --}}
             <fieldset class="tnx-fieldset usage-effects-section">
                 <legend>適用される効果</legend>

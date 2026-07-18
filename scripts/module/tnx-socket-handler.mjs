@@ -37,6 +37,9 @@ export class TnxSocketHandler {
             case "treatmentApply":
                 TnxSocketHandler._onTreatmentApply(data);
                 break;
+            case "repairApply":
+                TnxSocketHandler._onRepairApply(data);
+                break;
             case "messagePatch":
                 TnxSocketHandler._onMessagePatch(data);
                 break;
@@ -118,6 +121,23 @@ export class TnxSocketHandler {
     static emitTreatmentApply(payload) {
         game.socket.emit("system.tokyo-nova-axleration", {
             type: "treatmentApply",
+            ...payload,
+        });
+    }
+
+    // ─── repairApply（フェーズ12・修理・2026-07-18） ──────────────────────────────
+
+    /** 修理成功による故障解除を GM クライアントが代行する(複数 GM 接続時は activeGM のみ)。 */
+    static async _onRepairApply(data) {
+        if (game.users.activeGM?.id !== game.user.id) return;
+        const { applyRepairDelegated } = await import("./repair-flow.mjs");
+        await applyRepairDelegated(data);
+    }
+
+    /** 故障解除を GM へ委譲する（対象の所有権がない修理者クライアントから呼ぶ）。 */
+    static emitRepairApply(payload) {
+        game.socket.emit("system.tokyo-nova-axleration", {
+            type: "repairApply",
             ...payload,
         });
     }
