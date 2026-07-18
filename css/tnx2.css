@@ -1190,8 +1190,11 @@
     font-family: var(--tnx2-font-mono);
     font-weight: 700;
     color: #99e6f2; /* アクセント(#00c8e0)の淡色 */
-    text-shadow: 0 0 6px rgba(0, 200, 224, 0.5);
+    text-shadow: 0 0 4px rgba(0, 200, 224, 0.8), 0 0 10px rgba(0, 200, 224, 0.45);
 }
+/* 数字と効果名の間隔(前置=ダメージ・後置=BS の両順序に対応) */
+.tokyo-nova.sheet.actor .tnx-bs-value:first-child { margin-right: 4px; }
+.tokyo-nova.sheet.actor .tnx-bs-value:last-child  { margin-left: 4px; }
 
 /* 編集モード: ホバーで削除インジケーター */
 .tokyo-nova.sheet.actor .tnx-bs-btn--edit:hover {
