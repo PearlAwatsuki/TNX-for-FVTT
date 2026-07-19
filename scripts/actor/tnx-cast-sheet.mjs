@@ -135,8 +135,40 @@ export class TokyoNovaCastSheet extends TnxCharacterSheetBase {
 
     // ─── 経験点計算(静的) ────────────────────────────────────────────────────
 
+    /** アクターごとの EXP 再計算の合流状態(KI-008・2026-07-19): actor.uuid → {rerun, promise} */
+    static _expRecalcStates = new Map();
+
+    /**
+     * EXP 再計算の入口(KI-008 是正・2026-07-19 ユーザー承認)。アイテム変動フックから 1 変動ごとに
+     * 呼ばれるため、一括インポート等では同一アクターへの呼び出しが並列に走り、同内容の
+     * actor.update が同時に飛んでいた。同一アクターの再計算を 1 本に合流する——実行中に来た
+     * 呼び出しは「完了後にもう 1 回」へ畳む(計算は毎回の全量再計算のため、最後の 1 回が
+     * 最新状態を反映する)。計算・書き込みロジック(_recalcCastExp)は不変。
+     */
     static async updateCastExp(actor) {
         if (!actor || actor.type !== 'cast') return;
+        const key = actor.uuid ?? actor.id;
+        const running = this._expRecalcStates.get(key);
+        if (running) {
+            running.rerun = true;
+            return running.promise;
+        }
+        const state = { rerun: false, promise: null };
+        this._expRecalcStates.set(key, state);
+        state.promise = (async () => {
+            try {
+                do {
+                    state.rerun = false;
+                    await this._recalcCastExp(actor);
+                } while (state.rerun);
+            } finally {
+                this._expRecalcStates.delete(key);
+            }
+        })();
+        return state.promise;
+    }
+
+    static async _recalcCastExp(actor) {
         if (!actor.system.exp) actor.prepareData();
 
         const abilities = ["reason", "passion", "life", "mundane"];
