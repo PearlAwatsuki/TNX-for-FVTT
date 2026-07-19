@@ -194,4 +194,37 @@ describe("buildRequestUsageChoices()（判定要求の第2段プルダウンの�
         expect(buildRequestUsageChoices(null, combos).map(c => c.usage._id)).toEqual(["c1"]);
         expect(buildRequestUsageChoices(null, [])).toEqual([]);
     });
+
+    it("長すぎる用途名は「…」省略・親名(技能名)は必ず残す(2026-07-19 ユーザー指示)", () => {
+        const longName = "あ".repeat(30);
+        const combos = [{ item: style, usage: { _id: "c1", type: "check", name: longName } }];
+        const [c] = buildRequestUsageChoices(null, combos);
+        // 上限22文字: 用途名16+「…」+「（見切り）」(5) = 22
+        expect(c.label).toBe(`${"あ".repeat(16)}…（見切り）`);
+        expect(c.label.length).toBe(22);
+        expect(c.label.endsWith("（見切り）")).toBe(true);
+    });
+
+    it("親名が長くても親名は削らない(用途名は最小4文字まで残す)", () => {
+        const longParent = { id: "s2", type: "styleSkill", name: "か".repeat(20), system: { actions: [] } };
+        const combos = [{ item: longParent, usage: { _id: "c1", type: "check", name: "あ".repeat(10) } }];
+        const [c] = buildRequestUsageChoices(null, combos);
+        expect(c.label).toBe(`ああああ…（${"か".repeat(20)}）`);
+    });
+
+    it("指定技能自身の名前つき用途は名前のみ(題名が技能名を担う)・超過は末尾を省略", () => {
+        const own = { id: "p2", type: "generalSkill", name: "知覚", system: { actions: [
+            { _id: "u1", type: "check", name: "あ".repeat(30) },
+        ] } };
+        const [c] = buildRequestUsageChoices(own, []);
+        expect(c.label).toBe(`${"あ".repeat(21)}…`);
+        expect(c.label.length).toBe(22);
+    });
+
+    it("未命名(「判定（親名）」)は省略しない", () => {
+        const longParent = { id: "s2", type: "styleSkill", name: "か".repeat(25), system: { actions: [] } };
+        const combos = [{ item: longParent, usage: { _id: "c1", type: "check" } }];
+        const [c] = buildRequestUsageChoices(null, combos);
+        expect(c.label).toBe(`判定（${"か".repeat(25)}）`);
+    });
 });

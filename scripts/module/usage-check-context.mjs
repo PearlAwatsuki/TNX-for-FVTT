@@ -91,20 +91,45 @@ export function enumerateRequestComboCandidates(actor, identificationKey, { excl
  * ラベルは用途の実効名(usageDisplayName)＝親名は**素の名前**(「判定（知覚）」・実効名規約
  * 2026-07-17 確定。〈〉整形は技能名単体表示の一般則であり実効名内には適用しない=2026-07-19
  * ユーザー指摘で是正)。コンボ候補の名前つき用途は「用途名（親名）」で由来を判別可能にする。
+ * 長すぎるラベルは**用途名の側だけ**を「…」省略する(2026-07-19 ユーザー指示: 技能名(親名)は
+ * 確実に表示。閉じたセレクトは末尾=親名側から見切れるため、生成時に文字数で丸める)。
  * @param {Item|null} matchedItem 指定技能アイテム
  * @param {Array<{item: Item, usage: object}>} [comboCandidates] enumerateRequestComboCandidates の結果
  * @returns {Array<{item: Item, usage: object, label: string}>}
  */
+// 第2段プルダウンのラベル上限(全角ベースの文字数・ダイアログ幅 360px の閉じたセレクトに収まる目安)
+const REQUEST_USAGE_LABEL_MAX = 22;
+// 省略後も残す用途名の最小文字数(親名が長くても用途の判別が全滅しないように)
+const REQUEST_USAGE_NAME_MIN = 4;
+
+/**
+ * 「用途名（親名）」を上限に収める(2026-07-19 ユーザー指示: 技能名(親名)は確実に表示し、
+ * 長すぎる用途名の側を「…」で省略する)。親名は削らない——親名(＋括弧)だけで上限に迫る場合は
+ * 用途名を最小長まで残して超過を許容する。
+ */
+function fitRequestUsageLabel(name, parentName) {
+    const suffix = `（${parentName}）`;
+    if ((name + suffix).length <= REQUEST_USAGE_LABEL_MAX) return name + suffix;
+    const keep = Math.max(REQUEST_USAGE_NAME_MIN, REQUEST_USAGE_LABEL_MAX - suffix.length - 1);
+    return `${name.slice(0, keep)}…${suffix}`;
+}
+
 export function buildRequestUsageChoices(matchedItem, comboCandidates = []) {
+    // 指定技能自身の用途: 名前つきは名前のみ(技能名はダイアログ題名「〈技能名〉で判定」が担う)。
+    // 上限超過は末尾を「…」省略。未命名は「判定（親名）」=タイプ名が短いため親名を削らずそのまま
     const own = matchedItem
-        ? (matchedItem.system?.actions ?? []).filter(canAnswerCheckRequest).map(usage => ({
-            item: matchedItem, usage,
-            label: usageDisplayName(usage, matchedItem.name),
-        }))
+        ? (matchedItem.system?.actions ?? []).filter(canAnswerCheckRequest).map(usage => {
+            const name = (usage.name ?? "").trim();
+            const label = name
+                ? (name.length > REQUEST_USAGE_LABEL_MAX
+                    ? `${name.slice(0, REQUEST_USAGE_LABEL_MAX - 1)}…` : name)
+                : usageDisplayName(usage, matchedItem.name);
+            return { item: matchedItem, usage, label };
+        })
         : [];
     const combos = (comboCandidates ?? []).map(({ item, usage }) => {
         const name = (usage.name ?? "").trim();
-        return { item, usage, label: name ? `${name}（${item.name}）` : usageDisplayName(usage, item.name) };
+        return { item, usage, label: name ? fitRequestUsageLabel(name, item.name) : usageDisplayName(usage, item.name) };
     });
     return [...own, ...combos];
 }
