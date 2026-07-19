@@ -749,30 +749,7 @@
 
                         {{!-- 部位は独立 fieldset へ分離(下記「部位」legend。フェーズ10) --}}
 
-                        {{!-- タイミング(選択肢はスタイル技能と共通だが、アウトフィットは一つのみ) --}}
-                        <div class="form-group">
-                            <label>タイミング</label>
-                            <div class="form-fields {{#if (or (eq system.timing.value "action") (eq system.timing.value "process") (eq system.timing.value "other"))}}split-fields{{/if}}">
-                                <select name="system.timing.value">
-                                    {{selectOptions options.timing selected=system.timing.value}}
-                                </select>
-                                {{#if (eq system.timing.value "other")}}
-                                    <input type="text" name="system.timing.timingOther" value="{{system.timing.timingOther}}" placeholder="タイミングを入力"/>
-                                {{/if}}
-                                {{#if (eq system.timing.value "action")}}
-                                    <select name="system.timing.actionName">
-                                        {{selectOptions options.actions selected=system.timing.actionName}}
-                                    </select>
-                                {{/if}}
-                                {{#if (eq system.timing.value "process")}}
-                                    <select name="system.timing.processName">
-                                        {{selectOptions options.processes selected=system.timing.processName}}
-                                    </select>
-                                {{/if}}
-                            </div>
-                        </div>
-
-                        {{!-- 専用: タイミングと同形(array-row・1行目に＋、2行目以降にゴミ箱削除) --}}
+                        {{!-- 専用(array-row・1行目に＋、2行目以降にゴミ箱削除) --}}
                         <div class="form-group align-start">
                             <label>専用</label>
                             <div class="form-fields-column">

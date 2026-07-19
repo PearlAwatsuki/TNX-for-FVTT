@@ -93,19 +93,9 @@ describe("OutfitBaseTemplate.defineSchema()", () => {
     });
   });
 
-  describe("timing が正しい (フェーズ6-3: 単一の SchemaField に変更)", () => {
-    it("timing は配列ではなく単一の SchemaField (アウトフィットのタイミングは一つのみ)", () => {
-      expect(schema.timing).toBeInstanceOf(MockSchemaField);
-    });
-
-    it("value / actionName / processName / timingOther を持ち、初期値がスタイル技能と同一", () => {
-      const el = schema.timing.fields;
-      for (const key of ["value", "actionName", "processName"]) {
-        expect(el[key]).toBeInstanceOf(MockStringField);
-        expect(el[key].options.initial).toBe("blank");
-      }
-      expect(el.timingOther).toBeInstanceOf(MockStringField);
-      expect(el.timingOther.options.initial).toBe("");
+  describe("timing は持たない (2026-07-19 廃止: タイミングは用途側で管理する)", () => {
+    it("schema.timing が存在しない", () => {
+      expect(schema.timing).toBeUndefined();
     });
   });
 

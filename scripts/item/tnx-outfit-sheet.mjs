@@ -411,9 +411,6 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
         context.options = {
             ...context.options,
-            timing:        skillOptions.timing,
-            actions:       skillOptions.actions,
-            processes:     skillOptions.processes,
             usesType:      skillOptions.usesType,
             buyHideMode:            this.constructor.buyHideModes,
             hackMode:               this.constructor.hackModes,
@@ -958,17 +955,6 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             });
         }
 
-        // タイミング(単一): 種別変更時に下位フィールドをリセットする
-        this.element.querySelector('select[name="system.timing.value"]')
-            ?.addEventListener("change", (event) => {
-                event.stopPropagation();
-                const value = event.currentTarget.value;
-                const update = { "system.timing.value": value };
-                if (value !== "action")  update["system.timing.actionName"]  = "blank";
-                if (value !== "process") update["system.timing.processName"] = "blank";
-                if (value !== "other")   update["system.timing.timingOther"] = "";
-                this.item.update(update);
-            });
 
         // 部位行の入力(配列フィールドのため全体更新で保存する。種別連動で欄が変わるため、
         // 保存後の再描画は item.update のドキュメント更新フックに委ねる)

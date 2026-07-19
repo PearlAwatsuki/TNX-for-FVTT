@@ -18,9 +18,9 @@
  *   未選択を許すため blank: true。
  * - hack(電脳制御値)は「なし / 数値」の 2 状態。buy / hide と同様の {mode, value} 構造
  *   (mode は none / value のみ)。
- * - timing はスタイル技能と共通の選択肢({value, actionName, processName, timingOther})だが、
- *   スタイル技能と違って**一つしかあり得ない**ため単一の SchemaField(2026-06-13 ユーザー確定)。
- *   選択肢マップは TnxSkillUtils.getSkillOptions()(timing / actions / processes)を共用する。
+ * - timing は廃止(2026-07-19 ユーザー確定)。アウトフィットのタイミングは**用途側で管理**しており、
+ *   ルールブック上もアウトフィットのタイミングは解説にしか書かれないため、アイテム自身が持つ必要がない
+ *   (スタイル技能の timing は説明欄の表示に関わるため存置)。
  * - part(部位)は**配列**。フェーズ10(2026-06-26)で種別(kind)ベースへ拡張した。
  *   kind = none/bodyPart/option/reference/other の5択。value/slots は維持(後方互換)。
  *   旧 {value,slots} データは kind 既定 "other" で自由記入扱いへ移行する(§4.2)。
@@ -186,12 +186,6 @@ export class OutfitBaseTemplate extends SystemDataModel {
       partOptional: new fields.BooleanField({ initial: false }),
       // 部位「-」品など、準備していなくても使用可能な例外フラグ(2026-06-26)
       noPrepareRequired: new fields.BooleanField({ initial: false }),
-      timing: new fields.SchemaField({
-        value:       new fields.StringField({ initial: "blank" }),
-        actionName:  new fields.StringField({ initial: "blank" }),
-        processName: new fields.StringField({ initial: "blank" }),
-        timingOther: new fields.StringField({ initial: "" }),
-      }),
       // 専用: スタイル/オーガニゼーション辞典への参照(複数可)。type="style"|"organization"・key=識別キー。
       // 自動化はしない(指定のみ)。模造技能・別組織のアウトフィット取得効果との兼ね合いで enforcement を持たせない。
       exclusive: new fields.ArrayField(new fields.SchemaField({
