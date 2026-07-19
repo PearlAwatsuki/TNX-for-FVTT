@@ -14,7 +14,7 @@ import { getComboSuits, comboUsesBounty } from "./tnx-check-engine.mjs";
 import { resolveConsumeRowsForActor, promptConsumption } from "./usage-consumption.mjs";
 import { prepareUsageEffectPayload } from "./usage-effects.mjs";
 import { resolveUsageTargetValue } from "./usage-target-value.mjs";
-import { executionFormOf, effectiveBaseSkillId } from "./usage-types.mjs";
+import { executionFormOf, effectiveBaseSkillId, isAttackType } from "./usage-types.mjs";
 import { formatSkillName } from "./identification.mjs";
 
 /**
@@ -35,6 +35,53 @@ export function resolveUsageSkillSet(item, usage, actor) {
     const allSkillSystems = allSkillIds.map(id => actor?.items.get(id)?.system).filter(Boolean);
     const validSuits = getComboSuits(allSkillSystems);
     return { baseSkillId, baseSkill, comboSkillIds, allSkillIds, allSkillSystems, validSuits };
+}
+
+/**
+ * 判定要求(checkRequest)への応答として通常判定を成立させられる用途か(KI-025・2026-07-19)。
+ * 要求文脈(requestMessageId)は通常判定の open へ合流して要求カードに結果を追記するため、
+ * 通常判定へ流れない用途(攻撃/治療/修理/カバー=専用フロー・NPC取得・固定値判定・
+ * クリック待ち系のバフ宣言)は要求を解決できず、候補に載せない(組み合わせの制限ではなく、
+ * 「要求に応答できる導線」の列挙。可否の裁定は従来どおりユーザー/RL)。
+ */
+function canAnswerCheckRequest(usage) {
+    if (executionFormOf(usage) !== "check") return false;
+    if (Number.isFinite(usage.fixedResult)) return false;
+    if (isAttackType(usage.type)) return false;
+    if (["treatment", "repair", "covering"].includes(usage.type)) return false;
+    if (usage.npcAcquire === true) return false;
+    if (usage.grantRecheck === true || usage.modifyCheck === true
+        || usage.modifyDamage === true || usage.grantSuitChange === true) return false;
+    return true;
+}
+
+/**
+ * 判定要求への応答候補: 指定技能を参加技能(ベース/組み合わせ)に含む「他アイテムの用途」を
+ * 列挙する(KI-025・2026-07-17 ユーザー指摘=組み合わせ判定は要求への正当な応答であり、
+ * 代用判定(卓裁定つき)へ誤誘導しない)。指定技能そのもの(excludeItemId)は従来どおり
+ * アイテム起動＝用途ピッカー側が受け持つため除外する。参加技能の一致は識別キーで判定。
+ * 不備のある用途(ベース技能不明・共通スート無し)は起動しても中止されるため除外する。
+ * @param {Actor} actor 応答するアクター
+ * @param {string} identificationKey 要求された技能の識別キー
+ * @param {{excludeItemId?: string}} [opts]
+ * @returns {Array<{item: Item, usage: object}>}
+ */
+export function enumerateRequestComboCandidates(actor, identificationKey, { excludeItemId = "" } = {}) {
+    if (!actor || !identificationKey) return [];
+    const out = [];
+    for (const item of actor.items) {
+        if (!item?.system?.actions?.length) continue;
+        if (excludeItemId && item.id === excludeItemId) continue;
+        for (const usage of item.system.actions) {
+            if (!canAnswerCheckRequest(usage)) continue;
+            if (detectUsageDefect(item, usage, actor)) continue;
+            const { allSkillIds } = resolveUsageSkillSet(item, usage, actor);
+            const matches = allSkillIds.some(id =>
+                actor.items.get(id)?.system?.identificationKey === identificationKey);
+            if (matches) out.push({ item, usage });
+        }
+    }
+    return out;
 }
 
 /**

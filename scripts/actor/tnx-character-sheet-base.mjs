@@ -36,7 +36,7 @@ import { applyTriggerDisable } from '../module/ui-trigger-disable.mjs';
 import { openConditionEditDialog } from '../module/condition-edit.mjs';
 import { startTreatment } from '../module/treatment-flow.mjs';
 import { isAttackUsage } from '../data/item/common/usage.mjs';
-import { executionFormOf, usageDisplayName, isReactionType } from '../module/usage-types.mjs';
+import { executionFormOf, usageDisplayName, isReactionType, usableUsagesOf } from '../module/usage-types.mjs';
 import { itemDisplayName } from '../module/identification.mjs';
 import { isOpposedConfrontation } from '../module/confrontation-logic.mjs';
 
@@ -2443,14 +2443,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
 
         // 既定の挙動: 実行できる用途が無ければ、解説をそのままチャット表示する(アイテムの基本機能)。
         // 用途があればその実行に切り替わる(経路の漏れを作らない=11-6/12-2 の確定方針)。
-        // 2026-07-17 行動種別再編: 判定を行う用途(攻撃・リアクション・移動・治療(判定形)等)すべてに加え、
-        // 事後系フラグ付きの宣言(再判定を付与/判定を修正/ダメージを修正=バフ宣言・2026-07-12/13)と
-        // 宣言形の治療・NPC取得宣言も実行対象にする(フラグ無しの宣言=直接指定時のみ宣言使用)
-        const usableUsages = (item.system.actions ?? [])
-            .filter(a => executionFormOf(a) === "check"
-                || (executionFormOf(a) === "declaration"
-                    && (a.grantRecheck === true || a.modifyCheck === true || a.modifyDamage === true
-                        || a.grantSuitChange === true || a.type === "treatment" || a.npcAcquire === true)));
+        // 実行対象の規則は usableUsagesOf(usage-types.mjs)に一本化(判定要求の候補列挙と共有・KI-025)
+        const usableUsages = usableUsagesOf(item.system.actions);
 
         // 用途を決定（直接指定→カバー再入の引き継ぎ→1つなら自動選択→複数はピッカー表示）。
         // カバーの判定起動(covering)は、待ち受け開始時に確定した用途を再選択せず引き継ぐ。

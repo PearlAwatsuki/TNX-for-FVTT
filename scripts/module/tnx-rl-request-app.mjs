@@ -15,7 +15,9 @@
 import { ALL_SUITS } from './tnx-check-engine.mjs';
 import { TnxCheckFlow } from './tnx-check-flow.mjs';
 import { buildSkillOptions } from './skill-select.mjs';
-import { findItemByIdentificationKey, formatSkillName } from './identification.mjs';
+import { findItemByIdentificationKey, formatSkillName, itemDisplayName } from './identification.mjs';
+import { enumerateRequestComboCandidates } from './usage-check-context.mjs';
+import { usageDisplayName } from './usage-types.mjs';
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -296,10 +298,17 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
         // ※能力値判定・制御判定・技能名のみ(識別キー無し)の要求は技能アイテムを起動しないため直接 open。
         if (checkType === "skillCheck" && identificationKey) {
             const matchedItem = findItemByIdentificationKey(actor, identificationKey, { type: "generalSkill" });
-            const choice = await TnxRlRequestApp._promptSkillUse(actor, { matchedItem, requestedLabel: skillLabel });
+            // KI-025(2026-07-19): 指定技能を参加技能(ベース/組み合わせ)に含む他アイテムの用途も
+            // 応答候補に列挙する(組み合わせ判定は要求への正当な応答=2026-07-17 ユーザー指摘。
+            // 代用判定(卓裁定つき)へ誤誘導しない)。起動は唯一の起動関数へ用途 ID 直接指定で委譲
+            const comboCandidates = enumerateRequestComboCandidates(actor, identificationKey,
+                { excludeItemId: matchedItem?.id ?? "" });
+            const choice = await TnxRlRequestApp._promptSkillUse(actor,
+                { matchedItem, requestedLabel: skillLabel, comboCandidates });
             if (!choice) return;
             const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
             const extra = { requestMessageId: messageId, targetValue: targetValue ?? null };
+            if (choice.usageId) extra.usageId = choice.usageId;
             if (choice.substitute) {
                 extra.substitution = { requestedLabel: skillLabel, usedName: choice.item.name };
                 extra.manualMod = choice.manualMod;
@@ -323,28 +332,52 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
 
     /**
-     * 指定技能で判定するか、代用判定(別技能+手動修正)を行うかを選ばせる(2026-07-09)。
-     * 指定技能を所持していない場合は代用判定の選択のみ提示する。
+     * 指定技能で判定するか、指定技能を組み合わせた用途(コンボ候補)で判定するか、
+     * 代用判定(別技能+手動修正)を行うかを選ばせる(2026-07-09・コンボ候補は KI-025=2026-07-19)。
+     * 指定技能もコンボ候補も無い場合は代用判定の選択のみ提示する。
      * @param {Actor} actor
-     * @param {{matchedItem: Item|null, requestedLabel: string}} opts
-     * @returns {Promise<?{item: Item, substitute: boolean, manualMod: number}>}
+     * @param {{matchedItem: Item|null, requestedLabel: string,
+     *          comboCandidates?: Array<{item: Item, usage: object}>}} opts
+     * @returns {Promise<?{item: Item, usageId?: string, substitute: boolean, manualMod: number}>}
      */
-    static async _promptSkillUse(actor, { matchedItem, requestedLabel }) {
-        if (matchedItem) {
+    static async _promptSkillUse(actor, { matchedItem, requestedLabel, comboCandidates = [] }) {
+        if (matchedItem || comboCandidates.length) {
+            // コンボ候補のラベル: 用途の実効名(名前が空なら「タイプ名（親名）」)。名前つきの用途も
+            // どのアイテム由来かが判別できるよう「用途名（親名）」に揃える(親名=技能は〈〉整形)
+            const candidateLabel = ({ item, usage }) => {
+                const parent = itemDisplayName(item);
+                const name = (usage.name ?? "").trim();
+                return name ? `${name}（${parent}）` : usageDisplayName(usage, parent);
+            };
+            const buttons = [
+                ...(matchedItem ? [{
+                    action: "direct", icon: "fas fa-diamond", default: true,
+                    label: `${itemDisplayName(matchedItem)}で判定`,
+                    callback: () => ({ kind: "direct" }),
+                }] : []),
+                ...comboCandidates.map((c, i) => ({
+                    action: `combo${i}`, icon: "fas fa-diamond",
+                    label: candidateLabel(c),
+                    callback: () => ({ kind: "combo", index: i }),
+                })),
+                { action: "sub", icon: "fas fa-shuffle", label: "代用判定（別の技能で判定）", callback: () => ({ kind: "sub" }) },
+                { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+            ];
             const mode = await foundry.applications.api.DialogV2.wait({
                 window: { title: requestedLabel },
                 classes: ["tokyo-nova", "tnx-dialog", "tnx-usage-picker"],
                 position: { width: 340 },
                 content: "",
-                buttons: [
-                    { action: "direct", icon: "fas fa-diamond", label: `「${matchedItem.name}」で判定`, default: true, callback: () => "direct" },
-                    { action: "sub", icon: "fas fa-shuffle", label: "代用判定（別の技能で判定）", callback: () => "sub" },
-                    { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
-                ],
+                buttons,
                 close: () => null,
             });
             if (!mode) return null;
-            if (mode === "direct") return { item: matchedItem, substitute: false, manualMod: 0 };
+            if (mode.kind === "direct") return { item: matchedItem, substitute: false, manualMod: 0 };
+            if (mode.kind === "combo") {
+                const c = comboCandidates[mode.index];
+                if (!c) return null;
+                return { item: c.item, usageId: c.usage._id, substitute: false, manualMod: 0 };
+            }
         }
 
         // 代用判定: 技能を選び、ペナルティ等の修正を手入力する(裁定は卓)。

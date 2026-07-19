@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
-const { resolveUsageSkillSet, detectUsageDefect } =
+const { resolveUsageSkillSet, detectUsageDefect, enumerateRequestComboCandidates } =
     await import("../../scripts/module/usage-check-context.mjs");
 
 /** アクターのモック(items は Map 互換の get/has だけ使う)。 */
@@ -79,5 +79,87 @@ describe("detectUsageDefect()（用途不備検知・旧 _detectUsageDefect）",
         const actor = mockActor([parent]);
         expect(detectUsageDefect(parent, { type: "check", baseSkillRef: { itemId: "parent" }, skillRefs: [] }, actor)).toBeNull();
         expect(detectUsageDefect(parent, { type: "declaration" }, actor)).toBeNull();
+    });
+});
+
+describe("enumerateRequestComboCandidates()（判定要求のコンボ候補列挙・KI-025）", () => {
+    // Foundry の Collection は for...of で値を返すため、Map 互換+値イテレータのモックを使う
+    const mkActor = (items) => {
+        const map = new Map(items.map(i => [i.id, i]));
+        return { items: {
+            get: (id) => map.get(id),
+            has: (id) => map.has(id),
+            [Symbol.iterator]: () => map.values(),
+        } };
+    };
+    const all = suits(true, true, true, true);
+
+    it("指定技能をベース技能に含む他アイテムの判定用途を列挙する", () => {
+        const perception = { id: "p1", system: { identificationKey: "perception", suits: all } };
+        const style = { id: "s1", system: { identificationKey: "", suits: all, actions: [
+            { _id: "u1", type: "check", baseSkillRef: { itemId: "p1" }, skillRefs: [] },
+        ] } };
+        const actor = mkActor([perception, style]);
+        const found = enumerateRequestComboCandidates(actor, "perception", { excludeItemId: "p1" });
+        expect(found.map(c => [c.item.id, c.usage._id])).toEqual([["s1", "u1"]]);
+    });
+
+    it("組み合わせ技能(skillRefs)に含む場合も列挙する", () => {
+        const perception = { id: "p1", system: { identificationKey: "perception", suits: all } };
+        const melee = { id: "m1", system: { identificationKey: "melee", suits: all, actions: [
+            { _id: "u1", type: "check", baseSkillRef: { itemId: "m1" }, skillRefs: [{ itemId: "p1" }] },
+        ] } };
+        const actor = mkActor([perception, melee]);
+        const found = enumerateRequestComboCandidates(actor, "perception", { excludeItemId: "p1" });
+        expect(found.map(c => [c.item.id, c.usage._id])).toEqual([["m1", "u1"]]);
+    });
+
+    it("指定技能自身(excludeItemId)の用途は除外する(従来のアイテム起動側が受け持つ)", () => {
+        const perception = { id: "p1", system: { identificationKey: "perception", suits: all, actions: [
+            { _id: "u1", type: "check", baseSkillRef: { itemId: "p1" }, skillRefs: [] },
+        ] } };
+        const actor = mkActor([perception]);
+        expect(enumerateRequestComboCandidates(actor, "perception", { excludeItemId: "p1" })).toEqual([]);
+    });
+
+    it("指定技能が参加しない用途は載らない", () => {
+        const perception = { id: "p1", system: { identificationKey: "perception", suits: all } };
+        const other = { id: "o1", system: { identificationKey: "melee", suits: all, actions: [
+            { _id: "u1", type: "check", baseSkillRef: { itemId: "o1" }, skillRefs: [] },
+        ] } };
+        const actor = mkActor([perception, other]);
+        expect(enumerateRequestComboCandidates(actor, "perception", { excludeItemId: "p1" })).toEqual([]);
+    });
+
+    it("通常判定へ流れない用途(攻撃/固定値/バフ宣言/NPC取得/治療/修理/カバー)は候補にしない", () => {
+        const perception = { id: "p1", system: { identificationKey: "perception", suits: all } };
+        const style = { id: "s1", system: { identificationKey: "", suits: all, actions: [
+            { _id: "a", type: "physicalAttack", baseSkillRef: { itemId: "p1" }, skillRefs: [] },
+            { _id: "b", type: "check", fixedResult: 10, baseSkillRef: { itemId: "p1" }, skillRefs: [] },
+            { _id: "c", type: "check", grantRecheck: true, baseSkillRef: { itemId: "p1" }, skillRefs: [] },
+            { _id: "d", type: "check", npcAcquire: true, baseSkillRef: { itemId: "p1" }, skillRefs: [] },
+            { _id: "e", type: "treatment", baseSkillRef: { itemId: "p1" }, skillRefs: [] },
+            { _id: "f", type: "repair", baseSkillRef: { itemId: "p1" }, skillRefs: [] },
+            { _id: "g", type: "covering", baseSkillRef: { itemId: "p1" }, skillRefs: [] },
+            { _id: "h", type: "dodge", baseSkillRef: { itemId: "p1" }, skillRefs: [] },
+        ] } };
+        const actor = mkActor([perception, style]);
+        const found = enumerateRequestComboCandidates(actor, "perception", { excludeItemId: "p1" });
+        // リアクション等の判定タイプは通常判定として要求に応答できるため残る
+        expect(found.map(c => c.usage._id)).toEqual(["h"]);
+    });
+
+    it("不備のある用途(共通スート無し)は除外する", () => {
+        const perception = { id: "p1", system: { identificationKey: "perception", suits: suits(true, false, false, false) } };
+        const style = { id: "s1", system: { identificationKey: "", suits: suits(false, true, false, false), actions: [
+            { _id: "u1", type: "check", baseSkillRef: { itemId: "p1" }, skillRefs: [] },
+        ] } };
+        const actor = mkActor([perception, style]);
+        expect(enumerateRequestComboCandidates(actor, "perception", { excludeItemId: "p1" })).toEqual([]);
+    });
+
+    it("識別キー未指定・アクター無しは空", () => {
+        expect(enumerateRequestComboCandidates(null, "perception")).toEqual([]);
+        expect(enumerateRequestComboCandidates(mkActor([]), "")).toEqual([]);
     });
 });

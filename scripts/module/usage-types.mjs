@@ -102,6 +102,22 @@ export function defaultConfrontationForType(type) {
 }
 
 /**
+ * アイテムロール(技能クリック)で実行対象になる用途(2026-07-17 行動種別再編の確定規則・
+ * 2026-07-19 に _activateItemCheck から抽出=KI-025 の候補列挙と規則を共有する)。
+ * 判定を行う用途すべて(攻撃・リアクション・移動・治療(判定形)等)に加え、事後系フラグ付きの
+ * 宣言(再判定を付与/判定を修正/ダメージを修正/スートを変更=バフ宣言)と宣言形の治療・
+ * NPC取得宣言を含む。フラグ無しの宣言は用途の直接指定時のみ実行(ここには入らない)。
+ * @param {Array<object>|undefined} actions 用途配列(system.actions)
+ * @returns {Array<object>}
+ */
+export function usableUsagesOf(actions) {
+    return (actions ?? []).filter(a => executionFormOf(a) === "check"
+        || (executionFormOf(a) === "declaration"
+            && (a.grantRecheck === true || a.modifyCheck === true || a.modifyDamage === true
+                || a.grantSuitChange === true || a.type === "treatment" || a.npcAcquire === true)));
+}
+
+/**
  * 用途の実効ベース技能 id の唯一の解決関数(2026-07-18 集約)。散在していた
  * `usage.baseSkillRef?.itemId || item.id` の重複を一本化する。
  * アクション技能は常に自身がベース。非アクションは baseSkillRef があればそれ、無ければ親自身。
