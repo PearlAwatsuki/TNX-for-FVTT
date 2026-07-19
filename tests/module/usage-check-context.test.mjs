@@ -182,10 +182,11 @@ describe("buildRequestUsageChoices()（判定要求の第2段プルダウンの�
         ];
         const choices = buildRequestUsageChoices(perception, combos);
         expect(choices.map(c => c.usage._id)).toEqual(["u1", "c1", "c2"]);
-        expect(choices[0].label).toBe("判定（〈知覚〉）");
-        expect(choices[1].label).toBe("判定（〈見切り〉）");
+        // 実効名の親名は素の名前(「判定（知覚）」・2026-07-19 ユーザー指摘=〈〉は付けない)
+        expect(choices[0].label).toBe("判定（知覚）");
+        expect(choices[1].label).toBe("判定（見切り）");
         // 名前つきのコンボ候補は「用途名（親名）」で由来を判別可能に
-        expect(choices[2].label).toBe("カウンター（〈見切り〉）");
+        expect(choices[2].label).toBe("カウンター（見切り）");
     });
 
     it("指定技能なし(未所持)はコンボ候補のみ・両方なしは空", () => {

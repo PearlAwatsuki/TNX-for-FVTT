@@ -15,7 +15,7 @@ import { resolveConsumeRowsForActor, promptConsumption } from "./usage-consumpti
 import { prepareUsageEffectPayload } from "./usage-effects.mjs";
 import { resolveUsageTargetValue } from "./usage-target-value.mjs";
 import { executionFormOf, effectiveBaseSkillId, usageDisplayName } from "./usage-types.mjs";
-import { formatSkillName, itemDisplayName } from "./identification.mjs";
+import { formatSkillName } from "./identification.mjs";
 
 /**
  * 技能ベース用途(check)の参加技能を解決する。ベース技能(用途の baseSkillRef 優先・未設定は親アイテム)＋
@@ -88,8 +88,9 @@ export function enumerateRequestComboCandidates(actor, identificationKey, { excl
  * ボタン列挙は量が多いとあふれるため二段階化=第2段のプルダウンの中身)。
  * 指定技能自身の用途+コンボ候補の統合で、**どちらも「判定」タイプ限定**
  * (canAnswerCheckRequest・2026-07-19 ユーザー裁定=技能クリックの実行対象規則より狭い)。
- * ラベルは用途の実効名(usageDisplayName)。コンボ候補の名前つき用途は「用途名（親名）」で
- * どのアイテム由来かを判別可能にする(親名=itemDisplayName・技能は〈〉整形)。
+ * ラベルは用途の実効名(usageDisplayName)＝親名は**素の名前**(「判定（知覚）」・実効名規約
+ * 2026-07-17 確定。〈〉整形は技能名単体表示の一般則であり実効名内には適用しない=2026-07-19
+ * ユーザー指摘で是正)。コンボ候補の名前つき用途は「用途名（親名）」で由来を判別可能にする。
  * @param {Item|null} matchedItem 指定技能アイテム
  * @param {Array<{item: Item, usage: object}>} [comboCandidates] enumerateRequestComboCandidates の結果
  * @returns {Array<{item: Item, usage: object, label: string}>}
@@ -98,13 +99,12 @@ export function buildRequestUsageChoices(matchedItem, comboCandidates = []) {
     const own = matchedItem
         ? (matchedItem.system?.actions ?? []).filter(canAnswerCheckRequest).map(usage => ({
             item: matchedItem, usage,
-            label: usageDisplayName(usage, itemDisplayName(matchedItem)),
+            label: usageDisplayName(usage, matchedItem.name),
         }))
         : [];
     const combos = (comboCandidates ?? []).map(({ item, usage }) => {
-        const parent = itemDisplayName(item);
         const name = (usage.name ?? "").trim();
-        return { item, usage, label: name ? `${name}（${parent}）` : usageDisplayName(usage, parent) };
+        return { item, usage, label: name ? `${name}（${item.name}）` : usageDisplayName(usage, item.name) };
     });
     return [...own, ...combos];
 }

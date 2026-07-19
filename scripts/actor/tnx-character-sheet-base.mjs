@@ -2734,8 +2734,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const iconFor = (u) => u.npcAcquire === true ? "fas fa-users"
             : isAttackUsage(u) ? "fas fa-burst"
                 : isReactionType(u.type) ? "fas fa-shield-halved" : "fas fa-diamond";
-        // 名前が空のときは実効名「タイプ名（親アイテム名）」(usageDisplayName と同一規約。
-        // skillName は呼び出し側で 〈〉 整形済み・2026-07-18)
+        // 名前が空のときは実効名「タイプ名（親アイテム名）」(usageDisplayName と同一規約)。
+        // 親名は素の名前=実効名規約どおり(2026-07-19 訂正: 旧コメント「呼び出し側で〈〉整形済み」は
+        // 実装と食い違い——呼び出し側は従来から item.name を渡している)
         const labelFor = (u) => usageDisplayName(u, skillName);
         const buttons = [
             ...usages.map((u, i) => ({
