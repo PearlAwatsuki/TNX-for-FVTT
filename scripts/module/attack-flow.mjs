@@ -568,7 +568,14 @@ export function renderAttackCard(message, html) {
     // 対象一覧は下に続けて表示する
     if (f.state === "failed") {
         addVerdict("cr-result--failure", "fa-times",
-            f.failedReason === "movement" ? "移動失敗" : `${failWord}（リアクションによる）`);
+            f.failedReason === "movement" ? "移動失敗"
+                : f.movement ? "移動失敗（リアクションによる）"
+                    : `${failWord}（リアクションによる）`);
+    }
+    // 移動は妨害されないこともある=能動側の判定が成功した時点で移動成功が既定(2026-07-19 ユーザー確定)。
+    // リアクション確定前でも「移動成功」を表示し、妨害が勝ったときだけ失敗へ覆す(離脱は対象外)
+    if (f.movement && f.state === "open") {
+        addVerdict("cr-result--success", "fa-check", "移動成功");
     }
 
     // 目標リスト(D&D 風・2026-07-15 複数対象一括 → 2026-07-18 大改修): 各対象の防御値と解決結果を
@@ -669,7 +676,8 @@ export function renderAttackCard(message, html) {
             };
             addRow("リアクション", `${MODE_LABELS[effective.mode] ?? "対決"}（${effective.reactorName ?? "?"}）`);
             addRow("リアクション達成値", effective.achievement ?? 0);
-            if (f.state !== "failed") addVerdict("cr-result--success", "fa-check", "判定成功（対決勝利）");
+            // 移動は上の「移動成功」バナーが常設のため対決勝利の重複表示はしない(2026-07-19)
+            if (f.state !== "failed" && !f.movement) addVerdict("cr-result--success", "fa-check", "判定成功（対決勝利）");
         }
         if (f.state === "open" && !f.damageRolled) {
             const identity = resolveUserIdentityActor({ warn: false });

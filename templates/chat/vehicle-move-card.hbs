@@ -29,10 +29,12 @@
                 <span class="cr-total-num">{{stages}}<span class="cr-total-unit"> 段階</span></span>
             </div>
         </div>
-        {{!-- 達成値10未満=0段階はその時点で移動失敗(判定失敗扱い・2026-07-19 ユーザー確定) --}}
-        {{#unless stages}}
+        {{!-- 達成値10未満=0段階はその時点で移動失敗・1段階以上は移動成功(2026-07-19 ユーザー確定) --}}
+        {{#if stages}}
+        <div class="cr-result cr-result--success"><i class="fas fa-check"></i> <span>移動成功</span></div>
+        {{else}}
         <div class="cr-result cr-result--failure"><i class="fas fa-times"></i> <span>移動失敗</span></div>
-        {{/unless}}
+        {{/if}}
         {{/if}}
     {{/if}}
 </div>
