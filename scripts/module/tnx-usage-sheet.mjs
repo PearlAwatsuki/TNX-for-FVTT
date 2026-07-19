@@ -610,8 +610,9 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 .map(([value, def]) => ({ value, label: def.label }));
         }
 
-        // 修理(2026-07-18): この用途で修理できるアウトフィットの小分類ホワイトリスト。
-        // 選択済み=行表示(大分類/小分類ラベル)・追加=大分類 optgroup + 小分類 option の1セレクト。
+        // 修理(2026-07-18): この用途で修理できるアウトフィットの分類ホワイトリスト
+        // (小分類キーまたは大分類キー。大分類キー=その大分類全体・2026-07-19)。
+        // 選択済み=行表示(大分類/小分類ラベル)・追加=大分類 optgroup +（大分類全体）+ 小分類 option の1セレクト。
         // サービス大分類は故障/破壊しない(免疫)ため候補から除外する。
         context.isRepair = usage.type === "repair";
         if (context.isRepair) {
@@ -622,15 +623,20 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             }
             context.repairCategoryRows = [...selected].map(k => ({
                 key: k,
-                label: `${minorMajor[k] ?? ""}／${getMinorCategoryLabel(k) || k}`,
+                label: OUTFIT_CATEGORIES[k]
+                    ? `${OUTFIT_CATEGORIES[k].label}／（大分類全体）`
+                    : `${minorMajor[k] ?? ""}／${getMinorCategoryLabel(k) || k}`,
             }));
             context.repairCategoryChoices = Object.entries(OUTFIT_CATEGORIES)
                 .filter(([majorKey]) => majorKey !== "service")
-                .map(([, major]) => ({
+                .map(([majorKey, major]) => ({
                     label: major.label,
-                    minors: Object.entries(major.minors)
-                        .filter(([minorKey]) => !selected.has(minorKey))
-                        .map(([minorKey, minor]) => ({ value: minorKey, label: minor.label })),
+                    minors: [
+                        ...(selected.has(majorKey) ? [] : [{ value: majorKey, label: "（大分類全体）" }]),
+                        ...Object.entries(major.minors)
+                            .filter(([minorKey]) => !selected.has(minorKey))
+                            .map(([minorKey, minor]) => ({ value: minorKey, label: minor.label })),
+                    ],
                 }))
                 .filter(g => g.minors.length);
         }

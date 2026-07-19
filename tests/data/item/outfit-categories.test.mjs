@@ -26,6 +26,13 @@ describe("OUTFIT_CATEGORIES", () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 
+  it("小分類キーは大分類キーと重複しない（repairableCategories が両者を1配列に混在保存する）", () => {
+    const majorKeys = new Set(Object.keys(OUTFIT_CATEGORIES));
+    for (const minorKey of Object.keys(getMinorCategoryChoices())) {
+      expect(majorKeys.has(minorKey), `${minorKey} が大分類キーと衝突`).toBe(false);
+    }
+  });
+
   it("getMinorCategoryChoices は {キー: label} を返す", () => {
     const choices = getMinorCategoryChoices();
     expect(choices.melee).toBe("白兵武器");

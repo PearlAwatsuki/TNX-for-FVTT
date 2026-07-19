@@ -262,8 +262,9 @@ export class UsageTemplate extends SystemDataModel {
                     recoveryCount: new fields.NumberField({ initial: 1, integer: true, min: 1 }),
 
                     // 修理(2026-07-18 ユーザー確定・repair タイプ): この用途で修理できるアウトフィットの
-                    // 小分類キーのホワイトリスト。使用→対象解決(未ターゲット=自分)→対象所持の故障
-                    // アウトフィットのうち小分類が合致するものを選択→判定成功で故障(isMalfunction)を解除。
+                    // 分類キーのホワイトリスト(小分類キーまたは大分類キー=その大分類全体・2026-07-19)。
+                    // 使用→対象解決(未ターゲット=自分)→対象所持の故障アウトフィットのうち分類が
+                    // 合致するものを選択→判定成功で故障(isMalfunction)を解除。
                     // 空=どの故障アウトフィットも列挙しない(未設定は修理対象なし)。破壊は修理対象外。
                     repairableCategories: new fields.ArrayField(new fields.StringField()),
 

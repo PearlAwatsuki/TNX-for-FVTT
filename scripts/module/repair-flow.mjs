@@ -6,8 +6,8 @@
  *
  * フロー:
  * 1. 使用(アイテムロール) → 対象解決(ターゲット1体。無ければ確認→自分)
- * 2. 対象が所持する故障アウトフィットのうち、用途の repairableCategories(小分類ホワイトリスト)に
- *    合致するものを1つ選択
+ * 2. 対象が所持する故障アウトフィットのうち、用途の repairableCategories(分類ホワイトリスト・
+ *    小分類キーまたは大分類キー=その大分類全体)に合致するものを1つ選択
  * 3. 判定へ(共通前段 buildUsageCheckContext → TnxCheckFlow.open)。完了継続 ctx.repair が
  *    成功時に選択アウトフィットの故障を解除する(対象の所有権が無ければ GM 委譲)。
  *
@@ -25,7 +25,8 @@ import { OUTFIT_TYPES, getMajorCategoryLabel, getMinorCategoryLabel } from "../d
 
 /**
  * 対象が所持する、この用途で修理できる故障アウトフィットを列挙する。
- * 故障中(実効・サービス免疫は除外)かつ小分類がホワイトリストに合致するもの。
+ * 故障中(実効・サービス免疫は除外)かつ分類がホワイトリストに合致するもの
+ * (小分類キー=その小分類のみ・大分類キー=その大分類の全小分類)。
  * @param {Actor} target
  * @param {{repairableCategories?: string[]}} usage
  * @returns {Item[]}
@@ -37,7 +38,7 @@ export function listRepairableOutfits(target, usage) {
     for (const it of (target?.items ?? [])) {
         if (!OUTFIT_TYPES.has(it.type)) continue;
         if (!isOutfitMalfunctioning(it.system)) continue;
-        if (!cats.has(it.system.minorCategory)) continue;
+        if (!cats.has(it.system.minorCategory) && !cats.has(it.system.majorCategory)) continue;
         out.push(it);
     }
     return out;

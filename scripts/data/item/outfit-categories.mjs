@@ -12,7 +12,8 @@
 /**
  * 大分類キー → { label, minors: { 小分類キー: { label, types } } }。
  * types はその小分類に対応する Item type 配列。
- * 小分類キーは全体で一意。
+ * 小分類キーは全体で一意。大分類キーとも重複させないこと
+ * (用途の repairableCategories が大分類キー・小分類キーを1つの配列に混在保存するため)。
  * @type {Readonly<Record<string, {label: string, minors: Readonly<Record<string, {label: string, types: string[]}>>}>>}
  */
 export const OUTFIT_CATEGORIES = Object.freeze({
