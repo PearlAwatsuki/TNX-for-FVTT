@@ -14,8 +14,8 @@ import { getComboSuits, comboUsesBounty } from "./tnx-check-engine.mjs";
 import { resolveConsumeRowsForActor, promptConsumption } from "./usage-consumption.mjs";
 import { prepareUsageEffectPayload } from "./usage-effects.mjs";
 import { resolveUsageTargetValue } from "./usage-target-value.mjs";
-import { executionFormOf, effectiveBaseSkillId, isAttackType } from "./usage-types.mjs";
-import { formatSkillName } from "./identification.mjs";
+import { executionFormOf, effectiveBaseSkillId, isAttackType, usableUsagesOf, usageDisplayName } from "./usage-types.mjs";
+import { formatSkillName, itemDisplayName } from "./identification.mjs";
 
 /**
  * 技能ベース用途(check)の参加技能を解決する。ベース技能(用途の baseSkillRef 優先・未設定は親アイテム)＋
@@ -82,6 +82,31 @@ export function enumerateRequestComboCandidates(actor, identificationKey, { excl
         }
     }
     return out;
+}
+
+/**
+ * 判定要求の「〈技能名〉で判定」で選ばせる用途リスト(KI-025 改・2026-07-19 ユーザー指示:
+ * ボタン列挙は量が多いとあふれるため二段階化=第2段のプルダウンの中身)。
+ * 指定技能自身の実行対象用途(usableUsagesOf=技能クリックと同一規則)+コンボ候補の統合。
+ * ラベルは用途の実効名(usageDisplayName)。コンボ候補の名前つき用途は「用途名（親名）」で
+ * どのアイテム由来かを判別可能にする(親名=itemDisplayName・技能は〈〉整形)。
+ * @param {Item|null} matchedItem 指定技能アイテム
+ * @param {Array<{item: Item, usage: object}>} [comboCandidates] enumerateRequestComboCandidates の結果
+ * @returns {Array<{item: Item, usage: object, label: string}>}
+ */
+export function buildRequestUsageChoices(matchedItem, comboCandidates = []) {
+    const own = matchedItem
+        ? usableUsagesOf(matchedItem.system?.actions).map(usage => ({
+            item: matchedItem, usage,
+            label: usageDisplayName(usage, itemDisplayName(matchedItem)),
+        }))
+        : [];
+    const combos = (comboCandidates ?? []).map(({ item, usage }) => {
+        const parent = itemDisplayName(item);
+        const name = (usage.name ?? "").trim();
+        return { item, usage, label: name ? `${name}（${parent}）` : usageDisplayName(usage, parent) };
+    });
+    return [...own, ...combos];
 }
 
 /**

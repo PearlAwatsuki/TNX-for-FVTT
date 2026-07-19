@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
-const { resolveUsageSkillSet, detectUsageDefect, enumerateRequestComboCandidates } =
+const { resolveUsageSkillSet, detectUsageDefect, enumerateRequestComboCandidates, buildRequestUsageChoices } =
     await import("../../scripts/module/usage-check-context.mjs");
 
 /** アクターのモック(items は Map 互換の get/has だけ使う)。 */
@@ -161,5 +161,33 @@ describe("enumerateRequestComboCandidates()（判定要求のコンボ候補列�
     it("識別キー未指定・アクター無しは空", () => {
         expect(enumerateRequestComboCandidates(null, "perception")).toEqual([]);
         expect(enumerateRequestComboCandidates(mkActor([]), "")).toEqual([]);
+    });
+});
+
+describe("buildRequestUsageChoices()（判定要求の第2段プルダウンの用途リスト・KI-025 改）", () => {
+    const perception = { id: "p1", type: "generalSkill", name: "知覚", system: { actions: [
+        { _id: "u1", type: "check" },
+        { _id: "u2", type: "declaration" },                       // フラグ無し宣言=実行対象外
+        { _id: "u3", type: "declaration", grantRecheck: true },   // バフ宣言=実行対象
+    ] } };
+    const style = { id: "s1", type: "styleSkill", name: "見切り", system: { actions: [] } };
+
+    it("指定技能自身の実行対象用途+コンボ候補を統合しラベルは用途の実効名", () => {
+        const combos = [
+            { item: style, usage: { _id: "c1", type: "check" } },
+            { item: style, usage: { _id: "c2", type: "check", name: "カウンター" } },
+        ];
+        const choices = buildRequestUsageChoices(perception, combos);
+        expect(choices.map(c => c.usage._id)).toEqual(["u1", "u3", "c1", "c2"]);
+        expect(choices[0].label).toBe("判定（〈知覚〉）");
+        expect(choices[2].label).toBe("判定（〈見切り〉）");
+        // 名前つきのコンボ候補は「用途名（親名）」で由来を判別可能に
+        expect(choices[3].label).toBe("カウンター（〈見切り〉）");
+    });
+
+    it("指定技能なし(未所持)はコンボ候補のみ・両方なしは空", () => {
+        const combos = [{ item: style, usage: { _id: "c1", type: "check" } }];
+        expect(buildRequestUsageChoices(null, combos).map(c => c.usage._id)).toEqual(["c1"]);
+        expect(buildRequestUsageChoices(null, [])).toEqual([]);
     });
 });
