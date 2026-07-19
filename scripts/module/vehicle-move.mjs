@@ -42,10 +42,11 @@ export async function buildMovementCardContent({ payload, result, suit, card, fr
     {
       ...buildCheckCardContext({
         skillLabel: payload.skillName,
-        typeLabel:  `移動（${payload.vehicleName ?? ""}）`,
+        typeLabel:  "移動",
         card, suit, result, fromDeck, trumpUsed, suitMismatch, checkSources, isRecheck,
       }),
-      // 移動固有の追加情報
+      // 移動固有の追加情報(ヴィークル名は種別タグでなく小行で示す=長い名前でタグが崩れないように)
+      vehicleName: payload.vehicleName ?? "",
       stages,
     }
   );

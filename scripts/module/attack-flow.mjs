@@ -533,12 +533,17 @@ export function renderAttackCard(message, html) {
     const addVerdict = (cls, icon, label) =>
         addLine(`cr-result ${cls}`, `<i class="fas ${icon}"></i> <span>${label}</span>`);
 
-    // 移動(2026-07-17 統合): 達成値÷10(切り捨て)段階を条件表示。全体失敗・対決敗北は 0 段階
+    // 移動(2026-07-17 統合・2026-07-19 表示是正): 段階数は**総計行と同じ強調表示**(移動カードの
+    // 主情報)。式(達成値÷10 切り捨て)はカードに出さない・使用ヴィークルは小行で示す(ユーザー指摘=
+    // 旧 cr-tn の長文1行は nowrap で見切れ+主情報が小さすぎた)。全体失敗・対決敗北は 0 段階
     const renderMovementLine = () => {
         if (!f.movement) return;
         const failed = f.state === "fumble" || f.state === "miss" || f.state === "failed";
         const stages = failed ? 0 : movementStagesFromAchievement(Number(f.achievement) || 0);
-        addLine("cr-tn", `移動（${esc(f.movement.vehicleName ?? "")}・達成値÷10 切り捨て）: ${stages} 段階`);
+        addLine("cr-calc-row",
+            `<span class="cr-calc-label">使用ヴィークル</span><span class="cr-calc-val">${esc(f.movement.vehicleName ?? "")}</span>`);
+        addLine("cr-calc-row cr-total-row",
+            `<span class="cr-calc-label">移動</span><span class="cr-total-num">${stages}<span class="cr-total-unit"> 段階</span></span>`);
     };
 
     if (f.state === "fumble") { addVerdict("cr-result--fumble", "fa-skull", `ファンブル！（${failWord}）`); renderMovementLine(); return; }

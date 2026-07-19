@@ -13,14 +13,19 @@
         <div class="cr-result cr-result--failure"><i class="fas fa-times"></i> <span>スート不一致（判定不成立・移動なし）</span></div>
         {{else}}
         <div class="cr-calc-section">
+            <div class="cr-calc-row">
+                <span class="cr-calc-label">使用ヴィークル</span>
+                <span class="cr-calc-val">{{vehicleName}}</span>
+            </div>
             {{> "systems/tokyo-nova-axleration/templates/chat/parts/check-calc-rows.hbs"}}
             <div class="cr-calc-row cr-total-row">
                 <span class="cr-calc-label">達成値</span>
                 <span class="cr-total-num">{{result.achievement}}</span>
             </div>
-            <div class="cr-calc-row">
-                <span class="cr-calc-label">移動（達成値÷10・切り捨て）</span>
-                <span class="cr-calc-val">{{stages}} 段階</span>
+            {{!-- 段階数=移動カードの主情報(総計行と同じ強調・式は出さない・2026-07-19 ユーザー指摘) --}}
+            <div class="cr-calc-row cr-total-row">
+                <span class="cr-calc-label">移動</span>
+                <span class="cr-total-num">{{stages}}<span class="cr-total-unit"> 段階</span></span>
             </div>
         </div>
         {{/if}}

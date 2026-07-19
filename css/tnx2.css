@@ -4405,6 +4405,12 @@ body.tnx-bottom-hud-expanded #hotbar {
     flex-shrink: 0;
 }
 
+/* 総計行の単位表記(「1 段階」等): 数字は大きく・単位は控えめに(移動段階の強調表示・2026-07-19) */
+.cr-total-num .cr-total-unit {
+    font-size: 0.5em;
+    font-weight: 600;
+}
+
 /* 判定ボーナス行＝開閉トグル (▶判定ボーナス … +N、開くとエフェクト名一覧) */
 .cr-bonus-summary {
     cursor: pointer;
