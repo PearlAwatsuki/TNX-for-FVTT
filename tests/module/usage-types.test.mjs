@@ -1,41 +1,30 @@
 import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
-const { usableUsagesOf } = await import("../../scripts/module/usage-types.mjs");
+const { executionFormOf } = await import("../../scripts/module/usage-types.mjs");
 
-// _activateItemCheck(アイテムロール)の実行対象規則(2026-07-17 行動種別再編)。
-// 2026-07-19 に usage-types.mjs へ抽出(KI-025 の判定要求候補列挙と規則を共有)。
+// アイテムロール(_activateItemCheck)の候補は**用途を種別で絞らない**(2026-07-19 ユーザー指示
+// 「宣言用途を勝手に除外しないでください」)。旧 usableUsagesOf(フラグ無し宣言を除外)は廃止した
+// ——宣言用途しか持たないアウトフィットがロールできず解説カードに落ちていたため。
+// ここでは、候補に入った各用途が _activateItemCheck の分岐で実行経路を持つこと(=到達不能な
+// 用途が生まれないこと)を、分岐の判別に使う executionFormOf の側から確認する。
 
-describe("usableUsagesOf()（アイテムロールの実行対象用途）", () => {
-    it("判定を行う用途(行動種別タイプ含む)は全て実行対象", () => {
-        const actions = [
-            { _id: "a", type: "check" },
-            { _id: "b", type: "physicalAttack" },
-            { _id: "c", type: "dodge" },
-            { _id: "d", type: "move" },
-            { _id: "e", type: "treatment" }, // 判定形(既定)
-        ];
-        expect(usableUsagesOf(actions).map(a => a._id)).toEqual(["a", "b", "c", "d", "e"]);
+describe("executionFormOf()（用途の実行形式＝アイテムロールの分岐先）", () => {
+    it("判定を行う用途(行動種別タイプ含む)は check", () => {
+        expect(executionFormOf({ type: "check" })).toBe("check");
+        expect(executionFormOf({ type: "physicalAttack" })).toBe("check");
+        expect(executionFormOf({ type: "dodge" })).toBe("check");
+        expect(executionFormOf({ type: "move" })).toBe("check");
     });
 
-    it("フラグ無しの宣言は実行対象外(直接指定時のみ宣言使用)", () => {
-        expect(usableUsagesOf([{ type: "declaration" }])).toEqual([]);
+    it("宣言は declaration（フラグの有無で形式は変わらない＝どちらも実行経路を持つ）", () => {
+        expect(executionFormOf({ type: "declaration" })).toBe("declaration");
+        expect(executionFormOf({ type: "declaration", grantRecheck: true })).toBe("declaration");
+        expect(executionFormOf({ type: "declaration", npcAcquire: true })).toBe("declaration");
     });
 
-    it("事後系フラグ付きの宣言(バフ宣言)・宣言形の治療・NPC取得宣言は実行対象", () => {
-        const actions = [
-            { _id: "a", type: "declaration", grantRecheck: true },
-            { _id: "b", type: "declaration", modifyCheck: true },
-            { _id: "c", type: "declaration", modifyDamage: true },
-            { _id: "d", type: "declaration", grantSuitChange: true },
-            { _id: "e", type: "treatment", executionForm: "declaration" },
-            { _id: "f", type: "declaration", npcAcquire: true },
-        ];
-        expect(usableUsagesOf(actions).map(a => a._id)).toEqual(["a", "b", "c", "d", "e", "f"]);
-    });
-
-    it("空・未定義は空配列", () => {
-        expect(usableUsagesOf([])).toEqual([]);
-        expect(usableUsagesOf(undefined)).toEqual([]);
+    it("治療は用途の executionForm で判定形/宣言形が固定される", () => {
+        expect(executionFormOf({ type: "treatment" })).toBe("check");
+        expect(executionFormOf({ type: "treatment", executionForm: "declaration" })).toBe("declaration");
     });
 });

@@ -36,7 +36,7 @@ import { applyTriggerDisable } from '../module/ui-trigger-disable.mjs';
 import { openConditionEditDialog } from '../module/condition-edit.mjs';
 import { startTreatment } from '../module/treatment-flow.mjs';
 import { isAttackUsage } from '../data/item/common/usage.mjs';
-import { executionFormOf, usageDisplayName, isReactionType, usableUsagesOf } from '../module/usage-types.mjs';
+import { executionFormOf, usageDisplayName, isReactionType } from '../module/usage-types.mjs';
 import { itemDisplayName } from '../module/identification.mjs';
 import { isOpposedConfrontation } from '../module/confrontation-logic.mjs';
 
@@ -2441,10 +2441,15 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             return;
         }
 
-        // 既定の挙動: 実行できる用途が無ければ、解説をそのままチャット表示する(アイテムの基本機能)。
+        // 既定の挙動: 用途が無ければ、解説をそのままチャット表示する(アイテムの基本機能)。
         // 用途があればその実行に切り替わる(経路の漏れを作らない=11-6/12-2 の確定方針)。
-        // 実行対象の規則は usableUsagesOf(usage-types.mjs)に一本化(判定要求の候補列挙と共有・KI-025)
-        const usableUsages = usableUsagesOf(item.system.actions);
+        // **用途は種別で絞らない**(2026-07-19 ユーザー指示「宣言用途を勝手に除外しないでください」)——
+        // フラグ無しの宣言も含め全用途が候補。下の分岐がすべての用途に実行経路を持つ(宣言は
+        // _useDeclarationUsage=消費と適用効果)ため、除外すると到達不能な用途が生まれる。
+        // 旧 usableUsagesOf(フラグ無し宣言を除外)は廃止=アウトフィットのように宣言用途しか
+        // 持たないアイテムがロールできず解説カードに落ちていた。
+        // ※判定要求への応答は別規則(canAnswerCheckRequest=判定タイプ限定・2026-07-19 ユーザー裁定)。
+        const usableUsages = item.system.actions ?? [];
 
         // 用途を決定（直接指定→カバー再入の引き継ぎ→1つなら自動選択→複数はピッカー表示）。
         // カバーの判定起動(covering)は、待ち受け開始時に確定した用途を再選択せず引き継ぐ。
@@ -2590,8 +2595,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         }
 
         // 宣言(実行フラグなし)の使用: 判定を行わず消費と適用効果だけ処理する。用途の直接指定
-        // (アイテムシートの使用ボタン)のみ到達する——技能クリックの usableUsages には入らないため、
-        // 従来のアイテムロール挙動(解説カード)は変わらない(2026-07-16 アイテムシートから移設・統合)
+        // (アイテムシートの使用ボタン)に加え、**アイテムロールからも到達する**(2026-07-19 ユーザー指示で
+        // 候補から除外しなくなった。2026-07-16 にアイテムシートから移設・統合した実行本体は同じ)
         if (selectedUsage.type === "declaration") {
             await TnxCharacterSheetBase._useDeclarationUsage(actor, item, selectedUsage);
             return;
@@ -2728,12 +2733,14 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         });
     }
 
-    /** 複数の実行可能用途を D&D スタイルの縦ボタンダイアログで選択させる */
+    /** 複数の用途を D&D スタイルの縦ボタンダイアログで選択させる */
     static async _promptCheckUsage(usages, skillName) {
-        // NPC取得は 2026-07-13 のフラグ化で type でなく usage.npcAcquire に載る(旧 type 参照は死に分岐)
+        // NPC取得は 2026-07-13 のフラグ化で type でなく usage.npcAcquire に載る(旧 type 参照は死に分岐)。
+        // 宣言(判定を行わない用途)は判定と並ぶため別アイコンで区別する(2026-07-19 に候補へ復帰)
         const iconFor = (u) => u.npcAcquire === true ? "fas fa-users"
             : isAttackUsage(u) ? "fas fa-burst"
-                : isReactionType(u.type) ? "fas fa-shield-halved" : "fas fa-diamond";
+                : isReactionType(u.type) ? "fas fa-shield-halved"
+                    : executionFormOf(u) === "declaration" ? "fas fa-bullhorn" : "fas fa-diamond";
         // 名前が空のときは実効名「タイプ名（親アイテム名）」(usageDisplayName と同一規約)。
         // 親名は素の名前=実効名規約どおり(2026-07-19 訂正: 旧コメント「呼び出し側で〈〉整形済み」は
         // 実装と食い違い——呼び出し側は従来から item.name を渡している)
