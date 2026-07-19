@@ -67,8 +67,9 @@ export class UsageTemplate extends SystemDataModel {
                     targetOther:   new fields.StringField({ initial: "" }),   // target === "other" の自由入力
                     isFixedTarget: new fields.BooleanField({ initial: false }), // 変更不可（※）: AE による対象変更を抑止（実機能はフェーズ13）
                     // 自身に適用できない(2026-07-18 ユーザー確定): 「この効果は自身には適用できない」
-                    // 「自身以外の対象に」系の効果の識別。オンで自動セルフ解決を抑止(→対象選択ダイアログ)し、
-                    // 自分をターゲット中の起動は「ターゲットが間違っています」で中止(usage-target-plan.mjs)
+                    // 「自身以外の対象に」系の効果の識別。機械的効果は自動セルフ解決の抑止
+                    // (→対象選択ダイアログ)のみ。明示ターゲットは弾かない(2026-07-19 ユーザー裁定で
+                    // 旧「ターゲットが間違っています」中止を撤廃・usage-target-plan.mjs)
                     cannotTargetSelf: new fields.BooleanField({ initial: false }),
 
                     // 射程 (getSkillOptions().range 準拠)

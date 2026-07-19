@@ -6,7 +6,8 @@
  * recoveryTargetFormula)。使用は必ずアイテムロール。
  *
  * フロー:
- * 1. 使用 → 対象解決(ターゲット1体。無ければ確認→自分)
+ * 1. 使用 → 対象解決(ターゲット中のキャラクター・いなければ自分=し忘れの自動解決。
+ *    対象欄の値では分岐・ブロックしない・2026-07-19 ユーザー裁定)
  * 2. **対象が現在受けている状態から回復対象を選択**(範囲=recoveryTargets・除外=recoveryExcludes。
  *    該当すべて(recoveryAll)は一覧確認のみ・それ以外は recoveryCount 個まで選択)
  * 3. declaration 用途=消費適用→即除去 / check 用途=判定へ(ctx.recovery 完了継続・成功で除去)
@@ -36,7 +37,7 @@
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { buildUsageCheckContext } from "./usage-check-context.mjs";
-import { resolveUsageTargetRefs } from "./target-resolution.mjs";
+import { resolveTargetedOrSelf } from "./target-resolution.mjs";
 import { CONDITION_KINDS, getConditionKinds, recoveryKindMatches, recoveryKindExcluded, readCondition, woundChartValue } from "./conditions.mjs";
 import { postConditionOutcome } from "./condition-resolution.mjs";
 import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } from "./usage-consumption.mjs";
@@ -147,16 +148,11 @@ async function promptRecoverySelection(patient, candidates, usage) {
     return candidates.filter(e => picked.includes(e.id));
 }
 
-/** 回復対象(1体)を解決する(決定表駆動・2026-07-18)。対象「単体」未ターゲットは自動セルフ。
- *  複数ターゲット時は先頭の1体(回復は1体対象・数の自動化はしない)。null=中止。 */
-async function resolveRecoveryPatient(actor, usage) {
-    const refs = await resolveUsageTargetRefs(actor, usage);
-    if (refs === null) return null;
-    if (!refs.length) {
-        ui.notifications.warn("回復する対象がターゲットされていません（用途の対象を設定するか、対象をターゲットしてください）。");
-        return null;
-    }
-    return fromUuid(refs[0].uuid).catch(() => null);
+/** 回復対象(1体)を解決する: ターゲット中のキャラクター(先頭)・いなければ自分(し忘れの自動解決・
+ *  2026-07-19 ユーザー裁定=対象欄の値では分岐・ブロックしない)。
+ *  複数ターゲット時は先頭の1体(回復は1体対象・数の自動化はしない)。 */
+function resolveRecoveryPatient(actor) {
+    return resolveTargetedOrSelf(actor);
 }
 
 /** 除去を実行する(所有権が無ければ treatmentApply ソケットで GM 委譲=治療と同じ経路)。 */
@@ -200,8 +196,7 @@ export async function useRecovery(item, usage, prebound = null) {
         if (!effect) { ui.notifications.warn("治療対象の状態が見つかりません。"); return; }
         selected = [effect];
     } else {
-        patient = await resolveRecoveryPatient(actor, usage);
-        if (!patient) return;
+        patient = resolveRecoveryPatient(actor);
 
         const candidates = listRecoverableEffects(patient, usage);
         if (!candidates.length) {

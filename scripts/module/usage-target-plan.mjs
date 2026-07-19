@@ -10,8 +10,10 @@
  *   自動セルフ・対決ありなら選択ダイアログ。
  * - それ以外(チーム/シーン/範囲等)= 対決ありなら未ターゲット時に選択ダイアログ・非対決は要求なし。
  * - 「自身に適用できない」(cannotTargetSelf)= 自動セルフ解決の抑止(→ダイアログ)。
- * - 手動ターゲットの妥当性: ①フラグオンで自分をターゲット中 ②対象「自身」で自分以外を
- *   ターゲット中 → invalid(「ターゲットが間違っています」で起動中止)。数・単複は検証しない。
+ * - 明示ターゲットは常に尊重する(2026-07-19 ユーザー裁定): 対象の自動解決は「ターゲットの
+ *   し忘れ」の救済であり、ターゲット済みの対象を「正規ではない」とはじかない。旧・手動
+ *   ターゲットの妥当性(invalid=「ターゲットが間違っています」で中止)は撤廃。数・単複も検証しない。
+ *   対象「自身」だけは値の意味どおり常に自分に解決する(他者レティクルは読み替え・ブロックはしない)。
  */
 
 /**
@@ -47,10 +49,9 @@ export function usageCardForm({ target, opposed = false }) {
  * @param {boolean} [p.opposed] 対決判定か(対決欄に有効行があるか)
  * @param {boolean} [p.targetedSelf] 使用者自身をターゲット(レティクル)中か
  * @param {boolean} [p.targetedOthers] 使用者以外をターゲット中か
- * @returns {{mode: "none"|"invalid"|"targets"|"autoSelf"|"dialog"}}
- *   none=対象なしで進行 / invalid=ターゲットが間違っています(中止) /
- *   targets=現在のレティクルをそのまま使う / autoSelf=自分へレティクル付与 /
- *   dialog=対象選択ダイアログ
+ * @returns {{mode: "none"|"targets"|"autoSelf"|"dialog"}}
+ *   none=対象なしで進行 / targets=現在のレティクルをそのまま使う /
+ *   autoSelf=自分へレティクル付与 / dialog=対象選択ダイアログ
  */
 export function planUsageTargets({
     target, cannotTargetSelf = false, opposed = false,
@@ -59,16 +60,15 @@ export function planUsageTargets({
     const group = usageTargetGroup(target);
     if (group === "none") return { mode: "none" };
 
-    // 手動ターゲットの妥当性(2026-07-18 ユーザー確定): 対象にとれないキャラクターが
-    // ターゲットに含まれていれば invalid。数・単複は検証しない
-    if (targetedSelf || targetedOthers) {
-        if (cannotTargetSelf && targetedSelf) return { mode: "invalid" };
-        if (group === "self" && targetedOthers) return { mode: "invalid" };
-        return { mode: "targets" };
-    }
+    // 対象「自身」は値の意味どおり常に自分(いかなる場合でも自動付与=2026-07-18 確定。
+    // 他者レティクルが立っていてもブロックせず自分へ読み替える=2026-07-19 妥当性 invalid 撤廃)
+    if (group === "self") return { mode: cannotTargetSelf && !targetedSelf ? "dialog" : "autoSelf" };
 
-    // 未ターゲット: 自動セルフはフラグで抑止(→ダイアログ)
-    if (group === "self") return { mode: cannotTargetSelf ? "dialog" : "autoSelf" };
+    // 明示ターゲットは常に尊重する(2026-07-19 ユーザー裁定: 自動解決はターゲットし忘れの救済。
+    // ターゲット済みの対象を「正規ではない」とはじかない。数・単複も検証しない)
+    if (targetedSelf || targetedOthers) return { mode: "targets" };
+
+    // 未ターゲット(し忘れ)の自動解決: 自動セルフは「自身に適用できない」フラグで抑止(→ダイアログ)
     if (group === "single") {
         if (cannotTargetSelf) return { mode: "dialog" };
         return { mode: opposed ? "dialog" : "autoSelf" };

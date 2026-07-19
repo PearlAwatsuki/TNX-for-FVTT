@@ -3,10 +3,12 @@
  *
  * 起動用途のタイプで場合分けせず、用途の「対決」×「対象」の決定表(usage-target-plan.mjs・
  * Combat_Flow.md「対象解決とカード形式の一般化」)で解決する。
- * - 対象「-」「解説参照」「その他」= 対象という概念がない(レティクルも読まない)。
+ * - 対象「-」「解説参照」「その他」= 対象要求なし(「-」=完全に対象なし・「解説参照」「その他」=
+ *   基本ルール内で解決できない対象。「その他」はレティクルでターゲットできない対象を取る値)。
  * - 対象「自身」= 常に自分へレティクル自動付与。「単体」= 非対決なら未ターゲット時に自動セルフ。
  * - 「自身に適用できない」(cannotTargetSelf)= 自動セルフ抑止(→選択ダイアログ・候補から自分を除外)。
- * - 手動ターゲットが対象にとれないキャラクターなら「ターゲットが間違っています」で中止。
+ * - 明示ターゲットは常に尊重する(2026-07-19 ユーザー裁定): 自動解決はターゲットし忘れの救済で
+ *   あり、ターゲット済みの対象を「正規ではない」とはじかない(旧・妥当性中止は撤廃)。
  * - 対象にレティクルが付与されないのは対象なし群のみ=効果やダメージの対象は常に明示される。
  *   旧「自分を対象に続行」確認(回復/適用効果)と選択ダイアログの「（対象なし）」は全廃。
  */
@@ -23,6 +25,21 @@ export function currentTargetActors() {
 function targetActorToken(actor) {
     const token = actor?.getActiveTokens?.()[0] ?? null;
     token?.setTarget(true, { releaseOthers: true });
+}
+
+/**
+ * ターゲット中の先頭アクター・いなければ自分(ターゲットし忘れの自動解決・2026-07-19 ユーザー裁定)。
+ * 治療・修理など「実対象がキャラクターでない/キャラクターのターゲットが所持品や状態を指す便宜」の
+ * フローで使う。対象欄の値では分岐しない=対象欄を理由に実行をブロックしない。
+ * 自分に解決したときはレティクルを付与する(対象は常に明示される)。
+ * @param {Actor} actor 使用者
+ * @returns {Actor}
+ */
+export function resolveTargetedOrSelf(actor) {
+    const targeted = currentTargetActors();
+    if (targeted.length) return targeted[0];
+    targetActorToken(actor);
+    return actor;
 }
 
 /**
@@ -44,10 +61,6 @@ export async function resolveUsageTargetRefs(actor, usage) {
     switch (plan.mode) {
         case "none":
             return [];
-        case "invalid":
-            // 手動ターゲットの妥当性(2026-07-18 ユーザー確定): 対象にとれないキャラクターが含まれる
-            ui.notifications.warn("ターゲットが間違っています。");
-            return null;
         case "targets": {
             const byUuid = new Map(targeted.map(a => [a.uuid, { uuid: a.uuid, name: a.name }]));
             return [...byUuid.values()];

@@ -55,13 +55,10 @@ describe("planUsageTargets()（対象解決の決定表）", () => {
     expect(planUsageTargets({ target: "self", opposed: true }).mode).toBe("autoSelf");
   });
 
-  it("自身: 自分以外をターゲット中は invalid（ターゲットが間違っています）", () => {
-    expect(planUsageTargets({ target: "self", targetedOthers: true }).mode).toBe("invalid");
-    expect(planUsageTargets({ target: "self", targetedSelf: true, targetedOthers: true }).mode).toBe("invalid");
-  });
-
-  it("自身: 自分をターゲット中はそのまま targets", () => {
-    expect(planUsageTargets({ target: "self", targetedSelf: true }).mode).toBe("targets");
+  it("自身: ターゲット状態によらず常に autoSelf（2026-07-19 ブロック撤廃・値の意味どおり自分へ読み替え）", () => {
+    expect(planUsageTargets({ target: "self", targetedOthers: true }).mode).toBe("autoSelf");
+    expect(planUsageTargets({ target: "self", targetedSelf: true, targetedOthers: true }).mode).toBe("autoSelf");
+    expect(planUsageTargets({ target: "self", targetedSelf: true }).mode).toBe("autoSelf");
   });
 
   it("単体×非対決: 未ターゲットは autoSelf", () => {
@@ -83,9 +80,9 @@ describe("planUsageTargets()（対象解決の決定表）", () => {
     expect(planUsageTargets({ target: "self", cannotTargetSelf: true }).mode).toBe("dialog");
   });
 
-  it("「自身に適用できない」: 自分をターゲット中は invalid", () => {
-    expect(planUsageTargets({ target: "single", cannotTargetSelf: true, targetedSelf: true }).mode).toBe("invalid");
-    expect(planUsageTargets({ target: "team", cannotTargetSelf: true, targetedSelf: true, targetedOthers: true }).mode).toBe("invalid");
+  it("「自身に適用できない」: 明示ターゲットは弾かない（2026-07-19 ブロック撤廃・効果は自動セルフ抑止のみ）", () => {
+    expect(planUsageTargets({ target: "single", cannotTargetSelf: true, targetedSelf: true }).mode).toBe("targets");
+    expect(planUsageTargets({ target: "team", cannotTargetSelf: true, targetedSelf: true, targetedOthers: true }).mode).toBe("targets");
   });
 
   it("「自身に適用できない」: 他者のみターゲット中は targets", () => {

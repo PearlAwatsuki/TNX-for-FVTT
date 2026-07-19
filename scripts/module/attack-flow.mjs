@@ -126,9 +126,9 @@ export async function useAttack(item, usage) {
 
     // 対象決定(2026-07-18 決定表駆動): 用途の「対決」×「対象」で解決する(レティクル全件・
     // 対象数の自動化はしない)。対象なし群(-/解説参照/その他)は対象なし=オープンリアクションへ。
-    // 未ターゲット時のダイアログ/自動セルフ・妥当性警告は target-resolution に一本化
+    // 未ターゲット時のダイアログ/自動セルフは target-resolution に一本化
     const targets = await resolveUsageTargetRefs(actor, usage);
-    if (targets === null) return; // キャンセル/ターゲット不正
+    if (targets === null) return; // 選択ダイアログのキャンセル
 
     // 参加技能・報酬点・消費・適用効果は判定起動の共通前段で解決する(2026-07-16 一本化。従来この
     // 経路だけ報酬点ブロック(口座凍結/信用失墜)を読み落としていた)。攻撃対象の決定(上)を先に済ませて

@@ -5,7 +5,9 @@
  * 破壊(isDestroyed)は修理対象外(基本アクト終了まで直らない)。
  *
  * フロー:
- * 1. 使用(アイテムロール) → 対象解決(ターゲット1体。無ければ確認→自分)
+ * 1. 使用(アイテムロール) → 対象解決(ターゲット中のキャラクター・いなければ自分=し忘れの自動解決。
+ *    実対象はアウトフィットで、キャラクターのターゲットは「どのキャラクターの所持品か」を指す
+ *    便宜=対象欄の値では分岐・ブロックしない・2026-07-19 ユーザー裁定)
  * 2. 対象が所持する故障アウトフィットのうち、用途の repairableCategories(分類ホワイトリスト・
  *    小分類キーまたは大分類キー=その大分類全体)に合致するものを1つ選択
  * 3. 判定へ(共通前段 buildUsageCheckContext → TnxCheckFlow.open)。完了継続 ctx.repair が
@@ -17,7 +19,7 @@
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { buildUsageCheckContext } from "./usage-check-context.mjs";
-import { resolveUsageTargetRefs } from "./target-resolution.mjs";
+import { resolveTargetedOrSelf } from "./target-resolution.mjs";
 import { postConditionOutcome } from "./condition-resolution.mjs";
 import { itemDisplayName } from "./identification.mjs";
 import { isOutfitMalfunctioning } from "../data/item/helpers.mjs";
@@ -83,15 +85,9 @@ export async function useRepair(item, usage) {
         return;
     }
 
-    // 対象解決(決定表駆動・2026-07-18): 対象「単体」未ターゲットは自動セルフ。複数時は先頭の1体
-    const refs = await resolveUsageTargetRefs(actor, usage);
-    if (refs === null) return;
-    if (!refs.length) {
-        ui.notifications.warn("修理する対象がターゲットされていません（用途の対象を設定するか、対象をターゲットしてください）。");
-        return;
-    }
-    const target = await fromUuid(refs[0].uuid).catch(() => null);
-    if (!target) return;
+    // 対象: ターゲット中のキャラクター(先頭)・いなければ自分(し忘れの自動解決・2026-07-19)。
+    // 対象欄の値では分岐・ブロックしない(複数ターゲット時は先頭の1体)
+    const target = resolveTargetedOrSelf(actor);
 
     const candidates = listRepairableOutfits(target, usage);
     if (!candidates.length) {
