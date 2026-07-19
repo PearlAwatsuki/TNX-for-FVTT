@@ -83,7 +83,7 @@ export async function useAttack(item, usage) {
     // どちらも無ければ生身(baseAttack)フォールバック。複数武器は攻撃力を合算する
     // (合算能力の表現・2026-07-09。純ロジックは combineWeaponAttack)。
     // FA(フルオート)の自動加算は廃止(2026-07-18 ユーザー確定)——FA 値は用途のダメージボーナス式で
-    // 手動参照(@item.<識別キー>.system.FAValueTotal)する。残弾の自動消費も廃止(用途の消費設定のみ)。
+    // 手動参照(@item.<識別キー>.system.FAValueTotal)する。弾数の自動消費も廃止(用途の消費設定のみ)。
     let weaponAttack = 0, damageType = "", attackSourceName = "", stunCapable = false;
     if (category === "physical") {
         // 白兵/射撃の区分フラグで使用武器を絞る(2026-07-17 ユーザー確定)。生身(生身書き換え装備・
@@ -136,8 +136,9 @@ export async function useAttack(item, usage) {
     const base = await buildUsageCheckContext(actor, item, usage);
     if (!base) return;
 
-    // 残弾の自動消費は廃止(2026-07-18 ユーザー確定): 通常射撃・FA射撃を問わず、残弾の消費は
-    // 用途の消費設定(resource="ammo")からのみ発生する(buildUsageCheckContext 内で処理済み)。
+    // 弾数の自動消費は廃止(2026-07-18 ユーザー確定): 通常射撃・FA射撃を問わず、弾数の消費は
+    // 用途の消費設定(使用回数)からのみ発生する(buildUsageCheckContext 内で処理済み。
+    // 残弾フィールドは 2026-07-19 に廃止し、弾数管理は使用回数へ一本化した)。
 
     await TnxCheckFlow.open({
         ...base,

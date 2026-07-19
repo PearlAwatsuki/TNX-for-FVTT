@@ -11,8 +11,9 @@ const skill = (id, { isLimit = true, max = 3, spent = 1, name = "技能" } = {})
 const miracle = (id, { isLimit = true, max = 2, spent = 1, name = "神業" } = {}) => ({
   id, type: "miracle", name, system: { uses: { isLimit, max, spent } },
 });
-const weapon = (id, { value = 6, current = null, name = "武器" } = {}) => ({
-  id, type: "weapon", name, system: { ammo: { mode: "value", value, current } },
+// 射撃武器の弾数も使用回数に一本化(2026-07-19 残弾廃止): 装弾数=uses.max・撃った数=uses.spent
+const weapon = (id, { isLimit = true, max = 6, spent = 0, name = "武器" } = {}) => ({
+  id, type: "weapon", name, system: { uses: { isLimit, max, spent } },
 });
 
 describe("resolveConsumeRows()（消費先設定の解決・2026-07-18 再編）", () => {
@@ -58,25 +59,16 @@ describe("resolveConsumeRows()（消費先設定の解決・2026-07-18 再編）
     expect(rows[1].problem).toBe("notFound");
   });
 
-  it("item/itemId/ammo: kind ammo・残量=残弾・maxDisplay=装弾数・負値=回復を許容", () => {
-    const items = { w1: weapon("w1", { value: 6, current: 4 }) };
+  it("射撃武器の弾数も使用回数で解決する(2026-07-19 残弾廃止): kind uses・残量=max−spent", () => {
+    const items = { w1: weapon("w1", { max: 6, spent: 2 }) };
     const rows = resolveConsumeRows(
-      [{ type: "item", itemId: "w1", resource: "ammo", amount: 1 }, { type: "item", itemId: "w1", resource: "ammo", amount: -3 }],
+      [{ type: "item", itemId: "w1", resource: "uses", amount: 1 }, { type: "item", itemId: "w1", resource: "uses", amount: -3 }],
       { parentItem: skill("p1"), getItem: (id) => items[id] ?? null },
     );
-    expect(rows[0].kind).toBe("ammo");
+    expect(rows[0].kind).toBe("uses");
     expect(rows[0].remaining).toBe(4);
     expect(rows[0].maxDisplay).toBe(6);
-    expect(rows[1].amount).toBe(-3); // 回復
-  });
-
-  it("ammo が残弾管理のない対象を指すと problem noAmmo", () => {
-    const items = { s2: skill("s2") };
-    const [row] = resolveConsumeRows(
-      [{ type: "item", itemId: "s2", resource: "ammo", amount: 1 }],
-      { parentItem: skill("p1"), getItem: (id) => items[id] ?? null },
-    );
-    expect(row.problem).toBe("noAmmo");
+    expect(rows[1].amount).toBe(-3); // 回復=リロード
   });
 
   it("消費数はロックしない(2026-07-18): 未設定のみ 1・0/負値(=使用回数の回復)はそのまま", () => {
@@ -161,22 +153,22 @@ describe("resolveConsumeRows()（消費先設定の解決・2026-07-18 再編）
 describe("buildConsumptionPlan()（消費プランの構築）", () => {
   const rows = [
     { kind: "uses", itemId: "a", amount: 1, remaining: 2, label: "A" },
-    { kind: "ammo", itemId: "b", amount: 1, remaining: 1, label: "B" },
+    { kind: "ar", itemId: "@ar", amount: 1, remaining: 1, label: "AR" },
     { inert: true, itemId: "c", amount: 1 },
     { problem: "notFound", itemId: "d", amount: 1 },
   ];
 
   it("チェック済みの消費可能行のみプラン化し、fallbackActorId を付与する", () => {
-    const { plan } = buildConsumptionPlan(rows, new Set(["a", "b", "c", "d"]), "actor1");
+    const { plan } = buildConsumptionPlan(rows, new Set(["a", "@ar", "c", "d"]), "actor1");
     expect(plan).toEqual([
       { actorId: "actor1", itemId: "a", kind: "uses", amount: 1 },
-      { actorId: "actor1", itemId: "b", kind: "ammo", amount: 1 },
+      { actorId: "actor1", itemId: "@ar", kind: "ar", amount: 1 },
     ]);
   });
 
   it("チェックを外した行は消費しない", () => {
-    const { plan } = buildConsumptionPlan(rows, new Set(["b"]), "actor1");
-    expect(plan).toEqual([{ actorId: "actor1", itemId: "b", kind: "ammo", amount: 1 }]);
+    const { plan } = buildConsumptionPlan(rows, new Set(["@ar"]), "actor1");
+    expect(plan).toEqual([{ actorId: "actor1", itemId: "@ar", kind: "ar", amount: 1 }]);
   });
 
   it("残量不足の行がチェック済みなら shortage を返す（原則ブロック）", () => {

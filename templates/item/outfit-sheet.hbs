@@ -288,26 +288,6 @@
                                     </div>
                                 </div>
                             {{/if}}
-                            {{!-- 残弾(射撃武器・搭載兵器のみ)。-/数字/任意。空になるのはFA射撃のみ・リロードで回復。
-                                 自動給弾のFA武器は残弾を「-」にする(FAしても空にならない) --}}
-                            {{#if hasAmmo}}
-                                <div class="form-group">
-                                    <label>残弾</label>
-                                    <div class="form-fields {{#if (eq system.ammo.mode "value")}}split-fields{{/if}}">
-                                        <select name="system.ammo.mode">
-                                            {{selectOptions ammoModeOptions selected=system.ammo.mode}}
-                                        </select>
-                                        {{#if (eq system.ammo.mode "value")}}
-                                            <div class="number-input-spinner skill-sheet-spinner">
-                                                <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.ammo.value" data-min="0">-</button>
-                                                <input type="number" name="system.ammo.value" value="{{system.ammo.value}}" min="0">
-                                                <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.ammo.value">+</button>
-                                            </div>
-                                            <span class="tnx-ammo-remaining" title="現在の残弾（満タン＝装弾数）">残り {{ammoRemaining}}</span>
-                                        {{/if}}
-                                    </div>
-                                </div>
-                            {{/if}}
                         {{/if}}
                     </div>
                 </fieldset>

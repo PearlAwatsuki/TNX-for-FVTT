@@ -226,8 +226,9 @@
             {{/if}}
 
             {{!-- 消費(2026-07-18 再編): 全ての消費はこの設定からのみ発生する(自動スキャン全廃)。
-                 二段選択のブロック=[アイテム/AR]→(アイテム時)[このアイテム自身/各アイテム]→[使用回数/残弾数]。
-                 神業の使用回数も汎用 uses に一本化。見た目はスタイル技能の対決/技能ブロック(tnx-combo-card)を踏襲 --}}
+                 二段選択のブロック=[アイテム/AR]→(アイテム時)[このアイテム自身/各アイテム]。
+                 資源は使用回数のみ(神業も射撃武器の弾数も汎用 uses に一本化・2026-07-19 に残弾を廃止)。
+                 見た目はスタイル技能の対決/技能ブロック(tnx-combo-card)を踏襲 --}}
             <fieldset class="tnx-fieldset usage-consume-section">
                 <legend>
                     消費
@@ -249,11 +250,6 @@
                                 <select name="consumeItem-{{row.idx}}" {{#unless @root.editable}}disabled{{/unless}}>
                                     {{#each row.itemOptions}}
                                     <option value="{{this.id}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
-                                    {{/each}}
-                                </select>
-                                <select name="consumeResource-{{row.idx}}" {{#unless @root.editable}}disabled{{/unless}}>
-                                    {{#each row.resourceOptions}}
-                                    <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
                                     {{/each}}
                                 </select>
                                 {{/unless}}

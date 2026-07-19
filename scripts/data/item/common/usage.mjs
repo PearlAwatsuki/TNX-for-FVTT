@@ -321,11 +321,12 @@ export class UsageTemplate extends SystemDataModel {
                     ),
 
                     // ─── 消費先設定(フェーズ11-6・2026-07-18 再編・D&D の Consumption 踏襲) ───
-                    // 全ての使用回数・残弾消費はこの設定からのみ発生する(自動スキャンは全廃)。
+                    // 全ての使用回数消費はこの設定からのみ発生する(自動スキャンは全廃)。
                     //   type:     "item"(アイテムの資源を消費) / "actionRank"(AR を消費)。
                     //   itemId:   type="item" のとき、空="このアイテム自身"(用途の親)・値=同アクター内 Item ID。
-                    //   resource: type="item" のとき "uses"(使用回数=uses.spent。神業も同じ) / "ammo"(武器の残弾)。
-                    //   amount:   消費量(可変・既定1)。負値は回復(残弾のリロード表現)。0 は実行時に無視。
+                    //   resource: type="item" のとき "uses"(使用回数=uses.spent)。神業も射撃武器の弾数も同じ
+                    //             ——残弾は廃止し使用回数へ一本化した(2026-07-19 ユーザー確定)。
+                    //   amount:   消費量(可変・既定1)。負値は回復(リロードの表現)。0 は実行時に無視。
                     // 既定は空(2026-07-17 ユーザー指示=旧・無条件の「親×1」既定行は全廃)。
                     // 旧 type(parent/itemUses/miracleUses/ammo)は migrateData で item+resource へ移行。
                     consumeTargets: new fields.ArrayField(
@@ -478,7 +479,8 @@ export class UsageTemplate extends SystemDataModel {
                 }
                 // 消費先設定の type 再編(2026-07-18): 旧 type(parent/itemUses/miracleUses/ammo/actionRank)を
                 // 新モデル {type:"item"|"actionRank", itemId, resource:"uses"|"ammo"} へ移行。
-                // parent→item/self/uses・itemUses/miracleUses→item/itemId/uses・ammo→item/itemId/ammo。
+                // parent→item/self/uses・itemUses/miracleUses→item/itemId/uses・ammo→item/itemId/ammo
+                // (残弾行は下の 2026-07-19 の破棄で最終的に取り除かれる)。
                 if (Array.isArray(migrated.consumeTargets) && migrated.consumeTargets.some(t => t && t.resource === undefined)) {
                     migrated = {
                         ...migrated,
@@ -491,6 +493,15 @@ export class UsageTemplate extends SystemDataModel {
                             // itemUses / miracleUses / その他 → item + uses
                             return { type: "item", itemId: t.itemId ?? "", resource: "uses", amount };
                         }),
+                    };
+                }
+                // 残弾の廃止(2026-07-19 ユーザー確定): 弾数管理は使用回数へ一本化し、既存の残弾データは
+                // 移行せず破棄する。残った「残弾数」の消費行はそのままにすると、資源を失って
+                // 「使用回数」行として復活し、制限なしの武器を指す no-op の飾り行になるため行ごと削除する。
+                if (Array.isArray(migrated.consumeTargets) && migrated.consumeTargets.some(t => t?.resource === "ammo")) {
+                    migrated = {
+                        ...migrated,
+                        consumeTargets: migrated.consumeTargets.filter(t => t?.resource !== "ammo"),
                     };
                 }
                 return migrated;

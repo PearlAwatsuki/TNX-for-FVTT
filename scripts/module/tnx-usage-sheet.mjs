@@ -30,7 +30,6 @@ import {
 import { USAGE_CONFRONTATION_OPTIONS, mergeConfrontationRows } from "./confrontation-logic.mjs";
 import { findItemByIdentificationKey, formatSkillName, itemDisplayName } from "./identification.mjs";
 import { orderSkills } from "./skill-select.mjs";
-import { hasAmmoTracking } from "./weapon-ammo.mjs";
 import {
     RANGE_SPAN_CAPABLE, resolveTarget, resolveRange, resolveTargetValue, resolveTiming,
     normalizeUsageExplanation,
@@ -873,45 +872,32 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         }
 
         // 消費先設定(2026-07-18 再編・全用途タイプ共通。固定値判定は消費 UI を出さない)。
-        // 二段選択: [アイテム / AR] → (アイテム時)[このアイテム自身 / 各アイテム] → [使用回数 / 残弾数]。
-        // 神業の使用回数も汎用 uses に一本化したため特例なし。全消費はこの設定からのみ発生する。
+        // 二段選択: [アイテム / AR] → (アイテム時)[このアイテム自身 / 各アイテム]。
+        // 資源は使用回数のみ(神業も射撃武器の弾数も汎用 uses に一本化=特例なし・2026-07-19 に残弾を廃止)。
+        // 全消費はこの設定からのみ発生する。
         if (!context.isFixedCheck) {
             const actor = this._item.actor;
             const parentId = this._item.id;
-            // 資源を持つアイテムか(使用回数制限あり ∨ 残弾ありの武器)。神業は uses.isLimit=true で含まれる
+            // 資源を持つアイテムか(使用回数制限あり)。神業・弾数管理する射撃武器は uses.isLimit=true で含まれる
             const hasUsesRes  = (it) => it?.system?.uses?.isLimit === true;
-            const hasAmmoRes  = (it) => it?.type === "weapon" && hasAmmoTracking(it?.system?.ammo);
-            const resourcesFor = (it) => {
-                const out = [];
-                if (hasUsesRes(it)) out.push({ value: "uses", label: "使用回数" });
-                if (hasAmmoRes(it)) out.push({ value: "ammo", label: "残弾数" });
-                if (!out.length) out.push({ value: "uses", label: "使用回数" }); // 空にしない
-                return out;
-            };
             // 候補: 「このアイテム自身」(id="") ＋ 資源を持つ同アクターのアイテム(親は自身が代表)
             const itemCandidates = [
                 { id: "", name: "このアイテム自身" },
                 ...(actor?.items ?? [])
-                    .filter(i => i.id !== parentId && (hasUsesRes(i) || hasAmmoRes(i)))
+                    .filter(i => i.id !== parentId && hasUsesRes(i))
                     .map(i => ({ id: i.id, name: itemDisplayName(i) })) // 技能は 〈〉 整形
                     .sort((a, b) => a.name.localeCompare(b.name, "ja")),
             ];
             const TYPE_LABELS = { item: "アイテム", actionRank: "AR" };
             context.consumeRows = (usage.consumeTargets ?? []).map((t, idx) => {
                 const type = t.type || "item";
-                const resource = t.resource || "uses";
                 const isActionRank = type === "actionRank";
-                const selectedItem = isActionRank ? null
-                    : (t.itemId ? (actor?.items.get(t.itemId) ?? null) : this._item);
                 const known = isActionRank || !t.itemId || itemCandidates.some(o => o.id === t.itemId);
                 const amount = Number(t.amount);
-                const resourceOpts = resourcesFor(selectedItem);
                 return {
                     idx,
                     type,
-                    resource,
                     isActionRank,
-                    isAmmo: !isActionRank && resource === "ammo",
                     itemId: t.itemId ?? "",
                     // 消費数はロックしない(2026-07-18 ユーザー確定): 0/負値(=回復)も許容。未設定のみ 1
                     amount: Number.isFinite(amount) ? amount : 1,
@@ -921,7 +907,6 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                         ...itemCandidates.map(o => ({ ...o, selected: o.id === (t.itemId ?? "") })),
                         ...(!known && t.itemId ? [{ id: t.itemId, name: `(解決不能: ${t.itemId})`, selected: true }] : []),
                     ],
-                    resourceOptions: resourceOpts.map(o => ({ ...o, selected: o.value === resource })),
                 };
             });
             context.hasConsumeActor = !!actor;
@@ -1331,7 +1316,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             update.fixedResult = Number.isFinite(raw["fixedResult"]) ? Math.max(0, raw["fixedResult"]) : 0;
         }
 
-        // 消費(2026-07-18 再編): 行入力(consumeType-N / consumeItem-N / consumeResource-N / consumeAmount-N)
+        // 消費(2026-07-18 再編): 行入力(consumeType-N / consumeItem-N / consumeAmount-N)
         // から再構成する。消費 UI が描画されているときのみ(固定値判定ビュー等では既存値を保持)
         const consumeIdxs = Object.keys(raw)
             .map(k => k.match(/^consumeType-(\d+)$/)?.[1])
@@ -1343,22 +1328,22 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             update.consumeTargets = consumeIdxs.map(i => {
                 const type = raw[`consumeType-${i}`] || "item";
                 const isItem = type === "item";
-                const resource = isItem ? (raw[`consumeResource-${i}`] || "uses") : "uses";
                 const rawAmount = Number(raw[`consumeAmount-${i}`]);
                 return {
                     type,
                     // AR は対象アイテムを持たない。item は空="このアイテム自身"
                     itemId: isItem ? (raw[`consumeItem-${i}`] ?? "") : "",
-                    resource,
+                    // 資源は使用回数のみ(残弾の廃止=2026-07-19 で選択欄を廃止)
+                    resource: "uses",
                     // 消費数はロックしない(2026-07-18): 0/負値(=回復)も許容。未入力(NaN)のみ 1
                     amount: Number.isFinite(rawAmount) ? rawAmount : 1,
                 };
             });
-            // 種別/資源/対象の変更は選択欄・資源候補の出し入れを伴うため再描画する
+            // 種別/対象の変更は選択欄の出し入れを伴うため再描画する
             const prev = usage.consumeTargets ?? [];
             consumeUiChanged = update.consumeTargets.length !== prev.length
                 || update.consumeTargets.some((t, i) => t.type !== (prev[i]?.type ?? "item")
-                    || t.itemId !== (prev[i]?.itemId ?? "") || t.resource !== (prev[i]?.resource ?? "uses"));
+                    || t.itemId !== (prev[i]?.itemId ?? ""));
         }
 
         // 発動タブ: 制御 select が別の選択肢に変わったら、対応しないサブ値を残骸として残さずリセットする

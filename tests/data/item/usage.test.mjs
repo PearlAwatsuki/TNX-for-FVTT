@@ -18,7 +18,7 @@ describe("UsageTemplate.defineSchema()（フェーズ11-6 追加フィールド�
       expect(entry.consumeTargets.element).toBeInstanceOf(MockSchemaField);
     });
 
-    it("行は type(initial 'item') / itemId / resource(initial 'uses') / amount(initial 1・整数・負値可=残弾回復) を持つ", () => {
+    it("行は type(initial 'item') / itemId / resource(initial 'uses') / amount(initial 1・整数・負値可=回復) を持つ", () => {
       const row = entry.consumeTargets.element.fields;
       expect(row.type).toBeInstanceOf(MockStringField);
       expect(row.type.options.initial).toBe("item");
@@ -28,12 +28,12 @@ describe("UsageTemplate.defineSchema()（フェーズ11-6 追加フィールド�
       expect(row.resource.options.initial).toBe("uses");
       expect(row.amount).toBeInstanceOf(MockNumberField);
       expect(row.amount.options.initial).toBe(1);
-      // 負値=回復(ammo のリロード表現)のため min は設けない
+      // 負値=回復(リロードの表現)のため min は設けない
       expect(row.amount.options.min).toBeUndefined();
       expect(row.amount.options.integer).toBe(true);
     });
 
-    it("migrateData: 旧 type(parent/itemUses/miracleUses/ammo/actionRank) → item/resource へ移行", () => {
+    it("migrateData: 旧 type(parent/itemUses/miracleUses/actionRank) → item/resource へ移行（旧 ammo 行は破棄）", () => {
       const src = UsageTemplate.migrateData({ actions: [{ _id: "a", type: "check", consumeTargets: [
         { type: "parent", itemId: "", amount: 1 },
         { type: "itemUses", itemId: "s1", amount: 2 },
@@ -45,8 +45,17 @@ describe("UsageTemplate.defineSchema()（フェーズ11-6 追加フィールド�
         { type: "item", itemId: "", resource: "uses", amount: 1 },
         { type: "item", itemId: "s1", resource: "uses", amount: 2 },
         { type: "item", itemId: "m1", resource: "uses", amount: 1 },
-        { type: "item", itemId: "w1", resource: "ammo", amount: -3 },
         { type: "actionRank", itemId: "", resource: "uses", amount: 1 },
+      ]);
+    });
+
+    it("migrateData: 残弾の廃止(2026-07-19)=resource 'ammo' の行は移行せず行ごと破棄する", () => {
+      const src = UsageTemplate.migrateData({ actions: [{ _id: "a", type: "check", consumeTargets: [
+        { type: "item", itemId: "w1", resource: "ammo", amount: 1 },
+        { type: "item", itemId: "s1", resource: "uses", amount: 2 },
+      ] }] });
+      expect(src.actions[0].consumeTargets).toEqual([
+        { type: "item", itemId: "s1", resource: "uses", amount: 2 },
       ]);
     });
   });

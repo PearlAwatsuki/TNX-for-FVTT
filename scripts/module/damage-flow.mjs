@@ -110,7 +110,7 @@ export async function openDamageRollDialog(attackMessage) {
     const category = f.category || "physical";
     const attackPower = category === "physical" ? (Number(f.weaponAttack) || 0) : 0;
     // FA(フルオート)の自動加算は廃止(2026-07-18 ユーザー確定)——FA 値は用途のダメージボーナス式で
-    // 手動参照する。ダメージダイアログの FA 選択・FA 値加算・残弾消費はすべて撤去。
+    // 手動参照する。ダメージダイアログの FA 選択・FA 値加算・弾数消費はすべて撤去。
 
     // 命中した対象(複数対象一括・2026-07-15): 攻撃側合計は共有・軽減とチャートは対象ごと。
     // 対象依存の攻撃側加算(@target.*・vsStyle/vsWorks)は共有値のため先頭命中対象で評価する(近似)。

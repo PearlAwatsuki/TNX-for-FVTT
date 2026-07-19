@@ -6435,14 +6435,6 @@ button.tnx-create-act-button span {
     border-color: var(--tnx2-accent);
     color: var(--tnx2-text-accent);
 }
-/* 武器シートの残弾の現在値(数字モード・2026-07-10): 満タンとの区別のため控えめに表示。 */
-.tnx-ammo-remaining {
-    align-self: center;
-    color: var(--tnx2-text-secondary);
-    font-size: 0.85em;
-    white-space: nowrap;
-}
-
 /* 住宅エリアのセキュリティ・ランクバッジ(10-4)。ランク名の色で色分け・なしはミュート。 */
 .tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-area-badge--red {
     --c: #ff5a5a;

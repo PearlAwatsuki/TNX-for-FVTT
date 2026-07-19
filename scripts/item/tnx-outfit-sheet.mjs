@@ -326,16 +326,6 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         context.hasGuard   = ["weapon", "cyborg"].includes(type);
         context.hasDefence = ["armor", "cyborg", "vehicle"].includes(type);
 
-        // 残弾(2026-07-17: 表示は「射撃武器」フラグで判定=分類ベースから変更。区分は搭載兵器・
-        // 生体装備にもあるため)。「任意」は廃止(2026-07-18)——具体的残弾数の無い武器は残弾1(value=1)。
-        // 消費・回復は自動では行わず用途の消費設定から。ammo スキーマは weapon のみ
-        context.hasAmmo = type === "weapon" && system.isRangedWeapon === true;
-        if (context.hasAmmo) {
-            context.ammoModeOptions = { none: "-", value: "数字" };
-            // 数字モードの現在残弾(null=満タン=value)。シートで確認できるよう表示する
-            context.ammoRemaining = system.ammo?.current ?? (Number(system.ammo?.value) || 0);
-        }
-
         // ヴィークルの「対応する操縦」(辞典 operate_ 技能)の選択肢。操縦移動判定・搭乗ドッジ上書きに使う
         if (context.isVehicle) {
             context.operateSkillChoices = await loadOnomasticChoices("operate");
