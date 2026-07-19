@@ -222,7 +222,7 @@ export async function useOpposedCheck(item, usage, openExtra = {}) {
  * 成否は保留(state=pending)し、リアクション導線をカード上で提供する。
  * recheckCtx: 再判定用スナップショット(あればカードに「再判定」ボタンが出る・2026-07-11)。
  */
-export async function postAttackCard({ payload, result, suit, cardCheckValue = null, card, fromDeck, trumpUsed, suitMismatch, recheckCtx = null, isRecheck = false }) {
+export async function postAttackCard({ payload, result, suit, cardCheckValue = null, card, fromDeck, trumpUsed, suitMismatch, checkSources = [], recheckCtx = null, isRecheck = false }) {
     const attacker = await fromUuid(payload.attackerUuid).catch(() => null);
 
     // 全体の状態(命中判定は全対象で共有・2026-07-15 複数対象一括): ファンブル/スート不一致は
@@ -232,6 +232,12 @@ export async function postAttackCard({ payload, result, suit, cardCheckValue = n
     else if (suitMismatch) state = "miss";
     else if (!(payload.targets?.length)) state = "open";
     else state = "active";
+
+    // 移動(2026-07-19 ユーザー確定): 達成値が10に満たない(=0段階)場合はその時点で**移動失敗=
+    // 判定失敗扱い**(移動を妨害するまでもないため)。リアクション導線も出さない
+    const movementFailed = !!payload.movement && !result.fumble && !suitMismatch
+        && movementStagesFromAchievement(Number(result.achievement) || 0) === 0;
+    if (movementFailed) state = "failed";
 
     // リアクション導線の有無は対決欄が正(2026-07-17 ユーザー確定)。「-」「なし」だけの攻撃は
     // 対決判定にならない=対象は制御値で確定する(リアクション不能)
@@ -282,13 +288,17 @@ export async function postAttackCard({ payload, result, suit, cardCheckValue = n
         cardValue: cardCheckValue === "FIXED_21" ? 11 : (Number.isFinite(cardCheckValue) ? cardCheckValue : 0),
         suit,
         damageRolled: false,
+        // 移動失敗(達成値10未満・2026-07-19): 成否バナーの文言判別用
+        ...(movementFailed ? { failedReason: "movement" } : {}),
         // 対象なしの対決(移動・離脱・「判定」の対決等・2026-07-18 任意・複数化): カード上の
         // 「リアクション」ボタンを任意のキャラクターがクリックする(キャラごとに1回)。
-        // 結果=成立したリアクションの最高達成値1件のみ。明示の確定操作は無い(ライブ成否)
-        ...(opposed && state === "open" ? { openReactions: [] } : {}),
+        // 結果=成立したリアクションの最高達成値1件のみ。明示の確定操作は無い(ライブ成否)。
+        // 移動失敗(failed)でも器は敷く=再判定/事後修正で 10 以上へ回復したとき導線が開くように
+        ...(opposed && !(payload.targets?.length) && !result.fumble && !suitMismatch
+            ? { openReactions: [] } : {}),
     };
 
-    const content = await buildAttackCardContent({ payload, result, suit, card, fromDeck, trumpUsed, suitMismatch, isRecheck });
+    const content = await buildAttackCardContent({ payload, result, suit, card, fromDeck, trumpUsed, suitMismatch, checkSources, isRecheck });
 
     // リアクションカードの事前一括投稿は廃止(2026-07-18 大改修): 入口は対象リストの名前クリック
     // (本人/代理ダイアログ)・オープンは「リアクション」ボタン。カードはリアクションすると決めた
@@ -430,6 +440,9 @@ export async function buildAttackCardContent({ payload, result, suit, card, from
             isPhysical:    payload.category === "physical",
             attackSourceName: payload.attackSourceName,
             attackLabel:   formatAttackLabel(payload.damageType, payload.weaponAttack),
+            // 移動固有の追加情報(2026-07-19 是正): 使用ヴィークル=攻撃力と同じ計算行スロット。
+            // 段階数は renderAttackCard が達成値の直下へライブ挿入(事後修正・再判定に追随)
+            vehicleName: payload.movement?.vehicleName ?? "",
         }
     );
 }
@@ -533,23 +546,30 @@ export function renderAttackCard(message, html) {
     const addVerdict = (cls, icon, label) =>
         addLine(`cr-result ${cls}`, `<i class="fas ${icon}"></i> <span>${label}</span>`);
 
-    // 移動(2026-07-17 統合・2026-07-19 表示是正): 段階数は**総計行と同じ強調表示**(移動カードの
-    // 主情報)。式(達成値÷10 切り捨て)はカードに出さない・使用ヴィークルは小行で示す(ユーザー指摘=
-    // 旧 cr-tn の長文1行は nowrap で見切れ+主情報が小さすぎた)。全体失敗・対決敗北は 0 段階
-    const renderMovementLine = () => {
-        if (!f.movement) return;
-        const failed = f.state === "fumble" || f.state === "miss" || f.state === "failed";
-        const stages = failed ? 0 : movementStagesFromAchievement(Number(f.achievement) || 0);
-        addLine("cr-calc-row",
-            `<span class="cr-calc-label">使用ヴィークル</span><span class="cr-calc-val">${esc(f.movement.vehicleName ?? "")}</span>`);
-        addLine("cr-calc-row cr-total-row",
-            `<span class="cr-calc-label">移動</span><span class="cr-total-num">${stages}<span class="cr-total-unit"> 段階</span></span>`);
-    };
+    // 移動: 段階数=主情報を**達成値の直下**へ総計行と同じ強調でライブ挿入する(2026-07-19 是正。
+    // f.achievement 由来のため事後修正・再判定に追随。使用ヴィークル行は本文=基底へ焼き込み済み)。
+    // 全体失敗(移動失敗・対決敗北)は 0 段階。ファンブルは計算セクション自体が無いため挿入なし
+    if (f.movement) {
+        const totalRow = html.querySelector(".cr-calc-section .cr-total-row");
+        if (totalRow) {
+            const failedState = ["fumble", "miss", "failed"].includes(f.state);
+            const stages = failedState ? 0 : movementStagesFromAchievement(Number(f.achievement) || 0);
+            const row = document.createElement("div");
+            row.className = "cr-calc-row cr-total-row";
+            row.innerHTML = `<span class="cr-calc-label">移動</span>`
+                + `<span class="cr-total-num">${stages}<span class="cr-total-unit"> 段階</span></span>`;
+            totalRow.after(row);
+        }
+    }
 
-    if (f.state === "fumble") { addVerdict("cr-result--fumble", "fa-skull", `ファンブル！（${failWord}）`); renderMovementLine(); return; }
-    if (f.state === "miss") { addVerdict("cr-result--failure", "fa-times", `${failWord}（スート不一致・判定不成立）`); renderMovementLine(); return; }
-    // 攻撃を失敗させる/対決敗北(リアクション成功)で全体が失敗した場合。対象一覧は下に続けて表示する
-    if (f.state === "failed") { addVerdict("cr-result--failure", "fa-times", `${failWord}（リアクションによる）`); }
+    if (f.state === "fumble") { addVerdict("cr-result--fumble", "fa-skull", `ファンブル！（${failWord}）`); return; }
+    if (f.state === "miss") { addVerdict("cr-result--failure", "fa-times", `${failWord}（スート不一致・判定不成立）`); return; }
+    // 全体失敗: 移動失敗(達成値10未満=0段階・2026-07-19)／攻撃を失敗させる・対決敗北(リアクション成功)。
+    // 対象一覧は下に続けて表示する
+    if (f.state === "failed") {
+        addVerdict("cr-result--failure", "fa-times",
+            f.failedReason === "movement" ? "移動失敗" : `${failWord}（リアクションによる）`);
+    }
 
     // 目標リスト(D&D 風・2026-07-15 複数対象一括 → 2026-07-18 大改修): 各対象の防御値と解決結果を
     // 表示する。**対象の名前クリックがリアクションの入口**(本人=決定/スキップのダイアログ・
@@ -691,8 +711,6 @@ export function renderAttackCard(message, html) {
             if (f.state !== "failed") addVerdict("cr-result--success", "fa-check", "判定成功（対決勝利）");
         }
     }
-
-    renderMovementLine();
 
     // ダメージカードを出す(攻撃のみ): 全対象が解決済み(pending なし)で命中が1体以上、または対象なし
     const allResolved = targets.every(t => t.state !== "pending");

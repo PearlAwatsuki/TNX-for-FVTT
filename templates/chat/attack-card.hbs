@@ -15,10 +15,17 @@
             <span class="cr-calc-val">{{attackLabel}}</span>
         </div>
         {{/if}}
+        {{#if vehicleName}}
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">使用ヴィークル</span>
+            <span class="cr-calc-val">{{vehicleName}}</span>
+        </div>
+        {{/if}}
         <div class="cr-calc-row cr-total-row">
             <span class="cr-calc-label">達成値</span>
             <span class="cr-total-num">{{result.achievement}}</span>
         </div>
+        {{!-- 移動の段階数は renderAttackCard がこの直下へライブ挿入する(事後修正・再判定に追随・2026-07-19) --}}
     </div>
     {{/unless}}
 

@@ -13,21 +13,26 @@
         <div class="cr-result cr-result--failure"><i class="fas fa-times"></i> <span>スート不一致（判定不成立・移動なし）</span></div>
         {{else}}
         <div class="cr-calc-section">
+            {{> "systems/tokyo-nova-axleration/templates/chat/parts/check-calc-rows.hbs"}}
+            {{!-- 使用ヴィークル=攻撃力と同じ計算行スロット(総計の直前・2026-07-19 是正) --}}
             <div class="cr-calc-row">
                 <span class="cr-calc-label">使用ヴィークル</span>
                 <span class="cr-calc-val">{{vehicleName}}</span>
             </div>
-            {{> "systems/tokyo-nova-axleration/templates/chat/parts/check-calc-rows.hbs"}}
             <div class="cr-calc-row cr-total-row">
                 <span class="cr-calc-label">達成値</span>
                 <span class="cr-total-num">{{result.achievement}}</span>
             </div>
-            {{!-- 段階数=移動カードの主情報(総計行と同じ強調・式は出さない・2026-07-19 ユーザー指摘) --}}
+            {{!-- 段階数=主情報を達成値の直下に強調表示(式は出さない・2026-07-19 ユーザー指摘) --}}
             <div class="cr-calc-row cr-total-row">
                 <span class="cr-calc-label">移動</span>
                 <span class="cr-total-num">{{stages}}<span class="cr-total-unit"> 段階</span></span>
             </div>
         </div>
+        {{!-- 達成値10未満=0段階はその時点で移動失敗(判定失敗扱い・2026-07-19 ユーザー確定) --}}
+        {{#unless stages}}
+        <div class="cr-result cr-result--failure"><i class="fas fa-times"></i> <span>移動失敗</span></div>
+        {{/unless}}
         {{/if}}
     {{/if}}
 </div>

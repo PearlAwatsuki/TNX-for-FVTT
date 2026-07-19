@@ -936,6 +936,23 @@ export class TnxCheckFlow {
                     if (!hit) overall = "failed";
                 }
             }
+            // 移動(2026-07-19 ユーザー確定): 達成値10未満(=0段階)はその時点で移動失敗=判定失敗扱い。
+            // 再判定で回復すれば failedReason も外す
+            if (ctx.attack.movement && overall !== "fumble" && overall !== "miss") {
+                const { movementStagesFromAchievement } = await import("./vehicle-move-logic.mjs");
+                const movementFailed = movementStagesFromAchievement(Number(result.achievement) || 0) === 0;
+                if (movementFailed) overall = "failed";
+                patch[`flags.${SCOPE}.attackCheck.failedReason`] = movementFailed ? "movement" : null;
+            }
+            // 対象なしの対決で openReactions が未作成(作成時に全体失敗/移動失敗だった)なら、
+            // 仕切り直しで器を敷く=回復時にリアクション導線が開くように(2026-07-19)
+            if (!(prev.targets?.length) && !prev.openReactions
+                && overall !== "fumble" && overall !== "miss") {
+                const { isOpposedConfrontation } = await import("./confrontation-logic.mjs");
+                if (isOpposedConfrontation(ctx.attack.confrontation)) {
+                    patch[`flags.${SCOPE}.attackCheck.openReactions`] = [];
+                }
+            }
             patch.content = await buildAttackCardContent({
                 payload: ctx.attack, result, suit, card, fromDeck, trumpUsed, suitMismatch, checkSources, isRecheck: true,
             });
@@ -1401,7 +1418,16 @@ export class TnxCheckFlow {
             }
             // オープンリアクション: 保存済みのリアクション達成値で再解決(ライブ成否)
             if (attackF.state === "open" || attackF.state === "failed") {
-                if (attackF.openReactions?.length) {
+                // 移動(2026-07-19): 達成値10未満(=0段階)は移動失敗=判定失敗扱い(回復すれば解除)
+                let movementFailed = false;
+                if (attackF.movement) {
+                    const { movementStagesFromAchievement } = await import("./vehicle-move-logic.mjs");
+                    movementFailed = movementStagesFromAchievement(newAch) === 0;
+                    patch[`flags.${SCOPE}.attackCheck.failedReason`] = movementFailed ? "movement" : null;
+                }
+                if (movementFailed) {
+                    patch[`flags.${SCOPE}.attackCheck.state`] = "failed";
+                } else if (attackF.openReactions?.length) {
                     // 2026-07-18 任意・複数化: 成立の最高達成値1件との受動有利で再導出
                     const { resolveOpenReactions } = await import("./reaction-logic.mjs");
                     const { failed } = resolveOpenReactions(newAch, attackF.openReactions);
@@ -1411,6 +1437,9 @@ export class TnxCheckFlow {
                     const { resolveOpposed } = await import("./attack-flow-logic.mjs");
                     const { hit } = resolveOpposed(newAch, attackF.openReaction.reactionAchievement ?? 0);
                     patch[`flags.${SCOPE}.attackCheck.state`] = hit ? "open" : "failed";
+                } else if (attackF.movement) {
+                    // 移動失敗のみで failed だったカードが回復した場合
+                    patch[`flags.${SCOPE}.attackCheck.state`] = "open";
                 }
             }
         }
