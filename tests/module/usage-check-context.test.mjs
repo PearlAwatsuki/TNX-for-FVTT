@@ -131,7 +131,7 @@ describe("enumerateRequestComboCandidates()（判定要求のコンボ候補列�
         expect(enumerateRequestComboCandidates(actor, "perception", { excludeItemId: "p1" })).toEqual([]);
     });
 
-    it("通常判定へ流れない用途(攻撃/固定値/バフ宣言/NPC取得/治療/修理/カバー)は候補にしない", () => {
+    it("「判定」タイプ以外・通常判定へ流れない判定用途は候補にしない(2026-07-19 裁定=判定タイプ限定)", () => {
         const perception = { id: "p1", system: { identificationKey: "perception", suits: all } };
         const style = { id: "s1", system: { identificationKey: "", suits: all, actions: [
             { _id: "a", type: "physicalAttack", baseSkillRef: { itemId: "p1" }, skillRefs: [] },
@@ -142,11 +142,12 @@ describe("enumerateRequestComboCandidates()（判定要求のコンボ候補列�
             { _id: "f", type: "repair", baseSkillRef: { itemId: "p1" }, skillRefs: [] },
             { _id: "g", type: "covering", baseSkillRef: { itemId: "p1" }, skillRefs: [] },
             { _id: "h", type: "dodge", baseSkillRef: { itemId: "p1" }, skillRefs: [] },
+            { _id: "i", type: "check", baseSkillRef: { itemId: "p1" }, skillRefs: [] },
         ] } };
         const actor = mkActor([perception, style]);
         const found = enumerateRequestComboCandidates(actor, "perception", { excludeItemId: "p1" });
-        // リアクション等の判定タイプは通常判定として要求に応答できるため残る
-        expect(found.map(c => c.usage._id)).toEqual(["h"]);
+        // リアクション等の行動種別タイプ(h)も除外され、素の「判定」用途(i)だけが残る
+        expect(found.map(c => c.usage._id)).toEqual(["i"]);
     });
 
     it("不備のある用途(共通スート無し)は除外する", () => {
@@ -167,22 +168,24 @@ describe("enumerateRequestComboCandidates()（判定要求のコンボ候補列�
 describe("buildRequestUsageChoices()（判定要求の第2段プルダウンの用途リスト・KI-025 改）", () => {
     const perception = { id: "p1", type: "generalSkill", name: "知覚", system: { actions: [
         { _id: "u1", type: "check" },
-        { _id: "u2", type: "declaration" },                       // フラグ無し宣言=実行対象外
-        { _id: "u3", type: "declaration", grantRecheck: true },   // バフ宣言=実行対象
+        { _id: "u2", type: "declaration" },                       // 宣言=判定タイプでない
+        { _id: "u3", type: "declaration", grantRecheck: true },   // バフ宣言=判定タイプでない
+        { _id: "u4", type: "dodge" },                             // 行動種別タイプ=対象外(2026-07-19 裁定)
+        { _id: "u5", type: "check", grantRecheck: true },         // クリック待ち系=要求に結果を返せない
     ] } };
     const style = { id: "s1", type: "styleSkill", name: "見切り", system: { actions: [] } };
 
-    it("指定技能自身の実行対象用途+コンボ候補を統合しラベルは用途の実効名", () => {
+    it("指定技能自身とコンボ候補を統合(どちらも「判定」タイプ限定)しラベルは用途の実効名", () => {
         const combos = [
             { item: style, usage: { _id: "c1", type: "check" } },
             { item: style, usage: { _id: "c2", type: "check", name: "カウンター" } },
         ];
         const choices = buildRequestUsageChoices(perception, combos);
-        expect(choices.map(c => c.usage._id)).toEqual(["u1", "u3", "c1", "c2"]);
+        expect(choices.map(c => c.usage._id)).toEqual(["u1", "c1", "c2"]);
         expect(choices[0].label).toBe("判定（〈知覚〉）");
-        expect(choices[2].label).toBe("判定（〈見切り〉）");
+        expect(choices[1].label).toBe("判定（〈見切り〉）");
         // 名前つきのコンボ候補は「用途名（親名）」で由来を判別可能に
-        expect(choices[3].label).toBe("カウンター（〈見切り〉）");
+        expect(choices[2].label).toBe("カウンター（〈見切り〉）");
     });
 
     it("指定技能なし(未所持)はコンボ候補のみ・両方なしは空", () => {

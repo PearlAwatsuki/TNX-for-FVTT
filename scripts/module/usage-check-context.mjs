@@ -14,7 +14,7 @@ import { getComboSuits, comboUsesBounty } from "./tnx-check-engine.mjs";
 import { resolveConsumeRowsForActor, promptConsumption } from "./usage-consumption.mjs";
 import { prepareUsageEffectPayload } from "./usage-effects.mjs";
 import { resolveUsageTargetValue } from "./usage-target-value.mjs";
-import { executionFormOf, effectiveBaseSkillId, isAttackType, usableUsagesOf, usageDisplayName } from "./usage-types.mjs";
+import { executionFormOf, effectiveBaseSkillId, usageDisplayName } from "./usage-types.mjs";
 import { formatSkillName, itemDisplayName } from "./identification.mjs";
 
 /**
@@ -38,17 +38,16 @@ export function resolveUsageSkillSet(item, usage, actor) {
 }
 
 /**
- * 判定要求(checkRequest)への応答として通常判定を成立させられる用途か(KI-025・2026-07-19)。
- * 要求文脈(requestMessageId)は通常判定の open へ合流して要求カードに結果を追記するため、
- * 通常判定へ流れない用途(攻撃/治療/修理/カバー=専用フロー・NPC取得・固定値判定・
- * クリック待ち系のバフ宣言)は要求を解決できず、候補に載せない(組み合わせの制限ではなく、
- * 「要求に応答できる導線」の列挙。可否の裁定は従来どおりユーザー/RL)。
+ * 判定要求(checkRequest)への応答として起動できる用途か(KI-025・2026-07-19)。
+ * **「判定」タイプの用途に限定**(2026-07-19 ユーザー裁定。当初の Code 設計「通常判定へ流れない
+ * フローだけ除外」を置き換え——リアクション・移動等の行動種別タイプは各自のフローから起動する
+ * ものであり、判定要求への応答は素の判定用途)。判定タイプ内でも通常判定へ流れないもの
+ * (固定値判定・NPC取得・クリック待ち系のバフ宣言フラグ)は要求カードに結果を返せないため除外。
+ * 指定技能自身の用途とコンボ候補の両方にこの規則を適用する。
  */
 function canAnswerCheckRequest(usage) {
-    if (executionFormOf(usage) !== "check") return false;
+    if (usage?.type !== "check") return false;
     if (Number.isFinite(usage.fixedResult)) return false;
-    if (isAttackType(usage.type)) return false;
-    if (["treatment", "repair", "covering"].includes(usage.type)) return false;
     if (usage.npcAcquire === true) return false;
     if (usage.grantRecheck === true || usage.modifyCheck === true
         || usage.modifyDamage === true || usage.grantSuitChange === true) return false;
@@ -87,7 +86,8 @@ export function enumerateRequestComboCandidates(actor, identificationKey, { excl
 /**
  * 判定要求の「〈技能名〉で判定」で選ばせる用途リスト(KI-025 改・2026-07-19 ユーザー指示:
  * ボタン列挙は量が多いとあふれるため二段階化=第2段のプルダウンの中身)。
- * 指定技能自身の実行対象用途(usableUsagesOf=技能クリックと同一規則)+コンボ候補の統合。
+ * 指定技能自身の用途+コンボ候補の統合で、**どちらも「判定」タイプ限定**
+ * (canAnswerCheckRequest・2026-07-19 ユーザー裁定=技能クリックの実行対象規則より狭い)。
  * ラベルは用途の実効名(usageDisplayName)。コンボ候補の名前つき用途は「用途名（親名）」で
  * どのアイテム由来かを判別可能にする(親名=itemDisplayName・技能は〈〉整形)。
  * @param {Item|null} matchedItem 指定技能アイテム
@@ -96,7 +96,7 @@ export function enumerateRequestComboCandidates(actor, identificationKey, { excl
  */
 export function buildRequestUsageChoices(matchedItem, comboCandidates = []) {
     const own = matchedItem
-        ? usableUsagesOf(matchedItem.system?.actions).map(usage => ({
+        ? (matchedItem.system?.actions ?? []).filter(canAnswerCheckRequest).map(usage => ({
             item: matchedItem, usage,
             label: usageDisplayName(usage, itemDisplayName(matchedItem)),
         }))

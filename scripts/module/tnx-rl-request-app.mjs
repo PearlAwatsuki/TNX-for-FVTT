@@ -302,9 +302,9 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
     /**
      * 指定技能で判定するか、代用判定(別技能+手動修正)を行うかを選ばせる(2026-07-09)。
-     * 「〈技能名〉で判定」は第2段の用途プルダウン(指定技能自身の用途+コンボ候補=KI-025)へ進む
-     * (2026-07-19 ユーザー指示の二段階化: ボタン列挙は量が多いとあふれる)。用途が1つなら
-     * 第2段を出さず自動解決・0なら従来のアイテム起動(解説カード)へ。
+     * 「〈技能名〉で判定」は第2段の用途プルダウン(指定技能自身の用途+コンボ候補=KI-025・
+     * **「判定」タイプ限定**=2026-07-19 ユーザー裁定)へ進む(同日指示の二段階化: ボタン列挙は
+     * 量が多いとあふれる)。用途が1つなら第2段を出さず自動解決・0なら警告して中止。
      * 指定技能を所持していない場合は代用判定の選択のみ提示する。
      * @param {Actor} actor
      * @param {{matchedItem: Item|null, requestedLabel: string,
@@ -328,8 +328,12 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
             if (!mode) return null;
             if (mode === "direct") {
                 const choices = buildRequestUsageChoices(matchedItem, comboCandidates);
-                // 0件=従来のアイテム起動(実行できる用途が無い→解説カード)
-                if (!choices.length) return { item: matchedItem, substitute: false, manualMod: 0 };
+                // 0件=起動できる「判定」用途が無い(2026-07-19 ユーザー裁定=判定タイプ限定。
+                // アイテム起動へ落とすと判定以外の用途ピッカーが開いて限定と矛盾するため中止)
+                if (!choices.length) {
+                    ui.notifications.warn(`${requestedLabel}に判定タイプの用途が無いため、判定要求から起動できません。`);
+                    return null;
+                }
                 // 1件=自動解決(2026-07-19 ユーザー指示)
                 if (choices.length === 1) {
                     return { item: choices[0].item, usageId: choices[0].usage._id, substitute: false, manualMod: 0 };
