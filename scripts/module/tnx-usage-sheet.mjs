@@ -30,6 +30,10 @@ import {
 import { USAGE_CONFRONTATION_OPTIONS, mergeConfrontationRows } from "./confrontation-logic.mjs";
 import { findItemByIdentificationKey, formatSkillName, itemDisplayName } from "./identification.mjs";
 import { hasAmmoTracking } from "./weapon-ammo.mjs";
+import {
+    RANGE_SPAN_CAPABLE, resolveTarget, resolveRange, resolveTargetValue, resolveTiming,
+    normalizeUsageExplanation,
+} from "./usage-autofill-logic.mjs";
 
 const CHAIN_SKILL_TYPES = ["generalSkill", "styleSkill"];
 
@@ -120,66 +124,8 @@ const RECOVERY_GROUP_LABELS = Object.freeze({
 });
 
 // ─── 発動パラメータ優先度（自動入力で使用） ───────────────────────────────────
-// ルール正本: llm-wiki/01_Wiki/Game_Rules/Check_Rules.md（対象優先度・射程優先度）
-
-/** 対象優先度（高→低）: 自身 > 単体※ > チーム > シーン(選択) > シーン > 範囲(選択) > 範囲 > 単体 */
-function targetRank(target, isFixed) {
-    switch (target) {
-        case "self":        return 8;
-        case "single":      return isFixed ? 7 : 1;
-        case "team":        return 6;
-        case "sceneSelect": return 5;
-        case "scene":       return 4;
-        case "areaSelect":  return 3;
-        case "area":        return 2;
-        default:            return 0; // blank / other / explanation は無視
-    }
-}
-
-/** 射程の物理的な短さ順（小さいほど近い）。※複数時の「短い方を優先」に使用 */
-const RANGE_PHYSICAL = { close: 0, short: 1, middle: 2, long: 3, superLong: 4, weapon: 5 };
-
-/** 幅(最長射程)を持てる射程値=物理射程。武器/なし/解説参照/その他/blank は単点のみ */
-const RANGE_SPAN_CAPABLE = new Set(["close", "short", "middle", "long", "superLong"]);
-
-/** 射程優先度（高→低）: 至近※ > 武器 > 超遠 > 遠 > 中 > 近 > 至近 */
-function rangeRank(range, isFixed) {
-    if (range === "close" && isFixed) return 7;
-    switch (range) {
-        case "weapon":    return 6;
-        case "superLong": return 5;
-        case "long":      return 4;
-        case "middle":    return 3;
-        case "short":     return 2;
-        case "close":     return 1;
-        default:          return 0;
-    }
-}
-
-/** 参加技能群の対象を優先度で解決。null=有効な対象なし */
-function resolveTarget(entries) {
-    let best = null, bestRank = 0;
-    for (const e of entries) {
-        const r = targetRank(e.target, e.isFixed);
-        if (r > bestRank) { bestRank = r; best = e; }
-    }
-    return best ? { target: best.target, isFixed: best.isFixed } : null;
-}
-
-/** 参加技能群の射程を優先度で解決。変更不可（※）が複数なら最短を優先 */
-function resolveRange(entries) {
-    const valid = entries.filter(e => rangeRank(e.range, e.isFixed) > 0);
-    if (!valid.length) return null;
-    const fixed = valid.filter(e => e.isFixed);
-    if (fixed.length >= 2) {
-        const shortest = fixed.reduce((a, b) =>
-            (RANGE_PHYSICAL[b.range] ?? 99) < (RANGE_PHYSICAL[a.range] ?? 99) ? b : a);
-        return { range: shortest.range, isFixed: true };
-    }
-    const best = valid.reduce((a, b) =>
-        rangeRank(b.range, b.isFixed) > rangeRank(a.range, a.isFixed) ? b : a);
-    return { range: best.range, isFixed: best.isFixed };
-}
+// ルール正本: llm-wiki/01_Wiki/Game_Rules/Check_Rules.md（対象優先度・射程優先度）。
+// 優先度解決の純ロジックは usage-autofill-logic.mjs へ分離(KI-033・2026-07-19)。
 
 /**
  * 使用武器の射程を解決する(射程「武器」の実体解決・2026-07-13 再設計)。
@@ -190,16 +136,6 @@ function resolveRange(entries) {
 function resolveWeaponRangeSpan(usage, item, actor) {
     const span = resolveAttackRangeSpan(resolveAttackWeapons(actor, usage, item));
     return { range: span.min, rangeMax: span.max };
-}
-
-/** 参加技能群の目標値を解決。数値があれば最大、なければ最初の非blank型を採用 */
-function resolveTargetValue(entries) {
-    const numerics = entries.filter(e => e.targetValue === "number");
-    if (numerics.length) {
-        return { targetValue: "number", targetValueNumber: Math.max(...numerics.map(e => e.number ?? 0)) };
-    }
-    const typed = entries.find(e => e.targetValue && e.targetValue !== "blank" && e.targetValue !== "none");
-    return typed ? { targetValue: typed.targetValue } : null;
 }
 
 /** actor 技能アイテムをチェーン解決用に正規化する(モジュール共通・インスタンス版は委譲) */
@@ -227,10 +163,19 @@ export async function enforceUsageChainDefaultsOnImport(item) {
     if (!actor) return;
     const actions = foundry.utils.deepClone(item.system.actions ?? []);
     if (!actions.length) return;
+
+    // 用途に保存済みの「解説参照」→「その他」の冪等正規化(KI-033・2026-07-19 裁定: 用途において
+    // 解説参照は不自然=自己参照。辞典/ワールドで設定済みのデータもアクターへのインポート時に揃える)
+    let changed = false;
+    for (const usage of actions) changed = normalizeUsageExplanation(usage) || changed;
+
     // 親が技能でない(アウトフィット等)場合も、ベース技能を持つ用途があれば連鎖を解決する
-    // (2026-07-18 ユーザー確定: ベース技能の連鎖も自動解決)。持たなければ従来どおり何もしない
+    // (2026-07-18 ユーザー確定: ベース技能の連鎖も自動解決)。持たなければ正規化分のみ書き込む
     if (!CHAIN_SKILL_TYPES.includes(item.type)
-        && !actions.some(a => a.baseSkillRef?.itemId)) return;
+        && !actions.some(a => a.baseSkillRef?.itemId)) {
+        if (changed) await updateUsageActions(item, () => actions);
+        return;
+    }
 
     const skillItems = actor.items
         .filter(i => CHAIN_SKILL_TYPES.includes(i.type))
@@ -241,7 +186,6 @@ export async function enforceUsageChainDefaultsOnImport(item) {
     };
     const parentIsAction = item.system.isAction === true;
 
-    let changed = false;
     for (const usage of actions) {
         // 判定を行う用途すべて(攻撃・リアクション・移動等の行動種別タイプを含む・2026-07-17 再編)
         if (executionFormOf(usage) !== "check") continue;
@@ -321,20 +265,31 @@ export async function deriveUsageAutoFill(item, usage) {
     const skillItems = skills.filter(s => s.type === "generalSkill" || s.type === "styleSkill");
 
     const patch = {};
-    const t = resolveTarget(skillItems.map(s => ({ target: s.system.target, isFixed: !!s.system.isFixedTarget })));
-    if (t) { patch.target = t.target; patch.isFixedTarget = t.isFixed; }
+    // 解説参照/その他は優先度最下位のフォールバック(KI-033・2026-07-19 裁定): 勝者になるのは
+    // 有効値が無いときだけで、そのとき用途へは「その他」として写す(親が「その他」なら自由記入欄も複写)
+    const t = resolveTarget(skillItems.map(s => ({
+        target: s.system.target, isFixed: !!s.system.isFixedTarget, otherText: s.system.targetOther,
+    })));
+    if (t) {
+        patch.target = t.target;
+        patch.isFixedTarget = t.isFixed;
+        if (t.target === "other") patch.targetOther = t.otherText ?? "";
+    }
 
     // 精神攻撃・社会攻撃は武器を持たない(2026-07-18 ユーザー確定): 「射程：武器」は解決できないため
     // 射程候補から除外する。従来は resolveWeaponRangeSpan が武器不在時に至近へ落としており、
     // 精神/社会攻撃の射程が裏で生身(至近)に化けていた。除外すると、残る参加技能の実射程
     // =最も上流のベース技能の射程が採られる(どれも「武器」だけなら射程は未設定のまま=至近にしない)。
     const isNonPhysicalAttack = isAttackType(usage.type) && attackCategoryOf(usage.type) !== "physical";
-    const rangeEntries = skillItems.map(s => ({ range: s.system.range, isFixed: !!s.system.isFixedRange }));
+    const rangeEntries = skillItems.map(s => ({
+        range: s.system.range, isFixed: !!s.system.isFixedRange, otherText: s.system.rangeOther,
+    }));
     const r = resolveRange(isNonPhysicalAttack ? rangeEntries.filter(e => e.range !== "weapon") : rangeEntries);
     if (r) {
         patch.range = r.range;
         patch.rangeMax = "none"; // 技能由来の射程は単点
         patch.isFixedRange = r.isFixed;
+        if (r.range === "other") patch.rangeOther = r.otherText ?? "";
         // 射程「武器」(2026-07-13 再設計): 優先度はそのまま(武器=至近※に次ぐ)で、「武器」が
         // 勝った場合に使用武器(一本目=シートの「攻撃で使用」・以降=用途の追加分)の実射程へ解決する。
         // 武器が無い(生身)なら至近=生身の射程(ユーザー確定)。幅のある武器は幅のまま(2026-07-16)。
@@ -346,21 +301,25 @@ export async function deriveUsageAutoFill(item, usage) {
 
     // 目標値: NPC取得はモードで確定する(トループ/エニグマ=なし・分身=10固定)ため導出しない
     if (usage.npcAcquire !== true) {
-        const tv = resolveTargetValue(skillItems.map(s => ({ targetValue: s.system.targetValue, number: s.system.targetValueNumber })));
+        const tv = resolveTargetValue(skillItems.map(s => ({
+            targetValue: s.system.targetValue, number: s.system.targetValueNumber, otherText: s.system.targetValueOther,
+        })));
         if (tv) {
             patch.targetValue = tv.targetValue;
             if (tv.targetValueNumber !== undefined) patch.targetValueNumber = tv.targetValueNumber;
+            if (tv.targetValueOther !== undefined) patch.targetValueOther = tv.targetValueOther;
         }
     }
 
-    // タイミング: ベース技能の最初の非 blank timing を採用（best-effort・非技能ベースはスキップ）
+    // タイミング: ベース技能の最初の実値 timing を採用（best-effort・非技能ベースはスキップ。
+    // 解説参照/その他はフォールバック=実値が無いときだけ「その他」として写す・KI-033）
     const baseSkill = skillItems.find(s => s.id === baseId) ?? null;
-    const bt = (Array.isArray(baseSkill?.system.timing) ? baseSkill.system.timing : []).find(x => x?.value && x.value !== "blank");
+    const bt = resolveTiming(baseSkill?.system.timing);
     if (bt) {
         patch["timing.value"]       = bt.value;
-        patch["timing.actionName"]  = bt.actionName ?? "blank";
-        patch["timing.processName"] = bt.processName ?? "blank";
-        patch["timing.timingOther"] = bt.timingOther ?? "";
+        patch["timing.actionName"]  = bt.actionName;
+        patch["timing.processName"] = bt.processName;
+        patch["timing.timingOther"] = bt.timingOther;
     }
 
     // 対決欄の合算(2026-07-17 ユーザー確定): 用途の既存行(手入力・タイプ既定)を保持したまま、
@@ -520,6 +479,13 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         context.noCombo    = this._item.system?.noCombo === true; // 組み合わせ不可: コンボ(組み合わせ技能)の設定を抑止
         context.editable   = this._item.isOwner;
         context.skillOpts  = TnxSkillUtils.getSkillOptions();
+        // 用途では「解説参照」を選べない(KI-033・2026-07-19 裁定: 用途は解説の実装そのもの=自己参照)。
+        // 技能シートと共用の選択肢から撤去し、保存済みの旧値は「その他」として表示する
+        // (次のフォーム保存でそのまま「その他」に着地。getSkillOptions は毎回新オブジェクトを返す)
+        for (const key of ["timing", "actions", "processes", "target", "range", "targetValue"]) {
+            delete context.skillOpts[key].explanation;
+        }
+        normalizeUsageExplanation(context.usage);
         // 用途名の既定は空(2026-07-17 ユーザー確定): placeholder は空のときの実効名
         // 「タイプ名（親アイテム名）」(usageDisplayName と同一形式・技能名部分は〈〉なし=素の名前)
         context.namePlaceholder = usageDisplayName({ type: usage.type }, this._item.name);

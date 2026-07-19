@@ -1746,8 +1746,11 @@ Hooks.once("ready", async function() {
         if (item.parent?.documentName !== "Actor") return;
         // 技能チェーンの既定(ベース技能・必須コンボ)をインポート直後に適用(2026-07-08 修正)。
         // 辞典/ワールドで用途を設定→アクターへインポートでは、用途シートを開くまで自動設定が
-        // 効かなかったため、作成時に一括適用する(冪等・解決不能な旧参照の掃除を含む)
-        if (["generalSkill", "styleSkill"].includes(item.type)) {
+        // 効かなかったため、作成時に一括適用する(冪等・解決不能な旧参照の掃除を含む)。
+        // 技能以外でも用途を持つアイテム(アウトフィット等)は「解説参照」→「その他」の正規化
+        // (KI-033)があるため同じ整備を通す(チェーン解決は従来どおり内部の条件で判断)
+        if (["generalSkill", "styleSkill"].includes(item.type)
+            || (item.system?.actions?.length ?? 0) > 0) {
             enforceUsageChainDefaultsOnImport(item).catch(err =>
                 console.error("TNX | 用途チェーン既定の適用に失敗しました", err));
         }
