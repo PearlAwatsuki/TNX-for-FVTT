@@ -103,13 +103,6 @@
                     <input type="text" name="targetOther" value="{{usage.targetOther}}"
                            {{#unless editable}}disabled{{/unless}}>
                 </div>
-                {{!-- 自身に適用できない（「自身以外の対象に」系の効果の識別・2026-07-18） --}}
-                <div class="usage-form-row">
-                    <label class="usage-field-label">自身に適用できない</label>
-                    <input type="checkbox" name="cannotTargetSelf" {{checked usage.cannotTargetSelf}}
-                           {{#unless editable}}disabled{{/unless}}>
-                </div>
-
                 {{!-- 射程（変更不可※をインライン）。物理射程は最長射程で「近～遠」等の幅を
                      表現できる（武器エディタの min～max と同形・なし=単点） --}}
                 <div class="usage-form-row">
@@ -134,6 +127,15 @@
                     <label class="usage-field-label">射程（自由入力）</label>
                     <input type="text" name="rangeOther" value="{{usage.rangeOther}}"
                            {{#unless editable}}disabled{{/unless}}>
+                </div>
+                {{!-- 自身に適用できない（「自身以外の対象に」系の効果の識別・2026-07-18）:
+                     ブール値は他セクションと同じトグル部品（usage-toggle-inline）で全幅に置く --}}
+                <div class="usage-form-row usage-toggle-row">
+                    <label class="usage-toggle-inline">
+                        <input type="checkbox" name="cannotTargetSelf" {{checked usage.cannotTargetSelf}}
+                               {{#unless editable}}disabled{{/unless}}>
+                        <span>自身に適用できない</span>
+                    </label>
                 </div>
                 </div>
             </fieldset>
