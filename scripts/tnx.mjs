@@ -838,7 +838,6 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
     // 各対象行: 結果がある場合は結果表示、未判定の場合はボタンまたは「待機中」
     for (const row of html.querySelectorAll(".cr-req-target-row")) {
         const actorId  = row.dataset.actorId;
-        const userId   = row.dataset.userId;
         const statusEl = row.querySelector(".cr-req-target-status");
         if (!statusEl) continue;
 
@@ -872,9 +871,10 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
             }
             statusEl.replaceChildren(resultEl);
         } else if (flagData.status !== "closed") {
-            // 未判定
-            const isMyChar = game.user.id === userId;
-            if (isMyChar || game.user.isGM) {
+            // 未判定: 判定ボタンはそのアクターの所有者権限を持つユーザー(+GM)に出す
+            // (2026-07-19 ユーザー指示: 対象はアクター登録=ユーザー割り当て・接続状況に依存しない)
+            const targetActor = game.actors.get(actorId);
+            if (targetActor?.isOwner || game.user.isGM) {
                 const btn = document.createElement("button");
                 btn.type      = "button";
                 // テキストボタンは丸型(tnx-ring-btn)に詰め込まない。アイコンは判定=カードのため

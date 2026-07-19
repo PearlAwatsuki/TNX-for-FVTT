@@ -18,6 +18,7 @@ import { buildSkillOptions } from './skill-select.mjs';
 import { findItemByIdentificationKey, formatSkillName, itemDisplayName } from './identification.mjs';
 import { enumerateRequestComboCandidates } from './usage-check-context.mjs';
 import { usageDisplayName } from './usage-types.mjs';
+import { loadGroupedGeneralSkillChoices, loadSkillEntries, SKILL_PACKS } from './skill-dictionary.mjs';
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -67,27 +68,23 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
         form: { template: "systems/tokyo-nova-axleration/templates/app/rl-request-app.hbs" },
     };
 
-    /** @type {{identificationKey: string, name: string}[]|null} */
-    static _compendiumSkillCache = null;
-
     // ─── コンテキスト準備 ─────────────────────────────────────────────────────
 
     async _prepareContext(options) {
         const context = await super._prepareContext(options);
-        const compendiumSkills = await TnxRlRequestApp._loadCompendiumSkills();
-        const activePlayers = game.users
-            .filter(u => !u.isGM && u.active && u.character)
-            .map(u => ({
-                userId:    u.id,
-                userName:  u.name,
-                actorId:   u.character.id,
-                actorName: u.character.name,
-                color:     u.color?.css ?? "#ffffff",
-            }));
+        // 技能プルダウン: 分類グループ(無条件取得技能/製作/芸術/操縦/社会/コネ)×正規ソート順
+        // =シートの技能リストと同じ並び(2026-07-19 ユーザー指示)
+        const skillGroups = await loadGroupedGeneralSkillChoices();
+        // 対象はアクターを登録する(2026-07-19 ユーザー指示: ユーザー選択を廃止。判定ボタンは
+        // そのアクターの所有者権限を持つユーザーが押せる)。候補=ワールドのキャスト全員
+        const targetActors = game.actors
+            .filter(a => a.type === "cast")
+            .map(a => ({ actorId: a.id, actorName: a.name, img: a.img }))
+            .sort((a, b) => a.actorName.localeCompare(b.actorName, "ja"));
         return {
             ...context,
-            compendiumSkills,
-            activePlayers,
+            skillGroups,
+            targetActors,
             SUIT_OPTIONS,
             ABILITY_OPTIONS,
         };
@@ -135,28 +132,6 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
         if (abilitySection) abilitySection.hidden =  isSkill;
     }
 
-    // ─── コンペンディウム技能読み込み ─────────────────────────────────────────
-
-    static async _loadCompendiumSkills() {
-        if (TnxRlRequestApp._compendiumSkillCache) return TnxRlRequestApp._compendiumSkillCache;
-        const pack = game.packs.get("tokyo-nova-axleration.general-skills");
-        if (!pack) return [];
-        try {
-            // インデックスで読む(2026-07-17 是正): getDocuments はキャッシュ文書を差し替えて
-            // 開いている辞典シートを孤児化させる(skill-dictionary.mjs と同じ理由)
-            const docs = await pack.getIndex({ fields: ["system.identificationKey"] });
-            const skills = [...docs]
-                .filter(d => d.system?.identificationKey)
-                .map(d => ({ identificationKey: d.system.identificationKey, name: d.name }))
-                .sort((a, b) => a.name.localeCompare(b.name, "ja"));
-            TnxRlRequestApp._compendiumSkillCache = skills;
-            return skills;
-        } catch (e) {
-            console.error("TokyoNOVA | Failed to load general-skills compendium:", e);
-            return [];
-        }
-    }
-
     // ─── フォーム送信ハンドラ ─────────────────────────────────────────────────
 
     static async _onSubmit(event, form, _formData) {
@@ -172,10 +147,9 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
         if (checkType === "skillCheck") {
             // 技能名の表示は 〈〉 整形(2026-07-18・識別マーク省去。キー未解決の生値はそのまま)
             if (identificationKey) {
-                const cached = TnxRlRequestApp._compendiumSkillCache?.find(
-                    s => s.identificationKey === identificationKey
-                );
-                skillLabel = cached?.name ? formatSkillName(cached.name) : identificationKey;
+                const entries = await loadSkillEntries(SKILL_PACKS.general);
+                const matched = entries.find(s => s.identificationKey === identificationKey);
+                skillLabel = matched?.name ? formatSkillName(matched.name) : identificationKey;
             } else {
                 const custom = form.querySelector("[name=customSkillName]")?.value?.trim();
                 skillLabel = custom ? formatSkillName(custom) : "（指定技能）";
@@ -213,19 +187,15 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
         // 説明文
         const description = form.querySelector("[name=description]")?.value?.trim() ?? "";
 
-        // 対象 PL（アクティブな非 GM で、キャラクター所持者）
-        const targets = game.users
-            .filter(u => !u.isGM && u.active && u.character)
-            .filter(u => form.querySelector(`[name="target_${u.id}"]`)?.checked)
-            .map(u => ({
-                userId:    u.id,
-                actorId:   u.character.id,
-                actorName: u.character.name,
-                userName:  u.name,
-            }));
+        // 対象アクター(2026-07-19 ユーザー指示: ユーザー選択→アクター登録へ。判定ボタンは
+        // そのアクターの所有者権限を持つユーザーが押せる=接続状況・キャラクター割り当てに依存しない)
+        const targets = game.actors
+            .filter(a => a.type === "cast")
+            .filter(a => form.querySelector(`[name="target_${a.id}"]`)?.checked)
+            .map(a => ({ actorId: a.id, actorName: a.name }));
 
         if (!targets.length) {
-            ui.notifications.warn("対象プレイヤーを1人以上選択してください。");
+            ui.notifications.warn("対象アクターを1体以上選択してください。");
             return false;
         }
 

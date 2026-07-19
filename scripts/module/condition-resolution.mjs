@@ -302,16 +302,9 @@ export async function postControlNegatePrompt(actor, effect, kind, controlNegate
     ? `「${label}」は制御判定に成功すると「${CONDITION_KINDS[controlNegate.downgradeTo]?.label ?? controlNegate.downgradeTo}」に降格します。`
     : `「${label}」は制御判定に成功すると無効化されます。`;
 
-  // 判定者 = 状態を受けたキャラの操作ユーザー(いなければ RL)
-  const ownerUser = game.users.find(u => !u.isGM && u.active && actor.testUserPermission(u, "OWNER"))
-    ?? game.users.find(u => !u.isGM && actor.testUserPermission(u, "OWNER"))
-    ?? null;
-  const targets = [{
-    userId:    ownerUser?.id ?? null,
-    actorId:   actor.id,
-    actorName: actor.name,
-    userName:  ownerUser?.name ?? "RL",
-  }];
+  // 対象はアクターで登録する(2026-07-19 ユーザー指示で checkRequest 全体を統一)。
+  // 「判定する」ボタンはそのアクターの所有者権限を持つユーザー(+GM)に描画時に出る
+  const targets = [{ actorId: actor.id, actorName: actor.name }];
 
   const content = await foundry.applications.handlebars.renderTemplate(
     "systems/tokyo-nova-axleration/templates/chat/check-request.hbs",

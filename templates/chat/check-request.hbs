@@ -33,12 +33,11 @@
             </span>
         </div>
 
-        {{!-- 対象プレイヤー一覧（ステータスは renderChatMessage フックが注入） --}}
+        {{!-- 対象アクター一覧（ステータスは renderChatMessage フックが注入。2026-07-19:
+              ユーザー参照を撤去=判定ボタンはアクターの所有者権限で判定する --}}
         <ul class="cr-req-targets">
             {{#each targets}}
-                <li class="cr-req-target-row"
-                    data-actor-id="{{this.actorId}}"
-                    data-user-id="{{this.userId}}">
+                <li class="cr-req-target-row" data-actor-id="{{this.actorId}}">
                     <span class="cr-req-actor-name">{{this.actorName}}</span>
                     <div class="cr-req-target-status">
                         {{!-- フックが「判定する」ボタン or 結果を注入する --}}

@@ -15,8 +15,13 @@
         <div class="form-group rl-form-group">
             <label class="rl-label">技能</label>
             <select name="identificationKey" class="rl-select">
-                {{#each compendiumSkills}}
-                    <option value="{{this.identificationKey}}">{{this.name}}</option>
+                {{!-- 分類グループ×正規ソート順(シートの技能リストと同じ並び・2026-07-19) --}}
+                {{#each skillGroups}}
+                    <optgroup label="{{this.label}}">
+                        {{#each this.skills}}
+                            <option value="{{this.identificationKey}}">{{this.name}}</option>
+                        {{/each}}
+                    </optgroup>
                 {{/each}}
                 <option value="">その他（自由入力）</option>
             </select>
@@ -78,21 +83,20 @@
                   placeholder="（省略可）"></textarea>
     </div>
 
-    {{!-- 対象プレイヤー --}}
+    {{!-- 対象アクター(2026-07-19: ユーザー選択→アクター登録へ。判定ボタンは所有者権限で判定) --}}
     <div class="form-group rl-form-group">
-        <label class="rl-label">対象プレイヤー</label>
+        <label class="rl-label">対象アクター</label>
         <div class="rl-targets-list">
-            {{#if activePlayers}}
-                {{#each activePlayers}}
+            {{#if targetActors}}
+                {{#each targetActors}}
                     <label class="rl-check-label rl-player-row">
-                        <input type="checkbox" name="target_{{this.userId}}">
-                        <span class="rl-player-dot" style="background:{{this.color}}"></span>
-                        <span class="rl-player-name">{{this.userName}}</span>
-                        <span class="rl-actor-name">（{{this.actorName}}）</span>
+                        <input type="checkbox" name="target_{{this.actorId}}">
+                        <img class="rl-actor-img" src="{{this.img}}" alt="">
+                        <span class="rl-player-name">{{this.actorName}}</span>
                     </label>
                 {{/each}}
             {{else}}
-                <p class="rl-no-players">接続中のプレイヤーがいません</p>
+                <p class="rl-no-players">キャストのアクターがいません</p>
             {{/if}}
         </div>
     </div>
