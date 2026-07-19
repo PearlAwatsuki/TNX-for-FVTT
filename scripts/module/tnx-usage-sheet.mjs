@@ -29,6 +29,7 @@ import {
 } from "./usage-types.mjs";
 import { USAGE_CONFRONTATION_OPTIONS, mergeConfrontationRows } from "./confrontation-logic.mjs";
 import { findItemByIdentificationKey, formatSkillName, itemDisplayName } from "./identification.mjs";
+import { orderSkills } from "./skill-select.mjs";
 import { hasAmmoTracking } from "./weapon-ammo.mjs";
 import {
     RANGE_SPAN_CAPABLE, resolveTarget, resolveRange, resolveTargetValue, resolveTiming,
@@ -684,6 +685,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             // 指定技能があるスタイル技能の既定ベースは末端だが、自己選択の余地は残す(手動上書き)
             const selfBaseOption = parentIsChainSkill
                 ? [{ id: parentItemId, name: formatSkillName(this._item.name) }] : [];
+            // 並びはシートのソート順(手動 sort→正規順→名前・orderSkills)＝2026-07-19 ユーザー指示
             context.availableBaseSkills = baseCandidates
                 ? baseCandidates.map(id => {
                     const s = skillById.get(id) ?? (id === parentItemId ? this._item : null);
@@ -691,10 +693,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 })
                 : [
                     ...selfBaseOption,
-                    ...siblingSkills
-                        .filter(i => i.id !== parentItemId)
-                        .map(i => ({ id: i.id, name: formatSkillName(i.name) }))
-                        .sort((a, b) => a.name.localeCompare(b.name, "ja")),
+                    ...orderSkills(siblingSkills.filter(i => i.id !== parentItemId))
+                        .map(i => ({ id: i.id, name: formatSkillName(i.name) })),
                 ];
 
             const parentIsComboMember = !!baseId && parentItemId !== baseId;
@@ -711,13 +711,12 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             const currentSuits = getComboSuits(currentSystems);
 
             // 組み合わせ候補: アクション技能(必ずベース)・組み合わせ不可技能(単独判定のみ)・
-            // 現在の構成と共通スートを持たない技能 は除外する。
-            context.availableSkills = siblingSkills
+            // 現在の構成と共通スートを持たない技能 は除外する。並びはシートのソート順(orderSkills)
+            context.availableSkills = orderSkills(siblingSkills
                 .filter(i => !usedIds.has(i.id)
                     && i.system.isAction !== true && i.system.noCombo !== true
-                    && currentSuits.some(suit => readFlag(i.system, `suits.${suit}`)))
-                .map(i => ({ id: i.id, name: formatSkillName(i.name) }))
-                .sort((a, b) => a.name.localeCompare(b.name, "ja"));
+                    && currentSuits.some(suit => readFlag(i.system, `suits.${suit}`))))
+                .map(i => ({ id: i.id, name: formatSkillName(i.name) }));
 
             // 技能チェーン: 「、」候補制限(どれか1つ登録まで候補をその代替に絞る)・必須コンボの削除不可表示
             if (chainRes?.alternativeItemIds?.length

@@ -8,7 +8,7 @@
  * 対象辞典(system.json packs): general-skills(一般技能) / style-skills(スタイル技能) / works-skills(ワークス専用技能)。
  */
 
-import { formatSkillName } from "./identification.mjs";
+import { formatSkillName, skillSortPosition } from "./identification.mjs";
 
 /** pack 名 → 表示用ラベル(辞典名)。将来のオプショングループ化に使う。 */
 export const SKILL_PACKS = {
@@ -28,11 +28,13 @@ export const STYLE_PACK = "tokyo-nova-axleration.styles";
 export const ORGANIZATION_PACK = "tokyo-nova-axleration.organizations";
 
 // 固有名詞技能の小分類: 識別キープレフィックス → ラベル(カスケード P3a-2/P4 の絞り込み)。
+// 並びは正規ソート順(GENERAL_SKILL_SORT_PREFIXES のプレフィックス位置・2026-07-19 ユーザー指示=
+// 技能選択の並びをシートのソート順へ統一)。選択肢化はこの記載順に依存する。
 export const ONOMASTIC_TYPES = {
-  society: "社会",
-  operate: "操縦",
   craft:   "製作",
   art:     "芸術",
+  operate: "操縦",
+  society: "社会",
   contact: "コネ",
 };
 
@@ -179,7 +181,9 @@ export function buildSkillCascadeSteps(data, path = {}) {
 const _cache = new Map();
 
 /**
- * 1 つの辞典から `{identificationKey, name}` の配列を読み込む(名前順・identificationKey 無しは除外)。結果はキャッシュ。
+ * 1 つの辞典から `{identificationKey, name}` の配列を読み込む(identificationKey 無しは除外)。
+ * 並びは正規ソート順(シートの技能リストと同じ・2026-07-19 ユーザー指示で名前順から変更)。
+ * 正規位置を持たない技能(スタイル/ワークス等)は従来どおり名前順。結果はキャッシュ。
  * @param {string} packName compendium の完全名
  * @returns {Promise<{identificationKey: string, name: string}[]>}
  */
@@ -222,7 +226,12 @@ export async function loadSkillEntries(packName) {
         // リアクション用途タイプを持つか)。アクター未所持(辞典アイテム編集等)でも参照できる索引
         usageTypes: [...new Set((d.system.actions ?? []).map((a) => a?.type).filter(Boolean))],
       }))
-      .sort((a, b) => a.name.localeCompare(b.name, "ja"));
+      .sort((a, b) => {
+        const pa = skillSortPosition(a.identificationKey);
+        const pb = skillSortPosition(b.identificationKey);
+        if (pa !== pb) return pa < pb ? -1 : 1;
+        return a.name.localeCompare(b.name, "ja");
+      });
     _cache.set(packName, entries);
     return entries;
   } catch (e) {
@@ -295,6 +304,40 @@ export async function loadOnomasticChoices(prefix) {
     }
   }
   return choices;
+}
+
+/**
+ * 一般技能辞典を分類ごとのグループに束ねた選択肢を返す(2026-07-19 ユーザー指示・判定要求の
+ * 技能プルダウン等)。グループ=「無条件取得技能」＋固有名詞小分類(製作/芸術/操縦/社会/コネ)。
+ * グループの並びは正規ソート順での初出位置(無条件取得技能→製作→芸術→操縦→社会→コネ)・
+ * グループ内も正規ソート順(=シートの技能リストと同じ並び)。
+ * @returns {Promise<Array<{label: string, skills: Array<{identificationKey: string, name: string}>}>>}
+ */
+export async function loadGroupedGeneralSkillChoices() {
+  return groupGeneralSkillEntries(await loadSkillEntries(SKILL_PACKS.general));
+}
+
+/**
+ * 一般技能 entries を分類グループへ束ねる純粋部(グループの並び=入力順での初出位置)。
+ * @param {Array<{identificationKey:string, name:string, generalSkillCategory?:string}>} entries
+ * @returns {Array<{label: string, skills: Array<{identificationKey: string, name: string}>}>}
+ */
+export function groupGeneralSkillEntries(entries) {
+  const groups = [];
+  const byLabel = new Map();
+  for (const e of entries ?? []) {
+    const label = e.generalSkillCategory === "onomasticSkill"
+      ? (ONOMASTIC_TYPES[idKeyPrefix(e.identificationKey)] ?? "固有名詞技能")
+      : "無条件取得技能";
+    let group = byLabel.get(label);
+    if (!group) {
+      group = { label, skills: [] };
+      byLabel.set(label, group);
+      groups.push(group);
+    }
+    group.skills.push({ identificationKey: e.identificationKey, name: e.name });
+  }
+  return groups;
 }
 
 /**

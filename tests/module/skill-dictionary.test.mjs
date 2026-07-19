@@ -82,10 +82,11 @@ describe("buildSkillCascadeSteps()", () => {
     expect(Object.keys(skill.options)).toEqual(["", "assault", "shooting"]);
   });
 
-  it("一般・固有名詞 → 小分類は存在するもののみ", () => {
+  it("一般・固有名詞 → 小分類は存在するもののみ(並びは正規ソート順=芸術→社会)", () => {
     const steps = buildSkillCascadeSteps(data, { dict: "general", group: "onomasticSkill" });
     const sub = steps.find((s) => s.key === "sub");
-    expect(Object.keys(sub.options)).toEqual(["", "society", "art"]);
+    // 2026-07-19 ユーザー指示: 分類の並びを正規ソート順へ(art(8) が society(16) より先)
+    expect(Object.keys(sub.options)).toEqual(["", "art", "society"]);
   });
 
   it("固有名詞・社会 → 小分類リストの先頭にカテゴリ全体", () => {

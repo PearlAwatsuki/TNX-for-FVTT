@@ -60,3 +60,35 @@ export function itemDisplayName(item) {
         ? formatSkillName(item.name)
         : (item.name ?? "");
 }
+
+// ─── 一般技能の正規ソート順(識別キー基準) ─────────────────────────────────────
+// 従来 TnxSkillUtils にあったが、辞典ローダ(skill-dictionary)からも使うため循環回避で本モジュールへ
+// 移設(2026-07-19)。TnxSkillUtils の同名 static は本実装への委譲として残る。
+
+/** キャスト一般技能の正規ソート順(固有名詞技能はプレフィックスで代表)。 */
+export const GENERAL_SKILL_SORT_PREFIXES = [
+    "medicine", "ranged", "perception", "cybertech",
+    "craft",
+    "psychology", "will", "negotiation",
+    "art",
+    "athletics", "evasion",
+    "operate",
+    "melee", "intrigue", "stature", "stealth",
+    "society",
+    "contact",
+];
+
+/**
+ * identificationKey の正規ソートリスト内位置を返す。
+ * "craft_food" → 4、"craft" → 4、未知文字列・空文字 → Infinity
+ * @param {string} identificationKey
+ * @returns {number}
+ */
+export function skillSortPosition(identificationKey) {
+    if (!identificationKey) return Infinity;
+    for (let i = 0; i < GENERAL_SKILL_SORT_PREFIXES.length; i++) {
+        const p = GENERAL_SKILL_SORT_PREFIXES[i];
+        if (identificationKey === p || identificationKey.startsWith(p + "_")) return i;
+    }
+    return Infinity;
+}
