@@ -2367,19 +2367,21 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             const v = woundChartValue(effect);
             return v ? String(v) : "";
         }
-        const ABIL = { reason: "理性", passion: "感情", life: "生命", mundane: "外界" };
+        // 対象能力値はスート記号で表す(♠理性/♣感情/♥生命/♦外界・2026-07-19 ユーザー確定:
+        // 能力値名だと能力値の値と紛らわしく、「生命の制御値」等はバッジ幅に収まらないため)
+        const ABIL_SUIT = { reason: "♠", passion: "♣", life: "♥", mundane: "♦" };
         // 変動する強度(邪毒・電子妨害): 名前に数字を直付け(括弧なし)。Bad_Status `[BS：邪毒n]`/`[BS：電子妨害n]`
         if (def.magnitudeField && (def.type === "continuous" || def.type === "computed")) {
             return cond.magnitude ? String(cond.magnitude) : "";
         }
-        // 衰弱: 全制御値版=（-n）/ スート引き版=（能力値の制御値 -n）。Bad_Status `[BS：衰弱(-数字)]`
+        // 衰弱: 全制御値版=（-n）/ スート引き版=（♥-n）。Bad_Status `[BS：衰弱(-数字)]`
         if (def.magnitudeField && def.apply === "control") {
-            if (cond.targetAbility) return `（${ABIL[cond.targetAbility] ?? "?"}の制御値 -${cond.magnitude}）`;
+            if (cond.targetAbility) return `（${ABIL_SUIT[cond.targetAbility] ?? "?"}-${cond.magnitude}）`;
             return cond.magnitude ? `（-${cond.magnitude}）` : "";
         }
-        // 重圧: 対象能力値。Bad_Status `[BS：重圧(生命)]`(指定なし=カード決定後に埋まる)
+        // 重圧: 対象能力値のスート。Bad_Status `[BS：重圧(生命)]`(指定なし=カード決定後に埋まる)
         if (def.abilityField) {
-            return cond.targetAbility ? `（${ABIL[cond.targetAbility] ?? "?"}）` : "";
+            return cond.targetAbility ? `（${ABIL_SUIT[cond.targetAbility] ?? "?"}）` : "";
         }
         // 萎縮/憎悪: 対象アクター名(逆引きした現在名)
         if (def.targetField && cond.targetUuid) {
