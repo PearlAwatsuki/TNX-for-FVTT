@@ -2374,14 +2374,16 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         if (def.magnitudeField && (def.type === "continuous" || def.type === "computed")) {
             return cond.magnitude ? String(cond.magnitude) : "";
         }
-        // 衰弱: 全制御値版=（-n）/ スート引き版=（♥-n）。Bad_Status `[BS：衰弱(-数字)]`
+        // 衰弱: 全制御値版=-n / スート引き版=♥-n(括弧なし=2026-07-19 ユーザー確定)。
+        // ルール表記は Bad_Status `[BS：衰弱(-数字)]`
         if (def.magnitudeField && def.apply === "control") {
-            if (cond.targetAbility) return `（${ABIL_SUIT[cond.targetAbility] ?? "?"}-${cond.magnitude}）`;
-            return cond.magnitude ? `（-${cond.magnitude}）` : "";
+            if (cond.targetAbility) return `${ABIL_SUIT[cond.targetAbility] ?? "?"}-${cond.magnitude}`;
+            return cond.magnitude ? `-${cond.magnitude}` : "";
         }
-        // 重圧: 対象能力値のスート。Bad_Status `[BS：重圧(生命)]`(指定なし=カード決定後に埋まる)
+        // 重圧: 対象能力値のスート(括弧なし)。ルール表記は Bad_Status `[BS：重圧(生命)]`
+        // (指定なし=カード決定後に埋まる)
         if (def.abilityField) {
-            return cond.targetAbility ? `（${ABIL_SUIT[cond.targetAbility] ?? "?"}）` : "";
+            return cond.targetAbility ? (ABIL_SUIT[cond.targetAbility] ?? "?") : "";
         }
         // 萎縮/憎悪: 対象アクター名(逆引きした現在名)
         if (def.targetField && cond.targetUuid) {
