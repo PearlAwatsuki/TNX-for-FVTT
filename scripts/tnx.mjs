@@ -6,6 +6,7 @@ import { computeTroopFixedName, findDepartmentSkillName } from './data/helpers.m
 import { defaultWeaponKindForCategory } from './data/item/common/outfit-base.mjs';
 import { canonicalizeSkillActions } from './module/usage-type-migration.mjs';
 import { CastDataModel } from './data/actor/cast.mjs';
+import { FocusSystemDataModel } from './data/journal/focus-system.mjs';
 import { GuestDataModel } from './data/actor/guest.mjs';
 import { TroopDataModel } from './data/actor/troop.mjs';
 import { ExtraDataModel } from './data/actor/extra.mjs';
@@ -987,6 +988,12 @@ Hooks.once("init", async function() {
       generalSkill: GeneralSkillDataModel,
       style:        StyleDataModel,
       styleSkill:   StyleSkillDataModel,
+    };
+
+    // JournalEntryPage DataModel の登録(フェーズ12-5: FS判定シート)
+    CONFIG.JournalEntryPage.dataModels = {
+      ...(CONFIG.JournalEntryPage.dataModels ?? {}),
+      focusSystem: FocusSystemDataModel,
     };
 
     // Card DataModel の登録(B-8: 全 3 type 登録完了)
