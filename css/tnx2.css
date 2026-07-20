@@ -8539,3 +8539,64 @@ button.tnx-create-act-button span {
     gap: 6px;
     margin-top: 6px;
 }
+
+/* ============================================================
+   対象選択リスト(2026-07-21) — 判定要求／報酬点／ダメージ付与／状態・効果の付与で共通
+   ============================================================ */
+
+.tnx-target-picker .tnx-tp-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 180px;
+    padding: 4px;
+    overflow-y: auto;
+    border: 1px solid var(--tnx2-border, #3a3f4b);
+    border-radius: 4px;
+}
+.tnx-target-picker .tnx-tp-empty {
+    margin: 2px 4px;
+    font-size: 0.85em;
+    opacity: 0.7;
+}
+.tnx-target-picker .tnx-tp-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 4px;
+    border-radius: 4px;
+}
+.tnx-target-picker .tnx-tp-row:hover {
+    background: rgb(255 255 255 / 5%);
+}
+.tnx-target-picker .tnx-tp-row.dragging {
+    opacity: 0.5;
+}
+.tnx-target-picker .tnx-tp-grip {
+    cursor: grab;
+    opacity: 0.6;
+}
+.tnx-target-picker .tnx-tp-grip:active {
+    cursor: grabbing;
+}
+.tnx-target-picker .tnx-tp-img {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 4px;
+    object-fit: cover;
+}
+.tnx-target-picker .tnx-tp-name {
+    flex: 1;
+    overflow: hidden;
+    font-size: 0.9em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.tnx-target-picker .tnx-tp-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    margin-top: 6px;
+}

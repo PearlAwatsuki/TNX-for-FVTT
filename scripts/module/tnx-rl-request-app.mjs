@@ -19,6 +19,8 @@ import { findItemByIdentificationKey, formatSkillName, itemDisplayName } from '.
 import { enumerateRequestComboCandidates, buildRequestUsageChoices } from './usage-check-context.mjs';
 import { loadGroupedGeneralSkillChoices, loadSkillEntries, SKILL_PACKS } from './skill-dictionary.mjs';
 import { listCheckRequestPresets, presetLabel, checkRequestPresetToForm } from './request-presets.mjs';
+import { bindTargetPicker } from './target-picker.mjs';
+import { toCheckRequestTargets } from './target-picker-logic.mjs';
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -135,12 +137,6 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
         // 技能プルダウン: 分類グループ(無条件取得技能/製作/芸術/操縦/社会/コネ)×正規ソート順
         // =シートの技能リストと同じ並び(2026-07-19 ユーザー指示)
         const skillGroups = await loadGroupedGeneralSkillChoices();
-        // 対象はアクターを登録する(2026-07-19 ユーザー指示: ユーザー選択を廃止。判定ボタンは
-        // そのアクターの所有者権限を持つユーザーが押せる)。候補=ワールドのキャスト全員
-        const targetActors = game.actors
-            .filter(a => a.type === "cast")
-            .map(a => ({ actorId: a.id, actorName: a.name, img: a.img }))
-            .sort((a, b) => a.actorName.localeCompare(b.actorName, "ja"));
         // 読み込み元(アクトシートのプリセット・2026-07-20)。選ぶと各欄を自動投入する
         const checkTypes = checkTypeOptions("skillCheck");
         const presetGroups = listCheckRequestPresets().map(g => ({
@@ -150,7 +146,6 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
         return {
             ...context,
             skillGroups,
-            targetActors,
             presetGroups,
             checkTypes,
             SUIT_OPTIONS,
@@ -163,6 +158,8 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
     _onRender(context, options) {
         super._onRender(context, options);
         const el = this.element;
+        // 対象選択は4つのダイアログ共通の部品(2026-07-21)
+        this._picker = bindTargetPicker(el.querySelector(".tnx-target-picker"));
 
         // 読み込み元 → 各欄へ流し込む(対象アクターはプリセットに含めないので触らない)
         el.querySelector("[name=presetId]")?.addEventListener("change", (e) => {
@@ -280,15 +277,11 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
         // 説明文
         const description = form.querySelector("[name=description]")?.value?.trim() ?? "";
 
-        // 対象アクター(2026-07-19 ユーザー指示: ユーザー選択→アクター登録へ。判定ボタンは
-        // そのアクターの所有者権限を持つユーザーが押せる=接続状況・キャラクター割り当てに依存しない)
-        const targets = game.actors
-            .filter(a => a.type === "cast")
-            .filter(a => form.querySelector(`[name="target_${a.id}"]`)?.checked)
-            .map(a => ({ actorId: a.id, actorName: a.name }));
-
+        // 対象アクター(2026-07-19: ユーザー選択→アクター登録。判定ボタンはそのアクターの
+        // 所有者権限を持つユーザーが押せる=接続状況・キャラクター割り当てに依存しない)
+        const targets = toCheckRequestTargets(this._picker?.getTargets() ?? []);
         if (!targets.length) {
-            ui.notifications.warn("対象アクターを1体以上選択してください。");
+            ui.notifications.warn("対象を1体以上追加してください。");
             return false;
         }
 

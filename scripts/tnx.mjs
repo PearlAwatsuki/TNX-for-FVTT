@@ -103,6 +103,7 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/chat/condition-prompt.hbs",
 
         // === App ===
+        "systems/tokyo-nova-axleration/templates/parts/target-picker.hbs",
         "systems/tokyo-nova-axleration/templates/app/rl-request-app.hbs",
         "systems/tokyo-nova-axleration/templates/app/rl-grant-damage.hbs",
         "systems/tokyo-nova-axleration/templates/app/rl-grant-effect.hbs",

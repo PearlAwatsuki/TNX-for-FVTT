@@ -1,17 +1,6 @@
 <div class="rl-request-body">
 
-    {{!-- 対象(レティクル済み。ダメージの対象は常に明示される=2026-07-18 規約) --}}
-    <div class="form-group rl-form-group">
-        <label class="rl-label">対象</label>
-        <div class="rl-targets-list">
-            {{#each targets}}
-                <div class="rl-player-row">
-                    <img class="rl-actor-img" src="{{this.img}}" alt="">
-                    <span class="rl-player-name">{{this.name}}</span>
-                </div>
-            {{/each}}
-        </div>
-    </div>
+    {{> "systems/tokyo-nova-axleration/templates/parts/target-picker.hbs"}}
 
     {{!-- 系統 --}}
     <div class="form-group rl-form-group">

@@ -33,23 +33,7 @@
         <input type="text" name="note" class="rl-input" placeholder="（省略可）">
     </div>
 
-    {{!-- 対象アクター(判定要求と同じ登録方式) --}}
-    <div class="form-group rl-form-group">
-        <label class="rl-label">対象アクター</label>
-        <div class="rl-targets-list">
-            {{#if targetActors}}
-                {{#each targetActors}}
-                    <label class="rl-check-label rl-player-row">
-                        <input type="checkbox" name="target_{{this.actorId}}">
-                        <img class="rl-actor-img" src="{{this.img}}" alt="">
-                        <span class="rl-player-name">{{this.actorName}}</span>
-                    </label>
-                {{/each}}
-            {{else}}
-                <p class="rl-no-players">キャストのアクターがいません</p>
-            {{/if}}
-        </div>
-    </div>
+    {{> "systems/tokyo-nova-axleration/templates/parts/target-picker.hbs"}}
 
     <footer class="rl-form-footer">
         <button type="submit" class="tnx-btn tnx-btn--primary rl-submit-btn">

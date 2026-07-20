@@ -7,11 +7,12 @@
  * 軽減を通すかどうかの選択肢は持たない(2026-07-20 裁定): 防護点で軽減できないダメージは
  * 種別 X で表現でき、軽減技能の可否は自由記述ないし口頭で伝えれば足りる。
  *
- * 対象はレティクル(ターゲット)で明示する。ダメージの対象が常に明示されるのは
- * 2026-07-18 の対象解決の規約どおり。
+ * 対象はダイアログ内の共通の対象選択リスト(target-picker)で選ぶ(2026-07-21 ユーザー指示)。
+ * 選択・ターゲット・キャスト全員・プレイヤーキャラクター全員から追加でき、判定要求・報酬点の
+ * 配布とも同じ形式。
  */
 
-import { currentTargetActors } from "./target-resolution.mjs";
+import { bindTargetPicker } from "./target-picker.mjs";
 import { buildRlDamageRollFlag, buildConditionGrantData, rlConditionChoices, RL_DAMAGE_TYPES } from "./rl-grant-logic.mjs";
 import { buildGrantedEffectData } from "./usage-effects.mjs";
 import { buildBountyGrantData } from "./bounty-grant-logic.mjs";
@@ -56,7 +57,6 @@ export class TnxRlGrantDamageApp extends HandlebarsApplicationMixin(ApplicationV
         const context = await super._prepareContext(options);
         return {
             ...context,
-            targets: currentTargetActors().map(a => ({ uuid: a.uuid, name: a.name, img: a.img })),
             CATEGORY_OPTIONS,
             // 既定は生身の攻撃力と同じ I
             DAMAGE_TYPES: RL_DAMAGE_TYPES.map(t => ({ ...t, selected: t.value === "I" })),
@@ -65,6 +65,8 @@ export class TnxRlGrantDamageApp extends HandlebarsApplicationMixin(ApplicationV
 
     _onRender(context, options) {
         super._onRender(context, options);
+        // 対象選択は4つのダイアログ共通の部品(2026-07-21)
+        this._picker = bindTargetPicker(this.element.querySelector(".tnx-target-picker"));
         // ダメージ種別は物理のみ(精神・社会に対応防御力の概念が無い)
         const categorySelect = this.element.querySelector("[name=category]");
         const syncType = () => {
@@ -87,9 +89,9 @@ export class TnxRlGrantDamageApp extends HandlebarsApplicationMixin(ApplicationV
     }
 
     static async _onSubmit(event, form, _formData) {
-        const targets  = currentTargetActors().map(a => ({ uuid: a.uuid, name: a.name }));
+        const targets = this._picker?.getTargets() ?? [];
         if (!targets.length) {
-            ui.notifications.warn("対象をターゲットしてください。");
+            ui.notifications.warn("対象を1体以上追加してください。");
             return false;
         }
         const category   = form.querySelector("[name=category]")?.value ?? "physical";
@@ -143,7 +145,6 @@ export class TnxRlGrantEffectApp extends HandlebarsApplicationMixin(ApplicationV
         const context = await super._prepareContext(options);
         return {
             ...context,
-            targets: currentTargetActors().map(a => ({ uuid: a.uuid, name: a.name, img: a.img })),
             conditionGroups: rlConditionChoices(),
             effectItems: game.items.filter(i => i.effects.size > 0)
                 .map(i => ({ id: i.id, name: i.name }))
@@ -154,6 +155,7 @@ export class TnxRlGrantEffectApp extends HandlebarsApplicationMixin(ApplicationV
     _onRender(context, options) {
         super._onRender(context, options);
         const el = this.element;
+        this._picker = bindTargetPicker(el.querySelector(".tnx-target-picker"));
 
         const kindSelect = el.querySelector("[name=grantKind]");
         const syncSections = () => {
@@ -185,9 +187,9 @@ export class TnxRlGrantEffectApp extends HandlebarsApplicationMixin(ApplicationV
     }
 
     static async _onSubmit(event, form, _formData) {
-        const targets = currentTargetActors();
+        const targets = this._picker?.getTargets() ?? [];
         if (!targets.length) {
-            ui.notifications.warn("対象をターゲットしてください。");
+            ui.notifications.warn("対象を1体以上追加してください。");
             return false;
         }
         const grantKind = form.querySelector("[name=grantKind]")?.value ?? "condition";
@@ -210,7 +212,9 @@ export class TnxRlGrantEffectApp extends HandlebarsApplicationMixin(ApplicationV
             data = buildGrantedEffectData(eff);
         }
 
-        for (const actor of targets) {
+        for (const t of targets) {
+            const actor = await fromUuid(t.uuid);
+            if (!actor) continue;
             await actor.createEmbeddedDocuments("ActiveEffect", [foundry.utils.deepClone(data)]);
         }
         ui.notifications.info(`「${data.name}」を${targets.length}体に付与しました。`);
@@ -243,10 +247,6 @@ export class TnxRlGrantBountyApp extends HandlebarsApplicationMixin(ApplicationV
         const context = await super._prepareContext(options);
         return {
             ...context,
-            targetActors: game.actors
-                .filter(a => a.type === "cast")
-                .map(a => ({ actorId: a.id, actorName: a.name, img: a.img }))
-                .sort((a, b) => a.actorName.localeCompare(b.actorName, "ja")),
             // 読み込み元(アクトシートのプリセット・2026-07-20)
             presetGroups: listBountyPresets().map(g => ({
                 label:   g.label,
@@ -258,6 +258,7 @@ export class TnxRlGrantBountyApp extends HandlebarsApplicationMixin(ApplicationV
     _onRender(context, options) {
         super._onRender(context, options);
         const el = this.element;
+        this._picker = bindTargetPicker(el.querySelector(".tnx-target-picker"));
 
         // 読み込み元 → 各欄へ流し込む(対象アクターはプリセットに含めない)
         el.querySelector("[name=presetId]")?.addEventListener("change", (e) => {
@@ -283,12 +284,9 @@ export class TnxRlGrantBountyApp extends HandlebarsApplicationMixin(ApplicationV
     }
 
     static async _onSubmit(event, form, _formData) {
-        const targets = game.actors
-            .filter(a => a.type === "cast")
-            .filter(a => form.querySelector(`[name="target_${a.id}"]`)?.checked)
-            .map(a => ({ uuid: a.uuid, name: a.name }));
+        const targets = (this._picker?.getTargets() ?? []).map(t => ({ uuid: t.uuid, name: t.name }));
         if (!targets.length) {
-            ui.notifications.warn("対象アクターを1体以上選択してください。");
+            ui.notifications.warn("対象を1体以上追加してください。");
             return false;
         }
         const amount = Number(form.querySelector("[name=amount]")?.value) || 0;
@@ -314,20 +312,12 @@ export function openRlGrantBounty() {
     new TnxRlGrantBountyApp().render(true);
 }
 
-/** シーンコントロールから開く(GM のみ)。 */
+/** シーンコントロールから開く(GM のみ)。対象はダイアログ内で選ぶ(2026-07-21)。 */
 export function openRlGrantDamage() {
-    if (!currentTargetActors().length) {
-        ui.notifications.warn("対象をターゲットしてください。");
-        return;
-    }
     new TnxRlGrantDamageApp().render(true);
 }
 
-/** シーンコントロールから開く(GM のみ)。 */
+/** シーンコントロールから開く(GM のみ)。対象はダイアログ内で選ぶ(2026-07-21)。 */
 export function openRlGrantEffect() {
-    if (!currentTargetActors().length) {
-        ui.notifications.warn("対象をターゲットしてください。");
-        return;
-    }
     new TnxRlGrantEffectApp().render(true);
 }
