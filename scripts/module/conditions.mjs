@@ -74,6 +74,11 @@ const BS_AND_INCAPACITATION = {
  */
 export const CONDITION_KINDS = Object.freeze({ ...BS_AND_INCAPACITATION, ...buildDamageStates() });
 
+/** 状態キー → 表示ラベル。効果の要約表示など、状態を名前で出す箇所で使う。 */
+export function conditionStatusLabels() {
+    return Object.fromEntries(Object.entries(CONDITION_KINDS).map(([kind, def]) => [kind, def.label]));
+}
+
 /** group キー → 表示ラベル(ドロップダウンのグループ見出し)。 */
 export const CONDITION_GROUP_LABELS = Object.freeze({
   bs:             "バッドステータス",

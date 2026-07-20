@@ -23,7 +23,8 @@ import {
     listBountyPresets, listDamageGrantPresets, listEffectGrantPresets,
     presetLabel, bountyPresetToForm, damagePresetToForm, effectPresetIsEmpty,
 } from "./request-presets.mjs";
-import { buildEffectSourceGroups, parseEffectSourceKey } from "./effect-source-logic.mjs";
+import { buildEffectSourceGroups, parseEffectSourceKey, describeEffectData } from "./effect-source-logic.mjs";
+import { conditionStatusLabels } from "./conditions.mjs";
 import { promptEffectData } from "./effect-authoring.mjs";
 import { itemDisplayName } from "./identification.mjs";
 import { spinnerDialogActions } from "./tnx-dialog.mjs";
@@ -250,8 +251,33 @@ export class TnxRlGrantEffectApp extends HandlebarsApplicationMixin(ApplicationV
         const composed = await promptEffectData(this._composed);
         if (!composed) return;
         this._composed = composed;
-        const label = this.element.querySelector(".new-effect-name");
-        if (label) label.textContent = composed.name;
+        this._renderComposedEffect();
+    }
+
+    /** 控えた効果を効果リストの行として反映する(未作成なら初期表示のまま)。 */
+    _renderComposedEffect() {
+        const el = this.element;
+        const effect = this._composed;
+        if (!effect) return;
+
+        const name = el.querySelector(".new-effect-name");
+        if (name) {
+            name.textContent = effect.name;
+            name.classList.remove("disabled");
+        }
+        const img = el.querySelector(".new-effect-image");
+        if (img) img.src = effect.img || "icons/svg/aura.svg";
+
+        const summary = el.querySelector(".new-effect-summary");
+        if (summary) summary.textContent = describeEffectData(effect, conditionStatusLabels());
+
+        // 作成済みなので操作は「編集」に変わる
+        const edit = el.querySelector(".new-effect-edit");
+        if (edit) {
+            edit.title = "編集";
+            const icon = edit.querySelector("i");
+            if (icon) icon.className = "fas fa-edit";
+        }
     }
 
     _onRender(context, options) {
@@ -279,9 +305,8 @@ export class TnxRlGrantEffectApp extends HandlebarsApplicationMixin(ApplicationV
         sourceSelect?.addEventListener("change", syncSource);
         syncSource();
 
-        // 再描画をまたいでも、組んだ効果の名前は出したままにする
-        const label = el.querySelector(".new-effect-name");
-        if (label && this._composed) label.textContent = this._composed.name;
+        // 再描画をまたいでも、組んだ効果は出したままにする
+        this._renderComposedEffect();
     }
 
     static async _onSubmit(event, form, _formData) {

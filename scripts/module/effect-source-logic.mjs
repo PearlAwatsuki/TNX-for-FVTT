@@ -51,6 +51,34 @@ export function parseEffectSourceKey(key) {
     };
 }
 
+/** 効果の複製に注入される付与マーカー(内部の印であって状態ではない)。 */
+const APPLIED_MARKER = "tnx-applied";
+
+/**
+ * 効果データの要約(プリセット一覧で中身を開かずに見分けるための1行)。
+ *
+ * 変更キーの生値は出さない(内部キーはユーザー可視文字列に入れない)。表示ラベルの引けない
+ * 状態も件数に丸める。
+ *
+ * @param {?object} effect 効果データ
+ * @param {Object<string,string>} [statusLabels] 状態キー → 表示ラベル
+ * @returns {string} 要約(何も無ければ空文字)
+ */
+export function describeEffectData(effect, statusLabels = {}) {
+    const parts = [];
+
+    const statuses = (effect?.statuses ?? []).filter(s => s !== APPLIED_MARKER);
+    const named    = statuses.map(s => statusLabels[s]).filter(Boolean);
+    if (named.length) parts.push(named.join("・"));
+    const unnamed = statuses.length - named.length;
+    if (unnamed > 0) parts.push(`状態 ${unnamed} 件`);
+
+    const changes = effect?.changes?.length ?? 0;
+    if (changes) parts.push(`変更 ${changes} 件`);
+
+    return parts.join(" ／ ");
+}
+
 /** 効果名にアイテム名を添える(同名なら重ねない)。 */
 function optionLabel(effectName, itemName) {
     const eff = String(effectName ?? "").trim();

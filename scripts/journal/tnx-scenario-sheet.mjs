@@ -12,6 +12,8 @@ import {
 } from '../module/request-presets.mjs';
 import { RL_DAMAGE_TYPES, RL_DAMAGE_CATEGORIES } from '../module/rl-grant-logic.mjs';
 import { promptEffectData } from '../module/effect-authoring.mjs';
+import { describeEffectData } from '../module/effect-source-logic.mjs';
+import { conditionStatusLabels } from '../module/conditions.mjs';
 import { checkTypeOptions } from '../module/tnx-rl-request-app.mjs';
 
 const { HandlebarsApplicationMixin, DocumentSheetV2, DialogV2 } = foundry.applications.api;
@@ -137,10 +139,16 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             categories:   selected(RL_DAMAGE_CATEGORIES, p.category ?? "physical"),
             damageTypes:  selected(RL_DAMAGE_TYPES, p.damageType ?? "I"),
         }));
+        const statusLabels = conditionStatusLabels();
         context.effectGrantPresets = (flagData.effectGrants || []).map((p, i) => ({
             ...p,
             placeholder: presetLabel({}, i, "効果"),
-            effectName:  p.effect?.name || "未作成",
+            effect: {
+                set:     !!p.effect?.name,
+                name:    p.effect?.name || "未作成",
+                img:     p.effect?.img  || "icons/svg/aura.svg",
+                summary: describeEffectData(p.effect, statusLabels),
+            },
         }));
 
         context.scenarioTexts = flagData.scenarioTexts || [];

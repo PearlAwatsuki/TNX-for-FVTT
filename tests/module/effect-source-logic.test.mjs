@@ -4,6 +4,7 @@ import {
   effectSourceKey,
   parseEffectSourceKey,
   buildEffectSourceGroups,
+  describeEffectData,
 } from "../../scripts/module/effect-source-logic.mjs";
 
 describe("effectSourceKey() / parseEffectSourceKey()（付与元の1値エンコード・2026-07-21）", () => {
@@ -113,5 +114,35 @@ describe("buildEffectSourceGroups()（付与元プルダウンのグループ化
 
   it("引数なしでも落ちない", () => {
     expect(buildEffectSourceGroups()).toEqual([]);
+  });
+});
+
+describe("describeEffectData()（効果プリセットの要約表示・2026-07-21）", () => {
+  const LABELS = { panic: "恐慌", faint: "気絶" };
+
+  it("状態を表示ラベルで並べる", () => {
+    expect(describeEffectData({ statuses: ["panic"] }, LABELS)).toBe("恐慌");
+  });
+
+  it("変更の件数を出す", () => {
+    expect(describeEffectData({ changes: [{ key: "a" }, { key: "b" }] })).toBe("変更 2 件");
+  });
+
+  it("状態と変更を併記する", () => {
+    expect(describeEffectData({ statuses: ["panic"], changes: [{ key: "a" }] }, LABELS))
+      .toBe("恐慌 ／ 変更 1 件");
+  });
+
+  it("付与マーカーは表示しない（内部の印であって状態ではない）", () => {
+    expect(describeEffectData({ statuses: ["tnx-applied"], changes: [{ key: "a" }] })).toBe("変更 1 件");
+  });
+
+  it("ラベルの無い状態はそのまま出さず数で表す（内部キーを見せない）", () => {
+    expect(describeEffectData({ statuses: ["unknown-thing"] })).toBe("状態 1 件");
+  });
+
+  it("中身が無ければ空文字", () => {
+    expect(describeEffectData({})).toBe("");
+    expect(describeEffectData(null)).toBe("");
   });
 });

@@ -40,13 +40,22 @@
                 {{/each}}
             </select>
         </div>
+        {{!-- 効果の見せ方はシステム標準の効果リストに揃える --}}
         <div class="form-group rl-form-group new-effect-section">
             <label class="rl-label">効果</label>
-            <div class="rl-inline-field">
-                <span class="new-effect-name">未作成</span>
-                <button type="button" class="tnx-btn" data-action="composeEffect">
-                    <i class="fas fa-pen"></i> 組む
-                </button>
+            <div class="tnx-item-list tnx-item-list--effects">
+                <div class="tnx-item-list__row">
+                    <div class="tnx-item-list__column--main">
+                        <img class="effect-image new-effect-image" src="icons/svg/aura.svg" alt=""/>
+                        <h4 class="new-effect-name disabled">未作成</h4>
+                    </div>
+                    <div class="tnx-item-list__column--summary new-effect-summary"></div>
+                    <div class="tnx-item-list__column--controls">
+                        <a class="tnx-icon-ctrl new-effect-edit" data-action="composeEffect" title="作成">
+                            <i class="fas fa-plus"></i>
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
