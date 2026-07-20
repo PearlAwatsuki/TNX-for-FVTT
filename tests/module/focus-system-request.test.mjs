@@ -6,7 +6,7 @@ import {
 
 const FS = {
   id: "fs1",
-  supportSkillKey: "info",
+  supportSkillKeys: ["info", "negotiation"],
   targetProgress: 20,
   progress: 0,
   rows: [
@@ -40,9 +40,9 @@ describe("buildProgressRequest()（進行判定の要求・ルール14）", () =
 });
 
 describe("buildSupportRequest()（支援判定の要求・ルール5/15）", () => {
-  it("技能は支援判定の指定技能、目標値は進行判定と同じ（有効行の目標値）", () => {
+  it("技能は支援判定の指定技能すべて、目標値は進行判定と同じ（有効行の目標値）", () => {
     expect(buildSupportRequest(FS)).toEqual({
-      identificationKey: "info",
+      identificationKeys: ["info", "negotiation"],
       targetValue: 12,
       focusSystemId: "fs1",
       kind: "support",
@@ -54,7 +54,12 @@ describe("buildSupportRequest()（支援判定の要求・ルール5/15）", () 
   });
 
   it("支援判定の技能が未指定でも要求できる（代用判定に委ねる）", () => {
-    expect(buildSupportRequest({ ...FS, supportSkillKey: "" }).identificationKey).toBe("");
+    expect(buildSupportRequest({ ...FS, supportSkillKeys: [] }).identificationKeys).toEqual([]);
+  });
+
+  it("旧・単数の supportSkillKey しか無い実行中データも読める", () => {
+    const old = { ...FS, supportSkillKeys: undefined, supportSkillKey: "info" };
+    expect(buildSupportRequest(old).identificationKeys).toEqual(["info"]);
   });
 
   it("有効行が無ければ目標値を決められないので null", () => {

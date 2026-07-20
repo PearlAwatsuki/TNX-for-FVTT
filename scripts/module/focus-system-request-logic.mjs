@@ -30,16 +30,21 @@ export function buildProgressRequest(fs) {
 
 /**
  * 支援判定の要求内容。目標値は有効行と同じ(ルール5)。
+ *
+ * 指定技能は**複数**持てる(2026-07-21・現物のシートの「支援判定」欄は自由記入)。
+ * 旧データ(単数 `supportSkillKey`)も読める。
+ *
  * @param {?object} fs 実行中 FS
- * @returns {?{identificationKey:string, targetValue:number, focusSystemId:string, kind:string}}
+ * @returns {?{identificationKeys:Array<string>, targetValue:number, focusSystemId:string, kind:string}}
  */
 export function buildSupportRequest(fs) {
     const row = activeProgressRow(fs?.rows, fs?.progress);
     if (!row) return null;
+    const keys = fs.supportSkillKeys ?? (fs.supportSkillKey ? [fs.supportSkillKey] : []);
     return {
-        identificationKey: fs.supportSkillKey ?? "",
-        targetValue:       Number(row.targetValue) || 0,
-        focusSystemId:     fs.id,
-        kind:              "support",
+        identificationKeys: [...keys],
+        targetValue:        Number(row.targetValue) || 0,
+        focusSystemId:      fs.id,
+        kind:               "support",
     };
 }

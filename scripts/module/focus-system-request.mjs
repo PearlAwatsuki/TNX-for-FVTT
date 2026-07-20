@@ -101,10 +101,14 @@ export async function requestFocusSystemCheck(fs, kind) {
     const targets = await promptTargets(kind);
     if (!targets) return;
 
+    // 支援判定の指定技能は複数ありうる(2026-07-21)。進行判定は有効行の1つ
+    const keys = kind === "progress" ? [req.identificationKey].filter(Boolean) : req.identificationKeys;
+    const labels = await Promise.all(keys.map(k => skillLabel(k)));
+
     await postCheckRequest({
-        checkType:         "skillCheck",
-        identificationKey: req.identificationKey,
-        skillLabel:        await skillLabel(req.identificationKey),
+        checkType:          "skillCheck",
+        identificationKeys: keys,
+        skillLabel:         labels.length ? labels.join("・") : "（指定なし）",
         validSuits:        [],
         targetValue:       req.targetValue,
         description:       `${fs.name}（${kind === "progress" ? "進行判定" : "支援判定"}）`,

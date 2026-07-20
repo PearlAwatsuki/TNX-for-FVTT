@@ -8411,50 +8411,129 @@ button.tnx-create-act-button span {
 }
 
 /* ============================================================
-   FS判定シート(フェーズ12-5) — JournalEntryPage 型 focusSystem
+   FS判定エディタ — FS判定シート（JournalEntry）と起動フォームで共用(2026-07-21)。
+   ①概要=2カラム ②支援判定=可変長リスト ③判定行=全幅の表 ④メモ=全幅
    ============================================================ */
 
-.tnx-focus-system .fs-row-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-.tnx-focus-system .fs-row {
-    padding: 8px;
-    border: 1px solid var(--tnx2-border, #3a3f4b);
-    border-radius: 4px;
-}
-.tnx-focus-system .fs-row-title {
-    font-weight: 600;
+.tnx-focus-system-sheet__body {
+    padding: 10px 12px;
+    overflow-y: auto;
+    height: 100%;
 }
 
-/* 閲覧モード: 設定を読むための表示に徹する(編集要素を持たない) */
-.tnx-focus-system--view .fs-view-meta {
+/* ① 概要: ラベル+入力の対を2カラムに並べる */
+.fs-editor .fs-grid {
     display: grid;
-    grid-template-columns: max-content 1fr;
-    gap: 4px 12px;
-    margin: 0 0 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 16px;
 }
-.tnx-focus-system--view .fs-view-meta dt {
+.fs-editor .fs-grid .form-group {
+    display: grid;
+    grid-template-columns: 90px minmax(0, 1fr);
+    align-items: center;
+    gap: 6px;
+}
+.fs-editor .fs-grid .form-group > label {
+    font-size: 0.85em;
     font-weight: 600;
+    color: var(--tnx2-text-secondary);
     white-space: nowrap;
 }
-.tnx-focus-system--view .fs-view-meta dd {
-    margin: 0;
+
+.fs-name-row {
+    display: grid;
+    grid-template-columns: 90px minmax(0, 1fr);
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
 }
-.tnx-focus-system--view .fs-view-rows {
+
+/* ② 支援判定の技能: 選択済みの行＋追加プルダウン */
+.fs-editor .fs-support-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+.fs-editor .fs-support-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 4px 2px 8px;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: 12px;
+}
+.fs-editor .fs-support-name {
+    font-size: 0.88em;
+}
+.fs-editor .fs-empty {
+    margin: 0;
+    font-size: 0.85em;
+    color: var(--tnx2-text-muted);
+}
+
+/* ③ 判定行: 互いに比較するレコードなので表で一覧する */
+.fs-editor .fs-row-table-wrap {
+    overflow-x: auto;
+    margin-bottom: 6px;
+}
+.fs-editor .fs-row-table {
     width: 100%;
     border-collapse: collapse;
 }
-.tnx-focus-system--view .fs-view-rows th,
-.tnx-focus-system--view .fs-view-rows td {
-    padding: 3px 6px;
+.fs-editor .fs-row-table th {
+    font-size: 0.78em;
+    font-weight: 600;
+    color: var(--tnx2-text-muted);
     text-align: left;
-    border-bottom: 1px solid var(--tnx2-border, #3a3f4b);
+    padding: 2px 4px;
+    white-space: nowrap;
 }
-.tnx-focus-system--view .fs-view-memo {
-    margin: 10px 0 0;
-    white-space: pre-wrap;
+.fs-editor .fs-row-table td {
+    padding: 2px 4px;
+    vertical-align: middle;
+}
+.fs-editor .fs-col-threshold,
+.fs-editor .fs-col-target { width: 96px; }
+.fs-editor .fs-col-skill  { width: 22%; }
+.fs-editor .fs-col-mod    { width: 28%; }
+.fs-editor .fs-col-ctrl   { width: 48px; }
+
+.fs-editor .fs-row-table .number-input-spinner input[type="number"] {
+    min-width: 0;
+}
+/* 参照元＝なし の行は詳細を出さないので、セルはプルダウン1つに収まる */
+.fs-editor .fs-mod-detail {
+    display: flex;
+    gap: 4px;
+    margin-top: 4px;
+}
+.fs-editor .fs-mod-detail > * {
+    flex: 1 1 0;
+    min-width: 0;
+}
+.fs-editor .fs-row-ctrl {
+    white-space: nowrap;
+}
+.fs-editor .fs-row-grip {
+    cursor: grab;
+    color: var(--tnx2-text-muted);
+    margin-right: 4px;
+}
+.fs-editor .fs-row.dragging {
+    opacity: 0.5;
+}
+.fs-editor .fs-row-empty td {
+    padding: 8px 4px;
+    font-size: 0.85em;
+    color: var(--tnx2-text-muted);
+}
+
+.fs-start-footer {
+    margin-top: 10px;
+    display: flex;
+    justify-content: flex-end;
 }
 
 /* ============================================================

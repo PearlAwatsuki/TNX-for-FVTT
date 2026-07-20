@@ -76,16 +76,16 @@ export function gaugeMarkers(rows, max) {
  * **スナップショット方式**: 起動後に FS判定シートを編集しても実行中の FS は変わらない。
  * 進行状態(progress / cut)はここから始まり、以後の正本はワールド設定側にある。
  *
- * @param {{name:string, system:object}} page FS判定ページ(または同じ形の手動設定)
- * @param {{id?:string, sourcePageUuid?:?string}} [opts]
+ * @param {{name:string, data:object}} source FS判定シート(または同じ形の手動設定)
+ * @param {{id?:string, sourceUuid?:?string}} [opts]
  * @returns {object} 実行中 FS のデータ
  */
-export function buildFocusSystemSnapshot(page, { id = "", sourcePageUuid = null } = {}) {
-    const sys = page?.system ?? {};
+export function buildFocusSystemSnapshot(source, { id = "", sourceUuid = null } = {}) {
+    const sys = source?.data ?? {};
     return {
         id,
-        sourcePageUuid,
-        name:            page?.name ?? "",
+        sourceUuid,
+        name:            source?.name ?? "",
         restriction:     sys.restriction ?? "",
         defeatCondition: {
             type:     sys.defeatCondition?.type ?? "cut",
@@ -94,7 +94,7 @@ export function buildFocusSystemSnapshot(page, { id = "", sourcePageUuid = null 
         },
         defeatEffect:    sys.defeatEffect ?? "",
         targetProgress:  Number(sys.targetProgress) || 0,
-        supportSkillKey: sys.supportSkillKey ?? "",
+        supportSkillKeys: [...(sys.supportSkillKeys ?? [])],
         rows:            (sys.rows ?? []).map(r => ({
             id:          r.id ?? "",
             threshold:   Number(r.threshold) || 0,

@@ -1,87 +1,27 @@
-<div class="rl-request-body">
+<section class="tnx-focus-system-sheet__body">
 
-    {{!-- 読み込み元（FS判定シート／手動設定） --}}
-    <div class="form-group rl-form-group">
-        <label class="rl-label">読み込み元</label>
-        <select name="sourcePageUuid" class="rl-select">
-            <option value="">手動設定</option>
-            {{#each pageGroups}}
-                <optgroup label="{{this.label}}">
-                    {{#each this.pages}}
-                        <option value="{{this.uuid}}">{{this.name}}</option>
-                    {{/each}}
-                </optgroup>
-            {{/each}}
-        </select>
-    </div>
-
-    <div class="form-group rl-form-group">
-        <label class="rl-label">名称</label>
-        <input type="text" name="name" class="rl-input" value="">
-    </div>
-
-    <div class="form-group rl-form-group">
-        <label class="rl-label">制限</label>
-        <input type="text" name="restriction" class="rl-input" value="" placeholder="参加条件（省略可）">
-    </div>
-
-    <div class="form-group rl-form-group">
-        <label class="rl-label">目標進行値</label>
-        <div class="number-input-spinner">
-            <button type="button" class="tnx-btn" data-action="decrement" aria-label="減少">−</button>
-            <input type="number" name="targetProgress" value="0" min="0" max="99">
-            <button type="button" class="tnx-btn" data-action="increment" aria-label="増加">＋</button>
+    <div class="fs-grid">
+        <div class="form-group">
+            <label>読み込み元</label>
+            <select name="sourceUuid">
+                <option value="">手動設定</option>
+                {{#each sources}}
+                    <option value="{{this.uuid}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
+                {{/each}}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>名称</label>
+            <input type="text" name="name" value="{{name}}">
         </div>
     </div>
 
-    <div class="form-group rl-form-group">
-        <label class="rl-label">敗北条件</label>
-        <select name="defeatType" class="rl-select fs-start-defeat-type">
-            {{#each defeatTypes}}
-                <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
-            {{/each}}
-        </select>
-    </div>
+    {{> "systems/tokyo-nova-axleration/templates/parts/focus-system-editor.hbs"}}
 
-    <div class="form-group rl-form-group fs-start-defeat-cut">
-        <label class="rl-label">敗北カット数</label>
-        <div class="number-input-spinner">
-            <button type="button" class="tnx-btn" data-action="decrement" aria-label="減少">−</button>
-            <input type="number" name="cutLimit" value="0" min="0" max="99">
-            <button type="button" class="tnx-btn" data-action="increment" aria-label="増加">＋</button>
-        </div>
-    </div>
-
-    <div class="form-group rl-form-group fs-start-defeat-other" hidden>
-        <label class="rl-label">敗北条件の内容</label>
-        <input type="text" name="defeatText" class="rl-input" value="">
-    </div>
-
-    <div class="form-group rl-form-group">
-        <label class="rl-label">敗北時の処理</label>
-        <input type="text" name="defeatEffect" class="rl-input" value="" placeholder="（省略可）">
-    </div>
-
-    <div class="form-group rl-form-group">
-        <label class="rl-label">支援判定の技能</label>
-        <select name="supportSkillKey" class="rl-select">
-            <option value="">（指定なし）</option>
-            {{#each skillGroups}}
-                <optgroup label="{{this.label}}">
-                    {{#each this.skills}}
-                        <option value="{{this.identificationKey}}">{{this.name}}</option>
-                    {{/each}}
-                </optgroup>
-            {{/each}}
-        </select>
-    </div>
-
-    <p class="fs-start-note">判定行は読み込み元のFS判定シートから取り込まれます。</p>
-
-    <footer class="rl-form-footer">
-        <button type="submit" class="tnx-btn tnx-btn--primary rl-submit-btn">
+    <footer class="fs-start-footer">
+        <button type="submit" class="tnx-btn tnx-btn--primary">
             <i class="fas fa-play"></i> FS判定を開始
         </button>
     </footer>
 
-</div>
+</section>

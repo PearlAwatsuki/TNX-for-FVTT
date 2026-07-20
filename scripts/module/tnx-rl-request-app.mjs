@@ -20,6 +20,14 @@ import { enumerateRequestComboCandidates, buildRequestUsageChoices } from './usa
 import { loadGroupedGeneralSkillChoices, loadSkillEntries, SKILL_PACKS } from './skill-dictionary.mjs';
 import { listCheckRequestPresets, presetLabel, checkRequestPresetToForm } from './request-presets.mjs';
 import { bindTargetPicker } from './target-picker.mjs';
+
+/** 識別キー → 〈技能名〉(辞典に無ければキーのまま)。 */
+async function requestSkillLabel(key) {
+    if (!key) return "";
+    const entries = await loadSkillEntries(SKILL_PACKS.general);
+    const hit = entries.find(s => s.identificationKey === key);
+    return hit?.name ? formatSkillName(hit.name) : key;
+}
 import { toCheckRequestTargets } from './target-picker-logic.mjs';
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -74,9 +82,13 @@ export function checkTypeOptions(selected = "") {
  */
 export async function postCheckRequest({
     checkType = "skillCheck", identificationKey = "", skillLabel = "",
+    identificationKeys = null,
     validSuits = [], targetValue = null, targetValueHidden = false,
     description = "", targets = [], extra = {},
 } = {}) {
+    // 指定技能は複数ありうる(FS判定の支援判定=2026-07-21)。単数の呼び出しはそのまま通す
+    const keys = identificationKeys?.length ? [...identificationKeys]
+               : (identificationKey ? [identificationKey] : []);
     const content = await foundry.applications.handlebars.renderTemplate(
         "systems/tokyo-nova-axleration/templates/chat/check-request.hbs",
         {
@@ -96,7 +108,8 @@ export async function postCheckRequest({
             "tokyo-nova-axleration": {
                 checkRequest: {
                     checkType,
-                    identificationKey: identificationKey || null,
+                    identificationKey: keys[0] ?? null,
+                    identificationKeys: keys,
                     skillLabel,
                     validSuits,
                     targetValue,
@@ -322,21 +335,31 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
         // 代用判定(2026-07-09): 指定技能を持たなくてもハードブロックせず、別技能で代用できる
         // (可否・ペナルティの裁定は卓=修正は判定者が手入力)。組み合わせの可否はユーザー/RL が決める。
         // ※能力値判定・制御判定・技能名のみ(識別キー無し)の要求は技能アイテムを起動しないため直接 open。
-        if (checkType === "skillCheck" && identificationKey) {
-            const matchedItem = findItemByIdentificationKey(actor, identificationKey, { type: "generalSkill" });
+        // 指定技能が複数の要求(FS判定の支援判定)は、どの技能で応じるかを先に選ぶ。
+        // 選んだ後は単数の要求と全く同じ経路を通る(KI-025 の二段階化には手を入れない)
+        const requestKeys = flagData.identificationKeys?.length
+            ? flagData.identificationKeys
+            : (identificationKey ? [identificationKey] : []);
+        if (checkType === "skillCheck" && requestKeys.length) {
+            const chosenKey = requestKeys.length === 1
+                ? requestKeys[0]
+                : await TnxRlRequestApp._promptDesignatedSkill(requestKeys);
+            if (!chosenKey) return;
+            const chosenLabel = await requestSkillLabel(chosenKey);
+            const matchedItem = findItemByIdentificationKey(actor, chosenKey, { type: "generalSkill" });
             // KI-025(2026-07-19): 指定技能を参加技能(ベース/組み合わせ)に含む他アイテムの用途も
             // 応答候補に列挙する(組み合わせ判定は要求への正当な応答=2026-07-17 ユーザー指摘。
             // 代用判定(卓裁定つき)へ誤誘導しない)。起動は唯一の起動関数へ用途 ID 直接指定で委譲
-            const comboCandidates = enumerateRequestComboCandidates(actor, identificationKey,
+            const comboCandidates = enumerateRequestComboCandidates(actor, chosenKey,
                 { excludeItemId: matchedItem?.id ?? "" });
             const choice = await TnxRlRequestApp._promptSkillUse(actor,
-                { matchedItem, requestedLabel: skillLabel, comboCandidates });
+                { matchedItem, requestedLabel: chosenLabel, comboCandidates });
             if (!choice) return;
             const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
             const extra = { requestMessageId: messageId, targetValue: targetValue ?? null };
             if (choice.usageId) extra.usageId = choice.usageId;
             if (choice.substitute) {
-                extra.substitution = { requestedLabel: skillLabel, usedName: choice.item.name };
+                extra.substitution = { requestedLabel: chosenLabel, usedName: choice.item.name };
                 extra.manualMod = choice.manualMod;
             }
             await TnxCharacterSheetBase._activateItemCheck(actor, choice.item, extra);
@@ -402,6 +425,31 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
         }
 
         return TnxRlRequestApp._promptSubstitution(actor, { matchedItem, requestedLabel });
+    }
+
+    /**
+     * 指定技能が複数ある要求で、どの技能で応じるかを選ばせる(2026-07-21)。
+     * @param {Array<string>} keys 識別キー
+     * @returns {Promise<?string>} null=キャンセル
+     */
+    static async _promptDesignatedSkill(keys) {
+        const esc = foundry.utils.escapeHTML;
+        const labels = await Promise.all(keys.map(k => requestSkillLabel(k)));
+        const options = keys
+            .map((k, i) => `<option value="${esc(k)}">${esc(labels[i])}</option>`).join("");
+        const res = await foundry.applications.api.DialogV2.wait({
+            window: { title: "指定技能を選択" },
+            classes: ["tokyo-nova", "tnx-dialog"],
+            position: { width: 360 },
+            content: `<div class="form-group"><label>判定に使う技能</label><select name="skillKey">${options}</select></div>`,
+            buttons: [
+                { action: "ok", icon: "fas fa-diamond", label: "この技能で判定", default: true,
+                  callback: (_e, _b, dialog) => dialog.element.querySelector('[name="skillKey"]')?.value ?? "" },
+                { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+            ],
+            close: () => null,
+        });
+        return res || null;
     }
 
     /**

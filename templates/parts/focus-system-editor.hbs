@@ -1,0 +1,171 @@
+{{!-- FS判定エディタ（FS判定シートと起動フォームで共用・2026-07-21）。
+      配置は紙のシートの位置ではなくコントロールの性質で決める:
+      ①概要=ラベル+入力の対 → 2カラム ②支援判定=可変長リスト → 独立ブロック
+      ③判定行=互いに比較するレコード → 全幅の表 ④メモ=全幅 --}}
+<div class="fs-editor">
+
+    {{!-- ① 概要 --}}
+    <fieldset class="tnx-fieldset">
+        <legend>概要</legend>
+        <div class="fs-grid">
+            <div class="form-group">
+                <label>制限</label>
+                <input type="text" name="restriction" value="{{fs.restriction}}" placeholder="参加条件（省略可）">
+            </div>
+            <div class="form-group">
+                <label>目標進行値</label>
+                <div class="number-input-spinner">
+                    <button type="button" class="tnx-btn" data-action="fsSpinDown" aria-label="減少">−</button>
+                    <input type="number" name="targetProgress" value="{{fs.targetProgress}}" min="0" max="999">
+                    <button type="button" class="tnx-btn" data-action="fsSpinUp" aria-label="増加">＋</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>敗北条件</label>
+                <select name="defeatType" class="fs-defeat-type">
+                    {{#each defeatTypes}}
+                        <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                    {{/each}}
+                </select>
+            </div>
+            <div class="form-group fs-defeat-cut">
+                <label>敗北カット数</label>
+                <div class="number-input-spinner">
+                    <button type="button" class="tnx-btn" data-action="fsSpinDown" aria-label="減少">−</button>
+                    <input type="number" name="cutLimit" value="{{fs.defeatCondition.cutLimit}}" min="0" max="999">
+                    <button type="button" class="tnx-btn" data-action="fsSpinUp" aria-label="増加">＋</button>
+                </div>
+            </div>
+            <div class="form-group fs-defeat-other">
+                <label>敗北条件の内容</label>
+                <input type="text" name="defeatText" value="{{fs.defeatCondition.text}}">
+            </div>
+            <div class="form-group">
+                <label>敗北時の処理</label>
+                <input type="text" name="defeatEffect" value="{{fs.defeatEffect}}" placeholder="（省略可）">
+            </div>
+        </div>
+    </fieldset>
+
+    {{!-- ② 支援判定の指定技能（複数） --}}
+    <fieldset class="tnx-fieldset">
+        <legend>支援判定の技能</legend>
+        <div class="fs-support-list">
+            {{#each supportRows}}
+                <div class="fs-support-row" data-key="{{this.key}}">
+                    <span class="fs-support-name">{{this.name}}</span>
+                    {{#if ../editable}}
+                        <a class="tnx-icon-ctrl" data-action="fsSupportDelete" data-key="{{this.key}}"
+                           title="削除"><i class="fas fa-times"></i></a>
+                    {{/if}}
+                </div>
+            {{else}}
+                <p class="fs-empty">（指定なし）</p>
+            {{/each}}
+        </div>
+        {{#if editable}}
+            <select class="fs-support-add">
+                <option value="">── 支援判定の技能を追加 ──</option>
+                {{#each supportChoices}}
+                    <optgroup label="{{this.label}}">
+                        {{#each this.skills}}
+                            <option value="{{this.identificationKey}}">{{this.name}}</option>
+                        {{/each}}
+                    </optgroup>
+                {{/each}}
+            </select>
+        {{/if}}
+    </fieldset>
+
+    {{!-- ③ 判定行 --}}
+    <fieldset class="tnx-fieldset">
+        <legend>判定行</legend>
+        <div class="fs-row-table-wrap">
+            <table class="fs-row-table">
+                <thead>
+                    <tr>
+                        <th class="fs-col-threshold">進行値</th>
+                        <th class="fs-col-skill">技能</th>
+                        <th class="fs-col-target">目標値</th>
+                        <th class="fs-col-mod">進行修正</th>
+                        <th class="fs-col-note">備考</th>
+                        <th class="fs-col-ctrl"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{#each rows}}
+                        <tr class="fs-row" data-index="{{this.index}}" data-row-id="{{this.id}}">
+                            <td>
+                                <div class="number-input-spinner">
+                                    <button type="button" class="tnx-btn" data-action="fsSpinDown" aria-label="減少">−</button>
+                                    <input type="number" name="threshold" value="{{this.threshold}}" min="0" max="999">
+                                    <button type="button" class="tnx-btn" data-action="fsSpinUp" aria-label="増加">＋</button>
+                                </div>
+                            </td>
+                            <td>
+                                <select name="skillKey">
+                                    <option value="">（指定なし）</option>
+                                    {{#each this.skillGroups}}
+                                        <optgroup label="{{this.label}}">
+                                            {{#each this.skills}}
+                                                <option value="{{this.identificationKey}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
+                                            {{/each}}
+                                        </optgroup>
+                                    {{/each}}
+                                </select>
+                            </td>
+                            <td>
+                                <div class="number-input-spinner">
+                                    <button type="button" class="tnx-btn" data-action="fsSpinDown" aria-label="減少">−</button>
+                                    <input type="number" name="targetValue" value="{{this.targetValue}}" min="0" max="99">
+                                    <button type="button" class="tnx-btn" data-action="fsSpinUp" aria-label="増加">＋</button>
+                                </div>
+                            </td>
+                            <td>
+                                {{!-- 参照元＝なし の行はパラメータも式も使わないので、セルはプルダウン1つに収まる --}}
+                                <select name="modSource" class="fs-mod-source">
+                                    {{#each this.sources}}
+                                        <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                                    {{/each}}
+                                </select>
+                                <div class="fs-mod-detail" {{#unless this.hasParam}}hidden{{/unless}}>
+                                    <select name="modParam">
+                                        {{#each this.paramGroups}}
+                                            <optgroup label="{{this.label}}">
+                                                {{#each this.params}}
+                                                    <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                                                {{/each}}
+                                            </optgroup>
+                                        {{/each}}
+                                    </select>
+                                    <input type="text" name="modFormula" value="{{this.progressMod.formula}}" placeholder="@param">
+                                </div>
+                            </td>
+                            <td><input type="text" name="note" value="{{this.note}}"></td>
+                            <td class="fs-row-ctrl">
+                                {{#if ../editable}}
+                                    <i class="fas fa-grip-vertical fs-row-grip" draggable="true" title="ドラッグで並び替え"></i>
+                                    <a class="tnx-icon-ctrl" data-action="fsRowDelete" title="削除"><i class="fas fa-trash"></i></a>
+                                {{/if}}
+                            </td>
+                        </tr>
+                    {{else}}
+                        <tr class="fs-row-empty"><td colspan="6">判定行がありません</td></tr>
+                    {{/each}}
+                </tbody>
+            </table>
+        </div>
+        {{#if editable}}
+            <button type="button" class="tnx-btn tnx-btn--sm" data-action="fsRowAdd">
+                <i class="fas fa-plus"></i> 判定行を追加
+            </button>
+        {{/if}}
+    </fieldset>
+
+    {{!-- ④ メモ --}}
+    <fieldset class="tnx-fieldset">
+        <legend>メモ</legend>
+        <textarea name="memo" rows="3">{{fs.memo}}</textarea>
+    </fieldset>
+
+</div>

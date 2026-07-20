@@ -82,45 +82,49 @@ describe("gaugeMarkers()（進行値ゲージの切り替わりポイント）",
 });
 
 describe("buildFocusSystemSnapshot()（起動時のスナップショット）", () => {
-  const page = {
+  // FS判定シートは JournalEntry のシート（アクトシートと同じ持ち方）で、設定は flags 側にある。
+  // スナップショットは「名前＋設定」を受け取る（2026-07-21 是正）
+  const sheet = {
     name: "ハッキング",
-    system: {
+    data: {
       restriction: "タップを準備していること",
       defeatCondition: { type: "cut", text: "", cutLimit: 6 },
       defeatEffect: "肉体ダメージ10",
       targetProgress: 20,
-      supportSkillKey: "info",
+      supportSkillKeys: ["info", "negotiation"],
       rows: ROWS,
       memo: "メモ",
     },
   };
 
-  it("ページ名を FS 名として取り込む", () => {
-    expect(buildFocusSystemSnapshot(page).name).toBe("ハッキング");
+  it("シート名を FS 名として取り込む", () => {
+    expect(buildFocusSystemSnapshot(sheet).name).toBe("ハッキング");
   });
 
   it("設定を写し取り、進行状態を0から始める", () => {
-    const s = buildFocusSystemSnapshot(page);
+    const s = buildFocusSystemSnapshot(sheet);
     expect(s.targetProgress).toBe(20);
-    expect(s.supportSkillKey).toBe("info");
+    expect(s.supportSkillKeys).toEqual(["info", "negotiation"]);
     expect(s.rows).toHaveLength(4);
     expect(s.progress).toBe(0);
     expect(s.cut).toBe(0);
   });
 
-  it("読み込み元のページを記録する（手動設定なら null）", () => {
-    expect(buildFocusSystemSnapshot(page, { sourcePageUuid: "JournalEntry.a.JournalEntryPage.b" }).sourcePageUuid)
-      .toBe("JournalEntry.a.JournalEntryPage.b");
-    expect(buildFocusSystemSnapshot(page).sourcePageUuid).toBeNull();
+  it("読み込み元を記録する（手動設定なら null）", () => {
+    expect(buildFocusSystemSnapshot(sheet, { sourceUuid: "JournalEntry.a" }).sourceUuid)
+      .toBe("JournalEntry.a");
+    expect(buildFocusSystemSnapshot(sheet).sourceUuid).toBeNull();
   });
 
   it("id を持つ（実行中 FS の識別）", () => {
-    expect(buildFocusSystemSnapshot(page, { id: "fs1" }).id).toBe("fs1");
+    expect(buildFocusSystemSnapshot(sheet, { id: "fs1" }).id).toBe("fs1");
   });
 
-  it("ページを編集しても実行中の FS は変わらない（値のコピーであること）", () => {
-    const s = buildFocusSystemSnapshot(page);
+  it("シートを編集しても実行中の FS は変わらない（値のコピーであること）", () => {
+    const s = buildFocusSystemSnapshot(sheet);
     s.rows[0].threshold = 99;
-    expect(page.system.rows[0].threshold).toBe(0);
+    s.supportSkillKeys.push("x");
+    expect(sheet.data.rows[0].threshold).toBe(0);
+    expect(sheet.data.supportSkillKeys).toEqual(["info", "negotiation"]);
   });
 });

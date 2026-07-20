@@ -6,7 +6,6 @@ import { computeTroopFixedName, findDepartmentSkillName } from './data/helpers.m
 import { defaultWeaponKindForCategory } from './data/item/common/outfit-base.mjs';
 import { canonicalizeSkillActions } from './module/usage-type-migration.mjs';
 import { CastDataModel } from './data/actor/cast.mjs';
-import { FocusSystemDataModel } from './data/journal/focus-system.mjs';
 import { GuestDataModel } from './data/actor/guest.mjs';
 import { TroopDataModel } from './data/actor/troop.mjs';
 import { ExtraDataModel } from './data/actor/extra.mjs';
@@ -61,6 +60,7 @@ import { renderBountyGrantCard } from './module/bounty-grant.mjs';
 import { openFocusSystemPanel } from './module/tnx-focus-system-panel.mjs';
 import { registerFocusSystemSetting } from './module/focus-system-state.mjs';
 import { registerEffectScratchHiding } from './module/effect-authoring.mjs';
+import { FOCUS_SYSTEM_FLAG, defaultFocusSystemData } from './module/focus-system-data.mjs';
 import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
 import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
@@ -86,8 +86,8 @@ async function preloadHandlebarsTemplates() {
 
         // === Journal Sheets ===
         "systems/tokyo-nova-axleration/templates/journal/scenario-sheet.hbs",
-        "systems/tokyo-nova-axleration/templates/journal/focus-system-edit.hbs",
-        "systems/tokyo-nova-axleration/templates/journal/focus-system-view.hbs",
+        "systems/tokyo-nova-axleration/templates/journal/focus-system-sheet.hbs",
+        "systems/tokyo-nova-axleration/templates/parts/focus-system-editor.hbs",
 
         // === Chat ===
         // 判定結果系カードの基底部品(2026-07-19 基底化): 全カードが参照するためパーシャルとして先読み
@@ -1001,12 +1001,6 @@ Hooks.once("init", async function() {
       styleSkill:   StyleSkillDataModel,
     };
 
-    // JournalEntryPage DataModel の登録(フェーズ12-5: FS判定シート)
-    CONFIG.JournalEntryPage.dataModels = {
-      ...(CONFIG.JournalEntryPage.dataModels ?? {}),
-      focusSystem: FocusSystemDataModel,
-    };
-
     // Card DataModel の登録(B-8: 全 3 type 登録完了)
     CONFIG.Card.dataModels = {
       playingCards: PlayingCardsDataModel,
@@ -1127,10 +1121,12 @@ Hooks.once("init", async function() {
     });
 
     // FS判定シート(フェーズ12-5): JournalEntryPage 型 focusSystem の専用シート
-    foundry.applications.apps.DocumentSheetConfig.registerSheet(
-        foundry.documents.JournalEntryPage, "tokyo-nova", TnxFocusSystemSheet,
-        { types: ["focusSystem"], makeDefault: true, label: "TNX FS判定シート" }
-    );
+    // FS判定シート(2026-07-21 是正): JournalEntry のシート。JournalEntry はサブタイプを
+    // 持てないため、アクトシートと同じく「選択可能なシート＋flags」で表す
+    foundry.documents.collections.Journal.registerSheet("tokyo-nova", TnxFocusSystemSheet, {
+        makeDefault: false,
+        label: "FS判定シート",
+    });
 
     // ドロー表: コア RollTable のカードドロー拡張（シート置換なし・フック注入のみ）
     registerDrawTableHooks();
@@ -1296,26 +1292,36 @@ Hooks.once("init", async function() {
         const createEntryButton = html.querySelector('[data-action="createEntry"]');
         if (!createEntryButton) return;
 
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'tnx-create-act-button';
-        button.innerHTML = '<i class="fas fa-file-medical"></i><span>アクトシートを作成</span>';
-        button.addEventListener('click', async () => {
-            const newJournal = await JournalEntry.create({
-                name: "新規アクトシート",
-                flags: {
-                    core: {
-                        sheetClass: `tokyo-nova.${TnxScenarioSheet.name}`
-                    }
-                }
+        /** シートクラスを指定してジャーナルを作り、開く。 */
+        const makeCreateButton = (label, icon, className, name, sheetClass, extraFlags = {}) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = className;
+            button.innerHTML = `<i class="fas ${icon}"></i><span>${label}</span>`;
+            button.addEventListener('click', async () => {
+                const newJournal = await JournalEntry.create({
+                    name,
+                    flags: { core: { sheetClass }, ...extraFlags },
+                });
+                newJournal?.sheet.render(true);
             });
-            newJournal?.sheet.render(true);
-        });
+            return button;
+        };
 
         // .action-buttons 内に追加し、flex-wrap で 2 段目に折り返させる（幅が自動で揃う）
         const actionsRow = createEntryButton.closest('.action-buttons') ?? createEntryButton.parentElement;
         actionsRow.style.flexWrap = 'wrap';
-        actionsRow.appendChild(button);
+        actionsRow.appendChild(makeCreateButton(
+            'アクトシートを作成', 'fa-file-medical', 'tnx-create-act-button',
+            '新規アクトシート', `tokyo-nova.${TnxScenarioSheet.name}`,
+        ));
+        // FS判定シート: 空の設定フラグを入れて作る(これが「FS判定シートである」印になり、
+        // 起動フォームの読み込み元の絞り込みに使われる)
+        actionsRow.appendChild(makeCreateButton(
+            'FS判定シートを作成', 'fa-bullseye', 'tnx-create-act-button',
+            '新規FS判定', `tokyo-nova.${TnxFocusSystemSheet.name}`,
+            { [FOCUS_SYSTEM_FLAG.scope]: { [FOCUS_SYSTEM_FLAG.key]: defaultFocusSystemData() } },
+        ));
     });
 
     Hooks.on("preCreateActor", (actor, data, options, userId) => {

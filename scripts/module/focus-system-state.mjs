@@ -47,12 +47,12 @@ function assertGM() {
 /**
  * FS判定を開始する(ページの内容をスナップショットとして取り込む)。
  * @param {{name:string, system:object}} page FS判定ページ相当のデータ
- * @param {{sourcePageUuid?:?string}} [opts]
+ * @param {{sourceUuid?:?string}} [opts]
  * @returns {Promise<?object>} 追加した実行中 FS
  */
-export async function startFocusSystem(page, { sourcePageUuid = null } = {}) {
+export async function startFocusSystem(source, { sourceUuid = null } = {}) {
     if (!assertGM()) return null;
-    const fs = buildFocusSystemSnapshot(page, { id: foundry.utils.randomID(), sourcePageUuid });
+    const fs = buildFocusSystemSnapshot(source, { id: foundry.utils.randomID(), sourceUuid });
     await game.settings.set(SCOPE, SETTING, [...listActiveFocusSystems(), fs]);
     return fs;
 }

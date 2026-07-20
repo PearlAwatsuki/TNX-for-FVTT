@@ -212,9 +212,6 @@
             "playingCards": { "htmlFields": ["description"] },
             "neuroCards":   { "htmlFields": ["description"] },
             "other":        { "htmlFields": ["description"] }
-        },
-        "JournalEntryPage": {
-            "focusSystem": {}
         }
     },
     "socket": true,

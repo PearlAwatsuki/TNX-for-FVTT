@@ -8,11 +8,11 @@
  */
 
 import { listActiveFocusSystems, getActiveFocusSystem, startFocusSystem, updateFocusSystem, endFocusSystem } from "./focus-system-state.mjs";
-import { activeProgressRow, clampGauge, gaugeMarkers, defeatConditionOptions } from "./focus-system-logic.mjs";
-import { loadGroupedGeneralSkillChoices, loadSkillEntries, SKILL_PACKS } from "./skill-dictionary.mjs";
+import { activeProgressRow, clampGauge, gaugeMarkers } from "./focus-system-logic.mjs";
+import { loadSkillEntries, SKILL_PACKS } from "./skill-dictionary.mjs";
 import { formatSkillName } from "./identification.mjs";
-import { spinnerDialogActions } from "./tnx-dialog.mjs";
 import { requestFocusSystemCheck } from "./focus-system-request.mjs";
+import { TnxFocusSystemStartApp } from "./focus-system-start-app.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -25,20 +25,6 @@ async function skillLabeler() {
         const hit = entries.find(s => s.identificationKey === key);
         return hit?.name ? formatSkillName(hit.name) : "";
     };
-}
-
-/** ワールドの FS判定ページを、所属ジャーナル名のグループで列挙する。 */
-export function listFocusSystemPages() {
-    const groups = [];
-    for (const journal of game.journal) {
-        const pages = journal.pages.filter(p => p.type === "focusSystem");
-        if (!pages.length) continue;
-        groups.push({
-            label: journal.name,
-            pages: pages.map(p => ({ uuid: p.uuid, name: p.name })),
-        });
-    }
-    return groups;
 }
 
 export class TnxFocusSystemPanel extends HandlebarsApplicationMixin(ApplicationV2) {
@@ -86,7 +72,7 @@ export class TnxFocusSystemPanel extends HandlebarsApplicationMixin(ApplicationV
                 progressPercent: fs.targetProgress > 0 ? Math.round((progress / fs.targetProgress) * 100) : 0,
                 cutPercent:      cutLimit > 0 ? Math.round((cut / cutLimit) * 100) : 0,
                 markers:         gaugeMarkers(fs.rows, fs.targetProgress),
-                supportSkillLabel: label(fs.supportSkillKey),
+                supportSkillLabels: (fs.supportSkillKeys ?? []).map(k => label(k)).filter(Boolean),
                 activeRow:       row ? { ...row, skillLabel: label(row.skillKey) || "（指定なし）" } : null,
             };
         });
@@ -153,99 +139,17 @@ export class TnxFocusSystemPanel extends HandlebarsApplicationMixin(ApplicationV
     // ─── 起動 ────────────────────────────────────────────────────────────────
 
     static async _onStartNew(_event, _target) {
-        const page = await TnxFocusSystemPanel._promptStart();
-        if (!page) return;
-        const fs = await startFocusSystem(page.data, { sourcePageUuid: page.sourcePageUuid });
-        if (!fs) return;
-        await postFocusSystemStartCard(fs);
-        this.render();
-    }
-
-    /**
-     * 起動フォーム(判定要求ダイアログを踏襲)。読み込み元プルダウンで FS判定ページを選ぶと
-     * 各欄が自動投入され、そのまま手で直せる。判定行はページから取り込む。
-     * @returns {Promise<?{data:object, sourcePageUuid:?string}>}
-     */
-    static async _promptStart() {
-        const content = await foundry.applications.handlebars.renderTemplate(
-            "systems/tokyo-nova-axleration/templates/app/focus-system-start.hbs",
-            {
-                pageGroups:  listFocusSystemPages(),
-                skillGroups: await loadGroupedGeneralSkillChoices(),
-                defeatTypes: defeatConditionOptions("cut"),
-            }
-        );
-
-        // 読み込み元を選んだ時点で各欄へ流し込む(判定行はここで保持し、送信時に使う)
-        let loadedRows = [];
-        const applyPage = async (el, uuid) => {
-            const page = uuid ? await fromUuid(uuid) : null;
-            const sys  = page?.system;
-            loadedRows = sys ? foundry.utils.deepClone(sys.rows ?? []) : [];
-            const set = (name, value) => {
-                const input = el.querySelector(`[name="${name}"]`);
-                if (input) input.value = value ?? "";
-            };
-            set("name",            page?.name ?? "");
-            set("restriction",     sys?.restriction ?? "");
-            set("targetProgress",  sys?.targetProgress ?? 0);
-            set("defeatType",      sys?.defeatCondition?.type ?? "cut");
-            set("cutLimit",        sys?.defeatCondition?.cutLimit ?? 0);
-            set("defeatText",      sys?.defeatCondition?.text ?? "");
-            set("defeatEffect",    sys?.defeatEffect ?? "");
-            set("supportSkillKey", sys?.supportSkillKey ?? "");
-            syncDefeat(el);
-        };
-        const syncDefeat = (el) => {
-            const isCut = (el.querySelector('[name="defeatType"]')?.value ?? "cut") === "cut";
-            el.querySelector(".fs-start-defeat-cut")?.toggleAttribute("hidden", !isCut);
-            el.querySelector(".fs-start-defeat-other")?.toggleAttribute("hidden", isCut);
-        };
-
-        const result = await foundry.applications.api.DialogV2.wait({
-            window: { title: "FS判定を開始" },
-            classes: ["tokyo-nova", "tnx-dialog", "tnx-rl-request"],
-            position: { width: 460 },
-            content,
-            actions: spinnerDialogActions,
-            render: (_event, dialog) => {
-                const el = dialog.element;
-                el.querySelector('[name="sourcePageUuid"]')
-                    ?.addEventListener("change", (e) => applyPage(el, e.target.value));
-                el.querySelector('[name="defeatType"]')
-                    ?.addEventListener("change", () => syncDefeat(el));
+        const panel = this;
+        new TnxFocusSystemStartApp({
+            onStart: async (source, sourceUuid) => {
+                const fs = await startFocusSystem(source, { sourceUuid });
+                if (!fs) return;
+                await postFocusSystemStartCard(fs);
+                panel.render();
             },
-            buttons: [
-                { action: "ok", icon: "fas fa-play", label: "FS判定を開始", default: true,
-                  callback: (_e, _b, dialog) => {
-                      const el = dialog.element;
-                      const v = (name) => el.querySelector(`[name="${name}"]`)?.value ?? "";
-                      return {
-                          sourcePageUuid: v("sourcePageUuid") || null,
-                          data: {
-                              name: v("name").trim() || "FS判定",
-                              system: {
-                                  restriction:     v("restriction").trim(),
-                                  targetProgress:  Number(v("targetProgress")) || 0,
-                                  defeatCondition: {
-                                      type:     v("defeatType"),
-                                      text:     v("defeatText").trim(),
-                                      cutLimit: Number(v("cutLimit")) || 0,
-                                  },
-                                  defeatEffect:    v("defeatEffect").trim(),
-                                  supportSkillKey: v("supportSkillKey"),
-                                  rows:            loadedRows,
-                                  memo:            "",
-                              },
-                          },
-                      };
-                  } },
-                { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
-            ],
-            close: () => null,
-        });
-        return result ?? null;
+        }).render(true);
     }
+
 }
 
 /**
