@@ -8,22 +8,45 @@
  *
  * 消費先の種別(consumeTargets[].type・2026-07-18 再編):
  *   "item"        - アイテムの資源を消費。itemId 空="このアイテム自身"(用途の親)・値=同アクター内 Item ID。
- *                   resource="uses"(使用回数=uses.spent。神業・射撃武器の弾数も同じ uses に一本化)。
+ *                   resource="uses"(使用回数。神業も同じ) / "ammo"(残弾=射撃武器の弾数)。
  *   "actionRank"  - 実行アクターの AR(2026-07-12 ユーザー確定)。パリー等「AR を消費する」能力の
  *                   表現で、旧パリー専用の自動 AR−1 を置換=AR 消費もこの設定からのみ発生する。
  *                   **カット進行外は AR を消費できないため原則使用不可**(消費要求は進行外でも生きる・
  *                   支払えない=原則ブロック。チェックを外せば卓裁定で実行可)。
  *                   分身でも本体へ差し替えない(AR は実行アクター自身の戦闘リソース)。
- *   **負の量=回復**。リロード用途(タイミング: マイナー+使用回数へのマイナス消費)はこれで表現する
- *   (2026-07-19 ユーザー確定で残弾を廃止し、射撃武器の弾数も使用回数へ一本化)。
+ *   **負の量=回復**。リロード用途(タイミング: マイナー+残弾へのマイナス消費)はこれで表現する。
  *
- * カウンター種別(kind): "uses"=uses.spent 加算(神業も同じ) / "ar"=actionRank.value 減算(アクター更新)。
+ * アイテムの資源は**使用回数と残弾の2つ**(2026-07-19 ユーザー裁定)。「武器を使用して攻撃する」で
+ * 減る弾数と「アウトフィットを使用する」で減る使用回数はルール上まったく別の行為のため、
+ * 1つの武器が両方の制限を同時に持ちうる(一度 uses へ一本化したが、この共存を落としていたため撤回)。
+ * 2つは同じ形({isLimit, max, spent})を持つので、解決も適用も ITEM_RESOURCES の
+ * フィールド名差し替えで一本化する(分岐を二重に持たない)。
+ *
+ * カウンター種別(kind): "uses"/"ammo"=当該カウンターの spent 加算 / "ar"=actionRank.value 減算。
+ * 行の識別子(key)は `itemId:resource`——**同じアイテムの別資源が並びうる**ため itemId では
+ * 一意にならない(チェックボックスの照合・適用の合流はすべて key 基準)。
  * 行の解決(resolveConsumeRows)は Foundry 非依存の純粋関数。
  * ダイアログ(promptConsumption)と適用(applyConsumptionPlan)のみ Foundry に依存する。
  *
  * 分身の使用回数共有(Troops.md): 分身アクターでの消費は、所有者参照から本体側の同一
  * 識別キーのアイテムへ解決を差し替える(resolveConsumeRows の getItem 差し替えで実現)。
  */
+
+/**
+ * 消費できるアイテム資源(2026-07-19 再導入)。使用回数と残弾は**同じ形**
+ * ({isLimit, max, spent}・残り = max − spent)を持つため、解決も適用も
+ * フィールド名だけを差し替えた一本の経路で扱う(分岐を二重に持たない)。
+ * @type {Record<string, {field: string, label: string}>}
+ */
+const ITEM_RESOURCES = {
+    uses: { field: "uses", label: "使用回数" },
+    ammo: { field: "ammo", label: "残弾" },
+};
+
+/** 消費先行の資源キー(未知の値は使用回数へ倒す)。 */
+function resourceKeyOf(resource) {
+    return ITEM_RESOURCES[resource] ? resource : "uses";
+}
 
 /**
  * 参加技能から消費行を導出する(Foundry 非依存・11-6 追補・2026-07-06 承認)。
@@ -147,41 +170,54 @@ export function resolveConsumeRows(targets, { parentItem, getItem, actionRank = 
         if (type === "actionRank") {
             const inCombat = actionRank?.inCombat === true;
             return {
-                type, kind: "ar", amount, itemId: "@ar", label: "AR",
+                type, kind: "ar", amount, key: "@ar", itemId: "@ar", label: "AR",
                 remaining: inCombat ? Math.max(0, actionRank.value ?? 0) : 0,
                 maxDisplay: actionRank?.maxTotal ?? 0,
                 outOfCombat: !inCombat,
             };
         }
+        // 資源(2026-07-19): 使用回数(神業も同じ)/残弾。同型のため field 差し替えで解決する。
+        // key は行の識別子——**同じアイテムの別資源が並びうる**ため itemId では一意にならない
+        // (例: 射撃武器の攻撃用途が「残弾×1」と「使用回数×1」を同時に消費する)
+        const resource = resourceKeyOf(t.resource);
+        const res = ITEM_RESOURCES[resource];
         // type="item": itemId 空="このアイテム自身"(用途の親)・値=同アクター内アイテム
         const item = t.itemId ? (getItem?.(t.itemId) ?? null) : parentItem;
         if (!item) {
-            return { type, amount, itemId: t.itemId ?? "", label: "(対象が見つかりません)", problem: "notFound" };
+            return {
+                type, amount, resource, key: `${t.itemId ?? ""}:${resource}`, itemId: t.itemId ?? "",
+                label: "(対象が見つかりません)", problem: "notFound",
+            };
         }
-        // 使用回数(resource="uses"): 神業も射撃武器の弾数も汎用 uses に一本化=特例なし
-        const u = item.system?.uses;
-        if (u?.isLimit !== true) {
-            return { type, amount, itemId: item.id, label: item.name, inert: true };
+        const key = `${item.id}:${resource}`;
+        const counter = item.system?.[res.field];
+        if (counter?.isLimit !== true) {
+            return { type, amount, resource, key, itemId: item.id, label: item.name, inert: true };
         }
-        const max = u.max ?? 0;
-        const remaining = Math.max(0, max - (u.spent ?? 0));
-        return { type, kind: "uses", amount, itemId: item.id, label: item.name, remaining, maxDisplay: max };
+        const max = counter.max ?? 0;
+        const remaining = Math.max(0, max - (counter.spent ?? 0));
+        return {
+            type, kind: resource, amount, resource, key, itemId: item.id, label: item.name,
+            resourceLabel: res.label, remaining, maxDisplay: max,
+        };
     });
 }
 
 /**
  * 解決済み行から消費プラン(適用可能な平データ)を組む(Foundry 非依存)。
- * チェック済み(checkedIds に itemId が含まれる)の消費可能行のみ。残量不足はエラーを返す。
+ * チェック済み(checkedKeys に行の key が含まれる)の消費可能行のみ。残量不足はエラーを返す。
+ * **照合は key**(=`itemId:resource`)——同じアイテムの使用回数と残弾が並ぶ場合があり、
+ * itemId で照合すると両方まとめてオン/オフされてしまう(2026-07-19 残弾の再導入で顕在化)。
  * @param {Array<object>} rows resolveConsumeRows の結果
- * @param {Set<string>} checkedIds 消費に同意した行の itemId 集合
+ * @param {Set<string>} checkedKeys 消費に同意した行の key 集合
  * @param {string} fallbackActorId 行に targetActorId が無い場合のアクター ID
  * @returns {{plan: Array<{actorId:string,itemId:string,kind:string,amount:number}>}|{shortage: object}}
  */
-export function buildConsumptionPlan(rows, checkedIds, fallbackActorId) {
+export function buildConsumptionPlan(rows, checkedKeys, fallbackActorId) {
     const plan = [];
     for (const row of rows) {
         if (row.inert || row.problem || !row.kind) continue;
-        if (!checkedIds.has(row.itemId)) continue;
+        if (!checkedKeys.has(row.key ?? row.itemId)) continue;
         if ((row.remaining ?? 0) < row.amount) return { shortage: row };
         plan.push({
             actorId: row.targetActorId ?? fallbackActorId,
@@ -215,21 +251,21 @@ export async function promptConsumption(actor, rows, { title = "使用回数の�
             const out = r.remaining < r.amount;
             const amountLabel = r.amount > 1 ? `×${r.amount}` : "";
             const sharedLabel = r.shared ? `（本体「${esc(r.sharedOwnerName)}」と共有）` : "";
-            // AR 行は「使用回数」でなくアクターの AR を消費する文言にする。
+            // AR 行は資源名でなくアクターの AR を消費する文言にする。
             // カット進行外は消費不可(残量 0 扱い=原則ブロック)である旨を残量欄に示す。
-            // 使用回数は消費(正)/回復(負)で文言を分ける——残弾の廃止(2026-07-19)で
-            // リロードも「使用回数へのマイナス消費」になったため、この分岐は uses 行が担う
+            // 資源名は行が持つ(使用回数/残弾)。消費(正)/回復(負=リロード等)で文言を分ける
+            const resLabel = esc(r.resourceLabel ?? "使用回数");
             const text = r.kind === "ar"
                 ? `AR を消費${amountLabel || "×1"}`
                 : r.amount < 0
-                    ? `「${esc(r.label)}」の使用回数を回復${r.amount < -1 ? `×${-r.amount}` : ""}${sharedLabel}`
-                    : `「${esc(r.label)}」の使用回数を消費${amountLabel}${sharedLabel}`;
+                    ? `「${esc(r.label)}」の${resLabel}を回復${r.amount < -1 ? `×${-r.amount}` : ""}${sharedLabel}`
+                    : `「${esc(r.label)}」の${resLabel}を消費${amountLabel}${sharedLabel}`;
             const count = r.kind === "ar" && r.outOfCombat
                 ? "カット進行外（消費不可）"
                 : `残り ${r.remaining}/${r.maxDisplay}`;
             return `<div class="tnx-uses-row">
                 <label>
-                    <input type="checkbox" name="consume" value="${esc(r.itemId)}" checked>
+                    <input type="checkbox" name="consume" value="${esc(r.key ?? r.itemId)}" checked>
                     <span>${text}</span>
                 </label>
                 <span class="tnx-uses-count${out ? " tnx-uses-out" : ""}">${count}</span>
@@ -269,7 +305,7 @@ export async function promptConsumption(actor, rows, { title = "使用回数の�
             ? (s.outOfCombat
                 ? "カット進行外のため AR を消費できません（AR を消費する能力はカット進行中にのみ使用できます）。消費チェックを外すと実行できます。"
                 : `AR が足りません（残り ${s.remaining}・消費 ${s.amount}）。消費チェックを外すと実行できます。`)
-            : `「${s.label}」の使用回数が足りません（残り ${s.remaining}・消費 ${s.amount}）。消費チェックを外すと実行できます。`);
+            : `「${s.label}」の${s.resourceLabel ?? "使用回数"}が足りません（残り ${s.remaining}・消費 ${s.amount}）。消費チェックを外すと実行できます。`);
         return null;
     }
     return built.plan;
@@ -295,18 +331,33 @@ export async function applyConsumptionPlan(plan) {
             const v = actor.system.actionRank?.value ?? 0;
             await actor.update({ "system.actionRank.value": Math.max(0, v - arAmount) });
         }
-        const updates = [];
+        // 資源(使用回数=神業も同じ / 残弾)は**アイテム×資源ごとに消費量を合算してから**一度だけ
+        // 適用する。1アイテムに複数行が並びうる(同アイテムの残弾と使用回数・同じ資源の複数行)ため、
+        // 行ごとに現在値から算出して push すると、後の行が前の行の結果を上書きしてしまう。
+        const amountByItemField = new Map();
         for (const row of rows) {
             if (row.kind === "ar") continue;
-            const item = actor.items.get(row.itemId);
-            if (!item) continue;
-            // 使用回数(神業・射撃武器の弾数も同じ uses に一本化)。max は実効値(AE込み)でクランプ。
-            // 負の消費数=回復(spent 減少・リロード等)も許容するため 0〜max でクランプ
-            const u = item.system.uses ?? {};
-            if (u.isLimit !== true) continue;
-            const nextSpent = Math.max(0, Math.min(u.max ?? 0, (u.spent ?? 0) + row.amount));
-            updates.push({ _id: item.id, "system.uses.spent": nextSpent });
+            const field = ITEM_RESOURCES[resourceKeyOf(row.kind)].field;
+            const mapKey = `${row.itemId}:${field}`;
+            amountByItemField.set(mapKey, (amountByItemField.get(mapKey) ?? 0) + (Number(row.amount) || 0));
         }
-        if (updates.length) await actor.updateEmbeddedDocuments("Item", updates);
+        // 1アイテムの複数資源は1件の更新に合流させる(同一 _id を並べない)
+        const updateById = new Map();
+        for (const [mapKey, amount] of amountByItemField) {
+            const sep = mapKey.lastIndexOf(":");
+            const itemId = mapKey.slice(0, sep);
+            const field  = mapKey.slice(sep + 1);
+            const item = actor.items.get(itemId);
+            if (!item) continue;
+            // max は実効値(AE込み)でクランプ。負の消費数=回復(spent 減少・リロード等)も
+            // 許容するため 0〜max でクランプ
+            const counter = item.system[field] ?? {};
+            if (counter.isLimit !== true) continue;
+            const nextSpent = Math.max(0, Math.min(counter.max ?? 0, (counter.spent ?? 0) + amount));
+            const update = updateById.get(itemId) ?? { _id: itemId };
+            update[`system.${field}.spent`] = nextSpent;
+            updateById.set(itemId, update);
+        }
+        if (updateById.size) await actor.updateEmbeddedDocuments("Item", [...updateById.values()]);
     }
 }

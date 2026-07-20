@@ -288,6 +288,30 @@
                                     </div>
                                 </div>
                             {{/if}}
+                            {{!-- 残弾(射撃武器のみ)。使用回数とは別資源で、同じ形(装弾数/撃った数)を持つ。
+                                 消費・回復(リロード)は用途の消費設定から行う(自動消費はしない) --}}
+                            {{#if hasAmmo}}
+                                <div class="form-group">
+                                    <label for="ammoLimit-{{item._id}}">残弾を管理する</label>
+                                    <input type="checkbox" name="system.ammo.isLimit" id="ammoLimit-{{item._id}}" {{checked system.ammo.isLimit}}>
+                                </div>
+                                {{#if system.ammo.isLimit}}
+                                    <div class="form-group usage-limit-group">
+                                        <label>残弾</label>
+                                        <div class="usage-inputs">
+                                            <div class="usage-field">
+                                                <label>撃った数</label>
+                                                <input type="number" name="system.ammo.spent" value="{{system.ammo.spent}}" min="0">
+                                            </div>
+                                            <span class="usage-separator">/</span>
+                                            <div class="usage-field">
+                                                <label>装弾数</label>
+                                                <input type="number" name="system.ammo.max" value="{{system.ammo.max}}" min="0">
+                                            </div>
+                                        </div>
+                                    </div>
+                                {{/if}}
+                            {{/if}}
                         {{/if}}
                     </div>
                 </fieldset>

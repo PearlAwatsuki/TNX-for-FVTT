@@ -3,7 +3,7 @@
  *
  * 使用 template: base + outfitBase + extensible + usage
  * 固有フィールド: attack / guardValue / range / attackArea / isLaser /
- *               isFullAuto / FAValue / identificationKey
+ *               isFullAuto / FAValue / ammo / identificationKey
  *
  * 準拠データ: template.json > Item.weapon
  *
@@ -19,9 +19,15 @@
  *   「なし / 数値」の {mode,value} 構造。
  * - isFullAuto: フルオート射撃可能。FAValue が FAn の n。**FA 値の自動加算は廃止**(2026-07-18)——
  *   ダメージに乗せたいときは用途のダメージボーナス式で @item.<識別キー>.system.FAValueTotal を手動参照。
- * - 残弾(ammo)は廃止(2026-07-19 ユーザー確定)。弾数管理は**使用回数(outfitBase の uses)に一本化**する
- *   ——装弾数=uses.max・撃った数=uses.spent・リロード=用途の消費設定への負値消費。
- *   自動給弾の武器は使用回数に制限を設けないことで表す。既存の残弾データは移行せず破棄。
+ * - ammo(残弾): 弾数のカウンター。**使用回数(uses)とは別の資源**であり、両立する
+ *   (2026-07-19 ユーザー裁定)——「武器を使用して攻撃する」で減る弾数と、「アウトフィットを使用する」
+ *   で減る使用回数はルール上まったく別の行為のため、1つの武器が両方の制限を同時に持ちうる。
+ *   一度は使用回数へ一本化したが(同日)、この共存を考慮していなかったため撤回・再導入した。
+ *   形は uses と揃える({isLimit, max, spent}・残弾 = max − spent)。旧モデル(mode/value/current・
+ *   null=満タン)には戻さない——専用のクランプ・回復ロジックを二重に持つ形だったため、
+ *   同型にして消費・回復(リロード=負値消費)を uses と同じ経路で処理する。
+ *   自動給弾の武器は isLimit=false(残弾を管理しない)で表す。
+ *   ※一本化時に破棄した旧 ammo データは復元しない(2026-07-19 ユーザー裁定の破棄が有効)。
  */
 
 import { SystemDataModel } from "../abstract.mjs";
@@ -114,6 +120,15 @@ export class WeaponDataModel extends SystemDataModel.mixin(
       // 用途の canStun(スタイル技能の効果によるスタン付与)・生身(武器なし)も可否に含める。
       canStun:     new fields.BooleanField({ initial: false }),
       FAValue:     new fields.NumberField({ initial: 0 }),
+      // 残弾(射撃武器・搭載兵器。2026-07-19 再導入): 使用回数と同型のカウンター。
+      //   isLimit = 残弾を管理する(オフ=自動給弾・弾数無制限。旧 mode="-" に相当)
+      //   max     = 装弾数 / spent = 撃った数 / 残弾 = max − spent
+      // 消費・回復(リロード=負値消費)は用途の消費設定からのみ発生する(自動消費はしない)。
+      ammo: new fields.SchemaField({
+        isLimit: new fields.BooleanField({ initial: false }),
+        max:     new fields.NumberField({ initial: 0, min: 0, integer: true }),
+        spent:   new fields.NumberField({ initial: 0, min: 0, integer: true }),
+      }),
       // 生身変更装備(フェーズ10-6・2026-07-02 裁定): 生身(武器)のデータ——攻撃力と受け値——を
       // 書き換える装備。書き換え結果は「生身」として扱われ、生身は単一のため複数準備でも
       // 〈二刀流〉等で相互に合算参照できない(正本 Outfits.md「生身の変更」)。

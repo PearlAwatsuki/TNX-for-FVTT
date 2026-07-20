@@ -121,6 +121,35 @@ describe("WeaponDataModel.defineSchema()", () => {
     expect(schema.FAValue.options.initial).toBe(0);
   });
 
+  describe("ammo (残弾・2026-07-19 再導入: 使用回数とは別資源で同型)", () => {
+    it("uses と同じ形 {isLimit, max, spent} を持つ", () => {
+      expect(schema.ammo).toBeInstanceOf(MockSchemaField);
+      const el = schema.ammo.fields;
+      expect(el.isLimit).toBeInstanceOf(MockBooleanField);
+      expect(el.max).toBeInstanceOf(MockNumberField);
+      expect(el.spent).toBeInstanceOf(MockNumberField);
+    });
+
+    it("既定は残弾を管理しない(自動給弾)＝isLimit false・max/spent は 0", () => {
+      const el = schema.ammo.fields;
+      expect(el.isLimit.options.initial).toBe(false);
+      expect(el.max.options.initial).toBe(0);
+      expect(el.spent.options.initial).toBe(0);
+    });
+
+    it("旧モデル(mode/value/current)のフィールドは持たない", () => {
+      const el = schema.ammo.fields;
+      expect(el.mode).toBeUndefined();
+      expect(el.value).toBeUndefined();
+      expect(el.current).toBeUndefined();
+    });
+
+    it("使用回数(uses)とは別フィールド＝両立する", () => {
+      expect(schema.uses).toBeInstanceOf(MockSchemaField);
+      expect(schema.ammo).not.toBe(schema.uses);
+    });
+  });
+
   it("attackArea (攻撃範囲) は choices 付き StringField で initial が none", () => {
     expect(schema.attackArea).toBeInstanceOf(MockStringField);
     expect(schema.attackArea.options.initial).toBe("none");

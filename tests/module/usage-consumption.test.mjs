@@ -11,10 +11,13 @@ const skill = (id, { isLimit = true, max = 3, spent = 1, name = "技能" } = {})
 const miracle = (id, { isLimit = true, max = 2, spent = 1, name = "神業" } = {}) => ({
   id, type: "miracle", name, system: { uses: { isLimit, max, spent } },
 });
-// 射撃武器の弾数も使用回数に一本化(2026-07-19 残弾廃止): 装弾数=uses.max・撃った数=uses.spent
-const weapon = (id, { isLimit = true, max = 6, spent = 0, name = "武器" } = {}) => ({
-  id, type: "weapon", name, system: { uses: { isLimit, max, spent } },
-});
+// 射撃武器は使用回数と残弾の**2つの資源**を同時に持ちうる(2026-07-19 ユーザー裁定)。
+// 残弾は uses と同型: 装弾数=ammo.max・撃った数=ammo.spent
+const weapon = (id, {
+  uses = { isLimit: false, max: 0, spent: 0 },
+  ammo = { isLimit: true, max: 6, spent: 0 },
+  name = "武器",
+} = {}) => ({ id, type: "weapon", name, system: { uses, ammo } });
 
 describe("resolveConsumeRows()（消費先設定の解決・2026-07-18 再編）", () => {
   it("item/self/uses(制限あり): kind uses・残量 = max - spent・itemId は親", () => {
@@ -59,16 +62,56 @@ describe("resolveConsumeRows()（消費先設定の解決・2026-07-18 再編）
     expect(rows[1].problem).toBe("notFound");
   });
 
-  it("射撃武器の弾数も使用回数で解決する(2026-07-19 残弾廃止): kind uses・残量=max−spent", () => {
-    const items = { w1: weapon("w1", { max: 6, spent: 2 }) };
+  it("item/itemId/ammo: kind ammo・残量=装弾数−撃った数・負値=回復(リロード)を許容", () => {
+    const items = { w1: weapon("w1", { ammo: { isLimit: true, max: 6, spent: 2 } }) };
     const rows = resolveConsumeRows(
-      [{ type: "item", itemId: "w1", resource: "uses", amount: 1 }, { type: "item", itemId: "w1", resource: "uses", amount: -3 }],
+      [{ type: "item", itemId: "w1", resource: "ammo", amount: 1 }, { type: "item", itemId: "w1", resource: "ammo", amount: -3 }],
+      { parentItem: skill("p1"), getItem: (id) => items[id] ?? null },
+    );
+    expect(rows[0].kind).toBe("ammo");
+    expect(rows[0].remaining).toBe(4);
+    expect(rows[0].maxDisplay).toBe(6);
+    expect(rows[0].resourceLabel).toBe("残弾");
+    expect(rows[1].amount).toBe(-3); // 回復=リロード
+  });
+
+  it("残弾を管理しない武器(自動給弾)への ammo 消費は inert(無消費)", () => {
+    const items = { w1: weapon("w1", { ammo: { isLimit: false, max: 0, spent: 0 } }) };
+    const [row] = resolveConsumeRows(
+      [{ type: "item", itemId: "w1", resource: "ammo", amount: 1 }],
+      { parentItem: skill("p1"), getItem: (id) => items[id] ?? null },
+    );
+    expect(row.inert).toBe(true);
+    expect(row.kind).toBeUndefined();
+  });
+
+  it("同じ武器の使用回数と残弾は別行として独立に解決される(key で区別)", () => {
+    const items = {
+      w1: weapon("w1", {
+        uses: { isLimit: true, max: 1, spent: 0 },
+        ammo: { isLimit: true, max: 6, spent: 2 },
+      }),
+    };
+    const rows = resolveConsumeRows(
+      [{ type: "item", itemId: "w1", resource: "uses", amount: 1 }, { type: "item", itemId: "w1", resource: "ammo", amount: 1 }],
       { parentItem: skill("p1"), getItem: (id) => items[id] ?? null },
     );
     expect(rows[0].kind).toBe("uses");
-    expect(rows[0].remaining).toBe(4);
-    expect(rows[0].maxDisplay).toBe(6);
-    expect(rows[1].amount).toBe(-3); // 回復=リロード
+    expect(rows[0].remaining).toBe(1);
+    expect(rows[1].kind).toBe("ammo");
+    expect(rows[1].remaining).toBe(4);
+    // itemId は同じでも key が異なる=チェックボックスが連動しない
+    expect(rows[0].itemId).toBe(rows[1].itemId);
+    expect(rows[0].key).not.toBe(rows[1].key);
+  });
+
+  it("同じアイテムの2資源はチェックを片方だけ外せる(key 照合・itemId 照合では連動していた)", () => {
+    const rows = [
+      { kind: "uses", key: "w1:uses", itemId: "w1", amount: 1, remaining: 1, label: "武器" },
+      { kind: "ammo", key: "w1:ammo", itemId: "w1", amount: 1, remaining: 4, label: "武器" },
+    ];
+    const { plan } = buildConsumptionPlan(rows, new Set(["w1:ammo"]), "actor1");
+    expect(plan).toEqual([{ actorId: "actor1", itemId: "w1", kind: "ammo", amount: 1 }]);
   });
 
   it("消費数はロックしない(2026-07-18): 未設定のみ 1・0/負値(=使用回数の回復)はそのまま", () => {
