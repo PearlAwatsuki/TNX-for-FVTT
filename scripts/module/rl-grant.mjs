@@ -15,6 +15,7 @@ import { currentTargetActors } from "./target-resolution.mjs";
 import { buildRlDamageRollFlag, buildConditionGrantData, rlConditionChoices } from "./rl-grant-logic.mjs";
 import { buildGrantedEffectData } from "./usage-effects.mjs";
 import { buildBountyGrantData } from "./bounty-grant-logic.mjs";
+import { listBountyPresets, presetLabel, bountyPresetToForm } from "./request-presets.mjs";
 import { spinnerDialogActions } from "./tnx-dialog.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
@@ -234,17 +235,35 @@ export class TnxRlGrantBountyApp extends HandlebarsApplicationMixin(ApplicationV
                 .filter(a => a.type === "cast")
                 .map(a => ({ actorId: a.id, actorName: a.name, img: a.img }))
                 .sort((a, b) => a.actorName.localeCompare(b.actorName, "ja")),
+            // 読み込み元(アクトシートのプリセット・2026-07-20)
+            presetGroups: listBountyPresets().map(g => ({
+                label:   g.label,
+                presets: g.presets.map((p, i) => ({ id: p.id, label: presetLabel(p, i, "報酬点") })),
+            })),
         };
     }
 
     _onRender(context, options) {
         super._onRender(context, options);
-        for (const btn of this.element.querySelectorAll(".number-input-spinner [data-action=decrement]")) {
+        const el = this.element;
+
+        // 読み込み元 → 各欄へ流し込む(対象アクターはプリセットに含めない)
+        el.querySelector("[name=presetId]")?.addEventListener("change", (e) => {
+            const preset = listBountyPresets().flatMap(g => g.presets).find(p => p.id === e.target.value);
+            if (!preset) return;
+            const form = bountyPresetToForm(preset);
+            const amount = el.querySelector("[name=amount]");
+            const note   = el.querySelector("[name=note]");
+            if (amount) amount.value = form.amount;
+            if (note)   note.value   = form.note;
+        });
+
+        for (const btn of el.querySelectorAll(".number-input-spinner [data-action=decrement]")) {
             btn.addEventListener("click", () => {
                 btn.closest(".number-input-spinner")?.querySelector("input[type=number]")?.stepDown();
             });
         }
-        for (const btn of this.element.querySelectorAll(".number-input-spinner [data-action=increment]")) {
+        for (const btn of el.querySelectorAll(".number-input-spinner [data-action=increment]")) {
             btn.addEventListener("click", () => {
                 btn.closest(".number-input-spinner")?.querySelector("input[type=number]")?.stepUp();
             });

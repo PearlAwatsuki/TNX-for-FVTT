@@ -20,6 +20,10 @@
             <i class="fas fa-info-circle"></i>
             <span>情報項目</span>
         </a>
+        <a class="item" data-action="tab" data-tab="requests" data-group="primary">
+            <i class="fas fa-cards"></i>
+            <span>判定要求</span>
+        </a>
     </nav>
 
     <section class="sheet-body">
@@ -386,6 +390,124 @@
                         </div>
                     {{/each}}
                 </div>
+            </div>
+        </div>
+
+        <div class="tab requests" data-group="primary" data-tab="requests">
+            <div class="request-preset-container">
+
+                <div class="tnx-section-header">
+                    <h3>判定要求</h3>
+                    <button type="button" class="tnx-btn tnx-btn--sm" data-action="addCheckRequestPreset">
+                        <i class="fas fa-plus"></i> 判定要求を追加
+                    </button>
+                </div>
+                <div class="preset-list">
+                    {{#each checkRequestPresets}}
+                        <div class="preset-item" data-preset-id="{{this.id}}">
+                            <div class="tnx-item-header tnx-item-header--card">
+                                <input type="text" name="label" value="{{this.label}}" placeholder="{{this.placeholder}}"
+                                       data-preset-kind="checkRequests" data-preset-id="{{this.id}}">
+                                <div class="tnx-ctrl-strip">
+                                    <a class="tnx-icon-ctrl" data-action="presetUp"   data-preset-kind="checkRequests" data-preset-id="{{this.id}}" title="上へ"><i class="fas fa-chevron-up"></i></a>
+                                    <a class="tnx-icon-ctrl" data-action="presetDown" data-preset-kind="checkRequests" data-preset-id="{{this.id}}" title="下へ"><i class="fas fa-chevron-down"></i></a>
+                                    <a class="tnx-icon-ctrl" data-action="deletePreset" data-preset-kind="checkRequests" data-preset-id="{{this.id}}" title="削除"><i class="fas fa-trash"></i></a>
+                                </div>
+                            </div>
+                            <div class="preset-body">
+                                <div class="form-group">
+                                    <label>判定種別</label>
+                                    <select name="checkType" data-preset-kind="checkRequests" data-preset-id="{{this.id}}">
+                                        <option value="skillCheck"   {{#if this.isSkill}}selected{{/if}}>技能判定</option>
+                                        <option value="abilityCheck" {{#if this.isAbility}}selected{{/if}}>能力値判定</option>
+                                        <option value="controlCheck" {{#if this.isControl}}selected{{/if}}>制御判定</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>技能</label>
+                                    <select name="identificationKey" data-preset-kind="checkRequests" data-preset-id="{{this.id}}">
+                                        <option value="">（その他・自由入力）</option>
+                                        {{#each this.skillGroups}}
+                                            <optgroup label="{{this.label}}">
+                                                {{#each this.skills}}
+                                                    <option value="{{this.identificationKey}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
+                                                {{/each}}
+                                            </optgroup>
+                                        {{/each}}
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>目標値</label>
+                                    <div class="number-input-spinner">
+                                        <button type="button" class="tnx-btn" data-action="presetSpinDown" aria-label="減少">−</button>
+                                        <input type="number" name="targetValue" value="{{this.targetValue}}" min="0" max="99"
+                                               data-preset-kind="checkRequests" data-preset-id="{{this.id}}">
+                                        <button type="button" class="tnx-btn" data-action="presetSpinUp" aria-label="増加">＋</button>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="rl-check-label">
+                                        <input type="checkbox" name="targetValueHidden" {{checked this.targetValueHidden}}
+                                               data-preset-kind="checkRequests" data-preset-id="{{this.id}}">
+                                        <span>目標値をプレイヤーに非公開</span>
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label>説明</label>
+                                    <input type="text" name="description" value="{{this.description}}"
+                                           data-preset-kind="checkRequests" data-preset-id="{{this.id}}">
+                                </div>
+                            </div>
+                        </div>
+                    {{else}}
+                        <div class="no-items-placeholder">
+                            <p>判定要求がありません。「判定要求を追加」から作成してください。</p>
+                        </div>
+                    {{/each}}
+                </div>
+
+                <div class="tnx-section-header">
+                    <h3>報酬点</h3>
+                    <button type="button" class="tnx-btn tnx-btn--sm" data-action="addBountyPreset">
+                        <i class="fas fa-plus"></i> 報酬点を追加
+                    </button>
+                </div>
+                <div class="preset-list">
+                    {{#each bountyPresets}}
+                        <div class="preset-item" data-preset-id="{{this.id}}">
+                            <div class="tnx-item-header tnx-item-header--card">
+                                <input type="text" name="label" value="{{this.label}}" placeholder="{{this.placeholder}}"
+                                       data-preset-kind="bountyGrants" data-preset-id="{{this.id}}">
+                                <div class="tnx-ctrl-strip">
+                                    <a class="tnx-icon-ctrl" data-action="presetUp"   data-preset-kind="bountyGrants" data-preset-id="{{this.id}}" title="上へ"><i class="fas fa-chevron-up"></i></a>
+                                    <a class="tnx-icon-ctrl" data-action="presetDown" data-preset-kind="bountyGrants" data-preset-id="{{this.id}}" title="下へ"><i class="fas fa-chevron-down"></i></a>
+                                    <a class="tnx-icon-ctrl" data-action="deletePreset" data-preset-kind="bountyGrants" data-preset-id="{{this.id}}" title="削除"><i class="fas fa-trash"></i></a>
+                                </div>
+                            </div>
+                            <div class="preset-body">
+                                <div class="form-group">
+                                    <label>点数</label>
+                                    <div class="number-input-spinner">
+                                        <button type="button" class="tnx-btn" data-action="presetSpinDown" aria-label="減少">−</button>
+                                        <input type="number" name="amount" value="{{this.amount}}" min="-99" max="99"
+                                               data-preset-kind="bountyGrants" data-preset-id="{{this.id}}">
+                                        <button type="button" class="tnx-btn" data-action="presetSpinUp" aria-label="増加">＋</button>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>記述</label>
+                                    <input type="text" name="note" value="{{this.note}}"
+                                           data-preset-kind="bountyGrants" data-preset-id="{{this.id}}">
+                                </div>
+                            </div>
+                        </div>
+                    {{else}}
+                        <div class="no-items-placeholder">
+                            <p>報酬点がありません。「報酬点を追加」から作成してください。</p>
+                        </div>
+                    {{/each}}
+                </div>
+
             </div>
         </div>
     </section>

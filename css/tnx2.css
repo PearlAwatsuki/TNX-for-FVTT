@@ -8511,3 +8511,25 @@ button.tnx-create-act-button span {
     font-size: 0.88em;
     opacity: 0.8;
 }
+
+/* ============================================================
+   アクトシート「判定要求」タブ(フェーズ12-5) — プリセット
+   ============================================================ */
+
+.scenario-sheet .preset-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+.scenario-sheet .preset-item {
+    padding: 8px;
+    border: 1px solid var(--tnx2-border, #3a3f4b);
+    border-radius: 4px;
+}
+.scenario-sheet .preset-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 6px;
+}

@@ -1,5 +1,22 @@
 <div class="rl-request-body">
 
+    {{!-- 読み込み元（アクトシートのプリセット・2026-07-20） --}}
+    {{#if presetGroups.length}}
+        <div class="form-group rl-form-group">
+            <label class="rl-label">読み込み元</label>
+            <select name="presetId" class="rl-select">
+                <option value="">（手動設定）</option>
+                {{#each presetGroups}}
+                    <optgroup label="{{this.label}}">
+                        {{#each this.presets}}
+                            <option value="{{this.id}}">{{this.label}}</option>
+                        {{/each}}
+                    </optgroup>
+                {{/each}}
+            </select>
+        </div>
+    {{/if}}
+
     {{!-- 判定種別 --}}
     <div class="form-group rl-form-group">
         <label class="rl-label">判定種別</label>

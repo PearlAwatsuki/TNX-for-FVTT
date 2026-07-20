@@ -18,6 +18,7 @@ import { buildSkillOptions } from './skill-select.mjs';
 import { findItemByIdentificationKey, formatSkillName, itemDisplayName } from './identification.mjs';
 import { enumerateRequestComboCandidates, buildRequestUsageChoices } from './usage-check-context.mjs';
 import { loadGroupedGeneralSkillChoices, loadSkillEntries, SKILL_PACKS } from './skill-dictionary.mjs';
+import { listCheckRequestPresets, presetLabel, checkRequestPresetToForm } from './request-presets.mjs';
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -130,10 +131,16 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
             .filter(a => a.type === "cast")
             .map(a => ({ actorId: a.id, actorName: a.name, img: a.img }))
             .sort((a, b) => a.actorName.localeCompare(b.actorName, "ja"));
+        // 読み込み元(アクトシートのプリセット・2026-07-20)。選ぶと各欄を自動投入する
+        const presetGroups = listCheckRequestPresets().map(g => ({
+            label:   g.label,
+            presets: g.presets.map((p, i) => ({ id: p.id, label: presetLabel(p, i, "判定要求") })),
+        }));
         return {
             ...context,
             skillGroups,
             targetActors,
+            presetGroups,
             SUIT_OPTIONS,
             ABILITY_OPTIONS,
         };
@@ -144,6 +151,31 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
     _onRender(context, options) {
         super._onRender(context, options);
         const el = this.element;
+
+        // 読み込み元 → 各欄へ流し込む(対象アクターはプリセットに含めないので触らない)
+        el.querySelector("[name=presetId]")?.addEventListener("change", (e) => {
+            const preset = listCheckRequestPresets()
+                .flatMap(g => g.presets).find(p => p.id === e.target.value);
+            if (!preset) return;
+            const form = checkRequestPresetToForm(preset);
+            const set = (name, value) => {
+                const input = el.querySelector(`[name="${name}"]`);
+                if (!input) return;
+                if (input.type === "checkbox") input.checked = value === true;
+                else input.value = value ?? "";
+            };
+            set("checkType",         form.checkType);
+            set("identificationKey", form.identificationKey);
+            set("customSkillName",   form.customSkillName);
+            set("targetValue",       form.targetValue);
+            set("targetValueHidden", form.targetValueHidden);
+            set("description",       form.description);
+            for (const suit of ["spade", "club", "heart", "diamond"]) {
+                set(`suit_${suit}`, form.validSuits.includes(suit));
+            }
+            el.querySelector("[name=checkType]")?.dispatchEvent(new Event("change", { bubbles: true }));
+            el.querySelector("[name=identificationKey]")?.dispatchEvent(new Event("change", { bubbles: true }));
+        });
 
         // 判定種別 → 技能/能力値セクション切り替え
         const typeSelect = el.querySelector("[name=checkType]");

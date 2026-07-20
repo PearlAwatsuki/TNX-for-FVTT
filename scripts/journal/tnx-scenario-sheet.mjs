@@ -5,6 +5,8 @@ import { saveUserFlagCards, getUserFlagData } from '../module/user-flag-schema.m
 import { TnxCheckFlow } from '../module/tnx-check-flow.mjs';
 import { ALL_SUITS } from '../module/tnx-check-engine.mjs';
 import { formatSkillName } from '../module/identification.mjs';
+import { loadGroupedGeneralSkillChoices } from '../module/skill-dictionary.mjs';
+import { presetLabel, newCheckRequestPreset, newBountyPreset } from '../module/request-presets.mjs';
 
 const { HandlebarsApplicationMixin, DocumentSheetV2, DialogV2 } = foundry.applications.api;
 
@@ -39,6 +41,13 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             dealTrumpFromNeuro: TnxScenarioSheet._onDealTrumpFromNeuro,
             dealTrumpForRl:      TnxScenarioSheet._onDealRlTrumpFromAccess,
             startInfoSkillCheck: TnxScenarioSheet._onStartInfoSkillCheck,
+            addCheckRequestPreset: TnxScenarioSheet._onAddCheckRequestPreset,
+            addBountyPreset:       TnxScenarioSheet._onAddBountyPreset,
+            deletePreset:          TnxScenarioSheet._onDeletePreset,
+            presetUp:              TnxScenarioSheet._onPresetUp,
+            presetDown:            TnxScenarioSheet._onPresetDown,
+            presetSpinUp:          TnxScenarioSheet._onPresetSpin,
+            presetSpinDown:        TnxScenarioSheet._onPresetSpin,
         },
     };
 
@@ -96,6 +105,25 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             ending:   Array.isArray(scenesData.ending)   ? scenesData.ending   : [],
         };
 
+        // 判定要求・報酬点のプリセット(フェーズ12-5)。名前は未入力なら「判定要求n」を出す
+        const skillGroups = await loadGroupedGeneralSkillChoices();
+        const withSkills = (key) => (skillGroups ?? []).map(g => ({
+            ...g,
+            skills: (g.skills ?? []).map(o => ({ ...o, selected: o.identificationKey === key })),
+        }));
+        context.checkRequestPresets = (flagData.checkRequests || []).map((p, i) => ({
+            ...p,
+            placeholder: presetLabel({}, i, "判定要求"),
+            isSkill:     (p.checkType ?? "skillCheck") === "skillCheck",
+            isAbility:   p.checkType === "abilityCheck",
+            isControl:   p.checkType === "controlCheck",
+            skillGroups: withSkills(p.identificationKey),
+        }));
+        context.bountyPresets = (flagData.bountyGrants || []).map((p, i) => ({
+            ...p,
+            placeholder: presetLabel({}, i, "報酬点"),
+        }));
+
         context.scenarioTexts = flagData.scenarioTexts || [];
         context.infoItems     = flagData.infoItems     || [];
         context.trailer       = flagData.trailer       || "";
@@ -127,6 +155,11 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
     _setupChangeListeners() {
         const el = this.element;
+
+        // 判定要求・報酬点のプリセット(フェーズ12-5)
+        for (const input of el.querySelectorAll('.preset-item [data-preset-kind]')) {
+            input.addEventListener('change', this._onPresetFieldChange.bind(this));
+        }
 
         for (const input of el.querySelectorAll('.scene-item input[type="text"], .scene-item input[type="checkbox"], .scene-item textarea, .scene-item select')) {
             input.addEventListener('change', this._onSceneItemChange.bind(this));
@@ -637,5 +670,67 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             bountyAvailable: (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0),
             requestMessageId: null,
         });
+    }
+
+    // ─── 判定要求・報酬点のプリセット(フェーズ12-5) ────────────────────────────
+
+    /** プリセット配列を取り出す(kind = checkRequests / bountyGrants)。 */
+    _presets(kind) {
+        return foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", kind) || []);
+    }
+
+    static async _onAddCheckRequestPreset(_event, _target) {
+        const rows = this._presets("checkRequests");
+        rows.push(newCheckRequestPreset());
+        await this.document.setFlag("tokyo-nova-axleration", "checkRequests", rows);
+    }
+
+    static async _onAddBountyPreset(_event, _target) {
+        const rows = this._presets("bountyGrants");
+        rows.push(newBountyPreset());
+        await this.document.setFlag("tokyo-nova-axleration", "bountyGrants", rows);
+    }
+
+    static async _onDeletePreset(_event, target) {
+        const { presetKind, presetId } = target.dataset;
+        const rows = this._presets(presetKind).filter(p => p.id !== presetId);
+        await this.document.setFlag("tokyo-nova-axleration", presetKind, rows);
+    }
+
+    static async _onPresetUp(_event, target)   { await TnxScenarioSheet._movePreset.call(this, target, -1); }
+    static async _onPresetDown(_event, target) { await TnxScenarioSheet._movePreset.call(this, target, 1); }
+
+    /** プリセットを手動で並び替える(表・リスト系 UI は既定で並び替え可能=TNX 標準)。 */
+    static async _movePreset(target, delta) {
+        const { presetKind, presetId } = target.dataset;
+        const rows = this._presets(presetKind);
+        const i = rows.findIndex(p => p.id === presetId);
+        const j = i + delta;
+        if (i < 0 || !rows[j]) return;
+        [rows[i], rows[j]] = [rows[j], rows[i]];
+        await this.document.setFlag("tokyo-nova-axleration", presetKind, rows);
+    }
+
+    /** number-input-spinner の ± (変更は change リスナーが保存する)。 */
+    static _onPresetSpin(_event, target) {
+        const input = target.closest(".number-input-spinner")?.querySelector("input[type=number]");
+        if (!input) return;
+        if (target.dataset.action === "presetSpinUp") input.stepUp();
+        else input.stepDown();
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    /** プリセットの入力欄の変更を保存する。 */
+    async _onPresetFieldChange(event) {
+        const el = event.currentTarget;
+        const { presetKind, presetId } = el.dataset;
+        if (!presetKind || !presetId) return;
+        const rows = this._presets(presetKind);
+        const row = rows.find(p => p.id === presetId);
+        if (!row) return;
+        row[el.name] = el.type === "checkbox" ? el.checked
+            : el.type === "number" ? (Number(el.value) || 0)
+            : el.value;
+        await this.document.setFlag("tokyo-nova-axleration", presetKind, rows);
     }
 }
