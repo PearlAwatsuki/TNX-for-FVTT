@@ -79,6 +79,15 @@
                            value="{{usage.timing.timingOther}}"
                            {{#unless editable}}disabled{{/unless}}>
                 </div>
+                {{!-- 戦闘タブの再表示から除外する（2026-07-20）。タイミングで束ねる表示の設定なので
+                     タイミング欄に置く --}}
+                <div class="usage-form-row usage-toggle-row">
+                    <label class="usage-toggle-inline">
+                        <input type="checkbox" name="hideInCombatTab" {{checked usage.hideInCombatTab}}
+                               {{#unless editable}}disabled{{/unless}}>
+                        <span>戦闘タブに表示しない</span>
+                    </label>
+                </div>
                 </div>
             </fieldset>
 

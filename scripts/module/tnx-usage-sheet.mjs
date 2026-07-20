@@ -1213,6 +1213,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             "timing.actionName":  raw["timing.actionName"]  ?? usage.timing.actionName,
             "timing.processName": raw["timing.processName"] ?? usage.timing.processName,
             "timing.timingOther": raw["timing.timingOther"] ?? usage.timing.timingOther,
+            // 戦闘タブに表示しない(2026-07-20): 戦闘タブの再表示からこの用途を除外する
+            hideInCombatTab: raw["hideInCombatTab"] ?? usage.hideInCombatTab,
 
             target:        raw["target"]        ?? usage.target,
             targetOther:   raw["targetOther"]   ?? usage.targetOther,

@@ -818,6 +818,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         //   場合のみ標準群の後ろに表示する(2026-07-20 是正: classify が action/process/other しか
         //   見ておらず、名前つき enum の用途は該当があっても丸ごと落ちていた)。
         // - 自由記述なしの「その他」と「解説参照」は「その他」群へ(項目がある場合のみ・末尾)。
+        // - 用途の「戦闘タブに表示しない」が立つ行は全群から除外する(2026-07-20)。
         const timingLabels = TnxSkillUtils.getSkillOptions().timing;
         const fixedBuckets = [
             { kind: "process", key: "setup",      label: "セットアップ" },
@@ -881,6 +882,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             const isSkill = i.type === "generalSkill" || i.type === "styleSkill";
             if (!isSkill && !(OUTFIT_ITEM_TYPES.has(i.type) && usable(i))) continue;
             for (const usage of (i.system.actions ?? [])) {
+                if (usage.hideInCombatTab === true) continue;
                 classify(usage.timing, i, usage);
             }
         }

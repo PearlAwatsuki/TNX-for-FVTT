@@ -62,6 +62,11 @@ export class UsageTemplate extends SystemDataModel {
                         timingOther: new fields.StringField({ initial: "" }),
                     }),
 
+                    // 戦闘タブに表示しない(2026-07-20 ユーザー確定): 戦闘タブ「タイミングごとの
+                    // 使用技能・アウトフィット」の再表示から除外する。表示のみの設定であり、
+                    // 用途の起動・判定・タイミングの意味そのものには一切影響しない
+                    hideInCombatTab: new fields.BooleanField({ initial: false }),
+
                     // 対象 (getSkillOptions().target 準拠。スタイル技能の target/targetOther/isFixedTarget と同形)
                     target:        new fields.StringField({ initial: "blank" }),
                     targetOther:   new fields.StringField({ initial: "" }),   // target === "other" の自由入力
