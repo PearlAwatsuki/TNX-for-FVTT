@@ -60,6 +60,7 @@ import { openRlGrantDamage, openRlGrantEffect, openRlGrantBounty } from './modul
 import { renderBountyGrantCard } from './module/bounty-grant.mjs';
 import { openFocusSystemPanel } from './module/tnx-focus-system-panel.mjs';
 import { registerFocusSystemSetting } from './module/focus-system-state.mjs';
+import { registerEffectScratchHiding } from './module/effect-authoring.mjs';
 import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
 import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
@@ -1684,6 +1685,9 @@ Hooks.once("init", async function() {
 
 Hooks.once("ready", async function() {
     game.tnx = game.tnx || {};
+
+    // 効果の下書き置き場はアイテムディレクトリに出さない(組み立て中の一時領域)
+    registerEffectScratchHiding();
 
     // 部位スロットプリセット: ワールド初回ロードでデフォルト体部位を自動設定(GM のみ・1回)
     await initializeDefaultPartSlotPreset();

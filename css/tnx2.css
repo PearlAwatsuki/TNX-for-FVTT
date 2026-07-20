@@ -6660,6 +6660,25 @@ button.tnx-create-act-button span {
     height: 28px;
 }
 
+/* その場で組んだ効果の名前＋「組む」。名前は長くなりうるので詰める(2026-07-21) */
+.tnx-rl-request .rl-inline-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    height: 28px;
+}
+
+.tnx-rl-request .new-effect-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.88em;
+    color: var(--tnx2-text-secondary);
+}
+
 .tnx-rl-request .rl-textarea {
     width: 100%;
     background: var(--tnx2-input-bg, #1a1a2e);
@@ -8538,6 +8557,21 @@ button.tnx-create-act-button span {
     flex-direction: column;
     gap: 6px;
     margin-top: 6px;
+}
+
+/* 効果プリセット: 現在の効果名＋「組む」。名前は長くなりうるので詰める(2026-07-21) */
+.scenario-sheet .preset-body .tnx-inline-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+.scenario-sheet .preset-body .effect-preset-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* ============================================================

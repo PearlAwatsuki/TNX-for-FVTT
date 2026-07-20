@@ -21,8 +21,8 @@
             <span>情報項目</span>
         </a>
         <a class="item" data-action="tab" data-tab="requests" data-group="primary">
-            <i class="fas fa-cards"></i>
-            <span>判定要求</span>
+            <i class="fas fa-clipboard-list"></i>
+            <span>RL プリセット</span>
         </a>
     </nav>
 
@@ -504,6 +504,102 @@
                     {{else}}
                         <div class="no-items-placeholder">
                             <p>報酬点がありません。「報酬点を追加」から作成してください。</p>
+                        </div>
+                    {{/each}}
+                </div>
+
+                <div class="tnx-section-header">
+                    <h3>ダメージ</h3>
+                    <button type="button" class="tnx-btn tnx-btn--sm" data-action="addDamageGrantPreset">
+                        <i class="fas fa-plus"></i> ダメージを追加
+                    </button>
+                </div>
+                <div class="preset-list">
+                    {{#each damageGrantPresets}}
+                        <div class="preset-item" data-preset-id="{{this.id}}">
+                            <div class="tnx-item-header tnx-item-header--card">
+                                <input type="text" name="label" value="{{this.label}}" placeholder="{{this.placeholder}}"
+                                       data-preset-kind="damageGrants" data-preset-id="{{this.id}}">
+                                <div class="tnx-ctrl-strip">
+                                    <a class="tnx-icon-ctrl" data-action="presetUp"   data-preset-kind="damageGrants" data-preset-id="{{this.id}}" title="上へ"><i class="fas fa-chevron-up"></i></a>
+                                    <a class="tnx-icon-ctrl" data-action="presetDown" data-preset-kind="damageGrants" data-preset-id="{{this.id}}" title="下へ"><i class="fas fa-chevron-down"></i></a>
+                                    <a class="tnx-icon-ctrl" data-action="deletePreset" data-preset-kind="damageGrants" data-preset-id="{{this.id}}" title="削除"><i class="fas fa-trash"></i></a>
+                                </div>
+                            </div>
+                            <div class="preset-body">
+                                <div class="form-group">
+                                    <label>系統</label>
+                                    <select name="category" data-preset-kind="damageGrants" data-preset-id="{{this.id}}">
+                                        {{#each this.categories}}
+                                            <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                                        {{/each}}
+                                    </select>
+                                </div>
+                                <div class="form-group damage-type-row">
+                                    <label>ダメージ種別</label>
+                                    <select name="damageType" data-preset-kind="damageGrants" data-preset-id="{{this.id}}">
+                                        {{#each this.damageTypes}}
+                                            <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                                        {{/each}}
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>ダメージ</label>
+                                    <div class="number-input-spinner">
+                                        <button type="button" class="tnx-btn" data-action="presetSpinDown" aria-label="減少">−</button>
+                                        <input type="number" name="value" value="{{this.value}}" min="0" max="99"
+                                               data-preset-kind="damageGrants" data-preset-id="{{this.id}}">
+                                        <button type="button" class="tnx-btn" data-action="presetSpinUp" aria-label="増加">＋</button>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>記述</label>
+                                    <input type="text" name="note" value="{{this.note}}"
+                                           data-preset-kind="damageGrants" data-preset-id="{{this.id}}">
+                                </div>
+                            </div>
+                        </div>
+                    {{else}}
+                        <div class="no-items-placeholder">
+                            <p>ダメージがありません。「ダメージを追加」から作成してください。</p>
+                        </div>
+                    {{/each}}
+                </div>
+
+                <div class="tnx-section-header">
+                    <h3>効果</h3>
+                    <button type="button" class="tnx-btn tnx-btn--sm" data-action="addEffectGrantPreset">
+                        <i class="fas fa-plus"></i> 効果を追加
+                    </button>
+                </div>
+                <div class="preset-list">
+                    {{#each effectGrantPresets}}
+                        <div class="preset-item" data-preset-id="{{this.id}}">
+                            <div class="tnx-item-header tnx-item-header--card">
+                                <input type="text" name="label" value="{{this.label}}" placeholder="{{this.placeholder}}"
+                                       data-preset-kind="effectGrants" data-preset-id="{{this.id}}">
+                                <div class="tnx-ctrl-strip">
+                                    <a class="tnx-icon-ctrl" data-action="presetUp"   data-preset-kind="effectGrants" data-preset-id="{{this.id}}" title="上へ"><i class="fas fa-chevron-up"></i></a>
+                                    <a class="tnx-icon-ctrl" data-action="presetDown" data-preset-kind="effectGrants" data-preset-id="{{this.id}}" title="下へ"><i class="fas fa-chevron-down"></i></a>
+                                    <a class="tnx-icon-ctrl" data-action="deletePreset" data-preset-kind="effectGrants" data-preset-id="{{this.id}}" title="削除"><i class="fas fa-trash"></i></a>
+                                </div>
+                            </div>
+                            <div class="preset-body">
+                                <div class="form-group">
+                                    <label>効果</label>
+                                    <div class="tnx-inline-field">
+                                        <span class="effect-preset-name">{{this.effectName}}</span>
+                                        <button type="button" class="tnx-btn tnx-btn--sm" data-action="editEffectPreset"
+                                                data-preset-id="{{this.id}}">
+                                            <i class="fas fa-pen"></i> 組む
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {{else}}
+                        <div class="no-items-placeholder">
+                            <p>効果がありません。「効果を追加」から作成してください。</p>
                         </div>
                     {{/each}}
                 </div>

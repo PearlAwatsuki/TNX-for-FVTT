@@ -25,24 +25,30 @@
         </div>
     </div>
 
-    {{!-- 効果 --}}
+    {{!-- 効果(付与元＝アクトのプリセット / アイテムの効果 / その場で組む) --}}
     <div class="effect-section" hidden>
-        {{#if effectItems}}
-            <div class="form-group rl-form-group">
-                <label class="rl-label">供給元</label>
-                <select name="sourceItemId" class="rl-select">
-                    {{#each effectItems}}
-                        <option value="{{this.id}}">{{this.name}}</option>
-                    {{/each}}
-                </select>
+        <div class="form-group rl-form-group">
+            <label class="rl-label">付与元</label>
+            <select name="effectSource" class="rl-select">
+                <option value="new">新規作成</option>
+                {{#each effectSourceGroups}}
+                    <optgroup label="{{this.label}}">
+                        {{#each this.options}}
+                            <option value="{{this.value}}">{{this.label}}</option>
+                        {{/each}}
+                    </optgroup>
+                {{/each}}
+            </select>
+        </div>
+        <div class="form-group rl-form-group new-effect-section">
+            <label class="rl-label">効果</label>
+            <div class="rl-inline-field">
+                <span class="new-effect-name">未作成</span>
+                <button type="button" class="tnx-btn" data-action="composeEffect">
+                    <i class="fas fa-pen"></i> 組む
+                </button>
             </div>
-            <div class="form-group rl-form-group">
-                <label class="rl-label">効果</label>
-                <select name="sourceEffectId" class="rl-select"></select>
-            </div>
-        {{else}}
-            <p class="rl-no-players">効果を持つアイテムがありません</p>
-        {{/if}}
+        </div>
     </div>
 
     {{> "systems/tokyo-nova-axleration/templates/parts/target-picker.hbs"}}

@@ -19,6 +19,13 @@ export const RL_DAMAGE_TYPES = Object.freeze(
     Object.entries(ATTACK_DAMAGE_TYPES).map(([value, label]) => ({ value, label }))
 );
 
+/** ダメージの系統。付与ダイアログとアクトシートのプリセットで同じものを使う。 */
+export const RL_DAMAGE_CATEGORIES = Object.freeze([
+    { value: "physical", label: "肉体" },
+    { value: "mental",   label: "精神" },
+    { value: "social",   label: "社会" },
+]);
+
 const SCOPE = "tokyo-nova-axleration";
 
 /**

@@ -6,7 +6,12 @@ import { TnxCheckFlow } from '../module/tnx-check-flow.mjs';
 import { ALL_SUITS } from '../module/tnx-check-engine.mjs';
 import { formatSkillName } from '../module/identification.mjs';
 import { loadGroupedGeneralSkillChoices } from '../module/skill-dictionary.mjs';
-import { presetLabel, newCheckRequestPreset, newBountyPreset } from '../module/request-presets.mjs';
+import {
+    presetLabel, newCheckRequestPreset, newBountyPreset,
+    newDamageGrantPreset, newEffectGrantPreset,
+} from '../module/request-presets.mjs';
+import { RL_DAMAGE_TYPES, RL_DAMAGE_CATEGORIES } from '../module/rl-grant-logic.mjs';
+import { promptEffectData } from '../module/effect-authoring.mjs';
 import { checkTypeOptions } from '../module/tnx-rl-request-app.mjs';
 
 const { HandlebarsApplicationMixin, DocumentSheetV2, DialogV2 } = foundry.applications.api;
@@ -44,6 +49,9 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             startInfoSkillCheck: TnxScenarioSheet._onStartInfoSkillCheck,
             addCheckRequestPreset: TnxScenarioSheet._onAddCheckRequestPreset,
             addBountyPreset:       TnxScenarioSheet._onAddBountyPreset,
+            addDamageGrantPreset:  TnxScenarioSheet._onAddDamageGrantPreset,
+            addEffectGrantPreset:  TnxScenarioSheet._onAddEffectGrantPreset,
+            editEffectPreset:      TnxScenarioSheet._onEditEffectPreset,
             deletePreset:          TnxScenarioSheet._onDeletePreset,
             presetUp:              TnxScenarioSheet._onPresetUp,
             presetDown:            TnxScenarioSheet._onPresetDown,
@@ -122,6 +130,18 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             ...p,
             placeholder: presetLabel({}, i, "報酬点"),
         }));
+        const selected = (options, value) => options.map(o => ({ ...o, selected: o.value === value }));
+        context.damageGrantPresets = (flagData.damageGrants || []).map((p, i) => ({
+            ...p,
+            placeholder:  presetLabel({}, i, "ダメージ"),
+            categories:   selected(RL_DAMAGE_CATEGORIES, p.category ?? "physical"),
+            damageTypes:  selected(RL_DAMAGE_TYPES, p.damageType ?? "I"),
+        }));
+        context.effectGrantPresets = (flagData.effectGrants || []).map((p, i) => ({
+            ...p,
+            placeholder: presetLabel({}, i, "効果"),
+            effectName:  p.effect?.name || "未作成",
+        }));
 
         context.scenarioTexts = flagData.scenarioTexts || [];
         context.infoItems     = flagData.infoItems     || [];
@@ -155,9 +175,18 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
     _setupChangeListeners() {
         const el = this.element;
 
-        // 判定要求・報酬点のプリセット(フェーズ12-5)
+        // RL プリセット(判定要求・報酬点・ダメージ・効果)
         for (const input of el.querySelectorAll('.preset-item [data-preset-kind]')) {
             input.addEventListener('change', this._onPresetFieldChange.bind(this));
+        }
+
+        // ダメージ種別は物理のみ(精神・社会に対応防御力の概念が無い=付与ダイアログと同じ)
+        for (const select of el.querySelectorAll('.preset-item [name="category"]')) {
+            const row = select.closest('.preset-body')?.querySelector('.damage-type-row');
+            if (!row) continue;
+            const sync = () => row.toggleAttribute('hidden', select.value !== 'physical');
+            select.addEventListener('change', sync);
+            sync();
         }
 
         for (const input of el.querySelectorAll('.scene-item input[type="text"], .scene-item input[type="checkbox"], .scene-item textarea, .scene-item select')) {
@@ -688,6 +717,32 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         const rows = this._presets("bountyGrants");
         rows.push(newBountyPreset());
         await this.document.setFlag("tokyo-nova-axleration", "bountyGrants", rows);
+    }
+
+    static async _onAddDamageGrantPreset(_event, _target) {
+        const rows = this._presets("damageGrants");
+        rows.push(newDamageGrantPreset());
+        await this.document.setFlag("tokyo-nova-axleration", "damageGrants", rows);
+    }
+
+    static async _onAddEffectGrantPreset(_event, _target) {
+        const rows = this._presets("effectGrants");
+        rows.push(newEffectGrantPreset());
+        await this.document.setFlag("tokyo-nova-axleration", "effectGrants", rows);
+    }
+
+    /**
+     * 効果プリセットの中身を標準の効果シートで組む(2026-07-21)。
+     * アクト中に組むには重い作業のため、事前に用意しておけるようにする。
+     */
+    static async _onEditEffectPreset(_event, target) {
+        const rows = this._presets("effectGrants");
+        const row  = rows.find(p => p.id === target.dataset.presetId);
+        if (!row) return;
+        const effect = await promptEffectData(row.effect);
+        if (!effect) return;   // 送信せずに閉じた＝取り消し
+        row.effect = effect;
+        await this.document.setFlag("tokyo-nova-axleration", "effectGrants", rows);
     }
 
     static async _onDeletePreset(_event, target) {
