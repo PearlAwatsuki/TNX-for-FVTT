@@ -4725,6 +4725,10 @@ body.tnx-bottom-hud-expanded #hotbar {
     font-weight: bold;
 }
 
+/* 子要素をクリック判定から抜き、クリック対象を常に data-tab を持つ <a> 自身にする
+   (アイコン・ラベルに当たった回はタブ切り替えが黙って無視されるため) */
+.scenario-sheet .vertical-tabs .item > * { pointer-events: none; }
+
 .scenario-sheet .vertical-tabs .item i { width: 20px; text-align: center; }
 
 .scenario-sheet .vertical-tabs .item.active i { color: var(--tnx2-text-accent); }
