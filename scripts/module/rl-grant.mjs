@@ -150,7 +150,7 @@ export class TnxRlGrantDamageApp extends HandlebarsApplicationMixin(ApplicationV
         // ダメージ種別は物理のみ(精神・社会に対応防御力の概念が無い)
         const categorySelect = this.element.querySelector("[name=category]");
         const syncType = () => {
-            this.element.querySelector(".damage-type-section")
+            this.element.querySelector(".damage-type-field")
                 ?.toggleAttribute("hidden", (categorySelect?.value ?? "physical") !== "physical");
         };
         categorySelect?.addEventListener("change", syncType);

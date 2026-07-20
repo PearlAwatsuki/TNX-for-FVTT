@@ -535,21 +535,22 @@
                                         {{/each}}
                                     </select>
                                 </div>
-                                <div class="form-group damage-type-row">
-                                    <label>ダメージ種別</label>
-                                    <select name="damageType" data-preset-kind="damageGrants" data-preset-id="{{this.id}}">
-                                        {{#each this.damageTypes}}
-                                            <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
-                                        {{/each}}
-                                    </select>
-                                </div>
+                                {{!-- ダメージ＝種別＋値の1項目（攻撃力の設定と同じ split-fields） --}}
                                 <div class="form-group">
                                     <label>ダメージ</label>
-                                    <div class="number-input-spinner">
-                                        <button type="button" class="tnx-btn" data-action="presetSpinDown" aria-label="減少">−</button>
-                                        <input type="number" name="value" value="{{this.value}}" min="0" max="99"
-                                               data-preset-kind="damageGrants" data-preset-id="{{this.id}}">
-                                        <button type="button" class="tnx-btn" data-action="presetSpinUp" aria-label="増加">＋</button>
+                                    <div class="form-fields split-fields">
+                                        <select name="damageType" class="damage-type-field"
+                                                data-preset-kind="damageGrants" data-preset-id="{{this.id}}">
+                                            {{#each this.damageTypes}}
+                                                <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                                            {{/each}}
+                                        </select>
+                                        <div class="number-input-spinner">
+                                            <button type="button" class="tnx-btn" data-action="presetSpinDown" aria-label="減少">−</button>
+                                            <input type="number" name="value" value="{{this.value}}" min="0" max="99"
+                                                   data-preset-kind="damageGrants" data-preset-id="{{this.id}}">
+                                            <button type="button" class="tnx-btn" data-action="presetSpinUp" aria-label="増加">＋</button>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="form-group">

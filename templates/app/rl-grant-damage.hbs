@@ -27,23 +27,21 @@
         </select>
     </div>
 
-    {{!-- ダメージ種別(物理のみ。X＝対応防御力が無い＝防護点で軽減できないダメージ) --}}
-    <div class="form-group rl-form-group damage-type-section">
-        <label class="rl-label">ダメージ種別</label>
-        <select name="damageType" class="rl-select">
-            {{#each DAMAGE_TYPES}}
-                <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
-            {{/each}}
-        </select>
-    </div>
-
-    {{!-- ダメージ --}}
+    {{!-- ダメージ＝種別＋値の1項目（攻撃力の設定と同じ split-fields）。
+          種別は物理のみ（X＝対応防御力が無い＝防護点で軽減できないダメージ） --}}
     <div class="form-group rl-form-group">
         <label class="rl-label">ダメージ</label>
-        <div class="number-input-spinner">
-            <button type="button" class="tnx-btn" data-action="decrement" aria-label="減少">−</button>
-            <input type="number" name="value" value="0" min="0" max="99">
-            <button type="button" class="tnx-btn" data-action="increment" aria-label="増加">＋</button>
+        <div class="form-fields split-fields">
+            <select name="damageType" class="rl-select damage-type-field">
+                {{#each DAMAGE_TYPES}}
+                    <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                {{/each}}
+            </select>
+            <div class="number-input-spinner">
+                <button type="button" class="tnx-btn" data-action="decrement" aria-label="減少">−</button>
+                <input type="number" name="value" value="0" min="0" max="99">
+                <button type="button" class="tnx-btn" data-action="increment" aria-label="増加">＋</button>
+            </div>
         </div>
     </div>
 

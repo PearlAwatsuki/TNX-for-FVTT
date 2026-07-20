@@ -190,7 +190,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
         // ダメージ種別は物理のみ(精神・社会に対応防御力の概念が無い=付与ダイアログと同じ)
         for (const select of el.querySelectorAll('.preset-item [name="category"]')) {
-            const row = select.closest('.preset-body')?.querySelector('.damage-type-row');
+            const row = select.closest('.preset-body')?.querySelector('.damage-type-field');
             if (!row) continue;
             const sync = () => row.toggleAttribute('hidden', select.value !== 'physical');
             select.addEventListener('change', sync);
