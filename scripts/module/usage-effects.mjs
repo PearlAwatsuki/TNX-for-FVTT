@@ -37,6 +37,36 @@ const SCOPE = "tokyo-nova-axleration";
  * @returns {Array<{name:string, data:object, grantTarget:"target"|"self",
  *   timing:"hit"|"damage", landing:"actor"|"item"}>}
  */
+/**
+ * 供給元の効果から**付与コピー**のデータを組み立てる(用途の適用効果・RL 任意付与に共通)。
+ *
+ * 付与コピーは**供給元と切り離された一回性のインスタンス**である: `transferredFrom` を持たない
+ * ため、アイテム狙い AE の片方向同期(供給元が正・更新で上書き・供給元削除で除去)の対象に
+ * ならない。`grantedFrom` は由来の記録であって同期の紐づけではない。
+ *
+ * @param {ActiveEffect} eff 供給元の効果
+ * @returns {object} createEmbeddedDocuments("ActiveEffect", ...) 用のデータ
+ */
+export function buildGrantedEffectData(eff) {
+    const data = eff.toObject();
+    delete data._id;
+    data.disabled = false;   // 付与先で有効化
+    data.transfer = false;   // 付与先に直接乗る一回性のインスタンス(自動転送の供給元にしない)
+    // トークン演出(2026-07-11 ユーザー指摘): コアの浮遊テキスト(+効果名)は statuses/changes が
+    // 無いと出ず、トークン上のアイコンは temporary(statuses あり or 持続時間あり)でないと出ない。
+    // statuses が空の効果には付与マーカーの status を注入し、コアの標準演出を全クライアントで
+    // 発火させる(CONFIG.statusEffects 未登録の id は HUD パレットには出ない=バッジ表示専用)
+    if (!(data.statuses?.length)) data.statuses = ["tnx-applied"];
+    // 由来と同一性(2026-07-13 再設計): grantedFrom=付与コピーの印(転送の供給元にならない)。
+    // effectId=重複排除・置き換えリフレッシュの同一性(供給元に無ければ供給元 uuid を刻む)
+    data.flags = data.flags ?? {};
+    const f = data.flags[SCOPE] = { ...(data.flags[SCOPE] ?? {}) };
+    f.grantedFrom = eff.uuid;
+    if (!f.effectId) f.effectId = eff.uuid;
+    delete f.applyToParent; // 付与コピーに準備先転送は無関係
+    return data;
+}
+
 export function resolveUsageEffectData(actor, parentItem, usage) {
     const out = [];
     // タイミングはリスト所属で決まる(2026-07-18 ユーザー確定=AE 側には持たせない)。
@@ -53,22 +83,7 @@ export function resolveUsageEffectData(actor, parentItem, usage) {
                 : actor?.items?.get(ref.itemId);
             const eff = host?.effects?.get(ref.effectId);
             if (!eff) continue;
-            const data = eff.toObject();
-            delete data._id;
-            data.disabled = false;   // 付与先で有効化
-            data.transfer = false;   // 付与先に直接乗る一回性のインスタンス(自動転送の供給元にしない)
-            // トークン演出(2026-07-11 ユーザー指摘): コアの浮遊テキスト(+効果名)は statuses/changes が
-            // 無いと出ず、トークン上のアイコンは temporary(statuses あり or 持続時間あり)でないと出ない。
-            // statuses が空の効果には付与マーカーの status を注入し、コアの標準演出を全クライアントで
-            // 発火させる(CONFIG.statusEffects 未登録の id は HUD パレットには出ない=バッジ表示専用)
-            if (!(data.statuses?.length)) data.statuses = ["tnx-applied"];
-            // 由来と同一性(2026-07-13 再設計): grantedFrom=付与コピーの印(転送の供給元にならない)。
-            // effectId=重複排除・置き換えリフレッシュの同一性(供給元に無ければ供給元 uuid を刻む)
-            data.flags = data.flags ?? {};
-            const f = data.flags[SCOPE] = { ...(data.flags[SCOPE] ?? {}) };
-            f.grantedFrom = eff.uuid;
-            if (!f.effectId) f.effectId = eff.uuid;
-            delete f.applyToParent; // 付与コピーに準備先転送は無関係
+            const data = buildGrantedEffectData(eff);
             out.push({
                 name: eff.name,
                 data,

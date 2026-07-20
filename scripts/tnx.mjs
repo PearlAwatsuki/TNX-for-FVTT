@@ -54,7 +54,7 @@ import { TnxSocketHandler } from './module/tnx-socket-handler.mjs';
 import { TnxCheckFlow, renderRecheckButton } from './module/tnx-check-flow.mjs';
 import { TnxCheckDialog } from './module/tnx-check-dialog.mjs';
 import { TnxRlRequestApp } from './module/tnx-rl-request-app.mjs';
-import { openRlGrantDamage } from './module/rl-grant.mjs';
+import { openRlGrantDamage, openRlGrantEffect } from './module/rl-grant.mjs';
 import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
 import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
@@ -98,6 +98,7 @@ async function preloadHandlebarsTemplates() {
         // === App ===
         "systems/tokyo-nova-axleration/templates/app/rl-request-app.hbs",
         "systems/tokyo-nova-axleration/templates/app/rl-grant-damage.hbs",
+        "systems/tokyo-nova-axleration/templates/app/rl-grant-effect.hbs",
         "systems/tokyo-nova-axleration/templates/app/usage-sheet.hbs",
 
         // === Dialogs ===
@@ -1569,6 +1570,15 @@ Hooks.once("init", async function() {
                 icon:    "fas fa-burst",
                 button:  true,
                 onChange: () => openRlGrantDamage(),
+                visible: true,
+            },
+            // RL 任意の状態・効果付与(フェーズ12・2026-07-20)
+            tnxGrantEffect: {
+                name:    "tnxGrantEffect",
+                title:   "状態・効果の付与",
+                icon:    "fas fa-hand-sparkles",
+                button:  true,
+                onChange: () => openRlGrantEffect(),
                 visible: true,
             },
         };
