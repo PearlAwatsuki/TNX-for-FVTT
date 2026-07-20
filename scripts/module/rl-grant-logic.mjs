@@ -12,6 +12,12 @@
  */
 
 import { CONDITION_KINDS, CONDITION_GROUP_LABELS } from "./conditions.mjs";
+import { ATTACK_DAMAGE_TYPES } from "../data/item/helpers.mjs";
+
+/** RL 任意ダメージで選べる種別(物理のみ)。表示は辞書のラベル(斬撃/貫通/衝撃/装甲無視)。 */
+export const RL_DAMAGE_TYPES = Object.freeze(
+    Object.entries(ATTACK_DAMAGE_TYPES).map(([value, label]) => ({ value, label }))
+);
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -28,11 +34,17 @@ const SCOPE = "tokyo-nova-axleration";
  * @param {Array<{uuid:string,name:string}>} opts.targets 対象(0 体でも成立)
  * @param {string}   opts.category physical / mental / social
  * @param {number}   opts.value    RL が指定するダメージ(負値・非数は 0)
+ * @param {string}   [opts.damageType] ダメージ種別(物理のみ・S/P/I/X。既定は生身と同じ I)
  * @param {string}   [opts.note]   自由記述(軽減技能の可否などを伝える)
  * @returns {object} damageRoll フラグ
  */
-export function buildRlDamageRollFlag({ targets = [], category, value, note = "" } = {}) {
+export function buildRlDamageRollFlag({ targets = [], category, value, damageType = "", note = "" } = {}) {
     const amount = Math.max(0, Number(value) || 0);
+    // 種別は対応防御力の引き先(defenceForType)。X=装甲無視で軽減なし＝「防護点で軽減できない
+    // ダメージ」を表す手段(2026-07-20 裁定)。精神・社会に対応防御力の概念は無いので持たせない
+    const type = category === "physical"
+        ? (RL_DAMAGE_TYPES.some(t => t.value === damageType) ? damageType : "I")
+        : "";
     return {
         attackMessageId:  null,
         attackerUuid:     null,
@@ -43,7 +55,7 @@ export function buildRlDamageRollFlag({ targets = [], category, value, note = ""
             reactionEstablished: false,
         })),
         category,
-        damageType:       "",
+        damageType:       type,
         attackPower:      0,
         damageBonuses:    [],
         mods:             [],
@@ -124,4 +136,15 @@ export function rlGrantLedgerRow(f) {
     if (!f?.rlGrant) return null;
     const note = String(f.rlGrant.note ?? "").trim();
     return { label: note ? `ダメージ（${note}）` : "ダメージ", value: rlGrantAmount(f) };
+}
+
+/**
+ * 台帳に出す種別の表示(物理のみ)。どの防御力で軽減されるか(X なら軽減なし)が読めるようにする。
+ * 攻撃由来のダメージカードでは攻撃力の行が種別を示すため、ここでは作らない(null)。
+ * @param {?object} f damageRoll フラグ
+ * @returns {?string}
+ */
+export function rlGrantTypeLabel(f) {
+    if (!f?.rlGrant || f.category !== "physical") return null;
+    return ATTACK_DAMAGE_TYPES[f.damageType] ?? null;
 }

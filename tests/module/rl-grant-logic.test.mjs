@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildRlDamageRollFlag, rlGrantAmount, rlGrantLedgerRow } from "../../scripts/module/rl-grant-logic.mjs";
+import { buildRlDamageRollFlag, rlGrantAmount, rlGrantLedgerRow, rlGrantTypeLabel } from "../../scripts/module/rl-grant-logic.mjs";
 
 const TARGETS = [
   { uuid: "Actor.aaa", name: "キャストA" },
@@ -83,5 +83,52 @@ describe("rlGrantLedgerRow()（台帳の行）", () => {
   it("攻撃由来のダメージカードでは行を作らない", () => {
     expect(rlGrantLedgerRow({ cards: [{ value: 5 }] })).toBeNull();
     expect(rlGrantLedgerRow(null)).toBeNull();
+  });
+});
+
+describe("buildRlDamageRollFlag() のダメージ種別（2026-07-21 是正）", () => {
+  it("物理では指定したダメージ種別を持つ（対応防御力での軽減に効く）", () => {
+    const f = buildRlDamageRollFlag({ targets: TARGETS, category: "physical", value: 7, damageType: "P" });
+    expect(f.damageType).toBe("P");
+  });
+
+  it("装甲無視（X）を選べる＝防護点で軽減できないダメージを表せる", () => {
+    expect(buildRlDamageRollFlag({ targets: TARGETS, category: "physical", value: 7, damageType: "X" }).damageType)
+      .toBe("X");
+  });
+
+  it("未指定は衝撃（I）＝生身の攻撃力と同じ既定", () => {
+    expect(buildRlDamageRollFlag({ targets: TARGETS, category: "physical", value: 7 }).damageType).toBe("I");
+  });
+
+  it("不正な種別は既定に落とす", () => {
+    expect(buildRlDamageRollFlag({ targets: TARGETS, category: "physical", value: 7, damageType: "Z" }).damageType)
+      .toBe("I");
+  });
+
+  it("精神・社会は種別を持たない（対応防御力の概念が無い）", () => {
+    expect(buildRlDamageRollFlag({ targets: TARGETS, category: "mental", value: 7, damageType: "P" }).damageType).toBe("");
+    expect(buildRlDamageRollFlag({ targets: TARGETS, category: "social", value: 7, damageType: "P" }).damageType).toBe("");
+  });
+});
+
+describe("rlGrantTypeLabel()（台帳に出す種別の行）", () => {
+  it("物理は種別のラベルを返す（どの防御力で軽減されるかが読める）", () => {
+    const f = buildRlDamageRollFlag({ targets: TARGETS, category: "physical", value: 7, damageType: "P" });
+    expect(rlGrantTypeLabel(f)).toBe("貫通");
+  });
+
+  it("装甲無視も表示する", () => {
+    const f = buildRlDamageRollFlag({ targets: TARGETS, category: "physical", value: 7, damageType: "X" });
+    expect(rlGrantTypeLabel(f)).toBe("装甲無視");
+  });
+
+  it("精神・社会は行を作らない", () => {
+    expect(rlGrantTypeLabel(buildRlDamageRollFlag({ targets: TARGETS, category: "mental", value: 7 }))).toBeNull();
+  });
+
+  it("攻撃由来のダメージカードでは行を作らない", () => {
+    expect(rlGrantTypeLabel({ category: "physical", damageType: "P" })).toBeNull();
+    expect(rlGrantTypeLabel(null)).toBeNull();
   });
 });

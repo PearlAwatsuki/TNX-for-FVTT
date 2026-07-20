@@ -36,7 +36,7 @@ import { formatAttackLabel } from "./attack-flow-logic.mjs";
 import { gatherDamageVsSources, gatherDamageDealtSources, gatherDamageTakenSources, collectActorEffectBuffs, targetStyleWorksKeys } from "../data/item/helpers.mjs";
 import { splitEffectsByTiming } from "./usage-effects.mjs";
 import { spinnerDialogActions } from "./tnx-dialog.mjs";
-import { rlGrantAmount, rlGrantLedgerRow } from "./rl-grant-logic.mjs";
+import { rlGrantAmount, rlGrantLedgerRow, rlGrantTypeLabel } from "./rl-grant-logic.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会" };
@@ -356,7 +356,12 @@ export function renderDamageCard(message, html) {
     });
     // RL 任意付与(2026-07-20): 判定を経由しないため攻撃力の段を持たない。自由記述を行のラベルに使う
     const rlRow = rlGrantLedgerRow(f);
-    if (rlRow) row(ledger, esc(rlRow.label), String(rlRow.value));
+    if (rlRow) {
+        row(ledger, esc(rlRow.label), String(rlRow.value));
+        // 種別はどの防御力で軽減されるか(X=装甲無視なら軽減なし)の根拠になるため台帳に出す
+        const typeLabel = rlGrantTypeLabel(f);
+        if (typeLabel) row(ledger, "ダメージ種別", esc(typeLabel));
+    }
     if (!rlRow && f.category === "physical") {
         // 攻撃力はアウトフィットの表記(種別+符号つき数値・例 I+4)を踏襲。
         // FA 値は用途のダメージ修正(下の damageBonuses)として現れる(2026-07-18 手動一本化)

@@ -12,7 +12,7 @@
  */
 
 import { currentTargetActors } from "./target-resolution.mjs";
-import { buildRlDamageRollFlag, buildConditionGrantData, rlConditionChoices } from "./rl-grant-logic.mjs";
+import { buildRlDamageRollFlag, buildConditionGrantData, rlConditionChoices, RL_DAMAGE_TYPES } from "./rl-grant-logic.mjs";
 import { buildGrantedEffectData } from "./usage-effects.mjs";
 import { buildBountyGrantData } from "./bounty-grant-logic.mjs";
 import { listBountyPresets, presetLabel, bountyPresetToForm } from "./request-presets.mjs";
@@ -58,11 +58,22 @@ export class TnxRlGrantDamageApp extends HandlebarsApplicationMixin(ApplicationV
             ...context,
             targets: currentTargetActors().map(a => ({ uuid: a.uuid, name: a.name, img: a.img })),
             CATEGORY_OPTIONS,
+            // 既定は生身の攻撃力と同じ衝撃(I)
+            DAMAGE_TYPES: RL_DAMAGE_TYPES.map(t => ({ ...t, selected: t.value === "I" })),
         };
     }
 
     _onRender(context, options) {
         super._onRender(context, options);
+        // ダメージ種別は物理のみ(精神・社会に対応防御力の概念が無い)
+        const categorySelect = this.element.querySelector("[name=category]");
+        const syncType = () => {
+            this.element.querySelector(".damage-type-section")
+                ?.toggleAttribute("hidden", (categorySelect?.value ?? "physical") !== "physical");
+        };
+        categorySelect?.addEventListener("change", syncType);
+        syncType();
+
         for (const btn of this.element.querySelectorAll(".number-input-spinner [data-action=decrement]")) {
             btn.addEventListener("click", () => {
                 btn.closest(".number-input-spinner")?.querySelector("input[type=number]")?.stepDown();
@@ -81,9 +92,10 @@ export class TnxRlGrantDamageApp extends HandlebarsApplicationMixin(ApplicationV
             ui.notifications.warn("対象をターゲットしてください。");
             return false;
         }
-        const category = form.querySelector("[name=category]")?.value ?? "physical";
-        const value    = Number(form.querySelector("[name=value]")?.value) || 0;
-        const note     = form.querySelector("[name=note]")?.value?.trim() ?? "";
+        const category   = form.querySelector("[name=category]")?.value ?? "physical";
+        const damageType = form.querySelector("[name=damageType]")?.value ?? "";
+        const value      = Number(form.querySelector("[name=value]")?.value) || 0;
+        const note       = form.querySelector("[name=note]")?.value?.trim() ?? "";
 
         await ChatMessage.create({
             content: await foundry.applications.handlebars.renderTemplate(
@@ -92,7 +104,7 @@ export class TnxRlGrantDamageApp extends HandlebarsApplicationMixin(ApplicationV
             ),
             flags: {
                 [SCOPE]: {
-                    damageRoll: buildRlDamageRollFlag({ targets, category, value, note }),
+                    damageRoll: buildRlDamageRollFlag({ targets, category, value, damageType, note }),
                 },
             },
         });

@@ -6721,7 +6721,13 @@ button.tnx-create-act-button span {
     gap: 4px;
 }
 
+/* 行のレイアウトは行自身が持つ(読み取り専用の対象行=チェックボックスを伴わない行でも
+   アイコンと名前が横並びになるように。2026-07-21 是正: 従来は .rl-check-label 側だけに
+   flex があり、素の行では縦積みになっていた) */
 .tnx-rl-request .rl-player-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
     padding: 4px 6px;
     border-radius: 4px;
     transition: background 0.15s;
