@@ -810,9 +810,10 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // (ユーザー確定)。行の実効名=用途名(空なら親アイテム名)。旧・合成アクション(移動・リロード)は
         // オミット——移動=〈操縦〉の移動タイプ用途・リロード=射撃武器のリロード用途(マイナー+使用回数への
         // マイナス消費)に一本化。
-        // - 標準のプロセス/アクション(下記7つ)は空でも常に表示する。リアクションは持たない
-        //   (2026-07-20 ユーザー確定: リアクションの使用はチャットカードからの起動に一本化された
-        //   ため、戦闘タブに再表示する必要がない)。
+        // - 標準のプロセス/アクション(下記7つ)は空でも常に表示する。
+        // - リアクションだけは**該当する用途があるときのみ**表示する(2026-07-20 ユーザー確定)。
+        //   表示条件は差し込みタイミングと同じだが、位置はアクションの並び(メジャー→リアクション
+        //   →オート)を保つ——ルール上の行動順から外れると読み取れなくなるため末尾送りにはしない。
         // - 差し込みタイミングは「タイミング」選択肢そのものの値(「ダメージ算出の直前」等の
         //   名前つき enum)と、「その他」の自由記述テキストの二通りある。**どちらも**項目がある
         //   場合のみ標準群の後ろに表示する(2026-07-20 是正: classify が action/process/other しか
@@ -826,6 +827,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             { kind: "action",  key: "move",       label: "ムーブ" },
             { kind: "action",  key: "minor",      label: "マイナー" },
             { kind: "action",  key: "major",      label: "メジャー" },
+            { kind: "action",  key: "reaction",   label: "リアクション", onlyWhenFilled: true },
             { kind: "action",  key: "auto",       label: "オート" },
             { kind: "process", key: "clean-up",   label: "クリンナップ" },
         ].map(b => ({ ...b, entries: [] }));
@@ -862,7 +864,6 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                 if (fixed) return pushEntry(fixed.entries, item, usage);
                 // 解説参照(explanation)・その他(other)は「その他」群へ
                 if (name === "explanation" || name === "other") return pushEntry(misc.entries, item, usage);
-                // 常設群を持たない=リアクション。戦闘タブには置かない(チャットカードから起動する)
                 return;
             }
             if (t.value === "other") {
@@ -891,7 +892,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             .filter(g => g.entries.length)
             .sort((a, b) => a.rank - b.rank);
         const allGroups = [
-            ...fixedBuckets,
+            // onlyWhenFilled(リアクション)は空なら出さない。位置は並びのまま
+            ...fixedBuckets.filter(b => !b.onlyWhenFilled || b.entries.length),
             ...insertedGroups,
             ...(misc.entries.length ? [misc] : []),
         ];
