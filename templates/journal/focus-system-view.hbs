@@ -1,0 +1,41 @@
+<div class="tnx-focus-system tnx-focus-system--view tokyo-nova">
+
+    <dl class="fs-view-meta">
+        {{#if system.restriction}}
+            <dt>制限</dt><dd>{{system.restriction}}</dd>
+        {{/if}}
+        <dt>目標進行値</dt><dd>{{system.targetProgress}}</dd>
+        <dt>敗北条件</dt>
+        <dd>{{#if isDefeatCut}}{{system.defeatCondition.cutLimit}} カット経過{{else}}{{system.defeatCondition.text}}{{/if}}</dd>
+        {{#if system.defeatEffect}}
+            <dt>敗北時</dt><dd>{{system.defeatEffect}}</dd>
+        {{/if}}
+        {{#if supportSkillLabel}}
+            <dt>支援判定</dt><dd>{{supportSkillLabel}}</dd>
+        {{/if}}
+    </dl>
+
+    {{#if rows.length}}
+        <table class="fs-view-rows">
+            <thead>
+                <tr><th>進行値</th><th>技能</th><th>目標値</th><th>進行修正</th><th>備考</th></tr>
+            </thead>
+            <tbody>
+                {{#each rows}}
+                    <tr>
+                        <td>{{this.threshold}}</td>
+                        <td>{{this.skillLabel}}</td>
+                        <td>{{this.targetValue}}</td>
+                        <td>{{this.modLabel}}</td>
+                        <td>{{this.note}}</td>
+                    </tr>
+                {{/each}}
+            </tbody>
+        </table>
+    {{/if}}
+
+    {{#if system.memo}}
+        <p class="fs-view-memo">{{system.memo}}</p>
+    {{/if}}
+
+</div>

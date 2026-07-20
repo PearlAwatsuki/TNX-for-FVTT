@@ -41,6 +41,7 @@ import { TokyoNovaLifePathSheet } from './item/tnx-life-path-sheet.mjs';
 import { TokyoNovaOutfitSheet, formatWeaponRangeLabel } from './item/tnx-outfit-sheet.mjs';
 import { TokyoNovaHousingAreaSheet } from './item/tnx-housing-area-sheet.mjs';
 import { TnxScenarioSheet } from './journal/tnx-scenario-sheet.mjs';
+import { TnxFocusSystemSheet } from './journal/tnx-focus-system-sheet.mjs';
 import { TnxCardSetupApp } from './module/tnx-card-setup-app.mjs';
 import { TnxActionHandler } from './module/tnx-action-handler.mjs';
 import { TnxHud } from './module/tnx-hud.mjs';
@@ -82,6 +83,8 @@ async function preloadHandlebarsTemplates() {
 
         // === Journal Sheets ===
         "systems/tokyo-nova-axleration/templates/journal/scenario-sheet.hbs",
+        "systems/tokyo-nova-axleration/templates/journal/focus-system-edit.hbs",
+        "systems/tokyo-nova-axleration/templates/journal/focus-system-view.hbs",
 
         // === Chat ===
         // 判定結果系カードの基底部品(2026-07-19 基底化): 全カードが参照するためパーシャルとして先読み
@@ -1114,6 +1117,12 @@ Hooks.once("init", async function() {
         makeDefault: false,
         label: "アクトシート",
     });
+
+    // FS判定シート(フェーズ12-5): JournalEntryPage 型 focusSystem の専用シート
+    foundry.applications.apps.DocumentSheetConfig.registerSheet(
+        foundry.documents.JournalEntryPage, "tokyo-nova", TnxFocusSystemSheet,
+        { types: ["focusSystem"], makeDefault: true, label: "TNX FS判定シート" }
+    );
 
     // ドロー表: コア RollTable のカードドロー拡張（シート置換なし・フック注入のみ）
     registerDrawTableHooks();
