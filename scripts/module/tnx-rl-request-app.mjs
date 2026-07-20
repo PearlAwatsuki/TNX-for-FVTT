@@ -49,6 +49,56 @@ const SUIT_SYMBOLS = Object.freeze({
     spade: "♠", club: "♣", heart: "♥", diamond: "♦",
 });
 
+/**
+ * 判定要求カードを投稿する(判定要求ダイアログ・FS判定の進行/支援判定要求で共用)。
+ *
+ * GM 側は目標値を常に表示するため、テンプレートには targetValueHidden=false を渡し、
+ * 非公開の扱いはフラグ側で持つ(描画フックが参照する)。`extra` は追加のフラグ
+ * (FS判定の focusSystemId など・完了継続で使う文脈)。
+ *
+ * @param {object} opts
+ * @returns {Promise<ChatMessage>}
+ */
+export async function postCheckRequest({
+    checkType = "skillCheck", identificationKey = "", skillLabel = "",
+    validSuits = [], targetValue = null, targetValueHidden = false,
+    description = "", targets = [], extra = {},
+} = {}) {
+    const content = await foundry.applications.handlebars.renderTemplate(
+        "systems/tokyo-nova-axleration/templates/chat/check-request.hbs",
+        {
+            typeLabel:    CHECK_TYPE_LABELS[checkType] ?? checkType,
+            skillLabel,
+            validSuits,
+            suitSymbols:  SUIT_SYMBOLS,
+            targetValue,
+            targetValueHidden: false,
+            description,
+            targets,
+        }
+    );
+    return ChatMessage.create({
+        content,
+        flags: {
+            "tokyo-nova-axleration": {
+                checkRequest: {
+                    checkType,
+                    identificationKey: identificationKey || null,
+                    skillLabel,
+                    validSuits,
+                    targetValue,
+                    targetValueHidden,
+                    description,
+                    targets,
+                    results: {},
+                    status: "pending",
+                    ...extra,
+                }
+            }
+        },
+    });
+}
+
 export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
     static DEFAULT_OPTIONS = {
@@ -198,39 +248,9 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
             return false;
         }
 
-        // チャットカード HTML を生成（GM 側は目標値を常に表示）
-        const content = await foundry.applications.handlebars.renderTemplate(
-            "systems/tokyo-nova-axleration/templates/chat/check-request.hbs",
-            {
-                typeLabel:    CHECK_TYPE_LABELS[checkType] ?? checkType,
-                skillLabel,
-                validSuits,
-                suitSymbols:  SUIT_SYMBOLS,
-                targetValue,
-                targetValueHidden: false,
-                description,
-                targets,
-            }
-        );
-
-        await ChatMessage.create({
-            content,
-            flags: {
-                "tokyo-nova-axleration": {
-                    checkRequest: {
-                        checkType,
-                        identificationKey: identificationKey || null,
-                        skillLabel,
-                        validSuits,
-                        targetValue,
-                        targetValueHidden,
-                        description,
-                        targets,
-                        results: {},
-                        status: "pending",
-                    }
-                }
-            },
+        await postCheckRequest({
+            checkType, identificationKey, skillLabel, validSuits,
+            targetValue, targetValueHidden, description, targets,
         });
     }
 

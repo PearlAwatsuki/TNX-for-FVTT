@@ -81,6 +81,15 @@
                 <p class="fs-panel-norow">この進行値で行える進行判定が設定されていません。</p>
             {{/if}}
 
+            {{#if ../canEdit}}
+                <button type="button" class="tnx-chat-btn" data-action="requestProgress" data-fs-id="{{this.id}}">
+                    <i class="fas fa-diamond"></i> 進行判定を要求
+                </button>
+                <button type="button" class="tnx-chat-btn" data-action="requestSupport" data-fs-id="{{this.id}}">
+                    <i class="fas fa-hands-helping"></i> 支援判定を要求
+                </button>
+            {{/if}}
+
         </section>
     {{else}}
         <div class="no-items-placeholder">

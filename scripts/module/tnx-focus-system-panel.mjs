@@ -12,6 +12,7 @@ import { activeProgressRow, clampGauge, gaugeMarkers } from "./focus-system-logi
 import { loadGroupedGeneralSkillChoices, loadSkillEntries, SKILL_PACKS } from "./skill-dictionary.mjs";
 import { formatSkillName } from "./identification.mjs";
 import { spinnerDialogActions } from "./tnx-dialog.mjs";
+import { requestFocusSystemCheck } from "./focus-system-request.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -55,6 +56,8 @@ export class TnxFocusSystemPanel extends HandlebarsApplicationMixin(ApplicationV
             cutDown:      TnxFocusSystemPanel._onCutDown,
             succeed:      TnxFocusSystemPanel._onSucceed,
             defeat:       TnxFocusSystemPanel._onDefeat,
+            requestProgress: TnxFocusSystemPanel._onRequestProgress,
+            requestSupport:  TnxFocusSystemPanel._onRequestSupport,
         },
     };
 
@@ -133,6 +136,18 @@ export class TnxFocusSystemPanel extends HandlebarsApplicationMixin(ApplicationV
         if (!done) return;
         await postFocusSystemResultCard(done, succeeded);
         this.render();
+    }
+
+    // ─── 進行判定・支援判定の要求(RL のみ) ────────────────────────────────────
+
+    static async _onRequestProgress(_event, target) {
+        const fs = getActiveFocusSystem(target.dataset.fsId);
+        if (fs) await requestFocusSystemCheck(fs, "progress");
+    }
+
+    static async _onRequestSupport(_event, target) {
+        const fs = getActiveFocusSystem(target.dataset.fsId);
+        if (fs) await requestFocusSystemCheck(fs, "support");
     }
 
     // ─── 起動 ────────────────────────────────────────────────────────────────
