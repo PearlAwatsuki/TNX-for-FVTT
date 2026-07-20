@@ -8,7 +8,7 @@
  */
 
 import { listActiveFocusSystems, getActiveFocusSystem, startFocusSystem, updateFocusSystem, endFocusSystem } from "./focus-system-state.mjs";
-import { activeProgressRow, clampGauge, gaugeMarkers } from "./focus-system-logic.mjs";
+import { activeProgressRow, clampGauge, gaugeMarkers, defeatConditionOptions } from "./focus-system-logic.mjs";
 import { loadGroupedGeneralSkillChoices, loadSkillEntries, SKILL_PACKS } from "./skill-dictionary.mjs";
 import { formatSkillName } from "./identification.mjs";
 import { spinnerDialogActions } from "./tnx-dialog.mjs";
@@ -172,6 +172,7 @@ export class TnxFocusSystemPanel extends HandlebarsApplicationMixin(ApplicationV
             {
                 pageGroups:  listFocusSystemPages(),
                 skillGroups: await loadGroupedGeneralSkillChoices(),
+                defeatTypes: defeatConditionOptions("cut"),
             }
         );
 

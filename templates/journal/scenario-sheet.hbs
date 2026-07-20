@@ -418,9 +418,9 @@
                                 <div class="form-group">
                                     <label>判定種別</label>
                                     <select name="checkType" data-preset-kind="checkRequests" data-preset-id="{{this.id}}">
-                                        <option value="skillCheck"   {{#if this.isSkill}}selected{{/if}}>技能判定</option>
-                                        <option value="abilityCheck" {{#if this.isAbility}}selected{{/if}}>能力値判定</option>
-                                        <option value="controlCheck" {{#if this.isControl}}selected{{/if}}>制御判定</option>
+                                        {{#each this.checkTypes}}
+                                            <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                                        {{/each}}
                                     </select>
                                 </div>
                                 <div class="form-group">

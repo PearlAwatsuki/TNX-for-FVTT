@@ -7,6 +7,7 @@ import { ALL_SUITS } from '../module/tnx-check-engine.mjs';
 import { formatSkillName } from '../module/identification.mjs';
 import { loadGroupedGeneralSkillChoices } from '../module/skill-dictionary.mjs';
 import { presetLabel, newCheckRequestPreset, newBountyPreset } from '../module/request-presets.mjs';
+import { checkTypeOptions } from '../module/tnx-rl-request-app.mjs';
 
 const { HandlebarsApplicationMixin, DocumentSheetV2, DialogV2 } = foundry.applications.api;
 
@@ -114,9 +115,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         context.checkRequestPresets = (flagData.checkRequests || []).map((p, i) => ({
             ...p,
             placeholder: presetLabel({}, i, "判定要求"),
-            isSkill:     (p.checkType ?? "skillCheck") === "skillCheck",
-            isAbility:   p.checkType === "abilityCheck",
-            isControl:   p.checkType === "controlCheck",
+            checkTypes:  checkTypeOptions(p.checkType ?? "skillCheck"),
             skillGroups: withSkills(p.identificationKey),
         }));
         context.bountyPresets = (flagData.bountyGrants || []).map((p, i) => ({

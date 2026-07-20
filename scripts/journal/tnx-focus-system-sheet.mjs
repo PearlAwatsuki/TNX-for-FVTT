@@ -8,6 +8,7 @@
 import { loadGroupedGeneralSkillChoices, loadSkillEntries, SKILL_PACKS } from "../module/skill-dictionary.mjs";
 import { formatSkillName } from "../module/identification.mjs";
 import { PROGRESS_MOD_SOURCES, buildProgressModChoices } from "../module/progress-mod.mjs";
+import { defeatConditionOptions } from "../module/focus-system-logic.mjs";
 
 const { JournalEntryPageHandlebarsSheet } = foundry.applications.sheets.journal;
 
@@ -67,6 +68,7 @@ export class TnxFocusSystemSheet extends JournalEntryPageHandlebarsSheet {
             ...context,
             system:            sys,
             isDefeatCut:       (sys.defeatCondition?.type ?? "cut") === "cut",
+            defeatTypes:       defeatConditionOptions(sys.defeatCondition?.type ?? "cut"),
             skillGroups:       markSelected(skillGroups, sys.supportSkillKey, "skills", "identificationKey"),
             supportSkillLabel: nameOf(sys.supportSkillKey),
             sourceOptions:     PROGRESS_MOD_SOURCES,

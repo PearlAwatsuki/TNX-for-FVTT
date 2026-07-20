@@ -5,6 +5,21 @@
  */
 
 /**
+ * 敗北条件の種別(ルール16)。**選択肢の正本はここ**——テンプレートへ書き写さない
+ * (写した側が欠けても気づけないため・2026-07-21 是正の一般化)。
+ * cut のときだけカットゲージと「残りカット数」を出す。
+ */
+export const DEFEAT_CONDITION_TYPES = Object.freeze([
+    { value: "cut",   label: "カット経過" },
+    { value: "other", label: "その他" },
+]);
+
+/** 敗北条件の種別のプルダウン選択肢。 */
+export function defeatConditionOptions(selected = "cut") {
+    return DEFEAT_CONDITION_TYPES.map(o => ({ ...o, selected: o.value === selected }));
+}
+
+/**
  * その進行値で有効な判定行(ルール8/9/12)。
  *
  * 判定行の「進行値」欄は**切り替えの閾値**で、**閾値 ≦ 現在進行値**を満たす行のうち

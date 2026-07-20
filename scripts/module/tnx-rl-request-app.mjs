@@ -40,7 +40,7 @@ const ABILITY_TO_SUIT = Object.freeze({
     reason: "spade", passion: "club", life: "heart", mundane: "diamond",
 });
 
-const CHECK_TYPE_LABELS = Object.freeze({
+export const CHECK_TYPE_LABELS = Object.freeze({
     skillCheck:   "技能判定",
     abilityCheck: "能力値判定",
     controlCheck: "制御判定",
@@ -49,6 +49,16 @@ const CHECK_TYPE_LABELS = Object.freeze({
 const SUIT_SYMBOLS = Object.freeze({
     spade: "♠", club: "♣", heart: "♥", diamond: "♦",
 });
+
+/**
+ * 判定種別のプルダウン選択肢(CHECK_TYPE_LABELS が正本)。テンプレートへ選択肢を書き写さない
+ * ——写した側が欠けても気づけないため(2026-07-21 是正の一般化)。
+ * @param {string} [selected]
+ */
+export function checkTypeOptions(selected = "") {
+    return Object.entries(CHECK_TYPE_LABELS)
+        .map(([value, label]) => ({ value, label, selected: value === selected }));
+}
 
 /**
  * 判定要求カードを投稿する(判定要求ダイアログ・FS判定の進行/支援判定要求で共用)。
@@ -132,6 +142,7 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
             .map(a => ({ actorId: a.id, actorName: a.name, img: a.img }))
             .sort((a, b) => a.actorName.localeCompare(b.actorName, "ja"));
         // 読み込み元(アクトシートのプリセット・2026-07-20)。選ぶと各欄を自動投入する
+        const checkTypes = checkTypeOptions("skillCheck");
         const presetGroups = listCheckRequestPresets().map(g => ({
             label:   g.label,
             presets: g.presets.map((p, i) => ({ id: p.id, label: presetLabel(p, i, "判定要求") })),
@@ -141,6 +152,7 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
             skillGroups,
             targetActors,
             presetGroups,
+            checkTypes,
             SUIT_OPTIONS,
             ABILITY_OPTIONS,
         };

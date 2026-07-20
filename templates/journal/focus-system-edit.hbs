@@ -37,8 +37,9 @@
             <div class="form-group">
                 <label>条件</label>
                 <select name="system.defeatCondition.type" class="fs-defeat-type">
-                    <option value="cut"   {{#if isDefeatCut}}selected{{/if}}>カット経過</option>
-                    <option value="other" {{#unless isDefeatCut}}selected{{/unless}}>その他</option>
+                    {{#each defeatTypes}}
+                        <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                    {{/each}}
                 </select>
             </div>
             <div class="form-group fs-defeat-cut" {{#unless isDefeatCut}}hidden{{/unless}}>

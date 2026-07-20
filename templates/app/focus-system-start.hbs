@@ -37,8 +37,9 @@
     <div class="form-group rl-form-group">
         <label class="rl-label">敗北条件</label>
         <select name="defeatType" class="rl-select fs-start-defeat-type">
-            <option value="cut">カット経過</option>
-            <option value="other">その他</option>
+            {{#each defeatTypes}}
+                <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+            {{/each}}
         </select>
     </div>
 

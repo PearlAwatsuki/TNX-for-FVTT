@@ -17,6 +17,7 @@ import { getComboSuits } from "./tnx-check-engine.mjs";
 import { resolveUsageSkills, comboLockAnalysis, isComboRequired } from "./skill-chain-resolution.mjs";
 import { deriveConsumeTargets } from "./usage-consumption.mjs";
 import { CONDITION_KINDS } from "./conditions.mjs";
+import { ATTACK_DAMAGE_TYPES } from "../data/item/helpers.mjs";
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
 import { OUTFIT_CATEGORIES, getMinorCategoryLabel } from "../data/item/outfit-categories.mjs";
@@ -501,6 +502,12 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         context.isFixedCheck       = context.isCheckType && Number.isFinite(usage.fixedResult);
         // 攻撃=攻撃タイプ(物理/精神/社会・2026-07-17 再編。系統はタイプが持つ)
         context.isAttack           = isAttackType(usage.type);
+        // ダメージ種別の選択肢は ATTACK_DAMAGE_TYPES から組み立てる(2026-07-21 是正)。
+        // フェーズ8 の新設時に選択肢をテンプレートへ書き写しており、X が欠けたまま残っていた
+        // (アウトフィットシートは同じ表から組み立てていたため4種そろっていた)。
+        // 空値=武器に従う(用途で上書きしない)
+        context.damageTypeOptions = Object.entries(ATTACK_DAMAGE_TYPES)
+            .map(([value, label]) => ({ value, label, selected: usage.damageType === value }));
         // 物理攻撃の白兵/射撃選択(2026-07-17): 射撃攻撃は生身では行えない(武器候補の絞り込みと実行時ブロック)
         context.isPhysicalAttack   = usage.type === "physicalAttack";
         context.attackWeaponKind   = usage.attackWeaponKind === "ranged" ? "ranged" : "melee";
