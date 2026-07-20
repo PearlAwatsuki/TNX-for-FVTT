@@ -61,8 +61,9 @@ function collectEffectSourceGroups() {
         label:     g.label,
         journalId: g.journalId,
         presets:   g.presets.map((p, i) => ({
-            id:    p.id,
-            label: presetLabel(p, i, "効果"),
+            id: p.id,
+            // 名前未入力なら「効果n」より効果そのものの名前の方が選ぶ助けになる
+            label: String(p.label ?? "").trim() || p.effect?.name || presetLabel(p, i, "効果"),
             empty: effectPresetIsEmpty(p),
         })),
     }));
