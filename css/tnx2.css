@@ -8386,3 +8386,50 @@ button.tnx-create-act-button span {
 .tokyo-nova.sheet.actor .tnx-occ-edit:hover {
     text-decoration: underline;
 }
+
+/* ============================================================
+   FS判定シート(フェーズ12-5) — JournalEntryPage 型 focusSystem
+   ============================================================ */
+
+.tnx-focus-system .fs-row-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.tnx-focus-system .fs-row {
+    padding: 8px;
+    border: 1px solid var(--tnx2-border, #3a3f4b);
+    border-radius: 4px;
+}
+.tnx-focus-system .fs-row-title {
+    font-weight: 600;
+}
+
+/* 閲覧モード: 設定を読むための表示に徹する(編集要素を持たない) */
+.tnx-focus-system--view .fs-view-meta {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 12px;
+    margin: 0 0 10px;
+}
+.tnx-focus-system--view .fs-view-meta dt {
+    font-weight: 600;
+    white-space: nowrap;
+}
+.tnx-focus-system--view .fs-view-meta dd {
+    margin: 0;
+}
+.tnx-focus-system--view .fs-view-rows {
+    width: 100%;
+    border-collapse: collapse;
+}
+.tnx-focus-system--view .fs-view-rows th,
+.tnx-focus-system--view .fs-view-rows td {
+    padding: 3px 6px;
+    text-align: left;
+    border-bottom: 1px solid var(--tnx2-border, #3a3f4b);
+}
+.tnx-focus-system--view .fs-view-memo {
+    margin: 10px 0 0;
+    white-space: pre-wrap;
+}
