@@ -1,0 +1,34 @@
+<div class="tnx-check-request tokyo-nova">
+
+    <header class="cr-req-header">
+        <span class="cr-req-type-tag">FS判定</span>
+        <span class="cr-req-title">{{name}}</span>
+    </header>
+
+    <div class="cr-req-body">
+
+        <div class="cr-result {{#if succeeded}}cr-result--nodamage{{else}}cr-result--damage{{/if}}">
+            <i class="fas {{#if succeeded}}fa-flag-checkered{{else}}fa-skull{{/if}}"></i>
+            {{#if succeeded}}目標達成{{else}}敗北{{/if}}
+        </div>
+
+        <div class="cr-req-tn-row">
+            <span class="cr-req-tn-label">進行値</span>
+            <span class="cr-req-tn-value">{{progress}} / {{targetProgress}}</span>
+        </div>
+
+        {{#if isDefeatCut}}
+            <div class="cr-req-tn-row">
+                <span class="cr-req-tn-label">カット</span>
+                <span class="cr-req-tn-value">{{cut}} / {{cutLimit}}</span>
+            </div>
+        {{/if}}
+
+        {{#unless succeeded}}
+            {{#if defeatEffect}}
+                <p class="cr-req-description">{{defeatEffect}}</p>
+            {{/if}}
+        {{/unless}}
+
+    </div>
+</div>

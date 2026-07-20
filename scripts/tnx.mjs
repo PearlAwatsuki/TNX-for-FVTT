@@ -111,6 +111,7 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/app/focus-system-panel.hbs",
         "systems/tokyo-nova-axleration/templates/app/focus-system-start.hbs",
         "systems/tokyo-nova-axleration/templates/chat/focus-system-start.hbs",
+        "systems/tokyo-nova-axleration/templates/chat/focus-system-result.hbs",
         "systems/tokyo-nova-axleration/templates/app/usage-sheet.hbs",
 
         // === Dialogs ===

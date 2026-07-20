@@ -13,6 +13,12 @@
         <section class="fs-panel-item" data-fs-id="{{this.id}}">
             <div class="tnx-item-header tnx-item-header--card">
                 <span class="fs-panel-name">{{this.name}}</span>
+                {{#if ../canEdit}}
+                    <div class="tnx-ctrl-strip">
+                        <a class="tnx-icon-ctrl" data-action="succeed" data-fs-id="{{this.id}}" title="達成"><i class="fas fa-flag-checkered"></i></a>
+                        <a class="tnx-icon-ctrl" data-action="defeat"  data-fs-id="{{this.id}}" title="敗北"><i class="fas fa-skull"></i></a>
+                    </div>
+                {{/if}}
             </div>
 
             {{#if this.restriction}}

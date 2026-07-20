@@ -7,7 +7,7 @@
  * 進行状態の正本はワールド設定(focus-system-state.mjs)。このパネルはその読み書き UI。
  */
 
-import { listActiveFocusSystems, getActiveFocusSystem, startFocusSystem, updateFocusSystem } from "./focus-system-state.mjs";
+import { listActiveFocusSystems, getActiveFocusSystem, startFocusSystem, updateFocusSystem, endFocusSystem } from "./focus-system-state.mjs";
 import { activeProgressRow, clampGauge, gaugeMarkers } from "./focus-system-logic.mjs";
 import { loadGroupedGeneralSkillChoices, loadSkillEntries, SKILL_PACKS } from "./skill-dictionary.mjs";
 import { formatSkillName } from "./identification.mjs";
@@ -53,6 +53,8 @@ export class TnxFocusSystemPanel extends HandlebarsApplicationMixin(ApplicationV
             progressDown: TnxFocusSystemPanel._onProgressDown,
             cutUp:        TnxFocusSystemPanel._onCutUp,
             cutDown:      TnxFocusSystemPanel._onCutDown,
+            succeed:      TnxFocusSystemPanel._onSucceed,
+            defeat:       TnxFocusSystemPanel._onDefeat,
         },
     };
 
@@ -104,6 +106,32 @@ export class TnxFocusSystemPanel extends HandlebarsApplicationMixin(ApplicationV
             ? (Number(fs.targetProgress) || 0)
             : (Number(fs.defeatCondition?.cutLimit) || 0);
         await updateFocusSystem(id, { [field]: clampGauge((Number(fs[field]) || 0) + delta, max) });
+        this.render();
+    }
+
+    // ─── 達成・敗北の確定(RL のみ) ────────────────────────────────────────────
+
+    static async _onSucceed(_event, target) { await this.constructor._finish.call(this, target, true); }
+    static async _onDefeat(_event, target)  { await this.constructor._finish.call(this, target, false); }
+
+    /**
+     * FS判定を終了する。**敗北時の処理はシステムが自動化しない**(内容が FS ごとに異なるため)。
+     * 結果カードに敗北時の処理を掲示し、RL が任意ダメージ付与などで適用する。
+     */
+    static async _finish(target, succeeded) {
+        const id = target.dataset.fsId;
+        const fs = getActiveFocusSystem(id);
+        if (!fs) return;
+        const label = succeeded ? "達成" : "敗北";
+        const ok = await foundry.applications.api.DialogV2.confirm({
+            window: { title: `FS判定の${label}` },
+            classes: ["tokyo-nova", "tnx-dialog"],
+            content: `<p>「${foundry.utils.escapeHTML(fs.name)}」を${label}として終了しますか。</p>`,
+        });
+        if (!ok) return;
+        const done = await endFocusSystem(id);
+        if (!done) return;
+        await postFocusSystemResultCard(done, succeeded);
         this.render();
     }
 
@@ -227,6 +255,32 @@ export async function postFocusSystemStartCard(fs) {
             }
         ),
         flags: { [SCOPE]: { focusSystemStart: { id: fs.id } } },
+    });
+}
+
+/**
+ * FS判定の結果カードを投稿する(全体公開)。敗北時は敗北時の処理を掲示するだけで、
+ * ダメージ等の適用は RL が任意付与で行う(自動化しない=内容が FS ごとに異なるため)。
+ * @param {object} fs 終了した FS
+ * @param {boolean} succeeded 達成なら true
+ */
+export async function postFocusSystemResultCard(fs, succeeded) {
+    const isCut = (fs.defeatCondition?.type ?? "cut") === "cut";
+    await ChatMessage.create({
+        content: await foundry.applications.handlebars.renderTemplate(
+            "systems/tokyo-nova-axleration/templates/chat/focus-system-result.hbs",
+            {
+                name:           fs.name,
+                succeeded,
+                progress:       fs.progress,
+                targetProgress: fs.targetProgress,
+                isDefeatCut:    isCut,
+                cut:            fs.cut,
+                cutLimit:       fs.defeatCondition?.cutLimit ?? 0,
+                defeatEffect:   fs.defeatEffect ?? "",
+            }
+        ),
+        flags: { [SCOPE]: { focusSystemResult: { id: fs.id, succeeded } } },
     });
 }
 
