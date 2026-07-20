@@ -36,6 +36,7 @@ import { formatAttackLabel } from "./attack-flow-logic.mjs";
 import { gatherDamageVsSources, gatherDamageDealtSources, gatherDamageTakenSources, collectActorEffectBuffs, targetStyleWorksKeys } from "../data/item/helpers.mjs";
 import { splitEffectsByTiming } from "./usage-effects.mjs";
 import { spinnerDialogActions } from "./tnx-dialog.mjs";
+import { rlGrantAmount, rlGrantLedgerRow } from "./rl-grant-logic.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会" };
@@ -353,7 +354,10 @@ export function renderDamageCard(message, html) {
         row(ledger, `ダメージカード${cards.length > 1 ? ` ${i + 1}` : ""}（${suitMark}${esc(c.name)}）`,
             i === 0 ? String(c.value) : `＋${c.value}`);
     });
-    if (f.category === "physical") {
+    // RL 任意付与(2026-07-20): 判定を経由しないため攻撃力の段を持たない。自由記述を行のラベルに使う
+    const rlRow = rlGrantLedgerRow(f);
+    if (rlRow) row(ledger, esc(rlRow.label), String(rlRow.value));
+    if (!rlRow && f.category === "physical") {
         // 攻撃力はアウトフィットの表記(種別+符号つき数値・例 I+4)を踏襲。
         // FA 値は用途のダメージ修正(下の damageBonuses)として現れる(2026-07-18 手動一本化)
         row(ledger, `攻撃力（${esc(f.attackSourceName || "生身")}）`, formatAttackLabel(f.damageType, f.attackPower));
@@ -448,7 +452,8 @@ export function renderDamageCard(message, html) {
     }
 
     const attacker = resolveSync(f.attackerUuid);
-    if (game.user.isGM || attacker?.isOwner) {
+    // RL 任意付与はカードを出さない(値の直接指定)ため、カードの追加は出さない
+    if (!rlRow && (game.user.isGM || attacker?.isOwner)) {
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "tnx-chat-btn";
@@ -725,7 +730,8 @@ function damageRollTotals(f, { permanentMitigation = 0, extraPostMods = 0, apply
     const r = computeDamage({
         damageCard: cardSum,
         attackPower: Number(f.attackPower) || 0,
-        modifier: bonusSum + (Number(f.manualMod) || 0),
+        // RL 任意付与(2026-07-20)は判定を経由しないため、カードでも攻撃力でもない素の値として乗る
+        modifier: bonusSum + (Number(f.manualMod) || 0) + rlGrantAmount(f),
         mitigation: permanentMitigation,
         postModifier: modsSum + extraPostMods,
         applyMitigation,

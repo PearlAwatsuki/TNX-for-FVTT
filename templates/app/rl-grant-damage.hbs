@@ -1,0 +1,48 @@
+<div class="rl-request-body">
+
+    {{!-- 対象(レティクル済み。ダメージの対象は常に明示される=2026-07-18 規約) --}}
+    <div class="form-group rl-form-group">
+        <label class="rl-label">対象</label>
+        <div class="rl-targets-list">
+            {{#each targets}}
+                <div class="rl-player-row">
+                    <img class="rl-actor-img" src="{{this.img}}" alt="">
+                    <span class="rl-player-name">{{this.name}}</span>
+                </div>
+            {{/each}}
+        </div>
+    </div>
+
+    {{!-- 系統 --}}
+    <div class="form-group rl-form-group">
+        <label class="rl-label">系統</label>
+        <select name="category" class="rl-select">
+            {{#each CATEGORY_OPTIONS}}
+                <option value="{{this.value}}">{{this.label}}</option>
+            {{/each}}
+        </select>
+    </div>
+
+    {{!-- ダメージ --}}
+    <div class="form-group rl-form-group">
+        <label class="rl-label">ダメージ</label>
+        <div class="number-input-spinner">
+            <button type="button" class="tnx-btn" data-action="decrement" aria-label="減少">−</button>
+            <input type="number" name="value" value="0" min="0" max="99">
+            <button type="button" class="tnx-btn" data-action="increment" aria-label="増加">＋</button>
+        </div>
+    </div>
+
+    {{!-- 自由記述(軽減技能の可否などを伝える) --}}
+    <div class="form-group rl-form-group">
+        <label class="rl-label">記述</label>
+        <textarea name="note" class="rl-textarea" rows="2" placeholder="（省略可）"></textarea>
+    </div>
+
+    <footer class="rl-form-footer">
+        <button type="submit" class="tnx-btn tnx-btn--primary rl-submit-btn">
+            <i class="fas fa-burst"></i> ダメージカードを出す
+        </button>
+    </footer>
+
+</div>

@@ -54,6 +54,7 @@ import { TnxSocketHandler } from './module/tnx-socket-handler.mjs';
 import { TnxCheckFlow, renderRecheckButton } from './module/tnx-check-flow.mjs';
 import { TnxCheckDialog } from './module/tnx-check-dialog.mjs';
 import { TnxRlRequestApp } from './module/tnx-rl-request-app.mjs';
+import { openRlGrantDamage } from './module/rl-grant.mjs';
 import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
 import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
@@ -96,6 +97,7 @@ async function preloadHandlebarsTemplates() {
 
         // === App ===
         "systems/tokyo-nova-axleration/templates/app/rl-request-app.hbs",
+        "systems/tokyo-nova-axleration/templates/app/rl-grant-damage.hbs",
         "systems/tokyo-nova-axleration/templates/app/usage-sheet.hbs",
 
         // === Dialogs ===
@@ -1550,23 +1552,37 @@ Hooks.once("init", async function() {
             tokenGroup = controls?.["tokens"] ?? controls?.["token"];
         }
         if (!tokenGroup) return;
-        const newTool = {
-            name:    "tnxCheckRequest",
-            title:   "判定要求",
-            icon:    "fas fa-cards",
-            button:  true,
-            onChange: () => new TnxRlRequestApp().render(true),
-            visible: true,
+        const newTools = {
+            tnxCheckRequest: {
+                name:    "tnxCheckRequest",
+                title:   "判定要求",
+                icon:    "fas fa-cards",
+                button:  true,
+                onChange: () => new TnxRlRequestApp().render(true),
+                visible: true,
+            },
+            // RL 任意ダメージ付与(フェーズ12・2026-07-20): 判定を経由しないギミックのダメージ。
+            // 対象はレティクルで明示する
+            tnxGrantDamage: {
+                name:    "tnxGrantDamage",
+                title:   "ダメージ付与",
+                icon:    "fas fa-burst",
+                button:  true,
+                onChange: () => openRlGrantDamage(),
+                visible: true,
+            },
         };
         const tools = tokenGroup.tools;
-        if (Array.isArray(tools)) {
-            tools.push(newTool);
-        } else if (tools instanceof Map) {
-            tools.set("tnxCheckRequest", newTool);
-        } else if (tools && typeof tools === "object") {
-            tools.tnxCheckRequest = newTool;
-        } else {
-            tokenGroup.tools = { tnxCheckRequest: newTool };
+        for (const [key, tool] of Object.entries(newTools)) {
+            if (Array.isArray(tools)) {
+                tools.push(tool);
+            } else if (tools instanceof Map) {
+                tools.set(key, tool);
+            } else if (tools && typeof tools === "object") {
+                tools[key] = tool;
+            } else {
+                tokenGroup.tools = { ...(tokenGroup.tools ?? {}), [key]: tool };
+            }
         }
     });
 
