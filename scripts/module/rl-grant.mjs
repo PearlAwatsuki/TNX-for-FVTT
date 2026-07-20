@@ -58,7 +58,7 @@ export class TnxRlGrantDamageApp extends HandlebarsApplicationMixin(ApplicationV
             ...context,
             targets: currentTargetActors().map(a => ({ uuid: a.uuid, name: a.name, img: a.img })),
             CATEGORY_OPTIONS,
-            // 既定は生身の攻撃力と同じ衝撃(I)
+            // 既定は生身の攻撃力と同じ I
             DAMAGE_TYPES: RL_DAMAGE_TYPES.map(t => ({ ...t, selected: t.value === "I" })),
         };
     }

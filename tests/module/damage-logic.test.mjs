@@ -41,7 +41,7 @@ describe("defenceForType()（ダメージ種別に対応する防御力・X は�
     expect(defenceForType(def, "P")).toBe(3);
     expect(defenceForType(def, "I")).toBe(1);
   });
-  it("X（装甲無視）・未指定は 0（対応防御力なし）", () => {
+  it("X・未指定は 0（対応防御力なし）", () => {
     expect(defenceForType(def, "X")).toBe(0);
     expect(defenceForType(def, "")).toBe(0);
   });

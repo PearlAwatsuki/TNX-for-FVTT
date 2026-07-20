@@ -71,15 +71,17 @@ export function defenceField() {
 
 /**
  * 攻撃のダメージ種別(2026-06-12 ユーザー確定)。
- * S: 斬撃 / P: 貫通 / I: 衝撃 / X: 装甲無視(エクストラ)。
+ * 表記は **S / P / I / X** そのものが正式(2026-07-21 ユーザー指摘)。
+ * 「斬撃/貫通/衝撃/装甲無視」は正式なルール用語ではないため、UI にも定義にも用いない。
+ * X は対応する防御力が存在しないため軽減されない(→ Damage_Rules)。
  * 表記は「攻：I+4」のように 種別 + 攻撃値。
  * @type {Readonly<Record<string, string>>}
  */
 export const ATTACK_DAMAGE_TYPES = Object.freeze({
-  S: "斬撃",
-  P: "貫通",
-  I: "衝撃",
-  X: "装甲無視",
+  S: "S",
+  P: "P",
+  I: "I",
+  X: "X",
 });
 
 /**

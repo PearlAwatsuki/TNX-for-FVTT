@@ -97,7 +97,7 @@ describe("CastDataModel.defineSchema()", () => {
       expect(schema.baseAttack.fields.mod).toBeInstanceOf(MockNumberField);
     });
 
-    it("damageType の initial は 'I'（生身の打撃は衝撃ダメージ）", () => {
+    it("damageType の initial は 'I'", () => {
       expect(schema.baseAttack.fields.damageType.options.initial).toBe("I");
     });
 

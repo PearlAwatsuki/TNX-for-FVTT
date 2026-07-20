@@ -14,7 +14,7 @@
 import { CONDITION_KINDS, CONDITION_GROUP_LABELS } from "./conditions.mjs";
 import { ATTACK_DAMAGE_TYPES } from "../data/item/helpers.mjs";
 
-/** RL 任意ダメージで選べる種別(物理のみ)。表示は辞書のラベル(斬撃/貫通/衝撃/装甲無視)。 */
+/** RL 任意ダメージで選べる種別(物理のみ)。表記は S/P/I/X そのものが正式。 */
 export const RL_DAMAGE_TYPES = Object.freeze(
     Object.entries(ATTACK_DAMAGE_TYPES).map(([value, label]) => ({ value, label }))
 );
@@ -40,7 +40,7 @@ const SCOPE = "tokyo-nova-axleration";
  */
 export function buildRlDamageRollFlag({ targets = [], category, value, damageType = "", note = "" } = {}) {
     const amount = Math.max(0, Number(value) || 0);
-    // 種別は対応防御力の引き先(defenceForType)。X=装甲無視で軽減なし＝「防護点で軽減できない
+    // 種別は対応防御力の引き先(defenceForType)。X は対応防御力が無く軽減なし＝「防護点で軽減できない
     // ダメージ」を表す手段(2026-07-20 裁定)。精神・社会に対応防御力の概念は無いので持たせない
     const type = category === "physical"
         ? (RL_DAMAGE_TYPES.some(t => t.value === damageType) ? damageType : "I")

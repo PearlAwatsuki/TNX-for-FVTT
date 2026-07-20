@@ -92,12 +92,12 @@ describe("buildRlDamageRollFlag() のダメージ種別（2026-07-21 是正）",
     expect(f.damageType).toBe("P");
   });
 
-  it("装甲無視（X）を選べる＝防護点で軽減できないダメージを表せる", () => {
+  it("X を選べる＝防護点で軽減できないダメージを表せる", () => {
     expect(buildRlDamageRollFlag({ targets: TARGETS, category: "physical", value: 7, damageType: "X" }).damageType)
       .toBe("X");
   });
 
-  it("未指定は衝撃（I）＝生身の攻撃力と同じ既定", () => {
+  it("未指定は I＝生身の攻撃力と同じ既定", () => {
     expect(buildRlDamageRollFlag({ targets: TARGETS, category: "physical", value: 7 }).damageType).toBe("I");
   });
 
@@ -113,14 +113,14 @@ describe("buildRlDamageRollFlag() のダメージ種別（2026-07-21 是正）",
 });
 
 describe("rlGrantTypeLabel()（台帳に出す種別の行）", () => {
-  it("物理は種別のラベルを返す（どの防御力で軽減されるかが読める）", () => {
+  it("物理は種別を返す（どの防御力で軽減されるかが読める）", () => {
     const f = buildRlDamageRollFlag({ targets: TARGETS, category: "physical", value: 7, damageType: "P" });
-    expect(rlGrantTypeLabel(f)).toBe("貫通");
+    expect(rlGrantTypeLabel(f)).toBe("P");
   });
 
-  it("装甲無視も表示する", () => {
+  it("X も表示する", () => {
     const f = buildRlDamageRollFlag({ targets: TARGETS, category: "physical", value: 7, damageType: "X" });
-    expect(rlGrantTypeLabel(f)).toBe("装甲無視");
+    expect(rlGrantTypeLabel(f)).toBe("X");
   });
 
   it("精神・社会は行を作らない", () => {

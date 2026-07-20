@@ -358,7 +358,7 @@ export function renderDamageCard(message, html) {
     const rlRow = rlGrantLedgerRow(f);
     if (rlRow) {
         row(ledger, esc(rlRow.label), String(rlRow.value));
-        // 種別はどの防御力で軽減されるか(X=装甲無視なら軽減なし)の根拠になるため台帳に出す
+        // 種別はどの防御力で軽減されるか(X なら対応防御力が無く軽減なし)の根拠になるため台帳に出す
         const typeLabel = rlGrantTypeLabel(f);
         if (typeLabel) row(ledger, "ダメージ種別", esc(typeLabel));
     }

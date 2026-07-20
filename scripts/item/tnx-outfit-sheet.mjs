@@ -431,13 +431,9 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             parentSlot:    parentSlotChoices,
         };
 
-        // ダメージ種別のドロップダウン選択肢(表示は「S（斬撃）」形式、保存値はキー)
+        // ダメージ種別のドロップダウン選択肢。表記は S/P/I/X そのものが正式(2026-07-21 指摘)
         if (context.hasAttack) {
-            const damageType = { "": "-" };
-            for (const [key, label] of Object.entries(ATTACK_DAMAGE_TYPES)) {
-                damageType[key] = `${key}（${label}）`;
-            }
-            context.options.damageType = damageType;
+            context.options.damageType = { "": "-", ...ATTACK_DAMAGE_TYPES };
         }
 
         // 住宅施設: 紐づけた住宅エリアを live 解決し、供給値 + 合算用 mod を用意する(2026-06-13)

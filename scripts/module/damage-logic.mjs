@@ -45,7 +45,7 @@ export function aggregateDefence(items) {
 }
 
 /**
- * ダメージ種別に対応する防御力を返す(X=装甲無視は軽減なし=0・Damage_Rules)。
+ * ダメージ種別に対応する防御力を返す(X は対応防御力が無く軽減なし=0・Damage_Rules)。
  * @param {{S:number,P:number,I:number}} defence
  * @param {string} damageType "S"|"P"|"I"|"X"|""
  * @returns {number}
@@ -54,7 +54,7 @@ export function defenceForType(defence, damageType) {
     if (damageType === "S") return defence?.S ?? 0;
     if (damageType === "P") return defence?.P ?? 0;
     if (damageType === "I") return defence?.I ?? 0;
-    return 0; // X(装甲無視)・未指定は対応防御力なし
+    return 0; // X・未指定は対応防御力なし
 }
 
 /**
