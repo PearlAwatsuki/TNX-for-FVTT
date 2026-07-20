@@ -105,6 +105,29 @@ describe("resolveConsumeRows()（消費先設定の解決・2026-07-18 再編）
     expect(rows[0].key).not.toBe(rows[1].key);
   });
 
+  it("item/itemId/quantity: kind quantity・残量=現在個数・最大=常備化個数(2026-07-19 追加)", () => {
+    const items = {
+      c1: { id: "c1", type: "general", name: "手榴弾", system: { isConsumption: true, quantity: { value: 2, max: 3 } } },
+    };
+    const [row] = resolveConsumeRows(
+      [{ type: "item", itemId: "c1", resource: "quantity", amount: 1 }],
+      { parentItem: skill("p1"), getItem: (id) => items[id] ?? null },
+    );
+    expect(row.kind).toBe("quantity");
+    expect(row.remaining).toBe(2);
+    expect(row.maxDisplay).toBe(3);
+    expect(row.resourceLabel).toBe("個数");
+  });
+
+  it("消費アイテムでないものへの quantity 消費は inert(無消費)", () => {
+    const items = { s2: skill("s2") }; // isConsumption なし
+    const [row] = resolveConsumeRows(
+      [{ type: "item", itemId: "s2", resource: "quantity", amount: 1 }],
+      { parentItem: skill("p1"), getItem: (id) => items[id] ?? null },
+    );
+    expect(row.inert).toBe(true);
+  });
+
   it("同じアイテムの2資源はチェックを片方だけ外せる(key 照合・itemId 照合では連動していた)", () => {
     const rows = [
       { kind: "uses", key: "w1:uses", itemId: "w1", amount: 1, remaining: 1, label: "武器" },

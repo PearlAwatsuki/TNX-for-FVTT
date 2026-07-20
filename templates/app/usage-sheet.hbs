@@ -226,8 +226,8 @@
             {{/if}}
 
             {{!-- 消費(2026-07-18 再編): 全ての消費はこの設定からのみ発生する(自動スキャン全廃)。
-                 選択のブロック=[アイテム/AR]→(アイテム時)[このアイテム自身/各アイテム]→[使用回数/残弾]。
-                 資源の段は**選べる資源が2つ以上のときだけ**出す(1択の段は挟まない)。
+                 選択のブロック=[アイテム/AR]→(アイテム時)[このアイテム自身/各アイテム]→[使用回数/残弾/個数]。
+                 資源の段は「使用回数だけ」のアイテムでは出さない(1択の段を挟まない)。
                  見た目はスタイル技能の対決/技能ブロック(tnx-combo-card)を踏襲 --}}
             <fieldset class="tnx-fieldset usage-consume-section">
                 <legend>
@@ -252,7 +252,7 @@
                                     <option value="{{this.id}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
                                     {{/each}}
                                 </select>
-                                {{!-- 資源(使用回数/残弾)。選べる資源が2つ以上のときだけ描画する --}}
+                                {{!-- 資源(使用回数/残弾/個数)。「使用回数だけ」のアイテムでは描画しない --}}
                                 {{#if row.showResource}}
                                 <select name="consumeResource-{{row.idx}}" {{#unless @root.editable}}disabled{{/unless}}>
                                     {{#each row.resourceOptions}}

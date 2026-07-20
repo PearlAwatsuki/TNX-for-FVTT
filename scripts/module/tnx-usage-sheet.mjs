@@ -872,9 +872,11 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         }
 
         // 消費先設定(2026-07-18 再編・全用途タイプ共通。固定値判定は消費 UI を出さない)。
-        // 三段選択: [アイテム / AR] → (アイテム時)[このアイテム自身 / 各アイテム] → [使用回数 / 残弾]。
-        // アイテムの資源は使用回数と残弾の2つ(2026-07-19 ユーザー裁定=両立する別資源)。
-        // 資源の選択は**残弾を持つ武器のときだけ**出す(1択の段は挟まない)。
+        // 三段選択: [アイテム / AR] → (アイテム時)[このアイテム自身 / 各アイテム] → [使用回数 / 残弾 / 個数]。
+        // アイテムの資源は使用回数・残弾・個数の3つ(2026-07-19 ユーザー裁定)。
+        // 資源の段は**「使用回数だけ」のアイテムでは出さない**(1択の段を挟まないため)。
+        // 逆に残弾/個数を持つアイテムでは、選択肢が1つでも必ず出す——出さないと残弾しか持たない
+        // 武器の行が既定の「使用回数」のまま無消費に落ちて、残弾を選べなくなる。
         // 全消費はこの設定からのみ発生する。
         if (!context.isFixedCheck) {
             const actor = this._item.actor;
@@ -882,32 +884,38 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             // 資源を持つアイテムか。神業も uses.isLimit=true で含まれる
             const hasUsesRes = (it) => it?.system?.uses?.isLimit === true;
             const hasAmmoRes = (it) => it?.type === "weapon" && it?.system?.ammo?.isLimit === true;
+            const hasQtyRes  = (it) => it?.system?.isConsumption === true;
+            const hasAnyRes  = (it) => hasUsesRes(it) || hasAmmoRes(it) || hasQtyRes(it);
             const resourcesFor = (it) => {
                 const out = [];
                 if (hasUsesRes(it)) out.push({ value: "uses", label: "使用回数" });
                 if (hasAmmoRes(it)) out.push({ value: "ammo", label: "残弾" });
+                if (hasQtyRes(it))  out.push({ value: "quantity", label: "個数" });
                 return out;
             };
             // 候補: 「このアイテム自身」(id="") ＋ 資源を持つ同アクターのアイテム(親は自身が代表)
             const itemCandidates = [
                 { id: "", name: "このアイテム自身" },
                 ...(actor?.items ?? [])
-                    .filter(i => i.id !== parentId && (hasUsesRes(i) || hasAmmoRes(i)))
+                    .filter(i => i.id !== parentId && hasAnyRes(i))
                     .map(i => ({ id: i.id, name: itemDisplayName(i) })) // 技能は 〈〉 整形
                     .sort((a, b) => a.name.localeCompare(b.name, "ja")),
             ];
             const TYPE_LABELS = { item: "アイテム", actionRank: "AR" };
             context.consumeRows = (usage.consumeTargets ?? []).map((t, idx) => {
                 const type = t.type || "item";
-                const resource = t.resource === "ammo" ? "ammo" : "uses";
+                const resource = ["ammo", "quantity"].includes(t.resource) ? t.resource : "uses";
                 const isActionRank = type === "actionRank";
                 const selectedItem = isActionRank ? null
                     : (t.itemId ? (actor?.items.get(t.itemId) ?? null) : this._item);
                 const known = isActionRank || !t.itemId || itemCandidates.some(o => o.id === t.itemId);
                 const amount = Number(t.amount);
-                // 資源セレクトは選べる資源が2つ以上あるときだけ描画する(使用回数だけの
-                // アイテムに1択のセレクトを並べない=先日の三段目撤去で得た形を保つ)
+                // 資源セレクトは「使用回数だけ」のアイテムでは描画しない(1択の段を挟まない)。
+                // 残弾/個数を持つアイテムは選択肢が1つでも描画する——出さないと既定の
+                // 「使用回数」から変更できず、その資源を消費先に指定できなくなる
                 const resourceOpts = resourcesFor(selectedItem);
+                const usesOnly = resourceOpts.length <= 1 && resourceOpts[0]?.value !== "ammo"
+                    && resourceOpts[0]?.value !== "quantity";
                 return {
                     idx,
                     type,
@@ -922,7 +930,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                         ...itemCandidates.map(o => ({ ...o, selected: o.id === (t.itemId ?? "") })),
                         ...(!known && t.itemId ? [{ id: t.itemId, name: `(解決不能: ${t.itemId})`, selected: true }] : []),
                     ],
-                    showResource: !isActionRank && resourceOpts.length > 1,
+                    showResource: !isActionRank && !usesOnly,
                     resourceOptions: resourceOpts.map(o => ({ ...o, selected: o.value === resource })),
                 };
             });

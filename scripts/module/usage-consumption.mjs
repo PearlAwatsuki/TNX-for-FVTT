@@ -8,7 +8,8 @@
  *
  * 消費先の種別(consumeTargets[].type・2026-07-18 再編):
  *   "item"        - アイテムの資源を消費。itemId 空="このアイテム自身"(用途の親)・値=同アクター内 Item ID。
- *                   resource="uses"(使用回数。神業も同じ) / "ammo"(残弾=射撃武器の弾数)。
+ *                   resource="uses"(使用回数。神業も同じ) / "ammo"(残弾=射撃武器の弾数) /
+ *                   "quantity"(個数=消費アイテム)。
  *   "actionRank"  - 実行アクターの AR(2026-07-12 ユーザー確定)。パリー等「AR を消費する」能力の
  *                   表現で、旧パリー専用の自動 AR−1 を置換=AR 消費もこの設定からのみ発生する。
  *                   **カット進行外は AR を消費できないため原則使用不可**(消費要求は進行外でも生きる・
@@ -16,13 +17,14 @@
  *                   分身でも本体へ差し替えない(AR は実行アクター自身の戦闘リソース)。
  *   **負の量=回復**。リロード用途(タイミング: マイナー+残弾へのマイナス消費)はこれで表現する。
  *
- * アイテムの資源は**使用回数と残弾の2つ**(2026-07-19 ユーザー裁定)。「武器を使用して攻撃する」で
+ * アイテムの資源は**使用回数・残弾・個数の3つ**(2026-07-19 ユーザー裁定)。「武器を使用して攻撃する」で
  * 減る弾数と「アウトフィットを使用する」で減る使用回数はルール上まったく別の行為のため、
  * 1つの武器が両方の制限を同時に持ちうる(一度 uses へ一本化したが、この共存を落としていたため撤回)。
- * 2つは同じ形({isLimit, max, spent})を持つので、解決も適用も ITEM_RESOURCES の
- * フィールド名差し替えで一本化する(分岐を二重に持たない)。
+ * 個数(消費アイテム)も同じ枠組みで消費する(**自動消費は無い**——元々どこも減らしておらず、
+ * 2026-07-19 に消費先として選べるようにした)。保持の形の違い(spent が増える/value が減る)は
+ * ITEM_RESOURCES のアダプタに閉じ込め、解決も適用も一本の経路で扱う(分岐を二重に持たない)。
  *
- * カウンター種別(kind): "uses"/"ammo"=当該カウンターの spent 加算 / "ar"=actionRank.value 減算。
+ * カウンター種別(kind): "uses"/"ammo"/"quantity"=当該資源の増減 / "ar"=actionRank.value 減算。
  * 行の識別子(key)は `itemId:resource`——**同じアイテムの別資源が並びうる**ため itemId では
  * 一意にならない(チェックボックスの照合・適用の合流はすべて key 基準)。
  * 行の解決(resolveConsumeRows)は Foundry 非依存の純粋関数。
@@ -33,15 +35,50 @@
  */
 
 /**
- * 消費できるアイテム資源(2026-07-19 再導入)。使用回数と残弾は**同じ形**
- * ({isLimit, max, spent}・残り = max − spent)を持つため、解決も適用も
- * フィールド名だけを差し替えた一本の経路で扱う(分岐を二重に持たない)。
- * @type {Record<string, {field: string, label: string}>}
+ * 消費できるアイテム資源(2026-07-19)。使用回数・残弾・個数の3つ。
+ * 資源ごとに保持の形が違う(使用回数/残弾は消費済み spent が増える・個数は残数 value が減る)ため、
+ * **差分を読み書きのアダプタに閉じ込め**、解決も適用も一本の経路で扱う(分岐を二重に持たない)。
+ *   enabled   … その資源を管理しているか(オフのアイテムへの消費行は無害な no-op)
+ *   remaining … 現在の残量 / max … 表示上の最大値
+ *   update    … 消費量 amount(正=消費・負=回復)を適用した後の更新オブジェクト(0〜max でクランプ)
+ * @type {Record<string, {label: string, enabled: Function, remaining: Function, max: Function, update: Function}>}
  */
 const ITEM_RESOURCES = {
-    uses: { field: "uses", label: "使用回数" },
-    ammo: { field: "ammo", label: "残弾" },
+    uses: {
+        label:     "使用回数",
+        enabled:   (sys) => sys?.uses?.isLimit === true,
+        remaining: (sys) => Math.max(0, (sys?.uses?.max ?? 0) - (sys?.uses?.spent ?? 0)),
+        max:       (sys) => sys?.uses?.max ?? 0,
+        update:    (sys, amount) => ({
+            "system.uses.spent": clampCounter((sys?.uses?.spent ?? 0) + amount, sys?.uses?.max ?? 0),
+        }),
+    },
+    ammo: {
+        label:     "残弾",
+        enabled:   (sys) => sys?.ammo?.isLimit === true,
+        remaining: (sys) => Math.max(0, (sys?.ammo?.max ?? 0) - (sys?.ammo?.spent ?? 0)),
+        max:       (sys) => sys?.ammo?.max ?? 0,
+        update:    (sys, amount) => ({
+            "system.ammo.spent": clampCounter((sys?.ammo?.spent ?? 0) + amount, sys?.ammo?.max ?? 0),
+        }),
+    },
+    // 個数(消費アイテム・2026-07-19 ユーザー指示で消費先に追加)。使用回数/残弾と違い
+    // **残数 value が直接減る**(常備化個数 max が上限)。自動消費は無く、増減はこの設定か手入力のみ。
+    quantity: {
+        label:     "個数",
+        enabled:   (sys) => sys?.isConsumption === true,
+        remaining: (sys) => Math.max(0, sys?.quantity?.value ?? 0),
+        max:       (sys) => sys?.quantity?.max ?? 0,
+        update:    (sys, amount) => ({
+            "system.quantity.value": clampCounter((sys?.quantity?.value ?? 0) - amount, sys?.quantity?.max ?? 0),
+        }),
+    },
 };
+
+/** カウンターを 0〜max に収める(負の消費数=回復で max を超えないように)。 */
+function clampCounter(next, max) {
+    return Math.max(0, Math.min(max, next));
+}
 
 /** 消費先行の資源キー(未知の値は使用回数へ倒す)。 */
 function resourceKeyOf(resource) {
@@ -190,15 +227,16 @@ export function resolveConsumeRows(targets, { parentItem, getItem, actionRank = 
             };
         }
         const key = `${item.id}:${resource}`;
-        const counter = item.system?.[res.field];
-        if (counter?.isLimit !== true) {
+        // その資源を管理していないアイテム(使用回数制限なし・自動給弾・非消費アイテム)への
+        // 消費行は無害な no-op として扱う(設定不備の警告は出さない=従来の inert と同じ)
+        if (!res.enabled(item.system)) {
             return { type, amount, resource, key, itemId: item.id, label: item.name, inert: true };
         }
-        const max = counter.max ?? 0;
-        const remaining = Math.max(0, max - (counter.spent ?? 0));
         return {
             type, kind: resource, amount, resource, key, itemId: item.id, label: item.name,
-            resourceLabel: res.label, remaining, maxDisplay: max,
+            resourceLabel: res.label,
+            remaining: res.remaining(item.system),
+            maxDisplay: res.max(item.system),
         };
     });
 }
@@ -331,32 +369,28 @@ export async function applyConsumptionPlan(plan) {
             const v = actor.system.actionRank?.value ?? 0;
             await actor.update({ "system.actionRank.value": Math.max(0, v - arAmount) });
         }
-        // 資源(使用回数=神業も同じ / 残弾)は**アイテム×資源ごとに消費量を合算してから**一度だけ
-        // 適用する。1アイテムに複数行が並びうる(同アイテムの残弾と使用回数・同じ資源の複数行)ため、
+        // 資源(使用回数/残弾/個数)は**アイテム×資源ごとに消費量を合算してから**一度だけ適用する。
+        // 1アイテムに複数行が並びうる(同アイテムの残弾と使用回数・同じ資源の複数行)ため、
         // 行ごとに現在値から算出して push すると、後の行が前の行の結果を上書きしてしまう。
-        const amountByItemField = new Map();
+        const amountByItemResource = new Map();
         for (const row of rows) {
             if (row.kind === "ar") continue;
-            const field = ITEM_RESOURCES[resourceKeyOf(row.kind)].field;
-            const mapKey = `${row.itemId}:${field}`;
-            amountByItemField.set(mapKey, (amountByItemField.get(mapKey) ?? 0) + (Number(row.amount) || 0));
+            const mapKey = `${row.itemId}:${resourceKeyOf(row.kind)}`;
+            amountByItemResource.set(mapKey, (amountByItemResource.get(mapKey) ?? 0) + (Number(row.amount) || 0));
         }
         // 1アイテムの複数資源は1件の更新に合流させる(同一 _id を並べない)
         const updateById = new Map();
-        for (const [mapKey, amount] of amountByItemField) {
+        for (const [mapKey, amount] of amountByItemResource) {
             const sep = mapKey.lastIndexOf(":");
-            const itemId = mapKey.slice(0, sep);
-            const field  = mapKey.slice(sep + 1);
-            const item = actor.items.get(itemId);
+            const item = actor.items.get(mapKey.slice(0, sep));
             if (!item) continue;
-            // max は実効値(AE込み)でクランプ。負の消費数=回復(spent 減少・リロード等)も
-            // 許容するため 0〜max でクランプ
-            const counter = item.system[field] ?? {};
-            if (counter.isLimit !== true) continue;
-            const nextSpent = Math.max(0, Math.min(counter.max ?? 0, (counter.spent ?? 0) + amount));
-            const update = updateById.get(itemId) ?? { _id: itemId };
-            update[`system.${field}.spent`] = nextSpent;
-            updateById.set(itemId, update);
+            const res = ITEM_RESOURCES[mapKey.slice(sep + 1)];
+            // 管理していない資源は適用しない。max は実効値(AE込み)でクランプし、
+            // 負の消費数=回復(リロード・個数の補充等)も 0〜max の範囲で許容する
+            if (!res.enabled(item.system)) continue;
+            const update = updateById.get(item.id) ?? { _id: item.id };
+            Object.assign(update, res.update(item.system, amount));
+            updateById.set(item.id, update);
         }
         if (updateById.size) await actor.updateEmbeddedDocuments("Item", [...updateById.values()]);
     }
