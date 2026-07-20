@@ -1,21 +1,16 @@
-{{!-- 対象選択リスト(4つのダイアログで共通・2026-07-21)。行は bindTargetPicker が描画する --}}
-<div class="form-group rl-form-group tnx-target-picker">
-    <label class="rl-label">対象</label>
-
-    <div class="tnx-tp-list"></div>
-
-    <div class="tnx-tp-buttons">
-        <button type="button" class="tnx-btn tnx-btn--sm" data-collect="selected">
-            <i class="fas fa-hand-pointer"></i> 選択したアクターを追加
-        </button>
-        <button type="button" class="tnx-btn tnx-btn--sm" data-collect="targeted">
-            <i class="fas fa-crosshairs"></i> ターゲットしたアクターを追加
-        </button>
-        <button type="button" class="tnx-btn tnx-btn--sm" data-collect="casts">
-            <i class="fas fa-users"></i> キャストをすべて追加
-        </button>
-        <button type="button" class="tnx-btn tnx-btn--sm" data-collect="pcs">
-            <i class="fas fa-user-group"></i> プレイヤーキャラクターをすべて追加
-        </button>
+{{!-- 対象選択(4つのダイアログで共通・2026-07-21)。Monks Token Bar を踏襲した表形式＋
+      アイコンのみボタン(ラベルは title)。どのダイアログでも**一番下**に置く。
+      行は bindTargetPicker が描画する --}}
+<div class="tnx-target-picker">
+    <div class="tnx-tp-head">
+        <span class="tnx-tp-title">対象</span>
+        <div class="tnx-tp-tools">
+            <a class="tnx-tp-tool" data-collect="selected" title="選択したアクターを追加"><i class="fas fa-hand-pointer"></i></a>
+            <a class="tnx-tp-tool" data-collect="targeted" title="ターゲットしたアクターを追加"><i class="fas fa-crosshairs"></i></a>
+            <a class="tnx-tp-tool" data-collect="casts"    title="キャストをすべて追加"><i class="fas fa-users"></i></a>
+            <a class="tnx-tp-tool" data-collect="pcs"      title="プレイヤーキャラクターをすべて追加"><i class="fas fa-user-group"></i></a>
+            <a class="tnx-tp-tool" data-action="clearAll"  title="すべて外す"><i class="fas fa-trash"></i></a>
+        </div>
     </div>
+    <div class="tnx-tp-list"></div>
 </div>

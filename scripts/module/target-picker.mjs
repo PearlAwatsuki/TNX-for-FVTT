@@ -68,15 +68,15 @@ function renderRows(root, targets) {
     if (!list) return;
     const esc = foundry.utils.escapeHTML;
     if (!targets.length) {
-        list.innerHTML = '<p class="tnx-tp-empty">対象がありません。ボタンから追加してください。</p>';
+        list.innerHTML = '<p class="tnx-tp-empty">対象がありません</p>';
         return;
     }
     list.innerHTML = targets.map((t, i) => `
         <div class="tnx-tp-row" data-index="${i}" data-uuid="${esc(t.uuid)}">
-            <i class="fas fa-grip-vertical tnx-tp-grip" draggable="true"></i>
+            <i class="fas fa-grip-vertical tnx-tp-grip" draggable="true" title="ドラッグで並び替え"></i>
             <img class="tnx-tp-img" src="${esc(t.img ?? "")}" alt="">
             <span class="tnx-tp-name">${esc(t.name ?? "")}</span>
-            <a class="tnx-icon-ctrl tnx-tp-remove" title="この対象を外す"><i class="fas fa-times"></i></a>
+            <a class="tnx-tp-remove" title="この対象を外す"><i class="fas fa-trash"></i></a>
         </div>`).join("");
 }
 
@@ -124,6 +124,12 @@ export function bindTargetPicker(root, { initial = [], onChange = null } = {}) {
             });
         }
     };
+
+    root.querySelector('[data-action="clearAll"]')?.addEventListener("click", () => {
+        if (!targets.length) return;
+        targets = [];
+        refresh();
+    });
 
     for (const btn of root.querySelectorAll("[data-collect]")) {
         btn.addEventListener("click", () => {

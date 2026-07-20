@@ -1,7 +1,5 @@
 <div class="rl-request-body">
 
-    {{> "systems/tokyo-nova-axleration/templates/parts/target-picker.hbs"}}
-
     {{!-- 系統 --}}
     <div class="form-group rl-form-group">
         <label class="rl-label">系統</label>
@@ -37,6 +35,8 @@
         <label class="rl-label">記述</label>
         <textarea name="note" class="rl-textarea" rows="2" placeholder="（省略可）"></textarea>
     </div>
+
+    {{> "systems/tokyo-nova-axleration/templates/parts/target-picker.hbs"}}
 
     <footer class="rl-form-footer">
         <button type="submit" class="tnx-btn tnx-btn--primary rl-submit-btn">

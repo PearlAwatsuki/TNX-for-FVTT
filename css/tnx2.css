@@ -8541,30 +8541,67 @@ button.tnx-create-act-button span {
 }
 
 /* ============================================================
-   対象選択リスト(2026-07-21) — 判定要求／報酬点／ダメージ付与／状態・効果の付与で共通
+   対象選択(2026-07-21) — 判定要求／報酬点／ダメージ付与／状態・効果の付与で共通。
+   Monks Token Bar を踏襲した表形式＋アイコンのみボタン(ラベルは title)。
    ============================================================ */
 
-.tnx-target-picker .tnx-tp-list {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    max-height: 180px;
-    padding: 4px;
-    overflow-y: auto;
+.tnx-target-picker {
+    margin-top: 10px;
+    overflow: hidden;
     border: 1px solid var(--tnx2-border, #3a3f4b);
     border-radius: 4px;
 }
-.tnx-target-picker .tnx-tp-empty {
-    margin: 2px 4px;
-    font-size: 0.85em;
-    opacity: 0.7;
+
+/* 見出し帯: 左に「対象」・右にアイコンのみの操作。ラベルを持たないので幅に依存しない */
+.tnx-target-picker .tnx-tp-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 6px;
+    background: rgb(255 255 255 / 6%);
+    border-bottom: 1px solid var(--tnx2-border, #3a3f4b);
 }
+.tnx-target-picker .tnx-tp-title {
+    font-size: 0.9em;
+    font-weight: 700;
+}
+.tnx-target-picker .tnx-tp-tools {
+    display: flex;
+    gap: 2px;
+    margin-left: auto;
+}
+.tnx-target-picker .tnx-tp-tool {
+    padding: 2px 5px;
+    cursor: pointer;
+    border-radius: 3px;
+    opacity: 0.8;
+}
+.tnx-target-picker .tnx-tp-tool:hover {
+    background: rgb(255 255 255 / 10%);
+    opacity: 1;
+}
+
+.tnx-target-picker .tnx-tp-list {
+    max-height: 170px;
+    overflow-y: auto;
+}
+.tnx-target-picker .tnx-tp-empty {
+    margin: 0;
+    padding: 6px;
+    font-size: 0.85em;
+    text-align: center;
+    opacity: 0.6;
+}
+
+/* 行: グリップ・画像・名前・除去。名前は溢れさせず省略する */
 .tnx-target-picker .tnx-tp-row {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 3px 4px;
-    border-radius: 4px;
+    padding: 3px 6px;
+}
+.tnx-target-picker .tnx-tp-row + .tnx-tp-row {
+    border-top: 1px solid rgb(255 255 255 / 6%);
 }
 .tnx-target-picker .tnx-tp-row:hover {
     background: rgb(255 255 255 / 5%);
@@ -8574,7 +8611,7 @@ button.tnx-create-act-button span {
 }
 .tnx-target-picker .tnx-tp-grip {
     cursor: grab;
-    opacity: 0.6;
+    opacity: 0.5;
 }
 .tnx-target-picker .tnx-tp-grip:active {
     cursor: grabbing;
@@ -8584,19 +8621,22 @@ button.tnx-create-act-button span {
     width: 22px;
     height: 22px;
     border: none;
-    border-radius: 4px;
+    border-radius: 3px;
     object-fit: cover;
 }
 .tnx-target-picker .tnx-tp-name {
     flex: 1;
+    min-width: 0;
     overflow: hidden;
     font-size: 0.9em;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.tnx-target-picker .tnx-tp-buttons {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 4px;
-    margin-top: 6px;
+.tnx-target-picker .tnx-tp-remove {
+    flex-shrink: 0;
+    cursor: pointer;
+    opacity: 0.7;
+}
+.tnx-target-picker .tnx-tp-remove:hover {
+    opacity: 1;
 }
