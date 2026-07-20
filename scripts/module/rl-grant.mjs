@@ -167,17 +167,8 @@ export class TnxRlGrantDamageApp extends HandlebarsApplicationMixin(ApplicationV
             }
             syncType();
         });
-
-        for (const btn of this.element.querySelectorAll(".number-input-spinner [data-action=decrement]")) {
-            btn.addEventListener("click", () => {
-                btn.closest(".number-input-spinner")?.querySelector("input[type=number]")?.stepDown();
-            });
-        }
-        for (const btn of this.element.querySelectorAll(".number-input-spinner [data-action=increment]")) {
-            btn.addEventListener("click", () => {
-                btn.closest(".number-input-spinner")?.querySelector("input[type=number]")?.stepUp();
-            });
-        }
+        // ± は DEFAULT_OPTIONS.actions(spinnerDialogActions)が処理する。
+        // ここで手動リスナーを張ると二重発火して2ずつ動く
     }
 
     static async _onSubmit(event, form, _formData) {
@@ -361,6 +352,7 @@ export class TnxRlGrantBountyApp extends HandlebarsApplicationMixin(ApplicationV
             handler: TnxRlGrantBountyApp._onSubmit,
             closeOnSubmit: true,
         },
+        actions: spinnerDialogActions,
     };
 
     static PARTS = {
@@ -394,17 +386,7 @@ export class TnxRlGrantBountyApp extends HandlebarsApplicationMixin(ApplicationV
             if (amount) amount.value = form.amount;
             if (note)   note.value   = form.note;
         });
-
-        for (const btn of el.querySelectorAll(".number-input-spinner [data-action=decrement]")) {
-            btn.addEventListener("click", () => {
-                btn.closest(".number-input-spinner")?.querySelector("input[type=number]")?.stepDown();
-            });
-        }
-        for (const btn of el.querySelectorAll(".number-input-spinner [data-action=increment]")) {
-            btn.addEventListener("click", () => {
-                btn.closest(".number-input-spinner")?.querySelector("input[type=number]")?.stepUp();
-            });
-        }
+        // ± は DEFAULT_OPTIONS.actions(spinnerDialogActions)が処理する
     }
 
     static async _onSubmit(event, form, _formData) {
