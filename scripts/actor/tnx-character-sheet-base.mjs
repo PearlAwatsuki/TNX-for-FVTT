@@ -810,22 +810,28 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // (ユーザー確定)。行の実効名=用途名(空なら親アイテム名)。旧・合成アクション(移動・リロード)は
         // オミット——移動=〈操縦〉の移動タイプ用途・リロード=射撃武器のリロード用途(マイナー+使用回数への
         // マイナス消費)に一本化。
-        // - 標準のプロセス/アクション(下記8つ)は空でも常に表示する。
-        // - 差し込みタイミング(その他の自由記述。例「ダメージ適用の直前」)は記述テキストごとに
-        //   グループ化し、項目がある場合のみ標準群の後ろに表示する。
+        // - 標準のプロセス/アクション(下記7つ)は空でも常に表示する。リアクションは持たない
+        //   (2026-07-20 ユーザー確定: リアクションの使用はチャットカードからの起動に一本化された
+        //   ため、戦闘タブに再表示する必要がない)。
+        // - 差し込みタイミングは「タイミング」選択肢そのものの値(「ダメージ算出の直前」等の
+        //   名前つき enum)と、「その他」の自由記述テキストの二通りある。**どちらも**項目がある
+        //   場合のみ標準群の後ろに表示する(2026-07-20 是正: classify が action/process/other しか
+        //   見ておらず、名前つき enum の用途は該当があっても丸ごと落ちていた)。
         // - 自由記述なしの「その他」と「解説参照」は「その他」群へ(項目がある場合のみ・末尾)。
+        const timingLabels = TnxSkillUtils.getSkillOptions().timing;
         const fixedBuckets = [
             { kind: "process", key: "setup",      label: "セットアップ" },
             { kind: "process", key: "initiative", label: "イニシアチブ" },
             { kind: "action",  key: "move",       label: "ムーブ" },
             { kind: "action",  key: "minor",      label: "マイナー" },
             { kind: "action",  key: "major",      label: "メジャー" },
-            { kind: "action",  key: "reaction",   label: "リアクション" },
             { kind: "action",  key: "auto",       label: "オート" },
             { kind: "process", key: "clean-up",   label: "クリンナップ" },
         ].map(b => ({ ...b, entries: [] }));
         const byKey = new Map(fixedBuckets.map(b => [`${b.kind}:${b.key}`, b]));
-        const inserted = new Map(); // 差し込みタイミング(自由記述テキスト → グループ)
+        // 差し込みタイミング(名前つき enum・自由記述テキストの双方) → グループ。
+        // 挿入順=選択肢の定義順(名前つき)→ 初出順(自由記述)で安定させる
+        const inserted = new Map();
         const misc = { label: "その他", entries: [] };
         const pushEntry = (entries, item, usage) => {
             if (entries.some(e => e._id === item.id && e.usageId === usage._id)) return;
@@ -835,8 +841,19 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                 sort: item.sort ?? 0,
             });
         };
+        // 差し込みグループの取得/生成。**ラベルで束ねる**——自由記述に「ダメージ算出の直前」と
+        // 手入力した用途と、同名の選択肢を選んだ用途は同じタイミングなので同じ群に入れる
+        // (キーを分けると同じ見出しの群が二つ並ぶ)。rank=表示順(名前つき=選択肢の定義順・
+        // 自由記述=その後ろ。同ラベルが両方から来たら小さい方=選択肢の位置を採る)
+        const insertedGroup = (label, rank) => {
+            const g = inserted.get(label) ?? { label, entries: [], rank };
+            g.rank = Math.min(g.rank, rank);
+            inserted.set(label, g);
+            return g;
+        };
+        const timingOrder = Object.keys(timingLabels);
         const classify = (t, item, usage) => {
-            if (!t) return;
+            if (!t || !t.value || t.value === "blank") return;
             if (t.value === "action" || t.value === "process") {
                 const name = t.value === "action" ? t.actionName : t.processName;
                 if (!name || name === "blank") return;
@@ -844,14 +861,21 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                 if (fixed) return pushEntry(fixed.entries, item, usage);
                 // 解説参照(explanation)・その他(other)は「その他」群へ
                 if (name === "explanation" || name === "other") return pushEntry(misc.entries, item, usage);
+                // 常設群を持たない=リアクション。戦闘タブには置かない(チャットカードから起動する)
                 return;
             }
             if (t.value === "other") {
                 const label = (t.timingOther ?? "").trim();
                 if (!label) return pushEntry(misc.entries, item, usage);
-                if (!inserted.has(label)) inserted.set(label, { label, entries: [] });
-                return pushEntry(inserted.get(label).entries, item, usage);
+                return pushEntry(insertedGroup(label, timingOrder.length).entries, item, usage);
             }
+            // 解説参照は「その他」群へ
+            if (t.value === "explanation") return pushEntry(misc.entries, item, usage);
+            // 名前つきの差し込みタイミング(「ダメージ算出の直前」「常時」「登場判定」等)。
+            // ラベルは選択肢の正本(getSkillOptions().timing)から引く
+            const label = timingLabels[t.value];
+            if (!label) return;
+            return pushEntry(insertedGroup(label, timingOrder.indexOf(t.value)).entries, item, usage);
         };
         for (const i of items) {
             const isSkill = i.type === "generalSkill" || i.type === "styleSkill";
@@ -861,9 +885,12 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             }
         }
         // 各タイミング内は他タブでの手動並び順(item.sort)を尊重する
+        const insertedGroups = [...inserted.values()]
+            .filter(g => g.entries.length)
+            .sort((a, b) => a.rank - b.rank);
         const allGroups = [
             ...fixedBuckets,
-            ...[...inserted.values()].filter(g => g.entries.length),
+            ...insertedGroups,
             ...(misc.entries.length ? [misc] : []),
         ];
         for (const g of allGroups) g.entries.sort((a, c) => a.sort - c.sort);
