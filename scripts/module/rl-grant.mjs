@@ -14,6 +14,7 @@
 import { currentTargetActors } from "./target-resolution.mjs";
 import { buildRlDamageRollFlag, buildConditionGrantData, rlConditionChoices } from "./rl-grant-logic.mjs";
 import { buildGrantedEffectData } from "./usage-effects.mjs";
+import { buildBountyGrantData } from "./bounty-grant-logic.mjs";
 import { spinnerDialogActions } from "./tnx-dialog.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
@@ -201,6 +202,85 @@ export class TnxRlGrantEffectApp extends HandlebarsApplicationMixin(ApplicationV
         }
         ui.notifications.info(`「${data.name}」を${targets.length}体に付与しました。`);
     }
+}
+
+/**
+ * 報酬点の配布ダイアログ(前金・負数で没収)。判定要求と同じアクター登録方式で、
+ * 受け取りはカードのボタンを対象の所有者が押す。
+ */
+export class TnxRlGrantBountyApp extends HandlebarsApplicationMixin(ApplicationV2) {
+
+    static DEFAULT_OPTIONS = {
+        id: "tnx-rl-grant-bounty",
+        tag: "form",
+        classes: ["tokyo-nova", "tnx-rl-request"],
+        window: { title: "報酬点の配布", resizable: false },
+        position: { width: 440 },
+        form: {
+            handler: TnxRlGrantBountyApp._onSubmit,
+            closeOnSubmit: true,
+        },
+    };
+
+    static PARTS = {
+        form: { template: "systems/tokyo-nova-axleration/templates/app/rl-grant-bounty.hbs" },
+    };
+
+    async _prepareContext(options) {
+        const context = await super._prepareContext(options);
+        return {
+            ...context,
+            targetActors: game.actors
+                .filter(a => a.type === "cast")
+                .map(a => ({ actorId: a.id, actorName: a.name, img: a.img }))
+                .sort((a, b) => a.actorName.localeCompare(b.actorName, "ja")),
+        };
+    }
+
+    _onRender(context, options) {
+        super._onRender(context, options);
+        for (const btn of this.element.querySelectorAll(".number-input-spinner [data-action=decrement]")) {
+            btn.addEventListener("click", () => {
+                btn.closest(".number-input-spinner")?.querySelector("input[type=number]")?.stepDown();
+            });
+        }
+        for (const btn of this.element.querySelectorAll(".number-input-spinner [data-action=increment]")) {
+            btn.addEventListener("click", () => {
+                btn.closest(".number-input-spinner")?.querySelector("input[type=number]")?.stepUp();
+            });
+        }
+    }
+
+    static async _onSubmit(event, form, _formData) {
+        const targets = game.actors
+            .filter(a => a.type === "cast")
+            .filter(a => form.querySelector(`[name="target_${a.id}"]`)?.checked)
+            .map(a => ({ uuid: a.uuid, name: a.name }));
+        if (!targets.length) {
+            ui.notifications.warn("対象アクターを1体以上選択してください。");
+            return false;
+        }
+        const amount = Number(form.querySelector("[name=amount]")?.value) || 0;
+        const note   = form.querySelector("[name=note]")?.value?.trim() ?? "";
+        const data   = buildBountyGrantData({ targets, amount, note });
+
+        await ChatMessage.create({
+            content: await foundry.applications.handlebars.renderTemplate(
+                "systems/tokyo-nova-axleration/templates/chat/bounty-grant.hbs",
+                {
+                    amountLabel: amount < 0 ? `${amount}` : `＋${amount}`,
+                    note:        data.note,
+                    targets:     data.targets,
+                }
+            ),
+            flags: { [SCOPE]: { bountyGrant: data } },
+        });
+    }
+}
+
+/** シーンコントロールから開く(GM のみ)。 */
+export function openRlGrantBounty() {
+    new TnxRlGrantBountyApp().render(true);
 }
 
 /** シーンコントロールから開く(GM のみ)。 */

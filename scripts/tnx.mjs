@@ -54,7 +54,8 @@ import { TnxSocketHandler } from './module/tnx-socket-handler.mjs';
 import { TnxCheckFlow, renderRecheckButton } from './module/tnx-check-flow.mjs';
 import { TnxCheckDialog } from './module/tnx-check-dialog.mjs';
 import { TnxRlRequestApp } from './module/tnx-rl-request-app.mjs';
-import { openRlGrantDamage, openRlGrantEffect } from './module/rl-grant.mjs';
+import { openRlGrantDamage, openRlGrantEffect, openRlGrantBounty } from './module/rl-grant.mjs';
+import { renderBountyGrantCard } from './module/bounty-grant.mjs';
 import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
 import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
@@ -99,6 +100,8 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/app/rl-request-app.hbs",
         "systems/tokyo-nova-axleration/templates/app/rl-grant-damage.hbs",
         "systems/tokyo-nova-axleration/templates/app/rl-grant-effect.hbs",
+        "systems/tokyo-nova-axleration/templates/app/rl-grant-bounty.hbs",
+        "systems/tokyo-nova-axleration/templates/chat/bounty-grant.hbs",
         "systems/tokyo-nova-axleration/templates/app/usage-sheet.hbs",
 
         // === Dialogs ===
@@ -800,6 +803,13 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
 Hooks.on("renderChatMessageHTML", (message, html) => {
     if (message.getFlag("tokyo-nova-axleration", "attackReaction")) {
         renderReactionCard(message, html);
+    }
+});
+
+// 報酬点の配布カード(12・2026-07-20): 対象行に受け取りボタン/受け取り済みをライブ描画
+Hooks.on("renderChatMessageHTML", (message, html) => {
+    if (message.getFlag("tokyo-nova-axleration", "bountyGrant")) {
+        renderBountyGrantCard(message, html);
     }
 });
 
@@ -1579,6 +1589,15 @@ Hooks.once("init", async function() {
                 icon:    "fas fa-hand-sparkles",
                 button:  true,
                 onChange: () => openRlGrantEffect(),
+                visible: true,
+            },
+            // 報酬点の配布(前金・フェーズ12・2026-07-20。負数で没収)
+            tnxGrantBounty: {
+                name:    "tnxGrantBounty",
+                title:   "報酬点の配布",
+                icon:    "fas fa-coins",
+                button:  true,
+                onChange: () => openRlGrantBounty(),
                 visible: true,
             },
         };
