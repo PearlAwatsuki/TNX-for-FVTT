@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildConditionGrantData, rlConditionChoices } from "../../scripts/module/rl-grant-logic.mjs";
+import { buildGrantedEffectDataFrom } from "../../scripts/module/usage-effects.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -102,5 +103,42 @@ describe("buildGrantedEffectData()（付与コピー＝供給元と切り離す�
   it("状態を持つ効果はそのまま保つ", () => {
     const d = buildGrantedEffectData(fakeEffect({ name: "恐慌", statuses: ["panic"], changes: [] }));
     expect(d.statuses).toEqual(["panic"]);
+  });
+});
+
+describe("buildGrantedEffectDataFrom()（素データからの付与コピー・2026-07-21）", () => {
+  it("素の効果データからも付与コピーを組める（プリセット・その場作成に使う）", () => {
+    const d = buildGrantedEffectDataFrom({ name: "罠", changes: [{ key: "a", value: "1" }] });
+    expect(d.name).toBe("罠");
+    expect(d.disabled).toBe(false);
+    expect(d.transfer).toBe(false);
+  });
+
+  it("statuses が空なら付与マーカーを注入する（トークン演出）", () => {
+    expect(buildGrantedEffectDataFrom({ name: "罠" }).statuses).toEqual(["tnx-applied"]);
+  });
+
+  it("由来 uuid が無ければ grantedFrom を刻まない（供給元の無い一回性の効果）", () => {
+    const d = buildGrantedEffectDataFrom({ name: "罠" });
+    expect(d.flags[SCOPE].grantedFrom).toBeUndefined();
+    expect(d.flags[SCOPE].effectId).toBeUndefined();
+  });
+
+  it("由来 uuid を渡せば刻む", () => {
+    const d = buildGrantedEffectDataFrom({ name: "罠" }, "Item.x.ActiveEffect.y");
+    expect(d.flags[SCOPE].grantedFrom).toBe("Item.x.ActiveEffect.y");
+    expect(d.flags[SCOPE].effectId).toBe("Item.x.ActiveEffect.y");
+  });
+
+  it("_id と準備先転送のフラグは持ち越さない", () => {
+    const d = buildGrantedEffectDataFrom({ _id: "abc", name: "罠", flags: { [SCOPE]: { applyToParent: true } } });
+    expect(d._id).toBeUndefined();
+    expect(d.flags[SCOPE].applyToParent).toBeUndefined();
+  });
+
+  it("元のデータを書き換えない", () => {
+    const src = { name: "罠" };
+    buildGrantedEffectDataFrom(src);
+    expect(src.statuses).toBeUndefined();
   });
 });

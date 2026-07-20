@@ -24,7 +24,7 @@ export function collectPresets(journals, key) {
     for (const journal of (journals ?? [])) {
         const presets = journal?.flags?.[SCOPE]?.[key] ?? [];
         if (!presets.length) continue;
-        groups.push({ label: journal.name, presets: [...presets] });
+        groups.push({ label: journal.name, journalId: journal.id, presets: [...presets] });
     }
     return groups;
 }
@@ -87,6 +87,46 @@ export function newBountyPreset() {
     return { id: randomID(), label: "", amount: 0, note: "" };
 }
 
+/**
+ * ダメージ付与プリセット → 付与フォームの値。**対象アクターは含めない**。
+ * @param {object} preset
+ */
+export function damagePresetToForm(preset) {
+    return {
+        category:   preset?.category ?? "physical",
+        damageType: preset?.damageType ?? "I",
+        value:      Math.max(0, Math.trunc(Number(preset?.value) || 0)),
+        note:       preset?.note ?? "",
+    };
+}
+
+/** ダメージ付与プリセットの新規行(既定は生身の攻撃と同じ I)。 */
+export function newDamageGrantPreset() {
+    return { id: randomID(), label: "", category: "physical", damageType: "I", value: 0, note: "" };
+}
+
+/**
+ * 効果付与プリセットの新規行。
+ *
+ * 効果は**実体をプリセットに持つ**(2026-07-21 設計確定)。参照ではなく実体にするのは、
+ * アクトのページを持ち出せば効果も付いてくる・供給元の削除で孤児が出ない、の2点による。
+ * 中身は標準の効果シートで組む(`effect-authoring.mjs`)。
+ */
+export function newEffectGrantPreset() {
+    return { id: randomID(), label: "", effect: null };
+}
+
+/**
+ * 効果が未設定のプリセットか(未設定は付与元プルダウンに出さない)。
+ * @param {?object} preset
+ */
+export function effectPresetIsEmpty(preset) {
+    const eff = preset?.effect;
+    if (!eff || typeof eff !== "object") return true;
+    // 効果シートで一度でも組めば必ず名前が付く。名前が無い＝まだ開いていない器
+    return !String(eff.name ?? "").trim();
+}
+
 /** ワールドの判定要求プリセット(グループ化済み)。 */
 export function listCheckRequestPresets() {
     return collectPresets(game.journal, "checkRequests");
@@ -95,4 +135,14 @@ export function listCheckRequestPresets() {
 /** ワールドの報酬点プリセット(グループ化済み)。 */
 export function listBountyPresets() {
     return collectPresets(game.journal, "bountyGrants");
+}
+
+/** ワールドのダメージ付与プリセット(グループ化済み)。 */
+export function listDamageGrantPresets() {
+    return collectPresets(game.journal, "damageGrants");
+}
+
+/** ワールドの効果付与プリセット(グループ化済み)。 */
+export function listEffectGrantPresets() {
+    return collectPresets(game.journal, "effectGrants");
 }

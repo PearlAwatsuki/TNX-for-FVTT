@@ -6,6 +6,10 @@ import {
   bountyPresetToForm,
   newCheckRequestPreset,
   newBountyPreset,
+  newDamageGrantPreset,
+  newEffectGrantPreset,
+  damagePresetToForm,
+  effectPresetIsEmpty,
 } from "../../scripts/module/request-presets.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
@@ -42,6 +46,14 @@ describe("collectPresets()（アクトシートのプリセットをジャーナ
   it("該当が無ければ空", () => {
     expect(collectPresets([], "checkRequests")).toEqual([]);
     expect(collectPresets(JOURNALS, "bountyGrants")).toEqual([]);
+  });
+
+  it("ジャーナルの ID も持つ（効果の付与元はジャーナルを跨いで一意に指す・2026-07-21）", () => {
+    const groups = collectPresets(
+      [{ id: "j1", name: "第1話", flags: { [SCOPE]: { effectGrants: [{ id: "e1" }] } } }],
+      "effectGrants",
+    );
+    expect(groups[0].journalId).toBe("j1");
   });
 });
 
@@ -119,5 +131,47 @@ describe("newCheckRequestPreset() / newBountyPreset()（新規行）", () => {
     const p = newBountyPreset();
     expect(p.amount).toBe(0);
     expect(p.note).toBe("");
+  });
+});
+
+describe("newDamageGrantPreset() / damagePresetToForm()（ダメージ付与の事前設定・2026-07-21）", () => {
+  it("新規行は生身の攻撃と同じ既定値を持つ", () => {
+    const p = newDamageGrantPreset();
+    expect(p.category).toBe("physical");
+    expect(p.damageType).toBe("I");
+    expect(p.value).toBe(0);
+    expect(p.note).toBe("");
+  });
+
+  it("付与フォームの値へ写す", () => {
+    expect(damagePresetToForm({ category: "social", damageType: "", value: 3, note: "威圧" }))
+      .toEqual({ category: "social", damageType: "", value: 3, note: "威圧" });
+  });
+
+  it("負のダメージは0に丸める", () => {
+    expect(damagePresetToForm({ value: -5 }).value).toBe(0);
+  });
+
+  it("欠損は既定値で埋める", () => {
+    expect(damagePresetToForm({})).toEqual({ category: "physical", damageType: "I", value: 0, note: "" });
+  });
+});
+
+describe("newEffectGrantPreset() / effectPresetIsEmpty()（効果の事前設定）", () => {
+  it("新規行は効果が未設定", () => {
+    const p = newEffectGrantPreset();
+    expect(p.label).toBe("");
+    expect(p.effect).toBeNull();
+    expect(effectPresetIsEmpty(p)).toBe(true);
+  });
+
+  it("効果データが入れば未設定ではない", () => {
+    expect(effectPresetIsEmpty({ effect: { name: "罠", changes: [] } })).toBe(false);
+  });
+
+  it("名前だけで中身の無いものは未設定として扱う", () => {
+    expect(effectPresetIsEmpty({ effect: {} })).toBe(true);
+    expect(effectPresetIsEmpty({})).toBe(true);
+    expect(effectPresetIsEmpty(null)).toBe(true);
   });
 });

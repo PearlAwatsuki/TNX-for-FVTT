@@ -48,7 +48,23 @@ const SCOPE = "tokyo-nova-axleration";
  * @returns {object} createEmbeddedDocuments("ActiveEffect", ...) 用のデータ
  */
 export function buildGrantedEffectData(eff) {
-    const data = eff.toObject();
+    return buildGrantedEffectDataFrom(eff.toObject(), eff.uuid);
+}
+
+/**
+ * 素の効果データから付与コピーを組み立てる(`buildGrantedEffectData` の実体)。
+ *
+ * 供給元のドキュメントを持たない効果——アクトのプリセット・その場で組んだ効果——も
+ * 同じ経路に乗せるための入口(2026-07-21)。由来 uuid が無い場合は `grantedFrom` を刻まない
+ * (どこにも紐づかない一回性の効果である、という事実をそのまま記録する)。
+ *
+ * @param {object} source 効果データ(書き換えない)
+ * @param {?string} [sourceUuid] 由来の効果の uuid(あれば)
+ * @returns {object} createEmbeddedDocuments("ActiveEffect", ...) 用のデータ
+ */
+export function buildGrantedEffectDataFrom(source, sourceUuid = null) {
+    const clone = globalThis.foundry?.utils?.deepClone ?? structuredClone;
+    const data = clone(source ?? {});
     delete data._id;
     data.disabled = false;   // 付与先で有効化
     data.transfer = false;   // 付与先に直接乗る一回性のインスタンス(自動転送の供給元にしない)
@@ -61,8 +77,10 @@ export function buildGrantedEffectData(eff) {
     // effectId=重複排除・置き換えリフレッシュの同一性(供給元に無ければ供給元 uuid を刻む)
     data.flags = data.flags ?? {};
     const f = data.flags[SCOPE] = { ...(data.flags[SCOPE] ?? {}) };
-    f.grantedFrom = eff.uuid;
-    if (!f.effectId) f.effectId = eff.uuid;
+    if (sourceUuid) {
+        f.grantedFrom = sourceUuid;
+        if (!f.effectId) f.effectId = sourceUuid;
+    }
     delete f.applyToParent; // 付与コピーに準備先転送は無関係
     return data;
 }
