@@ -1,0 +1,85 @@
+<div class="tnx-fs-panel">
+
+    {{#if canStart}}
+        <div class="tnx-section-header">
+            <h3>FS判定</h3>
+            <button type="button" class="tnx-btn tnx-btn--sm" data-action="startNew">
+                <i class="fas fa-plus"></i> 新しいFS判定を開始
+            </button>
+        </div>
+    {{/if}}
+
+    {{#each systems}}
+        <section class="fs-panel-item" data-fs-id="{{this.id}}">
+            <div class="tnx-item-header tnx-item-header--card">
+                <span class="fs-panel-name">{{this.name}}</span>
+            </div>
+
+            {{#if this.restriction}}
+                <p class="fs-panel-restriction">{{this.restriction}}</p>
+            {{/if}}
+
+            {{!-- 進行値ゲージ（閾値マーカーつき） --}}
+            <div class="fs-gauge-block">
+                <div class="fs-gauge-head">
+                    <span class="fs-gauge-label">進行値</span>
+                    <span class="fs-gauge-value">{{this.progress}} / {{this.targetProgress}}</span>
+                    {{#if ../canEdit}}
+                        <span class="tnx-ctrl-strip">
+                            <a class="tnx-icon-ctrl" data-action="progressDown" data-fs-id="{{this.id}}" title="進行値を減らす"><i class="fas fa-minus"></i></a>
+                            <a class="tnx-icon-ctrl" data-action="progressUp"   data-fs-id="{{this.id}}" title="進行値を増やす"><i class="fas fa-plus"></i></a>
+                        </span>
+                    {{/if}}
+                </div>
+                <div class="fs-gauge">
+                    <div class="fs-gauge-fill" style="width: {{this.progressPercent}}%"></div>
+                    {{#each this.markers}}
+                        <span class="fs-gauge-marker" style="left: {{this.percent}}%" title="進行値 {{this.threshold}}"></span>
+                    {{/each}}
+                </div>
+            </div>
+
+            {{!-- カットゲージ（敗北条件がカット経過のときだけ） --}}
+            {{#if this.isDefeatCut}}
+                <div class="fs-gauge-block">
+                    <div class="fs-gauge-head">
+                        <span class="fs-gauge-label">カット</span>
+                        <span class="fs-gauge-value">{{this.cut}} / {{this.cutLimit}}（残り {{this.cutRemaining}}）</span>
+                        {{#if ../canEdit}}
+                            <span class="tnx-ctrl-strip">
+                                <a class="tnx-icon-ctrl" data-action="cutDown" data-fs-id="{{this.id}}" title="カットを戻す"><i class="fas fa-minus"></i></a>
+                                <a class="tnx-icon-ctrl" data-action="cutUp"   data-fs-id="{{this.id}}" title="カットを進める"><i class="fas fa-plus"></i></a>
+                            </span>
+                        {{/if}}
+                    </div>
+                    <div class="fs-gauge fs-gauge--cut">
+                        <div class="fs-gauge-fill" style="width: {{this.cutPercent}}%"></div>
+                    </div>
+                </div>
+            {{else}}
+                <p class="fs-panel-defeat">敗北条件: {{this.defeatText}}</p>
+            {{/if}}
+
+            {{!-- 有効な判定行 --}}
+            {{#if this.activeRow}}
+                <dl class="fs-panel-active">
+                    <dt>進行判定</dt><dd>{{this.activeRow.skillLabel}}（目標値 {{this.activeRow.targetValue}}）</dd>
+                    {{#if this.supportSkillLabel}}
+                        <dt>支援判定</dt><dd>{{this.supportSkillLabel}}（目標値 {{this.activeRow.targetValue}}）</dd>
+                    {{/if}}
+                    {{#if this.activeRow.note}}
+                        <dt>備考</dt><dd>{{this.activeRow.note}}</dd>
+                    {{/if}}
+                </dl>
+            {{else}}
+                <p class="fs-panel-norow">この進行値で行える進行判定が設定されていません。</p>
+            {{/if}}
+
+        </section>
+    {{else}}
+        <div class="no-items-placeholder">
+            <p>進行中のFS判定はありません。</p>
+        </div>
+    {{/each}}
+
+</div>

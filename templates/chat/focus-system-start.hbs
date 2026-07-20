@@ -1,0 +1,36 @@
+<div class="tnx-check-request tokyo-nova">
+
+    <header class="cr-req-header">
+        <span class="cr-req-type-tag">FS判定</span>
+        <span class="cr-req-title">{{name}}</span>
+    </header>
+
+    <div class="cr-req-body">
+
+        {{#if restriction}}
+            <p class="cr-req-description">{{restriction}}</p>
+        {{/if}}
+
+        <div class="cr-req-tn-row">
+            <span class="cr-req-tn-label">目標進行値</span>
+            <span class="cr-req-tn-value">{{targetProgress}}</span>
+        </div>
+
+        <div class="cr-req-tn-row">
+            <span class="cr-req-tn-label">敗北条件</span>
+            <span class="cr-req-tn-value">{{defeatText}}</span>
+        </div>
+
+        {{#if rows.length}}
+            <ul class="cr-req-targets">
+                {{#each rows}}
+                    <li class="cr-req-target-row">
+                        <span class="cr-req-actor-name">進行値 {{this.threshold}} から {{this.skillLabel}}</span>
+                        <div class="cr-req-target-status">目標値 {{this.targetValue}}</div>
+                    </li>
+                {{/each}}
+            </ul>
+        {{/if}}
+
+    </div>
+</div>

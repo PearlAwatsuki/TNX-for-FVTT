@@ -58,6 +58,8 @@ import { TnxCheckDialog } from './module/tnx-check-dialog.mjs';
 import { TnxRlRequestApp } from './module/tnx-rl-request-app.mjs';
 import { openRlGrantDamage, openRlGrantEffect, openRlGrantBounty } from './module/rl-grant.mjs';
 import { renderBountyGrantCard } from './module/bounty-grant.mjs';
+import { openFocusSystemPanel } from './module/tnx-focus-system-panel.mjs';
+import { registerFocusSystemSetting } from './module/focus-system-state.mjs';
 import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
 import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
@@ -106,6 +108,9 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/app/rl-grant-effect.hbs",
         "systems/tokyo-nova-axleration/templates/app/rl-grant-bounty.hbs",
         "systems/tokyo-nova-axleration/templates/chat/bounty-grant.hbs",
+        "systems/tokyo-nova-axleration/templates/app/focus-system-panel.hbs",
+        "systems/tokyo-nova-axleration/templates/app/focus-system-start.hbs",
+        "systems/tokyo-nova-axleration/templates/chat/focus-system-start.hbs",
         "systems/tokyo-nova-axleration/templates/app/usage-sheet.hbs",
 
         // === Dialogs ===
@@ -1134,6 +1139,9 @@ Hooks.once("init", async function() {
     // 部位スロットプリセット(ワールド設定＋編集アプリメニュー。新規キャストへ流し込む)
     registerPartSlotPresetSetting();
 
+    // 実行中 FS判定の正本(フェーズ12-5)
+    registerFocusSystemSetting();
+
     game.settings.register("tokyo-nova-axleration", "defaultHandMaxSize", {
         name: "デフォルトの手札上限数",
         hint: "各ユーザーの手札上限の基本となる枚数を設定します。ユーザーが個別に設定していない場合、この値が適用されます。",
@@ -1566,6 +1574,32 @@ Hooks.once("init", async function() {
      */
     // GM 専用: シーンコントロールに「判定要求」ボタンを追加（フェーズ 8-5）
     // V13: controls は配列ではなくグループ名をキーとするオブジェクト
+    // FS判定パネルは**全員**に出す(PL の参照手段を兼ねる・2026-07-20 ユーザー指示)
+    Hooks.on("getSceneControlButtons", (controls) => {
+        let tokenGroup;
+        if (Array.isArray(controls)) {
+            tokenGroup = controls.find(c => c.name === "tokens" || c.name === "token");
+        } else if (controls instanceof Map) {
+            tokenGroup = controls.get("tokens") ?? controls.get("token");
+        } else {
+            tokenGroup = controls?.["tokens"] ?? controls?.["token"];
+        }
+        if (!tokenGroup) return;
+        const tool = {
+            name:    "tnxFocusSystem",
+            title:   "FS判定",
+            icon:    "fas fa-bullseye",
+            button:  true,
+            onChange: () => openFocusSystemPanel(),
+            visible: true,
+        };
+        const tools = tokenGroup.tools;
+        if (Array.isArray(tools)) tools.push(tool);
+        else if (tools instanceof Map) tools.set("tnxFocusSystem", tool);
+        else if (tools && typeof tools === "object") tools.tnxFocusSystem = tool;
+        else tokenGroup.tools = { tnxFocusSystem: tool };
+    });
+
     Hooks.on("getSceneControlButtons", (controls) => {
         if (!game.user.isGM) return;
         // V13: controls はグループ名をキーとするオブジェクト（キーは複数形）

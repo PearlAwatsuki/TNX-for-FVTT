@@ -8433,3 +8433,81 @@ button.tnx-create-act-button span {
     margin: 10px 0 0;
     white-space: pre-wrap;
 }
+
+/* ============================================================
+   FS判定パネル(フェーズ12-5) — 進行状態の操作・閲覧
+   ============================================================ */
+
+.tnx-fs-panel .fs-panel-item {
+    padding: 8px;
+    margin-bottom: 10px;
+    border: 1px solid var(--tnx2-border, #3a3f4b);
+    border-radius: 4px;
+}
+.tnx-fs-panel .fs-panel-name {
+    font-weight: 700;
+}
+.tnx-fs-panel .fs-panel-restriction,
+.tnx-fs-panel .fs-panel-defeat,
+.tnx-fs-panel .fs-panel-norow {
+    margin: 4px 0;
+    font-size: 0.9em;
+    opacity: 0.85;
+}
+.tnx-fs-panel .fs-gauge-block {
+    margin: 8px 0;
+}
+.tnx-fs-panel .fs-gauge-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 3px;
+}
+.tnx-fs-panel .fs-gauge-label {
+    font-weight: 600;
+}
+.tnx-fs-panel .fs-gauge-value {
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+}
+.tnx-fs-panel .fs-gauge {
+    position: relative;
+    height: 14px;
+    overflow: hidden;
+    background: rgb(0 0 0 / 35%);
+    border: 1px solid var(--tnx2-border, #3a3f4b);
+    border-radius: 3px;
+}
+.tnx-fs-panel .fs-gauge-fill {
+    height: 100%;
+    background: var(--tnx2-accent, #6fb3d2);
+}
+.tnx-fs-panel .fs-gauge--cut .fs-gauge-fill {
+    background: #d98b6f;
+}
+.tnx-fs-panel .fs-gauge-marker {
+    position: absolute;
+    top: 0;
+    width: 2px;
+    height: 100%;
+    background: rgb(255 255 255 / 65%);
+}
+.tnx-fs-panel .fs-panel-active {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 2px 10px;
+    margin: 6px 0 0;
+    font-size: 0.92em;
+}
+.tnx-fs-panel .fs-panel-active dt {
+    font-weight: 600;
+    white-space: nowrap;
+}
+.tnx-fs-panel .fs-panel-active dd {
+    margin: 0;
+}
+.tnx-rl-request .fs-start-note {
+    margin: 6px 0;
+    font-size: 0.88em;
+    opacity: 0.8;
+}
