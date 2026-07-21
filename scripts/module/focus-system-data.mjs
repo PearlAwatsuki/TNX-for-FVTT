@@ -21,7 +21,7 @@ export function newProgressRow() {
     return {
         id:          randomID(),
         threshold:   0,
-        skillKey:    "",
+        skillKeys:   [],
         targetValue: 0,
         progressMod: { source: "none", param: "", formula: "" },
         note:        "",
@@ -57,10 +57,14 @@ function normalizeKeys(keys) {
  */
 function normalizeRow(row) {
     const mod = row?.progressMod ?? {};
+    // 進行判定の技能は複数持てる(2026-07-21)。旧・単数 skillKey は配列へ読み替える
+    const skillKeys = row?.skillKeys
+        ? normalizeKeys(row.skillKeys)
+        : normalizeKeys([row?.skillKey]);
     return {
         id:          row?.id || randomID(),
         threshold:   Number(row?.threshold) || 0,
-        skillKey:    row?.skillKey ?? "",
+        skillKeys,
         targetValue: Number(row?.targetValue) || 0,
         progressMod: {
             source:  mod.source ?? "none",

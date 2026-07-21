@@ -11,7 +11,7 @@
  */
 
 import { readFocusSystemData, FOCUS_SYSTEM_FLAG } from "../module/focus-system-data.mjs";
-import { buildFocusSystemEditorContext, readFocusSystemForm } from "../module/focus-system-form.mjs";
+import { buildFocusSystemEditorContext } from "../module/focus-system-form.mjs";
 import { bindFocusSystemEditor } from "../module/focus-system-editor.mjs";
 
 const { HandlebarsApplicationMixin, DocumentSheetV2 } = foundry.applications.api;
@@ -51,13 +51,8 @@ export class TnxFocusSystemSheet extends HandlebarsApplicationMixin(DocumentShee
             this.document.update({ name: event.target.value.trim() || "新規FS判定" });
         });
 
-        const editor = el.querySelector(".fs-editor");
-        // 値の変更はそのまま保存する(構造の変更は bindFocusSystemEditor から来る)
-        editor?.addEventListener("change", (event) => {
-            if (event.target.classList.contains("fs-support-add")) return;
-            this._save(readFocusSystemForm(editor));
-        });
-        bindFocusSystemEditor(editor, { onChange: (data) => this._save(data) });
+        // 値・構造の変更はすべて bindFocusSystemEditor が拾い、onChange で保存する
+        bindFocusSystemEditor(el.querySelector(".fs-editor"), { onChange: (data) => this._save(data) });
     }
 
     /** 設定を flags へ保存する(保存すると再描画され、候補や行の並びが更新される)。 */

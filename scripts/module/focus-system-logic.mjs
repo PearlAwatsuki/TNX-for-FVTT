@@ -98,7 +98,7 @@ export function buildFocusSystemSnapshot(source, { id = "", sourceUuid = null } 
         rows:            (sys.rows ?? []).map(r => ({
             id:          r.id ?? "",
             threshold:   Number(r.threshold) || 0,
-            skillKey:    r.skillKey ?? "",
+            skillKeys:   [...(r.skillKeys ?? (r.skillKey ? [r.skillKey] : []))],
             targetValue: Number(r.targetValue) || 0,
             progressMod: { ...(r.progressMod ?? { source: "none", param: "", formula: "" }) },
             note:        r.note ?? "",

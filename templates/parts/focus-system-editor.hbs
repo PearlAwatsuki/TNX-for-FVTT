@@ -64,8 +64,8 @@
             {{/each}}
         </div>
         {{#if editable}}
-            <select class="fs-support-add">
-                <option value="">── 支援判定の技能を追加 ──</option>
+            <select class="fs-support-add fs-skill-add">
+                <option value="">＋ 技能を追加</option>
                 {{#each supportChoices}}
                     <optgroup label="{{this.label}}">
                         {{#each this.skills}}
@@ -77,9 +77,9 @@
         {{/if}}
     </fieldset>
 
-    {{!-- ③ 判定行 --}}
+    {{!-- ③ イベント・進行判定 --}}
     <fieldset class="tnx-fieldset">
-        <legend>判定行</legend>
+        <legend>イベント・進行判定</legend>
         <div class="fs-row-table-wrap">
             <table class="fs-row-table">
                 <thead>
@@ -102,17 +102,32 @@
                                     <button type="button" class="tnx-btn" data-action="fsSpinUp" aria-label="増加">＋</button>
                                 </div>
                             </td>
-                            <td>
-                                <select name="skillKey">
-                                    <option value="">（指定なし）</option>
-                                    {{#each this.skillGroups}}
-                                        <optgroup label="{{this.label}}">
-                                            {{#each this.skills}}
-                                                <option value="{{this.identificationKey}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
-                                            {{/each}}
-                                        </optgroup>
+                            <td class="fs-row-skill">
+                                <div class="fs-skill-chips">
+                                    {{#each this.skillRows}}
+                                        <span class="fs-skill-chip" data-key="{{this.key}}">
+                                            <span class="fs-skill-name">{{this.name}}</span>
+                                            {{#if ../../editable}}
+                                                <a class="fs-skill-del" data-action="fsRowSkillDelete" data-key="{{this.key}}"
+                                                   title="削除"><i class="fas fa-times"></i></a>
+                                            {{/if}}
+                                        </span>
+                                    {{else}}
+                                        <span class="fs-empty">（指定なし）</span>
                                     {{/each}}
-                                </select>
+                                </div>
+                                {{#if ../editable}}
+                                    <select class="fs-row-skill-add fs-skill-add">
+                                        <option value="">＋ 技能を追加</option>
+                                        {{#each this.skillChoices}}
+                                            <optgroup label="{{this.label}}">
+                                                {{#each this.skills}}
+                                                    <option value="{{this.identificationKey}}">{{this.name}}</option>
+                                                {{/each}}
+                                            </optgroup>
+                                        {{/each}}
+                                    </select>
+                                {{/if}}
                             </td>
                             <td>
                                 <div class="number-input-spinner">
@@ -150,14 +165,14 @@
                             </td>
                         </tr>
                     {{else}}
-                        <tr class="fs-row-empty"><td colspan="6">判定行がありません</td></tr>
+                        <tr class="fs-row-empty"><td colspan="6">イベント・進行判定がありません</td></tr>
                     {{/each}}
                 </tbody>
             </table>
         </div>
         {{#if editable}}
             <button type="button" class="tnx-btn tnx-btn--sm" data-action="fsRowAdd">
-                <i class="fas fa-plus"></i> 判定行を追加
+                <i class="fas fa-plus"></i> 追加
             </button>
         {{/if}}
     </fieldset>

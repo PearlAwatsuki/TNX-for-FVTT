@@ -13,18 +13,20 @@
 import { activeProgressRow } from "./focus-system-logic.mjs";
 
 /**
- * 進行判定の要求内容。
+ * 進行判定の要求内容。指定技能は**複数**ありうる(2026-07-21)。
  * @param {?object} fs 実行中 FS
- * @returns {?{identificationKey:string, targetValue:number, focusSystemId:string, kind:string}}
+ * @returns {?{identificationKeys:Array<string>, targetValue:number, focusSystemId:string, kind:string}}
  */
 export function buildProgressRequest(fs) {
     const row = activeProgressRow(fs?.rows, fs?.progress);
     if (!row) return null;
+    // 有効行の指定技能は複数ありうる(2026-07-21)。旧・単数 skillKey も読める
+    const keys = row.skillKeys ?? (row.skillKey ? [row.skillKey] : []);
     return {
-        identificationKey: row.skillKey ?? "",
-        targetValue:       Number(row.targetValue) || 0,
-        focusSystemId:     fs.id,
-        kind:              "progress",
+        identificationKeys: [...keys],
+        targetValue:        Number(row.targetValue) || 0,
+        focusSystemId:      fs.id,
+        kind:               "progress",
     };
 }
 

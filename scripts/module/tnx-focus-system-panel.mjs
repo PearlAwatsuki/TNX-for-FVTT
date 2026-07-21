@@ -18,6 +18,13 @@ const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
 const SCOPE = "tokyo-nova-axleration";
 
+/** 判定行の指定技能(複数)を表示名で連ねる。 */
+function rowSkillLabel(row, label) {
+    const keys = row?.skillKeys ?? (row?.skillKey ? [row.skillKey] : []);
+    const names = keys.map(k => label(k)).filter(Boolean);
+    return names.length ? names.join("・") : "（指定なし）";
+}
+
 /** 一般技能の識別キー → 〈技能名〉。 */
 async function skillLabeler() {
     const entries = await loadSkillEntries(SKILL_PACKS.general);
@@ -73,7 +80,7 @@ export class TnxFocusSystemPanel extends HandlebarsApplicationMixin(ApplicationV
                 cutPercent:      cutLimit > 0 ? Math.round((cut / cutLimit) * 100) : 0,
                 markers:         gaugeMarkers(fs.rows, fs.targetProgress),
                 supportSkillLabels: (fs.supportSkillKeys ?? []).map(k => label(k)).filter(Boolean),
-                activeRow:       row ? { ...row, skillLabel: label(row.skillKey) || "（指定なし）" } : null,
+                activeRow:       row ? { ...row, skillLabel: rowSkillLabel(row, label) } : null,
             };
         });
 
@@ -170,7 +177,7 @@ export async function postFocusSystemStartCard(fs) {
                 rows: (fs.rows ?? []).map(r => ({
                     threshold:   r.threshold,
                     targetValue: r.targetValue,
-                    skillLabel:  label(r.skillKey) || "（指定なし）",
+                    skillLabel:  rowSkillLabel(r, label),
                 })),
             }
         ),

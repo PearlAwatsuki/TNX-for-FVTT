@@ -2,7 +2,7 @@
  * @fileoverview FS判定エディタの配線(2026-07-21)。
  *
  * FS判定シートと起動フォームで同じ挙動にするため、DOM の配線もここ1箇所に置く。
- * 構造が変わる操作(行や技能の増減・並び替え・参照元の変更)は、現在のフォーム内容に
+ * すべての変更(値・構造)を1つの経路にまとめ、変更のたびに現在のフォーム内容へ
  * 変更を適用した設定を `onChange` へ渡す——描画のし直しは呼び出し側が行う
  * (シートは flags へ保存して再描画、起動フォームは手元の状態を差し替えて再描画)。
  */
@@ -17,16 +17,10 @@ function syncDefeat(root) {
     root.querySelector(".fs-defeat-other")?.toggleAttribute("hidden", isCut);
 }
 
-/** 進行修正の参照元に応じて、パラメータ／式を出すか。 */
-function syncModDetail(row) {
-    const source = row.querySelector('[name="modSource"]')?.value ?? "none";
-    row.querySelector(".fs-mod-detail")?.toggleAttribute("hidden", source === "none");
-}
-
 /**
  * エディタを配線する。
  * @param {HTMLElement} root エディタのルート(.fs-editor)
- * @param {{onChange: function(object): any}} opts 構造が変わったときに呼ばれる
+ * @param {{onChange: function(object): any}} opts 変更があるたびに呼ばれる
  */
 export function bindFocusSystemEditor(root, { onChange }) {
     if (!root) return;
@@ -37,7 +31,8 @@ export function bindFocusSystemEditor(root, { onChange }) {
         onChange?.(data);
     };
 
-    // 数値の ±(この部品専用のアクション名にして、ホスト側の ± と衝突させない)
+    // 数値の ±(この部品専用のアクション名にして、ホスト側の ± と衝突させない)。
+    // change を発火させ、下の一括ハンドラで保存・再描画する
     for (const btn of root.querySelectorAll('[data-action="fsSpinUp"], [data-action="fsSpinDown"]')) {
         btn.addEventListener("click", () => {
             const input = btn.closest(".number-input-spinner")?.querySelector('input[type="number"]');
@@ -48,18 +43,14 @@ export function bindFocusSystemEditor(root, { onChange }) {
         });
     }
 
-    root.querySelector('[name="defeatType"]')?.addEventListener("change", () => syncDefeat(root));
-    syncDefeat(root);
+    // 値の変更(テキスト・数値・プルダウン)は一括で拾う。技能の追加プルダウンだけは
+    // 値でなく操作なので除く(専用ハンドラで処理する)
+    root.addEventListener("change", (event) => {
+        if (event.target.classList.contains("fs-skill-add")) return;
+        emit();
+    });
 
-    // 参照元を変えるとパラメータの候補が変わるため、描画をやり直す
-    for (const sel of root.querySelectorAll(".fs-mod-source")) {
-        sel.addEventListener("change", () => {
-            syncModDetail(sel.closest(".fs-row"));
-            emit();
-        });
-    }
-
-    // 支援判定の技能: 追加プルダウン／行の削除
+    // 支援判定の技能: 追加プルダウン／チップの削除
     root.querySelector(".fs-support-add")?.addEventListener("change", (event) => {
         const key = event.target.value;
         event.target.value = "";
@@ -76,7 +67,7 @@ export function bindFocusSystemEditor(root, { onChange }) {
         });
     }
 
-    // 判定行: 追加／削除／並び替え
+    // イベント・進行判定: 追加／削除／並び替え／行ごとの指定技能
     root.querySelector('[data-action="fsRowAdd"]')?.addEventListener("click", () => {
         emit((data) => data.rows.push(newProgressRow()));
     });
@@ -85,6 +76,25 @@ export function bindFocusSystemEditor(root, { onChange }) {
         row.querySelector('[data-action="fsRowDelete"]')?.addEventListener("click", () => {
             emit((data) => data.rows.splice(index, 1));
         });
+
+        // 行ごとの指定技能(複数): 追加プルダウン／チップの削除
+        row.querySelector(".fs-row-skill-add")?.addEventListener("change", (event) => {
+            const key = event.target.value;
+            event.target.value = "";
+            if (!key) return;
+            emit((data) => {
+                const r = data.rows[index];
+                if (r && !r.skillKeys.includes(key)) r.skillKeys.push(key);
+            });
+        });
+        for (const btn of row.querySelectorAll('[data-action="fsRowSkillDelete"]')) {
+            btn.addEventListener("click", () => {
+                emit((data) => {
+                    const r = data.rows[index];
+                    if (r) r.skillKeys = r.skillKeys.filter(k => k !== btn.dataset.key);
+                });
+            });
+        }
 
         // 並び替えは専用グリップのみ(行全体を draggable にすると入力の選択を奪う)
         const grip = row.querySelector(".fs-row-grip");
@@ -108,4 +118,6 @@ export function bindFocusSystemEditor(root, { onChange }) {
             });
         });
     }
+
+    syncDefeat(root);
 }

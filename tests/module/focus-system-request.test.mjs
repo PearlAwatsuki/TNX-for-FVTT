@@ -10,16 +10,16 @@ const FS = {
   targetProgress: 20,
   progress: 0,
   rows: [
-    { id: "a", threshold: 0, skillKey: "hacking",  targetValue: 12 },
-    { id: "b", threshold: 3, skillKey: "research", targetValue: 15 },
-    { id: "c", threshold: 5, skillKey: "cracking", targetValue: 18 },
+    { id: "a", threshold: 0, skillKeys: ["hacking"],  targetValue: 12 },
+    { id: "b", threshold: 3, skillKeys: ["research"], targetValue: 15 },
+    { id: "c", threshold: 5, skillKeys: ["cracking"], targetValue: 18 },
   ],
 };
 
 describe("buildProgressRequest()（進行判定の要求・ルール14）", () => {
-  it("有効行の技能と目標値を使う", () => {
+  it("有効行の技能（複数可）と目標値を使う", () => {
     expect(buildProgressRequest(FS)).toEqual({
-      identificationKey: "hacking",
+      identificationKeys: ["hacking"],
       targetValue: 12,
       focusSystemId: "fs1",
       kind: "progress",
@@ -27,14 +27,24 @@ describe("buildProgressRequest()（進行判定の要求・ルール14）", () =
   });
 
   it("進行値が進んで行が切り替わると要求も変わる", () => {
-    expect(buildProgressRequest({ ...FS, progress: 3 }).identificationKey).toBe("research");
+    expect(buildProgressRequest({ ...FS, progress: 3 }).identificationKeys).toEqual(["research"]);
     expect(buildProgressRequest({ ...FS, progress: 3 }).targetValue).toBe(15);
-    expect(buildProgressRequest({ ...FS, progress: 6 }).identificationKey).toBe("cracking");
+    expect(buildProgressRequest({ ...FS, progress: 6 }).identificationKeys).toEqual(["cracking"]);
+  });
+
+  it("技能を複数指定した行はすべて渡す（2026-07-21）", () => {
+    const fs = { ...FS, rows: [{ threshold: 0, skillKeys: ["a", "b"], targetValue: 10 }] };
+    expect(buildProgressRequest(fs).identificationKeys).toEqual(["a", "b"]);
+  });
+
+  it("旧・単数の skillKey の行も読める", () => {
+    const fs = { ...FS, rows: [{ threshold: 0, skillKey: "hacking", targetValue: 10 }] };
+    expect(buildProgressRequest(fs).identificationKeys).toEqual(["hacking"]);
   });
 
   it("有効行が無ければ null", () => {
     expect(buildProgressRequest({ ...FS, rows: [] })).toBeNull();
-    expect(buildProgressRequest({ ...FS, rows: [{ threshold: 5, skillKey: "x", targetValue: 1 }] })).toBeNull();
+    expect(buildProgressRequest({ ...FS, rows: [{ threshold: 5, skillKeys: ["x"], targetValue: 1 }] })).toBeNull();
     expect(buildProgressRequest(null)).toBeNull();
   });
 });

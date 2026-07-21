@@ -22,6 +22,21 @@ function markSelected(groups, selectedKey, itemsKey, valueKey) {
 }
 
 /**
+ * 技能の複数選択(チップの一覧＋追加候補)。支援判定と各判定行で同じ作法を使う
+ * (既存の「無視する指定技能」と同型)。追加候補からは選択済みを除く。
+ */
+function skillChipList(skillGroups, nameOf, chosen) {
+    const keys = chosen ?? [];
+    return {
+        rows: keys.map(key => ({ key, name: nameOf(key) })),
+        choices: (skillGroups ?? []).map(g => ({
+            ...g,
+            skills: (g.skills ?? []).filter(o => !keys.includes(o.identificationKey)),
+        })).filter(g => g.skills.length),
+    };
+}
+
+/**
  * エディタの描画文脈を組み立てる。
  * @param {object} data FS判定の設定(`readFocusSystemData` の戻り)
  * @param {{editable?:boolean}} [opts]
@@ -35,26 +50,25 @@ export async function buildFocusSystemEditorContext(data, { editable = true } = 
         return hit?.name ? formatSkillName(hit.name) : key;
     };
 
-    const chosen = fs.supportSkillKeys ?? [];
+    const support = skillChipList(skillGroups, nameOf, fs.supportSkillKeys);
     return {
         editable,
         fs,
         isDefeatCut:  (fs.defeatCondition?.type ?? "cut") === "cut",
         defeatTypes:  defeatConditionOptions(fs.defeatCondition?.type ?? "cut"),
         sourceOptions: PROGRESS_MOD_SOURCES,
-        // 支援判定の指定技能は複数。行＝選択済み、下のプルダウン＝追加候補(既存の
-        // 「無視する指定技能」と同じ作法)
-        supportRows: chosen.map(key => ({ key, name: nameOf(key) })),
-        supportChoices: (skillGroups ?? []).map(g => ({
-            ...g,
-            skills: (g.skills ?? []).filter(o => !chosen.includes(o.identificationKey)),
-        })).filter(g => g.skills.length),
+        // 支援判定の指定技能は複数(既存の「無視する指定技能」と同じ作法)
+        supportRows:    support.rows,
+        supportChoices: support.choices,
         rows: (fs.rows ?? []).map((r, index) => {
             const source = r.progressMod?.source ?? "none";
+            // 進行判定の技能も複数(2026-07-21)
+            const skills = skillChipList(skillGroups, nameOf, r.skillKeys);
             return {
                 ...r,
                 index,
-                skillGroups: markSelected(skillGroups, r.skillKey, "skills", "identificationKey"),
+                skillRows:    skills.rows,
+                skillChoices: skills.choices,
                 hasParam:    source !== "none",
                 paramGroups: markSelected(buildProgressModChoices(source), r.progressMod?.param, "params", "value"),
                 sources:     PROGRESS_MOD_SOURCES.map(o => ({ ...o, selected: o.value === source })),
@@ -80,7 +94,8 @@ export function readFocusSystemForm(root) {
     const rows = [...(root?.querySelectorAll(".fs-row") ?? [])].map(el => ({
         id:          el.dataset.rowId || newProgressRow().id,
         threshold:   Number(el.querySelector('[name="threshold"]')?.value) || 0,
-        skillKey:    el.querySelector('[name="skillKey"]')?.value ?? "",
+        // 技能はチップの並び(複数)。プルダウンではなく行から集める
+        skillKeys:   [...el.querySelectorAll(".fs-skill-chip")].map(c => c.dataset.key).filter(Boolean),
         targetValue: Number(el.querySelector('[name="targetValue"]')?.value) || 0,
         progressMod: {
             source:  el.querySelector('[name="modSource"]')?.value ?? "none",

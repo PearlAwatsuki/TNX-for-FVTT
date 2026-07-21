@@ -67,13 +67,27 @@ describe("readFocusSystemData()（フラグの読み出しと正規化）", () =
 
   it("判定行は欠けた項目を埋めて数値化する", () => {
     const d = readFocusSystemData({ flags: { [SCOPE]: { focusSystem: {
-      rows: [{ threshold: "5", skillKey: "drive" }],
+      rows: [{ threshold: "5", skillKeys: ["drive"] }],
     } } } });
     expect(d.rows[0]).toMatchObject({
-      threshold: 5, skillKey: "drive", targetValue: 0, note: "",
+      threshold: 5, skillKeys: ["drive"], targetValue: 0, note: "",
       progressMod: { source: "none", param: "", formula: "" },
     });
     expect(d.rows[0].id).toBeTruthy();
+  });
+
+  it("判定行の技能は複数持てる（重複と空を畳む・2026-07-21）", () => {
+    const d = readFocusSystemData({ flags: { [SCOPE]: { focusSystem: {
+      rows: [{ skillKeys: ["drive", "", "drive", "hacking"] }],
+    } } } });
+    expect(d.rows[0].skillKeys).toEqual(["drive", "hacking"]);
+  });
+
+  it("旧・単数の skillKey を持つ判定行を配列へ読み替える", () => {
+    const d = readFocusSystemData({ flags: { [SCOPE]: { focusSystem: {
+      rows: [{ skillKey: "drive" }],
+    } } } });
+    expect(d.rows[0].skillKeys).toEqual(["drive"]);
   });
 
   it("元のフラグを書き換えない", () => {
@@ -87,6 +101,7 @@ describe("newProgressRow()（判定行の新規行）", () => {
   it("既定値を持ち、ID が振られる", () => {
     const r = newProgressRow();
     expect(r.threshold).toBe(0);
+    expect(r.skillKeys).toEqual([]);
     expect(r.targetValue).toBe(0);
     expect(r.progressMod).toEqual({ source: "none", param: "", formula: "" });
     expect(r.id).toBeTruthy();

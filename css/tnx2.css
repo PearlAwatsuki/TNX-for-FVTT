@@ -8473,7 +8473,13 @@ button.tnx-create-act-button span {
     color: var(--tnx2-text-muted);
 }
 
-/* ③ 判定行: 互いに比較するレコードなので表で一覧する */
+/* 技能の追加プルダウンは全幅にすると使いにくいので幅を抑える(2026-07-21) */
+.fs-editor .fs-skill-add {
+    width: auto;
+    max-width: 200px;
+}
+
+/* ③ イベント・進行判定: 互いに比較するレコードなので表で一覧する */
 .fs-editor .fs-row-table-wrap {
     overflow-x: auto;
     margin-bottom: 6px;
@@ -8491,17 +8497,43 @@ button.tnx-create-act-button span {
     white-space: nowrap;
 }
 .fs-editor .fs-row-table td {
-    padding: 2px 4px;
-    vertical-align: middle;
+    padding: 6px 4px;
+    vertical-align: top;
 }
+/* number-input-spinner は幅130px(入力60＋ボタン35×2)。列を狭くすると窮屈になるので
+   スピナーが収まる幅を確保する(2026-07-21) */
 .fs-editor .fs-col-threshold,
-.fs-editor .fs-col-target { width: 96px; }
-.fs-editor .fs-col-skill  { width: 22%; }
-.fs-editor .fs-col-mod    { width: 28%; }
+.fs-editor .fs-col-target { width: 138px; }
+.fs-editor .fs-col-skill  { width: 200px; }
+.fs-editor .fs-col-mod    { width: 220px; }
 .fs-editor .fs-col-ctrl   { width: 48px; }
+.fs-editor .fs-row-table .number-input-spinner {
+    justify-content: flex-start;
+}
 
-.fs-editor .fs-row-table .number-input-spinner input[type="number"] {
-    min-width: 0;
+/* 行ごとの指定技能(複数)。チップ＋追加プルダウン */
+.fs-editor .fs-skill-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+.fs-editor .fs-skill-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 4px 1px 8px;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: 12px;
+    font-size: 0.85em;
+}
+.fs-editor .fs-skill-del {
+    color: var(--tnx2-text-muted);
+    cursor: pointer;
+}
+.fs-editor .fs-skill-del:hover {
+    color: var(--tnx2-danger, #d66);
 }
 /* 参照元＝なし の行は詳細を出さないので、セルはプルダウン1つに収まる */
 .fs-editor .fs-mod-detail {
@@ -8528,6 +8560,13 @@ button.tnx-create-act-button span {
     padding: 8px 4px;
     font-size: 0.85em;
     color: var(--tnx2-text-muted);
+}
+
+/* ④ メモ: textarea はブラウザ既定の cols 幅で出るため、明示的に全幅にする */
+.fs-editor textarea[name="memo"] {
+    width: 100%;
+    box-sizing: border-box;
+    resize: vertical;
 }
 
 .fs-start-footer {
