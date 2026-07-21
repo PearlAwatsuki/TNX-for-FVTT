@@ -8470,14 +8470,21 @@ button.tnx-create-act-button span {
     margin-bottom: 10px;
 }
 
-/* 技能の複数選択＝タグ入力(2026-07-21)。支援判定と各判定行で共通。
-   チップと「追加」を同じ行に並べ、増えたら折り返す(全幅プルダウンの置き換え) */
+/* 技能の複数選択＝タグ入力(2026-07-21)。タグ領域を先に確保し、追加プルダウンはその下に
+   固定する。追加してもプルダウンが右へ流れない(ユーザー指示) */
+.fs-editor .fs-skill-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
 .fs-editor .fs-skill-tags {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
+    align-content: flex-start;
     gap: 4px;
-    min-height: 32px;
+    /* チップが無くても1行分の高さを確保しておく(最初の追加でレイアウトが飛ばない) */
+    min-height: 26px;
 }
 .fs-editor .fs-skill-chip {
     display: inline-flex;
@@ -8498,12 +8505,13 @@ button.tnx-create-act-button span {
 .fs-editor .fs-skill-del:hover {
     color: var(--tnx2-danger, #d66);
 }
-/* 追加はチップ列に溶け込む小さなプルダウン(全幅にしない) */
+/* 追加プルダウンは左端に固定した小さな幅(全幅にしない) */
 .fs-editor .fs-skill-add {
+    align-self: flex-start;
     width: auto;
-    max-width: 170px;
-    height: 26px;
-    border-radius: 13px;
+    max-width: 180px;
+    height: 28px;
+    border-radius: 6px;
     font-size: 0.85em;
     color: var(--tnx2-text-secondary);
 }
@@ -8511,6 +8519,30 @@ button.tnx-create-act-button span {
     margin: 0;
     font-size: 0.85em;
     color: var(--tnx2-text-muted);
+}
+
+/* 入力コントロールの高さを 30px に統一する。既定のスピナーは大きすぎて他の入力欄と
+   揃わなかったため、FS エディタ内では小さめにする(2026-07-21 ユーザー指示) */
+.fs-editor select,
+.fs-editor input[type="text"] {
+    height: 30px;
+    box-sizing: border-box;
+}
+.fs-editor .number-input-spinner {
+    justify-content: flex-start;
+}
+.fs-editor .number-input-spinner input[type="number"] {
+    flex: 0 0 42px;
+    width: 42px;
+    height: 30px;
+    font-size: 1em;
+    font-weight: 600;
+}
+.fs-editor .number-input-spinner .tnx-btn {
+    flex: 0 0 26px;
+    width: 26px;
+    height: 30px;
+    font-size: 1.05em;
 }
 
 /* ② イベント・進行判定: 高さがバラバラなレコードなので、表でなくカードにする。
@@ -8568,14 +8600,13 @@ button.tnx-create-act-button span {
     font-weight: 600;
     color: var(--tnx2-text-secondary);
     white-space: nowrap;
-    padding-top: 8px;
+    padding-top: 6px;
 }
 .fs-editor .fs-event-target {
     justify-content: flex-start;
 }
 .fs-editor .fs-event-fields > input[type="text"] {
     width: 100%;
-    height: 35px;
     box-sizing: border-box;
 }
 
@@ -8586,7 +8617,6 @@ button.tnx-create-act-button span {
     gap: 4px;
     max-width: 320px;
 }
-.fs-editor .fs-mod-source { height: 35px; }
 .fs-editor .fs-mod-detail {
     display: flex;
     flex-direction: column;
