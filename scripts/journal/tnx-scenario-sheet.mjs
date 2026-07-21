@@ -13,6 +13,7 @@ import {
 import { RL_DAMAGE_TYPES, RL_DAMAGE_CATEGORIES } from '../module/rl-grant-logic.mjs';
 import { promptEffectData } from '../module/effect-authoring.mjs';
 import { describeEffectData } from '../module/effect-source-logic.mjs';
+import { captureScrollTop, restoreScrollTop } from '../module/scroll-preserve.mjs';
 import { conditionStatusLabels } from '../module/conditions.mjs';
 import { checkTypeOptions } from '../module/tnx-rl-request-app.mjs';
 
@@ -161,6 +162,12 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
     // ─── レンダリング ─────────────────────────────────────────────────────────
 
+    /** @override — 再描画前にスクロール位置を保存する(プリセット操作でスクロールが飛ぶのを防ぐ)。 */
+    async _preRender(context, options) {
+        await super._preRender?.(context, options);
+        this._scrollTop = captureScrollTop(this.element, ".sheet-body");
+    }
+
     _onRender(_context, _options) {
         this._setupContextMenus();
         this._setupChangeListeners();
@@ -176,6 +183,8 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         for (const [group, tab] of Object.entries(this.tabGroups)) {
             if (tab) this.changeTab(tab, group, { force: true });
         }
+        // 再描画でスクロールが飛ぶのを防ぐ(RL プリセットの入力操作等)
+        restoreScrollTop(this.element, ".sheet-body", this._scrollTop);
     }
 
     // ─── 変更リスナー ─────────────────────────────────────────────────────────

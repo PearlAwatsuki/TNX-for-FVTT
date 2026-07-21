@@ -14,8 +14,11 @@
 import { readFocusSystemData, defaultFocusSystemData, isFocusSystemJournal } from "./focus-system-data.mjs";
 import { buildFocusSystemEditorContext, readFocusSystemForm } from "./focus-system-form.mjs";
 import { bindFocusSystemEditor } from "./focus-system-editor.mjs";
+import { captureScrollTop, restoreScrollTop } from "./scroll-preserve.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
+
+const SCROLL_SELECTOR = ".tnx-focus-system-sheet__body";
 
 /**
  * ワールドの FS判定シートを列挙する(読み込み元)。
@@ -65,8 +68,14 @@ export class TnxFocusSystemStartApp extends HandlebarsApplicationMixin(Applicati
         };
     }
 
+    async _preRender(context, options) {
+        await super._preRender?.(context, options);
+        this._scrollTop = captureScrollTop(this.element, SCROLL_SELECTOR);
+    }
+
     _onRender(context, options) {
         super._onRender(context, options);
+        restoreScrollTop(this.element, SCROLL_SELECTOR, this._scrollTop);
         const el = this.element;
 
         el.querySelector('[name="sourceUuid"]')?.addEventListener("change", async (event) => {

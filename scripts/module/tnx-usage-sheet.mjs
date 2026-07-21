@@ -22,6 +22,7 @@ import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
 import { OUTFIT_CATEGORIES, getMinorCategoryLabel } from "../data/item/outfit-categories.mjs";
 import { resolveAttackWeapons, attackWeaponDisplayName, resolveAttackRangeSpan, attackWeaponKindEligible } from "./attack-weapons.mjs";
+import { captureScrollTop, restoreScrollTop } from "./scroll-preserve.mjs";
 import { WEAPON_RANGE_MAX_OPTIONS } from "../data/item/weapon.mjs";
 import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, loadSkillUsageTypeIndex, loadDictionarySkillItems, SKILL_PACKS } from "./skill-dictionary.mjs";
 import {
@@ -1133,18 +1134,14 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         // 技能チェーンの既定ベース設定・必須コンボの自動付与(冪等。変更があるときだけ update→再レンダリングで収束)
         if (context.editable) this._enforceComboRequirements();
 
-        // 再描画後にスクロール位置を復元する(行の追加/削除等の操作でリセットされるのを防ぐ・2026-07-10)
-        const scrollTop = this._usageScrollTop ?? 0;
-        if (scrollTop) requestAnimationFrame(() => {
-            const body = this.element?.querySelector(".usage-sheet-body");
-            if (body) body.scrollTop = scrollTop;
-        });
+        // 再描画後にスクロール位置を復元する(行の追加/削除等の操作でリセットされるのを防ぐ)
+        restoreScrollTop(this.element, ".usage-sheet-body", this._usageScrollTop);
     }
 
-    /** @override — 再描画前にスクロール位置を保存する(操作でスクロールが飛ぶのを防ぐ・2026-07-10) */
+    /** @override — 再描画前にスクロール位置を保存する(操作でスクロールが飛ぶのを防ぐ) */
     async _preRender(context, options) {
         await super._preRender?.(context, options);
-        this._usageScrollTop = this.element?.querySelector(".usage-sheet-body")?.scrollTop ?? 0;
+        this._usageScrollTop = captureScrollTop(this.element, ".usage-sheet-body");
     }
 
     /** NPC取得(エキストラモード)の取得アイテムドロップ: 小分類「エキストラ」のアウトフィットのみ */

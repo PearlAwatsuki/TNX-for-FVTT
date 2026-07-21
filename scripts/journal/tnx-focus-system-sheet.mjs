@@ -13,8 +13,11 @@
 import { readFocusSystemData, FOCUS_SYSTEM_FLAG } from "../module/focus-system-data.mjs";
 import { buildFocusSystemEditorContext } from "../module/focus-system-form.mjs";
 import { bindFocusSystemEditor } from "../module/focus-system-editor.mjs";
+import { captureScrollTop, restoreScrollTop } from "../module/scroll-preserve.mjs";
 
 const { HandlebarsApplicationMixin, DocumentSheetV2 } = foundry.applications.api;
+
+const SCROLL_SELECTOR = ".tnx-focus-system-sheet__body";
 
 export class TnxFocusSystemSheet extends HandlebarsApplicationMixin(DocumentSheetV2) {
 
@@ -45,9 +48,17 @@ export class TnxFocusSystemSheet extends HandlebarsApplicationMixin(DocumentShee
         };
     }
 
+    /** @override — 再描画前にスクロール位置を保存する(操作でスクロールが飛ぶのを防ぐ)。 */
+    async _preRender(context, options) {
+        await super._preRender?.(context, options);
+        this._scrollTop = captureScrollTop(this.element, SCROLL_SELECTOR);
+    }
+
     /** @override */
     _onRender(context, options) {
         super._onRender(context, options);
+        // スクロール位置の復元は閲覧時も行う(編集可否より前に)
+        restoreScrollTop(this.element, SCROLL_SELECTOR, this._scrollTop);
         const el = this.element;
         if (!el || !this.isEditable) return;
 
