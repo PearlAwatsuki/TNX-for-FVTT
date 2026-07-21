@@ -22,6 +22,7 @@ import {
   buildCleanupUpdate,
   buildSetupConfirmUpdate,
 } from "../module/combat-progression.mjs";
+import { compareTurnOrder } from "../module/combat-turn-order.mjs";
 
 /** 本システムのドキュメントフラグのスコープ(＝system id)。 */
 const TNX_SCOPE = "tokyo-nova-axleration";
@@ -29,6 +30,20 @@ const TNX_SCOPE = "tokyo-nova-axleration";
 /** アクターに空でない update を適用する(呼び出し側で GM を保証)。 */
 async function applyActorUpdate(actor, update) {
   if (actor && !foundry.utils.isEmpty(update)) await actor.update(update);
+}
+
+/** combatant を手番順ロジックの素データへ写像する(csCurrent=表示中の CS 実効値)。 */
+function participantOf(combatant) {
+  const cs = combatant.actor?.system?.combatSpeed;
+  const ar = combatant.actor?.system?.actionRank;
+  return {
+    id: combatant.id,
+    csCurrent: cs?.displayTotal ?? 0,
+    csBase: cs?.baseTotal ?? 0,
+    actorType: combatant.actor?.type,
+    userOrder: 0, // ユーザー順の写像は後続(当面は id タイブレークに委ねる)
+    ar: ar?.value ?? 0,
+  };
 }
 
 export class TnxCombat extends Combat {
@@ -52,6 +67,15 @@ export class TnxCombat extends Combat {
 
   /** id から参加アクターを引く。 */
   actorOf(combatantId) { return this.combatants.get(combatantId)?.actor ?? null; }
+
+  /**
+   * トラッカーの表示ソートを TNX の手番順に上書きする(既定は達成値降順)。
+   * CSカレント降順＋同値優先順位(Combat_Flow §3)。エキストラは末尾に並ぶ(表示には残す)。
+   * @override
+   */
+  _sortCombatants(a, b) {
+    return compareTurnOrder(participantOf(a), participantOf(b));
+  }
 
   // ─── プロセス遷移＋自動記帳(13-3・GM のみ・記帳値は純ロジックが算出) ───
 

@@ -36,8 +36,10 @@ function typeRank(actorType) {
 /**
  * 手番順の比較関数。負ならば a が先(先に手番を行う)。
  * CSカレント降順 → CSベース降順 → 種別順 → ユーザー順 → id 昇順。
+ * トラッカーの表示ソート(`TnxCombat._sortCombatants`)にも使う。エキストラは typeRank の
+ * フォールバック(最下位)で末尾に並ぶ(表示には残す。手番判定は resolveTurnOrder/isActable が除外)。
  */
-function compareTurnOrder(a, b) {
+export function compareTurnOrder(a, b) {
   return (
     (b.csCurrent ?? 0) - (a.csCurrent ?? 0) ||
     (b.csBase ?? 0) - (a.csBase ?? 0) ||
