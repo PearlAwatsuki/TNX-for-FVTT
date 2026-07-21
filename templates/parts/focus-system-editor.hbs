@@ -1,7 +1,6 @@
 {{!-- FS判定エディタ（FS判定シートと起動フォームで共用・2026-07-21）。
       配置は紙のシートの位置ではなくコントロールの性質で決める:
-      ①概要=ラベル+入力の対 → 2カラム ②支援判定=可変長リスト → 独立ブロック
-      ③判定行=互いに比較するレコード → 全幅の表 ④メモ=全幅 --}}
+      ①概要=ラベル+入力の対（支援判定のタグ入力も含める） ②判定行=表 ③メモ=全幅 --}}
 <div class="fs-editor">
 
     {{!-- ① 概要 --}}
@@ -44,40 +43,39 @@
                 <label>敗北時の処理</label>
                 <input type="text" name="defeatEffect" value="{{fs.defeatEffect}}" placeholder="（省略可）">
             </div>
-        </div>
-    </fieldset>
-
-    {{!-- ② 支援判定の指定技能（複数）。チップ＋追加を同一行に並べるタグ入力 --}}
-    <fieldset class="tnx-fieldset">
-        <legend>支援判定</legend>
-        <div class="fs-skill-tags">
-            {{#each supportRows}}
-                <span class="fs-support-row fs-skill-chip" data-key="{{this.key}}">
-                    <span class="fs-skill-name">{{this.name}}</span>
-                    {{#if ../editable}}
-                        <a class="fs-skill-del" data-action="fsSupportDelete" data-key="{{this.key}}"
-                           title="削除"><i class="fas fa-times"></i></a>
-                    {{/if}}
-                </span>
-            {{/each}}
-            {{#if editable}}
-                <select class="fs-support-add fs-skill-add">
-                    <option value="">＋ 技能を追加</option>
-                    {{#each supportChoices}}
-                        <optgroup label="{{this.label}}">
-                            {{#each this.skills}}
-                                <option value="{{this.identificationKey}}">{{this.name}}</option>
-                            {{/each}}
-                        </optgroup>
+            {{!-- 支援判定の指定技能（複数）。概要に統合し、全幅のタグ入力にする --}}
+            <div class="form-group fs-support-group">
+                <label>支援判定</label>
+                <div class="fs-skill-tags">
+                    {{#each supportRows}}
+                        <span class="fs-support-row fs-skill-chip" data-key="{{this.key}}">
+                            <span class="fs-skill-name">{{this.name}}</span>
+                            {{#if ../editable}}
+                                <a class="fs-skill-del" data-action="fsSupportDelete" data-key="{{this.key}}"
+                                   title="削除"><i class="fas fa-times"></i></a>
+                            {{/if}}
+                        </span>
                     {{/each}}
-                </select>
-            {{else}}
-                {{#unless supportRows.length}}<span class="fs-empty">（指定なし）</span>{{/unless}}
-            {{/if}}
+                    {{#if editable}}
+                        <select class="fs-support-add fs-skill-add">
+                            <option value="">＋ 技能を追加</option>
+                            {{#each supportChoices}}
+                                <optgroup label="{{this.label}}">
+                                    {{#each this.skills}}
+                                        <option value="{{this.identificationKey}}">{{this.name}}</option>
+                                    {{/each}}
+                                </optgroup>
+                            {{/each}}
+                        </select>
+                    {{else}}
+                        {{#unless supportRows.length}}<span class="fs-empty">（指定なし）</span>{{/unless}}
+                    {{/if}}
+                </div>
+            </div>
         </div>
     </fieldset>
 
-    {{!-- ③ イベント・進行判定 --}}
+    {{!-- ② イベント・進行判定 --}}
     <fieldset class="tnx-fieldset">
         <legend>イベント・進行判定</legend>
         <div class="fs-row-table-wrap">
@@ -177,7 +175,7 @@
         {{/if}}
     </fieldset>
 
-    {{!-- ④ メモ --}}
+    {{!-- ③ メモ --}}
     <fieldset class="tnx-fieldset">
         <legend>メモ</legend>
         <textarea name="memo" rows="3">{{fs.memo}}</textarea>

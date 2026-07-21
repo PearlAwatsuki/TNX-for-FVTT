@@ -8450,6 +8450,14 @@ button.tnx-create-act-button span {
     color: var(--tnx2-text-secondary);
     white-space: nowrap;
 }
+/* 支援判定は概要に統合し、全幅のタグ入力にする(2026-07-21)。折り返してもラベルは上端 */
+.fs-editor .fs-support-group {
+    grid-column: 1 / -1;
+    align-items: start;
+}
+.fs-editor .fs-support-group > label {
+    padding-top: 6px;
+}
 
 .fs-name-row {
     display: grid;
@@ -8547,14 +8555,16 @@ button.tnx-create-act-button span {
     justify-content: flex-start;
 }
 
-/* 参照元＝なし の行は詳細を出さないので、セルはプルダウン1つに収まる */
+/* 参照元＝なし の行は詳細を出さない。参照元があるときのパラメータと式は、狭い列に
+   横並びで詰め込まず縦に積む(各要素が列幅いっぱいを使える・2026-07-21 是正) */
 .fs-editor .fs-mod-detail {
     display: flex;
+    flex-direction: column;
     gap: 4px;
     margin-top: 4px;
 }
 .fs-editor .fs-mod-detail > * {
-    flex: 1 1 0;
+    width: 100%;
     min-width: 0;
 }
 .fs-editor .fs-row-ctrl {
