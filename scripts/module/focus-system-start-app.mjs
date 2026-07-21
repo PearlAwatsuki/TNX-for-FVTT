@@ -35,7 +35,7 @@ export class TnxFocusSystemStartApp extends HandlebarsApplicationMixin(Applicati
         tag: "form",
         classes: ["tokyo-nova", "sheet", "tnx-focus-system-sheet"],
         window: { title: "FS判定を開始", resizable: true },
-        position: { width: 960, height: 780 },
+        position: { width: 820, height: 780 },
         form: {
             handler: TnxFocusSystemStartApp._onSubmit,
             closeOnSubmit: true,

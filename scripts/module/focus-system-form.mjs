@@ -72,6 +72,8 @@ export async function buildFocusSystemEditorContext(data, { editable = true } = 
                 hasParam:    source !== "none",
                 paramGroups: markSelected(buildProgressModChoices(source), r.progressMod?.param, "params", "value"),
                 sources:     PROGRESS_MOD_SOURCES.map(o => ({ ...o, selected: o.value === source })),
+                // 参照元＝なし は固定値(式欄に数値を入れる)、参照元があれば @param を使う式
+                formulaPlaceholder: source === "none" ? "固定値（例: 3）" : "@param",
             };
         }),
     };

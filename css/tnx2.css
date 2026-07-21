@@ -8450,6 +8450,10 @@ button.tnx-create-act-button span {
     color: var(--tnx2-text-secondary);
     white-space: nowrap;
 }
+/* 概要セクションのスピナーだけ右寄せ(ユーザー指示・2026-07-21)。カード内は左寄せのまま */
+.fs-editor .fs-grid .number-input-spinner {
+    justify-content: flex-end;
+}
 /* 概要の全幅行(敗北時の処理・支援判定)。右に空きを作らず1行を使い切る(2026-07-21) */
 .fs-editor .fs-full-row,
 .fs-editor .fs-support-group {
@@ -8625,22 +8629,17 @@ button.tnx-create-act-button span {
     box-sizing: border-box;
 }
 
-/* 進行修正: カード幅に余裕があるので横並び(参照元／パラメータ／式)。
-   参照元＝なし のときはパラメータ・式を出さない */
+/* 進行修正: 参照元／パラメータ／式を完全に3つ並列。参照元＝なし のときはパラメータを
+   出さず、式欄は固定値の入力欄として常に出す */
 .fs-editor .fs-mod {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 6px;
 }
-.fs-editor .fs-mod-source { flex: 0 0 150px; }
-.fs-editor .fs-mod-detail {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-.fs-editor .fs-mod-detail select { flex: 0 0 160px; }
-.fs-editor .fs-mod-detail input[type="text"] { flex: 0 0 130px; }
+.fs-editor .fs-mod-source  { flex: 0 0 150px; }
+.fs-editor .fs-mod-param   { flex: 0 0 160px; }
+.fs-editor .fs-mod-formula { flex: 0 0 130px; }
 
 /* ④ メモ: textarea はブラウザ既定の cols 幅で出るため、明示的に全幅にする */
 .fs-editor textarea[name="memo"] {

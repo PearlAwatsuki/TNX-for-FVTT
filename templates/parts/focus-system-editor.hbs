@@ -142,8 +142,8 @@
                                     <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
                                 {{/each}}
                             </select>
-                            <div class="fs-mod-detail" {{#unless this.hasParam}}hidden{{/unless}}>
-                                <select name="modParam">
+                            {{#if this.hasParam}}
+                                <select name="modParam" class="fs-mod-param">
                                     {{#each this.paramGroups}}
                                         <optgroup label="{{this.label}}">
                                             {{#each this.params}}
@@ -152,8 +152,10 @@
                                         </optgroup>
                                     {{/each}}
                                 </select>
-                                <input type="text" name="modFormula" value="{{this.progressMod.formula}}" placeholder="@param">
-                            </div>
+                            {{/if}}
+                            {{!-- 式欄は常に出す。参照元＝なし のときは固定値の入力欄になる --}}
+                            <input type="text" name="modFormula" class="fs-mod-formula"
+                                   value="{{this.progressMod.formula}}" placeholder="{{this.formulaPlaceholder}}">
                         </div>
 
                         <label>備考</label>
