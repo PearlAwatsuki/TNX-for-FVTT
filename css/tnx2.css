@@ -8458,8 +8458,14 @@ button.tnx-create-act-button span {
 .fs-editor .fs-support-group {
     align-items: start;
 }
+/* ラベルはタグ領域の上端に合わせる(概要グリッドの align-items:center に負けないよう
+   グリッドアイテム自身へ align-self を指定する) */
 .fs-editor .fs-support-group > label {
+    align-self: start;
     padding-top: 6px;
+}
+.fs-editor .fs-support-group > .fs-skill-field {
+    align-self: start;
 }
 
 .fs-name-row {
@@ -8520,6 +8526,13 @@ button.tnx-create-act-button span {
     font-size: 0.85em;
     color: var(--tnx2-text-muted);
 }
+/* 空のタグ領域に出すプレースホルダー(チップが入ると消える) */
+.fs-editor .fs-skill-empty {
+    align-self: center;
+    font-size: 0.85em;
+    color: var(--tnx2-text-muted);
+    font-style: italic;
+}
 
 /* 入力コントロールの高さを 30px に統一する。既定のスピナーは大きすぎて他の入力欄と
    揃わなかったため、FS エディタ内では小さめにする(2026-07-21 ユーザー指示) */
@@ -8562,14 +8575,16 @@ button.tnx-create-act-button span {
 .fs-editor .fs-event-card.dragging {
     opacity: 0.5;
 }
-/* カード見出し: 進行値(切り替えの閾値)を前に出す */
+/* カード見出し: 進行値(切り替えの閾値)を前に出す。ラベル幅と間隔を本体の
+   グリッド(68px + 10px)に合わせ、進行値スピナーを目標値スピナーと縦に揃える */
 .fs-editor .fs-event-head {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     margin-bottom: 8px;
 }
 .fs-editor .fs-event-hlabel {
+    flex: 0 0 68px;
     font-size: 0.85em;
     font-weight: 600;
     color: var(--tnx2-text-secondary);
@@ -8610,23 +8625,22 @@ button.tnx-create-act-button span {
     box-sizing: border-box;
 }
 
-/* 進行修正: 参照元＋(参照元があれば)パラメータと式を縦に積む */
+/* 進行修正: カード幅に余裕があるので横並び(参照元／パラメータ／式)。
+   参照元＝なし のときはパラメータ・式を出さない */
 .fs-editor .fs-mod {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
-    max-width: 320px;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
 }
+.fs-editor .fs-mod-source { flex: 0 0 150px; }
 .fs-editor .fs-mod-detail {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    align-items: center;
+    gap: 6px;
 }
-.fs-editor .fs-mod-detail > * {
-    width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-}
+.fs-editor .fs-mod-detail select { flex: 0 0 160px; }
+.fs-editor .fs-mod-detail input[type="text"] { flex: 0 0 130px; }
 
 /* ④ メモ: textarea はブラウザ既定の cols 幅で出るため、明示的に全幅にする */
 .fs-editor textarea[name="memo"] {

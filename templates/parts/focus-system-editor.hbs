@@ -58,9 +58,7 @@
                                 {{/if}}
                             </span>
                         {{/each}}
-                        {{#unless editable}}
-                            {{#unless supportRows.length}}<span class="fs-empty">（指定なし）</span>{{/unless}}
-                        {{/unless}}
+                        {{#unless supportRows.length}}<span class="fs-skill-empty">（未設定）</span>{{/unless}}
                     </div>
                     {{#if editable}}
                         <select class="fs-support-add fs-skill-add">
@@ -114,9 +112,7 @@
                                         {{/if}}
                                     </span>
                                 {{/each}}
-                                {{#unless ../editable}}
-                                    {{#unless this.skillRows.length}}<span class="fs-empty">（指定なし）</span>{{/unless}}
-                                {{/unless}}
+                                {{#unless this.skillRows.length}}<span class="fs-skill-empty">（未設定）</span>{{/unless}}
                             </div>
                             {{#if ../editable}}
                                 <select class="fs-row-skill-add fs-skill-add">
