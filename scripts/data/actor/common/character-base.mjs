@@ -381,7 +381,10 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
       case "control": return [{ doc: actor, totalPath: `${parsed.path}.totalControl` }];
       case "cs": {
         // CS 3層(フェーズ10-5)。仮想名前空間 system.cs.* → combatSpeed の実効値へ。
-        const map = { base: "combatSpeed.baseTotal", value: "combatSpeed.valueTotal", current: "combatSpeed.currentTotal" };
+        // cs.current(CSカレントへのバフ=セットアップ起動のバフ)だけは currentTotal でなく
+        // currentBuff へ蓄積する。CSカレントは決定時(セットアップ末)に current へ焼き込んで凍結し、
+        // 以後 AE を毎回足さない(メジャー後0/待機1 が AE で変更されない=2026-07-21 ユーザー確定)。
+        const map = { base: "combatSpeed.baseTotal", value: "combatSpeed.valueTotal", current: "combatSpeed.currentBuff" };
         return map[parsed.path] ? [{ doc: actor, totalPath: map[parsed.path] }] : [];
       }
       case "ar":
@@ -437,9 +440,12 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
 
   /**
    * CS 3層の実効値を派生算出する(フェーズ10-5・正本 Combat_Flow.md「実装表現の原則」)。
-   * 各層とも「決定値(保存・再計算不可)＋修正値(ライブ)」: 決定値 base/value/current には触れず、
-   * 実効値 baseTotal/valueTotal/currentTotal を都度組み立てる。AE(system.cs.base|value|current)は
-   * この後 _applyEffectBuffs が実効値へ直接効かせる。
+   * base/value は「決定値(保存)＋修正値(AE ライブ)」で実効値 baseTotal/valueTotal を都度組み立てる
+   * (AE(system.cs.base|value)は _applyEffectBuffs が実効値へ直接効かせる)。
+   * **CSカレントは「一度計算して凍結」モデル**(2026-07-21 ユーザー確定): currentTotal は保存 current の
+   * みで、AE を毎回足さない。cs.current の AE は currentBuff へ蓄積し、決定時(セットアップ末)に
+   * `current ← valueTotal + currentBuff` として焼き込む。これによりメジャー後0/待機1 が AE で
+   * 変更されず、CS を変える効果は次セットアップの再決定まで CSカレントに出ない。
    * 「読み飛ばし」＝修正項の条件付き除外: フラグON(携帯起点)のタップ修正はゴースト登場中に外す。
    * 0clamp はしない(CS は負になりうる)。
    */
@@ -451,5 +457,6 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
       + (this.isGhost ? 0 : ignorable);
     cs.valueTotal   = cs.value   ?? 0;
     cs.currentTotal = cs.current ?? 0;
+    cs.currentBuff  = 0; // CSカレントへのバフ(cs.current の AE)の蓄積先。currentTotal には足さない。
   }
 }

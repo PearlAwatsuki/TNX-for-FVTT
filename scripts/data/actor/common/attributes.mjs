@@ -67,6 +67,7 @@ export class AttributesTemplate extends SystemDataModel {
     cs.baseTotal      = (cs.base ?? 0) + (cs.freeMod ?? 0);
     cs.valueTotal     = cs.value ?? 0;
     cs.currentTotal   = cs.current ?? 0;
+    cs.currentBuff    = 0; // CSカレントへのバフ(cs.current の AE)の蓄積先。currentTotal には足さない。
     cs.ghostIgnorable = 0;
     cs.inCombat       = inCombat;
     cs.displayTotal   = resolveCombatSpeedDisplayTotal(cs, cs.inCombat);

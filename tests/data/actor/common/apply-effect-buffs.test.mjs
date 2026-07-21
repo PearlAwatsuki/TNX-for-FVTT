@@ -152,4 +152,21 @@ describe("_applyEffectBuffs 実行検証（アイテム AE・2026-07-13）", () 
     runBuffs([weapon]);
     expect(weapon.effects[0].apply).not.toHaveBeenCalled();
   });
+
+  it("cs.current（CSカレントへのバフ）の AE は currentBuff へ着地し currentTotal には乗らない（一度計算・凍結・2026-07-21）", () => {
+    const effect = effectMock({ changes: [{ key: "system.cs.current", mode: 2, value: "3" }] });
+    const weapon = weaponMock([effect]);
+    const actor = {
+      documentName: "Actor",
+      effects: [],
+      items: Object.assign([weapon], { get: (id) => [weapon].find(i => i.id === id) }),
+      system: { combatSpeed: { baseTotal: 5, valueTotal: 5, currentTotal: 5, currentBuff: 0 } },
+    };
+    const self = Object.create(CharacterBaseDataModel.prototype);
+    self.parent = actor;
+    self._applyEffectBuffs();
+    const keys = effect.apply.mock.calls.map(c => c[1]?.key);
+    expect(keys).toContain("system.combatSpeed.currentBuff");   // 蓄積先＝焼き込み用
+    expect(keys).not.toContain("system.combatSpeed.currentTotal"); // 実効値には毎回足さない
+  });
 });

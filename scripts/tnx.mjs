@@ -1976,18 +1976,17 @@ Hooks.once("ready", async function() {
     });
 
 });
-// ─── CS・AR の戦闘連動(フェーズ10-5 / 11 → 13-2 で TnxCombat へ集約) ─────────
+// ─── CS・AR の戦闘連動(フェーズ10-5 / 11 → 13-2/13-3 で TnxCombat へ集約) ─────────
 // シートの「CS」「AR」表示は自動制御(カット進行中=カレント・現在AR/それ以外=CS・付与値)。
 // 戦闘の開始/終了・参加/離脱で該当アクターを再準備(reset)し、開いているシートを再描画する。
-// カット開始時はカレントに CS(実効値)、現在ARに付与値(実効)を焼き込む。ロジックは TnxCombat の
-// static(seedStartValues / refreshDisplays)に集約済み。トリガーは当面フックのまま(挙動不変)で、
-// ライフサイクル(startCombat/_onEnter)への移行と、セットアップ末/メジャー後/クリンナップ全回復の
-// 自動記帳はフェーズ13-3。
+// カット開始(combatStart)は状態機械の入口 enterSetup を呼ぶ(process=setup・cut=1・CSカレント←CS・
+// AR←付与値をまとめて実施)。以後のプロセス遷移と記帳(セットアップ末/メジャー後/待機/行動不能/
+// クリンナップ全回復)は TnxCombat のメソッドで、トラッカー UI から起動するのはフェーズ13-4。
+// 途中参加(createCombatant)は開始済みカットへの参加としてそのアクターだけシードする。
 
 Hooks.on("combatStart", async (combat) => {
-    const actors = combat.combatants.map(c => c.actor).filter(Boolean);
-    await TnxCombat.seedStartValues(actors);
-    TnxCombat.refreshDisplays(actors);
+    await combat.enterSetup();
+    TnxCombat.refreshDisplays(combat.combatants.map(c => c.actor).filter(Boolean));
 });
 
 Hooks.on("deleteCombat", (combat) => {
