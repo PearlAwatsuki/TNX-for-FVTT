@@ -29,6 +29,11 @@ export class TnxFocusSystemSheet extends HandlebarsApplicationMixin(DocumentShee
         main: { template: "systems/tokyo-nova-axleration/templates/journal/focus-system-sheet.hbs" },
     };
 
+    /** ウィンドウのタイトルは素のドキュメント名(既定の「Journal Entry: 」接頭辞を出さない)。 */
+    get title() {
+        return this.document.name;
+    }
+
     /** @override */
     async _prepareContext(options) {
         const context = await super._prepareContext(options);

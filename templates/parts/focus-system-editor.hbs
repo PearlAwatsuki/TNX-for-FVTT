@@ -47,34 +47,34 @@
         </div>
     </fieldset>
 
-    {{!-- ② 支援判定の指定技能（複数） --}}
+    {{!-- ② 支援判定の指定技能（複数）。チップ＋追加を同一行に並べるタグ入力 --}}
     <fieldset class="tnx-fieldset">
         <legend>支援判定</legend>
-        <div class="fs-support-list">
+        <div class="fs-skill-tags">
             {{#each supportRows}}
-                <div class="fs-support-row" data-key="{{this.key}}">
-                    <span class="fs-support-name">{{this.name}}</span>
+                <span class="fs-support-row fs-skill-chip" data-key="{{this.key}}">
+                    <span class="fs-skill-name">{{this.name}}</span>
                     {{#if ../editable}}
-                        <a class="tnx-icon-ctrl" data-action="fsSupportDelete" data-key="{{this.key}}"
+                        <a class="fs-skill-del" data-action="fsSupportDelete" data-key="{{this.key}}"
                            title="削除"><i class="fas fa-times"></i></a>
                     {{/if}}
-                </div>
-            {{else}}
-                <p class="fs-empty">（指定なし）</p>
+                </span>
             {{/each}}
+            {{#if editable}}
+                <select class="fs-support-add fs-skill-add">
+                    <option value="">＋ 技能を追加</option>
+                    {{#each supportChoices}}
+                        <optgroup label="{{this.label}}">
+                            {{#each this.skills}}
+                                <option value="{{this.identificationKey}}">{{this.name}}</option>
+                            {{/each}}
+                        </optgroup>
+                    {{/each}}
+                </select>
+            {{else}}
+                {{#unless supportRows.length}}<span class="fs-empty">（指定なし）</span>{{/unless}}
+            {{/if}}
         </div>
-        {{#if editable}}
-            <select class="fs-support-add fs-skill-add">
-                <option value="">＋ 技能を追加</option>
-                {{#each supportChoices}}
-                    <optgroup label="{{this.label}}">
-                        {{#each this.skills}}
-                            <option value="{{this.identificationKey}}">{{this.name}}</option>
-                        {{/each}}
-                    </optgroup>
-                {{/each}}
-            </select>
-        {{/if}}
     </fieldset>
 
     {{!-- ③ イベント・進行判定 --}}
@@ -103,7 +103,7 @@
                                 </div>
                             </td>
                             <td class="fs-row-skill">
-                                <div class="fs-skill-chips">
+                                <div class="fs-skill-tags">
                                     {{#each this.skillRows}}
                                         <span class="fs-skill-chip" data-key="{{this.key}}">
                                             <span class="fs-skill-name">{{this.name}}</span>
@@ -112,22 +112,22 @@
                                                    title="削除"><i class="fas fa-times"></i></a>
                                             {{/if}}
                                         </span>
-                                    {{else}}
-                                        <span class="fs-empty">（指定なし）</span>
                                     {{/each}}
+                                    {{#if ../editable}}
+                                        <select class="fs-row-skill-add fs-skill-add">
+                                            <option value="">＋ 技能を追加</option>
+                                            {{#each this.skillChoices}}
+                                                <optgroup label="{{this.label}}">
+                                                    {{#each this.skills}}
+                                                        <option value="{{this.identificationKey}}">{{this.name}}</option>
+                                                    {{/each}}
+                                                </optgroup>
+                                            {{/each}}
+                                        </select>
+                                    {{else}}
+                                        {{#unless this.skillRows.length}}<span class="fs-empty">（指定なし）</span>{{/unless}}
+                                    {{/if}}
                                 </div>
-                                {{#if ../editable}}
-                                    <select class="fs-row-skill-add fs-skill-add">
-                                        <option value="">＋ 技能を追加</option>
-                                        {{#each this.skillChoices}}
-                                            <optgroup label="{{this.label}}">
-                                                {{#each this.skills}}
-                                                    <option value="{{this.identificationKey}}">{{this.name}}</option>
-                                                {{/each}}
-                                            </optgroup>
-                                        {{/each}}
-                                    </select>
-                                {{/if}}
                             </td>
                             <td>
                                 <div class="number-input-spinner">

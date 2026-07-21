@@ -8415,6 +8415,17 @@ button.tnx-create-act-button span {
    ①概要=2カラム ②支援判定=可変長リスト ③判定行=全幅の表 ④メモ=全幅
    ============================================================ */
 
+/* ウィンドウのタイトルを再表示する。システム既定は .window-title を非表示にするため
+   (各シートが本文に名前を出す方針)、そのままだとタイトルが消えてヘッダーのコントロールが
+   左に寄る。アクトシートと同じく flex:1 でタイトルを出し、コントロールを右へ押し出す */
+.tokyo-nova.sheet.tnx-focus-system-sheet .window-header .window-title {
+    display: block;
+    flex: 1 1 auto;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
 .tnx-focus-system-sheet__body {
     padding: 10px 12px;
     overflow-y: auto;
@@ -8448,35 +8459,47 @@ button.tnx-create-act-button span {
     margin-bottom: 10px;
 }
 
-/* ② 支援判定の技能: 選択済みの行＋追加プルダウン */
-.fs-editor .fs-support-list {
+/* 技能の複数選択＝タグ入力(2026-07-21)。支援判定と各判定行で共通。
+   チップと「追加」を同じ行に並べ、増えたら折り返す(全幅プルダウンの置き換え) */
+.fs-editor .fs-skill-tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 6px;
-}
-.fs-editor .fs-support-row {
-    display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 2px 4px 2px 8px;
+    gap: 4px;
+    min-height: 32px;
+}
+.fs-editor .fs-skill-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 4px 2px 9px;
     background: var(--tnx2-bg-2);
     border: 1px solid var(--tnx2-border-subtle);
-    border-radius: 12px;
+    border-radius: 13px;
+    font-size: 0.85em;
+    white-space: nowrap;
 }
-.fs-editor .fs-support-name {
-    font-size: 0.88em;
+.fs-editor .fs-skill-del {
+    color: var(--tnx2-text-muted);
+    cursor: pointer;
+    display: inline-flex;
+}
+.fs-editor .fs-skill-del:hover {
+    color: var(--tnx2-danger, #d66);
+}
+/* 追加はチップ列に溶け込む小さなプルダウン(全幅にしない) */
+.fs-editor .fs-skill-add {
+    width: auto;
+    max-width: 170px;
+    height: 26px;
+    border-radius: 13px;
+    font-size: 0.85em;
+    color: var(--tnx2-text-secondary);
 }
 .fs-editor .fs-empty {
     margin: 0;
     font-size: 0.85em;
     color: var(--tnx2-text-muted);
-}
-
-/* 技能の追加プルダウンは全幅にすると使いにくいので幅を抑える(2026-07-21) */
-.fs-editor .fs-skill-add {
-    width: auto;
-    max-width: 200px;
 }
 
 /* ③ イベント・進行判定: 互いに比較するレコードなので表で一覧する */
@@ -8499,8 +8522,10 @@ button.tnx-create-act-button span {
     padding: 2px 4px;
     white-space: nowrap;
 }
+/* 各セルの主コントロール(スピナー・タグ入力・プルダウン・備考)を上端で揃える。
+   進行修正の詳細や技能チップの折り返しは、その下へ流す(行が凸凹しないように) */
 .fs-editor .fs-row-table td {
-    padding: 6px 4px;
+    padding: 5px 4px;
     vertical-align: top;
 }
 /* number-input-spinner は幅130px(入力60＋ボタン35×2)。列を狭くすると窮屈になるので
@@ -8512,35 +8537,16 @@ button.tnx-create-act-button span {
 .fs-editor .fs-col-ctrl   { width: 48px; }
 /* 備考は幅を固定せず残りを埋める。ただし最小幅を確保して潰れないようにする */
 .fs-editor .fs-col-note   { min-width: 150px; }
-.fs-editor .fs-row-table td input[type="text"] { width: 100%; box-sizing: border-box; }
+.fs-editor .fs-row-table td input[type="text"] {
+    width: 100%;
+    height: 35px;
+    box-sizing: border-box;
+}
+.fs-editor .fs-row-table td .fs-mod-source { height: 35px; }
 .fs-editor .fs-row-table .number-input-spinner {
     justify-content: flex-start;
 }
 
-/* 行ごとの指定技能(複数)。チップ＋追加プルダウン */
-.fs-editor .fs-skill-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-bottom: 4px;
-}
-.fs-editor .fs-skill-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 1px 4px 1px 8px;
-    background: var(--tnx2-bg-2);
-    border: 1px solid var(--tnx2-border-subtle);
-    border-radius: 12px;
-    font-size: 0.85em;
-}
-.fs-editor .fs-skill-del {
-    color: var(--tnx2-text-muted);
-    cursor: pointer;
-}
-.fs-editor .fs-skill-del:hover {
-    color: var(--tnx2-danger, #d66);
-}
 /* 参照元＝なし の行は詳細を出さないので、セルはプルダウン1つに収まる */
 .fs-editor .fs-mod-detail {
     display: flex;
