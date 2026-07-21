@@ -8486,6 +8486,9 @@ button.tnx-create-act-button span {
 }
 .fs-editor .fs-row-table {
     width: 100%;
+    /* 各列(スピナー2つ＋技能＋進行修正＋操作)の合計＋備考の最小幅。これを下回る
+       ウィンドウ幅では横スクロールさせ、備考を潰さない(2026-07-21) */
+    min-width: 884px;
     border-collapse: collapse;
 }
 .fs-editor .fs-row-table th {
@@ -8505,8 +8508,11 @@ button.tnx-create-act-button span {
 .fs-editor .fs-col-threshold,
 .fs-editor .fs-col-target { width: 138px; }
 .fs-editor .fs-col-skill  { width: 200px; }
-.fs-editor .fs-col-mod    { width: 220px; }
+.fs-editor .fs-col-mod    { width: 210px; }
 .fs-editor .fs-col-ctrl   { width: 48px; }
+/* 備考は幅を固定せず残りを埋める。ただし最小幅を確保して潰れないようにする */
+.fs-editor .fs-col-note   { min-width: 150px; }
+.fs-editor .fs-row-table td input[type="text"] { width: 100%; box-sizing: border-box; }
 .fs-editor .fs-row-table .number-input-spinner {
     justify-content: flex-start;
 }

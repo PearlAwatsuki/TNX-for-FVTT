@@ -20,7 +20,7 @@ export class TnxFocusSystemSheet extends HandlebarsApplicationMixin(DocumentShee
 
     static DEFAULT_OPTIONS = {
         classes: ["tokyo-nova", "sheet", "journal", "tnx-focus-system-sheet"],
-        position: { width: 820, height: 720 },
+        position: { width: 960, height: 780 },
         window: { resizable: true },
         form: { submitOnChange: false, closeOnSubmit: false },
     };
