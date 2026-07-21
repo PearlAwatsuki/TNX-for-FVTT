@@ -25,6 +25,8 @@ export default [
         Actor: "readonly",
         Item: "readonly",
         ActiveEffect: "readonly",
+        Combat: "readonly",
+        Combatant: "readonly",
         ActorSheet: "readonly",
         ItemSheet: "readonly",
         Application: "readonly",

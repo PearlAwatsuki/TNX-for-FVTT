@@ -31,6 +31,8 @@ import { NeuroCardsDataModel } from './data/card/neuro-cards.mjs';
 import { OtherDataModel } from './data/card/other.mjs';
 import { TokyoNovaItem } from './item/item.mjs';
 import { TokyoNovaActiveEffect } from './module/active-effect.mjs';
+import { TnxCombat } from './combat/tnx-combat.mjs';
+import { TnxCombatant } from './combat/tnx-combatant.mjs';
 import { TokyoNovaStyleSheet } from './item/tnx-style-sheet.mjs';
 import { TokyoNovaMiracleSheet } from './item/tnx-miracle-sheet.mjs';
 import { TokyoNovaGeneralSkillSheet } from './item/tnx-general-skill-sheet.mjs';
@@ -971,6 +973,12 @@ Hooks.once("init", async function() {
     // false にすると、transfer:false の効果はアイテム自身へ、transfer:true の効果は
     // アイテム上から親アクターへ仮想適用される(着地点 effectMod に正しく流れ込む)。
     CONFIG.ActiveEffect.legacyTransferral = false;
+
+    // カット進行(戦闘システム・フェーズ13)の Combat/Combatant 派生クラスを登録。
+    // 13-2 は「器」＝クラス新設・登録・カット開始シードのロジック集約まで。
+    // プロセス状態機械・CS/AR 自動記帳・トラッカー UI は 13-3 以降。
+    CONFIG.Combat.documentClass = TnxCombat;
+    CONFIG.Combatant.documentClass = TnxCombatant;
 
     // Actor DataModel の登録(全 Actor type)
     CONFIG.Actor.dataModels = {
@@ -1968,55 +1976,32 @@ Hooks.once("ready", async function() {
     });
 
 });
-// ─── CS・AR の戦闘連動(フェーズ10-5 / 11) ─────────────────────────────────
+// ─── CS・AR の戦闘連動(フェーズ10-5 / 11 → 13-2 で TnxCombat へ集約) ─────────
 // シートの「CS」「AR」表示は自動制御(カット進行中=カレント・現在AR/それ以外=CS・付与値)。
-// 表示層の切替はアクタードキュメントの更新を伴わないため、戦闘の開始/終了・参加/離脱で
-// 該当アクターを再準備(reset)して開いているシートを再描画する。
-// カット開始時はカレントに CS(実効値)を、現在ARに付与値(実効)を自動セットする
-// (CS=「セットアップ末に決定・初期値は CS」の近似、AR=「カット進行のシーン開始時に付与」の近似。
-// 以後のセットアップ行動修正・メジャー後の消費・クリンナップ全回復等の自動管理はフェーズ13)。
-
-/** 該当アクターの派生値を再準備し、開いているシートを再描画する(全クライアント・ローカルのみ)。 */
-function refreshCombatStatDisplays(actors) {
-    for (const actor of actors) {
-        if (!actor) continue;
-        actor.reset();
-        if (actor.sheet?.rendered) actor.sheet.render(false);
-    }
-}
-
-/** CSカレント・現在ARへ実効値を書き込む(GM のみ・カット開始時/開始済みカットへの参加時)。 */
-async function seedCombatStartValues(actors) {
-    if (!game.user.isGM) return;
-    for (const actor of actors) {
-        const update = {};
-        const cs = actor?.system?.combatSpeed;
-        if (cs) update["system.combatSpeed.current"] = cs.valueTotal ?? 0;
-        const ar = actor?.system?.actionRank;
-        if (ar) update["system.actionRank.value"] = ar.maxTotal ?? 0;
-        if (foundry.utils.isEmpty(update)) continue;
-        await actor.update(update);
-    }
-}
+// 戦闘の開始/終了・参加/離脱で該当アクターを再準備(reset)し、開いているシートを再描画する。
+// カット開始時はカレントに CS(実効値)、現在ARに付与値(実効)を焼き込む。ロジックは TnxCombat の
+// static(seedStartValues / refreshDisplays)に集約済み。トリガーは当面フックのまま(挙動不変)で、
+// ライフサイクル(startCombat/_onEnter)への移行と、セットアップ末/メジャー後/クリンナップ全回復の
+// 自動記帳はフェーズ13-3。
 
 Hooks.on("combatStart", async (combat) => {
     const actors = combat.combatants.map(c => c.actor).filter(Boolean);
-    await seedCombatStartValues(actors);
-    refreshCombatStatDisplays(actors);
+    await TnxCombat.seedStartValues(actors);
+    TnxCombat.refreshDisplays(actors);
 });
 
 Hooks.on("deleteCombat", (combat) => {
-    refreshCombatStatDisplays(combat.combatants.map(c => c.actor).filter(Boolean));
+    TnxCombat.refreshDisplays(combat.combatants.map(c => c.actor).filter(Boolean));
 });
 
 Hooks.on("createCombatant", async (combatant) => {
     if (!combatant.parent?.started || !combatant.actor) return;
-    await seedCombatStartValues([combatant.actor]);
-    refreshCombatStatDisplays([combatant.actor]);
+    await TnxCombat.seedStartValues([combatant.actor]);
+    TnxCombat.refreshDisplays([combatant.actor]);
 });
 
 Hooks.on("deleteCombatant", (combatant) => {
-    if (combatant.actor) refreshCombatStatDisplays([combatant.actor]);
+    if (combatant.actor) TnxCombat.refreshDisplays([combatant.actor]);
 });
 
 // ─── トループの名前固定(フェーズ11-4・正本 Troops.md「種別と名前の規則」) ─────────
