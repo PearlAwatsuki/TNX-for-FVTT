@@ -8450,9 +8450,12 @@ button.tnx-create-act-button span {
     color: var(--tnx2-text-secondary);
     white-space: nowrap;
 }
-/* 支援判定は概要に統合し、全幅のタグ入力にする(2026-07-21)。折り返してもラベルは上端 */
+/* 概要の全幅行(敗北時の処理・支援判定)。右に空きを作らず1行を使い切る(2026-07-21) */
+.fs-editor .fs-full-row,
 .fs-editor .fs-support-group {
     grid-column: 1 / -1;
+}
+.fs-editor .fs-support-group {
     align-items: start;
 }
 .fs-editor .fs-support-group > label {
@@ -8510,78 +8513,89 @@ button.tnx-create-act-button span {
     color: var(--tnx2-text-muted);
 }
 
-/* ③ イベント・進行判定: 互いに比較するレコードなので表で一覧する */
-.fs-editor .fs-row-table-wrap {
-    overflow-x: auto;
-    margin-bottom: 6px;
-}
-.fs-editor .fs-row-table {
-    width: 100%;
-    /* 各列(スピナー2つ＋技能＋進行修正＋操作)の合計＋備考の最小幅。これを下回る
-       ウィンドウ幅では横スクロールさせ、備考を潰さない(2026-07-21) */
-    min-width: 884px;
-    border-collapse: collapse;
-}
-.fs-editor .fs-row-table th {
-    font-size: 0.78em;
-    font-weight: 600;
-    color: var(--tnx2-text-muted);
-    text-align: left;
-    padding: 2px 4px;
-    white-space: nowrap;
-}
-/* 各セルの主コントロール(スピナー・タグ入力・プルダウン・備考)を上端で揃える。
-   進行修正の詳細や技能チップの折り返しは、その下へ流す(行が凸凹しないように) */
-.fs-editor .fs-row-table td {
-    padding: 5px 4px;
-    vertical-align: top;
-}
-/* number-input-spinner は幅130px(入力60＋ボタン35×2)。列を狭くすると窮屈になるので
-   スピナーが収まる幅を確保する(2026-07-21) */
-.fs-editor .fs-col-threshold,
-.fs-editor .fs-col-target { width: 138px; }
-.fs-editor .fs-col-skill  { width: 200px; }
-.fs-editor .fs-col-mod    { width: 210px; }
-.fs-editor .fs-col-ctrl   { width: 48px; }
-/* 備考は幅を固定せず残りを埋める。ただし最小幅を確保して潰れないようにする */
-.fs-editor .fs-col-note   { min-width: 150px; }
-.fs-editor .fs-row-table td input[type="text"] {
-    width: 100%;
-    height: 35px;
-    box-sizing: border-box;
-}
-.fs-editor .fs-row-table td .fs-mod-source { height: 35px; }
-.fs-editor .fs-row-table .number-input-spinner {
-    justify-content: flex-start;
-}
-
-/* 参照元＝なし の行は詳細を出さない。参照元があるときのパラメータと式は、狭い列に
-   横並びで詰め込まず縦に積む(各要素が列幅いっぱいを使える・2026-07-21 是正) */
-.fs-editor .fs-mod-detail {
+/* ② イベント・進行判定: 高さがバラバラなレコードなので、表でなくカードにする。
+   カードなら技能や進行修正で高さが変わっても、他の項目に空白が出ない(2026-07-21 是正) */
+.fs-editor .fs-event-list {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    margin-top: 4px;
+    gap: 8px;
+    margin-bottom: 6px;
 }
-.fs-editor .fs-mod-detail > * {
-    width: 100%;
-    min-width: 0;
+.fs-editor .fs-event-card {
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: 6px;
+    padding: 8px 10px 10px;
+    background: var(--tnx2-bg-1);
 }
-.fs-editor .fs-row-ctrl {
-    white-space: nowrap;
+.fs-editor .fs-event-card.dragging {
+    opacity: 0.5;
+}
+/* カード見出し: 進行値(切り替えの閾値)を前に出す */
+.fs-editor .fs-event-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.fs-editor .fs-event-hlabel {
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--tnx2-text-secondary);
+}
+.fs-editor .fs-event-hsuffix {
+    font-size: 0.85em;
+    color: var(--tnx2-text-muted);
+}
+.fs-editor .fs-event-tools {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 .fs-editor .fs-row-grip {
     cursor: grab;
     color: var(--tnx2-text-muted);
-    margin-right: 4px;
 }
-.fs-editor .fs-row.dragging {
-    opacity: 0.5;
+/* カード本体: ラベル＋入力の2カラム。技能・進行修正・備考は右カラムで自然に伸びる */
+.fs-editor .fs-event-fields {
+    display: grid;
+    grid-template-columns: 68px minmax(0, 1fr);
+    align-items: start;
+    gap: 8px 10px;
 }
-.fs-editor .fs-row-empty td {
-    padding: 8px 4px;
+.fs-editor .fs-event-fields > label {
     font-size: 0.85em;
-    color: var(--tnx2-text-muted);
+    font-weight: 600;
+    color: var(--tnx2-text-secondary);
+    white-space: nowrap;
+    padding-top: 8px;
+}
+.fs-editor .fs-event-target {
+    justify-content: flex-start;
+}
+.fs-editor .fs-event-fields > input[type="text"] {
+    width: 100%;
+    height: 35px;
+    box-sizing: border-box;
+}
+
+/* 進行修正: 参照元＋(参照元があれば)パラメータと式を縦に積む */
+.fs-editor .fs-mod {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-width: 320px;
+}
+.fs-editor .fs-mod-source { height: 35px; }
+.fs-editor .fs-mod-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.fs-editor .fs-mod-detail > * {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 /* ④ メモ: textarea はブラウザ既定の cols 幅で出るため、明示的に全幅にする */
