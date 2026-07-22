@@ -345,6 +345,14 @@
                         <span>スート変更可能</span>
                     </label>
                 </div>
+                {{!-- 割り込み許可(13-5): この用途で対象に割り込み許可を立てる(トラッカーの割り込み入口が開く) --}}
+                <div class="usage-form-row usage-toggle-row">
+                    <label class="usage-toggle-inline">
+                        <input type="checkbox" name="grantsInterrupt" {{checked usage.grantsInterrupt}}
+                               {{#unless editable}}disabled{{/unless}}>
+                        <span>割り込みを許可</span>
+                    </label>
+                </div>
                 {{/if}}
                 {{!-- ヴィークル準備時(2026-07-18 一般化): オンで「使用ヴィークル」セクションを表示し、
                      準備済みヴィークルが無ければ判定不可になる。移動/リアクション（移動妨害）は既定オン --}}
@@ -542,6 +550,14 @@
                         <input type="checkbox" name="grantSuitChange" {{checked usage.grantSuitChange}}
                                {{#unless editable}}disabled{{/unless}}>
                         <span>スートを変更（次の判定）</span>
+                    </label>
+                </div>
+                {{!-- 割り込み許可(13-5): この宣言で対象に割り込み許可を立てる(トラッカーの割り込み入口が開く) --}}
+                <div class="usage-form-row usage-toggle-row">
+                    <label class="usage-toggle-inline">
+                        <input type="checkbox" name="grantsInterrupt" {{checked usage.grantsInterrupt}}
+                               {{#unless editable}}disabled{{/unless}}>
+                        <span>割り込みを許可</span>
                     </label>
                 </div>
             </fieldset>

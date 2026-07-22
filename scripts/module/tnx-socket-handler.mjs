@@ -49,6 +49,15 @@ export class TnxSocketHandler {
             case "cutAdvance":
                 TnxSocketHandler._onCutAdvance(data);
                 break;
+            case "interruptGrant":
+                TnxSocketHandler._onInterruptGrant(data);
+                break;
+            case "interruptStart":
+                TnxSocketHandler._onInterruptStart(data);
+                break;
+            case "interruptEnd":
+                TnxSocketHandler._onInterruptEnd(data);
+                break;
         }
     }
 
@@ -170,6 +179,67 @@ export class TnxSocketHandler {
     static emitCutAdvance(payload) {
         game.socket.emit("system.tokyo-nova-axleration", {
             type: "cutAdvance",
+            userId: game.user.id,
+            ...payload,
+        });
+    }
+
+    // ─── 割り込み(挿入メイン)の委譲・フェーズ13-5 ─────────────────────────────────
+    // combatant/combat のフラグ更新は GM 権限が要るため、非 GM は GM(activeGM)へ委譲する。
+
+    /** 割り込み許可の付与を GM が代行する。要求者が付与元アクターの所有者であることを検証する。 */
+    static async _onInterruptGrant(data) {
+        if (game.users.activeGM?.id !== game.user.id) return;
+        const requester = game.users.get(data?.userId);
+        const source = data?.sourceUuid ? await fromUuid(data.sourceUuid).catch(() => null) : null;
+        const sourceActor = source?.actor ?? source;
+        if (!requester || !sourceActor?.testUserPermission(requester, "OWNER")) return;
+        const { grantInterruptToTargets } = await import("./interrupt-grant.mjs");
+        await grantInterruptToTargets(data?.targetUuids ?? []);
+    }
+
+    /** 割り込み許可の付与を GM へ委譲する（付与元アクターの操作者クライアントから呼ぶ）。 */
+    static emitInterruptGrant(payload) {
+        game.socket.emit("system.tokyo-nova-axleration", {
+            type: "interruptGrant",
+            userId: game.user.id,
+            ...payload,
+        });
+    }
+
+    /** 割り込み(挿入メイン)開始を GM が代行する。要求者が割り込む combatant の所有者であることを検証。 */
+    static async _onInterruptStart(data) {
+        if (game.users.activeGM?.id !== game.user.id) return;
+        const combat = game.combats.get(data?.combatId);
+        const target = combat?.combatants.get(data?.combatantId);
+        const requester = game.users.get(data?.userId);
+        if (!requester || !target?.actor?.testUserPermission(requester, "OWNER")) return;
+        await combat.startInterrupt(data.combatantId);
+    }
+
+    /** 割り込み開始を GM へ委譲する（割り込む対象の操作者クライアントから呼ぶ）。 */
+    static emitInterruptStart(payload) {
+        game.socket.emit("system.tokyo-nova-axleration", {
+            type: "interruptStart",
+            userId: game.user.id,
+            ...payload,
+        });
+    }
+
+    /** 挿入メイン終了を GM が代行する。要求者が現在の挿入メインの行動者の所有者であることを検証。 */
+    static async _onInterruptEnd(data) {
+        if (game.users.activeGM?.id !== game.user.id) return;
+        const combat = game.combats.get(data?.combatId);
+        const current = combat?.combatants.get(combat?.interruptMainId);
+        const requester = game.users.get(data?.userId);
+        if (!requester || !current?.actor?.testUserPermission(requester, "OWNER")) return;
+        await combat.endInterrupt({ decrementAr: data?.decrementAr === true });
+    }
+
+    /** 挿入メイン終了を GM へ委譲する（挿入メインの操作者クライアントから呼ぶ）。 */
+    static emitInterruptEnd(payload) {
+        game.socket.emit("system.tokyo-nova-axleration", {
+            type: "interruptEnd",
             userId: game.user.id,
             ...payload,
         });

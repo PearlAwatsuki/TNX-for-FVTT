@@ -27,6 +27,7 @@ import { buildUsageCheckContext } from '../module/usage-check-context.mjs';
 import { useAttack } from '../module/attack-flow.mjs';
 import { aggregateDefence } from '../module/damage-logic.mjs';
 import { prepareUsageEffectPayload } from '../module/usage-effects.mjs';
+import { applyInterruptGrantForUsage } from '../module/interrupt-grant.mjs';
 import { ALL_SUITS } from '../module/tnx-check-engine.mjs';
 import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
 import { groupStyleSkillsByStyle } from '../module/style-skill-acquisition.mjs';
@@ -2682,6 +2683,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${usage.name || item.name}` });
         if (plan === null) return;
         await applyConsumptionPlan(plan);
+
+        // 割り込み許可(13-5): grantsInterrupt の宣言用途は対象へ割り込み許可を立てる(効果が無くても)
+        await applyInterruptGrantForUsage(actor, usage);
 
         // 用途の適用効果: ターゲットしたキャラクターへ付与する(判定を伴わない用途=宣言等・2026-07-10)。
         // 使用カードを出し、対象所有者/GM がボタンで付与する(自己バフは自分をターゲット)。

@@ -110,4 +110,47 @@ describe("rowActions()（行の宣言操作＝待機のみ・行動不能はタ�
     expect(rowActions({ phase: "main", isCandidate: true, isOwner: true, isGM: true })).toEqual([]);
     expect(rowActions({ phase: "setup", isCandidate: true, isOwner: true, isGM: true })).toEqual([]);
   });
+
+  it("割り込み許可フラグのある行＝操作者（と RL）に割り込み（フェーズ非依存）", () => {
+    expect(rowActions({ phase: "main", isCandidate: false, isOwner: true, isGM: false, canInterrupt: true }))
+      .toEqual([{ action: "tnxInterrupt", label: "割り込み" }]);
+    expect(rowActions({ phase: "setup", isCandidate: false, isOwner: false, isGM: true, canInterrupt: true }))
+      .toEqual([{ action: "tnxInterrupt", label: "割り込み" }]);
+  });
+
+  it("割り込み許可があっても、その行の操作者でも RL でもなければ出さない", () => {
+    expect(rowActions({ phase: "main", isCandidate: false, isOwner: false, isGM: false, canInterrupt: true }))
+      .toEqual([]);
+  });
+
+  it("待機と割り込みは併存しうる（イニシアチブ候補かつ割り込み許可あり）", () => {
+    expect(rowActions({ phase: "initiative", isCandidate: true, isOwner: true, isGM: false, canInterrupt: true }))
+      .toEqual([{ action: "tnxWait", label: "待機" }, { action: "tnxInterrupt", label: "割り込み" }]);
+  });
+});
+
+describe("footerPlan()（挿入メイン中＝終了2ボタン・通常メインの手番終了は出さない）", () => {
+  const base = {
+    hasCombat: true, started: true, phase: "main", isGM: true,
+    isMainOwner: false, isSpotOwner: false, candidateName: null, isInterruptMain: true,
+  };
+
+  it("RL＝終了＋AR を−1して終了＋カット進行の終了（手番終了は出さない）", () => {
+    expect(footerPlan(base)).toEqual([
+      { action: "tnxInterruptEndKeep", label: "終了", primary: true },
+      { action: "tnxInterruptEndAr", label: "AR を−1して終了" },
+      { action: "tnxEndCombat", label: "カット進行の終了" },
+    ]);
+  });
+
+  it("挿入メインの操作者（非GM）＝終了2ボタンのみ", () => {
+    expect(footerPlan({ ...base, isGM: false, isMainOwner: true })).toEqual([
+      { action: "tnxInterruptEndKeep", label: "終了", primary: true },
+      { action: "tnxInterruptEndAr", label: "AR を−1して終了" },
+    ]);
+  });
+
+  it("挿入メインでも操作者でない非GMには出さない", () => {
+    expect(footerPlan({ ...base, isGM: false, isMainOwner: false })).toEqual([]);
+  });
 });

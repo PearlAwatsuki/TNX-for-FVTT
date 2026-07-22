@@ -289,6 +289,14 @@ export class UsageTemplate extends SystemDataModel {
                     // 判定の前に使用→判定後にクリックで「直前使用のバフ」も表せる)。
                     modifyCheck: new fields.BooleanField({ initial: false }),
 
+                    // check/declaration: 割り込み許可を付与(2026-07-22 ユーザー確定・フェーズ13-5)。
+                    // ON の宣言/判定用途を使うと、ターゲットしたキャラクター(対象なしは自分)の
+                    // combatant に「割り込み許可」が立ち、カット進行トラッカーの割り込み入口が開く。
+                    // 割り込み＝順番外のメインプロセスを挿入する(イニシアチブでの割り込み・追加行動技能)。
+                    // 入口は対象の操作者/RL のみ押せ、行使で消費される(ワンショット)。技能の組み合わせ・
+                    // AR 消費は自動化しない(挿入メイン終了の AR−1 は専用ボタンで任意)。
+                    grantsInterrupt: new fields.BooleanField({ initial: false }),
+
                     // check(リアクション): リアクション用途の追加挙動(2026-07-15 ユーザー確定)。用途の
                     // 「リアクション」セクションで設定する。両者は独立(成功/勝利が引き金)。
                     // - reactionAreaAttack: 範囲攻撃へのリアクション。リアクション成功時、同じ攻撃の

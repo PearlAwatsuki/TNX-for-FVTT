@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   isValidProcessTransition, arDecrement, planAdvance,
   buildEndMainUpdate, buildCantActUpdate, buildWaitUpdate, buildSetupConfirmUpdate,
+  planInterruptStart, planInterruptEnd, buildInterruptEndUpdate,
 } from "../../scripts/module/combat-progression.mjs";
 
 // 参加者の素データ(combat-turn-order と同形)
@@ -105,5 +106,86 @@ describe("記帳の更新オブジェクト（Combat_Flow §4-6）", () => {
   it("actionRank を持たないアクターは記帳しない", () => {
     expect(buildCantActUpdate({})).toEqual({});
     expect(buildEndMainUpdate({})).toEqual({ "system.combatSpeed.current": 0 });
+  });
+});
+
+describe("割り込み（挿入メイン）＝メインプロセスの割り込み・追加行動（13-5）", () => {
+  describe("planInterruptStart()（割り込み開始の計画）", () => {
+    it("サブターン（イニシアチブ）中の割り込み: そのサブターン位置へ戻る（メイン終了なし）", () => {
+      const current = { phase: "initiative", mainCombatantId: null, spotCombatantId: "s1", interruptMainId: null, interruptReturn: null };
+      expect(planInterruptStart(current, "x")).toEqual({
+        endMainId: null,
+        interruptMainId: "x",
+        interruptReturn: { phase: "initiative", spotId: "s1" },
+      });
+    });
+
+    it("通常メイン中の割り込み: そのメインを終了し（戻らない）、戻り先はイニシアチブ（spot 再算出）", () => {
+      const current = { phase: "main", mainCombatantId: "a", spotCombatantId: null, interruptMainId: null, interruptReturn: null };
+      expect(planInterruptStart(current, "x")).toEqual({
+        endMainId: "a",
+        interruptMainId: "x",
+        interruptReturn: { phase: "initiative", spotId: null },
+      });
+    });
+
+    it("挿入メイン中の割り込み（入れ子）: 現在の挿入メインを終了し、元の戻り先を引き継ぐ", () => {
+      const current = { phase: "main", mainCombatantId: "b", spotCombatantId: null, interruptMainId: "b", interruptReturn: { phase: "initiative", spotId: "s1" } };
+      expect(planInterruptStart(current, "c")).toEqual({
+        endMainId: "b",
+        interruptMainId: "c",
+        interruptReturn: { phase: "initiative", spotId: "s1" },
+      });
+    });
+
+    it("セットアップ中の割り込み: そのサブターン位置へ戻る", () => {
+      const current = { phase: "setup", mainCombatantId: null, spotCombatantId: "s2", interruptMainId: null, interruptReturn: null };
+      expect(planInterruptStart(current, "y")).toEqual({
+        endMainId: null,
+        interruptMainId: "y",
+        interruptReturn: { phase: "setup", spotId: "s2" },
+      });
+    });
+  });
+
+  describe("planInterruptEnd()（退避したサブターン位置へ戻る計画）", () => {
+    it("保存した spot があればそこへ（再算出しない）", () => {
+      expect(planInterruptEnd({ phase: "initiative", spotId: "s1" }))
+        .toEqual({ phase: "initiative", spotId: "s1", recomputeSpot: false });
+    });
+
+    it("spot が null のサブターン（通常メイン終了後のイニシアチブ）は spot を再算出する", () => {
+      expect(planInterruptEnd({ phase: "initiative", spotId: null }))
+        .toEqual({ phase: "initiative", spotId: null, recomputeSpot: true });
+    });
+
+    it("戻り先なし（頑健性）＝全 null・再算出なし", () => {
+      expect(planInterruptEnd(null)).toEqual({ phase: null, spotId: null, recomputeSpot: false });
+    });
+  });
+
+  describe("buildInterruptEndUpdate()（挿入メイン終了の記帳＝AR のみ・CS は据え置き）", () => {
+    it("「終了」（AR 据え置き）＝記帳なし", () => {
+      expect(buildInterruptEndUpdate({ actionRank: { value: 3 } }, { decrementAr: false })).toEqual({});
+    });
+
+    it("「AR を−1して終了」＝AR−1（CS には触れない）", () => {
+      expect(buildInterruptEndUpdate({ actionRank: { value: 3 } }, { decrementAr: true }))
+        .toEqual({ "system.actionRank.value": 2 });
+    });
+
+    it("AR 下限は 0", () => {
+      expect(buildInterruptEndUpdate({ actionRank: { value: 0 } }, { decrementAr: true }))
+        .toEqual({ "system.actionRank.value": 0 });
+    });
+
+    it("actionRank を持たないアクターは AR−1 指定でも記帳しない", () => {
+      expect(buildInterruptEndUpdate({}, { decrementAr: true })).toEqual({});
+    });
+
+    it("どちらのボタンでも CSカレントには絶対に触れない", () => {
+      expect(buildInterruptEndUpdate({ combatSpeed: { current: 5 }, actionRank: { value: 2 } }, { decrementAr: true }))
+        .not.toHaveProperty("system.combatSpeed.current");
+    });
   });
 });

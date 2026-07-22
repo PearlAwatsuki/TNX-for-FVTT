@@ -32,7 +32,7 @@ export function processLabel(phase) {
  *          isMainOwner:boolean, isSpotOwner:boolean, candidateName:string|null}} state
  * @returns {Array<{action:string, label:string, primary?:boolean}>}
  */
-export function footerPlan({ hasCombat, started, phase, isGM, isMainOwner, isSpotOwner, candidateName }) {
+export function footerPlan({ hasCombat, started, phase, isGM, isMainOwner, isSpotOwner, candidateName, isInterruptMain }) {
   if (!hasCombat) return [];
   if (!started) {
     return isGM ? [{ action: "tnxStartCombat", label: "カット進行の開始", primary: true }] : [];
@@ -40,6 +40,17 @@ export function footerPlan({ hasCombat, started, phase, isGM, isMainOwner, isSpo
   // メイン終了は1本(メジャー未実行も「メジャーで何もしなかった」扱い=AR−1・CS0・2026-07-22 裁定)
   const nextButton = { action: "tnxAdvance", label: "次へ", primary: true };
   const endMainButtons = [{ action: "tnxAdvance", label: "手番終了", primary: true }];
+  // 挿入メイン(割り込み・追加行動)中は通常の「手番終了」を出さず、終了を2つに分ける(13-5)。
+  // 「終了」=AR 据え置き(追加行動=AR 無消費)・「AR を−1して終了」=AR を1消費(イニシアチブ割り込み等)。
+  // どちらも退避した進行位置へ復帰する。CS はどちらも据え置き(2026-07-22 ユーザー確定)。
+  const endInterruptButtons = [
+    { action: "tnxInterruptEndKeep", label: "終了", primary: true },
+    { action: "tnxInterruptEndAr", label: "AR を−1して終了" },
+  ];
+  if (isInterruptMain) {
+    if (!isGM) return isMainOwner ? endInterruptButtons : [];
+    return [...endInterruptButtons, { action: "tnxEndCombat", label: "カット進行の終了" }];
+  }
   if (!isGM) {
     if (phase === "main") return isMainOwner ? endMainButtons : [];
     return isSpotOwner ? [nextButton] : [];
@@ -60,10 +71,17 @@ export function footerPlan({ hasCombat, started, phase, isGM, isMainOwner, isSpo
  * 待機=その操作者(所有者)か RL(Combat_Flow §4)。
  * 行動不能の AR−1 は手動ボタンにしない——戦闘不能系タグ/脱落マークの読み取りで
  * イニシアチブの確認時に自動記帳する(confirmMain・2026-07-22 ユーザー指摘=脱落切替と機能が被る)。
- * @param {{phase:string|null, isCandidate:boolean, isOwner:boolean, isGM:boolean}} state
+ *
+ * 割り込み(13-5): 宣言/判定用途がその行のキャラに「割り込み許可」を立てていれば(canInterrupt)、
+ * 操作者(と RL)に割り込みの入口を出す。フラグが唯一のゲートで**フェーズに依存しない**
+ * (追加行動＝別キャラのメイン中に付与→行使もありうるため)。待機と併存しうる。
+ * @param {{phase:string|null, isCandidate:boolean, isOwner:boolean, isGM:boolean, canInterrupt?:boolean}} state
  * @returns {Array<{action:string, label:string}>}
  */
-export function rowActions({ phase, isCandidate, isOwner, isGM }) {
-  if (phase !== "initiative" || !isCandidate) return [];
-  return (isOwner || isGM) ? [{ action: "tnxWait", label: "待機" }] : [];
+export function rowActions({ phase, isCandidate, isOwner, isGM, canInterrupt }) {
+  const owns = isOwner || isGM;
+  const actions = [];
+  if (phase === "initiative" && isCandidate && owns) actions.push({ action: "tnxWait", label: "待機" });
+  if (canInterrupt && owns) actions.push({ action: "tnxInterrupt", label: "割り込み" });
+  return actions;
 }

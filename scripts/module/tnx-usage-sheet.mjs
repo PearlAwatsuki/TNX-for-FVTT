@@ -1341,6 +1341,13 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             recoveryUiChanged ||= update.recoveryAll !== prevAll;
         }
 
+        // 割り込み許可(13-5): 宣言/判定用途のトグル。オンにすると、この用途を使ったとき対象の
+        // combatant に「割り込み許可」を立て、トラッカーの割り込み入口が開く(行使で消費)。
+        // トグルが描画されるのは check(通常モード)/declaration のときだけ——未描画時は既存値を維持
+        if (usage.type === "check" || usage.type === "declaration") {
+            update.grantsInterrupt = raw["grantsInterrupt"] ?? (usage.grantsInterrupt === true);
+        }
+
         // 固定達成値(フェーズ11-5・エキストラの技能判定)。固定値用途のマーカーを兼ねるため、
         // 入力が空にされても null に戻さず 0 に留める(通常判定 UI へ化けるのを防ぐ)。負値は 0 clamp
         if (Number.isFinite(usage.fixedResult)) {

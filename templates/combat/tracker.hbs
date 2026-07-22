@@ -12,7 +12,7 @@
 
     <ol class="combat-tracker tnx-combatant-list plain">
         {{#each turns}}
-        <li class="combatant tnx-combatant {{this.css}}{{#if this.tnxIsMain}} tnx-turn-main{{/if}}{{#if this.tnxIsSpot}} tnx-turn-spot{{/if}}{{#if this.tnxIsCandidate}} tnx-turn-candidate{{/if}}{{#unless this.tnxActable}} tnx-no-turn{{/unless}}"
+        <li class="combatant tnx-combatant {{this.css}}{{#if this.tnxIsMain}} tnx-turn-main{{/if}}{{#if this.tnxIsInterruptMain}} tnx-turn-interrupt{{/if}}{{#if this.tnxIsSpot}} tnx-turn-spot{{/if}}{{#if this.tnxIsCandidate}} tnx-turn-candidate{{/if}}{{#unless this.tnxActable}} tnx-no-turn{{/unless}}"
             data-combatant-id="{{this.id}}" data-action="activateCombatant">
 
             <img class="token-image" src="{{this.img}}" alt="{{this.name}}" loading="lazy">

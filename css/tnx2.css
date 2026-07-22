@@ -8901,6 +8901,11 @@ button.tnx-create-act-button span {
 .tnx-combatant.tnx-turn-candidate {
     box-shadow: inset 3px 0 0 var(--tnx2-border-glow);
 }
+/* 挿入メイン（割り込み・追加行動）は通常メインと区別する——警告系アクセントの太い左罫（13-5） */
+.tnx-combatant.tnx-turn-interrupt {
+    background: var(--tnx2-danger-bg, rgba(192, 57, 43, 0.22));
+    box-shadow: inset 4px 0 0 var(--tnx2-danger, #c0392b);
+}
 .tnx-combatant.tnx-no-turn {
     opacity: 0.55;
 }

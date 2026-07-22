@@ -22,6 +22,9 @@ import {
   buildCantActUpdate,
   buildWaitUpdate,
   buildSetupConfirmUpdate,
+  planInterruptStart,
+  planInterruptEnd,
+  buildInterruptEndUpdate,
 } from "../module/combat-progression.mjs";
 import { compareTurnOrder, nextActiveMain, firstSpotId, nextSpotId } from "../module/combat-turn-order.mjs";
 import { actorCannotMainProcess } from "../module/conditions.mjs";
@@ -64,6 +67,12 @@ export class TnxCombat extends Combat {
 
   /** 現メインプロセスの combatant id(メインターン中のみ)。 */
   get mainCombatantId() { return this.getFlag(TNX_SCOPE, "mainCombatantId") ?? null; }
+
+  /** 挿入メイン(割り込み・追加行動)の行動者 id。通常状態は null(13-5)。 */
+  get interruptMainId() { return this.getFlag(TNX_SCOPE, "interruptMainId") ?? null; }
+
+  /** 割り込み終了時に戻るサブターン位置 {phase, spotId}。通常状態は null。 */
+  get interruptReturn() { return this.getFlag(TNX_SCOPE, "interruptReturn") ?? null; }
 
   /**
    * サブターン内で今プロセスの行動権(スポット)を持つ combatant id。
@@ -127,6 +136,9 @@ export class TnxCombat extends Combat {
       [`flags.${TNX_SCOPE}.phase`]: "setup",
       [`flags.${TNX_SCOPE}.mainCombatantId`]: null,
       [`flags.${TNX_SCOPE}.spotCombatantId`]: spotId,
+      // 割り込み状態は開始時にクリア(前回のカット進行の残骸を持ち越さない・13-5)
+      [`flags.${TNX_SCOPE}.interruptMainId`]: null,
+      [`flags.${TNX_SCOPE}.interruptReturn`]: null,
     };
     Hooks.callAll("combatStart", this, updateData);
     await this.update(updateData);
@@ -141,6 +153,9 @@ export class TnxCombat extends Combat {
    */
   async advanceCut() {
     if (!game.user.isGM) return this;
+    // 挿入メイン(割り込み)中は通常の前進を行わない——終了は専用ボタン(endInterrupt)。core の
+    // キーバインド等から nextTurn が来ても記帳(通常メイン終了=AR−1・CS0)で退避を壊さないためのガード。
+    if (this.interruptMainId) return this;
     const phase = this.cutPhase;
     if (WALK_PHASES.has(phase)) {
       const spot = this.getFlag(TNX_SCOPE, "spotCombatantId") ?? null;
@@ -257,6 +272,76 @@ export class TnxCombat extends Combat {
       return;
     }
     await applyActorUpdate(actor, buildWaitUpdate());
+  }
+
+  // ─── 割り込み(挿入メイン)＝メインプロセスの割り込み・追加行動(13-5) ────────────────
+  // トラッカーの割り込み入口(canInterrupt フラグでゲート)から起動する。指定キャラを順番外の
+  // メイン行動者に据え、元の進行位置を退避する。終了で退避位置へ戻る。combat フラグの更新は GM
+  // 権限が要るため、非 GM(入口を押した対象の操作者)はソケットで GM に委譲する。
+
+  /**
+   * 割り込み(挿入メイン)を開始する。指定キャラを順番外のメイン行動者に据える。**メインプロセス中
+   * (通常/挿入いずれも)の割り込みは、その時点でそのメインを終了する**(記帳=AR−1・CS0)——終了した
+   * メインには戻らない(2026-07-22 ユーザー確定)。戻り先は常にサブターン(通常メイン中なら
+   * イニシアチブ・サブターン中ならその位置)。行使したら対象の割り込み許可フラグを消費(ワンショット)。
+   * @param {string} combatantId 割り込ませる combatant id
+   */
+  async startInterrupt(combatantId) {
+    if (!game.user.isGM) {
+      TnxSocketHandler.emitInterruptStart({ combatId: this.id, combatantId });
+      return this;
+    }
+    const target = this.combatants.get(combatantId);
+    if (!target) return this;
+    const plan = planInterruptStart({
+      phase: this.cutPhase,
+      mainCombatantId: this.mainCombatantId,
+      spotCombatantId: this.getFlag(TNX_SCOPE, "spotCombatantId") ?? null,
+      interruptMainId: this.interruptMainId,
+      interruptReturn: this.interruptReturn,
+    }, combatantId);
+    // メイン中の割り込みは、その時点でそのメインを終了する(通常メイン終了と同じ記帳=AR−1・CS0)
+    if (plan.endMainId) {
+      const ended = this.actorOf(plan.endMainId);
+      if (ended) await applyActorUpdate(ended, buildEndMainUpdate(ended.system));
+    }
+    await this.update({
+      turn: this._turnIndexOf(combatantId),
+      [`flags.${TNX_SCOPE}.phase`]: "main",
+      [`flags.${TNX_SCOPE}.mainCombatantId`]: combatantId,
+      [`flags.${TNX_SCOPE}.interruptMainId`]: plan.interruptMainId,
+      [`flags.${TNX_SCOPE}.spotCombatantId`]: null,
+      [`flags.${TNX_SCOPE}.interruptReturn`]: plan.interruptReturn,
+    });
+    if (target.getFlag(TNX_SCOPE, "canInterrupt")) await target.unsetFlag(TNX_SCOPE, "canInterrupt");
+    return this;
+  }
+
+  /**
+   * 挿入メインを終了して退避したサブターン位置へ復帰する(元のメインには戻らない)。
+   * @param {{decrementAr?:boolean}} [opts] decrementAr=true で AR−1(「AR を−1して終了」)。
+   *   false は AR 据え置き(「終了」)。CS はどちらも据え置き(2026-07-22 ユーザー確定)。
+   */
+  async endInterrupt({ decrementAr = false } = {}) {
+    if (!game.user.isGM) {
+      TnxSocketHandler.emitInterruptEnd({ combatId: this.id, decrementAr });
+      return this;
+    }
+    if (!this.interruptMainId) return this;
+    const actor = this.actorOf(this.interruptMainId);
+    if (actor) await applyActorUpdate(actor, buildInterruptEndUpdate(actor.system, { decrementAr }));
+    const plan = planInterruptEnd(this.interruptReturn);
+    // 通常メイン終了後のイニシアチブ等(spot 未保存)は、復帰時点の値でスポット先頭を算出し直す
+    const spotId = plan.recomputeSpot ? firstSpotId(this.cutParticipants) : plan.spotId;
+    await this.update({
+      turn: this._turnIndexOf(spotId),
+      [`flags.${TNX_SCOPE}.phase`]: plan.phase,
+      [`flags.${TNX_SCOPE}.mainCombatantId`]: null,
+      [`flags.${TNX_SCOPE}.interruptMainId`]: null,
+      [`flags.${TNX_SCOPE}.spotCombatantId`]: spotId,
+      [`flags.${TNX_SCOPE}.interruptReturn`]: null,
+    });
+    return this;
   }
 
   // ─── カット開始シード(フェーズ10-5/11 から移設) ───

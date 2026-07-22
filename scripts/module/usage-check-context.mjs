@@ -13,6 +13,7 @@
 import { getComboSuits, comboUsesBounty } from "./tnx-check-engine.mjs";
 import { resolveConsumeRowsForActor, promptConsumption } from "./usage-consumption.mjs";
 import { prepareUsageEffectPayload } from "./usage-effects.mjs";
+import { applyInterruptGrantForUsage } from "./interrupt-grant.mjs";
 import { resolveUsageTargetValue } from "./usage-target-value.mjs";
 import { executionFormOf, effectiveBaseSkillId, usageDisplayName } from "./usage-types.mjs";
 import { formatSkillName } from "./identification.mjs";
@@ -213,6 +214,10 @@ export async function buildUsageCheckContext(actor, item, usage, {
     const usageEffects = await prepareUsageEffectPayload(actor, item, usage,
         effectTargetOverride !== undefined ? { targetOverride: effectTargetOverride } : {});
     if (usageEffects === "cancel") return null;
+
+    // 割り込み許可(13-5): grantsInterrupt の用途は対象へ割り込み許可を立てる(適用効果と同じ対象)。
+    await applyInterruptGrantForUsage(actor, usage,
+        effectTargetOverride !== undefined ? { targetOverride: effectTargetOverride } : {});
 
     return {
         type:            "skillCheck",

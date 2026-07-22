@@ -25,11 +25,14 @@ function combatantIdOf(target) {
 export class TnxCombatTracker extends CombatTracker {
   static DEFAULT_OPTIONS = {
     actions: {
-      tnxStartCombat: TnxCombatTracker._onStartCombat,
-      tnxEndCombat:   TnxCombatTracker._onEndCombat,
-      tnxAdvance:     TnxCombatTracker._onAdvance,
-      tnxPhase:       TnxCombatTracker._onPhase,
-      tnxWait:        TnxCombatTracker._onWait,
+      tnxStartCombat:      TnxCombatTracker._onStartCombat,
+      tnxEndCombat:        TnxCombatTracker._onEndCombat,
+      tnxAdvance:          TnxCombatTracker._onAdvance,
+      tnxPhase:            TnxCombatTracker._onPhase,
+      tnxWait:             TnxCombatTracker._onWait,
+      tnxInterrupt:        TnxCombatTracker._onInterrupt,
+      tnxInterruptEndKeep: TnxCombatTracker._onInterruptEndKeep,
+      tnxInterruptEndAr:   TnxCombatTracker._onInterruptEndAr,
     },
   };
 
@@ -52,6 +55,7 @@ export class TnxCombatTracker extends CombatTracker {
     this._tnxCandidateId = combat?.candidateMainId ?? null;
     this._tnxMainId = phase === "main" ? (combat?.mainCombatantId ?? null) : null;
     this._tnxSpotId = combat?.spotCombatantId ?? null;
+    this._tnxInterruptMainId = combat?.interruptMainId ?? null; // 挿入メイン(割り込み)中の行動者(13-5)
     return context;
   }
 
@@ -75,6 +79,8 @@ export class TnxCombatTracker extends CombatTracker {
       isMainOwner: !!main?.actor?.isOwner,
       isSpotOwner: !!spot?.actor?.isOwner,
       candidateName: candidate?.name ?? null,
+      // 挿入メイン(割り込み)中は終了2ボタン(終了 / AR を−1して終了)へ切り替える(13-5)
+      isInterruptMain: !!this._tnxInterruptMainId,
     });
   }
 
@@ -101,19 +107,29 @@ export class TnxCombatTracker extends CombatTracker {
     const p = participantOf(combatant); // cantAct(戦闘不能タグ/脱落)込みの素データを共用する
     const cs = combatant.actor?.system?.combatSpeed;
     const isCandidate = combatant.id === this._tnxCandidateId;
-    turn.tnxCs = String(p.csCurrent);
-    turn.tnxAr = cs?.inCombat ? String(p.ar) : null;
+    // AR・CSカレントの表示は、描画しているカット進行が開始済みか(combat.started)で直接判定する。
+    // アクターの派生フラグ combatSpeed.inCombat は reset された時点に依存して陳腐化し(ラウンドを
+    // 変えない更新では refreshDisplays が走らない)、行ごとに AR が出たり出なかったりする原因に
+    // なるため使わない(2026-07-22 ユーザー指摘)。開始前は素の CS・AR なし、開始後はカレント・現在AR。
+    const started = !!combat.started;
+    turn.tnxCs = String(started ? (cs?.currentTotal ?? 0) : (cs?.valueTotal ?? 0));
+    turn.tnxAr = started ? String(p.ar) : null;
     turn.tnxActable = p.actorType !== "extra";
     // 行動不能(cantAct)の見た目は core の脱落表示に一本化(自動脱落マーク=tnx.mjs のフック。
     // 独自グレーアウトは二重表示になるため撤去=2026-07-22 ユーザー確定)
     turn.tnxIsMain = combatant.id === this._tnxMainId;
     turn.tnxIsSpot = combatant.id === this._tnxSpotId;
     turn.tnxIsCandidate = isCandidate;
+    // 挿入メイン(割り込み)の行は通常メインと視覚的に区別する(13-5・造語ラベルは置かず行装飾で)
+    turn.tnxIsInterruptMain = combatant.id === this._tnxInterruptMainId;
+    // 割り込み許可フラグ(用途が対象に立てる)があれば割り込み入口を出す(フェーズ非依存・rowActions がゲート)
+    const canInterrupt = combatant.getFlag("tokyo-nova-axleration", "canInterrupt") === true;
     turn.tnxRowActions = rowActions({
       phase: this._tnxPhase,
       isCandidate,
       isOwner: !!combatant.actor?.isOwner,
       isGM: game.user.isGM,
+      canInterrupt,
     });
     return turn;
   }
@@ -125,4 +141,9 @@ export class TnxCombatTracker extends CombatTracker {
   static async _onAdvance()     { await this.viewed?.nextTurn(); }
   static async _onPhase()       { await this.viewed?.advancePhase(); }
   static async _onWait(event, target) { await this.viewed?.declareWait(combatantIdOf(target)); }
+
+  // 割り込み(挿入メイン・13-5): 入口=行の「割り込み」・終了=フッターの2ボタン
+  static async _onInterrupt(event, target) { await this.viewed?.startInterrupt(combatantIdOf(target)); }
+  static async _onInterruptEndKeep() { await this.viewed?.endInterrupt({ decrementAr: false }); }
+  static async _onInterruptEndAr()   { await this.viewed?.endInterrupt({ decrementAr: true }); }
 }
