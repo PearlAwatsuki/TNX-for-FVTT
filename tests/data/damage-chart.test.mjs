@@ -135,4 +135,10 @@ describe("buildInflictedEffectsData()（カスケード生成データ）", () =
     const [d] = buildInflictedEffectsData("phys-16", { hidden: false });
     expect(d.flags[SCOPE].hideFromList).toBe(false);
   });
+
+  it("動転(ment-9)は状態自身に controlNegate(感情)を持つ＝制御判定要求の自動化(2026-07-22 ユーザー指摘)", () => {
+    const def = buildDamageStates()["ment-9"];
+    expect(def.controlNegate).toEqual({ ability: "passion" });
+    expect(def.inflicts).toBeUndefined(); // 付与状態は無い=無効化の対象はダメージ自身(2026-07-09 裁定)
+  });
 });

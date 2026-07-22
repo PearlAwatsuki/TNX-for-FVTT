@@ -16,7 +16,10 @@
  * - inflicts:[{ kind, ability?, controlNegate?, duration? }] 付与する別状態(BS/戦闘不能)
  *     - controlNegate:{ ability, downgradeTo? } 指定能力値の制御判定成功で無効/降格
  *     - duration: "治療まで" 等(発火は13/15)
- * - notes:   条件で未モデル化の機構効果(アクションランク等・発火は13/15)。人間向けの説明文
+ * - controlNegate(状態直下): 付与状態を持たない負傷自身の制御判定(動転=感情)。要求カードは
+ *   inflicts 版と同じ機構で自動化し、成功でダメージ消滅(2026-07-09 裁定の一般則)
+ * - 旧 notes(UI 表示される説明文)は規約違反のため全廃(2026-07-22 ユーザー)。未自動化の機構効果は
+ *   各状態行のコードコメントに残す(自動化したらコメントごと構造化フィールドへ昇格する)
  * - 負傷自身の直接効果(2026-07-16 ユーザー確定・負傷そのものが課す。BS へのカスケードではない):
  *     - skillPenalty:{ skillKey, value } 特定技能の上方判定に -value(眼部損傷=〈知覚〉-5)。技能は識別キーで指定
  *     - skillBlock:{ skillKey } or { category:"society"|"contact" } 特定技能の使用(判定)不可=警告のみ。
@@ -38,14 +41,14 @@ const PHYSICAL = {
   "phys-5":  { label: "背部裂傷" },
   "phys-6":  { label: "胸部損傷",     inflicts: [{ kind: "weakness" }] },
   // partSlotMod.part は部位キー(フェーズ12・one-hand=片手持ち)。照合はキー優先・旧ラベルも後方互換で引ける
-  "phys-7":  { label: "腕部損傷",     notes: "片腕使用不可", partSlotMod: { part: "one-hand", delta: -1 } },
+  "phys-7":  { label: "腕部損傷",     partSlotMod: { part: "one-hand", delta: -1 } },
   "phys-8":  { label: "衝撃",         inflicts: [{ kind: "confusion" }] },
   "phys-9":  { label: "朦朧",         inflicts: [{ kind: "doped-minor" }] },
   "phys-10": { label: "腹部損傷",     inflicts: [{ kind: "faint", controlNegate: { ability: ABIL_LIFE } }] },
   "phys-11": { label: "心臓停止",     inflicts: [{ kind: "coma", controlNegate: { ability: ABIL_LIFE, downgradeTo: "faint" } }] },
   "phys-12": { label: "脚部損傷",     inflicts: [{ kind: "confusion", duration: "治療まで" }] },
   "phys-13": { label: "消化器系損傷", inflicts: [{ kind: "weakness" }] },
-  "phys-14": { label: "眼部損傷",     notes: "治療されるまで〈知覚〉判定 -5", skillPenalty: { skillKey: "perception", value: 5 } },
+  "phys-14": { label: "眼部損傷",     skillPenalty: { skillKey: "perception", value: 5 } },
   "phys-15": { label: "動脈切断",     inflicts: [{ kind: "faint" }] },
   "phys-16": { label: "斬首",         inflicts: [{ kind: "dead" }] },
   "phys-17": { label: "腰部損傷",     inflicts: [{ kind: "confusion", duration: "治療まで" }] },
@@ -65,16 +68,20 @@ const MENTAL = {
   "ment-6":  { label: "転倒",       inflicts: [{ kind: "confusion" }] },
   "ment-7":  { label: "戦慄",       inflicts: [{ kind: "weakness" }] },
   "ment-8":  { label: "恐怖",       inflicts: [{ kind: "panic", controlNegate: { ability: ABIL_PASSION } }] },
-  "ment-9":  { label: "動転",       notes: "手に持った物を落とす（感情の制御判定で無効）" },
+  // 動転: 手に持った物を落とす(感情の制御判定で無効)。制御判定要求は自動化(状態自身の
+  // controlNegate=成功でダメージ消滅・2026-07-09 裁定の一般則)。失敗時に物を落とす処理は卓運用
+  "ment-9":  { label: "動転", controlNegate: { ability: ABIL_PASSION } },
   // 元資料は「恐慌」だが誤り(BS「恐慌」との名称衝突・エラッタ相当)。正=「茫然自失」(2026-07-15 ユーザー確定)
   "ment-10": { label: "茫然自失",   inflicts: [{ kind: "swoon", controlNegate: { ability: ABIL_PASSION } }] },
   "ment-11": { label: "自我危機",   inflicts: [{ kind: "stupor", controlNegate: { ability: ABIL_REASON, downgradeTo: "swoon" } }] },
-  "ment-12": { label: "驚愕",       notes: "アクションランク -1" },
+  // 驚愕: アクションランク -1。未自動化(AR 減算の付与時発火は13以降の接続候補)
+  "ment-12": { label: "驚愕" },
   "ment-13": { label: "硬直",       inflicts: [{ kind: "panic" }, { kind: "confusion" }] },
   "ment-14": { label: "幻惑",       inflicts: [{ kind: "doped-major" }] },
   "ment-15": { label: "バーサーク", inflicts: [{ kind: "panic", duration: "治療まで" }] },
   "ment-16": { label: "自我崩壊",   inflicts: [{ kind: "mind-break" }] },
-  "ment-17": { label: "士気喪失",   notes: "アクションランク 0。可能なら戦闘中止" },
+  // 士気喪失: アクションランク 0。可能なら戦闘中止。未自動化(AR 0 化の付与時発火は13以降の接続候補)
+  "ment-17": { label: "士気喪失" },
   "ment-18": { label: "パニック",   inflicts: [{ kind: "pressure", ability: ABIL_REASON }] },
   "ment-19": { label: "感情消失",   inflicts: [{ kind: "pressure", ability: ABIL_PASSION }] },
   "ment-20": { label: "覚めない夢", inflicts: [{ kind: "stupor" }] },
@@ -88,29 +95,32 @@ const SOCIAL = {
   "soc-3":  { label: "怪文書" },
   "soc-4":  { label: "監視" },
   "soc-5":  { label: "汚名" },
-  "soc-6":  { label: "信用失墜",     notes: "次シーン〈信用〉と報酬点 使用不可", skillBlock: { skillKey: "stature" }, bountyBlock: true, sceneDeferred: true },
-  "soc-7":  { label: "スキャンダル", notes: "次シーン〈社会〉ひとつ使用不可", skillBlock: { category: "society" }, sceneDeferred: true },
-  "soc-8":  { label: "信頼喪失",     notes: "次シーン〈コネ〉ひとつ使用不可", skillBlock: { category: "contact" }, sceneDeferred: true },
-  "soc-9":  { label: "強迫",         notes: "山札1枚の[精神ダメージ]を受ける", derivedDamage: { category: "mental", cards: 1 } },
-  "soc-10": { label: "盗聴",         notes: "次シーンの会話は盗聴される" },
+  "soc-6":  { label: "信用失墜",     skillBlock: { skillKey: "stature" }, bountyBlock: true, sceneDeferred: true },
+  "soc-7":  { label: "スキャンダル", skillBlock: { category: "society" }, sceneDeferred: true },
+  "soc-8":  { label: "信頼喪失",     skillBlock: { category: "contact" }, sceneDeferred: true },
+  "soc-9":  { label: "強迫",         derivedDamage: { category: "mental", cards: 1 } },
+  // 盗聴: 次シーンの会話は盗聴される。物語効果のため自動化対象外(卓運用)
+  "soc-10": { label: "盗聴" },
   "soc-11": { label: "追放",         inflicts: [{ kind: "erased" }] },
   "soc-12": { label: "フィーバー",   inflicts: [{ kind: "doped-minor" }] },
-  "soc-13": { label: "口座凍結",     notes: "治療するまで〈信用〉と報酬点 使用不可", skillBlock: { skillKey: "stature" }, bountyBlock: true },
-  "soc-14": { label: "造反",         notes: "治療するまで〈社会〉ひとつ使用不可", skillBlock: { category: "society" } },
-  "soc-15": { label: "人脈消失",     notes: "治療するまで〈コネ〉ひとつ使用不可", skillBlock: { category: "contact" } },
+  "soc-13": { label: "口座凍結",     skillBlock: { skillKey: "stature" }, bountyBlock: true },
+  "soc-14": { label: "造反",         skillBlock: { category: "society" } },
+  "soc-15": { label: "人脈消失",     skillBlock: { category: "contact" } },
   "soc-16": { label: "襲撃",         inflicts: [{ kind: "pressure", duration: "治療まで" }] },
-  "soc-17": { label: "逮捕令状",     notes: "即座に退場。次シーン登場不可" },
+  // 逮捕令状: 即座に退場・次シーン登場不可。未自動化(退場/登場はシーン進行=14・登場判定=18)
+  "soc-17": { label: "逮捕令状" },
   "soc-18": { label: "権力剥奪",     inflicts: [{ kind: "pressure", ability: ABIL_MUNDANE, duration: "治療まで" }] },
-  "soc-19": { label: "暗殺",         notes: "山札1枚の[肉体ダメージ]。軽減不可", derivedDamage: { category: "physical", cards: 1 } },
-  "soc-20": { label: "ID剥奪",       notes: "治療するまで X ランクに" },
+  "soc-19": { label: "暗殺",         derivedDamage: { category: "physical", cards: 1 } },
+  // ID剥奪: 治療するまで X ランクに。未自動化(ランクの機構自体が未実装)
+  "soc-20": { label: "ID剥奪" },
   "soc-21": { label: "guilty-有罪",  inflicts: [{ kind: "erased" }] },
 };
 
 /** 系統メタ(group キー・kind プレフィックス・統合用 img)。 */
 const CATEGORY_META = {
   physical: { states: PHYSICAL, prefix: "phys", img: "icons/svg/blood.svg" },
-  mental:   { states: MENTAL,   prefix: "ment", img: "icons/svg/daze.svg" },
-  social:   { states: SOCIAL,   prefix: "soc",  img: "icons/svg/net.svg" },
+  mental:   { states: MENTAL,   prefix: "ment", img: "icons/svg/sun.svg" },
+  social:   { states: SOCIAL,   prefix: "soc",  img: "icons/svg/padlock.svg" },
 };
 
 /** 系統キー一覧(肉体→精神→社会の順)。 */

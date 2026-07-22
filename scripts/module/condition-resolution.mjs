@@ -403,7 +403,11 @@ export async function resolveControlNegateFromCheck(negateCtx, result) {
     }]);
     return { text: `「${label}」→「${toLabel}」に降格` };
   }
-  await effect.unsetFlag(SCOPE, `conditions.${kind}.pendingControlNegate`);
+  // 受付済みマークの除去(フラグ由来=inflicts のみ。状態定義直下の controlNegate(動転)は
+  // フラグを持たないため何もしない=2026-07-22)
+  if (effect.getFlag(SCOPE, `conditions.${kind}`)?.pendingControlNegate !== undefined) {
+    await effect.unsetFlag(SCOPE, `conditions.${kind}.pendingControlNegate`);
+  }
   return { text: `「${label}」は継続` };
 }
 

@@ -9,7 +9,7 @@ export class TokyoNovaItem extends Item {
                 "organization": "icons/svg/tower-flag.svg",
                 "generalSkill": "icons/svg/card-hand.svg",
                 "styleSkill": "icons/svg/card-joker.svg",
-                "style": "icons/svg/paralysis.svg",
+                "style": "icons/svg/door-closed.svg",
                 "housingArea": "icons/svg/village.svg",
                 "residence": "icons/svg/house.svg",
                 "weapon": "icons/svg/sword.svg",
