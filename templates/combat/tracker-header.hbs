@@ -1,0 +1,55 @@
+{{!-- カット進行トラッカー ヘッダー(フェーズ13-4)。既定の機能(作成・切替・設定・コンテキスト
+      メニュー)は温存し、文言を「カット進行」に統一。一斉イニシアチブロールのみ置かない。 --}}
+<header class="combat-tracker-header">
+    {{#if user.isGM}}
+    <nav class="encounters {{css}}" aria-label="カット進行の切替">
+        {{#if displayCycle}}
+        <button type="button" class="inline-control icon fa-solid fa-plus" data-action="createCombat"
+                data-tooltip="カット進行を作成" aria-label="カット進行を作成"></button>
+        <div class="cycle-combats">
+            <button type="button" class="inline-control icon fa-solid fa-caret-left" data-action="cycleCombat"
+                    {{#if previousId}}data-combat-id="{{previousId}}" {{else}}disabled{{/if}}
+                    data-tooltip="前のカット進行" aria-label="前のカット進行"></button>
+            <div class="encounter-count">
+                <span class="value">{{currentIndex}}</span>
+                <span class="separator">&sol;</span>
+                <span class="max">{{combats.length}}</span>
+            </div>
+            <button type="button" class="inline-control icon fa-solid fa-caret-right" data-action="cycleCombat"
+                    {{#if nextId}}data-combat-id="{{nextId}}" {{else}}disabled{{/if}}
+                    data-tooltip="次のカット進行" aria-label="次のカット進行"></button>
+        </div>
+        <button type="button" class="inline-control icon fa-solid fa-gear" data-action="trackerSettings"
+                data-tooltip="トラッカー設定" aria-label="トラッカー設定"></button>
+        {{else if combats.length}}
+        <button type="button" class="inline-control icon fa-solid fa-plus" data-action="createCombat"
+                data-tooltip="カット進行を作成" aria-label="カット進行を作成"></button>
+        {{#each combats}}
+        <button type="button" class="inline-control {{#if this.active}}active{{/if}}" data-action="cycleCombat"
+                data-combat-id="{{this.id}}">
+            {{this.label}}
+        </button>
+        {{/each}}
+        <button type="button" class="inline-control icon fa-solid fa-gear" data-action="trackerSettings"
+                data-tooltip="トラッカー設定" aria-label="トラッカー設定"></button>
+        {{else}}
+        <button type="button" class="combat-control-lg" data-action="createCombat">
+            <i class="fa-solid fa-plus" inert></i>
+            <span>カット進行を作成</span>
+        </button>
+        {{/if}}
+    </nav>
+    {{/if}}
+
+    <div class="encounter-controls {{#if hasCombat}}combat{{/if}}">
+        {{!-- 左右に同幅の枠を置いてタイトルを中央に保つ(既定テンプレートのスペーサー方式) --}}
+        <div class="control-buttons left flexrow">
+            <div class="spacer"></div>
+        </div>
+        <strong class="encounter-title">{{tnxTitle}}</strong>
+        <div class="control-buttons right flexrow">
+            <button type="button" class="encounter-context-menu inline-control combat-control icon fa-solid fa-ellipsis-vertical"
+                    {{#unless (and user.isGM hasCombat)}}disabled{{/unless}}></button>
+        </div>
+    </div>
+</header>

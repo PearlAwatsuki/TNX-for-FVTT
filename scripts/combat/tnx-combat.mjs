@@ -1,39 +1,48 @@
 /**
- * @fileoverview TnxCombat — カット進行の Combat 派生クラス(フェーズ13-2/13-3)。
+ * @fileoverview TnxCombat — カット進行の Combat 派生クラス(フェーズ13-2/13-3/13-4)。
  *
- * TNX の戦闘は「カット進行」で、1 Foundry Combat ＝ 1 カット進行 ＝ 1(戦闘)シーン
- * (正本 Combat_Flow.md)。本クラスはその状態機械で、カット進行の状態(現プロセス・カット番号・
- * 手番)を **flags.tokyo-nova-axleration** に持つ(正本)。
+ * TNX の戦闘は「カット進行」で、1 Foundry Combat ＝ 1 カット進行 ＝ 1(戦闘)シーン、
+ * **1 カット ＝ 1 ラウンド**(正本 Combat_Flow.md「トラッカー上の表現＝サブターンモデル」)。
  *
- * - 13-2: クラス新設・CONFIG 登録・カット開始シードのロジック集約。
- * - 13-3: プロセス状態機械(セットアップ/イニシアチブ/メイン/クリンナップ)と、遷移に伴う
- *   CS/AR の自動記帳。RL がトラッカーで進め、システムは記帳と手番提示を行う(RL駆動＋自動記帳)。
- *   記帳値の算出は純ロジック(combat-progression.mjs / combat-seed-logic.mjs)、本クラスは適用のみ。
+ * サブターンモデル(2026-07-22 ユーザー確定):
+ * - メインプロセス＝キャラクターのターン。セットアップ/イニシアチブ/クリンナップ＝特定キャラに
+ *   紐づかない全体の場(サブターン)。フェーズは flags に滞在状態として持つ。
+ * - イニシアチブは次のメイン行動者(CSカレント最大かつ AR≥1)を**状態から確認する場**。RL は指名しない。
+ * - 進行は nextTurn 1本(advanceCut)。行動そのものはアイテムロール等で行い、トラッカーは進行と宣言のみ。
+ * - 宣言: 待機=候補の操作者(CSカレント→1)・行動不能=RL(AR−1)。
  *
- * トラッカー UI(ボタン)は 13-3 のメソッドを呼ぶ 13-4 で追加する。境界イベント(カット/シーン)は 13-6。
+ * 記帳値の算出は純ロジック(combat-progression.mjs / combat-seed-logic.mjs / combat-turn-order.mjs)、
+ * 本クラスは適用のみ。プレイヤーの「手番終了」は GM へソケット委譲(cutAdvance)する。
  */
 
 import { buildCombatSeedUpdate } from "../module/combat-seed-logic.mjs";
 import {
-  isValidProcessTransition,
+  planAdvance,
   buildEndMainUpdate,
   buildCantActUpdate,
   buildWaitUpdate,
-  buildCleanupUpdate,
   buildSetupConfirmUpdate,
 } from "../module/combat-progression.mjs";
-import { compareTurnOrder } from "../module/combat-turn-order.mjs";
+import { compareTurnOrder, nextActiveMain, firstSpotId, nextSpotId } from "../module/combat-turn-order.mjs";
+import { actorCannotMainProcess } from "../module/conditions.mjs";
+import { TnxSocketHandler } from "../module/tnx-socket-handler.mjs";
+
+/** スポット走査(プロセスごとの行動権の巡回)を持つサブターンのフェーズ。 */
+const WALK_PHASES = new Set(["setup", "initiative", "cleanup"]);
 
 /** 本システムのドキュメントフラグのスコープ(＝system id)。 */
 const TNX_SCOPE = "tokyo-nova-axleration";
 
-/** アクターに空でない update を適用する(呼び出し側で GM を保証)。 */
+/** アクターに空でない update を適用する(呼び出し側で権限を保証)。 */
 async function applyActorUpdate(actor, update) {
   if (actor && !foundry.utils.isEmpty(update)) await actor.update(update);
 }
 
-/** combatant を手番順ロジックの素データへ写像する(csCurrent=表示中の CS 実効値)。 */
-function participantOf(combatant) {
+/** combatant を手番順ロジックの素データへ写像する(csCurrent=表示中の CS 実効値)。
+ *  cantAct=メインプロセスを行えない: 戦闘不能系タグ(blocksMainProcess・無視ゲート済み)の読み取り
+ *  または Foundry 基本機能の脱落マーク(combatant.defeated)。専用の手動ボタンは置かない
+ *  (脱落切替と機能が被るため=2026-07-22 ユーザー指摘)。 */
+export function participantOf(combatant) {
   const cs = combatant.actor?.system?.combatSpeed;
   const ar = combatant.actor?.system?.actionRank;
   return {
@@ -43,30 +52,49 @@ function participantOf(combatant) {
     actorType: combatant.actor?.type,
     userOrder: 0, // ユーザー順の写像は後続(当面は id タイブレークに委ねる)
     ar: ar?.value ?? 0,
+    cantAct: combatant.isDefeated || (combatant.actor ? actorCannotMainProcess(combatant.actor) : false),
   };
 }
 
 export class TnxCombat extends Combat {
-  // ─── カット進行の状態(正本＝flags.tokyo-nova-axleration) ───
+  // ─── カット進行の状態(正本＝flags。カット番号は round そのもの) ───
 
-  /** 現プロセス(prep/setup/initiative/main/cleanup)。未開始は null。 */
-  get cutProcess() { return this.getFlag(TNX_SCOPE, "process") ?? null; }
+  /** 現フェーズ(setup/initiative/main/cleanup)。未開始は null。 */
+  get cutPhase() { return this.getFlag(TNX_SCOPE, "phase") ?? null; }
 
-  /** カット番号(1 始まり)。未開始は 0。 */
-  get cutNumber() { return this.getFlag(TNX_SCOPE, "cut") ?? 0; }
+  /** 現メインプロセスの combatant id(メインターン中のみ)。 */
+  get mainCombatantId() { return this.getFlag(TNX_SCOPE, "mainCombatantId") ?? null; }
 
-  /** 現メインプロセスの combatant id(手番)。未定は null。 */
-  get activeMainId() { return this.getFlag(TNX_SCOPE, "activeMainId") ?? null; }
+  /**
+   * サブターン内で今プロセスの行動権(スポット)を持つ combatant id。
+   * セットアップ/イニシアチブ/クリンナップ中のみ。走査を終えていれば null。
+   */
+  get spotCombatantId() {
+    if (!WALK_PHASES.has(this.cutPhase)) return null;
+    return this.getFlag(TNX_SCOPE, "spotCombatantId") ?? null;
+  }
 
-  /** カット進行の状態フラグをまとめて更新する。 */
-  async setCutState(patch) {
-    const data = {};
-    for (const [k, v] of Object.entries(patch)) data[`flags.${TNX_SCOPE}.${k}`] = v;
-    await this.update(data);
+  /** 参加者の素データ(手番順ロジック用)。 */
+  get cutParticipants() { return this.combatants.map(participantOf); }
+
+  /**
+   * イニシアチブで確認される「次のメイン行動者」候補の combatant id。
+   * イニシアチブフェーズ以外は null(確認はイニシアチブの場で行う)。
+   */
+  get candidateMainId() {
+    if (this.cutPhase !== "initiative") return null;
+    return nextActiveMain(this.cutParticipants)?.id ?? null;
   }
 
   /** id から参加アクターを引く。 */
   actorOf(combatantId) { return this.combatants.get(combatantId)?.actor ?? null; }
+
+  /** combatant id → turns 配列の位置(core の turn 同期用)。不在・null は null。 */
+  _turnIndexOf(combatantId) {
+    if (!combatantId) return null;
+    const i = this.turns.findIndex(c => c.id === combatantId);
+    return i >= 0 ? i : null;
+  }
 
   /**
    * トラッカーの表示ソートを TNX の手番順に上書きする(既定は達成値降順)。
@@ -77,83 +105,165 @@ export class TnxCombat extends Combat {
     return compareTurnOrder(participantOf(a), participantOf(b));
   }
 
-  // ─── プロセス遷移＋自動記帳(13-3・GM のみ・記帳値は純ロジックが算出) ───
+  // ─── 進行(サブターンモデル・nextTurn 1本) ───
 
   /**
-   * セットアッププロセスへ入る(カット開始/次カット)。CSカレント←CS 実効値・AR←付与値を
-   * 全参加アクターへ代入する(Combat_Flow の読み替え＝セットアップ開始時に代入)。
-   * cleanup からの遷移はカット番号を +1、それ以外(カット開始)は 1。
+   * @override カット進行の開始。core は「combatStart フック発火→ {round:1, turn:0} を update」の
+   * 順で、フック内から別 update を投げると本体更新に上書きされ・競合する(実機で発覚: turn が
+   * turns[0] に固定・AR シードが届かない)。そこで core の型(フックに updateData を渡してから
+   * 1回で update)を踏襲し、round・turn(スポット位置)・フェーズ flags を**単一の update** にまとめ、
+   * その後にシード(CSカレント←CS 実効値・AR←付与値=セットアップ開始時の代入)を行う。
    */
-  async enterSetup() {
-    if (!game.user.isGM) return;
-    const from = this.cutProcess;
-    if (!isValidProcessTransition(from, "setup")) return;
-    const cut = from === "cleanup" ? this.cutNumber + 1 : 1;
-    await this.setCutState({ process: "setup", cut, activeMainId: null });
+  async startCombat() {
+    this._playCombatSound("startEncounter");
+    // シードを combat 更新より**先**に行う: セットアップに入った時点で AR/CSカレントが
+    // 付与済みでなければならない(2026-07-22 ユーザー指摘。AR は「カット進行のシーン開始時に付与」)。
+    // 表示の派生(inCombat)は round 変更の updateCombat フック(全クライアント reset)が追随させる
     await TnxCombat.seedStartValues(this.combatants.map(c => c.actor).filter(Boolean));
+    const spotId = firstSpotId(this.cutParticipants);
+    const updateData = {
+      round: 1,
+      turn: this._turnIndexOf(spotId),
+      [`flags.${TNX_SCOPE}.phase`]: "setup",
+      [`flags.${TNX_SCOPE}.mainCombatantId`]: null,
+      [`flags.${TNX_SCOPE}.spotCombatantId`]: spotId,
+    };
+    Hooks.callAll("combatStart", this, updateData);
+    await this.update(updateData);
+    return this;
   }
 
   /**
-   * イニシアチブプロセスへ入る(セットアップ末の「確定」)。ここで CSカレントを一度決定して凍結する:
-   * 各参加アクターの `current ← valueTotal + currentBuff`(CS実効値＋セットアップ起動のバフ)を焼き込む
-   * (2026-07-21 ユーザー確定「一度計算して凍結」)。以後 currentTotal は current のみで AE を毎回足さない
-   * ため、メジャー後0/待機1 が AE で変更されず、CS を変える効果は次セットアップの再決定まで出ない。
+   * 「次へ」＝形を変えた「次のターンへ」(nextTurn 1本)。
+   * - サブターン(setup/initiative/cleanup)中: スポット(プロセスの行動権)を CS順の次のキャラへ渡す。
+   *   走査を終えていればフェーズ送り(advancePhase)。
+   * - メインターン中: 手番終了(常に AR−1・CSカレント0)→ イニシアチブへ戻る。
    */
-  async enterInitiative() {
-    if (!game.user.isGM) return;
-    if (!isValidProcessTransition(this.cutProcess, "initiative")) return;
-    for (const c of this.combatants) {
-      if (c.actor) await applyActorUpdate(c.actor, buildSetupConfirmUpdate(c.actor.system));
+  async advanceCut() {
+    if (!game.user.isGM) return this;
+    const phase = this.cutPhase;
+    if (WALK_PHASES.has(phase)) {
+      const spot = this.getFlag(TNX_SCOPE, "spotCombatantId") ?? null;
+      if (spot === null) return this.advancePhase(); // 走査済み(または対象なし)
+      const next = nextSpotId(this.cutParticipants, spot);
+      if (next === null) return this.advancePhase(); // 最後のキャラまで渡し終えた
+      // core の turn(ターンプレイヤー)もスポットに同期して進める
+      await this.update({
+        turn: this._turnIndexOf(next),
+        [`flags.${TNX_SCOPE}.spotCombatantId`]: next,
+      });
+      return this;
     }
-    await this.setCutState({ process: "initiative" });
-  }
-
-  /** メインプロセスを指定 combatant に割り当てる(RL 確定・提示は nextActiveMain)。 */
-  async assignMain(combatantId) {
-    if (!game.user.isGM) return;
-    if (!isValidProcessTransition(this.cutProcess, "main")) return;
-    await this.setCutState({ process: "main", activeMainId: combatantId });
+    if (phase === "main") return this.advancePhase();
+    return this;
   }
 
   /**
-   * メインプロセスを終える(→イニシアチブ)。メジャーを行っていれば AR−1・CSカレント0(§5)。
-   * @param {{didMajor?:boolean}} opts
+   * フェーズ送り(GM のみ・計画は planAdvance)。RL が残りのスポット走査を飛ばす場合もこれ。
+   * - setup→initiative: セットアップ末確定(current ← valueTotal+currentBuff を全員へ焼き込み)
+   * - initiative→main: 候補(CSカレント最大かつAR≥1)を確認してメインターンへ(turn も同期)
+   * - initiative→cleanup: 行動可能者なし
+   * - main→initiative: メイン終了の記帳(常に AR−1・CSカレント0＝「何もしないメジャー」も消費)
+   * - cleanup→setup: 次カット(round+1・再シード=AR全回復を含む)
    */
-  async endMain({ didMajor = false } = {}) {
-    if (!game.user.isGM) return;
-    if (!isValidProcessTransition(this.cutProcess, "initiative")) return;
-    const actor = this.actorOf(this.activeMainId);
-    if (actor) await applyActorUpdate(actor, buildEndMainUpdate(actor.system, { didMajor }));
-    await this.setCutState({ process: "initiative", activeMainId: null });
+  async advancePhase() {
+    if (!game.user.isGM) return this;
+    const plan = planAdvance(this.cutPhase, this.cutParticipants);
+    if (!plan) return this;
+
+    // フェーズ離脱時の記帳(アクター側)
+    if (plan.confirmSetup) {
+      for (const c of this.combatants) {
+        if (c.actor) await applyActorUpdate(c.actor, buildSetupConfirmUpdate(c.actor.system));
+      }
+    }
+    if (plan.endMain) {
+      const actor = this.actorOf(this.mainCombatantId);
+      if (actor) await applyActorUpdate(actor, buildEndMainUpdate(actor.system));
+    }
+    // イニシアチブの確認: 行動できないのに CS 最上位に来た者の AR−1(Combat_Flow §4・自動記帳)
+    for (const id of (plan.penalizedIds ?? [])) {
+      const actor = this.actorOf(id);
+      if (actor) await applyActorUpdate(actor, buildCantActUpdate(actor.system));
+    }
+
+    // 次カットのセットアップ開始＝再シード(CSカレント←CS・AR←付与値=クリンナップの AR 全回復を
+    // 含む)。combat 更新より**先**に行う(セットアップに入る時点で付与済み・2026-07-22 ユーザー指摘)
+    if (plan.nextCut) {
+      await TnxCombat.seedStartValues(this.combatants.map(c => c.actor).filter(Boolean));
+    }
+
+    // フェーズ遷移(combat 側)。core の turn(ターンプレイヤー)は常に「今の番」——メインターン中は
+    // メイン行動者・サブターン中はスポット——へ同期する(正本はあくまで flags)。
+    // 遷移先がサブターンならスポットを CS順の先頭に置き直す(記帳・再シード後の値で算出)。
+    const spotId = WALK_PHASES.has(plan.to) ? firstSpotId(this.cutParticipants) : null;
+    const update = {
+      turn: this._turnIndexOf(plan.to === "main" ? plan.mainId : spotId),
+      [`flags.${TNX_SCOPE}.phase`]: plan.to,
+      [`flags.${TNX_SCOPE}.mainCombatantId`]: plan.mainId ?? null,
+      [`flags.${TNX_SCOPE}.spotCombatantId`]: spotId,
+    };
+    if (plan.nextCut) update.round = this.round + 1;
+    await this.update(update);
+    return this;
   }
 
-  /** 待機(§4)＝そのアクターの CSカレントを 1 にする(手番の確認をやり直す)。 */
+  /**
+   * @override 行動権・進行を次へ渡す(FVTT 既定機構)。GM は直接前進、
+   * スポット/手番プレイヤーの「次へ」「手番終了」は GM へソケット委譲する。
+   */
+  async nextTurn() {
+    if (game.user.isGM) return this.advanceCut();
+    TnxSocketHandler.emitCutAdvance({ combatId: this.id });
+    return this;
+  }
+
+  /** @override 次カットへ(クリンナップからのみ)。それ以外は通常の前進を促す。 */
+  async nextRound() {
+    if (this.cutPhase !== "cleanup") {
+      ui.notifications.warn("次カットへはクリンナッププロセスから進みます。");
+      return this;
+    }
+    return this.advancePhase();
+  }
+
+  /** @override カット進行に「戻る」操作はない(記帳の巻き戻しが定義できないため)。 */
+  async previousTurn() {
+    ui.notifications.warn("カット進行では手番を戻す操作はありません。");
+    return this;
+  }
+
+  /** @override 同上。 */
+  async previousRound() {
+    ui.notifications.warn("カット進行ではカットを戻す操作はありません。");
+    return this;
+  }
+
+  // ─── 宣言(トラッカーが持つのは進行と宣言だけ) ───
+
+  /**
+   * 待機(§4)。イニシアチブで確認された候補本人の操作者(所有者)か RL が宣言し、
+   * CSカレントを 1 にして確認し直す(自アクター更新のため所有者はローカルで完結)。
+   */
   async declareWait(combatantId) {
-    if (!game.user.isGM) return;
-    await applyActorUpdate(this.actorOf(combatantId), buildWaitUpdate());
-  }
-
-  /** イニシアチブで行動不能(§4)＝そのアクターの AR を −1 する。 */
-  async declareCantAct(combatantId) {
-    if (!game.user.isGM) return;
-    const actor = this.actorOf(combatantId);
-    if (actor) await applyActorUpdate(actor, buildCantActUpdate(actor.system));
-  }
-
-  /** クリンナッププロセスへ入る(§6)。全参加アクターの AR を全回復する。 */
-  async enterCleanup() {
-    if (!game.user.isGM) return;
-    if (!isValidProcessTransition(this.cutProcess, "cleanup")) return;
-    await this.setCutState({ process: "cleanup", activeMainId: null });
-    for (const c of this.combatants) {
-      if (c.actor) await applyActorUpdate(c.actor, buildCleanupUpdate(c.actor.system));
+    if (this.cutPhase !== "initiative" || combatantId !== this.candidateMainId) {
+      ui.notifications.warn("待機はイニシアチブプロセスで、直後にメインプロセスを行えるキャラクターだけが宣言できます。");
+      return;
     }
+    const actor = this.actorOf(combatantId);
+    if (!actor) return;
+    if (!actor.isOwner) {
+      ui.notifications.warn("待機はそのキャラクターの操作者が宣言します。");
+      return;
+    }
+    await applyActorUpdate(actor, buildWaitUpdate());
   }
 
-  // ─── カット開始シード(フェーズ10-5/11 から移設・挙動不変) ───
+  // ─── カット開始シード(フェーズ10-5/11 から移設) ───
 
   /**
-   * CSカレント・現在AR へ実効値を書き込む(GM のみ)。カット開始時/開始済みカットへの参加時。
+   * CSカレント・現在AR へ実効値を書き込む(GM のみ)。セットアップ開始時/開始済みカットへの参加時。
+   * 次カットの再シードはクリンナップの AR 全回復(§6-5)を兼ねる。
    * @param {Actor[]} actors
    */
   static async seedStartValues(actors) {
@@ -169,7 +279,7 @@ export class TnxCombat extends Combat {
   /**
    * 該当アクターの派生値を再準備し、開いているシートを再描画する(全クライアント・ローカルのみ)。
    * シートの「CS」「AR」表示は自動制御(カット進行中=カレント・現在AR／それ以外=CS・付与値)のため、
-   * 戦闘の開始/終了・参加/離脱で再準備(reset)して表示を切り替える。
+   * カット進行の開始/終了・参加/離脱で再準備(reset)して表示を切り替える。
    * @param {Actor[]} actors
    */
   static refreshDisplays(actors) {

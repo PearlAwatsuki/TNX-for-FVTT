@@ -61,11 +61,63 @@ export function resolveTurnOrder(participants) {
 
 /**
  * 次にメインプロセスを行える1体を返す(CSカレント最大かつ AR≥1・Combat_Flow §4)。
+ * 行動できない者(cantAct=戦闘不能系タグ/脱落マーク)は候補にならない。
  * 該当が無ければ null(全員 AR0 等＝メインプロセスを行える者がいない)。
- * 行動不能による AR−1 の確認は本ロジックでは扱わない(進行管理側=13-3)。
  * @param {Array} participants
  * @returns {object|null}
  */
 export function nextActiveMain(participants) {
-  return resolveTurnOrder(participants).find(p => (p.ar ?? 0) >= 1) ?? null;
+  return resolveTurnOrder(participants).find(p => (p.ar ?? 0) >= 1 && !p.cantAct) ?? null;
+}
+
+/**
+ * イニシアチブプロセスの確認(Combat_Flow §4)。次のメイン行動者を決め、その確認の過程で
+ * 「最も CSカレントが高い者が行えない場合、このタイミングで AR を −1」を適用する:
+ * メインより上位に来た行動不能者(AR≥1)が各1回 AR−1 の対象になる(確認は次点へ進む)。
+ * @param {Array} participants
+ * @returns {{mainId: string|null, penalizedIds: string[]}}
+ */
+export function confirmMain(participants) {
+  const penalizedIds = [];
+  for (const p of resolveTurnOrder(participants)) {
+    if ((p.ar ?? 0) < 1) continue;
+    if (p.cantAct) { penalizedIds.push(p.id); continue; }
+    return { mainId: p.id, penalizedIds };
+  }
+  return { mainId: null, penalizedIds };
+}
+
+// ─── サブターン内のスポット走査(フェーズ13-4・サブターンモデル) ─────────────────
+// キャラクターにはプロセスごとに行動権がある(Combat_Flow「トラッカー上の表現」)。
+// セットアップ/イニシアチブ/クリンナップの各サブターン内では、行動できるキャラを CS順に
+// 「スポット」が巡り、「次へ」で次のキャラへ行動権を渡す。スポットはメインの資格(AR≥1)とは
+// 別＝AR 0 でもプロセスの行動権はある。ただし**行動できない者(cantAct=戦闘不能タグ/脱落マーク)は
+// 走査から除外**する(脱落扱い・2026-07-22 実機指摘)。走査を終えたら null(＝フェーズ送り)。
+
+/** スポット走査の順(CS順・エキストラと行動不能を除外)。 */
+function spotOrder(participants) {
+  return resolveTurnOrder(participants).filter(p => !p.cantAct);
+}
+
+/**
+ * サブターン走査の先頭(CS順の1人目)。いなければ null。
+ * @param {Array} participants
+ * @returns {string|null}
+ */
+export function firstSpotId(participants) {
+  return spotOrder(participants)[0]?.id ?? null;
+}
+
+/**
+ * サブターン走査の次のスポット。現スポットが末尾なら null(＝フェーズ送り)。
+ * 現スポットが不明・不在(途中離脱・走査中の戦闘不能化等)なら先頭へ戻して頑健にする。
+ * @param {Array} participants
+ * @param {string|null} spotId 現スポットの combatant id
+ * @returns {string|null}
+ */
+export function nextSpotId(participants, spotId) {
+  const order = spotOrder(participants);
+  const i = order.findIndex(p => p.id === spotId);
+  if (i < 0) return order[0]?.id ?? null;
+  return order[i + 1]?.id ?? null;
 }

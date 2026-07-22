@@ -1,55 +1,69 @@
 /**
- * @fileoverview コンバットトラッカー(カット進行)の表示用の純ロジック(Foundry 非依存・テスト対象。
- * フェーズ13-4)。正本: Combat_Flow.md §2-6。
+ * @fileoverview カット進行トラッカーの表示用の純ロジック(Foundry 非依存・テスト対象。フェーズ13-4)。
+ * 正本: Combat_Flow.md「トラッカー上の表現＝サブターンモデル」。
  *
- * トラッカーは進行の制御と表示に徹する(行動の起動・自動化はしない=2026-07-21〜22 ユーザー確定)。
- * ここではプロセスのラベルと、プロセスごとの RL 操作ボタン(進行)・行操作(待機/行動不能/メイン割当)を
- * 純粋に導出する。実際の起動先は TnxCombat のメソッド(13-3)。
+ * トラッカーが持つのは**進行と宣言だけ**(行動の起動・自動化は置かない=2026-07-22 ユーザー確定):
+ * - フッター: 前進(nextTurn 相当=tnxAdvance)・メジャーなし終了・カット進行の開始/終了
+ * - 行: 待機(候補の操作者)・行動不能 AR−1(RL)
+ * 実際の起動先は TnxCombat のメソッド。
  */
 
-/** プロセスキー → 表示ラベル。 */
+/** フェーズキー → 表示ラベル。 */
 export const PROCESS_LABELS = {
-  prep: "戦闘準備",
   setup: "セットアップ",
   initiative: "イニシアチブ",
   main: "メイン",
   cleanup: "クリンナップ",
 };
 
-/** プロセスの日本語ラベル(未開始/不明は「—」)。 */
-export function processLabel(process) {
-  return PROCESS_LABELS[process] ?? "—";
+/** フェーズの日本語ラベル(未開始/不明は「—」)。 */
+export function processLabel(phase) {
+  return PROCESS_LABELS[phase] ?? "—";
 }
 
 /**
- * プロセスごとの進行ボタン(RL 操作・フッター)。action は TnxCombatTracker の登録アクション名。
- * @param {string|null} process
- * @returns {Array<{action:string, label:string}>}
+ * フッターの進行ボタン計画。
+ * - 「次へ」(tnxAdvance)＝形を変えた「次のターンへ」: サブターン内はスポット(プロセスの行動権)を
+ *   次のキャラへ渡し、走査を終えていればフェーズが進む。メイン中は「手番終了」。
+ * - フェーズ送り(tnxPhase)＝RL が残りの走査を飛ばしてフェーズを進める(イニシアチブへ/
+ *   メインプロセスへ(候補)/クリンナップへ/次カットへ)。
+ * - スポットの操作者(非GM)には「次へ」、手番キャラの操作者(非GM)には「手番終了」を出す。
+ * @param {{hasCombat:boolean, started:boolean, phase:string|null, isGM:boolean,
+ *          isMainOwner:boolean, isSpotOwner:boolean, candidateName:string|null}} state
+ * @returns {Array<{action:string, label:string, primary?:boolean}>}
  */
-export function processActions(process) {
-  switch (process) {
-    case "setup":      return [{ action: "tnxToInitiative", label: "イニシアチブへ" }];
-    case "initiative": return [{ action: "tnxToCleanup", label: "クリンナップへ" }];
-    case "main":       return [
-      { action: "tnxEndMainMajor", label: "メジャーで終了" },
-      { action: "tnxEndMainMinor", label: "メジャーなしで終了" },
-    ];
-    case "cleanup":    return [{ action: "tnxNextCut", label: "次カットへ" }];
-    default:           return [];
+export function footerPlan({ hasCombat, started, phase, isGM, isMainOwner, isSpotOwner, candidateName }) {
+  if (!hasCombat) return [];
+  if (!started) {
+    return isGM ? [{ action: "tnxStartCombat", label: "カット進行の開始", primary: true }] : [];
   }
+  // メイン終了は1本(メジャー未実行も「メジャーで何もしなかった」扱い=AR−1・CS0・2026-07-22 裁定)
+  const nextButton = { action: "tnxAdvance", label: "次へ", primary: true };
+  const endMainButtons = [{ action: "tnxAdvance", label: "手番終了", primary: true }];
+  if (!isGM) {
+    if (phase === "main") return isMainOwner ? endMainButtons : [];
+    return isSpotOwner ? [nextButton] : [];
+  }
+  const phaseJumpLabel = {
+    setup: "イニシアチブへ",
+    initiative: candidateName ? `メインプロセスへ（${candidateName}）` : "クリンナップへ",
+    cleanup: "次カットへ",
+  }[phase];
+  const buttons = phase === "main"
+    ? endMainButtons
+    : [nextButton, ...(phaseJumpLabel ? [{ action: "tnxPhase", label: phaseJumpLabel }] : [])];
+  return [...buttons, { action: "tnxEndCombat", label: "カット進行の終了" }];
 }
 
 /**
- * combatant 行の操作ボタン。イニシアチブプロセスで行動可能なキャラのみ、メイン割当/待機/行動不能。
- * @param {string|null} process
- * @param {boolean} isActable 手番を持てるか(エキストラは false)
+ * combatant 行の宣言操作。イニシアチブ中の候補(次のメイン行動者と確認されたキャラ)の行のみ:
+ * 待機=その操作者(所有者)か RL(Combat_Flow §4)。
+ * 行動不能の AR−1 は手動ボタンにしない——戦闘不能系タグ/脱落マークの読み取りで
+ * イニシアチブの確認時に自動記帳する(confirmMain・2026-07-22 ユーザー指摘=脱落切替と機能が被る)。
+ * @param {{phase:string|null, isCandidate:boolean, isOwner:boolean, isGM:boolean}} state
  * @returns {Array<{action:string, label:string}>}
  */
-export function rowActions(process, isActable) {
-  if (process !== "initiative" || !isActable) return [];
-  return [
-    { action: "tnxAssignMain", label: "メイン" },
-    { action: "tnxWait", label: "待機" },
-    { action: "tnxCantAct", label: "行動不能" },
-  ];
+export function rowActions({ phase, isCandidate, isOwner, isGM }) {
+  if (phase !== "initiative" || !isCandidate) return [];
+  return (isOwner || isGM) ? [{ action: "tnxWait", label: "待機" }] : [];
 }

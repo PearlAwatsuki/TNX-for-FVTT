@@ -1,0 +1,62 @@
+{{!-- カット進行トラッカー(フェーズ13-4・サブターンモデル)。進行と宣言のみ(行動起動なし)。
+      v13 の PART テンプレートは単一ルート要素が必須のため全体を1つの <div> で包む。 --}}
+<div class="tnx-cut-tracker">
+    {{#if tnxPhaseRow}}
+    <div class="tnx-subturn{{#if tnxPhaseRow.active}} tnx-subturn-active{{/if}}">
+        <span class="tnx-subturn-label">{{tnxPhaseRow.label}}</span>
+        {{#if tnxPhaseRow.candidateName}}
+        <span class="tnx-subturn-note">次のメイン: {{tnxPhaseRow.candidateName}}</span>
+        {{/if}}
+    </div>
+    {{/if}}
+
+    <ol class="combat-tracker tnx-combatant-list plain">
+        {{#each turns}}
+        <li class="combatant tnx-combatant {{this.css}}{{#if this.tnxIsMain}} tnx-turn-main{{/if}}{{#if this.tnxIsSpot}} tnx-turn-spot{{/if}}{{#if this.tnxIsCandidate}} tnx-turn-candidate{{/if}}{{#unless this.tnxActable}} tnx-no-turn{{/unless}}"
+            data-combatant-id="{{this.id}}" data-action="activateCombatant">
+
+            <img class="token-image" src="{{this.img}}" alt="{{this.name}}" loading="lazy">
+
+            <div class="token-name">
+                <strong class="name">{{this.name}}</strong>
+                <div class="combatant-controls">
+                    {{#if @root.user.isGM}}
+                    <button type="button" class="inline-control combatant-control icon fa-solid fa-eye-slash {{#if this.hidden}}active{{/if}}"
+                            data-action="toggleHidden" data-tooltip="表示切替" aria-label="表示切替"></button>
+                    <button type="button" class="inline-control combatant-control icon fa-solid fa-skull {{#if this.isDefeated}}active{{/if}}"
+                            data-action="toggleDefeated" data-tooltip="脱落切替" aria-label="脱落切替"></button>
+                    {{/if}}
+                    {{#if this.canPing}}
+                    <button type="button" class="inline-control combatant-control icon fa-solid fa-bullseye-arrow"
+                            data-action="pingCombatant" data-tooltip="ピン" aria-label="ピン"></button>
+                    {{/if}}
+                    <div class="token-effects" data-tooltip-html="{{this.effects.tooltip}}">
+                        {{#each this.effects.icons}}
+                        <img class="token-effect" src="{{this.img}}" alt="{{this.name}}">
+                        {{/each}}
+                    </div>
+                </div>
+            </div>
+
+            {{#if this.tnxRowActions.length}}
+            <div class="tnx-combatant-actions">
+                {{#each this.tnxRowActions}}
+                <button type="button" class="tnx-cut-btn tnx-cut-btn-sm" data-action="{{this.action}}">{{this.label}}</button>
+                {{/each}}
+            </div>
+            {{/if}}
+
+            <div class="tnx-combatant-stats">
+                {{#if this.tnxActable}}
+                    {{#if this.tnxAr}}
+                    <span class="tnx-stat-ar" data-tooltip="AR（アクションランク）">AR {{this.tnxAr}}</span>
+                    {{/if}}
+                {{else}}
+                    <span class="tnx-stat-note">手番なし</span>
+                {{/if}}
+                <span class="tnx-stat-cs" data-tooltip="CS（コンバットスピード）">{{this.tnxCs}}</span>
+            </div>
+        </li>
+        {{/each}}
+    </ol>
+</div>

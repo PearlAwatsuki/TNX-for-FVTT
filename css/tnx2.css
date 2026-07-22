@@ -8855,3 +8855,122 @@ button.tnx-create-act-button span {
 .tnx-target-picker .tnx-tp-remove:hover {
     opacity: 1;
 }
+
+/* ─── カット進行トラッカー（フェーズ13-4・サブターンモデル） ─────────────── */
+.tnx-cut-tracker {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* サブターン行（セットアップ/イニシアチブ/クリンナップ＝全体の場） */
+.tnx-subturn {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 5px 8px;
+    background: var(--tnx2-bg-2);
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+}
+.tnx-subturn-label {
+    font-weight: 700;
+    color: var(--tnx2-text-secondary);
+}
+.tnx-subturn-active {
+    background: var(--tnx2-accent-dim);
+    box-shadow: inset 3px 0 0 var(--tnx2-accent);
+}
+.tnx-subturn-active .tnx-subturn-label {
+    color: var(--tnx2-text-accent);
+}
+.tnx-subturn-note {
+    overflow: hidden;
+    font-size: 0.85em;
+    color: var(--tnx2-text-muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 参加者リスト（既定の .combat-tracker/.combatant 意匠に TNX 状態を重ねる） */
+.tnx-combatant.tnx-turn-main,
+.tnx-combatant.tnx-turn-spot {
+    background: var(--tnx2-accent-dim);
+    box-shadow: inset 3px 0 0 var(--tnx2-accent);
+}
+.tnx-combatant.tnx-turn-candidate {
+    box-shadow: inset 3px 0 0 var(--tnx2-border-glow);
+}
+.tnx-combatant.tnx-no-turn {
+    opacity: 0.55;
+}
+
+/* CS はトラッカーの主数値（既定トラッカーのイニシアチブ枠相当）——大きく出す */
+.tnx-combatant-stats {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 8px;
+    align-items: center;
+    font-family: var(--tnx2-font-mono);
+}
+.tnx-stat-cs {
+    min-width: 2ch;
+    font-size: 1.4em;
+    font-weight: 700;
+    color: var(--tnx2-text-accent);
+    text-align: right;
+}
+.tnx-stat-ar {
+    font-size: 0.85em;
+    color: var(--tnx2-text-secondary);
+}
+.tnx-stat-note {
+    font-family: inherit;
+    font-size: 0.8em;
+    font-style: italic;
+    color: var(--tnx2-text-muted);
+}
+.tnx-combatant-actions {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 3px;
+}
+
+/* 進行・宣言ボタン */
+.tnx-cut-btn {
+    padding: 3px 8px;
+    font-size: 0.85em;
+    color: var(--tnx2-text-primary);
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius-sm);
+    cursor: pointer;
+    transition: var(--tnx2-transition-fast);
+}
+.tnx-cut-btn:hover {
+    background: var(--tnx2-bg-hover);
+    border-color: var(--tnx2-accent);
+}
+.tnx-cut-btn-sm {
+    padding: 2px 5px;
+    font-size: 0.78em;
+}
+.tnx-cut-btn-primary {
+    font-weight: 700;
+    color: var(--tnx2-text-accent);
+    border-color: var(--tnx2-accent);
+}
+
+/* フッター（進行ボタン列） */
+.tnx-cut-footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 6px;
+}
+.tnx-cut-footer .tnx-cut-btn {
+    flex: 1 1 100%;
+}
+.tnx-cut-footer .tnx-cut-btn:not(.tnx-cut-btn-primary) {
+    flex: 1 1 auto;
+}

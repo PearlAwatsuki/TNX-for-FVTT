@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { processLabel, processActions, rowActions } from "../../scripts/module/combat-tracker-view.mjs";
+import { processLabel, footerPlan, rowActions } from "../../scripts/module/combat-tracker-view.mjs";
 
-describe("processLabel()（プロセスの日本語ラベル）", () => {
-  it("各プロセスのラベルを返す", () => {
+describe("processLabel()（フェーズの日本語ラベル）", () => {
+  it("各フェーズのラベルを返す", () => {
     expect(processLabel("setup")).toBe("セットアップ");
     expect(processLabel("initiative")).toBe("イニシアチブ");
     expect(processLabel("main")).toBe("メイン");
@@ -15,46 +15,99 @@ describe("processLabel()（プロセスの日本語ラベル）", () => {
   });
 });
 
-describe("processActions()（プロセスごとの RL 進行ボタン）", () => {
-  it("セットアップ→イニシアチブへ", () => {
-    expect(processActions("setup")).toEqual([{ action: "tnxToInitiative", label: "イニシアチブへ" }]);
+describe("footerPlan()（フッター＝「次へ」＋フェーズ送り＋開始/終了）", () => {
+  const base = {
+    hasCombat: true, started: true, phase: null, isGM: true,
+    isMainOwner: false, isSpotOwner: false, candidateName: null,
+  };
+
+  it("カット進行が無ければ空（作成はヘッダー）", () => {
+    expect(footerPlan({ ...base, hasCombat: false })).toEqual([]);
   });
 
-  it("イニシアチブ→クリンナップへ", () => {
-    expect(processActions("initiative")).toEqual([{ action: "tnxToCleanup", label: "クリンナップへ" }]);
+  it("未開始＝RL にカット進行の開始", () => {
+    expect(footerPlan({ ...base, started: false })).toEqual([
+      { action: "tnxStartCombat", label: "カット進行の開始", primary: true },
+    ]);
+    expect(footerPlan({ ...base, started: false, isGM: false })).toEqual([]);
   });
 
-  it("メイン→メジャー有/無で終了の2択", () => {
-    expect(processActions("main")).toEqual([
-      { action: "tnxEndMainMajor", label: "メジャーで終了" },
-      { action: "tnxEndMainMinor", label: "メジャーなしで終了" },
+  it("セットアップ（RL）＝次へ＋イニシアチブへ＋終了", () => {
+    expect(footerPlan({ ...base, phase: "setup" })).toEqual([
+      { action: "tnxAdvance", label: "次へ", primary: true },
+      { action: "tnxPhase", label: "イニシアチブへ" },
+      { action: "tnxEndCombat", label: "カット進行の終了" },
     ]);
   });
 
-  it("クリンナップ→次カットへ", () => {
-    expect(processActions("cleanup")).toEqual([{ action: "tnxNextCut", label: "次カットへ" }]);
+  it("イニシアチブ（RL）＝次へ＋メインプロセスへ（候補名）＋終了", () => {
+    expect(footerPlan({ ...base, phase: "initiative", candidateName: "カスミ" })).toEqual([
+      { action: "tnxAdvance", label: "次へ", primary: true },
+      { action: "tnxPhase", label: "メインプロセスへ（カスミ）" },
+      { action: "tnxEndCombat", label: "カット進行の終了" },
+    ]);
   });
 
-  it("未開始は空", () => {
-    expect(processActions(null)).toEqual([]);
+  it("イニシアチブ（RL・候補なし）＝フェーズ送りはクリンナップへ", () => {
+    expect(footerPlan({ ...base, phase: "initiative" })).toEqual([
+      { action: "tnxAdvance", label: "次へ", primary: true },
+      { action: "tnxPhase", label: "クリンナップへ" },
+      { action: "tnxEndCombat", label: "カット進行の終了" },
+    ]);
+  });
+
+  it("メイン（RL）＝手番終了＋終了（メジャー未実行も「何もしないメジャー」＝分岐なし・2026-07-22 裁定）", () => {
+    expect(footerPlan({ ...base, phase: "main" })).toEqual([
+      { action: "tnxAdvance", label: "手番終了", primary: true },
+      { action: "tnxEndCombat", label: "カット進行の終了" },
+    ]);
+  });
+
+  it("クリンナップ（RL）＝次へ＋次カットへ＋終了", () => {
+    expect(footerPlan({ ...base, phase: "cleanup" })).toEqual([
+      { action: "tnxAdvance", label: "次へ", primary: true },
+      { action: "tnxPhase", label: "次カットへ" },
+      { action: "tnxEndCombat", label: "カット進行の終了" },
+    ]);
+  });
+
+  it("メイン＝手番キャラの操作者（非GM）に手番終了（行動権を渡す）", () => {
+    expect(footerPlan({ ...base, isGM: false, isMainOwner: true, phase: "main" })).toEqual([
+      { action: "tnxAdvance", label: "手番終了", primary: true },
+    ]);
+  });
+
+  it("サブターン＝スポットの操作者（非GM）に次へ（プロセスの行動権を渡す）", () => {
+    for (const phase of ["setup", "initiative", "cleanup"]) {
+      expect(footerPlan({ ...base, isGM: false, isSpotOwner: true, phase })).toEqual([
+        { action: "tnxAdvance", label: "次へ", primary: true },
+      ]);
+    }
+  });
+
+  it("自分の番でないプレイヤーには何も出ない", () => {
+    expect(footerPlan({ ...base, isGM: false, phase: "main" })).toEqual([]);
+    expect(footerPlan({ ...base, isGM: false, phase: "setup" })).toEqual([]);
   });
 });
 
-describe("rowActions()（イニシアチブ中・行動可能キャラの行操作）", () => {
-  it("イニシアチブ＋行動可能＝メイン/待機/行動不能", () => {
-    expect(rowActions("initiative", true)).toEqual([
-      { action: "tnxAssignMain", label: "メイン" },
-      { action: "tnxWait", label: "待機" },
-      { action: "tnxCantAct", label: "行動不能" },
-    ]);
+describe("rowActions()（行の宣言操作＝待機のみ・行動不能はタグ/脱落マークの読み取りで自動）", () => {
+  it("イニシアチブ中の候補行＝操作者（と RL）に待機", () => {
+    expect(rowActions({ phase: "initiative", isCandidate: true, isOwner: true, isGM: false }))
+      .toEqual([{ action: "tnxWait", label: "待機" }]);
+    expect(rowActions({ phase: "initiative", isCandidate: true, isOwner: false, isGM: true }))
+      .toEqual([{ action: "tnxWait", label: "待機" }]);
   });
 
-  it("行動できないキャラ（エキストラ等）は行操作なし", () => {
-    expect(rowActions("initiative", false)).toEqual([]);
+  it("行動不能ボタンは存在しない（脱落切替・戦闘不能タグと機能が被るため）", () => {
+    const all = rowActions({ phase: "initiative", isCandidate: true, isOwner: true, isGM: true });
+    expect(all.some(a => a.action === "tnxCantAct")).toBe(false);
   });
 
-  it("イニシアチブ以外は行操作なし", () => {
-    expect(rowActions("main", true)).toEqual([]);
-    expect(rowActions("setup", true)).toEqual([]);
+  it("候補でない行・他人の行・他フェーズは操作なし", () => {
+    expect(rowActions({ phase: "initiative", isCandidate: false, isOwner: true, isGM: true })).toEqual([]);
+    expect(rowActions({ phase: "initiative", isCandidate: true, isOwner: false, isGM: false })).toEqual([]);
+    expect(rowActions({ phase: "main", isCandidate: true, isOwner: true, isGM: true })).toEqual([]);
+    expect(rowActions({ phase: "setup", isCandidate: true, isOwner: true, isGM: true })).toEqual([]);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CONDITION_KINDS, readCondition, readConditions, getConditionKind, getConditionKinds, gatherConditionCheckSources, getCheckBlock, gatherConditionControlPenalty, computeJammingPenalty, buildInflictedEffectsData, applyDamageTagMods, recoveryKindMatches, recoveryKindExcluded, usageCanTreatKinds, woundChartValue, ignoreRuleMatches, gatherIgnoreRules, getEffectiveConditions, gatherSkillUseWarnings, hasBountyBlock }
+import { CONDITION_KINDS, readCondition, readConditions, getConditionKind, getConditionKinds, gatherConditionCheckSources, getCheckBlock, gatherConditionControlPenalty, computeJammingPenalty, buildInflictedEffectsData, applyDamageTagMods, recoveryKindMatches, recoveryKindExcluded, usageCanTreatKinds, woundChartValue, ignoreRuleMatches, gatherIgnoreRules, getEffectiveConditions, gatherSkillUseWarnings, hasBountyBlock, blocksMainProcess, actorCannotMainProcess }
   from "../../scripts/module/conditions.mjs";
 
 /** 準備アウトフィット記述子の略記 */
@@ -559,6 +559,44 @@ describe("コンディション効果の無視ゲート（ignore.*・フェー�
       expect(conds.find(c => c.kind === "poison")?.manuallyIgnored).toBe(true);
       // 手動フラグの無い別 BS は無視されない
       expect(flagOf(conds, "doped-minor")).toBe(false);
+    });
+  });
+
+  describe("blocksMainProcess() / actorCannotMainProcess()（メインプロセス不可の読み取り・フェーズ13）", () => {
+    const eff = (id, kind, flags = {}) => ({
+      id, disabled: false, active: true, statuses: new Set([kind]), name: kind, changes: [],
+      flags: { [SCOPE]: { conditionKind: kind, ...flags } },
+    });
+
+    it("block:'mainProcess'（気絶/失神/仮死/昏睡）と terminal（完全死亡/精神崩壊）が該当する", () => {
+      expect(blocksMainProcess(CONDITION_KINDS["faint"])).toBe(true);
+      expect(blocksMainProcess(CONDITION_KINDS["stupor"])).toBe(true);
+      expect(blocksMainProcess(CONDITION_KINDS["dead"])).toBe(true);
+      expect(blocksMainProcess(CONDITION_KINDS["mind-break"])).toBe(true);
+    });
+
+    it("抹殺は該当しない（アクト終了時に残っていた場合に適用される効果＝アクト中は行動できる・2026-07-22 訂正）", () => {
+      expect(blocksMainProcess(CONDITION_KINDS["erased"])).toBe(false);
+    });
+
+    it("他の block（恐慌=リアクション不可等）・支配・通常 BS は該当しない", () => {
+      expect(blocksMainProcess(CONDITION_KINDS["panic"])).toBe(false);
+      expect(blocksMainProcess(CONDITION_KINDS["dominated"])).toBe(false);
+      expect(blocksMainProcess(CONDITION_KINDS["poison"])).toBe(false);
+      expect(blocksMainProcess(null)).toBe(false);
+    });
+
+    it("actorCannotMainProcess: 気絶持ちは true・BS のみは false", () => {
+      expect(actorCannotMainProcess({ effects: [eff("f", "faint")], items: [] })).toBe(true);
+      expect(actorCannotMainProcess({ effects: [eff("b", "poison")], items: [] })).toBe(false);
+      expect(actorCannotMainProcess({ effects: [], items: [] })).toBe(false);
+    });
+
+    it("actorCannotMainProcess: 無視ゲート済み（ignore.all 等）の戦闘不能は数えない", () => {
+      const ignoreEff = { id: "ig", disabled: false, active: true, statuses: new Set(), name: "ig",
+        changes: [{ key: "ignore.all", value: "" }], flags: {} };
+      const actor = { effects: [ignoreEff, eff("f", "faint")], items: [] };
+      expect(actorCannotMainProcess(actor)).toBe(false);
     });
   });
 });

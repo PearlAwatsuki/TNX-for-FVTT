@@ -34,7 +34,7 @@ const SCOPE = "tokyo-nova-axleration";
 // 統合順(ユーザー確定 2026-06-23): BS → 戦闘不能 → 肉体 → 精神 → 社会。
 const BS_AND_INCAPACITATION = {
   // --- バッドステータス(group: "bs") ---
-  "panic":        { label: "恐慌",     group: "bs", img: "icons/svg/terror.svg",    type: "block", block: "reaction",     stackable: false },
+  "panic":        { label: "恐慌",     group: "bs", img: "icons/svg/silenced.svg",    type: "block", block: "reaction",     stackable: false },
   "poison":       { label: "邪毒",     group: "bs", img: "icons/svg/poison.svg",     type: "continuous", magnitudeField: true, stackable: false },
   // 重圧: 能力値は指定/未指定(受ける際に引く)あり。abilityField 空欄可(空欄=指定なし=カードで決定)。
   "pressure":     { label: "重圧",     group: "bs", img: "icons/svg/down.svg",       type: "block", block: "abilityCheck", abilityField: "optional", abilityBlankLabel: "指定なし（カードで決定）", stackable: false },
@@ -47,25 +47,31 @@ const BS_AND_INCAPACITATION = {
   "doped-major":  { label: "酩酊(大)", group: "bs", img: "icons/svg/daze.svg",       type: "numeric", apply: "checkAndControl", fixedMagnitude: 5, stackable: false },
   "doped-minor":  { label: "酩酊(小)", group: "bs", img: "icons/svg/sleep.svg",      type: "numeric", apply: "checkAndControl", fixedMagnitude: 2, stackable: false },
   // 萎縮/憎悪: -5 固定。対象(targetUuid)のみ可変。萎縮=対象ごと重複、憎悪=非重複。
-  "fear":         { label: "萎縮",     group: "bs", img: "icons/svg/cowled.svg",     type: "attackTarget", targetMode: "include", penalty: 5, targetField: true, stackable: true },
+  "fear":         { label: "萎縮",     group: "bs", img: "icons/svg/terror.svg",     type: "attackTarget", targetMode: "include", penalty: 5, targetField: true, stackable: true },
   "hatred":       { label: "憎悪",     group: "bs", img: "icons/svg/fire.svg",       type: "attackTarget", targetMode: "exclude", penalty: 5, targetField: true, stackable: false },
   "interference": { label: "電子妨害", group: "bs", img: "icons/svg/lightning.svg",  type: "computed", magnitudeField: true, stackable: false },
   // 狼狽: ムーブ不可＋メジャー達成値-10(回復=マイナー)。メジャー/ムーブは行動系=13 前提のため器のみ。
-  "confusion":    { label: "狼狽",     group: "bs", img: "icons/svg/explosion.svg",  type: "block", block: "move", stackable: false },
-  // --- 戦闘不能(group: "incapacitation"。発火=メインプロセス不可は13・回復は15。効果値なし・非重複) ---
-  "faint":      { label: "気絶",     group: "incapacitation", img: "icons/svg/unconscious.svg", type: "block", block: "mainProcess", stackable: false },
-  "swoon":      { label: "失神",     group: "incapacitation", img: "icons/svg/unconscious.svg", type: "block", block: "mainProcess", stackable: false },
-  "coma":       { label: "仮死",     group: "incapacitation", img: "icons/svg/skull.svg",       type: "block", block: "mainProcess", terminalPending: true, stackable: false },
-  "stupor":     { label: "昏睡",     group: "incapacitation", img: "icons/svg/skull.svg",       type: "block", block: "mainProcess", terminalPending: true, stackable: false },
-  "dead":       { label: "完全死亡", group: "incapacitation", img: "icons/svg/blood.svg",       type: "terminal", stackable: false },
-  "mind-break": { label: "精神崩壊", group: "incapacitation", img: "icons/svg/blood.svg",       type: "terminal", stackable: false },
-  "erased":     { label: "抹殺",     group: "incapacitation", img: "icons/svg/blood.svg",       type: "terminal", stackable: false }, // 社会(適用はセッション終了後)
+  "confusion":    { label: "狼狽",     group: "bs", img: "icons/svg/trap.svg",  type: "block", block: "move", stackable: false },
+  // --- 戦闘不能(group: "incapacitation"。メインプロセス不可の発火=13 で接続済み(blocksMainProcess)・回復は15。効果値なし・非重複) ---
+  // アイコンの使い分け(2026-07-22 ユーザー調整で確定): 髑髏=死そのもの(完全死亡)。気絶/失神=hazard
+  // 共用・仮死/昏睡=unconscious 共用(段階の近い2種は共用の作法)。抹殺=cancel(社会的抹消)。
+  // 負傷の既定(damage-chart: 肉体=blood/精神=sun/社会=padlock)と被るアイコンは避ける
+  "faint":      { label: "気絶",     group: "incapacitation", img: "icons/svg/hazard.svg", type: "block", block: "mainProcess", stackable: false },
+  "swoon":      { label: "失神",     group: "incapacitation", img: "icons/svg/hazard.svg", type: "block", block: "mainProcess", stackable: false },
+  "coma":       { label: "仮死",     group: "incapacitation", img: "icons/svg/unconscious.svg",       type: "block", block: "mainProcess", terminalPending: true, stackable: false },
+  "stupor":     { label: "昏睡",     group: "incapacitation", img: "icons/svg/unconscious.svg",       type: "block", block: "mainProcess", terminalPending: true, stackable: false },
+  "dead":       { label: "完全死亡", group: "incapacitation", img: "icons/svg/skull.svg",       type: "terminal", stackable: false },
+  "mind-break": { label: "精神崩壊", group: "incapacitation", img: "icons/svg/stoned.svg",      type: "terminal", stackable: false },
+  // 抹殺(社会): アクト終了時に残っていた場合、社会的に抹殺され闇に葬られる(死亡する)効果。
+  // 適用はアクト終了時(ポストアクト・正本 Damage_Rules/Time_Management)＝**アクト中は行動できる**
+  // (applyAtActEnd。blocksMainProcess の対象外＝2026-07-22 ユーザー訂正)
+  "erased":     { label: "抹殺",     group: "incapacitation", img: "icons/svg/cancel.svg",   type: "terminal", applyAtActEnd: true, stackable: false },
   // 支配(2026-07-12 ユーザー確定): 特殊な精神ダメージのタグ。支配されたキャラクターは RL 操作に
   // なる=自動化なしで運用できる範囲(type なし=行動ブロックもロスト処理も持たないマーカー)。
   // 付与は主にタグ改変 AE(damage.replaceTag/addTag)経由: 昏睡/精神崩壊の上書き・抹殺への追加。
   // 解除: 上書き由来=昏睡と同じ(治療目標値20・replacedFrom フラグが根拠)/追加由来=追加元の
   // チャートの治療と同時(woundSource 紐づきで除去)。
-  "dominated":  { label: "支配",     group: "incapacitation", img: "icons/svg/padlock.svg",     stackable: false },
+  "dominated":  { label: "支配",     group: "incapacitation", img: "icons/svg/paralysis.svg",     stackable: false },
 };
 
 /**
@@ -261,6 +267,31 @@ export function getEffectiveConditions(actor) {
     }
   }
   return out;
+}
+
+/**
+ * kind 定義がメインプロセス不可を意味するか(フェーズ13・カット進行の行動可否読み取り)。
+ * block:"mainProcess"(気絶/失神/仮死/昏睡)と terminal(完全死亡/精神崩壊)が該当。
+ * **抹殺は該当しない**(applyAtActEnd＝アクト終了時に残っていた場合に適用される効果であり、
+ * アクト中は行動できる・2026-07-22 ユーザー訂正)。支配(dominated)は操作者が変わるだけで
+ * メインプロセス自体は行えるため該当しない。
+ * @param {object|null} def CONDITION_KINDS の定義
+ * @returns {boolean}
+ */
+export function blocksMainProcess(def) {
+  return def?.block === "mainProcess" || (def?.type === "terminal" && def?.applyAtActEnd !== true);
+}
+
+/**
+ * アクターがメインプロセスを行えない状態か(戦闘不能系タグの読み取り・無視ゲート済み)。
+ * トラッカーの手番確認(イニシアチブの AR−1)が読む。脱落マーク(combatant.defeated)は
+ * 呼び出し側(participantOf)が別途合流する。
+ * @param {Actor} actor
+ * @returns {boolean}
+ */
+export function actorCannotMainProcess(actor) {
+  return getEffectiveConditions(actor)
+    .some(c => c.active !== false && !c.effectIgnored && blocksMainProcess(c.def));
 }
 
 /**

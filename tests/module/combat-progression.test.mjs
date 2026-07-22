@@ -1,14 +1,17 @@
 import { describe, it, expect } from "vitest";
 import {
-  isValidProcessTransition, arDecrement,
-  buildEndMainUpdate, buildCantActUpdate, buildWaitUpdate, buildCleanupUpdate,
-  buildSetupConfirmUpdate,
+  isValidProcessTransition, arDecrement, planAdvance,
+  buildEndMainUpdate, buildCantActUpdate, buildWaitUpdate, buildSetupConfirmUpdate,
 } from "../../scripts/module/combat-progression.mjs";
 
-describe("isValidProcessTransition()（カット進行のプロセス遷移・Combat_Flow §2-6）", () => {
-  it("カット進行の正規の遷移を許可する", () => {
-    expect(isValidProcessTransition(null, "setup")).toBe(true);        // カット開始
-    expect(isValidProcessTransition("prep", "setup")).toBe(true);      // 戦闘準備→セットアップ
+// 参加者の素データ(combat-turn-order と同形)
+const P = (over = {}) => ({
+  id: "x", csCurrent: 0, csBase: 0, actorType: "cast", userOrder: 0, ar: 1, ...over,
+});
+
+describe("isValidProcessTransition()（サブターンモデルのフェーズ遷移・Combat_Flow）", () => {
+  it("正規の遷移を許可する（setup→initiative→main→initiative→…→cleanup→setup）", () => {
+    expect(isValidProcessTransition(null, "setup")).toBe(true);          // カット進行の開始
     expect(isValidProcessTransition("setup", "initiative")).toBe(true);
     expect(isValidProcessTransition("initiative", "main")).toBe(true);
     expect(isValidProcessTransition("main", "initiative")).toBe(true);
@@ -24,6 +27,49 @@ describe("isValidProcessTransition()（カット進行のプロセス遷移・Co
   });
 });
 
+describe("planAdvance()（nextTurn 1本で進む前進計画・サブターンモデル）", () => {
+  it("セットアップ→イニシアチブ（セットアップ末の CSカレント確定を伴う）", () => {
+    expect(planAdvance("setup", [P()])).toEqual({ to: "initiative", confirmSetup: true });
+  });
+
+  it("イニシアチブ→候補がいればそのキャラのメインへ（CSカレント最大かつAR≥1を確認）", () => {
+    const plan = planAdvance("initiative", [
+      P({ id: "a", csCurrent: 5, ar: 1 }),
+      P({ id: "b", csCurrent: 9, ar: 1 }),
+      P({ id: "c", csCurrent: 7, ar: 0 }),
+    ]);
+    expect(plan).toEqual({ to: "main", mainId: "b", penalizedIds: [] });
+  });
+
+  it("イニシアチブ→行動できない最上位（戦闘不能タグ/脱落）は AR−1 の対象になり次点がメインへ", () => {
+    const plan = planAdvance("initiative", [
+      P({ id: "a", csCurrent: 9, ar: 2, cantAct: true }),
+      P({ id: "b", csCurrent: 7, ar: 1 }),
+    ]);
+    expect(plan).toEqual({ to: "main", mainId: "b", penalizedIds: ["a"] });
+  });
+
+  it("イニシアチブ→行動可能者がいなければクリンナップへ", () => {
+    const plan = planAdvance("initiative", [
+      P({ id: "a", ar: 0 }), P({ id: "e", actorType: "extra", ar: 3 }),
+    ]);
+    expect(plan).toEqual({ to: "cleanup", penalizedIds: [] });
+  });
+
+  it("メイン→イニシアチブへ戻る（メイン終了の記帳を伴う）", () => {
+    expect(planAdvance("main", [P()])).toEqual({ to: "initiative", endMain: true });
+  });
+
+  it("クリンナップ→次カットのセットアップへ（再シードを伴う）", () => {
+    expect(planAdvance("cleanup", [P()])).toEqual({ to: "setup", nextCut: true });
+  });
+
+  it("未開始・不明フェーズは null", () => {
+    expect(planAdvance(null, [P()])).toBeNull();
+    expect(planAdvance("xxx", [P()])).toBeNull();
+  });
+});
+
 describe("arDecrement()（AR−1・下限0）", () => {
   it("1減算し0で下げ止まる", () => {
     expect(arDecrement(2)).toBe(1);
@@ -35,54 +81,29 @@ describe("arDecrement()（AR−1・下限0）", () => {
 });
 
 describe("記帳の更新オブジェクト（Combat_Flow §4-6）", () => {
-  it("メジャー実行後は AR−1・CSカレント0（メインプロセス終了時）", () => {
-    expect(buildEndMainUpdate({ actionRank: { value: 2 } }, { didMajor: true })).toEqual({
+  it("メイン終了＝常に AR−1・CSカレント0（メジャー未実行＝「メジャーで何もしなかった」扱い・2026-07-22 裁定）", () => {
+    expect(buildEndMainUpdate({ actionRank: { value: 2 } })).toEqual({
       "system.actionRank.value": 1,
       "system.combatSpeed.current": 0,
     });
   });
 
-  it("メジャー未実行でメインプロセスを終えたら記帳なし（AR/CSは動かない）", () => {
-    expect(buildEndMainUpdate({ actionRank: { value: 2 } }, { didMajor: false })).toEqual({});
-  });
-
-  it("イニシアチブで行動不能は AR−1（§4）", () => {
+  it("行動不能（イニシアチブ・RL判断）＝AR−1", () => {
     expect(buildCantActUpdate({ actionRank: { value: 1 } })).toEqual({ "system.actionRank.value": 0 });
   });
 
-  it("待機は CSカレント1（§4）", () => {
+  it("待機（候補の操作者の宣言）＝CSカレント1", () => {
     expect(buildWaitUpdate()).toEqual({ "system.combatSpeed.current": 1 });
   });
 
-  it("クリンナップは AR 全回復＝付与値 maxTotal（§6）", () => {
-    expect(buildCleanupUpdate({ actionRank: { maxTotal: 3 } })).toEqual({ "system.actionRank.value": 3 });
-  });
-
-  it("actionRank を持たないアクターは記帳しない（空オブジェクト）", () => {
-    expect(buildCantActUpdate({})).toEqual({});
-    expect(buildCleanupUpdate({})).toEqual({});
-    expect(buildEndMainUpdate({}, { didMajor: true })).toEqual({ "system.combatSpeed.current": 0 });
-  });
-});
-
-describe("buildSetupConfirmUpdate()（セットアップ末の CSカレント確定＝CS＋CSカレントバフの焼き込み）", () => {
-  it("current ← valueTotal ＋ currentBuff（CS実効値＋セットアップバフ）", () => {
+  it("セットアップ末確定＝current ← valueTotal ＋ currentBuff", () => {
     expect(buildSetupConfirmUpdate({ combatSpeed: { valueTotal: 5, currentBuff: 2 } }))
       .toEqual({ "system.combatSpeed.current": 7 });
-  });
-
-  it("バフが無ければ current ← valueTotal", () => {
-    expect(buildSetupConfirmUpdate({ combatSpeed: { valueTotal: 5 } }))
-      .toEqual({ "system.combatSpeed.current": 5 });
-  });
-
-  it("値が未定義なら 0 で埋める（combatSpeed はあるが空）", () => {
-    expect(buildSetupConfirmUpdate({ combatSpeed: {} }))
-      .toEqual({ "system.combatSpeed.current": 0 });
-  });
-
-  it("combatSpeed を持たないアクターは記帳しない", () => {
     expect(buildSetupConfirmUpdate({})).toEqual({});
-    expect(buildSetupConfirmUpdate(null)).toEqual({});
+  });
+
+  it("actionRank を持たないアクターは記帳しない", () => {
+    expect(buildCantActUpdate({})).toEqual({});
+    expect(buildEndMainUpdate({})).toEqual({ "system.combatSpeed.current": 0 });
   });
 });

@@ -1,18 +1,19 @@
 /**
- * @fileoverview カット進行のプロセス遷移と CS/AR 記帳の純ロジック(Foundry 非依存・テスト対象。
- * フェーズ13-3)。正本: Combat_Flow.md §2-6。
+ * @fileoverview カット進行のフェーズ遷移と CS/AR 記帳の純ロジック(Foundry 非依存・テスト対象。
+ * フェーズ13-3/13-4)。正本: Combat_Flow.md §2-6・「トラッカー上の表現＝サブターンモデル」。
  *
- * プロセスは 戦闘準備(prep) → セットアップ(setup) → イニシアチブ(initiative) → メイン(main)
- * → イニシアチブ → メイン → …(行動可能者なし)→ クリンナップ(cleanup) → [次カット] セットアップ …
- * と進む。RL がトラッカーの操作で進め、システムは遷移の妥当性検証と、遷移に伴う CS/AR の
- * 記帳(更新オブジェクトの算出)を担う(承認済みの自動化方針＝RL駆動＋自動記帳)。
+ * サブターンモデル(2026-07-22 ユーザー確定): メインプロセス＝キャラクターのターン、セットアップ/
+ * イニシアチブ/クリンナップ＝特定キャラに紐づかない全体の場(サブターン)。1カット＝FVTT の1ラウンド。
+ * イニシアチブは「次のメインで誰が行動するか」を状態(CSカレント最大かつ AR≥1)から**確認する場**で
+ * あり、RL が行動者を指名するのではない。進行は nextTurn 1本(planAdvance が次の一手を計画する)。
  *
  * 記帳の適用先(actor.update)は Foundry 側(TnxCombat)が行う。本モジュールは「何を書くか」だけを返す。
  */
 
-/** プロセスの正規遷移(from → 許可される to の集合)。cleanup→setup は次カット。 */
+import { confirmMain } from "./combat-turn-order.mjs";
+
+/** フェーズの正規遷移(from → 許可される to の集合)。cleanup→setup は次カット。 */
 const PROCESS_TRANSITIONS = {
-  prep: ["setup"],
   setup: ["initiative"],
   initiative: ["main", "cleanup"],
   main: ["initiative"],
@@ -20,7 +21,7 @@ const PROCESS_TRANSITIONS = {
 };
 
 /**
- * プロセス遷移が正規か。未開始(null/undefined)からは setup(カット開始)のみ許可。
+ * フェーズ遷移が正規か。未開始(null/undefined)からは setup(カット進行の開始)のみ許可。
  * @param {string|null|undefined} from
  * @param {string} to
  * @returns {boolean}
@@ -28,6 +29,35 @@ const PROCESS_TRANSITIONS = {
 export function isValidProcessTransition(from, to) {
   if (from === null || from === undefined) return to === "setup";
   return (PROCESS_TRANSITIONS[from] ?? []).includes(to);
+}
+
+/**
+ * 「次へ」(nextTurn)1本の前進計画。現フェーズと参加者の状態から、次に起こることを返す。
+ * - setup      → { to:"initiative", confirmSetup:true }   セットアップ末の CSカレント確定を伴う
+ * - initiative → { to:"main", mainId, penalizedIds }      確認(CSカレント最大かつAR≥1・行動不能は
+ *                { to:"cleanup", penalizedIds }            AR−1 の対象=penalizedIds)。行動可能者が
+ *                                                          いなければクリンナップへ
+ * - main       → { to:"initiative", endMain:true }        メイン終了の記帳を伴う
+ * - cleanup    → { to:"setup", nextCut:true }             次カット(再シード=AR全回復を含む)
+ * @param {string|null} phase 現フェーズ
+ * @param {Array} participants combat-turn-order の素データ配列
+ * @returns {object|null} 前進計画(未開始・不明フェーズは null)
+ */
+export function planAdvance(phase, participants) {
+  switch (phase) {
+    case "setup":
+      return { to: "initiative", confirmSetup: true };
+    case "initiative": {
+      const { mainId, penalizedIds } = confirmMain(participants);
+      return mainId ? { to: "main", mainId, penalizedIds } : { to: "cleanup", penalizedIds };
+    }
+    case "main":
+      return { to: "initiative", endMain: true };
+    case "cleanup":
+      return { to: "setup", nextCut: true };
+    default:
+      return null;
+  }
 }
 
 /**
@@ -40,21 +70,22 @@ export function arDecrement(value) {
 }
 
 /**
- * メインプロセス終了時の記帳(§5)。メジャーを行った場合のみ **AR−1・CSカレント0**。
- * CSカレント0 は「アウトフィットやスタイル技能の効果で変更されない」(Combat_Flow §5)。
+ * メインプロセス終了時の記帳(§5)＝**常に AR−1・CSカレント0**。
+ * メジャーを行わなかった場合も「メジャーアクションで何もしなかった」と扱う(2026-07-22 ユーザー裁定
+ * ——消費されないならムーブ/マイナーの無限反復が可能になるため)。
+ * CSカレント0 は「アウトフィットやスタイル技能の効果で変更されない」——凍結モデルにより
+ * 保存 current がそのまま実効値のため、書き込んだ 0 は AE で持ち上がらない。
  * @param {{actionRank?:{value?:number}}} system
- * @param {{didMajor:boolean}} opts
  * @returns {Record<string, number>}
  */
-export function buildEndMainUpdate(system, { didMajor } = {}) {
-  if (!didMajor) return {};
+export function buildEndMainUpdate(system) {
   const update = { "system.combatSpeed.current": 0 };
   if (system?.actionRank) update["system.actionRank.value"] = arDecrement(system.actionRank.value);
   return update;
 }
 
 /**
- * イニシアチブプロセスで行動不能のときの記帳(§4)＝AR−1。
+ * イニシアチブプロセスで行動不能(RL 判断)のときの記帳(§4)＝AR−1。
  * @param {{actionRank?:{value?:number}}} system
  * @returns {Record<string, number>}
  */
@@ -64,7 +95,7 @@ export function buildCantActUpdate(system) {
 }
 
 /**
- * 待機の記帳(§4)＝CSカレント1。
+ * 待機の記帳(§4)＝CSカレント1。宣言者はそのキャストの操作者(ゲストは RL)。
  * @returns {Record<string, number>}
  */
 export function buildWaitUpdate() {
@@ -72,19 +103,8 @@ export function buildWaitUpdate() {
 }
 
 /**
- * クリンナッププロセスの記帳(§6)＝AR 全回復(=付与値 maxTotal)。
- * @param {{actionRank?:{maxTotal?:number}}} system
- * @returns {Record<string, number>}
- */
-export function buildCleanupUpdate(system) {
-  if (!system?.actionRank) return {};
-  return { "system.actionRank.value": system.actionRank.maxTotal ?? 0 };
-}
-
-/**
- * セットアップ末の CSカレント確定(§3・2026-07-21 ユーザー確定の「一度計算して凍結」モデル)。
- * CSカレントを `CS実効値(valueTotal) ＋ CSカレントへのバフ(currentBuff)` で決定して保存 current へ焼き込む。
- * 以後 currentTotal は保存 current のみ(AE を毎回足さない)＝メジャー後0/待機1 が AE で変更されない。
+ * セットアップ末の CSカレント確定(§3・「一度計算して凍結」モデル)。
+ * `current ← CS実効値(valueTotal) ＋ CSカレントへのバフ(currentBuff)` を焼き込む。
  * @param {{combatSpeed?:{valueTotal?:number, currentBuff?:number}}} system
  * @returns {Record<string, number>}
  */

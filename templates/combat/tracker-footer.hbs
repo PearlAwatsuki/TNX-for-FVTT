@@ -1,0 +1,8 @@
+{{!-- カット進行トラッカー フッター(フェーズ13-4)。進行ボタンは footerPlan(純ロジック)が計画:
+      RL=状況に応じた前進1ボタン(＋メイン中はメジャーなし終了)＋常設のカット進行の終了。
+      手番プレイヤー=メイン中のみ「手番終了」(行動権を渡す)。 --}}
+<nav class="combat-controls tnx-cut-footer" data-tooltip-direction="UP">
+    {{#each tnxFooter}}
+    <button type="button" class="tnx-cut-btn{{#if this.primary}} tnx-cut-btn-primary{{/if}}" data-action="{{this.action}}">{{this.label}}</button>
+    {{/each}}
+</nav>

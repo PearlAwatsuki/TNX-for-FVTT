@@ -33,6 +33,7 @@ import { TokyoNovaItem } from './item/item.mjs';
 import { TokyoNovaActiveEffect } from './module/active-effect.mjs';
 import { TnxCombat } from './combat/tnx-combat.mjs';
 import { TnxCombatant } from './combat/tnx-combatant.mjs';
+import { TnxCombatTracker } from './module/tnx-combat-tracker.mjs';
 import { TokyoNovaStyleSheet } from './item/tnx-style-sheet.mjs';
 import { TokyoNovaMiracleSheet } from './item/tnx-miracle-sheet.mjs';
 import { TokyoNovaGeneralSkillSheet } from './item/tnx-general-skill-sheet.mjs';
@@ -66,7 +67,7 @@ import { FOCUS_SYSTEM_FLAG, defaultFocusSystemData } from './module/focus-system
 import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
 import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
-import { CONDITION_KINDS, CONDITION_GROUP_LABELS, getConditionKinds, buildInflictedEffectsData, applyDamageTagMods, readConditions } from './module/conditions.mjs';
+import { CONDITION_KINDS, CONDITION_GROUP_LABELS, getConditionKinds, buildInflictedEffectsData, applyDamageTagMods, readConditions, blocksMainProcess, actorCannotMainProcess } from './module/conditions.mjs';
 import { gatherDamageTagMods, parseEffectTargetKey, buildTransferredEffectData, readFlag, AE_FLAG_PARAMS } from './data/item/helpers.mjs';
 import { registerDamageChartTextSetting } from './module/damage-chart-text-app.mjs';
 import { registerPartSlotPresetSetting, getPartSlotPreset, initializeDefaultPartSlotPreset, migratePartSlotKeys } from './module/part-slot-preset-app.mjs';
@@ -657,15 +658,45 @@ Hooks.on("createActiveEffect", async (effect, options, userId) => {
     if (data.length) await actor.createEmbeddedDocuments("ActiveEffect", data);
 
     // 2. この状態自身の解決受付: 衰弱/重圧のカード決定ドロー / controlNegate の制御判定。
+    //    フラグ(inflicts 由来=付与時に焼き込み)に加え、状態定義直下の controlNegate(付与状態を
+    //    持たない負傷自身の制御判定=動転)も読む(2026-07-22 ユーザー指摘で配線)。
     const perKind = effect.flags?.["tokyo-nova-axleration"]?.conditions ?? {};
     for (const c of readConditions(effect)) {
         if (conditionNeedsDraw(c.kind, c)) await postDrawPrompt(actor, effect, c.kind);
-        const cn = perKind[c.kind]?.pendingControlNegate;
+        const cn = perKind[c.kind]?.pendingControlNegate ?? c.def?.controlNegate;
         if (cn) await postControlNegatePrompt(actor, effect, c.kind, cn);
     }
     // 3. 選択型負傷(造反/人脈消失/スキャンダル/信頼喪失=社会/コネ「ひとつ」)の使用不可対象を、
     //    付与ユーザーに選ばせて targetSkill を確定する(付与経路を問わない=2026-07-16 是正)。
     await promptWoundSkillSelection(actor, effect);
+
+    // 4. メインプロセス不可の戦闘不能(気絶/失神/仮死/昏睡/完全死亡/精神崩壊=blocksMainProcess。
+    //    抹殺・支配は除く)が付いたら、カット進行の脱落マーク(combatant.defeated)を自動でオンにする
+    //    (2026-07-22 ユーザー指示。「dead」だけ core の特別ステータス(DEFEATED)で自動脱落になる
+    //    非対称の解消)。除去時の自動オフは下の deleteActiveEffect フック。
+    if (getConditionKinds(effect).some(k => blocksMainProcess(CONDITION_KINDS[k]))) {
+        for (const combat of game.combats) {
+            for (const c of (combat.getCombatantsByActor?.(actor) ?? [])) {
+                if (!c.defeated) await c.update({ defeated: true }).catch(() => {});
+            }
+        }
+    }
+});
+
+// 脱落マークの自動オフ: メインプロセス不可の状態が除去され、他に該当状態が残っていなければ
+// 脱落マークを外す(治療・制御判定無効・カット終了回復のたびに RL の手動戻しを要しないため。
+// タグと無関係に RL が手で付けた脱落は、この経路では該当状態が元々無い=除去イベントも来ないので触らない)
+Hooks.on("deleteActiveEffect", async (effect, _options, userId) => {
+    if (game.user.id !== userId) return;
+    const actor = effect.parent;
+    if (!actor || actor.documentName !== "Actor") return;
+    if (!getConditionKinds(effect).some(k => blocksMainProcess(CONDITION_KINDS[k]))) return;
+    if (actorCannotMainProcess(actor)) return; // まだ別の該当状態が残っている
+    for (const combat of game.combats) {
+        for (const c of (combat.getCombatantsByActor?.(actor) ?? [])) {
+            if (c.defeated) await c.update({ defeated: false }).catch(() => {});
+        }
+    }
 });
 
 // アイテム狙いの AE の物理転送(2026-07-13 再設計)+片方向同期(2026-07-12 ユーザー指摘=
@@ -979,6 +1010,8 @@ Hooks.once("init", async function() {
     // プロセス状態機械・CS/AR 自動記帳・トラッカー UI は 13-3 以降。
     CONFIG.Combat.documentClass = TnxCombat;
     CONFIG.Combatant.documentClass = TnxCombatant;
+    // カット進行のサイドバートラッカー(13-4)。既定のコンバットトラッカーを上書きする。
+    CONFIG.ui.combat = TnxCombatTracker;
 
     // Actor DataModel の登録(全 Actor type)
     CONFIG.Actor.dataModels = {
@@ -1976,17 +2009,22 @@ Hooks.once("ready", async function() {
     });
 
 });
-// ─── CS・AR の戦闘連動(フェーズ10-5 / 11 → 13-2/13-3 で TnxCombat へ集約) ─────────
+// ─── CS・AR のカット進行連動(フェーズ10-5 / 11 → 13-2〜13-4 で TnxCombat へ集約) ─────
 // シートの「CS」「AR」表示は自動制御(カット進行中=カレント・現在AR/それ以外=CS・付与値)。
-// 戦闘の開始/終了・参加/離脱で該当アクターを再準備(reset)し、開いているシートを再描画する。
-// カット開始(combatStart)は状態機械の入口 enterSetup を呼ぶ(process=setup・cut=1・CSカレント←CS・
-// AR←付与値をまとめて実施)。以後のプロセス遷移と記帳(セットアップ末/メジャー後/待機/行動不能/
-// クリンナップ全回復)は TnxCombat のメソッドで、トラッカー UI から起動するのはフェーズ13-4。
+// カット進行の終了・参加/離脱で該当アクターを再準備(reset)し、開いているシートを再描画する。
+// カット進行の開始は TnxCombat.startCombat の override が一括処理する(core の combatStart フックは
+// update の**前**に発火するため、フック内からの別 update は本体更新に上書きされ競合する＝実機で発覚。
+// フェーズ状態・turn・シードを単一フローにまとめた)。
+// 以後の進行はサブターンモデル(nextTurn 1本=advanceCut・トラッカー UI から起動)。
 // 途中参加(createCombatant)は開始済みカットへの参加としてそのアクターだけシードする。
 
-Hooks.on("combatStart", async (combat) => {
-    await combat.enterSetup();
-    TnxCombat.refreshDisplays(combat.combatants.map(c => c.actor).filter(Boolean));
+// round の変わる combat 更新(カット進行の開始・次カット)で全クライアントのアクターを再準備する。
+// core の updateCombatantActors は render のみで派生(inCombat)を再計算しないため、開始前に
+// シードされた値の表示切替(CS=カレント表示・AR 数値表示)がここで追随する
+Hooks.on("updateCombat", (combat, changed) => {
+    if ("round" in (changed ?? {})) {
+        TnxCombat.refreshDisplays(combat.combatants.map(c => c.actor).filter(Boolean));
+    }
 });
 
 Hooks.on("deleteCombat", (combat) => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveTurnOrder, nextActiveMain } from "../../scripts/module/combat-turn-order.mjs";
+import { resolveTurnOrder, nextActiveMain, confirmMain, firstSpotId, nextSpotId } from "../../scripts/module/combat-turn-order.mjs";
 
 // 参加者の素データ(Foundry 非依存)。Combatant 側でこの形へ写像する。
 const P = (over = {}) => ({
@@ -104,5 +104,97 @@ describe("nextActiveMain()（次の手番＝CSカレント最大かつ AR≥1 �
 
   it("空配列は null", () => {
     expect(nextActiveMain([])).toBeNull();
+  });
+
+  it("行動できない者（戦闘不能タグ/脱落マーク＝cantAct）は候補にならない", () => {
+    const p = nextActiveMain([
+      P({ id: "a", csCurrent: 9, ar: 2, cantAct: true }),
+      P({ id: "b", csCurrent: 7, ar: 1 }),
+    ]);
+    expect(p.id).toBe("b");
+  });
+});
+
+describe("confirmMain()（イニシアチブの確認＝行動不能の AR−1 を伴う・Combat_Flow §4）", () => {
+  it("最上位が行動可能ならそのままメインへ・ペナルティなし", () => {
+    expect(confirmMain([
+      P({ id: "a", csCurrent: 9, ar: 1 }),
+      P({ id: "b", csCurrent: 7, ar: 1 }),
+    ])).toEqual({ mainId: "a", penalizedIds: [] });
+  });
+
+  it("行動できない最上位（AR≥1）は AR−1 の対象になり、確認は次点へ進む", () => {
+    expect(confirmMain([
+      P({ id: "a", csCurrent: 9, ar: 2, cantAct: true }),
+      P({ id: "b", csCurrent: 7, ar: 1 }),
+    ])).toEqual({ mainId: "b", penalizedIds: ["a"] });
+  });
+
+  it("行動できない者が複数上位にいれば各1回ずつ AR−1", () => {
+    expect(confirmMain([
+      P({ id: "a", csCurrent: 9, ar: 1, cantAct: true }),
+      P({ id: "b", csCurrent: 8, ar: 2, cantAct: true }),
+      P({ id: "c", csCurrent: 5, ar: 1 }),
+    ])).toEqual({ mainId: "c", penalizedIds: ["a", "b"] });
+  });
+
+  it("メインより下位の行動不能者・AR0 の行動不能者はペナルティを受けない", () => {
+    expect(confirmMain([
+      P({ id: "a", csCurrent: 9, ar: 1 }),
+      P({ id: "b", csCurrent: 7, ar: 1, cantAct: true }),  // 下位=最上位になっていない
+      P({ id: "c", csCurrent: 8, ar: 0, cantAct: true }),  // AR0=そもそも対象外
+    ])).toEqual({ mainId: "a", penalizedIds: [] });
+  });
+
+  it("行動可能者がいなければ mainId null（→クリンナップ）・上位の行動不能者は AR−1", () => {
+    expect(confirmMain([
+      P({ id: "a", csCurrent: 9, ar: 1, cantAct: true }),
+      P({ id: "b", csCurrent: 7, ar: 0 }),
+    ])).toEqual({ mainId: null, penalizedIds: ["a"] });
+  });
+});
+
+describe("firstSpotId() / nextSpotId()（サブターン内のスポット走査＝プロセスごとの行動権を CS順に渡す）", () => {
+  const list = [
+    P({ id: "a", csCurrent: 9 }),
+    P({ id: "b", csCurrent: 7 }),
+    P({ id: "e", actorType: "extra", csCurrent: 99 }), // 行動できない=走査に含めない
+    P({ id: "c", csCurrent: 5 }),
+  ];
+
+  it("firstSpotId は CS順の先頭（エキストラ除外）", () => {
+    expect(firstSpotId(list)).toBe("a");
+    expect(firstSpotId([])).toBeNull();
+    expect(firstSpotId([P({ id: "e", actorType: "extra" })])).toBeNull();
+  });
+
+  it("nextSpotId は現スポットの次（CS順）・最後なら null（＝フェーズ送り）", () => {
+    expect(nextSpotId(list, "a")).toBe("b");
+    expect(nextSpotId(list, "b")).toBe("c");
+    expect(nextSpotId(list, "c")).toBeNull();
+  });
+
+  it("現スポットが不明・不在なら先頭へ（途中離脱に頑健）", () => {
+    expect(nextSpotId(list, "zzz")).toBe("a");
+    expect(nextSpotId(list, null)).toBe("a");
+  });
+
+  it("AR 0 でも走査には含まれる（スポットはメイン資格と別＝プロセスの行動権）", () => {
+    const l = [P({ id: "a", csCurrent: 9, ar: 0 }), P({ id: "b", csCurrent: 7, ar: 1 })];
+    expect(firstSpotId(l)).toBe("a");
+    expect(nextSpotId(l, "a")).toBe("b");
+  });
+
+  it("行動できない者（戦闘不能タグ/脱落マーク）は走査から除外する（脱落扱い・2026-07-22）", () => {
+    const l = [
+      P({ id: "a", csCurrent: 9, cantAct: true }),
+      P({ id: "b", csCurrent: 7 }),
+      P({ id: "c", csCurrent: 5, cantAct: true }),
+      P({ id: "d", csCurrent: 3 }),
+    ];
+    expect(firstSpotId(l)).toBe("b");
+    expect(nextSpotId(l, "b")).toBe("d");
+    expect(nextSpotId(l, "d")).toBeNull();
+    expect(firstSpotId([P({ id: "a", cantAct: true })])).toBeNull();
   });
 });

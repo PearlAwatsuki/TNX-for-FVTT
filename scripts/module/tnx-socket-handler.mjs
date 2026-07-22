@@ -13,6 +13,9 @@
  *                    ダメージカード・リアクションカード・事後修正・効果適用済み等、フラグ
  *                    更新の委譲はすべてこの1種別に一本化＝2026-07-16。旧 attackUpdate/
  *                    damageUpdate/usageEffectApplied/checkModify を統合）
+ *   cutAdvance     - PL → GM: カット進行の「手番終了」を委譲する（フェーズ13-4。
+ *                    メインターンの手番プレイヤーは Combat ドキュメントのフラグを更新
+ *                    できないため、GM クライアントが advanceCut を代行する）
  */
 
 const SCOPE = "tokyo-nova-axleration";
@@ -42,6 +45,9 @@ export class TnxSocketHandler {
                 break;
             case "messagePatch":
                 TnxSocketHandler._onMessagePatch(data);
+                break;
+            case "cutAdvance":
+                TnxSocketHandler._onCutAdvance(data);
                 break;
         }
     }
@@ -138,6 +144,33 @@ export class TnxSocketHandler {
     static emitRepairApply(payload) {
         game.socket.emit("system.tokyo-nova-axleration", {
             type: "repairApply",
+            ...payload,
+        });
+    }
+
+    // ─── cutAdvance（カット進行の手番終了委譲・フェーズ13-4） ─────────────────────
+
+    /**
+     * プレイヤーの「次へ」(スポット送り)/「手番終了」を GM クライアントが代行する
+     * (複数 GM 接続時は activeGM のみ)。要求者が「今の番」の combatant——メインターン中は
+     * 手番キャラ・サブターン中はスポットのキャラ——の所有者であることを検証してから前進する。
+     */
+    static async _onCutAdvance(data) {
+        if (game.users.activeGM?.id !== game.user.id) return;
+        const combat = game.combats.get(data?.combatId);
+        if (!combat) return;
+        const currentId = combat.cutPhase === "main" ? combat.mainCombatantId : combat.spotCombatantId;
+        const current = combat.combatants.get(currentId);
+        const requester = game.users.get(data?.userId);
+        if (!requester || !current?.actor?.testUserPermission(requester, "OWNER")) return;
+        await combat.advanceCut();
+    }
+
+    /** 「次へ」/手番終了を GM へ委譲する（スポット/手番プレイヤーのクライアントから呼ぶ）。 */
+    static emitCutAdvance(payload) {
+        game.socket.emit("system.tokyo-nova-axleration", {
+            type: "cutAdvance",
+            userId: game.user.id,
             ...payload,
         });
     }
