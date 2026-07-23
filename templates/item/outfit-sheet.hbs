@@ -969,13 +969,9 @@
                                 </div>
                                 <div class="tnx-part-field tnx-part-target">
                                     <label>アイテム名</label>
-                                    {{#if row.hostNameChoices}}
-                                    <select data-part-field="hostName" data-index="{{row.idx}}">
-                                        {{selectOptions row.hostNameChoices selected=row.hostName}}
+                                    <select data-part-field="hostKey" data-index="{{row.idx}}">
+                                        {{selectOptions row.hostKeyChoices selected=row.hostKey}}
                                     </select>
-                                    {{else}}
-                                    <input type="text" data-part-field="hostName" data-index="{{row.idx}}" value="{{row.hostName}}" placeholder="アイテム名（任意）">
-                                    {{/if}}
                                 </div>
 
                                 {{!-- 装備先(キャスト所属時・カード最下段。占有はこのアイテムのスロットを消費。2層の「装備先」側) --}}

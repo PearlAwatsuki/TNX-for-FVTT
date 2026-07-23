@@ -6158,8 +6158,7 @@ button.tnx-create-act-button span {
 .tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--name > .squeeze-text {
     vertical-align: middle;
 }
-/* オプションの占有スロット種別タグ(情報量)。色は下記の種別ごと --c */
-.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-tag,
+/* 住宅エリアバッジ(ピル)。色は種別ごと --c */
 .tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-area-badge {
     --c: var(--tnx2-accent, #6fb3d2);
     margin-left: 10px;
@@ -6174,31 +6173,28 @@ button.tnx-create-act-button span {
     vertical-align: middle;
     opacity: 0.92;
 }
-/* スロット種別ごとの色(ゲージ・タグ共通): normal=シアン/software=緑/hardware=マゼンタ/
-   表層意識=赤紫/深層意識=藤色/無意識=藍色 */
-.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--normal,
-.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-tag--normal {
+/* スロット種別ごとのゲージ色: normal=シアン/software=緑/hardware=マゼンタ/
+   表層意識=赤紫/深層意識=藤色/無意識=藍色/アイテム名(便宜スロット)=琥珀 */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--normal {
     --c: var(--tnx2-accent, #6fb3d2);
 }
-.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--software,
-.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-tag--software {
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--software {
     --c: #46d160;
 }
-.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--hardware,
-.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-tag--hardware {
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--hardware {
     --c: #ff3da1;
 }
-.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--surface,
-.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-tag--surface {
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--surface {
     --c: #a076e4; /* 表層意識=藤色(彩度もう少し上げ) */
 }
-.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--deep,
-.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-tag--deep {
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--deep {
     --c: #6030ff; /* 深層意識=青紫(明度up) */
 }
-.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--unconscious,
-.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-tag--unconscious {
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--unconscious {
     --c: #3b26f5; /* 無意識=藍/紺(明度up) */
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--outfitName {
+    --c: #e0a94f; /* アイテム名(便宜スロット・スロットなしホストへの名前指定)=琥珀 */
 }
 
 /* 戦闘タブ(10-5/10-6・2026-07-02 確定仕様)。

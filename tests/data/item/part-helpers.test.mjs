@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   computePartOccupancy, computeHostOccupancy, formatOptionLabel, formatPartDesignation,
   joinPartDesignations, buildEffectivePartSlots, findPartLabelByKey, findPartKeyByLabel,
-  resolvePartRowsForDisplay, resolvePartAdditions,
+  resolvePartRowsForDisplay, resolvePartAdditions, matchesHostDescriptor, OUTFIT_NAME_SLOT_KIND,
 } from "../../../scripts/data/item/part-helpers.mjs";
 
 /** body part 行を作るヘルパー */
@@ -330,6 +330,80 @@ describe("computeHostOccupancy()", () => {
     expect(rows[0].used).toBe(2);
     expect(rows[0].occupants.map((o) => o.name)).toEqual(["A", "B"]);
   });
+
+  // ── 便宜スロット「アイテム名」(スロットなしホストへの名前指定装備・2026-07-23) ──
+  it("スロットなしホスト＋名前指定オプション(outfitName)は容量1の便宜スロットを占有する", () => {
+    const rows = computeHostOccupancy(
+      [host("t1", "特殊ツール", [])],
+      [opt("専用オプション", "t1", OUTFIT_NAME_SLOT_KIND, 1)]
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      hostId: "t1", hostName: "特殊ツール", kind: OUTFIT_NAME_SLOT_KIND,
+      capacity: 1, used: 1, free: 0, over: false,
+    });
+  });
+
+  it("アイテム名スロットは容量1: 2個目は over(対象1つにつき1個の制限が占有で効く)", () => {
+    const rows = computeHostOccupancy(
+      [host("t1", "ツール", [])],
+      [opt("A", "t1", OUTFIT_NAME_SLOT_KIND, 1), opt("B", "t1", OUTFIT_NAME_SLOT_KIND, 1)]
+    );
+    expect(rows[0]).toMatchObject({ kind: OUTFIT_NAME_SLOT_KIND, capacity: 1, used: 2, over: true });
+  });
+
+  it("アイテム名スロットは占有が発生したホストにだけ出す(非占有のスロットなし品には出さない)", () => {
+    // オプションが載っていないスロットなしホストは行を出さない(0/1 のノイズを出さない)
+    expect(computeHostOccupancy([host("t1", "ツール", [])], [])).toHaveLength(0);
+    // 実スロットは従来どおり(名前指定オプションが無くても 0/容量 を出す)
+    const rows = computeHostOccupancy([host("w1", "武器", [{ kind: "normal", count: 1 }])], []);
+    expect(rows).toEqual([expect.objectContaining({ kind: "normal", capacity: 1, used: 0 })]);
+  });
+
+  it("実スロット持ちホストに名前指定オプションが載れば、実スロット行＋アイテム名行を併記", () => {
+    const rows = computeHostOccupancy(
+      [host("w1", "銃", [{ kind: "normal", count: 2 }])],
+      [opt("拡張", "w1", "normal", 1), opt("固有弾", "w1", OUTFIT_NAME_SLOT_KIND, 1)]
+    );
+    expect(rows.find((r) => r.kind === "normal")).toMatchObject({ capacity: 2, used: 1 });
+    expect(rows.find((r) => r.kind === OUTFIT_NAME_SLOT_KIND)).toMatchObject({ capacity: 1, used: 1 });
+  });
+});
+
+describe("matchesHostDescriptor()（装備先候補/アイテム名辞典の共通絞り込み・2026-07-23）", () => {
+  const wpn = (extra = {}) => ({ majorCategory: "weapon", minorCategory: "melee", ...extra });
+
+  it("大分類一致(自身の大分類では絞らない=大分類跨ぎOK)", () => {
+    const vehicle = { majorCategory: "vehicle", minorCategory: "groundVehicle" };
+    // 搭載兵器(武器)がヴィークルをホストに取れる
+    expect(matchesHostDescriptor(vehicle, { hostMajor: "vehicle" })).toBe(true);
+    expect(matchesHostDescriptor(wpn(), { hostMajor: "vehicle" })).toBe(false);
+  });
+
+  it("小分類＋除外", () => {
+    expect(matchesHostDescriptor(wpn({ minorCategory: "ranged" }), { hostMajor: "weapon", hostMinor: "ranged" })).toBe(true);
+    // 除外: 搭載兵器『以外』の武器
+    expect(matchesHostDescriptor(wpn({ minorCategory: "mounted" }), { hostMajor: "weapon", hostMinor: "mounted", hostMinorExclude: true })).toBe(false);
+    expect(matchesHostDescriptor(wpn({ minorCategory: "melee" }), { hostMajor: "weapon", hostMinor: "mounted", hostMinorExclude: true })).toBe(true);
+  });
+
+  it("その他特徴は実効フラグで絞る", () => {
+    expect(matchesHostDescriptor(wpn({ isLaser: true }), { hostMajor: "weapon", hostFeature: "isLaser" })).toBe(true);
+    expect(matchesHostDescriptor(wpn({ isLaser: false }), { hostMajor: "weapon", hostFeature: "isLaser" })).toBe(false);
+  });
+
+  it("大分類 cyberware は isCyber でも一致する", () => {
+    const cyberWeapon = { majorCategory: "weapon", minorCategory: "melee", isCyber: true };
+    expect(matchesHostDescriptor(cyberWeapon, { hostMajor: "cyberware" })).toBe(true);
+  });
+
+  it("hostKey(識別キー)があればそのキーのホストだけが対象(種別に依らずキー一本で照合)", () => {
+    const host = { majorCategory: "item", minorCategory: "tool", identificationKey: "sling" };
+    expect(matchesHostDescriptor(host, { hostKey: "sling" })).toBe(true);
+    expect(matchesHostDescriptor(host, { hostKey: "other" })).toBe(false);
+    // キーが一致すれば大分類がズレていても対象(名前指定が優先)
+    expect(matchesHostDescriptor(host, { hostKey: "sling", hostMajor: "weapon" })).toBe(true);
+  });
 });
 
 // ─── フェーズ12: 部位キー / 部位 AE ──────────────────────────────────────────
@@ -425,6 +499,17 @@ describe("部位ラベル逆引き / 表示解決(フェーズ12)", () => {
   it("resolvePartRowsForDisplay: 身体部位行のラベルを現在ラベルへ差し替える", () => {
     const rows = [{ kind: "bodyPart", value: "旧", partKey: "one-hand", slots: 1 }];
     expect(resolvePartRowsForDisplay(rows, slots)[0].value).toBe("片手持ち");
+  });
+
+  it("resolvePartRowsForDisplay: オプション行は hostKey を解決名 hostName へ注入する(2026-07-23)", () => {
+    const rows = [{ kind: "option", hostKey: "sling", slots: 0 }];
+    const resolveHostName = (k) => (k === "sling" ? "スリング" : "");
+    const out = resolvePartRowsForDisplay(rows, slots, resolveHostName);
+    expect(out[0].hostName).toBe("スリング");
+    // 注入された hostName でラベルが名前ベースになる
+    expect(formatOptionLabel(out[0])).toBe("スリング0");
+    // resolver 未指定なら注入しない(hostName は付かない)
+    expect(resolvePartRowsForDisplay(rows, slots)[0].hostName).toBeUndefined();
   });
 
   it("resolvePartAdditions: and/or をラベル解決して分類する", () => {

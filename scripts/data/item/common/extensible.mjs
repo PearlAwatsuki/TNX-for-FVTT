@@ -21,6 +21,10 @@ import { modeValueField } from "../helpers.mjs";
 
 /**
  * スロット種別(2026-06-12 ユーザー確定)。
+ * outfitName(アイテム名)は**便宜スロット**(2026-07-23 ユーザー確定): スロットを持たないホストへ
+ * 名前指定で装備するオプション用に「アイテム名スロットが1つある」扱いにする仮想種別。ホストの
+ * slots[] には保存されず(SLOT_PRESETS にも入れない)、オプション側 parentSlotKind としてのみ現れ、
+ * 占有計算 computeHostOccupancy が容量1で扱う(=対象1つにつき1個の制限が占有で自動的に効く)。
  * @type {Readonly<Record<string, string>>}
  */
 export const SLOT_KINDS = Object.freeze({
@@ -30,6 +34,7 @@ export const SLOT_KINDS = Object.freeze({
   unconscious: "無意識",
   software:    "ソフトウェア",
   hardware:    "ハードウェア",
+  outfitName:  "アイテム名",
 });
 
 export class ExtensibleTemplate extends SystemDataModel {

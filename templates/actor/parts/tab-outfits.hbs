@@ -24,7 +24,7 @@
                             {{#each group.items as |row|}}
                             <div class="outfit-row{{#if row.isNested}} outfit-row--option{{#if row.isLastOption}} outfit-row--last-option{{/if}}{{/if}}" data-item-id="{{row._id}}">
                                 <div class="outfit-row-main">
-                                    <span class="outfit-col--name"><a class="squeeze-text check-trigger {{row.brokenClass}}" data-action="startSkillCheck" data-item-id="{{row._id}}">{{row.displayName}}</a>{{#if row.housingAreaRank}}<span class="outfit-area-badge outfit-area-badge--{{row.housingAreaRank.key}}" title="住宅エリア：{{row.housingAreaRank.label}}">{{row.housingAreaRank.label}}</span>{{/if}}{{#each row.slotGauges}}<span class="outfit-slot-gauge outfit-slot-gauge--{{this.kind}}{{#if this.over}} is-over{{/if}}" title="{{this.kindLabel}} {{this.used}}/{{this.capacity}}">{{#each this.pips}}<i class="tnx-pip{{#if this.on}} on{{/if}}{{#if this.over}} over{{/if}}"></i>{{/each}}<b class="tnx-pip-count">{{this.used}}/{{this.capacity}}</b></span>{{/each}}{{#if row.slotLabel}}<span class="outfit-slot-tag outfit-slot-tag--{{row.slotKind}}">{{row.slotLabel}}</span>{{/if}}</span>
+                                    <span class="outfit-col--name"><a class="squeeze-text check-trigger {{row.brokenClass}}" data-action="startSkillCheck" data-item-id="{{row._id}}">{{row.displayName}}</a>{{#if row.housingAreaRank}}<span class="outfit-area-badge outfit-area-badge--{{row.housingAreaRank.key}}" title="住宅エリア：{{row.housingAreaRank.label}}">{{row.housingAreaRank.label}}</span>{{/if}}{{#each row.slotGauges}}<span class="outfit-slot-gauge outfit-slot-gauge--{{this.kind}}{{#if this.over}} is-over{{/if}}">{{#each this.pips}}<i class="tnx-pip{{#if this.on}} on{{/if}}{{#if this.over}} over{{/if}}"></i>{{/each}}<b class="tnx-pip-count">{{this.used}}/{{this.capacity}}</b></span>{{/each}}</span>
                                     {{#each row.colValues as |col|}}
                                     <span class="outfit-col--{{col.key}}"><span class="squeeze-text">{{col.value}}</span></span>
                                     {{/each}}
@@ -36,7 +36,7 @@
                                         {{/unless}}
                                         {{!-- 部位「-」は準備できない=準備トグルを出さない(準備不要で常時適用・2026-07-09) --}}
                                         {{#unless row.system.isPartless}}
-                                        <button type="button" class="outfit-flag-btn{{#if row.system.isPrepared}} active{{/if}}" data-action="toggleOutfitFlag" data-flag="isPrepared" title="準備済み" {{#unless row.system.isCarrying}}disabled{{/unless}}><i class="fa-solid fa-shield-halved"></i></button>
+                                        <button type="button" class="outfit-flag-btn{{#if row.system.isPreparedEffective}} active{{/if}}" data-action="toggleOutfitFlag" data-flag="isPrepared" title="準備済み" {{#if row.prepareToggleDisabled}}disabled{{/if}}><i class="fa-solid fa-shield-halved"></i></button>
                                         {{/unless}}
                                         {{/unless}}
                                     </span>

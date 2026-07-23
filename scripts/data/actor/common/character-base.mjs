@@ -115,6 +115,7 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
   prepareDerivedData() {
     super.prepareDerivedData?.();
     this._prepareOutfitAggregates();
+    this._prepareOptionPreparedGate();
     this._prepareCombatSpeedTotals();
     const styleItems = this.parent?.items?.filter(i => i.type === "style") ?? [];
     this._prepareAbilityTotals(styleItems);
@@ -436,6 +437,29 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
     this.outfitMod.life    = 0;
     this.outfitMod.mundane = 0;
     this.appearanceModifier = appearance;
+  }
+
+  /**
+   * オプションの**実効準備フラグ** isPreparedEffective を派生算出する(課題2・2026-07-23)。
+   * ルール: オプションは装備先(親アイテム parentItemId)が準備済みでなければ準備できない
+   * (Outfits.md「装備対象のスロット数がなければ装備できない/対象を準備している時に限り準備可能」)。
+   * = 保存 isPrepared かつ 装備先が存在し準備済み。非オプションは isPrepared と同値。
+   * トグルのゲート/連動解除(シート側)に加え、AE・削除など非トグル経路でも状態が古くならないための
+   * 派生の安全網。占有計算・入れ子表示・戦闘の使用可否はこの実効値を読む。
+   */
+  _prepareOptionPreparedGate() {
+    const actor = this.parent;
+    if (!actor?.items) return;
+    for (const item of actor.items) {
+      const sys = item.system;
+      if (!sys || !("isPrepared" in sys)) continue; // アウトフィットのみ(isPrepared を持つ型)
+      if (sys.isOption && sys.parentItemId) {
+        const host = actor.items.get(sys.parentItemId);
+        sys.isPreparedEffective = !!sys.isPrepared && !!host?.system?.isPrepared;
+      } else {
+        sys.isPreparedEffective = !!sys.isPrepared;
+      }
+    }
   }
 
   /**

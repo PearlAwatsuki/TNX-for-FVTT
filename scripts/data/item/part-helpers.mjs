@@ -18,6 +18,14 @@ import {
 } from "./outfit-categories.mjs";
 
 /**
+ * 便宜スロット「アイテム名」の種別キー。SLOT_KINDS.outfitName(extensible.mjs)と同値だが、
+ * 本モジュールは Foundry 非依存を保つため文字列定数として持つ(import しない)。
+ * スロットを持たないホストへ名前指定で装備するオプションが占有する仮想スロット(容量1)。
+ * @type {"outfitName"}
+ */
+export const OUTFIT_NAME_SLOT_KIND = "outfitName";
+
+/**
  * オプションの「その他特徴」キー → 表示ラベル。ホスト側の特徴で絞り込む(「武器(サイバーウェア)」等)。
  * isCyber は大分類サイバーウェア指定で拾う isCyber=true を絞り込みに使う(2026-06-27 ユーザー確定)。
  * 変異器官は 10-2 で新造。
@@ -28,6 +36,40 @@ export const PART_HOST_FEATURE_LABELS = Object.freeze({
   isMutantOrgan: "変異器官",
 });
 
+/**
+ * ホスト候補がオプションの宣言したホスト記述子に一致するか(2026-07-23 統合)。
+ * 装備先(parentItemId)候補の絞り込みと、アイテム名(hostKey)辞典プルダウンの絞り込みを**同一判定**で
+ * 一本化する純関数(旧: 装備先=自身の大分類・アイテム名=記述子、という二本立ての絞りを統合)。
+ *
+ * - hostKey(識別キー)があれば、そのキーのホストだけが対象(種別絞りは選択時の UI 用で、実照合はキー一本)。
+ * - 種別指定は 大分類→小分類(+除外)→その他特徴 の順に絞る。大分類 cyberware は isCyber でも一致
+ *   (サイバーウェアは絞り込みに追加するしかない・PART_HOST_FEATURE_LABELS と同方針)。
+ * - **自身の大分類では絞らない**ので、搭載兵器(武器)→ヴィークル のような大分類跨ぎが自然に通る。
+ *
+ * @param {{majorCategory?:string, minorCategory?:string, identificationKey?:string,
+ *          isLaser?:boolean, isCyber?:boolean, isMutantOrgan?:boolean}} host ホスト候補の実効値
+ *   (真偽フラグは呼び出し側で readFlag した実効値を渡す)
+ * @param {{hostMajor?:string, hostMinor?:string, hostMinorExclude?:boolean,
+ *          hostFeature?:string, hostKey?:string}} spec オプション部位行のホスト記述子
+ * @returns {boolean}
+ */
+export function matchesHostDescriptor(host, spec) {
+  if (!host || !spec) return false;
+  const hostKey = String(spec.hostKey ?? "").trim();
+  if (hostKey) return String(host.identificationKey ?? "").trim() === hostKey;
+  if (spec.hostMajor) {
+    const majorMatch = host.majorCategory === spec.hostMajor
+      || (spec.hostMajor === "cyberware" && host.isCyber === true);
+    if (!majorMatch) return false;
+  }
+  if (spec.hostMinor) {
+    const minorMatch = host.minorCategory === spec.hostMinor;
+    if (spec.hostMinorExclude ? minorMatch : !minorMatch) return false;
+  }
+  if (spec.hostFeature && host[spec.hostFeature] !== true) return false;
+  return true;
+}
+
 /** 消費数の数字サフィックス(1 は無し、0/2/… は数字)。部位名の直後・絞り括弧の前に付く。 */
 function slotNumSuffix(slots) {
   const n = Number(slots);
@@ -36,12 +78,13 @@ function slotNumSuffix(slots) {
 
 /**
  * オプション行の部位名(スロット名)を組み立てる。
- * - アイテム名あり → アイテム名(名前照合のホスト)。
+ * - アイテム名あり(`row.hostName`=**解決済み表示名**) → その名前(名前指定のホスト)。
+ *   保存されるのは `hostKey`(識別キー)で、resolvePartRowsForDisplay が現在名を `hostName` へ注入する。
  * - 大分類レベル(武器のみ・isMajorLevelSlotMajor) → 大分類名「武器」。小分類/特徴は絞りとして
  *   括弧併記「武器(白兵武器)」、除外は「武器(搭載兵器以外)」。
  * - 小分類レベル(大半) → 小分類名「タップ」「IANUS」「船舶」。除外は「○○以外」。特徴は括弧。
  * - 消費数の数字は名前直後・括弧の前(「武器0(白兵武器)」)。
- * @param {Object} row part 行(kind=option)
+ * @param {Object} row part 行(kind=option)。`hostName` は解決済み表示名(未解決なら種別ラベル)
  * @returns {string}
  */
 export function formatOptionLabel(row) {
@@ -178,19 +221,29 @@ export function findPartKeyByLabel(slots, label) {
 }
 
 /**
- * 表示用に part 行のラベルを partKey から現在ラベルへ解決した複製を返す(フェーズ12)。
- * 「保存する参照はキー・表示は逆引きした現在名」の原則——部位のリネームに表示が追従する。
- * キー未解決(削除・無キー)は保存ラベルへフォールバック。身体部位行のみ対象。
+ * 表示用に part 行のラベルを現在名へ解決した複製を返す(フェーズ12 / 2026-07-23 拡張)。
+ * 「保存する参照はキー・表示は逆引きした現在名」の原則——リネームに表示が追従する。
+ * - 身体部位: `partKey` から現在ラベルへ差し替え(未解決は保存ラベルへフォールバック)。
+ * - オプション: `hostKey`(識別キー)を `resolveHostName` で現在名へ解決し、行に `hostName`(表示用)を
+ *   注入する。formatOptionLabel はこの `hostName` を読む(「特殊弾(スリング)」「アサルトナーヴス0」等)。
+ *   未解決/未指定は注入せず種別ラベルになる。保持名キャッシュは持たない(常に live 解決)。
  * @param {Array} rows part 行配列
  * @param {Array} slots 部位スロット集合(アクター=partSlotsEffective / 直下・辞典=プリセット)
+ * @param {?(hostKey:string)=>string} [resolveHostName] hostKey→現在名(識別キー逆引き)。省略時はオプション名解決なし
  * @returns {Array}
  */
-export function resolvePartRowsForDisplay(rows, slots) {
+export function resolvePartRowsForDisplay(rows, slots, resolveHostName = null) {
   return (Array.isArray(rows) ? rows : []).map((r) => {
     const effKind = r?.kind === "reference" ? r?.refSubKind : r?.kind;
-    if (effKind !== "bodyPart") return r;
-    const label = findPartLabelByKey(slots, r?.partKey);
-    return label && label !== r.value ? { ...r, value: label } : r;
+    if (effKind === "bodyPart") {
+      const label = findPartLabelByKey(slots, r?.partKey);
+      return label && label !== r.value ? { ...r, value: label } : r;
+    }
+    if (effKind === "option" && typeof resolveHostName === "function" && r?.hostKey) {
+      const name = resolveHostName(r.hostKey);
+      if (name) return { ...r, hostName: name };
+    }
+    return r;
   });
 }
 
@@ -429,8 +482,8 @@ export function buildEffectivePartSlots(baseSlots = [], aeDeltas = {}, woundMods
  *   ホスト×スロット種別(容量>0)ごとの占有。
  */
 export function computeHostOccupancy(hosts = [], options = []) {
-  // ホスト: id -> { name, caps: Map<kind,容量> }。容量>0 のスロットだけ積む。
-  // スロット0/無スロットのホストは候補にしない(使えるスロットが無いため)。
+  // ホスト: id -> { name, caps: Map<kind,容量> }。容量>0 の実スロットを積む。
+  // スロットなし/容量0のホストも登録する(便宜スロット「アイテム名」の受け皿になるため。2026-07-23)。
   const hostMap = new Map();
   for (const h of (hosts ?? [])) {
     const id = String(h?.id ?? "").trim();
@@ -442,17 +495,19 @@ export function computeHostOccupancy(hosts = [], options = []) {
       const cap = Math.max(0, Number(s?.count) || 0);
       if (cap > 0) caps.set(kind, (caps.get(kind) ?? 0) + cap);
     }
-    if (caps.size) hostMap.set(id, { name: String(h?.name ?? ""), caps });
+    hostMap.set(id, { name: String(h?.name ?? ""), caps });
   }
 
-  // 使用量: host id -> kind -> { used, occupants }。使えるスロット(容量>0)が無い種別は拾わない。
+  // 使用量: host id -> kind -> { used, occupants }。
+  // - 実スロット種別は容量>0 が無いと数えない(そのホストに無い種別)。
+  // - 便宜スロット「アイテム名」(OUTFIT_NAME_SLOT_KIND)は実スロット不要(容量1・スロットなしホスト用)。
   const usage = new Map();
   for (const o of (options ?? [])) {
     const pid = String(o?.parentItemId ?? "").trim();
     if (!pid || !hostMap.has(pid)) continue;          // 準備済みホストに紐づくものだけ
     const host = hostMap.get(pid);
     const kind = String(o?.parentSlotKind ?? "").trim();
-    if (!host.caps.has(kind)) continue;               // そのホストに無い種別は数えない
+    if (kind !== OUTFIT_NAME_SLOT_KIND && !host.caps.has(kind)) continue; // 実スロットに無い種別は数えない
     const n = Number(o?.slots);
     const amount = Number.isFinite(n) ? Math.max(0, n) : 1;
     if (!usage.has(pid)) usage.set(pid, new Map());
@@ -463,7 +518,7 @@ export function computeHostOccupancy(hosts = [], options = []) {
     e.occupants.push({ name: String(o?.name ?? ""), slots: amount });
   }
 
-  // 出力: ホスト順 → 容量のある種別のみ。
+  // 出力: ホスト順 → 実スロット種別(容量あり) + 便宜スロット「アイテム名」(占有時のみ・容量1)。
   const rows = [];
   for (const [id, host] of hostMap) {
     const km = usage.get(id) ?? new Map();
@@ -472,6 +527,15 @@ export function computeHostOccupancy(hosts = [], options = []) {
       rows.push({
         hostId: id, hostName: host.name, kind, capacity,
         used: e.used, free: capacity - e.used, over: e.used > capacity, occupants: e.occupants,
+      });
+    }
+    // 便宜スロット「アイテム名」: 名前指定オプションが実際に載ったホストにだけ 1/容量 を出す
+    // (全スロットなし品に 0/1 を出さない)。容量1なので2個目は over=対象1つにつき1個の制限が自動で効く。
+    const on = km.get(OUTFIT_NAME_SLOT_KIND);
+    if (on && on.used > 0 && !host.caps.has(OUTFIT_NAME_SLOT_KIND)) {
+      rows.push({
+        hostId: id, hostName: host.name, kind: OUTFIT_NAME_SLOT_KIND, capacity: 1,
+        used: on.used, free: 1 - on.used, over: on.used > 1, occupants: on.occupants,
       });
     }
   }

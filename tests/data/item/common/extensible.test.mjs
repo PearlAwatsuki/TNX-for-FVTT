@@ -45,7 +45,7 @@ describe("ExtensibleTemplate.defineSchema() (フェーズ6-2 プール方式)", 
 });
 
 describe("SLOT_KINDS", () => {
-  it("通常 + 意識 3 種 + ソフトウェア/ハードウェアの 6 種", () => {
+  it("通常 + 意識 3 種 + ソフトウェア/ハードウェア + 便宜スロット アイテム名 の 7 種", () => {
     expect(SLOT_KINDS).toEqual({
       normal:      "スロット",
       surface:     "表層意識",
@@ -53,6 +53,7 @@ describe("SLOT_KINDS", () => {
       unconscious: "無意識",
       software:    "ソフトウェア",
       hardware:    "ハードウェア",
+      outfitName:  "アイテム名",
     });
   });
 

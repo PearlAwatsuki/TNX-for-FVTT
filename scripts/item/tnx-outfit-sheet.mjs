@@ -7,9 +7,11 @@ import { SLOT_KINDS } from "../data/item/common/extensible.mjs";
 import { HOUSING_AREA_RANKS, HOUSING_AREA_MOD_FIELDS } from "../data/item/housing-area.mjs";
 import { PART_KINDS, PART_REFERENCE_SUB_KINDS, PART_RELATIONS, SHIKI_TYPES } from "../data/item/common/outfit-base.mjs";
 import { getPartSlotPreset } from "../module/part-slot-preset-app.mjs";
-import { formatPartDesignation, joinPartDesignations, PART_HOST_FEATURE_LABELS, resolvePartRowsForDisplay, resolvePartAdditions, findPartKeyByLabel } from "../data/item/part-helpers.mjs";
+import { formatPartDesignation, joinPartDesignations, PART_HOST_FEATURE_LABELS, resolvePartRowsForDisplay, resolvePartAdditions, findPartKeyByLabel, matchesHostDescriptor, OUTFIT_NAME_SLOT_KIND } from "../data/item/part-helpers.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
+import { resolveItemNameByKey } from "../module/identification.mjs";
 import { loadSkillChoices, loadOnomasticChoices, STYLE_PACK, ORGANIZATION_PACK } from "../module/skill-dictionary.mjs";
+import { loadOutfitHostChoices, loadOutfitDictNames } from "../module/outfit-dictionary.mjs";
 
 /** 住宅エリア compendium の pack ID */
 const HOUSING_AREA_PACK = "tokyo-nova-axleration.housing-areas";
@@ -215,7 +217,23 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         return {
             kind: "bodyPart", value: "", slots: 1,
             hostMajor: "", hostMinor: "", hostMinorExclude: false,
-            hostFeature: "", hostName: "", refSubKind: "none",
+            hostFeature: "", hostKey: "", refSubKind: "none",
+        };
+    }
+
+    /**
+     * オプションの装備先絞り込みに使うホスト記述子を part 行から取り出す(先頭の option 行)。
+     * 装備先(parentItemId)候補と、アイテム名(hostKey)辞典プルダウンの絞り込みで共有する。
+     * @param {object} system アウトフィットの system
+     * @returns {{hostMajor:string, hostMinor:string, hostMinorExclude:boolean, hostFeature:string, hostKey:string}}
+     */
+    _optionHostSpec(system) {
+        const rows = Array.isArray(system.part) ? system.part : [];
+        const row = rows.find((r) => (r?.kind === "reference" ? r?.refSubKind : r?.kind) === "option") ?? {};
+        return {
+            hostMajor: row.hostMajor ?? "", hostMinor: row.hostMinor ?? "",
+            hostMinorExclude: row.hostMinorExclude === true,
+            hostFeature: row.hostFeature ?? "", hostKey: row.hostKey ?? "",
         };
     }
 
@@ -344,7 +362,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         if (!system.part.length) system.part = [this.constructor.blankPartRow];
 
         // 部位エディタ(フェーズ10): 行ごとの種別連動 UI 用データ(文脈連動の選択肢込み)
-        this._preparePartEditorData(context, system);
+        await this._preparePartEditorData(context, system);
 
         // 特性(10-2): 式神装備のタイプ選択肢・派生元アウトフィットの派生データ参照(名前ライブ解決)
         context.shikiTypeChoices = { "": "-", ...SHIKI_TYPES };
@@ -384,28 +402,37 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         const minorChoices = { "": "-" };
         for (const minorKey of categories[system.majorCategory] ?? []) minorChoices[minorKey] = getMinorCategoryLabel(minorKey);
 
-        // isOption のとき: 同アクター・同大分類・非オプションのアウトフィットのみを選択肢として構築する
+        // isOption のとき: **宣言したホスト記述子**(hostMajor/hostMinor/除外/特徴/hostKey)に一致する
+        // 非オプションのアウトフィットを装備先候補にする(2026-07-23 統合)。自身の大分類では絞らない
+        // ——搭載兵器(武器)→ヴィークル のような大分類跨ぎが通る。照合はアイテム名辞典と同じ matchesHostDescriptor。
         const parentItemChoices = { "": "-" };
         const parentSlotChoices = { "": "-" };
         if (system.isOption && this.item.parent?.documentName === "Actor") {
-            const selfMajor = system.majorCategory;
+            const spec = this._optionHostSpec(system);
             for (const sibling of this.item.parent.items) {
                 if (sibling.id === this.item.id) continue;
                 if (!OUTFIT_TYPES.has(sibling.type)) continue;
                 if (sibling.system.isOption) continue;
-                if (sibling.system.majorCategory !== selfMajor) continue;
+                const sm = sibling.system;
+                const host = {
+                    majorCategory: sm.majorCategory, minorCategory: sm.minorCategory,
+                    identificationKey: sm.identificationKey ?? "",
+                    isLaser: readFlag(sm, "isLaser"), isCyber: readFlag(sm, "isCyber"),
+                    isMutantOrgan: readFlag(sm, "isMutantOrgan"),
+                };
+                if (!matchesHostDescriptor(host, spec)) continue;
                 parentItemChoices[sibling.id] = sibling.name;
             }
-            // 親アイテム選択済みの場合、その slots を展開してスロット種別選択肢を構築する
+            // 親アイテム選択済み: 実スロット(容量>0)があればその種別、無ければ便宜スロット「アイテム名」を候補に
             if (system.parentItemId) {
                 const parentItem = this.item.parent.items.get(system.parentItemId);
-                const slots = parentItem?.system?.slots;
-                if (Array.isArray(slots)) {
-                    for (const slot of slots) {
-                        if (slot?.count?.mode === "value") {
-                            parentSlotChoices[slot.kind] = SLOT_KINDS[slot.kind] ?? slot.kind;
-                        }
-                    }
+                const slots = Array.isArray(parentItem?.system?.slots) ? parentItem.system.slots : [];
+                const realSlots = slots.filter((s) => s?.count?.mode === "value" && Number(s.count.value) > 0);
+                if (realSlots.length) {
+                    for (const slot of realSlots) parentSlotChoices[slot.kind] = SLOT_KINDS[slot.kind] ?? slot.kind;
+                } else if (parentItem) {
+                    // スロットなしホスト=便宜スロット「アイテム名」。表示はホスト名(アイテムごとに変わる)
+                    parentSlotChoices[OUTFIT_NAME_SLOT_KIND] = parentItem.name;
                 }
             }
         }
@@ -469,7 +496,13 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             context.combine.isActive = system.isCombineActive;
         }
 
-        context.view = this._prepareView(system, type, areaMods);
+        // アイテム名(hostKey)→現在名の解決子: アクター所持品の逆引き優先・辞典名フォールバック
+        // (identification.mjs。保持名キャッシュなし＝常に live 解決)。オプションの部位ラベルに使う。
+        const outfitDictNames = await loadOutfitDictNames();
+        const actorForResolve = this.item.parent?.documentName === "Actor" ? this.item.parent : null;
+        const resolveHostName = (key) => resolveItemNameByKey(actorForResolve, key, outfitDictNames);
+
+        context.view = this._prepareView(system, type, areaMods, resolveHostName);
         return context;
     }
 
@@ -600,9 +633,10 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
      * @param {Object} system 正規化済み system データ
      * @param {string} type Item type
      * @param {Object|null} areaMods 住宅施設の場合、紐づけた住宅エリアの system(合算用)。なければ null
+     * @param {?(hostKey:string)=>string} [resolveHostName] オプション部位ラベルの hostKey→現在名
      * @returns {Object}
      */
-    _prepareView(system, type, areaMods = null) {
+    _prepareView(system, type, areaMods = null, resolveHostName = null) {
         const view = {};
         const num = (v) => (Number.isFinite(v) ? String(v) : "0");
         // 住宅エリアの修正値を加算するヘルパー(住宅施設のみ。エリア未設定時は加算 0)
@@ -650,7 +684,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         const partSlotsCtx = this.item.parent?.system?.partSlotsEffective
             ?? this.item.parent?.system?.partSlots ?? getPartSlotPreset();
         const part = formatPartDesignation(
-            resolvePartRowsForDisplay(system.part, partSlotsCtx),
+            resolvePartRowsForDisplay(system.part, partSlotsCtx, resolveHostName),
             system.partRelation, system.partOptional,
             resolvePartAdditions(this.item.system.partAdded, partSlotsCtx));
         const defence = () => {
@@ -986,6 +1020,8 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                     } else {
                         row[field] = value;
                         if (field === "hostMajor") row.hostMinor = ""; // 大分類変更で小分類をリセット
+                        // ホスト記述子が変わればアイテム名(hostKey)の辞典絞りが変わる=選択をリセット
+                        if (["hostMajor", "hostMinor", "hostMinorExclude", "hostFeature"].includes(field)) row.hostKey = "";
                     }
                 });
             });
@@ -1032,13 +1068,18 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             });
         }
 
-        // 装備対象変更時: スロット種別をリセットする(親が変わればスロット構成も変わるため)
+        // 装備対象変更時: スロット種別をリセット(親が変わればスロット構成も変わる)。
+        // スロットなしホストは便宜スロット「アイテム名」しか無いので既定で選んでおく(2026-07-23)。
         this.element.querySelector('select[name="system.parentItemId"]')
             ?.addEventListener("change", (event) => {
                 event.stopPropagation();
+                const hostId = event.currentTarget.value;
+                const host = hostId ? this.item.parent?.items?.get(hostId) : null;
+                const hostSlots = Array.isArray(host?.system?.slots) ? host.system.slots : [];
+                const hasRealSlots = hostSlots.some((s) => s?.count?.mode === "value" && Number(s.count.value) > 0);
                 this.item.update({
-                    "system.parentItemId":   event.currentTarget.value,
-                    "system.parentSlotKind": "",
+                    "system.parentItemId":   hostId,
+                    "system.parentSlotKind": (hostId && !hasRealSlots) ? OUTFIT_NAME_SLOT_KIND : "",
                 });
             });
 
@@ -1376,12 +1417,13 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
     /**
      * 部位エディタ用に行ごとの種別連動データと文脈連動の選択肢を組み立てる。
-     * D&D 5e「消費」UI を参考: 対象欄はワールド直下では自由入力、キャラ所属では
-     * そのキャラの持ち物/部位からドロップダウンに変わる。
+     * D&D 5e「消費」UI を参考: 身体部位はワールド直下ではプリセット、キャラ所属ではその部位から。
+     * オプションの「アイテム名」は**アウトフィット辞典**から宣言記述子で絞った hostKey 候補
+     * (2026-07-23。直下・辞典でも辞典参照＝自由記入を廃止)。
      * @param {Object} context テンプレートコンテキスト
      * @param {Object} system 正規化済み system(part は配列)
      */
-    _preparePartEditorData(context, system) {
+    async _preparePartEditorData(context, system) {
         const isActorOwned = this.item.parent?.documentName === "Actor";
         context.partIsActorOwned = isActorOwned;
         context.partKindChoices    = PART_KINDS;
@@ -1416,7 +1458,10 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         context.partHostMajorChoices = majorChoices;
         context.partHostFeatureChoices = { "": "—", ...PART_HOST_FEATURE_LABELS };
 
-        context.partRows = (system.part ?? []).map((p, idx) => {
+        // アイテム名(hostKey)の解決/フォールバック用: 全アウトフィット辞典の {識別キー: 名前}
+        const outfitDictNames = await loadOutfitDictNames();
+
+        context.partRows = await Promise.all((system.part ?? []).map(async (p, idx) => {
             // 解説参照は refSubKind を実効種別として欄を出し分ける(表示ラベルは常に「解説参照」)
             const effKind = p.kind === "reference" ? (p.refSubKind ?? "none") : p.kind;
             // 身体部位の表示ラベルは partKey の逆引きを優先(部位のリネームに追従・フェーズ12)
@@ -1429,26 +1474,18 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             const major = OUTFIT_CATEGORIES[p.hostMajor];
             if (major) for (const [mk, mv] of Object.entries(major.minors)) minorChoices[mk] = mv.label;
 
-            // オプションのアイテム名: アクター所属時、ホスト条件に一致する所有アウトフィット名
-            let hostNameChoices = null;
-            if (isActorOwned && effKind === "option") {
-                hostNameChoices = { "": "—" };
-                for (const sib of this.item.parent.items) {
-                    if (sib.id === this.item.id) continue;
-                    if (!this.constructor.OUTFIT_HOST_TYPES.has(sib.type)) continue;
-                    const sm = sib.system;
-                    if (p.hostMajor) {
-                        const majorMatch = sm.majorCategory === p.hostMajor
-                            || (p.hostMajor === "cyberware" && readFlag(sm, "isCyber"));
-                        if (!majorMatch) continue;
-                    }
-                    if (p.hostMinor) {
-                        const minorMatch = sm.minorCategory === p.hostMinor;
-                        if (p.hostMinorExclude ? minorMatch : !minorMatch) continue;
-                    }
-                    // ホスト特徴(isLaser/isCyber/isMutantOrgan)は実効フラグで照合(フェーズ12)
-                    if (p.hostFeature && !readFlag(sm, p.hostFeature)) continue;
-                    hostNameChoices[sib.name] = sib.name;
+            // オプションのアイテム名(hostKey): アウトフィット辞典から、宣言記述子で絞った候補
+            // (大分類/小分類/除外/特徴。直下・辞典・アクターいずれでも辞典参照)。
+            let hostKeyChoices = null;
+            if (effKind === "option") {
+                hostKeyChoices = await loadOutfitHostChoices({
+                    hostMajor: p.hostMajor, hostMinor: p.hostMinor,
+                    hostMinorExclude: p.hostMinorExclude, hostFeature: p.hostFeature,
+                });
+                // 保存済み hostKey が絞りに含まれない場合でも表示を失わないよう現在名を補う
+                if (p.hostKey && !hostKeyChoices[p.hostKey]) {
+                    const name = resolveItemNameByKey(isActorOwned ? this.item.parent : null, p.hostKey, outfitDictNames);
+                    if (name) hostKeyChoices[p.hostKey] = name;
                 }
             }
 
@@ -1461,7 +1498,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 hostMinor: p.hostMinor,
                 hostMinorExclude: p.hostMinorExclude,
                 hostFeature: p.hostFeature,
-                hostName: p.hostName,
+                hostKey: p.hostKey,
                 refSubKind: p.refSubKind,
                 isReference: p.kind === "reference",
                 showBody:   effKind === "bodyPart",
@@ -1471,9 +1508,9 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 bodyIsOther: !!bodyPresetSet && effKind === "bodyPart" && !!p.value && !bodyPresetSet.has(p.value),
                 bodyPresetSelected: !bodyPresetSet ? "" : (bodyPresetSet.has(p.value) ? p.value : (p.value ? "__other__" : "")),
                 minorChoices,
-                hostNameChoices,
+                hostKeyChoices,
             };
-        });
+        }));
     }
 
     // ─── 部位配列操作 ───────────────────────────────────────────────────────

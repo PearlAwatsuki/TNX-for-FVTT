@@ -13,7 +13,7 @@ import { TnxSkillUtils } from '../module/tnx-skill-utils.mjs';
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 import { OUTFIT_CATEGORIES, getMinorCategoryLabel, getMajorCategoryLabel, isMajorLevelSlotMajor } from '../data/item/outfit-categories.mjs';
 import { formatWeaponRangeLabel } from '../item/tnx-outfit-sheet.mjs';
-import { formatPartDesignation, joinPartDesignations, computePartOccupancy, computeHostOccupancy, resolvePartRowsForDisplay, resolvePartAdditions } from '../data/item/part-helpers.mjs';
+import { formatPartDesignation, joinPartDesignations, computePartOccupancy, computeHostOccupancy, resolvePartRowsForDisplay, resolvePartAdditions, OUTFIT_NAME_SLOT_KIND } from '../data/item/part-helpers.mjs';
 import { SLOT_KINDS } from '../data/item/common/extensible.mjs';
 import { getPartSlotPreset, PartSlotPresetApp } from '../module/part-slot-preset-app.mjs';
 import { OUTFIT_ITEM_TYPES, findDepartmentSkillName } from '../data/helpers.mjs';
@@ -38,7 +38,7 @@ import { openConditionEditDialog } from '../module/condition-edit.mjs';
 import { startTreatment } from '../module/treatment-flow.mjs';
 import { isAttackUsage } from '../data/item/common/usage.mjs';
 import { executionFormOf, usageDisplayName, isReactionType } from '../module/usage-types.mjs';
-import { itemDisplayName } from '../module/identification.mjs';
+import { itemDisplayName, resolveItemNameByKey } from '../module/identification.mjs';
 import { isOpposedConfrontation } from '../module/confrontation-logic.mjs';
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -424,11 +424,14 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         //   IANUS は単一準備で常に一意のため IANUS(IANUS) のような重複表記を出さない。
         const hostRows = computeHostOccupancy(hostCandidates, hostOptions).map((r) => {
             const sys = this.actor.items.get(r.hostId)?.system;
-            const slotName = (r.kind && r.kind !== "normal")
-                ? (SLOT_KINDS[r.kind] ?? r.kind)
-                : (isMajorLevelSlotMajor(sys?.majorCategory)
-                    ? getMajorCategoryLabel(sys?.majorCategory)
-                    : (getMinorCategoryLabel(sys?.minorCategory) || getMajorCategoryLabel(sys?.majorCategory)));
+            // 便宜スロット「アイテム名」はスロット名＝ホスト名(アイテムごとに変わる。2026-07-23)。
+            const slotName = (r.kind === OUTFIT_NAME_SLOT_KIND)
+                ? r.hostName
+                : (r.kind && r.kind !== "normal")
+                    ? (SLOT_KINDS[r.kind] ?? r.kind)
+                    : (isMajorLevelSlotMajor(sys?.majorCategory)
+                        ? getMajorCategoryLabel(sys?.majorCategory)
+                        : (getMinorCategoryLabel(sys?.minorCategory) || getMajorCategoryLabel(sys?.majorCategory)));
             return { slotName, hostName: r.hostName, used: r.used, capacity: r.capacity, over: r.over };
         });
         const slotNameCount = new Map();
@@ -764,7 +767,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
     _prepareCombatData(context) {
         const items = this.actor.items;
         const sys = this.actor.system;
-        const usable = (i) => !!(i.system.isPrepared || readFlag(i.system, "noPrepareRequired"));
+        // 実効準備(isPreparedEffective)で使用可否を見る: オプション武器(搭載兵器等)は装備先が
+        // 準備済みでないと使用候補に出さない(課題2)。非オプションは isPrepared と同値。
+        const usable = (i) => !!((i.system.isPreparedEffective ?? i.system.isPrepared) || readFlag(i.system, "noPrepareRequired"));
         const refs = sys.weaponRefs ?? {};
         const mvT = (f) => f?.mode === "value" ? (f.total ?? f.value) : null;
         const bySort = (a, b) => (a.sort ?? 0) - (b.sort ?? 0);
@@ -1470,11 +1475,12 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             if (hiddenItem) combineHiddenIds.add(hiddenItem.id);
         }
 
-        // 入れ子(ホスト配下)にするのは「準備済み(装備対象に準備済み)のオプション」だけ。
-        // 未準備(携帯のみ)は装備対象に装着されていないので、配下から外して独立行で通常表示する。
-        const isNestedOption = (sys) => sys.isOption && sys.parentItemId && sys.isPrepared;
+        // 入れ子(ホスト配下)にするのは「実効準備済み(装備対象=親も準備済み)のオプション」だけ。
+        // 装備先が未準備/自身が未準備(携帯のみ)は装着されていないので、配下から外して独立行で表示する
+        // (isPreparedEffective=保存 isPrepared かつ親準備済み・課題2/2026-07-23)。
+        const isNestedOption = (sys) => sys.isOption && sys.parentItemId && sys.isPreparedEffective;
 
-        // スロットゲージ(種別ごと)用: ホストの種別→容量マップ／オプションの占有スロット種別ラベル
+        // スロットゲージ(種別ごと)用: ホストの種別→容量マップ(cap>0 のみ)
         const hostCapByKind = (sys) => {
             const m = new Map();
             for (const s of (Array.isArray(sys.slots) ? sys.slots : [])) {
@@ -1483,14 +1489,6 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                 if (cap > 0) m.set(s.kind, (m.get(s.kind) ?? 0) + cap);
             }
             return m;
-        };
-        const optionSlotLabel = (sys) => {
-            const k = sys.parentSlotKind;
-            if (k && k !== "normal") return SLOT_KINDS[k] ?? k;
-            const host = this.actor.items.get(sys.parentItemId)?.system;
-            return isMajorLevelSlotMajor(host?.majorCategory)
-                ? getMajorCategoryLabel(host?.majorCategory)
-                : (getMinorCategoryLabel(host?.minorCategory) || getMajorCategoryLabel(host?.majorCategory));
         };
 
         const optionsByParent = new Map();
@@ -1526,20 +1524,23 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                     // スロット:-(無スロット)も スロット:0(容量0)も非表示＝占有計算と同基準。
                     // 何も準備していなくても 0/容量 を出す。種別名はツールチップ、色は種別ごと(--c)。
                     const capByKind = hostCapByKind(item.system);
-                    if (capByKind.size) { // capByKind は cap>0 の種別のみ → スロット:-/0 は size 0 で除外
-                        const usedByKind = new Map();
-                        for (const o of opts) {
-                            const k = o.system.parentSlotKind || "normal";
-                            usedByKind.set(k, (usedByKind.get(k) ?? 0) + this._optionConsumption(o.system));
-                        }
-                        const kinds = [...new Set([...capByKind.keys(), ...usedByKind.keys()])];
+                    const usedByKind = new Map();
+                    for (const o of opts) {
+                        const k = o.system.parentSlotKind || "normal";
+                        usedByKind.set(k, (usedByKind.get(k) ?? 0) + this._optionConsumption(o.system));
+                    }
+                    // 便宜スロット「アイテム名」: 名前指定オプションが載ったホスト(スロットなしを含む)は
+                    // 容量1のゲージを出す(占有時のみ=非占有品には出さない。占有計算 computeHostOccupancy と同基準)。
+                    const effCapByKind = new Map(capByKind);
+                    if (usedByKind.has(OUTFIT_NAME_SLOT_KIND)) effCapByKind.set(OUTFIT_NAME_SLOT_KIND, 1);
+                    if (effCapByKind.size) { // 実スロット(cap>0)or アイテム名占有があるホストだけゲージ表示
+                        const kinds = [...new Set([...effCapByKind.keys(), ...usedByKind.keys()])];
                         row.slotGauges = kinds.map((kind) => {
-                            const capacity = capByKind.get(kind) ?? 0;
+                            const capacity = effCapByKind.get(kind) ?? 0;
                             const used = usedByKind.get(kind) ?? 0;
                             const total = Math.min(Math.max(capacity, used), 8); // 最大8ピップ
                             return {
-                                kind, // 色分けクラス用(normal/software/hardware/surface/deep/unconscious)
-                                kindLabel: SLOT_KINDS[kind] ?? kind,
+                                kind, // 色分けクラス用(normal/software/hardware/surface/deep/unconscious/outfitName)
                                 used, capacity, over: used > capacity,
                                 pips: Array.from({ length: total }, (_, i) => ({ on: i < used, over: i >= capacity })),
                             };
@@ -1547,14 +1548,13 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                     }
                     rows.push(row);
                 }
-                // ホスト配下の準備済みオプションを視覚的入れ子で続ける(最終行フラグで接続線の枝端を制御)
+                // ホスト配下の準備済みオプションを視覚的入れ子で続ける(最終行フラグで接続線の枝端を制御)。
+                // どのスロットに載るかは入れ子(ホスト直下)で自明のため、スロット名タグは出さない(2026-07-23 ユーザー確定)。
                 opts.forEach((opt, i) => {
                     const optRow = rowsById.get(opt.id);
                     if (!optRow) return;
                     optRow.isNested = true;
                     optRow.isLastOption = (i === opts.length - 1);
-                    optRow.slotLabel = optionSlotLabel(opt.system); // 占有スロット種別(情報量)
-                    optRow.slotKind = opt.system.parentSlotKind || "normal"; // 色分けクラス用
                     rows.push(optRow);
                 });
             }
@@ -1604,11 +1604,20 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         }
 
         // 列値を事前計算（コンバイン見た目元は merged 値、それ以外は通常値）
-        const gk = this._getDisplayGroupKey(sys.majorCategory);
+        // 入れ子オプション(実効準備済み)は移動先=ホストのグループの列で計算する(2026-07-23 是正)。
+        // 元の大分類の列(搭載兵器なら攻/受/射…)ではなく、装備先の表(ヴィークル)の列に合わせる。
+        const hostGroupKey = (sys.isOption && sys.parentItemId && sys.isPreparedEffective)
+            ? this._getDisplayGroupKey(this.actor.items.get(sys.parentItemId)?.system?.majorCategory)
+            : null;
+        const gk = hostGroupKey ?? this._getDisplayGroupKey(sys.majorCategory);
         const cfg = TnxCharacterSheetBase.OUTFIT_GROUP_CONFIG.find(c => c.key === gk)
             ?? TnxCharacterSheetBase.OUTFIT_GROUP_CONFIG.at(-1);
-        // 部位列の表示文脈(フェーズ12): 部位キーの逆引き用スロット集合(AE 追加込みの実効)
-        const partCtx = { slots: this.actor.system.partSlotsEffective ?? this.actor.system.partSlots ?? [] };
+        // 部位列の表示文脈(フェーズ12): 部位キーの逆引き用スロット集合(AE 追加込みの実効)＋
+        // オプションのアイテム名(hostKey)→現在名の解決子(所持品の識別キー逆引き・2026-07-23)
+        const partCtx = {
+            slots: this.actor.system.partSlotsEffective ?? this.actor.system.partSlots ?? [],
+            resolveHostName: (key) => resolveItemNameByKey(this.actor, key),
+        };
         const colValues = cfg.columns.map(col => ({
             key:   col.key,
             value: (combinerItem)
@@ -1623,6 +1632,10 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const brokenClass = isDestroyed ? "outfit-name--destroyed"
             : (isMalfunctioning ? "outfit-name--malfunction" : "");
 
+        // 準備トグルの無効化(課題2): 携帯していない、またはオプションで装備先(親)が未準備のとき無効。
+        const optionHostPrepared = isOption ? !!this.actor.items.get(sys.parentItemId)?.system?.isPrepared : true;
+        const prepareToggleDisabled = !sys.isCarrying || (isOption && !optionHostPrepared);
+
         return {
             _id: item.id,
             displayName,
@@ -1635,6 +1648,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             isMalfunctioning,
             isDestroyed,
             brokenClass,
+            prepareToggleDisabled,
             // サービス/バックグラウンドは必ず準備・携帯(未準備にできない)=携帯/準備トグルを出さない(2026-07-18)
             hidePrepareToggles: sys.minorCategory === "background",
             colValues,
@@ -1706,7 +1720,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                 // 部位キーの逆引き＋AE 追加行の併記(フェーズ12)
                 const slots = partCtx?.slots ?? [];
                 return formatPartDesignation(
-                    resolvePartRowsForDisplay(sys.part, slots), sys.partRelation, sys.partOptional,
+                    resolvePartRowsForDisplay(sys.part, slots, partCtx?.resolveHostName), sys.partRelation, sys.partOptional,
                     resolvePartAdditions(sys.partAdded, slots));
             }
             default:
@@ -1812,7 +1826,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                 // 部位キーの逆引き＋AE 追加行の併記(フェーズ12)
                 const slots = partCtx?.slots ?? [];
                 const resolved = (sys) => ({
-                    part: resolvePartRowsForDisplay(sys.part, slots),
+                    part: resolvePartRowsForDisplay(sys.part, slots, partCtx?.resolveHostName),
                     partRelation: sys.partRelation,
                     partOptional: sys.partOptional,
                     partAdditions: resolvePartAdditions(sys.partAdded, slots),
@@ -2077,12 +2091,31 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const next = !item.system[flag];
         // 携帯中でなければ準備済みにできない(念のため)
         if (flag === "isPrepared" && next && !item.system.isCarrying) return;
+        // オプションは装備先(親)が準備済みでないと準備できない(課題2・2026-07-23)
+        if (flag === "isPrepared" && next && item.system.isOption) {
+            const host = this.actor.items.get(item.system.parentItemId);
+            if (!host?.system?.isPrepared) {
+                ui.notifications?.warn("装備先が準備されていないため、このオプションは準備できません。");
+                return;
+            }
+        }
+        const wasPrepared = item.system.isPrepared; // update 前の状態を控える(連動判定用)
+        const isHost = !item.system.isOption;       // isOption は part 由来でトグルでは変わらない
         const update = { [`system.${flag}`]: next };
         // 携帯中を外したとき準備済みも連動して外す
         if (flag === "isCarrying" && !next && item.system.isPrepared) {
             update["system.isPrepared"] = false;
         }
         await item.update(update);
+        // 装備先(ホスト)が未準備になったら、配下の準備済みオプションも準備解除(連動・課題2)
+        const hostBecameUnprepared = isHost &&
+            ((flag === "isPrepared" && !next) || (flag === "isCarrying" && !next && wasPrepared));
+        if (hostBecameUnprepared) {
+            const optUpdates = this.actor.items
+                .filter(o => o.system.isOption && o.system.parentItemId === item.id && o.system.isPrepared)
+                .map(o => ({ _id: o.id, "system.isPrepared": false }));
+            if (optUpdates.length) await this.actor.updateEmbeddedDocuments("Item", optUpdates);
+        }
     }
 
     static _onToggleOutfitDesc(event, target) {

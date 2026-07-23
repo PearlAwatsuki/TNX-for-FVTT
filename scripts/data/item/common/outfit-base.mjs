@@ -47,7 +47,7 @@ import { modeValueField, migrateUsesValueToSpent, computeItemEffectiveValues } f
  * 部位行の種別(フェーズ10・2026-06-26 確定)。公式の「部位」指定を自由入力 + フラグで表現する。
  * - none      : 「-」部位なし(非消費)
  * - bodyPart  : 身体部位。value にプリセット由来の部位名、slots に消費数
- * - option    : オプション。装備先ホストを hostMajor/hostMinor(+hostMinorExclude)/hostFeature/hostName で指定
+ * - option    : オプション。装備先ホストを hostMajor/hostMinor(+hostMinorExclude)/hostFeature/hostKey で指定
  * - reference : 解説参照。表示は常に「解説参照」。refSubKind の実部位で占有計算する
  * - other     : その他(自由記入)。value に自由記入文字列。占有計算対象外
  * 正本: llm-wiki/01_Wiki/Game_Rules/Outfits.md「部位管理(フェーズ10)」
@@ -172,7 +172,10 @@ export class OutfitBaseTemplate extends SystemDataModel {
           hostMinor:        new fields.StringField({ initial: "" }),
           hostMinorExclude: new fields.BooleanField({ initial: false }),
           hostFeature:      new fields.StringField({ initial: "" }),
-          hostName:         new fields.StringField({ initial: "" }),
+          // hostKey(2026-07-23 改名・旧 hostName): 名前指定ホストの**識別キー参照**。アウトフィット
+          // 辞典(packs/outfits・works-outfits)から分類で絞ったプルダウンで選ぶ(自由記入を廃止)。
+          // 表示は識別キーを逆引きした現在名(生キーは表示しない・identification.mjs)。空=種別指定のみ。
+          hostKey:          new fields.StringField({ initial: "" }),
           refSubKind:       new fields.StringField({ initial: "none", choices: PART_REFERENCE_SUB_KINDS }),
         })
       ),
