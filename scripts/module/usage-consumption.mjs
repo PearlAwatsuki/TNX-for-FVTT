@@ -242,6 +242,24 @@ export function resolveConsumeRows(targets, { parentItem, getItem, actionRank = 
 }
 
 /**
+ * 用途の消費リソースが枯渇して**使えない**かを判定する(Foundry 非依存・フェーズ13-6)。
+ * カット進行トラッカーの自動スキップ判定で使う——「そのプロセスに使える用途があるか」の
+ * 「使える」を、消費が払えるかで絞るため。
+ *
+ * 枯渇＝**限度のある資源**(kind を持つ消費可能行)で、正の消費量に対し残量が足りない行が一つでもある。
+ * - 消費設定が無い(行が無い)＝枯渇でない(ユーザー厳命: リソース未設定の用途は含めない)。
+ * - `inert`(使用回数制限なし)・`problem`(対象不明の設定不備)＝限度のある資源でないので含めない。
+ * - 消費量 0/負値(no-op・回復)＝残量に関係なく枯渇でない。
+ * @param {Array<object>|null|undefined} rows resolveConsumeRows(ForActor) の結果
+ * @returns {boolean}
+ */
+export function isConsumptionDepleted(rows) {
+    return (rows ?? []).some(r =>
+        r && !r.inert && !r.problem && r.kind
+        && (r.amount ?? 0) > 0 && (r.remaining ?? 0) < r.amount);
+}
+
+/**
  * 解決済み行から消費プラン(適用可能な平データ)を組む(Foundry 非依存)。
  * チェック済み(checkedKeys に行の key が含まれる)の消費可能行のみ。残量不足はエラーを返す。
  * **照合は key**(=`itemId:resource`)——同じアイテムの使用回数と残弾が並ぶ場合があり、

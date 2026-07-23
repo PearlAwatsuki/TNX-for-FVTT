@@ -94,18 +94,30 @@ export function confirmMain(participants) {
 // 別＝AR 0 でもプロセスの行動権はある。ただし**行動できない者(cantAct=戦闘不能タグ/脱落マーク)は
 // 走査から除外**する(脱落扱い・2026-07-22 実機指摘)。走査を終えたら null(＝フェーズ送り)。
 
-/** スポット走査の順(CS順・エキストラと行動不能を除外)。 */
-function spotOrder(participants) {
-  return resolveTurnOrder(participants).filter(p => !p.cantAct);
+/** カット進行のフェーズ(cutPhase) → 用途タイミングのプロセス名(timing.processName)。 */
+export const PHASE_TIMING_KEY = { setup: "setup", initiative: "initiative", cleanup: "clean-up" };
+
+/**
+ * スポット走査の順(CS順・エキストラと行動不能を除外)。
+ * eligibleIds を渡すと、その集合に含まれる参加者だけに絞る(＝そのプロセスに使える用途を持つ者のみ
+ * 手番が回る・自動スキップ)。null/未指定なら絞り込みなし(従来どおり全員)。
+ * @param {Array} participants
+ * @param {Set<string>|null} [eligibleIds]
+ */
+function spotOrder(participants, eligibleIds = null) {
+  let order = resolveTurnOrder(participants).filter(p => !p.cantAct);
+  if (eligibleIds) order = order.filter(p => eligibleIds.has(p.id));
+  return order;
 }
 
 /**
  * サブターン走査の先頭(CS順の1人目)。いなければ null。
  * @param {Array} participants
+ * @param {Set<string>|null} [eligibleIds] そのプロセスに手番が回る参加者(絞り込み)
  * @returns {string|null}
  */
-export function firstSpotId(participants) {
-  return spotOrder(participants)[0]?.id ?? null;
+export function firstSpotId(participants, eligibleIds = null) {
+  return spotOrder(participants, eligibleIds)[0]?.id ?? null;
 }
 
 /**
@@ -113,10 +125,11 @@ export function firstSpotId(participants) {
  * 現スポットが不明・不在(途中離脱・走査中の戦闘不能化等)なら先頭へ戻して頑健にする。
  * @param {Array} participants
  * @param {string|null} spotId 現スポットの combatant id
+ * @param {Set<string>|null} [eligibleIds] そのプロセスに手番が回る参加者(絞り込み)
  * @returns {string|null}
  */
-export function nextSpotId(participants, spotId) {
-  const order = spotOrder(participants);
+export function nextSpotId(participants, spotId, eligibleIds = null) {
+  const order = spotOrder(participants, eligibleIds);
   const i = order.findIndex(p => p.id === spotId);
   if (i < 0) return order[0]?.id ?? null;
   return order[i + 1]?.id ?? null;

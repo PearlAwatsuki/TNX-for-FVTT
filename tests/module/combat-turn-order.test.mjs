@@ -197,4 +197,21 @@ describe("firstSpotId() / nextSpotId()（サブターン内のスポット走査
     expect(nextSpotId(l, "d")).toBeNull();
     expect(firstSpotId([P({ id: "a", cantAct: true })])).toBeNull();
   });
+
+  it("eligibleIds を渡すと、その集合に含まれる参加者だけにスポットが止まる（用途のあるプロセス・13-6準備）", () => {
+    // a(CS9)/b(CS7)/c(CS5) のうち、そのプロセスに使える用途を持つのは b と c だけ
+    const eligible = new Set(["b", "c"]);
+    expect(firstSpotId(list, eligible)).toBe("b");     // a は該当なしで飛ばす
+    expect(nextSpotId(list, "b", eligible)).toBe("c");
+    expect(nextSpotId(list, "c", eligible)).toBeNull(); // 末尾＝フェーズ送り
+  });
+
+  it("eligibleIds が空集合なら誰も止まらない（＝全員スキップ＝既定処理だけ）", () => {
+    expect(firstSpotId(list, new Set())).toBeNull();
+  });
+
+  it("eligibleIds 省略/ null は従来どおり全員（絞り込みなし）", () => {
+    expect(firstSpotId(list, null)).toBe("a");
+    expect(firstSpotId(list)).toBe("a");
+  });
 });

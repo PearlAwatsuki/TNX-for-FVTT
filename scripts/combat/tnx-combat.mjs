@@ -26,7 +26,8 @@ import {
   planInterruptEnd,
   buildInterruptEndUpdate,
 } from "../module/combat-progression.mjs";
-import { compareTurnOrder, nextActiveMain, firstSpotId, nextSpotId } from "../module/combat-turn-order.mjs";
+import { compareTurnOrder, nextActiveMain, firstSpotId, nextSpotId, PHASE_TIMING_KEY } from "../module/combat-turn-order.mjs";
+import { resolveConsumeRowsForActor, isConsumptionDepleted } from "../module/usage-consumption.mjs";
 import { actorCannotMainProcess } from "../module/conditions.mjs";
 import { TnxSocketHandler } from "../module/tnx-socket-handler.mjs";
 
@@ -98,6 +99,45 @@ export class TnxCombat extends Combat {
   /** id から参加アクターを引く。 */
   actorOf(combatantId) { return this.combatants.get(combatantId)?.actor ?? null; }
 
+  /**
+   * サブターンのプロセスで手番が回る combatant id の集合(13-6)。そのプロセスのタイミング
+   * (process:<key>)の用途を「使える」形(消費が枯渇していない)で持つ参加者だけにスポットが止まり、
+   * それ以外は「次へ」で自動的に飛ばす。**プロセス自体は自動通過しない**——手番が回る者が居なければ
+   * スポットは立たない(手番なし)が、その場合も「次へ」を押して初めて既定処理が走り次プロセスへ進む
+   * (誰にも手番を渡さず既定処理だけ、の形)。非サブターン(main 等)は絞り込みなし=null を返す。
+   * @param {string} phase
+   * @returns {Set<string>|null}
+   */
+  _eligibleSpotIds(phase) {
+    const timingKey = PHASE_TIMING_KEY[phase];
+    if (!timingKey) return null;
+    const ids = new Set();
+    for (const c of this.combatants) {
+      if (c.actor && TnxCombat._actorHasProcessAction(c.actor, timingKey)) ids.add(c.id);
+    }
+    return ids;
+  }
+
+  /**
+   * アクターが指定プロセスのタイミングの用途を「使える」形で持つか。
+   * - タイミングが process:<timingKey> の用途で、戦闘タブに表示する(hideInCombatTab でない)もの。
+   * - かつ消費リソースが枯渇していない(消費設定が無い用途は常に使える=ユーザー厳命)。
+   * @param {Actor} actor
+   * @param {string} timingKey timing.processName の値(setup/initiative/clean-up)
+   * @returns {boolean}
+   */
+  static _actorHasProcessAction(actor, timingKey) {
+    for (const item of actor.items) {
+      for (const usage of (item.system?.actions ?? [])) {
+        if (usage.hideInCombatTab === true) continue;
+        if (usage.timing?.value !== "process" || usage.timing?.processName !== timingKey) continue;
+        const rows = resolveConsumeRowsForActor(actor, item, usage.consumeTargets);
+        if (!isConsumptionDepleted(rows)) return true;
+      }
+    }
+    return false;
+  }
+
   /** combatant id → turns 配列の位置(core の turn 同期用)。不在・null は null。 */
   _turnIndexOf(combatantId) {
     if (!combatantId) return null;
@@ -129,7 +169,8 @@ export class TnxCombat extends Combat {
     // 付与済みでなければならない(2026-07-22 ユーザー指摘。AR は「カット進行のシーン開始時に付与」)。
     // 表示の派生(inCombat)は round 変更の updateCombat フック(全クライアント reset)が追随させる
     await TnxCombat.seedStartValues(this.combatants.map(c => c.actor).filter(Boolean));
-    const spotId = firstSpotId(this.cutParticipants);
+    // セットアップに手番が回る参加者(そのタイミングの用途を持つ者)だけスポットを立てる(13-6)
+    const spotId = firstSpotId(this.cutParticipants, this._eligibleSpotIds("setup"));
     const updateData = {
       round: 1,
       turn: this._turnIndexOf(spotId),
@@ -160,7 +201,8 @@ export class TnxCombat extends Combat {
     if (WALK_PHASES.has(phase)) {
       const spot = this.getFlag(TNX_SCOPE, "spotCombatantId") ?? null;
       if (spot === null) return this.advancePhase(); // 走査済み(または対象なし)
-      const next = nextSpotId(this.cutParticipants, spot);
+      // 手番はそのプロセスの用途を持つ参加者にだけ回す(用途なし・消費枯渇は飛ばす・13-6)
+      const next = nextSpotId(this.cutParticipants, spot, this._eligibleSpotIds(phase));
       if (next === null) return this.advancePhase(); // 最後のキャラまで渡し終えた
       // core の turn(ターンプレイヤー)もスポットに同期して進める
       await this.update({
@@ -210,8 +252,9 @@ export class TnxCombat extends Combat {
 
     // フェーズ遷移(combat 側)。core の turn(ターンプレイヤー)は常に「今の番」——メインターン中は
     // メイン行動者・サブターン中はスポット——へ同期する(正本はあくまで flags)。
-    // 遷移先がサブターンならスポットを CS順の先頭に置き直す(記帳・再シード後の値で算出)。
-    const spotId = WALK_PHASES.has(plan.to) ? firstSpotId(this.cutParticipants) : null;
+    // 遷移先がサブターンなら、そのプロセスの用途を持つ参加者の先頭にスポットを置く(記帳・再シード後の値で算出)。
+    const spotId = WALK_PHASES.has(plan.to)
+      ? firstSpotId(this.cutParticipants, this._eligibleSpotIds(plan.to)) : null;
     const update = {
       turn: this._turnIndexOf(plan.to === "main" ? plan.mainId : spotId),
       [`flags.${TNX_SCOPE}.phase`]: plan.to,

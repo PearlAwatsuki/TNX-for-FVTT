@@ -1,8 +1,46 @@
 import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
-const { resolveConsumeRows, buildConsumptionPlan, matchSharedItem, deriveConsumeTargets } =
+const { resolveConsumeRows, buildConsumptionPlan, matchSharedItem, deriveConsumeTargets, isConsumptionDepleted } =
   await import("../../scripts/module/usage-consumption.mjs");
+
+describe("isConsumptionDepleted()（用途の消費リソースが枯渇＝使えない・13-6）", () => {
+  it("消費設定なし（行が無い）は枯渇でない＝常に使える（ユーザー厳命）", () => {
+    expect(isConsumptionDepleted([])).toBe(false);
+    expect(isConsumptionDepleted(null)).toBe(false);
+    expect(isConsumptionDepleted(undefined)).toBe(false);
+  });
+
+  it("限度ありの資源が残量不足なら枯渇", () => {
+    expect(isConsumptionDepleted([{ kind: "uses", amount: 1, remaining: 0, maxDisplay: 3 }])).toBe(true);
+    expect(isConsumptionDepleted([{ kind: "uses", amount: 2, remaining: 1, maxDisplay: 3 }])).toBe(true);
+  });
+
+  it("残量が足りていれば枯渇でない", () => {
+    expect(isConsumptionDepleted([{ kind: "uses", amount: 1, remaining: 3, maxDisplay: 3 }])).toBe(false);
+    expect(isConsumptionDepleted([{ kind: "uses", amount: 1, remaining: 1, maxDisplay: 1 }])).toBe(false);
+  });
+
+  it("使用回数制限なし（inert・remaining を持たない）は枯渇に含めない＝リソース設定なし扱い", () => {
+    expect(isConsumptionDepleted([{ inert: true, amount: 1, label: "武器" }])).toBe(false);
+  });
+
+  it("対象が見つからない行（notFound・設定不備）は枯渇に含めない（過剰ブロックしない）", () => {
+    expect(isConsumptionDepleted([{ problem: "notFound", amount: 1 }])).toBe(false);
+  });
+
+  it("消費量 0/負値（no-op・回復）は残量に関係なく枯渇でない", () => {
+    expect(isConsumptionDepleted([{ kind: "uses", amount: 0, remaining: 0 }])).toBe(false);
+    expect(isConsumptionDepleted([{ kind: "ammo", amount: -1, remaining: 0 }])).toBe(false);
+  });
+
+  it("複数行はどれか一つでも不足なら枯渇（AND で全部払えないと使えない）", () => {
+    expect(isConsumptionDepleted([
+      { kind: "uses", amount: 1, remaining: 5 },
+      { kind: "ammo", amount: 1, remaining: 0 },
+    ])).toBe(true);
+  });
+});
 
 const skill = (id, { isLimit = true, max = 3, spent = 1, name = "技能" } = {}) => ({
   id, type: "styleSkill", name, system: { uses: { isLimit, max, spent } },

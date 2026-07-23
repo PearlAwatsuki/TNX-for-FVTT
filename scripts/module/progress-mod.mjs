@@ -56,7 +56,7 @@ const ACTOR_GROUPS = Object.freeze([
 const OUTFIT_GROUPS = Object.freeze([
     { label: "タップ",     params: [
         { value: "tap.cycle",           label: "サイクル数" },
-        { value: "tap.combatSpeedMod",  label: "コンバットスピード修正" },
+        { value: "tap.combatSpeedMod",  label: "CS修正" },
     ] },
     { label: "ヴィークル", params: [
         { value: "vehicle.speedFactor", label: "スピードファクター" },
@@ -67,17 +67,17 @@ const OUTFIT_GROUPS = Object.freeze([
     { label: "武器",       params: [
         { value: "weapon.attack",     label: "攻撃力" },
         { value: "weapon.guardValue", label: "受け値" },
-        { value: "weapon.FAValue",    label: "フルオート値" },
+        { value: "weapon.FAValue",    label: "FA値" },
     ] },
     { label: "防具",       params: [
         { value: "armor.controlMod", label: "制御値修正" },
     ] },
-    { label: "イアヌス",   params: [
+    { label: "IANUS",   params: [
         { value: "ianus.controlMod", label: "制御値修正" },
     ] },
     { label: "住居",       params: [
-        { value: "residence.cyberSecurity",  label: "電子セキュリティ" },
-        { value: "residence.analogSecurity", label: "物理セキュリティ" },
+        { value: "residence.cyberSecurity",  label: "電脳セキュリティ" },
+        { value: "residence.analogSecurity", label: "アナログセキュリティ" },
     ] },
 ]);
 
