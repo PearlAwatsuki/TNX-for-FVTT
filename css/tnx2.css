@@ -7903,6 +7903,23 @@ button.tnx-create-act-button span {
     font-size: 0.82em;
 }
 
+/* カット進行終了ダイアログ（案1・3択は縦積み＝長いラベルが横並びで潰れないように・13-6） */
+.tnx-scene-end-dialog .form-footer {
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px;
+}
+.tnx-scene-end-dialog .form-footer button {
+    width: 100%;
+    justify-content: center;
+}
+.tnx-scene-end-dialog .form-footer button[data-action="cancel"] {
+    margin-top: 4px;
+    border-color: transparent;
+    color: var(--tnx2-text-secondary);
+    font-size: 0.85em;
+}
+
 /* ============================================================
    § 36: 部位スロットプリセット 設定アプリ（フェーズ10）
    ============================================================ */

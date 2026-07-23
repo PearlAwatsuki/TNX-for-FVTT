@@ -28,6 +28,7 @@ import {
 } from "../module/combat-progression.mjs";
 import { compareTurnOrder, nextActiveMain, firstSpotId, nextSpotId, PHASE_TIMING_KEY } from "../module/combat-turn-order.mjs";
 import { resolveConsumeRowsForActor, isConsumptionDepleted } from "../module/usage-consumption.mjs";
+import { TNX_HOOKS, planPhaseEvents } from "../module/combat-events.mjs";
 import { actorCannotMainProcess } from "../module/conditions.mjs";
 import { TnxSocketHandler } from "../module/tnx-socket-handler.mjs";
 
@@ -183,6 +184,10 @@ export class TnxCombat extends Combat {
     };
     Hooks.callAll("combatStart", this, updateData);
     await this.update(updateData);
+    // カット進行(＝シーン)開始・カット1開始・セットアップ開始の境界イベント(適用はフェーズ15・13-6)
+    Hooks.callAll(TNX_HOOKS.cutProgressionStart, this, {});
+    Hooks.callAll(TNX_HOOKS.cutStart, this, { cut: 1 });
+    Hooks.callAll(TNX_HOOKS.processStart, this, { phase: "setup", combatantId: null, cut: 1 });
     return this;
   }
 
@@ -227,6 +232,10 @@ export class TnxCombat extends Combat {
     if (!game.user.isGM) return this;
     const plan = planAdvance(this.cutPhase, this.cutParticipants);
     if (!plan) return this;
+    // 境界イベント計画用に遷移前の状態を退避(発火は update 後・13-6)
+    const fromPhase = this.cutPhase;
+    const fromMainId = this.mainCombatantId;
+    const fromCut = this.round;
 
     // フェーズ離脱時の記帳(アクター側)
     if (plan.confirmSetup) {
@@ -263,6 +272,13 @@ export class TnxCombat extends Combat {
     };
     if (plan.nextCut) update.round = this.round + 1;
     await this.update(update);
+    // 境界イベントを発火(離脱プロセス終了→[次カット境界]→遷移先開始)。適用はフェーズ15 が購読(13-6)
+    for (const e of planPhaseEvents({
+      fromPhase, fromMainId, toPhase: plan.to, toMainId: plan.mainId ?? null,
+      nextCut: !!plan.nextCut, round: fromCut,
+    })) {
+      Hooks.callAll(e.hook, this, e.data);
+    }
     return this;
   }
 
@@ -294,6 +310,34 @@ export class TnxCombat extends Combat {
   /** @override 同上。 */
   async previousRound() {
     ui.notifications.warn("カット進行ではカットを戻す操作はありません。");
+    return this;
+  }
+
+  /**
+   * @override カット進行の終了(案1・2026-07-22 ユーザー確定)。Foundry 既定の「戦闘終了?」確認を、
+   * シーンも終了するかの3択に置き換える。カット進行終了とシーン終了は非連動(RL がシーン内で治療まで
+   * 認める運用等のため)。境界イベント(適用はフェーズ15 が購読・13-6)を発火してから delete する。
+   */
+  async endCombat() {
+    const choice = await foundry.applications.api.DialogV2.wait({
+      window: { title: "カット進行の終了" },
+      classes: ["tokyo-nova", "tnx-dialog", "tnx-scene-end-dialog"],
+      content: `<p>カット進行を終了します。このシーンも終了しますか？</p>`,
+      buttons: [
+        { action: "scene", icon: "fas fa-flag-checkered", label: "シーンも終了する", default: true, callback: () => "scene" },
+        { action: "cut",   icon: "fas fa-stop",           label: "カット進行だけ終了（シーンは継続）", callback: () => "cut" },
+        { action: "cancel", icon: "fas fa-xmark",         label: "キャンセル", callback: () => "cancel" },
+      ],
+      rejectClose: false,
+      close: () => "cancel",
+    });
+    if (!choice || choice === "cancel") return this;
+    const sceneEnded = choice === "scene";
+    // 最終カットの終了 → カット進行の終了 →(シーンも終了なら)シーン終了、の順で発火
+    Hooks.callAll(TNX_HOOKS.cutEnd, this, { cut: this.round });
+    Hooks.callAll(TNX_HOOKS.cutProgressionEnd, this, { sceneEnded });
+    if (sceneEnded) Hooks.callAll(TNX_HOOKS.sceneEnd, this, {});
+    await this.delete();
     return this;
   }
 
@@ -357,6 +401,13 @@ export class TnxCombat extends Combat {
       [`flags.${TNX_SCOPE}.interruptReturn`]: plan.interruptReturn,
     });
     if (target.getFlag(TNX_SCOPE, "canInterrupt")) await target.unsetFlag(TNX_SCOPE, "canInterrupt");
+    // 境界イベント(13-6): 打ち切られた元メインの終了(あれば)→ 挿入メインの開始。挿入メインも
+    // 「メインプロセス」なので、その出入りで tnxProcessEnd/Start(phase:"main") を発火する
+    // (＝メインプロセス中効果は挿入メイン・打ち切られた元メインでも失効する・2026-07-23 ユーザー指摘)
+    if (plan.endMainId) {
+      Hooks.callAll(TNX_HOOKS.processEnd, this, { phase: "main", combatantId: plan.endMainId, cut: this.round, viaInterrupt: true });
+    }
+    Hooks.callAll(TNX_HOOKS.processStart, this, { phase: "main", combatantId, cut: this.round, viaInterrupt: true });
     return this;
   }
 
@@ -371,6 +422,7 @@ export class TnxCombat extends Combat {
       return this;
     }
     if (!this.interruptMainId) return this;
+    const endedId = this.interruptMainId;
     const actor = this.actorOf(this.interruptMainId);
     if (actor) await applyActorUpdate(actor, buildInterruptEndUpdate(actor.system, { decrementAr }));
     const plan = planInterruptEnd(this.interruptReturn);
@@ -384,6 +436,9 @@ export class TnxCombat extends Combat {
       [`flags.${TNX_SCOPE}.spotCombatantId`]: spotId,
       [`flags.${TNX_SCOPE}.interruptReturn`]: null,
     });
+    // 挿入メインの終了イベント(13-6)。復帰先のサブターンは中断からの再開なので開始は再発火しない
+    // (サブターン中効果は割り込みを跨いで持続)。
+    Hooks.callAll(TNX_HOOKS.processEnd, this, { phase: "main", combatantId: endedId, cut: this.round, viaInterrupt: true });
     return this;
   }
 
