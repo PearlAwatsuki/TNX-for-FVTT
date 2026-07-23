@@ -73,6 +73,8 @@ import { registerDamageChartTextSetting } from './module/damage-chart-text-app.m
 import { registerPartSlotPresetSetting, getPartSlotPreset, initializeDefaultPartSlotPreset, migratePartSlotKeys } from './module/part-slot-preset-app.mjs';
 import { autoAcquireForStyleSkill, autoImportDerivedData } from './module/style-skill-acquisition.mjs';
 import { conditionNeedsDraw, postDrawPrompt, postControlNegatePrompt, promptWoundSkillSelection, bindConditionChatButtons, renderConditionDrawCard } from './module/condition-resolution.mjs';
+import { enhanceComboboxes } from './module/combobox.mjs';
+import { OUTFIT_CATEGORIES } from './data/item/outfit-categories.mjs';
 
 async function preloadHandlebarsTemplates() {
     const templatePaths = [
@@ -389,34 +391,86 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
             }
         }
     };
-    // キー入力の補助 datalist(部位スロットキー・部位キー・名前装飾・登録フラグ・無視ゲートの候補)。
-    // 自由入力を妨げないオートコンプリート(フェーズ12)。
+    // キー入力の補助 datalist(変更キーの全キー一覧。正本は wiki Active_Effects §2 と parseEffectTargetKey)。
+    // 方針(2026-07-23 ユーザー確定): リスト形式の思想＝完全性。**有限の組合せは実キーで全列挙**
+    // (分類×パラメータ・アイテム狙い×パラメータも含む)。**`<key>` プレースホルダは識別キーの指定のみ**に使う
+    // (技能/スタイル/ワークス/アイテムの識別キー＝唯一の任意入力軸)。候補が多いのでコンボボックス側で
+    // 表示上限＋「他N件」を出す(データは全件・絞り込みで到達)。
     if (!root.querySelector("#tnx-ae-key-suggestions")) {
         const partKeys = [...new Set(getPartSlotPreset().map(s => s?.key).filter(Boolean))];
-        // コンディション効果の無視ゲート(ignore.*): all / 全BS / 個別BS / ダメージ由来(全・系統別)
-        const bsKinds = Object.entries(CONDITION_KINDS).filter(([, d]) => d?.group === "bs").map(([k]) => k);
+        const abilities = ["reason", "passion", "life", "mundane"]; // 能力値4種(理性/感情/生命/外界)
+        const condKinds = Object.keys(CONDITION_KINDS);             // ダメージタグ改変の元タグ候補(全数)
+        const bsKinds = condKinds.filter(k => CONDITION_KINDS[k]?.group === "bs"); // 個別BSの無視ゲート
+        // 分類キー(§2.4・全数): 大分類＋小分類＋疑似分類(generalSkill/styleSkill)
+        const catKeys = [
+            ...Object.keys(OUTFIT_CATEGORIES),
+            ...Object.values(OUTFIT_CATEGORIES).flatMap(m => Object.keys(m.minors)),
+            "generalSkill", "styleSkill",
+        ];
+        // アイテムの着地パラメータ(§2.3 型別全数)＋特性フラグ(§2.3c・AE_FLAG_PARAMS)。素のキー・
+        // アイテム狙い・分類狙いで共通の「乗り先アイテムの属性」軸。
+        const attrs = [
+            "buy", "hide", "appearancePenalty", "hack", "preserveExp",             // 全アウトフィット共通
+            "attack", "attack.damageType", "guardValue", "FAValue",                // 武器
+            "defence.S", "defence.P", "defence.I", "controlMod",                    // 防具/義体/ヴィークル/IANUS
+            "speedFactor", "passenger",                                            // ヴィークル
+            "cycle", "combatSpeedMod",                                             // タップ
+            "appearanceTarget", "cyberSecurity", "analogSecurity",                 // 住宅施設
+            "level",                                                               // 技能
+            ...AE_FLAG_PARAMS,                                                     // 特性フラグ(§2.3c)
+        ];
+
+        // 判定バフ(§2.7): 固定＋能力値・制御判定は全列挙、識別キー狙いは `<key>`(識別キー)雛形
+        const checkKeys = [
+            "check.all", "check.cardValue", "check.suitChange",
+            ...abilities.map(a => `check.${a}`),
+            ...abilities.map(a => `controlCheck.${a}`),
+            "check.<key>", "check.style.<key>", "check.works.<key>",
+        ];
+        // 値バフ①キャラクター(§2.1): 能力値/制御値/CS/AR/生身ダメージ種別
+        const charValueKeys = [
+            ...abilities.map(a => `system.ability.${a}`),
+            ...abilities.map(a => `system.control.${a}`),
+            "system.cs.base", "system.cs.value", "system.cs.current",
+            "system.ar.max",
+            "system.baseAttack.damageType",
+        ];
+        // 値バフ②乗り先別(§2.2)。素のキー=乗っているアイテム自身 / item.<識別キー>=識別キー狙い(`<key>`) /
+        // system.category.<分類>=分類狙い(実キーで全列挙)。属性軸(attrs)は全モード共通。
+        const selfKeys = ["name", ...attrs.map(a => `system.${a}`)];
+        const itemKeys = ["item.<key>.name", ...attrs.map(a => `item.<key>.system.${a}`)];
+        const categoryKeys = catKeys.flatMap(c => attrs.map(a => `system.category.${c}.${a}`));
+        // ダメージバフ(§2.8): 与える/受ける固定キー全数＋タグ改変(元タグ全数)＋識別キー狙いは `<key>` 雛形
+        const damageKeys = [
+            "damage.dealt", "damage.dealt.physical", "damage.dealt.mental", "damage.dealt.social",
+            "damage.taken", "damage.taken.physical", "damage.taken.mental", "damage.taken.social",
+            "damage.taken.S", "damage.taken.P", "damage.taken.I", "damage.taken.X",
+            "damage.vsStyle.<key>", "damage.vsWorks.<key>", "damage.fromStyle.<key>", "damage.fromWorks.<key>",
+            ...condKinds.map(k => `damage.replaceTag.${k}`),
+            ...condKinds.map(k => `damage.addTag.${k}`),
+        ];
+        // 無視ゲート(§2.11): all / 全BS / 個別BS(全数) / ダメージ由来(全・系統別)
         const ignoreKeys = [
             "ignore.all", "ignore.bs", "ignore.damage",
             "ignore.damage.physical", "ignore.damage.mental", "ignore.damage.social",
             ...bsKinds.map(k => `ignore.bs.${k}`),
         ];
-        // ダメージバフ(与える側)と受けるダメージ軽減(受け手側・2026-07-17)の固定キー。
-        // 識別キーを後続に取る vsStyle/vsWorks・fromStyle/fromWorks は候補にしない(check.* と同じ扱い)
-        const damageKeys = [
-            "damage.dealt", "damage.dealt.physical", "damage.dealt.mental", "damage.dealt.social",
-            "damage.taken", "damage.taken.physical", "damage.taken.mental", "damage.taken.social",
-            "damage.taken.S", "damage.taken.P", "damage.taken.I", "damage.taken.X",
-        ];
+
+        const escAttr = (v) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
         const keyList = document.createElement("datalist");
         keyList.id = "tnx-ae-key-suggestions";
+        // 並びは「よく使う順」→ 分類狙い(件数の大半)を末尾に置く(表示上限の先頭が有用キーになるように)。
         keyList.innerHTML = [
-            "name",
+            ...checkKeys,
+            ...charValueKeys,
+            ...selfKeys,
             ...partKeys.map(k => `system.partSlot.${k}`),
             ...partKeys.map(k => `system.part.${k}`),
-            ...AE_FLAG_PARAMS.map(f => `system.${f}`),
-            ...ignoreKeys,
+            ...itemKeys,
             ...damageKeys,
-        ].map(v => `<option value="${v}"></option>`).join("");
+            ...ignoreKeys,
+            ...categoryKeys,
+        ].map(v => `<option value="${escAttr(v)}"></option>`).join("");
         root.appendChild(keyList);
         const relList = document.createElement("datalist");
         relList.id = "tnx-ae-part-relation";
@@ -428,8 +482,14 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
         keyInput.setAttribute("list", "tnx-ae-key-suggestions");
     }
     syncChangeValueInputs();
+    // ネイティブ datalist を独自コンボボックスへ昇格(スクロール可・▼位置固定・テーマ追従)。
+    // キー入力＋ partAdd 値入力(tnx-ae-part-relation)をまとめて拾う。
+    enhanceComboboxes(root);
     root.addEventListener("change", (ev) => {
-        if (typeof ev.target?.name === "string" && ev.target.name.endsWith(".key")) syncChangeValueInputs();
+        if (typeof ev.target?.name === "string" && ev.target.name.endsWith(".key")) {
+            syncChangeValueInputs();
+            enhanceComboboxes(root); // キー変更で値入力に list が付いた分を昇格
+        }
     });
 
     if (root.querySelector(".tnx-stackable-field")) return;

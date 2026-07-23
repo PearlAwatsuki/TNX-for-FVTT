@@ -398,6 +398,89 @@
 }
 
 /* ----------------------------------------------------------------
+   5b. コンボボックス(自由入力＋候補) — combobox.mjs / enhanceComboboxes
+   ----------------------------------------------------------------
+   ネイティブ <datalist> の壊れたドロップダウンを置き換える共通部品。
+   ドロップダウン本体(.tnx-combobox__list)は body 直下に position:fixed で描画されるため
+   .tokyo-nova に依存しない自立スコープにする。背景/文字/フォントはアンカー入力から JS が
+   inline 継承し、枠と選択ハイライトは currentColor の混色でテーマ非依存にする。 */
+.tnx-combobox {
+    position: relative;
+    align-items: stretch;
+    max-width: 100%;
+    vertical-align: middle;
+}
+/* ▼ トグル分の余白を確保(入力文字がトグルに潜り込まないように) */
+.tnx-combobox > input {
+    padding-right: 20px;
+}
+.tnx-combobox__toggle {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    bottom: 1px;
+    width: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    opacity: 0.55;
+    cursor: pointer;
+    font-size: 0.8em;
+    line-height: 1;
+}
+.tnx-combobox__toggle:hover {
+    opacity: 1;
+    background: transparent;
+    box-shadow: none;
+}
+
+.tnx-combobox__list {
+    position: fixed;
+    z-index: 100000;
+    margin: 0;
+    padding: 2px;
+    list-style: none;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+    border-radius: 3px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+    /* background / color / font はアンカー入力から JS が inline 設定する */
+}
+.tnx-combobox__option {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 3px 6px;
+    border-radius: 2px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.95em;
+}
+.tnx-combobox__option .tnx-combobox__sub {
+    margin-left: auto;
+    opacity: 0.55;
+    font-size: 0.85em;
+    font-family: var(--tnx2-font-mono, monospace);
+}
+.tnx-combobox__option.is-active,
+.tnx-combobox__option:hover {
+    background: color-mix(in srgb, currentColor 15%, transparent);
+}
+.tnx-combobox__empty {
+    padding: 4px 6px;
+    opacity: 0.6;
+    font-style: italic;
+}
+
+/* ----------------------------------------------------------------
    6. ボタン
    ---------------------------------------------------------------- */
 .tokyo-nova .tnx-btn,

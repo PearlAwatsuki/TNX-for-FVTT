@@ -10,6 +10,8 @@
  * 正本: llm-wiki/01_Wiki/Game_Rules/Outfits.md「部位管理(フェーズ10)」。
  */
 
+import { enhanceComboboxes } from "./combobox.mjs";
+
 const SCOPE = "tokyo-nova-axleration";
 const SETTING = "partSlotPreset";
 const SETTING_INIT = "partSlotPresetInitialized";
@@ -271,6 +273,8 @@ export class PartSlotPresetApp extends HandlebarsApplicationMixin(ApplicationV2)
       cb.addEventListener("change", () => { this._harvest(); this.render(); });
     }
     this._setupRowDrag();
+    // 複数占有の「占有する部位」入力(list="tnx-psp-parts")を独自コンボボックスへ昇格。
+    enhanceComboboxes(this.element);
   }
 
   /**
