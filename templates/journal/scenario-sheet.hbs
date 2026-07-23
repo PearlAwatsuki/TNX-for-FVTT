@@ -535,9 +535,19 @@
                                         {{/each}}
                                     </select>
                                 </div>
-                                {{!-- ダメージ＝種別＋値の1項目（攻撃力の設定と同じ split-fields） --}}
+                                {{!-- 決め方（固定／カードを出す通常算出・2026-07-24） --}}
                                 <div class="form-group">
-                                    <label>ダメージ</label>
+                                    <label>決め方</label>
+                                    <select name="mode" data-preset-kind="damageGrants" data-preset-id="{{this.id}}">
+                                        {{#each this.modes}}
+                                            <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                                        {{/each}}
+                                    </select>
+                                </div>
+                                {{!-- ダメージ＝種別＋値の1項目（攻撃力の設定と同じ split-fields）。
+                                      値ラベルはモードに追随（固定＝ダメージ／カード＝基準値） --}}
+                                <div class="form-group damage-fields-group">
+                                    <label class="damage-value-label">{{this.valueLabel}}</label>
                                     <div class="form-fields split-fields">
                                         <select name="damageType" class="damage-type-field"
                                                 data-preset-kind="damageGrants" data-preset-id="{{this.id}}">

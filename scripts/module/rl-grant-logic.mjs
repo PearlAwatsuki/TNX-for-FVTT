@@ -26,7 +26,23 @@ export const RL_DAMAGE_CATEGORIES = Object.freeze([
     { value: "social",   label: "社会" },
 ]);
 
+/**
+ * ダメージの決め方(2026-07-24 ユーザー確定)。RL 任意ダメージも命中確定後の「ダメージ算出前」
+ * フェーズ(カバー等が使える)を挟み、そこから固定値かカードを出す通常算出かを選ぶ。
+ */
+export const RL_DAMAGE_MODES = Object.freeze([
+    { value: "fixed", label: "固定ダメージ" },
+    { value: "card",  label: "カードを出す（通常算出）" },
+]);
+
 const SCOPE = "tokyo-nova-axleration";
+
+/** ダメージ種別を解決する(物理のみ・既定 I・X 可・不正は I・非物理は空)。 */
+function resolveDamageType(category, damageType) {
+    return category === "physical"
+        ? (RL_DAMAGE_TYPES.some(t => t.value === damageType) ? damageType : "I")
+        : "";
+}
 
 /**
  * RL 任意ダメージの damageRoll フラグを組み立てる。
@@ -49,9 +65,7 @@ export function buildRlDamageRollFlag({ targets = [], category, value, damageTyp
     const amount = Math.max(0, Number(value) || 0);
     // 種別は対応防御力の引き先(defenceForType)。X は対応防御力が無く軽減なし＝「防護点で軽減できない
     // ダメージ」を表す手段(2026-07-20 裁定)。精神・社会に対応防御力の概念は無いので持たせない
-    const type = category === "physical"
-        ? (RL_DAMAGE_TYPES.some(t => t.value === damageType) ? damageType : "I")
-        : "";
+    const type = resolveDamageType(category, damageType);
     return {
         attackMessageId:  null,
         attackerUuid:     null,
@@ -76,6 +90,62 @@ export function buildRlDamageRollFlag({ targets = [], category, value, damageTyp
         rlGrant:          { value: amount, note: note ?? "" },
         applied:          false,
         appliedResult:    null,
+    };
+}
+
+/**
+ * RL 任意ダメージの「ダメージ算出前」中間カードのフラグを組み立てる(2026-07-24 ユーザー確定)。
+ *
+ * 攻撃カード(`attackCheck`)の器を流用する——命中確定後〜ダメージ算出前のフェーズ(カバー等の
+ * 「算出直前」効果が使えるタイミング)を、RL 任意ダメージにも与えるため。判定は経由しないので
+ * 対象は全員が命中確定(`state:"hit"`・`resolution:"none"`)で、判定に属する値(達成値・差分・
+ * カード値・スート)は持たず、リアクション導線(`confrontation`)も出さない。RL 由来は `rlGrant`
+ * マーカーで識別し、`renderAttackCard` は対象リスト・カバー導線・「ダメージカードを出す」ボタンを
+ * そのまま描画する(非カバーの対象行クリックは confrontation 空で無操作)。
+ *
+ * カードモード×物理は基準値を攻撃力に載せる(＝攻撃力＋カードの通常算出)。精神・社会に攻撃力の
+ * 概念は無いのでカードのみ(基準値は載せない)。固定モードは攻撃力を載せない(値はダメージ算出時に
+ * `rlGrant.value` として素の値で乗る)。
+ *
+ * @param {object}   opts
+ * @param {Array<{uuid:string,name:string}>} opts.targets 対象(0 体でも成立)
+ * @param {string}   opts.category physical / mental / social
+ * @param {number}   opts.value    固定モード=ダメージ値／カードモード×物理=基準値(攻撃力相当)
+ * @param {string}   [opts.damageType] ダメージ種別(物理のみ・S/P/I/X。既定 I)
+ * @param {string}   [opts.note]   自由記述(軽減技能の可否などを伝える・攻撃元名にも載る)
+ * @param {string}   [opts.mode]   fixed / card(不正・未指定は fixed)
+ * @returns {object} attackCheck フラグ
+ */
+export function buildRlDamageStagingFlag({ targets = [], category, value, damageType = "", note = "", mode = "fixed" } = {}) {
+    const amount = Math.max(0, Number(value) || 0);
+    const type = resolveDamageType(category, damageType);
+    const resolvedMode = RL_DAMAGE_MODES.some(m => m.value === mode) ? mode : "fixed";
+    // 攻撃力(基準値)はカードモード×物理のみ。固定・非物理は 0(固定値は算出時に rlGrant.value で乗る)
+    const weaponAttack = resolvedMode === "card" && category === "physical" ? amount : 0;
+    const noteText = String(note ?? "");
+    return {
+        isAttack:         true,
+        attackerUuid:     null,           // RL(攻撃者を持たない)
+        confrontation:    [],             // リアクション導線を出さない(命中確定)
+        category,
+        damageType:       type,
+        weaponAttack,
+        attackSourceName: noteText,       // カードモードの台帳「攻撃力(◯)」行のラベルに使う
+        // 対象は全員が命中確定。フィールドは攻撃カードの対象行と同形(カバー付与・ダメージ対象展開の前提)
+        targets: (targets ?? []).map(t => ({
+            uuid: t.uuid, name: t.name,
+            state: "hit", controlValue: 0, resolution: "none",
+            reactionAchievement: null, diff: null, parryGuard: 0,
+            reactionEstablished: false, selfDecision: null, reactions: [],
+        })),
+        state:            "resolved",     // fumble/miss/failed 以外＝カバー導線・ダメージボタンが出る
+        damageRolled:     false,
+        // 判定に属する値は持たない(判定表示なし・式の @diff/@achievement/@card も無い)
+        achievement:      null,
+        diff:             null,
+        cardValue:        null,
+        suit:             null,
+        rlGrant:          { mode: resolvedMode, value: amount, damageType: type, note: noteText },
     };
 }
 

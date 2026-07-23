@@ -537,6 +537,9 @@ export function renderAttackCard(message, html) {
     const esc = foundry.utils.escapeHTML;
     // 攻撃でしか必要のない項目は攻撃時のみ表示(2026-07-17 一般化・旧カードはフラグ無し=攻撃)
     const isAttack = f.isAttack !== false;
+    // RL 任意ダメージの「ダメージ算出前」中間カード(2026-07-24): 判定を経由しないため制御値等の
+    // 判定由来表示を出さない。対象リスト・カバー導線・ダメージボタンは通常の攻撃カードと同じ描画。
+    const isRl = !!f.rlGrant;
     const failWord = isAttack ? "攻撃失敗" : "判定失敗";
     const addLine = (cls, inner) => {
         const div = document.createElement("div");
@@ -606,7 +609,8 @@ export function renderAttackCard(message, html) {
             const icon = t.state === "hit" ? "fa-burst" : (t.state === "miss" ? "fa-shield-halved" : "fa-hourglass-half");
             const verdict = t.state === "hit" ? (isAttack ? "命中" : "成功")
                 : (t.state === "miss" ? (isAttack ? "回避/失敗" : "失敗") : "リアクション待ち");
-            const noneText = isAttack ? `制御値 ${t.controlValue}` : "リアクションなし";
+            // RL 中間カードは判定を経由しない＝制御値の表記を出さない(命中確定のみ)
+            const noneText = isRl ? "" : (isAttack ? `制御値 ${t.controlValue}` : "リアクションなし");
             const valueText = t.state === "pending"
                 ? (isAttack ? `制御値 ${t.controlValue}` : "")
                 : (t.resolution === "areaCover"
@@ -731,7 +735,10 @@ export function renderAttackCard(message, html) {
                 const btn = document.createElement("button");
                 btn.type = "button";
                 btn.className = "tnx-chat-btn tnx-attack-damage-btn";
-                btn.innerHTML = '<i class="fas fa-clone"></i> ダメージカードを出す';
+                // RL 固定モードはカードを出さず値を算出する＝文言を分ける(カードモード・通常攻撃は従来どおり)
+                btn.innerHTML = isRl && f.rlGrant?.mode === "fixed"
+                    ? '<i class="fas fa-burst"></i> ダメージを算出'
+                    : '<i class="fas fa-clone"></i> ダメージカードを出す';
                 btn.addEventListener("click", async () => {
                     const { openDamageRollDialog } = await import("./damage-flow.mjs");
                     openDamageRollDialog(message);

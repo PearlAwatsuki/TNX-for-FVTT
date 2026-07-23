@@ -1,0 +1,22 @@
+{{!-- RL 任意ダメージの「ダメージ算出前」中間カード(2026-07-24)。命中確定・判定表示なし。
+     対象リスト・カバー導線・「ダメージカードを出す／ダメージを算出」ボタンは .tnx-attack-status に
+     renderChatMessageHTML(attack-flow.renderAttackCard)がフラグ(attackCheck・rlGrant)からライブ描画する。
+     攻撃ではなく中立に「ダメージ付与」表記(判定内訳＝達成値・スート・カードは出さない)。 --}}
+<div class="tnx-check-result tnx-attack-card tnx-rl-damage-card tokyo-nova">
+    <div class="cr-head">
+        <span class="cr-skill-name">ダメージ付与</span>
+        <span class="cr-type-tag">{{categoryLabel}}</span>
+    </div>
+    {{#if summaryRows.length}}
+    <div class="cr-calc-section">
+        {{#each summaryRows}}
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">{{this.label}}</span>
+            <span class="cr-calc-val">{{this.value}}</span>
+        </div>
+        {{/each}}
+    </div>
+    {{/if}}
+    {{!-- 対象リスト・カバー導線・ダメージボタン(renderAttackCard がフラグから描画) --}}
+    <div class="tnx-attack-status"></div>
+</div>

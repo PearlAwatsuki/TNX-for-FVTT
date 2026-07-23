@@ -105,6 +105,7 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/chat/reaction-card.hbs",
         "systems/tokyo-nova-axleration/templates/chat/vehicle-move-card.hbs",
         "systems/tokyo-nova-axleration/templates/chat/damage-card.hbs",
+        "systems/tokyo-nova-axleration/templates/chat/rl-damage-card.hbs",
         "systems/tokyo-nova-axleration/templates/chat/condition-outcome.hbs",
         "systems/tokyo-nova-axleration/templates/chat/condition-prompt.hbs",
 

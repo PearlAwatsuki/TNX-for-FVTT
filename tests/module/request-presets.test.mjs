@@ -135,25 +135,35 @@ describe("newCheckRequestPreset() / newBountyPreset()（新規行）", () => {
 });
 
 describe("newDamageGrantPreset() / damagePresetToForm()（ダメージ付与の事前設定・2026-07-21）", () => {
-  it("新規行は生身の攻撃と同じ既定値を持つ", () => {
+  it("新規行は生身の攻撃と同じ既定値を持つ（既定モードは固定）", () => {
     const p = newDamageGrantPreset();
     expect(p.category).toBe("physical");
     expect(p.damageType).toBe("I");
     expect(p.value).toBe(0);
     expect(p.note).toBe("");
+    expect(p.mode).toBe("fixed");
   });
 
-  it("付与フォームの値へ写す", () => {
-    expect(damagePresetToForm({ category: "social", damageType: "", value: 3, note: "威圧" }))
-      .toEqual({ category: "social", damageType: "", value: 3, note: "威圧" });
+  it("付与フォームの値へ写す（モードも含む）", () => {
+    expect(damagePresetToForm({ category: "social", damageType: "", value: 3, note: "威圧", mode: "fixed" }))
+      .toEqual({ category: "social", damageType: "", value: 3, note: "威圧", mode: "fixed" });
+  });
+
+  it("カードモードのプリセットはモードを保存・再現する（＝カード系ギミックを丸ごと保存できる）", () => {
+    expect(damagePresetToForm({ category: "physical", damageType: "I", value: 5, note: "落下", mode: "card" }).mode)
+      .toBe("card");
   });
 
   it("負のダメージは0に丸める", () => {
     expect(damagePresetToForm({ value: -5 }).value).toBe(0);
   });
 
-  it("欠損は既定値で埋める", () => {
-    expect(damagePresetToForm({})).toEqual({ category: "physical", damageType: "I", value: 0, note: "" });
+  it("欠損は既定値で埋める（モード未指定＝固定＝既存プリセットの後方互換）", () => {
+    expect(damagePresetToForm({})).toEqual({ category: "physical", damageType: "I", value: 0, note: "", mode: "fixed" });
+  });
+
+  it("不正なモードは固定に落とす", () => {
+    expect(damagePresetToForm({ mode: "bogus" }).mode).toBe("fixed");
   });
 });
 

@@ -14,9 +14,10 @@
 
 import { bindTargetPicker } from "./target-picker.mjs";
 import {
-    buildRlDamageRollFlag, buildConditionGrantData, rlConditionChoices,
-    RL_DAMAGE_TYPES, RL_DAMAGE_CATEGORIES,
+    buildRlDamageStagingFlag, buildConditionGrantData, rlConditionChoices,
+    RL_DAMAGE_TYPES, RL_DAMAGE_CATEGORIES, RL_DAMAGE_MODES,
 } from "./rl-grant-logic.mjs";
+import { formatAttackLabel } from "./attack-flow-logic.mjs";
 import { buildGrantedEffectData, buildGrantedEffectDataFrom } from "./usage-effects.mjs";
 import { buildBountyGrantData } from "./bounty-grant-logic.mjs";
 import {
@@ -33,6 +34,22 @@ const SCOPE = "tokyo-nova-axleration";
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会" };
 
 const CATEGORY_OPTIONS = RL_DAMAGE_CATEGORIES;
+
+/**
+ * 中間カードの内訳プレビュー行(算出前に「何が来るか」を示す)。
+ * 固定＝ダメージ値(物理は種別も)／カード×物理＝基準値(攻撃力相当)／カード×精神・社会＝カードのみ。
+ */
+function stagingSummaryRows({ mode, category, damageType, value }) {
+    const isPhysical = category === "physical";
+    if (mode === "card") {
+        return isPhysical
+            ? [{ label: "基準値（攻撃力相当）", value: formatAttackLabel(damageType, value) }]
+            : [{ label: "ダメージ算出", value: "カードを出す" }];
+    }
+    const rows = [{ label: "ダメージ", value: String(Math.max(0, value)) }];
+    if (isPhysical) rows.push({ label: "種別", value: damageType });
+    return rows;
+}
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -106,8 +123,9 @@ async function resolveEffectSource(key, composed) {
 }
 
 /**
- * RL 任意ダメージ付与のダイアログ。ターゲット中のトークンへ、系統・値・自由記述を指定して
- * ダメージカードを投稿する。
+ * RL 任意ダメージ付与のダイアログ。系統・決め方(固定/カード)・値・自由記述を指定して、
+ * まず**命中確定・ダメージ算出前の中間カード**を投稿する(2026-07-24 ユーザー確定)。中間カードで
+ * カバー等の「算出直前」効果を挟んでから、固定値の算出／カードを出す通常算出へ進む。
  */
 export class TnxRlGrantDamageApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
@@ -133,6 +151,7 @@ export class TnxRlGrantDamageApp extends HandlebarsApplicationMixin(ApplicationV
         return {
             ...context,
             CATEGORY_OPTIONS,
+            DAMAGE_MODES: RL_DAMAGE_MODES,
             // 既定は生身の攻撃力と同じ I
             DAMAGE_TYPES: RL_DAMAGE_TYPES.map(t => ({ ...t, selected: t.value === "I" })),
             // 読み込み元(アクトシートのプリセット・2026-07-21)
@@ -145,27 +164,38 @@ export class TnxRlGrantDamageApp extends HandlebarsApplicationMixin(ApplicationV
 
     _onRender(context, options) {
         super._onRender(context, options);
+        const el = this.element;
         // 対象選択は4つのダイアログ共通の部品(2026-07-21)
-        this._picker = bindTargetPicker(this.element.querySelector(".tnx-target-picker"));
-        // ダメージ種別は物理のみ(精神・社会に対応防御力の概念が無い)
-        const categorySelect = this.element.querySelector("[name=category]");
-        const syncType = () => {
-            this.element.querySelector(".damage-type-field")
-                ?.toggleAttribute("hidden", (categorySelect?.value ?? "physical") !== "physical");
-        };
-        categorySelect?.addEventListener("change", syncType);
-        syncType();
+        this._picker = bindTargetPicker(el.querySelector(".tnx-target-picker"));
 
-        // 読み込み元 → 各欄へ流し込む(対象アクターはプリセットに含めない)
-        this.element.querySelector("[name=presetId]")?.addEventListener("change", (e) => {
+        const categorySelect = el.querySelector("[name=category]");
+        const modeSelect = el.querySelector("[name=mode]");
+        // 系統・決め方に応じて欄を切り替える:
+        // - ダメージ種別は物理のみ(精神・社会に対応防御力の概念が無い)
+        // - 値のラベルは 固定＝「ダメージ」／カード＝「基準値（攻撃力相当）」
+        // - カード×精神/社会は攻撃力の概念が無い＝ダメージ欄ごと隠す(カードのみ算出)
+        const sync = () => {
+            const isPhysical = (categorySelect?.value ?? "physical") === "physical";
+            const isCard = (modeSelect?.value ?? "fixed") === "card";
+            el.querySelector(".damage-type-field")?.toggleAttribute("hidden", !isPhysical);
+            const label = el.querySelector(".damage-value-label");
+            if (label) label.textContent = isCard ? "基準値" : "ダメージ";
+            el.querySelector(".damage-fields-group")?.toggleAttribute("hidden", isCard && !isPhysical);
+        };
+        categorySelect?.addEventListener("change", sync);
+        modeSelect?.addEventListener("change", sync);
+        sync();
+
+        // 読み込み元 → 各欄へ流し込む(対象アクターはプリセットに含めない)。モードも復元する
+        el.querySelector("[name=presetId]")?.addEventListener("change", (e) => {
             const preset = listDamageGrantPresets().flatMap(g => g.presets).find(p => p.id === e.target.value);
             if (!preset) return;
             const values = damagePresetToForm(preset);
             for (const [name, value] of Object.entries(values)) {
-                const field = this.element.querySelector(`[name=${name}]`);
+                const field = el.querySelector(`[name=${name}]`);
                 if (field) field.value = value;
             }
-            syncType();
+            sync();
         });
         // ± は DEFAULT_OPTIONS.actions(spinnerDialogActions)が処理する。
         // ここで手動リスナーを張ると二重発火して2ずつ動く
@@ -178,20 +208,23 @@ export class TnxRlGrantDamageApp extends HandlebarsApplicationMixin(ApplicationV
             return false;
         }
         const category   = form.querySelector("[name=category]")?.value ?? "physical";
+        const mode       = form.querySelector("[name=mode]")?.value ?? "fixed";
         const damageType = form.querySelector("[name=damageType]")?.value ?? "";
         const value      = Number(form.querySelector("[name=value]")?.value) || 0;
         const note       = form.querySelector("[name=note]")?.value?.trim() ?? "";
 
+        // 命中確定・ダメージ算出前の中間カード(攻撃カードの器)。ここでカバー等の「算出直前」効果が
+        // 使え、ボタンで固定算出／カードを出す通常算出へ進む。RL 由来は rlGrant マーカーで識別する。
+        const flags = buildRlDamageStagingFlag({ targets, category, damageType, value, note, mode });
         await ChatMessage.create({
             content: await foundry.applications.handlebars.renderTemplate(
-                "systems/tokyo-nova-axleration/templates/chat/damage-card.hbs",
-                { categoryLabel: CATEGORY_LABELS[category] ?? category }
+                "systems/tokyo-nova-axleration/templates/chat/rl-damage-card.hbs",
+                {
+                    categoryLabel: CATEGORY_LABELS[category] ?? category,
+                    summaryRows:   stagingSummaryRows({ mode, category, damageType: flags.damageType, value }),
+                }
             ),
-            flags: {
-                [SCOPE]: {
-                    damageRoll: buildRlDamageRollFlag({ targets, category, value, damageType, note }),
-                },
-            },
+            flags: { [SCOPE]: { attackCheck: flags } },
         });
     }
 }

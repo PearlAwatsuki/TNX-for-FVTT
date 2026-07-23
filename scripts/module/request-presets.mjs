@@ -87,8 +87,14 @@ export function newBountyPreset() {
     return { id: randomID(), label: "", amount: 0, note: "" };
 }
 
+/** ダメージの決め方(固定/カード算出・2026-07-24)。不正・未指定は固定に落とす。 */
+const DAMAGE_MODES = ["fixed", "card"];
+const resolveDamageMode = (mode) => (DAMAGE_MODES.includes(mode) ? mode : "fixed");
+
 /**
  * ダメージ付与プリセット → 付与フォームの値。**対象アクターは含めない**。
+ * `mode`(固定/カード)も保存・再現する——カード系ギミックを丸ごと保存できるようにするため
+ * (2026-07-24。既存プリセットは無印＝固定扱いで後方互換)。
  * @param {object} preset
  */
 export function damagePresetToForm(preset) {
@@ -97,12 +103,13 @@ export function damagePresetToForm(preset) {
         damageType: preset?.damageType ?? "I",
         value:      Math.max(0, Math.trunc(Number(preset?.value) || 0)),
         note:       preset?.note ?? "",
+        mode:       resolveDamageMode(preset?.mode),
     };
 }
 
-/** ダメージ付与プリセットの新規行(既定は生身の攻撃と同じ I)。 */
+/** ダメージ付与プリセットの新規行(既定は生身の攻撃と同じ I・固定モード)。 */
 export function newDamageGrantPreset() {
-    return { id: randomID(), label: "", category: "physical", damageType: "I", value: 0, note: "" };
+    return { id: randomID(), label: "", category: "physical", damageType: "I", value: 0, note: "", mode: "fixed" };
 }
 
 /**

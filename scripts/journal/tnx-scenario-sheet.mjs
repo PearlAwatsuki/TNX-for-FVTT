@@ -10,7 +10,7 @@ import {
     presetLabel, newCheckRequestPreset, newBountyPreset,
     newDamageGrantPreset, newEffectGrantPreset,
 } from '../module/request-presets.mjs';
-import { RL_DAMAGE_TYPES, RL_DAMAGE_CATEGORIES } from '../module/rl-grant-logic.mjs';
+import { RL_DAMAGE_TYPES, RL_DAMAGE_CATEGORIES, RL_DAMAGE_MODES } from '../module/rl-grant-logic.mjs';
 import { promptEffectData } from '../module/effect-authoring.mjs';
 import { describeEffectData } from '../module/effect-source-logic.mjs';
 import { captureScrollTop, restoreScrollTop } from '../module/scroll-preserve.mjs';
@@ -139,6 +139,9 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             placeholder:  presetLabel({}, i, "ダメージ"),
             categories:   selected(RL_DAMAGE_CATEGORIES, p.category ?? "physical"),
             damageTypes:  selected(RL_DAMAGE_TYPES, p.damageType ?? "I"),
+            // 決め方(固定/カード算出・2026-07-24)。値ラベルはモードに追随(欄の切替は _setupChangeListeners)
+            modes:        selected(RL_DAMAGE_MODES, p.mode ?? "fixed"),
+            valueLabel:   (p.mode ?? "fixed") === "card" ? "基準値" : "ダメージ",
         }));
         const statusLabels = conditionStatusLabels();
         context.effectGrantPresets = (flagData.effectGrants || []).map((p, i) => ({
@@ -197,12 +200,23 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             input.addEventListener('change', this._onPresetFieldChange.bind(this));
         }
 
-        // ダメージ種別は物理のみ(精神・社会に対応防御力の概念が無い=付与ダイアログと同じ)
-        for (const select of el.querySelectorAll('.preset-item [name="category"]')) {
-            const row = select.closest('.preset-body')?.querySelector('.damage-type-field');
-            if (!row) continue;
-            const sync = () => row.toggleAttribute('hidden', select.value !== 'physical');
-            select.addEventListener('change', sync);
+        // ダメージ付与プリセットの欄同期(付与ダイアログと同じ規則・2026-07-24):
+        // 種別は物理のみ／値ラベルは 固定＝「ダメージ」・カード＝「基準値（攻撃力相当）」／
+        // カード×精神・社会は攻撃力の概念が無い＝ダメージ欄ごと隠す(カードのみ算出)
+        for (const item of el.querySelectorAll('.preset-item')) {
+            const categorySelect = item.querySelector('[name="category"]');
+            const modeSelect = item.querySelector('[name="mode"]');
+            if (!categorySelect || !modeSelect) continue;   // ダメージ付与プリセットのみ対象
+            const sync = () => {
+                const isPhysical = categorySelect.value === 'physical';
+                const isCard = modeSelect.value === 'card';
+                item.querySelector('.damage-type-field')?.toggleAttribute('hidden', !isPhysical);
+                const label = item.querySelector('.damage-value-label');
+                if (label) label.textContent = isCard ? '基準値' : 'ダメージ';
+                item.querySelector('.damage-fields-group')?.toggleAttribute('hidden', isCard && !isPhysical);
+            };
+            categorySelect.addEventListener('change', sync);
+            modeSelect.addEventListener('change', sync);
             sync();
         }
 

@@ -36,7 +36,7 @@ import { formatAttackLabel } from "./attack-flow-logic.mjs";
 import { gatherDamageVsSources, gatherDamageDealtSources, gatherDamageTakenSources, collectActorEffectBuffs, targetStyleWorksKeys } from "../data/item/helpers.mjs";
 import { splitEffectsByTiming } from "./usage-effects.mjs";
 import { spinnerDialogActions } from "./tnx-dialog.mjs";
-import { rlGrantAmount, rlGrantLedgerRow, rlGrantTypeLabel } from "./rl-grant-logic.mjs";
+import { rlGrantAmount, rlGrantLedgerRow, rlGrantTypeLabel, buildRlDamageRollFlag } from "./rl-grant-logic.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会" };
@@ -102,6 +102,9 @@ export async function openDamageRollDialog(attackMessage) {
     const f = attackMessage.getFlag(SCOPE, "attackCheck");
     if (!f) return;
     if (f.damageRolled) { ui.notifications.info("この攻撃のダメージカードは出されています。"); return; }
+    // RL 任意ダメージの固定モード(2026-07-24): カードを出さず、指定値のダメージカードを直接生成する
+    // (カードモードはこの下の通常フローへ合流＝攻撃者=RL・攻撃力=基準値・命中確定済みの通常攻撃と同型)
+    if (f.rlGrant?.mode === "fixed") return openRlFixedDamage(attackMessage);
 
     const attacker = await fromUuid(f.attackerUuid).catch(() => null);
     if (!(game.user.isGM || attacker?.isOwner)) {
@@ -243,6 +246,44 @@ async function finalizeDamageRoll(ctx, form, played) {
     });
 
     await applyAttackPatch(attackMessage, { damageRolled: true });
+}
+
+/**
+ * RL 任意ダメージ(固定モード)の「ダメージを算出」(2026-07-24 ユーザー確定)。中間カード(ダメージ
+ * 算出前・カバー可)の命中確定対象へ、指定した固定値のダメージカードを直接生成する(カードは出さない)。
+ * カバーの印(coveredBy)は buildDamageTargets が展開する(元対象=被弾なし・カバーした側の行へ付け替え)。
+ * 以降は既存のダメージカードフロー(軽減・チャート適用等)に合流する。RL=攻撃者なしのため GM が押す。
+ * @param {ChatMessage} stagingMessage 中間カード(attackCheck・rlGrant.mode="fixed")
+ */
+async function openRlFixedDamage(stagingMessage) {
+    const f = stagingMessage.getFlag(SCOPE, "attackCheck");
+    if (!f) return;
+    if (f.damageRolled) { ui.notifications.info("このダメージは算出済みです。"); return; }
+    const attacker = await fromUuid(f.attackerUuid).catch(() => null);
+    if (!(game.user.isGM || attacker?.isOwner)) {
+        ui.notifications.warn("ダメージの算出は RL（または攻撃側）が行います。");
+        return;
+    }
+    const category = f.category || "physical";
+    const hitTargets = (f.targets ?? []).filter(t => t.state === "hit");
+
+    // 固定値のダメージカード。対象行はカバー展開(buildDamageTargets)で作り、RL 由来は rlGrant で持つ
+    const damageRoll = buildRlDamageRollFlag({
+        targets: [], category, value: f.rlGrant?.value, damageType: f.damageType, note: f.rlGrant?.note,
+    });
+    damageRoll.targets = buildDamageTargets(hitTargets);
+    damageRoll.attackMessageId = stagingMessage.id;
+
+    await ChatMessage.create({
+        content: await foundry.applications.handlebars.renderTemplate(
+            "systems/tokyo-nova-axleration/templates/chat/damage-card.hbs",
+            { categoryLabel: CATEGORY_LABELS[category] ?? category }
+        ),
+        speaker: attacker ? ChatMessage.getSpeaker({ actor: attacker }) : undefined,
+        flags: { [SCOPE]: { damageRoll } },
+    });
+
+    await applyAttackPatch(stagingMessage, { damageRolled: true });
 }
 
 // ─── ダメージカードのプレイ(手札=HUD クリック/山札・ジョーカー=ワイルドカード) ────

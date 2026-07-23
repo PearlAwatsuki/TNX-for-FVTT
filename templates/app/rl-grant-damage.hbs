@@ -27,10 +27,23 @@
         </select>
     </div>
 
-    {{!-- ダメージ＝種別＋値の1項目（攻撃力の設定と同じ split-fields）。
-          種別は物理のみ（X＝対応防御力が無い＝防護点で軽減できないダメージ） --}}
+    {{!-- ダメージの決め方（2026-07-24）。固定＝値をそのまま／カード＝命中確定後に通常のダメージ算出
+          （攻撃力＝基準値＋カード）。どちらも命中確定後にカバー等の「算出直前」効果を挟める --}}
     <div class="form-group rl-form-group">
-        <label class="rl-label">ダメージ</label>
+        <label class="rl-label">ダメージの決め方</label>
+        <select name="mode" class="rl-select">
+            {{#each DAMAGE_MODES}}
+                <option value="{{this.value}}">{{this.label}}</option>
+            {{/each}}
+        </select>
+    </div>
+
+    {{!-- ダメージ＝種別＋値の1項目（攻撃力の設定と同じ split-fields）。
+          種別は物理のみ（X＝対応防御力が無い＝防護点で軽減できないダメージ）。
+          値のラベルはモードで切り替え（固定＝ダメージ／カード×物理＝基準値）。
+          カード×精神/社会は攻撃力の概念が無い＝グループごと隠す（カードのみ算出） --}}
+    <div class="form-group rl-form-group damage-fields-group">
+        <label class="rl-label damage-value-label">ダメージ</label>
         <div class="form-fields split-fields">
             <select name="damageType" class="rl-select damage-type-field">
                 {{#each DAMAGE_TYPES}}
