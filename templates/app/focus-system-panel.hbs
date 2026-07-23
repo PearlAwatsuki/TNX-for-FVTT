@@ -71,7 +71,7 @@
                 <dl class="fs-panel-active">
                     <dt>進行判定</dt><dd>{{this.activeRow.skillLabel}}（目標値 {{this.activeRow.targetValue}}）</dd>
                     {{#if this.supportSkillLabels.length}}
-                        <dt>支援判定</dt><dd>{{#each this.supportSkillLabels}}{{#unless @first}}・{{/unless}}{{this}}{{/each}}（目標値 {{../activeRow.targetValue}}）</dd>
+                        <dt>支援判定</dt><dd>{{#each this.supportSkillLabels}}{{#unless @first}}・{{/unless}}{{this}}{{/each}}（目標値 {{this.activeRow.targetValue}}）</dd>
                     {{/if}}
                     {{#if this.activeRow.note}}
                         <dt>備考</dt><dd>{{this.activeRow.note}}</dd>
