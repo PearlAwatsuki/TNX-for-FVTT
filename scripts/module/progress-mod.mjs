@@ -104,3 +104,63 @@ export async function resolveProgressMod(mod, { paramValue = 0 } = {}) {
     const value = await evaluateFormula(mod.formula, { param: Number(paramValue) || 0 });
     return Number.isFinite(value) ? value : 0;
 }
+
+/**
+ * アイテムのフィールド値を数値化する(進行修正 outfit の実解決・フェーズ13-7)。フィールドの形が
+ * 不揃い(直値の NumberField・`{mode,value}` の modeValueField・attackField 等)なので、
+ * `total`(実効値) → `value` → 直値の順で数値を取り出す。
+ * @param {*} raw item.system.<フィールド> の値
+ * @returns {number}
+ */
+export function outfitFieldNumber(raw) {
+    if (typeof raw === "number") return raw;
+    if (raw && typeof raw === "object") {
+        if (Number.isFinite(raw.total)) return raw.total;
+        if (Number.isFinite(raw.value)) return raw.value;
+    }
+    return 0;
+}
+
+/** 準備済みの候補が複数あるとき、判定者に参照元アイテムを選ばせる(値も併記)。 */
+async function pickOutfitItem(items, field) {
+    const esc = foundry.utils.escapeHTML;
+    const options = items.map(i =>
+        `<option value="${i.id}">${esc(i.name)}（${outfitFieldNumber(foundry.utils.getProperty(i.system, field))}）</option>`
+    ).join("");
+    const picked = await foundry.applications.api.DialogV2.prompt({
+        window: { title: "進行修正の参照元" },
+        classes: ["tokyo-nova", "tnx-dialog"],
+        content: `<p>進行修正に使うアイテムを選択:</p><div class="form-group"><select name="itemId">${options}</select></div>`,
+        ok: { label: "決定", icon: "fas fa-check", callback: (_e, b) => b.form.elements.itemId.value },
+        modal: true,
+        rejectClose: false,
+    }).catch(() => null);
+    return picked ? (items.find(i => i.id === picked) ?? null) : null;
+}
+
+/**
+ * 進行修正を**判定者アクターに対して**解決する(フェーズ13-7)。source 別に `@param` の解決値を
+ * 求めてから、既存の `resolveProgressMod`(式評価)へ渡す。
+ * - none:   固定値/式(paramValue=0)。
+ * - actor:  アクターの system 値。`param` は system 直下のドットパス(例 `reason.total` / `bounty`)。
+ * - outfit: 判定者の**準備済み**アイテム(`param`="種別.フィールド")の値。準備済みが複数なら選ばせる。
+ * @param {Actor} actor 判定者
+ * @param {?{source:string, param:string, formula:string}} mod
+ * @returns {Promise<number>}
+ */
+export async function resolveProgressModForActor(actor, mod) {
+    let paramValue = 0;
+    if (mod?.source === "actor" && mod.param) {
+        paramValue = Number(foundry.utils.getProperty(actor?.system ?? {}, mod.param)) || 0;
+    } else if (mod?.source === "outfit" && mod.param) {
+        const dot = mod.param.indexOf(".");
+        if (dot > 0) {
+            const type = mod.param.slice(0, dot);
+            const field = mod.param.slice(dot + 1);
+            const items = (actor?.items ?? []).filter(i => i.type === type && i.system?.isPrepared === true);
+            const item = items.length <= 1 ? items[0] : await pickOutfitItem(items, field);
+            if (item) paramValue = outfitFieldNumber(foundry.utils.getProperty(item.system, field));
+        }
+    }
+    return resolveProgressMod(mod, { paramValue });
+}

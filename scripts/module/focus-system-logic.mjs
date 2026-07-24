@@ -43,6 +43,28 @@ export function activeProgressRow(rows, progress) {
 }
 
 /**
+ * 進行判定で獲得する進行値(ルール3＋5・フェーズ13-7)。
+ * `floor(差分値 ÷ 10 ＋ 進行修正) ＋ 支援ボーナス`。
+ * - 差分値は成功時のみ定義(失敗/ファンブル=非数は進行なし＝0)。
+ * - 端数切り捨ては「差分値÷10 ＋ 進行修正」の**和全体**(ルール3)。
+ * - 支援ボーナスは「獲得する進行値」への加算なので floor の**外側**(ルール5・2026-07-23 訂正＝
+ *   判定/達成値ではなく獲得進行値に +N。②が貯めた保留支援数を渡す)。
+ * @param {number|null|undefined} diff 差分値(達成値−目標値)
+ * @param {number} [progressMod] 解決済みの進行修正(数値)
+ * @param {number} [supportBonus] 保留支援ボーナス(複数支援で +N)
+ * @returns {number}
+ */
+export function computeProgressGain(diff, progressMod = 0, supportBonus = 0) {
+    // 差分値 null/undefined(失敗/ファンブル=進行なし)。Number(null)=0 は有限に化けるため明示ガード
+    if (diff === null || diff === undefined) return 0;
+    const d = Number(diff);
+    if (!Number.isFinite(d)) return 0;
+    const mod = Number(progressMod) || 0;
+    const support = Number(supportBonus) || 0;
+    return Math.floor(d / 10 + mod) + support;
+}
+
+/**
  * ゲージの現在値(0 以上・最大値以下)。
  * @param {number} value
  * @param {number} max

@@ -62,6 +62,7 @@ import { openRlGrantDamage, openRlGrantEffect, openRlGrantBounty } from './modul
 import { renderBountyGrantCard } from './module/bounty-grant.mjs';
 import { openFocusSystemPanel } from './module/tnx-focus-system-panel.mjs';
 import { registerFocusSystemSetting } from './module/focus-system-state.mjs';
+import { renderFocusProgressButton } from './module/focus-system-result.mjs';
 import { registerEffectScratchHiding } from './module/effect-authoring.mjs';
 import { FOCUS_SYSTEM_FLAG, defaultFocusSystemData } from './module/focus-system-data.mjs';
 import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
@@ -1011,6 +1012,14 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
                 statusEl.replaceChildren(waiting);
             }
         }
+    }
+});
+
+// FS 進行判定(13-7): 進行判定要求カードで成功した対象行に、RL(=GM)へ「進行値に加算」ボタンを描画する。
+// 上の checkRequest 描画(結果を statusEl に置く)の**後**に登録し、その結果表示にボタンを足す形にする。
+Hooks.on("renderChatMessageHTML", (message, html) => {
+    if (message.getFlag("tokyo-nova-axleration", "checkRequest")?.extra?.focusSystemKind === "progress") {
+        renderFocusProgressButton(message, html);
     }
 });
 

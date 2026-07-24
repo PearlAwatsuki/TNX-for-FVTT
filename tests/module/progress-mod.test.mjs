@@ -21,6 +21,7 @@ const {
   PROGRESS_MOD_SOURCES,
   buildProgressModChoices,
   resolveProgressMod,
+  outfitFieldNumber,
 } = await import("../../scripts/module/progress-mod.mjs");
 
 describe("PROGRESS_MOD_SOURCES（進行修正の参照元）", () => {
@@ -98,5 +99,24 @@ describe("resolveProgressMod()（式評価・@param 注入）", () => {
 
   it("評価できない自由文は0（例外を投げない）", async () => {
     expect(await resolveProgressMod({ source: "none", formula: "タップのサイクル数" })).toBe(0);
+  });
+});
+
+describe("outfitFieldNumber()（進行修正 outfit の値取り出し・13-7）", () => {
+  it("直値（NumberField）はそのまま", () => {
+    expect(outfitFieldNumber(5)).toBe(5);
+    expect(outfitFieldNumber(0)).toBe(0);
+  });
+  it("modeValueField（{mode,value}）は value", () => {
+    expect(outfitFieldNumber({ mode: "value", value: 3 })).toBe(3);
+    expect(outfitFieldNumber({ mode: "none", value: 0 })).toBe(0);
+  });
+  it("total を持つ（attackField 等）は total を優先", () => {
+    expect(outfitFieldNumber({ value: 2, total: 7 })).toBe(7);
+  });
+  it("非数・空は 0", () => {
+    expect(outfitFieldNumber(null)).toBe(0);
+    expect(outfitFieldNumber({})).toBe(0);
+    expect(outfitFieldNumber("x")).toBe(0);
   });
 });
