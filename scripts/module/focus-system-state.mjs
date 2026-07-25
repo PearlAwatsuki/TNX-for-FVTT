@@ -69,6 +69,19 @@ export async function updateFocusSystem(id, patch) {
 }
 
 /**
+ * カット境界(カットが1つ終わった)で、実行中 FS の経過カットを +1 する(13-7⑥・GM 側)。
+ * cut 型の敗北条件を持つ FS のみ(それ以外はカット数を追わない)。パネルの表示は
+ * `cutLimit − 経過` のカウントダウン。カット進行(13-6)の `tnxCutEnd` から呼ぶ。
+ */
+export async function advanceFocusCuts() {
+    if (!game.user.isGM) return;
+    for (const fs of listActiveFocusSystems()) {
+        if ((fs.defeatCondition?.type ?? "cut") !== "cut") continue;
+        await updateFocusSystem(fs.id, { cut: (Number(fs.cut) || 0) + 1 });
+    }
+}
+
+/**
  * 実行中 FS を終了する(達成/敗北の確定)。
  * @param {string} id
  * @returns {Promise<?object>} 終了した FS(見つからなければ null)

@@ -68,16 +68,20 @@ export class TnxFocusSystemPanel extends HandlebarsApplicationMixin(ApplicationV
             const cutLimit = Number(fs.defeatCondition?.cutLimit) || 0;
             const progress = clampGauge(fs.progress, fs.targetProgress);
             const cut      = clampGauge(fs.cut, cutLimit);
+            // カット表示はカウントダウン(2026-07-24 ユーザー確定): 現在値＝cutLimit − 経過カット数。
+            // 内部データ(fs.cut)は経過カット(カウントアップ・トラッカーの round と同じ向き)のまま持ち、
+            // 表示だけ減算にして「リミット」感を出す。0 で敗北ライン(敗北確定は RL 操作＝ルール17)。
+            const cutCurrent = Math.max(0, cutLimit - cut);
             return {
                 ...fs,
                 progress,
                 cut,
                 cutLimit,
+                cutCurrent,
                 isDefeatCut,
                 defeatText:      isDefeatCut ? `${cutLimit} カット経過` : (fs.defeatCondition?.text ?? ""),
-                cutRemaining:    Math.max(0, cutLimit - cut),
                 progressPercent: fs.targetProgress > 0 ? Math.round((progress / fs.targetProgress) * 100) : 0,
-                cutPercent:      cutLimit > 0 ? Math.round((cut / cutLimit) * 100) : 0,
+                cutPercent:      cutLimit > 0 ? Math.round((cutCurrent / cutLimit) * 100) : 0,
                 markers:         gaugeMarkers(fs.rows, fs.targetProgress),
                 supportSkillLabels: (fs.supportSkillKeys ?? []).map(k => label(k)).filter(Boolean),
                 activeRow:       row ? { ...row, skillLabel: rowSkillLabel(row, label) } : null,

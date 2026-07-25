@@ -61,8 +61,9 @@ import { TnxRlRequestApp } from './module/tnx-rl-request-app.mjs';
 import { openRlGrantDamage, openRlGrantEffect, openRlGrantBounty } from './module/rl-grant.mjs';
 import { renderBountyGrantCard } from './module/bounty-grant.mjs';
 import { openFocusSystemPanel } from './module/tnx-focus-system-panel.mjs';
-import { registerFocusSystemSetting } from './module/focus-system-state.mjs';
+import { registerFocusSystemSetting, advanceFocusCuts } from './module/focus-system-state.mjs';
 import { renderFocusProgressButton, renderFocusSupportNote } from './module/focus-system-result.mjs';
+import { autoSendFocusChecks } from './module/focus-system-request.mjs';
 import { registerEffectScratchHiding } from './module/effect-authoring.mjs';
 import { FOCUS_SYSTEM_FLAG, defaultFocusSystemData } from './module/focus-system-data.mjs';
 import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
@@ -1029,6 +1030,19 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
     if (message.getFlag("tokyo-nova-axleration", "checkRequest")?.extra?.focusSystemKind === "support") {
         renderFocusSupportNote(message, html);
     }
+});
+
+// FS判定のカット進行への合流(13-7③④): プロセス開始で進行/支援判定を自動送信する。
+// メイン開始→その手番のキャストへ進行判定(ルール14)・イニシアチブ開始→AR残の参加者へ支援判定
+// (ルール15)を、各実行中 FS について送る(境界イベントは GM 側発火＝autoSendFocusChecks が GM 実行)。
+Hooks.on("tnxProcessStart", (combat, data) => {
+    autoSendFocusChecks(combat, data?.phase);
+});
+
+// FS判定のカット連動(13-7⑥): カット境界(カットが1つ終わった=tnxCutEnd)で、実行中 FS(cut 型敗北)の
+// 経過カットを +1 する。パネルのカット表示は cutLimit−経過 のカウントダウンで自動更新される。
+Hooks.on("tnxCutEnd", () => {
+    advanceFocusCuts();
 });
 
 Hooks.once("init", async function() {
