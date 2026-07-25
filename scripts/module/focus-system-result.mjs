@@ -68,10 +68,68 @@ export async function applyFocusProgress(message, actorId) {
     const row = activeProgressRow(fs.rows, fs.progress);
     const actor = game.actors.get(actorId) ?? null;
     const mod = await resolveProgressModForActor(actor, row?.progressMod);
-    // 支援ボーナスはサブステップ②で pendingSupport を接続する(①では 0)
-    const gain = computeProgressGain(result.diff, mod, 0);
+    // 支援ボーナス(②): 「次に進行判定を行うキャスト」が受け取るため FS 全体の pendingSupport を
+    // この進行判定で使い切る(2026-07-24 ユーザー確定＝対象別でなく次の進行者が受け取る)
+    const support = Number(fs.pendingSupport) || 0;
+    const gain = computeProgressGain(result.diff, mod, support);
 
-    await updateFocusSystem(fs.id, { progress: clampGauge(fs.progress + gain, fs.targetProgress) });
+    await updateFocusSystem(fs.id, { progress: clampGauge(fs.progress + gain, fs.targetProgress), pendingSupport: 0 });
     const appliedFlag = { ...(message.getFlag(SCOPE, "focusProgressApplied") ?? {}), [actorId]: gain };
     await message.update({ [`flags.${SCOPE}.focusProgressApplied`]: appliedFlag });
+}
+
+// ─── サブステップ②: 支援判定の AR 消費 ＋ pendingSupport 加算(結果確定で**自動適用**) ──────
+// 進行値加算(①)は RL の判断で手動ボタン(ダメージ同様)だが、支援判定の AR 消費・成立は判定結果が
+// 出た時点で確定する機械的な帰結なので**自動適用**する(2026-07-24 ユーザー確定＝ダメージとは性格が違う)。
+
+/**
+ * 支援判定の結果を自動適用する(結果記録時＝GM 側で1回)。支援者の AR を−1(成功/失敗問わず＝
+ * メジャーアクション・確定C)、**成功なら** FS 全体の `pendingSupport` を +1(「次に進行判定を行う
+ * キャスト」が受け取る)。二重適用を防ぐため focusSupportApplied で冪等にする。
+ * @param {ChatMessage} message 支援判定要求カード
+ * @param {string} actorId 支援を行ったキャストの Actor id
+ */
+export async function autoApplyFocusSupport(message, actorId) {
+    const flag = message.getFlag(SCOPE, "checkRequest");
+    if (flag?.extra?.focusSystemKind !== "support") return;
+    const result = flag.results?.[actorId];
+    if (!result) return;
+    const applied = message.getFlag(SCOPE, "focusSupportApplied") ?? {};
+    if (applied[actorId] !== undefined) return; // 一度だけ(再判定等の二重 AR 消費を防ぐ)
+
+    const fs = getActiveFocusSystem(flag.extra?.focusSystemId);
+    if (!fs) return;
+    // AR−1(メジャーアクション＝成功/失敗問わず消費)
+    const actor = game.actors.get(actorId) ?? null;
+    if (actor?.system?.actionRank) {
+        await actor.update({ "system.actionRank.value": Math.max(0, (actor.system.actionRank.value ?? 0) - 1) });
+    }
+    // 成功なら次の進行判定への +1 を FS 全体に貯める
+    const succeeded = result.success === true;
+    if (succeeded) {
+        await updateFocusSystem(fs.id, { pendingSupport: (Number(fs.pendingSupport) || 0) + 1 });
+    }
+    await message.update({ [`flags.${SCOPE}.focusSupportApplied`]: { ...applied, [actorId]: succeeded } });
+}
+
+/**
+ * 支援判定要求カードに、自動適用済みの表示(AR−1／支援成立)を各支援者行に描画する(全員に表示)。
+ * 適用そのものは autoApplyFocusSupport が結果確定時に済ませており、ここは表示のみ。
+ */
+export function renderFocusSupportNote(message, html) {
+    const flag = message.getFlag(SCOPE, "checkRequest");
+    if (flag?.extra?.focusSystemKind !== "support") return;
+    const applied = message.getFlag(SCOPE, "focusSupportApplied") ?? {};
+    for (const row of html.querySelectorAll(".cr-req-target-row")) {
+        const actorId = row.dataset.actorId;
+        if (applied[actorId] === undefined) continue;
+        const statusEl = row.querySelector(".cr-req-target-status");
+        if (!statusEl) continue;
+        const note = document.createElement("span");
+        note.className = "cr-req-note tnx-fs-applied";
+        note.innerHTML = applied[actorId]
+            ? '<i class="fas fa-hands-helping"></i> 支援成立（AR−1）'
+            : '<i class="fas fa-hands-helping"></i> AR−1';
+        statusEl.appendChild(note);
+    }
 }

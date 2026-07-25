@@ -99,6 +99,13 @@ export class TnxSocketHandler {
             "flags.tokyo-nova-axleration.checkRequest.status":
                 allDone ? "completed" : "partial",
         });
+
+        // FS 支援判定(13-7②): 支援判定は結果確定で自動適用する(AR−1＋成功なら pendingSupport)。
+        // 手動ボタンではなく機械的な帰結のため(2026-07-24 ユーザー確定)。他の checkRequest では no-op。
+        if (flags.extra?.focusSystemKind === "support") {
+            const { autoApplyFocusSupport } = await import("./focus-system-result.mjs");
+            await autoApplyFocusSupport(message, actorId);
+        }
     }
 
     /**

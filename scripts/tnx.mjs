@@ -62,7 +62,7 @@ import { openRlGrantDamage, openRlGrantEffect, openRlGrantBounty } from './modul
 import { renderBountyGrantCard } from './module/bounty-grant.mjs';
 import { openFocusSystemPanel } from './module/tnx-focus-system-panel.mjs';
 import { registerFocusSystemSetting } from './module/focus-system-state.mjs';
-import { renderFocusProgressButton } from './module/focus-system-result.mjs';
+import { renderFocusProgressButton, renderFocusSupportNote } from './module/focus-system-result.mjs';
 import { registerEffectScratchHiding } from './module/effect-authoring.mjs';
 import { FOCUS_SYSTEM_FLAG, defaultFocusSystemData } from './module/focus-system-data.mjs';
 import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
@@ -1020,6 +1020,14 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
 Hooks.on("renderChatMessageHTML", (message, html) => {
     if (message.getFlag("tokyo-nova-axleration", "checkRequest")?.extra?.focusSystemKind === "progress") {
         renderFocusProgressButton(message, html);
+    }
+});
+
+// FS 支援判定(13-7②): 支援判定は結果確定で**自動適用**(AR−1＋成功なら pendingSupport＝
+// autoApplyFocusSupport が _onCheckResult で実行)。ここは適用済みの表示(AR−1／支援成立)のみ描画する。
+Hooks.on("renderChatMessageHTML", (message, html) => {
+    if (message.getFlag("tokyo-nova-axleration", "checkRequest")?.extra?.focusSystemKind === "support") {
+        renderFocusSupportNote(message, html);
     }
 });
 
