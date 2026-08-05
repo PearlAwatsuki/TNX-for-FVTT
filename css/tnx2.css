@@ -6983,12 +6983,24 @@ button.tnx-create-act-button span {
 
 .tnx-check-request .cr-req-target-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     padding: 5px 8px;
     background: rgba(255,255,255,0.04);
     border-radius: 4px;
     gap: 8px;
+}
+
+/* FS判定の行内アクション(進行値に加算ボタン／適用済み表示)は、名前・達成値の下に全幅で回す
+   (右寄せの status セルへ詰めると重なるため・13-7・2026-07-26)。 */
+.tnx-check-request .tnx-fs-row-action {
+    flex-basis: 100%;
+    margin: 2px 0 0;
+    text-align: center;
+}
+.tnx-check-request button.tnx-fs-row-action {
+    width: 100%;
 }
 
 .tnx-check-request .cr-req-actor-name {

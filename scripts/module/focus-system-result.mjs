@@ -34,22 +34,23 @@ export function renderFocusProgressButton(message, html) {
     for (const row of html.querySelectorAll(".cr-req-target-row")) {
         const actorId = row.dataset.actorId;
         const result = flag.results?.[actorId];
-        const statusEl = row.querySelector(".cr-req-target-status");
-        if (!statusEl || !result?.success) continue; // 成功のみ(失敗/ファンブルは進行なし)
+        if (!result?.success) continue; // 成功のみ(失敗/ファンブルは進行なし)
 
+        // ボタン/表示は行の**新しい行(全幅)**に置く。status セル(右寄せ・flex:1)へ詰めると
+        // 達成値表示と重なってレイアウトが崩れるため(2026-07-26 実機指摘)。
         if (applied[actorId] !== undefined) {
-            const note = document.createElement("span");
-            note.className = "cr-req-note tnx-fs-applied";
+            const note = document.createElement("div");
+            note.className = "tnx-fs-row-action cr-req-note tnx-fs-applied";
             note.innerHTML = `<i class="fas fa-check"></i> 進行 +${applied[actorId]} 反映済み`;
-            statusEl.appendChild(note);
+            row.appendChild(note);
             continue;
         }
         const btn = document.createElement("button");
         btn.type = "button";
-        btn.className = "tnx-chat-btn tnx-fs-progress-btn";
+        btn.className = "tnx-fs-row-action tnx-chat-btn tnx-fs-progress-btn";
         btn.innerHTML = '<i class="fas fa-diamond"></i> 進行値に加算';
         btn.addEventListener("click", () => applyFocusProgress(message, actorId));
-        statusEl.appendChild(btn);
+        row.appendChild(btn);
     }
 }
 
@@ -125,13 +126,12 @@ export function renderFocusSupportNote(message, html) {
     for (const row of html.querySelectorAll(".cr-req-target-row")) {
         const actorId = row.dataset.actorId;
         if (applied[actorId] === undefined) continue;
-        const statusEl = row.querySelector(".cr-req-target-status");
-        if (!statusEl) continue;
-        const note = document.createElement("span");
-        note.className = "cr-req-note tnx-fs-applied";
+        // 適用済み表示も行の新しい行(全幅)に置く(status セルへ詰めない・2026-07-26)
+        const note = document.createElement("div");
+        note.className = "tnx-fs-row-action cr-req-note tnx-fs-applied";
         note.innerHTML = applied[actorId]
             ? '<i class="fas fa-hands-helping"></i> 支援成立（AR−1）'
             : '<i class="fas fa-hands-helping"></i> AR−1';
-        statusEl.appendChild(note);
+        row.appendChild(note);
     }
 }

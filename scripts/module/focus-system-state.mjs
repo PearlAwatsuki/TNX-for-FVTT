@@ -22,6 +22,12 @@ export function registerFocusSystemSetting() {
         config:  false,
         type:    Array,
         default: [],
+        // 進行状態が変わったら、開いている FS判定パネルを全クライアントで再描画する(13-7 是正)。
+        // パネルの自前ボタン(_bump)以外の更新——チャットの「進行値に加算」・カット連動(advanceFocusCuts)——
+        // でも表示が追随するように。パネルは id で解決してクラス import の循環を避ける。
+        onChange: () => {
+            foundry.applications.instances.get("tnx-focus-system-panel")?.render(false);
+        },
     });
 }
 
