@@ -95,8 +95,10 @@ export class TnxFocusSystemPanel extends HandlebarsApplicationMixin(ApplicationV
 
     static async _onProgressUp(_event, target)   { await this.constructor._bump.call(this, target, "progress", 1); }
     static async _onProgressDown(_event, target) { await this.constructor._bump.call(this, target, "progress", -1); }
-    static async _onCutUp(_event, target)        { await this.constructor._bump.call(this, target, "cut", 1); }
-    static async _onCutDown(_event, target)      { await this.constructor._bump.call(this, target, "cut", -1); }
+    // カット表示はカウントダウン(cutLimit − 経過)。+/− は**表示(残りカット)**に合わせる(2026-08-06
+    // ユーザー指摘＝＋で表示が減るのは直感と逆)。＋＝残りを増やす＝経過 cut を −1／−＝残りを減らす＝cut +1。
+    static async _onCutUp(_event, target)        { await this.constructor._bump.call(this, target, "cut", -1); }
+    static async _onCutDown(_event, target)      { await this.constructor._bump.call(this, target, "cut", 1); }
 
     static async _bump(target, field, delta) {
         const id = target.dataset.fsId;
