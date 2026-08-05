@@ -1019,7 +1019,7 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
 // FS 進行判定(13-7): 進行判定要求カードで成功した対象行に、RL(=GM)へ「進行値に加算」ボタンを描画する。
 // 上の checkRequest 描画(結果を statusEl に置く)の**後**に登録し、その結果表示にボタンを足す形にする。
 Hooks.on("renderChatMessageHTML", (message, html) => {
-    if (message.getFlag("tokyo-nova-axleration", "checkRequest")?.extra?.focusSystemKind === "progress") {
+    if (message.getFlag("tokyo-nova-axleration", "checkRequest")?.focusSystemKind === "progress") {
         renderFocusProgressButton(message, html);
     }
 });
@@ -1027,7 +1027,7 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
 // FS 支援判定(13-7②): 支援判定は結果確定で**自動適用**(AR−1＋成功なら pendingSupport＝
 // autoApplyFocusSupport が _onCheckResult で実行)。ここは適用済みの表示(AR−1／支援成立)のみ描画する。
 Hooks.on("renderChatMessageHTML", (message, html) => {
-    if (message.getFlag("tokyo-nova-axleration", "checkRequest")?.extra?.focusSystemKind === "support") {
+    if (message.getFlag("tokyo-nova-axleration", "checkRequest")?.focusSystemKind === "support") {
         renderFocusSupportNote(message, html);
     }
 });

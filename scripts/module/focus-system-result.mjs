@@ -1,7 +1,9 @@
 /**
  * @fileoverview FS 進行判定の結果 → 進行値加算(フェーズ13-7・サブステップ①)。
  *
- * 進行判定は既存の判定要求(checkRequest・`extra.focusSystemKind==="progress"`)に乗って発行される。
+ * 進行判定は既存の判定要求(checkRequest)に乗って発行される。FS の文脈(focusSystemId/Kind)は
+ * postCheckRequest の `extra` が checkRequest **トップレベルへスプレッド展開**されるため、読み取りは
+ * `checkRequest.focusSystemKind`(=`"progress"`)で行う(`.extra.` 経由ではない=2026-07-26 是正)。
  * その結果カードで**成功**した対象行に、RL 用の「進行値に加算」ボタンを描画する(ダメージ適用と
  * 同じ手動ボタン方式＝2026-07-23 ユーザー確定)。押すと獲得進行値を算出して FS の進行値へ反映する。
  *
@@ -21,11 +23,11 @@ const SCOPE = "tokyo-nova-axleration";
 
 /**
  * 進行判定要求カードの成功対象行に「進行値に加算」ボタン(または反映済み表示)を描画する。
- * `renderChatMessageHTML` フックから、`extra.focusSystemKind==="progress"` のカードに対して呼ぶ。
+ * `renderChatMessageHTML` フックから、`checkRequest.focusSystemKind==="progress"` のカードに対して呼ぶ。
  */
 export function renderFocusProgressButton(message, html) {
     const flag = message.getFlag(SCOPE, "checkRequest");
-    if (flag?.extra?.focusSystemKind !== "progress") return;
+    if (flag?.focusSystemKind !== "progress") return;
     if (!game.user.isGM) return; // 進行値の反映は RL(=GM)
 
     const applied = message.getFlag(SCOPE, "focusProgressApplied") ?? {};
@@ -62,7 +64,7 @@ export async function applyFocusProgress(message, actorId) {
     const result = flag?.results?.[actorId];
     if (!result?.success) return;
 
-    const fs = getActiveFocusSystem(flag.extra?.focusSystemId);
+    const fs = getActiveFocusSystem(flag?.focusSystemId);
     if (!fs) { ui.notifications.warn("対象の FS判定が見つかりません。"); return; }
 
     const row = activeProgressRow(fs.rows, fs.progress);
@@ -91,13 +93,13 @@ export async function applyFocusProgress(message, actorId) {
  */
 export async function autoApplyFocusSupport(message, actorId) {
     const flag = message.getFlag(SCOPE, "checkRequest");
-    if (flag?.extra?.focusSystemKind !== "support") return;
+    if (flag?.focusSystemKind !== "support") return;
     const result = flag.results?.[actorId];
     if (!result) return;
     const applied = message.getFlag(SCOPE, "focusSupportApplied") ?? {};
     if (applied[actorId] !== undefined) return; // 一度だけ(再判定等の二重 AR 消費を防ぐ)
 
-    const fs = getActiveFocusSystem(flag.extra?.focusSystemId);
+    const fs = getActiveFocusSystem(flag?.focusSystemId);
     if (!fs) return;
     // AR−1(メジャーアクション＝成功/失敗問わず消費)
     const actor = game.actors.get(actorId) ?? null;
@@ -118,7 +120,7 @@ export async function autoApplyFocusSupport(message, actorId) {
  */
 export function renderFocusSupportNote(message, html) {
     const flag = message.getFlag(SCOPE, "checkRequest");
-    if (flag?.extra?.focusSystemKind !== "support") return;
+    if (flag?.focusSystemKind !== "support") return;
     const applied = message.getFlag(SCOPE, "focusSupportApplied") ?? {};
     for (const row of html.querySelectorAll(".cr-req-target-row")) {
         const actorId = row.dataset.actorId;
