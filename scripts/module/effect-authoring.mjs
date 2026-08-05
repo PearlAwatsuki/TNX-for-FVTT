@@ -9,17 +9,21 @@
  * 独自の効果エディタを作らないのは、変更キーの入力補助(注入 UI)が標準シートの
  * `renderActiveEffectConfig` に乗っているため——同じものを二重に作らない。
  *
- * 下書きアイテムはアイテムディレクトリから隠す(RL の目に触れる意味が無い)。
+ * 下書きアイテムは**組み立ての間だけ**存在する(組み上がったデータを取り出したら器ごと削除する)。
+ * 保存先は呼び出し側であって器ではない——アクトの効果プリセットはジャーナルのフラグに効果データ
+ * 本体を持つため、器を消してもプリセットは何も失わない。加えて、その短い在世中もアイテム
+ * ディレクトリには出さない(RL の目に触れる意味が無い)。
  */
 
 const SCOPE = "tokyo-nova-axleration";
 const SCRATCH_FLAG = "effectScratch";
 const SCRATCH_NAME = "効果の下書き";
 
-/** 下書きアイテム(無ければ作る)。GM のみが触る。 */
-async function getScratchItem() {
-    const found = game.items.find(i => i.getFlag(SCOPE, SCRATCH_FLAG) === true);
-    if (found) return found;
+/** 下書きアイテムか。 */
+const isScratchItem = (item) => item.getFlag(SCOPE, SCRATCH_FLAG) === true;
+
+/** 下書きアイテムを作る(組み立てのたびに作って、終わったら消す)。GM のみが触る。 */
+async function createScratchItem() {
     return Item.create({
         name: SCRATCH_NAME,
         type: "general",
@@ -28,14 +32,33 @@ async function getScratchItem() {
     });
 }
 
-/** 下書きアイテムをアイテムディレクトリから隠す(ready で1回登録)。 */
+/**
+ * 下書きアイテムをアイテムディレクトリから隠す(init で登録)。
+ *
+ * 登録が ready だと**サイドバーの初回描画に間に合わない**(`Game#initializeUI` は ready より
+ * 前に走る)。置き忘れがロード直後だけ一覧に見える、という状態はこれが原因だった。
+ */
 export function registerEffectScratchHiding() {
     Hooks.on("renderItemDirectory", (_app, element) => {
         for (const item of game.items) {
-            if (item.getFlag(SCOPE, SCRATCH_FLAG) !== true) continue;
+            if (!isScratchItem(item)) continue;
             element.querySelector(`.directory-item[data-entry-id="${item.id}"]`)?.remove();
         }
     });
+}
+
+/**
+ * 置き忘れた下書きアイテムを片づける(ready で1回)。
+ *
+ * 通常は組み立ての終わりに消えるので、残るのは効果シートを開いたままワールドを閉じた場合だけ。
+ * 他の GM が今まさに組み立て中の器を巻き添えにしないよう、**自分が最後に触ったものだけ**を消す。
+ */
+export async function sweepEffectScratchItems() {
+    if (!game.user.isGM) return;
+    const ids = game.items
+        .filter(i => isScratchItem(i) && i._stats?.lastModifiedBy === game.user.id)
+        .map(i => i.id);
+    if (ids.length) await Item.deleteDocuments(ids);
 }
 
 /**
@@ -48,47 +71,47 @@ export function registerEffectScratchHiding() {
  * @returns {Promise<?object>} 効果データ(取り消しなら null)
  */
 export async function promptEffectData(initial = null) {
-    const scratch = await getScratchItem();
+    const scratch = await createScratchItem();
     if (!scratch) {
         ui.notifications.error("効果の下書き置き場を用意できませんでした。");
         return null;
     }
-    // 前回の残りを片づける(下書きは常に1件だけ)
-    const stale = scratch.effects.map(e => e.id);
-    if (stale.length) await scratch.deleteEmbeddedDocuments("ActiveEffect", stale);
 
-    const base = initial
-        ? foundry.utils.deepClone(initial)
-        : { name: "新規効果", img: "icons/svg/aura.svg" };
-    delete base._id;
+    try {
+        const base = initial
+            ? foundry.utils.deepClone(initial)
+            : { name: "新規効果", img: "icons/svg/aura.svg" };
+        delete base._id;
 
-    const [effect] = await scratch.createEmbeddedDocuments("ActiveEffect", [base]);
-    if (!effect) return null;
+        const [effect] = await scratch.createEmbeddedDocuments("ActiveEffect", [base]);
+        if (!effect) return null;
 
-    const data = await new Promise((resolve) => {
-        let submitted = false;
+        const data = await new Promise((resolve) => {
+            let submitted = false;
 
-        const onUpdate = (doc) => {
-            if (doc.id === effect.id) submitted = true;
-        };
-        Hooks.on("updateActiveEffect", onUpdate);
+            const onUpdate = (doc) => {
+                if (doc.id === effect.id) submitted = true;
+            };
+            Hooks.on("updateActiveEffect", onUpdate);
 
-        const sheet = effect.sheet;
-        const close = sheet.close.bind(sheet);
-        sheet.close = async (options) => {
-            const result = await close(options);
-            Hooks.off("updateActiveEffect", onUpdate);
-            // 閉じた時点の最新を取る(送信していなければ取り消し)
-            resolve(submitted ? scratch.effects.get(effect.id)?.toObject() ?? null : null);
-            return result;
-        };
-        sheet.render({ force: true });
-    });
+            const sheet = effect.sheet;
+            const close = sheet.close.bind(sheet);
+            sheet.close = async (options) => {
+                const result = await close(options);
+                Hooks.off("updateActiveEffect", onUpdate);
+                // 閉じた時点の最新を取る(送信していなければ取り消し)
+                resolve(submitted ? scratch.effects.get(effect.id)?.toObject() ?? null : null);
+                return result;
+            };
+            sheet.render({ force: true });
+        });
+        if (!data) return null;
 
-    await scratch.deleteEmbeddedDocuments("ActiveEffect", [effect.id]);
-    if (!data) return null;
-
-    delete data._id;
-    delete data.origin;
-    return data;
+        delete data._id;
+        delete data.origin;
+        return data;
+    } finally {
+        // 器はここで役目を終える(効果データは呼び出し側が保存する)。取り消し・例外でも必ず消す
+        await scratch.delete();
+    }
 }

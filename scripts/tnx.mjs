@@ -64,7 +64,7 @@ import { openFocusSystemPanel } from './module/tnx-focus-system-panel.mjs';
 import { registerFocusSystemSetting, advanceFocusCuts } from './module/focus-system-state.mjs';
 import { renderFocusProgressButton, renderFocusSupportNote } from './module/focus-system-result.mjs';
 import { autoSendFocusChecks } from './module/focus-system-request.mjs';
-import { registerEffectScratchHiding } from './module/effect-authoring.mjs';
+import { registerEffectScratchHiding, sweepEffectScratchItems } from './module/effect-authoring.mjs';
 import { FOCUS_SYSTEM_FLAG, defaultFocusSystemData } from './module/focus-system-data.mjs';
 import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
@@ -1050,6 +1050,10 @@ Hooks.once("init", async function() {
     game.tnx = game.tnx || {}
     game.tnx.refreshSheets = handleRefreshSheets;
 
+    // 効果の下書き置き場はアイテムディレクトリに出さない(組み立て中だけ存在する器)。
+    // サイドバーの初回描画は ready より前なので、隠すフックの登録は init で行う
+    registerEffectScratchHiding();
+
     // チャット通知のデフォルトを「チャットカード」から「通知バッジ」に変更する。
     // ユーザーが明示的に設定済みの場合はその値が優先される(デフォルト値のみの変更)。
     const chatNotifSetting = game.settings.settings.get("core.chatNotifications");
@@ -1826,8 +1830,8 @@ Hooks.once("init", async function() {
 Hooks.once("ready", async function() {
     game.tnx = game.tnx || {};
 
-    // 効果の下書き置き場はアイテムディレクトリに出さない(組み立て中の一時領域)
-    registerEffectScratchHiding();
+    // 効果シートを開いたままワールドを閉じた場合にだけ残る下書きの置き忘れを片づける
+    await sweepEffectScratchItems();
 
     // 部位スロットプリセット: ワールド初回ロードでデフォルト体部位を自動設定(GM のみ・1回)
     await initializeDefaultPartSlotPreset();
