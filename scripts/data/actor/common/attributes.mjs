@@ -25,6 +25,14 @@ export class AttributesTemplate extends SystemDataModel {
       mundane: attributeField(),
       combatSpeed: combatSpeedField(),
       actionRank:  actionRankField(),
+      // フォーカスシステム(FS判定)関連の実値。progressBonus＝次に行う進行判定の獲得進行値への加算
+      // (2026-08-05)。素値は常に0で、支援判定成功で対象へ付与される支援 AE がネイティブ適用で加算する
+      // (change: system.focus.progressBonus +1)。進行判定時に読み取って加算し、その AE を除去して消費する。
+      // アクター上の素の system.* 効果はカスタム適用パス(_applyEffectBuffs の self 分岐)では空返しのため、
+      // ネイティブ適用のみが効く=二重加算なし。カット終了での自動失効はフェーズ15。
+      focus: new fields.SchemaField({
+        progressBonus: new fields.NumberField({ initial: 0, integer: true }),
+      }),
       // ダメージ系は max の初期値が 21(template.json 準拠)のため damageField() は使わず直接定義
       physicalDamage: new fields.SchemaField({
         value: new fields.NumberField({ initial: 0 }),

@@ -46,13 +46,13 @@ export function isValidProcessTransition(from, to) {
 export function planAdvance(phase, participants) {
   switch (phase) {
     case "setup":
-      return { to: "initiative", confirmSetup: true };
+      return { to: "initiative" };
     case "initiative": {
       const { mainId, penalizedIds } = confirmMain(participants);
       return mainId ? { to: "main", mainId, penalizedIds } : { to: "cleanup", penalizedIds };
     }
     case "main":
-      return { to: "initiative", endMain: true };
+      return { to: "initiative" };
     case "cleanup":
       return { to: "setup", nextCut: true };
     default:
@@ -70,28 +70,22 @@ export function arDecrement(value) {
 }
 
 /**
- * メインプロセス終了時の記帳(§5)＝**常に AR−1・CSカレント0**。
- * メジャーを行わなかった場合も「メジャーアクションで何もしなかった」と扱う(2026-07-22 ユーザー裁定
- * ——消費されないならムーブ/マイナーの無限反復が可能になるため)。
- * CSカレント0 は「アウトフィットやスタイル技能の効果で変更されない」——凍結モデルにより
- * 保存 current がそのまま実効値のため、書き込んだ 0 は AE で持ち上がらない。
+ * AR を1消費した記帳＝**AR−1 かつ CSカレント0**(2026-07-26 全面改訂の一般則。Combat_Flow
+ * 「AR・メジャーアクション・プロセス所有の一般則」)。AR 減少 ⟺ CS→0(カット終了まで・復帰は
+ * 次カットのセットアップ再シード)。用途は共通:
+ *   ・メジャーを行ったプロセス終了時の各行動者(majorActed)。
+ *   ・イニシアチブで行動不能(RL 判断)のときのペナルティ。
+ * CSカレント0 は凍結モデルにより AE で持ち上がらない。AR を持たないアクター(消費対象でない)は
+ * 記帳しない(AR 減少が無いので CS0 もない)。
  * @param {{actionRank?:{value?:number}}} system
  * @returns {Record<string, number>}
  */
-export function buildEndMainUpdate(system) {
-  const update = { "system.combatSpeed.current": 0 };
-  if (system?.actionRank) update["system.actionRank.value"] = arDecrement(system.actionRank.value);
-  return update;
-}
-
-/**
- * イニシアチブプロセスで行動不能(RL 判断)のときの記帳(§4)＝AR−1。
- * @param {{actionRank?:{value?:number}}} system
- * @returns {Record<string, number>}
- */
-export function buildCantActUpdate(system) {
+export function buildArDecrementUpdate(system) {
   if (!system?.actionRank) return {};
-  return { "system.actionRank.value": arDecrement(system.actionRank.value) };
+  return {
+    "system.combatSpeed.current": 0,
+    "system.actionRank.value": arDecrement(system.actionRank.value),
+  };
 }
 
 /**
@@ -114,69 +108,63 @@ export function buildSetupConfirmUpdate(system) {
   return { "system.combatSpeed.current": (cs.valueTotal ?? 0) + (cs.currentBuff ?? 0) };
 }
 
-// ─── 割り込み(挿入メイン)＝メインプロセスの割り込み・追加行動(フェーズ13-5) ──────────────
-// 正本: Combat_Flow「割り込み(挿入メイン)」。イニシアチブでの割り込み(自分のメインを順番外で行う)
-// と追加行動技能(別キャラに順番外のメインを与える)は、同じ「指定キャラに順番外のメインを挿入する」
-// プリミティブに還元される。割り込みの起点は宣言/判定用途が対象に立てる「割り込み許可フラグ」で、
-// トラッカーの入口はそのフラグでゲートされる(=手動・完全自動化しない)。
+// ─── 割り込み(挿入メイン)＝サスペンド／レジューム＋consumesAr(2026-07-26 全面改訂) ─────────
+// 正本: Combat_Flow「AR・メジャーアクション・プロセス所有の一般則」。イニシアチブでの割り込み(自分の
+// メインを順番外で行う=自己割り込み)と追加行動技能(別キャラに順番外のメインを与える)は、同じ「指定
+// キャラに順番外のメインを挿入する」プリミティブに還元される。起点は宣言/判定用途が対象に立てる
+// 「割り込み許可フラグ」で、トラッカー入口はそのフラグでゲートされる(=手動・完全自動化しない)。
 //
-// **メインプロセス中の割り込みは、その時点でそのメインを終了する**(2026-07-22 ユーザー確定)——
-// 割り込みのメインが終わっても、終了した元のメインには戻らない。ゆえに戻り先は常にサブターン。
-// 通常メイン中の割り込みなら戻り先は「そのメイン終了後＝イニシアチブ」(追加行動技能=Aのメジャーを
-// 犠牲に別キャラが行動する形と一致)。挿入メイン中の割り込みは、現在の挿入メインを終了しつつ元の
-// 戻り先(サブターン)を引き継ぐ。挿入メインは通常メインと違い CS には触れず、終了時の AR−1 は
-// 専用ボタンで**任意**に行う。
-
-/** 割り込みの戻り先(サブターン)判定用のフェーズ集合。 */
-const INTERRUPT_WALK = new Set(["setup", "initiative", "cleanup"]);
+// **メインプロセス中の割り込みは、元のメインを終了せず退避(サスペンド)する**(2026-07-26 全面改訂で
+// 旧「終了・戻らない」を撤回)。挿入メイン終了で退避位置へ復帰(レジューム)する。退避はスタックで行い、
+// 入れ子(挿入メイン中の割り込み)にも対応する。挿入メインが AR を消費するか否かは、割り込みを生じ
+// させた用途が宣言する `consumesAr` で決まる(自己割り込み=既定=消費・追加行動=無償=肩代わり)。
+// **戻り(サスペンド／レジューム)は AR 消費とは独立**——復帰は常に退避フレームを厳密に復元する。
+// 記帳(AR−1＋CS0)は一般則の buildArDecrementUpdate を流用し、consumesAr のときだけ挿入メインの
+// majorActed に適用する(Foundry 側)。
 
 /**
- * 割り込み(挿入メイン)開始の計画。メイン中(通常/挿入いずれも phase==="main")の割り込みは、その
- * メインを終了する(endMainId=終了する行動者・記帳は Foundry 側)。挿入メインへの遷移フラグ自体は
- * 呼び出し側で固定(phase="main"・mainCombatantId=insertId・spot=null)するため、ここでは終了対象と
- * 戻り先だけを計画する。
- * @param {{phase, mainCombatantId, spotCombatantId, interruptMainId, interruptReturn}} current 現在の進行状態
+ * 割り込み(挿入メイン)開始: 現在の進行状態を退避フレームにし、挿入メインの新状態を返す。元のプロセス
+ * (メイン/サブターンいずれも)は終了せず、そのまま frame に退避され、後で厳密に復元される。
+ * @param {{phase, mainCombatantId, spotCombatantId, majorActed, interruptConsumesAr}} current 現在の進行状態
  * @param {string} insertId 挿入メインに据える combatant id
- * @returns {{endMainId: string|null, interruptMainId: string,
- *            interruptReturn: {phase:string|null, spotId:string|null}|null}}
+ * @param {boolean} consumesAr この挿入メインが AR を消費するか(用途宣言・自己割り込み=真/追加行動=偽)
+ * @returns {{frame: object, next: object}} frame=退避フレーム(スタックへ push)・next=挿入メインの新状態
  */
-export function planInterruptStart(current, insertId) {
-  const inMain = current?.phase === "main";
-  const inInterrupt = (current?.interruptMainId ?? null) !== null;
-  // メイン中(通常メインは mainCombatantId・挿入メインは interruptMainId)なら、そのメインを終了する
-  const endMainId = inMain ? (current.interruptMainId ?? current.mainCombatantId ?? null) : null;
-  let interruptReturn;
-  if (inInterrupt) {
-    interruptReturn = current.interruptReturn ?? null;         // 元のサブターンへ戻る(引き継ぎ)
-  } else if (inMain) {
-    interruptReturn = { phase: "initiative", spotId: null };   // 通常メイン終了後=イニシアチブ(spot 再算出)
-  } else {
-    interruptReturn = { phase: current?.phase ?? null, spotId: current?.spotCombatantId ?? null };
-  }
-  return { endMainId, interruptMainId: insertId, interruptReturn };
+export function pushInterruptFrame(current, insertId, consumesAr) {
+  const frame = {
+    phase:           current?.phase ?? null,
+    mainCombatantId: current?.mainCombatantId ?? null,
+    spotCombatantId: current?.spotCombatantId ?? null,
+    majorActed:      current?.majorActed ?? [],
+    // 親が挿入メインならその consumesAr を保存(復帰時に interruptConsumesAr を戻す)。素のプロセスは null
+    consumesAr:      current?.interruptConsumesAr ?? null,
+  };
+  const next = {
+    phase:              "main",
+    mainCombatantId:    insertId,
+    spotCombatantId:    null,
+    majorActed:         [],                 // 挿入メインのメジャーは新規に集計する
+    interruptConsumesAr: consumesAr === true, // 既定(真)の解決は combat 側。ここは厳密ブール化のみ
+  };
+  return { frame, next };
 }
 
 /**
- * 割り込み(挿入メイン)終了の計画=退避したサブターン位置へ戻る。spotId が null のサブターン
- * (通常メイン終了後のイニシアチブ等)は spot を再算出する(recomputeSpot=true)。
- * @param {{phase:string|null, spotId:string|null}|null} interruptReturn
- * @returns {{phase:string|null, spotId:string|null, recomputeSpot:boolean}}
+ * 割り込み(挿入メイン)終了: スタック先頭(最後に積んだフレーム)を取り出し、復元すべき進行状態を返す。
+ * 退避時に完全な位置(spot 含む)を保存しているため再算出はしない(サスペンド／レジューム)。入力配列は
+ * 破壊しない。空スタック(頑健性)は全 null・空 majorActed を返す。
+ * @param {Array<object>} stack 退避フレームのスタック(末尾=先頭)
+ * @returns {{restore: object, remaining: Array<object>}} restore=復元する状態・remaining=残りのスタック
  */
-export function planInterruptEnd(interruptReturn) {
-  const phase = interruptReturn?.phase ?? null;
-  const spotId = interruptReturn?.spotId ?? null;
-  return { phase, spotId, recomputeSpot: spotId === null && INTERRUPT_WALK.has(phase) };
-}
-
-/**
- * 挿入メイン終了の記帳(アクター側)。**CS には触れない**(通常メインの CS→0 は挿入メインには
- * 適用しない=2026-07-22 ユーザー確定。指定されたのは AR のみ)。`decrementAr` のときだけ AR−1
- * (「AR を−1して終了」ボタン)。「終了」ボタン(AR 据え置き)は記帳なし=空を返す。
- * @param {{actionRank?:{value?:number}}} system
- * @param {{decrementAr?:boolean}} [opts]
- * @returns {Record<string, number>}
- */
-export function buildInterruptEndUpdate(system, { decrementAr = false } = {}) {
-  if (!decrementAr || !system?.actionRank) return {};
-  return { "system.actionRank.value": arDecrement(system.actionRank.value) };
+export function popInterruptFrame(stack) {
+  const s = Array.isArray(stack) ? stack.slice() : [];
+  const frame = s.pop() ?? null;
+  const restore = {
+    phase:               frame?.phase ?? null,
+    mainCombatantId:     frame?.mainCombatantId ?? null,
+    spotCombatantId:     frame?.spotCombatantId ?? null,
+    majorActed:          frame?.majorActed ?? [],
+    interruptConsumesAr: frame?.consumesAr ?? null,
+  };
+  return { restore, remaining: s };
 }

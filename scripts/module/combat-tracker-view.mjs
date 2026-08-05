@@ -40,13 +40,10 @@ export function footerPlan({ hasCombat, started, phase, isGM, isMainOwner, isSpo
   // メイン終了は1本(メジャー未実行も「メジャーで何もしなかった」扱い=AR−1・CS0・2026-07-22 裁定)
   const nextButton = { action: "tnxAdvance", label: "次へ", primary: true };
   const endMainButtons = [{ action: "tnxAdvance", label: "手番終了", primary: true }];
-  // 挿入メイン(割り込み・追加行動)中は通常の「手番終了」を出さず、終了を2つに分ける(13-5)。
-  // 「終了」=AR 据え置き(追加行動=AR 無消費)・「AR を−1して終了」=AR を1消費(イニシアチブ割り込み等)。
-  // どちらも退避した進行位置へ復帰する。CS はどちらも据え置き(2026-07-22 ユーザー確定)。
-  const endInterruptButtons = [
-    { action: "tnxInterruptEndKeep", label: "終了", primary: true },
-    { action: "tnxInterruptEndAr", label: "AR を−1して終了" },
-  ];
+  // 挿入メイン(割り込み・追加行動)中は通常の「手番終了」を出さず「割り込みを終了」1本にする
+  // (2026-07-26 全面改訂で2ボタン廃止)。AR を消費するかは用途宣言(consumesAr)で自動判定するため、
+  // 終了操作は1つでよい。終了で退避した進行位置へ復帰する(サスペンド／レジューム)。
+  const endInterruptButtons = [{ action: "tnxInterruptEnd", label: "割り込みを終了", primary: true }];
   if (isInterruptMain) {
     if (!isGM) return isMainOwner ? endInterruptButtons : [];
     return [...endInterruptButtons, { action: "tnxEndCombat", label: "カット進行の終了" }];

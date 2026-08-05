@@ -42,19 +42,25 @@ export async function applyInterruptGrantForUsage(actor, usage, { targetOverride
     if (!uuids.length && actor?.uuid) uuids = [actor.uuid];
     if (!uuids.length) return;
 
+    // 挿入メインが AR を消費するか(consumesAr・2026-07-26): 用途の宣言をフラグに載せて伝搬する
+    // (用途 → combatant の割り込み許可 → 挿入メイン)。既定=真(自己割り込み)・追加行動でオフ。
+    const consumesAr = usage.interruptConsumesAr !== false;
+
     if (game.user.isGM) {
-        await grantInterruptToTargets(uuids);
+        await grantInterruptToTargets(uuids, consumesAr);
     } else {
-        TnxSocketHandler.emitInterruptGrant({ sourceUuid: actor?.uuid ?? null, targetUuids: uuids });
+        TnxSocketHandler.emitInterruptGrant({ sourceUuid: actor?.uuid ?? null, targetUuids: uuids, consumesAr });
     }
 }
 
 /**
- * 指定 uuid 群のアクターの combatant に割り込み許可フラグを立てる(GM 側で実行)。
+ * 指定 uuid 群のアクターの combatant に割り込み許可フラグを立てる(GM 側で実行)。あわせて、その割り込みが
+ * AR を消費するか(consumesAr)を combatant フラグに載せる(startInterrupt が読み、挿入メインへ伝える)。
  * 開始済みのカット進行に参加している combatant のみが対象(参加していなければ何もしない)。
  * @param {string[]} targetUuids 対象アクター(またはトークン)の uuid
+ * @param {boolean} [consumesAr] この割り込みで挿入メインが AR を消費するか(既定=真)
  */
-export async function grantInterruptToTargets(targetUuids) {
+export async function grantInterruptToTargets(targetUuids, consumesAr = true) {
     for (const uuid of (targetUuids ?? [])) {
         const doc = await fromUuid(uuid).catch(() => null);
         const target = doc?.actor ?? doc;
@@ -63,6 +69,7 @@ export async function grantInterruptToTargets(targetUuids) {
             if (!combat.started) continue;
             for (const c of (combat.getCombatantsByActor?.(target) ?? [])) {
                 await c.setFlag(SCOPE, "canInterrupt", true).catch(() => {});
+                await c.setFlag(SCOPE, "interruptConsumesAr", consumesAr === true).catch(() => {});
             }
         }
     }

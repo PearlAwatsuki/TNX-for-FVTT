@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   isValidProcessTransition, arDecrement, planAdvance,
-  buildEndMainUpdate, buildCantActUpdate, buildWaitUpdate, buildSetupConfirmUpdate,
-  planInterruptStart, planInterruptEnd, buildInterruptEndUpdate,
+  buildArDecrementUpdate, buildWaitUpdate, buildSetupConfirmUpdate,
+  pushInterruptFrame, popInterruptFrame,
 } from "../../scripts/module/combat-progression.mjs";
 
 // 参加者の素データ(combat-turn-order と同形)
@@ -29,8 +29,8 @@ describe("isValidProcessTransition()（サブターンモデルのフェーズ�
 });
 
 describe("planAdvance()（nextTurn 1本で進む前進計画・サブターンモデル）", () => {
-  it("セットアップ→イニシアチブ（セットアップ末の CSカレント確定を伴う）", () => {
-    expect(planAdvance("setup", [P()])).toEqual({ to: "initiative", confirmSetup: true });
+  it("セットアップ→イニシアチブ（記帳フラグは持たず遷移先のみ・記帳は advancePhase 側）", () => {
+    expect(planAdvance("setup", [P()])).toEqual({ to: "initiative" });
   });
 
   it("イニシアチブ→候補がいればそのキャラのメインへ（CSカレント最大かつAR≥1を確認）", () => {
@@ -57,8 +57,8 @@ describe("planAdvance()（nextTurn 1本で進む前進計画・サブターン�
     expect(plan).toEqual({ to: "cleanup", penalizedIds: [] });
   });
 
-  it("メイン→イニシアチブへ戻る（メイン終了の記帳を伴う）", () => {
-    expect(planAdvance("main", [P()])).toEqual({ to: "initiative", endMain: true });
+  it("メイン→イニシアチブへ戻る（メジャー記帳は majorActed 側・plan は遷移先のみ）", () => {
+    expect(planAdvance("main", [P()])).toEqual({ to: "initiative" });
   });
 
   it("クリンナップ→次カットのセットアップへ（再シードを伴う）", () => {
@@ -81,16 +81,16 @@ describe("arDecrement()（AR−1・下限0）", () => {
   });
 });
 
-describe("記帳の更新オブジェクト（Combat_Flow §4-6）", () => {
-  it("メイン終了＝常に AR−1・CSカレント0（メジャー未実行＝「メジャーで何もしなかった」扱い・2026-07-22 裁定）", () => {
-    expect(buildEndMainUpdate({ actionRank: { value: 2 } })).toEqual({
+describe("記帳の更新オブジェクト（Combat_Flow §4-6・2026-07-26 一般則）", () => {
+  it("AR 消費＝AR−1 かつ CSカレント0（AR減少⟺CS0・メジャー終了と行動不能で共通）", () => {
+    expect(buildArDecrementUpdate({ actionRank: { value: 2 } })).toEqual({
       "system.actionRank.value": 1,
       "system.combatSpeed.current": 0,
     });
-  });
-
-  it("行動不能（イニシアチブ・RL判断）＝AR−1", () => {
-    expect(buildCantActUpdate({ actionRank: { value: 1 } })).toEqual({ "system.actionRank.value": 0 });
+    expect(buildArDecrementUpdate({ actionRank: { value: 1 } })).toEqual({
+      "system.actionRank.value": 0,
+      "system.combatSpeed.current": 0,
+    });
   });
 
   it("待機（候補の操作者の宣言）＝CSカレント1", () => {
@@ -103,89 +103,93 @@ describe("記帳の更新オブジェクト（Combat_Flow §4-6）", () => {
     expect(buildSetupConfirmUpdate({})).toEqual({});
   });
 
-  it("actionRank を持たないアクターは記帳しない", () => {
-    expect(buildCantActUpdate({})).toEqual({});
-    expect(buildEndMainUpdate({})).toEqual({ "system.combatSpeed.current": 0 });
+  it("actionRank を持たないアクターは記帳しない（AR 減少が無いので CS0 もない）", () => {
+    expect(buildArDecrementUpdate({})).toEqual({});
   });
 });
 
-describe("割り込み（挿入メイン）＝メインプロセスの割り込み・追加行動（13-5）", () => {
-  describe("planInterruptStart()（割り込み開始の計画）", () => {
-    it("サブターン（イニシアチブ）中の割り込み: そのサブターン位置へ戻る（メイン終了なし）", () => {
-      const current = { phase: "initiative", mainCombatantId: null, spotCombatantId: "s1", interruptMainId: null, interruptReturn: null };
-      expect(planInterruptStart(current, "x")).toEqual({
-        endMainId: null,
-        interruptMainId: "x",
-        interruptReturn: { phase: "initiative", spotId: "s1" },
+describe("割り込み（挿入メイン）＝サスペンド／レジューム＋consumesAr（2026-07-26 全面改訂）", () => {
+  // 現在の進行状態(combat フラグと同形)。interruptConsumesAr は「現在走っている挿入メインが AR を
+  // 消費するか」= 素の(無所有)プロセスや通常メインを走っているときは null。
+  const CUR = (over = {}) => ({
+    phase: "initiative", mainCombatantId: null, spotCombatantId: "s1",
+    majorActed: [], interruptConsumesAr: null, ...over,
+  });
+
+  describe("pushInterruptFrame()（現在の進行を退避し、挿入メインへ入る）", () => {
+    it("サブターン（イニシアチブ）中の自己割り込み: 現在位置を退避し、挿入メインは consumesAr=真", () => {
+      const { frame, next } = pushInterruptFrame(
+        CUR({ spotCombatantId: "s1", majorActed: ["m0"] }), "x", true);
+      // 退避フレーム＝そのまま復帰できる完全な状態(親の consumesAr=null=素のプロセス)
+      expect(frame).toEqual({
+        phase: "initiative", mainCombatantId: null, spotCombatantId: "s1",
+        majorActed: ["m0"], consumesAr: null,
+      });
+      // 挿入メイン＝メインプロセス・majorActed は新規・consumesAr は付与された値
+      expect(next).toEqual({
+        phase: "main", mainCombatantId: "x", spotCombatantId: null,
+        majorActed: [], interruptConsumesAr: true,
       });
     });
 
-    it("通常メイン中の割り込み: そのメインを終了し（戻らない）、戻り先はイニシアチブ（spot 再算出）", () => {
-      const current = { phase: "main", mainCombatantId: "a", spotCombatantId: null, interruptMainId: null, interruptReturn: null };
-      expect(planInterruptStart(current, "x")).toEqual({
-        endMainId: "a",
-        interruptMainId: "x",
-        interruptReturn: { phase: "initiative", spotId: null },
+    it("通常メイン中に割り込み: 元のメインは終了せず退避される（あとで戻る）", () => {
+      const { frame, next } = pushInterruptFrame(
+        CUR({ phase: "main", mainCombatantId: "a", spotCombatantId: null, majorActed: ["a"] }), "x", true);
+      expect(frame).toEqual({
+        phase: "main", mainCombatantId: "a", spotCombatantId: null,
+        majorActed: ["a"], consumesAr: null,
       });
+      expect(next.mainCombatantId).toBe("x");
+      expect(next.majorActed).toEqual([]);
     });
 
-    it("挿入メイン中の割り込み（入れ子）: 現在の挿入メインを終了し、元の戻り先を引き継ぐ", () => {
-      const current = { phase: "main", mainCombatantId: "b", spotCombatantId: null, interruptMainId: "b", interruptReturn: { phase: "initiative", spotId: "s1" } };
-      expect(planInterruptStart(current, "c")).toEqual({
-        endMainId: "b",
-        interruptMainId: "c",
-        interruptReturn: { phase: "initiative", spotId: "s1" },
-      });
+    it("挿入メイン中の入れ子: 親挿入メインの consumesAr を退避フレームに引き継ぐ", () => {
+      const { frame, next } = pushInterruptFrame(
+        CUR({ phase: "main", mainCombatantId: "b", spotCombatantId: null, majorActed: ["b"], interruptConsumesAr: true }),
+        "c", false);
+      expect(frame.consumesAr).toBe(true);           // 親挿入メイン(b)の consumesAr を保存
+      expect(next.mainCombatantId).toBe("c");
+      expect(next.interruptConsumesAr).toBe(false);   // 追加行動＝無償
     });
 
-    it("セットアップ中の割り込み: そのサブターン位置へ戻る", () => {
-      const current = { phase: "setup", mainCombatantId: null, spotCombatantId: "s2", interruptMainId: null, interruptReturn: null };
-      expect(planInterruptStart(current, "y")).toEqual({
-        endMainId: null,
-        interruptMainId: "y",
-        interruptReturn: { phase: "setup", spotId: "s2" },
-      });
+    it("consumesAr は厳密に真のときだけ真（頑健性・既定の解決は combat 側）", () => {
+      expect(pushInterruptFrame(CUR(), "x", undefined).next.interruptConsumesAr).toBe(false);
+      expect(pushInterruptFrame(CUR(), "x", false).next.interruptConsumesAr).toBe(false);
+      expect(pushInterruptFrame(CUR(), "x", true).next.interruptConsumesAr).toBe(true);
     });
   });
 
-  describe("planInterruptEnd()（退避したサブターン位置へ戻る計画）", () => {
-    it("保存した spot があればそこへ（再算出しない）", () => {
-      expect(planInterruptEnd({ phase: "initiative", spotId: "s1" }))
-        .toEqual({ phase: "initiative", spotId: "s1", recomputeSpot: false });
+  describe("popInterruptFrame()（挿入メイン終了→退避した進行位置を復元）", () => {
+    it("退避フレームをそのまま復元する（spot 再算出はしない＝正確な位置を保存済み）", () => {
+      const stack = [{ phase: "initiative", mainCombatantId: null, spotCombatantId: "s1", majorActed: ["m0"], consumesAr: null }];
+      const { restore, remaining } = popInterruptFrame(stack);
+      expect(restore).toEqual({
+        phase: "initiative", mainCombatantId: null, spotCombatantId: "s1",
+        majorActed: ["m0"], interruptConsumesAr: null,
+      });
+      expect(remaining).toEqual([]);
     });
 
-    it("spot が null のサブターン（通常メイン終了後のイニシアチブ）は spot を再算出する", () => {
-      expect(planInterruptEnd({ phase: "initiative", spotId: null }))
-        .toEqual({ phase: "initiative", spotId: null, recomputeSpot: true });
+    it("入れ子は先頭（最後に積んだフレーム）から戻り、残りを保つ", () => {
+      const frameA = { phase: "main", mainCombatantId: "a", spotCombatantId: null, majorActed: ["a"], consumesAr: null };
+      const frameB = { phase: "main", mainCombatantId: "b", spotCombatantId: null, majorActed: ["b"], consumesAr: true };
+      const { restore, remaining } = popInterruptFrame([frameA, frameB]);
+      expect(restore.mainCombatantId).toBe("b");           // 直近の親(b)へ戻る
+      expect(restore.interruptConsumesAr).toBe(true);      // b の consumesAr を復元
+      expect(remaining).toEqual([frameA]);                 // a はまだ退避されたまま
     });
 
-    it("戻り先なし（頑健性）＝全 null・再算出なし", () => {
-      expect(planInterruptEnd(null)).toEqual({ phase: null, spotId: null, recomputeSpot: false });
-    });
-  });
-
-  describe("buildInterruptEndUpdate()（挿入メイン終了の記帳＝AR のみ・CS は据え置き）", () => {
-    it("「終了」（AR 据え置き）＝記帳なし", () => {
-      expect(buildInterruptEndUpdate({ actionRank: { value: 3 } }, { decrementAr: false })).toEqual({});
+    it("空スタック（頑健性）＝全 null・空 majorActed", () => {
+      expect(popInterruptFrame([])).toEqual({
+        restore: { phase: null, mainCombatantId: null, spotCombatantId: null, majorActed: [], interruptConsumesAr: null },
+        remaining: [],
+      });
     });
 
-    it("「AR を−1して終了」＝AR−1（CS には触れない）", () => {
-      expect(buildInterruptEndUpdate({ actionRank: { value: 3 } }, { decrementAr: true }))
-        .toEqual({ "system.actionRank.value": 2 });
-    });
-
-    it("AR 下限は 0", () => {
-      expect(buildInterruptEndUpdate({ actionRank: { value: 0 } }, { decrementAr: true }))
-        .toEqual({ "system.actionRank.value": 0 });
-    });
-
-    it("actionRank を持たないアクターは AR−1 指定でも記帳しない", () => {
-      expect(buildInterruptEndUpdate({}, { decrementAr: true })).toEqual({});
-    });
-
-    it("どちらのボタンでも CSカレントには絶対に触れない", () => {
-      expect(buildInterruptEndUpdate({ combatSpeed: { current: 5 }, actionRank: { value: 2 } }, { decrementAr: true }))
-        .not.toHaveProperty("system.combatSpeed.current");
+    it("入力配列を破壊しない（pop は複製に対して行う）", () => {
+      const stack = [{ phase: "main", mainCombatantId: "a", majorActed: [], consumesAr: null }];
+      popInterruptFrame(stack);
+      expect(stack).toHaveLength(1);
     });
   });
 });

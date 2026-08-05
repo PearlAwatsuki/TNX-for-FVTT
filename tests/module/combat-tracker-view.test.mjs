@@ -129,24 +129,22 @@ describe("rowActions()（行の宣言操作＝待機のみ・行動不能はタ�
   });
 });
 
-describe("footerPlan()（挿入メイン中＝終了2ボタン・通常メインの手番終了は出さない）", () => {
+describe("footerPlan()（挿入メイン中＝「割り込みを終了」1本・通常メインの手番終了は出さない・2026-07-26）", () => {
   const base = {
     hasCombat: true, started: true, phase: "main", isGM: true,
     isMainOwner: false, isSpotOwner: false, candidateName: null, isInterruptMain: true,
   };
 
-  it("RL＝終了＋AR を−1して終了＋カット進行の終了（手番終了は出さない）", () => {
+  it("RL＝割り込みを終了＋カット進行の終了（手番終了は出さない・AR 消費は consumesAr で自動判定）", () => {
     expect(footerPlan(base)).toEqual([
-      { action: "tnxInterruptEndKeep", label: "終了", primary: true },
-      { action: "tnxInterruptEndAr", label: "AR を−1して終了" },
+      { action: "tnxInterruptEnd", label: "割り込みを終了", primary: true },
       { action: "tnxEndCombat", label: "カット進行の終了" },
     ]);
   });
 
-  it("挿入メインの操作者（非GM）＝終了2ボタンのみ", () => {
+  it("挿入メインの操作者（非GM）＝割り込みを終了のみ", () => {
     expect(footerPlan({ ...base, isGM: false, isMainOwner: true })).toEqual([
-      { action: "tnxInterruptEndKeep", label: "終了", primary: true },
-      { action: "tnxInterruptEndAr", label: "AR を−1して終了" },
+      { action: "tnxInterruptEnd", label: "割り込みを終了", primary: true },
     ]);
   });
 

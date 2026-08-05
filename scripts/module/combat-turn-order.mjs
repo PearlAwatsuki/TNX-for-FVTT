@@ -98,6 +98,24 @@ export function confirmMain(participants) {
 export const PHASE_TIMING_KEY = { setup: "setup", initiative: "initiative", cleanup: "clean-up" };
 
 /**
+ * 用途のタイミングが「メジャーアクション」か(2026-07-26 全面改訂の一般則。Combat_Flow「AR・メジャー
+ * アクション・プロセス所有の一般則」)。メジャーを行ったプロセス所有者は、そのプロセス終了時に
+ * AR−1＋CSカレント0。判定実行フック(markMajorAction)がこの判定でメジャー行動者を記帳する。
+ * 該当は次の二つ:
+ *   ・timing.value==="action" かつ actionName==="major"(手番中のメジャーアクション)。
+ *   ・timing.value==="initiativeMajor"(イニシアチブ（メジャー）＝FS支援判定など)。
+ * ムーブ/マイナー/リアクション/オート・プロセス既定処理・常時・神業・ダメージ算出系は該当しない
+ * (神業の割り込みは将来 consumesAr で個別宣言=2026-07-26 ユーザー方針)。
+ * @param {{value?:string, actionName?:string}|null|undefined} timing 用途の timing
+ * @returns {boolean}
+ */
+export function isMajorActionTiming(timing) {
+  if (!timing) return false;
+  if (timing.value === "initiativeMajor") return true;
+  return timing.value === "action" && timing.actionName === "major";
+}
+
+/**
  * スポット走査の順(CS順・エキストラと行動不能を除外)。
  * eligibleIds を渡すと、その集合に含まれる参加者だけに絞る(＝そのプロセスに使える用途を持つ者のみ
  * 手番が回る・自動スキップ)。null/未指定なら絞り込みなし(従来どおり全員)。

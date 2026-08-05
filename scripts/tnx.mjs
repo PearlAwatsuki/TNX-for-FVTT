@@ -1024,8 +1024,9 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
     }
 });
 
-// FS 支援判定(13-7②): 支援判定は結果確定で**自動適用**(AR−1＋成功なら pendingSupport＝
-// autoApplyFocusSupport が _onCheckResult で実行)。ここは適用済みの表示(AR−1／支援成立)のみ描画する。
+// FS 支援判定: 支援判定は結果確定で**自動適用**(メジャー記帳＋成功なら対象へ支援 AE(進行 +1)を付与＝
+// autoApplyFocusSupport が _onCheckResult で実行。AR−1＋CS0 はイニシアチブ終了時に一般則で適用・
+// 2026-07-26/08-05)。ここは適用済みの表示(支援成立→対象の進行+1／支援失敗)のみ描画する。
 Hooks.on("renderChatMessageHTML", (message, html) => {
     if (message.getFlag("tokyo-nova-axleration", "checkRequest")?.focusSystemKind === "support") {
         renderFocusSupportNote(message, html);

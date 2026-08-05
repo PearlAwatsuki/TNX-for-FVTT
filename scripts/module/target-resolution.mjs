@@ -84,7 +84,7 @@ export async function resolveUsageTargetRefs(actor, usage) {
  * @param {Actor} actor 使用者(候補から除外)
  * @returns {Promise<Array<{uuid:string,name:string}>|null>} null=キャンセル(中止)
  */
-async function promptTargetToken(actor) {
+export async function promptTargetToken(actor) {
     const seen = new Set();
     const options = [];
     if (canvas?.ready) {

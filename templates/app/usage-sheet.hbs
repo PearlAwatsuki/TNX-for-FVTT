@@ -353,6 +353,17 @@
                         <span>割り込みを許可</span>
                     </label>
                 </div>
+                {{#if usage.grantsInterrupt}}
+                {{!-- consumesAr(2026-07-26): オン(既定)=自己割り込み等でその挿入メインが AR を消費。
+                     オフ=追加行動技能で無償(付与者が自分のメジャーとして肩代わり) --}}
+                <div class="usage-form-row usage-toggle-row">
+                    <label class="usage-toggle-inline">
+                        <input type="checkbox" name="interruptConsumesAr" {{checked usage.interruptConsumesAr}}
+                               {{#unless editable}}disabled{{/unless}}>
+                        <span>割り込みで AR を消費する</span>
+                    </label>
+                </div>
+                {{/if}}
                 {{/if}}
                 {{!-- ヴィークル準備時(2026-07-18 一般化): オンで「使用ヴィークル」セクションを表示し、
                      準備済みヴィークルが無ければ判定不可になる。移動/リアクション（移動妨害）は既定オン --}}
@@ -560,6 +571,17 @@
                         <span>割り込みを許可</span>
                     </label>
                 </div>
+                {{#if usage.grantsInterrupt}}
+                {{!-- consumesAr(2026-07-26): オン(既定)=自己割り込み等でその挿入メインが AR を消費。
+                     オフ=追加行動技能で無償(付与者が自分のメジャーとして肩代わり) --}}
+                <div class="usage-form-row usage-toggle-row">
+                    <label class="usage-toggle-inline">
+                        <input type="checkbox" name="interruptConsumesAr" {{checked usage.interruptConsumesAr}}
+                               {{#unless editable}}disabled{{/unless}}>
+                        <span>割り込みで AR を消費する</span>
+                    </label>
+                </div>
+                {{/if}}
             </fieldset>
 
             <fieldset class="tnx-fieldset">

@@ -234,6 +234,7 @@ export async function buildUsageCheckContext(actor, item, usage, {
         checkBonuses:    usage.checkBonuses ?? [],
         checkBonusSelf:  usage.checkBonusSelf ?? "",
         sourceItemId:    item.id,   // 用途の親アイテム(@item.self の解決に使う)
+        usageTiming:     usage.timing ?? null, // メジャーアクション記帳の判定に使う(2026-07-26 一般則)
         usageEffects,               // 付与効果ペイロード(null=効果なし)
         allowRecheck:    usage.allowRecheck === true, // 再判定可能(用途の設定・2026-07-11)
         allowSuitChange: usage.allowSuitChange === true, // スート変更可能(用途の設定・2026-07-12)

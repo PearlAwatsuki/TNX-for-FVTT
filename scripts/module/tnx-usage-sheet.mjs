@@ -1346,6 +1346,9 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         // トグルが描画されるのは check(通常モード)/declaration のときだけ——未描画時は既存値を維持
         if (usage.type === "check" || usage.type === "declaration") {
             update.grantsInterrupt = raw["grantsInterrupt"] ?? (usage.grantsInterrupt === true);
+            // 割り込みで AR を消費(consumesAr・2026-07-26): トグルは grantsInterrupt が真のときだけ
+            // 描画される。未描画(オフ／同一送信でオンにした直後)は既定/既存値を維持(既定=真)。
+            update.interruptConsumesAr = raw["interruptConsumesAr"] ?? (usage.interruptConsumesAr !== false);
         }
 
         // 固定達成値(フェーズ11-5・エキストラの技能判定)。固定値用途のマーカーを兼ねるため、

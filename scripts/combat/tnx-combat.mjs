@@ -18,13 +18,11 @@
 import { buildCombatSeedUpdate } from "../module/combat-seed-logic.mjs";
 import {
   planAdvance,
-  buildEndMainUpdate,
-  buildCantActUpdate,
+  buildArDecrementUpdate,
   buildWaitUpdate,
   buildSetupConfirmUpdate,
-  planInterruptStart,
-  planInterruptEnd,
-  buildInterruptEndUpdate,
+  pushInterruptFrame,
+  popInterruptFrame,
 } from "../module/combat-progression.mjs";
 import { compareTurnOrder, nextActiveMain, firstSpotId, nextSpotId, PHASE_TIMING_KEY } from "../module/combat-turn-order.mjs";
 import { resolveConsumeRowsForActor, isConsumptionDepleted } from "../module/usage-consumption.mjs";
@@ -70,11 +68,29 @@ export class TnxCombat extends Combat {
   /** 現メインプロセスの combatant id(メインターン中のみ)。 */
   get mainCombatantId() { return this.getFlag(TNX_SCOPE, "mainCombatantId") ?? null; }
 
-  /** 挿入メイン(割り込み・追加行動)の行動者 id。通常状態は null(13-5)。 */
-  get interruptMainId() { return this.getFlag(TNX_SCOPE, "interruptMainId") ?? null; }
+  /**
+   * 割り込み(挿入メイン)の退避スタック(2026-07-26 サスペンド／レジューム)。各要素は割り込み開始時に
+   * 退避した進行状態フレーム。空=割り込み中でない。入れ子の割り込みは複数フレームが積まれる。
+   */
+  get interruptStack() { return this.getFlag(TNX_SCOPE, "interruptStack") ?? []; }
 
-  /** 割り込み終了時に戻るサブターン位置 {phase, spotId}。通常状態は null。 */
-  get interruptReturn() { return this.getFlag(TNX_SCOPE, "interruptReturn") ?? null; }
+  /** 割り込み中か(退避スタックが空でない=現在走っているのは挿入メイン)。 */
+  get inInterrupt() { return this.interruptStack.length > 0; }
+
+  /**
+   * 現在走っている挿入メインが AR を消費するか(consumesAr・2026-07-26)。割り込み中でないときは null。
+   * 真=終了時に majorActed へ AR−1＋CS0(一般則)・偽=無償(追加行動の肩代わり)。
+   */
+  get interruptConsumesAr() { return this.getFlag(TNX_SCOPE, "interruptConsumesAr") ?? null; }
+
+  /** 挿入メイン(割り込み・追加行動)の行動者 id。割り込み中の現メイン=挿入メイン。通常状態は null。 */
+  get interruptMainId() { return this.inInterrupt ? this.mainCombatantId : null; }
+
+  /**
+   * 現プロセスでメジャーアクションを行った combatant id の配列(2026-07-26 一般則)。
+   * プロセス終了時、この各人に AR−1＋CSカレント0 を適用してクリアする(空メジャー廃止)。
+   */
+  get majorActed() { return this.getFlag(TNX_SCOPE, "majorActed") ?? []; }
 
   /**
    * サブターン内で今プロセスの行動権(スポット)を持つ combatant id。
@@ -178,9 +194,10 @@ export class TnxCombat extends Combat {
       [`flags.${TNX_SCOPE}.phase`]: "setup",
       [`flags.${TNX_SCOPE}.mainCombatantId`]: null,
       [`flags.${TNX_SCOPE}.spotCombatantId`]: spotId,
-      // 割り込み状態は開始時にクリア(前回のカット進行の残骸を持ち越さない・13-5)
-      [`flags.${TNX_SCOPE}.interruptMainId`]: null,
-      [`flags.${TNX_SCOPE}.interruptReturn`]: null,
+      // 割り込み状態・メジャー追跡は開始時にクリア(前回のカット進行の残骸を持ち越さない)
+      [`flags.${TNX_SCOPE}.interruptStack`]: [],
+      [`flags.${TNX_SCOPE}.interruptConsumesAr`]: null,
+      [`flags.${TNX_SCOPE}.majorActed`]: [],
     };
     Hooks.callAll("combatStart", this, updateData);
     await this.update(updateData);
@@ -195,13 +212,13 @@ export class TnxCombat extends Combat {
    * 「次へ」＝形を変えた「次のターンへ」(nextTurn 1本)。
    * - サブターン(setup/initiative/cleanup)中: スポット(プロセスの行動権)を CS順の次のキャラへ渡す。
    *   走査を終えていればフェーズ送り(advancePhase)。
-   * - メインターン中: 手番終了(常に AR−1・CSカレント0)→ イニシアチブへ戻る。
+   * - メインターン中: 手番終了(メジャーを行っていれば AR−1・CSカレント0)→ イニシアチブへ戻る。
    */
   async advanceCut() {
     if (!game.user.isGM) return this;
     // 挿入メイン(割り込み)中は通常の前進を行わない——終了は専用ボタン(endInterrupt)。core の
-    // キーバインド等から nextTurn が来ても記帳(通常メイン終了=AR−1・CS0)で退避を壊さないためのガード。
-    if (this.interruptMainId) return this;
+    // キーバインド等から nextTurn が来ても、退避スタックを壊さないためのガード。
+    if (this.inInterrupt) return this;
     const phase = this.cutPhase;
     if (WALK_PHASES.has(phase)) {
       const spot = this.getFlag(TNX_SCOPE, "spotCombatantId") ?? null;
@@ -225,43 +242,50 @@ export class TnxCombat extends Combat {
    * - setup→initiative: セットアップ末確定(current ← valueTotal+currentBuff を全員へ焼き込み)
    * - initiative→main: 候補(CSカレント最大かつAR≥1)を確認してメインターンへ(turn も同期)
    * - initiative→cleanup: 行動可能者なし
-   * - main→initiative: メイン終了の記帳(常に AR−1・CSカレント0＝「何もしないメジャー」も消費)
+   * - どのプロセス終了時も、そのプロセスでメジャーを行った者(majorActed)へ AR−1＋CSカレント0
+   *   (2026-07-26 一般則。空メジャー廃止＝メジャーを実際に行った者だけ消費)
    * - cleanup→setup: 次カット(round+1・再シード=AR全回復を含む)
    */
   async advancePhase() {
     if (!game.user.isGM) return this;
-    const plan = planAdvance(this.cutPhase, this.cutParticipants);
-    if (!plan) return this;
-    // 境界イベント計画用に遷移前の状態を退避(発火は update 後・13-6)
     const fromPhase = this.cutPhase;
+    if (!fromPhase) return this;
+    // 境界イベント計画用に遷移前の状態を退避(発火は update 後・13-6)
     const fromMainId = this.mainCombatantId;
     const fromCut = this.round;
 
-    // フェーズ離脱時の記帳(アクター側)
-    if (plan.confirmSetup) {
+    // 1. 離脱プロセスの記帳(順序が重要)。
+    //   setup 末: CSカレント確定(全員・凍結モデル)
+    if (fromPhase === "setup") {
       for (const c of this.combatants) {
         if (c.actor) await applyActorUpdate(c.actor, buildSetupConfirmUpdate(c.actor.system));
       }
     }
-    if (plan.endMain) {
-      const actor = this.actorOf(this.mainCombatantId);
-      if (actor) await applyActorUpdate(actor, buildEndMainUpdate(actor.system));
-    }
-    // イニシアチブの確認: 行動できないのに CS 最上位に来た者の AR−1(Combat_Flow §4・自動記帳)
-    for (const id of (plan.penalizedIds ?? [])) {
+    //   プロセス終了: そのプロセスでメジャーアクションを行った者に AR−1＋CSカレント0(空メジャー廃止・
+    //   AR減少⟺CS0・2026-07-26 一般則)。**confirmMain より先**に適用し、行動済みの者が次のメイン候補に
+    //   来ないようにする。majorActed はメジャー実行フック(markMajorAction)が積む。
+    for (const id of this.majorActed) {
       const actor = this.actorOf(id);
-      if (actor) await applyActorUpdate(actor, buildCantActUpdate(actor.system));
+      if (actor) await applyActorUpdate(actor, buildArDecrementUpdate(actor.system));
     }
 
-    // 次カットのセットアップ開始＝再シード(CSカレント←CS・AR←付与値=クリンナップの AR 全回復を
+    // 2. 遷移計画(記帳後の状態で confirmMain を算出する)
+    const plan = planAdvance(fromPhase, this.cutParticipants);
+    if (!plan) return this;
+
+    // 3. 行動不能(イニシアチブで CS 最上位なのに行動できない者)の AR−1＋CS0(Combat_Flow §4)
+    for (const id of (plan.penalizedIds ?? [])) {
+      const actor = this.actorOf(id);
+      if (actor) await applyActorUpdate(actor, buildArDecrementUpdate(actor.system));
+    }
+
+    // 4. 次カットのセットアップ開始＝再シード(CSカレント←CS・AR←付与値=クリンナップの AR 全回復を
     // 含む)。combat 更新より**先**に行う(セットアップに入る時点で付与済み・2026-07-22 ユーザー指摘)
     if (plan.nextCut) {
       await TnxCombat.seedStartValues(this.combatants.map(c => c.actor).filter(Boolean));
     }
 
-    // フェーズ遷移(combat 側)。core の turn(ターンプレイヤー)は常に「今の番」——メインターン中は
-    // メイン行動者・サブターン中はスポット——へ同期する(正本はあくまで flags)。
-    // 遷移先がサブターンなら、そのプロセスの用途を持つ参加者の先頭にスポットを置く(記帳・再シード後の値で算出)。
+    // 5. フェーズ遷移(combat 側)。core の turn は常に「今の番」へ同期。majorActed はクリア(新プロセスは空)。
     const spotId = WALK_PHASES.has(plan.to)
       ? firstSpotId(this.cutParticipants, this._eligibleSpotIds(plan.to)) : null;
     const update = {
@@ -269,6 +293,7 @@ export class TnxCombat extends Combat {
       [`flags.${TNX_SCOPE}.phase`]: plan.to,
       [`flags.${TNX_SCOPE}.mainCombatantId`]: plan.mainId ?? null,
       [`flags.${TNX_SCOPE}.spotCombatantId`]: spotId,
+      [`flags.${TNX_SCOPE}.majorActed`]: [],
     };
     if (plan.nextCut) update.round = this.round + 1;
     await this.update(update);
@@ -361,16 +386,18 @@ export class TnxCombat extends Combat {
     await applyActorUpdate(actor, buildWaitUpdate());
   }
 
-  // ─── 割り込み(挿入メイン)＝メインプロセスの割り込み・追加行動(13-5) ────────────────
-  // トラッカーの割り込み入口(canInterrupt フラグでゲート)から起動する。指定キャラを順番外の
-  // メイン行動者に据え、元の進行位置を退避する。終了で退避位置へ戻る。combat フラグの更新は GM
-  // 権限が要るため、非 GM(入口を押した対象の操作者)はソケットで GM に委譲する。
+  // ─── 割り込み(挿入メイン)＝サスペンド／レジューム＋consumesAr(2026-07-26 全面改訂) ──────────
+  // トラッカーの割り込み入口(canInterrupt フラグでゲート)から起動する。指定キャラを順番外のメイン
+  // 行動者に据え、**元の進行位置(メイン/サブターンいずれも)は終了せず退避スタックへ積む(サスペンド)**。
+  // 挿入メイン終了で退避位置を厳密に復元(レジューム)する。挿入メインが AR を消費するか(consumesAr)は
+  // 割り込みを生じさせた用途が宣言し、combatant フラグ経由で伝搬する。combat フラグの更新は GM 権限が
+  // 要るため、非 GM(入口を押した対象の操作者)はソケットで GM に委譲する。
 
   /**
-   * 割り込み(挿入メイン)を開始する。指定キャラを順番外のメイン行動者に据える。**メインプロセス中
-   * (通常/挿入いずれも)の割り込みは、その時点でそのメインを終了する**(記帳=AR−1・CS0)——終了した
-   * メインには戻らない(2026-07-22 ユーザー確定)。戻り先は常にサブターン(通常メイン中なら
-   * イニシアチブ・サブターン中ならその位置)。行使したら対象の割り込み許可フラグを消費(ワンショット)。
+   * 割り込み(挿入メイン)を開始する。指定キャラを順番外のメイン行動者に据え、現在の進行状態を退避
+   * スタックへ積む(元のメイン/サブターンは終了しない=あとで戻る)。挿入メインが AR を消費するかは
+   * 対象の combatant フラグ(interruptConsumesAr・用途宣言由来・既定=真)で決まる。行使したら対象の
+   * 割り込み許可フラグを消費(ワンショット)。
    * @param {string} combatantId 割り込ませる combatant id
    */
   async startInterrupt(combatantId) {
@@ -380,66 +407,97 @@ export class TnxCombat extends Combat {
     }
     const target = this.combatants.get(combatantId);
     if (!target) return this;
-    const plan = planInterruptStart({
+    // consumesAr は付与時に combatant へ載せた値(既定=真=自己割り込み・偽=追加行動の無償)
+    const consumesAr = target.getFlag(TNX_SCOPE, "interruptConsumesAr") !== false;
+    const { frame, next } = pushInterruptFrame({
       phase: this.cutPhase,
       mainCombatantId: this.mainCombatantId,
       spotCombatantId: this.getFlag(TNX_SCOPE, "spotCombatantId") ?? null,
-      interruptMainId: this.interruptMainId,
-      interruptReturn: this.interruptReturn,
-    }, combatantId);
-    // メイン中の割り込みは、その時点でそのメインを終了する(通常メイン終了と同じ記帳=AR−1・CS0)
-    if (plan.endMainId) {
-      const ended = this.actorOf(plan.endMainId);
-      if (ended) await applyActorUpdate(ended, buildEndMainUpdate(ended.system));
-    }
+      majorActed: this.majorActed,
+      interruptConsumesAr: this.interruptConsumesAr,
+    }, combatantId, consumesAr);
     await this.update({
-      turn: this._turnIndexOf(combatantId),
-      [`flags.${TNX_SCOPE}.phase`]: "main",
-      [`flags.${TNX_SCOPE}.mainCombatantId`]: combatantId,
-      [`flags.${TNX_SCOPE}.interruptMainId`]: plan.interruptMainId,
-      [`flags.${TNX_SCOPE}.spotCombatantId`]: null,
-      [`flags.${TNX_SCOPE}.interruptReturn`]: plan.interruptReturn,
+      turn: this._turnIndexOf(next.mainCombatantId),
+      [`flags.${TNX_SCOPE}.phase`]: next.phase,
+      [`flags.${TNX_SCOPE}.mainCombatantId`]: next.mainCombatantId,
+      [`flags.${TNX_SCOPE}.spotCombatantId`]: next.spotCombatantId,
+      [`flags.${TNX_SCOPE}.majorActed`]: next.majorActed,
+      [`flags.${TNX_SCOPE}.interruptStack`]: [...this.interruptStack, frame],
+      [`flags.${TNX_SCOPE}.interruptConsumesAr`]: next.interruptConsumesAr,
     });
+    // 割り込み許可(ワンショット)と consumesAr を消費する
     if (target.getFlag(TNX_SCOPE, "canInterrupt")) await target.unsetFlag(TNX_SCOPE, "canInterrupt");
-    // 境界イベント(13-6): 打ち切られた元メインの終了(あれば)→ 挿入メインの開始。挿入メインも
-    // 「メインプロセス」なので、その出入りで tnxProcessEnd/Start(phase:"main") を発火する
-    // (＝メインプロセス中効果は挿入メイン・打ち切られた元メインでも失効する・2026-07-23 ユーザー指摘)
-    if (plan.endMainId) {
-      Hooks.callAll(TNX_HOOKS.processEnd, this, { phase: "main", combatantId: plan.endMainId, cut: this.round, viaInterrupt: true });
-    }
+    if (target.getFlag(TNX_SCOPE, "interruptConsumesAr") !== undefined) await target.unsetFlag(TNX_SCOPE, "interruptConsumesAr");
+    // 境界イベント(13-6): 退避された元プロセスは終了しない(サスペンド)ので processEnd は発火しない。
+    // 挿入メインも「メインプロセス」なので開始で tnxProcessStart(phase:"main") を発火する(＝
+    // メインプロセス中効果は挿入メインでも新規に有効になる)。
     Hooks.callAll(TNX_HOOKS.processStart, this, { phase: "main", combatantId, cut: this.round, viaInterrupt: true });
     return this;
   }
 
   /**
-   * 挿入メインを終了して退避したサブターン位置へ復帰する(元のメインには戻らない)。
-   * @param {{decrementAr?:boolean}} [opts] decrementAr=true で AR−1(「AR を−1して終了」)。
-   *   false は AR 据え置き(「終了」)。CS はどちらも据え置き(2026-07-22 ユーザー確定)。
+   * 挿入メインを終了し、退避した進行位置を厳密に復元する(サスペンド／レジューム)。この挿入メインが
+   * AR を消費する(consumesAr=真)なら、挿入メインでメジャーを行った者(majorActed)へ AR−1＋CSカレント0
+   * (一般則)。consumesAr=偽(追加行動)は無償(記帳なし=付与者が自分のメジャーとして肩代わり)。
    */
-  async endInterrupt({ decrementAr = false } = {}) {
+  async endInterrupt() {
     if (!game.user.isGM) {
-      TnxSocketHandler.emitInterruptEnd({ combatId: this.id, decrementAr });
+      TnxSocketHandler.emitInterruptEnd({ combatId: this.id });
       return this;
     }
-    if (!this.interruptMainId) return this;
-    const endedId = this.interruptMainId;
-    const actor = this.actorOf(this.interruptMainId);
-    if (actor) await applyActorUpdate(actor, buildInterruptEndUpdate(actor.system, { decrementAr }));
-    const plan = planInterruptEnd(this.interruptReturn);
-    // 通常メイン終了後のイニシアチブ等(spot 未保存)は、復帰時点の値でスポット先頭を算出し直す
-    const spotId = plan.recomputeSpot ? firstSpotId(this.cutParticipants) : plan.spotId;
+    if (!this.inInterrupt) return this;
+    const endedId = this.mainCombatantId;
+    // consumesAr のときだけ、挿入メインでメジャーを行った者に AR−1＋CS0(空メジャーは対象外)
+    if (this.interruptConsumesAr) {
+      for (const id of this.majorActed) {
+        const actor = this.actorOf(id);
+        if (actor) await applyActorUpdate(actor, buildArDecrementUpdate(actor.system));
+      }
+    }
+    const { restore, remaining } = popInterruptFrame(this.interruptStack);
+    // 復元先の turn: メイン復帰ならメイン行動者・サブターン復帰ならスポットへ(位置は退避時に保存済み)
+    const restoreTurnId = restore.phase === "main" ? restore.mainCombatantId : restore.spotCombatantId;
     await this.update({
-      turn: this._turnIndexOf(spotId),
-      [`flags.${TNX_SCOPE}.phase`]: plan.phase,
-      [`flags.${TNX_SCOPE}.mainCombatantId`]: null,
-      [`flags.${TNX_SCOPE}.interruptMainId`]: null,
-      [`flags.${TNX_SCOPE}.spotCombatantId`]: spotId,
-      [`flags.${TNX_SCOPE}.interruptReturn`]: null,
+      turn: this._turnIndexOf(restoreTurnId),
+      [`flags.${TNX_SCOPE}.phase`]: restore.phase,
+      [`flags.${TNX_SCOPE}.mainCombatantId`]: restore.mainCombatantId,
+      [`flags.${TNX_SCOPE}.spotCombatantId`]: restore.spotCombatantId,
+      [`flags.${TNX_SCOPE}.majorActed`]: restore.majorActed,
+      [`flags.${TNX_SCOPE}.interruptStack`]: remaining,
+      [`flags.${TNX_SCOPE}.interruptConsumesAr`]: restore.interruptConsumesAr,
     });
-    // 挿入メインの終了イベント(13-6)。復帰先のサブターンは中断からの再開なので開始は再発火しない
-    // (サブターン中効果は割り込みを跨いで持続)。
+    // 挿入メインの終了イベント(13-6)。復帰先(メイン/サブターン)は中断からの再開なので開始は再発火
+    // しない(退避された効果は割り込みを跨いで持続する)。
     Hooks.callAll(TNX_HOOKS.processEnd, this, { phase: "main", combatantId: endedId, cut: this.round, viaInterrupt: true });
     return this;
+  }
+
+  // ─── メジャーアクション記帳(2026-07-26 一般則) ───
+
+  /**
+   * メジャーアクションを行った本人を、現プロセスの majorActed に積む。プロセス終了時(advancePhase・
+   * 割り込みによるメイン終了)に majorActed の各行動者へ AR−1＋CSカレント0 を記帳する(2026-07-26
+   * 全面改訂の一般則「メジャーを行ったプロセス所有者がプロセス終了時に AR−1」)。メインでもサブターン
+   * (イニシアチブの支援判定など)でも、メジャーを行った本人が対象。combat フラグ更新は GM 権限が要る
+   * ため、非 GM は activeGM へソケット委譲する。メジャータイミングの用途実行フックから呼ぶ。
+   * @param {Actor} actor メジャーアクションを行ったアクター
+   */
+  static async markMajorAction(actor) {
+    const combat = game.combat;
+    if (!combat?.started || !actor) return;
+    const combatant = combat.combatants.find(c => c.actor === actor)
+      ?? combat.combatants.find(c => c.actorId === actor.id);
+    if (!combatant) return;
+    if (game.user.isGM) await combat._addMajorActed(combatant.id);
+    else TnxSocketHandler.emitMarkMajor({ combatId: combat.id, combatantId: combatant.id });
+  }
+
+  /** majorActed に combatant を追加する(GM のみ・重複は無視)。 */
+  async _addMajorActed(combatantId) {
+    if (!game.user.isGM) return;
+    const cur = this.majorActed;
+    if (cur.includes(combatantId)) return;
+    await this.setFlag(TNX_SCOPE, "majorActed", [...cur, combatantId]);
   }
 
   // ─── カット開始シード(フェーズ10-5/11 から移設) ───

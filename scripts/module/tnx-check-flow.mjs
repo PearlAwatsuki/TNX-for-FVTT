@@ -25,6 +25,8 @@ import { getUserFlagData } from './user-flag-schema.mjs';
 import { applyConsumptionPlan } from './usage-consumption.mjs';
 import { formatSkillName } from './identification.mjs';
 import { buildCheckCardContext } from './check-card-context.mjs';
+import { isMajorActionTiming } from './combat-turn-order.mjs';
+import { TnxCombat } from '../combat/tnx-combat.mjs';
 
 /**
  * @typedef {object} CheckContext
@@ -672,6 +674,11 @@ export class TnxCheckFlow {
 
         game.tnx.hud?.render(false);
 
+        // メジャーアクション記帳(2026-07-26 一般則): カードプレイ＝確定トリガーでメジャーが実行された。
+        // メジャータイミングの用途なら本人を現プロセスの majorActed に積む(プロセス終了時に AR−1＋
+        // CSカレント0)。カット進行中でなければ no-op。成否・スート不一致は問わない(実行済みだから)。
+        if (isMajorActionTiming(ctx.usageTiming)) await TnxCombat.markMajorAction(actor);
+
         // 用途起動による使用回数の消費（用途の消費先設定＝consumeTargets 由来・11-6）。
         // 起動時の消費ダイアログで確定した平プランを判定実行時に適用する（キャンセル時は未到達＝非消費）
         if (ctx.consumeUses?.length) {
@@ -796,7 +803,9 @@ export class TnxCheckFlow {
             if (negate) result.negateOutcome = negate;
         }
 
-        // RL 要求フロー: GM に結果を送信(再判定でも要求カードは追随させるためゲートしない)
+        // RL 要求フロー: GM に結果を送信(再判定でも要求カードは追随させるためゲートしない)。
+        // FS 支援判定は、支援者が判定時に選んだ「支援する対象」を結果に載せる(per-target・2026-07-26)。
+        if (ctx.focusSupportTargetId) result.focusSupportTargetId = ctx.focusSupportTargetId;
         if (ctx.requestMessageId) {
             TnxSocketHandler.emitCheckResult(ctx.requestMessageId, ctx.actorId, result);
         }

@@ -16,6 +16,8 @@
  *   cutAdvance     - PL → GM: カット進行の「手番終了」を委譲する（フェーズ13-4。
  *                    メインターンの手番プレイヤーは Combat ドキュメントのフラグを更新
  *                    できないため、GM クライアントが advanceCut を代行する）
+ *   markMajor      - PL → GM: メジャーアクション記帳(majorActed 追加)を委譲する（2026-07-26
+ *                    一般則。プロセス終了時に本人へ AR−1＋CSカレント0）
  */
 
 const SCOPE = "tokyo-nova-axleration";
@@ -57,6 +59,9 @@ export class TnxSocketHandler {
                 break;
             case "interruptEnd":
                 TnxSocketHandler._onInterruptEnd(data);
+                break;
+            case "markMajor":
+                TnxSocketHandler._onMarkMajor(data);
                 break;
         }
     }
@@ -100,8 +105,9 @@ export class TnxSocketHandler {
                 allDone ? "completed" : "partial",
         });
 
-        // FS 支援判定(13-7②): 支援判定は結果確定で自動適用する(AR−1＋成功なら pendingSupport)。
-        // 手動ボタンではなく機械的な帰結のため(2026-07-24 ユーザー確定)。他の checkRequest では no-op。
+        // FS 支援判定: 支援判定は結果確定で自動適用する(メジャー記帳＋成功なら対象へ支援 AE(進行 +1)を
+        // 付与。AR−1＋CS0 はイニシアチブ終了時に一般則で適用・2026-07-26/08-05)。手動ボタンではなく機械的な
+        // 帰結のため(2026-07-24 ユーザー確定)。他の checkRequest では no-op。
         if (flags.focusSystemKind === "support") {
             const { autoApplyFocusSupport } = await import("./focus-system-result.mjs");
             await autoApplyFocusSupport(message, actorId);
@@ -202,7 +208,7 @@ export class TnxSocketHandler {
         const sourceActor = source?.actor ?? source;
         if (!requester || !sourceActor?.testUserPermission(requester, "OWNER")) return;
         const { grantInterruptToTargets } = await import("./interrupt-grant.mjs");
-        await grantInterruptToTargets(data?.targetUuids ?? []);
+        await grantInterruptToTargets(data?.targetUuids ?? [], data?.consumesAr !== false);
     }
 
     /** 割り込み許可の付与を GM へ委譲する（付与元アクターの操作者クライアントから呼ぶ）。 */
@@ -240,13 +246,37 @@ export class TnxSocketHandler {
         const current = combat?.combatants.get(combat?.interruptMainId);
         const requester = game.users.get(data?.userId);
         if (!requester || !current?.actor?.testUserPermission(requester, "OWNER")) return;
-        await combat.endInterrupt({ decrementAr: data?.decrementAr === true });
+        await combat.endInterrupt();
     }
 
     /** 挿入メイン終了を GM へ委譲する（挿入メインの操作者クライアントから呼ぶ）。 */
     static emitInterruptEnd(payload) {
         game.socket.emit("system.tokyo-nova-axleration", {
             type: "interruptEnd",
+            userId: game.user.id,
+            ...payload,
+        });
+    }
+
+    // ─── markMajor（メジャーアクション記帳の委譲・2026-07-26 一般則） ────────────────
+    // majorActed は combat フラグのため GM 権限が要る。メジャータイミングの用途を実行した非 GM は
+    // activeGM へ委譲し、GM が本人の combatant を現プロセスの majorActed に積む(プロセス終了時に
+    // AR−1＋CSカレント0)。
+
+    /** メジャーアクション記帳を GM が代行する。要求者が本人の所有者であることを検証。 */
+    static async _onMarkMajor(data) {
+        if (game.users.activeGM?.id !== game.user.id) return;
+        const combat = game.combats.get(data?.combatId);
+        const combatant = combat?.combatants.get(data?.combatantId);
+        const requester = game.users.get(data?.userId);
+        if (!requester || !combatant?.actor?.testUserPermission(requester, "OWNER")) return;
+        await combat._addMajorActed(data.combatantId);
+    }
+
+    /** メジャーアクション記帳を GM へ委譲する（本人の操作者クライアントから呼ぶ）。 */
+    static emitMarkMajor(payload) {
+        game.socket.emit("system.tokyo-nova-axleration", {
+            type: "markMajor",
             userId: game.user.id,
             ...payload,
         });

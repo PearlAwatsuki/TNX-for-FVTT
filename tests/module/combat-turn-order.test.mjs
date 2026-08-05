@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveTurnOrder, nextActiveMain, confirmMain, firstSpotId, nextSpotId } from "../../scripts/module/combat-turn-order.mjs";
+import { resolveTurnOrder, nextActiveMain, confirmMain, firstSpotId, nextSpotId, isMajorActionTiming } from "../../scripts/module/combat-turn-order.mjs";
 
 // 参加者の素データ(Foundry 非依存)。Combatant 側でこの形へ写像する。
 const P = (over = {}) => ({
@@ -213,5 +213,36 @@ describe("firstSpotId() / nextSpotId()（サブターン内のスポット走査
   it("eligibleIds 省略/ null は従来どおり全員（絞り込みなし）", () => {
     expect(firstSpotId(list, null)).toBe("a");
     expect(firstSpotId(list)).toBe("a");
+  });
+});
+
+describe("isMajorActionTiming()（用途タイミング→メジャーアクション判定・2026-07-26 一般則）", () => {
+  it("timing.value==='action' かつ actionName==='major' はメジャー（プロセス終了時 AR−1）", () => {
+    expect(isMajorActionTiming({ value: "action", actionName: "major" })).toBe(true);
+  });
+
+  it("timing.value==='initiativeMajor'（イニシアチブ（メジャー）＝支援判定）もメジャー", () => {
+    expect(isMajorActionTiming({ value: "initiativeMajor", actionName: "blank" })).toBe(true);
+  });
+
+  it("ムーブ／マイナー／リアクション／オートはメジャーでない", () => {
+    expect(isMajorActionTiming({ value: "action", actionName: "move" })).toBe(false);
+    expect(isMajorActionTiming({ value: "action", actionName: "minor" })).toBe(false);
+    expect(isMajorActionTiming({ value: "action", actionName: "reaction" })).toBe(false);
+    expect(isMajorActionTiming({ value: "action", actionName: "auto" })).toBe(false);
+  });
+
+  it("プロセス既定処理・常時・神業・ダメージ算出系はメジャーでない", () => {
+    expect(isMajorActionTiming({ value: "process", processName: "setup" })).toBe(false);
+    expect(isMajorActionTiming({ value: "always", actionName: "blank" })).toBe(false);
+    expect(isMajorActionTiming({ value: "miracle", actionName: "blank" })).toBe(false);
+    expect(isMajorActionTiming({ value: "onCalcDmage", actionName: "blank" })).toBe(false);
+  });
+
+  it("未設定/空/blank は安全に false", () => {
+    expect(isMajorActionTiming(null)).toBe(false);
+    expect(isMajorActionTiming(undefined)).toBe(false);
+    expect(isMajorActionTiming({})).toBe(false);
+    expect(isMajorActionTiming({ value: "blank", actionName: "blank" })).toBe(false);
   });
 });

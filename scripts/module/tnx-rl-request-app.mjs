@@ -362,6 +362,23 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
                 extra.substitution = { requestedLabel: chosenLabel, usedName: choice.item.name };
                 extra.manualMod = choice.manualMod;
             }
+            // FS 支援判定(2026-08-05 ユーザー確定): 支援は普通にターゲットして行う。判定を行う時点で
+            // レティクルにした1体を支援対象とし、結果に載せて autoApplyFocusSupport が対象へ支援 AE を
+            // 付与する。ターゲットが無い(または複数)ときは、他の用途と同じ対象選択ダイアログで1体を選ばせる
+            // (2026-08-06 ユーザー指摘＝中止でなくダイアログ。選ぶとレティクルも付与される)。以降のフローで
+            // レティクルが変わっても崩れないよう、押下時に確定して渡す。
+            if (flagData.focusSystemKind === "support") {
+                let picked = [...(game.user?.targets ?? [])];
+                if (picked.length !== 1) {
+                    const { promptTargetToken } = await import("./target-resolution.mjs");
+                    const refs = await promptTargetToken(actor);
+                    if (!refs?.length) return; // キャンセルは中止
+                    picked = [...(game.user?.targets ?? [])]; // ダイアログが選んだ対象にレティクルを付与済み
+                }
+                const targetActorId = picked[0]?.actor?.id ?? null;
+                if (!targetActorId) { ui.notifications.warn("ターゲットのアクターを解決できません。"); return; }
+                extra.focusSupportTargetId = targetActorId;
+            }
             await TnxCharacterSheetBase._activateItemCheck(actor, choice.item, extra);
             return;
         }

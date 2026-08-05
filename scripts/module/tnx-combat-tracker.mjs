@@ -31,8 +31,7 @@ export class TnxCombatTracker extends CombatTracker {
       tnxPhase:            TnxCombatTracker._onPhase,
       tnxWait:             TnxCombatTracker._onWait,
       tnxInterrupt:        TnxCombatTracker._onInterrupt,
-      tnxInterruptEndKeep: TnxCombatTracker._onInterruptEndKeep,
-      tnxInterruptEndAr:   TnxCombatTracker._onInterruptEndAr,
+      tnxInterruptEnd:     TnxCombatTracker._onInterruptEnd,
     },
   };
 
@@ -55,7 +54,7 @@ export class TnxCombatTracker extends CombatTracker {
     this._tnxCandidateId = combat?.candidateMainId ?? null;
     this._tnxMainId = phase === "main" ? (combat?.mainCombatantId ?? null) : null;
     this._tnxSpotId = combat?.spotCombatantId ?? null;
-    this._tnxInterruptMainId = combat?.interruptMainId ?? null; // 挿入メイン(割り込み)中の行動者(13-5)
+    this._tnxInterruptMainId = combat?.interruptMainId ?? null; // 挿入メイン中の行動者(割り込み中の現メイン)
     return context;
   }
 
@@ -142,8 +141,8 @@ export class TnxCombatTracker extends CombatTracker {
   static async _onPhase()       { await this.viewed?.advancePhase(); }
   static async _onWait(event, target) { await this.viewed?.declareWait(combatantIdOf(target)); }
 
-  // 割り込み(挿入メイン・13-5): 入口=行の「割り込み」・終了=フッターの2ボタン
+  // 割り込み(挿入メイン): 入口=行の「割り込み」・終了=フッターの「割り込みを終了」1本(2026-07-26)。
+  // AR を消費するかは用途宣言(consumesAr)で自動判定するため終了操作は1つ。
   static async _onInterrupt(event, target) { await this.viewed?.startInterrupt(combatantIdOf(target)); }
-  static async _onInterruptEndKeep() { await this.viewed?.endInterrupt({ decrementAr: false }); }
-  static async _onInterruptEndAr()   { await this.viewed?.endInterrupt({ decrementAr: true }); }
+  static async _onInterruptEnd() { await this.viewed?.endInterrupt(); }
 }
