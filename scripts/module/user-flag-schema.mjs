@@ -28,6 +28,9 @@ const FLAG_DEFAULTS = {
   handPileId: "",
   trumpCardPileId: "",
   handMaxSize: 4,
+  // 現在のシーンのシーンプレイヤーか(フェーズ14-2・2026-08-07 裁定=プレイヤー側の指定なので User が持つ)。
+  // 書き込みはシーン開始/終了処理(session-state.mjs)が行う。
+  isScenePlayer: false,
 };
 
 /**
@@ -51,6 +54,7 @@ export function getUserFlagData(user) {
     handPileId:     f.handPileId       ?? FLAG_DEFAULTS.handPileId,
     trumpCardPileId: f.trumpCardPileId ?? FLAG_DEFAULTS.trumpCardPileId,
     handMaxSize:    f.handMaxSize      ?? FLAG_DEFAULTS.handMaxSize,
+    isScenePlayer:  f.isScenePlayer    ?? FLAG_DEFAULTS.isScenePlayer,
   };
 }
 
@@ -237,4 +241,14 @@ export async function saveUserFlagCards(user, handPileId, trumpCardPileId) {
     [`flags.${TNX_FLAG_SCOPE}.handPileId`]: handPileId,
     [`flags.${TNX_FLAG_SCOPE}.trumpCardPileId`]: trumpCardPileId,
   });
+}
+
+/**
+ * シーンプレイヤーか否かを保存する(フェーズ14-2)。シーン開始/終了処理(session-state.mjs)が
+ * GM クライアントから全ユーザー分を付け替える。
+ * @param {User} user
+ * @param {boolean} value
+ */
+export async function saveIsScenePlayer(user, value) {
+  return user.update({ [`flags.${TNX_FLAG_SCOPE}.isScenePlayer`]: value === true });
 }

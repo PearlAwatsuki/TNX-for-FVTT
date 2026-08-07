@@ -18,6 +18,8 @@
  *                    できないため、GM クライアントが advanceCut を代行する）
  *   markMajor      - PL → GM: メジャーアクション記帳(majorActed 追加)を委譲する（2026-07-26
  *                    一般則。プロセス終了時に本人へ AR−1＋CSカレント0）
+ *   sessionSceneCard - PL → GM: 切り札のシーン消費化に伴う「現在のシーンカード」の記録を
+ *                    委譲する（フェーズ14-2。実行状態=ワールド設定は GM しか書けない）
  */
 
 const SCOPE = "tokyo-nova-axleration";
@@ -62,6 +64,9 @@ export class TnxSocketHandler {
                 break;
             case "markMajor":
                 TnxSocketHandler._onMarkMajor(data);
+                break;
+            case "sessionSceneCard":
+                TnxSocketHandler._onSessionSceneCard(data);
                 break;
         }
     }
@@ -280,6 +285,17 @@ export class TnxSocketHandler {
             userId: game.user.id,
             ...payload,
         });
+    }
+
+    // ─── sessionSceneCard（切り札→現在のシーンカード記録の委譲・フェーズ14-2） ────
+    // 切り札のシーン消費化はプレイヤークライアントで起きるが、実行状態(ワールド設定
+    // sessionState)は GM しか書けないため、activeGM が記録を代行する。
+
+    /** 現在のシーンカードの記録を GM クライアントが代行する(複数 GM 接続時は activeGM のみ)。 */
+    static async _onSessionSceneCard(data) {
+        if (game.users.activeGM?.id !== game.user.id) return;
+        const { setCurrentSceneCard } = await import("./session-state.mjs");
+        await setCurrentSceneCard(data?.cardId ?? "");
     }
 
     // ─── messagePatch（メッセージ更新の汎用委譲・2026-07-16 一本化） ──────────────

@@ -62,6 +62,7 @@ import { openRlGrantDamage, openRlGrantEffect, openRlGrantBounty } from './modul
 import { renderBountyGrantCard } from './module/bounty-grant.mjs';
 import { openFocusSystemPanel } from './module/tnx-focus-system-panel.mjs';
 import { registerFocusSystemSetting, advanceFocusCuts } from './module/focus-system-state.mjs';
+import { registerSessionStateSetting } from './module/session-state.mjs';
 import { renderFocusProgressButton, renderFocusSupportNote } from './module/focus-system-result.mjs';
 import { autoSendFocusChecks } from './module/focus-system-request.mjs';
 import { registerEffectScratchHiding, sweepEffectScratchItems } from './module/effect-authoring.mjs';
@@ -1278,6 +1279,7 @@ Hooks.once("init", async function() {
 
     // 実行中 FS判定の正本(フェーズ12-5)
     registerFocusSystemSetting();
+    registerSessionStateSetting();
 
     game.settings.register("tokyo-nova-axleration", "defaultHandMaxSize", {
         name: "デフォルトの手札上限数",

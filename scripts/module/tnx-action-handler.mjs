@@ -145,6 +145,9 @@ export class TnxActionHandler {
             await destinationPile.updateEmbeddedDocuments("Card", [{_id: passedCard.id, face: 0}]);
             const cardData = destinationPile.cards.get(passedCard.id);
             await this._postCardToChat(cardData, { speakerActor: actor });
+            // 消費した切り札はそのシーンのシーンカードになる → 「現在のシーンカード」を記録(14-2)
+            const { noteTrumpBecameSceneCard } = await import('./session-state.mjs');
+            noteTrumpBecameSceneCard(passedCard.id);
         }
 
         ui.notifications.info(`切り札「${card.name}」を使用しました。`);

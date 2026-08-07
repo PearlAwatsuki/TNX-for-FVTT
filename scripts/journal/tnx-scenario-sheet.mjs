@@ -16,6 +16,7 @@ import { describeEffectData } from '../module/effect-source-logic.mjs';
 import { captureScrollTop, restoreScrollTop } from '../module/scroll-preserve.mjs';
 import { conditionStatusLabels } from '../module/conditions.mjs';
 import { checkTypeOptions } from '../module/tnx-rl-request-app.mjs';
+import { SCENE_AREA_OPTIONS, normalizeSceneRow, normalizeHandoutRow } from '../module/session-logic.mjs';
 
 const { HandlebarsApplicationMixin, DocumentSheetV2, DialogV2 } = foundry.applications.api;
 
@@ -109,13 +110,20 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             context[key] = doc;
         }
 
+        // シーン行は読み出し時に正規化する(14-2 追加フィールドの既定値を補う。一括書き換えはしない)
         const scenesData = flagData.scenes || {};
+        const normalizePhase = rows => (Array.isArray(rows) ? rows : []).map(normalizeSceneRow);
         context.scenes = {
-            opening:  Array.isArray(scenesData.opening)  ? scenesData.opening  : [],
-            research: Array.isArray(scenesData.research) ? scenesData.research : [],
-            climax:   Array.isArray(scenesData.climax)   ? scenesData.climax   : [],
-            ending:   Array.isArray(scenesData.ending)   ? scenesData.ending   : [],
+            opening:  normalizePhase(scenesData.opening),
+            research: normalizePhase(scenesData.research),
+            climax:   normalizePhase(scenesData.climax),
+            ending:   normalizePhase(scenesData.ending),
         };
+        // シーン行のセレクト選択肢(14-2): エリア・舞台(通常 Scene。サブシーンは 14-4 で加わる)・
+        // シーンプレイヤー(User。シーンプレイヤーはプレイヤー側の指定=2026-08-07 裁定)
+        context.sceneAreaOptions = SCENE_AREA_OPTIONS;
+        context.stageOptions = game.scenes.map(s => ({ value: `scene:${s.id}`, label: s.name }));
+        context.scenePlayerUsers = game.users.filter(u => !u.isGM).map(u => ({ id: u.id, name: u.name }));
 
         // 判定要求・報酬点のプリセット(フェーズ12-5)。名前は未入力なら「判定要求n」を出す
         const skillGroups = await loadGroupedGeneralSkillChoices();
@@ -158,7 +166,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         context.scenarioTexts = flagData.scenarioTexts || [];
         context.infoItems     = flagData.infoItems     || [];
         context.trailer       = flagData.trailer       || "";
-        context.handouts      = flagData.handouts      || [];
+        context.handouts      = (flagData.handouts || []).map(normalizeHandoutRow);
 
         return context;
     }
@@ -236,7 +244,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         for (const input of el.querySelectorAll('.info-item input, .info-item textarea')) {
             input.addEventListener('change', this._onInfoItemChange.bind(this));
         }
-        for (const input of el.querySelectorAll('.scenario-info-container textarea, .handout-item input, .handout-item textarea')) {
+        for (const input of el.querySelectorAll('.scenario-info-container textarea, .handout-item input, .handout-item textarea, .handout-item select')) {
             input.addEventListener('change', this._onScenarioInfoChange.bind(this));
         }
     }
@@ -333,7 +341,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
     _updateScenePlayerState(sceneItem) {
         const checkbox = sceneItem.querySelector('input[name="isMasterScene"]');
-        const playerInput = sceneItem.querySelector('select[name="player"]');
+        const playerInput = sceneItem.querySelector('select[name="playerUserId"]');
         if (checkbox && playerInput) {
             playerInput.disabled = checkbox.checked;
             if (checkbox.checked) playerInput.value = '';
@@ -390,7 +398,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         const phase = target.dataset.phase;
         const scenes = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "scenes") || { opening: [], research: [], climax: [], ending: [] });
         if (!Array.isArray(scenes[phase])) scenes[phase] = [];
-        scenes[phase].push({ id: foundry.utils.randomID(), number: "", name: "新規シーン", player: "", isMasterScene: false, switchMessage: "" });
+        scenes[phase].push(normalizeSceneRow({ id: foundry.utils.randomID(), name: "新規シーン" }));
         this.document.setFlag("tokyo-nova-axleration", "scenes", scenes);
     }
 
@@ -415,8 +423,11 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         if (!scene) return;
 
         const sceneTitle = `<h2>SCENE ${scene.number || '??'} : ${scene.name || '無題のシーン'}</h2>`;
+        // シーンプレイヤーは playerUserId(User 参照・14-2)を正としてライブ解決し、旧 player 文字列は
+        // フォールバック表示のみ
+        const playerLabel = (scene.playerUserId ? game.users.get(scene.playerUserId)?.name : null) ?? scene.player;
         const sceneDetails = scene.isMasterScene ? `<p>マスターシーン</p>`
-            : scene.player ? `<p><strong>シーンプレイヤー:</strong> ${scene.player}</p>` : '';
+            : playerLabel ? `<p><strong>シーンプレイヤー:</strong> ${playerLabel}</p>` : '';
         const customMessage = scene.switchMessage ? `<hr>${scene.switchMessage}` : '';
         const chatContent = sceneTitle + sceneDetails + customMessage;
         if (chatContent) ChatMessage.create({ content: chatContent });

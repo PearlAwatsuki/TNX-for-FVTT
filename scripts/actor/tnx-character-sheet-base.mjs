@@ -2906,16 +2906,10 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
      * 現在の実効ベースからオーバーレイ分を保って value に写す。
      */
     static async _onInitCombatSpeed(_event, _target) {
-        const sys = this.actor.system;
-        const newBase = Math.floor(
-            ((sys.reason?.total ?? 0) + (sys.passion?.total ?? 0) + (sys.life?.total ?? 0)) / 2);
-        const overlays = (sys.combatSpeed.baseTotal ?? 0) - (sys.combatSpeed.base ?? 0);
-        const newValue = newBase + overlays;
-        await this.actor.update({
-            "system.combatSpeed.base":  newBase,
-            "system.combatSpeed.value": newValue,
-        });
-        ui.notifications?.info(`CS を決定しました（CS ${newValue}）。`);
+        const { buildCombatSpeedInit } = await import("../module/session-logic.mjs");
+        const patch = buildCombatSpeedInit(this.actor.system);
+        await this.actor.update(patch);
+        ui.notifications?.info(`CS を決定しました（CS ${patch["system.combatSpeed.value"]}）。`);
     }
 
     // 武器の参照宣言(weaponRefs)は編集モードのドロップダウン(name バインド・submitOnChange)で

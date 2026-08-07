@@ -361,7 +361,13 @@ export class TnxCombat extends Combat {
     // 最終カットの終了 → カット進行の終了 →(シーンも終了なら)シーン終了、の順で発火
     Hooks.callAll(TNX_HOOKS.cutEnd, this, { cut: this.round });
     Hooks.callAll(TNX_HOOKS.cutProgressionEnd, this, { sceneEnded });
-    if (sceneEnded) Hooks.callAll(TNX_HOOKS.sceneEnd, this, {});
+    if (sceneEnded) {
+      // セッション進行(14-2)がシーンを開いていれば終了境界の発火を委譲(sceneEnded ガードで
+      // 次の切替と二重発火しない)。アクト外(シーン外戦闘)は従来どおり素のフックのみ発火。
+      const { endSceneFromCombat } = await import("../module/session-state.mjs");
+      const handled = await endSceneFromCombat();
+      if (!handled) Hooks.callAll(TNX_HOOKS.sceneEnd, { sceneId: "" });
+    }
     await this.delete();
     return this;
   }

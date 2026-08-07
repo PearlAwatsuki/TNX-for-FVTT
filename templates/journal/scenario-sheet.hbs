@@ -184,6 +184,12 @@
                         {{#each handouts as |handout|}}
                         <div class="handout-item" data-id="{{handout.id}}">
                             <div class="handout-row handout-row--header">
+                                <select name="actorId" class="handout-cast">
+                                    <option value="">- キャスト未設定 -</option>
+                                    {{#each ../castActors as |actor|}}
+                                        <option value="{{actor.id}}" {{#if (eq actor.id ../handout.actorId)}}selected{{/if}}>{{actor.name}}</option>
+                                    {{/each}}
+                                </select>
                                 <input type="text" name="pcName" class="handout-pc-name" value="{{handout.pcName}}" placeholder="PC名">
                                 <input type="text" name="title" class="handout-title" value="{{handout.title}}" placeholder="ハンドアウトのタイトル">
                                 <div class="tnx-ctrl-strip">
@@ -234,6 +240,8 @@
                             <div class="header-cell scene-number">No.</div>
                             <div class="header-cell scene-name">シーン名</div>
                             <div class="header-cell scene-player">シーンプレイヤー</div>
+                            <div class="header-cell scene-area">エリア</div>
+                            <div class="header-cell scene-stage">舞台</div>
                             <div class="header-cell master-scene">MS</div>
                             <div class="header-cell scene-switch">切替</div>
                             <div class="header-cell scene-controls">
@@ -253,12 +261,27 @@
                                             <input type="text" name="name" value="{{scene.name}}"/>
                                         </div>
                                         <div class="table-cell scene-player">
-                                            <select name="player">
-                                                <option value="">- 未選択 -</option>
-                                                {{#each ../../castActors as |actor|}}
-                                                    <option value="{{actor.name}}" {{#if (eq actor.name ../scene.player)}}selected{{/if}}>
-                                                        {{actor.name}}
+                                            <select name="playerUserId">
+                                                <option value="">{{#if scene.player}}旧: {{scene.player}}{{else}}- 未選択 -{{/if}}</option>
+                                                {{#each ../../scenePlayerUsers as |user|}}
+                                                    <option value="{{user.id}}" {{#if (eq user.id ../scene.playerUserId)}}selected{{/if}}>
+                                                        {{user.name}}
                                                     </option>
+                                                {{/each}}
+                                            </select>
+                                        </div>
+                                        <div class="table-cell scene-area">
+                                            <select name="area">
+                                                {{#each ../../sceneAreaOptions as |opt|}}
+                                                    <option value="{{opt.value}}" {{#if (eq opt.value ../scene.area)}}selected{{/if}}>{{opt.label}}</option>
+                                                {{/each}}
+                                            </select>
+                                        </div>
+                                        <div class="table-cell scene-stage">
+                                            <select name="stage">
+                                                <option value="">- 舞台なし -</option>
+                                                {{#each ../../stageOptions as |opt|}}
+                                                    <option value="{{opt.value}}" {{#if (eq opt.value ../scene.stage)}}selected{{/if}}>{{opt.label}}</option>
                                                 {{/each}}
                                             </select>
                                         </div>

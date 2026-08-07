@@ -15,13 +15,19 @@
  * 再発火しない(サブターン中効果は割り込みを跨いで持続)。
  */
 
-/** TNX カット進行イベントのフック名。 */
+/** TNX カット進行・セッション進行イベントのフック名(シーン/アクトは14-2)。 */
 export const TNX_HOOKS = Object.freeze({
   /** カット進行(＝シーン)の開始。startCombat。payload: なし。 */
   cutProgressionStart: "tnxCutProgressionStart",
   /** カット進行の終了。案1ダイアログ後。payload: {sceneEnded}。 */
   cutProgressionEnd: "tnxCutProgressionEnd",
-  /** シーンの終了(カット進行終了と非連動)。案1で「シーンも終了」を選択時。payload: なし。 */
+  /** アクトの開始(自動設定の適用後)。payload: {actId}。 */
+  actStart: "tnxActStart",
+  /** アクトの終了。payload: {actId}。 */
+  actEnd: "tnxActEnd",
+  /** シーンの開始(アクト開始の先頭シーン・切替の遷移先)。payload: {sceneId, phase}。 */
+  sceneStart: "tnxSceneStart",
+  /** シーンの終了(カット進行終了と非連動)。切替・アクト終了・案1で発火。payload: {sceneId}。 */
   sceneEnd: "tnxSceneEnd",
   /** カットの開始(cut 1=開始時・cut N+1=次カット境界)。payload: {cut}。 */
   cutStart: "tnxCutStart",

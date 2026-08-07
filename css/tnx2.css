@@ -4867,8 +4867,8 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .scene-table-header {
     display: grid;
-    grid-template-columns: 40px 3fr 2fr 50px 40px 40px;
-    gap: 10px;
+    grid-template-columns: 36px 3fr 2fr 1.6fr 2fr 40px 32px 32px;
+    gap: 6px;
     align-items: center;
     padding: 0 8px 8px 12px;
     font-weight: bold;
@@ -4896,11 +4896,14 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .scene-main-row {
     display: grid;
-    grid-template-columns: 40px 3fr 2fr 50px 40px 40px;
-    gap: 10px;
+    grid-template-columns: 36px 3fr 2fr 1.6fr 2fr 40px 32px 32px;
+    gap: 6px;
     align-items: center;
     padding: 8px;
 }
+
+/* エリア・舞台セレクト(14-2)は幅がタイトなため、はみ出さず省略表示にする */
+.scene-main-row .table-cell select { width: 100%; min-width: 0; text-overflow: ellipsis; }
 
 .table-cell input[type="text"] { width: 100%; padding: 6px 8px; }
 
@@ -5120,6 +5123,8 @@ body.tnx-bottom-hud-expanded #hotbar {
 .handout-row { display: flex; width: 100%; }
 
 .handout-row--header { align-items: center; gap: 10px; }
+
+.handout-row--header .handout-cast { flex: 0 0 140px; min-width: 0; }
 
 .handout-row--header .handout-pc-name { flex: 0 0 120px; }
 

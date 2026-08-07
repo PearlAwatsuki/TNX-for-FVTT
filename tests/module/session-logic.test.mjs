@@ -1,0 +1,256 @@
+import { describe, it, expect } from "vitest";
+import {
+  PHASE_ORDER,
+  SCENE_AREA_OPTIONS,
+  normalizeSceneRow,
+  normalizeHandoutRow,
+  parseStageRef,
+  findSceneRow,
+  firstSceneRow,
+  buildCombatSpeedInit,
+  buildPreActInit,
+  planSceneSwitchEvents,
+  planActEndEvents,
+  teamCreate,
+  teamJoin,
+  teamLeave,
+  teamDelete,
+  teamOf,
+} from "../../scripts/module/session-logic.mjs";
+import { TNX_HOOKS } from "../../scripts/module/combat-events.mjs";
+
+const SCENES = {
+  opening:  [{ id: "op1", name: "オープニング1" }],
+  research: [{ id: "re1", name: "リサーチ1" }, { id: "re2", name: "リサーチ2" }],
+  climax:   [],
+  ending:   [{ id: "ed1", name: "エンディング1" }],
+};
+
+describe("normalizeSceneRow()（シーン行の正規化・14-2）", () => {
+  it("旧形式の行に新フィールドの既定値を補う（既存値は書き換えない）", () => {
+    const row = normalizeSceneRow({
+      id: "s1", number: 3, name: "旧シーン", player: "旧キャスト名",
+      isMasterScene: true, switchMessage: "▼",
+    });
+    expect(row).toEqual({
+      id: "s1", number: 3, name: "旧シーン", player: "旧キャスト名",
+      isMasterScene: true, switchMessage: "▼",
+      area: "", stage: "", playerUserId: "",
+    });
+  });
+
+  it("新フィールドが保存済みならそのまま保つ", () => {
+    const row = normalizeSceneRow({ id: "s2", area: "white", stage: "scene:abc", playerUserId: "u1" });
+    expect(row.area).toBe("white");
+    expect(row.stage).toBe("scene:abc");
+    expect(row.playerUserId).toBe("u1");
+  });
+
+  it("null・undefined は空の行として正規化する", () => {
+    const row = normalizeSceneRow(null);
+    expect(row.id).toBe("");
+    expect(row.area).toBe("");
+    expect(row.isMasterScene).toBe(false);
+  });
+});
+
+describe("normalizeHandoutRow()（ハンドアウト行の正規化・14-2）", () => {
+  it("旧形式の行に actorId の既定値を補う", () => {
+    const row = normalizeHandoutRow({ id: "h1", pcName: "PC1", title: "HO1" });
+    expect(row.actorId).toBe("");
+    expect(row.pcName).toBe("PC1");
+  });
+
+  it("保存済みの actorId は保つ", () => {
+    expect(normalizeHandoutRow({ id: "h2", actorId: "a9" }).actorId).toBe("a9");
+  });
+});
+
+describe("parseStageRef()（舞台参照の複合値・14-2）", () => {
+  it("scene:<id> を通常 Scene 参照として解く", () => {
+    expect(parseStageRef("scene:abc123")).toEqual({ type: "scene", id: "abc123" });
+  });
+
+  it("subScene:<id> をサブシーン参照として解く", () => {
+    expect(parseStageRef("subScene:xy")).toEqual({ type: "subScene", id: "xy" });
+  });
+
+  it("空文字・不正値は null", () => {
+    expect(parseStageRef("")).toBeNull();
+    expect(parseStageRef(null)).toBeNull();
+    expect(parseStageRef("garbage")).toBeNull();
+    expect(parseStageRef("scene:")).toBeNull();
+  });
+});
+
+describe("findSceneRow()（台本からの行検索）", () => {
+  it("行 id からフェイズと行を返す", () => {
+    const hit = findSceneRow(SCENES, "re2");
+    expect(hit.phase).toBe("research");
+    expect(hit.row.id).toBe("re2");
+  });
+
+  it("見つからなければ null（欠損フェイズ配列にも頑健）", () => {
+    expect(findSceneRow(SCENES, "nope")).toBeNull();
+    expect(findSceneRow({}, "re2")).toBeNull();
+    expect(findSceneRow(null, "re2")).toBeNull();
+  });
+});
+
+describe("firstSceneRow()（アクト開始時の先頭シーン）", () => {
+  it("フェイズ順（OP→リサーチ→クライマックス→ED）で最初の行を返す", () => {
+    const hit = firstSceneRow(SCENES);
+    expect(hit.phase).toBe("opening");
+    expect(hit.row.id).toBe("op1");
+  });
+
+  it("先頭フェイズが空なら次のフェイズへ進む", () => {
+    const hit = firstSceneRow({ ...SCENES, opening: [] });
+    expect(hit.phase).toBe("research");
+    expect(hit.row.id).toBe("re1");
+  });
+
+  it("台本が空なら null", () => {
+    expect(firstSceneRow({ opening: [], research: [], climax: [], ending: [] })).toBeNull();
+    expect(firstSceneRow(null)).toBeNull();
+  });
+
+  it("PHASE_ORDER はメインアクトの4フェイズ", () => {
+    expect(PHASE_ORDER).toEqual(["opening", "research", "climax", "ending"]);
+  });
+});
+
+describe("buildPreActInit()（アクト開始の自動設定・報酬点＋CS）", () => {
+  const system = {
+    reason: { total: 5 }, passion: { total: 4 }, life: { total: 6 },
+    mundane: { total: 7 },
+    combatSpeed: { base: 6, baseTotal: 9 },   // オーバーレイ（AE・タップ修正等）＝+3
+  };
+
+  it("CSベース＝floor((理性+感情+生命)÷2)・CS＝ベース＋現在のオーバーレイ（プレアクト初期化と同計算）", () => {
+    const patch = buildPreActInit(system);
+    expect(patch["system.combatSpeed.base"]).toBe(7);   // floor(15/2)
+    expect(patch["system.combatSpeed.value"]).toBe(10); // 7 + (9-6)
+  });
+
+  it("報酬点＝bountyBase←外界点実効値・bounty←0（清算を兼ねる）", () => {
+    const patch = buildPreActInit(system);
+    expect(patch["system.bountyBase"]).toBe(7);
+    expect(patch["system.bounty"]).toBe(0);
+  });
+
+  it("欠損フィールドは0として頑健に計算する", () => {
+    const patch = buildPreActInit({});
+    expect(patch["system.combatSpeed.base"]).toBe(0);
+    expect(patch["system.combatSpeed.value"]).toBe(0);
+    expect(patch["system.bountyBase"]).toBe(0);
+    expect(patch["system.bounty"]).toBe(0);
+  });
+
+  it("buildCombatSpeedInit: CS 2キーのみ（シートの「プレアクト初期化」ボタンが共用する部分）", () => {
+    expect(buildCombatSpeedInit(system)).toEqual({
+      "system.combatSpeed.base":  7,
+      "system.combatSpeed.value": 10,
+    });
+  });
+});
+
+describe("planSceneSwitchEvents()（シーン切替の境界イベント列）", () => {
+  it("通常の切替: 現行シーン終了→次シーン開始", () => {
+    expect(planSceneSwitchEvents({ fromSceneId: "op1", sceneEnded: false, toSceneId: "re1", toPhase: "research" })).toEqual([
+      { hook: TNX_HOOKS.sceneEnd,   data: { sceneId: "op1" } },
+      { hook: TNX_HOOKS.sceneStart, data: { sceneId: "re1", phase: "research" } },
+    ]);
+  });
+
+  it("案1で終了境界を発火済み（sceneEnded）なら終了イベントを重複発火しない", () => {
+    expect(planSceneSwitchEvents({ fromSceneId: "op1", sceneEnded: true, toSceneId: "re1", toPhase: "research" })).toEqual([
+      { hook: TNX_HOOKS.sceneStart, data: { sceneId: "re1", phase: "research" } },
+    ]);
+  });
+
+  it("現行シーンなし（アクト開始の先頭シーン）は開始のみ", () => {
+    expect(planSceneSwitchEvents({ fromSceneId: "", sceneEnded: false, toSceneId: "op1", toPhase: "opening" })).toEqual([
+      { hook: TNX_HOOKS.sceneStart, data: { sceneId: "op1", phase: "opening" } },
+    ]);
+  });
+});
+
+describe("planActEndEvents()（アクト終了の境界イベント列）", () => {
+  it("現行シーンの終了→アクト終了の順で発火する", () => {
+    expect(planActEndEvents({ sceneId: "ed1", sceneEnded: false, actId: "act1" })).toEqual([
+      { hook: TNX_HOOKS.sceneEnd, data: { sceneId: "ed1" } },
+      { hook: TNX_HOOKS.actEnd,   data: { actId: "act1" } },
+    ]);
+  });
+
+  it("終了境界を発火済みならアクト終了のみ", () => {
+    expect(planActEndEvents({ sceneId: "ed1", sceneEnded: true, actId: "act1" })).toEqual([
+      { hook: TNX_HOOKS.actEnd, data: { actId: "act1" } },
+    ]);
+  });
+
+  it("シーンが無い（空の台本でアクト開始した）場合もアクト終了のみ", () => {
+    expect(planActEndEvents({ sceneId: "", sceneEnded: false, actId: "act1" })).toEqual([
+      { hook: TNX_HOOKS.actEnd, data: { actId: "act1" } },
+    ]);
+  });
+});
+
+describe("チーム操作（純関数・非破壊）", () => {
+  const TEAMS = [
+    { id: "t1", name: "チームA", memberActorIds: ["a1", "a2"] },
+    { id: "t2", name: "チームB", memberActorIds: ["a3"] },
+  ];
+
+  it("teamCreate: 新しいチームを追加した配列を返す（元配列は不変）", () => {
+    const next = teamCreate(TEAMS, { id: "t3", name: "チームC" });
+    expect(next).toHaveLength(3);
+    expect(next[2]).toEqual({ id: "t3", name: "チームC", memberActorIds: [] });
+    expect(TEAMS).toHaveLength(2);
+  });
+
+  it("teamJoin: 他チームから抜けて対象チームへ移る（1アクター1チーム）", () => {
+    const next = teamJoin(TEAMS, "t2", "a1");
+    expect(teamOf(next, "a1").id).toBe("t2");
+    expect(next.find(t => t.id === "t1").memberActorIds).toEqual(["a2"]);
+  });
+
+  it("teamJoin: 既に所属済みなら重複追加しない", () => {
+    const next = teamJoin(TEAMS, "t1", "a1");
+    expect(next.find(t => t.id === "t1").memberActorIds).toEqual(["a1", "a2"]);
+  });
+
+  it("teamLeave: どのチームからも抜ける", () => {
+    const next = teamLeave(TEAMS, "a3");
+    expect(teamOf(next, "a3")).toBeNull();
+    expect(next.find(t => t.id === "t2").memberActorIds).toEqual([]);
+  });
+
+  it("teamDelete: チームを削除する", () => {
+    const next = teamDelete(TEAMS, "t1");
+    expect(next).toHaveLength(1);
+    expect(teamOf(next, "a1")).toBeNull();
+  });
+
+  it("teamOf: 未所属・空配列は null", () => {
+    expect(teamOf(TEAMS, "zz")).toBeNull();
+    expect(teamOf([], "a1")).toBeNull();
+    expect(teamOf(null, "a1")).toBeNull();
+  });
+});
+
+describe("TNX_HOOKS（14-2 追加分）", () => {
+  it("アクト開始/終了・シーン開始のフック名を持つ（sceneEnd は13既存）", () => {
+    expect(TNX_HOOKS.actStart).toBe("tnxActStart");
+    expect(TNX_HOOKS.actEnd).toBe("tnxActEnd");
+    expect(TNX_HOOKS.sceneStart).toBe("tnxSceneStart");
+    expect(TNX_HOOKS.sceneEnd).toBe("tnxSceneEnd");
+  });
+});
+
+describe("SCENE_AREA_OPTIONS（舞台エリアの選択肢）", () => {
+  it("未設定＋5エリアを台本セレクトの順で持つ", () => {
+    expect(SCENE_AREA_OPTIONS.map(o => o.value)).toEqual(["", "red", "yellow", "green", "white", "sanctuary"]);
+  });
+});
