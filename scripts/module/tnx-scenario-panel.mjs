@@ -111,7 +111,10 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         // **HTML として描画**する(テンプレートは {{{ }}}・2026-08-08 ユーザー指摘で是正)
         const card = await getCurrentSceneCard();
         context.sceneCard = card ? {
+            // ニューロカード名は逆位置の英語名を反転させる span 等の装飾を含む(tnx-neuro-cards の
+            // カード定義)。チャットカードと同じく**HTML として描画**する(テンプレートは {{{ }}})
             name: card.name,
+            nameText: String(card.name ?? "").replace(/<[^>]*>/g, ""),   // img alt 用の素テキスト
             img: card.currentFace?.img ?? card.faces?.[0]?.img ?? card.img,
             keyword: await foundry.applications.ux.TextEditor.enrichHTML(card.faces?.[0]?.text ?? ""),
             implication: await foundry.applications.ux.TextEditor.enrichHTML(card.description ?? ""),

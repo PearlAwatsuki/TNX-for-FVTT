@@ -20,9 +20,9 @@
             {{/if}}
             {{#if sceneCard}}
                 <div class="scp-scene-card">
-                    <img src="{{sceneCard.img}}" alt="{{sceneCard.name}}" />
+                    <img src="{{sceneCard.img}}" alt="{{sceneCard.nameText}}" />
                     <div class="scp-scene-card-info">
-                        <div class="scp-scene-card-name">{{sceneCard.name}}</div>
+                        <div class="scp-scene-card-name">{{{sceneCard.name}}}</div>
                         {{#if sceneCard.keyword}}
                             <div class="scp-scene-card-field"><span class="scp-scene-card-label">キーワード</span>{{{sceneCard.keyword}}}</div>
                         {{/if}}
