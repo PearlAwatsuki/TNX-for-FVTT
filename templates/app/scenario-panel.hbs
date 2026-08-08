@@ -39,9 +39,13 @@
         <fieldset class="tnx-fieldset">
             <legend>チーム</legend>
             {{#each teams as |team|}}
-                <div class="scp-team">
+                <div class="scp-team" data-team-id="{{team.id}}">
                     <div class="scp-send-row">
-                        <span class="scp-send-label">{{team.name}}</span>
+                        {{#if @root.isGM}}
+                            <input type="text" class="scp-team-name" name="teamName" value="{{team.name}}" />
+                        {{else}}
+                            <span class="scp-send-label">{{team.name}}</span>
+                        {{/if}}
                         {{#if team.canAppear}}
                             <a class="tnx-icon-ctrl" data-action="teamAppear" data-id="{{team.id}}" title="チームで登場"><i class="fas fa-door-open"></i></a>
                         {{/if}}
@@ -61,8 +65,20 @@
                     {{#if team.members.length}}
                         <div class="scp-team-members">
                             {{#each team.members as |member|}}
-                                <span class="scp-chip {{#if member.appearing}}is-appearing{{/if}}">{{member.name}}</span>
+                                <span class="scp-chip {{#if member.appearing}}is-appearing{{/if}}">
+                                    {{member.name}}{{#if @root.isGM}}<a class="scp-chip-remove" data-action="teamRemoveMember" data-actor-id="{{member.id}}" title="チームから外す"><i class="fas fa-times"></i></a>{{/if}}
+                                </span>
                             {{/each}}
+                        </div>
+                    {{/if}}
+                    {{#if team.addCandidates.length}}
+                        <div class="scp-load-row scp-team-add">
+                            <select name="addMemberId">
+                                {{#each team.addCandidates as |candidate|}}
+                                    <option value="{{candidate.id}}">{{candidate.name}}</option>
+                                {{/each}}
+                            </select>
+                            <a class="tnx-icon-ctrl" data-action="teamAddMember" data-id="{{team.id}}" title="メンバーを追加"><i class="fas fa-user-plus"></i></a>
                         </div>
                     {{/if}}
                 </div>

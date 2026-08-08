@@ -15,7 +15,7 @@
 import {
     getSessionState, getActiveActJournal, getCurrentSceneRow, getCurrentSceneCard,
     listActJournals, loadAct, startAct, switchScene, endAct,
-    createTeam, joinTeam, leaveTeam, deleteTeam, appearTeam, exitTeam,
+    createTeam, joinTeam, leaveTeam, deleteTeam, appearTeam, exitTeam, renameTeam,
 } from "./session-state.mjs";
 import { isAppearing, listAppearingActors } from "./appearance-state.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
@@ -67,6 +67,8 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             teamAppear:          TnxScenarioPanel._onTeamAppear,
             teamExit:            TnxScenarioPanel._onTeamExit,
             teamDelete:          TnxScenarioPanel._onTeamDelete,
+            teamAddMember:       TnxScenarioPanel._onTeamAddMember,
+            teamRemoveMember:    TnxScenarioPanel._onTeamRemoveMember,
         },
     };
 
@@ -103,10 +105,12 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             };
         }
 
-        // 現在のシーンカード(全員向け表示)
+        // 現在のシーンカード(全員向け表示)。ニューロカードの名前/フェイス名はワールドデータ由来で
+        // HTML を含みうるため、タグを剥がした素の文字列だけを出す(生 HTML を表示しない)
+        const stripHtml = (s) => String(s ?? "").replace(/<[^>]*>/g, "").trim();
         const card = await getCurrentSceneCard();
         context.sceneCard = card ? {
-            name: card.name,
+            name: stripHtml(card.currentFace?.name ?? card.name) || "シーンカード",
             img: card.currentFace?.img ?? card.faces?.[0]?.img ?? card.img,
         } : null;
 
@@ -117,20 +121,25 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         context.canAppearanceCheck = !game.user.isGM && st.actStarted
             && !!myCharacter && !isAppearing(myCharacter);
 
-        // チーム(全員向け・宣言はいつでも可=読み込みがあれば表示)
+        // チーム(全員向け・宣言はいつでも可=読み込みがあれば表示)。PL=自分のキャラクターの
+        // 参加/離脱・RL=編成(メンバー追加/除去・改名・解散)。どちらも一括登場/退場を押せる
         const appearingIds = new Set(appearing.map(a => a.id));
+        const worldCasts = game.actors.filter(a => a.type === "cast");
         context.teams = (journal ? st.teams : []).map(team => {
             const memberIds = team.memberActorIds ?? [];
             const members = memberIds
                 .map(id => game.actors.get(id))
                 .filter(a => a)
-                .map(a => ({ name: a.name, appearing: appearingIds.has(a.id) }));
+                .map(a => ({ id: a.id, name: a.name, appearing: appearingIds.has(a.id) }));
             const hasAppearing = memberIds.some(id => appearingIds.has(id));
             const isMember = !!myCharacter && memberIds.includes(myCharacter.id);
             return {
                 id: team.id,
                 name: team.name || "チーム",
                 members,
+                addCandidates: game.user.isGM
+                    ? worldCasts.filter(a => !memberIds.includes(a.id)).map(a => ({ id: a.id, name: a.name }))
+                    : [],
                 canJoin:   !!myCharacter && !isMember,
                 canLeave:  isMember,
                 canAppear: st.actStarted && hasAppearing && memberIds.some(id => !appearingIds.has(id)),
@@ -355,6 +364,31 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
 
     static async _onTeamDelete(_event, target) {
         await TnxScenarioPanel._teamOp("delete", { teamId: target.dataset.id });
+    }
+
+    // RL の編成操作(メンバー追加/除去・GM 直接)
+    static async _onTeamAddMember(_event, target) {
+        const teamId = target.dataset.id;
+        const select = target.closest(".scp-team")?.querySelector('select[name="addMemberId"]');
+        const actorId = select?.value;
+        if (!teamId || !actorId) return;
+        await joinTeam(teamId, actorId);
+    }
+
+    static async _onTeamRemoveMember(_event, target) {
+        const actorId = target.dataset.actorId;
+        if (!actorId) return;
+        await leaveTeam(actorId);
+    }
+
+    /** RL のチーム名インライン編集(GM のみ描画される入力)。 */
+    _onRender(_context, _options) {
+        for (const input of this.element.querySelectorAll('.scp-team input[name="teamName"]')) {
+            input.addEventListener("change", (event) => {
+                const teamId = event.currentTarget.closest(".scp-team")?.dataset.teamId;
+                if (teamId) renameTeam(teamId, event.currentTarget.value);
+            });
+        }
     }
 }
 

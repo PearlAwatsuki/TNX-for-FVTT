@@ -321,6 +321,14 @@ export async function exitTeam(teamId) {
     }
 }
 
+/** チーム名を変更する(RL の編成操作)。 */
+export async function renameTeam(teamId, name) {
+    if (!assertGM()) return;
+    await setState({
+        teams: getTeams().map(t => (t.id === teamId ? { ...t, name: String(name ?? "") } : t)),
+    });
+}
+
 export async function leaveTeam(actorId) {
     if (!assertGM()) return;
     await setState({ teams: teamLeave(getTeams(), actorId) });

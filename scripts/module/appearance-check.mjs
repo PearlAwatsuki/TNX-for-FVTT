@@ -83,10 +83,11 @@ async function promptAppearanceOptions(actor) {
         content: `
             <div class="form-group">
                 <label>使用技能</label>
-                <select name="skillId">${groups}</select>
+                <div class="form-fields"><select name="skillId">${groups}</select></div>
             </div>
             <div class="form-group">
-                <label class="checkbox"><input type="checkbox" name="ghost" /> ゴーストとして登場する</label>
+                <label>ゴーストとして登場する</label>
+                <div class="form-fields"><input type="checkbox" name="ghost" /></div>
             </div>`,
         buttons: [
             {
