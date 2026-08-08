@@ -20,7 +20,8 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
     static DEFAULT_OPTIONS = {
         classes: ["tokyo-nova", "sheet", "journal", "scenario", "two-column-layout"],
-        position: { width: 800, height: 700 },
+        // 既定 800 ではシーン表見出し「シーンプレイヤー」が数 px 足りず省略されるため 830
+        position: { width: 830, height: 700 },
         window: { resizable: true },
         actions: {
             addScene:          TnxScenarioSheet._onAddScene,
