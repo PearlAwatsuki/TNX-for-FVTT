@@ -11,7 +11,7 @@
 
 import {
     listSubScenes, isCurrentSubScene, createSubScene, updateSubScene,
-    deleteSubScene, moveSubSceneBy, moveSubSceneTo, applySubScene,
+    deleteSubScene, moveSubSceneBy, moveSubSceneTo, applySubScene, clearSubSceneOverride,
 } from "./subscenes.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
@@ -26,6 +26,7 @@ export class TnxSubScenePanel extends HandlebarsApplicationMixin(ApplicationV2) 
         actions: {
             addFromCurrent: TnxSubScenePanel._onAddFromCurrent,
             applySubScene:  TnxSubScenePanel._onApplySubScene,
+            clearOverride:  TnxSubScenePanel._onClearOverride,
             pickBackground: TnxSubScenePanel._onPickBackground,
             deleteSubScene: TnxSubScenePanel._onDeleteSubScene,
             moveUp:         TnxSubScenePanel._onMoveUp,
@@ -83,6 +84,11 @@ export class TnxSubScenePanel extends HandlebarsApplicationMixin(ApplicationV2) 
 
     static async _onApplySubScene(_event, target) {
         await applySubScene(target.dataset.id);
+        this.render(false);
+    }
+
+    static async _onClearOverride(_event, _target) {
+        await clearSubSceneOverride();
         this.render(false);
     }
 

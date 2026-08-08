@@ -6,10 +6,16 @@
  * ——中身に Scene 依存の情報はなく、適用先は「その時アクティブな盤面 Scene」。正本はワールド設定
  * `subScenes` 一箇所(sessionState と同方式・GM のみ書き込み)。
  *
- * - 適用＝アクティブ Scene の背景(`background.src`)差し替え。トークンは常駐のまま(確定方針)。
- * - 「現在どのサブシーンか」は状態を持たず導出する(アクティブ Scene の背景と保存値の一致)。
+ * - **適用＝Scene ドキュメントの背景は書き換えない**(2026-08-08 ユーザー指摘で是正:
+ *   `background.src` の update はキャンバス再描画=シーン読み込みを誘発し、サブシーンの意味を失う)。
+ *   適用中サブシーンはアクティブ Scene のフラグ `subSceneOverride` に記録し(フラグ更新は再描画を
+ *   誘発しない)、各クライアントが**背景メッシュのテクスチャだけを直接差し替える**
+ *   (refreshSubSceneBackground・canvasReady/updateScene で再適用)。トークンは常駐のまま(確定方針)。
+ * - 「現在どのサブシーンか」＝アクティブ Scene の `subSceneOverride` フラグ。
  * - 台本(アクトシートのシーン行)の舞台参照 `subScene:<id>` はこのリストを指し、TNX シーン切替と
  *   同時に適用される(applyStageRef)。`scene:<id>` は通常 Scene のアクティブ化。
+ * - 運用上の前提: 盤面 Scene には初期背景を1枚設定しておく(背景なしだと背景メッシュ自体が
+ *   生成されず差し替え先が無い)。サイズの異なる画像はシーンの背景矩形に合わせて伸縮される。
  */
 
 import { parseStageRef } from "./session-logic.mjs";
@@ -25,9 +31,11 @@ export function registerSubSceneSetting() {
         config:  false,
         type:    Array,
         default: [],
-        // 変更したら開いているサブシーンパネルを全クライアントで再描画する
+        // 変更したら開いているサブシーンパネルを再描画し、適用中サブシーンの画像編集にも
+        // 表示を追随させる(全クライアント)
         onChange: () => {
             foundry.applications.instances.get("tnx-subscene-panel")?.render(false);
+            refreshSubSceneBackground();
         },
     });
 }
@@ -42,10 +50,9 @@ export function getSubScene(id) {
     return listSubScenes().find(s => s.id === id) ?? null;
 }
 
-/** そのサブシーンが現在適用中か(アクティブ Scene の背景との一致で導出・状態は持たない)。 */
+/** そのサブシーンが現在適用中か(アクティブ Scene の `subSceneOverride` フラグ)。 */
 export function isCurrentSubScene(sub) {
-    const src = game.scenes.active?.background?.src ?? "";
-    return !!sub?.background && sub.background === src;
+    return !!sub?.id && game.scenes.active?.getFlag(SCOPE, "subSceneOverride") === sub.id;
 }
 
 function assertGM() {
@@ -102,7 +109,9 @@ export async function moveSubSceneTo(id, toIndex) {
 }
 
 /**
- * サブシーンを適用する＝アクティブな盤面 Scene の背景を差し替える。
+ * サブシーンを適用する。アクティブな盤面 Scene のフラグに適用中 id を記録するだけ——
+ * 実際の表示は各クライアントの refreshSubSceneBackground が updateScene/canvasReady で
+ * テクスチャを差し替える(Scene 再描画=読み込みを走らせない)。
  * @param {string} id
  */
 export async function applySubScene(id) {
@@ -112,7 +121,38 @@ export async function applySubScene(id) {
     if (!sub.background) return void ui.notifications.warn("このサブシーンに背景画像が設定されていません。");
     const scene = game.scenes.active;
     if (!scene) return void ui.notifications.warn("アクティブなシーン(盤面)がありません。");
-    await scene.update({ "background.src": sub.background });
+    await scene.setFlag(SCOPE, "subSceneOverride", id);
+}
+
+/** サブシーンの適用を解除し、アクティブ Scene 本来の背景に戻す。 */
+export async function clearSubSceneOverride() {
+    if (!assertGM()) return;
+    const scene = game.scenes.active;
+    if (!scene) return;
+    await scene.unsetFlag(SCOPE, "subSceneOverride");
+}
+
+/**
+ * 表示中 Scene の背景テクスチャを適用中サブシーンに合わせて差し替える(全クライアントで実行)。
+ * Scene ドキュメントは書き換えない。適用解除・オーバーライド無しのときは Scene 本来の背景へ戻す。
+ * 動画背景の差し替えは対象外(静止画を想定)。
+ */
+export async function refreshSubSceneBackground() {
+    if (!canvas?.ready || !canvas.scene) return;
+    const overrideId = canvas.scene.getFlag(SCOPE, "subSceneOverride") ?? "";
+    const sub = overrideId ? getSubScene(overrideId) : null;
+    const src = sub?.background || canvas.scene.background?.src || "";
+    const mesh = canvas.primary?.background;
+    if (!mesh) {
+        // 背景未設定の Scene は背景メッシュ自体が無く差し替え先が無い(運用: 初期背景を設定する)
+        if (sub && game.user.isGM) {
+            ui.notifications.warn("盤面の Scene に背景が設定されていないため、サブシーンを表示できません。Scene 設定で初期背景を1枚設定してください。");
+        }
+        return;
+    }
+    if (!src) return;
+    const tex = await foundry.canvas.loadTexture(src);
+    if (tex) mesh.texture = tex;
 }
 
 /**

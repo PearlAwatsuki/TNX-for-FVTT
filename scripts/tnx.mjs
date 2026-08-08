@@ -64,7 +64,7 @@ import { openFocusSystemPanel } from './module/tnx-focus-system-panel.mjs';
 import { openScenarioPanel } from './module/tnx-scenario-panel.mjs';
 import { registerFocusSystemSetting, advanceFocusCuts } from './module/focus-system-state.mjs';
 import { registerSessionStateSetting, getSessionState } from './module/session-state.mjs';
-import { registerSubSceneSetting } from './module/subscenes.mjs';
+import { registerSubSceneSetting, refreshSubSceneBackground } from './module/subscenes.mjs';
 import { openSubScenePanel } from './module/tnx-subscene-panel.mjs';
 import { renderFocusProgressButton, renderFocusSupportNote } from './module/focus-system-result.mjs';
 import { autoSendFocusChecks } from './module/focus-system-request.mjs';
@@ -1774,11 +1774,14 @@ Hooks.once("init", async function() {
         }
     });
 
-    // サブシーンパネルの「適用中」ハイライトは Scene の背景から導出するため、Scene 更新
-    // (背景差し替え・アクティブ切替)に表示を追随させる(14-4)
-    Hooks.on("updateScene", () => {
+    // サブシーンの表示はドキュメントを書き換えず、クライアント側で背景テクスチャを差し替える
+    // (14-4 是正・シーン読み込みを走らせない)。適用フラグの更新(updateScene)と canvasReady で
+    // 再適用し、パネルの「適用中」表示も追随させる
+    Hooks.on("updateScene", (scene) => {
         foundry.applications.instances.get("tnx-subscene-panel")?.render(false);
+        if (scene.id === canvas?.scene?.id) refreshSubSceneBackground();
     });
+    Hooks.on("canvasReady", () => refreshSubSceneBackground());
 
     Hooks.on("getSceneControlButtons", (controls) => {
         if (!game.user.isGM) return;

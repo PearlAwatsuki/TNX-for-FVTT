@@ -9063,7 +9063,8 @@ button.tnx-create-act-button span {
 
 .tnx-subscene-panel .ssp-footer {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    gap: 6px;
 }
 
 /* ============================================================
