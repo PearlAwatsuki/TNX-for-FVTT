@@ -2,6 +2,7 @@ import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 import { TnxUsageSheet, USAGE_TYPES, deriveUsageAutoFill, updateUsageActions } from "../module/tnx-usage-sheet.mjs";
 import { defaultConfrontationForType, executionFormOf, usageDisplayName, usesVehicle } from "../module/usage-types.mjs";
 import { resolveBunshinOwner } from "../module/usage-consumption.mjs";
+import { attachEditorSectionToggles } from "../module/editor-sections.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -161,18 +162,9 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
                     });
                     pm.dataset.documentUuid = this.document.uuid;
                     editorDiv.replaceWith(pm);
-                    // トグルボタンをヘッダーへ移動する（Foundry デフォルトはhover時のみ表示・エリア右上絶対配置）
-                    const section = pm.closest(".tnx-editor-section");
-                    const sectionHeader = section?.querySelector(".tnx-editor-section__header");
-                    if (sectionHeader) {
-                        const moveBtn = () => {
-                            const btn = pm.querySelector("button.toggle");
-                            if (btn) sectionHeader.appendChild(btn);
-                        };
-                        requestAnimationFrame(moveBtn);
-                        pm.addEventListener("close", () => requestAnimationFrame(moveBtn));
-                    }
                 }
+                // トグルボタンのヘッダー移設(共有配線・editor-sections.mjs)
+                attachEditorSectionToggles(el);
             }
         } catch (err) {
             console.error("TNX | 説明エディタの差し替えに失敗しました", err);

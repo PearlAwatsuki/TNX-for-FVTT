@@ -5016,18 +5016,6 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .scene-details-row > summary:hover { color: var(--tnx2-text-accent); }
 
-.message-preview { padding: 8px; }
-
-.message-preview textarea {
-    width: 100%;
-    min-height: 60px;
-    padding: 8px;
-    border-radius: var(--tnx2-radius);
-    font-family: inherit;
-    line-height: 1.5;
-    resize: vertical;
-}
-
 .texts-container, .info-container {
     display: flex;
     flex-direction: column;
@@ -5053,28 +5041,6 @@ body.tnx-bottom-hud-expanded #hotbar {
 .info-item { border: 1px solid var(--tnx2-border-active); transition: all 0.3s ease-out; }
 
 .text-item-body, .info-item-body { padding: 12px; }
-
-.text-item-body textarea,
-.info-item-body textarea {
-    width: 100%;
-    min-height: 100px;
-    background: transparent;
-    padding: 8px;
-    border-radius: var(--tnx2-radius);
-    font-family: inherit;
-    line-height: 1.5;
-    resize: vertical;
-}
-
-.text-item-body textarea { border: 1px solid var(--tnx2-border-active); }
-.info-item-body textarea { border: 1px solid var(--tnx2-border-subtle); }
-
-.message-preview textarea:focus,
-.text-item-body textarea:focus,
-.info-item-body textarea:focus {
-    outline: none;
-    border-color: var(--tnx2-accent-dim);
-}
 
 .no-items-placeholder {
     text-align: center;
@@ -5171,19 +5137,10 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .scenario-info-container { display: flex; flex-direction: column; gap: 20px; }
 
-.trailer-section, .handouts-section {
+.handouts-section {
     border: 1px solid var(--tnx2-border-subtle);
     border-radius: var(--tnx2-radius);
     padding: 15px;
-}
-
-.trailer-textarea {
-    width: 100%;
-    resize: vertical;
-    padding: 8px;
-    border-radius: var(--tnx2-radius);
-    font-family: inherit;
-    line-height: 1.6;
 }
 
 .handout-list { display: flex; flex-direction: column; gap: 10px; }
@@ -5220,16 +5177,6 @@ body.tnx-bottom-hud-expanded #hotbar {
 .handout-row--recommendations label { white-space: nowrap; flex-shrink: 0; }
 
 .handout-row--recommendations input { width: 100%; }
-
-.handout-row--content-label { margin-bottom: -6px; }
-
-.handout-row--content-label label {
-    font-weight: bold;
-    font-size: 0.9em;
-    color: var(--tnx2-text-muted);
-}
-
-.handout-row--content-area textarea { width: 100%; resize: vertical; }
 
 .handout-row--ps { align-items: center; gap: 8px; }
 

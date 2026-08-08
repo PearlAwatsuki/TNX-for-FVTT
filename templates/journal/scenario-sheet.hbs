@@ -29,11 +29,13 @@
                     <label>アクト名</label>
                     <input type="text" name="documentName" value="{{documentName}}" placeholder="アクトの名前"/>
                 </div>
-                <div class="trailer-section">
-                    <div class="tnx-section-header">
-                        <h3>トレーラー</h3>
+                <div class="trailer-section tnx-editor-section">
+                    <div class="tnx-editor-section__header">
+                        <label>トレーラー</label>
                     </div>
-                    <prose-mirror name="trailer" toggled>{{{trailer}}}</prose-mirror>
+                    <div class="tnx-editor-section__content">
+                        <prose-mirror name="trailer" value="{{trailer}}" toggled>{{{trailer}}}</prose-mirror>
+                    </div>
                 </div>
                 <div class="handouts-section">
                     <div class="tnx-section-header">
@@ -72,11 +74,13 @@
                                     <input type="text" name="recommendedStyle" value="{{handout.recommendedStyle}}">
                                 </div>
                             </div>
-                            <div class="handout-row handout-row--content-label">
-                                <label>ハンドアウト内容</label>
-                            </div>
-                            <div class="handout-row handout-row--content-area">
-                                <prose-mirror name="content" toggled>{{{handout.content}}}</prose-mirror>
+                            <div class="tnx-editor-section">
+                                <div class="tnx-editor-section__header">
+                                    <label>ハンドアウト内容</label>
+                                </div>
+                                <div class="tnx-editor-section__content">
+                                    <prose-mirror name="content" value="{{handout.content}}" toggled>{{{handout.content}}}</prose-mirror>
+                                </div>
                             </div>
                             <div class="handout-row handout-row--ps">
                                 <label>PS</label>
@@ -172,9 +176,13 @@
                                     <details class="scene-details-row">
                                         <summary>詳細設定</summary>
                                         <div class="scene-details-body">
-                                            <div class="scene-detail-field">
-                                                <label>切り替えメッセージ</label>
-                                                <prose-mirror name="switchMessage" toggled>{{{scene.switchMessage}}}</prose-mirror>
+                                            <div class="scene-detail-field tnx-editor-section">
+                                                <div class="tnx-editor-section__header">
+                                                    <label>切り替えメッセージ</label>
+                                                </div>
+                                                <div class="tnx-editor-section__content">
+                                                    <prose-mirror name="switchMessage" value="{{scene.switchMessage}}" toggled>{{{scene.switchMessage}}}</prose-mirror>
+                                                </div>
                                             </div>
                                             <div class="scene-detail-field scene-appearance-row">
                                                 <label>登場判定</label>
@@ -240,7 +248,14 @@
                                 </div>
                             </div>
                             <div class="text-item-body">
-                                <prose-mirror name="content" toggled>{{{textItem.content}}}</prose-mirror>
+                                <div class="tnx-editor-section">
+                                    <div class="tnx-editor-section__header">
+                                        <label>内容</label>
+                                    </div>
+                                    <div class="tnx-editor-section__content">
+                                        <prose-mirror name="content" value="{{textItem.content}}" toggled>{{{textItem.content}}}</prose-mirror>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     {{else}}
@@ -316,7 +331,14 @@
                                                 {{/each}}
                                             </div>
                                         </div>
-                                        <prose-mirror name="text" toggled data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}">{{{contentItem.text}}}</prose-mirror>
+                                        <div class="tnx-editor-section">
+                                            <div class="tnx-editor-section__header">
+                                                <label>本文</label>
+                                            </div>
+                                            <div class="tnx-editor-section__content">
+                                                <prose-mirror name="text" value="{{contentItem.text}}" toggled data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}">{{{contentItem.text}}}</prose-mirror>
+                                            </div>
+                                        </div>
                                     {{/each}}
                                 </div>
                             </div>

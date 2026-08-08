@@ -12,6 +12,7 @@ import { conditionStatusLabels } from '../module/conditions.mjs';
 import { checkTypeOptions } from '../module/tnx-rl-request-app.mjs';
 import { SCENE_AREA_OPTIONS, normalizeSceneRow, normalizeHandoutRow } from '../module/session-logic.mjs';
 import { listSubScenes } from '../module/subscenes.mjs';
+import { attachEditorSectionToggles } from '../module/editor-sections.mjs';
 
 const { HandlebarsApplicationMixin, DocumentSheetV2, DialogV2 } = foundry.applications.api;
 
@@ -180,6 +181,8 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
     _onRender(_context, _options) {
         this._setupChangeListeners();
+        // 長文エリアの編集トグルボタンをセクションヘッダーへ移設(常時視認・共有配線)
+        attachEditorSectionToggles(this.element);
         // アクトコネクションのドロップ受け(14-7): 一般技能アイテムの D&D で登録(UUID 参照)
         if (this.element.querySelector(".handout-conn-drop")) {
             new foundry.applications.ux.DragDrop.implementation({
