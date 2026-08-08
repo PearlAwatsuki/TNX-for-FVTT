@@ -187,62 +187,60 @@
                                     <details class="scene-details-row">
                                         <summary>詳細設定</summary>
                                         <div class="scene-details-body">
-                                            {{!-- 登場設定(エリア・登場判定・指定技能)は fieldset＋ラベル列グリッドの確立意匠で組む --}}
-                                            <fieldset class="tnx-fieldset">
-                                                <legend>登場設定</legend>
-                                                <div class="tnx-form-field">
-                                                    <div class="form-group">
-                                                        <label>エリア</label>
-                                                        <select name="area">
-                                                            {{#each @root.sceneAreaOptions as |opt|}}
-                                                                <option value="{{opt.value}}" {{#if (eq opt.value scene.area)}}selected{{/if}}>{{opt.label}}</option>
-                                                            {{/each}}
+                                            {{!-- 「詳細設定」の折りたたみ自体がグループ=内側に枠は作らない。
+                                                  欄はグループ共有のラベル列グリッドで整列(ラベルはコントロールに密着) --}}
+                                            <div class="tnx-form-field">
+                                                <div class="form-group">
+                                                    <label>エリア</label>
+                                                    <select name="area">
+                                                        {{#each @root.sceneAreaOptions as |opt|}}
+                                                            <option value="{{opt.value}}" {{#if (eq opt.value scene.area)}}selected{{/if}}>{{opt.label}}</option>
+                                                        {{/each}}
+                                                    </select>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label>登場判定</label>
+                                                    <div class="form-fields scene-appearance-fields">
+                                                        <select name="appearanceMode">
+                                                            <option value="area" {{#if (eq scene.appearanceMode "area")}}selected{{/if}}>エリア準拠</option>
+                                                            <option value="fixed" {{#if (eq scene.appearanceMode "fixed")}}selected{{/if}}>数値指定</option>
+                                                            <option value="none" {{#if (eq scene.appearanceMode "none")}}selected{{/if}}>不可</option>
                                                         </select>
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <label>登場判定</label>
-                                                        <div class="form-fields scene-appearance-fields">
-                                                            <select name="appearanceMode">
-                                                                <option value="area" {{#if (eq scene.appearanceMode "area")}}selected{{/if}}>エリア準拠</option>
-                                                                <option value="fixed" {{#if (eq scene.appearanceMode "fixed")}}selected{{/if}}>数値指定</option>
-                                                                <option value="none" {{#if (eq scene.appearanceMode "none")}}selected{{/if}}>不可</option>
-                                                            </select>
-                                                            {{#if (eq scene.appearanceMode "fixed")}}
-                                                                <div class="number-input-spinner">
-                                                                    <button type="button" class="tnx-btn" data-action="spinDown" aria-label="減少">−</button>
-                                                                    <input type="number" name="appearanceValue" value="{{scene.appearanceValue}}" min="0"/>
-                                                                    <button type="button" class="tnx-btn" data-action="spinUp" aria-label="増加">＋</button>
-                                                                </div>
-                                                            {{/if}}
-                                                        </div>
-                                                    </div>
-                                                    <div class="form-group align-start">
-                                                        <label>指定技能</label>
-                                                        <div class="scene-skill-field">
-                                                            {{#if scene.appearanceSkillChips.length}}
-                                                                <div class="scene-skill-chips">
-                                                                    {{#each scene.appearanceSkillChips as |chip|}}
-                                                                        <span class="tnx-chip">{{chip.name}}<a class="tnx-chip-remove" data-action="removeAppearanceSkill" data-key="{{chip.key}}" title="指定を外す"><i class="fas fa-times"></i></a></span>
-                                                                    {{/each}}
-                                                                </div>
-                                                            {{/if}}
-                                                            <div class="scene-skill-add">
-                                                                <select data-no-save class="appearance-skill-select">
-                                                                    <option value="">- 技能を選択 -</option>
-                                                                    {{#each @root.skillGroupsPlain as |group|}}
-                                                                        <optgroup label="{{group.label}}">
-                                                                            {{#each group.skills as |skill|}}
-                                                                                <option value="{{skill.identificationKey}}">{{skill.name}}</option>
-                                                                            {{/each}}
-                                                                        </optgroup>
-                                                                    {{/each}}
-                                                                </select>
-                                                                <a class="tnx-icon-ctrl" data-action="addAppearanceSkill" title="指定技能に加える"><i class="fas fa-plus"></i></a>
+                                                        {{#if (eq scene.appearanceMode "fixed")}}
+                                                            <div class="number-input-spinner">
+                                                                <button type="button" class="tnx-btn" data-action="spinDown" aria-label="減少">−</button>
+                                                                <input type="number" name="appearanceValue" value="{{scene.appearanceValue}}" min="0"/>
+                                                                <button type="button" class="tnx-btn" data-action="spinUp" aria-label="増加">＋</button>
                                                             </div>
+                                                        {{/if}}
+                                                    </div>
+                                                </div>
+                                                <div class="form-group align-start">
+                                                    <label>指定技能</label>
+                                                    <div class="scene-skill-field">
+                                                        {{#if scene.appearanceSkillChips.length}}
+                                                            <div class="scene-skill-chips">
+                                                                {{#each scene.appearanceSkillChips as |chip|}}
+                                                                    <span class="tnx-chip">{{chip.name}}<a class="tnx-chip-remove" data-action="removeAppearanceSkill" data-key="{{chip.key}}" title="指定を外す"><i class="fas fa-times"></i></a></span>
+                                                                {{/each}}
+                                                            </div>
+                                                        {{/if}}
+                                                        <div class="scene-skill-add">
+                                                            <select data-no-save class="appearance-skill-select">
+                                                                <option value="">- 技能を選択 -</option>
+                                                                {{#each @root.skillGroupsPlain as |group|}}
+                                                                    <optgroup label="{{group.label}}">
+                                                                        {{#each group.skills as |skill|}}
+                                                                            <option value="{{skill.identificationKey}}">{{skill.name}}</option>
+                                                                        {{/each}}
+                                                                    </optgroup>
+                                                                {{/each}}
+                                                            </select>
+                                                            <a class="tnx-icon-ctrl" data-action="addAppearanceSkill" title="指定技能に加える"><i class="fas fa-plus"></i></a>
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </fieldset>
+                                            </div>
                                             <div class="tnx-editor-section">
                                                 <div class="tnx-editor-section__header">
                                                     <label>切り替えメッセージ</label>

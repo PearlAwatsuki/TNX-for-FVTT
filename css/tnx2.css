@@ -4922,27 +4922,56 @@ body.tnx-bottom-hud-expanded #hotbar {
     align-items: center;
 }
 
-/* シーン行の詳細設定(2026-08-09 全面改修): fieldset＋ラベル列グリッドの確立意匠で組む。
-   アクトシート全体のラベル付き欄はこのグリッド(96px + 1fr)で整列させる */
-.scenario-sheet .tnx-form-field > .form-group {
+/* アクトシートのラベル付き欄(2026-08-09 全面改修):
+   グループ単位の共有グリッド。ラベル列は max-content=グループ内の最長ラベル幅に縮め、
+   ラベルは右揃えでコントロールに密着させる(距離は常に一定・コントロール左端はグループ内で一致)。
+   セレクトは内容幅(180〜380px)・スピナーは左置き。全幅に伸ばすのはテキスト入力と
+   長文エディタのみ(幅=期待される入力量の合図) */
+.scenario-sheet .tnx-form-field {
     display: grid;
-    grid-template-columns: 96px 1fr;
+    grid-template-columns: max-content 1fr;
     align-items: center;
-    gap: 4px 10px;
-    margin: 0;
+    gap: 8px 10px;
 }
 
-.scenario-sheet .tnx-form-field > .form-group.align-start { align-items: start; }
-
-.scenario-sheet .tnx-form-field > .form-group.align-start > label { padding-top: 5px; }
+.scenario-sheet .tnx-form-field > .form-group {
+    display: contents;
+}
 
 .scenario-sheet .tnx-form-field > .form-group > label {
     font-weight: 600;
     color: var(--tnx2-text-secondary);
     white-space: nowrap;
+    justify-self: end;
 }
 
-/* 複合コントロール行(セレクト＋スピナー等): 先頭コントロールが列幅を使い、残りは内容幅。
+.scenario-sheet .tnx-form-field > .form-group.align-start > * { align-self: start; }
+
+.scenario-sheet .tnx-form-field > .form-group.align-start > label { padding-top: 5px; }
+
+.scenario-sheet .tnx-form-field > .form-group > select {
+    justify-self: start;
+    width: auto;
+    min-width: 180px;
+    max-width: 380px;
+}
+
+.scenario-sheet .tnx-form-field > .form-group > .number-input-spinner { justify-self: start; }
+
+/* ラベルを持たない行(チェックボックス行等)と、form-group でない直接子
+   (長文エディタ・効果リスト)は全幅に置く */
+.scenario-sheet .tnx-form-field > .form-group > :only-child,
+.scenario-sheet .tnx-form-field > :not(.form-group) { grid-column: 1 / -1; }
+
+/* 単独のチェックボックス行(rl-check-label)は右揃えラベル規則の対象外=左に置く */
+.scenario-sheet .tnx-form-field > .form-group > label:only-child {
+    justify-self: start;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/* 複合コントロール行(セレクト＋スピナー等): 各コントロールは内容幅で並べる。
    split-fields(ダメージプリセットの1:1並び)は既存意匠のまま対象外 */
 .scenario-sheet .form-fields:not(.split-fields) {
     display: flex;
@@ -4951,22 +4980,23 @@ body.tnx-bottom-hud-expanded #hotbar {
     min-width: 0;
 }
 
-.scenario-sheet .form-fields:not(.split-fields) > select:first-child { flex: 1 1 auto; min-width: 0; }
+.scenario-sheet .form-fields:not(.split-fields) > select:first-child {
+    flex: 0 1 auto;
+    width: auto;
+    min-width: 180px;
+    max-width: 380px;
+}
 
 .scenario-sheet .form-fields:not(.split-fields) > .number-input-spinner { flex: 0 0 auto; }
 
 .scenario-sheet .form-fields:not(.split-fields) .number-input-spinner input[type="number"] { width: 48px; }
 
-.scenario-sheet .tnx-form-field > .form-group > :only-child { grid-column: 1 / -1; }
-
 .scene-details-body {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding: 8px 8px 0;
+    padding: 8px;
 }
-
-.scene-details-body .tnx-fieldset { margin-bottom: 0; }
 
 /* 指定技能: チップ(登録済み)＋追加プルダウンの縦積み */
 .scene-skill-field {
