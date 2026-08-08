@@ -24,7 +24,54 @@
                     <span class="scp-scene-card-name">{{sceneCard.name}}</span>
                 </div>
             {{/if}}
+            {{#if appearingNames.length}}
+                <div class="scp-appearing">
+                    <span class="scp-appearing-label">登場中:</span>
+                    {{#each appearingNames as |name|}}<span class="scp-chip">{{name}}</span>{{/each}}
+                </div>
+            {{/if}}
         </div>
+        {{#if canAppearanceCheck}}
+            <button type="button" class="tnx-btn" data-action="appearanceCheck">
+                <i class="fas fa-door-open"></i> 登場判定
+            </button>
+        {{/if}}
+        <fieldset class="tnx-fieldset">
+            <legend>チーム</legend>
+            {{#each teams as |team|}}
+                <div class="scp-team">
+                    <div class="scp-send-row">
+                        <span class="scp-send-label">{{team.name}}</span>
+                        {{#if team.canAppear}}
+                            <a class="tnx-icon-ctrl" data-action="teamAppear" data-id="{{team.id}}" title="チームで登場"><i class="fas fa-door-open"></i></a>
+                        {{/if}}
+                        {{#if team.canExit}}
+                            <a class="tnx-icon-ctrl" data-action="teamExit" data-id="{{team.id}}" title="チームで退場"><i class="fas fa-door-closed"></i></a>
+                        {{/if}}
+                        {{#if team.canJoin}}
+                            <a class="tnx-icon-ctrl" data-action="teamJoin" data-id="{{team.id}}" title="このチームに参加"><i class="fas fa-user-plus"></i></a>
+                        {{/if}}
+                        {{#if team.canLeave}}
+                            <a class="tnx-icon-ctrl" data-action="teamLeave" data-id="{{team.id}}" title="チームから離脱"><i class="fas fa-user-minus"></i></a>
+                        {{/if}}
+                        {{#if @root.isGM}}
+                            <a class="tnx-icon-ctrl" data-action="teamDelete" data-id="{{team.id}}" title="チームを解散"><i class="fas fa-trash"></i></a>
+                        {{/if}}
+                    </div>
+                    {{#if team.members.length}}
+                        <div class="scp-team-members">
+                            {{#each team.members as |member|}}
+                                <span class="scp-chip {{#if member.appearing}}is-appearing{{/if}}">{{member.name}}</span>
+                            {{/each}}
+                        </div>
+                    {{/if}}
+                </div>
+            {{/each}}
+            <div class="scp-load-row">
+                <input type="text" name="newTeamName" placeholder="新しいチーム名" />
+                <button type="button" class="tnx-btn tnx-btn--sm" data-action="teamCreate">結成</button>
+            </div>
+        </fieldset>
     {{else}}
         <p class="scp-empty">アクトが読み込まれていません。</p>
     {{/if}}

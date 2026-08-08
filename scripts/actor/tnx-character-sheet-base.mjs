@@ -2697,11 +2697,17 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             };
         }
 
+        // extraCheckBonuses(14-5): 入口が供給する追加の判定ボーナス行(固定ラベル可)。上書きでなく
+        // 共通前段の checkBonuses へ**追記**する(例=登場判定の危険値ペナルティ)
+        const { extraCheckBonuses, ...restOpen } = openExtra;
         await TnxCheckFlow.open({
             ...base,
             // 各入口が注入する追加文脈(reaction/treatment/movement/requestMessageId・目標値上書き等)を
             // 最後に合流(既定値を上書き可)。起動集約の要=各入口はここに文脈を載せるだけ(2026-07-15)
-            ...openExtra,
+            ...restOpen,
+            ...(extraCheckBonuses?.length
+                ? { checkBonuses: [...(base.checkBonuses ?? []), ...extraCheckBonuses] }
+                : {}),
         });
     }
 

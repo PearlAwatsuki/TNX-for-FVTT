@@ -15,7 +15,10 @@
 import {
     getSessionState, getActiveActJournal, getCurrentSceneRow, getCurrentSceneCard,
     listActJournals, loadAct, startAct, switchScene, endAct,
+    createTeam, joinTeam, leaveTeam, deleteTeam, appearTeam, exitTeam,
 } from "./session-state.mjs";
+import { isAppearing, listAppearingActors } from "./appearance-state.mjs";
+import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import {
     SCENE_AREA_OPTIONS, PHASE_ORDER, normalizeSceneRow, normalizeHandoutRow,
     buildSceneSwitchMessage, buildTrailerMessage, buildHandoutMessage, buildInfoMessage,
@@ -57,6 +60,13 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             sendInfo:            TnxScenarioPanel._onSendInfo,
             toggleInfoPublic:    TnxScenarioPanel._onToggleInfoPublic,
             toggleInfoDisclosed: TnxScenarioPanel._onToggleInfoDisclosed,
+            appearanceCheck:     TnxScenarioPanel._onAppearanceCheck,
+            teamCreate:          TnxScenarioPanel._onTeamCreate,
+            teamJoin:            TnxScenarioPanel._onTeamJoin,
+            teamLeave:           TnxScenarioPanel._onTeamLeave,
+            teamAppear:          TnxScenarioPanel._onTeamAppear,
+            teamExit:            TnxScenarioPanel._onTeamExit,
+            teamDelete:          TnxScenarioPanel._onTeamDelete,
         },
     };
 
@@ -99,6 +109,34 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             name: card.name,
             img: card.currentFace?.img ?? card.faces?.[0]?.img ?? card.img,
         } : null;
+
+        // 登場中の一覧(全員向け・14-5)と登場判定ボタン(PL・非登場の担当キャラクターがいるとき)
+        const appearing = st.actStarted ? listAppearingActors() : [];
+        context.appearingNames = appearing.map(a => a.name);
+        const myCharacter = game.user.character ?? null;
+        context.canAppearanceCheck = !game.user.isGM && st.actStarted
+            && !!myCharacter && !isAppearing(myCharacter);
+
+        // チーム(全員向け・宣言はいつでも可=読み込みがあれば表示)
+        const appearingIds = new Set(appearing.map(a => a.id));
+        context.teams = (journal ? st.teams : []).map(team => {
+            const memberIds = team.memberActorIds ?? [];
+            const members = memberIds
+                .map(id => game.actors.get(id))
+                .filter(a => a)
+                .map(a => ({ name: a.name, appearing: appearingIds.has(a.id) }));
+            const hasAppearing = memberIds.some(id => appearingIds.has(id));
+            const isMember = !!myCharacter && memberIds.includes(myCharacter.id);
+            return {
+                id: team.id,
+                name: team.name || "チーム",
+                members,
+                canJoin:   !!myCharacter && !isMember,
+                canLeave:  isMember,
+                canAppear: st.actStarted && hasAppearing && memberIds.some(id => !appearingIds.has(id)),
+                canExit:   st.actStarted && hasAppearing,
+            };
+        });
 
         if (!journal || !game.user.isGM) return context;
 
@@ -262,6 +300,61 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         content.isDisclosed = content.isDisclosed !== true;
         await journal.setFlag(SCOPE, "infoItems", items);
         this.render(false);
+    }
+
+    // ─── 登場判定(14-5) ─────────────────────────────────────────────────────
+
+    static async _onAppearanceCheck(_event, _target) {
+        const { startAppearanceCheck } = await import("./appearance-check.mjs");
+        await startAppearanceCheck();
+    }
+
+    // ─── チーム(14-5・宣言はいつでも可) ─────────────────────────────────────
+    // GM は直接、PL は sessionTeam ソケットで activeGM に委譲する(実行状態は GM しか書けない)
+
+    static async _teamOp(op, data = {}) {
+        if (game.user.isGM) {
+            switch (op) {
+                case "create":     return createTeam(data.name ?? "");
+                case "join":       return joinTeam(data.teamId, data.actorId);
+                case "leave":      return leaveTeam(data.actorId);
+                case "appearTeam": return appearTeam(data.teamId);
+                case "exitTeam":   return exitTeam(data.teamId);
+                case "delete":     return deleteTeam(data.teamId);
+            }
+            return;
+        }
+        TnxSocketHandler.emitSessionTeam({ op, ...data });
+    }
+
+    static async _onTeamCreate(_event, _target) {
+        const input = this.element.querySelector('input[name="newTeamName"]');
+        await TnxScenarioPanel._teamOp("create", { name: input?.value ?? "" });
+        if (input) input.value = "";
+    }
+
+    static async _onTeamJoin(_event, target) {
+        const actorId = game.user.character?.id;
+        if (!actorId) return void ui.notifications.warn("担当キャラクターが設定されていません。");
+        await TnxScenarioPanel._teamOp("join", { teamId: target.dataset.id, actorId });
+    }
+
+    static async _onTeamLeave(_event, _target) {
+        const actorId = game.user.character?.id;
+        if (!actorId) return;
+        await TnxScenarioPanel._teamOp("leave", { actorId });
+    }
+
+    static async _onTeamAppear(_event, target) {
+        await TnxScenarioPanel._teamOp("appearTeam", { teamId: target.dataset.id });
+    }
+
+    static async _onTeamExit(_event, target) {
+        await TnxScenarioPanel._teamOp("exitTeam", { teamId: target.dataset.id });
+    }
+
+    static async _onTeamDelete(_event, target) {
+        await TnxScenarioPanel._teamOp("delete", { teamId: target.dataset.id });
     }
 }
 

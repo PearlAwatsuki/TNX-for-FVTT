@@ -282,3 +282,14 @@ export function teamDelete(teams, teamId) {
 export function teamOf(teams, actorId) {
     return (teams ?? []).find(t => (t.memberActorIds ?? []).includes(actorId)) ?? null;
 }
+
+/**
+ * チームに登場中のメンバーがいるか(チーム免除のゲート=判定なし同時登場・後から加入の自動登場)。
+ * @param {Array} teams
+ * @param {string} teamId
+ * @param {Set<string>} appearingActorIds 登場中アクター id の集合
+ */
+export function teamHasAppearing(teams, teamId, appearingActorIds) {
+    const team = (teams ?? []).find(t => t.id === teamId);
+    return !!team && (team.memberActorIds ?? []).some(id => appearingActorIds?.has?.(id));
+}

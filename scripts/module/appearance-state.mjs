@@ -41,3 +41,42 @@ export async function clearAllAppearing() {
         await actor.unsetFlag(SCOPE, "appearing");
     }
 }
+
+// ─── 盤面反映(14-5): 登場状態 ⇄ アクティブ盤面のトークン表示(hidden)の双方向同期 ──────
+// 権威は Actor フラグ・トークンはその反映。逆方向(トークン表示の切替→フラグ)は RL の
+// 「直接切替」の導線=トークンの表示/非表示操作がそのままスイッチになる。hidden の更新は
+// GM 専権のため、どちらの方向も activeGM クライアントが代行する。リンクトークンのみ対象
+// (トループの分身コピー等の非リンクは per-token の状態を持たないため RL の手動管理)。
+// ループは同値短絡で止まる(A→B→同値・B→A→同値)。Scene 跨ぎの自動生成はしない(確定方針)。
+
+/** 双方向同期のフック登録(ready で1回・全クライアントで呼んでよい=activeGM だけが動く)。 */
+export function registerAppearanceTokenSync() {
+    Hooks.on("updateActor", (actor, changes) => {
+        if (game.users.activeGM?.id !== game.user.id) return;
+        const f = changes.flags?.[SCOPE];
+        if (!f || !("appearing" in f || "-=appearing" in f)) return;
+        syncTokensForActor(actor);
+    });
+    Hooks.on("updateToken", (tokenDoc, changes) => {
+        if (game.users.activeGM?.id !== game.user.id) return;
+        if (!("hidden" in changes)) return;
+        if (tokenDoc.parent?.id !== game.scenes.active?.id) return;
+        if (!tokenDoc.actorLink) return;
+        const actor = tokenDoc.actor;
+        if (!actor) return;
+        const shouldAppear = tokenDoc.hidden !== true;
+        if (isAppearing(actor) === shouldAppear) return;
+        setAppearing(actor, shouldAppear);
+    });
+}
+
+/** アクティブ盤面上の該当アクターのリンクトークンの表示を登場状態に合わせる。 */
+async function syncTokensForActor(actor) {
+    const scene = game.scenes.active;
+    if (!scene) return;
+    const appearing = isAppearing(actor);
+    const updates = scene.tokens
+        .filter(t => t.actorLink && t.actorId === actor.id && (t.hidden === true) === appearing)
+        .map(t => ({ _id: t.id, hidden: !appearing }));
+    if (updates.length) await scene.updateEmbeddedDocuments("Token", updates);
+}

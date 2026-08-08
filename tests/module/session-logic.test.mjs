@@ -16,6 +16,7 @@ import {
   teamLeave,
   teamDelete,
   teamOf,
+  teamHasAppearing,
   buildSceneSwitchMessage,
   buildTrailerMessage,
   buildHandoutMessage,
@@ -241,6 +242,14 @@ describe("チーム操作（純関数・非破壊）", () => {
     expect(teamOf(TEAMS, "zz")).toBeNull();
     expect(teamOf([], "a1")).toBeNull();
     expect(teamOf(null, "a1")).toBeNull();
+  });
+
+  it("teamHasAppearing: 登場中メンバーが1人でもいれば true（チーム免除・後から加入の自動登場ゲート）", () => {
+    const appearing = new Set(["a2"]);
+    expect(teamHasAppearing(TEAMS, "t1", appearing)).toBe(true);
+    expect(teamHasAppearing(TEAMS, "t2", appearing)).toBe(false);
+    expect(teamHasAppearing(TEAMS, "zz", appearing)).toBe(false);
+    expect(teamHasAppearing(null, "t1", appearing)).toBe(false);
   });
 });
 

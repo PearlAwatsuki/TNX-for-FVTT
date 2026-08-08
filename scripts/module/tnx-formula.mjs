@@ -132,7 +132,9 @@ export async function evaluateBonusRows(rows, actor, result = null, dictNames = 
         const val = await evaluateFormula(row?.formula, data);
         if (!Number.isFinite(val) || val === 0) continue;
         total += val;
-        sources.push({ name: resolveItemNameByKey(actor, row?.source, dictNames) || "用途", value: val });
+        // label=そのまま表示する固定ラベル(システム供給の行・例=登場判定の危険値・14-5)。
+        // source=識別キー(逆引きした現在名で帰属・従来)
+        sources.push({ name: row?.label || resolveItemNameByKey(actor, row?.source, dictNames) || "用途", value: val });
     }
     return { total, sources };
 }

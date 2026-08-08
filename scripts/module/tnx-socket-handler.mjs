@@ -20,6 +20,8 @@
  *                    一般則。プロセス終了時に本人へ AR−1＋CSカレント0）
  *   sessionSceneCard - PL → GM: 切り札のシーン消費化に伴う「現在のシーンカード」の記録を
  *                    委譲する（フェーズ14-2。実行状態=ワールド設定は GM しか書けない）
+ *   sessionTeam    - PL → GM: チーム宣言（結成・参加・離脱・チームで登場/退場）を委譲する
+ *                    （フェーズ14-5。宣言はいつでも可＝プレイヤーも行うため）
  */
 
 const SCOPE = "tokyo-nova-axleration";
@@ -67,6 +69,9 @@ export class TnxSocketHandler {
                 break;
             case "sessionSceneCard":
                 TnxSocketHandler._onSessionSceneCard(data);
+                break;
+            case "sessionTeam":
+                TnxSocketHandler._onSessionTeam(data);
                 break;
         }
     }
@@ -296,6 +301,38 @@ export class TnxSocketHandler {
         if (game.users.activeGM?.id !== game.user.id) return;
         const { setCurrentSceneCard } = await import("./session-state.mjs");
         await setCurrentSceneCard(data?.cardId ?? "");
+    }
+
+    // ─── sessionTeam（チーム宣言の委譲・フェーズ14-5） ────────────────────────
+    // チームを組む宣言はいつでも可(プレイヤーも行う)が、実行状態(ワールド設定)は GM しか
+    // 書けないため activeGM が代行する。join/leave は要求者が対象アクターの所有者、
+    // チームで登場/退場は要求者がメンバーの誰かの所有者であることを検証する。
+
+    /** チーム宣言(結成・参加・離脱・チームで登場/退場)を GM クライアントが代行する。 */
+    static async _onSessionTeam(data) {
+        if (game.users.activeGM?.id !== game.user.id) return;
+        const requester = game.users.get(data?.userId);
+        if (!requester) return;
+        const ss = await import("./session-state.mjs");
+        const ownsActor = (id) => !!game.actors.get(id)?.testUserPermission(requester, "OWNER");
+        const ownsMember = (teamId) =>
+            (ss.getTeams().find(t => t.id === teamId)?.memberActorIds ?? []).some(ownsActor);
+        switch (data?.op) {
+            case "create":     return void await ss.createTeam(String(data.name ?? ""));
+            case "join":       if (ownsActor(data.actorId)) await ss.joinTeam(data.teamId, data.actorId); return;
+            case "leave":      if (ownsActor(data.actorId)) await ss.leaveTeam(data.actorId); return;
+            case "appearTeam": if (ownsMember(data.teamId)) await ss.appearTeam(data.teamId); return;
+            case "exitTeam":   if (ownsMember(data.teamId)) await ss.exitTeam(data.teamId); return;
+        }
+    }
+
+    /** チーム宣言を GM へ委譲する(プレイヤークライアントから呼ぶ)。 */
+    static emitSessionTeam(payload) {
+        game.socket.emit("system.tokyo-nova-axleration", {
+            type: "sessionTeam",
+            userId: game.user.id,
+            ...payload,
+        });
     }
 
     // ─── messagePatch（メッセージ更新の汎用委譲・2026-07-16 一本化） ──────────────

@@ -849,6 +849,12 @@ export class TnxCheckFlow {
             await resolveRepairFromCheck(ctx.repair, result);
         }
 
+        // 登場判定の完了継続(14-5): 成功で登場状態を付与する(ゴースト選択時は isGhost も)
+        if (!ctx.recheckMessageId && ctx.appearance) {
+            const { resolveAppearanceFromCheck } = await import("./appearance-check.mjs");
+            await resolveAppearanceFromCheck(ctx.appearance, result);
+        }
+
         return true;
     }
 
@@ -1066,6 +1072,13 @@ export class TnxCheckFlow {
         },
         npcAcquire: {},
         movement: {},
+        appearance: {
+            rerunOnSuccessOnly: true,
+            async rerun(cc, result) {
+                const { resolveAppearanceFromCheck } = await import("./appearance-check.mjs");
+                await resolveAppearanceFromCheck(cc, result);
+            },
+        },
     });
 
     /**

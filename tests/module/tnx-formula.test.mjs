@@ -105,6 +105,13 @@ describe("evaluateBonusRows()（判定/ダメージの行を評価＋供給元�
     expect(sources).toEqual([{ name: "〈スタイルX〉", value: 2 }, { name: "用途", value: 3 }]);
   });
 
+  it("label 行はそのまま帰属名に使う(識別キー逆引きを通さない・システム供給の固定ラベル=14-5)", async () => {
+    const { total, sources } = await evaluateBonusRows(
+      [{ formula: "-4", label: "危険値（ホワイト）" }], actor);
+    expect(total).toBe(-4);
+    expect(sources).toEqual([{ name: "危険値（ホワイト）", value: -4 }]);
+  });
+
   it("評価不能(テスト環境の Roll 不在)・0 の行は除外", async () => {
     const { total, sources } = await evaluateBonusRows(
       [{ formula: "0", source: "" }, { formula: "@item.style_x.system.level", source: "style_x" }], actor);

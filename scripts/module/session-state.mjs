@@ -18,9 +18,9 @@ import { TNX_HOOKS } from "./combat-events.mjs";
 import {
     normalizeSceneRow, normalizeHandoutRow, findSceneRow, firstSceneRow,
     buildPreActInit, planSceneSwitchEvents, planActEndEvents,
-    teamCreate, teamJoin, teamLeave, teamDelete, teamOf,
+    teamCreate, teamJoin, teamLeave, teamDelete, teamOf, teamHasAppearing,
 } from "./session-logic.mjs";
-import { setAppearing, clearAllAppearing } from "./appearance-state.mjs";
+import { setAppearing, clearAllAppearing, listAppearingActors } from "./appearance-state.mjs";
 import { getUserFlagData, saveIsScenePlayer } from "./user-flag-schema.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
@@ -274,7 +274,51 @@ export async function createTeam(name = "") {
 
 export async function joinTeam(teamId, actorId) {
     if (!assertGM()) return;
-    await setState({ teams: teamJoin(getTeams(), teamId, actorId) });
+    const teams = teamJoin(getTeams(), teamId, actorId);
+    await setState({ teams });
+    // チーム免除(14-5・2026-08-08 ユーザー指示): 登場中のメンバーがいるチームへ後から加入した
+    // キャラクターには自動で登場状態を付与する(シーン進行中のみ)
+    const st = getSessionState();
+    if (!st.actStarted || !st.sceneId) return;
+    const appearingIds = new Set(listAppearingActors().map(a => a.id));
+    const actor = game.actors.get(actorId);
+    if (actor && !appearingIds.has(actorId) && teamHasAppearing(teams, teamId, appearingIds)) {
+        await setAppearing(actor, true);
+        ui.notifications.info(`${actor.name} はチームに合流し、シーンに登場した。`);
+    }
+}
+
+/**
+ * チームで同時登場する(チーム免除=登場中のメンバーがいれば残りは判定なしで登場)。
+ * @param {string} teamId
+ */
+export async function appearTeam(teamId) {
+    if (!assertGM()) return;
+    const st = getSessionState();
+    if (!st.actStarted) return void ui.notifications.warn("アクトが開始されていません。");
+    const teams = getTeams();
+    const team = teams.find(t => t.id === teamId);
+    if (!team) return;
+    const appearingIds = new Set(listAppearingActors().map(a => a.id));
+    if (!teamHasAppearing(teams, teamId, appearingIds)) {
+        return void ui.notifications.warn("登場中のメンバーがいないため、チームでの同時登場はできません。");
+    }
+    for (const id of team.memberActorIds ?? []) {
+        if (appearingIds.has(id)) continue;
+        const actor = game.actors.get(id);
+        if (actor) await setAppearing(actor, true);
+    }
+}
+
+/** チームで同時に退場する(「退場も同時になる」の一括操作)。 */
+export async function exitTeam(teamId) {
+    if (!assertGM()) return;
+    const team = getTeams().find(t => t.id === teamId);
+    if (!team) return;
+    for (const id of team.memberActorIds ?? []) {
+        const actor = game.actors.get(id);
+        if (actor) await setAppearing(actor, false);
+    }
 }
 
 export async function leaveTeam(actorId) {
