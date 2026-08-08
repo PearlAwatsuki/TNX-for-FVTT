@@ -146,8 +146,8 @@ export class TnxActionHandler {
             const cardData = destinationPile.cards.get(passedCard.id);
             await this._postCardToChat(cardData, { speakerActor: actor });
             // 消費した切り札はそのシーンのシーンカードになる → 「現在のシーンカード」を記録(14-2)
-            const { noteTrumpBecameSceneCard } = await import('./session-state.mjs');
-            noteTrumpBecameSceneCard(passedCard.id);
+            const { recordCurrentSceneCard } = await import('./session-state.mjs');
+            recordCurrentSceneCard(passedCard.id);
         }
 
         ui.notifications.info(`切り札「${card.name}」を使用しました。`);
@@ -250,6 +250,10 @@ export class TnxActionHandler {
         const cardData = scenePile.cards.get(card.id);
 
         await this._postCardToChat(cardData);
+
+        // シーンカードの提示 → 「現在のシーンカード」を記録(14-2。切り札のシーン消費化と同じ参照点)
+        const { recordCurrentSceneCard } = await import('./session-state.mjs');
+        recordCurrentSceneCard(card.id);
 
         // 開いているドロー表（設定デッキ = ニューロデッキ）に結果をルックアップ
         await lookupDrawTables(cardData, neuroDeck.uuid);

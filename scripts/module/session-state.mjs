@@ -223,11 +223,13 @@ export async function setCurrentSceneCard(cardId) {
 }
 
 /**
- * 切り札がシーンカードになった(ルール: 消費した切り札はそのシーンのシーンカードになる)ことを
- * 記録する。プレイヤークライアントからはソケットで GM に委譲する。
+ * シーンカード置き場に新しいシーンカードが提示されたことを記録する。経路は2つ:
+ * ①ニューロデッキのドロー(シーン切替時の提示・`drawNeuroCard`)
+ * ②切り札の消費(ルール: 消費した切り札はそのシーンのシーンカードになる)
+ * プレイヤークライアントからはソケット(sessionSceneCard)で GM に委譲する。
  * @param {string} cardId シーンカード置き場内の Card id
  */
-export function noteTrumpBecameSceneCard(cardId) {
+export function recordCurrentSceneCard(cardId) {
     if (game.user.isGM) return void setCurrentSceneCard(cardId);
     game.socket.emit("system.tokyo-nova-axleration", { type: "sessionSceneCard", cardId });
 }
