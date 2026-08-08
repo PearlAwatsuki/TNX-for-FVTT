@@ -64,6 +64,8 @@ import { openFocusSystemPanel } from './module/tnx-focus-system-panel.mjs';
 import { openScenarioPanel } from './module/tnx-scenario-panel.mjs';
 import { registerFocusSystemSetting, advanceFocusCuts } from './module/focus-system-state.mjs';
 import { registerSessionStateSetting, getSessionState } from './module/session-state.mjs';
+import { registerSubSceneSetting } from './module/subscenes.mjs';
+import { openSubScenePanel } from './module/tnx-subscene-panel.mjs';
 import { renderFocusProgressButton, renderFocusSupportNote } from './module/focus-system-result.mjs';
 import { autoSendFocusChecks } from './module/focus-system-request.mjs';
 import { registerEffectScratchHiding, sweepEffectScratchItems } from './module/effect-authoring.mjs';
@@ -1281,6 +1283,7 @@ Hooks.once("init", async function() {
     // 実行中 FS判定の正本(フェーズ12-5)
     registerFocusSystemSetting();
     registerSessionStateSetting();
+    registerSubSceneSetting();
 
     game.settings.register("tokyo-nova-axleration", "defaultHandMaxSize", {
         name: "デフォルトの手札上限数",
@@ -1771,6 +1774,12 @@ Hooks.once("init", async function() {
         }
     });
 
+    // サブシーンパネルの「適用中」ハイライトは Scene の背景から導出するため、Scene 更新
+    // (背景差し替え・アクティブ切替)に表示を追随させる(14-4)
+    Hooks.on("updateScene", () => {
+        foundry.applications.instances.get("tnx-subscene-panel")?.render(false);
+    });
+
     Hooks.on("getSceneControlButtons", (controls) => {
         if (!game.user.isGM) return;
         // V13: controls はグループ名をキーとするオブジェクト（キーは複数形）
@@ -1819,6 +1828,15 @@ Hooks.once("init", async function() {
                 icon:    "fas fa-coins",
                 button:  true,
                 onChange: () => openRlGrantBounty(),
+                visible: true,
+            },
+            // サブシーン(フェーズ14-4): 名前付き盤面状態の保存・切替(RL 専用の道具)
+            tnxSubScenes: {
+                name:    "tnxSubScenes",
+                title:   "サブシーン",
+                icon:    "fas fa-images",
+                button:  true,
+                onChange: () => openSubScenePanel(),
                 visible: true,
             },
         };

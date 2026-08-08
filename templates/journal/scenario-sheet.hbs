@@ -279,9 +279,20 @@
                                         <div class="table-cell scene-stage">
                                             <select name="stage">
                                                 <option value="">- 舞台なし -</option>
-                                                {{#each ../../stageOptions as |opt|}}
-                                                    <option value="{{opt.value}}" {{#if (eq opt.value ../scene.stage)}}selected{{/if}}>{{opt.label}}</option>
-                                                {{/each}}
+                                                {{#if ../../stageSubSceneOptions.length}}
+                                                    <optgroup label="サブシーン">
+                                                        {{#each ../../stageSubSceneOptions as |opt|}}
+                                                            <option value="{{opt.value}}" {{#if (eq opt.value scene.stage)}}selected{{/if}}>{{opt.label}}</option>
+                                                        {{/each}}
+                                                    </optgroup>
+                                                {{/if}}
+                                                {{#if ../../stageSceneOptions.length}}
+                                                    <optgroup label="通常シーン">
+                                                        {{#each ../../stageSceneOptions as |opt|}}
+                                                            <option value="{{opt.value}}" {{#if (eq opt.value scene.stage)}}selected{{/if}}>{{opt.label}}</option>
+                                                        {{/each}}
+                                                    </optgroup>
+                                                {{/if}}
                                             </select>
                                         </div>
                                         <div class="table-cell master-scene">

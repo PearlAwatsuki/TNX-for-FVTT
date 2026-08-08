@@ -20,6 +20,7 @@ import {
     SCENE_AREA_OPTIONS, normalizeSceneRow, normalizeHandoutRow,
     buildTrailerMessage, buildHandoutMessage, buildInfoMessage,
 } from '../module/session-logic.mjs';
+import { listSubScenes } from '../module/subscenes.mjs';
 
 const { HandlebarsApplicationMixin, DocumentSheetV2, DialogV2 } = foundry.applications.api;
 
@@ -121,10 +122,11 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             climax:   normalizePhase(scenesData.climax),
             ending:   normalizePhase(scenesData.ending),
         };
-        // シーン行のセレクト選択肢(14-2): エリア・舞台(通常 Scene。サブシーンは 14-4 で加わる)・
+        // シーン行のセレクト選択肢(14-2/14-4): エリア・舞台(サブシーン+通常 Scene)・
         // シーンプレイヤー(User。シーンプレイヤーはプレイヤー側の指定=2026-08-07 裁定)
         context.sceneAreaOptions = SCENE_AREA_OPTIONS;
-        context.stageOptions = game.scenes.map(s => ({ value: `scene:${s.id}`, label: s.name }));
+        context.stageSubSceneOptions = listSubScenes().map(s => ({ value: `subScene:${s.id}`, label: s.name }));
+        context.stageSceneOptions = game.scenes.map(s => ({ value: `scene:${s.id}`, label: s.name }));
         context.scenePlayerUsers = game.users.filter(u => !u.isGM).map(u => ({ id: u.id, name: u.name }));
 
         // 判定要求・報酬点のプリセット(フェーズ12-5)。名前は未入力なら「判定要求n」を出す

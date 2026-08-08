@@ -21,6 +21,7 @@ import {
     buildSceneSwitchMessage, buildTrailerMessage, buildHandoutMessage, buildInfoMessage,
 } from "./session-logic.mjs";
 import { TnxActionHandler } from "./tnx-action-handler.mjs";
+import { applyStageRef } from "./subscenes.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const { DialogV2 } = foundry.applications.api;
@@ -139,14 +140,16 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
     // ─── シーン開始の演出(切替チャット+シーンカードのドロー) ────────────────
 
     /**
-     * シーン開始処理の後段: 見出しチャット(切替メッセージ含む)を投稿し、ニューロデッキの
-     * ドローを起動する(シーンカードの提示=2026-08-07 裁定「シーンカードは自動でニューロ
-     * デッキのドローを起動するだけ」。「現在のシーンカード」の記録はドロー側で行われる)。
+     * シーン開始処理の後段: 舞台リンクを適用(サブシーン=背景差し替え/通常 Scene=アクティブ化・
+     * 14-4)→ 見出しチャット(切替メッセージ含む)を投稿 → ニューロデッキのドローを起動する
+     * (シーンカードの提示=2026-08-07 裁定「シーンカードは自動でニューロデッキのドローを起動
+     * するだけ」。「現在のシーンカード」の記録はドロー側で行われる)。
      */
     static async _performSceneEntryEffects() {
         const current = getCurrentSceneRow();
         if (!current) return;
         const row = current.row;
+        await applyStageRef(row.stage);
         const playerLabel = (row.playerUserId ? game.users.get(row.playerUserId)?.name : null) ?? row.player;
         await ChatMessage.create({ content: buildSceneSwitchMessage(row, { playerLabel }) });
         await TnxActionHandler.drawNeuroCard();

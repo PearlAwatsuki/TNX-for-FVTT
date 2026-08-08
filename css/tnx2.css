@@ -8987,6 +8987,86 @@ button.tnx-create-act-button span {
 .tnx-scenario-panel .tnx-icon-ctrl.is-on { color: var(--tnx2-accent); }
 
 /* ============================================================
+   サブシーンパネル(フェーズ14-4) — 名前付き盤面状態の保存・切替
+   ============================================================ */
+
+.tnx-subscene-panel-app .tnx-subscene-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+}
+
+.tnx-subscene-panel .ssp-empty {
+    margin: 4px 0;
+    opacity: 0.8;
+    text-align: center;
+}
+
+.tnx-subscene-panel .ssp-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tnx-subscene-panel .ssp-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+}
+
+.tnx-subscene-panel .ssp-row.is-current {
+    border-color: var(--tnx2-accent);
+}
+
+.tnx-subscene-panel .ssp-row.dragging { opacity: 0.5; }
+
+.tnx-subscene-panel .ssp-grip {
+    cursor: grab;
+    opacity: 0.6;
+    flex: 0 0 auto;
+    padding: 0 2px;
+}
+
+.tnx-subscene-panel .ssp-thumb {
+    flex: 0 0 56px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 4px;
+    background: var(--tnx2-bg-hover);
+}
+
+.tnx-subscene-panel .ssp-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border: none;
+}
+
+.tnx-subscene-panel .ssp-name {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.tnx-subscene-panel .ssp-order-btns {
+    display: flex;
+    flex-direction: column;
+    line-height: 1;
+}
+
+.tnx-subscene-panel .ssp-footer {
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* ============================================================
    アクトシート「判定要求」タブ(フェーズ12-5) — プリセット
    ============================================================ */
 
