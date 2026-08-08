@@ -16,6 +16,10 @@ import {
   teamLeave,
   teamDelete,
   teamOf,
+  buildSceneSwitchMessage,
+  buildTrailerMessage,
+  buildHandoutMessage,
+  buildInfoMessage,
 } from "../../scripts/module/session-logic.mjs";
 import { TNX_HOOKS } from "../../scripts/module/combat-events.mjs";
 
@@ -237,6 +241,90 @@ describe("チーム操作（純関数・非破壊）", () => {
     expect(teamOf(TEAMS, "zz")).toBeNull();
     expect(teamOf([], "a1")).toBeNull();
     expect(teamOf(null, "a1")).toBeNull();
+  });
+});
+
+describe("buildSceneSwitchMessage()（シーン切替の見出しチャット・14-3）", () => {
+  it("番号・名前・シーンプレイヤー・切替メッセージを既存書式で組む", () => {
+    const html = buildSceneSwitchMessage(
+      { number: 3, name: "追跡", isMasterScene: false, switchMessage: "▼ RESEARCH" },
+      { playerLabel: "アキラ" },
+    );
+    expect(html).toBe("<h2>SCENE 3 : 追跡</h2><p><strong>シーンプレイヤー:</strong> アキラ</p><hr>▼ RESEARCH");
+  });
+
+  it("マスターシーンは「マスターシーン」表示（プレイヤーラベルより優先）", () => {
+    const html = buildSceneSwitchMessage({ number: 1, name: "OP", isMasterScene: true }, { playerLabel: "誰か" });
+    expect(html).toContain("<p>マスターシーン</p>");
+    expect(html).not.toContain("シーンプレイヤー");
+  });
+
+  it("番号なし=??・名前なし=無題のシーン・詳細/メッセージなしは見出しのみ", () => {
+    expect(buildSceneSwitchMessage({}, {})).toBe("<h2>SCENE ?? : 無題のシーン</h2>");
+  });
+});
+
+describe("buildTrailerMessage()（トレーラー送信・14-3）", () => {
+  it("既存書式で組む", () => {
+    expect(buildTrailerMessage("本文")).toBe("<h3>シナリオトレーラー</h3><hr>本文");
+  });
+
+  it("空は null（送信しない）", () => {
+    expect(buildTrailerMessage("")).toBeNull();
+    expect(buildTrailerMessage(null)).toBeNull();
+  });
+});
+
+describe("buildHandoutMessage()（ハンドアウト送信・14-3）", () => {
+  it("推奨欄・PS を条件付きで含める（既存書式）", () => {
+    const html = buildHandoutMessage({
+      title: "HO1", pcName: "PC1", connections: "父", recommendedSuit: "♠",
+      recommendedStyle: "カブキ", content: "本文", ps: "目的",
+    });
+    expect(html).toBe(
+      "<h3>HO1 (PC1)</h3>"
+      + "<p><strong>コネ:</strong> 父</p>"
+      + "<p><strong>推奨スート:</strong> ♠</p>"
+      + "<p><strong>推奨スタイル:</strong> カブキ</p>"
+      + "<hr>本文<hr><h4>PS</h4><p>目的</p>",
+    );
+  });
+
+  it("空欄は行ごと省く", () => {
+    expect(buildHandoutMessage({ title: "HO2", pcName: "PC2", content: "C" }))
+      .toBe("<h3>HO2 (PC2)</h3><hr>C");
+  });
+});
+
+describe("buildInfoMessage()（情報項目送信・14-3）", () => {
+  const ITEM = {
+    title: "黒幕の素性",
+    contents: [
+      { isDisclosed: false, text: "正体", skills: [{ name: "〈社会〉", tn: 12 }, { name: "〈コネ〉", tn: 12 }] },
+      { isDisclosed: false, text: "裏付け", skills: [{ name: "〈捜査〉", tn: 15 }] },
+    ],
+  };
+
+  it("開示済みが無ければ全内容の技能/目標値を送る（mode=targets・同TNは / 連結）", () => {
+    const { html, mode } = buildInfoMessage(ITEM);
+    expect(mode).toBe("targets");
+    expect(html).toContain("<h3>黒幕の素性</h3>");
+    expect(html).toContain("<strong>〈社会〉 / 〈コネ〉 &gt; 12</strong>");
+    expect(html).toContain("<hr>");
+    expect(html).toContain("正体");
+  });
+
+  it("開示済みがあればその内容だけを送る（mode=disclosed）", () => {
+    const item = { ...ITEM, contents: [{ ...ITEM.contents[0], isDisclosed: true }, ITEM.contents[1]] };
+    const { html, mode } = buildInfoMessage(item);
+    expect(mode).toBe("disclosed");
+    expect(html).toContain("正体");
+    expect(html).not.toContain("裏付け");
+  });
+
+  it("送れる中身が無ければ mode=null", () => {
+    const { mode } = buildInfoMessage({ title: "空", contents: [{ isDisclosed: false, text: "", skills: [{ name: "", tn: null }] }] });
+    expect(mode).toBeNull();
   });
 });
 

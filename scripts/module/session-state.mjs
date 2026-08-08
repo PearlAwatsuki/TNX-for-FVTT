@@ -27,7 +27,8 @@ const SCOPE = "tokyo-nova-axleration";
 const SETTING = "sessionState";
 
 const DEFAULTS = Object.freeze({
-    actId:       "",    // アクティブなアクト(JournalEntry id)。"" = アクト外
+    actId:       "",    // 読み込まれたアクト(JournalEntry id)。"" = 未読込
+    actStarted:  false, // アクト開始済みか(読み込み=参照セットのみ・開始=自動設定+シーン進行。2026-08-08 裁定で分離)
     phase:       "",    // 現在フェイズ(opening/research/climax/ending)。シーン開始時に台本から stamp
     sceneId:     "",    // 現在の TNX シーン(台本行 id)
     sceneEnded:  false, // 現行シーンの終了境界(tnxSceneEnd)を発火済みか(13 案1)
@@ -42,9 +43,9 @@ export function registerSessionStateSetting() {
         config:  false,
         type:    Object,
         default: { ...DEFAULTS },
-        // 状態が変わったら開いているシーン進行パネル(14-3)を全クライアントで再描画する
+        // 状態が変わったら開いているシナリオコントロールパネル(14-3)を全クライアントで再描画する
         onChange: () => {
-            foundry.applications.instances.get("tnx-scene-panel")?.render(false);
+            foundry.applications.instances.get("tnx-scenario-panel")?.render(false);
         },
     });
 }
@@ -58,6 +59,12 @@ export function getSessionState() {
 export function getActiveActJournal() {
     const { actId } = getSessionState();
     return actId ? (game.journal.get(actId) ?? null) : null;
+}
+
+/** ワールドのアクトシート(TnxScenarioSheet が割り当てられた JournalEntry)を列挙する。 */
+export function listActJournals() {
+    return game.journal.filter(j =>
+        (j.flags?.core?.sheetClass ?? "") === "tokyo-nova.TnxScenarioSheet");
 }
 
 /** アクティブなアクトの台本(flags.scenes)。 */
@@ -95,14 +102,29 @@ async function setState(patch) {
 // ─── アクトのライフサイクル ─────────────────────────────────────────────────
 
 /**
- * アクトを開始する(2026-08-07 裁定: 開始を踏んだ瞬間に報酬点・CS を自動設定)。
+ * アクトを読み込む(参照のセットのみ・2026-08-08 裁定=読み込みと開始の分離)。
+ * 自動設定・イベント発火・シーン開始は行わない。プレアクト(トレーラー読み上げ・
+ * ハンドアウト配布等)はこの状態でパネルから行える。読み直しは参照の差し替え。
+ * @param {JournalEntry} journal 台本(アクトシート)
+ */
+export async function loadAct(journal) {
+    if (!assertGM() || !journal) return;
+    await game.settings.set(SCOPE, SETTING, { ...DEFAULTS, actId: journal.id });
+}
+
+/**
+ * 読み込み済みのアクトを開始する(2026-08-07 裁定: 開始を踏んだ瞬間に報酬点・CS を自動設定)。
  * 対象は**ハンドアウトの actorId に設定されたキャストのみ**(2026-08-08 裁定)。
  * アクト中に「シーン外」は無いため、続けて先頭シーン(または指定シーン)へ入る。
- * @param {JournalEntry} journal 台本(アクトシート)
  * @param {{sceneId?: ?string}} [opts] 開始シーンの指定(既定=台本の先頭行)
+ * @returns {Promise<boolean>} シーン開始まで到達したか
  */
-export async function startAct(journal, { sceneId = null } = {}) {
-    if (!assertGM() || !journal) return;
+export async function startAct({ sceneId = null } = {}) {
+    if (!assertGM()) return false;
+    const st = getSessionState();
+    const journal = getActiveActJournal();
+    if (!journal) { ui.notifications.warn("アクトが読み込まれていません。"); return false; }
+    if (st.actStarted) { ui.notifications.warn("アクトは既に開始されています。"); return false; }
 
     // 自動設定: bountyBase←外界点実効値・bounty←0(清算を兼ねる)・CS=プレアクト初期化と同計算
     const handouts = (journal.getFlag(SCOPE, "handouts") ?? []).map(normalizeHandoutRow);
@@ -118,27 +140,28 @@ export async function startAct(journal, { sceneId = null } = {}) {
         ui.notifications.info(`キャスト未設定のハンドアウトが ${unassigned} 件あります(報酬点・CS の自動設定をスキップ)。`);
     }
 
-    await setState({ ...DEFAULTS, actId: journal.id });
+    await setState({ actStarted: true, sceneEnded: false });
     Hooks.callAll(TNX_HOOKS.actStart, { actId: journal.id });
 
     const scenes = journal.getFlag(SCOPE, "scenes") ?? null;
     const hit = sceneId ? findSceneRow(scenes, sceneId) : firstSceneRow(scenes);
     if (!hit) {
         ui.notifications.warn("台本にシーンがありません。シーンは開始されませんでした。");
-        return;
+        return false;
     }
     await _applySceneEntry(hit);
     Hooks.callAll(TNX_HOOKS.sceneStart, { sceneId: hit.row.id, phase: hit.phase });
+    return true;
 }
 
-/** アクトを終了する(現行シーンの終了境界→チーム解散→アクト終了)。 */
+/** アクトを終了する(現行シーンの終了境界→チーム解散→アクト終了)。読み込み状態には戻る。 */
 export async function endAct() {
     if (!assertGM()) return;
     const st = getSessionState();
-    if (!st.actId) return;
+    if (!st.actId || !st.actStarted) return;
     const events = planActEndEvents({ sceneId: st.sceneId, sceneEnded: st.sceneEnded, actId: st.actId });
     if (st.sceneId) await _applySceneExit();
-    await game.settings.set(SCOPE, SETTING, { ...DEFAULTS });
+    await game.settings.set(SCOPE, SETTING, { ...DEFAULTS, actId: st.actId });
     for (const ev of events) Hooks.callAll(ev.hook, ev.data);
 }
 
@@ -152,7 +175,7 @@ export async function endAct() {
 export async function switchScene(sceneId) {
     if (!assertGM()) return;
     const st = getSessionState();
-    if (!st.actId) return void ui.notifications.warn("アクトが開始されていません。");
+    if (!st.actId || !st.actStarted) return void ui.notifications.warn("アクトが開始されていません。");
     if (sceneId === st.sceneId) return;
     const hit = findSceneRow(getActiveScenes(), sceneId);
     if (!hit) return void ui.notifications.warn("台本に該当するシーンがありません。");

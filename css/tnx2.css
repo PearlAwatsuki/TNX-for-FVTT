@@ -4867,7 +4867,7 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .scene-table-header {
     display: grid;
-    grid-template-columns: 36px 3fr 2fr 1.6fr 2fr 40px 32px 32px;
+    grid-template-columns: 36px 3fr 2fr 1.6fr 2fr 40px 32px;
     gap: 6px;
     align-items: center;
     padding: 0 8px 8px 12px;
@@ -4878,7 +4878,6 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .scene-table-header .header-cell.scene-number,
 .scene-table-header .header-cell.master-scene,
-.scene-table-header .header-cell.scene-switch,
 .scene-table-header .header-cell.scene-controls { text-align: center; }
 
 .scene-table-body { display: flex; flex-direction: column; gap: 5px; margin-top: 5px; }
@@ -4896,7 +4895,7 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .scene-main-row {
     display: grid;
-    grid-template-columns: 36px 3fr 2fr 1.6fr 2fr 40px 32px 32px;
+    grid-template-columns: 36px 3fr 2fr 1.6fr 2fr 40px 32px;
     gap: 6px;
     align-items: center;
     padding: 8px;
@@ -4914,7 +4913,7 @@ body.tnx-bottom-hud-expanded #hotbar {
 .table-cell select:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .table-cell.scene-number, .table-cell.master-scene,
-.table-cell.scene-switch, .table-cell.scene-controls {
+.table-cell.scene-controls {
     display: flex;
     justify-content: center;
     align-items: center;
@@ -8844,6 +8843,148 @@ button.tnx-create-act-button span {
     font-size: 0.88em;
     opacity: 0.8;
 }
+
+/* ============================================================
+   シナリオコントロールパネル(フェーズ14-3) — アクト/シーン進行の操作盤
+   ============================================================ */
+
+.tnx-scenario-panel-app .tnx-scenario-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+}
+
+.tnx-scenario-panel .scp-empty {
+    margin: 4px 0;
+    opacity: 0.8;
+    text-align: center;
+}
+
+.tnx-scenario-panel .scp-status {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+}
+
+.tnx-scenario-panel .scp-act-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.tnx-scenario-panel .scp-act-name {
+    font-weight: 700;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tnx-scenario-panel .scp-phase-badge {
+    flex: 0 0 auto;
+    padding: 1px 8px;
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: 10px;
+    font-size: 0.85em;
+}
+
+.tnx-scenario-panel .scp-scene-title { font-size: 1.05em; font-weight: 600; }
+
+.tnx-scenario-panel .scp-scene-meta {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: 0.9em;
+    opacity: 0.9;
+}
+
+.tnx-scenario-panel .scp-scene-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 2px;
+}
+
+.tnx-scenario-panel .scp-scene-card img {
+    height: 72px;
+    width: auto;
+    border: none;
+    border-radius: 4px;
+}
+
+.tnx-scenario-panel .scp-load-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.tnx-scenario-panel .scp-load-row select { flex: 1 1 auto; min-width: 0; }
+
+.tnx-scenario-panel .scp-act-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.tnx-scenario-panel .scp-phase-group { margin-bottom: 6px; }
+
+.tnx-scenario-panel .scp-phase-label {
+    font-size: 0.85em;
+    font-weight: 700;
+    opacity: 0.8;
+    margin-bottom: 2px;
+}
+
+.tnx-scenario-panel .scp-scene-row,
+.tnx-scenario-panel .scp-send-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+.tnx-scenario-panel .scp-scene-row.is-current {
+    background: var(--tnx2-bg-hover);
+    font-weight: 700;
+}
+
+.tnx-scenario-panel .scp-scene-row-name,
+.tnx-scenario-panel .scp-send-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tnx-scenario-panel .scp-info-item { margin-bottom: 4px; }
+
+.tnx-scenario-panel .scp-info-content {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 4px 0 20px;
+    font-size: 0.9em;
+    opacity: 0.9;
+}
+
+.tnx-scenario-panel .scp-info-content-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tnx-scenario-panel .tnx-icon-ctrl.is-on { color: var(--tnx2-accent); }
 
 /* ============================================================
    アクトシート「判定要求」タブ(フェーズ12-5) — プリセット

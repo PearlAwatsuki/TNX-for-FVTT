@@ -61,8 +61,9 @@ import { TnxRlRequestApp } from './module/tnx-rl-request-app.mjs';
 import { openRlGrantDamage, openRlGrantEffect, openRlGrantBounty } from './module/rl-grant.mjs';
 import { renderBountyGrantCard } from './module/bounty-grant.mjs';
 import { openFocusSystemPanel } from './module/tnx-focus-system-panel.mjs';
+import { openScenarioPanel } from './module/tnx-scenario-panel.mjs';
 import { registerFocusSystemSetting, advanceFocusCuts } from './module/focus-system-state.mjs';
-import { registerSessionStateSetting } from './module/session-state.mjs';
+import { registerSessionStateSetting, getSessionState } from './module/session-state.mjs';
 import { renderFocusProgressButton, renderFocusSupportNote } from './module/focus-system-result.mjs';
 import { autoSendFocusChecks } from './module/focus-system-request.mjs';
 import { registerEffectScratchHiding, sweepEffectScratchItems } from './module/effect-authoring.mjs';
@@ -1734,19 +1735,40 @@ Hooks.once("init", async function() {
             tokenGroup = controls?.["tokens"] ?? controls?.["token"];
         }
         if (!tokenGroup) return;
-        const tool = {
-            name:    "tnxFocusSystem",
-            title:   "FS判定",
-            icon:    "fas fa-bullseye",
-            button:  true,
-            onChange: () => openFocusSystemPanel(),
-            visible: true,
-        };
+        // 全員可視のパネル起動ボタン: シナリオコントロール(14-3)・FS判定(12-5)
+        const panelTools = [
+            {
+                name:    "tnxScenarioControl",
+                title:   "シナリオコントロール",
+                icon:    "fas fa-film",
+                button:  true,
+                onChange: () => openScenarioPanel(),
+                visible: true,
+            },
+            {
+                name:    "tnxFocusSystem",
+                title:   "FS判定",
+                icon:    "fas fa-bullseye",
+                button:  true,
+                onChange: () => openFocusSystemPanel(),
+                visible: true,
+            },
+        ];
         const tools = tokenGroup.tools;
-        if (Array.isArray(tools)) tools.push(tool);
-        else if (tools instanceof Map) tools.set("tnxFocusSystem", tool);
-        else if (tools && typeof tools === "object") tools.tnxFocusSystem = tool;
-        else tokenGroup.tools = { tnxFocusSystem: tool };
+        for (const tool of panelTools) {
+            if (Array.isArray(tools)) tools.push(tool);
+            else if (tools instanceof Map) tools.set(tool.name, tool);
+            else if (tools && typeof tools === "object") tools[tool.name] = tool;
+            else tokenGroup.tools = { [tool.name]: tool };
+        }
+    });
+
+    // シナリオコントロールパネルの表示は台本(アクトシートのフラグ)に追随する(14-3)。
+    // 実行状態(sessionState)の変化は設定の onChange が再描画する。
+    Hooks.on("updateJournalEntry", (doc) => {
+        if (doc.id && doc.id === getSessionState().actId) {
+            foundry.applications.instances.get("tnx-scenario-panel")?.render(false);
+        }
     });
 
     Hooks.on("getSceneControlButtons", (controls) => {

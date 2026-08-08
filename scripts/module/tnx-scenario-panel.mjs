@@ -1,0 +1,270 @@
+/**
+ * @fileoverview シナリオコントロールパネル(フェーズ14-3・正本 Phase_14_Tasks_Detail.md)。
+ *
+ * シーンコントロールバーから開く「上演の操作盤」。アクトシートは台本の編集専用で、
+ * 実行系(アクトの読み込み/開始/終了・シーン切替・トレーラー/ハンドアウト/テキスト送信・
+ * 情報公開)はすべて本パネルに集約する(2026-08-07〜08 ユーザー裁定)。
+ *
+ * - **設定の読み込みは必ずアクトシートから・手動設定なし**(FS判定パネルとの違い)。
+ * - **読み込みと開始は別**(2026-08-08 裁定): 読み込み=参照セットのみ。プレアクトの配布は
+ *   読み込み状態で行い、開始で自動設定(報酬点/CS)→先頭シーンへ入る。
+ * - 全員に表示(現在シーン・フェイズ・シーンカードの参照)・操作は RL のみ。
+ * - 実行状態の正本はワールド設定 sessionState(session-state.mjs)。このパネルはその読み書き UI。
+ */
+
+import {
+    getSessionState, getActiveActJournal, getCurrentSceneRow, getCurrentSceneCard,
+    listActJournals, loadAct, startAct, switchScene, endAct,
+} from "./session-state.mjs";
+import {
+    SCENE_AREA_OPTIONS, PHASE_ORDER, normalizeSceneRow, normalizeHandoutRow,
+    buildSceneSwitchMessage, buildTrailerMessage, buildHandoutMessage, buildInfoMessage,
+} from "./session-logic.mjs";
+import { TnxActionHandler } from "./tnx-action-handler.mjs";
+
+const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
+const { DialogV2 } = foundry.applications.api;
+
+const SCOPE = "tokyo-nova-axleration";
+
+/** 情報の内容行の一覧表示ラベル(技能>目標値の並び・無ければ本文の頭・どちらも無ければ空欄表記)。 */
+function infoContentLabel(content) {
+    const skills = (content.skills ?? [])
+        .filter(s => s.name && s.tn)
+        .map(s => `${s.name} > ${s.tn}`);
+    if (skills.length) return skills.join("・");
+    const text = (content.text ?? "").replace(/<[^>]*>/g, "").trim();
+    if (text) return text.length > 24 ? `${text.slice(0, 24)}…` : text;
+    return "（内容未入力）";
+}
+
+export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) {
+
+    static DEFAULT_OPTIONS = {
+        id: "tnx-scenario-panel",
+        classes: ["tokyo-nova", "tnx-scenario-panel-app"],
+        window: { title: "シナリオコントロール", resizable: true },
+        position: { width: 420, height: "auto" },
+        actions: {
+            loadAct:             TnxScenarioPanel._onLoadAct,
+            startAct:            TnxScenarioPanel._onStartAct,
+            endAct:              TnxScenarioPanel._onEndAct,
+            switchScene:         TnxScenarioPanel._onSwitchScene,
+            sendTrailer:         TnxScenarioPanel._onSendTrailer,
+            sendHandout:         TnxScenarioPanel._onSendHandout,
+            sendText:            TnxScenarioPanel._onSendText,
+            sendInfo:            TnxScenarioPanel._onSendInfo,
+            toggleInfoPublic:    TnxScenarioPanel._onToggleInfoPublic,
+            toggleInfoDisclosed: TnxScenarioPanel._onToggleInfoDisclosed,
+        },
+    };
+
+    static PARTS = {
+        main: { template: "systems/tokyo-nova-axleration/templates/app/scenario-panel.hbs" },
+    };
+
+    async _prepareContext(options) {
+        const context = await super._prepareContext(options);
+        const st = getSessionState();
+        const journal = getActiveActJournal();
+
+        context.isGM = game.user.isGM;
+        context.loaded = !!journal;
+        context.actStarted = st.actStarted;
+        context.actName = journal?.name ?? "";
+        context.actOptions = listActJournals().map(j => ({
+            id: j.id, name: j.name, selected: j.id === st.actId,
+        }));
+
+        // 現在シーン(全員向け表示)
+        context.scene = null;
+        context.phaseLabel = CONFIG.TNX.phaseLabels[st.phase] ?? "";
+        const current = getCurrentSceneRow();
+        if (st.actStarted && current) {
+            const row = current.row;
+            const playerLabel = (row.playerUserId ? game.users.get(row.playerUserId)?.name : null) ?? row.player;
+            context.scene = {
+                number: row.number || "??",
+                name: row.name || "無題のシーン",
+                areaLabel: SCENE_AREA_OPTIONS.find(o => o.value === row.area && o.value !== "")?.label ?? "",
+                playerLabel,
+                isMasterScene: row.isMasterScene,
+            };
+        }
+
+        // 現在のシーンカード(全員向け表示)
+        const card = await getCurrentSceneCard();
+        context.sceneCard = card ? {
+            name: card.name,
+            img: card.currentFace?.img ?? card.faces?.[0]?.img ?? card.img,
+        } : null;
+
+        if (!journal || !game.user.isGM) return context;
+
+        // シーン一覧(フェイズ別・現在行ハイライト)
+        const scenes = journal.getFlag(SCOPE, "scenes") ?? {};
+        context.sceneGroups = PHASE_ORDER.map(phase => ({
+            phaseLabel: CONFIG.TNX.phaseLabels[phase],
+            rows: (Array.isArray(scenes[phase]) ? scenes[phase] : []).map(normalizeSceneRow).map(row => ({
+                id: row.id,
+                number: row.number || "-",
+                name: row.name || "無題のシーン",
+                isCurrent: row.id === st.sceneId,
+            })),
+        }));
+
+        // 送信系(読み込みがあれば開始前でも使用可=プレアクトの配布)
+        context.handouts = (journal.getFlag(SCOPE, "handouts") ?? []).map(normalizeHandoutRow).map(h => ({
+            id: h.id,
+            title: h.title || "ハンドアウト",
+            castLabel: (h.actorId ? game.actors.get(h.actorId)?.name : null) ?? h.pcName,
+        }));
+        context.texts = (journal.getFlag(SCOPE, "scenarioTexts") ?? []).map(t => ({
+            id: t.id, title: t.title || "テキスト",
+        }));
+        context.infoItems = (journal.getFlag(SCOPE, "infoItems") ?? []).map(item => ({
+            id: item.id,
+            title: item.title || "情報",
+            isPublic: item.isPublic === true,
+            contents: (item.contents ?? []).map(c => ({
+                id: c.id,
+                isDisclosed: c.isDisclosed === true,
+                label: infoContentLabel(c),
+            })),
+        }));
+
+        return context;
+    }
+
+    // ─── シーン開始の演出(切替チャット+シーンカードのドロー) ────────────────
+
+    /**
+     * シーン開始処理の後段: 見出しチャット(切替メッセージ含む)を投稿し、ニューロデッキの
+     * ドローを起動する(シーンカードの提示=2026-08-07 裁定「シーンカードは自動でニューロ
+     * デッキのドローを起動するだけ」。「現在のシーンカード」の記録はドロー側で行われる)。
+     */
+    static async _performSceneEntryEffects() {
+        const current = getCurrentSceneRow();
+        if (!current) return;
+        const row = current.row;
+        const playerLabel = (row.playerUserId ? game.users.get(row.playerUserId)?.name : null) ?? row.player;
+        await ChatMessage.create({ content: buildSceneSwitchMessage(row, { playerLabel }) });
+        await TnxActionHandler.drawNeuroCard();
+    }
+
+    // ─── アクトのライフサイクル ─────────────────────────────────────────────
+
+    static async _onLoadAct(_event, _target) {
+        const select = this.element.querySelector('select[name="actJournalId"]');
+        const journal = select?.value ? game.journal.get(select.value) : null;
+        if (!journal) return void ui.notifications.warn("アクトシートを選択してください。");
+        const st = getSessionState();
+        if (st.actId === journal.id) return;
+        if (st.actStarted) {
+            const confirmed = await DialogV2.confirm({
+                window: { title: "アクトの読み込み" },
+                content: "<p>進行中のアクトがあります。読み込み直すと現在の進行状態(シーン・チーム)は破棄されます。よろしいですか？</p>",
+            });
+            if (!confirmed) return;
+        }
+        await loadAct(journal);
+    }
+
+    static async _onStartAct(_event, _target) {
+        const confirmed = await DialogV2.confirm({
+            window: { title: "アクトの開始" },
+            content: "<p>アクトを開始しますか？</p><p>ハンドアウトに設定されたキャストへ報酬点と CS が自動設定され、最初のシーンが始まります。</p>",
+        });
+        if (!confirmed) return;
+        const entered = await startAct();
+        if (entered) await TnxScenarioPanel._performSceneEntryEffects();
+    }
+
+    static async _onEndAct(_event, _target) {
+        const confirmed = await DialogV2.confirm({
+            window: { title: "アクトの終了" },
+            content: "<p>アクトを終了しますか？(現在のシーンの終了とチームの解散が行われます)</p>",
+        });
+        if (!confirmed) return;
+        await endAct();
+    }
+
+    static async _onSwitchScene(_event, target) {
+        const sceneId = target.dataset.sceneId;
+        if (!sceneId) return;
+        const confirmed = await DialogV2.confirm({
+            window: { title: "シーンの切替" },
+            content: "<p>このシーンへ切り替えますか？(現在のシーンは終了します)</p>",
+        });
+        if (!confirmed) return;
+        await switchScene(sceneId);
+        await TnxScenarioPanel._performSceneEntryEffects();
+    }
+
+    // ─── 配布・送信(読み込み状態=プレアクトから使用可) ──────────────────────
+
+    static async _onSendTrailer(_event, _target) {
+        const journal = getActiveActJournal();
+        const html = buildTrailerMessage(journal?.getFlag(SCOPE, "trailer"));
+        if (!html) return void ui.notifications.warn("トレーラーが入力されていません。");
+        await ChatMessage.create({ content: html });
+    }
+
+    static async _onSendHandout(_event, target) {
+        const journal = getActiveActJournal();
+        const handout = (journal?.getFlag(SCOPE, "handouts") ?? []).find(h => h.id === target.dataset.id);
+        if (!handout) return;
+        await ChatMessage.create({ content: buildHandoutMessage(handout) });
+    }
+
+    static async _onSendText(_event, target) {
+        const journal = getActiveActJournal();
+        const text = (journal?.getFlag(SCOPE, "scenarioTexts") ?? []).find(t => t.id === target.dataset.id);
+        if (!text?.content) return void ui.notifications.warn("送信するテキストがありません。");
+        await ChatMessage.create({ content: text.content });
+    }
+
+    static async _onSendInfo(_event, target) {
+        const journal = getActiveActJournal();
+        const item = (journal?.getFlag(SCOPE, "infoItems") ?? []).find(i => i.id === target.dataset.id);
+        if (!item) return;
+        const { html, mode } = buildInfoMessage(item);
+        if (!mode) return void ui.notifications.warn("送信できる技能・目標値がありません。");
+        await ChatMessage.create({ content: html });
+        ui.notifications.info(mode === "disclosed"
+            ? `情報「${item.title}」の公開済み内容を送信しました。`
+            : `情報「${item.title}」の目標値情報を送信しました。`);
+    }
+
+    // ─── 情報公開トグル(正本=アクトシートの infoItems フラグ) ────────────────
+
+    static async _onToggleInfoPublic(_event, target) {
+        const journal = getActiveActJournal();
+        if (!journal) return;
+        const items = foundry.utils.deepClone(journal.getFlag(SCOPE, "infoItems") ?? []);
+        const item = items.find(i => i.id === target.dataset.id);
+        if (!item) return;
+        item.isPublic = item.isPublic !== true;
+        await journal.setFlag(SCOPE, "infoItems", items);
+        this.render(false);
+    }
+
+    static async _onToggleInfoDisclosed(_event, target) {
+        const journal = getActiveActJournal();
+        if (!journal) return;
+        const items = foundry.utils.deepClone(journal.getFlag(SCOPE, "infoItems") ?? []);
+        const content = items.find(i => i.id === target.dataset.id)
+            ?.contents?.find(c => c.id === target.dataset.contentId);
+        if (!content) return;
+        content.isDisclosed = content.isDisclosed !== true;
+        await journal.setFlag(SCOPE, "infoItems", items);
+        this.render(false);
+    }
+}
+
+/** パネルを開く(開いていれば前面へ)。シーンコントロールバーのボタンから呼ぶ。 */
+export function openScenarioPanel() {
+    const existing = foundry.applications.instances.get("tnx-scenario-panel");
+    if (existing) return existing.render({ force: true });
+    return new TnxScenarioPanel().render(true);
+}

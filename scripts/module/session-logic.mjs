@@ -163,6 +163,89 @@ export function planActEndEvents({ sceneId, sceneEnded, actId }) {
     return events;
 }
 
+// ─── チャット内容の組み立て(14-3・シナリオコントロールパネルとアクトシートで共用) ───
+
+/**
+ * シーン切替の見出しチャットを組む(旧アクトシート「切替」ボタンの書式を踏襲)。
+ * @param {object} scene シーン行(正規化済みでなくても可)
+ * @param {{playerLabel?: string}} [opts] シーンプレイヤーの表示名(ライブ解決済み)
+ * @returns {string} HTML
+ */
+export function buildSceneSwitchMessage(scene, { playerLabel = "" } = {}) {
+    const s = scene ?? {};
+    const title = `<h2>SCENE ${s.number || "??"} : ${s.name || "無題のシーン"}</h2>`;
+    const details = s.isMasterScene ? "<p>マスターシーン</p>"
+        : playerLabel ? `<p><strong>シーンプレイヤー:</strong> ${playerLabel}</p>` : "";
+    const custom = s.switchMessage ? `<hr>${s.switchMessage}` : "";
+    return title + details + custom;
+}
+
+/**
+ * トレーラー送信のチャットを組む。
+ * @param {string} trailer
+ * @returns {?string} HTML(空なら null=送信しない)
+ */
+export function buildTrailerMessage(trailer) {
+    return trailer ? `<h3>シナリオトレーラー</h3><hr>${trailer}` : null;
+}
+
+/**
+ * ハンドアウト送信のチャットを組む(推奨欄・PS は空なら省く)。
+ * @param {object} handout
+ * @returns {string} HTML
+ */
+export function buildHandoutMessage(handout) {
+    const h = handout ?? {};
+    let html = `<h3>${h.title} (${h.pcName})</h3>`;
+    if (h.connections)      html += `<p><strong>コネ:</strong> ${h.connections}</p>`;
+    if (h.recommendedSuit)  html += `<p><strong>推奨スート:</strong> ${h.recommendedSuit}</p>`;
+    if (h.recommendedStyle) html += `<p><strong>推奨スタイル:</strong> ${h.recommendedStyle}</p>`;
+    html += `<hr>${h.content}`;
+    if (h.ps) html += `<hr><h4>PS</h4><p>${h.ps}</p>`;
+    return html;
+}
+
+/**
+ * 情報項目送信のチャットを組む。開示済み内容があればそれのみ(mode="disclosed")、
+ * 無ければ全内容の技能/目標値+本文(mode="targets")。送れる中身が無ければ mode=null。
+ * 同じ目標値の技能は「A / B ＞ TN」に連結(既存書式)。
+ * @param {object} item 情報項目
+ * @returns {{html: ?string, mode: ("disclosed"|"targets"|null)}}
+ */
+export function buildInfoMessage(item) {
+    const contents = Array.isArray(item?.contents) ? item.contents : [];
+    const head = `<h3>${item?.title ?? ""}</h3>`;
+
+    const buildBody = (rows) => {
+        let html = "";
+        let added = false;
+        for (const content of rows) {
+            const skillsByTn = (content.skills ?? []).reduce((acc, skill) => {
+                if (skill.name && skill.tn) (acc[skill.tn] = acc[skill.tn] || []).push(skill.name);
+                return acc;
+            }, {});
+            const skillsHtml = Object.entries(skillsByTn)
+                .map(([tn, names]) => `<strong>${names.join(" / ")} &gt; ${tn}</strong>`)
+                .join("<br>");
+            if (skillsHtml || content.text) {
+                if (added) html += "<hr>";
+                if (skillsHtml) html += `<p>${skillsHtml}</p>`;
+                if (content.text) html += `<p>${content.text}</p>`;
+                added = true;
+            }
+        }
+        return { html, added };
+    };
+
+    const disclosed = contents.filter(c => c.isDisclosed);
+    if (disclosed.length > 0) {
+        const { html } = buildBody(disclosed);
+        return { html: head + html, mode: "disclosed" };
+    }
+    const { html, added } = buildBody(contents);
+    return added ? { html: head + html, mode: "targets" } : { html: null, mode: null };
+}
+
 // ─── チーム(sessionState.teams・非破壊操作) ─────────────────────────────────
 // チームを組む宣言はいつでも可(非登場者同士も可)。免除ロジック(同時登場/退場)は 14-5。
 

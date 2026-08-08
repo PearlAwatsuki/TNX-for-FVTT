@@ -243,7 +243,6 @@
                             <div class="header-cell scene-area">エリア</div>
                             <div class="header-cell scene-stage">舞台</div>
                             <div class="header-cell master-scene">MS</div>
-                            <div class="header-cell scene-switch">切替</div>
                             <div class="header-cell scene-controls">
                                 <button type="button" class="tnx-ring-btn" data-action="addScene" data-phase="{{phaseKey}}" title="このフェイズにシーンを追加">
                                     <i class="fas fa-plus"></i>
@@ -287,9 +286,6 @@
                                         </div>
                                         <div class="table-cell master-scene">
                                             <input type="checkbox" name="isMasterScene" {{checked scene.isMasterScene}}/>
-                                        </div>
-                                        <div class="table-cell scene-switch">
-                                            <a class="tnx-icon-ctrl" data-action="switchScene" title="このシーンに切り替え"><i class="fas fa-play-circle"></i></a>
                                         </div>
                                         <div class="table-cell scene-controls">
                                             <a class="tnx-icon-ctrl" data-action="deleteScene" title="このシーンを削除"><i class="fas fa-trash"></i></a>

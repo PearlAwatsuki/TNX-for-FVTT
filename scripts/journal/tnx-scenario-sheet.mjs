@@ -16,7 +16,10 @@ import { describeEffectData } from '../module/effect-source-logic.mjs';
 import { captureScrollTop, restoreScrollTop } from '../module/scroll-preserve.mjs';
 import { conditionStatusLabels } from '../module/conditions.mjs';
 import { checkTypeOptions } from '../module/tnx-rl-request-app.mjs';
-import { SCENE_AREA_OPTIONS, normalizeSceneRow, normalizeHandoutRow } from '../module/session-logic.mjs';
+import {
+    SCENE_AREA_OPTIONS, normalizeSceneRow, normalizeHandoutRow,
+    buildTrailerMessage, buildHandoutMessage, buildInfoMessage,
+} from '../module/session-logic.mjs';
 
 const { HandlebarsApplicationMixin, DocumentSheetV2, DialogV2 } = foundry.applications.api;
 
@@ -30,7 +33,6 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             launchWizard:      TnxScenarioSheet._onLaunchWizard,
             addScene:          TnxScenarioSheet._onAddScene,
             deleteScene:       TnxScenarioSheet._onDeleteScene,
-            switchScene:       TnxScenarioSheet._onSwitchScene,
             addTextItem:       TnxScenarioSheet._onAddTextItem,
             deleteTextItem:    TnxScenarioSheet._onDeleteTextItem,
             sendTextToChat:    TnxScenarioSheet._onSendTextToChat,
@@ -415,25 +417,9 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         this.document.setFlag("tokyo-nova-axleration", "scenes", scenes);
     }
 
-    static async _onSwitchScene(_event, target) {
-        const sceneItem = target.closest('.scene-item');
-        const { sceneId, phase } = sceneItem.dataset;
-        const scenes = this.document.getFlag("tokyo-nova-axleration", "scenes");
-        const scene = scenes[phase]?.find(s => s.id === sceneId);
-        if (!scene) return;
-
-        const sceneTitle = `<h2>SCENE ${scene.number || '??'} : ${scene.name || '無題のシーン'}</h2>`;
-        // シーンプレイヤーは playerUserId(User 参照・14-2)を正としてライブ解決し、旧 player 文字列は
-        // フォールバック表示のみ
-        const playerLabel = (scene.playerUserId ? game.users.get(scene.playerUserId)?.name : null) ?? scene.player;
-        const sceneDetails = scene.isMasterScene ? `<p>マスターシーン</p>`
-            : playerLabel ? `<p><strong>シーンプレイヤー:</strong> ${playerLabel}</p>` : '';
-        const customMessage = scene.switchMessage ? `<hr>${scene.switchMessage}` : '';
-        const chatContent = sceneTitle + sceneDetails + customMessage;
-        if (chatContent) ChatMessage.create({ content: chatContent });
-        await this.document.setFlag("tokyo-nova-axleration", "currentState", { phase, sceneId });
-        ui.notifications.info(`シーン「${scene.name}」に切り替えました。`);
-    }
+    // シーン切替はシナリオコントロールパネル(14-3)へ完全移行した。旧「切替」ボタンは
+    // journal の currentState フラグを更新する旧経路で、sessionState と状態が二重化するため
+    // 14-3 で即オミット(2026-08-08 承認)。
 
     static async _onAddTextItem(_event, _target) {
         const texts = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "scenarioTexts") || []);
@@ -495,45 +481,12 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         const item = items.find(i => i.id === infoItemId);
         if (!item?.contents) return;
 
-        const chatContent = `<h3>${item.title}</h3>`;
-        const disclosedContents = item.contents.filter(c => c.isDisclosed);
-
-        const buildSkillHtml = (contents) => {
-            let html = "";
-            let added = false;
-            for (const content of contents) {
-                const skillsByTn = content.skills.reduce((acc, skill) => {
-                    if (skill.name && skill.tn) {
-                        (acc[skill.tn] = acc[skill.tn] || []).push(skill.name);
-                    }
-                    return acc;
-                }, {});
-                const skillsHtml = Object.entries(skillsByTn)
-                    .map(([tn, names]) => `<strong>${names.join(" / ")} &gt; ${tn}</strong>`)
-                    .join("<br>");
-                if (skillsHtml || content.text) {
-                    if (added) html += "<hr>";
-                    if (skillsHtml) html += `<p>${skillsHtml}</p>`;
-                    if (content.text) html += `<p>${content.text}</p>`;
-                    added = true;
-                }
-            }
-            return { html, added };
-        };
-
-        if (disclosedContents.length > 0) {
-            const { html } = buildSkillHtml(disclosedContents);
-            ChatMessage.create({ content: chatContent + html });
-            ui.notifications.info(`情報「${item.title}」の公開済み内容を送信しました。`);
-        } else {
-            const { html, added } = buildSkillHtml(item.contents);
-            if (added) {
-                ChatMessage.create({ content: chatContent + html });
-                ui.notifications.info(`情報「${item.title}」の目標値情報を送信しました。`);
-            } else {
-                ui.notifications.warn("送信できる技能・目標値がありません。");
-            }
-        }
+        const { html, mode } = buildInfoMessage(item);
+        if (!mode) return void ui.notifications.warn("送信できる技能・目標値がありません。");
+        ChatMessage.create({ content: html });
+        ui.notifications.info(mode === "disclosed"
+            ? `情報「${item.title}」の公開済み内容を送信しました。`
+            : `情報「${item.title}」の目標値情報を送信しました。`);
     }
 
     static async _onAddInfoContent(_event, target) {
@@ -580,8 +533,8 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
     }
 
     static async _onSendTrailerToChat(_event, _target) {
-        const trailer = this.document.getFlag("tokyo-nova-axleration", "trailer");
-        if (trailer) ChatMessage.create({ content: `<h3>シナリオトレーラー</h3><hr>${trailer}` });
+        const html = buildTrailerMessage(this.document.getFlag("tokyo-nova-axleration", "trailer"));
+        if (html) ChatMessage.create({ content: html });
         else ui.notifications.warn("トレーラーが入力されていません。");
     }
 
@@ -617,16 +570,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         const handouts = this.document.getFlag("tokyo-nova-axleration", "handouts") || [];
         const handout = handouts.find(h => h.id === id);
         if (!handout) return;
-
-        let chatContent = `<h3>${handout.title} (${handout.pcName})</h3>`;
-        let details = '';
-        if (handout.connections)      details += `<p><strong>コネ:</strong> ${handout.connections}</p>`;
-        if (handout.recommendedSuit)  details += `<p><strong>推奨スート:</strong> ${handout.recommendedSuit}</p>`;
-        if (handout.recommendedStyle) details += `<p><strong>推奨スタイル:</strong> ${handout.recommendedStyle}</p>`;
-        if (details) chatContent += details;
-        chatContent += `<hr>${handout.content}`;
-        if (handout.ps) chatContent += `<hr><h4>PS</h4><p>${handout.ps}</p>`;
-        ChatMessage.create({ content: chatContent });
+        ChatMessage.create({ content: buildHandoutMessage(handout) });
     }
 
     static async _onCreateAllUserHands(_event, _target) {
