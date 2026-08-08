@@ -7,6 +7,7 @@ import {
   parseStageRef,
   findSceneRow,
   firstSceneRow,
+  nextSceneRow,
   buildCombatSpeedInit,
   buildPreActInit,
   planSceneSwitchEvents,
@@ -122,6 +123,34 @@ describe("firstSceneRow()（アクト開始時の先頭シーン）", () => {
 
   it("PHASE_ORDER はメインアクトの4フェイズ", () => {
     expect(PHASE_ORDER).toEqual(["opening", "research", "climax", "ending"]);
+  });
+});
+
+describe("nextSceneRow()（「次のシーンへ」＝台本順の次の行・14-5 是正）", () => {
+  it("同じフェイズ内の次の行を返す", () => {
+    const hit = nextSceneRow(SCENES, "re1");
+    expect(hit.phase).toBe("research");
+    expect(hit.row.id).toBe("re2");
+  });
+
+  it("フェイズの末尾なら次のフェイズの先頭へ進む（空フェイズは飛ばす）", () => {
+    const hit = nextSceneRow(SCENES, "re2");   // climax は空
+    expect(hit.phase).toBe("ending");
+    expect(hit.row.id).toBe("ed1");
+  });
+
+  it("台本の最後の行なら null（次が無い）", () => {
+    expect(nextSceneRow(SCENES, "ed1")).toBeNull();
+  });
+
+  it("現在シーン未指定・不明 id は先頭行を返す（アクト開始直後のフォールバック）", () => {
+    expect(nextSceneRow(SCENES, "").row.id).toBe("op1");
+    expect(nextSceneRow(SCENES, "zz").row.id).toBe("op1");
+  });
+
+  it("台本が空なら null", () => {
+    expect(nextSceneRow({ opening: [], research: [], climax: [], ending: [] }, "x")).toBeNull();
+    expect(nextSceneRow(null, "x")).toBeNull();
   });
 });
 

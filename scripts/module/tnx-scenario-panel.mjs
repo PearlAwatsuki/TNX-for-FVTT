@@ -20,7 +20,7 @@ import {
 import { isAppearing, listAppearingActors } from "./appearance-state.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import {
-    SCENE_AREA_OPTIONS, PHASE_ORDER, normalizeSceneRow, normalizeHandoutRow,
+    SCENE_AREA_OPTIONS, PHASE_ORDER, normalizeSceneRow, normalizeHandoutRow, nextSceneRow,
     buildSceneSwitchMessage, buildTrailerMessage, buildHandoutMessage, buildInfoMessage,
 } from "./session-logic.mjs";
 import { TnxActionHandler } from "./tnx-action-handler.mjs";
@@ -54,6 +54,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             startAct:            TnxScenarioPanel._onStartAct,
             endAct:              TnxScenarioPanel._onEndAct,
             switchScene:         TnxScenarioPanel._onSwitchScene,
+            nextScene:           TnxScenarioPanel._onNextScene,
             sendTrailer:         TnxScenarioPanel._onSendTrailer,
             sendHandout:         TnxScenarioPanel._onSendHandout,
             sendText:            TnxScenarioPanel._onSendText,
@@ -105,13 +106,15 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             };
         }
 
-        // 現在のシーンカード(全員向け表示)。ニューロカードの名前/フェイス名はワールドデータ由来で
-        // HTML を含みうるため、タグを剥がした素の文字列だけを出す(生 HTML を表示しない)
-        const stripHtml = (s) => String(s ?? "").replace(/<[^>]*>/g, "").trim();
+        // 現在のシーンカード(全員向け表示)。キーワード(faces[0].text)・暗示(description)は
+        // ワールドデータ由来のリッチテキストなので、チャットカードと同じく enrichHTML して
+        // **HTML として描画**する(テンプレートは {{{ }}}・2026-08-08 ユーザー指摘で是正)
         const card = await getCurrentSceneCard();
         context.sceneCard = card ? {
-            name: stripHtml(card.currentFace?.name ?? card.name) || "シーンカード",
+            name: card.name,
             img: card.currentFace?.img ?? card.faces?.[0]?.img ?? card.img,
+            keyword: await foundry.applications.ux.TextEditor.enrichHTML(card.faces?.[0]?.text ?? ""),
+            implication: await foundry.applications.ux.TextEditor.enrichHTML(card.description ?? ""),
         } : null;
 
         // 登場中の一覧(全員向け・14-5)と登場判定ボタン(PL・非登場の担当キャラクターがいるとき)
@@ -150,8 +153,12 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
 
         if (!journal || !game.user.isGM) return context;
 
-        // シーン一覧(フェイズ別・現在行ハイライト)
+        // シーン一覧(フェイズ別・現在行ハイライト)と「次のシーンへ」(基本操作・台本順で送る)
         const scenes = journal.getFlag(SCOPE, "scenes") ?? {};
+        const next = st.actStarted ? nextSceneRow(scenes, st.sceneId) : null;
+        context.nextScene = next
+            ? { name: normalizeSceneRow(next.row).name || "無題のシーン" }
+            : null;
         context.sceneGroups = PHASE_ORDER.map(phase => ({
             phaseLabel: CONFIG.TNX.phaseLabels[phase],
             rows: (Array.isArray(scenes[phase]) ? scenes[phase] : []).map(normalizeSceneRow).map(row => ({
@@ -249,6 +256,21 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         });
         if (!confirmed) return;
         await switchScene(sceneId);
+        await TnxScenarioPanel._performSceneEntryEffects();
+    }
+
+    /** 「次のシーンへ」＝台本順の次の行へ送る(基本操作。一覧の各行ボタンは直接ジャンプ用)。 */
+    static async _onNextScene(_event, _target) {
+        const journal = getActiveActJournal();
+        const next = nextSceneRow(journal?.getFlag(SCOPE, "scenes") ?? null, getSessionState().sceneId);
+        if (!next) return void ui.notifications.warn("台本に次のシーンがありません。");
+        const name = normalizeSceneRow(next.row).name || "無題のシーン";
+        const confirmed = await DialogV2.confirm({
+            window: { title: "次のシーンへ" },
+            content: `<p>「${foundry.utils.escapeHTML(name)}」へ進みますか？(現在のシーンは終了します)</p>`,
+        });
+        if (!confirmed) return;
+        await switchScene(next.row.id);
         await TnxScenarioPanel._performSceneEntryEffects();
     }
 

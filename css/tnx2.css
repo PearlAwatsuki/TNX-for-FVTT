@@ -8848,9 +8848,9 @@ button.tnx-create-act-button span {
    シナリオコントロールパネル(フェーズ14-3) — アクト/シーン進行の操作盤
    ============================================================ */
 
-/* パネルはビューポートを超えたら中身をスクロールさせる(見切れ防止・14-5 是正) */
+/* パネルは伸び過ぎないよう上限を設け、超えたら中身をスクロールさせる(14-5 是正) */
 .tnx-scenario-panel-app,
-.tnx-subscene-panel-app { max-height: calc(100vh - 140px); }
+.tnx-subscene-panel-app { max-height: min(560px, calc(100vh - 200px)); }
 
 .tnx-scenario-panel-app .window-content,
 .tnx-subscene-panel-app .window-content { overflow-y: auto; }
@@ -8913,16 +8913,39 @@ button.tnx-create-act-button span {
 
 .tnx-scenario-panel .scp-scene-card {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 8px;
     margin-top: 2px;
 }
 
 .tnx-scenario-panel .scp-scene-card img {
+    flex: 0 0 auto;
     height: 72px;
     width: auto;
     border: none;
     border-radius: 4px;
+}
+
+.tnx-scenario-panel .scp-scene-card-info {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.tnx-scenario-panel .scp-scene-card-name { font-weight: 600; }
+
+.tnx-scenario-panel .scp-scene-card-field {
+    font-size: 0.9em;
+    min-width: 0;
+}
+
+.tnx-scenario-panel .scp-scene-card-field p { margin: 0; }
+
+.tnx-scenario-panel .scp-scene-card-label {
+    font-weight: 600;
+    opacity: 0.8;
+    margin-right: 4px;
 }
 
 .tnx-scenario-panel .scp-load-row {

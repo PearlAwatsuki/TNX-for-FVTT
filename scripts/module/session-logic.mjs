@@ -102,6 +102,25 @@ export function firstSceneRow(scenes) {
 }
 
 /**
+ * 台本順(フェイズ順→行順)で現在シーンの次にあたる行を返す(「次のシーンへ」)。
+ * 現在シーンが不明・未指定なら先頭行(アクト開始直後のフォールバック)。最後の行なら null。
+ * @param {object|null} scenes
+ * @param {string} currentSceneId
+ * @returns {?{phase:string, row:object}}
+ */
+export function nextSceneRow(scenes, currentSceneId) {
+    if (!scenes) return null;
+    const flat = [];
+    for (const phase of PHASE_ORDER) {
+        for (const row of (Array.isArray(scenes[phase]) ? scenes[phase] : [])) flat.push({ phase, row });
+    }
+    if (!flat.length) return null;
+    const index = flat.findIndex(e => e.row?.id === currentSceneId);
+    if (index < 0) return flat[0];
+    return flat[index + 1] ?? null;
+}
+
+/**
  * アクト開始の自動設定(2026-08-07 裁定・対象はハンドアウトの actorId キャスト)の update patch。
  * - 報酬点: `bountyBase` ← 外界点実効値・`bounty` ← 0(ポストアクトの清算を兼ねる)
  * - CS: シートの「プレアクト初期化」ボタンと同一計算(CSベース=floor((理性+感情+生命)÷2) を
