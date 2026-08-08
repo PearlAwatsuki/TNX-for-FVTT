@@ -301,19 +301,21 @@ export function buildTrailerMessage(trailer) {
 
 /**
  * ハンドアウト送信のチャットを組む(コネ・推奨欄・PS は空なら省く)。
- * コネはアクトコネクション(識別キー)の解決済み表示名を受け取る(純関数のため名前解決は
- * 呼び出し側)。無ければ旧自由テキスト `connections` をフォールバック表示する。
+ * コネ(識別キー)の解決済み表示名・スタイル(スタイル辞典の識別キー)の解決済み名は
+ * 呼び出し側から受け取る(純関数のため辞典解決は行わない)。コネは旧自由テキスト
+ * `connections`、スタイルは保存生値をフォールバック表示する。
  * @param {object} handout
- * @param {{connectionNames?: string[]}} [options]
+ * @param {{connectionNames?: string[], styleName?: string}} [options]
  * @returns {string} HTML
  */
-export function buildHandoutMessage(handout, { connectionNames = [] } = {}) {
+export function buildHandoutMessage(handout, { connectionNames = [], styleName = "" } = {}) {
     const h = handout ?? {};
     let html = `<h3>${h.title} (${h.pcName})</h3>`;
     const conns = connectionNames.length ? connectionNames.join("、") : (h.connections || "");
+    const style = styleName || h.recommendedStyle || "";
     if (conns)              html += `<p><strong>コネ:</strong> ${conns}</p>`;
     if (h.recommendedSuit)  html += `<p><strong>推奨スート:</strong> ${handoutSuitLabel(h.recommendedSuit)}</p>`;
-    if (h.recommendedStyle) html += `<p><strong>スタイル:</strong> ${h.recommendedStyle}</p>`;
+    if (style)              html += `<p><strong>スタイル:</strong> ${style}</p>`;
     html += `<hr>${h.content}`;
     if (h.ps) html += `<hr><h4>PS</h4><p>${h.ps}</p>`;
     return html;

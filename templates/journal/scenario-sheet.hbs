@@ -95,10 +95,15 @@
                                     </select>
                                 </div>
                             </div>
-                            {{!-- スタイル(指定スタイル)はコネと無関係の独立欄 --}}
+                            {{!-- スタイル(指定スタイル)はコネと無関係の独立欄・辞典プルダウン(キー保存) --}}
                             <div class="handout-row handout-row--style">
                                 <label>スタイル</label>
-                                <input type="text" name="recommendedStyle" value="{{handout.recommendedStyle}}">
+                                <select name="recommendedStyle">
+                                    <option value="">{{#if handout.legacyStyle}}旧: {{handout.legacyStyle}}{{else}}-{{/if}}</option>
+                                    {{#each handout.styleOptions as |opt|}}
+                                        <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+                                    {{/each}}
+                                </select>
                             </div>
                             <div class="tnx-editor-section">
                                 <div class="tnx-editor-section__header">

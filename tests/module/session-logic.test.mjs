@@ -470,11 +470,11 @@ describe("buildTrailerMessage()（トレーラー送信・14-3）", () => {
 });
 
 describe("buildHandoutMessage()（ハンドアウト送信・14-3／コネ統合・スートキー化は 2026-08-08 是正）", () => {
-  it("コネ(解決済み表示名)・スートラベル・スタイル・PS を条件付きで含める", () => {
+  it("コネ(解決済み表示名)・スートラベル・スタイル(解決済み名)・PS を条件付きで含める", () => {
     const html = buildHandoutMessage({
       title: "HO1", pcName: "PC1", recommendedSuit: "spade",
-      recommendedStyle: "カブキ", content: "本文", ps: "目的",
-    }, { connectionNames: ["〈コネ：父〉"] });
+      recommendedStyle: "kabuki", content: "本文", ps: "目的",
+    }, { connectionNames: ["〈コネ：父〉"], styleName: "カブキ" });
     expect(html).toBe(
       "<h3>HO1 (PC1)</h3>"
       + "<p><strong>コネ:</strong> 〈コネ：父〉</p>"
@@ -482,6 +482,11 @@ describe("buildHandoutMessage()（ハンドアウト送信・14-3／コネ統合
       + "<p><strong>スタイル:</strong> カブキ</p>"
       + "<hr>本文<hr><h4>PS</h4><p>目的</p>",
     );
+  });
+
+  it("スタイル名が未解決なら保存生値(旧自由テキスト)をフォールバック表示する", () => {
+    const html = buildHandoutMessage({ title: "HO1", pcName: "PC1", recommendedStyle: "カブキ", content: "C" });
+    expect(html).toContain("<p><strong>スタイル:</strong> カブキ</p>");
   });
 
   it("コネ表示名が無ければ旧自由テキスト connections をフォールバック表示する", () => {

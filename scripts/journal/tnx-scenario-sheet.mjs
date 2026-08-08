@@ -1,4 +1,4 @@
-import { loadGroupedGeneralSkillChoices, loadGeneralSkillNameByKey, loadOnomasticChoices } from '../module/skill-dictionary.mjs';
+import { loadGroupedGeneralSkillChoices, loadGeneralSkillNameByKey, loadOnomasticChoices, loadSkillChoices, STYLE_PACK } from '../module/skill-dictionary.mjs';
 import { formatSkillName } from '../module/identification.mjs';
 import {
     presetLabel, newCheckRequestPreset, newBountyPreset,
@@ -166,6 +166,9 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         context.contactSkillOptions = Object.entries(contactChoices)
             .filter(([key]) => key)
             .map(([key, name]) => ({ key, name }));
+        // スタイル(指定スタイル)＝スタイル辞典のプルダウン(識別キー保存)
+        const styleChoices = await loadSkillChoices([STYLE_PACK]);
+        const styleEntries = Object.entries(styleChoices).filter(([key]) => key);
         for (const handout of context.handouts) {
             // チップは識別キーの辞典逆引き(toSkillChips=指定技能と共用・生キーは表示しない)
             handout.actConnectionChips = toSkillChips(handout.actConnections);
@@ -174,6 +177,12 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             handout.legacySuit = (handout.recommendedSuit
                 && !HANDOUT_SUIT_OPTIONS.some(o => o.value === handout.recommendedSuit))
                 ? handout.recommendedSuit : "";
+            // スタイル: 同方式(キー保存・旧自由テキストは空選択肢のラベルで示す)
+            handout.styleOptions = styleEntries.map(([key, name]) => ({
+                value: key, label: name, selected: key === handout.recommendedStyle,
+            }));
+            handout.legacyStyle = (handout.recommendedStyle && !(handout.recommendedStyle in styleChoices))
+                ? handout.recommendedStyle : "";
         }
 
         return context;
