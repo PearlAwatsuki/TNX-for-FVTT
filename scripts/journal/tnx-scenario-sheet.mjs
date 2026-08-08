@@ -1,4 +1,5 @@
-import { loadGroupedGeneralSkillChoices } from '../module/skill-dictionary.mjs';
+import { loadGroupedGeneralSkillChoices, loadGeneralSkillNameByKey } from '../module/skill-dictionary.mjs';
+import { formatSkillName, itemDisplayName } from '../module/identification.mjs';
 import {
     presetLabel, newCheckRequestPreset, newBountyPreset,
     newDamageGrantPreset, newEffectGrantPreset,
@@ -32,6 +33,11 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             deleteSkillCheck:  TnxScenarioSheet._onDeleteSkillCheck,
             addHandout:        TnxScenarioSheet._onAddHandout,
             deleteHandout:     TnxScenarioSheet._onDeleteHandout,
+            removeActConnection:   TnxScenarioSheet._onRemoveActConnection,
+            sceneSpinUp:           TnxScenarioSheet._onSceneSpin,
+            sceneSpinDown:         TnxScenarioSheet._onSceneSpin,
+            addAppearanceSkill:    TnxScenarioSheet._onAddAppearanceSkill,
+            removeAppearanceSkill: TnxScenarioSheet._onRemoveAppearanceSkill,
             addCheckRequestPreset: TnxScenarioSheet._onAddCheckRequestPreset,
             addBountyPreset:       TnxScenarioSheet._onAddBountyPreset,
             addDamageGrantPreset:  TnxScenarioSheet._onAddDamageGrantPreset,
@@ -78,6 +84,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
         context.castActors = game.actors.filter(a => a.type === 'cast');
         context.phaseLabels = CONFIG.TNX.phaseLabels;
+        context.documentName = this.document.name;
 
         // シーン行は読み出し時に正規化する(14-2 追加フィールドの既定値を補う。一括書き換えはしない)
         const scenesData = flagData.scenes || {};
@@ -93,10 +100,24 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         context.sceneAreaOptions = SCENE_AREA_OPTIONS;
         context.stageSubSceneOptions = listSubScenes().map(s => ({ value: `subScene:${s.id}`, label: s.name }));
         context.stageSceneOptions = game.scenes.map(s => ({ value: `scene:${s.id}`, label: s.name }));
-        context.scenePlayerUsers = game.users.filter(u => !u.isGM).map(u => ({ id: u.id, name: u.name }));
+        // GM ユーザーを選択＝ルーラーシーン(シーンプレイヤー不在・14-7)。（RL）を付けて区別する
+        context.scenePlayerUsers = game.users.map(u => ({
+            id: u.id, name: u.isGM ? `${u.name}（RL）` : u.name,
+        }));
 
         // 判定要求・報酬点のプリセット(フェーズ12-5)。名前は未入力なら「判定要求n」を出す
         const skillGroups = await loadGroupedGeneralSkillChoices();
+        // 一般技能の辞典グループ(素)＝シーンの指定技能・情報項目の指定技能のプルダウン共用(14-7)。
+        // キー→名前の逆引きでチップを表示する(生キーは表示しない)
+        context.skillGroupsPlain = skillGroups ?? [];
+        const skillNameByKey = await loadGeneralSkillNameByKey();
+        const toSkillChips = keys => (keys ?? []).map(key => {
+            const dictName = skillNameByKey.get(key);
+            return { key, name: dictName ? formatSkillName(dictName) : "（参照切れ）" };
+        });
+        for (const rows of Object.values(context.scenes)) {
+            for (const row of rows) row.appearanceSkillChips = toSkillChips(row.appearanceSkills);
+        }
         const withSkills = (key) => (skillGroups ?? []).map(g => ({
             ...g,
             skills: (g.skills ?? []).map(o => ({ ...o, selected: o.identificationKey === key })),
@@ -137,6 +158,14 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         context.infoItems     = flagData.infoItems     || [];
         context.trailer       = flagData.trailer       || "";
         context.handouts      = (flagData.handouts || []).map(normalizeHandoutRow);
+        // アクトコネクション(14-7): UUID 参照をライブ解決して表示(名前キャッシュは持たない)
+        for (const handout of context.handouts) {
+            handout.actConnectionChips = await Promise.all(
+                (handout.actConnections ?? []).map(async (conn) => {
+                    const doc = await fromUuid(conn.uuid).catch(() => null);
+                    return { uuid: conn.uuid, name: doc ? itemDisplayName(doc) : "（参照切れ）" };
+                }));
+        }
 
         return context;
     }
@@ -151,6 +180,14 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
     _onRender(_context, _options) {
         this._setupChangeListeners();
+        // アクトコネクションのドロップ受け(14-7): 一般技能アイテムの D&D で登録(UUID 参照)
+        if (this.element.querySelector(".handout-conn-drop")) {
+            new foundry.applications.ux.DragDrop.implementation({
+                dropSelector: ".handout-conn-drop",
+                permissions: { drop: () => this.isEditable },
+                callbacks: { drop: this._onDropActConnection.bind(this) },
+            }).bind(this.element);
+        }
         for (const [group, tab] of Object.entries(this.tabGroups)) {
             if (tab) this.changeTab(tab, group, { force: true });
         }
@@ -188,25 +225,25 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             sync();
         }
 
-        for (const input of el.querySelectorAll('.scene-item input[type="text"], .scene-item input[type="checkbox"], .scene-item textarea, .scene-item select')) {
-            input.addEventListener('change', this._onSceneItemChange.bind(this));
-        }
-        for (const checkbox of el.querySelectorAll('.scene-item input[name="isMasterScene"]')) {
-            checkbox.addEventListener('change', this._onToggleMasterScene.bind(this));
-        }
-        for (const sceneItem of el.querySelectorAll('.scene-item')) {
-            this._updateScenePlayerState(sceneItem);
-        }
+        // prose-mirror はフォーム要素(name/value)。保存確定は save イベントでも通知されるため
+        // change と save の両方を購読する(二重発火しても保存は同値=冪等)
+        const bind = (elements, handler) => {
+            for (const input of elements) {
+                input.addEventListener('change', handler);
+                if (input.tagName === 'PROSE-MIRROR') input.addEventListener('save', handler);
+            }
+        };
+        bind(el.querySelectorAll(
+            '.scene-item input:not([data-no-save]), .scene-item select:not([data-no-save]), .scene-item prose-mirror'),
+        this._onSceneItemChange.bind(this));
 
-        for (const input of el.querySelectorAll('.text-item input[type="text"], .text-item textarea')) {
-            input.addEventListener('change', this._onTextItemChange.bind(this));
-        }
-        for (const input of el.querySelectorAll('.info-item input, .info-item textarea')) {
-            input.addEventListener('change', this._onInfoItemChange.bind(this));
-        }
-        for (const input of el.querySelectorAll('.scenario-info-container textarea, .handout-item input, .handout-item textarea, .handout-item select')) {
-            input.addEventListener('change', this._onScenarioInfoChange.bind(this));
-        }
+        bind(el.querySelectorAll('.text-item input[type="text"], .text-item prose-mirror'),
+            this._onTextItemChange.bind(this));
+        bind(el.querySelectorAll('.info-item input, .info-item select, .info-item prose-mirror'),
+            this._onInfoItemChange.bind(this));
+        bind(el.querySelectorAll(
+            '.scenario-info-container > .act-name-section input, .scenario-info-container prose-mirror, .handout-item input, .handout-item select'),
+        this._onScenarioInfoChange.bind(this));
     }
 
     // ─── インスタンス変更ハンドラ ─────────────────────────────────────────────
@@ -226,6 +263,9 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             }
         } else if (name === "trailer") {
             await this.document.setFlag("tokyo-nova-axleration", "trailer", value);
+        } else if (name === "documentName") {
+            // アクトシート名の編集(14-7)。空にはしない
+            if (value.trim()) await this.document.update({ name: value.trim() });
         }
     }
 
@@ -239,21 +279,10 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         const scene = scenes[phase]?.find(s => s.id === sceneId);
         if (!scene) return;
 
-        scene[input.name] = input.type === 'checkbox' ? input.checked : input.value;
+        scene[input.name] = input.type === 'checkbox' ? input.checked
+            : input.type === 'number' ? (Number.isFinite(parseInt(input.value)) ? parseInt(input.value) : null)
+            : input.value;
         await this.document.setFlag("tokyo-nova-axleration", "scenes", scenes);
-    }
-
-    _onToggleMasterScene(event) {
-        this._updateScenePlayerState(event.currentTarget.closest('.scene-item'));
-    }
-
-    _updateScenePlayerState(sceneItem) {
-        const checkbox = sceneItem.querySelector('input[name="isMasterScene"]');
-        const playerInput = sceneItem.querySelector('select[name="playerUserId"]');
-        if (checkbox && playerInput) {
-            playerInput.disabled = checkbox.checked;
-            if (checkbox.checked) playerInput.value = '';
-        }
     }
 
     async _onTextItemChange(event) {
@@ -292,6 +321,76 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
     }
 
     // ─── 静的アクションハンドラ ───────────────────────────────────────────────
+
+    // ─── シーンの登場設定・アクトコネクション(14-7) ───────────────────────────
+
+    /** 登場目標値(数値指定)のスピナー。 */
+    static _onSceneSpin(_event, target) {
+        const input = target.closest(".number-input-spinner")?.querySelector("input[type=number]");
+        if (!input) return;
+        if (target.dataset.action === "sceneSpinUp") input.stepUp();
+        else input.stepDown();
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    /** 指定技能を追加(辞典プルダウンから識別キーで登録)。 */
+    static async _onAddAppearanceSkill(_event, target) {
+        const sceneItem = target.closest(".scene-item");
+        const key = sceneItem?.querySelector(".appearance-skill-select")?.value;
+        const { sceneId, phase } = sceneItem?.dataset ?? {};
+        if (!key || !sceneId) return;
+        const scenes = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "scenes"));
+        const scene = scenes?.[phase]?.find(s => s.id === sceneId);
+        if (!scene) return;
+        const keys = Array.isArray(scene.appearanceSkills) ? scene.appearanceSkills : [];
+        if (keys.includes(key)) return;
+        scene.appearanceSkills = [...keys, key];
+        await this.document.setFlag("tokyo-nova-axleration", "scenes", scenes);
+    }
+
+    /** 指定技能を外す。 */
+    static async _onRemoveAppearanceSkill(_event, target) {
+        const sceneItem = target.closest(".scene-item");
+        const { sceneId, phase } = sceneItem?.dataset ?? {};
+        const key = target.dataset.key;
+        const scenes = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "scenes"));
+        const scene = scenes?.[phase]?.find(s => s.id === sceneId);
+        if (!scene) return;
+        scene.appearanceSkills = (scene.appearanceSkills ?? []).filter(k => k !== key);
+        await this.document.setFlag("tokyo-nova-axleration", "scenes", scenes);
+    }
+
+    /** アクトコネクションのドロップ登録(一般技能のみ・UUID 参照)。 */
+    async _onDropActConnection(event) {
+        let data;
+        try { data = JSON.parse(event.dataTransfer.getData("text/plain")); }
+        catch { return false; }
+        if (data.type !== "Item" || !data.uuid) return;
+        const handoutId = event.target.closest("[data-handout-id]")?.dataset.handoutId;
+        if (!handoutId) return;
+        const doc = await fromUuid(data.uuid).catch(() => null);
+        if (doc?.type !== "generalSkill") {
+            return void ui.notifications.warn("アクトコネクションに登録できるのは一般技能だけです。");
+        }
+        const handouts = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "handouts") || []);
+        const handout = handouts.find(h => h.id === handoutId);
+        if (!handout) return;
+        const conns = Array.isArray(handout.actConnections) ? handout.actConnections : [];
+        if (conns.some(c => c.uuid === data.uuid)) return;
+        handout.actConnections = [...conns, { uuid: data.uuid }];
+        await this.document.setFlag("tokyo-nova-axleration", "handouts", handouts);
+    }
+
+    /** アクトコネクションの登録を外す。 */
+    static async _onRemoveActConnection(_event, target) {
+        const handoutId = target.closest(".handout-item")?.dataset.id;
+        const uuid = target.dataset.uuid;
+        const handouts = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "handouts") || []);
+        const handout = handouts.find(h => h.id === handoutId);
+        if (!handout) return;
+        handout.actConnections = (handout.actConnections ?? []).filter(c => c.uuid !== uuid);
+        await this.document.setFlag("tokyo-nova-axleration", "handouts", handouts);
+    }
 
     static async _onAddScene(_event, target) {
         const phase = target.dataset.phase;

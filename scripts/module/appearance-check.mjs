@@ -28,18 +28,23 @@ export async function startAppearanceCheck() {
     if (!actor) return void ui.notifications.warn("担当キャラクターが設定されていません。");
     if (isAppearing(actor)) return void ui.notifications.info("既にシーンに登場しています。");
 
-    const area = getCurrentSceneRow()?.row.area ?? "";
+    const row = getCurrentSceneRow()?.row ?? null;
+    const area = row?.area ?? "";
     const params = appearanceCheckParams({
         area,
+        mode: row?.appearanceMode ?? "area",
+        fixedValue: row?.appearanceValue ?? null,
         appearanceModifier: actor.system.appearanceModifier ?? 0,
         hasNegativeDangerItem: hasNegativeDangerOutfit(
             actor.items.map(i => ({ type: i.type, system: i.system }))),
     });
     if (params.blocked) {
-        return void ui.notifications.warn("サンクチュアリでは、危険値ペナルティを持つ装備を携帯していると登場できません。");
+        return void ui.notifications.warn(row?.appearanceMode === "none"
+            ? "このシーンにはシーンプレイヤー以外登場できません（登場：不可）。"
+            : "サンクチュアリでは、危険値ペナルティを持つ装備を携帯していると登場できません。");
     }
 
-    const choice = await promptAppearanceOptions(actor);
+    const choice = await promptAppearanceOptions(actor, row?.appearanceSkills ?? []);
     if (!choice) return;
     const skill = actor.items.get(choice.skillId);
     if (!skill) return;
@@ -56,10 +61,13 @@ export async function startAppearanceCheck() {
 }
 
 /**
- * 使用技能(既定候補=社会/コネ・他も選択可)とゴースト登場を選ぶ。
+ * 使用技能とゴースト登場を選ぶ。候補の並び: シーン指定(あれば先頭・14-7)→社会/コネ(既定)→
+ * その他。指定は候補の提示であって制限ではない(他の技能も選択できる)。
+ * @param {Actor} actor
+ * @param {Array<string>} [sceneSkillKeys] シーン行の指定技能(識別キー)
  * @returns {Promise<?{skillId: string, ghost: boolean}>}
  */
-async function promptAppearanceOptions(actor) {
+async function promptAppearanceOptions(actor, sceneSkillKeys = []) {
     const skills = actor.items.filter(i => i.type === "generalSkill");
     if (!skills.length) {
         ui.notifications.warn("一般技能を持っていないため登場判定を行えません。");
@@ -69,9 +77,13 @@ async function promptAppearanceOptions(actor) {
     const toOptions = (list) => list
         .map(i => `<option value="${i.id}">${esc(formatSkillName(i.name))}</option>`)
         .join("");
-    const primary = skills.filter(i => isAppearanceSkillKey(i.system.identificationKey));
-    const others  = skills.filter(i => !isAppearanceSkillKey(i.system.identificationKey));
+    const sceneKeys = new Set(sceneSkillKeys ?? []);
+    const scene   = skills.filter(i => sceneKeys.has(i.system.identificationKey));
+    const rest    = skills.filter(i => !sceneKeys.has(i.system.identificationKey));
+    const primary = rest.filter(i => isAppearanceSkillKey(i.system.identificationKey));
+    const others  = rest.filter(i => !isAppearanceSkillKey(i.system.identificationKey));
     const groups = [
+        scene.length   ? `<optgroup label="シーン指定">${toOptions(scene)}</optgroup>` : "",
         primary.length ? `<optgroup label="社会・コネ">${toOptions(primary)}</optgroup>` : "",
         others.length  ? `<optgroup label="その他">${toOptions(others)}</optgroup>` : "",
     ].join("");

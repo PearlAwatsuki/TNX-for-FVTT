@@ -171,6 +171,10 @@ export async function startAct({ sceneId = null } = {}) {
     // 対応するニューロカードを特定し、担当ユーザーの切り札置き場へ。手動配布経路は別途残る
     await _dealTrumpsForCasts(casts);
 
+    // アクトコネクションの配布(14-7): ハンドアウトに D&D 登録された一般技能を actorId の
+    // キャストへコピー付与(コピーに isActLimited を立てる=アクト終了時に自動削除される)
+    await _grantActConnections(handouts);
+
     await setState({ actStarted: true, sceneEnded: false });
     Hooks.callAll(TNX_HOOKS.actStart, { actId: journal.id });
 
@@ -260,6 +264,41 @@ async function _dealTrumpsForCasts(casts) {
     }
 }
 
+/**
+ * アクトコネクション(ハンドアウトに D&D 登録された一般技能)を actorId のキャストへ
+ * コピー付与する(14-7)。コピーには isActLimited を立てる=アクト終了時に自動削除される。
+ * 同じ識別キー(または同名)の技能を既に持つ場合はスキップ(重複付与を避ける)。
+ */
+async function _grantActConnections(handouts) {
+    let granted = 0;
+    for (const handout of handouts) {
+        if (!handout.actorId || !(handout.actConnections ?? []).length) continue;
+        const cast = game.actors.get(handout.actorId);
+        if (cast?.type !== "cast") continue;
+        const creates = [];
+        for (const conn of handout.actConnections) {
+            const doc = await fromUuid(conn.uuid).catch(() => null);
+            if (doc?.type !== "generalSkill") {
+                ui.notifications.warn(`アクトコネクションの参照が解決できません(${handout.title ?? handout.pcName ?? ""})。`);
+                continue;
+            }
+            const key = doc.system.identificationKey ?? "";
+            const exists = cast.items.some(i => i.type === "generalSkill"
+                && (key ? i.system.identificationKey === key : i.name === doc.name));
+            if (exists) continue;
+            const data = doc.toObject();
+            delete data._id;
+            foundry.utils.setProperty(data, "system.isActLimited", true);
+            creates.push(data);
+        }
+        if (creates.length) {
+            await cast.createEmbeddedDocuments("Item", creates);
+            granted += creates.length;
+        }
+    }
+    if (granted > 0) ui.notifications.info(`アクトコネクションを ${granted} 件配布しました(アクト終了時に自動削除)。`);
+}
+
 // ─── シーンのライフサイクル ─────────────────────────────────────────────────
 
 /**
@@ -309,7 +348,11 @@ async function _applySceneEntry({ phase, row }) {
     const scene = normalizeSceneRow(row);
     // 舞台裏はシーン単位(前シーンの状態を持ち越さない)
     await setState({ phase, sceneId: scene.id, sceneEnded: false, backstage: { ...BACKSTAGE_INITIAL } });
-    const playerUserId = scene.isMasterScene ? "" : scene.playerUserId;
+    // ルーラーシーン(GM ユーザー選択 or 旧 isMasterScene)＝**シーンプレイヤーはいない**
+    // (ルーラーはプレイヤーではない・2026-08-08 裁定)→ isScenePlayer は誰にも立てない
+    const playerUser = scene.playerUserId ? game.users.get(scene.playerUserId) : null;
+    const rulerScene = scene.isMasterScene || playerUser?.isGM === true;
+    const playerUserId = (rulerScene || !playerUser) ? "" : scene.playerUserId;
     await _setScenePlayerFlags(playerUserId);
     // シーンプレイヤーのキャラクターは判定なしで登場する(仕様確認ポイント2・承認済み)
     if (playerUserId) {

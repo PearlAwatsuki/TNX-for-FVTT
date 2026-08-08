@@ -36,6 +36,23 @@ describe("appearanceCheckParams()（エリア別 TN と危険値修正・Appeara
     expect(appearanceCheckParams({ area: "white", appearanceModifier: 0 }))
       .toEqual({ blocked: false, targetValue: 12, modifier: 0 });
   });
+
+  it("数値指定モード: TN は指定値・危険値係数はエリアに従う（14-7）", () => {
+    expect(appearanceCheckParams({ area: "white", appearanceModifier: -2, mode: "fixed", fixedValue: 15 }))
+      .toEqual({ blocked: false, targetValue: 15, modifier: -4 });
+    expect(appearanceCheckParams({ area: "", appearanceModifier: -2, mode: "fixed", fixedValue: 9 }))
+      .toEqual({ blocked: false, targetValue: 9, modifier: 0 });
+  });
+
+  it("登場不可モード: シーンプレイヤー以外登場できない（14-7）", () => {
+    expect(appearanceCheckParams({ area: "red", mode: "none" }))
+      .toEqual({ blocked: true, targetValue: null, modifier: 0 });
+  });
+
+  it("数値指定でもサンクチュアリの登場不可装備チェックは生きる", () => {
+    expect(appearanceCheckParams({ area: "sanctuary", mode: "fixed", fixedValue: 15, hasNegativeDangerItem: true }))
+      .toEqual({ blocked: true, targetValue: 15, modifier: 0 });
+  });
 });
 
 describe("hasNegativeDangerOutfit()（サンクチュアリの装備チェック＝合計でなく個別）", () => {

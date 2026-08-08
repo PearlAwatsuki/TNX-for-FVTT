@@ -25,11 +25,15 @@
     <section class="sheet-body">
         <div class="tab scenario-info" data-group="primary" data-tab="scenario-info">
             <div class="scenario-info-container">
+                <div class="act-name-section">
+                    <label>アクト名</label>
+                    <input type="text" name="documentName" value="{{documentName}}" placeholder="アクトの名前"/>
+                </div>
                 <div class="trailer-section">
                     <div class="tnx-section-header">
                         <h3>トレーラー</h3>
                     </div>
-                    <textarea name="trailer" class="trailer-textarea" rows="8" placeholder="シナリオのトレーラーをここに入力...">{{trailer}}</textarea>
+                    <prose-mirror name="trailer" toggled>{{{trailer}}}</prose-mirror>
                 </div>
                 <div class="handouts-section">
                     <div class="tnx-section-header">
@@ -72,11 +76,21 @@
                                 <label>ハンドアウト内容</label>
                             </div>
                             <div class="handout-row handout-row--content-area">
-                                <textarea name="content" rows="6" placeholder="ハンドアウトの内容を入力...">{{handout.content}}</textarea>
+                                <prose-mirror name="content" toggled>{{{handout.content}}}</prose-mirror>
                             </div>
                             <div class="handout-row handout-row--ps">
                                 <label>PS</label>
                                 <input type="text" name="ps" value="{{handout.ps}}" placeholder="このハンドアウトの目的などを記載...">
+                            </div>
+                            <div class="handout-row handout-row--connections">
+                                <label>アクトコネクション</label>
+                                <div class="handout-conn-drop tnx-import-box--dropzone" data-handout-id="{{handout.id}}">
+                                    {{#each handout.actConnectionChips as |chip|}}
+                                        <span class="tnx-chip">{{chip.name}}<a class="tnx-chip-remove" data-action="removeActConnection" data-uuid="{{chip.uuid}}" title="登録を外す"><i class="fas fa-times"></i></a></span>
+                                    {{else}}
+                                        <span class="handout-conn-hint">一般技能をドロップ</span>
+                                    {{/each}}
+                                </div>
                             </div>
                         </div>
                         {{/each}}
@@ -99,7 +113,6 @@
                             <div class="header-cell scene-player">シーンプレイヤー</div>
                             <div class="header-cell scene-area">エリア</div>
                             <div class="header-cell scene-stage">舞台</div>
-                            <div class="header-cell master-scene">MS</div>
                             <div class="header-cell scene-controls">
                                 <button type="button" class="tnx-ring-btn" data-action="addScene" data-phase="{{phaseKey}}" title="このフェイズにシーンを追加">
                                     <i class="fas fa-plus"></i>
@@ -152,17 +165,52 @@
                                                 {{/if}}
                                             </select>
                                         </div>
-                                        <div class="table-cell master-scene">
-                                            <input type="checkbox" name="isMasterScene" {{checked scene.isMasterScene}}/>
-                                        </div>
                                         <div class="table-cell scene-controls">
                                             <a class="tnx-icon-ctrl" data-action="deleteScene" title="このシーンを削除"><i class="fas fa-trash"></i></a>
                                         </div>
                                     </div>
                                     <details class="scene-details-row">
-                                        <summary>切り替えメッセージ</summary>
-                                        <div class="message-preview">
-                                            <textarea name="switchMessage" rows="3" placeholder="シーン切り替え時にチャットに投稿されるメッセージを入力...">{{scene.switchMessage}}</textarea>
+                                        <summary>詳細設定</summary>
+                                        <div class="scene-details-body">
+                                            <div class="scene-detail-field">
+                                                <label>切り替えメッセージ</label>
+                                                <prose-mirror name="switchMessage" toggled>{{{scene.switchMessage}}}</prose-mirror>
+                                            </div>
+                                            <div class="scene-detail-field scene-appearance-row">
+                                                <label>登場判定</label>
+                                                <select name="appearanceMode">
+                                                    <option value="area" {{#if (eq scene.appearanceMode "area")}}selected{{/if}}>エリア準拠</option>
+                                                    <option value="fixed" {{#if (eq scene.appearanceMode "fixed")}}selected{{/if}}>数値指定</option>
+                                                    <option value="none" {{#if (eq scene.appearanceMode "none")}}selected{{/if}}>登場：不可</option>
+                                                </select>
+                                                {{#if (eq scene.appearanceMode "fixed")}}
+                                                    <div class="number-input-spinner">
+                                                        <button type="button" class="tnx-btn" data-action="sceneSpinDown" aria-label="減少">-</button>
+                                                        <input type="number" name="appearanceValue" value="{{scene.appearanceValue}}" min="0"/>
+                                                        <button type="button" class="tnx-btn" data-action="sceneSpinUp" aria-label="増加">+</button>
+                                                    </div>
+                                                {{/if}}
+                                            </div>
+                                            <div class="scene-detail-field scene-appearance-skills">
+                                                <label>指定技能</label>
+                                                <div class="scene-skill-chips">
+                                                    {{#each scene.appearanceSkillChips as |chip|}}
+                                                        <span class="tnx-chip">{{chip.name}}<a class="tnx-chip-remove" data-action="removeAppearanceSkill" data-key="{{chip.key}}" title="指定を外す"><i class="fas fa-times"></i></a></span>
+                                                    {{/each}}
+                                                </div>
+                                                <div class="scene-skill-add">
+                                                    <select data-no-save class="appearance-skill-select">
+                                                        {{#each @root.skillGroupsPlain as |group|}}
+                                                            <optgroup label="{{group.label}}">
+                                                                {{#each group.skills as |skill|}}
+                                                                    <option value="{{skill.identificationKey}}">{{skill.name}}</option>
+                                                                {{/each}}
+                                                            </optgroup>
+                                                        {{/each}}
+                                                    </select>
+                                                    <a class="tnx-icon-ctrl" data-action="addAppearanceSkill" title="指定技能に加える"><i class="fas fa-plus"></i></a>
+                                                </div>
+                                            </div>
                                         </div>
                                     </details>
                                 </div>
@@ -192,7 +240,7 @@
                                 </div>
                             </div>
                             <div class="text-item-body">
-                                <textarea name="content" rows="5" placeholder="チャットに送信するテキストを入力...">{{textItem.content}}</textarea>
+                                <prose-mirror name="content" toggled>{{{textItem.content}}}</prose-mirror>
                             </div>
                         </div>
                     {{else}}
@@ -248,7 +296,19 @@
                                             <div class="skill-check-list">
                                                 {{#each contentItem.skills as |skillItem|}}
                                                 <div class="skill-check-row" data-skill-id="{{skillItem.id}}">
+                                                    <select name="identificationKey" class="skill-key" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}">
+                                                        <option value="">その他（自由記述）</option>
+                                                        {{#each @root.skillGroupsPlain as |group|}}
+                                                            <optgroup label="{{group.label}}">
+                                                                {{#each group.skills as |skill|}}
+                                                                    <option value="{{skill.identificationKey}}" {{#if (eq skill.identificationKey skillItem.identificationKey)}}selected{{/if}}>{{skill.name}}</option>
+                                                                {{/each}}
+                                                            </optgroup>
+                                                        {{/each}}
+                                                    </select>
+                                                    {{#unless skillItem.identificationKey}}
                                                     <input type="text" name="name" class="skill-name" placeholder="技能名" value="{{skillItem.name}}" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}">
+                                                    {{/unless}}
                                                     <span class="tn-label">目標値:</span>
                                                     <input type="number" name="tn" class="skill-tn" placeholder="-" value="{{skillItem.tn}}" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}">
                                                     <a class="tnx-ring-btn" data-action="deleteSkillCheck" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}" title="この技能を削除"><i class="fas fa-times"></i></a>
@@ -256,7 +316,7 @@
                                                 {{/each}}
                                             </div>
                                         </div>
-                                        <textarea name="text" rows="4" placeholder="情報の内容（プレイヤーに公開されるテキスト）を入力..." data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}">{{contentItem.text}}</textarea>
+                                        <prose-mirror name="text" toggled data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}">{{{contentItem.text}}}</prose-mirror>
                                     {{/each}}
                                 </div>
                             </div>

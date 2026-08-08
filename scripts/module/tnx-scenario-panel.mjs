@@ -24,7 +24,9 @@ import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import {
     SCENE_AREA_OPTIONS, PHASE_ORDER, normalizeSceneRow, normalizeHandoutRow, nextSceneRow,
     buildSceneSwitchMessage, buildTrailerMessage, buildHandoutMessage, buildInfoMessage,
+    withResolvedInfoSkillNames,
 } from "./session-logic.mjs";
+import { loadGeneralSkillNameByKey } from "./skill-dictionary.mjs";
 import { TnxActionHandler } from "./tnx-action-handler.mjs";
 import { applyStageRef } from "./subscenes.mjs";
 
@@ -102,13 +104,15 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         const current = getCurrentSceneRow();
         if (st.actStarted && current) {
             const row = current.row;
-            const playerLabel = (row.playerUserId ? game.users.get(row.playerUserId)?.name : null) ?? row.player;
+            // ルーラーシーン=シーンプレイヤー不在(2026-08-08 裁定)。「ルーラーシーン」とだけ表示する
+            const playerUser = row.playerUserId ? game.users.get(row.playerUserId) : null;
+            const rulerScene = row.isMasterScene || playerUser?.isGM === true;
             context.scene = {
                 number: row.number || "??",
                 name: row.name || "無題のシーン",
                 areaLabel: SCENE_AREA_OPTIONS.find(o => o.value === row.area && o.value !== "")?.label ?? "",
-                playerLabel,
-                isMasterScene: row.isMasterScene,
+                rulerScene,
+                playerLabel: rulerScene ? "" : (playerUser?.name ?? row.player),
             };
         }
 
@@ -206,16 +210,20 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         context.texts = (journal.getFlag(SCOPE, "scenarioTexts") ?? []).map(t => ({
             id: t.id, title: t.title || "テキスト",
         }));
-        context.infoItems = (journal.getFlag(SCOPE, "infoItems") ?? []).map(item => ({
-            id: item.id,
-            title: item.title || "情報",
-            isPublic: item.isPublic === true,
-            contents: (item.contents ?? []).map(c => ({
-                id: c.id,
-                isDisclosed: c.isDisclosed === true,
-                label: infoContentLabel(c),
-            })),
-        }));
+        // 技能行の識別キーは辞典逆引きの現在名で表示する(14-7・生キー/空欄を出さない)
+        const skillNameByKey = await loadGeneralSkillNameByKey();
+        context.infoItems = (journal.getFlag(SCOPE, "infoItems") ?? [])
+            .map(item => withResolvedInfoSkillNames(item, skillNameByKey))
+            .map(item => ({
+                id: item.id,
+                title: item.title || "情報",
+                isPublic: item.isPublic === true,
+                contents: (item.contents ?? []).map(c => ({
+                    id: c.id,
+                    isDisclosed: c.isDisclosed === true,
+                    label: infoContentLabel(c),
+                })),
+            }));
 
         return context;
     }
@@ -233,8 +241,10 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         if (!current) return;
         const row = current.row;
         await applyStageRef(row.stage);
-        const playerLabel = (row.playerUserId ? game.users.get(row.playerUserId)?.name : null) ?? row.player;
-        await ChatMessage.create({ content: buildSceneSwitchMessage(row, { playerLabel }) });
+        const playerUser = row.playerUserId ? game.users.get(row.playerUserId) : null;
+        const rulerScene = row.isMasterScene || playerUser?.isGM === true;
+        const playerLabel = rulerScene ? "" : (playerUser?.name ?? row.player);
+        await ChatMessage.create({ content: buildSceneSwitchMessage(row, { playerLabel, rulerScene }) });
         await TnxActionHandler.drawNeuroCard();
     }
 
@@ -354,7 +364,8 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         const journal = getActiveActJournal();
         const item = (journal?.getFlag(SCOPE, "infoItems") ?? []).find(i => i.id === target.dataset.id);
         if (!item) return;
-        const { html, mode } = buildInfoMessage(item);
+        const { html, mode } = buildInfoMessage(
+            withResolvedInfoSkillNames(item, await loadGeneralSkillNameByKey()));
         if (!mode) return void ui.notifications.warn("送信できる技能・目標値がありません。");
         await ChatMessage.create({ content: html });
         ui.notifications.info(mode === "disclosed"

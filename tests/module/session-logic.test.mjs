@@ -28,6 +28,8 @@ import {
   buildTrailerMessage,
   buildHandoutMessage,
   buildInfoMessage,
+  resolveInfoSkillName,
+  withResolvedInfoSkillNames,
 } from "../../scripts/module/session-logic.mjs";
 import { TNX_HOOKS } from "../../scripts/module/combat-events.mjs";
 
@@ -48,6 +50,7 @@ describe("normalizeSceneRow()（シーン行の正規化・14-2）", () => {
       id: "s1", number: 3, name: "旧シーン", player: "旧キャスト名",
       isMasterScene: true, switchMessage: "▼",
       area: "", stage: "", playerUserId: "",
+      appearanceMode: "area", appearanceValue: null, appearanceSkills: [],
     });
   });
 
@@ -427,10 +430,15 @@ describe("buildSceneSwitchMessage()（シーン切替の見出しチャット・
     expect(html).toBe("<h2>SCENE 3 : 追跡</h2><p><strong>シーンプレイヤー:</strong> アキラ</p><hr>▼ RESEARCH");
   });
 
-  it("マスターシーンは「マスターシーン」表示（プレイヤーラベルより優先）", () => {
-    const html = buildSceneSwitchMessage({ number: 1, name: "OP", isMasterScene: true }, { playerLabel: "誰か" });
-    expect(html).toContain("<p>マスターシーン</p>");
+  it("ルーラーシーンは「ルーラーシーン」とだけ表示（シーンプレイヤーはいない・14-7）", () => {
+    const html = buildSceneSwitchMessage({ number: 1, name: "OP" }, { playerLabel: "誰か", rulerScene: true });
+    expect(html).toContain("<p>ルーラーシーン</p>");
     expect(html).not.toContain("シーンプレイヤー");
+  });
+
+  it("旧データの isMasterScene もルーラーシーンとして表示（読み替え）", () => {
+    const html = buildSceneSwitchMessage({ number: 1, name: "OP", isMasterScene: true }, {});
+    expect(html).toContain("<p>ルーラーシーン</p>");
   });
 
   it("番号なし=??・名前なし=無題のシーン・詳細/メッセージなしは見出しのみ", () => {
@@ -499,6 +507,32 @@ describe("buildInfoMessage()（情報項目送信・14-3）", () => {
   it("送れる中身が無ければ mode=null", () => {
     const { mode } = buildInfoMessage({ title: "空", contents: [{ isDisclosed: false, text: "", skills: [{ name: "", tn: null }] }] });
     expect(mode).toBeNull();
+  });
+});
+
+describe("resolveInfoSkillName() / withResolvedInfoSkillNames()（情報技能の表示解決・14-7）", () => {
+  const NAMES = new Map([["society:street", "社会：ストリート†"]]);
+
+  it("識別キー行は辞典逆引きの現在名を〈〉囲い・識別マーク省去で返す", () => {
+    expect(resolveInfoSkillName({ identificationKey: "society:street", name: "" }, NAMES))
+      .toBe("〈社会：ストリート〉");
+  });
+
+  it("自由記述行（キー空）は入力名をそのまま返す", () => {
+    expect(resolveInfoSkillName({ identificationKey: "", name: "〈コネ：赤羽〉" }, NAMES))
+      .toBe("〈コネ：赤羽〉");
+  });
+
+  it("辞典から消えたキーは残っている name をフォールバックにする（生キーは出さない）", () => {
+    expect(resolveInfoSkillName({ identificationKey: "gone:key", name: "旧名" }, NAMES)).toBe("旧名");
+    expect(resolveInfoSkillName({ identificationKey: "gone:key" }, NAMES)).toBe("");
+  });
+
+  it("withResolvedInfoSkillNames は複製に解決名を埋め、元データを書き換えない", () => {
+    const item = { title: "T", contents: [{ skills: [{ identificationKey: "society:street", name: "", tn: 10 }] }] };
+    const resolved = withResolvedInfoSkillNames(item, NAMES);
+    expect(resolved.contents[0].skills[0].name).toBe("〈社会：ストリート〉");
+    expect(item.contents[0].skills[0].name).toBe("");
   });
 });
 

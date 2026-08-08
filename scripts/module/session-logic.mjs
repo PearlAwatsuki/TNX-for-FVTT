@@ -10,6 +10,7 @@
  */
 
 import { TNX_HOOKS } from "./combat-events.mjs";
+import { formatSkillName } from "./identification.mjs";
 
 /** メインアクトのフェイズ順(台本の走査順・シーン開始時の phase stamp に使う)。 */
 export const PHASE_ORDER = Object.freeze(["opening", "research", "climax", "ending"]);
@@ -48,6 +49,11 @@ export function normalizeSceneRow(row) {
         area:          r.area          ?? "",
         stage:         r.stage         ?? "",
         playerUserId:  r.playerUserId  ?? "",
+        // 登場設定(14-7): area=エリア準拠(既定)/fixed=数値指定/none=登場不可。
+        // appearanceSkills=シーン指定の使用技能(識別キー・複数可・候補の提示であって制限しない)
+        appearanceMode:   r.appearanceMode   ?? "area",
+        appearanceValue:  r.appearanceValue  ?? null,
+        appearanceSkills: Array.isArray(r.appearanceSkills) ? r.appearanceSkills : [],
     };
 }
 
@@ -58,7 +64,13 @@ export function normalizeSceneRow(row) {
  */
 export function normalizeHandoutRow(row) {
     const r = row ?? {};
-    return { ...r, actorId: r.actorId ?? "" };
+    return {
+        ...r,
+        actorId: r.actorId ?? "",
+        // アクトコネクション(14-7): D&D で登録した一般技能の UUID 参照。アクト開始時に
+        // actorId のキャストへコピー付与(isActLimited)され、アクト終了時に自動削除される
+        actConnections: Array.isArray(r.actConnections) ? r.actConnections : [],
+    };
 }
 
 /**
@@ -241,14 +253,17 @@ export function isBackstageFinished(backstage, queue) {
 
 /**
  * シーン切替の見出しチャットを組む(旧アクトシート「切替」ボタンの書式を踏襲)。
+ * ルーラーシーン(14-7)=シーンプレイヤーはいない(ルーラーはプレイヤーではない)ため
+ * 「ルーラーシーン」と**だけ**表示する(「シーンプレイヤー: なし」等にしない・2026-08-08 裁定)。
+ * 旧データの isMasterScene もルーラーシーンとして読み替える。
  * @param {object} scene シーン行(正規化済みでなくても可)
- * @param {{playerLabel?: string}} [opts] シーンプレイヤーの表示名(ライブ解決済み)
+ * @param {{playerLabel?: string, rulerScene?: boolean}} [opts]
  * @returns {string} HTML
  */
-export function buildSceneSwitchMessage(scene, { playerLabel = "" } = {}) {
+export function buildSceneSwitchMessage(scene, { playerLabel = "", rulerScene = false } = {}) {
     const s = scene ?? {};
     const title = `<h2>SCENE ${s.number || "??"} : ${s.name || "無題のシーン"}</h2>`;
-    const details = s.isMasterScene ? "<p>マスターシーン</p>"
+    const details = (rulerScene || s.isMasterScene) ? "<p>ルーラーシーン</p>"
         : playerLabel ? `<p><strong>シーンプレイヤー:</strong> ${playerLabel}</p>` : "";
     const custom = s.switchMessage ? `<hr>${s.switchMessage}` : "";
     return title + details + custom;
@@ -318,6 +333,37 @@ export function buildInfoMessage(item) {
     }
     const { html, added } = buildBody(contents);
     return added ? { html: head + html, mode: "targets" } : { html: null, mode: null };
+}
+
+/**
+ * 情報項目の技能行の表示名を解決する(14-7)。識別キー行は辞典逆引きの現在名を〈〉囲いで
+ * (生キーは表示しない)、自由記述行は入力名をそのまま返す。辞典から消えたキーは残っている
+ * name をフォールバックにする(それも無ければ空=表示から落ちる)。
+ * @param {{identificationKey?:string, name?:string}} skill 技能行
+ * @param {Map<string,string>} nameByKey 識別キー→辞典名
+ * @returns {string}
+ */
+export function resolveInfoSkillName(skill, nameByKey) {
+    if (!skill?.identificationKey) return skill?.name ?? "";
+    const dictName = nameByKey?.get(skill.identificationKey);
+    return dictName ? formatSkillName(dictName) : (skill.name ?? "");
+}
+
+/**
+ * 情報項目の技能行の name を解決済み表示名で埋めた複製を返す(buildInfoMessage・一覧ラベルの
+ * 前処理)。元データは書き換えない(正本の name はユーザー入力のまま)。
+ * @param {object} item 情報項目
+ * @param {Map<string,string>} nameByKey 識別キー→辞典名
+ * @returns {object}
+ */
+export function withResolvedInfoSkillNames(item, nameByKey) {
+    return {
+        ...item,
+        contents: (item?.contents ?? []).map(c => ({
+            ...c,
+            skills: (c.skills ?? []).map(s => ({ ...s, name: resolveInfoSkillName(s, nameByKey) })),
+        })),
+    };
 }
 
 // ─── アクト開始の検査・自動配布(14-7) ───────────────────────────────────────

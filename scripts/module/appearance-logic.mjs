@@ -24,17 +24,26 @@ export const AREA_APPEARANCE = Object.freeze({
 
 /**
  * 登場判定のパラメータ(目標値・達成値修正・登場不可)を算出する。
- * @param {{area: string, appearanceModifier?: number, hasNegativeDangerItem?: boolean}} args
+ * シーン行の登場設定(14-7): mode="area"(既定=エリアの固定 TN)/"fixed"(数値指定=TN はその値・
+ * 危険値係数はエリアに従う)/"none"(登場不可=シーンプレイヤー以外登場できない)。
+ * サンクチュアリの装備チェックはモードに関わらず生きる。
+ * @param {{area: string, appearanceModifier?: number, hasNegativeDangerItem?: boolean,
+ *          mode?: ("area"|"fixed"|"none"), fixedValue?: ?number}} args
  * @returns {{blocked: boolean, targetValue: ?number, modifier: number}}
  */
-export function appearanceCheckParams({ area, appearanceModifier = 0, hasNegativeDangerItem = false }) {
+export function appearanceCheckParams({
+    area, appearanceModifier = 0, hasNegativeDangerItem = false, mode = "area", fixedValue = null,
+}) {
+    if (mode === "none") return { blocked: true, targetValue: null, modifier: 0 };
     const def = AREA_APPEARANCE[area] ?? null;
-    if (!def) return { blocked: false, targetValue: null, modifier: 0 };
+    const targetValue = mode === "fixed"
+        ? (Number.isFinite(Number(fixedValue)) ? Number(fixedValue) : null)
+        : (def?.tn ?? null);
     if (area === "sanctuary" && hasNegativeDangerItem) {
-        return { blocked: true, targetValue: def.tn, modifier: 0 };
+        return { blocked: true, targetValue, modifier: 0 };
     }
-    const modifier = (Number(appearanceModifier) || 0) * def.dangerFactor;
-    return { blocked: false, targetValue: def.tn, modifier: modifier || 0 };
+    const modifier = (Number(appearanceModifier) || 0) * (def?.dangerFactor ?? 0);
+    return { blocked: false, targetValue, modifier: modifier || 0 };
 }
 
 /**

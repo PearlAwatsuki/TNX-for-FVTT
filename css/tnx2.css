@@ -4864,7 +4864,7 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .scene-table-header {
     display: grid;
-    grid-template-columns: 36px 3fr 2fr 1.6fr 2fr 40px 32px;
+    grid-template-columns: 36px 3fr 2fr 1.6fr 2fr 32px;
     gap: 6px;
     align-items: center;
     padding: 0 8px 8px 12px;
@@ -4874,7 +4874,6 @@ body.tnx-bottom-hud-expanded #hotbar {
 }
 
 .scene-table-header .header-cell.scene-number,
-.scene-table-header .header-cell.master-scene,
 .scene-table-header .header-cell.scene-controls { text-align: center; }
 
 .scene-table-body { display: flex; flex-direction: column; gap: 5px; margin-top: 5px; }
@@ -4892,7 +4891,7 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .scene-main-row {
     display: grid;
-    grid-template-columns: 36px 3fr 2fr 1.6fr 2fr 40px 32px;
+    grid-template-columns: 36px 3fr 2fr 1.6fr 2fr 32px;
     gap: 6px;
     align-items: center;
     padding: 8px;
@@ -4909,12 +4908,95 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .table-cell select:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.table-cell.scene-number, .table-cell.master-scene,
+.table-cell.scene-number,
 .table-cell.scene-controls {
     display: flex;
     justify-content: center;
     align-items: center;
 }
+
+/* 14-7: シーン行の詳細設定(切替メッセージ・登場設定・指定技能) */
+.scene-details-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+}
+
+.scene-detail-field > label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.scene-appearance-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.scene-appearance-row > label { margin-bottom: 0; }
+
+.scene-appearance-row select { flex: 0 0 auto; }
+
+.scene-appearance-row .number-input-spinner input[type="number"] { width: 48px; }
+
+.scene-skill-chips {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+}
+
+.scene-skill-add {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.scene-skill-add select { flex: 1 1 auto; min-width: 0; }
+
+/* 汎用チップ(識別キー参照の登録表示・×で解除) */
+.tnx-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 0 8px;
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: 10px;
+    background: var(--tnx2-bg-2);
+    white-space: nowrap;
+}
+
+.tnx-chip .tnx-chip-remove { opacity: 0.6; }
+
+.tnx-chip .tnx-chip-remove:hover { opacity: 1; }
+
+/* 14-7: アクト名編集欄・アクトコネクションのドロップエリア */
+.scenario-sheet .act-name-section {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.scenario-sheet .act-name-section label { font-weight: 700; flex: 0 0 auto; }
+
+.scenario-sheet .act-name-section input { flex: 1 1 auto; min-width: 0; }
+
+.scenario-sheet .handout-row--connections { align-items: flex-start; gap: 8px; }
+
+.scenario-sheet .handout-conn-drop {
+    flex: 1 1 auto;
+    min-height: 30px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    padding: 4px 6px;
+}
+
+.scenario-sheet .handout-conn-hint { opacity: 0.6; }
 
 .scene-details-row { border-top: 1px dashed transparent; }
 .scene-details-row[open] { border-top-color: var(--tnx2-border-subtle); }

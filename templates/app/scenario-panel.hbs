@@ -14,7 +14,7 @@
                 <div class="scp-scene-meta">
                     {{#if scene.areaLabel}}<span class="scp-meta-item">エリア: {{scene.areaLabel}}</span>{{/if}}
                     <span class="scp-meta-item">
-                        {{#if scene.isMasterScene}}マスターシーン{{else if scene.playerLabel}}シーンプレイヤー: {{scene.playerLabel}}{{/if}}
+                        {{#if scene.rulerScene}}ルーラーシーン{{else if scene.playerLabel}}シーンプレイヤー: {{scene.playerLabel}}{{/if}}
                     </span>
                 </div>
             {{/if}}

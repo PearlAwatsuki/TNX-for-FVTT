@@ -341,6 +341,16 @@ export function groupGeneralSkillEntries(entries) {
 }
 
 /**
+ * 一般技能辞典の「識別キー→現在名」逆引き Map を返す(14-7)。識別キー参照の表示解決
+ * (シーン指定技能チップ・情報項目の技能行など)に共用する。
+ * @returns {Promise<Map<string,string>>}
+ */
+export async function loadGeneralSkillNameByKey() {
+  const general = await loadSkillEntries(SKILL_PACKS.general);
+  return new Map(general.map(e => [e.identificationKey, e.name]));
+}
+
+/**
  * 複数辞典をまとめて `{key: name}` の選択肢オブジェクトにする(先頭に "" → "-")。
  * selectOptions ヘルパーにそのまま渡せる。
  * @param {string[]} packNames compendium 完全名の配列
