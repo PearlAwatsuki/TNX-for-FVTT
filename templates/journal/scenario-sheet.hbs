@@ -194,9 +194,9 @@
                                                 </select>
                                                 {{#if (eq scene.appearanceMode "fixed")}}
                                                     <div class="number-input-spinner">
-                                                        <button type="button" class="tnx-btn" data-action="sceneSpinDown" aria-label="減少">-</button>
+                                                        <button type="button" class="tnx-btn" data-action="spinDown" aria-label="減少">-</button>
                                                         <input type="number" name="appearanceValue" value="{{scene.appearanceValue}}" min="0"/>
-                                                        <button type="button" class="tnx-btn" data-action="sceneSpinUp" aria-label="増加">+</button>
+                                                        <button type="button" class="tnx-btn" data-action="spinUp" aria-label="増加">+</button>
                                                     </div>
                                                 {{/if}}
                                             </div>
@@ -303,41 +303,45 @@
                                                     <a class="tnx-icon-ctrl" data-action="deleteInfoContent" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" title="この情報内容を削除"><i class="fas fa-trash"></i></a>
                                                 </div>
                                             </div>
-                                        </div>
-                                        <div class="skill-checks-area">
-                                            <div class="tnx-item-header">
-                                                <h5>使用技能</h5>
-                                                <a class="tnx-ring-btn" data-action="addSkillCheck" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" title="使用技能を追加"><i class="fas fa-plus"></i></a>
-                                            </div>
-                                            <div class="skill-check-list">
-                                                {{#each contentItem.skills as |skillItem|}}
-                                                <div class="skill-check-row" data-skill-id="{{skillItem.id}}">
-                                                    <select name="identificationKey" class="skill-key" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}">
-                                                        <option value="">その他（自由記述）</option>
-                                                        {{#each @root.skillGroupsPlain as |group|}}
-                                                            <optgroup label="{{group.label}}">
-                                                                {{#each group.skills as |skill|}}
-                                                                    <option value="{{skill.identificationKey}}" {{#if (eq skill.identificationKey skillItem.identificationKey)}}selected{{/if}}>{{skill.name}}</option>
-                                                                {{/each}}
-                                                            </optgroup>
-                                                        {{/each}}
-                                                    </select>
-                                                    {{#unless skillItem.identificationKey}}
-                                                    <input type="text" name="name" class="skill-name" placeholder="技能名" value="{{skillItem.name}}" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}">
-                                                    {{/unless}}
-                                                    <span class="tn-label">目標値:</span>
-                                                    <input type="number" name="tn" class="skill-tn" placeholder="-" value="{{skillItem.tn}}" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}">
-                                                    <a class="tnx-ring-btn" data-action="deleteSkillCheck" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}" title="この技能を削除"><i class="fas fa-times"></i></a>
+                                            <div class="skill-checks-area">
+                                                <div class="tnx-item-header">
+                                                    <h5>使用技能</h5>
+                                                    <a class="tnx-ring-btn" data-action="addSkillCheck" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" title="使用技能を追加"><i class="fas fa-plus"></i></a>
                                                 </div>
-                                                {{/each}}
+                                                <div class="skill-check-list">
+                                                    {{#each contentItem.skills as |skillItem|}}
+                                                    <div class="skill-check-row" data-skill-id="{{skillItem.id}}">
+                                                        <select name="identificationKey" class="skill-key" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}">
+                                                            <option value="">その他（自由記述）</option>
+                                                            {{#each @root.skillGroupsPlain as |group|}}
+                                                                <optgroup label="{{group.label}}">
+                                                                    {{#each group.skills as |skill|}}
+                                                                        <option value="{{skill.identificationKey}}" {{#if (eq skill.identificationKey skillItem.identificationKey)}}selected{{/if}}>{{skill.name}}</option>
+                                                                    {{/each}}
+                                                                </optgroup>
+                                                            {{/each}}
+                                                        </select>
+                                                        {{#unless skillItem.identificationKey}}
+                                                        <input type="text" name="name" class="skill-name" placeholder="技能名" value="{{skillItem.name}}" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}">
+                                                        {{/unless}}
+                                                        <span class="tn-label">目標値:</span>
+                                                        <div class="number-input-spinner">
+                                                            <button type="button" class="tnx-btn" data-action="spinDown" aria-label="減少">−</button>
+                                                            <input type="number" name="tn" class="skill-tn" placeholder="-" value="{{skillItem.tn}}" min="0" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}">
+                                                            <button type="button" class="tnx-btn" data-action="spinUp" aria-label="増加">＋</button>
+                                                        </div>
+                                                        <a class="tnx-ring-btn" data-action="deleteSkillCheck" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}" title="この技能を削除"><i class="fas fa-times"></i></a>
+                                                    </div>
+                                                    {{/each}}
+                                                </div>
                                             </div>
-                                        </div>
-                                        <div class="tnx-editor-section">
-                                            <div class="tnx-editor-section__header">
-                                                <label>本文</label>
-                                            </div>
-                                            <div class="tnx-editor-section__content">
-                                                <prose-mirror name="text" value="{{contentItem.text}}" toggled data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}">{{{contentItem.text}}}</prose-mirror>
+                                            <div class="tnx-editor-section">
+                                                <div class="tnx-editor-section__header">
+                                                    <label>本文</label>
+                                                </div>
+                                                <div class="tnx-editor-section__content">
+                                                    <prose-mirror name="text" value="{{contentItem.text}}" toggled data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}">{{{contentItem.text}}}</prose-mirror>
+                                                </div>
                                             </div>
                                         </div>
                                     {{/each}}
@@ -404,10 +408,10 @@
                                 <div class="form-group">
                                     <label>目標値</label>
                                     <div class="number-input-spinner">
-                                        <button type="button" class="tnx-btn" data-action="presetSpinDown" aria-label="減少">−</button>
+                                        <button type="button" class="tnx-btn" data-action="spinDown" aria-label="減少">−</button>
                                         <input type="number" name="targetValue" value="{{this.targetValue}}" min="0" max="99"
                                                data-preset-kind="checkRequests" data-preset-id="{{this.id}}">
-                                        <button type="button" class="tnx-btn" data-action="presetSpinUp" aria-label="増加">＋</button>
+                                        <button type="button" class="tnx-btn" data-action="spinUp" aria-label="増加">＋</button>
                                     </div>
                                 </div>
                                 <div class="form-group">
@@ -453,10 +457,10 @@
                                 <div class="form-group">
                                     <label>点数</label>
                                     <div class="number-input-spinner">
-                                        <button type="button" class="tnx-btn" data-action="presetSpinDown" aria-label="減少">−</button>
+                                        <button type="button" class="tnx-btn" data-action="spinDown" aria-label="減少">−</button>
                                         <input type="number" name="amount" value="{{this.amount}}" min="-99" max="99"
                                                data-preset-kind="bountyGrants" data-preset-id="{{this.id}}">
-                                        <button type="button" class="tnx-btn" data-action="presetSpinUp" aria-label="増加">＋</button>
+                                        <button type="button" class="tnx-btn" data-action="spinUp" aria-label="増加">＋</button>
                                     </div>
                                 </div>
                                 <div class="form-group">
@@ -521,10 +525,10 @@
                                             {{/each}}
                                         </select>
                                         <div class="number-input-spinner">
-                                            <button type="button" class="tnx-btn" data-action="presetSpinDown" aria-label="減少">−</button>
+                                            <button type="button" class="tnx-btn" data-action="spinDown" aria-label="減少">−</button>
                                             <input type="number" name="value" value="{{this.value}}" min="0" max="99"
                                                    data-preset-kind="damageGrants" data-preset-id="{{this.id}}">
-                                            <button type="button" class="tnx-btn" data-action="presetSpinUp" aria-label="増加">＋</button>
+                                            <button type="button" class="tnx-btn" data-action="spinUp" aria-label="増加">＋</button>
                                         </div>
                                     </div>
                                 </div>

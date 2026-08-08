@@ -21,6 +21,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
     static DEFAULT_OPTIONS = {
         classes: ["tokyo-nova", "sheet", "journal", "scenario", "two-column-layout"],
         position: { width: 800, height: 700 },
+        window: { resizable: true },
         actions: {
             addScene:          TnxScenarioSheet._onAddScene,
             deleteScene:       TnxScenarioSheet._onDeleteScene,
@@ -35,8 +36,6 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             addHandout:        TnxScenarioSheet._onAddHandout,
             deleteHandout:     TnxScenarioSheet._onDeleteHandout,
             removeActConnection:   TnxScenarioSheet._onRemoveActConnection,
-            sceneSpinUp:           TnxScenarioSheet._onSceneSpin,
-            sceneSpinDown:         TnxScenarioSheet._onSceneSpin,
             addAppearanceSkill:    TnxScenarioSheet._onAddAppearanceSkill,
             removeAppearanceSkill: TnxScenarioSheet._onRemoveAppearanceSkill,
             addCheckRequestPreset: TnxScenarioSheet._onAddCheckRequestPreset,
@@ -47,8 +46,8 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             deletePreset:          TnxScenarioSheet._onDeletePreset,
             presetUp:              TnxScenarioSheet._onPresetUp,
             presetDown:            TnxScenarioSheet._onPresetDown,
-            presetSpinUp:          TnxScenarioSheet._onPresetSpin,
-            presetSpinDown:        TnxScenarioSheet._onPresetSpin,
+            spinUp:                TnxScenarioSheet._onSpin,
+            spinDown:              TnxScenarioSheet._onSpin,
         },
     };
 
@@ -327,11 +326,11 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
     // ─── シーンの登場設定・アクトコネクション(14-7) ───────────────────────────
 
-    /** 登場目標値(数値指定)のスピナー。 */
-    static _onSceneSpin(_event, target) {
+    /** number-input-spinner の ±(シート内共通。変更は各 change リスナーが保存する)。 */
+    static _onSpin(_event, target) {
         const input = target.closest(".number-input-spinner")?.querySelector("input[type=number]");
         if (!input) return;
-        if (target.dataset.action === "sceneSpinUp") input.stepUp();
+        if (target.dataset.action === "spinUp") input.stepUp();
         else input.stepDown();
         input.dispatchEvent(new Event("change", { bubbles: true }));
     }
@@ -599,15 +598,6 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         if (i < 0 || !rows[j]) return;
         [rows[i], rows[j]] = [rows[j], rows[i]];
         await this.document.setFlag("tokyo-nova-axleration", presetKind, rows);
-    }
-
-    /** number-input-spinner の ± (変更は change リスナーが保存する)。 */
-    static _onPresetSpin(_event, target) {
-        const input = target.closest(".number-input-spinner")?.querySelector("input[type=number]");
-        if (!input) return;
-        if (target.dataset.action === "presetSpinUp") input.stepUp();
-        else input.stepDown();
-        input.dispatchEvent(new Event("change", { bubbles: true }));
     }
 
     /** プリセットの入力欄の変更を保存する。 */

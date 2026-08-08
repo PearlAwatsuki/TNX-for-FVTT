@@ -4873,6 +4873,13 @@ body.tnx-bottom-hud-expanded #hotbar {
     border-bottom: 1px solid var(--tnx2-border-active);
 }
 
+/* 列幅が詰まっても見出しを折り返さない(「シーンプレイヤー」の2行化防止) */
+.scene-table-header .header-cell {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .scene-table-header .header-cell.scene-number,
 .scene-table-header .header-cell.scene-controls { text-align: center; }
 
@@ -4935,9 +4942,15 @@ body.tnx-bottom-hud-expanded #hotbar {
     gap: 8px;
 }
 
-.scene-appearance-row > label { margin-bottom: 0; }
+/* コアの select { width: 100% } が行を占拠しラベルを1文字ずつ折り返させるため、
+   ラベルは折り返し禁止・セレクトは内容幅で置く */
+.scene-appearance-row > label {
+    margin-bottom: 0;
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
 
-.scene-appearance-row select { flex: 0 0 auto; }
+.scene-appearance-row select { flex: 0 0 auto; width: auto; }
 
 .scene-appearance-row .number-input-spinner input[type="number"] { width: 48px; }
 
@@ -5084,19 +5097,27 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .skill-checks-area .tnx-item-header { margin-bottom: 8px; }
 
-.skill-checks-area .tnx-item-header h5 { margin: 0; font-weight: bold; }
+/* コアの h5 { font-size: 20px } を上書きし、行内の小見出しスケールに揃える */
+.skill-checks-area .tnx-item-header h5 {
+    margin: 0;
+    font-size: 0.9em;
+    font-weight: 600;
+    color: var(--tnx2-text-primary);
+}
 
 .skill-check-list { display: flex; flex-direction: column; gap: 5px; }
 
 .skill-check-row { display: flex; align-items: center; gap: 8px; }
 
+.skill-check-row .skill-key { flex: 1 1 auto; min-width: 0; }
+
 .skill-check-row .skill-name { flex: 1; }
 
-.skill-check-row .skill-tn { width: 60px; text-align: center; }
+.skill-check-row .skill-tn { width: 48px; text-align: center; }
 
 .skill-check-row input { padding: 4px 6px; }
 
-.tn-label { font-size: 0.9em; color: var(--tnx2-text-muted); }
+.tn-label { font-size: 0.9em; color: var(--tnx2-text-muted); white-space: nowrap; }
 
 .add-content-button-wrapper {
     padding: 12px;
