@@ -124,7 +124,8 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         // チーム(全員向け・宣言はいつでも可=読み込みがあれば表示)。PL=自分のキャラクターの
         // 参加/離脱・RL=編成(メンバー追加/除去・改名・解散)。どちらも一括登場/退場を押せる
         const appearingIds = new Set(appearing.map(a => a.id));
-        const worldCasts = game.actors.filter(a => a.type === "cast");
+        // 編成候補=キャスト+ゲスト(チームにはゲストも入れられる・2026-08-08 ユーザー裁定)
+        const teamCandidates = game.actors.filter(a => a.type === "cast" || a.type === "guest");
         context.teams = (journal ? st.teams : []).map(team => {
             const memberIds = team.memberActorIds ?? [];
             const members = memberIds
@@ -138,7 +139,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
                 name: team.name || "チーム",
                 members,
                 addCandidates: game.user.isGM
-                    ? worldCasts.filter(a => !memberIds.includes(a.id)).map(a => ({ id: a.id, name: a.name }))
+                    ? teamCandidates.filter(a => !memberIds.includes(a.id)).map(a => ({ id: a.id, name: a.name }))
                     : [],
                 canJoin:   !!myCharacter && !isMember,
                 canLeave:  isMember,
