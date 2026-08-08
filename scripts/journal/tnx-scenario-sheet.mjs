@@ -172,10 +172,13 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
     // ─── レンダリング ─────────────────────────────────────────────────────────
 
-    /** @override — 再描画前にスクロール位置を保存する(プリセット操作でスクロールが飛ぶのを防ぐ)。 */
+    /** @override — 再描画前にスクロール位置と詳細設定の開閉状態を保存する(全再描画方式のため DOM 状態が飛ぶ)。 */
     async _preRender(context, options) {
         await super._preRender?.(context, options);
         this._scrollTop = captureScrollTop(this.element, ".sheet-body");
+        this._openSceneDetails = [...(this.element?.querySelectorAll(".scene-item details[open]") ?? [])]
+            .map(d => d.closest(".scene-item")?.dataset.sceneId)
+            .filter(Boolean);
     }
 
     _onRender(_context, _options) {
@@ -192,6 +195,11 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         }
         for (const [group, tab] of Object.entries(this.tabGroups)) {
             if (tab) this.changeTab(tab, group, { force: true });
+        }
+        // 詳細設定の開閉を復元してからスクロールを戻す(開閉で内容高さが変わるため順序が要る)
+        for (const sceneId of this._openSceneDetails ?? []) {
+            this.element.querySelector(`.scene-item[data-scene-id="${sceneId}"] details`)
+                ?.setAttribute("open", "");
         }
         // 再描画でスクロールが飛ぶのを防ぐ(RL プリセットの入力操作等)
         restoreScrollTop(this.element, ".sheet-body", this._scrollTop);
