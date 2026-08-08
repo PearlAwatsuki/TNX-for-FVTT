@@ -19,8 +19,9 @@ import {
     normalizeSceneRow, normalizeHandoutRow, findSceneRow, firstSceneRow,
     buildPreActInit, planSceneSwitchEvents, planActEndEvents,
     teamCreate, teamJoin, teamLeave, teamDelete, teamOf, teamHasAppearing,
+    hasBackstage, backstageQueue, nextBackstageSpot, isBackstageFinished,
 } from "./session-logic.mjs";
-import { setAppearing, clearAllAppearing, listAppearingActors } from "./appearance-state.mjs";
+import { setAppearing, clearAllAppearing, listAppearingActors, isAppearing } from "./appearance-state.mjs";
 import { getUserFlagData, saveIsScenePlayer } from "./user-flag-schema.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
@@ -34,7 +35,13 @@ const DEFAULTS = Object.freeze({
     sceneEnded:  false, // 現行シーンの終了境界(tnxSceneEnd)を発火済みか(13 案1)
     sceneCardId: "",    // 現在のシーンカード(シーンカード置き場内の Card id)
     teams:       [],    // [{id, name, memberActorIds: []}]。アクト終了でクリア
+    // 舞台裏(14-6・シーンの終了処理の一部・リサーチシーンのみ)。「シーンを閉じる」で open、
+    // 回しきる(started かつスポット解除)まで「次のシーンへ」を出さない。シーン単位でリセット
+    backstage:   { open: false, started: false, spotActorId: "", extraActorIds: [] },
 });
+
+/** 舞台裏の初期状態(シーン単位・入場時にリセットする)。 */
+const BACKSTAGE_INITIAL = Object.freeze({ open: false, started: false, spotActorId: "", extraActorIds: [] });
 
 /** ワールド設定の登録(init で呼ぶ)。 */
 export function registerSessionStateSetting() {
@@ -212,7 +219,8 @@ export async function endSceneFromCombat() {
 /** シーンに入る(状態更新・シーンプレイヤー指定・自動登場)。イベント発火は呼び元。 */
 async function _applySceneEntry({ phase, row }) {
     const scene = normalizeSceneRow(row);
-    await setState({ phase, sceneId: scene.id, sceneEnded: false });
+    // 舞台裏はシーン単位(前シーンの状態を持ち越さない)
+    await setState({ phase, sceneId: scene.id, sceneEnded: false, backstage: { ...BACKSTAGE_INITIAL } });
     const playerUserId = scene.isMasterScene ? "" : scene.playerUserId;
     await _setScenePlayerFlags(playerUserId);
     // シーンプレイヤーのキャラクターは判定なしで登場する(仕様確認ポイント2・承認済み)
@@ -235,6 +243,77 @@ async function _setScenePlayerFlags(userId) {
         const next = user.id === userId;
         if (current !== next) await saveIsScenePlayer(user, next);
     }
+}
+
+// ─── 舞台裏(14-6・シーンの終了処理の一部) ───────────────────────────────────
+
+/** 舞台裏の状態。 */
+export function getBackstage() {
+    return { ...BACKSTAGE_INITIAL, ...(getSessionState().backstage ?? {}) };
+}
+
+async function setBackstage(patch) {
+    await setState({ backstage: { ...getBackstage(), ...patch } });
+}
+
+/** 舞台裏で回す相手の列(非登場キャスト＋RL の手動追加)。表示・巡回で共用する。 */
+export function buildBackstageQueue() {
+    const extra = getBackstage().extraActorIds ?? [];
+    const candidates = game.actors
+        .filter(a => a.type === "cast" || extra.includes(a.id))
+        .map(a => ({ id: a.id, name: a.name, appearing: isAppearing(a) }));
+    return backstageQueue(candidates, extra);
+}
+
+/** 現在のシーンで舞台裏を行うか(リサーチのみ)。 */
+export function currentSceneHasBackstage() {
+    const st = getSessionState();
+    return st.actStarted && hasBackstage(st.phase);
+}
+
+/**
+ * 舞台裏を回しきったか＝「次のシーンへ」を出してよいか。
+ * 舞台裏を持たないシーン(リサーチ以外)は制約なし＝常に true。
+ */
+export function canAdvanceScene() {
+    if (!currentSceneHasBackstage()) return true;
+    return isBackstageFinished(getBackstage(), buildBackstageQueue());
+}
+
+/** 「シーンを閉じる」＝シーンの終了処理に入り、舞台裏を開く(リサーチのみ)。 */
+export async function closeSceneToBackstage() {
+    if (!assertGM()) return;
+    const st = getSessionState();
+    if (!st.actStarted || !st.sceneId) return;
+    if (!hasBackstage(st.phase)) return void ui.notifications.warn("舞台裏があるのはリサーチのシーンだけです。");
+    await setBackstage({ open: true, started: false, spotActorId: "" });
+}
+
+/** 舞台裏を回す＝次のスポットへ。末尾まで送ると回しきり(スポット解除)。 */
+export async function advanceBackstageSpot() {
+    if (!assertGM()) return;
+    const bs = getBackstage();
+    if (!bs.open) return;
+    const next = nextBackstageSpot(buildBackstageQueue(), bs.spotActorId);
+    await setBackstage({ started: true, spotActorId: next ?? "" });
+}
+
+/** RL が任意のキャラクターを舞台裏の列へ加える(登場中でも入る)。 */
+export async function addBackstageActor(actorId) {
+    if (!assertGM() || !actorId) return;
+    const extra = getBackstage().extraActorIds ?? [];
+    if (extra.includes(actorId)) return;
+    await setBackstage({ extraActorIds: [...extra, actorId] });
+}
+
+/** 手動追加を取り消す(非登場者=自動列挙分は列から外せない)。 */
+export async function removeBackstageActor(actorId) {
+    if (!assertGM()) return;
+    const bs = getBackstage();
+    await setBackstage({
+        extraActorIds: (bs.extraActorIds ?? []).filter(id => id !== actorId),
+        spotActorId: bs.spotActorId === actorId ? "" : bs.spotActorId,
+    });
 }
 
 // ─── 現在のシーンカード ─────────────────────────────────────────────────────

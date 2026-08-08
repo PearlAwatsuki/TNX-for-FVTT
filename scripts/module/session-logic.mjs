@@ -182,6 +182,61 @@ export function planActEndEvents({ sceneId, sceneEnded, actId }) {
     return events;
 }
 
+// ─── 舞台裏(14-6) ───────────────────────────────────────────────────────────
+// 舞台裏はシーンの**終了処理の一部**(クリンナップ・プロセス相当)。「シーンを閉じる」で入り、
+// 非登場者を順に回す。**回しきるまで「次のシーンへ」は出さない**(2026-08-08 ユーザー指示)——
+// 舞台裏で何もしないことはできるので、回すこと自体は妨げず、送りの順序だけを守らせる。
+// 舞台裏があるのは**リサーチシーンのみ**。
+
+/** そのフェイズに舞台裏があるか(リサーチのみ・2026-08-08 ユーザー確定)。 */
+export function hasBackstage(phase) {
+    return phase === "research";
+}
+
+/**
+ * 舞台裏で回す相手の列。非登場者(ライブ導出)＋RL が手動で加えた者(登場していても入る＝
+ * 「登場しつつ舞台裏でも判定する」スタイル技能の表現)。並びは名前順で安定。
+ * @param {Array<{id:string, name:string, appearing:boolean}>} actors 候補キャラクター
+ * @param {Array<string>} [extraActorIds] RL の手動追加
+ * @returns {Array<{id:string, name:string, appearing:boolean}>}
+ */
+export function backstageQueue(actors, extraActorIds = []) {
+    const extra = new Set(extraActorIds ?? []);
+    return (actors ?? [])
+        .filter(a => !a.appearing || extra.has(a.id))
+        .sort((a, b) => String(a.name ?? "").localeCompare(String(b.name ?? ""), "ja"));
+}
+
+/**
+ * 舞台裏を回す＝次のスポット。末尾の次は null(回しきり)。スポットが列から外れている
+ * (その間に登場した等)ときは先頭へ戻して頑健にする。
+ * @param {Array<{id:string}>} queue
+ * @param {string} currentId
+ * @returns {?string}
+ */
+export function nextBackstageSpot(queue, currentId) {
+    const list = queue ?? [];
+    if (!list.length) return null;
+    if (!currentId) return list[0].id;
+    const i = list.findIndex(a => a.id === currentId);
+    if (i < 0) return list[0].id;
+    return list[i + 1]?.id ?? null;
+}
+
+/**
+ * 舞台裏を回しきったか(＝「次のシーンへ」を出してよいか)。
+ * 開いていなければ false(まず「シーンを閉じる」)。回す相手が誰もいなければ開いた時点で true。
+ * @param {{open:boolean, spotActorId:string, started?:boolean}} backstage
+ * @param {Array} queue
+ * @returns {boolean}
+ */
+export function isBackstageFinished(backstage, queue) {
+    const bs = backstage ?? {};
+    if (!bs.open) return false;
+    if (!(queue ?? []).length) return true;
+    return !bs.spotActorId && bs.started === true;
+}
+
 // ─── チャット内容の組み立て(14-3・シナリオコントロールパネルとアクトシートで共用) ───
 
 /**

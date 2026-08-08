@@ -134,6 +134,43 @@
     {{#*inline "sceneSection"}}
         <fieldset class="tnx-fieldset">
             <legend>シーン</legend>
+            {{#if canCloseScene}}
+                <button type="button" class="tnx-btn" data-action="closeScene">
+                    <i class="fas fa-door-closed"></i> シーンを閉じる
+                </button>
+            {{/if}}
+            {{#if backstage}}
+                <div class="scp-backstage">
+                    <div class="scp-backstage-head">
+                        <span class="scp-phase-label">舞台裏</span>
+                        {{#if backstage.finished}}
+                            <span class="scp-backstage-state">回しきりました</span>
+                        {{else}}
+                            <button type="button" class="tnx-btn tnx-btn--sm" data-action="backstageNext">
+                                <i class="fas fa-rotate"></i> 舞台裏を回す
+                            </button>
+                        {{/if}}
+                    </div>
+                    {{#each backstage.queue as |member|}}
+                        <div class="scp-backstage-row {{#if member.isSpot}}is-spot{{/if}}">
+                            <span class="scp-backstage-name">{{member.name}}</span>
+                            {{#if member.isExtra}}
+                                <a class="tnx-icon-ctrl" data-action="backstageRemove" data-actor-id="{{member.id}}" title="舞台裏から外す"><i class="fas fa-times"></i></a>
+                            {{/if}}
+                        </div>
+                    {{/each}}
+                    {{#if backstage.addCandidates.length}}
+                        <div class="scp-load-row">
+                            <select name="backstageActorId">
+                                {{#each backstage.addCandidates as |candidate|}}
+                                    <option value="{{candidate.id}}">{{candidate.name}}</option>
+                                {{/each}}
+                            </select>
+                            <a class="tnx-icon-ctrl" data-action="backstageAdd" title="舞台裏に加える"><i class="fas fa-user-plus"></i></a>
+                        </div>
+                    {{/if}}
+                </div>
+            {{/if}}
             {{#if nextScene}}
                 <button type="button" class="tnx-btn" data-action="nextScene">
                     <i class="fas fa-forward"></i> 次のシーンへ（{{nextScene.name}}）

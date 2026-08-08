@@ -16,6 +16,8 @@ import {
     getSessionState, getActiveActJournal, getCurrentSceneRow, getCurrentSceneCard,
     listActJournals, loadAct, startAct, switchScene, endAct,
     createTeam, joinTeam, leaveTeam, deleteTeam, appearTeam, exitTeam, renameTeam,
+    getBackstage, buildBackstageQueue, currentSceneHasBackstage, canAdvanceScene,
+    closeSceneToBackstage, advanceBackstageSpot, addBackstageActor, removeBackstageActor,
 } from "./session-state.mjs";
 import { isAppearing, listAppearingActors } from "./appearance-state.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
@@ -55,6 +57,10 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             endAct:              TnxScenarioPanel._onEndAct,
             switchScene:         TnxScenarioPanel._onSwitchScene,
             nextScene:           TnxScenarioPanel._onNextScene,
+            closeScene:          TnxScenarioPanel._onCloseScene,
+            backstageNext:       TnxScenarioPanel._onBackstageNext,
+            backstageAdd:        TnxScenarioPanel._onBackstageAdd,
+            backstageRemove:     TnxScenarioPanel._onBackstageRemove,
             sendTrailer:         TnxScenarioPanel._onSendTrailer,
             sendHandout:         TnxScenarioPanel._onSendHandout,
             sendText:            TnxScenarioPanel._onSendText,
@@ -158,8 +164,27 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
 
         // シーン一覧(フェイズ別・現在行ハイライト)と「次のシーンへ」(基本操作・台本順で送る)
         const scenes = journal.getFlag(SCOPE, "scenes") ?? {};
+        // 舞台裏(14-6): リサーチシーンでは「シーンを閉じる」→ 舞台裏を回しきるまで
+        // 「次のシーンへ」を出さない(2026-08-08 ユーザー指示)
+        const bs = getBackstage();
+        const bsQueue = buildBackstageQueue();
+        context.canCloseScene = currentSceneHasBackstage() && !bs.open;
+        context.backstage = (st.actStarted && bs.open) ? {
+            queue: bsQueue.map(a => ({
+                ...a,
+                isSpot: a.id === bs.spotActorId,
+                isExtra: (bs.extraActorIds ?? []).includes(a.id),
+            })),
+            spotName: bsQueue.find(a => a.id === bs.spotActorId)?.name ?? "",
+            finished: canAdvanceScene(),
+            addCandidates: game.actors
+                .filter(a => (a.type === "cast" || a.type === "guest")
+                    && !bsQueue.some(q => q.id === a.id))
+                .map(a => ({ id: a.id, name: a.name })),
+        } : null;
+
         const next = st.actStarted ? nextSceneRow(scenes, st.sceneId) : null;
-        context.nextScene = next
+        context.nextScene = (next && canAdvanceScene())
             ? { name: normalizeSceneRow(next.row).name || "無題のシーン" }
             : null;
         context.sceneGroups = PHASE_ORDER.map(phase => ({
@@ -275,6 +300,27 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         if (!confirmed) return;
         await switchScene(next.row.id);
         await TnxScenarioPanel._performSceneEntryEffects();
+    }
+
+    // ─── 舞台裏(14-6・シーンの終了処理の一部) ───────────────────────────────
+
+    /** 「シーンを閉じる」＝シーンの終了処理に入り舞台裏を開く(リサーチのみ)。 */
+    static async _onCloseScene(_event, _target) {
+        await closeSceneToBackstage();
+    }
+
+    /** 舞台裏を回す(次の人へ。末尾まで送ると回しきり＝「次のシーンへ」が出る)。 */
+    static async _onBackstageNext(_event, _target) {
+        await advanceBackstageSpot();
+    }
+
+    static async _onBackstageAdd(_event, target) {
+        const select = target.closest(".scp-backstage")?.querySelector('select[name="backstageActorId"]');
+        if (select?.value) await addBackstageActor(select.value);
+    }
+
+    static async _onBackstageRemove(_event, target) {
+        await removeBackstageActor(target.dataset.actorId);
     }
 
     // ─── 配布・送信(読み込み状態=プレアクトから使用可) ──────────────────────

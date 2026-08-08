@@ -18,6 +18,10 @@ import {
   teamDelete,
   teamOf,
   teamHasAppearing,
+  hasBackstage,
+  backstageQueue,
+  nextBackstageSpot,
+  isBackstageFinished,
   buildSceneSwitchMessage,
   buildTrailerMessage,
   buildHandoutMessage,
@@ -279,6 +283,91 @@ describe("チーム操作（純関数・非破壊）", () => {
     expect(teamHasAppearing(TEAMS, "t2", appearing)).toBe(false);
     expect(teamHasAppearing(TEAMS, "zz", appearing)).toBe(false);
     expect(teamHasAppearing(null, "t1", appearing)).toBe(false);
+  });
+});
+
+describe("hasBackstage()（舞台裏があるのはリサーチシーンのみ・14-6）", () => {
+  it("リサーチだけ true", () => {
+    expect(hasBackstage("research")).toBe(true);
+    expect(hasBackstage("opening")).toBe(false);
+    expect(hasBackstage("climax")).toBe(false);
+    expect(hasBackstage("ending")).toBe(false);
+    expect(hasBackstage("")).toBe(false);
+  });
+});
+
+describe("backstageQueue()（舞台裏で回す相手＝非登場者・14-6）", () => {
+  const ACTORS = [
+    { id: "a", name: "アキラ", appearing: true },
+    { id: "b", name: "ベル",   appearing: false },
+    { id: "c", name: "カイ",   appearing: false },
+  ];
+
+  it("非登場者だけを名前順に並べる", () => {
+    expect(backstageQueue(ACTORS).map(x => x.id)).toEqual(["c", "b"]);   // カイ→ベル
+  });
+
+  it("RL の手動追加は登場中でも列に入る（登場しつつ舞台裏でも判定するスタイル技能）", () => {
+    expect(backstageQueue(ACTORS, ["a"]).map(x => x.id)).toEqual(["a", "c", "b"]);
+  });
+
+  it("手動追加が非登場者と重複しても二重に並べない", () => {
+    expect(backstageQueue(ACTORS, ["b"]).map(x => x.id)).toEqual(["c", "b"]);
+  });
+
+  it("空・null に頑健", () => {
+    expect(backstageQueue([])).toEqual([]);
+    expect(backstageQueue(null)).toEqual([]);
+  });
+});
+
+describe("nextBackstageSpot()（舞台裏を回す）", () => {
+  const QUEUE = [{ id: "x" }, { id: "y" }, { id: "z" }];
+
+  it("スポット未設定なら先頭から始まる", () => {
+    expect(nextBackstageSpot(QUEUE, "")).toBe("x");
+  });
+
+  it("次の人へ送る", () => {
+    expect(nextBackstageSpot(QUEUE, "x")).toBe("y");
+    expect(nextBackstageSpot(QUEUE, "y")).toBe("z");
+  });
+
+  it("末尾の次は null（回しきった）", () => {
+    expect(nextBackstageSpot(QUEUE, "z")).toBeNull();
+  });
+
+  it("列から外れた人（その間に登場した等）がスポットだったら先頭へ戻して頑健にする", () => {
+    expect(nextBackstageSpot(QUEUE, "zz")).toBe("x");
+  });
+
+  it("列が空なら null", () => {
+    expect(nextBackstageSpot([], "x")).toBeNull();
+  });
+});
+
+describe("isBackstageFinished()（回しきったか＝「次のシーンへ」を出せるか・14-6）", () => {
+  const QUEUE = [{ id: "x" }, { id: "y" }];
+
+  it("舞台裏に入る前（未オープン）は「回しきり」ではない", () => {
+    expect(isBackstageFinished({ open: false, spotActorId: "" }, QUEUE)).toBe(false);
+  });
+
+  it("回している途中（スポットがある）は false", () => {
+    expect(isBackstageFinished({ open: true, spotActorId: "x" }, QUEUE)).toBe(false);
+    expect(isBackstageFinished({ open: true, spotActorId: "y" }, QUEUE)).toBe(false);
+  });
+
+  it("開いた直後（まだ誰にも回していない）は false", () => {
+    expect(isBackstageFinished({ open: true, spotActorId: "", started: false }, QUEUE)).toBe(false);
+  });
+
+  it("末尾まで送ってスポットが解けたら true（回しきった）", () => {
+    expect(isBackstageFinished({ open: true, spotActorId: "", started: true }, QUEUE)).toBe(true);
+  });
+
+  it("回す相手が誰もいない場合、開いた時点で回しきり扱い", () => {
+    expect(isBackstageFinished({ open: true, spotActorId: "", started: false }, [])).toBe(true);
   });
 });
 

@@ -9043,6 +9043,49 @@ button.tnx-create-act-button span {
 
 .tnx-scenario-panel .scp-chip.is-appearing { border-color: var(--tnx2-accent); }
 
+/* 舞台裏(14-6): シーンを閉じてから回す・回しきるまで次のシーンへは出ない */
+.tnx-scenario-panel .scp-backstage {
+    margin: 6px 0;
+    padding: 6px;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+}
+
+.tnx-scenario-panel .scp-backstage-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.tnx-scenario-panel .scp-backstage-state {
+    font-size: 0.9em;
+    opacity: 0.8;
+}
+
+.tnx-scenario-panel .scp-backstage-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+.tnx-scenario-panel .scp-backstage-row.is-spot {
+    background: var(--tnx2-bg-hover);
+    font-weight: 700;
+}
+
+.tnx-scenario-panel .scp-backstage-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .tnx-scenario-panel .scp-team { margin-bottom: 6px; }
 
 .tnx-scenario-panel .scp-team-members {
