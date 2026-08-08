@@ -100,8 +100,10 @@
         <p class="scp-empty">アクトが読み込まれていません。</p>
     {{/if}}
 
-    {{#if isGM}}
-        {{!-- アクトの読み込み(開始とは独立・いつでも差し替え可) --}}
+    {{!-- RL 操作層。セクションの順序はアクトの進行段階で変わる(2026-08-08 ユーザー指示):
+          開始後＝シーン・情報を最優先(アクトは終了操作のみなので最後)・配布/送信は非表示。
+          開始前＝アクトの読み込み/開始 → プレアクトの配布・送信 → 情報。 --}}
+    {{#*inline "actSection"}}
         <fieldset class="tnx-fieldset">
             <legend>アクト</legend>
             <div class="scp-load-row">
@@ -127,78 +129,92 @@
                 {{/if}}
             </div>
         </fieldset>
+    {{/inline}}
 
-        {{!-- シーン切替(開始後のみ) --}}
-        {{#if actStarted}}
-            <fieldset class="tnx-fieldset">
-                <legend>シーン</legend>
-                {{#if nextScene}}
-                    <button type="button" class="tnx-btn" data-action="nextScene">
-                        <i class="fas fa-forward"></i> 次のシーンへ（{{nextScene.name}}）
-                    </button>
-                {{/if}}
-                {{#each sceneGroups as |group|}}
-                    {{#if group.rows.length}}
-                        <div class="scp-phase-group">
-                            <div class="scp-phase-label">{{group.phaseLabel}}</div>
-                            {{#each group.rows as |row|}}
-                                <div class="scp-scene-row {{#if row.isCurrent}}is-current{{/if}}">
-                                    <span class="scp-scene-row-name">{{row.number}}. {{row.name}}</span>
-                                    {{#unless row.isCurrent}}
-                                        <a class="tnx-icon-ctrl" data-action="switchScene" data-scene-id="{{row.id}}" title="このシーンへ切り替え"><i class="fas fa-play-circle"></i></a>
-                                    {{/unless}}
-                                </div>
-                            {{/each}}
-                        </div>
-                    {{/if}}
-                {{/each}}
-            </fieldset>
-        {{/if}}
-
-        {{!-- 送信系(読み込みがあれば開始前=プレアクトでも使用可) --}}
-        {{#if loaded}}
-            <fieldset class="tnx-fieldset">
-                <legend>配布・送信</legend>
-                <div class="scp-send-row">
-                    <span class="scp-send-label">トレーラー</span>
-                    <a class="tnx-icon-ctrl" data-action="sendTrailer" title="チャットに送信"><i class="fas fa-paper-plane"></i></a>
-                </div>
-                {{#each handouts as |h|}}
-                    <div class="scp-send-row">
-                        <span class="scp-send-label">{{h.title}}{{#if h.castLabel}}（{{h.castLabel}}）{{/if}}</span>
-                        <a class="tnx-icon-ctrl" data-action="sendHandout" data-id="{{h.id}}" title="チャットに送信"><i class="fas fa-paper-plane"></i></a>
-                    </div>
-                {{/each}}
-                {{#each texts as |t|}}
-                    <div class="scp-send-row">
-                        <span class="scp-send-label">{{t.title}}</span>
-                        <a class="tnx-icon-ctrl" data-action="sendText" data-id="{{t.id}}" title="チャットに送信"><i class="fas fa-paper-plane"></i></a>
-                    </div>
-                {{/each}}
-            </fieldset>
-
-            <fieldset class="tnx-fieldset">
-                <legend>情報</legend>
-                {{#each infoItems as |item|}}
-                    <div class="scp-info-item">
-                        <div class="scp-send-row">
-                            <a class="tnx-icon-ctrl {{#if item.isPublic}}is-on{{/if}}" data-action="toggleInfoPublic" data-id="{{item.id}}" title="{{#if item.isPublic}}公開中{{else}}非公開{{/if}}">
-                                <i class="fas {{#if item.isPublic}}fa-eye{{else}}fa-eye-slash{{/if}}"></i>
-                            </a>
-                            <span class="scp-send-label">{{item.title}}</span>
-                            <a class="tnx-icon-ctrl" data-action="sendInfo" data-id="{{item.id}}" title="チャットに送信"><i class="fas fa-paper-plane"></i></a>
-                        </div>
-                        {{#each item.contents as |content|}}
-                            <div class="scp-info-content">
-                                <a class="tnx-icon-ctrl {{#if content.isDisclosed}}is-on{{/if}}" data-action="toggleInfoDisclosed" data-id="{{item.id}}" data-content-id="{{content.id}}" title="{{#if content.isDisclosed}}開示済み{{else}}未開示{{/if}}">
-                                    <i class="fas {{#if content.isDisclosed}}fa-check-square{{else}}fa-square{{/if}}"></i>
-                                </a>
-                                <span class="scp-info-content-label">{{content.label}}</span>
+    {{#*inline "sceneSection"}}
+        <fieldset class="tnx-fieldset">
+            <legend>シーン</legend>
+            {{#if nextScene}}
+                <button type="button" class="tnx-btn" data-action="nextScene">
+                    <i class="fas fa-forward"></i> 次のシーンへ（{{nextScene.name}}）
+                </button>
+            {{/if}}
+            {{#each sceneGroups as |group|}}
+                {{#if group.rows.length}}
+                    <div class="scp-phase-group">
+                        <div class="scp-phase-label">{{group.phaseLabel}}</div>
+                        {{#each group.rows as |row|}}
+                            <div class="scp-scene-row {{#if row.isCurrent}}is-current{{/if}}">
+                                <span class="scp-scene-row-name">{{row.number}}. {{row.name}}</span>
+                                {{#unless row.isCurrent}}
+                                    <a class="tnx-icon-ctrl" data-action="switchScene" data-scene-id="{{row.id}}" title="このシーンへ切り替え"><i class="fas fa-play-circle"></i></a>
+                                {{/unless}}
                             </div>
                         {{/each}}
                     </div>
-                {{/each}}
-            </fieldset>
+                {{/if}}
+            {{/each}}
+        </fieldset>
+    {{/inline}}
+
+    {{#*inline "sendSection"}}
+        <fieldset class="tnx-fieldset">
+            <legend>配布・送信</legend>
+            <div class="scp-send-row">
+                <span class="scp-send-label">トレーラー</span>
+                <a class="tnx-icon-ctrl" data-action="sendTrailer" title="チャットに送信"><i class="fas fa-paper-plane"></i></a>
+            </div>
+            {{#each handouts as |h|}}
+                <div class="scp-send-row">
+                    <span class="scp-send-label">{{h.title}}{{#if h.castLabel}}（{{h.castLabel}}）{{/if}}</span>
+                    <a class="tnx-icon-ctrl" data-action="sendHandout" data-id="{{h.id}}" title="チャットに送信"><i class="fas fa-paper-plane"></i></a>
+                </div>
+            {{/each}}
+            {{#each texts as |t|}}
+                <div class="scp-send-row">
+                    <span class="scp-send-label">{{t.title}}</span>
+                    <a class="tnx-icon-ctrl" data-action="sendText" data-id="{{t.id}}" title="チャットに送信"><i class="fas fa-paper-plane"></i></a>
+                </div>
+            {{/each}}
+        </fieldset>
+    {{/inline}}
+
+    {{#*inline "infoSection"}}
+        <fieldset class="tnx-fieldset">
+            <legend>情報</legend>
+            {{#each infoItems as |item|}}
+                <div class="scp-info-item">
+                    <div class="scp-send-row">
+                        <a class="tnx-icon-ctrl {{#if item.isPublic}}is-on{{/if}}" data-action="toggleInfoPublic" data-id="{{item.id}}" title="{{#if item.isPublic}}公開中{{else}}非公開{{/if}}">
+                            <i class="fas {{#if item.isPublic}}fa-eye{{else}}fa-eye-slash{{/if}}"></i>
+                        </a>
+                        <span class="scp-send-label">{{item.title}}</span>
+                        <a class="tnx-icon-ctrl" data-action="sendInfo" data-id="{{item.id}}" title="チャットに送信"><i class="fas fa-paper-plane"></i></a>
+                    </div>
+                    {{#each item.contents as |content|}}
+                        <div class="scp-info-content">
+                            <a class="tnx-icon-ctrl {{#if content.isDisclosed}}is-on{{/if}}" data-action="toggleInfoDisclosed" data-id="{{item.id}}" data-content-id="{{content.id}}" title="{{#if content.isDisclosed}}開示済み{{else}}未開示{{/if}}">
+                                <i class="fas {{#if content.isDisclosed}}fa-check-square{{else}}fa-square{{/if}}"></i>
+                            </a>
+                            <span class="scp-info-content-label">{{content.label}}</span>
+                        </div>
+                    {{/each}}
+                </div>
+            {{/each}}
+        </fieldset>
+    {{/inline}}
+
+    {{#if isGM}}
+        {{#if actStarted}}
+            {{> sceneSection}}
+            {{> infoSection}}
+            {{> actSection}}
+        {{else}}
+            {{> actSection}}
+            {{#if loaded}}
+                {{> sendSection}}
+                {{> infoSection}}
+            {{/if}}
         {{/if}}
     {{/if}}
 </section>
