@@ -121,6 +121,16 @@
     display: none;
 }
 
+/* ヘッダーのコントロール群は常に右寄せ。
+   Foundry 既定では flex:1 の .window-title が余白を吸ってコントロールを右へ押し出すが、
+   シートはそのタイトルを非表示にする(本文に名前を出す方針)ため、余白を吸う要素が無いと
+   コントロールが左端に張り付く。編集モードトグルの margin-right:auto に依存すると、
+   トグルが出ない場合(権限なし・閲覧のみ)に左寄せへ崩れるので、ヘッダー側で右寄せを既定にする。
+   タイトルを再表示するシート(アクト・FS判定)は flex:1 のタイトルが余白を吸うため影響しない */
+.tokyo-nova.sheet .window-header {
+    justify-content: flex-end;
+}
+
 /* ヘッダーボタン */
 .tokyo-nova.sheet .window-header .header-button,
 .tokyo-nova.dialog .window-header .header-button {
