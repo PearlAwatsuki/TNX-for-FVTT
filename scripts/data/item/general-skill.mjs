@@ -40,6 +40,10 @@ export class GeneralSkillDataModel extends SystemDataModel.mixin(
       }),
       identificationKey: new fields.StringField({ initial: "" }),
       usesBounty: new fields.BooleanField({ initial: false }),
+      // アクト限定(フェーズ14-7・2026-08-08 ユーザー裁定)。アクトコネクション等、そのアクト
+      // 限りの技能の印。アクト終了時に自動削除される(session-state.endAct)。アクトコネクション
+      // 専用の名前を避けた汎用名(他のアクト限定要素にも流用できる)
+      isActLimited: new fields.BooleanField({ initial: false }),
     };
   }
 }

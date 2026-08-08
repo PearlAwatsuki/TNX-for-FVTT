@@ -22,6 +22,8 @@ import {
   backstageQueue,
   nextBackstageSpot,
   isBackstageFinished,
+  findDuplicateKeys,
+  matchTrumpCard,
   buildSceneSwitchMessage,
   buildTrailerMessage,
   buildHandoutMessage,
@@ -368,6 +370,51 @@ describe("isBackstageFinished()（回しきったか＝「次のシーンへ」�
 
   it("回す相手が誰もいない場合、開いた時点で回しきり扱い", () => {
     expect(isBackstageFinished({ open: true, spotActorId: "", started: false }, [])).toBe(true);
+  });
+});
+
+describe("findDuplicateKeys()（キー被りチェック・14-7＝アクト開始をブロック）", () => {
+  it("同じキーのスタイルを持つキャストを検出する", () => {
+    expect(findDuplicateKeys([
+      { name: "アキラ", keys: ["kabuki"] },
+      { name: "ベル",   keys: ["kabuki", "kaze"] },
+      { name: "カイ",   keys: ["vasara"] },
+    ])).toEqual([{ key: "kabuki", names: ["アキラ", "ベル"] }]);
+  });
+
+  it("重複がなければ空配列", () => {
+    expect(findDuplicateKeys([
+      { name: "A", keys: ["kabuki"] },
+      { name: "B", keys: ["vasara"] },
+    ])).toEqual([]);
+  });
+
+  it("同一キャスト内の複数キーは重複と数えない・空キーは無視", () => {
+    expect(findDuplicateKeys([
+      { name: "A", keys: ["kabuki", "kabuki", ""] },
+      { name: "B", keys: [] },
+    ])).toEqual([]);
+    expect(findDuplicateKeys(null)).toEqual([]);
+  });
+});
+
+describe("matchTrumpCard()（キースタイル識別キー⇔ニューロカード画像ファイル名の照合・14-7）", () => {
+  const CARDS = [
+    { id: "c1", img: "systems/tokyo-nova-axleration/assets/cards/neuro-cards/vasara.png" },
+    { id: "c2", img: "systems/tokyo-nova-axleration/assets/cards/neuro-cards/kabuto-wari.png" },
+    { id: "c3", img: "systems/tokyo-nova-axleration/assets/cards/neuro-cards/kabuto.png" },
+  ];
+
+  it("識別キーと画像ファイル名（拡張子除く）の完全一致で特定する", () => {
+    expect(matchTrumpCard(CARDS, "vasara")).toBe("c1");
+    expect(matchTrumpCard(CARDS, "kabuto")).toBe("c3");       // kabuto-wari に誤爆しない
+    expect(matchTrumpCard(CARDS, "kabuto-wari")).toBe("c2");
+  });
+
+  it("見つからない・空キーは null", () => {
+    expect(matchTrumpCard(CARDS, "ayakashi")).toBeNull();
+    expect(matchTrumpCard(CARDS, "")).toBeNull();
+    expect(matchTrumpCard([], "vasara")).toBeNull();
   });
 });
 

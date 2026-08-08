@@ -91,6 +91,10 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
                 { name: "system.isAction",   label: "アクション技能",   checked: !!system.isAction },
                 { name: "system.usesBounty", label: "報酬点を使用可能", checked: !!system.usesBounty },
             ];
+            if (this.item.type === "generalSkill") {
+                // アクト限定(14-7): アクトコネクション等の印。アクト終了時に自動削除される
+                flags.push({ name: "system.isActLimited", label: "アクト限定", checked: !!system.isActLimited });
+            }
             if (this.item.type === "styleSkill") {
                 flags.push({ name: "system.noCombo", label: "組み合わせ不可", checked: !!system.noCombo });
                 flags.push({ name: "system.uses.isLimit", label: "使用回数に制限あり", checked: !!system.uses?.isLimit, disabled: !!context.usesSharedWithOwner });

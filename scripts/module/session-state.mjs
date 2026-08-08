@@ -20,6 +20,7 @@ import {
     buildPreActInit, planSceneSwitchEvents, planActEndEvents,
     teamCreate, teamJoin, teamLeave, teamDelete, teamOf, teamHasAppearing,
     hasBackstage, backstageQueue, nextBackstageSpot, isBackstageFinished,
+    findDuplicateKeys, matchTrumpCard,
 } from "./session-logic.mjs";
 import { setAppearing, clearAllAppearing, listAppearingActors, isAppearing } from "./appearance-state.mjs";
 import { getUserFlagData, saveIsScenePlayer } from "./user-flag-schema.mjs";
@@ -50,9 +51,11 @@ export function registerSessionStateSetting() {
         config:  false,
         type:    Object,
         default: { ...DEFAULTS },
-        // 状態が変わったら開いているシナリオコントロールパネル(14-3)を全クライアントで再描画する
+        // 状態が変わったら開いているシナリオコントロールパネル(14-3)と HUD(14-7 ステータス
+        // 表示=舞台裏)を全クライアントで再描画する
         onChange: () => {
             foundry.applications.instances.get("tnx-scenario-panel")?.render(false);
+            foundry.applications.instances.get("tnx-hud")?.render(false);
         },
     });
 }
@@ -133,19 +136,40 @@ export async function startAct({ sceneId = null } = {}) {
     if (!journal) { ui.notifications.warn("アクトが読み込まれていません。"); return false; }
     if (st.actStarted) { ui.notifications.warn("アクトは既に開始されています。"); return false; }
 
-    // 自動設定: bountyBase←外界点実効値・bounty←0(清算を兼ねる)・CS=プレアクト初期化と同計算
+    // 参加キャスト=ハンドアウトの actorId(2026-08-08 裁定)
     const handouts = (journal.getFlag(SCOPE, "handouts") ?? []).map(normalizeHandoutRow);
     const actorIds = [...new Set(handouts.map(h => h.actorId).filter(Boolean))];
-    const updates = [];
-    for (const id of actorIds) {
-        const actor = game.actors.get(id);
-        if (actor?.type === "cast") updates.push({ _id: actor.id, ...buildPreActInit(actor.system) });
+    const casts = actorIds.map(id => game.actors.get(id)).filter(a => a?.type === "cast");
+
+    // キー被りチェック(14-7・2026-08-08 裁定): キーはプレアクトに相談してずらすもの→
+    // 重複が残っていたらアクト開始をブロックする
+    const keyEntries = casts.map(cast => ({
+        name: cast.name,
+        keys: cast.items
+            .filter(i => i.type === "style" && i.system.isKey === true)
+            .map(i => i.system.identificationKey ?? ""),
+    }));
+    const duplicates = findDuplicateKeys(keyEntries);
+    if (duplicates.length > 0) {
+        for (const d of duplicates) {
+            const styleName = casts.flatMap(c => c.items.contents ?? c.items)
+                .find(i => i.type === "style" && i.system.identificationKey === d.key)?.name ?? d.key;
+            ui.notifications.error(`キースタイル「${styleName}」が ${d.names.join("・")} で重複しています。キーをずらしてからアクトを開始してください。`);
+        }
+        return false;
     }
+
+    // 自動設定: bountyBase←外界点実効値・bounty←0(清算を兼ねる)・CS=プレアクト初期化と同計算
+    const updates = casts.map(actor => ({ _id: actor.id, ...buildPreActInit(actor.system) }));
     if (updates.length) await Actor.updateDocuments(updates);
     const unassigned = handouts.filter(h => !h.actorId).length;
     if (unassigned > 0) {
         ui.notifications.info(`キャスト未設定のハンドアウトが ${unassigned} 件あります(報酬点・CS の自動設定をスキップ)。`);
     }
+
+    // 切り札の自動配布(14-7・2026-08-08 裁定): キースタイルの識別キー⇔カード画像ファイル名で
+    // 対応するニューロカードを特定し、担当ユーザーの切り札置き場へ。手動配布経路は別途残る
+    await _dealTrumpsForCasts(casts);
 
     await setState({ actStarted: true, sceneEnded: false });
     Hooks.callAll(TNX_HOOKS.actStart, { actId: journal.id });
@@ -169,7 +193,71 @@ export async function endAct() {
     const events = planActEndEvents({ sceneId: st.sceneId, sceneEnded: st.sceneEnded, actId: st.actId });
     if (st.sceneId) await _applySceneExit();
     await game.settings.set(SCOPE, SETTING, { ...DEFAULTS, actId: st.actId });
+    await _deleteActLimitedSkills();
     for (const ev of events) Hooks.callAll(ev.hook, ev.data);
+}
+
+/**
+ * アクト限定(isActLimited)の一般技能を全キャストから自動削除する(14-7・2026-08-08 裁定)。
+ * アクトコネクション等、そのアクト限りの技能の後始末。
+ */
+async function _deleteActLimitedSkills() {
+    let count = 0;
+    for (const actor of game.actors.filter(a => a.type === "cast")) {
+        const ids = actor.items
+            .filter(i => i.type === "generalSkill" && i.system.isActLimited === true)
+            .map(i => i.id);
+        if (!ids.length) continue;
+        await actor.deleteEmbeddedDocuments("Item", ids);
+        count += ids.length;
+    }
+    if (count > 0) ui.notifications.info(`アクト限定の技能 ${count} 件を削除しました。`);
+}
+
+/**
+ * 参加キャストへ切り札を自動配布する(14-7)。キースタイルの識別キーと**カード画像ファイル名
+ * (拡張子除く)の完全一致**で対応カードを特定する(2026-08-08 ユーザー確定=両者は同一。
+ * 画像パスはローカライズ不変・カード名のパースは使わない)。キースタイル未設定/複数・担当
+ * ユーザー不在・カード不在・置き場に既にカードあり、は警告してスキップ(手動配布で対応)。
+ */
+async function _dealTrumpsForCasts(casts) {
+    if (!casts.length) return;
+    const deckUuid = game.settings.get(SCOPE, "neuroDeckId");
+    const neuroDeck = deckUuid ? await fromUuid(deckUuid) : null;
+    if (!neuroDeck) return void ui.notifications.warn("ニューロデッキが設定されていないため、切り札の自動配布をスキップしました。");
+    const deckCards = neuroDeck.cards.contents.map(c => ({
+        id: c.id, img: c.currentFace?.img ?? c.faces?.[0]?.img ?? c.img,
+    }));
+
+    for (const cast of casts) {
+        const keyStyles = cast.items.filter(i => i.type === "style" && i.system.isKey === true);
+        if (keyStyles.length !== 1) {
+            ui.notifications.warn(`${cast.name} のキースタイルが${keyStyles.length === 0 ? "未設定" : "複数"}のため、切り札を自動配布できません。`);
+            continue;
+        }
+        const cardId = matchTrumpCard(deckCards, keyStyles[0].system.identificationKey ?? "");
+        if (!cardId) {
+            ui.notifications.warn(`${cast.name} のキースタイル「${keyStyles[0].name}」に対応する切り札がニューロデッキにありません。`);
+            continue;
+        }
+        const owner = game.users.find(u => u.character?.id === cast.id);
+        if (!owner) {
+            ui.notifications.warn(`${cast.name} の担当ユーザーが見つからないため、切り札を自動配布できません。`);
+            continue;
+        }
+        const trumpPileId = getUserFlagData(owner).trumpCardPileId;
+        const trumpPile = trumpPileId ? await fromUuid(trumpPileId) : null;
+        if (!trumpPile) {
+            ui.notifications.warn(`${owner.name} に切り札置き場が設定されていません。`);
+            continue;
+        }
+        if (trumpPile.cards.size > 0) {
+            ui.notifications.warn(`${owner.name} の切り札置き場には既にカードがあります(自動配布をスキップ)。`);
+            continue;
+        }
+        await neuroDeck.pass(trumpPile, [cardId], { chatNotification: false, updateData: { face: 0 } });
+        ui.notifications.info(`${owner.name} に切り札を配布しました。`);
+    }
 }
 
 // ─── シーンのライフサイクル ─────────────────────────────────────────────────

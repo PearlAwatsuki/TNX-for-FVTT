@@ -95,6 +95,19 @@
     </div>
 
     <div class="hud-container hud-bottom-bar{{#if bottomCollapsed}} collapsed{{/if}}">
+        {{#if statusCards.length}}
+        <div class="status-card-area hud-panel">
+            <span class="card-slot-label">ステータス</span>
+            <div class="access-cards-row">
+                {{#each statusCards as |card|}}
+                    <div class="status-card" title="{{card.label}}">
+                        <img src="{{card.img}}" alt="{{card.label}}">
+                    </div>
+                {{/each}}
+            </div>
+        </div>
+        {{/if}}
+
         {{#if accessCards}}
         <div class="access-area hud-panel{{#if accessCollapsed}} collapsed{{/if}}">
             <div class="access-area-header" data-action="toggleAccessArea" title="アクセスカードの表示を開閉">

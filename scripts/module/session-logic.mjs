@@ -320,6 +320,46 @@ export function buildInfoMessage(item) {
     return added ? { html: head + html, mode: "targets" } : { html: null, mode: null };
 }
 
+// ─── アクト開始の検査・自動配布(14-7) ───────────────────────────────────────
+
+/**
+ * キー被りチェック(2026-08-08 ユーザー裁定=プレアクトに相談してずらすもの→重複があれば
+ * アクト開始をブロック)。キャストごとのキースタイル識別キー集合から、2人以上が共有する
+ * キーを列挙する。同一キャスト内の重複・空キーは数えない。
+ * @param {Array<{name:string, keys:Array<string>}>} entries
+ * @returns {Array<{key:string, names:Array<string>}>}
+ */
+export function findDuplicateKeys(entries) {
+    const byKey = new Map();
+    for (const entry of (entries ?? [])) {
+        for (const key of new Set((entry.keys ?? []).filter(Boolean))) {
+            if (!byKey.has(key)) byKey.set(key, []);
+            byKey.get(key).push(entry.name);
+        }
+    }
+    return [...byKey.entries()]
+        .filter(([, names]) => names.length >= 2)
+        .map(([key, names]) => ({ key, names }));
+}
+
+/**
+ * キースタイルに対応する切り札(ニューロカード)を特定する(14-7・切り札の自動配布)。
+ * **照合キー＝カード画像ファイル名(拡張子除く)＝スタイルの識別キー**(2026-08-08 ユーザー確定・
+ * 完全同一)。画像パスはシステム同梱アセットへの参照でローカライズ不変・既存デッキにも存在する。
+ * カード名のパースは使わない(ローカライズで壊れるため)。
+ * @param {Array<{id:string, img:string}>} cards ニューロデッキのカード({id, 表面画像パス})
+ * @param {string} identificationKey キースタイルの識別キー
+ * @returns {?string} カード id(見つからなければ null)
+ */
+export function matchTrumpCard(cards, identificationKey) {
+    if (!identificationKey) return null;
+    const hit = (cards ?? []).find(c => {
+        const basename = String(c.img ?? "").split("/").pop() ?? "";
+        return basename === `${identificationKey}.png`;
+    });
+    return hit?.id ?? null;
+}
+
 // ─── チーム(sessionState.teams・非破壊操作) ─────────────────────────────────
 // チームを組む宣言はいつでも可(非登場者同士も可)。免除ロジック(同時登場/退場)は 14-5。
 

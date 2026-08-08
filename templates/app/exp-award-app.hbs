@@ -1,0 +1,59 @@
+<section class="tnx-exp-award">
+    <p class="exa-act-name">{{actName}}</p>
+    <div class="exa-table-wrap">
+        <table class="exa-table">
+            <thead>
+                <tr>
+                    <th class="exa-user">プレイヤー</th>
+                    {{#each checkDefs as |def|}}
+                        <th class="exa-check" title="{{def.label}}（{{def.points}}点）">{{def.short}}<span class="exa-points">{{def.points}}</span></th>
+                    {{/each}}
+                    <th class="exa-count" title="上手く神業を使った（1つにつき1点）">神業</th>
+                    <th class="exa-count" title="シーンに登場した（1シーンにつき1点・最大5点）">登場</th>
+                    <th class="exa-total">合計</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each rows as |row|}}
+                    <tr data-user-id="{{row.userId}}">
+                        <td class="exa-user">{{row.userName}}{{#if row.castName}}<span class="exa-cast">{{row.castName}}</span>{{/if}}</td>
+                        {{#each row.checks as |check|}}
+                            <td class="exa-check">
+                                <input type="checkbox" data-user-id="{{row.userId}}" data-check-key="{{check.key}}" {{checked check.value}} />
+                            </td>
+                        {{/each}}
+                        <td class="exa-count">
+                            <div class="number-input-spinner">
+                                <button type="button" class="tnx-btn" data-action="spinDown" aria-label="減少">-</button>
+                                <input type="number" name="miracleCount" data-user-id="{{row.userId}}" value="{{row.miracleCount}}" min="0" />
+                                <button type="button" class="tnx-btn" data-action="spinUp" aria-label="増加">+</button>
+                            </div>
+                        </td>
+                        <td class="exa-count">
+                            <div class="number-input-spinner">
+                                <button type="button" class="tnx-btn" data-action="spinDown" aria-label="減少">-</button>
+                                <input type="number" name="sceneCount" data-user-id="{{row.userId}}" value="{{row.sceneCount}}" min="0" />
+                                <button type="button" class="tnx-btn" data-action="spinUp" aria-label="増加">+</button>
+                            </div>
+                        </td>
+                        <td class="exa-total">{{row.total}}</td>
+                    </tr>
+                {{/each}}
+                <tr class="exa-rl-row">
+                    <td class="exa-user">{{rlName}}（RL）</td>
+                    <td class="exa-check">
+                        <input type="checkbox" data-rl-venue {{checked rlVenue}} />
+                    </td>
+                    <td class="exa-rl-note" colspan="{{rlSpan}}">会場の手配＋min(プレイヤー合計÷3, プレイヤー人数)</td>
+                    <td class="exa-total">{{rlTotal}}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="exa-footer">
+        <button type="button" class="tnx-btn" data-action="cancel">キャンセル</button>
+        <button type="button" class="tnx-btn" data-action="confirm">
+            <i class="fas fa-check"></i> 確定して履歴に記帳
+        </button>
+    </div>
+</section>

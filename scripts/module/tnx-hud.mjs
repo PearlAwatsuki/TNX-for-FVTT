@@ -175,6 +175,27 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
             context.accessCards = accessPile.cards.contents;
         }
 
+        // --- ステータスカード(14-7): 提示式でなく状態からの自動表示。
+        //     シーンプレイヤー/ゴースト/抹殺=本人のみ・舞台裏=開始〜終了の間は全員 ---
+        const statusBase = "systems/tokyo-nova-axleration/assets/cards/access-cards/";
+        const statusCards = [];
+        if (getUserFlagData(game.user).isScenePlayer) {
+            statusCards.push({ img: `${statusBase}scene_player.png`, label: "シーン・プレイヤー" });
+        }
+        const { getBackstage } = await import("./session-state.mjs");
+        if (getBackstage().open) {
+            statusCards.push({ img: `${statusBase}behind_the_scene.png`, label: "舞台裏" });
+        }
+        const myCharacter = game.user.character;
+        if (myCharacter?.system?.isGhost === true) {
+            statusCards.push({ img: `${statusBase}ghost.png`, label: "ゴースト" });
+        }
+        if (myCharacter?.effects?.some(e => !e.disabled
+            && e.flags?.["tokyo-nova-axleration"]?.conditionKind === "erased")) {
+            statusCards.push({ img: `${statusBase}erasure.png`, label: "抹殺" });
+        }
+        context.statusCards = statusCards;
+
         // --- プレイヤー手札（revealPlayerHands が true のときのみ表示）---
         context.showPlayerHands = game.settings.get("tokyo-nova-axleration", "revealPlayerHands");
         if (!context.showPlayerHands) return context;

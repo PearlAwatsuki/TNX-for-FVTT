@@ -272,7 +272,11 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             content: "<p>アクトを終了しますか？(現在のシーンの終了とチームの解散が行われます)</p>",
         });
         if (!confirmed) return;
+        const actName = getActiveActJournal()?.name ?? "";
         await endAct();
+        // ポストアクト: 経験点の半自動配布(14-7)。確定で各ユーザーの履歴へ自動記帳
+        const { TnxExpAwardApp } = await import("./tnx-exp-award-app.mjs");
+        new TnxExpAwardApp({ actName }).render(true);
     }
 
     static async _onSwitchScene(_event, target) {

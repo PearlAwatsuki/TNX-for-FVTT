@@ -3853,6 +3853,25 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     transition: max-width 0.4s ease-in-out, padding-left 0.4s ease-in-out, padding-right 0.4s ease-in-out, opacity 0.4s ease-in-out, margin-right 0.4s ease-in-out;
 }
 
+/* ── ステータスカードエリア(14-7・状態からの自動表示) ── */
+.tnx-hud .status-card-area {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 6px 8px;
+    margin-bottom: 5px;
+}
+
+.tnx-hud .status-card {
+    width: 56px;
+    flex: 0 0 auto;
+}
+
+.tnx-hud .status-card img {
+    display: block;
+    width: 100%;
+    border-radius: 4px;
+}
+
 /* ── アクセスカードエリア ── */
 .tnx-hud .access-area {
     flex-direction: column;
@@ -9160,6 +9179,75 @@ button.tnx-create-act-button span {
 }
 
 .tnx-subscene-panel .ssp-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+/* ============================================================
+   経験点配布アプリ(フェーズ14-7) — アクト終了後の半自動配布
+   ============================================================ */
+
+.tnx-exp-award-app .tnx-exp-award {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+}
+
+.tnx-exp-award .exa-act-name {
+    margin: 0;
+    font-weight: 700;
+}
+
+.tnx-exp-award .exa-table-wrap { overflow-x: auto; }
+
+.tnx-exp-award .exa-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9em;
+}
+
+.tnx-exp-award .exa-table th,
+.tnx-exp-award .exa-table td {
+    padding: 3px 4px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    text-align: center;
+    white-space: nowrap;
+}
+
+.tnx-exp-award .exa-table .exa-user {
+    text-align: left;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tnx-exp-award .exa-cast {
+    display: block;
+    font-size: 0.85em;
+    opacity: 0.75;
+}
+
+.tnx-exp-award .exa-points {
+    display: block;
+    font-size: 0.8em;
+    opacity: 0.7;
+}
+
+.tnx-exp-award .exa-count .number-input-spinner { justify-content: center; }
+
+.tnx-exp-award .exa-count input[type="number"] { width: 42px; }
+
+.tnx-exp-award .exa-total { font-weight: 700; }
+
+.tnx-exp-award .exa-rl-note {
+    font-size: 0.85em;
+    opacity: 0.8;
+    text-align: left;
+}
+
+.tnx-exp-award .exa-footer {
     display: flex;
     justify-content: space-between;
     gap: 6px;

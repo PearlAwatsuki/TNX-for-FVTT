@@ -1774,13 +1774,31 @@ Hooks.once("init", async function() {
         }
     });
 
-    // 登場状態(Actor フラグ)の変化にパネルの「登場中」表示・チームのゲートを追随させる(14-5)
-    Hooks.on("updateActor", (_actor, changes) => {
+    // 登場状態(Actor フラグ)の変化にパネルの「登場中」表示・チームのゲートを追随させる(14-5)。
+    // 担当キャラクターのゴースト切替は HUD のステータス表示(14-7)にも反映する
+    Hooks.on("updateActor", (actor, changes) => {
         const f = changes.flags?.["tokyo-nova-axleration"];
         if (f && ("appearing" in f || "-=appearing" in f)) {
             foundry.applications.instances.get("tnx-scenario-panel")?.render(false);
         }
+        if (changes.system?.isGhost !== undefined && actor.id === game.user.character?.id) {
+            foundry.applications.instances.get("tnx-hud")?.render(false);
+        }
     });
+
+    // HUD のステータス表示(14-7)の追随: シーンプレイヤー(自分の User flag)・抹殺(担当キャラの状態)
+    Hooks.on("updateUser", (user, changes) => {
+        if (user.id === game.user.id && changes.flags?.["tokyo-nova-axleration"]) {
+            foundry.applications.instances.get("tnx-hud")?.render(false);
+        }
+    });
+    for (const hook of ["createActiveEffect", "deleteActiveEffect", "updateActiveEffect"]) {
+        Hooks.on(hook, (effect) => {
+            if (effect.parent?.id && effect.parent.id === game.user.character?.id) {
+                foundry.applications.instances.get("tnx-hud")?.render(false);
+            }
+        });
+    }
 
     // 登場状態 ⇄ アクティブ盤面のトークン表示(hidden)の双方向同期(14-5・activeGM が代行)
     registerAppearanceTokenSync();
