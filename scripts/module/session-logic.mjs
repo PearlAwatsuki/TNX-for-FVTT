@@ -58,6 +58,22 @@ export function normalizeSceneRow(row) {
 }
 
 /**
+ * ハンドアウトの推奨スートの選択肢(キー保存・表示ラベル)。
+ * キーは技能スート等と同じ系(spade/club/heart/diamond)。
+ */
+export const HANDOUT_SUIT_OPTIONS = Object.freeze([
+    { value: "spade",   label: "スペード" },
+    { value: "club",    label: "クラブ" },
+    { value: "heart",   label: "ハート" },
+    { value: "diamond", label: "ダイヤ" },
+]);
+
+/** 推奨スートのキー→表示ラベル(キー以外の旧自由テキストはそのまま返す)。 */
+export function handoutSuitLabel(value) {
+    return HANDOUT_SUIT_OPTIONS.find(o => o.value === value)?.label ?? (value ?? "");
+}
+
+/**
  * ハンドアウト行を正規化する(`actorId`＝キャスト参照の既定値を補う)。
  * アクト開始の自動設定(報酬点・CS)の対象は actorId が設定されたキャストのみ(2026-08-08 裁定)。
  * @param {object|null} row
@@ -67,9 +83,14 @@ export function normalizeHandoutRow(row) {
     return {
         ...r,
         actorId: r.actorId ?? "",
-        // アクトコネクション(14-7): D&D で登録した一般技能の UUID 参照。アクト開始時に
-        // actorId のキャストへコピー付与(isActLimited)され、アクト終了時に自動削除される
-        actConnections: Array.isArray(r.actConnections) ? r.actConnections : [],
+        // コネ＝アクトコネクション(14-7・2026-08-08 裁定で D&D 撤回): 辞典のコネ技能
+        // (識別キー contact プレフィックス)のプルダウンから登録する識別キー配列。指定する
+        // コネ技能は辞典への格納が前提。アクト開始時に actorId のキャストへコピー付与
+        // (isActLimited)され、アクト終了時に自動削除される。初期実装の {uuid} 形式は
+        // 実機確認前に廃止(表示・付与の対象にしない)
+        actConnections: Array.isArray(r.actConnections)
+            ? r.actConnections.filter(c => typeof c === "string")
+            : [],
     };
 }
 
@@ -279,16 +300,20 @@ export function buildTrailerMessage(trailer) {
 }
 
 /**
- * ハンドアウト送信のチャットを組む(推奨欄・PS は空なら省く)。
+ * ハンドアウト送信のチャットを組む(コネ・推奨欄・PS は空なら省く)。
+ * コネはアクトコネクション(識別キー)の解決済み表示名を受け取る(純関数のため名前解決は
+ * 呼び出し側)。無ければ旧自由テキスト `connections` をフォールバック表示する。
  * @param {object} handout
+ * @param {{connectionNames?: string[]}} [options]
  * @returns {string} HTML
  */
-export function buildHandoutMessage(handout) {
+export function buildHandoutMessage(handout, { connectionNames = [] } = {}) {
     const h = handout ?? {};
     let html = `<h3>${h.title} (${h.pcName})</h3>`;
-    if (h.connections)      html += `<p><strong>コネ:</strong> ${h.connections}</p>`;
-    if (h.recommendedSuit)  html += `<p><strong>推奨スート:</strong> ${h.recommendedSuit}</p>`;
-    if (h.recommendedStyle) html += `<p><strong>推奨スタイル:</strong> ${h.recommendedStyle}</p>`;
+    const conns = connectionNames.length ? connectionNames.join("、") : (h.connections || "");
+    if (conns)              html += `<p><strong>コネ:</strong> ${conns}</p>`;
+    if (h.recommendedSuit)  html += `<p><strong>推奨スート:</strong> ${handoutSuitLabel(h.recommendedSuit)}</p>`;
+    if (h.recommendedStyle) html += `<p><strong>スタイル:</strong> ${h.recommendedStyle}</p>`;
     html += `<hr>${h.content}`;
     if (h.ps) html += `<hr><h4>PS</h4><p>${h.ps}</p>`;
     return html;

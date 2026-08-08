@@ -24,6 +24,7 @@ import {
 } from "./session-logic.mjs";
 import { setAppearing, clearAllAppearing, listAppearingActors, isAppearing } from "./appearance-state.mjs";
 import { getUserFlagData, saveIsScenePlayer } from "./user-flag-schema.mjs";
+import { SKILL_PACKS } from "./skill-dictionary.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const SETTING = "sessionState";
@@ -265,26 +266,33 @@ async function _dealTrumpsForCasts(casts) {
 }
 
 /**
- * アクトコネクション(ハンドアウトに D&D 登録された一般技能)を actorId のキャストへ
- * コピー付与する(14-7)。コピーには isActLimited を立てる=アクト終了時に自動削除される。
- * 同じ識別キー(または同名)の技能を既に持つ場合はスキップ(重複付与を避ける)。
+ * コネ(ハンドアウトに登録されたアクトコネクション=辞典コネ技能の識別キー)を actorId の
+ * キャストへコピー付与する(14-7・2026-08-08 裁定で D&D→辞典プルダウンに変更)。指定する
+ * コネ技能は一般技能辞典への格納が前提。コピーには isActLimited を立てる=アクト終了時に
+ * 自動削除される。同じ識別キーの技能を既に持つ場合はスキップ(重複付与を避ける)。
  */
 async function _grantActConnections(handouts) {
     let granted = 0;
+    const pack = game.packs?.get(SKILL_PACKS.general);
+    // 単品は getDocument(キャッシュ優先・KI-026 の孤児化を起こさない)。キー→_id はインデックスで引く
+    const index = pack ? await pack.getIndex({ fields: ["system.identificationKey"] }) : [];
+    const idByKey = new Map([...index]
+        .filter(e => e.system?.identificationKey)
+        .map(e => [e.system.identificationKey, e._id]));
     for (const handout of handouts) {
         if (!handout.actorId || !(handout.actConnections ?? []).length) continue;
         const cast = game.actors.get(handout.actorId);
         if (cast?.type !== "cast") continue;
         const creates = [];
-        for (const conn of handout.actConnections) {
-            const doc = await fromUuid(conn.uuid).catch(() => null);
+        for (const key of handout.actConnections) {
+            const id = idByKey.get(key);
+            const doc = id ? await pack.getDocument(id).catch(() => null) : null;
             if (doc?.type !== "generalSkill") {
-                ui.notifications.warn(`アクトコネクションの参照が解決できません(${handout.title ?? handout.pcName ?? ""})。`);
+                ui.notifications.warn(`コネ技能が辞典に見つかりません(${handout.title ?? handout.pcName ?? ""})。`);
                 continue;
             }
-            const key = doc.system.identificationKey ?? "";
             const exists = cast.items.some(i => i.type === "generalSkill"
-                && (key ? i.system.identificationKey === key : i.name === doc.name));
+                && i.system.identificationKey === key);
             if (exists) continue;
             const data = doc.toObject();
             delete data._id;
@@ -296,7 +304,7 @@ async function _grantActConnections(handouts) {
             granted += creates.length;
         }
     }
-    if (granted > 0) ui.notifications.info(`アクトコネクションを ${granted} 件配布しました(アクト終了時に自動削除)。`);
+    if (granted > 0) ui.notifications.info(`コネを ${granted} 件配布しました(アクト終了時に自動削除)。`);
 }
 
 // ─── シーンのライフサイクル ─────────────────────────────────────────────────

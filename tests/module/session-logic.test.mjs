@@ -79,6 +79,18 @@ describe("normalizeHandoutRow()（ハンドアウト行の正規化・14-2）", 
   it("保存済みの actorId は保つ", () => {
     expect(normalizeHandoutRow({ id: "h2", actorId: "a9" }).actorId).toBe("a9");
   });
+
+  it("actConnections は識別キー文字列のみ通す(旧 {uuid} 形式は除外)", () => {
+    const row = normalizeHandoutRow({
+      id: "h3",
+      actConnections: ["contact_father", { uuid: "Compendium.x.y" }, "contact_boss"],
+    });
+    expect(row.actConnections).toEqual(["contact_father", "contact_boss"]);
+  });
+
+  it("actConnections が配列でなければ空配列", () => {
+    expect(normalizeHandoutRow({ id: "h4", actConnections: "x" }).actConnections).toEqual([]);
+  });
 });
 
 describe("parseStageRef()（舞台参照の複合値・14-2）", () => {
@@ -457,19 +469,29 @@ describe("buildTrailerMessage()（トレーラー送信・14-3）", () => {
   });
 });
 
-describe("buildHandoutMessage()（ハンドアウト送信・14-3）", () => {
-  it("推奨欄・PS を条件付きで含める（既存書式）", () => {
+describe("buildHandoutMessage()（ハンドアウト送信・14-3／コネ統合・スートキー化は 2026-08-08 是正）", () => {
+  it("コネ(解決済み表示名)・スートラベル・スタイル・PS を条件付きで含める", () => {
     const html = buildHandoutMessage({
-      title: "HO1", pcName: "PC1", connections: "父", recommendedSuit: "♠",
+      title: "HO1", pcName: "PC1", recommendedSuit: "spade",
       recommendedStyle: "カブキ", content: "本文", ps: "目的",
-    });
+    }, { connectionNames: ["〈コネ：父〉"] });
     expect(html).toBe(
       "<h3>HO1 (PC1)</h3>"
-      + "<p><strong>コネ:</strong> 父</p>"
-      + "<p><strong>推奨スート:</strong> ♠</p>"
-      + "<p><strong>推奨スタイル:</strong> カブキ</p>"
+      + "<p><strong>コネ:</strong> 〈コネ：父〉</p>"
+      + "<p><strong>推奨スート:</strong> スペード</p>"
+      + "<p><strong>スタイル:</strong> カブキ</p>"
       + "<hr>本文<hr><h4>PS</h4><p>目的</p>",
     );
+  });
+
+  it("コネ表示名が無ければ旧自由テキスト connections をフォールバック表示する", () => {
+    const html = buildHandoutMessage({ title: "HO1", pcName: "PC1", connections: "父", content: "C" });
+    expect(html).toBe("<h3>HO1 (PC1)</h3><p><strong>コネ:</strong> 父</p><hr>C");
+  });
+
+  it("スートのキー以外(旧自由テキスト)はそのまま表示する", () => {
+    const html = buildHandoutMessage({ title: "HO1", pcName: "PC1", recommendedSuit: "♠", content: "C" });
+    expect(html).toContain("<p><strong>推奨スート:</strong> ♠</p>");
   });
 
   it("空欄は行ごと省く", () => {

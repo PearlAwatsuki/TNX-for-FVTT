@@ -61,19 +61,44 @@
                                     <a class="tnx-icon-ctrl" data-action="deleteHandout" title="削除"><i class="fas fa-trash"></i></a>
                                 </div>
                             </div>
-                            <div class="handout-row handout-row--recommendations">
-                                <div class="recommendation-field">
-                                    <label>コネ</label>
-                                    <input type="text" name="connections" value="{{handout.connections}}">
+                            {{!-- コネ行: 推奨スートはコネに付随する情報(スタイルとは無関係) --}}
+                            <div class="handout-row handout-row--connections">
+                                <label>コネ</label>
+                                <div class="handout-conn-field">
+                                    {{#if handout.actConnectionChips.length}}
+                                        <div class="scene-skill-chips">
+                                            {{#each handout.actConnectionChips as |chip|}}
+                                                <span class="tnx-chip">{{chip.name}}<a class="tnx-chip-remove" data-action="removeActConnection" data-key="{{chip.key}}" title="登録を外す"><i class="fas fa-times"></i></a></span>
+                                            {{/each}}
+                                            {{#if handout.connections}}<span class="handout-conn-legacy">旧: {{handout.connections}}</span>{{/if}}
+                                        </div>
+                                    {{else if handout.connections}}
+                                        <div class="scene-skill-chips"><span class="handout-conn-legacy">旧: {{handout.connections}}</span></div>
+                                    {{/if}}
+                                    <div class="scene-skill-add">
+                                        <select data-no-save class="handout-conn-select">
+                                            <option value="">- コネ技能を選択 -</option>
+                                            {{#each @root.contactSkillOptions as |skill|}}
+                                                <option value="{{skill.key}}">{{skill.name}}</option>
+                                            {{/each}}
+                                        </select>
+                                        <a class="tnx-icon-ctrl" data-action="addActConnection" title="コネに加える"><i class="fas fa-plus"></i></a>
+                                    </div>
                                 </div>
-                                <div class="recommendation-field">
+                                <div class="handout-conn-suit">
                                     <label>推奨スート</label>
-                                    <input type="text" name="recommendedSuit" value="{{handout.recommendedSuit}}">
+                                    <select name="recommendedSuit">
+                                        <option value="">{{#if handout.legacySuit}}旧: {{handout.legacySuit}}{{else}}-{{/if}}</option>
+                                        {{#each handout.suits as |opt|}}
+                                            <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+                                        {{/each}}
+                                    </select>
                                 </div>
-                                <div class="recommendation-field">
-                                    <label>推奨スタイル</label>
-                                    <input type="text" name="recommendedStyle" value="{{handout.recommendedStyle}}">
-                                </div>
+                            </div>
+                            {{!-- スタイル(指定スタイル)はコネと無関係の独立欄 --}}
+                            <div class="handout-row handout-row--style">
+                                <label>スタイル</label>
+                                <input type="text" name="recommendedStyle" value="{{handout.recommendedStyle}}">
                             </div>
                             <div class="tnx-editor-section">
                                 <div class="tnx-editor-section__header">
@@ -86,16 +111,6 @@
                             <div class="handout-row handout-row--ps">
                                 <label>PS</label>
                                 <input type="text" name="ps" value="{{handout.ps}}" placeholder="このハンドアウトの目的などを記載...">
-                            </div>
-                            <div class="handout-row handout-row--connections">
-                                <label>アクトコネクション</label>
-                                <div class="handout-conn-drop tnx-import-box--dropzone" data-handout-id="{{handout.id}}">
-                                    {{#each handout.actConnectionChips as |chip|}}
-                                        <span class="tnx-chip">{{chip.name}}<a class="tnx-chip-remove" data-action="removeActConnection" data-uuid="{{chip.uuid}}" title="登録を外す"><i class="fas fa-times"></i></a></span>
-                                    {{else}}
-                                        <span class="handout-conn-hint">一般技能をドロップ</span>
-                                    {{/each}}
-                                </div>
                             </div>
                         </div>
                         {{/each}}
@@ -209,6 +224,7 @@
                                                 </div>
                                                 <div class="scene-skill-add">
                                                     <select data-no-save class="appearance-skill-select">
+                                                        <option value="">- 技能を選択 -</option>
                                                         {{#each @root.skillGroupsPlain as |group|}}
                                                             <optgroup label="{{group.label}}">
                                                                 {{#each group.skills as |skill|}}
@@ -279,30 +295,18 @@
                 <div class="info-item-list">
                     {{#each infoItems as |infoItem|}}
                         <div class="info-item" data-id="{{infoItem.id}}">
+                            {{!-- 公開/非公開・調査済みの操作はシナリオコントロールパネルの領分(シートは台本編集専用) --}}
                             <div class="tnx-item-header tnx-item-header--card">
                                 <input type="text" name="title" value="{{infoItem.title}}" placeholder="情報名" data-info-id="{{infoItem.id}}"/>
                                 <div class="tnx-ctrl-strip">
-                                    <label class="disclosure-toggle">
-                                        <input type="checkbox" name="isPublic" {{checked infoItem.isPublic}} title="{{#if infoItem.isPublic}}公開中 (クリックで非公開に){{else}}非公開 (クリックで公開){{/if}}" data-info-id="{{infoItem.id}}">
-                                        <i class="fas {{#if infoItem.isPublic}}fa-lock-open{{else}}fa-lock{{/if}}"></i>
-                                    </label>
                                     <a class="tnx-icon-ctrl" data-action="deleteInfoItem" data-info-id="{{infoItem.id}}" title="この項目を削除"><i class="fas fa-trash"></i></a>
                                 </div>
                             </div>
                             <div class="info-item-body">
                                 <div class="info-contents-list">
                                     {{#each infoItem.contents as |contentItem|}}
-                                        <div class="info-content-block {{#if contentItem.isDisclosed}}disclosed{{/if}}" data-content-id="{{contentItem.id}}">
-                                            <div class="content-header">
-                                                <h4>情報の内容</h4>
-                                                <div class="tnx-ctrl-strip">
-                                                    <label class="disclosure-toggle">
-                                                        <input type="checkbox" name="isDisclosed" {{checked contentItem.isDisclosed}} title="{{#if contentItem.isDisclosed}}調査済み (クリックで未調査に){{else}}未調査 (クリックで調査済みに){{/if}}" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}">
-                                                        <i class="fas {{#if contentItem.isDisclosed}}fa-eye{{else}}fa-eye-slash{{/if}}"></i>
-                                                    </label>
-                                                    <a class="tnx-icon-ctrl" data-action="deleteInfoContent" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" title="この情報内容を削除"><i class="fas fa-trash"></i></a>
-                                                </div>
-                                            </div>
+                                        <div class="info-content-block" data-content-id="{{contentItem.id}}">
+                                            <a class="tnx-icon-ctrl info-content-delete" data-action="deleteInfoContent" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" title="この情報内容を削除"><i class="fas fa-trash"></i></a>
                                             <div class="skill-checks-area">
                                                 <div class="tnx-item-header">
                                                     <h5>使用技能</h5>
@@ -311,7 +315,8 @@
                                                 <div class="skill-check-list">
                                                     {{#each contentItem.skills as |skillItem|}}
                                                     <div class="skill-check-row" data-skill-id="{{skillItem.id}}">
-                                                        <select name="identificationKey" class="skill-key" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}">
+                                                        {{!-- 自由記述時はセレクトを縮めて記述欄に幅を譲る(skill-key--free) --}}
+                                                        <select name="identificationKey" class="skill-key{{#unless skillItem.identificationKey}} skill-key--free{{/unless}}" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}">
                                                             <option value="">その他（自由記述）</option>
                                                             {{#each @root.skillGroupsPlain as |group|}}
                                                                 <optgroup label="{{group.label}}">

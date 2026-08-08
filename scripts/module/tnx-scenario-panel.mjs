@@ -27,6 +27,7 @@ import {
     withResolvedInfoSkillNames,
 } from "./session-logic.mjs";
 import { loadGeneralSkillNameByKey } from "./skill-dictionary.mjs";
+import { formatSkillName } from "./identification.mjs";
 import { TnxActionHandler } from "./tnx-action-handler.mjs";
 import { applyStageRef } from "./subscenes.mjs";
 
@@ -348,9 +349,16 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
 
     static async _onSendHandout(_event, target) {
         const journal = getActiveActJournal();
-        const handout = (journal?.getFlag(SCOPE, "handouts") ?? []).find(h => h.id === target.dataset.id);
+        const handout = (journal?.getFlag(SCOPE, "handouts") ?? []).map(normalizeHandoutRow)
+            .find(h => h.id === target.dataset.id);
         if (!handout) return;
-        await ChatMessage.create({ content: buildHandoutMessage(handout) });
+        // コネ(識別キー)は辞典逆引きの現在名で表示する(生キーを出さない)
+        const nameByKey = await loadGeneralSkillNameByKey();
+        const connectionNames = (handout.actConnections ?? []).map(key => {
+            const name = nameByKey.get(key);
+            return name ? formatSkillName(name) : "（参照切れ）";
+        });
+        await ChatMessage.create({ content: buildHandoutMessage(handout, { connectionNames }) });
     }
 
     static async _onSendText(_event, target) {

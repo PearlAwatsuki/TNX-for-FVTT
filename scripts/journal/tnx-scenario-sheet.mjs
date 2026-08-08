@@ -1,5 +1,5 @@
-import { loadGroupedGeneralSkillChoices, loadGeneralSkillNameByKey } from '../module/skill-dictionary.mjs';
-import { formatSkillName, itemDisplayName } from '../module/identification.mjs';
+import { loadGroupedGeneralSkillChoices, loadGeneralSkillNameByKey, loadOnomasticChoices } from '../module/skill-dictionary.mjs';
+import { formatSkillName } from '../module/identification.mjs';
 import {
     presetLabel, newCheckRequestPreset, newBountyPreset,
     newDamageGrantPreset, newEffectGrantPreset,
@@ -10,7 +10,7 @@ import { describeEffectData } from '../module/effect-source-logic.mjs';
 import { captureScrollTop, restoreScrollTop } from '../module/scroll-preserve.mjs';
 import { conditionStatusLabels } from '../module/conditions.mjs';
 import { checkTypeOptions } from '../module/tnx-rl-request-app.mjs';
-import { SCENE_AREA_OPTIONS, normalizeSceneRow, normalizeHandoutRow } from '../module/session-logic.mjs';
+import { SCENE_AREA_OPTIONS, HANDOUT_SUIT_OPTIONS, normalizeSceneRow, normalizeHandoutRow } from '../module/session-logic.mjs';
 import { listSubScenes } from '../module/subscenes.mjs';
 import { attachEditorSectionToggles } from '../module/editor-sections.mjs';
 
@@ -36,6 +36,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             deleteSkillCheck:  TnxScenarioSheet._onDeleteSkillCheck,
             addHandout:        TnxScenarioSheet._onAddHandout,
             deleteHandout:     TnxScenarioSheet._onDeleteHandout,
+            addActConnection:      TnxScenarioSheet._onAddActConnection,
             removeActConnection:   TnxScenarioSheet._onRemoveActConnection,
             addAppearanceSkill:    TnxScenarioSheet._onAddAppearanceSkill,
             removeAppearanceSkill: TnxScenarioSheet._onRemoveAppearanceSkill,
@@ -159,13 +160,20 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         context.infoItems     = flagData.infoItems     || [];
         context.trailer       = flagData.trailer       || "";
         context.handouts      = (flagData.handouts || []).map(normalizeHandoutRow);
-        // アクトコネクション(14-7): UUID 参照をライブ解決して表示(名前キャッシュは持たない)
+        // コネ(アクトコネクション)の選択肢: 辞典のコネ技能(識別キー contact プレフィックス)。
+        // 指定するコネ技能は辞典への格納が前提(2026-08-08 裁定・D&D 撤回)
+        const contactChoices = await loadOnomasticChoices("contact");
+        context.contactSkillOptions = Object.entries(contactChoices)
+            .filter(([key]) => key)
+            .map(([key, name]) => ({ key, name }));
         for (const handout of context.handouts) {
-            handout.actConnectionChips = await Promise.all(
-                (handout.actConnections ?? []).map(async (conn) => {
-                    const doc = await fromUuid(conn.uuid).catch(() => null);
-                    return { uuid: conn.uuid, name: doc ? itemDisplayName(doc) : "（参照切れ）" };
-                }));
+            // チップは識別キーの辞典逆引き(toSkillChips=指定技能と共用・生キーは表示しない)
+            handout.actConnectionChips = toSkillChips(handout.actConnections);
+            // 推奨スート: キー保存のセレクト。キー以外の旧自由テキストは空選択肢のラベルで示す
+            handout.suits = HANDOUT_SUIT_OPTIONS.map(o => ({ ...o, selected: o.value === handout.recommendedSuit }));
+            handout.legacySuit = (handout.recommendedSuit
+                && !HANDOUT_SUIT_OPTIONS.some(o => o.value === handout.recommendedSuit))
+                ? handout.recommendedSuit : "";
         }
 
         return context;
@@ -186,14 +194,6 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         this._setupChangeListeners();
         // 長文エリアの編集トグルボタンをセクションヘッダーへ移設(常時視認・共有配線)
         attachEditorSectionToggles(this.element);
-        // アクトコネクションのドロップ受け(14-7): 一般技能アイテムの D&D で登録(UUID 参照)
-        if (this.element.querySelector(".handout-conn-drop")) {
-            new foundry.applications.ux.DragDrop.implementation({
-                dropSelector: ".handout-conn-drop",
-                permissions: { drop: () => this.isEditable },
-                callbacks: { drop: this._onDropActConnection.bind(this) },
-            }).bind(this.element);
-        }
         for (const [group, tab] of Object.entries(this.tabGroups)) {
             if (tab) this.changeTab(tab, group, { force: true });
         }
@@ -253,7 +253,8 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         bind(el.querySelectorAll('.info-item input, .info-item select, .info-item prose-mirror'),
             this._onInfoItemChange.bind(this));
         bind(el.querySelectorAll(
-            '.scenario-info-container > .act-name-section input, .scenario-info-container prose-mirror, .handout-item input, .handout-item select'),
+            '.scenario-info-container > .act-name-section input, .scenario-info-container prose-mirror, '
+            + '.handout-item input:not([data-no-save]), .handout-item select:not([data-no-save])'),
         this._onScenarioInfoChange.bind(this));
     }
 
@@ -371,35 +372,29 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         await this.document.setFlag("tokyo-nova-axleration", "scenes", scenes);
     }
 
-    /** アクトコネクションのドロップ登録(一般技能のみ・UUID 参照)。 */
-    async _onDropActConnection(event) {
-        let data;
-        try { data = JSON.parse(event.dataTransfer.getData("text/plain")); }
-        catch { return false; }
-        if (data.type !== "Item" || !data.uuid) return;
-        const handoutId = event.target.closest("[data-handout-id]")?.dataset.handoutId;
-        if (!handoutId) return;
-        const doc = await fromUuid(data.uuid).catch(() => null);
-        if (doc?.type !== "generalSkill") {
-            return void ui.notifications.warn("アクトコネクションに登録できるのは一般技能だけです。");
-        }
+    /** コネ(アクトコネクション)を追加する(辞典コネ技能のプルダウンから識別キーで登録)。 */
+    static async _onAddActConnection(_event, target) {
+        const handoutItem = target.closest(".handout-item");
+        const key = handoutItem?.querySelector(".handout-conn-select")?.value;
+        if (!key || !handoutItem) return;
         const handouts = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "handouts") || []);
-        const handout = handouts.find(h => h.id === handoutId);
+        const handout = handouts.find(h => h.id === handoutItem.dataset.id);
         if (!handout) return;
-        const conns = Array.isArray(handout.actConnections) ? handout.actConnections : [];
-        if (conns.some(c => c.uuid === data.uuid)) return;
-        handout.actConnections = [...conns, { uuid: data.uuid }];
+        const keys = (Array.isArray(handout.actConnections) ? handout.actConnections : [])
+            .filter(c => typeof c === "string");
+        if (keys.includes(key)) return;
+        handout.actConnections = [...keys, key];
         await this.document.setFlag("tokyo-nova-axleration", "handouts", handouts);
     }
 
-    /** アクトコネクションの登録を外す。 */
+    /** コネ(アクトコネクション)の登録を外す。 */
     static async _onRemoveActConnection(_event, target) {
         const handoutId = target.closest(".handout-item")?.dataset.id;
-        const uuid = target.dataset.uuid;
+        const key = target.dataset.key;
         const handouts = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "handouts") || []);
         const handout = handouts.find(h => h.id === handoutId);
         if (!handout) return;
-        handout.actConnections = (handout.actConnections ?? []).filter(c => c.uuid !== uuid);
+        handout.actConnections = (handout.actConnections ?? []).filter(c => c !== key);
         await this.document.setFlag("tokyo-nova-axleration", "handouts", handouts);
     }
 
