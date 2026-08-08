@@ -24,7 +24,7 @@ import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import {
     SCENE_AREA_OPTIONS, PHASE_ORDER, normalizeSceneRow, normalizeHandoutRow, nextSceneRow,
     buildSceneSwitchMessage, buildTrailerMessage, buildHandoutMessage, buildInfoMessage,
-    withResolvedInfoSkillNames,
+    withResolvedInfoSkillNames, handoutDisplayTitle, handoutNumberOf, handoutStyleDisplay,
 } from "./session-logic.mjs";
 import { loadGeneralSkillNameByKey, loadSkillChoices, STYLE_PACK } from "./skill-dictionary.mjs";
 import { formatSkillName } from "./identification.mjs";
@@ -202,11 +202,18 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             })),
         }));
 
-        // 送信系(読み込みがあれば開始前でも使用可=プレアクトの配布)
-        context.handouts = (journal.getFlag(SCOPE, "handouts") ?? []).map(normalizeHandoutRow).map(h => ({
+        // 送信系(読み込みがあれば開始前でも使用可=プレアクトの配布)。
+        // 表示名は「①<スタイル名>用ハンドアウト」形式の自動生成・ラベルは対象ユーザー(2026-08-09 裁定)
+        const styleChoices = await loadSkillChoices([STYLE_PACK]);
+        const handoutRows = (journal.getFlag(SCOPE, "handouts") ?? []).map(normalizeHandoutRow);
+        context.handouts = handoutRows.map(h => ({
             id: h.id,
-            title: h.title || "ハンドアウト",
-            castLabel: (h.actorId ? game.actors.get(h.actorId)?.name : null) ?? h.pcName,
+            title: handoutDisplayTitle(h, {
+                number: handoutNumberOf(handoutRows, h.id),
+                styleName: handoutStyleDisplay(h.recommendedStyle, styleChoices),
+            }),
+            castLabel: (h.userId ? game.users.get(h.userId)?.name : null)
+                ?? (h.actorId ? game.actors.get(h.actorId)?.name : null) ?? "",
         }));
         context.texts = (journal.getFlag(SCOPE, "scenarioTexts") ?? []).map(t => ({
             id: t.id, title: t.title || "テキスト",
@@ -349,8 +356,8 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
 
     static async _onSendHandout(_event, target) {
         const journal = getActiveActJournal();
-        const handout = (journal?.getFlag(SCOPE, "handouts") ?? []).map(normalizeHandoutRow)
-            .find(h => h.id === target.dataset.id);
+        const handouts = (journal?.getFlag(SCOPE, "handouts") ?? []).map(normalizeHandoutRow);
+        const handout = handouts.find(h => h.id === target.dataset.id);
         if (!handout) return;
         // コネ(単一の識別キー)・スタイル(スタイル辞典キー)は辞典逆引きの現在名で表示する(生キーを出さない)
         const nameByKey = await loadGeneralSkillNameByKey();
@@ -359,8 +366,11 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             ? (connName ? formatSkillName(connName) : "（参照切れ）")
             : "";
         const styleChoices = await loadSkillChoices([STYLE_PACK]);
-        const styleName = handout.recommendedStyle ? (styleChoices[handout.recommendedStyle] ?? "") : "";
-        await ChatMessage.create({ content: buildHandoutMessage(handout, { connectionName, styleName }) });
+        const styleName = handoutStyleDisplay(handout.recommendedStyle, styleChoices);
+        const title = handoutDisplayTitle(handout, {
+            number: handoutNumberOf(handouts, handout.id), styleName,
+        });
+        await ChatMessage.create({ content: buildHandoutMessage(handout, { title, connectionName, styleName }) });
     }
 
     static async _onSendText(_event, target) {

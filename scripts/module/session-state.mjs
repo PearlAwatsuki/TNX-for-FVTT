@@ -137,10 +137,12 @@ export async function startAct({ sceneId = null } = {}) {
     if (!journal) { ui.notifications.warn("アクトが読み込まれていません。"); return false; }
     if (st.actStarted) { ui.notifications.warn("アクトは既に開始されています。"); return false; }
 
-    // 参加キャスト=ハンドアウトの actorId(2026-08-08 裁定)
+    // 参加=ハンドアウトの対象ユーザー(2026-08-09 裁定=ハンドアウトはユーザーに付与)。
+    // キャストはユーザーの割当キャラクター(user.character)から解決する。
+    // 旧 actorId(キャスト直接参照)は読み替えで吸収(書き換えない)
     const handouts = (journal.getFlag(SCOPE, "handouts") ?? []).map(normalizeHandoutRow);
-    const actorIds = [...new Set(handouts.map(h => h.actorId).filter(Boolean))];
-    const casts = actorIds.map(id => game.actors.get(id)).filter(a => a?.type === "cast");
+    const assignments = _resolveHandoutAssignments(handouts);
+    const casts = [...new Map(assignments.filter(a => a.cast).map(a => [a.cast.id, a.cast])).values()];
 
     // キー被りチェック(14-7・2026-08-08 裁定): キーはプレアクトに相談してずらすもの→
     // 重複が残っていたらアクト開始をブロックする
@@ -163,18 +165,23 @@ export async function startAct({ sceneId = null } = {}) {
     // 自動設定: bountyBase←外界点実効値・bounty←0(清算を兼ねる)・CS=プレアクト初期化と同計算
     const updates = casts.map(actor => ({ _id: actor.id, ...buildPreActInit(actor.system) }));
     if (updates.length) await Actor.updateDocuments(updates);
-    const unassigned = handouts.filter(h => !h.actorId).length;
+    const unassigned = assignments.filter(a => !a.user && !a.cast).length;
     if (unassigned > 0) {
-        ui.notifications.info(`キャスト未設定のハンドアウトが ${unassigned} 件あります(報酬点・CS の自動設定をスキップ)。`);
+        ui.notifications.info(`対象ユーザー未設定のハンドアウトが ${unassigned} 件あります(報酬点・CS の自動設定をスキップ)。`);
+    }
+    for (const a of assignments) {
+        if (a.user && !a.cast) {
+            ui.notifications.warn(`${a.user.name} にキャストが割り当てられていないため、自動設定をスキップしました。`);
+        }
     }
 
     // 切り札の自動配布(14-7・2026-08-08 裁定): キースタイルの識別キー⇔カード画像ファイル名で
     // 対応するニューロカードを特定し、担当ユーザーの切り札置き場へ。手動配布経路は別途残る
     await _dealTrumpsForCasts(casts);
 
-    // アクトコネクションの配布(14-7): ハンドアウトに D&D 登録された一般技能を actorId の
-    // キャストへコピー付与(コピーに isActLimited を立てる=アクト終了時に自動削除される)
-    await _grantActConnections(handouts);
+    // コネ(アクトコネクション)の配布(14-7): 対象ユーザーのキャストへコピー付与
+    // (コピーに isActLimited を立てる=アクト終了時に自動削除される)
+    await _grantActConnections(assignments);
 
     await setState({ actStarted: true, sceneEnded: false });
     Hooks.callAll(TNX_HOOKS.actStart, { actId: journal.id });
@@ -217,6 +224,26 @@ async function _deleteActLimitedSkills() {
         count += ids.length;
     }
     if (count > 0) ui.notifications.info(`アクト限定の技能 ${count} 件を削除しました。`);
+}
+
+/**
+ * ハンドアウト行ごとの対象ユーザー・キャストを解決する(2026-08-09 裁定=参照は userId)。
+ * キャスト=ユーザーの割当キャラクター(user.character・cast 型のみ)。
+ * 旧 actorId はキャスト直接参照として読み替え、担当ユーザーは割当から逆引きする。
+ * @param {Array<object>} handouts 正規化済みハンドアウト行
+ * @returns {Array<{handout: object, user: ?User, cast: ?Actor}>}
+ */
+function _resolveHandoutAssignments(handouts) {
+    return handouts.map(handout => {
+        let user = handout.userId ? (game.users.get(handout.userId) ?? null) : null;
+        let cast = user?.character?.type === "cast" ? user.character : null;
+        if (!user && handout.actorId) {
+            const legacy = game.actors.get(handout.actorId);
+            cast = legacy?.type === "cast" ? legacy : null;
+            user = cast ? (game.users.find(u => u.character?.id === cast.id) ?? null) : null;
+        }
+        return { handout, user, cast };
+    });
 }
 
 /**
@@ -266,12 +293,13 @@ async function _dealTrumpsForCasts(casts) {
 }
 
 /**
- * コネ(ハンドアウトのアクトコネクション=辞典コネ技能の識別キー・**必ず一つ**)を actorId の
- * キャストへコピー付与する(14-7・2026-08-09 裁定で単一化)。指定するコネ技能は一般技能辞典への
- * 格納が前提(2026-08-08 裁定)。コピーには isActLimited を立てる=アクト終了時に自動削除される。
- * 同じ識別キーの技能を既に持つ場合はスキップ(重複付与を避ける)。
+ * コネ(ハンドアウトのアクトコネクション=辞典コネ技能の識別キー・**必ず一つ**)を対象ユーザーの
+ * キャストへコピー付与する(14-7・2026-08-09 裁定で単一化＋ユーザー参照化)。指定するコネ技能は
+ * 一般技能辞典への格納が前提(2026-08-08 裁定)。コピーには isActLimited を立てる=アクト終了時に
+ * 自動削除される。同じ識別キーの技能を既に持つ場合はスキップ(重複付与を避ける)。
+ * @param {Array<{handout: object, user: ?User, cast: ?Actor}>} assignments
  */
-async function _grantActConnections(handouts) {
+async function _grantActConnections(assignments) {
     let granted = 0;
     const pack = game.packs?.get(SKILL_PACKS.general);
     // 単品は getDocument(キャッシュ優先・KI-026 の孤児化を起こさない)。キー→_id はインデックスで引く
@@ -279,15 +307,13 @@ async function _grantActConnections(handouts) {
     const idByKey = new Map([...index]
         .filter(e => e.system?.identificationKey)
         .map(e => [e.system.identificationKey, e._id]));
-    for (const handout of handouts) {
+    for (const { handout, cast } of assignments) {
         const key = handout.actConnection;
-        if (!handout.actorId || !key) continue;
-        const cast = game.actors.get(handout.actorId);
-        if (cast?.type !== "cast") continue;
+        if (!cast || !key) continue;
         const id = idByKey.get(key);
         const doc = id ? await pack.getDocument(id).catch(() => null) : null;
         if (doc?.type !== "generalSkill") {
-            ui.notifications.warn(`コネ技能が辞典に見つかりません(${handout.title ?? handout.pcName ?? ""})。`);
+            ui.notifications.warn(`コネ技能が辞典に見つかりません(${cast.name})。`);
             continue;
         }
         const exists = cast.items.some(i => i.type === "generalSkill"

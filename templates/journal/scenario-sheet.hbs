@@ -47,16 +47,26 @@
                     <div class="handout-list">
                         {{#each handouts as |handout|}}
                         <div class="handout-item" data-id="{{handout.id}}">
+                            {{!-- 1行目=ハンドアウト名(2026-08-09 裁定): 番号前置＋スタイルセレクト＋自動表示
+                                  「①<スタイル名>用ハンドアウト」。共通=「共通ハンドアウト」(番号なし)・
+                                  自由記述=記入欄を自動表示エリアまで伸長 --}}
                             <div class="handout-row handout-row--header">
-                                <select name="actorId" class="handout-cast">
-                                    <option value="">- キャスト未設定 -</option>
-                                    {{#each ../castActors as |actor|}}
-                                        {{!-- ブロックパラメータは ../ 付きでは解決されない(常に未選択表示になる)ため直参照する --}}
-                                        <option value="{{actor.id}}" {{#if (eq actor.id handout.actorId)}}selected{{/if}}>{{actor.name}}</option>
-                                    {{/each}}
+                                {{#if handout.numberLabel}}<span class="handout-number">{{handout.numberLabel}}</span>{{/if}}
+                                <select name="recommendedStyle" class="handout-style">
+                                    <option value="">{{#if handout.legacyStyle}}旧: {{handout.legacyStyle}}{{else}}-{{/if}}</option>
+                                    <option value="@common" {{#if handout.isCommon}}selected{{/if}}>共通</option>
+                                    <option value="@free" {{#if handout.isFreeTitle}}selected{{/if}}>自由記述</option>
+                                    <optgroup label="スタイル">
+                                        {{#each handout.styleOptions as |opt|}}
+                                            <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+                                        {{/each}}
+                                    </optgroup>
                                 </select>
-                                <input type="text" name="pcName" class="handout-pc-name" value="{{handout.pcName}}" placeholder="PC名">
-                                <input type="text" name="title" class="handout-title" value="{{handout.title}}" placeholder="ハンドアウトのタイトル">
+                                {{#if handout.isFreeTitle}}
+                                    <input type="text" name="title" class="handout-title" value="{{handout.title}}" placeholder="ハンドアウト名">
+                                {{else}}
+                                    <span class="handout-title-auto">{{handout.titleSuffix}}</span>
+                                {{/if}}
                                 <div class="tnx-ctrl-strip">
                                     <a class="tnx-icon-ctrl" data-action="deleteHandout" title="削除"><i class="fas fa-trash"></i></a>
                                 </div>
@@ -81,16 +91,6 @@
                                     </select>
                                 </div>
                             </div>
-                            {{!-- スタイル(指定スタイル)はコネと無関係の独立欄・辞典プルダウン(キー保存) --}}
-                            <div class="handout-row handout-row--style">
-                                <label>スタイル</label>
-                                <select name="recommendedStyle">
-                                    <option value="">{{#if handout.legacyStyle}}旧: {{handout.legacyStyle}}{{else}}-{{/if}}</option>
-                                    {{#each handout.styleOptions as |opt|}}
-                                        <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
-                                    {{/each}}
-                                </select>
-                            </div>
                             <div class="tnx-editor-section">
                                 <div class="tnx-editor-section__header">
                                     <label>ハンドアウト内容</label>
@@ -102,6 +102,17 @@
                             <div class="handout-row handout-row--ps">
                                 <label>PS</label>
                                 <input type="text" name="ps" value="{{handout.ps}}" placeholder="このハンドアウトの目的などを記載...">
+                            </div>
+                            {{!-- 対象ユーザー(2026-08-09 裁定): ハンドアウトはユーザーに付与される。
+                                  ハンドアウト自体の内容ではないため一番下に置く --}}
+                            <div class="handout-row handout-row--user">
+                                <label>対象ユーザー</label>
+                                <select name="userId">
+                                    <option value="">{{#if handout.legacyCastName}}旧: {{handout.legacyCastName}}{{else}}-{{/if}}</option>
+                                    {{#each handout.userOptions as |user|}}
+                                        <option value="{{user.id}}" {{#if user.selected}}selected{{/if}}>{{user.name}}</option>
+                                    {{/each}}
+                                </select>
                             </div>
                         </div>
                         {{/each}}
@@ -122,8 +133,7 @@
                             <div class="header-cell scene-number">No.</div>
                             <div class="header-cell scene-name">シーン名</div>
                             <div class="header-cell scene-player">シーンプレイヤー</div>
-                            <div class="header-cell scene-area">エリア</div>
-                            <div class="header-cell scene-stage">舞台</div>
+                            <div class="header-cell scene-stage">使用シーン</div>
                             <div class="header-cell scene-controls">
                                 <button type="button" class="tnx-ring-btn" data-action="addScene" data-phase="{{phaseKey}}" title="このフェイズにシーンを追加">
                                     <i class="fas fa-plus"></i>
@@ -147,13 +157,6 @@
                                                     <option value="{{user.id}}" {{#if (eq user.id scene.playerUserId)}}selected{{/if}}>
                                                         {{user.name}}
                                                     </option>
-                                                {{/each}}
-                                            </select>
-                                        </div>
-                                        <div class="table-cell scene-area">
-                                            <select name="area">
-                                                {{#each ../../sceneAreaOptions as |opt|}}
-                                                    <option value="{{opt.value}}" {{#if (eq opt.value scene.area)}}selected{{/if}}>{{opt.label}}</option>
                                                 {{/each}}
                                             </select>
                                         </div>
@@ -183,20 +186,21 @@
                                     <details class="scene-details-row">
                                         <summary>詳細設定</summary>
                                         <div class="scene-details-body">
-                                            <div class="scene-detail-field tnx-editor-section">
-                                                <div class="tnx-editor-section__header">
-                                                    <label>切り替えメッセージ</label>
-                                                </div>
-                                                <div class="tnx-editor-section__content">
-                                                    <prose-mirror name="switchMessage" value="{{scene.switchMessage}}" toggled>{{{scene.switchMessage}}}</prose-mirror>
-                                                </div>
+                                            {{!-- エリアは詳細設定に置く(2026-08-09 指示=メイン行の詰め込み解消) --}}
+                                            <div class="scene-detail-field scene-detail-field--inline">
+                                                <label>エリア</label>
+                                                <select name="area">
+                                                    {{#each @root.sceneAreaOptions as |opt|}}
+                                                        <option value="{{opt.value}}" {{#if (eq opt.value scene.area)}}selected{{/if}}>{{opt.label}}</option>
+                                                    {{/each}}
+                                                </select>
                                             </div>
-                                            <div class="scene-detail-field scene-appearance-row">
+                                            <div class="scene-detail-field scene-detail-field--inline scene-appearance-row">
                                                 <label>登場判定</label>
                                                 <select name="appearanceMode">
                                                     <option value="area" {{#if (eq scene.appearanceMode "area")}}selected{{/if}}>エリア準拠</option>
                                                     <option value="fixed" {{#if (eq scene.appearanceMode "fixed")}}selected{{/if}}>数値指定</option>
-                                                    <option value="none" {{#if (eq scene.appearanceMode "none")}}selected{{/if}}>登場：不可</option>
+                                                    <option value="none" {{#if (eq scene.appearanceMode "none")}}selected{{/if}}>不可</option>
                                                 </select>
                                                 {{#if (eq scene.appearanceMode "fixed")}}
                                                     <div class="number-input-spinner">
@@ -225,6 +229,14 @@
                                                         {{/each}}
                                                     </select>
                                                     <a class="tnx-icon-ctrl" data-action="addAppearanceSkill" title="指定技能に加える"><i class="fas fa-plus"></i></a>
+                                                </div>
+                                            </div>
+                                            <div class="scene-detail-field tnx-editor-section">
+                                                <div class="tnx-editor-section__header">
+                                                    <label>切り替えメッセージ</label>
+                                                </div>
+                                                <div class="tnx-editor-section__content">
+                                                    <prose-mirror name="switchMessage" value="{{scene.switchMessage}}" toggled>{{{scene.switchMessage}}}</prose-mirror>
                                                 </div>
                                             </div>
                                         </div>

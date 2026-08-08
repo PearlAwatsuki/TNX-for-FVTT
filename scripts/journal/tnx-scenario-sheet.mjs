@@ -10,7 +10,10 @@ import { describeEffectData } from '../module/effect-source-logic.mjs';
 import { captureScrollTop, restoreScrollTop } from '../module/scroll-preserve.mjs';
 import { conditionStatusLabels } from '../module/conditions.mjs';
 import { checkTypeOptions } from '../module/tnx-rl-request-app.mjs';
-import { SCENE_AREA_OPTIONS, HANDOUT_SUIT_OPTIONS, normalizeSceneRow, normalizeHandoutRow } from '../module/session-logic.mjs';
+import {
+    SCENE_AREA_OPTIONS, HANDOUT_SUIT_OPTIONS, HANDOUT_STYLE_COMMON, HANDOUT_STYLE_FREE,
+    normalizeSceneRow, normalizeHandoutRow, handoutTitleSuffix, circledNumber,
+} from '../module/session-logic.mjs';
 import { listSubScenes } from '../module/subscenes.mjs';
 import { attachEditorSectionToggles } from '../module/editor-sections.mjs';
 
@@ -82,7 +85,6 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         const context = await super._prepareContext(options);
         const flagData = this.document.flags["tokyo-nova-axleration"] || {};
 
-        context.castActors = game.actors.filter(a => a.type === 'cast');
         context.phaseLabels = CONFIG.TNX.phaseLabels;
         context.documentName = this.document.name;
 
@@ -162,9 +164,11 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         // **必ず一つ**(2026-08-09 裁定)＝単一セレクト。辞典への格納が前提(2026-08-08 裁定・D&D 撤回)
         const contactChoices = await loadOnomasticChoices("contact");
         const contactEntries = Object.entries(contactChoices).filter(([key]) => key);
-        // スタイル(指定スタイル)＝スタイル辞典のプルダウン(識別キー保存)
+        // スタイル(指定スタイル)＝スタイル辞典のプルダウン(識別キー保存)。1行目でハンドアウト名の
+        // 構成要素を兼ねる(「<スタイル名>用ハンドアウト①」形式・2026-08-09 裁定)
         const styleChoices = await loadSkillChoices([STYLE_PACK]);
         const styleEntries = Object.entries(styleChoices).filter(([key]) => key);
+        let handoutNumber = 0;   // スタイル指定行(共通・自由記述以外)の通し番号
         for (const handout of context.handouts) {
             // コネ: キー保存のセレクト。辞典から消えたキーは値を保ったまま「（参照切れ）」表示
             handout.connOptions = contactEntries.map(([key, name]) => ({
@@ -176,12 +180,31 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             handout.legacySuit = (handout.recommendedSuit
                 && !HANDOUT_SUIT_OPTIONS.some(o => o.value === handout.recommendedSuit))
                 ? handout.recommendedSuit : "";
-            // スタイル: 同方式(キー保存・旧自由テキストは空選択肢のラベルで示す)
+            // スタイル: キー保存＋特殊値(共通/自由記述)。@ 以外の旧自由テキストは空選択肢のラベルで示す
+            handout.isCommon    = handout.recommendedStyle === HANDOUT_STYLE_COMMON;
+            handout.isFreeTitle = handout.recommendedStyle === HANDOUT_STYLE_FREE;
             handout.styleOptions = styleEntries.map(([key, name]) => ({
                 value: key, label: name, selected: key === handout.recommendedStyle,
             }));
-            handout.legacyStyle = (handout.recommendedStyle && !(handout.recommendedStyle in styleChoices))
+            handout.legacyStyle = (handout.recommendedStyle
+                && !handout.recommendedStyle.startsWith("@")
+                && !(handout.recommendedStyle in styleChoices))
                 ? handout.recommendedStyle : "";
+            // ハンドアウト名の自動表示: 番号は前置「①<スタイル名>用ハンドアウト」(2026-08-09 裁定)。
+            // 共通・自由記述は番号なし
+            if (!handout.isCommon && !handout.isFreeTitle) {
+                handoutNumber += 1;
+                handout.numberLabel = circledNumber(handoutNumber);
+            } else {
+                handout.numberLabel = "";
+            }
+            handout.titleSuffix = handoutTitleSuffix(handout);
+            // 対象ユーザー(2026-08-09 裁定=ハンドアウトはユーザーに付与)。旧 actorId は表示フォールバック
+            handout.userOptions = game.users.map(u => ({
+                id: u.id, name: u.name, selected: u.id === handout.userId,
+            }));
+            handout.legacyCastName = (!handout.userId && handout.actorId)
+                ? (game.actors.get(handout.actorId)?.name ?? "（参照切れ）") : "";
         }
 
         return context;
@@ -499,15 +522,16 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
     static async _onAddHandout(_event, _target) {
         const handouts = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "handouts") || []);
+        // 名前は「<スタイル名>用ハンドアウト①」形式の自動表示(2026-08-09 裁定)。title は自由記述用
         handouts.push({
             id: foundry.utils.randomID(),
-            pcName: `PC${handouts.length + 1}`,
-            title: `ハンドアウト ${handouts.length + 1}`,
-            connections: "",
+            title: "",
             recommendedSuit: "",
             recommendedStyle: "",
             content: "",
             ps: "",
+            userId: "",
+            actConnection: "",
         });
         await this.document.setFlag("tokyo-nova-axleration", "handouts", handouts);
     }

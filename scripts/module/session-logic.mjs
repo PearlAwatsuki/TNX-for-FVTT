@@ -78,12 +78,78 @@ export function handoutSuitLabel(value) {
  * アクト開始の自動設定(報酬点・CS)の対象は actorId が設定されたキャストのみ(2026-08-08 裁定)。
  * @param {object|null} row
  */
+// ハンドアウトのスタイル欄の特殊値(2026-08-09 裁定)。スタイル辞典キーと衝突しない @ 前置。
+// 共通=「共通ハンドアウト」・自由記述=タイトルを自由入力(自動表示なし)
+export const HANDOUT_STYLE_COMMON = "@common";
+export const HANDOUT_STYLE_FREE   = "@free";
+
+/** 丸数字(①〜⑳・超過は「(n)」)。ハンドアウトの自動連番表示に使う。 */
+export function circledNumber(n) {
+    if (Number.isInteger(n) && n >= 1 && n <= 20) return String.fromCharCode(0x2460 + n - 1);
+    return `(${n})`;
+}
+
+/**
+ * ハンドアウト名の自動表示部分(スタイルセレクトの右に出す接尾。番号は**前置**のため含まない)。
+ * スタイル指定=「用ハンドアウト」・未選択=「ハンドアウト」・
+ * 共通=「ハンドアウト」(合わせて「共通ハンドアウト」)・自由記述=""(記入欄を出す)。
+ * @param {object} handout
+ */
+export function handoutTitleSuffix(handout) {
+    const style = handout?.recommendedStyle ?? "";
+    if (style === HANDOUT_STYLE_FREE) return "";
+    if (style === HANDOUT_STYLE_COMMON) return "ハンドアウト";
+    return `${style ? "用" : ""}ハンドアウト`;
+}
+
+/**
+ * ハンドアウトの表示名(名前形式=「①<スタイル名>用ハンドアウト」・番号は前置=2026-08-09 裁定)。
+ * 共通=「共通ハンドアウト」(番号なし)・自由記述=title(自由入力)。styleName は辞典解決済みの現在名。
+ * @param {object} handout
+ * @param {{number?: number, styleName?: string}} [options]
+ */
+export function handoutDisplayTitle(handout, { number = 1, styleName = "" } = {}) {
+    const h = handout ?? {};
+    if (h.recommendedStyle === HANDOUT_STYLE_FREE) return h.title || "ハンドアウト";
+    if (h.recommendedStyle === HANDOUT_STYLE_COMMON) return "共通ハンドアウト";
+    return `${circledNumber(number)}${styleName}${handoutTitleSuffix(h)}`;
+}
+
+/**
+ * ハンドアウトのスタイル欄の表示文字列を返す。特殊値(@common/@free)・未選択は ""、
+ * 辞典キーは現在名、キー以外の旧自由テキストは生値をそのまま返す。
+ * @param {string} style 保存値
+ * @param {Record<string,string>} styleChoices loadSkillChoices([STYLE_PACK]) の結果
+ */
+export function handoutStyleDisplay(style, styleChoices = {}) {
+    const s = String(style ?? "");
+    if (!s || s.startsWith("@")) return "";
+    return styleChoices[s] ?? s;
+}
+
+/**
+ * スタイル指定行(共通・自由記述でない行)の通し番号を返す(1始まり・配列順)。
+ * 対象行が共通/自由記述・見つからない場合は 0。
+ * @param {Array<object>} handouts
+ * @param {string} handoutId
+ */
+export function handoutNumberOf(handouts, handoutId) {
+    let n = 0;
+    for (const h of handouts ?? []) {
+        const style = h?.recommendedStyle ?? "";
+        if (style === HANDOUT_STYLE_COMMON || style === HANDOUT_STYLE_FREE) continue;
+        n += 1;
+        if (h?.id === handoutId) return n;
+    }
+    return 0;
+}
+
 export function normalizeHandoutRow(row) {
     const r = row ?? {};
     // コネ＝アクトコネクション(14-7): **必ず一つ**(2026-08-09 ユーザー裁定)。辞典のコネ技能
     // (識別キー contact プレフィックス)のプルダウンから選ぶ単一の識別キー。指定するコネ技能は
-    // 辞典への格納が前提(2026-08-08 裁定・D&D 撤回)。アクト開始時に actorId のキャストへ
-    // コピー付与(isActLimited)され、アクト終了時に自動削除される。
+    // 辞典への格納が前提(2026-08-08 裁定・D&D 撤回)。アクト開始時にコピー付与(isActLimited)され、
+    // アクト終了時に自動削除される。
     // 旧形式は読み出し時に吸収(書き換えない): 配列 actConnections → 先頭の文字列キー。
     // {uuid} 形式は実機確認前に廃止(対象にしない)
     const legacyArray = Array.isArray(r.actConnections)
@@ -91,6 +157,9 @@ export function normalizeHandoutRow(row) {
         : "";
     return {
         ...r,
+        // ハンドアウトはユーザーに付与されるもの(2026-08-09 裁定)＝参照は userId。
+        // 旧 actorId(キャスト直接参照)は読み替え用に残す(書き換えない)
+        userId: r.userId ?? "",
         actorId: r.actorId ?? "",
         actConnection: typeof r.actConnection === "string" ? r.actConnection : legacyArray,
     };
@@ -303,21 +372,20 @@ export function buildTrailerMessage(trailer) {
 
 /**
  * ハンドアウト送信のチャットを組む(コネ・推奨欄・PS は空なら省く)。
- * コネ(単一の識別キー)の解決済み表示名・スタイル(スタイル辞典の識別キー)の解決済み名は
- * 呼び出し側から受け取る(純関数のため辞典解決は行わない)。コネは旧自由テキスト
- * `connections`、スタイルは保存生値をフォールバック表示する。
+ * 見出し(表示名)・コネ(単一の識別キー)の解決済み表示名・スタイルの解決済み表示文字列は
+ * 呼び出し側から受け取る(純関数のため辞典解決・連番算出は行わない)。コネは旧自由テキスト
+ * `connections` をフォールバック表示する。
  * @param {object} handout
- * @param {{connectionName?: string, styleName?: string}} [options]
+ * @param {{title?: string, connectionName?: string, styleName?: string}} [options]
  * @returns {string} HTML
  */
-export function buildHandoutMessage(handout, { connectionName = "", styleName = "" } = {}) {
+export function buildHandoutMessage(handout, { title = "", connectionName = "", styleName = "" } = {}) {
     const h = handout ?? {};
-    let html = `<h3>${h.title} (${h.pcName})</h3>`;
+    let html = `<h3>${title || h.title || "ハンドアウト"}</h3>`;
     const conns = connectionName || h.connections || "";
-    const style = styleName || h.recommendedStyle || "";
     if (conns)              html += `<p><strong>コネ:</strong> ${conns}</p>`;
     if (h.recommendedSuit)  html += `<p><strong>推奨スート:</strong> ${handoutSuitLabel(h.recommendedSuit)}</p>`;
-    if (style)              html += `<p><strong>スタイル:</strong> ${style}</p>`;
+    if (styleName)          html += `<p><strong>スタイル:</strong> ${styleName}</p>`;
     html += `<hr>${h.content}`;
     if (h.ps) html += `<hr><h4>PS</h4><p>${h.ps}</p>`;
     return html;

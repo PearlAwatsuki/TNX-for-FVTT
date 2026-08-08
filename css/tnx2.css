@@ -4864,7 +4864,7 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .scene-table-header {
     display: grid;
-    grid-template-columns: 36px 3fr 2fr 1.6fr 2fr 32px;
+    grid-template-columns: 36px 3fr 2fr 3fr 32px;
     gap: 6px;
     align-items: center;
     padding: 0 8px 8px 12px;
@@ -4898,13 +4898,13 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .scene-main-row {
     display: grid;
-    grid-template-columns: 36px 3fr 2fr 1.6fr 2fr 32px;
+    grid-template-columns: 36px 3fr 2fr 3fr 32px;
     gap: 6px;
     align-items: center;
     padding: 8px;
 }
 
-/* エリア・舞台セレクト(14-2)は幅がタイトなため、はみ出さず省略表示にする */
+/* 使用シーンセレクトは幅を超える名前を省略表示にする */
 .scene-main-row .table-cell select { width: 100%; min-width: 0; text-overflow: ellipsis; }
 
 .table-cell input[type="text"] { width: 100%; padding: 6px 8px; }
@@ -4936,21 +4936,21 @@ body.tnx-bottom-hud-expanded #hotbar {
     margin-bottom: 2px;
 }
 
-.scene-appearance-row {
+/* 詳細設定のインライン行(ラベル＋セレクト)。コアの select { width: 100% } が行を占拠し
+   ラベルを1文字ずつ折り返させるため、ラベルは折り返し禁止・セレクトは内容幅で置く */
+.scene-detail-field--inline {
     display: flex;
     align-items: center;
     gap: 8px;
 }
 
-/* コアの select { width: 100% } が行を占拠しラベルを1文字ずつ折り返させるため、
-   ラベルは折り返し禁止・セレクトは内容幅で置く */
-.scene-appearance-row > label {
+.scene-detail-field--inline > label {
     margin-bottom: 0;
     flex: 0 0 auto;
     white-space: nowrap;
 }
 
-.scene-appearance-row select { flex: 0 0 auto; width: auto; }
+.scene-detail-field--inline select { flex: 0 0 auto; width: auto; }
 
 .scene-appearance-row .number-input-spinner input[type="number"] { width: 48px; }
 
@@ -5108,12 +5108,10 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .skill-check-row .skill-key { flex: 1 1 auto; min-width: 0; }
 
-/* 「その他（自由記述）」選択時: セレクトは表示分だけに縮め、記述欄は2行目の全幅に置く */
+/* 「その他（自由記述）」選択時: セレクトは表示分だけに縮め、同じ行の記述欄に幅を譲る */
 .skill-check-row .skill-key--free { flex: 0 0 auto; width: 170px; }
 
-.skill-check-row:has(.skill-name) { flex-wrap: wrap; }
-
-.skill-check-row .skill-name { flex: 1 1 100%; min-width: 0; order: 9; }
+.skill-check-row .skill-name { flex: 1 1 auto; min-width: 0; }
 
 .skill-check-row .skill-tn { width: 48px; text-align: center; }
 
@@ -5148,19 +5146,33 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .handout-row { display: flex; width: 100%; }
 
+/* 1行目=ハンドアウト名(番号前置＋スタイルセレクト＋自動表示・自由記述時は記入欄を伸長) */
 .handout-row--header { align-items: center; gap: 10px; }
 
-.handout-row--header .handout-cast { flex: 0 0 140px; min-width: 0; }
+.handout-row--header .handout-number {
+    flex: 0 0 auto;
+    font-weight: bold;
+    font-size: 1.1em;
+}
 
-.handout-row--header .handout-pc-name { flex: 0 0 120px; }
+.handout-row--header .handout-style { flex: 0 0 auto; width: auto; min-width: 140px; }
+
+.handout-row--header .handout-title-auto {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: bold;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 
 .handout-row--header .handout-title { flex: 1 1 auto; }
 
 .handout-row--ps,
-.handout-row--style { align-items: center; gap: 8px; }
+.handout-row--user { align-items: center; gap: 8px; }
 
 .handout-row--ps label,
-.handout-row--style label,
+.handout-row--user label,
 .handout-row--connections > label,
 .handout-conn-suit label {
     white-space: nowrap;
@@ -5170,7 +5182,7 @@ body.tnx-bottom-hud-expanded #hotbar {
     color: var(--tnx2-text-muted);
 }
 
-.handout-row--style select { flex: 0 0 auto; width: auto; min-width: 160px; }
+.handout-row--user select { flex: 0 0 auto; width: auto; min-width: 160px; }
 
 .handout-row--ps input { flex-grow: 1; }
 

@@ -28,6 +28,13 @@ import {
   buildTrailerMessage,
   buildHandoutMessage,
   buildInfoMessage,
+  HANDOUT_STYLE_COMMON,
+  HANDOUT_STYLE_FREE,
+  circledNumber,
+  handoutTitleSuffix,
+  handoutDisplayTitle,
+  handoutNumberOf,
+  handoutStyleDisplay,
   resolveInfoSkillName,
   withResolvedInfoSkillNames,
 } from "../../scripts/module/session-logic.mjs";
@@ -474,14 +481,13 @@ describe("buildTrailerMessage()（トレーラー送信・14-3）", () => {
   });
 });
 
-describe("buildHandoutMessage()（ハンドアウト送信・14-3／コネ統合・スートキー化は 2026-08-08 是正）", () => {
-  it("コネ(解決済み表示名)・スートラベル・スタイル(解決済み名)・PS を条件付きで含める", () => {
+describe("buildHandoutMessage()（ハンドアウト送信・14-3／見出し=表示名・ユーザー参照化は 2026-08-09 是正）", () => {
+  it("見出し(解決済み表示名)・コネ・スートラベル・スタイル・PS を条件付きで含める", () => {
     const html = buildHandoutMessage({
-      title: "HO1", pcName: "PC1", recommendedSuit: "spade",
-      recommendedStyle: "kabuki", content: "本文", ps: "目的",
-    }, { connectionName: "〈コネ：父〉", styleName: "カブキ" });
+      recommendedSuit: "spade", recommendedStyle: "kabuki", content: "本文", ps: "目的",
+    }, { title: "①カブキ用ハンドアウト", connectionName: "〈コネ：父〉", styleName: "カブキ" });
     expect(html).toBe(
-      "<h3>HO1 (PC1)</h3>"
+      "<h3>①カブキ用ハンドアウト</h3>"
       + "<p><strong>コネ:</strong> 〈コネ：父〉</p>"
       + "<p><strong>推奨スート:</strong> スペード</p>"
       + "<p><strong>スタイル:</strong> カブキ</p>"
@@ -489,24 +495,68 @@ describe("buildHandoutMessage()（ハンドアウト送信・14-3／コネ統合
     );
   });
 
-  it("スタイル名が未解決なら保存生値(旧自由テキスト)をフォールバック表示する", () => {
-    const html = buildHandoutMessage({ title: "HO1", pcName: "PC1", recommendedStyle: "カブキ", content: "C" });
-    expect(html).toContain("<p><strong>スタイル:</strong> カブキ</p>");
-  });
-
   it("コネ表示名が無ければ旧自由テキスト connections をフォールバック表示する", () => {
-    const html = buildHandoutMessage({ title: "HO1", pcName: "PC1", connections: "父", content: "C" });
-    expect(html).toBe("<h3>HO1 (PC1)</h3><p><strong>コネ:</strong> 父</p><hr>C");
+    const html = buildHandoutMessage({ connections: "父", content: "C" }, { title: "HO1" });
+    expect(html).toBe("<h3>HO1</h3><p><strong>コネ:</strong> 父</p><hr>C");
   });
 
   it("スートのキー以外(旧自由テキスト)はそのまま表示する", () => {
-    const html = buildHandoutMessage({ title: "HO1", pcName: "PC1", recommendedSuit: "♠", content: "C" });
+    const html = buildHandoutMessage({ recommendedSuit: "♠", content: "C" }, { title: "HO1" });
     expect(html).toContain("<p><strong>推奨スート:</strong> ♠</p>");
   });
 
-  it("空欄は行ごと省く", () => {
-    expect(buildHandoutMessage({ title: "HO2", pcName: "PC2", content: "C" }))
-      .toBe("<h3>HO2 (PC2)</h3><hr>C");
+  it("空欄は行ごと省き、見出し未指定は旧 title→既定値の順にフォールバックする", () => {
+    expect(buildHandoutMessage({ title: "旧タイトル", content: "C" }))
+      .toBe("<h3>旧タイトル</h3><hr>C");
+    expect(buildHandoutMessage({ content: "C" })).toBe("<h3>ハンドアウト</h3><hr>C");
+  });
+});
+
+describe("ハンドアウト表示名（「①<スタイル名>用ハンドアウト」形式・2026-08-09 裁定）", () => {
+  it("circledNumber は ①〜⑳・超過は (n)", () => {
+    expect(circledNumber(1)).toBe("①");
+    expect(circledNumber(20)).toBe("⑳");
+    expect(circledNumber(21)).toBe("(21)");
+  });
+
+  it("接尾: スタイル指定=「用ハンドアウト」・未選択=「ハンドアウト」・共通=「ハンドアウト」・自由記述=空", () => {
+    expect(handoutTitleSuffix({ recommendedStyle: "kabuki" })).toBe("用ハンドアウト");
+    expect(handoutTitleSuffix({ recommendedStyle: "" })).toBe("ハンドアウト");
+    expect(handoutTitleSuffix({ recommendedStyle: HANDOUT_STYLE_COMMON })).toBe("ハンドアウト");
+    expect(handoutTitleSuffix({ recommendedStyle: HANDOUT_STYLE_FREE })).toBe("");
+  });
+
+  it("表示名: 番号は前置・共通=「共通ハンドアウト」(番号なし)・自由記述=title", () => {
+    expect(handoutDisplayTitle({ recommendedStyle: "kabuki" }, { number: 1, styleName: "カブキ" }))
+      .toBe("①カブキ用ハンドアウト");
+    expect(handoutDisplayTitle({ recommendedStyle: "" }, { number: 2 })).toBe("②ハンドアウト");
+    expect(handoutDisplayTitle({ recommendedStyle: HANDOUT_STYLE_COMMON })).toBe("共通ハンドアウト");
+    expect(handoutDisplayTitle({ recommendedStyle: HANDOUT_STYLE_FREE, title: "特別編" })).toBe("特別編");
+    expect(handoutDisplayTitle({ recommendedStyle: HANDOUT_STYLE_FREE, title: "" })).toBe("ハンドアウト");
+  });
+
+  it("通し番号は共通・自由記述を飛ばして数える", () => {
+    const rows = [
+      { id: "a", recommendedStyle: "kabuki" },
+      { id: "b", recommendedStyle: HANDOUT_STYLE_COMMON },
+      { id: "c", recommendedStyle: "kage" },
+      { id: "d", recommendedStyle: HANDOUT_STYLE_FREE },
+      { id: "e", recommendedStyle: "" },
+    ];
+    expect(handoutNumberOf(rows, "a")).toBe(1);
+    expect(handoutNumberOf(rows, "c")).toBe(2);
+    expect(handoutNumberOf(rows, "e")).toBe(3);
+    expect(handoutNumberOf(rows, "b")).toBe(0);
+    expect(handoutNumberOf(rows, "d")).toBe(0);
+  });
+
+  it("handoutStyleDisplay: 特殊値・未選択は空・キーは現在名・キー以外の旧生値はそのまま", () => {
+    const choices = { "": "-", kabuki: "カブキ" };
+    expect(handoutStyleDisplay("kabuki", choices)).toBe("カブキ");
+    expect(handoutStyleDisplay(HANDOUT_STYLE_COMMON, choices)).toBe("");
+    expect(handoutStyleDisplay(HANDOUT_STYLE_FREE, choices)).toBe("");
+    expect(handoutStyleDisplay("", choices)).toBe("");
+    expect(handoutStyleDisplay("カブキ", choices)).toBe("カブキ");
   });
 });
 
