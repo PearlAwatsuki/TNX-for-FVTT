@@ -71,48 +71,49 @@
                                     <a class="tnx-icon-ctrl" data-action="deleteHandout" title="削除"><i class="fas fa-trash"></i></a>
                                 </div>
                             </div>
-                            {{!-- コネ行: アクトコネは必ず一つ=単一セレクト。推奨スートはコネに付随する情報(スタイルとは無関係) --}}
-                            <div class="handout-row handout-row--connections">
-                                <label>コネ</label>
-                                <select name="actConnection" class="handout-conn-select">
-                                    <option value="">{{#if handout.connections}}旧: {{handout.connections}}{{else}}-{{/if}}</option>
-                                    {{#each handout.connOptions as |opt|}}
-                                        <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
-                                    {{/each}}
-                                    {{#if handout.connBroken}}<option value="{{handout.actConnection}}" selected>（参照切れ）</option>{{/if}}
-                                </select>
-                                <div class="handout-conn-suit">
-                                    <label>推奨スート</label>
-                                    <select name="recommendedSuit">
-                                        <option value="">{{#if handout.legacySuit}}旧: {{handout.legacySuit}}{{else}}-{{/if}}</option>
-                                        {{#each handout.suits as |opt|}}
-                                            <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+                            {{!-- 各欄はラベル列グリッド(確立意匠)で整列。コネは必ず一つ=単一セレクト・
+                                  推奨スートはコネに付随(同じ行)・対象ユーザーは内容でないため一番下 --}}
+                            <div class="tnx-form-field">
+                                <div class="form-group">
+                                    <label>コネ</label>
+                                    <div class="form-fields handout-conn-fields">
+                                        <select name="actConnection">
+                                            <option value="">{{#if handout.connections}}旧: {{handout.connections}}{{else}}-{{/if}}</option>
+                                            {{#each handout.connOptions as |opt|}}
+                                                <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+                                            {{/each}}
+                                            {{#if handout.connBroken}}<option value="{{handout.actConnection}}" selected>（参照切れ）</option>{{/if}}
+                                        </select>
+                                        <label class="handout-suit-label">推奨スート</label>
+                                        <select name="recommendedSuit" class="handout-suit-select">
+                                            <option value="">{{#if handout.legacySuit}}旧: {{handout.legacySuit}}{{else}}-{{/if}}</option>
+                                            {{#each handout.suits as |opt|}}
+                                                <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+                                            {{/each}}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="tnx-editor-section">
+                                    <div class="tnx-editor-section__header">
+                                        <label>ハンドアウト内容</label>
+                                    </div>
+                                    <div class="tnx-editor-section__content">
+                                        <prose-mirror name="content" value="{{handout.content}}" toggled>{{{handout.content}}}</prose-mirror>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>PS</label>
+                                    <input type="text" name="ps" value="{{handout.ps}}" placeholder="このハンドアウトの目的などを記載...">
+                                </div>
+                                <div class="form-group">
+                                    <label>対象ユーザー</label>
+                                    <select name="userId">
+                                        <option value="">{{#if handout.legacyCastName}}旧: {{handout.legacyCastName}}{{else}}-{{/if}}</option>
+                                        {{#each handout.userOptions as |user|}}
+                                            <option value="{{user.id}}" {{#if user.selected}}selected{{/if}}>{{user.name}}</option>
                                         {{/each}}
                                     </select>
                                 </div>
-                            </div>
-                            <div class="tnx-editor-section">
-                                <div class="tnx-editor-section__header">
-                                    <label>ハンドアウト内容</label>
-                                </div>
-                                <div class="tnx-editor-section__content">
-                                    <prose-mirror name="content" value="{{handout.content}}" toggled>{{{handout.content}}}</prose-mirror>
-                                </div>
-                            </div>
-                            <div class="handout-row handout-row--ps">
-                                <label>PS</label>
-                                <input type="text" name="ps" value="{{handout.ps}}" placeholder="このハンドアウトの目的などを記載...">
-                            </div>
-                            {{!-- 対象ユーザー(2026-08-09 裁定): ハンドアウトはユーザーに付与される。
-                                  ハンドアウト自体の内容ではないため一番下に置く --}}
-                            <div class="handout-row handout-row--user">
-                                <label>対象ユーザー</label>
-                                <select name="userId">
-                                    <option value="">{{#if handout.legacyCastName}}旧: {{handout.legacyCastName}}{{else}}-{{/if}}</option>
-                                    {{#each handout.userOptions as |user|}}
-                                        <option value="{{user.id}}" {{#if user.selected}}selected{{/if}}>{{user.name}}</option>
-                                    {{/each}}
-                                </select>
                             </div>
                         </div>
                         {{/each}}
@@ -186,52 +187,63 @@
                                     <details class="scene-details-row">
                                         <summary>詳細設定</summary>
                                         <div class="scene-details-body">
-                                            {{!-- エリアは詳細設定に置く(2026-08-09 指示=メイン行の詰め込み解消) --}}
-                                            <div class="scene-detail-field scene-detail-field--inline">
-                                                <label>エリア</label>
-                                                <select name="area">
-                                                    {{#each @root.sceneAreaOptions as |opt|}}
-                                                        <option value="{{opt.value}}" {{#if (eq opt.value scene.area)}}selected{{/if}}>{{opt.label}}</option>
-                                                    {{/each}}
-                                                </select>
-                                            </div>
-                                            <div class="scene-detail-field scene-detail-field--inline scene-appearance-row">
-                                                <label>登場判定</label>
-                                                <select name="appearanceMode">
-                                                    <option value="area" {{#if (eq scene.appearanceMode "area")}}selected{{/if}}>エリア準拠</option>
-                                                    <option value="fixed" {{#if (eq scene.appearanceMode "fixed")}}selected{{/if}}>数値指定</option>
-                                                    <option value="none" {{#if (eq scene.appearanceMode "none")}}selected{{/if}}>不可</option>
-                                                </select>
-                                                {{#if (eq scene.appearanceMode "fixed")}}
-                                                    <div class="number-input-spinner">
-                                                        <button type="button" class="tnx-btn" data-action="spinDown" aria-label="減少">-</button>
-                                                        <input type="number" name="appearanceValue" value="{{scene.appearanceValue}}" min="0"/>
-                                                        <button type="button" class="tnx-btn" data-action="spinUp" aria-label="増加">+</button>
+                                            {{!-- 登場設定(エリア・登場判定・指定技能)は fieldset＋ラベル列グリッドの確立意匠で組む --}}
+                                            <fieldset class="tnx-fieldset">
+                                                <legend>登場設定</legend>
+                                                <div class="tnx-form-field">
+                                                    <div class="form-group">
+                                                        <label>エリア</label>
+                                                        <select name="area">
+                                                            {{#each @root.sceneAreaOptions as |opt|}}
+                                                                <option value="{{opt.value}}" {{#if (eq opt.value scene.area)}}selected{{/if}}>{{opt.label}}</option>
+                                                            {{/each}}
+                                                        </select>
                                                     </div>
-                                                {{/if}}
-                                            </div>
-                                            <div class="scene-detail-field scene-appearance-skills">
-                                                <label>指定技能</label>
-                                                <div class="scene-skill-chips">
-                                                    {{#each scene.appearanceSkillChips as |chip|}}
-                                                        <span class="tnx-chip">{{chip.name}}<a class="tnx-chip-remove" data-action="removeAppearanceSkill" data-key="{{chip.key}}" title="指定を外す"><i class="fas fa-times"></i></a></span>
-                                                    {{/each}}
+                                                    <div class="form-group">
+                                                        <label>登場判定</label>
+                                                        <div class="form-fields scene-appearance-fields">
+                                                            <select name="appearanceMode">
+                                                                <option value="area" {{#if (eq scene.appearanceMode "area")}}selected{{/if}}>エリア準拠</option>
+                                                                <option value="fixed" {{#if (eq scene.appearanceMode "fixed")}}selected{{/if}}>数値指定</option>
+                                                                <option value="none" {{#if (eq scene.appearanceMode "none")}}selected{{/if}}>不可</option>
+                                                            </select>
+                                                            {{#if (eq scene.appearanceMode "fixed")}}
+                                                                <div class="number-input-spinner">
+                                                                    <button type="button" class="tnx-btn" data-action="spinDown" aria-label="減少">−</button>
+                                                                    <input type="number" name="appearanceValue" value="{{scene.appearanceValue}}" min="0"/>
+                                                                    <button type="button" class="tnx-btn" data-action="spinUp" aria-label="増加">＋</button>
+                                                                </div>
+                                                            {{/if}}
+                                                        </div>
+                                                    </div>
+                                                    <div class="form-group align-start">
+                                                        <label>指定技能</label>
+                                                        <div class="scene-skill-field">
+                                                            {{#if scene.appearanceSkillChips.length}}
+                                                                <div class="scene-skill-chips">
+                                                                    {{#each scene.appearanceSkillChips as |chip|}}
+                                                                        <span class="tnx-chip">{{chip.name}}<a class="tnx-chip-remove" data-action="removeAppearanceSkill" data-key="{{chip.key}}" title="指定を外す"><i class="fas fa-times"></i></a></span>
+                                                                    {{/each}}
+                                                                </div>
+                                                            {{/if}}
+                                                            <div class="scene-skill-add">
+                                                                <select data-no-save class="appearance-skill-select">
+                                                                    <option value="">- 技能を選択 -</option>
+                                                                    {{#each @root.skillGroupsPlain as |group|}}
+                                                                        <optgroup label="{{group.label}}">
+                                                                            {{#each group.skills as |skill|}}
+                                                                                <option value="{{skill.identificationKey}}">{{skill.name}}</option>
+                                                                            {{/each}}
+                                                                        </optgroup>
+                                                                    {{/each}}
+                                                                </select>
+                                                                <a class="tnx-icon-ctrl" data-action="addAppearanceSkill" title="指定技能に加える"><i class="fas fa-plus"></i></a>
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div class="scene-skill-add">
-                                                    <select data-no-save class="appearance-skill-select">
-                                                        <option value="">- 技能を選択 -</option>
-                                                        {{#each @root.skillGroupsPlain as |group|}}
-                                                            <optgroup label="{{group.label}}">
-                                                                {{#each group.skills as |skill|}}
-                                                                    <option value="{{skill.identificationKey}}">{{skill.name}}</option>
-                                                                {{/each}}
-                                                            </optgroup>
-                                                        {{/each}}
-                                                    </select>
-                                                    <a class="tnx-icon-ctrl" data-action="addAppearanceSkill" title="指定技能に加える"><i class="fas fa-plus"></i></a>
-                                                </div>
-                                            </div>
-                                            <div class="scene-detail-field tnx-editor-section">
+                                            </fieldset>
+                                            <div class="tnx-editor-section">
                                                 <div class="tnx-editor-section__header">
                                                     <label>切り替えメッセージ</label>
                                                 </div>
@@ -391,7 +403,7 @@
                                     <a class="tnx-icon-ctrl" data-action="deletePreset" data-preset-kind="checkRequests" data-preset-id="{{this.id}}" title="削除"><i class="fas fa-trash"></i></a>
                                 </div>
                             </div>
-                            <div class="preset-body">
+                            <div class="preset-body tnx-form-field">
                                 <div class="form-group">
                                     <label>判定種別</label>
                                     <select name="checkType" data-preset-kind="checkRequests" data-preset-id="{{this.id}}">
@@ -461,7 +473,7 @@
                                     <a class="tnx-icon-ctrl" data-action="deletePreset" data-preset-kind="bountyGrants" data-preset-id="{{this.id}}" title="削除"><i class="fas fa-trash"></i></a>
                                 </div>
                             </div>
-                            <div class="preset-body">
+                            <div class="preset-body tnx-form-field">
                                 <div class="form-group">
                                     <label>点数</label>
                                     <div class="number-input-spinner">
@@ -503,7 +515,7 @@
                                     <a class="tnx-icon-ctrl" data-action="deletePreset" data-preset-kind="damageGrants" data-preset-id="{{this.id}}" title="削除"><i class="fas fa-trash"></i></a>
                                 </div>
                             </div>
-                            <div class="preset-body">
+                            <div class="preset-body tnx-form-field">
                                 <div class="form-group">
                                     <label>系統</label>
                                     <select name="category" data-preset-kind="damageGrants" data-preset-id="{{this.id}}">
@@ -572,7 +584,7 @@
                                     <a class="tnx-icon-ctrl" data-action="deletePreset" data-preset-kind="effectGrants" data-preset-id="{{this.id}}" title="削除"><i class="fas fa-trash"></i></a>
                                 </div>
                             </div>
-                            <div class="preset-body">
+                            <div class="preset-body tnx-form-field">
                                 {{!-- 効果の見せ方はシステム標準の効果リストに揃える --}}
                                 <div class="tnx-item-list tnx-item-list--effects">
                                     <div class="tnx-item-list__row">

@@ -4922,43 +4922,64 @@ body.tnx-bottom-hud-expanded #hotbar {
     align-items: center;
 }
 
-/* 14-7: シーン行の詳細設定(切替メッセージ・登場設定・指定技能) */
+/* シーン行の詳細設定(2026-08-09 全面改修): fieldset＋ラベル列グリッドの確立意匠で組む。
+   アクトシート全体のラベル付き欄はこのグリッド(96px + 1fr)で整列させる */
+.scenario-sheet .tnx-form-field > .form-group {
+    display: grid;
+    grid-template-columns: 96px 1fr;
+    align-items: center;
+    gap: 4px 10px;
+    margin: 0;
+}
+
+.scenario-sheet .tnx-form-field > .form-group.align-start { align-items: start; }
+
+.scenario-sheet .tnx-form-field > .form-group.align-start > label { padding-top: 5px; }
+
+.scenario-sheet .tnx-form-field > .form-group > label {
+    font-weight: 600;
+    color: var(--tnx2-text-secondary);
+    white-space: nowrap;
+}
+
+/* 複合コントロール行(セレクト＋スピナー等): 先頭コントロールが列幅を使い、残りは内容幅。
+   split-fields(ダメージプリセットの1:1並び)は既存意匠のまま対象外 */
+.scenario-sheet .form-fields:not(.split-fields) {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.scenario-sheet .form-fields:not(.split-fields) > select:first-child { flex: 1 1 auto; min-width: 0; }
+
+.scenario-sheet .form-fields:not(.split-fields) > .number-input-spinner { flex: 0 0 auto; }
+
+.scenario-sheet .form-fields:not(.split-fields) .number-input-spinner input[type="number"] { width: 48px; }
+
+.scenario-sheet .tnx-form-field > .form-group > :only-child { grid-column: 1 / -1; }
+
 .scene-details-body {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding: 8px;
+    padding: 8px 8px 0;
 }
 
-.scene-detail-field > label {
-    display: block;
-    font-weight: 600;
-    margin-bottom: 2px;
-}
+.scene-details-body .tnx-fieldset { margin-bottom: 0; }
 
-/* 詳細設定のインライン行(ラベル＋セレクト)。コアの select { width: 100% } が行を占拠し
-   ラベルを1文字ずつ折り返させるため、ラベルは折り返し禁止・セレクトは内容幅で置く */
-.scene-detail-field--inline {
+/* 指定技能: チップ(登録済み)＋追加プルダウンの縦積み */
+.scene-skill-field {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
 }
-
-.scene-detail-field--inline > label {
-    margin-bottom: 0;
-    flex: 0 0 auto;
-    white-space: nowrap;
-}
-
-.scene-detail-field--inline select { flex: 0 0 auto; width: auto; }
-
-.scene-appearance-row .number-input-spinner input[type="number"] { width: 48px; }
 
 .scene-skill-chips {
     display: flex;
     gap: 4px;
     flex-wrap: wrap;
-    margin-bottom: 4px;
 }
 
 .scene-skill-add {
@@ -4997,19 +5018,16 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .scenario-sheet .act-name-section input { flex: 1 1 auto; min-width: 0; }
 
-/* コネ行(2026-08-09 裁定=必ず一つ): 辞典コネ技能の単一プルダウン。推奨スートはコネに付随 */
-.scenario-sheet .handout-row--connections { align-items: center; gap: 8px; }
-
-.scenario-sheet .handout-conn-select { flex: 1 1 auto; min-width: 0; }
-
-.scenario-sheet .handout-conn-suit {
+/* コネ行(2026-08-09 裁定=必ず一つ): 単一プルダウン＋付随する推奨スート(同じ行の右) */
+.scenario-sheet .handout-conn-fields .handout-suit-label {
     flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    white-space: nowrap;
+    font-weight: 600;
+    font-size: 0.9em;
+    color: var(--tnx2-text-muted);
 }
 
-.scenario-sheet .handout-conn-suit select { width: auto; min-width: 0; }
+.scenario-sheet .handout-conn-fields .handout-suit-select { flex: 0 0 auto; width: auto; min-width: 0; }
 
 .scene-details-row { border-top: 1px dashed transparent; }
 .scene-details-row[open] { border-top-color: var(--tnx2-border-subtle); }
@@ -5167,24 +5185,6 @@ body.tnx-bottom-hud-expanded #hotbar {
 }
 
 .handout-row--header .handout-title { flex: 1 1 auto; }
-
-.handout-row--ps,
-.handout-row--user { align-items: center; gap: 8px; }
-
-.handout-row--ps label,
-.handout-row--user label,
-.handout-row--connections > label,
-.handout-conn-suit label {
-    white-space: nowrap;
-    flex-shrink: 0;
-    font-weight: bold;
-    font-size: 0.9em;
-    color: var(--tnx2-text-muted);
-}
-
-.handout-row--user select { flex: 0 0 auto; width: auto; min-width: 160px; }
-
-.handout-row--ps input { flex-grow: 1; }
 
 .handout-item input[type="text"],
 .handout-item textarea {
@@ -9293,12 +9293,8 @@ button.tnx-create-act-button span {
     border: 1px solid var(--tnx2-border, #3a3f4b);
     border-radius: 4px;
 }
-.scenario-sheet .preset-body {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-top: 6px;
-}
+/* レイアウトはラベル列グリッド(.tnx-form-field)を併用する(2026-08-09 全面改修) */
+.scenario-sheet .preset-body { margin-top: 6px; }
 
 
 /* ============================================================
