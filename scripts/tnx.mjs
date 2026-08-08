@@ -152,7 +152,6 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/actor/parts/tab-profile.hbs",
         "systems/tokyo-nova-axleration/templates/parts/active-effects-list.hbs",
         "systems/tokyo-nova-axleration/templates/parts/card-setup-app.hbs",
-        "systems/tokyo-nova-axleration/templates/parts/scenario-setting-wizard.hbs",
         "systems/tokyo-nova-axleration/templates/parts/prosemirror-editor.hbs",
         "systems/tokyo-nova-axleration/templates/parts/history-list.hbs",
         "systems/tokyo-nova-axleration/templates/parts/usage-list.hbs",

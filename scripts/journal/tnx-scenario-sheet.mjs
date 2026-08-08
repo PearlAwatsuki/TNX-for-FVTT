@@ -1,10 +1,3 @@
-import { UnlinkConfirmDialog } from '../module/tnx-dialog.mjs';
-import { TnxScenarioSettingWizard } from '../module/tnx-scenario-setting-wizard.mjs';
-import { TnxActionHandler } from '../module/tnx-action-handler.mjs';
-import { saveUserFlagCards, getUserFlagData } from '../module/user-flag-schema.mjs';
-import { TnxCheckFlow } from '../module/tnx-check-flow.mjs';
-import { ALL_SUITS } from '../module/tnx-check-engine.mjs';
-import { formatSkillName } from '../module/identification.mjs';
 import { loadGroupedGeneralSkillChoices } from '../module/skill-dictionary.mjs';
 import {
     presetLabel, newCheckRequestPreset, newBountyPreset,
@@ -16,10 +9,7 @@ import { describeEffectData } from '../module/effect-source-logic.mjs';
 import { captureScrollTop, restoreScrollTop } from '../module/scroll-preserve.mjs';
 import { conditionStatusLabels } from '../module/conditions.mjs';
 import { checkTypeOptions } from '../module/tnx-rl-request-app.mjs';
-import {
-    SCENE_AREA_OPTIONS, normalizeSceneRow, normalizeHandoutRow,
-    buildTrailerMessage, buildHandoutMessage, buildInfoMessage,
-} from '../module/session-logic.mjs';
+import { SCENE_AREA_OPTIONS, normalizeSceneRow, normalizeHandoutRow } from '../module/session-logic.mjs';
 import { listSubScenes } from '../module/subscenes.mjs';
 
 const { HandlebarsApplicationMixin, DocumentSheetV2, DialogV2 } = foundry.applications.api;
@@ -30,30 +20,18 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         classes: ["tokyo-nova", "sheet", "journal", "scenario", "two-column-layout"],
         position: { width: 800, height: 700 },
         actions: {
-            openDocument:      TnxScenarioSheet._onOpenDocument,
-            launchWizard:      TnxScenarioSheet._onLaunchWizard,
             addScene:          TnxScenarioSheet._onAddScene,
             deleteScene:       TnxScenarioSheet._onDeleteScene,
             addTextItem:       TnxScenarioSheet._onAddTextItem,
             deleteTextItem:    TnxScenarioSheet._onDeleteTextItem,
-            sendTextToChat:    TnxScenarioSheet._onSendTextToChat,
             addInfoItem:       TnxScenarioSheet._onAddInfoItem,
             deleteInfoItem:    TnxScenarioSheet._onDeleteInfoItem,
-            sendInfoToChat:    TnxScenarioSheet._onSendInfoToChat,
             addInfoContent:    TnxScenarioSheet._onAddInfoContent,
             deleteInfoContent: TnxScenarioSheet._onDeleteInfoContent,
             addSkillCheck:     TnxScenarioSheet._onAddSkillCheck,
             deleteSkillCheck:  TnxScenarioSheet._onDeleteSkillCheck,
-            sendTrailerToChat: TnxScenarioSheet._onSendTrailerToChat,
             addHandout:        TnxScenarioSheet._onAddHandout,
             deleteHandout:     TnxScenarioSheet._onDeleteHandout,
-            sendHandoutToChat: TnxScenarioSheet._onSendHandoutToChat,
-            createAllUserHands: TnxScenarioSheet._onCreateAllUserHands,
-            resetAccessCards:  TnxScenarioSheet._onDistributeRlTrump,
-            dealInitialHands:  TnxScenarioSheet._onDealInitialHands,
-            dealTrumpFromNeuro: TnxScenarioSheet._onDealTrumpFromNeuro,
-            dealTrumpForRl:      TnxScenarioSheet._onDealRlTrumpFromAccess,
-            startInfoSkillCheck: TnxScenarioSheet._onStartInfoSkillCheck,
             addCheckRequestPreset: TnxScenarioSheet._onAddCheckRequestPreset,
             addBountyPreset:       TnxScenarioSheet._onAddBountyPreset,
             addDamageGrantPreset:  TnxScenarioSheet._onAddDamageGrantPreset,
@@ -73,7 +51,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         },
     };
 
-    tabGroups = { primary: "setting" };
+    tabGroups = { primary: "scenario-info" };
 
     /**
      * Foundry V13 の changeTab は `.tabs` クラスを nav に要求するが、
@@ -100,18 +78,6 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
         context.castActors = game.actors.filter(a => a.type === 'cast');
         context.phaseLabels = CONFIG.TNX.phaseLabels;
-
-        const cardDocs = {
-            cardDeck:       await fromUuid(flagData.cardDeckId),
-            discardPile:    await fromUuid(flagData.discardPileId),
-            neuroDeck:      await fromUuid(flagData.neuroDeckId),
-            scenePile:      await fromUuid(flagData.scenePileId),
-            accessCardPile: await fromUuid(flagData.accessCardPileId),
-            gmTrumpDiscard: await fromUuid(flagData.gmTrumpDiscardId),
-        };
-        for (const [key, doc] of Object.entries(cardDocs)) {
-            context[key] = doc;
-        }
 
         // シーン行は読み出し時に正規化する(14-2 追加フィールドの既定値を補う。一括書き換えはしない)
         const scenesData = flagData.scenes || {};
@@ -184,17 +150,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
     }
 
     _onRender(_context, _options) {
-        this._setupContextMenus();
         this._setupChangeListeners();
-        // カード(デッキ/山)のドロップ配線。ApplicationV2 は DEFAULT_OPTIONS.dragDrop を自動処理しないため
-        // 手動で束ねる（アウトフィット/スタイルシートと同方式。ドロップは _onDrop がリンク処理）。
-        if (this.element.querySelector(".tnx-import-box--dropzone")) {
-            new foundry.applications.ux.DragDrop.implementation({
-                dropSelector: ".tnx-import-box--dropzone",
-                permissions: { drop: () => this.isEditable },
-                callbacks: { drop: this._onDrop.bind(this) },
-            }).bind(this.element);
-        }
         for (const [group, tab] of Object.entries(this.tabGroups)) {
             if (tab) this.changeTab(tab, group, { force: true });
         }
@@ -251,58 +207,6 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         for (const input of el.querySelectorAll('.scenario-info-container textarea, .handout-item input, .handout-item textarea, .handout-item select')) {
             input.addEventListener('change', this._onScenarioInfoChange.bind(this));
         }
-    }
-
-    // ─── コンテキストメニュー ─────────────────────────────────────────────────
-
-    _setupContextMenus() {
-        const CM = foundry.applications.ux.ContextMenu.implementation;
-        new CM(this.element, ".tnx-linked-btn", [{
-            name: "リンクを解除",
-            icon: '<i class="fas fa-unlink"></i>',
-            condition: el => !!(el.dataset?.uuid ?? el[0]?.dataset?.uuid),
-            callback: async header => {
-                const uuid = header.dataset.uuid;
-                const slot = header.closest('[data-drop-area]');
-                if (!slot) return;
-                const flagKey = `${slot.dataset.dropArea}Id`;
-                const linkedDoc = await fromUuid(uuid);
-                if (!linkedDoc) {
-                    ui.notifications.warn("リンク先のドキュメントが見つかりませんでした。");
-                    await this.document.update({ [`flags.tokyo-nova-axleration.-=${flagKey}`]: null });
-                    return this.render({ force: true });
-                }
-                const choice = await UnlinkConfirmDialog.prompt({ linkedDoc });
-                if (choice === "unlink" || choice === "delete") {
-                    await this.document.update({ [`flags.tokyo-nova-axleration.-=${flagKey}`]: null });
-                    ui.notifications.info(`「${linkedDoc.name}」とのリンクを解除しました。`);
-                    if (choice === "delete") {
-                        await linkedDoc.delete();
-                        ui.notifications.info(`「${linkedDoc.name}」を削除しました。`);
-                    }
-                    this.render({ force: true });
-                }
-            },
-        }], { jQuery: false, fixed: true });
-    }
-
-    // ─── ドロップ処理 ─────────────────────────────────────────────────────────
-
-    async _onDrop(event) {
-        let data;
-        try { data = JSON.parse(event.dataTransfer.getData("text/plain")); }
-        catch { return false; }
-        if (data.type !== "Cards" || !data.uuid) return;
-
-        const dropArea = event.target.closest('[data-drop-area]')?.dataset.dropArea;
-        if (!dropArea) return;
-
-        const droppedDoc = await fromUuid(data.uuid);
-        if (!droppedDoc) return;
-
-        await this.document.setFlag("tokyo-nova-axleration", `${dropArea}Id`, droppedDoc.uuid);
-        this.render({ force: true });
-        ui.notifications.info(`「${droppedDoc.name}」が${dropArea}としてリンクされました。`);
     }
 
     // ─── インスタンス変更ハンドラ ─────────────────────────────────────────────
@@ -389,15 +293,6 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
     // ─── 静的アクションハンドラ ───────────────────────────────────────────────
 
-    static async _onOpenDocument(_event, target) {
-        const doc = await fromUuid(target.dataset.uuid);
-        doc?.sheet.render({ force: true });
-    }
-
-    static async _onLaunchWizard(_event, _target) {
-        new TnxScenarioSettingWizard(this.document).render(true);
-    }
-
     static async _onAddScene(_event, target) {
         const phase = target.dataset.phase;
         const scenes = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "scenes") || { opening: [], research: [], climax: [], ending: [] });
@@ -441,14 +336,6 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         await this.document.setFlag("tokyo-nova-axleration", "scenarioTexts", texts);
     }
 
-    static async _onSendTextToChat(_event, target) {
-        const textItemId = target.closest('.text-item').dataset.id;
-        const texts = this.document.getFlag("tokyo-nova-axleration", "scenarioTexts") || [];
-        const textItem = texts.find(t => t.id === textItemId);
-        if (textItem?.content) ChatMessage.create({ content: textItem.content });
-        else ui.notifications.warn("送信するテキストがありません。");
-    }
-
     static async _onAddInfoItem(_event, _target) {
         const items = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "infoItems") || []);
         items.push({
@@ -475,20 +362,6 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         let items = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "infoItems") || []);
         items = items.filter(i => i.id !== infoItemId);
         await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
-    }
-
-    static async _onSendInfoToChat(_event, target) {
-        const infoItemId = target.dataset.infoId;
-        const items = this.document.getFlag("tokyo-nova-axleration", "infoItems") || [];
-        const item = items.find(i => i.id === infoItemId);
-        if (!item?.contents) return;
-
-        const { html, mode } = buildInfoMessage(item);
-        if (!mode) return void ui.notifications.warn("送信できる技能・目標値がありません。");
-        ChatMessage.create({ content: html });
-        ui.notifications.info(mode === "disclosed"
-            ? `情報「${item.title}」の公開済み内容を送信しました。`
-            : `情報「${item.title}」の目標値情報を送信しました。`);
     }
 
     static async _onAddInfoContent(_event, target) {
@@ -534,12 +407,6 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
     }
 
-    static async _onSendTrailerToChat(_event, _target) {
-        const html = buildTrailerMessage(this.document.getFlag("tokyo-nova-axleration", "trailer"));
-        if (html) ChatMessage.create({ content: html });
-        else ui.notifications.warn("トレーラーが入力されていません。");
-    }
-
     static async _onAddHandout(_event, _target) {
         const handouts = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "handouts") || []);
         handouts.push({
@@ -565,127 +432,6 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         let handouts = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "handouts") || []);
         handouts = handouts.filter(h => h.id !== id);
         await this.document.setFlag("tokyo-nova-axleration", "handouts", handouts);
-    }
-
-    static async _onSendHandoutToChat(_event, target) {
-        const id = target.closest('.handout-item').dataset.id;
-        const handouts = this.document.getFlag("tokyo-nova-axleration", "handouts") || [];
-        const handout = handouts.find(h => h.id === id);
-        if (!handout) return;
-        ChatMessage.create({ content: buildHandoutMessage(handout) });
-    }
-
-    static async _onCreateAllUserHands(_event, _target) {
-        if (!game.user.isGM) return ui.notifications.warn("この操作はGMのみ実行可能です。");
-
-        const confirmed = await DialogV2.confirm({
-            window: { title: "全ユーザーの手札作成" },
-            content: "<p>すべてのユーザーに対して、手札および切り札置き場を一括作成し、ユーザーデータに登録しますか？</p><p>（既に設定されているユーザーは上書きで再作成されます。過去の手札ドキュメントは削除されず残ります）</p>",
-        });
-        if (!confirmed) return;
-
-        ui.notifications.info("手札・切り札の作成を開始します...");
-        let createdCount = 0;
-
-        for (const user of game.users) {
-            const handPileName  = `${user.name}の手札`;
-            const trumpPileName = `${user.name}の切り札`;
-            const ownership = {
-                default: CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE,
-                [user.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER,
-            };
-            if (user.id !== game.user.id) ownership[game.user.id] = CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
-
-            try {
-                const handPile  = await Cards.create({ name: handPileName,  type: "hand", description: `「${user.name}」の手札です。`,      img: "icons/svg/card-hand.svg", ownership });
-                const trumpPile = await Cards.create({ name: trumpPileName, type: "pile", description: `「${user.name}」の切り札置き場です。`, img: "icons/svg/card-hand.svg", ownership, flags: { "tokyo-nova-axleration": { isTrumpPile: true } } });
-                if (handPile && trumpPile) {
-                    await saveUserFlagCards(user, handPile.uuid, trumpPile.uuid);
-                    createdCount++;
-                }
-            } catch (err) {
-                console.error(`TokyoNOVA | Failed to create cards for user ${user.name}:`, err);
-            }
-        }
-
-        ui.notifications.info(`全 ${createdCount} 人のユーザーに手札・切り札を作成しました。`);
-    }
-
-    static async _onDistributeRlTrump(_event, _target) {
-        const gmTrumpDiscardId = this.document.getFlag("tokyo-nova-axleration", "gmTrumpDiscardId");
-        if (!gmTrumpDiscardId) return ui.notifications.warn("RL切り札捨て場がこのシナリオに設定されていません。");
-
-        const gmTrumpDiscard = await fromUuid(gmTrumpDiscardId);
-        if (!gmTrumpDiscard) return ui.notifications.error("設定されているRL切り札捨て場が見つかりませんでした。");
-
-        const gm = game.users.find(u => u.isGM);
-        if (!gm) return ui.notifications.warn("GMユーザーが見つかりません。");
-
-        const gmTrumpPile = await fromUuid(getUserFlagData(gm).trumpCardPileId);
-        if (!gmTrumpPile) return ui.notifications.warn("GMユーザーの切り札置き場が設定・取得できませんでした。");
-
-        const trumpCard = gmTrumpDiscard.cards.find(c => c.name === "切り札");
-        if (!trumpCard) return ui.notifications.info("RL切り札捨て場に「切り札」カードはありません。配布の必要はありません。");
-        if (gmTrumpPile.cards.size > 0) return ui.notifications.warn("RLの切り札には既にカードがあるため、配布できませんでした。");
-
-        await gmTrumpDiscard.pass(gmTrumpPile, [trumpCard.id], { chatNotification: false });
-        ui.notifications.info("「切り札」をRLの切り札に再配布しました。");
-    }
-
-    static async _onDealInitialHands(_event, _target) {
-        await TnxActionHandler.dealInitialHands();
-    }
-
-    static async _onDealTrumpFromNeuro(_event, _target) {
-        await TnxActionHandler.dealTrumpFromNeuroDeck();
-    }
-
-    static async _onDealRlTrumpFromAccess(_event, _target) {
-        const accessCardPileId = this.document.getFlag("tokyo-nova-axleration", "accessCardPileId");
-        if (!accessCardPileId) return ui.notifications.warn("アクセスカード山が設定されていません。設定タブでドロップしてください。");
-
-        const accessCardPile = await fromUuid(accessCardPileId);
-        if (!accessCardPile) return ui.notifications.error("設定されているアクセスカード山が見つかりませんでした。");
-
-        const gm = game.users.find(u => u.isGM);
-        if (!gm) return ui.notifications.warn("GMユーザーが見つかりません。");
-
-        const gmTrumpPile = await fromUuid(getUserFlagData(gm).trumpCardPileId);
-        if (!gmTrumpPile) return ui.notifications.warn("GMユーザーの切り札置き場が設定・取得できませんでした。");
-
-        const trumpCard = accessCardPile.cards.contents.find(c => c.name === "切り札");
-        if (!trumpCard) return ui.notifications.info("アクセスカード山の中に「切り札」カードが見つかりませんでした。");
-        if (gmTrumpPile.cards.size > 0) return ui.notifications.warn("RLの切り札には既にカードがあるため、配布を中止しました。");
-
-        await accessCardPile.pass(gmTrumpPile, [trumpCard.id], { chatNotification: false });
-        ui.notifications.info("RLに「切り札」を配布しました。");
-    }
-
-    // ─── 情報収集判定起動 ──────────────────────────────────────────────────
-
-    static async _onStartInfoSkillCheck(event, target) {
-        event.preventDefault();
-        const actor = game.user.character;
-        if (!actor) {
-            return ui.notifications.warn("ユーザーにキャラクターが割り当てられていません。プレイヤー設定でキャラクターを選択してください。");
-        }
-        const row       = target.closest(".skill-check-row");
-        // 技能名の表示は 〈〉 整形(2026-07-18・識別マーク省去)。未入力はプレースホルダーのまま
-        const rawSkill  = row?.querySelector(".skill-name")?.value?.trim() || "";
-        const skillName = rawSkill ? formatSkillName(rawSkill) : "（技能不明）";
-        const tnRaw     = parseInt(row?.querySelector(".skill-tn")?.value);
-        const tn        = Number.isFinite(tnRaw) ? tnRaw : null;
-
-        await TnxCheckFlow.open({
-            type:            "skillCheck",
-            actorId:         actor.id,
-            skillIds:        [],
-            skillLabel:      skillName,
-            validSuits:      [...ALL_SUITS],
-            targetValue:     tn,
-            bountyAvailable: (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0),
-            requestMessageId: null,
-        });
     }
 
     // ─── 判定要求・報酬点のプリセット(フェーズ12-5) ────────────────────────────

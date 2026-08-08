@@ -4725,29 +4725,6 @@ body.tnx-bottom-hud-expanded #hotbar {
     color: var(--tnx2-text-secondary);
 }
 
-.card-management-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 15px;
-}
-
-.card-slot .slot-header {
-    margin: 0 0 8px 0;
-    font-size: 1.1em;
-    font-weight: bold;
-    border-bottom: 1px solid var(--tnx2-border-active);
-    padding-bottom: 4px;
-}
-
-.setup-controls {
-    display: flex;
-    justify-content: flex-start;
-    padding: 10px 0;
-    margin-bottom: 20px;
-}
-
-.setup-controls .tnx-btn { max-width: 300px; }
-
 .manual-text p {
     margin: 0 0 10px 0;
     color: var(--tnx2-text-muted);
@@ -4782,15 +4759,6 @@ body.tnx-bottom-hud-expanded #hotbar {
     padding: 10px;
     overflow-y: auto;
 }
-
-.scenario-sheet .scenario-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    max-width: 500px;
-}
-
-.scenario-sheet .scenario-actions .tnx-btn { width: 300px; }
 
 .scenario-sheet .vertical-tabs {
     display: flex;

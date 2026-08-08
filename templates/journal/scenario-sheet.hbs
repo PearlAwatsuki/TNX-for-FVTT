@@ -1,9 +1,5 @@
 <section class="scenario-sheet two-column-layout">
     <nav class="sheet-tabs vertical-tabs scenario-sidebar" data-group="primary">
-        <a class="item" data-action="tab" data-tab="setting" data-group="primary">
-            <i class="fas fa-cogs"></i>
-            <span>設定</span>
-        </a>
         <a class="item" data-action="tab" data-tab="scenario-info" data-group="primary">
             <i class="fas fa-scroll"></i>
             <span>シナリオ情報</span>
@@ -27,149 +23,11 @@
     </nav>
 
     <section class="sheet-body">
-        <div class="tab setting" data-group="primary" data-tab="setting">
-            <div class="scenario-content">
-                <div class="setup-controls">
-                    <button type="button" class="tnx-btn" data-action="launchWizard">
-                        <i class="fas fa-magic"></i> セットアップウィザードを起動
-                    </button>
-                </div>
-                <fieldset class="tnx-fieldset">
-                    <legend>関連カード設定</legend>
-                    <div class="card-management-grid">
-                        <div class="card-slot" data-drop-area="cardDeck">
-                            <h3 class="slot-header">山札 (トランプ)</h3>
-                            <div class="slot-body">
-                                {{#if cardDeck}}
-                                    <button type="button" class="tnx-linked-btn" data-action="openDocument" data-uuid="{{cardDeck.uuid}}">
-                                        <img src="{{cardDeck.img}}" class="tnx-linked-btn__icon"/>
-                                        <span class="tnx-linked-btn__label">{{cardDeck.name}}</span>
-                                    </button>
-                                {{else}}
-                                    <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="cardDeck">
-                                        <span>山札(Deck)をドロップ</span>
-                                    </div>
-                                {{/if}}
-                            </div>
-                        </div>
-                        <div class="card-slot" data-drop-area="discardPile">
-                            <h3 class="slot-header">捨て札</h3>
-                            <div class="slot-body">
-                                {{#if discardPile}}
-                                    <button type="button" class="tnx-linked-btn" data-action="openDocument" data-uuid="{{discardPile.uuid}}">
-                                        <img src="{{discardPile.img}}" class="tnx-linked-btn__icon"/>
-                                        <span class="tnx-linked-btn__label">{{discardPile.name}}</span>
-                                    </button>
-                                {{else}}
-                                    <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="discardPile">
-                                        <span>捨て札(Pile)をドロップ</span>
-                                    </div>
-                                {{/if}}
-                            </div>
-                        </div>
-                        <div class="card-slot" data-drop-area="neuroDeck">
-                            <h3 class="slot-header">ニューロデッキ</h3>
-                            <div class="slot-body">
-                                {{#if neuroDeck}}
-                                    <button type="button" class="tnx-linked-btn" data-action="openDocument" data-uuid="{{neuroDeck.uuid}}">
-                                        <img src="{{neuroDeck.img}}" class="tnx-linked-btn__icon"/>
-                                        <span class="tnx-linked-btn__label">{{neuroDeck.name}}</span>
-                                    </button>
-                                {{else}}
-                                    <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="neuroDeck">
-                                        <span>山札(Deck)をドロップ</span>
-                                    </div>
-                                {{/if}}
-                            </div>
-                        </div>
-                        <div class="card-slot" data-drop-area="scenePile">
-                            <h3 class="slot-header">シーンカード</h3>
-                            <div class="slot-body">
-                                {{#if scenePile}}
-                                    <button type="button" class="tnx-linked-btn" data-action="openDocument" data-uuid="{{scenePile.uuid}}">
-                                        <img src="{{scenePile.img}}" class="tnx-linked-btn__icon"/>
-                                        <span class="tnx-linked-btn__label">{{scenePile.name}}</span>
-                                    </button>
-                                {{else}}
-                                    <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="scenePile">
-                                        <span>捨て札(Pile)をドロップ</span>
-                                    </div>
-                                {{/if}}
-                            </div>
-                        </div>
-                        <div class="card-slot" data-drop-area="accessCardPile">
-                            <h3 class="slot-header">アクセスカード置き場</h3>
-                            <div class="slot-body">
-                                {{#if accessCardPile}}
-                                    <button type="button" class="tnx-linked-btn" data-action="openDocument" data-uuid="{{accessCardPile.uuid}}">
-                                        <img src="{{accessCardPile.img}}" class="tnx-linked-btn__icon"/>
-                                        <span class="tnx-linked-btn__label">{{accessCardPile.name}}</span>
-                                    </button>
-                                {{else}}
-                                    <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="accessCardPile">
-                                        <span>手札(hand)をドロップ</span>
-                                    </div>
-                                {{/if}}
-                            </div>
-                        </div>
-                        <div class="card-slot" data-drop-area="gmTrumpDiscard">
-                            <h3 class="slot-header">RL切り札捨て場</h3>
-                            <div class="slot-body">
-                                {{#if gmTrumpDiscard}}
-                                    <button type="button" class="tnx-linked-btn" data-action="openDocument" data-uuid="{{gmTrumpDiscard.uuid}}">
-                                        <img src="{{gmTrumpDiscard.img}}" class="tnx-linked-btn__icon"/>
-                                        <span class="tnx-linked-btn__label">{{gmTrumpDiscard.name}}</span>
-                                    </button>
-                                {{else}}
-                                    <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="gmTrumpDiscard">
-                                        <span>捨て札(Pile)をドロップ</span>
-                                    </div>
-                                {{/if}}
-                            </div>
-                        </div>
-                    </div>
-                </fieldset>
-                <fieldset class="tnx-fieldset">
-                    <legend>管理アクション</legend>
-                    <div class="scenario-actions">
-                        <div>
-                            <button type="button" class="tnx-btn" data-action="createAllUserHands">
-                                <i class="fas fa-users"></i> 全ユーザーの手札・切り札を作成
-                            </button>
-                        </div>
-                        <div>
-                            <button type="button" class="tnx-btn" data-action="dealTrumpForRl">
-                                <i class="fas fa-crown"></i> RLの切り札を設定
-                            </button>
-                        </div>
-                        <div>
-                            <button type="button" class="tnx-btn" data-action="resetAccessCards">
-                                <i class="fas fa-undo"></i> アクセスカードをリセットする
-                            </button>
-                        </div>
-                        <div>
-                            <button type="button" class="tnx-btn" data-action="dealInitialHands">
-                                <i class="fas fa-hand-holding"></i> 初期手札を配布
-                            </button>
-                        </div>
-                        <div>                            
-                            <button type="button" class="tnx-btn" data-action="dealTrumpFromNeuro">
-                                <i class="fas fa-star"></i> 切り札を配布
-                            </button>
-                        </div>
-                    </div>
-                </fieldset>
-            </div>
-        </div>
-
         <div class="tab scenario-info" data-group="primary" data-tab="scenario-info">
             <div class="scenario-info-container">
                 <div class="trailer-section">
                     <div class="tnx-section-header">
                         <h3>トレーラー</h3>
-                        <button type="button" class="tnx-btn tnx-btn--sm" data-action="sendTrailerToChat">
-                            <i class="fas fa-paper-plane"></i> チャットに送信
-                        </button>
                     </div>
                     <textarea name="trailer" class="trailer-textarea" rows="8" placeholder="シナリオのトレーラーをここに入力...">{{trailer}}</textarea>
                 </div>
@@ -193,7 +51,6 @@
                                 <input type="text" name="pcName" class="handout-pc-name" value="{{handout.pcName}}" placeholder="PC名">
                                 <input type="text" name="title" class="handout-title" value="{{handout.title}}" placeholder="ハンドアウトのタイトル">
                                 <div class="tnx-ctrl-strip">
-                                    <a class="tnx-icon-ctrl" data-action="sendHandoutToChat" title="チャットに送信"><i class="fas fa-paper-plane"></i></a>
                                     <a class="tnx-icon-ctrl" data-action="deleteHandout" title="削除"><i class="fas fa-trash"></i></a>
                                 </div>
                             </div>
@@ -331,7 +188,6 @@
                             <div class="tnx-item-header tnx-item-header--card">
                                 <input type="text" name="title" value="{{textItem.title}}" placeholder="テキストのタイトル"/>
                                 <div class="tnx-ctrl-strip">
-                                    <a class="tnx-icon-ctrl" data-action="sendTextToChat" title="チャットに送信"><i class="fas fa-paper-plane"></i></a>
                                     <a class="tnx-icon-ctrl" data-action="deleteTextItem" title="この項目を削除"><i class="fas fa-trash"></i></a>
                                 </div>
                             </div>
@@ -366,9 +222,6 @@
                                         <input type="checkbox" name="isPublic" {{checked infoItem.isPublic}} title="{{#if infoItem.isPublic}}公開中 (クリックで非公開に){{else}}非公開 (クリックで公開){{/if}}" data-info-id="{{infoItem.id}}">
                                         <i class="fas {{#if infoItem.isPublic}}fa-lock-open{{else}}fa-lock{{/if}}"></i>
                                     </label>
-                                    <a class="tnx-icon-ctrl" data-action="sendInfoToChat" data-info-id="{{infoItem.id}}" title="公開済みの情報をチャットに送信" {{#unless infoItem.isPublic}}disabled{{/unless}}>
-                                        <i class="fas fa-paper-plane"></i>
-                                    </a>
                                     <a class="tnx-icon-ctrl" data-action="deleteInfoItem" data-info-id="{{infoItem.id}}" title="この項目を削除"><i class="fas fa-trash"></i></a>
                                 </div>
                             </div>
@@ -398,7 +251,6 @@
                                                     <input type="text" name="name" class="skill-name" placeholder="技能名" value="{{skillItem.name}}" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}">
                                                     <span class="tn-label">目標値:</span>
                                                     <input type="number" name="tn" class="skill-tn" placeholder="-" value="{{skillItem.tn}}" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}">
-                                                    <a class="tnx-ring-btn" data-action="startInfoSkillCheck" title="判定を起動"><i class="fas fa-diamond"></i></a>
                                                     <a class="tnx-ring-btn" data-action="deleteSkillCheck" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}" title="この技能を削除"><i class="fas fa-times"></i></a>
                                                 </div>
                                                 {{/each}}
