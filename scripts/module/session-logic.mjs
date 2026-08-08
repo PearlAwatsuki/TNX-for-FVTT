@@ -80,17 +80,19 @@ export function handoutSuitLabel(value) {
  */
 export function normalizeHandoutRow(row) {
     const r = row ?? {};
+    // コネ＝アクトコネクション(14-7): **必ず一つ**(2026-08-09 ユーザー裁定)。辞典のコネ技能
+    // (識別キー contact プレフィックス)のプルダウンから選ぶ単一の識別キー。指定するコネ技能は
+    // 辞典への格納が前提(2026-08-08 裁定・D&D 撤回)。アクト開始時に actorId のキャストへ
+    // コピー付与(isActLimited)され、アクト終了時に自動削除される。
+    // 旧形式は読み出し時に吸収(書き換えない): 配列 actConnections → 先頭の文字列キー。
+    // {uuid} 形式は実機確認前に廃止(対象にしない)
+    const legacyArray = Array.isArray(r.actConnections)
+        ? (r.actConnections.find(c => typeof c === "string") ?? "")
+        : "";
     return {
         ...r,
         actorId: r.actorId ?? "",
-        // コネ＝アクトコネクション(14-7・2026-08-08 裁定で D&D 撤回): 辞典のコネ技能
-        // (識別キー contact プレフィックス)のプルダウンから登録する識別キー配列。指定する
-        // コネ技能は辞典への格納が前提。アクト開始時に actorId のキャストへコピー付与
-        // (isActLimited)され、アクト終了時に自動削除される。初期実装の {uuid} 形式は
-        // 実機確認前に廃止(表示・付与の対象にしない)
-        actConnections: Array.isArray(r.actConnections)
-            ? r.actConnections.filter(c => typeof c === "string")
-            : [],
+        actConnection: typeof r.actConnection === "string" ? r.actConnection : legacyArray,
     };
 }
 
@@ -301,17 +303,17 @@ export function buildTrailerMessage(trailer) {
 
 /**
  * ハンドアウト送信のチャットを組む(コネ・推奨欄・PS は空なら省く)。
- * コネ(識別キー)の解決済み表示名・スタイル(スタイル辞典の識別キー)の解決済み名は
+ * コネ(単一の識別キー)の解決済み表示名・スタイル(スタイル辞典の識別キー)の解決済み名は
  * 呼び出し側から受け取る(純関数のため辞典解決は行わない)。コネは旧自由テキスト
  * `connections`、スタイルは保存生値をフォールバック表示する。
  * @param {object} handout
- * @param {{connectionNames?: string[], styleName?: string}} [options]
+ * @param {{connectionName?: string, styleName?: string}} [options]
  * @returns {string} HTML
  */
-export function buildHandoutMessage(handout, { connectionNames = [], styleName = "" } = {}) {
+export function buildHandoutMessage(handout, { connectionName = "", styleName = "" } = {}) {
     const h = handout ?? {};
     let html = `<h3>${h.title} (${h.pcName})</h3>`;
-    const conns = connectionNames.length ? connectionNames.join("、") : (h.connections || "");
+    const conns = connectionName || h.connections || "";
     const style = styleName || h.recommendedStyle || "";
     if (conns)              html += `<p><strong>コネ:</strong> ${conns}</p>`;
     if (h.recommendedSuit)  html += `<p><strong>推奨スート:</strong> ${handoutSuitLabel(h.recommendedSuit)}</p>`;

@@ -36,8 +36,6 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             deleteSkillCheck:  TnxScenarioSheet._onDeleteSkillCheck,
             addHandout:        TnxScenarioSheet._onAddHandout,
             deleteHandout:     TnxScenarioSheet._onDeleteHandout,
-            addActConnection:      TnxScenarioSheet._onAddActConnection,
-            removeActConnection:   TnxScenarioSheet._onRemoveActConnection,
             addAppearanceSkill:    TnxScenarioSheet._onAddAppearanceSkill,
             removeAppearanceSkill: TnxScenarioSheet._onRemoveAppearanceSkill,
             addCheckRequestPreset: TnxScenarioSheet._onAddCheckRequestPreset,
@@ -161,17 +159,18 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         context.trailer       = flagData.trailer       || "";
         context.handouts      = (flagData.handouts || []).map(normalizeHandoutRow);
         // コネ(アクトコネクション)の選択肢: 辞典のコネ技能(識別キー contact プレフィックス)。
-        // 指定するコネ技能は辞典への格納が前提(2026-08-08 裁定・D&D 撤回)
+        // **必ず一つ**(2026-08-09 裁定)＝単一セレクト。辞典への格納が前提(2026-08-08 裁定・D&D 撤回)
         const contactChoices = await loadOnomasticChoices("contact");
-        context.contactSkillOptions = Object.entries(contactChoices)
-            .filter(([key]) => key)
-            .map(([key, name]) => ({ key, name }));
+        const contactEntries = Object.entries(contactChoices).filter(([key]) => key);
         // スタイル(指定スタイル)＝スタイル辞典のプルダウン(識別キー保存)
         const styleChoices = await loadSkillChoices([STYLE_PACK]);
         const styleEntries = Object.entries(styleChoices).filter(([key]) => key);
         for (const handout of context.handouts) {
-            // チップは識別キーの辞典逆引き(toSkillChips=指定技能と共用・生キーは表示しない)
-            handout.actConnectionChips = toSkillChips(handout.actConnections);
+            // コネ: キー保存のセレクト。辞典から消えたキーは値を保ったまま「（参照切れ）」表示
+            handout.connOptions = contactEntries.map(([key, name]) => ({
+                value: key, label: name, selected: key === handout.actConnection,
+            }));
+            handout.connBroken = !!(handout.actConnection && !(handout.actConnection in contactChoices));
             // 推奨スート: キー保存のセレクト。キー以外の旧自由テキストは空選択肢のラベルで示す
             handout.suits = HANDOUT_SUIT_OPTIONS.map(o => ({ ...o, selected: o.value === handout.recommendedSuit }));
             handout.legacySuit = (handout.recommendedSuit
@@ -381,31 +380,8 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         await this.document.setFlag("tokyo-nova-axleration", "scenes", scenes);
     }
 
-    /** コネ(アクトコネクション)を追加する(辞典コネ技能のプルダウンから識別キーで登録)。 */
-    static async _onAddActConnection(_event, target) {
-        const handoutItem = target.closest(".handout-item");
-        const key = handoutItem?.querySelector(".handout-conn-select")?.value;
-        if (!key || !handoutItem) return;
-        const handouts = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "handouts") || []);
-        const handout = handouts.find(h => h.id === handoutItem.dataset.id);
-        if (!handout) return;
-        const keys = (Array.isArray(handout.actConnections) ? handout.actConnections : [])
-            .filter(c => typeof c === "string");
-        if (keys.includes(key)) return;
-        handout.actConnections = [...keys, key];
-        await this.document.setFlag("tokyo-nova-axleration", "handouts", handouts);
-    }
-
-    /** コネ(アクトコネクション)の登録を外す。 */
-    static async _onRemoveActConnection(_event, target) {
-        const handoutId = target.closest(".handout-item")?.dataset.id;
-        const key = target.dataset.key;
-        const handouts = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "handouts") || []);
-        const handout = handouts.find(h => h.id === handoutId);
-        if (!handout) return;
-        handout.actConnections = (handout.actConnections ?? []).filter(c => c !== key);
-        await this.document.setFlag("tokyo-nova-axleration", "handouts", handouts);
-    }
+    // コネ(アクトコネクション)は必ず一つ(2026-08-09 裁定)＝name="actConnection" の単一セレクト。
+    // 保存は他のハンドアウト欄と同じ汎用ハンドラ(_onScenarioInfoChange)が担う
 
     static async _onAddScene(_event, target) {
         const phase = target.dataset.phase;

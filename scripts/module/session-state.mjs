@@ -266,10 +266,10 @@ async function _dealTrumpsForCasts(casts) {
 }
 
 /**
- * コネ(ハンドアウトに登録されたアクトコネクション=辞典コネ技能の識別キー)を actorId の
- * キャストへコピー付与する(14-7・2026-08-08 裁定で D&D→辞典プルダウンに変更)。指定する
- * コネ技能は一般技能辞典への格納が前提。コピーには isActLimited を立てる=アクト終了時に
- * 自動削除される。同じ識別キーの技能を既に持つ場合はスキップ(重複付与を避ける)。
+ * コネ(ハンドアウトのアクトコネクション=辞典コネ技能の識別キー・**必ず一つ**)を actorId の
+ * キャストへコピー付与する(14-7・2026-08-09 裁定で単一化)。指定するコネ技能は一般技能辞典への
+ * 格納が前提(2026-08-08 裁定)。コピーには isActLimited を立てる=アクト終了時に自動削除される。
+ * 同じ識別キーの技能を既に持つ場合はスキップ(重複付与を避ける)。
  */
 async function _grantActConnections(handouts) {
     let granted = 0;
@@ -280,29 +280,24 @@ async function _grantActConnections(handouts) {
         .filter(e => e.system?.identificationKey)
         .map(e => [e.system.identificationKey, e._id]));
     for (const handout of handouts) {
-        if (!handout.actorId || !(handout.actConnections ?? []).length) continue;
+        const key = handout.actConnection;
+        if (!handout.actorId || !key) continue;
         const cast = game.actors.get(handout.actorId);
         if (cast?.type !== "cast") continue;
-        const creates = [];
-        for (const key of handout.actConnections) {
-            const id = idByKey.get(key);
-            const doc = id ? await pack.getDocument(id).catch(() => null) : null;
-            if (doc?.type !== "generalSkill") {
-                ui.notifications.warn(`コネ技能が辞典に見つかりません(${handout.title ?? handout.pcName ?? ""})。`);
-                continue;
-            }
-            const exists = cast.items.some(i => i.type === "generalSkill"
-                && i.system.identificationKey === key);
-            if (exists) continue;
-            const data = doc.toObject();
-            delete data._id;
-            foundry.utils.setProperty(data, "system.isActLimited", true);
-            creates.push(data);
+        const id = idByKey.get(key);
+        const doc = id ? await pack.getDocument(id).catch(() => null) : null;
+        if (doc?.type !== "generalSkill") {
+            ui.notifications.warn(`コネ技能が辞典に見つかりません(${handout.title ?? handout.pcName ?? ""})。`);
+            continue;
         }
-        if (creates.length) {
-            await cast.createEmbeddedDocuments("Item", creates);
-            granted += creates.length;
-        }
+        const exists = cast.items.some(i => i.type === "generalSkill"
+            && i.system.identificationKey === key);
+        if (exists) continue;
+        const data = doc.toObject();
+        delete data._id;
+        foundry.utils.setProperty(data, "system.isActLimited", true);
+        await cast.createEmbeddedDocuments("Item", [data]);
+        granted += 1;
     }
     if (granted > 0) ui.notifications.info(`コネを ${granted} 件配布しました(アクト終了時に自動削除)。`);
 }

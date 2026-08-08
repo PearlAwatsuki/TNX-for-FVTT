@@ -61,30 +61,16 @@
                                     <a class="tnx-icon-ctrl" data-action="deleteHandout" title="削除"><i class="fas fa-trash"></i></a>
                                 </div>
                             </div>
-                            {{!-- コネ行: 推奨スートはコネに付随する情報(スタイルとは無関係) --}}
+                            {{!-- コネ行: アクトコネは必ず一つ=単一セレクト。推奨スートはコネに付随する情報(スタイルとは無関係) --}}
                             <div class="handout-row handout-row--connections">
                                 <label>コネ</label>
-                                <div class="handout-conn-field">
-                                    {{#if handout.actConnectionChips.length}}
-                                        <div class="scene-skill-chips">
-                                            {{#each handout.actConnectionChips as |chip|}}
-                                                <span class="tnx-chip">{{chip.name}}<a class="tnx-chip-remove" data-action="removeActConnection" data-key="{{chip.key}}" title="登録を外す"><i class="fas fa-times"></i></a></span>
-                                            {{/each}}
-                                            {{#if handout.connections}}<span class="handout-conn-legacy">旧: {{handout.connections}}</span>{{/if}}
-                                        </div>
-                                    {{else if handout.connections}}
-                                        <div class="scene-skill-chips"><span class="handout-conn-legacy">旧: {{handout.connections}}</span></div>
-                                    {{/if}}
-                                    <div class="scene-skill-add">
-                                        <select data-no-save class="handout-conn-select">
-                                            <option value="">- コネ技能を選択 -</option>
-                                            {{#each @root.contactSkillOptions as |skill|}}
-                                                <option value="{{skill.key}}">{{skill.name}}</option>
-                                            {{/each}}
-                                        </select>
-                                        <a class="tnx-icon-ctrl" data-action="addActConnection" title="コネに加える"><i class="fas fa-plus"></i></a>
-                                    </div>
-                                </div>
+                                <select name="actConnection" class="handout-conn-select">
+                                    <option value="">{{#if handout.connections}}旧: {{handout.connections}}{{else}}-{{/if}}</option>
+                                    {{#each handout.connOptions as |opt|}}
+                                        <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+                                    {{/each}}
+                                    {{#if handout.connBroken}}<option value="{{handout.actConnection}}" selected>（参照切れ）</option>{{/if}}
+                                </select>
                                 <div class="handout-conn-suit">
                                     <label>推奨スート</label>
                                     <select name="recommendedSuit">

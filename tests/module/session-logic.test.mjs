@@ -80,16 +80,21 @@ describe("normalizeHandoutRow()（ハンドアウト行の正規化・14-2）", 
     expect(normalizeHandoutRow({ id: "h2", actorId: "a9" }).actorId).toBe("a9");
   });
 
-  it("actConnections は識別キー文字列のみ通す(旧 {uuid} 形式は除外)", () => {
-    const row = normalizeHandoutRow({
-      id: "h3",
-      actConnections: ["contact_father", { uuid: "Compendium.x.y" }, "contact_boss"],
-    });
-    expect(row.actConnections).toEqual(["contact_father", "contact_boss"]);
+  it("actConnection(単一キー)は保存値を保つ・未設定は空", () => {
+    expect(normalizeHandoutRow({ id: "h3", actConnection: "contact_father" }).actConnection).toBe("contact_father");
+    expect(normalizeHandoutRow({ id: "h4" }).actConnection).toBe("");
   });
 
-  it("actConnections が配列でなければ空配列", () => {
-    expect(normalizeHandoutRow({ id: "h4", actConnections: "x" }).actConnections).toEqual([]);
+  it("旧配列 actConnections は先頭の文字列キーを actConnection へ読み替える({uuid} 形式は無視)", () => {
+    const row = normalizeHandoutRow({
+      id: "h5",
+      actConnections: [{ uuid: "Compendium.x.y" }, "contact_father", "contact_boss"],
+    });
+    expect(row.actConnection).toBe("contact_father");
+  });
+
+  it("actConnection が明示されていれば旧配列より優先する(空文字も意図的な選択として保つ)", () => {
+    expect(normalizeHandoutRow({ id: "h6", actConnection: "", actConnections: ["contact_x"] }).actConnection).toBe("");
   });
 });
 
@@ -474,7 +479,7 @@ describe("buildHandoutMessage()（ハンドアウト送信・14-3／コネ統合
     const html = buildHandoutMessage({
       title: "HO1", pcName: "PC1", recommendedSuit: "spade",
       recommendedStyle: "kabuki", content: "本文", ps: "目的",
-    }, { connectionNames: ["〈コネ：父〉"], styleName: "カブキ" });
+    }, { connectionName: "〈コネ：父〉", styleName: "カブキ" });
     expect(html).toBe(
       "<h3>HO1 (PC1)</h3>"
       + "<p><strong>コネ:</strong> 〈コネ：父〉</p>"
