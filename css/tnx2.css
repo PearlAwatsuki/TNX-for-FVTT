@@ -5085,15 +5085,32 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .scene-detail-row > .number-input-spinner { flex: 0 0 auto; }
 
-/* シーン行のタグ入力(.tnx-tag-field)＝指定技能・登場キャラクター。
-   ラベルはタグ領域の上端に合わせる */
-.scene-skill-row { align-items: flex-start; }
+/* シーン行のタグ入力(指定技能・登場)。2026-08-09 ユーザー指示:
+   **ラベルはプルダウン側に付ける**(チップは 0 個になりうるのでラベルの相手にならない。
+   空のときは「ラベル＋プルダウン」だけが残って欄として成立する)・プルダウンは全幅・
+   チップはその下。2行のラベル幅を揃え、プルダウンとチップの列を縦に通す */
+.scene-tag-row { align-items: flex-start; }
 
-.scene-skill-row > label { padding-top: 4px; }
+.scene-tag-row > label { flex: 0 0 4.4em; padding-top: 8px; }
 
 /* basis 0 で置く。基準を内容幅にすると、タグが増えた分だけ行が折り返して
    タグ領域ごとラベルの下へ落ちる(行の折り返し判定は縮む前の内容幅で行われる) */
-.scene-skill-row > .tnx-tag-field { flex: 1 1 0; }
+.scene-tag-row > .scene-tag-field {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.scene-tag-row .scene-tag-field > select {
+    width: 100%;
+    max-width: none;
+    color: var(--tnx2-text-secondary);
+}
+
+/* チップは中身があるときだけ描画される=空行の高さを確保しない */
+.scene-tag-row .tnx-tag-list { min-height: 0; }
 
 /* 14-7: アクト名編集欄・アクトコネクションのドロップエリア */
 .scenario-sheet .act-name-section {
