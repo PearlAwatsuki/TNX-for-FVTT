@@ -349,13 +349,16 @@
                                                                 {{/each}}
                                                             </select>
                                                         </div>
-                                                        <span class="tn-label">目標値:</span>
-                                                        <div class="number-input-spinner">
-                                                            <button type="button" class="tnx-btn" data-action="spinDown" aria-label="減少">−</button>
-                                                            <input type="number" name="tn" class="skill-tn" placeholder="-" value="{{skillItem.tn}}" min="0" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}">
-                                                            <button type="button" class="tnx-btn" data-action="spinUp" aria-label="増加">＋</button>
+                                                        {{!-- 目標値と削除は追加プルダウンと同じ行(カードの一番下)に置く --}}
+                                                        <div class="skill-check-target">
+                                                            <span class="tn-label">目標値:</span>
+                                                            <div class="number-input-spinner">
+                                                                <button type="button" class="tnx-btn" data-action="spinDown" aria-label="減少">−</button>
+                                                                <input type="number" name="tn" class="skill-tn" placeholder="-" value="{{skillItem.tn}}" min="0" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}">
+                                                                <button type="button" class="tnx-btn" data-action="spinUp" aria-label="増加">＋</button>
+                                                            </div>
+                                                            <a class="tnx-ring-btn" data-action="deleteSkillCheck" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}" title="この技能を削除"><i class="fas fa-times"></i></a>
                                                         </div>
-                                                        <a class="tnx-ring-btn" data-action="deleteSkillCheck" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}" title="この技能を削除"><i class="fas fa-times"></i></a>
                                                     </div>
                                                     {{/each}}
                                                 </div>

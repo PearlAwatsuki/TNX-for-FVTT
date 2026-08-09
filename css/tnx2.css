@@ -5182,8 +5182,7 @@ body.tnx-bottom-hud-expanded #hotbar {
 .skill-check-list { display: flex; flex-direction: column; gap: 6px; }
 
 /* 1行＝技能の集合(タグ入力)＋共通の目標値(2026-08-09)。タグの数で高さが変わるため、
-   FS 判定のイベント行と同じく**レコードごとのカード**にして切れ目を見せる。
-   目標値・削除はタグ領域の1行目に揃える(タグが増えて行が伸びても位置が動かない) */
+   FS 判定のイベント行と同じく**レコードごとのカード**にして切れ目を見せる */
 .skill-check-row {
     display: flex;
     align-items: flex-start;
@@ -5196,7 +5195,14 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .skill-check-row > .tnx-tag-field { flex: 1 1 0; }
 
-.skill-check-row > .tn-label { padding-top: 6px; }
+/* 目標値と削除は追加プルダウンと同じ行(カードの一番下)に揃える */
+.skill-check-target {
+    flex: 0 0 auto;
+    align-self: flex-end;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
 
 .skill-check-row .skill-tn { width: 48px; text-align: center; }
 
