@@ -41,7 +41,7 @@ import { isAttackUsage } from '../data/item/common/usage.mjs';
 import { executionFormOf, usageDisplayName, isReactionType } from '../module/usage-types.mjs';
 import { itemDisplayName, resolveItemNameByKey } from '../module/identification.mjs';
 import { isOpposedConfrontation } from '../module/confrontation-logic.mjs';
-import { resolveHousingAreaMods } from '../module/residence-area.mjs';
+import { resolveHousingAreaMods, residenceEffectiveValues } from '../module/residence-area.mjs';
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -1591,18 +1591,16 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             }
         }
 
-        // 住宅エリアの有効値解決＋エリア（セキュリティ・ランク）のバッジ表示用ラベル(10-4)
+        // 住宅施設の実効値（AE 込み＋住宅エリアの修正）＋エリア（セキュリティ・ランク）の
+        // バッジ表示用ラベル(10-4)。住宅エリアが未設定でも実効値は出す（KI-039 の是正＝
+        // 以前は住宅エリアが無いと素値へフォールバックし、AE が表示に乗らなかった）
         let effectiveValues = null;
         let housingAreaRank = null;
         if (item.type === "residence") {
-            const mods = await TnxCharacterSheetBase._resolveHousingAreaMods(sys);
-            if (mods) {
-                effectiveValues = {
-                    appearanceTarget: (sys.appearanceTarget ?? 0) + mods.appearanceTargetMod,
-                    cyberSecurity:    (sys.cyberSecurity    ?? 0) + mods.cyberSecurityMod,
-                    analogSecurity:   (sys.analogSecurity   ?? 0) + mods.analogSecurityMod,
-                };
-                housingAreaRank = { key: mods.area, label: HOUSING_AREA_RANKS[mods.area] ?? mods.area };
+            const values = await residenceEffectiveValues(sys);
+            effectiveValues = values;
+            if (values.hasArea) {
+                housingAreaRank = { key: values.area, label: HOUSING_AREA_RANKS[values.area] ?? values.area };
             }
         }
 
@@ -1711,14 +1709,18 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                 return mvT(sys.speedFactor) !== null ? String(mvT(sys.speedFactor)) : "-";
             case "passenger":
                 return mvT(sys.passenger) !== null ? String(mvT(sys.passenger)) : "-";
+            // 住宅施設は effectiveValues（AE 込みの実効値＋住宅エリアの修正）が常に渡る。
+            // フォールバックは住宅施設以外の行（値を持たない）のための素値読み
             case "appearance":
-                return effectiveValues
-                    ? String(effectiveValues.appearanceTarget)
-                    : String(sys.appearanceTarget ?? 0);
-            case "security":
-                return effectiveValues
-                    ? `${effectiveValues.cyberSecurity}／${effectiveValues.analogSecurity}`
-                    : `${sys.cyberSecurity ?? 0}／${sys.analogSecurity ?? 0}`;
+                return String(effectiveValues?.appearanceTarget
+                    ?? sys.appearanceTargetTotal ?? sys.appearanceTarget ?? 0);
+            case "security": {
+                const cyber  = effectiveValues?.cyberSecurity
+                    ?? sys.cyberSecurityTotal ?? sys.cyberSecurity ?? 0;
+                const analog = effectiveValues?.analogSecurity
+                    ?? sys.analogSecurityTotal ?? sys.analogSecurity ?? 0;
+                return `${cyber}／${analog}`;
+            }
             case "part": {
                 // 部位キーの逆引き＋AE 追加行の併記(フェーズ12)
                 const slots = partCtx?.slots ?? [];
@@ -1750,20 +1752,22 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         /** params[paramKey] に従って source1 または source2 の system を返す */
         const chosenSys = (paramKey) => (params[paramKey] === "2" ? s2sys : s1sys);
 
+        // {mode,value,effectMod} の実効値。_computeColValue と同じ規約
+        // (表示は AE 込み実効値・編集入力は base のまま)。以前はここだけ素値 .value を読んでおり、
+        // コンバイン行にだけ AE が乗らなかった(KI-039 と同種・attack だけ先に是正済みだった)
+        const mvT = (f) => f?.mode === "value" ? (f.total ?? f.value) : null;
         const num = (v) => (Number.isFinite(v) ? v : 0);
         const slotVal = (sys, kind) => {
             const slot = (sys.slots ?? []).find(s => s.kind === kind);
-            return slot?.count?.mode === "value" ? (slot.count.value ?? 0) : 0;
+            return num(mvT(slot?.count));
         };
 
         switch (key) {
             case "hide": {
                 // 見た目元の隠(コンバイナーの隠) ／ 選択した元の危険値
-                const h  = appearSys.hide?.mode === "value" ? appearSys.hide.value : "-";
-                const ch = csys.hide?.mode === "value" ? csys.hide.value : "-";
-                const penSys = chosenSys("appearancePenalty");
-                const d = penSys.appearancePenalty?.mode === "value"
-                    ? penSys.appearancePenalty.value : "-";
+                const h  = mvT(appearSys.hide) ?? "-";
+                const ch = mvT(csys.hide) ?? "-";
+                const d  = mvT(chosenSys("appearancePenalty").appearancePenalty) ?? "-";
                 return (h === "-" && ch === "-" && d === "-") ? "-"
                     : `${h}(${ch})／${d}`;
             }
@@ -1774,8 +1778,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                 return dt ? `${dt}+${s.attack.total ?? s.attack.value ?? 0}` : "-";
             }
             case "guard": {
-                const s = chosenSys("guardValue");
-                return s.guardValue?.mode === "value" ? String(s.guardValue.value) : "-";
+                const v = mvT(chosenSys("guardValue").guardValue);
+                return v !== null ? String(v) : "-";
             }
             case "range": {
                 const s = chosenSys("range");
@@ -1783,35 +1787,34 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                     ? formatWeaponRangeLabel(s.range) : "-";
             }
             case "hack": {
-                const h1 = s1sys.hack?.mode === "value" ? num(s1sys.hack.value) : null;
-                const h2 = s2sys.hack?.mode === "value" ? num(s2sys.hack.value) : null;
-                const vals = [h1, h2].filter(v => v !== null);
+                const vals = [mvT(s1sys.hack), mvT(s2sys.hack)]
+                    .filter(v => v !== null).map(num);
                 return vals.length ? String(Math.max(...vals)) : "-";
             }
             case "defence": {
-                const s = chosenSys("defence");
-                return s.defence?.mode === "value"
-                    ? `${s.defence.S_defence}／${s.defence.P_defence}／${s.defence.I_defence}` : "-";
+                const d = chosenSys("defence").defence;
+                return d?.mode === "value"
+                    ? `${d.S_total ?? d.S_defence}／${d.P_total ?? d.P_defence}／${d.I_total ?? d.I_defence}` : "-";
             }
             case "control": {
-                const s = chosenSys("controlMod");
-                return s.controlMod?.mode === "value" ? String(s.controlMod.value) : "-";
+                const v = mvT(chosenSys("controlMod").controlMod);
+                return v !== null ? String(v) : "-";
             }
             case "sf": {
-                const s = chosenSys("speedFactor");
-                return s.speedFactor?.mode === "value" ? String(s.speedFactor.value) : "-";
+                const v = mvT(chosenSys("speedFactor").speedFactor);
+                return v !== null ? String(v) : "-";
             }
             case "passenger": {
-                const s = chosenSys("passenger");
-                return s.passenger?.mode === "value" ? String(s.passenger.value) : "-";
+                const v = mvT(chosenSys("passenger").passenger);
+                return v !== null ? String(v) : "-";
             }
             case "cycle": {
-                const s = chosenSys("cycle");
-                return s.cycle?.mode === "value" ? String(s.cycle.value) : "-";
+                const v = mvT(chosenSys("cycle").cycle);
+                return v !== null ? String(v) : "-";
             }
             case "cs": {
-                const s = chosenSys("combatSpeedMod");
-                return s.combatSpeedMod?.mode === "value" ? String(s.combatSpeedMod.value) : "-";
+                const v = mvT(chosenSys("combatSpeedMod").combatSpeedMod);
+                return v !== null ? String(v) : "-";
             }
             case "slot": {
                 const total = slotVal(s1sys, "normal") + slotVal(s2sys, "normal");

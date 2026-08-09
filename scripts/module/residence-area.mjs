@@ -39,19 +39,37 @@ export async function resolveHousingAreaMods(sys) {
 }
 
 /**
+ * 住宅施設の実効値(登場判定目標値・電脳/アナログセキュリティ)。
+ * 素値ではなく **AE の着地先(`…Total`)を優先**して読み、住宅エリアの修正値を足す
+ * (「表示は AE 込み実効値・編集入力は base のまま」の規約。KI-039 の是正で一本化)。
+ * 住宅エリアが未設定・解決できない場合は修正 0・`hasArea=false`。
+ * @param {object} sys 住宅施設の system(派生済み)
+ * @returns {Promise<{appearanceTarget:number, cyberSecurity:number, analogSecurity:number,
+ *                    area:string, hasArea:boolean}>}
+ */
+export async function residenceEffectiveValues(sys) {
+    const mods = await resolveHousingAreaMods(sys);
+    const base = (key) => Number(sys?.[`${key}Total`] ?? sys?.[key] ?? 0);
+    return {
+        appearanceTarget: base("appearanceTarget") + Number(mods?.appearanceTargetMod ?? 0),
+        cyberSecurity:    base("cyberSecurity")    + Number(mods?.cyberSecurityMod ?? 0),
+        analogSecurity:   base("analogSecurity")   + Number(mods?.analogSecurityMod ?? 0),
+        area:             mods?.area ?? "none",
+        hasArea:          !!mods,
+    };
+}
+
+/**
  * 住宅施設を舞台にしたときの登場判定パラメータ(14-8)。
- * 目標値は**実効値**(AE の着地先 `appearanceTargetTotal` を優先)＋住宅エリアの修正値、
  * エリアは住宅エリアのセキュリティ・ランク(`none` はシーンのエリア未設定と同じ空文字)。
  * @param {object} sys 住宅施設の system(派生済み)
  * @returns {Promise<{targetValue:number, area:string}>}
  */
 export async function residenceStageParams(sys) {
-    const mods = await resolveHousingAreaMods(sys);
-    const base = sys?.appearanceTargetTotal ?? sys?.appearanceTarget ?? 0;
-    const rank = mods?.area ?? "none";
+    const values = await residenceEffectiveValues(sys);
     return {
-        targetValue: Number(base) + Number(mods?.appearanceTargetMod ?? 0),
-        area:        rank === "none" ? "" : rank,
+        targetValue: values.appearanceTarget,
+        area:        values.area === "none" ? "" : values.area,
     };
 }
 

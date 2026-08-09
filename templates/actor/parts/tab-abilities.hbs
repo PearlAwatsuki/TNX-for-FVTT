@@ -221,7 +221,8 @@
                                                         </a>
                                                     </div>
                                                     <div class="skill-meta-data">
-                                                        <span class="skill-level">Lv{{item.system.level}}</span>
+                                                        {{!-- 表示は AE 込み実効値(levelTotal)・編集入力は base のまま --}}
+                                                        <span class="skill-level">Lv{{item.system.levelTotal}}</span>
                                                         <div class="skill-suits-view">
                                                             <i class="fas fa-spade suit-icon {{#if item.system.suits.spade}}active{{else}}inactive{{/if}}"></i>
                                                             <i class="fas fa-club suit-icon {{#if item.system.suits.club}}active{{else}}inactive{{/if}}"></i>
@@ -273,7 +274,8 @@
                                                     {{!-- レベル＆スート（横並びコンテナ） --}}
                                                     <div class="cell cell-level">
                                                         <div class="level-container">
-                                                            <span class="level-number">{{item.system.level}}</span>
+                                                            {{!-- 表示は AE 込み実効値(levelTotal)・編集入力は base のまま --}}
+                                                            <span class="level-number">{{item.system.levelTotal}}</span>
                                                             <div class="level-suits">
                                                                 <i class="fas fa-spade suit-icon {{#if item.system.suits.spade}}active{{else}}inactive{{/if}}"></i>
                                                                 <i class="fas fa-club suit-icon {{#if item.system.suits.club}}active{{else}}inactive{{/if}}"></i>
