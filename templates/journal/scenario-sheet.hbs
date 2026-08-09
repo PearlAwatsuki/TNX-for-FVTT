@@ -214,6 +214,13 @@
                                                 <div class="scene-detail-row scene-tag-row">
                                                     <label>指定技能</label>
                                                     <div class="scene-tag-field">
+                                                        {{#if scene.appearanceSkillChips.length}}
+                                                            <div class="tnx-tag-list">
+                                                                {{#each scene.appearanceSkillChips as |chip|}}
+                                                                    <span class="tnx-tag" data-key="{{chip.key}}">{{chip.name}}<a class="tnx-tag-remove" data-action="removeAppearanceSkill" data-key="{{chip.key}}" title="指定を外す"><i class="fas fa-times"></i></a></span>
+                                                                {{/each}}
+                                                            </div>
+                                                        {{/if}}
                                                         <select data-no-save class="appearance-skill-select">
                                                             <option value="">＋ 技能を追加</option>
                                                             {{#each @root.skillGroupsPlain as |group|}}
@@ -224,13 +231,6 @@
                                                                 </optgroup>
                                                             {{/each}}
                                                         </select>
-                                                        {{#if scene.appearanceSkillChips.length}}
-                                                            <div class="tnx-tag-list">
-                                                                {{#each scene.appearanceSkillChips as |chip|}}
-                                                                    <span class="tnx-tag" data-key="{{chip.key}}">{{chip.name}}<a class="tnx-tag-remove" data-action="removeAppearanceSkill" data-key="{{chip.key}}" title="指定を外す"><i class="fas fa-times"></i></a></span>
-                                                                {{/each}}
-                                                            </div>
-                                                        {{/if}}
                                                     </div>
                                                 </div>
                                             {{/unless}}
@@ -241,6 +241,13 @@
                                             <div class="scene-detail-row scene-tag-row">
                                                 <label>登場</label>
                                                 <div class="scene-tag-field">
+                                                    {{#if scene.appearanceActorChips.length}}
+                                                        <div class="tnx-tag-list">
+                                                            {{#each scene.appearanceActorChips as |chip|}}
+                                                                <span class="tnx-tag" data-actor-id="{{chip.actorId}}">{{chip.name}}<a class="tnx-tag-toggle {{#if chip.hideName}}is-on{{/if}}" data-action="toggleAppearanceActorHidden" data-actor-id="{{chip.actorId}}" title="{{#if chip.hideName}}名前を伏せて登場{{else}}名前を出して登場{{/if}}"><i class="fas {{#if chip.hideName}}fa-eye-slash{{else}}fa-eye{{/if}}"></i></a><a class="tnx-tag-remove" data-action="removeAppearanceActor" data-actor-id="{{chip.actorId}}" title="指定を外す"><i class="fas fa-times"></i></a></span>
+                                                            {{/each}}
+                                                        </div>
+                                                    {{/if}}
                                                     <select data-no-save class="appearance-actor-select">
                                                         <option value="">＋ キャラクターを追加</option>
                                                         {{#each @root.appearanceActorGroups as |group|}}
@@ -251,13 +258,6 @@
                                                             </optgroup>
                                                         {{/each}}
                                                     </select>
-                                                    {{#if scene.appearanceActorChips.length}}
-                                                        <div class="tnx-tag-list">
-                                                            {{#each scene.appearanceActorChips as |chip|}}
-                                                                <span class="tnx-tag" data-actor-id="{{chip.actorId}}">{{chip.name}}<a class="tnx-tag-toggle {{#if chip.hideName}}is-on{{/if}}" data-action="toggleAppearanceActorHidden" data-actor-id="{{chip.actorId}}" title="{{#if chip.hideName}}名前を伏せて登場{{else}}名前を出して登場{{/if}}"><i class="fas {{#if chip.hideName}}fa-eye-slash{{else}}fa-eye{{/if}}"></i></a><a class="tnx-tag-remove" data-action="removeAppearanceActor" data-actor-id="{{chip.actorId}}" title="指定を外す"><i class="fas fa-times"></i></a></span>
-                                                            {{/each}}
-                                                        </div>
-                                                    {{/if}}
                                                 </div>
                                             </div>
                                             <div class="tnx-editor-section">
