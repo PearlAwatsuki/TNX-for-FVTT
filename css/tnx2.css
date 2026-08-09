@@ -5000,6 +5000,13 @@ body.tnx-bottom-hud-expanded #hotbar {
     align-items: center;
 }
 
+/* No. は自動採番の表示(14-8・入力欄ではない)。入力欄と行の高さが変わらないよう揃える */
+.scene-number-auto {
+    color: var(--tnx2-text-secondary);
+    font-variant-numeric: tabular-nums;
+    line-height: 32px;
+}
+
 /* RL プリセットのラベル付き欄(2026-08-09):
    グループ単位の共有グリッド。ラベル列は max-content=グループ内の最長ラベル幅に縮め、
    ラベルは右揃えでコントロールに密着させる(距離は常に一定・コントロール左端はグループ内で一致)。

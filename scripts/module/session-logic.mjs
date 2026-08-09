@@ -264,37 +264,63 @@ export function nextSceneRow(scenes, currentSceneId) {
 }
 
 /**
+ * 台本順(フェイズ順→行順)の通し番号を行 id ごとに返す(14-8)。
+ * 巡回シーンを含むアクトでは上演中のシーン数が変動するため、台本の No. は手入力をやめて
+ * この並び順から自動で振る(上演中の番号は実行状態のカウンタが別に持つ)。
+ * @param {object|null} scenes
+ * @returns {Record<string, number>}
+ */
+export function sceneSequenceNumbers(scenes) {
+    const map = {};
+    flattenScenes(scenes).forEach((entry, i) => {
+        if (entry.row?.id) map[entry.row.id] = i + 1;
+    });
+    return map;
+}
+
+/**
  * 「次のシーンへ」の行き先(14-8)。**巡回シーンにいる間は同じ行**(再入場＝シーンプレイヤーだけ
  * 次の人へ進む)で、それ以外は台本順の次の行。
+ * **実行済みのイベント行は読み飛ばす**(2026-08-09 ユーザー指示で是正)——もう一度入る意味が
+ * 無く、飛ばさないと消化済みのイベント群の中で送り先が無くなるため。
  * @param {object|null} scenes
  * @param {string} currentSceneId
+ * @param {Array<string>} [doneEventIds] 実行済みイベント行の id
  * @returns {?{phase:string, row:object}}
  */
-export function nextSceneTarget(scenes, currentSceneId) {
+export function nextSceneTarget(scenes, currentSceneId, doneEventIds = []) {
     const flat = flattenScenes(scenes);
     if (!flat.length) return null;
     const index = flat.findIndex(e => e.row?.id === currentSceneId);
     if (index < 0) return flat[0];
     if (normalizeSceneRow(flat[index].row).kind === "rotation") return flat[index];
-    return flat[index + 1] ?? null;
+    const done = new Set(doneEventIds ?? []);
+    for (let i = index + 1; i < flat.length; i += 1) {
+        const row = normalizeSceneRow(flat[i].row);
+        if (row.kind === "event" && done.has(row.id)) continue;
+        return flat[i];
+    }
+    return null;
 }
 
 /**
  * 「次のシーンへ」を出してよいか(14-8・2026-08-09 ユーザー指示)。
- * 巡回シーンは常に出す(巡回の継続)。**イベントシーンの次がイベントシーンのときだけ出さない**
- * ——起動条件を踏んでいないイベントへ順送りで入ってしまうため。次が巡回シーン・通常シーンなら
- * 通常どおり出す(リサーチ先頭のイベントへオープニングから順送りで入るのも同じ経路)。
+ * 巡回シーンは常に出す(巡回の継続)。**イベントシーンから未実行のイベントシーンへ送る形に
+ * なるときだけ出さない**——起動条件を踏んでいないイベントへ順送りで滑り込ませないため。
+ * 実行済みのイベントは読み飛ばした先で判定するので、消化しきった群の中でも送り先が残る。
+ * 現在地が通常シーンなら塞がない(リサーチ先頭のイベントへオープニングから順送りで入る経路)。
  * @param {object|null} scenes
  * @param {string} currentSceneId
+ * @param {Array<string>} [doneEventIds]
  * @returns {boolean}
  */
-export function canShowNextScene(scenes, currentSceneId) {
+export function canShowNextScene(scenes, currentSceneId, doneEventIds = []) {
     const flat = flattenScenes(scenes);
     const index = flat.findIndex(e => e.row?.id === currentSceneId);
     if (index < 0) return false;
     const current = normalizeSceneRow(flat[index].row);
     if (current.kind === "rotation") return true;
-    const next = flat[index + 1];
+    const next = nextSceneTarget(scenes, currentSceneId, doneEventIds);
     if (!next) return false;
     return !(current.kind === "event" && normalizeSceneRow(next.row).kind === "event");
 }
@@ -343,11 +369,15 @@ export function resolveRotationDefault(order, doneUserIds) {
 // ─── イベントシーン(14-8) ───────────────────────────────────────────────────
 
 /**
- * 「イベントシーンを起動する」の候補＝**現在地を含む/直後に続くイベント行の連続した群**のうち
- * 未実行のもの(2026-08-09 ユーザー指示「次の巡回シーン(もしくはクライマックスシーン)との間に
- * あるイベントシーンからどれか一つを選んで起動」)。
- * 現在地がイベント行のときは群の先頭まで遡る——想定と違う順で起動しても、同じ群に残っている
- * イベントが次の候補として出る。
+ * 「イベントシーンを起動する」の候補(2026-08-09 ユーザー指示)。同じフェイズの未実行イベントのうち、
+ *
+ * 1. **現在地より前にあるもの** ——踏まれずに残ったイベントは、連続イベント群の末尾にいても、
+ *    リサーチ末尾の巡回シーンにいても起動できなければならない（同日追加指示）
+ * 2. **現在地の直後から続くイベント群**（次の巡回シーン・通常シーンの手前まで）——当初の
+ *    「次の巡回シーン(もしくはクライマックスシーン)との間にあるイベントから一つ選ぶ」
+ *
+ * 並びは台本順。**先頭がダイアログの初期選択**になる（＝最も上にある未実行のイベント）。
+ * 現在地より後ろの、次の巡回シーンを越えた先のイベントは候補にしない（先の段階のイベントのため）。
  * @param {object|null} scenes
  * @param {string} currentSceneId
  * @param {Array<string>} [doneEventIds] 実行済みイベント行の id
@@ -358,17 +388,15 @@ export function eventSceneCandidates(scenes, currentSceneId, doneEventIds = []) 
     const index = flat.findIndex(e => e.row.id === currentSceneId);
     if (index < 0) return [];
     const phase = flat[index].phase;
-    const inBlock = i => i >= 0 && i < flat.length && flat[i].phase === phase && flat[i].row.kind === "event";
-    let start = index + 1;
-    if (flat[index].row.kind === "event") {
-        start = index;
-        while (inBlock(start - 1)) start -= 1;
-    }
     const done = new Set(doneEventIds ?? []);
+    const pick = i => flat[i].phase === phase && flat[i].row.kind === "event"
+        && flat[i].row.id !== currentSceneId && !done.has(flat[i].row.id);
+
     const out = [];
-    for (let i = start; inBlock(i); i += 1) {
-        if (flat[i].row.id === currentSceneId || done.has(flat[i].row.id)) continue;
-        out.push(flat[i]);
+    for (let i = 0; i < index; i += 1) if (pick(i)) out.push(flat[i]);
+    for (let i = index + 1;
+        i < flat.length && flat[i].phase === phase && flat[i].row.kind === "event"; i += 1) {
+        if (pick(i)) out.push(flat[i]);
     }
     return out;
 }
@@ -536,9 +564,12 @@ export function isBackstageFinished(backstage, queue) {
  * @param {{playerLabel?: string, rulerScene?: boolean}} [opts]
  * @returns {string} HTML
  */
-export function buildSceneSwitchMessage(scene, { playerLabel = "", rulerScene = false } = {}) {
+export function buildSceneSwitchMessage(scene, { playerLabel = "", rulerScene = false, number = null } = {}) {
     const s = scene ?? {};
-    const title = `<h2>SCENE ${s.number || "??"} : ${s.name || "無題のシーン"}</h2>`;
+    // 上演中のシーン番号は実行状態のカウンタ(14-8)。巡回シーンで同じ行に何度も入るため、
+    // 台本の行番号ではなく「何シーン目か」を出す
+    const no = Number.isFinite(Number(number)) && number !== null ? number : (s.number || "??");
+    const title = `<h2>SCENE ${no} : ${s.name || "無題のシーン"}</h2>`;
     const details = (rulerScene || s.isMasterScene) ? "<p>ルーラーシーン</p>"
         : playerLabel ? `<p><strong>シーンプレイヤー:</strong> ${playerLabel}</p>` : "";
     const custom = s.switchMessage ? `<hr>${s.switchMessage}` : "";

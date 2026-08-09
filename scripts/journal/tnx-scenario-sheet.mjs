@@ -14,6 +14,7 @@ import {
     SCENE_AREA_OPTIONS, SCENE_KIND_OPTIONS, HANDOUT_SUIT_OPTIONS,
     HANDOUT_STYLE_COMMON, HANDOUT_STYLE_FREE,
     normalizeSceneRow, normalizeHandoutRow, handoutTitleSuffix, circledNumber, infoSkillKeys,
+    sceneSequenceNumbers,
 } from '../module/session-logic.mjs';
 import { normalizeAppearanceActors, groupCharacterChoices } from '../module/appearance-logic.mjs';
 import { listSubScenes } from '../module/subscenes.mjs';
@@ -102,6 +103,11 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             climax:   normalizePhase(scenesData.climax),
             ending:   normalizePhase(scenesData.ending),
         };
+        // No. は台本順の自動採番(14-8・手入力を廃止)。上演中の「SCENE n」は実行時のカウンタ
+        const seq = sceneSequenceNumbers(context.scenes);
+        for (const rows of Object.values(context.scenes)) {
+            for (const row of rows) row.seqNumber = seq[row.id] ?? "-";
+        }
         // シーン行のセレクト選択肢(14-2/14-4): エリア・舞台(サブシーン+通常 Scene)・
         // シーンプレイヤー(User。シーンプレイヤーはプレイヤー側の指定=2026-08-07 裁定)
         context.sceneAreaOptions = SCENE_AREA_OPTIONS;

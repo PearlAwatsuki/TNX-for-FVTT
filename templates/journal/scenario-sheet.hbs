@@ -140,8 +140,11 @@
                             {{#each phaseScenes as |scene index|}}
                                 <div class="scene-item" data-scene-id="{{scene.id}}" data-phase="{{phaseKey}}">
                                     <div class="scene-main-row">
+                                        {{!-- No. は台本順の自動採番(14-8)。巡回シーンを含むと
+                                              上演中のシーン数が変動するため手入力はしない
+                                              （上演中の「SCENE n」は実行時のカウンタが出す） --}}
                                         <div class="table-cell scene-number">
-                                            <input type="text" name="number" value="{{scene.number}}"/>
+                                            <span class="scene-number-auto">{{scene.seqNumber}}</span>
                                         </div>
                                         {{!-- 種別(14-8): 通常/巡回/イベント。台本を読んだだけで
                                               進行の形が分かるよう一覧の行に出す --}}

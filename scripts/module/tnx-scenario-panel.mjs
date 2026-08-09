@@ -26,6 +26,7 @@ import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import {
     SCENE_AREA_OPTIONS, PHASE_ORDER, normalizeSceneRow, normalizeHandoutRow,
     nextSceneTarget, canShowNextScene, eventSceneCandidates, areEventScenesDone,
+    sceneSequenceNumbers,
     buildSceneSwitchMessage, buildTrailerMessage, buildHandoutMessage, buildInfoMessage,
     withResolvedInfoSkillNames, handoutDisplayTitle, handoutNumberOf, handoutStyleDisplay,
 } from "./session-logic.mjs";
@@ -155,7 +156,8 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
                 fixedValue: sceneAppearance.fixedValue,
             });
             context.scene = {
-                number: row.number || "??",
+                // 上演中のシーン番号＝実行時のカウンタ(巡回シーンで同じ行に何度も入るため)
+                number: st.sceneNumber || "??",
                 name: row.name || "無題のシーン",
                 areaLabel: SCENE_AREA_OPTIONS
                     .find(o => o.value === sceneAppearance.area && o.value !== "")?.label ?? "",
@@ -257,9 +259,10 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         // 「次のシーンへ」(14-8): 巡回シーンにいる間は同じ行へ再入場＝シーンプレイヤーが次の人へ。
         // イベントシーンの次がイベントシーンのときは出さない(起動条件を踏んでいないイベントへ
         // 順送りで入ってしまうため)。舞台裏の順序制約は従来どおり先に効く
-        const next = st.actStarted ? nextSceneTarget(scenes, st.sceneId) : null;
+        const next = st.actStarted ? nextSceneTarget(scenes, st.sceneId, st.doneEventSceneIds) : null;
         const rotating = current?.row.kind === "rotation";
-        context.nextScene = (next && canAdvanceScene() && canShowNextScene(scenes, st.sceneId))
+        context.nextScene = (next && canAdvanceScene()
+            && canShowNextScene(scenes, st.sceneId, st.doneEventSceneIds))
             ? {
                 name: normalizeSceneRow(next.row).name || "無題のシーン",
                 rotating,
@@ -280,11 +283,13 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
 
         // 巡回の消化状況(ハンドアウト順・務めた人と次の既定)＝「なるべく務めていない人に回す」判断の材料
         context.rotation = rotating ? getRotationStatus() : null;
+        // 一覧の番号は台本順の自動採番(14-8・手入力を廃止)
+        const seq = sceneSequenceNumbers(scenes);
         context.sceneGroups = PHASE_ORDER.map(phase => ({
             phaseLabel: CONFIG.TNX.phaseLabels[phase],
             rows: (Array.isArray(scenes[phase]) ? scenes[phase] : []).map(normalizeSceneRow).map(row => ({
                 id: row.id,
-                number: row.number || "-",
+                number: seq[row.id] ?? "-",
                 name: row.name || "無題のシーン",
                 isCurrent: row.id === st.sceneId,
             })),
@@ -339,7 +344,9 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         const row = current.row;
         await applyStageRef(row.stage);
         const { rulerScene, playerLabel } = resolveScenePlayer(row);
-        await ChatMessage.create({ content: buildSceneSwitchMessage(row, { playerLabel, rulerScene }) });
+        await ChatMessage.create({ content: buildSceneSwitchMessage(row, {
+            playerLabel, rulerScene, number: getSessionState().sceneNumber,
+        }) });
         await TnxActionHandler.drawNeuroCard();
     }
 
@@ -402,7 +409,8 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
     static async _onNextScene(_event, _target) {
         const journal = getActiveActJournal();
         const st = getSessionState();
-        const next = nextSceneTarget(journal?.getFlag(SCOPE, "scenes") ?? null, st.sceneId);
+        const next = nextSceneTarget(
+            journal?.getFlag(SCOPE, "scenes") ?? null, st.sceneId, st.doneEventSceneIds);
         if (!next) return void ui.notifications.warn("台本に次のシーンがありません。");
         // 巡回の継続はシーン開始ダイアログが確認を兼ねる(確認ダイアログを二重に出さない)
         if (next.row.id !== st.sceneId) {
@@ -428,9 +436,10 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         if (!candidates.length) return void ui.notifications.warn("起動できるイベントシーンがありません。");
 
         const esc = foundry.utils.escapeHTML;
-        const rows = candidates.map(({ row }) => `
+        // 初期選択は候補の先頭＝台本で最も上にある未実行のイベント(2026-08-09 ユーザー指示)
+        const rows = candidates.map(({ row }, i) => `
             <label class="tnx-event-choice">
-                <input type="radio" name="eventSceneId" value="${esc(row.id)}" />
+                <input type="radio" name="eventSceneId" value="${esc(row.id)}"${i === 0 ? " checked" : ""} />
                 <span class="tnx-event-choice__name">${esc(row.name || "無題のシーン")}</span>
                 ${row.eventCondition ? `<span class="tnx-event-choice__cond">${esc(row.eventCondition)}</span>` : ""}
             </label>`).join("");

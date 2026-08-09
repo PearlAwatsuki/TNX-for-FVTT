@@ -62,6 +62,10 @@ const DEFAULTS = Object.freeze({
     // 登場判定「未設定」のシーンでシーン開始ダイアログが決めた値(14-8)。シーン単位でリセット。
     // 台本は書き換えない＝その場で決めたものはここにだけ残る
     sceneOverride:     null,
+    // 上演中のシーン番号(14-8・2026-08-09 ユーザー指示)。巡回シーンを含むアクトでは上演される
+    // シーン数が変動するため、台本の行番号ではなく**入場のたびに +1 する実行時のカウンタ**を
+    // 「SCENE n」として出す。アクトの読み込み・開始でリセットされる
+    sceneNumber:       0,
 });
 
 /** 舞台裏の初期状態(シーン単位・入場時にリセットする)。 */
@@ -551,13 +555,15 @@ async function _applySceneEntry({ phase, row }, entry = null) {
     const doneEvents = [...(st.doneEventSceneIds ?? [])];
     if (scene.kind === "event" && !doneEvents.includes(scene.id)) doneEvents.push(scene.id);
 
-    // 舞台裏・その場で決めた値はシーン単位(前シーンの状態を持ち越さない)
+    // 舞台裏・その場で決めた値はシーン単位(前シーンの状態を持ち越さない)。
+    // シーン番号は入場のたびに +1（巡回シーンの再入場も1シーンとして数える）
     await setState({
         phase, sceneId: scene.id, sceneEnded: false, backstage: { ...BACKSTAGE_INITIAL },
         sceneOverride: entry?.override ?? null,
         scenePlayerUserId: requestedUserId,
         scenePlayerDone: done,
         doneEventSceneIds: doneEvents,
+        sceneNumber: (st.sceneNumber ?? 0) + 1,
     });
     await _setScenePlayerFlags(playerUserId);
     // シーンプレイヤーのキャラクターは判定なしで登場する(仕様確認ポイント2・承認済み)。

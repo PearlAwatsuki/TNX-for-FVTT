@@ -47,6 +47,7 @@ import {
   eventSceneCandidates,
   areEventScenesDone,
   stageCandidateActorIds,
+  sceneSequenceNumbers,
 } from "../../scripts/module/session-logic.mjs";
 import { TNX_HOOKS } from "../../scripts/module/combat-events.mjs";
 
@@ -748,6 +749,14 @@ describe("nextSceneTarget()（「次のシーンへ」の行き先・14-8）", (
     expect(nextSceneTarget(KIND_SCENES, "evB").row.id).toBe("rot2");
   });
 
+  it("実行済みのイベント行は読み飛ばす（消化しきった群でも送り先が残る）", () => {
+    expect(nextSceneTarget(KIND_SCENES, "evA", ["evB"]).row.id).toBe("rot2");
+  });
+
+  it("未実行のイベント行では止まる（読み飛ばすのは実行済みだけ）", () => {
+    expect(nextSceneTarget(KIND_SCENES, "evA", []).row.id).toBe("evB");
+  });
+
   it("通常シーンからは台本順の次へ（オープニング→リサーチ先頭のイベント）", () => {
     expect(nextSceneTarget(KIND_SCENES, "op1").row.id).toBe("rot1");
   });
@@ -762,8 +771,12 @@ describe("canShowNextScene()（「次のシーンへ」を出すか・14-8）", 
     expect(canShowNextScene(KIND_SCENES, "rot1")).toBe(true);
   });
 
-  it("イベントシーンの次がイベントシーンなら出さない", () => {
+  it("イベントシーンの次が未実行のイベントシーンなら出さない", () => {
     expect(canShowNextScene(KIND_SCENES, "evA")).toBe(false);
+  });
+
+  it("次のイベントが実行済みなら読み飛ばした先で判定して出す（2026-08-09 是正）", () => {
+    expect(canShowNextScene(KIND_SCENES, "evA", ["evB"])).toBe(true);
   });
 
   it("イベントシーンの次が巡回シーンなら出す", () => {
@@ -830,16 +843,30 @@ describe("eventSceneCandidates()（起動できるイベント・14-8）", () =>
     expect(eventSceneCandidates(KIND_SCENES, "rot1").map(e => e.row.id)).toEqual(["evA", "evB"]);
   });
 
-  it("イベント行にいるときは同じ群の先頭まで遡る（想定と違う順で起動しても残りが出る）", () => {
+  it("イベント行にいるときは現在地より前の未実行イベントが出る（群の末尾でも上が拾える）", () => {
     expect(eventSceneCandidates(KIND_SCENES, "evB").map(e => e.row.id)).toEqual(["evA"]);
+  });
+
+  it("末尾の巡回シーンにいても、それより上に残った未実行イベントを出す（2026-08-09 追加指示）", () => {
+    expect(eventSceneCandidates(KIND_SCENES, "rot2", ["evB"]).map(e => e.row.id))
+      .toEqual(["evA", "evC"]);
+  });
+
+  it("並びは台本順＝先頭がダイアログの初期選択（最も上にある未実行イベント）", () => {
+    expect(eventSceneCandidates(KIND_SCENES, "rot2", [])[0].row.id).toBe("evA");
+  });
+
+  it("次の巡回シーンを越えた先のイベントは候補にしない（先の段階のため）", () => {
+    expect(eventSceneCandidates(KIND_SCENES, "rot1").map(e => e.row.id)).toEqual(["evA", "evB"]);
   });
 
   it("実行済みのイベントは候補から外れる", () => {
     expect(eventSceneCandidates(KIND_SCENES, "rot1", ["evA"]).map(e => e.row.id)).toEqual(["evB"]);
   });
 
-  it("次のフェイズのイベントは含めない（クライマックスの手前で打ち切る）", () => {
-    expect(eventSceneCandidates(KIND_SCENES, "rot2").map(e => e.row.id)).toEqual(["evC"]);
+  it("同じフェイズの未実行イベントを台本順で並べる（次のフェイズは含めない）", () => {
+    expect(eventSceneCandidates(KIND_SCENES, "rot2").map(e => e.row.id))
+      .toEqual(["evA", "evB", "evC"]);
   });
 
   it("直後が通常シーンなら候補なし", () => {
@@ -884,5 +911,30 @@ describe("stageCandidateActorIds()（舞台候補を出すキャラクター・1
 
   it("何も無ければ空", () => {
     expect(stageCandidateActorIds({})).toEqual([]);
+  });
+});
+
+describe("sceneSequenceNumbers()（台本順の自動採番・14-8）", () => {
+  it("フェイズ順→行順の通し番号を行 id ごとに返す", () => {
+    expect(sceneSequenceNumbers(KIND_SCENES)).toEqual({
+      op1: 1, rot1: 2, evA: 3, evB: 4, rot2: 5, evC: 6, cl1: 7,
+    });
+  });
+
+  it("台本が空・null でも落ちない", () => {
+    expect(sceneSequenceNumbers(null)).toEqual({});
+    expect(sceneSequenceNumbers({ opening: [], research: [] })).toEqual({});
+  });
+});
+
+describe("buildSceneSwitchMessage()（上演中のシーン番号・14-8）", () => {
+  it("number を渡すと台本の行番号ではなくその値を SCENE n に出す", () => {
+    const html = buildSceneSwitchMessage({ number: 2, name: "リサーチ" }, { number: 7 });
+    expect(html).toContain("SCENE 7 : リサーチ");
+  });
+
+  it("number 未指定のときは従来どおり行の number（無ければ ??）", () => {
+    expect(buildSceneSwitchMessage({ number: 2, name: "x" })).toContain("SCENE 2 : x");
+    expect(buildSceneSwitchMessage({ name: "x" })).toContain("SCENE ?? : x");
   });
 });
