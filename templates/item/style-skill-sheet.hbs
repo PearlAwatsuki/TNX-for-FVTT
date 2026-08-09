@@ -274,12 +274,9 @@
                                     <span class="usage-separator">/</span>
                                     <div class="usage-field usage-field--formula">
                                         <label>最大値</label>
-                                        <div class="usage-max-input">
-                                            <input type="text" name="system.uses.max" value="{{system.uses.max}}"
-                                                   placeholder="式（例: @item.self.system.levelTotal、3）"
-                                                   {{#if usesSharedWithOwner}}disabled{{/if}}>
-                                            {{#if usesMaxIsFormula}}<span class="usage-total-badge">＝ {{usesMaxDisplay}}</span>{{/if}}
-                                        </div>
+                                        <input type="text" name="system.uses.max" value="{{system.uses.max}}"
+                                               placeholder="数値 または 式"
+                                               {{#if usesSharedWithOwner}}disabled{{/if}}>
                                     </div>
                                 </div>
                             </div>

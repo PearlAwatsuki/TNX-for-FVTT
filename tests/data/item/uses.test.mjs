@@ -1,8 +1,7 @@
 import { describe, it, expect } from "vitest";
 import "../../setup.mjs";
 
-const { resolveUsesMax, resolveUsesMaxDetail, usesMaxIsFormula,
-        migrateUsesMaxToString, usesMaxTotalOf, usesMaxBaseOf,
+const { resolveUsesMax, migrateUsesMaxToString, usesMaxTotalOf, usesMaxBaseOf,
         computeUsesMaxTotalForActor, clampUsesMaxTotalForActor } =
   await import("../../../scripts/data/item/uses.mjs");
 
@@ -38,39 +37,6 @@ describe("resolveUsesMax()（使用回数の最大値＝数値または式の実
   it("端数は切り捨てる（TNX の除算は切り捨て）", () => {
     expect(resolveUsesMax("@item.self.system.levelTotal / 2", () => 1.5)).toBe(1);
     expect(resolveUsesMax("2.9", never)).toBe(2);
-  });
-});
-
-describe("resolveUsesMaxDetail()（評価できたかを併せて返す・シートのバッジ表示用）", () => {
-  it("純数値・空は解決済み（式ではないので常に読める）", () => {
-    expect(resolveUsesMaxDetail("3", () => null)).toEqual({ value: 3, resolved: true });
-    expect(resolveUsesMaxDetail("", () => null)).toEqual({ value: 0, resolved: true });
-  });
-
-  it("評価できた式は解決済み", () => {
-    expect(resolveUsesMaxDetail("@item.self.system.levelTotal", () => 2)).toEqual({ value: 2, resolved: true });
-  });
-
-  it("評価できた結果が 0 でも解決済み（レベル0の技能と、書き間違いを区別する）", () => {
-    expect(resolveUsesMaxDetail("@item.self.system.levelTotal", () => 0)).toEqual({ value: 0, resolved: true });
-  });
-
-  it("評価不能な式は未解決（値は 0 だが「読めなかった」ことを伝える）", () => {
-    expect(resolveUsesMaxDetail("レベル回", () => null)).toEqual({ value: 0, resolved: false });
-  });
-});
-
-describe("usesMaxIsFormula()（最大値の素値が式か＝バッジを出すか）", () => {
-  it("式は true", () => {
-    expect(usesMaxIsFormula("@item.self.system.levelTotal")).toBe(true);
-    expect(usesMaxIsFormula("レベル回")).toBe(true);
-  });
-
-  it("純数値・空・未設定は false（実効値バッジを出さない）", () => {
-    expect(usesMaxIsFormula("3")).toBe(false);
-    expect(usesMaxIsFormula("")).toBe(false);
-    expect(usesMaxIsFormula("  ")).toBe(false);
-    expect(usesMaxIsFormula(undefined)).toBe(false);
   });
 });
 

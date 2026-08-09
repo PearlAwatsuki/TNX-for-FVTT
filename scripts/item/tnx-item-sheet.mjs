@@ -2,7 +2,6 @@ import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 import { TnxUsageSheet, USAGE_TYPES, deriveUsageAutoFill, updateUsageActions } from "../module/tnx-usage-sheet.mjs";
 import { defaultConfrontationForType, executionFormOf, usageDisplayName, usesVehicle } from "../module/usage-types.mjs";
 import { resolveBunshinOwner } from "../module/usage-consumption.mjs";
-import { usesMaxIsFormula, usesMaxTotalOf } from "../data/item/uses.mjs";
 import { attachEditorSectionToggles } from "../module/editor-sections.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -76,12 +75,6 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         const bunshinOwner = resolveBunshinOwner(this.item.actor);
         context.usesSharedWithOwner = !!bunshinOwner;
         context.usesOwnerName = bunshinOwner?.name ?? "";
-
-        // 使用回数の最大値は数値も式も受ける(2026-08-09)。式のときだけ実効値バッジを出す
-        // (素の数値と一致する表示は出さない)。読めなかった式は「?」——評価結果 0 と区別する
-        context.usesMaxIsFormula = usesMaxIsFormula(system.uses?.max);
-        context.usesMaxDisplay = system.uses?.maxResolved === false
-            ? "?" : String(usesMaxTotalOf(system));
 
         EffectsSheetMixin.prepareEffectsContext(this.item, context);
         context.allEffects = [

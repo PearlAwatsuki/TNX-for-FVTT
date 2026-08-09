@@ -19,41 +19,15 @@
 import { parsePlainNumber, evaluateFormulaSync, buildFormulaData } from "../../module/tnx-formula.mjs";
 
 /**
- * 使用回数の最大値(数値または式)を、**評価できたかどうかと併せて**解決する
- * (Foundry 非依存・評価関数は注入)。`resolved:false` はシートが「＝ ?」を出すための情報——
- * 「レベル0の技能で正しく 0」と「書き間違いで読めず 0」を取り違えないため。
- * @param {string|number|null|undefined} raw `uses.max` の素値
- * @param {(formula: string|number|null|undefined) => number|null} evaluate 式の評価関数
- * @returns {{value: number, resolved: boolean}} value は 0 以上の整数(評価不能は 0)
- */
-export function resolveUsesMaxDetail(raw, evaluate) {
-    const blank = !String(raw ?? "").trim();
-    const plain = parsePlainNumber(raw);
-    const value = blank ? 0 : (plain !== null ? plain : evaluate(raw));
-    return {
-        value:    Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0,
-        resolved: blank || Number.isFinite(value),
-    };
-}
-
-/**
- * 使用回数の最大値(数値または式)を実効値へ解決する。
+ * 使用回数の最大値(数値または式)を実効値へ解決する(Foundry 非依存・評価関数は注入)。
  * @param {string|number|null|undefined} raw `uses.max` の素値
  * @param {(formula: string|number|null|undefined) => number|null} evaluate 式の評価関数
  * @returns {number} 0 以上の整数。評価不能は 0
  */
 export function resolveUsesMax(raw, evaluate) {
-    return resolveUsesMaxDetail(raw, evaluate).value;
-}
-
-/**
- * 最大値の素値が式か(＝シートに実効値バッジを出すか)。純数値・空は false。
- * @param {string|number|null|undefined} raw `uses.max` の素値
- * @returns {boolean}
- */
-export function usesMaxIsFormula(raw) {
-    const s = String(raw ?? "").trim();
-    return s !== "" && parsePlainNumber(s) === null;
+    const plain = parsePlainNumber(raw);
+    const value = plain !== null ? plain : evaluate(raw);
+    return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
 }
 
 /**
@@ -108,9 +82,7 @@ export function computeUsesMaxTotal(system, actor = null) {
     if (!system?.uses) return;
     const bearer = system.parent ?? null; // DataModel の parent = Item(`@item.self` の供給元)
     const data = buildFormulaData(actor, null, bearer);
-    const { value, resolved } = resolveUsesMaxDetail(system.uses.max, (f) => evaluateFormulaSync(f, data));
-    system.uses.maxTotal    = value;
-    system.uses.maxResolved = resolved; // シートのバッジが「＝ ?」を出すかの判定に使う
+    system.uses.maxTotal = resolveUsesMax(system.uses.max, (f) => evaluateFormulaSync(f, data));
 }
 
 /**
