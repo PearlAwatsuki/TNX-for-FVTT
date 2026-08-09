@@ -1,5 +1,5 @@
 /**
- * @fileoverview 登場判定の純ロジック(フェーズ14-5・正本 Appearance_Check.md)。
+ * @fileoverview 登場判定と登場そのものの純ロジック(フェーズ14-5/14-8・正本 Appearance_Check.md)。
  *
  * - 目標値は舞台エリアのセキュリティ・ランクで決まる(レッド8/イエロー10/グリーン10/
  *   ホワイト12/サンクチュアリ12)。
@@ -11,7 +11,7 @@
  *   卓の裁定=候補の絞り込みは表示上の既定にとどめ、システムは制限しない。
  */
 
-import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
+import { OUTFIT_ITEM_TYPES, CHARACTER_ACTOR_TYPES } from "../data/helpers.mjs";
 
 /** エリア別の目標値と危険値係数(正本 Appearance_Check の表)。 */
 export const AREA_APPEARANCE = Object.freeze({
@@ -78,6 +78,70 @@ export function formatAppearanceSummary({ mode = "area", targetValue = null, ski
     // 技能と目標値の間は不改行スペース: 幅の狭いパネルで折り返すと目標値だけが次行に取り残され、
     // 何の数値か分からなくなる(隔離描画で確認・2026-08-09)
     return [skills, tn].filter(Boolean).join("\u00A0");
+}
+
+/**
+ * 「登場：不可」のシーンか(2026-08-09 ユーザー裁定)。**登場判定が行えないだけでなく、
+ * チーム免除でも登場できない**——シーンプレイヤー以外のキャストは登場できないシーン。
+ * RL による登場(パネルの手動登場・台本の事前設定)はこのゲートの外側にある。
+ * @param {?{appearanceMode?: string}} row 正規化済みシーン行
+ * @returns {boolean}
+ */
+export function isAppearanceBlockedScene(row) {
+    return (row?.appearanceMode ?? "area") === "none";
+}
+
+/**
+ * シーン行の「登場キャラクター」事前設定を正規化する(14-8)。
+ * `hideName` は名前を伏せて登場させる指定(卓には「？？？」と表示される)。
+ * @param {?Array<{actorId?: string, hideName?: boolean}>} list
+ * @returns {Array<{actorId: string, hideName: boolean}>}
+ */
+export function normalizeAppearanceActors(list) {
+    return (Array.isArray(list) ? list : [])
+        .map(entry => ({
+            actorId:  String(entry?.actorId ?? ""),
+            hideName: entry?.hideName === true,
+        }))
+        .filter(entry => entry.actorId);
+}
+
+/**
+ * シーン入場時に登場させるキャラクターの集合(14-8)。
+ * シーンプレイヤーのキャラクター(判定なしで登場する)に、台本の事前設定を重ねる。
+ * 両方に居る場合はシーンプレイヤーとしての登場を採る——シーンプレイヤーは卓に開示された
+ * 主役であり、名前を伏せる対象にならないため。
+ * @param {?{appearanceActors?: Array<object>}} row 正規化済みシーン行
+ * @param {{scenePlayerActorId?: string}} [args]
+ * @returns {Array<{actorId: string, hideName: boolean}>}
+ */
+export function sceneEntryAppearances(row, { scenePlayerActorId = "" } = {}) {
+    const entries = scenePlayerActorId ? [{ actorId: scenePlayerActorId, hideName: false }] : [];
+    for (const entry of normalizeAppearanceActors(row?.appearanceActors)) {
+        if (entries.some(e => e.actorId === entry.actorId)) continue;
+        entries.push(entry);
+    }
+    return entries;
+}
+
+/**
+ * キャラクター選択プルダウンの type 別グループ(14-8)。RL の登場候補(パネル)と台本の
+ * 事前設定(アクトシート)で共用する。並びは CHARACTER_ACTOR_TYPES の順、空の群は出さない。
+ * RL は登場判定を経ずに誰でも登場させられる(2026-08-09 ユーザー裁定)ため、キャストも含む。
+ * @param {Array<{id: string, name: string, type: string, appearing?: boolean}>} actors
+ * @param {{labelOf?: (type: string) => string, excludeAppearing?: boolean}} [args]
+ *        excludeAppearing=登場中を候補から外す(パネルの追加プルダウン)
+ * @returns {Array<{label: string, actors: Array<{id: string, name: string}>}>}
+ */
+export function groupCharacterChoices(actors, { labelOf = t => t, excludeAppearing = false } = {}) {
+    return CHARACTER_ACTOR_TYPES
+        .map(type => ({
+            label: labelOf(type),
+            actors: (actors ?? [])
+                .filter(a => a?.type === type && !(excludeAppearing && a.appearing === true))
+                .map(a => ({ id: a.id, name: a.name })),
+        }))
+        .filter(group => group.actors.length > 0);
 }
 
 /** 登場判定の既定候補(社会/コネ分類)の識別キーか。 */

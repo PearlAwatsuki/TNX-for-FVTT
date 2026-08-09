@@ -18,8 +18,9 @@ import {
     createTeam, joinTeam, leaveTeam, deleteTeam, appearTeam, exitTeam, renameTeam,
     getBackstage, buildBackstageQueue, currentSceneHasBackstage, canAdvanceScene,
     closeSceneToBackstage, advanceBackstageSpot, addBackstageActor, removeBackstageActor,
+    appearActor, exitActor, setActorNameHidden,
 } from "./session-state.mjs";
-import { isAppearing, listAppearingActors } from "./appearance-state.mjs";
+import { isAppearing, isNameHidden, displayActorName, listAppearingActors } from "./appearance-state.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import {
     SCENE_AREA_OPTIONS, PHASE_ORDER, normalizeSceneRow, normalizeHandoutRow, nextSceneRow,
@@ -29,7 +30,9 @@ import {
 import {
     loadGeneralSkillNameByKey, loadSkillChoices, formatGroupedSkillNames, STYLE_PACK,
 } from "./skill-dictionary.mjs";
-import { appearanceCheckParams, formatAppearanceSummary } from "./appearance-logic.mjs";
+import {
+    appearanceCheckParams, formatAppearanceSummary, groupCharacterChoices,
+} from "./appearance-logic.mjs";
 import { presetLabel } from "./request-presets.mjs";
 import { formatSkillName } from "./identification.mjs";
 import { TnxActionHandler } from "./tnx-action-handler.mjs";
@@ -93,6 +96,10 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             toggleInfoPublic:    TnxScenarioPanel._onToggleInfoPublic,
             toggleInfoDisclosed: TnxScenarioPanel._onToggleInfoDisclosed,
             appearanceCheck:     TnxScenarioPanel._onAppearanceCheck,
+            appearActor:         TnxScenarioPanel._onAppearActor,
+            exitActor:           TnxScenarioPanel._onExitActor,
+            toggleAppearHidden:  TnxScenarioPanel._onToggleAppearHidden,
+            toggleNewHideName:   TnxScenarioPanel._onToggleNewHideName,
             teamCreate:          TnxScenarioPanel._onTeamCreate,
             teamJoin:            TnxScenarioPanel._onTeamJoin,
             teamLeave:           TnxScenarioPanel._onTeamLeave,
@@ -164,24 +171,38 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             implication: await foundry.applications.ux.TextEditor.enrichHTML(card.description ?? ""),
         } : null;
 
-        // 登場中の一覧(全員向け・14-5)と登場判定ボタン(PL・非登場の担当キャラクターがいるとき)
+        // 登場中の一覧(全員向け・14-5)と登場判定ボタン(PL・非登場の担当キャラクターがいるとき)。
+        // 名前を伏せて登場しているキャラクターは卓に「？？？」と見せる(14-8)。RL には実名と
+        // 伏せている印を出し、退場・名前の付け替えもここから行う
         const appearing = st.actStarted ? listAppearingActors() : [];
-        context.appearingNames = appearing.map(a => a.name);
+        context.appearing = appearing.map(a => ({
+            id: a.id, name: displayActorName(a), hidden: isNameHidden(a),
+        }));
+        const appearingIds = new Set(appearing.map(a => a.id));
+        // RL の手動登場(14-8): 候補=まだ登場していないキャラクター4種(キャストも含む)。
+        // RL は登場判定を経ずに誰でも登場させられる(2026-08-09 ユーザー裁定)
+        context.appearCandidateGroups = (game.user.isGM && st.actStarted)
+            ? groupCharacterChoices(
+                game.actors.map(a => ({
+                    id: a.id, name: a.name, type: a.type, appearing: appearingIds.has(a.id),
+                })),
+                { labelOf: type => game.i18n.localize(`TYPES.Actor.${type}`), excludeAppearing: true })
+            : [];
         const myCharacter = game.user.character ?? null;
         context.canAppearanceCheck = !game.user.isGM && st.actStarted
             && !!myCharacter && !isAppearing(myCharacter);
 
         // チーム(全員向け・宣言はいつでも可=読み込みがあれば表示)。PL=自分のキャラクターの
-        // 参加/離脱・RL=編成(メンバー追加/除去・改名・解散)。どちらも一括登場/退場を押せる
-        const appearingIds = new Set(appearing.map(a => a.id));
+        // 参加/離脱・RL=編成(メンバー追加/除去・改名・解散)。どちらも一括登場/退場を押せる。
         // 編成候補=キャスト+ゲスト(チームにはゲストも入れられる・2026-08-08 ユーザー裁定)
         const teamCandidates = game.actors.filter(a => a.type === "cast" || a.type === "guest");
         context.teams = (journal ? st.teams : []).map(team => {
             const memberIds = team.memberActorIds ?? [];
+            // メンバー名も登場中一覧と同じ解決を通す(隣で実名が出ていたら伏せる意味がない)
             const members = memberIds
                 .map(id => game.actors.get(id))
                 .filter(a => a)
-                .map(a => ({ id: a.id, name: a.name, appearing: appearingIds.has(a.id) }));
+                .map(a => ({ id: a.id, name: displayActorName(a), appearing: appearingIds.has(a.id) }));
             const hasAppearing = memberIds.some(id => appearingIds.has(id));
             const isMember = !!myCharacter && memberIds.includes(myCharacter.id);
             return {
@@ -455,6 +476,40 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
     static async _onAppearanceCheck(_event, _target) {
         const { startAppearanceCheck } = await import("./appearance-check.mjs");
         await startAppearanceCheck();
+    }
+
+    // ─── RL による登場・退場(14-8・登場判定なし) ─────────────────────────────
+
+    /** 追加行のプルダウンで選んだキャラクターを登場させる(名前非公開は同じ行のトグル)。 */
+    static async _onAppearActor(_event, target) {
+        const row = target.closest(".scp-appear-add");
+        const actorId = row?.querySelector('select[name="appearActorId"]')?.value;
+        if (!actorId) return;
+        const hideName = row.querySelector('[data-action="toggleNewHideName"]')
+            ?.classList.contains("is-on") === true;
+        await appearActor(actorId, { hideName });
+    }
+
+    /** 登場中のキャラクターを個別に退場させる。 */
+    static async _onExitActor(_event, target) {
+        await exitActor(target.dataset.actorId);
+    }
+
+    /** 登場中のキャラクターの名前を伏せる/戻す(登場後の付け替え)。 */
+    static async _onToggleAppearHidden(_event, target) {
+        await setActorNameHidden(target.dataset.actorId, target.dataset.hidden !== "true");
+    }
+
+    /**
+     * これから登場させるキャラクターの名前を伏せるかのトグル(追加行内で完結する選択)。
+     * 保存先を持たない一時的な選択なので、再描画を挟まず DOM の状態だけを反転させる。
+     */
+    static _onToggleNewHideName(_event, target) {
+        const on = target.classList.toggle("is-on");
+        const icon = target.querySelector("i");
+        icon?.classList.toggle("fa-eye", !on);
+        icon?.classList.toggle("fa-eye-slash", on);
+        target.setAttribute("title", on ? "名前を伏せて登場" : "名前を出して登場");
     }
 
     // ─── チーム(14-5・宣言はいつでも可) ─────────────────────────────────────

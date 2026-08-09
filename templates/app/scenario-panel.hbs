@@ -37,10 +37,36 @@
                     </div>
                 </div>
             {{/if}}
-            {{#if appearingNames.length}}
+            {{#if appearing.length}}
                 <div class="scp-appearing">
                     <span class="scp-appearing-label">登場中:</span>
-                    {{#each appearingNames as |name|}}<span class="scp-chip">{{name}}</span>{{/each}}
+                    {{#each appearing as |actor|}}
+                        <span class="scp-chip {{#if actor.hidden}}is-name-hidden{{/if}}">
+                            {{actor.name}}
+                            {{#if @root.isGM}}
+                                <a class="tnx-icon-ctrl {{#if actor.hidden}}is-on{{/if}}" data-action="toggleAppearHidden" data-actor-id="{{actor.id}}" data-hidden="{{actor.hidden}}" title="{{#if actor.hidden}}名前を伏せている{{else}}名前を出している{{/if}}">
+                                    <i class="fas {{#if actor.hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i>
+                                </a>
+                                <a class="scp-chip-remove" data-action="exitActor" data-actor-id="{{actor.id}}" title="退場させる"><i class="fas fa-times"></i></a>
+                            {{/if}}
+                        </span>
+                    {{/each}}
+                </div>
+            {{/if}}
+            {{!-- RL の手動登場(14-8): 登場判定を経ずに登場させる。名前を伏せるかは左のトグル --}}
+            {{#if appearCandidateGroups.length}}
+                <div class="scp-load-row scp-appear-add">
+                    <select name="appearActorId">
+                        {{#each appearCandidateGroups as |group|}}
+                            <optgroup label="{{group.label}}">
+                                {{#each group.actors as |candidate|}}
+                                    <option value="{{candidate.id}}">{{candidate.name}}</option>
+                                {{/each}}
+                            </optgroup>
+                        {{/each}}
+                    </select>
+                    <a class="tnx-icon-ctrl" data-action="toggleNewHideName" title="名前を出して登場"><i class="fas fa-eye"></i></a>
+                    <a class="tnx-icon-ctrl" data-action="appearActor" title="シーンに登場させる"><i class="fas fa-door-open"></i></a>
                 </div>
             {{/if}}
         </div>

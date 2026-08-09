@@ -14,6 +14,7 @@ import {
     SCENE_AREA_OPTIONS, HANDOUT_SUIT_OPTIONS, HANDOUT_STYLE_COMMON, HANDOUT_STYLE_FREE,
     normalizeSceneRow, normalizeHandoutRow, handoutTitleSuffix, circledNumber, infoSkillKeys,
 } from '../module/session-logic.mjs';
+import { normalizeAppearanceActors, groupCharacterChoices } from '../module/appearance-logic.mjs';
 import { listSubScenes } from '../module/subscenes.mjs';
 import { attachEditorSectionToggles } from '../module/editor-sections.mjs';
 
@@ -38,7 +39,9 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             removeInfoSkill:   TnxScenarioSheet._onRemoveInfoSkill,
             addHandout:        TnxScenarioSheet._onAddHandout,
             deleteHandout:     TnxScenarioSheet._onDeleteHandout,
-            removeAppearanceSkill: TnxScenarioSheet._onRemoveAppearanceSkill,
+            removeAppearanceSkill:      TnxScenarioSheet._onRemoveAppearanceSkill,
+            removeAppearanceActor:      TnxScenarioSheet._onRemoveAppearanceActor,
+            toggleAppearanceActorHidden: TnxScenarioSheet._onToggleAppearanceActorHidden,
             addTextPreset:         TnxScenarioSheet._onAddTextPreset,
             deleteTextPreset:      TnxScenarioSheet._onDeleteTextPreset,
             addCheckRequestPreset: TnxScenarioSheet._onAddCheckRequestPreset,
@@ -117,9 +120,23 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             const dictName = skillNameByKey.get(key);
             return { key, name: dictName ? formatSkillName(dictName) : "（参照切れ）" };
         });
+        // 登場キャラクターの事前設定(14-8): 参照は id・表示は現在のアクター名をライブ解決する
+        // (名前はキャッシュしない)。目のトグル＝名前を伏せて登場(卓には「？？？」)
+        const toActorChips = list => normalizeAppearanceActors(list).map(entry => ({
+            actorId:  entry.actorId,
+            name:     game.actors.get(entry.actorId)?.name ?? "（参照切れ）",
+            hideName: entry.hideName,
+        }));
         for (const rows of Object.values(context.scenes)) {
-            for (const row of rows) row.appearanceSkillChips = toSkillChips(row.appearanceSkills);
+            for (const row of rows) {
+                row.appearanceSkillChips = toSkillChips(row.appearanceSkills);
+                row.appearanceActorChips = toActorChips(row.appearanceActors);
+            }
         }
+        // 追加プルダウンの候補=キャラクター4種(type ごとの optgroup・パネルの登場候補と共用の純関数)
+        context.appearanceActorGroups = groupCharacterChoices(
+            game.actors.map(a => ({ id: a.id, name: a.name, type: a.type })),
+            { labelOf: type => game.i18n.localize(`TYPES.Actor.${type}`) });
         const withSkills = (key) => (skillGroups ?? []).map(g => ({
             ...g,
             skills: (g.skills ?? []).map(o => ({ ...o, selected: o.identificationKey === key })),
@@ -307,6 +324,11 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             select.addEventListener('change', this._onAppearanceSkillAdd.bind(this));
         }
 
+        // 登場キャラクターの追加プルダウン(14-8・指定技能と同型のタグ入力)
+        for (const select of el.querySelectorAll('.scene-item .appearance-actor-select')) {
+            select.addEventListener('change', this._onAppearanceActorAdd.bind(this));
+        }
+
         bind(el.querySelectorAll(
             '.info-item input:not([data-no-save]), .info-item select:not([data-no-save]), .info-item prose-mirror'),
         this._onInfoItemChange.bind(this));
@@ -415,6 +437,49 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         if (target.dataset.action === "spinUp") input.stepUp();
         else input.stepDown();
         input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    /**
+     * シーン行の登場キャラクター指定を書き換える(追加・除去・名前非公開の切替で共用・14-8)。
+     * @param {HTMLElement} target 行内の要素(シーン行の特定に使う)
+     * @param {(list: Array<{actorId: string, hideName: boolean}>) => ?Array<object>} mutate
+     *        変更後の配列。null を返すと書き込まない(変化なしの空振りを避ける)
+     */
+    async _updateAppearanceActors(target, mutate) {
+        const sceneItem = target.closest(".scene-item");
+        const { sceneId, phase } = sceneItem?.dataset ?? {};
+        const scenes = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "scenes"));
+        const scene = scenes?.[phase]?.find(s => s.id === sceneId);
+        if (!scene) return;
+        const next = mutate(normalizeAppearanceActors(scene.appearanceActors));
+        if (!next) return;
+        scene.appearanceActors = next;
+        await this.document.setFlag("tokyo-nova-axleration", "scenes", scenes);
+    }
+
+    /** 登場キャラクターを追加する(指定技能と同じタグ入力=選ぶこと自体が追加操作)。 */
+    async _onAppearanceActorAdd(event) {
+        const select = event.currentTarget;
+        const actorId = select.value;
+        select.value = "";
+        if (!actorId) return;
+        await this._updateAppearanceActors(select, list => (list.some(e => e.actorId === actorId)
+            ? null
+            : [...list, { actorId, hideName: false }]));
+    }
+
+    /** 登場キャラクターの指定を外す。 */
+    static async _onRemoveAppearanceActor(_event, target) {
+        const actorId = target.dataset.actorId;
+        await this._updateAppearanceActors(target,
+            list => list.filter(e => e.actorId !== actorId));
+    }
+
+    /** そのキャラクターを名前を伏せて登場させるかを切り替える。 */
+    static async _onToggleAppearanceActorHidden(_event, target) {
+        const actorId = target.dataset.actorId;
+        await this._updateAppearanceActors(target,
+            list => list.map(e => (e.actorId === actorId ? { ...e, hideName: !e.hideName } : e)));
     }
 
     /** 指定技能を外す。 */

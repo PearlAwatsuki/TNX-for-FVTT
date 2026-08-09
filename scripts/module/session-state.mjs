@@ -22,7 +22,10 @@ import {
     hasBackstage, backstageQueue, nextBackstageSpot, isBackstageFinished,
     findDuplicateKeys, matchTrumpCard,
 } from "./session-logic.mjs";
-import { setAppearing, clearAllAppearing, listAppearingActors, isAppearing } from "./appearance-state.mjs";
+import {
+    setAppearing, setNameHidden, clearAllAppearing, listAppearingActors, isAppearing,
+} from "./appearance-state.mjs";
+import { isAppearanceBlockedScene, sceneEntryAppearances } from "./appearance-logic.mjs";
 import { getUserFlagData, saveIsScenePlayer } from "./user-flag-schema.mjs";
 import { SKILL_PACKS } from "./skill-dictionary.mjs";
 
@@ -394,11 +397,45 @@ async function _applySceneEntry({ phase, row }) {
     const playerUser = scene.playerUserId ? game.users.get(scene.playerUserId) : null;
     const playerUserId = (isRulerScene(scene) || !playerUser) ? "" : scene.playerUserId;
     await _setScenePlayerFlags(playerUserId);
-    // シーンプレイヤーのキャラクターは判定なしで登場する(仕様確認ポイント2・承認済み)
-    if (playerUserId) {
-        const cast = game.users.get(playerUserId)?.character;
-        if (cast) await setAppearing(cast, true);
+    // シーンプレイヤーのキャラクターは判定なしで登場する(仕様確認ポイント2・承認済み)。
+    // 台本の「登場キャラクター」事前設定(14-8)も同じ入場処理で登場させる——RL 側の指定なので
+    // 登場判定・登場：不可のゲートは通らない。名前非公開の指定はここで一緒に立てる
+    const scenePlayerActorId = playerUserId
+        ? (game.users.get(playerUserId)?.character?.id ?? "") : "";
+    for (const entry of sceneEntryAppearances(scene, { scenePlayerActorId })) {
+        const actor = game.actors.get(entry.actorId);
+        if (actor) await setAppearing(actor, true, { hideName: entry.hideName });
     }
+}
+
+// ─── RL による登場・退場(14-8・登場判定なし) ────────────────────────────────────
+// RL は誰でも判定なしで登場させられる(2026-08-09 ユーザー裁定)。キャストも対象。
+
+/**
+ * RL が任意のキャラクターをシーンに登場させる(登場判定なし)。
+ * @param {string} actorId
+ * @param {{hideName?: boolean}} [opts] hideName=名前を伏せて登場させる(卓には「？？？」)
+ */
+export async function appearActor(actorId, { hideName = false } = {}) {
+    if (!assertGM() || !actorId) return;
+    if (!getSessionState().actStarted) return void ui.notifications.warn("アクトが開始されていません。");
+    const actor = game.actors.get(actorId);
+    if (!actor) return;
+    await setAppearing(actor, true, { hideName });
+}
+
+/** RL がキャラクターを個別に退場させる(名前の非公開指定も一緒に落ちる)。 */
+export async function exitActor(actorId) {
+    if (!assertGM() || !actorId) return;
+    const actor = game.actors.get(actorId);
+    if (actor) await setAppearing(actor, false);
+}
+
+/** 登場中のキャラクターの名前を伏せる/戻す(登場後の付け替え)。 */
+export async function setActorNameHidden(actorId, hidden) {
+    if (!assertGM() || !actorId) return;
+    const actor = game.actors.get(actorId);
+    if (actor) await setNameHidden(actor, hidden);
 }
 
 /** シーンの終了処理(全員退場・シーンプレイヤー解除)。イベント発火は呼び元。 */
@@ -527,9 +564,12 @@ export async function joinTeam(teamId, actorId) {
     const teams = teamJoin(getTeams(), teamId, actorId);
     await setState({ teams });
     // チーム免除(14-5・2026-08-08 ユーザー指示): 登場中のメンバーがいるチームへ後から加入した
-    // キャラクターには自動で登場状態を付与する(シーン進行中のみ)
+    // キャラクターには自動で登場状態を付与する(シーン進行中のみ)。
+    // ただし「登場：不可」のシーンではチーム免除も効かない(2026-08-09 ユーザー裁定)——
+    // 加入自体は成立し、登場だけが起きない
     const st = getSessionState();
     if (!st.actStarted || !st.sceneId) return;
+    if (isAppearanceBlockedScene(getCurrentSceneRow()?.row)) return;
     const appearingIds = new Set(listAppearingActors().map(a => a.id));
     const actor = game.actors.get(actorId);
     if (actor && !appearingIds.has(actorId) && teamHasAppearing(teams, teamId, appearingIds)) {
@@ -540,12 +580,16 @@ export async function joinTeam(teamId, actorId) {
 
 /**
  * チームで同時登場する(チーム免除=登場中のメンバーがいれば残りは判定なしで登場)。
+ * 「登場：不可」のシーンではチーム免除も効かない(2026-08-09 ユーザー裁定)。
  * @param {string} teamId
  */
 export async function appearTeam(teamId) {
     if (!assertGM()) return;
     const st = getSessionState();
     if (!st.actStarted) return void ui.notifications.warn("アクトが開始されていません。");
+    if (isAppearanceBlockedScene(getCurrentSceneRow()?.row)) {
+        return void ui.notifications.warn("このシーンにはシーンプレイヤー以外登場できません（登場：不可）。");
+    }
     const teams = getTeams();
     const team = teams.find(t => t.id === teamId);
     if (!team) return;

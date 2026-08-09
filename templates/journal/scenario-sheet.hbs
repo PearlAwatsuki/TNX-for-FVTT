@@ -233,6 +233,32 @@
                                                     </div>
                                                 </div>
                                             {{/unless}}
+                                            {{!-- 登場キャラクターの事前設定(14-8): シーン入場時に
+                                                  登場判定なしで登場する面々。目のトグル＝名前を伏せて
+                                                  登場(卓には「？？？」)。RL の指定なので「登場：不可」
+                                                  のシーンでも有効＝登場判定の設定の外に置く --}}
+                                            <div class="scene-detail-row scene-skill-row">
+                                                <label>登場キャラクター</label>
+                                                <div class="tnx-tag-field">
+                                                    <div class="tnx-tag-list">
+                                                        {{#each scene.appearanceActorChips as |chip|}}
+                                                            <span class="tnx-tag" data-actor-id="{{chip.actorId}}">{{chip.name}}<a class="tnx-tag-toggle {{#if chip.hideName}}is-on{{/if}}" data-action="toggleAppearanceActorHidden" data-actor-id="{{chip.actorId}}" title="{{#if chip.hideName}}名前を伏せて登場{{else}}名前を出して登場{{/if}}"><i class="fas {{#if chip.hideName}}fa-eye-slash{{else}}fa-eye{{/if}}"></i></a><a class="tnx-tag-remove" data-action="removeAppearanceActor" data-actor-id="{{chip.actorId}}" title="指定を外す"><i class="fas fa-times"></i></a></span>
+                                                        {{else}}
+                                                            <span class="tnx-tag-empty">（未設定）</span>
+                                                        {{/each}}
+                                                    </div>
+                                                    <select data-no-save class="appearance-actor-select tnx-tag-add">
+                                                        <option value="">＋ キャラクターを追加</option>
+                                                        {{#each @root.appearanceActorGroups as |group|}}
+                                                            <optgroup label="{{group.label}}">
+                                                                {{#each group.actors as |actor|}}
+                                                                    <option value="{{actor.id}}">{{actor.name}}</option>
+                                                                {{/each}}
+                                                            </optgroup>
+                                                        {{/each}}
+                                                    </select>
+                                                </div>
+                                            </div>
                                             <div class="tnx-editor-section">
                                                 <div class="tnx-editor-section__header">
                                                     <label>切り替えメッセージ</label>

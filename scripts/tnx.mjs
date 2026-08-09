@@ -1778,10 +1778,12 @@ Hooks.once("init", async function() {
     });
 
     // 登場状態(Actor フラグ)の変化にパネルの「登場中」表示・チームのゲートを追随させる(14-5)。
+    // 名前の非公開(14-8)も同じ一覧の表示を変えるため同じ購読に乗せる。
     // 担当キャラクターのゴースト切替は HUD のステータス表示(14-7)にも反映する
     Hooks.on("updateActor", (actor, changes) => {
         const f = changes.flags?.["tokyo-nova-axleration"];
-        if (f && ("appearing" in f || "-=appearing" in f)) {
+        const appearanceKeys = ["appearing", "-=appearing", "appearingHidden", "-=appearingHidden"];
+        if (f && appearanceKeys.some(key => key in f)) {
             foundry.applications.instances.get("tnx-scenario-panel")?.render(false);
         }
         if (changes.system?.isGhost !== undefined && actor.id === game.user.character?.id) {

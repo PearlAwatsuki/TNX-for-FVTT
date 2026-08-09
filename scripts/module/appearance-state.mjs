@@ -3,7 +3,9 @@
  *
  * 登場するのはプレイヤーでなく**キャラクター**なので、登場状態は **Actor のフラグ**が持つ
  * (`flags.tokyo-nova-axleration.appearing`)。キャスト・ゲスト・トループ・エキストラすべて同じ器。
- * RL 側キャラクターは登場判定なしで RL が直接切り替える。機能的意味は**対象化ゲート**
+ * RL は登場判定なしで誰でも登場させられる(14-8・シナリオコントロールパネルの操作と、台本の
+ * 事前設定)。その際に**名前を伏せる**指定ができ、対の `appearingHidden` フラグが持つ——卓には
+ * 「？？？」と表示され、退場で登場状態と一緒に落ちる。機能的意味は**対象化ゲート**
  * 「基本的に、登場しているキャラクターしか技能などの対象にできない」——ゲートの実装は 14-5
  * (target-resolution)で、本モジュールは状態 API のみ。
  *
@@ -12,20 +14,58 @@
 
 const SCOPE = "tokyo-nova-axleration";
 
+/** 名前を伏せて登場しているキャラクターの、卓に見せる表示名(2026-08-09 ユーザー指示)。 */
+export const HIDDEN_ACTOR_NAME = "？？？";
+
 /** そのキャラクターが現在のシーンに登場しているか。 */
 export function isAppearing(actor) {
     return actor?.getFlag?.(SCOPE, "appearing") === true;
+}
+
+/** 名前を伏せて登場しているか(14-8。登場状態と対で、退場時に一緒に落ちる)。 */
+export function isNameHidden(actor) {
+    return actor?.getFlag?.(SCOPE, "appearingHidden") === true;
+}
+
+/**
+ * 卓に見せるキャラクター名。名前を伏せて登場している間は「？？？」を返す。
+ * RL には実名を返す——伏せているかどうかは UI 側が印(目のアイコン)で示す。
+ * @param {Actor} actor
+ * @returns {string}
+ */
+export function displayActorName(actor) {
+    if (!actor) return "";
+    if (game.user.isGM) return actor.name;
+    return isNameHidden(actor) ? HIDDEN_ACTOR_NAME : actor.name;
 }
 
 /**
  * 登場状態を切り替える(所有者または GM。盤面のトークン反映は 14-3/14-4)。
  * @param {Actor} actor
  * @param {boolean} appearing
+ * @param {{hideName?: boolean}} [opts] hideName 省略時は現在の非公開指定を保つ
+ *        (トークン表示切替からの再登場が RL の指定を落とさないため)
  */
-export async function setAppearing(actor, appearing) {
+export async function setAppearing(actor, appearing, { hideName } = {}) {
     if (!actor) return;
-    if (appearing) return actor.setFlag(SCOPE, "appearing", true);
-    return actor.unsetFlag(SCOPE, "appearing");
+    if (!appearing) {
+        await actor.unsetFlag(SCOPE, "appearing");
+        return setNameHidden(actor, false);
+    }
+    await actor.setFlag(SCOPE, "appearing", true);
+    if (hideName === undefined) return;
+    return setNameHidden(actor, hideName);
+}
+
+/**
+ * 登場中のキャラクターの名前を伏せる/戻す(RL 操作)。
+ * @param {Actor} actor
+ * @param {boolean} hidden
+ */
+export async function setNameHidden(actor, hidden) {
+    if (!actor) return;
+    if (hidden) return actor.setFlag(SCOPE, "appearingHidden", true);
+    if (isNameHidden(actor)) return actor.unsetFlag(SCOPE, "appearingHidden");
 }
 
 /** 登場中のキャラクターを列挙する(全キャラクター種)。 */
@@ -38,7 +78,7 @@ export function listAppearingActors() {
  */
 export async function clearAllAppearing() {
     for (const actor of listAppearingActors()) {
-        await actor.unsetFlag(SCOPE, "appearing");
+        await setAppearing(actor, false);
     }
 }
 

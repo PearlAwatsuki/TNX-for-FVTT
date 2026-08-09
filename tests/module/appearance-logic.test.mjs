@@ -4,6 +4,10 @@ import {
   hasNegativeDangerOutfit,
   isAppearanceSkillKey,
   formatAppearanceSummary,
+  isAppearanceBlockedScene,
+  normalizeAppearanceActors,
+  sceneEntryAppearances,
+  groupCharacterChoices,
 } from "../../scripts/module/appearance-logic.mjs";
 
 describe("appearanceCheckParams()（エリア別 TN と危険値修正・Appearance_Check 正本）", () => {
@@ -109,5 +113,92 @@ describe("formatAppearanceSummary()（パネルの「登場：」行・2026-08-0
 
   it("目標値0は表示する（偽値の取りこぼしを作らない）", () => {
     expect(formatAppearanceSummary({ mode: "fixed", targetValue: 0 })).toBe("0");
+  });
+});
+
+describe("isAppearanceBlockedScene()（登場：不可＝判定もチーム免除も塞ぐ・2026-08-09 裁定）", () => {
+  it("none のシーンだけ塞ぐ（既定＝エリア準拠は塞がない）", () => {
+    expect(isAppearanceBlockedScene({ appearanceMode: "none" })).toBe(true);
+    expect(isAppearanceBlockedScene({ appearanceMode: "area" })).toBe(false);
+    expect(isAppearanceBlockedScene({ appearanceMode: "fixed" })).toBe(false);
+    expect(isAppearanceBlockedScene({})).toBe(false);
+    expect(isAppearanceBlockedScene(null)).toBe(false);
+  });
+});
+
+describe("normalizeAppearanceActors()（登場キャラクターの事前設定・14-8）", () => {
+  it("hideName の既定は false・アクター参照の無い行は落とす", () => {
+    expect(normalizeAppearanceActors([
+      { actorId: "a1" },
+      { actorId: "a2", hideName: true },
+      { hideName: true },
+      null,
+    ])).toEqual([
+      { actorId: "a1", hideName: false },
+      { actorId: "a2", hideName: true },
+    ]);
+  });
+
+  it("配列でなければ空", () => {
+    expect(normalizeAppearanceActors(undefined)).toEqual([]);
+    expect(normalizeAppearanceActors("a1")).toEqual([]);
+  });
+});
+
+describe("sceneEntryAppearances()（シーン入場で登場させる集合・14-8）", () => {
+  it("シーンプレイヤーに事前設定を重ねる", () => {
+    expect(sceneEntryAppearances(
+      { appearanceActors: [{ actorId: "guest1", hideName: true }, { actorId: "guest2" }] },
+      { scenePlayerActorId: "cast1" },
+    )).toEqual([
+      { actorId: "cast1", hideName: false },
+      { actorId: "guest1", hideName: true },
+      { actorId: "guest2", hideName: false },
+    ]);
+  });
+
+  it("シーンプレイヤーが事前設定にも居る場合は名前を伏せない（開示された主役のため）", () => {
+    expect(sceneEntryAppearances(
+      { appearanceActors: [{ actorId: "cast1", hideName: true }] },
+      { scenePlayerActorId: "cast1" },
+    )).toEqual([{ actorId: "cast1", hideName: false }]);
+  });
+
+  it("ルーラーシーン（シーンプレイヤー不在）は事前設定だけで登場する", () => {
+    expect(sceneEntryAppearances({ appearanceActors: [{ actorId: "guest1" }] }))
+      .toEqual([{ actorId: "guest1", hideName: false }]);
+    expect(sceneEntryAppearances({}, { scenePlayerActorId: "" })).toEqual([]);
+  });
+});
+
+describe("groupCharacterChoices()（キャラクター選択の type 別グループ・14-8）", () => {
+  const actors = [
+    { id: "c1", name: "キャスト", type: "cast" },
+    { id: "g1", name: "ゲスト", type: "guest", appearing: true },
+    { id: "g2", name: "ゲスト2", type: "guest" },
+    { id: "e1", name: "エキストラ", type: "extra" },
+    { id: "x1", name: "ヴィークル（キャラクターではない）", type: "vehicle" },
+  ];
+  const labelOf = type => `L:${type}`;
+
+  it("キャラクター4種を type 順に並べ、空の群と非キャラクターは出さない", () => {
+    expect(groupCharacterChoices(actors, { labelOf })).toEqual([
+      { label: "L:cast",  actors: [{ id: "c1", name: "キャスト" }] },
+      { label: "L:guest", actors: [{ id: "g1", name: "ゲスト" }, { id: "g2", name: "ゲスト2" }] },
+      { label: "L:extra", actors: [{ id: "e1", name: "エキストラ" }] },
+    ]);
+  });
+
+  it("excludeAppearing で登場中を候補から外す（パネルの追加プルダウン）", () => {
+    expect(groupCharacterChoices(actors, { labelOf, excludeAppearing: true })).toEqual([
+      { label: "L:cast",  actors: [{ id: "c1", name: "キャスト" }] },
+      { label: "L:guest", actors: [{ id: "g2", name: "ゲスト2" }] },
+      { label: "L:extra", actors: [{ id: "e1", name: "エキストラ" }] },
+    ]);
+  });
+
+  it("空・未指定でも落ちない", () => {
+    expect(groupCharacterChoices([], { labelOf })).toEqual([]);
+    expect(groupCharacterChoices(undefined)).toEqual([]);
   });
 });

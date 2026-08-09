@@ -1015,6 +1015,17 @@
     color: var(--tnx2-danger, #d66);
 }
 
+/* タグ内のトグル(登場キャラクターの名前非公開)。オンは強調して現在の指定を示す */
+.tnx-tag-toggle {
+    color: var(--tnx2-text-muted);
+    cursor: pointer;
+    display: inline-flex;
+}
+
+.tnx-tag-toggle:hover { color: var(--tnx2-text-primary); }
+
+.tnx-tag-toggle.is-on { color: var(--tnx2-accent); }
+
 /* 追加プルダウンは左端に固定した小さな幅(全幅にしない)。
    高さ・文字サイズは**置いたシート自身の他のコントロールに合わせる**ため、ここでは指定しない
    (FS エディタは 28px/0.85em・アクトシートは他のセレクトと同じ 32px/14px・2026-08-09 指摘) */
@@ -5074,7 +5085,8 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .scene-detail-row > .number-input-spinner { flex: 0 0 auto; }
 
-/* 指定技能はタグ入力(.tnx-tag-field)。ラベルはタグ領域の上端に合わせる */
+/* シーン行のタグ入力(.tnx-tag-field)＝指定技能・登場キャラクター。
+   ラベルはタグ領域の上端に合わせる */
 .scene-skill-row { align-items: flex-start; }
 
 .scene-skill-row > label { padding-top: 4px; }
@@ -9132,6 +9144,11 @@ button.tnx-create-act-button span {
 }
 
 .tnx-scenario-panel .scp-chip.is-appearing { border-color: var(--tnx2-accent); }
+
+/* 名前を伏せて登場しているキャラクター(14-8)。RL の画面には実名が出るため印で区別する */
+.tnx-scenario-panel .scp-chip.is-name-hidden { border-style: dashed; }
+
+.tnx-scenario-panel .scp-appear-add { margin-top: 4px; }
 
 /* 舞台裏(14-6): シーンを閉じてから回す・回しきるまで次のシーンへは出ない */
 .tnx-scenario-panel .scp-backstage {

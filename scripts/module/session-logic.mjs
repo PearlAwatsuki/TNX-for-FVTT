@@ -11,6 +11,7 @@
 
 import { TNX_HOOKS } from "./combat-events.mjs";
 import { formatSkillName } from "./identification.mjs";
+import { normalizeAppearanceActors } from "./appearance-logic.mjs";
 
 /** メインアクトのフェイズ順(台本の走査順・シーン開始時の phase stamp に使う)。 */
 export const PHASE_ORDER = Object.freeze(["opening", "research", "climax", "ending"]);
@@ -54,6 +55,9 @@ export function normalizeSceneRow(row) {
         appearanceMode:   r.appearanceMode   ?? "area",
         appearanceValue:  r.appearanceValue  ?? null,
         appearanceSkills: Array.isArray(r.appearanceSkills) ? r.appearanceSkills : [],
+        // 登場キャラクターの事前設定(14-8): シーン入場時に判定なしで登場させる面々
+        // ({actorId, hideName}・hideName=名前を伏せて登場=卓には「？？？」)
+        appearanceActors: normalizeAppearanceActors(r.appearanceActors),
     };
 }
 

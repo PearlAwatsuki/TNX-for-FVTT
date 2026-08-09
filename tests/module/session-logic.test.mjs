@@ -59,6 +59,7 @@ describe("normalizeSceneRow()（シーン行の正規化・14-2）", () => {
       isMasterScene: true, switchMessage: "▼",
       area: "", stage: "", playerUserId: "",
       appearanceMode: "area", appearanceValue: null, appearanceSkills: [],
+      appearanceActors: [],
     });
   });
 
@@ -67,6 +68,13 @@ describe("normalizeSceneRow()（シーン行の正規化・14-2）", () => {
     expect(row.area).toBe("white");
     expect(row.stage).toBe("scene:abc");
     expect(row.playerUserId).toBe("u1");
+  });
+
+  it("登場キャラクターの事前設定を正規化して保つ（14-8）", () => {
+    const row = normalizeSceneRow({
+      id: "s3", appearanceActors: [{ actorId: "g1", hideName: true }, { hideName: true }],
+    });
+    expect(row.appearanceActors).toEqual([{ actorId: "g1", hideName: true }]);
   });
 
   it("null・undefined は空の行として正規化する", () => {

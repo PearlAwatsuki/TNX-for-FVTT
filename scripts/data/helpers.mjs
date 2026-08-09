@@ -83,6 +83,12 @@ export const OUTFIT_ITEM_TYPES = new Set([
 ]);
 
 /**
+ * 「キャラクター」として場に居るアクター type(表示順=キャスト→ゲスト→トループ→エキストラ)。
+ * シーンへの登場は 4 種すべてが対象(2026-08-09 ユーザー裁定)。
+ */
+export const CHARACTER_ACTOR_TYPES = Object.freeze(["cast", "guest", "troop", "extra"]);
+
+/**
  * 携帯中アウトフィットから outfitMod(制御値修正・CS修正)と appearanceModifier(危険値合計)を
  * 集計する純粋関数(フェーズ9-2、B-2 派生化。CS はフェーズ10-5 でフラグ駆動化)。
  *
