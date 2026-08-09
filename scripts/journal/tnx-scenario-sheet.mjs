@@ -156,7 +156,19 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         }));
 
         context.scenarioTexts = flagData.scenarioTexts || [];
-        context.infoItems     = flagData.infoItems     || [];
+        // 情報項目の使用技能は辞典のプルダウンのみ(2026-08-09 裁定=コネも辞典格納の運用に
+        // なったため自由記述は廃止)。旧い自由記述の行は空選択肢のラベルに「旧: …」で残す
+        // (データは書き換えない。目標値の異なる技能は行を足す運用のため、行の構造は据え置き)
+        context.infoItems = (flagData.infoItems || []).map(item => ({
+            ...item,
+            contents: (item.contents ?? []).map(content => ({
+                ...content,
+                skills: (content.skills ?? []).map(skill => ({
+                    ...skill,
+                    legacyName: (!skill.identificationKey && skill.name) ? skill.name : "",
+                })),
+            })),
+        }));
         context.trailer       = flagData.trailer       || "";
         context.handouts      = (flagData.handouts || []).map(normalizeHandoutRow);
         // コネ(アクトコネクション)の選択肢: 辞典のコネ技能(識別キー contact プレフィックス)。

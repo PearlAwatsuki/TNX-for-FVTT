@@ -5183,12 +5183,9 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .skill-check-row { display: flex; align-items: center; gap: 8px; }
 
-.skill-check-row .skill-key { flex: 1 1 auto; min-width: 0; }
-
-/* 「その他（自由記述）」選択時: セレクトは表示分だけに縮め、同じ行の記述欄に幅を譲る */
-.skill-check-row .skill-key--free { flex: 0 0 auto; width: 170px; }
-
-.skill-check-row .skill-name { flex: 1 1 auto; min-width: 0; }
+/* 使用技能は辞典のプルダウンのみ(自由記述は廃止・2026-08-09)。行の残り幅を引き受けるが
+   全幅には広げない(このシートのセレクトの上限 380px に合わせる) */
+.skill-check-row .skill-key { flex: 1 1 auto; min-width: 0; max-width: 380px; }
 
 .skill-check-row .skill-tn { width: 48px; text-align: center; }
 

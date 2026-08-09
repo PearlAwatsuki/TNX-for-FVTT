@@ -324,9 +324,10 @@
                                                 <div class="skill-check-list">
                                                     {{#each contentItem.skills as |skillItem|}}
                                                     <div class="skill-check-row" data-skill-id="{{skillItem.id}}">
-                                                        {{!-- 自由記述時はセレクトを縮めて記述欄に幅を譲る(skill-key--free) --}}
-                                                        <select name="identificationKey" class="skill-key{{#unless skillItem.identificationKey}} skill-key--free{{/unless}}" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}">
-                                                            <option value="">その他（自由記述）</option>
+                                                        {{!-- 使用技能は辞典のプルダウンのみ(2026-08-09 裁定=自由記述は廃止)。
+                                                              目標値の異なる技能はこの行を足して指定する --}}
+                                                        <select name="identificationKey" class="skill-key" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}">
+                                                            <option value="">{{#if skillItem.legacyName}}旧: {{skillItem.legacyName}}{{else}}- 技能を選択 -{{/if}}</option>
                                                             {{#each @root.skillGroupsPlain as |group|}}
                                                                 <optgroup label="{{group.label}}">
                                                                     {{#each group.skills as |skill|}}
@@ -335,9 +336,6 @@
                                                                 </optgroup>
                                                             {{/each}}
                                                         </select>
-                                                        {{#unless skillItem.identificationKey}}
-                                                        <input type="text" name="name" class="skill-name" placeholder="技能名" value="{{skillItem.name}}" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}">
-                                                        {{/unless}}
                                                         <span class="tn-label">目標値:</span>
                                                         <div class="number-input-spinner">
                                                             <button type="button" class="tnx-btn" data-action="spinDown" aria-label="減少">−</button>
