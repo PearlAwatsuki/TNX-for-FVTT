@@ -46,7 +46,7 @@ export function bindFocusSystemEditor(root, { onChange }) {
     // 値の変更(テキスト・数値・プルダウン)は一括で拾う。技能の追加プルダウンだけは
     // 値でなく操作なので除く(専用ハンドラで処理する)
     root.addEventListener("change", (event) => {
-        if (event.target.classList.contains("fs-skill-add")) return;
+        if (event.target.classList.contains("tnx-tag-add")) return;
         emit();
     });
 

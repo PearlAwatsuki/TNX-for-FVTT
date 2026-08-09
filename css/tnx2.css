@@ -974,6 +974,66 @@
     border-radius: var(--tnx2-radius);
 }
 
+/* タグ入力(複数選択の登録表示＋追加プルダウン・FS 判定エディタで確立した意匠を共通化)。
+   **タグ領域を先に確保し、追加プルダウンはその下に固定する**——追加してもプルダウンが
+   右や下へ流れない(2026-07-21 ユーザー指示。2026-08-09 にシーンの指定技能へ展開) */
+.tnx-tag-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.tnx-tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 4px;
+    /* タグが無くても1行分の高さを確保しておく(最初の追加でレイアウトが飛ばない) */
+    min-height: 26px;
+}
+
+.tnx-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 4px 2px 9px;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: 13px;
+    font-size: 0.85em;
+    white-space: nowrap;
+}
+
+.tnx-tag-remove {
+    color: var(--tnx2-text-muted);
+    cursor: pointer;
+    display: inline-flex;
+}
+
+.tnx-tag-remove:hover {
+    color: var(--tnx2-danger, #d66);
+}
+
+/* 追加プルダウンは左端に固定した小さな幅(全幅にしない) */
+.tnx-tag-add {
+    align-self: flex-start;
+    width: auto;
+    max-width: 180px;
+    height: 28px;
+    border-radius: 6px;
+    font-size: 0.85em;
+    color: var(--tnx2-text-secondary);
+}
+
+/* 空のタグ領域に出すプレースホルダー(タグが入ると消える) */
+.tnx-tag-empty {
+    align-self: center;
+    font-size: 0.85em;
+    color: var(--tnx2-text-muted);
+    font-style: italic;
+}
+
 /* スタイルスロット: コンテンツ＋ロールインジケーターの横並びラッパー */
 .tokyo-nova.sheet.actor .style-slot-inner {
     display: flex;
@@ -5008,24 +5068,14 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .scene-detail-row > .number-input-spinner { flex: 0 0 auto; }
 
-/* 指定技能: 登録済みチップ→追加プルダウンの順に同じ行へ並べ、溢れたら折り返す */
-.scene-skill-row > .appearance-skill-select { min-width: 180px; }
+/* 指定技能はタグ入力(.tnx-tag-field)。ラベルはタグ領域の上端に合わせる */
+.scene-skill-row { align-items: flex-start; }
 
-/* 汎用チップ(識別キー参照の登録表示・×で解除) */
-.tnx-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 0 8px;
-    border: 1px solid var(--tnx2-border-subtle);
-    border-radius: 10px;
-    background: var(--tnx2-bg-2);
-    white-space: nowrap;
-}
+.scene-skill-row > label { padding-top: 4px; }
 
-.tnx-chip .tnx-chip-remove { opacity: 0.6; }
-
-.tnx-chip .tnx-chip-remove:hover { opacity: 1; }
+/* basis 0 で置く。基準を内容幅にすると、タグが増えた分だけ行が折り返して
+   タグ領域ごとラベルの下へ落ちる(行の折り返し判定は縮む前の内容幅で行われる) */
+.scene-skill-row > .tnx-tag-field { flex: 1 1 0; }
 
 /* 14-7: アクト名編集欄・アクトコネクションのドロップエリア */
 .scenario-sheet .act-name-section {
@@ -8649,7 +8699,7 @@ button.tnx-create-act-button span {
     align-self: start;
     padding-top: 6px;
 }
-.fs-editor .fs-support-group > .fs-skill-field {
+.fs-editor .fs-support-group > .tnx-tag-field {
     align-self: start;
 }
 
@@ -8661,62 +8711,16 @@ button.tnx-create-act-button span {
     margin-bottom: 10px;
 }
 
-/* 技能の複数選択＝タグ入力(2026-07-21)。タグ領域を先に確保し、追加プルダウンはその下に
-   固定する。追加してもプルダウンが右へ流れない(ユーザー指示) */
-.fs-editor .fs-skill-field {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    min-width: 0;
-}
-.fs-editor .fs-skill-tags {
-    display: flex;
-    flex-wrap: wrap;
-    align-content: flex-start;
-    gap: 4px;
-    /* チップが無くても1行分の高さを確保しておく(最初の追加でレイアウトが飛ばない) */
-    min-height: 26px;
-}
-.fs-editor .fs-skill-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 4px 2px 9px;
-    background: var(--tnx2-bg-2);
-    border: 1px solid var(--tnx2-border-subtle);
-    border-radius: 13px;
-    font-size: 0.85em;
-    white-space: nowrap;
-}
-.fs-editor .fs-skill-del {
-    color: var(--tnx2-text-muted);
-    cursor: pointer;
-    display: inline-flex;
-}
-.fs-editor .fs-skill-del:hover {
-    color: var(--tnx2-danger, #d66);
-}
-/* 追加プルダウンは左端に固定した小さな幅(全幅にしない) */
-.fs-editor .fs-skill-add {
-    align-self: flex-start;
-    width: auto;
-    max-width: 180px;
-    height: 28px;
-    border-radius: 6px;
-    font-size: 0.85em;
-    color: var(--tnx2-text-secondary);
-}
+/* 技能の複数選択＝タグ入力。意匠は共通部品 .tnx-tag-field(セクション10)へ移した
+   (2026-08-09・シーンの指定技能と一本化)。ここは FS エディタ固有の調整のみ */
 .fs-editor .fs-empty {
     margin: 0;
     font-size: 0.85em;
     color: var(--tnx2-text-muted);
 }
-/* 空のタグ領域に出すプレースホルダー(チップが入ると消える) */
-.fs-editor .fs-skill-empty {
-    align-self: center;
-    font-size: 0.85em;
-    color: var(--tnx2-text-muted);
-    font-style: italic;
+/* 追加プルダウンは .fs-editor select の 30px でなく部品の 28px を保つ */
+.fs-editor .tnx-tag-add {
+    height: 28px;
 }
 
 /* 入力コントロールの高さを 30px に統一する。既定のスピナーは大きすぎて他の入力欄と

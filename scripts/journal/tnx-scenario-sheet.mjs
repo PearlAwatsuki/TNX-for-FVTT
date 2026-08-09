@@ -39,7 +39,6 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             deleteSkillCheck:  TnxScenarioSheet._onDeleteSkillCheck,
             addHandout:        TnxScenarioSheet._onAddHandout,
             deleteHandout:     TnxScenarioSheet._onDeleteHandout,
-            addAppearanceSkill:    TnxScenarioSheet._onAddAppearanceSkill,
             removeAppearanceSkill: TnxScenarioSheet._onRemoveAppearanceSkill,
             addCheckRequestPreset: TnxScenarioSheet._onAddCheckRequestPreset,
             addBountyPreset:       TnxScenarioSheet._onAddBountyPreset,
@@ -279,6 +278,12 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             '.scene-item input:not([data-no-save]), .scene-item select:not([data-no-save]), .scene-item prose-mirror'),
         this._onSceneItemChange.bind(this));
 
+        // 指定技能の追加プルダウン(タグ入力=選ぶこと自体が追加操作。値の保存ではないので
+        // data-no-save で上の一括保存から外し、専用ハンドラで処理する)
+        for (const select of el.querySelectorAll('.scene-item .appearance-skill-select')) {
+            select.addEventListener('change', this._onAppearanceSkillAdd.bind(this));
+        }
+
         bind(el.querySelectorAll('.text-item input[type="text"], .text-item prose-mirror'),
             this._onTextItemChange.bind(this));
         bind(el.querySelectorAll('.info-item input, .info-item select, .info-item prose-mirror'),
@@ -310,6 +315,26 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             // アクトシート名の編集(14-7)。空にはしない
             if (value.trim()) await this.document.update({ name: value.trim() });
         }
+    }
+
+    /**
+     * 指定技能を追加する(タグ入力の追加プルダウン・FS 判定エディタと同型)。
+     * 選択値は読み取り直後に空へ戻す(再描画までの間に同じ値で二重発火しても足さない)。
+     */
+    async _onAppearanceSkillAdd(event) {
+        const select = event.currentTarget;
+        const key = select.value;
+        select.value = "";
+        if (!key) return;
+        const sceneItem = select.closest(".scene-item");
+        const { sceneId, phase } = sceneItem?.dataset ?? {};
+        const scenes = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "scenes"));
+        const scene = scenes?.[phase]?.find(s => s.id === sceneId);
+        if (!scene) return;
+        const keys = Array.isArray(scene.appearanceSkills) ? scene.appearanceSkills : [];
+        if (keys.includes(key)) return;
+        scene.appearanceSkills = [...keys, key];
+        await this.document.setFlag("tokyo-nova-axleration", "scenes", scenes);
     }
 
     async _onSceneItemChange(event) {
@@ -374,21 +399,6 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         if (target.dataset.action === "spinUp") input.stepUp();
         else input.stepDown();
         input.dispatchEvent(new Event("change", { bubbles: true }));
-    }
-
-    /** 指定技能を追加(辞典プルダウンから識別キーで登録)。 */
-    static async _onAddAppearanceSkill(_event, target) {
-        const sceneItem = target.closest(".scene-item");
-        const key = sceneItem?.querySelector(".appearance-skill-select")?.value;
-        const { sceneId, phase } = sceneItem?.dataset ?? {};
-        if (!key || !sceneId) return;
-        const scenes = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "scenes"));
-        const scene = scenes?.[phase]?.find(s => s.id === sceneId);
-        if (!scene) return;
-        const keys = Array.isArray(scene.appearanceSkills) ? scene.appearanceSkills : [];
-        if (keys.includes(key)) return;
-        scene.appearanceSkills = [...keys, key];
-        await this.document.setFlag("tokyo-nova-axleration", "scenes", scenes);
     }
 
     /** 指定技能を外す。 */

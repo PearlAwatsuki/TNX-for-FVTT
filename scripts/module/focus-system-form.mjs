@@ -97,7 +97,7 @@ export function readFocusSystemForm(root) {
         id:          el.dataset.rowId || newProgressRow().id,
         threshold:   Number(el.querySelector('[name="threshold"]')?.value) || 0,
         // 技能はチップの並び(複数)。プルダウンではなく行から集める
-        skillKeys:   [...el.querySelectorAll(".fs-skill-chip")].map(c => c.dataset.key).filter(Boolean),
+        skillKeys:   [...el.querySelectorAll(".tnx-tag")].map(c => c.dataset.key).filter(Boolean),
         targetValue: Number(el.querySelector('[name="targetValue"]')?.value) || 0,
         progressMod: {
             source:  el.querySelector('[name="modSource"]')?.value ?? "none",

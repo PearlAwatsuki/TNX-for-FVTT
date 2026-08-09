@@ -47,21 +47,21 @@
                   （追加してもプルダウンの位置がずれない） --}}
             <div class="form-group fs-support-group">
                 <label>支援判定</label>
-                <div class="fs-skill-field">
-                    <div class="fs-skill-tags">
+                <div class="tnx-tag-field">
+                    <div class="tnx-tag-list">
                         {{#each supportRows}}
-                            <span class="fs-support-row fs-skill-chip" data-key="{{this.key}}">
+                            <span class="fs-support-row tnx-tag" data-key="{{this.key}}">
                                 <span class="fs-skill-name">{{this.name}}</span>
                                 {{#if ../editable}}
-                                    <a class="fs-skill-del" data-action="fsSupportDelete" data-key="{{this.key}}"
+                                    <a class="tnx-tag-remove" data-action="fsSupportDelete" data-key="{{this.key}}"
                                        title="削除"><i class="fas fa-times"></i></a>
                                 {{/if}}
                             </span>
                         {{/each}}
-                        {{#unless supportRows.length}}<span class="fs-skill-empty">（未設定）</span>{{/unless}}
+                        {{#unless supportRows.length}}<span class="tnx-tag-empty">（未設定）</span>{{/unless}}
                     </div>
                     {{#if editable}}
-                        <select class="fs-support-add fs-skill-add">
+                        <select class="fs-support-add tnx-tag-add">
                             <option value="">＋ 技能を追加</option>
                             {{#each supportChoices}}
                                 <optgroup label="{{this.label}}">
@@ -101,21 +101,21 @@
                     </div>
                     <div class="fs-event-fields">
                         <label>技能</label>
-                        <div class="fs-skill-field">
-                            <div class="fs-skill-tags">
+                        <div class="tnx-tag-field">
+                            <div class="tnx-tag-list">
                                 {{#each this.skillRows}}
-                                    <span class="fs-skill-chip" data-key="{{this.key}}">
+                                    <span class="tnx-tag" data-key="{{this.key}}">
                                         <span class="fs-skill-name">{{this.name}}</span>
                                         {{#if ../../editable}}
-                                            <a class="fs-skill-del" data-action="fsRowSkillDelete" data-key="{{this.key}}"
+                                            <a class="tnx-tag-remove" data-action="fsRowSkillDelete" data-key="{{this.key}}"
                                                title="削除"><i class="fas fa-times"></i></a>
                                         {{/if}}
                                     </span>
                                 {{/each}}
-                                {{#unless this.skillRows.length}}<span class="fs-skill-empty">（未設定）</span>{{/unless}}
+                                {{#unless this.skillRows.length}}<span class="tnx-tag-empty">（未設定）</span>{{/unless}}
                             </div>
                             {{#if ../editable}}
-                                <select class="fs-row-skill-add fs-skill-add">
+                                <select class="fs-row-skill-add tnx-tag-add">
                                     <option value="">＋ 技能を追加</option>
                                     {{#each this.skillChoices}}
                                         <optgroup label="{{this.label}}">

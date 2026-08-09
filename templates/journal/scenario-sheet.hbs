@@ -212,22 +212,29 @@
                                             {{!-- 登場不可のシーンは登場判定そのものが起きない=指定技能は出さない
                                                   (2026-08-09 指摘。既存の指定はデータとして保持し、モードを戻せば再表示) --}}
                                             {{#unless (eq scene.appearanceMode "none")}}
+                                                {{!-- 複数選択はタグ入力(FS 判定エディタで確立した共通部品)。タグ領域を
+                                                      先に確保し、追加プルダウンはその下に固定する --}}
                                                 <div class="scene-detail-row scene-skill-row">
                                                     <label>指定技能</label>
-                                                    {{#each scene.appearanceSkillChips as |chip|}}
-                                                        <span class="tnx-chip">{{chip.name}}<a class="tnx-chip-remove" data-action="removeAppearanceSkill" data-key="{{chip.key}}" title="指定を外す"><i class="fas fa-times"></i></a></span>
-                                                    {{/each}}
-                                                    <select data-no-save class="appearance-skill-select">
-                                                        <option value="">- 技能を選択 -</option>
-                                                        {{#each @root.skillGroupsPlain as |group|}}
-                                                            <optgroup label="{{group.label}}">
-                                                                {{#each group.skills as |skill|}}
-                                                                    <option value="{{skill.identificationKey}}">{{skill.name}}</option>
-                                                                {{/each}}
-                                                            </optgroup>
-                                                        {{/each}}
-                                                    </select>
-                                                    <a class="tnx-icon-ctrl" data-action="addAppearanceSkill" title="指定技能に加える"><i class="fas fa-plus"></i></a>
+                                                    <div class="tnx-tag-field">
+                                                        <div class="tnx-tag-list">
+                                                            {{#each scene.appearanceSkillChips as |chip|}}
+                                                                <span class="tnx-tag" data-key="{{chip.key}}">{{chip.name}}<a class="tnx-tag-remove" data-action="removeAppearanceSkill" data-key="{{chip.key}}" title="指定を外す"><i class="fas fa-times"></i></a></span>
+                                                            {{else}}
+                                                                <span class="tnx-tag-empty">（未設定）</span>
+                                                            {{/each}}
+                                                        </div>
+                                                        <select data-no-save class="appearance-skill-select tnx-tag-add">
+                                                            <option value="">＋ 技能を追加</option>
+                                                            {{#each @root.skillGroupsPlain as |group|}}
+                                                                <optgroup label="{{group.label}}">
+                                                                    {{#each group.skills as |skill|}}
+                                                                        <option value="{{skill.identificationKey}}">{{skill.name}}</option>
+                                                                    {{/each}}
+                                                                </optgroup>
+                                                            {{/each}}
+                                                        </select>
+                                                    </div>
                                                 </div>
                                             {{/unless}}
                                             <div class="tnx-editor-section">
