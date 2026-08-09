@@ -1015,14 +1015,13 @@
     color: var(--tnx2-danger, #d66);
 }
 
-/* 追加プルダウンは左端に固定した小さな幅(全幅にしない) */
+/* 追加プルダウンは左端に固定した小さな幅(全幅にしない)。
+   高さ・文字サイズは**置いたシート自身の他のコントロールに合わせる**ため、ここでは指定しない
+   (FS エディタは 28px/0.85em・アクトシートは他のセレクトと同じ 32px/14px・2026-08-09 指摘) */
 .tnx-tag-add {
     align-self: flex-start;
     width: auto;
     max-width: 180px;
-    height: 28px;
-    border-radius: 6px;
-    font-size: 0.85em;
     color: var(--tnx2-text-secondary);
 }
 
@@ -8718,9 +8717,10 @@ button.tnx-create-act-button span {
     font-size: 0.85em;
     color: var(--tnx2-text-muted);
 }
-/* 追加プルダウンは .fs-editor select の 30px でなく部品の 28px を保つ */
+/* 追加プルダウンは FS エディタの縮小スケールに合わせる(他の入力 30px より一段小さい) */
 .fs-editor .tnx-tag-add {
     height: 28px;
+    font-size: 0.85em;
 }
 
 /* 入力コントロールの高さを 30px に統一する。既定のスピナーは大きすぎて他の入力欄と
