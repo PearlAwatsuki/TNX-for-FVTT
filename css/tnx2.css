@@ -5179,13 +5179,24 @@ body.tnx-bottom-hud-expanded #hotbar {
     color: var(--tnx2-text-primary);
 }
 
-.skill-check-list { display: flex; flex-direction: column; gap: 5px; }
+.skill-check-list { display: flex; flex-direction: column; gap: 6px; }
 
-.skill-check-row { display: flex; align-items: center; gap: 8px; }
+/* 1行＝技能の集合(タグ入力)＋共通の目標値(2026-08-09)。タグの数で高さが変わるため、
+   FS 判定のイベント行と同じく**レコードごとのカード**にして切れ目を見せる。
+   目標値・削除はタグ領域の1行目に揃える(タグが増えて行が伸びても位置が動かない) */
+.skill-check-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 8px;
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: 6px;
+    background: var(--tnx2-bg-1);
+}
 
-/* 使用技能は辞典のプルダウンのみ(自由記述は廃止・2026-08-09)。行の残り幅を引き受けるが
-   全幅には広げない(このシートのセレクトの上限 380px に合わせる) */
-.skill-check-row .skill-key { flex: 1 1 auto; min-width: 0; max-width: 380px; }
+.skill-check-row > .tnx-tag-field { flex: 1 1 0; }
+
+.skill-check-row > .tn-label { padding-top: 6px; }
 
 .skill-check-row .skill-tn { width: 48px; text-align: center; }
 

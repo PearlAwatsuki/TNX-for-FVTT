@@ -406,8 +406,9 @@ export function buildInfoMessage(item) {
         let html = "";
         let added = false;
         for (const content of rows) {
-            const skillsByTn = (content.skills ?? []).reduce((acc, skill) => {
-                if (skill.name && skill.tn) (acc[skill.tn] = acc[skill.tn] || []).push(skill.name);
+            const skillsByTn = (content.skills ?? []).reduce((acc, row) => {
+                const names = row.names ?? [];
+                if (names.length && row.tn) (acc[row.tn] = acc[row.tn] || []).push(...names);
                 return acc;
             }, {});
             const skillsHtml = Object.entries(skillsByTn)
@@ -433,22 +434,37 @@ export function buildInfoMessage(item) {
 }
 
 /**
- * 情報項目の技能行の表示名を解決する(14-7)。識別キー行は辞典逆引きの現在名を〈〉囲いで
- * (生キーは表示しない)、自由記述行は入力名をそのまま返す。辞典から消えたキーは残っている
- * name をフォールバックにする(それも無ければ空=表示から落ちる)。
- * @param {{identificationKey?:string, name?:string}} skill 技能行
- * @param {Map<string,string>} nameByKey 識別キー→辞典名
- * @returns {string}
+ * 情報項目の技能行が持つ識別キーの並び(2026-08-09 裁定＝**1 行＝技能の集合＋共通の目標値**。
+ * 目標値の異なる技能は行そのものを足す)。旧形式(`identificationKey` 単体)は 1 件として読む。
+ * 元データは書き換えない(読み出し時の正規化)。
+ * @param {{identificationKeys?:Array<string>, identificationKey?:string}} row 技能行
+ * @returns {Array<string>}
  */
-export function resolveInfoSkillName(skill, nameByKey) {
-    if (!skill?.identificationKey) return skill?.name ?? "";
-    const dictName = nameByKey?.get(skill.identificationKey);
-    return dictName ? formatSkillName(dictName) : (skill.name ?? "");
+export function infoSkillKeys(row) {
+    if (Array.isArray(row?.identificationKeys)) return row.identificationKeys.filter(Boolean);
+    return row?.identificationKey ? [row.identificationKey] : [];
 }
 
 /**
- * 情報項目の技能行の name を解決済み表示名で埋めた複製を返す(buildInfoMessage・一覧ラベルの
- * 前処理)。元データは書き換えない(正本の name はユーザー入力のまま)。
+ * 情報項目の技能行の表示名を解決する(14-7)。識別キーは辞典逆引きの現在名を〈〉囲いで返す
+ * (生キーは表示しない)。辞典から消えたキーは表示から落ち、解決できるキーが一つも無いときだけ
+ * 旧い自由記述の name をフォールバックにする。
+ * @param {{identificationKeys?:Array<string>, identificationKey?:string, name?:string}} row 技能行
+ * @param {Map<string,string>} nameByKey 識別キー→辞典名
+ * @returns {Array<string>} 表示名の並び
+ */
+export function resolveInfoSkillNames(row, nameByKey) {
+    const names = infoSkillKeys(row)
+        .map(key => nameByKey?.get(key))
+        .filter(Boolean)
+        .map(dictName => formatSkillName(dictName));
+    if (!names.length && row?.name) return [row.name];
+    return names;
+}
+
+/**
+ * 情報項目の技能行に解決済み表示名(`names`)を埋めた複製を返す(buildInfoMessage・一覧ラベルの
+ * 前処理)。元データは書き換えない(正本は識別キーのまま)。
  * @param {object} item 情報項目
  * @param {Map<string,string>} nameByKey 識別キー→辞典名
  * @returns {object}
@@ -458,7 +474,7 @@ export function withResolvedInfoSkillNames(item, nameByKey) {
         ...item,
         contents: (item?.contents ?? []).map(c => ({
             ...c,
-            skills: (c.skills ?? []).map(s => ({ ...s, name: resolveInfoSkillName(s, nameByKey) })),
+            skills: (c.skills ?? []).map(s => ({ ...s, names: resolveInfoSkillNames(s, nameByKey) })),
         })),
     };
 }

@@ -319,23 +319,36 @@
                                             <div class="skill-checks-area">
                                                 <div class="tnx-item-header">
                                                     <h5>使用技能</h5>
-                                                    <a class="tnx-ring-btn" data-action="addSkillCheck" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" title="使用技能を追加"><i class="fas fa-plus"></i></a>
+                                                    {{!-- 行の追加＝目標値の異なる技能の指定(行内の「＋ 技能を追加」と役割が違う) --}}
+                                                    <a class="tnx-ring-btn" data-action="addSkillCheck" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" title="目標値の異なる技能を追加"><i class="fas fa-plus"></i></a>
                                                 </div>
                                                 <div class="skill-check-list">
                                                     {{#each contentItem.skills as |skillItem|}}
                                                     <div class="skill-check-row" data-skill-id="{{skillItem.id}}">
-                                                        {{!-- 使用技能は辞典のプルダウンのみ(2026-08-09 裁定=自由記述は廃止)。
-                                                              目標値の異なる技能はこの行を足して指定する --}}
-                                                        <select name="identificationKey" class="skill-key" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}">
-                                                            <option value="">{{#if skillItem.legacyName}}旧: {{skillItem.legacyName}}{{else}}- 技能を選択 -{{/if}}</option>
-                                                            {{#each @root.skillGroupsPlain as |group|}}
-                                                                <optgroup label="{{group.label}}">
-                                                                    {{#each group.skills as |skill|}}
-                                                                        <option value="{{skill.identificationKey}}" {{#if (eq skill.identificationKey skillItem.identificationKey)}}selected{{/if}}>{{skill.name}}</option>
-                                                                    {{/each}}
-                                                                </optgroup>
-                                                            {{/each}}
-                                                        </select>
+                                                        {{!-- 使用技能は辞典のタグ入力(2026-08-09 裁定=自由記述は廃止)。
+                                                              1行＝技能の集合＋共通の目標値で、選ぶと行の中に積み上がる。
+                                                              目標値の異なる技能はこの行そのものを足して指定する --}}
+                                                        <div class="tnx-tag-field">
+                                                            <div class="tnx-tag-list">
+                                                                {{#each skillItem.skillTags as |tag|}}
+                                                                    <span class="tnx-tag" data-key="{{tag.key}}">{{tag.name}}<a class="tnx-tag-remove" data-action="removeInfoSkill" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}" data-key="{{tag.key}}" title="外す"><i class="fas fa-times"></i></a></span>
+                                                                {{/each}}
+                                                                {{#if skillItem.legacyName}}
+                                                                    <span class="tnx-tag">旧: {{skillItem.legacyName}}<a class="tnx-tag-remove" data-action="removeInfoSkill" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}" data-key="" title="外す"><i class="fas fa-times"></i></a></span>
+                                                                {{/if}}
+                                                                {{#unless skillItem.skillTags.length}}{{#unless skillItem.legacyName}}<span class="tnx-tag-empty">（未設定）</span>{{/unless}}{{/unless}}
+                                                            </div>
+                                                            <select data-no-save class="info-skill-add tnx-tag-add" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-skill-id="{{skillItem.id}}">
+                                                                <option value="">＋ 技能を追加</option>
+                                                                {{#each @root.skillGroupsPlain as |group|}}
+                                                                    <optgroup label="{{group.label}}">
+                                                                        {{#each group.skills as |skill|}}
+                                                                            <option value="{{skill.identificationKey}}">{{skill.name}}</option>
+                                                                        {{/each}}
+                                                                    </optgroup>
+                                                                {{/each}}
+                                                            </select>
+                                                        </div>
                                                         <span class="tn-label">目標値:</span>
                                                         <div class="number-input-spinner">
                                                             <button type="button" class="tnx-btn" data-action="spinDown" aria-label="減少">−</button>

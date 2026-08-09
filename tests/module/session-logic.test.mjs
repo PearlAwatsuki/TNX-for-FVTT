@@ -35,7 +35,8 @@ import {
   handoutDisplayTitle,
   handoutNumberOf,
   handoutStyleDisplay,
-  resolveInfoSkillName,
+  infoSkillKeys,
+  resolveInfoSkillNames,
   withResolvedInfoSkillNames,
 } from "../../scripts/module/session-logic.mjs";
 import { TNX_HOOKS } from "../../scripts/module/combat-events.mjs";
@@ -561,11 +562,12 @@ describe("ハンドアウト表示名（「①<スタイル名>用ハンドア�
 });
 
 describe("buildInfoMessage()（情報項目送信・14-3）", () => {
+  // 技能行は解決済み(withResolvedInfoSkillNames を通した後)の names を持つ
   const ITEM = {
     title: "黒幕の素性",
     contents: [
-      { isDisclosed: false, text: "正体", skills: [{ name: "〈社会〉", tn: 12 }, { name: "〈コネ〉", tn: 12 }] },
-      { isDisclosed: false, text: "裏付け", skills: [{ name: "〈捜査〉", tn: 15 }] },
+      { isDisclosed: false, text: "正体", skills: [{ names: ["〈社会〉"], tn: 12 }, { names: ["〈コネ〉"], tn: 12 }] },
+      { isDisclosed: false, text: "裏付け", skills: [{ names: ["〈捜査〉"], tn: 15 }] },
     ],
   };
 
@@ -586,35 +588,63 @@ describe("buildInfoMessage()（情報項目送信・14-3）", () => {
     expect(html).not.toContain("裏付け");
   });
 
+  it("1行に複数の技能があれば、その行の目標値でまとめて連結される", () => {
+    const { html } = buildInfoMessage({
+      title: "T",
+      contents: [{ isDisclosed: false, text: "", skills: [{ names: ["〈医療〉", "〈射撃〉"], tn: 12 }] }],
+    });
+    expect(html).toContain("<strong>〈医療〉 / 〈射撃〉 &gt; 12</strong>");
+  });
+
   it("送れる中身が無ければ mode=null", () => {
-    const { mode } = buildInfoMessage({ title: "空", contents: [{ isDisclosed: false, text: "", skills: [{ name: "", tn: null }] }] });
+    const { mode } = buildInfoMessage({ title: "空", contents: [{ isDisclosed: false, text: "", skills: [{ names: [], tn: null }] }] });
     expect(mode).toBeNull();
   });
 });
 
-describe("resolveInfoSkillName() / withResolvedInfoSkillNames()（情報技能の表示解決・14-7）", () => {
-  const NAMES = new Map([["society:street", "社会：ストリート†"]]);
+describe("infoSkillKeys() / resolveInfoSkillNames() / withResolvedInfoSkillNames()（情報技能の表示解決・14-7）", () => {
+  const NAMES = new Map([["society:street", "社会：ストリート†"], ["medicine", "医療"]]);
 
-  it("識別キー行は辞典逆引きの現在名を〈〉囲い・識別マーク省去で返す", () => {
-    expect(resolveInfoSkillName({ identificationKey: "society:street", name: "" }, NAMES))
-      .toBe("〈社会：ストリート〉");
+  it("技能行の識別キーは配列で読む（1行＝技能の集合）", () => {
+    expect(infoSkillKeys({ identificationKeys: ["medicine", "society:street"] }))
+      .toEqual(["medicine", "society:street"]);
+    expect(infoSkillKeys({ identificationKeys: [] })).toEqual([]);
   });
 
-  it("自由記述行（キー空）は入力名をそのまま返す", () => {
-    expect(resolveInfoSkillName({ identificationKey: "", name: "〈コネ：赤羽〉" }, NAMES))
-      .toBe("〈コネ：赤羽〉");
+  it("旧形式（identificationKey 単体）は1件の配列として読む", () => {
+    expect(infoSkillKeys({ identificationKey: "medicine" })).toEqual(["medicine"]);
+    expect(infoSkillKeys({ identificationKey: "" })).toEqual([]);
+    expect(infoSkillKeys({})).toEqual([]);
   });
 
-  it("辞典から消えたキーは残っている name をフォールバックにする（生キーは出さない）", () => {
-    expect(resolveInfoSkillName({ identificationKey: "gone:key", name: "旧名" }, NAMES)).toBe("旧名");
-    expect(resolveInfoSkillName({ identificationKey: "gone:key" }, NAMES)).toBe("");
+  it("配列が空でも旧キーには戻さない（外した結果を尊重する）", () => {
+    expect(infoSkillKeys({ identificationKeys: [], identificationKey: "medicine" })).toEqual([]);
+  });
+
+  it("識別キーは辞典逆引きの現在名を〈〉囲い・識別マーク省去で返す", () => {
+    expect(resolveInfoSkillNames({ identificationKeys: ["society:street", "medicine"] }, NAMES))
+      .toEqual(["〈社会：ストリート〉", "〈医療〉"]);
+  });
+
+  it("辞典から消えたキーは表示から落とす（生キーは出さない）", () => {
+    expect(resolveInfoSkillNames({ identificationKeys: ["gone:key", "medicine"] }, NAMES))
+      .toEqual(["〈医療〉"]);
+  });
+
+  it("解決できるキーが無いときだけ、旧い自由記述の name をフォールバックにする", () => {
+    expect(resolveInfoSkillNames({ identificationKeys: [], name: "〈コネ：赤羽〉" }, NAMES))
+      .toEqual(["〈コネ：赤羽〉"]);
+    expect(resolveInfoSkillNames({ identificationKey: "gone:key", name: "旧名" }, NAMES)).toEqual(["旧名"]);
+    expect(resolveInfoSkillNames({ identificationKeys: ["medicine"], name: "旧名" }, NAMES))
+      .toEqual(["〈医療〉"]);
+    expect(resolveInfoSkillNames({ identificationKey: "gone:key" }, NAMES)).toEqual([]);
   });
 
   it("withResolvedInfoSkillNames は複製に解決名を埋め、元データを書き換えない", () => {
-    const item = { title: "T", contents: [{ skills: [{ identificationKey: "society:street", name: "", tn: 10 }] }] };
+    const item = { title: "T", contents: [{ skills: [{ identificationKeys: ["society:street"], tn: 10 }] }] };
     const resolved = withResolvedInfoSkillNames(item, NAMES);
-    expect(resolved.contents[0].skills[0].name).toBe("〈社会：ストリート〉");
-    expect(item.contents[0].skills[0].name).toBe("");
+    expect(resolved.contents[0].skills[0].names).toEqual(["〈社会：ストリート〉"]);
+    expect(item.contents[0].skills[0].names).toBeUndefined();
   });
 });
 

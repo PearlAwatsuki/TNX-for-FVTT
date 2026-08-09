@@ -38,9 +38,10 @@ const SCOPE = "tokyo-nova-axleration";
 
 /** 情報の内容行の一覧表示ラベル(技能>目標値の並び・無ければ本文の頭・どちらも無ければ空欄表記)。 */
 function infoContentLabel(content) {
+    // 1行＝技能の集合＋共通の目標値(2026-08-09)。行内の技能は / で連結する
     const skills = (content.skills ?? [])
-        .filter(s => s.name && s.tn)
-        .map(s => `${s.name} > ${s.tn}`);
+        .filter(s => s.names?.length && s.tn)
+        .map(s => `${s.names.join(" / ")} > ${s.tn}`);
     if (skills.length) return skills.join("・");
     const text = (content.text ?? "").replace(/<[^>]*>/g, "").trim();
     if (text) return text.length > 24 ? `${text.slice(0, 24)}…` : text;

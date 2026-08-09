@@ -12,7 +12,7 @@ import { conditionStatusLabels } from '../module/conditions.mjs';
 import { checkTypeOptions } from '../module/tnx-rl-request-app.mjs';
 import {
     SCENE_AREA_OPTIONS, HANDOUT_SUIT_OPTIONS, HANDOUT_STYLE_COMMON, HANDOUT_STYLE_FREE,
-    normalizeSceneRow, normalizeHandoutRow, handoutTitleSuffix, circledNumber,
+    normalizeSceneRow, normalizeHandoutRow, handoutTitleSuffix, circledNumber, infoSkillKeys,
 } from '../module/session-logic.mjs';
 import { listSubScenes } from '../module/subscenes.mjs';
 import { attachEditorSectionToggles } from '../module/editor-sections.mjs';
@@ -37,6 +37,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             deleteInfoContent: TnxScenarioSheet._onDeleteInfoContent,
             addSkillCheck:     TnxScenarioSheet._onAddSkillCheck,
             deleteSkillCheck:  TnxScenarioSheet._onDeleteSkillCheck,
+            removeInfoSkill:   TnxScenarioSheet._onRemoveInfoSkill,
             addHandout:        TnxScenarioSheet._onAddHandout,
             deleteHandout:     TnxScenarioSheet._onDeleteHandout,
             removeAppearanceSkill: TnxScenarioSheet._onRemoveAppearanceSkill,
@@ -156,17 +157,22 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         }));
 
         context.scenarioTexts = flagData.scenarioTexts || [];
-        // 情報項目の使用技能は辞典のプルダウンのみ(2026-08-09 裁定=コネも辞典格納の運用に
-        // なったため自由記述は廃止)。旧い自由記述の行は空選択肢のラベルに「旧: …」で残す
-        // (データは書き換えない。目標値の異なる技能は行を足す運用のため、行の構造は据え置き)
+        // 情報項目の使用技能(2026-08-09 裁定): **1行＝技能の集合＋共通の目標値**のタグ入力。
+        // 選ぶと行の中に積み上がり、目標値の異なる技能は行そのものを足す。自由記述は廃止
+        // (コネも辞典格納の運用になったため)。旧い自由記述は「旧: …」のタグで残す
+        // (データは書き換えない。外すと消える)
         context.infoItems = (flagData.infoItems || []).map(item => ({
             ...item,
             contents: (item.contents ?? []).map(content => ({
                 ...content,
-                skills: (content.skills ?? []).map(skill => ({
-                    ...skill,
-                    legacyName: (!skill.identificationKey && skill.name) ? skill.name : "",
-                })),
+                skills: (content.skills ?? []).map(skill => {
+                    const tags = toSkillChips(infoSkillKeys(skill));
+                    return {
+                        ...skill,
+                        skillTags: tags,
+                        legacyName: (!tags.length && skill.name) ? skill.name : "",
+                    };
+                }),
             })),
         }));
         context.trailer       = flagData.trailer       || "";
@@ -298,8 +304,14 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
         bind(el.querySelectorAll('.text-item input[type="text"], .text-item prose-mirror'),
             this._onTextItemChange.bind(this));
-        bind(el.querySelectorAll('.info-item input, .info-item select, .info-item prose-mirror'),
-            this._onInfoItemChange.bind(this));
+        bind(el.querySelectorAll(
+            '.info-item input:not([data-no-save]), .info-item select:not([data-no-save]), .info-item prose-mirror'),
+        this._onInfoItemChange.bind(this));
+
+        // 使用技能の追加プルダウン(シーンの指定技能と同じタグ入力=選ぶこと自体が追加操作)
+        for (const select of el.querySelectorAll('.info-item .info-skill-add')) {
+            select.addEventListener('change', this._onInfoSkillAdd.bind(this));
+        }
         bind(el.querySelectorAll(
             '.scenario-info-container > .act-name-section input, .scenario-info-container prose-mirror, '
             + '.handout-item input:not([data-no-save]), .handout-item select:not([data-no-save])'),
@@ -481,7 +493,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
                 id: foundry.utils.randomID(),
                 text: "",
                 isDisclosed: false,
-                skills: [{ id: foundry.utils.randomID(), name: "", tn: null }],
+                skills: [{ id: foundry.utils.randomID(), identificationKeys: [], tn: null }],
             }],
         });
         await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
@@ -509,7 +521,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             id: foundry.utils.randomID(),
             text: "",
             isDisclosed: false,
-            skills: [{ id: foundry.utils.randomID(), name: "", tn: null }],
+            skills: [{ id: foundry.utils.randomID(), identificationKeys: [], tn: null }],
         });
         await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
     }
@@ -523,12 +535,47 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
     }
 
+    /** 情報項目の技能行(infoId/contentId/skillId)を取り出す。 */
+    _infoSkillRow(items, { infoId, contentId, skillId }) {
+        return items.find(i => i.id === infoId)?.contents?.find(c => c.id === contentId)
+            ?.skills?.find(s => s.id === skillId) ?? null;
+    }
+
+    /**
+     * 情報項目の使用技能を行に足す(タグ入力の追加プルダウン・シーンの指定技能と同型)。
+     * 1行＝技能の集合＋共通の目標値。目標値の異なる技能は行そのものを足す。
+     */
+    async _onInfoSkillAdd(event) {
+        const select = event.currentTarget;
+        const key = select.value;
+        select.value = "";
+        if (!key) return;
+        const items = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "infoItems") || []);
+        const row = this._infoSkillRow(items, select.dataset);
+        if (!row) return;
+        const keys = infoSkillKeys(row);
+        if (keys.includes(key)) return;
+        row.identificationKeys = [...keys, key];
+        await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
+    }
+
+    /** 情報項目の使用技能を行から外す(キー無し＝旧い自由記述のタグを消す)。 */
+    static async _onRemoveInfoSkill(_event, target) {
+        const items = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "infoItems") || []);
+        const row = this._infoSkillRow(items, target.dataset);
+        if (!row) return;
+        const key = target.dataset.key;
+        if (key) row.identificationKeys = infoSkillKeys(row).filter(k => k !== key);
+        else row.name = "";
+        await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
+    }
+
     static async _onAddSkillCheck(_event, target) {
         const { infoId, contentId } = target.dataset;
         const items = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "infoItems") || []);
         const content = items.find(i => i.id === infoId)?.contents.find(c => c.id === contentId);
         if (!content) return;
-        content.skills.push({ id: foundry.utils.randomID(), name: "", tn: null });
+        content.skills.push({ id: foundry.utils.randomID(), identificationKeys: [], tn: null });
         await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
     }
 
@@ -538,7 +585,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         const content = items.find(i => i.id === infoId)?.contents.find(c => c.id === contentId);
         if (!content) return;
         content.skills = content.skills.filter(s => s.id !== skillId);
-        if (content.skills.length === 0) content.skills.push({ id: foundry.utils.randomID(), name: "", tn: null });
+        if (content.skills.length === 0) content.skills.push({ id: foundry.utils.randomID(), identificationKeys: [], tn: null });
         await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
     }
 
