@@ -41,6 +41,7 @@ import { isAttackUsage } from '../data/item/common/usage.mjs';
 import { executionFormOf, usageDisplayName, isReactionType } from '../module/usage-types.mjs';
 import { itemDisplayName, resolveItemNameByKey } from '../module/identification.mjs';
 import { isOpposedConfrontation } from '../module/confrontation-logic.mjs';
+import { resolveHousingAreaMods } from '../module/residence-area.mjs';
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -1840,29 +1841,12 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         }
     }
 
-    /** 住宅施設に紐づく住宅エリアの修正値を解決する。 */
+    /**
+     * 住宅施設に紐づく住宅エリアの修正値を解決する。
+     * 実体は `residence-area.mjs`(14-8 でシーンの舞台選択と共用するため切り出し)。
+     */
     static async _resolveHousingAreaMods(sys) {
-        const ref = sys.housingArea;
-        if (!ref) return null;
-        try {
-            // housingArea は辞典選択・ドロップのいずれも UUID を格納する（辞典は entry.uuid、
-            // ドロップは dropped.uuid）。住宅施設シートと同じく fromUuid で解決する。
-            // 旧実装は非ドロップ時に pack.getDocument(UUID) を呼んでいたが、getDocument は素の _id を
-            // 要求するため UUID では解決できず、辞典選択のエリアが供給値・バッジともに出なかった
-            // （useHousingAreaDrop は入力 UI のモード切替であり、保存形式は区別しない）。
-            const areaItem = await fromUuid(ref);
-            if (!areaItem || areaItem.type !== "housingArea") return null;
-            const s = areaItem.system;
-            return {
-                area:                s.area               ?? "none",
-                buyRatingMod:        s.buyRatingMod        ?? 0,
-                preserveExpMod:      s.preserveExpMod      ?? 0,
-                appearanceTargetMod: s.appearanceTargetMod ?? 0,
-                cyberSecurityMod:    s.cyberSecurityMod    ?? 0,
-                analogSecurityMod:   s.analogSecurityMod   ?? 0,
-                slotMod:             s.slotMod             ?? 0,
-            };
-        } catch { return null; }
+        return resolveHousingAreaMods(sys);
     }
 
     // ─── 市民ランク・能力値データ ─────────────────────────────────────────────

@@ -11,7 +11,8 @@ import { captureScrollTop, restoreScrollTop } from '../module/scroll-preserve.mj
 import { conditionStatusLabels } from '../module/conditions.mjs';
 import { checkTypeOptions } from '../module/tnx-rl-request-app.mjs';
 import {
-    SCENE_AREA_OPTIONS, HANDOUT_SUIT_OPTIONS, HANDOUT_STYLE_COMMON, HANDOUT_STYLE_FREE,
+    SCENE_AREA_OPTIONS, SCENE_KIND_OPTIONS, HANDOUT_SUIT_OPTIONS,
+    HANDOUT_STYLE_COMMON, HANDOUT_STYLE_FREE,
     normalizeSceneRow, normalizeHandoutRow, handoutTitleSuffix, circledNumber, infoSkillKeys,
 } from '../module/session-logic.mjs';
 import { normalizeAppearanceActors, groupCharacterChoices } from '../module/appearance-logic.mjs';
@@ -24,8 +25,9 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
     static DEFAULT_OPTIONS = {
         classes: ["tokyo-nova", "sheet", "journal", "scenario", "two-column-layout"],
-        // 既定 800 ではシーン表見出し「シーンプレイヤー」が数 px 足りず省略されるため 830
-        position: { width: 830, height: 700 },
+        // 既定 800 ではシーン表見出し「シーンプレイヤー」が数 px 足りず省略されるため 830。
+        // 14-8 で種別列(88px＋gap 6px)を足した分だけ広げ、既存列の幅を元のまま保つ
+        position: { width: 924, height: 700 },
         window: { resizable: true },
         actions: {
             addScene:          TnxScenarioSheet._onAddScene,
@@ -103,6 +105,8 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         // シーン行のセレクト選択肢(14-2/14-4): エリア・舞台(サブシーン+通常 Scene)・
         // シーンプレイヤー(User。シーンプレイヤーはプレイヤー側の指定=2026-08-07 裁定)
         context.sceneAreaOptions = SCENE_AREA_OPTIONS;
+        // 種別(14-8): 通常/巡回/イベント。巡回はエリア・登場判定・シーンプレイヤーを台本で持たない
+        context.sceneKindOptions = SCENE_KIND_OPTIONS;
         context.stageSubSceneOptions = listSubScenes().map(s => ({ value: `subScene:${s.id}`, label: s.name }));
         context.stageSceneOptions = game.scenes.map(s => ({ value: `scene:${s.id}`, label: s.name }));
         // GM ユーザーを選択＝ルーラーシーン(シーンプレイヤー不在・14-7)。（RL）を付けて区別する

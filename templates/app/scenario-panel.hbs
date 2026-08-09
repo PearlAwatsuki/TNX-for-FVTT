@@ -202,9 +202,33 @@
                     {{/if}}
                 </div>
             {{/if}}
+            {{!-- 巡回の消化状況(14-8): ハンドアウト順に、務めた人と次の既定を出す。
+                  「なるべく務めていない人に回す」判断の材料であって、順番を縛るものではない --}}
+            {{#if rotation}}
+                <div class="scp-rotation">
+                    <div class="scp-phase-label">巡回</div>
+                    {{#each rotation as |member|}}
+                        <div class="scp-rotation-row {{#if member.isNext}}is-next{{/if}}">
+                            <span class="scp-rotation-name {{#if member.done}}is-done{{/if}}">{{member.name}}</span>
+                            {{#if member.done}}<span class="scp-rotation-state">済</span>{{/if}}
+                            {{#if member.isNext}}<span class="scp-rotation-state">次</span>{{/if}}
+                        </div>
+                    {{/each}}
+                </div>
+            {{/if}}
             {{#if nextScene}}
                 <button type="button" class="tnx-btn" data-action="nextScene">
-                    <i class="fas fa-forward"></i> 次のシーンへ（{{nextScene.name}}）
+                    <i class="fas fa-forward"></i> 次のシーンへ{{#unless nextScene.rotating}}（{{nextScene.name}}）{{/unless}}
+                </button>
+            {{/if}}
+            {{#if canLaunchEvent}}
+                <button type="button" class="tnx-btn" data-action="launchEvent">
+                    <i class="fas fa-bolt"></i> イベントシーンを起動する
+                </button>
+            {{/if}}
+            {{#if canGoClimax}}
+                <button type="button" class="tnx-btn" data-action="goClimax">
+                    <i class="fas fa-fire"></i> クライマックスへ
                 </button>
             {{/if}}
             {{#each sceneGroups as |group|}}

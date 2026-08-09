@@ -13,7 +13,7 @@
  */
 
 import { appearanceCheckParams, hasNegativeDangerOutfit, isAppearanceSkillKey } from "./appearance-logic.mjs";
-import { getSessionState, getCurrentSceneRow } from "./session-state.mjs";
+import { getSessionState, getCurrentSceneAppearance } from "./session-state.mjs";
 import { isAppearing, setAppearing } from "./appearance-state.mjs";
 import { SCENE_AREA_OPTIONS } from "./session-logic.mjs";
 import { formatSkillName } from "./identification.mjs";
@@ -28,28 +28,29 @@ export async function startAppearanceCheck() {
     if (!actor) return void ui.notifications.warn("担当キャラクターが設定されていません。");
     if (isAppearing(actor)) return void ui.notifications.info("既にシーンに登場しています。");
 
-    const row = getCurrentSceneRow()?.row ?? null;
-    const area = row?.area ?? "";
+    // シーンの登場設定は行＋実行時の上書き(14-8 シーン開始ダイアログ)の合成を通して読む。
+    // 巡回シーンや「未設定」の行では、その場で決めたエリア・目標値・指定技能がここに乗る
+    const scene = getCurrentSceneAppearance();
     const params = appearanceCheckParams({
-        area,
-        mode: row?.appearanceMode ?? "area",
-        fixedValue: row?.appearanceValue ?? null,
+        area:       scene.area,
+        mode:       scene.mode,
+        fixedValue: scene.fixedValue,
         appearanceModifier: actor.system.appearanceModifier ?? 0,
         hasNegativeDangerItem: hasNegativeDangerOutfit(
             actor.items.map(i => ({ type: i.type, system: i.system }))),
     });
     if (params.blocked) {
-        return void ui.notifications.warn(row?.appearanceMode === "none"
+        return void ui.notifications.warn(scene.mode === "none"
             ? "このシーンにはシーンプレイヤー以外登場できません（登場：不可）。"
             : "サンクチュアリでは、危険値ペナルティを持つ装備を携帯していると登場できません。");
     }
 
-    const choice = await promptAppearanceOptions(actor, row?.appearanceSkills ?? []);
+    const choice = await promptAppearanceOptions(actor, scene.skills);
     if (!choice) return;
     const skill = actor.items.get(choice.skillId);
     if (!skill) return;
 
-    const areaLabel = SCENE_AREA_OPTIONS.find(o => o.value === area && o.value !== "")?.label ?? "";
+    const areaLabel = SCENE_AREA_OPTIONS.find(o => o.value === scene.area && o.value !== "")?.label ?? "";
     const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
     await TnxCharacterSheetBase._activateItemCheck(actor, skill, {
         targetValue: params.targetValue,

@@ -19,11 +19,13 @@ import {
     getBackstage, buildBackstageQueue, currentSceneHasBackstage, canAdvanceScene,
     closeSceneToBackstage, advanceBackstageSpot, addBackstageActor, removeBackstageActor,
     appearActor, exitActor, setActorNameHidden,
+    getCurrentSceneAppearance, getRotationStatus, markEventSceneDone,
 } from "./session-state.mjs";
 import { isAppearing, isNameHidden, displayActorName, listAppearingActors } from "./appearance-state.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import {
-    SCENE_AREA_OPTIONS, PHASE_ORDER, normalizeSceneRow, normalizeHandoutRow, nextSceneRow,
+    SCENE_AREA_OPTIONS, PHASE_ORDER, normalizeSceneRow, normalizeHandoutRow,
+    nextSceneTarget, canShowNextScene, eventSceneCandidates, areEventScenesDone,
     buildSceneSwitchMessage, buildTrailerMessage, buildHandoutMessage, buildInfoMessage,
     withResolvedInfoSkillNames, handoutDisplayTitle, handoutNumberOf, handoutStyleDisplay,
 } from "./session-logic.mjs";
@@ -64,8 +66,11 @@ function infoContentLabel(content) {
  * @returns {{rulerScene: boolean, playerLabel: string}}
  */
 function resolveScenePlayer(row) {
-    if (isRulerScene(row)) return { rulerScene: true, playerLabel: "" };
-    const playerUser = row?.playerUserId ? game.users.get(row.playerUserId) : null;
+    // シーンプレイヤーの選択は実行状態が持つ(14-8)。台本に書いてある行はその値が写されており、
+    // 巡回シーンは入場ダイアログで決まった値が入る＝行からは導けない
+    const userId = getSessionState().scenePlayerUserId;
+    if (isRulerScene(row, userId)) return { rulerScene: true, playerLabel: "" };
+    const playerUser = userId ? game.users.get(userId) : null;
     return {
         rulerScene: false,
         playerLabel: playerUser?.character?.name ?? playerUser?.name ?? row?.player ?? "",
@@ -85,6 +90,8 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             endAct:              TnxScenarioPanel._onEndAct,
             switchScene:         TnxScenarioPanel._onSwitchScene,
             nextScene:           TnxScenarioPanel._onNextScene,
+            launchEvent:         TnxScenarioPanel._onLaunchEvent,
+            goClimax:            TnxScenarioPanel._onGoClimax,
             closeScene:          TnxScenarioPanel._onCloseScene,
             backstageNext:       TnxScenarioPanel._onBackstageNext,
             backstageAdd:        TnxScenarioPanel._onBackstageAdd,
@@ -138,21 +145,26 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             const row = current.row;
             // ルーラーシーン=シーンプレイヤー不在(2026-08-08 裁定)。「ルーラーシーン」とだけ表示する
             const { rulerScene, playerLabel } = resolveScenePlayer(row);
-            // 目標値は登場判定と同じ算出(appearanceCheckParams)を使う=表示と判定の二重定義を作らない。
-            // アクター依存の引数(危険値)は渡さない＝シーン設定だけで決まる部分を出す
+            // 登場設定は行＋実行時の上書きの合成(14-8)を通す＝巡回シーン・「未設定」の行では
+            // シーン開始ダイアログで決めた値がここに乗る。目標値は登場判定と同じ算出
+            // (appearanceCheckParams)を使う=表示と判定の二重定義を作らない。アクター依存の
+            // 引数(危険値)は渡さない＝シーン設定だけで決まる部分を出す
+            const sceneAppearance = getCurrentSceneAppearance();
             const appearance = appearanceCheckParams({
-                area: row.area, mode: row.appearanceMode, fixedValue: row.appearanceValue,
+                area: sceneAppearance.area, mode: sceneAppearance.mode,
+                fixedValue: sceneAppearance.fixedValue,
             });
             context.scene = {
                 number: row.number || "??",
                 name: row.name || "無題のシーン",
-                areaLabel: SCENE_AREA_OPTIONS.find(o => o.value === row.area && o.value !== "")?.label ?? "",
+                areaLabel: SCENE_AREA_OPTIONS
+                    .find(o => o.value === sceneAppearance.area && o.value !== "")?.label ?? "",
                 rulerScene,
                 playerLabel,
                 appearanceLabel: formatAppearanceSummary({
-                    mode: row.appearanceMode,
+                    mode: sceneAppearance.mode,
                     targetValue: appearance.targetValue,
-                    skillNames: formatGroupedSkillNames(row.appearanceSkills, skillNameByKey),
+                    skillNames: formatGroupedSkillNames(sceneAppearance.skills, skillNameByKey),
                 }),
             };
         }
@@ -242,10 +254,32 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
                 .map(a => ({ id: a.id, name: a.name })),
         } : null;
 
-        const next = st.actStarted ? nextSceneRow(scenes, st.sceneId) : null;
-        context.nextScene = (next && canAdvanceScene())
-            ? { name: normalizeSceneRow(next.row).name || "無題のシーン" }
+        // 「次のシーンへ」(14-8): 巡回シーンにいる間は同じ行へ再入場＝シーンプレイヤーが次の人へ。
+        // イベントシーンの次がイベントシーンのときは出さない(起動条件を踏んでいないイベントへ
+        // 順送りで入ってしまうため)。舞台裏の順序制約は従来どおり先に効く
+        const next = st.actStarted ? nextSceneTarget(scenes, st.sceneId) : null;
+        const rotating = current?.row.kind === "rotation";
+        context.nextScene = (next && canAdvanceScene() && canShowNextScene(scenes, st.sceneId))
+            ? {
+                name: normalizeSceneRow(next.row).name || "無題のシーン",
+                rotating,
+            }
             : null;
+
+        // 「イベントシーンを起動する」(14-8): 巡回/イベントシーンにいる間、次の巡回シーン
+        // (またはフェイズの切れ目)までの未実行イベントがあれば出す
+        const eventCandidates = st.actStarted
+            ? eventSceneCandidates(scenes, st.sceneId, st.doneEventSceneIds) : [];
+        context.canLaunchEvent = canAdvanceScene() && eventCandidates.length > 0;
+
+        // 「クライマックスへ」(14-8): リサーチのイベントが全て実行済みになったら出す。
+        // 踏まれなかったイベントは選択ダイアログの「起動せず実行済みにする」で消化できる
+        context.canGoClimax = st.actStarted && st.phase === "research" && canAdvanceScene()
+            && areEventScenesDone(scenes, st.doneEventSceneIds)
+            && (Array.isArray(scenes.climax) ? scenes.climax.length > 0 : false);
+
+        // 巡回の消化状況(ハンドアウト順・務めた人と次の既定)＝「なるべく務めていない人に回す」判断の材料
+        context.rotation = rotating ? getRotationStatus() : null;
         context.sceneGroups = PHASE_ORDER.map(phase => ({
             phaseLabel: CONFIG.TNX.phaseLabels[phase],
             rows: (Array.isArray(scenes[phase]) ? scenes[phase] : []).map(normalizeSceneRow).map(row => ({
@@ -358,23 +392,89 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             content: "<p>このシーンへ切り替えますか？(現在のシーンは終了します)</p>",
         });
         if (!confirmed) return;
-        await switchScene(sceneId);
-        await TnxScenarioPanel._performSceneEntryEffects();
+        if (await switchScene(sceneId)) await TnxScenarioPanel._performSceneEntryEffects();
     }
 
-    /** 「次のシーンへ」＝台本順の次の行へ送る(基本操作。一覧の各行ボタンは直接ジャンプ用)。 */
+    /**
+     * 「次のシーンへ」＝台本順の次の行へ送る(基本操作。一覧の各行ボタンは直接ジャンプ用)。
+     * 巡回シーンにいる間は同じ行へ再入場し、シーンプレイヤーが未消化の次の人へ進む(14-8)。
+     */
     static async _onNextScene(_event, _target) {
         const journal = getActiveActJournal();
-        const next = nextSceneRow(journal?.getFlag(SCOPE, "scenes") ?? null, getSessionState().sceneId);
+        const st = getSessionState();
+        const next = nextSceneTarget(journal?.getFlag(SCOPE, "scenes") ?? null, st.sceneId);
         if (!next) return void ui.notifications.warn("台本に次のシーンがありません。");
-        const name = normalizeSceneRow(next.row).name || "無題のシーン";
+        // 巡回の継続はシーン開始ダイアログが確認を兼ねる(確認ダイアログを二重に出さない)
+        if (next.row.id !== st.sceneId) {
+            const name = normalizeSceneRow(next.row).name || "無題のシーン";
+            const confirmed = await DialogV2.confirm({
+                window: { title: "次のシーンへ" },
+                content: `<p>「${foundry.utils.escapeHTML(name)}」へ進みますか？(現在のシーンは終了します)</p>`,
+            });
+            if (!confirmed) return;
+        }
+        if (await switchScene(next.row.id)) await TnxScenarioPanel._performSceneEntryEffects();
+    }
+
+    /**
+     * 「イベントシーンを起動する」(14-8)＝巡回をやめてイベントへつなぐ。次の巡回シーン
+     * (またはフェイズの切れ目)までの未実行イベントを起動条件つきで並べ、1つ選ばせる。
+     * 想定と違う順で巡ったために踏まれなかったイベントは「起動せず実行済みにする」で消化できる。
+     */
+    static async _onLaunchEvent(_event, _target) {
+        const st = getSessionState();
+        const scenes = getActiveActJournal()?.getFlag(SCOPE, "scenes") ?? null;
+        const candidates = eventSceneCandidates(scenes, st.sceneId, st.doneEventSceneIds);
+        if (!candidates.length) return void ui.notifications.warn("起動できるイベントシーンがありません。");
+
+        const esc = foundry.utils.escapeHTML;
+        const rows = candidates.map(({ row }) => `
+            <label class="tnx-event-choice">
+                <input type="radio" name="eventSceneId" value="${esc(row.id)}" />
+                <span class="tnx-event-choice__name">${esc(row.name || "無題のシーン")}</span>
+                ${row.eventCondition ? `<span class="tnx-event-choice__cond">${esc(row.eventCondition)}</span>` : ""}
+            </label>`).join("");
+        const pick = await DialogV2.wait({
+            window: { title: "イベントシーンの起動" },
+            classes: ["tokyo-nova", "tnx-dialog", "tnx-event-dialog"],
+            position: { width: 420 },
+            content: `<div class="tnx-event-choices">${rows}</div>`,
+            buttons: [
+                {
+                    action: "launch", icon: "fas fa-bolt", label: "起動する", default: true,
+                    callback: (_e, _b, dialog) => ({
+                        mode: "launch",
+                        sceneId: dialog.element.querySelector('[name="eventSceneId"]:checked')?.value ?? "",
+                    }),
+                },
+                {
+                    action: "done", icon: "fas fa-check", label: "起動せず実行済みにする",
+                    callback: (_e, _b, dialog) => ({
+                        mode: "done",
+                        sceneId: dialog.element.querySelector('[name="eventSceneId"]:checked')?.value ?? "",
+                    }),
+                },
+                { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+            ],
+            close: () => null,
+        });
+        if (!pick?.sceneId) return;
+        if (pick.mode === "done") return void await markEventSceneDone(pick.sceneId);
+        if (await switchScene(pick.sceneId)) await TnxScenarioPanel._performSceneEntryEffects();
+    }
+
+    /** 「クライマックスへ」(14-8)＝リサーチのイベントを消化しきったらクライマックスの先頭行へ。 */
+    static async _onGoClimax(_event, _target) {
+        const scenes = getActiveActJournal()?.getFlag(SCOPE, "scenes") ?? null;
+        const first = Array.isArray(scenes?.climax) ? scenes.climax[0] : null;
+        if (!first) return void ui.notifications.warn("台本にクライマックスのシーンがありません。");
+        const name = normalizeSceneRow(first).name || "無題のシーン";
         const confirmed = await DialogV2.confirm({
-            window: { title: "次のシーンへ" },
-            content: `<p>「${foundry.utils.escapeHTML(name)}」へ進みますか？(現在のシーンは終了します)</p>`,
+            window: { title: "クライマックスへ" },
+            content: `<p>リサーチを終えて「${foundry.utils.escapeHTML(name)}」へ進みますか？(現在のシーンは終了します)</p>`,
         });
         if (!confirmed) return;
-        await switchScene(next.row.id);
-        await TnxScenarioPanel._performSceneEntryEffects();
+        if (await switchScene(first.id)) await TnxScenarioPanel._performSceneEntryEffects();
     }
 
     // ─── 舞台裏(14-6・シーンの終了処理の一部) ───────────────────────────────

@@ -8,6 +8,9 @@ import {
   normalizeAppearanceActors,
   sceneEntryAppearances,
   groupCharacterChoices,
+  resolveSceneAppearance,
+  areaTargetValue,
+  DEFAULT_APPEARANCE_TARGET,
 } from "../../scripts/module/appearance-logic.mjs";
 
 describe("appearanceCheckParams()（エリア別 TN と危険値修正・Appearance_Check 正本）", () => {
@@ -200,5 +203,64 @@ describe("groupCharacterChoices()（キャラクター選択の type 別グル�
   it("空・未指定でも落ちない", () => {
     expect(groupCharacterChoices([], { labelOf })).toEqual([]);
     expect(groupCharacterChoices(undefined)).toEqual([]);
+  });
+});
+
+describe("areaTargetValue() / DEFAULT_APPEARANCE_TARGET（14-8）", () => {
+  it("エリアの固定目標値を返す", () => {
+    expect(areaTargetValue("red")).toBe(8);
+    expect(areaTargetValue("green")).toBe(10);
+    expect(areaTargetValue("white")).toBe(12);
+    expect(areaTargetValue("sanctuary")).toBe(12);
+  });
+
+  it("未設定・未知のエリアは null", () => {
+    expect(areaTargetValue("")).toBeNull();
+    expect(areaTargetValue("nope")).toBeNull();
+  });
+
+  it("手入力の初期値は 10（2026-08-09 ユーザー指定）", () => {
+    expect(DEFAULT_APPEARANCE_TARGET).toBe(10);
+  });
+});
+
+describe("resolveSceneAppearance()（行＋実行時の上書きの合成・14-8）", () => {
+  it("「未設定」以外の行は上書きを見ない（台本の設定がそのまま）", () => {
+    const row = { appearanceMode: "fixed", area: "white", appearanceValue: 14, appearanceSkills: ["a"] };
+    expect(resolveSceneAppearance(row, { area: "red", appearanceValue: 8, appearanceSkills: ["b"] }))
+      .toEqual({ area: "white", mode: "fixed", fixedValue: 14, skills: ["a"] });
+  });
+
+  it("「登場：不可」もそのまま通す（上書きで解除されない）", () => {
+    const resolved = resolveSceneAppearance({ appearanceMode: "none" }, { area: "red", appearanceValue: 8 });
+    expect(resolved.mode).toBe("none");
+    expect(isAppearanceBlockedScene({ appearanceMode: resolved.mode })).toBe(true);
+  });
+
+  it("「未設定」の行は上書きを数値指定として使う（エリアの性質は上書きのエリアに従う）", () => {
+    const row = { appearanceMode: "unset", appearanceSkills: ["a"] };
+    expect(resolveSceneAppearance(row, { area: "green", appearanceValue: 12, appearanceSkills: ["b"] }))
+      .toEqual({ area: "green", mode: "fixed", fixedValue: 12, skills: ["b"] });
+  });
+
+  it("住宅施設を舞台にした場合も同じ形に落ちる＝危険値係数が既存経路で効く", () => {
+    const resolved = resolveSceneAppearance(
+      { appearanceMode: "unset" }, { area: "white", appearanceValue: 15, appearanceSkills: [] });
+    expect(appearanceCheckParams({ ...resolved, appearanceModifier: -3 }))
+      .toEqual({ blocked: false, targetValue: 15, modifier: -6 });
+  });
+
+  it("上書きが無い（ダイアログを閉じた）ときは目標値を出さず、台本の指定技能を残す", () => {
+    expect(resolveSceneAppearance({ appearanceMode: "unset", appearanceSkills: ["a"] }, null))
+      .toEqual({ area: "", mode: "area", fixedValue: null, skills: ["a"] });
+  });
+
+  it("上書きの目標値が数値でなければ目標値なし", () => {
+    expect(resolveSceneAppearance({ appearanceMode: "unset" }, { area: "red", appearanceValue: null }).fixedValue)
+      .toBeNull();
+  });
+
+  it("null の行は既定（エリア準拠・指定なし）", () => {
+    expect(resolveSceneAppearance(null)).toEqual({ area: "", mode: "area", fixedValue: null, skills: [] });
   });
 });

@@ -30,16 +30,34 @@ export const SCENE_AREA_OPTIONS = Object.freeze([
 ]);
 
 /**
+ * シーン行の種別(2026-08-09 ユーザー確定・14-8 巡回シーン)。
+ * - `normal`: 通常シーン。台本で全て決めておく従来のシーン
+ * - `rotation`: 巡回シーン。**同じ行に何度でも入場**し、入場のたびにシーンプレイヤーが
+ *   ハンドアウト順の未消化の先頭へ進む。エリア・登場判定は行に持たず、入場ダイアログで決める
+ * - `event`: イベントシーン。起動条件を踏んだと RL が判断したときに割り込ませるシーン
+ */
+// ラベルは台本の「種別」列の中だけで使うため、列見出しが与える文脈に頼って短くする
+// (列幅に「イベントシーン」を通すと、隣のシーン名・シーンプレイヤーが痩せる)
+export const SCENE_KIND_OPTIONS = Object.freeze([
+    { value: "normal",   label: "通常" },
+    { value: "rotation", label: "巡回" },
+    { value: "event",    label: "イベント" },
+]);
+
+/**
  * シーン行を正規化する(旧形式の行に 14-2 追加フィールドの既定値を補う)。
  * 一括マイグレーションは行わず、読み出し時に吸収する(保存は編集時のみ)。
  * `player`(旧・キャスト名の自由文字列)は playerUserId 未設定時の表示フォールバックとして残す。
  * `stage` は複合値文字列 `"" | "scene:<SceneId>" | "subScene:<サブシーンid>"`(parseStageRef)。
  * @param {object|null} row
  * @returns {{id:string, number:(string|number), name:string, player:string, isMasterScene:boolean,
- *            switchMessage:string, area:string, stage:string, playerUserId:string}}
+ *            switchMessage:string, area:string, stage:string, playerUserId:string, kind:string,
+ *            eventCondition:string}}
  */
 export function normalizeSceneRow(row) {
     const r = row ?? {};
+    const kind = SCENE_KIND_OPTIONS.some(o => o.value === r.kind) ? r.kind : "normal";
+    const isRotation = kind === "rotation";
     return {
         id:            r.id            ?? "",
         number:        r.number        ?? "",
@@ -47,12 +65,19 @@ export function normalizeSceneRow(row) {
         player:        r.player        ?? "",
         isMasterScene: r.isMasterScene ?? false,
         switchMessage: r.switchMessage ?? "",
-        area:          r.area          ?? "",
+        // 巡回シーンはエリア・登場判定を**行に持たない**(2026-08-09 ユーザー確定)＝常に「未設定」
+        // 扱いで入場ダイアログが決める。生データは書き換えず読み出しで伏せるだけなので、
+        // 種別を戻せば元の指定がそのまま生きる(一括書き換えをしない原則)
+        area:          isRotation ? "" : (r.area ?? ""),
         stage:         r.stage         ?? "",
         playerUserId:  r.playerUserId  ?? "",
-        // 登場設定(14-7): area=エリア準拠(既定)/fixed=数値指定/none=登場不可。
+        kind,
+        // イベントシーンの起動条件(14-8・表示のみ。条件の自動判定はしない=RL が読んで判断する)
+        eventCondition: r.eventCondition ?? "",
+        // 登場設定(14-7): area=エリア準拠(既定)/fixed=数値指定/none=登場不可/
+        // unset=未設定(シーン開始ダイアログで決める・14-8)。
         // appearanceSkills=シーン指定の使用技能(識別キー・複数可・候補の提示であって制限しない)
-        appearanceMode:   r.appearanceMode   ?? "area",
+        appearanceMode:   isRotation ? "unset" : (r.appearanceMode ?? "area"),
         appearanceValue:  r.appearanceValue  ?? null,
         appearanceSkills: Array.isArray(r.appearanceSkills) ? r.appearanceSkills : [],
         // 登場キャラクターの事前設定(14-8): シーン入場時に判定なしで登場させる面々
@@ -210,7 +235,20 @@ export function firstSceneRow(scenes) {
 }
 
 /**
- * 台本順(フェイズ順→行順)で現在シーンの次にあたる行を返す(「次のシーンへ」)。
+ * 台本をフェイズ順→行順の一本の並びに均す(台本順＝進行の順序)。
+ * @param {object|null} scenes
+ * @returns {Array<{phase:string, row:object}>}
+ */
+export function flattenScenes(scenes) {
+    const flat = [];
+    for (const phase of PHASE_ORDER) {
+        for (const row of (Array.isArray(scenes?.[phase]) ? scenes[phase] : [])) flat.push({ phase, row });
+    }
+    return flat;
+}
+
+/**
+ * 台本順(フェイズ順→行順)で現在シーンの次にあたる行を返す。
  * 現在シーンが不明・未指定なら先頭行(アクト開始直後のフォールバック)。最後の行なら null。
  * @param {object|null} scenes
  * @param {string} currentSceneId
@@ -218,14 +256,156 @@ export function firstSceneRow(scenes) {
  */
 export function nextSceneRow(scenes, currentSceneId) {
     if (!scenes) return null;
-    const flat = [];
-    for (const phase of PHASE_ORDER) {
-        for (const row of (Array.isArray(scenes[phase]) ? scenes[phase] : [])) flat.push({ phase, row });
-    }
+    const flat = flattenScenes(scenes);
     if (!flat.length) return null;
     const index = flat.findIndex(e => e.row?.id === currentSceneId);
     if (index < 0) return flat[0];
     return flat[index + 1] ?? null;
+}
+
+/**
+ * 「次のシーンへ」の行き先(14-8)。**巡回シーンにいる間は同じ行**(再入場＝シーンプレイヤーだけ
+ * 次の人へ進む)で、それ以外は台本順の次の行。
+ * @param {object|null} scenes
+ * @param {string} currentSceneId
+ * @returns {?{phase:string, row:object}}
+ */
+export function nextSceneTarget(scenes, currentSceneId) {
+    const flat = flattenScenes(scenes);
+    if (!flat.length) return null;
+    const index = flat.findIndex(e => e.row?.id === currentSceneId);
+    if (index < 0) return flat[0];
+    if (normalizeSceneRow(flat[index].row).kind === "rotation") return flat[index];
+    return flat[index + 1] ?? null;
+}
+
+/**
+ * 「次のシーンへ」を出してよいか(14-8・2026-08-09 ユーザー指示)。
+ * 巡回シーンは常に出す(巡回の継続)。**イベントシーンの次がイベントシーンのときだけ出さない**
+ * ——起動条件を踏んでいないイベントへ順送りで入ってしまうため。次が巡回シーン・通常シーンなら
+ * 通常どおり出す(リサーチ先頭のイベントへオープニングから順送りで入るのも同じ経路)。
+ * @param {object|null} scenes
+ * @param {string} currentSceneId
+ * @returns {boolean}
+ */
+export function canShowNextScene(scenes, currentSceneId) {
+    const flat = flattenScenes(scenes);
+    const index = flat.findIndex(e => e.row?.id === currentSceneId);
+    if (index < 0) return false;
+    const current = normalizeSceneRow(flat[index].row);
+    if (current.kind === "rotation") return true;
+    const next = flat[index + 1];
+    if (!next) return false;
+    return !(current.kind === "event" && normalizeSceneRow(next.row).kind === "event");
+}
+
+// ─── 巡回シーン(14-8) ───────────────────────────────────────────────────────
+// 巡回＝「まだシーンプレイヤーをしていない人に回す」運用の表現。位置(インデックス)ではなく
+// **消化済みの記録**が正本なので、イベントシーンでシーンプレイヤーを務めた分だけ順番が飛ぶ。
+
+/**
+ * 巡回順(ユーザー id の並び)をハンドアウトの並び順から作る(2026-08-09 ユーザー確定)。
+ * 共通ハンドアウトと対象ユーザー未設定の行は順から外す。同じユーザーは先に出た1件だけ。
+ * @param {Array<object>} handouts 正規化済みハンドアウト行
+ * @returns {Array<string>}
+ */
+export function rotationOrder(handouts) {
+    const seen = new Set();
+    const order = [];
+    for (const h of (handouts ?? [])) {
+        if (h?.recommendedStyle === HANDOUT_STYLE_COMMON) continue;
+        const userId = h?.userId ?? "";
+        if (!userId || seen.has(userId)) continue;
+        seen.add(userId);
+        order.push(userId);
+    }
+    return order;
+}
+
+/**
+ * 巡回シーンに入るときの既定のシーンプレイヤー＝**未消化の先頭**。
+ * 全員が務め終えていたら記録をクリアして次の巡へ(先頭から)。
+ * @param {Array<string>} order 巡回順
+ * @param {Array<string>} doneUserIds 今巡でシーンプレイヤーを務めたユーザー
+ * @returns {{userId:string, done:Array<string>}} done=採用後に持つべき消化記録
+ */
+export function resolveRotationDefault(order, doneUserIds) {
+    const list = order ?? [];
+    const done = doneUserIds ?? [];
+    // 巡回順が空(ハンドアウトに対象ユーザーが無い)なら回すものが無い＝記録には触れない
+    if (!list.length) return { userId: "", done: [...done] };
+    const doneSet = new Set(done);
+    const remaining = list.filter(id => !doneSet.has(id));
+    if (remaining.length) return { userId: remaining[0], done: [...done] };
+    return { userId: list[0], done: [] };
+}
+
+// ─── イベントシーン(14-8) ───────────────────────────────────────────────────
+
+/**
+ * 「イベントシーンを起動する」の候補＝**現在地を含む/直後に続くイベント行の連続した群**のうち
+ * 未実行のもの(2026-08-09 ユーザー指示「次の巡回シーン(もしくはクライマックスシーン)との間に
+ * あるイベントシーンからどれか一つを選んで起動」)。
+ * 現在地がイベント行のときは群の先頭まで遡る——想定と違う順で起動しても、同じ群に残っている
+ * イベントが次の候補として出る。
+ * @param {object|null} scenes
+ * @param {string} currentSceneId
+ * @param {Array<string>} [doneEventIds] 実行済みイベント行の id
+ * @returns {Array<{phase:string, row:object}>}
+ */
+export function eventSceneCandidates(scenes, currentSceneId, doneEventIds = []) {
+    const flat = flattenScenes(scenes).map(e => ({ phase: e.phase, row: normalizeSceneRow(e.row) }));
+    const index = flat.findIndex(e => e.row.id === currentSceneId);
+    if (index < 0) return [];
+    const phase = flat[index].phase;
+    const inBlock = i => i >= 0 && i < flat.length && flat[i].phase === phase && flat[i].row.kind === "event";
+    let start = index + 1;
+    if (flat[index].row.kind === "event") {
+        start = index;
+        while (inBlock(start - 1)) start -= 1;
+    }
+    const done = new Set(doneEventIds ?? []);
+    const out = [];
+    for (let i = start; inBlock(i); i += 1) {
+        if (flat[i].row.id === currentSceneId || done.has(flat[i].row.id)) continue;
+        out.push(flat[i]);
+    }
+    return out;
+}
+
+/**
+ * そのフェイズのイベントシーンが全て実行済みか(＝「クライマックスへ」を出してよいか)。
+ * イベント行が1つも無ければ最初から真＝巡回だけで進むシナリオの抜け道になる。
+ * @param {object|null} scenes
+ * @param {Array<string>} [doneEventIds]
+ * @param {string} [phase]
+ * @returns {boolean}
+ */
+export function areEventScenesDone(scenes, doneEventIds = [], phase = "research") {
+    const done = new Set(doneEventIds ?? []);
+    return (Array.isArray(scenes?.[phase]) ? scenes[phase] : [])
+        .map(normalizeSceneRow)
+        .filter(row => row.kind === "event")
+        .every(row => done.has(row.id));
+}
+
+/**
+ * シーン開始ダイアログの「舞台」候補を出すキャラクターの集合(2026-08-09 ユーザー指定)。
+ * シーンプレイヤーのキャストと、そのシーンの登場キャラクター事前設定、および**それらの
+ * いずれかとチームを組んでいる**キャラクター。
+ * @param {{scenePlayerActorId?:string, appearanceActors?:Array, teams?:Array}} args
+ * @returns {Array<string>} アクター id(重複なし・種は先頭から順)
+ */
+export function stageCandidateActorIds({ scenePlayerActorId = "", appearanceActors = [], teams = [] } = {}) {
+    const seed = new Set();
+    if (scenePlayerActorId) seed.add(scenePlayerActorId);
+    for (const entry of normalizeAppearanceActors(appearanceActors)) seed.add(entry.actorId);
+    const ids = new Set(seed);
+    for (const team of (teams ?? [])) {
+        const members = team?.memberActorIds ?? [];
+        if (members.some(id => seed.has(id))) for (const id of members) ids.add(id);
+    }
+    return [...ids].filter(Boolean);
 }
 
 /**

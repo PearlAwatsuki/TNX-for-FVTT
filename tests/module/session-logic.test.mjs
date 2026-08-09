@@ -38,6 +38,15 @@ import {
   infoSkillKeys,
   resolveInfoSkillNames,
   withResolvedInfoSkillNames,
+  SCENE_KIND_OPTIONS,
+  flattenScenes,
+  nextSceneTarget,
+  canShowNextScene,
+  rotationOrder,
+  resolveRotationDefault,
+  eventSceneCandidates,
+  areEventScenesDone,
+  stageCandidateActorIds,
 } from "../../scripts/module/session-logic.mjs";
 import { TNX_HOOKS } from "../../scripts/module/combat-events.mjs";
 
@@ -58,9 +67,35 @@ describe("normalizeSceneRow()（シーン行の正規化・14-2）", () => {
       id: "s1", number: 3, name: "旧シーン", player: "旧キャスト名",
       isMasterScene: true, switchMessage: "▼",
       area: "", stage: "", playerUserId: "",
+      kind: "normal", eventCondition: "",
       appearanceMode: "area", appearanceValue: null, appearanceSkills: [],
       appearanceActors: [],
     });
+  });
+
+  it("種別は既定 normal・未知の値も normal に丸める（14-8）", () => {
+    expect(normalizeSceneRow({ id: "s1" }).kind).toBe("normal");
+    expect(normalizeSceneRow({ id: "s1", kind: "unknown" }).kind).toBe("normal");
+    expect(normalizeSceneRow({ id: "s1", kind: "event" }).kind).toBe("event");
+  });
+
+  it("巡回シーンはエリア・登場判定を伏せて「未設定」扱いにする（生データは書き換えない）", () => {
+    const raw = { id: "s1", kind: "rotation", area: "white", appearanceMode: "fixed", appearanceValue: 14 };
+    const row = normalizeSceneRow(raw);
+    expect(row.area).toBe("");
+    expect(row.appearanceMode).toBe("unset");
+    // 種別を戻せば元の指定がそのまま生きる＝正規化は読み出し時の伏せ字であって書き換えではない
+    expect(normalizeSceneRow({ ...raw, kind: "normal" }).area).toBe("white");
+    expect(normalizeSceneRow({ ...raw, kind: "normal" }).appearanceMode).toBe("fixed");
+  });
+
+  it("登場判定「未設定」は通常シーンでも選べる（14-8）", () => {
+    expect(normalizeSceneRow({ id: "s1", appearanceMode: "unset" }).appearanceMode).toBe("unset");
+  });
+
+  it("イベントシーンの起動条件を保つ", () => {
+    expect(normalizeSceneRow({ id: "s1", kind: "event", eventCondition: "情報Aを得た" }).eventCondition)
+      .toBe("情報Aを得た");
   });
 
   it("新フィールドが保存済みならそのまま保つ", () => {
@@ -668,5 +703,186 @@ describe("TNX_HOOKS（14-2 追加分）", () => {
 describe("SCENE_AREA_OPTIONS（舞台エリアの選択肢）", () => {
   it("未設定＋5エリアを台本セレクトの順で持つ", () => {
     expect(SCENE_AREA_OPTIONS.map(o => o.value)).toEqual(["", "red", "yellow", "green", "white", "sanctuary"]);
+  });
+});
+
+// ─── 14-8: 巡回シーン・イベントシーン ────────────────────────────────────────
+
+// 台本: リサーチ＝[巡回1][イベントA][イベントB][巡回2][イベントC]、クライマックス＝[cl1]
+const KIND_SCENES = {
+  opening:  [{ id: "op1", name: "OP" }],
+  research: [
+    { id: "rot1", kind: "rotation", name: "リサーチ" },
+    { id: "evA",  kind: "event", name: "イベントA", eventCondition: "情報Aを得た" },
+    { id: "evB",  kind: "event", name: "イベントB" },
+    { id: "rot2", kind: "rotation", name: "リサーチ" },
+    { id: "evC",  kind: "event", name: "イベントC" },
+  ],
+  climax:   [{ id: "cl1", name: "クライマックス" }],
+  ending:   [],
+};
+
+describe("SCENE_KIND_OPTIONS（シーン種別・14-8）", () => {
+  it("通常/巡回/イベントの3種を持つ", () => {
+    expect(SCENE_KIND_OPTIONS.map(o => o.value)).toEqual(["normal", "rotation", "event"]);
+  });
+});
+
+describe("flattenScenes()", () => {
+  it("フェイズ順→行順の一本の並びに均す", () => {
+    expect(flattenScenes(KIND_SCENES).map(e => e.row.id))
+      .toEqual(["op1", "rot1", "evA", "evB", "rot2", "evC", "cl1"]);
+  });
+
+  it("null は空配列", () => {
+    expect(flattenScenes(null)).toEqual([]);
+  });
+});
+
+describe("nextSceneTarget()（「次のシーンへ」の行き先・14-8）", () => {
+  it("巡回シーンにいる間は同じ行（再入場＝シーンプレイヤーだけ次の人へ）", () => {
+    expect(nextSceneTarget(KIND_SCENES, "rot1").row.id).toBe("rot1");
+  });
+
+  it("イベントシーンからは台本順の次へ", () => {
+    expect(nextSceneTarget(KIND_SCENES, "evB").row.id).toBe("rot2");
+  });
+
+  it("通常シーンからは台本順の次へ（オープニング→リサーチ先頭のイベント）", () => {
+    expect(nextSceneTarget(KIND_SCENES, "op1").row.id).toBe("rot1");
+  });
+
+  it("末尾の行なら null", () => {
+    expect(nextSceneTarget(KIND_SCENES, "cl1")).toBeNull();
+  });
+});
+
+describe("canShowNextScene()（「次のシーンへ」を出すか・14-8）", () => {
+  it("巡回シーンは常に出す", () => {
+    expect(canShowNextScene(KIND_SCENES, "rot1")).toBe(true);
+  });
+
+  it("イベントシーンの次がイベントシーンなら出さない", () => {
+    expect(canShowNextScene(KIND_SCENES, "evA")).toBe(false);
+  });
+
+  it("イベントシーンの次が巡回シーンなら出す", () => {
+    expect(canShowNextScene(KIND_SCENES, "evB")).toBe(true);
+  });
+
+  it("通常シーンの次がイベントシーンでも出す（オープニングから順送りで起動できる）", () => {
+    expect(canShowNextScene(KIND_SCENES, "op1")).toBe(true);
+  });
+
+  it("末尾の行では出さない", () => {
+    expect(canShowNextScene(KIND_SCENES, "cl1")).toBe(false);
+  });
+});
+
+describe("rotationOrder()（巡回順＝ハンドアウトの並び順・14-8）", () => {
+  it("ハンドアウトの並び順で対象ユーザーを並べる", () => {
+    expect(rotationOrder([{ userId: "u1" }, { userId: "u2" }, { userId: "u3" }]))
+      .toEqual(["u1", "u2", "u3"]);
+  });
+
+  it("共通ハンドアウトと対象ユーザー未設定の行は順から外す", () => {
+    const order = rotationOrder([
+      { userId: "u1" },
+      { userId: "u9", recommendedStyle: HANDOUT_STYLE_COMMON },
+      { userId: "" },
+      { userId: "u2" },
+    ]);
+    expect(order).toEqual(["u1", "u2"]);
+  });
+
+  it("同じユーザーは先に出た1件だけ", () => {
+    expect(rotationOrder([{ userId: "u1" }, { userId: "u1" }])).toEqual(["u1"]);
+  });
+});
+
+describe("resolveRotationDefault()（未消化の先頭・14-8）", () => {
+  const ORDER = ["u1", "u2", "u3"];
+
+  it("誰も務めていなければ先頭", () => {
+    expect(resolveRotationDefault(ORDER, [])).toEqual({ userId: "u1", done: [] });
+  });
+
+  it("イベントシーンで務めた分だけ順番が飛ぶ", () => {
+    expect(resolveRotationDefault(ORDER, ["u1"])).toEqual({ userId: "u2", done: ["u1"] });
+  });
+
+  it("順の途中が消化済みでも未消化の先頭を返す", () => {
+    expect(resolveRotationDefault(ORDER, ["u2"])).toEqual({ userId: "u1", done: ["u2"] });
+  });
+
+  it("全員が務め終えたら記録をクリアして次の巡（先頭）へ", () => {
+    expect(resolveRotationDefault(ORDER, ["u1", "u2", "u3"])).toEqual({ userId: "u1", done: [] });
+  });
+
+  it("巡回順が空なら空文字（回すものが無いので消化の記録には触れない）", () => {
+    expect(resolveRotationDefault([], [])).toEqual({ userId: "", done: [] });
+    expect(resolveRotationDefault([], ["u1"])).toEqual({ userId: "", done: ["u1"] });
+  });
+});
+
+describe("eventSceneCandidates()（起動できるイベント・14-8）", () => {
+  it("巡回シーンからは直後に続くイベント群（次の巡回行の手前まで）", () => {
+    expect(eventSceneCandidates(KIND_SCENES, "rot1").map(e => e.row.id)).toEqual(["evA", "evB"]);
+  });
+
+  it("イベント行にいるときは同じ群の先頭まで遡る（想定と違う順で起動しても残りが出る）", () => {
+    expect(eventSceneCandidates(KIND_SCENES, "evB").map(e => e.row.id)).toEqual(["evA"]);
+  });
+
+  it("実行済みのイベントは候補から外れる", () => {
+    expect(eventSceneCandidates(KIND_SCENES, "rot1", ["evA"]).map(e => e.row.id)).toEqual(["evB"]);
+  });
+
+  it("次のフェイズのイベントは含めない（クライマックスの手前で打ち切る）", () => {
+    expect(eventSceneCandidates(KIND_SCENES, "rot2").map(e => e.row.id)).toEqual(["evC"]);
+  });
+
+  it("直後が通常シーンなら候補なし", () => {
+    expect(eventSceneCandidates(KIND_SCENES, "op1")).toEqual([]);
+  });
+
+  it("台本にない現在シーンでは空", () => {
+    expect(eventSceneCandidates(KIND_SCENES, "none")).toEqual([]);
+  });
+});
+
+describe("areEventScenesDone()（「クライマックスへ」の表示条件・14-8）", () => {
+  it("未実行のイベントが残っていれば false", () => {
+    expect(areEventScenesDone(KIND_SCENES, ["evA"])).toBe(false);
+  });
+
+  it("リサーチのイベントが全て実行済みなら true", () => {
+    expect(areEventScenesDone(KIND_SCENES, ["evA", "evB", "evC"])).toBe(true);
+  });
+
+  it("イベント行が1つも無ければ最初から true（巡回だけで進むシナリオ）", () => {
+    expect(areEventScenesDone({ research: [{ id: "r1", kind: "rotation" }] }, [])).toBe(true);
+  });
+});
+
+describe("stageCandidateActorIds()（舞台候補を出すキャラクター・14-8）", () => {
+  const TEAMS = [{ id: "t1", memberActorIds: ["a1", "a9"] }, { id: "t2", memberActorIds: ["a5"] }];
+
+  it("シーンプレイヤーのキャストと、そのチームのメンバー", () => {
+    expect(stageCandidateActorIds({ scenePlayerActorId: "a1", teams: TEAMS })).toEqual(["a1", "a9"]);
+  });
+
+  it("登場キャラクターの事前設定も種に含める", () => {
+    expect(stageCandidateActorIds({
+      scenePlayerActorId: "a1", appearanceActors: [{ actorId: "a5" }], teams: TEAMS,
+    })).toEqual(["a1", "a5", "a9"]);
+  });
+
+  it("種と無関係のチームは広がらない", () => {
+    expect(stageCandidateActorIds({ scenePlayerActorId: "a3", teams: TEAMS })).toEqual(["a3"]);
+  });
+
+  it("何も無ければ空", () => {
+    expect(stageCandidateActorIds({})).toEqual([]);
   });
 });

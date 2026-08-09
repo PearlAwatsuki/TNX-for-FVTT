@@ -3363,7 +3363,7 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 /* 使用回数の最大値は数値も式も受ける(2026-08-09)。式が読める幅が要るので 60px 固定をやめるが、
    長い式は入らない前提のため行いっぱいには広げず、**消費済み欄と同じ幅に揃える**
    (2026-08-09 ユーザー指示)。式は左揃え・消費済みは数値なので中央揃えのまま。 */
-.usage-limit-group:has(.usage-field--formula) .usage-field input { width: 200px; }
+.usage-limit-group:has(.usage-field--formula) .usage-field input { width: 190.26px; }
 
 .usage-field--formula input { text-align: left; }
 
@@ -4939,9 +4939,10 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .scene-table { display: flex; flex-direction: column; padding: 10px; }
 
+/* 種別列(14-8)は内容幅で固定し、残りを従来どおり 3:2:3 で分ける */
 .scene-table-header {
     display: grid;
-    grid-template-columns: 36px 3fr 2fr 3fr 32px;
+    grid-template-columns: 36px 88px 3fr 2fr 3fr 32px;
     gap: 6px;
     align-items: center;
     padding: 0 8px 8px 12px;
@@ -4975,7 +4976,7 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .scene-main-row {
     display: grid;
-    grid-template-columns: 36px 3fr 2fr 3fr 32px;
+    grid-template-columns: 36px 88px 3fr 2fr 3fr 32px;
     gap: 6px;
     align-items: center;
     padding: 8px;
@@ -5084,6 +5085,14 @@ body.tnx-bottom-hud-expanded #hotbar {
 }
 
 .scene-detail-row > .number-input-spinner { flex: 0 0 auto; }
+
+/* 起動条件(14-8)のような単独のテキスト欄も、セレクトと同じく行の残り幅を分け合う
+   (入力欄の既定幅のまま置くと右が大きく空く) */
+.scene-detail-row > input[type="text"] {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 6px 8px;
+}
 
 /* シーン行のタグ入力(指定技能・登場)。2026-08-09 ユーザー指示:
    **ラベルはプルダウン側に付ける**(チップは 0 個になりうるのでラベルの相手にならない。
@@ -5318,7 +5327,6 @@ body.tnx-bottom-hud-expanded #hotbar {
     flex: 1 1 auto;
     width: auto;
     min-width: 180px;
-    max-width: 380px;
 }
 
 .handout-row--meta > .handout-suit-select { flex: 0 0 auto; width: auto; min-width: 0; }
@@ -8163,6 +8171,23 @@ button.tnx-create-act-button span {
     font-size: 0.82em;
 }
 
+/* イベントシーンの起動ダイアログ（14-8・「起動せず実行済みにする」が横並びだと2行に折れる） */
+.tnx-event-dialog .form-footer {
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px;
+}
+.tnx-event-dialog .form-footer button {
+    width: 100%;
+    justify-content: center;
+}
+.tnx-event-dialog .form-footer button[data-action="cancel"] {
+    margin-top: 4px;
+    border-color: transparent;
+    color: var(--tnx2-text-secondary);
+    font-size: 0.85em;
+}
+
 /* カット進行終了ダイアログ（案1・3択は縦積み＝長いラベルが横並びで潰れないように・13-6） */
 .tnx-scene-end-dialog .form-footer {
     flex-direction: column;
@@ -9209,6 +9234,98 @@ button.tnx-create-act-button span {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* シーン開始ダイアログ(14-8)。Foundry の .form-fields は justify-content: flex-end のため、
+   幅いっぱいに伸びるセレクトと違ってスピナーだけが右端へ寄る。コントロールの左端を
+   揃えるため、このダイアログ内だけ先頭寄せに戻す */
+.tnx-scene-entry .form-fields { justify-content: flex-start; }
+
+/* スピナーは内容幅に縮める。全幅に伸ばすと共通の justify-content: flex-end で
+   中身だけが右端へ寄り、上下のセレクトと左端が揃わない */
+.tnx-scene-entry .number-input-spinner { flex: 0 0 auto; }
+
+/* イベントシーンの選択(14-8): 名前の下に起動条件を添えて縦に並べる。
+   条件を読んで選ぶ操作なので、行全体をクリック領域(label)にする */
+.tnx-event-choices {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tnx-event-choice {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: baseline;
+    gap: 2px 8px;
+    padding: 6px 8px;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    cursor: pointer;
+}
+
+.tnx-event-choice:hover { background: var(--tnx2-bg-hover); }
+
+/* 選んだ行が一目で分かるようにする(ラジオだけでは条件文に埋もれる) */
+.tnx-event-choice:has(input:checked) {
+    background: var(--tnx2-bg-hover);
+    border-color: var(--tnx2-border-active);
+}
+
+.tnx-event-choice input[type="radio"] {
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
+    margin: 0;
+}
+
+.tnx-event-choice__name { font-weight: 600; }
+
+/* 起動条件は名前の下・ラジオの列を跨がずに揃える */
+.tnx-event-choice__cond {
+    grid-column: 2;
+    color: var(--tnx2-text-secondary);
+    font-size: 0.9em;
+}
+
+/* 巡回の消化状況(14-8): 舞台裏の枠と同じ意匠で、ハンドアウト順に済み/次を示す */
+.tnx-scenario-panel .scp-rotation {
+    margin: 6px 0;
+    padding: 6px;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+}
+
+.tnx-scenario-panel .scp-rotation-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+.tnx-scenario-panel .scp-rotation-row.is-next {
+    background: var(--tnx2-bg-hover);
+    font-weight: 700;
+}
+
+.tnx-scenario-panel .scp-rotation-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 務め終えた人は薄く落とす(候補から外れるわけではない=選び直せる) */
+.tnx-scenario-panel .scp-rotation-name.is-done { opacity: 0.55; }
+
+.tnx-scenario-panel .scp-rotation-state {
+    flex: 0 0 auto;
+    font-size: 0.9em;
+    opacity: 0.8;
 }
 
 .tnx-scenario-panel .scp-team { margin-bottom: 6px; }

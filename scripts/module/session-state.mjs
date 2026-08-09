@@ -21,11 +21,16 @@ import {
     teamCreate, teamJoin, teamLeave, teamDelete, teamOf, teamHasAppearing,
     hasBackstage, backstageQueue, nextBackstageSpot, isBackstageFinished,
     findDuplicateKeys, matchTrumpCard,
+    rotationOrder, resolveRotationDefault, stageCandidateActorIds,
 } from "./session-logic.mjs";
 import {
     setAppearing, setNameHidden, clearAllAppearing, listAppearingActors, isAppearing,
 } from "./appearance-state.mjs";
-import { isAppearanceBlockedScene, sceneEntryAppearances } from "./appearance-logic.mjs";
+import {
+    isAppearanceBlockedScene, sceneEntryAppearances, resolveSceneAppearance,
+} from "./appearance-logic.mjs";
+import { listStageCandidates } from "./residence-area.mjs";
+import { promptSceneEntry } from "./scene-entry-dialog.mjs";
 import { getUserFlagData, saveIsScenePlayer } from "./user-flag-schema.mjs";
 import { SKILL_PACKS } from "./skill-dictionary.mjs";
 
@@ -43,6 +48,20 @@ const DEFAULTS = Object.freeze({
     // 舞台裏(14-6・シーンの終了処理の一部・リサーチシーンのみ)。「シーンを閉じる」で open、
     // 回しきる(started かつスポット解除)まで「次のシーンへ」を出さない。シーン単位でリセット
     backstage:   { open: false, started: false, spotActorId: "", extraActorIds: [] },
+    // 巡回シーン(14-8): 今巡でシーンプレイヤーを務めたユーザー。**位置ではなく消化の記録**が
+    // 正本なので、イベントシーンで務めた分だけ巡回の順番が飛ぶ。フェイズが変わったときと
+    // 全員が務め終えたときにクリアする
+    scenePlayerDone:   [],
+    // 現在シーンのシーンプレイヤーの**選択そのもの**(14-8)。台本の行に書いてある場合はその値だが、
+    // 巡回シーンは入場時に決まるため行からは導けない＝実行状態が持つ。RL を選んだ場合もそのまま
+    // 入り、ルーラーシーンか否かは isRulerScene(row, userId) で導く(表示と flag が同じ述語を使う)
+    scenePlayerUserId: "",
+    // 実行済みイベントシーン(14-8): イベントシーンの**開始時**に立てる。台本ではなく実行状態に
+    // 置く(再演のたびに手で消す必要が出ないように)。全て実行済みで「クライマックスへ」が出る
+    doneEventSceneIds: [],
+    // 登場判定「未設定」のシーンでシーン開始ダイアログが決めた値(14-8)。シーン単位でリセット。
+    // 台本は書き換えない＝その場で決めたものはここにだけ残る
+    sceneOverride:     null,
 });
 
 /** 舞台裏の初期状態(シーン単位・入場時にリセットする)。 */
@@ -97,11 +116,48 @@ export function getCurrentSceneRow() {
  * ルーラーはプレイヤーではない＝シーンプレイヤーはいない。シーン入場の flag 付与とパネル/
  * 切替チャットの表示が同じ判定を使うための共通述語。
  * @param {object} row 正規化済みシーン行
+ * @param {string} [userId] シーンプレイヤーの指定(巡回シーンは入場時に決まるため行から導けない)
  * @returns {boolean}
  */
-export function isRulerScene(row) {
-    const playerUser = row?.playerUserId ? game.users.get(row.playerUserId) : null;
+export function isRulerScene(row, userId = undefined) {
+    const id = userId === undefined ? row?.playerUserId : userId;
+    const playerUser = id ? game.users.get(id) : null;
     return !!row?.isMasterScene || playerUser?.isGM === true;
+}
+
+/**
+ * 現在シーンの登場設定(行＋実行時の上書きの合成・14-8)。表示(パネルの「登場：」行)と
+ * 登場判定がこの1本を通ることで、値の出所を一致させる。
+ * @returns {{area:string, mode:string, fixedValue:?number, skills:Array<string>}}
+ */
+export function getCurrentSceneAppearance() {
+    return resolveSceneAppearance(getCurrentSceneRow()?.row ?? null, getSessionState().sceneOverride);
+}
+
+/**
+ * 巡回の消化状況(14-8・パネル表示用)。ハンドアウトの並び順に、務めたかどうかと次の既定を返す。
+ * 表示名はシーンプレイヤー表示と同じくキャスト名を優先する。
+ * @returns {Array<{id:string, name:string, done:boolean, isNext:boolean}>}
+ */
+export function getRotationStatus() {
+    const st = getSessionState();
+    const order = rotationOrder(_activeHandouts());
+    const done = new Set(st.scenePlayerDone ?? []);
+    const next = resolveRotationDefault(order, st.scenePlayerDone).userId;
+    return order.map(id => {
+        const user = game.users.get(id);
+        return {
+            id,
+            name: user?.character?.name ?? user?.name ?? "（不明なユーザー）",
+            done: done.has(id),
+            isNext: id === next,
+        };
+    });
+}
+
+/** アクティブなアクトのハンドアウト行(正規化済み)。 */
+function _activeHandouts() {
+    return (getActiveActJournal()?.getFlag(SCOPE, "handouts") ?? []).map(normalizeHandoutRow);
 }
 
 /** 現在のシーンカード(Card ドキュメント)。未提示・解決不能は null。 */
@@ -177,6 +233,17 @@ export async function startAct({ sceneId = null } = {}) {
         return false;
     }
 
+    // 先頭シーン(または指定シーン)の確認と、そのシーンで決めるものの聞き取りは**自動設定より
+    // 前**に済ませる。ここで中止されても何も変更されていない状態で戻れる
+    const scenes = journal.getFlag(SCOPE, "scenes") ?? null;
+    const hit = sceneId ? findSceneRow(scenes, sceneId) : firstSceneRow(scenes);
+    if (!hit) {
+        ui.notifications.warn("台本にシーンがありません。アクトを開始できません。");
+        return false;
+    }
+    const entry = await _requestSceneEntry(hit);
+    if (entry === null) return false;
+
     // 自動設定: bountyBase←外界点実効値・bounty←0(清算を兼ねる)・CS=プレアクト初期化と同計算
     const updates = casts.map(actor => ({ _id: actor.id, ...buildPreActInit(actor.system) }));
     if (updates.length) await Actor.updateDocuments(updates);
@@ -201,15 +268,22 @@ export async function startAct({ sceneId = null } = {}) {
     await setState({ actStarted: true, sceneEnded: false });
     Hooks.callAll(TNX_HOOKS.actStart, { actId: journal.id });
 
-    const scenes = journal.getFlag(SCOPE, "scenes") ?? null;
-    const hit = sceneId ? findSceneRow(scenes, sceneId) : firstSceneRow(scenes);
-    if (!hit) {
-        ui.notifications.warn("台本にシーンがありません。シーンは開始されませんでした。");
-        return false;
-    }
-    await _applySceneEntry(hit);
+    await _applySceneEntry(hit, entry);
     Hooks.callAll(TNX_HOOKS.sceneStart, { sceneId: hit.row.id, phase: hit.phase });
     return true;
+}
+
+/**
+ * イベントシーンを「起動せず実行済みにする」(14-8・2026-08-09 ユーザー承認)。
+ * 想定と違う順で巡ったために踏まれなかったイベントを RL が消化して、
+ * 「クライマックスへ」が正しいタイミングで出るようにするための操作。
+ * @param {string} sceneId イベントシーンの行 id
+ */
+export async function markEventSceneDone(sceneId) {
+    if (!assertGM() || !sceneId) return;
+    const ids = getSessionState().doneEventSceneIds ?? [];
+    if (ids.includes(sceneId)) return;
+    await setState({ doneEventSceneIds: [...ids, sceneId] });
 }
 
 /** アクトを終了する(現行シーンの終了境界→チーム解散→アクト終了)。読み込み状態には戻る。 */
@@ -349,14 +423,27 @@ async function _grantActConnections(assignments) {
  * シーンを切り替える(現行終了→次開始の一括・アクト中に「シーン外」は無い)。
  * 切替メッセージの送信・シーンカードのドローはパネル(14-3)がこの前後で行う。
  * @param {string} sceneId 台本の行 id
+ * @returns {Promise<boolean>} 切り替えたか(false=中止・該当なし)
  */
 export async function switchScene(sceneId) {
-    if (!assertGM()) return;
+    if (!assertGM()) return false;
     const st = getSessionState();
-    if (!st.actId || !st.actStarted) return void ui.notifications.warn("アクトが開始されていません。");
-    if (sceneId === st.sceneId) return;
+    if (!st.actId || !st.actStarted) {
+        ui.notifications.warn("アクトが開始されていません。");
+        return false;
+    }
     const hit = findSceneRow(getActiveScenes(), sceneId);
-    if (!hit) return void ui.notifications.warn("台本に該当するシーンがありません。");
+    if (!hit) {
+        ui.notifications.warn("台本に該当するシーンがありません。");
+        return false;
+    }
+    // 巡回シーンは同じ行に何度でも入る(入場のたびにシーンプレイヤーが次の人へ・14-8)。
+    // それ以外の行を今のシーンに切り替え直しても何も起きない
+    if (sceneId === st.sceneId && normalizeSceneRow(hit.row).kind !== "rotation") return false;
+
+    // その場で決める値の聞き取りは**退場処理の前**に済ませる(閉じられても現行シーンを壊さない)
+    const entry = await _requestSceneEntry(hit);
+    if (entry === null) return false;
 
     const events = planSceneSwitchEvents({
         fromSceneId: st.sceneId, sceneEnded: st.sceneEnded,
@@ -366,10 +453,66 @@ export async function switchScene(sceneId) {
     for (const ev of events) {
         if (ev.hook === TNX_HOOKS.sceneEnd) Hooks.callAll(ev.hook, ev.data);
     }
-    await _applySceneEntry(hit);
+    await _applySceneEntry(hit, entry);
     for (const ev of events) {
         if (ev.hook === TNX_HOOKS.sceneStart) Hooks.callAll(ev.hook, ev.data);
     }
+    return true;
+}
+
+/**
+ * シーン開始ダイアログ(14-8)を必要なシーンでだけ開き、そのシーンで決めるものを集める。
+ * 必要＝巡回シーン(常に)と、登場判定が「未設定」の行。それ以外は台本の設定がそのまま使われる。
+ * @param {{phase:string, row:object}} hit
+ * @returns {Promise<?{scenePlayerUserId:string, override:?object}>} null=中止
+ */
+async function _requestSceneEntry({ row }) {
+    const scene = normalizeSceneRow(row);
+    const rotation = scene.kind === "rotation";
+    if (!rotation && scene.appearanceMode !== "unset") {
+        return { scenePlayerUserId: scene.playerUserId, override: null };
+    }
+
+    const st = getSessionState();
+    const order = rotationOrder(_activeHandouts());
+    const done = new Set(st.scenePlayerDone ?? []);
+    const defaultPlayerUserId = rotation
+        ? resolveRotationDefault(order, st.scenePlayerDone).userId : "";
+    // 候補は巡回順を先に並べ、巡回順に入っていないユーザー(RL 含む)を後ろへ。既に務めた人には
+    // 「（済）」を付ける＝「なるべく務めていない人に回す」判断の材料(既定は未消化の先頭)
+    const playerChoices = rotation
+        ? [
+            ...order.map(id => game.users.get(id)).filter(u => u),
+            ...game.users.filter(u => !order.includes(u.id)),
+        ].map(u => ({
+            id: u.id,
+            name: `${u.name}${u.isGM ? "（RL）" : ""}${done.has(u.id) ? "（済）" : ""}`,
+        }))
+        : [];
+
+    // 舞台候補＝シーンプレイヤーのキャスト・登場キャラクターの事前設定・それらとチームを
+    // 組んでいる面々が所持する住宅施設。巡回シーンはシーンプレイヤーを選び直せるので、
+    // ユーザーごとの見え方を先に作っておいてダイアログ内で絞り込ませる
+    const actorIdsFor = (userId) => stageCandidateActorIds({
+        scenePlayerActorId: game.users.get(userId)?.character?.id ?? "",
+        appearanceActors:   scene.appearanceActors,
+        teams:              st.teams,
+    });
+    const stageActorIdsByUser = rotation
+        ? Object.fromEntries(playerChoices.map(u => [u.id, actorIdsFor(u.id)])) : null;
+    const actorIds = rotation
+        ? [...new Set(Object.values(stageActorIdsByUser).flat())]
+        : actorIdsFor(scene.playerUserId);
+    const stageCandidates = await listStageCandidates(actorIds);
+
+    const result = await promptSceneEntry({
+        row: scene, rotation, playerChoices, defaultPlayerUserId, stageCandidates, stageActorIdsByUser,
+    });
+    if (!result) return null;
+    return {
+        scenePlayerUserId: rotation ? result.scenePlayerUserId : scene.playerUserId,
+        override:          result.override,
+    };
 }
 
 /**
@@ -388,14 +531,34 @@ export async function endSceneFromCombat() {
 }
 
 /** シーンに入る(状態更新・シーンプレイヤー指定・自動登場)。イベント発火は呼び元。 */
-async function _applySceneEntry({ phase, row }) {
+async function _applySceneEntry({ phase, row }, entry = null) {
     const scene = normalizeSceneRow(row);
-    // 舞台裏はシーン単位(前シーンの状態を持ち越さない)
-    await setState({ phase, sceneId: scene.id, sceneEnded: false, backstage: { ...BACKSTAGE_INITIAL } });
+    const st = getSessionState();
     // ルーラーシーン(GM ユーザー選択 or 旧 isMasterScene)＝**シーンプレイヤーはいない**
-    // (ルーラーはプレイヤーではない・2026-08-08 裁定)→ isScenePlayer は誰にも立てない
-    const playerUser = scene.playerUserId ? game.users.get(scene.playerUserId) : null;
-    const playerUserId = (isRulerScene(scene) || !playerUser) ? "" : scene.playerUserId;
+    // (ルーラーはプレイヤーではない・2026-08-08 裁定)→ isScenePlayer は誰にも立てない。
+    // 巡回シーンのシーンプレイヤーは入場ダイアログで決まる(行からは導けない)
+    const requestedUserId = entry?.scenePlayerUserId ?? scene.playerUserId;
+    const playerUser = requestedUserId ? game.users.get(requestedUserId) : null;
+    const playerUserId = (isRulerScene(scene, requestedUserId) || !playerUser) ? "" : requestedUserId;
+
+    // シーンプレイヤーの消化記録はフェイズ単位でリセットし、巡回シーンでは全員が務め終えた
+    // 時点でも次の巡へリセットする(14-8)。ルーラーシーンは務め手がいないので記帳しない
+    let done = phase === st.phase ? [...(st.scenePlayerDone ?? [])] : [];
+    if (scene.kind === "rotation") done = resolveRotationDefault(rotationOrder(_activeHandouts()), done).done;
+    if (playerUserId && !done.includes(playerUserId)) done.push(playerUserId);
+
+    // イベントシーンは**開始時**に実行済みとして記帳する(2026-08-09 ユーザー指定)
+    const doneEvents = [...(st.doneEventSceneIds ?? [])];
+    if (scene.kind === "event" && !doneEvents.includes(scene.id)) doneEvents.push(scene.id);
+
+    // 舞台裏・その場で決めた値はシーン単位(前シーンの状態を持ち越さない)
+    await setState({
+        phase, sceneId: scene.id, sceneEnded: false, backstage: { ...BACKSTAGE_INITIAL },
+        sceneOverride: entry?.override ?? null,
+        scenePlayerUserId: requestedUserId,
+        scenePlayerDone: done,
+        doneEventSceneIds: doneEvents,
+    });
     await _setScenePlayerFlags(playerUserId);
     // シーンプレイヤーのキャラクターは判定なしで登場する(仕様確認ポイント2・承認済み)。
     // 台本の「登場キャラクター」事前設定(14-8)も同じ入場処理で登場させる——RL 側の指定なので

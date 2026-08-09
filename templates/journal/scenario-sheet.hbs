@@ -126,6 +126,7 @@
                     <div class="scene-table">
                         <div class="scene-table-header">
                             <div class="header-cell scene-number">No.</div>
+                            <div class="header-cell scene-kind">種別</div>
                             <div class="header-cell scene-name">シーン名</div>
                             <div class="header-cell scene-player">シーンプレイヤー</div>
                             <div class="header-cell scene-stage">使用シーン</div>
@@ -142,22 +143,37 @@
                                         <div class="table-cell scene-number">
                                             <input type="text" name="number" value="{{scene.number}}"/>
                                         </div>
+                                        {{!-- 種別(14-8): 通常/巡回/イベント。台本を読んだだけで
+                                              進行の形が分かるよう一覧の行に出す --}}
+                                        <div class="table-cell scene-kind">
+                                            <select name="kind">
+                                                {{#each @root.sceneKindOptions as |opt|}}
+                                                    <option value="{{opt.value}}" {{#if (eq opt.value scene.kind)}}selected{{/if}}>{{opt.label}}</option>
+                                                {{/each}}
+                                            </select>
+                                        </div>
                                         <div class="table-cell scene-name">
                                             <input type="text" name="name" value="{{scene.name}}"/>
                                         </div>
                                         <div class="table-cell scene-player">
-                                            <select name="playerUserId">
-                                                <option value="">{{#if scene.player}}旧: {{scene.player}}{{else}}- 未選択 -{{/if}}</option>
-                                                {{#each ../../scenePlayerUsers as |user|}}
-                                                    <option value="{{user.id}}" {{#if (eq user.id scene.playerUserId)}}selected{{/if}}>
-                                                        {{user.name}}
-                                                    </option>
-                                                {{/each}}
-                                            </select>
+                                            {{#if (eq scene.kind "rotation")}}
+                                                {{!-- 巡回シーンのシーンプレイヤーは入場のたびに
+                                                      ハンドアウト順の未消化の先頭へ回る＝台本では決めない --}}
+                                                <select data-no-save disabled><option>巡回</option></select>
+                                            {{else}}
+                                                <select name="playerUserId">
+                                                    <option value="">{{#if scene.player}}旧: {{scene.player}}{{else}}- 未選択 -{{/if}}</option>
+                                                    {{#each ../../scenePlayerUsers as |user|}}
+                                                        <option value="{{user.id}}" {{#if (eq user.id scene.playerUserId)}}selected{{/if}}>
+                                                            {{user.name}}
+                                                        </option>
+                                                    {{/each}}
+                                                </select>
+                                            {{/if}}
                                         </div>
                                         <div class="table-cell scene-stage">
                                             <select name="stage">
-                                                <option value="">- 舞台なし -</option>
+                                                <option value="">- 使用シーンなし -</option>
                                                 {{#if ../../stageSubSceneOptions.length}}
                                                     <optgroup label="サブシーン">
                                                         {{#each ../../stageSubSceneOptions as |opt|}}
@@ -184,27 +200,40 @@
                                             {{!-- 「詳細設定」の折りたたみ自体がグループ=内側に枠は作らない。
                                                   登場設定は横並びの行に置く(2026-08-09 指摘=縦積みのみでは右が空く)。
                                                   ラベルは各コントロールに直付け --}}
-                                            <div class="scene-detail-row">
-                                                <label>エリア</label>
-                                                <select name="area">
-                                                    {{#each @root.sceneAreaOptions as |opt|}}
-                                                        <option value="{{opt.value}}" {{#if (eq opt.value scene.area)}}selected{{/if}}>{{opt.label}}</option>
-                                                    {{/each}}
-                                                </select>
-                                                <label class="scene-detail-label--next">登場判定</label>
-                                                <select name="appearanceMode">
-                                                    <option value="area" {{#if (eq scene.appearanceMode "area")}}selected{{/if}}>エリア準拠</option>
-                                                    <option value="fixed" {{#if (eq scene.appearanceMode "fixed")}}selected{{/if}}>数値指定</option>
-                                                    <option value="none" {{#if (eq scene.appearanceMode "none")}}selected{{/if}}>不可</option>
-                                                </select>
-                                                {{#if (eq scene.appearanceMode "fixed")}}
-                                                    <div class="number-input-spinner">
-                                                        <button type="button" class="tnx-btn" data-action="spinDown" aria-label="減少">−</button>
-                                                        <input type="number" name="appearanceValue" value="{{scene.appearanceValue}}" min="0"/>
-                                                        <button type="button" class="tnx-btn" data-action="spinUp" aria-label="増加">＋</button>
-                                                    </div>
-                                                {{/if}}
-                                            </div>
+                                            {{!-- イベントシーンの起動条件(14-8): RL が読んで判断する
+                                                  ための覚え書き。条件の自動判定は行わない --}}
+                                            {{#if (eq scene.kind "event")}}
+                                                <div class="scene-detail-row">
+                                                    <label>起動条件</label>
+                                                    <input type="text" name="eventCondition" value="{{scene.eventCondition}}"/>
+                                                </div>
+                                            {{/if}}
+                                            {{!-- 巡回シーンはエリア・登場判定を台本で持たない
+                                                  (常に「未設定」＝シーン開始ダイアログで決める) --}}
+                                            {{#unless (eq scene.kind "rotation")}}
+                                                <div class="scene-detail-row">
+                                                    <label>エリア</label>
+                                                    <select name="area">
+                                                        {{#each @root.sceneAreaOptions as |opt|}}
+                                                            <option value="{{opt.value}}" {{#if (eq opt.value scene.area)}}selected{{/if}}>{{opt.label}}</option>
+                                                        {{/each}}
+                                                    </select>
+                                                    <label class="scene-detail-label--next">登場判定</label>
+                                                    <select name="appearanceMode">
+                                                        <option value="area" {{#if (eq scene.appearanceMode "area")}}selected{{/if}}>エリア準拠</option>
+                                                        <option value="fixed" {{#if (eq scene.appearanceMode "fixed")}}selected{{/if}}>数値指定</option>
+                                                        <option value="unset" {{#if (eq scene.appearanceMode "unset")}}selected{{/if}}>未設定</option>
+                                                        <option value="none" {{#if (eq scene.appearanceMode "none")}}selected{{/if}}>不可</option>
+                                                    </select>
+                                                    {{#if (eq scene.appearanceMode "fixed")}}
+                                                        <div class="number-input-spinner">
+                                                            <button type="button" class="tnx-btn" data-action="spinDown" aria-label="減少">−</button>
+                                                            <input type="number" name="appearanceValue" value="{{scene.appearanceValue}}" min="0"/>
+                                                            <button type="button" class="tnx-btn" data-action="spinUp" aria-label="増加">＋</button>
+                                                        </div>
+                                                    {{/if}}
+                                                </div>
+                                            {{/unless}}
                                             {{!-- 登場不可のシーンは登場判定そのものが起きない=指定技能は出さない
                                                   (2026-08-09 指摘。既存の指定はデータとして保持し、モードを戻せば再表示) --}}
                                             {{#unless (eq scene.appearanceMode "none")}}

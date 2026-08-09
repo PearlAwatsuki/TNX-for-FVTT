@@ -23,6 +23,51 @@ export const AREA_APPEARANCE = Object.freeze({
 });
 
 /**
+ * シーン開始ダイアログで目標値を手入力するときの初期値(2026-08-09 ユーザー指定)。
+ * エリアを選ぶとそのエリアの固定値に置き換わる。
+ */
+export const DEFAULT_APPEARANCE_TARGET = 10;
+
+/** エリアの固定目標値(未設定・未知のエリアは null)。 */
+export function areaTargetValue(area) {
+    return AREA_APPEARANCE[area]?.tn ?? null;
+}
+
+/**
+ * そのシーンの登場設定を解決する(14-8)。行の設定が「未設定」(`unset`＝巡回シーンは常にこれ)の
+ * ときだけ、シーン開始ダイアログが決めた実行時の上書きを使う。
+ *
+ * 上書きは「エリアの性質＋目標値の直接指定」の形に落ちる——住宅施設を舞台にした場合も、
+ * 住宅の登場判定目標値を `fixed` として渡し、エリアは住宅エリアのランクをそのまま置く。
+ * こうすると危険値係数(グリーン×1・ホワイト×2)とサンクチュアリの装備ゲートが
+ * 既存の `appearanceCheckParams` の経路でそのまま効く(14-7 の「数値指定＝TN の差し替えのみ」)。
+ *
+ * 表示(パネルの「登場：」行)と判定の双方がこの1本を通ることで、値の出所が一致する。
+ * @param {?object} row 正規化済みシーン行
+ * @param {?{area?:string, appearanceValue?:?number, appearanceSkills?:Array<string>}} [override]
+ * @returns {{area:string, mode:string, fixedValue:?number, skills:Array<string>}}
+ */
+export function resolveSceneAppearance(row, override = null) {
+    const r = row ?? {};
+    const rowSkills = Array.isArray(r.appearanceSkills) ? r.appearanceSkills : [];
+    const mode = r.appearanceMode ?? "area";
+    if (mode !== "unset") {
+        return { area: r.area ?? "", mode, fixedValue: r.appearanceValue ?? null, skills: rowSkills };
+    }
+    // 未決定(ダイアログを閉じた等)は目標値を出さない。指定技能は台本の指定が生きる
+    if (!override) return { area: "", mode: "area", fixedValue: null, skills: rowSkills };
+    // 空欄・null は「目標値なし」。Number("")/Number(null) は 0 になるので素通しにしない
+    const raw = override.appearanceValue;
+    const value = (raw === null || raw === undefined || raw === "") ? NaN : Number(raw);
+    return {
+        area:       override.area ?? "",
+        mode:       "fixed",
+        fixedValue: Number.isFinite(value) ? value : null,
+        skills:     Array.isArray(override.appearanceSkills) ? override.appearanceSkills : rowSkills,
+    };
+}
+
+/**
  * 登場判定のパラメータ(目標値・達成値修正・登場不可)を算出する。
  * シーン行の登場設定(14-7): mode="area"(既定=エリアの固定 TN)/"fixed"(数値指定=TN はその値・
  * 危険値係数はエリアに従う)/"none"(登場不可=シーンプレイヤー以外登場できない)。
