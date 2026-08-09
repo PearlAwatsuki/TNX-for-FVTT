@@ -27,6 +27,7 @@ import {
     withResolvedInfoSkillNames, handoutDisplayTitle, handoutNumberOf, handoutStyleDisplay,
 } from "./session-logic.mjs";
 import { loadGeneralSkillNameByKey, loadSkillChoices, STYLE_PACK } from "./skill-dictionary.mjs";
+import { presetLabel } from "./request-presets.mjs";
 import { formatSkillName } from "./identification.mjs";
 import { TnxActionHandler } from "./tnx-action-handler.mjs";
 import { applyStageRef } from "./subscenes.mjs";
@@ -216,8 +217,10 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             castLabel: (h.userId ? game.users.get(h.userId)?.name : null)
                 ?? (h.actorId ? game.actors.get(h.actorId)?.name : null) ?? "",
         }));
-        context.texts = (journal.getFlag(SCOPE, "scenarioTexts") ?? []).map(t => ({
-            id: t.id, title: t.title || "テキスト",
+        // 名前が未入力のテキストはアクトシートと同じ「テキストn」で並べる(全部「テキスト」に
+        // なると送信先を選べないため)
+        context.texts = (journal.getFlag(SCOPE, "scenarioTexts") ?? []).map((t, i) => ({
+            id: t.id, title: presetLabel(t, i, "テキスト"),
         }));
         // 技能行の識別キーは辞典逆引きの現在名で表示する(14-7・生キー/空欄を出さない)
         const skillNameByKey = await loadGeneralSkillNameByKey();

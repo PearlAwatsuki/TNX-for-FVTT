@@ -8,6 +8,7 @@ import {
   newBountyPreset,
   newDamageGrantPreset,
   newEffectGrantPreset,
+  newScenarioTextPreset,
   damagePresetToForm,
   effectPresetIsEmpty,
 } from "../../scripts/module/request-presets.mjs";
@@ -69,6 +70,24 @@ describe("presetLabel()（プレースホルダー）", () => {
 
   it("報酬点でも同じ規則", () => {
     expect(presetLabel({ label: "" }, 1, "報酬点")).toBe("報酬点2");
+  });
+
+  it("シナリオテキストは名前欄のキーが title（既存データのキー名を保つ）", () => {
+    expect(presetLabel({ title: "オープニング読み上げ" }, 0, "テキスト")).toBe("オープニング読み上げ");
+    expect(presetLabel({ title: "" }, 1, "テキスト")).toBe("テキスト2");
+  });
+});
+
+describe("newScenarioTextPreset()（シナリオテキストの新規行）", () => {
+  it("名前は空・本文は空（名前は未入力ならプレースホルダーが出る）", () => {
+    const row = newScenarioTextPreset();
+    expect(row.title).toBe("");
+    expect(row.content).toBe("");
+    expect(row.id).toBeTruthy();
+  });
+
+  it("行ごとに id が振られる", () => {
+    expect(newScenarioTextPreset().id).not.toBe(newScenarioTextPreset().id);
   });
 });
 

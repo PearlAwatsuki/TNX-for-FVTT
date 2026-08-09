@@ -5106,31 +5106,29 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .scene-details-row > summary:hover { color: var(--tnx2-text-accent); }
 
-.texts-container, .info-container {
+.info-container {
     display: flex;
     flex-direction: column;
     gap: 15px;
 }
 
-.text-item-list, .info-item-list {
+.info-item-list {
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
 
-.text-item,
 .info-item {
     background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-active);
     border-radius: var(--tnx2-radius);
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    transition: all 0.3s ease-out;
 }
 
-.text-item { border: 1px solid var(--tnx2-border-subtle); }
-.info-item { border: 1px solid var(--tnx2-border-active); transition: all 0.3s ease-out; }
-
-.text-item-body, .info-item-body { padding: 12px; }
+.info-item-body { padding: 12px; display: flex; flex-direction: column; }
 
 .no-items-placeholder {
     text-align: center;
@@ -5141,8 +5139,6 @@ body.tnx-bottom-hud-expanded #hotbar {
     border-radius: var(--tnx2-radius);
     margin-top: 10px;
 }
-
-.info-item-body { display: flex; flex-direction: column; }
 
 .info-item-body .info-contents-list { flex-grow: 1; }
 

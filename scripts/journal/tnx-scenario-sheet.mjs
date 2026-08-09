@@ -2,7 +2,7 @@ import { loadGroupedGeneralSkillChoices, loadGeneralSkillNameByKey, loadOnomasti
 import { formatSkillName } from '../module/identification.mjs';
 import {
     presetLabel, newCheckRequestPreset, newBountyPreset,
-    newDamageGrantPreset, newEffectGrantPreset,
+    newDamageGrantPreset, newEffectGrantPreset, newScenarioTextPreset,
 } from '../module/request-presets.mjs';
 import { RL_DAMAGE_TYPES, RL_DAMAGE_CATEGORIES, RL_DAMAGE_MODES } from '../module/rl-grant-logic.mjs';
 import { promptEffectData } from '../module/effect-authoring.mjs';
@@ -29,8 +29,6 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         actions: {
             addScene:          TnxScenarioSheet._onAddScene,
             deleteScene:       TnxScenarioSheet._onDeleteScene,
-            addTextItem:       TnxScenarioSheet._onAddTextItem,
-            deleteTextItem:    TnxScenarioSheet._onDeleteTextItem,
             addInfoItem:       TnxScenarioSheet._onAddInfoItem,
             deleteInfoItem:    TnxScenarioSheet._onDeleteInfoItem,
             addInfoContent:    TnxScenarioSheet._onAddInfoContent,
@@ -41,6 +39,8 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             addHandout:        TnxScenarioSheet._onAddHandout,
             deleteHandout:     TnxScenarioSheet._onDeleteHandout,
             removeAppearanceSkill: TnxScenarioSheet._onRemoveAppearanceSkill,
+            addTextPreset:         TnxScenarioSheet._onAddTextPreset,
+            deleteTextPreset:      TnxScenarioSheet._onDeleteTextPreset,
             addCheckRequestPreset: TnxScenarioSheet._onAddCheckRequestPreset,
             addBountyPreset:       TnxScenarioSheet._onAddBountyPreset,
             addDamageGrantPreset:  TnxScenarioSheet._onAddDamageGrantPreset,
@@ -124,6 +124,12 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             ...g,
             skills: (g.skills ?? []).map(o => ({ ...o, selected: o.identificationKey === key })),
         }));
+        // シナリオテキストも RL プリセットの一員(2026-08-09 にテキストタブから合流)。
+        // 名前欄のキーは既存データのまま title
+        context.scenarioTexts = (flagData.scenarioTexts || []).map((p, i) => ({
+            ...p,
+            placeholder: presetLabel({}, i, "テキスト"),
+        }));
         context.checkRequestPresets = (flagData.checkRequests || []).map((p, i) => ({
             ...p,
             placeholder: presetLabel({}, i, "判定要求"),
@@ -156,7 +162,6 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             },
         }));
 
-        context.scenarioTexts = flagData.scenarioTexts || [];
         // 情報項目の使用技能(2026-08-09 裁定): **1行＝技能の集合＋共通の目標値**のタグ入力。
         // 選ぶと行の中に積み上がり、目標値の異なる技能は行そのものを足す。自由記述は廃止
         // (コネも辞典格納の運用になったため)。旧い自由記述は「旧: …」のタグで残す
@@ -259,10 +264,18 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
     _setupChangeListeners() {
         const el = this.element;
 
-        // RL プリセット(判定要求・報酬点・ダメージ・効果)
-        for (const input of el.querySelectorAll('.preset-item [data-preset-kind]')) {
-            input.addEventListener('change', this._onPresetFieldChange.bind(this));
-        }
+        // prose-mirror はフォーム要素(name/value)。保存確定は save イベントでも通知されるため
+        // change と save の両方を購読する(二重発火しても保存は同値=冪等)
+        const bind = (elements, handler) => {
+            for (const input of elements) {
+                input.addEventListener('change', handler);
+                if (input.tagName === 'PROSE-MIRROR') input.addEventListener('save', handler);
+            }
+        };
+
+        // RL プリセット(シナリオテキスト・判定要求・報酬点・ダメージ・効果)
+        bind(el.querySelectorAll('.preset-item [data-preset-kind]'),
+            this._onPresetFieldChange.bind(this));
 
         // ダメージ付与プリセットの欄同期(付与ダイアログと同じ規則・2026-07-24):
         // 種別は物理のみ／値ラベルは 固定＝「ダメージ」・カード＝「基準値（攻撃力相当）」／
@@ -284,14 +297,6 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             sync();
         }
 
-        // prose-mirror はフォーム要素(name/value)。保存確定は save イベントでも通知されるため
-        // change と save の両方を購読する(二重発火しても保存は同値=冪等)
-        const bind = (elements, handler) => {
-            for (const input of elements) {
-                input.addEventListener('change', handler);
-                if (input.tagName === 'PROSE-MIRROR') input.addEventListener('save', handler);
-            }
-        };
         bind(el.querySelectorAll(
             '.scene-item input:not([data-no-save]), .scene-item select:not([data-no-save]), .scene-item prose-mirror'),
         this._onSceneItemChange.bind(this));
@@ -302,8 +307,6 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             select.addEventListener('change', this._onAppearanceSkillAdd.bind(this));
         }
 
-        bind(el.querySelectorAll('.text-item input[type="text"], .text-item prose-mirror'),
-            this._onTextItemChange.bind(this));
         bind(el.querySelectorAll(
             '.info-item input:not([data-no-save]), .info-item select:not([data-no-save]), .info-item prose-mirror'),
         this._onInfoItemChange.bind(this));
@@ -375,17 +378,6 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             : input.type === 'number' ? (Number.isFinite(parseInt(input.value)) ? parseInt(input.value) : null)
             : input.value;
         await this.document.setFlag("tokyo-nova-axleration", "scenes", scenes);
-    }
-
-    async _onTextItemChange(event) {
-        const input = event.currentTarget;
-        const id = input.closest('.text-item').dataset.id;
-        const texts = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "scenarioTexts") || []);
-        const textItem = texts.find(t => t.id === id);
-        if (textItem) {
-            textItem[input.name] = input.value;
-            await this.document.setFlag("tokyo-nova-axleration", "scenarioTexts", texts);
-        }
     }
 
     async _onInfoItemChange(event) {
@@ -464,24 +456,6 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
     // シーン切替はシナリオコントロールパネル(14-3)へ完全移行した。旧「切替」ボタンは
     // journal の currentState フラグを更新する旧経路で、sessionState と状態が二重化するため
     // 14-3 で即オミット(2026-08-08 承認)。
-
-    static async _onAddTextItem(_event, _target) {
-        const texts = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "scenarioTexts") || []);
-        texts.push({ id: foundry.utils.randomID(), title: "新規テキスト", content: "" });
-        await this.document.setFlag("tokyo-nova-axleration", "scenarioTexts", texts);
-    }
-
-    static async _onDeleteTextItem(_event, target) {
-        const textItemId = target.closest('.text-item').dataset.id;
-        const confirmed = await DialogV2.confirm({
-            window: { title: "テキストの削除" },
-            content: "<p>このテキスト項目を削除しますか？</p>",
-        });
-        if (!confirmed) return;
-        let texts = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "scenarioTexts") || []);
-        texts = texts.filter(t => t.id !== textItemId);
-        await this.document.setFlag("tokyo-nova-axleration", "scenarioTexts", texts);
-    }
 
     static async _onAddInfoItem(_event, _target) {
         const items = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "infoItems") || []);
@@ -617,11 +591,31 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         await this.document.setFlag("tokyo-nova-axleration", "handouts", handouts);
     }
 
-    // ─── 判定要求・報酬点のプリセット(フェーズ12-5) ────────────────────────────
+    // ─── RL プリセット(フェーズ12-5。14-8 でシナリオテキストも合流) ─────────────
 
-    /** プリセット配列を取り出す(kind = checkRequests / bountyGrants)。 */
+    /** プリセット配列を取り出す(kind = 保存先のフラグキー。scenarioTexts / checkRequests など)。 */
     _presets(kind) {
         return foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", kind) || []);
+    }
+
+    static async _onAddTextPreset(_event, _target) {
+        const rows = this._presets("scenarioTexts");
+        rows.push(newScenarioTextPreset());
+        await this.document.setFlag("tokyo-nova-axleration", "scenarioTexts", rows);
+    }
+
+    /**
+     * シナリオテキストの削除だけは確認を挟む(他のプリセットは設定値だが、
+     * ここで消えるのは書き溜めた本文そのもののため)。
+     */
+    static async _onDeleteTextPreset(_event, target) {
+        const confirmed = await DialogV2.confirm({
+            window: { title: "テキストの削除" },
+            content: "<p>このテキスト項目を削除しますか？</p>",
+        });
+        if (!confirmed) return;
+        const rows = this._presets("scenarioTexts").filter(p => p.id !== target.dataset.presetId);
+        await this.document.setFlag("tokyo-nova-axleration", "scenarioTexts", rows);
     }
 
     static async _onAddCheckRequestPreset(_event, _target) {

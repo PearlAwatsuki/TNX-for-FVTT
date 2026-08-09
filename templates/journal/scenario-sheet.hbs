@@ -8,10 +8,6 @@
             <i class="fas fa-film"></i>
             <span>シーン</span>
         </a>
-        <a class="item" data-action="tab" data-tab="texts" data-group="primary">
-            <i class="fas fa-paragraph"></i>
-            <span>テキスト</span>
-        </a>
         <a class="item" data-action="tab" data-tab="info" data-group="primary">
             <i class="fas fa-info-circle"></i>
             <span>情報項目</span>
@@ -256,43 +252,6 @@
             </div>
         </div>
 
-        <div class="tab texts" data-group="primary" data-tab="texts">
-            <div class="texts-container">
-                <div class="tnx-section-header">
-                    <h3>シナリオテキスト</h3>
-                    <button type="button" class="tnx-btn tnx-btn--sm" data-action="addTextItem" title="テキスト項目を追加">
-                        <i class="fas fa-plus"></i> テキストを追加
-                    </button>
-                </div>
-                <div class="text-item-list">
-                    {{#each scenarioTexts as |textItem|}}
-                        <div class="text-item" data-id="{{textItem.id}}">
-                            <div class="tnx-item-header tnx-item-header--card">
-                                <input type="text" name="title" value="{{textItem.title}}" placeholder="テキストのタイトル"/>
-                                <div class="tnx-ctrl-strip">
-                                    <a class="tnx-icon-ctrl" data-action="deleteTextItem" title="この項目を削除"><i class="fas fa-trash"></i></a>
-                                </div>
-                            </div>
-                            <div class="text-item-body">
-                                <div class="tnx-editor-section">
-                                    <div class="tnx-editor-section__header">
-                                        <label>内容</label>
-                                    </div>
-                                    <div class="tnx-editor-section__content">
-                                        <prose-mirror name="content" value="{{textItem.content}}" toggled>{{{textItem.content}}}</prose-mirror>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    {{else}}
-                        <div class="no-items-placeholder">
-                            <p>テキスト項目がありません。「テキストを追加」ボタンから作成してください。</p>
-                        </div>
-                    {{/each}}
-                </div>
-            </div>
-        </div>
-
         <div class="tab info" data-group="primary" data-tab="info">
             <div class="info-container">
                 <div class="tnx-section-header">
@@ -392,6 +351,46 @@
 
         <div class="tab requests" data-group="primary" data-tab="requests">
             <div class="request-preset-container">
+
+                {{!-- シナリオテキストは RL が卓で送る素材＝他のプリセットと同じ扱い(2026-08-09 に
+                      テキストタブから合流)。保存先フラグは scenarioTexts のまま --}}
+                <div class="tnx-section-header">
+                    <h3>シナリオテキスト</h3>
+                    <button type="button" class="tnx-btn tnx-btn--sm" data-action="addTextPreset">
+                        <i class="fas fa-plus"></i> テキストを追加
+                    </button>
+                </div>
+                <div class="preset-list">
+                    {{#each scenarioTexts}}
+                        <div class="preset-item" data-preset-id="{{this.id}}">
+                            <div class="tnx-item-header tnx-item-header--card">
+                                {{!-- 名前欄は他のプリセットの label と同じ役割だが、既存データのキー名 title を保つ --}}
+                                <input type="text" name="title" value="{{this.title}}" placeholder="{{this.placeholder}}"
+                                       data-preset-kind="scenarioTexts" data-preset-id="{{this.id}}">
+                                <div class="tnx-ctrl-strip">
+                                    <a class="tnx-icon-ctrl" data-action="presetUp"   data-preset-kind="scenarioTexts" data-preset-id="{{this.id}}" title="上へ"><i class="fas fa-chevron-up"></i></a>
+                                    <a class="tnx-icon-ctrl" data-action="presetDown" data-preset-kind="scenarioTexts" data-preset-id="{{this.id}}" title="下へ"><i class="fas fa-chevron-down"></i></a>
+                                    <a class="tnx-icon-ctrl" data-action="deleteTextPreset" data-preset-id="{{this.id}}" title="削除"><i class="fas fa-trash"></i></a>
+                                </div>
+                            </div>
+                            <div class="preset-body">
+                                <div class="tnx-editor-section">
+                                    <div class="tnx-editor-section__header">
+                                        <label>内容</label>
+                                    </div>
+                                    <div class="tnx-editor-section__content">
+                                        <prose-mirror name="content" value="{{this.content}}" toggled
+                                                      data-preset-kind="scenarioTexts" data-preset-id="{{this.id}}">{{{this.content}}}</prose-mirror>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {{else}}
+                        <div class="no-items-placeholder">
+                            <p>シナリオテキストがありません。「テキストを追加」から作成してください。</p>
+                        </div>
+                    {{/each}}
+                </div>
 
                 <div class="tnx-section-header">
                     <h3>判定要求</h3>

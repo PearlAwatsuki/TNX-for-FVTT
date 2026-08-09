@@ -31,12 +31,13 @@ export function collectPresets(journals, key) {
 
 /**
  * プリセットの表示名。未入力なら「<種別>n」(1 始まり)をプレースホルダーにする。
+ * 名前欄のキーは `label`(シナリオテキストのみ既存データのキー名 `title`)。
  * @param {object} preset
  * @param {number} index 0 始まりの並び順
- * @param {string} kindLabel 「判定要求」「報酬点」
+ * @param {string} kindLabel 「判定要求」「報酬点」「テキスト」
  */
 export function presetLabel(preset, index, kindLabel) {
-    const label = String(preset?.label ?? "").trim();
+    const label = String(preset?.label ?? preset?.title ?? "").trim();
     return label || `${kindLabel}${index + 1}`;
 }
 
@@ -85,6 +86,14 @@ export function newCheckRequestPreset() {
 /** 報酬点プリセットの新規行。 */
 export function newBountyPreset() {
     return { id: randomID(), label: "", amount: 0, note: "" };
+}
+
+/**
+ * シナリオテキストの新規行(2026-08-09 にテキストタブから RL プリセットへ合流)。
+ * 名前欄は他のプリセットの `label` と同じ役割だが、既存データのキー名 `title` を保つ。
+ */
+export function newScenarioTextPreset() {
+    return { id: randomID(), title: "", content: "" };
 }
 
 /** ダメージの決め方(固定/カード算出・2026-07-24)。不正・未指定は固定に落とす。 */
