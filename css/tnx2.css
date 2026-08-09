@@ -4922,11 +4922,13 @@ body.tnx-bottom-hud-expanded #hotbar {
     align-items: center;
 }
 
-/* アクトシートのラベル付き欄(2026-08-09 全面改修):
+/* RL プリセットのラベル付き欄(2026-08-09):
    グループ単位の共有グリッド。ラベル列は max-content=グループ内の最長ラベル幅に縮め、
    ラベルは右揃えでコントロールに密着させる(距離は常に一定・コントロール左端はグループ内で一致)。
    セレクトは内容幅(180〜380px)・スピナーは左置き。全幅に伸ばすのはテキスト入力と
-   長文エディタのみ(幅=期待される入力量の合図) */
+   長文エディタのみ(幅=期待される入力量の合図)。
+   ※ラベルの短い欄が並ぶハンドアウト・シーン詳細設定では、この共有列が無用の隙間を作るため
+     使わない(ラベル直付けの横並び行=下記 .handout-row / .scene-detail-row・2026-08-09 指摘) */
 .scenario-sheet .tnx-form-field {
     display: grid;
     grid-template-columns: max-content 1fr;
@@ -4971,26 +4973,6 @@ body.tnx-bottom-hud-expanded #hotbar {
     gap: 5px;
 }
 
-/* 複合コントロール行(セレクト＋スピナー等): 各コントロールは内容幅で並べる。
-   split-fields(ダメージプリセットの1:1並び)は既存意匠のまま対象外 */
-.scenario-sheet .form-fields:not(.split-fields) {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-}
-
-.scenario-sheet .form-fields:not(.split-fields) > select:first-child {
-    flex: 0 1 auto;
-    width: auto;
-    min-width: 180px;
-    max-width: 380px;
-}
-
-.scenario-sheet .form-fields:not(.split-fields) > .number-input-spinner { flex: 0 0 auto; }
-
-.scenario-sheet .form-fields:not(.split-fields) .number-input-spinner input[type="number"] { width: 48px; }
-
 .scene-details-body {
     display: flex;
     flex-direction: column;
@@ -4998,27 +4980,36 @@ body.tnx-bottom-hud-expanded #hotbar {
     padding: 8px;
 }
 
-/* 指定技能: チップ(登録済み)＋追加プルダウンの縦積み */
-.scene-skill-field {
+/* 詳細設定の欄(2026-08-09 指摘=縦積みのみでは右が空く): 行そのものがレイアウトを持つ
+   横並び。ラベルはコントロールに直付け(6px)・欄と欄の間は 18px で対を読み分ける */
+.scene-detail-row {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-}
-
-.scene-skill-chips {
-    display: flex;
-    gap: 4px;
-    flex-wrap: wrap;
-}
-
-.scene-skill-add {
-    display: flex;
-    gap: 6px;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
 }
 
-.scene-skill-add select { flex: 1 1 auto; min-width: 0; }
+.scene-detail-row > label {
+    flex: 0 0 auto;
+    font-weight: 600;
+    color: var(--tnx2-text-secondary);
+    white-space: nowrap;
+}
+
+.scene-detail-row > .scene-detail-label--next { margin-left: 12px; }
+
+/* 同じ行に並ぶ欄は残り幅を等分する(右が大きく空くのを避ける・上限 380px) */
+.scene-detail-row > select {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 110px;
+    max-width: 380px;
+}
+
+.scene-detail-row > .number-input-spinner { flex: 0 0 auto; }
+
+/* 指定技能: 登録済みチップ→追加プルダウンの順に同じ行へ並べ、溢れたら折り返す */
+.scene-skill-row > .appearance-skill-select { min-width: 180px; }
 
 /* 汎用チップ(識別キー参照の登録表示・×で解除) */
 .tnx-chip {
@@ -5047,17 +5038,6 @@ body.tnx-bottom-hud-expanded #hotbar {
 .scenario-sheet .act-name-section label { font-weight: 700; flex: 0 0 auto; }
 
 .scenario-sheet .act-name-section input { flex: 1 1 auto; min-width: 0; }
-
-/* コネ行(2026-08-09 裁定=必ず一つ): 単一プルダウン＋付随する推奨スート(同じ行の右) */
-.scenario-sheet .handout-conn-fields .handout-suit-label {
-    flex: 0 0 auto;
-    white-space: nowrap;
-    font-weight: 600;
-    font-size: 0.9em;
-    color: var(--tnx2-text-muted);
-}
-
-.scenario-sheet .handout-conn-fields .handout-suit-select { flex: 0 0 auto; width: auto; min-width: 0; }
 
 .scene-details-row { border-top: 1px dashed transparent; }
 .scene-details-row[open] { border-top-color: var(--tnx2-border-subtle); }
@@ -5215,6 +5195,43 @@ body.tnx-bottom-hud-expanded #hotbar {
 }
 
 .handout-row--header .handout-title { flex: 1 1 auto; }
+
+/* 2行目以降の欄(2026-08-09 指摘=ラベル列グリッドは短いラベルに無用の隙間を作る):
+   行そのものがレイアウトを持つ横並び。ラベルはコントロールに直付け(6px)・
+   欄と欄の間は 18px。全幅に伸ばすのは長文を書く PS だけ */
+.handout-row--meta,
+.handout-row--ps,
+.handout-row--user {
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.handout-row--meta > label,
+.handout-row--ps > label,
+.handout-row--user > label {
+    flex: 0 0 auto;
+    font-weight: 600;
+    color: var(--tnx2-text-secondary);
+    white-space: nowrap;
+}
+
+/* 名前を選ぶセレクトは行の残り幅を引き受ける(上限 380px)。推奨スートは4値の列挙=内容幅 */
+.handout-row--meta > .handout-conn-select,
+.handout-row--user > select {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 180px;
+    max-width: 380px;
+}
+
+.handout-row--meta > .handout-suit-select { flex: 0 0 auto; width: auto; min-width: 0; }
+
+.handout-row--meta > .handout-suit-label { margin-left: 12px; }
+
+/* PS は長文を書く欄=行の残りを全部使う(basis 0。コアの input{width:100%} を基準にすると
+   ラベルとの合計が行幅を超えて折り返す) */
+.handout-row--ps > input { flex: 1 1 0; min-width: 0; }
 
 .handout-item input[type="text"],
 .handout-item textarea {
