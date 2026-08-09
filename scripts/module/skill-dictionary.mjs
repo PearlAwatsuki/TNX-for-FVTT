@@ -351,6 +351,53 @@ export async function loadGeneralSkillNameByKey() {
 }
 
 /**
+ * 固有名詞技能名から小分類の接頭(「社会：」)を落とす。接頭を持たない辞典名はそのまま返す。
+ * @param {string} name 辞典名
+ * @param {string} category 小分類ラベル(ONOMASTIC_TYPES の値)
+ * @returns {string}
+ */
+function stripSkillCategory(name, category) {
+  const s = String(name ?? "");
+  for (const sep of ["：", ":"]) {
+    if (s.startsWith(`${category}${sep}`)) return s.slice(category.length + sep.length);
+  }
+  return s;
+}
+
+/**
+ * 識別キーの列を表示名(〈〉囲い)の列に整形する。**同じ小分類の固有名詞技能は一つに束ねる**
+ * (2026-08-09 ユーザー指示): 社会が2つなら〈社会：N◎VA、ストリート〉・コネが2つなら
+ * 〈コネ：キース・シュナイダー、エウラリア〉。束ねる位置はその小分類の初出位置、小分類を持たない
+ * 技能(無条件取得技能)は個別に並ぶ。逆引きできないキーは落とす(生キーは表示しない)。
+ * @param {Array<string>} keys 識別キーの列
+ * @param {Map<string,string>} nameByKey 識別キー→辞典名(loadGeneralSkillNameByKey)
+ * @returns {Array<string>} 「〈…〉」の列
+ */
+export function formatGroupedSkillNames(keys, nameByKey) {
+  const groups = [];
+  const byPrefix = new Map();
+  for (const key of keys ?? []) {
+    const name = nameByKey?.get(key);
+    if (!name) continue;
+    const prefix = idKeyPrefix(key);
+    const category = ONOMASTIC_TYPES[prefix];
+    if (!category) {
+      groups.push({ category: "", parts: [name] });
+      continue;
+    }
+    let group = byPrefix.get(prefix);
+    if (!group) {
+      group = { category, parts: [] };
+      byPrefix.set(prefix, group);
+      groups.push(group);
+    }
+    group.parts.push(stripSkillCategory(name, category));
+  }
+  return groups.map(g => formatSkillName(
+    g.category ? `${g.category}：${g.parts.join("、")}` : g.parts[0]));
+}
+
+/**
  * 複数辞典をまとめて `{key: name}` の選択肢オブジェクトにする(先頭に "" → "-")。
  * selectOptions ヘルパーにそのまま渡せる。
  * @param {string[]} packNames compendium 完全名の配列

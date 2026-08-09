@@ -89,6 +89,18 @@ export function getCurrentSceneRow() {
     return hit ? { phase: hit.phase, row: normalizeSceneRow(hit.row) } : null;
 }
 
+/**
+ * ルーラーシーンか(シーンプレイヤーに GM ユーザーを選択 or 旧 `isMasterScene`・2026-08-08 裁定)。
+ * ルーラーはプレイヤーではない＝シーンプレイヤーはいない。シーン入場の flag 付与とパネル/
+ * 切替チャットの表示が同じ判定を使うための共通述語。
+ * @param {object} row 正規化済みシーン行
+ * @returns {boolean}
+ */
+export function isRulerScene(row) {
+    const playerUser = row?.playerUserId ? game.users.get(row.playerUserId) : null;
+    return !!row?.isMasterScene || playerUser?.isGM === true;
+}
+
 /** 現在のシーンカード(Card ドキュメント)。未提示・解決不能は null。 */
 export async function getCurrentSceneCard() {
     const { sceneCardId } = getSessionState();
@@ -380,8 +392,7 @@ async function _applySceneEntry({ phase, row }) {
     // ルーラーシーン(GM ユーザー選択 or 旧 isMasterScene)＝**シーンプレイヤーはいない**
     // (ルーラーはプレイヤーではない・2026-08-08 裁定)→ isScenePlayer は誰にも立てない
     const playerUser = scene.playerUserId ? game.users.get(scene.playerUserId) : null;
-    const rulerScene = scene.isMasterScene || playerUser?.isGM === true;
-    const playerUserId = (rulerScene || !playerUser) ? "" : scene.playerUserId;
+    const playerUserId = (isRulerScene(scene) || !playerUser) ? "" : scene.playerUserId;
     await _setScenePlayerFlags(playerUserId);
     // シーンプレイヤーのキャラクターは判定なしで登場する(仕様確認ポイント2・承認済み)
     if (playerUserId) {

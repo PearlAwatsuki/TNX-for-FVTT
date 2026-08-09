@@ -3,6 +3,7 @@ import {
   appearanceCheckParams,
   hasNegativeDangerOutfit,
   isAppearanceSkillKey,
+  formatAppearanceSummary,
 } from "../../scripts/module/appearance-logic.mjs";
 
 describe("appearanceCheckParams()（エリア別 TN と危険値修正・Appearance_Check 正本）", () => {
@@ -82,5 +83,31 @@ describe("isAppearanceSkillKey()（登場判定の既定候補＝社会/コネ�
     expect(isAppearanceSkillKey("contact_father")).toBe(true);
     expect(isAppearanceSkillKey("melee")).toBe(false);
     expect(isAppearanceSkillKey("")).toBe(false);
+  });
+});
+
+describe("formatAppearanceSummary()（パネルの「登場：」行・2026-08-09 指示）", () => {
+  it("指定技能＋目標値を「〈…〉〈…〉 10」形式で並べる", () => {
+    expect(formatAppearanceSummary({
+      mode: "area", targetValue: 10,
+      skillNames: ["〈社会：N◎VA、ストリート〉", "〈コネ：エウラリア〉"],
+    })).toBe("〈社会：N◎VA、ストリート〉〈コネ：エウラリア〉\u00A010");
+  });
+
+  it("指定技能が無ければ目標値だけ・目標値が無ければ技能だけ", () => {
+    expect(formatAppearanceSummary({ mode: "area", targetValue: 8, skillNames: [] })).toBe("8");
+    expect(formatAppearanceSummary({ mode: "area", targetValue: null, skillNames: ["〈医療〉"] }))
+      .toBe("〈医療〉");
+  });
+
+  it("登場不可のシーンは「不可」・どちらも無ければ空（行を出さない）", () => {
+    expect(formatAppearanceSummary({ mode: "none", targetValue: null, skillNames: ["〈医療〉"] }))
+      .toBe("不可");
+    expect(formatAppearanceSummary({ mode: "area", targetValue: null, skillNames: [] })).toBe("");
+    expect(formatAppearanceSummary()).toBe("");
+  });
+
+  it("目標値0は表示する（偽値の取りこぼしを作らない）", () => {
+    expect(formatAppearanceSummary({ mode: "fixed", targetValue: 0 })).toBe("0");
   });
 });

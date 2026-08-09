@@ -62,6 +62,24 @@ export function hasNegativeDangerOutfit(items) {
     });
 }
 
+/**
+ * シーン行の登場設定の要約表示(シナリオコントロールパネルの「登場：」行・2026-08-09 ユーザー指示)。
+ * 「〈社会：N◎VA、ストリート〉〈医療〉 10」形式＝指定技能(整形済み)を並べ、末尾に目標値。
+ * 登場不可のシーンは「不可」。指定技能も目標値も無ければ ""(行そのものを出さない)。
+ * @param {{mode?: string, targetValue?: ?number, skillNames?: Array<string>}} args
+ *        skillNames は formatGroupedSkillNames で解決・整形済みの表示名
+ * @returns {string}
+ */
+export function formatAppearanceSummary({ mode = "area", targetValue = null, skillNames = [] } = {}) {
+    if (mode === "none") return "不可";
+    const skills = (skillNames ?? []).join("");
+    const tn = Number.isFinite(Number(targetValue)) && targetValue !== null && targetValue !== ""
+        ? String(targetValue) : "";
+    // 技能と目標値の間は不改行スペース: 幅の狭いパネルで折り返すと目標値だけが次行に取り残され、
+    // 何の数値か分からなくなる(隔離描画で確認・2026-08-09)
+    return [skills, tn].filter(Boolean).join("\u00A0");
+}
+
 /** 登場判定の既定候補(社会/コネ分類)の識別キーか。 */
 export function isAppearanceSkillKey(identificationKey) {
     if (!identificationKey) return false;

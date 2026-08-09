@@ -13,7 +13,7 @@
  */
 
 import {
-    getSessionState, getActiveActJournal, getCurrentSceneRow, getCurrentSceneCard,
+    getSessionState, getActiveActJournal, getCurrentSceneRow, getCurrentSceneCard, isRulerScene,
     listActJournals, loadAct, startAct, switchScene, endAct,
     createTeam, joinTeam, leaveTeam, deleteTeam, appearTeam, exitTeam, renameTeam,
     getBackstage, buildBackstageQueue, currentSceneHasBackstage, canAdvanceScene,
@@ -26,7 +26,10 @@ import {
     buildSceneSwitchMessage, buildTrailerMessage, buildHandoutMessage, buildInfoMessage,
     withResolvedInfoSkillNames, handoutDisplayTitle, handoutNumberOf, handoutStyleDisplay,
 } from "./session-logic.mjs";
-import { loadGeneralSkillNameByKey, loadSkillChoices, STYLE_PACK } from "./skill-dictionary.mjs";
+import {
+    loadGeneralSkillNameByKey, loadSkillChoices, formatGroupedSkillNames, STYLE_PACK,
+} from "./skill-dictionary.mjs";
+import { appearanceCheckParams, formatAppearanceSummary } from "./appearance-logic.mjs";
 import { presetLabel } from "./request-presets.mjs";
 import { formatSkillName } from "./identification.mjs";
 import { TnxActionHandler } from "./tnx-action-handler.mjs";
@@ -47,6 +50,23 @@ function infoContentLabel(content) {
     const text = (content.text ?? "").replace(/<[^>]*>/g, "").trim();
     if (text) return text.length > 24 ? `${text.slice(0, 24)}…` : text;
     return "（内容未入力）";
+}
+
+/**
+ * シーン行の「シーンプレイヤー」の表示解決(パネルの現在シーン表示と切替チャットで共用)。
+ * ルーラーシーン(判定は session-state の共通述語)はプレイヤー不在＝ラベルなし。
+ * 表示名は**キャスト名**(2026-08-09 ユーザー指示)＝そのユーザーの担当キャラクター。担当が
+ * 未設定ならユーザー名、旧自由文字列 `player` を最後のフォールバックにする。
+ * @param {object} row 正規化済みシーン行
+ * @returns {{rulerScene: boolean, playerLabel: string}}
+ */
+function resolveScenePlayer(row) {
+    if (isRulerScene(row)) return { rulerScene: true, playerLabel: "" };
+    const playerUser = row?.playerUserId ? game.users.get(row.playerUserId) : null;
+    return {
+        rulerScene: false,
+        playerLabel: playerUser?.character?.name ?? playerUser?.name ?? row?.player ?? "",
+    };
 }
 
 export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) {
@@ -101,21 +121,32 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             id: j.id, name: j.name, selected: j.id === st.actId,
         }));
 
-        // 現在シーン(全員向け表示)
+        // 現在シーン(全員向け表示)。上演中に卓が見る値=シーンプレイヤー・登場判定の目標値・
+        // 指定技能(2026-08-09 ユーザー指示)。技能名の逆引きは辞典キャッシュ経由で全員分行う
+        const skillNameByKey = await loadGeneralSkillNameByKey();
         context.scene = null;
         context.phaseLabel = CONFIG.TNX.phaseLabels[st.phase] ?? "";
         const current = getCurrentSceneRow();
         if (st.actStarted && current) {
             const row = current.row;
             // ルーラーシーン=シーンプレイヤー不在(2026-08-08 裁定)。「ルーラーシーン」とだけ表示する
-            const playerUser = row.playerUserId ? game.users.get(row.playerUserId) : null;
-            const rulerScene = row.isMasterScene || playerUser?.isGM === true;
+            const { rulerScene, playerLabel } = resolveScenePlayer(row);
+            // 目標値は登場判定と同じ算出(appearanceCheckParams)を使う=表示と判定の二重定義を作らない。
+            // アクター依存の引数(危険値)は渡さない＝シーン設定だけで決まる部分を出す
+            const appearance = appearanceCheckParams({
+                area: row.area, mode: row.appearanceMode, fixedValue: row.appearanceValue,
+            });
             context.scene = {
                 number: row.number || "??",
                 name: row.name || "無題のシーン",
                 areaLabel: SCENE_AREA_OPTIONS.find(o => o.value === row.area && o.value !== "")?.label ?? "",
                 rulerScene,
-                playerLabel: rulerScene ? "" : (playerUser?.name ?? row.player),
+                playerLabel,
+                appearanceLabel: formatAppearanceSummary({
+                    mode: row.appearanceMode,
+                    targetValue: appearance.targetValue,
+                    skillNames: formatGroupedSkillNames(row.appearanceSkills, skillNameByKey),
+                }),
             };
         }
 
@@ -223,7 +254,6 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             id: t.id, title: presetLabel(t, i, "テキスト"),
         }));
         // 技能行の識別キーは辞典逆引きの現在名で表示する(14-7・生キー/空欄を出さない)
-        const skillNameByKey = await loadGeneralSkillNameByKey();
         context.infoItems = (journal.getFlag(SCOPE, "infoItems") ?? [])
             .map(item => withResolvedInfoSkillNames(item, skillNameByKey))
             .map(item => ({
@@ -253,9 +283,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         if (!current) return;
         const row = current.row;
         await applyStageRef(row.stage);
-        const playerUser = row.playerUserId ? game.users.get(row.playerUserId) : null;
-        const rulerScene = row.isMasterScene || playerUser?.isGM === true;
-        const playerLabel = rulerScene ? "" : (playerUser?.name ?? row.player);
+        const { rulerScene, playerLabel } = resolveScenePlayer(row);
         await ChatMessage.create({ content: buildSceneSwitchMessage(row, { playerLabel, rulerScene }) });
         await TnxActionHandler.drawNeuroCard();
     }

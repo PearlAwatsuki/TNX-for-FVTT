@@ -12,10 +12,15 @@
                     <span class="scp-scene-title">SCENE {{scene.number}} : {{scene.name}}</span>
                 </div>
                 <div class="scp-scene-meta">
-                    {{#if scene.areaLabel}}<span class="scp-meta-item">エリア: {{scene.areaLabel}}</span>{{/if}}
-                    <span class="scp-meta-item">
-                        {{#if scene.rulerScene}}ルーラーシーン{{else if scene.playerLabel}}シーンプレイヤー: {{scene.playerLabel}}{{/if}}
-                    </span>
+                    {{#if scene.areaLabel}}<span class="scp-meta-item">エリア：{{scene.areaLabel}}</span>{{/if}}
+                    {{#if scene.rulerScene}}
+                        <span class="scp-meta-item">ルーラーシーン</span>
+                    {{else if scene.playerLabel}}
+                        <span class="scp-meta-item">シーンプレイヤー：{{scene.playerLabel}}</span>
+                    {{/if}}
+                    {{#if scene.appearanceLabel}}
+                        <span class="scp-meta-item">登場：{{scene.appearanceLabel}}</span>
+                    {{/if}}
                 </div>
             {{/if}}
             {{#if sceneCard}}

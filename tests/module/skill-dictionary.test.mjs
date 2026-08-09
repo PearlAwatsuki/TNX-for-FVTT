@@ -5,6 +5,7 @@ import {
   isWholeCategoryToken,
   buildSkillCascadeSteps,
   resolveComboSkillName,
+  formatGroupedSkillNames,
 } from "../../scripts/module/skill-dictionary.mjs";
 
 describe("idKeyPrefix()", () => {
@@ -44,6 +45,42 @@ describe("resolveComboSkillName()", () => {
     expect(resolveComboSkillName("unknown_key", skillNames)).toBe("unknown_key");
     expect(resolveComboSkillName("", skillNames)).toBe("");
     expect(resolveComboSkillName(null, skillNames)).toBe("");
+  });
+});
+
+describe("formatGroupedSkillNames()（同小分類の固有名詞技能をまとめる・2026-08-09 指示）", () => {
+  const NAMES = new Map([
+    ["society_nova",    "社会：N◎VA"],
+    ["society_street",  "社会：ストリート†"],
+    ["contact_keith",   "コネ：キース・シュナイダー"],
+    ["contact_eulalia", "コネ：エウラリア"],
+    ["medicine",        "医療"],
+    ["art_music",       "芸術：音楽"],
+  ]);
+
+  it("同じ小分類は一つの〈〉に束ね、名前の接頭（社会：）を落として「、」で連ねる", () => {
+    expect(formatGroupedSkillNames(["society_nova", "society_street"], NAMES))
+      .toEqual(["〈社会：N◎VA、ストリート〉"]);
+    expect(formatGroupedSkillNames(["contact_keith", "contact_eulalia"], NAMES))
+      .toEqual(["〈コネ：キース・シュナイダー、エウラリア〉"]);
+  });
+
+  it("小分類をまたぐ指定はそれぞれ束ね、束ねる位置は小分類の初出位置", () => {
+    expect(formatGroupedSkillNames(
+      ["society_nova", "contact_keith", "society_street", "contact_eulalia"], NAMES))
+      .toEqual(["〈社会：N◎VA、ストリート〉", "〈コネ：キース・シュナイダー、エウラリア〉"]);
+  });
+
+  it("小分類を持たない技能（無条件取得技能）は個別に並ぶ", () => {
+    expect(formatGroupedSkillNames(["medicine", "society_nova", "art_music"], NAMES))
+      .toEqual(["〈医療〉", "〈社会：N◎VA〉", "〈芸術：音楽〉"]);
+  });
+
+  it("逆引きできないキーは落とす（生キーを表示しない）・空入力は空配列", () => {
+    expect(formatGroupedSkillNames(["society_nova", "society_gone"], NAMES))
+      .toEqual(["〈社会：N◎VA〉"]);
+    expect(formatGroupedSkillNames([], NAMES)).toEqual([]);
+    expect(formatGroupedSkillNames(null, NAMES)).toEqual([]);
   });
 });
 
