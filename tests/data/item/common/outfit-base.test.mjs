@@ -204,9 +204,9 @@ describe("OutfitBaseTemplate.defineSchema()", () => {
       expect(schema.uses.fields.isLimit.options.initial).toBe(false);
     });
 
-    it("uses.max は NumberField で initial が 0", () => {
-      expect(schema.uses.fields.max).toBeInstanceOf(MockNumberField);
-      expect(schema.uses.fields.max.options.initial).toBe(0);
+    it("uses.max は StringField で initial が空文字(数値も式も受ける・2026-08-09)", () => {
+      expect(schema.uses.fields.max).toBeInstanceOf(MockStringField);
+      expect(schema.uses.fields.max.options.initial).toBe("");
     });
 
     it("uses.spent は NumberField で initial が 0", () => {
@@ -218,6 +218,12 @@ describe("OutfitBaseTemplate.defineSchema()", () => {
       const src = OutfitBaseTemplate.migrateData({ uses: { value: 2, max: 5 } });
       expect(src.uses.spent).toBe(3); // 5 - 2
       expect(src.uses.value).toBeUndefined();
+    });
+
+    it("migrateData: 数値の uses.max を文字列へ移行する(spent 移行の後に走る)", () => {
+      const src = OutfitBaseTemplate.migrateData({ uses: { value: 2, max: 5 } });
+      expect(src.uses.spent).toBe(3); // 数値のまま max を読めている＝順序が正しい
+      expect(src.uses.max).toBe("5");
     });
   });
 

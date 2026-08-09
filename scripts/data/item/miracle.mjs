@@ -9,13 +9,17 @@
  *   `uses {isLimit, type, max, spent}` を持つ(残り = max − spent)。特例カウンター・特例消費 kind を廃止。
  * - **母数 = uses.max = 連動スタイルのレベルと同一**(ユーザー確定)。tnx.mjs の preUpdateItem/
  *   preDeleteItem フックがスタイルレベルに合わせて uses.max を維持する。「ファイト！」等の万能神業
- *   による母数増加は AE で uses.max を増やす(専用の加算欄は設けない)。
+ *   による母数増加は AE で uses.max を増やす(専用の加算欄は設けない)——**着地先は実効値
+ *   `uses.maxTotal`**(2026-08-09・KI-038 で新設。それ以前は着地点が無く AE が効いていなかった)。
+ * - uses.max は他アイテムと同型で**数値も式も受ける StringField**(2026-08-09)。ただし神業の母数は
+ *   上記の連動フックが機械維持する領分のため、式を入れても次のレベル変更で数値に上書きされる。
  * - 「使用済み(isUsed)」フラグは残り使用回数リセットのトリガー。true→false で spent=0(満タンへ)。
  */
 
 import { SystemDataModel } from "../abstract.mjs";
 import { BaseTemplate } from "./common/base.mjs";
 import { UsageTemplate } from "./common/usage.mjs";
+import { migrateUsesMaxToString, computeUsesMaxTotal } from "./uses.mjs";
 
 export class MiracleDataModel extends SystemDataModel.mixin(BaseTemplate, UsageTemplate) {
   /** @override */
@@ -30,11 +34,13 @@ export class MiracleDataModel extends SystemDataModel.mixin(BaseTemplate, UsageT
       isAll:          new fields.BooleanField({ initial: false }),
       isUsed:         new fields.BooleanField({ initial: false }),
       // 汎用の使用回数(残り = max − spent)。神業は常に母数を持つため isLimit 既定 true・母数(max)
-      // 既定 1。母数はスタイルレベル連動(tnx.mjs)で維持される
+      // 既定 "1"。母数はスタイルレベル連動(tnx.mjs)で維持される
+      // max は他アイテムと同型で**数値も式も受ける**が(2026-08-09)、神業の母数は連動フックが
+      // 機械維持するため、式を入れても次のレベル変更で数値に上書きされる(ユーザー了承済み)
       uses: new fields.SchemaField({
         isLimit: new fields.BooleanField({ initial: true }),
         type:    new fields.StringField({ initial: "" }),
-        max:     new fields.NumberField({ initial: 1 }),
+        max:     new fields.StringField({ initial: "1" }),
         spent:   new fields.NumberField({ initial: 0 }),
       }),
       identificationKey: new fields.StringField({ initial: "" }),
@@ -54,6 +60,14 @@ export class MiracleDataModel extends SystemDataModel.mixin(BaseTemplate, UsageT
         spent: Math.max(0, max - total),                    // 残り total を spent へ換算
       };
     }
+    // uses.max の NumberField → StringField(2026-08-09)。**usageCount 移行の後に**呼ぶ
+    migrateUsesMaxToString(source);
     return super.migrateData(source);
+  }
+
+  /** @override — 使用回数の最大値(数値または式)の実効値 uses.maxTotal を派生算出する(2026-08-09)。 */
+  prepareDerivedData() {
+    super.prepareDerivedData?.();
+    computeUsesMaxTotal(this);
   }
 }

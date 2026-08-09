@@ -963,7 +963,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 const update = { "system.uses.isLimit": isChecked };
                 if (!isChecked) {
                     update["system.uses.spent"] = 0;
-                    update["system.uses.max"]   = 0;
+                    update["system.uses.max"]   = "";  // StringField(式可・2026-08-09)
                     update["system.uses.type"]  = "";
                 }
                 this.item.update(update);

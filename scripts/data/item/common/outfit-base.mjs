@@ -42,6 +42,7 @@
 import { SystemDataModel } from "../../abstract.mjs";
 import { getMajorCategoryChoices, getMinorCategoryChoices, LEGACY_CATEGORY_MAP } from "../outfit-categories.mjs";
 import { modeValueField, migrateUsesValueToSpent, computeItemEffectiveValues } from "../helpers.mjs";
+import { migrateUsesMaxToString, computeUsesMaxTotal } from "../uses.mjs";
 
 /**
  * 部位行の種別(フェーズ10・2026-06-26 確定)。公式の「部位」指定を自由入力 + フラグで表現する。
@@ -196,10 +197,11 @@ export class OutfitBaseTemplate extends SystemDataModel {
         key:  new fields.StringField({ initial: "" }),
       })),
       // spent = 消費済み回数（D&D 方式）。残り = max - spent
+      // max は**数値も式も受ける**(2026-08-09「最大レベル回」)。実効値は派生 uses.maxTotal(uses.mjs)
       uses: new fields.SchemaField({
         isLimit: new fields.BooleanField({ initial: false }),
         type:    new fields.StringField({ initial: "" }),
-        max:     new fields.NumberField({ initial: 0 }),
+        max:     new fields.StringField({ initial: "" }),
         spent:   new fields.NumberField({ initial: 0 }),
       }),
       parentItemId:   new fields.StringField({ initial: "" }),
@@ -237,6 +239,8 @@ export class OutfitBaseTemplate extends SystemDataModel {
       }
     }
     migrateUsesValueToSpent(source);
+    // uses.max の NumberField → StringField(2026-08-09)。**spent 移行の後に**呼ぶ(前者が max を数値で読む)
+    migrateUsesMaxToString(source);
     return super.migrateData(source);
   }
 
@@ -250,6 +254,8 @@ export class OutfitBaseTemplate extends SystemDataModel {
   prepareDerivedData() {
     super.prepareDerivedData?.();
     computeItemEffectiveValues(this);
+    // 使用回数の最大値(数値または式)の実効値。アクター上ではこの後アクター段で再評価される
+    computeUsesMaxTotal(this);
     // AE による部位行の追加(フェーズ12・system.part.<部位キー> 値=and/or)。アクターの適用パス
     // (_applyEffectBuffs)がここへ {key, relation, slots, source} を積む。base の part は不変。
     this.partAdded = [];

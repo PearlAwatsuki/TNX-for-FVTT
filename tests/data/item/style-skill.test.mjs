@@ -354,15 +354,21 @@ describe("StyleSkillDataModel.defineSchema()", () => {
       expect(schema.uses.fields.spent.options.initial).toBe(0);
     });
 
-    it("uses.max は NumberField で initial が 0", () => {
-      expect(schema.uses.fields.max).toBeInstanceOf(MockNumberField);
-      expect(schema.uses.fields.max.options.initial).toBe(0);
+    it("uses.max は StringField で initial が空文字(数値も式も受ける・2026-08-09)", () => {
+      expect(schema.uses.fields.max).toBeInstanceOf(MockStringField);
+      expect(schema.uses.fields.max.options.initial).toBe("");
     });
 
     it("migrateData: 旧 uses.value(残り) → uses.spent(消費済み) に移行する", () => {
       const src = StyleSkillDataModel.migrateData({ uses: { value: 1, max: 3 } });
       expect(src.uses.spent).toBe(2); // 3 - 1
       expect(src.uses.value).toBeUndefined();
+    });
+
+    it("migrateData: 数値の uses.max を文字列へ移行する(spent 移行の後に走る)", () => {
+      const src = StyleSkillDataModel.migrateData({ uses: { value: 1, max: 3 } });
+      expect(src.uses.spent).toBe(2); // 数値のまま max を読めている＝順序が正しい
+      expect(src.uses.max).toBe("3");
     });
   });
 

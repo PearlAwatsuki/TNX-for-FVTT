@@ -518,6 +518,11 @@ describe("resolveItemTotalPath()", () => {
     expect(resolveItemTotalPath("suits.spade")).toBe("suits.spadeTotal");
     expect(resolveItemTotalPath("suits.spadeTotal")).toBe("suits.spadeTotal");
   });
+
+  it("使用回数の最大値(KI-038・2026-08-09): 素/実効どちらの綴りも uses.maxTotal へ着地する", () => {
+    expect(resolveItemTotalPath("uses.max")).toBe("uses.maxTotal");
+    expect(resolveItemTotalPath("uses.maxTotal")).toBe("uses.maxTotal");
+  });
 });
 
 describe("特性フラグ AE(フェーズ12)", () => {

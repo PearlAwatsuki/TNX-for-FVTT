@@ -18,6 +18,7 @@ import { SLOT_KINDS } from '../data/item/common/extensible.mjs';
 import { getPartSlotPreset, PartSlotPresetApp } from '../module/part-slot-preset-app.mjs';
 import { OUTFIT_ITEM_TYPES, findDepartmentSkillName } from '../data/helpers.mjs';
 import { readFlag, isOutfitUnusable, isOutfitDestroyed, isOutfitMalfunctioning } from '../data/item/helpers.mjs';
+import { usesMaxTotalOf, usesMaxBaseOf } from '../data/item/uses.mjs';
 import { TnxCheckFlow } from '../module/tnx-check-flow.mjs';
 import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } from '../module/usage-consumption.mjs';
 import { useNpcAcquire } from '../module/npc-acquisition.mjs';
@@ -913,7 +914,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             const itemData = item.toObject(false);
             // 神業も汎用 uses(残り = max − spent)に一本化(2026-07-18)。実効 max は item.system(AE込み)から読む
             const uses = item.system.uses ?? {};
-            const maxUses       = Math.max(0, Number(uses.max) || 0);
+            const maxUses       = usesMaxTotalOf(item.system);
             const remainingUses = Math.max(0, maxUses - (Number(uses.spent) || 0));
             for (let i = 0; i < maxUses; i++) {
                 slots.push({ ...itemData, isPlaceholder: false, instanceIndex: i, isDisabled: i >= remainingUses });
@@ -1117,9 +1118,10 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                             const existingMiracle = allMiracles.find(i => i.name === sourceMiracle.name);
                             if (existingMiracle) {
                                 // 母数(uses.max)+1・上限3、満タンへ(spent=0)。2026-07-18 uses 一本化
-                                const newMax = Math.min(3, (Number(existingMiracle.system.uses?.max) || 0) + 1);
+                                // max は StringField(式可)のため土台は usesMaxBaseOf・保存は文字列
+                                const newMax = Math.min(3, usesMaxBaseOf(existingMiracle.system) + 1);
                                 ui.notifications.info(`神業「${existingMiracle.name}」の母数が+1されました。`);
-                                await existingMiracle.update({ "system.uses.max": newMax, "system.uses.spent": 0 });
+                                await existingMiracle.update({ "system.uses.max": String(newMax), "system.uses.spent": 0 });
                             } else if (allMiracles.length >= 3) {
                                 ui.notifications.warn("神業は3種類までしか所有できません。");
                             } else {
@@ -1140,9 +1142,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             const existingItem = allMiracles.find(i => i.name === item.name);
             if (existingItem) {
                 // 母数(uses.max)+1・上限3、満タンへ(spent=0)。2026-07-18 uses 一本化
-                const newMax = Math.min(3, (Number(existingItem.system.uses?.max) || 0) + 1);
+                const newMax = Math.min(3, usesMaxBaseOf(existingItem.system) + 1);
                 ui.notifications.info(`神業「${existingItem.name}」の母数が+1されました。`);
-                return existingItem.update({ "system.uses.max": newMax, "system.uses.spent": 0 });
+                return existingItem.update({ "system.uses.max": String(newMax), "system.uses.spent": 0 });
             } else {
                 if (allMiracles.length >= 3) { ui.notifications.warn("神業は3種類までしか所有できません。"); return false; }
                 return this.actor.createEmbeddedDocuments("Item", [item.toObject()]);
@@ -1188,9 +1190,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             if (item.type === 'miracle') {
                 // 母数(uses.max)が2以上なら削除でなく-1(多重取得の1つを外す)。spent は新 max にクランプ
                 const uses = item.system.uses;
-                if (uses && (Number(uses.max) || 0) > 1) {
-                    const newMax = (Number(uses.max) || 0) - 1;
-                    await item.update({ "system.uses.max": newMax, "system.uses.spent": Math.min(Number(uses.spent) || 0, newMax) });
+                if (uses && usesMaxBaseOf(item.system) > 1) {
+                    const newMax = usesMaxBaseOf(item.system) - 1;
+                    await item.update({ "system.uses.max": String(newMax), "system.uses.spent": Math.min(Number(uses.spent) || 0, newMax) });
                     ui.notifications.info(`神業「${item.name}」の母数を-1しました。`);
                     return;
                 }
@@ -2261,9 +2263,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             }
         }
 
-        // 残り = uses.max − spent。使用で spent+1(2026-07-18 uses 一本化)
+        // 残り = 実効 max − spent。使用で spent+1(2026-07-18 uses 一本化)
         const uses = originalMiracle.system.uses ?? {};
-        const maxUses = Math.max(0, Number(uses.max) || 0);
+        const maxUses = usesMaxTotalOf(originalMiracle.system);
         const remainingUses = Math.max(0, maxUses - (Number(uses.spent) || 0));
         if (remainingUses <= 0) { ui.notifications.warn(`神業「${originalMiracle.name}」はこれ以上使用できません。`); return; }
 

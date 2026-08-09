@@ -16,6 +16,7 @@ import { ActorBaseTemplate } from "./actor-base.mjs";
 import { computeAttributeFinal, computeOutfitAggregates, resolveCombatSpeedDisplayTotal, isActorInStartedCombat } from "../../helpers.mjs";
 import { ATTACK_DAMAGE_TYPES, parseEffectTargetKey, resolveItemTotalPath, evalEffectConditions, effectAutoApplies, AE_FLAG_TOTAL_PATHS, parseBooleanFlagValue } from "../../item/helpers.mjs";
 import { buildEffectivePartSlots } from "../../item/part-helpers.mjs";
+import { computeUsesMaxTotalForActor, clampUsesMaxTotalForActor } from "../../item/uses.mjs";
 import { getEffectiveConditions, gatherConditionControlPenalty, gatherPartSlotMods } from "../../../module/conditions.mjs";
 import { parsePlainNumber, evaluateFormulaSync, buildFormulaData } from "../../../module/tnx-formula.mjs";
 
@@ -124,6 +125,10 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
     if (this.baseAttack) this.baseAttack.damageTypeTotal = this.baseAttack.damageType || "I";
     // 部位スロットの AE デルタ(フェーズ12・system.partSlot.<部位キー>)。適用パスが積む
     this.partSlotDeltas = {};
+    // 使用回数の最大値(式可・2026-08-09)をアクター文脈で確定してから AE を乗せる。**順序が意味を持つ**:
+    // 式は AE 適用前の値を読む(「レベル回」は AE でレベルが上がっても増えない=ユーザー裁定)。
+    // AE(system.uses.max)は下の適用パスで実効値 uses.maxTotal へ着地する(KI-038)
+    computeUsesMaxTotalForActor(this.parent);
     this._applyEffectBuffs();
     this._applyConditionControlPenalty();
     for (const key of ABILITY_KEYS) {
@@ -143,6 +148,8 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
     // 表示分岐はテンプレート側(inCombat)で行う。
     this.actionRank.maxTotal = Math.max(0, this.actionRank.maxTotal);
     this.actionRank.inCombat = this.combatSpeed.inCombat;
+    // 使用回数の最大値の 0clamp・整数化(AE の減算/乗算で負値・端数が生じうる)
+    clampUsesMaxTotalForActor(this.parent);
   }
 
   /**

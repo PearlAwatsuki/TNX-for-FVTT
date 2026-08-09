@@ -69,6 +69,19 @@ describe("resolveConsumeRows()（消費先設定の解決・2026-07-18 再編）
     expect(row.itemId).toBe("p1");
   });
 
+  it("item/self/uses: 最大値が式なら実効値 maxTotal から残量を出す(2026-08-09「レベル回」)", () => {
+    const levelTimes = {
+      id: "p1", type: "styleSkill", name: "技能",
+      system: { uses: { isLimit: true, max: "@item.self.system.levelTotal", maxTotal: 3, spent: 1 } },
+    };
+    const [row] = resolveConsumeRows(
+      [{ type: "item", itemId: "", resource: "uses", amount: 1 }],
+      { parentItem: levelTimes, getItem: () => null },
+    );
+    expect(row.remaining).toBe(2);   // 3 − 1
+    expect(row.maxDisplay).toBe(3);  // 素値の式文字列ではなく実効値を表示する
+  });
+
   it("item/self/uses(制限なし): inert(無消費)", () => {
     const [row] = resolveConsumeRows(
       [{ type: "item", itemId: "", resource: "uses", amount: 1 }],

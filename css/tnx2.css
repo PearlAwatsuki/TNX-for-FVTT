@@ -3349,6 +3349,40 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     padding-top: 20px;
 }
 
+/* 使用回数の最大値は数値も式も受ける(2026-08-09)。式が読める幅が要るため、
+   この欄だけ 60px 固定をやめ**行の残り幅を分け合う**(消費済み欄は 60px のまま)。
+   実効値バッジは入力の右にインラインで置き、段数を増やさない(「/」の位置を崩さない)。 */
+.usage-limit-group:has(.usage-field--formula) .usage-inputs { flex: 1 1 auto; }
+
+.usage-field--formula {
+    flex: 1 1 auto;
+    align-items: stretch;
+    min-width: 0;
+}
+
+/* 広い欄でラベルを中央に置くと入力から離れて浮くため、入力の左端へ直付けする */
+.usage-field--formula > label { text-align: left; }
+
+.usage-max-input {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.usage-field--formula .usage-max-input input {
+    width: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: left;
+}
+
+.usage-total-badge {
+    flex: 0 0 auto;
+    font-size: 0.85em;
+    color: var(--tnx2-text-muted);
+    white-space: nowrap;
+}
+
 .skill-level-container {
     display: flex;
     align-items: center;

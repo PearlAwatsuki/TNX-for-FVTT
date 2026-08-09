@@ -43,6 +43,7 @@ import { BaseTemplate } from "./common/base.mjs";
 import { UsageTemplate } from "./common/usage.mjs";
 import { SkillBaseTemplate } from "./common/skill-base.mjs";
 import { migrateUsesValueToSpent } from "./helpers.mjs";
+import { migrateUsesMaxToString, computeUsesMaxTotal } from "./uses.mjs";
 import { resolveLevelRef } from "../../module/style-skill-acquisition.mjs";
 
 export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, UsageTemplate, SkillBaseTemplate) {
@@ -136,10 +137,11 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
 
       // 使用回数(outfitBase.uses と同型だが styleSkill 固有の別フィールド)
       // spent = 消費済み回数（D&D 方式）。残り = max - spent
+      // max は**数値も式も受ける**(2026-08-09「1シーンにレベル回」)。実効値は派生 uses.maxTotal(uses.mjs)
       uses: new fields.SchemaField({
         isLimit: new fields.BooleanField({ initial: false }),
         spent:   new fields.NumberField({ initial: 0 }),
-        max:     new fields.NumberField({ initial: 0 }),
+        max:     new fields.StringField({ initial: "" }),
         type:    new fields.StringField({ initial: "" }),
       }),
 
@@ -205,10 +207,12 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
 
   /**
    * @override 旧 uses.value（残り回数）→ uses.spent（消費済み回数）へ移行。
-   * spent = max - value（[0, max] にクランプ）。
+   * spent = max - value（[0, max] にクランプ）。あわせて uses.max を文字列へ移行する。
    */
   static migrateData(source) {
     migrateUsesValueToSpent(source);
+    // uses.max の NumberField → StringField(2026-08-09)。**spent 移行の後に**呼ぶ(前者が max を数値で読む)
+    migrateUsesMaxToString(source);
     // 旧 autoAcquireActors(2026-07-08 廃止): 取得対象は NPC取得用途側で設定するため除去する
     delete source.autoAcquireActors;
     return super.migrateData(source);
@@ -216,13 +220,22 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
 
   /**
    * @override
+   * レベル自動参照(10-3)を適用したうえで、使用回数の最大値(式可)を解く。
+   * **順序が意味を持つ**: 「1シーンにレベル回」の式はレベル自動参照で確定したレベルを読む。
+   */
+  prepareDerivedData() {
+    super.prepareDerivedData?.();
+    this._applyLevelRef();
+    computeUsesMaxTotal(this);
+  }
+
+  /**
    * SkillBaseTemplate が levelTotal=level を確定した後、レベル自動参照(10-3)を適用する。
    * levelRef.enabled のとき、同アクター内の参照先スタイル技能(識別キー一致)のレベルで
    * この技能の level / levelTotal を上書きする(派生・source 不変)。判定はこの確定値を読むだけ。
    * 参照先が見つからない・アクター外(辞典/直下)では何もしない(指定のみ保持)。
    */
-  prepareDerivedData() {
-    super.prepareDerivedData?.();
+  _applyLevelRef() {
     if (!this.levelRef?.enabled || !this.levelRef.key) return;
     const item  = this.parent;
     const actor = item?.actor;

@@ -272,9 +272,14 @@
                                         <input type="number" name="system.uses.spent" value="{{system.uses.spent}}" {{#if usesSharedWithOwner}}disabled{{/if}}>
                                     </div>
                                     <span class="usage-separator">/</span>
-                                    <div class="usage-field">
+                                    <div class="usage-field usage-field--formula">
                                         <label>最大値</label>
-                                        <input type="number" name="system.uses.max" value="{{system.uses.max}}" {{#if usesSharedWithOwner}}disabled{{/if}}>
+                                        <div class="usage-max-input">
+                                            <input type="text" name="system.uses.max" value="{{system.uses.max}}"
+                                                   placeholder="式（例: @item.self.system.levelTotal、3）"
+                                                   {{#if usesSharedWithOwner}}disabled{{/if}}>
+                                            {{#if usesMaxIsFormula}}<span class="usage-total-badge">＝ {{usesMaxDisplay}}</span>{{/if}}
+                                        </div>
                                     </div>
                                 </div>
                             </div>

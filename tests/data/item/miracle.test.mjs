@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MockArrayField, MockBooleanField, MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
+import { MockArrayField, MockBooleanField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
 const { MiracleDataModel } = await import("../../../scripts/data/item/miracle.mjs");
 
@@ -60,26 +60,27 @@ describe("MiracleDataModel.defineSchema()", () => {
       for (const k of ["isLimit", "type", "max", "spent"]) expect(schema.uses.fields).toHaveProperty(k);
     });
 
-    it("uses.isLimit は既定 true(神業は常に母数を持つ)・max 既定 1・spent 既定 0", () => {
+    it("uses.isLimit は既定 true(神業は常に母数を持つ)・max 既定 \"1\"・spent 既定 0", () => {
       expect(schema.uses.fields.isLimit).toBeInstanceOf(MockBooleanField);
       expect(schema.uses.fields.isLimit.options.initial).toBe(true);
-      expect(schema.uses.fields.max).toBeInstanceOf(MockNumberField);
-      expect(schema.uses.fields.max.options.initial).toBe(1);
+      // max は数値も式も受ける StringField(2026-08-09)。神業は母数を機械維持するため既定 "1"
+      expect(schema.uses.fields.max).toBeInstanceOf(MockStringField);
+      expect(schema.uses.fields.max.options.initial).toBe("1");
       expect(schema.uses.fields.spent.options.initial).toBe(0);
     });
   });
 
   describe("migrateData(): 旧 usageCount → uses への移行", () => {
-    it("value=母数/total=残り/mod=バフ → max=value+mod・spent=max−total", () => {
+    it("value=母数/total=残り/mod=バフ → max=value+mod・spent=max−total(max は文字列)", () => {
       const src = MiracleDataModel.migrateData({ usageCount: { value: 2, total: 1, mod: 1 } });
-      expect(src.uses.max).toBe(3);        // 2 + 1
+      expect(src.uses.max).toBe("3");      // 2 + 1(StringField へ移行済み)
       expect(src.uses.spent).toBe(2);      // 3 − 1(残り)
       expect(src.uses.isLimit).toBe(true);
     });
 
-    it("uses が既にあれば移行しない", () => {
+    it("uses が既にあれば usageCount からの移行はしないが、数値 max は文字列化する", () => {
       const src = MiracleDataModel.migrateData({ uses: { isLimit: true, max: 5, spent: 2 }, usageCount: { value: 1, total: 1, mod: 0 } });
-      expect(src.uses).toEqual({ isLimit: true, max: 5, spent: 2 });
+      expect(src.uses).toEqual({ isLimit: true, max: "5", spent: 2 });
     });
   });
 

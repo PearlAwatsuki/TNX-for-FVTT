@@ -34,6 +34,8 @@
  * 識別キーのアイテムへ解決を差し替える(resolveConsumeRows の getItem 差し替えで実現)。
  */
 
+import { usesMaxTotalOf } from "../data/item/uses.mjs";
+
 /**
  * 消費できるアイテム資源(2026-07-19)。使用回数・残弾・個数の3つ。
  * 資源ごとに保持の形が違う(使用回数/残弾は消費済み spent が増える・個数は残数 value が減る)ため、
@@ -44,13 +46,14 @@
  * @type {Record<string, {label: string, enabled: Function, remaining: Function, max: Function, update: Function}>}
  */
 const ITEM_RESOURCES = {
+    // 最大値は**数値も式も受ける**ため、素値でなく実効値(usesMaxTotalOf)を読む(2026-08-09)
     uses: {
         label:     "使用回数",
         enabled:   (sys) => sys?.uses?.isLimit === true,
-        remaining: (sys) => Math.max(0, (sys?.uses?.max ?? 0) - (sys?.uses?.spent ?? 0)),
-        max:       (sys) => sys?.uses?.max ?? 0,
+        remaining: (sys) => Math.max(0, usesMaxTotalOf(sys) - (sys?.uses?.spent ?? 0)),
+        max:       (sys) => usesMaxTotalOf(sys),
         update:    (sys, amount) => ({
-            "system.uses.spent": clampCounter((sys?.uses?.spent ?? 0) + amount, sys?.uses?.max ?? 0),
+            "system.uses.spent": clampCounter((sys?.uses?.spent ?? 0) + amount, usesMaxTotalOf(sys)),
         }),
     },
     ammo: {

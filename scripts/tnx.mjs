@@ -4,6 +4,7 @@ import { TokyoNovaTroopSheet } from './actor/tnx-troop-sheet.mjs';
 import { TokyoNovaExtraSheet } from './actor/tnx-extra-sheet.mjs';
 import { computeTroopFixedName, findDepartmentSkillName } from './data/helpers.mjs';
 import { defaultWeaponKindForCategory } from './data/item/common/outfit-base.mjs';
+import { usesMaxBaseOf } from './data/item/uses.mjs';
 import { canonicalizeSkillActions } from './module/usage-type-migration.mjs';
 import { CastDataModel } from './data/actor/cast.mjs';
 import { GuestDataModel } from './data/actor/guest.mjs';
@@ -1627,12 +1628,13 @@ Hooks.once("init", async function() {
     Hooks.on("preDeleteItem", async (item, options, userId) => {
         if (item.type === "miracle" && item.actor) {
             // 母数(uses.max)が2以上なら削除でなく-1(多重取得の1つを外す)。2026-07-18 uses 一本化
+            // max は StringField(式可・2026-08-09)のため土台は usesMaxBaseOf・保存は文字列
             const uses = item.system.uses ?? {};
-            const max = Number(uses.max) || 0;
+            const max = usesMaxBaseOf(item.system);
             if (max > 1) {
                 const newMax = max - 1;
                 await item.update({
-                    "system.uses.max": newMax,
+                    "system.uses.max": String(newMax),
                     "system.uses.spent": Math.min(Number(uses.spent) || 0, newMax),
                 });
                 ui.notifications.info(`神業「${item.name}」の母数を-1しました。`);
@@ -1682,7 +1684,8 @@ Hooks.once("init", async function() {
     
             // レベル変更時の神業母数(uses.max)連動(2026-07-18 uses 一本化):
             // 母数 = 連動スタイルの合計レベル(上限3・「母数=スタイルレベルと同一」ユーザー確定)。
-            // 万能神業(ファイト！等)による増加は AE で uses.max に乗る(ここでは基礎値のみ維持)。
+            // 万能神業(ファイト！等)による増加は AE で uses.max に乗る(ここでは基礎値のみ維持)——
+            // AE は実効値 uses.maxTotal へ着地する(2026-08-09・KI-038 で着地点を新設)。
             if (newLevel !== undefined && newLevel !== oldLevel) {
                 (async () => {
                     try {
@@ -1698,10 +1701,10 @@ Hooks.once("init", async function() {
                         const totalStyleLevel = allLinkedStyles.reduce((sum, s) =>
                             sum + (s.id === item.id ? newLevel : (s.system.level || 1)), 0);
                         const newMax = Math.max(1, Math.min(3, totalStyleLevel));
-                        const curMax = Number(existingMiracle.system.uses?.max) || 0;
+                        const curMax = usesMaxBaseOf(existingMiracle.system);
                         if (newMax !== curMax) {
                             const spent = Math.min(Number(existingMiracle.system.uses?.spent) || 0, newMax);
-                            await existingMiracle.update({ "system.uses.max": newMax, "system.uses.spent": spent });
+                            await existingMiracle.update({ "system.uses.max": String(newMax), "system.uses.spent": spent });
                             ui.notifications.info(`神業「${existingMiracle.name}」の母数を${newMax > curMax ? "+" : "-"}1しました。`);
                         }
                     } catch (e) { console.error(`TokyoNOVA | Error updating Divine Work usage count:`, e); }

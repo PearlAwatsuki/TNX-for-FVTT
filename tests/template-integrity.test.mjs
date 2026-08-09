@@ -42,7 +42,7 @@ function kebabToCamel(str) {
  * - .mjs ファイルのみを対象とし、ファイル名を camelCase type 名に変換する
  * @returns {string[]}
  */
-const NON_DATAMODEL_FILES = ["helpers.mjs", "outfit-categories.mjs", "part-helpers.mjs"];
+const NON_DATAMODEL_FILES = ["helpers.mjs", "outfit-categories.mjs", "part-helpers.mjs", "uses.mjs"];
 
 function getDataModeledItemTypes() {
   const itemDir = join(projectRoot, "scripts", "data", "item");
@@ -153,6 +153,7 @@ describe("型定義健全性テスト", () => {
       expect(types).not.toContain("helpers");
       expect(types).not.toContain("outfitCategories");
       expect(types).not.toContain("partHelpers");
+      expect(types).not.toContain("uses"); // 使用回数の最大値ヘルパー(2026-08-09)
     });
 
     it("DataModel ファイルの type が documentTypes.Item に過不足なく存在する", () => {

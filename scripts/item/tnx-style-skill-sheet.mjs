@@ -338,7 +338,7 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
         const update = { "system.uses.isLimit": isChecked };
         if (!isChecked) {
             update["system.uses.spent"] = 0;
-            update["system.uses.max"]   = 0;
+            update["system.uses.max"]   = "";  // StringField(式可・2026-08-09)
             update["system.uses.type"]  = "";
         }
         await this.item.update(update);
