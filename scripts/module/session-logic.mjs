@@ -45,6 +45,18 @@ export const SCENE_KIND_OPTIONS = Object.freeze([
 ]);
 
 /**
+ * シーンプレイヤー欄の特殊値＝ルーラーシーン(2026-08-10 ユーザー裁定)。
+ *
+ * 14-7 は「GM ユーザーを選ぶ＝ルーラーシーン」としていたが、**1つの選択で「誰が
+ * シーンプレイヤーか」と「ルーラーシーンか」の2つを表していた**ため、RL がキャストを
+ * 持ちハンドアウトの割り当てもある場合に、その RL のキャストを主役にできなかった
+ * (必ずルーラーシーン扱いになる)。ルーラーシーンを独立した選択肢に切り出して含意を消す。
+ * ユーザー参照は据え置き——ハンドアウトも巡回順もユーザー参照なので、ここだけキャスト参照を
+ * 混ぜない(表示はキャスト名を主にする)。
+ */
+export const SCENE_PLAYER_RULER = "@ruler";
+
+/**
  * シーン行を正規化する(旧形式の行に 14-2 追加フィールドの既定値を補う)。
  * 一括マイグレーションは行わず、読み出し時に吸収する(保存は編集時のみ)。
  * `player`(旧・キャスト名の自由文字列)は playerUserId 未設定時の表示フォールバックとして残す。
@@ -332,10 +344,14 @@ export function canShowNextScene(scenes, currentSceneId, doneEventIds = []) {
 /**
  * 巡回順(ユーザー id の並び)をハンドアウトの並び順から作る(2026-08-09 ユーザー確定)。
  * 共通ハンドアウトと対象ユーザー未設定の行は順から外す。同じユーザーは先に出た1件だけ。
+ * **キャストを割り当てていないユーザーも外す**(2026-08-10 ユーザー裁定＝キャストが無ければ
+ * シーンプレイヤーになれない＝そもそもアクトに参加していない)。GM かどうかは見ない——
+ * RL がキャストを持ちハンドアウトの割り当てもあるなら、その人は巡回の正当な参加者。
  * @param {Array<object>} handouts 正規化済みハンドアウト行
+ * @param {{hasCast?: (userId: string) => boolean}} [options] キャスト割当の判定(既定=常に真)
  * @returns {Array<string>}
  */
-export function rotationOrder(handouts) {
+export function rotationOrder(handouts, { hasCast = () => true } = {}) {
     const seen = new Set();
     const order = [];
     for (const h of (handouts ?? [])) {
@@ -343,9 +359,30 @@ export function rotationOrder(handouts) {
         const userId = h?.userId ?? "";
         if (!userId || seen.has(userId)) continue;
         seen.add(userId);
+        if (!hasCast(userId)) continue;
         order.push(userId);
     }
     return order;
+}
+
+/**
+ * シーンプレイヤーの消化記録を更新する(2026-08-10 ユーザー指示で是正)。
+ *
+ * **リサーチのシーンだけを数える。** 以前は全フェイズで記帳し「フェイズが変わったら捨てる」
+ * 形にしていたため、破棄が起きる前に読むシーン開始ダイアログがオープニングの記録を
+ * 引きずり、リサーチ先頭の巡回シーンで無関係な人が「済」になっていた。
+ * 巡回シーンでは、入る前に全員が務め終えていれば記録をクリアして次の巡へ。
+ * ルーラーシーン(userId が空)は務め手がいないので記帳しない。
+ * @param {Array<string>} done 現在の消化記録
+ * @param {{phase?:string, kind?:string, order?:Array<string>, userId?:string}} args
+ * @returns {Array<string>} 更新後の消化記録
+ */
+export function recordScenePlayerDone(done, { phase = "", kind = "normal", order = [], userId = "" } = {}) {
+    const current = [...(done ?? [])];
+    if (phase !== "research") return current;
+    const next = kind === "rotation" ? resolveRotationDefault(order, current).done : current;
+    if (userId && !next.includes(userId)) next.push(userId);
+    return next;
 }
 
 /**

@@ -11,7 +11,7 @@ import { captureScrollTop, restoreScrollTop } from '../module/scroll-preserve.mj
 import { conditionStatusLabels } from '../module/conditions.mjs';
 import { checkTypeOptions } from '../module/tnx-rl-request-app.mjs';
 import {
-    SCENE_AREA_OPTIONS, SCENE_KIND_OPTIONS, HANDOUT_SUIT_OPTIONS,
+    SCENE_AREA_OPTIONS, SCENE_KIND_OPTIONS, SCENE_PLAYER_RULER, HANDOUT_SUIT_OPTIONS,
     HANDOUT_STYLE_COMMON, HANDOUT_STYLE_FREE,
     normalizeSceneRow, normalizeHandoutRow, handoutTitleSuffix, circledNumber, infoSkillKeys,
     sceneSequenceNumbers,
@@ -115,9 +115,14 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         context.sceneKindOptions = SCENE_KIND_OPTIONS;
         context.stageSubSceneOptions = listSubScenes().map(s => ({ value: `subScene:${s.id}`, label: s.name }));
         context.stageSceneOptions = game.scenes.map(s => ({ value: `scene:${s.id}`, label: s.name }));
-        // GM ユーザーを選択＝ルーラーシーン(シーンプレイヤー不在・14-7)。（RL）を付けて区別する
+        // シーンプレイヤー候補(2026-08-10 是正)。**ルーラーシーンは独立した選択肢**で、
+        // GM ユーザーの選択はもう「ルーラーシーン」を意味しない（RL がキャストを持つ場合に
+        // そのキャストを主役にできる必要があるため）。この欄は実質キャストの一覧として
+        // 読まれるので、表示はキャスト名を主にする
+        context.scenePlayerRuler = SCENE_PLAYER_RULER;
         context.scenePlayerUsers = game.users.map(u => ({
-            id: u.id, name: u.isGM ? `${u.name}（RL）` : u.name,
+            id: u.id,
+            name: u.character?.name ? `${u.character.name}（${u.name}）` : u.name,
         }));
 
         // 判定要求・報酬点のプリセット(フェーズ12-5)。名前は未入力なら「判定要求n」を出す

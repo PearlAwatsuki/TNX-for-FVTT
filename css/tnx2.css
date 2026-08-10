@@ -9274,6 +9274,9 @@ button.tnx-create-act-button span {
    中央揃えのままだと、チップが増えるたびにラベルだけが上下に動く */
 .tnx-scene-entry .form-group:has(.tnx-tag-field) { align-items: flex-end; }
 
+/* チップが無いときは高さを確保しない(シートは器ごと描かないので同じ見え方になる) */
+.tnx-scene-entry .tnx-tag-list { min-height: 0; }
+
 /* イベントシーンの選択(14-8): 名前の下に起動条件を添えて縦に並べる。
    条件を読んで選ぶ操作なので、行全体をクリック領域(label)にする */
 .tnx-event-choices {

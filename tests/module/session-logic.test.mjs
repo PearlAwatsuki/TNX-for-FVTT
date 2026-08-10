@@ -48,6 +48,8 @@ import {
   areEventScenesDone,
   stageCandidateActorIds,
   sceneSequenceNumbers,
+  recordScenePlayerDone,
+  SCENE_PLAYER_RULER,
 } from "../../scripts/module/session-logic.mjs";
 import { TNX_HOOKS } from "../../scripts/module/combat-events.mjs";
 
@@ -936,5 +938,74 @@ describe("buildSceneSwitchMessage()（上演中のシーン番号・14-8）", ()
   it("number 未指定のときは従来どおり行の number（無ければ ??）", () => {
     expect(buildSceneSwitchMessage({ number: 2, name: "x" })).toContain("SCENE 2 : x");
     expect(buildSceneSwitchMessage({ name: "x" })).toContain("SCENE ?? : x");
+  });
+});
+
+describe("rotationOrder()（キャスト未割当を落とす・2026-08-10 是正）", () => {
+  it("キャストを割り当てていないユーザーは巡回順から外す（アクトに参加していない）", () => {
+    const handouts = [{ userId: "u1" }, { userId: "u2" }, { userId: "u3" }];
+    expect(rotationOrder(handouts, { hasCast: id => id !== "u2" })).toEqual(["u1", "u3"]);
+  });
+
+  it("GM かどうかは見ない（RL がキャストとハンドアウトを持てば巡回の参加者）", () => {
+    expect(rotationOrder([{ userId: "gm" }, { userId: "u1" }], { hasCast: () => true }))
+      .toEqual(["gm", "u1"]);
+  });
+
+  it("判定を渡さなければ従来どおり全員通す", () => {
+    expect(rotationOrder([{ userId: "u1" }, { userId: "u2" }])).toEqual(["u1", "u2"]);
+  });
+});
+
+describe("recordScenePlayerDone()（消化の記帳はリサーチ内だけ・2026-08-10 是正）", () => {
+  const ORDER = ["u1", "u2", "u3"];
+
+  it("リサーチのシーンだけ記帳する", () => {
+    expect(recordScenePlayerDone([], { phase: "research", kind: "rotation", order: ORDER, userId: "u1" }))
+      .toEqual(["u1"]);
+  });
+
+  it("オープニング・クライマックス・エンディングは記帳しない（記録に触れない）", () => {
+    for (const phase of ["opening", "climax", "ending"]) {
+      expect(recordScenePlayerDone(["u1"], { phase, kind: "normal", order: ORDER, userId: "u2" }))
+        .toEqual(["u1"]);
+    }
+  });
+
+  it("オープニングの記録がリサーチへ持ち込まれない（記録が空のまま始まる）", () => {
+    let done = [];
+    done = recordScenePlayerDone(done, { phase: "opening", kind: "normal", order: ORDER, userId: "u1" });
+    done = recordScenePlayerDone(done, { phase: "opening", kind: "normal", order: ORDER, userId: "u2" });
+    expect(done).toEqual([]);
+    done = recordScenePlayerDone(done, { phase: "research", kind: "rotation", order: ORDER, userId: "u1" });
+    expect(done).toEqual(["u1"]);
+  });
+
+  it("イベントシーンで務めた分も数える（順番が飛ぶ根拠）", () => {
+    expect(recordScenePlayerDone([], { phase: "research", kind: "event", order: ORDER, userId: "u1" }))
+      .toEqual(["u1"]);
+  });
+
+  it("巡回シーンに入る時点で全員消化なら、記録をクリアして次の巡へ", () => {
+    expect(recordScenePlayerDone(["u1", "u2", "u3"],
+      { phase: "research", kind: "rotation", order: ORDER, userId: "u1" })).toEqual(["u1"]);
+  });
+
+  it("ルーラーシーン（務め手なし）は記帳しない", () => {
+    expect(recordScenePlayerDone(["u1"], { phase: "research", kind: "normal", order: ORDER, userId: "" }))
+      .toEqual(["u1"]);
+  });
+
+  it("同じ人を二重に積まない・元の配列を書き換えない", () => {
+    const done = ["u1"];
+    expect(recordScenePlayerDone(done, { phase: "research", kind: "normal", order: ORDER, userId: "u1" }))
+      .toEqual(["u1"]);
+    expect(done).toEqual(["u1"]);
+  });
+});
+
+describe("SCENE_PLAYER_RULER（ルーラーシーンの特殊値・2026-08-10）", () => {
+  it("ユーザー id と衝突しない @ 前置の特殊値", () => {
+    expect(SCENE_PLAYER_RULER).toBe("@ruler");
   });
 });

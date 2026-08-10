@@ -22,6 +22,7 @@ import {
     hasBackstage, backstageQueue, nextBackstageSpot, isBackstageFinished,
     findDuplicateKeys, matchTrumpCard,
     rotationOrder, resolveRotationDefault, stageCandidateActorIds,
+    recordScenePlayerDone, SCENE_PLAYER_RULER,
 } from "./session-logic.mjs";
 import {
     setAppearing, setNameHidden, clearAllAppearing, listAppearingActors, isAppearing,
@@ -116,17 +117,19 @@ export function getCurrentSceneRow() {
 }
 
 /**
- * ルーラーシーンか(シーンプレイヤーに GM ユーザーを選択 or 旧 `isMasterScene`・2026-08-08 裁定)。
- * ルーラーはプレイヤーではない＝シーンプレイヤーはいない。シーン入場の flag 付与とパネル/
- * 切替チャットの表示が同じ判定を使うための共通述語。
+ * ルーラーシーンか。**シーンプレイヤー欄で「ルーラーシーン」を選んだ行**(2026-08-10 裁定)、
+ * または旧 `isMasterScene`。ルーラーはプレイヤーではない＝シーンプレイヤーはいない。
+ * シーン入場の flag 付与とパネル/切替チャットの表示が同じ判定を使うための共通述語。
+ *
+ * **GM ユーザーの選択はルーラーシーンではない**(14-7 の含意を撤回)——RL がキャストを持つ
+ * 場合に、そのキャストを主役にできる必要があるため。
  * @param {object} row 正規化済みシーン行
  * @param {string} [userId] シーンプレイヤーの指定(巡回シーンは入場時に決まるため行から導けない)
  * @returns {boolean}
  */
 export function isRulerScene(row, userId = undefined) {
     const id = userId === undefined ? row?.playerUserId : userId;
-    const playerUser = id ? game.users.get(id) : null;
-    return !!row?.isMasterScene || playerUser?.isGM === true;
+    return id === SCENE_PLAYER_RULER || !!row?.isMasterScene;
 }
 
 /**
@@ -145,7 +148,7 @@ export function getCurrentSceneAppearance() {
  */
 export function getRotationStatus() {
     const st = getSessionState();
-    const order = rotationOrder(_activeHandouts());
+    const order = getRotationOrder();
     const done = new Set(st.scenePlayerDone ?? []);
     const next = resolveRotationDefault(order, st.scenePlayerDone).userId;
     return order.map(id => {
@@ -162,6 +165,17 @@ export function getRotationStatus() {
 /** アクティブなアクトのハンドアウト行(正規化済み)。 */
 function _activeHandouts() {
     return (getActiveActJournal()?.getFlag(SCOPE, "handouts") ?? []).map(normalizeHandoutRow);
+}
+
+/**
+ * 巡回順(2026-08-10 是正)。ハンドアウトの並び順のうち、**キャストを割り当てているユーザー**。
+ * 順番・「済」表示・既定値・候補の4つが必ず同じ並びを見るよう、入口をここ1本にする。
+ * @returns {Array<string>} ユーザー id の並び
+ */
+export function getRotationOrder() {
+    return rotationOrder(_activeHandouts(), {
+        hasCast: id => !!game.users.get(id)?.character,
+    });
 }
 
 /** 現在のシーンカード(Card ドキュメント)。未提示・解決不能は null。 */
@@ -478,21 +492,24 @@ async function _requestSceneEntry({ row }) {
     }
 
     const st = getSessionState();
-    const order = rotationOrder(_activeHandouts());
+    const order = getRotationOrder();
     const done = new Set(st.scenePlayerDone ?? []);
     const defaultPlayerUserId = rotation
         ? resolveRotationDefault(order, st.scenePlayerDone).userId : "";
-    // 候補は巡回順を先に並べ、巡回順に入っていないユーザー(RL 含む)を後ろへ。既に務めた人には
-    // 「（済）」を付ける＝「なるべく務めていない人に回す」判断の材料(既定は未消化の先頭)
+    // 候補は**巡回順のユーザーだけ**(2026-08-10 是正)。巡回順に入っていない＝ハンドアウトが
+    // 無い、またはキャスト未割当＝そのアクトに参加していないので、選んでも巡回として成立しない。
+    // ルーラーシーンの選択肢も出さない(巡回シーンにルーラーシーンはあり得ない)。
+    // 既に務めた人には「（済）」を付ける＝「なるべく務めていない人に回す」判断の材料
     const playerChoices = rotation
-        ? [
-            ...order.map(id => game.users.get(id)).filter(u => u),
-            ...game.users.filter(u => !order.includes(u.id)),
-        ].map(u => ({
+        ? order.map(id => game.users.get(id)).filter(u => u).map(u => ({
             id: u.id,
-            name: `${u.name}${u.isGM ? "（RL）" : ""}${done.has(u.id) ? "（済）" : ""}`,
+            name: `${u.character?.name ?? u.name}${done.has(u.id) ? "（済）" : ""}`,
         }))
         : [];
+    if (rotation && !playerChoices.length) {
+        ui.notifications.warn("巡回シーンに回せるプレイヤーがいません（ハンドアウトの対象ユーザーとキャストの割り当てを確認してください）。");
+        return null;
+    }
 
     // 舞台候補＝シーンプレイヤーのキャスト・登場キャラクターの事前設定・それらとチームを
     // 組んでいる面々が所持する住宅施設。巡回シーンはシーンプレイヤーを選び直せるので、
@@ -545,11 +562,11 @@ async function _applySceneEntry({ phase, row }, entry = null) {
     const playerUser = requestedUserId ? game.users.get(requestedUserId) : null;
     const playerUserId = (isRulerScene(scene, requestedUserId) || !playerUser) ? "" : requestedUserId;
 
-    // シーンプレイヤーの消化記録はフェイズ単位でリセットし、巡回シーンでは全員が務め終えた
-    // 時点でも次の巡へリセットする(14-8)。ルーラーシーンは務め手がいないので記帳しない
-    let done = phase === st.phase ? [...(st.scenePlayerDone ?? [])] : [];
-    if (scene.kind === "rotation") done = resolveRotationDefault(rotationOrder(_activeHandouts()), done).done;
-    if (playerUserId && !done.includes(playerUserId)) done.push(playerUserId);
+    // シーンプレイヤーの消化記録は**リサーチのシーンだけ**を数える(2026-08-10 是正)。
+    // 巡回シーンでは全員が務め終えていれば次の巡へリセットされる
+    const done = recordScenePlayerDone(st.scenePlayerDone, {
+        phase, kind: scene.kind, order: getRotationOrder(), userId: playerUserId,
+    });
 
     // イベントシーンは**開始時**に実行済みとして記帳する(2026-08-09 ユーザー指定)
     const doneEvents = [...(st.doneEventSceneIds ?? [])];
