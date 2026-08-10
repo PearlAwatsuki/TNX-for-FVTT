@@ -4939,10 +4939,12 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .scene-table { display: flex; flex-direction: column; padding: 10px; }
 
-/* 種別列(14-8)は内容幅で固定し、残りを従来どおり 3:2:3 で分ける */
+/* 種別列(14-8)は内容幅で固定。残りの配分は 5:5:4 ——シーンプレイヤーが
+   「①スタイル名（キャスト名）」になり(2026-08-10)、旧来の 2fr では収まらないため
+   シーン名と同幅にし、値の短い使用シーンから分けてもらう */
 .scene-table-header {
     display: grid;
-    grid-template-columns: 36px 88px 3fr 2fr 3fr 32px;
+    grid-template-columns: 36px 88px 5fr 5fr 4fr 32px;
     gap: 6px;
     align-items: center;
     padding: 0 8px 8px 12px;
@@ -4976,7 +4978,7 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .scene-main-row {
     display: grid;
-    grid-template-columns: 36px 88px 3fr 2fr 3fr 32px;
+    grid-template-columns: 36px 88px 5fr 5fr 4fr 32px;
     gap: 6px;
     align-items: center;
     padding: 8px;

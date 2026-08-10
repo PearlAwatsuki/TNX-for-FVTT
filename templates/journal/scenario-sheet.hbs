@@ -164,15 +164,16 @@
                                                       ハンドアウト順の未消化の先頭へ回る＝台本では決めない --}}
                                                 <select data-no-save disabled><option>巡回</option></select>
                                             {{else}}
-                                                {{!-- ルーラーシーンは独立した選択肢(2026-08-10)。
-                                                      GM ユーザーの選択は「その RL のキャストが
-                                                      主役」を意味し、ルーラーシーンではない --}}
-                                                <select name="playerUserId">
-                                                    <option value="">{{#if scene.player}}旧: {{scene.player}}{{else}}- 未選択 -{{/if}}</option>
-                                                    <option value="{{@root.scenePlayerRuler}}" {{#if (eq @root.scenePlayerRuler scene.playerUserId)}}selected{{/if}}>ルーラーシーン</option>
-                                                    {{#each ../../scenePlayerUsers as |user|}}
-                                                        <option value="{{user.id}}" {{#if (eq user.id scene.playerUserId)}}selected{{/if}}>
-                                                            {{user.name}}
+                                                {{!-- シーンプレイヤーはハンドアウトで指定する
+                                                      (2026-08-10)。台本は「SCENE 2：HO①」の形で
+                                                      書かれ、担当はプレアクトで決まるため。
+                                                      ルーラーシーンは独立した選択肢 --}}
+                                                <select name="playerHandoutId">
+                                                    <option value="">{{#if scene.legacyPlayerLabel}}旧: {{scene.legacyPlayerLabel}}{{else}}- 未選択 -{{/if}}</option>
+                                                    <option value="{{@root.scenePlayerRuler}}" {{#if (eq @root.scenePlayerRuler scene.playerHandoutId)}}selected{{/if}}>ルーラーシーン</option>
+                                                    {{#each ../../scenePlayerHandouts as |handout|}}
+                                                        <option value="{{handout.id}}" {{#if (eq handout.id scene.playerHandoutId)}}selected{{/if}}>
+                                                            {{handout.label}}
                                                         </option>
                                                     {{/each}}
                                                 </select>
@@ -180,7 +181,9 @@
                                         </div>
                                         <div class="table-cell scene-stage">
                                             <select name="stage">
-                                                <option value="">- 使用シーンなし -</option>
+                                                {{!-- 列見出しが「使用シーン」なので、
+                                                      空選択肢は「- なし -」で足りる --}}
+                                                <option value="">- なし -</option>
                                                 {{#if ../../stageSubSceneOptions.length}}
                                                     <optgroup label="サブシーン">
                                                         {{#each ../../stageSubSceneOptions as |opt|}}

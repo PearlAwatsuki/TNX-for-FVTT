@@ -83,6 +83,11 @@ export function normalizeSceneRow(row) {
         area:          isRotation ? "" : (r.area ?? ""),
         stage:         r.stage         ?? "",
         playerUserId:  r.playerUserId  ?? "",
+        // シーンプレイヤーの指定＝**ハンドアウト参照**(2026-08-10 ユーザー指摘)。シナリオの台本は
+        // 「SCENE 2：シーンプレイヤー＝HO①」の形で書かれ、誰が担当するかはプレアクトで決まる。
+        // 値は "" | "@ruler"(ルーラーシーン) | ハンドアウト行の id。
+        // 旧 playerUserId(ユーザー参照)・旧 isMasterScene は読み替えのフォールバックとして残す
+        playerHandoutId: r.playerHandoutId ?? "",
         kind,
         // イベントシーンの起動条件(14-8・表示のみ。条件の自動判定はしない=RL が読んで判断する)
         eventCondition: r.eventCondition ?? "",
@@ -154,6 +159,47 @@ export function handoutDisplayTitle(handout, { number = 1, styleName = "" } = {}
     if (h.recommendedStyle === HANDOUT_STYLE_FREE) return h.title || "ハンドアウト";
     if (h.recommendedStyle === HANDOUT_STYLE_COMMON) return "共通ハンドアウト";
     return `${circledNumber(number)}${styleName}${handoutTitleSuffix(h)}`;
+}
+
+/**
+ * シーンプレイヤー欄に出すハンドアウトのラベル(2026-08-10 ユーザー指定)。
+ * **「①スタイル名（キャスト名）」**・キャスト未設定なら「①スタイル名」。
+ * ハンドアウト名そのもの(「①〈カブト〉用ハンドアウト」)は台本の欄には冗長なので使わない。
+ * 自由記述ハンドアウトはスタイルを持たないので自由入力のタイトルを使う。
+ * @param {object} handout
+ * @param {{number?: number, styleName?: string, castName?: string}} [options]
+ *        number=スタイル指定行の通し番号(0=番号なし)・styleName=辞典解決済みのスタイル名
+ * @returns {string}
+ */
+export function handoutPlayerLabel(handout, { number = 0, styleName = "", castName = "" } = {}) {
+    const h = handout ?? {};
+    const head = h.recommendedStyle === HANDOUT_STYLE_FREE
+        ? (h.title || "ハンドアウト")
+        : `${number ? circledNumber(number) : ""}${styleName}`;
+    const base = head || "ハンドアウト";
+    return castName ? `${base}（${castName}）` : base;
+}
+
+/**
+ * シーン行のシーンプレイヤー指定を解く(2026-08-10)。ハンドアウト参照を正とし、
+ * 旧データ(ユーザー参照・`isMasterScene`)は読み替えで吸収する(一括書き換えはしない)。
+ * @param {?object} row 正規化済みシーン行
+ * @param {Array<object>} [handouts] 正規化済みハンドアウト行
+ * @returns {{ruler:boolean, handoutId:string, userId:string}}
+ *          handoutId=指定されたハンドアウト(旧データ由来なら "")・userId=解決した対象ユーザー
+ */
+export function resolveScenePlayerRef(row, handouts = []) {
+    const r = row ?? {};
+    const ruler = { ruler: true, handoutId: "", userId: "" };
+    const ref = r.playerHandoutId ?? "";
+    if (ref === SCENE_PLAYER_RULER) return ruler;
+    if (ref) {
+        const hit = (handouts ?? []).find(h => h?.id === ref) ?? null;
+        return { ruler: false, handoutId: ref, userId: hit?.userId ?? "" };
+    }
+    // 旧データ: 2026-08-10 以前の「ルーラーシーン」はユーザー欄の特殊値、さらに前は専用フラグ
+    if (r.playerUserId === SCENE_PLAYER_RULER || r.isMasterScene) return ruler;
+    return { ruler: false, handoutId: "", userId: r.playerUserId ?? "" };
 }
 
 /**

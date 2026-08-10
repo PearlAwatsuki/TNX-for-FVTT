@@ -50,6 +50,8 @@ import {
   sceneSequenceNumbers,
   recordScenePlayerDone,
   SCENE_PLAYER_RULER,
+  handoutPlayerLabel,
+  resolveScenePlayerRef,
 } from "../../scripts/module/session-logic.mjs";
 import { TNX_HOOKS } from "../../scripts/module/combat-events.mjs";
 
@@ -69,7 +71,7 @@ describe("normalizeSceneRow()（シーン行の正規化・14-2）", () => {
     expect(row).toEqual({
       id: "s1", number: 3, name: "旧シーン", player: "旧キャスト名",
       isMasterScene: true, switchMessage: "▼",
-      area: "", stage: "", playerUserId: "",
+      area: "", stage: "", playerUserId: "", playerHandoutId: "",
       kind: "normal", eventCondition: "",
       appearanceMode: "area", appearanceValue: null, appearanceSkills: [],
       appearanceActors: [],
@@ -1007,5 +1009,73 @@ describe("recordScenePlayerDone()（消化の記帳はリサーチ内だけ・20
 describe("SCENE_PLAYER_RULER（ルーラーシーンの特殊値・2026-08-10）", () => {
   it("ユーザー id と衝突しない @ 前置の特殊値", () => {
     expect(SCENE_PLAYER_RULER).toBe("@ruler");
+  });
+});
+
+describe("handoutPlayerLabel()（シーンプレイヤー欄のラベル・2026-08-10 指定）", () => {
+  it("「①スタイル名（キャスト名）」", () => {
+    expect(handoutPlayerLabel({ recommendedStyle: "kabuto" },
+      { number: 1, styleName: "カブト", castName: "御堂" })).toBe("①カブト（御堂）");
+  });
+
+  it("キャスト未設定なら「①スタイル名」だけ", () => {
+    expect(handoutPlayerLabel({ recommendedStyle: "kabuto" },
+      { number: 2, styleName: "カブト" })).toBe("②カブト");
+  });
+
+  it("自由記述ハンドアウトは自由入力のタイトルを使う（番号もスタイルも持たない）", () => {
+    expect(handoutPlayerLabel({ recommendedStyle: HANDOUT_STYLE_FREE, title: "黒幕" },
+      { number: 0, castName: "御堂" })).toBe("黒幕（御堂）");
+  });
+
+  it("スタイル未選択は番号だけ", () => {
+    expect(handoutPlayerLabel({ recommendedStyle: "" }, { number: 3 })).toBe("③");
+  });
+
+  it("何も無ければ「ハンドアウト」", () => {
+    expect(handoutPlayerLabel({})).toBe("ハンドアウト");
+  });
+});
+
+describe("resolveScenePlayerRef()（シーンプレイヤー指定の解決・2026-08-10）", () => {
+  const HANDOUTS = [{ id: "h1", userId: "u1" }, { id: "h2", userId: "" }];
+
+  it("ハンドアウト参照から担当ユーザーを解く", () => {
+    expect(resolveScenePlayerRef({ playerHandoutId: "h1" }, HANDOUTS))
+      .toEqual({ ruler: false, handoutId: "h1", userId: "u1" });
+  });
+
+  it("対象ユーザー未設定のハンドアウトは userId が空（呼び元が警告する）", () => {
+    expect(resolveScenePlayerRef({ playerHandoutId: "h2" }, HANDOUTS))
+      .toEqual({ ruler: false, handoutId: "h2", userId: "" });
+  });
+
+  it("参照切れのハンドアウトも userId が空", () => {
+    expect(resolveScenePlayerRef({ playerHandoutId: "none" }, HANDOUTS).userId).toBe("");
+  });
+
+  it("@ruler はルーラーシーン", () => {
+    expect(resolveScenePlayerRef({ playerHandoutId: SCENE_PLAYER_RULER }, HANDOUTS))
+      .toEqual({ ruler: true, handoutId: "", userId: "" });
+  });
+
+  it("旧データ: ユーザー参照はそのまま担当として読む", () => {
+    expect(resolveScenePlayerRef({ playerUserId: "u9" }, HANDOUTS))
+      .toEqual({ ruler: false, handoutId: "", userId: "u9" });
+  });
+
+  it("旧データ: ユーザー欄の @ruler・isMasterScene はルーラーシーン", () => {
+    expect(resolveScenePlayerRef({ playerUserId: SCENE_PLAYER_RULER }, HANDOUTS).ruler).toBe(true);
+    expect(resolveScenePlayerRef({ isMasterScene: true }, HANDOUTS).ruler).toBe(true);
+  });
+
+  it("ハンドアウト参照が旧データより優先される", () => {
+    expect(resolveScenePlayerRef({ playerHandoutId: "h1", playerUserId: "u9" }, HANDOUTS).userId)
+      .toBe("u1");
+  });
+
+  it("未指定・null は担当なし", () => {
+    expect(resolveScenePlayerRef({}, HANDOUTS)).toEqual({ ruler: false, handoutId: "", userId: "" });
+    expect(resolveScenePlayerRef(null)).toEqual({ ruler: false, handoutId: "", userId: "" });
   });
 });

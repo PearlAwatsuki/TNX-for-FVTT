@@ -22,7 +22,7 @@ import {
     hasBackstage, backstageQueue, nextBackstageSpot, isBackstageFinished,
     findDuplicateKeys, matchTrumpCard,
     rotationOrder, resolveRotationDefault, stageCandidateActorIds,
-    recordScenePlayerDone, SCENE_PLAYER_RULER,
+    recordScenePlayerDone, SCENE_PLAYER_RULER, resolveScenePlayerRef,
 } from "./session-logic.mjs";
 import {
     setAppearing, setNameHidden, clearAllAppearing, listAppearingActors, isAppearing,
@@ -176,6 +176,17 @@ export function getRotationOrder() {
     return rotationOrder(_activeHandouts(), {
         hasCast: id => !!game.users.get(id)?.character,
     });
+}
+
+/**
+ * 台本のシーンプレイヤー指定(ハンドアウト参照)を、実行状態に入れる形へ解決する。
+ * ルーラーシーンは `@ruler`、それ以外は担当ユーザー id(解決できなければ "")。
+ * @param {object} scene 正規化済みシーン行
+ * @returns {string}
+ */
+function _scriptedScenePlayerId(scene) {
+    const ref = resolveScenePlayerRef(scene, _activeHandouts());
+    return ref.ruler ? SCENE_PLAYER_RULER : ref.userId;
 }
 
 /** 現在のシーンカード(Card ドキュメント)。未提示・解決不能は null。 */
@@ -487,8 +498,17 @@ export async function switchScene(sceneId) {
 async function _requestSceneEntry({ row }) {
     const scene = normalizeSceneRow(row);
     const rotation = scene.kind === "rotation";
+
+    // 台本のシーンプレイヤー指定＝ハンドアウト参照(2026-08-10)を解決する。巡回シーンは
+    // 入場時に決めるので台本を見ない。担当が解決できない指定は上演前に気づけるよう警告する
+    const scripted = rotation ? null : resolveScenePlayerRef(scene, _activeHandouts());
+    const scriptedUserId = rotation ? "" : _scriptedScenePlayerId(scene);
+    if (scripted?.handoutId && !scripted.userId) {
+        ui.notifications.warn("シーンプレイヤーに指定されたハンドアウトに対象ユーザーが設定されていません。");
+    }
+
     if (!rotation && scene.appearanceMode !== "unset") {
-        return { scenePlayerUserId: scene.playerUserId, override: null };
+        return { scenePlayerUserId: scriptedUserId, override: null };
     }
 
     const st = getSessionState();
@@ -523,7 +543,7 @@ async function _requestSceneEntry({ row }) {
         ? Object.fromEntries(playerChoices.map(u => [u.id, actorIdsFor(u.id)])) : null;
     const actorIds = rotation
         ? [...new Set(Object.values(stageActorIdsByUser).flat())]
-        : actorIdsFor(scene.playerUserId);
+        : actorIdsFor(scriptedUserId);
     const stageCandidates = await listStageCandidates(actorIds);
 
     const result = await promptSceneEntry({
@@ -531,7 +551,7 @@ async function _requestSceneEntry({ row }) {
     });
     if (!result) return null;
     return {
-        scenePlayerUserId: rotation ? result.scenePlayerUserId : scene.playerUserId,
+        scenePlayerUserId: rotation ? result.scenePlayerUserId : scriptedUserId,
         override:          result.override,
     };
 }
@@ -558,7 +578,8 @@ async function _applySceneEntry({ phase, row }, entry = null) {
     // ルーラーシーン(GM ユーザー選択 or 旧 isMasterScene)＝**シーンプレイヤーはいない**
     // (ルーラーはプレイヤーではない・2026-08-08 裁定)→ isScenePlayer は誰にも立てない。
     // 巡回シーンのシーンプレイヤーは入場ダイアログで決まる(行からは導けない)
-    const requestedUserId = entry?.scenePlayerUserId ?? scene.playerUserId;
+    // 台本の指定(ハンドアウト参照)は `_requestSceneEntry` が解決済み。巡回シーンは入場ダイアログの選択
+    const requestedUserId = entry?.scenePlayerUserId ?? _scriptedScenePlayerId(scene);
     const playerUser = requestedUserId ? game.users.get(requestedUserId) : null;
     const playerUserId = (isRulerScene(scene, requestedUserId) || !playerUser) ? "" : requestedUserId;
 

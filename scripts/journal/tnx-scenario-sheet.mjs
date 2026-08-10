@@ -14,7 +14,7 @@ import {
     SCENE_AREA_OPTIONS, SCENE_KIND_OPTIONS, SCENE_PLAYER_RULER, HANDOUT_SUIT_OPTIONS,
     HANDOUT_STYLE_COMMON, HANDOUT_STYLE_FREE,
     normalizeSceneRow, normalizeHandoutRow, handoutTitleSuffix, circledNumber, infoSkillKeys,
-    sceneSequenceNumbers,
+    sceneSequenceNumbers, handoutPlayerLabel, handoutNumberOf, handoutStyleDisplay,
 } from '../module/session-logic.mjs';
 import { normalizeAppearanceActors, groupCharacterChoices } from '../module/appearance-logic.mjs';
 import { listSubScenes } from '../module/subscenes.mjs';
@@ -108,6 +108,19 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         for (const rows of Object.values(context.scenes)) {
             for (const row of rows) row.seqNumber = seq[row.id] ?? "-";
         }
+        // 旧データ(ユーザー参照・自由文字列)のシーンプレイヤー指定は、空選択肢のラベルで示す
+        // ——値は保ったまま「何が指定されていたか」を見せ、選び直せば新形式へ移る
+        for (const rows of Object.values(context.scenes)) {
+            for (const row of rows) {
+                if (row.playerHandoutId) continue;
+                const legacyUser = row.playerUserId && row.playerUserId !== SCENE_PLAYER_RULER
+                    ? game.users.get(row.playerUserId) : null;
+                row.legacyPlayerLabel = legacyUser
+                    ? (legacyUser.character?.name ?? legacyUser.name)
+                    : (row.playerUserId === SCENE_PLAYER_RULER || row.isMasterScene
+                        ? "ルーラーシーン" : (row.player ?? ""));
+            }
+        }
         // シーン行のセレクト選択肢(14-2/14-4): エリア・舞台(サブシーン+通常 Scene)・
         // シーンプレイヤー(User。シーンプレイヤーはプレイヤー側の指定=2026-08-07 裁定)
         context.sceneAreaOptions = SCENE_AREA_OPTIONS;
@@ -115,15 +128,13 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         context.sceneKindOptions = SCENE_KIND_OPTIONS;
         context.stageSubSceneOptions = listSubScenes().map(s => ({ value: `subScene:${s.id}`, label: s.name }));
         context.stageSceneOptions = game.scenes.map(s => ({ value: `scene:${s.id}`, label: s.name }));
-        // シーンプレイヤー候補(2026-08-10 是正)。**ルーラーシーンは独立した選択肢**で、
-        // GM ユーザーの選択はもう「ルーラーシーン」を意味しない（RL がキャストを持つ場合に
-        // そのキャストを主役にできる必要があるため）。この欄は実質キャストの一覧として
-        // 読まれるので、表示はキャスト名を主にする
+        // シーンプレイヤー候補＝**ハンドアウト**(2026-08-10 ユーザー指摘)。シナリオの台本は
+        // 「SCENE 2：シーンプレイヤー＝HO①」の形で書かれ、担当はプレアクトで決まるため、
+        // ユーザーではなくハンドアウトを指す。ラベルは「①スタイル名（キャスト名）」・
+        // キャスト未設定なら「①スタイル名」。**共通ハンドアウトは出さない**(全員向けなので
+        // シーンプレイヤーになり得ない)。ルーラーシーンは独立した選択肢
         context.scenePlayerRuler = SCENE_PLAYER_RULER;
-        context.scenePlayerUsers = game.users.map(u => ({
-            id: u.id,
-            name: u.character?.name ? `${u.character.name}（${u.name}）` : u.name,
-        }));
+        context.scenePlayerHandouts = await this._buildScenePlayerHandouts(flagData.handouts);
 
         // 判定要求・報酬点のプリセット(フェーズ12-5)。名前は未入力なら「判定要求n」を出す
         const skillGroups = await loadGroupedGeneralSkillChoices();
@@ -399,6 +410,31 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         if (keys.includes(key)) return;
         scene.appearanceSkills = [...keys, key];
         await this.document.setFlag("tokyo-nova-axleration", "scenes", scenes);
+    }
+
+    /**
+     * シーンプレイヤー欄の候補（ハンドアウト）を組む。
+     * ラベルは「①スタイル名（キャスト名）」・キャスト未設定なら「①スタイル名」（2026-08-10 指定）。
+     * 共通ハンドアウトは全員向けなのでシーンプレイヤーになり得ず、候補から外す。
+     * @param {Array<object>} rawHandouts flags.handouts
+     * @returns {Promise<Array<{id: string, label: string}>>}
+     */
+    async _buildScenePlayerHandouts(rawHandouts) {
+        const handouts = (rawHandouts ?? []).map(normalizeHandoutRow);
+        const styleChoices = await loadSkillChoices([STYLE_PACK]);
+        return handouts
+            .filter(h => h.recommendedStyle !== HANDOUT_STYLE_COMMON)
+            .map(h => {
+                const user = h.userId ? game.users.get(h.userId) : null;
+                return {
+                    id: h.id,
+                    label: handoutPlayerLabel(h, {
+                        number:    handoutNumberOf(handouts, h.id),
+                        styleName: handoutStyleDisplay(h.recommendedStyle, styleChoices),
+                        castName:  user?.character?.name ?? "",
+                    }),
+                };
+            });
     }
 
     async _onSceneItemChange(event) {
