@@ -57,7 +57,10 @@ export async function openConditionEditDialog(actor, effect, kind) {
         window: { title: `効果の編集: ${def.label}` },
         classes: ["tokyo-nova", "tnx-dialog"],
         position: { width: 360 },
-        content: `<form class="tnx-select-dialog">${groups.join("")}</form>`,
+        // 器は div にする。DialogV2 は本文を自前の <form> の中に描くため、ここで <form> を
+        // 使うと入れ子フォームとしてパーサに落とされ、**クラスごと消える**＝
+        // `.tnx-select-dialog`(ラベルを全幅で上に置く意匠)が一度も効いていなかった
+        content: `<div class="tnx-select-dialog">${groups.join("")}</div>`,
         buttons: [
             {
                 action: "ok", icon: "fas fa-check", label: "設定", default: true,

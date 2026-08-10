@@ -5695,8 +5695,11 @@ body.tnx-bottom-hud-expanded #hotbar {
     margin-bottom: 6px;
     font-weight: 600;
 }
+/* ラベルの真下＝左端に置く。Foundry の .form-fields は flex-end のため、
+   幅を絞ったプルダウンだけが右へ飛んでラベルと縦がずれる */
 .tnx-select-dialog .form-fields {
     flex: none;
+    justify-content: flex-start;
 }
 .tnx-select-dialog select {
     max-width: 240px;
@@ -8141,6 +8144,21 @@ button.tnx-create-act-button span {
     padding: 5px 8px;
 }
 
+/* ── ダイアログ本文を器で包んだときの行間（2026-08-09 ユーザー指摘） ──
+   DialogV2(v13) の `.dialog-content.standard-form` は **直下の子** に gap: 16px を与える。
+   TNX のダイアログは CSS スコープ用の器（div / form）で本文を包むことが多く、その場合
+   .form-group は器の子になるため gap を受け取れず、行が隙間なく密着していた。
+   **器が .form-group を直に並べているときだけ**、同じ縦並び＋間隔を器側に持たせる
+   （gap: inherit ＝ .dialog-content の値をそのまま使うので、Foundry 側が変わっても追従する）。
+   直下に .form-group を持たない器（.tnx-damage-form・.tnx-event-choices 等）は対象外＝
+   それぞれの意匠をそのまま保つ。 */
+.tokyo-nova .dialog-content > div:has(> .form-group),
+.tokyo-nova .dialog-content > form:has(> .form-group) {
+    display: flex;
+    flex-direction: column;
+    gap: inherit;
+}
+
 /* ── 用途ピッカー（D&D スタイル縦ボタン） ──
    DialogV2(v13) のボタンは footer.form-footer に描画される(.dialog-buttons は V1 の残骸で
    セレクタが効かず横並びになっていた=2026-07-08 ユーザー指摘で修正) */
@@ -9251,6 +9269,10 @@ button.tnx-create-act-button span {
 /* スピナーは内容幅に縮める。全幅に伸ばすと共通の justify-content: flex-end で
    中身だけが右端へ寄り、上下のセレクトと左端が揃わない */
 .tnx-scene-entry .number-input-spinner { flex: 0 0 auto; }
+
+/* タグ入力の行は**ラベルをプルダウンの行に合わせる**(シートの .scene-tag-row と同じ規則)。
+   中央揃えのままだと、チップが増えるたびにラベルだけが上下に動く */
+.tnx-scene-entry .form-group:has(.tnx-tag-field) { align-items: flex-end; }
 
 /* イベントシーンの選択(14-8): 名前の下に起動条件を添えて縦に並べる。
    条件を読んで選ぶ操作なので、行全体をクリック領域(label)にする */
