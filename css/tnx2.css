@@ -5234,22 +5234,36 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 /* 1行＝技能の集合(タグ入力)＋共通の目標値(2026-08-09)。タグの数で高さが変わるため、
    FS 判定のイベント行と同じく**レコードごとのカード**にして切れ目を見せる */
+/* チップ領域は**行の全幅**(目標値スピナーの上まで)を使い、下段に追加プルダウンと目標値を
+   横に並べる(2026-08-10 ユーザー指摘)。以前はチップ領域と追加プルダウンを左半分の器に
+   まとめ、右に目標値を置いていたため、チップが右へ伸びず、プルダウンの右にも空白が残った */
 .skill-check-row {
     display: flex;
-    align-items: flex-start;
-    gap: 8px;
+    flex-direction: column;
+    gap: 6px;
     padding: 6px 8px;
     border: 1px solid var(--tnx2-border-subtle);
     border-radius: 6px;
     background: var(--tnx2-bg-1);
 }
 
-.skill-check-row > .tnx-tag-field { flex: 1 1 0; }
+.skill-check-bottom {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* 追加プルダウンは残り幅を埋める(共通の左寄せ・180px 上限はこの行では外す) */
+.skill-check-bottom > .tnx-tag-add {
+    flex: 1 1 0;
+    align-self: auto;
+    max-width: none;
+    min-width: 0;
+}
 
 /* 目標値と削除は追加プルダウンと同じ行(カードの一番下)に揃える */
 .skill-check-target {
     flex: 0 0 auto;
-    align-self: flex-end;
     display: flex;
     align-items: center;
     gap: 8px;
