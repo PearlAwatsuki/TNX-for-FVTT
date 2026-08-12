@@ -1044,6 +1044,28 @@
     font-style: italic;
 }
 
+/* 追加の手立てが2つある場合(プルダウン＋ドロップ)は、同じ行で幅を分け合う
+   (2026-08-12・判定要求の指定技能。プルダウン=一般技能／ドロップ=スタイル・ワークス技能)。
+   どちらから足しても同じタグ領域に積まれるので、辞典をまたいだ指定が1操作で足せる */
+.tnx-tag-add-row {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+    min-width: 0;
+}
+
+.tnx-tag-add-row > .tnx-tag-add {
+    flex: 0 1 180px;
+    align-self: auto;
+}
+
+/* 行内のドロップ枠は残り幅いっぱい。既定の 12px パディングは行の中では高すぎる */
+.tnx-tag-add-row > .tnx-import-box {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 4px 8px;
+}
+
 /* スタイルスロット: コンテンツ＋ロールインジケーターの横並びラッパー */
 .tokyo-nova.sheet.actor .style-slot-inner {
     display: flex;

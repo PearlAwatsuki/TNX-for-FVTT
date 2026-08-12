@@ -27,25 +27,35 @@
         </select>
     </div>
 
-    {{!-- 技能セクション（技能判定時のみ） --}}
+    {{!-- 技能セクション（技能判定時のみ）。指定技能は複数可＝チップ列(2026-08-12)。
+          一般技能はプルダウン、スタイル技能・ワークス専用技能はドロップで足す（一般技能も落とせる）。
+          どちらから足しても同じチップ列に積まれる＝辞典をまたいだ指定ができる --}}
     <div class="skill-section">
         <div class="form-group rl-form-group">
             <label class="rl-label">技能</label>
-            <select name="identificationKey" class="rl-select">
-                {{!-- 分類グループ×正規ソート順(シートの技能リストと同じ並び・2026-07-19) --}}
-                {{#each skillGroups}}
-                    <optgroup label="{{this.label}}">
-                        {{#each this.skills}}
-                            <option value="{{this.identificationKey}}">{{this.name}}</option>
+            <div class="tnx-tag-field">
+                <div class="tnx-tag-list" data-skill-chips></div>
+                <div class="tnx-tag-add-row">
+                    <select data-skill-add class="tnx-tag-add">
+                        <option value="">＋ 一般技能を追加</option>
+                        {{!-- 分類グループ×正規ソート順(シートの技能リストと同じ並び・2026-07-19) --}}
+                        {{#each skillGroups}}
+                            <optgroup label="{{this.label}}">
+                                {{#each this.skills}}
+                                    <option value="{{this.identificationKey}}">{{this.name}}</option>
+                                {{/each}}
+                            </optgroup>
                         {{/each}}
-                    </optgroup>
-                {{/each}}
-                <option value="">その他（自由入力）</option>
-            </select>
+                    </select>
+                    <div class="tnx-import-box" data-drop-area="request-skill">
+                        <span>技能をここにドロップ</span>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        {{!-- その他: 技能名自由入力 + スート選択（JS で表示切替） --}}
-        <div class="other-skill-section" hidden>
+        {{!-- 指定技能が空＝「その他」の要求: 技能名自由入力 + スート選択（JS で表示切替） --}}
+        <div class="other-skill-section">
             <div class="form-group rl-form-group">
                 <label class="rl-label">技能名</label>
                 <input type="text" name="customSkillName" class="rl-input"

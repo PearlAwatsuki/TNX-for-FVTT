@@ -513,18 +513,33 @@
                                         {{/each}}
                                     </select>
                                 </div>
+                                {{!-- 指定技能は複数可(2026-08-12)。一般技能はプルダウン、
+                                      スタイル技能・ワークス専用技能はドロップで足す。空＝その他(自由入力) --}}
                                 <div class="form-group">
                                     <label>技能</label>
-                                    <select name="identificationKey" data-preset-kind="checkRequests" data-preset-id="{{this.id}}">
-                                        <option value="">（その他・自由入力）</option>
-                                        {{#each this.skillGroups}}
-                                            <optgroup label="{{this.label}}">
-                                                {{#each this.skills}}
-                                                    <option value="{{this.identificationKey}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
+                                    <div class="tnx-tag-field">
+                                        <div class="tnx-tag-list">
+                                            {{#each this.skillChips as |chip|}}
+                                                <span class="tnx-tag" data-key="{{chip.key}}">{{chip.name}}<a class="tnx-tag-remove" data-action="removePresetSkill" data-preset-id="{{../id}}" data-key="{{chip.key}}" title="指定を外す"><i class="fas fa-times"></i></a></span>
+                                            {{/each}}
+                                            {{#unless this.skillChips.length}}<span class="tnx-tag-empty">（その他・自由入力）</span>{{/unless}}
+                                        </div>
+                                        <div class="tnx-tag-add-row">
+                                            <select data-no-save class="preset-skill-add tnx-tag-add" data-preset-id="{{this.id}}">
+                                                <option value="">＋ 一般技能を追加</option>
+                                                {{#each @root.skillGroupsPlain as |group|}}
+                                                    <optgroup label="{{group.label}}">
+                                                        {{#each group.skills as |skill|}}
+                                                            <option value="{{skill.identificationKey}}">{{skill.name}}</option>
+                                                        {{/each}}
+                                                    </optgroup>
                                                 {{/each}}
-                                            </optgroup>
-                                        {{/each}}
-                                    </select>
+                                            </select>
+                                            <div class="tnx-import-box preset-skill-drop" data-preset-id="{{this.id}}">
+                                                <span>技能をここにドロップ</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="form-group">
                                     <label>目標値</label>

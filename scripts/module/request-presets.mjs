@@ -42,18 +42,30 @@ export function presetLabel(preset, index, kindLabel) {
 }
 
 /**
+ * 判定要求プリセットの指定技能キー列(2026-08-12・複数指定に対応)。
+ * 旧形式(単数 `identificationKey`)は 1 件として読む——**一括書き換えはしない**ので、
+ * 技能を足し引きした行から順に配列で保存される(情報項目の使用技能と同じ読み替え方式)。
+ * @param {?object} preset
+ * @returns {Array<string>}
+ */
+export function presetSkillKeys(preset) {
+    if (Array.isArray(preset?.identificationKeys)) return preset.identificationKeys.filter(Boolean);
+    return preset?.identificationKey ? [preset.identificationKey] : [];
+}
+
+/**
  * 判定要求プリセット → 起動フォームの値。**対象アクターは含めない**。
  * @param {object} preset
  */
 export function checkRequestPresetToForm(preset) {
     return {
-        checkType:         preset?.checkType ?? "skillCheck",
-        identificationKey: preset?.identificationKey ?? "",
-        customSkillName:   preset?.customSkillName ?? "",
-        validSuits:        [...(preset?.validSuits ?? [])],
-        targetValue:       Number(preset?.targetValue) || 0,
-        targetValueHidden: preset?.targetValueHidden === true,
-        description:       preset?.description ?? "",
+        checkType:          preset?.checkType ?? "skillCheck",
+        identificationKeys: presetSkillKeys(preset),
+        customSkillName:    preset?.customSkillName ?? "",
+        validSuits:         [...(preset?.validSuits ?? [])],
+        targetValue:        Number(preset?.targetValue) || 0,
+        targetValueHidden:  preset?.targetValueHidden === true,
+        description:        preset?.description ?? "",
     };
 }
 
@@ -68,13 +80,13 @@ export function bountyPresetToForm(preset) {
     };
 }
 
-/** 判定要求プリセットの新規行。 */
+/** 判定要求プリセットの新規行(指定技能は複数可・2026-08-12)。 */
 export function newCheckRequestPreset() {
     return {
         id: randomID(),
         label: "",
         checkType: "skillCheck",
-        identificationKey: "",
+        identificationKeys: [],
         customSkillName: "",
         validSuits: [],
         targetValue: 0,

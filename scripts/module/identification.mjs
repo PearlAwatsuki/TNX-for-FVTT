@@ -10,13 +10,15 @@
  * アクターの所持アイテムから identificationKey が一致するものを逆引きする。
  * @param {Actor|null} actor
  * @param {string} key identificationKey
- * @param {{type?:string}} [opts] type 指定で種別(generalSkill 等)を絞る
+ * @param {{type?:string|string[]}} [opts] type 指定で種別を絞る(配列で複数可・
+ *   例 ["generalSkill","styleSkill"]=技能全般。2026-08-12 追加)
  * @returns {Item|null} 一致アイテム(無ければ null)
  */
 export function findItemByIdentificationKey(actor, key, { type = null } = {}) {
     if (!actor?.items || !key) return null;
+    const types = (type === null || type === undefined) ? null : (Array.isArray(type) ? type : [type]);
     return actor.items.find(i =>
-        i.system?.identificationKey === key && (!type || i.type === type)
+        i.system?.identificationKey === key && (!types || types.includes(i.type))
     ) ?? null;
 }
 

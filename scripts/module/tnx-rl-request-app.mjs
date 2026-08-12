@@ -17,16 +17,27 @@ import { TnxCheckFlow } from './tnx-check-flow.mjs';
 import { buildSkillOptions } from './skill-select.mjs';
 import { findItemByIdentificationKey, formatSkillName, itemDisplayName } from './identification.mjs';
 import { enumerateRequestComboCandidates, buildRequestUsageChoices } from './usage-check-context.mjs';
-import { loadGroupedGeneralSkillChoices, loadSkillEntries, SKILL_PACKS } from './skill-dictionary.mjs';
+import { loadGroupedGeneralSkillChoices, loadSkillChoices, SKILL_PACKS } from './skill-dictionary.mjs';
 import { listCheckRequestPresets, presetLabel, checkRequestPresetToForm } from './request-presets.mjs';
 import { bindTargetPicker } from './target-picker.mjs';
 
-/** 識別キー → 〈技能名〉(辞典に無ければキーのまま)。 */
+/** 指定技能になりうるアイテム種別(一般技能とスタイル技能。ワークス専用技能も styleSkill)。 */
+const REQUEST_SKILL_TYPES = ["generalSkill", "styleSkill"];
+
+/** 全技能辞典(＋ワールド直下)の {識別キー: 名前}。指定技能の表示解決に使う。 */
+function requestSkillNames() {
+    return loadSkillChoices([SKILL_PACKS.general, SKILL_PACKS.style, SKILL_PACKS.works]);
+}
+
+/**
+ * 識別キー → 〈技能名〉。**一般技能に限らず**スタイル技能・ワークス専用技能も引く
+ * (2026-08-12。指定技能を全技能へ広げたため)。逆引きできないキーは生キーを出さず
+ * 「（参照切れ）」にする(識別キーは保存する参照であって表示するものではない)。
+ */
 async function requestSkillLabel(key) {
     if (!key) return "";
-    const entries = await loadSkillEntries(SKILL_PACKS.general);
-    const hit = entries.find(s => s.identificationKey === key);
-    return hit?.name ? formatSkillName(hit.name) : key;
+    const names = await requestSkillNames();
+    return names[key] ? formatSkillName(names[key]) : "（参照切れ）";
 }
 import { toCheckRequestTargets } from './target-picker-logic.mjs';
 
@@ -174,6 +185,10 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
         // 対象選択は4つのダイアログ共通の部品(2026-07-21)
         this._picker = bindTargetPicker(el.querySelector(".tnx-target-picker"));
 
+        // 指定技能は複数可(2026-08-12)。状態はアプリ側に持ち、チップ列を描き直す
+        this._skillKeys ??= [];
+        this._wireSkillTags(el);
+
         // 読み込み元 → 各欄へ流し込む(対象アクターはプリセットに含めないので触らない)
         el.querySelector("[name=presetId]")?.addEventListener("change", (e) => {
             const preset = listCheckRequestPresets()
@@ -187,7 +202,6 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
                 else input.value = value ?? "";
             };
             set("checkType",         form.checkType);
-            set("identificationKey", form.identificationKey);
             set("customSkillName",   form.customSkillName);
             set("targetValue",       form.targetValue);
             set("targetValueHidden", form.targetValueHidden);
@@ -195,23 +209,15 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
             for (const suit of ["spade", "club", "heart", "diamond"]) {
                 set(`suit_${suit}`, form.validSuits.includes(suit));
             }
+            this._skillKeys = [...form.identificationKeys];
+            this._renderSkillTags();
             el.querySelector("[name=checkType]")?.dispatchEvent(new Event("change", { bubbles: true }));
-            el.querySelector("[name=identificationKey]")?.dispatchEvent(new Event("change", { bubbles: true }));
         });
 
         // 判定種別 → 技能/能力値セクション切り替え
         const typeSelect = el.querySelector("[name=checkType]");
         typeSelect?.addEventListener("change", (e) => this._updateSections(el, e.target.value));
         this._updateSections(el, typeSelect?.value ?? "skillCheck");
-
-        // 技能識別キー → その他セクション切り替え
-        const keySelect = el.querySelector("[name=identificationKey]");
-        const otherSection = el.querySelector(".other-skill-section");
-        const syncOther = () => {
-            if (otherSection) otherSection.hidden = (keySelect?.value ?? "") !== "";
-        };
-        keySelect?.addEventListener("change", syncOther);
-        syncOther();
 
         // number-input-spinner ボタン
         for (const btn of el.querySelectorAll(".number-input-spinner [data-action=decrement]")) {
@@ -224,6 +230,85 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
                 btn.closest(".number-input-spinner")?.querySelector("input[type=number]")?.stepUp();
             });
         }
+    }
+
+    /**
+     * 指定技能のタグ入力を配線する(2026-08-12)。**一般技能はプルダウン**(既存のグループ化選択肢)、
+     * **スタイル技能・ワークス専用技能はドロップ**で足す——スタイルは 33 群あり、群ごとの
+     * プルダウンを組むより辞典やシートから引いたほうが短い。一般技能も落とせる。
+     * どちらから足しても同じチップ列に積まれるので、辞典をまたいだ指定が自然にできる。
+     */
+    _wireSkillTags(el) {
+        const add = el.querySelector("[data-skill-add]");
+        add?.addEventListener("change", () => {
+            const key = add.value;
+            add.value = "";
+            this._addSkillKey(key);
+        });
+
+        const zone = el.querySelector('[data-drop-area="request-skill"]');
+        zone?.addEventListener("dragover", (event) => event.preventDefault());
+        zone?.addEventListener("drop", (event) => this._onDropSkill(event));
+
+        this._renderSkillTags();
+    }
+
+    /** 指定技能を1件足す(重複は無視)。 */
+    _addSkillKey(key) {
+        if (!key || this._skillKeys.includes(key)) return;
+        this._skillKeys.push(key);
+        this._renderSkillTags();
+    }
+
+    /** ドロップされたアイテムを指定技能に足す。技能でない/識別キーが無いものは理由を出して弾く。 */
+    async _onDropSkill(event) {
+        event.preventDefault();
+        let data;
+        try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch { return; }
+        if (!data?.uuid) return;
+        const doc = await fromUuid(data.uuid).catch(() => null);
+        if (!doc || !REQUEST_SKILL_TYPES.includes(doc.type)) {
+            ui.notifications.warn("技能をドロップしてください。");
+            return;
+        }
+        const key = doc.system?.identificationKey;
+        if (!key) {
+            ui.notifications.warn(`${doc.name} に識別キーが設定されていないため指定できません。`);
+            return;
+        }
+        this._addSkillKey(key);
+    }
+
+    /** チップ列を描き直す(表示名は辞典の現在名・生キーは出さない)。 */
+    async _renderSkillTags() {
+        const chips = this.element?.querySelector("[data-skill-chips]");
+        if (!chips) return;
+        const names = await requestSkillNames();
+        chips.replaceChildren();
+        for (const key of this._skillKeys) {
+            const tag = document.createElement("span");
+            tag.className = "tnx-tag";
+            tag.textContent = names[key] ? formatSkillName(names[key]) : "（参照切れ）";
+            const remove = document.createElement("a");
+            remove.className = "tnx-tag-remove";
+            remove.title = "指定を外す";
+            remove.innerHTML = '<i class="fas fa-times"></i>';
+            remove.addEventListener("click", () => {
+                this._skillKeys = this._skillKeys.filter(k => k !== key);
+                this._renderSkillTags();
+            });
+            tag.append(remove);
+            chips.append(tag);
+        }
+        if (!this._skillKeys.length) {
+            const empty = document.createElement("span");
+            empty.className = "tnx-tag-empty";
+            empty.textContent = "（指定なし）";
+            chips.append(empty);
+        }
+        // 指定技能が1件も無い＝「その他」の要求(技能名の自由入力とスートを RL が決める)
+        const other = this.element.querySelector(".other-skill-section");
+        if (other) other.hidden = this._skillKeys.length > 0;
     }
 
     /** 判定種別に応じて技能/能力値セクションを表示切替 */
@@ -240,19 +325,16 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
     static async _onSubmit(event, form, _formData) {
         const checkType = form.querySelector("[name=checkType]")?.value ?? "skillCheck";
 
-        // 技能識別キー（技能判定時のみ）
-        const identificationKey = (checkType === "skillCheck")
-            ? (form.querySelector("[name=identificationKey]")?.value ?? "")
-            : "";
+        // 指定技能（技能判定時のみ・複数可＝チップ列。2026-08-12）
+        const identificationKeys = (checkType === "skillCheck") ? [...(this._skillKeys ?? [])] : [];
 
         // 技能/能力値ラベル
         let skillLabel;
         if (checkType === "skillCheck") {
-            // 技能名の表示は 〈〉 整形(2026-07-18・識別マーク省去。キー未解決の生値はそのまま)
-            if (identificationKey) {
-                const entries = await loadSkillEntries(SKILL_PACKS.general);
-                const matched = entries.find(s => s.identificationKey === identificationKey);
-                skillLabel = matched?.name ? formatSkillName(matched.name) : identificationKey;
+            // 技能名の表示は 〈〉 整形(2026-07-18・識別マーク省去)。複数は FS判定の要求と同じ「・」連結
+            if (identificationKeys.length) {
+                const labels = await Promise.all(identificationKeys.map(k => requestSkillLabel(k)));
+                skillLabel = labels.join("・");
             } else {
                 const custom = form.querySelector("[name=customSkillName]")?.value?.trim();
                 skillLabel = custom ? formatSkillName(custom) : "（指定技能）";
@@ -268,7 +350,7 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
         // 有効スート
         let validSuits;
-        if (checkType === "skillCheck" && !identificationKey) {
+        if (checkType === "skillCheck" && !identificationKeys.length) {
             // その他: GM が明示的にスートを選択
             validSuits = [...form.querySelectorAll("[name^='suit_']:checked")]
                 .map(cb => cb.name.replace("suit_", ""));
@@ -299,7 +381,7 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
         }
 
         await postCheckRequest({
-            checkType, identificationKey, skillLabel, validSuits,
+            checkType, identificationKeys, skillLabel, validSuits,
             targetValue, targetValueHidden, description, targets,
         });
     }
@@ -346,7 +428,9 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
                 : await TnxRlRequestApp._promptDesignatedSkill(requestKeys);
             if (!chosenKey) return;
             const chosenLabel = await requestSkillLabel(chosenKey);
-            const matchedItem = findItemByIdentificationKey(actor, chosenKey, { type: "generalSkill" });
+            // 指定技能はスタイル技能・ワークス専用技能でもありうる(2026-08-12)。所持している技能を
+            // 見つけられないと、持っているのに代用判定へ落ちてしまうため種別を絞りすぎない
+            const matchedItem = findItemByIdentificationKey(actor, chosenKey, { type: REQUEST_SKILL_TYPES });
             // KI-025(2026-07-19): 指定技能を参加技能(ベース/組み合わせ)に含む他アイテムの用途も
             // 応答候補に列挙する(組み合わせ判定は要求への正当な応答=2026-07-17 ユーザー指摘。
             // 代用判定(卓裁定つき)へ誤誘導しない)。起動は唯一の起動関数へ用途 ID 直接指定で委譲

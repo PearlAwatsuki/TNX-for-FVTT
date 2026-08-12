@@ -1,7 +1,7 @@
-import { loadGroupedGeneralSkillChoices, loadGeneralSkillNameByKey, loadContactSkillIndex, loadSkillChoices, STYLE_PACK } from '../module/skill-dictionary.mjs';
+import { loadGroupedGeneralSkillChoices, loadGeneralSkillNameByKey, loadContactSkillIndex, loadSkillChoices, SKILL_PACKS, STYLE_PACK } from '../module/skill-dictionary.mjs';
 import { formatSkillName } from '../module/identification.mjs';
 import {
-    presetLabel, newCheckRequestPreset, newBountyPreset,
+    presetLabel, presetSkillKeys, newCheckRequestPreset, newBountyPreset,
     newDamageGrantPreset, newEffectGrantPreset, newScenarioTextPreset,
 } from '../module/request-presets.mjs';
 import { RL_DAMAGE_TYPES, RL_DAMAGE_CATEGORIES, RL_DAMAGE_MODES } from '../module/rl-grant-logic.mjs';
@@ -42,6 +42,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             addSkillCheck:     TnxScenarioSheet._onAddSkillCheck,
             deleteSkillCheck:  TnxScenarioSheet._onDeleteSkillCheck,
             removeInfoSkill:   TnxScenarioSheet._onRemoveInfoSkill,
+            removePresetSkill: TnxScenarioSheet._onRemovePresetSkill,
             addHandout:        TnxScenarioSheet._onAddHandout,
             deleteHandout:     TnxScenarioSheet._onDeleteHandout,
             removeAppearanceSkill:      TnxScenarioSheet._onRemoveAppearanceSkill,
@@ -165,9 +166,11 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         context.appearanceActorGroups = groupCharacterChoices(
             game.actors.map(a => ({ id: a.id, name: a.name, type: a.type })),
             { labelOf: type => game.i18n.localize(`TYPES.Actor.${type}`) });
-        const withSkills = (key) => (skillGroups ?? []).map(g => ({
-            ...g,
-            skills: (g.skills ?? []).map(o => ({ ...o, selected: o.identificationKey === key })),
+        // 判定要求プリセットの指定技能は**全技能**(一般＋スタイル＋ワークス)を指せる(2026-08-12)。
+        // 逆引きは3辞典まとめて引く(一般技能だけの skillNameByKey では足りない)
+        const allSkillNames = await loadSkillChoices([SKILL_PACKS.general, SKILL_PACKS.style, SKILL_PACKS.works]);
+        const toAnySkillChips = keys => (keys ?? []).map(key => ({
+            key, name: allSkillNames[key] ? formatSkillName(allSkillNames[key]) : "（参照切れ）",
         }));
         // シナリオテキストも RL プリセットの一員(2026-08-09 にテキストタブから合流)。
         // 名前欄のキーは既存データのまま title
@@ -179,7 +182,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             ...p,
             placeholder: presetLabel({}, i, "判定要求"),
             checkTypes:  checkTypeOptions(p.checkType ?? "skillCheck"),
-            skillGroups: withSkills(p.identificationKey),
+            skillChips:  toAnySkillChips(presetSkillKeys(p)),
         }));
         context.bountyPresets = (flagData.bountyGrants || []).map((p, i) => ({
             ...p,
@@ -325,6 +328,16 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         // RL プリセット(シナリオテキスト・判定要求・報酬点・ダメージ・効果)
         bind(el.querySelectorAll('.preset-item [data-preset-kind]'),
             this._onPresetFieldChange.bind(this));
+
+        // 判定要求プリセットの指定技能(タグ入力・複数可): 一般技能はプルダウン、
+        // スタイル技能・ワークス専用技能はドロップ(判定要求ダイアログと同じ組み合わせ)
+        for (const select of el.querySelectorAll('.preset-skill-add')) {
+            select.addEventListener('change', this._onPresetSkillAdd.bind(this));
+        }
+        for (const zone of el.querySelectorAll('.preset-skill-drop')) {
+            zone.addEventListener('dragover', (event) => event.preventDefault());
+            zone.addEventListener('drop', this._onPresetSkillDrop.bind(this));
+        }
 
         // ダメージ付与プリセットの欄同期(付与ダイアログと同じ規則・2026-07-24):
         // 種別は物理のみ／値ラベルは 固定＝「ダメージ」・カード＝「基準値（攻撃力相当）」／
@@ -682,6 +695,63 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         if (keys.includes(key)) return;
         row.identificationKeys = [...keys, key];
         await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
+    }
+
+    /** 判定要求プリセットの行を取り出す。 */
+    _checkRequestPreset(presets, presetId) {
+        return presets.find(p => p.id === presetId) ?? null;
+    }
+
+    /**
+     * 判定要求プリセットの指定技能を足す(2026-08-12・複数可)。
+     * 旧形式(単数 identificationKey)の行は、足した時点で配列へ移る(一括書き換えはしない)。
+     */
+    async _setPresetSkillKeys(presetId, update) {
+        const presets = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "checkRequests") || []);
+        const preset = this._checkRequestPreset(presets, presetId);
+        if (!preset) return;
+        const next = update(presetSkillKeys(preset));
+        if (!next) return;
+        preset.identificationKeys = next;
+        delete preset.identificationKey;   // 配列へ移った行に旧単数を残さない
+        await this.document.setFlag("tokyo-nova-axleration", "checkRequests", presets);
+    }
+
+    /** 判定要求プリセットの指定技能をプルダウンから足す(一般技能)。 */
+    async _onPresetSkillAdd(event) {
+        const select = event.currentTarget;
+        const key = select.value;
+        select.value = "";
+        if (!key) return;
+        await this._setPresetSkillKeys(select.dataset.presetId,
+            keys => (keys.includes(key) ? null : [...keys, key]));
+    }
+
+    /** 判定要求プリセットの指定技能をドロップから足す(スタイル技能・ワークス専用技能も)。 */
+    async _onPresetSkillDrop(event) {
+        event.preventDefault();
+        // currentTarget は await をまたぐと null になる(ディスパッチ終了で外れる)。先に読む
+        const presetId = event.currentTarget?.dataset.presetId;
+        let data;
+        try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch { return; }
+        if (!data?.uuid || !presetId) return;
+        const doc = await fromUuid(data.uuid).catch(() => null);
+        if (!doc || (doc.type !== "generalSkill" && doc.type !== "styleSkill")) {
+            ui.notifications.warn("技能をドロップしてください。");
+            return;
+        }
+        const key = doc.system?.identificationKey;
+        if (!key) {
+            ui.notifications.warn(`${doc.name} に識別キーが設定されていないため指定できません。`);
+            return;
+        }
+        await this._setPresetSkillKeys(presetId, keys => (keys.includes(key) ? null : [...keys, key]));
+    }
+
+    /** 判定要求プリセットの指定技能を外す。 */
+    static async _onRemovePresetSkill(_event, target) {
+        const { presetId, key } = target.dataset;
+        await this._setPresetSkillKeys(presetId, keys => keys.filter(k => k !== key));
     }
 
     /** 情報項目の使用技能を行から外す(キー無し＝旧い自由記述のタグを消す)。 */

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   collectPresets,
   presetLabel,
+  presetSkillKeys,
   checkRequestPresetToForm,
   bountyPresetToForm,
   newCheckRequestPreset,
@@ -98,10 +99,10 @@ describe("checkRequestPresetToForm()（プリセット → フォーム値）", 
     targetValue: 14, targetValueHidden: true, description: "静かに開ける",
   };
 
-  it("各欄へ写像する", () => {
+  it("各欄へ写像する（指定技能は複数可＝配列・2026-08-12）", () => {
     expect(checkRequestPresetToForm(preset)).toEqual({
       checkType: "skillCheck",
-      identificationKey: "electronics",
+      identificationKeys: ["electronics"],
       customSkillName: "",
       validSuits: ["spade"],
       targetValue: 14,
@@ -120,6 +121,27 @@ describe("checkRequestPresetToForm()（プリセット → フォーム値）", 
     expect(f.targetValue).toBe(0);
     expect(f.targetValueHidden).toBe(false);
     expect(f.validSuits).toEqual([]);
+    expect(f.identificationKeys).toEqual([]);
+  });
+});
+
+describe("presetSkillKeys()（判定要求プリセットの指定技能・複数化の読み替え・2026-08-12）", () => {
+  it("配列があればそれを使う（空要素は落とす）", () => {
+    expect(presetSkillKeys({ identificationKeys: ["melee", "", "element_fire"] }))
+      .toEqual(["melee", "element_fire"]);
+  });
+
+  it("旧形式（単数）は1件として読む（一括書き換えはしない）", () => {
+    expect(presetSkillKeys({ identificationKey: "electronics" })).toEqual(["electronics"]);
+  });
+
+  it("配列がある行では旧単数を見ない（空配列＝意図的に空）", () => {
+    expect(presetSkillKeys({ identificationKeys: [], identificationKey: "electronics" })).toEqual([]);
+  });
+
+  it("どちらも無ければ空", () => {
+    expect(presetSkillKeys({})).toEqual([]);
+    expect(presetSkillKeys(null)).toEqual([]);
   });
 });
 
@@ -139,11 +161,12 @@ describe("bountyPresetToForm()（報酬点プリセット → フォーム値）
 });
 
 describe("newCheckRequestPreset() / newBountyPreset()（新規行）", () => {
-  it("判定要求の新規行は既定値を持つ", () => {
+  it("判定要求の新規行は既定値を持つ（指定技能は空配列）", () => {
     const p = newCheckRequestPreset();
     expect(p.checkType).toBe("skillCheck");
     expect(p.label).toBe("");
     expect(p.targetValue).toBe(0);
+    expect(p.identificationKeys).toEqual([]);
   });
 
   it("報酬点の新規行は既定値を持つ", () => {
