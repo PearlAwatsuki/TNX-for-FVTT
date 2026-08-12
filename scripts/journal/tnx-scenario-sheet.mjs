@@ -14,7 +14,7 @@ import {
     SCENE_AREA_OPTIONS, SCENE_KIND_OPTIONS, SCENE_PLAYER_RULER, HANDOUT_SUIT_OPTIONS,
     HANDOUT_STYLE_COMMON, HANDOUT_STYLE_FREE,
     normalizeSceneRow, normalizeHandoutRow, handoutTitleSuffix, circledNumber, infoSkillKeys,
-    sceneSequenceNumbers, handoutPlayerLabel, handoutNumberOf, handoutStyleDisplay,
+    sceneSequenceNumbers, handoutPlayerLabel, handoutNumberOf, handoutStyleDisplay, infoTiers,
 } from '../module/session-logic.mjs';
 import { normalizeAppearanceActors, groupCharacterChoices } from '../module/appearance-logic.mjs';
 import { listSubScenes } from '../module/subscenes.mjs';
@@ -37,6 +37,8 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             deleteInfoItem:    TnxScenarioSheet._onDeleteInfoItem,
             addInfoContent:    TnxScenarioSheet._onAddInfoContent,
             deleteInfoContent: TnxScenarioSheet._onDeleteInfoContent,
+            addInfoTier:       TnxScenarioSheet._onAddInfoTier,
+            deleteInfoTier:    TnxScenarioSheet._onDeleteInfoTier,
             addSkillCheck:     TnxScenarioSheet._onAddSkillCheck,
             deleteSkillCheck:  TnxScenarioSheet._onDeleteSkillCheck,
             removeInfoSkill:   TnxScenarioSheet._onRemoveInfoSkill,
@@ -213,6 +215,8 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             ...item,
             contents: (item.contents ?? []).map(content => ({
                 ...content,
+                // 段(追加で判明する内容)は目標値の昇順で表示する(保存順は書き換えない)
+                tiers: infoTiers(content),
                 skills: (content.skills ?? []).map(skill => {
                     const tags = toSkillChips(infoSkillKeys(skill));
                     return {
@@ -457,7 +461,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
     async _onInfoItemChange(event) {
         const input = event.currentTarget;
-        const { infoId, contentId, skillId } = input.dataset;
+        const { infoId, contentId, skillId, tierId } = input.dataset;
         const value = input.type === "checkbox" ? input.checked
             : input.type === "number" ? parseInt(input.value)
             : input.value;
@@ -466,7 +470,11 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         const item = items.find(i => i.id === infoId);
         if (!item) return;
 
-        if (contentId && skillId) {
+        if (contentId && tierId) {
+            // 段の目標値・本文(技能行と同じ name を使うため、段の判定を先に置く)
+            const tier = item.contents.find(c => c.id === contentId)?.tiers?.find(t => t.id === tierId);
+            if (tier) tier[input.name] = value;
+        } else if (contentId && skillId) {
             const skill = item.contents.find(c => c.id === contentId)?.skills.find(s => s.id === skillId);
             if (skill) skill[input.name] = value;
         } else if (contentId) {
@@ -624,6 +632,31 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         const item = items.find(i => i.id === infoId);
         if (!item) return;
         item.contents = item.contents.filter(c => c.id !== contentId);
+        await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
+    }
+
+    /**
+     * 段(追加で判明する内容)を足す(2026-08-12 裁定)。
+     * 同じ入口(＝この内容の使用技能)のまま目標値が上がると増える情報を表す。
+     * 要求技能が違う場合はここではなく「情報の内容を追加」で枝そのものを分ける。
+     */
+    static async _onAddInfoTier(_event, target) {
+        const { infoId, contentId } = target.dataset;
+        const items = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "infoItems") || []);
+        const content = items.find(i => i.id === infoId)?.contents?.find(c => c.id === contentId);
+        if (!content) return;
+        if (!Array.isArray(content.tiers)) content.tiers = [];
+        content.tiers.push({ id: foundry.utils.randomID(), tn: null, text: "", isDisclosed: false });
+        await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
+    }
+
+    /** 段を削除する(内容ブロック・技能行の削除と同じく確認なし。確認は情報項目全体のみ)。 */
+    static async _onDeleteInfoTier(_event, target) {
+        const { infoId, contentId, tierId } = target.dataset;
+        const items = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "infoItems") || []);
+        const content = items.find(i => i.id === infoId)?.contents?.find(c => c.id === contentId);
+        if (!content) return;
+        content.tiers = (content.tiers ?? []).filter(t => t.id !== tierId);
         await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
     }
 

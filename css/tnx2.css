@@ -5275,6 +5275,35 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 .tn-label { font-size: 0.9em; color: var(--tnx2-text-muted); white-space: nowrap; }
 
+/* 段＝追加で判明する内容(2026-08-12): 同じ入口(使用技能)のまま目標値が上がると積み増される。
+   別の枝(内容ブロック)ではなく本文の続きであることを、左の罫線と字下げで示す */
+.info-content-block .info-tier-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+    align-items: flex-start;
+}
+
+.info-content-block .info-tier {
+    align-self: stretch;
+    padding-left: 10px;
+    border-left: 2px solid var(--tnx2-border-active);
+}
+
+/* 目標値と削除はヘッダー行に並べ(行の幅を分け合う)、編集トグル
+   (attachEditorSectionToggles がヘッダー末尾へ移す)だけを右端へ寄せる */
+.tokyo-nova .info-tier .tnx-editor-section__header {
+    justify-content: flex-start;
+    gap: 8px;
+}
+
+.tokyo-nova .info-tier .tnx-editor-section__header button.toggle { margin-left: auto; }
+
+/* 段の本文は入口本文(200px)より低く。段ごとに枠が積まれるため。
+   150px は prose-mirror の min-height(Foundry コア)＝これ以上は縮まない */
+.tokyo-nova .info-tier .tnx-editor-section__content prose-mirror { height: 150px; }
+
 .add-content-button-wrapper {
     padding: 12px;
     border-top: 1px solid var(--tnx2-border-active);
@@ -9191,6 +9220,9 @@ button.tnx-create-act-button span {
     font-size: 0.9em;
     opacity: 0.9;
 }
+
+/* 段(追加で判明する内容)は入口の内容にぶら下げてもう一段字下げする */
+.tnx-scenario-panel .scp-info-tier { padding-left: 36px; }
 
 .tnx-scenario-panel .scp-info-content-label {
     flex: 1 1 auto;

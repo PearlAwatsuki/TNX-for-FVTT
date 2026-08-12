@@ -38,6 +38,9 @@ import {
   infoSkillKeys,
   resolveInfoSkillNames,
   withResolvedInfoSkillNames,
+  infoTiers,
+  infoTierLabel,
+  toggleInfoDisclosure,
   SCENE_KIND_OPTIONS,
   flattenScenes,
   nextSceneTarget,
@@ -647,6 +650,133 @@ describe("buildInfoMessage()（情報項目送信・14-3）", () => {
   it("送れる中身が無ければ mode=null", () => {
     const { mode } = buildInfoMessage({ title: "空", contents: [{ isDisclosed: false, text: "", skills: [{ names: [], tn: null }] }] });
     expect(mode).toBeNull();
+  });
+
+  // 段(追加で判明する内容)＝同じ入口で目標値が上がると本文に積み増される(2026-08-12 裁定)
+  const TIERED = {
+    title: "ミハイルの行方",
+    contents: [{
+      isDisclosed: false,
+      text: "潜伏先はカブキ",
+      skills: [{ names: ["〈情報：ストリート〉"], tn: 8 }],
+      tiers: [
+        { id: "t2", tn: 16, text: "護衛は3人", isDisclosed: false },
+        { id: "t1", tn: 12, text: "明日には発つ", isDisclosed: false },
+      ],
+    }],
+  };
+
+  it("開示済みが無ければ段も目標値の昇順で送る（mode=targets）", () => {
+    const { html, mode } = buildInfoMessage(TIERED);
+    expect(mode).toBe("targets");
+    expect(html).toContain("<strong>〈情報：ストリート〉 &gt; 8</strong>");
+    expect(html).toContain("<strong>さらに目標値 12</strong>");
+    expect(html).toContain("<strong>さらに目標値 16</strong>");
+    // 保存順(16→12)ではなく昇順(12→16)で並ぶ
+    expect(html.indexOf("明日には発つ")).toBeLessThan(html.indexOf("護衛は3人"));
+  });
+
+  it("開示済みの段だけを送る（下位段が開いていても上位段は伏せる）", () => {
+    const item = structuredClone(TIERED);
+    item.contents[0].isDisclosed = true;
+    item.contents[0].tiers.find(t => t.id === "t1").isDisclosed = true;
+    const { html, mode } = buildInfoMessage(item);
+    expect(mode).toBe("disclosed");
+    expect(html).toContain("潜伏先はカブキ");
+    expect(html).toContain("明日には発つ");
+    expect(html).not.toContain("護衛は3人");
+    expect(html).not.toContain("さらに目標値 16");
+  });
+
+  it("段だけが開示された内容も送信対象に入る（入口本文は伏せたまま）", () => {
+    const item = structuredClone(TIERED);
+    item.contents[0].tiers.find(t => t.id === "t1").isDisclosed = true;
+    const { html, mode } = buildInfoMessage(item);
+    expect(mode).toBe("disclosed");
+    expect(html).toContain("明日には発つ");
+    expect(html).not.toContain("潜伏先はカブキ");
+  });
+});
+
+describe("infoTiers() / infoTierLabel()（情報の段・2026-08-12）", () => {
+  it("段が無ければ空配列（既存データは無改修で読める）", () => {
+    expect(infoTiers({})).toEqual([]);
+    expect(infoTiers({ tiers: null })).toEqual([]);
+    expect(infoTiers(null)).toEqual([]);
+  });
+
+  it("目標値の昇順で返し、保存順は書き換えない", () => {
+    const content = { tiers: [{ id: "b", tn: 16 }, { id: "a", tn: 12 }] };
+    expect(infoTiers(content).map(t => t.id)).toEqual(["a", "b"]);
+    expect(content.tiers.map(t => t.id)).toEqual(["b", "a"]);
+  });
+
+  it("目標値が未入力の段は末尾に置く（入力するまで足した位置に留まる）", () => {
+    const tiers = [{ id: "x", tn: null }, { id: "y", tn: 12 }, { id: "z" }];
+    expect(infoTiers({ tiers }).map(t => t.id)).toEqual(["y", "x", "z"]);
+  });
+
+  it("同じ目標値の段は保存順を保つ", () => {
+    const tiers = [{ id: "p", tn: 12 }, { id: "q", tn: 12 }];
+    expect(infoTiers({ tiers }).map(t => t.id)).toEqual(["p", "q"]);
+  });
+
+  it("段のラベルは目標値で示す（未入力は入力を促す表記）", () => {
+    expect(infoTierLabel({ tn: 12 })).toBe("さらに目標値 12");
+    expect(infoTierLabel({ tn: null })).toBe("（目標値未入力）");
+    expect(infoTierLabel({})).toBe("（目標値未入力）");
+  });
+});
+
+describe("toggleInfoDisclosure()（開示の累積・2026-08-12）", () => {
+  const content = () => ({
+    id: "c1",
+    isDisclosed: false,
+    text: "入口",
+    tiers: [
+      { id: "t3", tn: 16, isDisclosed: false },
+      { id: "t1", tn: 8,  isDisclosed: false },
+      { id: "t2", tn: 12, isDisclosed: false },
+    ],
+  });
+  const flags = c => [c.isDisclosed, ...c.tiers.map(t => t.isDisclosed)];
+
+  it("入口本文の開示を切り替える（段は動かさない）", () => {
+    expect(toggleInfoDisclosure(content(), null).isDisclosed).toBe(true);
+  });
+
+  it("入口本文を閉じると全ての段も閉じる（開示の累積を壊さない）", () => {
+    const c = content();
+    c.isDisclosed = true;
+    c.tiers.forEach(t => { t.isDisclosed = true; });
+    // 保存順は t3(16), t1(8), t2(12)
+    expect(flags(toggleInfoDisclosure(c, null))).toEqual([false, false, false, false]);
+  });
+
+  it("段を開けると入口本文と下位段も開く", () => {
+    // t2(12) を開ける → 入口 と t1(8) も開き、上位の t3(16) は閉じたまま
+    expect(flags(toggleInfoDisclosure(content(), "t2"))).toEqual([true, false, true, true]);
+  });
+
+  it("段を閉じると上位段も閉じる", () => {
+    const c = content();
+    c.isDisclosed = true;
+    c.tiers.forEach(t => { t.isDisclosed = true; });
+    // t2(12) を閉じる → t3(16) も閉じ、下位の t1(8) と入口は開いたまま
+    expect(flags(toggleInfoDisclosure(c, "t2"))).toEqual([true, false, true, false]);
+  });
+
+  it("複製を返し、元データも保存順も書き換えない", () => {
+    const c = content();
+    const next = toggleInfoDisclosure(c, "t2");
+    expect(c.isDisclosed).toBe(false);
+    expect(c.tiers[0].isDisclosed).toBe(false);
+    expect(next.tiers.map(t => t.id)).toEqual(["t3", "t1", "t2"]);
+  });
+
+  it("存在しない段の指定は何も変えない", () => {
+    const c = content();
+    expect(toggleInfoDisclosure(c, "gone")).toEqual(c);
   });
 });
 

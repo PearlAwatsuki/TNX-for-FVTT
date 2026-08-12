@@ -29,6 +29,7 @@ import {
     sceneSequenceNumbers,
     buildSceneSwitchMessage, buildTrailerMessage, buildHandoutMessage, buildInfoMessage,
     withResolvedInfoSkillNames, handoutDisplayTitle, handoutNumberOf, handoutStyleDisplay,
+    infoTiers, infoTierLabel, toggleInfoDisclosure,
 } from "./session-logic.mjs";
 import {
     loadGeneralSkillNameByKey, loadContactSkillIndex, loadSkillChoices, formatGroupedSkillNames, STYLE_PACK,
@@ -324,6 +325,12 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
                     id: c.id,
                     isDisclosed: c.isDisclosed === true,
                     label: infoContentLabel(c),
+                    // 段(追加で判明する内容)は入口の下に目標値の昇順で並べ、段ごとに開示する
+                    tiers: infoTiers(c).map(t => ({
+                        id: t.id,
+                        isDisclosed: t.isDisclosed === true,
+                        label: infoTierLabel(t),
+                    })),
                 })),
             }));
 
@@ -569,14 +576,19 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         this.render(false);
     }
 
+    /**
+     * 情報の内容(入口本文または段)の開示を切り替える。
+     * 段は入口本文の上に積まれるため、開示の累積は `toggleInfoDisclosure` が保つ
+     * (段を開けば下位段と入口も開き、閉じれば上位段も閉じる)。
+     */
     static async _onToggleInfoDisclosed(_event, target) {
         const journal = getActiveActJournal();
         if (!journal) return;
         const items = foundry.utils.deepClone(journal.getFlag(SCOPE, "infoItems") ?? []);
-        const content = items.find(i => i.id === target.dataset.id)
-            ?.contents?.find(c => c.id === target.dataset.contentId);
-        if (!content) return;
-        content.isDisclosed = content.isDisclosed !== true;
+        const contents = items.find(i => i.id === target.dataset.id)?.contents;
+        const index = contents?.findIndex(c => c.id === target.dataset.contentId) ?? -1;
+        if (index < 0) return;
+        contents[index] = toggleInfoDisclosure(contents[index], target.dataset.tierId || null);
         await journal.setFlag(SCOPE, "infoItems", items);
         this.render(false);
     }

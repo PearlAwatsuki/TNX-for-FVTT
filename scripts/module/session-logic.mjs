@@ -692,7 +692,8 @@ export function buildHandoutMessage(handout, { title = "", connectionName = "", 
 /**
  * 情報項目送信のチャットを組む。開示済み内容があればそれのみ(mode="disclosed")、
  * 無ければ全内容の技能/目標値+本文(mode="targets")。送れる中身が無ければ mode=null。
- * 同じ目標値の技能は「A / B ＞ TN」に連結(既存書式)。
+ * 同じ目標値の技能は「A / B ＞ TN」に連結(既存書式)。段(`tiers`)は入口本文の後ろに
+ * 目標値の昇順で積む(2026-08-12 裁定＝同じ入口で目標値が上がると情報が増える)。
  * @param {object} item 情報項目
  * @returns {{html: ?string, mode: ("disclosed"|"targets"|null)}}
  */
@@ -700,11 +701,13 @@ export function buildInfoMessage(item) {
     const contents = Array.isArray(item?.contents) ? item.contents : [];
     const head = `<h3>${item?.title ?? ""}</h3>`;
 
-    const buildBody = (rows) => {
+    const buildBody = (rows, onlyDisclosed) => {
         let html = "";
         let added = false;
         for (const content of rows) {
-            const skillsByTn = (content.skills ?? []).reduce((acc, row) => {
+            // 開示済み送信では、開いている入口本文と開いている段だけを出す
+            const showEntry = !onlyDisclosed || content.isDisclosed === true;
+            const skillsByTn = (showEntry ? (content.skills ?? []) : []).reduce((acc, row) => {
                 const names = row.names ?? [];
                 if (names.length && row.tn) (acc[row.tn] = acc[row.tn] || []).push(...names);
                 return acc;
@@ -712,23 +715,91 @@ export function buildInfoMessage(item) {
             const skillsHtml = Object.entries(skillsByTn)
                 .map(([tn, names]) => `<strong>${names.join(" / ")} &gt; ${tn}</strong>`)
                 .join("<br>");
-            if (skillsHtml || content.text) {
+            const entryText = showEntry ? content.text : "";
+            const tiersHtml = infoTiers(content)
+                .filter(tier => (!onlyDisclosed || tier.isDisclosed === true) && (tier.tn || tier.text))
+                .map(tier => (tier.tn ? `<p><strong>さらに目標値 ${tier.tn}</strong></p>` : "")
+                    + (tier.text ? `<p>${tier.text}</p>` : ""))
+                .join("");
+            if (skillsHtml || entryText || tiersHtml) {
                 if (added) html += "<hr>";
                 if (skillsHtml) html += `<p>${skillsHtml}</p>`;
-                if (content.text) html += `<p>${content.text}</p>`;
+                if (entryText) html += `<p>${entryText}</p>`;
+                html += tiersHtml;
                 added = true;
             }
         }
         return { html, added };
     };
 
-    const disclosed = contents.filter(c => c.isDisclosed);
+    // 段だけが開いている内容も送信対象(開示の累積はトグル側が保つが、送信側でも取りこぼさない)
+    const disclosed = contents.filter(c => c.isDisclosed || infoTiers(c).some(t => t.isDisclosed));
     if (disclosed.length > 0) {
-        const { html } = buildBody(disclosed);
+        const { html } = buildBody(disclosed, true);
         return { html: head + html, mode: "disclosed" };
     }
-    const { html, added } = buildBody(contents);
+    const { html, added } = buildBody(contents, false);
     return added ? { html: head + html, mode: "targets" } : { html: null, mode: null };
+}
+
+/**
+ * 情報の内容が持つ段(追加で判明する内容)を**目標値の昇順**で返す(2026-08-12 裁定)。
+ *
+ * 段は「同じ入口(＝内容の使用技能)のまま目標値が上がると情報が増える」ことの表現で、
+ * 要求技能が違う場合は内容そのものを分ける(＝別の枝)。段の目標値は**達成値の絶対値**と
+ * 比べる——どの技能行から入ったかに関わらず、達成値がその値に届けば開く。
+ *
+ * 並べ替えは**読み出し時だけ**行い、保存順は書き換えない(操作のたびに保存データの並びが
+ * 変わるのを避ける)。目標値が未入力の段は末尾に置く(入力するまで足した位置に留まる)。
+ * @param {?object} content 情報の内容
+ * @returns {Array<object>} 目標値の昇順に並べた段
+ */
+export function infoTiers(content) {
+    const tiers = Array.isArray(content?.tiers) ? content.tiers.filter(Boolean) : [];
+    return [...tiers].sort((a, b) => {
+        const at = Number.isFinite(a?.tn) ? a.tn : Infinity;
+        const bt = Number.isFinite(b?.tn) ? b.tn : Infinity;
+        return at - bt;
+    });
+}
+
+/** 段の一覧表示ラベル(シナリオコントロールパネルの開示行・チャットの見出しと同じ言い回し)。 */
+export function infoTierLabel(tier) {
+    return tier?.tn ? `さらに目標値 ${tier.tn}` : "（目標値未入力）";
+}
+
+/**
+ * 情報の内容の開示を切り替える(複製を返す。元データは書き換えない)。
+ *
+ * 段は入口本文の上に積まれるため、開示状態も累積を保つ:
+ * - 段を開ける → 入口本文と、それより下の段も開く
+ * - 段を閉じる → それより上の段も閉じる
+ * - 入口本文を閉じる → 全ての段が閉じる
+ * @param {object} content 情報の内容
+ * @param {?string} tierId 対象の段(null なら入口本文)
+ * @returns {object} 切り替え後の内容
+ */
+export function toggleInfoDisclosure(content, tierId = null) {
+    const stored = Array.isArray(content?.tiers) ? content.tiers : [];
+    const order = infoTiers(content).map(t => t.id);   // 目標値の昇順に並んだ id 列
+    const withTiers = (isDisclosed, mapTier) => ({
+        ...content, isDisclosed, tiers: stored.map(mapTier),
+    });
+
+    if (!tierId) {
+        const on = content?.isDisclosed !== true;
+        // 開けるときは段に触れない(段は段で開く)。閉じるときだけ全段を巻き取る
+        return withTiers(on, tier => (on ? tier : { ...tier, isDisclosed: false }));
+    }
+
+    const rank = order.indexOf(tierId);
+    if (rank < 0) return content;
+    const on = stored.find(t => t.id === tierId)?.isDisclosed !== true;
+    return withTiers(on ? true : content?.isDisclosed === true, (tier) => {
+        const r = order.indexOf(tier.id);
+        if (on) return r <= rank ? { ...tier, isDisclosed: true } : tier;
+        return r >= rank ? { ...tier, isDisclosed: false } : tier;
+    });
 }
 
 /**

@@ -398,6 +398,32 @@
                                                     <prose-mirror name="text" value="{{contentItem.text}}" toggled data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}">{{{contentItem.text}}}</prose-mirror>
                                                 </div>
                                             </div>
+                                            {{!-- 段＝同じ使用技能のまま目標値が上がると本文に積み増される内容
+                                                  (2026-08-12 裁定)。要求技能が違う場合は内容ブロックそのものを足す。
+                                                  目標値は達成値の絶対値と比べる(どの技能行から入ったかを問わない) --}}
+                                            <div class="info-tier-list">
+                                                {{#each contentItem.tiers as |tierItem|}}
+                                                    <div class="info-tier" data-tier-id="{{tierItem.id}}">
+                                                        <div class="tnx-editor-section">
+                                                            <div class="tnx-editor-section__header">
+                                                                <label>さらに目標値</label>
+                                                                <div class="number-input-spinner">
+                                                                    <button type="button" class="tnx-btn" data-action="spinDown" aria-label="減少">−</button>
+                                                                    <input type="number" name="tn" class="skill-tn" placeholder="-" value="{{tierItem.tn}}" min="0" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-tier-id="{{tierItem.id}}">
+                                                                    <button type="button" class="tnx-btn" data-action="spinUp" aria-label="増加">＋</button>
+                                                                </div>
+                                                                <a class="tnx-ring-btn" data-action="deleteInfoTier" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-tier-id="{{tierItem.id}}" title="この段を削除"><i class="fas fa-times"></i></a>
+                                                            </div>
+                                                            <div class="tnx-editor-section__content">
+                                                                <prose-mirror name="text" value="{{tierItem.text}}" toggled data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-tier-id="{{tierItem.id}}">{{{tierItem.text}}}</prose-mirror>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                {{/each}}
+                                                <button type="button" class="tnx-btn tnx-btn-dashed tnx-btn--sm" data-action="addInfoTier" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}">
+                                                    <i class="fas fa-plus"></i> さらに判明する内容を追加
+                                                </button>
+                                            </div>
                                         </div>
                                     {{/each}}
                                 </div>
