@@ -15,6 +15,7 @@
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { HANDOUT_STYLE_COMMON, HANDOUT_STYLE_FREE } from "./session-logic.mjs";
 import { STYLE_PACK } from "./skill-dictionary.mjs";
+import { calcSkillInsertSort } from "./identification.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const FLAG = "handoutContact";
@@ -103,8 +104,13 @@ export async function grantHandoutContact(message) {
     const name = `コネ：${flag.contactName}`;
     const exists = actor.items.some(i => i.type === "generalSkill" && i.name === name);
     if (!exists) {
+        const data = buildContactSkillData(flag.contactName);
+        // シートの一般技能リストは item.sort で並ぶ。sort を振らないと末尾に付いて正規順を
+        // 無視するため、ドロップ・＋ボタンと同じ挿入位置の計算に揃える(2026-08-13 是正)
+        data.sort = calcSkillInsertSort(
+            actor.items.filter(i => i.type === "generalSkill"), data.system.identificationKey);
         try {
-            await actor.createEmbeddedDocuments("Item", [buildContactSkillData(flag.contactName)]);
+            await actor.createEmbeddedDocuments("Item", [data]);
         } catch (err) {
             ui.notifications.warn(`${actor.name} にコネを作成できませんでした（${err.message}）。`);
             return;

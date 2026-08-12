@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { findItemByIdentificationKey, resolveItemNameByKey, styleSortPosition, STYLE_SORT_KEYS } from "../../scripts/module/identification.mjs";
+import { findItemByIdentificationKey, resolveItemNameByKey, styleSortPosition, STYLE_SORT_KEYS,
+  calcSkillInsertSort } from "../../scripts/module/identification.mjs";
 
 // アクターの items は配列でよい(find を持つ)。system.identificationKey で逆引きする。
 const actor = {
@@ -72,5 +73,39 @@ describe("styleSortPosition()（スタイルの正規ソート順・2026-08-12 �
     const shuffled = ["utsuwa", "kaze", "kabuki", "neuro", "hiruko", "kabuto-wari"];
     expect([...shuffled].sort((a, b) => styleSortPosition(a) - styleSortPosition(b)))
       .toEqual(["kabuki", "kaze", "kabuto-wari", "neuro", "hiruko", "utsuwa"]);
+  });
+});
+
+describe("calcSkillInsertSort()（一般技能を正規順の位置に挿し込む sort・2026-08-13 シート外へ切り出し）", () => {
+  // GENERAL_SKILL_SORT_PREFIXES: medicine(0) … society(16) contact(17)
+  const skill = (key, sort) => ({ sort, system: { identificationKey: key } });
+
+  it("正規順で後ろの技能があれば、その手前へ挿し込む値になる", () => {
+    const sort = calcSkillInsertSort([skill("medicine", 100), skill("contact_a", 300)], "society_nova");
+    expect(sort).toBeGreaterThan(100);
+    expect(sort).toBeLessThan(300);
+  });
+
+  it("自分より後ろが無ければ末尾へ（最大 sort ＋ 100000）", () => {
+    expect(calcSkillInsertSort([skill("medicine", 100), skill("society_nova", 250)], "contact_a"))
+      .toBe(250 + 100_000);
+  });
+
+  it("識別キーを持たない技能は末尾（位置が Infinity）", () => {
+    expect(calcSkillInsertSort([skill("medicine", 100)], "")).toBe(100 + 100_000);
+  });
+
+  it("所持が空でも落ちない", () => {
+    expect(calcSkillInsertSort([], "contact_a")).toBe(100_000);
+    expect(calcSkillInsertSort(null, "contact_a")).toBe(100_000);
+  });
+
+  it("挿し込んだ値で並べ替えると正規順になる（コネは社会の後ろ）", () => {
+    const skills = [skill("medicine", 100), skill("society_nova", 200), skill("contact_a", 300)];
+    const inserted = calcSkillInsertSort(skills, "contact_b");
+    const ordered = [...skills, skill("contact_b", inserted)]
+      .sort((a, b) => a.sort - b.sort)
+      .map(s => s.system.identificationKey);
+    expect(ordered).toEqual(["medicine", "society_nova", "contact_a", "contact_b"]);
   });
 });

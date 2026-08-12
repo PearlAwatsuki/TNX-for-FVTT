@@ -95,6 +95,35 @@ export function skillSortPosition(identificationKey) {
     return Infinity;
 }
 
+/**
+ * 一般技能をアクターへ足すときの `sort` 値を、**正規ソート順の位置に挿し込む**ように決める。
+ * キャストシートの一般技能リストは `item.sort` で並ぶため、sort を振らずに作ると
+ * 末尾に付いて正規順を無視する(2026-07-10 に辞典ドロップで同じ不具合を是正済み)。
+ * 一般技能を作る経路が増えるたびに必要なので、シート外からも呼べるようここに置く
+ * (2026-08-13・HO のコネ生成が3つ目の経路)。
+ *
+ * 識別キーを持たない技能(自作)は位置が Infinity になり末尾へ挿す。
+ * @param {Array<{sort?: number, system?: {identificationKey?: string}}>} existingSkills 所持中の一般技能
+ * @param {string} identificationKey 追加する技能の識別キー
+ * @returns {number} 付与する sort 値
+ */
+export function calcSkillInsertSort(existingSkills, identificationKey) {
+    const targetPos = skillSortPosition(identificationKey);
+    let prevSort = 0;
+    let nextSort = Infinity;
+    for (const skill of existingSkills ?? []) {
+        const skillSort = skill.sort ?? 0;
+        const skillPos  = skillSortPosition(skill.system?.identificationKey);
+        if (skillPos <= targetPos) {
+            if (skillSort > prevSort) prevSort = skillSort;
+        } else if (skillSort < nextSort) {
+            nextSort = skillSort;
+        }
+    }
+    if (!isFinite(nextSort)) return prevSort + 100_000;
+    return Math.floor((prevSort + nextSort) / 2);
+}
+
 // ─── スタイルの正規ソート順(識別キー基準) ─────────────────────────────────────
 // 辞典のスタイルを選ぶプルダウンは、システム内のどこでも本リストの並びで表示する(2026-08-12 ユーザー指示)。
 

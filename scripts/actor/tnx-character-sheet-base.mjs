@@ -39,7 +39,7 @@ import { openConditionEditDialog } from '../module/condition-edit.mjs';
 import { startTreatment } from '../module/treatment-flow.mjs';
 import { isAttackUsage } from '../data/item/common/usage.mjs';
 import { executionFormOf, usageDisplayName, isReactionType } from '../module/usage-types.mjs';
-import { itemDisplayName, resolveItemNameByKey } from '../module/identification.mjs';
+import { itemDisplayName, resolveItemNameByKey, calcSkillInsertSort } from '../module/identification.mjs';
 import { isOpposedConfrontation } from '../module/confrontation-logic.mjs';
 import { resolveHousingAreaMods, residenceEffectiveValues } from '../module/residence-area.mjs';
 
@@ -2185,20 +2185,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
      * @param {string} identificationKey 挿入する技能の識別キー(空・未知＝末尾)
      */
     static _calcInsertSortValue(existingSkills, identificationKey) {
-        const targetPos = TnxSkillUtils.getSkillSortPosition(identificationKey);
-        let prevSort = 0;
-        let nextSort = Infinity;
-        for (const skill of existingSkills) {
-            const skillSort = skill.sort ?? 0;
-            const skillPos  = TnxSkillUtils.getSkillSortPosition(skill.system.identificationKey);
-            if (skillPos <= targetPos) {
-                if (skillSort > prevSort) prevSort = skillSort;
-            } else {
-                if (skillSort < nextSort) nextSort = skillSort;
-            }
-        }
-        if (!isFinite(nextSort)) return prevSort + 100_000;
-        return Math.floor((prevSort + nextSort) / 2);
+        // 実体は identification.mjs（シート外の生成経路からも使うため・2026-08-13）
+        return calcSkillInsertSort(existingSkills, identificationKey);
     }
 
     static async _onItemDelete(event, target) {
