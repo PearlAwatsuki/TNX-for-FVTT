@@ -8,7 +8,7 @@
  * 対象辞典(system.json packs): general-skills(一般技能) / style-skills(スタイル技能) / works-skills(ワークス専用技能)。
  */
 
-import { formatSkillName, skillSortPosition } from "./identification.mjs";
+import { formatSkillName, skillSortPosition, styleSortPosition } from "./identification.mjs";
 
 /** pack 名 → 表示用ラベル(辞典名)。将来のオプショングループ化に使う。 */
 export const SKILL_PACKS = {
@@ -162,7 +162,15 @@ export function buildSkillCascadeSteps(data, path = {}) {
     }
   } else if (path.dict === "style") {
     const styleOpts = { "": "-" };
-    for (const sKey of [...new Set(style.map((x) => x.style).filter(Boolean))]) styleOpts[sKey] = data.styleNames?.[sKey] ?? sKey;
+    // 並びはスタイルの正規順(2026-08-12 指示)。ここは技能側の style フィールドから拾うため、
+    // 辞典の並び(loadSkillEntries)には乗らない。正規順に無いキーは末尾へ名前順で置く。
+    const styleKeys = [...new Set(style.map((x) => x.style).filter(Boolean))].sort((a, b) => {
+      const pa = styleSortPosition(a);
+      const pb = styleSortPosition(b);
+      if (pa !== pb) return pa < pb ? -1 : 1;
+      return String(data.styleNames?.[a] ?? a).localeCompare(String(data.styleNames?.[b] ?? b), "ja");
+    });
+    for (const sKey of styleKeys) styleOpts[sKey] = data.styleNames?.[sKey] ?? sKey;
     push("group", "スタイル", styleOpts, path.group);
     if (path.group) push("skill", "技能名", buildStyleSkillOptions(style.filter((x) => x.style === path.group)), path.skill);
   } else if (path.dict === "works") {
@@ -183,7 +191,9 @@ const _cache = new Map();
 /**
  * 1 つの辞典から `{identificationKey, name}` の配列を読み込む(identificationKey 無しは除外)。
  * 並びは正規ソート順(シートの技能リストと同じ・2026-07-19 ユーザー指示で名前順から変更)。
- * 正規位置を持たない技能(スタイル/ワークス等)は従来どおり名前順。結果はキャッシュ。
+ * スタイル辞典だけは技能の正規順を持たないため、スタイルの正規順(STYLE_SORT_KEYS)で並べる
+ * (2026-08-12 ユーザー指示・スタイル選択プルダウンの並びをシステム内で固定するため)。
+ * どちらの正規位置も持たない項目(ワークス等)は従来どおり名前順。結果はキャッシュ。
  * @param {string} packName compendium の完全名
  * @returns {Promise<{identificationKey: string, name: string}[]>}
  */
@@ -228,8 +238,9 @@ export async function loadSkillEntries(packName) {
         usageTypes: [...new Set((d.system.actions ?? []).map((a) => a?.type).filter(Boolean))],
       }))
       .sort((a, b) => {
-        const pa = skillSortPosition(a.identificationKey);
-        const pb = skillSortPosition(b.identificationKey);
+        const position = packName === STYLE_PACK ? styleSortPosition : skillSortPosition;
+        const pa = position(a.identificationKey);
+        const pb = position(b.identificationKey);
         if (pa !== pb) return pa < pb ? -1 : 1;
         return a.name.localeCompare(b.name, "ja");
       });

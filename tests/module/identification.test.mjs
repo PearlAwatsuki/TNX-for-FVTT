@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { findItemByIdentificationKey, resolveItemNameByKey } from "../../scripts/module/identification.mjs";
+import { findItemByIdentificationKey, resolveItemNameByKey, styleSortPosition, STYLE_SORT_KEYS } from "../../scripts/module/identification.mjs";
 
 // アクターの items は配列でよい(find を持つ)。system.identificationKey で逆引きする。
 const actor = {
@@ -40,5 +40,37 @@ describe("resolveItemNameByKey()（識別キー→現在のアイテム名・生
     expect(resolveItemNameByKey(actor, "operate_bike")).toBe("");
     expect(resolveItemNameByKey(actor, "unknown_key", {})).toBe("");
     expect(resolveItemNameByKey(actor, "")).toBe("");
+  });
+});
+
+describe("styleSortPosition()（スタイルの正規ソート順・2026-08-12 指示）", () => {
+  it("正規順のリストは 33 スタイル・重複なし", () => {
+    expect(STYLE_SORT_KEYS).toHaveLength(33);
+    expect(new Set(STYLE_SORT_KEYS).size).toBe(33);
+  });
+
+  it("先頭・区切り・末尾の位置を返す", () => {
+    expect(styleSortPosition("kabuki")).toBe(0);
+    expect(styleSortPosition("vasara")).toBe(1);
+    expect(styleSortPosition("common")).toBe(22);
+    expect(styleSortPosition("hiruko")).toBe(23);
+    expect(styleSortPosition("utsuwa")).toBe(32);
+  });
+
+  it("ハイフン付きキーもそのまま一致する", () => {
+    expect(styleSortPosition("kabuto-wari")).toBe(16);
+  });
+
+  it("リストに無いキー・空値は Infinity（末尾）", () => {
+    expect(styleSortPosition("kabuto_wari")).toBe(Infinity);   // 別表記は一致させない
+    expect(styleSortPosition("unknown")).toBe(Infinity);
+    expect(styleSortPosition("")).toBe(Infinity);
+    expect(styleSortPosition(null)).toBe(Infinity);
+  });
+
+  it("正規順で並べ替えるとリストの順に戻る（ソート用途の検算）", () => {
+    const shuffled = ["utsuwa", "kaze", "kabuki", "neuro", "hiruko", "kabuto-wari"];
+    expect([...shuffled].sort((a, b) => styleSortPosition(a) - styleSortPosition(b)))
+      .toEqual(["kabuki", "kaze", "kabuto-wari", "neuro", "hiruko", "utsuwa"]);
   });
 });

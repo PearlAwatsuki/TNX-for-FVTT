@@ -92,3 +92,29 @@ export function skillSortPosition(identificationKey) {
     }
     return Infinity;
 }
+
+// ─── スタイルの正規ソート順(識別キー基準) ─────────────────────────────────────
+// 辞典のスタイルを選ぶプルダウンは、システム内のどこでも本リストの並びで表示する(2026-08-12 ユーザー指示)。
+
+/** スタイルの正規ソート順(スタイル辞典の identificationKey)。 */
+export const STYLE_SORT_KEYS = [
+    "kabuki", "vasara", "tatara", "mistress", "kabuto", "charisma", "mannequin", "kaze",
+    "fate", "kuromaku", "exec", "katana", "kugutsu", "kage", "chakra", "legger",
+    "kabuto-wari", "highlander", "mayakashi", "talkie", "inu", "neuro", "common",
+    "hiruko", "kurogane", "ibuki", "shikigami", "arashi", "kagemusha", "migiude",
+    "etranger", "ayakashi", "utsuwa",
+];
+
+const STYLE_SORT_INDEX = new Map(STYLE_SORT_KEYS.map((key, i) => [key, i]));
+
+/**
+ * スタイル識別キーの正規ソートリスト内位置を返す。
+ * 一般技能(skillSortPosition)と違いプレフィックス一致は見ない(スタイルキーは分割されない)。
+ * リストに無いキー・空文字は Infinity(末尾)。
+ * @param {string} identificationKey
+ * @returns {number}
+ */
+export function styleSortPosition(identificationKey) {
+    if (!identificationKey) return Infinity;
+    return STYLE_SORT_INDEX.get(identificationKey) ?? Infinity;
+}

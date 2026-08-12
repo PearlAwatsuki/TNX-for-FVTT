@@ -212,6 +212,24 @@ describe("buildSkillCascadeSteps()", () => {
     expect(keys).toEqual(["", "basara_a", "@element", "element_fire", "element_water"]);
   });
 
+  it("スタイル段の並びは辞典の正規順（2026-08-12 指示・正規順に無いキーは末尾へ名前順）", () => {
+    const data2 = {
+      general: [], works: [],
+      style: [
+        { identificationKey: "utsuwa_a",   name: "ウツワ技能", style: "utsuwa" },
+        { identificationKey: "kaze_a",     name: "カゼ技能",   style: "kaze" },
+        { identificationKey: "kabuki_a",   name: "カブキ技能", style: "kabuki" },
+        { identificationKey: "hiruko_a",   name: "ヒルコ技能", style: "hiruko" },
+        { identificationKey: "homebrew_a", name: "自作技能",   style: "homebrew" },
+      ],
+      styleNames: { kabuki: "カブキ", kaze: "カゼ", hiruko: "ヒルコ", utsuwa: "ウツワ" },
+      orgNames: {},
+    };
+    const steps = buildSkillCascadeSteps(data2, { dict: "style" });
+    expect(Object.keys(steps.find((s) => s.key === "group").options))
+      .toEqual(["", "kabuki", "kaze", "hiruko", "utsuwa", "homebrew"]);
+  });
+
   it("ワークス・組織 → その組織の技能", () => {
     const steps = buildSkillCascadeSteps(data, { dict: "works", group: "org1" });
     const skill = steps.find((s) => s.key === "skill");
