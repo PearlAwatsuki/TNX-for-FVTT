@@ -61,8 +61,6 @@ export function checkRequestPresetToForm(preset) {
     return {
         checkType:          preset?.checkType ?? "skillCheck",
         identificationKeys: presetSkillKeys(preset),
-        customSkillName:    preset?.customSkillName ?? "",
-        validSuits:         [...(preset?.validSuits ?? [])],
         targetValue:        Number(preset?.targetValue) || 0,
         targetValueHidden:  preset?.targetValueHidden === true,
         description:        preset?.description ?? "",
@@ -87,8 +85,6 @@ export function newCheckRequestPreset() {
         label: "",
         checkType: "skillCheck",
         identificationKeys: [],
-        customSkillName: "",
-        validSuits: [],
         targetValue: 0,
         targetValueHidden: false,
         description: "",

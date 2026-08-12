@@ -54,25 +54,6 @@
             </div>
         </div>
 
-        {{!-- 指定技能が空＝「その他」の要求: 技能名自由入力 + スート選択（JS で表示切替） --}}
-        <div class="other-skill-section">
-            <div class="form-group rl-form-group">
-                <label class="rl-label">技能名</label>
-                <input type="text" name="customSkillName" class="rl-input"
-                       placeholder="技能名を入力（省略可）">
-            </div>
-            <div class="form-group rl-form-group">
-                <label class="rl-label">使用可能スート</label>
-                <div class="rl-suit-checkboxes">
-                    {{#each SUIT_OPTIONS}}
-                        <label class="rl-check-label">
-                            <input type="checkbox" name="suit_{{this.value}}">
-                            <span>{{this.label}}</span>
-                        </label>
-                    {{/each}}
-                </div>
-            </div>
-        </div>
     </div>
 
     {{!-- 能力値セクション（能力値判定・制御判定時のみ） --}}

@@ -95,7 +95,7 @@ describe("newScenarioTextPreset()（シナリオテキストの新規行）", ()
 describe("checkRequestPresetToForm()（プリセット → フォーム値）", () => {
   const preset = {
     id: "p1", label: "扉のロック", checkType: "skillCheck",
-    identificationKey: "electronics", customSkillName: "", validSuits: ["spade"],
+    identificationKey: "electronics",
     targetValue: 14, targetValueHidden: true, description: "静かに開ける",
   };
 
@@ -103,8 +103,6 @@ describe("checkRequestPresetToForm()（プリセット → フォーム値）", 
     expect(checkRequestPresetToForm(preset)).toEqual({
       checkType: "skillCheck",
       identificationKeys: ["electronics"],
-      customSkillName: "",
-      validSuits: ["spade"],
       targetValue: 14,
       targetValueHidden: true,
       description: "静かに開ける",
@@ -120,8 +118,13 @@ describe("checkRequestPresetToForm()（プリセット → フォーム値）", 
     expect(f.checkType).toBe("skillCheck");
     expect(f.targetValue).toBe(0);
     expect(f.targetValueHidden).toBe(false);
-    expect(f.validSuits).toEqual([]);
     expect(f.identificationKeys).toEqual([]);
+  });
+
+  it("技能名の自由入力・スート指定は持たない（ドロップが自由入力の役割を果たすため廃止・2026-08-12）", () => {
+    const f = checkRequestPresetToForm({ ...preset, customSkillName: "でっち上げ技能", validSuits: ["spade"] });
+    expect(f).not.toHaveProperty("customSkillName");
+    expect(f).not.toHaveProperty("validSuits");
   });
 });
 

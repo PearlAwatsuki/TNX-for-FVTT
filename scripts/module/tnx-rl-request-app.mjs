@@ -43,13 +43,6 @@ import { toCheckRequestTargets } from './target-picker-logic.mjs';
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
-const SUIT_OPTIONS = Object.freeze([
-    { value: "spade",   label: "♠ スペード（理性）" },
-    { value: "club",    label: "♣ クラブ（感情）" },
-    { value: "heart",   label: "♥ ハート（生命）" },
-    { value: "diamond", label: "♦ ダイヤ（外界）" },
-]);
-
 const ABILITY_OPTIONS = Object.freeze([
     { value: "reason",  label: "理性 (♠)" },
     { value: "passion", label: "感情 (♣)" },
@@ -146,7 +139,9 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
         position: { width: 520 },
         form: {
             handler: TnxRlRequestApp._onSubmit,
-            closeOnSubmit: true,
+            // 検証で弾いたときに閉じない(閉じると入力が全部消える)。送信できたら明示的に閉じる。
+            // 指定技能が必須になった 2026-08-12 以降は、弾かれる経路を普通に踏むため
+            closeOnSubmit: false,
         },
     };
 
@@ -172,7 +167,6 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
             skillGroups,
             presetGroups,
             checkTypes,
-            SUIT_OPTIONS,
             ABILITY_OPTIONS,
         };
     }
@@ -202,13 +196,9 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
                 else input.value = value ?? "";
             };
             set("checkType",         form.checkType);
-            set("customSkillName",   form.customSkillName);
             set("targetValue",       form.targetValue);
             set("targetValueHidden", form.targetValueHidden);
             set("description",       form.description);
-            for (const suit of ["spade", "club", "heart", "diamond"]) {
-                set(`suit_${suit}`, form.validSuits.includes(suit));
-            }
             this._skillKeys = [...form.identificationKeys];
             this._renderSkillTags();
             el.querySelector("[name=checkType]")?.dispatchEvent(new Event("change", { bubbles: true }));
@@ -306,9 +296,6 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
             empty.textContent = "（指定なし）";
             chips.append(empty);
         }
-        // 指定技能が1件も無い＝「その他」の要求(技能名の自由入力とスートを RL が決める)
-        const other = this.element.querySelector(".other-skill-section");
-        if (other) other.hidden = this._skillKeys.length > 0;
     }
 
     /** 判定種別に応じて技能/能力値セクションを表示切替 */
@@ -331,14 +318,15 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
         // 技能/能力値ラベル
         let skillLabel;
         if (checkType === "skillCheck") {
-            // 技能名の表示は 〈〉 整形(2026-07-18・識別マーク省去)。複数は FS判定の要求と同じ「・」連結
-            if (identificationKeys.length) {
-                const labels = await Promise.all(identificationKeys.map(k => requestSkillLabel(k)));
-                skillLabel = labels.join("・");
-            } else {
-                const custom = form.querySelector("[name=customSkillName]")?.value?.trim();
-                skillLabel = custom ? formatSkillName(custom) : "（指定技能）";
+            // 辞典に無い技能は**その場でアイテムを作ってドロップする**(ドロップが自由入力の役割を
+            // 果たす・2026-08-12 ユーザー指摘)。技能名の自由入力欄は廃止したので、指定は必須
+            if (!identificationKeys.length) {
+                ui.notifications.warn("指定技能を1つ以上追加してください。");
+                return false;
             }
+            // 技能名の表示は 〈〉 整形(2026-07-18・識別マーク省去)。複数は FS判定の要求と同じ「・」連結
+            const labels = await Promise.all(identificationKeys.map(k => requestSkillLabel(k)));
+            skillLabel = labels.join("・");
         } else {
             const abilityKey = form.querySelector("[name=abilityKey]")?.value ?? "reason";
             const abilityLabel = { reason: "理性", passion: "感情", life: "生命", mundane: "外界" }[abilityKey]
@@ -350,13 +338,8 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
         // 有効スート
         let validSuits;
-        if (checkType === "skillCheck" && !identificationKeys.length) {
-            // その他: GM が明示的にスートを選択
-            validSuits = [...form.querySelectorAll("[name^='suit_']:checked")]
-                .map(cb => cb.name.replace("suit_", ""));
-            if (!validSuits.length) validSuits = [...ALL_SUITS];
-        } else if (checkType === "skillCheck") {
-            // 識別キーあり: PL 側の技能アイテムから getComboSuits で決定するため空
+        if (checkType === "skillCheck") {
+            // PL 側の技能アイテムから getComboSuits で決定するため空
             validSuits = [];
         } else {
             // abilityCheck / controlCheck: 選択した能力値のスートのみ
@@ -384,6 +367,7 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
             checkType, identificationKeys, skillLabel, validSuits,
             targetValue, targetValueHidden, description, targets,
         });
+        await this.close();
     }
 
     // ─── 判定実行ハンドラ（チャットから呼ばれる）─────────────────────────────

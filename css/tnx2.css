@@ -7023,21 +7023,6 @@ button.tnx-create-act-button span {
     font-family: inherit;
 }
 
-.tnx-rl-request .other-skill-section {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding-left: 8px;
-    border-left: 2px solid var(--tnx2-border-accent, #555);
-    margin-left: 4px;
-}
-
-.tnx-rl-request .rl-suit-checkboxes {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 14px;
-}
-
 .tnx-rl-request .rl-check-label {
     display: flex;
     align-items: center;
