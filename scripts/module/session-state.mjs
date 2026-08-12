@@ -33,7 +33,7 @@ import {
 import { listStageCandidates } from "./residence-area.mjs";
 import { promptSceneEntry } from "./scene-entry-dialog.mjs";
 import { getUserFlagData, saveIsScenePlayer } from "./user-flag-schema.mjs";
-import { SKILL_PACKS } from "./skill-dictionary.mjs";
+import { loadContactSkillIndex } from "./skill-dictionary.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const SETTING = "sessionState";
@@ -411,27 +411,24 @@ async function _dealTrumpsForCasts(casts) {
 }
 
 /**
- * コネ(ハンドアウトのアクトコネクション=辞典コネ技能の識別キー・**必ず一つ**)を対象ユーザーの
- * キャストへコピー付与する(14-7・2026-08-09 裁定で単一化＋ユーザー参照化)。指定するコネ技能は
- * 一般技能辞典への格納が前提(2026-08-08 裁定)。コピーには isActLimited を立てる=アクト終了時に
+ * コネ(ハンドアウトのアクトコネクション=コネ技能の識別キー・**必ず一つ**)を対象ユーザーの
+ * キャストへコピー付与する(14-7・2026-08-09 裁定で単一化＋ユーザー参照化)。参照先は一般技能辞典
+ * **とワールド直下**の両方(2026-08-12 指示)。コピーには isActLimited を立てる=アクト終了時に
  * 自動削除される。同じ識別キーの技能を既に持つ場合はスキップ(重複付与を避ける)。
  * @param {Array<{handout: object, user: ?User, cast: ?Actor}>} assignments
  */
 async function _grantActConnections(assignments) {
     let granted = 0;
-    const pack = game.packs?.get(SKILL_PACKS.general);
-    // 単品は getDocument(キャッシュ優先・KI-026 の孤児化を起こさない)。キー→_id はインデックスで引く
-    const index = pack ? await pack.getIndex({ fields: ["system.identificationKey"] }) : [];
-    const idByKey = new Map([...index]
-        .filter(e => e.system?.identificationKey)
-        .map(e => [e.system.identificationKey, e._id]));
+    // 索引は選択肢・表示と同じ loadContactSkillIndex(辞典優先の統一規則)。解決は uuid の単品取得＝
+    // 辞典側は getDocument(キャッシュ優先)に落ちるので KI-026 の孤児化を起こさない
+    const contactIndex = await loadContactSkillIndex();
     for (const { handout, cast } of assignments) {
         const key = handout.actConnection;
         if (!cast || !key) continue;
-        const id = idByKey.get(key);
-        const doc = id ? await pack.getDocument(id).catch(() => null) : null;
+        const uuid = contactIndex.get(key)?.uuid;
+        const doc = uuid ? await fromUuid(uuid).catch(() => null) : null;
         if (doc?.type !== "generalSkill") {
-            ui.notifications.warn(`コネ技能が辞典に見つかりません(${cast.name})。`);
+            ui.notifications.warn(`コネ技能が見つかりません(${cast.name})。`);
             continue;
         }
         const exists = cast.items.some(i => i.type === "generalSkill"

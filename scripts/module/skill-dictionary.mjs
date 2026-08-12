@@ -210,6 +210,7 @@ export async function loadSkillEntries(packName) {
     const entries = [...docs]
       .filter((d) => d.system?.identificationKey)
       .map((d) => ({
+        id: d._id,
         identificationKey: d.system.identificationKey,
         name: d.name,
         // カスケード絞り込み用メタデータ:
@@ -304,6 +305,52 @@ export async function loadOnomasticChoices(prefix) {
     }
   }
   return choices;
+}
+
+/**
+ * コネ技能(アクトコネクション)の索引を、一般技能辞典と**ワールド直下**の両方から作る
+ * (2026-08-12 ユーザー指示)。アクト限定のコネは恒久的な辞典に置きたくないという運用上の
+ * 理由がコネ固有のため、この拡張はコネだけに留める(他の技能欄は辞典のみのまま)。
+ * ワールド分は `game.items` の都度読み(キャッシュしない=作った直後に候補へ出る)。
+ * @returns {Promise<Map<string, {name: string, uuid: string}>>} 識別キー → 名前と参照
+ */
+export async function loadContactSkillIndex() {
+  const pack = game.packs?.get(SKILL_PACKS.general);
+  // uuid は pack.getUuid で作る(文字列組み立てにしない=書式の権威は Foundry 側)
+  const packEntries = (await loadSkillEntries(SKILL_PACKS.general)).map(e => ({
+    ...e, uuid: pack ? pack.getUuid(e.id) : "",
+  }));
+  const worldEntries = (game.items ?? []).filter(i => i.type === "generalSkill").map(i => ({
+    identificationKey: i.system?.identificationKey ?? "",
+    name: i.name,
+    generalSkillCategory: i.system?.generalSkillCategory ?? "",
+    uuid: i.uuid,
+  }));
+  return mergeContactEntries(packEntries, worldEntries);
+}
+
+/**
+ * コネ技能の索引を組み立てる純粋部。辞典とワールドで**同じ絞り込み条件**を使い(一般技能の
+ * 固有名詞技能かつ識別キーが contact プレフィックス)、同じ識別キーは**辞典を優先**する
+ * ——識別キーは一意な参照なので衝突は重複であって上書きの意図ではなく、辞典側は全クライアントに
+ * 見えるため解決が揃うから。並びは名前順で、出所によるグループ分けはしない(2026-08-12 裁定＝
+ * 辞典優先で同一キーが畳まれる以上、分けても同名・別キーの区別にはならず意味がない)。
+ * @param {Array<{identificationKey?:string, name?:string, generalSkillCategory?:string, uuid?:string}>} packEntries
+ * @param {Array<{identificationKey?:string, name?:string, generalSkillCategory?:string, uuid?:string}>} worldEntries
+ * @returns {Map<string, {name: string, uuid: string}>}
+ */
+export function mergeContactEntries(packEntries, worldEntries) {
+  const isContact = (e) => e?.generalSkillCategory === "onomasticSkill"
+    && idKeyPrefix(e?.identificationKey) === "contact";
+  const byKey = new Map();
+  // 辞典を先に入れ、既にあるキーはワールド側で上書きしない(=辞典優先)
+  for (const e of [...(packEntries ?? []), ...(worldEntries ?? [])]) {
+    if (!isContact(e) || byKey.has(e.identificationKey)) continue;
+    byKey.set(e.identificationKey, { name: e.name ?? "", uuid: e.uuid ?? "" });
+  }
+  const sorted = [...byKey].sort(([ka, a], [kb, b]) =>
+    a.name.localeCompare(b.name, "ja") || ka.localeCompare(kb));
+  return new Map(sorted);
 }
 
 /**

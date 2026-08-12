@@ -31,7 +31,7 @@ import {
     withResolvedInfoSkillNames, handoutDisplayTitle, handoutNumberOf, handoutStyleDisplay,
 } from "./session-logic.mjs";
 import {
-    loadGeneralSkillNameByKey, loadSkillChoices, formatGroupedSkillNames, STYLE_PACK,
+    loadGeneralSkillNameByKey, loadContactSkillIndex, loadSkillChoices, formatGroupedSkillNames, STYLE_PACK,
 } from "./skill-dictionary.mjs";
 import {
     appearanceCheckParams, formatAppearanceSummary, groupCharacterChoices,
@@ -521,9 +521,10 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         const handouts = (journal?.getFlag(SCOPE, "handouts") ?? []).map(normalizeHandoutRow);
         const handout = handouts.find(h => h.id === target.dataset.id);
         if (!handout) return;
-        // コネ(単一の識別キー)・スタイル(スタイル辞典キー)は辞典逆引きの現在名で表示する(生キーを出さない)
-        const nameByKey = await loadGeneralSkillNameByKey();
-        const connName = handout.actConnection ? nameByKey.get(handout.actConnection) : "";
+        // コネ(単一の識別キー)・スタイル(スタイル辞典キー)は逆引きの現在名で表示する(生キーを出さない)。
+        // コネの参照先は辞典＋ワールド直下(2026-08-12)
+        const contactIndex = await loadContactSkillIndex();
+        const connName = handout.actConnection ? contactIndex.get(handout.actConnection)?.name : "";
         const connectionName = handout.actConnection
             ? (connName ? formatSkillName(connName) : "（参照切れ）")
             : "";
