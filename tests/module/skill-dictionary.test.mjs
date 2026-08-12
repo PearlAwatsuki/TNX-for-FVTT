@@ -7,7 +7,9 @@ import {
   resolveComboSkillName,
   formatGroupedSkillNames,
   mergeContactEntries,
+  mergeSkillEntries,
 } from "../../scripts/module/skill-dictionary.mjs";
+import { styleSortPosition } from "../../scripts/module/identification.mjs";
 
 describe("idKeyPrefix()", () => {
   it("区切り「_」までを返す", () => {
@@ -82,6 +84,50 @@ describe("formatGroupedSkillNames()（同小分類の固有名詞技能をまと
       .toEqual(["〈社会：N◎VA〉"]);
     expect(formatGroupedSkillNames([], NAMES)).toEqual([]);
     expect(formatGroupedSkillNames(null, NAMES)).toEqual([]);
+  });
+});
+
+describe("mergeSkillEntries()（技能の源＝辞典＋ワールド直下・2026-08-12 指示）", () => {
+  const e = (key, name, uuid) => ({ identificationKey: key, name, uuid });
+
+  it("辞典とワールドを1本にまとめる", () => {
+    const merged = mergeSkillEntries(
+      [e("assault", "白兵", "Compendium.x.Item.a")],
+      [e("medicine", "医療", "Item.w1")]);
+    expect(merged.map(x => x.identificationKey)).toEqual(["medicine", "assault"]);
+  });
+
+  it("同じ識別キーは辞典を優先する（uuid も辞典側のまま）", () => {
+    const merged = mergeSkillEntries(
+      [e("assault", "白兵", "Compendium.x.Item.a")],
+      [e("assault", "白兵（ワールド）", "Item.w1")]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].name).toBe("白兵");
+    expect(merged[0].uuid).toBe("Compendium.x.Item.a");
+  });
+
+  it("識別キーの無い項目は落とす", () => {
+    expect(mergeSkillEntries([], [e("", "無名", "Item.w1"), { name: "キー未設定" }])).toEqual([]);
+  });
+
+  it("並びは正規位置→名前(ja)。正規位置を持たないキーは末尾", () => {
+    const merged = mergeSkillEntries(
+      [e("society_nova", "社会：N◎VA", "p1"), e("medicine", "医療", "p2")],
+      [e("zzz_unknown", "未知", "w1"), e("contact_akira", "コネ：アキラ", "w2")]);
+    // GENERAL_SKILL_SORT_PREFIXES: medicine(0) → society(16) → contact(17) → 正規外は Infinity
+    expect(merged.map(x => x.identificationKey))
+      .toEqual(["medicine", "society_nova", "contact_akira", "zzz_unknown"]);
+  });
+
+  it("正規位置関数を差し替えられる（スタイル辞典はスタイルの正規順）", () => {
+    const merged = mergeSkillEntries(
+      [e("mistress", "ミストレス", "p1"), e("kabuki", "カブキ", "p2")], [], styleSortPosition);
+    expect(merged.map(x => x.identificationKey)).toEqual(["kabuki", "mistress"]);
+  });
+
+  it("空・未指定の入力は空配列", () => {
+    expect(mergeSkillEntries()).toEqual([]);
+    expect(mergeSkillEntries(null, null)).toEqual([]);
   });
 });
 

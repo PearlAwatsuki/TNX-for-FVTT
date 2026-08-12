@@ -6,6 +6,11 @@
  * `identificationKey` をキー、`name` を表示名として選択肢化する。
  *
  * 対象辞典(system.json packs): general-skills(一般技能) / style-skills(スタイル技能) / works-skills(ワークス専用技能)。
+ *
+ * **技能の源は辞典とワールド直下の両方**(2026-08-12 ユーザー指示)。アイテムの置き場所で選べる
+ * 技能の集合が変わらないようにするためで、収集層(loadSkillEntries / loadDictionarySkillItems)で
+ * 合成するので、その上に乗る選択肢・逆引き・カスケードは呼び出し側を変えずに両方を見る。
+ * 技能でない辞典(スタイル・組織)にはワールドの源を置かない。
  */
 
 import { formatSkillName, skillSortPosition, styleSortPosition } from "./identification.mjs";
@@ -188,16 +193,75 @@ export function buildSkillCascadeSteps(data, path = {}) {
 
 const _cache = new Map();
 
+// 技能辞典に対応する**ワールド直下**の技能(2026-08-12 ユーザー指示)。アイテムの置き場所で
+// 選べる技能の集合が変わらないようにするための第二の源で、**技能だけ**に置く
+// ——スタイル辞典・組織辞典など技能でないパックには源が無く、従来どおり辞典のみを読む。
+// スタイル技能とワークス専用技能はどちらも type="styleSkill" で、works.value で分かれる。
+const WORLD_SKILL_SOURCES = {
+  [SKILL_PACKS.general]: (i) => i.type === "generalSkill",
+  [SKILL_PACKS.style]:   (i) => i.type === "styleSkill" && i.system?.special?.works?.value !== true,
+  [SKILL_PACKS.works]:   (i) => i.type === "styleSkill" && i.system?.special?.works?.value === true,
+};
+
+/** その辞典の並びに使う正規位置関数(スタイル辞典だけスタイルの正規順)。 */
+function positionFor(packName) {
+  return packName === STYLE_PACK ? styleSortPosition : skillSortPosition;
+}
+
 /**
- * 1 つの辞典から `{identificationKey, name}` の配列を読み込む(identificationKey 無しは除外)。
- * 並びは正規ソート順(シートの技能リストと同じ・2026-07-19 ユーザー指示で名前順から変更)。
- * スタイル辞典だけは技能の正規順を持たないため、スタイルの正規順(STYLE_SORT_KEYS)で並べる
- * (2026-08-12 ユーザー指示・スタイル選択プルダウンの並びをシステム内で固定するため)。
- * どちらの正規位置も持たない項目(ワークス等)は従来どおり名前順。結果はキャッシュ。
- * @param {string} packName compendium の完全名
- * @returns {Promise<{identificationKey: string, name: string}[]>}
+ * 辞典インデックスの項目・ワールドアイテムの `toObject()` を共通のエントリ形へ揃える。
+ * どちらも `{_id, name, system}` の形なので同じ写し方でよい。
+ * @param {{_id?:string, name?:string, system?:object}} src
+ * @param {string} uuid 実体への参照(辞典は pack.getUuid・ワールドは item.uuid)
  */
-export async function loadSkillEntries(packName) {
+function toSkillEntry(src, uuid) {
+  const sys = src.system ?? {};
+  return {
+    id: src._id,
+    uuid,
+    identificationKey: sys.identificationKey,
+    name: src.name,
+    // カスケード絞り込み用メタデータ:
+    // - generalSkillCategory: 一般技能の "initialSkill"(無条件取得) / "onomasticSkill"(固有名詞)
+    // - 固有名詞の小分類は identificationKey のプレフィックス(区切り「_」まで)で判定する
+    // - style: スタイル技能の所属スタイル(styles 辞典 identificationKey)
+    // - organization: ワークス専用技能の所属組織(organizations 辞典 identificationKey)
+    generalSkillCategory: sys.generalSkillCategory ?? "",
+    style: sys.style ?? "",
+    organization: sys.special?.works?.organization ?? "",
+    isAction: sys.isAction === true,
+    suits: { ...(sys.suits ?? {}) },
+    // 用途タイプの所持(2026-07-18): 対決欄の無印技能名行の吸収判定に使う(その技能が手段の
+    // リアクション用途タイプを持つか)。アクター未所持(辞典アイテム編集等)でも参照できる索引
+    usageTypes: [...new Set((sys.actions ?? []).map((a) => a?.type).filter(Boolean))],
+  };
+}
+
+/**
+ * 辞典＋ワールドのエントリを識別キーで束ねて並べる純粋部。同じ識別キーは**辞典を優先**する
+ * ——識別キーは一意な参照なので衝突は重複であって上書きの意図ではなく、辞典側は全クライアントに
+ * 見えるため解決が揃う。並びは正規位置→名前(ja)。
+ * @param {Array<object>} packEntries 辞典側(先に入れた方が勝つ)
+ * @param {Array<object>} worldEntries ワールド直下側
+ * @param {(key: string) => number} [position] 正規位置関数
+ * @returns {Array<object>}
+ */
+export function mergeSkillEntries(packEntries, worldEntries, position = skillSortPosition) {
+  const byKey = new Map();
+  for (const e of [...(packEntries ?? []), ...(worldEntries ?? [])]) {
+    if (!e?.identificationKey || byKey.has(e.identificationKey)) continue;
+    byKey.set(e.identificationKey, e);
+  }
+  return [...byKey.values()].sort((a, b) => {
+    const pa = position(a.identificationKey);
+    const pb = position(b.identificationKey);
+    if (pa !== pb) return pa < pb ? -1 : 1;
+    return String(a.name ?? "").localeCompare(String(b.name ?? ""), "ja");
+  });
+}
+
+/** 辞典(compendium)側だけを読む。結果はキャッシュする(ワールド分は都度読みなので混ぜない)。 */
+async function loadPackSkillEntries(packName) {
   if (_cache.has(packName)) return _cache.get(packName);
   const pack = game.packs?.get(packName);
   if (!pack) return [];
@@ -217,28 +281,12 @@ export async function loadSkillEntries(packName) {
         "system.actions",
       ],
     });
+    const position = positionFor(packName);
     const entries = [...docs]
       .filter((d) => d.system?.identificationKey)
-      .map((d) => ({
-        id: d._id,
-        identificationKey: d.system.identificationKey,
-        name: d.name,
-        // カスケード絞り込み用メタデータ:
-        // - generalSkillCategory: 一般技能の "initialSkill"(無条件取得) / "onomasticSkill"(固有名詞)
-        // - 固有名詞の小分類は identificationKey のプレフィックス(区切り「_」まで)で判定する
-        // - style: スタイル技能の所属スタイル(styles 辞典 identificationKey)
-        // - organization: ワークス専用技能の所属組織(organizations 辞典 identificationKey)
-        generalSkillCategory: d.system.generalSkillCategory ?? "",
-        style: d.system.style ?? "",
-        organization: d.system.special?.works?.organization ?? "",
-        isAction: d.system.isAction === true,
-        suits: { ...(d.system.suits ?? {}) },
-        // 用途タイプの所持(2026-07-18): 対決欄の無印技能名行の吸収判定に使う(その技能が手段の
-        // リアクション用途タイプを持つか)。アクター未所持(辞典アイテム編集等)でも参照できる索引
-        usageTypes: [...new Set((d.system.actions ?? []).map((a) => a?.type).filter(Boolean))],
-      }))
+      // uuid は pack.getUuid で作る(文字列組み立てにしない=書式の権威は Foundry 側)
+      .map((d) => toSkillEntry(d, pack.getUuid(d._id)))
       .sort((a, b) => {
-        const position = packName === STYLE_PACK ? styleSortPosition : skillSortPosition;
         const pa = position(a.identificationKey);
         const pb = position(b.identificationKey);
         if (pa !== pb) return pa < pb ? -1 : 1;
@@ -250,6 +298,39 @@ export async function loadSkillEntries(packName) {
     console.error(`TokyoNOVA | Failed to load skill compendium ${packName}:`, e);
     return [];
   }
+}
+
+/** ワールド直下から、その辞典に対応する技能アイテムを読む(識別キー無しは除外)。 */
+function loadWorldSkillEntries(packName) {
+  const source = WORLD_SKILL_SOURCES[packName];
+  if (!source) return [];
+  const out = [];
+  for (const item of game.items ?? []) {
+    if (!source(item)) continue;
+    // DataModel をそのまま読まず toObject() で素のデータにする(索引の項目と同じ形になる)
+    const src = item.toObject();
+    if (!src.system?.identificationKey) continue;
+    out.push(toSkillEntry(src, item.uuid));
+  }
+  return out;
+}
+
+/**
+ * 1 つの辞典から `{identificationKey, name, uuid, …}` の配列を読み込む(identificationKey 無しは除外)。
+ * **技能の辞典は、辞典(compendium)とワールド直下の両方を源とする**(2026-08-12 ユーザー指示)。
+ * 辞典分はキャッシュ・ワールド分は都度読み(作った直後に候補へ出る)・同じ識別キーは辞典を優先。
+ * 並びは正規ソート順(シートの技能リストと同じ・2026-07-19 ユーザー指示で名前順から変更)。
+ * スタイル辞典だけは技能の正規順を持たないため、スタイルの正規順(STYLE_SORT_KEYS)で並べる
+ * (2026-08-12 ユーザー指示・スタイル選択プルダウンの並びをシステム内で固定するため)。
+ * どちらの正規位置も持たない項目(ワークス等)は従来どおり名前順。
+ * @param {string} packName compendium の完全名
+ * @returns {Promise<{identificationKey: string, name: string, uuid: string}[]>}
+ */
+export async function loadSkillEntries(packName) {
+  const packEntries = await loadPackSkillEntries(packName);
+  const worldEntries = loadWorldSkillEntries(packName);
+  if (!worldEntries.length) return packEntries;
+  return mergeSkillEntries(packEntries, worldEntries, positionFor(packName));
 }
 
 /**
@@ -269,11 +350,12 @@ export async function loadSkillUsageTypeIndex() {
 }
 
 /**
- * 全技能辞典(一般・スタイル・ワークス)の技能を、チェーン解決・自動入力・候補表示に使える
- * 軽量な技能オブジェクト `{id, name, type, system}` の配列で返す(2026-07-18 統一)。
- * アクター非所持の用途(ワールド直下・辞典内を問わず)のベース技能/組み合わせ候補はここを参照する
+ * 全技能辞典(一般・スタイル・ワークス)**とワールド直下**の技能を、チェーン解決・自動入力・
+ * 候補表示に使える軽量な技能オブジェクト `{id, name, type, system}` の配列で返す(2026-07-18 統一・
+ * ワールド直下の追加は 2026-08-12)。アクター非所持の用途のベース技能/組み合わせ候補はここを参照する
  * ——辞典アイテムの同パック限定/ワールド直下は game.items のみ、という区別を撤去する。
  * getIndex で必要フィールドだけを引く(文書インスタンスを作らない＝KI-026 の孤児化を起こさない)。
+ * 同じ識別キーは辞典を優先する(収集層と同じ規則)。
  * @returns {Promise<Array<{id:string, name:string, type:string, system:object}>>}
  */
 export async function loadDictionarySkillItems() {
@@ -284,6 +366,15 @@ export async function loadDictionarySkillItems() {
     "system.timing", "system.suits", "system.level", "system.uses",
   ];
   const out = [];
+  const seen = new Set();   // 識別キー(空でないもの)の重複除け=辞典優先
+  const push = (o) => {
+    const key = o.system?.identificationKey;
+    if (key) {
+      if (seen.has(key)) return;
+      seen.add(key);
+    }
+    out.push(o);
+  };
   for (const packName of [SKILL_PACKS.general, SKILL_PACKS.style, SKILL_PACKS.works]) {
     const pack = game.packs?.get(packName);
     if (!pack) continue;
@@ -291,11 +382,16 @@ export async function loadDictionarySkillItems() {
       const index = await pack.getIndex({ fields });
       for (const e of index) {
         if (e.type !== "generalSkill" && e.type !== "styleSkill") continue;
-        out.push({ id: e._id, name: e.name, type: e.type, system: foundry.utils.deepClone(e.system ?? {}) });
+        push({ id: e._id, name: e.name, type: e.type, system: foundry.utils.deepClone(e.system ?? {}) });
       }
     } catch (err) {
       console.error(`TokyoNOVA | Failed to load skill items from ${packName}:`, err);
     }
+  }
+  for (const item of game.items ?? []) {
+    if (item.type !== "generalSkill" && item.type !== "styleSkill") continue;
+    const src = item.toObject();
+    push({ id: item.id, name: item.name, type: item.type, system: src.system ?? {} });
   }
   return out;
 }
@@ -326,18 +422,9 @@ export async function loadOnomasticChoices(prefix) {
  * @returns {Promise<Map<string, {name: string, uuid: string}>>} 識別キー → 名前と参照
  */
 export async function loadContactSkillIndex() {
-  const pack = game.packs?.get(SKILL_PACKS.general);
-  // uuid は pack.getUuid で作る(文字列組み立てにしない=書式の権威は Foundry 側)
-  const packEntries = (await loadSkillEntries(SKILL_PACKS.general)).map(e => ({
-    ...e, uuid: pack ? pack.getUuid(e.id) : "",
-  }));
-  const worldEntries = (game.items ?? []).filter(i => i.type === "generalSkill").map(i => ({
-    identificationKey: i.system?.identificationKey ?? "",
-    name: i.name,
-    generalSkillCategory: i.system?.generalSkillCategory ?? "",
-    uuid: i.uuid,
-  }));
-  return mergeContactEntries(packEntries, worldEntries);
+  // 辞典とワールド直下の合成・uuid の組み立ては収集層(loadSkillEntries)が担う。
+  // ここは一般技能から contact プレフィックスを絞るだけ
+  return mergeContactEntries(await loadSkillEntries(SKILL_PACKS.general));
 }
 
 /**
