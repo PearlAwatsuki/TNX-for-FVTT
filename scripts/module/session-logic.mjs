@@ -233,22 +233,17 @@ export function handoutNumberOf(handouts, handoutId) {
 
 export function normalizeHandoutRow(row) {
     const r = row ?? {};
-    // コネ＝アクトコネクション(14-7): **必ず一つ**(2026-08-09 ユーザー裁定)。辞典のコネ技能
-    // (識別キー contact プレフィックス)のプルダウンから選ぶ単一の識別キー。指定するコネ技能は
-    // 辞典への格納が前提(2026-08-08 裁定・D&D 撤回)。アクト開始時にコピー付与(isActLimited)され、
-    // アクト終了時に自動削除される。
-    // 旧形式は読み出し時に吸収(書き換えない): 配列 actConnections → 先頭の文字列キー。
-    // {uuid} 形式は実機確認前に廃止(対象にしない)
-    const legacyArray = Array.isArray(r.actConnections)
-        ? (r.actConnections.find(c => typeof c === "string") ?? "")
-        : "";
+    // コネ＝アクトコネクション: **NPC 名の自由入力**(2026-08-12 裁定で辞典参照から差し戻し)。
+    // 入れるのは名前そのもの(「キース・シュナイダー」)で、「コネ：」は含まない——生成される
+    // 技能アイテムの名前が「コネ：<NPC名>」になる。受け取りは HO 送信カードのボタン
+    // (handout-contact.mjs)で、アクト開始時の自動配布は廃止した。
     return {
         ...r,
         // ハンドアウトはユーザーに付与されるもの(2026-08-09 裁定)＝参照は userId。
         // 旧 actorId(キャスト直接参照)は読み替え用に残す(書き換えない)
         userId: r.userId ?? "",
         actorId: r.actorId ?? "",
-        actConnection: typeof r.actConnection === "string" ? r.actConnection : legacyArray,
+        actConnection: typeof r.actConnection === "string" ? r.actConnection : "",
     };
 }
 
@@ -669,24 +664,27 @@ export function buildTrailerMessage(trailer) {
 }
 
 /**
- * ハンドアウト送信のチャットを組む(コネ・推奨欄・PS は空なら省く)。
- * 見出し(表示名)・コネ(単一の識別キー)の解決済み表示名・スタイルの解決済み表示文字列は
- * 呼び出し側から受け取る(純関数のため辞典解決・連番算出は行わない)。コネは旧自由テキスト
- * `connections` をフォールバック表示する。
+ * ハンドアウト送信カードの描画コンテキストを組む(2026-08-12・素の HTML 組み立てから
+ * 専用テンプレートへ移行)。空の欄は行ごと出さないよう真偽で畳んで渡す。
+ * 見出し(表示名)・スタイルの解決済み表示文字列は呼び出し側から受け取る
+ * (純関数のため辞典解決・連番算出は行わない)。
  * @param {object} handout
- * @param {{title?: string, connectionName?: string, styleName?: string}} [options]
- * @returns {string} HTML
+ * @param {{title?: string, styleName?: string, playerName?: string}} [options]
+ * @returns {{title:string, contactName:string, suitLabel:string, styleName:string,
+ *            playerName:string, content:string, ps:string}}
  */
-export function buildHandoutMessage(handout, { title = "", connectionName = "", styleName = "" } = {}) {
+export function buildHandoutCardData(handout, { title = "", styleName = "", playerName = "" } = {}) {
     const h = handout ?? {};
-    let html = `<h3>${title || h.title || "ハンドアウト"}</h3>`;
-    const conns = connectionName || h.connections || "";
-    if (conns)              html += `<p><strong>コネ:</strong> ${conns}</p>`;
-    if (h.recommendedSuit)  html += `<p><strong>推奨スート:</strong> ${handoutSuitLabel(h.recommendedSuit)}</p>`;
-    if (styleName)          html += `<p><strong>スタイル:</strong> ${styleName}</p>`;
-    html += `<hr>${h.content}`;
-    if (h.ps) html += `<hr><h4>PS</h4><p>${h.ps}</p>`;
-    return html;
+    return {
+        title:       title || h.title || "ハンドアウト",
+        // コネは NPC 名の自由入力(2026-08-12)。カード側が「コネ」の見出しを付けるので素の名前
+        contactName: (h.actConnection ?? "").trim(),
+        suitLabel:   h.recommendedSuit ? handoutSuitLabel(h.recommendedSuit) : "",
+        styleName:   styleName ?? "",
+        playerName:  playerName ?? "",
+        content:     h.content ?? "",
+        ps:          h.ps ?? "",
+    };
 }
 
 /**

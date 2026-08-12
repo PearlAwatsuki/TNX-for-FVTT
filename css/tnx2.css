@@ -5395,8 +5395,8 @@ body.tnx-bottom-hud-expanded #hotbar {
     white-space: nowrap;
 }
 
-/* 名前を選ぶセレクトは行の残り幅を引き受ける(上限 380px)。推奨スートは4値の列挙=内容幅 */
-.handout-row--meta > .handout-conn-select,
+/* コネ(NPC 名の自由入力)と対象ユーザーは行の残り幅を引き受ける。推奨スートは4値の列挙=内容幅 */
+.handout-row--meta > .handout-conn-input,
 .handout-row--user > select {
     flex: 1 1 auto;
     width: auto;
@@ -7240,6 +7240,66 @@ button.tnx-create-act-button span {
 }
 .tnx-check-request button.tnx-fs-row-action {
     width: 100%;
+}
+
+/* ─── ハンドアウト送信カード(2026-08-12) ───────────────────────────────────────
+   判定要求カードの骨格(header/body)をそのまま使い、差分だけここに置く。
+   判定要求はタイトルが固定ラベル(「判定要求」)なので小さく置いているが、ハンドアウトは
+   **タイトルがそのハンドアウトの名前**なので主役として出す */
+.tnx-handout-card .cr-req-title {
+    font-size: 1.05em;
+    color: var(--tnx2-text);
+    letter-spacing: 0;
+}
+
+/* 担当・スタイル・コネ・推奨スートの行。ラベルは幅を揃えて値の頭を通す */
+.tnx-handout-card .ho-field {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 0.9em;
+}
+
+.tnx-handout-card .ho-field__label {
+    flex: 0 0 5.5em;
+    color: var(--tnx2-text-secondary);
+    font-size: 0.85em;
+}
+
+.tnx-handout-card .ho-field__value {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: 600;
+}
+
+/* 本文・PS は入力された長文(ProseMirror)。上の欄と罫線で切る */
+.tnx-handout-card .ho-content {
+    padding-top: 8px;
+    border-top: 1px solid var(--tnx2-border, #444);
+}
+
+.tnx-handout-card .ho-content > :first-child { margin-top: 0; }
+.tnx-handout-card .ho-content > :last-child  { margin-bottom: 0; }
+
+.tnx-handout-card .ho-ps {
+    padding-top: 8px;
+    border-top: 1px solid var(--tnx2-border, #444);
+}
+
+.tnx-handout-card .ho-ps__label {
+    display: block;
+    margin-bottom: 2px;
+    color: var(--tnx2-text-secondary);
+    font-size: 0.85em;
+    letter-spacing: 0.05em;
+}
+
+.tnx-handout-card .ho-ps__body > :first-child { margin-top: 0; }
+.tnx-handout-card .ho-ps__body > :last-child  { margin-bottom: 0; }
+
+/* コネの受け取り。空(コネ未指定)のときは間隔を作らない */
+.tnx-handout-card .ho-contact-action:empty {
+    display: none;
 }
 
 .tnx-check-request .cr-req-actor-name {

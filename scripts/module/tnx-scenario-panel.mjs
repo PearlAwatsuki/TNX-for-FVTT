@@ -27,18 +27,18 @@ import {
     SCENE_AREA_OPTIONS, PHASE_ORDER, normalizeSceneRow, normalizeHandoutRow,
     nextSceneTarget, canShowNextScene, eventSceneCandidates, areEventScenesDone,
     sceneSequenceNumbers,
-    buildSceneSwitchMessage, buildTrailerMessage, buildHandoutMessage, buildInfoMessage,
+    buildSceneSwitchMessage, buildTrailerMessage, buildHandoutCardData, buildInfoMessage,
     withResolvedInfoSkillNames, handoutDisplayTitle, handoutNumberOf, handoutStyleDisplay,
     infoTiers, infoTierLabel, toggleInfoDisclosure,
 } from "./session-logic.mjs";
 import {
-    loadGeneralSkillNameByKey, loadContactSkillIndex, loadSkillChoices, formatGroupedSkillNames, STYLE_PACK,
+    loadGeneralSkillNameByKey, loadSkillChoices, formatGroupedSkillNames, STYLE_PACK,
 } from "./skill-dictionary.mjs";
 import {
     appearanceCheckParams, formatAppearanceSummary, groupCharacterChoices,
 } from "./appearance-logic.mjs";
 import { presetLabel } from "./request-presets.mjs";
-import { formatSkillName } from "./identification.mjs";
+
 import { TnxActionHandler } from "./tnx-action-handler.mjs";
 import { applyStageRef } from "./subscenes.mjs";
 
@@ -528,19 +528,31 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         const handouts = (journal?.getFlag(SCOPE, "handouts") ?? []).map(normalizeHandoutRow);
         const handout = handouts.find(h => h.id === target.dataset.id);
         if (!handout) return;
-        // コネ(単一の識別キー)・スタイル(スタイル辞典キー)は逆引きの現在名で表示する(生キーを出さない)。
-        // コネの参照先は辞典＋ワールド直下(2026-08-12)
-        const contactIndex = await loadContactSkillIndex();
-        const connName = handout.actConnection ? contactIndex.get(handout.actConnection)?.name : "";
-        const connectionName = handout.actConnection
-            ? (connName ? formatSkillName(connName) : "（参照切れ）")
-            : "";
+        // スタイル(スタイル辞典キー)は逆引きの現在名で表示する(生キーを出さない)。
+        // コネは NPC 名の自由入力なのでそのまま出す(2026-08-12)
         const styleChoices = await loadSkillChoices([STYLE_PACK]);
         const styleName = handoutStyleDisplay(handout.recommendedStyle, styleChoices);
         const title = handoutDisplayTitle(handout, {
             number: handoutNumberOf(handouts, handout.id), styleName,
         });
-        await ChatMessage.create({ content: buildHandoutMessage(handout, { title, connectionName, styleName }) });
+        const playerName = handout.userId
+            ? (game.users.get(handout.userId)?.character?.name ?? game.users.get(handout.userId)?.name ?? "")
+            : "";
+        const content = await foundry.applications.handlebars.renderTemplate(
+            "systems/tokyo-nova-axleration/templates/chat/handout-card.hbs",
+            buildHandoutCardData(handout, { title, styleName, playerName }));
+        // コネの受け取りに要る値はカードへ写す(台本を後で編集してもカードは送った時点の記録)
+        await ChatMessage.create({
+            content,
+            flags: { [SCOPE]: { handoutContact: {
+                contactName: (handout.actConnection ?? "").trim(),
+                userId:      handout.userId ?? "",
+                styleKey:    handout.recommendedStyle ?? "",
+                granted:     false,
+                actorId:     null,
+                actorName:   "",
+            } } },
+        });
     }
 
     static async _onSendText(_event, target) {

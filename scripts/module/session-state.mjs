@@ -33,7 +33,6 @@ import {
 import { listStageCandidates } from "./residence-area.mjs";
 import { promptSceneEntry } from "./scene-entry-dialog.mjs";
 import { getUserFlagData, saveIsScenePlayer } from "./user-flag-schema.mjs";
-import { loadContactSkillIndex } from "./skill-dictionary.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const SETTING = "sessionState";
@@ -290,9 +289,8 @@ export async function startAct({ sceneId = null } = {}) {
     // 対応するニューロカードを特定し、担当ユーザーの切り札置き場へ。手動配布経路は別途残る
     await _dealTrumpsForCasts(casts);
 
-    // コネ(アクトコネクション)の配布(14-7): 対象ユーザーのキャストへコピー付与
-    // (コピーに isActLimited を立てる=アクト終了時に自動削除される)
-    await _grantActConnections(assignments);
+    // コネ(アクトコネクション)はアクト開始では配らない(2026-08-12 裁定で廃止)。
+    // 受け取りは HO 送信カードのボタン(handout-contact.mjs)＝自由入力の NPC 名から生成する
 
     await setState({ actStarted: true, sceneEnded: false });
     Hooks.callAll(TNX_HOOKS.actStart, { actId: journal.id });
@@ -408,39 +406,6 @@ async function _dealTrumpsForCasts(casts) {
         await neuroDeck.pass(trumpPile, [cardId], { chatNotification: false, updateData: { face: 0 } });
         ui.notifications.info(`${owner.name} に切り札を配布しました。`);
     }
-}
-
-/**
- * コネ(ハンドアウトのアクトコネクション=コネ技能の識別キー・**必ず一つ**)を対象ユーザーの
- * キャストへコピー付与する(14-7・2026-08-09 裁定で単一化＋ユーザー参照化)。参照先は一般技能辞典
- * **とワールド直下**の両方(2026-08-12 指示)。コピーには isActLimited を立てる=アクト終了時に
- * 自動削除される。同じ識別キーの技能を既に持つ場合はスキップ(重複付与を避ける)。
- * @param {Array<{handout: object, user: ?User, cast: ?Actor}>} assignments
- */
-async function _grantActConnections(assignments) {
-    let granted = 0;
-    // 索引は選択肢・表示と同じ loadContactSkillIndex(辞典優先の統一規則)。解決は uuid の単品取得＝
-    // 辞典側は getDocument(キャッシュ優先)に落ちるので KI-026 の孤児化を起こさない
-    const contactIndex = await loadContactSkillIndex();
-    for (const { handout, cast } of assignments) {
-        const key = handout.actConnection;
-        if (!cast || !key) continue;
-        const uuid = contactIndex.get(key)?.uuid;
-        const doc = uuid ? await fromUuid(uuid).catch(() => null) : null;
-        if (doc?.type !== "generalSkill") {
-            ui.notifications.warn(`コネ技能が見つかりません(${cast.name})。`);
-            continue;
-        }
-        const exists = cast.items.some(i => i.type === "generalSkill"
-            && i.system.identificationKey === key);
-        if (exists) continue;
-        const data = doc.toObject();
-        delete data._id;
-        foundry.utils.setProperty(data, "system.isActLimited", true);
-        await cast.createEmbeddedDocuments("Item", [data]);
-        granted += 1;
-    }
-    if (granted > 0) ui.notifications.info(`コネを ${granted} 件配布しました(アクト終了時に自動削除)。`);
 }
 
 // ─── シーンのライフサイクル ─────────────────────────────────────────────────

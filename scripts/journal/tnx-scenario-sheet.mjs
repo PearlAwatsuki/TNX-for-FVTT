@@ -1,4 +1,4 @@
-import { loadGroupedGeneralSkillChoices, loadGeneralSkillNameByKey, loadContactSkillIndex, loadSkillChoices, SKILL_PACKS, STYLE_PACK } from '../module/skill-dictionary.mjs';
+import { loadGroupedGeneralSkillChoices, loadGeneralSkillNameByKey, loadSkillChoices, SKILL_PACKS, STYLE_PACK } from '../module/skill-dictionary.mjs';
 import { formatSkillName } from '../module/identification.mjs';
 import {
     presetLabel, presetSkillKeys, newCheckRequestPreset, newBountyPreset,
@@ -232,23 +232,14 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         }));
         context.trailer       = flagData.trailer       || "";
         context.handouts      = (flagData.handouts || []).map(normalizeHandoutRow);
-        // コネ(アクトコネクション)の選択肢: コネ技能(識別キー contact プレフィックス)を
-        // **一般技能辞典とワールド直下の両方**から集める(2026-08-12 指示＝アクト限定のコネを
-        // 恒久的な辞典に置かずに済ませるため。同じキーは辞典優先・出所でグループ分けはしない)。
-        // **必ず一つ**(2026-08-09 裁定)＝単一セレクト
-        const contactIndex = await loadContactSkillIndex();
+        // コネ(アクトコネクション)は NPC 名の自由入力(2026-08-12 裁定で辞典参照から差し戻し)。
+        // 受け取りは HO 送信カードのボタンで、そこで技能アイテムを生成する
         // スタイル(指定スタイル)＝スタイル辞典のプルダウン(識別キー保存)。1行目でハンドアウト名の
         // 構成要素を兼ねる(「<スタイル名>用ハンドアウト①」形式・2026-08-09 裁定)
         const styleChoices = await loadSkillChoices([STYLE_PACK]);
         const styleEntries = Object.entries(styleChoices).filter(([key]) => key);
         let handoutNumber = 0;   // スタイル指定行(共通・自由記述以外)の通し番号
         for (const handout of context.handouts) {
-            // コネ: キー保存のセレクト。辞典・ワールドの双方から消えたキーは値を保ったまま
-            // 「（参照切れ）」表示
-            handout.connOptions = [...contactIndex].map(([key, { name }]) => ({
-                value: key, label: name, selected: key === handout.actConnection,
-            }));
-            handout.connBroken = !!(handout.actConnection && !contactIndex.has(handout.actConnection));
             // 推奨スート: キー保存のセレクト。キー以外の旧自由テキストは空選択肢のラベルで示す
             handout.suits = HANDOUT_SUIT_OPTIONS.map(o => ({ ...o, selected: o.value === handout.recommendedSuit }));
             handout.legacySuit = (handout.recommendedSuit

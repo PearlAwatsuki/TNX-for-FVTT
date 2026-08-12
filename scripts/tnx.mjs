@@ -61,6 +61,7 @@ import { TnxCheckDialog } from './module/tnx-check-dialog.mjs';
 import { TnxRlRequestApp } from './module/tnx-rl-request-app.mjs';
 import { openRlGrantDamage, openRlGrantEffect, openRlGrantBounty } from './module/rl-grant.mjs';
 import { renderBountyGrantCard } from './module/bounty-grant.mjs';
+import { renderHandoutCard } from './module/handout-contact.mjs';
 import { openFocusSystemPanel } from './module/tnx-focus-system-panel.mjs';
 import { openScenarioPanel } from './module/tnx-scenario-panel.mjs';
 import { registerFocusSystemSetting, advanceFocusCuts } from './module/focus-system-state.mjs';
@@ -124,6 +125,7 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/app/rl-grant-effect.hbs",
         "systems/tokyo-nova-axleration/templates/app/rl-grant-bounty.hbs",
         "systems/tokyo-nova-axleration/templates/chat/bounty-grant.hbs",
+        "systems/tokyo-nova-axleration/templates/chat/handout-card.hbs",
         "systems/tokyo-nova-axleration/templates/app/focus-system-panel.hbs",
         "systems/tokyo-nova-axleration/templates/app/focus-system-start.hbs",
         "systems/tokyo-nova-axleration/templates/chat/focus-system-start.hbs",
@@ -923,6 +925,13 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
 Hooks.on("renderChatMessageHTML", (message, html) => {
     if (message.getFlag("tokyo-nova-axleration", "bountyGrant")) {
         renderBountyGrantCard(message, html);
+    }
+});
+
+// ハンドアウト送信カード(2026-08-12): コネの受け取りボタン/取得済みをライブ描画
+Hooks.on("renderChatMessageHTML", (message, html) => {
+    if (message.getFlag("tokyo-nova-axleration", "handoutContact")) {
+        renderHandoutCard(message, html);
     }
 });
 

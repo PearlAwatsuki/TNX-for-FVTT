@@ -1,0 +1,54 @@
+{{!-- ハンドアウト送信カード(2026-08-12)。意匠は判定要求・報酬点カードと同じ
+      .tnx-check-request ＋ cr-req-header ＋ cr-req-body を踏襲する。
+      最下部のコネ受け取りボタンは renderChatMessageHTML フック(handout-contact.mjs)が注入する --}}
+<div class="tnx-check-request tokyo-nova tnx-handout-card">
+
+    <header class="cr-req-header">
+        <span class="cr-req-type-tag">ハンドアウト</span>
+        <span class="cr-req-title">{{title}}</span>
+    </header>
+
+    <div class="cr-req-body">
+
+        {{!-- 見出しの並び: 担当・スタイル・コネ・推奨スート。空の欄は行ごと出さない --}}
+        {{#if playerName}}
+            <div class="ho-field">
+                <span class="ho-field__label">担当</span>
+                <span class="ho-field__value">{{playerName}}</span>
+            </div>
+        {{/if}}
+        {{#if styleName}}
+            <div class="ho-field">
+                <span class="ho-field__label">スタイル</span>
+                <span class="ho-field__value">{{styleName}}</span>
+            </div>
+        {{/if}}
+        {{#if contactName}}
+            <div class="ho-field">
+                <span class="ho-field__label">コネ</span>
+                <span class="ho-field__value">{{contactName}}</span>
+            </div>
+        {{/if}}
+        {{#if suitLabel}}
+            <div class="ho-field">
+                <span class="ho-field__label">推奨スート</span>
+                <span class="ho-field__value">{{suitLabel}}</span>
+            </div>
+        {{/if}}
+
+        {{#if content}}
+            <div class="ho-content">{{{content}}}</div>
+        {{/if}}
+
+        {{#if ps}}
+            <div class="ho-ps">
+                <span class="ho-ps__label">PS</span>
+                <div class="ho-ps__body">{{{ps}}}</div>
+            </div>
+        {{/if}}
+
+        {{!-- コネの受け取り(フックが「コネを受け取る」ボタン or 生成済みを注入する) --}}
+        <div class="ho-contact-action"></div>
+
+    </div>
+</div>

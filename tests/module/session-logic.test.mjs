@@ -26,7 +26,7 @@ import {
   matchTrumpCard,
   buildSceneSwitchMessage,
   buildTrailerMessage,
-  buildHandoutMessage,
+  buildHandoutCardData,
   buildInfoMessage,
   HANDOUT_STYLE_COMMON,
   HANDOUT_STYLE_FREE,
@@ -139,21 +139,15 @@ describe("normalizeHandoutRow()（ハンドアウト行の正規化・14-2）", 
     expect(normalizeHandoutRow({ id: "h2", actorId: "a9" }).actorId).toBe("a9");
   });
 
-  it("actConnection(単一キー)は保存値を保つ・未設定は空", () => {
-    expect(normalizeHandoutRow({ id: "h3", actConnection: "contact_father" }).actConnection).toBe("contact_father");
+  it("actConnection は NPC 名の自由入力(2026-08-12 差し戻し)・未設定は空", () => {
+    expect(normalizeHandoutRow({ id: "h3", actConnection: "キース・シュナイダー" }).actConnection)
+      .toBe("キース・シュナイダー");
     expect(normalizeHandoutRow({ id: "h4" }).actConnection).toBe("");
   });
 
-  it("旧配列 actConnections は先頭の文字列キーを actConnection へ読み替える({uuid} 形式は無視)", () => {
-    const row = normalizeHandoutRow({
-      id: "h5",
-      actConnections: [{ uuid: "Compendium.x.y" }, "contact_father", "contact_boss"],
-    });
-    expect(row.actConnection).toBe("contact_father");
-  });
-
-  it("actConnection が明示されていれば旧配列より優先する(空文字も意図的な選択として保つ)", () => {
-    expect(normalizeHandoutRow({ id: "h6", actConnection: "", actConnections: ["contact_x"] }).actConnection).toBe("");
+  it("文字列でない値は空に落とす(旧配列形式は読み替えない=既存行は作り直す運用)", () => {
+    expect(normalizeHandoutRow({ id: "h5", actConnection: ["contact_x"] }).actConnection).toBe("");
+    expect(normalizeHandoutRow({ id: "h6", actConnection: null }).actConnection).toBe("");
   });
 });
 
@@ -533,34 +527,38 @@ describe("buildTrailerMessage()（トレーラー送信・14-3）", () => {
   });
 });
 
-describe("buildHandoutMessage()（ハンドアウト送信・14-3／見出し=表示名・ユーザー参照化は 2026-08-09 是正）", () => {
-  it("見出し(解決済み表示名)・コネ・スートラベル・スタイル・PS を条件付きで含める", () => {
-    const html = buildHandoutMessage({
-      recommendedSuit: "spade", recommendedStyle: "kabuki", content: "本文", ps: "目的",
-    }, { title: "①カブキ用ハンドアウト", connectionName: "〈コネ：父〉", styleName: "カブキ" });
-    expect(html).toBe(
-      "<h3>①カブキ用ハンドアウト</h3>"
-      + "<p><strong>コネ:</strong> 〈コネ：父〉</p>"
-      + "<p><strong>推奨スート:</strong> スペード</p>"
-      + "<p><strong>スタイル:</strong> カブキ</p>"
-      + "<hr>本文<hr><h4>PS</h4><p>目的</p>",
-    );
+describe("buildHandoutCardData()（ハンドアウト送信カードのコンテキスト・2026-08-12 テンプレート化）", () => {
+  it("見出し・担当・スタイル・コネ・スートラベル・本文・PS を写す", () => {
+    expect(buildHandoutCardData({
+      actConnection: "キース・シュナイダー",
+      recommendedSuit: "spade", recommendedStyle: "kabuki", content: "<p>本文</p>", ps: "<p>目的</p>",
+    }, { title: "①カブキ用ハンドアウト", styleName: "カブキ", playerName: "アキラ" })).toEqual({
+      title: "①カブキ用ハンドアウト",
+      contactName: "キース・シュナイダー",
+      suitLabel: "スペード",
+      styleName: "カブキ",
+      playerName: "アキラ",
+      content: "<p>本文</p>",
+      ps: "<p>目的</p>",
+    });
   });
 
-  it("コネ表示名が無ければ旧自由テキスト connections をフォールバック表示する", () => {
-    const html = buildHandoutMessage({ connections: "父", content: "C" }, { title: "HO1" });
-    expect(html).toBe("<h3>HO1</h3><p><strong>コネ:</strong> 父</p><hr>C");
+  it("コネは前後の空白を落とす（「コネ：」は付けない＝カード側が見出しを付ける）", () => {
+    expect(buildHandoutCardData({ actConnection: "  エウラリア  " }).contactName).toBe("エウラリア");
   });
 
-  it("スートのキー以外(旧自由テキスト)はそのまま表示する", () => {
-    const html = buildHandoutMessage({ recommendedSuit: "♠", content: "C" }, { title: "HO1" });
-    expect(html).toContain("<p><strong>推奨スート:</strong> ♠</p>");
+  it("空欄は空文字（テンプレート側で行ごと省く）", () => {
+    const d = buildHandoutCardData({ content: "C" });
+    expect(d).toMatchObject({ contactName: "", suitLabel: "", styleName: "", playerName: "", ps: "" });
   });
 
-  it("空欄は行ごと省き、見出し未指定は旧 title→既定値の順にフォールバックする", () => {
-    expect(buildHandoutMessage({ title: "旧タイトル", content: "C" }))
-      .toBe("<h3>旧タイトル</h3><hr>C");
-    expect(buildHandoutMessage({ content: "C" })).toBe("<h3>ハンドアウト</h3><hr>C");
+  it("スートのキー以外(旧自由テキスト)はそのままラベルにする", () => {
+    expect(buildHandoutCardData({ recommendedSuit: "♠" }).suitLabel).toBe("♠");
+  });
+
+  it("見出し未指定は旧 title → 既定値の順にフォールバックする", () => {
+    expect(buildHandoutCardData({ title: "旧タイトル" }).title).toBe("旧タイトル");
+    expect(buildHandoutCardData({}).title).toBe("ハンドアウト");
   });
 });
 

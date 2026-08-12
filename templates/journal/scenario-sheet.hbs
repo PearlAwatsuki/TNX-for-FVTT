@@ -72,14 +72,11 @@
                                   コネは必ず一つ=単一セレクト・推奨スートはコネに付随(同じ行)・
                                   対象ユーザーは内容でないため一番下 --}}
                             <div class="handout-row handout-row--meta">
+                                {{!-- コネ＝NPC 名の自由入力(2026-08-12)。「コネ：」は付けない
+                                      ——生成される技能の名前が「コネ：<入力値>」になる --}}
                                 <label>コネ</label>
-                                <select name="actConnection" class="handout-conn-select">
-                                    <option value="">{{#if handout.connections}}旧: {{handout.connections}}{{else}}-{{/if}}</option>
-                                    {{#each handout.connOptions as |opt|}}
-                                        <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
-                                    {{/each}}
-                                    {{#if handout.connBroken}}<option value="{{handout.actConnection}}" selected>（参照切れ）</option>{{/if}}
-                                </select>
+                                <input type="text" name="actConnection" class="handout-conn-input"
+                                       value="{{handout.actConnection}}" placeholder="NPC 名">
                                 <label class="handout-suit-label">推奨スート</label>
                                 <select name="recommendedSuit" class="handout-suit-select">
                                     <option value="">{{#if handout.legacySuit}}旧: {{handout.legacySuit}}{{else}}-{{/if}}</option>
