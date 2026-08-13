@@ -139,7 +139,7 @@ describe("normalizeHandoutRow()（ハンドアウト行の正規化・14-2）", 
     expect(normalizeHandoutRow({ id: "h2", actorId: "a9" }).actorId).toBe("a9");
   });
 
-  it("actConnection は NPC 名の自由入力(2026-08-12 差し戻し)・未設定は空", () => {
+  it("actConnection は相手の名前の自由入力(NPC とは限らない)・未設定は空", () => {
     expect(normalizeHandoutRow({ id: "h3", actConnection: "キース・シュナイダー" }).actConnection)
       .toBe("キース・シュナイダー");
     expect(normalizeHandoutRow({ id: "h4" }).actConnection).toBe("");

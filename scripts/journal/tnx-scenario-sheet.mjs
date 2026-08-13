@@ -232,7 +232,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         }));
         context.trailer       = flagData.trailer       || "";
         context.handouts      = (flagData.handouts || []).map(normalizeHandoutRow);
-        // コネ(アクトコネクション)は NPC 名の自由入力(2026-08-12 裁定で辞典参照から差し戻し)。
+        // コネ(アクトコネクション)は相手の名前の自由入力(2026-08-12 裁定で辞典参照から差し戻し)。
         // 受け取りは HO 送信カードのボタンで、そこで技能アイテムを生成する
         // スタイル(指定スタイル)＝スタイル辞典のプルダウン(識別キー保存)。1行目でハンドアウト名の
         // 構成要素を兼ねる(「<スタイル名>用ハンドアウト①」形式・2026-08-09 裁定)

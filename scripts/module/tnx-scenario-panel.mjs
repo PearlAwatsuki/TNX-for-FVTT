@@ -529,7 +529,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         const handout = handouts.find(h => h.id === target.dataset.id);
         if (!handout) return;
         // スタイル(スタイル辞典キー)は逆引きの現在名で表示する(生キーを出さない)。
-        // コネは NPC 名の自由入力なのでそのまま出す(2026-08-12)
+        // コネは相手の名前の自由入力なのでそのまま出す(2026-08-12)
         const styleChoices = await loadSkillChoices([STYLE_PACK]);
         const styleName = handoutStyleDisplay(handout.recommendedStyle, styleChoices);
         const title = handoutDisplayTitle(handout, {

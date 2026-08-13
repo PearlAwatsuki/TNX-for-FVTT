@@ -233,9 +233,11 @@ export function handoutNumberOf(handouts, handoutId) {
 
 export function normalizeHandoutRow(row) {
     const r = row ?? {};
-    // コネ＝アクトコネクション: **NPC 名の自由入力**(2026-08-12 裁定で辞典参照から差し戻し)。
+    // コネ＝アクトコネクション: **相手の名前の自由入力**(2026-08-12 裁定で辞典参照から差し戻し)。
+    // 相手は NPC とは限らない——ハンドアウト指定 NPC とのコネと**キャスト間コネクション**の
+    // 2種がある(正本 Scenario_Progress「プレアクト」)。
     // 入れるのは名前そのもの(「キース・シュナイダー」)で、「コネ：」は含まない——生成される
-    // 技能アイテムの名前が「コネ：<NPC名>」になる。受け取りは HO 送信カードのボタン
+    // 技能アイテムの名前が「コネ：<相手の名前>」になる。受け取りは HO 送信カードのボタン
     // (handout-contact.mjs)で、アクト開始時の自動配布は廃止した。
     return {
         ...r,
@@ -677,7 +679,7 @@ export function buildHandoutCardData(handout, { title = "", styleName = "", play
     const h = handout ?? {};
     return {
         title:       title || h.title || "ハンドアウト",
-        // コネは NPC 名の自由入力(2026-08-12)。カード側が「コネ」の見出しを付けるので素の名前
+        // コネは相手の名前の自由入力(2026-08-12)。カード側が「コネ」の見出しを付けるので素の名前
         contactName: (h.actConnection ?? "").trim(),
         suitLabel:   h.recommendedSuit ? handoutSuitLabel(h.recommendedSuit) : "",
         styleName:   styleName ?? "",

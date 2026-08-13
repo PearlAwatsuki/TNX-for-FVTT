@@ -2,7 +2,7 @@
  * @fileoverview ハンドアウトのアクトコネクション受け取り(2026-08-12 ユーザー指示)。
  *
  * HO 送信カードの最下部のボタンを押すと、**その HO の対象ユーザーのプレイヤーキャラクター**に
- * 「コネ：<NPC名>」の一般技能を作る。プレイヤーキャラクターが未設定なら、HO の指定スタイルを
+ * 「コネ：<相手の名前>」の一般技能を作る。プレイヤーキャラクターが未設定なら、HO の指定スタイルを
  * 持つキャストを新規作成し、対象ユーザーのプレイヤーキャラクターに登録してからコネを入れる
  * ——自動作成の目的は「アクトコネがインポートされたアクターを用意すること」(ユーザー明言)。
  *
@@ -26,7 +26,7 @@ const FLAG = "handoutContact";
  * 識別キーは**名前と無関係な一意 ID**にする——名前から作るとコネ名の変更や重複で壊れるため。
  * `contact_` の接頭だけは付ける(コネ小分類の判定がこのプレフィックスに依存している)。
  * アクトを越えて残したいときはユーザーがキーを付け直す運用。
- * @param {string} contactName NPC 名(「コネ：」を含まない素の名前)
+ * @param {string} contactName コネの相手の名前(「コネ：」を含まない素の名前)
  * @returns {object} Item の作成データ
  */
 export function buildContactSkillData(contactName) {
@@ -73,7 +73,7 @@ export function renderHandoutCard(message, html) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "tnx-chat-btn";
-    // NPC 名はすぐ上のコネ行に出ているので、ボタンには載せない(長い名前で2行に折り返すため)
+    // 相手の名前はすぐ上のコネ行に出ているので、ボタンには載せない(長い名前で2行に折り返すため)
     btn.innerHTML = '<i class="fas fa-address-book"></i> コネを受け取る';
     btn.addEventListener("click", () => grantHandoutContact(message));
     slot.appendChild(btn);

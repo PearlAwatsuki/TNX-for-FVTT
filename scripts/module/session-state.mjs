@@ -290,7 +290,7 @@ export async function startAct({ sceneId = null } = {}) {
     await _dealTrumpsForCasts(casts);
 
     // コネ(アクトコネクション)はアクト開始では配らない(2026-08-12 裁定で廃止)。
-    // 受け取りは HO 送信カードのボタン(handout-contact.mjs)＝自由入力の NPC 名から生成する
+    // 受け取りは HO 送信カードのボタン(handout-contact.mjs)＝自由入力の相手の名前から生成する
 
     await setState({ actStarted: true, sceneEnded: false });
     Hooks.callAll(TNX_HOOKS.actStart, { actId: journal.id });
