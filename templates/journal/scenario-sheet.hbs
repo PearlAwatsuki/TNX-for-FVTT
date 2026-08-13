@@ -72,11 +72,40 @@
                                   コネは必ず一つ=単一セレクト・推奨スートはコネに付随(同じ行)・
                                   対象ユーザーは内容でないため一番下 --}}
                             <div class="handout-row handout-row--meta">
-                                {{!-- コネ＝相手の名前の自由入力(2026-08-12)。「コネ：」は付けない
-                                      ——生成される技能の名前が「コネ：<入力値>」になる --}}
+                                {{!-- コネ＝指定方法を選んでから相手を指す(2026-08-13)。
+                                      PC=ハンドアウトから選ぶ／NPC=辞典のコネ技能をドロップ／
+                                      自由記述=名前を打つ。「コネ：」は付けない
+                                      ——生成される技能の名前が「コネ：<相手の名前>」になる --}}
                                 <label>コネ</label>
-                                <input type="text" name="actConnection" class="handout-conn-input"
-                                       value="{{handout.actConnection}}" placeholder="コネの相手">
+                                <select name="actConnectionType" class="handout-conn-type">
+                                    {{#each handout.connTypes as |opt|}}
+                                        <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+                                    {{/each}}
+                                </select>
+                                {{#if handout.connIsFree}}
+                                    <input type="text" name="actConnection" class="handout-conn-input"
+                                           value="{{handout.actConnection}}" placeholder="コネの相手">
+                                {{/if}}
+                                {{#if handout.connIsPc}}
+                                    <select name="actConnectionHandoutId" class="handout-conn-input">
+                                        <option value="">- 相手のハンドアウト -</option>
+                                        {{#each handout.connHandouts as |opt|}}
+                                            <option value="{{opt.id}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+                                        {{/each}}
+                                    </select>
+                                {{/if}}
+                                {{#if handout.connIsNpc}}
+                                    {{#if handout.connItemName}}
+                                        <span class="handout-conn-input handout-conn-item">
+                                            {{handout.connItemName}}
+                                            <a class="tnx-tag-remove" data-action="clearHandoutContact" data-id="{{handout.id}}" title="外す"><i class="fas fa-times"></i></a>
+                                        </span>
+                                    {{else}}
+                                        <div class="tnx-import-box handout-conn-input handout-conn-drop" data-id="{{handout.id}}">
+                                            <span>コネ技能をここにドロップ</span>
+                                        </div>
+                                    {{/if}}
+                                {{/if}}
                                 <label class="handout-suit-label">推奨スート</label>
                                 <select name="recommendedSuit" class="handout-suit-select">
                                     <option value="">{{#if handout.legacySuit}}旧: {{handout.legacySuit}}{{else}}-{{/if}}</option>

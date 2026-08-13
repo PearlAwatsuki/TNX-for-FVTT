@@ -55,6 +55,9 @@ import {
   SCENE_PLAYER_RULER,
   handoutPlayerLabel,
   resolveScenePlayerRef,
+  contactType,
+  CONTACT_TYPES,
+  planActLimitedCleanup,
 } from "../../scripts/module/session-logic.mjs";
 import { TNX_HOOKS } from "../../scripts/module/combat-events.mjs";
 
@@ -139,15 +142,58 @@ describe("normalizeHandoutRow()（ハンドアウト行の正規化・14-2）", 
     expect(normalizeHandoutRow({ id: "h2", actorId: "a9" }).actorId).toBe("a9");
   });
 
-  it("actConnection は相手の名前の自由入力(NPC とは限らない)・未設定は空", () => {
-    expect(normalizeHandoutRow({ id: "h3", actConnection: "キース・シュナイダー" }).actConnection)
-      .toBe("キース・シュナイダー");
-    expect(normalizeHandoutRow({ id: "h4" }).actConnection).toBe("");
+  it("コネの指定方法は既定が自由記述（従来の挙動が既定のまま）", () => {
+    expect(normalizeHandoutRow({ id: "h3" }).actConnectionType).toBe("free");
+    expect(normalizeHandoutRow({ id: "h3", actConnectionType: "bogus" }).actConnectionType).toBe("free");
+    expect(contactType({ actConnectionType: "pc" })).toBe("pc");
+    expect(CONTACT_TYPES.map(o => o.value)).toEqual(["free", "pc", "npc"]);
   });
 
-  it("文字列でない値は空に落とす(旧配列形式は読み替えない=既存行は作り直す運用)", () => {
+  it("モードごとに値の置き場が別（切り替えても他モードの入力が消えない）", () => {
+    const row = normalizeHandoutRow({
+      id: "h4", actConnectionType: "pc",
+      actConnection: "キース・シュナイダー", actConnectionHandoutId: "hoB", actConnectionUuid: "Item.x",
+    });
+    expect(row.actConnection).toBe("キース・シュナイダー");
+    expect(row.actConnectionHandoutId).toBe("hoB");
+    expect(row.actConnectionUuid).toBe("Item.x");
+  });
+
+  it("文字列でない値は空に落とす(旧形式は読み替えない=既存行は作り直す運用)", () => {
     expect(normalizeHandoutRow({ id: "h5", actConnection: ["contact_x"] }).actConnection).toBe("");
-    expect(normalizeHandoutRow({ id: "h6", actConnection: null }).actConnection).toBe("");
+    expect(normalizeHandoutRow({ id: "h6", actConnectionHandoutId: 3 }).actConnectionHandoutId).toBe("");
+    expect(normalizeHandoutRow({ id: "h7" }).actConnectionUuid).toBe("");
+  });
+});
+
+describe("planActLimitedCleanup()（アクト終了時の後始末・2026-08-13 確認ダイアログ化）", () => {
+  const entries = [
+    { actorId: "a1", itemId: "i1" },
+    { actorId: "a1", itemId: "i2" },
+    { actorId: "a2", itemId: "i3" },
+  ];
+
+  it("チェックの無いものは全部削除（既定＝アクト限りが原則）", () => {
+    const { deletes, keeps } = planActLimitedCleanup(entries, []);
+    expect(deletes).toEqual({ a1: ["i1", "i2"], a2: ["i3"] });
+    expect(keeps).toEqual({});
+  });
+
+  it("チェックしたものだけ維持へ回す（アクターごとに束ねる）", () => {
+    const { deletes, keeps } = planActLimitedCleanup(entries, ["a1:i2", "a2:i3"]);
+    expect(deletes).toEqual({ a1: ["i1"] });
+    expect(keeps).toEqual({ a1: ["i2"], a2: ["i3"] });
+  });
+
+  it("全部維持なら削除は空", () => {
+    const { deletes, keeps } = planActLimitedCleanup(entries, ["a1:i1", "a1:i2", "a2:i3"]);
+    expect(deletes).toEqual({});
+    expect(Object.keys(keeps)).toEqual(["a1", "a2"]);
+  });
+
+  it("欠けた項目は落とす・空入力は空", () => {
+    expect(planActLimitedCleanup([{ actorId: "a1" }, { itemId: "i1" }], [])).toEqual({ deletes: {}, keeps: {} });
+    expect(planActLimitedCleanup(null)).toEqual({ deletes: {}, keeps: {} });
   });
 });
 
@@ -530,9 +576,9 @@ describe("buildTrailerMessage()（トレーラー送信・14-3）", () => {
 describe("buildHandoutCardData()（ハンドアウト送信カードのコンテキスト・2026-08-12 テンプレート化）", () => {
   it("見出し・担当・スタイル・コネ・スートラベル・本文・PS を写す", () => {
     expect(buildHandoutCardData({
-      actConnection: "キース・シュナイダー",
       recommendedSuit: "spade", recommendedStyle: "kabuki", content: "<p>本文</p>", ps: "<p>目的</p>",
-    }, { title: "①カブキ用ハンドアウト", styleName: "カブキ", playerName: "アキラ" })).toEqual({
+    }, { title: "①カブキ用ハンドアウト", styleName: "カブキ", playerName: "アキラ",
+         contactName: "キース・シュナイダー" })).toEqual({
       title: "①カブキ用ハンドアウト",
       contactName: "キース・シュナイダー",
       suitLabel: "スペード",
@@ -543,8 +589,8 @@ describe("buildHandoutCardData()（ハンドアウト送信カードのコンテ
     });
   });
 
-  it("コネは前後の空白を落とす（「コネ：」は付けない＝カード側が見出しを付ける）", () => {
-    expect(buildHandoutCardData({ actConnection: "  エウラリア  " }).contactName).toBe("エウラリア");
+  it("コネは解決済みの名前を受け取り前後の空白を落とす（「コネ：」は付けない＝カード側が見出しを付ける）", () => {
+    expect(buildHandoutCardData({}, { contactName: "  エウラリア  " }).contactName).toBe("エウラリア");
   });
 
   it("空欄は空文字（テンプレート側で行ごと省く）", () => {

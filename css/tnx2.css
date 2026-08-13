@@ -5395,12 +5395,46 @@ body.tnx-bottom-hud-expanded #hotbar {
     white-space: nowrap;
 }
 
-/* コネ(NPC 名の自由入力)と対象ユーザーは行の残り幅を引き受ける。推奨スートは4値の列挙=内容幅 */
-.handout-row--meta > .handout-conn-input,
+/* コネの入力欄と対象ユーザーは行の残り幅を引き受ける。推奨スートは4値の列挙=内容幅。
+   コネは「指定方法＋入力欄」の2コントロールになったため、入力欄は半分程度に抑える
+   (2026-08-13 ユーザー指摘＝入力欄が長すぎた) */
+.handout-row--meta > .handout-conn-input {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+}
+
 .handout-row--user > select {
     flex: 1 1 auto;
     width: auto;
     min-width: 180px;
+}
+
+/* 指定方法(自由記述/PC/NPC)は3値の列挙=内容幅 */
+.handout-row--meta > .handout-conn-type {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 0;
+}
+
+/* NPC モード: ドロップ枠と、設定済みの表示(名前＋外す)。行の高さに収める */
+.handout-row--meta > .tnx-import-box.handout-conn-drop {
+    padding: 4px 8px;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.handout-row--meta > .handout-conn-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    padding: 4px 8px;
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 .handout-row--meta > .handout-suit-select { flex: 0 0 auto; width: auto; min-width: 0; }
@@ -9887,4 +9921,56 @@ button.tnx-create-act-button span {
 }
 .tnx-cut-footer .tnx-cut-btn:not(.tnx-cut-btn-primary) {
     flex: 1 1 auto;
+}
+
+/* ─── アクト限定技能の後始末ダイアログ(2026-08-13) ─────────────────────────────
+   アクト終了時に、消すか残すかを一覧で選ぶ。既定は全部オフ＝削除（アクト限定は
+   そのアクト限りが原則）。チェックしたものだけ残る */
+.tnx-act-limited {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.tnx-act-limited-tools {
+    display: flex;
+    gap: 6px;
+}
+
+.tnx-act-limited-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.tnx-act-limited-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    border-radius: var(--tnx2-radius);
+}
+
+.tnx-act-limited-row:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+/* キャスト名は幅を揃えて技能名の頭を通す(長い名前は省略・全文は title で出す) */
+.tnx-act-limited-actor {
+    flex: 0 0 10em;
+    color: var(--tnx2-text-secondary);
+    font-size: 0.9em;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.tnx-act-limited-item {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }

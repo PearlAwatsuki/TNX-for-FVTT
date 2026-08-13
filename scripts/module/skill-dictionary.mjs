@@ -501,7 +501,7 @@ export async function loadGeneralSkillNameByKey() {
  * @param {string} category 小分類ラベル(ONOMASTIC_TYPES の値)
  * @returns {string}
  */
-function stripSkillCategory(name, category) {
+export function stripSkillCategory(name, category) {
   const s = String(name ?? "");
   for (const sep of ["：", ":"]) {
     if (s.startsWith(`${category}${sep}`)) return s.slice(category.length + sep.length);

@@ -231,22 +231,64 @@ export function handoutNumberOf(handouts, handoutId) {
     return 0;
 }
 
+/** コネの指定方法(2026-08-13)。相手が PC か NPC か、辞典に無い相手かで入力手段が変わる。 */
+export const CONTACT_TYPES = Object.freeze([
+    { value: "free", label: "自由記述" },
+    { value: "pc",   label: "PC" },
+    { value: "npc",  label: "NPC" },
+]);
+
+/** コネの指定方法(不正・未指定は自由記述に落とす＝従来の挙動が既定)。 */
+export function contactType(row) {
+    const t = row?.actConnectionType;
+    return CONTACT_TYPES.some(o => o.value === t) ? t : "free";
+}
+
 export function normalizeHandoutRow(row) {
     const r = row ?? {};
-    // コネ＝アクトコネクション: **相手の名前の自由入力**(2026-08-12 裁定で辞典参照から差し戻し)。
-    // 相手は NPC とは限らない——ハンドアウト指定 NPC とのコネと**キャスト間コネクション**の
-    // 2種がある(正本 Scenario_Progress「プレアクト」)。
-    // 入れるのは名前そのもの(「キース・シュナイダー」)で、「コネ：」は含まない——生成される
-    // 技能アイテムの名前が「コネ：<相手の名前>」になる。受け取りは HO 送信カードのボタン
-    // (handout-contact.mjs)で、アクト開始時の自動配布は廃止した。
+    // コネ＝アクトコネクション。相手は NPC とは限らないので**指定方法を3つ**持つ
+    // (2026-08-13 ユーザー指示): PC=ハンドアウトから選ぶ／NPC=辞典のコネ技能をドロップ／
+    // 自由記述=名前を打つ。**ハンドアウト由来のアクトコネは、ルール上の「キャスト間
+    // コネクション」とは別物**(2026-08-13 ユーザー指摘)——PC を指せるだけで、相互に張る
+    // 仕組みではない。
+    // モードを切り替えても他モードの入力が消えないよう、値の置き場をモードごとに分ける。
+    // 参照(ハンドアウト id・アイテム uuid)で持つのは、相手のキャスト名や辞典アイテム名が
+    // 後で変わっても追随させるため(名前をキャッシュしない既存規約)。
+    // 受け取りは HO 送信カードのボタン(handout-contact.mjs)＝アクト開始時の自動配布は廃止。
     return {
         ...r,
         // ハンドアウトはユーザーに付与されるもの(2026-08-09 裁定)＝参照は userId。
         // 旧 actorId(キャスト直接参照)は読み替え用に残す(書き換えない)
         userId: r.userId ?? "",
         actorId: r.actorId ?? "",
-        actConnection: typeof r.actConnection === "string" ? r.actConnection : "",
+        actConnectionType:      contactType(r),
+        // 自由記述: 名前そのもの(「コネ：」は含まない＝生成される技能名が「コネ：<入力値>」)
+        actConnection:          typeof r.actConnection === "string" ? r.actConnection : "",
+        // PC: 相手のハンドアウト参照 / NPC: 辞典のコネ技能の uuid
+        actConnectionHandoutId: typeof r.actConnectionHandoutId === "string" ? r.actConnectionHandoutId : "",
+        actConnectionUuid:      typeof r.actConnectionUuid === "string" ? r.actConnectionUuid : "",
     };
+}
+
+/**
+ * アクト終了時、アクト限定技能の後始末を「削除する分」と「維持する分」に振り分ける(2026-08-13
+ * ユーザー指示で無言の全削除から確認ダイアログへ)。**維持したものは isActLimited を落とす**
+ * ——落とさないとアクトのたびに同じものを聞かれ続けるし、「わざわざ編集しなくても維持できる」
+ * という要件がそこまで含むため。
+ * @param {Array<{actorId:string, itemId:string}>} entries 対象のアクト限定技能
+ * @param {Iterable<string>} keepKeys 維持するものの `${actorId}:${itemId}`
+ * @returns {{deletes: Record<string, string[]>, keeps: Record<string, string[]>}} アクター id ごとのアイテム id
+ */
+export function planActLimitedCleanup(entries, keepKeys = []) {
+    const keep = new Set(keepKeys);
+    const deletes = {};
+    const keeps = {};
+    for (const e of entries ?? []) {
+        if (!e?.actorId || !e?.itemId) continue;
+        const bucket = keep.has(`${e.actorId}:${e.itemId}`) ? keeps : deletes;
+        (bucket[e.actorId] ??= []).push(e.itemId);
+    }
+    return { deletes, keeps };
 }
 
 /**
@@ -668,19 +710,22 @@ export function buildTrailerMessage(trailer) {
 /**
  * ハンドアウト送信カードの描画コンテキストを組む(2026-08-12・素の HTML 組み立てから
  * 専用テンプレートへ移行)。空の欄は行ごと出さないよう真偽で畳んで渡す。
- * 見出し(表示名)・スタイルの解決済み表示文字列は呼び出し側から受け取る
- * (純関数のため辞典解決・連番算出は行わない)。
+ * 見出し(表示名)・スタイル・コネの解決済み表示文字列は呼び出し側から受け取る
+ * (純関数のため辞典解決・連番算出・コネの指定方法別の解決は行わない)。
  * @param {object} handout
- * @param {{title?: string, styleName?: string, playerName?: string}} [options]
+ * @param {{title?: string, styleName?: string, playerName?: string, contactName?: string}} [options]
  * @returns {{title:string, contactName:string, suitLabel:string, styleName:string,
  *            playerName:string, content:string, ps:string}}
  */
-export function buildHandoutCardData(handout, { title = "", styleName = "", playerName = "" } = {}) {
+export function buildHandoutCardData(handout, {
+    title = "", styleName = "", playerName = "", contactName = "",
+} = {}) {
     const h = handout ?? {};
     return {
         title:       title || h.title || "ハンドアウト",
-        // コネは相手の名前の自由入力(2026-08-12)。カード側が「コネ」の見出しを付けるので素の名前
-        contactName: (h.actConnection ?? "").trim(),
+        // コネは指定方法(PC/NPC/自由記述)ごとに解決済みの相手の名前(2026-08-13)。
+        // カード側が「コネ」の見出しを付けるので、ここは素の名前
+        contactName: (contactName ?? "").trim(),
         suitLabel:   h.recommendedSuit ? handoutSuitLabel(h.recommendedSuit) : "",
         styleName:   styleName ?? "",
         playerName:  playerName ?? "",

@@ -1,4 +1,4 @@
-import { loadGroupedGeneralSkillChoices, loadGeneralSkillNameByKey, loadSkillChoices, SKILL_PACKS, STYLE_PACK } from '../module/skill-dictionary.mjs';
+import { loadGroupedGeneralSkillChoices, loadGeneralSkillNameByKey, loadSkillChoices, idKeyPrefix, SKILL_PACKS, STYLE_PACK } from '../module/skill-dictionary.mjs';
 import { formatSkillName } from '../module/identification.mjs';
 import {
     presetLabel, presetSkillKeys, newCheckRequestPreset, newBountyPreset,
@@ -15,6 +15,7 @@ import {
     HANDOUT_STYLE_COMMON, HANDOUT_STYLE_FREE,
     normalizeSceneRow, normalizeHandoutRow, handoutTitleSuffix, circledNumber, infoSkillKeys,
     sceneSequenceNumbers, handoutPlayerLabel, handoutNumberOf, handoutStyleDisplay, infoTiers,
+    CONTACT_TYPES,
 } from '../module/session-logic.mjs';
 import { normalizeAppearanceActors, groupCharacterChoices } from '../module/appearance-logic.mjs';
 import { listSubScenes } from '../module/subscenes.mjs';
@@ -43,6 +44,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             deleteSkillCheck:  TnxScenarioSheet._onDeleteSkillCheck,
             removeInfoSkill:   TnxScenarioSheet._onRemoveInfoSkill,
             removePresetSkill: TnxScenarioSheet._onRemovePresetSkill,
+            clearHandoutContact: TnxScenarioSheet._onClearHandoutContact,
             addHandout:        TnxScenarioSheet._onAddHandout,
             deleteHandout:     TnxScenarioSheet._onDeleteHandout,
             removeAppearanceSkill:      TnxScenarioSheet._onRemoveAppearanceSkill,
@@ -232,14 +234,29 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         }));
         context.trailer       = flagData.trailer       || "";
         context.handouts      = (flagData.handouts || []).map(normalizeHandoutRow);
-        // コネ(アクトコネクション)は相手の名前の自由入力(2026-08-12 裁定で辞典参照から差し戻し)。
-        // 受け取りは HO 送信カードのボタンで、そこで技能アイテムを生成する
+        // コネ(アクトコネクション)は指定方法を選んでから相手を指す(2026-08-13)。受け取りは
+        // HO 送信カードのボタンで、そこで技能アイテムを生成/複製する
         // スタイル(指定スタイル)＝スタイル辞典のプルダウン(識別キー保存)。1行目でハンドアウト名の
         // 構成要素を兼ねる(「<スタイル名>用ハンドアウト①」形式・2026-08-09 裁定)
         const styleChoices = await loadSkillChoices([STYLE_PACK]);
         const styleEntries = Object.entries(styleChoices).filter(([key]) => key);
+        // PC モードの候補＝他のハンドアウト(シーンプレイヤー欄と同じラベル・共通は除外済み)
+        const contactHandouts = await this._buildScenePlayerHandouts(flagData.handouts);
         let handoutNumber = 0;   // スタイル指定行(共通・自由記述以外)の通し番号
         for (const handout of context.handouts) {
+            // コネの指定方法とモード別の入力
+            handout.connTypes = CONTACT_TYPES.map(o => ({ ...o, selected: o.value === handout.actConnectionType }));
+            handout.connIsFree = handout.actConnectionType === "free";
+            handout.connIsPc   = handout.actConnectionType === "pc";
+            handout.connIsNpc  = handout.actConnectionType === "npc";
+            // 自分自身へのコネは意味がないので候補から外す
+            handout.connHandouts = contactHandouts
+                .filter(o => o.id !== handout.id)
+                .map(o => ({ ...o, selected: o.id === handout.actConnectionHandoutId }));
+            // NPC: 落とした辞典アイテムの**現在名**をライブ解決する(名前はキャッシュしない)
+            handout.connItemName = handout.actConnectionUuid
+                ? (fromUuidSync(handout.actConnectionUuid)?.name ?? "（参照切れ）")
+                : "";
             // 推奨スート: キー保存のセレクト。キー以外の旧自由テキストは空選択肢のラベルで示す
             handout.suits = HANDOUT_SUIT_OPTIONS.map(o => ({ ...o, selected: o.value === handout.recommendedSuit }));
             handout.legacySuit = (handout.recommendedSuit
@@ -328,6 +345,12 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         for (const zone of el.querySelectorAll('.preset-skill-drop')) {
             zone.addEventListener('dragover', (event) => event.preventDefault());
             zone.addEventListener('drop', this._onPresetSkillDrop.bind(this));
+        }
+
+        // コネ(NPC モード)のインポートボックス
+        for (const zone of el.querySelectorAll('.handout-conn-drop')) {
+            zone.addEventListener('dragover', (event) => event.preventDefault());
+            zone.addEventListener('drop', this._onHandoutContactDrop.bind(this));
         }
 
         // ダメージ付与プリセットの欄同期(付与ダイアログと同じ規則・2026-07-24):
@@ -686,6 +709,43 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         if (keys.includes(key)) return;
         row.identificationKeys = [...keys, key];
         await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
+    }
+
+    /**
+     * コネ(NPC モード)に辞典のコネ技能をドロップして設定する(2026-08-13)。
+     * 参照(uuid)で保存し、表示名は都度ライブ解決する。コネ技能以外は理由を出して弾く。
+     */
+    async _onHandoutContactDrop(event) {
+        event.preventDefault();
+        // currentTarget は await をまたぐと null になるので先に読む
+        const handoutId = event.currentTarget?.dataset.id;
+        let data;
+        try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch { return; }
+        if (!data?.uuid || !handoutId) return;
+        const doc = await fromUuid(data.uuid).catch(() => null);
+        if (doc?.type !== "generalSkill") {
+            ui.notifications.warn("コネ技能をドロップしてください。");
+            return;
+        }
+        if (idKeyPrefix(doc.system?.identificationKey) !== "contact") {
+            ui.notifications.warn(`${doc.name} はコネ技能ではありません（識別キーが contact_ で始まる技能を落としてください）。`);
+            return;
+        }
+        await this._updateHandoutRow(handoutId, { actConnectionUuid: doc.uuid });
+    }
+
+    /** コネ(NPC モード)の指定を外す。 */
+    static async _onClearHandoutContact(_event, target) {
+        await this._updateHandoutRow(target.dataset.id, { actConnectionUuid: "" });
+    }
+
+    /** ハンドアウト行の一部を書き換える(コネのモード別入力など、フォーム送信を経ない更新)。 */
+    async _updateHandoutRow(handoutId, patch) {
+        const handouts = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "handouts") || []);
+        const row = handouts.find(h => h.id === handoutId);
+        if (!row) return;
+        Object.assign(row, patch);
+        await this.document.setFlag("tokyo-nova-axleration", "handouts", handouts);
     }
 
     /** 判定要求プリセットの行を取り出す。 */

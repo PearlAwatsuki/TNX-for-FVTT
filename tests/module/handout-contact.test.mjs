@@ -44,3 +44,49 @@ describe("isContactGranted()（受け取り済みの判定）", () => {
     expect(isContactGranted(null)).toBe(false);
   });
 });
+
+describe("resolveHandoutContact()（コネの指定方法ごとの解決・2026-08-13）", () => {
+  const withGame = (users) => { globalThis.game = { users: { get: (id) => users[id] ?? null } }; };
+
+  it("自由記述は入力値をそのまま（前後の空白は落とす）", async () => {
+    const { resolveHandoutContact } = await load();
+    expect(resolveHandoutContact({ actConnectionType: "free", actConnection: " エウラリア " }))
+      .toEqual({ type: "free", contactName: "エウラリア", itemUuid: "" });
+  });
+
+  it("指定方法が無ければ自由記述として扱う", async () => {
+    const { resolveHandoutContact } = await load();
+    expect(resolveHandoutContact({ actConnection: "キース" }).type).toBe("free");
+  });
+
+  it("PC は相手のハンドアウトの担当キャストの現在名を引く", async () => {
+    const { resolveHandoutContact } = await load();
+    withGame({ u1: { character: { name: "カブト太郎" } } });
+    const handouts = [{ id: "hoA" }, { id: "hoB", userId: "u1" }];
+    expect(resolveHandoutContact({ actConnectionType: "pc", actConnectionHandoutId: "hoB" }, handouts))
+      .toEqual({ type: "pc", contactName: "カブト太郎", itemUuid: "" });
+  });
+
+  it("PC で相手のキャストが未設定なら名前は空（押した時点で警告して中止する）", async () => {
+    const { resolveHandoutContact } = await load();
+    withGame({ u1: {} });
+    const handouts = [{ id: "hoB", userId: "u1" }];
+    expect(resolveHandoutContact({ actConnectionType: "pc", actConnectionHandoutId: "hoB" }, handouts).contactName)
+      .toBe("");
+    expect(resolveHandoutContact({ actConnectionType: "pc", actConnectionHandoutId: "none" }, handouts).contactName)
+      .toBe("");
+  });
+
+  it("NPC は辞典アイテムの現在名から「コネ：」の接頭を落とす（カードの見出しと二重にならない）", async () => {
+    const { resolveHandoutContact } = await load();
+    globalThis.fromUuidSync = () => ({ name: "コネ：キース・シュナイダー" });
+    expect(resolveHandoutContact({ actConnectionType: "npc", actConnectionUuid: "Compendium.x.Item.k" }))
+      .toEqual({ type: "npc", contactName: "キース・シュナイダー", itemUuid: "Compendium.x.Item.k" });
+  });
+
+  it("NPC で参照が切れていれば名前は空", async () => {
+    const { resolveHandoutContact } = await load();
+    globalThis.fromUuidSync = () => null;
+    expect(resolveHandoutContact({ actConnectionType: "npc", actConnectionUuid: "Item.gone" }).contactName).toBe("");
+  });
+});

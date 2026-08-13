@@ -22,7 +22,7 @@ import {
     hasBackstage, backstageQueue, nextBackstageSpot, isBackstageFinished,
     findDuplicateKeys, matchTrumpCard,
     rotationOrder, resolveRotationDefault, stageCandidateActorIds,
-    recordScenePlayerDone, SCENE_PLAYER_RULER, resolveScenePlayerRef,
+    recordScenePlayerDone, SCENE_PLAYER_RULER, resolveScenePlayerRef, planActLimitedCleanup,
 } from "./session-logic.mjs";
 import {
     setAppearing, setNameHidden, clearAllAppearing, listAppearingActors, isAppearing,
@@ -33,6 +33,8 @@ import {
 import { listStageCandidates } from "./residence-area.mjs";
 import { promptSceneEntry } from "./scene-entry-dialog.mjs";
 import { getUserFlagData, saveIsScenePlayer } from "./user-flag-schema.mjs";
+
+const { DialogV2 } = foundry.applications.api;
 
 const SCOPE = "tokyo-nova-axleration";
 const SETTING = "sessionState";
@@ -326,20 +328,76 @@ export async function endAct() {
 }
 
 /**
- * アクト限定(isActLimited)の一般技能を全キャストから自動削除する(14-7・2026-08-08 裁定)。
- * アクトコネクション等、そのアクト限りの技能の後始末。
+ * アクト限定(isActLimited)の一般技能を、アクト終了時に**確認したうえで**片付ける
+ * (14-7 の無言の全削除 → 2026-08-13 ユーザー指示で確認ダイアログへ)。
+ *
+ * 既定は全部オフ＝削除（アクト限定はそのアクト限りが原則）。**チェックしたものだけ残し、
+ * 残したものは `isActLimited` を落とす**——落とさないとアクトのたびに同じものを聞かれ続けるし、
+ * 「わざわざ編集しなくても維持できる」という要件がそこまで含むため。対象0件なら何も出さない。
  */
 async function _deleteActLimitedSkills() {
-    let count = 0;
+    const entries = [];
     for (const actor of game.actors.filter(a => a.type === "cast")) {
-        const ids = actor.items
-            .filter(i => i.type === "generalSkill" && i.system.isActLimited === true)
-            .map(i => i.id);
-        if (!ids.length) continue;
-        await actor.deleteEmbeddedDocuments("Item", ids);
-        count += ids.length;
+        for (const item of actor.items) {
+            if (item.type === "generalSkill" && item.system.isActLimited === true) {
+                entries.push({ actorId: actor.id, itemId: item.id, actorName: actor.name, itemName: item.name });
+            }
+        }
     }
-    if (count > 0) ui.notifications.info(`アクト限定の技能 ${count} 件を削除しました。`);
+    if (!entries.length) return;
+
+    const rows = entries.map(e => `
+        <label class="tnx-act-limited-row">
+            <input type="checkbox" name="keep" value="${e.actorId}:${e.itemId}">
+            <span class="tnx-act-limited-actor" title="${foundry.utils.escapeHTML(e.actorName)}">${foundry.utils.escapeHTML(e.actorName)}</span>
+            <span class="tnx-act-limited-item" title="${foundry.utils.escapeHTML(e.itemName)}">${foundry.utils.escapeHTML(e.itemName)}</span>
+        </label>`).join("");
+    const keepKeys = await DialogV2.wait({
+        window: { title: "アクト限定技能の後始末" },
+        classes: ["tokyo-nova", "tnx-dialog"],
+        position: { width: 460 },
+        content: `<div class="tnx-act-limited">
+            <div class="tnx-act-limited-tools">
+                <button type="button" class="tnx-btn" data-bulk="all">すべて維持</button>
+                <button type="button" class="tnx-btn" data-bulk="none">すべて削除</button>
+            </div>
+            <div class="tnx-act-limited-list">${rows}</div>
+        </div>`,
+        render: (_event, dialog) => {
+            for (const btn of dialog.element.querySelectorAll("[data-bulk]")) {
+                btn.addEventListener("click", () => {
+                    const on = btn.dataset.bulk === "all";
+                    for (const cb of dialog.element.querySelectorAll("[name=keep]")) cb.checked = on;
+                });
+            }
+        },
+        buttons: [
+            { action: "ok", icon: "fas fa-check", label: "確定", default: true,
+              callback: (_e, _b, dialog) => [...dialog.element.querySelectorAll("[name=keep]:checked")]
+                  .map(cb => cb.value) },
+            // 閉じる/キャンセルは「今回は片付けない」＝全部維持(誤操作で消えるより残るほうが安全)
+            { action: "cancel", icon: "fas fa-times", label: "後で", callback: () => null },
+        ],
+        close: () => null,
+    });
+    if (keepKeys === null) return;
+
+    const { deletes, keeps } = planActLimitedCleanup(entries, keepKeys);
+    let deleted = 0;
+    for (const [actorId, ids] of Object.entries(deletes)) {
+        await game.actors.get(actorId)?.deleteEmbeddedDocuments("Item", ids);
+        deleted += ids.length;
+    }
+    let kept = 0;
+    for (const [actorId, ids] of Object.entries(keeps)) {
+        await game.actors.get(actorId)?.updateEmbeddedDocuments("Item",
+            ids.map(_id => ({ _id, "system.isActLimited": false })));
+        kept += ids.length;
+    }
+    const parts = [];
+    if (deleted) parts.push(`${deleted} 件を削除`);
+    if (kept)    parts.push(`${kept} 件を維持`);
+    if (parts.length) ui.notifications.info(`アクト限定の技能: ${parts.join("・")}しました。`);
 }
 
 /**

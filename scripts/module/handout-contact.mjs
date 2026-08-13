@@ -14,11 +14,36 @@
 
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { HANDOUT_STYLE_COMMON, HANDOUT_STYLE_FREE } from "./session-logic.mjs";
-import { STYLE_PACK } from "./skill-dictionary.mjs";
+import { STYLE_PACK, ONOMASTIC_TYPES, stripSkillCategory } from "./skill-dictionary.mjs";
 import { calcSkillInsertSort } from "./identification.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const FLAG = "handoutContact";
+
+/**
+ * ハンドアウトのコネ指定を、カードに載せる形へ解決する(2026-08-13)。
+ * PC=相手のハンドアウトの担当キャストの現在名／NPC=辞典アイテムの現在名＋uuid／自由記述=入力値。
+ * **名前は解決の時点で引き直す**(参照で保存し、キャッシュしない既存規約)。
+ * @param {object} handout 正規化済みハンドアウト行
+ * @param {Array<object>} handouts 同じアクトの正規化済みハンドアウト行(PC モードの相手を引く)
+ * @returns {{type:string, contactName:string, itemUuid:string}} contactName が空なら受け取り口を出さない
+ */
+export function resolveHandoutContact(handout, handouts = []) {
+    const type = handout?.actConnectionType ?? "free";
+    if (type === "pc") {
+        const target = handouts.find(h => h.id === handout.actConnectionHandoutId);
+        const cast = target?.userId ? game.users.get(target.userId)?.character : null;
+        return { type, contactName: cast?.name ?? "", itemUuid: "" };
+    }
+    if (type === "npc") {
+        const uuid = handout?.actConnectionUuid ?? "";
+        const doc = uuid ? fromUuidSync(uuid) : null;
+        // 辞典のコネ技能の名前は「コネ：<相手>」なので、カードの「コネ」欄に出すときは
+        // 接頭を落とす(落とさないと「コネ: コネ：キース」になる)。技能そのものの名前は変えない
+        return { type, contactName: stripSkillCategory(doc?.name ?? "", ONOMASTIC_TYPES.contact), itemUuid: uuid };
+    }
+    return { type: "free", contactName: (handout?.actConnection ?? "").trim(), itemUuid: "" };
+}
 
 /**
  * 生成するコネ技能のデータ。固有名詞技能・アクション技能・報酬点使用可能に加えて、
@@ -100,15 +125,29 @@ export async function grantHandoutContact(message) {
         if (!actor) return;
     }
 
+    // NPC は辞典のコネ技能を**そのまま複製**し、PC・自由記述は名前から**組み立てる**
+    // (2026-08-13)。どちらもアクト限定は立てる(ユーザー指示「全て『アクト限定』を立てる」)
+    let data;
+    if (flag.type === "npc") {
+        const doc = flag.itemUuid ? await fromUuid(flag.itemUuid).catch(() => null) : null;
+        if (doc?.type !== "generalSkill") {
+            ui.notifications.warn("指定されたコネ技能が見つかりません。");
+            return;
+        }
+        data = doc.toObject();
+        delete data._id;
+        foundry.utils.setProperty(data, "system.isActLimited", true);
+    } else {
+        data = buildContactSkillData(flag.contactName);
+    }
+
     // 同じ名前のコネを既に持っていたら作らない(カードを跨いだ重複も防ぐ)
-    const name = `コネ：${flag.contactName}`;
-    const exists = actor.items.some(i => i.type === "generalSkill" && i.name === name);
-    if (!exists) {
-        const data = buildContactSkillData(flag.contactName);
+    const name = data.name;
+    if (!actor.items.some(i => i.type === "generalSkill" && i.name === name)) {
         // シートの一般技能リストは item.sort で並ぶ。sort を振らないと末尾に付いて正規順を
         // 無視するため、ドロップ・＋ボタンと同じ挿入位置の計算に揃える(2026-08-13 是正)
         data.sort = calcSkillInsertSort(
-            actor.items.filter(i => i.type === "generalSkill"), data.system.identificationKey);
+            actor.items.filter(i => i.type === "generalSkill"), data.system?.identificationKey ?? "");
         try {
             await actor.createEmbeddedDocuments("Item", [data]);
         } catch (err) {

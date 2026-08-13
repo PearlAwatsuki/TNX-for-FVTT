@@ -41,6 +41,7 @@ import { presetLabel } from "./request-presets.mjs";
 
 import { TnxActionHandler } from "./tnx-action-handler.mjs";
 import { applyStageRef } from "./subscenes.mjs";
+import { resolveHandoutContact } from "./handout-contact.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const { DialogV2 } = foundry.applications.api;
@@ -538,14 +539,18 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         const playerName = handout.userId
             ? (game.users.get(handout.userId)?.character?.name ?? game.users.get(handout.userId)?.name ?? "")
             : "";
+        // 指定方法(PC/NPC/自由記述)ごとの解決は resolveHandoutContact が担う
+        const contact = resolveHandoutContact(handout, handouts);
         const content = await foundry.applications.handlebars.renderTemplate(
             "systems/tokyo-nova-axleration/templates/chat/handout-card.hbs",
-            buildHandoutCardData(handout, { title, styleName, playerName }));
+            buildHandoutCardData(handout, { title, styleName, playerName, contactName: contact.contactName }));
         // コネの受け取りに要る値はカードへ写す(台本を後で編集してもカードは送った時点の記録)
         await ChatMessage.create({
             content,
             flags: { [SCOPE]: { handoutContact: {
-                contactName: (handout.actConnection ?? "").trim(),
+                type:        contact.type,
+                contactName: contact.contactName,
+                itemUuid:    contact.itemUuid,
                 userId:      handout.userId ?? "",
                 styleKey:    handout.recommendedStyle ?? "",
                 granted:     false,
