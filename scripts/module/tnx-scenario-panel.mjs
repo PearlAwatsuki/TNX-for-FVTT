@@ -19,7 +19,7 @@ import {
     getBackstage, buildBackstageQueue, currentSceneHasBackstage, canAdvanceScene,
     closeSceneToBackstage, advanceBackstageSpot, addBackstageActor, removeBackstageActor,
     appearActor, exitActor, setActorNameHidden,
-    getCurrentSceneAppearance, getRotationStatus, markEventSceneDone,
+    getCurrentSceneAppearance, getRotationStatus, markEventSceneDone, promptActLimitedCleanup,
 } from "./session-state.mjs";
 import { isAppearing, isNameHidden, displayActorName, listAppearingActors } from "./appearance-state.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
@@ -394,9 +394,11 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         if (!confirmed) return;
         const actName = getActiveActJournal()?.name ?? "";
         await endAct();
-        // ポストアクト: 経験点の半自動配布(14-7)。確定で各ユーザーの履歴へ自動記帳
+        // ポストアクト: 経験点の半自動配布(14-7)。確定で各ユーザーの履歴へ自動記帳。
+        // **アクト限定技能の後始末はその後**(2026-08-13 ユーザー指示)——維持するコネは
+        // そのアクトの経験点で買う扱いになるので、配布前に聞くと払う原資が無い
         const { TnxExpAwardApp } = await import("./tnx-exp-award-app.mjs");
-        new TnxExpAwardApp({ actName }).render(true);
+        new TnxExpAwardApp({ actName, onFinish: promptActLimitedCleanup }).render(true);
     }
 
     static async _onSwitchScene(_event, target) {

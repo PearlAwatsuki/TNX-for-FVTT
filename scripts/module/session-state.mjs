@@ -323,7 +323,9 @@ export async function endAct() {
     const events = planActEndEvents({ sceneId: st.sceneId, sceneEnded: st.sceneEnded, actId: st.actId });
     if (st.sceneId) await _applySceneExit();
     await game.settings.set(SCOPE, SETTING, { ...DEFAULTS, actId: st.actId });
-    await _deleteActLimitedSkills();
+    // アクト限定技能の後始末は**経験点の配布より後**に回す(2026-08-13 ユーザー指示)。
+    // 維持するコネは経験点で買う扱いになるため、配布前に聞くと払う原資が無い。
+    // 呼び出しはポストアクトの流れを持つパネル側(_onEndAct)が経験点配布アプリの後に行う
     for (const ev of events) Hooks.callAll(ev.hook, ev.data);
 }
 
@@ -331,11 +333,16 @@ export async function endAct() {
  * アクト限定(isActLimited)の一般技能を、アクト終了時に**確認したうえで**片付ける
  * (14-7 の無言の全削除 → 2026-08-13 ユーザー指示で確認ダイアログへ)。
  *
+ * **ポストアクトの一番最後＝経験点の配布より後に呼ぶ**(2026-08-13 ユーザー指示)。維持する
+ * コネはそのアクトの経験点で買う扱いになるため、配布前に聞くと払う原資が無い。
+ *
  * 既定は全部オフ＝削除（アクト限定はそのアクト限りが原則）。**チェックしたものだけ残し、
- * 残したものは `isActLimited` を落とす**——落とさないとアクトのたびに同じものを聞かれ続けるし、
- * 「わざわざ編集しなくても維持できる」という要件がそこまで含むため。対象0件なら何も出さない。
+ * 残したものは `isActLimited` と `onomasticSkill.isInitial` を両方落とす**——
+ * `isActLimited` はアクトのたびに聞かれ続けないため、`isInitial`(初期取得の社会・コネ)は
+ * **立ったままだと経験点を消費せず無料で手に入ってしまう**ため(2026-08-13 ユーザー指摘)。
+ * 対象0件なら何も出さない。
  */
-async function _deleteActLimitedSkills() {
+export async function promptActLimitedCleanup() {
     const entries = [];
     for (const actor of game.actors.filter(a => a.type === "cast")) {
         for (const item of actor.items) {
@@ -380,7 +387,10 @@ async function _deleteActLimitedSkills() {
         ],
         close: () => null,
     });
-    if (keepKeys === null) return;
+    // **確定(配列が返った)ときだけ処理する**。DialogV2 はコールバックが null を返すと
+    // ボタンの action 文字列で解決するため、null 比較では「後で」を拾えない
+    // ——文字列はイテラブルなので keepKeys に流すと全件削除になる(2026-08-14 実機で発覚)
+    if (!Array.isArray(keepKeys)) return;
 
     const { deletes, keeps } = planActLimitedCleanup(entries, keepKeys);
     let deleted = 0;
@@ -390,8 +400,13 @@ async function _deleteActLimitedSkills() {
     }
     let kept = 0;
     for (const [actorId, ids] of Object.entries(keeps)) {
-        await game.actors.get(actorId)?.updateEmbeddedDocuments("Item",
-            ids.map(_id => ({ _id, "system.isActLimited": false })));
+        // 維持＝普通に取得した技能になる。アクト限定を落とすだけでなく
+        // **初期取得の社会・コネも落とす**——立ったままだと経験点を消費しないため
+        await game.actors.get(actorId)?.updateEmbeddedDocuments("Item", ids.map(_id => ({
+            _id,
+            "system.isActLimited": false,
+            "system.onomasticSkill.isInitial": false,
+        })));
         kept += ids.length;
     }
     const parts = [];

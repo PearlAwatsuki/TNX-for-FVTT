@@ -24,11 +24,15 @@ const CHECK_SHORT_LABELS = {
 export class TnxExpAwardApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
     /**
-     * @param {{actName: string}} awardContext アクト名(履歴のタイトルに使う)
+     * @param {{actName: string, onFinish: ?Function}} awardContext アクト名(履歴のタイトルに使う)と
+     *   閉じた後に走らせる後続処理。**ポストアクトで経験点配布の後に来るもの**(アクト限定技能の
+     *   後始末)をここに渡す——確定・キャンセル・✕のどれで閉じても最後に一度だけ走る
+     *   (2026-08-13 ユーザー指示「コネ維持のダイアログは経験点配布後に」)
      */
     constructor(awardContext = {}, options = {}) {
         super(options);
         this.actName = awardContext.actName ?? "";
+        this.onFinish = awardContext.onFinish ?? null;
         // 行の入力状態(ユーザー id → {checks, miracleCount, sceneCount})
         this.rows = new Map();
         for (const user of game.users.filter(u => !u.isGM)) {
@@ -159,5 +163,13 @@ export class TnxExpAwardApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
     static async _onCancel(_event, _target) {
         this.close();
+    }
+
+    /** 閉じたら後続処理(アクト限定技能の後始末)へ渡す。二重起動しないよう一度で捨てる。 */
+    async _onClose(options) {
+        super._onClose(options);
+        const finish = this.onFinish;
+        this.onFinish = null;
+        if (finish) await finish();
     }
 }
