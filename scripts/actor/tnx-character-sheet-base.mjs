@@ -1945,22 +1945,10 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             updateData["system.level"] = newLevel;
         }
 
-        const oldLevel = item.system.level;
-        if (newLevel === oldLevel) { await item.update(updateData); return; }
-
-        // EXP 連動はフックに委ねる。EXP を持たないシートは既定で素通し、cast がオーバーライドして
-        // 消費・不足時の入力巻き戻しを行う(挙動は従来と同一)。
-        const ok = await this._applySkillLevelExp(item, oldLevel, newLevel, target, input);
-        if (!ok) return;
+        // 経験点はレベルを書いた結果を消費集計(updateCastExp)が全量再計算するため、ここは
+        // レベルを書き込むだけでよい。**残量による中止はしない**——所持量を超える消費を
+        // システムが止める筋合いはない(前借り・後払いは卓が決めること。KI-040)。
         await item.update(updateData);
-    }
-
-    /**
-     * 技能レベル変更時の EXP 連動フック。false を返すと変更を中止する(入力の巻き戻しはフック側)。
-     * 既定は消費なし(EXP はセッション履歴を持つ cast の領分。cast シートがオーバーライドする)。
-     */
-    async _applySkillLevelExp(_item, _oldLevel, _newLevel, _targetKind, _input) {
-        return true;
     }
 
     _getRoleIndicatorSymbol(isPersona, isKey) {

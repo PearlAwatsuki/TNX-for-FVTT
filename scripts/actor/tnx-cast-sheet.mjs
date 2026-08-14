@@ -3,7 +3,7 @@
  *
  * フェーズ11-2 で共通部品化: 共通機能(コンテキスト準備・技能/アウトフィット/戦闘/部位・判定起動・
  * ドラッグ&ドロップ・コンテキストメニュー・編集モード・CS/AR 等)は TnxCharacterSheetBase に移した。
- * 本クラスに残るのは cast 固有＝EXP 系(updateCastExp・コスト計算・技能レベル変更の EXP 連動)と
+ * 本クラスに残るのは cast 固有＝EXP 系(updateCastExp・コスト計算)と
  * セッション履歴(TnxHistoryMixin・レコードシート同期)のみ。
  */
 
@@ -84,53 +84,6 @@ export class TokyoNovaCastSheet extends TnxCharacterSheetBase {
         // B. スタンドアロン
         await this.actor.update(updateData);
         TokyoNovaCastSheet.updateCastExp(this.actor);
-    }
-
-    // ─── 技能レベル変更の EXP 連動(基底のフックをオーバーライド) ─────────────
-
-    /** @override 技能レベル変更に伴う経験点消費。不足時は入力を巻き戻して中止する。 */
-    async _applySkillLevelExp(item, oldLevel, newLevel, targetKind, input) {
-        const expCostPerLevel    = this._getSkillExpCost(item);
-        const isInitialOnomastic = (item.type === 'generalSkill')
-            && (item.system.generalSkillCategory === 'onomasticSkill')
-            && (item.system.onomasticSkill?.isInitial);
-
-        const totalCost = isInitialOnomastic
-            ? (Math.max(0, newLevel - 1) - Math.max(0, oldLevel - 1)) * expCostPerLevel
-            : (newLevel - oldLevel) * expCostPerLevel;
-
-        const currentExp = this.actor.system.exp.value;
-        if (totalCost > 0 && totalCost > currentExp) {
-            if (targetKind === "level")     input.value   = oldLevel;
-            else if (targetKind === "suit") input.checked = !input.checked;
-            return false;
-        }
-
-        if (totalCost !== 0) {
-            await this.actor.update({ "system.exp.value": currentExp - totalCost });
-        }
-        return true;
-    }
-
-    _getSkillExpCost(item) {
-        const system = item.system;
-        if (item.type === 'generalSkill') {
-            const genCategory = system.generalSkillCategory;
-            if (genCategory === 'onomasticSkill') return system.onomasticSkill?.expCost || 5;
-            if (genCategory === 'initialSkill')   return system.initialSkill?.expCost  || 10;
-            return 10;
-        }
-        if (item.type === 'styleSkill') {
-            // 経験点消費なし・レベル自動参照はレベル変更でも経験点を増減しない
-            if (system.expFree || system.levelRef?.enabled) return 0;
-            const styleCategory = system.styleSkillCategory;
-            if (styleCategory === 'special')     return system.special?.expCost     || 10;
-            if (styleCategory === 'performance') return system.performance?.expCost || 2;
-            if (styleCategory === 'secret')      return system.secret?.expCost      || 20;
-            if (styleCategory === 'mystery')     return system.mystery?.expCost     || 50;
-            return 10;
-        }
-        return 0;
     }
 
     // ─── 経験点計算(静的) ────────────────────────────────────────────────────
@@ -216,11 +169,20 @@ export class TokyoNovaCastSheet extends TnxCharacterSheetBase {
         if (actor.system.exp.total !== newTotal
                 || actor.system.exp.value !== newValue
                 || actor.system.exp.spent !== newActorSpent) {
+            // 総経験点を超えた瞬間に一度だけ知らせる(KI-040)。超過そのものは止めない——
+            // 前借り・後払いは卓が決めることで、システムが止める筋合いはない。
+            // 判定は書き込み前の残量で行う(更新後は newValue になるため)。既に超過している
+            // 状態からのさらなる消費では出さない=繰り返し警告しない
+            const crossedLimit = Number(actor.system.exp.value) >= 0 && newValue < 0;
             await actor.update({
                 "system.exp.total":  newTotal,
                 "system.exp.spent":  newActorSpent,
                 "system.exp.value":  newValue
             }, { calcExp: false });
+            // 書き込める権限のあるクライアントだけが出す(再計算は全クライアントで走るため)
+            if (crossedLimit && actor.isOwner) {
+                ui.notifications.warn(`${actor.name}: 消費経験点が総経験点を ${-newValue} 点超えました。`);
+            }
         }
     }
 
