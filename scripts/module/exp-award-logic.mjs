@@ -46,3 +46,28 @@ export function calcRlExpTotal({ venue = false, playerTotal = 0, playerCount = 0
     );
     return (venue === true ? 1 : 0) + share;
 }
+
+/**
+ * 深夜の記帳を前日として扱う境界(時)。深夜=22時〜翌5時(労働基準法の深夜業と同じ区切り)に合わせ、
+ * 5時より前を前日とする。日をまたいで続いたアクトの記帳がその日付になるのを防ぐ。
+ */
+const LATE_NIGHT_CUTOFF_HOUR = 5;
+
+/**
+ * 経験点を記帳する日付を `YYYY-MM-DD` で返す(2026-08-15 ユーザー指示・KI-041)。
+ *
+ * **手元(ローカル)の日付**を使う——`toISOString()` は UTC を返すため、JST の午前中の確定が
+ * 前日で記帳されていた。記帳は基本的に日付が変わる前に行われるので、通常はその日の日付で正しい。
+ * ただし**深夜(5時より前)の確定は前日として扱う**——その時刻の記帳は前日から続いている
+ * アクトのものだから。
+ *
+ * @param {Date} [now]  判定する時刻(既定は現在時刻)
+ * @returns {string}  `YYYY-MM-DD`
+ */
+export function awardEntryDate(now = new Date()) {
+    const d = new Date(now.getTime());
+    if (d.getHours() < LATE_NIGHT_CUTOFF_HOUR) d.setDate(d.getDate() - 1);
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day   = String(d.getDate()).padStart(2, "0");
+    return `${d.getFullYear()}-${month}-${day}`;
+}

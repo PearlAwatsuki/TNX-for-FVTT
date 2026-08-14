@@ -3,6 +3,7 @@ import {
   EXP_AWARD_CHECKS,
   calcPlayerExpTotal,
   calcRlExpTotal,
+  awardEntryDate,
 } from "../../scripts/module/exp-award-logic.mjs";
 
 describe("EXP_AWARD_CHECKS（PL のチェック項目＝Scenario_Progress の経験点表）", () => {
@@ -46,5 +47,44 @@ describe("calcRlExpTotal()（RL＝会場手配＋min(PL合計÷3切り捨て, PL
   it("PL がいなければ 0（＋会場のみ）", () => {
     expect(calcRlExpTotal({ venue: true, playerTotal: 0, playerCount: 0 })).toBe(1);
     expect(calcRlExpTotal({})).toBe(0);
+  });
+});
+
+describe("awardEntryDate()（記帳する日付）", () => {
+  // Date のコンストラクタ(年,月,日,時,分)はローカル時刻。UTC ではなく手元の日付になることを見る
+  it("日中の確定はその日のローカル日付", () => {
+    expect(awardEntryDate(new Date(2026, 7, 15, 13, 0))).toBe("2026-08-15");
+  });
+
+  it("午前7時台の確定はその日（UTC 変換で前日になっていた不具合＝KI-041）", () => {
+    expect(awardEntryDate(new Date(2026, 7, 15, 7, 33))).toBe("2026-08-15");
+  });
+
+  it("日付が変わる直前の確定はその日", () => {
+    expect(awardEntryDate(new Date(2026, 7, 15, 23, 59))).toBe("2026-08-15");
+  });
+
+  it("深夜(0時台)の確定は前日として扱う", () => {
+    expect(awardEntryDate(new Date(2026, 7, 16, 0, 30))).toBe("2026-08-15");
+  });
+
+  it("深夜の終わり(4:59)までは前日", () => {
+    expect(awardEntryDate(new Date(2026, 7, 16, 4, 59))).toBe("2026-08-15");
+  });
+
+  it("5時からはその日", () => {
+    expect(awardEntryDate(new Date(2026, 7, 16, 5, 0))).toBe("2026-08-16");
+  });
+
+  it("月をまたぐ深夜は前月末になる", () => {
+    expect(awardEntryDate(new Date(2026, 8, 1, 2, 0))).toBe("2026-08-31");
+  });
+
+  it("年をまたぐ深夜は前年末になる", () => {
+    expect(awardEntryDate(new Date(2027, 0, 1, 3, 0))).toBe("2026-12-31");
+  });
+
+  it("月・日は 0 埋めする", () => {
+    expect(awardEntryDate(new Date(2026, 0, 9, 12, 0))).toBe("2026-01-09");
   });
 });

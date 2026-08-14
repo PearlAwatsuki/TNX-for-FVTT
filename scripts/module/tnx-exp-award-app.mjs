@@ -10,7 +10,7 @@
  * 集計と記帳だけを引き受ける。純ロジックは exp-award-logic.mjs。
  */
 
-import { EXP_AWARD_CHECKS, calcPlayerExpTotal, calcRlExpTotal } from "./exp-award-logic.mjs";
+import { EXP_AWARD_CHECKS, calcPlayerExpTotal, calcRlExpTotal, awardEntryDate } from "./exp-award-logic.mjs";
 import { getUserFlagData, historyAdd, saveUserFlagHistory } from "./user-flag-schema.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -125,7 +125,7 @@ export class TnxExpAwardApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
 
     static async _onConfirm(_event, _target) {
-        const date = new Date().toISOString().slice(0, 10);
+        const date = awardEntryDate();
         const rl = game.users.activeGM?.name ?? game.user.name;
         const players = [...this.rows.keys()]
             .map(id => game.users.get(id)?.name)
