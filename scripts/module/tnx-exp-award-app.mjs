@@ -141,6 +141,9 @@ export class TnxExpAwardApp extends HandlebarsApplicationMixin(ApplicationV2) {
             const entry = {
                 id: foundry.utils.randomID(),
                 date, title: this.actName || "アクト", exp: total, rl, players,
+                // このアクトに連れて行ったキャスト(=ユーザーの割当キャラクター・cast 型のみ。
+                // 2026-08-09 裁定)。キャストシートの履歴はこれで絞る
+                castUuid: user.character?.type === "cast" ? user.character.uuid : "",
             };
             await saveUserFlagHistory(user, historyAdd(getUserFlagData(user).history, entry));
             written++;
@@ -152,6 +155,8 @@ export class TnxExpAwardApp extends HandlebarsApplicationMixin(ApplicationV2) {
             const entry = {
                 id: foundry.utils.randomID(),
                 date, title: this.actName || "アクト", exp: rlTotal, rl, players,
+                // RL の分はキャストを連れて行っていない(卓を回した分)ため紐づけない
+                castUuid: "",
             };
             await saveUserFlagHistory(gm, historyAdd(getUserFlagData(gm).history, entry));
             written++;

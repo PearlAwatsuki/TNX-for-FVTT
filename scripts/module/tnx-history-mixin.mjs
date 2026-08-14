@@ -15,6 +15,9 @@ export const TnxHistoryMixin = {
                 rl: "",
                 players: "",
                 origin: this.document?.uuid ?? "",
+                // 出たキャスト。origin(誰がこの行を作ったか＝同期 OFF 時の由来分離に使う)とは
+                // 意味が違うため別に持つ。キャストシートで足した行はそのキャストのセッション
+                castUuid: this.document?.uuid ?? "",
             };
 
             const updateData = {
@@ -93,8 +96,23 @@ export const TnxHistoryMixin = {
         }
     },
 
-    _prepareHistoryForDisplay(historyMap) {
-        const historyArray = Object.values(historyMap || {});
+    /**
+     * 履歴マップを表示用の配列(日付昇順・日付なしは末尾)に変換する。
+     *
+     * `castUuid` を渡すと**そのキャストで出たセッションだけ**に絞る(2026-08-15 ユーザー指示)。
+     * 同期中のキャストは User flag の履歴を丸ごと配られる＝他キャストのセッションも入っているため、
+     * キャストシートの表示ではここで落とす。**紐づけの無い行は出さない**(既存データと、
+     * レコードシートで足した行。キャストに紐づけたい行はキャストシートの「行を追加」から作る)。
+     * 総経験点は絞り込みの影響を受けない——経験点はプレイヤーに付与され、キャストは消費の単位。
+     *
+     * @param {object|null|undefined} historyMap
+     * @param {string} [castUuid]  絞り込むキャストの UUID。空なら絞り込まない(同期していないキャスト＝
+     *   履歴が元々そのキャスト固有のため)
+     * @returns {Array<object>}
+     */
+    _prepareHistoryForDisplay(historyMap, castUuid = "") {
+        let historyArray = Object.values(historyMap || {});
+        if (castUuid) historyArray = historyArray.filter(entry => entry.castUuid === castUuid);
         historyArray.sort((a, b) => {
             if (!a.date && !b.date) return 0;
             if (!a.date) return 1;

@@ -94,8 +94,13 @@ export function calcHistoryExpTotal(historyMap) {
 /**
  * history マップに新規エントリを追加した新しいマップを返す。
  * 既存マップは変更しない。
+ * エントリの `castUuid` は**そのセッションに連れて行ったキャスト**の UUID(空＝紐づけ無し)。
+ * キャストシートの履歴表示はこれで絞る(紐づけ無しは出さない)。`exp.total` の集計は絞り込みに
+ * 影響されない——経験点はプレイヤーに付与され、キャストは消費の単位のため。
+ *
  * @param {object} historyMap
- * @param {{ id: string, date: string, title: string, exp: number, rl: string, players: string }} entry
+ * @param {{ id: string, date: string, title: string, exp: number, rl: string, players: string,
+ *           castUuid?: string }} entry
  * @returns {object}
  */
 export function historyAdd(historyMap, entry) {

@@ -40,7 +40,15 @@ export class TokyoNovaCastSheet extends TnxCharacterSheetBase {
 
     async _prepareContext(options) {
         const context = await super._prepareContext(options);
-        context.history = TnxHistoryMixin._prepareHistoryForDisplay(this.actor.system.history);
+        // 履歴は**このキャストで出たセッションだけ**を出す(2026-08-15 ユーザー指示)。同期中の
+        // キャストには User flag の履歴が丸ごと配られる(他キャストのセッションも入る)ため絞る。
+        // 同期していないキャストは絞らない——由来分離(performUnsyncSeparation)で他キャスト由来が
+        // 除かれており、system.history が元々そのキャスト固有だから(絞ると既存の自分の行まで消える)
+        const linkedToUser = !!this.actor.system.ownerUserId && this.actor.system.syncWithOwner;
+        context.history = TnxHistoryMixin._prepareHistoryForDisplay(
+            this.actor.system.history,
+            linkedToUser ? this.actor.uuid : "",
+        );
         // 所有トループ級の消費小計(11-6): 経験点内訳の表示用(算入自体は updateCastExp)
         context.ownedTroopExp = await TokyoNovaCastSheet._sumOwnedTroopsCost(this.actor);
         return context;

@@ -91,7 +91,10 @@ export class TnxRecordSheet extends HandlebarsApplicationMixin(ApplicationV2) {
    */
   static async _onAddHistory(_event, _target) {
     const newId = foundry.utils.randomID();
-    const entry = { id: newId, date: "", title: "", exp: 0, rl: "", players: "", origin: this.user.id };
+    // castUuid は空＝どのキャストにも紐づかない。レコードシートはプレイヤーの記録全体の正本であり、
+    // ここで足した行はキャストシートには出ない(キャストに紐づけたい行はキャストシートの
+    // 「行を追加」から作る＝そちらが自動でそのキャストを焼く)
+    const entry = { id: newId, date: "", title: "", exp: 0, rl: "", players: "", origin: this.user.id, castUuid: "" };
     const { history } = getUserFlagData(this.user);
     await saveUserFlagHistory(this.user, historyAdd(history, entry));
     this.render();
