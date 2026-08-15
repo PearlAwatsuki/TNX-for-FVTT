@@ -1,0 +1,44 @@
+{{!-- 情報項目の送信カード(2026-08-15)。意匠はハンドアウトカードと同じ
+      .tnx-check-request ＋ cr-req-header ＋ cr-req-body を踏襲する。
+      1 ブロック＝調査の枝(入口の使用技能＋本文＋段)。枝どうしは罫線で切る。
+      本文・段本文はリッチテキストなので {{{ }}} で置く(囲いを足すと空段落が挟まる) --}}
+<div class="tnx-check-request tokyo-nova tnx-info-card">
+
+    <header class="cr-req-header">
+        <span class="cr-req-type-tag">情報</span>
+        {{#if title}}<span class="cr-req-title">{{title}}</span>{{/if}}
+    </header>
+
+    <div class="cr-req-body">
+        {{#each blocks}}
+            <div class="ic-block">
+
+                {{!-- 使用技能＞目標値(同じ目標値の技能は 1 行に連結済み) --}}
+                {{#each this.skillLines}}
+                    <div class="ic-skill-row">
+                        <span class="ic-skill-names">{{this.names}}</span>
+                        <span class="ic-skill-sep">＞</span>
+                        <span class="ic-tn">{{this.tn}}</span>
+                    </div>
+                {{/each}}
+
+                {{#if this.text}}
+                    <div class="ic-text cr-req-prose">{{{this.text}}}</div>
+                {{/if}}
+
+                {{!-- 段=同じ入口のまま目標値が上がると積み増される内容(目標値の昇順) --}}
+                {{#each this.tiers}}
+                    <div class="ic-tier">
+                        {{#if this.tn}}
+                            <span class="ic-tier__label">さらに目標値 {{this.tn}}</span>
+                        {{/if}}
+                        {{#if this.text}}
+                            <div class="cr-req-prose">{{{this.text}}}</div>
+                        {{/if}}
+                    </div>
+                {{/each}}
+
+            </div>
+        {{/each}}
+    </div>
+</div>

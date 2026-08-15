@@ -24,10 +24,11 @@ import {
   isBackstageFinished,
   findDuplicateKeys,
   matchTrumpCard,
-  buildSceneSwitchMessage,
-  buildTrailerMessage,
+  buildSceneSwitchCardData,
+  buildTrailerCardData,
+  buildScenarioTextCardData,
   buildHandoutCardData,
-  buildInfoMessage,
+  buildInfoCardData,
   HANDOUT_STYLE_COMMON,
   HANDOUT_STYLE_FREE,
   circledNumber,
@@ -537,39 +538,72 @@ describe("matchTrumpCard()（キースタイル識別キー⇔ニューロカー
   });
 });
 
-describe("buildSceneSwitchMessage()（シーン切替の見出しチャット・14-3）", () => {
-  it("番号・名前・シーンプレイヤー・切替メッセージを既存書式で組む", () => {
-    const html = buildSceneSwitchMessage(
-      { number: 3, name: "追跡", isMasterScene: false, switchMessage: "▼ RESEARCH" },
+describe("buildSceneSwitchCardData()（シーン切替カード・14-3／2026-08-15 テンプレート化）", () => {
+  it("番号・名前・シーンプレイヤー・切替メッセージを写す", () => {
+    expect(buildSceneSwitchCardData(
+      { number: 3, name: "追跡", isMasterScene: false, switchMessage: "<p>▼ RESEARCH</p>" },
       { playerLabel: "アキラ" },
-    );
-    expect(html).toBe("<h2>SCENE 3 : 追跡</h2><p><strong>シーンプレイヤー:</strong> アキラ</p><hr>▼ RESEARCH");
+    )).toEqual({
+      sceneLabel: "SCENE 3",
+      name: "追跡",
+      rulerScene: false,
+      playerLabel: "アキラ",
+      message: "<p>▼ RESEARCH</p>",
+      hasBody: true,
+    });
   });
 
-  it("ルーラーシーンは「ルーラーシーン」とだけ表示（シーンプレイヤーはいない・14-7）", () => {
-    const html = buildSceneSwitchMessage({ number: 1, name: "OP" }, { playerLabel: "誰か", rulerScene: true });
-    expect(html).toContain("<p>ルーラーシーン</p>");
-    expect(html).not.toContain("シーンプレイヤー");
+  it("ルーラーシーンはシーンプレイヤーを落とす（ルーラーはプレイヤーではない・14-7）", () => {
+    const d = buildSceneSwitchCardData({ number: 1, name: "OP" }, { playerLabel: "誰か", rulerScene: true });
+    expect(d.rulerScene).toBe(true);
+    expect(d.playerLabel).toBe("");
   });
 
-  it("旧データの isMasterScene もルーラーシーンとして表示（読み替え）", () => {
-    const html = buildSceneSwitchMessage({ number: 1, name: "OP", isMasterScene: true }, {});
-    expect(html).toContain("<p>ルーラーシーン</p>");
+  it("旧データの isMasterScene もルーラーシーンとして読む（読み替え）", () => {
+    expect(buildSceneSwitchCardData({ number: 1, name: "OP", isMasterScene: true }, {}).rulerScene).toBe(true);
   });
 
-  it("番号なし=??・名前なし=無題のシーン・詳細/メッセージなしは見出しのみ", () => {
-    expect(buildSceneSwitchMessage({}, {})).toBe("<h2>SCENE ?? : 無題のシーン</h2>");
+  it("番号なし=??・名前なし=無題のシーン・出す行が無ければ hasBody=false", () => {
+    expect(buildSceneSwitchCardData({}, {})).toEqual({
+      sceneLabel: "SCENE ??",
+      name: "無題のシーン",
+      rulerScene: false,
+      playerLabel: "",
+      message: "",
+      hasBody: false,
+    });
   });
 });
 
-describe("buildTrailerMessage()（トレーラー送信・14-3）", () => {
-  it("既存書式で組む", () => {
-    expect(buildTrailerMessage("本文")).toBe("<h3>シナリオトレーラー</h3><hr>本文");
+describe("buildTrailerCardData()（トレーラー送信カード・14-3／2026-08-15）", () => {
+  it("種別タグ・見出し（アクト名）・本文を組む", () => {
+    expect(buildTrailerCardData("<p>本文</p>", { actName: "楽園の血" }))
+      .toEqual({ typeLabel: "トレーラー", title: "楽園の血", content: "<p>本文</p>" });
+  });
+
+  it("アクト名なしは見出しなし（テンプレート側で行ごと省く）", () => {
+    expect(buildTrailerCardData("本文").title).toBe("");
   });
 
   it("空は null（送信しない）", () => {
-    expect(buildTrailerMessage("")).toBeNull();
-    expect(buildTrailerMessage(null)).toBeNull();
+    expect(buildTrailerCardData("")).toBeNull();
+    expect(buildTrailerCardData(null)).toBeNull();
+  });
+});
+
+describe("buildScenarioTextCardData()（シナリオテキスト送信カード・2026-08-15）", () => {
+  it("種別タグ・見出し（付けた名前）・本文を組む", () => {
+    expect(buildScenarioTextCardData({ title: "導入", content: "<p>本文</p>" }))
+      .toEqual({ typeLabel: "シナリオテキスト", title: "導入", content: "<p>本文</p>" });
+  });
+
+  it("名前が未入力なら見出しなし（一覧の連番「テキストn」は卓に出さない）", () => {
+    expect(buildScenarioTextCardData({ content: "本文" }).title).toBe("");
+  });
+
+  it("本文が無ければ null（送信しない）", () => {
+    expect(buildScenarioTextCardData({ title: "導入", content: "" })).toBeNull();
+    expect(buildScenarioTextCardData(null)).toBeNull();
   });
 });
 
@@ -656,7 +690,7 @@ describe("ハンドアウト表示名（「①<スタイル名>用ハンドア�
   });
 });
 
-describe("buildInfoMessage()（情報項目送信・14-3）", () => {
+describe("buildInfoCardData()（情報項目の送信カード・14-3／2026-08-15 テンプレート化）", () => {
   // 技能行は解決済み(withResolvedInfoSkillNames を通した後)の names を持つ
   const ITEM = {
     title: "黒幕の素性",
@@ -667,33 +701,43 @@ describe("buildInfoMessage()（情報項目送信・14-3）", () => {
   };
 
   it("開示済みが無ければ全内容の技能/目標値を送る（mode=targets・同TNは / 連結）", () => {
-    const { html, mode } = buildInfoMessage(ITEM);
-    expect(mode).toBe("targets");
-    expect(html).toContain("<h3>黒幕の素性</h3>");
-    expect(html).toContain("<strong>〈社会〉 / 〈コネ〉 &gt; 12</strong>");
-    expect(html).toContain("<hr>");
-    expect(html).toContain("正体");
+    const data = buildInfoCardData(ITEM);
+    expect(data.mode).toBe("targets");
+    expect(data.title).toBe("黒幕の素性");
+    expect(data.blocks).toHaveLength(2);
+    expect(data.blocks[0].skillLines).toEqual([{ names: "〈社会〉 / 〈コネ〉", tn: 12 }]);
+    expect(data.blocks[0].text).toBe("正体");
+    expect(data.blocks[1].skillLines).toEqual([{ names: "〈捜査〉", tn: 15 }]);
+  });
+
+  it("本文は囲わずそのまま渡す（テンプレートが {{{ }}} で置く＝空段落を挟まない）", () => {
+    const data = buildInfoCardData({
+      title: "T",
+      contents: [{ isDisclosed: true, text: "<p>本文</p>", skills: [] }],
+    });
+    expect(data.blocks[0].text).toBe("<p>本文</p>");
   });
 
   it("開示済みがあればその内容だけを送る（mode=disclosed）", () => {
     const item = { ...ITEM, contents: [{ ...ITEM.contents[0], isDisclosed: true }, ITEM.contents[1]] };
-    const { html, mode } = buildInfoMessage(item);
-    expect(mode).toBe("disclosed");
-    expect(html).toContain("正体");
-    expect(html).not.toContain("裏付け");
+    const data = buildInfoCardData(item);
+    expect(data.mode).toBe("disclosed");
+    expect(data.blocks).toHaveLength(1);
+    expect(data.blocks[0].text).toBe("正体");
   });
 
   it("1行に複数の技能があれば、その行の目標値でまとめて連結される", () => {
-    const { html } = buildInfoMessage({
+    const data = buildInfoCardData({
       title: "T",
       contents: [{ isDisclosed: false, text: "", skills: [{ names: ["〈医療〉", "〈射撃〉"], tn: 12 }] }],
     });
-    expect(html).toContain("<strong>〈医療〉 / 〈射撃〉 &gt; 12</strong>");
+    expect(data.blocks[0].skillLines).toEqual([{ names: "〈医療〉 / 〈射撃〉", tn: 12 }]);
   });
 
-  it("送れる中身が無ければ mode=null", () => {
-    const { mode } = buildInfoMessage({ title: "空", contents: [{ isDisclosed: false, text: "", skills: [{ names: [], tn: null }] }] });
-    expect(mode).toBeNull();
+  it("送れる中身が無ければ mode=null・ブロックも空", () => {
+    const data = buildInfoCardData({ title: "空", contents: [{ isDisclosed: false, text: "", skills: [{ names: [], tn: null }] }] });
+    expect(data.mode).toBeNull();
+    expect(data.blocks).toEqual([]);
   });
 
   // 段(追加で判明する内容)＝同じ入口で目標値が上がると本文に積み増される(2026-08-12 裁定)
@@ -711,34 +755,34 @@ describe("buildInfoMessage()（情報項目送信・14-3）", () => {
   };
 
   it("開示済みが無ければ段も目標値の昇順で送る（mode=targets）", () => {
-    const { html, mode } = buildInfoMessage(TIERED);
-    expect(mode).toBe("targets");
-    expect(html).toContain("<strong>〈情報：ストリート〉 &gt; 8</strong>");
-    expect(html).toContain("<strong>さらに目標値 12</strong>");
-    expect(html).toContain("<strong>さらに目標値 16</strong>");
+    const data = buildInfoCardData(TIERED);
+    expect(data.mode).toBe("targets");
+    expect(data.blocks[0].skillLines).toEqual([{ names: "〈情報：ストリート〉", tn: 8 }]);
     // 保存順(16→12)ではなく昇順(12→16)で並ぶ
-    expect(html.indexOf("明日には発つ")).toBeLessThan(html.indexOf("護衛は3人"));
+    expect(data.blocks[0].tiers).toEqual([
+      { tn: 12, text: "明日には発つ" },
+      { tn: 16, text: "護衛は3人" },
+    ]);
   });
 
   it("開示済みの段だけを送る（下位段が開いていても上位段は伏せる）", () => {
     const item = structuredClone(TIERED);
     item.contents[0].isDisclosed = true;
     item.contents[0].tiers.find(t => t.id === "t1").isDisclosed = true;
-    const { html, mode } = buildInfoMessage(item);
-    expect(mode).toBe("disclosed");
-    expect(html).toContain("潜伏先はカブキ");
-    expect(html).toContain("明日には発つ");
-    expect(html).not.toContain("護衛は3人");
-    expect(html).not.toContain("さらに目標値 16");
+    const data = buildInfoCardData(item);
+    expect(data.mode).toBe("disclosed");
+    expect(data.blocks[0].text).toBe("潜伏先はカブキ");
+    expect(data.blocks[0].tiers).toEqual([{ tn: 12, text: "明日には発つ" }]);
   });
 
   it("段だけが開示された内容も送信対象に入る（入口本文は伏せたまま）", () => {
     const item = structuredClone(TIERED);
     item.contents[0].tiers.find(t => t.id === "t1").isDisclosed = true;
-    const { html, mode } = buildInfoMessage(item);
-    expect(mode).toBe("disclosed");
-    expect(html).toContain("明日には発つ");
-    expect(html).not.toContain("潜伏先はカブキ");
+    const data = buildInfoCardData(item);
+    expect(data.mode).toBe("disclosed");
+    expect(data.blocks[0].tiers).toEqual([{ tn: 12, text: "明日には発つ" }]);
+    expect(data.blocks[0].text).toBe("");
+    expect(data.blocks[0].skillLines).toEqual([]);
   });
 });
 
@@ -1105,15 +1149,15 @@ describe("sceneSequenceNumbers()（台本順の自動採番・14-8）", () => {
   });
 });
 
-describe("buildSceneSwitchMessage()（上演中のシーン番号・14-8）", () => {
+describe("buildSceneSwitchCardData()（上演中のシーン番号・14-8）", () => {
   it("number を渡すと台本の行番号ではなくその値を SCENE n に出す", () => {
-    const html = buildSceneSwitchMessage({ number: 2, name: "リサーチ" }, { number: 7 });
-    expect(html).toContain("SCENE 7 : リサーチ");
+    expect(buildSceneSwitchCardData({ number: 2, name: "リサーチ" }, { number: 7 }).sceneLabel)
+      .toBe("SCENE 7");
   });
 
   it("number 未指定のときは従来どおり行の number（無ければ ??）", () => {
-    expect(buildSceneSwitchMessage({ number: 2, name: "x" })).toContain("SCENE 2 : x");
-    expect(buildSceneSwitchMessage({ name: "x" })).toContain("SCENE ?? : x");
+    expect(buildSceneSwitchCardData({ number: 2, name: "x" }).sceneLabel).toBe("SCENE 2");
+    expect(buildSceneSwitchCardData({ name: "x" }).sceneLabel).toBe("SCENE ??");
   });
 });
 

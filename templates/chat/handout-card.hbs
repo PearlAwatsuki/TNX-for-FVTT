@@ -10,40 +10,41 @@
 
     <div class="cr-req-body">
 
-        {{!-- 見出しの並び: 担当・スタイル・コネ・推奨スート。空の欄は行ごと出さない --}}
+        {{!-- 見出しの並び: 担当・スタイル・コネ・推奨スート。空の欄は行ごと出さない
+              (ラベル付きの行・長文ブロックは送信カード共通の部品・2026-08-15) --}}
         {{#if playerName}}
-            <div class="ho-field">
-                <span class="ho-field__label">担当</span>
-                <span class="ho-field__value">{{playerName}}</span>
+            <div class="cr-req-field">
+                <span class="cr-req-field__label">担当</span>
+                <span class="cr-req-field__value">{{playerName}}</span>
             </div>
         {{/if}}
         {{#if styleName}}
-            <div class="ho-field">
-                <span class="ho-field__label">スタイル</span>
-                <span class="ho-field__value">{{styleName}}</span>
+            <div class="cr-req-field">
+                <span class="cr-req-field__label">スタイル</span>
+                <span class="cr-req-field__value">{{styleName}}</span>
             </div>
         {{/if}}
         {{#if contactName}}
-            <div class="ho-field">
-                <span class="ho-field__label">コネ</span>
-                <span class="ho-field__value">{{contactName}}</span>
+            <div class="cr-req-field">
+                <span class="cr-req-field__label">コネ</span>
+                <span class="cr-req-field__value">{{contactName}}</span>
             </div>
         {{/if}}
         {{#if suitLabel}}
-            <div class="ho-field">
-                <span class="ho-field__label">推奨スート</span>
-                <span class="ho-field__value">{{suitLabel}}</span>
+            <div class="cr-req-field">
+                <span class="cr-req-field__label">推奨スート</span>
+                <span class="cr-req-field__value">{{suitLabel}}</span>
             </div>
         {{/if}}
 
         {{#if content}}
-            <div class="ho-content">{{{content}}}</div>
+            <div class="ho-content cr-req-prose">{{{content}}}</div>
         {{/if}}
 
         {{#if ps}}
             <div class="ho-ps">
                 <span class="ho-ps__label">PS</span>
-                <div class="ho-ps__body">{{{ps}}}</div>
+                <div class="ho-ps__body cr-req-prose">{{{ps}}}</div>
             </div>
         {{/if}}
 

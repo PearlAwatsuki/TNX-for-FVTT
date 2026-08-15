@@ -7161,6 +7161,9 @@ button.tnx-create-act-button span {
 }
 
 .tnx-check-request .cr-req-type-tag {
+    /* 種別のチップは折り返さない(長いタイトルに押されて「SCE / NE 2」と割れるため) */
+    flex: 0 0 auto;
+    white-space: nowrap;
     background: var(--tnx2-accent, #c8a84b);
     color: #1a1208;
     font-size: 0.78em;
@@ -7171,6 +7174,8 @@ button.tnx-create-act-button span {
 }
 
 .tnx-check-request .cr-req-title {
+    flex: 1 1 auto;
+    min-width: 0;
     font-weight: 700;
     color: var(--tnx2-text-secondary);
     font-size: 0.85em;
@@ -7276,45 +7281,55 @@ button.tnx-create-act-button span {
     width: 100%;
 }
 
-/* ─── ハンドアウト送信カード(2026-08-12) ───────────────────────────────────────
-   判定要求カードの骨格(header/body)をそのまま使い、差分だけここに置く。
-   判定要求はタイトルが固定ラベル(「判定要求」)なので小さく置いているが、ハンドアウトは
-   **タイトルがそのハンドアウトの名前**なので主役として出す */
-.tnx-handout-card .cr-req-title {
-    font-size: 1.05em;
-    color: var(--tnx2-text);
-    letter-spacing: 0;
-}
+/* ─── 送信カード共通の部品(2026-08-15) ─────────────────────────────────────────
+   シナリオコントロールパネルから送るカード(ハンドアウト・シーン切替・トレーラー/
+   シナリオテキスト・情報)は判定要求カードの骨格(header/body)をそのまま使う。
+   ラベル付きの行と長文ブロックはその4種で共有する */
 
-/* 担当・スタイル・コネ・推奨スートの行。ラベルは幅を揃えて値の頭を通す */
-.tnx-handout-card .ho-field {
+/* ラベル＋値の行。ラベル列の幅はカードごとに flex-basis で決める */
+.tnx-check-request .cr-req-field {
     display: flex;
     align-items: baseline;
     gap: 8px;
     font-size: 0.9em;
 }
 
-.tnx-handout-card .ho-field__label {
-    flex: 0 0 5.5em;
+.tnx-check-request .cr-req-field__label {
+    flex: 0 0 auto;
     color: var(--tnx2-text-secondary);
     font-size: 0.85em;
 }
 
-.tnx-handout-card .ho-field__value {
+.tnx-check-request .cr-req-field__value {
     flex: 1 1 auto;
     min-width: 0;
     font-weight: 600;
 }
 
-/* 本文・PS は入力された長文(ProseMirror)。上の欄と罫線で切る */
-.tnx-handout-card .ho-content {
-    padding-top: 8px;
-    border-top: 1px solid var(--tnx2-border, #444);
+/* 入力された長文(ProseMirror の段落)。ブロックの上下端の余白だけ落とす */
+.tnx-check-request .cr-req-prose > :first-child { margin-top: 0; }
+.tnx-check-request .cr-req-prose > :last-child  { margin-bottom: 0; }
+
+/* 判定要求はタイトルが固定ラベル(「判定要求」)なので小さく置いているが、送信カードは
+   **タイトルがその配布物の名前**(ハンドアウト名・シーン名・アクト名・情報項目名)なので
+   主役として出す。種別は左のタグが示す */
+.tnx-handout-card .cr-req-title,
+.tnx-scene-switch-card .cr-req-title,
+.tnx-text-card .cr-req-title,
+.tnx-info-card .cr-req-title {
+    font-size: 1.05em;
+    color: var(--tnx2-text);
+    letter-spacing: 0;
 }
 
-.tnx-handout-card .ho-content > :first-child { margin-top: 0; }
-.tnx-handout-card .ho-content > :last-child  { margin-bottom: 0; }
+/* ─── ハンドアウト送信カード(2026-08-12) ───────────────────────────────────────
+   担当・スタイル・コネ・推奨スートの4行。ラベルは幅を揃えて値の頭を通す */
+.tnx-handout-card .cr-req-field__label {
+    flex-basis: 5.5em;
+}
 
+/* 本文・PS は入力された長文(ProseMirror)。上の欄と罫線で切る */
+.tnx-handout-card .ho-content,
 .tnx-handout-card .ho-ps {
     padding-top: 8px;
     border-top: 1px solid var(--tnx2-border, #444);
@@ -7328,12 +7343,72 @@ button.tnx-create-act-button span {
     letter-spacing: 0.05em;
 }
 
-.tnx-handout-card .ho-ps__body > :first-child { margin-top: 0; }
-.tnx-handout-card .ho-ps__body > :last-child  { margin-bottom: 0; }
-
 /* コネの受け取り。空(コネ未指定)のときは間隔を作らない */
 .tnx-handout-card .ho-contact-action:empty {
     display: none;
+}
+
+/* ─── シーン切替カード(2026-08-15) ─────────────────────────────────────────────
+   タグ＝上演中のシーン番号(SCENE n)・タイトル＝シーン名。
+   切替メッセージ(台本の長文)はシーンプレイヤーの行と罫線で切る——行が無いカードでは
+   上に何も無いので罫線を引かない */
+.tnx-scene-switch-card .cr-req-field + .sc-message {
+    padding-top: 8px;
+    border-top: 1px solid var(--tnx2-border, #444);
+}
+
+/* ─── 情報項目の送信カード(2026-08-15) ───────────────────────────────────────
+   枝(調査の入口)ごとのブロック。2つ目以降は罫線で切る
+   (トレーラー/シナリオテキストの .tnx-text-card は共通部品だけで足りるので差分なし) */
+.tnx-info-card .ic-block {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tnx-info-card .ic-block + .ic-block {
+    padding-top: 8px;
+    border-top: 1px solid var(--tnx2-border, #444);
+}
+
+/* 使用技能 ＞ 目標値。技能名は折り返し、目標値は判定要求カードと同じ強調で右に置く */
+.tnx-info-card .ic-skill-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 0.9em;
+}
+
+.tnx-info-card .ic-skill-names {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: 600;
+}
+
+.tnx-info-card .ic-skill-sep {
+    flex: 0 0 auto;
+    color: var(--tnx2-text-secondary);
+    font-size: 0.85em;
+}
+
+.tnx-info-card .ic-tn {
+    flex: 0 0 auto;
+    font-weight: 700;
+    font-size: 1.05em;
+    color: var(--tnx2-accent, #c8a84b);
+}
+
+/* 段(同じ入口で目標値が上がると積み増される内容)。入口本文の続きであることを縦罫で示す */
+.tnx-info-card .ic-tier {
+    padding-left: 8px;
+    border-left: 2px solid var(--tnx2-border, #444);
+}
+
+.tnx-info-card .ic-tier__label {
+    display: block;
+    color: var(--tnx2-accent, #c8a84b);
+    font-size: 0.85em;
+    font-weight: 700;
 }
 
 .tnx-check-request .cr-req-actor-name {

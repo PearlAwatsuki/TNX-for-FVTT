@@ -27,7 +27,8 @@ import {
     SCENE_AREA_OPTIONS, PHASE_ORDER, normalizeSceneRow, normalizeHandoutRow,
     nextSceneTarget, canShowNextScene, eventSceneCandidates, areEventScenesDone,
     sceneSequenceNumbers,
-    buildSceneSwitchMessage, buildTrailerMessage, buildHandoutCardData, buildInfoMessage,
+    buildSceneSwitchCardData, buildTrailerCardData, buildScenarioTextCardData,
+    buildHandoutCardData, buildInfoCardData,
     withResolvedInfoSkillNames, handoutDisplayTitle, handoutNumberOf, handoutStyleDisplay,
     infoTiers, infoTierLabel, toggleInfoDisclosure,
 } from "./session-logic.mjs";
@@ -47,6 +48,18 @@ const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const { DialogV2 } = foundry.applications.api;
 
 const SCOPE = "tokyo-nova-axleration";
+
+/**
+ * 送信カードの描画(2026-08-15)。パネルから送るチャットは4種とも判定要求カードの骨格を
+ * 踏襲した専用テンプレートで、組み立ては session-logic の純関数が返す描画コンテキストに載る。
+ * @param {string} name templates/chat/ のファイル名(拡張子なし)
+ * @param {object} data 描画コンテキスト
+ * @returns {Promise<string>} HTML
+ */
+function renderChatCard(name, data) {
+    return foundry.applications.handlebars.renderTemplate(
+        `systems/tokyo-nova-axleration/templates/chat/${name}.hbs`, data);
+}
 
 /** 情報の内容行の一覧表示ラベル(技能>目標値の並び・無ければ本文の頭・どちらも無ければ空欄表記)。 */
 function infoContentLabel(content) {
@@ -352,9 +365,10 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         const row = current.row;
         await applyStageRef(row.stage);
         const { rulerScene, playerLabel } = resolveScenePlayer(row);
-        await ChatMessage.create({ content: buildSceneSwitchMessage(row, {
-            playerLabel, rulerScene, number: getSessionState().sceneNumber,
-        }) });
+        await ChatMessage.create({ content: await renderChatCard("scene-switch-card",
+            buildSceneSwitchCardData(row, {
+                playerLabel, rulerScene, number: getSessionState().sceneNumber,
+            })) });
         await TnxActionHandler.drawNeuroCard();
     }
 
@@ -521,9 +535,10 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
 
     static async _onSendTrailer(_event, _target) {
         const journal = getActiveActJournal();
-        const html = buildTrailerMessage(journal?.getFlag(SCOPE, "trailer"));
-        if (!html) return void ui.notifications.warn("トレーラーが入力されていません。");
-        await ChatMessage.create({ content: html });
+        // 見出しはアクト名(トレーラーが名乗るのはそのアクトの題名)
+        const data = buildTrailerCardData(journal?.getFlag(SCOPE, "trailer"), { actName: journal?.name });
+        if (!data) return void ui.notifications.warn("トレーラーが入力されていません。");
+        await ChatMessage.create({ content: await renderChatCard("text-card", data) });
     }
 
     static async _onSendHandout(_event, target) {
@@ -543,8 +558,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             : "";
         // 指定方法(PC/NPC/自由記述)ごとの解決は resolveHandoutContact が担う
         const contact = resolveHandoutContact(handout, handouts);
-        const content = await foundry.applications.handlebars.renderTemplate(
-            "systems/tokyo-nova-axleration/templates/chat/handout-card.hbs",
+        const content = await renderChatCard("handout-card",
             buildHandoutCardData(handout, { title, styleName, playerName, contactName: contact.contactName }));
         // コネの受け取りに要る値はカードへ写す(台本を後で編集してもカードは送った時点の記録)
         await ChatMessage.create({
@@ -565,19 +579,20 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
     static async _onSendText(_event, target) {
         const journal = getActiveActJournal();
         const text = (journal?.getFlag(SCOPE, "scenarioTexts") ?? []).find(t => t.id === target.dataset.id);
-        if (!text?.content) return void ui.notifications.warn("送信するテキストがありません。");
-        await ChatMessage.create({ content: text.content });
+        const data = buildScenarioTextCardData(text);
+        if (!data) return void ui.notifications.warn("送信するテキストがありません。");
+        await ChatMessage.create({ content: await renderChatCard("text-card", data) });
     }
 
     static async _onSendInfo(_event, target) {
         const journal = getActiveActJournal();
         const item = (journal?.getFlag(SCOPE, "infoItems") ?? []).find(i => i.id === target.dataset.id);
         if (!item) return;
-        const { html, mode } = buildInfoMessage(
+        const data = buildInfoCardData(
             withResolvedInfoSkillNames(item, await loadGeneralSkillNameByKey()));
-        if (!mode) return void ui.notifications.warn("送信できる技能・目標値がありません。");
-        await ChatMessage.create({ content: html });
-        ui.notifications.info(mode === "disclosed"
+        if (!data.mode) return void ui.notifications.warn("送信できる技能・目標値がありません。");
+        await ChatMessage.create({ content: await renderChatCard("info-card", data) });
+        ui.notifications.info(data.mode === "disclosed"
             ? `情報「${item.title}」の公開済み内容を送信しました。`
             : `情報「${item.title}」の目標値情報を送信しました。`);
     }

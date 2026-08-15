@@ -675,36 +675,60 @@ export function isBackstageFinished(backstage, queue) {
     return !bs.spotActorId && bs.started === true;
 }
 
-// ─── チャット内容の組み立て(14-3・シナリオコントロールパネルとアクトシートで共用) ───
+// ─── チャットカードの組み立て(14-3・送信元はシナリオコントロールパネル) ───
+// 送信カードは4種とも判定要求カードの骨格(.tnx-check-request の header/body)を踏襲する
+// (2026-08-15・ハンドアウトカードに揃えた)。ここは**描画コンテキストを組む純関数だけ**を持ち、
+// HTML の組み立ては templates/chat/ の各テンプレートが行う。
 
 /**
- * シーン切替の見出しチャットを組む(旧アクトシート「切替」ボタンの書式を踏襲)。
+ * シーン切替カードの描画コンテキストを組む(2026-08-15・素の見出し HTML から専用テンプレートへ)。
  * ルーラーシーン(14-7)=シーンプレイヤーはいない(ルーラーはプレイヤーではない)ため
  * 「ルーラーシーン」と**だけ**表示する(「シーンプレイヤー: なし」等にしない・2026-08-08 裁定)。
  * 旧データの isMasterScene もルーラーシーンとして読み替える。
  * @param {object} scene シーン行(正規化済みでなくても可)
- * @param {{playerLabel?: string, rulerScene?: boolean}} [opts]
- * @returns {string} HTML
+ * @param {{playerLabel?: string, rulerScene?: boolean, number?: ?number}} [opts]
+ * @returns {{sceneLabel:string, name:string, rulerScene:boolean, playerLabel:string,
+ *            message:string, hasBody:boolean}}
  */
-export function buildSceneSwitchMessage(scene, { playerLabel = "", rulerScene = false, number = null } = {}) {
+export function buildSceneSwitchCardData(scene, { playerLabel = "", rulerScene = false, number = null } = {}) {
     const s = scene ?? {};
     // 上演中のシーン番号は実行状態のカウンタ(14-8)。巡回シーンで同じ行に何度も入るため、
     // 台本の行番号ではなく「何シーン目か」を出す
     const no = Number.isFinite(Number(number)) && number !== null ? number : (s.number || "??");
-    const title = `<h2>SCENE ${no} : ${s.name || "無題のシーン"}</h2>`;
-    const details = (rulerScene || s.isMasterScene) ? "<p>ルーラーシーン</p>"
-        : playerLabel ? `<p><strong>シーンプレイヤー:</strong> ${playerLabel}</p>` : "";
-    const custom = s.switchMessage ? `<hr>${s.switchMessage}` : "";
-    return title + details + custom;
+    const ruler = rulerScene === true || s.isMasterScene === true;
+    const player = ruler ? "" : (playerLabel ?? "");
+    const message = s.switchMessage ?? "";
+    return {
+        sceneLabel: `SCENE ${no}`,
+        name:       s.name || "無題のシーン",
+        rulerScene: ruler,
+        playerLabel: player,
+        message,
+        // 出す行が一つも無いときは本文ブロックごと畳む(見出しだけのカードで余白が浮かないように)
+        hasBody: !!(ruler || player || message),
+    };
 }
 
 /**
- * トレーラー送信のチャットを組む。
- * @param {string} trailer
- * @returns {?string} HTML(空なら null=送信しない)
+ * トレーラー送信カードの描画コンテキストを組む(見出しはアクト名・本文は入力された長文)。
+ * @param {string} trailer トレーラー本文(リッチテキスト)
+ * @param {{actName?: string}} [opts]
+ * @returns {?{typeLabel:string, title:string, content:string}} 空なら null(=送信しない)
  */
-export function buildTrailerMessage(trailer) {
-    return trailer ? `<h3>シナリオトレーラー</h3><hr>${trailer}` : null;
+export function buildTrailerCardData(trailer, { actName = "" } = {}) {
+    if (!trailer) return null;
+    return { typeLabel: "トレーラー", title: String(actName ?? "").trim(), content: trailer };
+}
+
+/**
+ * シナリオテキスト送信カードの描画コンテキストを組む。テキストの名前は RL が付けたときだけ
+ * 見出しに出す(未入力時の「テキストn」は一覧で並べるための連番なので卓には出さない)。
+ * @param {?{title?: string, content?: string}} text シナリオテキスト行
+ * @returns {?{typeLabel:string, title:string, content:string}} 空なら null(=送信しない)
+ */
+export function buildScenarioTextCardData(text) {
+    if (!text?.content) return null;
+    return { typeLabel: "シナリオテキスト", title: String(text.title ?? "").trim(), content: text.content };
 }
 
 /**
@@ -735,56 +759,50 @@ export function buildHandoutCardData(handout, {
 }
 
 /**
- * 情報項目送信のチャットを組む。開示済み内容があればそれのみ(mode="disclosed")、
+ * 情報項目送信カードの描画コンテキストを組む。開示済み内容があればそれのみ(mode="disclosed")、
  * 無ければ全内容の技能/目標値+本文(mode="targets")。送れる中身が無ければ mode=null。
  * 同じ目標値の技能は「A / B ＞ TN」に連結(既存書式)。段(`tiers`)は入口本文の後ろに
  * 目標値の昇順で積む(2026-08-12 裁定＝同じ入口で目標値が上がると情報が増える)。
- * @param {object} item 情報項目
- * @returns {{html: ?string, mode: ("disclosed"|"targets"|null)}}
+ *
+ * 本文・段本文はリッチテキスト(ProseMirror の `<p>` を含む)なので**そのまま**返し、テンプレート
+ * 側で `{{{ }}}` として置く(旧実装は `<p>` で囲んでいたため空段落が挟まっていた・2026-08-15)。
+ * @param {object} item 情報項目(技能名は解決済み=withResolvedInfoSkillNames を通した後)
+ * @returns {{title: string, mode: ("disclosed"|"targets"|null),
+ *            blocks: Array<{skillLines: Array<{names: string, tn: (number|string)}>,
+ *                           text: string, tiers: Array<{tn: ?number, text: string}>}>}}
  */
-export function buildInfoMessage(item) {
+export function buildInfoCardData(item) {
     const contents = Array.isArray(item?.contents) ? item.contents : [];
-    const head = `<h3>${item?.title ?? ""}</h3>`;
 
-    const buildBody = (rows, onlyDisclosed) => {
-        let html = "";
-        let added = false;
-        for (const content of rows) {
-            // 開示済み送信では、開いている入口本文と開いている段だけを出す
-            const showEntry = !onlyDisclosed || content.isDisclosed === true;
-            const skillsByTn = (showEntry ? (content.skills ?? []) : []).reduce((acc, row) => {
-                const names = row.names ?? [];
-                if (names.length && row.tn) (acc[row.tn] = acc[row.tn] || []).push(...names);
-                return acc;
-            }, {});
-            const skillsHtml = Object.entries(skillsByTn)
-                .map(([tn, names]) => `<strong>${names.join(" / ")} &gt; ${tn}</strong>`)
-                .join("<br>");
-            const entryText = showEntry ? content.text : "";
-            const tiersHtml = infoTiers(content)
+    const buildBlocks = (rows, onlyDisclosed) => rows.map((content) => {
+        // 開示済み送信では、開いている入口本文と開いている段だけを出す
+        const showEntry = !onlyDisclosed || content.isDisclosed === true;
+        // 目標値ごとに技能をまとめる(同じ目標値の行は 1 行に連結)。数値キーのオブジェクトなので
+        // 並びは目標値の昇順になる
+        const skillsByTn = (showEntry ? (content.skills ?? []) : []).reduce((acc, row) => {
+            const names = row.names ?? [];
+            if (names.length && row.tn) (acc[row.tn] = acc[row.tn] || []).push(...names);
+            return acc;
+        }, {});
+        return {
+            // キーは文字列になるので数値へ戻す(旧い自由記述の目標値はそのまま出す)
+            skillLines: Object.entries(skillsByTn).map(([tn, names]) => ({
+                names: names.join(" / "),
+                tn: Number.isFinite(Number(tn)) ? Number(tn) : tn,
+            })),
+            text: showEntry ? (content.text ?? "") : "",
+            tiers: infoTiers(content)
                 .filter(tier => (!onlyDisclosed || tier.isDisclosed === true) && (tier.tn || tier.text))
-                .map(tier => (tier.tn ? `<p><strong>さらに目標値 ${tier.tn}</strong></p>` : "")
-                    + (tier.text ? `<p>${tier.text}</p>` : ""))
-                .join("");
-            if (skillsHtml || entryText || tiersHtml) {
-                if (added) html += "<hr>";
-                if (skillsHtml) html += `<p>${skillsHtml}</p>`;
-                if (entryText) html += `<p>${entryText}</p>`;
-                html += tiersHtml;
-                added = true;
-            }
-        }
-        return { html, added };
-    };
+                .map(tier => ({ tn: tier.tn ?? null, text: tier.text ?? "" })),
+        };
+    }).filter(block => block.skillLines.length || block.text || block.tiers.length);
 
+    const title = String(item?.title ?? "").trim();
     // 段だけが開いている内容も送信対象(開示の累積はトグル側が保つが、送信側でも取りこぼさない)
     const disclosed = contents.filter(c => c.isDisclosed || infoTiers(c).some(t => t.isDisclosed));
-    if (disclosed.length > 0) {
-        const { html } = buildBody(disclosed, true);
-        return { html: head + html, mode: "disclosed" };
-    }
-    const { html, added } = buildBody(contents, false);
-    return added ? { html: head + html, mode: "targets" } : { html: null, mode: null };
+    if (disclosed.length > 0) return { title, mode: "disclosed", blocks: buildBlocks(disclosed, true) };
+    const blocks = buildBlocks(contents, false);
+    return { title, mode: blocks.length ? "targets" : null, blocks };
 }
 
 /**

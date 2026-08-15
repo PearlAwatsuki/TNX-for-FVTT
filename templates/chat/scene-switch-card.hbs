@@ -1,0 +1,33 @@
+{{!-- シーン切替カード(2026-08-15)。意匠はハンドアウト・判定要求・報酬点カードと同じ
+      .tnx-check-request ＋ cr-req-header ＋ cr-req-body を踏襲する。
+      タグ＝上演中のシーン番号・見出し＝シーン名。ルーラーシーンはシーンプレイヤー行の
+      代わりに「ルーラーシーン」とだけ出す(2026-08-08 裁定) --}}
+<div class="tnx-check-request tokyo-nova tnx-scene-switch-card">
+
+    <header class="cr-req-header">
+        <span class="cr-req-type-tag">{{sceneLabel}}</span>
+        <span class="cr-req-title">{{name}}</span>
+    </header>
+
+    {{#if hasBody}}
+        <div class="cr-req-body">
+
+            {{#if rulerScene}}
+                <div class="cr-req-field">
+                    <span class="cr-req-field__value">ルーラーシーン</span>
+                </div>
+            {{else if playerLabel}}
+                <div class="cr-req-field">
+                    <span class="cr-req-field__label">シーンプレイヤー</span>
+                    <span class="cr-req-field__value">{{playerLabel}}</span>
+                </div>
+            {{/if}}
+
+            {{!-- 切替メッセージは台本の長文(ProseMirror)。上の行と罫線で切る --}}
+            {{#if message}}
+                <div class="sc-message cr-req-prose">{{{message}}}</div>
+            {{/if}}
+
+        </div>
+    {{/if}}
+</div>
