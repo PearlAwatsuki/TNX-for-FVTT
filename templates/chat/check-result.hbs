@@ -72,6 +72,8 @@
     {{#if showSuccess}}
     <div class="cr-result {{#if result.success}}cr-result--success{{else}}cr-result--failure{{/if}}">
         {{#if result.success}}<i class="fas fa-check"></i> 成功{{else}}<i class="fas fa-times"></i> 失敗{{/if}}
+        {{!-- 強制失敗(2026-08-15 裁定): 達成値にかかわらず失敗になる判定はその理由を添える --}}
+        {{#if result.forcedFailure}}<span class="cr-tn">{{result.forcedFailure}}</span>{{/if}}
         {{#if hasTargetValue}}<span class="cr-tn">目標値 {{result.targetValue}}</span>{{/if}}
         {{!-- 差分値の表示規約(Check_Rules 2026-07-08 確定): 目標値があれば判定の種類を問わず必ず表示 --}}
         {{#if diffDisplay}}<span class="cr-tn">差分値 {{diffDisplay}}</span>{{/if}}

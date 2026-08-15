@@ -68,27 +68,32 @@ export function resolveSceneAppearance(row, override = null) {
 }
 
 /**
- * 登場判定のパラメータ(目標値・達成値修正・登場不可)を算出する。
+ * 登場判定のパラメータ(目標値・達成値修正・強制失敗)を算出する。
  * シーン行の登場設定(14-7): mode="area"(既定=エリアの固定 TN)/"fixed"(数値指定=TN はその値・
  * 危険値係数はエリアに従う)/"none"(登場不可=シーンプレイヤー以外登場できない)。
  * サンクチュアリの装備チェックはモードに関わらず生きる。
+ *
+ * **判定そのものはブロックしない**(2026-08-15 ユーザー裁定): このゲームに判定がブロックされる
+ * 場面はほぼ存在せず、どの参加者にも平等に「判定を失敗する権利」がある(それによって手札を
+ * 入れ替えていく)。登場できない場面(登場：不可/サンクチュアリの危険値装備)は判定を行えるが
+ * 結果が必ず失敗になる=`forcedFailure` に理由コードを返す。
  * @param {{area: string, appearanceModifier?: number, hasNegativeDangerItem?: boolean,
  *          mode?: ("area"|"fixed"|"none"), fixedValue?: ?number}} args
- * @returns {{blocked: boolean, targetValue: ?number, modifier: number}}
+ * @returns {{forcedFailure: ?("none"|"sanctuary"), targetValue: ?number, modifier: number}}
  */
 export function appearanceCheckParams({
     area, appearanceModifier = 0, hasNegativeDangerItem = false, mode = "area", fixedValue = null,
 }) {
-    if (mode === "none") return { blocked: true, targetValue: null, modifier: 0 };
+    if (mode === "none") return { forcedFailure: "none", targetValue: null, modifier: 0 };
     const def = AREA_APPEARANCE[area] ?? null;
     const targetValue = mode === "fixed"
         ? (Number.isFinite(Number(fixedValue)) ? Number(fixedValue) : null)
         : (def?.tn ?? null);
     if (area === "sanctuary" && hasNegativeDangerItem) {
-        return { blocked: true, targetValue, modifier: 0 };
+        return { forcedFailure: "sanctuary", targetValue, modifier: 0 };
     }
     const modifier = (Number(appearanceModifier) || 0) * (def?.dangerFactor ?? 0);
-    return { blocked: false, targetValue, modifier: modifier || 0 };
+    return { forcedFailure: null, targetValue, modifier: modifier || 0 };
 }
 
 /**
@@ -126,9 +131,11 @@ export function formatAppearanceSummary({ mode = "area", targetValue = null, ski
 }
 
 /**
- * 「登場：不可」のシーンか(2026-08-09 ユーザー裁定)。**登場判定が行えないだけでなく、
- * チーム免除でも登場できない**——シーンプレイヤー以外のキャストは登場できないシーン。
- * RL による登場(パネルの手動登場・台本の事前設定)はこのゲートの外側にある。
+ * 「登場：不可」のシーンか(2026-08-09 ユーザー裁定)。シーンプレイヤー以外のキャストは登場
+ * できないシーンで、**チーム免除でも登場できない**。登場判定そのものは行える(結果が必ず
+ * 失敗になる=2026-08-15 裁定・appearanceCheckParams の forcedFailure)ため、このゲートが
+ * 塞ぐのはチーム経由の自動登場だけ。RL による登場(パネルの手動登場・台本の事前設定)は
+ * このゲートの外側にある。
  * @param {?{appearanceMode?: string}} row 正規化済みシーン行
  * @returns {boolean}
  */

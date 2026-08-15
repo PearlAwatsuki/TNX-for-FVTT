@@ -10,6 +10,10 @@
  * 注入)。成功の帰結は完了継続 `appearance`(tnx-check-flow の CONTINUATIONS)が適用する。
  * 使用技能の既定候補は社会/コネ分類だが、**他の技能も選択できる**(可否の裁定は卓・システムは
  * 制限しない)。失敗しても登場しないだけで再試行は自由(手札入れ替えとしての登場判定)。
+ *
+ * **判定そのものはブロックしない**(2026-08-15 ユーザー裁定): どの参加者にも平等に「判定を
+ * 失敗する権利」がある(それによって手札を入れ替えていく)。「登場：不可」やサンクチュアリの
+ * 危険値装備携帯でも判定は行え、結果が必ず失敗になる(ctx.forcedFailure)。
  */
 
 import { appearanceCheckParams, hasNegativeDangerOutfit, isAppearanceSkillKey } from "./appearance-logic.mjs";
@@ -39,11 +43,12 @@ export async function startAppearanceCheck() {
         hasNegativeDangerItem: hasNegativeDangerOutfit(
             actor.items.map(i => ({ type: i.type, system: i.system }))),
     });
-    if (params.blocked) {
-        return void ui.notifications.warn(scene.mode === "none"
-            ? "このシーンにはシーンプレイヤー以外登場できません（登場：不可）。"
-            : "サンクチュアリでは、危険値ペナルティを持つ装備を携帯していると登場できません。");
-    }
+    // 強制失敗の理由の表示文字列(結果カードの成否バナーに出す)。判定は通常どおり走る
+    const FORCED_FAILURE_LABELS = {
+        none:      "登場：不可",
+        sanctuary: "サンクチュアリ・危険値装備",
+    };
+    const forcedFailure = params.forcedFailure ? FORCED_FAILURE_LABELS[params.forcedFailure] : null;
 
     const choice = await promptAppearanceOptions(actor, scene.skills);
     if (!choice) return;
@@ -55,6 +60,7 @@ export async function startAppearanceCheck() {
     await TnxCharacterSheetBase._activateItemCheck(actor, skill, {
         targetValue: params.targetValue,
         appearance: { actorId: actor.id, ghost: choice.ghost },
+        ...(forcedFailure ? { forcedFailure } : {}),
         ...(params.modifier !== 0
             ? { extraCheckBonuses: [{ formula: String(params.modifier), label: `危険値（${areaLabel}）` }] }
             : {}),

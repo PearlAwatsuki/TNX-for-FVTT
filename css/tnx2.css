@@ -4710,6 +4710,8 @@ body.tnx-bottom-hud-expanded #hotbar {
 /* 結果フッター (成功 / 失敗 / ファンブル) */
 .cr-result {
     display: flex;
+    /* 長い注記(強制失敗の理由等)が付いても成否の語を文字割れさせず、注記ごと次行へ落とす */
+    flex-wrap: wrap;
     align-items: center;
     gap: 6px;
     padding: 7px 10px;

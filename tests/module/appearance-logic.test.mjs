@@ -16,50 +16,50 @@ import {
 describe("appearanceCheckParams()（エリア別 TN と危険値修正・Appearance_Check 正本）", () => {
   it("レッド8・イエロー10は危険値ペナルティなし", () => {
     expect(appearanceCheckParams({ area: "red", appearanceModifier: -4 }))
-      .toEqual({ blocked: false, targetValue: 8, modifier: 0 });
+      .toEqual({ forcedFailure: null, targetValue: 8, modifier: 0 });
     expect(appearanceCheckParams({ area: "yellow", appearanceModifier: -4 }))
-      .toEqual({ blocked: false, targetValue: 10, modifier: 0 });
+      .toEqual({ forcedFailure: null, targetValue: 10, modifier: 0 });
   });
 
   it("グリーン10は危険値合計×1・ホワイト12は×2を達成値への修正とする（2026-08-07 裁定＝達成値に加算）", () => {
     expect(appearanceCheckParams({ area: "green", appearanceModifier: -3 }))
-      .toEqual({ blocked: false, targetValue: 10, modifier: -3 });
+      .toEqual({ forcedFailure: null, targetValue: 10, modifier: -3 });
     expect(appearanceCheckParams({ area: "white", appearanceModifier: -3 }))
-      .toEqual({ blocked: false, targetValue: 12, modifier: -6 });
+      .toEqual({ forcedFailure: null, targetValue: 12, modifier: -6 });
   });
 
-  it("サンクチュアリ12は危険値ペナルティ装備の携帯で登場不可", () => {
+  it("サンクチュアリ12は危険値ペナルティ装備の携帯で強制失敗（判定は行える・2026-08-15 裁定）", () => {
     expect(appearanceCheckParams({ area: "sanctuary", appearanceModifier: 0, hasNegativeDangerItem: true }))
-      .toEqual({ blocked: true, targetValue: 12, modifier: 0 });
+      .toEqual({ forcedFailure: "sanctuary", targetValue: 12, modifier: 0 });
     expect(appearanceCheckParams({ area: "sanctuary", appearanceModifier: 0, hasNegativeDangerItem: false }))
-      .toEqual({ blocked: false, targetValue: 12, modifier: 0 });
+      .toEqual({ forcedFailure: null, targetValue: 12, modifier: 0 });
   });
 
   it("エリア未設定は目標値なし・修正なし（判定は出せる・成否は卓）", () => {
     expect(appearanceCheckParams({ area: "", appearanceModifier: -2 }))
-      .toEqual({ blocked: false, targetValue: null, modifier: 0 });
+      .toEqual({ forcedFailure: null, targetValue: null, modifier: 0 });
   });
 
   it("危険値0なら修正0", () => {
     expect(appearanceCheckParams({ area: "white", appearanceModifier: 0 }))
-      .toEqual({ blocked: false, targetValue: 12, modifier: 0 });
+      .toEqual({ forcedFailure: null, targetValue: 12, modifier: 0 });
   });
 
   it("数値指定モード: TN は指定値・危険値係数はエリアに従う（14-7）", () => {
     expect(appearanceCheckParams({ area: "white", appearanceModifier: -2, mode: "fixed", fixedValue: 15 }))
-      .toEqual({ blocked: false, targetValue: 15, modifier: -4 });
+      .toEqual({ forcedFailure: null, targetValue: 15, modifier: -4 });
     expect(appearanceCheckParams({ area: "", appearanceModifier: -2, mode: "fixed", fixedValue: 9 }))
-      .toEqual({ blocked: false, targetValue: 9, modifier: 0 });
+      .toEqual({ forcedFailure: null, targetValue: 9, modifier: 0 });
   });
 
-  it("登場不可モード: シーンプレイヤー以外登場できない（14-7）", () => {
+  it("登場不可モード: 判定は行えるが強制失敗（2026-08-15 裁定＝判定そのものはブロックしない）", () => {
     expect(appearanceCheckParams({ area: "red", mode: "none" }))
-      .toEqual({ blocked: true, targetValue: null, modifier: 0 });
+      .toEqual({ forcedFailure: "none", targetValue: null, modifier: 0 });
   });
 
-  it("数値指定でもサンクチュアリの登場不可装備チェックは生きる", () => {
+  it("数値指定でもサンクチュアリの強制失敗装備チェックは生きる", () => {
     expect(appearanceCheckParams({ area: "sanctuary", mode: "fixed", fixedValue: 15, hasNegativeDangerItem: true }))
-      .toEqual({ blocked: true, targetValue: 15, modifier: 0 });
+      .toEqual({ forcedFailure: "sanctuary", targetValue: 15, modifier: 0 });
   });
 });
 
@@ -247,7 +247,7 @@ describe("resolveSceneAppearance()（行＋実行時の上書きの合成・14-8
     const resolved = resolveSceneAppearance(
       { appearanceMode: "unset" }, { area: "white", appearanceValue: 15, appearanceSkills: [] });
     expect(appearanceCheckParams({ ...resolved, appearanceModifier: -3 }))
-      .toEqual({ blocked: false, targetValue: 15, modifier: -6 });
+      .toEqual({ forcedFailure: null, targetValue: 15, modifier: -6 });
   });
 
   it("上書きが無い（ダイアログを閉じた）ときは目標値を出さず、台本の指定技能を残す", () => {

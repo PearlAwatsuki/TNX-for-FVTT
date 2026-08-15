@@ -765,6 +765,15 @@ export class TnxCheckFlow {
         // カード数字の上書き(2026-07-13): 元→後を内訳に明示する
         if (cardOverride) result.cardOverride = cardOverride;
 
+        // 強制失敗(2026-08-15 ユーザー裁定「判定そのものはブロックしない」): 登場：不可等でも
+        // 判定は行える(=手札を入れ替える権利は平等)が、結果は達成値にかかわらず必ず失敗する。
+        // 達成値・内訳は生かし、成否だけを落とす(理由は結果カードの成否バナーに出す)
+        if (ctx.forcedFailure) {
+            result.success = false;
+            result.diff = null;
+            result.forcedFailure = ctx.forcedFailure;
+        }
+
         // 再判定コンテキスト(2026-07-11): 元の構成から再実行するためのスナップショット(常時保存)。
         // 継続処理を持つ判定(リアクション/NPC取得/治療/移動/controlNegate)は状態機械のリセットが
         // 必要なため当面対象外(申し送り)
@@ -899,7 +908,10 @@ export class TnxCheckFlow {
                 hasTargetValue: ctx.targetValue !== null,
                 // 差分値の表示規約(Check_Rules 2026-07-08): 目標値があれば判定の種類を問わず必ず表示
                 diffDisplay:  Number.isFinite(result.diff) ? (result.diff >= 0 ? `+${result.diff}` : `${result.diff}`) : null,
-                showSuccess:  !isControlCheck ? (ctx.targetValue !== null && !result.fumble) : !result.fumble,
+                // 強制失敗は目標値なし(登場：不可)でも成否バナーを出す(必ず「失敗」+理由)
+                showSuccess:  !isControlCheck
+                    ? ((ctx.targetValue !== null || !!result.forcedFailure) && !result.fumble)
+                    : !result.fumble,
             }
         );
     }
@@ -1114,6 +1126,8 @@ export class TnxCheckFlow {
             substitution:    ctx.substitution ?? null,
             manualMod:       ctx.manualMod ?? 0,
             requestMessageId: ctx.requestMessageId ?? null,
+            // 強制失敗(2026-08-15): 再判定でも失敗は覆らない(判定し直す権利はあるが帰結は同じ)
+            forcedFailure:   ctx.forcedFailure ?? null,
             ...(ctx.attack ? { attack: ctx.attack } : {}),
             ...(ctx.usageEffects ? { usageEffects: ctx.usageEffects } : {}),
             ...cont, // 継続文脈(CONTINUATIONS の各キー)
@@ -1218,6 +1232,7 @@ export class TnxCheckFlow {
             sourceItemId:    rc.sourceItemId,
             substitution:    rc.substitution,
             manualMod:       rc.manualMod,
+            ...(rc.forcedFailure ? { forcedFailure: rc.forcedFailure } : {}),
             ...(rc.attack ? { attack: rc.attack } : {}),
             ...(rc.usageEffects ? { usageEffects: rc.usageEffects } : {}),
             // 継続文脈を再判定の実行 ctx へ引き継ぐ(_applyRecheckReplacement が種別ごとに再実行する・
@@ -1415,9 +1430,12 @@ export class TnxCheckFlow {
         let newSuccess = checkF?.result?.success === true; // 継続再実行の遷移判定用(目標値つきは下で更新)
         if (checkF) {
             patch[`flags.${SCOPE}.checkResult.result.achievement`] = newAch;
-            // 目標値つきは成否・差分値を再計算(差分値は成功時のみ=Check_Rules)
+            // 目標値つきは成否・差分値を再計算(差分値は成功時のみ=Check_Rules)。
+            // 強制失敗(2026-08-15)は達成値を修正しても成否が覆らない=成否の再計算をしない
             const tv = rc?.targetValue ?? null;
-            if (tv !== null && !attackF) {
+            if (rc?.forcedFailure) {
+                newSuccess = false;
+            } else if (tv !== null && !attackF) {
                 const success = newAch >= tv;
                 newSuccess = success;
                 const diff = success ? newAch - tv : null;
