@@ -806,12 +806,28 @@
     box-shadow: none;
 }
 
+/* 枠の幅は**常に置かれた場所の幅**で、中身の長さで伸び縮みしない(2026-08-15 ユーザー指示)。
+   fieldset は UA が `min-inline-size: min-content` を当てており、さらに flex/grid の
+   子としては自動最小サイズ(min-content)を持つ——どちらも「中で最も縮まない要素の幅」まで
+   枠を押し広げる。長い技能名やアイテム名を 1 つ足しただけで枠が親からはみ出して見切れる
+   ため、両方を 0 で解除する。中身が入りきらないときは**枠でなく中身を折り返す**
+   (`.tnx-wrap-text` / 各画面の動的ラベル側で担保する)。 */
 .tnx-fieldset {
+    min-width: 0;
     border: 1px solid var(--tnx2-border-subtle);
     border-radius: var(--tnx2-radius);
     padding: 12px 14px;
     margin-bottom: 12px;
     background: var(--tnx2-bg-2);
+}
+
+/* 動的な文字列(名前・技能名・ラベル)を置く箇所の共通指定。行の幅を分け合い、
+   入りきらない分は折り返す(省略記号で見切らない)。単語境界の無い長い連続文字も折る。 */
+.tnx-wrap-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    white-space: normal;
 }
 .tnx-fieldset legend {
     font-family: var(--tnx2-font-mono);
@@ -9276,12 +9292,11 @@ button.tnx-create-act-button span {
     gap: 8px;
 }
 
+/* 名前・ラベルはいずれも折り返す(省略記号で見切らない・枠を押し広げない・2026-08-15) */
 .tnx-scenario-panel .scp-act-name {
     font-weight: 700;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
 }
 
 .tnx-scenario-panel .scp-phase-badge {
@@ -9381,9 +9396,7 @@ button.tnx-create-act-button span {
 .tnx-scenario-panel .scp-send-label {
     flex: 1 1 auto;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
 }
 
 .tnx-scenario-panel .scp-info-item { margin-bottom: 4px; }
@@ -9403,9 +9416,7 @@ button.tnx-create-act-button span {
 .tnx-scenario-panel .scp-info-content-label {
     flex: 1 1 auto;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
 }
 
 .tnx-scenario-panel .tnx-icon-ctrl.is-on { color: var(--tnx2-accent); }
@@ -9428,11 +9439,12 @@ button.tnx-create-act-button span {
     display: inline-flex;
     align-items: center;
     gap: 3px;
+    max-width: 100%;
     padding: 0 8px;
     border: 1px solid var(--tnx2-border-subtle);
     border-radius: 10px;
     background: var(--tnx2-bg-2);
-    white-space: nowrap;
+    overflow-wrap: anywhere;
 }
 
 .tnx-scenario-panel .scp-chip.is-appearing { border-color: var(--tnx2-accent); }
