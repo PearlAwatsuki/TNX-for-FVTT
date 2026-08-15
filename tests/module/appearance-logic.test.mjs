@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   appearanceCheckParams,
+  appearanceCardInfo,
   hasNegativeDangerOutfit,
   isAppearanceSkillKey,
   formatAppearanceSummary,
@@ -12,6 +13,34 @@ import {
   areaTargetValue,
   DEFAULT_APPEARANCE_TARGET,
 } from "../../scripts/module/appearance-logic.mjs";
+
+describe("appearanceCardInfo()（登場判定の専用チャットカード表示・2026-08-16）", () => {
+  it("登場文脈が無ければ null（通常の判定カードは無改変）", () => {
+    expect(appearanceCardInfo(null, { success: true })).toBeNull();
+    expect(appearanceCardInfo(undefined, { success: true })).toBeNull();
+  });
+
+  it("エリアは設定されているときだけ出す（未設定で「未定」を出さない＝ユーザー指示）", () => {
+    expect(appearanceCardInfo({ actorId: "a", areaLabel: "ホワイト" }, { success: false }))
+      .toEqual({ areaLabel: "ホワイト", ghost: false, appeared: false, hasInfo: true });
+    expect(appearanceCardInfo({ actorId: "a", areaLabel: "" }, { success: false }))
+      .toEqual({ areaLabel: "", ghost: false, appeared: false, hasInfo: false });
+    expect(appearanceCardInfo({ actorId: "a" }, { success: false }))
+      .toEqual({ areaLabel: "", ghost: false, appeared: false, hasInfo: false });
+  });
+
+  it("ゴースト宣言は情報行として出す（エリア未設定でも hasInfo）", () => {
+    expect(appearanceCardInfo({ actorId: "a", ghost: true }, { success: false }))
+      .toEqual({ areaLabel: "", ghost: true, appeared: false, hasInfo: true });
+  });
+
+  it("帰結（シーンに登場）は success===true のときだけ（null=目標値なしは自動登場しない）", () => {
+    expect(appearanceCardInfo({ actorId: "a" }, { success: true }).appeared).toBe(true);
+    expect(appearanceCardInfo({ actorId: "a" }, { success: null }).appeared).toBe(false);
+    expect(appearanceCardInfo({ actorId: "a" }, {}).appeared).toBe(false);
+    expect(appearanceCardInfo({ actorId: "a" }, null).appeared).toBe(false);
+  });
+});
 
 describe("appearanceCheckParams()（エリア別 TN と危険値修正・Appearance_Check 正本）", () => {
   it("レッド8・イエロー10は危険値ペナルティなし", () => {

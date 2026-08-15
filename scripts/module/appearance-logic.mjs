@@ -97,6 +97,29 @@ export function appearanceCheckParams({
 }
 
 /**
+ * 登場判定の専用チャットカードに載せる表示情報を組み立てる(2026-08-16 ユーザー指示)。
+ * 登場判定は用途を持たない(指定技能がシーンごとに変わるため)ので、カードの専用化は
+ * 判定文脈(ctx.appearance)をキーにした描画の分岐で行う(攻撃カード・移動カードと同型)。
+ * - エリアは**設定されているときだけ**出す(「未定」を出さない=ユーザー指示)。
+ * - 帰結(シーンに登場)は success===true のときだけ(完了継続の自動適用と同じ条件。
+ *   目標値なし=success null は自動登場しないため出さない)。
+ * @param {?{areaLabel?: string, ghost?: boolean}} cc 登場の継続文脈(ctx.appearance)
+ * @param {?{success?: ?boolean}} result 判定結果
+ * @returns {?{areaLabel: string, ghost: boolean, appeared: boolean, hasInfo: boolean}}
+ */
+export function appearanceCardInfo(cc, result) {
+    if (!cc) return null;
+    const areaLabel = cc.areaLabel ?? "";
+    const ghost = cc.ghost === true;
+    return {
+        areaLabel,
+        ghost,
+        appeared: result?.success === true,
+        hasInfo: !!areaLabel || ghost,
+    };
+}
+
+/**
  * 危険値ペナルティ(負の危険値)を持つ装備を携帯しているか(サンクチュアリの登場不可判定)。
  * 携帯条件は appearanceModifier の集計(computeOutfitAggregates)と同じ isCarrying。
  * @param {Array<{type: string, system: object}>} items アクターの全アイテム(素オブジェクト可)

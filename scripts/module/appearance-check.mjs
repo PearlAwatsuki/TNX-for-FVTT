@@ -59,7 +59,8 @@ export async function startAppearanceCheck() {
     const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
     await TnxCharacterSheetBase._activateItemCheck(actor, skill, {
         targetValue: params.targetValue,
-        appearance: { actorId: actor.id, ghost: choice.ghost },
+        // areaLabel は専用チャットカードの表示用(未設定は ""=行を出さない・2026-08-16)
+        appearance: { actorId: actor.id, ghost: choice.ghost, areaLabel },
         ...(forcedFailure ? { forcedFailure } : {}),
         ...(params.modifier !== 0
             ? { extraCheckBonuses: [{ formula: String(params.modifier), label: `危険値（${areaLabel}）` }] }

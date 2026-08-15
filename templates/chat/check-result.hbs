@@ -5,6 +5,24 @@
 
     {{> "systems/tokyo-nova-axleration/templates/chat/parts/check-card-head.hbs"}}
 
+    {{!-- 登場判定の固有情報(2026-08-16): エリアは設定されているときだけ出す(「未定」を出さない) --}}
+    {{#if appearance.hasInfo}}
+    <div class="cr-calc-section cr-appearance-info">
+        {{#if appearance.areaLabel}}
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">エリア</span>
+            <span class="cr-calc-val">{{appearance.areaLabel}}</span>
+        </div>
+        {{/if}}
+        {{#if appearance.ghost}}
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">宣言</span>
+            <span class="cr-calc-val">ゴースト登場</span>
+        </div>
+        {{/if}}
+    </div>
+    {{/if}}
+
     {{#if isFixedCheck}}
     <div class="cr-calc-section">
         <div class="cr-calc-row cr-total-row">
@@ -80,6 +98,13 @@
     </div>
     {{/if}}
 
+    {{/if}}
+
+    {{!-- 登場の帰結(2026-08-16): 成功で自動適用された「登場」を卓に残る形で示す --}}
+    {{#if appearance.appeared}}
+    <div class="cr-appearance-outcome">
+        <i class="fas fa-door-open"></i> シーンに登場した{{#if appearance.ghost}}（ゴースト）{{/if}}
+    </div>
     {{/if}}
 
 </div>

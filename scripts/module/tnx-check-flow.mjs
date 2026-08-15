@@ -25,6 +25,7 @@ import { getUserFlagData } from './user-flag-schema.mjs';
 import { applyConsumptionPlan } from './usage-consumption.mjs';
 import { formatSkillName } from './identification.mjs';
 import { buildCheckCardContext } from './check-card-context.mjs';
+import { appearanceCardInfo } from './appearance-logic.mjs';
 import { isMajorActionTiming } from './combat-turn-order.mjs';
 import { TnxCombat } from '../combat/tnx-combat.mjs';
 
@@ -893,14 +894,18 @@ export class TnxCheckFlow {
         const actor = game.actors.get(ctx.actorId);
         const TYPE_LABEL = { skillCheck: "技能判定", controlCheck: "制御判定", abilityCheck: "能力値判定" };
         const isControlCheck = ctx.type === "controlCheck";
+        // 登場判定(2026-08-16): 用途を持たない(指定技能がシーンごとに変わる)ため、専用カードは
+        // 判定文脈をキーにした描画の分岐で実現する(攻撃カード・移動カードと同型)
+        const appearance = appearanceCardInfo(ctx.appearance, result);
         return foundry.applications.handlebars.renderTemplate(
             "systems/tokyo-nova-axleration/templates/chat/check-result.hbs",
             {
                 ...buildCheckCardContext({
                     skillLabel: ctx.skillLabel,
-                    typeLabel:  TYPE_LABEL[ctx.type] ?? ctx.type,
+                    typeLabel:  appearance ? "登場判定" : (TYPE_LABEL[ctx.type] ?? ctx.type),
                     card, suit, result, fromDeck, trumpUsed, suitMismatch, checkSources, isRecheck,
                 }),
+                appearance,
                 actor,
                 actorName:    actor?.name ?? "不明",
                 cardImg:      card.img,

@@ -4724,6 +4724,16 @@ body.tnx-bottom-hud-expanded #hotbar {
     color: #60e880;
 }
 
+/* 登場判定カードの帰結行(2026-08-16): 成功で自動適用された「登場」を卓に残す */
+.tnx-check-result .cr-appearance-outcome {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    color: #60e880;
+    font-weight: 700;
+}
+
 .cr-result--failure {
     background: rgba(200, 50, 50, 0.20);
     color: #e86060;
