@@ -10,6 +10,9 @@
  *   読み込み状態で行い、開始で自動設定(報酬点/CS)→先頭シーンへ入る。
  * - 全員に表示(現在シーン・フェイズ・シーンカードの参照)・操作は RL のみ。
  * - 実行状態の正本はワールド設定 sessionState(session-state.mjs)。このパネルはその読み書き UI。
+ * - **レイアウトは固定ヘッダ+使用頻度別タブ**(2026-08-15 ユーザー承認): 現在シーンの表示は
+ *   常に見える固定ヘッダ、開始後の RL 操作は 進行(毎シーン)/キャスト(シーン切替時)/
+ *   アクト(セッション1回) の3タブ。タブと折りたたみの状態はクライアント設定に永続化する。
  */
 
 import {
@@ -119,12 +122,37 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             teamDelete:          TnxScenarioPanel._onTeamDelete,
             teamAddMember:       TnxScenarioPanel._onTeamAddMember,
             teamRemoveMember:    TnxScenarioPanel._onTeamRemoveMember,
+            toggleSceneList:     TnxScenarioPanel._onToggleSceneList,
+            toggleRotation:      TnxScenarioPanel._onToggleRotation,
         },
     };
 
     static PARTS = {
         main: { template: "systems/tokyo-nova-axleration/templates/app/scenario-panel.hbs" },
     };
+
+    /** タブ状態(既定=進行)。最後に開いたタブはクライアント設定で次回起動に引き継ぐ。 */
+    tabGroups = { primary: game.settings.get(SCOPE, "scenarioPanelTab") || "flow" };
+
+    /**
+     * タブ切替。コア V13 の changeTab は nav に `.tabs` クラスを要求しコア CSS と競合するため、
+     * アクト(シナリオ)シートと同じく独自実装で置き換える。切り替えたタブは設定に保存する。
+     */
+    changeTab(tab, group, options = {}) {
+        if (!tab || !group) return;
+        if ((this.tabGroups[group] === tab) && !options.force) return;
+
+        for (const item of this.element.querySelectorAll(`[data-group="${group}"][data-tab]`)) {
+            item.classList.toggle("active", item.dataset.tab === tab);
+        }
+        for (const section of this.element.querySelectorAll(`.tab[data-group="${group}"]`)) {
+            section.classList.toggle("active", section.dataset.tab === tab);
+        }
+        this.tabGroups[group] = tab;
+        if (game.settings.get(SCOPE, "scenarioPanelTab") !== tab) {
+            game.settings.set(SCOPE, "scenarioPanelTab", tab);
+        }
+    }
 
     async _prepareContext(options) {
         const context = await super._prepareContext(options);
@@ -286,6 +314,10 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
 
         // 巡回の消化状況(ハンドアウト順・務めた人と次の既定)＝「なるべく務めていない人に回す」判断の材料
         context.rotation = rotating ? getRotationStatus() : null;
+        // 折りたたみ状態(2026-08-15 タブ再構成): 巡回・シーン一覧は毎シーンの操作ではないので
+        // 既定で畳み、開閉はクライアント設定に永続化する
+        context.rotationOpen  = game.settings.get(SCOPE, "scenarioPanelRotationOpen");
+        context.sceneListOpen = game.settings.get(SCOPE, "scenarioPanelSceneListOpen");
         // 一覧の番号は台本順の自動採番(14-8・手入力を廃止)
         const seq = sceneSequenceNumbers(scenes);
         context.sceneGroups = PHASE_ORDER.map(phase => ({
@@ -615,6 +647,20 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         this.render(false);
     }
 
+    // ─── 折りたたみ(巡回・シーン一覧)＝クライアント設定に永続化 ─────────────
+
+    static async _onToggleSceneList(_event, _target) {
+        await game.settings.set(SCOPE, "scenarioPanelSceneListOpen",
+            !game.settings.get(SCOPE, "scenarioPanelSceneListOpen"));
+        this.render(false);
+    }
+
+    static async _onToggleRotation(_event, _target) {
+        await game.settings.set(SCOPE, "scenarioPanelRotationOpen",
+            !game.settings.get(SCOPE, "scenarioPanelRotationOpen"));
+        this.render(false);
+    }
+
     // ─── 登場判定(14-5) ─────────────────────────────────────────────────────
 
     static async _onAppearanceCheck(_event, _target) {
@@ -719,8 +765,14 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         await leaveTeam(actorId);
     }
 
-    /** RL のチーム名インライン編集(GM のみ描画される入力)。 */
+    /** タブの復元(V2 はレンダー時に active を付与しない)とチーム名インライン編集の配線。 */
     _onRender(_context, _options) {
+        // タブは RL の開始後だけ描画される(開始前・PL は nav なし=復元不要)
+        if (this.element.querySelector(".scp-tabs")) {
+            for (const [group, tab] of Object.entries(this.tabGroups)) {
+                if (tab) this.changeTab(tab, group, { force: true });
+            }
+        }
         for (const input of this.element.querySelectorAll('.scp-team input[name="teamName"]')) {
             input.addEventListener("change", (event) => {
                 const teamId = event.currentTarget.closest(".scp-team")?.dataset.teamId;

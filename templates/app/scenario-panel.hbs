@@ -1,6 +1,9 @@
 <section class="tnx-scenario-panel">
 
-    {{!-- 全員向け表示層: 現在のアクト・フェイズ・シーン・シーンカード --}}
+    {{!-- 固定ヘッダ(全員向け表示層): 現在のアクト・フェイズ・シーン・シーンカード・登場中。
+          本文がスクロールしてもここは常に見える(2026-08-15 タブ再構成)。
+          登場中チップは「シーンの状態」なのでヘッダに残し、操作(手動登場・登場判定・チーム)は
+          キャスト操作へ分離する --}}
     {{#if loaded}}
         <div class="scp-status">
             <div class="scp-act-line">
@@ -53,27 +56,33 @@
                     {{/each}}
                 </div>
             {{/if}}
-            {{!-- RL の手動登場(14-8): 登場判定を経ずに登場させる。名前を伏せるかは左のトグル --}}
-            {{#if appearCandidateGroups.length}}
-                <div class="scp-load-row scp-appear-add">
-                    <select name="appearActorId">
-                        {{#each appearCandidateGroups as |group|}}
-                            <optgroup label="{{group.label}}">
-                                {{#each group.actors as |candidate|}}
-                                    <option value="{{candidate.id}}">{{candidate.name}}</option>
-                                {{/each}}
-                            </optgroup>
-                        {{/each}}
-                    </select>
-                    <a class="tnx-icon-ctrl" data-action="toggleNewHideName" title="名前を出して登場"><i class="fas fa-eye"></i></a>
-                    <a class="tnx-icon-ctrl" data-action="appearActor" title="シーンに登場させる"><i class="fas fa-door-open"></i></a>
-                </div>
-            {{/if}}
         </div>
+    {{else}}
+        <p class="scp-empty">アクトが読み込まれていません。</p>
+    {{/if}}
+
+    {{!-- キャスト操作: 登場判定(PL)・手動登場(RL)・チーム。GM はキャストタブ・PL はヘッダ直下 --}}
+    {{#*inline "castSection"}}
         {{#if canAppearanceCheck}}
             <button type="button" class="tnx-btn" data-action="appearanceCheck">
                 <i class="fas fa-door-open"></i> 登場判定
             </button>
+        {{/if}}
+        {{!-- RL の手動登場(14-8): 登場判定を経ずに登場させる。名前を伏せるかは左のトグル --}}
+        {{#if appearCandidateGroups.length}}
+            <div class="scp-load-row scp-appear-add">
+                <select name="appearActorId">
+                    {{#each appearCandidateGroups as |group|}}
+                        <optgroup label="{{group.label}}">
+                            {{#each group.actors as |candidate|}}
+                                <option value="{{candidate.id}}">{{candidate.name}}</option>
+                            {{/each}}
+                        </optgroup>
+                    {{/each}}
+                </select>
+                <a class="tnx-icon-ctrl" data-action="toggleNewHideName" title="名前を出して登場"><i class="fas fa-eye"></i></a>
+                <a class="tnx-icon-ctrl" data-action="appearActor" title="シーンに登場させる"><i class="fas fa-door-open"></i></a>
+            </div>
         {{/if}}
         {{!-- チームは上演中の編成(2026-08-15 ユーザー指示＝開始前に出す必要はない) --}}
         {{#if actStarted}}
@@ -130,14 +139,8 @@
             </div>
         </fieldset>
         {{/if}}
-    {{else}}
-        <p class="scp-empty">アクトが読み込まれていません。</p>
-    {{/if}}
+    {{/inline}}
 
-    {{!-- RL 操作層。出すセクションと順序はアクトの進行段階で変わる(2026-08-08 ユーザー指示・
-          2026-08-15 是正):
-          開始後＝シーン・情報を最優先(アクトは終了操作のみなので最後)・配布/送信は非表示。
-          開始前＝アクトの読み込み/開始 → プレアクトの配布・送信のみ(情報は上演中の操作)。 --}}
     {{#*inline "actSection"}}
         <fieldset class="tnx-fieldset">
             <legend>アクト</legend>
@@ -207,17 +210,23 @@
                 </div>
             {{/if}}
             {{!-- 巡回の消化状況(14-8): ハンドアウト順に、務めた人と次の既定を出す。
-                  「なるべく務めていない人に回す」判断の材料であって、順番を縛るものではない --}}
+                  「なるべく務めていない人に回す」判断の材料であって、順番を縛るものではない。
+                  毎シーンの操作ではないので既定で畳む(2026-08-15 タブ再構成) --}}
             {{#if rotation}}
                 <div class="scp-rotation">
-                    <div class="scp-phase-label">巡回</div>
-                    {{#each rotation as |member|}}
-                        <div class="scp-rotation-row {{#if member.isNext}}is-next{{/if}}">
-                            <span class="scp-rotation-name {{#if member.done}}is-done{{/if}}">{{member.name}}</span>
-                            {{#if member.done}}<span class="scp-rotation-state">済</span>{{/if}}
-                            {{#if member.isNext}}<span class="scp-rotation-state">次</span>{{/if}}
-                        </div>
-                    {{/each}}
+                    <a class="scp-disclosure-head" data-action="toggleRotation">
+                        <i class="fas fa-chevron-{{#if rotationOpen}}down{{else}}right{{/if}}"></i>
+                        <span class="scp-phase-label">巡回</span>
+                    </a>
+                    {{#if rotationOpen}}
+                        {{#each rotation as |member|}}
+                            <div class="scp-rotation-row {{#if member.isNext}}is-next{{/if}}">
+                                <span class="scp-rotation-name {{#if member.done}}is-done{{/if}}">{{member.name}}</span>
+                                {{#if member.done}}<span class="scp-rotation-state">済</span>{{/if}}
+                                {{#if member.isNext}}<span class="scp-rotation-state">次</span>{{/if}}
+                            </div>
+                        {{/each}}
+                    {{/if}}
                 </div>
             {{/if}}
             {{#if nextScene}}
@@ -235,21 +244,31 @@
                     <i class="fas fa-fire"></i> クライマックスへ
                 </button>
             {{/if}}
-            {{#each sceneGroups as |group|}}
-                {{#if group.rows.length}}
-                    <div class="scp-phase-group">
-                        <div class="scp-phase-label">{{group.phaseLabel}}</div>
-                        {{#each group.rows as |row|}}
-                            <div class="scp-scene-row {{#if row.isCurrent}}is-current{{/if}}">
-                                <span class="scp-scene-row-name">{{row.number}}. {{row.name}}</span>
-                                {{#unless row.isCurrent}}
-                                    <a class="tnx-icon-ctrl" data-action="switchScene" data-scene-id="{{row.id}}" title="このシーンへ切り替え"><i class="fas fa-play-circle"></i></a>
-                                {{/unless}}
+            {{!-- 全シーンの一覧は任意ジャンプ用＝毎シーンの操作ではないので既定で畳む
+                  (2026-08-15 タブ再構成)。台本順の送りは上の「次のシーンへ」が担う --}}
+            <div class="scp-scene-list">
+                <a class="scp-disclosure-head" data-action="toggleSceneList">
+                    <i class="fas fa-chevron-{{#if sceneListOpen}}down{{else}}right{{/if}}"></i>
+                    <span class="scp-phase-label">シーン一覧</span>
+                </a>
+                {{#if sceneListOpen}}
+                    {{#each sceneGroups as |group|}}
+                        {{#if group.rows.length}}
+                            <div class="scp-phase-group">
+                                <div class="scp-phase-label">{{group.phaseLabel}}</div>
+                                {{#each group.rows as |row|}}
+                                    <div class="scp-scene-row {{#if row.isCurrent}}is-current{{/if}}">
+                                        <span class="scp-scene-row-name">{{row.number}}. {{row.name}}</span>
+                                        {{#unless row.isCurrent}}
+                                            <a class="tnx-icon-ctrl" data-action="switchScene" data-scene-id="{{row.id}}" title="このシーンへ切り替え"><i class="fas fa-play-circle"></i></a>
+                                        {{/unless}}
+                                    </div>
+                                {{/each}}
                             </div>
-                        {{/each}}
-                    </div>
+                        {{/if}}
+                    {{/each}}
                 {{/if}}
-            {{/each}}
+            </div>
         </fieldset>
     {{/inline}}
 
@@ -306,16 +325,42 @@
         </fieldset>
     {{/inline}}
 
+    {{!-- 操作層(2026-08-15 タブ再構成)。開始後の RL は使用頻度別の3タブに分ける:
+          進行(毎シーン=シーン送り+情報・既定)/キャスト(シーン切替時=登場・チーム)/
+          アクト(セッション1回=読み込み・終了)。従来の並び替え裁定(2026-08-08 指示・
+          2026-08-15 是正=開始後はシーン・情報を最優先・配布/送信は非表示・開始前は
+          アクト→配布・送信)は、この頻度分けの中に引き継がれている。PL にタブはなく、
+          キャスト操作(登場判定・チーム)をヘッダ直下に出す --}}
     {{#if isGM}}
         {{#if actStarted}}
-            {{> sceneSection}}
-            {{> infoSection}}
-            {{> actSection}}
+            <nav class="scp-tabs" data-group="primary">
+                <a class="item" data-action="tab" data-tab="flow" data-group="primary"><i class="fas fa-forward"></i> 進行</a>
+                <a class="item" data-action="tab" data-tab="cast" data-group="primary"><i class="fas fa-users"></i> キャスト</a>
+                <a class="item" data-action="tab" data-tab="act" data-group="primary"><i class="fas fa-book"></i> アクト</a>
+            </nav>
+            <div class="scp-body">
+                <div class="tab" data-group="primary" data-tab="flow">
+                    {{> sceneSection}}
+                    {{> infoSection}}
+                </div>
+                <div class="tab" data-group="primary" data-tab="cast">
+                    {{> castSection}}
+                </div>
+                <div class="tab" data-group="primary" data-tab="act">
+                    {{> actSection}}
+                </div>
+            </div>
         {{else}}
-            {{> actSection}}
-            {{#if loaded}}
-                {{> sendSection}}
-            {{/if}}
+            <div class="scp-body">
+                {{> actSection}}
+                {{#if loaded}}
+                    {{> sendSection}}
+                {{/if}}
+            </div>
         {{/if}}
+    {{else}}
+        <div class="scp-body">
+            {{> castSection}}
+        </div>
     {{/if}}
 </section>

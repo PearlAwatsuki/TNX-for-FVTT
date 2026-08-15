@@ -9254,19 +9254,90 @@ button.tnx-create-act-button span {
    シナリオコントロールパネル(フェーズ14-3) — アクト/シーン進行の操作盤
    ============================================================ */
 
-/* パネルは伸び過ぎないよう上限を設け、超えたら中身をスクロールさせる(14-5 是正) */
+/* パネルは伸び過ぎないよう上限を設ける(14-5 是正) */
 .tnx-scenario-panel-app,
 .tnx-subscene-panel-app { max-height: min(560px, calc(100vh - 200px)); }
 
-.tnx-scenario-panel-app .window-content,
 .tnx-subscene-panel-app .window-content { overflow-y: auto; }
+
+/* シナリオコントロールはヘッダ(現在シーン)とタブを固定し、本文(.scp-body)だけを
+   スクロールさせる(2026-08-15 タブ再構成) */
+.tnx-scenario-panel-app .window-content {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
 
 .tnx-scenario-panel-app .tnx-scenario-panel {
     display: flex;
+    flex: 1 1 auto;
     flex-direction: column;
     gap: 8px;
+    min-height: 0;
     padding: 8px;
 }
+
+.tnx-scenario-panel .scp-body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* 操作層のタブ(2026-08-15 タブ再構成)。意匠はシートのタブ(sheet-tabs)を踏襲する */
+.tnx-scenario-panel .scp-tabs {
+    display: flex;
+    flex: 0 0 auto;
+    border-bottom: 1px solid var(--tnx2-border-active);
+}
+
+.tnx-scenario-panel .scp-tabs .item {
+    flex: 1 1 0;
+    padding: 4px 8px;
+    border-bottom: 2px solid transparent;
+    color: var(--tnx2-text-muted);
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.92em;
+    letter-spacing: 0.04em;
+    text-align: center;
+    cursor: pointer;
+    transition: color        var(--tnx2-transition-fast),
+                border-color var(--tnx2-transition-fast);
+}
+
+.tnx-scenario-panel .scp-tabs .item:hover { color: var(--tnx2-text-secondary); }
+
+.tnx-scenario-panel .scp-tabs .item.active {
+    color: var(--tnx2-accent);
+    border-bottom-color: var(--tnx2-accent);
+}
+
+.tnx-scenario-panel .scp-body .tab { display: none; }
+
+.tnx-scenario-panel .scp-body .tab.active {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* 折りたたみ見出し(巡回・シーン一覧)。開閉状態はクライアント設定で保つ */
+.tnx-scenario-panel .scp-disclosure-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.tnx-scenario-panel .scp-disclosure-head i {
+    width: 12px;
+    font-size: 0.8em;
+    text-align: center;
+}
+
+.tnx-scenario-panel .scp-disclosure-head .scp-phase-label { margin-bottom: 0; }
 
 .tnx-scenario-panel .scp-empty {
     margin: 4px 0;

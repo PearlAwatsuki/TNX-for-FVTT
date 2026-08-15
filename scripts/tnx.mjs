@@ -1337,6 +1337,13 @@ Hooks.once("init", async function() {
     game.settings.register("tokyo-nova-axleration", "hudBottomCollapsed", { ..._hudUiSetting });
     game.settings.register("tokyo-nova-axleration", "hudAccessCollapsed", { ..._hudUiSetting, default: true });
 
+    // シナリオコントロールパネル UI 状態（クライアントローカル・2026-08-15 タブ再構成）
+    game.settings.register("tokyo-nova-axleration", "scenarioPanelTab", {
+        scope: "client", config: false, type: String, default: "flow",
+    });
+    game.settings.register("tokyo-nova-axleration", "scenarioPanelSceneListOpen", { ..._hudUiSetting });
+    game.settings.register("tokyo-nova-axleration", "scenarioPanelRotationOpen",  { ..._hudUiSetting });
+
     game.settings.register("tokyo-nova-axleration", "revealPlayerHands", {
         name: "プレイヤーの手札を開示",
         hint: "有効にすると全ユーザーのHUDにプレイヤー全員の手札が表示されます。",
