@@ -30,7 +30,7 @@ import {
     buildSceneSwitchCardData, buildTrailerCardData, buildScenarioTextCardData,
     buildHandoutCardData, buildInfoCardData,
     withResolvedInfoSkillNames, handoutDisplayTitle, handoutNumberOf, handoutStyleDisplay,
-    infoTiers, infoTierLabel, toggleInfoDisclosure,
+    infoSkillGroups, infoValueLabel, toggleInfoDisclosure,
 } from "./session-logic.mjs";
 import {
     loadGeneralSkillNameByKey, loadSkillChoices, formatGroupedSkillNames, STYLE_PACK,
@@ -59,18 +59,6 @@ const SCOPE = "tokyo-nova-axleration";
 function renderChatCard(name, data) {
     return foundry.applications.handlebars.renderTemplate(
         `systems/tokyo-nova-axleration/templates/chat/${name}.hbs`, data);
-}
-
-/** 情報の内容行の一覧表示ラベル(技能>目標値の並び・無ければ本文の頭・どちらも無ければ空欄表記)。 */
-function infoContentLabel(content) {
-    // 1行＝技能の集合＋共通の目標値(2026-08-09)。行内の技能は / で連結する
-    const skills = (content.skills ?? [])
-        .filter(s => s.names?.length && s.tn)
-        .map(s => `${s.names.join(" / ")} > ${s.tn}`);
-    if (skills.length) return skills.join("・");
-    const text = (content.text ?? "").replace(/<[^>]*>/g, "").trim();
-    if (text) return text.length > 24 ? `${text.slice(0, 24)}…` : text;
-    return "（内容未入力）";
 }
 
 /**
@@ -328,24 +316,24 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         context.texts = (journal.getFlag(SCOPE, "scenarioTexts") ?? []).map((t, i) => ({
             id: t.id, title: presetLabel(t, i, "テキスト"),
         }));
-        // 技能行の識別キーは辞典逆引きの現在名で表示する(14-7・生キー/空欄を出さない)
+        // 技能行の識別キーは辞典逆引きの現在名で表示する(14-7・生キー/空欄を出さない)。
+        // 並びは **指定技能が見出し・その下に目標値が同列**(2026-08-15 ユーザー指示):
+        // 目標値どうしに上下関係は無いので、入口と段を区別せず 1 つの並びとして出す
         context.infoItems = (journal.getFlag(SCOPE, "infoItems") ?? [])
             .map(item => withResolvedInfoSkillNames(item, skillNameByKey))
             .map(item => ({
                 id: item.id,
                 title: item.title || "情報",
                 isPublic: item.isPublic === true,
-                contents: (item.contents ?? []).map(c => ({
-                    id: c.id,
-                    isDisclosed: c.isDisclosed === true,
-                    label: infoContentLabel(c),
-                    // 段(追加で判明する内容)は入口の下に目標値の昇順で並べ、段ごとに開示する
-                    tiers: infoTiers(c).map(t => ({
-                        id: t.id,
-                        isDisclosed: t.isDisclosed === true,
-                        label: infoTierLabel(t),
+                groups: (item.contents ?? []).flatMap(c => infoSkillGroups(c).map(group => ({
+                    contentId: c.id,
+                    skillLabel: group.skillLabel,
+                    values: group.values.map(v => ({
+                        tierId: v.tierId ?? "",
+                        isDisclosed: v.isDisclosed,
+                        label: infoValueLabel(v.tn),
                     })),
-                })),
+                }))),
             }));
 
         return context;

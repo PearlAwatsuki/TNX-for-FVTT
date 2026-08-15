@@ -10,7 +10,7 @@
  */
 
 import { TNX_HOOKS } from "./combat-events.mjs";
-import { formatSkillName } from "./identification.mjs";
+import { formatDesignatedSkills } from "./skill-dictionary.mjs";
 import { normalizeAppearanceActors } from "./appearance-logic.mjs";
 
 /** メインアクトのフェイズ順(台本の走査順・シーン開始時の phase stamp に使う)。 */
@@ -759,57 +759,94 @@ export function buildHandoutCardData(handout, {
 }
 
 /**
+ * 情報の内容(枝)が持つ**目標値の並び**を昇順で返す(2026-08-15 ユーザー裁定＝表示上は等価)。
+ *
+ * どの目標値で出る情報も**並列**であり上下関係は無い(低い目標値は達成値が届かないときの
+ * 受け皿・高い目標値の方がむしろ通常想定)。したがって入口の目標値と段の目標値を区別せず、
+ * 1 つの並びとして扱う。
+ * @param {object} content 内容(枝)
+ * @param {(number|string|null)} entryTn 入口(技能行)の目標値
+ * @returns {Array<{tn:(number|string), tierId:?string, isDisclosed:boolean, text:string}>}
+ */
+function infoValueList(content, entryTn) {
+    const values = [];
+    if (entryTn) {
+        values.push({
+            tn: entryTn, tierId: null,
+            isDisclosed: content?.isDisclosed === true, text: content?.text ?? "",
+        });
+    }
+    for (const tier of infoTiers(content)) {
+        if (!tier.tn && !tier.text) continue;
+        values.push({
+            tn: tier.tn ?? null, tierId: tier.id ?? null,
+            isDisclosed: tier.isDisclosed === true, text: tier.text ?? "",
+        });
+    }
+    return values.sort((a, b) => (Number(a.tn) || Infinity) - (Number(b.tn) || Infinity));
+}
+
+/**
+ * 情報の内容(枝)を「技能行ごとの表示単位」に開く(パネル・チャットカードで共用)。
+ *
+ * 1 つの枝は技能行(技能の集合＋その行の目標値)を複数持てるので、**技能行ごとに 1 単位**にし、
+ * その単位が持つ目標値＝その行の目標値＋枝の段の目標値(昇順)とする。段の目標値は達成値の
+ * 絶対値と比べる(2026-08-12 裁定)ので、どの技能行から入っても同じ段に届く。
+ * @param {object} content 内容(枝・技能名は解決済み)
+ * @returns {Array<{skillLabel: string, values: Array<object>}>}
+ */
+export function infoSkillGroups(content) {
+    const rows = (content?.skills ?? []).filter(row => row.label);
+    if (!rows.length) {
+        // 技能を指定していない枝でも目標値だけは持ちうる(表示は目標値の並びのみ)
+        const values = infoValueList(content, null);
+        return values.length ? [{ skillLabel: "", values }] : [];
+    }
+    return rows.map(row => ({ skillLabel: row.label, values: infoValueList(content, row.tn) }))
+        .filter(group => group.values.length);
+}
+
+/**
  * 情報項目送信カードの描画コンテキストを組む。送信は 2 つのモードを持つ。
  *
  * - **目標値の送信**(mode="targets"・開示済みが 1 つも無いとき)＝「何がどの目標値で判るか」の
- *   提示。**項目名・使用技能・目標値だけを出し、本文は一切出さない**(段も目標値だけ)。
+ *   提示。**項目名・使用技能・目標値だけを出し、本文は一切出さない**。目標値は技能行の後ろに
+ *   横並びで置く(「〈社会：ストリート、警察〉目標値: 8, 12, 15」・2026-08-15 ユーザー指定)。
  *   ※2026-06-07 `a5a51a2` で開示済み送信と組み立てを共通化した際に本文が混ざっていた。
  *     初版(`04800da`)は技能と目標値だけを送っており、2026-08-15 にユーザー指摘で是正。
- * - **開示済みの送信**(mode="disclosed")＝開いている入口本文と開いている段を出す。
+ * - **開示済みの送信**(mode="disclosed")＝開いている目標値の本文を「目標値｜本文」の行で出す
+ *   (罫線の無い表・シナリオの紙面と同じ体裁。2026-08-15 ユーザー指定)。
  *
- * 送れる中身が無ければ mode=null。同じ目標値の技能は「A / B ＞ TN」に連結(既存書式)。
- * 段(`tiers`)は入口本文の後ろに目標値の昇順で積む(2026-08-12 裁定＝同じ入口で目標値が
- * 上がると情報が増える)。
+ * 送れる中身が無ければ mode=null。**目標値に上下関係は無い**ので入口と段を区別せず 1 つの
+ * 並びとして昇順に置く。
  *
- * 本文・段本文はリッチテキスト(ProseMirror の `<p>` を含む)なので**そのまま**返し、テンプレート
- * 側で `{{{ }}}` として置く(旧実装は `<p>` で囲んでいたため空段落が挟まっていた・2026-08-15)。
+ * 本文はリッチテキスト(ProseMirror の `<p>` を含む)なので**そのまま**返し、テンプレート側で
+ * `{{{ }}}` として置く(旧実装は `<p>` で囲んでいたため空段落が挟まっていた・2026-08-15)。
  * @param {object} item 情報項目(技能名は解決済み=withResolvedInfoSkillNames を通した後)
  * @returns {{title: string, mode: ("disclosed"|"targets"|null),
- *            blocks: Array<{skillLines: Array<{names: string, tn: (number|string)}>,
- *                           text: string, tiers: Array<{tn: ?number, text: string}>}>}}
+ *            blocks: Array<{skillLabel: string, tnList: string,
+ *                           rows: Array<{tn: (number|string), text: string}>}>}}
  */
 export function buildInfoCardData(item) {
     const contents = Array.isArray(item?.contents) ? item.contents : [];
 
-    const buildBlocks = (rows, onlyDisclosed) => rows.map((content) => {
-        // 開示済み送信では、開いている入口本文と開いている段だけを出す
-        const showEntry = !onlyDisclosed || content.isDisclosed === true;
-        // 目標値ごとに技能をまとめる(同じ目標値の行は 1 行に連結)。数値キーのオブジェクトなので
-        // 並びは目標値の昇順になる
-        const skillsByTn = (showEntry ? (content.skills ?? []) : []).reduce((acc, row) => {
-            const names = row.names ?? [];
-            if (names.length && row.tn) (acc[row.tn] = acc[row.tn] || []).push(...names);
-            return acc;
-        }, {});
-        return {
-            // キーは文字列になるので数値へ戻す(旧い自由記述の目標値はそのまま出す)
-            skillLines: Object.entries(skillsByTn).map(([tn, names]) => ({
-                names: names.join(" / "),
-                tn: Number.isFinite(Number(tn)) ? Number(tn) : tn,
-            })),
-            // 本文は開示済み送信でだけ出す(目標値の送信は本文を伏せたまま目標値を示すもの)
-            text: (onlyDisclosed && showEntry) ? (content.text ?? "") : "",
-            tiers: infoTiers(content)
-                .filter(tier => (onlyDisclosed
-                    ? (tier.isDisclosed === true && (tier.tn || tier.text))
-                    // 目標値の送信では本文を持たない段=出すものが無いので落とす
-                    : !!tier.tn))
-                .map(tier => ({ tn: tier.tn ?? null, text: onlyDisclosed ? (tier.text ?? "") : "" })),
-        };
-    }).filter(block => block.skillLines.length || block.text || block.tiers.length);
+    const buildBlocks = (rows, onlyDisclosed) => rows.flatMap(content => infoSkillGroups(content))
+        .map((group) => {
+            const values = onlyDisclosed ? group.values.filter(v => v.isDisclosed) : group.values;
+            return {
+                skillLabel: group.skillLabel,
+                // 目標値の送信: 技能行の後ろに横並び(「目標値: 8, 12, 15」)
+                tnList: onlyDisclosed ? "" : values.filter(v => v.tn).map(v => v.tn).join(", "),
+                // 開示済みの送信: 目標値｜本文の行(本文の無い目標値は出す物が無いので落とす)
+                rows: onlyDisclosed
+                    ? values.filter(v => v.text).map(v => ({ tn: v.tn ?? "", text: v.text }))
+                    : [],
+            };
+        })
+        .filter(block => block.tnList || block.rows.length);
 
     const title = String(item?.title ?? "").trim();
-    // 段だけが開いている内容も送信対象(開示の累積はトグル側が保つが、送信側でも取りこぼさない)
+    // 1 つでも開示していれば開示済みの送信(開示の累積はトグル側が保つ)
     const disclosed = contents.filter(c => c.isDisclosed || infoTiers(c).some(t => t.isDisclosed));
     if (disclosed.length > 0) return { title, mode: "disclosed", blocks: buildBlocks(disclosed, true) };
     const blocks = buildBlocks(contents, false);
@@ -837,9 +874,9 @@ export function infoTiers(content) {
     });
 }
 
-/** 段の一覧表示ラベル(シナリオコントロールパネルの開示行・チャットの見出しと同じ言い回し)。 */
-export function infoTierLabel(tier) {
-    return tier?.tn ? `さらに目標値 ${tier.tn}` : "（目標値未入力）";
+/** 目標値の行ラベル(パネルの開示行)。値そのものを名前として出す(2026-08-15)。 */
+export function infoValueLabel(tn) {
+    return tn ? `目標値 ${tn}` : "（目標値未入力）";
 }
 
 /**
@@ -889,25 +926,22 @@ export function infoSkillKeys(row) {
 }
 
 /**
- * 情報項目の技能行の表示名を解決する(14-7)。識別キーは辞典逆引きの現在名を〈〉囲いで返す
- * (生キーは表示しない)。辞典から消えたキーは表示から落ち、解決できるキーが一つも無いときだけ
- * 旧い自由記述の name をフォールバックにする。
+ * 情報項目の技能行の表示名を解決する(14-7)。**指定技能の表示規則は全画面で 1 つ**
+ * (`formatDesignatedSkills`・2026-08-15)なので、ここは識別キーの列をその規則に渡すだけ。
+ * 辞典から消えたキーは表示から落ち、解決できるキーが一つも無いときだけ旧い自由記述の name を
+ * フォールバックにする。
  * @param {{identificationKeys?:Array<string>, identificationKey?:string, name?:string}} row 技能行
  * @param {Map<string,string>} nameByKey 識別キー→辞典名
- * @returns {Array<string>} 表示名の並び
+ * @returns {string} 表示名(「〈社会：ストリート、警察〉」)
  */
-export function resolveInfoSkillNames(row, nameByKey) {
-    const names = infoSkillKeys(row)
-        .map(key => nameByKey?.get(key))
-        .filter(Boolean)
-        .map(dictName => formatSkillName(dictName));
-    if (!names.length && row?.name) return [row.name];
-    return names;
+export function resolveInfoSkillLabel(row, nameByKey) {
+    const label = formatDesignatedSkills(infoSkillKeys(row), nameByKey);
+    return label || (row?.name ?? "");
 }
 
 /**
- * 情報項目の技能行に解決済み表示名(`names`)を埋めた複製を返す(buildInfoMessage・一覧ラベルの
- * 前処理)。元データは書き換えない(正本は識別キーのまま)。
+ * 情報項目の技能行に解決済み表示名(`label`)を埋めた複製を返す(送信カード・パネル一覧の前処理)。
+ * 元データは書き換えない(正本は識別キーのまま)。
  * @param {object} item 情報項目
  * @param {Map<string,string>} nameByKey 識別キー→辞典名
  * @returns {object}
@@ -917,7 +951,7 @@ export function withResolvedInfoSkillNames(item, nameByKey) {
         ...item,
         contents: (item?.contents ?? []).map(c => ({
             ...c,
-            skills: (c.skills ?? []).map(s => ({ ...s, names: resolveInfoSkillNames(s, nameByKey) })),
+            skills: (c.skills ?? []).map(s => ({ ...s, label: resolveInfoSkillLabel(s, nameByKey) })),
         })),
     };
 }

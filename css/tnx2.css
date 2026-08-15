@@ -7387,44 +7387,43 @@ button.tnx-create-act-button span {
     border-top: 1px solid var(--tnx2-border, #444);
 }
 
-/* 使用技能 ＞ 目標値。技能名は折り返し、目標値は判定要求カードと同じ強調で右に置く */
-.tnx-info-card .ic-skill-row {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
+/* 指定技能の行。目標値の送信では後ろに目標値が横並びで付く(「目標値: 8, 12, 15」) */
+.tnx-info-card .ic-skills {
     font-size: 0.9em;
+    overflow-wrap: anywhere;
 }
 
-.tnx-info-card .ic-skill-names {
-    flex: 1 1 auto;
-    min-width: 0;
+.tnx-info-card .ic-skills__names {
     font-weight: 600;
 }
 
-.tnx-info-card .ic-skill-sep {
-    flex: 0 0 auto;
-    color: var(--tnx2-text-secondary);
-    font-size: 0.85em;
-}
-
-.tnx-info-card .ic-tn {
-    flex: 0 0 auto;
-    font-weight: 700;
-    font-size: 1.05em;
+.tnx-info-card .ic-skills__tn {
+    margin-left: 6px;
     color: var(--tnx2-accent, #c8a84b);
-}
-
-/* 段(同じ入口で目標値が上がると積み増される内容)。入口本文の続きであることを縦罫で示す */
-.tnx-info-card .ic-tier {
-    padding-left: 8px;
-    border-left: 2px solid var(--tnx2-border, #444);
-}
-
-.tnx-info-card .ic-tier__label {
-    display: block;
-    color: var(--tnx2-accent, #c8a84b);
-    font-size: 0.85em;
     font-weight: 700;
+}
+
+/* 開示済みの送信＝目標値｜本文の 2 列(罫線の無い表・シナリオの紙面と同じ体裁)。
+   **どの目標値も同列**なので行に主従を付けない(字下げ・囲みで差を出さない) */
+.tnx-info-card .ic-table {
+    display: grid;
+    grid-template-columns: 2.5em 1fr;
+    column-gap: 8px;
+    row-gap: 6px;
+    align-items: baseline;
+    font-size: 0.9em;
+}
+
+.tnx-info-card .ic-table__tn {
+    text-align: right;
+    font-weight: 700;
+    color: var(--tnx2-accent, #c8a84b);
+    font-variant-numeric: tabular-nums;
+}
+
+.tnx-info-card .ic-table__text {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .tnx-check-request .cr-req-actor-name {
@@ -9401,17 +9400,22 @@ button.tnx-create-act-button span {
 
 .tnx-scenario-panel .scp-info-item { margin-bottom: 4px; }
 
+/* 指定技能＝その枝の見出し。目標値の行はこの下に字下げして並ぶ(2026-08-15) */
+.tnx-scenario-panel .scp-info-skills {
+    padding: 0 4px 0 20px;
+    font-size: 0.9em;
+    overflow-wrap: anywhere;
+}
+
+/* 目標値の行。**どの目標値も同列**(上下関係は無い)なので字下げは 1 段だけ */
 .tnx-scenario-panel .scp-info-content {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 0 4px 0 20px;
+    padding: 0 4px 0 36px;
     font-size: 0.9em;
     opacity: 0.9;
 }
-
-/* 段(追加で判明する内容)は入口の内容にぶら下げてもう一段字下げする */
-.tnx-scenario-panel .scp-info-tier { padding-left: 36px; }
 
 .tnx-scenario-panel .scp-info-content-label {
     flex: 1 1 auto;

@@ -11,8 +11,7 @@
 
 import { postCheckRequest } from "./tnx-rl-request-app.mjs";
 import { buildProgressRequest, buildSupportRequest } from "./focus-system-request-logic.mjs";
-import { loadSkillEntries, SKILL_PACKS } from "./skill-dictionary.mjs";
-import { formatSkillName } from "./identification.mjs";
+import { loadSkillEntries, SKILL_PACKS, formatDesignatedSkills } from "./skill-dictionary.mjs";
 import { listActiveFocusSystems } from "./focus-system-state.mjs";
 
 /**
@@ -56,12 +55,16 @@ export function arRemainingTargets(combat = game.combat) {
         .map(a => ({ actorId: a.id, actorName: a.name }));
 }
 
-/** 識別キー → 〈技能名〉(未指定・未解決は「（指定なし）」)。 */
-async function skillLabel(key) {
-    if (!key) return "（指定なし）";
+/**
+ * 識別キーの列 → 指定技能の表示(**規則は全画面共通**＝`formatDesignatedSkills`・2026-08-15。
+ * 登場判定・情報項目・判定要求と同じ書き方)。解決できるキーが無ければ「（指定なし）」。
+ */
+async function skillLabel(keys) {
+    const list = (Array.isArray(keys) ? keys : [keys]).filter(Boolean);
+    if (!list.length) return "（指定なし）";
     const entries = await loadSkillEntries(SKILL_PACKS.general);
-    const hit = entries.find(s => s.identificationKey === key);
-    return hit?.name ? formatSkillName(hit.name) : key;
+    const nameByKey = new Map(entries.map(e => [e.identificationKey, e.name]));
+    return formatDesignatedSkills(list, nameByKey) || "（指定なし）";
 }
 
 /**
@@ -131,12 +134,11 @@ export async function requestFocusSystemCheck(fs, kind, { targets = null } = {})
 
     // 進行判定・支援判定とも指定技能は複数ありうる(2026-07-21)
     const keys = req.identificationKeys ?? [];
-    const labels = await Promise.all(keys.map(k => skillLabel(k)));
 
     await postCheckRequest({
         checkType:          "skillCheck",
         identificationKeys: keys,
-        skillLabel:         labels.length ? labels.join("・") : "（指定なし）",
+        skillLabel:         await skillLabel(keys),
         validSuits:        [],
         targetValue:       req.targetValue,
         description:       `${fs.name}（${kind === "progress" ? "進行判定" : "支援判定"}）`,

@@ -17,7 +17,9 @@ import { TnxCheckFlow } from './tnx-check-flow.mjs';
 import { buildSkillOptions } from './skill-select.mjs';
 import { findItemByIdentificationKey, formatSkillName, itemDisplayName } from './identification.mjs';
 import { enumerateRequestComboCandidates, buildRequestUsageChoices } from './usage-check-context.mjs';
-import { loadGroupedGeneralSkillChoices, loadSkillChoices, SKILL_PACKS } from './skill-dictionary.mjs';
+import {
+    loadGroupedGeneralSkillChoices, loadSkillChoices, SKILL_PACKS, formatDesignatedSkills,
+} from './skill-dictionary.mjs';
 import { listCheckRequestPresets, presetLabel, checkRequestPresetToForm } from './request-presets.mjs';
 import { bindTargetPicker } from './target-picker.mjs';
 
@@ -30,14 +32,16 @@ function requestSkillNames() {
 }
 
 /**
- * 識別キー → 〈技能名〉。**一般技能に限らず**スタイル技能・ワークス専用技能も引く
- * (2026-08-12。指定技能を全技能へ広げたため)。逆引きできないキーは生キーを出さず
+ * 識別キーの列 → 指定技能の表示(**規則は全画面共通**＝`formatDesignatedSkills`・2026-08-15)。
+ * **一般技能に限らず**スタイル技能・ワークス専用技能も引く(2026-08-12。指定技能を全技能へ
+ * 広げたため)。逆引きできないキーは生キーを出さず落とし、1 つも解決できないときだけ
  * 「（参照切れ）」にする(識別キーは保存する参照であって表示するものではない)。
  */
-async function requestSkillLabel(key) {
-    if (!key) return "";
+async function requestSkillLabel(keys) {
+    const list = (Array.isArray(keys) ? keys : [keys]).filter(Boolean);
+    if (!list.length) return "";
     const names = await requestSkillNames();
-    return names[key] ? formatSkillName(names[key]) : "（参照切れ）";
+    return formatDesignatedSkills(list, new Map(Object.entries(names))) || "（参照切れ）";
 }
 import { toCheckRequestTargets } from './target-picker-logic.mjs';
 
@@ -324,9 +328,8 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
                 ui.notifications.warn("指定技能を1つ以上追加してください。");
                 return false;
             }
-            // 技能名の表示は 〈〉 整形(2026-07-18・識別マーク省去)。複数は FS判定の要求と同じ「・」連結
-            const labels = await Promise.all(identificationKeys.map(k => requestSkillLabel(k)));
-            skillLabel = labels.join("・");
+            // 表示は指定技能の共通規則に通す(登場判定・情報項目と同じ書き方・2026-08-15)
+            skillLabel = await requestSkillLabel(identificationKeys);
         } else {
             const abilityKey = form.querySelector("[name=abilityKey]")?.value ?? "reason";
             const abilityLabel = { reason: "理性", passion: "感情", life: "生命", mundane: "外界" }[abilityKey]

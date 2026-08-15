@@ -37,10 +37,11 @@ import {
   handoutNumberOf,
   handoutStyleDisplay,
   infoSkillKeys,
-  resolveInfoSkillNames,
+  resolveInfoSkillLabel,
+  infoSkillGroups,
   withResolvedInfoSkillNames,
   infoTiers,
-  infoTierLabel,
+  infoValueLabel,
   toggleInfoDisclosure,
   SCENE_KIND_OPTIONS,
   flattenScenes,
@@ -690,30 +691,52 @@ describe("ハンドアウト表示名（「①<スタイル名>用ハンドア�
   });
 });
 
-describe("buildInfoCardData()（情報項目の送信カード・14-3／2026-08-15 テンプレート化）", () => {
-  // 技能行は解決済み(withResolvedInfoSkillNames を通した後)の names を持つ
+describe("buildInfoCardData()（情報項目の送信カード・2026-08-15 表示の等価化）", () => {
+  // 技能行は解決済み(withResolvedInfoSkillNames を通した後)の label を持つ
   const ITEM = {
     title: "黒幕の素性",
     contents: [
-      { isDisclosed: false, text: "正体", skills: [{ names: ["〈社会〉"], tn: 12 }, { names: ["〈コネ〉"], tn: 12 }] },
-      { isDisclosed: false, text: "裏付け", skills: [{ names: ["〈捜査〉"], tn: 15 }] },
+      { id: "c1", isDisclosed: false, text: "正体", skills: [{ label: "〈社会：N◎VA、ストリート〉", tn: 12 }] },
+      { id: "c2", isDisclosed: false, text: "裏付け", skills: [{ label: "〈捜査〉", tn: 15 }] },
     ],
   };
 
-  it("開示済みが無ければ全内容の技能/目標値を送る（mode=targets・同TNは / 連結）", () => {
-    const data = buildInfoCardData(ITEM);
+  // 段は 2026-08-12 の新設。目標値どうしに上下関係は無い(2026-08-15 ユーザー裁定)ので、
+  // 入口の目標値と段の目標値を区別せず 1 つの並びとして昇順に置く
+  const TIERED = {
+    title: "氷の静謐",
+    contents: [{
+      id: "c1", isDisclosed: false, text: "<p>組織の概要</p>",
+      skills: [{ label: "〈社会：ストリート、警察〉", tn: 8 }],
+      tiers: [
+        { id: "t2", tn: 15, text: "<p>今回の構成</p>", isDisclosed: false },
+        { id: "t1", tn: 12, text: "<p>実行犯</p>", isDisclosed: false },
+      ],
+    }, {
+      id: "c2", isDisclosed: false, text: "<p>制御室の場所</p>",
+      skills: [{ label: "〈電脳〉", tn: 21 }],
+    }],
+  };
+
+  it("目標値の送信=技能行ごとに目標値を横並びで出す（本文は出さない）", () => {
+    const data = buildInfoCardData(TIERED);
     expect(data.mode).toBe("targets");
-    expect(data.title).toBe("黒幕の素性");
-    expect(data.blocks).toHaveLength(2);
-    expect(data.blocks[0].skillLines).toEqual([{ names: "〈社会〉 / 〈コネ〉", tn: 12 }]);
-    expect(data.blocks[1].skillLines).toEqual([{ names: "〈捜査〉", tn: 15 }]);
+    expect(data.title).toBe("氷の静謐");
+    expect(data.blocks).toEqual([
+      { skillLabel: "〈社会：ストリート、警察〉", tnList: "8, 12, 15", rows: [] },
+      { skillLabel: "〈電脳〉", tnList: "21", rows: [] },
+    ]);
   });
 
-  // 目標値の送信＝「何がどの目標値で判るか」の提示。未開示の内容を卓に出さない
-  // (2026-06-07 a5a51a2 で開示済み送信と組み立てを共通化した際に混ざった・2026-08-15 是正)
-  it("目標値の送信では本文を出さない（入口本文・段本文とも）", () => {
+  it("目標値は昇順（保存順ではない）", () => {
+    expect(buildInfoCardData(TIERED).blocks[0].tnList).toBe("8, 12, 15");
+  });
+
+  it("枝が複数あれば技能行も複数になる（枝ごとに 1 行）", () => {
     const data = buildInfoCardData(ITEM);
-    expect(data.blocks.map(b => b.text)).toEqual(["", ""]);
+    expect(data.blocks.map(b => b.skillLabel))
+      .toEqual(["〈社会：N◎VA、ストリート〉", "〈捜査〉"]);
+    expect(data.blocks.map(b => b.tnList)).toEqual(["12", "15"]);
   });
 
   it("目標値の送信では、技能・目標値を持たず本文だけの内容は送信対象にならない", () => {
@@ -725,90 +748,81 @@ describe("buildInfoCardData()（情報項目の送信カード・14-3／2026-08-
     expect(data.blocks).toEqual([]);
   });
 
-  it("本文は囲わずそのまま渡す（テンプレートが {{{ }}} で置く＝空段落を挟まない）", () => {
-    const data = buildInfoCardData({
-      title: "T",
-      contents: [{ isDisclosed: true, text: "<p>本文</p>", skills: [] }],
-    });
-    expect(data.blocks[0].text).toBe("<p>本文</p>");
-  });
-
-  it("開示済みがあればその内容だけを送る（mode=disclosed）", () => {
-    const item = { ...ITEM, contents: [{ ...ITEM.contents[0], isDisclosed: true }, ITEM.contents[1]] };
-    const data = buildInfoCardData(item);
-    expect(data.mode).toBe("disclosed");
-    expect(data.blocks).toHaveLength(1);
-    expect(data.blocks[0].text).toBe("正体");
-  });
-
-  it("1行に複数の技能があれば、その行の目標値でまとめて連結される", () => {
-    const data = buildInfoCardData({
-      title: "T",
-      contents: [{ isDisclosed: false, text: "", skills: [{ names: ["〈医療〉", "〈射撃〉"], tn: 12 }] }],
-    });
-    expect(data.blocks[0].skillLines).toEqual([{ names: "〈医療〉 / 〈射撃〉", tn: 12 }]);
-  });
-
   it("送れる中身が無ければ mode=null・ブロックも空", () => {
-    const data = buildInfoCardData({ title: "空", contents: [{ isDisclosed: false, text: "", skills: [{ names: [], tn: null }] }] });
+    const data = buildInfoCardData({ title: "空", contents: [{ isDisclosed: false, text: "", skills: [{ label: "", tn: null }] }] });
     expect(data.mode).toBeNull();
     expect(data.blocks).toEqual([]);
   });
 
-  // 段(追加で判明する内容)＝同じ入口で目標値が上がると本文に積み増される(2026-08-12 裁定)
-  const TIERED = {
-    title: "ミハイルの行方",
-    contents: [{
-      isDisclosed: false,
-      text: "潜伏先はカブキ",
-      skills: [{ names: ["〈情報：ストリート〉"], tn: 8 }],
-      tiers: [
-        { id: "t2", tn: 16, text: "護衛は3人", isDisclosed: false },
-        { id: "t1", tn: 12, text: "明日には発つ", isDisclosed: false },
-      ],
-    }],
-  };
-
-  it("開示済みが無ければ段も目標値の昇順で送る（mode=targets・段は目標値だけ）", () => {
-    const data = buildInfoCardData(TIERED);
-    expect(data.mode).toBe("targets");
-    expect(data.blocks[0].skillLines).toEqual([{ names: "〈情報：ストリート〉", tn: 8 }]);
-    // 保存順(16→12)ではなく昇順(12→16)で並ぶ。本文は伏せる
-    expect(data.blocks[0].tiers).toEqual([
-      { tn: 12, text: "" },
-      { tn: 16, text: "" },
-    ]);
-  });
-
-  it("目標値の送信では、目標値を持たない段は出さない（出すものが無い）", () => {
-    const item = structuredClone(TIERED);
-    item.contents[0].tiers.push({ id: "t3", tn: null, text: "目標値未入力の段", isDisclosed: false });
-    const data = buildInfoCardData(item);
-    expect(data.blocks[0].tiers).toEqual([{ tn: 12, text: "" }, { tn: 16, text: "" }]);
-  });
-
-  it("開示済みの段だけを送る（下位段が開いていても上位段は伏せる）", () => {
+  it("開示済みの送信=開いている目標値だけを「目標値｜本文」の行で出す", () => {
     const item = structuredClone(TIERED);
     item.contents[0].isDisclosed = true;
     item.contents[0].tiers.find(t => t.id === "t1").isDisclosed = true;
     const data = buildInfoCardData(item);
     expect(data.mode).toBe("disclosed");
-    expect(data.blocks[0].text).toBe("潜伏先はカブキ");
-    expect(data.blocks[0].tiers).toEqual([{ tn: 12, text: "明日には発つ" }]);
+    expect(data.blocks).toEqual([{
+      skillLabel: "〈社会：ストリート、警察〉",
+      tnList: "",
+      rows: [{ tn: 8, text: "<p>組織の概要</p>" }, { tn: 12, text: "<p>実行犯</p>" }],
+    }]);
   });
 
-  it("段だけが開示された内容も送信対象に入る（入口本文は伏せたまま）", () => {
+  it("開示していない目標値は出さない（下位を開けても上位は伏せる）", () => {
+    const item = structuredClone(TIERED);
+    item.contents[0].isDisclosed = true;
+    const data = buildInfoCardData(item);
+    expect(data.blocks[0].rows).toEqual([{ tn: 8, text: "<p>組織の概要</p>" }]);
+  });
+
+  it("段だけを開けても送信対象に入る（入口の本文は伏せたまま）", () => {
     const item = structuredClone(TIERED);
     item.contents[0].tiers.find(t => t.id === "t1").isDisclosed = true;
     const data = buildInfoCardData(item);
     expect(data.mode).toBe("disclosed");
-    expect(data.blocks[0].tiers).toEqual([{ tn: 12, text: "明日には発つ" }]);
-    expect(data.blocks[0].text).toBe("");
-    expect(data.blocks[0].skillLines).toEqual([]);
+    expect(data.blocks[0].rows).toEqual([{ tn: 12, text: "<p>実行犯</p>" }]);
+  });
+
+  it("本文は囲わずそのまま渡す（テンプレートが {{{ }}} で置く＝空段落を挟まない）", () => {
+    const item = structuredClone(TIERED);
+    item.contents[0].isDisclosed = true;
+    expect(buildInfoCardData(item).blocks[0].rows[0].text).toBe("<p>組織の概要</p>");
   });
 });
 
-describe("infoTiers() / infoTierLabel()（情報の段・2026-08-12）", () => {
+describe("infoSkillGroups()（技能行ごとの表示単位・2026-08-15）", () => {
+  const CONTENT = {
+    id: "c1", isDisclosed: true, text: "本文",
+    skills: [{ label: "〈社会：ストリート〉", tn: 8 }, { label: "〈電脳〉", tn: 10 }],
+    tiers: [{ id: "t1", tn: 12, text: "段", isDisclosed: false }],
+  };
+
+  it("技能行ごとに 1 単位・目標値はその行の値＋段の値の昇順", () => {
+    const groups = infoSkillGroups(CONTENT);
+    expect(groups.map(g => g.skillLabel)).toEqual(["〈社会：ストリート〉", "〈電脳〉"]);
+    expect(groups[0].values.map(v => v.tn)).toEqual([8, 12]);
+    expect(groups[1].values.map(v => v.tn)).toEqual([10, 12]);
+  });
+
+  it("入口の値は content の開示状態と本文・段の値は段のそれを持つ", () => {
+    const [group] = infoSkillGroups(CONTENT);
+    expect(group.values[0]).toMatchObject({ tierId: null, isDisclosed: true, text: "本文" });
+    expect(group.values[1]).toMatchObject({ tierId: "t1", isDisclosed: false, text: "段" });
+  });
+
+  it("技能を指定していない枝でも目標値だけは並ぶ", () => {
+    const groups = infoSkillGroups({ id: "c", skills: [], tiers: [{ id: "t", tn: 9, text: "x" }] });
+    expect(groups).toHaveLength(1);
+    expect(groups[0].skillLabel).toBe("");
+    expect(groups[0].values.map(v => v.tn)).toEqual([9]);
+  });
+
+  it("出す目標値が無ければ単位そのものを作らない", () => {
+    expect(infoSkillGroups({ skills: [{ label: "〈医療〉", tn: null }] })).toEqual([]);
+    expect(infoSkillGroups({})).toEqual([]);
+  });
+});
+
+describe("infoTiers() / infoValueLabel()（情報の段・2026-08-12／表示は 2026-08-15）", () => {
   it("段が無ければ空配列（既存データは無改修で読める）", () => {
     expect(infoTiers({})).toEqual([]);
     expect(infoTiers({ tiers: null })).toEqual([]);
@@ -832,9 +846,10 @@ describe("infoTiers() / infoTierLabel()（情報の段・2026-08-12）", () => {
   });
 
   it("段のラベルは目標値で示す（未入力は入力を促す表記）", () => {
-    expect(infoTierLabel({ tn: 12 })).toBe("さらに目標値 12");
-    expect(infoTierLabel({ tn: null })).toBe("（目標値未入力）");
-    expect(infoTierLabel({})).toBe("（目標値未入力）");
+    // 値そのものが名前(「さらに」等の上下関係を示す語を付けない・2026-08-15)
+    expect(infoValueLabel(12)).toBe("目標値 12");
+    expect(infoValueLabel(null)).toBe("（目標値未入力）");
+    expect(infoValueLabel(undefined)).toBe("（目標値未入力）");
   });
 });
 
@@ -890,12 +905,14 @@ describe("toggleInfoDisclosure()（開示の累積・2026-08-12）", () => {
   });
 });
 
-describe("infoSkillKeys() / resolveInfoSkillNames() / withResolvedInfoSkillNames()（情報技能の表示解決・14-7）", () => {
-  const NAMES = new Map([["society:street", "社会：ストリート†"], ["medicine", "医療"]]);
+describe("infoSkillKeys() / resolveInfoSkillLabel() / withResolvedInfoSkillNames()（情報技能の表示解決・14-7／表記の一本化 2026-08-15）", () => {
+  const NAMES = new Map([
+    ["society_street", "社会：ストリート†"], ["society_police", "社会：警察"], ["medicine", "医療"],
+  ]);
 
   it("技能行の識別キーは配列で読む（1行＝技能の集合）", () => {
-    expect(infoSkillKeys({ identificationKeys: ["medicine", "society:street"] }))
-      .toEqual(["medicine", "society:street"]);
+    expect(infoSkillKeys({ identificationKeys: ["medicine", "society_street"] }))
+      .toEqual(["medicine", "society_street"]);
     expect(infoSkillKeys({ identificationKeys: [] })).toEqual([]);
   });
 
@@ -909,30 +926,32 @@ describe("infoSkillKeys() / resolveInfoSkillNames() / withResolvedInfoSkillNames
     expect(infoSkillKeys({ identificationKeys: [], identificationKey: "medicine" })).toEqual([]);
   });
 
-  it("識別キーは辞典逆引きの現在名を〈〉囲い・識別マーク省去で返す", () => {
-    expect(resolveInfoSkillNames({ identificationKeys: ["society:street", "medicine"] }, NAMES))
-      .toEqual(["〈社会：ストリート〉", "〈医療〉"]);
+  it("表記は登場判定と同じ規則（同じ小分類は一つに束ね・区切り無しで連結）", () => {
+    expect(resolveInfoSkillLabel({ identificationKeys: ["society_street", "society_police"] }, NAMES))
+      .toBe("〈社会：ストリート、警察〉");
+    expect(resolveInfoSkillLabel({ identificationKeys: ["society_street", "medicine"] }, NAMES))
+      .toBe("〈社会：ストリート〉〈医療〉");
   });
 
   it("辞典から消えたキーは表示から落とす（生キーは出さない）", () => {
-    expect(resolveInfoSkillNames({ identificationKeys: ["gone:key", "medicine"] }, NAMES))
-      .toEqual(["〈医療〉"]);
+    expect(resolveInfoSkillLabel({ identificationKeys: ["gone_key", "medicine"] }, NAMES))
+      .toBe("〈医療〉");
   });
 
   it("解決できるキーが無いときだけ、旧い自由記述の name をフォールバックにする", () => {
-    expect(resolveInfoSkillNames({ identificationKeys: [], name: "〈コネ：赤羽〉" }, NAMES))
-      .toEqual(["〈コネ：赤羽〉"]);
-    expect(resolveInfoSkillNames({ identificationKey: "gone:key", name: "旧名" }, NAMES)).toEqual(["旧名"]);
-    expect(resolveInfoSkillNames({ identificationKeys: ["medicine"], name: "旧名" }, NAMES))
-      .toEqual(["〈医療〉"]);
-    expect(resolveInfoSkillNames({ identificationKey: "gone:key" }, NAMES)).toEqual([]);
+    expect(resolveInfoSkillLabel({ identificationKeys: [], name: "〈コネ：赤羽〉" }, NAMES))
+      .toBe("〈コネ：赤羽〉");
+    expect(resolveInfoSkillLabel({ identificationKey: "gone_key", name: "旧名" }, NAMES)).toBe("旧名");
+    expect(resolveInfoSkillLabel({ identificationKeys: ["medicine"], name: "旧名" }, NAMES))
+      .toBe("〈医療〉");
+    expect(resolveInfoSkillLabel({ identificationKey: "gone_key" }, NAMES)).toBe("");
   });
 
   it("withResolvedInfoSkillNames は複製に解決名を埋め、元データを書き換えない", () => {
-    const item = { title: "T", contents: [{ skills: [{ identificationKeys: ["society:street"], tn: 10 }] }] };
+    const item = { title: "T", contents: [{ skills: [{ identificationKeys: ["society_street"], tn: 10 }] }] };
     const resolved = withResolvedInfoSkillNames(item, NAMES);
-    expect(resolved.contents[0].skills[0].names).toEqual(["〈社会：ストリート〉"]);
-    expect(item.contents[0].skills[0].names).toBeUndefined();
+    expect(resolved.contents[0].skills[0].label).toBe("〈社会：ストリート〉");
+    expect(item.contents[0].skills[0].label).toBeUndefined();
   });
 });
 

@@ -510,10 +510,27 @@ export function stripSkillCategory(name, category) {
 }
 
 /**
- * 識別キーの列を表示名(〈〉囲い)の列に整形する。**同じ小分類の固有名詞技能は一つに束ねる**
- * (2026-08-09 ユーザー指示): 社会が2つなら〈社会：N◎VA、ストリート〉・コネが2つなら
- * 〈コネ：キース・シュナイダー、エウラリア〉。束ねる位置はその小分類の初出位置、小分類を持たない
- * 技能(無条件取得技能)は個別に並ぶ。逆引きできないキーは落とす(生キーは表示しない)。
+ * **指定技能の表示規則(唯一の入口・2026-08-15 ユーザー指示で一本化)**。
+ *
+ * 表記は登場判定に揃える: **同じ小分類の固有名詞技能は一つに束ね**(2026-08-09 ユーザー指示)、
+ * 社会が2つなら〈社会：N◎VA、ストリート〉・コネが2つなら〈コネ：キース・シュナイダー、エウラリア〉。
+ * 束ねる位置はその小分類の初出位置、小分類を持たない技能(無条件取得技能)は個別に並ぶ。
+ * 束ねた組どうしは**区切り無し**で連結する(〈社会：ストリート、警察〉〈電脳〉)。
+ * 逆引きできないキーは落とす(生キーは表示しない)。
+ *
+ * 指定技能を**読み物として出す箇所は全てここを通す**(登場判定・情報項目・判定要求・FS判定)。
+ * ただし**操作単位のチップは対象外**——1チップ＝1技能で ✕ を持つため、束ねると外せなくなる。
+ * @param {Array<string>} keys 識別キーの列
+ * @param {Map<string,string>} nameByKey 識別キー→辞典名(loadGeneralSkillNameByKey)
+ * @returns {string} 「〈…〉〈…〉」
+ */
+export function formatDesignatedSkills(keys, nameByKey) {
+  return formatGroupedSkillNames(keys, nameByKey).join("");
+}
+
+/**
+ * 識別キーの列を表示名(〈〉囲い)の**列**に整形する(下位の部品。表示に使うのは上の
+ * `formatDesignatedSkills`)。
  * @param {Array<string>} keys 識別キーの列
  * @param {Map<string,string>} nameByKey 識別キー→辞典名(loadGeneralSkillNameByKey)
  * @returns {Array<string>} 「〈…〉」の列
