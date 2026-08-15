@@ -9287,16 +9287,18 @@ button.tnx-create-act-button span {
     overflow-y: auto;
 }
 
-/* 操作層のタブ(2026-08-15 タブ再構成)。意匠はシートのタブ(sheet-tabs)を踏襲する */
+/* 操作層のタブ(2026-08-15 タブ再構成)。意匠はシートのタブ(sheet-tabs)を踏襲する。
+   固定ヘッダと本文に挟まれる行なので、パネルの gap に margin を足して息継ぎを作る */
 .tnx-scenario-panel .scp-tabs {
     display: flex;
     flex: 0 0 auto;
+    margin: 4px 0;
     border-bottom: 1px solid var(--tnx2-border-active);
 }
 
 .tnx-scenario-panel .scp-tabs .item {
     flex: 1 1 0;
-    padding: 4px 8px;
+    padding: 6px 8px;
     border-bottom: 2px solid transparent;
     color: var(--tnx2-text-muted);
     font-family: var(--tnx2-font-mono);
@@ -9328,8 +9330,12 @@ button.tnx-create-act-button span {
     display: flex;
     align-items: center;
     gap: 6px;
+    padding: 2px 0;
     cursor: pointer;
 }
+
+/* シーン一覧は直前の進行ボタンと密着しないよう上に間を置く */
+.tnx-scenario-panel .scp-scene-list { margin-top: 6px; }
 
 .tnx-scenario-panel .scp-disclosure-head i {
     width: 12px;
