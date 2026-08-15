@@ -759,10 +759,17 @@ export function buildHandoutCardData(handout, {
 }
 
 /**
- * 情報項目送信カードの描画コンテキストを組む。開示済み内容があればそれのみ(mode="disclosed")、
- * 無ければ全内容の技能/目標値+本文(mode="targets")。送れる中身が無ければ mode=null。
- * 同じ目標値の技能は「A / B ＞ TN」に連結(既存書式)。段(`tiers`)は入口本文の後ろに
- * 目標値の昇順で積む(2026-08-12 裁定＝同じ入口で目標値が上がると情報が増える)。
+ * 情報項目送信カードの描画コンテキストを組む。送信は 2 つのモードを持つ。
+ *
+ * - **目標値の送信**(mode="targets"・開示済みが 1 つも無いとき)＝「何がどの目標値で判るか」の
+ *   提示。**項目名・使用技能・目標値だけを出し、本文は一切出さない**(段も目標値だけ)。
+ *   ※2026-06-07 `a5a51a2` で開示済み送信と組み立てを共通化した際に本文が混ざっていた。
+ *     初版(`04800da`)は技能と目標値だけを送っており、2026-08-15 にユーザー指摘で是正。
+ * - **開示済みの送信**(mode="disclosed")＝開いている入口本文と開いている段を出す。
+ *
+ * 送れる中身が無ければ mode=null。同じ目標値の技能は「A / B ＞ TN」に連結(既存書式)。
+ * 段(`tiers`)は入口本文の後ろに目標値の昇順で積む(2026-08-12 裁定＝同じ入口で目標値が
+ * 上がると情報が増える)。
  *
  * 本文・段本文はリッチテキスト(ProseMirror の `<p>` を含む)なので**そのまま**返し、テンプレート
  * 側で `{{{ }}}` として置く(旧実装は `<p>` で囲んでいたため空段落が挟まっていた・2026-08-15)。
@@ -790,10 +797,14 @@ export function buildInfoCardData(item) {
                 names: names.join(" / "),
                 tn: Number.isFinite(Number(tn)) ? Number(tn) : tn,
             })),
-            text: showEntry ? (content.text ?? "") : "",
+            // 本文は開示済み送信でだけ出す(目標値の送信は本文を伏せたまま目標値を示すもの)
+            text: (onlyDisclosed && showEntry) ? (content.text ?? "") : "",
             tiers: infoTiers(content)
-                .filter(tier => (!onlyDisclosed || tier.isDisclosed === true) && (tier.tn || tier.text))
-                .map(tier => ({ tn: tier.tn ?? null, text: tier.text ?? "" })),
+                .filter(tier => (onlyDisclosed
+                    ? (tier.isDisclosed === true && (tier.tn || tier.text))
+                    // 目標値の送信では本文を持たない段=出すものが無いので落とす
+                    : !!tier.tn))
+                .map(tier => ({ tn: tier.tn ?? null, text: onlyDisclosed ? (tier.text ?? "") : "" })),
         };
     }).filter(block => block.skillLines.length || block.text || block.tiers.length);
 

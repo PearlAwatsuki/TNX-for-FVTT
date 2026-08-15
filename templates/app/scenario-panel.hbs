@@ -75,6 +75,8 @@
                 <i class="fas fa-door-open"></i> 登場判定
             </button>
         {{/if}}
+        {{!-- チームは上演中の編成(2026-08-15 ユーザー指示＝開始前に出す必要はない) --}}
+        {{#if actStarted}}
         <fieldset class="tnx-fieldset">
             <legend>チーム</legend>
             {{#each teams as |team|}}
@@ -127,13 +129,15 @@
                 <button type="button" class="tnx-btn tnx-btn--sm" data-action="teamCreate">結成</button>
             </div>
         </fieldset>
+        {{/if}}
     {{else}}
         <p class="scp-empty">アクトが読み込まれていません。</p>
     {{/if}}
 
-    {{!-- RL 操作層。セクションの順序はアクトの進行段階で変わる(2026-08-08 ユーザー指示):
+    {{!-- RL 操作層。出すセクションと順序はアクトの進行段階で変わる(2026-08-08 ユーザー指示・
+          2026-08-15 是正):
           開始後＝シーン・情報を最優先(アクトは終了操作のみなので最後)・配布/送信は非表示。
-          開始前＝アクトの読み込み/開始 → プレアクトの配布・送信 → 情報。 --}}
+          開始前＝アクトの読み込み/開始 → プレアクトの配布・送信のみ(情報は上演中の操作)。 --}}
     {{#*inline "actSection"}}
         <fieldset class="tnx-fieldset">
             <legend>アクト</legend>
@@ -314,7 +318,6 @@
             {{> actSection}}
             {{#if loaded}}
                 {{> sendSection}}
-                {{> infoSection}}
             {{/if}}
         {{/if}}
     {{/if}}

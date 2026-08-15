@@ -706,8 +706,23 @@ describe("buildInfoCardData()（情報項目の送信カード・14-3／2026-08-
     expect(data.title).toBe("黒幕の素性");
     expect(data.blocks).toHaveLength(2);
     expect(data.blocks[0].skillLines).toEqual([{ names: "〈社会〉 / 〈コネ〉", tn: 12 }]);
-    expect(data.blocks[0].text).toBe("正体");
     expect(data.blocks[1].skillLines).toEqual([{ names: "〈捜査〉", tn: 15 }]);
+  });
+
+  // 目標値の送信＝「何がどの目標値で判るか」の提示。未開示の内容を卓に出さない
+  // (2026-06-07 a5a51a2 で開示済み送信と組み立てを共通化した際に混ざった・2026-08-15 是正)
+  it("目標値の送信では本文を出さない（入口本文・段本文とも）", () => {
+    const data = buildInfoCardData(ITEM);
+    expect(data.blocks.map(b => b.text)).toEqual(["", ""]);
+  });
+
+  it("目標値の送信では、技能・目標値を持たず本文だけの内容は送信対象にならない", () => {
+    const data = buildInfoCardData({
+      title: "本文だけ",
+      contents: [{ isDisclosed: false, text: "秘密", skills: [] }],
+    });
+    expect(data.mode).toBeNull();
+    expect(data.blocks).toEqual([]);
   });
 
   it("本文は囲わずそのまま渡す（テンプレートが {{{ }}} で置く＝空段落を挟まない）", () => {
@@ -754,15 +769,22 @@ describe("buildInfoCardData()（情報項目の送信カード・14-3／2026-08-
     }],
   };
 
-  it("開示済みが無ければ段も目標値の昇順で送る（mode=targets）", () => {
+  it("開示済みが無ければ段も目標値の昇順で送る（mode=targets・段は目標値だけ）", () => {
     const data = buildInfoCardData(TIERED);
     expect(data.mode).toBe("targets");
     expect(data.blocks[0].skillLines).toEqual([{ names: "〈情報：ストリート〉", tn: 8 }]);
-    // 保存順(16→12)ではなく昇順(12→16)で並ぶ
+    // 保存順(16→12)ではなく昇順(12→16)で並ぶ。本文は伏せる
     expect(data.blocks[0].tiers).toEqual([
-      { tn: 12, text: "明日には発つ" },
-      { tn: 16, text: "護衛は3人" },
+      { tn: 12, text: "" },
+      { tn: 16, text: "" },
     ]);
+  });
+
+  it("目標値の送信では、目標値を持たない段は出さない（出すものが無い）", () => {
+    const item = structuredClone(TIERED);
+    item.contents[0].tiers.push({ id: "t3", tn: null, text: "目標値未入力の段", isDisclosed: false });
+    const data = buildInfoCardData(item);
+    expect(data.blocks[0].tiers).toEqual([{ tn: 12, text: "" }, { tn: 16, text: "" }]);
   });
 
   it("開示済みの段だけを送る（下位段が開いていても上位段は伏せる）", () => {
