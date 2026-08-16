@@ -14,23 +14,18 @@
                 <div class="scp-scene-line">
                     <span class="scp-scene-title">SCENE {{scene.number}} : {{scene.name}}</span>
                 </div>
-                {{!-- シーンプレイヤー・エリア・登場はラベル列+値の行で出す(2026-08-16 ユーザー指示=
-                      インラインの折り返し並びは読みにくい) --}}
+                {{!-- 横並びのインライン(2026-08-16 是正で元の配置に戻した)。ラベル列グリッド案は
+                      「登場」と値の間の空白が縦の近接に負けて誤読を生み、縦積みは空白が多く
+                      不格好——いずれもユーザー指摘で撤回 --}}
                 <div class="scp-scene-meta">
+                    {{#if scene.areaLabel}}<span class="scp-meta-item">エリア：{{scene.areaLabel}}</span>{{/if}}
                     {{#if scene.rulerScene}}
-                        <span class="scp-meta-label">シーンプレイヤー</span>
-                        <span class="scp-meta-value">ルーラーシーン</span>
+                        <span class="scp-meta-item">ルーラーシーン</span>
                     {{else if scene.playerLabel}}
-                        <span class="scp-meta-label">シーンプレイヤー</span>
-                        <span class="scp-meta-value">{{scene.playerLabel}}</span>
-                    {{/if}}
-                    {{#if scene.areaLabel}}
-                        <span class="scp-meta-label">エリア</span>
-                        <span class="scp-meta-value">{{scene.areaLabel}}</span>
+                        <span class="scp-meta-item">シーンプレイヤー：{{scene.playerLabel}}</span>
                     {{/if}}
                     {{#if scene.appearanceLabel}}
-                        <span class="scp-meta-label">登場</span>
-                        <span class="scp-meta-value">{{scene.appearanceLabel}}</span>
+                        <span class="scp-meta-item">登場：{{scene.appearanceLabel}}</span>
                     {{/if}}
                 </div>
             {{/if}}

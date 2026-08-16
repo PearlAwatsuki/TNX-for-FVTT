@@ -9399,27 +9399,14 @@ button.tnx-create-act-button span {
 
 .tnx-scenario-panel .scp-scene-title { font-size: 1.05em; font-weight: 600; }
 
-/* シーンプレイヤー/エリア/登場=ラベル列+値のグリッド行(2026-08-16 ユーザー指示)。
-   ラベルの意匠はチャットカードのフィールドラベルと同じ読み方向 */
+/* シーンプレイヤー/エリア/登場=横並びのインライン(2026-08-16 是正で元の配置に復帰。
+   ラベル列グリッド・縦積み・アクセント色ラベルはいずれもユーザー指摘で撤回) */
 .tnx-scenario-panel .scp-scene-meta {
-    display: grid;
-    grid-template-columns: max-content 1fr;
-    gap: 2px 10px;
-    align-items: baseline;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
     font-size: 0.9em;
-}
-
-.tnx-scenario-panel .scp-meta-label {
-    font-family: var(--tnx2-font-mono);
-    font-size: 0.85em;
-    color: var(--tnx2-accent);
-    letter-spacing: 0.06em;
-}
-
-.tnx-scenario-panel .scp-meta-value {
-    min-width: 0;
-    color: var(--tnx2-text-secondary);
-    overflow-wrap: anywhere;
+    opacity: 0.9;
 }
 
 /* シーンカードは枠で囲んで1ブロックにまとめる(2026-08-16 ユーザー指示・チャットカード意匠に
