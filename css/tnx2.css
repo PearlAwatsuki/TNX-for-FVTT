@@ -3806,37 +3806,93 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     min-width: 120px;
 }
 
-/* ── 情報項目(14-9): 上演中のアクトの情報項目一覧 ── */
-.tnx-hud .hud-info-list {
+/* ── 情報項目(14-9): 上演中のアクトの情報項目一覧 ──
+   受け皿の点線枠は実要素(2026-08-17 是正=旧 ::after は擬似要素で子を持てず項目が枠外に
+   並んでいた)。項目は装飾プレート(2026-08-17 ユーザー指示=簡素すぎる見た目の是正):
+   公開=アクセント枠+グロー・非公開=施錠風に彩度を落とす・目標値チップは開示で埋まる */
+.tnx-hud .hud-info-frame {
     display: flex;
+    flex: 1;
     flex-direction: column;
-    gap: 2px;
+    gap: 6px;
     width: 100%;
+    min-height: 24px;
+    padding: 6px;
+    border: 1px dashed rgba(0, 200, 224, 0.15);
+    border-radius: 2px;
 }
 
 .tnx-hud .hud-info-item {
     display: flex;
-    align-items: center;
-    gap: 6px;
+    flex-direction: column;
+    gap: 4px;
     width: 100%;
-    padding: 2px 4px;
-    border-radius: 4px;
+    padding: 6px 8px;
+    background: linear-gradient(135deg, var(--tnx2-bg-1), var(--tnx2-bg-2));
+    border: 1px solid var(--tnx2-border-glow);
+    border-left: 3px solid var(--tnx2-accent);
+    border-radius: var(--tnx2-radius);
+    box-shadow: 0 0 8px rgba(0, 200, 224, 0.08);
     font-size: 0.92em;
 }
 
-/* PL に存在だけ見せる非公開項目(「非公開の情報」・2026-08-16 裁定) */
-.tnx-hud .hud-info-item.is-masked { color: var(--tnx2-text-muted); }
-
-.tnx-hud .hud-info-hidden {
-    flex: 0 0 auto;
-    color: var(--tnx2-text-muted);
-    font-size: 0.85em;
+.tnx-hud .hud-info-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
 }
 
 .tnx-hud .hud-info-title {
     flex: 1 1 auto;
     min-width: 0;
     overflow-wrap: anywhere;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+}
+
+/* 非公開(RL=実名+施錠印/PL=「非公開の情報」): 彩度を落とした施錠風プレート */
+.tnx-hud .hud-info-item.is-hidden {
+    background: var(--tnx2-bg-1);
+    border-color: var(--tnx2-border-subtle);
+    border-left-color: var(--tnx2-text-muted);
+    box-shadow: none;
+}
+
+.tnx-hud .hud-info-item.is-masked { color: var(--tnx2-text-muted); }
+
+.tnx-hud .hud-info-item.is-masked .hud-info-title { font-weight: 400; }
+
+.tnx-hud .hud-info-lock {
+    flex: 0 0 auto;
+    color: var(--tnx2-text-muted);
+    font-size: 0.85em;
+}
+
+/* 目標値チップ: 開示済みが埋まっていく(進捗の表現・公開項目の目標値は卓に見える情報) */
+.tnx-hud .hud-info-tns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.tnx-hud .hud-info-tn {
+    min-width: 22px;
+    padding: 0 5px;
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: 9px;
+    color: var(--tnx2-text-secondary);
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.85em;
+    line-height: 16px;
+    text-align: center;
+}
+
+.tnx-hud .hud-info-tn.is-open {
+    background: rgba(0, 200, 224, 0.18);
+    border-color: var(--tnx2-accent);
+    color: var(--tnx2-accent);
+    box-shadow: 0 0 6px rgba(0, 200, 224, 0.25);
 }
 
 /* ── プレイヤー手札エリア ── */
@@ -3917,15 +3973,8 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     color: var(--tnx2-text-muted);
 }
 
-.tnx-hud .hud-insert-area::after {
-    content: "";
-    display: block;
-    flex: 1;
-    width: 100%;
-    min-height: 24px;
-    border: 1px dashed rgba(0, 200, 224, 0.15);
-    border-radius: 2px;
-}
+/* 旧: .hud-insert-area::after の点線枠(擬似要素)は 2026-08-17 に実要素 .hud-info-frame へ
+   置換した(擬似要素は子を持てず、情報項目が枠の外に並んでいたため) */
 
 .tnx-hud .neuro-cards-row {
     display: flex;

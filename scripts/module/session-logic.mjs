@@ -957,6 +957,30 @@ export function infoCheckRows(item) {
 }
 
 /**
+ * HUD 情報プレートの目標値チップ(14-9・2026-08-17 装飾化)。項目内の全目標値(入口・段)を
+ * 昇順で列挙し、開示済みかを付ける——開示が進むとチップが埋まっていく表現に使う。
+ * 公開項目の目標値は卓に見える情報(公開状態3段階)なので、プレートに出してよい。
+ * 技能行をまたぐ同じ目標値は1つに畳む(どこかで開いていれば開示扱い)。
+ * @param {?object} item 情報項目
+ * @returns {Array<{tn: number, disclosed: boolean}>}
+ */
+export function hudInfoTnChips(item) {
+    const byTn = new Map();
+    for (const content of (Array.isArray(item?.contents) ? item.contents : [])) {
+        for (const group of infoSkillGroups(content)) {
+            for (const value of group.values) {
+                const tn = Number(value.tn);
+                if (value.tn === null || value.tn === undefined || value.tn === "" || !Number.isFinite(tn)) continue;
+                byTn.set(tn, byTn.get(tn) === true || value.isDisclosed === true);
+            }
+        }
+    }
+    return [...byTn.entries()]
+        .map(([tn, disclosed]) => ({ tn, disclosed }))
+        .sort((a, b) => a.tn - b.tn);
+}
+
+/**
  * HUD の情報項目一覧の整形(14-9)。公開状態3段階の出し分け(2026-08-16 裁定):
  * PL には非公開の項目を**「非公開の情報」**として存在だけ見せる(技能・目標値・内容は伏せる)。
  * RL には実名を見せる(どれが伏さっているかの確認用。管理操作はパネル)。

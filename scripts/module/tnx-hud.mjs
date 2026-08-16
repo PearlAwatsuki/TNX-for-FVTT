@@ -5,7 +5,7 @@ import { getCardCheckValue, getAbilityBySuit, SUIT_TO_ABILITY } from './tnx-chec
 import { getUserFlagData } from './user-flag-schema.mjs';
 import { getSessionState, getActiveActJournal } from './session-state.mjs';
 import {
-    hudInfoItems, withResolvedInfoSkillNames, buildInfoCardData, infoCheckRows,
+    hudInfoItems, hudInfoTnChips, withResolvedInfoSkillNames, buildInfoCardData, infoCheckRows,
 } from './session-logic.mjs';
 import { loadGeneralSkillNameByKey } from './skill-dictionary.mjs';
 
@@ -704,6 +704,9 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
                 ...row,
                 hiddenMark: !row.isPublic,   // RL 向け=非公開の印
                 tooltipHtml,
+                // 目標値チップ(2026-08-17 装飾化): 公開項目の目標値は卓に見える情報。
+                // 開示が進むとチップが埋まる=進捗の表現
+                tns: hudInfoTnChips(resolved),
                 // 判定ボタンは項目に1つ(2026-08-16 裁定)。公開項目・担当キャラクターあり・
                 // 挑める技能行がある場合のみ。RL は判定しない(管理はパネル)
                 canCheck: !game.user.isGM && row.isPublic && !!game.user.character

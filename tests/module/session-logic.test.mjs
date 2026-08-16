@@ -63,6 +63,7 @@ import {
   discloseInfoByAchievement,
   infoCheckRows,
   hudInfoItems,
+  hudInfoTnChips,
 } from "../../scripts/module/session-logic.mjs";
 import { TNX_HOOKS } from "../../scripts/module/combat-events.mjs";
 
@@ -1443,5 +1444,40 @@ describe("hudInfoItems()（HUD の情報項目一覧＝公開状態3段階の出
 
   it("題の無い項目は既定名「情報」（パネルと同じ）", () => {
     expect(hudInfoItems([{ id: "x", isPublic: true }], { isGM: false })[0].title).toBe("情報");
+  });
+});
+
+describe("hudInfoTnChips()（HUD 情報プレートの目標値チップ・2026-08-17）", () => {
+  it("項目内の全目標値を昇順で列挙し、開示済みフラグを付ける", () => {
+    const item = { contents: [{
+      id: "c1", isDisclosed: true, text: "本文",
+      skills: [{ label: "〈社会〉", tn: 5 }],
+      tiers: [
+        { id: "t1", tn: 12, text: "x", isDisclosed: false },
+        { id: "t2", tn: 10, text: "y", isDisclosed: true },
+      ],
+    }] };
+    expect(hudInfoTnChips(item)).toEqual([
+      { tn: 5, disclosed: true },
+      { tn: 10, disclosed: true },
+      { tn: 12, disclosed: false },
+    ]);
+  });
+
+  it("技能行をまたぐ同じ目標値は1つに畳む（開示はどこかで開いていれば開示扱い）", () => {
+    const item = { contents: [{
+      id: "c1", isDisclosed: false, text: "本文",
+      skills: [{ label: "〈A〉", tn: 8 }, { label: "〈B〉", tn: 8 }],
+      tiers: [{ id: "t1", tn: 10, text: "x", isDisclosed: true }],
+    }] };
+    expect(hudInfoTnChips(item)).toEqual([
+      { tn: 8, disclosed: false },
+      { tn: 10, disclosed: true },
+    ]);
+  });
+
+  it("目標値の無い値・空項目は安全に空", () => {
+    expect(hudInfoTnChips({ contents: [{ id: "c", skills: [], tiers: [{ id: "t", text: "x" }] }] })).toEqual([]);
+    expect(hudInfoTnChips(null)).toEqual([]);
   });
 });

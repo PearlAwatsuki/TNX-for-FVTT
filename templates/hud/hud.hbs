@@ -37,23 +37,31 @@
 
         <div class="hud-panel hud-insert-area">
             <span class="card-slot-label">情報項目</span>
-            {{!-- 情報収集判定(14-9): PL の非公開項目は「非公開の情報」として存在だけ見せる。
-                  ツールチップは常設(開示済み=内容/未開示=技能と目標値・チャットカード意匠)。
-                  判定ボタンは項目に1つ=技能行の選択はダイアログ(2026-08-16 裁定) --}}
-            {{#if infoItems.length}}
-                <div class="hud-info-list">
-                    {{#each infoItems as |info|}}
-                        <div class="hud-info-item {{#if info.masked}}is-masked{{/if}}"
-                             {{#if info.tooltipHtml}}data-tooltip-html="{{info.tooltipHtml}}" data-tooltip-class="tnx-info-card-tooltip"{{/if}}>
-                            {{#if info.hiddenMark}}<i class="fas fa-eye-slash hud-info-hidden"></i>{{/if}}
+            {{!-- 情報収集判定(14-9)。点線枠は実要素の受け皿(2026-08-17 是正=旧 ::after の
+                  擬似要素は子を持てず、項目が枠の外に並んでいた)。項目は装飾プレート
+                  (2026-08-17 ユーザー指示): 非公開=施錠風・公開=アクセント枠・目標値チップは
+                  開示が進むと埋まる。ツールチップ常設・判定ボタンは項目に1つ --}}
+            <div class="hud-info-frame">
+                {{#each infoItems as |info|}}
+                    <div class="hud-info-item {{#if info.masked}}is-masked{{/if}}{{#if info.hiddenMark}} is-hidden{{/if}}"
+                         {{#if info.tooltipHtml}}data-tooltip-html="{{info.tooltipHtml}}" data-tooltip-class="tnx-info-card-tooltip"{{/if}}>
+                        <div class="hud-info-head">
+                            {{#if info.hiddenMark}}<i class="fas fa-lock hud-info-lock"></i>{{/if}}
                             <span class="hud-info-title">{{info.title}}</span>
                             {{#if info.canCheck}}
-                                <a class="tnx-icon-ctrl" data-action="infoCheck" data-item-id="{{info.id}}" title="情報収集判定"><i class="fas fa-magnifying-glass"></i></a>
+                                <a class="tnx-icon-ctrl hud-info-check" data-action="infoCheck" data-item-id="{{info.id}}" title="情報収集判定"><i class="fas fa-magnifying-glass"></i></a>
                             {{/if}}
                         </div>
-                    {{/each}}
-                </div>
-            {{/if}}
+                        {{#if info.tns.length}}
+                            <div class="hud-info-tns">
+                                {{#each info.tns as |chip|}}
+                                    <span class="hud-info-tn {{#if chip.disclosed}}is-open{{/if}}">{{chip.tn}}</span>
+                                {{/each}}
+                            </div>
+                        {{/if}}
+                    </div>
+                {{/each}}
+            </div>
         </div>
 
         {{#if showPlayerHands}}
