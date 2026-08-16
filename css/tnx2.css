@@ -9400,13 +9400,20 @@ button.tnx-create-act-button span {
 .tnx-scenario-panel .scp-scene-title { font-size: 1.05em; font-weight: 600; }
 
 /* シーンプレイヤー/エリア/登場=横並びのインライン(2026-08-16 是正で元の配置に復帰。
-   ラベル列グリッド・縦積み・アクセント色ラベルはいずれもユーザー指摘で撤回) */
+   ラベル列グリッド・縦積み・アクセント色ラベルはいずれもユーザー指摘で撤回)。
+   項目間は広めに離し、値はラベルよりやや大きく明るく(同日ユーザー指示) */
 .tnx-scenario-panel .scp-scene-meta {
     display: flex;
-    gap: 12px;
+    gap: 18px;
     flex-wrap: wrap;
+    align-items: baseline;
     font-size: 0.9em;
-    opacity: 0.9;
+    color: var(--tnx2-text-secondary);
+}
+
+.tnx-scenario-panel .scp-meta-value {
+    font-size: 1.1em;
+    color: var(--tnx2-text-primary);
 }
 
 /* シーンカードは枠で囲んで1ブロックにまとめる(2026-08-16 ユーザー指示・チャットカード意匠に
