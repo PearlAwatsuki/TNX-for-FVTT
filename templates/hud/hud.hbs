@@ -21,7 +21,9 @@
 
                 <div class="card-slot">
                     {{#if (and scenePile scenePile.cards.size)}}
-                        <div class="deck-card scene-card-display" data-drop-zone="scene">
+                        {{!-- カード画像しか見えないので、ホバーでチャットカードと同じ意匠の
+                              ツールチップを出す(2026-08-16・data-tooltip-html) --}}
+                        <div class="deck-card scene-card-display" data-drop-zone="scene" data-tooltip-html="{{sceneCardTooltip}}" data-tooltip-class="tnx-neuro-card-tooltip">
                             <img src="{{topSceneCard.img}}" alt="{{topSceneCard.name}}">
                         </div>
                     {{else}}

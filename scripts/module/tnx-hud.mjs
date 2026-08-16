@@ -1,4 +1,4 @@
-import { TnxActionHandler } from './tnx-action-handler.mjs';
+import { TnxActionHandler, buildNeuroCardChatHTML } from './tnx-action-handler.mjs';
 import { TnxCheckFlow } from './tnx-check-flow.mjs';
 import { isDamageCardPending, executeDamageCardFromHand } from './damage-flow.mjs';
 import { getCardCheckValue, getAbilityBySuit, SUIT_TO_ABILITY } from './tnx-check-engine.mjs';
@@ -90,6 +90,12 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
         if (scenePile) {
             context.scenePile = scenePile;
             context.topSceneCard = scenePile.cards.contents[scenePile.cards.contents.length - 1];
+            // シーンカードはカード画像しか見えないので、ホバーでチャットカードと同じ意匠の
+            // ツールチップを出す(2026-08-16 ユーザー指示。説明が既に見えているシナリオ
+            // コントロールパネルには付けない)。HTML はチャット投稿と同じ生成関数
+            context.sceneCardTooltip = context.topSceneCard
+                ? await buildNeuroCardChatHTML(context.topSceneCard)
+                : null;
         }
 
         const userFlag = getUserFlagData(game.user);

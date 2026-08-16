@@ -34,10 +34,11 @@
                     {{/if}}
                 </div>
             {{/if}}
-            {{!-- シーンカードは枠で囲み、ホバーでチャットカードと同じ意匠のツールチップを出す
-                  (2026-08-16 ユーザー指示・HTML はチャット投稿と同じ生成関数) --}}
+            {{!-- シーンカードは枠で囲んで1ブロックにまとめる(2026-08-16 ユーザー指示)。
+                  ツールチップは付けない=このパネルには説明(キーワード/暗示)が既に出ている。
+                  カード画像だけの HUD 側に付ける(同日ユーザー指摘で是正) --}}
             {{#if sceneCard}}
-                <div class="scp-scene-card" data-tooltip-html="{{sceneCard.tooltipHtml}}" data-tooltip-class="tnx-neuro-card-tooltip">
+                <div class="scp-scene-card">
                     <img src="{{sceneCard.img}}" alt="{{sceneCard.nameText}}" />
                     <div class="scp-scene-card-info">
                         <div class="scp-scene-card-name">{{{sceneCard.name}}}</div>
