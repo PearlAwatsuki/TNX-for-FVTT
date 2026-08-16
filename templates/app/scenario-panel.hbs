@@ -14,20 +14,30 @@
                 <div class="scp-scene-line">
                     <span class="scp-scene-title">SCENE {{scene.number}} : {{scene.name}}</span>
                 </div>
+                {{!-- シーンプレイヤー・エリア・登場はラベル列+値の行で出す(2026-08-16 ユーザー指示=
+                      インラインの折り返し並びは読みにくい) --}}
                 <div class="scp-scene-meta">
-                    {{#if scene.areaLabel}}<span class="scp-meta-item">エリア：{{scene.areaLabel}}</span>{{/if}}
                     {{#if scene.rulerScene}}
-                        <span class="scp-meta-item">ルーラーシーン</span>
+                        <span class="scp-meta-label">シーンプレイヤー</span>
+                        <span class="scp-meta-value">ルーラーシーン</span>
                     {{else if scene.playerLabel}}
-                        <span class="scp-meta-item">シーンプレイヤー：{{scene.playerLabel}}</span>
+                        <span class="scp-meta-label">シーンプレイヤー</span>
+                        <span class="scp-meta-value">{{scene.playerLabel}}</span>
+                    {{/if}}
+                    {{#if scene.areaLabel}}
+                        <span class="scp-meta-label">エリア</span>
+                        <span class="scp-meta-value">{{scene.areaLabel}}</span>
                     {{/if}}
                     {{#if scene.appearanceLabel}}
-                        <span class="scp-meta-item">登場：{{scene.appearanceLabel}}</span>
+                        <span class="scp-meta-label">登場</span>
+                        <span class="scp-meta-value">{{scene.appearanceLabel}}</span>
                     {{/if}}
                 </div>
             {{/if}}
+            {{!-- シーンカードは枠で囲み、ホバーでチャットカードと同じ意匠のツールチップを出す
+                  (2026-08-16 ユーザー指示・HTML はチャット投稿と同じ生成関数) --}}
             {{#if sceneCard}}
-                <div class="scp-scene-card">
+                <div class="scp-scene-card" data-tooltip-html="{{sceneCard.tooltipHtml}}" data-tooltip-class="tnx-neuro-card-tooltip">
                     <img src="{{sceneCard.img}}" alt="{{sceneCard.nameText}}" />
                     <div class="scp-scene-card-info">
                         <div class="scp-scene-card-name">{{{sceneCard.name}}}</div>

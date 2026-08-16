@@ -660,18 +660,36 @@ export class TnxActionHandler {
      * @private
      */
     static async _postCardToChat(card, { speakerActor = null } = {}) {
-        const keyword    = await TextEditor.enrichHTML(card.faces[0]?.text ?? "（キーワードなし）");
-        const implication = await TextEditor.enrichHTML(card.description ?? "（暗示なし）");
-        const cardNameRomaji = NEURO_STYLE_ROMAJI[card.name] ?? null;
+        const messageData = { content: await buildNeuroCardChatHTML(card) };
+        if (speakerActor) {
+            messageData.speaker = ChatMessage.getSpeaker({ actor: speakerActor });
+        }
 
-        const romajiBlock = cardNameRomaji
-            ? `<div class="tnx-neuro-card-chat__name">${cardNameRomaji}</div>`
-            : "";
-        const imageBlock = card.img
-            ? `<img class="tnx-neuro-card-chat__image" src="${card.img}" alt="">`
-            : "";
+        await ChatMessage.create(messageData);
+    }
+}
 
-        const chatContent = `<div class="tnx-neuro-card-chat tokyo-nova">
+/**
+ * ニューロカードのチャットカード HTML を組み立てる。
+ * チャット投稿(_postCardToChat)と、シナリオコントロールパネルのシーンカードにホバーした
+ * ときのツールチップ(2026-08-16 ユーザー指示=チャットカードと同じデザイン)が共用する——
+ * 生成を1本にすることで両者の意匠が定義から一致する。
+ * @param {Card} card ニューロカードドキュメント
+ * @returns {Promise<string>} `.tnx-neuro-card-chat` 意匠の HTML
+ */
+export async function buildNeuroCardChatHTML(card) {
+    const keyword    = await TextEditor.enrichHTML(card.faces[0]?.text ?? "（キーワードなし）");
+    const implication = await TextEditor.enrichHTML(card.description ?? "（暗示なし）");
+    const cardNameRomaji = NEURO_STYLE_ROMAJI[card.name] ?? null;
+
+    const romajiBlock = cardNameRomaji
+        ? `<div class="tnx-neuro-card-chat__name">${cardNameRomaji}</div>`
+        : "";
+    const imageBlock = card.img
+        ? `<img class="tnx-neuro-card-chat__image" src="${card.img}" alt="">`
+        : "";
+
+    return `<div class="tnx-neuro-card-chat tokyo-nova">
     <div class="tnx-neuro-card-chat__header">
         <span class="tnx-neuro-card-chat__type-label">ニューロカード</span>
     </div>
@@ -692,12 +710,4 @@ export class TnxActionHandler {
         </div>
     </div>
 </div>`;
-
-        const messageData = { content: chatContent };
-        if (speakerActor) {
-            messageData.speaker = ChatMessage.getSpeaker({ actor: speakerActor });
-        }
-
-        await ChatMessage.create(messageData);
-    }
 }

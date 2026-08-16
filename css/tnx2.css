@@ -9266,8 +9266,10 @@ button.tnx-create-act-button span {
    シナリオコントロールパネル(フェーズ14-3) — アクト/シーン進行の操作盤
    ============================================================ */
 
-/* パネルは伸び過ぎないよう上限を設ける(14-5 是正) */
-.tnx-scenario-panel-app,
+/* パネルは伸び過ぎないよう上限を設ける(14-5 是正)。シナリオコントロールは固定ヘッダの下に
+   本文が十分見える高さを確保する(2026-08-16 ユーザー指示=ボディはヘッダより広く) */
+.tnx-scenario-panel-app { max-height: min(700px, calc(100vh - 160px)); }
+
 .tnx-subscene-panel-app { max-height: min(560px, calc(100vh - 200px)); }
 
 .tnx-subscene-panel-app .window-content { overflow-y: auto; }
@@ -9397,24 +9399,46 @@ button.tnx-create-act-button span {
 
 .tnx-scenario-panel .scp-scene-title { font-size: 1.05em; font-weight: 600; }
 
+/* シーンプレイヤー/エリア/登場=ラベル列+値のグリッド行(2026-08-16 ユーザー指示)。
+   ラベルの意匠はチャットカードのフィールドラベルと同じ読み方向 */
 .tnx-scenario-panel .scp-scene-meta {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 2px 10px;
+    align-items: baseline;
     font-size: 0.9em;
-    opacity: 0.9;
 }
 
+.tnx-scenario-panel .scp-meta-label {
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.85em;
+    color: var(--tnx2-accent);
+    letter-spacing: 0.06em;
+}
+
+.tnx-scenario-panel .scp-meta-value {
+    min-width: 0;
+    color: var(--tnx2-text-secondary);
+    overflow-wrap: anywhere;
+}
+
+/* シーンカードは枠で囲んで1ブロックにまとめる(2026-08-16 ユーザー指示・チャットカード意匠に
+   寄せた左アクセント線)。ホバーでチャットカードと同じツールチップが出る */
 .tnx-scenario-panel .scp-scene-card {
     display: flex;
     align-items: flex-start;
     gap: 8px;
     margin-top: 2px;
+    padding: 6px 8px;
+    background: var(--tnx2-bg-0);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-left: 3px solid var(--tnx2-accent);
+    border-radius: var(--tnx2-radius);
 }
 
 .tnx-scenario-panel .scp-scene-card img {
     flex: 0 0 auto;
-    height: 72px;
+    height: 64px;
     width: auto;
     border: none;
     border-radius: 4px;
@@ -9440,6 +9464,18 @@ button.tnx-create-act-button span {
     font-weight: 600;
     opacity: 0.8;
     margin-right: 4px;
+}
+
+/* シーンカードのツールチップ(2026-08-16): コアの #tooltip の器を無効化し、
+   中身(.tnx-neuro-card-chat=チャットカードと同じ生成 HTML)の意匠をそのまま見せる */
+#tooltip.tnx-neuro-card-tooltip {
+    width: 300px;
+    max-width: 300px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    text-align: left;
 }
 
 .tnx-scenario-panel .scp-load-row {

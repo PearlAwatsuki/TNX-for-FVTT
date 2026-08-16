@@ -43,7 +43,7 @@ import {
 } from "./appearance-logic.mjs";
 import { presetLabel } from "./request-presets.mjs";
 
-import { TnxActionHandler } from "./tnx-action-handler.mjs";
+import { TnxActionHandler, buildNeuroCardChatHTML } from "./tnx-action-handler.mjs";
 import { applyStageRef } from "./subscenes.mjs";
 import { resolveHandoutContact } from "./handout-contact.mjs";
 
@@ -229,6 +229,9 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             img: card.currentFace?.img ?? card.faces?.[0]?.img ?? card.img,
             keyword: await foundry.applications.ux.TextEditor.enrichHTML(card.faces?.[0]?.text ?? ""),
             implication: await foundry.applications.ux.TextEditor.enrichHTML(card.description ?? ""),
+            // ホバーでチャットカードと同じ意匠のツールチップを出す(2026-08-16・data-tooltip-html)。
+            // HTML はチャット投稿と同じ生成関数=意匠が定義から一致する
+            tooltipHtml: await buildNeuroCardChatHTML(card),
         } : null;
 
         // 登場中の一覧(全員向け・14-5)と登場判定ボタン(PL・非登場の担当キャラクターがいるとき)。
