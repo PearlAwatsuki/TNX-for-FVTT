@@ -23,6 +23,16 @@
     </div>
     {{/if}}
 
+    {{!-- 情報収集判定の固有情報(14-9): どの情報項目に挑んだか --}}
+    {{#if infoCheck.title}}
+    <div class="cr-calc-section">
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">情報</span>
+            <span class="cr-calc-val">{{infoCheck.title}}</span>
+        </div>
+    </div>
+    {{/if}}
+
     {{#if isFixedCheck}}
     <div class="cr-calc-section">
         <div class="cr-calc-row cr-total-row">
@@ -104,6 +114,13 @@
     {{#if appearance.appeared}}
     <div class="cr-appearance-outcome">
         <i class="fas fa-door-open"></i> シーンに登場した{{#if appearance.ghost}}（ゴースト）{{/if}}
+    </div>
+    {{/if}}
+
+    {{!-- 情報収集の帰結(14-9): 成功で自動適用された開示を卓に残る形で示す --}}
+    {{#if infoCheck.disclosed}}
+    <div class="cr-appearance-outcome">
+        <i class="fas fa-unlock"></i> 情報を開示した
     </div>
     {{/if}}
 

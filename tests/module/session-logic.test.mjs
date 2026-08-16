@@ -60,6 +60,9 @@ import {
   contactType,
   CONTACT_TYPES,
   planActLimitedCleanup,
+  discloseInfoByAchievement,
+  infoCheckRows,
+  hudInfoItems,
 } from "../../scripts/module/session-logic.mjs";
 import { TNX_HOOKS } from "../../scripts/module/combat-events.mjs";
 
@@ -1336,5 +1339,109 @@ describe("resolveScenePlayerRef()（シーンプレイヤー指定の解決・20
   it("未指定・null は担当なし", () => {
     expect(resolveScenePlayerRef({}, HANDOUTS)).toEqual({ ruler: false, handoutId: "", userId: "" });
     expect(resolveScenePlayerRef(null)).toEqual({ ruler: false, handoutId: "", userId: "" });
+  });
+});
+
+describe("discloseInfoByAchievement()（判定成功→自動開示・2026-08-16 裁定＝抜いた目標値まで一括）", () => {
+  const content = (over = {}) => ({
+    id: "c1", text: "入口本文", isDisclosed: false,
+    tiers: [
+      { id: "t1", tn: 10, text: "段10", isDisclosed: false },
+      { id: "t2", tn: 12, text: "段12", isDisclosed: false },
+    ],
+    ...over,
+  });
+
+  it("達成値以下の目標値を持つ入口・段を全て開く（一括開示）", () => {
+    const out = discloseInfoByAchievement(content(), { achievement: 11, entryTn: 8 });
+    expect(out.isDisclosed).toBe(true);
+    expect(out.tiers.map(t => t.isDisclosed)).toEqual([true, false]);
+  });
+
+  it("入口の目標値に届かなければ入口は開かない（段も届かなければ何も開かない）", () => {
+    const out = discloseInfoByAchievement(content(), { achievement: 7, entryTn: 8 });
+    expect(out.isDisclosed).toBe(false);
+    expect(out.tiers.every(t => !t.isDisclosed)).toBe(true);
+  });
+
+  it("段が開けば入口も開く（既存の累積規約を維持）", () => {
+    const out = discloseInfoByAchievement(content(), { achievement: 10, entryTn: 15 });
+    expect(out.tiers.map(t => t.isDisclosed)).toEqual([true, false]);
+    expect(out.isDisclosed).toBe(true);
+  });
+
+  it("開くだけで閉じない（開示済みは達成値が低くても維持）", () => {
+    const opened = content({ isDisclosed: true, tiers: [
+      { id: "t1", tn: 10, text: "段10", isDisclosed: true },
+      { id: "t2", tn: 12, text: "段12", isDisclosed: true },
+    ] });
+    const out = discloseInfoByAchievement(opened, { achievement: 3, entryTn: 8 });
+    expect(out.isDisclosed).toBe(true);
+    expect(out.tiers.every(t => t.isDisclosed)).toBe(true);
+  });
+
+  it("目標値の無い段・入口目標値なしは開かない／元データを書き換えない（イミュータブル）", () => {
+    const src = content({ tiers: [{ id: "t1", tn: null, text: "x", isDisclosed: false }] });
+    const out = discloseInfoByAchievement(src, { achievement: 99, entryTn: null });
+    expect(out.tiers[0].isDisclosed).toBe(false);
+    expect(out.isDisclosed).toBe(false);
+    expect(src.isDisclosed).toBe(false);
+  });
+});
+
+describe("infoCheckRows()（判定起動の技能行列挙＝項目1ボタン→行選択・2026-08-16 裁定）", () => {
+  const item = {
+    id: "i1", title: "氷の静謐", isPublic: true,
+    contents: [
+      { id: "c1", skills: [
+          { identificationKeys: ["society_st", "society_pol"], tn: 8, label: "〈社会：ストリート、警察〉" },
+          { identificationKeys: ["hacking"], tn: 12, label: "〈ハッキング〉" },
+        ], tiers: [] },
+      { id: "c2", skills: [{ identificationKeys: [], name: "自由記述技能", tn: 10, label: "〈自由記述技能〉" }], tiers: [] },
+      { id: "c3", skills: [], tiers: [{ id: "t", tn: 15, text: "x" }] },
+    ],
+  };
+
+  it("枝をまたいで技能行を列挙する（contentId・キー・目標値・表示名）", () => {
+    const rows = infoCheckRows(item);
+    expect(rows).toEqual([
+      { contentId: "c1", keys: ["society_st", "society_pol"], tn: 8, label: "〈社会：ストリート、警察〉" },
+      { contentId: "c1", keys: ["hacking"], tn: 12, label: "〈ハッキング〉" },
+      { contentId: "c2", keys: [], tn: 10, label: "〈自由記述技能〉" },
+    ]);
+  });
+
+  it("技能行の無い枝は列挙しない（挑み先が無い）", () => {
+    expect(infoCheckRows(item).some(r => r.contentId === "c3")).toBe(false);
+  });
+
+  it("ラベルの無い行・contents 無しは安全に空", () => {
+    expect(infoCheckRows({ contents: [{ id: "c", skills: [{ tn: 5 }] }] })).toEqual([]);
+    expect(infoCheckRows(null)).toEqual([]);
+  });
+});
+
+describe("hudInfoItems()（HUD の情報項目一覧＝公開状態3段階の出し分け・2026-08-16 裁定）", () => {
+  const items = [
+    { id: "a", title: "公開済み", isPublic: true, contents: [] },
+    { id: "b", title: "隠し情報", isPublic: false, contents: [] },
+  ];
+
+  it("PL: 非公開は「非公開の情報」にマスクされ、公開は項目名が見える", () => {
+    expect(hudInfoItems(items, { isGM: false })).toEqual([
+      { id: "a", title: "公開済み", isPublic: true, masked: false },
+      { id: "b", title: "非公開の情報", isPublic: false, masked: true },
+    ]);
+  });
+
+  it("RL: 非公開も項目名が見える（マスクなし・isPublic で印を出す）", () => {
+    expect(hudInfoItems(items, { isGM: true })).toEqual([
+      { id: "a", title: "公開済み", isPublic: true, masked: false },
+      { id: "b", title: "隠し情報", isPublic: false, masked: false },
+    ]);
+  });
+
+  it("題の無い項目は既定名「情報」（パネルと同じ）", () => {
+    expect(hudInfoItems([{ id: "x", isPublic: true }], { isGM: false })[0].title).toBe("情報");
   });
 });

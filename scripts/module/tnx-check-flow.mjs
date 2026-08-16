@@ -865,6 +865,12 @@ export class TnxCheckFlow {
             await resolveAppearanceFromCheck(ctx.appearance, result);
         }
 
+        // 情報収集判定の完了継続(14-9): 成功で自動開示(達成値以下の目標値まで一括・2026-08-16 裁定)
+        if (!ctx.recheckMessageId && ctx.infoGathering) {
+            const { resolveInfoGatheringFromCheck } = await import("./info-gathering.mjs");
+            await resolveInfoGatheringFromCheck(ctx.infoGathering, result);
+        }
+
         return true;
     }
 
@@ -894,18 +900,23 @@ export class TnxCheckFlow {
         const actor = game.actors.get(ctx.actorId);
         const TYPE_LABEL = { skillCheck: "技能判定", controlCheck: "制御判定", abilityCheck: "能力値判定" };
         const isControlCheck = ctx.type === "controlCheck";
-        // 登場判定(2026-08-16): 用途を持たない(指定技能がシーンごとに変わる)ため、専用カードは
+        // 登場判定(2026-08-16)・情報収集判定(14-9): 用途を持たない判定のため、専用カードは
         // 判定文脈をキーにした描画の分岐で実現する(攻撃カード・移動カードと同型)
         const appearance = appearanceCardInfo(ctx.appearance, result);
+        const infoCheck = ctx.infoGathering
+            ? { title: ctx.infoGathering.title ?? "", disclosed: result?.success === true }
+            : null;
         return foundry.applications.handlebars.renderTemplate(
             "systems/tokyo-nova-axleration/templates/chat/check-result.hbs",
             {
                 ...buildCheckCardContext({
                     skillLabel: ctx.skillLabel,
-                    typeLabel:  appearance ? "登場判定" : (TYPE_LABEL[ctx.type] ?? ctx.type),
+                    typeLabel:  appearance ? "登場判定"
+                        : (infoCheck ? "情報収集判定" : (TYPE_LABEL[ctx.type] ?? ctx.type)),
                     card, suit, result, fromDeck, trumpUsed, suitMismatch, checkSources, isRecheck,
                 }),
                 appearance,
+                infoCheck,
                 actor,
                 actorName:    actor?.name ?? "不明",
                 cardImg:      card.img,
@@ -1094,6 +1105,15 @@ export class TnxCheckFlow {
             async rerun(cc, result) {
                 const { resolveAppearanceFromCheck } = await import("./appearance-check.mjs");
                 await resolveAppearanceFromCheck(cc, result);
+            },
+        },
+        infoGathering: {
+            // 開示は単調(開くだけで閉じない)なので、成功のたびに適用してよい——達成値が伸びれば
+            // 追加開示・下がっても既開示は維持(rerunOnSuccessOnly だと成功→成功の達成値上昇で
+            // 追加開示されないため使わない)。成功以外はハンドラ内で弾く
+            async rerun(cc, result) {
+                const { resolveInfoGatheringFromCheck } = await import("./info-gathering.mjs");
+                await resolveInfoGatheringFromCheck(cc, result);
             },
         },
     });

@@ -1788,11 +1788,12 @@ Hooks.once("init", async function() {
         }
     });
 
-    // シナリオコントロールパネルの表示は台本(アクトシートのフラグ)に追随する(14-3)。
-    // 実行状態(sessionState)の変化は設定の onChange が再描画する。
+    // シナリオコントロールパネルと HUD の情報項目(14-9)の表示は台本(アクトシートのフラグ)に
+    // 追随する(14-3)。実行状態(sessionState)の変化は設定の onChange が再描画する。
     Hooks.on("updateJournalEntry", (doc) => {
         if (doc.id && doc.id === getSessionState().actId) {
             foundry.applications.instances.get("tnx-scenario-panel")?.render(false);
+            foundry.applications.instances.get("tnx-hud")?.render(false);
         }
     });
 

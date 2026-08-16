@@ -914,6 +914,69 @@ export function toggleInfoDisclosure(content, tierId = null) {
 }
 
 /**
+ * 判定成功→自動開示(14-9・2026-08-16 裁定)。**達成値以下の目標値を持つ入口・段を全て開く**
+ * (抜いた目標値まで一括開示。段の目標値は絶対値比較=どの技能行から入っても同じ)。
+ * 開くだけで閉じない(開示は単調)。「段が開けば入口も開く」累積規約(toggleInfoDisclosure)を守る。
+ * @param {object} content 情報の内容(枝)
+ * @param {{achievement: number, entryTn?: ?(number|string)}} args
+ *        entryTn=挑んだ技能行の目標値(入口本文の開示判定に使う)
+ * @returns {object} 更新した内容(イミュータブル・元データは書き換えない)
+ */
+export function discloseInfoByAchievement(content, { achievement, entryTn = null } = {}) {
+    const ach = Number(achievement);
+    if (!Number.isFinite(ach)) return content;
+    const reached = (tn) => {
+        if (tn === null || tn === undefined || tn === "") return false;
+        const n = Number(tn);
+        return Number.isFinite(n) && n <= ach;
+    };
+    const stored = Array.isArray(content?.tiers) ? content.tiers : [];
+    const tiers = stored.map(t => (reached(t?.tn) ? { ...t, isDisclosed: true } : t));
+    const entryOpen = content?.isDisclosed === true || reached(entryTn)
+        || tiers.some(t => t?.isDisclosed === true);
+    return { ...content, isDisclosed: entryOpen, tiers };
+}
+
+/**
+ * 判定起動の技能行の列挙(14-9)。**起動ボタンは項目に1つ**(2026-08-16 裁定)で、技能行が
+ * 複数ある項目はこの列からダイアログで挑む行を選ばせる。枝をまたいで並べ、技能行の無い枝は
+ * 挑み先が無いので出さない。
+ * @param {?object} item 情報項目(技能名は解決済み=withResolvedInfoSkillNames を通した後)
+ * @returns {Array<{contentId: string, keys: Array<string>, tn: ?(number|string), label: string}>}
+ */
+export function infoCheckRows(item) {
+    const contents = Array.isArray(item?.contents) ? item.contents : [];
+    return contents.flatMap(content => (Array.isArray(content?.skills) ? content.skills : [])
+        .filter(row => row?.label)
+        .map(row => ({
+            contentId: content.id ?? "",
+            keys: infoSkillKeys(row),
+            tn: row.tn ?? null,
+            label: row.label,
+        })));
+}
+
+/**
+ * HUD の情報項目一覧の整形(14-9)。公開状態3段階の出し分け(2026-08-16 裁定):
+ * PL には非公開の項目を**「非公開の情報」**として存在だけ見せる(技能・目標値・内容は伏せる)。
+ * RL には実名を見せる(どれが伏さっているかの確認用。管理操作はパネル)。
+ * @param {?Array<object>} items 情報項目
+ * @param {{isGM?: boolean}} [args]
+ * @returns {Array<{id: string, title: string, isPublic: boolean, masked: boolean}>}
+ */
+export function hudInfoItems(items, { isGM = false } = {}) {
+    return (Array.isArray(items) ? items : []).map((item) => {
+        const masked = !isGM && item?.isPublic !== true;
+        return {
+            id: item?.id ?? "",
+            title: masked ? "非公開の情報" : (String(item?.title ?? "").trim() || "情報"),
+            isPublic: item?.isPublic === true,
+            masked,
+        };
+    });
+}
+
+/**
  * 情報項目の技能行が持つ識別キーの並び(2026-08-09 裁定＝**1 行＝技能の集合＋共通の目標値**。
  * 目標値の異なる技能は行そのものを足す)。旧形式(`identificationKey` 単体)は 1 件として読む。
  * 元データは書き換えない(読み出し時の正規化)。

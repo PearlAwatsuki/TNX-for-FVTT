@@ -410,28 +410,14 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
             ? flagData.identificationKeys
             : (identificationKey ? [identificationKey] : []);
         if (checkType === "skillCheck" && requestKeys.length) {
-            const chosenKey = requestKeys.length === 1
-                ? requestKeys[0]
-                : await TnxRlRequestApp._promptDesignatedSkill(requestKeys);
-            if (!chosenKey) return;
-            const chosenLabel = await requestSkillLabel(chosenKey);
-            // 指定技能はスタイル技能・ワークス専用技能でもありうる(2026-08-12)。所持している技能を
-            // 見つけられないと、持っているのに代用判定へ落ちてしまうため種別を絞りすぎない
-            const matchedItem = findItemByIdentificationKey(actor, chosenKey, { type: REQUEST_SKILL_TYPES });
-            // KI-025(2026-07-19): 指定技能を参加技能(ベース/組み合わせ)に含む他アイテムの用途も
-            // 応答候補に列挙する(組み合わせ判定は要求への正当な応答=2026-07-17 ユーザー指摘。
-            // 代用判定(卓裁定つき)へ誤誘導しない)。起動は唯一の起動関数へ用途 ID 直接指定で委譲
-            const comboCandidates = enumerateRequestComboCandidates(actor, chosenKey,
-                { excludeItemId: matchedItem?.id ?? "" });
-            const choice = await TnxRlRequestApp._promptSkillUse(actor,
-                { matchedItem, requestedLabel: chosenLabel, comboCandidates });
-            if (!choice) return;
+            const resolved = await resolveDesignatedSkillResponse(actor, requestKeys);
+            if (!resolved) return;
             const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
             const extra = { requestMessageId: messageId, targetValue: targetValue ?? null };
-            if (choice.usageId) extra.usageId = choice.usageId;
-            if (choice.substitute) {
-                extra.substitution = { requestedLabel: chosenLabel, usedName: choice.item.name };
-                extra.manualMod = choice.manualMod;
+            if (resolved.usageId) extra.usageId = resolved.usageId;
+            if (resolved.substitution) {
+                extra.substitution = resolved.substitution;
+                extra.manualMod = resolved.manualMod;
             }
             // FS 支援判定(2026-08-05 ユーザー確定): 支援は普通にターゲットして行う。判定を行う時点で
             // レティクルにした1体を支援対象とし、結果に載せて autoApplyFocusSupport が対象へ支援 AE を
@@ -450,7 +436,7 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
                 if (!targetActorId) { ui.notifications.warn("ターゲットのアクターを解決できません。"); return; }
                 extra.focusSupportTargetId = targetActorId;
             }
-            await TnxCharacterSheetBase._activateItemCheck(actor, choice.item, extra);
+            await TnxCharacterSheetBase._activateItemCheck(actor, resolved.item, extra);
             return;
         }
 
@@ -614,4 +600,40 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
         if (!item) return null;
         return { item, substitute: true, manualMod: res.manualMod };
     }
+}
+
+/**
+ * 指定技能(識別キー)への応答を解決する(判定要求と情報収集判定[14-9]で共用・2026-08-16 抽出)。
+ * 複数キーの選択 → 所持技能の実解決(REQUEST_SKILL_TYPES=一般/スタイル/ワークス) →
+ * 用途・コンボ候補の選択(KI-025) → 代用判定、までを担い、起動パラメータを返す。
+ * 起動そのものは呼び出し側が `_activateItemCheck` で行う(唯一の起動関数への集約を保つ)。
+ * @param {Actor} actor
+ * @param {Array<string>} keys 指定技能の識別キー(1つ以上)
+ * @returns {Promise<?{item: Item, usageId?: string, substitution?: {requestedLabel: string,
+ *          usedName: string}, manualMod?: number}>} null=キャンセル
+ */
+export async function resolveDesignatedSkillResponse(actor, keys) {
+    const chosenKey = keys.length === 1
+        ? keys[0]
+        : await TnxRlRequestApp._promptDesignatedSkill(keys);
+    if (!chosenKey) return null;
+    const chosenLabel = await requestSkillLabel(chosenKey);
+    // 指定技能はスタイル技能・ワークス専用技能でもありうる(2026-08-12)。所持している技能を
+    // 見つけられないと、持っているのに代用判定へ落ちてしまうため種別を絞りすぎない
+    const matchedItem = findItemByIdentificationKey(actor, chosenKey, { type: REQUEST_SKILL_TYPES });
+    // KI-025(2026-07-19): 指定技能を参加技能(ベース/組み合わせ)に含む他アイテムの用途も
+    // 応答候補に列挙する(組み合わせ判定は要求への正当な応答=2026-07-17 ユーザー指摘。
+    // 代用判定(卓裁定つき)へ誤誘導しない)。起動は唯一の起動関数へ用途 ID 直接指定で委譲
+    const comboCandidates = enumerateRequestComboCandidates(actor, chosenKey,
+        { excludeItemId: matchedItem?.id ?? "" });
+    const choice = await TnxRlRequestApp._promptSkillUse(actor,
+        { matchedItem, requestedLabel: chosenLabel, comboCandidates });
+    if (!choice) return null;
+    const out = { item: choice.item };
+    if (choice.usageId) out.usageId = choice.usageId;
+    if (choice.substitute) {
+        out.substitution = { requestedLabel: chosenLabel, usedName: choice.item.name };
+        out.manualMod = choice.manualMod;
+    }
+    return out;
 }

@@ -3,6 +3,11 @@ import { TnxCheckFlow } from './tnx-check-flow.mjs';
 import { isDamageCardPending, executeDamageCardFromHand } from './damage-flow.mjs';
 import { getCardCheckValue, getAbilityBySuit, SUIT_TO_ABILITY } from './tnx-check-engine.mjs';
 import { getUserFlagData } from './user-flag-schema.mjs';
+import { getSessionState, getActiveActJournal } from './session-state.mjs';
+import {
+    hudInfoItems, withResolvedInfoSkillNames, buildInfoCardData, infoCheckRows,
+} from './session-logic.mjs';
+import { loadGeneralSkillNameByKey } from './skill-dictionary.mjs';
 
 /** カードの suit 文字列を TNX スートキーに正規化する */
 function _normalizeSuit(rawSuit) {
@@ -37,6 +42,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
             toggleAccessArea:   TnxHud._onToggleAccessArea,
             presentAccessCard:  TnxHud._onPresentAccessCard,
             giveCardsToPlayer:  TnxHud._onGiveCardsToPlayer,
+            infoCheck:          TnxHud._onInfoCheck,
         },
     };
 
@@ -97,6 +103,9 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
                 ? await buildNeuroCardChatHTML(context.topSceneCard)
                 : null;
         }
+
+        // 情報項目(14-9): 上演中のアクトの情報項目を一覧表示する
+        context.infoItems = await TnxHud._buildInfoItems();
 
         const userFlag = getUserFlagData(game.user);
 
@@ -666,6 +675,48 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
         const targetUserId = target.dataset.targetUserId;
         if (!targetUserId) return;
         await TnxActionHandler.selectAndPassToUser(targetUserId);
+    }
+
+    // ─── 情報項目(14-9・正本 Scenario_Progress「情報収集判定の裁定」) ──────────
+
+    /**
+     * HUD の情報項目一覧を組み立てる(上演中のみ)。公開状態3段階(2026-08-16 裁定):
+     * PL には非公開を「非公開の情報」として存在だけ見せる(技能・目標値・内容は伏せる)。
+     * ツールチップは**常設**(開示済み=内容/未開示=指定技能と目標値。チャットが流れた場合に
+     * 備える)——送信カードと同じ組み立て(buildInfoCardData)＝チャットカード意匠。
+     * @returns {Promise<Array<object>>}
+     */
+    static async _buildInfoItems() {
+        const st = getSessionState();
+        const journal = st.actStarted ? getActiveActJournal() : null;
+        const raw = journal?.getFlag("tokyo-nova-axleration", "infoItems") ?? [];
+        if (!raw.length) return [];
+        const nameByKey = await loadGeneralSkillNameByKey();
+        const shaped = hudInfoItems(raw, { isGM: game.user.isGM });
+        return Promise.all(shaped.map(async (row, i) => {
+            // PL の非公開項目は存在表示のみ(ツールチップ・判定ボタンなし)
+            if (row.masked) return { ...row, hiddenMark: true, tooltipHtml: "", canCheck: false };
+            const resolved = withResolvedInfoSkillNames(raw[i], nameByKey);
+            const tooltipHtml = await foundry.applications.handlebars.renderTemplate(
+                "systems/tokyo-nova-axleration/templates/chat/info-card.hbs",
+                buildInfoCardData(resolved));
+            return {
+                ...row,
+                hiddenMark: !row.isPublic,   // RL 向け=非公開の印
+                tooltipHtml,
+                // 判定ボタンは項目に1つ(2026-08-16 裁定)。公開項目・担当キャラクターあり・
+                // 挑める技能行がある場合のみ。RL は判定しない(管理はパネル)
+                canCheck: !game.user.isGM && row.isPublic && !!game.user.character
+                    && infoCheckRows(resolved).length > 0,
+            };
+        }));
+    }
+
+    /** 情報収集判定の起動(項目の判定ボタン・14-9)。 */
+    static async _onInfoCheck(event, target) {
+        event.preventDefault();
+        const { startInfoGatheringCheck } = await import("./info-gathering.mjs");
+        await startInfoGatheringCheck(target.dataset.itemId);
     }
 
     static _updateCollapseIcons(hudEl) {

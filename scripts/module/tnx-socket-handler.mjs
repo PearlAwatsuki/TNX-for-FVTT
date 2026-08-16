@@ -22,6 +22,8 @@
  *                    委譲する（フェーズ14-2。実行状態=ワールド設定は GM しか書けない）
  *   sessionTeam    - PL → GM: チーム宣言（結成・参加・離脱・チームで登場/退場）を委譲する
  *                    （フェーズ14-5。宣言はいつでも可＝プレイヤーも行うため）
+ *   infoDisclose   - PL → GM: 情報収集判定の自動開示を委譲する（フェーズ14-9。開示の正本＝
+ *                    アクトジャーナルのフラグは GM しか書けないため）
  */
 
 const SCOPE = "tokyo-nova-axleration";
@@ -72,6 +74,9 @@ export class TnxSocketHandler {
                 break;
             case "sessionTeam":
                 TnxSocketHandler._onSessionTeam(data);
+                break;
+            case "infoDisclose":
+                TnxSocketHandler._onInfoDisclose(data);
                 break;
         }
     }
@@ -330,6 +335,27 @@ export class TnxSocketHandler {
     static emitSessionTeam(payload) {
         game.socket.emit("system.tokyo-nova-axleration", {
             type: "sessionTeam",
+            userId: game.user.id,
+            ...payload,
+        });
+    }
+
+    // ─── infoDisclose（情報収集判定の自動開示の委譲・フェーズ14-9） ────────────
+    // 開示の正本(アクトジャーナルのフラグ)は GM しか書けないため activeGM が代行する。
+    // 開示は開くだけで閉じない(単調・冪等)ため、検証は要求者の存在確認に留める。
+
+    /** 情報収集判定の自動開示を GM クライアントが代行する。 */
+    static async _onInfoDisclose(data) {
+        if (game.users.activeGM?.id !== game.user.id) return;
+        if (!game.users.get(data?.userId)) return;
+        const { applyInfoDisclosure } = await import("./info-gathering.mjs");
+        await applyInfoDisclosure(data ?? {});
+    }
+
+    /** 情報収集判定の自動開示を GM へ委譲する(プレイヤークライアントから呼ぶ)。 */
+    static emitInfoDisclose(payload) {
+        game.socket.emit("system.tokyo-nova-axleration", {
+            type: "infoDisclose",
             userId: game.user.id,
             ...payload,
         });
