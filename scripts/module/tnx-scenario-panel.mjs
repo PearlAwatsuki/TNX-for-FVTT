@@ -131,6 +131,21 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         main: { template: "systems/tokyo-nova-axleration/templates/app/scenario-panel.hbs" },
     };
 
+    /** 本文(.scp-body)のスクロール位置(再描画をまたいで保持)。 */
+    _scrollPositions = {};
+
+    /**
+     * 再描画前にスクロール位置を控える。PARTS の scrollable 宣言はレイアウト確定前に復元が
+     * 走って 0 に丸まる(隔離実機で実測)ため、シート基底と同じ rAF 復元の手動機構を使う。
+     */
+    async _preRender(context, options) {
+        await super._preRender(context, options);
+        if (!this.element) return;
+        this._scrollPositions = {};
+        const body = this.element.querySelector(".scp-body");
+        if (body) this._scrollPositions[".scp-body"] = body.scrollTop;
+    }
+
     /** タブ状態(既定=進行)。最後に開いたタブはクライアント設定で次回起動に引き継ぐ。 */
     tabGroups = { primary: game.settings.get(SCOPE, "scenarioPanelTab") || "flow" };
 
@@ -626,8 +641,9 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         const item = items.find(i => i.id === target.dataset.id);
         if (!item) return;
         item.isPublic = item.isPublic !== true;
+        // 再描画は updateJournalEntry フック(tnx.mjs)が行う。ここで重ねて render すると
+        // 二重描画になり、スクロール位置の控えが 0 の状態を拾って復元が壊れる(2026-08-16)
         await journal.setFlag(SCOPE, "infoItems", items);
-        this.render(false);
     }
 
     /**
@@ -643,8 +659,8 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         const index = contents?.findIndex(c => c.id === target.dataset.contentId) ?? -1;
         if (index < 0) return;
         contents[index] = toggleInfoDisclosure(contents[index], target.dataset.tierId || null);
+        // 再描画は updateJournalEntry フックが行う(_onToggleInfoPublic と同じ理由で重ねない)
         await journal.setFlag(SCOPE, "infoItems", items);
-        this.render(false);
     }
 
     // ─── 折りたたみ(巡回・シーン一覧)＝クライアント設定に永続化 ─────────────
@@ -779,6 +795,16 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
                 if (teamId) renameTeam(teamId, event.currentTarget.value);
             });
         }
+        // 再描画後にスクロール位置を復元する(レイアウト確定後=rAF・シート基底と同じ機構)
+        const saved = this._scrollPositions;
+        this._scrollPositions = {};
+        requestAnimationFrame(() => {
+            for (const [sel, top] of Object.entries(saved)) {
+                if (!top) continue;
+                const target = this.element?.querySelector(sel);
+                if (target) target.scrollTop = top;
+            }
+        });
     }
 }
 
