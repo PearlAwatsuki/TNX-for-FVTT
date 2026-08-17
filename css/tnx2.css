@@ -3822,25 +3822,59 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     border-radius: 2px;
 }
 
+/* プレートは角落とし(clip-path)のため border が使えない——外層=枠レイヤー(左アクセント
+   バー+グロー枠色)・::before=内側の地・::after=スキャンライン(シートと同じモチーフ)の
+   3層で作る。グローは切り欠き形状に追従する drop-shadow */
 .tnx-hud .hud-info-item {
+    position: relative;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 5px;
     width: 100%;
-    padding: 6px 8px;
-    background: linear-gradient(135deg, var(--tnx2-bg-1), var(--tnx2-bg-2));
-    border: 1px solid var(--tnx2-border-glow);
-    border-left: 3px solid var(--tnx2-accent);
-    border-radius: var(--tnx2-radius);
-    box-shadow: 0 0 8px rgba(0, 200, 224, 0.08);
+    padding: 7px 9px 7px 12px;
+    background: linear-gradient(90deg, var(--tnx2-accent) 0 4px, var(--tnx2-border-glow) 4px);
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+    filter: drop-shadow(0 0 5px rgba(0, 200, 224, 0.22));
     font-size: 0.92em;
 }
 
+.tnx-hud .hud-info-item::before {
+    content: "";
+    position: absolute;
+    inset: 1px 1px 1px 4px;
+    background: linear-gradient(150deg, var(--tnx2-bg-1), var(--tnx2-bg-2) 55%, rgba(0, 200, 224, 0.10));
+    clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+    z-index: 0;
+}
+
+.tnx-hud .hud-info-item::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 3px,
+        rgba(0, 0, 0, 0.10) 3px,
+        rgba(0, 0, 0, 0.10) 4px
+    );
+    z-index: 2;
+}
+
+.tnx-hud .hud-info-item > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* 見出し行: アクセントのヘアラインで区切る */
 .tnx-hud .hud-info-head {
     display: flex;
     align-items: center;
     gap: 6px;
     width: 100%;
+    padding-bottom: 4px;
+    background: linear-gradient(90deg, rgba(0, 200, 224, 0.55), transparent 75%) bottom / 100% 1px no-repeat;
 }
 
 .tnx-hud .hud-info-title {
@@ -3848,16 +3882,27 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     min-width: 0;
     overflow-wrap: anywhere;
     font-weight: 600;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.04em;
+    text-shadow: 0 0 6px rgba(0, 200, 224, 0.35);
 }
 
-/* 非公開(RL=実名+施錠印/PL=「非公開の情報」): 彩度を落とした施錠風プレート */
+/* 非公開(RL=実名+施錠印/PL=「非公開の情報」): 彩度を落とし斜線ハッチの施錠風 */
 .tnx-hud .hud-info-item.is-hidden {
-    background: var(--tnx2-bg-1);
-    border-color: var(--tnx2-border-subtle);
-    border-left-color: var(--tnx2-text-muted);
-    box-shadow: none;
+    background: linear-gradient(90deg, var(--tnx2-text-muted) 0 4px, var(--tnx2-border-subtle) 4px);
+    filter: none;
 }
+
+.tnx-hud .hud-info-item.is-hidden::before {
+    background:
+        repeating-linear-gradient(-45deg, transparent 0 6px, rgba(255, 255, 255, 0.04) 6px 12px),
+        linear-gradient(150deg, var(--tnx2-bg-1), var(--tnx2-bg-2));
+}
+
+.tnx-hud .hud-info-item.is-hidden .hud-info-head {
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.22), transparent 75%) bottom / 100% 1px no-repeat;
+}
+
+.tnx-hud .hud-info-item.is-hidden .hud-info-title { text-shadow: none; }
 
 .tnx-hud .hud-info-item.is-masked { color: var(--tnx2-text-muted); }
 
@@ -3869,30 +3914,30 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     font-size: 0.85em;
 }
 
-/* 目標値チップ: 開示済みが埋まっていく(進捗の表現・公開項目の目標値は卓に見える情報) */
+/* 目標値チップ: 六角プレートで開示済みがネオン点灯していく(公開項目の目標値は卓に見える情報) */
 .tnx-hud .hud-info-tns {
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
+    padding: 0 2px 1px;
 }
 
 .tnx-hud .hud-info-tn {
-    min-width: 22px;
-    padding: 0 5px;
-    border: 1px solid var(--tnx2-border-active);
-    border-radius: 9px;
-    color: var(--tnx2-text-secondary);
+    min-width: 26px;
+    padding: 0 7px;
+    background: rgba(255, 255, 255, 0.06);
+    clip-path: polygon(5px 0, calc(100% - 5px) 0, 100% 50%, calc(100% - 5px) 100%, 5px 100%, 0 50%);
+    color: var(--tnx2-text-muted);
     font-family: var(--tnx2-font-mono);
     font-size: 0.85em;
-    line-height: 16px;
+    line-height: 17px;
     text-align: center;
 }
 
 .tnx-hud .hud-info-tn.is-open {
-    background: rgba(0, 200, 224, 0.18);
-    border-color: var(--tnx2-accent);
-    color: var(--tnx2-accent);
-    box-shadow: 0 0 6px rgba(0, 200, 224, 0.25);
+    background: linear-gradient(180deg, rgba(0, 200, 224, 0.45), rgba(0, 200, 224, 0.16));
+    color: #dff9ff;
+    text-shadow: 0 0 5px rgba(0, 200, 224, 0.9);
 }
 
 /* ── プレイヤー手札エリア ── */
