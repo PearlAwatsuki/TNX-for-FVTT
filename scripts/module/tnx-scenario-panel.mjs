@@ -623,6 +623,11 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         const journal = getActiveActJournal();
         const item = (journal?.getFlag(SCOPE, "infoItems") ?? []).find(i => i.id === target.dataset.id);
         if (!item) return;
+        // 非公開の情報はチャットに送れない(2026-08-18 ユーザー指示)。ボタンは公開時のみ
+        // 描画されるが、再描画前の押下に備えて実行側でも塞ぐ
+        if (item.isPublic !== true) {
+            return void ui.notifications.warn("非公開の情報は送信できません。公開してから送信してください。");
+        }
         const data = buildInfoCardData(
             withResolvedInfoSkillNames(item, await loadGeneralSkillNameByKey()));
         if (!data.mode) return void ui.notifications.warn("送信できる技能・目標値がありません。");

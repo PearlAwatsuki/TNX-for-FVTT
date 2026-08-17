@@ -312,7 +312,10 @@
                             <i class="fas {{#if item.isPublic}}fa-eye{{else}}fa-eye-slash{{/if}}"></i>
                         </a>
                         <span class="scp-send-label">{{item.title}}</span>
-                        <a class="tnx-icon-ctrl" data-action="sendInfo" data-id="{{item.id}}" title="チャットに送信"><i class="fas fa-paper-plane"></i></a>
+                        {{!-- 送信は公開状態でのみ(2026-08-18 ユーザー指示=非公開の情報はチャットに送れない) --}}
+                        {{#if item.isPublic}}
+                            <a class="tnx-icon-ctrl" data-action="sendInfo" data-id="{{item.id}}" title="チャットに送信"><i class="fas fa-paper-plane"></i></a>
+                        {{/if}}
                     </div>
                     {{!-- 見出しは指定技能・その下に目標値が同列に並ぶ(目標値に上下関係は無い) --}}
                     {{#each item.groups as |group|}}
