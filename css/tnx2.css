@@ -3998,16 +3998,16 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     right: 4px;
     min-width: 26px;
     padding: 0 8px;
-    background: rgba(5, 18, 23, 0.9);
+    background: rgba(1, 6, 9, 0.94);
     clip-path: polygon(5px 0, calc(100% - 5px) 0, 100% 50%, calc(100% - 5px) 100%, 5px 100%, 0 50%);
     filter: drop-shadow(0 0 1px var(--tnx2-accent)) drop-shadow(0 0 4px rgba(0, 200, 224, 0.45));
-    color: #eafcff;
+    color: var(--tnx2-accent);
     font-family: var(--tnx2-font-mono);
     font-size: 0.85em;
-    font-weight: 700;
+    font-weight: 500;
     line-height: 18px;
     text-align: center;
-    text-shadow: 0 0 2px rgba(0, 200, 224, 0.95), 0 0 8px rgba(0, 200, 224, 0.55);
+    text-shadow: 0 0 3px rgba(0, 200, 224, 0.8), 0 0 8px rgba(0, 200, 224, 0.5);
 }
 
 
@@ -4538,17 +4538,19 @@ body.tnx-bottom-hud-expanded #hotbar {
 .tnx-hud .card-slot-label {
     font-family: var(--tnx2-font-mono);
     font-size: 0.7em;
-    font-weight: 700;
+    /* 白の太字ゴシックはネオンに見えない(2026-08-22 ユーザー指摘)——文字自体を発光色にし、
+       ウェイトは落とす(発光体は細い方が管らしい)。面は背景より一段暗い黒ガラスに沈めて分離する */
+    font-weight: 500;
     letter-spacing: 0.12em;
     text-indent: 0.12em;
-    color: #eafcff;
+    color: var(--tnx2-accent);
     white-space: nowrap;
     line-height: 18px;
     padding: 0 12px;
-    background: rgba(5, 18, 23, 0.88);
+    background: rgba(1, 6, 9, 0.94);
     clip-path: polygon(5px 0, calc(100% - 5px) 0, 100% 50%, calc(100% - 5px) 100%, 5px 100%, 0 50%);
     filter: drop-shadow(0 0 1px var(--tnx2-accent)) drop-shadow(0 0 4px rgba(0, 200, 224, 0.45));
-    text-shadow: 0 0 2px rgba(0, 200, 224, 0.95), 0 0 9px rgba(0, 200, 224, 0.55);
+    text-shadow: 0 0 3px rgba(0, 200, 224, 0.8), 0 0 10px rgba(0, 200, 224, 0.5);
 }
 
 .tnx-hud .card-slot .card-slot-label {
