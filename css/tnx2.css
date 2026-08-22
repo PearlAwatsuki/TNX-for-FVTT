@@ -4038,19 +4038,20 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     align-items: flex-end;
 }
 
+/* 手札・切り札と高さを揃える(150px)。幅はアクセスカード素材のアスペクト比のまま
+   (2:3 を強制すると歪むため)。アクセントの縁とグローで強調する */
 .tnx-hud .status-card {
-    width: 100px;
     height: 150px;
     flex: 0 0 auto;
     border-radius: 4px;
     background: #222;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0 0 1px rgba(0, 200, 224, 0.55), 0 0 10px rgba(0, 200, 224, 0.35), 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .tnx-hud .status-card img {
     display: block;
-    width: 100%;
     height: 100%;
+    width: auto;
     border-radius: 4px;
 }
 
@@ -4059,6 +4060,12 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     display: flex;
     align-items: flex-end;
     gap: 8px;
+}
+
+/* パネルを内容幅より狭く自動縮小させない(縮小するとリストが横スクロール化して
+   手札が見切れる。幅が足りない環境では右へ伸びる方を選ぶ) */
+.tnx-hud .hud-bottom-panels > * {
+    flex-shrink: 0;
 }
 
 /* ── 参加者パネル(ステータス+手札の常時表示。行はカードのドロップ先) ── */
@@ -4093,6 +4100,7 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     flex-direction: column;
     gap: 4px;
     overflow-y: auto;
+    overflow-x: hidden; /* 横スクロールバーを出さない(幅は内容駆動で収まる前提) */
     max-height: 40vh; /* 参加者が多くても画面を占有しすぎない */
     max-width: 1000px;
     margin-top: 2px;
@@ -4126,6 +4134,7 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     border-radius: 4px;
     background: rgba(0, 0, 0, 0.3);
     flex-shrink: 0;
+    align-self: flex-start; /* 行は自身の内容幅で描く(余分な幅を予約しない) */
 }
 
 .tnx-hud .participant-name {
@@ -4140,24 +4149,34 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     align-items: flex-start;
 }
 
-/* 左列: 現在のステータス(アクセスカード)。空でも幅を保ち、行間で手札の位置を揃える */
+/* 左列: 現在のステータス(アクセスカード)。中身があるときだけ描画される(hbs 側) */
 .tnx-hud .participant-status {
     display: flex;
     flex-direction: column;
     gap: 3px;
-    flex: 0 0 46px;
+    flex: 0 0 auto;
+}
+
+/* ステータスカードは手札のカードと高さを揃え(69px)、アクセントの縁とグローで強調する。
+   幅はアクセスカード素材(179x249)のアスペクト比のまま(トランプ2:3と比率が違うため
+   幅で揃えると低く見え、強制すると歪む) */
+.tnx-hud .participant-status-card {
+    height: 69px;
+    border-radius: 3px;
+    box-shadow: 0 0 0 1px rgba(0, 200, 224, 0.55), 0 0 8px rgba(0, 200, 224, 0.35);
 }
 
 .tnx-hud .participant-status-card img {
     display: block;
-    width: 100%;
-    border-radius: 2px;
+    height: 100%;
+    width: auto;
+    border-radius: 3px;
 }
 
 /* RL のステータスは常に「RL」(専用カード画像が無いためプレート表示) */
 .tnx-hud .participant-rl-plate {
-    width: 46px;
-    aspect-ratio: 2 / 3;
+    width: 50px;
+    height: 69px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -4173,14 +4192,14 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     box-shadow: inset 0 0 6px rgba(0, 200, 224, 0.08);
 }
 
-/* 右列: 手札。4枚分の固定幅にし、5枚目以降はこの列の中で折り返す
-   (ステータス列を含めた行全体では折り返さない) */
+/* 右列: 手札。幅は実枚数分だけ取り、4枚分を超える場合のみこの列の中で折り返す
+   (ステータス列を含めた行全体では折り返さない・空きスロットの幅は予約しない) */
 .tnx-hud .participant-cards {
     display: flex;
     flex-wrap: wrap;
     gap: 3px;
     align-content: flex-start;
-    width: 193px; /* 46px×4枚 + 3px×3ギャップ */
+    max-width: 193px; /* 46px×4枚 + 3px×3ギャップ = 4枚で折り返す上限 */
     flex: 0 0 auto;
 }
 

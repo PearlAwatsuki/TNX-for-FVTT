@@ -110,17 +110,20 @@
                         <div class="participant-row" data-drop-zone="participant" data-user-id="{{p.userId}}">
                             <span class="participant-name" style="color: {{p.color}}">{{p.userName}}</span>
                             <div class="participant-main">
-                                <div class="participant-status">
-                                    {{#if p.isRL}}
+                                {{!-- ステータス列は中身があるときだけ出す(空の幅を予約しない) --}}
+                                {{#if p.isRL}}
+                                    <div class="participant-status">
                                         <div class="participant-rl-plate">RL</div>
-                                    {{else}}
+                                    </div>
+                                {{else if p.statusCards.length}}
+                                    <div class="participant-status">
                                         {{#each p.statusCards as |sc|}}
                                             <div class="participant-status-card" title="{{sc.label}}">
                                                 <img src="{{sc.img}}" alt="{{sc.label}}">
                                             </div>
                                         {{/each}}
-                                    {{/if}}
-                                </div>
+                                    </div>
+                                {{/if}}
                                 <div class="participant-cards">
                                     {{#if p.cards.length}}
                                         {{#each p.cards as |card|}}
