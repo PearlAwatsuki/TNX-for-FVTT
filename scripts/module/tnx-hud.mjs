@@ -251,8 +251,9 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
             if (getUserFlagData(user).isScenePlayer) {
                 cards.push({ img: `${statusBase}scene_player.png`, label: "シーン・プレイヤー" });
             } else if (isAppearing(character)) {
-                // 登場中の専用アクセスカード画像は無いため文字プレートで表示する
-                cards.push({ plate: "登場中", label: "登場中" });
+                // 登場中の専用アクセスカード画像は無いため、アクセスカードの意匠
+                // (英題+和文リボン)に合わせた CSS プレートで表示する
+                cards.push({ plate: { en: "ON STAGE", ja: "登場中" }, label: "登場中" });
             } else {
                 cards.push({ img: `${statusBase}behind_the_scene.png`, label: "舞台裏" });
             }

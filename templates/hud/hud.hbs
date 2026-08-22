@@ -118,7 +118,10 @@
                                     {{else}}
                                         {{#each p.statusCards as |sc|}}
                                             {{#if sc.plate}}
-                                                <div class="participant-status-plate" title="{{sc.label}}">{{sc.plate}}</div>
+                                                <div class="participant-status-plate" title="{{sc.label}}">
+                                                    <span class="status-plate-en">{{sc.plate.en}}</span>
+                                                    <span class="status-plate-ja">{{sc.plate.ja}}</span>
+                                                </div>
                                             {{else}}
                                                 <div class="participant-status-card" title="{{sc.label}}">
                                                     <img src="{{sc.img}}" alt="{{sc.label}}">
@@ -174,7 +177,10 @@
                 <div class="status-cards-row">
                     {{#each statusCards as |card|}}
                         {{#if card.plate}}
-                            <div class="status-plate" title="{{card.label}}">{{card.plate}}</div>
+                            <div class="status-plate" title="{{card.label}}">
+                                <span class="status-plate-en">{{card.plate.en}}</span>
+                                <span class="status-plate-ja">{{card.plate.ja}}</span>
+                            </div>
                         {{else}}
                             <div class="status-card" title="{{card.label}}">
                                 <img src="{{card.img}}" alt="{{card.label}}">

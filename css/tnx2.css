@@ -4055,26 +4055,6 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     border-radius: 4px;
 }
 
-/* 自分のステータスパネルの文字プレート(カードと同じ高さ150px・幅もカードに合わせる) */
-.tnx-hud .status-plate {
-    width: 108px;
-    height: 150px;
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: var(--tnx2-font-mono);
-    font-weight: 700;
-    font-size: 1.1em;
-    letter-spacing: 0.12em;
-    color: var(--tnx2-accent);
-    background: rgba(0, 200, 224, 0.08);
-    border: 1px solid rgba(0, 200, 224, 0.35);
-    border-radius: 4px;
-    text-shadow: 0 0 8px rgba(0, 200, 224, 0.5);
-    box-shadow: inset 0 0 8px rgba(0, 200, 224, 0.08);
-}
-
 /* ── 下バー上段のパネル行(参加者・アクセスカード) ── */
 .tnx-hud .hud-bottom-panels {
     display: flex;
@@ -4193,10 +4173,8 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     border-radius: 3px;
 }
 
-/* 専用カード画像の無いステータスは文字プレートで表示(手札と同じ高さ)。
-   RL=常に「RL」・登場中(シーンプレイヤーでない登場)=「登場中」 */
-.tnx-hud .participant-rl-plate,
-.tnx-hud .participant-status-plate {
+/* RL のステータスは常に「RL」(専用カード画像が無いためプレート表示) */
+.tnx-hud .participant-rl-plate {
     width: 50px;
     height: 69px;
     display: flex;
@@ -4214,10 +4192,80 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     box-shadow: inset 0 0 6px rgba(0, 200, 224, 0.08);
 }
 
-/* 「登場中」の3文字を50px幅に収める */
+/* 「登場中」プレート: アクセスカードの意匠(英題+下端の和文リボン)を CSS で組む。
+   斜めスキャンライン+奥行きグラデの上に "ON STAGE"、下端に「登場中」リボン。
+   枠と光彩はステータスカードの強調リングと同系 */
+.tnx-hud .participant-status-plate,
+.tnx-hud .status-plate {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex: 0 0 auto;
+    color: var(--tnx2-accent);
+    background:
+        repeating-linear-gradient(-35deg, rgba(0, 200, 224, 0.08) 0 2px, transparent 2px 7px),
+        linear-gradient(165deg, #06181f 0%, #0c3440 55%, #06181f 100%);
+    box-shadow: 0 0 0 1px rgba(0, 200, 224, 0.55), 0 0 8px rgba(0, 200, 224, 0.35), inset 0 0 12px rgba(0, 200, 224, 0.12);
+}
+
 .tnx-hud .participant-status-plate {
-    font-size: 0.72em;
-    letter-spacing: 0.04em;
+    width: 50px;
+    height: 69px;
+    border-radius: 3px;
+}
+
+.tnx-hud .status-plate {
+    width: 108px;
+    height: 150px;
+    border-radius: 4px;
+}
+
+.tnx-hud .status-plate-en {
+    font-family: var(--tnx2-font-mono);
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.35;
+    letter-spacing: 0.18em;
+    text-indent: 0.18em; /* letter-spacing の末尾ぶんを補正して中央に見せる */
+    text-shadow: 0 0 8px rgba(0, 200, 224, 0.7);
+    /* リボンの高さぶん重心が下がるのを打ち消して光学中央に置く */
+    margin-bottom: 10px;
+}
+
+.tnx-hud .participant-status-plate .status-plate-en {
+    font-size: 9px;
+    max-width: 40px; /* "ON STAGE" を空白で2行(ON/STAGE)に折る */
+}
+
+.tnx-hud .status-plate .status-plate-en {
+    font-size: 17px;
+    max-width: 88px;
+    margin-bottom: 20px;
+}
+
+.tnx-hud .status-plate-ja {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    text-align: center;
+    background: linear-gradient(90deg, rgba(0, 200, 224, 0.15), rgba(0, 200, 224, 0.9) 50%, rgba(0, 200, 224, 0.15));
+    color: #03222b;
+    font-weight: 700;
+    font-size: 9px;
+    line-height: 14px;
+    letter-spacing: 0.2em;
+    text-indent: 0.2em;
+}
+
+.tnx-hud .status-plate .status-plate-ja {
+    font-size: 12px;
+    line-height: 20px;
+    letter-spacing: 0.35em;
+    text-indent: 0.35em;
 }
 
 /* 空ステータスの器(登場三態で基本埋まるが、万一空のときも空であることを明示する) */
