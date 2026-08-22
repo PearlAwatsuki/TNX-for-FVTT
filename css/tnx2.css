@@ -3940,86 +3940,10 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     text-shadow: 0 0 5px rgba(0, 200, 224, 0.9);
 }
 
-/* ── プレイヤー手札エリア ── */
-.tnx-hud .player-hands-area {
-    flex: 0 0 auto; /* 右カラム(flex column)内で伸縮せず、コンテンツ高に収まる */
-    flex-direction: column;
-    gap: 4px;
-    overflow: hidden;
-    min-width: 0;
-    min-height: 267.7px;
-    max-height: 40vh; /* プレイヤー人数が多くても画面を占有しすぎない */
-}
-
-.tnx-hud .player-hands-area > .card-slot-label {
-    align-self: flex-start; /* ラベルをコンテンツ幅に収める(親幅まで伸ばさない) */
-}
-
-.tnx-hud .player-hands-scroll {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    overflow-y: auto;
-    flex: 1;
-    min-height: 0;
-    /* スクロールバーはパネルの右パディング(8px)内に置き、コンテンツ幅を消費させない。
-       バー非表示時は padding-right がその領域を埋めるため、行幅は常に一定。 */
-    margin-right: -8px;
-}
-
-.tnx-hud .player-hands-scroll::-webkit-scrollbar {
-    width: 6px;
-}
-
-.tnx-hud .player-hands-scroll::-webkit-scrollbar-thumb {
-    background: rgba(0, 200, 224, 0.3);
-    border-radius: 3px;
-}
-
-.tnx-hud .player-hand-row {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    padding: 4px 6px;
-    cursor: pointer;
-    border-radius: 4px;
-    background: rgba(0, 0, 0, 0.3);
-    flex-shrink: 0;
-    transition: background 0.15s;
-    width: 208px;
-}
-
-.tnx-hud .player-hand-row:hover {
-    background: rgba(0, 200, 224, 0.12);
-}
-
-.tnx-hud .player-hand-name {
-    font-size: 0.72em;
-    font-weight: bold;
-    line-height: 1.2;
-}
-
-.tnx-hud .player-hand-cards {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 3px;
-    align-items: flex-end;
-}
-
-.tnx-hud .player-hand-card-img {
-    width: 46px;
-    flex-shrink: 0;
-    border-radius: 2px;
-    display: block;
-}
-
-.tnx-hud .player-hand-empty {
-    font-size: 0.7em;
-    color: var(--tnx2-text-muted);
-}
-
 /* 旧: .hud-insert-area::after の点線枠(擬似要素)は 2026-08-17 に実要素 .hud-info-frame へ
-   置換した(擬似要素は子を持てず、情報項目が枠の外に並んでいたため) */
+   置換した(擬似要素は子を持てず、情報項目が枠の外に並んでいたため)。
+   旧「プレイヤー手札エリア」(右カラム・revealPlayerHands 時のみ)は参加者パネル
+   (.participants-area・下バー)へ置き換えた */
 
 .tnx-hud .neuro-cards-row {
     display: flex;
@@ -4095,23 +4019,181 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     transition: max-width 0.4s ease-in-out, padding-left 0.4s ease-in-out, padding-right 0.4s ease-in-out, opacity 0.4s ease-in-out, margin-right 0.4s ease-in-out;
 }
 
-/* ── ステータスカードエリア(14-7・状態からの自動表示) ── */
+/* ── ステータスカードエリア(14-7・状態からの自動表示)。
+      手札の左隣に置き、カードは手札・切り札と同サイズ(100x150) ── */
 .tnx-hud .status-card-area {
     flex-direction: column;
-    align-items: stretch;
-    padding: 6px 8px;
-    margin-bottom: 5px;
+    align-items: flex-start;
+    height: auto;
+    gap: 6px;
+    margin-right: 8px;
+    overflow: hidden;
+    max-width: 460px;
+    transition: max-width 0.4s ease-in-out, padding-left 0.4s ease-in-out, padding-right 0.4s ease-in-out, opacity 0.4s ease-in-out, margin-right 0.4s ease-in-out;
+}
+
+.tnx-hud .status-cards-row {
+    display: flex;
+    gap: 4px;
+    align-items: flex-end;
 }
 
 .tnx-hud .status-card {
-    width: 56px;
+    width: 100px;
+    height: 150px;
     flex: 0 0 auto;
+    border-radius: 4px;
+    background: #222;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .tnx-hud .status-card img {
     display: block;
     width: 100%;
+    height: 100%;
     border-radius: 4px;
+}
+
+/* ── 下バー上段のパネル行(参加者・アクセスカード) ── */
+.tnx-hud .hud-bottom-panels {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+/* ── 参加者パネル(ステータス+手札の常時表示。行はカードのドロップ先) ── */
+.tnx-hud .participants-area {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 6px 8px;
+    margin-bottom: 5px;
+    max-height: 45vh;
+    overflow: hidden;
+    transition: max-height 0.4s ease-in-out, opacity 0.4s ease-in-out, margin-bottom 0.4s ease-in-out;
+}
+
+.tnx-hud .participants-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.tnx-hud .participants-fold-icon {
+    font-size: 0.7em;
+    color: var(--tnx2-text-secondary);
+    transition: transform 0.4s ease-in-out;
+}
+.tnx-hud .participants-area.collapsed .participants-fold-icon {
+    transform: rotate(-90deg);
+}
+
+.tnx-hud .participants-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+    max-height: 40vh; /* 参加者が多くても画面を占有しすぎない */
+    max-width: 1000px;
+    margin-top: 2px;
+    padding-top: 4px;
+    transition: max-height 0.25s ease, max-width 0.25s ease, opacity 0.25s ease, margin-top 0.25s ease, padding-top 0.25s ease;
+}
+/* アコーディオン折りたたみ時: 高さ・幅ともにゼロへ → エリアがラベル幅のみに縮小 */
+.tnx-hud .participants-area.collapsed .participants-list {
+    max-height: 0;
+    max-width: 0;
+    opacity: 0;
+    margin-top: 0;
+    padding-top: 0;
+    overflow: hidden;
+}
+
+.tnx-hud .participants-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.tnx-hud .participants-list::-webkit-scrollbar-thumb {
+    background: rgba(0, 200, 224, 0.3);
+    border-radius: 3px;
+}
+
+.tnx-hud .participant-row {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.3);
+    flex-shrink: 0;
+}
+
+.tnx-hud .participant-name {
+    font-size: 0.72em;
+    font-weight: bold;
+    line-height: 1.2;
+}
+
+.tnx-hud .participant-main {
+    display: flex;
+    gap: 6px;
+    align-items: flex-start;
+}
+
+/* 左列: 現在のステータス(アクセスカード)。空でも幅を保ち、行間で手札の位置を揃える */
+.tnx-hud .participant-status {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 0 0 46px;
+}
+
+.tnx-hud .participant-status-card img {
+    display: block;
+    width: 100%;
+    border-radius: 2px;
+}
+
+/* RL のステータスは常に「RL」(専用カード画像が無いためプレート表示) */
+.tnx-hud .participant-rl-plate {
+    width: 46px;
+    aspect-ratio: 2 / 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--tnx2-font-mono);
+    font-weight: 700;
+    font-size: 0.9em;
+    letter-spacing: 0.08em;
+    color: var(--tnx2-accent);
+    background: rgba(0, 200, 224, 0.08);
+    border: 1px solid rgba(0, 200, 224, 0.35);
+    border-radius: 2px;
+    text-shadow: 0 0 6px rgba(0, 200, 224, 0.5);
+    box-shadow: inset 0 0 6px rgba(0, 200, 224, 0.08);
+}
+
+/* 右列: 手札。4枚分の固定幅にし、5枚目以降はこの列の中で折り返す
+   (ステータス列を含めた行全体では折り返さない) */
+.tnx-hud .participant-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    align-content: flex-start;
+    width: 193px; /* 46px×4枚 + 3px×3ギャップ */
+    flex: 0 0 auto;
+}
+
+.tnx-hud .participant-card-img {
+    width: 46px;
+    flex-shrink: 0;
+    border-radius: 2px;
+    display: block;
+}
+
+.tnx-hud .participant-empty {
+    font-size: 0.7em;
+    color: var(--tnx2-text-muted);
 }
 
 /* ── アクセスカードエリア ── */
@@ -4123,11 +4205,6 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     max-height: 300px;
     overflow: hidden;
     transition: max-height 0.4s ease-in-out, opacity 0.4s ease-in-out, margin-bottom 0.4s ease-in-out;
-}
-
-/* アコーディオン折りたたみ時: ラベル幅のみに縮小 */
-.tnx-hud .access-area.collapsed {
-    align-self: flex-start;
 }
 
 .tnx-hud .access-area-header {
@@ -4255,12 +4332,21 @@ body.tnx-bottom-hud-expanded #hotbar {
     visibility: hidden;
 }
 
-/* 下バー全体収納: アクセスエリア・手札コンテンツ・切り札をそれぞれ非表示へ。
+/* 下バー全体収納: 参加者・アクセスエリア・ステータス・手札コンテンツ・切り札をそれぞれ非表示へ。
    ボタン(.hud-collapse-bottom)は hud-bottom-main 内で対象外のため常に表示される。 */
-.tnx-hud .hud-bottom-bar.collapsed .access-area {
+.tnx-hud .hud-bottom-bar.collapsed .access-area,
+.tnx-hud .hud-bottom-bar.collapsed .participants-area {
     max-height: 0;
     opacity: 0;
     margin-bottom: 0;
+    pointer-events: none;
+}
+.tnx-hud .hud-bottom-bar.collapsed .status-card-area {
+    max-width: 0;
+    margin-right: 0;
+    padding-left: 0;
+    padding-right: 0;
+    opacity: 0;
     pointer-events: none;
 }
 .tnx-hud .hud-bottom-bar.collapsed .hud-bottom-content {

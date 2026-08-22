@@ -1336,6 +1336,8 @@ Hooks.once("init", async function() {
     game.settings.register("tokyo-nova-axleration", "hudRightCollapsed",  { ..._hudUiSetting });
     game.settings.register("tokyo-nova-axleration", "hudBottomCollapsed", { ..._hudUiSetting });
     game.settings.register("tokyo-nova-axleration", "hudAccessCollapsed", { ..._hudUiSetting, default: true });
+    // 参加者パネルはステータスと受け渡し先(D&D)を常時見せる場のため、既定は展開
+    game.settings.register("tokyo-nova-axleration", "hudParticipantsCollapsed", { ..._hudUiSetting });
 
     // シナリオコントロールパネル UI 状態（クライアントローカル・2026-08-15 タブ再構成）
     game.settings.register("tokyo-nova-axleration", "scenarioPanelTab", {
@@ -1807,20 +1809,28 @@ Hooks.once("init", async function() {
         if ((f && appearanceKeys.some(key => key in f)) || changes.system?.isGhost !== undefined) {
             foundry.applications.instances.get("tnx-scenario-panel")?.render(false);
         }
-        if (changes.system?.isGhost !== undefined && actor.id === game.user.character?.id) {
+        // 参加者パネルは他ユーザーの担当キャラクターのステータスも表示するため、
+        // 担当キャラクターであれば誰のものでも HUD を追随させる
+        if (changes.system?.isGhost !== undefined
+            && game.users.some(u => u.character?.id === actor.id)) {
             foundry.applications.instances.get("tnx-hud")?.render(false);
         }
     });
 
-    // HUD のステータス表示(14-7)の追随: シーンプレイヤー(自分の User flag)・抹殺(担当キャラの状態)
+    // HUD のステータス表示(14-7)・参加者パネルの追随: シーンプレイヤー(User flag)・
+    // 手札の割り当て変更はどのユーザーの分でも HUD に映る
     Hooks.on("updateUser", (user, changes) => {
-        if (user.id === game.user.id && changes.flags?.["tokyo-nova-axleration"]) {
+        if (changes.flags?.["tokyo-nova-axleration"]) {
             foundry.applications.instances.get("tnx-hud")?.render(false);
         }
     });
+    // 参加者パネルは接続中ユーザーのみ並べるため、入退室でも HUD を追随させる
+    Hooks.on("userConnected", () => {
+        foundry.applications.instances.get("tnx-hud")?.render(false);
+    });
     for (const hook of ["createActiveEffect", "deleteActiveEffect", "updateActiveEffect"]) {
         Hooks.on(hook, (effect) => {
-            if (effect.parent?.id && effect.parent.id === game.user.character?.id) {
+            if (effect.parent?.id && game.users.some(u => u.character?.id === effect.parent.id)) {
                 foundry.applications.instances.get("tnx-hud")?.render(false);
             }
         });

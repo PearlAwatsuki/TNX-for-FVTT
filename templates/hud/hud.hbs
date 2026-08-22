@@ -64,42 +64,16 @@
             </div>
         </div>
 
-        {{#if showPlayerHands}}
-        <div class="hud-panel player-hands-area">
-            <span class="card-slot-label">プレイヤーの手札</span>
-            <div class="player-hands-scroll">
-                {{#if playerHands}}
-                    {{#each playerHands as |ph|}}
-                        <div class="player-hand-row" data-action="giveCardsToPlayer" data-target-user-id="{{ph.userId}}" title="{{ph.userName}} にカードを渡す">
-                            <span class="player-hand-name" style="color: {{ph.color}}">{{ph.userName}}</span>
-                            <div class="player-hand-cards">
-                                {{#if ph.cards.length}}
-                                    {{#each ph.cards as |card|}}
-                                        <img class="player-hand-card-img" src="{{card.img}}" alt="{{card.name}}" title="{{card.name}}">
-                                    {{/each}}
-                                {{else}}
-                                    <span class="player-hand-empty">（手札なし）</span>
-                                {{/if}}
-                            </div>
-                        </div>
-                    {{/each}}
-                {{else}}
-                    <span class="player-hand-empty">（対象プレイヤーなし）</span>
-                {{/if}}
-            </div>
-        </div>
-        {{/if}}
-
         <div class="main-area">
             <div class="card-slot">
                 <span class="card-slot-label">山札</span>
                 {{#if (and cardDeck cardDeck.count)}}
-                    <div class="deck-card deck-area" data-action="drawFromDeck" title="山札からドロー" draggable="true" data-drag-type="deck">
+                    <div class="deck-card deck-area" data-action="drawFromDeck" title="山札からドロー" draggable="true" data-drag-type="deck" data-drop-zone="deck">
                         <img src="{{cardDeck.img}}" alt="山札">
                         <span class="deck-count">{{cardDeck.count}}</span>
                     </div>
                 {{else}}
-                    <div class="card-empty-placeholder deck-area">
+                    <div class="card-empty-placeholder deck-area" data-drop-zone="deck">
                         <i class="fas fa-inbox"></i>
                     </div>
                 {{/if}}
@@ -122,36 +96,83 @@
     </div>
 
     <div class="hud-container hud-bottom-bar{{#if bottomCollapsed}} collapsed{{/if}}">
-        {{#if statusCards.length}}
-        <div class="status-card-area hud-panel">
-            <span class="card-slot-label">ステータス</span>
-            <div class="access-cards-row">
-                {{#each statusCards as |card|}}
-                    <div class="status-card" title="{{card.label}}">
-                        <img src="{{card.img}}" alt="{{card.label}}">
-                    </div>
-                {{/each}}
+        <div class="hud-bottom-panels">
+            {{!-- 参加者パネル: 自分以外の参加者のステータス+手札を常時表示する。
+                  行はカードのドロップ先(ドラッグしたカードをそのユーザーに渡す)。
+                  裏向きのカードには名前を一切出さない(title なし=内容漏れ防止) --}}
+            <div class="participants-area hud-panel{{#if participantsCollapsed}} collapsed{{/if}}">
+                <div class="participants-header" data-action="toggleParticipantsArea" title="参加者の表示を開閉">
+                    <i class="fas fa-chevron-down participants-fold-icon"></i>
+                    <span class="card-slot-label">参加者</span>
+                </div>
+                <div class="participants-list">
+                    {{#each participants as |p|}}
+                        <div class="participant-row" data-drop-zone="participant" data-user-id="{{p.userId}}">
+                            <span class="participant-name" style="color: {{p.color}}">{{p.userName}}</span>
+                            <div class="participant-main">
+                                <div class="participant-status">
+                                    {{#if p.isRL}}
+                                        <div class="participant-rl-plate">RL</div>
+                                    {{else}}
+                                        {{#each p.statusCards as |sc|}}
+                                            <div class="participant-status-card" title="{{sc.label}}">
+                                                <img src="{{sc.img}}" alt="{{sc.label}}">
+                                            </div>
+                                        {{/each}}
+                                    {{/if}}
+                                </div>
+                                <div class="participant-cards">
+                                    {{#if p.cards.length}}
+                                        {{#each p.cards as |card|}}
+                                            {{#if card.faceUp}}
+                                                <img class="participant-card-img" src="{{card.img}}" alt="{{card.name}}" title="{{card.name}}">
+                                            {{else}}
+                                                <img class="participant-card-img" src="{{card.img}}" alt="裏向きのカード">
+                                            {{/if}}
+                                        {{/each}}
+                                    {{else}}
+                                        <span class="participant-empty">（手札なし）</span>
+                                    {{/if}}
+                                </div>
+                            </div>
+                        </div>
+                    {{else}}
+                        <span class="participant-empty">（参加者なし）</span>
+                    {{/each}}
+                </div>
             </div>
-        </div>
-        {{/if}}
 
-        {{#if accessCards}}
-        <div class="access-area hud-panel{{#if accessCollapsed}} collapsed{{/if}}">
-            <div class="access-area-header" data-action="toggleAccessArea" title="アクセスカードの表示を開閉">
-                <i class="fas fa-chevron-down access-fold-icon"></i>
-                <span class="card-slot-label">アクセスカード</span>
+            {{#if accessCards}}
+            <div class="access-area hud-panel{{#if accessCollapsed}} collapsed{{/if}}">
+                <div class="access-area-header" data-action="toggleAccessArea" title="アクセスカードの表示を開閉">
+                    <i class="fas fa-chevron-down access-fold-icon"></i>
+                    <span class="card-slot-label">アクセスカード</span>
+                </div>
+                <div class="access-cards-row">
+                    {{#each accessCards as |card|}}
+                        <div class="access-card" data-action="presentAccessCard" data-card-id="{{card.id}}" title="{{card.name}} (クリックで全員に提示)">
+                            <img src="{{card.img}}" alt="{{card.name}}">
+                        </div>
+                    {{/each}}
+                </div>
             </div>
-            <div class="access-cards-row">
-                {{#each accessCards as |card|}}
-                    <div class="access-card" data-action="presentAccessCard" data-card-id="{{card.id}}" title="{{card.name}} (クリックで全員に提示)">
-                        <img src="{{card.img}}" alt="{{card.name}}">
-                    </div>
-                {{/each}}
-            </div>
+            {{/if}}
         </div>
-        {{/if}}
 
         <div class="hud-bottom-main">
+            {{#if statusCards.length}}
+            <div class="status-card-area hud-panel">
+                <span class="card-slot-label">ステータス</span>
+                <div class="status-cards-row">
+                    {{#each statusCards as |card|}}
+                        <div class="status-card" title="{{card.label}}">
+                            <img src="{{card.img}}" alt="{{card.label}}">
+                        </div>
+                    {{/each}}
+                </div>
+            </div>
+            {{/if}}
+
             <div class="hud-bottom-content">
                 <div class="hand-area hud-panel {{#if checkPending}}check-pending{{/if}} {{#if checkTrumpMode}}trump-mode{{/if}}" data-drop-zone="hand">
                     <span class="card-slot-label">手札</span>

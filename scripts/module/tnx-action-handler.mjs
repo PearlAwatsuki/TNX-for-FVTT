@@ -456,10 +456,13 @@ export class TnxActionHandler {
     }
 
     /**
-     * 【HUD用】特定のカード1枚を、選択した別のユーザーに渡す
+     * 【HUD用】特定のカード1枚を、指定したユーザーの手札に渡す(参加者パネルへの D&D から起動)。
+     * 相手の手札の所有権が無い場合(PL→他PL/RL)は activeGM に移動を委譲する
+     * (手札は本人+GM のみ OWNER のため、非所有者は相手の手札にカードを作成できない)。
      * @param {string} cardId - 渡すカードのID
+     * @param {string} targetUserId - 渡す相手のユーザーID
      */
-    static async passSingleCard(cardId) {
+    static async passCardToUser(cardId, targetUserId) {
         const { getUserFlagData } = await import('./user-flag-schema.mjs');
         const sourceHandId = getUserFlagData(game.user).handPileId;
         const sourceHand = sourceHandId ? await fromUuid(sourceHandId) : null;
@@ -467,35 +470,37 @@ export class TnxActionHandler {
         const cardToPass = sourceHand?.cards.get(cardId);
         if (!cardToPass) return ui.notifications.error("渡すカードが見つかりませんでした。");
 
-        const targetUsers = game.users.filter(u => 
-            u.id !== game.user.id && 
-            getUserFlagData(u).handPileId
-        );
-
-        if (targetUsers.length === 0) return ui.notifications.warn("カードを渡せる相手（手札を持つユーザー）がいません。");
-        
-        // ユーザーをプレイヤーとGMに分け、ソートする
-        const playerUsers = targetUsers.filter(u => !u.isGM);
-        const gmUsers = targetUsers.filter(u => u.isGM);
-        playerUsers.sort((a, b) => a.name.localeCompare(b.name, game.i18n.lang));
-        gmUsers.sort((a, b) => a.name.localeCompare(b.name, game.i18n.lang));
-        const sortedUsers = [...playerUsers, ...gmUsers];
-
-        const targetUserId = await TargetSelectionDialog.prompt({
-            title: "カードを渡す相手を選択",
-            label: `「${cardToPass.name}」を誰に渡しますか？`,
-            options: sortedUsers.map(u => ({ value: u.id, label: u.name })),
-            selectLabel: "決定"
-        });
-        if (!targetUserId) return;
-        
         const targetUser = game.users.get(targetUserId);
+        if (!targetUser) return ui.notifications.error("対象ユーザーが見つかりません。");
+
         const targetHandId = getUserFlagData(targetUser).handPileId;
-        const targetHand = await fromUuid(targetHandId);
-        if (!targetHand) return ui.notifications.error("相手の手札が見つかりませんでした。");
-        
-        await sourceHand.pass(targetHand, [cardId], { chatNotification: false });
+        const targetHand = targetHandId ? await fromUuid(targetHandId) : null;
+        if (!targetHand) return ui.notifications.warn(`「${targetUser.name}」に手札が設定されていません。`);
+
+        await TnxActionHandler._passHandCards(sourceHand, targetHand, [cardId]);
         ui.notifications.info(`「${cardToPass.name}」を「${targetUser.name}」に渡しました。`);
+    }
+
+    /**
+     * 手札から手札へのカード移動の実体。相手の手札の所有権が無い場合(PL→他PL/RL)は
+     * activeGM に移動を委譲する(手札は本人+GM のみ OWNER のため、非所有者は相手の
+     * 手札にカードを作成できない)。passCardToUser と selectAndPassMultipleCards が共用する。
+     * @param {Cards} sourceHand - 自分の手札
+     * @param {Cards} targetHand - 相手の手札
+     * @param {string[]} cardIds - 渡すカードのID群
+     */
+    static async _passHandCards(sourceHand, targetHand, cardIds) {
+        if (targetHand.isOwner) {
+            await sourceHand.pass(targetHand, cardIds, { chatNotification: false });
+        } else {
+            game.socket.emit("system.tokyo-nova-axleration", {
+                type: "passHandCard",
+                userId: game.user.id,
+                sourceHandUuid: sourceHand.uuid,
+                targetHandUuid: targetHand.uuid,
+                cardIds,
+            });
+        }
     }
 
     /**
@@ -543,39 +548,8 @@ export class TnxActionHandler {
         const targetHand = await fromUuid(targetHandId);
         if (!targetHand) return ui.notifications.error("相手の手札が見つかりませんでした。");
 
-        await sourceHand.pass(targetHand, selectedCardsIds, { chatNotification: false });
+        await TnxActionHandler._passHandCards(sourceHand, targetHand, selectedCardsIds);
         ui.notifications.info(`「${targetUser.name}」に${selectedCardsIds.length}枚のカードを渡しました。`);
-    }
-
-    /**
-     * 【HUD用】対象ユーザーを事前に決めてカードを渡す（プレイヤー手札エリアのクリックから起動）。
-     * カード選択ダイアログのみ表示し、プレイヤー選択ステップはスキップする。
-     * @param {string} targetUserId
-     */
-    static async selectAndPassToUser(targetUserId) {
-        const { getUserFlagData } = await import('./user-flag-schema.mjs');
-        const sourceHandId = getUserFlagData(game.user).handPileId;
-        const sourceHand = sourceHandId ? await fromUuid(sourceHandId) : null;
-        if (!sourceHand || sourceHand.cards.size === 0)
-            return ui.notifications.warn("渡せるカードが手札にありません。");
-
-        const targetUser = game.users.get(targetUserId);
-        if (!targetUser) return ui.notifications.error("対象ユーザーが見つかりません。");
-
-        const targetHandId = getUserFlagData(targetUser).handPileId;
-        const targetHand = targetHandId ? await fromUuid(targetHandId) : null;
-        if (!targetHand) return ui.notifications.warn(`「${targetUser.name}」に手札が設定されていません。`);
-
-        const selectedCardIds = await CardSelectionDialog.prompt({
-            title: `「${targetUser.name}」に渡すカードを選択`,
-            content: "渡したいカードをすべて選択してください。",
-            cards: sourceHand.cards.contents,
-            passLabel: "渡す",
-        });
-        if (!selectedCardIds || selectedCardIds.length === 0) return;
-
-        await sourceHand.pass(targetHand, selectedCardIds, { chatNotification: false });
-        ui.notifications.info(`「${targetUser.name}」に${selectedCardIds.length}枚のカードを渡しました。`);
     }
 
     /**

@@ -24,6 +24,8 @@
  *                    （フェーズ14-5。宣言はいつでも可＝プレイヤーも行うため）
  *   infoDisclose   - PL → GM: 情報収集判定の自動開示を委譲する（フェーズ14-9。開示の正本＝
  *                    アクトジャーナルのフラグは GM しか書けないため）
+ *   passHandCard   - PL → GM: 手札から手札へのカード受け渡しを委譲する（手札は本人+GM のみ
+ *                    OWNER のため、非所有者は相手の手札にカードを作成できない）
  */
 
 const SCOPE = "tokyo-nova-axleration";
@@ -78,7 +80,30 @@ export class TnxSocketHandler {
             case "infoDisclose":
                 TnxSocketHandler._onInfoDisclose(data);
                 break;
+            case "passHandCard":
+                TnxSocketHandler._onPassHandCard(data);
+                break;
         }
+    }
+
+    // ─── passHandCard（手札から手札への受け渡しの委譲） ───────────────────────
+    // 手札は本人+GM のみ OWNER のため、PL は他ユーザーの手札にカードを作成できない。
+    // 参加者パネルへの D&D /「指定枚数を渡す」で相手の手札を所有していない場合、
+    // activeGM がカード移動を代行する。移動元が要求者本人の手札であることを検証する。
+
+    /** 手札間のカード移動を GM クライアントが代行する(複数 GM 接続時は activeGM のみ)。 */
+    static async _onPassHandCard(data) {
+        if (game.users.activeGM?.id !== game.user.id) return;
+        const { getUserFlagData } = await import("./user-flag-schema.mjs");
+        const requester = game.users.get(data?.userId);
+        if (!requester) return;
+        if (getUserFlagData(requester).handPileId !== data?.sourceHandUuid) return;
+        const sourceHand = await fromUuid(data.sourceHandUuid);
+        const targetHand = await fromUuid(data?.targetHandUuid);
+        if (!sourceHand || !targetHand) return;
+        const cardIds = (data?.cardIds ?? []).filter(id => sourceHand.cards.get(id));
+        if (!cardIds.length) return;
+        await sourceHand.pass(targetHand, cardIds, { chatNotification: false });
     }
 
     // ─── presentAccessCard ────────────────────────────────────────────────────

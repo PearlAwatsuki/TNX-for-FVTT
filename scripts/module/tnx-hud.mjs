@@ -3,11 +3,14 @@ import { TnxCheckFlow } from './tnx-check-flow.mjs';
 import { isDamageCardPending, executeDamageCardFromHand } from './damage-flow.mjs';
 import { getCardCheckValue, getAbilityBySuit, SUIT_TO_ABILITY } from './tnx-check-engine.mjs';
 import { getUserFlagData } from './user-flag-schema.mjs';
-import { getSessionState, getActiveActJournal } from './session-state.mjs';
+import { getSessionState, getActiveActJournal, getBackstage } from './session-state.mjs';
 import {
     hudInfoItems, hudInfoTnChips, withResolvedInfoSkillNames, buildInfoCardData, infoCheckRows,
 } from './session-logic.mjs';
 import { loadGeneralSkillNameByKey } from './skill-dictionary.mjs';
+
+/** トランプの裏面画像(非開示時・RL手札の裏向き表示に使用) */
+const PLAYING_CARD_BACK = "systems/tokyo-nova-axleration/assets/cards/playing-cards/back.png";
 
 /** カードの suit 文字列を TNX スートキーに正規化する */
 function _normalizeSuit(rawSuit) {
@@ -40,8 +43,8 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
             replenishHand:   TnxHud._onReplenishHand,
             toggleHudColumn:    TnxHud._onToggleHudColumn,
             toggleAccessArea:   TnxHud._onToggleAccessArea,
+            toggleParticipantsArea: TnxHud._onToggleParticipantsArea,
             presentAccessCard:  TnxHud._onPresentAccessCard,
-            giveCardsToPlayer:  TnxHud._onGiveCardsToPlayer,
             infoCheck:          TnxHud._onInfoCheck,
         },
     };
@@ -64,6 +67,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
         context.rightCollapsed  = game.settings.get("tokyo-nova-axleration", "hudRightCollapsed");
         context.bottomCollapsed = game.settings.get("tokyo-nova-axleration", "hudBottomCollapsed");
         context.accessCollapsed = game.settings.get("tokyo-nova-axleration", "hudAccessCollapsed");
+        context.participantsCollapsed = game.settings.get("tokyo-nova-axleration", "hudParticipantsCollapsed");
 
         // --- カードID取得（ゲーム設定から直接読み込み）---
         const cardDeckId    = game.settings.get("tokyo-nova-axleration", "cardDeckId");
@@ -190,51 +194,69 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
             context.accessCards = accessPile.cards.contents;
         }
 
-        // --- ステータスカード(14-7): 提示式でなく状態からの自動表示。
-        //     シーンプレイヤー/ゴースト/抹殺=本人のみ・舞台裏=開始〜終了の間は全員 ---
-        const statusBase = "systems/tokyo-nova-axleration/assets/cards/access-cards/";
-        const statusCards = [];
-        if (getUserFlagData(game.user).isScenePlayer) {
-            statusCards.push({ img: `${statusBase}scene_player.png`, label: "シーン・プレイヤー" });
-        }
-        const { getBackstage } = await import("./session-state.mjs");
-        if (getBackstage().open) {
-            statusCards.push({ img: `${statusBase}behind_the_scene.png`, label: "舞台裏" });
-        }
-        const myCharacter = game.user.character;
-        if (myCharacter?.system?.isGhost === true) {
-            statusCards.push({ img: `${statusBase}ghost.png`, label: "ゴースト" });
-        }
-        if (myCharacter?.effects?.some(e => !e.disabled
-            && e.flags?.["tokyo-nova-axleration"]?.conditionKind === "erased")) {
-            statusCards.push({ img: `${statusBase}erasure.png`, label: "抹殺" });
-        }
-        context.statusCards = statusCards;
+        // --- ステータスカード(14-7): 提示式でなく状態からの自動表示 ---
+        context.statusCards = TnxHud._buildUserStatusCards(game.user);
 
-        // --- プレイヤー手札（revealPlayerHands が true のときのみ表示）---
-        context.showPlayerHands = game.settings.get("tokyo-nova-axleration", "revealPlayerHands");
-        if (!context.showPlayerHands) return context;
-
-        const allUsersWithHand = game.users.filter(u => u.active && !u.isGM && getUserFlagData(u).handPileId);
-        const handTargets = game.user.isGM
-            ? allUsersWithHand
-            : allUsersWithHand.filter(u => u.id !== game.user.id);
-
-        const playerHands = [];
-        for (const u of handTargets) {
+        // --- 参加者パネル(自分以外の手札所持ユーザー。ステータス+手札を常時表示) ---
+        // 手札の表裏: revealPlayerHands がオンのときのみプレイヤーの手札を表向きにする。
+        // RL の手札は設定によらず常に裏向き。裏向きのカードには名前等の情報を一切載せない
+        // (ツールチップからの内容漏れ防止)
+        const revealHands = game.settings.get("tokyo-nova-axleration", "revealPlayerHands");
+        const others = game.users.filter(u =>
+            u.active && u.id !== game.user.id && getUserFlagData(u).handPileId);
+        // 並びは受け渡しダイアログと同じ規則: プレイヤー(名前順)→GM(名前順)
+        const byName = (a, b) => a.name.localeCompare(b.name, game.i18n.lang);
+        const ordered = [
+            ...others.filter(u => !u.isGM).sort(byName),
+            ...others.filter(u => u.isGM).sort(byName),
+        ];
+        const participants = [];
+        for (const u of ordered) {
             const hand = await fromUuid(getUserFlagData(u).handPileId);
-            if (hand) {
-                playerHands.push({
-                    userId:   u.id,
-                    userName: u.name,
-                    color:    u.color?.css ?? "#888888",
-                    cards:    hand.cards.contents,
-                });
-            }
+            if (!hand) continue;
+            const isRL = u.isGM;
+            const faceUp = revealHands && !isRL;
+            participants.push({
+                userId:   u.id,
+                userName: u.name,
+                color:    u.color?.css ?? "#888888",
+                isRL,
+                statusCards: isRL ? [] : TnxHud._buildUserStatusCards(u),
+                cards: hand.cards.contents.map(card => faceUp
+                    ? { img: card.img, name: card.name, faceUp: true }
+                    : { img: card.back?.img || PLAYING_CARD_BACK, faceUp: false }),
+            });
         }
-        if (playerHands.length > 0) context.playerHands = playerHands;
+        context.participants = participants;
 
         return context;
+    }
+
+    /**
+     * ユーザーの現在ステータスカード群を組み立てる(14-7: 状態からの自動表示)。
+     * 自分のステータスパネルと参加者パネルの各行が共用する。
+     * シーンプレイヤー/ゴースト/抹殺=そのユーザー本人の状態・舞台裏=開始〜終了の間は全員。
+     * @param {User} user 対象ユーザー
+     * @returns {Array<{img: string, label: string}>}
+     */
+    static _buildUserStatusCards(user) {
+        const statusBase = "systems/tokyo-nova-axleration/assets/cards/access-cards/";
+        const cards = [];
+        if (getUserFlagData(user).isScenePlayer) {
+            cards.push({ img: `${statusBase}scene_player.png`, label: "シーン・プレイヤー" });
+        }
+        if (getBackstage().open) {
+            cards.push({ img: `${statusBase}behind_the_scene.png`, label: "舞台裏" });
+        }
+        const character = user.character;
+        if (character?.system?.isGhost === true) {
+            cards.push({ img: `${statusBase}ghost.png`, label: "ゴースト" });
+        }
+        if (character?.effects?.some(e => !e.disabled
+            && e.flags?.["tokyo-nova-axleration"]?.conditionKind === "erased")) {
+            cards.push({ img: `${statusBase}erasure.png`, label: "抹殺" });
+        }
+        return cards;
     }
 
     // ─── レンダリング ──────────────────────────────────────────────────────────
@@ -251,12 +273,15 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
         const rightCollapsed  = game.settings.get("tokyo-nova-axleration", "hudRightCollapsed");
         const bottomCollapsed = game.settings.get("tokyo-nova-axleration", "hudBottomCollapsed");
         const accessCollapsed = game.settings.get("tokyo-nova-axleration", "hudAccessCollapsed");
+        const participantsCollapsed = game.settings.get("tokyo-nova-axleration", "hudParticipantsCollapsed");
         const right  = this.element.querySelector(".hud-right-column");
         const bottom = this.element.querySelector(".hud-bottom-bar");
         const access = this.element.querySelector(".access-area");
+        const participants = this.element.querySelector(".participants-area");
         if (right  && rightCollapsed)  right.classList.add("collapsed");
         if (bottom && bottomCollapsed) bottom.classList.add("collapsed");
         if (access && accessCollapsed) access.classList.add("collapsed");
+        if (participants && participantsCollapsed) participants.classList.add("collapsed");
         TnxHud._syncHotbarVisibility(!bottomCollapsed);
         TnxHud._updateCollapseIcons(this.element);
     }
@@ -459,11 +484,6 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
 
         new CM(el, '.hand-area .card-in-hand', [
             {
-                name: "手札を渡す",
-                icon: '<i class="fas fa-user-friends"></i>',
-                callback: (header) => TnxActionHandler.passSingleCard(header.dataset.cardId),
-            },
-            {
                 name: "指定枚数を渡す",
                 icon: '<i class="fas fa-users"></i>',
                 callback: () => TnxActionHandler.selectAndPassMultipleCards(),
@@ -541,6 +561,19 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
                         else if (dropZoneType === 'discard') TnxActionHandler.flipFromDeck();
                     } else if (data.sourceType === 'hand-card') {
                         if (dropZoneType === 'discard' && data.cardId) TnxActionHandler.playCard(data.cardId);
+                        // 参加者パネルの手札行へドロップ=そのユーザーにカードを渡す
+                        else if (dropZoneType === 'participant' && data.cardId && zone.dataset.userId) {
+                            TnxActionHandler.passCardToUser(data.cardId, zone.dataset.userId);
+                        }
+                    } else if (data.sourceType === 'discard-card') {
+                        // 捨て札の一番上のカードを移す(右クリックメニューと同じ操作の D&D 版。
+                        // 山札へ戻せるのは RL のみ=メニューの権限と同一)
+                        if (dropZoneType === 'deck') {
+                            if (game.user.isGM) TnxActionHandler.returnTopDiscardToDeck();
+                            else ui.notifications.warn("捨て札を山札に戻せるのはRLのみです。");
+                        } else if (dropZoneType === 'hand') {
+                            TnxActionHandler.takeFromDiscard();
+                        }
                     } else if (data.sourceType === 'neuro-deck') {
                         if (dropZoneType === 'scene') TnxActionHandler.drawNeuroCard();
                     } else if (data.sourceType === 'trump-card') {
@@ -617,6 +650,14 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
         game.settings.set("tokyo-nova-axleration", "hudAccessCollapsed", nowCollapsed);
     }
 
+    static _onToggleParticipantsArea(event, target) {
+        event.preventDefault();
+        const area = target.closest(".participants-area");
+        if (!area) return;
+        const nowCollapsed = area.classList.toggle("collapsed");
+        game.settings.set("tokyo-nova-axleration", "hudParticipantsCollapsed", nowCollapsed);
+    }
+
     /**
      * アクセスカードを全接続ユーザーに提示する。カードは pile から移動させない。
      * GM 権限に依存しないよう、コアの shareImage ではなくシステム独自ソケットで配信する。
@@ -668,13 +709,6 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
      */
     static _syncHotbarVisibility(hudExpanded) {
         document.body.classList.toggle("tnx-bottom-hud-expanded", hudExpanded);
-    }
-
-    static async _onGiveCardsToPlayer(event, target) {
-        event.preventDefault();
-        const targetUserId = target.dataset.targetUserId;
-        if (!targetUserId) return;
-        await TnxActionHandler.selectAndPassToUser(targetUserId);
     }
 
     // ─── 情報項目(14-9・正本 Scenario_Progress「情報収集判定の裁定」) ──────────
