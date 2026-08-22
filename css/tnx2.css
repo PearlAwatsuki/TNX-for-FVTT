@@ -4173,26 +4173,7 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     border-radius: 3px;
 }
 
-/* RL のステータスは常に「RL」(専用カード画像が無いためプレート表示) */
-.tnx-hud .participant-rl-plate {
-    width: 50px;
-    height: 69px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: var(--tnx2-font-mono);
-    font-weight: 700;
-    font-size: 0.9em;
-    letter-spacing: 0.08em;
-    color: var(--tnx2-accent);
-    background: rgba(0, 200, 224, 0.08);
-    border: 1px solid rgba(0, 200, 224, 0.35);
-    border-radius: 2px;
-    text-shadow: 0 0 6px rgba(0, 200, 224, 0.5);
-    box-shadow: inset 0 0 6px rgba(0, 200, 224, 0.08);
-}
-
-/* 「登場中」プレート: アクセスカードの意匠(英題+下端の和文リボン)を CSS で組む。
+/* 「登場中」「RULER(RL)」プレート: アクセスカードの意匠(英題+下端の和文リボン)を CSS で組む。
    斜めスキャンライン+奥行きグラデの上に "ON STAGE"、下端に「登場中」リボン。
    枠と光彩はステータスカードの強調リングと同系 */
 .tnx-hud .participant-status-plate,

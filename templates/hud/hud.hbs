@@ -114,7 +114,11 @@
                                       基本埋まるが、万一空でも空とわかる器を置く --}}
                                 <div class="participant-status">
                                     {{#if p.isRL}}
-                                        <div class="participant-rl-plate">RL</div>
+                                        {{!-- RL の状態は常に RL(=ルーラー)。登場中と同じカード意匠 --}}
+                                        <div class="participant-status-plate" title="RL">
+                                            <span class="status-plate-en">RULER</span>
+                                            <span class="status-plate-ja">ルーラー</span>
+                                        </div>
                                     {{else}}
                                         {{#each p.statusCards as |sc|}}
                                             {{#if sc.plate}}
