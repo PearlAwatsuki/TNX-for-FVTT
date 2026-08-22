@@ -3771,14 +3771,53 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     gap: 8px;
 }
 
+/* ── パネル基底: 情報項目プレートと同じ角落とし3層構造(2026-08-22 リデザイン) ──
+   ::before=枠レイヤー(左アクセントバー3px+グロー枠色・切り欠き形状に追従する drop-shadow)・
+   ::after=内側の地(奥行きグラデ+斜めテクスチャ)。ホスト自身には clip-path/filter を掛けない
+   (掛けるとパネル内に生成されるコンテキストメニューの fixed 配置が壊れ、描画も切り取られる)。
+   スキャンラインの重ね掛けはカード画像の視認性を損なうため地のテクスチャのみに留める */
 .tnx-hud .main-area,
 .tnx-hud .neuro-area,
 .tnx-hud .hud-panel {
-    padding: 8px;
-    background: rgba(0,0,0,0.5);
-    border: 1px solid #555;
-    border-radius: 10px;
+    position: relative;
+    padding: 8px 10px 8px 12px;
     display: flex;
+}
+
+.tnx-hud .main-area::before,
+.tnx-hud .neuro-area::before,
+.tnx-hud .hud-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, var(--tnx2-accent) 0 3px, var(--tnx2-border-glow) 3px);
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+    filter: drop-shadow(0 0 5px rgba(0, 200, 224, 0.22));
+    z-index: 0;
+}
+
+.tnx-hud .main-area::after,
+.tnx-hud .neuro-area::after,
+.tnx-hud .hud-panel::after {
+    content: "";
+    position: absolute;
+    inset: 1px 1px 1px 3px;
+    /* 地は不透明トークンで敷く(半透明にすると下の枠レイヤー全面が透けてパネル全体が
+       枠色に染まる)。色味は右下の固定サイズのコーナーグローで足す(%グラデだと
+       大きいパネルで色掛かりが広がりすぎる) */
+    background:
+        repeating-linear-gradient(-35deg, rgba(0, 200, 224, 0.05) 0 2px, transparent 2px 9px),
+        radial-gradient(220px 160px at 100% 100%, rgba(0, 200, 224, 0.16), transparent 70%),
+        linear-gradient(150deg, var(--tnx2-bg-1), var(--tnx2-bg-2));
+    clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+    z-index: 0;
+}
+
+.tnx-hud .main-area > *,
+.tnx-hud .neuro-area > *,
+.tnx-hud .hud-panel > * {
+    position: relative;
+    z-index: 1;
 }
 
 .tnx-hud .main-area {
@@ -3952,14 +3991,24 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     align-items: flex-end;
 }
 
+/* 残枚数は六角ネオンチップ(目標値チップと同族) */
 .tnx-hud .deck-count {
     position: absolute;
-    bottom: 2px;
-    right: 5px;
-    font-size: 1.2em;
-    font-weight: bold;
-    color: #ffffff;
-    text-shadow: 0 0 5px #000, 0 0 3px #000;
+    bottom: 4px;
+    right: 4px;
+    min-width: 26px;
+    padding: 0 8px;
+    background:
+        linear-gradient(180deg, rgba(0, 200, 224, 0.45), rgba(0, 200, 224, 0.16)),
+        rgba(4, 19, 25, 0.9);
+    clip-path: polygon(5px 0, calc(100% - 5px) 0, 100% 50%, calc(100% - 5px) 100%, 5px 100%, 0 50%);
+    color: #dff9ff;
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.85em;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+    text-shadow: 0 0 5px rgba(0, 200, 224, 0.9);
 }
 
 
@@ -4072,7 +4121,7 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
 .tnx-hud .participants-area {
     flex-direction: column;
     align-items: stretch;
-    padding: 6px 8px;
+    padding: 6px 8px 6px 12px;
     margin-bottom: 5px;
     max-height: 45vh;
     overflow: hidden;
@@ -4084,11 +4133,14 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     align-items: center;
     gap: 6px;
     cursor: pointer;
+    /* 見出し行は情報項目と同じアクセントのヘアラインで区切る */
+    padding-bottom: 4px;
+    background: linear-gradient(90deg, rgba(0, 200, 224, 0.55), transparent 75%) bottom / 100% 1px no-repeat;
 }
 
 .tnx-hud .participants-fold-icon {
     font-size: 0.7em;
-    color: var(--tnx2-text-secondary);
+    color: var(--tnx2-accent-dim);
     transition: transform 0.4s ease-in-out;
 }
 .tnx-hud .participants-area.collapsed .participants-fold-icon {
@@ -4126,15 +4178,32 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     border-radius: 3px;
 }
 
+/* 行は情報項目と同族のミニプレート(左アクセントバー=ドロップ先の操作対象の印) */
 .tnx-hud .participant-row {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 3px;
-    padding: 4px 6px;
-    border-radius: 4px;
-    background: rgba(0, 0, 0, 0.3);
+    padding: 5px 8px 5px 11px;
+    background: linear-gradient(90deg, var(--tnx2-accent) 0 3px, var(--tnx2-border-active) 3px);
+    clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+    filter: drop-shadow(0 0 3px rgba(0, 200, 224, 0.15));
     flex-shrink: 0;
     align-self: flex-start; /* 行は自身の内容幅で描く(余分な幅を予約しない) */
+}
+
+.tnx-hud .participant-row::before {
+    content: "";
+    position: absolute;
+    inset: 1px 1px 1px 3px;
+    background: linear-gradient(150deg, var(--tnx2-bg-1), var(--tnx2-bg-2) 60%, rgba(0, 200, 224, 0.08));
+    clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+    z-index: 0;
+}
+
+.tnx-hud .participant-row > * {
+    position: relative;
+    z-index: 1;
 }
 
 .tnx-hud .participant-name {
@@ -4284,7 +4353,7 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
 .tnx-hud .access-area {
     flex-direction: column;
     align-items: stretch;
-    padding: 6px 8px;
+    padding: 6px 8px 6px 12px;
     margin-bottom: 5px;
     max-height: 300px;
     overflow: hidden;
@@ -4296,11 +4365,14 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     align-items: center;
     gap: 6px;
     cursor: pointer;
+    /* 見出し行は情報項目と同じアクセントのヘアラインで区切る */
+    padding-bottom: 4px;
+    background: linear-gradient(90deg, rgba(0, 200, 224, 0.55), transparent 75%) bottom / 100% 1px no-repeat;
 }
 
 .tnx-hud .access-fold-icon {
     font-size: 0.7em;
-    color: var(--tnx2-text-secondary);
+    color: var(--tnx2-accent-dim);
     transition: transform 0.4s ease-in-out;
 }
 .tnx-hud .access-area.collapsed .access-fold-icon {
@@ -4343,6 +4415,7 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     border-radius: 4px;
 }
 
+/* 空スロットは破線の器(空ステータスの器・情報項目の点線枠と同族) */
 .tnx-hud .card-empty-placeholder {
     display: flex;
     align-items: center;
@@ -4350,6 +4423,8 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     color: var(--tnx2-text-muted);
     width: 100px;
     height: 150px;
+    border: 1px dashed rgba(0, 200, 224, 0.22);
+    border-radius: 2px;
 }
 
 .tnx-hud .card-empty-placeholder.card-empty-clickable {
@@ -4367,10 +4442,10 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     height: 26px;
     flex: 0 0 auto;
     padding: 0;
-    background: rgba(0,0,0,0.6);
-    border: 1px solid #555;
-    border-radius: 4px;
-    color: var(--tnx2-text-secondary);
+    background: rgba(6, 24, 31, 0.85);
+    border: 1px solid var(--tnx2-border-glow);
+    border-radius: 2px;
+    color: var(--tnx2-text-accent);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -4457,20 +4532,20 @@ body.tnx-bottom-hud-expanded #hotbar {
     gap: 6px;
 }
 
+/* パネル見出しは目標値チップと同じ六角ネオンチップ(点灯状態の意匠) */
 .tnx-hud .card-slot-label {
     font-family: var(--tnx2-font-mono);
     font-size: 0.7em;
     font-weight: 700;
-    letter-spacing: 0.10em;
-    color: var(--tnx2-accent);
+    letter-spacing: 0.12em;
+    text-indent: 0.12em;
+    color: #dff9ff;
     white-space: nowrap;
-    line-height: 1;
-    padding: 3px 6px;
-    background: rgba(0, 200, 224, 0.08);
-    border: 1px solid rgba(0, 200, 224, 0.25);
-    border-radius: 2px;
-    text-shadow: 0 0 6px rgba(0, 200, 224, 0.5);
-    box-shadow: 0 0 6px rgba(0, 200, 224, 0.15), inset 0 0 4px rgba(0, 200, 224, 0.05);
+    line-height: 17px;
+    padding: 0 10px;
+    background: linear-gradient(180deg, rgba(0, 200, 224, 0.45), rgba(0, 200, 224, 0.16));
+    clip-path: polygon(5px 0, calc(100% - 5px) 0, 100% 50%, calc(100% - 5px) 100%, 5px 100%, 0 50%);
+    text-shadow: 0 0 5px rgba(0, 200, 224, 0.9);
 }
 
 .tnx-hud .card-slot .card-slot-label {
@@ -4499,10 +4574,30 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 /* ── 判定待機 (check-pending) ─────────────────────────────────── */
 
-.tnx-hud .hand-area.check-pending {
-    outline: 2px dashed rgba(255, 215, 0, 0.55);
-    outline-offset: 4px;
-    border-radius: 4px;
+/* パネルの枠と地をゴールド系に切り替えて待機を示す(旧・破線 outline は角落とし
+   プレート化に伴い撤去。カード側のゴールドグローと合わせて視認させる) */
+.tnx-hud .hand-area.check-pending::before {
+    background: linear-gradient(90deg, #ffd700 0 3px, rgba(255, 205, 60, 0.8) 3px);
+    filter: drop-shadow(0 0 7px rgba(255, 215, 0, 0.5));
+}
+
+.tnx-hud .hand-area.check-pending::after {
+    background:
+        repeating-linear-gradient(-35deg, rgba(255, 215, 0, 0.05) 0 2px, transparent 2px 9px),
+        radial-gradient(220px 160px at 100% 100%, rgba(255, 215, 0, 0.16), transparent 70%),
+        linear-gradient(150deg, #14110a, #1c1508);
+}
+
+.tnx-hud .hand-area.check-pending.trump-mode::before {
+    background: linear-gradient(90deg, #ff8c00 0 3px, rgba(255, 155, 45, 0.8) 3px);
+    filter: drop-shadow(0 0 7px rgba(255, 140, 0, 0.5));
+}
+
+.tnx-hud .hand-area.check-pending.trump-mode::after {
+    background:
+        repeating-linear-gradient(-35deg, rgba(255, 140, 0, 0.05) 0 2px, transparent 2px 9px),
+        radial-gradient(220px 160px at 100% 100%, rgba(255, 140, 0, 0.16), transparent 70%),
+        linear-gradient(150deg, #140f0a, #1c1208);
 }
 
 /* 有効スートのカードをゴールドグローで強調 */
