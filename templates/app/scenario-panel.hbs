@@ -58,6 +58,12 @@
                                 <a class="tnx-icon-ctrl {{#if actor.hidden}}is-on{{/if}}" data-action="toggleAppearHidden" data-actor-id="{{actor.id}}" data-hidden="{{actor.hidden}}" title="{{#if actor.hidden}}名前を伏せている{{else}}名前を出している{{/if}}">
                                     <i class="fas {{#if actor.hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i>
                                 </a>
+                                {{!-- ゴーストトグル(2026-08-22・名前非公開と同じ操作系。isGhost を持つ種別のみ) --}}
+                                {{#if actor.canGhost}}
+                                    <a class="tnx-icon-ctrl {{#if actor.ghost}}is-on{{/if}}" data-action="toggleAppearGhost" data-actor-id="{{actor.id}}" data-ghost="{{actor.ghost}}" title="{{#if actor.ghost}}ゴースト登場中{{else}}通常登場{{/if}}">
+                                        <i class="fas fa-ghost"></i>
+                                    </a>
+                                {{/if}}
                                 <a class="scp-chip-remove" data-action="exitActor" data-actor-id="{{actor.id}}" title="退場させる"><i class="fas fa-times"></i></a>
                             {{/if}}
                         </span>
@@ -89,6 +95,7 @@
                     {{/each}}
                 </select>
                 <a class="tnx-icon-ctrl" data-action="toggleNewHideName" title="名前を出して登場"><i class="fas fa-eye"></i></a>
+                <a class="tnx-icon-ctrl" data-action="toggleNewGhost" title="通常登場"><i class="fas fa-ghost"></i></a>
                 <a class="tnx-icon-ctrl" data-action="appearActor" title="シーンに登場させる"><i class="fas fa-door-open"></i></a>
             </div>
         {{/if}}
@@ -104,12 +111,8 @@
                         {{else}}
                             <span class="scp-send-label">{{team.name}}</span>
                         {{/if}}
-                        {{#if team.canAppear}}
-                            <a class="tnx-icon-ctrl" data-action="teamAppear" data-id="{{team.id}}" title="チームで登場"><i class="fas fa-door-open"></i></a>
-                        {{/if}}
-                        {{#if team.canExit}}
-                            <a class="tnx-icon-ctrl" data-action="teamExit" data-id="{{team.id}}" title="チームで退場"><i class="fas fa-door-closed"></i></a>
-                        {{/if}}
+                        {{!-- 「チームで登場/退場」は 2026-08-22 裁定でオミット=登場の適用は
+                              RL の操作(手動登場・登場判定の成功)に一本化 --}}
                         {{#if team.canJoin}}
                             <a class="tnx-icon-ctrl" data-action="teamJoin" data-id="{{team.id}}" title="このチームに参加"><i class="fas fa-user-plus"></i></a>
                         {{/if}}

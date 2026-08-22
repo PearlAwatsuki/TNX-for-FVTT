@@ -18,10 +18,10 @@
 import {
     getSessionState, getActiveActJournal, getCurrentSceneRow, getCurrentSceneCard, isRulerScene,
     listActJournals, loadAct, startAct, switchScene, endAct,
-    createTeam, joinTeam, leaveTeam, deleteTeam, appearTeam, exitTeam, renameTeam,
+    createTeam, joinTeam, leaveTeam, deleteTeam, renameTeam,
     getBackstage, buildBackstageQueue, currentSceneHasBackstage, canAdvanceScene,
     closeSceneToBackstage, advanceBackstageSpot, addBackstageActor, removeBackstageActor,
-    appearActor, exitActor, setActorNameHidden,
+    appearActor, exitActor, setActorNameHidden, setActorGhost,
     getCurrentSceneAppearance, getRotationStatus, markEventSceneDone, promptActLimitedCleanup,
 } from "./session-state.mjs";
 import { isAppearing, isNameHidden, displayActorName, listAppearingActors } from "./appearance-state.mjs";
@@ -113,12 +113,12 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             appearActor:         TnxScenarioPanel._onAppearActor,
             exitActor:           TnxScenarioPanel._onExitActor,
             toggleAppearHidden:  TnxScenarioPanel._onToggleAppearHidden,
+            toggleAppearGhost:   TnxScenarioPanel._onToggleAppearGhost,
             toggleNewHideName:   TnxScenarioPanel._onToggleNewHideName,
+            toggleNewGhost:      TnxScenarioPanel._onToggleNewGhost,
             teamCreate:          TnxScenarioPanel._onTeamCreate,
             teamJoin:            TnxScenarioPanel._onTeamJoin,
             teamLeave:           TnxScenarioPanel._onTeamLeave,
-            teamAppear:          TnxScenarioPanel._onTeamAppear,
-            teamExit:            TnxScenarioPanel._onTeamExit,
             teamDelete:          TnxScenarioPanel._onTeamDelete,
             teamAddMember:       TnxScenarioPanel._onTeamAddMember,
             teamRemoveMember:    TnxScenarioPanel._onTeamRemoveMember,
@@ -237,6 +237,10 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         const appearing = st.actStarted ? listAppearingActors() : [];
         context.appearing = appearing.map(a => ({
             id: a.id, name: displayActorName(a), hidden: isNameHidden(a),
+            // ゴーストトグル(2026-08-22 ユーザー指示・名前非公開と同じ操作系)。
+            // isGhost フィールドを持たない種別(トループ等)にはトグルを出さない
+            ghost: a.system?.isGhost === true,
+            canGhost: a.system?.isGhost !== undefined,
         }));
         const appearingIds = new Set(appearing.map(a => a.id));
         // RL の手動登場(14-8): 候補=まだ登場していないキャラクター4種(キャストも含む)。
@@ -253,7 +257,8 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             && !!myCharacter && !isAppearing(myCharacter);
 
         // チーム(全員向け・宣言はいつでも可=読み込みがあれば表示)。PL=自分のキャラクターの
-        // 参加/離脱・RL=編成(メンバー追加/除去・改名・解散)。どちらも一括登場/退場を押せる。
+        // 参加/離脱・RL=編成(メンバー追加/除去・改名・解散)。チーム経由の登場/退場は
+        // 2026-08-22 裁定でオミット=登場の適用は RL の操作に一本化。
         // 編成候補=キャスト+ゲスト(チームにはゲストも入れられる・2026-08-08 ユーザー裁定)
         const teamCandidates = game.actors.filter(a => a.type === "cast" || a.type === "guest");
         context.teams = (journal ? st.teams : []).map(team => {
@@ -263,8 +268,9 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
                 .map(id => game.actors.get(id))
                 .filter(a => a)
                 .map(a => ({ id: a.id, name: displayActorName(a), appearing: appearingIds.has(a.id) }));
-            const hasAppearing = memberIds.some(id => appearingIds.has(id));
             const isMember = !!myCharacter && memberIds.includes(myCharacter.id);
+            // 「チームで登場/退場」は 2026-08-22 のユーザー裁定でオミット——チーム経由の自動登場は
+            // 行わず、登場の適用は RL の操作(手動登場・登場判定の成功)に一本化する
             return {
                 id: team.id,
                 name: team.name || "チーム",
@@ -274,8 +280,6 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
                     : [],
                 canJoin:   !!myCharacter && !isMember,
                 canLeave:  isMember,
-                canAppear: st.actStarted && hasAppearing && memberIds.some(id => !appearingIds.has(id)),
-                canExit:   st.actStarted && hasAppearing,
             };
         });
 
@@ -691,14 +695,16 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
 
     // ─── RL による登場・退場(14-8・登場判定なし) ─────────────────────────────
 
-    /** 追加行のプルダウンで選んだキャラクターを登場させる(名前非公開は同じ行のトグル)。 */
+    /** 追加行のプルダウンで選んだキャラクターを登場させる(名前非公開・ゴーストは同じ行のトグル)。 */
     static async _onAppearActor(_event, target) {
         const row = target.closest(".scp-appear-add");
         const actorId = row?.querySelector('select[name="appearActorId"]')?.value;
         if (!actorId) return;
         const hideName = row.querySelector('[data-action="toggleNewHideName"]')
             ?.classList.contains("is-on") === true;
-        await appearActor(actorId, { hideName });
+        const ghost = row.querySelector('[data-action="toggleNewGhost"]')
+            ?.classList.contains("is-on") === true;
+        await appearActor(actorId, { hideName, ghost });
     }
 
     /** 登場中のキャラクターを個別に退場させる。 */
@@ -709,6 +715,11 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
     /** 登場中のキャラクターの名前を伏せる/戻す(登場後の付け替え)。 */
     static async _onToggleAppearHidden(_event, target) {
         await setActorNameHidden(target.dataset.actorId, target.dataset.hidden !== "true");
+    }
+
+    /** 登場中のキャラクターのゴースト状態を付け替える(2026-08-22・名前非公開と同じ操作系)。 */
+    static async _onToggleAppearGhost(_event, target) {
+        await setActorGhost(target.dataset.actorId, target.dataset.ghost !== "true");
     }
 
     /**
@@ -723,6 +734,12 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         target.setAttribute("title", on ? "名前を伏せて登場" : "名前を出して登場");
     }
 
+    /** これから登場させるキャラクターをゴーストにするかのトグル(追加行内で完結する選択)。 */
+    static _onToggleNewGhost(_event, target) {
+        const on = target.classList.toggle("is-on");
+        target.setAttribute("title", on ? "ゴーストとして登場" : "通常登場");
+    }
+
     // ─── チーム(14-5・宣言はいつでも可) ─────────────────────────────────────
     // GM は直接、PL は sessionTeam ソケットで activeGM に委譲する(実行状態は GM しか書けない)
 
@@ -732,8 +749,6 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
                 case "create":     return createTeam(data.name ?? "");
                 case "join":       return joinTeam(data.teamId, data.actorId);
                 case "leave":      return leaveTeam(data.actorId);
-                case "appearTeam": return appearTeam(data.teamId);
-                case "exitTeam":   return exitTeam(data.teamId);
                 case "delete":     return deleteTeam(data.teamId);
             }
             return;
@@ -757,14 +772,6 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         const actorId = game.user.character?.id;
         if (!actorId) return;
         await TnxScenarioPanel._teamOp("leave", { actorId });
-    }
-
-    static async _onTeamAppear(_event, target) {
-        await TnxScenarioPanel._teamOp("appearTeam", { teamId: target.dataset.id });
-    }
-
-    static async _onTeamExit(_event, target) {
-        await TnxScenarioPanel._teamOp("exitTeam", { teamId: target.dataset.id });
     }
 
     static async _onTeamDelete(_event, target) {

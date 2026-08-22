@@ -18,17 +18,17 @@ import { TNX_HOOKS } from "./combat-events.mjs";
 import {
     normalizeSceneRow, normalizeHandoutRow, findSceneRow, firstSceneRow,
     buildPreActInit, planSceneSwitchEvents, planActEndEvents,
-    teamCreate, teamJoin, teamLeave, teamDelete, teamOf, teamHasAppearing,
+    teamCreate, teamJoin, teamLeave, teamDelete, teamOf,
     hasBackstage, backstageQueue, nextBackstageSpot, isBackstageFinished,
     findDuplicateKeys, matchTrumpCard,
     rotationOrder, resolveRotationDefault, stageCandidateActorIds,
     recordScenePlayerDone, SCENE_PLAYER_RULER, resolveScenePlayerRef, planActLimitedCleanup,
 } from "./session-logic.mjs";
 import {
-    setAppearing, setNameHidden, clearAllAppearing, listAppearingActors, isAppearing,
+    setAppearing, setNameHidden, setGhost, clearAllAppearing, isAppearing,
 } from "./appearance-state.mjs";
 import {
-    isAppearanceBlockedScene, sceneEntryAppearances, resolveSceneAppearance,
+    sceneEntryAppearances, resolveSceneAppearance,
 } from "./appearance-logic.mjs";
 import { listStageCandidates } from "./residence-area.mjs";
 import { promptSceneEntry } from "./scene-entry-dialog.mjs";
@@ -656,14 +656,17 @@ async function _applySceneEntry({ phase, row }, entry = null) {
 /**
  * RL が任意のキャラクターをシーンに登場させる(登場判定なし)。
  * @param {string} actorId
- * @param {{hideName?: boolean}} [opts] hideName=名前を伏せて登場させる(卓には「？？？」)
+ * @param {{hideName?: boolean, ghost?: boolean}} [opts]
+ *        hideName=名前を伏せて登場させる(卓には「？？？」)
+ *        ghost=ゴーストとして登場させる(2026-08-22 ユーザー指示・退場で落ちる)
  */
-export async function appearActor(actorId, { hideName = false } = {}) {
+export async function appearActor(actorId, { hideName = false, ghost = false } = {}) {
     if (!assertGM() || !actorId) return;
     if (!getSessionState().actStarted) return void ui.notifications.warn("アクトが開始されていません。");
     const actor = game.actors.get(actorId);
     if (!actor) return;
     await setAppearing(actor, true, { hideName });
+    if (ghost) await setGhost(actor, true);
 }
 
 /** RL がキャラクターを個別に退場させる(名前の非公開指定も一緒に落ちる)。 */
@@ -678,6 +681,13 @@ export async function setActorNameHidden(actorId, hidden) {
     if (!assertGM() || !actorId) return;
     const actor = game.actors.get(actorId);
     if (actor) await setNameHidden(actor, hidden);
+}
+
+/** 登場中のキャラクターのゴースト状態を付け替える(2026-08-22・名前非公開と同じ操作系)。 */
+export async function setActorGhost(actorId, ghost) {
+    if (!assertGM() || !actorId) return;
+    const actor = game.actors.get(actorId);
+    if (actor) await setGhost(actor, ghost);
 }
 
 /** シーンの終了処理(全員退場・シーンプレイヤー解除)。イベント発火は呼び元。 */
@@ -803,58 +813,9 @@ export async function createTeam(name = "") {
 
 export async function joinTeam(teamId, actorId) {
     if (!assertGM()) return;
-    const teams = teamJoin(getTeams(), teamId, actorId);
-    await setState({ teams });
-    // チーム免除(14-5・2026-08-08 ユーザー指示): 登場中のメンバーがいるチームへ後から加入した
-    // キャラクターには自動で登場状態を付与する(シーン進行中のみ)。
-    // ただし「登場：不可」のシーンではチーム免除も効かない(2026-08-09 ユーザー裁定)——
-    // 加入自体は成立し、登場だけが起きない
-    const st = getSessionState();
-    if (!st.actStarted || !st.sceneId) return;
-    if (isAppearanceBlockedScene(getCurrentSceneRow()?.row)) return;
-    const appearingIds = new Set(listAppearingActors().map(a => a.id));
-    const actor = game.actors.get(actorId);
-    if (actor && !appearingIds.has(actorId) && teamHasAppearing(teams, teamId, appearingIds)) {
-        await setAppearing(actor, true);
-        ui.notifications.info(`${actor.name} はチームに合流し、シーンに登場した。`);
-    }
-}
-
-/**
- * チームで同時登場する(チーム免除=登場中のメンバーがいれば残りは判定なしで登場)。
- * 「登場：不可」のシーンではチーム免除も効かない(2026-08-09 ユーザー裁定)。
- * @param {string} teamId
- */
-export async function appearTeam(teamId) {
-    if (!assertGM()) return;
-    const st = getSessionState();
-    if (!st.actStarted) return void ui.notifications.warn("アクトが開始されていません。");
-    if (isAppearanceBlockedScene(getCurrentSceneRow()?.row)) {
-        return void ui.notifications.warn("このシーンにはシーンプレイヤー以外登場できません（登場：不可）。");
-    }
-    const teams = getTeams();
-    const team = teams.find(t => t.id === teamId);
-    if (!team) return;
-    const appearingIds = new Set(listAppearingActors().map(a => a.id));
-    if (!teamHasAppearing(teams, teamId, appearingIds)) {
-        return void ui.notifications.warn("登場中のメンバーがいないため、チームでの同時登場はできません。");
-    }
-    for (const id of team.memberActorIds ?? []) {
-        if (appearingIds.has(id)) continue;
-        const actor = game.actors.get(id);
-        if (actor) await setAppearing(actor, true);
-    }
-}
-
-/** チームで同時に退場する(「退場も同時になる」の一括操作)。 */
-export async function exitTeam(teamId) {
-    if (!assertGM()) return;
-    const team = getTeams().find(t => t.id === teamId);
-    if (!team) return;
-    for (const id of team.memberActorIds ?? []) {
-        const actor = game.actors.get(id);
-        if (actor) await setAppearing(actor, false);
-    }
+    await setState({ teams: teamJoin(getTeams(), teamId, actorId) });
+    // 旧「後乗り自動登場」(チーム免除)は 2026-08-22 のユーザー裁定でオミット——チーム経由の
+    // 自動登場は行わず、登場の適用は RL の操作(手動登場・登場判定の成功)に一本化する
 }
 
 /** チーム名を変更する(RL の編成操作)。 */

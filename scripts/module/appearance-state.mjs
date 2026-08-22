@@ -50,11 +50,26 @@ export async function setAppearing(actor, appearing, { hideName } = {}) {
     if (!actor) return;
     if (!appearing) {
         await actor.unsetFlag(SCOPE, "appearing");
-        return setNameHidden(actor, false);
+        await setNameHidden(actor, false);
+        // ゴーストも名前非公開と同様、登場と対のシーン単位の状態(2026-08-22 ユーザー指示
+        // 「名前の表示非表示と同様に」)＝退場で落とす
+        return setGhost(actor, false);
     }
     await actor.setFlag(SCOPE, "appearing", true);
     if (hideName === undefined) return;
     return setNameHidden(actor, hideName);
+}
+
+/**
+ * ゴースト登場の状態を切り替える(RL 操作・登場判定のゴースト宣言も同じ着地)。
+ * isGhost フィールドを持たない種別(トループ等)は何もしない。
+ * @param {Actor} actor
+ * @param {boolean} ghost
+ */
+export async function setGhost(actor, ghost) {
+    if (!actor || actor.system?.isGhost === undefined) return;
+    if (actor.system.isGhost === (ghost === true)) return;
+    await actor.update({ "system.isGhost": ghost === true });
 }
 
 /**

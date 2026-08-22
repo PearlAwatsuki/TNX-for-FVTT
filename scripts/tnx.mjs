@@ -1803,7 +1803,8 @@ Hooks.once("init", async function() {
     Hooks.on("updateActor", (actor, changes) => {
         const f = changes.flags?.["tokyo-nova-axleration"];
         const appearanceKeys = ["appearing", "-=appearing", "appearingHidden", "-=appearingHidden"];
-        if (f && appearanceKeys.some(key => key in f)) {
+        // ゴースト切替(2026-08-22)はチップのトグル表示を変えるため、パネルも追随させる
+        if ((f && appearanceKeys.some(key => key in f)) || changes.system?.isGhost !== undefined) {
             foundry.applications.instances.get("tnx-scenario-panel")?.render(false);
         }
         if (changes.system?.isGhost !== undefined && actor.id === game.user.character?.id) {

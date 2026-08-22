@@ -18,7 +18,7 @@
 
 import { appearanceCheckParams, hasNegativeDangerOutfit, isAppearanceSkillKey } from "./appearance-logic.mjs";
 import { getSessionState, getCurrentSceneAppearance } from "./session-state.mjs";
-import { isAppearing, setAppearing } from "./appearance-state.mjs";
+import { isAppearing, setAppearing, setGhost } from "./appearance-state.mjs";
 import { SCENE_AREA_OPTIONS } from "./session-logic.mjs";
 import { formatSkillName } from "./identification.mjs";
 
@@ -135,8 +135,6 @@ export async function resolveAppearanceFromCheck(cc, result) {
     const actor = game.actors.get(cc?.actorId);
     if (!actor) return;
     await setAppearing(actor, true);
-    if (cc.ghost && actor.system?.isGhost !== true) {
-        await actor.update({ "system.isGhost": true });
-    }
+    if (cc.ghost) await setGhost(actor, true);
     ui.notifications.info(`${actor.name} はシーンに登場した${cc.ghost ? "（ゴースト）" : ""}。`);
 }
