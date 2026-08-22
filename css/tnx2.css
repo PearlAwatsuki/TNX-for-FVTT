@@ -3991,24 +3991,23 @@ body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
     align-items: flex-end;
 }
 
-/* 残枚数は六角ネオンチップ(目標値チップと同族) */
+/* 残枚数は見出しと同じ六角ネオンチップ(ダークガラス面+リム発光+文字グロー) */
 .tnx-hud .deck-count {
     position: absolute;
     bottom: 4px;
     right: 4px;
     min-width: 26px;
     padding: 0 8px;
-    background:
-        linear-gradient(180deg, rgba(0, 200, 224, 0.45), rgba(0, 200, 224, 0.16)),
-        rgba(4, 19, 25, 0.9);
+    background: rgba(5, 18, 23, 0.9);
     clip-path: polygon(5px 0, calc(100% - 5px) 0, 100% 50%, calc(100% - 5px) 100%, 5px 100%, 0 50%);
-    color: #dff9ff;
+    filter: drop-shadow(0 0 1px var(--tnx2-accent)) drop-shadow(0 0 4px rgba(0, 200, 224, 0.45));
+    color: #eafcff;
     font-family: var(--tnx2-font-mono);
     font-size: 0.85em;
     font-weight: 700;
     line-height: 18px;
     text-align: center;
-    text-shadow: 0 0 5px rgba(0, 200, 224, 0.9);
+    text-shadow: 0 0 2px rgba(0, 200, 224, 0.95), 0 0 8px rgba(0, 200, 224, 0.55);
 }
 
 
@@ -4532,20 +4531,24 @@ body.tnx-bottom-hud-expanded #hotbar {
     gap: 6px;
 }
 
-/* パネル見出しは目標値チップと同じ六角ネオンチップ(点灯状態の意匠) */
+/* パネル見出しは六角ネオンチップ。発光は「面の塗り」でなく「管(リム)と文字」に持たせる
+   ——面を縦グラデで陰影付けすると安っぽく見える(2026-08-22 ユーザー指摘)。
+   面はダークガラスの平塗り・リムは clip 形状に追従する二段 drop-shadow(芯+ブルーム)・
+   文字は近接+広域の二層グロー */
 .tnx-hud .card-slot-label {
     font-family: var(--tnx2-font-mono);
     font-size: 0.7em;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-indent: 0.12em;
-    color: #dff9ff;
+    color: #eafcff;
     white-space: nowrap;
-    line-height: 17px;
-    padding: 0 10px;
-    background: linear-gradient(180deg, rgba(0, 200, 224, 0.45), rgba(0, 200, 224, 0.16));
+    line-height: 18px;
+    padding: 0 12px;
+    background: rgba(5, 18, 23, 0.88);
     clip-path: polygon(5px 0, calc(100% - 5px) 0, 100% 50%, calc(100% - 5px) 100%, 5px 100%, 0 50%);
-    text-shadow: 0 0 5px rgba(0, 200, 224, 0.9);
+    filter: drop-shadow(0 0 1px var(--tnx2-accent)) drop-shadow(0 0 4px rgba(0, 200, 224, 0.45));
+    text-shadow: 0 0 2px rgba(0, 200, 224, 0.95), 0 0 9px rgba(0, 200, 224, 0.55);
 }
 
 .tnx-hud .card-slot .card-slot-label {
