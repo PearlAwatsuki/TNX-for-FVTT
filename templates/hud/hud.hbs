@@ -110,20 +110,25 @@
                         <div class="participant-row" data-drop-zone="participant" data-user-id="{{p.userId}}">
                             <span class="participant-name" style="color: {{p.color}}">{{p.userName}}</span>
                             <div class="participant-main">
-                                {{!-- ステータス列は中身があるときだけ出す(空の幅を予約しない) --}}
-                                {{#if p.isRL}}
-                                    <div class="participant-status">
+                                {{!-- ステータス列は常設。登場三態(シーンプレイヤー/登場中/舞台裏)で
+                                      基本埋まるが、万一空でも空とわかる器を置く --}}
+                                <div class="participant-status">
+                                    {{#if p.isRL}}
                                         <div class="participant-rl-plate">RL</div>
-                                    </div>
-                                {{else if p.statusCards.length}}
-                                    <div class="participant-status">
+                                    {{else}}
                                         {{#each p.statusCards as |sc|}}
-                                            <div class="participant-status-card" title="{{sc.label}}">
-                                                <img src="{{sc.img}}" alt="{{sc.label}}">
-                                            </div>
+                                            {{#if sc.plate}}
+                                                <div class="participant-status-plate" title="{{sc.label}}">{{sc.plate}}</div>
+                                            {{else}}
+                                                <div class="participant-status-card" title="{{sc.label}}">
+                                                    <img src="{{sc.img}}" alt="{{sc.label}}">
+                                                </div>
+                                            {{/if}}
+                                        {{else}}
+                                            <div class="participant-status-empty" title="ステータスなし"></div>
                                         {{/each}}
-                                    </div>
-                                {{/if}}
+                                    {{/if}}
+                                </div>
                                 <div class="participant-cards">
                                     {{#if p.cards.length}}
                                         {{#each p.cards as |card|}}
@@ -168,9 +173,13 @@
                 <span class="card-slot-label">ステータス</span>
                 <div class="status-cards-row">
                     {{#each statusCards as |card|}}
-                        <div class="status-card" title="{{card.label}}">
-                            <img src="{{card.img}}" alt="{{card.label}}">
-                        </div>
+                        {{#if card.plate}}
+                            <div class="status-plate" title="{{card.label}}">{{card.plate}}</div>
+                        {{else}}
+                            <div class="status-card" title="{{card.label}}">
+                                <img src="{{card.img}}" alt="{{card.label}}">
+                            </div>
+                        {{/if}}
                     {{/each}}
                 </div>
             </div>

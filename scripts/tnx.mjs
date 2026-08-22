@@ -1809,9 +1809,9 @@ Hooks.once("init", async function() {
         if ((f && appearanceKeys.some(key => key in f)) || changes.system?.isGhost !== undefined) {
             foundry.applications.instances.get("tnx-scenario-panel")?.render(false);
         }
-        // 参加者パネルは他ユーザーの担当キャラクターのステータスも表示するため、
-        // 担当キャラクターであれば誰のものでも HUD を追随させる
-        if (changes.system?.isGhost !== undefined
+        // HUD のステータス表示(自分+参加者パネル)は担当キャラクターの登場状態・ゴーストにも
+        // 依存するため、担当キャラクターであれば誰のものでも HUD を追随させる
+        if ((changes.system?.isGhost !== undefined || (f && appearanceKeys.some(key => key in f)))
             && game.users.some(u => u.character?.id === actor.id)) {
             foundry.applications.instances.get("tnx-hud")?.render(false);
         }

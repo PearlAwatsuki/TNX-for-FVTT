@@ -3,7 +3,8 @@ import { TnxCheckFlow } from './tnx-check-flow.mjs';
 import { isDamageCardPending, executeDamageCardFromHand } from './damage-flow.mjs';
 import { getCardCheckValue, getAbilityBySuit, SUIT_TO_ABILITY } from './tnx-check-engine.mjs';
 import { getUserFlagData } from './user-flag-schema.mjs';
-import { getSessionState, getActiveActJournal, getBackstage } from './session-state.mjs';
+import { getSessionState, getActiveActJournal } from './session-state.mjs';
+import { isAppearing } from './appearance-state.mjs';
 import {
     hudInfoItems, hudInfoTnChips, withResolvedInfoSkillNames, buildInfoCardData, infoCheckRows,
 } from './session-logic.mjs';
@@ -235,20 +236,27 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
     /**
      * ユーザーの現在ステータスカード群を組み立てる(14-7: 状態からの自動表示)。
      * 自分のステータスパネルと参加者パネルの各行が共用する。
-     * シーンプレイヤー/ゴースト/抹殺=そのユーザー本人の状態・舞台裏=開始〜終了の間は全員。
+     * 登場状態の三態はプレイヤーのみ・排他: シーンプレイヤー/登場中(プレート)/舞台裏。
+     * 舞台裏カード=文字通り舞台裏にいる(登場していない)の表示(2026-08-22 裁定。
+     * 旧「舞台裏枠の開始〜終了の間は全員に表示」は誤解釈につき撤回)。
+     * ゴースト/抹殺は担当キャラクターの状態から追加表示。
      * @param {User} user 対象ユーザー
-     * @returns {Array<{img: string, label: string}>}
+     * @returns {Array<{img: string, label: string}|{plate: string, label: string}>}
      */
     static _buildUserStatusCards(user) {
         const statusBase = "systems/tokyo-nova-axleration/assets/cards/access-cards/";
         const cards = [];
-        if (getUserFlagData(user).isScenePlayer) {
-            cards.push({ img: `${statusBase}scene_player.png`, label: "シーン・プレイヤー" });
-        }
-        if (getBackstage().open) {
-            cards.push({ img: `${statusBase}behind_the_scene.png`, label: "舞台裏" });
-        }
         const character = user.character;
+        if (!user.isGM) {
+            if (getUserFlagData(user).isScenePlayer) {
+                cards.push({ img: `${statusBase}scene_player.png`, label: "シーン・プレイヤー" });
+            } else if (isAppearing(character)) {
+                // 登場中の専用アクセスカード画像は無いため文字プレートで表示する
+                cards.push({ plate: "登場中", label: "登場中" });
+            } else {
+                cards.push({ img: `${statusBase}behind_the_scene.png`, label: "舞台裏" });
+            }
+        }
         if (character?.system?.isGhost === true) {
             cards.push({ img: `${statusBase}ghost.png`, label: "ゴースト" });
         }
