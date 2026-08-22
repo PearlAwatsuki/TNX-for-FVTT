@@ -126,7 +126,8 @@ async function promptAppearanceOptions(actor, sceneSkillKeys = []) {
 /**
  * 登場判定の完了継続(成功で登場・ゴースト選択時は isGhost も)。判定者クライアントで走る
  * (自分のアクター=所有者権限で更新可)。目標値なし(エリア未設定)は成否が出ないため自動登場
- * しない(卓裁定・RL がトークン表示で切替)。setAppearing は冪等=再判定の再実行にも安全。
+ * しない(卓裁定・RL が手動登場で切替)。setAppearing は冪等=再判定の再実行にも安全。
+ * ゴーストは登場より先に立てる=盤面反映のトークンが最初から不可視で作られる(2026-08-23)。
  * @param {{actorId: string, ghost: boolean}} cc 継続文脈
  * @param {{success: ?boolean}} result 判定結果
  */
@@ -134,7 +135,7 @@ export async function resolveAppearanceFromCheck(cc, result) {
     if (result?.success !== true) return;
     const actor = game.actors.get(cc?.actorId);
     if (!actor) return;
-    await setAppearing(actor, true);
     if (cc.ghost) await setGhost(actor, true);
+    await setAppearing(actor, true);
     ui.notifications.info(`${actor.name} はシーンに登場した${cc.ghost ? "（ゴースト）" : ""}。`);
 }

@@ -24,7 +24,9 @@ import {
     appearActor, exitActor, setActorNameHidden, setActorGhost,
     getCurrentSceneAppearance, getRotationStatus, markEventSceneDone, promptActLimitedCleanup,
 } from "./session-state.mjs";
-import { isAppearing, isNameHidden, displayActorName, listAppearingActors } from "./appearance-state.mjs";
+import {
+    isAppearing, isNameHidden, displayActorName, listAppearingActors, confirmExitDialog,
+} from "./appearance-state.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import {
     SCENE_AREA_OPTIONS, PHASE_ORDER, normalizeSceneRow, normalizeHandoutRow,
@@ -707,9 +709,15 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         await appearActor(actorId, { hideName, ghost });
     }
 
-    /** 登場中のキャラクターを個別に退場させる。 */
+    /**
+     * 登場中のキャラクターを個別に退場させる。退場=盤面のトークン削除になったため
+     * (2026-08-23)、本当に退場するかの確認を挟む(トークン削除経路と同じダイアログ)。
+     */
     static async _onExitActor(_event, target) {
-        await exitActor(target.dataset.actorId);
+        const actor = game.actors.get(target.dataset.actorId);
+        if (!actor) return;
+        if (!await confirmExitDialog(actor)) return;
+        await exitActor(actor.id);
     }
 
     /** 登場中のキャラクターの名前を伏せる/戻す(登場後の付け替え)。 */

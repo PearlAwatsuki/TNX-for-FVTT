@@ -665,8 +665,9 @@ export async function appearActor(actorId, { hideName = false, ghost = false } =
     if (!getSessionState().actStarted) return void ui.notifications.warn("アクトが開始されていません。");
     const actor = game.actors.get(actorId);
     if (!actor) return;
-    await setAppearing(actor, true, { hideName });
+    // ゴーストを先に立てる=盤面反映のトークンが最初から不可視で作られる(2026-08-23)
     if (ghost) await setGhost(actor, true);
+    await setAppearing(actor, true, { hideName });
 }
 
 /** RL がキャラクターを個別に退場させる(名前の非公開指定も一緒に落ちる)。 */

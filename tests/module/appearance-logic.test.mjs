@@ -12,6 +12,8 @@ import {
   resolveSceneAppearance,
   areaTargetValue,
   DEFAULT_APPEARANCE_TARGET,
+  pickTokenDropPosition,
+  tokenDeletionImpliesExit,
 } from "../../scripts/module/appearance-logic.mjs";
 
 describe("appearanceCardInfo()（登場判定の専用チャットカード表示・2026-08-16）", () => {
@@ -291,5 +293,55 @@ describe("resolveSceneAppearance()（行＋実行時の上書きの合成・14-8
 
   it("null の行は既定（エリア準拠・指定なし）", () => {
     expect(resolveSceneAppearance(null)).toEqual({ area: "", mode: "area", fixedValue: null, skills: [] });
+  });
+});
+
+describe("pickTokenDropPosition()（登場トークンの配置位置・2026-08-23）", () => {
+  it("盤面中央にグリッドスナップで置く", () => {
+    expect(pickTokenDropPosition({
+      center: { x: 1000, y: 1000 }, size: { width: 100, height: 100 }, gridSize: 100,
+    })).toEqual({ x: 1000, y: 1000 });
+  });
+
+  it("同じ位置が埋まっていればグリッド単位で右へずらす（連鎖も追う）", () => {
+    const args = { center: { x: 1000, y: 1000 }, size: { width: 100, height: 100 }, gridSize: 100 };
+    expect(pickTokenDropPosition({ ...args, occupied: [{ x: 1000, y: 1000 }] }))
+      .toEqual({ x: 1100, y: 1000 });
+    expect(pickTokenDropPosition({ ...args, occupied: [{ x: 1000, y: 1000 }, { x: 1100, y: 1000 }] }))
+      .toEqual({ x: 1200, y: 1000 });
+  });
+
+  it("別の座標のトークンには干渉されない", () => {
+    expect(pickTokenDropPosition({
+      center: { x: 1000, y: 1000 }, size: { width: 100, height: 100 }, gridSize: 100,
+      occupied: [{ x: 900, y: 1000 }, { x: 1000, y: 1100 }],
+    })).toEqual({ x: 1000, y: 1000 });
+  });
+
+  it("大型トークン（2×2）は自身の寸法ぶん中央から引いてスナップする", () => {
+    expect(pickTokenDropPosition({
+      center: { x: 1000, y: 1000 }, size: { width: 200, height: 200 }, gridSize: 100,
+    })).toEqual({ x: 900, y: 900 });
+  });
+
+  it("グリッドサイズが不正でも 1px 刻みで動く（防御）", () => {
+    expect(pickTokenDropPosition({
+      center: { x: 10, y: 10 }, size: { width: 4, height: 4 }, gridSize: 0,
+    })).toEqual({ x: 8, y: 8 });
+  });
+});
+
+describe("tokenDeletionImpliesExit()（トークン削除＝退場の判定・2026-08-23）", () => {
+  it("登場中アクターの最後の1体の削除は退場", () => {
+    expect(tokenDeletionImpliesExit({ appearing: true, sameActorTokenCount: 1 })).toBe(true);
+  });
+
+  it("分身コピーが残る削除は退場ではない（トループ等）", () => {
+    expect(tokenDeletionImpliesExit({ appearing: true, sameActorTokenCount: 2 })).toBe(false);
+    expect(tokenDeletionImpliesExit({ appearing: true, sameActorTokenCount: 5 })).toBe(false);
+  });
+
+  it("未登場アクターのトークン削除は退場ではない（残置トークンの整理）", () => {
+    expect(tokenDeletionImpliesExit({ appearing: false, sameActorTokenCount: 1 })).toBe(false);
   });
 });

@@ -225,3 +225,34 @@ export function isAppearanceSkillKey(identificationKey) {
     return ["society", "contact"].some(p =>
         identificationKey === p || identificationKey.startsWith(`${p}_`));
 }
+
+/**
+ * 登場で盤面に出すトークンの配置位置を決める(2026-08-23 ユーザー指示「トークンを盤面に
+ * 出す＝登場」)。盤面矩形の中央へグリッドスナップで置き、既に同じ位置にトークンがあれば
+ * グリッド単位で右へずらす(シーン開始の自動登場が複数並んでも重ならない)。
+ * @param {{center: {x: number, y: number}, size: {width: number, height: number},
+ *          gridSize: number, occupied?: Array<{x: number, y: number}>}} args
+ *        center=盤面矩形の中心(px)・size=トークンの実寸(px)・occupied=既存トークンの左上座標
+ * @returns {{x: number, y: number}}
+ */
+export function pickTokenDropPosition({ center, size, gridSize, occupied = [] }) {
+    const grid = gridSize > 0 ? gridSize : 1;
+    const snap = v => Math.round(v / grid) * grid;
+    let x = snap(center.x - size.width / 2);
+    const y = snap(center.y - size.height / 2);
+    while (occupied.some(p => p.x === x && p.y === y)) x += grid;
+    return { x, y };
+}
+
+/**
+ * トークン削除が「退場」を意味するか(2026-08-23)。退場=トークン削除の新モデルでは、
+ * そのアクターの**最後の1体**の削除だけが退場になる——トループの分身コピーのような同一
+ * アクターの複数トークンは、残りがある限り削除しても退場ではない(旧同期の「非リンクは
+ * RL の手動管理」の線引きを「最後の1体」規約に置き換えた Code 設計判断)。
+ * @param {{appearing: boolean, sameActorTokenCount: number}} args
+ *        sameActorTokenCount=削除対象を含む、盤面上の同一アクターのトークン数
+ * @returns {boolean}
+ */
+export function tokenDeletionImpliesExit({ appearing, sameActorTokenCount }) {
+    return appearing === true && sameActorTokenCount <= 1;
+}
