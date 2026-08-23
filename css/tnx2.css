@@ -9885,13 +9885,20 @@ button.tnx-create-act-button span {
     margin-top: 6px;
 }
 
-.tnx-scenario-panel .scp-phase-group { margin-bottom: 6px; }
+/* シーン一覧はフェイズごとに間を置く(2026-08-23 ユーザー指摘=見出しが行に紛れる) */
+.tnx-scenario-panel .scp-phase-group { margin: 8px 0 10px; }
 
 .tnx-scenario-panel .scp-phase-label {
     font-size: 0.85em;
     font-weight: 700;
     opacity: 0.8;
     margin-bottom: 2px;
+}
+
+/* シーン一覧のフェイズ見出しはシーン行と紛れないよう発光色にする(同上) */
+.tnx-scenario-panel .scp-phase-group > .scp-phase-label {
+    color: var(--tnx2-text-accent);
+    opacity: 1;
 }
 
 .tnx-scenario-panel .scp-scene-row,
