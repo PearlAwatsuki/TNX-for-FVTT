@@ -107,7 +107,8 @@ const SOCIAL = {
   "soc-14": { label: "造反",         skillBlock: { category: "society" } },
   "soc-15": { label: "人脈消失",     skillBlock: { category: "contact" } },
   "soc-16": { label: "襲撃",         inflicts: [{ kind: "pressure", duration: "治療まで" }] },
-  // 逮捕令状: 即座に退場・次シーン登場不可。未自動化(退場/登場はシーン進行=14・登場判定=18)
+  // 逮捕令状: 即座に退場・次シーン登場不可。未自動化(自動化はフェーズ15=時間管理・2026-08-23
+  // 裁定。チーム離脱→退場の順を含む設計は wiki Phase_14_Tasks_Detail「申し送り詳細」に保存)
   "soc-17": { label: "逮捕令状" },
   "soc-18": { label: "権力剥奪",     inflicts: [{ kind: "pressure", ability: ABIL_MUNDANE, duration: "治療まで" }] },
   "soc-19": { label: "暗殺",         derivedDamage: { category: "physical", cards: 1 } },
