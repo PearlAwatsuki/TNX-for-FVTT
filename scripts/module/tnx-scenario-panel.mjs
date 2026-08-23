@@ -21,11 +21,12 @@ import {
     createTeam, joinTeam, leaveTeam, deleteTeam, renameTeam,
     getBackstage, buildBackstageQueue, currentSceneHasBackstage, canAdvanceScene,
     closeSceneToBackstage, advanceBackstageSpot, addBackstageActor, removeBackstageActor,
-    appearActor, exitActor, setActorNameHidden, setActorGhost,
+    appearActor, setActorNameHidden, setActorGhost,
     getCurrentSceneAppearance, getRotationStatus, markEventSceneDone, promptActLimitedCleanup,
 } from "./session-state.mjs";
 import {
-    isAppearing, isNameHidden, displayActorName, listAppearingActors, confirmExitDialog,
+    isAppearing, isNameHidden, displayActorName, listAppearingActors,
+    manualExitTargets, confirmTeamExitDialog, applyManualExit,
 } from "./appearance-state.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import {
@@ -710,14 +711,16 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
     }
 
     /**
-     * 登場中のキャラクターを個別に退場させる。退場=盤面のトークン削除になったため
-     * (2026-08-23)、本当に退場するかの確認を挟む(トークン削除経路と同じダイアログ)。
+     * 登場中のキャラクターを退場させる(退場=盤面のトークン削除・2026-08-23)。
+     * チームの退場連動が他メンバーに及ぶときだけ確認ダイアログを挟む(2026-08-23 ユーザー
+     * 裁定=確認はチーム退場時のみ)。単独の退場は即適用する。
      */
     static async _onExitActor(_event, target) {
         const actor = game.actors.get(target.dataset.actorId);
         if (!actor) return;
-        if (!await confirmExitDialog(actor)) return;
-        await exitActor(actor.id);
+        const targets = manualExitTargets(actor.id);
+        if (targets.others.length && !await confirmTeamExitDialog(actor, targets)) return;
+        await applyManualExit(actor.id);
     }
 
     /** 登場中のキャラクターの名前を伏せる/戻す(登場後の付け替え)。 */

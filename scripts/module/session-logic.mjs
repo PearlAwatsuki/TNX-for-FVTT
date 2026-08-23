@@ -1122,3 +1122,29 @@ export function teamOf(teams, actorId) {
 
 // 旧 teamHasAppearing(チーム免除のゲート)は 2026-08-22 の「チームで登場」オミットで削除——
 // チーム経由の自動登場は行わず、登場の適用は RL の操作に一本化された
+
+/**
+ * チームの退場連動(2026-08-23 ユーザー裁定＝ゲーム設定 teamLinkedExit・既定オフ)の退場対象を
+ * 解決する。連動が有効で対象がチームに居るとき、**登場中**のメンバー全員(操作対象を含む)を
+ * 退場対象にする。登場は判定を振るか等の判断が多く自動化しない(2026-08-22 オミット)が、退場は
+ * 純粋な記帳なので連動できる——という非対称が設計根拠(ユーザー)。
+ *
+ * `others`(操作対象以外の巻き込まれるメンバー)は退場確認ダイアログの条件と表示に使う——
+ * ダイアログは**連動が自分以外に及ぶときだけ**出す(2026-08-23 ユーザー裁定「確認ダイアログは
+ * チーム退場時のみ」の機能的読み＝巻き込みの無い退場に確認は不要)。
+ * @param {Array<{id: string, name: string, memberActorIds: Array<string>}>} teams
+ * @param {string} actorId 退場操作の対象
+ * @param {{linked: boolean, isAppearing: (id: string) => boolean}} args
+ *        linked=退場連動設定・isAppearing=登場中かの判定(呼び出し側が実データを注入)
+ * @returns {{targetIds: Array<string>, others: Array<string>, teamName: string}}
+ */
+export function teamLinkedExitTargets(teams, actorId, { linked = false, isAppearing = () => false } = {}) {
+    const team = linked ? teamOf(teams, actorId) : null;
+    const others = (team?.memberActorIds ?? [])
+        .filter(id => id !== actorId && isAppearing(id));
+    return {
+        targetIds: [actorId, ...others],
+        others,
+        teamName: team?.name || "チーム",
+    };
+}

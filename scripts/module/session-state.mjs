@@ -670,12 +670,10 @@ export async function appearActor(actorId, { hideName = false, ghost = false } =
     await setAppearing(actor, true, { hideName });
 }
 
-/** RL がキャラクターを個別に退場させる(名前の非公開指定も一緒に落ちる)。 */
-export async function exitActor(actorId) {
-    if (!assertGM() || !actorId) return;
-    const actor = game.actors.get(actorId);
-    if (actor) await setAppearing(actor, false);
-}
+// 旧 exitActor(RL の個別退場 API)は 2026-08-23 の手動退場一本化で撤去——退場の入口は
+// appearance-state の manualExitTargets/confirmTeamExitDialog/applyManualExit(チームの
+// 退場連動と確認ダイアログを含む)に集約された。名前の非公開・ゴーストが退場で落ちる挙動は
+// setAppearing(false) 内のまま変わらない
 
 /** 登場中のキャラクターの名前を伏せる/戻す(登場後の付け替え)。 */
 export async function setActorNameHidden(actorId, hidden) {

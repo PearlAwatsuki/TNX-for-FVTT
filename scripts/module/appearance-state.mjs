@@ -13,6 +13,7 @@
  */
 
 import { pickTokenDropPosition, tokenDeletionImpliesExit } from "./appearance-logic.mjs";
+import { teamLinkedExitTargets } from "./session-logic.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -106,16 +107,19 @@ export async function clearAllAppearing() {
 // - 権威は Actor フラグ・トークンはその反映。登場フラグ→トークン作成/全削除・isGhost→hidden
 //   は activeGM クライアントが代行する
 // - 逆方向=RL の直接切替導線: トークンのドラッグ配置→登場・トークン削除→退場。削除は権限を
-//   持つ所有者(PL)でも退場になるため、**確認ダイアログ**を挟む(2026-08-23 ユーザー指示。
-//   同期・確認済みの削除は操作オプション SYNC_OPTION でバイパスする)
+//   持つ所有者(PL)でも退場になる
+// - **退場確認ダイアログはチーム退場時のみ**(2026-08-23 ユーザー裁定=ダイアログはチームの
+//   巻き込みを想定した提案だったため)。チームの退場連動(ゲーム設定 teamLinkedExit・既定オフ)
+//   が**自分以外の登場中メンバーに及ぶときだけ**確認し、単独の退場は×・トークン削除とも
+//   確認なしで即適用する。連動の適用は GM=直接・PL=teamExit ソケットで activeGM に委譲
 // - hidden→isGhost の逆同期はしない(isGhost は CS 修正という機構的意味を持つため、盤面の
 //   表示操作から黙って変えない。ゴーストの切替は専用トグル=setGhost)
 // - 同一アクターの複数トークン(トループの分身コピー等)は、残りがある限り削除しても退場でない
-//   (tokenDeletionImpliesExit)。一括削除などで確認を経ずに最後の1体が消えた場合は
-//   deleteToken 後段で退場に落とす(帳尻)
+//   (tokenDeletionImpliesExit)。最後の1体の削除は deleteToken 後段(activeGM)が退場に落とす
+//   ——確認を経ない削除(一括削除含む)が連動退場を起こすことはない(連動は確認とセット)
 // ループは同値短絡で止まる。Scene 跨ぎの自動生成はしない(確定方針・対象はアクティブ盤面のみ)。
 
-/** 同期・確認済み削除が渡す操作オプション(退場確認ダイアログのバイパス)。 */
+/** 同期・確認済み削除が渡す操作オプション(退場フックのバイパス)。 */
 const SYNC_OPTION = "tnxAppearanceSync";
 
 /** 確認ダイアログを出している最中のトークン(uuid)。連打での多重ダイアログを防ぐ。 */
@@ -138,7 +142,9 @@ export function registerAppearanceTokenSync() {
         if (!actor || isAppearing(actor)) return;
         setAppearing(actor, true);
     });
-    // トークン削除=退場(削除を発行したクライアントで確認を挟む。pre フックは発行元でのみ走る)
+    // トークン削除=退場。チームの退場連動が他メンバーに及ぶときだけ削除を止めて確認を挟む
+    // (pre フックは発行元でのみ走る=ダイアログは操作した本人にだけ出る)。それ以外は素通し=
+    // 削除後の deleteToken 後段が退場に落とす
     Hooks.on("preDeleteToken", (tokenDoc, options) => {
         if (options?.[SYNC_OPTION]) return;
         if (tokenDoc.parent?.id !== game.scenes.active?.id) return;
@@ -146,11 +152,14 @@ export function registerAppearanceTokenSync() {
         if (!actor) return;
         const count = tokenDoc.parent.tokens.filter(t => t.actorId === actor.id).length;
         if (!tokenDeletionImpliesExit({ appearing: isAppearing(actor), sameActorTokenCount: count })) return;
-        confirmTokenExit(actor, tokenDoc);
+        const targets = manualExitTargets(actor.id);
+        if (!targets.others.length) return;
+        confirmTokenTeamExit(actor, tokenDoc, targets);
         return false;
     });
-    // 一括削除など確認を経ずに最後の1体が消えた場合の帳尻(activeGM)。トークンは既に無いので
-    // ダイアログは出さず、登場状態だけを盤面に合わせる
+    // 最後の1体が消えたら退場に落とす(activeGM)。単独退場の本経路であり、一括削除の帳尻でも
+    // ある。トークンは既に無いので確認は出さず、連動退場もここからは起こさない(連動は確認と
+    // セット=確認を経ない削除が他メンバーを巻き込むことはない)
     Hooks.on("deleteToken", (tokenDoc, options) => {
         if (options?.[SYNC_OPTION]) return;
         if (game.users.activeGM?.id !== game.user.id) return;
@@ -163,33 +172,69 @@ export function registerAppearanceTokenSync() {
 }
 
 /**
- * 退場の確認ダイアログ(2026-08-23 ユーザー指示)。退場=トークン削除になったため、パネルの
- * ×ボタン・盤面のトークン削除のどちらの経路でも、本当に退場するかを確認してから適用する。
- * @param {Actor} actor
- * @param {{tokenDeletion?: boolean}} [opts] トークン削除起点の文言にする
+ * 手動退場の対象を解決する(チームの退場連動・2026-08-23 ユーザー裁定)。
+ * sessionState の直読みはここだけ——session-state は本モジュールを import しているため、
+ * 逆向きの import は循環になる(チーム操作の API は従来どおり session-state が正)。
+ * @param {string} actorId
+ * @returns {{targetIds: Array<string>, others: Array<string>, teamName: string}}
+ */
+export function manualExitTargets(actorId) {
+    const teams = game.settings.get(SCOPE, "sessionState")?.teams ?? [];
+    return teamLinkedExitTargets(teams, actorId, {
+        linked: game.settings.get(SCOPE, "teamLinkedExit") === true,
+        isAppearing: id => isAppearing(game.actors.get(id)),
+    });
+}
+
+/**
+ * 手動退場を適用する(パネルの×・トークン削除確認後の共通の着地・2026-08-23)。
+ * GM は直接適用し、PL は activeGM へ委譲する(チームメイトのアクターを更新できないため。
+ * 対象の再解決も GM 側で行う=クライアントの主張を信用しない)。
+ * @param {string} actorId 退場操作の対象(連動対象は GM 側で再解決)
+ */
+export async function applyManualExit(actorId) {
+    if (!game.user.isGM) {
+        const { TnxSocketHandler } = await import("./tnx-socket-handler.mjs");
+        return void TnxSocketHandler.emitTeamExit({ actorId });
+    }
+    for (const id of manualExitTargets(actorId).targetIds) {
+        const actor = game.actors.get(id);
+        if (actor) await setAppearing(actor, false);
+    }
+}
+
+/**
+ * チーム退場の確認ダイアログ(2026-08-23 ユーザー裁定=確認はチーム退場時のみ)。
+ * 巻き込まれるメンバーを名前で明示する(名前非公開は displayActorName で伏せたまま)。
+ * @param {Actor} actor 退場操作の対象
+ * @param {{others: Array<string>, teamName: string, tokenDeletion?: boolean}} args
  * @returns {Promise<boolean>}
  */
-export async function confirmExitDialog(actor, { tokenDeletion = false } = {}) {
-    const name = foundry.utils.escapeHTML(displayActorName(actor));
-    const content = tokenDeletion
-        ? `<p>トークンを削除すると ${name} はシーンから退場します。</p><p>退場させますか？</p>`
-        : `<p>${name} をシーンから退場させますか？</p><p>盤面のトークンは削除されます。</p>`;
+export async function confirmTeamExitDialog(actor, { others, teamName, tokenDeletion = false }) {
+    const esc = foundry.utils.escapeHTML;
+    const name = esc(displayActorName(actor));
+    const team = esc(teamName);
+    const names = others
+        .map(id => esc(displayActorName(game.actors.get(id))))
+        .filter(n => n)
+        .join("、");
+    const lead = tokenDeletion
+        ? `トークンを削除すると ${name} は退場し、`
+        : `${name} を退場させると、`;
     return await foundry.applications.api.DialogV2.confirm({
-        window: { title: "退場の確認" },
-        content,
+        window: { title: "チーム退場の確認" },
+        content: `<p>${lead}チーム「${team}」の ${names} も一緒に退場します。</p><p>退場させますか？</p>`,
     }) === true;
 }
 
-/** トークン削除起点の退場確認(preDeleteToken から。確認後に削除と退場を適用する)。 */
-async function confirmTokenExit(actor, tokenDoc) {
+/** トークン削除起点のチーム退場確認(preDeleteToken から。確認後に連動退場を適用する)。 */
+async function confirmTokenTeamExit(actor, tokenDoc, targets) {
     if (pendingExitConfirms.has(tokenDoc.uuid)) return;
     pendingExitConfirms.add(tokenDoc.uuid);
     try {
-        if (!await confirmExitDialog(actor, { tokenDeletion: true })) return;
-        // 削除は発行元の権限のまま自前で行う(activeGM 不在でもトークンが残らない)。
-        // 登場フラグは所有者権限で落とせる(削除できた=トークンの所有者=アクターの所有者)
-        await tokenDoc.delete({ [SYNC_OPTION]: true });
-        await setAppearing(actor, false);
+        if (!await confirmTeamExitDialog(actor, { ...targets, tokenDeletion: true })) return;
+        // トークンの削除は退場同期に任せる(全メンバーの退場→各自のトークンが消える)
+        await applyManualExit(actor.id);
     } finally {
         pendingExitConfirms.delete(tokenDoc.uuid);
     }

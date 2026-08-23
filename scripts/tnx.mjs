@@ -1313,6 +1313,18 @@ Hooks.once("init", async function() {
         scope: "world", config: false, type: Boolean, default: false,
     });
 
+    // チームの退場連動(2026-08-23 ユーザー裁定・既定オフ)。登場は判定を振るか等の判断が多く
+    // 自動化しない(2026-08-22 オミット)が、退場は純粋な記帳なので連動できる——という非対称が
+    // 設計根拠。連動の適用は手動の退場操作(パネルの×・盤面のトークン削除)のみ
+    game.settings.register("tokyo-nova-axleration", "teamLinkedExit", {
+        name: "チームの退場連動",
+        hint: "チームを組んでいるキャラクターを退場させたとき、チームの登場中メンバー全員を一緒に退場させます。",
+        scope: "world",
+        config: true,
+        type: Boolean,
+        default: false,
+    });
+
     game.settings.register("tokyo-nova-axleration", "shuffleOnDeckReset", {
         name: "山札リセット時にシャッフル",
         hint: "山札のリセット（全回収）や捨て札の回収を行った際、自動的に山札をシャッフルします。",

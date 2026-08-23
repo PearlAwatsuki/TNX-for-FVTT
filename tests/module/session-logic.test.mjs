@@ -17,6 +17,7 @@ import {
   teamLeave,
   teamDelete,
   teamOf,
+  teamLinkedExitTargets,
 
   hasBackstage,
   backstageQueue,
@@ -402,6 +403,41 @@ describe("チーム操作（純関数・非破壊）", () => {
     expect(teamOf(TEAMS, "zz")).toBeNull();
     expect(teamOf([], "a1")).toBeNull();
     expect(teamOf(null, "a1")).toBeNull();
+  });
+
+  describe("teamLinkedExitTargets()（チームの退場連動・2026-08-23）", () => {
+    const appearing = (ids) => (id) => ids.includes(id);
+
+    it("連動オフは操作対象のみ（チーム所属でも巻き込まない）", () => {
+      const r = teamLinkedExitTargets(TEAMS, "a1", { linked: false, isAppearing: appearing(["a1", "a2"]) });
+      expect(r.targetIds).toEqual(["a1"]);
+      expect(r.others).toEqual([]);
+    });
+
+    it("連動オンで登場中のメンバー全員が対象（others に自分は入らない）", () => {
+      const r = teamLinkedExitTargets(TEAMS, "a1", { linked: true, isAppearing: appearing(["a1", "a2"]) });
+      expect(r.targetIds).toEqual(["a1", "a2"]);
+      expect(r.others).toEqual(["a2"]);
+      expect(r.teamName).toBe("チームA");
+    });
+
+    it("未登場のメンバーは巻き込まない", () => {
+      const r = teamLinkedExitTargets(TEAMS, "a1", { linked: true, isAppearing: appearing(["a1"]) });
+      expect(r.targetIds).toEqual(["a1"]);
+      expect(r.others).toEqual([]);
+    });
+
+    it("未所属は操作対象のみ", () => {
+      const r = teamLinkedExitTargets(TEAMS, "zz", { linked: true, isAppearing: appearing(["zz", "a1"]) });
+      expect(r.targetIds).toEqual(["zz"]);
+      expect(r.others).toEqual([]);
+    });
+
+    it("チーム名が空なら「チーム」で表示（既存表示と同じフォールバック）", () => {
+      const teams = [{ id: "t9", name: "", memberActorIds: ["x1", "x2"] }];
+      const r = teamLinkedExitTargets(teams, "x1", { linked: true, isAppearing: appearing(["x1", "x2"]) });
+      expect(r.teamName).toBe("チーム");
+    });
   });
 
 });

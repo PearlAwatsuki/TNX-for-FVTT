@@ -20,8 +20,10 @@
  *                    一般則。プロセス終了時に本人へ AR−1＋CSカレント0）
  *   sessionSceneCard - PL → GM: 切り札のシーン消費化に伴う「現在のシーンカード」の記録を
  *                    委譲する（フェーズ14-2。実行状態=ワールド設定は GM しか書けない）
- *   sessionTeam    - PL → GM: チーム宣言（結成・参加・離脱・チームで登場/退場）を委譲する
+ *   sessionTeam    - PL → GM: チーム宣言（結成・参加・離脱）を委譲する
  *                    （フェーズ14-5。宣言はいつでも可＝プレイヤーも行うため）
+ *   teamExit       - PL → GM: 手動退場（チームの退場連動込み）を委譲する（2026-08-23。
+ *                    連動時はチームメイトのアクターを更新するため activeGM が代行）
  *   infoDisclose   - PL → GM: 情報収集判定の自動開示を委譲する（フェーズ14-9。開示の正本＝
  *                    アクトジャーナルのフラグは GM しか書けないため）
  *   passHandCard   - PL → GM: 手札から手札へのカード受け渡しを委譲する（手札は本人+GM のみ
@@ -76,6 +78,9 @@ export class TnxSocketHandler {
                 break;
             case "sessionTeam":
                 TnxSocketHandler._onSessionTeam(data);
+                break;
+            case "teamExit":
+                TnxSocketHandler._onTeamExit(data);
                 break;
             case "infoDisclose":
                 TnxSocketHandler._onInfoDisclose(data);
@@ -356,6 +361,30 @@ export class TnxSocketHandler {
     static emitSessionTeam(payload) {
         game.socket.emit("system.tokyo-nova-axleration", {
             type: "sessionTeam",
+            userId: game.user.id,
+            ...payload,
+        });
+    }
+
+    // ─── teamExit（手動退場の委譲・2026-08-23 チームの退場連動） ───────────────
+    // PL のトークン削除起点の退場は、連動時にチームメイトのアクター(登場フラグ)を更新する
+    // 必要があるため activeGM が代行する。要求者が対象アクターの所有者であることを検証し、
+    // 連動対象(チームメンバー)は GM 側で再解決する(クライアントの主張を信用しない)。
+
+    /** 手動退場(チームの退場連動込み)を GM クライアントが代行する。 */
+    static async _onTeamExit(data) {
+        if (game.users.activeGM?.id !== game.user.id) return;
+        const requester = game.users.get(data?.userId);
+        if (!requester) return;
+        if (!game.actors.get(data?.actorId)?.testUserPermission(requester, "OWNER")) return;
+        const { applyManualExit } = await import("./appearance-state.mjs");
+        await applyManualExit(data.actorId);
+    }
+
+    /** 手動退場を GM へ委譲する(プレイヤークライアントから呼ぶ)。 */
+    static emitTeamExit(payload) {
+        game.socket.emit("system.tokyo-nova-axleration", {
+            type: "teamExit",
             userId: game.user.id,
             ...payload,
         });
