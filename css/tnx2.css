@@ -10020,9 +10020,7 @@ button.tnx-create-act-button span {
 .tnx-scenario-panel .scp-backstage-name {
     flex: 1 1 auto;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
 }
 
 /* シーン開始ダイアログ(14-8)。Foundry の .form-fields は justify-content: flex-end のため、
@@ -10110,9 +10108,7 @@ button.tnx-create-act-button span {
 .tnx-scenario-panel .scp-rotation-name {
     flex: 1 1 auto;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
 }
 
 /* 務め終えた人は薄く落とす(候補から外れるわけではない=選び直せる) */
