@@ -9885,6 +9885,15 @@ button.tnx-create-act-button span {
     margin-top: 6px;
 }
 
+/* 進行ボタンはシーン名を含むため固定高にしない(2026-08-23 ユーザー指摘)。
+   1行なら従来と同じ36px・長い名前は折り返して高さが伸びる。--sm は従来のまま */
+.tnx-scenario-panel .tnx-btn:not(.tnx-btn--sm) {
+    height: auto;
+    min-height: 36px;
+    padding: 6px 12px;
+    overflow-wrap: anywhere;
+}
+
 /* シーン一覧はフェイズごとに間を置く(2026-08-23 ユーザー指摘=見出しが行に紛れる) */
 .tnx-scenario-panel .scp-phase-group { margin: 8px 0 10px; }
 
