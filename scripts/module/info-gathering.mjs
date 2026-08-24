@@ -7,12 +7,18 @@
  *   所持技能の実解決・用途/コンボ候補・代用判定)。起動は唯一の起動関数 `_activateItemCheck`。
  * - **判定成功で自動開示**(RL 承認なし)・**達成値以下の目標値まで一括開示**・**回数制限なし**
  *   (2026-08-16 裁定)。開示の書き込みはアクトジャーナル(GM 所有)のため PL はソケット委譲。
+ *   activeGM 不在では適用できないため PL に警告する(KI-042)。
+ * - 開示の**実適用後**に GM 側が卓へ公開する(KI-042 是正・2026-08-25 ユーザー承認):
+ *   ①結果カードへ帰結行「情報を開示した」を刻む(判定側では出さない=実適用と表示を一致させる)
+ *   ②**今回新たに判明した分**の公開カードを送る(未開示の残りは目標値形式で下に併記)。
+ *   どちらも新規開示があったときだけ(再判定の単調適用で重複しない)。
  * - 報酬点は使用可(2026-07-16 裁定＝情報収集は usesBounty 不問・消費時点の一元ゲートに乗る)。
  */
 
 import { getSessionState, getActiveActJournal } from "./session-state.mjs";
 import {
     withResolvedInfoSkillNames, infoCheckRows, discloseInfoByAchievement,
+    newlyDisclosedInfo, buildInfoDiscloseCardData,
 } from "./session-logic.mjs";
 import { loadGeneralSkillNameByKey } from "./skill-dictionary.mjs";
 import { resolveDesignatedSkillResponse } from "./tnx-rl-request-app.mjs";
@@ -110,30 +116,78 @@ async function promptInfoCheckRow(title, rows) {
  * 追加開示・下がっても既開示は維持される(冪等)。
  * @param {{itemId: string, contentId: string, entryTn: ?(number|string)}} cc 継続文脈
  * @param {{success: ?boolean, achievement: ?number}} result 判定結果
+ * @param {{messageId?: ?string}} [args] messageId=結果カード(実適用後に帰結行を刻む宛先・KI-042)
  */
-export async function resolveInfoGatheringFromCheck(cc, result) {
+export async function resolveInfoGatheringFromCheck(cc, result, { messageId = null } = {}) {
     if (result?.success !== true) return;
     const payload = {
         itemId:      cc?.itemId ?? "",
         contentId:   cc?.contentId ?? "",
         entryTn:     cc?.entryTn ?? null,
         achievement: Number(result?.achievement) || 0,
+        messageId:   messageId ?? null,
     };
     if (game.user.isGM) return void await applyInfoDisclosure(payload);
+    // activeGM 不在では適用の代行者がおらず開示が消失する(KI-042)。判定はブロックせず、
+    // 適用されない事実だけを判定者へ知らせる
+    if (!game.users.activeGM) {
+        return void ui.notifications.warn("RLが接続していないため、情報の開示は適用されません。");
+    }
     TnxSocketHandler.emitInfoDisclose(payload);
 }
 
 /**
- * 開示の適用(GM クライアント)。達成値以下の目標値を持つ入口・段を一括で開く。
- * @param {{itemId: string, contentId: string, entryTn?: ?(number|string), achievement: number}} args
+ * 開示の適用(GM クライアント)。達成値以下の目標値を持つ入口・段を一括で開き、**新規開示が
+ * あったときだけ**卓へ公開する(帰結行の刻印+公開カード・KI-042 是正)。変化が無ければ何も
+ * しない(再判定の単調適用=書き込みも通知も重複しない)。
+ * @param {{itemId: string, contentId: string, entryTn?: ?(number|string), achievement: number,
+ *          messageId?: ?string}} args messageId=帰結行を刻む結果カード
  */
-export async function applyInfoDisclosure({ itemId, contentId, entryTn = null, achievement }) {
+export async function applyInfoDisclosure({ itemId, contentId, entryTn = null, achievement, messageId = null }) {
     const journal = getActiveActJournal();
     if (!journal) return;
     const items = foundry.utils.deepClone(journal.getFlag(SCOPE, "infoItems") ?? []);
-    const contents = items.find(i => i.id === itemId)?.contents;
+    const item = items.find(i => i.id === itemId);
+    const contents = item?.contents;
     const index = contents?.findIndex(c => c.id === contentId) ?? -1;
     if (index < 0) return;
-    contents[index] = discloseInfoByAchievement(contents[index], { achievement, entryTn });
+    const before = contents[index];
+    const after = discloseInfoByAchievement(before, { achievement, entryTn });
+    const newly = newlyDisclosedInfo(before, after);
+    if (!newly.entryOpened && !newly.tierIds.length) return;
+    contents[index] = after;
     await journal.setFlag(SCOPE, "infoItems", items);
+    await announceInfoDisclosure(item, contentId, newly, messageId);
+}
+
+/**
+ * 開示の実適用を卓へ公開する(GM クライアント・KI-042 是正)。
+ * ①結果カードへ帰結行「情報を開示した」を刻む——判定側は帰結行を出さないため、これが実適用の
+ *   唯一の裏付け。挿入はマーカークラス(cr-info-outcome)で冪等、再判定の置き換え再構築のために
+ *   `checkResult.infoDisclosed` フラグも立てる。
+ * ②新たに判明した分の公開カードを送る(未開示の残りは目標値形式で併記・2026-08-25 ユーザー指示)。
+ * @param {object} item 情報項目(開示適用後・識別キーは未解決の生データ)
+ * @param {string} contentId 挑んだ内容(枝)の id
+ * @param {{entryOpened: boolean, tierIds: Array<string>}} newly 開示の前後差分
+ * @param {?string} messageId 結果カードの id(再判定経由などで無ければ帰結行はスキップ)
+ */
+async function announceInfoDisclosure(item, contentId, newly, messageId) {
+    const message = messageId ? game.messages.get(messageId) : null;
+    if (message) {
+        const patch = { [`flags.${SCOPE}.checkResult.infoDisclosed`]: true };
+        if (!message.content.includes("cr-info-outcome")) {
+            const outcome = await foundry.applications.handlebars.renderTemplate(
+                "systems/tokyo-nova-axleration/templates/chat/parts/info-disclose-outcome.hbs", {});
+            const at = message.content.lastIndexOf("</div>");
+            if (at >= 0) patch.content = message.content.slice(0, at) + outcome + message.content.slice(at);
+        }
+        await TnxSocketHandler.applyMessagePatch(message, patch);
+    }
+
+    const resolved = withResolvedInfoSkillNames(item, await loadGeneralSkillNameByKey());
+    const data = buildInfoDiscloseCardData(resolved, contentId, newly);
+    if (!data) return;
+    const content = await foundry.applications.handlebars.renderTemplate(
+        "systems/tokyo-nova-axleration/templates/chat/info-card.hbs", data);
+    await ChatMessage.create({ content });
 }

@@ -30,6 +30,8 @@ import {
   buildScenarioTextCardData,
   buildHandoutCardData,
   buildInfoCardData,
+  buildInfoDiscloseCardData,
+  newlyDisclosedInfo,
   HANDOUT_STYLE_COMMON,
   HANDOUT_STYLE_FREE,
   circledNumber,
@@ -793,11 +795,16 @@ describe("buildInfoCardData()（情報項目の送信カード・2026-08-15 表�
     item.contents[0].tiers.find(t => t.id === "t1").isDisclosed = true;
     const data = buildInfoCardData(item);
     expect(data.mode).toBe("disclosed");
-    expect(data.blocks).toEqual([{
-      skillLabel: "〈社会：ストリート、警察〉",
-      tnList: "",
-      rows: [{ tn: 8, text: "<p>組織の概要</p>" }, { tn: 12, text: "<p>実行犯</p>" }],
-    }]);
+    expect(data.blocks).toEqual([
+      {
+        skillLabel: "〈社会：ストリート、警察〉",
+        tnList: "",
+        rows: [{ tn: 8, text: "<p>組織の概要</p>" }, { tn: 12, text: "<p>実行犯</p>" }],
+      },
+      // 未開示の残りは「完全に未開示の時と同様」の形式で下に併記する(2026-08-25 ユーザー指示)
+      { skillLabel: "〈社会：ストリート、警察〉", tnList: "15", rows: [] },
+      { skillLabel: "〈電脳〉", tnList: "21", rows: [] },
+    ]);
   });
 
   it("開示していない目標値は出さない（下位を開けても上位は伏せる）", () => {
@@ -819,6 +826,81 @@ describe("buildInfoCardData()（情報項目の送信カード・2026-08-15 表�
     const item = structuredClone(TIERED);
     item.contents[0].isDisclosed = true;
     expect(buildInfoCardData(item).blocks[0].rows[0].text).toBe("<p>組織の概要</p>");
+  });
+
+  it("全て開示済みなら未開示の併記ブロックは付かない", () => {
+    const item = structuredClone(TIERED);
+    item.contents[0].isDisclosed = true;
+    for (const t of item.contents[0].tiers) t.isDisclosed = true;
+    item.contents[1].isDisclosed = true;
+    const data = buildInfoCardData(item);
+    expect(data.mode).toBe("disclosed");
+    expect(data.blocks.every(b => b.rows.length > 0 && b.tnList === "")).toBe(true);
+  });
+});
+
+describe("newlyDisclosedInfo()（開示適用の前後差分・KI-042/フェーズ14-9）", () => {
+  const BEFORE = {
+    id: "c1", isDisclosed: false, text: "<p>入口</p>",
+    skills: [{ label: "〈社会〉", tn: 5 }],
+    tiers: [
+      { id: "t1", tn: 10, text: "<p>段10</p>", isDisclosed: false },
+      { id: "t2", tn: 12, text: "<p>段12</p>", isDisclosed: false },
+    ],
+  };
+
+  it("入口と段が新たに開けば、その分だけを列挙する", () => {
+    const after = discloseInfoByAchievement(BEFORE, { achievement: 10, entryTn: 5 });
+    expect(newlyDisclosedInfo(BEFORE, after)).toEqual({ entryOpened: true, tierIds: ["t1"] });
+  });
+
+  it("変化が無ければ空（再判定の単調適用＝重複送信のゲート）", () => {
+    const opened = discloseInfoByAchievement(BEFORE, { achievement: 10, entryTn: 5 });
+    const again = discloseInfoByAchievement(opened, { achievement: 10, entryTn: 5 });
+    expect(newlyDisclosedInfo(opened, again)).toEqual({ entryOpened: false, tierIds: [] });
+  });
+
+  it("達成値が伸びた再判定は追加分だけを列挙する", () => {
+    const first = discloseInfoByAchievement(BEFORE, { achievement: 10, entryTn: 5 });
+    const second = discloseInfoByAchievement(first, { achievement: 12, entryTn: 5 });
+    expect(newlyDisclosedInfo(first, second)).toEqual({ entryOpened: false, tierIds: ["t2"] });
+  });
+});
+
+describe("buildInfoDiscloseCardData()（判定成功の自動公開カード・フェーズ14-9）", () => {
+  // 開示適用**後**の項目(判定で入口+段10 が開き、段12 と別枝は未開示のまま)
+  const ITEM = {
+    title: "氷の静謐",
+    contents: [{
+      id: "c1", isDisclosed: true, text: "<p>入口</p>",
+      skills: [{ label: "〈社会〉", tn: 5 }],
+      tiers: [
+        { id: "t1", tn: 10, text: "<p>段10</p>", isDisclosed: true },
+        { id: "t2", tn: 12, text: "<p>段12</p>", isDisclosed: false },
+      ],
+    }, {
+      id: "c2", isDisclosed: false, text: "<p>別枝</p>", skills: [{ label: "〈電脳〉", tn: 21 }],
+    }],
+  };
+
+  it("新規開示分だけを目標値｜本文で出し、未開示の残りを目標値形式で下に併記する", () => {
+    const data = buildInfoDiscloseCardData(ITEM, "c1", { entryOpened: true, tierIds: ["t1"] });
+    expect(data.title).toBe("氷の静謐");
+    expect(data.mode).toBe("disclosed");
+    expect(data.blocks).toEqual([
+      { skillLabel: "〈社会〉", tnList: "", rows: [{ tn: 5, text: "<p>入口</p>" }, { tn: 10, text: "<p>段10</p>" }] },
+      { skillLabel: "〈社会〉", tnList: "12", rows: [] },
+      { skillLabel: "〈電脳〉", tnList: "21", rows: [] },
+    ]);
+  });
+
+  it("以前に開示済みで今回開いていない行は出さない", () => {
+    const data = buildInfoDiscloseCardData(ITEM, "c1", { entryOpened: false, tierIds: ["t1"] });
+    expect(data.blocks[0].rows).toEqual([{ tn: 10, text: "<p>段10</p>" }]);
+  });
+
+  it("新規開示が無ければ null（カードを送らないゲート）", () => {
+    expect(buildInfoDiscloseCardData(ITEM, "c1", { entryOpened: false, tierIds: [] })).toBeNull();
   });
 });
 

@@ -829,28 +829,43 @@ export function infoSkillGroups(content) {
  */
 export function buildInfoCardData(item) {
     const contents = Array.isArray(item?.contents) ? item.contents : [];
+    const title = String(item?.title ?? "").trim();
+    // 1 つでも開示していれば開示済みの送信(開示の累積はトグル側が保つ)。未開示の残りは
+    // 「完全に未開示の時と同様」の目標値形式で下に併記する(2026-08-25 ユーザー指示＝開示が
+    // 始まっても、残りを何の技能・目標値で抜けるかが表示から消えないようにする)
+    const disclosed = contents.filter(c => c.isDisclosed || infoTiers(c).some(t => t.isDisclosed));
+    if (disclosed.length > 0) {
+        const blocks = [
+            ...infoCardBlocks(disclosed, { mode: "table", filter: v => v.isDisclosed }),
+            ...infoCardBlocks(contents, { mode: "targets", filter: v => !v.isDisclosed }),
+        ];
+        return { title, mode: "disclosed", blocks };
+    }
+    const blocks = infoCardBlocks(contents, { mode: "targets" });
+    return { title, mode: blocks.length ? "targets" : null, blocks };
+}
 
-    const buildBlocks = (rows, onlyDisclosed) => rows.flatMap(content => infoSkillGroups(content))
+/**
+ * 技能グループを送信カードのブロックへ整形する(buildInfoCardData / buildInfoDiscloseCardData 共用)。
+ * - mode "table"  = 目標値｜本文の行(開示済み表示。本文の無い目標値は出す物が無いので落とす)
+ * - mode "targets"= 技能行の後ろに目標値の横並び(「目標値: 8, 12, 15」・本文は出さない)
+ * @param {Array<object>} contents 情報の内容(枝)の並び
+ * @param {{mode: ("table"|"targets"), filter?: (v: object) => boolean}} args filter=値の絞り込み
+ * @returns {Array<{skillLabel: string, tnList: string, rows: Array<{tn: (number|string), text: string}>}>}
+ */
+function infoCardBlocks(contents, { mode, filter = () => true }) {
+    return contents.flatMap(content => infoSkillGroups(content))
         .map((group) => {
-            const values = onlyDisclosed ? group.values.filter(v => v.isDisclosed) : group.values;
+            const values = group.values.filter(filter);
             return {
                 skillLabel: group.skillLabel,
-                // 目標値の送信: 技能行の後ろに横並び(「目標値: 8, 12, 15」)
-                tnList: onlyDisclosed ? "" : values.filter(v => v.tn).map(v => v.tn).join(", "),
-                // 開示済みの送信: 目標値｜本文の行(本文の無い目標値は出す物が無いので落とす)
-                rows: onlyDisclosed
+                tnList: mode === "targets" ? values.filter(v => v.tn).map(v => v.tn).join(", ") : "",
+                rows: mode === "table"
                     ? values.filter(v => v.text).map(v => ({ tn: v.tn ?? "", text: v.text }))
                     : [],
             };
         })
         .filter(block => block.tnList || block.rows.length);
-
-    const title = String(item?.title ?? "").trim();
-    // 1 つでも開示していれば開示済みの送信(開示の累積はトグル側が保つ)
-    const disclosed = contents.filter(c => c.isDisclosed || infoTiers(c).some(t => t.isDisclosed));
-    if (disclosed.length > 0) return { title, mode: "disclosed", blocks: buildBlocks(disclosed, true) };
-    const blocks = buildBlocks(contents, false);
-    return { title, mode: blocks.length ? "targets" : null, blocks };
 }
 
 /**
@@ -935,6 +950,48 @@ export function discloseInfoByAchievement(content, { achievement, entryTn = null
     const entryOpen = content?.isDisclosed === true || reached(entryTn)
         || tiers.some(t => t?.isDisclosed === true);
     return { ...content, isDisclosed: entryOpen, tiers };
+}
+
+/**
+ * 開示適用の前後差分(KI-042/14-9)。**新たに開いた**入口・段だけを列挙する——自動公開カードと
+ * 帰結行は実際に開示が増えたときだけ出す(再判定の単調適用で重複送信しない)ためのゲート。
+ * @param {?object} before 適用前の内容(枝)
+ * @param {?object} after 適用後の内容(枝)
+ * @returns {{entryOpened: boolean, tierIds: Array<string>}}
+ */
+export function newlyDisclosedInfo(before, after) {
+    const wasOpen = new Map((Array.isArray(before?.tiers) ? before.tiers : [])
+        .map(t => [t?.id, t?.isDisclosed === true]));
+    const tierIds = (Array.isArray(after?.tiers) ? after.tiers : [])
+        .filter(t => t?.isDisclosed === true && wasOpen.get(t?.id) !== true)
+        .map(t => t.id);
+    return {
+        entryOpened: after?.isDisclosed === true && before?.isDisclosed !== true,
+        tierIds,
+    };
+}
+
+/**
+ * 判定成功の自動公開カード(14-9)。**今回新たに判明した分だけ**を目標値｜本文で出し、
+ * 未開示の残り(項目全体)を目標値形式で下に併記する(2026-08-25 ユーザー指示)。
+ * 体裁は info-card.hbs(開示済みの送信と同じ意匠)。
+ * @param {object} item 情報項目(開示適用**後**・技能名は解決済み)
+ * @param {string} contentId 挑んだ内容(枝)の id
+ * @param {{entryOpened: boolean, tierIds: Array<string>}} newly newlyDisclosedInfo の差分
+ * @returns {?{title: string, mode: "disclosed", blocks: Array<object>}} null=新規開示なし(送らない)
+ */
+export function buildInfoDiscloseCardData(item, contentId, newly) {
+    if (!newly || (newly.entryOpened !== true && !(newly.tierIds?.length))) return null;
+    const contents = Array.isArray(item?.contents) ? item.contents : [];
+    const tierIds = new Set(newly.tierIds ?? []);
+    const isNew = v => (v.tierId === null ? newly.entryOpened === true : tierIds.has(v.tierId));
+    const tableBlocks = infoCardBlocks(contents.filter(c => c.id === contentId), { mode: "table", filter: isNew });
+    if (!tableBlocks.length) return null;
+    return {
+        title: String(item?.title ?? "").trim(),
+        mode: "disclosed",
+        blocks: [...tableBlocks, ...infoCardBlocks(contents, { mode: "targets", filter: v => !v.isDisclosed })],
+    };
 }
 
 /**

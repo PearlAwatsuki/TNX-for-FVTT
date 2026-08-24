@@ -107,6 +107,7 @@ async function preloadHandlebarsTemplates() {
         // 判定結果系カードの基底部品(2026-07-19 基底化): 全カードが参照するためパーシャルとして先読み
         "systems/tokyo-nova-axleration/templates/chat/parts/check-card-head.hbs",
         "systems/tokyo-nova-axleration/templates/chat/parts/check-calc-rows.hbs",
+        "systems/tokyo-nova-axleration/templates/chat/parts/info-disclose-outcome.hbs",
         "systems/tokyo-nova-axleration/templates/chat/scene-card.hbs",
         "systems/tokyo-nova-axleration/templates/chat/check-result.hbs",
         "systems/tokyo-nova-axleration/templates/chat/check-request.hbs",

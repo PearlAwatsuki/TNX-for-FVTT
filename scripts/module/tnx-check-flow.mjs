@@ -784,6 +784,7 @@ export class TnxCheckFlow {
         // (成否保留・リアクション導線つき・12-2。attack-flow は本フローを import するため動的 import)。
         // 移動(ctx.movement)も通常カードの代わりに移動結果カードを出す(達成値÷10 段階・12)。
         // 再判定(ctx.recheckMessageId)は新カードを出さず、元カードの達成値を置き換える(2026-07-14 確定)。
+        let resultMessage = null; // 通常の結果カード(情報収集の帰結行を実適用後に刻む宛先・KI-042)
         if (ctx.recheckMessageId) {
             await TnxCheckFlow._applyRecheckReplacement({ ctx, card, suit, result, cardCheckValue, fromDeck, trumpUsed, suitMismatch, checkSources: checkInfo.sources });
         } else if (ctx.attack) {
@@ -799,7 +800,7 @@ export class TnxCheckFlow {
             // オープンリアクション(2026-07-19 ユーザー是正)は**通常の結果カード**を出す——カード値・
             // 能力値等の計算内訳を持つ個別カードがリアクターごとに公開で残る(対決の帰結は能動側の
             // 対決判定カードにライブ表示)。再判定/修正の導線もこのカードに載る
-            await TnxCheckFlow._postResultChat({ ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch, checkSources: checkInfo.sources, recheckCtx });
+            resultMessage = await TnxCheckFlow._postResultChat({ ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch, checkSources: checkInfo.sources, recheckCtx });
         }
 
         // controlNegate(BS の無効/降格)の完了継続: 判定は上の通常経路そのもので行われ、
@@ -865,10 +866,11 @@ export class TnxCheckFlow {
             await resolveAppearanceFromCheck(ctx.appearance, result);
         }
 
-        // 情報収集判定の完了継続(14-9): 成功で自動開示(達成値以下の目標値まで一括・2026-08-16 裁定)
+        // 情報収集判定の完了継続(14-9): 成功で自動開示(達成値以下の目標値まで一括・2026-08-16 裁定)。
+        // messageId=結果カード。帰結行「情報を開示した」は開示の**実適用後**に GM 側が刻む(KI-042)
         if (!ctx.recheckMessageId && ctx.infoGathering) {
             const { resolveInfoGatheringFromCheck } = await import("./info-gathering.mjs");
-            await resolveInfoGatheringFromCheck(ctx.infoGathering, result);
+            await resolveInfoGatheringFromCheck(ctx.infoGathering, result, { messageId: resultMessage?.id ?? null });
         }
 
         return true;
@@ -878,7 +880,7 @@ export class TnxCheckFlow {
         const actor = game.actors.get(ctx.actorId);
         const content = await TnxCheckFlow._renderResultContent({ ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch, checkSources });
 
-        await ChatMessage.create({
+        return ChatMessage.create({
             content,
             speaker: actor ? ChatMessage.getSpeaker({ actor }) : undefined,
             flags: {
@@ -896,15 +898,17 @@ export class TnxCheckFlow {
     /** 結果カードの本文を構築する(新規投稿と再判定の置き換え着地で共用・2026-07-14 抽出)。
      *  基底コンテキスト(buildCheckCardContext=カード行・標準計算行)に結果カード固有分
      *  (成否・目標値・差分値・制御判定)を足す(2026-07-19 基底化)。 */
-    static async _renderResultContent({ ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch = false, checkSources = [], isRecheck = false }) {
+    static async _renderResultContent({ ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch = false, checkSources = [], isRecheck = false, infoDisclosed = false }) {
         const actor = game.actors.get(ctx.actorId);
         const TYPE_LABEL = { skillCheck: "技能判定", controlCheck: "制御判定", abilityCheck: "能力値判定" };
         const isControlCheck = ctx.type === "controlCheck";
         // 登場判定(2026-08-16)・情報収集判定(14-9): 用途を持たない判定のため、専用カードは
         // 判定文脈をキーにした描画の分岐で実現する(攻撃カード・移動カードと同型)
         const appearance = appearanceCardInfo(ctx.appearance, result);
+        // 帰結行は開示の実適用と一致させる(KI-042): 初回描画では出さず、適用後に GM が挿入する。
+        // 再判定の置き換え再構築では checkResult.infoDisclosed フラグから引き継ぐ
         const infoCheck = ctx.infoGathering
-            ? { title: ctx.infoGathering.title ?? "", disclosed: result?.success === true }
+            ? { title: ctx.infoGathering.title ?? "", disclosed: infoDisclosed === true }
             : null;
         return foundry.applications.handlebars.renderTemplate(
             "systems/tokyo-nova-axleration/templates/chat/check-result.hbs",
@@ -1029,6 +1033,7 @@ export class TnxCheckFlow {
         } else {
             patch.content = await TnxCheckFlow._renderResultContent({
                 ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch, checkSources, isRecheck: true,
+                infoDisclosed: message.getFlag(SCOPE, "checkResult")?.infoDisclosed === true,
             });
         }
 
@@ -1046,7 +1051,7 @@ export class TnxCheckFlow {
 
         // 継続処理の再実行(2026-07-15・リアクション対決再解決/治療等の失敗→成功のみ適用/NPC・移動は表示のみ)。
         // 各ハンドラが所有権に応じて GM 委譲するため、再判定者クライアントでそのまま呼ぶ。
-        await TnxCheckFlow._rerunContinuation(ctx, result, { oldSuccess });
+        await TnxCheckFlow._rerunContinuation(ctx, result, { oldSuccess, messageId: message.id });
     }
 
     /**
@@ -1110,10 +1115,11 @@ export class TnxCheckFlow {
         infoGathering: {
             // 開示は単調(開くだけで閉じない)なので、成功のたびに適用してよい——達成値が伸びれば
             // 追加開示・下がっても既開示は維持(rerunOnSuccessOnly だと成功→成功の達成値上昇で
-            // 追加開示されないため使わない)。成功以外はハンドラ内で弾く
-            async rerun(cc, result) {
+            // 追加開示されないため使わない)。成功以外はハンドラ内で弾く。messageId=着地先カード
+            // (追加開示があれば帰結行を刻み直す・KI-042)
+            async rerun(cc, result, { messageId = null } = {}) {
                 const { resolveInfoGatheringFromCheck } = await import("./info-gathering.mjs");
-                await resolveInfoGatheringFromCheck(cc, result);
+                await resolveInfoGatheringFromCheck(cc, result, { messageId });
             },
         },
     });
@@ -1167,7 +1173,7 @@ export class TnxCheckFlow {
      * @param {object} result 新しい判定結果(success/achievement/fumble)
      * @param {{oldSuccess?:boolean}} [opts] 旧成否(rerunOnSuccessOnly の遷移ゲート)
      */
-    static async _rerunContinuation(cc, result, { oldSuccess = false } = {}) {
+    static async _rerunContinuation(cc, result, { oldSuccess = false, messageId = null } = {}) {
         if (!cc) return;
         const key = Object.keys(TnxCheckFlow.CONTINUATIONS).find(k => cc[k]);
         if (!key) return;
@@ -1175,7 +1181,7 @@ export class TnxCheckFlow {
         if (!def.rerun) return; // npcAcquire / movement: 表示のみ(再実行なし)
         // 失敗→成功の遷移でのみ副作用を適用(冪等な除去ハンドラを再呼び)。成功→失敗は表示のみ(手動復元)
         if (def.rerunOnSuccessOnly && !(result.success === true && oldSuccess !== true)) return;
-        await def.rerun(cc[key], result, { oldSuccess, actorId: cc.actorId });
+        await def.rerun(cc[key], result, { oldSuccess, actorId: cc.actorId, messageId });
     }
 
     /**
@@ -1523,7 +1529,7 @@ export class TnxCheckFlow {
         // 継続処理の再実行(再判定と同型・2026-07-15): rc に載る継続文脈を新達成値で再実行。
         // リアクション=対決再解決/治療・回復・controlNegate=失敗→成功のみ適用/NPC・移動=表示のみ。
         await TnxCheckFlow._rerunContinuation(rc, { achievement: newAch, success: newSuccess, fumble: false },
-            { oldSuccess: checkF?.result?.success === true });
+            { oldSuccess: checkF?.result?.success === true, messageId: message.id });
     }
 
     /**

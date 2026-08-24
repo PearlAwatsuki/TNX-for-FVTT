@@ -117,11 +117,11 @@
     </div>
     {{/if}}
 
-    {{!-- 情報収集の帰結(14-9): 成功で自動適用された開示を卓に残る形で示す --}}
+    {{!-- 情報収集の帰結(14-9・KI-042 是正): 開示の実適用と表示を一致させる。初回描画では
+         infoCheck.disclosed は常に false(適用後に GM が同じ部品を挿入する)。ここで出るのは
+         再判定の置き換え再構築で checkResult.infoDisclosed フラグが立っている場合のみ --}}
     {{#if infoCheck.disclosed}}
-    <div class="cr-appearance-outcome">
-        <i class="fas fa-unlock"></i> 情報を開示した
-    </div>
+    {{> "systems/tokyo-nova-axleration/templates/chat/parts/info-disclose-outcome.hbs"}}
     {{/if}}
 
 </div>
