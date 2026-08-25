@@ -64,7 +64,7 @@ import {
   CONTACT_TYPES,
   planActLimitedCleanup,
   discloseInfoByAchievement,
-  infoCheckRows,
+  infoCheckOptions,
   hudInfoItems,
   hudInfoTnChips,
 } from "../../scripts/module/session-logic.mjs";
@@ -1501,35 +1501,45 @@ describe("discloseInfoByAchievement()（判定成功→自動開示・2026-08-16
   });
 });
 
-describe("infoCheckRows()（判定起動の技能行列挙＝項目1ボタン→行選択・2026-08-16 裁定）", () => {
+describe("infoCheckOptions()（判定起動の選択肢＝技能×目標値へ平坦化・2026-08-25 是正）", () => {
+  const names = new Map([
+    ["society_st", "社会：ストリート"], ["society_pol", "社会：警察"], ["hacking", "ハッキング"],
+  ]);
   const item = {
     id: "i1", title: "氷の静謐", isPublic: true,
     contents: [
       { id: "c1", skills: [
-          { identificationKeys: ["society_st", "society_pol"], tn: 8, label: "〈社会：ストリート、警察〉" },
-          { identificationKeys: ["hacking"], tn: 12, label: "〈ハッキング〉" },
+          { identificationKeys: ["society_st", "society_pol"], tn: 8 },
+          { identificationKeys: ["hacking"], tn: 12 },
         ], tiers: [] },
-      { id: "c2", skills: [{ identificationKeys: [], name: "自由記述技能", tn: 10, label: "〈自由記述技能〉" }], tiers: [] },
+      { id: "c2", skills: [{ identificationKeys: [], name: "自由記述技能", tn: 10 }], tiers: [] },
       { id: "c3", skills: [], tiers: [{ id: "t", tn: 15, text: "x" }] },
     ],
   };
 
-  it("枝をまたいで技能行を列挙する（contentId・キー・目標値・表示名）", () => {
-    const rows = infoCheckRows(item);
-    expect(rows).toEqual([
-      { contentId: "c1", keys: ["society_st", "society_pol"], tn: 8, label: "〈社会：ストリート、警察〉" },
-      { contentId: "c1", keys: ["hacking"], tn: 12, label: "〈ハッキング〉" },
-      { contentId: "c2", keys: [], tn: 10, label: "〈自由記述技能〉" },
+  it("技能行×指定技能を1つの並びへ平坦化する（ダイアログ1回で選び切る）", () => {
+    expect(infoCheckOptions(item, names)).toEqual([
+      { contentId: "c1", key: "society_st", tn: 8, label: "〈社会：ストリート〉" },
+      { contentId: "c1", key: "society_pol", tn: 8, label: "〈社会：警察〉" },
+      { contentId: "c1", key: "hacking", tn: 12, label: "〈ハッキング〉" },
+      { contentId: "c2", key: null, tn: 10, label: "自由記述技能" },
     ]);
   });
 
   it("技能行の無い枝は列挙しない（挑み先が無い）", () => {
-    expect(infoCheckRows(item).some(r => r.contentId === "c3")).toBe(false);
+    expect(infoCheckOptions(item, names).some(o => o.contentId === "c3")).toBe(false);
+  });
+
+  it("辞典から消えたキーは選択肢から落ちる（表示できない技能では挑めない）", () => {
+    const rows = infoCheckOptions({
+      contents: [{ id: "c", skills: [{ identificationKeys: ["gone", "hacking"], tn: 5 }] }],
+    }, names);
+    expect(rows).toEqual([{ contentId: "c", key: "hacking", tn: 5, label: "〈ハッキング〉" }]);
   });
 
   it("ラベルの無い行・contents 無しは安全に空", () => {
-    expect(infoCheckRows({ contents: [{ id: "c", skills: [{ tn: 5 }] }] })).toEqual([]);
-    expect(infoCheckRows(null)).toEqual([]);
+    expect(infoCheckOptions({ contents: [{ id: "c", skills: [{ tn: 5 }] }] }, names)).toEqual([]);
+    expect(infoCheckOptions(null, names)).toEqual([]);
   });
 });
 

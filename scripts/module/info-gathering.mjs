@@ -1,8 +1,9 @@
 /**
  * @fileoverview 情報収集判定(フェーズ14-9・正本 Scenario_Progress「情報収集判定の裁定」)。
  *
- * - 起動＝HUD の情報項目の判定ボタン(**項目に1つ**・2026-08-16 裁定)。技能行が複数ある項目は
- *   ダイアログで挑む行(技能＋目標値)を選ぶ。
+ * - 起動＝HUD の情報項目の判定ボタン(**項目に1つ**・2026-08-16 裁定)。技能×目標値を平坦化した
+ *   選択肢から**ダイアログ1回**で選び切る(2026-08-25 是正=行選択→技能選択の多段を廃止)。
+ *   選択肢が1つならダイアログ自体を出さない。
  * - 技能の解決は判定要求の応答機構と共用(`resolveDesignatedSkillResponse`＝複数キー選択・
  *   所持技能の実解決・用途/コンボ候補・代用判定)。起動は唯一の起動関数 `_activateItemCheck`。
  * - **判定成功で自動開示**(RL 承認なし)・**達成値以下の目標値まで一括開示**・**回数制限なし**
@@ -17,7 +18,7 @@
 
 import { getSessionState, getActiveActJournal } from "./session-state.mjs";
 import {
-    withResolvedInfoSkillNames, infoCheckRows, discloseInfoByAchievement,
+    withResolvedInfoSkillNames, infoCheckOptions, discloseInfoByAchievement,
     newlyDisclosedInfo, buildInfoDiscloseCardData,
 } from "./session-logic.mjs";
 import { loadGeneralSkillNameByKey } from "./skill-dictionary.mjs";
@@ -31,7 +32,7 @@ const { DialogV2 } = foundry.applications.api;
 
 /**
  * HUD の情報項目ボタンから情報収集判定を起動する。
- * 技能行が1つなら自動選択・複数ならダイアログで選ぶ(2026-08-16 裁定=ボタンは項目に1つ)。
+ * 技能×目標値の選択肢が1つなら即起動・複数なら**ダイアログ1回**で選ぶ(2026-08-25 是正)。
  * @param {string} itemId 情報項目 id
  */
 export async function startInfoGatheringCheck(itemId) {
@@ -43,24 +44,25 @@ export async function startInfoGatheringCheck(itemId) {
     const raw = (journal?.getFlag(SCOPE, "infoItems") ?? []).find(i => i.id === itemId);
     if (!raw) return;
 
-    const item = withResolvedInfoSkillNames(raw, await loadGeneralSkillNameByKey());
-    const rows = infoCheckRows(item);
-    if (!rows.length) return void ui.notifications.warn("この情報には挑める技能行がありません。");
-    const title = String(item.title ?? "").trim() || "情報";
-    const row = rows.length === 1 ? rows[0] : await promptInfoCheckRow(title, rows);
-    if (!row) return;
+    const options = infoCheckOptions(raw, await loadGeneralSkillNameByKey());
+    if (!options.length) return void ui.notifications.warn("この情報には挑める技能がありません。");
+    const title = String(raw.title ?? "").trim() || "情報";
+    const opt = options.length === 1 ? options[0] : await promptInfoCheckOption(title, options);
+    if (!opt) return;
 
-    // 完了継続の文脈。entryTn=挑んだ行の目標値(入口本文の開示判定)・title=結果カードの表示
+    // 完了継続の文脈。entryTn=挑んだ技能の目標値(入口本文の開示判定)・title=結果カードの表示
     const infoGathering = {
-        actorId: actor.id, itemId, contentId: row.contentId,
-        entryTn: row.tn ?? null, title,
+        actorId: actor.id, itemId, contentId: opt.contentId,
+        entryTn: opt.tn ?? null, title,
     };
 
-    if (row.keys.length) {
-        const resolved = await resolveDesignatedSkillResponse(actor, row.keys);
+    if (opt.key) {
+        // 技能は選択済みのため共有機構の技能チューザーは発火しない(単一キー)。以降は判定要求の
+        // 応答と同じ解決(所持技能・用途/コンボ候補 KI-025・代用判定)
+        const resolved = await resolveDesignatedSkillResponse(actor, [opt.key]);
         if (!resolved) return;
         const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
-        const extra = { targetValue: row.tn ?? null, infoGathering };
+        const extra = { targetValue: opt.tn ?? null, infoGathering };
         if (resolved.usageId) extra.usageId = resolved.usageId;
         if (resolved.substitution) {
             extra.substitution = resolved.substitution;
@@ -76,38 +78,39 @@ export async function startInfoGatheringCheck(itemId) {
         type: "skillCheck",
         actorId: actor.id,
         skillIds: [],
-        skillLabel: row.label,
+        skillLabel: opt.label,
         validSuits: [...ALL_SUITS],
-        targetValue: row.tn ?? null,
+        targetValue: opt.tn ?? null,
         bountyAvailable: (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0),
         infoGathering,
     });
 }
 
 /**
- * 挑む技能行を選ぶ(技能行が複数ある項目のみ)。
+ * 判定に使う技能(技能＋目標値)を選ぶ(選択肢が複数ある項目のみ)。
+ * 意匠は判定要求の「指定技能を選択」と同じ(ラベル・ボタンとも同語彙・2026-08-25)。
  * @param {string} title 情報項目名
- * @param {Array<{label: string, tn: ?(number|string)}>} rows
- * @returns {Promise<?object>} 選ばれた行(null=キャンセル)
+ * @param {Array<{label: string, tn: ?(number|string)}>} options
+ * @returns {Promise<?object>} 選ばれた選択肢(null=キャンセル)
  */
-async function promptInfoCheckRow(title, rows) {
+async function promptInfoCheckOption(title, options) {
     const esc = foundry.utils.escapeHTML;
-    const options = rows.map((r, i) =>
-        `<option value="${i}">${esc(r.label)}${r.tn ? `（目標値 ${esc(String(r.tn))}）` : ""}</option>`).join("");
+    const list = options.map((o, i) =>
+        `<option value="${i}">${esc(o.label)}${o.tn ? `（目標値 ${esc(String(o.tn))}）` : ""}</option>`).join("");
     const res = await DialogV2.wait({
         window: { title: `情報収集判定: ${title}` },
         classes: ["tokyo-nova", "tnx-dialog"],
         position: { width: 400 },
-        content: `<div class="form-group"><label>挑む技能</label><div class="form-fields"><select name="rowIndex">${options}</select></div></div>`,
+        content: `<div class="form-group"><label>判定に使う技能</label><select name="optionIndex">${list}</select></div>`,
         buttons: [
             { action: "ok", icon: "fas fa-diamond", label: "この技能で判定", default: true,
-              callback: (_e, _b, dialog) => dialog.element.querySelector('[name="rowIndex"]')?.value ?? "" },
+              callback: (_e, _b, dialog) => dialog.element.querySelector('[name="optionIndex"]')?.value ?? "" },
             { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
         ],
         close: () => null,
     });
     if (res === null || res === "") return null;
-    return rows[Number(res)] ?? null;
+    return options[Number(res)] ?? null;
 }
 
 /**

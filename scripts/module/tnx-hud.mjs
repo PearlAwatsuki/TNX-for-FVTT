@@ -6,7 +6,7 @@ import { getUserFlagData } from './user-flag-schema.mjs';
 import { getSessionState, getActiveActJournal } from './session-state.mjs';
 import { isAppearing } from './appearance-state.mjs';
 import {
-    hudInfoItems, hudInfoTnChips, withResolvedInfoSkillNames, buildInfoCardData, infoCheckRows,
+    hudInfoItems, hudInfoTnChips, withResolvedInfoSkillNames, buildInfoCardData, infoCheckOptions,
 } from './session-logic.mjs';
 import { loadGeneralSkillNameByKey } from './skill-dictionary.mjs';
 
@@ -753,7 +753,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
                 // 判定ボタンは項目に1つ(2026-08-16 裁定)。公開項目・担当キャラクターあり・
                 // 挑める技能行がある場合のみ。RL は判定しない(管理はパネル)
                 canCheck: !game.user.isGM && row.isPublic && !!game.user.character
-                    && infoCheckRows(resolved).length > 0,
+                    && infoCheckOptions(raw[i], nameByKey).length > 0,
             };
         }));
     }
