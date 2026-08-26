@@ -652,8 +652,8 @@ export class TnxActionHandler {
  * @returns {Promise<string>} `.tnx-neuro-card-chat` 意匠の HTML
  */
 export async function buildNeuroCardChatHTML(card) {
-    const keyword    = await TextEditor.enrichHTML(card.faces[0]?.text ?? "（キーワードなし）");
-    const implication = await TextEditor.enrichHTML(card.description ?? "（暗示なし）");
+    const keyword    = await foundry.applications.ux.TextEditor.enrichHTML(card.faces[0]?.text ?? "（キーワードなし）");
+    const implication = await foundry.applications.ux.TextEditor.enrichHTML(card.description ?? "（暗示なし）");
     const cardNameRomaji = NEURO_STYLE_ROMAJI[card.name] ?? null;
 
     const romajiBlock = cardNameRomaji
