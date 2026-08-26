@@ -6,7 +6,7 @@
                 {{#if isEditMode}}
                     <input name="name" type="text" value="{{sourceName}}" placeholder="住宅エリア名"/>
                 {{else}}
-                    <span class="charname-view">{{item.name}}</span>
+                    <input type="text" class="charname-view-input" value="{{item.name}}" readonly tabindex="-1"/>
                 {{/if}}
             </h1>
         </div>

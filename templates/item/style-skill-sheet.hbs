@@ -9,7 +9,7 @@
                     <input class="itemname-input" name="name" type="text" value="{{sourceName}}" placeholder="技能"/>
                 {{else}}
                     <span class="furigana-view">{{system.furigana}}</span>
-                    <span class="charname-view">{{tnxDecoratedName item}}</span>
+                    <input type="text" class="charname-view-input" value="{{tnxDecoratedName item}}" readonly tabindex="-1"/>
                 {{/if}}
             </h1>
             

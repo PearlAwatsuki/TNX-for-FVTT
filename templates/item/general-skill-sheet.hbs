@@ -15,7 +15,8 @@
                         <input name="name" type="text" value="{{sourceName}}" placeholder="一般技能名"/>
                     {{/if}}
                 {{else}}
-                    <span class="charname-view">{{tnxDecoratedName item}}</span>
+                    {{!-- 閲覧も編集と同じ部品(input)で描画=エンジン差による文字位置ズレを構造的に排除(2026-08-26) --}}
+                    <input type="text" class="charname-view-input" value="{{tnxDecoratedName item}}" readonly tabindex="-1"/>
                 {{/if}}
             </h1>
             <div class="suit-selection">
