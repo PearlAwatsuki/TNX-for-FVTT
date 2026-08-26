@@ -1847,10 +1847,14 @@
     width: 100%;
     height: 32px;
     margin: 0;
-    padding: 4px 8px;
+    /* 上3px/下5px: Chromium の input はスケールに依らず span の行ボックスより文字を
+       常に 1px 下へ描く(同一幾何で全スケール実測・2026-08-26)。異常の発生源である
+       input 側で 1px を打ち消し、閲覧モード(charname-view)と文字位置を一致させる */
+    padding: 3px 8px 5px;
     font-size: 14px;
     font-weight: 700;
-    line-height: 1.2;
+    /* 行高=内容領域の高さ(32-境界2-上下パディング8=22px)=縦中央寄せの丸めを排除 */
+    line-height: 22px;
     color: var(--tnx2-text-primary);
     background: transparent;
     border: 1px solid transparent;
@@ -1917,13 +1921,13 @@
     align-items: center;
     width: 100%;
     min-height: 32px;
-    /* 上下 4px でなく 5px/3px: 編集モードの input はテキストを行高の中央計算より 1px 下に
-       描くため、閲覧モードを同じ位置へ寄せる(3倍スケールのピクセル実測で決定・2026-08-26)。
-       モード切替で名前が縦に跳ねないための配分 */
-    padding: 5px 8px 3px;
+    /* 編集モードの input と同一幾何(境界1px+パディング4px+行高22px)。行高が内容領域と
+       一致するため中央寄せの丸めが発生せず、任意のスケール/ズームで文字位置が一致する */
+    padding: 4px 8px;
+    border: 1px solid transparent;
     font-size: 14px;
     font-weight: 700;
-    line-height: 1.2;
+    line-height: 22px;
     color: var(--tnx2-text-primary);
     box-sizing: border-box;
 }
@@ -10613,7 +10617,7 @@ button.tnx-create-act-button span {
     white-space: nowrap;
     font-size: 14px;
     font-weight: 700;
-    line-height: 1.2;
+    line-height: 22px;
     color: var(--tnx2-text-primary);
 }
 
