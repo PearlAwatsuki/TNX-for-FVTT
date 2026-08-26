@@ -10596,20 +10596,17 @@ button.tnx-create-act-button span {
 }
 
 /* 固有名詞技能の名前欄(2026-08-26): 区分ラベルのプレフィックス+固有名詞入力を1行で分け合う。
-   プレフィックスの書式は閲覧モード(charname-view)と同一にし、名前として連続して読める形にする */
+   プレフィックスの書式は閲覧モード(charname-view)と同一。縦位置は箱合わせでなく
+   align-items: baseline で**実テキストのベースラインを直接一致**させる(input 内部の
+   テキスト配置は行高の中央計算と一致しないため、外形を揃えても文字は揃わない) */
 .tokyo-nova.sheet.item.skill .onomastic-name {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     min-width: 0;
 }
 
 .tokyo-nova.sheet.item.skill .onomastic-name__prefix {
-    display: flex;
-    align-items: center;
-    height: 32px;
-    padding: 4px 0 4px 8px;
-    border: 1px solid transparent;
-    box-sizing: border-box;
+    padding-left: 8px;
     white-space: nowrap;
     font-size: 14px;
     font-weight: 700;
