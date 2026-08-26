@@ -10594,3 +10594,42 @@ button.tnx-create-act-button span {
     white-space: nowrap;
     text-overflow: ellipsis;
 }
+
+/* 固有名詞技能の名前欄(2026-08-26): 区分ラベルのプレフィックス+固有名詞入力を1行で分け合う */
+.tokyo-nova.sheet.item.skill .onomastic-name {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+
+.tokyo-nova.sheet.item.skill .onomastic-name__prefix {
+    white-space: nowrap;
+    font-size: var(--font-size-20, 20px);
+    color: var(--tnx2-text-accent, #78c8d8);
+}
+
+.tokyo-nova.sheet.item.skill .onomastic-name input {
+    flex: 1;
+    min-width: 0;
+}
+
+/* 指定充足宣言の行(2026-08-26): 判定種別チェック+条件セレクトが行の幅を分け合う */
+.tokyo-nova.sheet.item.skill .standin-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.tokyo-nova.sheet.item.skill .standin-row .standin-kind {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    white-space: nowrap;
+}
+
+.tokyo-nova.sheet.item.skill .standin-row select {
+    flex: 1;
+    min-width: 0;
+}

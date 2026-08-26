@@ -15,8 +15,7 @@
 import { ALL_SUITS } from './tnx-check-engine.mjs';
 import { TnxCheckFlow } from './tnx-check-flow.mjs';
 import { buildSkillOptions } from './skill-select.mjs';
-import { findItemByIdentificationKey, formatSkillName, itemDisplayName } from './identification.mjs';
-import { enumerateRequestComboCandidates, buildRequestUsageChoices } from './usage-check-context.mjs';
+import { formatSkillName } from './identification.mjs';
 import {
     loadGroupedGeneralSkillChoices, loadSkillChoices, SKILL_PACKS, formatDesignatedSkills,
 } from './skill-dictionary.mjs';
@@ -455,78 +454,6 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
 
     /**
-     * 指定技能で判定するか、代用判定(別技能+手動修正)を行うかを選ばせる(2026-07-09)。
-     * 「〈技能名〉で判定」は第2段の用途プルダウン(指定技能自身の用途+コンボ候補=KI-025・
-     * **「判定」タイプ限定**=2026-07-19 ユーザー裁定)へ進む(同日指示の二段階化: ボタン列挙は
-     * 量が多いとあふれる)。用途が1つなら第2段を出さず自動解決・0なら警告して中止。
-     * 指定技能を所持していない場合は代用判定の選択のみ提示する。
-     * @param {Actor} actor
-     * @param {{matchedItem: Item|null, requestedLabel: string,
-     *          comboCandidates?: Array<{item: Item, usage: object}>}} opts
-     * @returns {Promise<?{item: Item, usageId?: string, substitute: boolean, manualMod: number}>}
-     */
-    static async _promptSkillUse(actor, { matchedItem, requestedLabel, comboCandidates = [] }) {
-        if (matchedItem) {
-            const mode = await foundry.applications.api.DialogV2.wait({
-                window: { title: requestedLabel },
-                classes: ["tokyo-nova", "tnx-dialog", "tnx-usage-picker"],
-                position: { width: 340 },
-                content: "",
-                buttons: [
-                    { action: "direct", icon: "fas fa-diamond", label: `${itemDisplayName(matchedItem)}で判定`, default: true, callback: () => "direct" },
-                    { action: "sub", icon: "fas fa-shuffle", label: "代用判定（別の技能で判定）", callback: () => "sub" },
-                    { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
-                ],
-                close: () => null,
-            });
-            if (!mode) return null;
-            if (mode === "direct") {
-                const choices = buildRequestUsageChoices(matchedItem, comboCandidates);
-                // 0件=起動できる「判定」用途が無い(2026-07-19 ユーザー裁定=判定タイプ限定。
-                // アイテム起動へ落とすと判定以外の用途ピッカーが開いて限定と矛盾するため中止)
-                if (!choices.length) {
-                    ui.notifications.warn(`${requestedLabel}に判定タイプの用途が無いため、判定要求から起動できません。`);
-                    return null;
-                }
-                // 1件=自動解決(2026-07-19 ユーザー指示)
-                if (choices.length === 1) {
-                    return { item: choices[0].item, usageId: choices[0].usage._id, substitute: false, manualMod: 0 };
-                }
-                const picked = await TnxRlRequestApp._promptUsageChoice(requestedLabel, choices);
-                if (!picked) return null;
-                return { item: picked.item, usageId: picked.usage._id, substitute: false, manualMod: 0 };
-            }
-        }
-
-        return TnxRlRequestApp._promptSubstitution(actor, { matchedItem, requestedLabel });
-    }
-
-    /**
-     * 指定技能が複数ある要求で、どの技能で応じるかを選ばせる(2026-07-21)。
-     * @param {Array<string>} keys 識別キー
-     * @returns {Promise<?string>} null=キャンセル
-     */
-    static async _promptDesignatedSkill(keys) {
-        const esc = foundry.utils.escapeHTML;
-        const labels = await Promise.all(keys.map(k => requestSkillLabel(k)));
-        const options = keys
-            .map((k, i) => `<option value="${esc(k)}">${esc(labels[i])}</option>`).join("");
-        const res = await foundry.applications.api.DialogV2.wait({
-            window: { title: "指定技能を選択" },
-            classes: ["tokyo-nova", "tnx-dialog"],
-            position: { width: 360 },
-            content: `<div class="form-group"><label>判定に使う技能</label><select name="skillKey">${options}</select></div>`,
-            buttons: [
-                { action: "ok", icon: "fas fa-diamond", label: "この技能で判定", default: true,
-                  callback: (_e, _b, dialog) => dialog.element.querySelector('[name="skillKey"]')?.value ?? "" },
-                { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
-            ],
-            close: () => null,
-        });
-        return res || null;
-    }
-
-    /**
      * 第2段: 指定技能で判定できる用途のプルダウン選択(KI-025 改・2026-07-19 ユーザー指示)。
      * 中身は用途名のリスト(buildRequestUsageChoices のラベル)。
      * @param {string} requestedLabel 〈〉整形済みの指定技能名
@@ -559,7 +486,7 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
      * @param {{matchedItem: Item|null, requestedLabel: string}} opts
      * @returns {Promise<?{item: Item, substitute: boolean, manualMod: number}>}
      */
-    static async _promptSubstitution(actor, { matchedItem, requestedLabel }) {
+    static async _promptSubstitution(actor, { requestedLabel }) {
         // 並び順はシートと同じ(一般→スタイル・item.sort)
         const skills = actor.items.filter(i => i.type === "generalSkill" || i.type === "styleSkill");
         if (!skills.length) {
@@ -575,7 +502,7 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
             classes: ["tokyo-nova", "tnx-dialog"],
             position: { width: 360 },
             content: `
-                <p>指定「${esc(requestedLabel)}」${matchedItem ? "を" : "を所持していないため、"}別の技能で代用します（可否・修正の裁定は卓）。</p>
+                <p>指定「${esc(requestedLabel)}」を別の技能で代用します（可否・修正の裁定は卓）。</p>
                 <div class="form-group"><label>使用する技能</label><select name="skillId">${options}</select></div>
                 <div class="form-group"><label>修正（手動・ペナルティは負数）</label>
                     <div class="number-input-spinner">
@@ -613,27 +540,19 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
  *          usedName: string}, manualMod?: number}>} null=キャンセル
  */
 export async function resolveDesignatedSkillResponse(actor, keys) {
-    const chosenKey = keys.length === 1
-        ? keys[0]
-        : await TnxRlRequestApp._promptDesignatedSkill(keys);
-    if (!chosenKey) return null;
-    const chosenLabel = await requestSkillLabel(chosenKey);
-    // 指定技能はスタイル技能・ワークス専用技能でもありうる(2026-08-12)。所持している技能を
-    // 見つけられないと、持っているのに代用判定へ落ちてしまうため種別を絞りすぎない
-    const matchedItem = findItemByIdentificationKey(actor, chosenKey, { type: REQUEST_SKILL_TYPES });
-    // KI-025(2026-07-19): 指定技能を参加技能(ベース/組み合わせ)に含む他アイテムの用途も
-    // 応答候補に列挙する(組み合わせ判定は要求への正当な応答=2026-07-17 ユーザー指摘。
-    // 代用判定(卓裁定つき)へ誤誘導しない)。起動は唯一の起動関数へ用途 ID 直接指定で委譲
-    const comboCandidates = enumerateRequestComboCandidates(actor, chosenKey,
-        { excludeItemId: matchedItem?.id ?? "" });
-    const choice = await TnxRlRequestApp._promptSkillUse(actor,
-        { matchedItem, requestedLabel: chosenLabel, comboCandidates });
-    if (!choice) return null;
-    const out = { item: choice.item };
-    if (choice.usageId) out.usageId = choice.usageId;
-    if (choice.substitute) {
-        out.substitution = { requestedLabel: chosenLabel, usedName: choice.item.name };
-        out.manualMod = choice.manualMod;
+    // 統合リゾルバー(2026-08-26 設計)へ委譲: 指定技能(未所持はグレーアウト)・代用技能・
+    // 代用判定を1つの縦積みボタンダイアログで選ぶ。指定充足(designationStandIn)は判定種別を
+    // 持つ文脈(情報収集・登場)のみのため、判定要求(checkKind なし)では並ばない
+    const label = await requestSkillLabel(keys);
+    const { resolveDesignationResponse } = await import("./designation-response.mjs");
+    const res = await resolveDesignationResponse(actor, [{ keys, tn: null, label }],
+        { checkKind: null, title: label ? `指定技能: ${label}` : "指定技能" });
+    if (!res || res.direct) return null;
+    const out = { item: res.item };
+    if (res.usageId) out.usageId = res.usageId;
+    if (res.substitution) {
+        out.substitution = res.substitution;
+        out.manualMod = res.manualMod;
     }
     return out;
 }

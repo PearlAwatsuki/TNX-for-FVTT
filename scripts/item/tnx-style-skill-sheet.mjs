@@ -1,6 +1,6 @@
 import { TokyoNovaItemSheet } from "./tnx-item-sheet.mjs";
 import { TnxSkillUtils } from "../module/tnx-skill-utils.mjs";
-import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, SKILL_PACKS, STYLE_PACK, ORGANIZATION_PACK } from "../module/skill-dictionary.mjs";
+import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, SKILL_PACKS, STYLE_PACK, ORGANIZATION_PACK, SOCIETY_CLASSES } from "../module/skill-dictionary.mjs";
 
 export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
 
@@ -47,6 +47,15 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
 
         // 代用対象の選択肢: 一般技能辞典(compendium)を identificationKey→名前 で読み込む(辞典内/直下でも選択可)
         context.substituteSkillChoices = await loadSkillChoices([SKILL_PACKS.general]);
+        // 指定充足宣言(2026-08-26): 条件=あらゆる社会+社会下位区分。行ビューはチェック状態を展開
+        context.standInConditions = { society: "あらゆる社会", ...SOCIETY_CLASSES };
+        context.standInRows = system.designationStandIn.map(row => ({
+            condition: row.condition,
+            has: {
+                infoGathering: row.kinds.includes("infoGathering"),
+                appearance:    row.kinds.includes("appearance"),
+            },
+        }));
         // スタイル欄・ワークス(組織名)欄の選択肢: スタイル辞典 / オーガニゼーション辞典(identificationKey 保存)
         context.styleChoices        = await loadSkillChoices([STYLE_PACK]);
         context.organizationChoices = await loadSkillChoices([ORGANIZATION_PACK]);
@@ -153,6 +162,14 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
                 event.stopPropagation();
                 this._onIsSubstituteChange(event);
             });
+
+        // 指定充足の判定種別チェックボックス(2026-08-26): 行の kinds 配列を組み直して保存
+        for (const input of this.element.querySelectorAll("[data-standin-kind]")) {
+            input.addEventListener("change", (event) => {
+                event.stopPropagation();
+                this._onStandInKindChange(event);
+            });
+        }
 
         // works.value チェックボックス: 解除時に organization をリセット
         this.element.querySelector('input[name="system.special.works.value"]')
@@ -286,6 +303,22 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
 
     // ─── 配列操作ハンドラ ──────────────────────────────────────────────────────
 
+    /**
+     * 指定充足宣言の判定種別チェック(2026-08-26)。行の kinds 配列を組み直して配列ごと保存する
+     * (チェックボックスはフォーム経路で配列にならないため明示 update)。
+     */
+    async _onStandInKindChange(event) {
+        const input = event.currentTarget;
+        const index = Number(input.dataset.standinIndex);
+        const kind = input.dataset.standinKind;
+        const rows = TokyoNovaStyleSkillSheet._normalizeSystem(this.item).designationStandIn;
+        if (!(index >= 0 && index < rows.length) || !kind) return;
+        const kinds = new Set(rows[index].kinds);
+        if (input.checked) kinds.add(kind); else kinds.delete(kind);
+        rows[index] = { ...rows[index], kinds: [...kinds] };
+        await this.item.update({ "system.designationStandIn": rows });
+    }
+
     async _onAddArrayItem(event) {
         const target = event.currentTarget.dataset.target;
         const normalizedSs = TokyoNovaStyleSkillSheet._normalizeSystem(this.item);
@@ -307,6 +340,10 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
             const list = [...normalizedSs.substituteTarget];
             list.push("");
             updateData["system.substituteTarget"] = list;
+        } else if (target === "standIn") {
+            const list = [...normalizedSs.designationStandIn];
+            list.push({ kinds: [], condition: "society" });
+            updateData["system.designationStandIn"] = list;
         }
 
         if (Object.keys(updateData).length) await this.item.update(updateData);
@@ -329,6 +366,7 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
         else if (target === "confrontation") spliceList([...normalizedSs.confrontation], "system.confrontation");
         else if (target === "timing")    spliceList([...normalizedSs.timing],            "system.timing");
         else if (target === "substitute") spliceList([...normalizedSs.substituteTarget], "system.substituteTarget");
+        else if (target === "standIn")    spliceList([...normalizedSs.designationStandIn], "system.designationStandIn");
 
         if (Object.keys(updateData).length) await this.item.update(updateData);
     }
@@ -512,6 +550,16 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
             }
         }
         if (!system.substituteTarget.length) system.substituteTarget = [""];
+
+        // 指定充足宣言(2026-08-26): 行の配列 {kinds, condition}。空配列のまま(フィラー行なし)
+        system.designationStandIn = ensureArray(system.designationStandIn)
+            .map(row => ({
+                kinds: Array.isArray(row?.kinds) ? row.kinds.filter(Boolean) : [],
+                condition: row?.condition || "society",
+            }));
+        if (!system.designationStandIn.length) {
+            system.designationStandIn = [{ kinds: [], condition: "society" }];
+        }
 
         return system;
     }

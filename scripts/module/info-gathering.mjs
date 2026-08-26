@@ -1,11 +1,10 @@
 /**
  * @fileoverview 情報収集判定(フェーズ14-9・正本 Scenario_Progress「情報収集判定の裁定」)。
  *
- * - 起動＝HUD の情報項目の判定ボタン(**項目に1つ**・2026-08-16 裁定)。技能×目標値を平坦化した
- *   選択肢から**ダイアログ1回**で選び切る(2026-08-25 是正=行選択→技能選択の多段を廃止)。
- *   選択肢が1つならダイアログ自体を出さない。
- * - 技能の解決は判定要求の応答機構と共用(`resolveDesignatedSkillResponse`＝複数キー選択・
- *   所持技能の実解決・用途/コンボ候補・代用判定)。起動は唯一の起動関数 `_activateItemCheck`。
+ * - 起動＝HUD の情報項目の判定ボタン(**項目に1つ**・2026-08-16 裁定)。応じ方は統合応答
+ *   ダイアログ(designation-response・2026-08-26 設計)が**縦積みボタン1回**で選ばせる——
+ *   指定技能(未所持はグレーアウト)・代用技能・指定充足(checkKind=infoGathering)・
+ *   代用判定(行=目標値ごとに常設)。起動は唯一の起動関数 `_activateItemCheck`。
  * - **判定成功で自動開示**(RL 承認なし)・**達成値以下の目標値まで一括開示**・**回数制限なし**
  *   (2026-08-16 裁定)。開示の書き込みはアクトジャーナル(GM 所有)のため PL はソケット委譲。
  *   activeGM 不在では適用できないため PL に警告する(KI-042)。
@@ -18,21 +17,20 @@
 
 import { getSessionState, getActiveActJournal } from "./session-state.mjs";
 import {
-    withResolvedInfoSkillNames, infoCheckOptions, discloseInfoByAchievement,
+    withResolvedInfoSkillNames, infoDesignationRows, discloseInfoByAchievement,
     newlyDisclosedInfo, buildInfoDiscloseCardData,
 } from "./session-logic.mjs";
 import { loadGeneralSkillNameByKey } from "./skill-dictionary.mjs";
-import { resolveDesignatedSkillResponse } from "./tnx-rl-request-app.mjs";
+import { resolveDesignationResponse } from "./designation-response.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { ALL_SUITS } from "./tnx-check-engine.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
-const { DialogV2 } = foundry.applications.api;
 
 /**
  * HUD の情報項目ボタンから情報収集判定を起動する。
- * 技能×目標値の選択肢が1つなら即起動・複数なら**ダイアログ1回**で選ぶ(2026-08-25 是正)。
+ * 応じ方は統合応答ダイアログ1回(2026-08-26 設計・代用判定が常設のため常に表示)。
  * @param {string} itemId 情報項目 id
  */
 export async function startInfoGatheringCheck(itemId) {
@@ -44,73 +42,43 @@ export async function startInfoGatheringCheck(itemId) {
     const raw = (journal?.getFlag(SCOPE, "infoItems") ?? []).find(i => i.id === itemId);
     if (!raw) return;
 
-    const options = infoCheckOptions(raw, await loadGeneralSkillNameByKey());
-    if (!options.length) return void ui.notifications.warn("この情報には挑める技能がありません。");
+    const rows = infoDesignationRows(raw, await loadGeneralSkillNameByKey());
+    if (!rows.length) return void ui.notifications.warn("この情報には挑める技能がありません。");
     const title = String(raw.title ?? "").trim() || "情報";
-    const opt = options.length === 1 ? options[0] : await promptInfoCheckOption(title, options);
-    if (!opt) return;
+    const res = await resolveDesignationResponse(actor, rows,
+        { checkKind: "infoGathering", title: `情報収集判定: ${title}` });
+    if (!res) return;
 
-    // 完了継続の文脈。entryTn=挑んだ技能の目標値(入口本文の開示判定)・title=結果カードの表示
+    // 完了継続の文脈。entryTn=挑んだ行の目標値(入口本文の開示判定)・title=結果カードの表示
+    const row = res.row;
     const infoGathering = {
-        actorId: actor.id, itemId, contentId: opt.contentId,
-        entryTn: opt.tn ?? null, title,
+        actorId: actor.id, itemId, contentId: row.contentId,
+        entryTn: row.tn ?? null, title,
     };
-
-    if (opt.key) {
-        // 技能は選択済みのため共有機構の技能チューザーは発火しない(単一キー)。以降は判定要求の
-        // 応答と同じ解決(所持技能・用途/コンボ候補 KI-025・代用判定)
-        const resolved = await resolveDesignatedSkillResponse(actor, [opt.key]);
-        if (!resolved) return;
-        const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
-        const extra = { targetValue: opt.tn ?? null, infoGathering };
-        if (resolved.usageId) extra.usageId = resolved.usageId;
-        if (resolved.substitution) {
-            extra.substitution = resolved.substitution;
-            extra.manualMod = resolved.manualMod;
-        }
-        await TnxCharacterSheetBase._activateItemCheck(actor, resolved.item, extra);
-        return;
-    }
 
     // 識別キーの無い行(旧い自由記述技能)は技能アイテムを起動できないため、判定要求の
     // 「技能名のみ要求」と同じ直接オープン(代用・組み合わせの裁定は卓)
-    await TnxCheckFlow.open({
-        type: "skillCheck",
-        actorId: actor.id,
-        skillIds: [],
-        skillLabel: opt.label,
-        validSuits: [...ALL_SUITS],
-        targetValue: opt.tn ?? null,
-        bountyAvailable: (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0),
-        infoGathering,
-    });
-}
+    if (res.direct) {
+        return void await TnxCheckFlow.open({
+            type: "skillCheck",
+            actorId: actor.id,
+            skillIds: [],
+            skillLabel: res.label,
+            validSuits: [...ALL_SUITS],
+            targetValue: row.tn ?? null,
+            bountyAvailable: (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0),
+            infoGathering,
+        });
+    }
 
-/**
- * 判定に使う技能(技能＋目標値)を選ぶ(選択肢が複数ある項目のみ)。
- * 意匠は判定要求の「指定技能を選択」と同じ(ラベル・ボタンとも同語彙・2026-08-25)。
- * @param {string} title 情報項目名
- * @param {Array<{label: string, tn: ?(number|string)}>} options
- * @returns {Promise<?object>} 選ばれた選択肢(null=キャンセル)
- */
-async function promptInfoCheckOption(title, options) {
-    const esc = foundry.utils.escapeHTML;
-    const list = options.map((o, i) =>
-        `<option value="${i}">${esc(o.label)}${o.tn ? `（目標値 ${esc(String(o.tn))}）` : ""}</option>`).join("");
-    const res = await DialogV2.wait({
-        window: { title: `情報収集判定: ${title}` },
-        classes: ["tokyo-nova", "tnx-dialog"],
-        position: { width: 400 },
-        content: `<div class="form-group"><label>判定に使う技能</label><select name="optionIndex">${list}</select></div>`,
-        buttons: [
-            { action: "ok", icon: "fas fa-diamond", label: "この技能で判定", default: true,
-              callback: (_e, _b, dialog) => dialog.element.querySelector('[name="optionIndex"]')?.value ?? "" },
-            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
-        ],
-        close: () => null,
-    });
-    if (res === null || res === "") return null;
-    return options[Number(res)] ?? null;
+    const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
+    const extra = { targetValue: row.tn ?? null, infoGathering };
+    if (res.usageId) extra.usageId = res.usageId;
+    if (res.substitution) {
+        extra.substitution = res.substitution;
+        extra.manualMod = res.manualMod;
+    }
+    await TnxCharacterSheetBase._activateItemCheck(actor, res.item, extra);
 }
 
 /**

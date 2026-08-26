@@ -39,6 +39,13 @@ export class GeneralSkillDataModel extends SystemDataModel.mixin(
         expCost:   new fields.NumberField({ initial: 5 }),
       }),
       identificationKey: new fields.StringField({ initial: "" }),
+      // 固有名詞技能の区分(2026-08-26 裁定=切り替え時に明示選択)。値は ONOMASTIC_TYPES の
+      // キー(society/craft/operate/art/contact)。空は旧データ=識別キーのプレフィックスから
+      // 導出する(onomasticTypeOf)。読み手は必ず onomasticTypeOf を通す(フィールド優先)
+      onomasticType: new fields.StringField({ initial: "" }),
+      // 社会技能の下位区分(2026-08-26 裁定・SOCIETY_CLASSES のキー)。区分=society のときのみ
+      // 意味を持つ。空=未分類(「あらゆる社会」にのみ合致し、下位区分の条件には乗らない)
+      societyClass: new fields.StringField({ initial: "" }),
       usesBounty: new fields.BooleanField({ initial: false }),
       // アクト限定(フェーズ14-7・2026-08-08 ユーザー裁定)。アクトコネクション等、そのアクト
       // 限りの技能の印。アクト終了時に自動削除される(session-state.endAct)。アクトコネクション

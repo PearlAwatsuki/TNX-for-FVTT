@@ -43,6 +43,43 @@ export const ONOMASTIC_TYPES = {
   contact: "コネ",
 };
 
+// 社会技能の下位区分(2026-08-26 裁定=データに持つ)。従来の「対象が有限なため列挙で代替」
+// (Character_Creation)は、団体社会がほぼ無限に増えうるため前提が崩れた。設定は辞典側の
+// generalSkill.societyClass(未設定=どの下位区分にも属さない・「あらゆる社会」には属する)。
+export const SOCIETY_CLASSES = {
+  nation:       "国家社会",
+  city:         "都市社会",
+  industry:     "業界社会",
+  organization: "団体社会",
+};
+
+/**
+ * 固有名詞技能の区分(2026-08-26 裁定)。**区分フィールド優先・空/不明ならプレフィックス導出**。
+ * 既存の辞典エントリはフィールド未設定でもプレフィックスで従来どおり働く(移行不要)。
+ * @param {{onomasticType?: string, identificationKey?: string}} systemLike 技能の system 相当
+ * @returns {string} 区分トークン(ONOMASTIC_TYPES のキー)。導出できなければ ""
+ */
+export function onomasticTypeOf({ onomasticType, identificationKey } = {}) {
+  const field = String(onomasticType ?? "").trim();
+  if (field && ONOMASTIC_TYPES[field]) return field;
+  const prefix = idKeyPrefix(identificationKey);
+  return ONOMASTIC_TYPES[prefix] ? prefix : "";
+}
+
+/**
+ * 固有名詞技能のアイテム名を「区分ラベル＋全角コロン＋固有名詞」で合成する(2026-08-26)。
+ * シートは名前欄の左に区分プレフィックスを表示し、入力された固有名詞と本関数で合成して保存する。
+ * @param {string} type 区分トークン(ONOMASTIC_TYPES のキー)
+ * @param {string} suffix 固有名詞部分
+ * @returns {string} 合成名(固有名詞が空なら ""・区分が不明なら固有名詞のまま)
+ */
+export function composeOnomasticName(type, suffix) {
+  const part = String(suffix ?? "").trim();
+  if (!part) return "";
+  const label = ONOMASTIC_TYPES[type];
+  return label ? `${label}：${part}` : part;
+}
+
 // スタイル技能の例外的カテゴリ全体(ハードコード・ユーザー入力で表現不可):
 // 識別キープレフィックス → カテゴリ名。該当スタイルの技能リスト先頭にカテゴリ全体エントリを置く。
 export const STYLE_WHOLE_CATEGORY_PREFIXES = {
@@ -234,6 +271,9 @@ function toSkillEntry(src, uuid) {
     // 用途タイプの所持(2026-07-18): 対決欄の無印技能名行の吸収判定に使う(その技能が手段の
     // リアクション用途タイプを持つか)。アクター未所持(辞典アイテム編集等)でも参照できる索引
     usageTypes: [...new Set((sys.actions ?? []).map((a) => a?.type).filter(Boolean))],
+    // 固有名詞技能の区分・社会下位区分(2026-08-26 裁定。指定充足の条件照合に使う)
+    onomasticType: sys.onomasticType ?? "",
+    societyClass:  sys.societyClass ?? "",
   };
 }
 
@@ -279,6 +319,8 @@ async function loadPackSkillEntries(packName) {
         "system.isAction",
         "system.suits",
         "system.actions",
+        "system.onomasticType",
+        "system.societyClass",
       ],
     });
     const position = positionFor(packName);
@@ -493,6 +535,20 @@ export function groupGeneralSkillEntries(entries) {
 export async function loadGeneralSkillNameByKey() {
   const general = await loadSkillEntries(SKILL_PACKS.general);
   return new Map(general.map(e => [e.identificationKey, e.name]));
+}
+
+/**
+ * 識別キー→区分情報(固有名詞技能の区分・社会下位区分)のマップ(2026-08-26)。
+ * 指定充足の条件照合(standInMatchesKey)に使う。辞典+ワールド直下(loadSkillEntries)から
+ * 生きた解決で組む(キャストの技能コピーは参照しない=既存データの移行不要)。
+ * @returns {Promise<Map<string, {type: string, societyClass: string}>>}
+ */
+export async function loadSkillClassByKey() {
+  const general = await loadSkillEntries(SKILL_PACKS.general);
+  return new Map(general.map(e => [e.identificationKey, {
+    type: onomasticTypeOf(e),
+    societyClass: e.societyClass ?? "",
+  }]));
 }
 
 /**

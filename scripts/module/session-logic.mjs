@@ -995,29 +995,24 @@ export function buildInfoDiscloseCardData(item, contentId, newly) {
 }
 
 /**
- * 判定起動の選択肢(14-9)。**起動ボタンは項目に1つ**(2026-08-16 裁定)。技能行×指定技能を
- * **1つの並びへ平坦化**し、ダイアログ1回で「どの技能でどの目標値に挑むか」を選び切る
- * (2026-08-25 是正=行選択→技能選択の多段ダイアログを廃止)。枝をまたいで並べ、技能行の無い
- * 枝・辞典から消えて表示できないキーは出さない。識別キーの無い旧自由記述行は key=null の
- * 1択として残す(直接オープン経路)。
+ * 判定起動の指定行(14-9)。**起動ボタンは項目に1つ**(2026-08-16 裁定)で、応じ方は統合応答
+ * ダイアログ(designation-response・2026-08-26 設計)が1回で選ばせる。ここは技能行を
+ * 「指定の行」(キー集合+目標値+束ね表記)へ整形するだけ。キーも表示名も無い行は挑み先が
+ * 無いので落とす(識別キーの無い旧自由記述行は keys=[] のまま残す=直接オープン経路)。
  * @param {?object} item 情報項目(生データ=識別キーのまま)
  * @param {Map<string,string>} nameByKey 識別キー→辞典名
- * @returns {Array<{contentId: string, key: ?string, tn: ?(number|string), label: string}>}
+ * @returns {Array<{contentId: string, keys: Array<string>, tn: ?(number|string), label: string}>}
  */
-export function infoCheckOptions(item, nameByKey) {
+export function infoDesignationRows(item, nameByKey) {
     const contents = Array.isArray(item?.contents) ? item.contents : [];
     return contents.flatMap(content => (Array.isArray(content?.skills) ? content.skills : [])
-        .flatMap((row) => {
+        .map((row) => {
             const keys = infoSkillKeys(row);
-            if (!keys.length) {
-                const label = resolveInfoSkillLabel(row, nameByKey);
-                return label ? [{ contentId: content.id ?? "", key: null, tn: row.tn ?? null, label }] : [];
-            }
-            return keys
-                .map(key => ({ contentId: content.id ?? "", key, tn: row.tn ?? null,
-                               label: formatDesignatedSkills([key], nameByKey) }))
-                .filter(o => o.label);
-        }));
+            const label = resolveInfoSkillLabel(row, nameByKey);
+            if (!keys.length && !label) return null;
+            return { contentId: content.id ?? "", keys, tn: row.tn ?? null, label };
+        })
+        .filter(Boolean));
 }
 
 /**

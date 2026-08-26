@@ -4,7 +4,16 @@
         <div class="header-fields">
             <h1 class="charname">
                 {{#if isEditMode}}
-                    <input name="name" type="text" value="{{sourceName}}" placeholder="一般技能名"/>
+                    {{#if onomastic.active}}
+                        {{!-- 固有名詞技能: 区分ラベルは自動確定・入力は固有名詞部分のみ(2026-08-26)。
+                             name 属性を持たせない(合成保存はシート側リスナー) --}}
+                        <div class="onomastic-name">
+                            <span class="onomastic-name__prefix">{{onomastic.prefix}}</span>
+                            <input type="text" data-onomastic-name value="{{onomastic.suffix}}" placeholder="固有名詞"/>
+                        </div>
+                    {{else}}
+                        <input name="name" type="text" value="{{sourceName}}" placeholder="一般技能名"/>
+                    {{/if}}
                 {{else}}
                     <span class="charname-view">{{tnxDecoratedName item}}</span>
                 {{/if}}
@@ -64,6 +73,20 @@
                                 </select>
                             </div>
                         {{else}}
+                            <div class="form-group">
+                                <label>区分</label>
+                                <select name="system.onomasticType">
+                                    {{selectOptions options.onomasticType selected=system.onomasticType}}
+                                </select>
+                            </div>
+                            {{#if onomastic.isSociety}}
+                                <div class="form-group">
+                                    <label>下位区分</label>
+                                    <select name="system.societyClass">
+                                        {{selectOptions options.societyClass selected=system.societyClass}}
+                                    </select>
+                                </div>
+                            {{/if}}
                             <div class="form-group">
                                 <label>初期取得の社会・コネ</label>
                                 <input type="checkbox" name="system.onomasticSkill.isInitial" {{checked system.onomasticSkill.isInitial}}>

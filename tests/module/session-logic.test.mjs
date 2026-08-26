@@ -64,7 +64,7 @@ import {
   CONTACT_TYPES,
   planActLimitedCleanup,
   discloseInfoByAchievement,
-  infoCheckOptions,
+  infoDesignationRows,
   hudInfoItems,
   hudInfoTnChips,
 } from "../../scripts/module/session-logic.mjs";
@@ -1501,7 +1501,7 @@ describe("discloseInfoByAchievement()（判定成功→自動開示・2026-08-16
   });
 });
 
-describe("infoCheckOptions()（判定起動の選択肢＝技能×目標値へ平坦化・2026-08-25 是正）", () => {
+describe("infoDesignationRows()（判定起動の指定行＝統合応答ダイアログの入力・2026-08-26）", () => {
   const names = new Map([
     ["society_st", "社会：ストリート"], ["society_pol", "社会：警察"], ["hacking", "ハッキング"],
   ]);
@@ -1517,29 +1517,21 @@ describe("infoCheckOptions()（判定起動の選択肢＝技能×目標値へ�
     ],
   };
 
-  it("技能行×指定技能を1つの並びへ平坦化する（ダイアログ1回で選び切る）", () => {
-    expect(infoCheckOptions(item, names)).toEqual([
-      { contentId: "c1", key: "society_st", tn: 8, label: "〈社会：ストリート〉" },
-      { contentId: "c1", key: "society_pol", tn: 8, label: "〈社会：警察〉" },
-      { contentId: "c1", key: "hacking", tn: 12, label: "〈ハッキング〉" },
-      { contentId: "c2", key: null, tn: 10, label: "自由記述技能" },
+  it("技能行ごとに指定の行（キー集合＋目標値＋束ね表記）を組む", () => {
+    expect(infoDesignationRows(item, names)).toEqual([
+      { contentId: "c1", keys: ["society_st", "society_pol"], tn: 8, label: "〈社会：ストリート、警察〉" },
+      { contentId: "c1", keys: ["hacking"], tn: 12, label: "〈ハッキング〉" },
+      { contentId: "c2", keys: [], tn: 10, label: "自由記述技能" },
     ]);
   });
 
   it("技能行の無い枝は列挙しない（挑み先が無い）", () => {
-    expect(infoCheckOptions(item, names).some(o => o.contentId === "c3")).toBe(false);
+    expect(infoDesignationRows(item, names).some(r => r.contentId === "c3")).toBe(false);
   });
 
-  it("辞典から消えたキーは選択肢から落ちる（表示できない技能では挑めない）", () => {
-    const rows = infoCheckOptions({
-      contents: [{ id: "c", skills: [{ identificationKeys: ["gone", "hacking"], tn: 5 }] }],
-    }, names);
-    expect(rows).toEqual([{ contentId: "c", key: "hacking", tn: 5, label: "〈ハッキング〉" }]);
-  });
-
-  it("ラベルの無い行・contents 無しは安全に空", () => {
-    expect(infoCheckOptions({ contents: [{ id: "c", skills: [{ tn: 5 }] }] }, names)).toEqual([]);
-    expect(infoCheckOptions(null, names)).toEqual([]);
+  it("キーも表示名も無い行・contents 無しは安全に空", () => {
+    expect(infoDesignationRows({ contents: [{ id: "c", skills: [{ tn: 5 }] }] }, names)).toEqual([]);
+    expect(infoDesignationRows(null, names)).toEqual([]);
   });
 });
 

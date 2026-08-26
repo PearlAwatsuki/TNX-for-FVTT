@@ -336,6 +336,35 @@
                 </fieldset>
                 {{/if}}
 
+                {{!-- 指定技能の充足宣言(2026-08-26 裁定): 特定種別の判定で、条件を満たす指定技能
+                     として扱える(代用技能とは別系統=組み合わせ資格を与えない) --}}
+                <fieldset class="tnx-fieldset">
+                    <legend>指定技能として扱う</legend>
+                    <div class="tnx-form-field">
+                        {{#each standInRows as |row idx|}}
+                        <div class="array-row standin-row">
+                            <label class="standin-kind"><input type="checkbox" data-standin-index="{{idx}}" data-standin-kind="infoGathering" {{checked row.has.infoGathering}}>情報収集判定</label>
+                            <label class="standin-kind"><input type="checkbox" data-standin-index="{{idx}}" data-standin-kind="appearance" {{checked row.has.appearance}}>登場判定</label>
+                            <select name="system.designationStandIn.{{idx}}.condition">
+                                {{selectOptions ../standInConditions selected=row.condition}}
+                            </select>
+                            <div class="row-controls">
+                                {{#if (eq idx 0)}}
+                                <button type="button" class="tnx-row-btn" data-target="standIn" title="行を追加">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                                {{/if}}
+                                {{#if (gte idx 1)}}
+                                <button type="button" class="tnx-row-btn--delete" data-target="standIn" data-index="{{idx}}" title="削除">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                {{/if}}
+                            </div>
+                        </div>
+                        {{/each}}
+                    </div>
+                </fieldset>
+
                 {{!-- 神業の書き換え(unique=miracleChange のときのみ) --}}
                 {{#if (eq system.unique "miracleChange")}}
                 <fieldset class="tnx-fieldset">

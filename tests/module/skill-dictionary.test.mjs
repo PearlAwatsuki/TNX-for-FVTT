@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
   idKeyPrefix,
+  onomasticTypeOf,
+  composeOnomasticName,
+  SOCIETY_CLASSES,
   wholeCategoryToken,
   isWholeCategoryToken,
   buildSkillCascadeSteps,
@@ -280,5 +283,30 @@ describe("buildSkillCascadeSteps()", () => {
     const steps = buildSkillCascadeSteps(data, { dict: "works", group: "org1" });
     const skill = steps.find((s) => s.key === "skill");
     expect(Object.keys(skill.options)).toEqual(["", "wks_a"]);
+  });
+});
+
+describe("onomasticTypeOf() / composeOnomasticName()（固有名詞技能の区分・2026-08-26 裁定）", () => {
+  it("区分フィールドが正なら優先・空ならプレフィックスから導出", () => {
+    expect(onomasticTypeOf({ onomasticType: "society", identificationKey: "craft_x" })).toBe("society");
+    expect(onomasticTypeOf({ onomasticType: "", identificationKey: "society_street" })).toBe("society");
+    expect(onomasticTypeOf({ onomasticType: "", identificationKey: "contact_team" })).toBe("contact");
+  });
+
+  it("不明な区分値はプレフィックスへフォールバック・どちらも不明なら空", () => {
+    expect(onomasticTypeOf({ onomasticType: "bogus", identificationKey: "art_x" })).toBe("art");
+    expect(onomasticTypeOf({ onomasticType: "", identificationKey: "cybertech" })).toBe("");
+    expect(onomasticTypeOf({})).toBe("");
+  });
+
+  it("名前の合成: 区分ラベル＋全角コロン＋固有名詞・固有名詞が空なら空", () => {
+    expect(composeOnomasticName("society", "ストリート")).toBe("社会：ストリート");
+    expect(composeOnomasticName("contact", "チーム")).toBe("コネ：チーム");
+    expect(composeOnomasticName("society", "")).toBe("");
+    expect(composeOnomasticName("", "ストリート")).toBe("ストリート");
+  });
+
+  it("SOCIETY_CLASSES は4区分（国家/都市/業界/団体）", () => {
+    expect(Object.keys(SOCIETY_CLASSES)).toEqual(["nation", "city", "industry", "organization"]);
   });
 });

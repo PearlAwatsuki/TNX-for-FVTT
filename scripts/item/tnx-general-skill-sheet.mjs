@@ -1,5 +1,8 @@
 import { TokyoNovaItemSheet } from "./tnx-item-sheet.mjs";
 import { TnxSkillUtils } from "../module/tnx-skill-utils.mjs";
+import {
+    ONOMASTIC_TYPES, SOCIETY_CLASSES, onomasticTypeOf, composeOnomasticName, stripSkillCategory,
+} from "../module/skill-dictionary.mjs";
 
 export class TokyoNovaGeneralSkillSheet extends TokyoNovaItemSheet {
 
@@ -25,6 +28,20 @@ export class TokyoNovaGeneralSkillSheet extends TokyoNovaItemSheet {
         foundry.utils.mergeObject(context.options, TnxSkillUtils.getSkillOptions());
         const system = foundry.utils.deepClone(this.item.system);
         context.system = system;
+        // 固有名詞技能の区分・社会下位区分(2026-08-26 裁定)。区分はフィールド優先・プレフィックス導出
+        context.options.onomasticType = { "": "-", ...ONOMASTIC_TYPES };
+        context.options.societyClass  = { "": "-", ...SOCIETY_CLASSES };
+        const onomType = onomasticTypeOf(system);
+        const typeLabel = ONOMASTIC_TYPES[onomType] ?? "";
+        context.onomastic = {
+            active: system.generalSkillCategory !== "initialSkill" && !!typeLabel,
+            type: onomType,
+            isSociety: onomType === "society",
+            prefix: typeLabel ? `${typeLabel}：` : "",
+            // 名前欄には固有名詞部分だけを出す(保存形はフル名のまま)。現在のプレフィックスで
+            // 始まらない旧い名前はそのまま出し、次にこの欄を編集したときだけ正規形へ合成される
+            suffix: typeLabel ? stripSkillCategory(this.item.name ?? "", typeLabel) : (this.item.name ?? ""),
+        };
         const initialSuit = system.initialSkill?.initialSuit || "";
         context.TNX = {
             SUITS: {
@@ -48,6 +65,17 @@ export class TokyoNovaGeneralSkillSheet extends TokyoNovaItemSheet {
                 TnxSkillUtils.onSuitChange(event, this);
             });
         }
+
+        // 固有名詞のアイテム名: プレフィックス(区分ラベル)＋固有名詞で合成して保存する(2026-08-26)。
+        // 入力欄は name 属性を持たない(フォーム自動送信で固有名詞部分が素の名前として保存される
+        // のを防ぐ)ため、ここで合成して明示 update する。空にされたら表示を戻すだけ(名前は消さない)
+        this.element.querySelector("[data-onomastic-name]")?.addEventListener("change", (event) => {
+            event.stopPropagation();
+            const suffix = String(event.currentTarget.value ?? "").trim();
+            if (!suffix) return void this.render();
+            const composed = composeOnomasticName(onomasticTypeOf(this.item.system), suffix);
+            this.item.update({ name: composed || suffix });
+        });
 
         // 固有名詞技能 isInitial: combined update のため stop propagation
         const isInitialInput = this.element.querySelector('input[name="system.onomasticSkill.isInitial"]');
@@ -93,6 +121,22 @@ export class TokyoNovaGeneralSkillSheet extends TokyoNovaItemSheet {
                 if (isActive) newLevel++;
             }
             updateData["system.level"] = newLevel;
+        }
+
+        if (fieldName === "system.onomasticType") {
+            // 区分の切り替え(2026-08-26): ①識別キーが空ならプレフィックスをプレフィル
+            // ②名前が旧区分の正規形なら新区分で合成し直す(合わない名前は触らない)
+            if (value && !this.item.system.identificationKey) {
+                updateData["system.identificationKey"] = `${value}_`;
+            }
+            if (value !== "society") updateData["system.societyClass"] = "";
+            const oldType = onomasticTypeOf(this.item.system);
+            const oldLabel = ONOMASTIC_TYPES[oldType] ?? "";
+            const name = this.item.name ?? "";
+            if (oldLabel && name.startsWith(`${oldLabel}：`)) {
+                const composed = composeOnomasticName(value, stripSkillCategory(name, oldLabel));
+                if (composed) updateData.name = composed;
+            }
         }
 
         if (fieldName === "system.generalSkillCategory") {

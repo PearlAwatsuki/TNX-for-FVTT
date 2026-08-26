@@ -130,6 +130,17 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
       // 代替ターゲット(単純な文字列配列。シートコメント: "単純な文字列の配列として扱います")
       substituteTarget: new fields.ArrayField(new fields.StringField()),
 
+      // 指定技能の充足宣言(2026-08-26 裁定)。「特定種別の判定で、条件を満たす指定技能として
+      // 扱える」効果の構造表現(例: 情報収集判定であらゆる業界社会として扱える)。
+      // **代用技能(substituteTarget)とは別系統**——同一性は与えず、組み合わせ機構からは一切
+      // 参照されない。消費点は判定の応答選択肢ビルダー(designation-response-logic)のみ。
+      // kinds: 判定種別(infoGathering/appearance・拡張可能)
+      // condition: 条件(society=あらゆる社会 / SOCIETY_CLASSES のキー=下位区分)
+      designationStandIn: new fields.ArrayField(new fields.SchemaField({
+        kinds:     new fields.ArrayField(new fields.StringField()),
+        condition: new fields.StringField({ initial: "society" }),
+      })),
+
       // 書き換え神業関連(KI-018/KI-019: typo・命名揺れを正規化済み)
       RewrittenTarget:      new fields.StringField({ initial: "" }),
       rewritingMiracleName: new fields.StringField({ initial: "" }),

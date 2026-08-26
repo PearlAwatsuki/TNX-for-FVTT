@@ -17,6 +17,8 @@
  */
 
 import { appearanceCheckParams, hasNegativeDangerOutfit, isAppearanceSkillKey } from "./appearance-logic.mjs";
+import { loadSkillClassByKey } from "./skill-dictionary.mjs";
+import { standInMatchesKey } from "./designation-response-logic.mjs";
 import { getSessionState, getCurrentSceneAppearance } from "./session-state.mjs";
 import { isAppearing, setAppearing, setGhost } from "./appearance-state.mjs";
 import { SCENE_AREA_OPTIONS } from "./session-logic.mjs";
@@ -77,7 +79,28 @@ export async function startAppearanceCheck() {
  */
 async function promptAppearanceOptions(actor, sceneSkillKeys = []) {
     const skills = actor.items.filter(i => i.type === "generalSkill");
-    if (!skills.length) {
+    const sceneKeys = new Set(sceneSkillKeys ?? []);
+
+    // スタイル技能の合流(2026-08-26 裁定): ①指定充足宣言(登場判定)を持つもの ②代用技能で
+    // 代用元が該当するもの、を正規の候補としてグループへ並べる。登場判定は「指定は候補の
+    // 提示であって制限ではない」(2026-08-07 裁定)のため、ダイアログは従来の全技能プルダウン
+    // のまま=候補グループへの合流の形で効かせる(制限型の応答ダイアログには載せない)
+    const classByKey = await loadSkillClassByKey();
+    const styleScene = [];
+    const stylePrimary = [];
+    for (const item of actor.items.filter(i => i.type === "styleSkill")) {
+        const sys = item.system;
+        const subTargets = sys.isSubstitute === true ? (sys.substituteTarget ?? []).filter(Boolean) : [];
+        const standIns = (sys.designationStandIn ?? [])
+            .filter(d => (d?.kinds ?? []).includes("appearance"));
+        const inScene = subTargets.some(t => sceneKeys.has(t))
+            || standIns.some(d => [...sceneKeys].some(k => standInMatchesKey(d?.condition ?? "", k, classByKey)));
+        if (inScene) { styleScene.push(item); continue; }
+        // シーン指定に当たらなくても、社会として扱える宣言・社会/コネの代用元を持つなら既定候補
+        if (standIns.length > 0 || subTargets.some(t => isAppearanceSkillKey(t))) stylePrimary.push(item);
+    }
+
+    if (!skills.length && !styleScene.length && !stylePrimary.length) {
         ui.notifications.warn("一般技能を持っていないため登場判定を行えません。");
         return null;
     }
@@ -85,10 +108,9 @@ async function promptAppearanceOptions(actor, sceneSkillKeys = []) {
     const toOptions = (list) => list
         .map(i => `<option value="${i.id}">${esc(formatSkillName(i.name))}</option>`)
         .join("");
-    const sceneKeys = new Set(sceneSkillKeys ?? []);
-    const scene   = skills.filter(i => sceneKeys.has(i.system.identificationKey));
+    const scene   = [...skills.filter(i => sceneKeys.has(i.system.identificationKey)), ...styleScene];
     const rest    = skills.filter(i => !sceneKeys.has(i.system.identificationKey));
-    const primary = rest.filter(i => isAppearanceSkillKey(i.system.identificationKey));
+    const primary = [...rest.filter(i => isAppearanceSkillKey(i.system.identificationKey)), ...stylePrimary];
     const others  = rest.filter(i => !isAppearanceSkillKey(i.system.identificationKey));
     const groups = [
         scene.length   ? `<optgroup label="シーン指定">${toOptions(scene)}</optgroup>` : "",
