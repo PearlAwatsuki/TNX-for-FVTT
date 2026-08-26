@@ -434,12 +434,15 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
             ...AE_FLAG_PARAMS,                                                     // 特性フラグ(§2.3c)
         ];
 
-        // 判定バフ(§2.7): 固定＋能力値・制御判定は全列挙、識別キー狙いは `<key>`(識別キー)雛形
+        // 判定バフ(§2.7): 固定＋能力値・制御判定は全列挙、識別キー狙いは `<key>`(識別キー)雛形。
+        // 社会下位区分(2026-08-26)は有限4値のため実キーで全列挙(SOCIETY_CLASSES と対応)
         const checkKeys = [
             "check.all", "check.cardValue", "check.suitChange",
             ...abilities.map(a => `check.${a}`),
             ...abilities.map(a => `controlCheck.${a}`),
             "check.<key>", "check.style.<key>", "check.works.<key>",
+            "check.society.nation", "check.society.city",
+            "check.society.industry", "check.society.organization",
         ];
         // 値バフ①キャラクター(§2.1): 能力値/制御値/CS/AR/生身ダメージ種別
         const charValueKeys = [

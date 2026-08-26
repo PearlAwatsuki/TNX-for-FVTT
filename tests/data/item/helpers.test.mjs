@@ -166,6 +166,17 @@ describe("checkChangeMatches()", () => {
     expect(checkChangeMatches("check.society_*", crit)).toBe(true);
     expect(checkChangeMatches("check.kabutowari_cut", crit)).toBe(true);
   });
+  it("グループ参照(社会下位区分)は criteria.skills の societyClass で照合(2026-08-26)", () => {
+    const crit = { type: "skill", skills: [
+      { key: "society_street", societyClass: "industry" },
+      { key: "melee", societyClass: "" },
+    ] };
+    expect(checkChangeMatches("check.society.industry", crit)).toBe(true);
+    expect(checkChangeMatches("check.society.nation", crit)).toBe(false);
+    expect(checkChangeMatches("check.society.industry", { type: "ability", ability: "reason" })).toBe(false);
+    // 未分類(societyClass 空)の社会技能は下位区分キーに合致しない(あらゆる社会は society_* が担う)
+    expect(checkChangeMatches("check.society.industry", { type: "skill", skills: [{ key: "society_nova" }] })).toBe(false);
+  });
   it("能力値判定 / 制御判定", () => {
     expect(checkChangeMatches("check.reason", { type: "ability", ability: "reason" })).toBe(true);
     expect(checkChangeMatches("check.reason", { type: "ability", ability: "passion" })).toBe(false);

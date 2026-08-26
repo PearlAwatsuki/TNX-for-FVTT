@@ -329,6 +329,7 @@ export function checkChangeMatches(key, criteria) {
     const skills = criteria.skills ?? (criteria.skillKeys ?? []).map(k => ({ key: k }));
     if (p.group === "style") return skills.some(s => s.style === p.selector);
     if (p.group === "works") return skills.some(s => s.organization === p.selector);
+    if (p.group === "society") return skills.some(s => s.societyClass === p.selector);
     return skills.some(s =>
       p.prefix ? !!s.key?.startsWith?.(p.selector) : s.key === p.selector);
   }
@@ -795,7 +796,9 @@ export function parseEffectTargetKey(key) {
     }
     // グループ参照(2026-07-10): check.style.<スタイル識別キー>(そのスタイルのスタイル技能)/
     // check.works.<組織識別キー>(そのワークスのワークス技能)。識別キー前方一致(*)は据え置き。
-    if ((x === "style" || x === "works") && segs.length > 2) {
+    // check.society.<下位区分キー>(2026-08-26): その社会下位区分(国家/都市/業界/団体)の技能
+    // すべて(技能の societyClass で照合。「あらゆる社会」はプレフィックス形 check.society_* が担う)
+    if ((x === "style" || x === "works" || x === "society") && segs.length > 2) {
       return { scope: "skillCheck", group: x, selector: segs.slice(2).join("."), conditions };
     }
     const prefix = x.endsWith("*");

@@ -79,6 +79,20 @@ export class TnxCheckFlow {
         TnxCheckFlow._context   = foundry.utils.deepClone(context);
         TnxCheckFlow._trumpMode = false;
 
+        // 社会下位区分の解決(2026-08-26): check.society.<区分> の照合用。キャストのコピーが旧く
+        // societyClass を持たない場合に備え、辞典(+ワールド直下)の生きた値を起動時に ctx へ載せる
+        // (_computeCheckBonus は同期のためここで先に解決する。コピー自身の値が優先=criteria 側)
+        if (TnxCheckFlow._context.skillIds?.length) {
+            const { loadSkillClassByKey } = await import("./skill-dictionary.mjs");
+            const classByKey = await loadSkillClassByKey();
+            const skillActor = game.actors.get(TnxCheckFlow._context.actorId);
+            TnxCheckFlow._context.societyClassByKey = Object.fromEntries(
+                TnxCheckFlow._context.skillIds
+                    .map(id => skillActor?.items.get(id)?.system?.identificationKey)
+                    .filter(Boolean)
+                    .map(k => [k, classByKey.get(k)?.societyClass ?? ""]));
+        }
+
         if (TnxCheckFlow.dialogClass) {
             await new TnxCheckFlow.dialogClass().render(true);
         }
@@ -518,6 +532,9 @@ export class TnxCheckFlow {
                     key: it.system.identificationKey,
                     style: it.system.style ?? "",
                     organization: it.system.special?.works?.organization ?? "",
+                    // 社会下位区分(2026-08-26): コピーの値が優先・無ければ起動時に解決した辞典の値
+                    societyClass: it.system.societyClass
+                        || ctx.societyClassByKey?.[it.system.identificationKey] || "",
                 }));
             criteria = { type: "skill", skills };
         }
