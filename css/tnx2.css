@@ -1917,7 +1917,10 @@
     align-items: center;
     width: 100%;
     min-height: 32px;
-    padding: 4px 8px;
+    /* 上下 4px でなく 5px/3px: 編集モードの input はテキストを行高の中央計算より 1px 下に
+       描くため、閲覧モードを同じ位置へ寄せる(3倍スケールのピクセル実測で決定・2026-08-26)。
+       モード切替で名前が縦に跳ねないための配分 */
+    padding: 5px 8px 3px;
     font-size: 14px;
     font-weight: 700;
     line-height: 1.2;
