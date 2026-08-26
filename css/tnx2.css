@@ -6090,6 +6090,13 @@ body.tnx-bottom-hud-expanded #hotbar {
     font-size: 0.8em;
 }
 
+/* チェックボックスのみの行: core のラベル列(flex:1)では長いラベルが途中折り返しに
+   なるため、ラベルを内容幅で確保する。チェックボックスは .form-fields の右端のまま
+   =配置不変(登場判定「ゴーストとして登場する」等) */
+.tokyo-nova.dialog .form-group:has(> .form-fields > input[type="checkbox"]:only-child) > label {
+    flex: 0 0 auto;
+}
+
 /* ID セレクタで specificity を高め Foundry dialog CSS の上書きを防ぐ */
 #tnx-scenario-wizard .number-input-spinner input[type="number"] {
     flex: 0 0 60px;
