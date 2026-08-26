@@ -10604,8 +10604,13 @@ button.tnx-create-act-button span {
 }
 
 .tokyo-nova.sheet.item.skill .onomastic-name__prefix {
-    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    height: 32px;
     padding: 4px 0 4px 8px;
+    border: 1px solid transparent;
+    box-sizing: border-box;
+    white-space: nowrap;
     font-size: 14px;
     font-weight: 700;
     line-height: 1.2;
