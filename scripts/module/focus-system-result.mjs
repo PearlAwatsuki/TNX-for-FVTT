@@ -11,9 +11,10 @@
  * - 差分値は結果の `diff`(成功時のみ)。
  * - 進行修正は有効行の `progressMod` を判定者アクターに対して解決(固定/式・actor 値・outfit)。
  * - 支援ボーナス(②)は**対象キャラに乗る ActiveEffect**(2026-08-05 ユーザー確定)。支援成功で対象へ
- *   支援 AE(進行 +1・カット終了 duration)を付与し、進行判定時に判定者本人の支援 AE を合算して消費
- *   (=AE を除去)する。専用の pendingSupport カウンタは廃止(基本機能=AE で表現)。カット終了での
- *   自動失効そのものはフェーズ15(周期による AE 失効の一般機構)。それまでは進行判定での消費が実動。
+ *   支援 AE(進行 +1・持続=カット中)を付与し、進行判定時に判定者本人の支援 AE を合算して消費
+ *   (=AE を除去)する。専用の pendingSupport カウンタは廃止(基本機能=AE で表現)。**カット終了での
+ *   自動失効は 15-3 で接続済み**(time-boundary が TNX の持続を見て畳む)。使われなかった支援は
+ *   カット終了で消え、使われた分は進行判定での消費が先に除去する。
  *
  * 進行状態の更新(world 設定)は GM 権限が要るため、ボタンは RL(=GM)にのみ出す。
  */
@@ -141,8 +142,9 @@ export async function autoApplyFocusSupport(message, actorId) {
             img:  "icons/svg/regen.svg",
             // 中身のある本物の change: 次に行う進行判定の獲得進行値 +1(実フィールドをネイティブ適用で加算)
             changes: [{ key: FOCUS_SUPPORT_KEY, mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "1", priority: 20 }],
-            // カット終了 duration(周期による自動失効の実処理はフェーズ15。進行判定での消費が現状の主経路)
-            duration: { rounds: 1 },
+            // カット終了で自動失効する(15-3。ネイティブの duration は本システムでは動かないため
+            // TNX の持続で指定する。進行判定での消費=AE 除去も従来どおり効く)
+            flags: { [SCOPE]: { tnxDuration: "cut" } },
         }]);
     }
     await message.update({ [`flags.${SCOPE}.focusSupportApplied`]: { ...applied, [actorId]: { success: succeeded, targetId, targetName: target?.name ?? null } } });

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 
 const { resolveUsageEffectData, splitEffectsByTiming, attackCardEffectMode,
-        prepareUsageEffectPayload, hitEffectTargetRefs } =
+        prepareUsageEffectPayload, hitEffectTargetRefs, buildGrantedEffectDataFrom } =
     await import("../../scripts/module/usage-effects.mjs");
 
 // toObject を持つ簡易 effect / effects コレクション
@@ -153,5 +153,20 @@ describe("attackCardEffectMode()（対決判定カードでの効果ブロック
     expect(attackCardEffectMode({ isAttack: false, state: "fumble", targets: [{ state: "pending" }] })).toBe("button");
     expect(attackCardEffectMode({ isAttack: false, state: "miss", targets: [{ state: "pending" }] })).toBe("button");
     expect(attackCardEffectMode({ isAttack: false, state: "failed", targets: [], openReaction: { resolved: true } })).toBe("button");
+  });
+});
+
+// 15-3 が依存する既存挙動の固定（新規実装ではなく回帰ガード）。持続の器はアイテム側の定義に
+// 置き、失効はアクターに乗ったコピー側で起こる——コピーが持続を落とすとこの分担が崩れる。
+describe("buildGrantedEffectDataFrom()（付与コピーは TNX の持続を引き継ぐ・15-3 の前提）", () => {
+  it("供給元に載せた持続がコピーへ引き継がれる", () => {
+    const source = { name: "毒", flags: { "tokyo-nova-axleration": { tnxDuration: "scene" } } };
+    const out = buildGrantedEffectDataFrom(source, "Item.x.ActiveEffect.y");
+    expect(out.flags["tokyo-nova-axleration"].tnxDuration).toBe("scene");
+  });
+
+  it("持続を持たない供給元のコピーは持続を持たない", () => {
+    const out = buildGrantedEffectDataFrom({ name: "毒", flags: {} }, "Item.x.ActiveEffect.y");
+    expect(out.flags["tokyo-nova-axleration"].tnxDuration).toBeUndefined();
   });
 });
