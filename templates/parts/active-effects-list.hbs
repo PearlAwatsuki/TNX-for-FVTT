@@ -16,7 +16,7 @@
                     <h4 class="{{#if effect.disabled}}disabled{{/if}}">{{effect.name}}</h4>
                 </div>
                 <div class="tnx-item-list__column--duration">
-                    {{effect.duration.label}}
+                    {{tnxDurationLabel effect}}
                 </div>
                 <div class="tnx-item-list__column--controls">
                     <a class="tnx-icon-ctrl" data-action="toggleEffect" title="切り替え">
@@ -47,7 +47,7 @@
                 <img class="effect-image" src="{{effect.img}}" alt="{{effect.name}}"/>
                 <h4 class="{{#if effect.disabled}}disabled{{/if}}">{{effect.name}}</h4>
             </div>
-            <div class="tnx-item-list__column--duration">{{effect.duration.label}}</div>
+            <div class="tnx-item-list__column--duration">{{tnxDurationLabel effect}}</div>
             <div class="tnx-item-list__column--controls">
                 <a class="tnx-icon-ctrl" data-action="toggleEffect" title="切り替え">
                     <i class="fas fa-power-off"></i>

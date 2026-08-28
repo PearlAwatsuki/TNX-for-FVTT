@@ -68,6 +68,8 @@ import { registerFocusSystemSetting, advanceFocusCuts } from './module/focus-sys
 import { registerSessionStateSetting, getSessionState } from './module/session-state.mjs';
 import { registerSubSceneSetting, refreshSubSceneBackground } from './module/subscenes.mjs';
 import { registerAppearanceTokenSync } from './module/appearance-state.mjs';
+import { registerTimeBoundaries } from './module/time-boundary.mjs';
+import { durationLabelOf, TNX_DURATIONS } from './module/time-boundary-logic.mjs';
 import { openSubScenePanel } from './module/tnx-subscene-panel.mjs';
 import { renderFocusProgressButton, renderFocusSupportNote } from './module/focus-system-result.mjs';
 import { autoSendFocusChecks } from './module/focus-system-request.mjs';
@@ -521,6 +523,30 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
     const anchor = root.querySelector('[name="transfer"], [name="disabled"]')?.closest(".form-group");
     if (anchor) anchor.after(group);
     else (root.querySelector('.tab[data-tab="details"]') ?? root.querySelector("form"))?.appendChild(group);
+
+    // 持続時間タブに TNX の持続を注入する(15-1・2026-08-29 ユーザー裁定「そもそも持続時間タブが
+    // あるはずなので、そこにプルダウンを追加する。上書きでも良い」)。Foundry 標準のラウンド/秒は
+    // 本システムでは機能しない——TNX は持続を実時間で測らず、本システムは worldTime に一切
+    // 触れないため実時間で減る経路が無い。動かない欄を残す意味が無いので隠して置き換える。
+    // 失効の実処理は time-boundary.mjs(境界の購読)。
+    const durationTab = root.querySelector('.tab[data-tab="duration"]');
+    if (durationTab && !durationTab.querySelector(".tnx-duration-field")) {
+        // ネイティブの欄は <fieldset> でまとめられている。中の .form-group だけ隠すと**枠だけが
+        // 空で残る**(隔離実機で実測)ため、タブの直接の子ごと隠してから自分の欄を先頭に挿す。
+        for (const el of durationTab.children) el.style.display = "none";
+        const curDuration = app.document?.getFlag?.("tokyo-nova-axleration", "tnxDuration") ?? "";
+        const durationGroup = document.createElement("div");
+        durationGroup.classList.add("form-group", "tnx-duration-field");
+        const options = Object.entries(TNX_DURATIONS)
+            .map(([v, l]) => `<option value="${v}"${curDuration === v ? " selected" : ""}>${l}</option>`)
+            .join("");
+        durationGroup.innerHTML = `
+            <label>持続</label>
+            <div class="form-fields">
+                <select name="flags.tokyo-nova-axleration.tnxDuration">${options}</select>
+            </div>`;
+        durationTab.prepend(durationGroup);
+    }
 
     // 自動適用ゲート(2026-07-13 再設計): ネイティブ transfer を「効果を対象に自動適用」として使う。
     // 対象はキーが示すもの(キャラ値・アイテムのパラメータ・分類/識別キー該当アイテム)。
@@ -1110,6 +1136,9 @@ Hooks.once("init", async function() {
 
     // 武器射程の表記(min/max が同じなら単一表記、異なるなら「近～超遠」形式)
     Handlebars.registerHelper('tnxRangeLabel', formatWeaponRangeLabel);
+    // 効果一覧の「効果時間」列(15-1)。Foundry 標準の duration.label は本システムでは常に空
+    // (実時間を使わないため)なので、効果に載せた TNX の持続を表示する
+    Handlebars.registerHelper('tnxDurationLabel', durationLabelOf);
 
     await preloadHandlebarsTemplates();
     CONFIG.Item.documentClass = TokyoNovaItem;
@@ -1855,6 +1884,10 @@ Hooks.once("init", async function() {
     // 登場状態 ⇄ アクティブ盤面のトークン存在の双方向同期(2026-08-23 改修: 登場=トークン
     // 配置・退場=トークン削除・ゴースト=不可視。フラグ→トークンは activeGM が代行)
     registerAppearanceTokenSync();
+
+    // 時間境界の購読=失効・リセット・回復の適用本体(15-1)。13-6/14-2 が発火してきた
+    // 境界イベントに、ここで初めて購読者が付く(適用は activeGM のみ)
+    registerTimeBoundaries();
 
     // サブシーンの表示はドキュメントを書き換えず、クライアント側で背景テクスチャを差し替える
     // (14-4 是正・シーン読み込みを走らせない)。適用フラグの更新(updateScene)と canvasReady で

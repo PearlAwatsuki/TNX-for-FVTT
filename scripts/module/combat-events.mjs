@@ -37,6 +37,13 @@ export const TNX_HOOKS = Object.freeze({
   processStart: "tnxProcessStart",
   /** プロセスの終了。payload: {phase, combatantId, cut, viaInterrupt?}。 */
   processEnd: "tnxProcessEnd",
+  /**
+   * キャラクターの退場(15-1)。payload: なし(第1引数が Actor)。
+   * **退場＝そのキャラクターにとってのシーンの終わり**(2026-08-29 ユーザー裁定・一度退場したら
+   * 再登場はできないため)。シーン境界の適用はこのイベントで駆動する——`tnxSceneEnd` は
+   * 全員を退場させた**後**に発火するため、購読しても対象が空になる(→ Time_Management)。
+   */
+  actorExit: "tnxActorExit",
 });
 
 /**

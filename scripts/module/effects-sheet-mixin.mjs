@@ -2,6 +2,9 @@
  * ActiveEffectリストを持つシートに共通の機能を提供するMixin。
  * V2 シートでは ACTIONS を DEFAULT_OPTIONS.actions に展開して使う。
  */
+
+import { durationLabelOf } from "./time-boundary-logic.mjs";
+
 export const EffectsSheetMixin = {
 
     /**
@@ -33,7 +36,7 @@ export const EffectsSheetMixin = {
                 effects.transferred.push({
                     id: effect.id, name: effect.name, img: effect.img,
                     disabled: effect.disabled === true,
-                    durationLabel: effect.duration?.label ?? "",
+                    durationLabel: durationLabelOf(effect),
                     sourceName: flags.transferredSourceName ?? "",
                 });
                 continue;

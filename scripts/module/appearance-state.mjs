@@ -14,6 +14,7 @@
 
 import { pickTokenDropPosition, tokenDeletionImpliesExit } from "./appearance-logic.mjs";
 import { teamLinkedExitTargets } from "./session-logic.mjs";
+import { TNX_HOOKS } from "./combat-events.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -52,11 +53,16 @@ export function displayActorName(actor) {
 export async function setAppearing(actor, appearing, { hideName } = {}) {
     if (!actor) return;
     if (!appearing) {
+        const wasAppearing = isAppearing(actor);
         await actor.unsetFlag(SCOPE, "appearing");
         await setNameHidden(actor, false);
         // ゴーストも名前非公開と同様、登場と対のシーン単位の状態(2026-08-22 ユーザー指示
         // 「名前の表示非表示と同様に」)＝退場で落とす
-        return setGhost(actor, false);
+        await setGhost(actor, false);
+        // 退場＝そのキャラクターにとってのシーンの終わり(15-1)。時間管理が購読して
+        // 「シーン中」の効果・使用回数を畳む。登場していなかった場合は発火しない
+        if (wasAppearing) Hooks.callAll(TNX_HOOKS.actorExit, actor);
+        return;
     }
     await actor.setFlag(SCOPE, "appearing", true);
     if (hideName === undefined) return;
