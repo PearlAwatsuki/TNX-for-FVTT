@@ -1,5 +1,5 @@
 /**
- * @fileoverview 時間境界の適用ロジック(フェーズ15-1・純ロジック・Foundry 非依存)。
+ * @fileoverview 時間境界の適用ロジック(フェーズ15・純ロジック・Foundry 非依存)。
  *
  * フェーズ13-6(カット境界)と14-2(シーン/アクト境界)は**イベントを発火するだけ**で、購読者が
  * 一人も居ない状態で置かれていた。本モジュールとグルーの `time-boundary.mjs` が、その
@@ -124,4 +124,47 @@ export function planEffectExpiry(effects, boundary) {
     return (effects ?? [])
         .filter(e => durationExpiresAt(readEffectDuration(e), boundary))
         .map(e => e.id);
+}
+
+/**
+ * 使用回数の期間(`uses.type`)→ 畳む深さ。持続と同じ入れ子の単位なので同じ物差しで測る。
+ * 神業は期間の指定を持たないが**アクト単位**(Time_Management「神業: アクト単位」)。
+ * @param {object|null|undefined} item
+ * @returns {number} 0 = 境界では戻さない
+ */
+function usesResetRank(item) {
+    const rank = DURATION_RANK[item?.system?.uses?.type];
+    if (rank) return rank;
+    return item?.type === "miracle" ? DURATION_RANK.act : 0;
+}
+
+/**
+ * 境界でアイテム側に起こすリセットの update patch を組む(15-2)。
+ *
+ * - **使用回数**: その単位の境界で消費(`uses.spent`)を 0 に戻す。上位の境界は下位の単位も戻す。
+ * - **消費アイテムの個数**: アクト単位で常備化個数(`quantity.max`)まで戻す
+ *   (Time_Management「消費アイテム: 個数はアクト単位」)。
+ *
+ * 変化しないものは patch に含めない——無駄な書き込みでユーザーのデータを触らないため。
+ * @param {Array<object>|null|undefined} items
+ * @param {string} boundary TNX_BOUNDARIES の値
+ * @returns {Array<object>} `Item.updateDocuments` 用の patch 配列
+ */
+export function planItemBoundaryUpdates(items, boundary) {
+    const boundaryRank = BOUNDARY_RANK[boundary];
+    const updates = [];
+    for (const item of (items ?? [])) {
+        const patch = {};
+        const rank = usesResetRank(item);
+        if (boundaryRank && rank && rank <= boundaryRank && (Number(item.system?.uses?.spent) || 0) > 0) {
+            patch["system.uses.spent"] = 0;
+        }
+        const quantity = item?.system?.quantity;
+        if (boundary === TNX_BOUNDARIES.actEnd && item?.system?.isConsumption === true
+            && quantity && (Number(quantity.value) || 0) < (Number(quantity.max) || 0)) {
+            patch["system.quantity.value"] = Number(quantity.max) || 0;
+        }
+        if (Object.keys(patch).length) updates.push({ _id: item.id, ...patch });
+    }
+    return updates;
 }

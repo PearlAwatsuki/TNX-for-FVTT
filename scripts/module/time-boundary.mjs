@@ -1,5 +1,5 @@
 /**
- * @fileoverview 時間境界の購読と適用(フェーズ15-1・Foundry グルー)。
+ * @fileoverview 時間境界の購読と適用(フェーズ15・Foundry グルー)。
  *
  * フェーズ13-6 と 14-2 が発火してきた境界イベントの**唯一の購読口**。境界ごとの手続きを
  * 各機構に散らさず、ここ 1 本に集約する——「何が・いつ・どう畳まれるか」は宣言側
@@ -18,7 +18,7 @@
  */
 
 import { TNX_HOOKS } from "./combat-events.mjs";
-import { TNX_BOUNDARIES, planEffectExpiry } from "./time-boundary-logic.mjs";
+import { TNX_BOUNDARIES, planEffectExpiry, planItemBoundaryUpdates } from "./time-boundary-logic.mjs";
 import { listAppearingActors } from "./appearance-state.mjs";
 
 /** この境界の適用を自分が担うか(activeGM のみ)。 */
@@ -41,13 +41,25 @@ async function expireEffectsOn(actor, boundary) {
 }
 
 /**
+ * 1 アクターについて、その境界で戻る使用回数・消費アイテムの個数をリセットする(15-2)。
+ * @param {Actor} actor
+ * @param {string} boundary TNX_BOUNDARIES の値
+ */
+async function resetItemsOn(actor, boundary) {
+    const updates = planItemBoundaryUpdates(actor?.items?.contents ?? [], boundary);
+    if (updates.length) await actor.updateEmbeddedDocuments("Item", updates);
+}
+
+/**
  * 境界を適用する(対象アクター全員へ順に)。
  * @param {string} boundary TNX_BOUNDARIES の値
  * @param {Actor[]} actors
  */
 export async function applyBoundary(boundary, actors) {
     for (const actor of (actors ?? [])) {
-        if (actor) await expireEffectsOn(actor, boundary);
+        if (!actor) continue;
+        await expireEffectsOn(actor, boundary);
+        await resetItemsOn(actor, boundary);
     }
 }
 
