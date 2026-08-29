@@ -200,3 +200,25 @@ describe("戦闘不能の回復とアクト終了の後始末（15-5）", () => 
         expect(planActEndDamageCleanup([{ id: "z", flags: {} }])).toEqual([]);
     });
 });
+
+describe("仮死・昏睡の死亡判定（シーン終了＝退場・15-5）", () => {
+    it("シーン終了までに治療されなければ完全死亡になる", () => {
+        const out = planConditionRecovery([bs("a", "coma")], TNX_BOUNDARIES.exit);
+        expect(out.removeIds).toEqual(["a"]);
+        expect(out.downgrades).toEqual([{ id: "a", toKind: "dead" }]);
+    });
+
+    it("昏睡も同じく完全死亡になる（Damage_Rules の表記どおり）", () => {
+        const out = planConditionRecovery([bs("a", "stupor")], TNX_BOUNDARIES.exit);
+        expect(out.downgrades).toEqual([{ id: "a", toKind: "dead" }]);
+    });
+
+    it("シーンが終わる前（カット進行終了）では死なない", () => {
+        expect(planConditionRecovery([bs("a", "coma")], TNX_BOUNDARIES.cutProgressionEnd).removeIds)
+            .toEqual([]);
+    });
+
+    it("治療されて仮死が消えていれば何も起きない", () => {
+        expect(planConditionRecovery([wound("w", "phys-15")], TNX_BOUNDARIES.exit).removeIds).toEqual([]);
+    });
+});

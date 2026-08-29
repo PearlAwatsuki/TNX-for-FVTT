@@ -179,7 +179,7 @@ export function planItemBoundaryUpdates(items, boundary) {
 }
 
 
-/** 境界 → その境界を回復条件とする BS の `recovery` 値。ここに無い境界は個別回復を起こさない。 */
+/** 境界 → その境界で解決される状態の `resolveAt` 値。ここに無い境界は個別の解決を起こさない。 */
 const BOUNDARY_RECOVERY = Object.freeze({
     [TNX_BOUNDARIES.mainProcessStart]:  "ownMainStart",
     [TNX_BOUNDARIES.mainProcessEnd]:    "ownMainEnd",
@@ -187,9 +187,12 @@ const BOUNDARY_RECOVERY = Object.freeze({
     // 気絶/失神はカット進行終了で自動回復(Damage_Rules)。BS の全解除とは別経路——
     // 全解除はバッドステータスだけを対象にするため
     [TNX_BOUNDARIES.cutProgressionEnd]: "cutProgressionEnd",
+    // 仮死/昏睡は**シーン終了(=退場)までに治療されなければ完全死亡**(Damage_Rules)。
+    // 「解決」は回復とは限らない——同じ機構で悪化(死亡)も表す
+    [TNX_BOUNDARIES.exit]:              "exit",
 });
 
-/** 本人のメインプロセスに紐づく回復条件(他人のメインでは起きない)。 */
+/** 本人のメインプロセスに紐づく解決条件(他人のメインでは起きない)。 */
 const OWN_MAIN_RECOVERY = new Set(["ownMainStart", "ownMainEnd"]);
 
 /**
@@ -247,7 +250,7 @@ export function planConditionRecovery(effects, boundary, { isMainActor = false }
         const kinds = getConditionKinds(effect);
         const bsKinds = kinds.filter(k => CONDITION_KINDS[k]?.group === "bs");
         // 個別の回復条件は BS 以外(気絶/失神)も持つ。全解除はバッドステータスだけが対象。
-        const matched = trigger ? kinds.filter(k => CONDITION_KINDS[k]?.recovery === trigger) : [];
+        const matched = trigger ? kinds.filter(k => CONDITION_KINDS[k]?.resolveAt === trigger) : [];
         if (!bsKinds.length && !matched.length) continue;
         // アクト終了は「ダメージが治療されるかアクト終了まで」の後半＝ゲートを越えて落とす
         if (boundary !== TNX_BOUNDARIES.actEnd && isUntreatedGated(effect, bsKinds, aliveIds)) continue;
@@ -256,7 +259,7 @@ export function planConditionRecovery(effects, boundary, { isMainActor = false }
         removeIds.push(effect.id);
         // 変換(酩酊(大)→(小))。同時に受けている(小)も同じ境界で回復するため、結果は(小)が1つ
         for (const kind of matched) {
-            const toKind = CONDITION_KINDS[kind]?.downgradeTo;
+            const toKind = CONDITION_KINDS[kind]?.becomes;
             if (toKind) downgrades.push({ id: effect.id, toKind });
         }
     }

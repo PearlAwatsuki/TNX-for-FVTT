@@ -34,33 +34,35 @@ const SCOPE = "tokyo-nova-axleration";
 // 統合順(ユーザー確定 2026-06-23): BS → 戦闘不能 → 肉体 → 精神 → 社会。
 const BS_AND_INCAPACITATION = {
   // --- バッドステータス(group: "bs") ---
-  "panic":        { label: "恐慌",     group: "bs", img: "icons/svg/silenced.svg",    type: "block", block: "reaction",     stackable: false, recovery: "ownMainStart" },
-  "poison":       { label: "邪毒",     group: "bs", img: "icons/svg/poison.svg",     type: "continuous", magnitudeField: true, stackable: false, recovery: "action", payment: "minorMajorAbandon" },
+  "panic":        { label: "恐慌",     group: "bs", img: "icons/svg/silenced.svg",    type: "block", block: "reaction",     stackable: false, resolveAt: "ownMainStart" },
+  "poison":       { label: "邪毒",     group: "bs", img: "icons/svg/poison.svg",     type: "continuous", magnitudeField: true, stackable: false, resolveAt: "action", payment: "minorMajorAbandon" },
   // 重圧: 能力値は指定/未指定(受ける際に引く)あり。abilityField 空欄可(空欄=指定なし=カードで決定)。
-  "pressure":     { label: "重圧",     group: "bs", img: "icons/svg/down.svg",       type: "block", block: "abilityCheck", abilityField: "optional", abilityBlankLabel: "指定なし（カードで決定）", stackable: false, recovery: "action", payment: "minorUse" },
+  "pressure":     { label: "重圧",     group: "bs", img: "icons/svg/down.svg",       type: "block", block: "abilityCheck", abilityField: "optional", abilityBlankLabel: "指定なし（カードで決定）", stackable: false, resolveAt: "action", payment: "minorUse" },
   // 衰弱: 数字なし=引いたスート1つの制御値を引いた数字分/ (-数字)=全制御値。通常は引いて決まるが、
   // 手動編集(効果編集ダイアログ)で対象制御値も指定できるよう abilityField 追加(空=全制御値)。
   // 適用側は targetAbility 指定=その制御値のみ/未指定=全制御値を既に扱う(conditions.mjs §3①)。
   "weakness":     { label: "衰弱",     group: "bs", img: "icons/svg/degen.svg",      type: "numeric", apply: "control", magnitudeField: true, abilityField: "optional", stackable: true },
-  "capture":      { label: "捕縛",     group: "bs", img: "icons/svg/net.svg",        type: "block", block: "attackWith", weaponField: true, stackable: true, recovery: "action", payment: "majorAbandon" },
+  "capture":      { label: "捕縛",     group: "bs", img: "icons/svg/net.svg",        type: "block", block: "attackWith", weaponField: true, stackable: true, resolveAt: "action", payment: "majorAbandon" },
   // 酩酊: 減少量は固定(小-2 / 大-5)。小↔大は別BSで重なる。
-  "doped-major":  { label: "酩酊(大)", group: "bs", img: "icons/svg/daze.svg",       type: "numeric", apply: "checkAndControl", fixedMagnitude: 5, stackable: false, recovery: "cleanup", downgradeTo: "doped-minor" },
-  "doped-minor":  { label: "酩酊(小)", group: "bs", img: "icons/svg/sleep.svg",      type: "numeric", apply: "checkAndControl", fixedMagnitude: 2, stackable: false, recovery: "cleanup" },
+  "doped-major":  { label: "酩酊(大)", group: "bs", img: "icons/svg/daze.svg",       type: "numeric", apply: "checkAndControl", fixedMagnitude: 5, stackable: false, resolveAt: "cleanup", becomes: "doped-minor" },
+  "doped-minor":  { label: "酩酊(小)", group: "bs", img: "icons/svg/sleep.svg",      type: "numeric", apply: "checkAndControl", fixedMagnitude: 2, stackable: false, resolveAt: "cleanup" },
   // 萎縮/憎悪: -5 固定。対象(targetUuid)のみ可変。萎縮=対象ごと重複、憎悪=非重複。
-  "fear":         { label: "萎縮",     group: "bs", img: "icons/svg/terror.svg",     type: "attackTarget", targetMode: "include", penalty: 5, targetField: true, stackable: true, recovery: "ownMainEnd" },
-  "hatred":       { label: "憎悪",     group: "bs", img: "icons/svg/fire.svg",       type: "attackTarget", targetMode: "exclude", penalty: 5, targetField: true, stackable: false, recovery: "ownMainEnd" },
-  "interference": { label: "電子妨害", group: "bs", img: "icons/svg/lightning.svg",  type: "computed", magnitudeField: true, stackable: false, recovery: "cleanup" },
+  "fear":         { label: "萎縮",     group: "bs", img: "icons/svg/terror.svg",     type: "attackTarget", targetMode: "include", penalty: 5, targetField: true, stackable: true, resolveAt: "ownMainEnd" },
+  "hatred":       { label: "憎悪",     group: "bs", img: "icons/svg/fire.svg",       type: "attackTarget", targetMode: "exclude", penalty: 5, targetField: true, stackable: false, resolveAt: "ownMainEnd" },
+  "interference": { label: "電子妨害", group: "bs", img: "icons/svg/lightning.svg",  type: "computed", magnitudeField: true, stackable: false, resolveAt: "cleanup" },
   // 狼狽: ムーブ不可＋メジャー達成値-10。回復=マイナーアクションの使用(重圧と同型)。
   // メジャー/ムーブは行動系=13 前提のため器のみ。正本 Bad_Status「狼狽」
-  "confusion":    { label: "狼狽",     group: "bs", img: "icons/svg/trap.svg",  type: "block", block: "move", stackable: false, recovery: "action", payment: "minorUse" },
+  "confusion":    { label: "狼狽",     group: "bs", img: "icons/svg/trap.svg",  type: "block", block: "move", stackable: false, resolveAt: "action", payment: "minorUse" },
   // --- 戦闘不能(group: "incapacitation"。メインプロセス不可の発火=13 で接続済み(blocksMainProcess)・回復は15。効果値なし・非重複) ---
   // アイコンの使い分け(2026-07-22 ユーザー調整で確定): 髑髏=死そのもの(完全死亡)。気絶/失神=hazard
   // 共用・仮死/昏睡=unconscious 共用(段階の近い2種は共用の作法)。抹殺=cancel(社会的抹消)。
   // 負傷の既定(damage-chart: 肉体=blood/精神=sun/社会=padlock)と被るアイコンは避ける
-  "faint":      { label: "気絶",     group: "incapacitation", img: "icons/svg/hazard.svg", type: "block", block: "mainProcess", stackable: false, recovery: "cutProgressionEnd" },
-  "swoon":      { label: "失神",     group: "incapacitation", img: "icons/svg/hazard.svg", type: "block", block: "mainProcess", stackable: false, recovery: "cutProgressionEnd" },
-  "coma":       { label: "仮死",     group: "incapacitation", img: "icons/svg/unconscious.svg",       type: "block", block: "mainProcess", terminalPending: true, stackable: false },
-  "stupor":     { label: "昏睡",     group: "incapacitation", img: "icons/svg/unconscious.svg",       type: "block", block: "mainProcess", terminalPending: true, stackable: false },
+  "faint":      { label: "気絶",     group: "incapacitation", img: "icons/svg/hazard.svg", type: "block", block: "mainProcess", stackable: false, resolveAt: "cutProgressionEnd" },
+  "swoon":      { label: "失神",     group: "incapacitation", img: "icons/svg/hazard.svg", type: "block", block: "mainProcess", stackable: false, resolveAt: "cutProgressionEnd" },
+  // 仮死/昏睡: **シーン終了(=退場)までに治療されなければ完全死亡**(Damage_Rules)。becomes は
+  // 回復に限らない——同じ機構で悪化(死亡)も表す。昏睡も表記どおり完全死亡(精神崩壊ではない)
+  "coma":       { label: "仮死",     group: "incapacitation", img: "icons/svg/unconscious.svg",       type: "block", block: "mainProcess", terminalPending: true, stackable: false, resolveAt: "exit", becomes: "dead" },
+  "stupor":     { label: "昏睡",     group: "incapacitation", img: "icons/svg/unconscious.svg",       type: "block", block: "mainProcess", terminalPending: true, stackable: false, resolveAt: "exit", becomes: "dead" },
   "dead":       { label: "完全死亡", group: "incapacitation", img: "icons/svg/skull.svg",       type: "terminal", stackable: false },
   "mind-break": { label: "精神崩壊", group: "incapacitation", img: "icons/svg/stoned.svg",      type: "terminal", stackable: false },
   // 抹殺(社会): アクト終了時に残っていた場合、社会的に抹殺され闇に葬られる(死亡する)効果。
