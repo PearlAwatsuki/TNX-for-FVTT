@@ -8,10 +8,18 @@ const SCOPE = "tokyo-nova-axleration";
 const withDuration = (id, duration) => ({ id, flags: { [SCOPE]: { tnxDuration: duration } } });
 
 describe("TNX_DURATIONS（TNX の持続時間の選択肢・15-1）", () => {
-    it("Time_Management の時間単位＋治療まで＋無期限を持つ", () => {
+    it("Time_Management の時間単位＋無期限だけを持つ", () => {
         expect(Object.keys(TNX_DURATIONS)).toEqual([
-            "", "mainProcess", "cut", "scene", "act", "untilTreated",
+            "", "mainProcess", "cut", "scene", "act",
         ]);
+    });
+
+    // 「治療まで」は選択肢に置かない(2026-08-29 ユーザー指摘)。挙動が「アクト中」と完全に
+    // 同一なうえ、RL が手で組んだ効果に「治療する」操作は存在しない。本来の「治療するまで
+    // 回復しない」BS は元の負傷 AE の生存から導出する(設計判断7)ため、この欄を使わない。
+    it("「治療まで」は選択肢に無い", () => {
+        expect(TNX_DURATIONS).not.toHaveProperty("untilTreated");
+        expect(durationExpiresAt("untilTreated", TNX_BOUNDARIES.actEnd)).toBe(false);
     });
 
     it("空文字は「なし」＝無期限を表す", () => {
@@ -73,12 +81,6 @@ describe("durationExpiresAt()（境界でその持続が失効するか）", () 
     it("アクト中は退場では失効せず、アクト終了で失効する", () => {
         expect(durationExpiresAt("act", TNX_BOUNDARIES.exit)).toBe(false);
         expect(durationExpiresAt("act", TNX_BOUNDARIES.actEnd)).toBe(true);
-    });
-
-    it("治療まではアクト終了までどの境界でも失効しない", () => {
-        expect(durationExpiresAt("untilTreated", TNX_BOUNDARIES.cutProgressionEnd)).toBe(false);
-        expect(durationExpiresAt("untilTreated", TNX_BOUNDARIES.exit)).toBe(false);
-        expect(durationExpiresAt("untilTreated", TNX_BOUNDARIES.actEnd)).toBe(true);
     });
 
     it("無期限（未設定）はアクト終了でも失効しない", () => {

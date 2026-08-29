@@ -39,9 +39,12 @@ export const TNX_BOUNDARIES = Object.freeze({
 });
 
 /**
- * 効果に指定できる持続。キーは保存値、値は表示ラベル。
- * 空文字＝無期限(境界では失効しない)。「治療まで」はアクト終了まで残る
- * (Bad_Status「ダメージが治療されるかアクト終了まで回復しない」)。
+ * 効果に指定できる持続。キーは保存値、値は表示ラベル。空文字＝無期限(境界では失効しない)。
+ *
+ * **Time_Management の時間単位だけを置く。**「治療まで」は選択肢に置かない
+ * (2026-08-29 ユーザー指摘): ①境界の判定では「アクト中」と挙動が完全に同一で名前が違うだけ
+ * ②RL が手で組んだ効果に「治療する」操作は存在しない(治療の対象は負傷)。本来の
+ * 「治療するまで回復しない」BS は**元の負傷 AE が生きているかで導出**するため、この欄を使わない。
  */
 export const TNX_DURATIONS = Object.freeze({
     "":             "なし",
@@ -49,18 +52,16 @@ export const TNX_DURATIONS = Object.freeze({
     cut:            "カット中",
     scene:          "シーン中",
     act:            "アクト中",
-    untilTreated:   "治療まで",
 });
 
 const SCOPE = "tokyo-nova-axleration";
 
 /** 持続の入れ子の深さ。小さいほど短い。 */
 const DURATION_RANK = Object.freeze({
-    mainProcess:  1,
-    cut:          2,
-    scene:        3,
-    act:          4,
-    untilTreated: 5,
+    mainProcess: 1,
+    cut:         2,
+    scene:       3,
+    act:         4,
 });
 
 /**
@@ -72,7 +73,7 @@ const BOUNDARY_RANK = Object.freeze({
     [TNX_BOUNDARIES.cutEnd]:            2,
     [TNX_BOUNDARIES.cutProgressionEnd]: 2,
     [TNX_BOUNDARIES.exit]:              3,
-    [TNX_BOUNDARIES.actEnd]:            5,
+    [TNX_BOUNDARIES.actEnd]:            4,
 });
 
 /**
