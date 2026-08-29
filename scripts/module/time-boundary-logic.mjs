@@ -360,36 +360,55 @@ export function buildIncapableEffectData(sceneNumber) {
         statuses: [INCAPABLE_KIND],
         flags: { [SCOPE]: {
             conditionKind: INCAPABLE_KIND,
-            conditions: { [INCAPABLE_KIND]: { actableFromScene: from } },
+            conditions: { [INCAPABLE_KIND]: { freeFromScene: from } },
         } },
     };
 }
 
 /**
- * 期限に達した行動不可を抽出する(シーン開始で呼ぶ)。シーンが飛んでも取り残さないよう
- * 「以上」で判定する。
+ * 期限(シーン番号)に達した状態を抽出する(シーン開始で呼ぶ)。行動不可(治療後2シーン)と
+ * 逮捕令状(次のシーンまで)が共用する——どちらも「このシーン番号から自由」という同じ形。
+ * シーンが飛んでも取り残さないよう「以上」で判定する。
  * @param {Array<object>|null|undefined} effects
  * @param {number} sceneNumber 現在のシーン番号
  * @returns {string[]} 除去する効果の id
  */
-export function planIncapableExpiry(effects, sceneNumber) {
+export function planSceneDeadlineExpiry(effects, sceneNumber) {
     const now = Number(sceneNumber) || 0;
     return (effects ?? [])
-        .filter(e => getConditionKinds(e).includes(INCAPABLE_KIND))
         .filter(e => {
-            const from = e?.flags?.[SCOPE]?.conditions?.[INCAPABLE_KIND]?.actableFromScene;
-            return Number.isFinite(Number(from)) && now >= Number(from);
+            const perKind = e?.flags?.[SCOPE]?.conditions ?? {};
+            return getConditionKinds(e).some(kind => {
+                const from = perKind[kind]?.freeFromScene;
+                return Number.isFinite(Number(from)) && now >= Number(from);
+            });
         })
         .map(e => e.id);
 }
 
 /**
- * 行動不可を受けているか(登場判定の強制失敗・舞台裏の手番除外が読む)。
+ * 行動不可を受けているか(舞台裏の手番除外が読む)。逮捕令状は登場を塞ぐだけで、
+ * 舞台裏の可否はルールに記載が無いため対象にしない。
  * @param {Array<object>|null|undefined} effects
  * @returns {boolean}
  */
 export function hasIncapable(effects) {
     return (effects ?? []).some(e => e?.disabled !== true && getConditionKinds(e).includes(INCAPABLE_KIND));
+}
+
+/**
+ * 登場を塞いでいる状態の理由コード(登場判定の強制失敗が読む)。無ければ null。
+ * 行動不可は「何もできない」でより広い制限なので、逮捕令状より先に理由として返す。
+ * @param {Array<object>|null|undefined} effects
+ * @returns {?string} FORCED_FAILURE_LABELS のキー
+ */
+export function appearanceBlockOf(effects) {
+    const kinds = (effects ?? [])
+        .filter(e => e?.disabled !== true)
+        .flatMap(e => getConditionKinds(e))
+        .filter(k => CONDITION_KINDS[k]?.blocksAppearance === true);
+    if (kinds.includes(INCAPABLE_KIND)) return "incapable";
+    return kinds.length ? "arrested" : null;
 }
 
 /**
@@ -433,4 +452,36 @@ export function planPoisonTicks(effects) {
             id: e.id,
             magnitude: Number(e?.flags?.[SCOPE]?.conditions?.poison?.magnitude) || 0,
         }));
+}
+
+/**
+ * 「次のシーン」効果(社会6/7/8 信用失墜・スキャンダル・信頼喪失)のうち、まだ休眠しているもの
+ * (15-7)。付与時は休眠(`pendingScene`)で、シーン開始でここが挙げたものに `sceneFired` を立てる
+ * と効き始める。**発火機構が無いあいだ、これらは永遠に休眠したままだった**。
+ * @param {Array<object>|null|undefined} effects
+ * @returns {Array<{id: string, kind: string}>}
+ */
+export function planSceneDeferredFiring(effects) {
+    const out = [];
+    for (const effect of (effects ?? [])) {
+        const perKind = effect?.flags?.[SCOPE]?.conditions ?? {};
+        for (const kind of getConditionKinds(effect)) {
+            if (CONDITION_KINDS[kind]?.sceneDeferred !== true) continue;
+            if (perKind[kind]?.sceneFired === true) continue;
+            out.push({ id: effect.id, kind });
+        }
+    }
+    return out;
+}
+
+/**
+ * 逮捕令状のように「付与で強制退場し、一定シーン数のあいだ登場できない」負傷の期限フラグ(15-7)。
+ * @param {string} kind 負傷の種別
+ * @param {number} sceneNumber 付与されたシーンの番号
+ * @returns {?{freeFromScene: number}} 対象でなければ null
+ */
+export function buildForcedExitFlags(kind, sceneNumber) {
+    const scenes = CONDITION_KINDS[kind]?.freeAfterScenes;
+    if (!Number.isFinite(Number(scenes))) return null;
+    return { freeFromScene: (Number(sceneNumber) || 0) + Number(scenes) };
 }

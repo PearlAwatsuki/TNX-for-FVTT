@@ -18,8 +18,9 @@
  */
 
 import { TNX_HOOKS } from "./combat-events.mjs";
-import { TNX_BOUNDARIES, planEffectExpiry, planItemBoundaryUpdates, planConditionRecovery, planActEndDamageCleanup, planIncapableExpiry, planPoisonTicks } from "./time-boundary-logic.mjs";
-import { CONDITION_KINDS } from "./conditions.mjs";
+import { TNX_BOUNDARIES, planEffectExpiry, planItemBoundaryUpdates, planConditionRecovery, planActEndDamageCleanup, planSceneDeadlineExpiry, planPoisonTicks,
+         planSceneDeferredFiring, buildForcedExitFlags } from "./time-boundary-logic.mjs";
+import { CONDITION_KINDS, getConditionKinds } from "./conditions.mjs";
 import { listAppearingActors } from "./appearance-state.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
@@ -166,15 +167,20 @@ export function registerTimeBoundaries() {
         applyBoundary(TNX_BOUNDARIES.exit, [actor]);
     });
 
-    // シーンの開始。行動不可(仮死/昏睡の治療後2シーン)の期限をここで切る——期限はシーン番号で
-    // 数えるため、境界の中で「シーン番号が進んだ後」に見るのはここだけ。
+    // シーンの開始で2つ。①シーン番号で数える期限(行動不可・逮捕令状)を切る——境界の中で
+    // 「シーン番号が進んだ後」に見るのはここだけ。②社会ダメージの「次のシーン」効果を発火する。
     Hooks.on(TNX_HOOKS.sceneStart, async () => {
         if (!isApplier()) return;
         const { getSessionState } = await import("./session-state.mjs");
         const sceneNumber = getSessionState()?.sceneNumber ?? 0;
         for (const actor of game.actors?.contents ?? []) {
-            const ids = planIncapableExpiry(actor.effects?.contents ?? [], sceneNumber);
+            const effects = actor.effects?.contents ?? [];
+            const ids = planSceneDeadlineExpiry(effects, sceneNumber);
             if (ids.length) await actor.deleteEmbeddedDocuments("ActiveEffect", ids);
+            for (const { id, kind } of planSceneDeferredFiring(effects)) {
+                if (ids.includes(id)) continue;
+                await actor.effects.get(id)?.setFlag(SCOPE, `conditions.${kind}.sceneFired`, true);
+            }
         }
     });
 
@@ -182,5 +188,36 @@ export function registerTimeBoundaries() {
     Hooks.on(TNX_HOOKS.actEnd, () => {
         if (!isApplier()) return;
         applyBoundary(TNX_BOUNDARIES.actEnd, game.actors?.contents ?? []);
+    });
+}
+
+
+/**
+ * 逮捕令状(社会17)の適用を購読する(15-7・正本 Appearance_Check)。
+ *
+ * 負傷が付いたら **①チームから抜けてから ②退場** する(2026-08-23 裁定＝強制退場は退場連動に
+ * 乗せない)。以後この負傷が生きている間は登場判定が自動失敗になり(appearanceBlockOf)、
+ * 負傷自体は「次のシーン」が終われば消える(付与シーン+2 から自由＝シーン開始で期限を切る)。
+ *
+ * 適用は activeGM のみ——チーム(ワールド設定)と他人のアクターを更新する権限が要るため。
+ * ダメージを適用したのが誰であっても、GM 側で1回だけ走る。
+ */
+export function registerForcedExitWounds() {
+    Hooks.on("createActiveEffect", async (effect) => {
+        if (!isApplier()) return;
+        const actor = effect?.parent;
+        if (!actor || actor.documentName !== "Actor") return;
+        const kind = getConditionKinds(effect).find(k => CONDITION_KINDS[k]?.forcesExit === true);
+        if (!kind) return;
+
+        const { getSessionState, leaveTeam } = await import("./session-state.mjs");
+        const { setAppearing, isAppearing } = await import("./appearance-state.mjs");
+        // ① チームから抜ける(退場連動を起こさないため、退場より先)
+        await leaveTeam(actor.id);
+        // ② 退場(連動には乗せない＝setAppearing を直接呼ぶ)
+        if (isAppearing(actor)) await setAppearing(actor, false);
+        // ③ 登場できない期限をこの負傷に刻む
+        const flags = buildForcedExitFlags(kind, getSessionState()?.sceneNumber ?? 0);
+        if (flags) await effect.setFlag(SCOPE, `conditions.${kind}`, flags);
     });
 }

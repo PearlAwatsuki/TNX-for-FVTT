@@ -17,7 +17,7 @@
  */
 
 import { appearanceCheckParams, hasNegativeDangerOutfit, isAppearanceSkillKey } from "./appearance-logic.mjs";
-import { hasIncapable } from "./time-boundary-logic.mjs";
+import { appearanceBlockOf } from "./time-boundary-logic.mjs";
 import { loadSkillClassByKey } from "./skill-dictionary.mjs";
 import { standInMatchesKey } from "./designation-response-logic.mjs";
 import { getSessionState, getCurrentSceneAppearance } from "./session-state.mjs";
@@ -45,14 +45,15 @@ export async function startAppearanceCheck() {
         appearanceModifier: actor.system.appearanceModifier ?? 0,
         hasNegativeDangerItem: hasNegativeDangerOutfit(
             actor.items.map(i => ({ type: i.type, system: i.system }))),
-        // 行動不可(仮死/昏睡の治療後2シーン)は登場判定が自動失敗になる(15-5)
-        incapable: hasIncapable(actor.effects?.contents ?? []),
+        // キャラクター側の登場不可(行動不可・逮捕令状)は登場判定が自動失敗になる(15-5/15-7)
+        appearanceBlock: appearanceBlockOf(actor.effects?.contents ?? []),
     });
     // 強制失敗の理由の表示文字列(結果カードの成否バナーに出す)。判定は通常どおり走る
     const FORCED_FAILURE_LABELS = {
         none:      "登場：不可",
         sanctuary: "サンクチュアリ・危険値装備",
         incapable: "行動不可",
+        arrested:  "逮捕令状",
     };
     const forcedFailure = params.forcedFailure ? FORCED_FAILURE_LABELS[params.forcedFailure] : null;
 

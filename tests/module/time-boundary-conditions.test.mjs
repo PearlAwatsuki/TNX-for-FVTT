@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { TNX_BOUNDARIES, planConditionRecovery, planActionRecoveryRows, planActEndDamageCleanup,
-         buildIncapableEffectData, planIncapableExpiry, hasIncapable,
-         collectLostCharacters, planPoisonTicks } from "../../scripts/module/time-boundary-logic.mjs";
+         buildIncapableEffectData, planSceneDeadlineExpiry, appearanceBlockOf,
+         collectLostCharacters, planPoisonTicks, planSceneDeferredFiring } from "../../scripts/module/time-boundary-logic.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -228,33 +228,32 @@ describe("仮死・昏睡の死亡判定（シーン終了＝退場・15-5）", 
 describe("行動不可（仮死/昏睡の治療後2シーン・15-5）", () => {
     const incapable = (id, from) => ({
         id, statuses: ["incapable"],
-        flags: { [SCOPE]: { conditionKind: "incapable", conditions: { incapable: { actableFromScene: from } } } },
+        flags: { [SCOPE]: { conditionKind: "incapable", conditions: { incapable: { freeFromScene: from } } } },
     });
 
     it("治療したシーンの2つ後から行動できる", () => {
-        expect(buildIncapableEffectData(3).flags[SCOPE].conditions.incapable.actableFromScene).toBe(5);
+        expect(buildIncapableEffectData(3).flags[SCOPE].conditions.incapable.freeFromScene).toBe(5);
     });
 
     it("期限に届くまでは行動不可のまま", () => {
-        expect(planIncapableExpiry([incapable("a", 5)], 4)).toEqual([]);
+        expect(planSceneDeadlineExpiry([incapable("a", 5)], 4)).toEqual([]);
     });
 
     it("期限のシーンに入ったら行動不可が外れる", () => {
-        expect(planIncapableExpiry([incapable("a", 5)], 5)).toEqual(["a"]);
+        expect(planSceneDeadlineExpiry([incapable("a", 5)], 5)).toEqual(["a"]);
     });
 
     it("期限を過ぎていても外れる（シーンが飛んでも取り残さない）", () => {
-        expect(planIncapableExpiry([incapable("a", 5)], 9)).toEqual(["a"]);
+        expect(planSceneDeadlineExpiry([incapable("a", 5)], 9)).toEqual(["a"]);
     });
 
     it("行動不可でない効果は触らない", () => {
-        expect(planIncapableExpiry([bs("a", "faint")], 9)).toEqual([]);
+        expect(planSceneDeadlineExpiry([bs("a", "faint")], 9)).toEqual([]);
     });
 
     it("行動不可を受けているかを判定できる", () => {
-        expect(hasIncapable([incapable("a", 5)])).toBe(true);
-        expect(hasIncapable([bs("a", "faint")])).toBe(false);
-        expect(hasIncapable(null)).toBe(false);
+        expect(appearanceBlockOf([incapable("a", 5)])).toBe("incapable");
+        expect(appearanceBlockOf([bs("a", "faint")])).toBeNull();
     });
 });
 
@@ -308,5 +307,71 @@ describe("邪毒の継続ダメージ（クリンナップごと・15-6）", () 
 
     it("効果が無くても落ちない", () => {
         expect(planPoisonTicks(null)).toEqual([]);
+    });
+});
+
+describe("シーン番号の期限（行動不可・逮捕令状で共用・15-7）", () => {
+    const deadline = (id, kind, from) => ({
+        id, statuses: [kind],
+        flags: { [SCOPE]: { conditionKind: kind, conditions: { [kind]: { freeFromScene: from } } } },
+    });
+
+    it("種別を問わず、期限に達した効果を落とす", () => {
+        const e = [deadline("a", "incapable", 5), deadline("b", "soc-17", 4)];
+        expect(planSceneDeadlineExpiry(e, 4)).toEqual(["b"]);
+        expect(planSceneDeadlineExpiry(e, 5)).toEqual(["a", "b"]);
+    });
+
+    it("期限を持たない効果は落とさない", () => {
+        expect(planSceneDeadlineExpiry([bs("a", "faint")], 99)).toEqual([]);
+    });
+});
+
+describe("登場を塞ぐ状態（15-7）", () => {
+    const arrest = (id, from) => ({
+        id, statuses: ["soc-17"],
+        flags: { [SCOPE]: { conditionKind: "soc-17", conditions: { "soc-17": { freeFromScene: from } } } },
+    });
+    const incap = (id) => ({ id, statuses: ["incapable"], flags: { [SCOPE]: { conditionKind: "incapable" } } });
+
+    it("行動不可は登場を塞ぐ", () => {
+        expect(appearanceBlockOf([incap("a")])).toBe("incapable");
+    });
+
+    it("逮捕令状は登場を塞ぐ", () => {
+        expect(appearanceBlockOf([arrest("a", 5)])).toBe("arrested");
+    });
+
+    it("行動不可のほうを先に理由として返す（より広い制限）", () => {
+        expect(appearanceBlockOf([arrest("a", 5), incap("b")])).toBe("incapable");
+    });
+
+    it("塞ぐ状態が無ければ null", () => {
+        expect(appearanceBlockOf([bs("a", "faint")])).toBeNull();
+        expect(appearanceBlockOf(null)).toBeNull();
+    });
+});
+
+describe("社会ダメージの「次のシーン」効果の発火（15-7）", () => {
+    const social = (id, kind, fired) => ({
+        id, statuses: [kind],
+        flags: { [SCOPE]: { conditionKind: kind, ...(fired ? { conditions: { [kind]: { sceneFired: true } } } : {}) } },
+    });
+
+    it("休眠している「次のシーン」効果を発火対象として挙げる", () => {
+        expect(planSceneDeferredFiring([social("a", "soc-6"), social("b", "soc-7")]))
+            .toEqual([{ id: "a", kind: "soc-6" }, { id: "b", kind: "soc-7" }]);
+    });
+
+    it("発火済みのものは二度挙げない", () => {
+        expect(planSceneDeferredFiring([social("a", "soc-6", true)])).toEqual([]);
+    });
+
+    it("「次のシーン」効果でない負傷は挙げない", () => {
+        expect(planSceneDeferredFiring([social("a", "soc-17")])).toEqual([]);
+    });
+
+    it("効果が無くても落ちない", () => {
+        expect(planSceneDeferredFiring(null)).toEqual([]);
     });
 });

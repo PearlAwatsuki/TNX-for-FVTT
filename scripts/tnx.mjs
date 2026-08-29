@@ -68,7 +68,7 @@ import { registerFocusSystemSetting, advanceFocusCuts } from './module/focus-sys
 import { registerSessionStateSetting, getSessionState } from './module/session-state.mjs';
 import { registerSubSceneSetting, refreshSubSceneBackground } from './module/subscenes.mjs';
 import { registerAppearanceTokenSync } from './module/appearance-state.mjs';
-import { registerTimeBoundaries } from './module/time-boundary.mjs';
+import { registerTimeBoundaries, registerForcedExitWounds } from './module/time-boundary.mjs';
 import { durationLabelOf, TNX_DURATIONS } from './module/time-boundary-logic.mjs';
 import { openSubScenePanel } from './module/tnx-subscene-panel.mjs';
 import { renderFocusProgressButton, renderFocusSupportNote } from './module/focus-system-result.mjs';
@@ -1888,6 +1888,9 @@ Hooks.once("init", async function() {
     // 時間境界の購読=失効・リセット・回復の適用本体(15-1)。13-6/14-2 が発火してきた
     // 境界イベントに、ここで初めて購読者が付く(適用は activeGM のみ)
     registerTimeBoundaries();
+
+    // 逮捕令状(社会17)の適用=チーム離脱→退場→登場不可の期限(15-7・activeGM のみ)
+    registerForcedExitWounds();
 
     // サブシーンの表示はドキュメントを書き換えず、クライアント側で背景テクスチャを差し替える
     // (14-4 是正・シーン読み込みを走らせない)。適用フラグの更新(updateScene)と canvasReady で

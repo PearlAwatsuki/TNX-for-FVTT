@@ -77,18 +77,18 @@ export function resolveSceneAppearance(row, override = null) {
  * 場面はほぼ存在せず、どの参加者にも平等に「判定を失敗する権利」がある(それによって手札を
  * 入れ替えていく)。登場できない場面(登場：不可/サンクチュアリの危険値装備)は判定を行えるが
  * 結果が必ず失敗になる=`forcedFailure` に理由コードを返す。
- * **行動不可**(仮死/昏睡を治療した後の2シーン)は**キャラクター側の絶対条件**で、シーンの設定より
- * 優先する——その間は「シーンへの登場も舞台裏判定も何もできない」(2026-08-29 ユーザー裁定・
- * → Damage_Rules)。判定自体は行えて結果が必ず失敗になる、の扱いは他の不可条件と同じ。
+ * **キャラクター側の登場不可**(行動不可＝仮死/昏睡の治療後2シーン／逮捕令状)はシーンの設定より
+ * 優先する——キャラクター自身の絶対条件のため。判定自体は行えて結果が必ず失敗になる、の扱いは
+ * 他の不可条件と同じ(→ Damage_Rules・Appearance_Check)。
  * @param {{area: string, appearanceModifier?: number, hasNegativeDangerItem?: boolean,
- *          mode?: ("area"|"fixed"|"none"), fixedValue?: ?number, incapable?: boolean}} args
- * @returns {{forcedFailure: ?("none"|"sanctuary"|"incapable"), targetValue: ?number, modifier: number}}
+ *          mode?: ("area"|"fixed"|"none"), fixedValue?: ?number, appearanceBlock?: ?string}} args
+ * @returns {{forcedFailure: ?string, targetValue: ?number, modifier: number}}
  */
 export function appearanceCheckParams({
     area, appearanceModifier = 0, hasNegativeDangerItem = false, mode = "area", fixedValue = null,
-    incapable = false,
+    appearanceBlock = null,
 }) {
-    if (incapable) return { forcedFailure: "incapable", targetValue: null, modifier: 0 };
+    if (appearanceBlock) return { forcedFailure: appearanceBlock, targetValue: null, modifier: 0 };
     if (mode === "none") return { forcedFailure: "none", targetValue: null, modifier: 0 };
     const def = AREA_APPEARANCE[area] ?? null;
     const targetValue = mode === "fixed"

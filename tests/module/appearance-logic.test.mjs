@@ -346,17 +346,23 @@ describe("tokenDeletionImpliesExit()（トークン削除＝退場の判定・20
   });
 });
 
-describe("行動不可のキャラクターの登場判定（15-5・Damage_Rules）", () => {
-  it("登場判定は自動失敗になる", () => {
-    expect(appearanceCheckParams({ area: "red", incapable: true }).forcedFailure).toBe("incapable");
+describe("キャラクター側の登場不可（15-5/15-7・Damage_Rules・Appearance_Check）", () => {
+  it("行動不可は登場判定が自動失敗になる", () => {
+    expect(appearanceCheckParams({ area: "red", appearanceBlock: "incapable" }).forcedFailure)
+      .toBe("incapable");
   });
 
-  it("行動不可はエリアの目標値より優先する（キャラクター側の絶対条件）", () => {
-    const out = appearanceCheckParams({ area: "sanctuary", hasNegativeDangerItem: true, incapable: true });
+  it("逮捕令状も登場判定が自動失敗になる", () => {
+    expect(appearanceCheckParams({ area: "red", appearanceBlock: "arrested" }).forcedFailure)
+      .toBe("arrested");
+  });
+
+  it("キャラクター側の不可はシーンの設定より優先する", () => {
+    const out = appearanceCheckParams({ area: "sanctuary", hasNegativeDangerItem: true, appearanceBlock: "incapable" });
     expect(out.forcedFailure).toBe("incapable");
   });
 
-  it("行動不可でなければ従来どおり", () => {
-    expect(appearanceCheckParams({ area: "red", incapable: false }).forcedFailure).toBeNull();
+  it("塞がれていなければ従来どおり", () => {
+    expect(appearanceCheckParams({ area: "red", appearanceBlock: null }).forcedFailure).toBeNull();
   });
 });
