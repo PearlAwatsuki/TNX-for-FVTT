@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { TNX_BOUNDARIES, planConditionRecovery, planActionRecoveryRows, planActEndDamageCleanup,
          buildIncapableEffectData, planIncapableExpiry, hasIncapable,
-         collectLostCharacters } from "../../scripts/module/time-boundary-logic.mjs";
+         collectLostCharacters, planPoisonTicks } from "../../scripts/module/time-boundary-logic.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -280,5 +280,33 @@ describe("ポストアクトのロスト確認（15-5・Scenario_Progress）", (
 
     it("誰も居なくても落ちない", () => {
         expect(collectLostCharacters(null)).toEqual([]);
+    });
+});
+
+describe("邪毒の継続ダメージ（クリンナップごと・15-6）", () => {
+    const poison = (id, magnitude) => ({
+        id, statuses: ["poison"],
+        flags: { [SCOPE]: { conditionKind: "poison", conditions: { poison: { magnitude } } } },
+    });
+
+    it("受けている邪毒とその強度を返す", () => {
+        expect(planPoisonTicks([poison("a", 3)])).toEqual([{ id: "a", magnitude: 3 }]);
+    });
+
+    it("強度が無ければ 0 として扱う（数字なしの邪毒）", () => {
+        expect(planPoisonTicks([poison("a", undefined)])).toEqual([{ id: "a", magnitude: 0 }]);
+    });
+
+    it("邪毒でない状態は返さない", () => {
+        expect(planPoisonTicks([bs("a", "pressure"), bs("b", "faint")])).toEqual([]);
+    });
+
+    it("無効化されている邪毒は発動しない", () => {
+        const disabled = { ...poison("a", 3), disabled: true };
+        expect(planPoisonTicks([disabled])).toEqual([]);
+    });
+
+    it("効果が無くても落ちない", () => {
+        expect(planPoisonTicks(null)).toEqual([]);
     });
 });

@@ -18,7 +18,7 @@
  */
 
 import { TNX_HOOKS } from "./combat-events.mjs";
-import { TNX_BOUNDARIES, planEffectExpiry, planItemBoundaryUpdates, planConditionRecovery, planActEndDamageCleanup, planIncapableExpiry } from "./time-boundary-logic.mjs";
+import { TNX_BOUNDARIES, planEffectExpiry, planItemBoundaryUpdates, planConditionRecovery, planActEndDamageCleanup, planIncapableExpiry, planPoisonTicks } from "./time-boundary-logic.mjs";
 import { CONDITION_KINDS } from "./conditions.mjs";
 import { listAppearingActors } from "./appearance-state.mjs";
 
@@ -92,7 +92,20 @@ export async function applyBoundary(boundary, actors, { mainActorId = null } = {
         await resetItemsOn(actor, boundary);
         await recoverConditionsOn(actor, boundary, !!mainActorId && actor.id === mainActorId);
         if (boundary === TNX_BOUNDARIES.actEnd) await cleanupDamageOn(actor);
+        if (boundary === TNX_BOUNDARIES.cleanup) await tickPoisonOn(actor);
     }
+}
+
+/**
+ * クリンナップの邪毒ダメージ(15-6)。ドローとチャート適用は condition-resolution が持つ——
+ * 山札・ダメージ適用はそちらの領分で、ここは「誰にいつ起こるか」だけを決める。
+ * @param {Actor} actor
+ */
+async function tickPoisonOn(actor) {
+    const ticks = planPoisonTicks(actor?.effects?.contents ?? []);
+    if (!ticks.length) return;
+    const { applyPoisonTick } = await import("./condition-resolution.mjs");
+    for (const tick of ticks) await applyPoisonTick(actor, tick.magnitude);
 }
 
 /**

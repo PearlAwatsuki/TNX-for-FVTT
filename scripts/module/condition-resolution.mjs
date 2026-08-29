@@ -258,10 +258,12 @@ export async function executeConditionDraw(actor, effect, kind, message = null) 
 async function promptJokerWildcard(kind) {
   const suitOpts = Object.entries({ spade: "♠", club: "♣", heart: "♥", diamond: "♦" })
     .map(([k, l]) => `<option value="${k}">${l}</option>`).join("");
-  const needValue = kind === "weakness";
+  // 邪毒は「出た数字」だけを使う(スートは効果に関わらない)ので数字だけ聞く
+  const needValue = kind === "weakness" || kind === "poison";
+  const needSuit = kind !== "poison";
   const content = `<div class="tnx-joker-wild">
     <p>ジョーカーを引きました。ワイルドカードとして指定するか、引き直してください。</p>
-    <div class="form-group"><label>スート</label><select name="suit">${suitOpts}</select></div>
+    ${needSuit ? `<div class="form-group"><label>スート</label><select name="suit">${suitOpts}</select></div>` : ""}
     ${needValue ? `<div class="form-group"><label>数字</label><input type="number" name="value" value="1" min="1"></div>` : ""}
   </div>`;
   return foundry.applications.api.DialogV2.wait({
@@ -426,4 +428,46 @@ export function bindConditionChatButtons(root) {
       else if (b.dataset.type === "negate") ui.notifications.warn("この受付は旧形式です。状態を付与し直すと新しい制御判定要求カードが出ます。");
     });
   }
+}
+
+
+/**
+ * 邪毒の継続ダメージ(15-6・Bad_Status「邪毒」)。**クリンナッププロセスのたびに**山札から1枚引き、
+ * 「出た数字 ＋ 強度」点の肉体ダメージを与える。
+ *
+ * ダメージなので**黙って適用しない**——回復・リセットと違い、キャラクターが受けるダメージは
+ * 他のダメージと同じ見え方をすべきもの(2026-08-29 の「自動適用・報告なし」の対象外)。
+ * 適用は既存のチャート適用経路(`applyDamageChartResult`)に流す。
+ * @param {Actor} actor
+ * @param {number} magnitude 邪毒の強度(n)
+ * @returns {Promise<?number>} 与えたダメージ(引けなかった場合は null)
+ */
+export async function applyPoisonTick(actor, magnitude = 0) {
+  const card = await drawOneToDiscard();
+  let value = null;
+  if (!card) {
+    await postConditionOutcome(actor, {
+      title: "邪毒", tag: "継続ダメージ", status: "info",
+      text: "山札を引けないため、ダメージは発生しませんでした。",
+    });
+    return null;
+  }
+  const isJoker = card.suit === "joker" || card.value === 99;
+  if (isJoker) {
+    const pick = await promptJokerWildcard("poison");
+    if (pick === "redraw") return applyPoisonTick(actor, magnitude);
+    if (!pick) return null; // キャンセル=このクリンナップは適用しない
+    value = pick.value;
+  } else {
+    const ncheck = getCardCheckValue({ numericValue: card.value });
+    value = typeof ncheck === "number" ? ncheck : Number(card.value) || 0;
+  }
+  const total = value + (Number(magnitude) || 0);
+  await applyDamageChartResult(actor, "physical", total);
+  await postConditionOutcome(actor, {
+    title: "邪毒", tag: "継続ダメージ", status: "damage",
+    label: `肉体 ${total} 点`,
+    text: `のダメージ（カード ${value} ＋ 強度 ${Number(magnitude) || 0}）。`,
+  });
+  return total;
 }

@@ -417,3 +417,20 @@ export function collectLostCharacters(characters) {
     }
     return out;
 }
+
+/**
+ * クリンナップで継続ダメージを与える邪毒を抽出する(15-6・Bad_Status「邪毒」)。
+ *
+ * 「クリンナッププロセスのたびに、山札から1枚引いて**出た数字 + n** 点の肉体ダメージ」。
+ * ここでは対象と強度だけを決め、ドローと適用はグルーが行う(純ロジックに乱数を持ち込まない)。
+ * @param {Array<object>|null|undefined} effects そのアクターに乗っている効果
+ * @returns {Array<{id: string, magnitude: number}>}
+ */
+export function planPoisonTicks(effects) {
+    return (effects ?? [])
+        .filter(e => e?.disabled !== true && getConditionKinds(e).includes("poison"))
+        .map(e => ({
+            id: e.id,
+            magnitude: Number(e?.flags?.[SCOPE]?.conditions?.poison?.magnitude) || 0,
+        }));
+}
