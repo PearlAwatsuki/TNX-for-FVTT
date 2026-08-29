@@ -1594,3 +1594,17 @@ describe("hudInfoTnChips()（HUD 情報プレートの目標値チップ・2026-
     expect(hudInfoTnChips(null)).toEqual([]);
   });
 });
+
+describe("舞台裏の列と行動不可（15-5）", () => {
+  const a = (id, name, extra = {}) => ({ id, name, appearing: false, ...extra });
+
+  it("行動不可のキャラクターには手番が回らない（列から外れる）", () => {
+    const queue = backstageQueue([a("x", "あ"), a("y", "い", { incapable: true })]);
+    expect(queue.map(q => q.id)).toEqual(["x"]);
+  });
+
+  it("RL が手動で足していても行動不可なら外れる（何もできないため）", () => {
+    const queue = backstageQueue([a("y", "い", { incapable: true, appearing: true })], ["y"]);
+    expect(queue).toEqual([]);
+  });
+});

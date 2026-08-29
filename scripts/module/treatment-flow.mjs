@@ -22,6 +22,8 @@ import { CONDITION_KINDS, getConditionKinds, usageCanTreatKinds } from "./condit
 import { TargetSelectionDialog } from "./tnx-dialog.mjs";
 import { itemDisplayName } from "./identification.mjs";
 import { usageDisplayName } from "./usage-types.mjs";
+import { buildIncapableEffectData } from "./time-boundary-logic.mjs";
+import { getSessionState } from "./session-state.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -144,5 +146,27 @@ export async function applyTreatmentDelegated({ patientUuid, removeIds }) {
     const patient = await fromUuid(patientUuid).catch(() => null);
     if (!patient) return;
     const ids = (removeIds ?? []).filter(id => patient.effects.get(id));
-    if (ids.length) await patient.deleteEmbeddedDocuments("ActiveEffect", ids);
+    if (!ids.length) return;
+    const rest = buildPostTreatmentRest(patient, ids);
+    await patient.deleteEmbeddedDocuments("ActiveEffect", ids);
+    if (rest) await patient.createEmbeddedDocuments("ActiveEffect", [rest]);
+}
+
+/**
+ * 仮死/昏睡を治療したときに乗せる「行動不可」(15-5・正本 Damage_Rules「『行動可』までの間は
+ * 何もできない」)。**除去の直前に**呼んで、これから消える状態に仮死/昏睡が含まれるかを見る。
+ *
+ * 除去経路は2つ(所有者が直接消す/GM へ委譲)あるので、両方からここを通す。境界での死亡遷移や
+ * アクト終了の後始末は別経路(time-boundary)なので、ここには来ない＝治療のときだけ乗る。
+ * @param {Actor} patient
+ * @param {string[]} removeIds これから除去する効果の id
+ * @returns {?object} 付与する AE データ(対象でなければ null)
+ */
+export function buildPostTreatmentRest(patient, removeIds) {
+    const treatedDeep = (removeIds ?? []).some(id => {
+        const effect = patient?.effects?.get(id);
+        return effect && getConditionKinds(effect).some(k => k === "coma" || k === "stupor");
+    });
+    if (!treatedDeep) return null;
+    return buildIncapableEffectData(getSessionState()?.sceneNumber ?? 0);
 }

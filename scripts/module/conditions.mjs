@@ -69,6 +69,11 @@ const BS_AND_INCAPACITATION = {
   // 適用はアクト終了時(ポストアクト・正本 Damage_Rules/Time_Management)＝**アクト中は行動できる**
   // (applyAtActEnd。blocksMainProcess の対象外＝2026-07-22 ユーザー訂正)
   "erased":     { label: "抹殺",     group: "incapacitation", img: "icons/svg/cancel.svg",   type: "terminal", applyAtActEnd: true, stackable: false },
+  // 行動不可(2026-08-29 ユーザー裁定・正本 Damage_Rules): 仮死/昏睡を治療した後の**2シーン**。
+  // 「シーンへの登場も舞台裏判定も何もできない」——具体的には**登場判定が自動失敗**になり、
+  // **舞台裏の手番が回らない**。期限はシーン番号(治療したシーン+2 から行動可)で、
+  // 効果側の conditions.incapable.actableFromScene に持つ(シーン開始で解除)
+  "incapable":  { label: "行動不可", group: "incapacitation", img: "icons/svg/pill.svg", type: "block", block: "mainProcess", blocksAppearance: true, blocksBackstage: true, stackable: false },
   // 支配(2026-07-12 ユーザー確定): 特殊な精神ダメージのタグ。支配されたキャラクターは RL 操作に
   // なる=自動化なしで運用できる範囲(type なし=行動ブロックもロスト処理も持たないマーカー)。
   // 付与は主にタグ改変 AE(damage.replaceTag/addTag)経由: 昏睡/精神崩壊の上書き・抹殺への追加。

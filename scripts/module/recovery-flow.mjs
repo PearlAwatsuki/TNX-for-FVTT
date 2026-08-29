@@ -42,6 +42,7 @@ import { CONDITION_KINDS, getConditionKinds, recoveryKindMatches, recoveryKindEx
 import { postConditionOutcome } from "./condition-resolution.mjs";
 import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } from "./usage-consumption.mjs";
 import { executionFormOf } from "./usage-types.mjs";
+import { buildPostTreatmentRest } from "./treatment-flow.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -158,7 +159,10 @@ function resolveRecoveryPatient(actor) {
 /** 除去を実行する(所有権が無ければ treatmentApply ソケットで GM 委譲=治療と同じ経路)。 */
 async function applyRecoveryRemoval(patient, removeIds) {
     if (patient.isOwner) {
-        await patient.deleteEmbeddedDocuments("ActiveEffect", removeIds.filter(id => patient.effects.get(id)));
+        const ids = removeIds.filter(id => patient.effects.get(id));
+        const rest = buildPostTreatmentRest(patient, ids);
+        await patient.deleteEmbeddedDocuments("ActiveEffect", ids);
+        if (rest) await patient.createEmbeddedDocuments("ActiveEffect", [rest]);
         return true;
     }
     if (game.users.activeGM) {

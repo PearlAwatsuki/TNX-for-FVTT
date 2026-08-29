@@ -31,6 +31,7 @@ import {
     sceneEntryAppearances, resolveSceneAppearance,
 } from "./appearance-logic.mjs";
 import { listStageCandidates } from "./residence-area.mjs";
+import { hasIncapable } from "./time-boundary-logic.mjs";
 import { promptSceneEntry } from "./scene-entry-dialog.mjs";
 import { getUserFlagData, saveIsScenePlayer } from "./user-flag-schema.mjs";
 
@@ -720,7 +721,9 @@ export function buildBackstageQueue() {
     const extra = getBackstage().extraActorIds ?? [];
     const candidates = game.actors
         .filter(a => a.type === "cast" || extra.includes(a.id))
-        .map(a => ({ id: a.id, name: a.name, appearing: isAppearing(a) }));
+        // 行動不可(仮死/昏睡の治療後2シーン)は手番が回らない(15-5・Damage_Rules)
+        .map(a => ({ id: a.id, name: a.name, appearing: isAppearing(a),
+                     incapable: hasIncapable(a.effects?.contents ?? []) }));
     return backstageQueue(candidates, extra);
 }
 

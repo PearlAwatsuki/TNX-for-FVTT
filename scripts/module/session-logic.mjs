@@ -641,6 +641,9 @@ export function hasBackstage(phase) {
 export function backstageQueue(actors, extraActorIds = []) {
     const extra = new Set(extraActorIds ?? []);
     return (actors ?? [])
+        // 行動不可(仮死/昏睡の治療後2シーン)は手番が回らない——その間は何もできないため
+        // (2026-08-29 ユーザー裁定)。RL の手動追加より優先する
+        .filter(a => !a.incapable)
         .filter(a => !a.appearing || extra.has(a.id))
         .sort((a, b) => String(a.name ?? "").localeCompare(String(b.name ?? ""), "ja"));
 }

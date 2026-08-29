@@ -18,7 +18,7 @@
  */
 
 import { TNX_HOOKS } from "./combat-events.mjs";
-import { TNX_BOUNDARIES, planEffectExpiry, planItemBoundaryUpdates, planConditionRecovery, planActEndDamageCleanup } from "./time-boundary-logic.mjs";
+import { TNX_BOUNDARIES, planEffectExpiry, planItemBoundaryUpdates, planConditionRecovery, planActEndDamageCleanup, planIncapableExpiry } from "./time-boundary-logic.mjs";
 import { CONDITION_KINDS } from "./conditions.mjs";
 import { listAppearingActors } from "./appearance-state.mjs";
 
@@ -151,6 +151,18 @@ export function registerTimeBoundaries() {
     Hooks.on(TNX_HOOKS.actorExit, (actor) => {
         if (!isApplier()) return;
         applyBoundary(TNX_BOUNDARIES.exit, [actor]);
+    });
+
+    // シーンの開始。行動不可(仮死/昏睡の治療後2シーン)の期限をここで切る——期限はシーン番号で
+    // 数えるため、境界の中で「シーン番号が進んだ後」に見るのはここだけ。
+    Hooks.on(TNX_HOOKS.sceneStart, async () => {
+        if (!isApplier()) return;
+        const { getSessionState } = await import("./session-state.mjs");
+        const sceneNumber = getSessionState()?.sceneNumber ?? 0;
+        for (const actor of game.actors?.contents ?? []) {
+            const ids = planIncapableExpiry(actor.effects?.contents ?? [], sceneNumber);
+            if (ids.length) await actor.deleteEmbeddedDocuments("ActiveEffect", ids);
+        }
     });
 
     // アクトの終了。対象を絞らない(絞る意味が無い＝畳むものが無ければ no-op)。

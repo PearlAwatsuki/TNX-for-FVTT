@@ -49,6 +49,7 @@ import { presetLabel } from "./request-presets.mjs";
 import { TnxActionHandler } from "./tnx-action-handler.mjs";
 import { applyStageRef } from "./subscenes.mjs";
 import { resolveHandoutContact } from "./handout-contact.mjs";
+import { collectLostCharacters } from "./time-boundary-logic.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const { DialogV2 } = foundry.applications.api;
@@ -450,11 +451,33 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         if (!confirmed) return;
         const actName = getActiveActJournal()?.name ?? "";
         await endAct();
+        // ポストアクト: ロスト確認(15-5・Scenario_Progress の「致死ダメージが残るキャストの
+        // ロスト確認」)。残存ダメージ消去は tnxActEnd で済んでおり、終端状態だけが残っている
+        await TnxScenarioPanel._promptLostCharacters();
         // ポストアクト: 経験点の半自動配布(14-7)。確定で各ユーザーの履歴へ自動記帳。
         // **アクト限定技能の後始末はその後**(2026-08-13 ユーザー指示)——維持するコネは
         // そのアクトの経験点で買う扱いになるので、配布前に聞くと払う原資が無い
         const { TnxExpAwardApp } = await import("./tnx-exp-award-app.mjs");
         new TnxExpAwardApp({ actName, onFinish: promptActLimitedCleanup }).render(true);
+    }
+
+    /**
+     * ポストアクトのロスト確認(15-5)。終端状態(完全死亡・精神崩壊・抹殺)を持つキャラクターを
+     * RL に提示する。**提示だけで、システムは何も適用しない**——抹殺の「アクト終了時の適用」も
+     * ここに載せることが実体(2026-08-29 ユーザー裁定)。対象が居なければ何も出さない。
+     */
+    static async _promptLostCharacters() {
+        const lost = collectLostCharacters(
+            game.actors.map(a => ({ name: a.name, effects: a.effects.contents })));
+        if (!lost.length) return;
+        const rows = lost
+            .map(l => `<li>${foundry.utils.escapeHTML(l.name)}（${l.labels.join("・")}）</li>`)
+            .join("");
+        await DialogV2.prompt({
+            window: { title: "ロスト確認" },
+            content: `<ul class="tnx-lost-list">${rows}</ul>`,
+            ok: { label: "確認しました" },
+        });
     }
 
     static async _onSwitchScene(_event, target) {

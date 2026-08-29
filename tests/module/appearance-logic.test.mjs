@@ -345,3 +345,18 @@ describe("tokenDeletionImpliesExit()（トークン削除＝退場の判定・20
     expect(tokenDeletionImpliesExit({ appearing: false, sameActorTokenCount: 1 })).toBe(false);
   });
 });
+
+describe("行動不可のキャラクターの登場判定（15-5・Damage_Rules）", () => {
+  it("登場判定は自動失敗になる", () => {
+    expect(appearanceCheckParams({ area: "red", incapable: true }).forcedFailure).toBe("incapable");
+  });
+
+  it("行動不可はエリアの目標値より優先する（キャラクター側の絶対条件）", () => {
+    const out = appearanceCheckParams({ area: "sanctuary", hasNegativeDangerItem: true, incapable: true });
+    expect(out.forcedFailure).toBe("incapable");
+  });
+
+  it("行動不可でなければ従来どおり", () => {
+    expect(appearanceCheckParams({ area: "red", incapable: false }).forcedFailure).toBeNull();
+  });
+});

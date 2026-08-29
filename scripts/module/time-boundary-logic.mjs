@@ -338,3 +338,82 @@ export function planActEndDamageCleanup(effects) {
     }
     return removeIds;
 }
+
+
+/** 行動不可が明ける「シーン数」。仮死/昏睡は治療の**2シーン後**から行動可(Damage_Rules)。 */
+const INCAPABLE_SCENES = 2;
+
+/** 行動不可の状態キー。 */
+const INCAPABLE_KIND = "incapable";
+
+/**
+ * 行動不可を付与する AE データ(15-5)。仮死/昏睡の治療成功時に患者へ乗せる。
+ * @param {number} sceneNumber 治療したシーンの番号(sessionState.sceneNumber)
+ * @returns {object} createEmbeddedDocuments("ActiveEffect", ...) 用のデータ
+ */
+export function buildIncapableEffectData(sceneNumber) {
+    const def = CONDITION_KINDS[INCAPABLE_KIND];
+    const from = (Number(sceneNumber) || 0) + INCAPABLE_SCENES;
+    return {
+        name: def?.label ?? "行動不可",
+        img:  def?.img ?? "icons/svg/pill.svg",
+        statuses: [INCAPABLE_KIND],
+        flags: { [SCOPE]: {
+            conditionKind: INCAPABLE_KIND,
+            conditions: { [INCAPABLE_KIND]: { actableFromScene: from } },
+        } },
+    };
+}
+
+/**
+ * 期限に達した行動不可を抽出する(シーン開始で呼ぶ)。シーンが飛んでも取り残さないよう
+ * 「以上」で判定する。
+ * @param {Array<object>|null|undefined} effects
+ * @param {number} sceneNumber 現在のシーン番号
+ * @returns {string[]} 除去する効果の id
+ */
+export function planIncapableExpiry(effects, sceneNumber) {
+    const now = Number(sceneNumber) || 0;
+    return (effects ?? [])
+        .filter(e => getConditionKinds(e).includes(INCAPABLE_KIND))
+        .filter(e => {
+            const from = e?.flags?.[SCOPE]?.conditions?.[INCAPABLE_KIND]?.actableFromScene;
+            return Number.isFinite(Number(from)) && now >= Number(from);
+        })
+        .map(e => e.id);
+}
+
+/**
+ * 行動不可を受けているか(登場判定の強制失敗・舞台裏の手番除外が読む)。
+ * @param {Array<object>|null|undefined} effects
+ * @returns {boolean}
+ */
+export function hasIncapable(effects) {
+    return (effects ?? []).some(e => e?.disabled !== true && getConditionKinds(e).includes(INCAPABLE_KIND));
+}
+
+/**
+ * ポストアクトの**ロスト確認**に挙げるキャラクター(15-5・Scenario_Progress「ポストアクト」の
+ * 「致死ダメージが残るキャストのロスト確認」)。
+ *
+ * 終端状態(完全死亡・精神崩壊・抹殺)を持つ者を、状態名つきで挙げる。**抹殺の「アクト終了時の
+ * 適用」はここに載せること**(2026-08-29 ユーザー裁定)——抹殺はもともとマーカーで、アクトが
+ * 終わった後に塞ぐべき行動が無いため、卓に提示する以上の機構を持たせない。
+ * @param {Array<{name: string, effects: Array<object>}>|null|undefined} characters
+ * @returns {Array<{name: string, labels: string[]}>}
+ */
+export function collectLostCharacters(characters) {
+    const out = [];
+    for (const character of (characters ?? [])) {
+        const labels = [];
+        for (const effect of (character?.effects ?? [])) {
+            for (const kind of getConditionKinds(effect)) {
+                const def = CONDITION_KINDS[kind];
+                if (def?.type !== "terminal") continue;
+                if (!labels.includes(def.label)) labels.push(def.label);
+            }
+        }
+        if (labels.length) out.push({ name: character.name, labels });
+    }
+    return out;
+}

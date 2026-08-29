@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { TNX_BOUNDARIES, planConditionRecovery, planActionRecoveryRows, planActEndDamageCleanup } from "../../scripts/module/time-boundary-logic.mjs";
+import { TNX_BOUNDARIES, planConditionRecovery, planActionRecoveryRows, planActEndDamageCleanup,
+         buildIncapableEffectData, planIncapableExpiry, hasIncapable,
+         collectLostCharacters } from "../../scripts/module/time-boundary-logic.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -220,5 +222,63 @@ describe("仮死・昏睡の死亡判定（シーン終了＝退場・15-5）", 
 
     it("治療されて仮死が消えていれば何も起きない", () => {
         expect(planConditionRecovery([wound("w", "phys-15")], TNX_BOUNDARIES.exit).removeIds).toEqual([]);
+    });
+});
+
+describe("行動不可（仮死/昏睡の治療後2シーン・15-5）", () => {
+    const incapable = (id, from) => ({
+        id, statuses: ["incapable"],
+        flags: { [SCOPE]: { conditionKind: "incapable", conditions: { incapable: { actableFromScene: from } } } },
+    });
+
+    it("治療したシーンの2つ後から行動できる", () => {
+        expect(buildIncapableEffectData(3).flags[SCOPE].conditions.incapable.actableFromScene).toBe(5);
+    });
+
+    it("期限に届くまでは行動不可のまま", () => {
+        expect(planIncapableExpiry([incapable("a", 5)], 4)).toEqual([]);
+    });
+
+    it("期限のシーンに入ったら行動不可が外れる", () => {
+        expect(planIncapableExpiry([incapable("a", 5)], 5)).toEqual(["a"]);
+    });
+
+    it("期限を過ぎていても外れる（シーンが飛んでも取り残さない）", () => {
+        expect(planIncapableExpiry([incapable("a", 5)], 9)).toEqual(["a"]);
+    });
+
+    it("行動不可でない効果は触らない", () => {
+        expect(planIncapableExpiry([bs("a", "faint")], 9)).toEqual([]);
+    });
+
+    it("行動不可を受けているかを判定できる", () => {
+        expect(hasIncapable([incapable("a", 5)])).toBe(true);
+        expect(hasIncapable([bs("a", "faint")])).toBe(false);
+        expect(hasIncapable(null)).toBe(false);
+    });
+});
+
+describe("ポストアクトのロスト確認（15-5・Scenario_Progress）", () => {
+    const chr = (name, effects) => ({ name, effects });
+
+    it("終端状態を持つキャラクターを、状態名つきで挙げる", () => {
+        const list = [chr("A", [bs("x", "dead")]), chr("B", [bs("y", "erased")])];
+        expect(collectLostCharacters(list)).toEqual([
+            { name: "A", labels: ["完全死亡"] },
+            { name: "B", labels: ["抹殺"] },
+        ]);
+    });
+
+    it("複数の終端状態はまとめて挙げる", () => {
+        const list = [chr("A", [bs("x", "erased"), bs("y", "dominated")])];
+        expect(collectLostCharacters(list)).toEqual([{ name: "A", labels: ["抹殺"] }]);
+    });
+
+    it("終端状態が無いキャラクターは挙げない", () => {
+        expect(collectLostCharacters([chr("A", [bs("x", "faint")])])).toEqual([]);
+    });
+
+    it("誰も居なくても落ちない", () => {
+        expect(collectLostCharacters(null)).toEqual([]);
     });
 });
