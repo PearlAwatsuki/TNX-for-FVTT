@@ -251,3 +251,42 @@ export function planConditionRecovery(effects, boundary, { isMainActor = false }
     }
     return { removeIds, downgrades };
 }
+
+
+/** 支払い方の表示。ボタンの文言はここが正本(操作アフォーダンス＝押すと何を支払うか)。 */
+export const PAYMENT_LABELS = Object.freeze({
+    minorUse:           "マイナーを使用",
+    majorAbandon:       "メジャーを放棄",
+    minorMajorAbandon:  "マイナー・メジャーを放棄",
+});
+
+/** メジャーアクションの消費を伴う支払い(＝AR を消費する。放棄も行動を行ったものとみなす)。 */
+export const MAJOR_PAYMENTS = new Set(["majorAbandon", "minorMajorAbandon"]);
+
+/**
+ * 行動を支払って回復する BS の行(15-4)。**1 BS 種別につき 1 行**——重圧・捕縛は「全て回復」
+ * (2026-08-29 ユーザー裁定)で、捕縛を武器ごとに複数受けていても 1 回のメジャー放棄で全て戻る。
+ *
+ * `payment` を持つ種別だけを出す。狼狽も `recovery: "action"` だが支払い方が UI として
+ * 定義されていない(Bad_Status に回復条件の記載が無い)ため行を出さない。
+ * @param {Array<object>|null|undefined} effects そのアクターに乗っている効果
+ * @returns {Array<{kind: string, label: string, count: number, payment: string}>}
+ */
+export function planActionRecoveryRows(effects) {
+    const counts = new Map();
+    for (const effect of (effects ?? [])) {
+        for (const kind of getConditionKinds(effect)) {
+            if (!CONDITION_KINDS[kind]?.payment) continue;
+            counts.set(kind, (counts.get(kind) ?? 0) + 1);
+        }
+    }
+    // 並びはレジストリの順(BS の統合順)に揃える——受けた順で行が入れ替わらないように
+    return Object.keys(CONDITION_KINDS)
+        .filter(kind => counts.has(kind))
+        .map(kind => ({
+            kind,
+            label:   CONDITION_KINDS[kind].label,
+            count:   counts.get(kind),
+            payment: CONDITION_KINDS[kind].payment,
+        }));
+}

@@ -101,6 +101,24 @@
                         {{/if}}
                     </div>
 
+                    {{#if actionRecoveries.length}}
+                    {{!-- 行動を支払って回復する BS(15-4)。1 BS 種別=1ボタンで、押した時点で
+                         支払いと回復が同時に済む。押せるのはカット進行中だけ(カット進行外は
+                         AR という原資自体が無い)。正本 Bad_Status「行動を支払って回復する BS」 --}}
+                    <div class="tnx-section-header"><h3>行動での回復</h3></div>
+                    <div class="action-recoveries">
+                        {{#each actionRecoveries as |r|}}
+                        <div class="action-recovery-row" data-condition-kind="{{r.kind}}">
+                            <span class="action-recovery-row__name">
+                                {{r.label}}{{r.countText}}
+                            </span>
+                            <button type="button" class="tnx-btn action-recovery-row__pay recovery-trigger"
+                                    data-action="recoverByAction">{{r.paymentLabel}}</button>
+                        </div>
+                        {{/each}}
+                    </div>
+                    {{/if}}
+
                     <div class="tnx-section-header"><h3>武器</h3></div>
                     <div class="combat-refs">
                         <div class="combat-ref-line">

@@ -35,14 +35,14 @@ const SCOPE = "tokyo-nova-axleration";
 const BS_AND_INCAPACITATION = {
   // --- バッドステータス(group: "bs") ---
   "panic":        { label: "恐慌",     group: "bs", img: "icons/svg/silenced.svg",    type: "block", block: "reaction",     stackable: false, recovery: "ownMainStart" },
-  "poison":       { label: "邪毒",     group: "bs", img: "icons/svg/poison.svg",     type: "continuous", magnitudeField: true, stackable: false, recovery: "action" },
+  "poison":       { label: "邪毒",     group: "bs", img: "icons/svg/poison.svg",     type: "continuous", magnitudeField: true, stackable: false, recovery: "action", payment: "minorMajorAbandon" },
   // 重圧: 能力値は指定/未指定(受ける際に引く)あり。abilityField 空欄可(空欄=指定なし=カードで決定)。
-  "pressure":     { label: "重圧",     group: "bs", img: "icons/svg/down.svg",       type: "block", block: "abilityCheck", abilityField: "optional", abilityBlankLabel: "指定なし（カードで決定）", stackable: false, recovery: "action" },
+  "pressure":     { label: "重圧",     group: "bs", img: "icons/svg/down.svg",       type: "block", block: "abilityCheck", abilityField: "optional", abilityBlankLabel: "指定なし（カードで決定）", stackable: false, recovery: "action", payment: "minorUse" },
   // 衰弱: 数字なし=引いたスート1つの制御値を引いた数字分/ (-数字)=全制御値。通常は引いて決まるが、
   // 手動編集(効果編集ダイアログ)で対象制御値も指定できるよう abilityField 追加(空=全制御値)。
   // 適用側は targetAbility 指定=その制御値のみ/未指定=全制御値を既に扱う(conditions.mjs §3①)。
   "weakness":     { label: "衰弱",     group: "bs", img: "icons/svg/degen.svg",      type: "numeric", apply: "control", magnitudeField: true, abilityField: "optional", stackable: true },
-  "capture":      { label: "捕縛",     group: "bs", img: "icons/svg/net.svg",        type: "block", block: "attackWith", weaponField: true, stackable: true, recovery: "action" },
+  "capture":      { label: "捕縛",     group: "bs", img: "icons/svg/net.svg",        type: "block", block: "attackWith", weaponField: true, stackable: true, recovery: "action", payment: "majorAbandon" },
   // 酩酊: 減少量は固定(小-2 / 大-5)。小↔大は別BSで重なる。
   "doped-major":  { label: "酩酊(大)", group: "bs", img: "icons/svg/daze.svg",       type: "numeric", apply: "checkAndControl", fixedMagnitude: 5, stackable: false, recovery: "cleanup", downgradeTo: "doped-minor" },
   "doped-minor":  { label: "酩酊(小)", group: "bs", img: "icons/svg/sleep.svg",      type: "numeric", apply: "checkAndControl", fixedMagnitude: 2, stackable: false, recovery: "cleanup" },

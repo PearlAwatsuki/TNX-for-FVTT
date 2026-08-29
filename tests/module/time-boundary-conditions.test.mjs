@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { TNX_BOUNDARIES, planConditionRecovery } from "../../scripts/module/time-boundary-logic.mjs";
+import { TNX_BOUNDARIES, planConditionRecovery, planActionRecoveryRows } from "../../scripts/module/time-boundary-logic.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -121,5 +121,40 @@ describe("planConditionRecovery()（BS の回復タイミング・15-4）", () =
 
     it("効果が無くても落ちない", () => {
         expect(planConditionRecovery(null, TNX_BOUNDARIES.exit)).toEqual({ removeIds: [], downgrades: [] });
+    });
+});
+
+describe("planActionRecoveryRows()（行動を支払って回復する BS の行・15-4）", () => {
+    const rows = (effects) => planActionRecoveryRows(effects);
+
+    it("重圧を受けていれば「マイナーを使用」で回復する行が出る", () => {
+        expect(rows([bs("a", "pressure")]))
+            .toEqual([{ kind: "pressure", label: "重圧", count: 1, payment: "minorUse" }]);
+    });
+
+    it("捕縛は武器ごとに複数受けても行は1つ（1回のメジャー放棄で全て回復する）", () => {
+        const out = rows([bs("a", "capture"), bs("b", "capture")]);
+        expect(out).toEqual([{ kind: "capture", label: "捕縛", count: 2, payment: "majorAbandon" }]);
+    });
+
+    it("邪毒はマイナー・メジャー両方の放棄を一度に宣言する", () => {
+        expect(rows([bs("a", "poison")]))
+            .toEqual([{ kind: "poison", label: "邪毒", count: 1, payment: "minorMajorAbandon" }]);
+    });
+
+    it("受けていない BS の行は出ない", () => {
+        expect(rows([bs("a", "pressure")]).map(r => r.kind)).toEqual(["pressure"]);
+    });
+
+    it("境界で回復する BS（恐慌・酩酊）の行は出ない", () => {
+        expect(rows([bs("a", "panic"), bs("b", "doped-minor")])).toEqual([]);
+    });
+
+    it("狼狽は行を出さない（支払い方が UI として定義されていない）", () => {
+        expect(rows([bs("a", "confusion")])).toEqual([]);
+    });
+
+    it("効果が無くても落ちない", () => {
+        expect(planActionRecoveryRows(null)).toEqual([]);
     });
 });

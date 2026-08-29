@@ -10643,3 +10643,36 @@ button.tnx-create-act-button span {
     flex: 1;
     min-width: 0;
 }
+
+/* 行動での回復(15-4): 戦闘タブの「支払って回復する BS」の行。武器/防御力の行(combat-ref-line)と
+   同じ体系＝固定の名前列＋行幅 420px。ボタンは内容幅にする——共通の .tnx-btn は width:100% で、
+   そのままだと行の幅を全部取って名前が 1 文字ずつ折り返す(隔離実機で実測) */
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .action-recoveries {
+    margin-bottom: 14px;
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .action-recovery-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: 420px;
+    padding: 3px 6px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .action-recovery-row__name {
+    flex: 0 0 84px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.78em;
+    letter-spacing: 0.06em;
+    color: var(--tnx2-text-secondary);
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .action-recovery-row__pay {
+    flex: 0 0 auto;
+    width: auto;
+    margin-left: auto;
+    height: 28px;
+}

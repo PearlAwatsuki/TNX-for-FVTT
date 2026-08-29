@@ -33,7 +33,8 @@ import { ALL_SUITS } from '../module/tnx-check-engine.mjs';
 import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
 import { groupStyleSkillsByStyle } from '../module/style-skill-acquisition.mjs';
 import { HOUSING_AREA_RANKS } from '../data/item/housing-area.mjs';
-import { CONDITION_KINDS, readConditions, getConditionKind, getEffectiveConditions, getCheckBlock, gatherSkillUseWarnings, woundChartValue } from '../module/conditions.mjs';
+import { CONDITION_KINDS, readConditions, getConditionKind, getConditionKinds, getEffectiveConditions, getCheckBlock, gatherSkillUseWarnings, woundChartValue } from '../module/conditions.mjs';
+import { planActionRecoveryRows, PAYMENT_LABELS, MAJOR_PAYMENTS } from '../module/time-boundary-logic.mjs';
 import { applyTriggerDisable } from '../module/ui-trigger-disable.mjs';
 import { openConditionEditDialog } from '../module/condition-edit.mjs';
 import { startTreatment } from '../module/treatment-flow.mjs';
@@ -102,6 +103,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             incrementField:       TnxCharacterSheetBase._onIncrementField,
             decrementField:       TnxCharacterSheetBase._onDecrementField,
             initCombatSpeed:      TnxCharacterSheetBase._onInitCombatSpeed,
+            recoverByAction:      TnxCharacterSheetBase._onRecoverByAction,
         },
         dragDrop: [{ dragSelector: ".item-list .item, .style-skills-list .item, .skills-list-view .item, .outfit-groups-container .outfit-row:not(.outfit-row--option):not(.outfit-row--header)", dropSelector: null }],
     };
@@ -335,6 +337,12 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         });
         context.badStatuses = bsList;
 
+        // 行動を支払って回復する BS(15-4)。1 BS 種別につき1行で、押すと支払いと回復が同時に済む。
+        // 押せるのはカット進行中だけ——カット進行外は AR という原資自体が存在しない(付与型)。
+        context.actionRecoveries = planActionRecoveryRows(this.actor.effects.contents)
+            .map(row => ({ ...row, paymentLabel: PAYMENT_LABELS[row.payment] ?? "", countText: row.count > 1 ? ` ×${row.count}` : "" }));
+        context.inCutProgression = this.actor.system?.actionRank?.inCombat === true;
+
         this._getCitizenRankData(context);
         if (this.sheetFeatures.abilities) {
             this._getAbilitiesData(context, allStyles);
@@ -546,6 +554,12 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             const b = getCheckBlock(blockConds, { upward: true, ability: t.dataset.abilityKey });
             return b.blocked ? { reason: `「${b.by}」により、この能力値を使う判定はできません` } : null;
         });
+        // 行動での回復(15-4): カット進行外は AR という原資が存在しない(付与型)ので支払えない。
+        // 行動回数の制限ではなく原資の有無による区別。
+        applyTriggerDisable(el, '[data-action="recoverByAction"]', () => (
+            this.actor.system?.actionRank?.inCombat === true
+                ? null : { reason: "カット進行中のみ" }
+        ));
 
         // スキルプロパティ変更(EXP 連動あり、data-action 外で処理)
         for (const input of el.querySelectorAll(".skill-property-change")) {
@@ -2881,6 +2895,29 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const patch = buildCombatSpeedInit(this.actor.system);
         await this.actor.update(patch);
         ui.notifications?.info(`CS を決定しました（CS ${patch["system.combatSpeed.value"]}）。`);
+    }
+
+    /**
+     * 行動を支払って BS を回復する(15-4・正本 Bad_Status「行動を支払って回復する BS」)。
+     *
+     * 押した時点で支払いと回復の両方が済む(別の回復ボタンは出さない)。回復は**その種別を全て**
+     * ——重圧・捕縛は「全回復」であり、捕縛を武器ごとに複数受けていても 1 回のメジャー放棄で戻る。
+     * メジャーの放棄は**行動の放棄というアクションを行ったもの**とみなすため、通常のメジャー行使と
+     * 同じ記帳に積む(プロセス終了時に AR−1＋CS カレント 0 が一般則で適用される)。
+     */
+    static async _onRecoverByAction(_event, target) {
+        const kind = target.closest("[data-condition-kind]")?.dataset.conditionKind;
+        if (!kind) return;
+        const payment = CONDITION_KINDS[kind]?.payment;
+        const ids = this.actor.effects.contents
+            .filter(e => getConditionKinds(e).includes(kind))
+            .map(e => e.id);
+        if (!ids.length) return;
+        if (MAJOR_PAYMENTS.has(payment)) {
+            const { TnxCombat } = await import("../combat/tnx-combat.mjs");
+            await TnxCombat.markMajorAction(this.actor);
+        }
+        await this.actor.deleteEmbeddedDocuments("ActiveEffect", ids);
     }
 
     // 武器の参照宣言(weaponRefs)は編集モードのドロップダウン(name バインド・submitOnChange)で
