@@ -41,10 +41,11 @@
                 {{/each}}
                 <tr class="exa-rl-row">
                     <td class="exa-user">{{rlName}}（RL）</td>
+                    <td class="exa-check"></td>
                     <td class="exa-check">
                         <input type="checkbox" data-rl-venue {{checked rlVenue}} />
                     </td>
-                    <td class="exa-rl-note" colspan="{{rlSpan}}">会場の手配＋min(プレイヤー合計÷3, プレイヤー人数)</td>
+                    <td class="exa-rl-share" colspan="{{rlSpan}}">{{#if rlDivisor}}プレイヤーの取得経験点の合計 {{rlPlayerTotal}} ÷ {{rlDivisor}} ＝ {{rlShare}}{{/if}}</td>
                     <td class="exa-total">{{rlTotal}}</td>
                 </tr>
             </tbody>

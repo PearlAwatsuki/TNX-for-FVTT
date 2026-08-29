@@ -10291,11 +10291,7 @@ button.tnx-create-act-button span {
 
 .tnx-exp-award .exa-total { font-weight: 700; }
 
-.tnx-exp-award .exa-rl-note {
-    font-size: 0.85em;
-    opacity: 0.8;
-    text-align: left;
-}
+.tnx-exp-award .exa-rl-share { font-size: 0.85em; }
 
 .tnx-exp-award .exa-footer {
     display: flex;

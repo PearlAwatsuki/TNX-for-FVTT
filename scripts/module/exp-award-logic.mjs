@@ -35,16 +35,34 @@ export function calcPlayerExpTotal({ checks = {}, miracleCount = 0, sceneCount =
 }
 
 /**
- * RL の経験点合計(会場手配＋min(PL合計÷3[切り捨て], PL人数))。
+ * RL の経験点の内訳(2026-08-30 ユーザー是正)。
+ *
+ * 会場手配(1点)＋「プレイヤーの取得経験点の合計 ÷『3かプレイヤー人数の小さいほう』」(切り捨て)。
+ * 従来の「min(PL合計÷3, PL人数)」は誤読(除数が min(3, 人数)であり、商と人数を比べるのではない)。
+ *
+ * @param {{venue?:boolean, playerTotal?:number, playerCount?:number}} args
+ * @returns {{playerTotal:number, divisor:number, share:number, total:number}}
+ */
+export function calcRlExpBreakdown({ venue = false, playerTotal = 0, playerCount = 0 } = {}) {
+    const total = Math.max(0, Math.trunc(Number(playerTotal) || 0));
+    const count = Math.max(0, Math.trunc(Number(playerCount) || 0));
+    const divisor = Math.min(3, count);
+    const share = divisor > 0 ? Math.floor(total / divisor) : 0;
+    return {
+        playerTotal: total,
+        divisor,
+        share,
+        total: (venue === true ? 1 : 0) + share,
+    };
+}
+
+/**
+ * RL の経験点合計。内訳は calcRlExpBreakdown を参照。
  * @param {{venue?:boolean, playerTotal?:number, playerCount?:number}} args
  * @returns {number}
  */
-export function calcRlExpTotal({ venue = false, playerTotal = 0, playerCount = 0 } = {}) {
-    const share = Math.min(
-        Math.floor(Math.max(0, Number(playerTotal) || 0) / 3),
-        Math.max(0, Math.trunc(Number(playerCount) || 0)),
-    );
-    return (venue === true ? 1 : 0) + share;
+export function calcRlExpTotal(args = {}) {
+    return calcRlExpBreakdown(args).total;
 }
 
 /**

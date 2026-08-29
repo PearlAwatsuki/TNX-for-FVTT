@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   EXP_AWARD_CHECKS,
   calcPlayerExpTotal,
+  calcRlExpBreakdown,
   calcRlExpTotal,
   awardEntryDate,
 } from "../../scripts/module/exp-award-logic.mjs";
@@ -34,19 +35,38 @@ describe("calcPlayerExpTotal()（チェック＋神業×1＋登場シーン×1[�
   });
 });
 
-describe("calcRlExpTotal()（RL＝会場手配＋min(PL合計÷3切り捨て, PL人数)）", () => {
-  it("PL合計÷3（切り捨て）と PL 人数の少ない方", () => {
-    expect(calcRlExpTotal({ venue: false, playerTotal: 40, playerCount: 3 })).toBe(3);   // min(13, 3)
-    expect(calcRlExpTotal({ venue: false, playerTotal: 7, playerCount: 4 })).toBe(2);    // min(2, 4)
+describe("calcRlExpTotal()（RL＝会場手配＋PL合計÷min(3, PL人数)[切り捨て]・2026-08-30 是正）", () => {
+  it("PL 3人以上は合計を3で割る（切り捨て）", () => {
+    expect(calcRlExpTotal({ venue: false, playerTotal: 40, playerCount: 3 })).toBe(13);
+    expect(calcRlExpTotal({ venue: false, playerTotal: 40, playerCount: 5 })).toBe(13);
+  });
+
+  it("PL 3人未満は合計を人数で割る", () => {
+    expect(calcRlExpTotal({ venue: false, playerTotal: 41, playerCount: 2 })).toBe(20);
+    expect(calcRlExpTotal({ venue: false, playerTotal: 7, playerCount: 1 })).toBe(7);
   });
 
   it("会場手配で +1", () => {
     expect(calcRlExpTotal({ venue: true, playerTotal: 9, playerCount: 5 })).toBe(1 + 3);
   });
 
-  it("PL がいなければ 0（＋会場のみ）", () => {
+  it("PL がいなければ配分 0（0除算しない・会場のみ）", () => {
     expect(calcRlExpTotal({ venue: true, playerTotal: 0, playerCount: 0 })).toBe(1);
     expect(calcRlExpTotal({})).toBe(0);
+  });
+});
+
+describe("calcRlExpBreakdown()（配布ダイアログの内訳表示が読む）", () => {
+  it("除数と配分を返す", () => {
+    expect(calcRlExpBreakdown({ venue: true, playerTotal: 26, playerCount: 4 }))
+      .toEqual({ playerTotal: 26, divisor: 3, share: 8, total: 9 });
+    expect(calcRlExpBreakdown({ venue: false, playerTotal: 26, playerCount: 2 }))
+      .toEqual({ playerTotal: 26, divisor: 2, share: 13, total: 13 });
+  });
+
+  it("欠損・負数は0として頑健", () => {
+    expect(calcRlExpBreakdown({ playerTotal: -5, playerCount: -1 }))
+      .toEqual({ playerTotal: 0, divisor: 0, share: 0, total: 0 });
   });
 });
 
