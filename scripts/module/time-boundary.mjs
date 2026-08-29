@@ -98,15 +98,19 @@ export async function applyBoundary(boundary, actors, { mainActorId = null } = {
 }
 
 /**
- * クリンナップの邪毒ダメージ(15-6)。ドローとチャート適用は condition-resolution が持つ——
- * 山札・ダメージ適用はそちらの領分で、ここは「誰にいつ起こるか」だけを決める。
+ * クリンナップの邪毒(15-6)。**カードは自動で引かない**——受付カードを出すだけで、
+ * 受けたキャラクターを操作しているプレイヤーか RL がボタンで引く(2026-08-29 ユーザー指示)。
+ * ドローとチャート適用は condition-resolution の領分で、ここは「誰にいつ起こるか」だけを決める。
  * @param {Actor} actor
  */
 async function tickPoisonOn(actor) {
     const ticks = planPoisonTicks(actor?.effects?.contents ?? []);
     if (!ticks.length) return;
-    const { applyPoisonTick } = await import("./condition-resolution.mjs");
-    for (const tick of ticks) await applyPoisonTick(actor, tick.magnitude);
+    const { postPoisonDrawPrompt } = await import("./condition-resolution.mjs");
+    for (const tick of ticks) {
+        const effect = actor.effects.get(tick.id);
+        if (effect) await postPoisonDrawPrompt(actor, effect, tick.magnitude);
+    }
 }
 
 /**
