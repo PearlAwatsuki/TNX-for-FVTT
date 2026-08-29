@@ -107,9 +107,7 @@ const SOCIAL = {
   "soc-14": { label: "造反",         skillBlock: { category: "society" } },
   "soc-15": { label: "人脈消失",     skillBlock: { category: "contact" } },
   "soc-16": { label: "襲撃",         inflicts: [{ kind: "pressure", duration: "治療まで" }] },
-  // 逮捕令状: 即座に退場・次シーン登場不可。未自動化(自動化はフェーズ15=時間管理・2026-08-23
-  // 裁定。チーム離脱→退場の順を含む設計は wiki Phase_14_Tasks_Detail「申し送り詳細」に保存)
-  // 逮捕令状(15-7): 付与でチームから抜けてから退場し(退場連動に乗せない=2026-08-23 裁定)、
+  // 逮捕令状(15-7・自動化済み): 付与でチームから抜けてから退場し(退場連動に乗せない=2026-08-23 裁定)、
   // 以後この負傷が生きている間は登場判定が自動失敗になる。負傷自体は「次のシーン」が
   // 終われば消える=付与シーン+2 から自由(2026-08-29 裁定・正本 Appearance_Check)
   "soc-17": { label: "逮捕令状", forcesExit: true, blocksAppearance: true, freeAfterScenes: 2 },
