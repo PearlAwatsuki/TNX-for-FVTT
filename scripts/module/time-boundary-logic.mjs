@@ -147,6 +147,7 @@ function usesResetRank(item) {
  * - **使用回数**: その単位の境界で消費(`uses.spent`)を 0 に戻す。上位の境界は下位の単位も戻す。
  * - **消費アイテムの個数**: アクト単位で常備化個数(`quantity.max`)まで戻す
  *   (Time_Management「消費アイテム: 個数はアクト単位」)。
+ * - **故障・破壊**: アクト終了で解除する(アクト間に持ち越さない)。
  *
  * 変化しないものは patch に含めない——無駄な書き込みでユーザーのデータを触らないため。
  * @param {Array<object>|null|undefined} items
@@ -167,6 +168,11 @@ export function planItemBoundaryUpdates(items, boundary) {
             && quantity && (Number(quantity.value) || 0) < (Number(quantity.max) || 0)) {
             patch["system.quantity.value"] = Number(quantity.max) || 0;
         }
+        // 故障・破壊はアクト間に持ち越さない(outfit-base の申し送り)。立っているものだけ落とす
+        if (boundary === TNX_BOUNDARIES.actEnd) {
+            if (item?.system?.isMalfunction === true) patch["system.isMalfunction"] = false;
+            if (item?.system?.isDestroyed === true) patch["system.isDestroyed"] = false;
+        }
         if (Object.keys(patch).length) updates.push({ _id: item.id, ...patch });
     }
     return updates;
@@ -175,9 +181,12 @@ export function planItemBoundaryUpdates(items, boundary) {
 
 /** 境界 → その境界を回復条件とする BS の `recovery` 値。ここに無い境界は個別回復を起こさない。 */
 const BOUNDARY_RECOVERY = Object.freeze({
-    [TNX_BOUNDARIES.mainProcessStart]: "ownMainStart",
-    [TNX_BOUNDARIES.mainProcessEnd]:   "ownMainEnd",
-    [TNX_BOUNDARIES.cleanup]:          "cleanup",
+    [TNX_BOUNDARIES.mainProcessStart]:  "ownMainStart",
+    [TNX_BOUNDARIES.mainProcessEnd]:    "ownMainEnd",
+    [TNX_BOUNDARIES.cleanup]:           "cleanup",
+    // 気絶/失神はカット進行終了で自動回復(Damage_Rules)。BS の全解除とは別経路——
+    // 全解除はバッドステータスだけを対象にするため
+    [TNX_BOUNDARIES.cutProgressionEnd]: "cutProgressionEnd",
 });
 
 /** 本人のメインプロセスに紐づく回復条件(他人のメインでは起きない)。 */
@@ -235,12 +244,14 @@ export function planConditionRecovery(effects, boundary, { isMainActor = false }
 
     const aliveIds = new Set(list.map(e => e?.id));
     for (const effect of list) {
-        const bsKinds = getConditionKinds(effect).filter(k => CONDITION_KINDS[k]?.group === "bs");
-        if (!bsKinds.length) continue;
+        const kinds = getConditionKinds(effect);
+        const bsKinds = kinds.filter(k => CONDITION_KINDS[k]?.group === "bs");
+        // 個別の回復条件は BS 以外(気絶/失神)も持つ。全解除はバッドステータスだけが対象。
+        const matched = trigger ? kinds.filter(k => CONDITION_KINDS[k]?.recovery === trigger) : [];
+        if (!bsKinds.length && !matched.length) continue;
         // アクト終了は「ダメージが治療されるかアクト終了まで」の後半＝ゲートを越えて落とす
         if (boundary !== TNX_BOUNDARIES.actEnd && isUntreatedGated(effect, bsKinds, aliveIds)) continue;
-        if (clearAll) { removeIds.push(effect.id); continue; }
-        const matched = bsKinds.filter(k => CONDITION_KINDS[k]?.recovery === trigger);
+        if (clearAll && bsKinds.length) { removeIds.push(effect.id); continue; }
         if (!matched.length) continue;
         removeIds.push(effect.id);
         // 変換(酩酊(大)→(小))。同時に受けている(小)も同じ境界で回復するため、結果は(小)が1つ
@@ -288,4 +299,39 @@ export function planActionRecoveryRows(effects) {
             count:   counts.get(kind),
             payment: CONDITION_KINDS[kind].payment,
         }));
+}
+
+
+/**
+ * アクト終了の**残存ダメージ消去**(15-5・Scenario_Progress「ポストアクト」)。
+ *
+ * 消すのは**負傷と、それが与えた非終端の状態**(気絶/失神/仮死/昏睡・紐づく効果)。
+ * **終端状態(完全死亡・精神崩壊・抹殺)は消さない**——キャラロストはアクトを越えて残る事実で、
+ * 後始末で無かったことにするものではない。負傷に紐づいていても終端状態はその場に残す。
+ * @param {Array<object>|null|undefined} effects
+ * @returns {string[]} 除去する効果の id
+ */
+export function planActEndDamageCleanup(effects) {
+    const list = effects ?? [];
+    const isTerminal = (kind) => CONDITION_KINDS[kind]?.type === "terminal";
+    const removeIds = [];
+    const removedWounds = new Set();
+    for (const effect of list) {
+        const kinds = getConditionKinds(effect);
+        if (!kinds.length || kinds.some(isTerminal)) continue;
+        const isWound = kinds.some(k => CONDITION_KINDS[k]?.type === "wound");
+        const isIncapacitation = kinds.some(k => CONDITION_KINDS[k]?.group === "incapacitation");
+        if (!isWound && !isIncapacitation) continue;
+        removeIds.push(effect.id);
+        if (isWound) removedWounds.add(effect.id);
+    }
+    // 消える負傷に紐づく効果(終端でないもの)も一緒に落とす
+    for (const effect of list) {
+        const woundId = effect?.flags?.[SCOPE]?.woundSource;
+        if (!woundId || !removedWounds.has(woundId)) continue;
+        if (removeIds.includes(effect.id)) continue;
+        if (getConditionKinds(effect).some(isTerminal)) continue;
+        removeIds.push(effect.id);
+    }
+    return removeIds;
 }

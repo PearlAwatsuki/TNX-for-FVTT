@@ -93,3 +93,28 @@ describe("planItemBoundaryUpdates()（境界でのアイテム側リセット・
         expect(planItemBoundaryUpdates(null, TNX_BOUNDARIES.actEnd)).toEqual([]);
     });
 });
+
+describe("故障・破壊のアクト終了解除（15-5）", () => {
+    const broken = (id, malfunction, destroyed) => ({
+        id, type: "weapon",
+        system: { isMalfunction: malfunction, isDestroyed: destroyed },
+    });
+
+    it("アクト終了で故障・破壊がどちらも解除される（アクト間に持ち越さない）", () => {
+        expect(planItemBoundaryUpdates([broken("a", true, true)], TNX_BOUNDARIES.actEnd))
+            .toEqual([{ _id: "a", "system.isMalfunction": false, "system.isDestroyed": false }]);
+    });
+
+    it("立っているフラグだけを落とす", () => {
+        expect(planItemBoundaryUpdates([broken("a", true, false)], TNX_BOUNDARIES.actEnd))
+            .toEqual([{ _id: "a", "system.isMalfunction": false }]);
+    });
+
+    it("アクト終了より手前の境界では解除しない", () => {
+        expect(planItemBoundaryUpdates([broken("a", true, true)], TNX_BOUNDARIES.exit)).toEqual([]);
+    });
+
+    it("どちらも立っていなければ更新に含めない", () => {
+        expect(planItemBoundaryUpdates([broken("a", false, false)], TNX_BOUNDARIES.actEnd)).toEqual([]);
+    });
+});

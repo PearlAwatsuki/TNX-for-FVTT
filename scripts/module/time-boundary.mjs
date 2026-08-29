@@ -18,7 +18,7 @@
  */
 
 import { TNX_HOOKS } from "./combat-events.mjs";
-import { TNX_BOUNDARIES, planEffectExpiry, planItemBoundaryUpdates, planConditionRecovery } from "./time-boundary-logic.mjs";
+import { TNX_BOUNDARIES, planEffectExpiry, planItemBoundaryUpdates, planConditionRecovery, planActEndDamageCleanup } from "./time-boundary-logic.mjs";
 import { CONDITION_KINDS } from "./conditions.mjs";
 import { listAppearingActors } from "./appearance-state.mjs";
 
@@ -91,7 +91,18 @@ export async function applyBoundary(boundary, actors, { mainActorId = null } = {
         await expireEffectsOn(actor, boundary);
         await resetItemsOn(actor, boundary);
         await recoverConditionsOn(actor, boundary, !!mainActorId && actor.id === mainActorId);
+        if (boundary === TNX_BOUNDARIES.actEnd) await cleanupDamageOn(actor);
     }
+}
+
+/**
+ * アクト終了の残存ダメージ消去(15-5・Scenario_Progress「ポストアクト」)。
+ * 終端状態(完全死亡・精神崩壊・抹殺)は残す——キャラロストは後始末で無かったことにしない。
+ * @param {Actor} actor
+ */
+async function cleanupDamageOn(actor) {
+    const ids = planActEndDamageCleanup(actor?.effects?.contents ?? []);
+    if (ids.length) await actor.deleteEmbeddedDocuments("ActiveEffect", ids);
 }
 
 /** カット進行のコンバッタント id から Actor を引く。 */

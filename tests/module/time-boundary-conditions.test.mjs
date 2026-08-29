@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { TNX_BOUNDARIES, planConditionRecovery, planActionRecoveryRows } from "../../scripts/module/time-boundary-logic.mjs";
+import { TNX_BOUNDARIES, planConditionRecovery, planActionRecoveryRows, planActEndDamageCleanup } from "../../scripts/module/time-boundary-logic.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -83,8 +83,10 @@ describe("planConditionRecovery()（BS の回復タイミング・15-4）", () =
             expect(plan([bs("a", "weakness")], TNX_BOUNDARIES.cutEnd).removeIds).toEqual([]);
         });
 
-        it("戦闘不能・負傷は BS の全解除では消えない", () => {
-            const e = [wound("w", "phys-10"), bs("f", "faint")];
+        // 気絶/失神は同じ境界で回復するが、それは**自分の回復条件**による(15-5)。
+        // 全解除の対象はバッドステータスだけ、という切り分けは仮死で確かめる
+        it("負傷と、その境界に回復条件を持たない戦闘不能は、BS の全解除では消えない", () => {
+            const e = [wound("w", "phys-10"), bs("c", "coma")];
             expect(plan(e, TNX_BOUNDARIES.cutProgressionEnd).removeIds).toEqual([]);
         });
     });
@@ -157,5 +159,44 @@ describe("planActionRecoveryRows()（行動を支払って回復する BS の行
 
     it("効果が無くても落ちない", () => {
         expect(planActionRecoveryRows(null)).toEqual([]);
+    });
+});
+
+describe("戦闘不能の回復とアクト終了の後始末（15-5）", () => {
+    it("気絶・失神はカット進行終了で回復する", () => {
+        const e = [bs("a", "faint"), bs("b", "swoon")];
+        expect(planConditionRecovery(e, TNX_BOUNDARIES.cutProgressionEnd).removeIds).toEqual(["a", "b"]);
+    });
+
+    it("気絶・失神はカット終了（次カットへ続く）では回復しない", () => {
+        expect(planConditionRecovery([bs("a", "faint")], TNX_BOUNDARIES.cutEnd).removeIds).toEqual([]);
+    });
+
+    it("仮死・昏睡はカット進行終了では回復しない（治療が要る）", () => {
+        const e = [bs("a", "coma"), bs("b", "stupor")];
+        expect(planConditionRecovery(e, TNX_BOUNDARIES.cutProgressionEnd).removeIds).toEqual([]);
+    });
+
+    it("アクト終了で負傷が消える", () => {
+        expect(planActEndDamageCleanup([wound("w", "phys-10")])).toEqual(["w"]);
+    });
+
+    it("負傷に紐づく戦闘不能も一緒に消える", () => {
+        const e = [wound("w", "phys-11"), bs("f", "faint", { woundSource: "w" })];
+        expect(planActEndDamageCleanup(e).sort()).toEqual(["f", "w"]);
+    });
+
+    it("終端状態（完全死亡・精神崩壊・抹殺）は消さない＝キャラロストは残る", () => {
+        const e = [bs("a", "dead"), bs("b", "mind-break"), bs("c", "erased")];
+        expect(planActEndDamageCleanup(e)).toEqual([]);
+    });
+
+    it("負傷に紐づいていても終端状態は消さない", () => {
+        const e = [wound("w", "soc-21"), bs("x", "erased", { woundSource: "w" })];
+        expect(planActEndDamageCleanup(e)).toEqual(["w"]);
+    });
+
+    it("負傷でも戦闘不能でもない効果は触らない", () => {
+        expect(planActEndDamageCleanup([{ id: "z", flags: {} }])).toEqual([]);
     });
 });

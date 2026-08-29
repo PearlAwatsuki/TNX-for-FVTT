@@ -57,8 +57,8 @@ const BS_AND_INCAPACITATION = {
   // アイコンの使い分け(2026-07-22 ユーザー調整で確定): 髑髏=死そのもの(完全死亡)。気絶/失神=hazard
   // 共用・仮死/昏睡=unconscious 共用(段階の近い2種は共用の作法)。抹殺=cancel(社会的抹消)。
   // 負傷の既定(damage-chart: 肉体=blood/精神=sun/社会=padlock)と被るアイコンは避ける
-  "faint":      { label: "気絶",     group: "incapacitation", img: "icons/svg/hazard.svg", type: "block", block: "mainProcess", stackable: false },
-  "swoon":      { label: "失神",     group: "incapacitation", img: "icons/svg/hazard.svg", type: "block", block: "mainProcess", stackable: false },
+  "faint":      { label: "気絶",     group: "incapacitation", img: "icons/svg/hazard.svg", type: "block", block: "mainProcess", stackable: false, recovery: "cutProgressionEnd" },
+  "swoon":      { label: "失神",     group: "incapacitation", img: "icons/svg/hazard.svg", type: "block", block: "mainProcess", stackable: false, recovery: "cutProgressionEnd" },
   "coma":       { label: "仮死",     group: "incapacitation", img: "icons/svg/unconscious.svg",       type: "block", block: "mainProcess", terminalPending: true, stackable: false },
   "stupor":     { label: "昏睡",     group: "incapacitation", img: "icons/svg/unconscious.svg",       type: "block", block: "mainProcess", terminalPending: true, stackable: false },
   "dead":       { label: "完全死亡", group: "incapacitation", img: "icons/svg/skull.svg",       type: "terminal", stackable: false },
