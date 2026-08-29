@@ -34,24 +34,24 @@ const SCOPE = "tokyo-nova-axleration";
 // 統合順(ユーザー確定 2026-06-23): BS → 戦闘不能 → 肉体 → 精神 → 社会。
 const BS_AND_INCAPACITATION = {
   // --- バッドステータス(group: "bs") ---
-  "panic":        { label: "恐慌",     group: "bs", img: "icons/svg/silenced.svg",    type: "block", block: "reaction",     stackable: false },
-  "poison":       { label: "邪毒",     group: "bs", img: "icons/svg/poison.svg",     type: "continuous", magnitudeField: true, stackable: false },
+  "panic":        { label: "恐慌",     group: "bs", img: "icons/svg/silenced.svg",    type: "block", block: "reaction",     stackable: false, recovery: "ownMainStart" },
+  "poison":       { label: "邪毒",     group: "bs", img: "icons/svg/poison.svg",     type: "continuous", magnitudeField: true, stackable: false, recovery: "action" },
   // 重圧: 能力値は指定/未指定(受ける際に引く)あり。abilityField 空欄可(空欄=指定なし=カードで決定)。
-  "pressure":     { label: "重圧",     group: "bs", img: "icons/svg/down.svg",       type: "block", block: "abilityCheck", abilityField: "optional", abilityBlankLabel: "指定なし（カードで決定）", stackable: false },
+  "pressure":     { label: "重圧",     group: "bs", img: "icons/svg/down.svg",       type: "block", block: "abilityCheck", abilityField: "optional", abilityBlankLabel: "指定なし（カードで決定）", stackable: false, recovery: "action" },
   // 衰弱: 数字なし=引いたスート1つの制御値を引いた数字分/ (-数字)=全制御値。通常は引いて決まるが、
   // 手動編集(効果編集ダイアログ)で対象制御値も指定できるよう abilityField 追加(空=全制御値)。
   // 適用側は targetAbility 指定=その制御値のみ/未指定=全制御値を既に扱う(conditions.mjs §3①)。
   "weakness":     { label: "衰弱",     group: "bs", img: "icons/svg/degen.svg",      type: "numeric", apply: "control", magnitudeField: true, abilityField: "optional", stackable: true },
-  "capture":      { label: "捕縛",     group: "bs", img: "icons/svg/net.svg",        type: "block", block: "attackWith", weaponField: true, stackable: true },
+  "capture":      { label: "捕縛",     group: "bs", img: "icons/svg/net.svg",        type: "block", block: "attackWith", weaponField: true, stackable: true, recovery: "action" },
   // 酩酊: 減少量は固定(小-2 / 大-5)。小↔大は別BSで重なる。
-  "doped-major":  { label: "酩酊(大)", group: "bs", img: "icons/svg/daze.svg",       type: "numeric", apply: "checkAndControl", fixedMagnitude: 5, stackable: false },
-  "doped-minor":  { label: "酩酊(小)", group: "bs", img: "icons/svg/sleep.svg",      type: "numeric", apply: "checkAndControl", fixedMagnitude: 2, stackable: false },
+  "doped-major":  { label: "酩酊(大)", group: "bs", img: "icons/svg/daze.svg",       type: "numeric", apply: "checkAndControl", fixedMagnitude: 5, stackable: false, recovery: "cleanup", downgradeTo: "doped-minor" },
+  "doped-minor":  { label: "酩酊(小)", group: "bs", img: "icons/svg/sleep.svg",      type: "numeric", apply: "checkAndControl", fixedMagnitude: 2, stackable: false, recovery: "cleanup" },
   // 萎縮/憎悪: -5 固定。対象(targetUuid)のみ可変。萎縮=対象ごと重複、憎悪=非重複。
-  "fear":         { label: "萎縮",     group: "bs", img: "icons/svg/terror.svg",     type: "attackTarget", targetMode: "include", penalty: 5, targetField: true, stackable: true },
-  "hatred":       { label: "憎悪",     group: "bs", img: "icons/svg/fire.svg",       type: "attackTarget", targetMode: "exclude", penalty: 5, targetField: true, stackable: false },
-  "interference": { label: "電子妨害", group: "bs", img: "icons/svg/lightning.svg",  type: "computed", magnitudeField: true, stackable: false },
+  "fear":         { label: "萎縮",     group: "bs", img: "icons/svg/terror.svg",     type: "attackTarget", targetMode: "include", penalty: 5, targetField: true, stackable: true, recovery: "ownMainEnd" },
+  "hatred":       { label: "憎悪",     group: "bs", img: "icons/svg/fire.svg",       type: "attackTarget", targetMode: "exclude", penalty: 5, targetField: true, stackable: false, recovery: "ownMainEnd" },
+  "interference": { label: "電子妨害", group: "bs", img: "icons/svg/lightning.svg",  type: "computed", magnitudeField: true, stackable: false, recovery: "cleanup" },
   // 狼狽: ムーブ不可＋メジャー達成値-10(回復=マイナー)。メジャー/ムーブは行動系=13 前提のため器のみ。
-  "confusion":    { label: "狼狽",     group: "bs", img: "icons/svg/trap.svg",  type: "block", block: "move", stackable: false },
+  "confusion":    { label: "狼狽",     group: "bs", img: "icons/svg/trap.svg",  type: "block", block: "move", stackable: false, recovery: "action" },
   // --- 戦闘不能(group: "incapacitation"。メインプロセス不可の発火=13 で接続済み(blocksMainProcess)・回復は15。効果値なし・非重複) ---
   // アイコンの使い分け(2026-07-22 ユーザー調整で確定): 髑髏=死そのもの(完全死亡)。気絶/失神=hazard
   // 共用・仮死/昏睡=unconscious 共用(段階の近い2種は共用の作法)。抹殺=cancel(社会的抹消)。

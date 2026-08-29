@@ -1,0 +1,125 @@
+import { describe, it, expect } from "vitest";
+import { TNX_BOUNDARIES, planConditionRecovery } from "../../scripts/module/time-boundary-logic.mjs";
+
+const SCOPE = "tokyo-nova-axleration";
+
+/** BS の AE(状態のみ)。`extra` は flags 直下に載る(woundSource 等)。 */
+const bs = (id, kind, extra = {}) => ({
+    id, statuses: [kind], flags: { [SCOPE]: { conditionKind: kind, ...extra } },
+});
+
+/** 「治療するまで回復しない」BS（負傷 woundId に紐づく） */
+const untilTreated = (id, kind, woundId) => ({
+    id, statuses: [kind],
+    flags: { [SCOPE]: { conditionKind: kind, woundSource: woundId, conditions: { [kind]: { durationNote: "治療まで" } } } },
+});
+
+/** 負傷そのもの（ダメージチャートの結果） */
+const wound = (id, kind) => ({ id, statuses: [kind], flags: { [SCOPE]: { conditionKind: kind } } });
+
+const plan = (effects, boundary, opts) => planConditionRecovery(effects, boundary, opts);
+
+describe("planConditionRecovery()（BS の回復タイミング・15-4）", () => {
+    describe("本人のメインプロセスに紐づく回復", () => {
+        it("恐慌は本人のメインプロセスの直前に回復する", () => {
+            const e = [bs("a", "panic")];
+            expect(plan(e, TNX_BOUNDARIES.mainProcessStart, { isMainActor: true }).removeIds).toEqual(["a"]);
+        });
+
+        it("恐慌は他人のメインプロセスの直前では回復しない", () => {
+            const e = [bs("a", "panic")];
+            expect(plan(e, TNX_BOUNDARIES.mainProcessStart, { isMainActor: false }).removeIds).toEqual([]);
+        });
+
+        it("萎縮・憎悪は本人のメインプロセス終了で回復する", () => {
+            const e = [bs("a", "fear"), bs("b", "hatred")];
+            expect(plan(e, TNX_BOUNDARIES.mainProcessEnd, { isMainActor: true }).removeIds).toEqual(["a", "b"]);
+        });
+
+        it("萎縮・憎悪は他人のメインプロセス終了では回復しない", () => {
+            const e = [bs("a", "fear"), bs("b", "hatred")];
+            expect(plan(e, TNX_BOUNDARIES.mainProcessEnd, { isMainActor: false }).removeIds).toEqual([]);
+        });
+    });
+
+    describe("クリンナップの回復", () => {
+        it("酩酊(小)と電子妨害はクリンナップで回復する", () => {
+            const e = [bs("a", "doped-minor"), bs("b", "interference")];
+            expect(plan(e, TNX_BOUNDARIES.cleanup).removeIds).toEqual(["a", "b"]);
+        });
+
+        it("酩酊(大)はクリンナップで酩酊(小)に変わる", () => {
+            const out = plan([bs("a", "doped-major")], TNX_BOUNDARIES.cleanup);
+            expect(out.removeIds).toEqual(["a"]);
+            expect(out.downgrades).toEqual([{ id: "a", toKind: "doped-minor" }]);
+        });
+
+        it("小と大を同時に受けている場合、小は回復し大が小に変わる（結果は小が1つ）", () => {
+            const out = plan([bs("a", "doped-major"), bs("b", "doped-minor")], TNX_BOUNDARIES.cleanup);
+            expect(out.removeIds).toEqual(["a", "b"]);
+            expect(out.downgrades).toEqual([{ id: "a", toKind: "doped-minor" }]);
+        });
+
+        it("恐慌はクリンナップでは回復しない（本人のメインの直前が回復条件）", () => {
+            expect(plan([bs("a", "panic")], TNX_BOUNDARIES.cleanup).removeIds).toEqual([]);
+        });
+    });
+
+    describe("BS の全解除（カット進行終了・シーンが変わる＝退場）", () => {
+        it("カット進行終了で BS が全部解除される", () => {
+            const e = [bs("a", "panic"), bs("b", "weakness"), bs("c", "doped-major")];
+            expect(plan(e, TNX_BOUNDARIES.cutProgressionEnd).removeIds).toEqual(["a", "b", "c"]);
+        });
+
+        it("全解除では酩酊(大)を小に変換しない（カットを跨がないため）", () => {
+            expect(plan([bs("a", "doped-major")], TNX_BOUNDARIES.cutProgressionEnd).downgrades).toEqual([]);
+        });
+
+        it("退場でも BS が全部解除される", () => {
+            expect(plan([bs("a", "weakness")], TNX_BOUNDARIES.exit).removeIds).toEqual(["a"]);
+        });
+
+        it("カット終了（次カットへ続く）では全解除しない", () => {
+            expect(plan([bs("a", "weakness")], TNX_BOUNDARIES.cutEnd).removeIds).toEqual([]);
+        });
+
+        it("戦闘不能・負傷は BS の全解除では消えない", () => {
+            const e = [wound("w", "phys-10"), bs("f", "faint")];
+            expect(plan(e, TNX_BOUNDARIES.cutProgressionEnd).removeIds).toEqual([]);
+        });
+    });
+
+    describe("「治療するまで回復しない」BS", () => {
+        it("元の負傷が残っている間は全解除でも消えない", () => {
+            const e = [wound("w1", "phys-12"), untilTreated("a", "confusion", "w1")];
+            expect(plan(e, TNX_BOUNDARIES.cutProgressionEnd).removeIds).toEqual([]);
+        });
+
+        it("元の負傷が治療されて消えていれば、通常どおり全解除で消える", () => {
+            const e = [untilTreated("a", "confusion", "w1")];
+            expect(plan(e, TNX_BOUNDARIES.cutProgressionEnd).removeIds).toEqual(["a"]);
+        });
+
+        it("元の負傷が残っていてもアクト終了では消える", () => {
+            const e = [wound("w1", "phys-12"), untilTreated("a", "confusion", "w1")];
+            expect(plan(e, TNX_BOUNDARIES.actEnd).removeIds).toEqual(["a"]);
+        });
+    });
+
+    describe("行動を支払って回復する BS は境界では回復しない", () => {
+        it("重圧・捕縛・邪毒はクリンナップでもメインプロセスでも回復しない", () => {
+            const e = [bs("a", "pressure"), bs("b", "capture"), bs("c", "poison")];
+            expect(plan(e, TNX_BOUNDARIES.cleanup).removeIds).toEqual([]);
+            expect(plan(e, TNX_BOUNDARIES.mainProcessEnd, { isMainActor: true }).removeIds).toEqual([]);
+        });
+
+        it("ただし全解除（カット進行終了・退場）では他の BS と同じく消える", () => {
+            const e = [bs("a", "pressure"), bs("b", "capture"), bs("c", "poison")];
+            expect(plan(e, TNX_BOUNDARIES.cutProgressionEnd).removeIds).toEqual(["a", "b", "c"]);
+        });
+    });
+
+    it("効果が無くても落ちない", () => {
+        expect(planConditionRecovery(null, TNX_BOUNDARIES.exit)).toEqual({ removeIds: [], downgrades: [] });
+    });
+});

@@ -18,6 +18,8 @@
  * 再登場はできない(→ Appearance_Check)以上、退場後にシーン持続の効果を保つ意味がないため。
  */
 
+import { CONDITION_KINDS, getConditionKinds } from "./conditions.mjs";
+
 /** 適用の起点になる境界。グルーがフックから解決してこの値で呼ぶ。 */
 export const TNX_BOUNDARIES = Object.freeze({
     /** 本人のメインプロセス開始(恐慌の回復＝メインの直前)。 */
@@ -168,4 +170,84 @@ export function planItemBoundaryUpdates(items, boundary) {
         if (Object.keys(patch).length) updates.push({ _id: item.id, ...patch });
     }
     return updates;
+}
+
+
+/** 境界 → その境界を回復条件とする BS の `recovery` 値。ここに無い境界は個別回復を起こさない。 */
+const BOUNDARY_RECOVERY = Object.freeze({
+    [TNX_BOUNDARIES.mainProcessStart]: "ownMainStart",
+    [TNX_BOUNDARIES.mainProcessEnd]:   "ownMainEnd",
+    [TNX_BOUNDARIES.cleanup]:          "cleanup",
+});
+
+/** 本人のメインプロセスに紐づく回復条件(他人のメインでは起きない)。 */
+const OWN_MAIN_RECOVERY = new Set(["ownMainStart", "ownMainEnd"]);
+
+/**
+ * BS を**全解除**する境界(Bad_Status 共通ルール「BS はカット進行が終了するか、シーンが変われば
+ * 全て解除」＋アクト終了)。個別の回復タイミングはこれより早く効く前倒しの回復。
+ * カット終了(次カットへ続く)は含まない——カットが変わっただけでは BS は落ちない。
+ */
+const CLEAR_ALL_BS = new Set([
+    TNX_BOUNDARIES.cutProgressionEnd,
+    TNX_BOUNDARIES.exit,
+    TNX_BOUNDARIES.actEnd,
+]);
+
+/**
+ * 「治療するまで回復しない」BS が、まだ回復できない状態か。
+ *
+ * フラグを立て落としせず**元の負傷 AE が生きているかで導出**する(設計判断7)。負傷が残っている
+ * 間は通常の回復タイミングで回復せず、治療されて負傷が消えれば次の境界で通常どおり回復する。
+ * 治療側に「BS を消す」責務を持ち込まないので「BS の回復 ≠ ダメージの治療」を崩さない。
+ * @param {object} effect
+ * @param {string[]} bsKinds その効果が持つ BS 種別
+ * @param {Set<string>} aliveIds 同じアクターに乗っている効果の id
+ * @returns {boolean}
+ */
+function isUntreatedGated(effect, bsKinds, aliveIds) {
+    const flags = effect?.flags?.[SCOPE] ?? {};
+    const perKind = flags.conditions ?? {};
+    const gated = bsKinds.some(k => (perKind[k]?.durationNote ?? flags.durationNote) === "治療まで");
+    if (!gated) return false;
+    const woundId = flags.woundSource || "";
+    return !!woundId && aliveIds.has(woundId);
+}
+
+/**
+ * 境界で回復する BS を抽出する(15-4)。対象は**バッドステータスだけ**——戦闘不能・負傷は
+ * 別のタイミングで回復する(Damage_Rules)。
+ *
+ * @param {Array<object>|null|undefined} effects そのアクターに乗っている効果
+ * @param {string} boundary TNX_BOUNDARIES の値
+ * @param {{isMainActor?: boolean}} [opts] そのメインプロセスの行動者本人か
+ * @returns {{removeIds: string[], downgrades: Array<{id: string, toKind: string}>}}
+ *          downgrades = 消えるのではなく別の BS に変わるもの(酩酊(大)→酩酊(小))
+ */
+export function planConditionRecovery(effects, boundary, { isMainActor = false } = {}) {
+    const list = effects ?? [];
+    const removeIds = [];
+    const downgrades = [];
+    const clearAll = CLEAR_ALL_BS.has(boundary);
+    const trigger = BOUNDARY_RECOVERY[boundary] ?? null;
+    if (!clearAll && !trigger) return { removeIds, downgrades };
+    if (trigger && OWN_MAIN_RECOVERY.has(trigger) && !isMainActor) return { removeIds, downgrades };
+
+    const aliveIds = new Set(list.map(e => e?.id));
+    for (const effect of list) {
+        const bsKinds = getConditionKinds(effect).filter(k => CONDITION_KINDS[k]?.group === "bs");
+        if (!bsKinds.length) continue;
+        // アクト終了は「ダメージが治療されるかアクト終了まで」の後半＝ゲートを越えて落とす
+        if (boundary !== TNX_BOUNDARIES.actEnd && isUntreatedGated(effect, bsKinds, aliveIds)) continue;
+        if (clearAll) { removeIds.push(effect.id); continue; }
+        const matched = bsKinds.filter(k => CONDITION_KINDS[k]?.recovery === trigger);
+        if (!matched.length) continue;
+        removeIds.push(effect.id);
+        // 変換(酩酊(大)→(小))。同時に受けている(小)も同じ境界で回復するため、結果は(小)が1つ
+        for (const kind of matched) {
+            const toKind = CONDITION_KINDS[kind]?.downgradeTo;
+            if (toKind) downgrades.push({ id: effect.id, toKind });
+        }
+    }
+    return { removeIds, downgrades };
 }

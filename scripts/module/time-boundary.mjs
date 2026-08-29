@@ -18,8 +18,11 @@
  */
 
 import { TNX_HOOKS } from "./combat-events.mjs";
-import { TNX_BOUNDARIES, planEffectExpiry, planItemBoundaryUpdates } from "./time-boundary-logic.mjs";
+import { TNX_BOUNDARIES, planEffectExpiry, planItemBoundaryUpdates, planConditionRecovery } from "./time-boundary-logic.mjs";
+import { CONDITION_KINDS } from "./conditions.mjs";
 import { listAppearingActors } from "./appearance-state.mjs";
+
+const SCOPE = "tokyo-nova-axleration";
 
 /** この境界の適用を自分が担うか(activeGM のみ)。 */
 function isApplier() {
@@ -51,25 +54,72 @@ async function resetItemsOn(actor, boundary) {
 }
 
 /**
+ * 1 アクターについて、その境界で回復する BS を除去する(15-4)。
+ * 酩酊(大)のように別の BS へ変わるものは、除去と同時に変換先を付与する。
+ * @param {Actor} actor
+ * @param {string} boundary TNX_BOUNDARIES の値
+ * @param {boolean} isMainActor そのメインプロセスの行動者本人か
+ */
+async function recoverConditionsOn(actor, boundary, isMainActor) {
+    const effects = actor?.effects?.contents ?? [];
+    const { removeIds, downgrades } = planConditionRecovery(effects, boundary, { isMainActor });
+    if (!removeIds.length) return;
+    // 変換先は、変換元の由来(リスト非表示・負傷への紐づき)をそのまま引き継ぐ
+    const created = [];
+    for (const { id, toKind } of downgrades) {
+        const def = CONDITION_KINDS[toKind];
+        if (!def) continue;
+        const from = actor.effects.get(id)?.flags?.[SCOPE] ?? {};
+        const flags = { conditionKind: toKind };
+        if (from.hideFromList !== undefined) flags.hideFromList = from.hideFromList;
+        if (from.woundSource) flags.woundSource = from.woundSource;
+        created.push({ name: def.label, img: def.img ?? "icons/svg/aura.svg", statuses: [toKind], flags: { [SCOPE]: flags } });
+    }
+    await actor.deleteEmbeddedDocuments("ActiveEffect", removeIds);
+    if (created.length) await actor.createEmbeddedDocuments("ActiveEffect", created);
+}
+
+/**
  * 境界を適用する(対象アクター全員へ順に)。
  * @param {string} boundary TNX_BOUNDARIES の値
  * @param {Actor[]} actors
+ * @param {{mainActorId?: string|null}} [opts] メインプロセス系の境界での行動者
  */
-export async function applyBoundary(boundary, actors) {
+export async function applyBoundary(boundary, actors, { mainActorId = null } = {}) {
     for (const actor of (actors ?? [])) {
         if (!actor) continue;
         await expireEffectsOn(actor, boundary);
         await resetItemsOn(actor, boundary);
+        await recoverConditionsOn(actor, boundary, !!mainActorId && actor.id === mainActorId);
     }
+}
+
+/** カット進行のコンバッタント id から Actor を引く。 */
+function actorOfCombatant(combatantId) {
+    if (!combatantId) return null;
+    return game.combat?.combatants?.get(combatantId)?.actor ?? null;
 }
 
 /** 境界イベントの購読を登録する(ready で 1 回・全クライアントで呼んでよい)。 */
 export function registerTimeBoundaries() {
-    // メインプロセスの終了。「メインプロセス中」の効果は**誰のメインプロセスかを問わず**
-    // 失効する(Time_Management)ため、行動者本人ではなく登場中の全員が対象。
-    Hooks.on(TNX_HOOKS.processEnd, (_combat, data) => {
+    // メインプロセスの開始。恐慌は**本人**のメインプロセスの直前に回復する。
+    Hooks.on(TNX_HOOKS.processStart, (_combat, data) => {
         if (!isApplier() || data?.phase !== "main") return;
-        applyBoundary(TNX_BOUNDARIES.mainProcessEnd, listAppearingActors());
+        const mainActorId = actorOfCombatant(data?.combatantId)?.id ?? null;
+        applyBoundary(TNX_BOUNDARIES.mainProcessStart, listAppearingActors(), { mainActorId });
+    });
+
+    // メインプロセスの終了。「メインプロセス中」の効果は**誰のメインプロセスかを問わず**
+    // 失効する(Time_Management)ため登場中の全員が対象だが、萎縮・憎悪の回復は**本人**だけ。
+    // クリンナップは酩酊・電子妨害の回復(と 15-6 の邪毒)の境界。
+    Hooks.on(TNX_HOOKS.processEnd, (_combat, data) => {
+        if (!isApplier()) return;
+        if (data?.phase === "main") {
+            const mainActorId = actorOfCombatant(data?.combatantId)?.id ?? null;
+            applyBoundary(TNX_BOUNDARIES.mainProcessEnd, listAppearingActors(), { mainActorId });
+        } else if (data?.phase === "cleanup") {
+            applyBoundary(TNX_BOUNDARIES.cleanup, listAppearingActors());
+        }
     });
 
     // カットの終了(次カット境界)。
