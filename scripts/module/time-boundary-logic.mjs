@@ -267,8 +267,7 @@ export const MAJOR_PAYMENTS = new Set(["majorAbandon", "minorMajorAbandon"]);
  * 行動を支払って回復する BS の行(15-4)。**1 BS 種別につき 1 行**——重圧・捕縛は「全て回復」
  * (2026-08-29 ユーザー裁定)で、捕縛を武器ごとに複数受けていても 1 回のメジャー放棄で全て戻る。
  *
- * `payment` を持つ種別だけを出す。狼狽も `recovery: "action"` だが支払い方が UI として
- * 定義されていない(Bad_Status に回復条件の記載が無い)ため行を出さない。
+ * `payment` を持つ種別(重圧・狼狽＝マイナーの使用／捕縛＝メジャーの放棄／邪毒＝両方の放棄)を出す。
  * @param {Array<object>|null|undefined} effects そのアクターに乗っている効果
  * @returns {Array<{kind: string, label: string, count: number, payment: string}>}
  */

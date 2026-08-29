@@ -50,8 +50,9 @@ const BS_AND_INCAPACITATION = {
   "fear":         { label: "萎縮",     group: "bs", img: "icons/svg/terror.svg",     type: "attackTarget", targetMode: "include", penalty: 5, targetField: true, stackable: true, recovery: "ownMainEnd" },
   "hatred":       { label: "憎悪",     group: "bs", img: "icons/svg/fire.svg",       type: "attackTarget", targetMode: "exclude", penalty: 5, targetField: true, stackable: false, recovery: "ownMainEnd" },
   "interference": { label: "電子妨害", group: "bs", img: "icons/svg/lightning.svg",  type: "computed", magnitudeField: true, stackable: false, recovery: "cleanup" },
-  // 狼狽: ムーブ不可＋メジャー達成値-10(回復=マイナー)。メジャー/ムーブは行動系=13 前提のため器のみ。
-  "confusion":    { label: "狼狽",     group: "bs", img: "icons/svg/trap.svg",  type: "block", block: "move", stackable: false, recovery: "action" },
+  // 狼狽: ムーブ不可＋メジャー達成値-10。回復=マイナーアクションの使用(重圧と同型)。
+  // メジャー/ムーブは行動系=13 前提のため器のみ。正本 Bad_Status「狼狽」
+  "confusion":    { label: "狼狽",     group: "bs", img: "icons/svg/trap.svg",  type: "block", block: "move", stackable: false, recovery: "action", payment: "minorUse" },
   // --- 戦闘不能(group: "incapacitation"。メインプロセス不可の発火=13 で接続済み(blocksMainProcess)・回復は15。効果値なし・非重複) ---
   // アイコンの使い分け(2026-07-22 ユーザー調整で確定): 髑髏=死そのもの(完全死亡)。気絶/失神=hazard
   // 共用・仮死/昏睡=unconscious 共用(段階の近い2種は共用の作法)。抹殺=cancel(社会的抹消)。

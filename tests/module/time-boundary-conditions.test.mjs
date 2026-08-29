@@ -150,8 +150,9 @@ describe("planActionRecoveryRows()（行動を支払って回復する BS の行
         expect(rows([bs("a", "panic"), bs("b", "doped-minor")])).toEqual([]);
     });
 
-    it("狼狽は行を出さない（支払い方が UI として定義されていない）", () => {
-        expect(rows([bs("a", "confusion")])).toEqual([]);
+    it("狼狽は重圧と同じくマイナーの使用で回復する", () => {
+        expect(rows([bs("a", "confusion")]))
+            .toEqual([{ kind: "confusion", label: "狼狽", count: 1, payment: "minorUse" }]);
     });
 
     it("効果が無くても落ちない", () => {
