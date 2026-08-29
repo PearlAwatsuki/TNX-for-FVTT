@@ -10,10 +10,35 @@
  * 集計と記帳だけを引き受ける。純ロジックは exp-award-logic.mjs。
  */
 
-import { EXP_AWARD_CHECKS, calcPlayerExpTotal, calcRlExpBreakdown, awardEntryDate } from "./exp-award-logic.mjs";
+import {
+    EXP_AWARD_CHECKS, calcPlayerExpTotal, calcRlExpBreakdown, awardEntryDate,
+    sumMiracleSpent, buildAutoFilledRow,
+} from "./exp-award-logic.mjs";
 import { getUserFlagData, historyAdd, saveUserFlagHistory } from "./user-flag-schema.mjs";
+import { getSessionState } from "./session-state.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
+
+/**
+ * 「全て自動で入力する」の元データを採取する(ユーザー id → {miracleCount, sceneCount})。
+ * **アクト終了処理(endAct)の前に呼ぶこと**——神業の `uses.spent` はアクト終了境界で 0 に
+ * 戻り、登場シーン数(sessionState.appearanceCounts)も既定へリセットされるため、配布アプリを
+ * 開く時点では元データが消えている。呼ぶのはポストアクトの流れを持つパネル側(_onEndAct)。
+ * @returns {Record<string, {miracleCount:number, sceneCount:number}>}
+ */
+export function collectExpAutoFill() {
+    const counts = getSessionState().appearanceCounts ?? {};
+    const result = {};
+    for (const user of game.users.filter(u => !u.isGM)) {
+        // 割当キャラクター(cast 型のみ)を読む——履歴の castUuid と同じ紐づけ(2026-08-09 裁定)
+        const cast = user.character?.type === "cast" ? user.character : null;
+        result[user.id] = {
+            miracleCount: cast ? sumMiracleSpent(cast.items.contents) : 0,
+            sceneCount:   cast ? Math.max(0, Math.trunc(Number(counts[cast.id]) || 0)) : 0,
+        };
+    }
+    return result;
+}
 
 /** 表ヘッダー用の短縮ラベル(タイトル属性に正式名と配点を出す)。 */
 const CHECK_SHORT_LABELS = {
@@ -24,15 +49,18 @@ const CHECK_SHORT_LABELS = {
 export class TnxExpAwardApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
     /**
-     * @param {{actName: string, onFinish: ?Function}} awardContext アクト名(履歴のタイトルに使う)と
-     *   閉じた後に走らせる後続処理。**ポストアクトで経験点配布の後に来るもの**(アクト限定技能の
-     *   後始末)をここに渡す——確定・キャンセル・✕のどれで閉じても最後に一度だけ走る
-     *   (2026-08-13 ユーザー指示「コネ維持のダイアログは経験点配布後に」)
+     * @param {{actName: string, onFinish: ?Function, autoFill: ?object}} awardContext
+     *   アクト名(履歴のタイトルに使う)と、閉じた後に走らせる後続処理。**ポストアクトで
+     *   経験点配布の後に来るもの**(アクト限定技能の後始末)をここに渡す——確定・キャンセル・✕の
+     *   どれで閉じても最後に一度だけ走る(2026-08-13 ユーザー指示「コネ維持のダイアログは
+     *   経験点配布後に」)。autoFill は「全て自動で入力する」の元データ(collectExpAutoFill の
+     *   返り値・endAct 前の採取値)
      */
     constructor(awardContext = {}, options = {}) {
         super(options);
         this.actName = awardContext.actName ?? "";
         this.onFinish = awardContext.onFinish ?? null;
+        this.autoFill = awardContext.autoFill ?? {};
         // 行の入力状態(ユーザー id → {checks, miracleCount, sceneCount})
         this.rows = new Map();
         for (const user of game.users.filter(u => !u.isGM)) {
@@ -47,6 +75,7 @@ export class TnxExpAwardApp extends HandlebarsApplicationMixin(ApplicationV2) {
         window: { title: "経験点の配布", resizable: true },
         position: { width: 760, height: "auto" },
         actions: {
+            autoFillAll: TnxExpAwardApp._onAutoFillAll,
             spinUp:   TnxExpAwardApp._onSpin,
             spinDown: TnxExpAwardApp._onSpin,
             confirm:  TnxExpAwardApp._onConfirm,
@@ -118,6 +147,19 @@ export class TnxExpAwardApp extends HandlebarsApplicationMixin(ApplicationV2) {
             this.rlVenue = event.currentTarget.checked;
             this.render(false);
         });
+    }
+
+    /**
+     * 全 PL 行を自動値で埋める(2026-08-30 ユーザー承認)。チェックは8種全て ON——よほど
+     * 厳密に裁定しない限り、取得条件は全て満たされたものとして配布するのがほとんど(ユーザー
+     * 言明)。神業・登場はアクト終了前に採取した実測値。押すたびに自動値で上書きし、RL の
+     * 個別修正はその後に行う。記帳は従来どおり「確定」まで行われない。
+     */
+    static async _onAutoFillAll(_event, _target) {
+        for (const userId of this.rows.keys()) {
+            this.rows.set(userId, buildAutoFilledRow(this.autoFill[userId]));
+        }
+        this.render(false);
     }
 
     static async _onSpin(_event, target) {

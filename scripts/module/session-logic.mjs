@@ -1210,3 +1210,26 @@ export function teamLinkedExitTargets(teams, actorId, { linked = false, isAppear
         teamName: team?.name || "チーム",
     };
 }
+
+// ─── シーン登場の記帳(経験点配布の「登場」自動入力の元・2026-08-30 ユーザー承認) ────────
+
+/**
+ * キャストの登場を現在シーンの分として記帳する。「シーンに登場した」は1シーンにつき1点
+ * なので、同一シーン内の再登場(退場→再登場)は数えない。数えるのは登場した事実であり、
+ * 途中退場してもそのシーンの1は残る。巡回シーンの再入場は別シーン(シーン番号の意味論と同じ)。
+ * @param {{appearanceCounts?: Record<string, number>, appearedThisScene?: Array<string>, actorId?: string}} args
+ *        appearanceCounts=アクト内で登場したシーン数(Actor id→数)・
+ *        appearedThisScene=現在シーンで登場済みの Actor id(重複防止)
+ * @returns {?{appearanceCounts: Record<string, number>, appearedThisScene: Array<string>}}
+ *          記帳後の状態。記帳不要(このシーンで記帳済み・id 無し)なら null
+ */
+export function recordSceneAppearance({ appearanceCounts = {}, appearedThisScene = [], actorId = "" } = {}) {
+    if (!actorId || appearedThisScene.includes(actorId)) return null;
+    return {
+        appearanceCounts: {
+            ...appearanceCounts,
+            [actorId]: Math.max(0, Math.trunc(Number(appearanceCounts?.[actorId]) || 0)) + 1,
+        },
+        appearedThisScene: [...appearedThisScene, actorId],
+    };
+}

@@ -450,6 +450,10 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         });
         if (!confirmed) return;
         const actName = getActiveActJournal()?.name ?? "";
+        // 「全て自動で入力する」の元データは endAct() より前に採取する——アクト終了境界で
+        // 神業の uses.spent が 0 に戻り、登場シーン数(sessionState)も既定へリセットされるため
+        const { TnxExpAwardApp, collectExpAutoFill } = await import("./tnx-exp-award-app.mjs");
+        const autoFill = collectExpAutoFill();
         await endAct();
         // ポストアクト: ロスト確認(15-5・Scenario_Progress の「致死ダメージが残るキャストの
         // ロスト確認」)。残存ダメージ消去は tnxActEnd で済んでおり、終端状態だけが残っている
@@ -457,8 +461,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         // ポストアクト: 経験点の半自動配布(14-7)。確定で各ユーザーの履歴へ自動記帳。
         // **アクト限定技能の後始末はその後**(2026-08-13 ユーザー指示)——維持するコネは
         // そのアクトの経験点で買う扱いになるので、配布前に聞くと払う原資が無い
-        const { TnxExpAwardApp } = await import("./tnx-exp-award-app.mjs");
-        new TnxExpAwardApp({ actName, onFinish: promptActLimitedCleanup }).render(true);
+        new TnxExpAwardApp({ actName, autoFill, onFinish: promptActLimitedCleanup }).render(true);
     }
 
     /**

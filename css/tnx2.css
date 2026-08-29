@@ -10245,9 +10245,24 @@ button.tnx-create-act-button span {
     padding: 8px;
 }
 
+.tnx-exp-award .exa-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
 .tnx-exp-award .exa-act-name {
+    flex: 1 1 auto;
+    min-width: 0;
     margin: 0;
     font-weight: 700;
+}
+
+/* ボタンの全幅既定(.tokyo-nova .tnx-btn)をヘッダ内では内容幅に戻す */
+.tnx-exp-award .exa-header .tnx-btn {
+    flex: 0 0 auto;
+    width: auto;
 }
 
 .tnx-exp-award .exa-table-wrap { overflow-x: auto; }

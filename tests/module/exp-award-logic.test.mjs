@@ -4,6 +4,8 @@ import {
   calcPlayerExpTotal,
   calcRlExpBreakdown,
   calcRlExpTotal,
+  sumMiracleSpent,
+  buildAutoFilledRow,
   awardEntryDate,
 } from "../../scripts/module/exp-award-logic.mjs";
 
@@ -67,6 +69,51 @@ describe("calcRlExpBreakdown()（配布ダイアログの内訳表示が読む�
   it("欠損・負数は0として頑健", () => {
     expect(calcRlExpBreakdown({ playerTotal: -5, playerCount: -1 }))
       .toEqual({ playerTotal: 0, divisor: 0, share: 0, total: 0 });
+  });
+});
+
+describe("sumMiracleSpent()（神業の消費済み回数の合算＝自動入力の神業欄）", () => {
+  it("神業アイテムの uses.spent だけを合算する", () => {
+    const items = [
+      { type: "miracle", system: { uses: { spent: 2 } } },
+      { type: "miracle", system: { uses: { spent: 1 } } },
+      { type: "generalSkill", system: { uses: { spent: 9 } } },
+    ];
+    expect(sumMiracleSpent(items)).toBe(3);
+  });
+
+  it("欠損・負数・非数は0として頑健", () => {
+    expect(sumMiracleSpent([])).toBe(0);
+    expect(sumMiracleSpent(null)).toBe(0);
+    expect(sumMiracleSpent([
+      { type: "miracle" },
+      { type: "miracle", system: { uses: { spent: -2 } } },
+      { type: "miracle", system: { uses: { spent: "x" } } },
+    ])).toBe(0);
+  });
+});
+
+describe("buildAutoFilledRow()（「全て自動で入力する」の1行分・2026-08-30 承認）", () => {
+  it("チェック8種は全て ON・カウントは実測値", () => {
+    const row = buildAutoFilledRow({ miracleCount: 2, sceneCount: 4 });
+    expect(Object.keys(row.checks)).toEqual(EXP_AWARD_CHECKS.map(c => c.key));
+    expect(Object.values(row.checks).every(v => v === true)).toBe(true);
+    expect(row.miracleCount).toBe(2);
+    expect(row.sceneCount).toBe(4);
+  });
+
+  it("登場は実数のまま入れる（上限5は合計側=calcPlayerExpTotal が掛ける）", () => {
+    const row = buildAutoFilledRow({ sceneCount: 7 });
+    expect(row.sceneCount).toBe(7);
+    expect(calcPlayerExpTotal(row)).toBe(32 + 0 + 5);
+  });
+
+  it("元データ無し・負数は0", () => {
+    const row = buildAutoFilledRow();
+    expect(row.miracleCount).toBe(0);
+    expect(row.sceneCount).toBe(0);
+    expect(buildAutoFilledRow({ miracleCount: -1, sceneCount: -3 }))
+      .toMatchObject({ miracleCount: 0, sceneCount: 0 });
   });
 });
 

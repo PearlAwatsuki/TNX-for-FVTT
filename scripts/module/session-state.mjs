@@ -23,6 +23,7 @@ import {
     findDuplicateKeys, matchTrumpCard,
     rotationOrder, resolveRotationDefault, stageCandidateActorIds,
     recordScenePlayerDone, SCENE_PLAYER_RULER, resolveScenePlayerRef, planActLimitedCleanup,
+    recordSceneAppearance,
 } from "./session-logic.mjs";
 import {
     setAppearing, setNameHidden, setGhost, clearAllAppearing, isAppearing,
@@ -69,6 +70,12 @@ const DEFAULTS = Object.freeze({
     // シーン数が変動するため、台本の行番号ではなく**入場のたびに +1 する実行時のカウンタ**を
     // 「SCENE n」として出す。アクトの読み込み・開始でリセットされる
     sceneNumber:       0,
+    // シーン登場の記帳(経験点配布の「全て自動で入力する」の登場欄の元・2026-08-30 ユーザー承認)。
+    // appearanceCounts=アクト内で登場したシーン数(キャスト Actor id→数)・
+    // appearedThisScene=現在シーンで登場済みの Actor id(1シーン1点の重複防止)。
+    // アクトの読み込みでリセット、シーン入場で後者だけクリアする
+    appearanceCounts:  {},
+    appearedThisScene: [],
 });
 
 /** 舞台裏の初期状態(シーン単位・入場時にリセットする)。 */
@@ -93,6 +100,37 @@ export function registerSessionStateSetting() {
 /** 実行状態を返す(全員が読める・既定値フォールバック付き)。 */
 export function getSessionState() {
     return { ...DEFAULTS, ...(game.settings.get(SCOPE, SETTING) ?? {}) };
+}
+
+// ─── シーン登場の記帳(経験点配布の自動入力の元・2026-08-30 ユーザー承認) ────────────
+
+// 連続する登場(台本の事前設定の一括登場等)で読み書きが交錯して増分が失われないよう、
+// 記帳の書き込みは1本に直列化する
+let _appearanceRecordQueue = Promise.resolve();
+
+/**
+ * 登場フラグの false→true 遷移を拾って登場シーン数を記帳する(init で呼ぶ)。
+ * 登場の書き込み元(登場判定・RL の登場操作・台本の事前設定・トークン配置)がどの
+ * クライアントであっても updateActor の一点で拾え、ワールド設定への書き込みも
+ * アクティブ GM 側で完結する。数えるのはキャストだけ(経験点配布が読むのは
+ * ユーザーの割当キャスト=cast 型のみ・2026-08-09 裁定)。
+ */
+export function registerAppearanceExpTracking() {
+    Hooks.on("updateActor", (actor, changes) => {
+        if (game.users.activeGM?.isSelf !== true) return;
+        if (changes.flags?.[SCOPE]?.appearing !== true) return;
+        if (actor?.type !== "cast") return;
+        _appearanceRecordQueue = _appearanceRecordQueue.then(async () => {
+            const st = getSessionState();
+            if (!st.actStarted) return;
+            const next = recordSceneAppearance({
+                appearanceCounts:  st.appearanceCounts,
+                appearedThisScene: st.appearedThisScene,
+                actorId: actor.id,
+            });
+            if (next) await setState(next);
+        }).catch(err => console.error("TNX | 登場シーン数の記帳に失敗しました", err));
+    });
 }
 
 /** アクティブなアクト(台本 JournalEntry)。アクト外は null。 */
@@ -638,6 +676,9 @@ async function _applySceneEntry({ phase, row }, entry = null) {
         scenePlayerDone: done,
         doneEventSceneIds: doneEvents,
         sceneNumber: (st.sceneNumber ?? 0) + 1,
+        // 登場の記帳はシーン単位の重複防止だけをクリアする(累積は持ち越す)。この後の
+        // 自動登場(下記ループ)が新しいシーンの分として数えられる
+        appearedThisScene: [],
     });
     await _setScenePlayerFlags(playerUserId);
     // シーンプレイヤーのキャラクターは判定なしで登場する(仕様確認ポイント2・承認済み)。

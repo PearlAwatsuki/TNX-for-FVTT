@@ -66,6 +66,34 @@ export function calcRlExpTotal(args = {}) {
 }
 
 /**
+ * 神業アイテムの消費済み回数(`uses.spent`)の合算。「全て自動で入力する」の神業欄の元
+ * (2026-08-30 ユーザー承認)。消費の記帳であって「上手く使った」の判断ではない——上手く
+ * なかった分は RL が減らす(半自動の枠内・§4.2)。
+ * @param {Array<{type?:string, system?:object}>} items アクターのアイテム(神業以外は無視)
+ * @returns {number}
+ */
+export function sumMiracleSpent(items) {
+    return (items ?? [])
+        .filter(item => item?.type === "miracle")
+        .reduce((sum, item) => sum + Math.max(0, Math.trunc(Number(item.system?.uses?.spent) || 0)), 0);
+}
+
+/**
+ * 「全て自動で入力する」の1行分。チェックは8種全て ON(よほど厳密に裁定しない限り取得条件は
+ * 全て満たされたものとして配布するのがほとんど・2026-08-30 ユーザー言明)。登場シーン数は
+ * 実数のまま入れる——合計側の上限5(SCENE_EXP_CAP)は calcPlayerExpTotal が掛ける。
+ * @param {{miracleCount?:number, sceneCount?:number}} [auto] 採取済みの実測値
+ * @returns {{checks:Record<string,boolean>, miracleCount:number, sceneCount:number}}
+ */
+export function buildAutoFilledRow({ miracleCount = 0, sceneCount = 0 } = {}) {
+    return {
+        checks: Object.fromEntries(EXP_AWARD_CHECKS.map(c => [c.key, true])),
+        miracleCount: Math.max(0, Math.trunc(Number(miracleCount) || 0)),
+        sceneCount: Math.max(0, Math.trunc(Number(sceneCount) || 0)),
+    };
+}
+
+/**
  * 深夜の記帳を前日として扱う境界(時)。深夜=22時〜翌5時(労働基準法の深夜業と同じ区切り)に合わせ、
  * 5時より前を前日とする。日をまたいで続いたアクトの記帳がその日付になるのを防ぐ。
  */

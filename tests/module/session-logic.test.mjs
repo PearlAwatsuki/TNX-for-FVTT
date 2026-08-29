@@ -18,6 +18,7 @@ import {
   teamDelete,
   teamOf,
   teamLinkedExitTargets,
+  recordSceneAppearance,
 
   hasBackstage,
   backstageQueue,
@@ -1606,5 +1607,40 @@ describe("舞台裏の列と行動不可（15-5）", () => {
   it("RL が手動で足していても行動不可なら外れる（何もできないため）", () => {
     const queue = backstageQueue([a("y", "い", { incapable: true, appearing: true })], ["y"]);
     expect(queue).toEqual([]);
+  });
+});
+
+describe("recordSceneAppearance()（登場シーン数の記帳＝経験点自動入力の元・2026-08-30 承認）", () => {
+  it("初回の登場で 1 を数え、シーン内重複防止に載る", () => {
+    const next = recordSceneAppearance({ appearanceCounts: {}, appearedThisScene: [], actorId: "a1" });
+    expect(next.appearanceCounts).toEqual({ a1: 1 });
+    expect(next.appearedThisScene).toEqual(["a1"]);
+  });
+
+  it("同一シーン内の再登場（退場→再登場）は数えない", () => {
+    const st = { appearanceCounts: { a1: 1 }, appearedThisScene: ["a1"], actorId: "a1" };
+    expect(recordSceneAppearance(st)).toBeNull();
+  });
+
+  it("シーンが変わって（重複防止クリア後）登場すれば累積する", () => {
+    const next = recordSceneAppearance({ appearanceCounts: { a1: 2 }, appearedThisScene: [], actorId: "a1" });
+    expect(next.appearanceCounts).toEqual({ a1: 3 });
+    expect(next.appearedThisScene).toEqual(["a1"]);
+  });
+
+  it("別キャストは別に数える・元のオブジェクトは変更しない", () => {
+    const counts = { a1: 1 };
+    const appeared = ["a1"];
+    const next = recordSceneAppearance({ appearanceCounts: counts, appearedThisScene: appeared, actorId: "a2" });
+    expect(next.appearanceCounts).toEqual({ a1: 1, a2: 1 });
+    expect(counts).toEqual({ a1: 1 });
+    expect(appeared).toEqual(["a1"]);
+  });
+
+  it("id 無し・壊れたカウントは頑健に扱う", () => {
+    expect(recordSceneAppearance({ actorId: "" })).toBeNull();
+    expect(recordSceneAppearance({})).toBeNull();
+    const next = recordSceneAppearance({ appearanceCounts: { a1: "x" }, appearedThisScene: [], actorId: "a1" });
+    expect(next.appearanceCounts.a1).toBe(1);
   });
 });

@@ -65,7 +65,7 @@ import { renderHandoutCard } from './module/handout-contact.mjs';
 import { openFocusSystemPanel } from './module/tnx-focus-system-panel.mjs';
 import { openScenarioPanel } from './module/tnx-scenario-panel.mjs';
 import { registerFocusSystemSetting, advanceFocusCuts } from './module/focus-system-state.mjs';
-import { registerSessionStateSetting, getSessionState } from './module/session-state.mjs';
+import { registerSessionStateSetting, registerAppearanceExpTracking, getSessionState } from './module/session-state.mjs';
 import { registerSubSceneSetting, refreshSubSceneBackground } from './module/subscenes.mjs';
 import { registerAppearanceTokenSync } from './module/appearance-state.mjs';
 import { registerTimeBoundaries, registerForcedExitWounds } from './module/time-boundary.mjs';
@@ -1329,6 +1329,8 @@ Hooks.once("init", async function() {
     // 実行中 FS判定の正本(フェーズ12-5)
     registerFocusSystemSetting();
     registerSessionStateSetting();
+    // 登場シーン数の記帳(経験点配布の「全て自動で入力する」の元・アクティブ GM のみが書く)
+    registerAppearanceExpTracking();
     registerSubSceneSetting();
 
     game.settings.register("tokyo-nova-axleration", "defaultHandMaxSize", {
