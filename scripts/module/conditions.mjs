@@ -551,7 +551,7 @@ export function gatherConditionControlPenalty(conditions) {
 /** 電子妨害がアウトフィット個数を数えるカテゴリ(武器/サイバーウェア/トロン=大、アーマーギア/サイコアプリ=小)。 */
 const JAMMING_MAJOR = ["weapon", "cyberware", "tron"];
 const JAMMING_MINOR = ["armorGear", "psychoApp"];
-/** ウェットのアウトフィット識別キー(辞典の実値に合わせる。フェーズ17 で確定)。 */
+/** ウェットのアウトフィット識別キー(辞典の実値に合わせる。フェーズ16=辞典で確定)。 */
 export const WET_IDENT_KEY = "wet";
 
 /**
