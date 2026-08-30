@@ -6,25 +6,27 @@
  * タブは 2026-08-31 ユーザー明示の8種(BROWSER_TABS)・各タブ内でグループ化チェックボックス＋
  * 検索の絞り込み(D&D 踏襲)。
  *
- * 表示形式(2026-08-30 裁定・正本は Phase_16_Tasks_Detail):
- * - スタイル技能: スタイル別見出し＋データカードのグリッド(ルルブ形式踏襲)
- * - アウトフィット: 大分類/小分類見出し＋略号パラメータ行カードのグリッド(同)
- * - 一般技能/オーガニゼーション: リスト行＋ホバーで共用カードのツールチップ
- * - スタイル: スタイルデータ形式の骨格 / 神業: 専用カード
- * - ライフパス: 種別ごとの表形式 / NPC: リスト
+ * 表示形式(2026-08-30 裁定＋2026-08-31 是正・正本は Phase_16_Tasks_Detail):
+ * - スタイル技能: スタイル別(ワークス技能は組織別)見出し＋データカードの固定幅グリッド
+ * - アウトフィット: 大分類/小分類見出し＋略号行カードの固定幅グリッド(ヴィークル/全身義体/
+ *   式神装備は高さ 4/3)
+ * - 一般技能: 横幅広めのカードを縦積みで直接表示(リスト+ツールチップではない)・正規ソート順
+ * - スタイル/神業/オーガニゼーション: 均一高さのカードグリッド・登録順(style/miracle)
+ * - ライフパス: 種別ごとの表形式 / NPC: リスト(キャストは載せない)
+ * - カードは大きさ固定・入りきらない解説は文字サイズを縮小して収める(ルルブ同様)
  *
  * データはすべて getIndex 由来(KI-026)・カードは dictionary-cards.mjs の共用ビルダー。
  */
 
-import { BROWSER_TABS, loadTabEntries, buildFilterGroups, filterEntries, groupOutfitEntries, groupStyleSkillEntries, groupLifePathEntries, NPC_TYPE_LABELS } from "./dictionary-browser-data.mjs";
-import { buildDictionaryCard, DICTIONARY_CARD_TEMPLATE } from "./dictionary-cards.mjs";
-import { loadSkillChoices, SKILL_PACKS, STYLE_PACK } from "./skill-dictionary.mjs";
+import { BROWSER_TABS, loadTabEntries, buildFilterGroups, filterEntries, groupOutfitEntries, groupStyleSkillEntries, groupLifePathEntries, loadOrderedNames, NPC_TYPE_LABELS } from "./dictionary-browser-data.mjs";
+import { buildDictionaryCard } from "./dictionary-cards.mjs";
+import { loadSkillChoices, SKILL_PACKS, STYLE_PACK, ORGANIZATION_PACK } from "./skill-dictionary.mjs";
 import { loadOutfitDictNames } from "./outfit-dictionary.mjs";
 import { getPartSlotPreset } from "./part-slot-preset-app.mjs";
 import { resolveItemNameByKey } from "./identification.mjs";
+import { readFlag } from "../data/item/helpers.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
-const { renderTemplate } = foundry.applications.handlebars;
 
 export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(ApplicationV2) {
 
@@ -67,15 +69,17 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
         return this._filterState[tabKey];
     }
 
-    /** 名前解決マップ(技能名・スタイル名・アウトフィット辞典名)をまとめて読む。 */
+    /** 名前解決マップ(技能名・スタイル名・組織名・アウトフィット辞典名)をまとめて読む。
+     *  スタイル・組織は**登録順**(グループ見出しと絞り込み選択肢の並びに使うため)。 */
     async _loadMaps() {
         if (this._maps) return this._maps;
-        const [skillNames, styleNames, outfitNames] = await Promise.all([
+        const [skillNames, styleNames, orgNames, outfitNames] = await Promise.all([
             loadSkillChoices([SKILL_PACKS.general, SKILL_PACKS.style, SKILL_PACKS.works]),
-            loadSkillChoices([STYLE_PACK]),
+            loadOrderedNames(STYLE_PACK),
+            loadOrderedNames(ORGANIZATION_PACK),
             loadOutfitDictNames(),
         ]);
-        this._maps = { skillNames, styleNames, outfitNames };
+        this._maps = { skillNames, styleNames, orgNames, outfitNames };
         return this._maps;
     }
 
@@ -97,7 +101,7 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
         context.kind = tab.key;
         context.isOutfit = tab.key === "outfit";
         context.state = { search: state.search, buyMin: state.buyMin ?? "", buyMax: state.buyMax ?? "" };
-        context.filterGroups = buildFilterGroups(tab.key, { styleNames: maps.styleNames }).map((g) => ({
+        context.filterGroups = buildFilterGroups(tab.key, { styleNames: maps.styleNames, orgNames: maps.orgNames }).map((g) => ({
             ...g,
             options: g.options.map((o) => ({ ...o, checked: (state.checks[g.key] ?? []).includes(o.value) })),
         }));
@@ -113,7 +117,7 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
 
         switch (tab.key) {
             case "styleSkill": {
-                const groups = groupStyleSkillEntries(filtered, maps.styleNames);
+                const groups = groupStyleSkillEntries(filtered, maps.styleNames, maps.orgNames);
                 context.cardGroups = await Promise.all(groups.map(async (g) => ({
                     label: g.styleLabel,
                     cards: await Promise.all(g.entries.map(async (e) => ({ uuid: e.uuid, docName: e.docName, card: await card(e) }))),
@@ -121,36 +125,38 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
                 break;
             }
             case "outfit": {
+                // ヴィークル・全身義体・式神装備はパラメータが多く解説も長いため、カード高さを
+                // 他の 4/3 とする(2026-08-31 ユーザー指定・tall フラグ)
+                const isTall = (e) => e.type === "vehicle" || e.type === "cyborg" || readFlag(e.system ?? {}, "isShiki");
                 const majors = groupOutfitEntries(filtered);
                 context.outfitGroups = await Promise.all(majors.map(async (major) => ({
                     label: major.majorLabel,
                     minors: await Promise.all(major.minors.map(async (minor) => ({
                         label: minor.minorLabel,
-                        cards: await Promise.all(minor.entries.map(async (e) => ({ uuid: e.uuid, docName: e.docName, card: await card(e) }))),
+                        cards: await Promise.all(minor.entries.map(async (e) => ({
+                            uuid: e.uuid, docName: e.docName, tall: isTall(e), card: await card(e),
+                        }))),
                     }))),
                 })));
                 break;
             }
             case "style":
-            case "miracle": {
+            case "miracle":
+            case "organization": {
+                // オーガニゼーションもスタイルと同様のカード形式(2026-08-31 ユーザー指摘)
                 context.cardGroups = [{
                     label: "",
                     cards: await Promise.all(filtered.map(async (e) => ({ uuid: e.uuid, docName: e.docName, card: await card(e) }))),
                 }];
                 break;
             }
-            case "generalSkill":
-            case "organization": {
-                context.listRows = await Promise.all(filtered.map(async (e) => {
-                    const c = await card(e);
-                    return {
-                        uuid: e.uuid, docName: e.docName, img: e.img,
-                        name: c?.name ?? e.name,
-                        meta: (c?.tags ?? []).join("・"),
-                        sourceLabel: e.sourceLabel,
-                        tooltipHtml: c ? await renderTemplate(DICTIONARY_CARD_TEMPLATE, { card: c }) : "",
-                    };
-                }));
+            case "generalSkill": {
+                // 一般技能は「リスト形式に寄せた横幅広めのカード」を縦積みで**直接**並べる
+                // (2026-08-31 ユーザー指摘=リスト+ツールチップではなくカード表示。
+                //  シート側ツールチップはこのカードと同一部品=「ブラウザの表示を踏襲したツールチップ」)
+                context.cardStack = await Promise.all(filtered.map(async (e) => ({
+                    uuid: e.uuid, docName: e.docName, card: await card(e),
+                })));
                 break;
             }
             case "lifePath": {
@@ -169,7 +175,6 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
                     uuid: e.uuid, docName: e.docName, img: e.img, name: e.name,
                     meta: NPC_TYPE_LABELS[e.type] ?? e.type,
                     sourceLabel: e.sourceLabel,
-                    tooltipHtml: "",
                 }));
                 break;
             }
@@ -231,6 +236,10 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
                 doc?.sheet?.render(true);
             });
         }
+
+        // 固定高さカード: 入りきらない解説は文字サイズを縮小して収める(ルルブ同様・
+        // 2026-08-31 ユーザー指定)。レイアウト確定後に実測するため rAF 越しに実行
+        requestAnimationFrame(() => fitDictionaryCards(this.element));
     }
 
     /** タブ切替 */
@@ -245,6 +254,35 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
         if (!uuid) return;
         const doc = await fromUuid(uuid).catch(() => null);
         doc?.sheet?.render(true);
+    }
+}
+
+/**
+ * 固定高さのカード内で解説が入りきらない場合、解説の文字サイズを段階的に縮小して収める
+ * (ルルブのカードと同じ流儀=カードの大きさは固定・文字で吸収。2026-08-31 ユーザー指定)。
+ * 対象は固定高さスロット(.tnx-dict__card-slot)内のカードのみ(ツールチップ等の自動高さは対象外)。
+ * @param {HTMLElement} root ブラウザのルート要素
+ */
+export function fitDictionaryCards(root) {
+    if (!root) return;
+    for (const card of root.querySelectorAll(".tnx-dict__card-slot .tnx-dict-card")) {
+        // 縮小対象は本文系(解説＋条件)。パラメータ行・ヘッダは縮めない(ルルブ同様)
+        const targets = [...card.querySelectorAll(".tnx-dict-card__desc, .tnx-dict-card__condition")];
+        if (!targets.length) continue;
+        // いったん既定サイズへ戻してから縮小判定(再レンダー・再フィットに冪等)
+        for (const t of targets) t.style.fontSize = "";
+        const desc = card.querySelector(".tnx-dict-card__desc");
+        // あふれは2経路: ①解説枠の内側(flex 割当より内容が大きい=desc.scrollHeight)
+        // ②条件等がカード下端を突き抜ける(card.scrollHeight)。両方を見る
+        const overflows = () =>
+            (desc && desc.scrollHeight > desc.clientHeight + 1)
+            || card.scrollHeight > card.clientHeight + 1;
+        let size = Number.parseFloat(getComputedStyle(targets[0]).fontSize) || 12;
+        const MIN = 7.5;
+        while (overflows() && size > MIN) {
+            size -= 0.5;
+            for (const t of targets) t.style.fontSize = `${size}px`;
+        }
     }
 }
 

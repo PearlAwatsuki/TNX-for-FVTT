@@ -163,23 +163,14 @@ export function buildMiracleCard(item) {
 }
 
 /**
- * スタイルカード(スタイルデータ形式の骨格: イラスト＋英名＋解説＋神業合成＋能力値/制御値。
- * キャッチコピーは持たない=2026-08-30 裁定)。神業は miracle.id をライブ解決して合成する。
+ * スタイルカード(スタイルデータ形式の骨格: イラスト＋英名＋解説＋能力値/制御値。
+ * キャッチコピーは持たない=2026-08-30 裁定。**神業は載せない**=2026-08-31 ユーザー指摘
+ * 「神業タブが別にあるのに神業を載せる意味が分からない」・当初の合成案は撤回)。
  * @param {{name: string, img?: string, system: object}} item
- * @returns {Promise<object>}
+ * @returns {object}
  */
-export async function buildStyleCard(item) {
+export function buildStyleCard(item) {
     const system = item.system ?? {};
-    let miracle = null;
-    if (system.miracle?.id) {
-        const doc = await fromUuid(system.miracle.id).catch(() => null);
-        if (doc) {
-            miracle = { name: doc.name, furigana: doc.system?.furigana ?? "",
-                condition: doc.system?.usageCondition ?? "", description: doc.system?.description ?? "" };
-        }
-    }
-    // 参照切れフォールバック(名前キャッシュは削除時フォールバックのみの規約)
-    if (!miracle && system.miracle?.name) miracle = { name: system.miracle.name, furigana: "", condition: "", description: "" };
     const ab = (f) => ({ value: f?.value ?? 0, control: f?.control ?? 0 });
     return {
         kind: "style",
@@ -192,7 +183,6 @@ export async function buildStyleCard(item) {
             { label: "生命", ...ab(system.life) },
             { label: "外界", ...ab(system.mundane) },
         ],
-        miracle,
         description: system.description ?? "",
     };
 }
@@ -214,7 +204,6 @@ export function buildOrganizationCard(item) {
 
 /**
  * アイテム(相当)から kind に応じたカードを組み立てる(ディスパッチャ)。
- * style のみ非同期(神業のライブ解決)。
  * @param {{name: string, img?: string, type: string, system: object}} item
  * @param {object} [opts] 各ビルダーへの追加文脈(skillNames/styleNames/resolveHostName 等)
  * @returns {Promise<?object>} カードデータ(対象外は null)

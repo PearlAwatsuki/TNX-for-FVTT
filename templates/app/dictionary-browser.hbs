@@ -66,7 +66,7 @@
                 {{#if this.label}}<header class="tnx-dict__group-header"><span>{{this.label}}</span></header>{{/if}}
                 <div class="tnx-dict__card-grid">
                     {{#each this.cards}}
-                    <div class="tnx-dict__card-slot" data-uuid="{{this.uuid}}" data-doc-name="{{this.docName}}"
+                    <div class="tnx-dict__card-slot{{#if this.tall}} tnx-dict__card-slot--tall{{/if}}" data-uuid="{{this.uuid}}" data-doc-name="{{this.docName}}"
                          data-dict-drag draggable="true">
                         {{> "systems/tokyo-nova-axleration/templates/app/dictionary-card.hbs" card=this.card}}
                     </div>
@@ -78,12 +78,22 @@
         {{/each}}
         {{/if}}
 
+        {{#if cardStack}}
+        <div class="tnx-dict__card-stack">
+            {{#each cardStack}}
+            <div class="tnx-dict__card-slot tnx-dict__card-slot--wide" data-uuid="{{this.uuid}}" data-doc-name="{{this.docName}}"
+                 data-dict-drag draggable="true">
+                {{> "systems/tokyo-nova-axleration/templates/app/dictionary-card.hbs" card=this.card}}
+            </div>
+            {{/each}}
+        </div>
+        {{/if}}
+
         {{#if listRows}}
         <div class="tnx-dict__list">
             {{#each listRows}}
             <div class="tnx-dict__row" data-uuid="{{this.uuid}}" data-doc-name="{{this.docName}}"
-                 data-dict-drag draggable="true" data-action="dictOpen"
-                 {{#if this.tooltipHtml}}data-tooltip-html="{{this.tooltipHtml}}" data-tooltip-class="tnx-dict-tooltip" data-tooltip-direction="RIGHT"{{/if}}>
+                 data-dict-drag draggable="true" data-action="dictOpen">
                 <img class="tnx-dict__row-icon" src="{{this.img}}" alt="" loading="lazy">
                 <div class="tnx-dict__row-title">
                     <span class="tnx-dict__row-name">{{this.name}}</span>
