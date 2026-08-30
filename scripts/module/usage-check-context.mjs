@@ -209,11 +209,10 @@ export async function buildUsageCheckContext(actor, item, usage, {
     const usesPlan = await promptConsumption(actor, consumeRows, { title: `使用回数の消費: ${item.name}` });
     if (usesPlan === null) return null;
 
-    // 用途の適用効果: ターゲットしたキャラクターへ付与するペイロードを用意(ノーターゲットは確認)。
-    // 結果カードに載せ、対象所有者/GM がボタンで付与する(2026-07-10)
+    // 用途の適用効果: 付与ペイロードを用意して結果カードに載せる(2026-07-10)。適用は
+    // カードの効果セクション(トレイ)から対象所有者/GM が行う(2026-08-30 再設計)
     const usageEffects = await prepareUsageEffectPayload(actor, item, usage,
         effectTargetOverride !== undefined ? { targetOverride: effectTargetOverride } : {});
-    if (usageEffects === "cancel") return null;
 
     // 割り込み許可(13-5): grantsInterrupt の用途は対象へ割り込み許可を立てる(適用効果と同じ対象)。
     await applyInterruptGrantForUsage(actor, usage,

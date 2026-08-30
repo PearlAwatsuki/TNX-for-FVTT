@@ -2696,6 +2696,12 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
      * (2026-08-30 統合)。適用効果があればカード末尾に「効果を適用」ボタンが注入される。
      */
     static async _useDeclarationUsage(actor, item, usage) {
+        // 対象解決(2026-08-30 是正): 宣言も判定系と同じ決定表駆動の対象解決を通す(自身/単体の
+        // 自動セルフ等)。従来は素通りでレティクル頼み=対象=自身の宣言がノーターゲットで
+        // 「対象なし」になる欠陥だった。キャンセルは中止(消費より前に置く)
+        const { resolveUsageTargetRefs } = await import("../module/target-resolution.mjs");
+        if (await resolveUsageTargetRefs(actor, usage) === null) return;
+
         // 分身は本体側カウンターへ差し替えて共有(Troops.md)
         const rows = resolveConsumeRowsForActor(actor, item, usage.consumeTargets);
         const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${usage.name || item.name}` });
@@ -2705,13 +2711,12 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 割り込み許可(13-5): grantsInterrupt の宣言用途は対象へ割り込み許可を立てる(効果が無くても)
         await applyInterruptGrantForUsage(actor, usage);
 
-        // 用途の適用効果: ターゲットしたキャラクターへ付与する(判定を伴わない用途=宣言等・2026-07-10)。
-        // 使用カードはアイテムの解説カードに統合(2026-08-30 ユーザー承認)——宣言は判定を行わず
-        // 組み合わせも無いため、効果文=解説をカードで卓に提示する。適用効果があれば
-        // 「効果を適用」ボタン(対象所有者/GM が押す)が末尾に注入され、無くてもカードは出す
+        // 用途の適用効果: ペイロードを組んで解説カードに載せる(判定を伴わない用途=宣言等・
+        // 2026-07-10)。使用カードはアイテムの解説カードに統合(2026-08-30 ユーザー承認)——宣言は
+        // 判定を行わず組み合わせも無いため、効果文=解説をカードで卓に提示する。適用効果が
+        // あれば効果セクション(トレイ)が末尾に注入され、無くてもカードは出す
         // (旧・実行者ローカル通知はカード化に伴い廃止=他クライアントに見えなかった)
         const usageEffects = await prepareUsageEffectPayload(actor, item, usage);
-        if (usageEffects === "cancel") return;
         await item.postDescriptionCard({ usageEffects });
     }
 

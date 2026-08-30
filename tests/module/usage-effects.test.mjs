@@ -95,6 +95,42 @@ describe("prepareUsageEffectPayload()（timing のペイロード伝搬・2026-0
       { targetOverride: [{ uuid: "u1", name: "A" }] });
     expect(payload.effects.map(e => e.timing)).toEqual(["hit", "damage"]);
   });
+
+  // 効果セクション再設計(2026-08-30 ユーザー確定): 代償効果もペイロードで運び、解決時の
+  // 即時自動付与はしない(自動付与はどこにも無い)。適用済み状態もカードに持たせない。
+  const mkSelfEffect = (id, name) => ({ id, name,
+    flags: { "tokyo-nova-axleration": { grantTarget: "self" } },
+    toObject: () => ({ _id: id, name, disabled: true, transfer: true,
+      flags: { "tokyo-nova-axleration": { grantTarget: "self" } } }) });
+
+  it("代償効果(grantTarget='self')は self=true でペイロードに載る（即時付与しない・2026-08-30）", async () => {
+    const parent = { id: "p", effects: { get: (id) =>
+      (id === "e1" ? mkEffect("e1", "毒") : mkSelfEffect("e3", "代償")) } };
+    const payload = await prepareUsageEffectPayload(null, parent,
+      { effects: [{ itemId: "", effectId: "e1" }, { itemId: "", effectId: "e3" }] },
+      { targetOverride: [{ uuid: "u1", name: "A" }] });
+    expect(payload.effects.map(e => [e.name, e.self === true])).toEqual([["毒", false], ["代償", true]]);
+    // 旧・適用済み状態フィールドは持たない(カードは状態を主張しない)
+    expect(payload.applied).toBeUndefined();
+    expect(payload.selfApplied).toBeUndefined();
+  });
+
+  it("使用者の uuid を sourceActorUuid で運ぶ（代償の適用先・2026-08-30）", async () => {
+    const parent = { id: "p", effects: { get: () => mkEffect("e1", "毒") } };
+    const actor = { uuid: "Actor.abc", items: { get: () => null } };
+    const payload = await prepareUsageEffectPayload(actor, parent,
+      { effects: [{ itemId: "", effectId: "e1" }] },
+      { targetOverride: [] });
+    expect(payload.sourceActorUuid).toBe("Actor.abc");
+  });
+
+  it("代償のみの構成はターゲットを読まない（targets=[]・game 非依存で解決できる）", async () => {
+    const parent = { id: "p", effects: { get: () => mkSelfEffect("e3", "代償") } };
+    const payload = await prepareUsageEffectPayload(null, parent,
+      { effects: [{ itemId: "", effectId: "e3" }] });
+    expect(payload.targets).toEqual([]);
+    expect(payload.effects[0].self).toBe(true);
+  });
 });
 
 describe("hitEffectTargetRefs()（命中時効果の適用先＝命中対象＋カバー付け替え・2026-07-18 是正）", () => {

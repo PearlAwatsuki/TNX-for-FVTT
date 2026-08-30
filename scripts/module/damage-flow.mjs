@@ -193,20 +193,17 @@ export async function openDamageRollDialog(attackMessage) {
 async function finalizeDamageRoll(ctx, form, played) {
     const { attackMessage, f, attacker, category, attackPower, damageBonusRows, hitTargets } = ctx;
 
-    // 用途の適用効果(2026-07-18 確定): 一般(命中時)効果は攻撃カードの「効果を適用」ボタンが担う。
+    // 用途の適用効果(2026-07-18 確定): 一般(命中時)効果は攻撃カードの効果セクションが担う。
     // ダメージカードへは**ダメージ時効果(damageEffects 由来)だけ**を引き継ぎ、このカードの
-    // 「効果を適用」ボタンで手動適用する(「1点でも」等の条件はコード化せず卓判断)。
-    // 対象なし攻撃(RL 手動運用)は命中解決が無い=一般効果も従来どおりこのカードのボタンで拾えるよう残す。
-    // 自分付与・命中時付与のノートは攻撃カード側に出すため持ち込まない(重複表示しない)
+    // 効果セクションで手動適用する(「1点でも」等の条件はコード化せず卓判断)。ダメージ時の
+    // 代償効果(self)も同乗して引き継がれる(2026-08-30)。
+    // 対象なし攻撃(RL 手動運用)は命中解決が無い=一般効果も従来どおりこのカードで拾えるよう残す
     const attackEffects = attackMessage.getFlag(SCOPE, "usageEffects") ?? null;
     const dataEntries = (attackEffects?.effects ?? []).filter(e => e?.data);
     const carriedEntries = hitTargets.length ? splitEffectsByTiming(dataEntries).damage : dataEntries;
     let usageEffects = null;
     if (attackEffects && carriedEntries.length) {
         usageEffects = { ...attackEffects, effects: carriedEntries };
-        delete usageEffects.hitGranted;
-        delete usageEffects.hitApplied;
-        delete usageEffects.selfApplied;
     }
 
     await ChatMessage.create({

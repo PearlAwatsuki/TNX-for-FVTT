@@ -1,0 +1,22 @@
+{{!-- 効果セクション(トレイ・2026-08-30 再設計): 「効果」見出しで開閉する折りたたみ。
+      初期=展開・「効果を適用」押下で畳む(クライアントローカル・メッセージは書き換えない)。
+      対象行=チェックボックス(既定オン)で適用先を選ぶ。代償効果(self)は「→ 自分」表記で、
+      同じボタンで使用者へ同時付与される。描画/操作の配線は usage-effects.mjs。 --}}
+<button type="button" class="tnx-effect-tray-toggle" data-action="trayToggle">
+    <i class="fas fa-bolt"></i><span>効果</span><i class="fas fa-caret-down tnx-effect-tray-caret"></i>
+</button>
+<div class="tnx-effect-tray-content">
+    {{#each targets}}
+    <label class="tnx-effect-target-row">
+        <input type="checkbox" checked data-uuid="{{this.uuid}}" data-name="{{this.name}}">
+        <span>{{this.name}}</span>
+    </label>
+    {{/each}}
+    {{#each effects}}
+    <div class="tnx-effect-row">
+        <span>{{this.name}}</span>
+        {{#if this.self}}<span class="tnx-effect-self-tag">→ 自分</span>{{/if}}
+    </div>
+    {{/each}}
+    <button type="button" class="tnx-chat-btn" data-action="trayApply">効果を適用</button>
+</div>

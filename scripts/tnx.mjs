@@ -577,20 +577,23 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
         (transferGroup ?? anchor)?.after(parentGroup);
     }
 
-    // 付与先: 使用時にこの効果を誰に付与するか。対象=ターゲットしたキャラクター(既定)/
-    // 自分=使用者(用途解決時に即時付与=代償デバフ等)。**自動適用とは直交**(2026-07-13 ユーザー指摘で
-    // 是正: 用途の適用効果は自動適用オンの効果も選択できるため、transfer で出し分けると設定に
-    // 到達できない)。用途の効果はアイテム由来のみなので、アイテム上の効果で常時表示する
+    // 効果種別: 使用時付与でこの効果が果たす役割。通常効果(既定・値 "target")=カードの効果
+    // セクションでチェック済みの対象へ付与/代償効果(値 "self")=同じ押下で同時に使用者へ付与。
+    // 旧名「付与先: 対象/自分」は宛先のふりをした挙動スイッチで v3 当初(2026-07-13)からの
+    // 命名不良だった(2026-08-30 是正。保存フラグ名 grantTarget は歴史的経緯で維持=データ無移行)。
+    // **自動適用とは直交**(2026-07-13 ユーザー指摘で是正: 用途の適用効果は自動適用オンの効果も
+    // 選択できるため、transfer で出し分けると設定に到達できない)。
+    // 用途の効果はアイテム由来のみなので、アイテム上の効果で常時表示する
     if (app.document?.parent?.documentName === "Item") {
         const grantCur = app.document.getFlag?.("tokyo-nova-axleration", "grantTarget") === "self" ? "self" : "target";
         const grantGroup = document.createElement("div");
         grantGroup.classList.add("form-group", "tnx-grant-target-field");
         grantGroup.innerHTML = `
-            <label>付与先</label>
+            <label>効果種別</label>
             <div class="form-fields">
                 <select name="flags.tokyo-nova-axleration.grantTarget">
-                    <option value="target"${grantCur === "target" ? " selected" : ""}>対象</option>
-                    <option value="self"${grantCur === "self" ? " selected" : ""}>自分</option>
+                    <option value="target"${grantCur === "target" ? " selected" : ""}>通常効果</option>
+                    <option value="self"${grantCur === "self" ? " selected" : ""}>代償効果</option>
                 </select>
             </div>`;
         (parentGroup ?? transferGroup ?? anchor)?.after(grantGroup);
