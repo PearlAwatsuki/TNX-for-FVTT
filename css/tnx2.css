@@ -6567,10 +6567,19 @@ button.tnx-create-act-button span {
     font-size: 0.9em;
 }
 
+/* 固定分類の disabled プルダウン(2026-08-31): 2行目以降と構造を揃えるための表示。
+   意匠は既存の disabled select 規約(opacity 0.5・not-allowed)に従う */
+.tokyo-nova.sheet.item.outfit .outfit-category select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* 複数分類(フェーズ16-1): 1行目右端のチェックボックスと副分類行の追加/削除ボタン。
    右端要素は同幅で縦に揃える(チェック⇔ボタンが行違いで並ぶため) */
 .tokyo-nova.sheet.item.outfit .outfit-category-multi-toggle {
-    flex: 0 0 20px;
+    /* チェックボックスの実寸(min-content)が基準幅を押し広げないよう、実寸に合わせた同幅で
+       ボタン列(下行)と縦を揃える */
+    flex: 0 0 26px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -6582,7 +6591,7 @@ button.tnx-create-act-button span {
 }
 
 .tokyo-nova.sheet.item.outfit .outfit-category-row-btn {
-    flex: 0 0 20px;
+    flex: 0 0 26px;
     text-align: center;
     color: var(--tnx2-text-secondary);
 }

@@ -24,11 +24,14 @@
             </div>
             <div class="outfit-category">
                 {{#if isEditMode}}
+                    {{!-- 固定分類は disabled プルダウン(2026-08-31): 2行目以降と同じ select+select 構造に
+                         して縦位置・幅を揃える。文字列ラベル表示は廃止 --}}
                     {{#if isBothCategoryFixed}}
-                        <span class="outfit-category-label">{{view.primaryCategory}}</span>
+                        <select disabled><option selected>{{fixedMajorLabel}}</option></select>
+                        <select disabled><option selected>{{fixedMinorLabel}}</option></select>
                     {{else}}
                         {{#if isMajorCategoryFixed}}
-                            <span class="outfit-category-label">{{fixedMajorLabel}}／</span>
+                            <select disabled><option selected>{{fixedMajorLabel}}</option></select>
                         {{else}}
                             <select name="system.majorCategory">
                                 {{selectOptions options.majorCategory selected=system.majorCategory}}

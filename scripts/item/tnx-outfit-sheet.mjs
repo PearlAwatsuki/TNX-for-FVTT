@@ -385,6 +385,10 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 system.minorCategory = fixedBoth.minor;
             }
             context.isBothCategoryFixed = true;
+            // 固定分類は disabled プルダウンで表示する(2026-08-31 ユーザー指示=文字列表示は
+            // 2行目以降と縦位置・幅が揃わない)。ラベルは disabled select の単一 option に入れる
+            context.fixedMajorLabel = getMajorCategoryLabel(fixedBoth.major);
+            context.fixedMinorLabel = getMinorCategoryLabel(fixedBoth.minor);
         } else if (fixedMajorName) {
             if (system.majorCategory !== fixedMajorName) {
                 this.item.update({ "system.majorCategory": fixedMajorName });
