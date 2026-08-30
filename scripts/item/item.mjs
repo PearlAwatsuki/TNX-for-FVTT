@@ -34,15 +34,29 @@ export class TokyoNovaItem extends Item {
     /**
      * D&D 方式: 用途自体が無いアイテムをロール/使用した時、アイテム名＋解説をそのままチャットに表示する。
      * 「用途の無いアイテムは説明が提示される」というアイテムの基本機能(エラー/ダイアログにしない)。
+     *
+     * 宣言用途の使用カードもこのカードに統合(2026-08-30 ユーザー承認)。宣言は判定を行わず
+     * 組み合わせが無いため効果文=解説を1枚で提示できる。適用効果ペイロードを渡すと
+     * フラグに載せ、本文末尾に効果エリアを設ける(「効果を適用」ボタン/付与注記は
+     * renderChatMessageHTML フックの renderUsageEffectButton がそこへ注入する)。
+     * @param {object} [options]
+     * @param {object|null} [options.usageEffects] 用途の適用効果ペイロード(宣言使用時のみ)
      */
-    async postDescriptionCard() {
+    async postDescriptionCard({ usageEffects = null } = {}) {
         const desc = await foundry.applications.ux.TextEditor.enrichHTML(this.system?.description ?? "", { async: true });
+        // 解説が空なら本文ブロックごと省く(空の余白帯と二重境界線を出さない)
+        const body = desc?.trim() ? `<div class="card-content">${desc}</div>` : "";
         return ChatMessage.create({
             user:    game.user.id,
             speaker: ChatMessage.getSpeaker({ actor: this.actor ?? undefined }),
-            content: `<details class="tnx-chat-card" open><summary><h3>${this.name}</h3></summary>
-                <div class="card-content">${desc}</div></details>`,
-            flags: { "core.canPopout": true },
+            content: `<details class="tnx-chat-card" open><summary><h3>${foundry.utils.escapeHTML(this.name)}</h3></summary>`
+                + body
+                + (usageEffects ? `<div class="tnx-usage-effect-area"></div>` : "")
+                + `</details>`,
+            flags: {
+                "core.canPopout": true,
+                ...(usageEffects ? { "tokyo-nova-axleration": { usageEffects } } : {}),
+            },
         });
     }
 }

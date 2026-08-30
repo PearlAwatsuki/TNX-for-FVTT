@@ -2692,8 +2692,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
 
     /**
      * 宣言(実行フラグなし)の使用(2026-07-16 アイテムシートの使用ボタンから移設): 判定を行わず、
-     * 使用回数の消費(使用時に確定・適用)→適用効果ペイロード(あれば使用カードに「効果を適用」
-     * ボタンを出す)。効果が無ければ使用の通知のみ。
+     * 使用回数の消費(使用時に確定・適用)→解説カード(postDescriptionCard)を投稿する
+     * (2026-08-30 統合)。適用効果があればカード末尾に「効果を適用」ボタンが注入される。
      */
     static async _useDeclarationUsage(actor, item, usage) {
         // 分身は本体側カウンターへ差し替えて共有(Troops.md)
@@ -2706,23 +2706,13 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         await applyInterruptGrantForUsage(actor, usage);
 
         // 用途の適用効果: ターゲットしたキャラクターへ付与する(判定を伴わない用途=宣言等・2026-07-10)。
-        // 使用カードを出し、対象所有者/GM がボタンで付与する(自己バフは自分をターゲット)。
+        // 使用カードはアイテムの解説カードに統合(2026-08-30 ユーザー承認)——宣言は判定を行わず
+        // 組み合わせも無いため、効果文=解説をカードで卓に提示する。適用効果があれば
+        // 「効果を適用」ボタン(対象所有者/GM が押す)が末尾に注入され、無くてもカードは出す
+        // (旧・実行者ローカル通知はカード化に伴い廃止=他クライアントに見えなかった)
         const usageEffects = await prepareUsageEffectPayload(actor, item, usage);
         if (usageEffects === "cancel") return;
-        if (!usageEffects) {
-            ui.notifications?.info(`「${usageDisplayName(usage, item.name) || "用途"}」を使用しました。`);
-            return;
-        }
-        const esc = foundry.utils.escapeHTML;
-        // 既存の結果カード様式(cr-head=暗い背景の見出し)を踏襲する
-        await ChatMessage.create({
-            speaker: ChatMessage.getSpeaker({ actor }),
-            content: `<div class="tnx-check-result tnx-usage-use-card tokyo-nova">`
-                + `<div class="cr-head"><span class="cr-skill-name">${esc(usage.name || item.name)}</span>`
-                + `<span class="cr-type-tag">使用</span></div>`
-                + `<div class="tnx-usage-effect-area"></div></div>`,
-            flags: { "tokyo-nova-axleration": { usageEffects } },
-        });
+        await item.postDescriptionCard({ usageEffects });
     }
 
     /**
