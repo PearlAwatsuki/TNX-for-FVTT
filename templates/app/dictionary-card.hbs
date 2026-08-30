@@ -1,0 +1,51 @@
+{{!-- 辞典カード(フェーズ16-2)。辞典ブラウザの種別別カードとアイテム・ツールチップの共用部品。
+     データは dictionary-cards.mjs のビルダーが組み立てる(kind: outfit / styleSkill /
+     generalSkill / style / miracle / organization)。ルルブのデータカード形式の踏襲
+     (名前ヘッダ＋パラメータ行＋解説)だが、視覚意匠は TNX のデザイン言語で再解釈する。 --}}
+<article class="tnx-dict-card tnx-dict-card--{{card.kind}}">
+    <header class="tnx-dict-card__header">
+        {{#if card.img}}<img class="tnx-dict-card__icon" src="{{card.img}}" alt="" loading="lazy">{{/if}}
+        <div class="tnx-dict-card__titles">
+            {{#if card.furigana}}<span class="tnx-dict-card__furigana">{{card.furigana}}</span>{{/if}}
+            <span class="tnx-dict-card__name">{{card.name}}</span>
+            {{#if card.nameEn}}<span class="tnx-dict-card__name-en">{{card.nameEn}}</span>{{/if}}
+        </div>
+        {{#if card.subtitle}}<span class="tnx-dict-card__subtitle">{{card.subtitle}}</span>{{/if}}
+        {{#each card.tags}}<span class="tnx-dict-card__tag">{{this}}</span>{{/each}}
+    </header>
+    {{#if card.rows.length}}
+    <div class="tnx-dict-card__params">
+        {{#each card.rows}}
+        <div class="tnx-dict-card__param{{#if this.full}} tnx-dict-card__param--full{{/if}}">
+            <label>{{this.label}}：</label><span>{{this.value}}</span>
+        </div>
+        {{/each}}
+    </div>
+    {{/if}}
+    {{#if card.description}}
+    <div class="tnx-dict-card__desc">{{{card.description}}}</div>
+    {{/if}}
+    {{#if card.condition}}
+    <div class="tnx-dict-card__condition"><label>条件</label><div class="tnx-dict-card__condition-body">{{{card.condition}}}</div></div>
+    {{/if}}
+    {{#if card.miracle}}
+    <div class="tnx-dict-card__miracle">
+        <div class="tnx-dict-card__miracle-title">
+            <span class="tnx-dict-card__miracle-label">神業</span>
+            {{#if card.miracle.furigana}}<span class="tnx-dict-card__furigana">{{card.miracle.furigana}}</span>{{/if}}
+            <span class="tnx-dict-card__miracle-name">{{card.miracle.name}}</span>
+        </div>
+        {{#if card.miracle.description}}<div class="tnx-dict-card__desc">{{{card.miracle.description}}}</div>{{/if}}
+        {{#if card.miracle.condition}}
+        <div class="tnx-dict-card__condition"><label>条件</label><div class="tnx-dict-card__condition-body">{{{card.miracle.condition}}}</div></div>
+        {{/if}}
+    </div>
+    {{/if}}
+    {{#if card.abilities}}
+    <div class="tnx-dict-card__abilities">
+        {{#each card.abilities}}
+        <div class="tnx-dict-card__ability"><label>{{this.label}}</label><span>{{this.value}}／{{this.control}}</span></div>
+        {{/each}}
+    </div>
+    {{/if}}
+</article>

@@ -6,6 +6,8 @@
  * 各所で `actor.items.find(i => i.system.identificationKey === key)` を再実装していたのを一本化する。
  */
 
+import { outfitClassifications } from "../data/item/outfit-categories.mjs";
+
 /**
  * アクターの所持アイテムから identificationKey が一致するものを逆引きする。
  * @param {Actor|null} actor
@@ -61,6 +63,30 @@ export function itemDisplayName(item) {
     return (item.type === "generalSkill" || item.type === "styleSkill")
         ? formatSkillName(item.name)
         : (item.name ?? "");
+}
+
+/**
+ * アイテム名の表示マーカー付き名前(2026-06-12 ユーザー確定ルール・フェーズ16-2 で関数化=
+ * Handlebars ヘルパー tnxDecoratedName と辞典ブラウザ/ツールチップのカードが共用):
+ * - 一般技能: アクション技能なら頭に「★」(スタイル技能には付さない)
+ * - スタイル技能: カテゴリが秘技「†」/ 奥義「※」/ 演出特技「＠」を頭に付す
+ * - アウトフィット: 主分類がサイバーウェア以外で分類集合にサイバーウェアを含むなら末尾に「※」
+ * @param {{type?: string, name?: string, system?: object}|null} item アイテム(相当のオブジェクト)
+ * @returns {string}
+ */
+export function decoratedItemName(item) {
+    const name = item?.name ?? "";
+    const system = item?.system ?? {};
+    if (item?.type === "generalSkill") {
+        return (system.isAction ? "★" : "") + name;
+    }
+    if (item?.type === "styleSkill") {
+        const prefix = { secret: "†", mystery: "※", performance: "＠" }[system.styleSkillCategory] ?? "";
+        return prefix + name;
+    }
+    if (system.majorCategory !== "cyberware"
+        && outfitClassifications(system).some((c) => c.major === "cyberware")) return `${name}※`;
+    return name;
 }
 
 // ─── 一般技能の正規ソート順(識別キー基準) ─────────────────────────────────────

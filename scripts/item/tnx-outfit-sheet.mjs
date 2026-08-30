@@ -2,16 +2,17 @@ import { TokyoNovaItemSheet } from "./tnx-item-sheet.mjs";
 import { TnxSkillUtils } from "../module/tnx-skill-utils.mjs";
 import { OUTFIT_CATEGORIES, OUTFIT_TYPES, getMajorCategoryLabel, getMinorCategoryLabel } from "../data/item/outfit-categories.mjs";
 import { ATTACK_DAMAGE_TYPES } from "../data/item/helpers.mjs";
-import { WEAPON_RANGES, WEAPON_RANGE_MIN_OPTIONS, WEAPON_RANGE_MAX_OPTIONS, WEAPON_ATTACK_AREAS } from "../data/item/weapon.mjs";
+import { WEAPON_RANGE_MIN_OPTIONS, WEAPON_RANGE_MAX_OPTIONS, WEAPON_ATTACK_AREAS } from "../data/item/weapon.mjs";
 import { SLOT_KINDS } from "../data/item/common/extensible.mjs";
 import { HOUSING_AREA_RANKS, HOUSING_AREA_MOD_FIELDS } from "../data/item/housing-area.mjs";
 import { PART_KINDS, PART_REFERENCE_SUB_KINDS, PART_RELATIONS, SHIKI_TYPES } from "../data/item/common/outfit-base.mjs";
 import { getPartSlotPreset } from "../module/part-slot-preset-app.mjs";
-import { formatPartDesignation, joinPartDesignations, PART_HOST_FEATURE_LABELS, resolvePartRowsForDisplay, resolvePartAdditions, findPartKeyByLabel, matchesHostDescriptor, OUTFIT_NAME_SLOT_KIND } from "../data/item/part-helpers.mjs";
+import { joinPartDesignations, PART_HOST_FEATURE_LABELS, resolvePartRowsForDisplay, resolvePartAdditions, findPartKeyByLabel, matchesHostDescriptor, OUTFIT_NAME_SLOT_KIND } from "../data/item/part-helpers.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
 import { resolveItemNameByKey } from "../module/identification.mjs";
 import { loadSkillChoices, loadOnomasticChoices, STYLE_PACK, ORGANIZATION_PACK } from "../module/skill-dictionary.mjs";
 import { loadOutfitHostChoices, loadOutfitDictNames } from "../module/outfit-dictionary.mjs";
+import { buildOutfitSummaryRows, formatWeaponRangeLabel } from "../module/outfit-view.mjs";
 
 /** 住宅エリア compendium の pack ID */
 const HOUSING_AREA_PACK = "tokyo-nova-axleration.housing-areas";
@@ -129,22 +130,6 @@ const COMBINE_PARAM_DEFS = Object.freeze([
     },
 ]);
 
-/**
- * 射程の表記(略号「射」)。
- * - min が "none" または未設定: "-"
- * - min が値で max が "none" または未設定: 単一表記(例: "至近")
- * - min と max が両方値: 範囲表記(例: "近～超遠")
- * @param {{min: string, max: string}|string|null} range
- * @returns {string}
- */
-export function formatWeaponRangeLabel(range) {
-    if (!range || typeof range !== "object") return range ?? "-";
-    if (!range.min || range.min === "none") return "-";
-    const min = WEAPON_RANGES[range.min] ?? "-";
-    if (!range.max || range.max === "none") return min;
-    const max = WEAPON_RANGES[range.max] ?? "-";
-    return `${min}～${max}`;
-}
 
 /**
  * アウトフィット(装備品)共通シート。
@@ -653,160 +638,15 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
      */
     _prepareView(system, type, areaMods = null, resolveHostName = null) {
         const view = {};
-        const num = (v) => (Number.isFinite(v) ? String(v) : "0");
-        // 住宅エリアの修正値を加算するヘルパー(住宅施設のみ。エリア未設定時は加算 0)
-        const am = (key) => (areaMods?.[key] ?? 0);
-        // {mode,value} フィールドを文字列に変換。mode が "none" なら "-"
-        // 表示は AE 込み実効値(total)。編集入力は base のまま(フェーズ9-3)。
-        const mv = (field) => field?.mode === "value" ? num(field.total ?? field.value) : "-";
-
-        // オプション時: 正の数値に + を付ける
-        const isOption = system.isOption === true;
-        const numSigned = (v) => {
-            if (!Number.isFinite(v)) return "0";
-            return v > 0 ? `+${v}` : String(v);
-        };
-        // 購入値・常備化経験点・隠匿値・電脳制御値以外の数値に使う mv(オプション時は符号付き)
-        const mvOpt = (field) => {
-            if (field?.mode !== "value") return "-";
-            const v = field.total ?? field.value;
-            return isOption ? numSigned(v) : num(v);
-        };
-        // 数値を直接フォーマット(オプション時は符号付き)
-        const fmtNum = (v) => isOption ? numSigned(v) : num(v);
-
-        // 常備化経験点ラベル(除外対象: 符号なし)
-        const expLabel = mv(system.preserveExp);
-
-        // 購：購入値／常備化経験点(解説参照時は常備化経験点を表記しない。除外対象: 符号なし)
-        let buy;
-        if (system.buy.mode === "reference") buy = "解説参照";
-        else if (system.buy.mode === "value") buy = `${num(system.buy.total ?? system.buy.value)}／${expLabel}`;
-        else buy = `-／${expLabel}`;
-
-        // 隠匿値(除外対象: 符号なし)／危険値(オプション時は符号付き)の併記版は hideFull
-        const hideVal = system.hide.mode === "reference" ? "解説参照"
-            : system.hide.mode === "value" ? num(system.hide.total ?? system.hide.value)
-            : "-";
-        const penaltyVal = mvOpt(system.appearancePenalty);
-        // 住宅オプション・住宅アクセサリは危険値なし=隠匿値のみ表示(2026-07-09)。他は「隠／危険」併記
-        const noPenaltyCategory = system.minorCategory === "housingOption" || system.minorCategory === "housingAccessory";
-        const hideFull = noPenaltyCategory ? `${hideVal}` : `${hideVal}／${penaltyVal}`;
-
-        // 電脳制御値(除外対象: 符号なし)
-        const hack = mv(system.hack);
-        // 部位表記: 部位キーの逆引きで現在ラベルへ解決し、AE 追加行(partAdded)も併記する(フェーズ12)
+        // サマリ(ルルブ略号行)は共通ビルダー(outfit-view.mjs・フェーズ16-2 で切り出し=
+        // 辞典ブラウザのカード・アイテムツールチップと共用)。部位スロット文脈はアクター所属時
+        // のみ実効値、AE 追加部位(partAdded)も所属時のみ存在する
         const partSlotsCtx = this.item.parent?.system?.partSlotsEffective
             ?? this.item.parent?.system?.partSlots ?? getPartSlotPreset();
-        const part = formatPartDesignation(
-            resolvePartRowsForDisplay(system.part, partSlotsCtx, resolveHostName),
-            system.partRelation, system.partOptional,
-            resolvePartAdditions(this.item.system.partAdded, partSlotsCtx));
-        const defence = () => {
-            const d = system.defence;
-            if (d?.mode !== "value") return "-";
-            return `${fmtNum(d.S_total ?? d.S_defence)}／${fmtNum(d.P_total ?? d.P_defence)}／${fmtNum(d.I_total ?? d.I_defence)}`;
-        };
-        const slots = Array.isArray(system.slots) ? system.slots : [];
-        const countOf = (kind) => {
-            const slot = slots.find((s) => s.kind === kind);
-            if (!slot?.count || slot.count.mode !== "value") return "-";
-            return fmtNum(slot.count.total ?? slot.count.value);
-        };
-
-        // 型ごとに概要の項目と順序が異なる(2026-06-12〜13 ユーザー確定)
-        const rows = [];
-        const push = (label, value) => rows.push({ label, value });
-        switch (type) {
-            case "weapon":
-                push("購", buy); push("隠", hideFull);
-                push("攻", this._attackLabel(system.attack));
-                push("受", mvOpt(system.guardValue));
-                push("射", formatWeaponRangeLabel(system.range));
-                push("ス", countOf("normal"));
-                push("電制", hack); push("部位", part);
-                break;
-            case "armor":
-                push("購", buy); push("隠", hideFull);
-                push("防(S／P／I)", defence());
-                push("制", mvOpt(system.controlMod));
-                push("電制", hack); push("部位", part);
-                break;
-            case "cyborg":
-                push("購", buy); push("隠", hideFull);
-                push("防(S／P／I)", defence());
-                push("攻", this._attackLabel(system.attack));
-                push("受", mvOpt(system.guardValue));
-                push("電制", hack); push("部位", part);
-                break;
-            case "ianus":
-                // 電制なし
-                push("購", buy); push("隠", hideFull);
-                push("ス", countOf("normal"));
-                push("表", countOf("surface"));
-                push("深", countOf("deep"));
-                push("無", countOf("unconscious"));
-                push("制", mvOpt(system.controlMod));
-                push("部位", part);
-                break;
-            case "tron":
-                push("購", buy); push("隠", hideFull);
-                push("ス", countOf("normal"));
-                push("電制", hack); push("部位", part);
-                break;
-            case "tap": {
-                push("購", buy); push("隠", hideFull);
-                push("サ", mvOpt(system.cycle));
-                push("ソ", countOf("software"));
-                push("ハ", countOf("hardware"));
-                // ゴースト時読み飛ばしフラグONのCS修正は原作の括弧書き「CS：（-20）」を再現(2026-07-02)
-                const csLabel = mvOpt(system.combatSpeedMod);
-                push("CS", (system.combatSpeedModGhostIgnore && csLabel !== "-") ? `（${csLabel}）` : csLabel);
-                push("電制", hack); push("部位", part);
-                break;
-            }
-            case "vehicle":
-                push("購", buy); push("隠", hideFull);
-                push("攻", this._attackLabel(system.attack));
-                push("SF", mvOpt(system.speedFactor));
-                push("防(S／P／I)", defence());
-                push("制", mvOpt(system.controlMod));
-                push("乗員", mvOpt(system.passenger));
-                push("ス", countOf("normal"));
-                push("電制", hack); push("部位", part);
-                break;
-            case "residence": {
-                // 危険値・電制なし。隠は隠匿値のみ。住宅エリアの修正値を合算して表示する
-                // 表示は AE 込み実効値(total)＋住宅エリア供給値(am)。base は不変。
-                const expBase = system.preserveExp?.mode === "value" ? (system.preserveExp.total ?? system.preserveExp.value ?? 0) : null;
-                const preserveR = expBase !== null ? String(expBase + am("preserveExpMod")) : "-";
-                let buyR;
-                if (system.buy.mode === "reference") buyR = "解説参照";
-                else if (system.buy.mode === "value") buyR = `${(system.buy.total ?? system.buy.value ?? 0) + am("buyRatingMod")}／${preserveR}`;
-                else buyR = `-／${preserveR}`;
-                const hideR = system.hide.mode === "reference" ? "解説参照"
-                    : system.hide.mode === "value" ? String(system.hide.total ?? system.hide.value ?? 0)
-                    : "-";
-                push("購", buyR); push("隠", hideR);
-                push("登場", fmtNum((system.appearanceTargetTotal ?? system.appearanceTarget ?? 0) + am("appearanceTargetMod")));
-                push("セ(電／ア)", `${fmtNum((system.cyberSecurityTotal ?? system.cyberSecurity ?? 0) + am("cyberSecurityMod"))}／${fmtNum((system.analogSecurityTotal ?? system.analogSecurity ?? 0) + am("analogSecurityMod"))}`);
-                const slotBase = slots.find((s) => s.kind === "normal");
-                const slotCount = slotBase?.count?.mode === "value" ? (slotBase.count.total ?? slotBase.count.value ?? 0) : 0;
-                push("ス", fmtNum(slotCount + am("slotMod")));
-                push("部位", part);
-                break;
-            }
-            default: // general / combiner
-                push("購", buy); push("隠", hideFull);
-                push("電制", hack); push("部位", part);
-        }
-        // 式神装備: タイプを「部位」の1つ前に挿入する(10-2)。実効フラグで判定(フェーズ12)
-        if (readFlag(system, "isShiki")) {
-            const typeRow = { label: "タイプ", value: SHIKI_TYPES[system.shikiType] ?? "-" };
-            const partIdx = rows.findIndex((r) => r.label === "部位");
-            if (partIdx >= 0) rows.splice(partIdx, 0, typeRow); else rows.push(typeRow);
-        }
-        view.summary = rows;
+        view.summary = buildOutfitSummaryRows(system, type, {
+            areaMods, resolveHostName, partSlotsCtx,
+            partAdded: this.item.system.partAdded ?? [],
+        });
 
         const fmtCategory = (major, minor) => {
             const M = getMajorCategoryLabel(major);
@@ -825,19 +665,6 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         return view;
     }
 
-    /**
-     * 攻撃力の表記(「攻：I+4」のダメージ種別 + 値部分)。
-     * 表示は AE 込み実効値(damageTypeTotal・attack.total)。なければ base。
-     * @param {{damageType: string, damageTypeTotal?: string, value: number, total?: number}} attack
-     * @returns {string}
-     */
-    _attackLabel(attack) {
-        const type = attack.damageTypeTotal || attack.damageType || "";
-        const value = attack.total ?? attack.value ?? 0;
-        if (!type && !value) return "-";
-        const sign = value >= 0 ? `+${value}` : String(value);
-        return `${type}${sign}`;
-    }
 
 
     // ─── レンダリング後のイベント結線 ───────────────────────────────────────

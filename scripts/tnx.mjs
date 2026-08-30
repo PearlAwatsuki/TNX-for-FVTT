@@ -41,7 +41,8 @@ import { TokyoNovaGeneralSkillSheet } from './item/tnx-general-skill-sheet.mjs';
 import { TokyoNovaStyleSkillSheet } from './item/tnx-style-skill-sheet.mjs';
 import { TokyoNovaOrganizationSheet } from './item/tnx-organization-sheet.mjs';
 import { TokyoNovaLifePathSheet } from './item/tnx-life-path-sheet.mjs';
-import { TokyoNovaOutfitSheet, formatWeaponRangeLabel } from './item/tnx-outfit-sheet.mjs';
+import { TokyoNovaOutfitSheet } from './item/tnx-outfit-sheet.mjs';
+import { formatWeaponRangeLabel } from './module/outfit-view.mjs';
 import { TokyoNovaHousingAreaSheet } from './item/tnx-housing-area-sheet.mjs';
 import { TnxScenarioSheet } from './journal/tnx-scenario-sheet.mjs';
 import { TnxFocusSystemSheet } from './journal/tnx-focus-system-sheet.mjs';
@@ -85,7 +86,9 @@ import { registerPartSlotPresetSetting, getPartSlotPreset, initializeDefaultPart
 import { autoAcquireForStyleSkill, autoImportDerivedData } from './module/style-skill-acquisition.mjs';
 import { conditionNeedsDraw, postDrawPrompt, postControlNegatePrompt, promptWoundSkillSelection, bindConditionChatButtons, renderConditionDrawCard } from './module/condition-resolution.mjs';
 import { enhanceComboboxes } from './module/combobox.mjs';
-import { OUTFIT_CATEGORIES, outfitClassifications } from './data/item/outfit-categories.mjs';
+import { OUTFIT_CATEGORIES } from './data/item/outfit-categories.mjs';
+import { decoratedItemName } from './module/identification.mjs';
+import { injectDictionaryBrowserButton } from './module/tnx-dictionary-browser.mjs';
 
 async function preloadHandlebarsTemplates() {
     const templatePaths = [
@@ -168,6 +171,8 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/parts/bad-status-list.hbs",
         "systems/tokyo-nova-axleration/templates/app/usage-sheet-combo.hbs",
         "systems/tokyo-nova-axleration/templates/app/usage-sheet-bonus-rows.hbs",
+        // 辞典カード(16-2。ブラウザの種別別カードとアイテム・ツールチップの共用部品)
+        "systems/tokyo-nova-axleration/templates/app/dictionary-card.hbs",
 
         // === User Sheets ===
         "systems/tokyo-nova-axleration/templates/user/record-sheet.hbs",
@@ -929,6 +934,9 @@ Hooks.on("updateItem", async (item, changed, _options, userId) => {
     }
 });
 
+// 辞典ブラウザの起動ボタンを辞典サイドバータブ上部へ差し込む(フェーズ16-2・D&D と同配置)
+Hooks.on("renderCompendiumDirectory", (_app, html) => injectDictionaryBrowserButton(html));
+
 // チャットの受付ボタン(ドロー/制御判定)を解決処理に配線する(フェーズ9-4)。
 // 効果決定カード(conditionDraw フラグ)は状態領域をライブ描画する(ボタン→結果の置換・2026-07-12)。
 Hooks.on("renderChatMessageHTML", (message, html) => {
@@ -1119,25 +1127,9 @@ Hooks.once("init", async function() {
         return v >= 0 ? `+${v}` : `${v}`;
     });
 
-    // アイテム名の表示マーカー(2026-06-12 ユーザー確定ルール)
-    // - 一般技能: アクション技能なら頭に「★」(スタイル技能には付さない)
-    // - スタイル技能: カテゴリが秘技「†」/ 奥義「※」/ 演出特技「＠」を頭に付す
-    // - アウトフィット: 主分類がサイバーウェア以外で分類集合にサイバーウェアを含む(旧 isCyber
-    //   =副分類へ完全統合・フェーズ16-1)なら末尾に「※」
-    Handlebars.registerHelper('tnxDecoratedName', function(item) {
-        const name = item?.name ?? "";
-        const system = item?.system ?? {};
-        if (item?.type === "generalSkill") {
-            return (system.isAction ? "★" : "") + name;
-        }
-        if (item?.type === "styleSkill") {
-            const prefix = { secret: "†", mystery: "※", performance: "＠" }[system.styleSkillCategory] ?? "";
-            return prefix + name;
-        }
-        if (system.majorCategory !== "cyberware"
-            && outfitClassifications(system).some((c) => c.major === "cyberware")) return `${name}※`;
-        return name;
-    });
+    // アイテム名の表示マーカー(2026-06-12 ユーザー確定ルール)。実体は decoratedItemName
+    // (identification.mjs・フェーズ16-2 で関数化=辞典ブラウザ/ツールチップのカードと共用)
+    Handlebars.registerHelper('tnxDecoratedName', decoratedItemName);
 
     // 武器射程の表記(min/max が同じなら単一表記、異なるなら「近～超遠」形式)
     Handlebars.registerHelper('tnxRangeLabel', formatWeaponRangeLabel);

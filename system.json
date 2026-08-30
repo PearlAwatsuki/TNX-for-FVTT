@@ -143,6 +143,17 @@
             }
         },
         {
+            "name": "sample-casts",
+            "label": "サンプルPC",
+            "system": "tokyo-nova-axleration",
+            "path": "packs/sample-casts",
+            "type": "Actor",
+            "ownership": {
+                "PLAYER": "OBSERVER",
+                "ASSISTANT": "OWNER"
+            }
+        },
+        {
             "name": "draw-tables",
             "label": "ドローテーブル",
             "system": "tokyo-nova-axleration",

@@ -12,7 +12,7 @@ import { TargetSelectionDialog } from '../module/tnx-dialog.mjs';
 import { TnxSkillUtils } from '../module/tnx-skill-utils.mjs';
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 import { OUTFIT_CATEGORIES, getMinorCategoryLabel, getMajorCategoryLabel, isMajorLevelSlotMajor } from '../data/item/outfit-categories.mjs';
-import { formatWeaponRangeLabel } from '../item/tnx-outfit-sheet.mjs';
+import { formatWeaponRangeLabel } from '../module/outfit-view.mjs';
 import { formatPartDesignation, joinPartDesignations, computePartOccupancy, computeHostOccupancy, resolvePartRowsForDisplay, resolvePartAdditions, OUTFIT_NAME_SLOT_KIND } from '../data/item/part-helpers.mjs';
 import { SLOT_KINDS } from '../data/item/common/extensible.mjs';
 import { getPartSlotPreset, PartSlotPresetApp } from '../module/part-slot-preset-app.mjs';
@@ -36,6 +36,7 @@ import { HOUSING_AREA_RANKS } from '../data/item/housing-area.mjs';
 import { CONDITION_KINDS, readConditions, getConditionKind, getConditionKinds, getEffectiveConditions, getCheckBlock, gatherSkillUseWarnings, woundChartValue } from '../module/conditions.mjs';
 import { planActionRecoveryRows, PAYMENT_LABELS, MAJOR_PAYMENTS } from '../module/time-boundary-logic.mjs';
 import { applyTriggerDisable } from '../module/ui-trigger-disable.mjs';
+import { applyItemCardTooltips } from '../module/item-card-tooltips.mjs';
 import { openConditionEditDialog } from '../module/condition-edit.mjs';
 import { startTreatment } from '../module/treatment-flow.mjs';
 import { isAttackUsage } from '../data/item/common/usage.mjs';
@@ -518,6 +519,10 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
 
         el.classList.toggle("edit-mode",  !!context.isEditMode);
         el.classList.toggle("view-mode", !context.isEditMode);
+
+        // アイテム行のカード・ツールチップ(16-2): レンダー後に非同期で属性を流し込む
+        // (ホバー時には出来上がっている・HUD シーンカードのツールチップと同方式)
+        applyItemCardTooltips(el, this.actor);
 
         for (const [group, tab] of Object.entries(this.tabGroups)) {
             if (tab) {

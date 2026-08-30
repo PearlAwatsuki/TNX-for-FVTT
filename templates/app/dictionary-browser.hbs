@@ -1,0 +1,124 @@
+{{!-- 辞典ブラウザ(フェーズ16-2)。左=縦タブ(2026-08-31 ユーザー明示の8種)・
+     中=検索＋グループ化チェックボックスの絞り込み(D&D 踏襲)・右=種別別の結果表示。 --}}
+<div class="tnx-dict">
+    <nav class="tnx-dict__tabs">
+        {{#each tabs}}
+        <a class="tnx-dict__tab{{#if this.active}} active{{/if}}" data-action="dictTab" data-tab="{{this.key}}"
+           data-tooltip="{{this.label}}">
+            <i class="{{this.icon}}"></i>
+        </a>
+        {{/each}}
+    </nav>
+    <aside class="tnx-dict__sidebar">
+        <div class="tnx-dict__search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="search" data-dict-search value="{{state.search}}" placeholder="名前で検索">
+        </div>
+        {{#if isOutfit}}
+        <div class="tnx-dict__range">
+            <label>購入値</label>
+            <div class="tnx-dict__range-inputs">
+                <input type="number" data-dict-buy="min" value="{{state.buyMin}}" placeholder="下限">
+                <span>–</span>
+                <input type="number" data-dict-buy="max" value="{{state.buyMax}}" placeholder="上限">
+            </div>
+        </div>
+        {{/if}}
+        {{#each filterGroups}}
+        <fieldset class="tnx-dict__filter-group">
+            <legend>{{this.label}}</legend>
+            {{#each this.options}}
+            <label class="tnx-dict__filter-option">
+                <input type="checkbox" data-dict-filter="{{../key}}" value="{{this.value}}" {{#if this.checked}}checked{{/if}}>
+                <span>{{this.label}}</span>
+            </label>
+            {{/each}}
+        </fieldset>
+        {{/each}}
+    </aside>
+    <section class="tnx-dict__results" data-kind="{{kind}}">
+        <div class="tnx-dict__results-header">
+            <span>結果：{{resultCount}}件</span>
+        </div>
+
+        {{#if cardGroups}}
+        {{#each cardGroups}}
+        <section class="tnx-dict__group">
+            {{#if this.label}}<header class="tnx-dict__group-header"><span>{{this.label}}</span></header>{{/if}}
+            <div class="tnx-dict__card-grid">
+                {{#each this.cards}}
+                <div class="tnx-dict__card-slot" data-uuid="{{this.uuid}}" data-doc-name="{{this.docName}}"
+                     data-dict-drag draggable="true">
+                    {{> "systems/tokyo-nova-axleration/templates/app/dictionary-card.hbs" card=this.card}}
+                </div>
+                {{/each}}
+            </div>
+        </section>
+        {{/each}}
+        {{/if}}
+
+        {{#if outfitGroups}}
+        {{#each outfitGroups}}
+        <section class="tnx-dict__group">
+            <header class="tnx-dict__group-header tnx-dict__group-header--major"><span>{{this.label}}</span></header>
+            {{#each this.minors}}
+            <section class="tnx-dict__subgroup">
+                {{#if this.label}}<header class="tnx-dict__group-header"><span>{{this.label}}</span></header>{{/if}}
+                <div class="tnx-dict__card-grid">
+                    {{#each this.cards}}
+                    <div class="tnx-dict__card-slot" data-uuid="{{this.uuid}}" data-doc-name="{{this.docName}}"
+                         data-dict-drag draggable="true">
+                        {{> "systems/tokyo-nova-axleration/templates/app/dictionary-card.hbs" card=this.card}}
+                    </div>
+                    {{/each}}
+                </div>
+            </section>
+            {{/each}}
+        </section>
+        {{/each}}
+        {{/if}}
+
+        {{#if listRows}}
+        <div class="tnx-dict__list">
+            {{#each listRows}}
+            <div class="tnx-dict__row" data-uuid="{{this.uuid}}" data-doc-name="{{this.docName}}"
+                 data-dict-drag draggable="true" data-action="dictOpen"
+                 {{#if this.tooltipHtml}}data-tooltip-html="{{this.tooltipHtml}}" data-tooltip-class="tnx-dict-tooltip" data-tooltip-direction="RIGHT"{{/if}}>
+                <img class="tnx-dict__row-icon" src="{{this.img}}" alt="" loading="lazy">
+                <div class="tnx-dict__row-title">
+                    <span class="tnx-dict__row-name">{{this.name}}</span>
+                    {{#if this.meta}}<span class="tnx-dict__row-meta">{{this.meta}}</span>{{/if}}
+                </div>
+                <span class="tnx-dict__row-source">{{this.sourceLabel}}</span>
+            </div>
+            {{/each}}
+        </div>
+        {{/if}}
+
+        {{#if lifePathGroups}}
+        {{#each lifePathGroups}}
+        <section class="tnx-dict__group">
+            <header class="tnx-dict__group-header"><span>{{this.label}}</span></header>
+            <table class="tnx-dict__table">
+                <thead>
+                    <tr><th class="tnx-dict__table-name">名前</th><th class="tnx-dict__table-skill">修得技能</th><th>解説</th></tr>
+                </thead>
+                <tbody>
+                    {{#each this.rows}}
+                    <tr data-uuid="{{this.uuid}}" data-doc-name="{{this.docName}}" data-dict-drag draggable="true" data-action="dictOpen">
+                        <td class="tnx-dict__table-name"><img class="tnx-dict__row-icon" src="{{this.img}}" alt="" loading="lazy"><span>{{this.name}}</span></td>
+                        <td class="tnx-dict__table-skill">{{this.skillName}}</td>
+                        <td class="tnx-dict__table-desc">{{{this.description}}}</td>
+                    </tr>
+                    {{/each}}
+                </tbody>
+            </table>
+        </section>
+        {{/each}}
+        {{/if}}
+
+        {{#unless resultCount}}
+        <p class="tnx-dict__empty">該当する項目がありません。</p>
+        {{/unless}}
+    </section>
+</div>

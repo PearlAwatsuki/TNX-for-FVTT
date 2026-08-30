@@ -10783,3 +10783,493 @@ button.tnx-create-act-button span {
     margin-left: auto;
     height: 28px;
 }
+
+/* ============================================================
+   辞典ブラウザ + 辞典カード (フェーズ16-2)
+   タブ8種(2026-08-31 ユーザー明示)・D&D 踏襲の縦タブ+絞り込み+結果。
+   カードはルルブのデータカード形式の踏襲(情報配置のみ・意匠は TNX 言語)。
+   ============================================================ */
+
+/* --- 起動ボタン(辞典サイドバータブ上部・D&D と同配置) --- */
+#compendium .tnx-dict-launcher {
+    margin: 4px 8px;
+    width: calc(100% - 16px);
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-active);
+    color: var(--tnx2-text-accent);
+}
+
+#compendium .tnx-dict-launcher:hover {
+    border-color: var(--tnx2-accent);
+    box-shadow: 0 0 6px var(--tnx2-accent-glow-sm);
+}
+
+/* --- レイアウト骨格 --- */
+.tnx-dictionary-browser .window-content {
+    padding: 0;
+    background: var(--tnx2-bg-1);
+    color: var(--tnx2-text-primary);
+}
+
+.tnx-dict {
+    display: grid;
+    grid-template-columns: 44px 220px 1fr;
+    height: 100%;
+    min-height: 0;
+}
+
+/* --- 縦タブ --- */
+.tnx-dict__tabs {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 4px;
+    background: var(--tnx2-bg-0);
+    border-right: 1px solid var(--tnx2-border-subtle);
+}
+
+.tnx-dict__tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--tnx2-radius);
+    color: var(--tnx2-text-secondary);
+    border: 1px solid transparent;
+}
+
+.tnx-dict__tab:hover {
+    color: var(--tnx2-text-accent);
+    background: var(--tnx2-bg-hover);
+}
+
+.tnx-dict__tab.active {
+    color: var(--tnx2-accent);
+    background: var(--tnx2-bg-3);
+    border-color: var(--tnx2-border-glow);
+}
+
+/* --- 絞り込みサイドバー --- */
+.tnx-dict__sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+    border-right: 1px solid var(--tnx2-border-subtle);
+    background: var(--tnx2-bg-2);
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.tnx-dict__search {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px;
+    background: var(--tnx2-bg-1);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    color: var(--tnx2-text-muted);
+}
+
+.tnx-dict__search input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    color: var(--tnx2-text-primary);
+}
+
+.tnx-dict__range label {
+    color: var(--tnx2-text-secondary);
+    font-size: 0.85em;
+}
+
+.tnx-dict__range-inputs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.tnx-dict__range-inputs input {
+    flex: 1;
+    min-width: 0;
+}
+
+.tnx-dict__filter-group {
+    border: none;
+    border-top: 1px solid var(--tnx2-border-subtle);
+    padding: 4px 0 0;
+    margin: 0;
+}
+
+.tnx-dict__filter-group legend {
+    color: var(--tnx2-text-accent);
+    font-size: 0.85em;
+    padding: 0 4px;
+}
+
+.tnx-dict__filter-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 1px 2px;
+    color: var(--tnx2-text-primary);
+    font-size: 0.9em;
+}
+
+/* --- 結果エリア --- */
+.tnx-dict__results {
+    padding: 8px 10px;
+    overflow-y: auto;
+    min-height: 0;
+    min-width: 0;
+}
+
+.tnx-dict__results-header {
+    color: var(--tnx2-text-secondary);
+    font-size: 0.85em;
+    margin-bottom: 6px;
+}
+
+.tnx-dict__group-header {
+    margin: 10px 0 6px;
+    padding: 3px 8px;
+    background: var(--tnx2-bg-3);
+    border-left: 3px solid var(--tnx2-accent-dim);
+    color: var(--tnx2-text-accent);
+    letter-spacing: 0.08em;
+}
+
+.tnx-dict__group-header--major {
+    background: var(--tnx2-bg-0);
+    border-left-color: var(--tnx2-accent);
+    font-size: 1.05em;
+}
+
+.tnx-dict__card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 8px;
+    align-items: start;
+}
+
+.tnx-dict__card-slot {
+    cursor: grab;
+}
+
+.tnx-dict__empty {
+    color: var(--tnx2-text-muted);
+    text-align: center;
+    margin-top: 24px;
+}
+
+/* --- リスト形式(一般技能・オーガニゼーション・NPC) --- */
+.tnx-dict__list {
+    display: flex;
+    flex-direction: column;
+}
+
+.tnx-dict__row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 6px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    cursor: pointer;
+}
+
+.tnx-dict__row:hover {
+    background: var(--tnx2-bg-hover);
+}
+
+.tnx-dict__row-icon {
+    width: 28px;
+    height: 28px;
+    object-fit: cover;
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    flex: 0 0 auto;
+}
+
+.tnx-dict__row-title {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.tnx-dict__row-name {
+    color: var(--tnx2-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tnx-dict__row-meta {
+    color: var(--tnx2-text-muted);
+    font-size: 0.8em;
+}
+
+.tnx-dict__row-source {
+    flex: 0 0 auto;
+    color: var(--tnx2-text-secondary);
+    font-size: 0.85em;
+}
+
+/* --- 表形式(ライフパス) --- */
+.tnx-dict__table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+}
+
+.tnx-dict__table th {
+    background: var(--tnx2-bg-3);
+    color: var(--tnx2-text-secondary);
+    padding: 3px 6px;
+    text-align: left;
+    font-weight: normal;
+}
+
+.tnx-dict__table td {
+    padding: 3px 6px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    vertical-align: top;
+}
+
+.tnx-dict__table tr[data-uuid] {
+    cursor: pointer;
+}
+
+.tnx-dict__table tr[data-uuid]:hover {
+    background: var(--tnx2-bg-hover);
+}
+
+.tnx-dict__table-name {
+    white-space: nowrap;
+}
+
+/* Foundry 側の img 既定(ブロック化)で名前が折り返さないようインラインへ戻す */
+.tnx-dict__table-name .tnx-dict__row-icon {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.tnx-dict__table-name span {
+    margin-left: 4px;
+}
+
+.tnx-dict__table-skill {
+    white-space: nowrap;
+    color: var(--tnx2-text-accent);
+}
+
+.tnx-dict__table-desc p {
+    margin: 0 0 2px;
+}
+
+/* --- 辞典カード(ブラウザ・ツールチップ共用) --- */
+.tnx-dict-card {
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    overflow: hidden;
+}
+
+.tnx-dict-card__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    background: var(--tnx2-bg-0);
+    border-bottom: 1px solid var(--tnx2-border-glow);
+    cursor: pointer;
+}
+
+.tnx-dict-card__icon {
+    width: 30px;
+    height: 30px;
+    object-fit: cover;
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    flex: 0 0 auto;
+}
+
+.tnx-dict-card--style .tnx-dict-card__icon {
+    width: 48px;
+    height: 48px;
+}
+
+.tnx-dict-card__titles {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.tnx-dict-card__furigana {
+    color: var(--tnx2-text-muted);
+    font-size: 0.7em;
+    line-height: 1.1;
+}
+
+.tnx-dict-card__name {
+    color: var(--tnx2-text-primary);
+    font-weight: bold;
+    letter-spacing: 0.05em;
+    overflow-wrap: anywhere;
+}
+
+.tnx-dict-card__name-en {
+    color: var(--tnx2-text-muted);
+    font-size: 0.75em;
+    letter-spacing: 0.1em;
+}
+
+.tnx-dict-card__subtitle {
+    flex: 0 0 auto;
+    color: var(--tnx2-text-secondary);
+    font-size: 0.8em;
+}
+
+.tnx-dict-card__tag {
+    flex: 0 0 auto;
+    padding: 1px 6px;
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    color: var(--tnx2-text-accent);
+    font-size: 0.75em;
+}
+
+.tnx-dict-card__params {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px 10px;
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    font-size: 0.9em;
+}
+
+.tnx-dict-card__param {
+    display: flex;
+    gap: 2px;
+    min-width: 0;
+}
+
+.tnx-dict-card__param--full {
+    grid-column: 1 / -1;
+}
+
+.tnx-dict-card__param label {
+    color: var(--tnx2-text-secondary);
+    flex: 0 0 auto;
+}
+
+.tnx-dict-card__param span {
+    color: var(--tnx2-text-primary);
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.tnx-dict-card__desc {
+    padding: 5px 8px;
+    color: var(--tnx2-text-primary);
+    font-size: 0.9em;
+}
+
+.tnx-dict-card__desc p {
+    margin: 0 0 4px;
+}
+
+.tnx-dict-card__miracle {
+    border-top: 1px solid var(--tnx2-border-subtle);
+    padding-bottom: 2px;
+}
+
+.tnx-dict-card__miracle-title {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 4px 8px 0;
+}
+
+.tnx-dict-card__miracle-label {
+    padding: 0 6px;
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    color: var(--tnx2-text-accent);
+    font-size: 0.75em;
+}
+
+.tnx-dict-card__miracle-name {
+    color: var(--tnx2-text-primary);
+    font-weight: bold;
+}
+
+.tnx-dict-card__condition {
+    display: flex;
+    gap: 6px;
+    margin: 0;
+    padding: 2px 8px 4px;
+    font-size: 0.85em;
+}
+
+.tnx-dict-card__condition label {
+    color: var(--tnx2-text-secondary);
+    flex: 0 0 auto;
+}
+
+.tnx-dict-card__condition-body {
+    min-width: 0;
+}
+
+.tnx-dict-card__condition-body p {
+    margin: 0 0 2px;
+}
+
+.tnx-dict-card__abilities {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    padding: 5px 8px;
+    border-top: 1px solid var(--tnx2-border-subtle);
+}
+
+.tnx-dict-card__ability {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: var(--tnx2-bg-1);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    padding: 2px 0;
+}
+
+.tnx-dict-card__ability label {
+    color: var(--tnx2-text-secondary);
+    font-size: 0.75em;
+}
+
+.tnx-dict-card__ability span {
+    color: var(--tnx2-text-primary);
+}
+
+/* --- ツールチップとしてのカード(横幅広め=2026-08-30 ユーザー指定) --- */
+.tnx-dict-tooltip {
+    max-width: 420px;
+    padding: 0;
+    border: none;
+    background: transparent;
+}
+
+.tnx-dict-tooltip .tnx-dict-card {
+    box-shadow: 0 4px 16px rgb(0 0 0 / 60%);
+}
+
+.tnx-dict-tooltip .tnx-dict-card__header {
+    cursor: default;
+}
