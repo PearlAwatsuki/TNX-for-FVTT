@@ -23,12 +23,13 @@ import { resolveTargetedOrSelf } from "./target-resolution.mjs";
 import { postConditionOutcome } from "./condition-resolution.mjs";
 import { itemDisplayName } from "./identification.mjs";
 import { isOutfitMalfunctioning } from "../data/item/helpers.mjs";
-import { OUTFIT_TYPES, getMajorCategoryLabel, getMinorCategoryLabel } from "../data/item/outfit-categories.mjs";
+import { OUTFIT_TYPES, getMajorCategoryLabel, getMinorCategoryLabel, outfitClassifications } from "../data/item/outfit-categories.mjs";
 
 /**
  * 対象が所持する、この用途で修理できる故障アウトフィットを列挙する。
  * 故障中(実効・サービス免疫は除外)かつ分類がホワイトリストに合致するもの
  * (小分類キー=その小分類のみ・大分類キー=その大分類の全小分類)。
+ * 照合は分類集合(主分類＋副分類=「両方の分類として扱う」・フェーズ16-1)。
  * @param {Actor} target
  * @param {{repairableCategories?: string[]}} usage
  * @returns {Item[]}
@@ -40,7 +41,7 @@ export function listRepairableOutfits(target, usage) {
     for (const it of (target?.items ?? [])) {
         if (!OUTFIT_TYPES.has(it.type)) continue;
         if (!isOutfitMalfunctioning(it.system)) continue;
-        if (!cats.has(it.system.minorCategory) && !cats.has(it.system.majorCategory)) continue;
+        if (!outfitClassifications(it.system).some((c) => cats.has(c.major) || cats.has(c.minor))) continue;
         out.push(it);
     }
     return out;

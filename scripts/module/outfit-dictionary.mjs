@@ -24,7 +24,8 @@ const _cache = new Map();
  * (identificationKey 無しは除外)。結果はキャッシュ。名前順(ja)。
  * @param {string} packName compendium の完全名
  * @returns {Promise<Array<{identificationKey:string, name:string, majorCategory:string,
- *   minorCategory:string, isLaser:boolean, isCyber:boolean, isMutantOrgan:boolean}>>}
+ *   minorCategory:string, additionalCategories:Array<{major:string, minor:string}>,
+ *   isLaser:boolean, isCyber:boolean, isMutantOrgan:boolean}>>}
  */
 export async function loadOutfitEntries(packName) {
   if (_cache.has(packName)) return _cache.get(packName);
@@ -34,9 +35,12 @@ export async function loadOutfitEntries(packName) {
     const index = await pack.getIndex({
       fields: [
         "system.identificationKey", "system.majorCategory", "system.minorCategory",
+        "system.additionalCategories",
         "system.isLaser", "system.isCyber", "system.isMutantOrgan",
       ],
     });
+    // ※index は DataModel の migrateData を通らない**生データ**。旧 isCyber はここでは残し、
+    //   分類照合(outfitClassifications)が副分類サイバーウェアとして包摂する(フェーズ16-1)
     const entries = [...index]
       .filter((d) => d.system?.identificationKey)
       .map((d) => ({
@@ -44,6 +48,7 @@ export async function loadOutfitEntries(packName) {
         name: d.name,
         majorCategory: d.system.majorCategory ?? "",
         minorCategory: d.system.minorCategory ?? "",
+        additionalCategories: Array.isArray(d.system.additionalCategories) ? d.system.additionalCategories : [],
         isLaser:       d.system.isLaser === true,
         isCyber:       d.system.isCyber === true,
         isMutantOrgan: d.system.isMutantOrgan === true,

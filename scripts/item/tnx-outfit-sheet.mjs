@@ -416,8 +416,9 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 const sm = sibling.system;
                 const host = {
                     majorCategory: sm.majorCategory, minorCategory: sm.minorCategory,
+                    additionalCategories: sm.additionalCategories,
                     identificationKey: sm.identificationKey ?? "",
-                    isLaser: readFlag(sm, "isLaser"), isCyber: readFlag(sm, "isCyber"),
+                    isLaser: readFlag(sm, "isLaser"),
                     isMutantOrgan: readFlag(sm, "isMutantOrgan"),
                 };
                 if (!matchesHostDescriptor(host, spec)) continue;
@@ -483,12 +484,22 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             }
         }
 
-        // サイバーウェア分類: isCyber フラグを自動的に true にする(2026-06-13)
-        context.isCyberByCategory = system.majorCategory === "cyberware";
-        if (context.isCyberByCategory && !system.isCyber) {
-            this.item.update({ "system.isCyber": true });
-            system.isCyber = true;
-        }
+        // 副分類(フェーズ16-1・2026-08-30 裁定): 「複数の分類を持つアウトフィット」の追加分類行。
+        // チェック状態は副分類の有無から導出(状態レス)。行の選択肢は**全分類の樹**から出す
+        // (主分類の選択肢はアイテムタイプで絞るが、副分類は型跨ぎの横断がまさに用途のため絞らない)。
+        // 旧 isCyber フラグとその自動セットは廃止(副分類へ完全統合・migrateData が移行)。
+        const additionalRows = Array.isArray(system.additionalCategories) ? system.additionalCategories : [];
+        const allMajorChoices = { "": "-" };
+        for (const majorKey of Object.keys(OUTFIT_CATEGORIES)) allMajorChoices[majorKey] = getMajorCategoryLabel(majorKey);
+        context.hasAdditionalCategories = additionalRows.length > 0;
+        context.additionalCategoryRows = additionalRows.map((row, index) => {
+            const minors = { "": "-" };
+            for (const minorKey of Object.keys(OUTFIT_CATEGORIES[row.major]?.minors ?? {})) {
+                minors[minorKey] = getMinorCategoryLabel(minorKey);
+            }
+            return { index, major: row.major ?? "", minor: row.minor ?? "", minorChoices: minors, isFirst: index === 0 };
+        });
+        context.options.additionalMajorCategory = allMajorChoices;
 
         // コンバイナー: カテゴリ自動補正は BOTH_FIXED_CATEGORIES で処理済み
         if (context.isCombiner) {
@@ -793,13 +804,19 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         }
         view.summary = rows;
 
-        const majLabel = getMajorCategoryLabel(system.majorCategory);
-        const minLabel = getMinorCategoryLabel(system.minorCategory);
-        if (majLabel && minLabel) {
-            view.category = `${majLabel}／${minLabel}`;
-        } else {
-            view.category = majLabel || minLabel || "-";
-        }
+        const fmtCategory = (major, minor) => {
+            const M = getMajorCategoryLabel(major);
+            const m = getMinorCategoryLabel(minor);
+            return M && m ? `${M}／${m}` : (M || m || "");
+        };
+        // primaryCategory=主分類のみ(編集モードの固定ラベル用・副分類は編集行が別にあるため重複させない)。
+        // category=閲覧モードの分類表示(副分類を「＋」で列挙=複数分類が見えるように・フェーズ16-1)
+        view.primaryCategory = fmtCategory(system.majorCategory, system.minorCategory) || "-";
+        const extraLabels = (system.additionalCategories ?? [])
+            .map((r) => fmtCategory(r?.major, r?.minor)).filter(Boolean);
+        view.category = extraLabels.length
+            ? `${view.primaryCategory} ＋ ${extraLabels.join(" ＋ ")}`
+            : view.primaryCategory;
 
         return view;
     }
@@ -1068,6 +1085,38 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             });
         }
 
+        // 副分類(フェーズ16-1): チェックボックス展開・行の変更・追加・削除(配列フィールド=全体更新)。
+        // チェック ON=空行を1つ作って展開・OFF=全消去(チェック状態は副分類の有無から導出=状態レス)
+        this.element.querySelector("[data-additional-category-toggle]")?.addEventListener("change", (event) => {
+            event.stopPropagation();
+            const rows = event.currentTarget.checked ? [{ major: "", minor: "" }] : [];
+            this.item.update({ "system.additionalCategories": rows });
+        });
+        for (const el of this.element.querySelectorAll("[data-additional-category-field]")) {
+            el.addEventListener("change", (event) => {
+                event.stopPropagation();
+                const index = Number(event.currentTarget.dataset.index);
+                const field = event.currentTarget.dataset.additionalCategoryField;
+                const value = event.currentTarget.value;
+                this._updateAdditionalCategories((arr) => {
+                    if (!arr[index]) arr[index] = { major: "", minor: "" };
+                    arr[index][field] = value;
+                    if (field === "major") arr[index].minor = ""; // 大分類変更で小分類をリセット(主分類と同じ挙動)
+                });
+            });
+        }
+        this.element.querySelector("[data-additional-category-add]")?.addEventListener("click", (event) => {
+            event.preventDefault();
+            this._updateAdditionalCategories((arr) => { arr.push({ major: "", minor: "" }); });
+        });
+        for (const btn of this.element.querySelectorAll("[data-additional-category-del]")) {
+            btn.addEventListener("click", (event) => {
+                event.preventDefault();
+                const index = Number(event.currentTarget.dataset.index);
+                this._updateAdditionalCategories((arr) => { if (index >= 0 && index < arr.length) arr.splice(index, 1); });
+            });
+        }
+
         // 装備対象変更時: スロット種別をリセット(親が変わればスロット構成も変わる)。
         // スロットなしホストは便宜スロット「アイテム名」しか無いので既定で選んでおく(2026-07-23)。
         this.element.querySelector('select[name="system.parentItemId"]')
@@ -1225,6 +1274,13 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         const arr = foundry.utils.deepClone(stored.length ? stored : [{ type: "", key: "" }]);
         mutator(arr);
         return this.item.update({ "system.exclusive": arr });
+    }
+
+    /** 副分類(additionalCategories)の全体更新(フェーズ16-1)。配列フィールドのため丸ごと保存する。 */
+    _updateAdditionalCategories(mutator) {
+        const arr = foundry.utils.deepClone(this.item.system.additionalCategories ?? []);
+        mutator(arr);
+        return this.item.update({ "system.additionalCategories": arr });
     }
 
     /** 住宅エリアの紐づけを解除する */

@@ -89,8 +89,8 @@ describe("UsageTemplate.defineSchema()", () => {
       expect(Object.keys(entryFields.vehicleRef.fields)).toEqual(["itemId"]);
     });
 
-    it("改造可能パラメータは温存される（旧 modification タイプは廃止・2026-07-13）", () => {
-      expect(entryFields).toHaveProperty("modifiableParams");
+    it("旧 modifiableParams は撤去されている(フェーズ16-1・改造可能項目は分類から導出)", () => {
+      expect(entryFields).not.toHaveProperty("modifiableParams");
     });
 
     it("NPC取得（npcAcquire・2026-07-13 タイプ→フラグ化）は BooleanField で initial false", () => {
@@ -251,10 +251,9 @@ describe("UsageTemplate.migrateData()", () => {
   });
 
   it("改造(modification)は行動種別タイプとして保持される(2026-07-17 再編・旧 check 変換は削除)", () => {
-    const source = { actions: [{ _id: "a", type: "modification", modifiableParams: ["攻撃力"] }] };
+    const source = { actions: [{ _id: "a", type: "modification" }] };
     const result = UsageTemplate.migrateData(source);
     expect(result.actions[0].type).toBe("modification");
-    expect(result.actions[0].modifiableParams).toEqual(["攻撃力"]);
   });
 
   it("旧 npcAcquire タイプはフラグ化: エキストラ=宣言・判定系モード=判定", () => {

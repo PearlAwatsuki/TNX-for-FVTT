@@ -4,6 +4,7 @@ import "../../setup.mjs";
 const {
   OUTFIT_CATEGORIES, getMajorCategoryChoices, getMinorCategoryChoices,
   getMajorCategoryLabel, getMinorCategoryLabel, LEGACY_CATEGORY_MAP,
+  majorOfMinor, outfitClassifications, hasClassification, buildCategoryKeyGroups,
 } = await import("../../../scripts/data/item/outfit-categories.mjs");
 
 describe("OUTFIT_CATEGORIES", () => {
@@ -80,5 +81,87 @@ describe("OUTFIT_CATEGORIES", () => {
   it("OUTFIT_CATEGORIES は凍結されている", () => {
     expect(Object.isFrozen(OUTFIT_CATEGORIES)).toBe(true);
     expect(Object.isFrozen(OUTFIT_CATEGORIES.weapon.minors)).toBe(true);
+  });
+});
+
+describe("分類集合(フェーズ16-1・複数分類)", () => {
+  it("majorOfMinor: 小分類キーから大分類キーを引く(未知は空文字)", () => {
+    expect(majorOfMinor("melee")).toBe("weapon");
+    expect(majorOfMinor("biotech")).toBe("item");
+    expect(majorOfMinor("unknown")).toBe("");
+  });
+
+  it("outfitClassifications: 主分類のみ", () => {
+    expect(outfitClassifications({ majorCategory: "weapon", minorCategory: "melee" }))
+      .toEqual([{ major: "weapon", minor: "melee" }]);
+  });
+
+  it("outfitClassifications: 副分類を平坦に列挙する", () => {
+    const sys = {
+      majorCategory: "item", minorCategory: "biotech",
+      additionalCategories: [{ major: "weapon", minor: "melee" }],
+    };
+    expect(outfitClassifications(sys)).toEqual([
+      { major: "item", minor: "biotech" },
+      { major: "weapon", minor: "melee" },
+    ]);
+  });
+
+  it("outfitClassifications: minor だけの副分類行は大分類を樹から補完する", () => {
+    const sys = { majorCategory: "weapon", minorCategory: "melee",
+      additionalCategories: [{ major: "", minor: "biotech" }] };
+    expect(outfitClassifications(sys)).toContainEqual({ major: "item", minor: "biotech" });
+  });
+
+  it("outfitClassifications: 旧 isCyber=true(未移行の生データ)はサイバーウェア副分類として包摂する", () => {
+    const sys = { majorCategory: "weapon", minorCategory: "melee", isCyber: true };
+    expect(outfitClassifications(sys)).toContainEqual({ major: "cyberware", minor: "" });
+  });
+
+  it("outfitClassifications: 重複行は1つに畳む・空行は除く", () => {
+    const sys = {
+      majorCategory: "weapon", minorCategory: "melee",
+      additionalCategories: [{ major: "weapon", minor: "melee" }, { major: "", minor: "" }],
+    };
+    expect(outfitClassifications(sys)).toEqual([{ major: "weapon", minor: "melee" }]);
+  });
+
+  it("hasClassification: 大分類キー・小分類キーのどちらでも該当する(副分類含む)", () => {
+    const sys = {
+      majorCategory: "item", minorCategory: "biotech",
+      additionalCategories: [{ major: "weapon", minor: "melee" }],
+    };
+    expect(hasClassification(sys, "item")).toBe(true);
+    expect(hasClassification(sys, "biotech")).toBe(true);
+    expect(hasClassification(sys, "weapon")).toBe(true);
+    expect(hasClassification(sys, "melee")).toBe(true);
+    expect(hasClassification(sys, "armor")).toBe(false);
+    expect(hasClassification(sys, "")).toBe(false);
+  });
+});
+
+describe("buildCategoryKeyGroups(修理対応分類・製作技能対応分類の共用ビルダー)", () => {
+  it("サービス大分類とその配下を既定で除外する", () => {
+    const groups = buildCategoryKeyGroups();
+    expect(groups.some((g) => g.label === "サービス")).toBe(false);
+    const values = groups.flatMap((g) => g.minors.map((o) => o.value));
+    expect(values).not.toContain("service");
+    expect(values).not.toContain("background");
+  });
+
+  it("各グループは（大分類全体）＋小分類の option を持つ", () => {
+    const groups = buildCategoryKeyGroups();
+    const weapon = groups.find((g) => g.label === "武器");
+    expect(weapon.minors[0]).toEqual({ value: "weapon", label: "（大分類全体）" });
+    expect(weapon.minors.map((o) => o.value)).toContain("melee");
+  });
+
+  it("excludeKeys で選択済みキーを除外する(大分類キー・小分類キーの両方)", () => {
+    const groups = buildCategoryKeyGroups({ excludeKeys: new Set(["weapon", "melee"]) });
+    const weapon = groups.find((g) => g.label === "武器");
+    const values = weapon.minors.map((o) => o.value);
+    expect(values).not.toContain("weapon");
+    expect(values).not.toContain("melee");
+    expect(values).toContain("ranged");
   });
 });

@@ -16,7 +16,7 @@
  * 各 DataModel で広く使われるようになったため helpers.mjs に集約した。
  */
 
-import { OUTFIT_TYPES } from "./outfit-categories.mjs";
+import { OUTFIT_TYPES, hasClassification } from "./outfit-categories.mjs";
 
 /**
  * 旧 uses.value（残り回数）→ uses.spent（消費済み回数）へのデータ移行。
@@ -201,7 +201,8 @@ export const AE_FLAG_PARAMS = Object.freeze([
   // 武器
   "isFullAuto", "isLaser", "isFleshChange",
   // アウトフィット共通
-  "isCyber", "isMutantOrgan", "isShiki", "noPrepareRequired", "isConsumption",
+  // ※旧 isCyber はフィールド廃止(フェーズ16-1・副分類へ完全統合)に伴い AE 着地点も消滅
+  "isMutantOrgan", "isShiki", "noPrepareRequired", "isConsumption",
   // 故障/破壊(使用不可状態・AE で付与/解除可能。サービス大分類は免疫=isOutfit* ヘルパーで無効化)
   "isMalfunction", "isDestroyed",
   // 技能(共通)
@@ -244,11 +245,12 @@ export const AE_FLAG_TOTAL_PATHS = Object.freeze(new Set(AE_FLAG_PARAMS.map(flag
 
 /**
  * サービス大分類のアウトフィットは故障/破壊しない(免疫・2026-07-18 ユーザー確定)。
+ * 照合は分類集合(主分類＋副分類=「両方の分類として扱う」・フェーズ16-1)。
  * @param {object} system アウトフィットの system
  * @returns {boolean}
  */
 export function isOutfitServiceImmune(system) {
-  return system?.majorCategory === "service";
+  return hasClassification(system ?? {}, "service");
 }
 
 /**
@@ -558,7 +560,8 @@ export function itemChangeTargets(parsed, item) {
   if (parsed.scope === "category") {
     // 疑似分類: 一般技能/スタイル技能はアウトフィット分類を持たないためアイテムタイプで照合する
     if (PSEUDO_CATEGORY_TYPES.includes(parsed.selector)) return item.type === parsed.selector;
-    return item.system?.minorCategory === parsed.selector || item.system?.majorCategory === parsed.selector;
+    // 分類集合で照合(主分類＋副分類=「両方の分類として扱う」・フェーズ16-1)
+    return hasClassification(item.system ?? {}, parsed.selector);
   }
   return false;
 }

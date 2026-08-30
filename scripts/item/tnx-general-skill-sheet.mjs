@@ -3,6 +3,7 @@ import { TnxSkillUtils } from "../module/tnx-skill-utils.mjs";
 import {
     ONOMASTIC_TYPES, SOCIETY_CLASSES, onomasticTypeOf, composeOnomasticName, stripSkillCategory,
 } from "../module/skill-dictionary.mjs";
+import { buildCategoryKeyGroups } from "../data/item/outfit-categories.mjs";
 
 export class TokyoNovaGeneralSkillSheet extends TokyoNovaItemSheet {
 
@@ -37,11 +38,21 @@ export class TokyoNovaGeneralSkillSheet extends TokyoNovaItemSheet {
             active: system.generalSkillCategory !== "initialSkill" && !!typeLabel,
             type: onomType,
             isSociety: onomType === "society",
+            isCraft: onomType === "craft",
             prefix: typeLabel ? `${typeLabel}：` : "",
             // 名前欄には固有名詞部分だけを出す(保存形はフル名のまま)。現在のプレフィックスで
             // 始まらない旧い名前はそのまま出し、次にこの欄を編集したときだけ正規形へ合成される
             suffix: typeLabel ? stripSkillCategory(this.item.name ?? "", typeLabel) : (this.item.name ?? ""),
         };
+        // 製作技能の対応分類(フェーズ16-1): 大分類 optgroup＋（大分類全体）＋小分類の単一セレクト。
+        // サービスとその配下は選択肢に存在しない(buildCategoryKeyGroups の既定)。
+        if (context.onomastic.isCraft) {
+            const current = system.craftCategory ?? "";
+            context.craftCategoryGroups = buildCategoryKeyGroups().map((g) => ({
+                label: g.label,
+                minors: g.minors.map((o) => ({ ...o, selected: o.value === current })),
+            }));
+        }
         const initialSuit = system.initialSkill?.initialSuit || "";
         context.TNX = {
             SUITS: {
@@ -130,6 +141,7 @@ export class TokyoNovaGeneralSkillSheet extends TokyoNovaItemSheet {
                 updateData["system.identificationKey"] = `${value}_`;
             }
             if (value !== "society") updateData["system.societyClass"] = "";
+            if (value !== "craft") updateData["system.craftCategory"] = "";
             const oldType = onomasticTypeOf(this.item.system);
             const oldLabel = ONOMASTIC_TYPES[oldType] ?? "";
             const name = this.item.name ?? "";

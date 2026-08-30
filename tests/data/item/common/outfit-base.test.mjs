@@ -24,12 +24,16 @@ describe("OutfitBaseTemplate.defineSchema()", () => {
       expect(schema["isPre-play"].options.initial).toBe(false);
     });
 
-    for (const key of ["isOption", "isCyber", "isConsumption"]) {
+    for (const key of ["isOption", "isConsumption"]) {
       it(`${key} は BooleanField で initial が false`, () => {
         expect(schema[key]).toBeInstanceOf(MockBooleanField);
         expect(schema[key].options.initial).toBe(false);
       });
     }
+
+    it("旧 isCyber フラグは廃止されている(フェーズ16-1・副分類へ完全統合)", () => {
+      expect(schema).not.toHaveProperty("isCyber");
+    });
 
     it("isCarrying は BooleanField で initial が true (2026-06-13 ユーザー指示)", () => {
       expect(schema.isCarrying).toBeInstanceOf(MockBooleanField);
@@ -266,6 +270,76 @@ describe("OutfitBaseTemplate.prepareDerivedData()（故障/破壊・準備固定
   it("サービス/バックグラウンドは準備・携帯を強制 true(部位なしでも準備される)", () => {
     // 部位なし=通常は isPartless で isPrepared=false だが、バックグラウンドはそれを上書きする
     const sys = derive({ majorCategory: "service", minorCategory: "background", isPrepared: false, isCarrying: false, part: [] });
+    expect(sys.isPrepared).toBe(true);
+    expect(sys.isCarrying).toBe(true);
+  });
+});
+
+describe("副分類と旧 isCyber の完全統合(フェーズ16-1・2026-08-30 裁定)", () => {
+  const schema = OutfitBaseTemplate.defineSchema();
+
+  it("additionalCategories は {major, minor} の ArrayField(initial 空文字)", () => {
+    expect(schema.additionalCategories).toBeInstanceOf(MockArrayField);
+    expect(schema.additionalCategories.element).toBeInstanceOf(MockSchemaField);
+    for (const key of ["major", "minor"]) {
+      expect(schema.additionalCategories.element.fields[key]).toBeInstanceOf(MockStringField);
+      expect(schema.additionalCategories.element.fields[key].options.initial).toBe("");
+    }
+  });
+
+  it("migrateData: isCyber=true(主分類≠サイバーウェア)は副分類サイバーウェアへ移行しフィールドを消す", () => {
+    const src = OutfitBaseTemplate.migrateData({ isCyber: true, majorCategory: "weapon", minorCategory: "melee" });
+    expect(src.additionalCategories).toEqual([{ major: "cyberware", minor: "" }]);
+    expect(src.isCyber).toBeUndefined();
+  });
+
+  it("migrateData: 主分類サイバーウェアの isCyber(旧・シート自動セット分)は移行不要", () => {
+    const src = OutfitBaseTemplate.migrateData({ isCyber: true, majorCategory: "cyberware", minorCategory: "neuralware" });
+    expect(src.additionalCategories).toBeUndefined();
+    expect(src.isCyber).toBeUndefined();
+  });
+
+  it("migrateData: 既に副分類サイバーウェアがあれば重複追加しない", () => {
+    const src = OutfitBaseTemplate.migrateData({
+      isCyber: true, majorCategory: "weapon",
+      additionalCategories: [{ major: "cyberware", minor: "" }],
+    });
+    expect(src.additionalCategories).toEqual([{ major: "cyberware", minor: "" }]);
+  });
+
+  it("migrateData: 旧日本語名の主分類でもキー変換後に比較される(サイバーウェア=移行不要)", () => {
+    const src = OutfitBaseTemplate.migrateData({ isCyber: true, majorCategory: "サイバーウェア" });
+    expect(src.additionalCategories).toBeUndefined();
+  });
+
+  const derive = (over = {}) => {
+    const sys = {
+      majorCategory: "", minorCategory: "",
+      part: [], partOptional: false,
+      isPrepared: true, isCarrying: true,
+      isMalfunction: false, isDestroyed: false,
+      ...over,
+    };
+    OutfitBaseTemplate.prototype.prepareDerivedData.call(sys);
+    return sys;
+  };
+
+  it("派生: 副分類サービスでも故障/破壊の免疫が効く(両方の分類として扱う)", () => {
+    const sys = derive({
+      majorCategory: "item", minorCategory: "tool",
+      additionalCategories: [{ major: "service", minor: "" }],
+      isMalfunction: true, isDestroyed: true, part: [{ kind: "bodyPart" }],
+    });
+    expect(sys.isMalfunctionTotal).toBe(false);
+    expect(sys.isDestroyedTotal).toBe(false);
+  });
+
+  it("派生: 副分類バックグラウンドでも準備・携帯を強制 true", () => {
+    const sys = derive({
+      majorCategory: "item", minorCategory: "tool",
+      additionalCategories: [{ major: "service", minor: "background" }],
+      isPrepared: false, isCarrying: false, part: [],
+    });
     expect(sys.isPrepared).toBe(true);
     expect(sys.isCarrying).toBe(true);
   });

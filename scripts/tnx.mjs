@@ -79,13 +79,13 @@ import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/u
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
 import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
 import { CONDITION_KINDS, CONDITION_GROUP_LABELS, getConditionKinds, buildInflictedEffectsData, applyDamageTagMods, readConditions, blocksMainProcess, actorCannotMainProcess } from './module/conditions.mjs';
-import { gatherDamageTagMods, parseEffectTargetKey, buildTransferredEffectData, readFlag, AE_FLAG_PARAMS } from './data/item/helpers.mjs';
+import { gatherDamageTagMods, parseEffectTargetKey, buildTransferredEffectData, AE_FLAG_PARAMS } from './data/item/helpers.mjs';
 import { registerDamageChartTextSetting } from './module/damage-chart-text-app.mjs';
 import { registerPartSlotPresetSetting, getPartSlotPreset, initializeDefaultPartSlotPreset, migratePartSlotKeys } from './module/part-slot-preset-app.mjs';
 import { autoAcquireForStyleSkill, autoImportDerivedData } from './module/style-skill-acquisition.mjs';
 import { conditionNeedsDraw, postDrawPrompt, postControlNegatePrompt, promptWoundSkillSelection, bindConditionChatButtons, renderConditionDrawCard } from './module/condition-resolution.mjs';
 import { enhanceComboboxes } from './module/combobox.mjs';
-import { OUTFIT_CATEGORIES } from './data/item/outfit-categories.mjs';
+import { OUTFIT_CATEGORIES, outfitClassifications } from './data/item/outfit-categories.mjs';
 
 async function preloadHandlebarsTemplates() {
     const templatePaths = [
@@ -922,7 +922,7 @@ Hooks.on("updateItem", async (item, changed, _options, userId) => {
     const actor = item.actor;
     if (!actor) return;
     const sys = changed?.system ?? {};
-    if (!["parentItemId", "identificationKey", "majorCategory", "minorCategory"].some(k => k in sys)) return;
+    if (!["parentItemId", "identificationKey", "majorCategory", "minorCategory", "additionalCategories"].some(k => k in sys)) return;
     for (const e of actor.effects) await materializeItemTransfers(actor, e, actor);
     for (const it of actor.items) {
         for (const e of it.effects) await materializeItemTransfers(actor, e, it);
@@ -1122,7 +1122,8 @@ Hooks.once("init", async function() {
     // アイテム名の表示マーカー(2026-06-12 ユーザー確定ルール)
     // - 一般技能: アクション技能なら頭に「★」(スタイル技能には付さない)
     // - スタイル技能: カテゴリが秘技「†」/ 奥義「※」/ 演出特技「＠」を頭に付す
-    // - アウトフィット: isCyber なら末尾に「※」
+    // - アウトフィット: 主分類がサイバーウェア以外で分類集合にサイバーウェアを含む(旧 isCyber
+    //   =副分類へ完全統合・フェーズ16-1)なら末尾に「※」
     Handlebars.registerHelper('tnxDecoratedName', function(item) {
         const name = item?.name ?? "";
         const system = item?.system ?? {};
@@ -1133,7 +1134,8 @@ Hooks.once("init", async function() {
             const prefix = { secret: "†", mystery: "※", performance: "＠" }[system.styleSkillCategory] ?? "";
             return prefix + name;
         }
-        if (readFlag(system, "isCyber") && system.majorCategory !== "cyberware") return `${name}※`;
+        if (system.majorCategory !== "cyberware"
+            && outfitClassifications(system).some((c) => c.major === "cyberware")) return `${name}※`;
         return name;
     });
 
@@ -1593,7 +1595,6 @@ Hooks.once("init", async function() {
                     damageType:      "",
                     checkBonuses:    [],
                     damageBonuses:   [],
-                    modifiableParams: [],
                     fixedResult:     10,
                 });
             }
@@ -1620,7 +1621,6 @@ Hooks.once("init", async function() {
                     damageType:      "",
                     checkBonuses:    [],
                     damageBonuses:   [],
-                    modifiableParams: [],
                     // 消費既定は空(2026-07-17 ユーザー指示=無条件の「親×1」既定行は全廃)
                     consumeTargets:  [],
                 }],

@@ -88,6 +88,21 @@
                                     </select>
                                 </div>
                             {{/if}}
+                            {{#if onomastic.isCraft}}
+                                <div class="form-group">
+                                    <label>対応分類</label>
+                                    <select name="system.craftCategory">
+                                        <option value="">-</option>
+                                        {{#each craftCategoryGroups}}
+                                        <optgroup label="{{this.label}}">
+                                            {{#each this.minors}}
+                                            <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                                            {{/each}}
+                                        </optgroup>
+                                        {{/each}}
+                                    </select>
+                                </div>
+                            {{/if}}
                             <div class="form-group">
                                 <label>初期取得の社会・コネ</label>
                                 <input type="checkbox" name="system.onomasticSkill.isInitial" {{checked system.onomasticSkill.isInitial}}>

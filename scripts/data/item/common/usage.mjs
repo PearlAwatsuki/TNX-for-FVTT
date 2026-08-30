@@ -335,10 +335,9 @@ export class UsageTemplate extends SystemDataModel {
                     // ※旧 damageCategory(攻撃系統)は攻撃タイプへ移行(2026-07-17 再編・migrateData)。
                     //   系統はタイプが持つ(attackCategoryOf)。
 
-                    // modification: 改造可能なパラメータ名リスト
-                    modifiableParams: new fields.ArrayField(
-                        new fields.StringField({ initial: "" })
-                    ),
+                    // ※旧 modifiableParams(改造可能なパラメータ名の手動リスト)は撤去(フェーズ16-1)。
+                    //   改造可能項目は対象の分類から導出する(Purchase_and_Modification の分類別テーブル・
+                    //   読者ゼロを確認のうえ廃止)
 
                     // ─── 消費先設定(フェーズ11-6・2026-07-18 再編・D&D の Consumption 踏襲) ───
                     // 全ての使用回数消費はこの設定からのみ発生する(自動スキャンは全廃)。

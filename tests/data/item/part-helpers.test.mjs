@@ -534,3 +534,27 @@ describe("formatPartDesignation() の AE 追加併記(フェーズ12)", () => {
     expect(s).toBe("片手持ち、もしくは頭上");
   });
 });
+
+describe("matchesHostDescriptor と分類集合(フェーズ16-1・複数分類)", () => {
+  it("副分類の大分類でも hostMajor に一致する(生体装備の武器など)", () => {
+    const host = { majorCategory: "item", minorCategory: "biotech",
+      additionalCategories: [{ major: "weapon", minor: "melee" }] };
+    expect(matchesHostDescriptor(host, { hostMajor: "weapon" })).toBe(true);
+  });
+
+  it("副分類の小分類でも hostMinor に一致し、除外指定なら弾かれる", () => {
+    const host = { majorCategory: "item", minorCategory: "biotech",
+      additionalCategories: [{ major: "weapon", minor: "melee" }] };
+    expect(matchesHostDescriptor(host, { hostMajor: "weapon", hostMinor: "melee" })).toBe(true);
+    expect(matchesHostDescriptor(host, { hostMajor: "weapon", hostMinor: "melee", hostMinorExclude: true })).toBe(false);
+  });
+
+  it("特徴 isCyber は分類集合にサイバーウェアを含むかで照合する(副分類・旧フラグ生データの両対応)", () => {
+    const bySub = { majorCategory: "weapon", minorCategory: "melee",
+      additionalCategories: [{ major: "cyberware", minor: "" }] };
+    const byLegacy = { majorCategory: "weapon", minorCategory: "melee", isCyber: true };
+    expect(matchesHostDescriptor(bySub, { hostFeature: "isCyber" })).toBe(true);
+    expect(matchesHostDescriptor(byLegacy, { hostFeature: "isCyber" })).toBe(true);
+    expect(matchesHostDescriptor({ majorCategory: "weapon", minorCategory: "melee" }, { hostFeature: "isCyber" })).toBe(false);
+  });
+});

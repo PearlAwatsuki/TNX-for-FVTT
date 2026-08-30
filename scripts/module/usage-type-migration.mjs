@@ -70,7 +70,6 @@ export function canonicalizeSkillActions(skill, makeId) {
                 damageType: "",
                 checkBonuses: [],
                 damageBonuses: [],
-                modifiableParams: [],
                 confrontation: defaultConfrontationForType(spec.type),
                 consumeTargets: [{ type: "parent", itemId: "", amount: 1 }],
             });

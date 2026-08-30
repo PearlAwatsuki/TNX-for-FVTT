@@ -46,6 +46,12 @@ export class GeneralSkillDataModel extends SystemDataModel.mixin(
       // 社会技能の下位区分(2026-08-26 裁定・SOCIETY_CLASSES のキー)。区分=society のときのみ
       // 意味を持つ。空=未分類(「あらゆる社会」にのみ合致し、下位区分の条件には乗らない)
       societyClass: new fields.StringField({ initial: "" }),
+      // 製作技能の対応分類(フェーズ16-1・2026-08-30 裁定)。製作技能はそもそも分類を指定して
+      // 取得する技能のため、societyClass と同形で区分=craft のときのみ意味を持つ。値は
+      // アウトフィット分類の大分類キーまたは小分類キー(全体一意=repairableCategories と同じ
+      // キー空間)。サービス大分類とその配下は選択肢に存在しない(サービスの製作技能は無い)。
+      // 読み手は改造判定(16-4)・辞典ブラウザのフィルタ(16-2)
+      craftCategory: new fields.StringField({ initial: "" }),
       usesBounty: new fields.BooleanField({ initial: false }),
       // アクト限定(フェーズ14-7・2026-08-08 ユーザー裁定)。アクトコネクション等、そのアクト
       // 限りの技能の印。アクト終了時に自動削除される(session-state.endAct)。アクトコネクション

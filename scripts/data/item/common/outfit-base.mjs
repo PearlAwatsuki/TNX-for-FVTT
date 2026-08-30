@@ -40,7 +40,7 @@
  */
 
 import { SystemDataModel } from "../../abstract.mjs";
-import { getMajorCategoryChoices, getMinorCategoryChoices, LEGACY_CATEGORY_MAP } from "../outfit-categories.mjs";
+import { getMajorCategoryChoices, getMinorCategoryChoices, LEGACY_CATEGORY_MAP, hasClassification } from "../outfit-categories.mjs";
 import { modeValueField, migrateUsesValueToSpent, computeItemEffectiveValues } from "../helpers.mjs";
 import { migrateUsesMaxToString, computeUsesMaxTotal } from "../uses.mjs";
 
@@ -109,7 +109,8 @@ export class OutfitBaseTemplate extends SystemDataModel {
       isOption:          new fields.BooleanField({ initial: false }),
       "isPre-play":      new fields.BooleanField({ initial: false }),
       isCheckAcquired:   new fields.BooleanField({ initial: false }),
-      isCyber:           new fields.BooleanField({ initial: false }),
+      // ※旧 isCyber フラグは廃止(フェーズ16-1・2026-08-30 裁定「isCyberは副分類に完全に統合」)。
+      //   旧データは migrateData で副分類サイバーウェアへ移行する。
       isCarrying:        new fields.BooleanField({ initial: true }),
       isConsumption:     new fields.BooleanField({ initial: false }),
       // 故障/破壊(2026-07-18 ユーザー確定): どちらも使用不可状態。故障は〈製作〉の修理用途で解除可、
@@ -154,6 +155,16 @@ export class OutfitBaseTemplate extends SystemDataModel {
         initial: "",
         choices: getMinorCategoryChoices,
       }),
+      // 副分類(フェーズ16-1・2026-08-30 裁定): 「複数の分類を持つアウトフィット」の追加分類。
+      // 主分類は置き場所(シートのグループ表示・部位/スロット)の権威のまま、ルール挙動の照合は
+      // outfitClassifications(主分類＋副分類の集合)を経由する。minor 空=大分類のみの横断
+      // (旧 isCyber の移行先)。choices を付けないのは blank 行(追加直後の未選択)を許すため。
+      additionalCategories: new fields.ArrayField(
+        new fields.SchemaField({
+          major: new fields.StringField({ initial: "" }),
+          minor: new fields.StringField({ initial: "" }),
+        })
+      ),
       buy:               modeValueField(["none", "value", "reference"]),
       preserveExp:       modeValueField(["none", "value"]),
       hide:              modeValueField(["none", "value", "reference", "control"]),
@@ -219,6 +230,16 @@ export class OutfitBaseTemplate extends SystemDataModel {
     if (source.minorCategory && LEGACY_CATEGORY_MAP[source.minorCategory]) {
       source.minorCategory = LEGACY_CATEGORY_MAP[source.minorCategory];
     }
+    // 旧 isCyber → 副分類サイバーウェアへ完全統合(フェーズ16-1・2026-08-30 裁定)。
+    // 主分類がサイバーウェアなら主分類だけで足りるため移行不要(旧・シートの自動セット分)。
+    // ※分類キー移行(上)の後に置く(旧日本語名データでも majorCategory がキーになってから比較する)
+    if (source.isCyber === true && source.majorCategory !== "cyberware") {
+      const rows = Array.isArray(source.additionalCategories) ? source.additionalCategories : [];
+      if (!rows.some((r) => r?.major === "cyberware")) {
+        source.additionalCategories = [...rows, { major: "cyberware", minor: "" }];
+      }
+    }
+    delete source.isCyber;
     if (typeof source.appearancePenalty === "number") {
       const n = source.appearancePenalty;
       source.appearancePenalty = n === 0 ? { mode: "none", value: 0 } : { mode: "value", value: n };
@@ -278,16 +299,16 @@ export class OutfitBaseTemplate extends SystemDataModel {
 
     // 故障/破壊の免疫(2026-07-18): サービス大分類は故障も破壊もされない。AE で true にされても
     // 実効フラグを false へ落とす(照合の一本化は isOutfit* ヘルパーだが、実効値の一貫性のため
-    // ここでも落とす)。
-    if (this.majorCategory === "service") {
+    // ここでも落とす)。照合は分類集合(主分類＋副分類=「両方の分類として扱う」・フェーズ16-1)。
+    if (hasClassification(this, "service")) {
       this.isMalfunctionTotal = false;
       this.isDestroyedTotal = false;
     }
 
     // サービス/バックグラウンド(2026-07-18 ユーザー確定): 必ず準備・携帯され、未準備にできない。
     // 携帯/準備フラグを派生で true に固定(シート側でトグルを非表示)。isPartless の「準備できない=
-    // オフ」より優先する(背景は常時適用の分類)。
-    if (this.minorCategory === "background") {
+    // オフ」より優先する(背景は常時適用の分類)。照合は分類集合(フェーズ16-1)。
+    if (hasClassification(this, "background")) {
       this.isPrepared = true;
       this.isCarrying = true;
     }

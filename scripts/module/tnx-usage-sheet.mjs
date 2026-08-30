@@ -20,7 +20,7 @@ import { CONDITION_KINDS } from "./conditions.mjs";
 import { ATTACK_DAMAGE_TYPES } from "../data/item/helpers.mjs";
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
-import { OUTFIT_CATEGORIES, getMinorCategoryLabel } from "../data/item/outfit-categories.mjs";
+import { OUTFIT_CATEGORIES, getMinorCategoryLabel, buildCategoryKeyGroups } from "../data/item/outfit-categories.mjs";
 import { resolveAttackWeapons, attackWeaponDisplayName, resolveAttackRangeSpan, attackWeaponKindEligible } from "./attack-weapons.mjs";
 import { captureScrollTop, restoreScrollTop } from "./scroll-preserve.mjs";
 import { WEAPON_RANGE_MAX_OPTIONS } from "../data/item/weapon.mjs";
@@ -601,18 +601,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                     ? `${OUTFIT_CATEGORIES[k].label}／（大分類全体）`
                     : `${minorMajor[k] ?? ""}／${getMinorCategoryLabel(k) || k}`,
             }));
-            context.repairCategoryChoices = Object.entries(OUTFIT_CATEGORIES)
-                .filter(([majorKey]) => majorKey !== "service")
-                .map(([majorKey, major]) => ({
-                    label: major.label,
-                    minors: [
-                        ...(selected.has(majorKey) ? [] : [{ value: majorKey, label: "（大分類全体）" }]),
-                        ...Object.entries(major.minors)
-                            .filter(([minorKey]) => !selected.has(minorKey))
-                            .map(([minorKey, minor]) => ({ value: minorKey, label: minor.label })),
-                    ],
-                }))
-                .filter(g => g.minors.length);
+            // 選択肢の構造は共通ビルダー(outfit-categories.mjs・製作技能の対応分類と共用=フェーズ16-1)
+            context.repairCategoryChoices = buildCategoryKeyGroups({ excludeKeys: selected });
         }
 
         // NPC取得(11-6・Troops.md/2026-07-13 タイプ→フラグへ移管): check/declaration のどちらにも

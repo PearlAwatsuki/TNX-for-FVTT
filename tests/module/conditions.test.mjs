@@ -600,3 +600,28 @@ describe("コンディション効果の無視ゲート（ignore.*・フェー�
     });
   });
 });
+
+describe("computeJammingPenalty と分類集合(フェーズ16-1・複数分類)", () => {
+  it("副分類サイバーウェア(体内武器等)も対象カテゴリとして数える", () => {
+    const outfits = [{ majorCategory: "item", minorCategory: "tool",
+      additionalCategories: [{ major: "cyberware", minor: "" }], hack: 3 }];
+    expect(computeJammingPenalty(5, outfits)).toBe(1);
+  });
+
+  it("旧 isCyber=true の生データ(未移行の辞典 index)も数える", () => {
+    const outfits = [{ majorCategory: "item", minorCategory: "tool", isCyber: true, hack: 3 }];
+    expect(computeJammingPenalty(5, outfits)).toBe(1);
+  });
+
+  it("副分類ヴィークルの該当は −10 分岐に入る", () => {
+    const outfits = [{ majorCategory: "item", minorCategory: "tool",
+      additionalCategories: [{ major: "vehicle", minor: "groundVehicle" }], hack: 3 }];
+    expect(computeJammingPenalty(5, outfits)).toBe(10);
+  });
+
+  it("対象外の分類だけなら数えない(副分類が無関係でも同じ)", () => {
+    const outfits = [{ majorCategory: "item", minorCategory: "tool",
+      additionalCategories: [{ major: "housing", minor: "" }], hack: 3 }];
+    expect(computeJammingPenalty(5, outfits)).toBe(0);
+  });
+});

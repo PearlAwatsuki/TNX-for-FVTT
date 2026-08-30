@@ -129,6 +129,86 @@ export function getMinorCategoryLabel(key) {
 }
 
 /**
+ * 小分類キー → 所属する大分類キー。未知は空文字。
+ * @param {string} minorKey
+ * @returns {string}
+ */
+export function majorOfMinor(minorKey) {
+  for (const [majorKey, major] of Object.entries(OUTFIT_CATEGORIES)) {
+    if (major.minors[minorKey]) return majorKey;
+  }
+  return "";
+}
+
+/**
+ * アウトフィットの**分類集合**(主分類＋副分類)を返す(フェーズ16-1・2026-08-30 裁定)。
+ * 「複数の分類を持つアウトフィットは両方の分類として扱う」の照合はこの集合を経由する
+ * (分類を読むルール挙動——改造可能項目・部位ホスト照合・電子妨害・修理・サービス免疫・
+ * AE 分類狙い・※表示——の一本化点)。
+ *
+ * - 主分類(majorCategory/minorCategory)に副分類(additionalCategories)を加えた平坦な配列。
+ * - minor だけの行は大分類を樹から補完する(全体一意のため導出可能)。
+ * - 旧 isCyber=true は**サイバーウェア副分類として包摂**する: DataModel を通ったデータは
+ *   migrateData(outfit-base)が副分類へ移行済みだが、辞典 index 等の**生データ**は移行を
+ *   経ないため、ここで読み替える(isCyber フィールド自体は 2026-08-30 裁定で廃止)。
+ * @param {{majorCategory?:string, minorCategory?:string,
+ *          additionalCategories?:Array<{major?:string, minor?:string}>, isCyber?:boolean}} system
+ * @returns {Array<{major:string, minor:string}>}
+ */
+export function outfitClassifications(system) {
+  const out = [];
+  const push = (major, minor) => {
+    let M = String(major ?? "");
+    const m = String(minor ?? "");
+    if (!M && m) M = majorOfMinor(m);
+    if (!M && !m) return;
+    if (!out.some((r) => r.major === M && r.minor === m)) out.push({ major: M, minor: m });
+  };
+  push(system?.majorCategory, system?.minorCategory);
+  const rows = Array.isArray(system?.additionalCategories) ? system.additionalCategories : [];
+  for (const row of rows) push(row?.major, row?.minor);
+  if (system?.isCyber === true) push("cyberware", "");
+  return out;
+}
+
+/**
+ * アウトフィットが分類キー(大分類キーまたは小分類キー・全体一意)に該当するか。
+ * 主分類・副分類のどちらで該当しても true(「両方の分類として扱う」)。
+ * @param {object} system アウトフィットの system
+ * @param {string} key 大分類キーまたは小分類キー
+ * @returns {boolean}
+ */
+export function hasClassification(system, key) {
+  if (!key) return false;
+  return outfitClassifications(system).some((r) => r.major === key || r.minor === key);
+}
+
+/**
+ * 「大分類 optgroup ＋（大分類全体）＋ 小分類 option」の選択肢構造を組み立てる。
+ * 修理対応分類(用途)と製作技能の対応分類(一般技能)が共用する(2026-08-30)。
+ * キー空間は大分類キー・小分類キーの混在(全体一意)。
+ * @param {{excludeService?: boolean, excludeKeys?: Set<string>}} [opts]
+ *   excludeService: サービス大分類とその配下を除外(既定 true)
+ *   excludeKeys: 除外するキーの集合(選択済みの除外に使う)
+ * @returns {Array<{label: string, minors: Array<{value: string, label: string}>}>}
+ */
+export function buildCategoryKeyGroups({ excludeService = true, excludeKeys } = {}) {
+  const excluded = excludeKeys ?? new Set();
+  return Object.entries(OUTFIT_CATEGORIES)
+    .filter(([majorKey]) => !(excludeService && majorKey === "service"))
+    .map(([majorKey, major]) => ({
+      label: major.label,
+      minors: [
+        ...(excluded.has(majorKey) ? [] : [{ value: majorKey, label: "（大分類全体）" }]),
+        ...Object.entries(major.minors)
+          .filter(([minorKey]) => !excluded.has(minorKey))
+          .map(([minorKey, minor]) => ({ value: minorKey, label: minor.label })),
+      ],
+    }))
+    .filter((g) => g.minors.length);
+}
+
+/**
  * 「大分類レベルでスロットを共有する」大分類。オプションの部位名(スロット名)を
  * **大分類名**で表記する(「武器」「武器(白兵武器)」)。
  *

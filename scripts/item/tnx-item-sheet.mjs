@@ -230,7 +230,6 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             damageType:  "",
             checkBonuses: [],
             damageBonuses: [],
-            modifiableParams: [],
             // 対決欄の系統既定(2026-07-17): 攻撃=物理はドッジ+パリー等・移動/離脱は各妨害リアクション行
             confrontation: defaultConfrontationForType(type),
             // ヴィークル準備時(2026-07-18 一般化): 移動/リアクション（移動妨害）は既定オン

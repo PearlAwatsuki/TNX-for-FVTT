@@ -111,3 +111,12 @@ describe("GeneralSkillDataModel.defineSchema()", () => {
     });
   });
 });
+
+describe("craftCategory(製作技能の対応分類・フェーズ16-1)", () => {
+  const schema = GeneralSkillDataModel.defineSchema();
+
+  it("craftCategory は StringField で initial が空文字", () => {
+    expect(schema.craftCategory).toBeInstanceOf(MockStringField);
+    expect(schema.craftCategory.options.initial).toBe("");
+  });
+});

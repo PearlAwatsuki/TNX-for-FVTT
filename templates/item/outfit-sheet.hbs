@@ -25,7 +25,7 @@
             <div class="outfit-category">
                 {{#if isEditMode}}
                     {{#if isBothCategoryFixed}}
-                        <span class="outfit-category-label">{{view.category}}</span>
+                        <span class="outfit-category-label">{{view.primaryCategory}}</span>
                     {{else}}
                         {{#if isMajorCategoryFixed}}
                             <span class="outfit-category-label">{{fixedMajorLabel}}／</span>
@@ -38,6 +38,10 @@
                             {{selectOptions options.minorCategory selected=system.minorCategory}}
                         </select>
                     {{/if}}
+                    {{!-- 複数分類(フェーズ16-1): チェックで副分類行を展開。状態は副分類の有無から導出 --}}
+                    <label class="outfit-category-multi-toggle" data-tooltip="複数の分類を持つアウトフィット">
+                        <input type="checkbox" data-additional-category-toggle {{checked hasAdditionalCategories}}>
+                    </label>
                 {{else}}
                     <span class="outfit-category-label">{{view.category}}</span>
                 {{/if}}
@@ -45,6 +49,23 @@
                     <span class="outfit-area-badge" title="住宅エリア"><i class="fa-solid fa-city"></i> {{linkedArea.name}}</span>
                 {{/if}}
             </div>
+            {{#if isEditMode}}
+            {{#each additionalCategoryRows as |row|}}
+            <div class="outfit-category outfit-category--additional">
+                <select data-additional-category-field="major" data-index="{{row.index}}">
+                    {{selectOptions ../options.additionalMajorCategory selected=row.major}}
+                </select>
+                <select data-additional-category-field="minor" data-index="{{row.index}}">
+                    {{selectOptions row.minorChoices selected=row.minor}}
+                </select>
+                {{#if row.isFirst}}
+                <a class="outfit-category-row-btn" data-additional-category-add title="分類を追加"><i class="fas fa-plus"></i></a>
+                {{else}}
+                <a class="outfit-category-row-btn" data-additional-category-del data-index="{{row.index}}" title="削除"><i class="fas fa-trash"></i></a>
+                {{/if}}
+            </div>
+            {{/each}}
+            {{/if}}
             {{#if isExtraOutfit}}
             {{!-- エキストラの二重表現(11-6・Troops.md): このアウトフィットが場に出るときの
                  共有エキストラアクター。NPC取得(エキストラモード)で取得と同時に場に出る --}}
@@ -108,12 +129,7 @@
                 <fieldset class="tnx-fieldset">
                     <legend>特性</legend>
                     <div class="outfit-flags">
-                        {{#unless isCyberByCategory}}
-                        <label class="outfit-flag">
-                            <input type="checkbox" name="system.isCyber" {{checked system.isCyber}}>
-                            <span>サイバーウェア</span>
-                        </label>
-                        {{/unless}}
+                        {{!-- 旧「サイバーウェア」フラグは廃止(フェーズ16-1)。副分類サイバーウェアで表す --}}
                         <label class="outfit-flag">
                             <input type="checkbox" name="system.isConsumption" {{checked system.isConsumption}}>
                             <span>消費アイテム</span>

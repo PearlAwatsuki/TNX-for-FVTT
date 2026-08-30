@@ -6567,6 +6567,30 @@ button.tnx-create-act-button span {
     font-size: 0.9em;
 }
 
+/* 複数分類(フェーズ16-1): 1行目右端のチェックボックスと副分類行の追加/削除ボタン。
+   右端要素は同幅で縦に揃える(チェック⇔ボタンが行違いで並ぶため) */
+.tokyo-nova.sheet.item.outfit .outfit-category-multi-toggle {
+    flex: 0 0 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+}
+
+.tokyo-nova.sheet.item.outfit .outfit-category--additional {
+    margin-top: 2px;
+}
+
+.tokyo-nova.sheet.item.outfit .outfit-category-row-btn {
+    flex: 0 0 20px;
+    text-align: center;
+    color: var(--tnx2-text-secondary);
+}
+
+.tokyo-nova.sheet.item.outfit .outfit-category-row-btn:hover {
+    color: var(--tnx2-text-primary);
+}
+
 /* アイテム名 + 個数(×n)の行 */
 .tokyo-nova.sheet.item.outfit .charname-row {
     display: flex;

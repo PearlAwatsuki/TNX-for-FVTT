@@ -12,6 +12,7 @@
 
 import { buildDamageStates, getDamageChartValue } from "../data/damage-chart.mjs";
 import { parseEffectTargetKey, collectActorEffectBuffs, effectAutoApplies } from "../data/item/helpers.mjs";
+import { outfitClassifications } from "../data/item/outfit-categories.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -563,23 +564,28 @@ export const WET_IDENT_KEY = "wet";
  * - ウェット(準備中に WET_IDENT_KEY あり)かつ該当1個以上 → 1。
  * - それ以外 → min(個数, 10)。
  *
+ * 分類の照合は分類集合(outfitClassifications=主分類＋副分類・旧 isCyber 包摂)を経由する
+ * (「複数の分類を持つアウトフィットは両方の分類として扱う」・フェーズ16-1)。
+ *
  * @param {number} n 強度
- * @param {Array<{majorCategory:?string, minorCategory:?string, hack:?number, identKey:?string}>} preparedOutfits
+ * @param {Array<{majorCategory:?string, minorCategory:?string,
+ *   additionalCategories?:Array<{major?:string, minor?:string}>, isCyber?:boolean,
+ *   hack:?number, identKey:?string}>} preparedOutfits
  * @param {{isGhost?:boolean}} [opts]
  * @returns {number} マイナス量(正)
  */
 export function computeJammingPenalty(n, preparedOutfits, { isGhost = false } = {}) {
-  const list = preparedOutfits ?? [];
+  const list = (preparedOutfits ?? []).map((o) => ({ ...o, cls: outfitClassifications(o) }));
   const withinHack = (o) => typeof o.hack === "number" && o.hack <= n;
   const inScope = (o) =>
-    JAMMING_MAJOR.includes(o.majorCategory) || JAMMING_MINOR.includes(o.minorCategory);
+    o.cls.some((c) => JAMMING_MAJOR.includes(c.major) || JAMMING_MINOR.includes(c.minor));
 
   const counted = list.filter(o => inScope(o) && withinHack(o));
   const count = counted.length;
 
   // −10 分岐: 該当(電制≤n)の全身義体・ヴィークル準備、または該当タップでゴースト登場中
-  const heavy = list.some(o => withinHack(o) && (o.minorCategory === "fullCyborg" || o.majorCategory === "vehicle"))
-    || (isGhost && list.some(o => withinHack(o) && o.minorCategory === "tap"));
+  const heavy = list.some(o => withinHack(o) && o.cls.some((c) => c.minor === "fullCyborg" || c.major === "vehicle"))
+    || (isGhost && list.some(o => withinHack(o) && o.cls.some((c) => c.minor === "tap")));
   if (heavy) return 10;
 
   // ウェット分岐

@@ -576,6 +576,7 @@ export class TnxCheckFlow {
             const hack = s.hack?.mode === "value" ? (s.hack.total ?? s.hack.value ?? null) : null;
             prepared.push({
                 majorCategory: s.majorCategory, minorCategory: s.minorCategory,
+                additionalCategories: s.additionalCategories,
                 hack, identKey: s.identificationKey,
             });
         }

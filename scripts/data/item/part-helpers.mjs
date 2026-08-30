@@ -15,6 +15,7 @@
 
 import {
   getMajorCategoryLabel, getMinorCategoryLabel, isMajorLevelSlotMajor, SLOT_KIND_MINOR_HOSTS,
+  outfitClassifications,
 } from "./outfit-categories.mjs";
 
 /**
@@ -27,8 +28,8 @@ export const OUTFIT_NAME_SLOT_KIND = "outfitName";
 
 /**
  * オプションの「その他特徴」キー → 表示ラベル。ホスト側の特徴で絞り込む(「武器(サイバーウェア)」等)。
- * isCyber は大分類サイバーウェア指定で拾う isCyber=true を絞り込みに使う(2026-06-27 ユーザー確定)。
- * 変異器官は 10-2 で新造。
+ * isCyber は旧フラグ廃止(フェーズ16-1)後も**保存済み記述子の互換キー**として残し、照合は
+ * 「分類集合にサイバーウェアを含むか」へ読み替える(matchesHostDescriptor)。変異器官は 10-2 で新造。
  */
 export const PART_HOST_FEATURE_LABELS = Object.freeze({
   isLaser:       "レーザー武器",
@@ -42,13 +43,16 @@ export const PART_HOST_FEATURE_LABELS = Object.freeze({
  * 一本化する純関数(旧: 装備先=自身の大分類・アイテム名=記述子、という二本立ての絞りを統合)。
  *
  * - hostKey(識別キー)があれば、そのキーのホストだけが対象(種別絞りは選択時の UI 用で、実照合はキー一本)。
- * - 種別指定は 大分類→小分類(+除外)→その他特徴 の順に絞る。大分類 cyberware は isCyber でも一致
- *   (サイバーウェアは絞り込みに追加するしかない・PART_HOST_FEATURE_LABELS と同方針)。
+ * - 種別指定は 大分類→小分類(+除外)→その他特徴 の順に絞る。照合は**分類集合**
+ *   (outfitClassifications=主分類＋副分類・旧 isCyber の生データ包摂込み)を経由する
+ *   (「複数の分類を持つアウトフィットは両方の分類として扱う」・フェーズ16-1)。
+ * - 特徴キー isCyber(保存済み記述子の互換)は「分類集合にサイバーウェアを含むか」に読み替える。
  * - **自身の大分類では絞らない**ので、搭載兵器(武器)→ヴィークル のような大分類跨ぎが自然に通る。
  *
  * @param {{majorCategory?:string, minorCategory?:string, identificationKey?:string,
- *          isLaser?:boolean, isCyber?:boolean, isMutantOrgan?:boolean}} host ホスト候補の実効値
- *   (真偽フラグは呼び出し側で readFlag した実効値を渡す)
+ *          additionalCategories?:Array<{major?:string, minor?:string}>, isCyber?:boolean,
+ *          isLaser?:boolean, isMutantOrgan?:boolean}} host ホスト候補の実効値
+ *   (真偽フラグは呼び出し側で readFlag した実効値を渡す。isCyber は未移行生データの互換読み)
  * @param {{hostMajor?:string, hostMinor?:string, hostMinorExclude?:boolean,
  *          hostFeature?:string, hostKey?:string}} spec オプション部位行のホスト記述子
  * @returns {boolean}
@@ -57,16 +61,19 @@ export function matchesHostDescriptor(host, spec) {
   if (!host || !spec) return false;
   const hostKey = String(spec.hostKey ?? "").trim();
   if (hostKey) return String(host.identificationKey ?? "").trim() === hostKey;
+  const cls = outfitClassifications(host);
   if (spec.hostMajor) {
-    const majorMatch = host.majorCategory === spec.hostMajor
-      || (spec.hostMajor === "cyberware" && host.isCyber === true);
-    if (!majorMatch) return false;
+    if (!cls.some((c) => c.major === spec.hostMajor)) return false;
   }
   if (spec.hostMinor) {
-    const minorMatch = host.minorCategory === spec.hostMinor;
+    const minorMatch = cls.some((c) => c.minor === spec.hostMinor);
     if (spec.hostMinorExclude ? minorMatch : !minorMatch) return false;
   }
-  if (spec.hostFeature && host[spec.hostFeature] !== true) return false;
+  if (spec.hostFeature) {
+    if (spec.hostFeature === "isCyber") {
+      if (!cls.some((c) => c.major === "cyberware")) return false;
+    } else if (host[spec.hostFeature] !== true) return false;
+  }
   return true;
 }
 
