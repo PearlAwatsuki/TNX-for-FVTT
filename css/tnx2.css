@@ -3561,6 +3561,23 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     border-top: 1px solid var(--tnx2-border-active);
 }
 
+/* 宣言の使用カード(解説カード統合形・2026-08-30): 効果エリアは折りたたみ(details)の外に
+   置くため、カードの枠はラッパーが引き受け、内側の details は枠を持たない。
+   畳んでも「効果を適用」ボタン/適用済み注記は隠れない */
+.chat-message .message-content .tnx-usage-use-card {
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    background: var(--tnx2-bg-2);
+    margin-bottom: 5px;
+    overflow: hidden;
+}
+
+.chat-message .message-content .tnx-usage-use-card .tnx-chat-card {
+    border: none;
+    border-radius: 0;
+    margin-bottom: 0;
+}
+
 .chat-message .nested-description {
     margin-top: 10px;
     background: rgba(255,255,255,0.02);

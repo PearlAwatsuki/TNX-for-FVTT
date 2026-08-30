@@ -46,13 +46,17 @@ export class TokyoNovaItem extends Item {
         const desc = await foundry.applications.ux.TextEditor.enrichHTML(this.system?.description ?? "", { async: true });
         // 解説が空なら本文ブロックごと省く(空の余白帯と二重境界線を出さない)
         const body = desc?.trim() ? `<div class="card-content">${desc}</div>` : "";
+        const card = `<details class="tnx-chat-card" open><summary><h3>${foundry.utils.escapeHTML(this.name)}</h3></summary>`
+            + body + `</details>`;
         return ChatMessage.create({
             user:    game.user.id,
             speaker: ChatMessage.getSpeaker({ actor: this.actor ?? undefined }),
-            content: `<details class="tnx-chat-card" open><summary><h3>${foundry.utils.escapeHTML(this.name)}</h3></summary>`
-                + body
-                + (usageEffects ? `<div class="tnx-usage-effect-area"></div>` : "")
-                + `</details>`,
+            // 効果エリアは折りたたみ(details)の**外**に置く(2026-08-30 ユーザー指摘)——
+            // 折りたたみは長い効果文を畳むためのもので、「効果を適用」はまだ押されていない
+            // 操作のため、畳んでも隠れてはならない。枠はラッパーが引き受ける
+            content: usageEffects
+                ? `<div class="tnx-usage-use-card">${card}<div class="tnx-usage-effect-area"></div></div>`
+                : card,
             flags: {
                 "core.canPopout": true,
                 ...(usageEffects ? { "tokyo-nova-axleration": { usageEffects } } : {}),
