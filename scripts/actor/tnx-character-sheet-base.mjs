@@ -1023,10 +1023,18 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // ユーザー指示・正本=Purchase_and_Modification.md の経路マトリクス: 入手経路はアクト中の
         // 購入判定のみ)。弾くのはドロップによるインポートだけ——購入フローの付与
         // (isCheckAcquired/isPre-play の立った複製)とシート上の新規作成は対象外。
-        // 対象アクター=常備化経験点の経済を持つキャストとトループ(所有トループの常備化経験点は
-        // 所有者キャストに計上されるため同じ経済圏)。ゲスト/エキストラは RL の自由装備のまま
+        // 対象アクター=常備化経験点の経済を持つキャストと、**所有アクターがキャストの
+        // トループ**(2026-08-31 指示・所有トループの常備化経験点は所有者キャストに計上される
+        // 同じ経済圏)。所有者なし/キャスト以外が所有するトループ・ゲスト/エキストラは
+        // RL の自由装備のまま
+        let ownerIsCast = false;
+        if (this.actor.type === "troop" && this.actor.system.ownerActorRef?.uuid) {
+            const owner = await fromUuid(this.actor.system.ownerActorRef.uuid).catch(() => null);
+            ownerIsCast = owner?.type === "cast";
+        }
+        const inPreserveEconomy = this.actor.type === "cast" || ownerIsCast;
         if (OUTFIT_ITEM_TYPES.has(item.type)
-                && ["cast", "troop"].includes(this.actor.type)
+                && inPreserveEconomy
                 && item.system.preserveExp?.mode !== "value"
                 && item.system.isCheckAcquired !== true
                 && item.system["isPre-play"] !== true) {
