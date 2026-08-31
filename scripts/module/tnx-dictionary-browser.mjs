@@ -279,26 +279,33 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
  * 対象は固定高さスロット(.tnx-dict__card-slot)内のカードのみ(ツールチップ等の自動高さは対象外)。
  * @param {HTMLElement} root ブラウザのルート要素
  */
+/**
+ * 固定高さの1カードについて、入りきらない本文(解説＋条件)の文字サイズを段階縮小して収める。
+ * パラメータ行・ヘッダは縮めない(ルルブ同様)。冪等(既定サイズへ戻してから判定)。
+ * @param {HTMLElement} card .tnx-dict-card 要素
+ */
+export function fitDictionaryCard(card) {
+    const targets = [...card.querySelectorAll(".tnx-dict-card__desc, .tnx-dict-card__condition")];
+    if (!targets.length) return;
+    for (const t of targets) t.style.fontSize = "";
+    const desc = card.querySelector(".tnx-dict-card__desc");
+    // あふれは2経路: ①解説枠の内側(flex 割当より内容が大きい=desc.scrollHeight)
+    // ②条件等がカード下端を突き抜ける(card.scrollHeight)。両方を見る
+    const overflows = () =>
+        (desc && desc.scrollHeight > desc.clientHeight + 1)
+        || card.scrollHeight > card.clientHeight + 1;
+    let size = Number.parseFloat(getComputedStyle(targets[0]).fontSize) || 12;
+    const MIN = 7.5;
+    while (overflows() && size > MIN) {
+        size -= 0.5;
+        for (const t of targets) t.style.fontSize = `${size}px`;
+    }
+}
+
 export function fitDictionaryCards(root) {
     if (!root) return;
     for (const card of root.querySelectorAll(".tnx-dict__card-slot .tnx-dict-card")) {
-        // 縮小対象は本文系(解説＋条件)。パラメータ行・ヘッダは縮めない(ルルブ同様)
-        const targets = [...card.querySelectorAll(".tnx-dict-card__desc, .tnx-dict-card__condition")];
-        if (!targets.length) continue;
-        // いったん既定サイズへ戻してから縮小判定(再レンダー・再フィットに冪等)
-        for (const t of targets) t.style.fontSize = "";
-        const desc = card.querySelector(".tnx-dict-card__desc");
-        // あふれは2経路: ①解説枠の内側(flex 割当より内容が大きい=desc.scrollHeight)
-        // ②条件等がカード下端を突き抜ける(card.scrollHeight)。両方を見る
-        const overflows = () =>
-            (desc && desc.scrollHeight > desc.clientHeight + 1)
-            || card.scrollHeight > card.clientHeight + 1;
-        let size = Number.parseFloat(getComputedStyle(targets[0]).fontSize) || 12;
-        const MIN = 7.5;
-        while (overflows() && size > MIN) {
-            size -= 0.5;
-            for (const t of targets) t.style.fontSize = `${size}px`;
-        }
+        fitDictionaryCard(card);
     }
 }
 

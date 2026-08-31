@@ -604,14 +604,16 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             });
         }
 
-        // 技能・アイテム行のドラッグ並び替え(編集モードのみ)
+        // 技能・アイテム行のドラッグ(並び替え・ワールド/辞典への持ち出し)。
         // V2 は DEFAULT_OPTIONS.dragDrop を自動処理しないため明示的にバインドする。
         // ドロップ側は ActorSheetV2 既存の処理に委ねる(drop: false で二重発火を防止)。
+        // 閲覧モードでも有効(2026-08-31 ユーザー指示。従来の編集モード限定ゲートは
+        // アウトフィットタブが「ドラッグできない」ように見える原因だった)
         new foundry.applications.ux.DragDrop.implementation({
             dragSelector: ".item-list .item, .style-skills-list .item, .skills-list-view .item, .outfit-groups-container .outfit-row:not(.outfit-row--option):not(.outfit-row--header)",
             dropSelector: null,
             permissions: {
-                dragstart: () => this.isEditable && this._isEditMode,
+                dragstart: () => this.isEditable,
                 drop:      () => false,
             },
             callbacks: {

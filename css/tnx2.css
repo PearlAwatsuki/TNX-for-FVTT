@@ -11282,7 +11282,10 @@ button.tnx-create-act-button span {
 
 /* --- ツールチップとしてのカード(横幅広め=2026-08-30 ユーザー指定) ---
    コア #tooltip の文字寄せ等の既定が注入 HTML へ継承されるため、ここで明示的に打ち消す
-   (2026-08-31 是正=右寄せで表示されていた) */
+   (2026-08-31 是正=右寄せで表示されていた)。
+   スタイル技能/アウトフィットは辞典ブラウザと同寸法の固定サイズスロット入り
+   (item-card-tooltips.mjs がフィット済み HTML を注入する)。
+   輪郭はアクセント色+グロー(2026-08-31 指摘=下地と同色で見分けがつかなかった) */
 .tnx-dict-tooltip {
     max-width: 420px;
     padding: 0;
@@ -11292,8 +11295,14 @@ button.tnx-create-act-button span {
 }
 
 .tnx-dict-tooltip .tnx-dict-card {
-    box-shadow: 0 4px 16px rgb(0 0 0 / 60%);
+    border: 1px solid var(--tnx2-accent);
+    box-shadow: 0 0 10px var(--tnx2-accent-glow),
+                0 8px 24px rgb(0 0 0 / 70%);
     text-align: left;
+}
+
+.tnx-dict-tooltip .tnx-dict__card-slot {
+    cursor: default;
 }
 
 .tnx-dict-tooltip .tnx-dict-card__header {
