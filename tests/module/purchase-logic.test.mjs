@@ -71,37 +71,42 @@ describe("purchaseCardInfo()（結果カードの購入ブロック）", () => {
     });
 });
 
-describe("decidePreActPurchase()（プレアクト購入の条件・2026-08-31 ユーザー verbatim）", () => {
-    // 正本: 「プレアクト購入はそのキャストの外界以下の購入値を持つアウトフィットを対象に行えます。
-    //        また、常備化経験点による取得は入手であっても購入ではありません」
-    it("購入値 ≤ 外界なら可（境界=同値も可）", () => {
-        expect(decidePreActPurchase({ mode: "value", value: 3 }, 5)).toEqual({ ok: true, targetValue: 3 });
-        expect(decidePreActPurchase({ mode: "value", value: 5 }, 5)).toEqual({ ok: true, targetValue: 5 });
+describe("decidePreActPurchase()（プレアクト購入の条件・2026-08-31 ユーザー verbatim 2件）", () => {
+    // 正本: 「プレアクト購入はそのキャストの外界以下の購入値を持つアウトフィットを対象に行えます」
+    //       「常備化経験点が「-」のアイテムはプレアクト購入できません」
+    const pe = { mode: "value", value: 2 };
+
+    it("購入値 ≤ 外界（かつ常備化経験点あり）なら可（境界=同値も可）", () => {
+        expect(decidePreActPurchase({ mode: "value", value: 3 }, pe, 5)).toEqual({ ok: true, targetValue: 3 });
+        expect(decidePreActPurchase({ mode: "value", value: 5 }, pe, 5)).toEqual({ ok: true, targetValue: 5 });
     });
 
     it("購入値が外界を超えると不可（overMundane）", () => {
-        expect(decidePreActPurchase({ mode: "value", value: 15 }, 5))
+        expect(decidePreActPurchase({ mode: "value", value: 15 }, pe, 5))
             .toEqual({ ok: false, reason: "overMundane", targetValue: 15 });
-        expect(decidePreActPurchase({ mode: "value", value: 1 }, 0))
+        expect(decidePreActPurchase({ mode: "value", value: 1 }, pe, 0))
             .toEqual({ ok: false, reason: "overMundane", targetValue: 1 });
     });
 
-    it("常備化経験点はプレアクト購入の条件に関係しない（常備化は購入でない別経路）", () => {
-        // preserveExp を引数に取らない=どんな常備化経験点でも判定は購入値と外界のみで決まる
-        expect(decidePreActPurchase({ mode: "value", value: 4 }, 5)).toEqual({ ok: true, targetValue: 4 });
+    it("常備化経験点「ー」は不可（preserveNone・外界以下でも）", () => {
+        expect(decidePreActPurchase({ mode: "value", value: 3 }, { mode: "none" }, 5))
+            .toEqual({ ok: false, reason: "preserveNone" });
+        expect(decidePreActPurchase({ mode: "value", value: 3 }, undefined, 5))
+            .toEqual({ ok: false, reason: "preserveNone" });
     });
 
     it("購入値「ー」「解説参照」は不可（購入である以上、購入値が要る）", () => {
-        expect(decidePreActPurchase({ mode: "none" }, 5)).toEqual({ ok: false, reason: "none" });
-        expect(decidePreActPurchase({ mode: "reference" }, 5)).toEqual({ ok: false, reason: "reference" });
+        expect(decidePreActPurchase({ mode: "none" }, pe, 5)).toEqual({ ok: false, reason: "none" });
+        expect(decidePreActPurchase({ mode: "reference" }, pe, 5)).toEqual({ ok: false, reason: "reference" });
     });
 
     it("実効値(total)があれば素値(value)より優先する", () => {
-        expect(decidePreActPurchase({ mode: "value", value: 15, total: 4 }, 5))
+        expect(decidePreActPurchase({ mode: "value", value: 15, total: 4 }, pe, 5))
             .toEqual({ ok: true, targetValue: 4 });
     });
 
-    it("理由文言: overMundane は外界・他は購入値の文言", () => {
+    it("理由文言: preserveNone は常備化経験点・overMundane は外界・他は購入値の文言", () => {
+        expect(preActUnavailableReason("preserveNone")).toContain("常備化経験点");
         expect(preActUnavailableReason("overMundane")).toContain("外界");
         expect(preActUnavailableReason("reference")).toEqual(purchaseUnavailableReason("reference"));
         expect(preActUnavailableReason("none")).toEqual(purchaseUnavailableReason("none"));

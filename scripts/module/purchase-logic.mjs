@@ -53,17 +53,21 @@ export function purchaseUnavailableReason(reason) {
 
 /**
  * プレアクト購入(アクト未開始時のブラウザ購入)の可否。
- * 正本: Purchase_and_Modification.md(2026-08-31 ユーザー verbatim)=「プレアクト購入は
- * そのキャストの外界以下の購入値を持つアウトフィットを対象に行えます。また、常備化経験点に
- * よる取得は入手であっても購入ではありません」。
- * 成立条件＝購入値 ≤ 外界(実効値)。常備化経験点は購入の条件に関係しない(常備化は購入でない別経路)。
+ * 正本: Purchase_and_Modification.md(2026-08-31 ユーザー verbatim 2件)=
+ * 「プレアクト購入はそのキャストの外界以下の購入値を持つアウトフィットを対象に行えます」
+ * 「常備化経験点が「-」のアイテムはプレアクト購入できません」。
+ * 成立条件＝①購入値が値を持つ ②常備化経験点が値を持つ ③購入値 ≤ 外界(実効値)。
+ * ※「常備化経験点による取得は入手であっても購入ではない」は常備化と購入の概念の区別で
+ *   あって、常備化経験点欄が購入条件に無関係という意味ではない(Code の誤読を同日是正)。
  * @param {{mode?: string, value?: number, total?: number}} buy
+ * @param {{mode?: string}} preserveExp
  * @param {number} mundaneTotal そのキャストの外界実効値
- * @returns {{ok: true, targetValue: number}|{ok: false, reason: "none"|"reference"|"overMundane", targetValue?: number}}
+ * @returns {{ok: true, targetValue: number}|{ok: false, reason: "none"|"reference"|"preserveNone"|"overMundane", targetValue?: number}}
  */
-export function decidePreActPurchase(buy, mundaneTotal) {
+export function decidePreActPurchase(buy, preserveExp, mundaneTotal) {
     if (buy?.mode === "reference") return { ok: false, reason: "reference" };
     if (buy?.mode !== "value") return { ok: false, reason: "none" };
+    if (preserveExp?.mode !== "value") return { ok: false, reason: "preserveNone" };
     const targetValue = Number(buy.total ?? buy.value) || 0;
     if (targetValue > (Number(mundaneTotal) || 0)) return { ok: false, reason: "overMundane", targetValue };
     return { ok: true, targetValue };
@@ -71,6 +75,7 @@ export function decidePreActPurchase(buy, mundaneTotal) {
 
 /** プレアクト購入不可の理由文言。 */
 export function preActUnavailableReason(reason) {
+    if (reason === "preserveNone") return "常備化経験点が「ー」のためプレアクト購入できません";
     if (reason === "overMundane") return "購入値が外界を超えるためプレアクト購入できません";
     return purchaseUnavailableReason(reason);
 }

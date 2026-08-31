@@ -72,8 +72,9 @@
                     <div class="tnx-dict__card-slot{{#if this.tall}} tnx-dict__card-slot--tall{{/if}}" data-uuid="{{this.uuid}}" data-doc-name="{{this.docName}}"
                          data-dict-drag draggable="true">
                         {{> "systems/tokyo-nova-axleration/templates/app/dictionary-card.hbs" card=this.card}}
-                        {{!-- 購入(16-3): 不能化(「ー」「解説参照」)はレンダー後の共通グレーアウトが判定 --}}
-                        <button type="button" class="tnx-dict__buy-btn" data-action="dictPurchase" data-buy-mode="{{this.buyMode}}">
+                        {{!-- 購入(16-3): 不能化(購入値/プレアクト時は常備化経験点も)はレンダー後の共通グレーアウトが判定 --}}
+                        <button type="button" class="tnx-dict__buy-btn" data-action="dictPurchase"
+                                data-buy-mode="{{this.buyMode}}" data-preserve-mode="{{this.preserveMode}}">
                             <i class="fas fa-cart-shopping"></i> 購入
                         </button>
                     </div>
