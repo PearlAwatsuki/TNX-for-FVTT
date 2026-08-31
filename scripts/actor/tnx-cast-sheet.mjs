@@ -203,9 +203,10 @@ export class TokyoNovaCastSheet extends TnxCharacterSheetBase {
         for (const item of actor.items) {
             let cost = this._calcSingleItemCost(item);
             // 住宅施設は常備化経験点に住宅エリアの修正(preserveExpMod)を加味する(実効値=基本+エリア修正、0未満は0)。
-            // _calcSingleItemCost が計上する条件(購入判定でない/派生でない/preserveExp=value)のときだけ加味。
+            // _calcSingleItemCost が計上する条件(購入判定/プレアクト購入でない・派生でない・preserveExp=value)のときだけ加味。
             if (item.type === "residence"
                     && !item.system.isCheckAcquired
+                    && item.system["isPre-play"] !== true
                     && !item.system.isDerivedData
                     && item.system.preserveExp?.mode === "value") {
                 const mods = await this._resolveHousingAreaMods(item.system);
@@ -276,9 +277,12 @@ export class TokyoNovaCastSheet extends TnxCharacterSheetBase {
 
         // アウトフィット: 常備化経験点を集計する
         // isCheckAcquired（購入判定による入手）は経験点不要
+        // isPre-play（プレアクト購入）も経験点不要(正本 Outfits.md「true だと所持した際の
+        // 経験点消費がなくなる」2026-06-13 確定。16-3 是正=フラグ新設以来ここが未読だった)
         // 消費アイテムは preserveExp.value × 常備化個数(quantity.max)
         if (OUTFIT_ITEM_TYPES.has(item.type)) {
             if (system.isCheckAcquired) return 0;
+            if (system["isPre-play"] === true) return 0;
             if (system.isDerivedData) return 0; // 派生データは派生元が経験点を負担するため二重計上しない
             if (system.preserveExp?.mode !== "value") return 0;
             const base = Number(system.preserveExp.value) || 0;

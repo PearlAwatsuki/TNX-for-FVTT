@@ -5,6 +5,7 @@
 import { describe, it, expect } from "vitest";
 import {
     decidePurchasePath, computeNoCardPurchase, purchaseCardInfo, purchaseUnavailableReason,
+    decidePreActPurchase, preActUnavailableReason,
 } from "../../scripts/module/purchase-logic.mjs";
 
 describe("decidePurchasePath()（購入経路の3分岐）", () => {
@@ -67,6 +68,33 @@ describe("purchaseCardInfo()（結果カードの購入ブロック）", () => {
             .toEqual({ itemName: "ポケットロン", granted: true });
         expect(purchaseCardInfo({ itemName: "ポケットロン" }, { success: false }))
             .toEqual({ itemName: "ポケットロン", granted: false });
+    });
+});
+
+describe("decidePreActPurchase()（プレアクト購入=アクト未開始時のブラウザ購入・2026-08-31）", () => {
+    it("購入値と常備化経験点が両方 value なら可（判定・報酬点・外界は関与しない）", () => {
+        expect(decidePreActPurchase({ mode: "value", value: 15 }, { mode: "value", value: 2 }))
+            .toEqual({ ok: true, targetValue: 15 });
+    });
+
+    it("購入値「ー」「解説参照」は不可（購入である以上、購入値が要る）", () => {
+        expect(decidePreActPurchase({ mode: "none" }, { mode: "value", value: 2 }))
+            .toEqual({ ok: false, reason: "none" });
+        expect(decidePreActPurchase({ mode: "reference" }, { mode: "value", value: 2 }))
+            .toEqual({ ok: false, reason: "reference" });
+    });
+
+    it("常備化経験点「ー」は不可（シートの isPre-play トグルと同じ規約）", () => {
+        expect(decidePreActPurchase({ mode: "value", value: 6 }, { mode: "none" }))
+            .toEqual({ ok: false, reason: "preserveNone" });
+        expect(decidePreActPurchase({ mode: "value", value: 6 }, undefined))
+            .toEqual({ ok: false, reason: "preserveNone" });
+    });
+
+    it("理由文言: preserveNone は常備化経験点・他は購入値の文言", () => {
+        expect(preActUnavailableReason("preserveNone")).toContain("常備化経験点");
+        expect(preActUnavailableReason("reference")).toEqual(purchaseUnavailableReason("reference"));
+        expect(preActUnavailableReason("none")).toEqual(purchaseUnavailableReason("none"));
     });
 });
 

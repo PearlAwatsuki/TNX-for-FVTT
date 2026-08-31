@@ -18,11 +18,15 @@
  * grantPurchasedItem の modSpec は「改造して入手」(変則効果・16-4 で有効化)の席。
  */
 
-import { decidePurchasePath, computeNoCardPurchase, purchaseUnavailableReason } from "./purchase-logic.mjs";
+import {
+    decidePurchasePath, computeNoCardPurchase, purchaseUnavailableReason,
+    decidePreActPurchase, preActUnavailableReason,
+} from "./purchase-logic.mjs";
 import { hasBountyBlock } from "./conditions.mjs";
 import { usageDisplayName } from "./usage-types.mjs";
 import { DISABLED_TRIGGER_CLASS } from "./ui-trigger-disable.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
+import { getSessionState } from "./session-state.mjs";
 
 const { DialogV2 } = foundry.applications.api;
 
@@ -53,6 +57,10 @@ export async function startPurchaseFromBrowser(uuid) {
     const doc = await fromUuid(uuid).catch(() => null);
     if (!doc) return void ui.notifications.warn("購入対象の辞典アイテムを解決できませんでした。");
 
+    // アクト未開始はプレアクト購入(2026-08-31 指示)。技能起点(信用判定経由)は本関数を
+    // 通らない(startPurchaseWithUsage)ため、アクト状態にかかわらず通常の購入判定のまま
+    if (!getSessionState().actStarted) return preActPurchase(actor, doc, uuid);
+
     const mundane = actor.system.mundane?.total ?? 0;
     const decision = decidePurchasePath(doc.system?.buy, mundane);
     if (decision.path === "unavailable") {
@@ -60,6 +68,26 @@ export async function startPurchaseFromBrowser(uuid) {
     }
     if (decision.path === "always") return alwaysAcquire(actor, doc, uuid, decision.targetValue, mundane);
     return promptPurchaseMethod(actor, doc, uuid, decision.targetValue, mundane);
+}
+
+/**
+ * プレアクト購入(2026-08-31 指示): 判定・報酬点・外界は関与しない即時取得。付与する複製に
+ * isPre-play を立てる=常備化経験点を支払わずプレアクトで購入して所持している状態
+ * (正本 Outfits.md・経験点計上は _calcSingleItemCost が isPre-play で免除)。
+ * プレアクトは卓の進行外のためチャットカードは出さない(通知＋シートの消費経験点に反映なし)。
+ */
+async function preActPurchase(actor, doc, uuid) {
+    const decision = decidePreActPurchase(doc.system?.buy, doc.system?.preserveExp);
+    if (!decision.ok) return void ui.notifications.warn(preActUnavailableReason(decision.reason));
+    const esc = foundry.utils.escapeHTML;
+    const ok = await DialogV2.confirm({
+        window: { title: `プレアクト購入: ${esc(doc.name)}` },
+        classes: ["tokyo-nova", "tnx-dialog"],
+        content: `<p>「${esc(doc.name)}」（購入値 ${decision.targetValue}）をプレアクト購入で入手します。よろしいですか？</p>`,
+    });
+    if (!ok) return;
+    const created = await grantPurchasedItem(actor, uuid, null, { preAct: true });
+    if (created) ui.notifications.info(`${actor.name} は「${created.name}」をプレアクト購入で入手した。`);
 }
 
 /** 常時入手(購入値が外界点以下): 確認→複製付与→カード公開。判定は行わない。
@@ -207,12 +235,15 @@ export async function resolvePurchaseFromCheck(cc, result) {
 
 /**
  * 辞典原本の複製をアクターへ付与する(1判定=1個)。
+ * 入手区分のフラグを立てる(経験点計上の免除・正本 Outfits.md): 通常(判定経由=カード判定・
+ * カードなし特例・常時入手)は isCheckAcquired、プレアクト購入は isPre-play。
  * @param {Actor} actor 付与先
  * @param {string} uuid 辞典アイテムの uuid(live 解決)
  * @param {?object} modSpec 「改造して入手」の改造指定(16-4 で有効化・現状は素の複製のみ)
+ * @param {{preAct?: boolean}} [opts] preAct=true でプレアクト購入として付与
  * @returns {Promise<?Item>}
  */
-export async function grantPurchasedItem(actor, uuid, modSpec = null) {
+export async function grantPurchasedItem(actor, uuid, modSpec = null, { preAct = false } = {}) {
     const doc = await fromUuid(uuid).catch(() => null);
     if (!doc) {
         ui.notifications.warn("購入対象の辞典アイテムを解決できず、付与できませんでした。");
@@ -222,6 +253,8 @@ export async function grantPurchasedItem(actor, uuid, modSpec = null) {
     delete data._id;
     delete data.folder;
     data.sort = 0;
+    if (preAct) data.system["isPre-play"] = true;
+    else data.system.isCheckAcquired = true;
     void modSpec; // 16-4: 改造専用修正フィールドへの書き込みがここに入る
     const [created] = await actor.createEmbeddedDocuments("Item", [data]);
     return created ?? null;

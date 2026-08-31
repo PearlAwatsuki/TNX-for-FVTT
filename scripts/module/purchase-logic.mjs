@@ -50,3 +50,25 @@ export function purchaseUnavailableReason(reason) {
         ? "購入値が「解説参照」のため購入判定を行えません"
         : "購入値が設定されていないため購入できません";
 }
+
+/**
+ * プレアクト購入(アクト未開始時のブラウザ購入・2026-08-31 指示)の可否。
+ * 正本: Outfits.md の isPre-play=「常備化経験点は支払っていないが、プレアクトで購入して
+ * 所持しているアイテム」。判定・報酬点・外界は関与しない即時取得のため、可否は
+ * 購入値(購入である以上必要)と常備化経験点(シートのトグルと同じ規約=「ー」は不可)で決める。
+ * @param {{mode?: string, value?: number, total?: number}} buy
+ * @param {{mode?: string}} preserveExp
+ * @returns {{ok: true, targetValue: number}|{ok: false, reason: "none"|"reference"|"preserveNone"}}
+ */
+export function decidePreActPurchase(buy, preserveExp) {
+    if (buy?.mode === "reference") return { ok: false, reason: "reference" };
+    if (buy?.mode !== "value") return { ok: false, reason: "none" };
+    if (preserveExp?.mode !== "value") return { ok: false, reason: "preserveNone" };
+    return { ok: true, targetValue: Number(buy.total ?? buy.value) || 0 };
+}
+
+/** プレアクト購入不可の理由文言。 */
+export function preActUnavailableReason(reason) {
+    if (reason === "preserveNone") return "常備化経験点が設定されていないためプレアクト購入できません";
+    return purchaseUnavailableReason(reason);
+}
