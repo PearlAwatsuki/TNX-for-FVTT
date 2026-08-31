@@ -1,0 +1,50 @@
+{{!-- 購入の結果カード(16-3): 常時入手(isAlways)とカードなし特例。カード判定の結果は
+     check-result.hbs の purchase ブロックが担う。意匠は判定結果カードの基底クラスを共用
+     (計算内訳は全行表示の規約)。 --}}
+<div class="tnx-check-result tokyo-nova">
+
+    <div class="cr-head">
+        <span class="cr-skill-name">{{itemName}}</span>
+        <span class="cr-type-tag">購入判定</span>
+    </div>
+
+    <div class="cr-card-row">
+        <span class="cr-card-name">{{#if isAlways}}常時入手（購入値が外界点以下）{{else}}カードを出さずに購入（外界＋報酬点）{{/if}}</span>
+    </div>
+
+    <div class="cr-calc-section">
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">購入値</span>
+            <span class="cr-calc-val">{{targetValue}}</span>
+        </div>
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">外界</span>
+            <span class="cr-calc-val">{{mundane}}</span>
+        </div>
+        {{#unless isAlways}}
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">消費報酬点</span>
+            <span class="cr-calc-val">{{bountySpent}}</span>
+        </div>
+        <div class="cr-calc-row cr-total-row">
+            <span class="cr-calc-label">達成値</span>
+            <span class="cr-total-num">{{achievement}}</span>
+        </div>
+        {{/unless}}
+    </div>
+
+    {{#unless isAlways}}
+    <div class="cr-result {{#if success}}cr-result--success{{else}}cr-result--failure{{/if}}">
+        {{#if success}}<i class="fas fa-check"></i> 成功{{else}}<i class="fas fa-times"></i> 失敗{{/if}}
+        <span class="cr-tn">目標値 {{targetValue}}</span>
+        {{#if diffDisplay}}<span class="cr-tn">差分値 {{diffDisplay}}</span>{{/if}}
+    </div>
+    {{/unless}}
+
+    {{#if isAlways}}
+    <div class="cr-flow-outcome"><i class="fas fa-cart-shopping"></i> {{itemName}}を入手した</div>
+    {{else if granted}}
+    <div class="cr-flow-outcome"><i class="fas fa-cart-shopping"></i> {{itemName}}を入手した</div>
+    {{/if}}
+
+</div>

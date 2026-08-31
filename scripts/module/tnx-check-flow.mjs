@@ -26,6 +26,7 @@ import { applyConsumptionPlan } from './usage-consumption.mjs';
 import { formatSkillName } from './identification.mjs';
 import { buildCheckCardContext } from './check-card-context.mjs';
 import { appearanceCardInfo } from './appearance-logic.mjs';
+import { purchaseCardInfo } from './purchase-logic.mjs';
 import { isMajorActionTiming } from './combat-turn-order.mjs';
 import { TnxCombat } from '../combat/tnx-combat.mjs';
 
@@ -884,6 +885,12 @@ export class TnxCheckFlow {
             await resolveAppearanceFromCheck(ctx.appearance, result);
         }
 
+        // 購入判定の完了継続(16-3): 成功で辞典原本の複製をアクターへ付与する
+        if (!ctx.recheckMessageId && ctx.purchase) {
+            const { resolvePurchaseFromCheck } = await import("./purchase-flow.mjs");
+            await resolvePurchaseFromCheck(ctx.purchase, result);
+        }
+
         // 情報収集判定の完了継続(14-9): 成功で自動開示(達成値以下の目標値まで一括・2026-08-16 裁定)。
         // messageId=結果カード。帰結行「情報を開示した」は開示の**実適用後**に GM 側が刻む(KI-042)
         if (!ctx.recheckMessageId && ctx.infoGathering) {
@@ -923,6 +930,7 @@ export class TnxCheckFlow {
         // 登場判定(2026-08-16)・情報収集判定(14-9): 用途を持たない判定のため、専用カードは
         // 判定文脈をキーにした描画の分岐で実現する(攻撃カード・移動カードと同型)
         const appearance = appearanceCardInfo(ctx.appearance, result);
+        const purchase = purchaseCardInfo(ctx.purchase, result);
         // 帰結行は開示の実適用と一致させる(KI-042): 初回描画では出さず、適用後に GM が挿入する。
         // 再判定の置き換え再構築では checkResult.infoDisclosed フラグから引き継ぐ
         const infoCheck = ctx.infoGathering
@@ -934,10 +942,12 @@ export class TnxCheckFlow {
                 ...buildCheckCardContext({
                     skillLabel: ctx.skillLabel,
                     typeLabel:  appearance ? "登場判定"
-                        : (infoCheck ? "情報収集判定" : (TYPE_LABEL[ctx.type] ?? ctx.type)),
+                        : (purchase ? "購入判定"
+                        : (infoCheck ? "情報収集判定" : (TYPE_LABEL[ctx.type] ?? ctx.type))),
                     card, suit, result, fromDeck, trumpUsed, suitMismatch, checkSources, isRecheck,
                 }),
                 appearance,
+                purchase,
                 infoCheck,
                 actor,
                 actorName:    actor?.name ?? "不明",
@@ -1128,6 +1138,14 @@ export class TnxCheckFlow {
             async rerun(cc, result) {
                 const { resolveAppearanceFromCheck } = await import("./appearance-check.mjs");
                 await resolveAppearanceFromCheck(cc, result);
+            },
+        },
+        purchase: {
+            // 失敗→成功の遷移でのみ付与(成功→失敗は表示のみ=付与済み複製の除去は手動)
+            rerunOnSuccessOnly: true,
+            async rerun(cc, result) {
+                const { resolvePurchaseFromCheck } = await import("./purchase-flow.mjs");
+                await resolvePurchaseFromCheck(cc, result);
             },
         },
         infoGathering: {

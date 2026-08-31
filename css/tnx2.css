@@ -5150,7 +5150,9 @@ body.tnx-bottom-hud-expanded #hotbar {
     color: #60e880;
 }
 
-/* 登場判定カードの帰結行(2026-08-16): 成功で自動適用された「登場」を卓に残す */
+/* 判定カードの帰結行(2026-08-16 登場で導入・16-3 で汎用名 cr-flow-outcome を追加):
+   成功で自動適用された帰結(登場・入手)を卓に残す */
+.tnx-check-result .cr-flow-outcome,
 .tnx-check-result .cr-appearance-outcome {
     display: flex;
     align-items: center;
@@ -10997,10 +10999,28 @@ button.tnx-create-act-button span {
 }
 
 .tnx-dict__results[data-kind="styleSkill"] .tnx-dict__card-slot { height: 330px; }
-.tnx-dict__results[data-kind="outfit"] .tnx-dict__card-slot { height: 285px; }
+
+/* アウトフィットは購入ボタン(16-3)がカード下に付くため、固定高はカード側に持たせる
+   (スロット=縦flex・カードの大きさは従来どおり完全固定) */
+.tnx-dict__results[data-kind="outfit"] .tnx-dict__card-slot {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tnx-dict__results[data-kind="outfit"] .tnx-dict__card-slot .tnx-dict-card {
+    height: 285px;
+    flex: 0 0 auto;
+}
 
 /* ヴィークル・全身義体・式神装備はパラメータ多・解説長のため他の 4/3(2026-08-31 ユーザー指定) */
-.tnx-dict__results[data-kind="outfit"] .tnx-dict__card-slot--tall { height: 380px; }
+.tnx-dict__results[data-kind="outfit"] .tnx-dict__card-slot--tall .tnx-dict-card { height: 380px; }
+
+/* 購入ボタン(16-3): カード下の全幅アクション(D&D 準拠) */
+.tnx-dict__buy-btn {
+    width: 100%;
+    flex: 0 0 auto;
+}
 .tnx-dict__results[data-kind="style"] .tnx-dict__card-slot { height: 430px; }
 /* 370px=手持ちデータ最長の神業が最小フォントで収まる高さ(実測) */
 .tnx-dict__results[data-kind="miracle"] .tnx-dict__card-slot { height: 370px; }

@@ -37,6 +37,11 @@ export const USAGE_TYPE_DEFS = Object.freeze({
     treatment:           { label: "治療",                     kind: "action", selectableForm: true },
     repair:              { label: "修理",                     kind: "action" },
     modification:        { label: "改造",                     kind: "action" },
+    // 購入(16-3・2026-08-31 ユーザー裁定): 物理攻撃と同じく「デフォルトで使用する技能が
+    // 決まっている」性格のため、指定技能方式でなくタイプとして持つ。〈信用〉の購入判定も、
+    // 購入判定を行う効果のスタイル技能も、同型の購入用途で表現する。起動＝辞典ブラウザの
+    // 購入ボタン(purchase-flow)。アイテムロールから直接起動した場合は素の判定になる
+    purchase:            { label: "購入",                     kind: "action" },
     covering:            { label: "カバー",                   kind: "action" },
 });
 

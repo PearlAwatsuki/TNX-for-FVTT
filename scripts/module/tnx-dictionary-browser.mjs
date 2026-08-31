@@ -25,6 +25,8 @@ import { loadOutfitDictNames } from "./outfit-dictionary.mjs";
 import { getPartSlotPreset } from "./part-slot-preset-app.mjs";
 import { resolveItemNameByKey } from "./identification.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
+import { applyTriggerDisable } from "./ui-trigger-disable.mjs";
+import { purchaseUnavailableReason } from "./purchase-logic.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -36,8 +38,9 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
         window: { title: "辞典ブラウザ", resizable: true },
         position: { width: 980, height: 700 },
         actions: {
-            dictTab:  TnxDictionaryBrowser._onTab,
-            dictOpen: TnxDictionaryBrowser._onOpen,
+            dictTab:      TnxDictionaryBrowser._onTab,
+            dictOpen:     TnxDictionaryBrowser._onOpen,
+            dictPurchase: TnxDictionaryBrowser._onPurchase,
         },
     };
 
@@ -135,6 +138,8 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
                         label: minor.minorLabel,
                         cards: await Promise.all(minor.entries.map(async (e) => ({
                             uuid: e.uuid, docName: e.docName, tall: isTall(e), card: await card(e),
+                            // 購入ボタンの不能化判定用(16-3)。「ー」「解説参照」は購入手続き自体が無い
+                            buyMode: e.system?.buy?.mode ?? "none",
                         }))),
                     }))),
                 })));
@@ -237,6 +242,14 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
             });
         }
 
+        // 購入ボタンの不能化(16-3): 「ー」「解説参照」は目標値が定義できず購入手続き自体が
+        // 存在しない。判定は共通のグレーアウト機構でレンダー後に一括適用
+        applyTriggerDisable(this.element, '[data-action="dictPurchase"]', (el) => {
+            const mode = el.dataset.buyMode;
+            if (mode === "value") return null;
+            return { reason: purchaseUnavailableReason(mode === "reference" ? "reference" : "none") };
+        });
+
         // 固定高さカード: 入りきらない解説は文字サイズを縮小して収める(ルルブ同様・
         // 2026-08-31 ユーザー指定)。レイアウト確定後に実測するため rAF 越しに実行
         requestAnimationFrame(() => fitDictionaryCards(this.element));
@@ -270,6 +283,19 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
         if (!uuid) return;
         const doc = await fromUuid(uuid).catch(() => null);
         doc?.sheet?.render(true);
+    }
+
+    /** 購入(16-3): アウトフィットカードの購入ボタン→購入フローへ。ブラウザは開いたまま。 */
+    static async _onPurchase(_event, target) {
+        const uuid = target.closest("[data-uuid]")?.dataset.uuid;
+        if (!uuid) return;
+        try {
+            const { startPurchaseFromBrowser } = await import("./purchase-flow.mjs");
+            await startPurchaseFromBrowser(uuid);
+        } catch (err) {
+            console.error("TNX | 購入の実行に失敗しました", err);
+            ui.notifications.error(`購入の実行に失敗しました: ${err.message}`);
+        }
     }
 }
 

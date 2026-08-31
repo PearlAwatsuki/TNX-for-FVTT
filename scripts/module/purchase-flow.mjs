@@ -1,0 +1,192 @@
+/**
+ * @fileoverview 購入フロー(16-3・正本 Purchase_and_Modification.md「購入判定」)。
+ *
+ * 起動＝辞典ブラウザのアウトフィットカードの「購入」ボタン(injectは tnx-dictionary-browser)。
+ * 実行アクター＝選択トークンのアクター(RL が任意のアクターに購入させる経路)→無ければ
+ * 担当キャラクター(PL)。経路は purchase-logic の decidePurchasePath で3分岐:
+ * - unavailable: 購入値「ー」「解説参照」＝手続き自体が存在しない(ボタン側で不能化済みの保険)
+ * - always: 購入値が外界実効値以下＝常時入手(確認→複製付与→カード公開)
+ * - check: 方式選択(縦積みボタン・D&D 準拠)
+ *   - カード判定: アクターの購入用途(usage.type="purchase")から選択し、唯一の起動関数
+ *     `_activateItemCheck` に TN=購入値と完了継続 ctx.purchase を注入(登場判定と同型)。
+ *     購入用途が無ければ選択肢をグレーアウトで見せる(designation-response と同じ規約)
+ *   - カードなし特例(Check_Rules の信用特例): 判定フローを起動せず本フロー内で
+ *     達成値 = 外界実効値 ＋ 消費報酬点。報酬点は消費時点一元ゲート(口座凍結/信用失墜=
+ *     hasBountyBlock)で塞ぎ、使用分は system.bounty から実減算(判定の報酬点と同じ着地)
+ *
+ * 成功の帰結＝辞典原本(fromUuid で live 解決)の複製をアクターへ付与(1判定=1個)。
+ * grantPurchasedItem の modSpec は「改造して入手」(変則効果・16-4 で有効化)の席。
+ */
+
+import { decidePurchasePath, computeNoCardPurchase, purchaseUnavailableReason } from "./purchase-logic.mjs";
+import { hasBountyBlock } from "./conditions.mjs";
+import { usageDisplayName } from "./usage-types.mjs";
+import { DISABLED_TRIGGER_CLASS } from "./ui-trigger-disable.mjs";
+import { TnxCheckFlow } from "./tnx-check-flow.mjs";
+
+const { DialogV2 } = foundry.applications.api;
+
+/**
+ * アクターの購入用途(usage.type="purchase")を列挙する。
+ * @param {Actor} actor
+ * @returns {Array<{item: Item, usage: object}>}
+ */
+export function enumeratePurchaseUsages(actor) {
+    const out = [];
+    for (const item of actor?.items ?? []) {
+        for (const usage of item.system?.actions ?? []) {
+            if (usage?.type === "purchase") out.push({ item, usage });
+        }
+    }
+    return out;
+}
+
+/** 辞典ブラウザの購入ボタンから起動する。uuid=辞典アイテム(コンペンディウム)。 */
+export async function startPurchaseFromBrowser(uuid) {
+    const actor = canvas.tokens?.controlled?.[0]?.actor ?? game.user.character;
+    if (!actor) {
+        return void ui.notifications.warn("購入するアクターがいません。トークンを選択するか、担当キャラクターを設定してください。");
+    }
+    if (!actor.isOwner) {
+        return void ui.notifications.warn(`「${actor.name}」の所有権限がないため購入できません。`);
+    }
+    const doc = await fromUuid(uuid).catch(() => null);
+    if (!doc) return void ui.notifications.warn("購入対象の辞典アイテムを解決できませんでした。");
+
+    const mundane = actor.system.mundane?.total ?? 0;
+    const decision = decidePurchasePath(doc.system?.buy, mundane);
+    if (decision.path === "unavailable") {
+        return void ui.notifications.warn(purchaseUnavailableReason(decision.reason));
+    }
+    if (decision.path === "always") return alwaysAcquire(actor, doc, uuid, decision.targetValue, mundane);
+    return promptPurchaseMethod(actor, doc, uuid, decision.targetValue, mundane);
+}
+
+/** 常時入手(購入値が外界点以下): 確認→複製付与→カード公開。判定は行わない。 */
+async function alwaysAcquire(actor, doc, uuid, targetValue, mundane) {
+    const esc = foundry.utils.escapeHTML;
+    const ok = await DialogV2.confirm({
+        window: { title: `購入: ${esc(doc.name)}` },
+        classes: ["tokyo-nova", "tnx-dialog"],
+        content: `<p>購入値 ${targetValue} は外界（${mundane}）以下のため、いつでも入手できます。入手しますか？</p>`,
+    });
+    if (!ok) return;
+    const created = await grantPurchasedItem(actor, uuid);
+    if (!created) return;
+    await postPurchaseCard({ actor, mode: "always", itemName: doc.name, targetValue, mundane });
+    ui.notifications.info(`${actor.name} は「${created.name}」を入手した。`);
+}
+
+/** 購入方式の選択(縦積みボタン): 購入用途ごとのカード判定＋カードなし特例＋キャンセル。 */
+async function promptPurchaseMethod(actor, doc, uuid, targetValue, mundane) {
+    const esc = foundry.utils.escapeHTML;
+    const candidates = enumeratePurchaseUsages(actor);
+    const buttons = candidates.map((c, i) => ({
+        action: `usage${i}`,
+        icon: "fas fa-clover",
+        label: `${usageDisplayName(c.usage, c.item.name)}で判定する`,
+        callback: () => ({ kind: "check", index: i }),
+    }));
+    // 購入用途なし: 選択肢の存在は見せたままグレーアウト(designation-response の規約)
+    if (!candidates.length) {
+        buttons.push({
+            action: "noUsage", icon: "fas fa-clover", label: "カード判定（購入用途を持つ技能がありません）",
+            disabled: true, class: DISABLED_TRIGGER_CLASS, callback: () => null,
+        });
+    }
+    buttons.push({
+        action: "noCard", icon: "fas fa-coins", label: "カードを出さずに購入（外界＋報酬点）",
+        callback: () => ({ kind: "noCard" }),
+    });
+    buttons.push({ action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null });
+
+    const choice = await DialogV2.wait({
+        window: { title: `購入判定: ${esc(doc.name)}` },
+        classes: ["tokyo-nova", "tnx-dialog", "tnx-usage-picker"],
+        position: { width: 400 },
+        content: `<p>目標値（購入値）: <strong>${targetValue}</strong></p>`,
+        buttons,
+        close: () => null,
+    });
+    if (!choice) return;
+
+    if (choice.kind === "noCard") return noCardPurchase(actor, doc, uuid, targetValue, mundane);
+
+    const picked = candidates[choice.index];
+    if (!picked) return;
+    const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
+    await TnxCharacterSheetBase._activateItemCheck(actor, picked.item, {
+        usageId: picked.usage._id,
+        targetValue,
+        purchase: { actorId: actor.id, uuid, itemName: doc.name },
+    });
+}
+
+/** カードなし特例: 達成値 = 外界 ＋ 消費報酬点。報酬点は一元ゲート＋実減算。 */
+async function noCardPurchase(actor, doc, uuid, targetValue, mundane) {
+    const blocked = hasBountyBlock(TnxCheckFlow._gatherConditions(actor));
+    const available = blocked ? 0 : (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0);
+    const bountySpent = await TnxCheckFlow._promptBountyUsage(available, { baseAchievement: mundane });
+    const result = computeNoCardPurchase({ mundaneTotal: mundane, bountySpent, targetValue });
+    if (bountySpent > 0) {
+        await actor.update({ "system.bounty": (actor.system.bounty ?? 0) - bountySpent });
+    }
+    let granted = false;
+    if (result.success) granted = !!(await grantPurchasedItem(actor, uuid));
+    await postPurchaseCard({
+        actor, mode: "noCard", itemName: doc.name, targetValue, mundane,
+        bountySpent, achievement: result.achievement, success: result.success, diff: result.diff,
+        granted,
+    });
+    if (granted) ui.notifications.info(`${actor.name} は「${doc.name}」を入手した。`);
+}
+
+/**
+ * カード判定の完了継続(ctx.purchase)。成功で辞典原本の複製を付与する。
+ * 再判定は rerunOnSuccessOnly(失敗→成功の遷移でのみ付与・成功→失敗は表示のみ=手動除去)。
+ */
+export async function resolvePurchaseFromCheck(cc, result) {
+    if (result?.success !== true) return;
+    const actor = game.actors.get(cc?.actorId);
+    if (!actor) return;
+    const created = await grantPurchasedItem(actor, cc.uuid, cc.modSpec ?? null);
+    if (created) ui.notifications.info(`${actor.name} は「${created.name}」を入手した。`);
+}
+
+/**
+ * 辞典原本の複製をアクターへ付与する(1判定=1個)。
+ * @param {Actor} actor 付与先
+ * @param {string} uuid 辞典アイテムの uuid(live 解決)
+ * @param {?object} modSpec 「改造して入手」の改造指定(16-4 で有効化・現状は素の複製のみ)
+ * @returns {Promise<?Item>}
+ */
+export async function grantPurchasedItem(actor, uuid, modSpec = null) {
+    const doc = await fromUuid(uuid).catch(() => null);
+    if (!doc) {
+        ui.notifications.warn("購入対象の辞典アイテムを解決できず、付与できませんでした。");
+        return null;
+    }
+    const data = doc.toObject();
+    delete data._id;
+    delete data.folder;
+    data.sort = 0;
+    void modSpec; // 16-4: 改造専用修正フィールドへの書き込みがここに入る
+    const [created] = await actor.createEmbeddedDocuments("Item", [data]);
+    return created ?? null;
+}
+
+/** 常時入手・カードなし特例の結果カードを投稿する(カード判定の結果は check-result 側)。 */
+async function postPurchaseCard(data) {
+    const { actor, ...rest } = data;
+    const content = await foundry.applications.handlebars.renderTemplate(
+        "systems/tokyo-nova-axleration/templates/chat/purchase-result.hbs",
+        {
+            ...rest,
+            isAlways: rest.mode === "always",
+            // 差分値は成功時のみ(既存エンジンの規約=失敗時は算出されない・カード判定の結果カードと同じ)
+            diffDisplay: rest.success === true && Number.isFinite(rest.diff)
+                ? (rest.diff >= 0 ? `+${rest.diff}` : `${rest.diff}`) : null,
+        },
+    );
+    await ChatMessage.create({ content, speaker: ChatMessage.getSpeaker({ actor }) });
+}

@@ -23,6 +23,16 @@
     </div>
     {{/if}}
 
+    {{!-- 購入判定の固有情報(16-3): 何を購入しようとしたか --}}
+    {{#if purchase}}
+    <div class="cr-calc-section">
+        <div class="cr-calc-row">
+            <span class="cr-calc-label">購入</span>
+            <span class="cr-calc-val">{{purchase.itemName}}</span>
+        </div>
+    </div>
+    {{/if}}
+
     {{!-- 情報収集判定の固有情報(14-9): どの情報項目に挑んだか --}}
     {{#if infoCheck.title}}
     <div class="cr-calc-section">
@@ -114,6 +124,13 @@
     {{#if appearance.appeared}}
     <div class="cr-appearance-outcome">
         <i class="fas fa-door-open"></i> シーンに登場した{{#if appearance.ghost}}（ゴースト）{{/if}}
+    </div>
+    {{/if}}
+
+    {{!-- 購入の帰結(16-3): 成功で自動付与された入手を卓に残る形で示す --}}
+    {{#if purchase.granted}}
+    <div class="cr-flow-outcome">
+        <i class="fas fa-cart-shopping"></i> {{purchase.itemName}}を入手した
     </div>
     {{/if}}
 
