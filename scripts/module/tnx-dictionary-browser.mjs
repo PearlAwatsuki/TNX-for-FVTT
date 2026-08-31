@@ -165,10 +165,11 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
                         cards: await Promise.all(minor.entries.map(async (e) => ({
                             uuid: e.uuid, docName: e.docName, tall: isTall(e), card: await card(e),
                             // 購入ボタンの不能化判定用(16-3)。「ー」「解説参照」は購入手続き自体が無い。
-                            // preserveMode はプレアクト購入の条件判定(常備化経験点「ー」は不可・
-                            // 2026-08-31 ユーザー verbatim)に使う
+                            // preserveMode/buyValue はプレアクト購入の条件判定(常備化経験点「ー」不可・
+                            // 購入値≤外界・2026-08-31 ユーザー verbatim/指示)に使う
                             buyMode: e.system?.buy?.mode ?? "none",
                             preserveMode: e.system?.preserveExp?.mode ?? "none",
+                            buyValue: Number(e.system?.buy?.total ?? e.system?.buy?.value) || 0,
                         }))),
                     }))),
                 })));
@@ -273,10 +274,13 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
 
         // 購入ボタンの不能化(16-3): 共通のグレーアウト機構でレンダー後に一括適用。
         // 通常/選択モード=購入値基準(「ー」「解説参照」は購入手続き自体が存在しない)。
-        // アクト未開始の通常起動=プレアクト購入基準として常備化経験点「ー」も不可
-        // (2026-08-31 ユーザー verbatim・技能起点の選択モードは常に通常の購入判定)。
-        // 外界≤購入値の条件はアクター依存(クリック時解決)のためフロー側で判定して警告する
+        // アクト未開始の通常起動=プレアクト購入基準を全て提示(2026-08-31 ユーザー verbatim/指示):
+        // 常備化経験点「ー」不可・外界不足も押せない状態にする。外界は描画時点の実行アクター
+        // (選択トークン→担当キャラ)で解決——以後の選択変更に再レンダーは追従しないため、
+        // クリック時のフロー側ゲートが最終防衛のまま残る。技能起点の選択モードは常に通常の購入判定
         const preActMode = !this._purchaseOrigin && !getSessionState().actStarted;
+        const preActMundane = (canvas.tokens?.controlled?.[0]?.actor ?? game.user.character)
+            ?.system?.mundane?.total ?? 0;
         applyTriggerDisable(this.element, '[data-action="dictPurchase"]', (el) => {
             const mode = el.dataset.buyMode;
             if (mode !== "value") {
@@ -284,6 +288,9 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
             }
             if (preActMode && el.dataset.preserveMode !== "value") {
                 return { reason: preActUnavailableReason("preserveNone") };
+            }
+            if (preActMode && (Number(el.dataset.buyValue) || 0) > preActMundane) {
+                return { reason: preActUnavailableReason("overMundane") };
             }
             return null;
         });

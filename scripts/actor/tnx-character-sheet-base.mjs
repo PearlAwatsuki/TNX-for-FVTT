@@ -1019,6 +1019,21 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             return this._onSortItem(event, item.toObject());
         }
 
+        // 常備化経験点「ー」のアウトフィットはドラッグ&ドロップでインポートできない(2026-08-31
+        // ユーザー指示・正本=Purchase_and_Modification.md の経路マトリクス: 入手経路はアクト中の
+        // 購入判定のみ)。弾くのはドロップによるインポートだけ——購入フローの付与
+        // (isCheckAcquired/isPre-play の立った複製)とシート上の新規作成は対象外。
+        // 対象アクター=常備化経験点の経済を持つキャストとトループ(所有トループの常備化経験点は
+        // 所有者キャストに計上されるため同じ経済圏)。ゲスト/エキストラは RL の自由装備のまま
+        if (OUTFIT_ITEM_TYPES.has(item.type)
+                && ["cast", "troop"].includes(this.actor.type)
+                && item.system.preserveExp?.mode !== "value"
+                && item.system.isCheckAcquired !== true
+                && item.system["isPre-play"] !== true) {
+            ui.notifications.warn(`「${item.name}」は常備化経験点が「ー」のためインポートできません（入手はアクト中の購入判定のみ）。`);
+            return false;
+        }
+
         // 一般技能: 正規ソート順(GENERAL_SKILL_SORT_PREFIXES)の位置に挿入する sort を振って作成する
         // (2026-07-10)。辞典ドロップは辞典側の sort 値を持ち込んで並びが崩れていたため、＋ボタンからの
         // 作成(_calcInsertSortValue)と同じ挿入挙動に揃える。識別キーなしの自作技能は末尾。

@@ -74,7 +74,7 @@
                         {{> "systems/tokyo-nova-axleration/templates/app/dictionary-card.hbs" card=this.card}}
                         {{!-- 購入(16-3): 不能化(購入値/プレアクト時は常備化経験点も)はレンダー後の共通グレーアウトが判定 --}}
                         <button type="button" class="tnx-dict__buy-btn" data-action="dictPurchase"
-                                data-buy-mode="{{this.buyMode}}" data-preserve-mode="{{this.preserveMode}}">
+                                data-buy-mode="{{this.buyMode}}" data-preserve-mode="{{this.preserveMode}}" data-buy-value="{{this.buyValue}}">
                             <i class="fas fa-cart-shopping"></i> 購入
                         </button>
                     </div>
