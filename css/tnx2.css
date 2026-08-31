@@ -2089,6 +2089,19 @@
 .style-skill-display-grid .full-width-row {
     grid-column: 1 / -1;
 }
+
+/* アウトフィット概要(説明タブ): 辞典カードと同じルルブ配置(6分割=1/2・1/3・全幅) */
+.style-skill-display-grid--outfit {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.style-skill-display-grid--outfit > div {
+    grid-column: span 3;
+}
+
+.style-skill-display-grid--outfit > .third-width-cell {
+    grid-column: span 2;
+}
 .style-skill-display-grid > div {
     display: flex;
     align-items: baseline;
@@ -11209,10 +11222,12 @@ button.tnx-create-act-button span {
     font-size: 0.75em;
 }
 
+/* 略号グリッドは6分割: 1/2幅=span 3(既定)・1/3幅=span 2・全幅=1/-1。
+   ルルブ実紙面の型別配置(タップのソ|ハ|CS 3連等)を再現する(2026-08-31) */
 .tnx-dict-card__params {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1px 10px;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 1px 6px; /* 列間6px=1/3幅3連(購|隠|電制)に2桁／1桁の値が収まる幅を確保 */
     padding: 5px 8px;
     border-bottom: 1px solid var(--tnx2-border-subtle);
     font-size: 0.9em;
@@ -11228,10 +11243,30 @@ button.tnx-create-act-button span {
     display: flex;
     gap: 2px;
     min-width: 0;
+    grid-column: span 3;
 }
 
 .tnx-dict-card__param--full {
     grid-column: 1 / -1;
+}
+
+.tnx-dict-card__param--third {
+    grid-column: span 2;
+}
+
+/* 一般技能カードは縦積み1列のため全セル全幅 */
+.tnx-dict-card--generalSkill .tnx-dict-card__param {
+    grid-column: 1 / -1;
+}
+
+/* スラッシュ区切りの複合値を行内で割らない。セル幅に入りきらない場合は
+   fitDictionaryCard が実測でその行を全幅へ昇格する(一般技能は折り返し表示のまま) */
+.tnx-dict-card__param:not(.tnx-dict-card__param--full) span {
+    white-space: nowrap;
+}
+
+.tnx-dict-card--generalSkill .tnx-dict-card__param span {
+    white-space: normal;
 }
 
 .tnx-dict-card__param label {

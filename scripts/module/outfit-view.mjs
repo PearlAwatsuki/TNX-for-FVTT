@@ -56,7 +56,7 @@ export function attackLabel(attack) {
  * @param {?(hostKey:string)=>string} [opts.resolveHostName] オプション部位ラベルの hostKey→現在名
  * @param {Array|null} [opts.partSlotsCtx] 部位スロット集合(アクター所属時は実効値・辞典はプリセット)
  * @param {Array} [opts.partAdded] AE による追加部位行(アクター所属時のみ)
- * @returns {Array<{label: string, value: string}>}
+ * @returns {Array<{label: string, value: string, full?: boolean, third?: boolean}>}
  */
 export function buildOutfitSummaryRows(system, type, { areaMods = null, resolveHostName = null, partSlotsCtx = null, partAdded = [] } = {}) {
     const num = (v) => (Number.isFinite(v) ? String(v) : "0");
@@ -114,8 +114,17 @@ export function buildOutfitSummaryRows(system, type, { areaMods = null, resolveH
     };
 
     // 型ごとに概要の項目と順序が異なる(2026-06-12〜13 ユーザー確定)
+    // width: 各行のセル幅。ルルブ実紙面の配置を型ごとに固定で踏襲する(2026-08-31 提供
+    // p34/62/88/91/120/126/129/145/171/241)——"full"=1行1セル(防(S／P／I)等の複合値と
+    // 単独行)、"third"=1/3幅3連(タップのソ|ハ|CS・最小単位の購|隠|電制)、省略=1/2幅ペア。
+    // スラッシュ区切りの複合値を途中で割らないための配置(幅不足の実測昇格は表示側 fit が担う)
     const rows = [];
-    const push = (label, value) => rows.push({ label, value });
+    const push = (label, value, width = null) => {
+        const row = { label, value };
+        if (width === "full") row.full = true;
+        else if (width === "third") row.third = true;
+        rows.push(row);
+    };
     switch (type) {
         case "weapon":
             push("購", buy); push("隠", hideFull);
@@ -127,13 +136,13 @@ export function buildOutfitSummaryRows(system, type, { areaMods = null, resolveH
             break;
         case "armor":
             push("購", buy); push("隠", hideFull);
-            push("防(S／P／I)", defence());
+            push("防(S／P／I)", defence(), "full");
             push("制", mvOpt(system.controlMod));
-            push("電制", hack); push("部位", part);
+            push("電制", hack); push("部位", part, "full");
             break;
         case "cyborg":
             push("購", buy); push("隠", hideFull);
-            push("防(S／P／I)", defence());
+            push("防(S／P／I)", defence(), "full");
             push("攻", attackLabel(system.attack));
             push("受", mvOpt(system.guardValue));
             push("電制", hack); push("部位", part);
@@ -151,16 +160,16 @@ export function buildOutfitSummaryRows(system, type, { areaMods = null, resolveH
         case "tron":
             push("購", buy); push("隠", hideFull);
             push("ス", countOf("normal"));
-            push("電制", hack); push("部位", part);
+            push("電制", hack); push("部位", part, "full");
             break;
         case "tap": {
             push("購", buy); push("隠", hideFull);
-            push("サ", mvOpt(system.cycle));
-            push("ソ", countOf("software"));
-            push("ハ", countOf("hardware"));
+            push("サ", mvOpt(system.cycle), "full");
+            push("ソ", countOf("software"), "third");
+            push("ハ", countOf("hardware"), "third");
             // ゴースト時読み飛ばしフラグONのCS修正は原作の括弧書き「CS：（-20）」を再現(2026-07-02)
             const csLabel = mvOpt(system.combatSpeedMod);
-            push("CS", (system.combatSpeedModGhostIgnore && csLabel !== "-") ? `（${csLabel}）` : csLabel);
+            push("CS", (system.combatSpeedModGhostIgnore && csLabel !== "-") ? `（${csLabel}）` : csLabel, "third");
             push("電制", hack); push("部位", part);
             break;
         }
@@ -168,11 +177,11 @@ export function buildOutfitSummaryRows(system, type, { areaMods = null, resolveH
             push("購", buy); push("隠", hideFull);
             push("攻", attackLabel(system.attack));
             push("SF", mvOpt(system.speedFactor));
-            push("防(S／P／I)", defence());
+            push("防(S／P／I)", defence(), "full");
             push("制", mvOpt(system.controlMod));
             push("乗員", mvOpt(system.passenger));
             push("ス", countOf("normal"));
-            push("電制", hack); push("部位", part);
+            push("電制", hack); push("部位", part, "full");
             break;
         case "residence": {
             // 危険値・電制なし。隠は隠匿値のみ。住宅エリアの修正値を合算して表示する
@@ -186,23 +195,28 @@ export function buildOutfitSummaryRows(system, type, { areaMods = null, resolveH
                 : system.hide.mode === "value" ? String(system.hide.total ?? system.hide.value ?? 0)
                 : "-";
             push("購", buyR); push("隠", hideR);
-            push("登場", fmtNum((system.appearanceTargetTotal ?? system.appearanceTarget ?? 0) + am("appearanceTargetMod")));
-            push("セ(電／ア)", `${fmtNum((system.cyberSecurityTotal ?? system.cyberSecurity ?? 0) + am("cyberSecurityMod"))}／${fmtNum((system.analogSecurityTotal ?? system.analogSecurity ?? 0) + am("analogSecurityMod"))}`);
+            push("登場", fmtNum((system.appearanceTargetTotal ?? system.appearanceTarget ?? 0) + am("appearanceTargetMod")), "full");
+            push("セ(電／ア)", `${fmtNum((system.cyberSecurityTotal ?? system.cyberSecurity ?? 0) + am("cyberSecurityMod"))}／${fmtNum((system.analogSecurityTotal ?? system.analogSecurity ?? 0) + am("analogSecurityMod"))}`, "full");
             const slotBase = slots.find((s) => s.kind === "normal");
             const slotCount = slotBase?.count?.mode === "value" ? (slotBase.count.total ?? slotBase.count.value ?? 0) : 0;
             push("ス", fmtNum(slotCount + am("slotMod")));
             push("部位", part);
             break;
         }
-        default: // general / combiner
-            push("購", buy); push("隠", hideFull);
-            push("電制", hack); push("部位", part);
+        default: // general / combiner(最小単位=購|隠|電制の1/3幅3連＋部位単独行。ルルブ p91)
+            push("購", buy, "third"); push("隠", hideFull, "third");
+            push("電制", hack, "third"); push("部位", part, "full");
     }
-    // 式神装備: タイプを「部位」の1つ前に挿入する(10-2)。実効フラグで判定(フェーズ12)
+    // 式神装備: タイプを「部位」の1つ前に挿入する(10-2)。実効フラグで判定(フェーズ12)。
+    // タイプ・部位とも単独行(ルルブ p241=STYLE SECTION の式神カードの配置)
     if (readFlag(system, "isShiki")) {
-        const typeRow = { label: "タイプ", value: SHIKI_TYPES[system.shikiType] ?? "-" };
+        const typeRow = { label: "タイプ", value: SHIKI_TYPES[system.shikiType] ?? "-", full: true };
         const partIdx = rows.findIndex((r) => r.label === "部位");
-        if (partIdx >= 0) rows.splice(partIdx, 0, typeRow); else rows.push(typeRow);
+        if (partIdx >= 0) {
+            rows.splice(partIdx, 0, typeRow);
+            rows[partIdx + 1].full = true;
+            delete rows[partIdx + 1].third;
+        } else rows.push(typeRow);
     }
     return rows;
 }

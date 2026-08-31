@@ -20,7 +20,7 @@
     {{#if card.rows.length}}
     <div class="tnx-dict-card__params">
         {{#each card.rows}}
-        <div class="tnx-dict-card__param{{#if this.full}} tnx-dict-card__param--full{{/if}}">
+        <div class="tnx-dict-card__param{{#if this.full}} tnx-dict-card__param--full{{/if}}{{#if this.third}} tnx-dict-card__param--third{{/if}}">
             <label>{{this.label}}：</label><span>{{this.value}}</span>
         </div>
         {{/each}}

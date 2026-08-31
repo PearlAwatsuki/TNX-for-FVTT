@@ -105,9 +105,10 @@
         {{!-- 説明タブ --}}
         <div class="tab description" data-group="primary" data-tab="description">
             <div class="style-skill-display">
-                <div class="style-skill-display-grid">
+                {{!-- 辞典カードと同じルルブ配置(6分割=1/2・1/3・全幅)で並べる(2026-08-31) --}}
+                <div class="style-skill-display-grid style-skill-display-grid--outfit">
                     {{#each view.summary as |row|}}
-                        <div>
+                        <div class="{{#if row.full}}full-width-row{{/if}}{{#if row.third}}third-width-cell{{/if}}">
                             <label>{{row.label}}：</label>
                             <span>{{row.value}}</span>
                         </div>

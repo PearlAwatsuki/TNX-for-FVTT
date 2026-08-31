@@ -285,6 +285,20 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
  * @param {HTMLElement} card .tnx-dict-card 要素
  */
 export function fitDictionaryCard(card) {
+    // 第0段: 値(nowrap)がセル幅に入りきらない場合の実測ベースの逃がし(2026-08-31。
+    // スラッシュ区切りの複合値を途中で割らないため)。1/3幅は1セルでも溢れたら3連ごと
+    // 1/2幅へ格下げ(3連の途中1つだけ全幅化すると配置が崩れるため)。1/2幅の溢れは全幅へ
+    const overflowsSpan = (cell) => {
+        const span = cell.querySelector("span");
+        return !!span && span.scrollWidth > span.clientWidth + 1;
+    };
+    const thirds = [...card.querySelectorAll(".tnx-dict-card__param--third")];
+    if (thirds.some(overflowsSpan)) {
+        for (const c of thirds) c.classList.remove("tnx-dict-card__param--third");
+    }
+    for (const cell of card.querySelectorAll(".tnx-dict-card__param:not(.tnx-dict-card__param--full)")) {
+        if (overflowsSpan(cell)) cell.classList.add("tnx-dict-card__param--full");
+    }
     const targets = [...card.querySelectorAll(".tnx-dict-card__desc, .tnx-dict-card__condition")];
     if (!targets.length) return;
     for (const t of targets) t.style.fontSize = "";
