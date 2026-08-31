@@ -4,13 +4,16 @@
      (名前ヘッダ＋パラメータ行＋解説)だが、視覚意匠は TNX のデザイン言語で再解釈する。 --}}
 <article class="tnx-dict-card tnx-dict-card--{{card.kind}}">
     <header class="tnx-dict-card__header">
-        {{#if card.img}}<img class="tnx-dict-card__icon" src="{{card.img}}" alt="" loading="lazy">{{/if}}
-        <div class="tnx-dict-card__titles">
-            {{!-- ふりがなはルビ(名前と同色・名前幅に均等割り=2026-08-31 ユーザー指摘)。
-                 分類は名前の下に縦積み(2026-08-31 指摘=横並びだと長い名前が圧殺される) --}}
-            <span class="tnx-dict-card__name">{{#if card.furigana}}<ruby>{{card.name}}<rt>{{card.furigana}}</rt></ruby>{{else}}{{card.name}}{{/if}}</span>
-            {{#if card.nameEn}}<span class="tnx-dict-card__name-en">{{card.nameEn}}</span>{{/if}}
-            {{#if card.subtitle}}<span class="tnx-dict-card__subtitle">{{card.subtitle}}</span>{{/if}}
+        {{!-- アイコン+名前は不可分ブロック(2026-08-31 指摘=名前がどれだけ長くても
+             アイコンは名前のすぐ左に付く。アイコンだけ別行へ折れてはいけない) --}}
+        <div class="tnx-dict-card__identity">
+            {{#if card.img}}<img class="tnx-dict-card__icon" src="{{card.img}}" alt="" loading="lazy">{{/if}}
+            <div class="tnx-dict-card__titles">
+                {{!-- ふりがなはルビ(名前と同色・名前幅に均等割り)。分類は名前の下に縦積み --}}
+                <span class="tnx-dict-card__name">{{#if card.furigana}}<ruby>{{card.name}}<rt>{{card.furigana}}</rt></ruby>{{else}}{{card.name}}{{/if}}</span>
+                {{#if card.nameEn}}<span class="tnx-dict-card__name-en">{{card.nameEn}}</span>{{/if}}
+                {{#if card.subtitle}}<span class="tnx-dict-card__subtitle">{{card.subtitle}}</span>{{/if}}
+            </div>
         </div>
         {{#each card.tags}}<span class="tnx-dict-card__tag">{{this}}</span>{{/each}}
     </header>

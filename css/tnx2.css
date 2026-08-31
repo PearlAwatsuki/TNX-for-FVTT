@@ -11147,8 +11147,17 @@ button.tnx-create-act-button span {
     height: 48px;
 }
 
+/* アイコン+名前の不可分ブロック(2026-08-31 指摘=アイコンだけ別行へ折れない)。
+   basis 0 で行内に必ず収まり、長い名前は内側(titles)で折り返す */
+.tnx-dict-card__identity {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 0;
+    min-width: 0;
+}
+
 .tnx-dict-card__titles {
-    /* basis auto+wrap で、長い名前は行幅いっぱいで折り返す(幅ゼロ圧縮を防ぐ) */
     flex: 1 1 auto;
     min-width: 0;
     display: flex;
