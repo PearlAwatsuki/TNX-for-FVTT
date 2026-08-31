@@ -195,14 +195,16 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
                 break;
             }
             case "lifePath": {
-                context.lifePathGroups = groupLifePathEntries(filtered).map((g) => ({
+                // 内容(description)はエンリッチして表示(16-x: @UUID コンテンツリンク等の解決)
+                const enrichText = (t) => foundry.applications.ux.TextEditor.enrichHTML(t ?? "", { async: true });
+                context.lifePathGroups = await Promise.all(groupLifePathEntries(filtered).map(async (g) => ({
                     label: g.typeLabel,
-                    rows: g.entries.map((e) => ({
+                    rows: await Promise.all(g.entries.map(async (e) => ({
                         uuid: e.uuid, docName: e.docName, img: e.img, name: e.name,
                         skillName: e.system?.skillName ?? "",
-                        description: e.system?.description ?? "",
-                    })),
-                }));
+                        description: await enrichText(e.system?.description),
+                    }))),
+                })));
                 break;
             }
             case "npc": {
@@ -294,6 +296,9 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
             }
             return null;
         });
+
+        // @UUID コンテンツリンクのカード・ツールチップ(16-x): カード解説内のリンクに適用
+        import("./item-card-tooltips.mjs").then((m) => m.applyContentLinkCardTooltips(this.element));
 
         // 固定高さカード: 入りきらない解説は文字サイズを縮小して収める(ルルブ同様・
         // 2026-08-31 ユーザー指定)。レイアウト確定後に実測するため rAF 越しに実行

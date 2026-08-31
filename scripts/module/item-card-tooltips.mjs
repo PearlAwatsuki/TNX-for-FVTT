@@ -77,44 +77,95 @@ const TOOLTIP_ROW_SELECTORS = [
  * @param {HTMLElement} root シートのルート要素
  * @param {Actor} actor 行のアイテムを所持するアクター
  */
-export async function applyItemCardTooltips(root, actor) {
-    if (!root || !actor) return;
-    const els = root.querySelectorAll(TOOLTIP_ROW_SELECTORS.join(","));
-    if (!els.length) return;
+/** 辞典名マップ(技能・スタイル・アウトフィット)をまとめて読む(2つの適用系で共用)。 */
+async function loadTooltipMaps() {
     const [skillNames, styleNames, outfitNames] = await Promise.all([
         loadSkillChoices([SKILL_PACKS.general, SKILL_PACKS.style, SKILL_PACKS.works]),
         loadSkillChoices([STYLE_PACK]),
         loadOutfitDictNames(),
     ]);
-    const partSlotsCtx = actor.system?.partSlotsEffective ?? actor.system?.partSlots ?? getPartSlotPreset();
+    return { skillNames, styleNames, outfitNames };
+}
+
+/**
+ * 1アイテムのカード・ツールチップ HTML を組み立てる(行ツールチップとコンテンツリンクで共用)。
+ * @param {Item} item 対象(所持アイテムまたは辞典アイテム)
+ * @param {{maps: object, actor?: ?Actor, sizes?: ?object}} args
+ *   sizes=種別→寸法(該当種別のみ固定サイズ化。null 判定は種別ごと)
+ * @returns {Promise<?string>} data-tooltip-html 用 HTML(対象外は null)
+ */
+async function buildCardTooltipHtml(item, { maps, actor = null, sizes = TOOLTIP_CARD_SIZES }) {
+    const kind = cardKindOf(item);
+    if (!kind) return null;
+    // 住宅施設: 紐づけた住宅エリアの供給値を合算する(シートの行表示と同じ値を出す)
+    let areaMods = null;
+    if (item.type === "residence" && item.system.housingArea) {
+        const linked = await fromUuid(item.system.housingArea).catch(() => null);
+        if (linked?.type === "housingArea") areaMods = linked.system;
+    }
+    const partSlotsCtx = actor?.system?.partSlotsEffective ?? actor?.system?.partSlots ?? getPartSlotPreset();
+    const card = await buildDictionaryCard(item, {
+        skillNames: maps.skillNames, styleNames: maps.styleNames,
+        resolveHostName: (key) => resolveItemNameByKey(actor, key, maps.outfitNames),
+        partSlotsCtx,
+        partAdded: item.system.partAdded ?? [],
+        areaMods,
+    });
+    if (!card) return null;
+    const html = await renderTemplate(DICTIONARY_CARD_TEMPLATE, { card });
+    // 固定サイズ化(2026-08-31 ユーザー指示=辞典ブラウザと同じ大きさ)。tall=ヴィークル/
+    // 全身義体/式神装備。フィットは事前にオフスクリーンで確定させる
+    const tall = item.type === "vehicle" || item.type === "cyborg" || readFlag(item.system, "isShiki");
+    const size = kind === "outfit" ? (tall ? sizes?.outfitTall : sizes?.outfit) : sizes?.[kind];
+    return size ? buildSizedTooltipHtml(html, size) : html;
+}
+
+export async function applyItemCardTooltips(root, actor) {
+    if (!root || !actor) return;
+    const els = root.querySelectorAll(TOOLTIP_ROW_SELECTORS.join(","));
+    if (!els.length) return;
+    const maps = await loadTooltipMaps();
     for (const el of els) {
         const item = actor.items.get(el.dataset.itemId);
-        if (!item || !cardKindOf(item)) continue;
-        // 住宅施設: 紐づけた住宅エリアの供給値を合算する(シートの行表示と同じ値を出す)
-        let areaMods = null;
-        if (item.type === "residence" && item.system.housingArea) {
-            const linked = await fromUuid(item.system.housingArea).catch(() => null);
-            if (linked?.type === "housingArea") areaMods = linked.system;
-        }
-        const card = await buildDictionaryCard(item, {
-            skillNames, styleNames,
-            resolveHostName: (key) => resolveItemNameByKey(actor, key, outfitNames),
-            partSlotsCtx,
-            partAdded: item.system.partAdded ?? [],
-            areaMods,
-        });
-        if (!card) continue;
-        let html = await renderTemplate(DICTIONARY_CARD_TEMPLATE, { card });
-        // スタイル技能・アウトフィットは辞典ブラウザと同じ大きさの固定サイズカード
-        // (2026-08-31 ユーザー指示)。フィットは事前にオフスクリーンで確定させる
-        const kind = cardKindOf(item);
-        if (kind === "styleSkill") {
-            html = buildSizedTooltipHtml(html, TOOLTIP_CARD_SIZES.styleSkill);
-        } else if (kind === "outfit") {
-            const tall = item.type === "vehicle" || item.type === "cyborg" || readFlag(item.system, "isShiki");
-            html = buildSizedTooltipHtml(html, tall ? TOOLTIP_CARD_SIZES.outfitTall : TOOLTIP_CARD_SIZES.outfit);
-        }
+        if (!item) continue;
+        const html = await buildCardTooltipHtml(item, { maps, actor });
+        if (!html) continue;
         el.dataset.tooltipHtml = html;
         el.dataset.tooltipClass = "tnx-dict-tooltip";
+    }
+}
+
+/**
+ * コンテンツリンク用のカード寸法(16-x): リンク先ホバーは全カード種別を固定サイズで出す
+ * (自然高だと長文で巨大化するため)。styleSkill/outfit はシート行ツールチップと同一。
+ */
+const LINK_TOOLTIP_SIZES = Object.freeze({
+    ...TOOLTIP_CARD_SIZES,
+    generalSkill: { w: 340, h: 330 },
+    miracle:      { w: 280, h: 370 },
+    style:        { w: 320, h: 430 },
+    organization: { w: 320, h: 430 },
+});
+
+/**
+ * @UUID コンテンツリンクのうち、辞典カード対象のアイテムを指すものへカード・ツールチップを
+ * 付ける(16-x・2026-08-31 ユーザー承認)。チャット・シート・ジャーナル・ブラウザカード内の
+ * リンクすべてが対象(レンダー後フックから呼ぶ)。クリック挙動はコアのまま(シートを開く)。
+ * @param {HTMLElement} root 描画済みのルート要素
+ */
+export async function applyContentLinkCardTooltips(root) {
+    if (!root?.querySelectorAll) return;
+    const links = [...root.querySelectorAll("a.content-link[data-uuid]")]
+        .filter((a) => !a.dataset.tooltipHtml);
+    if (!links.length) return;
+    let maps = null; // リンクが辞典カード対象のときだけ辞典名マップを読む(遅延)
+    for (const a of links) {
+        const doc = await fromUuid(a.dataset.uuid).catch(() => null);
+        if (!doc || doc.documentName !== "Item" || !cardKindOf(doc)) continue;
+        maps ??= await loadTooltipMaps();
+        const html = await buildCardTooltipHtml(doc, { maps, actor: doc.actor ?? null, sizes: LINK_TOOLTIP_SIZES });
+        if (!html) continue;
+        a.dataset.tooltipHtml = html;
+        a.dataset.tooltipClass = "tnx-dict-tooltip";
     }
 }

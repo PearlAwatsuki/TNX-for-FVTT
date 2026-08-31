@@ -37,7 +37,7 @@ import { HOUSING_AREA_RANKS } from '../data/item/housing-area.mjs';
 import { CONDITION_KINDS, readConditions, getConditionKind, getConditionKinds, getEffectiveConditions, getCheckBlock, gatherSkillUseWarnings, woundChartValue } from '../module/conditions.mjs';
 import { planActionRecoveryRows, PAYMENT_LABELS, MAJOR_PAYMENTS } from '../module/time-boundary-logic.mjs';
 import { applyTriggerDisable } from '../module/ui-trigger-disable.mjs';
-import { applyItemCardTooltips } from '../module/item-card-tooltips.mjs';
+import { applyItemCardTooltips, applyContentLinkCardTooltips } from '../module/item-card-tooltips.mjs';
 import { openConditionEditDialog } from '../module/condition-edit.mjs';
 import { startTreatment } from '../module/treatment-flow.mjs';
 import { isAttackUsage } from '../data/item/common/usage.mjs';
@@ -525,6 +525,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // アイテム行のカード・ツールチップ(16-2): レンダー後に非同期で属性を流し込む
         // (ホバー時には出来上がっている・HUD シーンカードのツールチップと同方式)
         applyItemCardTooltips(el, this.actor);
+        // @UUID コンテンツリンクのカード・ツールチップ(16-x): 解説展開パネル等のリンクに適用
+        applyContentLinkCardTooltips(el);
 
         for (const [group, tab] of Object.entries(this.tabGroups)) {
             if (tab) {
@@ -775,6 +777,14 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             ...g,
             skills: g.skillIds.map(id => byId.get(id)).filter(Boolean),
         }));
+
+        // 技能解説の展開パネル用エンリッチ(16-x): @UUID コンテンツリンク等を解決した HTML を
+        // id 逆引きで渡す(テンプレは lookup で参照。素の system.description 直渡しを置換)
+        const enrichText = (t) => foundry.applications.ux.TextEditor.enrichHTML(t ?? "", { async: true });
+        context.enrichedSkillDescriptions = Object.fromEntries(await Promise.all(
+            [...generalSkills, ...context.styleSkills]
+                .map(async (i) => [i.id, await enrichText(i.system.description)]),
+        ));
     }
 
     /**
@@ -1712,7 +1722,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             // サービス/バックグラウンドは必ず準備・携帯(未準備にできない)=携帯/準備トグルを出さない(2026-07-18)
             hidePrepareToggles: sys.minorCategory === "background",
             colValues,
-            description: sys.description ?? "",
+            // 展開パネルの解説はエンリッチ済みで渡す(16-x: @UUID コンテンツリンク等の解決)
+            description: await foundry.applications.ux.TextEditor.enrichHTML(sys.description ?? "", { async: true }),
             combineInfo: combinerItem ? {
                 combinerName:  combinerItem.name,
                 source1Name:   mergeSrc1.name,

@@ -234,6 +234,30 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         }));
         context.trailer       = flagData.trailer       || "";
         context.handouts      = (flagData.handouts || []).map(normalizeHandoutRow);
+
+        // 閲覧ビューのエンリッチ(16-x): prose-mirror(toggled)の表示側には @UUID コンテンツ
+        // リンク等を解決した HTML を流し込む(value=素データは不変・編集は従来どおり)
+        const enrichText = (t) => foundry.applications.ux.TextEditor.enrichHTML(t ?? "", { async: true });
+        context.enrichedTrailer = await enrichText(context.trailer);
+        context.handouts = await Promise.all(context.handouts.map(async (h) => ({
+            ...h, enrichedContent: await enrichText(h.content),
+        })));
+        context.scenarioTexts = await Promise.all(context.scenarioTexts.map(async (p) => ({
+            ...p, enrichedContent: await enrichText(p.content),
+        })));
+        for (const rows of Object.values(context.scenes)) {
+            for (const row of rows) row.enrichedSwitchMessage = await enrichText(row.switchMessage);
+        }
+        context.infoItems = await Promise.all(context.infoItems.map(async (item) => ({
+            ...item,
+            contents: await Promise.all((item.contents ?? []).map(async (c) => ({
+                ...c,
+                enrichedText: await enrichText(c.text),
+                tiers: await Promise.all((c.tiers ?? []).map(async (t) => ({
+                    ...t, enrichedText: await enrichText(t.text),
+                }))),
+            }))),
+        })));
         // コネ(アクトコネクション)は指定方法を選んでから相手を指す(2026-08-13)。受け取りは
         // HO 送信カードのボタンで、そこで技能アイテムを生成/複製する
         // スタイル(指定スタイル)＝スタイル辞典のプルダウン(識別キー保存)。1行目でハンドアウト名の
@@ -305,6 +329,8 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
     _onRender(_context, _options) {
         this._setupChangeListeners();
+        // @UUID コンテンツリンクのカード・ツールチップ(16-x): 閲覧ビュー内のリンクに適用
+        import("../module/item-card-tooltips.mjs").then(m => m.applyContentLinkCardTooltips(this.element));
         // 長文エリアの編集トグルボタンをセクションヘッダーへ移設(常時視認・共有配線)
         attachEditorSectionToggles(this.element);
         for (const [group, tab] of Object.entries(this.tabGroups)) {

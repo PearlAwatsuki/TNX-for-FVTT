@@ -740,9 +740,11 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
             // PL の非公開項目は存在表示のみ(ツールチップ・判定ボタンなし)
             if (row.masked) return { ...row, hiddenMark: true, tooltipHtml: "", canCheck: false };
             const resolved = withResolvedInfoSkillNames(raw[i], nameByKey);
+            // 本文のエンリッチ(16-x): ツールチップ内でも @UUID コンテンツリンク等を解決する
+            const { enrichInfoCardData } = await import("./reference-links.mjs");
             const tooltipHtml = await foundry.applications.handlebars.renderTemplate(
                 "systems/tokyo-nova-axleration/templates/chat/info-card.hbs",
-                buildInfoCardData(resolved));
+                await enrichInfoCardData(buildInfoCardData(resolved)));
             return {
                 ...row,
                 hiddenMark: !row.isPublic,   // RL 向け=非公開の印

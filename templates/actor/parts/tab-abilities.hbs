@@ -198,7 +198,7 @@
                                                     </div>
                                                 </div>
                                                 <div class="style-skill-desc-panel" style="display: none;">
-                                                    <div class="style-skill-desc-content">{{{item.system.description}}}</div>
+                                                    <div class="style-skill-desc-content">{{{lookup @root.enrichedSkillDescriptions item.id}}}</div>
                                                 </div>
                                             </li>
                                         {{/each}}
@@ -317,7 +317,7 @@
                                                     </div>
                                                 </div>
                                                 <div class="style-skill-desc-panel" style="display: none;">
-                                                    <div class="style-skill-desc-content">{{{item.system.description}}}</div>
+                                                    <div class="style-skill-desc-content">{{{lookup @root.enrichedSkillDescriptions item.id}}}</div>
                                                 </div>
                                             </li>
                                         {{/each}}

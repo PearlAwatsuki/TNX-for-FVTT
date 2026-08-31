@@ -211,13 +211,20 @@ export function buildOrganizationCard(item) {
 export async function buildDictionaryCard(item, opts = {}) {
     const kind = cardKindOf(item);
     if (!kind) return null;
+    let card = null;
     switch (kind) {
-        case "outfit":       return buildOutfitCard(item, opts);
-        case "styleSkill":   return buildStyleSkillCard(item, opts);
-        case "generalSkill": return buildGeneralSkillCard(item);
-        case "miracle":      return buildMiracleCard(item);
-        case "style":        return buildStyleCard(item);
-        case "organization": return buildOrganizationCard(item);
+        case "outfit":       card = buildOutfitCard(item, opts); break;
+        case "styleSkill":   card = buildStyleSkillCard(item, opts); break;
+        case "generalSkill": card = buildGeneralSkillCard(item); break;
+        case "miracle":      card = buildMiracleCard(item); break;
+        case "style":        card = buildStyleCard(item); break;
+        case "organization": card = buildOrganizationCard(item); break;
     }
-    return null;
+    if (!card) return null;
+    // リッチテキストのエンリッチ(16-x): @UUID コンテンツリンク等を全カード面
+    // (辞典ブラウザ・ツールチップ)で解決する(16-2 の申し送りの統合)
+    const enrich = (t) => foundry.applications.ux.TextEditor.enrichHTML(t ?? "", { async: true });
+    card.description = await enrich(card.description);
+    if (card.condition) card.condition = await enrich(card.condition);
+    return card;
 }

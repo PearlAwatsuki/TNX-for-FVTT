@@ -29,6 +29,7 @@ import {
     manualExitTargets, confirmTeamExitDialog, applyManualExit,
 } from "./appearance-state.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
+import { enrichText, enrichInfoCardData } from "./reference-links.mjs";
 import {
     SCENE_AREA_OPTIONS, PHASE_ORDER, normalizeSceneRow, normalizeHandoutRow,
     nextSceneTarget, canShowNextScene, eventSceneCandidates, areEventScenesDone,
@@ -63,9 +64,20 @@ const SCOPE = "tokyo-nova-axleration";
  * @param {object} data 描画コンテキスト
  * @returns {Promise<string>} HTML
  */
-function renderChatCard(name, data) {
+async function renderChatCard(name, data) {
+    // リッチテキスト欄のエンリッチ(16-x): @UUID コンテンツリンク等をカード種別ごとの
+    // 本文フィールドで解決する(ラベル等の非リッチ欄は触らない)
+    const d = { ...data };
+    if (name === "text-card") d.content = await enrichText(d.content);
+    if (name === "handout-card") {
+        d.content = await enrichText(d.content);
+        if (d.ps) d.ps = await enrichText(d.ps);
+    }
+    if (name === "scene-switch-card" && d.message) d.message = await enrichText(d.message);
+    if (name === "info-card") return foundry.applications.handlebars.renderTemplate(
+        `systems/tokyo-nova-axleration/templates/chat/${name}.hbs`, await enrichInfoCardData(d));
     return foundry.applications.handlebars.renderTemplate(
-        `systems/tokyo-nova-axleration/templates/chat/${name}.hbs`, data);
+        `systems/tokyo-nova-axleration/templates/chat/${name}.hbs`, d);
 }
 
 /**

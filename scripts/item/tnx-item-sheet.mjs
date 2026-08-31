@@ -122,6 +122,9 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         el.classList.toggle("edit-mode", !!context.isEditMode);
         el.classList.toggle("view-mode", !context.isEditMode);
 
+        // @UUID コンテンツリンクのカード・ツールチップ(16-x): 解説内の辞典リンクに適用
+        import("../module/item-card-tooltips.mjs").then(m => m.applyContentLinkCardTooltips(el));
+
         // V2 はレンダー時に active クラスを DOM に付与しないため、changeTab で補完する。
         // テンプレートは context.tabs を使っていないため毎レンダー後に呼ぶ必要がある。
         for (const [group, tab] of Object.entries(this.tabGroups)) {

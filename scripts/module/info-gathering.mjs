@@ -158,7 +158,9 @@ async function announceInfoDisclosure(item, contentId, newly, messageId) {
     const resolved = withResolvedInfoSkillNames(item, await loadGeneralSkillNameByKey());
     const data = buildInfoDiscloseCardData(resolved, contentId, newly);
     if (!data) return;
+    // 本文のエンリッチ(16-x): @UUID コンテンツリンク等を解決してから描画する
+    const { enrichInfoCardData } = await import("./reference-links.mjs");
     const content = await foundry.applications.handlebars.renderTemplate(
-        "systems/tokyo-nova-axleration/templates/chat/info-card.hbs", data);
+        "systems/tokyo-nova-axleration/templates/chat/info-card.hbs", await enrichInfoCardData(data));
     await ChatMessage.create({ content });
 }

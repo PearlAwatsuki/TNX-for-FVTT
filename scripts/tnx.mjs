@@ -89,6 +89,7 @@ import { enhanceComboboxes } from './module/combobox.mjs';
 import { OUTFIT_CATEGORIES } from './data/item/outfit-categories.mjs';
 import { decoratedItemName } from './module/identification.mjs';
 import { injectDictionaryBrowserButton } from './module/tnx-dictionary-browser.mjs';
+import { applyContentLinkCardTooltips } from './module/item-card-tooltips.mjs';
 
 async function preloadHandlebarsTemplates() {
     const templatePaths = [
@@ -943,6 +944,17 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
     const root = html instanceof HTMLElement ? html : html?.[0];
     bindConditionChatButtons(root);
     renderConditionDrawCard(message, root);
+});
+
+// @UUID コンテンツリンクのカード・ツールチップ(16-x): チャット内の辞典アイテムリンクに
+// ホバーで辞典カードを出す(ジャーナルページも同様)。クリック挙動はコアのまま
+Hooks.on("renderChatMessageHTML", (_message, html) => {
+    const root = html instanceof HTMLElement ? html : html?.[0];
+    if (root) applyContentLinkCardTooltips(root);
+});
+Hooks.on("renderJournalEntryPageSheet", (_app, html) => {
+    const root = html instanceof HTMLElement ? html : html?.[0];
+    if (root) applyContentLinkCardTooltips(root);
 });
 
 // ─── チャットカードのライブ描画(フラグ→表示)はトップレベルで登録する ─────────────
