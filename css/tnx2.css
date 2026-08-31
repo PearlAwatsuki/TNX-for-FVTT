@@ -10792,19 +10792,8 @@ button.tnx-create-act-button span {
    カードはルルブのデータカード形式の踏襲(情報配置のみ・意匠は TNX 言語)。
    ============================================================ */
 
-/* --- 起動ボタン(辞典サイドバータブ上部・D&D と同配置) --- */
-#compendium .tnx-dict-launcher {
-    margin: 4px 8px;
-    width: calc(100% - 16px);
-    background: var(--tnx2-bg-2);
-    border: 1px solid var(--tnx2-border-active);
-    color: var(--tnx2-text-accent);
-}
-
-#compendium .tnx-dict-launcher:hover {
-    border-color: var(--tnx2-accent);
-    box-shadow: 0 0 6px var(--tnx2-accent-glow-sm);
-}
+/* 起動ボタンはヘッダーのボタンエリアに置き、見た目は標準ボタンに従う(2026-08-31・
+   独自スタイルは持たない=資料タブの「アクトシートを作成」と同じ扱い) */
 
 /* --- レイアウト骨格 --- */
 .tnx-dictionary-browser .window-content {
@@ -10818,6 +10807,11 @@ button.tnx-create-act-button span {
     grid-template-columns: 44px 220px 1fr;
     height: 100%;
     min-height: 0;
+
+    /* 固定カード幅(スタイル技能/アウトフィット): デフォルトウィンドウ幅(980px)で
+       結果エリアのグリッド実効幅(684px=スクロールバー溝10px確保後)に余白込みちょうど3枚
+       = (684 - 8px×2) ÷ 3 ≒ 222px(実測で3枚並びを確認) */
+    --tnx-dict-card-w: 222px;
 }
 
 /* --- 縦タブ --- */
@@ -10925,6 +10919,8 @@ button.tnx-create-act-button span {
 .tnx-dict__results {
     padding: 8px 10px;
     overflow-y: auto;
+    /* スクロールバーの有無で内容幅が揺れない=固定幅カードの3枚並びが安定する */
+    scrollbar-gutter: stable;
     min-height: 0;
     min-width: 0;
 }
@@ -10950,14 +10946,24 @@ button.tnx-create-act-button span {
     font-size: 1.05em;
 }
 
-/* カードは固定幅・固定高さ(ルルブ踏襲=2026-08-31 ユーザー指定。入りきらない解説は
-   fitDictionaryCards が文字サイズを縮小して収める) */
+/* カードの寸法規約(2026-08-31 ユーザー指定):
+   - スタイル技能/アウトフィット: デフォルトウィンドウ幅で余白込みちょうど3枚並ぶ**固定幅**。
+     ウィンドウ幅を変えても大きさは不変で、1行に並ぶ枚数だけが変わる(auto-fill)。
+   - スタイル/神業/オーガニゼーション: **2列固定・カード幅はウィンドウ幅に追従**(1fr)。
+   - 一般技能: 縦積み1列・幅はウィンドウ幅に追従。
+   高さは種別ごとに固定・入りきらない解説は fitDictionaryCards が文字サイズを縮小して収める */
 .tnx-dict__card-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, 252px);
+    grid-template-columns: repeat(auto-fill, var(--tnx-dict-card-w, 220px));
     gap: 8px;
     align-items: start;
     justify-content: start;
+}
+
+.tnx-dict__results[data-kind="style"] .tnx-dict__card-grid,
+.tnx-dict__results[data-kind="miracle"] .tnx-dict__card-grid,
+.tnx-dict__results[data-kind="organization"] .tnx-dict__card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .tnx-dict__card-slot {
@@ -10987,12 +10993,12 @@ button.tnx-create-act-button span {
 .tnx-dict__results[data-kind="miracle"] .tnx-dict__card-slot { height: 370px; }
 .tnx-dict__results[data-kind="organization"] .tnx-dict__card-slot { height: 430px; }
 
-/* 一般技能: 横幅広めのカードを縦積みで直接表示(リスト形式に寄せる・高さは内容なり) */
+/* 一般技能: 横幅広めのカードを縦積みで直接表示(リスト形式に寄せる・高さは内容なり)。
+   幅はウィンドウ幅に追従(2026-08-31・上限固定をやめる) */
 .tnx-dict__card-stack {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    max-width: 680px;
 }
 
 .tnx-dict__empty {
@@ -11292,4 +11298,98 @@ button.tnx-create-act-button span {
 
 .tnx-dict-tooltip .tnx-dict-card__header {
     cursor: default;
+}
+
+/* ============================================================
+   FVTT コア UI の N◎VA テーマ (フェーズ16-2・2026-08-31 ユーザー指示)
+   「UI改修は前フェーズまでの負債」= コアのデフォルト HUD(チャットの羊皮紙・橙アクセント・
+   サイドバー・シーンコントロール・ショートカットバー等)を tnx2 の意匠体系へ寄せる。
+   方法: コアのテーマ変数(warm/cool/light/text 系)をシステム有効時に上書きする。
+   セレクタは body.system-tokyo-nova-axleration = コアの body.theme-* と同特異度で
+   読み込み順により優越(システム CSS はコアの後に読まれる)。
+   ============================================================ */
+
+body.system-tokyo-nova-axleration {
+    /* アクセント(コアの橙系 → N◎VA シアン系) */
+    --color-warm-1: #00c8e0;
+    --color-warm-2: #0090a8;
+    --color-warm-3: #0f4552;
+
+    /* 基調の闇(紫黒 → 青黒) */
+    --color-cool-3: #2a4a60;
+    --color-cool-4: #131920;
+    --color-cool-5: #080b10;
+    --color-cool-5-25: rgb(8 11 16 / 25%);
+    --color-cool-5-50: rgb(8 11 16 / 50%);
+    --color-cool-5-75: rgb(8 11 16 / 75%);
+    --color-cool-5-90: rgb(8 11 16 / 90%);
+
+    /* 明色スケール(クリーム系 → 青白系) */
+    --color-light-1: #eef4f9;
+    --color-light-2: #dbe6ee;
+    --color-light-3: #c8d4e0;
+    --color-light-4: #9fb2c2;
+    --color-light-5: #6d8296;
+    --color-light-6: #45586a;
+
+    /* 暗色スケール(茶黒 → 青黒) */
+    --color-dark-1: #0b0f14;
+    --color-dark-2: #131920;
+    --color-dark-3: #1a2230;
+    --color-dark-4: #3c4f61;
+    --color-dark-5: #55677a;
+    --color-dark-6: #70849a;
+
+    /* テキスト */
+    --color-text-emphatic: #e2ecf4;
+    --color-text-primary: #c8d4e0;
+    --color-text-secondary: #78c8d8;
+    --color-text-subtle: #7a90a8;
+
+    /* サイドバー・スクロールバー */
+    --sidebar-background: rgb(8 11 16 / 92%);
+    --color-scrollbar: #2a4a60;
+    --color-scrollbar-track: transparent;
+
+    /* チェック・フォーカス */
+    --checkbox-checked-color: #00c8e0;
+}
+
+/* チャットカード(羊皮紙 → N◎VA ダークカード)。コアは変数を .chat-message 要素自身に
+   定義するため、継承(body)では届かず**同じ要素スコープ**で上書きする必要がある
+   (サイドバー内・折りたたみ時の通知ポップアップの両方に効く) */
+body.system-tokyo-nova-axleration .chat-message {
+    --chat-message-background: #131920;
+    --chat-message-border-color: #1e2d3e;
+    --color-whisper-background: #14202d;
+    --color-whisper-border: #2a4a60;
+    --color-blind-background: #181322;
+    --color-blind-border: #453a5e;
+    --color-emote-background: #12201c;
+    --color-emote-border: #2a5747;
+
+    color: var(--tnx2-text-primary);
+    border-width: 1px;
+}
+
+body.system-tokyo-nova-axleration .chat-message .message-header {
+    color: var(--tnx2-text-secondary);
+}
+
+body.system-tokyo-nova-axleration .chat-message .message-sender {
+    color: var(--tnx2-text-primary);
+}
+
+/* ドロー表結果などの羊皮紙前提の固定色罫線 */
+body.system-tokyo-nova-axleration .chat-message .table-draw .table-description,
+body.system-tokyo-nova-axleration .chat-message .table-draw ul.table-results li {
+    border-color: var(--tnx2-border-subtle);
+    color: var(--tnx2-text-secondary);
+}
+
+/* bright ボタン: コアはホバーに橙の固定色(#fda948)を持つため同系のシアンへ */
+body.system-tokyo-nova-axleration button.bright:hover {
+    background: #33d6ea;
+    border-color: var(--color-warm-3);
+    color: #001318;
 }

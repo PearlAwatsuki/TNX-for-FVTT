@@ -240,6 +240,22 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
         // 固定高さカード: 入りきらない解説は文字サイズを縮小して収める(ルルブ同様・
         // 2026-08-31 ユーザー指定)。レイアウト確定後に実測するため rAF 越しに実行
         requestAnimationFrame(() => fitDictionaryCards(this.element));
+
+        // リサイズ追従(2026-08-31 ユーザー指定): 可変幅カード(スタイル/神業/組織=2列・
+        // 一般技能=縦積み)は幅が変わると収まりが変わるため、ウィンドウリサイズで再フィットする
+        this._resizeObserver?.disconnect();
+        this._resizeObserver = new ResizeObserver(() => {
+            clearTimeout(this._refitTimer);
+            this._refitTimer = setTimeout(() => fitDictionaryCards(this.element), 120);
+        });
+        this._resizeObserver.observe(this.element);
+    }
+
+    /** @override */
+    _onClose(options) {
+        super._onClose(options);
+        this._resizeObserver?.disconnect();
+        this._resizeObserver = null;
     }
 
     /** タブ切替 */
@@ -287,8 +303,10 @@ export function fitDictionaryCards(root) {
 }
 
 /**
- * 辞典サイドバータブの上部に「辞典ブラウザ」ボタンを差し込む(D&D と同配置・2026-08-30 ユーザー
- * 明示=当初からの指示)。renderCompendiumDirectory ごとに1つだけ挿す。
+ * 辞典タブの「ヘッダーのボタンエリア」(コンペンディウム作成等が並ぶ action-buttons 行)に
+ * 「辞典ブラウザ」ボタンを追加する(2026-08-31 ユーザー指示。前例=資料タブの
+ * renderJournalDirectory で「アクトシートを作成」等を同じ行へ追加している実装・見た目も
+ * 標準ボタンに合わせる)。renderCompendiumDirectory ごとに1つだけ挿す。
  * @param {HTMLElement} html サイドバータブのルート要素
  */
 export function injectDictionaryBrowserButton(html) {
@@ -297,9 +315,15 @@ export function injectDictionaryBrowserButton(html) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "tnx-dict-launcher";
-    button.innerHTML = '<i class="fa-solid fa-book-open"></i> 辞典ブラウザ';
+    button.innerHTML = '<i class="fa-solid fa-book-open"></i><span>辞典ブラウザ</span>';
     button.addEventListener("click", () => TnxDictionaryBrowser.open());
-    const header = root.querySelector(".directory-header");
-    if (header) header.insertAdjacentElement("afterend", button);
-    else root.prepend(button);
+    // ヘッダーのボタンエリアへ(資料タブと同じ折返し方式で幅が自動で揃う)
+    const actionsRow = root.querySelector(".directory-header .action-buttons")
+        ?? root.querySelector(".action-buttons");
+    if (actionsRow) {
+        actionsRow.style.flexWrap = "wrap";
+        actionsRow.appendChild(button);
+    } else {
+        root.querySelector(".directory-header")?.appendChild(button);
+    }
 }

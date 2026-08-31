@@ -178,6 +178,7 @@
               "life-paths",
               "organizations",
               "npc",
+              "sample-casts",
               "draw-tables"
           ],
           "folders": [
