@@ -11122,8 +11122,11 @@ button.tnx-create-act-button span {
 
 .tnx-dict-card__header {
     display: flex;
+    /* 長い名前・長い分類ラベルは折り返して吸収する(2026-08-31 是正=縮まない subtitle が
+       名前列を幅ゼロまで圧縮し、名前が1文字ずつ縦積みになっていた) */
+    flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: 2px 8px;
     padding: 5px 8px;
     background: var(--tnx2-bg-0);
     border-bottom: 1px solid var(--tnx2-border-glow);
@@ -11145,7 +11148,8 @@ button.tnx-create-act-button span {
 }
 
 .tnx-dict-card__titles {
-    flex: 1;
+    /* basis auto+wrap で、長い名前は行幅いっぱいで折り返す(幅ゼロ圧縮を防ぐ) */
+    flex: 1 1 auto;
     min-width: 0;
     display: flex;
     flex-direction: column;
@@ -11177,13 +11181,17 @@ button.tnx-create-act-button span {
 }
 
 .tnx-dict-card__subtitle {
-    flex: 0 0 auto;
+    /* 名前の下の縦積み(2026-08-31 指摘=名前との横並びをやめる)。長くても折り返す */
+    min-width: 0;
+    overflow-wrap: anywhere;
     color: var(--tnx2-text-secondary);
     font-size: 0.8em;
 }
 
 .tnx-dict-card__tag {
-    flex: 0 0 auto;
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
     padding: 1px 6px;
     background: var(--tnx2-bg-3);
     border: 1px solid var(--tnx2-border-active);
@@ -11199,6 +11207,12 @@ button.tnx-create-act-button span {
     padding: 5px 8px;
     border-bottom: 1px solid var(--tnx2-border-subtle);
     font-size: 0.9em;
+}
+
+/* 一般技能: パラメータ行は1行全幅の縦積み(2026-08-31 指摘=2列だと初期スート・特性など
+   長い値が右に空きがあるのに半分幅で改行されてしまう) */
+.tnx-dict-card--generalSkill .tnx-dict-card__params {
+    grid-template-columns: 1fr;
 }
 
 .tnx-dict-card__param {

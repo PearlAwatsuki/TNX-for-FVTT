@@ -6,11 +6,12 @@
     <header class="tnx-dict-card__header">
         {{#if card.img}}<img class="tnx-dict-card__icon" src="{{card.img}}" alt="" loading="lazy">{{/if}}
         <div class="tnx-dict-card__titles">
-            {{!-- ふりがなはルビ(名前と同色・名前幅に均等割り=2026-08-31 ユーザー指摘) --}}
+            {{!-- ふりがなはルビ(名前と同色・名前幅に均等割り=2026-08-31 ユーザー指摘)。
+                 分類は名前の下に縦積み(2026-08-31 指摘=横並びだと長い名前が圧殺される) --}}
             <span class="tnx-dict-card__name">{{#if card.furigana}}<ruby>{{card.name}}<rt>{{card.furigana}}</rt></ruby>{{else}}{{card.name}}{{/if}}</span>
             {{#if card.nameEn}}<span class="tnx-dict-card__name-en">{{card.nameEn}}</span>{{/if}}
+            {{#if card.subtitle}}<span class="tnx-dict-card__subtitle">{{card.subtitle}}</span>{{/if}}
         </div>
-        {{#if card.subtitle}}<span class="tnx-dict-card__subtitle">{{card.subtitle}}</span>{{/if}}
         {{#each card.tags}}<span class="tnx-dict-card__tag">{{this}}</span>{{/each}}
     </header>
     {{#if card.rows.length}}

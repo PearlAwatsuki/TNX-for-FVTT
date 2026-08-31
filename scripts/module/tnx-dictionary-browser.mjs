@@ -300,6 +300,18 @@ export function fitDictionaryCard(card) {
         size -= 0.5;
         for (const t of targets) t.style.fontSize = `${size}px`;
     }
+    // 第二段(保険): 極端に長い名前で本文が最小でも収まらない場合、ヘッダの文字も縮める
+    // (通常の名前長では発動しない。2026-08-31 長名ツールチップ崩れの是正の一部)
+    const header = card.querySelector(".tnx-dict-card__header");
+    if (header && overflows()) {
+        let hSize = Number.parseFloat(getComputedStyle(header).fontSize) || 13;
+        header.style.fontSize = "";
+        const H_MIN = 9;
+        while (overflows() && hSize > H_MIN) {
+            hSize -= 0.5;
+            header.style.fontSize = `${hSize}px`;
+        }
+    }
 }
 
 export function fitDictionaryCards(root) {
