@@ -2529,6 +2529,15 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             return;
         }
 
+        // 購入(16-3 追補・2026-08-31): 購入用途をアイテムロールから起動したら、アウトフィットのみの
+        // 辞典ブラウザ(選択モード)を開いて対象を選ばせる(D&D のドロップエリア起動と同型)。対象の
+        // 購入ボタンで購入文脈(openExtra.purchase)つきで本関数へ合流し、通常判定へ流れる
+        if (selectedUsage.type === "purchase" && !openExtra.purchase) {
+            const { startPurchasePicker } = await import("../module/purchase-flow.mjs");
+            await startPurchasePicker(actor, item, selectedUsage);
+            return;
+        }
+
         // ヴィークル準備時(2026-07-18 一般化): 用途フラグ requiresVehicle がオンなら準備済みヴィークルが
         // 無ければ判定できない。参照は完全に単一(空=準備済みを自動解決)。移動タイプは移動文脈
         // (達成値÷10 段階の移動カード)をここで注入する(旧・戦闘タブの合成アクションを置換)

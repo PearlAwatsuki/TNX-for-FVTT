@@ -10829,6 +10829,12 @@ button.tnx-create-act-button span {
     --tnx-dict-card-w: 222px;
 }
 
+/* 選択モード(技能起点の購入・16-3 追補): タブレールが無いため2列(サイドバー+結果)。
+   結果エリア幅はタブレール分(44px)広がるが、カード幅222px固定・枚数可変の規約で吸収される */
+.tnx-dict--picker {
+    grid-template-columns: 220px 1fr;
+}
+
 /* --- 縦タブ --- */
 .tnx-dict__tabs {
     display: flex;

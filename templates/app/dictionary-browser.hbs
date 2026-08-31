@@ -1,6 +1,8 @@
 {{!-- 辞典ブラウザ(フェーズ16-2)。左=縦タブ(2026-08-31 ユーザー明示の8種)・
      中=検索＋グループ化チェックボックスの絞り込み(D&D 踏襲)・右=種別別の結果表示。 --}}
-<div class="tnx-dict">
+<div class="tnx-dict{{#if pickerMode}} tnx-dict--picker{{/if}}">
+    {{!-- 選択モード(技能起点の購入・16-3 追補)ではアウトフィット固定のためタブレールを出さない --}}
+    {{#unless pickerMode}}
     <nav class="tnx-dict__tabs">
         {{#each tabs}}
         <a class="tnx-dict__tab{{#if this.active}} active{{/if}}" data-action="dictTab" data-tab="{{this.key}}"
@@ -9,6 +11,7 @@
         </a>
         {{/each}}
     </nav>
+    {{/unless}}
     <aside class="tnx-dict__sidebar">
         <div class="tnx-dict__search">
             <i class="fa-solid fa-magnifying-glass"></i>

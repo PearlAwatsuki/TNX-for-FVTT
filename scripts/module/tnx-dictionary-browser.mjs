@@ -56,12 +56,36 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
     _entryCache = {};
     /** 名前解決マップのキャッシュ */
     _maps = null;
+    /** 選択モード(技能起点の購入・16-3 追補): 起動元 {actorId, itemId, usageId}。null=通常起動 */
+    _purchaseOrigin = null;
+
+    constructor(options = {}) {
+        super(options);
+        this._purchaseOrigin = options.purchaseOrigin ?? null;
+        if (this._purchaseOrigin) this._activeTab = "outfit";
+    }
 
     /** シングルトンで開く。 */
     static open() {
         const existing = foundry.applications.instances.get("tnx-dictionary-browser");
         if (existing) return existing.render({ force: true });
         return new TnxDictionaryBrowser().render({ force: true });
+    }
+
+    /**
+     * 選択モードで開く(16-3 追補・2026-08-31 指示): 購入用途をアイテムロールから起動した場合の
+     * 「アウトフィットのみの辞典ブラウザ」(D&D のドロップエリア起動の絞り込みブラウザと同型)。
+     * 購入ボタンで起動元の用途の判定へ直接合流する(方式選択なし)。通常のブラウザとは別 id で
+     * 共存する(シングルトンを汚さない)。
+     */
+    static openOutfitPicker(purchaseOrigin) {
+        const existing = foundry.applications.instances.get("tnx-dictionary-purchase-picker");
+        if (existing) existing.close();
+        return new TnxDictionaryBrowser({
+            id: "tnx-dictionary-purchase-picker",
+            window: { title: "購入判定: アウトフィットの選択", resizable: true },
+            purchaseOrigin,
+        }).render({ force: true });
     }
 
     /** タブの絞り込み状態(未初期化なら生成)。 */
@@ -101,6 +125,7 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
         const filtered = filterEntries(tab.key, entries, state);
 
         context.tabs = BROWSER_TABS.map((t) => ({ ...t, active: t.key === tab.key }));
+        context.pickerMode = !!this._purchaseOrigin;
         context.kind = tab.key;
         context.isOutfit = tab.key === "outfit";
         context.state = { search: state.search, buyMin: state.buyMin ?? "", buyMax: state.buyMax ?? "" };
@@ -285,11 +310,19 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
         doc?.sheet?.render(true);
     }
 
-    /** 購入(16-3): アウトフィットカードの購入ボタン→購入フローへ。ブラウザは開いたまま。 */
+    /** 購入(16-3): アウトフィットカードの購入ボタン→購入フローへ。通常起動はブラウザを開いた
+     *  まま(方式選択あり)。選択モード(技能起点)は起動元の用途の判定へ直接合流し、開始できたら
+     *  選択ブラウザを閉じる(不能・解決失敗の警告時は開いたまま)。 */
     static async _onPurchase(_event, target) {
         const uuid = target.closest("[data-uuid]")?.dataset.uuid;
         if (!uuid) return;
         try {
+            if (this._purchaseOrigin) {
+                const { startPurchaseWithUsage } = await import("./purchase-flow.mjs");
+                const started = await startPurchaseWithUsage(uuid, this._purchaseOrigin);
+                if (started) await this.close();
+                return;
+            }
             const { startPurchaseFromBrowser } = await import("./purchase-flow.mjs");
             await startPurchaseFromBrowser(uuid);
         } catch (err) {

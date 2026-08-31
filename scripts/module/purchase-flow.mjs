@@ -62,7 +62,8 @@ export async function startPurchaseFromBrowser(uuid) {
     return promptPurchaseMethod(actor, doc, uuid, decision.targetValue, mundane);
 }
 
-/** 常時入手(購入値が外界点以下): 確認→複製付与→カード公開。判定は行わない。 */
+/** 常時入手(購入値が外界点以下): 確認→複製付与→カード公開。判定は行わない。
+ *  @returns {Promise<boolean>} 入手したか(キャンセル・付与失敗は false) */
 async function alwaysAcquire(actor, doc, uuid, targetValue, mundane) {
     const esc = foundry.utils.escapeHTML;
     const ok = await DialogV2.confirm({
@@ -70,11 +71,12 @@ async function alwaysAcquire(actor, doc, uuid, targetValue, mundane) {
         classes: ["tokyo-nova", "tnx-dialog"],
         content: `<p>購入値 ${targetValue} は外界（${mundane}）以下のため、いつでも入手できます。入手しますか？</p>`,
     });
-    if (!ok) return;
+    if (!ok) return false;
     const created = await grantPurchasedItem(actor, uuid);
-    if (!created) return;
+    if (!created) return false;
     await postPurchaseCard({ actor, mode: "always", itemName: doc.name, targetValue, mundane });
     ui.notifications.info(`${actor.name} は「${created.name}」を入手した。`);
+    return true;
 }
 
 /** 購入方式の選択(縦積みボタン): 購入用途ごとのカード判定＋カードなし特例＋キャンセル。 */
@@ -139,6 +141,56 @@ async function noCardPurchase(actor, doc, uuid, targetValue, mundane) {
         granted,
     });
     if (granted) ui.notifications.info(`${actor.name} は「${doc.name}」を入手した。`);
+}
+
+/**
+ * 技能起点の購入(16-3 追補・2026-08-31 指示): 購入用途をアイテムロールから起動した場合、
+ * アウトフィットのみの辞典ブラウザ(選択モード)を開く(D&D のドロップエリア起動の絞り込み
+ * ブラウザと同型)。対象の購入ボタンで startPurchaseWithUsage に合流する。
+ */
+export async function startPurchasePicker(actor, item, usage) {
+    const { TnxDictionaryBrowser } = await import("./tnx-dictionary-browser.mjs");
+    TnxDictionaryBrowser.openOutfitPicker({ actorId: actor.id, itemId: item.id, usageId: usage._id });
+}
+
+/**
+ * 起動元の用途が確定している購入(技能起点)。方式選択(用途選択＋カードなし特例)をスキップして
+ * 判定ダイアログへ直接合流する(技能から起動した時点で「カードで判定する」意図が確定している・
+ * 2026-08-31 理解確認済み)。常時入手(購入値≤外界)と不能化(「ー」「解説参照」)の分岐は
+ * 通常経路と同じに生きる。
+ * @param {string} uuid 辞典アイテムの uuid
+ * @param {{actorId: string, itemId: string, usageId: string}} origin 起動元
+ * @returns {Promise<boolean>} 購入手続きを開始したか(選択モードのブラウザを閉じてよいか)
+ */
+export async function startPurchaseWithUsage(uuid, { actorId, itemId, usageId }) {
+    const actor = game.actors.get(actorId);
+    const item = actor?.items.get(itemId);
+    const usage = item?.system.actions?.find((a) => a._id === usageId);
+    if (!actor || !item || !usage) {
+        ui.notifications.warn("購入判定の起動元（技能・用途）を解決できませんでした。");
+        return false;
+    }
+    const doc = await fromUuid(uuid).catch(() => null);
+    if (!doc) {
+        ui.notifications.warn("購入対象の辞典アイテムを解決できませんでした。");
+        return false;
+    }
+    const mundane = actor.system.mundane?.total ?? 0;
+    const decision = decidePurchasePath(doc.system?.buy, mundane);
+    if (decision.path === "unavailable") {
+        ui.notifications.warn(purchaseUnavailableReason(decision.reason));
+        return false;
+    }
+    if (decision.path === "always") {
+        return alwaysAcquire(actor, doc, uuid, decision.targetValue, mundane);
+    }
+    const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
+    await TnxCharacterSheetBase._activateItemCheck(actor, item, {
+        usageId,
+        targetValue: decision.targetValue,
+        purchase: { actorId: actor.id, uuid, itemName: doc.name },
+    });
+    return true;
 }
 
 /**
