@@ -419,7 +419,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             if (system.parentItemId) {
                 const parentItem = this.item.parent.items.get(system.parentItemId);
                 const slots = Array.isArray(parentItem?.system?.slots) ? parentItem.system.slots : [];
-                const realSlots = slots.filter((s) => s?.count?.mode === "value" && Number(s.count.value) > 0);
+                const realSlots = slots.filter((s) => s?.count?.mode === "value" && Number(s.count.total ?? s.count.value) > 0);
                 if (realSlots.length) {
                     for (const slot of realSlots) parentSlotChoices[slot.kind] = SLOT_KINDS[slot.kind] ?? slot.kind;
                 } else if (parentItem) {
@@ -969,7 +969,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 const hostId = event.currentTarget.value;
                 const host = hostId ? this.item.parent?.items?.get(hostId) : null;
                 const hostSlots = Array.isArray(host?.system?.slots) ? host.system.slots : [];
-                const hasRealSlots = hostSlots.some((s) => s?.count?.mode === "value" && Number(s.count.value) > 0);
+                const hasRealSlots = hostSlots.some((s) => s?.count?.mode === "value" && Number(s.count.total ?? s.count.value) > 0);
                 this.item.update({
                     "system.parentItemId":   hostId,
                     "system.parentSlotKind": (hostId && !hasRealSlots) ? OUTFIT_NAME_SLOT_KIND : "",

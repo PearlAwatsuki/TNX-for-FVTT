@@ -420,7 +420,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             name: i.name,
             slots: (Array.isArray(i.system.slots) ? i.system.slots : []).map(s => ({
                 kind:  s?.kind,
-                count: s?.count?.mode === "value" ? (Number(s.count.value) || 0) : 0,
+                // 実効値(改造・AE 込み)を読む(表示は全箇所実効値・16-4是正=改造がインジケータに反映)
+                count: s?.count?.mode === "value" ? (Number(s.count.total ?? s.count.value) || 0) : 0,
             })),
         }));
         const hostOptions = prepared.filter(i => i.system.isOption && i.system.parentItemId).map(i => ({
@@ -1435,6 +1436,17 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                 }
             },
             {
+                name:      "改造を解除",
+                icon:      '<i class="fas fa-wrench"></i>',
+                condition: header => this.isEditable
+                    && (getItemFromHeader(header)?.system.modifications?.length ?? 0) > 0,
+                callback:  async header => {
+                    const item = getItemFromHeader(header);
+                    if (!item) return;
+                    await item.update({ "system.modifications": [] });
+                }
+            },
+            {
                 name:      "コンバイン解除",
                 icon:      '<i class="fas fa-unlink"></i>',
                 condition: header => this.isEditable && !!getItemFromHeader(header)?.system.combineGroupId,
@@ -1534,7 +1546,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             const m = new Map();
             for (const s of (Array.isArray(sys.slots) ? sys.slots : [])) {
                 if (s?.count?.mode !== "value") continue;
-                const cap = Number(s.count.value) || 0;
+                // 実効値(改造・AE 込み)を読む(表示は全箇所実効値・16-4是正)
+                const cap = Number(s.count.total ?? s.count.value) || 0;
                 if (cap > 0) m.set(s.kind, (m.get(s.kind) ?? 0) + cap);
             }
             return m;

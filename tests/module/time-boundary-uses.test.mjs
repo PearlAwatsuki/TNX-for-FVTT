@@ -118,3 +118,20 @@ describe("故障・破壊のアクト終了解除（15-5）", () => {
         expect(planItemBoundaryUpdates([broken("a", false, false)], TNX_BOUNDARIES.actEnd)).toEqual([]);
     });
 });
+
+describe("改造のアクト終了リセット（16-4 是正・KI-045）", () => {
+    const modded = (id, rows) => ({ id, type: "weapon", system: { modifications: rows } });
+
+    it("アクト終了で改造行が全て除去される（改造はアクト終了で元に戻る）", () => {
+        expect(planItemBoundaryUpdates(
+            [modded("a", [{ param: "attack", value: 2, note: "" }, { param: "hide", value: 2, note: "" }])],
+            TNX_BOUNDARIES.actEnd,
+        )).toEqual([{ _id: "a", "system.modifications": [] }]);
+    });
+
+    it("アクト終了より手前の境界では除去しない・改造なしは更新に含めない", () => {
+        expect(planItemBoundaryUpdates(
+            [modded("a", [{ param: "attack", value: 2, note: "" }])], TNX_BOUNDARIES.exit)).toEqual([]);
+        expect(planItemBoundaryUpdates([modded("a", [])], TNX_BOUNDARIES.actEnd)).toEqual([]);
+    });
+});

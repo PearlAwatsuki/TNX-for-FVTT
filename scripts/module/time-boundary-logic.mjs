@@ -172,6 +172,11 @@ export function planItemBoundaryUpdates(items, boundary) {
         if (boundary === TNX_BOUNDARIES.actEnd) {
             if (item?.system?.isMalfunction === true) patch["system.isMalfunction"] = false;
             if (item?.system?.isDestroyed === true) patch["system.isDestroyed"] = false;
+            // 改造(16-4)はアクト終了で元に戻る(2026-08-31 ユーザー報告=KI-045。ドラッグの
+            // マイナーアクション化も改造行の一部として同時に解除される)
+            if (Array.isArray(item?.system?.modifications) && item.system.modifications.length) {
+                patch["system.modifications"] = [];
+            }
         }
         if (Object.keys(patch).length) updates.push({ _id: item.id, ...patch });
     }
