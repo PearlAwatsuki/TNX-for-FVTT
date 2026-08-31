@@ -55,6 +55,9 @@ export class TnxSocketHandler {
             case "repairApply":
                 TnxSocketHandler._onRepairApply(data);
                 break;
+            case "modificationApply":
+                TnxSocketHandler._onModificationApply(data);
+                break;
             case "messagePatch":
                 TnxSocketHandler._onMessagePatch(data);
                 break;
@@ -211,6 +214,23 @@ export class TnxSocketHandler {
     static emitRepairApply(payload) {
         game.socket.emit("system.tokyo-nova-axleration", {
             type: "repairApply",
+            ...payload,
+        });
+    }
+
+    // ─── modificationApply（16-4・改造） ───────────────────────────────────────
+
+    /** 改造成功による改造行の適用を GM クライアントが代行する(複数 GM 接続時は activeGM のみ)。 */
+    static async _onModificationApply(data) {
+        if (game.users.activeGM?.id !== game.user.id) return;
+        const { applyModificationDelegated } = await import("./modification-flow.mjs");
+        await applyModificationDelegated(data);
+    }
+
+    /** 改造行の適用を GM へ委譲する（対象の所有権がない改造者クライアントから呼ぶ）。 */
+    static emitModificationApply(payload) {
+        game.socket.emit("system.tokyo-nova-axleration", {
+            type: "modificationApply",
             ...payload,
         });
     }

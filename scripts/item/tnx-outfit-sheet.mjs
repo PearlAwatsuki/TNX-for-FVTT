@@ -13,6 +13,7 @@ import { resolveItemNameByKey } from "../module/identification.mjs";
 import { loadSkillChoices, loadOnomasticChoices, STYLE_PACK, ORGANIZATION_PACK } from "../module/skill-dictionary.mjs";
 import { loadOutfitHostChoices, loadOutfitDictNames } from "../module/outfit-dictionary.mjs";
 import { buildOutfitSummaryRows, formatWeaponRangeLabel } from "../module/outfit-view.mjs";
+import { MODIFICATION_PARAMS } from "../data/item/modification-params.mjs";
 
 /** 住宅エリア compendium の pack ID */
 const HOUSING_AREA_PACK = "tokyo-nova-axleration.housing-areas";
@@ -151,6 +152,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         classes: ["tokyo-nova", "sheet", "item", "outfit"],
         position: { width: 600, height: 650 },
         actions: {
+            deleteModification: TokyoNovaOutfitSheet._onDeleteModification,
             incrementSlot:     TokyoNovaOutfitSheet._onIncrementSlot,
             decrementSlot:     TokyoNovaOutfitSheet._onDecrementSlot,
             incrementPart:     TokyoNovaOutfitSheet._onIncrementPart,
@@ -646,6 +648,17 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         view.summary = buildOutfitSummaryRows(system, type, {
             areaMods, resolveHostName, partSlotsCtx,
             partAdded: this.item.system.partAdded ?? [],
+        });
+
+        // 改造記録(16-4): 説明タブの「改造」セクション(実効値は上の略号行に合流済み)。
+        // note=適用時の出所スナップショット(履歴・ライブ解決しない)
+        view.modifications = (system.modifications ?? []).map((r, index) => {
+            const label = MODIFICATION_PARAMS[r?.param]?.label ?? r?.param ?? "";
+            const v = Number(r?.value) || 0;
+            const text = r?.param === "drugTiming"
+                ? label
+                : `${label}${v >= 0 ? `＋${v}` : `−${Math.abs(v)}`}`;
+            return { index, text, note: r?.note ?? "" };
         });
 
         const fmtCategory = (major, minor) => {
@@ -1271,6 +1284,14 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         if (!flag) return;
         const current = foundry.utils.getProperty(this.item.system, flag) === true;
         await this.item.update({ [`system.${flag}`]: !current });
+    }
+
+    /** 改造行の削除(16-4): 説明タブの「改造」セクションのゴミ箱から。 */
+    static async _onDeleteModification(_event, target) {
+        const index = Number(target.dataset.index);
+        const rows = Array.isArray(this.item.system.modifications) ? this.item.system.modifications : [];
+        if (!Number.isInteger(index) || index < 0 || index >= rows.length) return;
+        await this.item.update({ "system.modifications": rows.filter((_, i) => i !== index) });
     }
 
     // ─── スロットプール操作 ─────────────────────────────────────────────────

@@ -63,11 +63,18 @@ describe("purchaseCardInfo()（結果カードの購入ブロック）", () => {
         expect(purchaseCardInfo(undefined, { success: true })).toBeNull();
     });
 
-    it("成功で granted・アイテム名を運ぶ", () => {
+    it("成功で granted・アイテム名を運ぶ(素の購入は modText なし)", () => {
         expect(purchaseCardInfo({ itemName: "ポケットロン" }, { success: true }))
-            .toEqual({ itemName: "ポケットロン", granted: true });
+            .toEqual({ itemName: "ポケットロン", granted: true, modText: null });
         expect(purchaseCardInfo({ itemName: "ポケットロン" }, { success: false }))
-            .toEqual({ itemName: "ポケットロン", granted: false });
+            .toEqual({ itemName: "ポケットロン", granted: false, modText: null });
+    });
+
+    it("「改造して入手」(16-4)は改造内容を modText で運ぶ", () => {
+        expect(purchaseCardInfo({ itemName: "刀", modSpec: { param: "hide", value: 2 } }, { success: true }))
+            .toEqual({ itemName: "刀", granted: true, modText: "隠匿値＋2" });
+        expect(purchaseCardInfo({ itemName: "住処", modSpec: { param: "appearance", value: -1 } }, { success: true }).modText)
+            .toBe("登場判定目標値−1");
     });
 });
 

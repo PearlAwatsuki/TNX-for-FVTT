@@ -687,6 +687,21 @@
             </fieldset>
             {{/if}}
 
+            {{!-- 改造して入手(16-4): 購入タイプの任意属性。「購入判定を行い、改造された
+                 アウトフィットを入手する」変則効果の受け皿(2026-08-31 設計確定) --}}
+            {{#if (eq usage.type "purchase")}}
+            <fieldset class="tnx-fieldset">
+                <legend>購入</legend>
+                <div class="usage-form-row usage-toggle-row">
+                    <label class="usage-toggle-inline">
+                        <input type="checkbox" name="acquireModified" {{checked usage.acquireModified}}
+                               {{#unless editable}}disabled{{/unless}}>
+                        <span>改造して入手する</span>
+                    </label>
+                </div>
+            </fieldset>
+            {{/if}}
+
             {{!-- 治療(2026-07-13→2026-07-17 タイプ化): BS/戦闘不能/負傷を除去する設定。
                  実行形式(判定/宣言)は用途の設定で固定(1つのタイプで両形式をカバー・2026-07-17 裁定)。
                  範囲=大分類→小分類の行(OR)・除外=タグ(タグ自身+そのタグを与える負傷を除く) --}}

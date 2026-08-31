@@ -879,6 +879,12 @@ export class TnxCheckFlow {
             await resolveRepairFromCheck(ctx.repair, result);
         }
 
+        // 改造判定の完了継続(16-4): 成功で選択項目(判定前選択)の改造行を対象へ適用する
+        if (!ctx.recheckMessageId && ctx.modification) {
+            const { resolveModificationFromCheck } = await import("./modification-flow.mjs");
+            await resolveModificationFromCheck(ctx.modification, result);
+        }
+
         // 登場判定の完了継続(14-5): 成功で登場状態を付与する(ゴースト選択時は isGhost も)
         if (!ctx.recheckMessageId && ctx.appearance) {
             const { resolveAppearanceFromCheck } = await import("./appearance-check.mjs");
@@ -1116,6 +1122,14 @@ export class TnxCheckFlow {
             async rerun(cc, result) {
                 const { resolveRepairFromCheck } = await import("./repair-flow.mjs");
                 await resolveRepairFromCheck(cc, result);
+            },
+        },
+        modification: {
+            // 失敗→成功の遷移でのみ適用(適用側に1項目1回の二重ガードあり)
+            rerunOnSuccessOnly: true,
+            async rerun(cc, result) {
+                const { resolveModificationFromCheck } = await import("./modification-flow.mjs");
+                await resolveModificationFromCheck(cc, result);
             },
         },
         controlNegate: {

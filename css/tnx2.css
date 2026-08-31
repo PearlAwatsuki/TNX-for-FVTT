@@ -2090,6 +2090,21 @@
     grid-column: 1 / -1;
 }
 
+/* 改造セクション(16-4・説明タブ): 行=内容+出所+削除。出所は履歴表示(淡色) */
+.outfit-modifications .outfit-modification-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 2px 0;
+}
+
+.outfit-modifications .outfit-modification-note {
+    color: var(--tnx2-text-secondary);
+    font-size: 0.85em;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
 /* アウトフィット概要(説明タブ): 辞典カードと同じルルブ配置(6分割=1/2・1/3・全幅) */
 .style-skill-display-grid--outfit {
     grid-template-columns: repeat(6, minmax(0, 1fr));

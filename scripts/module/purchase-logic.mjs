@@ -8,6 +8,8 @@
  *   購入判定という手続き自体が存在しない(判定ブロックとは別の整理・2026-08-31 設計確定)。
  */
 
+import { MODIFICATION_PARAMS } from "../data/item/modification-params.mjs";
+
 /**
  * 購入経路の決定。
  * @param {{mode?: string, value?: number, total?: number}} buy 対象の購入値フィールド
@@ -35,13 +37,22 @@ export function computeNoCardPurchase({ mundaneTotal, bountySpent, targetValue }
 /**
  * 結果カードの購入判定ブロック(check-result.hbs の purchase)。登場判定の
  * appearanceCardInfo と同型: 継続文脈が無ければ null=ブロック非表示。
- * @param {?{itemName?: string}} cc ctx.purchase(継続文脈)
+ * modText=「改造して入手」(16-4)の改造内容表示(項目＋値・null=素の購入)。
+ * @param {?{itemName?: string, modSpec?: {param: string, value: number}}} cc ctx.purchase(継続文脈)
  * @param {?{success?: boolean}} result 判定結果
- * @returns {?{itemName: string, granted: boolean}}
+ * @returns {?{itemName: string, granted: boolean, modText: ?string}}
  */
 export function purchaseCardInfo(cc, result) {
     if (!cc) return null;
-    return { itemName: cc.itemName ?? "", granted: result?.success === true };
+    let modText = null;
+    if (cc.modSpec?.param) {
+        const label = MODIFICATION_PARAMS[cc.modSpec.param]?.label ?? cc.modSpec.param;
+        const v = Number(cc.modSpec.value) || 0;
+        modText = cc.modSpec.param === "drugTiming"
+            ? label
+            : `${label}${v >= 0 ? `＋${v}` : `−${Math.abs(v)}`}`;
+    }
+    return { itemName: cc.itemName ?? "", granted: result?.success === true, modText };
 }
 
 /** 購入不可の理由文言(ブラウザのボタン不能化と実行ガードで共用)。 */

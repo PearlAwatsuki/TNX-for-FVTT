@@ -18,6 +18,7 @@ import { SLOT_KINDS } from '../data/item/common/extensible.mjs';
 import { getPartSlotPreset, PartSlotPresetApp } from '../module/part-slot-preset-app.mjs';
 import { OUTFIT_ITEM_TYPES, findDepartmentSkillName } from '../data/helpers.mjs';
 import { readFlag, isOutfitUnusable, isOutfitDestroyed, isOutfitMalfunctioning } from '../data/item/helpers.mjs';
+import { effectiveUsageTiming } from '../data/item/modification-params.mjs';
 import { usesMaxTotalOf, usesMaxBaseOf } from '../data/item/uses.mjs';
 import { TnxCheckFlow } from '../module/tnx-check-flow.mjs';
 import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } from '../module/usage-consumption.mjs';
@@ -913,7 +914,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             if (!isSkill && !(OUTFIT_ITEM_TYPES.has(i.type) && usable(i))) continue;
             for (const usage of (i.system.actions ?? [])) {
                 if (usage.hideInCombatTab === true) continue;
-                classify(usage.timing, i, usage);
+                // ドラッグ改造(マイナーアクション化・16-4)は実効タイミングで分類する
+                classify(effectiveUsageTiming(usage, i.system), i, usage);
             }
         }
         // 各タイミング内は他タブでの手動並び順(item.sort)を尊重する
@@ -2638,6 +2640,19 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             } catch (err) {
                 console.error("TNX | 修理の実行に失敗しました", err);
                 ui.notifications.error(`修理の実行に失敗しました: ${err.message}`);
+            }
+            return;
+        }
+
+        // 改造(16-4): 専用フローへ(対象解決→対象アウトフィット選択→項目選択(判定前)→判定。
+        // 完了継続 ctx.modification が成功で改造行を適用)
+        if (selectedUsage.type === "modification" && !openExtra.modification) {
+            try {
+                const { useModification } = await import("../module/modification-flow.mjs");
+                await useModification(item, selectedUsage);
+            } catch (err) {
+                console.error("TNX | 改造の実行に失敗しました", err);
+                ui.notifications.error(`改造の実行に失敗しました: ${err.message}`);
             }
             return;
         }

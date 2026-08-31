@@ -1418,6 +1418,11 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             recoveryUiChanged ||= update.npcAcquire !== prevNA;
         }
 
+        // 改造して入手(16-4): 購入タイプの任意属性
+        if (usage.type === "purchase") {
+            update.acquireModified = raw["acquireModified"] ?? (usage.acquireModified === true);
+        }
+
         // ベース技能（アクション技能は常に自身に固定）: 判定を行う用途すべて(2026-07-17 再編)
         if (executionFormOf(usage) === "check") {
             update["baseSkillRef.itemId"] = this._item.system.isAction === true

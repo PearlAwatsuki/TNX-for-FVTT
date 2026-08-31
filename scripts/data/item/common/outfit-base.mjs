@@ -40,8 +40,9 @@
  */
 
 import { SystemDataModel } from "../../abstract.mjs";
-import { getMajorCategoryChoices, getMinorCategoryChoices, LEGACY_CATEGORY_MAP, hasClassification } from "../outfit-categories.mjs";
+import { getMajorCategoryChoices, getMinorCategoryChoices, LEGACY_CATEGORY_MAP, hasClassification, outfitClassifications } from "../outfit-categories.mjs";
 import { modeValueField, migrateUsesValueToSpent, computeItemEffectiveValues } from "../helpers.mjs";
+import { applyModificationsToTotals } from "../modification-params.mjs";
 import { migrateUsesMaxToString, computeUsesMaxTotal } from "../uses.mjs";
 
 /**
@@ -109,6 +110,15 @@ export class OutfitBaseTemplate extends SystemDataModel {
       isOption:          new fields.BooleanField({ initial: false }),
       "isPre-play":      new fields.BooleanField({ initial: false }),
       isCheckAcquired:   new fields.BooleanField({ initial: false }),
+      // 改造記録(16-4・専用修正フィールド=2026-08-30 裁定)。素値は保ち、行ごとに
+      // 「どの項目(param)へ+いくら(value)」を記録して実効値(total 系)へ合流する。
+      // 1項目につき最大1行(2026-08-31 verbatim=技能を問わず改造済み項目は再改造不可)。
+      // note=出所の表示用スナップショット(改造技能名等・履歴なのでライブ解決しない)
+      modifications:     new fields.ArrayField(new fields.SchemaField({
+        param: new fields.StringField({ required: true, blank: false }),
+        value: new fields.NumberField({ required: true, initial: 0 }),
+        note:  new fields.StringField({ initial: "" }),
+      }), { initial: [] }),
       // ※旧 isCyber フラグは廃止(フェーズ16-1・2026-08-30 裁定「isCyberは副分類に完全に統合」)。
       //   旧データは migrateData で副分類サイバーウェアへ移行する。
       isCarrying:        new fields.BooleanField({ initial: true }),
@@ -275,6 +285,9 @@ export class OutfitBaseTemplate extends SystemDataModel {
   prepareDerivedData() {
     super.prepareDerivedData?.();
     computeItemEffectiveValues(this);
+    // 改造記録の実効値合流(16-4): base→total 化の直後・アクター段 AE の前。
+    // AE は改造込みの total の上に重なる(素値+改造が土台・ヴィークル制の上限0はここでクランプ)
+    applyModificationsToTotals(this, outfitClassifications(this));
     // 使用回数の最大値(数値または式)の実効値。アクター上ではこの後アクター段で再評価される
     computeUsesMaxTotal(this);
     // AE による部位行の追加(フェーズ12・system.part.<部位キー> 値=and/or)。アクターの適用パス

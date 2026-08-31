@@ -22,8 +22,9 @@ import { buildFormulaData, evaluateFormula } from "./tnx-formula.mjs";
  * @param {object} usage 用途エントリ
  * @param {Actor|null} actor 実行アクター
  * @param {Item|null} bearerItem 用途の親アイテム(@item.self)
- * @param {{condition?: {magnitude:number, woundValue:number}}} [extra] 追加の式コンテキスト
- *   (治療用途。woundValue=治療対象のダメージのチャート値)
+ * @param {{condition?: {magnitude:number, woundValue:number}, outfit?: {buy:number}}} [extra]
+ *   追加の式コンテキスト(治療用途=condition.*・改造用途=outfit.*(16-4)。
+ *   outfit.buy=対象アウトフィットの購入値実効=「目標値に購入値が指定されている」技能の受け皿)
  * @returns {Promise<number|null>} 目標値。null=目標値なし(成否は他メカニクス/卓裁定)
  */
 export async function resolveUsageTargetValue(usage, actor, bearerItem, extra = {}) {
@@ -36,6 +37,7 @@ export async function resolveUsageTargetValue(usage, actor, bearerItem, extra = 
             if (!formula) return null;
             const data = buildFormulaData(actor, null, bearerItem);
             if (extra.condition) data.condition = extra.condition;
+            if (extra.outfit) data.outfit = extra.outfit;
             return await evaluateFormula(formula, data);
         }
         default:

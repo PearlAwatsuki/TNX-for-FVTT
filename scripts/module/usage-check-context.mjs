@@ -17,6 +17,7 @@ import { applyInterruptGrantForUsage } from "./interrupt-grant.mjs";
 import { resolveUsageTargetValue } from "./usage-target-value.mjs";
 import { executionFormOf, effectiveBaseSkillId, usageDisplayName } from "./usage-types.mjs";
 import { formatSkillName } from "./identification.mjs";
+import { effectiveUsageTiming } from "../data/item/modification-params.mjs";
 
 /**
  * 技能ベース用途(check)の参加技能を解決する。ベース技能(用途の baseSkillRef 優先・未設定は親アイテム)＋
@@ -233,7 +234,9 @@ export async function buildUsageCheckContext(actor, item, usage, {
         checkBonuses:    usage.checkBonuses ?? [],
         checkBonusSelf:  usage.checkBonusSelf ?? "",
         sourceItemId:    item.id,   // 用途の親アイテム(@item.self の解決に使う)
-        usageTiming:     usage.timing ?? null, // メジャーアクション記帳の判定に使う(2026-07-26 一般則)
+        // メジャーアクション記帳の判定に使う(2026-07-26 一般則)。ドラッグ改造の
+        // マイナーアクション化(16-4)は実効タイミングとしてここで解決される
+        usageTiming:     effectiveUsageTiming(usage, item.system),
         usageEffects,               // 付与効果ペイロード(null=効果なし)
         allowRecheck:    usage.allowRecheck === true, // 再判定可能(用途の設定・2026-07-11)
         allowSuitChange: usage.allowSuitChange === true, // スート変更可能(用途の設定・2026-07-12)

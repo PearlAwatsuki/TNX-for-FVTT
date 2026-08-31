@@ -361,6 +361,12 @@ export class UsageTemplate extends SystemDataModel {
                     // npcAcquire: NPC取得を行う(2026-07-13 タイプ→フラグへ移管)。check/declaration の
                     // どちらにも設定できる(設定 UI は効果タブ・トループ取得技能とアウトフィットのみ)。
                     npcAcquire: new fields.BooleanField({ initial: false }),
+
+                    // ─── 改造して入手(16-4・購入タイプの任意属性) ───
+                    // 「購入判定を行い、改造されたアウトフィットを入手する」変則効果の受け皿
+                    // (2026-08-31 設計確定=効果の自動導出はせずデータ入力時に立てる)。
+                    // オンの購入は判定前に改造項目を選択し、付与する複製の改造記録へ書き込む
+                    acquireModified: new fields.BooleanField({ initial: false }),
                     // acquireMode: 取得類型(extra/troop/enigma/bunshin)。参照先の種類からの導出は
                     // しない(2026-07-04 ユーザー裁定=モードは明示選択)。
                     // acquireItemRefs: エキストラモードで派生取得する小分類「エキストラ」の

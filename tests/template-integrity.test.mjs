@@ -42,7 +42,7 @@ function kebabToCamel(str) {
  * - .mjs ファイルのみを対象とし、ファイル名を camelCase type 名に変換する
  * @returns {string[]}
  */
-const NON_DATAMODEL_FILES = ["helpers.mjs", "outfit-categories.mjs", "part-helpers.mjs", "uses.mjs"];
+const NON_DATAMODEL_FILES = ["helpers.mjs", "outfit-categories.mjs", "part-helpers.mjs", "uses.mjs", "modification-params.mjs"];
 
 function getDataModeledItemTypes() {
   const itemDir = join(projectRoot, "scripts", "data", "item");

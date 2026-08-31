@@ -27,6 +27,7 @@ import { usageDisplayName } from "./usage-types.mjs";
 import { DISABLED_TRIGGER_CLASS } from "./ui-trigger-disable.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { getSessionState } from "./session-state.mjs";
+import { promptModificationParamSelection } from "./modification-flow.mjs";
 
 const { DialogV2 } = foundry.applications.api;
 
@@ -110,6 +111,22 @@ async function alwaysAcquire(actor, doc, uuid, targetValue, mundane) {
     return true;
 }
 
+/**
+ * 「改造して入手」(16-4・購入用途の任意属性): 判定前に改造項目を選択して modSpec を作る。
+ * 属性オフは {modSpec: null}(素の購入)。null=中止(選択キャンセル・レベル0)。
+ */
+async function resolveAcquireModSpec(usage, usageItem, doc) {
+    if (usage?.acquireModified !== true) return { modSpec: null };
+    const level = Number(usageItem.system.levelTotal ?? usageItem.system.level) || 0;
+    if (level <= 0) {
+        ui.notifications.warn(`「${usageItem.name}」のレベルが 0 のため、改造して入手（＋［レベル］）の効果がありません。`);
+        return null;
+    }
+    const pick = await promptModificationParamSelection(doc, level);
+    if (!pick) return null;
+    return { modSpec: { param: pick.param, value: pick.value, note: usage.name || usageItem.name } };
+}
+
 /** 購入方式の選択(縦積みボタン): 購入用途ごとのカード判定＋カードなし特例＋キャンセル。 */
 async function promptPurchaseMethod(actor, doc, uuid, targetValue, mundane) {
     const esc = foundry.utils.escapeHTML;
@@ -147,11 +164,17 @@ async function promptPurchaseMethod(actor, doc, uuid, targetValue, mundane) {
 
     const picked = candidates[choice.index];
     if (!picked) return;
+    // 「改造して入手」属性の購入は判定前に改造項目を選ぶ(16-4)
+    const spec = await resolveAcquireModSpec(picked.usage, picked.item, doc);
+    if (!spec) return;
     const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
     await TnxCharacterSheetBase._activateItemCheck(actor, picked.item, {
         usageId: picked.usage._id,
         targetValue,
-        purchase: { actorId: actor.id, uuid, itemName: doc.name },
+        purchase: {
+            actorId: actor.id, uuid, itemName: doc.name,
+            ...(spec.modSpec ? { modSpec: spec.modSpec } : {}),
+        },
     });
 }
 
@@ -215,11 +238,17 @@ export async function startPurchaseWithUsage(uuid, { actorId, itemId, usageId })
     if (decision.path === "always") {
         return alwaysAcquire(actor, doc, uuid, decision.targetValue, mundane);
     }
+    // 「改造して入手」属性の購入は判定前に改造項目を選ぶ(16-4)
+    const spec = await resolveAcquireModSpec(usage, item, doc);
+    if (!spec) return false;
     const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
     await TnxCharacterSheetBase._activateItemCheck(actor, item, {
         usageId,
         targetValue: decision.targetValue,
-        purchase: { actorId: actor.id, uuid, itemName: doc.name },
+        purchase: {
+            actorId: actor.id, uuid, itemName: doc.name,
+            ...(spec.modSpec ? { modSpec: spec.modSpec } : {}),
+        },
     });
     return true;
 }
@@ -258,7 +287,11 @@ export async function grantPurchasedItem(actor, uuid, modSpec = null, { preAct =
     data.sort = 0;
     if (preAct) data.system["isPre-play"] = true;
     else data.system.isCheckAcquired = true;
-    void modSpec; // 16-4: 改造専用修正フィールドへの書き込みがここに入る
+    // 「改造して入手」(16-4): 判定前に選択した改造項目を複製の改造記録へ書き込む
+    if (modSpec?.param) {
+        const rows = Array.isArray(data.system.modifications) ? data.system.modifications : [];
+        data.system.modifications = [...rows, { param: modSpec.param, value: modSpec.value ?? 0, note: modSpec.note ?? "" }];
+    }
     const [created] = await actor.createEmbeddedDocuments("Item", [data]);
     return created ?? null;
 }
