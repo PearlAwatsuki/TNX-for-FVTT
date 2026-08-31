@@ -26,8 +26,7 @@ import { getPartSlotPreset } from "./part-slot-preset-app.mjs";
 import { resolveItemNameByKey } from "./identification.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
 import { applyTriggerDisable } from "./ui-trigger-disable.mjs";
-import { purchaseUnavailableReason, decidePreActPurchase, preActUnavailableReason } from "./purchase-logic.mjs";
-import { getSessionState } from "./session-state.mjs";
+import { purchaseUnavailableReason } from "./purchase-logic.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -164,10 +163,8 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
                         label: minor.minorLabel,
                         cards: await Promise.all(minor.entries.map(async (e) => ({
                             uuid: e.uuid, docName: e.docName, tall: isTall(e), card: await card(e),
-                            // 購入ボタンの不能化判定用(16-3)。「ー」「解説参照」は購入手続き自体が無い。
-                            // preserveMode はプレアクト購入(アクト未開始)の可否判定に使う
+                            // 購入ボタンの不能化判定用(16-3)。「ー」「解説参照」は購入手続き自体が無い
                             buyMode: e.system?.buy?.mode ?? "none",
-                            preserveMode: e.system?.preserveExp?.mode ?? "none",
                         }))),
                     }))),
                 })));
@@ -270,19 +267,13 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
             });
         }
 
-        // 購入ボタンの不能化(16-3): 共通のグレーアウト機構でレンダー後に一括適用。
-        // 通常/選択モード=購入値基準(「ー」「解説参照」は購入手続き自体が存在しない)。
-        // アクト未開始の通常起動=プレアクト購入基準(購入値に加え常備化経験点「ー」も不可・
-        // 技能起点の選択モードは常に通常の購入判定のため切り替えない)
-        const preActMode = !this._purchaseOrigin && !getSessionState().actStarted;
+        // 購入ボタンの不能化(16-3): 購入値基準(「ー」「解説参照」は購入手続き自体が存在しない)。
+        // 共通のグレーアウト機構でレンダー後に一括適用。プレアクト購入の条件(購入値≤外界)は
+        // アクター依存(クリック時に選択トークン/担当キャラで解決)のため、フロー側で判定して警告する
         applyTriggerDisable(this.element, '[data-action="dictPurchase"]', (el) => {
-            const buy = { mode: el.dataset.buyMode };
-            if (preActMode) {
-                const d = decidePreActPurchase(buy, { mode: el.dataset.preserveMode });
-                return d.ok ? null : { reason: preActUnavailableReason(d.reason) };
-            }
-            if (buy.mode === "value") return null;
-            return { reason: purchaseUnavailableReason(buy.mode === "reference" ? "reference" : "none") };
+            const mode = el.dataset.buyMode;
+            if (mode === "value") return null;
+            return { reason: purchaseUnavailableReason(mode === "reference" ? "reference" : "none") };
         });
 
         // 固定高さカード: 入りきらない解説は文字サイズを縮小して収める(ルルブ同様・

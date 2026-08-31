@@ -71,19 +71,22 @@ export async function startPurchaseFromBrowser(uuid) {
 }
 
 /**
- * プレアクト購入(2026-08-31 指示): 判定・報酬点・外界は関与しない即時取得。付与する複製に
+ * プレアクト購入(2026-08-31 指示・条件は同日ユーザー verbatim): 成立条件＝**購入値 ≤
+ * そのキャストの外界(実効値)**(正本 Purchase_and_Modification.md。常備化経験点は購入の
+ * 条件に関係しない=常備化は購入でない別経路)。判定・報酬点は使わない取得で、付与する複製に
  * isPre-play を立てる=常備化経験点を支払わずプレアクトで購入して所持している状態
- * (正本 Outfits.md・経験点計上は _calcSingleItemCost が isPre-play で免除)。
+ * (経験点計上は _calcSingleItemCost が isPre-play で免除)。
  * プレアクトは卓の進行外のためチャットカードは出さない(通知＋シートの消費経験点に反映なし)。
  */
 async function preActPurchase(actor, doc, uuid) {
-    const decision = decidePreActPurchase(doc.system?.buy, doc.system?.preserveExp);
+    const mundane = actor.system.mundane?.total ?? 0;
+    const decision = decidePreActPurchase(doc.system?.buy, mundane);
     if (!decision.ok) return void ui.notifications.warn(preActUnavailableReason(decision.reason));
     const esc = foundry.utils.escapeHTML;
     const ok = await DialogV2.confirm({
         window: { title: `プレアクト購入: ${esc(doc.name)}` },
         classes: ["tokyo-nova", "tnx-dialog"],
-        content: `<p>「${esc(doc.name)}」（購入値 ${decision.targetValue}）をプレアクト購入で入手します。よろしいですか？</p>`,
+        content: `<p>購入値 ${decision.targetValue} は外界（${mundane}）以下のため、プレアクト購入できます。「${esc(doc.name)}」を入手しますか？</p>`,
     });
     if (!ok) return;
     const created = await grantPurchasedItem(actor, uuid, null, { preAct: true });
