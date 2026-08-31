@@ -7037,8 +7037,34 @@ button.tnx-create-act-button span {
     opacity: 1;
 }
 /* 名前/ゲージ/タグの縦位置を中央で揃える(ガタつき防止) */
-.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--name > .squeeze-text {
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--name > .squeeze-text,
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-name-line > .squeeze-text {
     vertical-align: middle;
+}
+
+/* ゲージ持ちの行は名前とゲージの二段(2026-08-31 ユーザー提案=見切れの構造的解消)。
+   ゲージ行は折り返し可=容量がどれだけ増えても列内に収まる(見切れ禁止の一般則) */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--name-tiered {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-name-line {
+    min-width: 0;
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-gauge-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 3px 16px;
+    white-space: normal;
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-gauge-line .outfit-slot-gauge {
+    margin-left: 0; /* ゲージ間隔は行コンテナの gap が担う */
 }
 /* 住宅エリアバッジ(ピル)。色は種別ごと --c */
 .tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-area-badge {
