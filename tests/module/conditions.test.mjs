@@ -303,7 +303,7 @@ describe("computeJammingPenalty()（電子妨害）", () => {
   });
 
   it("ウェットなら該当1個以上で1、0個なら0", () => {
-    const wet = pf("service", "background", null, "wet");
+    const wet = pf("service", "background", null, "background_wet"); // 実値確定 2026-09-01
     expect(computeJammingPenalty(3, [wet, pf("weapon", "melee", 2)])).toBe(1);
     expect(computeJammingPenalty(3, [wet, pf("weapon", "melee", 9)])).toBe(0); // 電制9>3
   });

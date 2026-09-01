@@ -553,7 +553,10 @@ export function gatherConditionControlPenalty(conditions) {
 const JAMMING_MAJOR = ["weapon", "cyberware", "tron"];
 const JAMMING_MINOR = ["armorGear", "psychoApp"];
 /** ウェットのアウトフィット識別キー(辞典の実値に合わせる。フェーズ16=辞典で確定)。 */
-export const WET_IDENT_KEY = "wet";
+// ウェット(サイバーウェア非所持を表すバックグラウンド系アウトフィット)の識別キー。
+// 実値確定=2026-09-01 ユーザー裁定「background_wetの方が被りづらくて堅牢」(仮値 wet から確定。
+// 辞典側のウェットのアイテムはこの識別キーで入力する=検出条件)
+export const WET_IDENT_KEY = "background_wet";
 
 /**
  * 電子妨害(強度 n)による全(上方)判定へのマイナス量を算出する(正の値)。Conditions §3③。
