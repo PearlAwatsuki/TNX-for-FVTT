@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
-const { aggregateDefence, defenceForType, computeDamage } =
+const { aggregateDefence, defenceForType, computeDamage, splitSharedBonusRows } =
   await import("../../scripts/module/damage-logic.mjs");
 
 const armor = (S, P, I, { prepared = true, mode = "value" } = {}) => ({
@@ -100,5 +100,59 @@ describe("computeDamage()（攻撃側合計→恒久軽減→10上限→事後�
   it("スタン/説得でなければ各段は単純な線形加減算", () => {
     expect(computeDamage({ damageCard: 8, postModifier: 2, applyMitigation: 3 }))
       .toEqual({ raw: 8, calc: 8, attack: 10, final: 7, stage: 7, capped: false });
+  });
+});
+
+describe("splitSharedBonusRows()（対象ごと評価の行を共有/個別へ分ける・2026-09-01）", () => {
+  const row = (name, value, note) => ({ name, value, ...(note ? { note } : {}) });
+
+  it("対象が1体なら全行が共有（従来と同じ見た目）", () => {
+    const rows = [row("技能A", 5), row("技能B", 3)];
+    const { shared, extras } = splitSharedBonusRows([rows]);
+    expect(shared).toEqual(rows);
+    expect(extras).toEqual([[]]);
+  });
+
+  it("全対象で同じ行は共有・違う行だけ対象ごとに残る", () => {
+    const { shared, extras } = splitSharedBonusRows([
+      [row("技能A", 5), row("技能B", 0, "ウェット無効")],
+      [row("技能A", 5), row("技能B", 3)],
+    ]);
+    expect(shared).toEqual([row("技能A", 5)]);
+    expect(extras).toEqual([[row("技能B", 0, "ウェット無効")], [row("技能B", 3)]]);
+  });
+
+  it("値が同じでも注記が違えば別の行として扱う", () => {
+    const { shared, extras } = splitSharedBonusRows([
+      [row("技能A", 0, "ウェット無効")],
+      [row("技能A", 0, "カブキのみ・対象外")],
+    ]);
+    expect(shared).toEqual([]);
+    expect(extras[0]).toEqual([row("技能A", 0, "ウェット無効")]);
+    expect(extras[1]).toEqual([row("技能A", 0, "カブキのみ・対象外")]);
+  });
+
+  it("対象ごとに個数が違う行（対象条件つき AE）は共通個数だけ共有へ", () => {
+    const { shared, extras } = splitSharedBonusRows([
+      [row("与ダメ", 2), row("対アヤカシ", 4)],
+      [row("与ダメ", 2)],
+    ]);
+    expect(shared).toEqual([row("与ダメ", 2)]);
+    expect(extras).toEqual([[row("対アヤカシ", 4)], []]);
+  });
+
+  it("同名同値の行が複数あっても個数で対応づける", () => {
+    const { shared, extras } = splitSharedBonusRows([
+      [row("用途", 1), row("用途", 1)],
+      [row("用途", 1)],
+    ]);
+    expect(shared).toEqual([row("用途", 1)]);
+    expect(extras).toEqual([[row("用途", 1)], []]);
+  });
+
+  it("全対象で完全に一致すれば個別は空・対象なしは空を返す", () => {
+    const rows = [row("技能A", 5)];
+    expect(splitSharedBonusRows([rows, rows, rows])).toEqual({ shared: rows, extras: [[], [], []] });
+    expect(splitSharedBonusRows([])).toEqual({ shared: [], extras: [] });
   });
 });

@@ -5,7 +5,8 @@
 <div class="tnx-damage-form">
     <p class="tnx-damage-summary">
         {{categoryLabel}}ダメージ{{#if targetName}}／対象: {{targetName}}{{/if}}<br>
-        ダメージカード{{#if isPhysical}} ＋ 攻撃力（{{attackSourceName}}）<b>{{attackLabel}}</b>{{/if}}{{#if damageBonus}} ＋ ダメージ修正 <b>{{damageBonus}}</b>{{/if}} ＋ 修正
+        {{!-- ダメージ修正は対象ごとに評価される(2026-09-01)。対象で値が違うときはその旨を添える --}}
+        ダメージカード{{#if isPhysical}} ＋ 攻撃力（{{attackSourceName}}）<b>{{attackLabel}}</b>{{/if}}{{#if damageBonus}} ＋ ダメージ修正 <b>{{damageBonus}}</b>{{/if}}{{#if damageBonusVaries}}（対象ごとに変動）{{/if}} ＋ 修正
     </p>
 
     <div class="tnx-damage-fields">

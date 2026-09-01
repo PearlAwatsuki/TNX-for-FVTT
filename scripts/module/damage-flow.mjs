@@ -22,7 +22,7 @@
  */
 
 import { applyDamageChartResult } from "./condition-resolution.mjs";
-import { aggregateDefence, defenceForType, computeDamage } from "./damage-logic.mjs";
+import { aggregateDefence, defenceForType, computeDamage, splitSharedBonusRows } from "./damage-logic.mjs";
 import { evaluateBonusRows, evaluateSelfBonus } from "./tnx-formula.mjs";
 import { applyConsumptionPlan } from "./usage-consumption.mjs";
 import { getDamageChartKind } from "../data/damage-chart.mjs";
@@ -116,31 +116,25 @@ export async function openDamageRollDialog(attackMessage) {
     // FA(フルオート)の自動加算は廃止(2026-07-18 ユーザー確定)——FA 値は用途のダメージボーナス式で
     // 手動参照する。ダメージダイアログの FA 選択・FA 値加算・弾数消費はすべて撤去。
 
-    // 命中した対象(複数対象一括・2026-07-15): 攻撃側合計は共有・軽減とチャートは対象ごと。
-    // 対象依存の攻撃側加算(@target.*・vsStyle/vsWorks)は共有値のため先頭命中対象で評価する(近似)。
+    // 命中した対象(複数対象一括・2026-07-15)。**ダメージ修正は対象ごとに評価する**
+    // (2026-09-01 ユーザー確定=チャットカードが対象行を単位に表示する以上、計算も同じ単位で回す。
+    // 旧実装の「先頭の命中対象で近似」は撤廃)。共有なのは判定・カード値・攻撃力・手動修正まで。
     const hitTargets = (f.targets ?? []).filter(t => t.state === "hit");
-    const targetActor = await resolveTargetActor(hitTargets[0]?.uuid);
     // 用途の親アイテム(@item.self の解決に使う。攻撃者所持のアイテム)
     const parentItem = f.sourceItemId ? attacker?.items.get(f.sourceItemId) : null;
     const result = { diff: f.diff, achievement: f.achievement, cardValue: f.cardValue ?? null };
 
-    // 用途自身のダメージ修正(専用欄・@item.self=用途の親アイテム・台帳は親名で帰属)＋供給元つきの
-    // 追加行(式は @system.*・@item.<識別キー>.*・@item.self・@target.*・@diff/@achievement を参照可)。
-    const selfDamage = await evaluateSelfBonus(f.damageBonusSelf, attacker, result, targetActor, parentItem,
-        f.damageBonusSelfCondition ?? null);
-    const { total: rowsTotal, sources: rowSources } =
-        await evaluateBonusRows(f.damageBonuses, attacker, result, null, targetActor, parentItem);
-    const damageBonusRows = [...(selfDamage ? [selfDamage] : []), ...rowSources];
-    const damageBonus = (selfDamage?.value ?? 0) + rowsTotal;
-
-    // AE ダメージバフ(実行時評価・台帳では用途のダメージ修正と同じ行=供給元は効果名で帰属):
-    // - damage.dealt[.<系統>](2026-07-11): 与えるダメージ +値(この攻撃の系統に合致するもの)
-    // - damage.vsStyle/vsWorks(2026-07-10)・vsWet/vsNotWet(2026-09-01): 攻撃対象の条件つき +値
-    const dealtRows = gatherDamageDealtSources(collectActorEffectBuffs(attacker), category);
-    const vsRows = collectDamageVsBonuses(attacker, targetActor, category);
-    const aeRows = [...dealtRows, ...vsRows];
-    const damageBonusRowsAll = [...damageBonusRows, ...aeRows];
-    const damageBonusTotal = damageBonus + aeRows.reduce((s, r) => s + (Number(r.value) || 0), 0);
+    // 対象行(カバー展開済み)を先に作り、その各行＝被弾者ごとにダメージ修正を評価する
+    const damageTargets = buildDamageTargets(hitTargets);
+    const { noTargetRows } = await evaluateDamageBonusesPerTarget(damageTargets, {
+        f, attacker, parentItem, result, category,
+    });
+    // ダイアログのプレビュー: 全対象で同じなら1つの数字・対象ごとに違うならその旨を添える
+    const sums = damageTargets.map(t => (t.bonusRows ?? []).reduce((s, r) => s + (Number(r.value) || 0), 0));
+    const previewSum = damageTargets.length
+        ? sums[0]
+        : noTargetRows.reduce((s, r) => s + (Number(r.value) || 0), 0);
+    const previewVaries = sums.some(v => v !== sums[0]);
 
     const content = await foundry.applications.handlebars.renderTemplate(
         "systems/tokyo-nova-axleration/templates/dialog/damage-roll-dialog.hbs",
@@ -150,14 +144,15 @@ export async function openDamageRollDialog(attackMessage) {
             attackLabel: formatAttackLabel(f.damageType, attackPower),
             attackSourceName: f.attackSourceName,
             targetName: hitTargets.map(t => `「${t.name}」`).join("・") || "（対象なし）",
-            damageBonus: damageBonusTotal,
+            damageBonus: previewSum,
+            damageBonusVaries: previewVaries,
         }
     );
 
     // 待ち受け開始: ダイアログを開いたまま、手札は HUD クリック(executeDamageCardFromHand)・
     // 山札はダイアログのボタンで出す(判定と同じ操作系)
     await cancelPending();
-    const ctx = { kind: "roll", attackMessage, f, attacker, category, attackPower, damageBonusRows: damageBonusRowsAll, targetActor, hitTargets, dialog: null, done: false };
+    const ctx = { kind: "roll", attackMessage, f, attacker, category, attackPower, damageBonusRows: noTargetRows, damageTargets, hitTargets, dialog: null, done: false };
     _pending = ctx;
 
     const chosen = await foundry.applications.api.DialogV2.wait({
@@ -185,6 +180,40 @@ export async function openDamageRollDialog(attackMessage) {
 }
 
 /**
+ * ダメージ修正を**対象ごとに**評価し、各対象行へ `bonusRows` として書き込む
+ * (2026-09-01 ユーザー確定。旧「先頭の命中対象で近似」を置き換える)。
+ *
+ * 対象ごとに変わりうるもの: 用途のダメージ修正行と自身の修正値(**対象条件**・`@target.*` の式)、
+ * AE の `damage.vsStyle`/`vsWorks`/`vsWet`/`vsNotWet`。対象に依らないもの(`damage.dealt`)は
+ * 1 回だけ集計して全対象に同じ行として乗せる(表示側が共有行として畳む)。
+ *
+ * 対象が 0 体(RL 手動運用の対象なし攻撃)のときは、対象なしで評価した行を返す
+ * (対象未解決では対象条件でゲートしない＝一貫した規約)。
+ *
+ * @param {Array<{uuid:string, bonusRows?:Array}>} damageTargets 被弾者の行(この配列を書き換える)
+ * @param {{f:object, attacker:Actor|null, parentItem:Item|null, result:object, category:string}} ctx
+ * @returns {Promise<{noTargetRows:Array<{name:string, value:number, note?:string}>}>}
+ *   noTargetRows=対象なしのときの行(対象がいる場合は空配列)
+ */
+async function evaluateDamageBonusesPerTarget(damageTargets, { f, attacker, parentItem, result, category }) {
+    // 対象非依存の AE(与えるダメージ +値)は 1 回だけ集計する
+    const dealtRows = gatherDamageDealtSources(collectActorEffectBuffs(attacker), category);
+    const evaluateFor = async (targetActor) => {
+        const self = await evaluateSelfBonus(f.damageBonusSelf, attacker, result, targetActor, parentItem,
+            f.damageBonusSelfCondition ?? null);
+        const { sources } = await evaluateBonusRows(f.damageBonuses, attacker, result, null, targetActor, parentItem);
+        const vsRows = targetActor ? collectDamageVsBonuses(attacker, targetActor, category) : [];
+        return [...(self ? [self] : []), ...sources, ...dealtRows, ...vsRows];
+    };
+    if (!damageTargets.length) return { noTargetRows: await evaluateFor(null) };
+    for (const t of damageTargets) {
+        const targetActor = await resolveTargetActor(t.uuid);
+        t.bonusRows = await evaluateFor(targetActor);
+    }
+    return { noTargetRows: [] };
+}
+
+/**
  * ダメージ・ロールを確定する(カードが出た後):
  * ダメージ・チャットカードの投稿→攻撃カードの damageRolled 化。
  * @param {object} ctx  待ち受けコンテキスト(kind="roll")
@@ -192,7 +221,7 @@ export async function openDamageRollDialog(attackMessage) {
  * @param {{name:string, suit:string, value:number}} played 出したダメージカード
  */
 async function finalizeDamageRoll(ctx, form, played) {
-    const { attackMessage, f, attacker, category, attackPower, damageBonusRows, hitTargets } = ctx;
+    const { attackMessage, f, attacker, category, attackPower, damageBonusRows, damageTargets, hitTargets } = ctx;
 
     // 用途の適用効果(2026-07-18 確定): 一般(命中時)効果は攻撃カードの効果セクションが担う。
     // ダメージカードへは**ダメージ時効果(damageEffects 由来)だけ**を引き継ぎ、このカードの
@@ -219,14 +248,17 @@ async function finalizeDamageRoll(ctx, form, played) {
                 damageRoll: {
                     attackMessageId: attackMessage.id,
                     attackerUuid: f.attackerUuid,
-                    // 命中対象(複数対象一括・2026-07-15): 攻撃側合計は共有・軽減とチャートは対象ごと。
+                    // 命中対象(複数対象一括・2026-07-15): カード値・攻撃力・手動修正が共有で、
+                    // **ダメージ修正・軽減・チャートは対象ごと**(2026-09-01)。各行は自分の
+                    // bonusRows(対象ごとに評価したダメージ修正の内訳)を持つ。
                     // parryGuard は各対象のリアクション(パリー成立)で決まった受け値を引き継ぐ。
                     // カバー(2026-07-16): 攻撃カードで付いた coveredBy を展開＝元対象(被弾なし)＋カバー行
                     // (カバーした側・受け値なし)。カバーした側が元々対象なら自分の行(受け値あり)も別に残る。
-                    targets: buildDamageTargets(hitTargets),
+                    targets: damageTargets ?? buildDamageTargets(hitTargets),
                     category,
                     damageType: f.damageType ?? "",
                     attackPower,
+                    // 対象なし(RL 手動運用)のときの修正行。対象がいる場合は各対象の bonusRows が正
                     damageBonuses: damageBonusRows,
                     mods: [],   // 事後修正(modifyDamage 用途・攻撃側合計クリックで適用)
                     attackSourceName: f.attackSourceName ?? "",
@@ -389,7 +421,11 @@ export function renderDamageCard(message, html) {
     const dmgTargets = f.targets ?? [];
     if (dmgTargets.length) row(ledger, dmgTargets.length > 1 ? `対象（${dmgTargets.length}体）` : "対象",
         dmgTargets.map(t => `「${esc(t.name)}」`).join("・"));
-    const { attackerTotal } = damageRollTotals(f);
+    // ダメージ修正は対象ごとに評価される(2026-09-01)。**全対象で同じ行は共有台帳に1回**・
+    // 対象で異なる行だけ各対象の内訳へ回す(単体対象・対象非依存の式では従来と同じ見た目)。
+    // 旧カード(bonusRows なし)は共有行にフォールバックする
+    const { shared: sharedBonusRows, extras: perTargetBonusRows } = bonusRowsSplit(f);
+    const { attackerTotal } = damageRollTotals(f, { bonusRows: sharedBonusRows });
     const cards = f.cards ?? [];
     cards.forEach((c, i) => {
         const suitMark = SUIT_SYMBOL[c.suit] ? `<span class="cr-suit suit-${c.suit}">${SUIT_SYMBOL[c.suit]}</span> ` : "";
@@ -409,7 +445,7 @@ export function renderDamageCard(message, html) {
         // FA 値は用途のダメージ修正(下の damageBonuses)として現れる(2026-07-18 手動一本化)
         row(ledger, `攻撃力（${esc(f.attackSourceName || "生身")}）`, formatAttackLabel(f.damageType, f.attackPower));
     }
-    for (const b of (f.damageBonuses ?? [])) {
+    for (const b of sharedBonusRows) {
         // 対象条件で無効化された行は「（名前・理由）」で 0 の根拠を示す(2026-09-01・黙って落とさない)
         row(ledger, `ダメージ修正（${esc(b.name || "用途")}${b.note ? `・${esc(b.note)}` : ""}）`,
             signedDisplay("＋", b.value), "cr-calc-row cr-calc-row--wrap");
@@ -453,6 +489,8 @@ export function renderDamageCard(message, html) {
             const parts = [];
             // 新形式=算出時軽減の内訳(防御力・受け値・受けるダメージ軽減 AE を符号つきで格納・2026-07-17)。
             // 旧カード(内訳なし/旧形式)は合計のみの旧表示にフォールバック
+            // その対象だけに効いたダメージ修正(対象ごと評価・2026-09-01)を軽減の前に出す
+            if ((tr.ownBonusRows ?? []).length) line(area, "tnx-damage-sub", esc(formatOwnBonusRows(tr.ownBonusRows)));
             // ウェット無効(2026-09-01)は mitigationParts が「ウェット無効」を運ぶ(二重表示しない)
             if (tr.mitigationParts) parts.push(tr.mitigationParts);
             else if (tr.autoMitigation) parts.push(`防御力・受け値 −${tr.autoMitigation}`);
@@ -489,6 +527,10 @@ export function renderDamageCard(message, html) {
                 num.addEventListener("click", () => promptBountyMitigation(message, i));
             }
         }
+        // その対象だけに効いた(効かなかった)ダメージ修正を、軽減の内訳とは別行で先に出す
+        // (算出の順序＝修正→恒久軽減→10上限→事後修正→報酬点。2026-09-01)
+        const own = perTargetBonusRows[i] ?? [];
+        if (!p.wetNullified && own.length) line(area, "tnx-damage-sub", esc(formatOwnBonusRows(own)));
         const parts = [];
         if (p.wetNullified) parts.push("ウェット無効");
         if (p.defence) parts.push(`防御力 −${p.defence}`);
@@ -574,8 +616,10 @@ export async function handleDamageModifyClick(message) {
     // クリック)は不変。上書きの基準も対象ごと(その対象の攻撃側合計)にする。
     const targetIndex = (f.targets ?? []).findIndex(t => resolveSync(t.uuid)?.id === actor.id);
     // 上書きの基準=表示中の攻撃側合計(攻撃側の数字＝共有事後修正込み。10上限・軽減は対象ごとの
-    // 算出に掛かるため基準には含めない)。防御側(命中対象)はその対象の事後修正も基準に足す
-    const totals = damageRollTotals(f);
+    // 算出に掛かるため基準には含めない)。防御側(命中対象)は**その対象のダメージ修正**
+    // (2026-09-01・対象ごと評価)と自分の事後修正も基準に足す
+    const ownRows = targetIndex >= 0 ? (f.targets[targetIndex].bonusRows ?? null) : null;
+    const totals = damageRollTotals(f, ownRows ? { bonusRows: ownRows } : {});
     const baseTotal = targetIndex >= 0
         ? totals.attackerTotal + (f.targets[targetIndex].mods ?? []).reduce((s, m) => s + (Number(m.value) || 0), 0)
         : totals.attackerTotal;
@@ -689,8 +733,9 @@ async function promptBountyMitigation(message, targetIndex) {
 export async function manualEditDamage(message) {
     const f = message.getFlag(SCOPE, "damageRoll");
     if (!f) return;
-    // 手動修正も mods(事後修正)に積むため、基準は表示中の攻撃側合計(共有事後修正込みの攻撃側の数字)
-    const current = damageRollTotals(f).attackerTotal;
+    // 手動修正も mods(事後修正)に積むため、基準は表示中の攻撃側合計(共有事後修正込みの攻撃側の数字。
+    // 対象ごとのダメージ修正は含まない＝台帳の「攻撃側合計」と同じ数字・2026-09-01)
+    const current = damageRollTotals(f, { bonusRows: bonusRowsSplit(f).shared }).attackerTotal;
     const { AmountInputDialog } = await import("./tnx-dialog.mjs");
     const input = await AmountInputDialog.prompt({
         title: `ダメージを修正（攻撃側合計 ${current}）`,
@@ -704,6 +749,33 @@ export async function manualEditDamage(message) {
     if (mod === 0 && overrideTo === undefined) return;
     await applyDamagePatch(message, { mods: [...(f.mods ?? []),
         { label: "手動修正", value: mod, ...(overrideTo !== undefined ? { overrideTo } : {}) }] });
+}
+
+/**
+ * 対象行の下に出す「その対象だけのダメージ修正」の注記文字列(2026-09-01)。
+ * 軽減の内訳(「防御力 −2・受け値 −1」)と同じ体裁＝名前＋符号つきの値を「・」で連ねる。
+ * 対象条件で無効化された行は名前に理由を添えて 0 のまま残す。
+ * @param {Array<{name?:string, value?:number, note?:string}>} rows
+ * @returns {string}
+ */
+function formatOwnBonusRows(rows) {
+    return `ダメージ修正: ${rows
+        .map(b => `${b.name || "用途"}${b.note ? `・${b.note}` : ""} ${signedDisplay("＋", b.value)}`)
+        .join("・")}`;
+}
+
+/**
+ * ダメージカードの「共有台帳に出す修正行」と「対象ごとの残り」を求める(2026-09-01)。
+ * ダメージ修正は対象ごとに評価されるため、全対象で同じ行だけを共有台帳の合計に含める
+ * (＝台帳の「攻撃側合計」は対象に依らない数字。対象固有の分は各対象の行に出る)。
+ * 対象なし・旧カード(bonusRows を持たない)は `f.damageBonuses` をそのまま共有行とする。
+ * @param {object} f damageRoll フラグ
+ * @returns {{shared:Array<object>, extras:Array<Array<object>>}}
+ */
+function bonusRowsSplit(f) {
+    const targets = f.targets ?? [];
+    if (!targets.length) return { shared: f.damageBonuses ?? [], extras: [] };
+    return splitSharedBonusRows(targets.map(t => t.bonusRows ?? f.damageBonuses ?? []));
 }
 
 /** 攻撃対象(命中確定済み)のアクターを解決する。トークンドキュメントならアクターへ。 */
@@ -780,13 +852,15 @@ function buildDamageTargets(hitTargets) {
  * permanentMitigation・対象ごと)→スタン/説得の10上限(算出の一番最後)→事後修正(mods=modifyDamage・
  * 算出後〜適用前=キャップ後に乗る)→適用時の軽減(applyMitigation=手動・社会報酬点)。
  * extraPostMods は対象ごとの防御側事後修正(t.mods)を共有の事後修正と同じ段に合流させる。
+ * bonusRows はその対象のダメージ修正行(2026-09-01・対象ごと評価)。省略時は対象なし用の
+ * `f.damageBonuses`(旧カードもここに全行を持つため互換で動く)。
  * @returns {{cardSum:number, modsSum:number, attackerTotal:number, raw:number, calc:number,
  *   attack:number, final:number, stage:number, capped:boolean}}
- *   attackerTotal=攻撃側の数字(共有台帳の「攻撃側合計」＝raw+共有事後修正。上限・軽減に依存しない)
+ *   attackerTotal=攻撃側の数字(raw+共有事後修正。上限・軽減に依存しない)
  */
-function damageRollTotals(f, { permanentMitigation = 0, extraPostMods = 0, applyMitigation = 0 } = {}) {
+function damageRollTotals(f, { bonusRows = null, permanentMitigation = 0, extraPostMods = 0, applyMitigation = 0 } = {}) {
     const cardSum = (f.cards ?? []).reduce((s, c) => s + (Number(c.value) || 0), 0);
-    const bonusSum = (f.damageBonuses ?? []).reduce((s, b) => s + (Number(b.value) || 0), 0);
+    const bonusSum = (bonusRows ?? f.damageBonuses ?? []).reduce((s, b) => s + (Number(b.value) || 0), 0);
     const modsSum = (f.mods ?? []).reduce((s, m) => s + (Number(m.value) || 0), 0);
     const r = computeDamage({
         damageCard: cardSum,
@@ -817,11 +891,13 @@ function targetPlannedPreview(f, t) {
         .reduce((s, m) => s + (Number(m.value) || 0), 0);
     const category = f.category || "physical";
     const actor = resolveSync(t.uuid);
+    // この対象のダメージ修正(2026-09-01・対象ごと評価)。旧カードは共有行にフォールバック
+    const bonusRows = t.bonusRows ?? f.damageBonuses ?? [];
     // 「ウェットの対象には効果がない」(用途 noEffectVsWet・2026-09-01 承認): この対象への
     // ダメージ算出全体を 0 にする(軽減・上限も通らない)。内訳は「ウェット無効」の注記一本
     if (wetNullified(f, actor)) {
         return { final: 0, auto: 0, defence: 0, parry: 0, takenRows: [], modsSum: 0,
-            bountySum: 0, otherModsSum: 0, capped: false, wetNullified: true };
+            bountySum: 0, otherModsSum: 0, capped: false, wetNullified: true, bonusRows: [] };
     }
     // 防御力・受け値は「ダメージ算出」の一部＝各キャラの最終ダメージに含めて表示する(2026-07-16 ユーザー確定)
     let defence = 0;
@@ -835,8 +911,8 @@ function targetPlannedPreview(f, t) {
     const takenRows = actor ? collectDamageTakenRows(actor, f) : [];
     const takenSum = takenRows.reduce((s, r) => s + (Number(r.value) || 0), 0);
     const auto = defence + parry - takenSum;
-    const { final, capped } = damageRollTotals(f, { permanentMitigation: auto, extraPostMods: modsSum });
-    return { final, auto, defence, parry, takenRows, modsSum, bountySum, otherModsSum: modsSum - bountySum, capped };
+    const { final, capped } = damageRollTotals(f, { bonusRows, permanentMitigation: auto, extraPostMods: modsSum });
+    return { final, auto, defence, parry, takenRows, modsSum, bountySum, otherModsSum: modsSum - bountySum, capped, bonusRows };
 }
 
 function resolveSync(uuid) {
@@ -916,12 +992,15 @@ async function openMitigationDialog(message, applyCategory = null) {
     const f = message.getFlag(SCOPE, "damageRoll");
     if (!f || f.applied) return;
 
-    // 命中対象を解決(カバーされた元対象は buildDamageTargets で載っていない=カバーした側の行だけ)
+    // 命中対象を解決(カバーされた元対象は buildDamageTargets で載っていない=カバーした側の行だけ)。
+    // srcIndex=フラグ上の対象インデックス(解決できない対象があっても内訳の対応がずれないように持つ)
     const resolvedTargets = [];
-    for (const t of (f.targets ?? [])) {
+    for (const [srcIndex, t] of (f.targets ?? []).entries()) {
         const actor = await fromUuid(t.uuid).catch(() => null);
-        // t.mods=その対象の防御側 modifyDamage(per-target・2026-07-15)。攻撃側合計へ対象ごとに反映する
-        if (actor) resolvedTargets.push({ actor, name: t.name, parryGuard: Number(t.parryGuard) || 0, mods: t.mods ?? [], coveringFor: t.coveringFor ?? null });
+        // t.mods=その対象の防御側 modifyDamage(per-target・2026-07-15)。攻撃側合計へ対象ごとに反映する。
+        // t.bonusRows=その対象のダメージ修正(2026-09-01・対象ごと評価。旧カードは共有行へフォールバック)
+        if (actor) resolvedTargets.push({ actor, name: t.name, parryGuard: Number(t.parryGuard) || 0, mods: t.mods ?? [],
+            coveringFor: t.coveringFor ?? null, bonusRows: t.bonusRows ?? f.damageBonuses ?? [], srcIndex });
     }
     if (!resolvedTargets.length) { ui.notifications.warn("対象が見つかりません。"); return; }
     if (!(game.user.isGM || resolvedTargets.some(r => r.actor.isOwner))) {
@@ -933,17 +1012,22 @@ async function openMitigationDialog(message, applyCategory = null) {
     const category = f.category || "physical";
     const applyCat = applyCategory || category;
     const isAltApply = applyCat !== category;
-    const { attackerTotal } = damageRollTotals(f);
+    // ダイアログ見出しの攻撃側合計は共有部分(対象ごとのダメージ修正は各行のプレビューに出る)
+    const { attackerTotal } = damageRollTotals(f, { bonusRows: bonusRowsSplit(f).shared });
     const stun = f.stun === true;                                    // 攻撃宣言で確定済み(再確認しない)
     const stunLabel = category === "mental" ? "説得" : "スタン";
     const esc = foundry.utils.escapeHTML;
 
-    // 対象ごとの自動軽減(物理=種別対応の防御力・X は軽減なし＋パリー受け値＋受けるダメージ軽減 AE)を算出
+    // 対象ごとの自動軽減(物理=種別対応の防御力・X は軽減なし＋パリー受け値＋受けるダメージ軽減 AE)を算出。
+    // 対象ごとのダメージ修正のうち「その対象だけの分」は適用済み表示に残すため取り分けておく
+    const { extras: ownRowsByTarget } = bonusRowsSplit(f);
     const rows = resolvedTargets.map((r, i) => {
         let auto = 0; const parts = [];
+        const ownBonusRows = ownRowsByTarget[r.srcIndex] ?? [];
         // ウェット無効(noEffectVsWet・2026-09-01): この対象は算出全体が 0=軽減の内訳も出さない
         if (wetNullified(f, r.actor)) {
-            return { ...r, index: i, autoMitigation: 0, mitigationParts: ["ウェット無効"], modsSum: 0, wetNullified: true };
+            return { ...r, index: i, autoMitigation: 0, mitigationParts: ["ウェット無効"], modsSum: 0,
+                wetNullified: true, ownBonusRows: [] };
         }
         if (category === "physical") {
             const dv = defenceForType(aggregateDefence(r.actor.items.contents ?? []), f.damageType);
@@ -959,7 +1043,7 @@ async function openMitigationDialog(message, applyCategory = null) {
         }
         // その対象の防御側 modifyDamage(事後修正)。共有の攻撃側合計と同じ段=10上限の後に乗せる。負=軽減
         const modsSum = (r.mods ?? []).reduce((s, m) => s + (Number(m.value) || 0), 0);
-        return { ...r, index: i, autoMitigation: auto, mitigationParts: parts, modsSum };
+        return { ...r, index: i, autoMitigation: auto, mitigationParts: parts, modsSum, ownBonusRows };
     });
 
     // 複数対象の適用をまとめた1ダイアログ。防御力・受け値は算出で適用済み(固定表示)。ここで入れるのは
@@ -968,6 +1052,7 @@ async function openMitigationDialog(message, applyCategory = null) {
     const rowsHtml = rows.map(r => `
         <div class="tnx-damage-target-row" data-index="${r.index}">
             <div class="tnx-damage-target-name">${esc(r.name)}${r.coveringFor ? `（${esc(r.coveringFor)}をカバー）` : ""}</div>
+            ${r.ownBonusRows.length ? `<div class="tnx-damage-fixed">${esc(formatOwnBonusRows(r.ownBonusRows))}</div>` : ""}
             <div class="tnx-damage-fixed">軽減（算出済み）: <b>${signedDisplay("−", r.autoMitigation)}</b>${r.mitigationParts.length ? `（${esc(r.mitigationParts.join("・"))}）` : ""}</div>
             <div class="form-group">
                 <label>手動の状況軽減</label>
@@ -999,6 +1084,7 @@ async function openMitigationDialog(message, applyCategory = null) {
             // 適用時の軽減(10上限・事後修正より後)=applyMitigation(2026-07-16 裁定=KI-024)。
             // ウェット無効の対象は常に 0(stage=min(final,21) の規約どおり 0)
             const { final, stage } = r.wetNullified ? { final: 0, stage: 0 } : damageRollTotals(f, {
+                bonusRows: r.bonusRows,
                 permanentMitigation: r.autoMitigation,
                 extraPostMods: r.modsSum,
                 applyMitigation: v.manual,
@@ -1045,6 +1131,7 @@ async function openMitigationDialog(message, applyCategory = null) {
         const { final, stage, capped } = r.wetNullified
             ? { final: 0, stage: 0, capped: false }
             : damageRollTotals(f, {
+                bonusRows: r.bonusRows,
                 permanentMitigation: r.autoMitigation,
                 extraPostMods: r.modsSum,
                 applyMitigation: v.manual,
@@ -1068,6 +1155,8 @@ async function openMitigationDialog(message, applyCategory = null) {
             stunCapped: capped,
             // ウェット無効(2026-09-01): 適用済み表示の内訳用
             wetNullified: r.wetNullified === true,
+            // その対象だけに効いたダメージ修正(対象ごと評価・2026-09-01)。適用済み表示にも残す
+            ownBonusRows: r.ownBonusRows ?? [],
             bounty: Math.abs(bountySum), final, stage, applyText,
         });
     }

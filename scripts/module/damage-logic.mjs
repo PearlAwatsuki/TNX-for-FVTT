@@ -83,3 +83,57 @@ export function computeDamage({ damageCard = 0, attackPower = 0, modifier = 0, m
     const final = Math.max(0, attack - (Number(applyMitigation) || 0));
     return { raw, calc, attack, final, stage: Math.min(final, 21), capped };
 }
+
+/**
+ * 対象ごとのダメージ修正行を「全対象に共通する行」と「その対象だけの行」に分ける
+ * (2026-09-01 ユーザー確定=複数対象は対象ごとに評価する)。
+ *
+ * ダメージ修正は対象ごとに評価されるため、対象条件・`@target.*` の式・`damage.vs*` AE の
+ * 有無で対象ごとに違う行が並ぶ。表示では**全対象で同じ行は共有台帳に1回だけ**出し、
+ * 対象で異なる行だけ各対象の内訳に出す(単体対象・対象非依存の式では従来と同じ見た目になる)。
+ *
+ * 行の同一性は「帰属名・注記・値」の組。AE の対象条件つき行は対象により**個数が変わる**ため、
+ * 位置ではなく多重集合として突き合わせる(全対象に共通する個数分だけ共有へ取り出す)。
+ *
+ * @param {Array<Array<{name?:string, value?:number, note?:string}>>} rowsByTarget 対象ごとの行
+ * @returns {{shared:Array<object>, extras:Array<Array<object>>}}
+ *   shared=共有台帳に出す行(先頭対象の並び順)・extras=対象ごとの残り(元の並び順)
+ */
+export function splitSharedBonusRows(rowsByTarget) {
+    const lists = (rowsByTarget ?? []).map(rows => rows ?? []);
+    if (!lists.length) return { shared: [], extras: [] };
+    if (lists.length === 1) return { shared: [...lists[0]], extras: [[]] };
+
+    const keyOf = (r) => `${r?.name ?? ""}|${r?.note ?? ""}|${Number(r?.value) || 0}`;
+    const counts = lists.map(rows => {
+        const m = new Map();
+        for (const r of rows) m.set(keyOf(r), (m.get(keyOf(r)) ?? 0) + 1);
+        return m;
+    });
+    // 全対象に共通する個数(最小個数)だけ共有へ。並びは先頭対象の順を保つ
+    const quota = new Map();
+    for (const [k, n] of counts[0]) {
+        const min = Math.min(n, ...counts.slice(1).map(m => m.get(k) ?? 0));
+        if (min > 0) quota.set(k, min);
+    }
+    const shared = [];
+    const remain = new Map(quota);
+    for (const r of lists[0]) {
+        const k = keyOf(r);
+        const left = remain.get(k) ?? 0;
+        if (left > 0) { shared.push(r); remain.set(k, left - 1); }
+    }
+    // 各対象の行から共有分を差し引いた残り
+    const extras = lists.map(rows => {
+        const left = new Map(quota);
+        const out = [];
+        for (const r of rows) {
+            const k = keyOf(r);
+            const n = left.get(k) ?? 0;
+            if (n > 0) { left.set(k, n - 1); continue; }
+            out.push(r);
+        }
+        return out;
+    });
+    return { shared, extras };
+}
