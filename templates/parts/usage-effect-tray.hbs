@@ -7,10 +7,18 @@
 </button>
 <div class="tnx-effect-tray-content">
     {{#each targets}}
+    {{!-- ウェット無効(noEffectVsWet・2026-09-01): 対象行を外してグレーアウト+注記(黙って消さない) --}}
+    {{#if this.wetBlocked}}
+    <label class="tnx-effect-target-row tnx-trigger-disabled">
+        <input type="checkbox" disabled data-uuid="{{this.uuid}}" data-name="{{this.name}}">
+        <span>{{this.name}}（ウェット無効）</span>
+    </label>
+    {{else}}
     <label class="tnx-effect-target-row">
         <input type="checkbox" checked data-uuid="{{this.uuid}}" data-name="{{this.name}}">
         <span>{{this.name}}</span>
     </label>
+    {{/if}}
     {{/each}}
     {{#each effects}}
     <div class="tnx-effect-row">

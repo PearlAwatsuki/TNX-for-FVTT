@@ -26,7 +26,7 @@ import { aggregateDefence, defenceForType, computeDamage } from "./damage-logic.
 import { evaluateBonusRows, evaluateSelfBonus } from "./tnx-formula.mjs";
 import { applyConsumptionPlan } from "./usage-consumption.mjs";
 import { getDamageChartKind } from "../data/damage-chart.mjs";
-import { CONDITION_KINDS, getEffectiveConditions, hasBountyBlock } from "./conditions.mjs";
+import { CONDITION_KINDS, getEffectiveConditions, hasBountyBlock, isWetActor } from "./conditions.mjs";
 import { applyAttackPatch } from "./attack-flow.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
@@ -126,7 +126,8 @@ export async function openDamageRollDialog(attackMessage) {
 
     // 用途自身のダメージ修正(専用欄・@item.self=用途の親アイテム・台帳は親名で帰属)＋供給元つきの
     // 追加行(式は @system.*・@item.<識別キー>.*・@item.self・@target.*・@diff/@achievement を参照可)。
-    const selfDamage = await evaluateSelfBonus(f.damageBonusSelf, attacker, result, targetActor, parentItem);
+    const selfDamage = await evaluateSelfBonus(f.damageBonusSelf, attacker, result, targetActor, parentItem,
+        f.damageBonusSelfCondition ?? null);
     const { total: rowsTotal, sources: rowSources } =
         await evaluateBonusRows(f.damageBonuses, attacker, result, null, targetActor, parentItem);
     const damageBonusRows = [...(selfDamage ? [selfDamage] : []), ...rowSources];
@@ -134,9 +135,9 @@ export async function openDamageRollDialog(attackMessage) {
 
     // AE ダメージバフ(実行時評価・台帳では用途のダメージ修正と同じ行=供給元は効果名で帰属):
     // - damage.dealt[.<系統>](2026-07-11): 与えるダメージ +値(この攻撃の系統に合致するもの)
-    // - damage.vsStyle/vsWorks(2026-07-10): 攻撃対象のスタイル/所属条件つき +値
+    // - damage.vsStyle/vsWorks(2026-07-10)・vsWet/vsNotWet(2026-09-01): 攻撃対象の条件つき +値
     const dealtRows = gatherDamageDealtSources(collectActorEffectBuffs(attacker), category);
-    const vsRows = collectDamageVsBonuses(attacker, targetActor);
+    const vsRows = collectDamageVsBonuses(attacker, targetActor, category);
     const aeRows = [...dealtRows, ...vsRows];
     const damageBonusRowsAll = [...damageBonusRows, ...aeRows];
     const damageBonusTotal = damageBonus + aeRows.reduce((s, r) => s + (Number(r.value) || 0), 0);
@@ -235,6 +236,9 @@ async function finalizeDamageRoll(ctx, form, played) {
                     cards: [played],
                     manualMod: form.manualMod,
                     stun: f.stunDeclared === true,   // 攻撃宣言時のスタン/説得(攻撃側合計を10上限・軽減より前)
+                    // 「ウェットの対象には効果がない」(用途・2026-09-01 承認): ウェットの対象行は
+                    // ダメージ算出全体を 0 にする(対象ごと・内訳に「ウェット無効」)
+                    noEffectVsWet: f.noEffectVsWet === true,
                     applied: false,
                     appliedResult: null,
                 },
@@ -406,7 +410,9 @@ export function renderDamageCard(message, html) {
         row(ledger, `攻撃力（${esc(f.attackSourceName || "生身")}）`, formatAttackLabel(f.damageType, f.attackPower));
     }
     for (const b of (f.damageBonuses ?? [])) {
-        row(ledger, `ダメージ修正（${esc(b.name || "用途")}）`, signedDisplay("＋", b.value));
+        // 対象条件で無効化された行は「（名前・理由）」で 0 の根拠を示す(2026-09-01・黙って落とさない)
+        row(ledger, `ダメージ修正（${esc(b.name || "用途")}${b.note ? `・${esc(b.note)}` : ""}）`,
+            signedDisplay("＋", b.value), "cr-calc-row cr-calc-row--wrap");
     }
     if (f.manualMod) row(ledger, "修正（手動）", signedDisplay("＋", f.manualMod));
     // 物理攻撃＝スタン・精神攻撃＝説得(別メカニクス。系統ごとに専用表記・2026-07-15 ユーザー指摘)。
@@ -417,7 +423,8 @@ export function renderDamageCard(message, html) {
     // 10上限の後に乗る)。上書きは「→N」表記
     for (const m of (f.mods ?? [])) {
         row(ledger, `事後修正（${esc(m.label || "用途")}）`,
-            m.overrideTo !== undefined ? `→${m.overrideTo}` : signedDisplay("＋", m.value));
+            m.overrideTo !== undefined ? `→${m.overrideTo}` : signedDisplay("＋", m.value),
+            "cr-calc-row cr-calc-row--wrap");
     }
     row(ledger, `攻撃側合計${f.stun ? `（${stunLabel}宣言）` : ""}`, String(attackerTotal), "cr-calc-row cr-total-row", "cr-total-num");
     // ダメージクリック待ち(modifyDamage): 適用前のダメージの攻撃側合計をクリック可能に
@@ -446,6 +453,7 @@ export function renderDamageCard(message, html) {
             const parts = [];
             // 新形式=算出時軽減の内訳(防御力・受け値・受けるダメージ軽減 AE を符号つきで格納・2026-07-17)。
             // 旧カード(内訳なし/旧形式)は合計のみの旧表示にフォールバック
+            // ウェット無効(2026-09-01)は mitigationParts が「ウェット無効」を運ぶ(二重表示しない)
             if (tr.mitigationParts) parts.push(tr.mitigationParts);
             else if (tr.autoMitigation) parts.push(`防御力・受け値 −${tr.autoMitigation}`);
             if (tr.stunCapped) parts.push(`${stunLabel}（10上限）`);
@@ -482,6 +490,7 @@ export function renderDamageCard(message, html) {
             }
         }
         const parts = [];
+        if (p.wetNullified) parts.push("ウェット無効");
         if (p.defence) parts.push(`防御力 −${p.defence}`);
         if (p.parry) parts.push(`受け値 −${p.parry}`);
         // 受けるダメージ軽減 AE(恒久軽減・効果名で帰属)。負=軽減・正=増加を符号つきで示す
@@ -576,10 +585,15 @@ export async function handleDamageModifyClick(message) {
     const usage = (skill.system.actions ?? []).find(a => a._id === state.usageId) ?? null;
     const targetActor = await resolveTargetActor((f.targets ?? [])[targetIndex >= 0 ? targetIndex : 0]?.uuid);
     let mod = null;
+    let modLabel = state.skillName;   // 対象条件で無効化されたときは理由を添える(下)
     const self = await evaluateSelfBonus(usage?.damageBonusSelf ?? "", actor,
         { diff: f.diff ?? null, achievement: f.achievement ?? null, cardValue: f.cardValue ?? null },
-        targetActor, skill);
-    if (self) mod = self.value;
+        targetActor, skill, usage?.damageBonusSelfCondition ?? null);
+    if (self) {
+        mod = self.value;
+        // 対象条件で無効化された場合(value=0)は理由を帰属名に添えて台帳へ残す
+        if (self.note) modLabel = `${state.skillName}・${self.note}`;
+    }
     let overrideTo;
     if (mod === null) {
         // 手入力は「上書き」チェック可=入力値をそのまま新しい攻撃側合計にする(2026-07-14)
@@ -599,7 +613,7 @@ export async function handleDamageModifyClick(message) {
     // 消費(用途の consumeTargets・クリック待ち開始時に確定したプラン)は適用の確定時
     if (state.consumeUses?.length) await applyConsumptionPlan(state.consumeUses);
 
-    const modRow = { label: state.skillName, value: mod, ...(overrideTo !== undefined ? { overrideTo } : {}) };
+    const modRow = { label: modLabel, value: mod, ...(overrideTo !== undefined ? { overrideTo } : {}) };
     if (targetIndex >= 0) {
         // 防御側=その対象の mods に積む(対象ごと)
         const targets = foundry.utils.deepClone(f.targets ?? []);
@@ -703,15 +717,19 @@ async function resolveTargetActor(targetUuid) {
  * 攻撃対象のスタイル/ワークスに応じた AE ダメージバフ(`damage.vsStyle.*` / `damage.vsWorks.*`)を
  * 集計する。攻撃対象が持つスタイル(`type:"style"` アイテムの識別キー)・ワークス(ワークス技能の
  * 組織)で照合し、供給元(効果名)別のフラット寄与を返す。判定バフのダメージ・対象参照版。
+ * `damage.vsWet[.系統]` / `damage.vsNotWet[.系統]`(2026-09-01)は対象のウェット状態で照合する。
  * @param {Actor} attacker
  * @param {Actor|null} target  解決済みの攻撃対象アクター
+ * @param {"physical"|"mental"|"social"} [category] 攻撃の系統(wet 系の系統セレクタ用)
  * @returns {Array<{name:string, value:number}>}
  */
-function collectDamageVsBonuses(attacker, target) {
+function collectDamageVsBonuses(attacker, target, category) {
     if (!attacker || !target?.items) return [];
     const { styles, works } = targetStyleWorksKeys(target);
-    if (!styles.length && !works.length) return [];
-    return gatherDamageVsSources(collectActorEffectBuffs(attacker), { styles, works });
+    // wet 系(vsWet/vsNotWet・2026-09-01)は対象がウェットか否か+攻撃の系統で照合する
+    return gatherDamageVsSources(collectActorEffectBuffs(attacker), {
+        styles, works, isWet: isWetActor(target), category: category || "physical",
+    });
 }
 
 /**
@@ -799,6 +817,12 @@ function targetPlannedPreview(f, t) {
         .reduce((s, m) => s + (Number(m.value) || 0), 0);
     const category = f.category || "physical";
     const actor = resolveSync(t.uuid);
+    // 「ウェットの対象には効果がない」(用途 noEffectVsWet・2026-09-01 承認): この対象への
+    // ダメージ算出全体を 0 にする(軽減・上限も通らない)。内訳は「ウェット無効」の注記一本
+    if (wetNullified(f, actor)) {
+        return { final: 0, auto: 0, defence: 0, parry: 0, takenRows: [], modsSum: 0,
+            bountySum: 0, otherModsSum: 0, capped: false, wetNullified: true };
+    }
     // 防御力・受け値は「ダメージ算出」の一部＝各キャラの最終ダメージに含めて表示する(2026-07-16 ユーザー確定)
     let defence = 0;
     if (actor && category === "physical") {
@@ -818,6 +842,19 @@ function targetPlannedPreview(f, t) {
 function resolveSync(uuid) {
     if (!uuid) return null;
     try { return fromUuidSync(uuid); } catch { return null; }
+}
+
+/**
+ * 「ウェットの対象には効果がない」(用途 noEffectVsWet・2026-09-01 承認)がこの対象に効くか。
+ * 効く場合、その対象の最終ダメージは対象ごとに 0(判定・対決自体はブロックしない一般規範のまま)。
+ * @param {object|null} f damageRoll フラグ
+ * @param {Document|null} doc 対象(TokenDocument または Actor)
+ * @returns {boolean}
+ */
+function wetNullified(f, doc) {
+    if (f?.noEffectVsWet !== true) return false;
+    const actor = doc?.actor ?? doc;
+    return isWetActor(actor);
 }
 
 // ─── カードの追加(複数枚=合算・攻撃側) ─────────────────────────────────────────
@@ -904,6 +941,10 @@ async function openMitigationDialog(message, applyCategory = null) {
     // 対象ごとの自動軽減(物理=種別対応の防御力・X は軽減なし＋パリー受け値＋受けるダメージ軽減 AE)を算出
     const rows = resolvedTargets.map((r, i) => {
         let auto = 0; const parts = [];
+        // ウェット無効(noEffectVsWet・2026-09-01): この対象は算出全体が 0=軽減の内訳も出さない
+        if (wetNullified(f, r.actor)) {
+            return { ...r, index: i, autoMitigation: 0, mitigationParts: ["ウェット無効"], modsSum: 0, wetNullified: true };
+        }
         if (category === "physical") {
             const dv = defenceForType(aggregateDefence(r.actor.items.contents ?? []), f.damageType);
             if (dv) { auto += dv; parts.push(`防御力(${f.damageType || "?"}) −${dv}`); }
@@ -955,8 +996,9 @@ async function openMitigationDialog(message, applyCategory = null) {
         for (const r of rows) {
             const v = readRow(root, r.index);
             // 防御力・受け値(autoMitigation)=恒久軽減(算出の内・10上限の前)。手動軽減は
-            // 適用時の軽減(10上限・事後修正より後)=applyMitigation(2026-07-16 裁定=KI-024)
-            const { final, stage } = damageRollTotals(f, {
+            // 適用時の軽減(10上限・事後修正より後)=applyMitigation(2026-07-16 裁定=KI-024)。
+            // ウェット無効の対象は常に 0(stage=min(final,21) の規約どおり 0)
+            const { final, stage } = r.wetNullified ? { final: 0, stage: 0 } : damageRollTotals(f, {
                 permanentMitigation: r.autoMitigation,
                 extraPostMods: r.modsSum,
                 applyMitigation: v.manual,
@@ -998,12 +1040,15 @@ async function openMitigationDialog(message, applyCategory = null) {
         const v = result[r.index] ?? { manual: 0 };
         // 防御力・受け値(autoMitigation)=恒久軽減(算出の内・10上限の前)。手動軽減は適用時の軽減
         // (applyMitigation)。r.modsSum=その対象の防御側事後修正(per-target・キャップ後。
-        // 報酬点による軽減=bounty マーカー行もこの段=対象行クリックで宣言済みの値・2026-07-17)
-        const { final, stage, capped } = damageRollTotals(f, {
-            permanentMitigation: r.autoMitigation,
-            extraPostMods: r.modsSum,
-            applyMitigation: v.manual,
-        });
+        // 報酬点による軽減=bounty マーカー行もこの段=対象行クリックで宣言済みの値・2026-07-17)。
+        // ウェット無効の対象は算出全体が 0(2026-09-01 承認)
+        const { final, stage, capped } = r.wetNullified
+            ? { final: 0, stage: 0, capped: false }
+            : damageRollTotals(f, {
+                permanentMitigation: r.autoMitigation,
+                extraPostMods: r.modsSum,
+                applyMitigation: v.manual,
+            });
         // 説得(精神攻撃のスタン宣言)は、チャートの効果タグ(戦闘不能)を付けず BS のみ付与する。
         // 別系統として適用する場合は説得の意味論が対応しないため付けない(元系統=精神の通常適用時のみ)
         const applyText = await applyDamageToTarget(r.actor, applyCat, final, stage,
@@ -1021,6 +1066,8 @@ async function openMitigationDialog(message, applyCategory = null) {
             defenderMod: (r.modsSum - bountySum) || 0,
             // スタン/説得の10上限がこの対象で効いたか(適用済み表示の内訳用・2026-07-16 裁定)
             stunCapped: capped,
+            // ウェット無効(2026-09-01): 適用済み表示の内訳用
+            wetNullified: r.wetNullified === true,
             bounty: Math.abs(bountySum), final, stage, applyText,
         });
     }

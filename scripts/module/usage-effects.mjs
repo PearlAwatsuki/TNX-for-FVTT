@@ -30,6 +30,7 @@
 
 import { currentTargetActors } from "./target-resolution.mjs";
 import { analyzeGrantLanding, itemGrantCandidates, rewriteGrantChangesForItem } from "../data/item/helpers.mjs";
+import { isWetActor } from "./conditions.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -309,6 +310,9 @@ export async function prepareUsageEffectPayload(actor, parentItem, usage, { targ
             ...(e.grantTarget === "self" ? { self: true } : {}) })),
         targets,
         sourceActorUuid: actor?.uuid ?? null, // 代償効果の適用先=使用者
+        // 「ウェットの対象には効果がない」(2026-09-01 承認): ウェットの対象行は付与から外す
+        // (トレイに注記つきで残す=黙って消さない)。代償効果(自分)には効かせない
+        ...(usage?.noEffectVsWet === true ? { noEffectVsWet: true } : {}),
     };
 }
 
@@ -350,11 +354,27 @@ function usageEffectTrayContext(message) {
         refs = damageF.targets;
     }
     if (!entries.some(e => e?.data)) return null;
+    // 「ウェットの対象には効果がない」(noEffectVsWet・2026-09-01): ウェットの対象行に印を付ける
+    // (トレイでグレーアウト+注記・適用からも除外。判定時点でなく描画/押下時点の状態で判定)
+    const wetGate = payload.noEffectVsWet === true;
     return {
         entries,
-        refs: refs.map(t => ({ uuid: t.uuid, name: t.name })),
+        refs: refs.map(t => ({ uuid: t.uuid, name: t.name,
+            ...(wetGate && isWetTargetRef(t.uuid) ? { wetBlocked: true } : {}) })),
         sourceActorUuid: payload.sourceActorUuid ?? null,
     };
+}
+
+/**
+ * 対象行の uuid がウェットのアクターを指すか(同期解決・解決不能は false=ゲートしない)。
+ * @param {string} uuid
+ * @returns {boolean}
+ */
+function isWetTargetRef(uuid) {
+    if (!uuid) return false;
+    let doc = null;
+    try { doc = fromUuidSync(uuid); } catch { return false; }
+    return isWetActor(doc?.actor ?? doc);
 }
 
 /**
@@ -411,8 +431,11 @@ async function applyUsageEffectsFromTray(message, block) {
     if (!ctx) return;
     const targetEntries = ctx.entries.filter(e => e?.data && e.self !== true);
     const selfEntries = ctx.entries.filter(e => e?.data && e.self === true);
+    // ウェット無効(noEffectVsWet)の対象行はチェック不能だが、押下時点の状態でも除外する(二重ガード)
+    const blocked = new Set(ctx.refs.filter(r => r.wetBlocked).map(r => r.uuid));
     const checked = [...block.querySelectorAll(".tnx-effect-target-row input:checked")]
-        .map(cb => ({ uuid: cb.dataset.uuid, name: cb.dataset.name }));
+        .map(cb => ({ uuid: cb.dataset.uuid, name: cb.dataset.name }))
+        .filter(r => !blocked.has(r.uuid));
 
     let cancelled = false;
     if (targetEntries.length && checked.length) {

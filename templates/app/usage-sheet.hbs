@@ -518,11 +518,34 @@
                     <input type="text" name="damageBonusSelf" value="{{damageBonusSelf}}"
                            placeholder="式（例: @item.self.system.attack.total）"
                            {{#unless editable}}disabled{{/unless}}>
+                    {{#if withDamageCondition}}
+                    {{!-- 自身の修正値の対象条件(2026-09-01・行の対象条件と同形) --}}
+                    <div class="usage-bonus-cond-row">
+                        <span class="usage-field-label">対象条件</span>
+                        <select class="usage-cond-kind" name="damageBonusSelfCondKind" {{#unless editable}}disabled{{/unless}}>
+                            {{#each damageBonusSelfCond.kindOptions}}
+                            <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                            {{/each}}
+                        </select>
+                        {{#if damageBonusSelfCond.needsKey}}
+                        <select class="usage-cond-key" name="damageBonusSelfCondKey" {{#unless editable}}disabled{{/unless}}>
+                            {{selectOptions damageBonusSelfCond.keyChoices selected=damageBonusSelfCond.key}}
+                        </select>
+                        {{/if}}
+                        {{#if damageBonusSelfCond.showDetail}}
+                        <select class="usage-cond-mode" name="damageBonusSelfCondMode" {{#unless editable}}disabled{{/unless}}>
+                            {{#each damageBonusSelfCond.modeOptions}}
+                            <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                            {{/each}}
+                        </select>
+                        {{/if}}
+                    </div>
+                    {{/if}}
                     <label class="usage-field-label">ダメージ修正（供給元つき・追加）</label>
                     {{> "systems/tokyo-nova-axleration/templates/app/usage-sheet-bonus-rows.hbs"
                         rows=damageBonusRows prefix="damageBonus" addAction="damageBonusAdd" deleteAction="damageBonusDelete"
                         addLabel="ダメージ修正を追加" placeholder="式（例: @item.<武器の識別キー>.system.attack.value）"
-                        emptyHint="（追加のダメージ修正なし）" editable=editable}}
+                        emptyHint="（追加のダメージ修正なし）" editable=editable withCondition=withDamageCondition}}
                     <p class="usage-formula-line">{{#if isPhysicalAttack}}ダメージ ＝ ダメージカード ＋ 攻撃力{{#if selectedWeapons.length}}（合算）{{else}}（生身）{{/if}} ＋ ダメージ修正値 ＋ ダメージ修正 − 軽減{{else}}ダメージ ＝ ダメージカード ＋ ダメージ修正値 ＋ ダメージ修正（精神／社会は攻撃力・防御力なし）{{/if}}</p>
                 </div>
             </fieldset>
@@ -830,6 +853,15 @@
             {{!-- 適用される効果（ActiveEffect）: 一般リスト（攻撃では命中時に適用） --}}
             <fieldset class="tnx-fieldset usage-effects-section">
                 <legend>適用される効果</legend>
+                {{!-- ウェットの対象には効果がない(2026-09-01 承認): この用途のダメージ全体と
+                     効果の付与を、ウェットの対象に対して無効化する(判定・対決自体は行える) --}}
+                <div class="usage-form-row usage-toggle-row">
+                    <label class="usage-toggle-inline">
+                        <input type="checkbox" name="noEffectVsWet" {{checked usage.noEffectVsWet}}
+                               {{#unless editable}}disabled{{/unless}}>
+                        <span>ウェットの対象には効果がない</span>
+                    </label>
+                </div>
                 <div class="usage-effect-list">
                     {{#each addedEffects}}
                     <div class="usage-skill-ref-row">

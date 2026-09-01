@@ -401,10 +401,12 @@ export function computeCheckBonus(effects, criteria) {
 }
 
 /**
- * ダメージ対象バフ(`damage.vsStyle.*` / `damage.vsWorks.*`)の変更キーが、
- * 攻撃対象のスタイル/ワークスに合致するか(2026-07-10)。値バフでなくダメージ算出時に評価する。
+ * ダメージ対象バフ(`damage.vsStyle.*` / `damage.vsWorks.*` / `damage.vsWet[.系統]` /
+ * `damage.vsNotWet[.系統]`)の変更キーが、攻撃対象に合致するか(2026-07-10・wet 系は 2026-09-01)。
+ * 値バフでなくダメージ算出時に評価する。wet 系は対象未解決(isWet 未供給)では合致しない。
  * @param {string} key  change.key
- * @param {{styles?:string[], works?:string[]}} criteria  攻撃対象が持つスタイル識別キー/組織識別キー
+ * @param {{styles?:string[], works?:string[], isWet?:boolean, category?:string}} criteria
+ *   攻撃対象が持つスタイル識別キー/組織識別キー・ウェットか・攻撃の系統(wet 系の系統セレクタ用)
  * @returns {boolean}
  */
 export function damageVsChangeMatches(key, criteria) {
@@ -412,6 +414,11 @@ export function damageVsChangeMatches(key, criteria) {
   if (!p || p.scope !== "damageVs" || !criteria) return false;
   if (p.group === "style") return (criteria.styles ?? []).includes(p.selector);
   if (p.group === "works") return (criteria.works ?? []).includes(p.selector);
+  if (p.group === "wet" || p.group === "notWet") {
+    if (typeof criteria.isWet !== "boolean") return false;
+    if (p.category !== null && p.category !== (criteria.category || "physical")) return false;
+    return p.group === "wet" ? criteria.isWet : !criteria.isWet;
+  }
   return false;
 }
 
@@ -832,6 +839,14 @@ export function parseEffectTargetKey(key) {
     if ((segs[1] === "vsStyle" || segs[1] === "vsWorks") && segs.length > 2) {
       const group = segs[1] === "vsStyle" ? "style" : "works";
       return { scope: "damageVs", group, selector: segs.slice(2).join("."), conditions };
+    }
+    // 対象がウェットか否かで照合する対象条件つきダメージ +値(2026-09-01 承認・vsStyle の対称):
+    // damage.vsWet[.<系統>]=対象がウェットのとき / damage.vsNotWet[.<系統>]=ウェットでないとき。
+    // 系統なしは全系統(dealt と同じ規約)。「ウェットには効かないダメージ増強」は vsNotWet で表す
+    if (segs[1] === "vsWet" || segs[1] === "vsNotWet") {
+      const cat = segs.length > 2 ? segs[2] : null;
+      if (cat !== null && !["physical", "mental", "social"].includes(cat)) return null;
+      return { scope: "damageVs", group: segs[1] === "vsWet" ? "wet" : "notWet", category: cat, conditions };
     }
     // 受けるダメージ軽減(対象側・2026-07-17): damage.taken[.<系統|ダメージ種別>]。値=受ける
     // ダメージへの加算(負=軽減・正=増加)。恒久軽減としてダメージ算出時(10上限の前)に効く。

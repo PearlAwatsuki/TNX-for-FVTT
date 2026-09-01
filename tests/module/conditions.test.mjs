@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CONDITION_KINDS, readCondition, readConditions, getConditionKind, getConditionKinds, gatherConditionCheckSources, getCheckBlock, gatherConditionControlPenalty, computeJammingPenalty, buildInflictedEffectsData, applyDamageTagMods, recoveryKindMatches, recoveryKindExcluded, usageCanTreatKinds, woundChartValue, ignoreRuleMatches, gatherIgnoreRules, getEffectiveConditions, gatherSkillUseWarnings, hasBountyBlock, blocksMainProcess, actorCannotMainProcess }
+import { CONDITION_KINDS, readCondition, readConditions, getConditionKind, getConditionKinds, gatherConditionCheckSources, getCheckBlock, gatherConditionControlPenalty, computeJammingPenalty, isWetActor, WET_IDENT_KEY, buildInflictedEffectsData, applyDamageTagMods, recoveryKindMatches, recoveryKindExcluded, usageCanTreatKinds, woundChartValue, ignoreRuleMatches, gatherIgnoreRules, getEffectiveConditions, gatherSkillUseWarnings, hasBountyBlock, blocksMainProcess, actorCannotMainProcess }
   from "../../scripts/module/conditions.mjs";
 
 /** 準備アウトフィット記述子の略記 */
@@ -306,6 +306,31 @@ describe("computeJammingPenalty()（電子妨害）", () => {
     const wet = pf("service", "background", null, "background_wet"); // 実値確定 2026-09-01
     expect(computeJammingPenalty(3, [wet, pf("weapon", "melee", 2)])).toBe(1);
     expect(computeJammingPenalty(3, [wet, pf("weapon", "melee", 9)])).toBe(0); // 電制9>3
+  });
+});
+
+describe("isWetActor()（ウェット判定・2026-09-01）", () => {
+  /** アイテム所持アクターのモック(system だけ見る) */
+  const actorWith = (...systems) => ({ items: systems.map(system => ({ system })) });
+
+  it("準備中のウェット(識別キー background_wet)を持てば true", () => {
+    expect(isWetActor(actorWith({ identificationKey: WET_IDENT_KEY, isPrepared: true }))).toBe(true);
+  });
+
+  it("準備不要フラグ(部位「-」)のウェットも true＝電子妨害の準備判定と同一定義", () => {
+    // readFlag は素パス/実効パス(<flag>Total)を見る＝どちらの綴りでも同じく効く
+    expect(isWetActor(actorWith({ identificationKey: WET_IDENT_KEY, isPrepared: false, noPrepareRequired: true }))).toBe(true);
+    expect(isWetActor(actorWith({ identificationKey: WET_IDENT_KEY, isPrepared: false, noPrepareRequiredTotal: true }))).toBe(true);
+  });
+
+  it("所持していても準備していなければ false", () => {
+    expect(isWetActor(actorWith({ identificationKey: WET_IDENT_KEY, isPrepared: false }))).toBe(false);
+  });
+
+  it("別の識別キーのアウトフィットでは false・アクターなしも false", () => {
+    expect(isWetActor(actorWith({ identificationKey: "weapon_blade", isPrepared: true }))).toBe(false);
+    expect(isWetActor(null)).toBe(false);
+    expect(isWetActor({})).toBe(false);
   });
 });
 

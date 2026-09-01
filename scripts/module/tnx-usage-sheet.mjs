@@ -24,7 +24,7 @@ import { OUTFIT_CATEGORIES, getMinorCategoryLabel, buildCategoryKeyGroups } from
 import { resolveAttackWeapons, attackWeaponDisplayName, resolveAttackRangeSpan, attackWeaponKindEligible } from "./attack-weapons.mjs";
 import { captureScrollTop, restoreScrollTop } from "./scroll-preserve.mjs";
 import { WEAPON_RANGE_MAX_OPTIONS } from "../data/item/weapon.mjs";
-import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, loadSkillUsageTypeIndex, loadDictionarySkillItems, SKILL_PACKS } from "./skill-dictionary.mjs";
+import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, loadSkillUsageTypeIndex, loadDictionarySkillItems, SKILL_PACKS, STYLE_PACK, ORGANIZATION_PACK } from "./skill-dictionary.mjs";
 import {
     USAGE_TYPE_LABELS, isAttackType, attackCategoryOf, isReactionType,
     executionFormOf, defaultConfrontationForType, usageDisplayName, effectiveBaseSkillId,
@@ -38,6 +38,42 @@ import {
 } from "./usage-autofill-logic.mjs";
 
 const CHAIN_SKILL_TYPES = ["generalSkill", "styleSkill"];
+
+// ─── ダメージ修正の対象条件(2026-09-01 承認・照合は target-condition.mjs) ─────────
+/** 条件の種類の選択肢(none=条件なし)。 */
+const TARGET_COND_KIND_OPTIONS = [
+    { value: "none",  label: "条件なし" },
+    { value: "wet",   label: "ウェット" },
+    { value: "style", label: "スタイル" },
+    { value: "works", label: "ワークス" },
+];
+/** 極性の選択肢(exclude=「〜には無効」/ only=「〜のみ有効」)。 */
+const TARGET_COND_MODE_OPTIONS = [
+    { value: "exclude", label: "には無効" },
+    { value: "only",    label: "のみ有効" },
+];
+
+/**
+ * 対象条件のセレクト描画用コンテキストを作る。key の候補は kind に対応する辞典
+ * (style=スタイル辞典・works=組織辞典)だけを出す(識別キーを保存・表示は現在名)。
+ * @param {{kind?:string, mode?:string, key?:string}|null|undefined} cond 保存済みの条件
+ * @param {Record<string,string>} styleChoices スタイル辞典の選択肢(識別キー→名)
+ * @param {Record<string,string>} orgChoices 組織辞典の選択肢(識別キー→名)
+ * @returns {object} テンプレート用(kindOptions/modeOptions/keyChoices/key/needsKey/showDetail)
+ */
+function buildTargetConditionUi(cond, styleChoices, orgChoices) {
+    const kind = cond?.kind ?? "none";
+    const mode = cond?.mode ?? "exclude";
+    const key  = cond?.key ?? "";
+    return {
+        kindOptions: TARGET_COND_KIND_OPTIONS.map(o => ({ ...o, selected: o.value === kind })),
+        modeOptions: TARGET_COND_MODE_OPTIONS.map(o => ({ ...o, selected: o.value === mode })),
+        needsKey: kind === "style" || kind === "works",
+        showDetail: kind !== "none",
+        keyChoices: kind === "style" ? styleChoices : (kind === "works" ? orgChoices : {}),
+        key,
+    };
+}
 
 /**
  * 用途の技能参照(ベース・組み合わせ)を解決する「同輩」技能一覧(2026-07-18 ユーザー是正)。
@@ -867,6 +903,20 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             // 用途自身の修正値(専用欄・供給元つきの追加行とは別枠。式で @item.self=親アイテムを参照可)
             context.checkBonusSelf  = usage.checkBonusSelf ?? "";
             context.damageBonusSelf = usage.damageBonusSelf ?? "";
+            // 対象条件(2026-09-01 承認・攻撃タイプのみ): ダメージ修正行・自身の修正値に付ける
+            // 「ウェット/スタイル/ワークス × には無効/のみ有効」。key の候補はスタイル/組織の辞典
+            // (識別キーを保存・表示は現在名)
+            if (isAttackType(usage.type)) {
+                const [styleChoices, orgChoices] = await Promise.all([
+                    loadSkillChoices([STYLE_PACK]), loadSkillChoices([ORGANIZATION_PACK]),
+                ]);
+                const condUi = (cond) => buildTargetConditionUi(cond, styleChoices, orgChoices);
+                context.damageBonusRows.forEach((row, idx) => {
+                    row.cond = condUi((usage.damageBonuses ?? [])[idx]?.targetCondition);
+                });
+                context.damageBonusSelfCond = condUi(usage.damageBonusSelfCondition);
+                context.withDamageCondition = true;
+            }
         }
 
         // 消費先設定(2026-07-18 再編・全用途タイプ共通。固定値判定は消費 UI を出さない)。
@@ -1210,6 +1260,9 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             "timing.timingOther": raw["timing.timingOther"] ?? usage.timing.timingOther,
             // 戦闘タブに表示しない(2026-07-20): 戦闘タブの再表示からこの用途を除外する
             hideInCombatTab: raw["hideInCombatTab"] ?? usage.hideInCombatTab,
+            // 「ウェットの対象には効果がない」(2026-09-01 承認): ダメージ全体+適用効果の付与を
+            // ウェットの対象に対して無効化する(適用される効果セクションのトグル)
+            noEffectVsWet: raw["noEffectVsWet"] ?? (usage.noEffectVsWet === true),
 
             target:        raw["target"]        ?? usage.target,
             targetOther:   raw["targetOther"]   ?? usage.targetOther,
@@ -1251,6 +1304,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         // 判定ボーナス/ダメージ修正の行(式＋供給元)を indexed 入力から再構成する(consumeTargets と同型)。
         // 判定を行う用途すべてで行 UI を描画する(2026-07-17 再編)。空式の行は捨てる
         let modeUiChanged = false; // 判定モード/ダメージを修正の切替=式欄等の出し入れがあるため再描画する
+        let condUiChanged = false; // ダメージ修正の対象条件の種類変更=サブセレクトの出し入れ(2026-09-01)
         if (executionFormOf(usage) === "check" && !Number.isFinite(usage.fixedResult)) {
             update.checkBonuses = TnxUsageSheet._collectBonusRows(raw, "checkBonus");
             update.checkBonusSelf = raw["checkBonusSelf"] ?? usage.checkBonusSelf ?? "";
@@ -1273,9 +1327,22 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             const isAtk = isAttackType(usage.type);
             const isModD = usage.type === "check" && (raw["modifyDamage"] ?? usage.modifyDamage) === true;
             if (usage.type === "check") update.modifyDamage = isModD;
-            update.damageBonuses  = isAtk ? TnxUsageSheet._collectBonusRows(raw, "damageBonus") : [];
+            update.damageBonuses  = isAtk ? TnxUsageSheet._collectBonusRows(raw, "damageBonus", { withCondition: true }) : [];
             // damageBonusSelf は攻撃の「ダメージ修正値」/ダメージを修正の「修正値」を兼ねる(2026-07-11)
             update.damageBonusSelf = (isAtk || isModD) ? (raw["damageBonusSelf"] ?? usage.damageBonusSelf ?? "") : "";
+            // 自身の修正値の対象条件(2026-09-01 承認・UI は攻撃のみ。非攻撃は残骸をリセット)
+            update.damageBonusSelfCondition = isAtk
+                ? TnxUsageSheet._normalizeTargetCondition({
+                    kind: raw["damageBonusSelfCondKind"] ?? usage.damageBonusSelfCondition?.kind,
+                    mode: raw["damageBonusSelfCondMode"] ?? usage.damageBonusSelfCondition?.mode,
+                    key:  raw["damageBonusSelfCondKey"]  ?? usage.damageBonusSelfCondition?.key,
+                })
+                : { kind: "none", mode: "exclude", key: "" };
+            // 条件の種類の変更=キー/極性セレクトの出し入れがあるため再描画する
+            const prevRowKinds = (usage.damageBonuses ?? []).map(r => r.targetCondition?.kind ?? "none");
+            condUiChanged = isAtk && (
+                update.damageBonuses.some((r, i) => (r.targetCondition?.kind ?? "none") !== (prevRowKinds[i] ?? "none"))
+                || update.damageBonusSelfCondition.kind !== (usage.damageBonusSelfCondition?.kind ?? "none"));
             // スタン可能は物理攻撃のみの能力ゲート(精神は説得が常時可・社会は無)
             update.canStun = usage.type === "physicalAttack"
                 ? (raw["canStun"] ?? usage.canStun ?? false) : false;
@@ -1491,7 +1558,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         // 白兵/射撃の変更(武器候補の絞り込み)・判定モード/ダメージを修正の切替・宣言の修正フラグ変更・
         // 消費種別の変更・治療設定の変更・射程の幅・対決欄の種別/カスケード変更は入力欄の出し入れが
         // あるため即再描画する(submitOnChange は再描画しない・2026-07-09)
-        if (attackKindChanged || modeUiChanged || declModifyChanged || consumeUiChanged
+        if (attackKindChanged || modeUiChanged || condUiChanged || declModifyChanged || consumeUiChanged
             || recoveryUiChanged || rangeUiChanged || confrontationUiChanged || vehicleUiChanged) {
             this.render({ force: true });
         }
@@ -1587,8 +1654,12 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
     // ─── 判定ボーナス/ダメージ修正の行(式＋供給元・2026-07-10) ─────────────────────
 
-    /** indexed 入力(<prefix>Formula-N / <prefix>Source-N)から行配列を再構成(空式は捨てる)。 */
-    static _collectBonusRows(raw, prefix) {
+    /**
+     * indexed 入力(<prefix>Formula-N / <prefix>Source-N)から行配列を再構成(空式は捨てる)。
+     * withCondition(ダメージ修正行・2026-09-01)は対象条件(<prefix>CondKind/Mode/Key-N)も拾う。
+     * kind=none は条件なし=mode/key の残骸をリセット・wet は key を持たない。
+     */
+    static _collectBonusRows(raw, prefix, { withCondition = false } = {}) {
         const re = new RegExp(`^${prefix}Formula-(\\d+)$`);
         const idxs = Object.keys(raw)
             .map(k => k.match(re)?.[1])
@@ -1596,8 +1667,29 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             .map(Number)
             .sort((a, b) => a - b);
         return idxs
-            .map(i => ({ formula: (raw[`${prefix}Formula-${i}`] ?? "").trim(), source: raw[`${prefix}Source-${i}`] ?? "" }))
+            .map(i => {
+                const row = { formula: (raw[`${prefix}Formula-${i}`] ?? "").trim(), source: raw[`${prefix}Source-${i}`] ?? "" };
+                if (withCondition) {
+                    row.targetCondition = TnxUsageSheet._normalizeTargetCondition({
+                        kind: raw[`${prefix}CondKind-${i}`],
+                        mode: raw[`${prefix}CondMode-${i}`],
+                        key:  raw[`${prefix}CondKey-${i}`],
+                    });
+                }
+                return row;
+            })
             .filter(r => r.formula);
+    }
+
+    /** 対象条件の入力値を正規化する(kind=none は mode/key をリセット・wet は key を持たない)。 */
+    static _normalizeTargetCondition({ kind, mode, key } = {}) {
+        const k = ["none", "wet", "style", "works"].includes(kind) ? kind : "none";
+        if (k === "none") return { kind: "none", mode: "exclude", key: "" };
+        return {
+            kind: k,
+            mode: mode === "only" ? "only" : "exclude",
+            key:  k === "wet" ? "" : (key ?? ""),
+        };
     }
 
     static async _onCheckBonusAdd(_event, _target) {

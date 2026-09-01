@@ -471,6 +471,8 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
             "damage.taken", "damage.taken.physical", "damage.taken.mental", "damage.taken.social",
             "damage.taken.S", "damage.taken.P", "damage.taken.I", "damage.taken.X",
             "damage.vsStyle.<key>", "damage.vsWorks.<key>", "damage.fromStyle.<key>", "damage.fromWorks.<key>",
+            "damage.vsWet", "damage.vsWet.physical", "damage.vsWet.mental", "damage.vsWet.social",
+            "damage.vsNotWet", "damage.vsNotWet.physical", "damage.vsNotWet.mental", "damage.vsNotWet.social",
             ...condKinds.map(k => `damage.replaceTag.${k}`),
             ...condKinds.map(k => `damage.addTag.${k}`),
         ];

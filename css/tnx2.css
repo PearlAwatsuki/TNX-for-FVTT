@@ -5066,6 +5066,15 @@ body.tnx-bottom-hud-expanded #hotbar {
     align-items: center;
 }
 
+/* 可変長のラベル(供給元名＋対象条件の理由 等)を持つ行だけ折り返す(2026-09-01)。
+   基底の nowrap/flex-shrink:0 を打ち消して見切れを防ぐ(合計行の例外と同じ扱い) */
+.cr-calc-row--wrap .cr-calc-label {
+    flex-shrink: 1;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
 .cr-total-row .cr-calc-label {
     font-size: 0.95em;
     font-weight: 600;
@@ -8184,6 +8193,35 @@ button.tnx-create-act-button span {
 .usage-bonus-formula:focus,
 .usage-bonus-source:focus { border-color: var(--tnx2-accent); outline: none; }
 .usage-bonus-add { margin-bottom: 4px; }
+
+/* ダメージ修正の対象条件(2026-09-01): 行/自身の修正値の下に付くセレクト列。
+   ラベルは行の幅を分け合い、セレクトが残りを等分する。直上の式行に従属するので
+   左を字下げして密着させ、次の式行との間だけ空ける(所属が目で分かる) */
+.usage-bonus-cond-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 2px 0 8px;
+    padding-left: 14px;
+}
+.usage-bonus-cond-row .usage-field-label {
+    flex: 0 0 auto;
+    margin: 0;
+}
+.usage-bonus-cond-row select {
+    min-width: 0;
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-border-subtle);
+    color: var(--tnx2-text-secondary);
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-size: 0.82em;
+}
+
+/* 幅は入る値の長さで決める: 種別・極性は短語で固定、可変長のキー(スタイル名・組織名)が残りを取る */
+.usage-bonus-cond-row .usage-cond-kind { flex: 0 0 8em; }
+.usage-bonus-cond-row .usage-cond-mode { flex: 0 0 7em; }
+.usage-bonus-cond-row .usage-cond-key  { flex: 1 1 auto; }
 
 /* 判定・ダメージの構成(式)の表示(2026-07-10): 用途シートで達成値/ダメージの組み立てを示す。 */
 .usage-formula-line {

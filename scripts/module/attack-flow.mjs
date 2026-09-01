@@ -155,6 +155,10 @@ export async function useAttack(item, usage) {
             category, damageType, weaponAttack, attackSourceName,
             damageBonuses: usage.damageBonuses ?? [],
             damageBonusSelf: usage.damageBonusSelf ?? "",
+            // 対象条件(2026-09-01 承認): 自身の修正値の条件と「ウェットの対象には効果がない」
+            // (行の条件は damageBonuses の各行が運ぶ)
+            damageBonusSelfCondition: usage.damageBonusSelfCondition ?? null,
+            noEffectVsWet: usage.noEffectVsWet === true,
             sourceItemId: item.id,
             stunCapable,                       // スタン攻撃を宣言できるか(物理・武器/生身/用途canStun 由来・2026-07-15)
             stunDeclared: false,               // 判定ダイアログのトグルで宣言される(2026-07-15)

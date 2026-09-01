@@ -318,12 +318,20 @@ export class UsageTemplate extends SystemDataModel {
                     //   カバー: ダメージ算出の直前に他者への予定ダメージを自身へ付け替える行動
                     //   (アイテムロールで使用→ダメージカードの対象クリック→判定成功で付け替え)。
 
-                    // attack: ダメージ修正(ダメージへ加算する式の行・攻撃用途)。checkBonuses と同型。
+                    // attack: ダメージ修正(ダメージへ加算する式の行・攻撃用途)。checkBonuses と同型に
+                    // 加え、行ごとの対象条件 targetCondition(2026-09-01 承認・照合は target-condition.mjs)。
+                    // kind=none(条件なし)/wet/style/works・mode=exclude(には無効)/only(のみ有効)・
+                    // key=スタイル/組織の識別キー。無効化された行は内訳に注記つき 0 行で残る。
                     // ダメージ算出時に評価するため @diff/@achievement も使える。
                     damageBonuses: new fields.ArrayField(
                         new fields.SchemaField({
                             formula: new fields.StringField({ initial: "" }),
                             source:  new fields.StringField({ initial: "" }),
+                            targetCondition: new fields.SchemaField({
+                                kind: new fields.StringField({ initial: "none" }),
+                                mode: new fields.StringField({ initial: "exclude" }),
+                                key:  new fields.StringField({ initial: "" }),
+                            }),
                         })
                     ),
 
@@ -331,6 +339,19 @@ export class UsageTemplate extends SystemDataModel {
                     // 2026-07-10)。親アイテムが持つダメージ修正を入れる欄。式で @item.self を参照可・
                     // 台帳は親名で帰属。modifyDamage ではダメージ修正値(増加=正/軽減=負)としてこの欄を使う。
                     damageBonusSelf: new fields.StringField({ initial: "" }),
+
+                    // attack: 自身の修正値の対象条件(damageBonuses 行の targetCondition と同形・
+                    // 2026-09-01 承認)。
+                    damageBonusSelfCondition: new fields.SchemaField({
+                        kind: new fields.StringField({ initial: "none" }),
+                        mode: new fields.StringField({ initial: "exclude" }),
+                        key:  new fields.StringField({ initial: "" }),
+                    }),
+
+                    // attack: 「ウェットの対象には効果がない」(2026-09-01 承認)。真なら、ウェットの
+                    // 対象に対してこの用途のダメージ全体を 0 にし(内訳に注記)、適用効果の付与も
+                    // 行わない。判定・対決そのものはブロックしない(判定は常に行える一般規範)。
+                    noEffectVsWet: new fields.BooleanField({ initial: false }),
 
                     // ※旧 damageCategory(攻撃系統)は攻撃タイプへ移行(2026-07-17 再編・migrateData)。
                     //   系統はタイプが持つ(attackCategoryOf)。

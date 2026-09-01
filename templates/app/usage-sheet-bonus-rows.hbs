@@ -1,6 +1,7 @@
 {{!-- 判定ボーナス/ダメージ修正の行(式＋供給元・2026-07-10)。呼び出し側が
      rows / prefix / addAction / deleteAction / addLabel / placeholder / emptyHint / editable を渡す。
-     供給元は「チャットの帰属表示」専用(識別キーを保存・表示は逆引きした現在名)で、式の参照とは独立。 --}}
+     供給元は「チャットの帰属表示」専用(識別キーを保存・表示は逆引きした現在名)で、式の参照とは独立。
+     withCondition(ダメージ修正行のみ・2026-09-01): 行ごとの対象条件セレクト(rows[].cond)を出す。 --}}
 <div class="usage-bonus-rows">
     {{#each rows}}
     <div class="usage-bonus-row">
@@ -22,6 +23,30 @@
         <a class="usage-icon-btn" data-action="{{../deleteAction}}" data-idx="{{this.idx}}" title="この行を削除"><i class="fas fa-times"></i></a>
         {{/if}}
     </div>
+    {{#if ../withCondition}}
+    {{!-- 対象条件(2026-09-01): この行の値を対象のありようで無効化する。
+         kind=none 以外で極性、style/works でキー(辞典の識別キー・表示は現在名)を選ぶ --}}
+    <div class="usage-bonus-cond-row">
+        <span class="usage-field-label">対象条件</span>
+        <select class="usage-cond-kind" name="{{../prefix}}CondKind-{{this.idx}}" {{#unless ../editable}}disabled{{/unless}}>
+            {{#each this.cond.kindOptions}}
+            <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+            {{/each}}
+        </select>
+        {{#if this.cond.needsKey}}
+        <select class="usage-cond-key" name="{{../prefix}}CondKey-{{this.idx}}" {{#unless ../editable}}disabled{{/unless}}>
+            {{selectOptions this.cond.keyChoices selected=this.cond.key}}
+        </select>
+        {{/if}}
+        {{#if this.cond.showDetail}}
+        <select class="usage-cond-mode" name="{{../prefix}}CondMode-{{this.idx}}" {{#unless ../editable}}disabled{{/unless}}>
+            {{#each this.cond.modeOptions}}
+            <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+            {{/each}}
+        </select>
+        {{/if}}
+    </div>
+    {{/if}}
     {{else}}
     <p class="usage-empty-hint">{{emptyHint}}</p>
     {{/each}}

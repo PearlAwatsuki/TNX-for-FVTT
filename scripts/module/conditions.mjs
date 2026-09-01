@@ -11,7 +11,7 @@
  */
 
 import { buildDamageStates, getDamageChartValue } from "../data/damage-chart.mjs";
-import { parseEffectTargetKey, collectActorEffectBuffs, effectAutoApplies } from "../data/item/helpers.mjs";
+import { parseEffectTargetKey, collectActorEffectBuffs, effectAutoApplies, readFlag } from "../data/item/helpers.mjs";
 import { outfitClassifications } from "../data/item/outfit-categories.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
@@ -596,6 +596,23 @@ export function computeJammingPenalty(n, preparedOutfits, { isGhost = false } = 
   if (isWet) return count >= 1 ? 1 : 0;
 
   return Math.min(count, 10);
+}
+
+/**
+ * アクターがウェットか(2026-09-01 設計承認)。検出定義は電子妨害のウェット分岐と同一:
+ * 準備中(または準備不要=部位「-」)のアウトフィットに識別キー {@link WET_IDENT_KEY} を持つ。
+ * 消費者: ダメージ修正の対象条件(target-condition.mjs)・式の `@target.isWet`・
+ * `damage.vsWet` 系 AE・用途の「ウェットの対象には効果がない」トグル。
+ * @param {Actor|null} actor
+ * @returns {boolean}
+ */
+export function isWetActor(actor) {
+  for (const item of (actor?.items ?? [])) {
+    const s = item.system;
+    if (!s || !(s.isPrepared === true || readFlag(s, "noPrepareRequired"))) continue;
+    if (s.identificationKey === WET_IDENT_KEY) return true;
+  }
+  return false;
 }
 
 /**

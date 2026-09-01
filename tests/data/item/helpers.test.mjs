@@ -274,6 +274,42 @@ describe("damageVsChangeMatches()（ダメージ対象バフ・攻撃対象の�
     expect(damageVsChangeMatches("check.style.ayakashi", crit)).toBe(false);
     expect(damageVsChangeMatches("system.ability.reason", crit)).toBe(false);
   });
+
+  describe("damage.vsWet / damage.vsNotWet（対象のウェット状態で照合・2026-09-01）", () => {
+    const wet    = { styles: [], works: [], isWet: true,  category: "physical" };
+    const notWet = { styles: [], works: [], isWet: false, category: "physical" };
+
+    it("vsWet は対象がウェットのときだけ・vsNotWet はその逆", () => {
+      expect(damageVsChangeMatches("damage.vsWet", wet)).toBe(true);
+      expect(damageVsChangeMatches("damage.vsWet", notWet)).toBe(false);
+      expect(damageVsChangeMatches("damage.vsNotWet", notWet)).toBe(true);
+      expect(damageVsChangeMatches("damage.vsNotWet", wet)).toBe(false);
+    });
+
+    it("系統セレクタは攻撃の系統に一致するときだけ（系統なしは全系統）", () => {
+      expect(damageVsChangeMatches("damage.vsWet.physical", wet)).toBe(true);
+      expect(damageVsChangeMatches("damage.vsWet.mental", wet)).toBe(false);
+      expect(damageVsChangeMatches("damage.vsWet.mental", { ...wet, category: "mental" })).toBe(true);
+    });
+
+    it("対象未解決(isWet 未供給)では照合しない＝ゲートしない", () => {
+      expect(damageVsChangeMatches("damage.vsWet", { styles: [], works: [] })).toBe(false);
+      expect(damageVsChangeMatches("damage.vsNotWet", { styles: [], works: [] })).toBe(false);
+    });
+
+    it("不正な系統セレクタはキーとして成立しない", () => {
+      expect(damageVsChangeMatches("damage.vsWet.unknown", wet)).toBe(false);
+    });
+
+    it("寄与の集計は他の damage.vs* と同じ経路（重複規約も共通）", () => {
+      const effs = [
+        { identity: "a", name: "電脳の刃", changes: [{ key: "damage.vsNotWet", value: "3" }] },
+        { identity: "b", name: "生身狩り", changes: [{ key: "damage.vsWet.physical", value: "5" }] },
+      ];
+      expect(gatherDamageVsSources(effs, wet)).toEqual([{ name: "生身狩り", value: 5 }]);
+      expect(gatherDamageVsSources(effs, notWet)).toEqual([{ name: "電脳の刃", value: 3 }]);
+    });
+  });
 });
 
 describe("damageDealtChangeMatches() / gatherDamageDealtSources()（与えるダメージバフ・2026-07-11）", () => {

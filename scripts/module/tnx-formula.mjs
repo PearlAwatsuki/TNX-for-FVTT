@@ -13,6 +13,9 @@
 
 import { resolveItemNameByKey } from "./identification.mjs";
 import { targetStyleWorksKeys } from "../data/item/helpers.mjs";
+import { isWetActor } from "./conditions.mjs";
+import { targetConditionApplies, targetConditionNote } from "./target-condition.mjs";
+import { loadSkillChoices, STYLE_PACK, ORGANIZATION_PACK } from "./skill-dictionary.mjs";
 
 /**
  * 判定結果(checkResult.result)から式評価用のデータオブジェクトを作る(Foundry 非依存)。
@@ -72,6 +75,8 @@ export function buildFormulaData(actor, result = null, bearer = null, target = n
  * `@target.*` のデータを組み立てる。`system.*` は対象の getRollData(AE 込み実効値)、
  * `style` / `works` は「対象が持てば 1・なければ 0」を返す Proxy(**欠損キーも 0**＝未所持スタイルを
  * 式で参照してもエラーにせず 0 として評価させる)。例: `@target.style.ayakashi * 5`。
+ * `isWet` は対象がウェットなら 1・でなければ 0(2026-09-01 承認。式に修飾子として掛けて
+ * 「ウェットが対象なら 0」を表現できる。例: `5 * (1 - @target.isWet)`)。
  * @param {Actor} target
  * @returns {object}
  */
@@ -84,7 +89,38 @@ function buildTargetData(target) {
     };
     td.style = flag(styles);
     td.works = flag(works);
+    td.isWet = isWetActor(target) ? 1 : 0;
     return td;
+}
+
+/**
+ * 対象条件(target-condition.mjs)の照合コンテキストを対象アクターから解決する。
+ * 対象なしは null(=ゲートしない)。
+ * @param {Actor|null} target
+ * @returns {{isWet: boolean, styles: string[], works: string[]}|null}
+ */
+function buildConditionContext(target) {
+    if (!target) return null;
+    return { isWet: isWetActor(target), ...targetStyleWorksKeys(target) };
+}
+
+/**
+ * 対象条件の注記に使う表示名を識別キーから逆引きする(生キー表示禁止の規約)。
+ * 所持アイテム(対象→行使側)→辞典(スタイル/組織)の順で解決する。
+ * @param {{kind?: string, key?: string}} cond
+ * @param {Actor|null} target
+ * @param {Actor|null} actor
+ * @param {Record<string,string>|null} dictNames
+ * @returns {Promise<string>}
+ */
+async function conditionKeyLabel(cond, target, actor, dictNames) {
+    if (cond?.kind !== "style" && cond?.kind !== "works") return "";
+    const key = cond?.key ?? "";
+    const own = resolveItemNameByKey(target, key, null) || resolveItemNameByKey(actor, key, dictNames);
+    if (own) return own;
+    const pack = cond.kind === "style" ? STYLE_PACK : ORGANIZATION_PACK;
+    const names = await loadSkillChoices([pack]).catch(() => null);
+    return names?.[key] || "";
 }
 
 /**
@@ -116,25 +152,37 @@ export function evaluateFormulaSync(formula, data = {}) {
  * 表示名は**逆引きしたアイテムの現在名**(生キーは表示しない・供給元なしは "用途")。式は
  * `@system.*`・`@item.<識別キー>.system.*`・(結果があれば)`@diff`/`@achievement` を参照できる。
  * 評価不能・0 は除外。
- * @param {Array<{formula:string, source:string}>} rows
+ * 行の対象条件(targetCondition・2026-09-01)は対象が解決済みのときだけゲートし、無効化された行は
+ * **0 の行 + 無効化理由(note)** として内訳に残す(黙って落とさない。名前と note の組み立ては表示側)。
+ * @param {Array<{formula:string, source:string, targetCondition?:object}>} rows
  * @param {Actor|null} actor
  * @param {{diff?:number|null, achievement?:number|null}|null} [result] 判定結果(判定前は null)
  * @param {Record<string,string>|null} [dictNames] 辞典フォールバック名
  * @param {Actor|null} [target] 攻撃対象(ダメージ修正で `@target.*` を参照する場合。判定では null)
  * @param {object|null} [bearer] 用途の親アイテム(`@item.self` を式で参照可にする)
- * @returns {Promise<{total:number, sources:Array<{name:string, value:number}>}>}
+ * @returns {Promise<{total:number, sources:Array<{name:string, value:number, note?:string}>}>}
+ *   note=対象条件で無効化された理由(あれば。表示側が名前と併せて出す)
  */
 export async function evaluateBonusRows(rows, actor, result = null, dictNames = null, target = null, bearer = null) {
     let total = 0;
     const sources = [];
     const data = buildFormulaData(actor, result, bearer, target); // @item/@target は全行で共通
+    const condCtx = buildConditionContext(target);                // 対象条件も全行で共通
     for (const row of (rows ?? [])) {
         const val = await evaluateFormula(row?.formula, data);
-        if (!Number.isFinite(val) || val === 0) continue;
-        total += val;
+        if (!Number.isFinite(val)) continue;
         // label=そのまま表示する固定ラベル(システム供給の行・例=登場判定の危険値・14-5)。
         // source=識別キー(逆引きした現在名で帰属・従来)
-        sources.push({ name: row?.label || resolveItemNameByKey(actor, row?.source, dictNames) || "用途", value: val });
+        const name = row?.label || resolveItemNameByKey(actor, row?.source, dictNames) || "用途";
+        if (!targetConditionApplies(row?.targetCondition, condCtx)) {
+            // 無効化された行は落とさず 0 で残し、理由を note に添える(表示側が名前と組んで出す)
+            const keyLabel = await conditionKeyLabel(row?.targetCondition, target, actor, dictNames);
+            sources.push({ name, value: 0, note: targetConditionNote(row?.targetCondition, keyLabel) });
+            continue;
+        }
+        if (val === 0) continue;
+        total += val;
+        sources.push({ name, value: val });
     }
     return { total, sources };
 }
@@ -143,17 +191,25 @@ export async function evaluateBonusRows(rows, actor, result = null, dictNames = 
  * 用途自身の修正値(専用欄・checkBonusSelf / damageBonusSelf)を評価する(2026-07-10)。供給元つきの
  * 追加行(evaluateBonusRows)とは別枠の、その用途の親アイテムが持つ修正値。式では `@item.self`＝
  * 親アイテムを参照でき、台帳の帰属名は**親アイテム名**(bearer.name・なければ "用途")。
+ * 対象条件(condition・2026-09-01)は evaluateBonusRows の行条件と同じゲート——対象解決済みで
+ * 無効なら**注記つき 0 行**を返す(内訳に「なぜ 0 か」を残す)。
  * @param {string} formula
  * @param {Actor|null} actor
  * @param {{diff?:number|null, achievement?:number|null}|null} [result]
  * @param {Actor|null} [target] 攻撃対象(ダメージ側で `@target.*`)
  * @param {object|null} [bearer] 用途の親アイテム(`@item.self`・帰属名)
- * @returns {Promise<{name:string, value:number}|null>} 評価不能・0 は null
+ * @param {object|null} [condition] 対象条件(damageBonusSelfCondition・{kind,mode,key})
+ * @returns {Promise<{name:string, value:number, note?:string}|null>} 評価不能・0 は null。
+ *   対象条件で無効化された場合は value=0 と note(無効化理由)を返す
  */
-export async function evaluateSelfBonus(formula, actor, result = null, target = null, bearer = null) {
+export async function evaluateSelfBonus(formula, actor, result = null, target = null, bearer = null, condition = null) {
     const data = buildFormulaData(actor, result, bearer, target);
     const val = await evaluateFormula(formula, data);
     if (!Number.isFinite(val) || val === 0) return null;
+    if (!targetConditionApplies(condition, buildConditionContext(target))) {
+        const keyLabel = await conditionKeyLabel(condition, target, actor, null);
+        return { name: bearer?.name || "用途", value: 0, note: targetConditionNote(condition, keyLabel) };
+    }
     return { name: bearer?.name || "用途", value: val };
 }
 
