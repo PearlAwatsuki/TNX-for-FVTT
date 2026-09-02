@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
-const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, damageDealtChangeMatches, gatherDamageDealtSources, damageTakenChangeMatches, gatherDamageTakenSources, collectActorEffectBuffs, targetStyleWorksKeys, actorCardValueOverride, itemChangeTargets, buildTransferredEffectData, effectAutoApplies, analyzeGrantLanding, itemGrantCandidates, rewriteGrantChangesForItem, AE_FLAG_PARAMS, flagTotalPath, readFlag, computeFlagEffectiveValues, parseBooleanFlagValue, isOutfitServiceImmune, isOutfitMalfunctioning, isOutfitDestroyed, isOutfitUnusable } = await import("../../../scripts/data/item/helpers.mjs");
+const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, damageDealtChangeMatches, gatherDamageDealtSources, damageTakenChangeMatches, gatherDamageTakenSources, collectActorEffectBuffs, targetStyleWorksKeys, actorCardValueOverride, itemChangeTargets, buildTransferredEffectData, planTransferCopySync, effectAutoApplies, analyzeGrantLanding, itemGrantCandidates, rewriteGrantChangesForItem, AE_FLAG_PARAMS, flagTotalPath, readFlag, computeFlagEffectiveValues, parseBooleanFlagValue, isOutfitServiceImmune, isOutfitMalfunctioning, isOutfitDestroyed, isOutfitUnusable } = await import("../../../scripts/data/item/helpers.mjs");
 
 describe("defenceField()", () => {
   it("呼び出せる", () => {
@@ -919,5 +919,31 @@ describe("evalEffectConditions()（条件評価）", () => {
   it("全条件 AND", () => {
     expect(evalEffectConditions(sys, parseEffectConditions("hack>=3;guardValue>0"))).toBe(true);
     expect(evalEffectConditions(sys, parseEffectConditions("hack>=3;guardValue>5"))).toBe(false);
+  });
+});
+
+// KI-049（2026-09-02）: 供給元1つ×アイテム1つに対して転送コピーは1つだけ、が不変条件。
+// 同時多発のフックで多重に作られた過去のデータも、次の同期で1つへ畳めるようにする。
+describe("planTransferCopySync()（供給元×アイテムごとの転送コピーの合わせ方・KI-049）", () => {
+  it("狙っていてコピーが無ければ作る", () => {
+    expect(planTransferCopySync([], true)).toEqual({ update: null, create: true, delete: [] });
+  });
+
+  it("狙っていてコピーが1つあれば上書きする（供給元が正）", () => {
+    expect(planTransferCopySync([{ id: "c1" }], true)).toEqual({ update: "c1", create: false, delete: [] });
+  });
+
+  it("多重にできたコピーは1つを残して残りを除去する", () => {
+    expect(planTransferCopySync([{ id: "c1" }, { id: "c2" }, { id: "c3" }], true))
+      .toEqual({ update: "c1", create: false, delete: ["c2", "c3"] });
+  });
+
+  it("狙わなくなったらコピーを全部除去する", () => {
+    expect(planTransferCopySync([{ id: "c1" }, { id: "c2" }], false))
+      .toEqual({ update: null, create: false, delete: ["c1", "c2"] });
+  });
+
+  it("狙っておらずコピーも無ければ何もしない", () => {
+    expect(planTransferCopySync([], false)).toEqual({ update: null, create: false, delete: [] });
   });
 });

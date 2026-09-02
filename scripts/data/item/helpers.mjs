@@ -621,6 +621,26 @@ export function buildTransferredEffectData(effect, targetItem, bearer, scope = "
   };
 }
 
+/**
+ * 供給元1つ × アイテム1つについて、転送コピーをどう合わせるかを決める(KI-049)。
+ *
+ * **不変条件は「供給元×アイテムごとにコピーは1つ」**。この関数はその1つへ収束させる形で
+ * 計画を返すため、過去に多重作成されたコピーも次の同期で畳まれる。
+ * 作成の判断(コピーが無ければ作る)は呼び出し側で直列化すること——同時多発のフックで
+ * 「まだ無い」がすり抜けるのが多重作成の原因そのもののため(`serial-queue.mjs`)。
+ *
+ * @param {Array<{id:string}>} copies そのアイテム上にある、この供給元由来のコピー(0件以上)
+ * @param {boolean} wanted この供給元が現在このアイテムを狙っているか
+ * @returns {{update: ?string, create: boolean, delete: string[]}}
+ *   update=現在値で上書きするコピーの id / create=新規作成するか / delete=除去するコピーの id
+ */
+export function planTransferCopySync(copies, wanted) {
+  const list = copies ?? [];
+  if (!wanted) return { update: null, create: false, delete: list.map(c => c.id) };
+  const [keep, ...extra] = list;
+  return { update: keep?.id ?? null, create: !keep, delete: extra.map(c => c.id) };
+}
+
 /** カード数字の上書き値(A〜K)→N◎VA 以前の生の数字(A=1・J=11・Q=12・K=13)。 */
 const CARD_LETTER_TO_NUMERIC = Object.freeze({ A: 1, J: 11, Q: 12, K: 13 });
 

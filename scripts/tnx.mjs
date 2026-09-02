@@ -80,7 +80,8 @@ import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/u
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
 import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
 import { CONDITION_KINDS, CONDITION_GROUP_LABELS, getConditionKinds, buildInflictedEffectsData, applyDamageTagMods, readConditions, blocksMainProcess, actorCannotMainProcess } from './module/conditions.mjs';
-import { gatherDamageTagMods, parseEffectTargetKey, buildTransferredEffectData, AE_FLAG_PARAMS } from './data/item/helpers.mjs';
+import { gatherDamageTagMods, parseEffectTargetKey, buildTransferredEffectData, planTransferCopySync, AE_FLAG_PARAMS } from './data/item/helpers.mjs';
+import { runSerial } from './module/serial-queue.mjs';
 import { registerDamageChartTextSetting } from './module/damage-chart-text-app.mjs';
 import { registerPartSlotPresetSetting, getPartSlotPreset, initializeDefaultPartSlotPreset, migratePartSlotKeys } from './module/part-slot-preset-app.mjs';
 import { autoAcquireForStyleSkill, autoImportDerivedData } from './module/style-skill-acquisition.mjs';
@@ -840,17 +841,23 @@ async function materializeItemTransfers(actor, effect, bearer) {
     const targets = (item) => (isAuto && toParent)
         ? bearer.system?.parentItemId === item.id
         : hasItemTarget;
-    for (const item of actor.items) {
-        const copy = item.effects.find(e => e.flags?.[TNX_TRANSFER_SCOPE]?.transferredFrom === effect.uuid);
-        if (!targets(item) && !copy) continue;
-        const data = targets(item) ? buildTransferredEffectData(effect, item, bearer) : null;
-        if (data) {
-            if (copy) await copy.update(data); // 供給元が正: コピーを供給元の現在値で上書き
-            else await item.createEmbeddedDocuments("ActiveEffect", [data]);
-        } else if (copy) {
-            await copy.delete(); // 供給元がこのアイテムを狙わなくなった→コピー除去
+    // アクター単位で直列化する(KI-049): 「コピーを探す→無ければ作る」は原子的でないため、
+    // 複数アイテムの一括追加でフックが同時多発すると、どの発火も「まだ無い」と判断して
+    // 個数分のコピーを作っていた(4アイテム同時ドロップで4重・攻撃力が3回余計に乗る)。
+    await runSerial(actor.uuid, async () => {
+        for (const item of actor.items) {
+            // 供給元×アイテムごとにコピーは1つ、が不変条件。過去に多重作成されたものも
+            // planTransferCopySync が1つへ畳む(残りは除去)
+            const copies = item.effects.filter(
+                e => e.flags?.[TNX_TRANSFER_SCOPE]?.transferredFrom === effect.uuid);
+            const data = targets(item) ? buildTransferredEffectData(effect, item, bearer) : null;
+            const plan = planTransferCopySync(copies, !!data);
+            // 狙わなくなった/余分なコピーを先に除去してから、残す1つを現在値へ揃える
+            if (plan.delete.length) await item.deleteEmbeddedDocuments("ActiveEffect", plan.delete);
+            if (plan.update) await item.effects.get(plan.update)?.update(data); // 供給元が正
+            else if (plan.create) await item.createEmbeddedDocuments("ActiveEffect", [data]);
         }
-    }
+    });
 }
 
 /** 供給元(uuid 群)由来の転送コピーをアクターの全アイテムから除去する。 */

@@ -97,15 +97,16 @@ export async function resolveUsageSiblingSkills(item) {
     return dict;
 }
 
+import { runSerial } from "./serial-queue.mjs";
+
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
-// ─── system.actions の直列書き込みキュー(2026-07-17) ─────────────────────────────
+// ─── system.actions の直列書き込み(2026-07-17・直列化は serial-queue へ統合=2026-09-02) ───
 // 用途は1フィールドの配列(system.actions)に同居するため、並行する全配列書き込み
 // (用途シートの submitOnChange/必須コンボ enforcement と、一覧の追加/削除)が最後勝ちで
 // 互いを巻き戻す——削除した用途が in-flight の書き込みで復活する等。アイテムごとに
 // 書き込みを直列化し、mutate は**直前の書き込み完了後の最新 actions** を受け取って
 // 新しい配列(null=変更なし)を返す。これで stale スナップショットの全配列上書きが消える。
-const actionsWriteQueues = new Map(); // item.uuid → Promise
 
 /**
  * system.actions を直列に書き換える(全書き込み経路はこれを通す)。
@@ -114,9 +115,7 @@ const actionsWriteQueues = new Map(); // item.uuid → Promise
  *        最新の actions(ディープコピー)を受け取り、新配列を返す(null=変更なし・書き込みしない)
  */
 export async function updateUsageActions(item, mutate) {
-    const key = item.uuid ?? item.id;
-    const prev = actionsWriteQueues.get(key) ?? Promise.resolve();
-    const next = prev.catch(() => {}).then(async () => {
+    await runSerial(item.uuid ?? item.id, async () => {
         // コンペンディウム文書は、パックの一括再取得(getDocuments)等でコレクションの
         // インスタンスが差し替わり得る——シートが掴んだままの旧インスタンスは以後の更新を
         // 受け取らない「孤児」になる(2026-07-17 特定: 辞典アイテムの用途削除が画面に残る
@@ -127,12 +126,6 @@ export async function updateUsageActions(item, mutate) {
         const result = await mutate(actions);
         if (result) await doc.update({ "system.actions": result });
     });
-    actionsWriteQueues.set(key, next);
-    try {
-        await next;
-    } finally {
-        if (actionsWriteQueues.get(key) === next) actionsWriteQueues.delete(key);
-    }
 }
 
 // 用途タイプ=行動種別(2026-07-17 ユーザー確定)。正本は usage-types.mjs の USAGE_TYPE_DEFS。
