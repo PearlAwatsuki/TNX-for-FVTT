@@ -18,7 +18,7 @@
  */
 
 import { TNX_HOOKS } from "./combat-events.mjs";
-import { TNX_BOUNDARIES, planEffectExpiry, planItemBoundaryUpdates, planConditionRecovery, planActEndDamageCleanup, planSceneDeadlineExpiry, planPoisonTicks,
+import { TNX_BOUNDARIES, planEffectExpiry, planItemGrantExpiry, planItemBoundaryUpdates, planConditionRecovery, planActEndDamageCleanup, planSceneDeadlineExpiry, planPoisonTicks,
          planSceneDeferredFiring, buildForcedExitFlags } from "./time-boundary-logic.mjs";
 import { CONDITION_KINDS, getConditionKinds } from "./conditions.mjs";
 import { listAppearingActors } from "./appearance-state.mjs";
@@ -33,15 +33,18 @@ function isApplier() {
 /**
  * 1 アクターについて、その境界で失効する効果を除去する。
  *
- * 対象は**アクターに乗っている効果**だけ。アイテムに乗っている効果は定義であって実体ではなく、
- * 消すとアイテムの設定そのものが失われる(用途で対象へ付与されたコピーがアクター側の実体で、
- * 持続はそのコピーに引き継がれて失効する)。
+ * アクターに乗っている効果に加え、**アイテムに着地した付与コピー**も実体として失効させる
+ * (KI-048)。アイテムに乗る供給元の定義(消すとアイテムの設定そのものが失われる)と転送コピー
+ * (供給元が正)は残す——判別は `planItemGrantExpiry` が持つ。
  * @param {Actor} actor
  * @param {string} boundary TNX_BOUNDARIES の値
  */
 async function expireEffectsOn(actor, boundary) {
     const ids = planEffectExpiry(actor?.effects?.contents ?? [], boundary);
     if (ids.length) await actor.deleteEmbeddedDocuments("ActiveEffect", ids);
+    for (const { itemId, effectIds } of planItemGrantExpiry(actor?.items ?? [], boundary)) {
+        await actor.items.get(itemId)?.deleteEmbeddedDocuments("ActiveEffect", effectIds);
+    }
 }
 
 /**

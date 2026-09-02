@@ -117,8 +117,12 @@ export function durationExpiresAt(duration, boundary) {
  * 境界で失効させる効果の id を抽出する。
  *
  * 対象は**アクターに乗っている効果**だけ(呼び出し側が渡す)。アイテムに乗っている効果は
- * 定義であって実体ではないため消さない——用途で対象へ付与されたコピーがアクター側の実体で、
- * 持続はそのコピーに引き継がれて失効する。
+ * `planItemGrantExpiry` が別に扱う——実体はそのうち付与コピーだけで、供給元の定義と
+ * 転送コピーは消してはならないため。
+ *
+ * ※15-1 では「アイテムに乗っている効果は定義であって実体ではない」として掃引の対象外に
+ * していたが、これは誤りだった(KI-048)。用途の「適用される効果」はアイテムにも着地でき
+ * (2026-07-13 の v3 再設計)、その付与コピーはアイテム上の実体である。
  * @param {Array<object>|null|undefined} effects
  * @param {string} boundary TNX_BOUNDARIES の値
  * @returns {string[]} 失効させる効果の id
@@ -127,6 +131,33 @@ export function planEffectExpiry(effects, boundary) {
     return (effects ?? [])
         .filter(e => durationExpiresAt(readEffectDuration(e), boundary))
         .map(e => e.id);
+}
+
+/**
+ * 境界で失効させる**アイテムに着地した付与コピー**を、アイテムごとに抽出する(KI-048)。
+ *
+ * アイテムに乗る効果は三種類あり、境界で消してよい実体はこのうち付与コピーだけである。
+ *
+ * - **供給元の定義**(アイテムに設定した効果そのもの) … 消すとアイテムの設定が失われる。残す。
+ * - **転送コピー**(`transferredFrom`) … 供給元が正の従属物で、除去は供給元の側で起こる。残す。
+ * - **付与コピー**(`grantedFrom`) … 用途の「適用される効果」がアイテムへ着地した一回性の
+ *   インスタンス。アクターへ着地した付与コピーと同じ資格の実体なので、同じ境界で失効させる。
+ *
+ * @param {Iterable<{id:string, effects?:Iterable<object>}>|null|undefined} items 所持アイテム
+ * @param {string} boundary TNX_BOUNDARIES の値
+ * @returns {Array<{itemId:string, effectIds:string[]}>} 失効させる効果を持つアイテムのみ
+ */
+export function planItemGrantExpiry(items, boundary) {
+    const out = [];
+    for (const item of (items ?? [])) {
+        const effectIds = [];
+        for (const effect of (item?.effects ?? [])) {
+            if (effect?.flags?.[SCOPE]?.grantedFrom === undefined) continue;
+            if (durationExpiresAt(readEffectDuration(effect), boundary)) effectIds.push(effect.id);
+        }
+        if (effectIds.length) out.push({ itemId: item.id, effectIds });
+    }
+    return out;
 }
 
 /**

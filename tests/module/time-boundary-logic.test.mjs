@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
     TNX_BOUNDARIES, TNX_DURATIONS,
-    readEffectDuration, durationLabelOf, durationExpiresAt, planEffectExpiry,
+    readEffectDuration, durationLabelOf, durationExpiresAt, planEffectExpiry, planItemGrantExpiry,
 } from "../../scripts/module/time-boundary-logic.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
@@ -109,5 +109,50 @@ describe("planEffectExpiry()（境界で失効させる効果の抽出）", () =
 
     it("効果が無くても落ちない", () => {
         expect(planEffectExpiry(null, TNX_BOUNDARIES.actEnd)).toEqual([]);
+    });
+});
+
+// KI-048（2026-09-02）: 用途の「適用される効果」がアイテムに着地したとき、付与コピーは
+// **アイテムの上に置かれた実体**になる。15-1 の掃引はアクターの効果しか見ていなかったため、
+// この実体だけが失効せず恒久化していた（効果一覧には「シーン中」と表示されるのに消えない）。
+// 供給元の定義（アイテムに設定した効果そのもの）と転送コピー（供給元が正）は従来どおり残す。
+describe("planItemGrantExpiry()（アイテムに着地した付与コピーの失効）", () => {
+    const granted = (id, duration) => ({
+        id, flags: { [SCOPE]: { tnxDuration: duration, grantedFrom: "Actor.x.Item.y.ActiveEffect.z" } },
+    });
+
+    it("付与コピーはその境界で失効する", () => {
+        const items = [{ id: "i1", effects: [granted("e1", "scene")] }];
+        expect(planItemGrantExpiry(items, TNX_BOUNDARIES.exit))
+            .toEqual([{ itemId: "i1", effectIds: ["e1"] }]);
+    });
+
+    it("供給元の定義は消さない（アイテムの設定そのものが失われるため）", () => {
+        const items = [{ id: "i1", effects: [withDuration("e1", "scene")] }];
+        expect(planItemGrantExpiry(items, TNX_BOUNDARIES.exit)).toEqual([]);
+    });
+
+    it("転送コピーは消さない（供給元が正・除去は供給元の側で起こる）", () => {
+        const items = [{ id: "i1", effects: [{ id: "e1", flags: { [SCOPE]: {
+            tnxDuration: "scene", transferredFrom: "Actor.x.Item.y.ActiveEffect.z" } } }] }];
+        expect(planItemGrantExpiry(items, TNX_BOUNDARIES.exit)).toEqual([]);
+    });
+
+    it("その境界で畳まれない持続の付与コピーは残す", () => {
+        const items = [{ id: "i1", effects: [granted("e1", "act")] }];
+        expect(planItemGrantExpiry(items, TNX_BOUNDARIES.exit)).toEqual([]);
+    });
+
+    it("失効する効果を持たないアイテムは結果に出ない", () => {
+        const items = [
+            { id: "i1", effects: [granted("e1", "act")] },
+            { id: "i2", effects: [granted("e2", "cut")] },
+        ];
+        expect(planItemGrantExpiry(items, TNX_BOUNDARIES.cutEnd))
+            .toEqual([{ itemId: "i2", effectIds: ["e2"] }]);
+    });
+
+    it("アイテムが無くても落ちない", () => {
+        expect(planItemGrantExpiry(null, TNX_BOUNDARIES.actEnd)).toEqual([]);
     });
 });
