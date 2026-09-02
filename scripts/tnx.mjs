@@ -905,14 +905,18 @@ Hooks.on("deleteItem", async (item, _options, userId) => {
     if (uuids.length) await removeItemTransferCopies(actor, uuids);
 });
 
-// アイテムがアクターに追加されたとき: 既存の供給元効果からこのアイテムへ向く転送を実体化する
+// アイテムがアクターに追加されたとき: 転送を実体化し直す。追加されたアイテムは**狙われる側**
+// にも**供給元側**にもなりうるため、アクター自身と全所持アイテム(追加されたもの自身を含む)を
+// 走査する。追加されたアイテム自身を除外していたため、他のアイテムを狙う効果を内包した
+// アイテム(辞典からドラッグしたドラッグ・サイバーウェア等)は、別の操作が起きるまで効果が
+// 乗らなかった(KI-050)。Foundry はアイテムに内包して作成された効果に createActiveEffect を
+// 発火しないため、そちらの経路でも拾えない
 Hooks.on("createItem", async (item, _options, userId) => {
     if (game.user.id !== userId) return;
     const actor = item.actor;
     if (!actor) return;
     for (const e of actor.effects) await materializeItemTransfers(actor, e, actor);
     for (const it of actor.items) {
-        if (it.id === item.id) continue;
         for (const e of it.effects) await materializeItemTransfers(actor, e, it);
     }
 });
