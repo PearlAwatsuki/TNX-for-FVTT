@@ -35,7 +35,7 @@ function effectMock({ id = "e1", changes, disabled = false, transfer = true, fla
 /** 武器モック(実 prepareDerivedData 後の形: total=base / damageTypeTotal=base 済み)。 */
 function weaponMock(effects = []) {
   const weapon = {
-    id: "w1", documentName: "Item", name: "新規白兵武器",
+    id: "w1", documentName: "Item", name: "新規白兵武器", type: "weapon",
     system: {
       identificationKey: "",
       attack: { damageType: "I", value: 4, total: 4, damageTypeTotal: "I" },
@@ -168,5 +168,72 @@ describe("_applyEffectBuffs 実行検証（アイテム AE・2026-07-13）", () 
     const keys = effect.apply.mock.calls.map(c => c[1]?.key);
     expect(keys).toContain("system.combatSpeed.currentBuff");   // 蓄積先＝焼き込み用
     expect(keys).not.toContain("system.combatSpeed.currentTotal"); // 実効値には毎回足さない
+  });
+});
+
+/** 技能モック(実 prepareDerivedData 後の形: levelTotal=level 済み)。 */
+function skillMock({ id = "s1", key = "shageki", type = "generalSkill", level = 2 } = {}) {
+  return {
+    id, documentName: "Item", name: "射撃", type,
+    system: { identificationKey: key, level, levelTotal: level },
+    effects: [],
+  };
+}
+
+// 2026-09-02 ユーザー確定: 技能のレベルは「キャラクターが持つ技能のレベル」であって、モノの
+// 性能ではない。モノ(アウトフィット)への効果は従来どおり物理転送(エンチャント)で対象アイテムへ
+// 実体コピーを作るが、技能・神業のようにキャラクターの一部を表すアイテムは転送せず、
+// キャラクターに乗った効果のまま遠隔で適用する。
+describe("キャラクターの一部を表すアイテムへの遠隔適用（技能レベル・2026-09-02）", () => {
+  it("アクターに乗った効果の item.<識別キー>.system.level が技能の実効レベルへ届く", () => {
+    const skill = skillMock();
+    const eff = effectMock({ changes: [{ key: "item.shageki.system.level", mode: 2, value: "1" }] });
+    runBuffs([skill], [eff]);
+    expect(eff.apply).toHaveBeenCalledTimes(1);
+    const [doc, change] = eff.apply.mock.calls[0];
+    expect(doc).toBe(skill);
+    expect(change.key).toBe("system.levelTotal"); // 設定欄(level)でなく実効値へ
+    expect(change.mode).toBe(2);
+  });
+
+  it("識別キーが一致しない技能には届かない", () => {
+    const skill = skillMock({ key: "hakuhei" });
+    const eff = effectMock({ changes: [{ key: "item.shageki.system.level", mode: 2, value: "1" }] });
+    runBuffs([skill], [eff]);
+    expect(eff.apply).not.toHaveBeenCalled();
+  });
+
+  it("疑似分類（system.category.generalSkill.level）も遠隔適用される", () => {
+    const skill = skillMock();
+    const eff = effectMock({ changes: [{ key: "system.category.generalSkill.level", mode: 2, value: "1" }] });
+    runBuffs([skill], [eff]);
+    expect(eff.apply).toHaveBeenCalledTimes(1);
+    expect(eff.apply.mock.calls[0][0]).toBe(skill);
+  });
+
+  it("スタイル技能・神業もキャラクターの一部として遠隔適用される", () => {
+    const styleSkill = skillMock({ id: "s2", key: "kamiwaza_moto", type: "styleSkill" });
+    const eff = effectMock({ changes: [{ key: "item.kamiwaza_moto.system.level", mode: 2, value: "2" }] });
+    runBuffs([styleSkill], [eff]);
+    expect(eff.apply).toHaveBeenCalledTimes(1);
+  });
+
+  it("モノ（アウトフィット）を狙う変更は遠隔適用しない＝物理転送が担う", () => {
+    const weapon = weaponMock();
+    weapon.system.identificationKey = "buki";
+    const eff = effectMock({ changes: [{ key: "item.buki.system.attack.value", mode: 2, value: "2" }] });
+    runBuffs([weapon], [eff]);
+    expect(eff.apply).not.toHaveBeenCalled();
+  });
+
+  it("アイテムに乗った効果からでも技能へ届く（供給元がドラッグ等でも同じ）", () => {
+    const skill = skillMock();
+    const drug = weaponMock([effectMock({ changes: [
+      { key: "item.shageki.system.level", mode: 2, value: "1" },
+    ] })]);
+    drug.id = "d1";
+    runBuffs([drug, skill]);
+    expect(drug.effects[0].apply).toHaveBeenCalledTimes(1);
+    expect(drug.effects[0].apply.mock.calls[0][0]).toBe(skill);
   });
 });

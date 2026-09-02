@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
-const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, damageDealtChangeMatches, gatherDamageDealtSources, damageTakenChangeMatches, gatherDamageTakenSources, collectActorEffectBuffs, targetStyleWorksKeys, actorCardValueOverride, itemChangeTargets, buildTransferredEffectData, planTransferCopySync, effectAutoApplies, analyzeGrantLanding, itemGrantCandidates, rewriteGrantChangesForItem, AE_FLAG_PARAMS, flagTotalPath, readFlag, computeFlagEffectiveValues, parseBooleanFlagValue, isOutfitServiceImmune, isOutfitMalfunctioning, isOutfitDestroyed, isOutfitUnusable } = await import("../../../scripts/data/item/helpers.mjs");
+const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, damageDealtChangeMatches, gatherDamageDealtSources, damageTakenChangeMatches, gatherDamageTakenSources, collectActorEffectBuffs, targetStyleWorksKeys, actorCardValueOverride, itemChangeTargets, buildTransferredEffectData, planTransferCopySync, isOutfitItem, planCapabilityTransferCleanup, effectAutoApplies, analyzeGrantLanding, itemGrantCandidates, rewriteGrantChangesForItem, AE_FLAG_PARAMS, flagTotalPath, readFlag, computeFlagEffectiveValues, parseBooleanFlagValue, isOutfitServiceImmune, isOutfitMalfunctioning, isOutfitDestroyed, isOutfitUnusable } = await import("../../../scripts/data/item/helpers.mjs");
 
 describe("defenceField()", () => {
   it("呼び出せる", () => {
@@ -945,5 +945,90 @@ describe("planTransferCopySync()（供給元×アイテムごとの転送コピ�
 
   it("狙っておらずコピーも無ければ何もしない", () => {
     expect(planTransferCopySync([], false)).toEqual({ update: null, create: false, delete: [] });
+  });
+});
+
+// 2026-09-02 ユーザー確定: アイテムのパラメータ変更（エンチャント）は対象アイテムへ物理転送するが、
+// 技能のレベルは「キャラクターが持つ技能のレベル」なのでキャラクター付与にする。分かれ目は
+// **乗り先がモノ（アウトフィット）かキャラクターの一部か**。
+describe("isOutfitItem()（モノか＝物理転送の対象か・2026-09-02）", () => {
+  it("アウトフィットはモノ", () => {
+    for (const type of ["weapon", "armor", "cyborg", "vehicle", "tron", "tap", "ianus", "residence", "combiner", "general"]) {
+      expect(isOutfitItem({ type })).toBe(true);
+    }
+  });
+
+  it("技能・神業・スタイルはキャラクターの一部", () => {
+    for (const type of ["generalSkill", "styleSkill", "miracle", "style", "organization", "lifePath"]) {
+      expect(isOutfitItem({ type })).toBe(false);
+    }
+  });
+
+  it("種別の無いものはモノとして扱わない", () => {
+    expect(isOutfitItem(null)).toBe(false);
+    expect(isOutfitItem({})).toBe(false);
+  });
+});
+
+describe("analyzeGrantLanding()（乗り先の種別で着地を分ける・2026-09-02）", () => {
+  const weapon = { id: "w1", type: "weapon", system: { identificationKey: "buki", majorCategory: "weapon", minorCategory: "melee", attack: {} } };
+  const skill  = { id: "s1", type: "generalSkill", system: { identificationKey: "shageki", level: 1 } };
+  const items  = [weapon, skill];
+
+  it("技能を狙う付与はアクターへ着地する（キャラクターが持つ技能のレベルのため）", () => {
+    expect(analyzeGrantLanding([{ key: "item.shageki.system.level" }], items)).toBe("actor");
+  });
+
+  it("モノ（武器）を狙う付与は従来どおりアイテムへ着地する", () => {
+    expect(analyzeGrantLanding([{ key: "item.buki.system.attack.value" }], items)).toBe("item");
+  });
+
+  it("疑似分類（一般技能・スタイル技能）はアイテムを渡さなくてもアクター着地", () => {
+    expect(analyzeGrantLanding([{ key: "system.category.generalSkill.level" }])).toBe("actor");
+    expect(analyzeGrantLanding([{ key: "system.category.styleSkill.uses.max" }])).toBe("actor");
+  });
+
+  it("該当するアイテムが1件も無ければ従来どおりアイテム着地（候補なしの警告経路に載せる）", () => {
+    expect(analyzeGrantLanding([{ key: "item.motteinai.system.attack.value" }], items)).toBe("item");
+  });
+
+  it("素のパラメータキーは従来どおりアイテム着地（付与先を選ぶ）", () => {
+    expect(analyzeGrantLanding([{ key: "system.attack.value" }], items)).toBe("item");
+  });
+});
+
+// 2026-09-02: 技能・神業を狙う効果がキャラクター付与へ移ったため、旧経路で技能アイテムの上に
+// 作られていた転送コピーは「存在してはならないもの」になった（残すと遠隔適用と二重に乗る）。
+// 起動時に一回だけ掃除する（部位キーの移行と同じ版番号ゲート）。触るのは転送コピーだけ。
+describe("planCapabilityTransferCleanup()（キャラクターの一部を表すアイテム上の転送コピーの一回限り掃除）", () => {
+  const SC = "tokyo-nova-axleration";
+  const transferred = (id) => ({ id, flags: { [SC]: { transferredFrom: "Actor.a.Item.b.ActiveEffect.c" } } });
+  const granted     = (id) => ({ id, flags: { [SC]: { grantedFrom: "Actor.a.Item.b.ActiveEffect.c" } } });
+  const definition  = (id) => ({ id, flags: {} });
+
+  it("技能・神業の上の転送コピーだけを除去対象にする", () => {
+    const items = [
+      { id: "s1", type: "generalSkill", effects: [transferred("t1"), transferred("t2")] },
+      { id: "m1", type: "miracle",      effects: [transferred("t3")] },
+    ];
+    expect(planCapabilityTransferCleanup(items)).toEqual([
+      { itemId: "s1", effectIds: ["t1", "t2"] },
+      { itemId: "m1", effectIds: ["t3"] },
+    ]);
+  });
+
+  it("モノ（アウトフィット）の転送コピーは触らない（エンチャントは正当な実体）", () => {
+    const items = [{ id: "w1", type: "weapon", effects: [transferred("t1")] }];
+    expect(planCapabilityTransferCleanup(items)).toEqual([]);
+  });
+
+  it("付与コピーと供給元の定義は触らない", () => {
+    const items = [{ id: "s1", type: "generalSkill", effects: [granted("g1"), definition("d1")] }];
+    expect(planCapabilityTransferCleanup(items)).toEqual([]);
+  });
+
+  it("除去対象の無いアイテムは結果に出ず、空入力でも落ちない", () => {
+    expect(planCapabilityTransferCleanup([{ id: "s1", type: "generalSkill", effects: [] }])).toEqual([]);
+    expect(planCapabilityTransferCleanup(null)).toEqual([]);
   });
 });

@@ -14,7 +14,7 @@ import { BiographyTemplate } from "./biography.mjs";
 import { AttributesTemplate } from "./attributes.mjs";
 import { ActorBaseTemplate } from "./actor-base.mjs";
 import { computeAttributeFinal, computeOutfitAggregates, resolveCombatSpeedDisplayTotal, isActorInStartedCombat } from "../../helpers.mjs";
-import { ATTACK_DAMAGE_TYPES, parseEffectTargetKey, resolveItemTotalPath, evalEffectConditions, effectAutoApplies, AE_FLAG_TOTAL_PATHS, parseBooleanFlagValue } from "../../item/helpers.mjs";
+import { ATTACK_DAMAGE_TYPES, parseEffectTargetKey, resolveItemTotalPath, evalEffectConditions, effectAutoApplies, itemChangeTargets, isOutfitItem, AE_FLAG_TOTAL_PATHS, parseBooleanFlagValue } from "../../item/helpers.mjs";
 import { buildEffectivePartSlots } from "../../item/part-helpers.mjs";
 import { computeUsesMaxTotalForActor, clampUsesMaxTotalForActor } from "../../item/uses.mjs";
 import { getEffectiveConditions, gatherConditionControlPenalty, gatherPartSlotMods } from "../../../module/conditions.mjs";
@@ -413,13 +413,23 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
         // 素のパラメータキー(2026-07-13 再設計): 効果が乗るアイテム自身。転送/付与コピーもこの
         // スコープで着地する(コピーは対象アイテム上にあるため bearer=対象)
         return bearer?.documentName === "Item" ? [itemApp(bearer)] : [];
-      // skill/category(遠隔のアイテム狙い)の直接適用は廃止(2026-07-13 ユーザー確定):
-      // これらのキーは**対象アイテムへの物理転送**(materializeItemTransfers・素のパラメータキーに
-      // 書き換えた実体コピー)が担い、コピーが self スコープで無条件に適用される。
-      // ここで遠隔適用すると転送コピーと二重になるため適用しない
+      // 識別キー/分類狙いは**乗り先の種別で経路が分かれる**(2026-09-02 ユーザー確定):
+      // - モノ(アウトフィット)=**物理転送**(materializeItemTransfers・素のパラメータキーに
+      //   書き換えた実体コピー)が担う。ここで遠隔適用すると転送コピーと二重になるため触らない
+      //   (2026-07-13 ユーザー確定のエンチャント経路をそのまま維持)
+      // - キャラクターの一部を表すアイテム(技能・神業)=転送せず**ここで遠隔適用**する。
+      //   技能のレベルは「キャラクターが持つ技能のレベル」であってモノの性能ではないため、
+      //   効果はキャラクター側に置いたまま実効値(levelTotal 等)へ届かせる
       case "category":
-      case "skill":
-        return [];
+      case "skill": {
+        const out = [];
+        for (const item of items) {
+          if (isOutfitItem(item)) continue;
+          if (!itemChangeTargets(parsed, item)) continue;
+          out.push(itemApp(item));
+        }
+        return out;
+      }
       default:
         return [];
     }

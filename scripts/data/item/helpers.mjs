@@ -557,6 +557,22 @@ const PSEUDO_CATEGORY_TYPES = Object.freeze(["generalSkill", "styleSkill"]);
  * @param {Item} item 対象候補
  * @returns {boolean}
  */
+/**
+ * そのアイテムは**モノ**か——効果を実体コピーとして物理転送する対象か(2026-09-02 ユーザー確定)。
+ *
+ * アウトフィット(武器・防具・義体・ヴィークル・アイテム等)がモノで、そのパラメータを変える効果は
+ * D&D のエンチャントと同じく**対象アイテムへ転送**する。技能・神業・スタイルのように
+ * **キャラクターの一部**を表すアイテムは転送先にならない——技能のレベルは「キャラクターが持つ
+ * 技能のレベル」であってモノの性能ではないため、効果はキャラクター側に置いたまま
+ * 遠隔で実効値へ適用する(`_applyEffectBuffs` の skill/category スコープ)。
+ *
+ * @param {?{type?: string}} item
+ * @returns {boolean}
+ */
+export function isOutfitItem(item) {
+  return OUTFIT_TYPES.has(item?.type);
+}
+
 export function itemChangeTargets(parsed, item) {
   if (!parsed?.path) return false;
   if (parsed.scope === "skill") {
@@ -641,6 +657,32 @@ export function planTransferCopySync(copies, wanted) {
   return { update: keep?.id ?? null, create: !keep, delete: extra.map(c => c.id) };
 }
 
+/**
+ * キャラクターの一部を表すアイテム(技能・神業等)の上に残っている**転送コピー**を、アイテムごとに
+ * 列挙する(2026-09-02・起動時の一回限り掃除用)。
+ *
+ * 技能・神業を狙う効果はキャラクター付与(遠隔適用)へ移ったため、旧経路で技能アイテムの上に作られた
+ * 転送コピーは存在してはならないものになった——残すと遠隔適用と二重に乗る。触るのは転送コピー
+ * (`transferredFrom`)だけで、付与コピー(`grantedFrom`)と供給元の定義には手を出さない。
+ * モノ(アウトフィット)の転送コピーはエンチャントとして正当な実体なので対象外。
+ *
+ * @param {Iterable<{id:string, type?:string, effects?:Iterable<object>}>|null|undefined} items 所持アイテム
+ * @param {string} [scope]
+ * @returns {Array<{itemId:string, effectIds:string[]}>} 除去対象を持つアイテムのみ
+ */
+export function planCapabilityTransferCleanup(items, scope = "tokyo-nova-axleration") {
+  const out = [];
+  for (const item of (items ?? [])) {
+    if (isOutfitItem(item)) continue;
+    const effectIds = [];
+    for (const effect of (item?.effects ?? [])) {
+      if (effect?.flags?.[scope]?.transferredFrom !== undefined) effectIds.push(effect.id);
+    }
+    if (effectIds.length) out.push({ itemId: item.id, effectIds });
+  }
+  return out;
+}
+
 /** カード数字の上書き値(A〜K)→N◎VA 以前の生の数字(A=1・J=11・Q=12・K=13)。 */
 const CARD_LETTER_TO_NUMERIC = Object.freeze({ A: 1, J: 11, Q: 12, K: 13 });
 
@@ -723,12 +765,32 @@ export function collectActorEffectBuffs(actor, scope = "tokyo-nova-axleration") 
  * @param {Array<object>} changes AE の changes
  * @returns {"item"|"actor"}
  */
-export function analyzeGrantLanding(changes) {
+export function analyzeGrantLanding(changes, items = null) {
   for (const c of (changes ?? [])) {
     const p = parseEffectTargetKey(c?.key);
-    if (p && ["self", "skill", "category"].includes(p.scope)) return "item";
+    if (!p) continue;
+    // 素のパラメータキー=「乗っているアイテム自身」。付与では付与先を選ばせる(従来どおり)
+    if (p.scope === "self") return "item";
+    if ((p.scope === "skill" || p.scope === "category") && grantTargetsOutfit(p, items)) return "item";
   }
   return "actor";
+}
+
+/**
+ * 識別キー/分類狙いの変更が**モノ**へ向くか(2026-09-02)。キャラクターの一部を表すアイテム
+ * (技能・神業)だけを狙う変更は、アクターに着地して遠隔で適用する。
+ *
+ * - 疑似分類(一般技能/スタイル技能)は種別そのものなので、所持アイテムを見るまでもなく非モノ。
+ * - 所持アイテムが渡されないときは従来の判定(アイテム着地)を保つ。
+ * - 該当するアイテムが1件も無いときもアイテム着地にする——「付与先になれるアイテムがない」と
+ *   警告する既存の経路に載せるため(黙ってアクターへ乗せて何も起きない、を避ける)。
+ */
+function grantTargetsOutfit(parsed, items) {
+  if (parsed.scope === "category" && PSEUDO_CATEGORY_TYPES.includes(parsed.selector)) return false;
+  if (!items) return true;
+  const matches = [...items].filter(i => itemChangeTargets(parsed, i));
+  if (!matches.length) return true;
+  return matches.some(i => isOutfitItem(i));
 }
 
 /**

@@ -219,7 +219,9 @@ async function createOrRefreshGrant(doc, data) {
  * @returns {Promise<true|"skip"|"cancel">} skip=候補なし(通知済み)・cancel=選択キャンセル
  */
 async function grantUsageEffect(targetActor, entry) {
-    const landing = analyzeGrantLanding(entry.data?.changes);
+    // 着地は**付与先の所持アイテムの種別**で決まる(2026-09-02): 技能・神業だけを狙うペイロードは
+    // アクターへ着地し、遠隔適用で実効値に届く(付与先を選ばせない・持続の失効掃引にも乗る)
+    const landing = analyzeGrantLanding(entry.data?.changes, targetActor?.items);
     if (landing === "item") {
         const candidates = itemGrantCandidates(targetActor?.items ?? [], entry.data?.changes);
         if (!candidates.length) {

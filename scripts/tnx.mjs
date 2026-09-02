@@ -80,7 +80,7 @@ import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/u
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
 import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
 import { CONDITION_KINDS, CONDITION_GROUP_LABELS, getConditionKinds, buildInflictedEffectsData, applyDamageTagMods, readConditions, blocksMainProcess, actorCannotMainProcess } from './module/conditions.mjs';
-import { gatherDamageTagMods, parseEffectTargetKey, buildTransferredEffectData, planTransferCopySync, AE_FLAG_PARAMS } from './data/item/helpers.mjs';
+import { gatherDamageTagMods, parseEffectTargetKey, buildTransferredEffectData, planTransferCopySync, isOutfitItem, planCapabilityTransferCleanup, AE_FLAG_PARAMS } from './data/item/helpers.mjs';
 import { runSerial } from './module/serial-queue.mjs';
 import { registerDamageChartTextSetting } from './module/damage-chart-text-app.mjs';
 import { registerPartSlotPresetSetting, getPartSlotPreset, initializeDefaultPartSlotPreset, migratePartSlotKeys } from './module/part-slot-preset-app.mjs';
@@ -838,9 +838,12 @@ async function materializeItemTransfers(actor, effect, bearer) {
         const p = parseEffectTargetKey(c.key);
         return p && ["skill", "category"].includes(p.scope);
     });
-    const targets = (item) => (isAuto && toParent)
+    // 転送先は**モノ(アウトフィット)に限る**(2026-09-02 ユーザー確定)。技能・神業のように
+    // キャラクターの一部を表すアイテムのパラメータは、キャラクターに乗った効果から遠隔で
+    // 適用する(_applyEffectBuffs)ため、実体コピーを作らない
+    const targets = (item) => isOutfitItem(item) && ((isAuto && toParent)
         ? bearer.system?.parentItemId === item.id
-        : hasItemTarget;
+        : hasItemTarget);
     // アクター単位で直列化する(KI-049): 「コピーを探す→無ければ作る」は原子的でないため、
     // 複数アイテムの一括追加でフックが同時多発すると、どの発火も「まだ無い」と判断して
     // 個数分のコピーを作っていた(4アイテム同時ドロップで4重・攻撃力が3回余計に乗る)。
@@ -858,6 +861,28 @@ async function materializeItemTransfers(actor, effect, bearer) {
             else if (plan.create) await item.createEmbeddedDocuments("ActiveEffect", [data]);
         }
     });
+}
+
+/**
+ * 技能・神業などキャラクターの一部を表すアイテムの上に残った転送コピーを、起動時に一回だけ除去する
+ * (2026-09-02 ユーザー確定)。それらの効果はキャラクター付与(遠隔適用)へ移ったため、旧経路のコピーが
+ * 残ると遠隔適用と二重に乗る。版番号ゲート(部位キー移行と同じ作法)で一回きり。触るのは転送コピー
+ * だけで、付与コピーと供給元の定義、モノ(アウトフィット)上のコピー(エンチャント)には手を出さない。
+ */
+const CAPABILITY_TRANSFER_CLEANUP_SCHEME = 1;
+async function cleanupCapabilityTransferCopies() {
+    if (!game.user.isGM) return;
+    const done = Number(game.settings.get(TNX_TRANSFER_SCOPE, "capabilityTransferCleanupScheme")) || 0;
+    if (done >= CAPABILITY_TRANSFER_CLEANUP_SCHEME) return;
+    let removed = 0;
+    for (const actor of game.actors) {
+        for (const { itemId, effectIds } of planCapabilityTransferCleanup(actor.items)) {
+            await actor.items.get(itemId)?.deleteEmbeddedDocuments("ActiveEffect", effectIds);
+            removed += effectIds.length;
+        }
+    }
+    if (removed) console.info(`TNX | 技能・神業の上に残っていた転送コピーを ${removed} 件除去しました(キャラクター付与への移行)`);
+    await game.settings.set(TNX_TRANSFER_SCOPE, "capabilityTransferCleanupScheme", CAPABILITY_TRANSFER_CLEANUP_SCHEME);
 }
 
 /** 供給元(uuid 群)由来の転送コピーをアクターの全アイテムから除去する。 */
@@ -1368,6 +1393,10 @@ Hooks.once("init", async function() {
     // 正準名ブリッジの一回限り移行(2026-07-17)の実行済みフラグ(ready フックでゲート)
     game.settings.register("tokyo-nova-axleration", "usageTypeCanonicalMigrated", {
         scope: "world", config: false, type: Boolean, default: false,
+    });
+    // 技能・神業の上の転送コピーの一回限り掃除(2026-09-02)の版番号ゲート。部位キー移行と同じ作法
+    game.settings.register("tokyo-nova-axleration", "capabilityTransferCleanupScheme", {
+        scope: "world", config: false, type: Number, default: 0,
     });
 
     // チームの退場連動(2026-08-23 ユーザー裁定・既定オフ)。登場は判定を振るか等の判断が多く
@@ -2024,6 +2053,10 @@ Hooks.once("ready", async function() {
     // 部位キーの付与移行(フェーズ12・GM のみ・1回): プリセット設定と全アクターの partSlots に
     // 無キー行のキーを永続化する(既定ラベル=対応表・カスタム=生成キー)
     await migratePartSlotKeys();
+
+    // 技能・神業の上に残った転送コピーの一回限り掃除(2026-09-02 ユーザー確定・GM のみ・1回):
+    // 技能レベル等の効果はキャラクター付与(遠隔適用)へ移ったため、旧経路のコピーが残ると二重に乗る
+    await cleanupCapabilityTransferCopies();
 
     // 正準名ブリッジの一回限り移行(2026-07-17 ユーザー承認・GM のみ・1回): 既定一般技能の用途を
     // 行動種別タイプへ付け替える(回避→ドッジ・白兵→パリー・自我/信用→各リアクション・医療→治療・
