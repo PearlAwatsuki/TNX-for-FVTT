@@ -735,6 +735,19 @@ Hooks.on("preUpdateActiveEffect", (effect, changes) => {
 // 付与する別状態は **状態のみ(changes なし=コンディション)** で、ダメージ/カスケード由来は
 // hideFromList=true で AE 本体をリスト非表示(状態アイコンは出る・供給元が浮かない)。
 // inflicts 先の状態は inflicts を持たないため循環しない。生成は付与した本人(userId)のみが行う。
+// 受けたシーンの刻印(17-2・神業の治癒): 状態(コンディション)は「どのアクトの何シーン目に受けたか」を
+// 持つ。《腹心》《人命救助》の「完全死亡・精神崩壊はそのシーンで受けたものしか」・《黄泉還り》の
+// 「そのシーン中に受けたダメージしか」を判定する材料。付与経路(ダメージ・カスケード・RL 任意付与・
+// 手動)を問わず生成時の一点で刻む。アクト外(actId 空)は番号だけになり、比較側は不明を通す
+Hooks.on("preCreateActiveEffect", (effect) => {
+    if (!getConditionKinds(effect).length) return;
+    if (effect.flags?.["tokyo-nova-axleration"]?.receivedScene) return;
+    const st = getSessionState();
+    effect.updateSource({ "flags.tokyo-nova-axleration.receivedScene": {
+        act: st.actId || null, number: Number.isFinite(st.sceneNumber) ? st.sceneNumber : null,
+    } });
+});
+
 Hooks.on("createActiveEffect", async (effect, options, userId) => {
     if (game.user.id !== userId) return;
     const actor = effect.parent;

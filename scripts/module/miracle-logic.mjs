@@ -70,14 +70,6 @@ export function isMiracleOrigin(flags) {
 }
 
 /**
- * 神業カードの描画データ。効果文・条件はエンリッチ済みの HTML を受け取る(純関数のため
- * エンリッチは呼び出し側)。空の欄は空文字で返し、テンプレート側で行ごと畳む。
- * @param {{name?: string, system?: {furigana?: string}}} item 神業アイテム
- * @param {{description?: string, condition?: string, remaining: number, max: number}} opts
- * @returns {{typeLabel: string, name: string, furigana: string, description: string,
- *            condition: string, remaining: number, max: number}}
- */
-/**
  * ダメージカードで、まだ防がれていない対象行の添字。表示(行が消える)と適用(残った対象だけ)の
  * 両方がこれを読む(防御タイプ「適用前に防ぐ」・17-2)。
  * @param {{targets?: Array<{protectedBy?: object}>}} f ダメージカードのフラグ
@@ -166,6 +158,57 @@ export function evadePlan(f, { rowIndex, actorId, by, resolveActorId }) {
     return { ok: true, index: rowIndex, by };
 }
 
+/**
+ * 「受けたシーン」の同一性。状態は受けた時点のアクト id と上演中のシーン番号(sessionState.sceneNumber)を
+ * 持つ(preCreateActiveEffect で刻む)。どちらかが不明なら比較できない=同じ扱い(検査できないものはゲートしない)。
+ * @param {?{act?: string, number?: number}} received
+ * @param {?{act?: string, number?: number}} current
+ * @returns {boolean}
+ */
+export function isSameReceivedScene(received, current) {
+    if (!received || !current) return true;
+    const missing = (v) => v === null || v === undefined;
+    if (missing(received.act) || missing(current.act) || missing(received.number) || missing(current.number)) return true;
+    return received.act === current.act && Number(received.number) === Number(current.number);
+}
+
+/**
+ * 神業の治癒(防御タイプ「受けた後に消す」・17-2)で、その効果を回復対象の候補に載せてよいか(純関数)。
+ * 回復範囲(recoveryTargets)/除外(recoveryExcludes)の照合は既存の回復フロー側で行い、ここは神業の治癒で
+ * 足した3つを判定する:
+ *  - 印のゲートの受け側: 神業由来(fromMiracle)の状態・効果は神業の治療でしか除去できない。
+ *  - 受けたシーンの制限(recoverySceneLimit): terminal=完全死亡・精神崩壊だけそのシーンで受けたもの／
+ *    all=すべてそのシーンで受けたもの(《腹心》《人命救助》《黄泉還り》の効果文)。
+ *  - スタイル技能の効果の解除(recoveryEffects): 状態でない付与コピーはこの設定がオンの神業の治療で
+ *    だけ候補になり、供給元がスタイル技能でないと解決できたものは外す(解決できないものは通す)。
+ * @param {{isCondition: boolean, isTerminal?: boolean, isGranted?: boolean, sourceIsStyleSkill?: ?boolean,
+ *          fromMiracle?: boolean, receivedScene?: ?{act?: string, number?: number}}} entry
+ * @param {{recoverySceneLimit?: string, recoveryEffects?: boolean}} usage
+ * @param {{byMiracle: boolean, currentScene?: ?{act?: string, number?: number}}} ctx
+ * @returns {boolean}
+ */
+export function recoveryCandidateAllowed(entry, usage, { byMiracle, currentScene = null }) {
+    if (entry?.fromMiracle && !byMiracle) return false;
+    if (!entry?.isCondition) {
+        if (!byMiracle || usage?.recoveryEffects !== true) return false;
+        if (!entry?.isGranted) return false;
+        return entry.sourceIsStyleSkill !== false;
+    }
+    const limit = usage?.recoverySceneLimit ?? "none";
+    if (limit === "all" || (limit === "terminal" && entry.isTerminal)) {
+        return isSameReceivedScene(entry.receivedScene ?? null, currentScene);
+    }
+    return true;
+}
+
+/**
+ * 神業カードの描画データ。効果文・条件はエンリッチ済みの HTML を受け取る(純関数のため
+ * エンリッチは呼び出し側)。空の欄は空文字で返し、テンプレート側で行ごと畳む。
+ * @param {{name?: string, system?: {furigana?: string}}} item 神業アイテム
+ * @param {{description?: string, condition?: string, remaining: number, max: number}} opts
+ * @returns {{typeLabel: string, name: string, furigana: string, description: string,
+ *            condition: string, remaining: number, max: number}}
+ */
 export function buildMiracleCardData(item, { description = "", condition = "", remaining, max }) {
     return {
         typeLabel:   "神業",

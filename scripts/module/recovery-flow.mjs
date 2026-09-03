@@ -43,20 +43,59 @@ import { postConditionOutcome } from "./condition-resolution.mjs";
 import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } from "./usage-consumption.mjs";
 import { executionFormOf } from "./usage-types.mjs";
 import { buildPostTreatmentRest } from "./treatment-flow.mjs";
+import { recoveryCandidateAllowed } from "./miracle-logic.mjs";
+import { getSessionState } from "./session-state.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
-/** 対象アクターの現在の状態から、回復範囲に合致し除外に当たらない効果を列挙する。 */
-export function listRecoverableEffects(patient, usage) {
+/**
+ * 対象アクターの現在の状態から、回復範囲に合致し除外に当たらない効果を列挙する。
+ * 神業の治癒(防御タイプ「受けた後に消す」・17-2)の3条件——神業由来は神業でしか除去できない／
+ * 受けたシーンの制限／スタイル技能の効果(付与コピー)の解除——は純関数 recoveryCandidateAllowed が担う。
+ * @param {Actor} patient
+ * @param {object} usage
+ * @param {{byMiracle?: boolean, currentScene?: ?{act?: string, number?: number}}} [ctx]
+ *   byMiracle=用途の親が神業か・currentScene=上演中のシーン(アクト id とシーン番号)
+ */
+export function listRecoverableEffects(patient, usage, { byMiracle = false, currentScene = null } = {}) {
     const out = [];
     for (const e of (patient?.effects ?? [])) {
+        const f = e.flags?.[SCOPE] ?? {};
         const kind = getConditionKinds(e)[0];
-        if (!kind) continue;
-        if (!recoveryKindMatches(kind, usage.recoveryTargets)) continue;
-        if (recoveryKindExcluded(kind, usage.recoveryExcludes)) continue;
+        const entry = {
+            isCondition: !!kind,
+            isTerminal: CONDITION_KINDS[kind]?.type === "terminal",
+            isGranted: !!f.grantedFrom,
+            sourceIsStyleSkill: grantedSourceIsStyleSkill(f.grantedFrom),
+            fromMiracle: f.fromMiracle === true,
+            receivedScene: f.receivedScene ?? null,
+        };
+        if (kind) {
+            if (!recoveryKindMatches(kind, usage.recoveryTargets)) continue;
+            if (recoveryKindExcluded(kind, usage.recoveryExcludes)) continue;
+        } else if (e.disabled || f.transferredFrom) {
+            continue; // 無効化済み・転送コピー(供給元が正)は候補にしない
+        }
+        if (!recoveryCandidateAllowed(entry, usage, { byMiracle, currentScene })) continue;
         out.push(e);
     }
     return out;
+}
+
+/** 付与コピーの供給元がスタイル技能か(解決できなければ null=判断保留)。 */
+function grantedSourceIsStyleSkill(uuid) {
+    if (!uuid) return null;
+    try {
+        const src = fromUuidSync(uuid);
+        const parent = src?.parent;
+        return parent?.documentName === "Item" ? parent.type === "styleSkill" : null;
+    } catch { return null; }
+}
+
+/** 上演中のシーン(アクト id とシーン番号)。アクト外は act が空で、比較側は不明を通す。 */
+function currentSceneRef() {
+    const st = getSessionState();
+    return { act: st.actId || null, number: Number.isFinite(st.sceneNumber) ? st.sceneNumber : null };
 }
 
 /** 負傷の除去範囲(治療と同じ: 負傷+紐づきの非BS。BS は残る)。 */
@@ -194,15 +233,23 @@ export async function useRecovery(item, usage, prebound = null) {
 
     let patient;
     let selected;
+    // 神業の治癒(17-2): 用途の親が神業なら印のゲートを通れる。受けたシーンの比較は上演中のシーン
+    const byMiracle = item.type === "miracle";
+    const currentScene = currentSceneRef();
     if (prebound) {
         patient = await fromUuid(prebound.patientUuid).catch(() => null);
         const effect = patient?.effects?.get(prebound.effectId);
         if (!effect) { ui.notifications.warn("治療対象の状態が見つかりません。"); return; }
+        // 神業由来の状態は神業でしか治せない(印のゲートの受け側)
+        if (effect.flags?.[SCOPE]?.fromMiracle === true && !byMiracle) {
+            ui.notifications.warn("この状態は神業によるもので、神業以外では治療できません。");
+            return;
+        }
         selected = [effect];
     } else {
         patient = resolveRecoveryPatient(actor);
 
-        const candidates = listRecoverableEffects(patient, usage);
+        const candidates = listRecoverableEffects(patient, usage, { byMiracle, currentScene });
         if (!candidates.length) {
             ui.notifications.warn(`「${patient.name}」に回復対象となる状態がありません。`);
             return;

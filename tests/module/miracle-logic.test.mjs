@@ -7,7 +7,7 @@ import { describe, it, expect } from "vitest";
 import {
     miracleUseGate, miracleConsumeUpdate, withDefaultMiracleConsumption,
     miracleOriginOf, isMiracleOrigin, buildMiracleCardData,
-    defencePreventPlan, unprotectedTargetIndices, negateCheckGate, negatedCheckMods, evadePlan,
+    defencePreventPlan, unprotectedTargetIndices, negateCheckGate, negatedCheckMods, evadePlan, recoveryCandidateAllowed,
 } from "../../scripts/module/miracle-logic.mjs";
 
 describe("withDefaultMiracleConsumption()（消費先が空の神業用途は自身の使用回数×1を既定消費）", () => {
@@ -258,5 +258,58 @@ describe("evadePlan()（攻撃カードの自分の対象行を回避にする�
 
     it("行が無ければ拒否", () => {
         expect(evadePlan(f, { rowIndex: 5, actorId: "me", by, resolveActorId })).toEqual({ ok: false, reason: "noTarget" });
+    });
+});
+
+// ─── 受けた後に消す(防御タイプ・17-2・神業の治癒) ─────────────────────────────
+// 効果文《人命救助》「任意のスタイル技能の効果を解除する」・《腹心》《人命救助》「［完全死亡］［精神崩壊］
+// はそのシーンで受けたものしか」・《黄泉還り》他人には「そのシーン中に受けたダメージしか」。
+// 印のゲートの受け側: 神業由来(fromMiracle)の状態・効果は神業の治療でしか除去できない。
+describe("recoveryCandidateAllowed()（神業の治癒で候補に載せてよいか）", () => {
+    const here = { act: "A1", number: 3 };
+    const cond = (over = {}) => ({ isCondition: true, isTerminal: false, isGranted: false, sourceIsStyleSkill: null, fromMiracle: false, receivedScene: here, ...over });
+
+    it("受けたシーンの制限なし: 別シーンで受けた状態も候補", () => {
+        expect(recoveryCandidateAllowed(cond({ receivedScene: { act: "A1", number: 1 } }), { recoverySceneLimit: "none" }, { byMiracle: true, currentScene: here })).toBe(true);
+    });
+
+    it("terminal: 完全死亡・精神崩壊はそのシーンで受けたものだけ（他の状態は制限なし）", () => {
+        const u = { recoverySceneLimit: "terminal" };
+        expect(recoveryCandidateAllowed(cond({ isTerminal: true, receivedScene: { act: "A1", number: 1 } }), u, { byMiracle: true, currentScene: here })).toBe(false);
+        expect(recoveryCandidateAllowed(cond({ isTerminal: true }), u, { byMiracle: true, currentScene: here })).toBe(true);
+        expect(recoveryCandidateAllowed(cond({ isTerminal: false, receivedScene: { act: "A1", number: 1 } }), u, { byMiracle: true, currentScene: here })).toBe(true);
+    });
+
+    it("all: すべてそのシーンで受けたものだけ", () => {
+        const u = { recoverySceneLimit: "all" };
+        expect(recoveryCandidateAllowed(cond({ receivedScene: { act: "A1", number: 2 } }), u, { byMiracle: true, currentScene: here })).toBe(false);
+        expect(recoveryCandidateAllowed(cond(), u, { byMiracle: true, currentScene: here })).toBe(true);
+    });
+
+    it("受けたシーンが不明な状態（旧データ・アクト外）は制限で落とさない（検査できないものはゲートしない）", () => {
+        expect(recoveryCandidateAllowed(cond({ isTerminal: true, receivedScene: null }), { recoverySceneLimit: "terminal" }, { byMiracle: true, currentScene: here })).toBe(true);
+        expect(recoveryCandidateAllowed(cond({ receivedScene: here }), { recoverySceneLimit: "all" }, { byMiracle: true, currentScene: null })).toBe(true);
+    });
+
+    it("別のアクトで受けたものは同じ番号でも別シーン", () => {
+        expect(recoveryCandidateAllowed(cond({ receivedScene: { act: "A0", number: 3 } }), { recoverySceneLimit: "all" }, { byMiracle: true, currentScene: here })).toBe(false);
+    });
+
+    it("神業由来の状態は神業の治療でしか除去できない（印のゲートの受け側）", () => {
+        expect(recoveryCandidateAllowed(cond({ fromMiracle: true }), { recoverySceneLimit: "none" }, { byMiracle: false, currentScene: here })).toBe(false);
+        expect(recoveryCandidateAllowed(cond({ fromMiracle: true }), { recoverySceneLimit: "none" }, { byMiracle: true, currentScene: here })).toBe(true);
+    });
+
+    it("スタイル技能の効果(付与コピー)は recoveryEffects がオンの神業の治療でだけ候補になる", () => {
+        const eff = { isCondition: false, isTerminal: false, isGranted: true, sourceIsStyleSkill: true, fromMiracle: false, receivedScene: null };
+        expect(recoveryCandidateAllowed(eff, { recoveryEffects: true }, { byMiracle: true, currentScene: here })).toBe(true);
+        expect(recoveryCandidateAllowed(eff, { recoveryEffects: false }, { byMiracle: true, currentScene: here })).toBe(false);
+        expect(recoveryCandidateAllowed(eff, { recoveryEffects: true }, { byMiracle: false, currentScene: here })).toBe(false);
+    });
+
+    it("スタイル技能以外から付与された効果・付与コピーでない効果は候補にしない（供給元が解決できないものは通す）", () => {
+        expect(recoveryCandidateAllowed({ isCondition: false, isGranted: true, sourceIsStyleSkill: false }, { recoveryEffects: true }, { byMiracle: true, currentScene: here })).toBe(false);
+        expect(recoveryCandidateAllowed({ isCondition: false, isGranted: false, sourceIsStyleSkill: null }, { recoveryEffects: true }, { byMiracle: true, currentScene: here })).toBe(false);
+        expect(recoveryCandidateAllowed({ isCondition: false, isGranted: true, sourceIsStyleSkill: null }, { recoveryEffects: true }, { byMiracle: true, currentScene: here })).toBe(true);
     });
 });
