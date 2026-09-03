@@ -26,7 +26,7 @@ import { captureScrollTop, restoreScrollTop } from "./scroll-preserve.mjs";
 import { WEAPON_RANGE_MAX_OPTIONS } from "../data/item/weapon.mjs";
 import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, loadSkillUsageTypeIndex, loadDictionarySkillItems, SKILL_PACKS, STYLE_PACK, ORGANIZATION_PACK } from "./skill-dictionary.mjs";
 import {
-    USAGE_TYPE_LABELS, isAttackType, attackCategoryOf, isReactionType,
+    USAGE_TYPE_LABELS, isAttackType, attackCategoryOf, isReactionType, isMiracleType,
     executionFormOf, defaultConfrontationForType, usageDisplayName, effectiveBaseSkillId,
 } from "./usage-types.mjs";
 import { USAGE_CONFRONTATION_OPTIONS, mergeConfrontationRows } from "./confrontation-logic.mjs";
@@ -584,10 +584,45 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             ];
         }
 
+        // 神業専用タイプ(17-2): 神業は判定を行わないため、目標値・対決の設定は出さない
+        context.isMiracleUsage = isMiracleType(usage.type);
+        // 防御タイプ(17-2・神業専用): 動作(打ち消し/適用前に防ぐ/回避/受けた後に消す)・範囲・系統。
+        // 「受けた後に消す」は治療の回復設定(範囲/除外/該当すべて/回復数)を共用し、神業の治癒で
+        // 足りない2つ(スタイル技能の効果の解除・受けたシーンの制限)を足す
+        context.isMiracleDefence = usage.type === "miracleDefence";
+        if (context.isMiracleDefence) {
+            const act = usage.defenceAction || "prevent";
+            context.defenceActionOptions = [
+                { value: "prevent", label: "適用前に防ぐ" },
+                { value: "negate",  label: "打ち消し" },
+                { value: "evade",   label: "回避" },
+                { value: "cure",    label: "受けた後に消す" },
+            ].map(o => ({ ...o, selected: o.value === act }));
+            context.isDefencePrevent = act === "prevent";
+            context.isDefenceCure    = act === "cure";
+            const scope = usage.defenceScope || "all";
+            context.defenceScopeOptions = [
+                { value: "all", label: "一回の攻撃・神業をまるごと" },
+                { value: "one", label: "選んだ1人" },
+            ].map(o => ({ ...o, selected: o.value === scope }));
+            const cats = new Set(usage.defenceCategories ?? ["physical", "mental", "social"]);
+            context.defenceCategoryRows = [
+                { key: "physical", label: "肉体" }, { key: "mental", label: "精神" }, { key: "social", label: "社会" },
+            ].map(r => ({ ...r, checked: cats.has(r.key) }));
+            const limit = usage.recoverySceneLimit || "none";
+            context.recoverySceneLimitOptions = [
+                { value: "none",     label: "なし" },
+                { value: "terminal", label: "完全死亡・精神崩壊はそのシーンで受けたものだけ" },
+                { value: "all",      label: "すべてそのシーンで受けたものだけ" },
+            ].map(o => ({ ...o, selected: o.value === limit }));
+            context.recoveryEffects = usage.recoveryEffects === true;
+        }
+
         // 回復範囲(2026-07-13→2026-07-17): 治療タイプの設定(旧 recovery トグルはタイプへ移行)。
         // 範囲=大分類(グループ)→小分類(タグ)の行(OR)・
-        // 除外=タグ(タグ自身+そのタグを与える負傷を除く=「指定タグを含むもの以外すべて」)
-        context.isRecoveryCapable = context.isTreatment;
+        // 除外=タグ(タグ自身+そのタグを与える負傷を除く=「指定タグを含むもの以外すべて」)。
+        // 防御タイプの「受けた後に消す」も同じ設定を使う(17-2)
+        context.isRecoveryCapable = context.isTreatment || context.isDefenceCure === true;
         if (context.isRecoveryCapable) {
             context.isRecovery      = true;
             context.recoveryAll     = usage.recoveryAll === true;
@@ -788,7 +823,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         // 設定自体はされる。旧「判定・攻撃・移動・離脱のみ」のゲートは撤回)。行の見た目・構造は
         // スタイル技能シートの対決セクション(tnx-combo-card/grid)を踏襲し、値は用途独自の選択肢
         // (手段行=リアクション用途タイプと1:1)。「不可」はマスクで下地の行と並存保存する
-        context.showConfrontation = !context.isFixedCheck;
+        context.showConfrontation = !context.isFixedCheck && !isMiracleType(usage.type); // 神業は判定を行わない(17-2)
         if (context.showConfrontation) {
             const cascadeData = await loadCascadeData();
             // スタイル技能と同じく最低1行を表示する(空=blank 行。保存されても無効行で無害)
@@ -1367,11 +1402,28 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         // (recoveryGroup-N/recoveryKind-N)は indexed 入力から再構成(consumeTargets 同型)。
         // 実行形式・該当すべて・グループ変更は表示項目が変わるため再描画する
         let recoveryUiChanged = false;
-        if (usage.type === "treatment") {
-            const prevForm = executionFormOf(usage);
-            update.executionForm = (raw["executionForm"] ?? usage.executionForm) === "declaration"
-                ? "declaration" : "check";
-            recoveryUiChanged ||= update.executionForm !== prevForm;
+        // 防御タイプ(17-2): 動作の切替は治療設定・範囲・系統の出し入れを伴うため再描画する。
+        // 系統チェックはフォームに描画されているときだけ再構成する(未描画の送信で全消しにしない)
+        const isCureDefence = usage.type === "miracleDefence" && (usage.defenceAction || "prevent") === "cure";
+        if (usage.type === "miracleDefence") {
+            const prevAct = usage.defenceAction || "prevent";
+            update.defenceAction = raw["defenceAction"] ?? prevAct;
+            update.defenceScope  = raw["defenceScope"] ?? usage.defenceScope ?? "all";
+            if (this.element?.querySelector(".usage-defence-categories")) {
+                update.defenceCategories = ["physical", "mental", "social"]
+                    .filter(c => raw[`defenceCategory-${c}`] === true);
+            }
+            update.recoveryEffects    = raw["recoveryEffects"] ?? (usage.recoveryEffects === true);
+            update.recoverySceneLimit = raw["recoverySceneLimit"] ?? usage.recoverySceneLimit ?? "none";
+            recoveryUiChanged ||= update.defenceAction !== prevAct;
+        }
+        if (usage.type === "treatment" || isCureDefence) {
+            if (usage.type === "treatment") {
+                const prevForm = executionFormOf(usage);
+                update.executionForm = (raw["executionForm"] ?? usage.executionForm) === "declaration"
+                    ? "declaration" : "check";
+                recoveryUiChanged ||= update.executionForm !== prevForm;
+            }
             const prevAll = usage.recoveryAll === true;
             const recIdxs = Object.keys(raw)
                 .map(k => k.match(/^recoveryGroup-(\d+)$/)?.[1])

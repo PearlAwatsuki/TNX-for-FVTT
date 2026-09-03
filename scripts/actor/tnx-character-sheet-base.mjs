@@ -42,7 +42,7 @@ import { applyItemCardTooltips, applyContentLinkCardTooltips } from '../module/i
 import { openConditionEditDialog } from '../module/condition-edit.mjs';
 import { startTreatment } from '../module/treatment-flow.mjs';
 import { isAttackUsage } from '../data/item/common/usage.mjs';
-import { executionFormOf, usageDisplayName, isReactionType } from '../module/usage-types.mjs';
+import { executionFormOf, usageDisplayName, isReactionType, isMiracleType } from '../module/usage-types.mjs';
 import { itemDisplayName, resolveItemNameByKey, calcSkillInsertSort } from '../module/identification.mjs';
 import { isOpposedConfrontation } from '../module/confrontation-logic.mjs';
 import { resolveHousingAreaMods, residenceEffectiveValues } from '../module/residence-area.mjs';
@@ -2654,7 +2654,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 宣言(実行フラグなし)の使用: 判定を行わず消費と適用効果だけ処理する。用途の直接指定
         // (アイテムシートの使用ボタン)に加え、**アイテムロールからも到達する**(2026-07-19 ユーザー指示で
         // 候補から除外しなくなった。2026-07-16 にアイテムシートから移設・統合した実行本体は同じ)
-        if (selectedUsage.type === "declaration") {
+        // 神業専用タイプ(17-2)は判定を行わない。宣言=17-1 の宣言経路(神業カード＋適用効果)。
+        // 即死・社会戦・破壊は 17-3 で専用の結果指定に切り替えるまで宣言と同じ挙動。防御は上のクリック待ち
+        if (selectedUsage.type === "declaration" || isMiracleType(selectedUsage.type)) {
             await TnxCharacterSheetBase._useDeclarationUsage(actor, item, selectedUsage);
             return;
         }

@@ -44,7 +44,41 @@ export const USAGE_TYPE_DEFS = Object.freeze({
     // を開いて対象選択→同じ判定へ合流・16-3 追補)
     purchase:            { label: "購入",                     kind: "action" },
     covering:            { label: "カバー",                   kind: "action" },
+    // 神業専用(フェーズ17-2・2026-09-03 ユーザー提案「神業アイテムにしか表示されず、神業アイテムでは
+    // これ以外表示されない用途」)。神業は判定を行わないため実行形式はすべて宣言(executionFormOf)。
+    // 宣言=神業カード＋適用効果 / 即死=終端状態か任意ダメージ / 防御=打ち消し・防ぐ・回避・受けた後に
+    // 消す(動作は用途の設定) / 社会戦=任意の社会ダメージと治癒 / 破壊=アウトフィット・トループ。
+    // メカニクスは既存を流用し、タイプは「その用途で何が設定できるか」を決める。
+    // 他の神業になる神業(《万能道具》《神意》《半身》《突然変異》)は用途でなくアイテム側の機能(17-5)
+    miracleDeclaration:  { label: "宣言",                     kind: "miracle" },
+    miracleKill:         { label: "即死",                     kind: "miracle" },
+    miracleDefence:      { label: "防御",                     kind: "miracle" },
+    miracleSocial:       { label: "社会戦",                   kind: "miracle" },
+    miracleDestroy:      { label: "破壊",                     kind: "miracle" },
 });
+
+/** 神業専用タイプか(親が神業のときだけ作成でき、神業以外には出さない)。 */
+export function isMiracleType(type) {
+    return USAGE_TYPE_DEFS[type]?.kind === "miracle";
+}
+
+/**
+ * 親アイテムの型に応じた、用途作成ダイアログに出すタイプ→ラベル。
+ * 神業なら神業専用の5種だけ、それ以外は神業専用を除いた既存タイプ(2026-09-03 ユーザー提案)。
+ * @param {string} parentType 親アイテムの type
+ * @returns {Record<string, string>}
+ */
+export function usageTypeLabelsFor(parentType) {
+    const wantMiracle = parentType === "miracle";
+    return Object.fromEntries(Object.entries(USAGE_TYPE_DEFS)
+        .filter(([, d]) => (d.kind === "miracle") === wantMiracle)
+        .map(([k, d]) => [k, d.label]));
+}
+
+/** 新規用途の既定タイプ: 神業は「宣言」、それ以外は「判定」。 */
+export function defaultUsageTypeFor(parentType) {
+    return parentType === "miracle" ? "miracleDeclaration" : "check";
+}
 
 /** タイプキー → 表示ラベル(用途作成ダイアログ・用途一覧・シートのタグ表示)。 */
 export const USAGE_TYPE_LABELS = Object.freeze(
@@ -81,6 +115,7 @@ export function usesVehicle(type) {
 export function executionFormOf(usage) {
     const type = usage?.type;
     if (type === "declaration") return "declaration";
+    if (isMiracleType(type)) return "declaration";   // 神業は判定を行わない(17-2)
     if (USAGE_TYPE_DEFS[type]?.selectableForm) {
         return usage?.executionForm === "declaration" ? "declaration" : "check";
     }

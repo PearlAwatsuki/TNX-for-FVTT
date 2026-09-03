@@ -266,6 +266,25 @@ export class UsageTemplate extends SystemDataModel {
                     recoveryExcludes: new fields.ArrayField(new fields.StringField()),
                     recoveryAll: new fields.BooleanField({ initial: false }),
                     recoveryCount: new fields.NumberField({ initial: 1, integer: true, min: 1 }),
+                    // 防御タイプの「受けた後に消す」(17-2・神業の治癒)で足す回復設定:
+                    // - recoveryEffects: スタイル技能から付与された効果(付与コピー)も回復対象に並べて
+                    //   剥がせる(《人命救助》「任意のスタイル技能の効果を解除する」)。
+                    // - recoverySceneLimit: 受けたシーンの制限。none=なし / terminal=終端状態(完全死亡・
+                    //   精神崩壊)だけそのシーンで受けたものに限る(《腹心》《人命救助》) / all=すべてそのシーン
+                    //   (《黄泉還り》を他人に使うとき)。状態が持つ「受けたシーン」と照合する
+                    recoveryEffects: new fields.BooleanField({ initial: false }),
+                    recoverySceneLimit: new fields.StringField({ initial: "none" }),
+
+                    // ─── 防御タイプ(17-2・神業専用) ───
+                    // 動作: negate=打ち消し(判定を失敗させる/宣言の効果適用をキャンセル・《チャイ》《平和》)
+                    //       prevent=適用前に防ぐ(ダメージカードの対象行が消える・《難攻不落》《守護神》《友情》)
+                    //       evade=回避(攻撃カードで自分の行を回避に・物理のみ・《脱出》)
+                    //       cure=受けた後に消す(治療の宣言形＋上の回復設定・《腹心》《黄泉還り》《人命救助》《霧散》)
+                    // 範囲(prevent): all=一回の攻撃・神業まるごと / one=選んだ1人
+                    // 系統(prevent): 防げる系統。《難攻不落》は社会を外す。既定は3系統すべて
+                    defenceAction: new fields.StringField({ initial: "prevent" }),
+                    defenceScope: new fields.StringField({ initial: "all" }),
+                    defenceCategories: new fields.ArrayField(new fields.StringField(), { initial: ["physical", "mental", "social"] }),
 
                     // 修理(2026-07-18 ユーザー確定・repair タイプ): この用途で修理できるアウトフィットの
                     // 分類キーのホワイトリスト(小分類キーまたは大分類キー=その大分類全体・2026-07-19)。

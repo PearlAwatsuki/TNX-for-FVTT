@@ -120,3 +120,36 @@ describe("UsageTemplate.migrateData()（消費先設定・2026-07-17 親×1互�
     expect(source.actions[0].consumeTargets).toEqual([{ type: "item", itemId: "", resource: "uses", amount: 1 }]);
   });
 });
+
+// ─── 防御タイプ(フェーズ17-2)の設定 ───────────────────────────────────────────────
+// 正本: Miracle_Rules「打ち消しの範囲」「防御神業」・Phase_17_Tasks_Detail 17-2。
+// 動作は4つ: 打ち消し(negate)/適用前に防ぐ(prevent)/回避(evade)/受けた後に消す(cure)。
+describe("UsageTemplate.defineSchema()（防御タイプの設定・17-2）", () => {
+  const entry = UsageTemplate.defineSchema().actions.element.fields;
+
+  it("defenceAction は StringField・既定 prevent（適用前に防ぐ）", () => {
+    expect(entry.defenceAction).toBeInstanceOf(MockStringField);
+    expect(entry.defenceAction.options.initial).toBe("prevent");
+  });
+
+  it("defenceScope は StringField・既定 all（一回の攻撃・神業まるごと。one=選んだ1人）", () => {
+    expect(entry.defenceScope).toBeInstanceOf(MockStringField);
+    expect(entry.defenceScope.options.initial).toBe("all");
+  });
+
+  it("defenceCategories は ArrayField(StringField)・既定は3系統すべて（《難攻不落》は社会を外す）", () => {
+    expect(entry.defenceCategories).toBeInstanceOf(MockArrayField);
+    expect(entry.defenceCategories.element).toBeInstanceOf(MockStringField);
+    expect(entry.defenceCategories.options.initial).toEqual(["physical", "mental", "social"]);
+  });
+
+  it("recoveryEffects は BooleanField・既定 false（《人命救助》＝スタイル技能の効果も解除できる）", () => {
+    expect(entry.recoveryEffects).toBeInstanceOf(MockBooleanField);
+    expect(entry.recoveryEffects.options.initial).toBe(false);
+  });
+
+  it("recoverySceneLimit は StringField・既定 none（terminal=終端状態のみそのシーン／all=すべてそのシーン）", () => {
+    expect(entry.recoverySceneLimit).toBeInstanceOf(MockStringField);
+    expect(entry.recoverySceneLimit.options.initial).toBe("none");
+  });
+});

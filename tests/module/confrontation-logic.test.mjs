@@ -20,8 +20,8 @@ import {
 const row = (value, name = "") => ({ value, name, skillDict: "", skillGroup: "", skillSub: "" });
 
 describe("用途タイプ(行動種別・2026-07-17 確定)", () => {
-    it("リアクションタイプは対決欄の手段行と1:1(購入タイプ追加後=19種・2026-08-31)", () => {
-        expect(Object.keys(USAGE_TYPE_DEFS)).toHaveLength(19);
+    it("リアクションタイプは対決欄の手段行と1:1(購入タイプ追加後=19種・2026-08-31。神業専用5種追加後=24種・2026-09-03)", () => {
+        expect(Object.keys(USAGE_TYPE_DEFS)).toHaveLength(24);
         expect(USAGE_TYPE_DEFS.repair).toEqual({ label: "修理", kind: "action" });
         // 購入(16-3・2026-08-31 ユーザー裁定): デフォルト技能が決まっている性格=タイプで表現
         expect(USAGE_TYPE_DEFS.purchase).toEqual({ label: "購入", kind: "action" });

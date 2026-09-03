@@ -149,6 +149,8 @@
                 </div>
             </fieldset>
 
+            {{!-- 神業専用タイプ(17-2)は判定を行わないため目標値を持たない --}}
+            {{#unless isMiracleUsage}}
             <fieldset class="tnx-fieldset">
                 <legend>目標値</legend>
                 <div class="usage-form-grid">
@@ -184,6 +186,7 @@
 
                 </div>
             </fieldset>
+            {{/unless}}
 
             {{!-- 対決欄(2026-07-17 確定+2026-07-18 是正・Check_Rules「対決の解釈(是正)」): 拘束リスト。
                  全タイプが対決欄を持つ(リアクション系は「なし」)。見た目・構造はスタイル技能シートの
@@ -728,9 +731,46 @@
             {{!-- 治療(2026-07-13→2026-07-17 タイプ化): BS/戦闘不能/負傷を除去する設定。
                  実行形式(判定/宣言)は用途の設定で固定(1つのタイプで両形式をカバー・2026-07-17 裁定)。
                  範囲=大分類→小分類の行(OR)・除外=タグ(タグ自身+そのタグを与える負傷を除く) --}}
+            {{!-- 防御タイプ(17-2・神業専用): 動作(適用前に防ぐ/打ち消し/回避/受けた後に消す)。
+                 適用前に防ぐ=範囲(まるごと/1人)と防げる系統。受けた後に消す=下の治療設定を共用 --}}
+            {{#if isMiracleDefence}}
+            <fieldset class="tnx-fieldset usage-defence-section">
+                <legend>防御</legend>
+                <div class="usage-form-row">
+                    <label class="usage-field-label">動作</label>
+                    <select name="defenceAction" {{#unless editable}}disabled{{/unless}}>
+                        {{#each defenceActionOptions}}
+                        <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                        {{/each}}
+                    </select>
+                </div>
+                {{#if isDefencePrevent}}
+                <div class="usage-form-row">
+                    <label class="usage-field-label">範囲</label>
+                    <select name="defenceScope" {{#unless editable}}disabled{{/unless}}>
+                        {{#each defenceScopeOptions}}
+                        <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                        {{/each}}
+                    </select>
+                </div>
+                <div class="usage-form-row usage-toggle-row usage-defence-categories">
+                    <label class="usage-field-label">防げる系統</label>
+                    {{#each defenceCategoryRows}}
+                    <label class="usage-toggle-inline">
+                        <input type="checkbox" name="defenceCategory-{{this.key}}" {{#if this.checked}}checked{{/if}}
+                               {{#unless @root.editable}}disabled{{/unless}}>
+                        <span>{{this.label}}</span>
+                    </label>
+                    {{/each}}
+                </div>
+                {{/if}}
+            </fieldset>
+            {{/if}}
+
             {{#if isRecoveryCapable}}
             <fieldset class="tnx-fieldset usage-recovery-section">
                 <legend>治療</legend>
+                {{#if isTreatment}}
                 <div class="usage-form-row">
                     <label class="usage-field-label">実行形式</label>
                     <select name="executionForm" {{#unless editable}}disabled{{/unless}}>
@@ -739,6 +779,7 @@
                         {{/each}}
                     </select>
                 </div>
+                {{/if}}
                 {{#if isRecovery}}
                 <label class="usage-field-label">回復対象の範囲</label>
                 <div class="usage-recovery-rows">
@@ -808,6 +849,25 @@
                     </div>
                 </div>
                 {{/unless}}
+                {{#if isDefenceCure}}
+                {{!-- 神業の治癒(17-2)で足す2つ: スタイル技能の効果の解除(《人命救助》)・受けたシーンの制限
+                     (《腹心》《人命救助》=完全死亡・精神崩壊のみ／《黄泉還り》を他人に=すべて) --}}
+                <div class="usage-form-row usage-toggle-row">
+                    <label class="usage-toggle-inline">
+                        <input type="checkbox" name="recoveryEffects" {{checked recoveryEffects}}
+                               {{#unless editable}}disabled{{/unless}}>
+                        <span>スタイル技能の効果も解除できる</span>
+                    </label>
+                </div>
+                <div class="usage-form-row">
+                    <label class="usage-field-label">受けたシーンの制限</label>
+                    <select name="recoverySceneLimit" {{#unless editable}}disabled{{/unless}}>
+                        {{#each recoverySceneLimitOptions}}
+                        <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                        {{/each}}
+                    </select>
+                </div>
+                {{/if}}
                 {{/if}}
             </fieldset>
             {{/if}}

@@ -1,5 +1,6 @@
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 import { TnxUsageSheet, USAGE_TYPES, deriveUsageAutoFill, updateUsageActions } from "../module/tnx-usage-sheet.mjs";
+import { usageTypeLabelsFor, defaultUsageTypeFor } from "../module/usage-types.mjs";
 import { defaultConfrontationForType, executionFormOf, usageDisplayName, usesVehicle } from "../module/usage-types.mjs";
 import { resolveBunshinOwner } from "../module/usage-consumption.mjs";
 import { attachEditorSectionToggles } from "../module/editor-sections.mjs";
@@ -210,10 +211,11 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         // エキストラの技能は固定値判定しか行えないため選択ダイアログを出さず直接作成する。
         // それ以外のアイテムでは固定値プリセットは提供しない(通常の用途タイプ選択)
         const isFixedCheck = this.item.type === "generalSkill" && this.item.parent?.type === "extra";
-        let type = "check";
+        let type = defaultUsageTypeFor(this.item.type);
         if (!isFixedCheck) {
-            // タイプは判定/宣言のみ(2026-07-13 一本化)。NPC取得は用途の設定(効果タブ)へ移管
-            const choice = await TokyoNovaItemSheet._promptUsageType(USAGE_TYPES);
+            // 選択肢は親の型で決まる(17-2): 神業なら神業専用の5種(宣言/即死/防御/社会戦/破壊)だけ、
+            // それ以外は神業専用を除いた行動種別タイプ。NPC取得は用途の設定(効果タブ)へ移管済み
+            const choice = await TokyoNovaItemSheet._promptUsageType(usageTypeLabelsFor(this.item.type));
             if (!choice) return;
             type = choice;
         }
