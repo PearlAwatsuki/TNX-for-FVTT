@@ -153,3 +153,18 @@ describe("UsageTemplate.defineSchema()（防御タイプの設定・17-2）", ()
     expect(entry.recoverySceneLimit.options.initial).toBe("none");
   });
 });
+
+// ─── 即死・社会戦タイプ(フェーズ17-3)の設定 ────────────────────────────────────
+describe("UsageTemplate.defineSchema()（即死・社会戦タイプの設定・17-3）", () => {
+  const entry = UsageTemplate.defineSchema().actions.element.fields;
+
+  it("killCategory は StringField・既定 physical（即死の系統: 肉体/精神）", () => {
+    expect(entry.killCategory).toBeInstanceOf(MockStringField);
+    expect(entry.killCategory.options.initial).toBe("physical");
+  });
+
+  it("socialDecide は StringField・既定 choose（社会戦の結果の決め方: choose=使用者がチャートの行を選ぶ／rl=RL が決める）", () => {
+    expect(entry.socialDecide).toBeInstanceOf(MockStringField);
+    expect(entry.socialDecide.options.initial).toBe("choose");
+  });
+});

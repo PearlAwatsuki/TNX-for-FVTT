@@ -781,6 +781,11 @@ Hooks.on("createActiveEffect", async (effect, options, userId) => {
             if (srcIsWound) {
                 d.flags["tokyo-nova-axleration"].woundSource = effect.id;
             }
+            // 神業由来の印(17-3): 神業のダメージから生じた負傷のカスケード(戦闘不能・BS)も神業由来
+            // (神業でしか治せない)
+            if (effect.flags?.["tokyo-nova-axleration"]?.fromMiracle === true) {
+                d.flags["tokyo-nova-axleration"].fromMiracle = true;
+            }
             seen.add(ik);
             data.push(d);
         }

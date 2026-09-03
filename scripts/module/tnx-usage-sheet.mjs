@@ -586,6 +586,22 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
         // 神業専用タイプ(17-2): 神業は判定を行わないため、目標値・対決の設定は出さない
         context.isMiracleUsage = isMiracleType(usage.type);
+        // 即死・社会戦(17-3): 系統(肉体/精神)・結果の決め方(使用者が選ぶ/RL が決める)
+        context.isMiracleKill = usage.type === "miracleKill";
+        context.isMiracleSocial = usage.type === "miracleSocial";
+        if (context.isMiracleKill) {
+            const cat = usage.killCategory || "physical";
+            context.killCategoryOptions = [
+                { value: "physical", label: "肉体" }, { value: "mental", label: "精神" },
+            ].map(o => ({ ...o, selected: o.value === cat }));
+        }
+        if (context.isMiracleSocial) {
+            const dec = usage.socialDecide || "choose";
+            context.socialDecideOptions = [
+                { value: "choose", label: "使用者がチャートの行を選ぶ（抹殺も可）" },
+                { value: "rl",     label: "RL が決める（値の入力か、山札から2枚めくって合計）" },
+            ].map(o => ({ ...o, selected: o.value === dec }));
+        }
         // 防御タイプ(17-2・神業専用): 動作(打ち消し/適用前に防ぐ/回避/受けた後に消す)・範囲・系統。
         // 「受けた後に消す」は治療の回復設定(範囲/除外/該当すべて/回復数)を共用し、神業の治癒で
         // 足りない2つ(スタイル技能の効果の解除・受けたシーンの制限)を足す
@@ -1405,6 +1421,9 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         // 防御タイプ(17-2): 動作の切替は治療設定・範囲・系統の出し入れを伴うため再描画する。
         // 系統チェックはフォームに描画されているときだけ再構成する(未描画の送信で全消しにしない)
         const isCureDefence = usage.type === "miracleDefence" && (usage.defenceAction || "prevent") === "cure";
+        // 即死・社会戦(17-3)の設定
+        if (usage.type === "miracleKill") update.killCategory = raw["killCategory"] ?? usage.killCategory ?? "physical";
+        if (usage.type === "miracleSocial") update.socialDecide = raw["socialDecide"] ?? usage.socialDecide ?? "choose";
         if (usage.type === "miracleDefence") {
             const prevAct = usage.defenceAction || "prevent";
             update.defenceAction = raw["defenceAction"] ?? prevAct;

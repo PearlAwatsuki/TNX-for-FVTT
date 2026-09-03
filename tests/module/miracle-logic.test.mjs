@@ -8,6 +8,7 @@ import {
     miracleUseGate, miracleConsumeUpdate, withDefaultMiracleConsumption,
     miracleOriginOf, isMiracleOrigin, buildMiracleCardData,
     defencePreventPlan, unprotectedTargetIndices, negateCheckGate, negatedCheckMods, evadePlan, recoveryCandidateAllowed,
+    terminalKindFor, buildMiracleDamageFlag, miracleResultLabel, miracleTargetOutcome,
 } from "../../scripts/module/miracle-logic.mjs";
 
 describe("withDefaultMiracleConsumption()（消費先が空の神業用途は自身の使用回数×1を既定消費）", () => {
@@ -311,5 +312,56 @@ describe("recoveryCandidateAllowed()（神業の治癒で候補に載せてよ�
         expect(recoveryCandidateAllowed({ isCondition: false, isGranted: true, sourceIsStyleSkill: false }, { recoveryEffects: true }, { byMiracle: true, currentScene: here })).toBe(false);
         expect(recoveryCandidateAllowed({ isCondition: false, isGranted: false, sourceIsStyleSkill: null }, { recoveryEffects: true }, { byMiracle: true, currentScene: here })).toBe(false);
         expect(recoveryCandidateAllowed({ isCondition: false, isGranted: true, sourceIsStyleSkill: null }, { recoveryEffects: true }, { byMiracle: true, currentScene: here })).toBe(true);
+    });
+});
+
+// ─── 即死・社会戦(17-3)＝神業版のダメージカード ─────────────────────────────────
+// 効果文《死の舞踏》「［完全死亡］させる…代わりに任意の肉体戦ダメージを与えても良い」《神の御言葉》
+// 「［精神崩壊］…代わりに任意の精神戦ダメージ」《制裁》「任意の社会戦ダメージ…抹殺でもよい。トループならば
+// 全滅させてもよい」。トループ壊滅は即死に含める(ユーザー裁定 2026-09-04)。
+describe("terminalKindFor()（系統→終端状態）", () => {
+    it("肉体=完全死亡・精神=精神崩壊・社会=抹殺", () => {
+        expect(terminalKindFor("physical")).toBe("dead");
+        expect(terminalKindFor("mental")).toBe("mind-break");
+        expect(terminalKindFor("social")).toBe("erased");
+    });
+});
+
+describe("buildMiracleDamageFlag()（神業版ダメージカードのフラグ）", () => {
+    const by = { itemId: "m", name: "死の舞踏", actorId: "a" };
+    it("印・系統・対象・結果を持ち、カードや攻撃力の段は持たない(軽減を通さない器)", () => {
+        const f = buildMiracleDamageFlag({ by, category: "physical", targets: [{ uuid: "Actor.x", name: "X" }], result: { kind: "terminal" } });
+        expect(f.miracle).toEqual(by);
+        expect(f.category).toBe("physical");
+        expect(f.targets).toEqual([{ uuid: "Actor.x", name: "X", parryGuard: 0, reactionEstablished: false }]);
+        expect(f.miracleResult).toEqual({ kind: "terminal" });
+        expect(f.cards).toEqual([]);
+        expect(f.applied).toBe(false);
+        expect(f.attackPower).toBe(0);
+    });
+});
+
+describe("miracleResultLabel()（結果の表示）", () => {
+    it("終端状態は系統の終端の名前・任意ダメージは値", () => {
+        expect(miracleResultLabel({ kind: "terminal" }, "physical")).toBe("完全死亡");
+        expect(miracleResultLabel({ kind: "terminal" }, "mental")).toBe("精神崩壊");
+        expect(miracleResultLabel({ kind: "terminal" }, "social")).toBe("抹殺");
+        expect(miracleResultLabel({ kind: "chart", value: 13 }, "physical")).toBe("ダメージ 13");
+    });
+});
+
+describe("miracleTargetOutcome()（対象の型ごとに何が起こるか）", () => {
+    it("キャスト/ゲスト: 終端状態はその状態を直接付与・任意ダメージはチャートの値をそのまま(軽減なし)", () => {
+        expect(miracleTargetOutcome({ kind: "terminal" }, "cast", "physical")).toEqual({ op: "terminal", kind: "dead" });
+        expect(miracleTargetOutcome({ kind: "chart", value: 9 }, "guest", "social")).toEqual({ op: "chart", value: 9 });
+    });
+
+    it("トループ: 終端状態は壊滅(人数 0)・任意ダメージは人数から値を引く", () => {
+        expect(miracleTargetOutcome({ kind: "terminal" }, "troop", "physical")).toEqual({ op: "annihilate" });
+        expect(miracleTargetOutcome({ kind: "chart", value: 5 }, "troop", "physical")).toEqual({ op: "heads", value: 5 });
+    });
+
+    it("エキストラ: ダメージの概念が無い(宣言死)＝適用なし", () => {
+        expect(miracleTargetOutcome({ kind: "terminal" }, "extra", "physical")).toEqual({ op: "none" });
     });
 });

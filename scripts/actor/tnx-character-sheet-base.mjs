@@ -2677,8 +2677,30 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             return;
         }
 
-        // 神業専用タイプ(17-2)は判定を行わない。宣言=17-1 の宣言経路(神業カード＋適用効果)。
-        // 即死・社会戦・破壊は 17-3 で専用の結果指定に切り替えるまで宣言と同じ挙動
+        // 即死・社会戦(17-3): 対象解決→消費→結果の選択→神業版のダメージカード(軽減を通さない)
+        if (selectedUsage.type === "miracleKill" || selectedUsage.type === "miracleSocial") {
+            try {
+                const { useMiracleDamage } = await import("../module/miracle-flow.mjs");
+                await useMiracleDamage(actor, item, selectedUsage);
+            } catch (err) {
+                console.error("TNX | 神業のダメージの実行に失敗しました", err);
+                ui.notifications.error(`神業のダメージの実行に失敗しました: ${err.message}`);
+            }
+            return;
+        }
+        // 破壊(17-3): 対象解決→未破壊のアウトフィットを選ぶ→神業カードに結果行と適用ボタン
+        if (selectedUsage.type === "miracleDestroy") {
+            try {
+                const { useMiracleDestroy } = await import("../module/miracle-flow.mjs");
+                await useMiracleDestroy(actor, item, selectedUsage);
+            } catch (err) {
+                console.error("TNX | 神業の破壊の実行に失敗しました", err);
+                ui.notifications.error(`神業の破壊の実行に失敗しました: ${err.message}`);
+            }
+            return;
+        }
+
+        // 神業専用タイプ(17-2)は判定を行わない。宣言=17-1 の宣言経路(神業カード＋適用効果)
         if (selectedUsage.type === "declaration" || isMiracleType(selectedUsage.type)) {
             await TnxCharacterSheetBase._useDeclarationUsage(actor, item, selectedUsage);
             return;

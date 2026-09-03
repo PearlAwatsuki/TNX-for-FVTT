@@ -286,6 +286,14 @@ export class UsageTemplate extends SystemDataModel {
                     defenceScope: new fields.StringField({ initial: "all" }),
                     defenceCategories: new fields.ArrayField(new fields.StringField(), { initial: ["physical", "mental", "social"] }),
 
+                    // ─── 即死・社会戦タイプ(17-3・神業専用) ───
+                    // 即死: 系統(肉体=《死の舞踏》《とどめの一撃》／精神=《神の御言葉》)。終端状態(完全死亡/
+                    // 精神崩壊)か任意ダメージ(チャートの値)を使用時に選ぶ。対象がトループなら壊滅(人数 0)。
+                    // 社会戦: 結果の決め方。choose=使用者がチャートの行(抹殺含む)を選ぶ(《制裁》)／
+                    // rl=RL が値を入力するか山札から2枚めくる(《暴露》)
+                    killCategory: new fields.StringField({ initial: "physical" }),
+                    socialDecide: new fields.StringField({ initial: "choose" }),
+
                     // 修理(2026-07-18 ユーザー確定・repair タイプ): この用途で修理できるアウトフィットの
                     // 分類キーのホワイトリスト(小分類キーまたは大分類キー=その大分類全体・2026-07-19)。
                     // 使用→対象解決(未ターゲット=自分)→対象所持の故障アウトフィットのうち分類が

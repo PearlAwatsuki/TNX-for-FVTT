@@ -158,6 +158,63 @@ export function evadePlan(f, { rowIndex, actorId, by, resolveActorId }) {
     return { ok: true, index: rowIndex, by };
 }
 
+// ─── 即死・社会戦(17-3)＝神業版のダメージカード ─────────────────────────────────
+// 効果文《死の舞踏》「［完全死亡］させる…代わりに任意の肉体戦ダメージを与えても良い」《神の御言葉》「［精神崩壊］
+// …代わりに任意の精神戦ダメージ」《制裁》「任意の社会戦ダメージ…抹殺でもよい。トループならば全滅させてもよい」。
+// 「神業以外の効果で防がれることも治癒されることもない」＝軽減を一切通さず、付与した状態に神業由来の印を刻む。
+
+/** 系統→終端状態のキー(肉体=完全死亡・精神=精神崩壊・社会=抹殺)。 */
+export function terminalKindFor(category) {
+    return { physical: "dead", mental: "mind-break", social: "erased" }[category] ?? "dead";
+}
+
+const TERMINAL_LABELS = Object.freeze({ dead: "完全死亡", "mind-break": "精神崩壊", erased: "抹殺" });
+
+/**
+ * 神業版のダメージカードのフラグ(damageRoll)。既存のダメージカードの器に神業の印と結果を載せ、
+ * カード・攻撃力・修正の段は持たない(軽減を通さない)。対象行・防ぐ・打ち消し・適用は既存のまま。
+ * @param {{by: object, category: string, targets: Array<{uuid: string, name: string}>, result: object}} arg
+ * @returns {object}
+ */
+export function buildMiracleDamageFlag({ by, category, targets, result }) {
+    return {
+        miracle: by,
+        miracleResult: result,
+        category,
+        damageType: "",
+        targets: (targets ?? []).map(t => ({ uuid: t.uuid, name: t.name, parryGuard: 0, reactionEstablished: false })),
+        cards: [],
+        attackPower: 0,
+        damageBonuses: [],
+        mods: [],
+        applied: false,
+    };
+}
+
+/** 結果の表示(終端状態は系統の終端の名前・任意ダメージは値)。 */
+export function miracleResultLabel(result, category) {
+    if (result?.kind === "terminal") return TERMINAL_LABELS[terminalKindFor(category)];
+    return `ダメージ ${Number(result?.value) || 0}`;
+}
+
+/**
+ * 対象の型ごとに、神業版ダメージの適用で何が起こるか。
+ * キャスト/ゲスト: 終端状態はその状態を直接付与・任意ダメージはチャートの値をそのまま(軽減なし)。
+ * トループ: 終端状態は壊滅(人数 0・トループ壊滅は即死に含める=ユーザー裁定 2026-09-04)・任意ダメージは人数から引く。
+ * エキストラ: ダメージの概念が無い(宣言死)。
+ * @param {{kind: "terminal"|"chart", value?: number}} result
+ * @param {string} targetType アクターの type
+ * @param {string} category 系統
+ * @returns {{op: "terminal", kind: string} | {op: "chart", value: number} | {op: "annihilate"} | {op: "heads", value: number} | {op: "none"}}
+ */
+export function miracleTargetOutcome(result, targetType, category) {
+    if (targetType === "extra") return { op: "none" };
+    const terminal = result?.kind === "terminal";
+    const value = Math.max(0, Number(result?.value) || 0);
+    if (targetType === "troop") return terminal ? { op: "annihilate" } : { op: "heads", value };
+    return terminal ? { op: "terminal", kind: terminalKindFor(category) } : { op: "chart", value };
+}
+
 /**
  * 「受けたシーン」の同一性。状態は受けた時点のアクト id と上演中のシーン番号(sessionState.sceneNumber)を
  * 持つ(preCreateActiveEffect で刻む)。どちらかが不明なら比較できない=同じ扱い(検査できないものはゲートしない)。

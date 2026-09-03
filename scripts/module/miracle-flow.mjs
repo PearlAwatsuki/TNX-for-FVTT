@@ -13,12 +13,160 @@
 import {
     miracleUseGate, miracleConsumeUpdate, buildMiracleCardData, miracleOriginOf,
     negateCheckGate, negatedCheckMods, evadePlan,
+    buildMiracleDamageFlag, terminalKindFor,
 } from "./miracle-logic.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
-import { applyConsumptionPlan } from "./usage-consumption.mjs";
+import { applyConsumptionPlan, resolveConsumeRowsForActor, promptConsumption } from "./usage-consumption.mjs";
+import { resolveUsageTargetRefs } from "./target-resolution.mjs";
+import { TargetSelectionDialog, AmountInputDialog } from "./tnx-dialog.mjs";
+import { CONDITION_KINDS } from "./conditions.mjs";
+import { getDamageChartKind } from "../data/damage-chart.mjs";
+import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
+import { isOutfitDestroyed } from "../data/item/helpers.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
+const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会" };
+
+// ─── 即死・社会戦(17-3)＝神業版のダメージカード ─────────────────────────────────
+// 効果文《死の舞踏》「［完全死亡］させる…代わりに任意の肉体戦ダメージを与えても良い」《神の御言葉》「［精神崩壊］
+// …任意の精神戦ダメージ」《制裁》「任意の社会戦ダメージ…好きなものを選ぶ…抹殺でもよい」《暴露》「RL が任意に
+// 決定する。判断に迷った場合は山札から2枚めくってカードの数字を合計し、社会戦ダメージチャートを参照」。
+// 結果を選んで神業版のダメージカード(damage-flow.renderMiracleDamageCard)を出す。軽減は一切通さない。
+
+/** チャートの値(1〜21)の選択肢(値: 負傷名)。 */
+function chartValueOptions(category) {
+    const out = [];
+    for (let v = 1; v <= 21; v++) {
+        const kind = getDamageChartKind(category, v);
+        out.push({ value: `chart:${v}`, label: `${v}: ${CONDITION_KINDS[kind]?.label ?? ""}` });
+    }
+    return out;
+}
+
+/**
+ * 結果の選択(使用時)。即死=終端状態か任意ダメージ(チャートの値)／社会戦=決め方の設定で分岐
+ * (choose=使用者がチャートの行か抹殺を選ぶ／rl=RL が値を入力するか山札から2枚めくる)。
+ * @returns {Promise<?{kind: "terminal"|"chart", value?: number, drawn?: string[]}>} キャンセルは null
+ */
+async function promptMiracleDamageResult(item, usage, category) {
+    const terminalLabel = CONDITION_KINDS[terminalKindFor(category)]?.label ?? "終端状態";
+    if (usage.type === "miracleSocial" && (usage.socialDecide || "choose") === "rl") {
+        const how = await TargetSelectionDialog.prompt({
+            title: `${item.name}: 社会戦ダメージ`, label: "社会戦ダメージの決め方（RL）",
+            options: [{ value: "input", label: "値を入力する" }, { value: "draw", label: "山札から2枚めくって合計する" }],
+        });
+        if (!how) return null;
+        if (how === "draw") {
+            const { drawDamageValueFromDeck } = await import("./damage-flow.mjs");
+            const { total, drawn } = await drawDamageValueFromDeck(2);
+            return { kind: "chart", value: total, drawn };
+        }
+        const input = await AmountInputDialog.prompt({
+            title: `${item.name}: 社会戦ダメージ`, label: "社会戦ダメージの値（チャート参照）",
+            initialValue: 10, min: 1, max: 21, okLabel: "決定",
+        });
+        if (!input || !Number.isFinite(input.value)) return null;
+        return { kind: "chart", value: input.value };
+    }
+    const options = [{ value: "terminal", label: terminalLabel }, ...chartValueOptions(category)];
+    const picked = await TargetSelectionDialog.prompt({
+        title: `${item.name}: 結果の選択`, label: `${CATEGORY_LABELS[category]}ダメージの結果`, options,
+    });
+    if (!picked) return null;
+    if (picked === "terminal") return { kind: "terminal" };
+    return { kind: "chart", value: Number(picked.replace("chart:", "")) || 0 };
+}
+
+/**
+ * 即死・社会戦タイプの使用(17-3): 対象解決→消費→結果の選択→神業版のダメージカード。
+ * @param {Actor} actor
+ * @param {Item} item 神業
+ * @param {object} usage 即死/社会戦タイプの用途(既定消費は起動関数で補われている)
+ */
+export async function useMiracleDamage(actor, item, usage) {
+    const category = usage.type === "miracleSocial" ? "social" : (usage.killCategory || "physical");
+    const refs = await resolveUsageTargetRefs(actor, usage);
+    if (refs === null) return;
+    if (!refs.length) { ui.notifications.warn("対象をターゲットしてから使用してください。"); return; }
+    const rows = resolveConsumeRowsForActor(actor, item, usage.consumeTargets);
+    const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${item.name}` });
+    if (plan === null) return;
+    const result = await promptMiracleDamageResult(item, usage, category);
+    if (!result) return;
+    await applyConsumptionPlan(plan);
+    const flag = buildMiracleDamageFlag({
+        by: { itemId: item.id, name: item.name, actorId: actor.id }, category, targets: refs, result,
+    });
+    const content = await foundry.applications.handlebars.renderTemplate(
+        "systems/tokyo-nova-axleration/templates/chat/damage-card.hbs", { categoryLabel: CATEGORY_LABELS[category] });
+    await ChatMessage.create({
+        user: game.user.id, speaker: ChatMessage.getSpeaker({ actor }), content,
+        flags: { "core.canPopout": true, [SCOPE]: { damageRoll: flag } },
+    });
+}
+
+/** 神業版のダメージカードの見出しクリック(打ち消し待ち中): 全対象を防いだ扱いにして消す。 */
+export async function handleNegateMiracleDamageClick(message) {
+    const ns = negateState();
+    if (!ns) return;
+    const f = message.getFlag(SCOPE, "damageRoll");
+    if (!f?.miracle) return;
+    if (f.negatedBy) { ui.notifications.warn("この神業は既に打ち消されています。"); return; }
+    if (f.applied) { ui.notifications.warn("適用済みの神業は打ち消せません（時間をさかのぼって打ち消すことはできません）。"); return; }
+    await commitNegate(ns.state);
+    const { applyDamagePatch } = await import("./damage-flow.mjs");
+    const targets = (f.targets ?? []).map(t => ({ ...t, protectedBy: ns.by }));
+    await applyDamagePatch(message, { targets, negatedBy: ns.by });
+}
+
+// ─── 破壊(17-3・《天変地異》《突破》) ────────────────────────────────────────────
+// 効果文「アウトフィットをひとつ［破壊］」。アウトフィットの破壊のみ(トループ壊滅は即死に含める=
+// ユーザー裁定 2026-09-04)。使用→対象解決→未破壊のアウトフィットから1つ選ぶ→神業カードに結果行と
+// 適用ボタン(対象の操作者/RL)→isDestroyed を立てる。キャスト・ゲストへの直接ダメージは無い。
+
+/**
+ * 破壊タイプの使用(17-3)。
+ * @param {Actor} actor
+ * @param {Item} item 神業
+ * @param {object} usage 破壊タイプの用途
+ */
+export async function useMiracleDestroy(actor, item, usage) {
+    const refs = await resolveUsageTargetRefs(actor, usage);
+    if (refs === null) return;
+    if (!refs.length) { ui.notifications.warn("対象をターゲットしてから使用してください。"); return; }
+    const targetDoc = await fromUuid(refs[0].uuid).catch(() => null);
+    const target = targetDoc?.actor ?? targetDoc;
+    if (!target) { ui.notifications.warn("対象が見つかりません。"); return; }
+    const candidates = (target.items?.contents ?? []).filter(i => OUTFIT_ITEM_TYPES.has(i.type) && !isOutfitDestroyed(i.system));
+    if (!candidates.length) { ui.notifications.warn(`「${target.name}」に破壊できるアウトフィットがありません。`); return; }
+    const rows = resolveConsumeRowsForActor(actor, item, usage.consumeTargets);
+    const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${item.name}` });
+    if (plan === null) return;
+    const picked = await TargetSelectionDialog.prompt({
+        title: `${item.name}: 破壊するアウトフィット`, label: `「${target.name}」のアウトフィット`,
+        options: candidates.map(i => ({ value: i.id, label: i.name })), selectLabel: "破壊",
+    });
+    if (!picked) return;
+    const outfit = target.items.get(picked);
+    if (!outfit) return;
+    await applyConsumptionPlan(plan);
+    await postMiracleCard(item, { destroy: { targetUuid: target.uuid, targetName: target.name, itemId: outfit.id, itemName: outfit.name } });
+}
+
+/** 破壊の適用(神業カードのボタン・対象の操作者/RL): アウトフィットの isDestroyed を立てる。 */
+async function applyMiracleDestroy(message) {
+    const mf = message.getFlag(SCOPE, "miracle");
+    const d = mf?.destroy;
+    if (!d || d.applied) return;
+    const targetDoc = await fromUuid(d.targetUuid).catch(() => null);
+    const target = targetDoc?.actor ?? targetDoc;
+    const outfit = target?.items?.get(d.itemId);
+    if (!outfit) { ui.notifications.warn("破壊するアウトフィットが見つかりません。"); return; }
+    if (!(game.user.isGM || target.isOwner)) { ui.notifications.warn("適用は対象の操作者（または RL）が行います。"); return; }
+    await outfit.update({ "system.isDestroyed": true });
+    await TnxSocketHandler.applyMessagePatch(message, { [`flags.${SCOPE}.miracle.destroy.applied`]: true });
+}
 
 // ─── 打ち消し(防御タイプ・17-2) ────────────────────────────────────────────────
 // 正本: Miracle_Rules「打ち消しの範囲」= 判定に対しては失敗させる／宣言に対しては効果の適用を
@@ -191,6 +339,7 @@ export function renderMiracleCard(message, html) {
     if (mf.negatedBy) {
         card.querySelector(".cr-req-body")?.remove();
         html.querySelector(".tnx-usage-effect-area")?.remove();
+        card.querySelector(".mc-destroy")?.remove();
         card.classList.add("tnx-miracle-card--negated");
         return;
     }
@@ -198,6 +347,29 @@ export function renderMiracleCard(message, html) {
     if (head && !head.classList.contains("tnx-recheck-target")) {
         head.classList.add("tnx-recheck-target");
         head.addEventListener("click", () => handleNegateMiracleCardClick(message));
+    }
+    // 破壊(17-3): 結果行「破壊: 対象のアウトフィット」と適用ボタン(対象の操作者/RL)。適用後はボタンを消す
+    const d = mf.destroy;
+    if (d && !card.querySelector(".mc-destroy")) {
+        const esc = foundry.utils.escapeHTML;
+        const body = card.querySelector(".cr-req-body") ?? card;
+        const wrap = document.createElement("div");
+        wrap.className = "mc-destroy";
+        wrap.innerHTML = `<div class="cr-req-field mc-destroy__row"><span class="cr-req-field__label">破壊</span>`
+            + `<span class="cr-req-field__value">${esc(d.targetName)}の「${esc(d.itemName)}」${d.applied ? "（破壊済み）" : ""}</span></div>`;
+        if (!d.applied) {
+            let target = null;
+            try { const doc = fromUuidSync(d.targetUuid); target = doc?.actor ?? doc; } catch { target = null; }
+            if (game.user.isGM || target?.isOwner) {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "tnx-chat-btn";
+                btn.innerHTML = '<i class="fas fa-burst"></i> 破壊を適用';
+                btn.addEventListener("click", () => applyMiracleDestroy(message));
+                wrap.appendChild(btn);
+            }
+        }
+        body.appendChild(wrap);
     }
 }
 
@@ -209,7 +381,7 @@ export function renderMiracleCard(message, html) {
  * @param {{usageEffects?: ?object}} [opts]
  * @returns {Promise<ChatMessage>}
  */
-export async function postMiracleCard(item, { usageEffects = null } = {}) {
+export async function postMiracleCard(item, { usageEffects = null, destroy = null } = {}) {
     const TE = foundry.applications.ux.TextEditor;
     const [description, condition] = await Promise.all([
         TE.enrichHTML(item.system?.description ?? "", { relativeTo: item }),
@@ -228,7 +400,8 @@ export async function postMiracleCard(item, { usageEffects = null } = {}) {
         flags: {
             "core.canPopout": true,
             [SCOPE]: {
-                miracle: miracleOriginOf(item),
+                // destroy(17-3): 破壊の結果(対象と選んだアウトフィット)。描画フックが結果行と適用ボタンを足す
+                miracle: { ...miracleOriginOf(item), ...(destroy ? { destroy } : {}) },
                 ...(usageEffects ? { usageEffects } : {}),
             },
         },

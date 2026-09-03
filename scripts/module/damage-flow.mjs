@@ -37,7 +37,7 @@ import { gatherDamageVsSources, gatherDamageDealtSources, gatherDamageTakenSourc
 import { splitEffectsByTiming } from "./usage-effects.mjs";
 import { spinnerDialogActions } from "./tnx-dialog.mjs";
 import { rlGrantAmount, rlGrantLedgerRow, rlGrantTypeLabel, buildRlDamageRollFlag } from "./rl-grant-logic.mjs";
-import { unprotectedTargetIndices, defencePreventPlan } from "./miracle-logic.mjs";
+import { unprotectedTargetIndices, defencePreventPlan, miracleResultLabel, miracleTargetOutcome } from "./miracle-logic.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会" };
@@ -426,6 +426,11 @@ export function renderDamageCard(message, html) {
     const liveTargets = liveIdx.map(i => dmgTargets[i]);
     if (liveTargets.length) row(ledger, liveTargets.length > 1 ? `対象（${liveTargets.length}体）` : "対象",
         liveTargets.map(t => `「${esc(t.name)}」`).join("・"));
+    // 神業版のダメージカード(17-3・即死/社会戦): 台帳は神業と結果だけ・軽減を一切通さない
+    if (f.miracle) {
+        renderMiracleDamageCard(message, html, f, { ledger, area, row, line, esc, dmgTargets, liveIdx });
+        return;
+    }
     // ダメージ修正は対象ごとに評価される(2026-09-01)。**全対象で同じ行は共有台帳に1回**・
     // 対象で異なる行だけ各対象の内訳へ回す(単体対象・対象非依存の式では従来と同じ見た目)。
     // 旧カード(bonusRows なし)は共有行にフォールバックする
@@ -601,6 +606,129 @@ export function renderDamageCard(message, html) {
     } else {
         line(area, "cr-tn", "（適用は対象の操作者または RL が行います）");
     }
+}
+
+/**
+ * 神業版のダメージカードの描画(17-3・即死《神の御言葉》《死の舞踏》《とどめの一撃》・社会戦《暴露》《制裁》)。
+ * 既存のダメージカードの器に神業の印(f.miracle)と結果(f.miracleResult)を載せたもの。台帳は「神業」と
+ * 「結果」だけで、カード・攻撃力・修正・軽減の段は無い(効果文「神業以外の効果で防がれることも治癒される
+ * こともない」＝軽減を通さない)。対象行(防ぐのクリック)・適用ボタン(対象の操作者/RL)は通常のカードと同じ。
+ * 見出しは打ち消しの発動点(打ち消されたカードは全対象が防がれた扱い=行が消える)。
+ */
+function renderMiracleDamageCard(message, html, f, { ledger, area, row, line, esc, dmgTargets, liveIdx }) {
+    const label = miracleResultLabel(f.miracleResult, f.category);
+    row(ledger, "神業", esc(f.miracle?.name ?? "神業"));
+    // めくったカードは1枚1行(ダメージカードの行と同じ形・狭い幅で語の途中で折れない)
+    (f.miracleResult?.drawn ?? []).forEach((d, i) => row(ledger, `カード ${i + 1}`, esc(d)));
+    row(ledger, "結果", esc(label), "cr-calc-row cr-total-row", "cr-total-num");
+
+    // 打ち消し(17-2)の発動点: 見出しクリック(モード外は無視)
+    const head = html.querySelector(".cr-head");
+    if (head && !head.classList.contains("tnx-recheck-target")) {
+        head.classList.add("tnx-recheck-target");
+        head.addEventListener("click", async () => {
+            if (!TnxCheckFlow.peekAchievementAction("negate")) return;
+            const { handleNegateMiracleDamageClick } = await import("./miracle-flow.mjs");
+            await handleNegateMiracleDamageClick(message);
+        });
+    }
+
+    if (f.applied && f.appliedResult) {
+        for (const tr of (f.appliedResult.targets ?? [])) {
+            row(area, esc(tr.name), esc(tr.resultLabel ?? label), "cr-calc-row cr-total-row", "cr-total-num");
+            line(area, `cr-result ${tr.applied === false ? "cr-result--nodamage" : "cr-result--damage"}`,
+                `<i class="fas ${tr.applied === false ? "fa-shield-halved" : "fa-burst"}"></i> ${esc(tr.applyText ?? "")}`);
+        }
+        return;
+    }
+    for (const i of liveIdx) {
+        const t = dmgTargets[i];
+        row(area, esc(t.name), esc(label), "cr-calc-row cr-total-row", "cr-total-num");
+        const nameEl = area.lastElementChild?.querySelector(".cr-calc-label");
+        if (nameEl && !nameEl.classList.contains("tnx-recheck-target")) {
+            nameEl.classList.add("tnx-recheck-target");
+            nameEl.addEventListener("click", () => handleDamageProtectClick(message, i));
+        }
+    }
+    if (dmgTargets.length && !liveIdx.length) return; // 全対象が防がれた(または打ち消された)
+    if (!dmgTargets.length) { line(area, "cr-tn", "対象未選択（適用は手動で行ってください）"); return; }
+    const canApply = game.user.isGM || liveIdx.some(i => resolveSync(dmgTargets[i].uuid)?.isOwner);
+    if (!canApply) { line(area, "cr-tn", "（適用は対象の操作者または RL が行います）"); return; }
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "tnx-chat-btn";
+    btn.innerHTML = '<i class="fas fa-burst"></i> 適用';
+    btn.addEventListener("click", () => applyMiracleDamage(message));
+    area.appendChild(btn);
+}
+
+/**
+ * 神業版のダメージカードの適用(17-3)。軽減ダイアログを挟まず、対象の型ごとの結果をそのまま与える:
+ * キャスト/ゲスト=終端状態を直接付与／チャートの値をそのまま適用(派生ダメージは既存どおり)、
+ * トループ=壊滅(人数 0)／人数から値を引く、エキストラ=適用なし(宣言死)。付与した状態には神業由来の印
+ * (fromMiracle)を刻み、カスケード(戦闘不能・BS)にも伝わる=神業でしか治せない。
+ * @param {ChatMessage} message
+ */
+export async function applyMiracleDamage(message) {
+    const f = message.getFlag(SCOPE, "damageRoll");
+    if (!f?.miracle || f.applied) return;
+    const idx = unprotectedTargetIndices(f);
+    const rows = [];
+    for (const i of idx) {
+        const t = f.targets[i];
+        // トークン uuid(未リンクのトループ等)はそのトークンのアクターへ解決する(通常の適用と同じ)
+        const actor = await resolveTargetActor(t.uuid);
+        if (actor) rows.push({ actor, name: t.name });
+    }
+    if (!rows.length) { ui.notifications.warn("対象が見つかりません。"); return; }
+    if (!(game.user.isGM || rows.some(r => r.actor.isOwner))) {
+        ui.notifications.warn("適用は対象の操作者（または RL）が行います。");
+        return;
+    }
+    const label = miracleResultLabel(f.miracleResult, f.category);
+    const applied = [];
+    for (const { actor, name } of rows) {
+        const out = miracleTargetOutcome(f.miracleResult, actor.type, f.category);
+        let text = "";
+        let ok = true;
+        try {
+            if (out.op === "none") {
+                text = "エキストラ: 適用なし（宣言死）"; ok = false;
+            } else if (out.op === "terminal") {
+                const def = CONDITION_KINDS[out.kind];
+                if (actor.statuses?.has?.(out.kind)) { text = `既に「${def?.label ?? out.kind}」`; ok = false; }
+                else {
+                    await actor.createEmbeddedDocuments("ActiveEffect", [{
+                        name: def?.label, img: def?.img, statuses: [out.kind],
+                        flags: { [SCOPE]: { conditionKind: out.kind, hideFromList: true, fromMiracle: true } },
+                    }]);
+                    text = `「${def?.label ?? out.kind}」を付与`;
+                }
+            } else if (out.op === "chart") {
+                const stage = Math.min(out.value, 21);
+                await applyDamageChartResult(actor, f.category, out.value, { extraFlags: { fromMiracle: true } });
+                const kind = getDamageChartKind(f.category, stage);
+                const wound = kind ? CONDITION_KINDS[kind]?.label : "";
+                text = `${CATEGORY_LABELS[f.category] ?? f.category}ダメージチャート${wound ? `「${wound}」` : ""}を適用（軽減なし）`;
+                const derived = kind ? CONDITION_KINDS[kind]?.derivedDamage : null;
+                if (derived) text += await applyDerivedDamage(actor, derived);
+            } else if (out.op === "annihilate") {
+                const cur = actor.system.heads?.value ?? 0;
+                await actor.update({ "system.heads.value": 0 });
+                text = `壊滅（${actor.system.troopMode === "enigma" ? "エニグマポイント" : "人数"} ${cur} → 0）`;
+            } else if (out.op === "heads") {
+                const cur = actor.system.heads?.value ?? 0;
+                const next = Math.max(0, cur - out.value);
+                await actor.update({ "system.heads.value": next });
+                text = `${actor.system.troopMode === "enigma" ? "エニグマポイント" : "人数"} ${cur} → ${next}（−${cur - next}）`;
+            }
+        } catch (err) {
+            console.error("TNX | 神業のダメージ適用に失敗しました", err);
+            text = `適用できませんでした（${err.message}）`; ok = false;
+        }
+        applied.push({ name, resultLabel: label, applyText: text, applied: ok });
+    }
+    await applyDamagePatch(message, { applied: true, appliedResult: { targets: applied } });
 }
 
 /**
@@ -1043,6 +1171,7 @@ async function appendDamageCard(message, played) {
 async function openMitigationDialog(message, applyCategory = null) {
     const f = message.getFlag(SCOPE, "damageRoll");
     if (!f || f.applied) return;
+    if (f.miracle) return applyMiracleDamage(message); // 神業版(17-3)は軽減ダイアログを挟まない
 
     // 命中対象を解決(カバーされた元対象は buildDamageTargets で載っていない=カバーした側の行だけ)。
     // srcIndex=フラグ上の対象インデックス(解決できない対象があっても内訳の対応がずれないように持つ)
@@ -1299,11 +1428,15 @@ export async function applyDamageToTarget(target, category, final, stage, { pers
  * @param {{category:"physical"|"mental"|"social", cards:number}} derived
  * @returns {Promise<string>} 追記用の説明文
  */
-async function applyDerivedDamage(target, derived) {
-    const n = Math.max(1, Number(derived.cards) || 1);
+/**
+ * 山札から n 枚めくって数字を合算する(派生ダメージ・《暴露》の「山札から2枚めくって合計」で共用・17-3)。
+ * @param {number} n
+ * @returns {Promise<{total: number, drawn: string[]}>}
+ */
+export async function drawDamageValueFromDeck(n) {
     let total = 0;
     const drawn = [];
-    for (let i = 0; i < n; i++) {
+    for (let i = 0; i < Math.max(1, Number(n) || 1); i++) {
         const card = await TnxActionHandler.flipFromDeck();
         if (!card) break;
         const v = await resolveDamageCardValue(card);
@@ -1311,6 +1444,11 @@ async function applyDerivedDamage(target, derived) {
         total += v;
         drawn.push(`${card.name}=${v}`);
     }
+    return { total, drawn };
+}
+
+async function applyDerivedDamage(target, derived) {
+    const { total, drawn } = await drawDamageValueFromDeck(derived.cards);
     const stage = Math.min(total, 21);
     // 軽減を挟まず直接チャート適用(applyDamageToTarget を再帰・型分岐/更なる派生も自然に連鎖)
     const applyText = await applyDamageToTarget(target, derived.category, total, stage);

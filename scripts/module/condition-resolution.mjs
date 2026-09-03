@@ -30,10 +30,12 @@ export { conditionNeedsDraw, drawResultFlags, negateOutcome };
  * @param {number} value 最終ダメージ(チャート参照値は min(value,21)、0=付与なし)
  * @returns {Promise<?ActiveEffect>} 付与した負傷状態(0/不正は null)
  */
-export async function applyDamageChartResult(actor, category, value, { persuade = false } = {}) {
+export async function applyDamageChartResult(actor, category, value, { persuade = false, extraFlags = null } = {}) {
   const kind = getDamageChartKind(category, value);
   if (!kind || !actor) return null;
   const def = CONDITION_KINDS[kind];
+  // extraFlags(17-3): 神業由来の印(fromMiracle)等を負傷に刻む。カスケード(createActiveEffect フック)が
+  // 付与する戦闘不能・BS にも同じ印が伝わる
   // 治療の目標値算出(「それ以外＝そのダメージの数値」)のため、発生時のダメージ値と系統を負傷に保存する。
   // 付与で走る createActiveEffect フックが、この負傷の inflicts(戦闘不能・BS)への woundSource 紐づけ・
   // 社会/コネの選択(promptWoundSkillSelection)を担う(付与経路を問わない=2026-07-16 是正)。
@@ -42,7 +44,7 @@ export async function applyDamageChartResult(actor, category, value, { persuade 
   const [eff] = await actor.createEmbeddedDocuments("ActiveEffect", [{
     name: def?.label, img: def?.img, statuses: [kind],
     flags: { [SCOPE]: { conditionKind: kind, hideFromList: true, woundValue: value, woundCategory: category,
-      ...(persuade ? { persuade: true } : {}) } },
+      ...(persuade ? { persuade: true } : {}), ...(extraFlags ?? {}) } },
   }]);
   return eff ?? null;
 }
