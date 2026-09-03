@@ -7,7 +7,7 @@ import { describe, it, expect } from "vitest";
 import {
     miracleUseGate, miracleConsumeUpdate, withDefaultMiracleConsumption,
     miracleOriginOf, isMiracleOrigin, buildMiracleCardData,
-    defencePreventPlan, unprotectedTargetIndices, negateCheckGate, negatedCheckMods,
+    defencePreventPlan, unprotectedTargetIndices, negateCheckGate, negatedCheckMods, evadePlan,
 } from "../../scripts/module/miracle-logic.mjs";
 
 describe("withDefaultMiracleConsumption()（消費先が空の神業用途は自身の使用回数×1を既定消費）", () => {
@@ -220,5 +220,43 @@ describe("negatedCheckMods()（打ち消しを事後修正の器に積む）", (
         expect(out.rows.length).toBe(1);
         expect(out.success).toBe(false);
         expect(out).not.toHaveProperty("targetValue");
+    });
+});
+
+// ─── 回避(防御タイプ・17-2・《脱出》) ─────────────────────────────────────────
+// 効果文《脱出》「1回の判定や1発の神業によるあなた、もしくはあなたの操縦するヴィークルへの物理攻撃を
+// かわすこともできる（その場合、位置は変わらない）」。回避は命中の段階の動作(ダメージが決まった後は防御の領分)。
+// ヴィークルへの攻撃は操縦者を対象にするため「自分の行」に含まれる(同乗者は同乗を持たないため手動)。
+describe("evadePlan()（攻撃カードの自分の対象行を回避にする計画）", () => {
+    const by = { itemId: "m", name: "脱出", actorId: "me" };
+    const f = { category: "physical", damageRolled: false, targets: [
+        { uuid: "Actor.other", name: "他人", state: "pending" },
+        { uuid: "Actor.me", name: "自分", state: "pending" },
+    ] };
+    const resolveActorId = (uuid) => uuid.replace("Actor.", "");
+
+    it("自分の行なら回避にできる", () => {
+        expect(evadePlan(f, { rowIndex: 1, actorId: "me", by, resolveActorId })).toEqual({ ok: true, index: 1, by });
+    });
+
+    it("他人の行は拒否（自分か自分の操縦するヴィークルへの攻撃のみ）", () => {
+        expect(evadePlan(f, { rowIndex: 0, actorId: "me", by, resolveActorId })).toEqual({ ok: false, reason: "notSelf" });
+    });
+
+    it("物理攻撃以外は拒否", () => {
+        expect(evadePlan({ ...f, category: "mental" }, { rowIndex: 1, actorId: "me", by, resolveActorId })).toEqual({ ok: false, reason: "category" });
+    });
+
+    it("ダメージカードが出た後は拒否（回避は命中の段階）", () => {
+        expect(evadePlan({ ...f, damageRolled: true }, { rowIndex: 1, actorId: "me", by, resolveActorId })).toEqual({ ok: false, reason: "damageRolled" });
+    });
+
+    it("既に回避/失敗している行は拒否", () => {
+        const g = { ...f, targets: [f.targets[0], { ...f.targets[1], state: "miss" }] };
+        expect(evadePlan(g, { rowIndex: 1, actorId: "me", by, resolveActorId })).toEqual({ ok: false, reason: "alreadyMiss" });
+    });
+
+    it("行が無ければ拒否", () => {
+        expect(evadePlan(f, { rowIndex: 5, actorId: "me", by, resolveActorId })).toEqual({ ok: false, reason: "noTarget" });
     });
 });

@@ -621,14 +621,24 @@ export function renderAttackCard(message, html) {
                 ? (isAttack ? `制御値 ${t.controlValue}` : "")
                 : (t.resolution === "areaCover"
                     ? "範囲攻撃へのリアクション"
-                    : t.resolution === "none"
-                        ? noneText
-                        : `${MODE_LABELS[t.resolution] ?? "対決"} 達成値 ${t.reactionAchievement}`);
+                    // 神業による回避(《脱出》・17-2): 由来の神業名で示す(達成値を持たない)
+                    : t.resolution === "miracleEvade"
+                        ? `${t.evadedBy?.name ?? "神業"}による回避`
+                        : t.resolution === "none"
+                            ? noneText
+                            : `${MODE_LABELS[t.resolution] ?? "対決"} 達成値 ${t.reactionAchievement}`);
             row.innerHTML = `<span class="tnx-attack-target__icon"><i class="fas ${icon}"></i></span>`
                 + `<span class="tnx-attack-target__name">${esc(t.name || "?")}</span>`
                 + `<span class="tnx-attack-target__val">${esc(valueText)}</span>`
                 + `<span class="tnx-attack-target__verdict">${verdict}</span>`;
             list.appendChild(row);
+            // 回避(神業《脱出》・17-2): 回避待ち中は対象行クリックが回避の発動点。モードの判定は同期で
+            // 行い、既存のリアクション入口(下のクリック)へ流さない。モード外は素通り
+            row.addEventListener("click", (ev) => {
+                if (!TnxCheckFlow.peekAchievementAction("evade")) return;
+                ev.stopImmediatePropagation();
+                import("./miracle-flow.mjs").then(({ handleAttackEvadeClick }) => handleAttackEvadeClick(message, ti));
+            }, { capture: true });
 
             // 併存リアクションのサブ行(2026-07-18): 2件以上、または代理1件のとき、各リアクションを
             // 「手段（リアクター名） 達成値N/不成立」で列挙(対象名は繰り返さない)。
@@ -1417,7 +1427,7 @@ export async function applyAttackPatch(message, patch) {
 }
 
 /** 攻撃カードの特定対象(targets[index])を更新する(配列ごと差し替え・権限委譲は applyAttackPatch)。 */
-async function applyAttackTargetPatch(attackMsg, index, patch) {
+export async function applyAttackTargetPatch(attackMsg, index, patch) {
     const f = attackMsg.getFlag(SCOPE, "attackCheck");
     const targets = foundry.utils.deepClone(f?.targets ?? []);
     if (!targets[index]) return;

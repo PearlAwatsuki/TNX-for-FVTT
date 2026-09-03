@@ -12,7 +12,7 @@
 
 import {
     miracleUseGate, miracleConsumeUpdate, buildMiracleCardData, miracleOriginOf,
-    negateCheckGate, negatedCheckMods,
+    negateCheckGate, negatedCheckMods, evadePlan,
 } from "./miracle-logic.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
@@ -131,6 +131,49 @@ export async function handleNegateMiracleCardClick(message) {
     const patch = { [`flags.${SCOPE}.miracle.negatedBy`]: ns.by };
     if (message.getFlag(SCOPE, "usageEffects")) patch[`flags.${SCOPE}.usageEffects.negatedBy`] = ns.by;
     await TnxSocketHandler.applyMessagePatch(message, patch);
+}
+
+// ─── 回避(防御タイプ・17-2・《脱出》) ─────────────────────────────────────────
+// 効果文「あなた、もしくはあなたの操縦するヴィークルへの物理攻撃をかわす（その場合、位置は
+// 変わらない）」。回避は命中の段階の動作で、発動点は攻撃カードの自分の対象行(名前)。
+// ヴィークルへの攻撃は操縦者を対象にするため「自分の行」に含まれる。同乗者は同乗を持たないため手動。
+
+/**
+ * 攻撃カードの対象行クリック(回避待ち中): その行を回避(miss・由来=神業)にする。位置は変えない。
+ * @param {ChatMessage} message 攻撃カード
+ * @param {number} rowIndex クリックした対象行(f.targets の添字)
+ * @returns {Promise<boolean>} 回避待ち中に処理した(モード外は false=既存のリアクション入口へ)
+ */
+export async function handleAttackEvadeClick(message, rowIndex) {
+    const state = TnxCheckFlow.peekAchievementAction("evade");
+    if (!state) return false;
+    const actor = game.actors.get(state.actorId);
+    const skill = actor?.items.get(state.skillItemId);
+    if (!skill) { TnxCheckFlow.cancelAchievementAction(); return true; }
+    const f = message.getFlag(SCOPE, "attackCheck");
+    if (!f) return true;
+    const by = { itemId: skill.id, name: skill.name, actorId: actor.id };
+    const resolveActorId = (uuid) => {
+        try { const d = fromUuidSync(uuid); return (d?.actor ?? d)?.id ?? null; } catch { return null; }
+    };
+    const plan = evadePlan(f, { rowIndex, actorId: actor.id, by, resolveActorId });
+    if (!plan.ok) {
+        ui.notifications.warn({
+            noTarget:     "この対象行は見つかりません。",
+            category:     `「${skill.name}」で回避できるのは物理攻撃だけです。`,
+            damageRolled: "ダメージカードが出た後の攻撃は回避できません（ダメージを防ぐのは防御神業の領分です）。",
+            notSelf:      `「${skill.name}」で回避できるのは自分（または自分の操縦するヴィークル）への攻撃だけです。`,
+            alreadyMiss:  "この対象は既に回避／失敗しています。",
+        }[plan.reason] ?? "回避できません。");
+        return true;
+    }
+    TnxCheckFlow.cancelAchievementAction();
+    if (state.consumeUses?.length) await applyConsumptionPlan(state.consumeUses);
+    const { applyAttackTargetPatch } = await import("./attack-flow.mjs");
+    await applyAttackTargetPatch(message, plan.index, {
+        state: "miss", resolution: "miracleEvade", reactionAchievement: null, diff: null, parryGuard: 0, evadedBy: by,
+    });
+    return true;
 }
 
 /**

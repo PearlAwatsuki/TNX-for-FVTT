@@ -147,6 +147,25 @@ export function negatedCheckMods(mods, { achievement, targetValue = null, by }) 
     return out;
 }
 
+/**
+ * 回避(防御タイプ・17-2・《脱出》)の計画。効果文「1回の判定や1発の神業によるあなた、もしくはあなたの
+ * 操縦するヴィークルへの物理攻撃をかわす（その場合、位置は変わらない）」。回避は命中の段階の動作
+ * (ダメージが決まった後は防御の領分)。ヴィークルへの攻撃は操縦者を対象にするため「自分の行」に含まれる。
+ * @param {{category?: string, damageRolled?: boolean, targets?: Array}} f 攻撃カードのフラグ
+ * @param {{rowIndex: number, actorId: string, by: object, resolveActorId: (uuid: string) => ?string}} opts
+ *   rowIndex=クリックした対象行・actorId=回避する神業の使用者・resolveActorId=対象 uuid→アクター id
+ * @returns {{ok: true, index: number, by: object} | {ok: false, reason: "noTarget"|"category"|"damageRolled"|"notSelf"|"alreadyMiss"}}
+ */
+export function evadePlan(f, { rowIndex, actorId, by, resolveActorId }) {
+    const t = (f?.targets ?? [])[rowIndex];
+    if (!t) return { ok: false, reason: "noTarget" };
+    if ((f?.category || "physical") !== "physical") return { ok: false, reason: "category" };
+    if (f?.damageRolled) return { ok: false, reason: "damageRolled" };
+    if ((resolveActorId?.(t.uuid) ?? null) !== actorId) return { ok: false, reason: "notSelf" };
+    if (t.state === "miss") return { ok: false, reason: "alreadyMiss" };
+    return { ok: true, index: rowIndex, by };
+}
+
 export function buildMiracleCardData(item, { description = "", condition = "", remaining, max }) {
     return {
         typeLabel:   "神業",
