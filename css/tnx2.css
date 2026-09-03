@@ -7862,10 +7862,34 @@ button.tnx-create-act-button span {
 .tnx-handout-card .cr-req-title,
 .tnx-scene-switch-card .cr-req-title,
 .tnx-text-card .cr-req-title,
-.tnx-info-card .cr-req-title {
+.tnx-info-card .cr-req-title,
+.tnx-miracle-card .cr-req-title {
     font-size: 1.05em;
     color: var(--tnx2-text);
     letter-spacing: 0;
+}
+
+/* ─── 神業カード(17-1) ────────────────────────────────────────────────────────
+   タグ＝「神業」・タイトル＝神業名(ふりがなはルビ)。効果文の下に条件(経験点の取得条件)と
+   残り使用回数。条件と回数は効果文と罫線で切る。ルビは名前と同色(辞典カードと同じ規約) */
+.tnx-miracle-card .cr-req-title rt {
+    font-size: 0.55em;
+    color: inherit;
+    letter-spacing: 0.1em;
+}
+
+.tnx-miracle-card .mc-condition,
+.tnx-miracle-card .mc-description + .mc-uses {
+    padding-top: 8px;
+    border-top: 1px solid var(--tnx2-border, #444);
+}
+
+.tnx-miracle-card .mc-condition__label {
+    display: block;
+    margin-bottom: 2px;
+    color: var(--tnx2-text-secondary);
+    font-size: 0.85em;
+    letter-spacing: 0.05em;
 }
 
 /* ─── ハンドアウト送信カード(2026-08-12) ───────────────────────────────────────

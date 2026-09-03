@@ -41,11 +41,17 @@ describe("MiracleDataModel.defineSchema()", () => {
     });
   });
 
-  describe("Boolean フィールドが BooleanField で initial false", () => {
-    for (const key of ["isKill", "isDefence", "isAll", "isUsed"]) {
-      it(`schema.${key} は BooleanField で initial が false`, () => {
-        expect(schema[key]).toBeInstanceOf(MockBooleanField);
-        expect(schema[key].options.initial).toBe(false);
+  describe("Boolean フィールド", () => {
+    it("schema.isUsed は BooleanField で initial が false", () => {
+      expect(schema.isUsed).toBeInstanceOf(MockBooleanField);
+      expect(schema.isUsed.options.initial).toBe(false);
+    });
+
+    // 殺し神業/防御神業/万能神業の区分は形骸化したフラグとして撤去(2026-09-03 ユーザー裁定)。
+    // 挙動の区分は用途側で表し、アイテムに区分を持たない
+    for (const key of ["isKill", "isDefence", "isAll"]) {
+      it(`schema.${key} は存在しない（フェーズ17 で撤去）`, () => {
+        expect(schema).not.toHaveProperty(key);
       });
     }
   });

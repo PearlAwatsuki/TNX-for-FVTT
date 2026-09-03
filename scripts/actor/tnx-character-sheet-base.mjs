@@ -8,7 +8,6 @@
  * ゲートする(templates/actor/parts/ の partial 群を共有)。
  */
 
-import { TargetSelectionDialog } from '../module/tnx-dialog.mjs';
 import { TnxSkillUtils } from '../module/tnx-skill-utils.mjs';
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 import { OUTFIT_CATEGORIES, getMinorCategoryLabel, getMajorCategoryLabel, isMajorLevelSlotMajor } from '../data/item/outfit-categories.mjs';
@@ -30,6 +29,8 @@ import { useAttack } from '../module/attack-flow.mjs';
 import { aggregateDefence } from '../module/damage-logic.mjs';
 import { prepareUsageEffectPayload } from '../module/usage-effects.mjs';
 import { applyInterruptGrantForUsage } from '../module/interrupt-grant.mjs';
+import { useMiracleWithoutUsage, postMiracleCard } from '../module/miracle-flow.mjs';
+import { withDefaultMiracleConsumption } from '../module/miracle-logic.mjs';
 import { ALL_SUITS } from '../module/tnx-check-engine.mjs';
 import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
 import { groupStyleSkillsByStyle } from '../module/style-skill-acquisition.mjs';
@@ -80,7 +81,6 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             copyUuid:             TnxCharacterSheetBase._onCopyUuid,
             toggleEditMode:       TnxCharacterSheetBase._onToggleEditMode,
             toggleStyleRole:      TnxCharacterSheetBase._onToggleStyleRole,
-            useMiracle:           TnxCharacterSheetBase._onUseMiracle,
             rollStyleDescription: TnxCharacterSheetBase._onRollStyleDescription,
             openItemSheet:        TnxCharacterSheetBase._onOpenItemSheet,
             openLifepathItem:     TnxCharacterSheetBase._onOpenLifepathItem,
@@ -2264,82 +2264,6 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         }
     }
 
-    static async _onUseMiracle(event, target) {
-        event.preventDefault();
-        const itemId          = target.closest('[data-item-id]')?.dataset.itemId;
-        const originalMiracle = this.actor.items.get(itemId);
-        if (!originalMiracle) return;
-
-        let targetMiracle = originalMiracle;
-
-        if (originalMiracle.system.isAll) {
-            const useAsOther = await foundry.applications.api.DialogV2.confirm({
-                window:  { title: "万能神業の使用確認" },
-                content: `<p>神業「${originalMiracle.name}」を、他の神業の効果として使用しますか？</p>`
-            });
-
-            if (useAsOther) {
-                const miracleChoices = game.items.filter(i => i.type === 'miracle' && i.name !== originalMiracle.name);
-                if (miracleChoices.length === 0) { ui.notifications.warn("ワールドに選択可能な神業が存在しません。"); return; }
-
-                const selectedId = await TargetSelectionDialog.prompt({
-                    title:       "模倣する神業の選択",
-                    label:       `「${originalMiracle.name}」として発動する神業を選択してください。`,
-                    options:     miracleChoices.map(dw => ({ value: dw.id, label: dw.name })),
-                    selectLabel: "選択"
-                });
-                if (!selectedId) return;
-
-                const selectedWork = game.items.get(selectedId);
-                if (!selectedWork) { ui.notifications.error("選択された神業が見つかりませんでした。"); return; }
-                targetMiracle = selectedWork;
-            }
-        }
-
-        // 残り = 実効 max − spent。使用で spent+1(2026-07-18 uses 一本化)
-        const uses = originalMiracle.system.uses ?? {};
-        const maxUses = usesMaxTotalOf(originalMiracle.system);
-        const remainingUses = Math.max(0, maxUses - (Number(uses.spent) || 0));
-        if (remainingUses <= 0) { ui.notifications.warn(`神業「${originalMiracle.name}」はこれ以上使用できません。`); return; }
-
-        await originalMiracle.update({
-            "system.uses.spent": Math.min(maxUses, (Number(uses.spent) || 0) + 1),
-            "system.isUsed":     remainingUses - 1 === 0
-        });
-
-        const enrichHTML = foundry.applications.ux.TextEditor.enrichHTML.bind(foundry.applications.ux.TextEditor);
-        const originalDescription = await enrichHTML(originalMiracle.system.description, { async: true });
-
-        let nestedContent = '';
-        const isOther = targetMiracle.id !== originalMiracle.id;
-        if (isOther) {
-            const selectedDescription = await enrichHTML(targetMiracle.system.description, { async: true });
-            nestedContent = `
-                <details class="nested-description">
-                    <summary><h4>発動効果: ${targetMiracle.name}</h4></summary>
-                    <div class="card-content">${selectedDescription}</div>
-                </details>`;
-        }
-
-        const miracleFurigana = originalMiracle.system.furigana;
-        const nameHtml = miracleFurigana
-            ? `<ruby>${originalMiracle.name}<rt>${miracleFurigana}</rt></ruby>`
-            : originalMiracle.name;
-
-        ChatMessage.create({
-            user:    game.user.id,
-            speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-            content: `<details class="tnx-chat-card"><summary><h3>神業: ${nameHtml}</h3></summary>
-                <div class="card-content">${originalDescription}${nestedContent}</div></details>`,
-            flags: { "core.canPopout": true }
-        });
-
-        ui.notifications.info(isOther
-            ? `神業「${originalMiracle.name}」を使用し、「${targetMiracle.name}」の効果を発動しました。`
-            : `神業「${originalMiracle.name}」を使用しました。`
-        );
-    }
-
     static async _onRollStyleDescription(event, target) {
         event.preventDefault();
         const itemId = target.dataset.itemId;
@@ -2561,6 +2485,12 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             selectedUsage = (item.system.actions ?? []).find(a => a._id === openExtra.covering.usageId) ?? null;
             if (!selectedUsage) return;
         } else if (!usableUsages.length) {
+            // 神業(17-1)は用途が無くても機能する: 残回数ゲート→使用回数の消費→神業カード。
+            // 用途は前提条件でなく、固有の挙動(打ち消し・防御・ダメージ等)を足すためのもの
+            if (item.type === "miracle") {
+                await useMiracleWithoutUsage(item);
+                return;
+            }
             await item.postDescriptionCard();
             return;
         } else if (usableUsages.length === 1) {
@@ -2780,8 +2710,10 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const { resolveUsageTargetRefs } = await import("../module/target-resolution.mjs");
         if (await resolveUsageTargetRefs(actor, usage) === null) return;
 
-        // 分身は本体側カウンターへ差し替えて共有(Troops.md)
-        const rows = resolveConsumeRowsForActor(actor, item, usage.consumeTargets);
+        // 分身は本体側カウンターへ差し替えて共有(Troops.md)。神業(17-1)は消費先が空でも
+        // 自身の使用回数×1を既定消費する(実行時のみ補い保存しない)
+        const consumeSource = item.type === "miracle" ? withDefaultMiracleConsumption(usage) : usage;
+        const rows = resolveConsumeRowsForActor(actor, item, consumeSource.consumeTargets);
         const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${usage.name || item.name}` });
         if (plan === null) return;
         await applyConsumptionPlan(plan);
@@ -2793,9 +2725,11 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 2026-07-10)。使用カードはアイテムの解説カードに統合(2026-08-30 ユーザー承認)——宣言は
         // 判定を行わず組み合わせも無いため、効果文=解説をカードで卓に提示する。適用効果が
         // あれば効果セクション(トレイ)が末尾に注入され、無くてもカードは出す
-        // (旧・実行者ローカル通知はカード化に伴い廃止=他クライアントに見えなかった)
+        // (旧・実行者ローカル通知はカード化に伴い廃止=他クライアントに見えなかった)。
+        // 神業は神業カード(印つき・条件と残り使用回数を持つ)で出す(17-1)
         const usageEffects = await prepareUsageEffectPayload(actor, item, usage);
-        await item.postDescriptionCard({ usageEffects });
+        if (item.type === "miracle") await postMiracleCard(item, { usageEffects });
+        else await item.postDescriptionCard({ usageEffects });
     }
 
     /**

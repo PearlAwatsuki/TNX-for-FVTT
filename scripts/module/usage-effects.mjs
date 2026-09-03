@@ -108,6 +108,10 @@ export function resolveUsageEffectData(actor, parentItem, usage) {
             const eff = host?.effects?.get(ref.effectId);
             if (!eff) continue;
             const data = buildGrantedEffectData(eff);
+            // 神業由来の印(17-1): 用途の親が神業なら付与コピーに刻む(供給元が組み合わせ側でも
+            // 「神業の用途から生じた効果」であることに変わりない)。読み手は 17-2 以降の治療・
+            // 打ち消しゲート(神業由来の効果は神業でしか解除できない)
+            if (parentItem?.type === "miracle") data.flags[SCOPE].fromMiracle = true;
             out.push({
                 name: eff.name,
                 data,

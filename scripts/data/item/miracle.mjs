@@ -2,7 +2,11 @@
  * @fileoverview MiracleDataModel - 神業 Item の DataModel
  *
  * 使用 template: base + usage
- * 固有フィールド: furigana / usageCondition / isKill / isDefence / isAll / isUsed / uses
+ * 固有フィールド: furigana / usageCondition / isUsed / uses
+ *
+ * 殺し神業/防御神業/万能神業の区分(旧 isKill / isDefence / isAll)は形骸化したフラグとして撤去
+ * (フェーズ17-1・2026-09-03 ユーザー裁定)。挙動の区分は用途側で表し、アイテムに区分を持たない。
+ * 神業由来の印はアイテムの型(miracle)そのものから導く(miracle-logic.mjs の miracleOriginOf)。
  *
  * 注意(2026-07-18 神業の使用回数を汎用 uses へ一本化):
  * - 旧 `usageCount {value(母数), total(残り), mod(バフ)}` を廃し、他アイテムと同じ汎用
@@ -29,9 +33,6 @@ export class MiracleDataModel extends SystemDataModel.mixin(BaseTemplate, UsageT
       ...super.defineSchema(),
       furigana:       new fields.StringField({ initial: "" }),
       usageCondition: new fields.StringField({ initial: "" }),
-      isKill:         new fields.BooleanField({ initial: false }),
-      isDefence:      new fields.BooleanField({ initial: false }),
-      isAll:          new fields.BooleanField({ initial: false }),
       isUsed:         new fields.BooleanField({ initial: false }),
       // 汎用の使用回数(残り = max − spent)。神業は常に母数を持つため isLimit 既定 true・母数(max)
       // 既定 "1"。母数はスタイルレベル連動(tnx.mjs)で維持される

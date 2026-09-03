@@ -18,6 +18,7 @@ import { resolveUsageTargetValue } from "./usage-target-value.mjs";
 import { executionFormOf, effectiveBaseSkillId, usageDisplayName } from "./usage-types.mjs";
 import { formatSkillName } from "./identification.mjs";
 import { effectiveUsageTiming } from "../data/item/modification-params.mjs";
+import { withDefaultMiracleConsumption, miracleOriginOf } from "./miracle-logic.mjs";
 
 /**
  * 技能ベース用途(check)の参加技能を解決する。ベース技能(用途の baseSkillRef 優先・未設定は親アイテム)＋
@@ -206,7 +207,10 @@ export async function buildUsageCheckContext(actor, item, usage, {
 
     // 使用回数の消費を確認(用途の消費先設定＝consumeTargets 由来・11-6。残量不足でチェック時は
     // ブロック)。分身は本体側カウンターへ差し替えて共有(Troops.md)。確定した平プランは判定実行時に適用
-    const consumeRows = resolveConsumeRowsForActor(actor, item, usage.consumeTargets);
+    // 神業(17-1)は消費先が空でも自身の使用回数×1を既定消費する(使用＝回数消費が定義に含まれる。
+    // 実行時のみ補い保存しない)
+    const consumeSource = item.type === "miracle" ? withDefaultMiracleConsumption(usage) : usage;
+    const consumeRows = resolveConsumeRowsForActor(actor, item, consumeSource.consumeTargets);
     const usesPlan = await promptConsumption(actor, consumeRows, { title: `使用回数の消費: ${item.name}` });
     if (usesPlan === null) return null;
 
@@ -240,5 +244,7 @@ export async function buildUsageCheckContext(actor, item, usage, {
         usageEffects,               // 付与効果ペイロード(null=効果なし)
         allowRecheck:    usage.allowRecheck === true, // 再判定可能(用途の設定・2026-07-11)
         allowSuitChange: usage.allowSuitChange === true, // スート変更可能(用途の設定・2026-07-12)
+        // 神業由来の印(17-1): 用途の親が神業ならカードのフラグへ運ぶ(null=神業でない)
+        miracle:         miracleOriginOf(item),
     };
 }

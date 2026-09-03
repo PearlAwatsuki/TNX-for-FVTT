@@ -917,6 +917,8 @@ export class TnxCheckFlow {
             flags: {
                 "tokyo-nova-axleration": {
                     checkResult: { actorId: ctx.actorId, result },
+                    // 神業由来の印(17-1): 神業の用途から起動した判定はその旨を運ぶ
+                    ...(ctx.miracle ? { miracle: ctx.miracle } : {}),
                     // 用途の適用効果(あれば)。カードに「効果を適用」ボタンを出す(2026-07-10)
                     ...(ctx.usageEffects ? { usageEffects: ctx.usageEffects } : {}),
                     // 再判定スナップショット(あれば・常時保存)。導線は数字クリック/付与/GMメニュー(2026-07-14)
