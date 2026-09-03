@@ -577,8 +577,10 @@ export function renderAttackCard(message, html) {
     if (f.state === "failed") {
         addVerdict("cr-result--failure", "fa-times",
             f.failedReason === "movement" ? "移動失敗"
-                : f.movement ? "移動失敗（リアクションによる）"
-                    : `${failWord}（リアクションによる）`);
+                // 神業による打ち消し(17-2): 打ち消した神業の名前で帰属を示す
+                : f.failedReason === "negated" ? `${failWord}（${foundry.utils.escapeHTML(f.negatedBy?.name ?? "神業")}による打ち消し）`
+                    : f.movement ? "移動失敗（リアクションによる）"
+                        : `${failWord}（リアクションによる）`);
     }
     // 移動は妨害されないこともある=能動側の判定が成功した時点で移動成功が既定(2026-07-19 ユーザー確定)。
     // リアクション確定前でも「移動成功」を表示し、妨害が勝ったときだけ失敗へ覆す(離脱は対象外)

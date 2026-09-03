@@ -338,6 +338,8 @@ export async function prepareUsageEffectPayload(actor, parentItem, usage, { targ
 function usageEffectTrayContext(message) {
     const payload = message.getFlag(SCOPE, "usageEffects");
     if (!(payload?.effects ?? []).some(e => e?.data)) return null;
+    // 打ち消された効果(神業《チャイ》《平和》・17-2)はトレイごと消える(データには negatedBy が残る)
+    if (payload.negatedBy) return null;
 
     let entries = payload.effects;
     let refs = payload.targets ?? [];
@@ -416,7 +418,16 @@ export async function renderUsageEffectButton(message, html) {
                 .map(e => ({ name: e.name, self: e.self === true })),
         });
     block.querySelector('[data-action="trayToggle"]')
-        ?.addEventListener("click", () => block.classList.toggle("collapsed"));
+        ?.addEventListener("click", async () => {
+            // 打ち消し待ち(17-2)なら見出しクリックは「効果の適用をキャンセル」の発動点(畳まない)
+            const { TnxCheckFlow } = await import("./tnx-check-flow.mjs");
+            if (TnxCheckFlow.peekAchievementAction("negate")) {
+                const { handleNegateTrayClick } = await import("./miracle-flow.mjs");
+                await handleNegateTrayClick(message);
+                return;
+            }
+            block.classList.toggle("collapsed");
+        });
     block.querySelector('[data-action="trayApply"]')
         ?.addEventListener("click", () => applyUsageEffectsFromTray(message, block));
     host.appendChild(block);

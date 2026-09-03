@@ -7,7 +7,7 @@ import { describe, it, expect } from "vitest";
 import {
     miracleUseGate, miracleConsumeUpdate, withDefaultMiracleConsumption,
     miracleOriginOf, isMiracleOrigin, buildMiracleCardData,
-    defencePreventPlan, unprotectedTargetIndices,
+    defencePreventPlan, unprotectedTargetIndices, negateCheckGate, negatedCheckMods,
 } from "../../scripts/module/miracle-logic.mjs";
 
 describe("withDefaultMiracleConsumption()（消費先が空の神業用途は自身の使用回数×1を既定消費）", () => {
@@ -166,5 +166,59 @@ describe("unprotectedTargetIndices()（ダメージカードで生きている�
         expect(unprotectedTargetIndices(f)).toEqual([1, 2]);
         expect(unprotectedTargetIndices({ targets: [] })).toEqual([]);
         expect(unprotectedTargetIndices({})).toEqual([]);
+    });
+});
+
+// ─── 打ち消し(防御タイプ・17-2) ───────────────────────────────────────────────
+// 正本: Miracle_Rules「打ち消しの範囲」(判定に対しては失敗させる／宣言に対しては効果の適用をキャンセル。
+// いずれも適用前に限る=遡及不可)・効果文《チャイ》「既に効果が適用された神業や判定に対して、時間を
+// さかのぼって打ち消すことはできない」
+describe("negateCheckGate()（判定を失敗させられるか）", () => {
+    it("継続を持たない素の判定は打ち消せる", () => {
+        expect(negateCheckGate({ recheck: {}, damageCards: [] })).toEqual({ ok: true });
+    });
+
+    it("成功時に効果が即座に適用される継続(回復/修理/改造/購入/登場/情報収集/制御打消)は適用済み＝拒否", () => {
+        for (const k of ["recovery", "repair", "modification", "purchase", "appearance", "infoGathering", "controlNegate"]) {
+            expect(negateCheckGate({ recheck: { [k]: { x: 1 } }, damageCards: [] })).toEqual({ ok: false, reason: "applied" });
+        }
+    });
+
+    it("リアクション・カバー・NPC取得の判定も解決が即座に適用される＝拒否", () => {
+        for (const k of ["reaction", "covering", "npcAcquire"]) {
+            expect(negateCheckGate({ recheck: { [k]: { x: 1 } }, damageCards: [] })).toEqual({ ok: false, reason: "applied" });
+        }
+    });
+
+    it("移動判定は表示のみの継続＝打ち消せる", () => {
+        expect(negateCheckGate({ recheck: { movement: { x: 1 } }, damageCards: [] })).toEqual({ ok: true });
+    });
+
+    it("攻撃: ダメージカードが出ていても適用前なら打ち消せる（そのダメージも無効にする）", () => {
+        expect(negateCheckGate({ recheck: {}, damageCards: [{ applied: false }] })).toEqual({ ok: true });
+    });
+
+    it("攻撃: 適用済みのダメージカードがあれば拒否", () => {
+        expect(negateCheckGate({ recheck: {}, damageCards: [{ applied: false }, { applied: true }] }))
+            .toEqual({ ok: false, reason: "applied" });
+    });
+});
+
+describe("negatedCheckMods()（打ち消しを事後修正の器に積む）", () => {
+    it("修正 0 の打ち消し行を足し、成否を失敗・差分値なしに固定する", () => {
+        const by = { itemId: "m", name: "チャイ", actorId: "a" };
+        const out = negatedCheckMods({ rows: [{ label: "x", value: 2 }], achievement: 12 }, { achievement: 12, targetValue: 10, by });
+        expect(out.rows).toEqual([{ label: "x", value: 2 }, { label: "打ち消し（チャイ）", value: 0, negatedBy: by }]);
+        expect(out.achievement).toBe(12);
+        expect(out.success).toBe(false);
+        expect(out.diff).toBeNull();
+        expect(out.targetValue).toBe(10);
+    });
+
+    it("事後修正が無い判定でも行を作る（目標値なしなら targetValue は持たない）", () => {
+        const out = negatedCheckMods(null, { achievement: 8, targetValue: null, by: { itemId: "m", name: "平和", actorId: "a" } });
+        expect(out.rows.length).toBe(1);
+        expect(out.success).toBe(false);
+        expect(out).not.toHaveProperty("targetValue");
     });
 });

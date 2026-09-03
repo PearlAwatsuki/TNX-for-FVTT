@@ -1434,7 +1434,11 @@ export class TnxCheckFlow {
         if (state.kind === "suitChange") return;   // スート変更待ちの発動点は判定のカードプレイ(_trySuitChange)
         if (state.kind === "protect") return;      // 防御(適用前に防ぐ)の発動点はダメージカードの対象行(damage-flow 側)
         if (state.kind === "evade") return;        // 回避の発動点は攻撃カードの自分の対象行(attack-flow 側)
-        if (state.kind === "negate") return;       // 打ち消しは専用の発動処理(miracle-flow 側・17-2 後段)
+        if (state.kind === "negate") {             // 打ち消し(17-2): その判定を失敗させる(miracle-flow 側)
+            const { handleNegateAchievementClick } = await import("./miracle-flow.mjs");
+            await handleNegateAchievementClick(message);
+            return;
+        }
         if (state.kind === "recheck") {
             // 不可(再判定済み/ダメージ算出後)はモードを維持したまま警告する(別のカードを選び直せる)
             const blocked = TnxCheckFlow.recheckBlockReason(message);

@@ -56,6 +56,7 @@ import { enforceUsageChainDefaultsOnImport } from './module/tnx-usage-sheet.mjs'
 import { renderAttackCard, renderReactionCard } from './module/attack-flow.mjs';
 import { renderDamageCard } from './module/damage-flow.mjs';
 import { renderUsageEffectButton } from './module/usage-effects.mjs';
+import { renderMiracleCard } from './module/miracle-flow.mjs';
 import { TnxSocketHandler } from './module/tnx-socket-handler.mjs';
 import { TnxCheckFlow, renderRecheckButton } from './module/tnx-check-flow.mjs';
 import { TnxCheckDialog } from './module/tnx-check-dialog.mjs';
@@ -1034,6 +1035,14 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
 Hooks.on("renderChatMessageHTML", (message, html) => {
     if (message.getFlag("tokyo-nova-axleration", "damageRoll")) {
         renderDamageCard(message, html);
+    }
+});
+
+// 神業カード(17-1/17-2): 打ち消された神業は中身が消える・見出しは打ち消しの発動点。
+// 効果トレイの描画より前に呼ぶ(打ち消し済みは効果エリアごと消す)
+Hooks.on("renderChatMessageHTML", (message, html) => {
+    if (message.getFlag("tokyo-nova-axleration", "miracle")) {
+        renderMiracleCard(message, html);
     }
 });
 

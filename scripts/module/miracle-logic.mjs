@@ -110,6 +110,43 @@ export function defencePreventPlan(f, usage, { rowIndex, by }) {
     return { ok: true, indices, by };
 }
 
+/**
+ * 判定の完了継続のうち、成功時に効果が**即座に適用される**種類(打ち消しの「適用前」から外れる)。
+ * 回復の除去・修理・改造・購入の付与・登場・情報開示・制御打消は結果カードの投稿と同時に適用され、
+ * リアクション/カバー/NPC取得も解決が即座に攻撃カードや場へ反映される。移動は段階の表示のみ(適用は手動)。
+ */
+const IMMEDIATELY_APPLIED_CONTINUATIONS = Object.freeze([
+    "recovery", "repair", "modification", "purchase", "appearance", "infoGathering", "controlNegate",
+    "reaction", "covering", "npcAcquire",
+]);
+
+/**
+ * 打ち消し(判定を失敗させる)の可否(防御タイプ・17-2)。効果文《チャイ》「既に効果が適用された神業や
+ * 判定に対して、時間をさかのぼって打ち消すことはできない」。
+ * @param {{recheck?: object, damageCards?: Array<{applied?: boolean}>}} arg
+ *   recheck=結果カードの再判定スナップショット(継続の種類を持つ)・damageCards=その攻撃から出たダメージカード
+ * @returns {{ok: true} | {ok: false, reason: "applied"}}
+ */
+export function negateCheckGate({ recheck = {}, damageCards = [] } = {}) {
+    if (IMMEDIATELY_APPLIED_CONTINUATIONS.some(k => recheck?.[k])) return { ok: false, reason: "applied" };
+    if ((damageCards ?? []).some(d => d?.applied)) return { ok: false, reason: "applied" };
+    return { ok: true };
+}
+
+/**
+ * 打ち消しを事後修正(checkMods)の器に積む: 修正 0 の「打ち消し（神業名）」行を足し、成否を失敗・
+ * 差分値なしに固定する(達成値は変えない)。表示は既存の「修正後の成否」行に乗る。
+ * @param {?{rows?: Array, achievement?: number}} mods 既存の checkMods(無ければ null)
+ * @param {{achievement: number, targetValue?: ?number, by: {itemId: string, name: string, actorId: string}}} opts
+ * @returns {{rows: Array, achievement: number, success: false, diff: null, targetValue?: number}}
+ */
+export function negatedCheckMods(mods, { achievement, targetValue = null, by }) {
+    const rows = [...(mods?.rows ?? []), { label: `打ち消し（${by?.name ?? "神業"}）`, value: 0, negatedBy: by }];
+    const out = { rows, achievement: Number(achievement) || 0, success: false, diff: null };
+    if (targetValue !== null && targetValue !== undefined) out.targetValue = targetValue;
+    return out;
+}
+
 export function buildMiracleCardData(item, { description = "", condition = "", remaining, max }) {
     return {
         typeLabel:   "神業",
