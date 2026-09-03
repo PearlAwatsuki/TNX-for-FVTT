@@ -2500,6 +2500,11 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             if (!selectedUsage) return;
         }
 
+        // 神業(17-1): 消費先が空の用途は自身の使用回数×1を既定消費する(使用＝回数消費が定義に
+        // 含まれる。実行時のみ補い保存しない)。用途の分岐(宣言・クリック待ち・治療 等)のどれを
+        // 通っても効くよう、用途が決まった直後のここ1か所で差し替える。神業は判定を行わない
+        if (item.type === "miracle") selectedUsage = withDefaultMiracleConsumption(selectedUsage);
+
         // カバー(2026-07-16→2026-07-17 タイプ化): アイテムロールで使用したら「カバー待ち受け」に入り、
         // ダメージカードのカバーする対象クリックで判定を起動する(covering 文脈つきで本関数へ再入=下の
         // 通常判定へ合流)。再入時(openExtra.covering)はこの分岐を通さず通常判定を行う。
@@ -2710,10 +2715,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const { resolveUsageTargetRefs } = await import("../module/target-resolution.mjs");
         if (await resolveUsageTargetRefs(actor, usage) === null) return;
 
-        // 分身は本体側カウンターへ差し替えて共有(Troops.md)。神業(17-1)は消費先が空でも
-        // 自身の使用回数×1を既定消費する(実行時のみ補い保存しない)
-        const consumeSource = item.type === "miracle" ? withDefaultMiracleConsumption(usage) : usage;
-        const rows = resolveConsumeRowsForActor(actor, item, consumeSource.consumeTargets);
+        // 分身は本体側カウンターへ差し替えて共有(Troops.md)。神業の既定消費は起動関数で用途に
+        // 補われて届く(17-1)
+        const rows = resolveConsumeRowsForActor(actor, item, usage.consumeTargets);
         const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${usage.name || item.name}` });
         if (plan === null) return;
         await applyConsumptionPlan(plan);
