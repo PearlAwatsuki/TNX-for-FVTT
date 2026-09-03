@@ -2654,8 +2654,31 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 宣言(実行フラグなし)の使用: 判定を行わず消費と適用効果だけ処理する。用途の直接指定
         // (アイテムシートの使用ボタン)に加え、**アイテムロールからも到達する**(2026-07-19 ユーザー指示で
         // 候補から除外しなくなった。2026-07-16 にアイテムシートから移設・統合した実行本体は同じ)
+        // 防御タイプ(17-2・神業専用): 動作で分岐する。受けた後に消す=治療の宣言形(回復フロー)。
+        // 適用前に防ぐ/打ち消し/回避=クリック待ち(消費は待ち受け開始時に確定し発動時に適用)
+        if (selectedUsage.type === "miracleDefence") {
+            const action = selectedUsage.defenceAction || "prevent";
+            if (action === "cure") {
+                try {
+                    await useRecovery(item, selectedUsage, openExtra.treatment ?? null);
+                } catch (err) {
+                    console.error("TNX | 神業の治癒の実行に失敗しました", err);
+                    ui.notifications.error(`神業の治癒の実行に失敗しました: ${err.message}`);
+                }
+                return;
+            }
+            const kind = { prevent: "protect", negate: "negate", evade: "evade" }[action] ?? "protect";
+            const rows = resolveConsumeRowsForActor(actor, item, selectedUsage.consumeTargets);
+            const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${item.name}` });
+            if (plan === null) return;
+            TnxCheckFlow.startAchievementAction(kind, actor, item, {
+                usageId: selectedUsage._id, consumeUses: plan, merge: false,
+            });
+            return;
+        }
+
         // 神業専用タイプ(17-2)は判定を行わない。宣言=17-1 の宣言経路(神業カード＋適用効果)。
-        // 即死・社会戦・破壊は 17-3 で専用の結果指定に切り替えるまで宣言と同じ挙動。防御は上のクリック待ち
+        // 即死・社会戦・破壊は 17-3 で専用の結果指定に切り替えるまで宣言と同じ挙動
         if (selectedUsage.type === "declaration" || isMiracleType(selectedUsage.type)) {
             await TnxCharacterSheetBase._useDeclarationUsage(actor, item, selectedUsage);
             return;

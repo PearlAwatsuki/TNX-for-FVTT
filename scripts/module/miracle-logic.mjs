@@ -77,6 +77,39 @@ export function isMiracleOrigin(flags) {
  * @returns {{typeLabel: string, name: string, furigana: string, description: string,
  *            condition: string, remaining: number, max: number}}
  */
+/**
+ * ダメージカードで、まだ防がれていない対象行の添字。表示(行が消える)と適用(残った対象だけ)の
+ * 両方がこれを読む(防御タイプ「適用前に防ぐ」・17-2)。
+ * @param {{targets?: Array<{protectedBy?: object}>}} f ダメージカードのフラグ
+ * @returns {number[]}
+ */
+export function unprotectedTargetIndices(f) {
+    return (f?.targets ?? []).map((t, i) => (t?.protectedBy ? -1 : i)).filter(i => i >= 0);
+}
+
+/**
+ * 「適用前に防ぐ」の計画(防御タイプ・17-2)。効果文: 《難攻不落》「社会ダメージを除く、ダメージをひとつ
+ * 打ち消す。このダメージは1回の判定、もしくは1発の神業によって発生したものすべて」「ダメージを受けて
+ * しまった後から治療することはできない」／《守護神》《友情》「選択したひとりのキャラクター以外に…
+ * 被害をこうむるキャラクターがいる場合、そのキャラクターを助けることはできない」。
+ * @param {{category?: string, applied?: boolean, targets?: Array}} f ダメージカードのフラグ
+ * @param {{defenceScope?: "all"|"one", defenceCategories?: string[]}} usage 防御タイプの用途
+ * @param {{rowIndex: number, by: {itemId: string, name: string, actorId: string}}} opts
+ *   rowIndex=クリックした対象行(1人のときに使う)・by=防いだ神業(印)
+ * @returns {{ok: true, indices: number[], by: object} | {ok: false, reason: "applied"|"category"|"noTargets"|"alreadyProtected"}}
+ */
+export function defencePreventPlan(f, usage, { rowIndex, by }) {
+    if (f?.applied) return { ok: false, reason: "applied" };
+    const cats = Array.isArray(usage?.defenceCategories) && usage.defenceCategories.length
+        ? usage.defenceCategories : ["physical", "mental", "social"];
+    if (!cats.includes(f?.category || "physical")) return { ok: false, reason: "category" };
+    if (!(f?.targets ?? []).length) return { ok: false, reason: "noTargets" };
+    const open = unprotectedTargetIndices(f);
+    const indices = usage?.defenceScope === "one" ? open.filter(i => i === rowIndex) : open;
+    if (!indices.length) return { ok: false, reason: "alreadyProtected" };
+    return { ok: true, indices, by };
+}
+
 export function buildMiracleCardData(item, { description = "", condition = "", remaining, max }) {
     return {
         typeLabel:   "神業",

@@ -37,6 +37,7 @@ import { gatherDamageVsSources, gatherDamageDealtSources, gatherDamageTakenSourc
 import { splitEffectsByTiming } from "./usage-effects.mjs";
 import { spinnerDialogActions } from "./tnx-dialog.mjs";
 import { rlGrantAmount, rlGrantLedgerRow, rlGrantTypeLabel, buildRlDamageRollFlag } from "./rl-grant-logic.mjs";
+import { unprotectedTargetIndices, defencePreventPlan } from "./miracle-logic.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会" };
@@ -419,8 +420,12 @@ export function renderDamageCard(message, html) {
     // 対象(複数対象一括・2026-07-15): 被弾者を列挙。カバーされた元対象は buildDamageTargets で載っていない
     // (カバーした側の行だけ)ので、ここは実際の被弾者だけ＝「対象N体」も正しく数える(2026-07-16 是正)。
     const dmgTargets = f.targets ?? [];
-    if (dmgTargets.length) row(ledger, dmgTargets.length > 1 ? `対象（${dmgTargets.length}体）` : "対象",
-        dmgTargets.map(t => `「${esc(t.name)}」`).join("・"));
+    // 防がれた対象行は消える(防御タイプ「適用前に防ぐ」・17-2): 台帳の対象・状態領域の行・適用の
+    // 対象のすべてから外す(データには protectedBy として残る=再描画で復活しない)
+    const liveIdx = unprotectedTargetIndices(f);
+    const liveTargets = liveIdx.map(i => dmgTargets[i]);
+    if (liveTargets.length) row(ledger, liveTargets.length > 1 ? `対象（${liveTargets.length}体）` : "対象",
+        liveTargets.map(t => `「${esc(t.name)}」`).join("・"));
     // ダメージ修正は対象ごとに評価される(2026-09-01)。**全対象で同じ行は共有台帳に1回**・
     // 対象で異なる行だけ各対象の内訳へ回す(単体対象・対象非依存の式では従来と同じ見た目)。
     // 旧カード(bonusRows なし)は共有行にフォールバックする
@@ -508,13 +513,20 @@ export function renderDamageCard(message, html) {
     // 対象ごとの最終ダメージ(2026-07-16 ユーザー確定): 防御力・受け値は「ダメージ算出」で適用済み＝各行に
     // 軽減後の最終ダメージを表示する。攻撃側合計はレジャーに残す(攻撃側の事後増強のため)。社会の報酬点軽減と
     // 手動の状況軽減だけ適用時のダイアログで入れる。
-    for (let i = 0; i < dmgTargets.length; i++) {
+    for (const i of liveIdx) {
         const t = dmgTargets[i];
         // 対象ごとに見出し(名前)＝最終ダメージを1行・軽減の内訳は名前を繰り返さない小注記に畳む(はみ出し回避)。
         // 内訳は適用順(防御力・受け値→10上限→事後修正→報酬点)に並べる(2026-07-16 裁定=KI-024)
         const p = targetPlannedPreview(f, t);
         const nameLabel = t.coveringFor ? `${esc(t.name)}（${esc(t.coveringFor)}をカバー）` : esc(t.name);
         row(area, nameLabel, String(p.final), "cr-calc-row cr-total-row", "cr-total-num");
+        // 防御(適用前に防ぐ)の発動点(17-2): 対象行の名前クリック。クリック待ちモード外は無視
+        // (装飾クラスは攻撃側合計クリックと同じ)
+        const nameEl = area.lastElementChild?.querySelector(".cr-calc-label");
+        if (nameEl && !nameEl.classList.contains("tnx-recheck-target")) {
+            nameEl.classList.add("tnx-recheck-target");
+            nameEl.addEventListener("click", () => handleDamageProtectClick(message, i));
+        }
         // 社会ダメージの報酬点による軽減(2026-07-17 ユーザー確定): リアクション判定が成立
         // (一般定義=ファンブル/スート不一致でなければ成立・勝敗不問)した対象は、適用前まで
         // 自分の最終ダメージの数字をクリックして報酬点で軽減できる(対象の所有者/RL のみ装飾)
@@ -546,6 +558,8 @@ export function renderDamageCard(message, html) {
     }
 
     const attacker = resolveSync(f.attackerUuid);
+    // 全対象が防がれたら(17-2)適用も追加も無い=状態領域は空のまま(理由の行は残さない。直前に神業カードが出ている)
+    if (dmgTargets.length && !liveTargets.length) return;
     // RL 任意付与はカードを出さない(値の直接指定)ため、カードの追加は出さない
     if (!rlRow && (game.user.isGM || attacker?.isOwner)) {
         const btn = document.createElement("button");
@@ -587,6 +601,44 @@ export function renderDamageCard(message, html) {
     } else {
         line(area, "cr-tn", "（適用は対象の操作者または RL が行います）");
     }
+}
+
+/**
+ * ダメージ・チャットカードの対象行クリック(防御「適用前に防ぐ」のクリック待ち中)の処理(17-2)。
+ * 防御タイプの神業のアイテムロールで TnxCheckFlow のクリック待ち(kind=protect)に入り、ここで
+ * 計画(defencePreventPlan=範囲×系統×クリック行)を立てて対象行に protectedBy を刻む。刻まれた行は
+ * 描画・適用から消える。拒否(適用済み/系統外/防ぎ済み)はモードを維持したまま警告する(別のカードを
+ * 選び直せる)。消費(用途の consumeTargets・待ち受け開始時に確定したプラン)は発動の確定時。
+ * @param {ChatMessage} message ダメージ・チャットカードのメッセージ
+ * @param {number} srcIndex クリックした対象行(f.targets の添字)
+ */
+export async function handleDamageProtectClick(message, srcIndex) {
+    const state = TnxCheckFlow.peekAchievementAction("protect");
+    if (!state) return; // モード外のクリックは無視(通常表示)
+    const f = message.getFlag(SCOPE, "damageRoll");
+    if (!f) return;
+    const actor = game.actors.get(state.actorId);
+    const skill = actor?.items.get(state.skillItemId);
+    if (!skill) { TnxCheckFlow.cancelAchievementAction(); return; }
+    const usage = (skill.system.actions ?? []).find(a => a._id === state.usageId) ?? null;
+    const plan = defencePreventPlan(f, usage ?? {}, {
+        rowIndex: srcIndex, by: { itemId: skill.id, name: skill.name, actorId: actor.id },
+    });
+    if (!plan.ok) {
+        const msg = {
+            applied:          "適用済みのダメージは防げません（受けてしまった後から防ぐことはできません）。",
+            category:         `「${skill.name}」は${CATEGORY_LABELS[f.category] ?? ""}ダメージを防げません。`,
+            noTargets:        "このダメージカードには対象がありません。",
+            alreadyProtected: "この対象は既に防がれています。",
+        }[plan.reason] ?? "防げません。";
+        ui.notifications.warn(msg);
+        return;
+    }
+    TnxCheckFlow.cancelAchievementAction();
+    if (state.consumeUses?.length) await applyConsumptionPlan(state.consumeUses);
+    const targets = foundry.utils.deepClone(f.targets ?? []);
+    for (const i of plan.indices) targets[i] = { ...targets[i], protectedBy: plan.by };
+    await applyDamagePatch(message, { targets });
 }
 
 /**
@@ -996,6 +1048,7 @@ async function openMitigationDialog(message, applyCategory = null) {
     // srcIndex=フラグ上の対象インデックス(解決できない対象があっても内訳の対応がずれないように持つ)
     const resolvedTargets = [];
     for (const [srcIndex, t] of (f.targets ?? []).entries()) {
+        if (t.protectedBy) continue; // 防がれた対象(17-2)は適用しない
         const actor = await fromUuid(t.uuid).catch(() => null);
         // t.mods=その対象の防御側 modifyDamage(per-target・2026-07-15)。攻撃側合計へ対象ごとに反映する。
         // t.bonusRows=その対象のダメージ修正(2026-09-01・対象ごと評価。旧カードは共有行へフォールバック)

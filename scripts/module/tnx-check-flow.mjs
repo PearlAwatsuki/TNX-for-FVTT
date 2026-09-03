@@ -1382,6 +1382,19 @@ export class TnxCheckFlow {
                 cancel: "カバーをキャンセルしました。",
                 start:  `ダメージ・チャットカードのカバーする対象をクリックすると、「${skill.name}」でカバーの判定を行います（「${skill.name}」をもう一度使用するとキャンセル）。`,
             },
+            // 防御タイプの神業(17-2): 発動点はそれぞれ別のカード
+            protect: {
+                cancel: "防御をキャンセルしました。",
+                start:  `ダメージ・チャットカードの対象をクリックすると、「${skill.name}」でそのダメージを防ぎます（「${skill.name}」をもう一度使用するとキャンセル）。`,
+            },
+            negate: {
+                cancel: "打ち消しをキャンセルしました。",
+                start:  `判定結果カードの達成値、または宣言カードの効果をクリックすると、「${skill.name}」でそれを打ち消します（「${skill.name}」をもう一度使用するとキャンセル）。`,
+            },
+            evade: {
+                cancel: "回避をキャンセルしました。",
+                start:  `攻撃カードの自分の対象行をクリックすると、「${skill.name}」でその攻撃を回避します（「${skill.name}」をもう一度使用するとキャンセル）。`,
+            },
         }[kind];
         if (TnxCheckFlow._clickState?.skillItemId === skill.id && TnxCheckFlow._clickState?.kind === kind) {
             TnxCheckFlow.cancelAchievementAction();
@@ -1419,6 +1432,9 @@ export class TnxCheckFlow {
         if (state.kind === "modifyDamage") return; // ダメージクリック待ちは達成値クリックでは発動しない(damage-flow 側)
         if (state.kind === "covering") return;     // カバー待ちの発動点はダメージカードの対象クリック(damage-flow 側)
         if (state.kind === "suitChange") return;   // スート変更待ちの発動点は判定のカードプレイ(_trySuitChange)
+        if (state.kind === "protect") return;      // 防御(適用前に防ぐ)の発動点はダメージカードの対象行(damage-flow 側)
+        if (state.kind === "evade") return;        // 回避の発動点は攻撃カードの自分の対象行(attack-flow 側)
+        if (state.kind === "negate") return;       // 打ち消しは専用の発動処理(miracle-flow 側・17-2 後段)
         if (state.kind === "recheck") {
             // 不可(再判定済み/ダメージ算出後)はモードを維持したまま警告する(別のカードを選び直せる)
             const blocked = TnxCheckFlow.recheckBlockReason(message);

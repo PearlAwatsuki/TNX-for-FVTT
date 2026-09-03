@@ -7,6 +7,7 @@ import { describe, it, expect } from "vitest";
 import {
     miracleUseGate, miracleConsumeUpdate, withDefaultMiracleConsumption,
     miracleOriginOf, isMiracleOrigin, buildMiracleCardData,
+    defencePreventPlan, unprotectedTargetIndices,
 } from "../../scripts/module/miracle-logic.mjs";
 
 describe("withDefaultMiracleConsumption()（消費先が空の神業用途は自身の使用回数×1を既定消費）", () => {
@@ -112,5 +113,58 @@ describe("miracleConsumeUpdate()（使用による消費）", () => {
 
     it("消費済みは実効最大値を超えない", () => {
         expect(miracleConsumeUpdate({ uses: { isLimit: true, max: "1", spent: 1 } })["system.uses.spent"]).toBe(1);
+    });
+});
+
+// ─── 適用前に防ぐ(防御タイプ・17-2) ────────────────────────────────────────────
+// 正本: Miracle_Rules「防御神業」・効果文 《難攻不落》「社会ダメージを除く…1回の判定もしくは1発の神業に
+// よって発生したものすべて」「ダメージを受けてしまった後から治療することはできない」／《守護神》《友情》
+// 「選択したひとりのキャラクター以外に…被害をこうむるキャラクターがいる場合、そのキャラクターを助ける
+// ことはできない」
+describe("defencePreventPlan()（ダメージカードの対象行を防ぐ計画）", () => {
+    const by = { itemId: "m1", name: "難攻不落", actorId: "a1" };
+    const f3 = { category: "physical", applied: false, targets: [{ uuid: "A" }, { uuid: "B" }, { uuid: "C" }] };
+    const usageAll = { defenceScope: "all", defenceCategories: ["physical", "mental"] };
+    const usageOne = { defenceScope: "one", defenceCategories: ["physical", "mental", "social"] };
+
+    it("まるごと: どの行をクリックしても全対象を防ぐ", () => {
+        expect(defencePreventPlan(f3, usageAll, { rowIndex: 1, by })).toEqual({ ok: true, indices: [0, 1, 2], by });
+    });
+
+    it("1人: クリックした行だけ防ぐ", () => {
+        expect(defencePreventPlan(f3, usageOne, { rowIndex: 1, by })).toEqual({ ok: true, indices: [1], by });
+    });
+
+    it("系統が防げる系統に無ければ拒否（《難攻不落》は社会ダメージを防げない）", () => {
+        expect(defencePreventPlan({ ...f3, category: "social" }, usageAll, { rowIndex: 0, by }))
+            .toEqual({ ok: false, reason: "category" });
+    });
+
+    it("適用済み（受けた後）は拒否", () => {
+        expect(defencePreventPlan({ ...f3, applied: true }, usageAll, { rowIndex: 0, by }))
+            .toEqual({ ok: false, reason: "applied" });
+    });
+
+    it("既に防がれた行は計画から外れ、残りが無ければ拒否", () => {
+        const f = { ...f3, targets: [{ uuid: "A", protectedBy: by }, { uuid: "B" }, { uuid: "C", protectedBy: by }] };
+        expect(defencePreventPlan(f, usageAll, { rowIndex: 0, by })).toEqual({ ok: true, indices: [1], by });
+        expect(defencePreventPlan(f, usageOne, { rowIndex: 0, by })).toEqual({ ok: false, reason: "alreadyProtected" });
+    });
+
+    it("系統の設定が無い旧用途は3系統すべて防げる", () => {
+        expect(defencePreventPlan({ ...f3, category: "social" }, { defenceScope: "all" }, { rowIndex: 0, by }).ok).toBe(true);
+    });
+
+    it("対象が無ければ拒否", () => {
+        expect(defencePreventPlan({ ...f3, targets: [] }, usageAll, { rowIndex: 0, by })).toEqual({ ok: false, reason: "noTargets" });
+    });
+});
+
+describe("unprotectedTargetIndices()（ダメージカードで生きている対象行）", () => {
+    it("防がれた行を除いた添字を返す（表示・適用の両方がこれを読む）", () => {
+        const f = { targets: [{ uuid: "A", protectedBy: { itemId: "m" } }, { uuid: "B" }, { uuid: "C" }] };
+        expect(unprotectedTargetIndices(f)).toEqual([1, 2]);
+        expect(unprotectedTargetIndices({ targets: [] })).toEqual([]);
+        expect(unprotectedTargetIndices({})).toEqual([]);
     });
 });
