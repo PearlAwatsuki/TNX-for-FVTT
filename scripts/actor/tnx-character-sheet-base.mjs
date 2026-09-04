@@ -77,6 +77,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         },
         form: { submitOnChange: true },
         actions: {
+            clearHostRef: TnxCharacterSheetBase._onClearHostRef,
             ...EffectsSheetMixin.ACTIONS,
             copyUuid:             TnxCharacterSheetBase._onCopyUuid,
             toggleEditMode:       TnxCharacterSheetBase._onToggleEditMode,
@@ -210,6 +211,18 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         context.showAffiliation = true;
         // スタイルの役割(ペルソナ/キー/シャドウ)表示。トループ/エニグマは持たない(troop シートが上書き)
         context.showStyleRoles = true;
+        // 宿主(17-6): カゲムシャのスタイル(識別キー kagemusha)を持つキャラクターにだけ出す。RL がアクトごとに
+        // 設定(ドロップ)。名前はライブ解決(削除済みは name フォールバック=ライブ解決原則)
+        context.showHost = this.actor.items.some(i => i.type === "style" && i.system?.identificationKey === "kagemusha");
+        context.canEditHost = game.user.isGM;
+        const hostRef = this.actor.system.host ?? {};
+        let hostName = "";
+        if (hostRef.uuid) {
+            let hostDoc = null;
+            try { hostDoc = fromUuidSync(hostRef.uuid); } catch { hostDoc = null; }
+            hostName = (hostDoc?.actor ?? hostDoc)?.name ?? (hostRef.name ? `${hostRef.name}（削除済み）` : "");
+        }
+        context.hostActorName = hostName;
         // 閲覧モードのスタイル概要行。トループ種別では名前にスタイルが含まれるため出さない(troop シートが上書き)
         context.showStyleSummary = true;
 
@@ -515,8 +528,37 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         }
     }
 
+    /** 宿主のドロップ(RL のみ・17-6): キャスト/ゲストのアクター。自分自身は不可 */
+    async _onHostDrop(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!game.user.isGM) return;
+        let data;
+        try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch { return; }
+        if (!data?.uuid) return;
+        const raw = await fromUuid(data.uuid).catch(() => null);
+        const doc = raw?.actor ?? raw;
+        if (!doc || doc.documentName !== "Actor" || !["cast", "guest"].includes(doc.type)) {
+            ui.notifications.warn("宿主にはキャストまたはゲストのアクターをドロップしてください。");
+            return;
+        }
+        if (doc.id === this.actor.id) { ui.notifications.warn("自分自身を宿主にはできません。"); return; }
+        await this.actor.update({ "system.host": { uuid: doc.uuid, name: doc.name } });
+    }
+
+    static async _onClearHostRef(_event, _target) {
+        if (!game.user.isGM) return;
+        await this.actor.update({ "system.host": { uuid: "", name: "" } });
+    }
+
     _onRender(context, _options) {
         super._onRender(context, _options);
+        // 宿主のドロップ受け(RL のみ・トループの所有者欄と同方式・17-6)
+        const hostZone = this.element.querySelector(".cast-host-dropzone");
+        if (hostZone && game.user.isGM) {
+            hostZone.addEventListener("dragover", (ev) => ev.preventDefault());
+            hostZone.addEventListener("drop", (ev) => this._onHostDrop(ev));
+        }
         const el = this.element;
 
         el.classList.toggle("edit-mode",  !!context.isEditMode);

@@ -383,8 +383,8 @@ export function miracleLogCandidates(log, { actorId, sceneNumber, appearedNow = 
 }
 
 /**
- * カードの効果が適用待ちか(適用ボタンを持つカード=神業版ダメージ・破壊・使用回数+1・入れ替え・要求)。
- * それ以外の神業カード(宣言・防ぐ/打ち消し/回避・治癒・入手・不可知)は投稿時に適用済みと見做す
+ * カードの効果が適用待ちか(適用ボタンを持つカード=神業版ダメージ・破壊・使用回数+1・要求)。
+ * それ以外の神業カード(宣言・防ぐ/打ち消し/回避・治癒・入手・入れ替え・不可知)は投稿時に適用済みと見做す
  * (宣言の適用効果トレイはカードに適用状態を持たないため=Code 決定)。
  * @param {object|null|undefined} flags システムスコープのフラグ
  * @returns {boolean}
@@ -396,7 +396,6 @@ export function miracleUsePending(flags) {
     if (!m) return false;
     if (m.destroy) return m.destroy.applied !== true;
     if (m.addUse) return m.addUse.applied !== true;
-    if (m.swap) return m.swap.applied !== true;
     if (m.request) return !m.request.used;
     return false;
 }

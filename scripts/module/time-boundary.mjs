@@ -18,7 +18,7 @@
  */
 
 import { TNX_HOOKS } from "./combat-events.mjs";
-import { TNX_BOUNDARIES, planEffectExpiry, planItemGrantExpiry, planItemBoundaryUpdates, planConditionRecovery, planActEndDamageCleanup, planSceneDeadlineExpiry, planPoisonTicks,
+import { TNX_BOUNDARIES, planEffectExpiry, planItemGrantExpiry, planItemBoundaryUpdates, planActorBoundaryUpdates, planConditionRecovery, planActEndDamageCleanup, planSceneDeadlineExpiry, planPoisonTicks,
          planSceneDeferredFiring, buildForcedExitFlags } from "./time-boundary-logic.mjs";
 import { CONDITION_KINDS, getConditionKinds } from "./conditions.mjs";
 import { listAppearingActors } from "./appearance-state.mjs";
@@ -97,6 +97,9 @@ export async function applyBoundary(boundary, actors, { mainActorId = null } = {
         await recoverConditionsOn(actor, boundary, !!mainActorId && actor.id === mainActorId);
         if (boundary === TNX_BOUNDARIES.actEnd) await cleanupDamageOn(actor);
         if (boundary === TNX_BOUNDARIES.cleanup) await tickPoisonOn(actor);
+        // 宿主(17-6): アクト終了で消す(アクトごとに RL が決め直す)
+        const actorPatch = planActorBoundaryUpdates(actor.system, boundary);
+        if (Object.keys(actorPatch).length) await actor.update(actorPatch);
     }
 }
 

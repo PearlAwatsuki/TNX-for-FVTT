@@ -472,12 +472,12 @@ describe("miracleLogCandidates()（使用ログのうち「見聞きした」神
 });
 
 describe("miracleUsePending() / markMiracleUseApplied()（効果の適用待ちと適用の記帳）", () => {
-    it("適用ボタンを持つカード(神業版ダメージ・破壊・使用回数+1・入れ替え・要求)は適用されるまで pending", () => {
+    it("適用ボタンを持つカード(神業版ダメージ・破壊・使用回数+1・要求)は適用されるまで pending", () => {
         expect(miracleUsePending({ damageRoll: { miracle: { itemId: "m" }, applied: false } })).toBe(true);
         expect(miracleUsePending({ damageRoll: { miracle: { itemId: "m" }, applied: true } })).toBe(false);
         expect(miracleUsePending({ miracle: { itemId: "m", destroy: { applied: false } } })).toBe(true);
         expect(miracleUsePending({ miracle: { itemId: "m", addUse: { applied: true } } })).toBe(false);
-        expect(miracleUsePending({ miracle: { itemId: "m", swap: { applied: false } } })).toBe(true);
+        expect(miracleUsePending({ miracle: { itemId: "m", swap: { hostUuid: "Actor.h", hostName: "宿主" } } })).toBe(false); // 入れ替えは宣言で即時
         expect(miracleUsePending({ miracle: { itemId: "m", request: { used: null } } })).toBe(true);
         expect(miracleUsePending({ miracle: { itemId: "m", request: { used: { id: "x" } } } })).toBe(false);
     });

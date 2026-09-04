@@ -1785,6 +1785,11 @@
     margin-right: 8px;
 }
 
+/* 宿主(17-6・カゲムシャ)は所属ブロックの器を共有し、ミニラベルだけ HOST にする */
+.tokyo-nova.sheet.actor .profile-header .middle-header-section .host-block .view-mode-affiliation .view-mode-label::before {
+    content: "HOST";
+}
+
 .tokyo-nova.sheet.actor .profile-header .middle-header-section .view-mode-style-summary .view-mode-label::before {
     content: "STYLE";
     font-family: var(--tnx2-font-mono);

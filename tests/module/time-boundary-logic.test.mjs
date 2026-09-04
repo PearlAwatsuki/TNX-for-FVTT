@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
     TNX_BOUNDARIES, TNX_DURATIONS,
     readEffectDuration, durationLabelOf, durationExpiresAt, planEffectExpiry, planItemGrantExpiry,
+    planActorBoundaryUpdates,
 } from "../../scripts/module/time-boundary-logic.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
@@ -156,3 +157,16 @@ describe("planItemGrantExpiry()（アイテムに着地した付与コピーの�
         expect(planItemGrantExpiry(null, TNX_BOUNDARIES.actEnd)).toEqual([]);
     });
 });
+
+describe("planActorBoundaryUpdates()（境界でアクター側に起こす更新・17-6 宿主）", () => {
+    it("アクト終了で宿主(host)を消す（カゲムシャはアクトごとに宿主を決定する＝スタイル説明）", () => {
+        expect(planActorBoundaryUpdates({ host: { uuid: "Actor.h", name: "宿主" } }, TNX_BOUNDARIES.actEnd))
+            .toEqual({ "system.host.uuid": "", "system.host.name": "" });
+    });
+    it("宿主が無ければ何もしない・アクト終了以外の境界では消さない", () => {
+        expect(planActorBoundaryUpdates({ host: { uuid: "", name: "" } }, TNX_BOUNDARIES.actEnd)).toEqual({});
+        expect(planActorBoundaryUpdates({}, TNX_BOUNDARIES.actEnd)).toEqual({});
+        expect(planActorBoundaryUpdates({ host: { uuid: "Actor.h", name: "" } }, TNX_BOUNDARIES.exit)).toEqual({});
+    });
+});
+

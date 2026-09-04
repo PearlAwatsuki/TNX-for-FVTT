@@ -173,6 +173,19 @@ function usesResetRank(item) {
 }
 
 /**
+ * 境界でアクター側に起こす更新の patch(17-6)。アクト終了で宿主(host)を消す——「カゲムシャはアクトごとに
+ * “宿主”を決定する」(スタイル説明)。変化しないものは patch に含めない。
+ * @param {{host?: {uuid?: string, name?: string}}|null|undefined} system アクターの system
+ * @param {string} boundary TNX_BOUNDARIES の値
+ * @returns {Record<string, string>} `Actor.update` 用の patch
+ */
+export function planActorBoundaryUpdates(system, boundary) {
+    if (boundary !== TNX_BOUNDARIES.actEnd) return {};
+    if (!system?.host?.uuid) return {};
+    return { "system.host.uuid": "", "system.host.name": "" };
+}
+
+/**
  * 境界でアイテム側に起こすリセットの update patch を組む(15-2)。
  *
  * - **使用回数**: その単位の境界で消費(`uses.spent`)を 0 に戻す。上位の境界は下位の単位も戻す。

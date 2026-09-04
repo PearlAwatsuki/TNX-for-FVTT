@@ -52,6 +52,9 @@ export class TnxSocketHandler {
             case "treatmentApply":
                 TnxSocketHandler._onTreatmentApply(data);
                 break;
+            case "miracleSwap":
+                TnxSocketHandler._onMiracleSwap(data);
+                break;
             case "repairApply":
                 TnxSocketHandler._onRepairApply(data);
                 break;
@@ -191,6 +194,20 @@ export class TnxSocketHandler {
         if (game.users.activeGM?.id !== game.user.id) return;
         const { applyTreatmentDelegated } = await import("./treatment-flow.mjs");
         await applyTreatmentDelegated(data);
+    }
+
+    // ─── miracleSwap（17-6・《神出鬼没》） ────────────────────────────────────────
+
+    /** 宿主との状態の入れ替えを GM クライアントが代行する(複数 GM 接続時は activeGM のみ)。 */
+    static async _onMiracleSwap(data) {
+        if (game.users.activeGM?.id !== game.user.id) return;
+        const { applyMiracleSwapDelegated } = await import("./miracle-flow.mjs");
+        await applyMiracleSwapDelegated(data);
+    }
+
+    /** 状態の入れ替えを GM へ委譲する(宿主の所有権がない宣言者クライアントから呼ぶ)。 */
+    static emitMiracleSwap(payload) {
+        game.socket.emit("system.tokyo-nova-axleration", { type: "miracleSwap", ...payload });
     }
 
     /** 治療の状態除去を GM へ委譲する（患者の所有権がない治療者クライアントから呼ぶ）。 */

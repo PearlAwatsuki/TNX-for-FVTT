@@ -11,6 +11,12 @@ describe("CastDataModel.defineSchema()", () => {
     expect(schema).toBeDefined();
   });
 
+  it("host（宿主・カゲムシャ）は SchemaField{uuid, name}（基底由来=guest と共有・アクトごとに RL が決定・名前は削除時のフォールバック）", () => {
+    expect(schema.host).toBeInstanceOf(MockSchemaField);
+    expect(schema.host.fields.uuid.options.initial).toBe("");
+    expect(schema.host.fields.name.options.initial).toBe("");
+  });
+
   describe("BiographyTemplate のフィールドが含まれる", () => {
     const biographyKeys = [
       "charaname_ruby", "handle", "handle_ruby", "post",

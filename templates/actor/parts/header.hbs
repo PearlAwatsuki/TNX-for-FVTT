@@ -106,6 +106,29 @@
                             </div>
                         </div>
                         {{/if}}
+                        {{!-- 宿主(17-6・カゲムシャ): アクトごとに RL が決定(スタイル説明)。RL だけがドロップで設定・解除できる。
+                             《神出鬼没》はこの宿主と自分のダメージ・状態を入れ替える。アクト終了で消える --}}
+                        {{#if showHost}}
+                        <div class="affiliation-block host-block">
+                            <div class="view-mode-affiliation">
+                                <span class="view-mode-label">宿主：</span>
+                                <span class="view-mode-value">{{#if hostActorName}}{{hostActorName}}{{else}}未設定{{/if}}</span>
+                            </div>
+                            <div class="edit-mode-affiliation">
+                                <label>宿主：</label>
+                                {{#if canEditHost}}
+                                <span class="troop-owner-dropzone cast-host-dropzone{{#unless hostActorName}} troop-owner-dropzone--empty{{/unless}}">
+                                    {{#if hostActorName}}{{hostActorName}}{{else}}アクターをドロップ{{/if}}
+                                </span>
+                                {{#if hostActorName}}
+                                <a class="troop-owner-clear" data-action="clearHostRef" title="宿主の設定を解除"><i class="fas fa-times"></i></a>
+                                {{/if}}
+                                {{else}}
+                                <span class="view-mode-value">{{#if hostActorName}}{{hostActorName}}{{else}}未設定（RL が決定）{{/if}}</span>
+                                {{/if}}
+                            </div>
+                        </div>
+                        {{/if}}
                     </div>
                     {{!-- スタイル概要(閲覧)。トループ種別では名前にスタイルが含まれるため出さない
                          (showStyleSummary・2026-07-03 指示) --}}

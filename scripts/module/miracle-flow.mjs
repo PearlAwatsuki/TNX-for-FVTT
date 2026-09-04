@@ -192,33 +192,29 @@ function isTargetOperator(targetUuid) {
 // できない。…《不可知》でダメージを与えた場合、神業によってしか治療を行えない」
 
 /**
- * 《神出鬼没》: 対象1人→消費→神業カードに「入れ替え」の段(適用は RL か両者の操作者)。
+ * 《神出鬼没》: 対象は取らない。宿主(キャストの system.host・アクトごとに RL が決定)と自分のダメージ・状態を
+ * **宣言した時点で**丸ごと入れ替える。宿主のアクターへの書き込みは RL のクライアントへ委譲する
+ * (既存の RL 委譲ソケットと同じ形)。宿主が未設定なら警告して中止。
  * @returns {Promise<boolean>} 発動したか
  */
 export async function useMiracleSwap(actor, item, usage, { asOther = null } = {}) {
-    const target = await resolveSingleTarget(actor, usage);
-    if (!target) return false;
-    if (target.id === actor.id) { ui.notifications.warn("自分自身とは入れ替えられません。"); return false; }
+    const hostUuid = actor.system?.host?.uuid ?? "";
+    if (!hostUuid) { ui.notifications.warn(`「${actor.name}」の宿主が決まっていません（RL がキャストシートで設定します）。`); return false; }
+    const hostDoc = await fromUuid(hostUuid).catch(() => null);
+    const host = hostDoc?.actor ?? hostDoc;
+    if (!host) { ui.notifications.warn("宿主のアクターが見つかりません。"); return false; }
     const rows = resolveConsumeRowsForActor(actor, item, usage.consumeTargets);
     const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${item.name}` });
     if (plan === null) return false;
     await applyConsumptionPlan(plan);
-    await postMiracleCard(item, { swap: {
-        actorUuid: actor.uuid, actorName: actor.name, targetUuid: target.uuid, targetName: target.name, applied: false,
-    }, asOther });
+    if (game.user.isGM) await swapConditionsBetween(actor, host);
+    else TnxSocketHandler.emitMiracleSwap({ actorUuid: actor.uuid, hostUuid: host.uuid });
+    await postMiracleCard(item, { swap: { hostUuid: host.uuid, hostName: host.name }, asOther });
     return true;
 }
 
-/** 入れ替えの適用: 両者の状態(conditionKind)を丸ごと入れ替える。カスケードの子は移した親から再生する。 */
-async function applyMiracleSwap(message) {
-    const mf = message.getFlag(SCOPE, "miracle");
-    const sw = mf?.swap;
-    if (!sw || sw.applied) return;
-    const resolve = async (uuid) => { const d = await fromUuid(uuid).catch(() => null); return d?.actor ?? d; };
-    const A = await resolve(sw.actorUuid);
-    const B = await resolve(sw.targetUuid);
-    if (!A || !B) { ui.notifications.warn("入れ替える相手が見つかりません。"); return; }
-    if (!(game.user.isGM || (A.isOwner && B.isOwner))) { ui.notifications.warn("適用は RL（または両者の操作者）が行います。"); return; }
+/** 両者の状態(conditionKind)を丸ごと入れ替える。カスケードの子は移した親から再生する。 */
+export async function swapConditionsBetween(A, B) {
     const plan = conditionSwapPlan(A.effects.contents, B.effects.contents);
     const toData = (effects) => effects.map(e => { const d = e.toObject(); delete d._id; return d; });
     const dataToB = toData(plan.moveToB);
@@ -227,7 +223,15 @@ async function applyMiracleSwap(message) {
     if (plan.deleteB.length) await B.deleteEmbeddedDocuments("ActiveEffect", plan.deleteB);
     if (dataToA.length) await A.createEmbeddedDocuments("ActiveEffect", dataToA);
     if (dataToB.length) await B.createEmbeddedDocuments("ActiveEffect", dataToB);
-    await TnxSocketHandler.applyMessagePatch(message, { [`flags.${SCOPE}.miracle.swap.applied`]: true });
+}
+
+/** 入れ替えの RL 側代行(ソケット): 宣言者のクライアントが宿主を書けないときに呼ばれる。 */
+export async function applyMiracleSwapDelegated({ actorUuid, hostUuid } = {}) {
+    const resolve = async (uuid) => { const d = await fromUuid(uuid).catch(() => null); return d?.actor ?? d; };
+    const A = await resolve(actorUuid);
+    const B = await resolve(hostUuid);
+    if (!A || !B) return;
+    await swapConditionsBetween(A, B);
 }
 
 /**
@@ -672,11 +676,7 @@ function renderMiracleEffectRows(message, card, mf) {
     const field = (label, value) => `<div class="cr-req-field"><span class="cr-req-field__label">${esc(label)}</span>`
         + `<span class="cr-req-field__value">${value}</span></div>`;
     if (mf.swap) {
-        const sw = mf.swap;
-        wrap.innerHTML = field("入れ替え", `${esc(sw.actorName)} ⇄ ${esc(sw.targetName)}${sw.applied ? "（適用済み）" : ""}`);
-        if (!sw.applied && (game.user.isGM || (isOwnerOfUuid(sw.actorUuid) && isOwnerOfUuid(sw.targetUuid)))) {
-            wrap.appendChild(chatButton("fa-right-left", "適用", () => applyMiracleSwap(message)));
-        }
+        wrap.innerHTML = field("宿主", esc(mf.swap.hostName ?? ""));
     } else if (mf.acquire) {
         wrap.innerHTML = field("入手", `「${esc(mf.acquire.itemName)}」（常備化できない）`);
     } else if (mf.insensible) {

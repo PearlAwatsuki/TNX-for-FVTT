@@ -51,6 +51,15 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
         })
       ),
       isGhost:    new fields.BooleanField({ initial: false }),
+      // 宿主(17-6・カゲムシャ): スタイル説明「カゲムシャはアクトごとに“宿主”を決定する。これは RL が決定する。
+      // もし適切なゲストがいない場合、キャストから選択してもよい」。キャラクターの関係(アクト中の状態)なので
+      // 神業やスタイルではなくアクターに置く(カゲムシャのスタイルを持つキャスト/ゲスト)。RL がシートで設定し、
+      // アクト終了の境界で消える。name は削除済みアクターのフォールバック表示のみ(表示はライブ解決)。
+      // 《神出鬼没》が読む
+      host: new fields.SchemaField({
+        uuid: new fields.StringField({ initial: "" }),
+        name: new fields.StringField({ initial: "" }),
+      }),
       bounty:     new fields.NumberField({ initial: 0, integer: true }),
       bountyBase: new fields.NumberField({ initial: 0, integer: true }),
       // 生身のデータ(フェーズ9定義・フェーズ10-6で正式化/2026-07-02 裁定)。生身はアイテムとして

@@ -612,7 +612,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 { value: "",              label: "なし" },
                 { value: "addUse",        label: "対象の神業の使用回数を+1" },
                 { value: "requestUse",    label: "対象に神業を使わせる（使用済みにならない）" },
-                { value: "swapDamage",    label: "対象と自分のダメージ・状態を入れ替える" },
+                { value: "swapDamage",    label: "宿主と自分のダメージ・状態を入れ替える" },
                 { value: "acquireOutfit", label: "アウトフィットを入手する（常備化できない）" },
                 { value: "insensible",    label: "次の行動を神業以外で妨げられなくする" },
             ].map(o => ({ ...o, selected: o.value === mode }));

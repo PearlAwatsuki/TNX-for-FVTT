@@ -298,7 +298,7 @@ export class UsageTemplate extends SystemDataModel {
                     // ""=なし／addUse=対象の神業1つの使用回数を+1(《ファイト！》: 使用済みでも可・
                     // アクト中の効果として対象の神業に載せる)／requestUse=対象に神業を使わせる
                     // (《プリーズ！》: 相手の神業は使用済みにならない・使い切った神業も可)／
-                    // swapDamage=対象と自分のダメージ・状態を丸ごと入れ替える(《神出鬼没》)／
+                    // swapDamage=宿主(キャストの host・RL がアクトごとに設定)と自分のダメージ・状態を丸ごと入れ替える(《神出鬼没》)／
                     // acquireOutfit=アウトフィットを入手する・常備化できない(《タイムリー》《買収》)／
                     // insensible=次の行動を神業以外で妨げられなくする(《不可知》)
                     miracleEffect: new fields.StringField({ initial: "" }),
