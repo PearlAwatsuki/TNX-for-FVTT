@@ -288,10 +288,13 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
 
         context.styleSlots = this._prepareStyleSlots(allStyles);
 
+        // 神業の枠(2026-09-05 是正): 従来はどちらも先頭3件で切り詰めていたため、**使用回数2以上の神業が
+        // あると2つ目以降の神業がシートから消えていた**(使用回数ぶんの枠が3つを占める)。
+        // ・割り当て(編集モード)＝**神業ごとに1枠**(3スタイル=3枠。足りない分は空枠)
+        // ・使用(閲覧モード)＝**使用回数ぶんの枠を全部**(消費済みは無効化。3未満はプレースホルダで埋める)
         const miracleSlotsData = this._prepareMiraclesForDisplay(allMiracles);
-        context.miracleSlots = [...miracleSlotsData];
+        context.miracleSlots = miracleSlotsData.filter((s, i, arr) => arr.findIndex(x => x._id === s._id) === i);
         while (context.miracleSlots.length < 3) context.miracleSlots.push({ isEmpty: true });
-        context.miracleSlots = context.miracleSlots.slice(0, 3);
 
         context.miracleSlotsForView = [...miracleSlotsData];
         while (context.miracleSlotsForView.length < 3) {
@@ -301,7 +304,6 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                 _id: `placeholder-${context.miracleSlotsForView.length}`
             });
         }
-        context.miracleSlotsForView = context.miracleSlotsForView.slice(0, 3);
 
         context.processedStylesForView = this._prepareStylesForView(allStyles);
 

@@ -679,9 +679,10 @@ function renderMiracleEffectRows(message, card, mf) {
     if (mf.swap) {
         wrap.innerHTML = field("宿主", esc(mf.swap.hostName ?? ""));
     } else if (mf.acquire) {
-        wrap.innerHTML = field("入手", `「${esc(mf.acquire.itemName)}」（常備化できない）`);
+        // 行は短く保つ(狭いカードで語の途中で折れないよう、括弧書きを別の行に分ける)
+        wrap.innerHTML = field("入手", `「${esc(mf.acquire.itemName)}」`) + field("常備化", "できない");
     } else if (mf.insensible) {
-        wrap.innerHTML = field("次の行動", "神業以外では妨げられない（割り込み可・AR を消費しない）");
+        wrap.innerHTML = field("次の行動", "神業以外では妨げられない") + field("割り込み", "AR を消費しない");
     } else {
         return;
     }
