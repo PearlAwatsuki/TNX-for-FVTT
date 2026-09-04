@@ -37,7 +37,7 @@ import { gatherDamageVsSources, gatherDamageDealtSources, gatherDamageTakenSourc
 import { splitEffectsByTiming } from "./usage-effects.mjs";
 import { spinnerDialogActions } from "./tnx-dialog.mjs";
 import { rlGrantAmount, rlGrantLedgerRow, rlGrantTypeLabel, buildRlDamageRollFlag } from "./rl-grant-logic.mjs";
-import { unprotectedTargetIndices, defencePreventPlan, miracleResultLabel, miracleTargetOutcome } from "./miracle-logic.mjs";
+import { unprotectedTargetIndices, defencePreventPlan, miracleResultLabel, miracleTargetOutcome, miracleOriginOf } from "./miracle-logic.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会" };
@@ -618,6 +618,8 @@ export function renderDamageCard(message, html) {
 function renderMiracleDamageCard(message, html, f, { ledger, area, row, line, esc, dmgTargets, liveIdx }) {
     const label = miracleResultLabel(f.miracleResult, f.category);
     row(ledger, "神業", esc(f.miracle?.name ?? "神業"));
+    // 他の神業として使った分(17-5)は神業カードと同じ「効果」の行(名前に括弧で足すと狭い幅で語の途中で折れる)
+    if (f.miracle?.asOther?.name) row(ledger, "効果", `《${esc(f.miracle.asOther.name)}》`);
     // めくったカードは1枚1行(ダメージカードの行と同じ形・狭い幅で語の途中で折れない)
     (f.miracleResult?.drawn ?? []).forEach((d, i) => row(ledger, `カード ${i + 1}`, esc(d)));
     row(ledger, "結果", esc(label), "cr-calc-row cr-total-row", "cr-total-num");
@@ -748,9 +750,10 @@ export async function handleDamageProtectClick(message, srcIndex) {
     const actor = game.actors.get(state.actorId);
     const skill = actor?.items.get(state.skillItemId);
     if (!skill) { TnxCheckFlow.cancelAchievementAction(); return; }
-    const usage = (skill.system.actions ?? []).find(a => a._id === state.usageId) ?? null;
+    // 用途は待ち受け開始時に確定したもの(他の神業として使う=参照先の用途・17-5)。無ければ神業自身から引く
+    const usage = state.usage ?? (skill.system.actions ?? []).find(a => a._id === state.usageId) ?? null;
     const plan = defencePreventPlan(f, usage ?? {}, {
-        rowIndex: srcIndex, by: { itemId: skill.id, name: skill.name, actorId: actor.id },
+        rowIndex: srcIndex, by: { ...miracleOriginOf(skill, state.asOther), actorId: actor.id },
     });
     if (!plan.ok) {
         const msg = {
@@ -764,6 +767,9 @@ export async function handleDamageProtectClick(message, srcIndex) {
     }
     TnxCheckFlow.cancelAchievementAction();
     if (state.consumeUses?.length) await applyConsumptionPlan(state.consumeUses);
+    // 発動した神業を卓に提示する(神業カード=使用ログの記帳点・17-5)。他の神業として使った分は参照先を添える
+    const { postMiracleCard } = await import("./miracle-flow.mjs");
+    await postMiracleCard(skill, { asOther: state.asOther });
     const targets = foundry.utils.deepClone(f.targets ?? []);
     for (const i of plan.indices) targets[i] = { ...targets[i], protectedBy: plan.by };
     await applyDamagePatch(message, { targets });

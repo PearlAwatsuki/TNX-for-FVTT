@@ -14,7 +14,7 @@ import {
     miracleUseGate, miracleConsumeUpdate, buildMiracleCardData, miracleOriginOf,
     negateCheckGate, negatedCheckMods, evadePlan,
     buildMiracleDamageFlag, terminalKindFor,
-    interferenceCandidates, addUseEffectSource,
+    interferenceCandidates, addUseEffectSource, asOtherRefCandidates, miracleLogCandidates,
 } from "./miracle-logic.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
@@ -26,6 +26,8 @@ import { getDamageChartKind } from "../data/damage-chart.mjs";
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { isOutfitDestroyed } from "../data/item/helpers.mjs";
 import { buildGrantedEffectDataFrom } from "./usage-effects.mjs";
+import { findItemByIdentificationKey } from "./identification.mjs";
+import { getSessionState } from "./session-state.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会" };
@@ -86,7 +88,7 @@ async function promptMiracleDamageResult(item, usage, category) {
  * @param {Item} item 神業
  * @param {object} usage 即死/社会戦タイプの用途(既定消費は起動関数で補われている)
  */
-export async function useMiracleDamage(actor, item, usage) {
+export async function useMiracleDamage(actor, item, usage, { asOther = null } = {}) {
     const category = usage.type === "miracleSocial" ? "social" : (usage.killCategory || "physical");
     const refs = await resolveUsageTargetRefs(actor, usage);
     if (refs === null) return false;
@@ -98,7 +100,7 @@ export async function useMiracleDamage(actor, item, usage) {
     if (!result) return false;
     await applyConsumptionPlan(plan);
     const flag = buildMiracleDamageFlag({
-        by: { itemId: item.id, name: item.name, actorId: actor.id }, category, targets: refs, result,
+        by: { ...miracleOriginOf(item, asOther), actorId: actor.id }, category, targets: refs, result,
     });
     const content = await foundry.applications.handlebars.renderTemplate(
         "systems/tokyo-nova-axleration/templates/chat/damage-card.hbs", { categoryLabel: CATEGORY_LABELS[category] });
@@ -134,7 +136,7 @@ export async function handleNegateMiracleDamageClick(message) {
  * @param {Item} item 神業
  * @param {object} usage 破壊タイプの用途
  */
-export async function useMiracleDestroy(actor, item, usage) {
+export async function useMiracleDestroy(actor, item, usage, { asOther = null } = {}) {
     const target = await resolveSingleTarget(actor, usage);
     if (!target) return false;
     const candidates = (target.items?.contents ?? []).filter(i => OUTFIT_ITEM_TYPES.has(i.type) && !isOutfitDestroyed(i.system));
@@ -150,7 +152,7 @@ export async function useMiracleDestroy(actor, item, usage) {
     const outfit = target.items.get(picked);
     if (!outfit) return false;
     await applyConsumptionPlan(plan);
-    await postMiracleCard(item, { destroy: { targetUuid: target.uuid, targetName: target.name, itemId: outfit.id, itemName: outfit.name } });
+    await postMiracleCard(item, { destroy: { targetUuid: target.uuid, targetName: target.name, itemId: outfit.id, itemName: outfit.name }, asOther });
     return true;
 }
 
@@ -190,7 +192,7 @@ function isTargetOperator(targetUuid) {
  * 適用(+1 の効果を載せる)と使用(神業を使う)は対象の操作者/RL がカードのボタンで行う。
  * @returns {Promise<boolean>} 発動したか
  */
-export async function useMiracleInterference(actor, item, usage) {
+export async function useMiracleInterference(actor, item, usage, { asOther = null } = {}) {
     const mode = usage.miracleInterference;
     const target = await resolveSingleTarget(actor, usage);
     if (!target) return false;
@@ -215,11 +217,57 @@ export async function useMiracleInterference(actor, item, usage) {
     const base = { targetUuid: target.uuid, targetName: target.name };
     if (mode === "addUse") {
         await postMiracleCard(item, { addUse: { ...base, miracleId: picked.id, miracleName: picked.name,
-            sourceUuid: item.uuid, img: item.img ?? "", applied: false } });
+            sourceUuid: item.uuid, img: item.img ?? "", applied: false }, asOther });
     } else {
-        await postMiracleCard(item, { request: { ...base, miracles: candidates, used: null } });
+        await postMiracleCard(item, { request: { ...base, miracles: candidates, used: null }, asOther });
     }
     return true;
+}
+
+// ─── 他の神業として使う神業(17-5・《万能道具》《突然変異》) ─────────────────────────────
+// 効果文《万能道具》「取得している〈フォルム〉によって、異なるスタイルの神業と同等の効果が発生する」＋対応表／
+// 《突然変異》「そのアクト中に使用された神業をコピーして使用する…あなたが登場したシーンで使用されたものに
+// 限られる…効果が適用される前であっても、コピーすることは可能」。選び方はアイテム側の設定(asOther)、
+// 実行は唯一の起動関数への再入(参照先の用途を元の神業の名前・回数・印で実行)。
+
+/**
+ * 他の神業として使う神業の参照先を決める。refs=条件技能(識別キー)を満たす参照行の神業／
+ * log=このアクトで自分が登場したシーンに使われた神業。1つなら自動・複数なら選択・0なら警告して中止。
+ * @returns {Promise<?{uuid: string, name: string, source: Item}>} 中止なら null
+ */
+export async function resolveAsOther(actor, item) {
+    const cfg = item.system.asOther ?? {};
+    const candidates = [];
+    const collect = async (uuid) => {
+        const doc = await fromUuid(uuid).catch(() => null);
+        if (doc?.type === "miracle") candidates.push({ uuid, name: doc.name, source: doc });
+        else ui.notifications.warn(`「${item.name}」の参照先の神業が見つかりません。`);
+    };
+    if (cfg.mode === "refs") {
+        for (const uuid of asOtherRefCandidates(cfg.refs ?? [], (key) => !!findItemByIdentificationKey(actor, key))) await collect(uuid);
+        if (!candidates.length) {
+            ui.notifications.warn(`「${item.name}」の効果になる神業がありません（条件の技能を取得していないか、参照先が未設定です）。`);
+            return null;
+        }
+    } else if (cfg.mode === "log") {
+        const st = getSessionState();
+        const list = miracleLogCandidates(st.miracleUseLog ?? [], {
+            actorId: actor.id, sceneNumber: st.sceneNumber, appearedNow: st.appearedThisScene ?? [],
+        });
+        for (const c of list) await collect(c.uuid);
+        if (!candidates.length) {
+            ui.notifications.warn(`このアクトで「${actor.name}」が登場したシーンに使われた神業がありません。`);
+            return null;
+        }
+    } else {
+        return null;
+    }
+    if (candidates.length === 1) return candidates[0];
+    const picked = await TargetSelectionDialog.prompt({
+        title: `${item.name}: 効果になる神業`, label: "神業",
+        options: candidates.map(c => ({ value: c.uuid, label: c.name })), selectLabel: "決定",
+    });
+    return candidates.find(c => c.uuid === picked) ?? null;
 }
 
 /**
@@ -288,13 +336,15 @@ function negateState() {
     const actor = game.actors.get(state.actorId);
     const skill = actor?.items.get(state.skillItemId);
     if (!skill) { TnxCheckFlow.cancelAchievementAction(); return null; }
-    return { state, actor, skill, by: { itemId: skill.id, name: skill.name, actorId: actor.id } };
+    return { state, actor, skill, by: { ...miracleOriginOf(skill, state.asOther), actorId: actor.id } };
 }
 
-/** 打ち消しの確定: モード解除と消費(待ち受け開始時に確定したプラン)。 */
+/** 打ち消しの確定: モード解除と消費(待ち受け開始時に確定したプラン)、発動した神業のカード(17-5 の記帳点)。 */
 async function commitNegate(state) {
     TnxCheckFlow.cancelAchievementAction();
     if (state.consumeUses?.length) await applyConsumptionPlan(state.consumeUses);
+    const skill = game.actors.get(state.actorId)?.items.get(state.skillItemId);
+    if (skill) await postMiracleCard(skill, { asOther: state.asOther });
 }
 
 /**
@@ -407,7 +457,7 @@ export async function handleAttackEvadeClick(message, rowIndex) {
     if (!skill) { TnxCheckFlow.cancelAchievementAction(); return true; }
     const f = message.getFlag(SCOPE, "attackCheck");
     if (!f) return true;
-    const by = { itemId: skill.id, name: skill.name, actorId: actor.id };
+    const by = { ...miracleOriginOf(skill, state.asOther), actorId: actor.id };
     const resolveActorId = (uuid) => {
         try { const d = fromUuidSync(uuid); return (d?.actor ?? d)?.id ?? null; } catch { return null; }
     };
@@ -424,6 +474,7 @@ export async function handleAttackEvadeClick(message, rowIndex) {
     }
     TnxCheckFlow.cancelAchievementAction();
     if (state.consumeUses?.length) await applyConsumptionPlan(state.consumeUses);
+    await postMiracleCard(skill, { asOther: state.asOther }); // 発動した神業を卓に提示(17-5 の記帳点)
     const { applyAttackTargetPatch } = await import("./attack-flow.mjs");
     await applyAttackTargetPatch(message, plan.index, {
         state: "miss", resolution: "miracleEvade", reactionAchievement: null, diff: null, parryGuard: 0, evadedBy: by,
@@ -450,6 +501,13 @@ export function renderMiracleCard(message, html) {
         card.querySelector(".mc-interfere")?.remove();
         card.classList.add("tnx-miracle-card--negated");
         return;
+    }
+    // 他の神業として使う(17-5): 見出しは元の神業、本文の先頭に「効果 《参照先》」
+    if (mf.asOther?.name && !card.querySelector(".mc-as-other")) {
+        const esc = foundry.utils.escapeHTML;
+        const body = card.querySelector(".cr-req-body") ?? card;
+        body.insertAdjacentHTML("afterbegin", `<div class="cr-req-field mc-as-other"><span class="cr-req-field__label">効果</span>`
+            + `<span class="cr-req-field__value">《${esc(mf.asOther.name)}》</span></div>`);
     }
     const head = card.querySelector(".cr-req-header");
     if (head && !head.classList.contains("tnx-recheck-target")) {
@@ -525,11 +583,13 @@ function chatButton(icon, label, onClick) {
  * @param {{usageEffects?: ?object}} [opts]
  * @returns {Promise<ChatMessage>}
  */
-export async function postMiracleCard(item, { usageEffects = null, destroy = null, addUse = null, request = null } = {}) {
+export async function postMiracleCard(item, { usageEffects = null, destroy = null, addUse = null, request = null, asOther = null } = {}) {
     const TE = foundry.applications.ux.TextEditor;
+    // 他の神業として使う(17-5): 効果文と条件は参照先のもの(「うまく使った」条件も参照先と同じ)。名前・印は元の神業
+    const textHost = asOther?.source ?? item;
     const [description, condition] = await Promise.all([
-        TE.enrichHTML(item.system?.description ?? "", { relativeTo: item }),
-        TE.enrichHTML(item.system?.usageCondition ?? "", { relativeTo: item }),
+        TE.enrichHTML(textHost.system?.description ?? "", { relativeTo: textHost }),
+        TE.enrichHTML(textHost.system?.usageCondition ?? "", { relativeTo: textHost }),
     ]);
     const { remaining, max } = miracleUseGate(item.system);
     const data = buildMiracleCardData(item, { description, condition, remaining, max });
@@ -547,7 +607,7 @@ export async function postMiracleCard(item, { usageEffects = null, destroy = nul
                 // destroy(17-3): 破壊の結果(対象と選んだアウトフィット)／addUse・request(17-4): 干渉の結果。
                 // 描画フックが結果行と適用/使用ボタンを足す
                 miracle: {
-                    ...miracleOriginOf(item),
+                    ...miracleOriginOf(item, asOther),
                     ...(destroy ? { destroy } : {}), ...(addUse ? { addUse } : {}), ...(request ? { request } : {}),
                 },
                 ...(usageEffects ? { usageEffects } : {}),
@@ -562,7 +622,7 @@ export async function postMiracleCard(item, { usageEffects = null, destroy = nul
  * @param {{free?: boolean}} [opts] free=《プリーズ！》で使わされる(ゲートも消費も無い・17-4)
  * @returns {Promise<boolean>} 使用したら true(残り無しで中止なら false)
  */
-export async function useMiracleWithoutUsage(item, { free = false } = {}) {
+export async function useMiracleWithoutUsage(item, { free = false, asOther = null } = {}) {
     if (!free) {
         const gate = miracleUseGate(item.system);
         if (!gate.ok) {
@@ -571,6 +631,6 @@ export async function useMiracleWithoutUsage(item, { free = false } = {}) {
         }
         await item.update(miracleConsumeUpdate(item.system));
     }
-    await postMiracleCard(item);
+    await postMiracleCard(item, { asOther });
     return true;
 }

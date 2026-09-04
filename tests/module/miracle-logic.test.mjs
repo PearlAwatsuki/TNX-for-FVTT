@@ -10,6 +10,7 @@ import {
     defencePreventPlan, unprotectedTargetIndices, negateCheckGate, negatedCheckMods, evadePlan, recoveryCandidateAllowed,
     terminalKindFor, buildMiracleDamageFlag, miracleResultLabel, miracleTargetOutcome,
     withoutConsumption, interferenceCandidates, addUseEffectSource,
+    asOtherRefCandidates, miracleLogCandidates, buildMiracleUseLogEntry, miracleUseFromMessageFlags,
 } from "../../scripts/module/miracle-logic.mjs";
 
 describe("withDefaultMiracleConsumption()（消費先が空の神業用途は自身の使用回数×1を既定消費）", () => {
@@ -34,8 +35,15 @@ describe("withDefaultMiracleConsumption()（消費先が空の神業用途は自
 
 describe("miracleOriginOf() / isMiracleOrigin()（神業由来の印）", () => {
     it("印の出どころは用途の親アイテムが miracle 型であること", () => {
-        expect(miracleOriginOf({ id: "m1", type: "miracle", name: "チャイ" }))
-            .toEqual({ itemId: "m1", name: "チャイ" });
+        expect(miracleOriginOf({ id: "m1", type: "miracle", name: "チャイ", uuid: "Actor.a.Item.m1" }))
+            .toEqual({ itemId: "m1", name: "チャイ", uuid: "Actor.a.Item.m1" });
+    });
+
+    it("他の神業として使ったときは、その神業(uuid と名前)を印に添える(17-5)", () => {
+        const origin = miracleOriginOf({ id: "m1", type: "miracle", name: "万能道具", uuid: "Actor.a.Item.m1" },
+            { uuid: "Compendium.p.Item.x", name: "難攻不落", source: { junk: true } });
+        expect(origin).toEqual({ itemId: "m1", name: "万能道具", uuid: "Actor.a.Item.m1",
+            asOther: { uuid: "Compendium.p.Item.x", name: "難攻不落" } });
     });
 
     it("神業以外のアイテムからは印が出ない（null）", () => {
@@ -412,6 +420,56 @@ describe("addUseEffectSource()（《ファイト！》が対象の神業に載�
         expect(f.tnxDuration).toBe("act");
         expect(f.fromMiracle).toBe(true);
         expect(f.stackable).toBe(true);
+    });
+});
+
+// ─── 他の神業として使う神業(17-5・《万能道具》《突然変異》) ───────────────────────────
+// 効果文《万能道具》「取得している〈フォルム〉によって、異なるスタイルの神業と同等の効果が発生する」＋対応表／
+// 《突然変異》「そのアクト中に使用された神業をコピーして使用する」「あなたが登場したシーンで使用されたものに限られる」
+
+describe("asOtherRefCandidates()（参照行のうち条件技能を満たすもの）", () => {
+    const refs = [
+        { name: "form_weapon", uuid: "U.dance" }, { name: "form_weapon", uuid: "U.finish" },
+        { name: "form_armor", uuid: "U.fortress" }, { name: "", uuid: "U.any" }, { name: "form_icon", uuid: "" },
+    ];
+    it("条件技能が空の行と、所持する識別キーの行の参照先を順に返す(参照先が空の行は除く)", () => {
+        const has = (key) => key === "form_weapon";
+        expect(asOtherRefCandidates(refs, has)).toEqual(["U.dance", "U.finish", "U.any"]);
+    });
+    it("同じ参照先は1つにまとめる", () => {
+        expect(asOtherRefCandidates([{ name: "", uuid: "U.a" }, { name: "", uuid: "U.a" }], () => true)).toEqual(["U.a"]);
+    });
+});
+
+describe("miracleLogCandidates()（使用ログのうち自分が登場したシーンのもの）", () => {
+    const log = [
+        { scene: 1, uuid: "U.dance", name: "死の舞踏", appeared: ["hiruko", "x"] },
+        { scene: 2, uuid: "U.chai", name: "チャイ", appeared: ["x"] },
+        { scene: 3, uuid: "U.buy", name: "買収", appeared: ["x"] },
+        { scene: 1, uuid: "U.dance", name: "死の舞踏", appeared: ["hiruko"] },
+    ];
+    it("記帳時に登場していたシーンの神業を、同じ神業は1つにまとめて返す", () => {
+        expect(miracleLogCandidates(log, { actorId: "hiruko", sceneNumber: 5, appearedNow: [] }))
+            .toEqual([{ uuid: "U.dance", name: "死の舞踏" }]);
+    });
+    it("現在シーンの使用は、いま登場していれば(使用の後で登場しても)候補になる", () => {
+        expect(miracleLogCandidates(log, { actorId: "hiruko", sceneNumber: 3, appearedNow: ["hiruko"] }))
+            .toEqual([{ uuid: "U.dance", name: "死の舞踏" }, { uuid: "U.buy", name: "買収" }]);
+    });
+});
+
+describe("buildMiracleUseLogEntry() / miracleUseFromMessageFlags()（アクト内の神業使用ログ）", () => {
+    it("神業カードのフラグから印を取り、他の神業として使った分は解決後の神業を記帳する", () => {
+        const flags = { miracle: { itemId: "m1", name: "万能道具", uuid: "Actor.a.Item.m1", asOther: { uuid: "C.x", name: "難攻不落" } } };
+        const origin = miracleUseFromMessageFlags(flags);
+        expect(origin?.name).toBe("万能道具");
+        const entry = buildMiracleUseLogEntry({ sceneNumber: 2, sceneId: "s2", actorId: "a", actorName: "A", origin, appeared: ["a", "b"] });
+        expect(entry).toEqual({ scene: 2, sceneId: "s2", actorId: "a", actorName: "A", uuid: "C.x", name: "難攻不落", appeared: ["a", "b"] });
+    });
+    it("神業版ダメージカード(damageRoll.miracle)からも印を取る・神業でないカードは null", () => {
+        expect(miracleUseFromMessageFlags({ damageRoll: { miracle: { itemId: "m", name: "制裁", uuid: "U.m", actorId: "a" } } })?.uuid).toBe("U.m");
+        expect(miracleUseFromMessageFlags({ damageRoll: { attackPower: 3 } })).toBeNull();
+        expect(miracleUseFromMessageFlags({})).toBeNull();
     });
 });
 

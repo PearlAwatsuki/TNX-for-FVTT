@@ -223,7 +223,7 @@ async function applyRecoveryRemoval(patient, removeIds) {
  * @param {object} usage type="treatment" の用途エントリ
  * @param {?{patientUuid:string, effectId:string}} [prebound] 治療メニュー起点の確定済み文脈
  */
-export async function useRecovery(item, usage, prebound = null) {
+export async function useRecovery(item, usage, prebound = null, { asOther = null } = {}) {
     const actor = item.actor;
     if (!actor) { ui.notifications.warn("治療はアクターが所持しているアイテムから使用してください。"); return; }
     if (!(usage.recoveryTargets ?? []).length) {
@@ -266,6 +266,11 @@ export async function useRecovery(item, usage, prebound = null) {
         if (usesPlan === null) return;
         await applyConsumptionPlan(usesPlan);
         if (!await applyRecoveryRemoval(patient, plan.removeIds)) return;
+        // 神業の治癒(17-2)も神業カードを出す(神業の使用を卓に提示する・使用ログの記帳点・17-5)
+        if (item.type === "miracle") {
+            const { postMiracleCard } = await import("./miracle-flow.mjs");
+            await postMiracleCard(item, { asOther });
+        }
         await postConditionOutcome(patient, {
             title: usage.name || item.name, tag: "回復", status: "success",
             label: plan.label, text: "を回復。",

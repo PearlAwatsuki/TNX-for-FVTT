@@ -1358,7 +1358,7 @@ export class TnxCheckFlow {
      *   merge: 再判定の付与で起動技能を組み合わせるか(check 用途=true。宣言用途は判定でない=
      *   参加技能が無いため false で素の再判定権のみ付与・2026-07-13 ユーザー確定)
      */
-    static startAchievementAction(kind, actor, skill, { usageId = "", consumeUses = [], merge = true } = {}) {
+    static startAchievementAction(kind, actor, skill, { usageId = "", usage = null, consumeUses = [], merge = true, asOther = null } = {}) {
         const MSG = {
             recheck: {
                 cancel: "再判定の付与をキャンセルしました。",
@@ -1401,8 +1401,10 @@ export class TnxCheckFlow {
             ui.notifications.info(MSG.cancel);
             return;
         }
+        // usage=待ち受け開始時の用途そのもの(他の神業として使う神業は参照先の用途を持つ・17-5)・
+        // asOther=その参照先(印に添える)
         TnxCheckFlow._clickState = {
-            kind, actorId: actor.id, skillItemId: skill.id, skillName: skill.name, usageId, consumeUses, merge,
+            kind, actorId: actor.id, skillItemId: skill.id, skillName: skill.name, usageId, usage, consumeUses, merge, asOther,
         };
         document.body.classList.add("tnx-recheck-grant-pending");
         ui.notifications.info(MSG.start);

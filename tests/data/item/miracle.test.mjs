@@ -90,6 +90,17 @@ describe("MiracleDataModel.defineSchema()", () => {
     });
   });
 
+  describe("他の神業として使う asOther（17-5）", () => {
+    it("mode は StringField・既定 空（\"\"=なし／refs=参照先から決まる・選ぶ／log=このアクトで使われた神業から選ぶ）", () => {
+      expect(schema.asOther.fields.mode.options.initial).toBe("");
+    });
+
+    it("refs は行の配列（条件技能のカスケード skillDict/skillGroup/skillSub/name=識別キー・空なら無条件／uuid=参照先の神業）", () => {
+      const row = schema.asOther.fields.refs.element.fields;
+      for (const k of ["skillDict", "skillGroup", "skillSub", "name", "uuid"]) expect(row[k].options.initial).toBe("");
+    });
+  });
+
   describe("miracle に含まれないフィールド", () => {
     it("skillBase 由来の level が含まれない", () => {
       expect(schema).not.toHaveProperty("level");

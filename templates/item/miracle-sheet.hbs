@@ -75,6 +75,57 @@
                     </div>
                 </div>
             </fieldset>
+
+            {{!-- 他の神業として使う(17-5・アイテム側の機能): 選び方と参照行。条件技能は対決欄と同じ辞典カスケード
+                 (識別キー保存・現在名表示)、参照先はスタイル→神業と同じ uuid 参照(神業のドロップ・右クリックで解除)。
+                 uuid は hidden で持ち、フォーム送信でも行が欠けないようにする --}}
+            <fieldset class="tnx-fieldset tnx-asother-section">
+                <legend>
+                    他の神業として使う
+                    {{#if asOtherIsRefs}}{{#if editable}}
+                    <a class="tnx-combo-add" data-action="asOtherRefAdd" title="参照先を追加"><i class="fas fa-plus"></i></a>
+                    {{/if}}{{/if}}
+                </legend>
+                <div class="tnx-form-field">
+                    <div class="form-group">
+                        <label>選び方</label>
+                        <select name="system.asOther.mode" {{#unless editable}}disabled{{/unless}}>
+                            {{selectOptions asOtherModeOptions selected=system.asOther.mode}}
+                        </select>
+                    </div>
+                </div>
+                {{#if asOtherIsRefs}}
+                <div class="tnx-form-field">
+                    <div class="tnx-combo-cards">
+                        {{#each asOtherRefs as |row|}}
+                        <div class="tnx-combo-card">
+                            <div class="tnx-combo-grid">
+                                {{#each row.cascadeSteps}}
+                                <select name="system.asOther.refs.{{row.idx}}.{{this.field}}"{{#if this.full}} class="tnx-combo-full"{{/if}} {{#unless @root.editable}}disabled{{/unless}}>
+                                    {{selectOptions this.options selected=this.value}}
+                                </select>
+                                {{/each}}
+                                <input type="hidden" name="system.asOther.refs.{{row.idx}}.uuid" value="{{row.uuid}}">
+                                {{#if row.miracle}}
+                                <button type="button" class="tnx-linked-btn tnx-combo-full" data-action="asOtherRefOpen" data-index="{{row.idx}}" data-context-menu-type="asother-ref">
+                                    <img src="{{row.miracle.img}}" class="tnx-linked-btn__icon"/>
+                                    <span class="tnx-linked-btn__label">{{row.miracle.name}}</span>
+                                </button>
+                                {{else}}
+                                <div class="tnx-import-box tnx-import-box--dropzone tnx-combo-full" data-drop-area="asother-{{row.idx}}">
+                                    <span>参照先の神業をここにドロップ</span>
+                                </div>
+                                {{/if}}
+                            </div>
+                            {{#if @root.editable}}
+                            <a class="tnx-combo-del" data-action="asOtherRefDelete" data-index="{{row.idx}}" title="削除"><i class="fas fa-trash"></i></a>
+                            {{/if}}
+                        </div>
+                        {{/each}}
+                    </div>
+                </div>
+                {{/if}}
+            </fieldset>
         </div>
 
         <div class="tab usage" data-group="primary" data-tab="usage">

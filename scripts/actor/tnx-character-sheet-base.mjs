@@ -2451,7 +2451,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
      * @param {Actor} actor 起動アクター
      * @param {Item} item 起動する技能/アイテム
      * @param {object} [extraOpen] TnxCheckFlow.open へ合流する追加パラメータ(既定値を上書き可)。
-     *   miracleFree={messageId}: 《プリーズ！》の要求カードから使わされる神業(残回数ゲートも消費も無い・17-4)
+     *   miracleFree={messageId}: 《プリーズ！》の要求カードから使わされる神業(残回数ゲートも消費も無い・17-4)。
+     *   asOther={uuid,name,source}: 他の神業として使う神業(17-5)の解決済みの参照先(再入時に載る)
      * @returns {Promise<boolean|undefined>} 神業の分岐は発動したか(要求カードが使用済みを記録する)。判定系は未定義
      */
     static async _activateItemCheck(actor, item, extraOpen = {}) {
@@ -2475,22 +2476,31 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 旧 usableUsagesOf(フラグ無し宣言を除外)は廃止=アウトフィットのように宣言用途しか
         // 持たないアイテムがロールできず解説カードに落ちていた。
         // ※判定要求への応答は別規則(canAnswerCheckRequest=判定タイプ限定・2026-07-19 ユーザー裁定)。
-        const usableUsages = item.system.actions ?? [];
+        // 他の神業として使う(17-5・《万能道具》《突然変異》): 参照先/使用ログから神業を決めて再入する。
+        // 以降は参照先の用途で分岐し、名前・使用回数・印・消費・話者は元の神業(この item)のまま
+        if (item.type === "miracle" && item.system.asOther?.mode && !openExtra.asOther) {
+            const { resolveAsOther } = await import("../module/miracle-flow.mjs");
+            const picked = await resolveAsOther(actor, item);
+            if (!picked) return false;
+            return TnxCharacterSheetBase._activateItemCheck(actor, item, { ...openExtra, asOther: picked });
+        }
+        const asOther = openExtra.asOther ?? null;
+        const usableUsages = (asOther?.source ?? item).system.actions ?? [];
 
         // 用途を決定（直接指定→カバー再入の引き継ぎ→1つなら自動選択→複数はピッカー表示）。
         // カバーの判定起動(covering)は、待ち受け開始時に確定した用途を再選択せず引き継ぐ。
         let selectedUsage;
         if (directUsageId) {
-            selectedUsage = (item.system.actions ?? []).find(a => a._id === directUsageId) ?? null;
+            selectedUsage = usableUsages.find(a => a._id === directUsageId) ?? null;
             if (!selectedUsage) return;
         } else if (openExtra.covering?.usageId) {
-            selectedUsage = (item.system.actions ?? []).find(a => a._id === openExtra.covering.usageId) ?? null;
+            selectedUsage = usableUsages.find(a => a._id === openExtra.covering.usageId) ?? null;
             if (!selectedUsage) return;
         } else if (!usableUsages.length) {
             // 神業(17-1)は用途が無くても機能する: 残回数ゲート→使用回数の消費→神業カード。
             // 用途は前提条件でなく、固有の挙動(打ち消し・防御・ダメージ等)を足すためのもの
             // 《プリーズ！》で使わされる(openExtra.miracleFree)ときは残回数ゲートも消費も無い(17-4)
-            if (item.type === "miracle") return useMiracleWithoutUsage(item, { free: !!openExtra.miracleFree });
+            if (item.type === "miracle") return useMiracleWithoutUsage(item, { free: !!openExtra.miracleFree, asOther });
             await item.postDescriptionCard();
             return;
         } else if (usableUsages.length === 1) {
@@ -2664,7 +2674,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             const action = selectedUsage.defenceAction || "prevent";
             if (action === "cure") {
                 try {
-                    return await useRecovery(item, selectedUsage, openExtra.treatment ?? null) === true;
+                    return await useRecovery(item, selectedUsage, openExtra.treatment ?? null, { asOther }) === true;
                 } catch (err) {
                     console.error("TNX | 神業の治癒の実行に失敗しました", err);
                     ui.notifications.error(`神業の治癒の実行に失敗しました: ${err.message}`);
@@ -2676,7 +2686,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${item.name}` });
             if (plan === null) return;
             TnxCheckFlow.startAchievementAction(kind, actor, item, {
-                usageId: selectedUsage._id, consumeUses: plan, merge: false,
+                usageId: selectedUsage._id, usage: selectedUsage, consumeUses: plan, merge: false, asOther,
             });
             return true;
         }
@@ -2685,7 +2695,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         if (selectedUsage.type === "miracleKill" || selectedUsage.type === "miracleSocial") {
             try {
                 const { useMiracleDamage } = await import("../module/miracle-flow.mjs");
-                return await useMiracleDamage(actor, item, selectedUsage);
+                return await useMiracleDamage(actor, item, selectedUsage, { asOther });
             } catch (err) {
                 console.error("TNX | 神業のダメージの実行に失敗しました", err);
                 ui.notifications.error(`神業のダメージの実行に失敗しました: ${err.message}`);
@@ -2696,7 +2706,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         if (selectedUsage.type === "miracleDestroy") {
             try {
                 const { useMiracleDestroy } = await import("../module/miracle-flow.mjs");
-                return await useMiracleDestroy(actor, item, selectedUsage);
+                return await useMiracleDestroy(actor, item, selectedUsage, { asOther });
             } catch (err) {
                 console.error("TNX | 神業の破壊の実行に失敗しました", err);
                 ui.notifications.error(`神業の破壊の実行に失敗しました: ${err.message}`);
@@ -2708,7 +2718,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         if (selectedUsage.type === "miracleDeclaration" && selectedUsage.miracleInterference) {
             try {
                 const { useMiracleInterference } = await import("../module/miracle-flow.mjs");
-                return await useMiracleInterference(actor, item, selectedUsage);
+                return await useMiracleInterference(actor, item, selectedUsage, { asOther });
             } catch (err) {
                 console.error("TNX | 神業の干渉の実行に失敗しました", err);
                 ui.notifications.error(`神業の干渉の実行に失敗しました: ${err.message}`);
@@ -2718,7 +2728,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
 
         // 神業専用タイプ(17-2)は判定を行わない。宣言=17-1 の宣言経路(神業カード＋適用効果)
         if (selectedUsage.type === "declaration" || isMiracleType(selectedUsage.type)) {
-            return await TnxCharacterSheetBase._useDeclarationUsage(actor, item, selectedUsage) === true;
+            return await TnxCharacterSheetBase._useDeclarationUsage(actor, item, selectedUsage, { asOther }) === true;
         }
 
         // リアクションの適用効果は攻撃者へ返す(リアクションの対象は「なし」=万一 AE があれば攻撃者に
@@ -2770,7 +2780,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
      * 使用回数の消費(使用時に確定・適用)→解説カード(postDescriptionCard)を投稿する
      * (2026-08-30 統合)。適用効果があればカード末尾に「効果を適用」ボタンが注入される。
      */
-    static async _useDeclarationUsage(actor, item, usage) {
+    static async _useDeclarationUsage(actor, item, usage, { asOther = null } = {}) {
         // 対象解決(2026-08-30 是正): 宣言も判定系と同じ決定表駆動の対象解決を通す(自身/単体の
         // 自動セルフ等)。従来は素通りでレティクル頼み=対象=自身の宣言がノーターゲットで
         // 「対象なし」になる欠陥だった。キャンセルは中止(消費より前に置く)
@@ -2793,8 +2803,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // あれば効果セクション(トレイ)が末尾に注入され、無くてもカードは出す
         // (旧・実行者ローカル通知はカード化に伴い廃止=他クライアントに見えなかった)。
         // 神業は神業カード(印つき・条件と残り使用回数を持つ)で出す(17-1)
-        const usageEffects = await prepareUsageEffectPayload(actor, item, usage);
-        if (item.type === "miracle") await postMiracleCard(item, { usageEffects });
+        // 他の神業として使う(17-5): 適用効果は参照先の神業の効果から組む(用途は参照先のもの)
+        const usageEffects = await prepareUsageEffectPayload(actor, asOther?.source ?? item, usage);
+        if (item.type === "miracle") await postMiracleCard(item, { usageEffects, asOther });
         else await item.postDescriptionCard({ usageEffects });
         return true; // 発動した(神業の要求カードが使用済みを記録する・17-4)
     }

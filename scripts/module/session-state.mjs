@@ -15,6 +15,7 @@
  */
 
 import { TNX_HOOKS } from "./combat-events.mjs";
+import { miracleUseFromMessageFlags, buildMiracleUseLogEntry } from "./miracle-logic.mjs";
 import {
     normalizeSceneRow, normalizeHandoutRow, findSceneRow, firstSceneRow,
     buildPreActInit, planSceneSwitchEvents, planActEndEvents,
@@ -76,6 +77,10 @@ const DEFAULTS = Object.freeze({
     // アクトの読み込みでリセット、シーン入場で後者だけクリアする
     appearanceCounts:  {},
     appearedThisScene: [],
+    // アクト内の神業使用ログ(17-5・《突然変異》の候補): 神業カード/神業版ダメージカードの投稿を
+    // アクティブ RL のクライアントで拾って記帳する。行=miracle-logic.buildMiracleUseLogEntry。
+    // アクトの読み込み・終了で初期化に乗って消える
+    miracleUseLog:     [],
 });
 
 /** 舞台裏の初期状態(シーン単位・入場時にリセットする)。 */
@@ -130,6 +135,33 @@ export function registerAppearanceExpTracking() {
             });
             if (next) await setState(next);
         }).catch(err => console.error("TNX | 登場シーン数の記帳に失敗しました", err));
+    });
+}
+
+// ─── アクト内の神業使用ログ(17-5) ────────────────────────────────────────────
+let _miracleLogQueue = Promise.resolve();
+
+/**
+ * 神業の使用を記帳する(init で呼ぶ)。神業カード(flags.miracle)と神業版ダメージカード
+ * (damageRoll.miracle)の投稿を createChatMessage で拾い、登場の記帳と同じくアクティブ GM 側で
+ * ワールド設定へ直列に書く。他の神業として使った分は解決後の神業(印の asOther)を記帳する。
+ */
+export function registerMiracleUseLogging() {
+    Hooks.on("createChatMessage", (message) => {
+        if (game.users.activeGM?.isSelf !== true) return;
+        const origin = miracleUseFromMessageFlags(message.flags?.[SCOPE]);
+        if (!origin) return;
+        _miracleLogQueue = _miracleLogQueue.then(async () => {
+            const st = getSessionState();
+            if (!st.actStarted) return;
+            const actorId = message.speaker?.actor ?? "";
+            const actor = actorId ? game.actors.get(actorId) : null;
+            const entry = buildMiracleUseLogEntry({
+                sceneNumber: st.sceneNumber, sceneId: st.sceneId, actorId,
+                actorName: actor?.name ?? message.speaker?.alias ?? "", origin, appeared: st.appearedThisScene ?? [],
+            });
+            await setState({ miracleUseLog: [...(st.miracleUseLog ?? []), entry] });
+        }).catch(err => console.error("TNX | 神業の使用ログの記帳に失敗しました", err));
     });
 }
 

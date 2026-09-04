@@ -101,12 +101,18 @@ export function addUseEffectSource({ name, img = "" }) {
 
 /**
  * 神業由来の印の出どころ: 用途の親アイテムが miracle 型であること(専用フィールドは持たない)。
- * @param {{id?: string, type?: string, name?: string}|null|undefined} item
- * @returns {?{itemId: string, name: string}} 神業でなければ null
+ * 他の神業として使ったとき(17-5)は、その神業(uuid と名前)を印に添える——カードの「効果」行と
+ * 使用ログ(《突然変異》がコピーするのは解決後の神業)のため。source(ドキュメント)は載せない。
+ * @param {{id?: string, type?: string, name?: string, uuid?: string}|null|undefined} item
+ * @param {?{uuid: string, name: string}} [asOther] 他の神業として使うときの参照先
+ * @returns {?{itemId: string, name: string, uuid: string, asOther?: {uuid: string, name: string}}} 神業でなければ null
  */
-export function miracleOriginOf(item) {
+export function miracleOriginOf(item, asOther = null) {
     if (item?.type !== "miracle") return null;
-    return { itemId: item.id ?? "", name: item.name ?? "" };
+    return {
+        itemId: item.id, name: item.name, uuid: item.uuid ?? "",
+        ...(asOther?.uuid ? { asOther: { uuid: asOther.uuid, name: asOther.name ?? "" } } : {}),
+    };
 }
 
 /**
@@ -327,3 +333,71 @@ export function buildMiracleCardData(item, { description = "", condition = "", r
         max,
     };
 }
+
+// ─── 他の神業として使う神業(17-5・《万能道具》《突然変異》) ───────────────────────────
+// 効果文《万能道具》「取得している〈フォルム〉によって、異なるスタイルの神業と同等の効果が発生する」＋
+// 対応表(アイテム側に参照行として設定)／《突然変異》「そのアクト中に使用された神業をコピーして使用する」
+// 「コピーする神業は、あなたが登場したシーンで使用されたものに限られる」「登場していれば、その神業の
+// 効果が適用される前であっても、コピーすることは可能」。選び方は3つ・実行経路は1つ(選ばれた神業の
+// 用途を、元の神業の名前・使用回数・印のもとで実行する)。
+
+/**
+ * 参照行のうち条件技能を満たすものの参照先(uuid)を順に返す。条件技能が空の行は無条件。
+ * 参照先が空の行は除き、同じ参照先は1つにまとめる。
+ * @param {Array<{name?: string, uuid?: string}>} refs 参照行
+ * @param {(key: string) => boolean} hasSkill アクターがその識別キーの技能を所持するか
+ * @returns {string[]} 参照先の uuid
+ */
+export function asOtherRefCandidates(refs, hasSkill) {
+    const out = [];
+    for (const r of (refs ?? [])) {
+        if (!r?.uuid) continue;
+        if (r.name && !hasSkill(r.name)) continue;
+        if (!out.includes(r.uuid)) out.push(r.uuid);
+    }
+    return out;
+}
+
+/**
+ * 使用ログのうち、その人が登場したシーンで使われた神業(同じ神業は1つに)。
+ * 記帳時に登場していたか、または現在シーンの使用でいま登場していれば候補になる
+ * (同じシーンで使用の後に登場した場合も「登場したシーンで使用されたもの」)。
+ * @param {Array<{scene: number, uuid: string, name: string, appeared?: string[]}>} log
+ * @param {{actorId: string, sceneNumber: number, appearedNow?: string[]}} ctx
+ * @returns {Array<{uuid: string, name: string}>}
+ */
+export function miracleLogCandidates(log, { actorId, sceneNumber, appearedNow = [] }) {
+    const out = [];
+    const nowHere = (appearedNow ?? []).includes(actorId);
+    for (const e of (log ?? [])) {
+        if (!e?.uuid) continue;
+        const wasHere = (e.appeared ?? []).includes(actorId) || (nowHere && e.scene === sceneNumber);
+        if (!wasHere) continue;
+        if (out.some(c => c.uuid === e.uuid)) continue;
+        out.push({ uuid: e.uuid, name: e.name ?? "" });
+    }
+    return out;
+}
+
+/**
+ * カードのフラグから神業の使用(印)を取る。神業カード(miracle)か神業版ダメージカード
+ * (damageRoll.miracle)。それ以外は null。
+ * @param {object|null|undefined} flags システムスコープのフラグ
+ * @returns {?{itemId: string, name: string, uuid?: string, asOther?: {uuid: string, name: string}}}
+ */
+export function miracleUseFromMessageFlags(flags) {
+    const origin = flags?.miracle?.itemId ? flags.miracle : (flags?.damageRoll?.miracle?.itemId ? flags.damageRoll.miracle : null);
+    return origin ?? null;
+}
+
+/**
+ * 使用ログの1行。他の神業として使った分は**解決後の神業**を記帳する(《突然変異》がコピーするのは
+ * 実際に起きた効果の神業)。appeared=記帳時に登場していたアクター id。
+ * @returns {{scene: number, sceneId: string, actorId: string, actorName: string, uuid: string, name: string, appeared: string[]}}
+ */
+export function buildMiracleUseLogEntry({ sceneNumber, sceneId = "", actorId = "", actorName = "", origin, appeared = [] }) {
+    const uuid = origin?.asOther?.uuid || origin?.uuid || "";
+    const name = origin?.asOther?.uuid ? (origin.asOther.name ?? "") : (origin?.name ?? "");
+    return { scene: Number(sceneNumber) || 0, sceneId, actorId, actorName, uuid, name, appeared: [...(appeared ?? [])] };
+}
+

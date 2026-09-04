@@ -45,6 +45,20 @@ export class MiracleDataModel extends SystemDataModel.mixin(BaseTemplate, UsageT
         spent:   new fields.NumberField({ initial: 0 }),
       }),
       identificationKey: new fields.StringField({ initial: "" }),
+      // 他の神業として使う(17-5・アイテム側の機能)。mode: ""=なし／refs=参照先から決まる・選ぶ
+      // (《万能道具》=取得技能で決まる・《半身》=指定の選択肢から選ぶ)／log=このアクトで使われた
+      // 神業から選ぶ(《突然変異》)。refs の行=条件技能(対決欄と同じ辞典カスケード・name=識別キー・
+      // 空なら無条件)→参照先の神業(uuid・スタイル→神業と同じ参照)。対応表はコードに持たずここに設定する
+      asOther: new fields.SchemaField({
+        mode: new fields.StringField({ initial: "" }),
+        refs: new fields.ArrayField(new fields.SchemaField({
+          skillDict:  new fields.StringField({ initial: "" }),
+          skillGroup: new fields.StringField({ initial: "" }),
+          skillSub:   new fields.StringField({ initial: "" }),
+          name:       new fields.StringField({ initial: "" }),
+          uuid:       new fields.StringField({ initial: "" }),
+        })),
+      }),
     };
   }
 
