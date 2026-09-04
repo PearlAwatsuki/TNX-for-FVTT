@@ -1813,16 +1813,6 @@ Hooks.once("init", async function() {
     });
 
     Hooks.on("preUpdateItem", async(item, changes) => {
-        // 更新されるアイテムが神業の場合の処理
-        if (item.type === "miracle") {
-            // 「使用済み(isUsed)」フラグが true → false に変更されたら残りを満タンへ(spent=0)。2026-07-18 uses 一本化
-            const newIsUsed = foundry.utils.getProperty(changes, "system.isUsed");
-            if (item.system.isUsed === true && newIsUsed === false) {
-                foundry.utils.setProperty(changes, "system.uses.spent", 0);
-                ui.notifications.info(`神業「${item.name}」の使用回数がリセットされました。`);
-            }
-        }
-    
         // スタイルアイテム以外の更新は無視 (既存の処理)
         if (item.type === "style" && item.actor) {
             const oldLevel = item.system.level || 1;

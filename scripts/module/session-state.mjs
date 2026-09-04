@@ -16,6 +16,7 @@
 
 import { TNX_HOOKS } from "./combat-events.mjs";
 import { miracleUseFromMessageFlags, buildMiracleUseLogEntry, miracleUsePending, markMiracleUseApplied } from "./miracle-logic.mjs";
+import { listAppearingActors } from "./appearance-state.mjs";
 import {
     normalizeSceneRow, normalizeHandoutRow, findSceneRow, firstSceneRow,
     buildPreActInit, planSceneSwitchEvents, planActEndEvents,
@@ -142,6 +143,16 @@ export function registerAppearanceExpTracking() {
 let _miracleLogQueue = Promise.resolve();
 
 /**
+ * いま登場しているキャラクターの id(《突然変異》の「見聞きした」の判定材料)。
+ * **登場状態(appearance-state)が正本**——`appearedThisScene` は経験点配布の集計用(キャストのみ・
+ * シーン内の重複防止)で、ゲストが一切入らない(2026-09-05 是正: これを読んでいたため記録が空だった)。
+ * @returns {string[]}
+ */
+function appearingActorIds() {
+    return listAppearingActors().map(a => a.id);
+}
+
+/**
  * 神業の使用を記帳する(init で呼ぶ)。神業カード(flags.miracle)と神業版ダメージカード
  * (damageRoll.miracle)の投稿を createChatMessage で拾い、登場の記帳と同じくアクティブ GM 側で
  * ワールド設定へ直列に書く。他の神業として使った分は解決後の神業(印の asOther)を記帳する。
@@ -153,12 +164,11 @@ export function registerMiracleUseLogging() {
         if (!origin) return;
         _miracleLogQueue = _miracleLogQueue.then(async () => {
             const st = getSessionState();
-            if (!st.actStarted) return;
             const actorId = message.speaker?.actor ?? "";
             const actor = actorId ? game.actors.get(actorId) : null;
             const entry = buildMiracleUseLogEntry({
                 sceneNumber: st.sceneNumber, sceneId: st.sceneId, actorId,
-                actorName: actor?.name ?? message.speaker?.alias ?? "", origin, appeared: st.appearedThisScene ?? [],
+                actorName: actor?.name ?? message.speaker?.alias ?? "", origin, appeared: appearingActorIds(),
                 messageId: message.id, applied: !miracleUsePending(message.flags?.[SCOPE]),
             });
             await setState({ miracleUseLog: [...(st.miracleUseLog ?? []), entry] });
@@ -172,7 +182,7 @@ export function registerMiracleUseLogging() {
         if (!miracleUseFromMessageFlags(flags) || miracleUsePending(flags)) return;
         _miracleLogQueue = _miracleLogQueue.then(async () => {
             const st = getSessionState();
-            const next = markMiracleUseApplied(st.miracleUseLog ?? [], message.id, st.appearedThisScene ?? []);
+            const next = markMiracleUseApplied(st.miracleUseLog ?? [], message.id, appearingActorIds());
             if (next) await setState({ miracleUseLog: next });
         }).catch(err => console.error("TNX | 神業の使用ログの適用記帳に失敗しました", err));
     });

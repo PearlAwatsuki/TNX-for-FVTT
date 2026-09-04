@@ -619,12 +619,20 @@ export function renderDamageCard(message, html) {
  */
 function renderMiracleDamageCard(message, html, f, { ledger, area, row, line, esc, dmgTargets, liveIdx }) {
     const label = miracleResultLabel(f.miracleResult, f.category);
+    const negated = !!f.negatedBy;
+    // 全対象が防がれた＝この神業の結果は起きなかった(一部だけ防がれた場合は残りに起きる)
+    const allPrevented = dmgTargets.length > 0 && liveIdx.length === 0;
+    const voided = negated || allPrevented;
+
     row(ledger, "神業", esc(f.miracle?.name ?? "神業"));
     // 他の神業として使った分(17-5)は神業カードと同じ「効果」の行(名前に括弧で足すと狭い幅で語の途中で折れる)
     if (f.miracle?.asOther?.name) row(ledger, "効果", `《${esc(f.miracle.asOther.name)}》`);
     // めくったカードは1枚1行(ダメージカードの行と同じ形・狭い幅で語の途中で折れない)
     (f.miracleResult?.drawn ?? []).forEach((d, i) => row(ledger, `カード ${i + 1}`, esc(d)));
-    row(ledger, "結果", esc(label), "cr-calc-row cr-total-row", "cr-total-num");
+    // 結果は**通常の行**(値は「完全死亡」等の状態名で、巨大表示は数値のための器・2026-09-05 是正)。
+    // 防がれた/打ち消されたときは取り消し線で「起きなかった」ことを示す——結果だけ先に出ると
+    // 防げなかったように読める(2026-09-05 ユーザー指摘)
+    row(ledger, "結果", esc(label), `cr-calc-row${voided ? " cr-calc-row--voided" : ""}`);
 
     // 打ち消し(17-2)の発動点: 見出しクリック(モード外は無視)
     const head = html.querySelector(".cr-head");
@@ -637,24 +645,39 @@ function renderMiracleDamageCard(message, html, f, { ledger, area, row, line, es
         });
     }
 
+    // 打ち消し: カードごと無かったことになる(対象ごとの行は出さない)
+    if (negated) {
+        line(area, "cr-result cr-result--nodamage",
+            `<i class="fas fa-ban"></i> 《${esc(f.negatedBy.name ?? "神業")}》により打ち消された`);
+        return;
+    }
+
     if (f.applied && f.appliedResult) {
         for (const tr of (f.appliedResult.targets ?? [])) {
-            row(area, esc(tr.name), esc(tr.resultLabel ?? label), "cr-calc-row cr-total-row", "cr-total-num");
+            row(area, esc(tr.name), esc(tr.resultLabel ?? label));
             line(area, `cr-result ${tr.applied === false ? "cr-result--nodamage" : "cr-result--damage"}`,
                 `<i class="fas ${tr.applied === false ? "fa-shield-halved" : "fa-burst"}"></i> ${esc(tr.applyText ?? "")}`);
         }
         return;
     }
-    for (const i of liveIdx) {
+
+    // 対象ごとの行。**防がれた対象も残す**——行ごと消えると「防げなかった」ように読める(2026-09-05 是正)
+    const live = new Set(liveIdx);
+    for (let i = 0; i < dmgTargets.length; i++) {
         const t = dmgTargets[i];
-        row(area, esc(t.name), esc(label), "cr-calc-row cr-total-row", "cr-total-num");
+        if (!live.has(i)) {
+            line(area, "cr-result cr-result--nodamage",
+                `<i class="fas fa-shield-halved"></i> 「${esc(t.name)}」は《${esc(t.protectedBy?.name ?? "神業")}》で防がれた`);
+            continue;
+        }
+        row(area, esc(t.name), esc(label));
         const nameEl = area.lastElementChild?.querySelector(".cr-calc-label");
         if (nameEl && !nameEl.classList.contains("tnx-recheck-target")) {
             nameEl.classList.add("tnx-recheck-target");
             nameEl.addEventListener("click", () => handleDamageProtectClick(message, i));
         }
     }
-    if (dmgTargets.length && !liveIdx.length) return; // 全対象が防がれた(または打ち消された)
+    if (allPrevented) return;
     if (!dmgTargets.length) { line(area, "cr-tn", "対象未選択（適用は手動で行ってください）"); return; }
     const canApply = game.user.isGM || liveIdx.some(i => resolveSync(dmgTargets[i].uuid)?.isOwner);
     if (!canApply) { line(area, "cr-tn", "（適用は対象の操作者または RL が行います）"); return; }

@@ -1785,6 +1785,33 @@
     margin-right: 8px;
 }
 
+/* 他の神業として使う(17-5)の選択肢: 1行＝[区分の技能][参照先の神業][削除]。〈フォルム〉の対応表の
+   ように十数件並んでも一覧できるよう1行1選択肢にする(2026-09-05 是正) */
+.tokyo-nova.sheet.item .tnx-asother-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tokyo-nova.sheet.item .tnx-asother-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tokyo-nova.sheet.item .tnx-asother-row > .tnx-linked-btn,
+.tokyo-nova.sheet.item .tnx-asother-row > .tnx-import-box {
+    flex: 1 1 0;
+    min-width: 0;
+    margin: 0;
+}
+
+/* 神業版のダメージカード: 防がれた/打ち消された結果は取り消し線で「起きなかった」ことを示す(2026-09-05) */
+.tnx-damage-card .cr-calc-row--voided .cr-calc-val {
+    text-decoration: line-through;
+    color: var(--tnx2-text-muted);
+}
+
 /* 宿主(17-6・カゲムシャ)は所属ブロックの器を共有し、ミニラベルだけ HOST にする */
 .tokyo-nova.sheet.actor .profile-header .middle-header-section .host-block .view-mode-affiliation .view-mode-label::before {
     content: "HOST";

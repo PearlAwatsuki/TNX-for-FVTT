@@ -25,8 +25,8 @@ export function miracleUseGate(system) {
 }
 
 /**
- * 使用による消費の更新オブジェクト。消費済みを 1 増やし(実効最大値で頭打ち)、この消費で
- * 尽きるなら isUsed を true にする(手動リセットの起点として残す・旧経路と同じ)。
+ * 使用による消費の更新オブジェクト。消費済みを 1 増やす(実効最大値で頭打ち)。
+ * 使用済みフラグは廃止(2026-09-05)——「使用済み」は残り(maxTotal − spent)から導ける。
  * @param {object} system 神業アイテムの system
  * @returns {Record<string, number|boolean>} item.update 用の更新データ
  */
@@ -34,7 +34,6 @@ export function miracleConsumeUpdate(system) {
     const { max } = miracleUseGate(system);
     const spent = Math.min(max, (Number(system?.uses?.spent) || 0) + 1);
     const update = { "system.uses.spent": spent };
-    if (spent >= max) update["system.isUsed"] = true;
     return update;
 }
 

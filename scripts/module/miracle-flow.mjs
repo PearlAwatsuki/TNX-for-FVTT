@@ -27,6 +27,7 @@ import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { isOutfitDestroyed } from "../data/item/helpers.mjs";
 import { buildGrantedEffectDataFrom } from "./usage-effects.mjs";
 import { getSessionState } from "./session-state.mjs";
+import { listAppearingActors } from "./appearance-state.mjs";
 import { applyInterruptGrantForUsage } from "./interrupt-grant.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
@@ -352,7 +353,7 @@ export async function resolveAsOther(actor, item) {
     } else if (cfg.mode === "log") {
         const st = getSessionState();
         const list = miracleLogCandidates(st.miracleUseLog ?? [], {
-            actorId: actor.id, sceneNumber: st.sceneNumber, appearedNow: st.appearedThisScene ?? [],
+            actorId: actor.id, sceneNumber: st.sceneNumber, appearedNow: listAppearingActors().map(a => a.id),
         });
         for (const c of list) await collect(c.uuid);
         if (!candidates.length) {

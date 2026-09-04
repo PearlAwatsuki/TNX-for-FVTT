@@ -51,6 +51,9 @@
             </div>
             {{else}}
 
+            {{!-- タイミング。神業は**タイミングの概念を持たない**(強いて言えば「いつでも」・2026-09-05
+                 ユーザー確定)ため、神業専用タイプでは欄ごと出さない --}}
+            {{#unless isMiracleUsage}}
             <fieldset class="tnx-fieldset">
                 <legend>タイミング</legend>
                 <div class="usage-form-grid">
@@ -90,6 +93,7 @@
                 </div>
                 </div>
             </fieldset>
+            {{/unless}}
 
             <fieldset class="tnx-fieldset">
                 <legend>対象・射程</legend>

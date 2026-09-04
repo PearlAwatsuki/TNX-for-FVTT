@@ -2,7 +2,7 @@
  * @fileoverview MiracleDataModel - 神業 Item の DataModel
  *
  * 使用 template: base + usage
- * 固有フィールド: furigana / usageCondition / isUsed / uses
+ * 固有フィールド: furigana / usageCondition / uses / asOther
  *
  * 殺し神業/防御神業/万能神業の区分(旧 isKill / isDefence / isAll)は形骸化したフラグとして撤去
  * (フェーズ17-1・2026-09-03 ユーザー裁定)。挙動の区分は用途側で表し、アイテムに区分を持たない。
@@ -17,7 +17,10 @@
  *   `uses.maxTotal`**(2026-08-09・KI-038 で新設。それ以前は着地点が無く AE が効いていなかった)。
  * - uses.max は他アイテムと同型で**数値も式も受ける StringField**(2026-08-09)。ただし神業の母数は
  *   上記の連動フックが機械維持する領分のため、式を入れても次のレベル変更で数値に上書きされる。
- * - 「使用済み(isUsed)」フラグは残り使用回数リセットのトリガー。true→false で spent=0(満タンへ)。
+ * - **使用済みフラグ(isUsed)は廃止(2026-09-05 ユーザー指摘)**。使用回数(残り = maxTotal − spent)と
+ *   二重管理になっていた——神業は「アクト中にスタイルレベル回」使え(《ファイト！》で母数が増える)、
+ *   その残量を数える uses が実体。「使用済み」は uses 一本化(2026-07-18)以前の名残で、リセットの
+ *   トリガー以上の意味を持たなかった。リセットは消費済みの入力で行う。
  */
 
 import { SystemDataModel } from "../abstract.mjs";
@@ -33,7 +36,6 @@ export class MiracleDataModel extends SystemDataModel.mixin(BaseTemplate, UsageT
       ...super.defineSchema(),
       furigana:       new fields.StringField({ initial: "" }),
       usageCondition: new fields.StringField({ initial: "" }),
-      isUsed:         new fields.BooleanField({ initial: false }),
       // 汎用の使用回数(残り = max − spent)。神業は常に母数を持つため isLimit 既定 true・母数(max)
       // 既定 "1"。母数はスタイルレベル連動(tnx.mjs)で維持される
       // max は他アイテムと同型で**数値も式も受ける**が(2026-08-09)、神業の母数は連動フックが
@@ -55,8 +57,10 @@ export class MiracleDataModel extends SystemDataModel.mixin(BaseTemplate, UsageT
         mode:     new fields.StringField({ initial: "" }),
         selected: new fields.StringField({ initial: "" }),
         choices: new fields.ArrayField(new fields.SchemaField({
-          label: new fields.StringField({ initial: "" }),
-          uuid:  new fields.StringField({ initial: "" }),
+          // 区分の技能(〈フォルム〉〈属性〉等)と参照先の神業。**どちらもドロップで指定**する
+          // (片方だけ文字列入力なのは非対称・2026-09-05 ユーザー指摘)。表示は uuid のライブ解決
+          skillUuid: new fields.StringField({ initial: "" }),
+          uuid:      new fields.StringField({ initial: "" }),
         })),
       }),
     };
@@ -77,11 +81,17 @@ export class MiracleDataModel extends SystemDataModel.mixin(BaseTemplate, UsageT
     }
     // uses.max の NumberField → StringField(2026-08-09)。**usageCount 移行の後に**呼ぶ
     migrateUsesMaxToString(source);
-    // 他の神業として使う: 旧 refs(取得技能で導く・同日中の未リリース形) → choices(選んで固定・2026-09-04)
+    // 他の神業として使う: 旧 refs(取得技能で導く) → choices(選んで固定・2026-09-04)、
+    // 旧 label(区分の文字列) → skillUuid(技能のドロップ・2026-09-05)。いずれも未リリースの中間形
     if (source.asOther && Array.isArray(source.asOther.refs)) {
-      source.asOther.choices = source.asOther.refs.map(r => ({ label: "", uuid: r?.uuid ?? "" }));
+      source.asOther.choices = source.asOther.refs.map(r => ({ skillUuid: "", uuid: r?.uuid ?? "" }));
       delete source.asOther.refs;
       if (source.asOther.mode === "refs") source.asOther.mode = "choice";
+    }
+    if (source.asOther && Array.isArray(source.asOther.choices)) {
+      source.asOther.choices = source.asOther.choices.map(c => ({
+        skillUuid: c?.skillUuid ?? "", uuid: c?.uuid ?? "",
+      }));
     }
     return super.migrateData(source);
   }

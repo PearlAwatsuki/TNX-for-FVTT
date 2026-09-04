@@ -42,9 +42,8 @@ describe("MiracleDataModel.defineSchema()", () => {
   });
 
   describe("Boolean フィールド", () => {
-    it("schema.isUsed は BooleanField で initial が false", () => {
-      expect(schema.isUsed).toBeInstanceOf(MockBooleanField);
-      expect(schema.isUsed.options.initial).toBe(false);
+    it("使用済みフラグ(isUsed)を持たない（使用済みは残り使用回数から導く・2026-09-05 ユーザー指摘の重複解消）", () => {
+      expect(schema.isUsed).toBeUndefined();
     });
 
     // 殺し神業/防御神業/万能神業の区分は形骸化したフラグとして撤去(2026-09-03 ユーザー裁定)。
@@ -96,17 +95,20 @@ describe("MiracleDataModel.defineSchema()", () => {
       expect(schema.asOther.fields.selected.options.initial).toBe("");
     });
 
-    it("choices は選択肢の配列（label=区分(〈フォルム〉の種類など)／uuid=参照先の神業）。取得技能では導かない（ユーザー訂正 2026-09-04）", () => {
+    it("choices は選択肢の配列（skillUuid=区分の技能(〈フォルム〉等)／uuid=参照先の神業。どちらもドロップで指定）", () => {
       const row = schema.asOther.fields.choices.element.fields;
-      for (const k of ["label", "uuid"]) expect(row[k].options.initial).toBe("");
+      for (const k of ["skillUuid", "uuid"]) expect(row[k].options.initial).toBe("");
       expect(schema.asOther.fields.refs).toBeUndefined();
+      expect(row.label).toBeUndefined();
     });
 
-    it("migrateData: 旧 refs(mode=refs) は choices(mode=choice) へ移す", () => {
+    it("migrateData: 旧 refs(mode=refs)・旧 label は choices(mode=choice) へ移す", () => {
       const src = MiracleDataModel.migrateData({ asOther: { mode: "refs", refs: [{ name: "form_armor", uuid: "U.a" }] } });
       expect(src.asOther.mode).toBe("choice");
-      expect(src.asOther.choices).toEqual([{ label: "", uuid: "U.a" }]);
+      expect(src.asOther.choices).toEqual([{ skillUuid: "", uuid: "U.a" }]);
       expect(src.asOther.refs).toBeUndefined();
+      const src2 = MiracleDataModel.migrateData({ asOther: { mode: "choice", choices: [{ label: "アーマー", uuid: "U.b" }] } });
+      expect(src2.asOther.choices).toEqual([{ skillUuid: "", uuid: "U.b" }]);
     });
   });
 

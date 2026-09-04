@@ -112,14 +112,14 @@ describe("miracleUseGate()（残回数ゲート）", () => {
 });
 
 describe("miracleConsumeUpdate()（使用による消費）", () => {
-    it("消費済みを 1 増やす更新を返す（尽きていなければ isUsed には触れない）", () => {
+    it("消費済みを 1 増やす更新を返す", () => {
         expect(miracleConsumeUpdate({ uses: { isLimit: true, max: "3", spent: 0 } }))
             .toEqual({ "system.uses.spent": 1 });
     });
 
-    it("この消費で尽きるなら isUsed を true にする（手動リセットの起点として残す旧挙動の維持）", () => {
+    it("尽きるときも消費済みを増やすだけ（使用済みフラグは廃止＝残り使用回数から導く・2026-09-05）", () => {
         expect(miracleConsumeUpdate({ uses: { isLimit: true, max: "2", spent: 1 } }))
-            .toEqual({ "system.uses.spent": 2, "system.isUsed": true });
+            .toEqual({ "system.uses.spent": 2 });
     });
 
     it("消費済みは実効最大値を超えない", () => {
@@ -431,7 +431,7 @@ describe("addUseEffectSource()（《ファイト！》が対象の神業に載�
 describe("asOtherSelection()（選択肢から選んで固定した効果・《万能道具》《半身》《神意》）", () => {
     // 効果は〈フォルム〉等を選ぶときに神業側で選んで固定する(スタイル→神業→スタイル技能の順・使用時に
     // 取得技能から導かない=ユーザー訂正 2026-09-04)
-    const choices = [{ label: "ウェポン", uuid: "U.dance" }, { label: "ウェポン", uuid: "U.finish" }, { label: "アーマー", uuid: "U.fortress" }];
+    const choices = [{ skillUuid: "S.weapon", uuid: "U.dance" }, { skillUuid: "S.weapon", uuid: "U.finish" }, { skillUuid: "S.armor", uuid: "U.fortress" }];
     it("選んだ選択肢(selected)がその参照先", () => {
         expect(asOtherSelection({ mode: "choice", choices, selected: "U.fortress" })).toEqual({ uuid: "U.fortress" });
     });
@@ -441,7 +441,7 @@ describe("asOtherSelection()（選択肢から選んで固定した効果・《�
     });
     it("選択肢に無い selected は無効・参照先の無い選択肢は数えない・choice 以外は null", () => {
         expect(asOtherSelection({ mode: "choice", choices, selected: "U.gone" })).toEqual({ uuid: "", reason: "unselected" });
-        expect(asOtherSelection({ mode: "choice", choices: [{ label: "x", uuid: "" }], selected: "" })).toEqual({ uuid: "", reason: "noChoices" });
+        expect(asOtherSelection({ mode: "choice", choices: [{ skillUuid: "S.x", uuid: "" }], selected: "" })).toEqual({ uuid: "", reason: "noChoices" });
         expect(asOtherSelection({ mode: "log", choices, selected: "U.dance" })).toBeNull();
     });
 });
