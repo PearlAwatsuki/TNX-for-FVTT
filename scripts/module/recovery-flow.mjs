@@ -270,7 +270,7 @@ export async function useRecovery(item, usage, prebound = null) {
             title: usage.name || item.name, tag: "回復", status: "success",
             label: plan.label, text: "を回復。",
         });
-        return;
+        return true; // 発動した(神業の要求カードが使用済みを記録する・17-4)
     }
 
     // 判定(check): 共通前段(不備検知・参加技能・報酬点・消費・適用効果・目標値)で解決して通常の

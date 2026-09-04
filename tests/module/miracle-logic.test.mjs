@@ -9,6 +9,7 @@ import {
     miracleOriginOf, isMiracleOrigin, buildMiracleCardData,
     defencePreventPlan, unprotectedTargetIndices, negateCheckGate, negatedCheckMods, evadePlan, recoveryCandidateAllowed,
     terminalKindFor, buildMiracleDamageFlag, miracleResultLabel, miracleTargetOutcome,
+    withoutConsumption, interferenceCandidates, addUseEffectSource,
 } from "../../scripts/module/miracle-logic.mjs";
 
 describe("withDefaultMiracleConsumption()（消費先が空の神業用途は自身の使用回数×1を既定消費）", () => {
@@ -365,3 +366,52 @@ describe("miracleTargetOutcome()（対象の型ごとに何が起こるか）", 
         expect(miracleTargetOutcome({ kind: "terminal" }, "extra", "physical")).toEqual({ op: "none" });
     });
 });
+
+// ─── 神業に干渉する神業(17-4・《ファイト！》《プリーズ！》) ─────────────────────────────
+// 正本: Miracle_Effects「ファイト！」= 他のキャラクターの神業の使用回数を 1 回増やす・使用済みでも可・
+// アクトを越えて持ち越せない・《ファイト！》を《ファイト！》することはできない。
+// 「プリーズ！」= 他人に神業を使わせる・相手の神業は使用済みにならない(Miracle_Rules 一覧: 使用済みも可)
+
+describe("withoutConsumption()（《プリーズ！》で使わされる神業は使用済みにならない）", () => {
+    it("消費先を空にした複製を返し、元の用途は変えない", () => {
+        const usage = { _id: "u1", type: "miracleKill", consumeTargets: [{ type: "item", itemId: "", resource: "uses", amount: 1 }] };
+        const out = withoutConsumption(usage);
+        expect(out.consumeTargets).toEqual([]);
+        expect(out._id).toBe("u1");
+        expect(out).not.toBe(usage);
+        expect(usage.consumeTargets).toHaveLength(1);
+    });
+});
+
+describe("interferenceCandidates()（対象の神業のうち干渉できるもの）", () => {
+    const items = [
+        { id: "a", type: "miracle", name: "死の舞踏", system: { uses: { max: 1, maxTotal: 1, spent: 1 } } },
+        { id: "b", type: "miracle", name: "ファイト！", system: { uses: { max: 1, maxTotal: 1, spent: 0 } } },
+        { id: "c", type: "generalSkill", name: "白兵", system: {} },
+    ];
+    it("addUse: 使用中の神業と同名のものを除き、使い切った神業も候補に入る(id と名前)", () => {
+        expect(interferenceCandidates(items, { mode: "addUse", byName: "ファイト！" }))
+            .toEqual([{ id: "a", name: "死の舞踏" }]);
+    });
+    it("requestUse: 神業をすべて列挙する(使い切ったものも・同名も)", () => {
+        expect(interferenceCandidates(items, { mode: "requestUse", byName: "プリーズ！" }))
+            .toEqual([{ id: "a", name: "死の舞踏" }, { id: "b", name: "ファイト！" }]);
+    });
+    it("神業でないアイテムは候補にならない", () => {
+        expect(interferenceCandidates(items, { mode: "requestUse" }).some(c => c.id === "c")).toBe(false);
+    });
+});
+
+describe("addUseEffectSource()（《ファイト！》が対象の神業に載せる効果の素）", () => {
+    it("uses.max を +1 する変更・アクト中の持続・神業由来の印・重ねがけ可(2人が同じ神業に使えば +2)", () => {
+        const src = addUseEffectSource({ name: "ファイト！", img: "icons/x.png" });
+        expect(src.name).toBe("ファイト！");
+        expect(src.img).toBe("icons/x.png");
+        expect(src.changes).toEqual([{ key: "system.uses.max", mode: 2, value: "1" }]);
+        const f = src.flags["tokyo-nova-axleration"];
+        expect(f.tnxDuration).toBe("act");
+        expect(f.fromMiracle).toBe(true);
+        expect(f.stackable).toBe(true);
+    });
+});
+

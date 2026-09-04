@@ -167,4 +167,9 @@ describe("UsageTemplate.defineSchema()（即死・社会戦タイプの設定・
     expect(entry.socialDecide).toBeInstanceOf(MockStringField);
     expect(entry.socialDecide.options.initial).toBe("choose");
   });
+
+  it("miracleInterference は StringField・既定 空（他の神業への干渉: addUse=対象の神業の使用回数を+1／requestUse=対象に神業を使わせる）", () => {
+    expect(entry.miracleInterference).toBeInstanceOf(MockStringField);
+    expect(entry.miracleInterference.options.initial).toBe("");
+  });
 });

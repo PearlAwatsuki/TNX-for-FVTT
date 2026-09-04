@@ -10,6 +10,8 @@
 
 import { usesMaxTotalOf } from "../data/item/uses.mjs";
 
+const SCOPE = "tokyo-nova-axleration";
+
 /**
  * 残回数ゲート。残り ＝ 実効最大値(AE 込み・usesMaxTotalOf) − 消費済み。
  * @param {object|null|undefined} system 神業アイテムの system
@@ -47,6 +49,54 @@ export function miracleConsumeUpdate(system) {
 export function withDefaultMiracleConsumption(usage) {
     if (Array.isArray(usage?.consumeTargets) && usage.consumeTargets.length > 0) return usage;
     return { ...usage, consumeTargets: [{ type: "item", itemId: "", resource: "uses", amount: 1 }] };
+}
+
+// ─── 他の神業への干渉(17-4・《ファイト！》《プリーズ！》) ────────────────────────────
+// 効果文「他のキャラクターの持つ神業の使用回数を、1回増やす。…すでに使用されているものでも…
+// アクトが終了した後に持ち越すことはできない」「《ファイト！》を《ファイト！》することはできない」／
+// 「他人…に、神業を使わせることができる。…相手の神業は使用済みにならない」(使い切ったものも可)
+
+/**
+ * 消費先を空にした用途の複製(《プリーズ！》で使わされる神業: 使用済みにならない)。
+ * 既定消費(withDefaultMiracleConsumption)の対になる変換で、以降の全分岐が消費行ゼロで動く。
+ * @param {object} usage 用途エントリ
+ * @returns {object} 複製(元の用途は変えない)
+ */
+export function withoutConsumption(usage) {
+    return { ...usage, consumeTargets: [] };
+}
+
+/**
+ * 対象の所持アイテムから干渉できる神業を列挙する(id と名前)。使い切った神業も候補に入る。
+ * addUse は使用中の神業と同名のものを除く(《ファイト！》を《ファイト！》できない)。
+ * @param {Iterable<{id:string,type:string,name:string}>} items 対象の所持アイテム
+ * @param {{mode: "addUse"|"requestUse", byName?: string}} opts
+ * @returns {Array<{id:string,name:string}>}
+ */
+export function interferenceCandidates(items, { mode, byName = "" } = {}) {
+    const out = [];
+    for (const i of (items ?? [])) {
+        if (i?.type !== "miracle") continue;
+        if (mode === "addUse" && byName && i.name === byName) continue;
+        out.push({ id: i.id, name: i.name });
+    }
+    return out;
+}
+
+/**
+ * 《ファイト！》が対象の神業に載せる効果の素(付与コピーの印は呼び出し側が
+ * buildGrantedEffectDataFrom で刻む)。uses.max +1 は実効値 uses.maxTotal に着地し、残回数ゲートも
+ * それを読む。持続はアクト中(境界で付与コピーとして失効)・神業由来・重ねがけ可(2人が同じ神業に
+ * 使えば +2。同名効果の重複排除で 2 つ目が消えないように)。
+ * @param {{name: string, img?: string}} by 使用した神業
+ * @returns {object} ActiveEffect の生成データの素
+ */
+export function addUseEffectSource({ name, img = "" }) {
+    return {
+        name, img,
+        changes: [{ key: "system.uses.max", mode: 2 /* CONST.ACTIVE_EFFECT_MODES.ADD */, value: "1" }],
+        flags: { [SCOPE]: { tnxDuration: "act", fromMiracle: true, stackable: true } },
+    };
 }
 
 /**
