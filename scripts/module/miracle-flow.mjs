@@ -27,6 +27,7 @@ import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { isOutfitDestroyed } from "../data/item/helpers.mjs";
 import { buildGrantedEffectDataFrom } from "./usage-effects.mjs";
 import { getSessionState } from "./session-state.mjs";
+import { applyInterruptGrantForUsage } from "./interrupt-grant.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会" };
@@ -250,8 +251,12 @@ export async function useMiracleAcquire(actor, item, usage, { uuid, asOther = nu
 }
 
 /**
- * 《不可知》: 消費→自分に「次の行動」の印(flags.insensible=神業由来の印)。次の判定の実行で消費され、
- * 攻撃カードのリアクション不可・ダメージの状態への神業由来の印・カット進行中の AR 非消費に効く。
+ * 《不可知》: 消費→自分に「次の行動」の印(flags.insensible=神業由来の印)と、**完全な割り込み**の許可。
+ * 印は次の判定の実行で消費され、攻撃カードのリアクション不可・ダメージの状態への神業由来の印に効く。
+ * 割り込みは既存の挿入メイン(サスペンド／レジューム)を consumesAr=偽で自分に許可する=誰かのメイン
+ * プロセスの途中(命中判定の直後・リアクション解決の直前など)にも差し込め、AR を消費しない
+ * (ゆえに CSカレント 0 の記帳も無い=一般則 AR−1⟺CS0。追加行動の割り込みと同じ扱い・
+ * ユーザー言語化 2026-09-04「完全な割り込みです」「CSカレントが0になるのはARが消費されるからです」)。
  * @returns {Promise<boolean>} 発動したか
  */
 export async function useMiracleInsensible(actor, item, usage, { asOther = null } = {}) {
@@ -260,6 +265,8 @@ export async function useMiracleInsensible(actor, item, usage, { asOther = null 
     if (plan === null) return false;
     await applyConsumptionPlan(plan);
     await actor.setFlag(SCOPE, "insensible", { ...miracleOriginOf(item, asOther), actorId: actor.id });
+    await applyInterruptGrantForUsage(actor, { grantsInterrupt: true, interruptConsumesAr: false },
+        { targetOverride: [{ uuid: actor.uuid }] });
     await postMiracleCard(item, { insensible: true, asOther });
     return true;
 }
@@ -673,7 +680,7 @@ function renderMiracleEffectRows(message, card, mf) {
     } else if (mf.acquire) {
         wrap.innerHTML = field("入手", `「${esc(mf.acquire.itemName)}」（常備化できない）`);
     } else if (mf.insensible) {
-        wrap.innerHTML = field("次の行動", "神業以外では妨げられない");
+        wrap.innerHTML = field("次の行動", "神業以外では妨げられない（割り込み可・AR を消費しない）");
     } else {
         return;
     }

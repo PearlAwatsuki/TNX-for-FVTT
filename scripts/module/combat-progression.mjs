@@ -89,20 +89,6 @@ export function buildArDecrementUpdate(system) {
 }
 
 /**
- * メジャー実行者の記帳。通常は AR−1＋CSカレント0(buildArDecrementUpdate)。《不可知》の行動
- * (arFree・17-6「カット進行中の場合、この行動はアクションランクを消費しない」)は AR を減らさず、
- * プロセスの終了(CSカレント0)だけ記帳する。AR を持たないアクターは記帳しない。
- * @param {{actionRank?:{value?:number}}} system
- * @param {{arFree?: boolean}} [opts]
- * @returns {Record<string, number>}
- */
-export function buildMajorChargeUpdate(system, { arFree = false } = {}) {
-  if (!system?.actionRank) return {};
-  if (arFree) return { "system.combatSpeed.current": 0 };
-  return buildArDecrementUpdate(system);
-}
-
-/**
  * 待機の記帳(§4)＝CSカレント1。宣言者はそのキャストの操作者(ゲストは RL)。
  * @returns {Record<string, number>}
  */

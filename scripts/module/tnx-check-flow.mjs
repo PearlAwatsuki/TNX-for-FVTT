@@ -699,16 +699,11 @@ export class TnxCheckFlow {
         // CSカレント0)。カット進行中でなければ no-op。成否・スート不一致は問わない(実行済みだから)。
         if (isMajorActionTiming(ctx.usageTiming)) await TnxCombat.markMajorAction(actor);
 
-        // 《不可知》(17-6): 宣言で立てた「次の行動」の印をこの判定で消費する。カット進行中のメジャーなら
-        // AR を消費しない印(insensibleFree)に替え、プロセス終了の記帳で読む。結果に印を載せて攻撃カード・
-        // ダメージカードへ運ぶ(リアクション不可・ダメージの状態に神業由来の印)
+        // 《不可知》(17-6): 宣言で立てた「次の行動」の印をこの判定で消費し、結果に載せて攻撃カード・
+        // ダメージカードへ運ぶ(リアクション不可・ダメージの状態に神業由来の印)。AR・CSカレントは
+        // 割り込み機構(consumesAr=偽の挿入メイン)が担うのでここでは触らない
         const insensibleBy = actor.getFlag("tokyo-nova-axleration", "insensible") ?? null;
-        if (insensibleBy) {
-            await actor.unsetFlag("tokyo-nova-axleration", "insensible");
-            if (isMajorActionTiming(ctx.usageTiming) && game.combat?.started) {
-                await actor.setFlag("tokyo-nova-axleration", "insensibleFree", true);
-            }
-        }
+        if (insensibleBy) await actor.unsetFlag("tokyo-nova-axleration", "insensible");
 
         // 用途起動による使用回数の消費（用途の消費先設定＝consumeTargets 由来・11-6）。
         // 起動時の消費ダイアログで確定した平プランを判定実行時に適用する（キャンセル時は未到達＝非消費）

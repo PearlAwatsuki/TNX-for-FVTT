@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   isValidProcessTransition, arDecrement, planAdvance,
-  buildArDecrementUpdate, buildWaitUpdate, buildSetupConfirmUpdate, buildMajorChargeUpdate,
+  buildArDecrementUpdate, buildWaitUpdate, buildSetupConfirmUpdate,
   pushInterruptFrame, popInterruptFrame,
 } from "../../scripts/module/combat-progression.mjs";
 
@@ -193,18 +193,3 @@ describe("割り込み（挿入メイン）＝サスペンド／レジューム�
     });
   });
 });
-
-describe("buildMajorChargeUpdate()（メジャー実行者の記帳・《不可知》は AR を消費しない）", () => {
-  it("通常は AR−1＋CSカレント0(buildArDecrementUpdate と同じ)", () => {
-    expect(buildMajorChargeUpdate({ actionRank: { value: 2 }, combatSpeed: { current: 5 } }, { arFree: false }))
-      .toEqual(buildArDecrementUpdate({ actionRank: { value: 2 } }));
-  });
-  it("arFree(《不可知》の行動)は AR を減らさず CSカレント0 だけ(プロセスは終わる)", () => {
-    expect(buildMajorChargeUpdate({ actionRank: { value: 2 }, combatSpeed: { current: 5 } }, { arFree: true }))
-      .toEqual({ "system.combatSpeed.current": 0 });
-  });
-  it("AR を持たないアクターは記帳しない", () => {
-    expect(buildMajorChargeUpdate({}, { arFree: true })).toEqual({});
-  });
-});
-
