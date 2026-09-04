@@ -301,6 +301,8 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         const context = await super._prepareContext(options);
         const system = context.system;
         const type = this.item.type;
+        // 神業で入手した複製(17-6・《タイムリー》《買収》): 常備化できない
+        context.acquiredByMiracle = this.item.getFlag("tokyo-nova-axleration", "fromMiracle") === true;
 
         context.isWeapon    = type === "weapon";
         context.isArmor     = type === "armor";

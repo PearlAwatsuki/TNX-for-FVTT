@@ -216,9 +216,26 @@ export async function startPurchasePicker(actor, item, usage) {
  * @param {{actorId: string, itemId: string, usageId: string}} origin 起動元
  * @returns {Promise<boolean>} 購入手続きを開始したか(選択モードのブラウザを閉じてよいか)
  */
-export async function startPurchaseWithUsage(uuid, { actorId, itemId, usageId }) {
+export async function startPurchaseWithUsage(uuid, { actorId, itemId, usageId, miracle = false, asOtherUuid = "" }) {
     const actor = game.actors.get(actorId);
     const item = actor?.items.get(itemId);
+    // 神業の入手(《タイムリー》《買収》・17-6): 購入値や外界の条件を問わず、宣言の効果へ再入する
+    // (用途は他の神業として使う参照先にあることもあるため、ここでは解決しない)
+    if (miracle) {
+        if (!actor || !item) { ui.notifications.warn("入手の起動元（神業・用途）を解決できませんでした。"); return false; }
+        const doc = await fromUuid(uuid).catch(() => null);
+        if (!doc) { ui.notifications.warn("入手するアウトフィットを解決できませんでした。"); return false; }
+        let asOther = null;
+        if (asOtherUuid) {
+            const src = await fromUuid(asOtherUuid).catch(() => null);
+            if (src) asOther = { uuid: asOtherUuid, name: src.name, source: src };
+        }
+        const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
+        await TnxCharacterSheetBase._activateItemCheck(actor, item, {
+            usageId, purchase: { actorId: actor.id, uuid, itemName: doc.name }, ...(asOther ? { asOther } : {}),
+        });
+        return true;
+    }
     const usage = item?.system.actions?.find((a) => a._id === usageId);
     if (!actor || !item || !usage) {
         ui.notifications.warn("購入判定の起動元（技能・用途）を解決できませんでした。");

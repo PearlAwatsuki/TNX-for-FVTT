@@ -721,6 +721,9 @@
 
                         <div class="form-group">
                             <label>常備化経験点</label>
+                            {{#if acquiredByMiracle}}
+                            <div class="form-fields"><span class="tnx-wrap-text">常備化できない（神業で入手）</span></div>
+                            {{else}}
                             <div class="form-fields {{#if (eq system.preserveExp.mode "value")}}split-fields{{/if}}">
                                 <select name="system.preserveExp.mode">
                                     {{selectOptions options.noneValueMode selected=system.preserveExp.mode}}
@@ -733,6 +736,7 @@
                                     </div>
                                 {{/if}}
                             </div>
+                            {{/if}}
                         </div>
 
                         {{#if system.isConsumption}}

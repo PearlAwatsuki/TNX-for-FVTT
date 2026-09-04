@@ -602,15 +602,19 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 { value: "rl",     label: "RL が決める（値の入力か、山札から2枚めくって合計）" },
             ].map(o => ({ ...o, selected: o.value === dec }));
         }
-        // 他の神業への干渉(17-4・神業の宣言タイプ専用): なし／対象の神業の使用回数を+1(《ファイト！》)／
-        // 対象に神業を使わせる(《プリーズ！》)
+        // 宣言の効果(17-4/17-6・神業の宣言タイプ専用): なし／対象の神業の使用回数を+1(《ファイト！》)／
+        // 対象に神業を使わせる(《プリーズ！》)／対象と自分のダメージ・状態を入れ替える(《神出鬼没》)／
+        // アウトフィットを入手する(《タイムリー》《買収》)／次の行動を神業以外で妨げられなくする(《不可知》)
         context.isMiracleDeclaration = usage.type === "miracleDeclaration";
         if (context.isMiracleDeclaration) {
-            const mode = usage.miracleInterference || "";
-            context.miracleInterferenceOptions = [
-                { value: "",           label: "なし" },
-                { value: "addUse",     label: "対象の神業の使用回数を+1" },
-                { value: "requestUse", label: "対象に神業を使わせる（使用済みにならない）" },
+            const mode = usage.miracleEffect || "";
+            context.miracleEffectOptions = [
+                { value: "",              label: "なし" },
+                { value: "addUse",        label: "対象の神業の使用回数を+1" },
+                { value: "requestUse",    label: "対象に神業を使わせる（使用済みにならない）" },
+                { value: "swapDamage",    label: "対象と自分のダメージ・状態を入れ替える" },
+                { value: "acquireOutfit", label: "アウトフィットを入手する（常備化できない）" },
+                { value: "insensible",    label: "次の行動を神業以外で妨げられなくする" },
             ].map(o => ({ ...o, selected: o.value === mode }));
         }
         // 防御タイプ(17-2・神業専用): 動作(打ち消し/適用前に防ぐ/回避/受けた後に消す)・範囲・系統。
@@ -1435,8 +1439,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         // 即死・社会戦(17-3)の設定
         if (usage.type === "miracleKill") update.killCategory = raw["killCategory"] ?? usage.killCategory ?? "physical";
         if (usage.type === "miracleSocial") update.socialDecide = raw["socialDecide"] ?? usage.socialDecide ?? "choose";
-        // 他の神業への干渉(17-4)
-        if (usage.type === "miracleDeclaration") update.miracleInterference = raw["miracleInterference"] ?? usage.miracleInterference ?? "";
+        // 宣言の効果(17-4/17-6)
+        if (usage.type === "miracleDeclaration") update.miracleEffect = raw["miracleEffect"] ?? usage.miracleEffect ?? "";
         if (usage.type === "miracleDefence") {
             const prevAct = usage.defenceAction || "prevent";
             update.defenceAction = raw["defenceAction"] ?? prevAct;

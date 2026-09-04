@@ -168,8 +168,9 @@ describe("UsageTemplate.defineSchema()（即死・社会戦タイプの設定・
     expect(entry.socialDecide.options.initial).toBe("choose");
   });
 
-  it("miracleInterference は StringField・既定 空（他の神業への干渉: addUse=対象の神業の使用回数を+1／requestUse=対象に神業を使わせる）", () => {
-    expect(entry.miracleInterference).toBeInstanceOf(MockStringField);
-    expect(entry.miracleInterference.options.initial).toBe("");
+  it("miracleEffect は StringField・既定 空（宣言の効果: addUse=対象の神業の使用回数を+1／requestUse=対象に神業を使わせる／swapDamage=対象と自分のダメージ・状態を入れ替える／acquireOutfit=アウトフィットを入手する(常備化できない)／insensible=次の行動を神業以外で妨げられなくする）", () => {
+    expect(entry.miracleEffect).toBeInstanceOf(MockStringField);
+    expect(entry.miracleEffect.options.initial).toBe("");
+    expect(entry.miracleInterference).toBeUndefined();
   });
 });

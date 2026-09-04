@@ -731,15 +731,16 @@
             {{!-- 治療(2026-07-13→2026-07-17 タイプ化): BS/戦闘不能/負傷を除去する設定。
                  実行形式(判定/宣言)は用途の設定で固定(1つのタイプで両形式をカバー・2026-07-17 裁定)。
                  範囲=大分類→小分類の行(OR)・除外=タグ(タグ自身+そのタグを与える負傷を除く) --}}
-            {{!-- 宣言タイプ(17-4・神業専用): 他の神業への干渉。《ファイト！》=対象の神業の使用回数を+1／
-                 《プリーズ！》=対象に神業を使わせる(相手の神業は使用済みにならない) --}}
+            {{!-- 宣言タイプ(17-4/17-6・神業専用): 宣言の効果。《ファイト！》=対象の神業の使用回数を+1／
+                 《プリーズ！》=対象に神業を使わせる／《神出鬼没》=ダメージ・状態の入れ替え／
+                 《タイムリー》《買収》=アウトフィットの入手／《不可知》=次の行動の印 --}}
             {{#if isMiracleDeclaration}}
             <fieldset class="tnx-fieldset usage-interference-section">
-                <legend>他の神業への干渉</legend>
+                <legend>宣言の効果</legend>
                 <div class="usage-form-row">
-                    <label class="usage-field-label">干渉</label>
-                    <select name="miracleInterference" {{#unless editable}}disabled{{/unless}}>
-                        {{#each miracleInterferenceOptions}}
+                    <label class="usage-field-label">効果</label>
+                    <select name="miracleEffect" {{#unless editable}}disabled{{/unless}}>
+                        {{#each miracleEffectOptions}}
                         <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
                         {{/each}}
                     </select>

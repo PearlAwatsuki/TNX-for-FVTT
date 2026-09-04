@@ -2713,15 +2713,28 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                 return false;
             }
         }
-        // 他の神業への干渉(17-4): 宣言タイプ(神業)に干渉が設定されていれば専用の流れ
-        // (対象1人→《ファイト！》は対象の神業を1つ選ぶ→消費→神業カードに結果の段。適用/使用は対象の操作者)
-        if (selectedUsage.type === "miracleDeclaration" && selectedUsage.miracleInterference) {
+        // 宣言の効果(17-4/17-6・神業の宣言タイプ): 設定があれば専用の流れ。addUse/requestUse=他の神業への
+        // 干渉(対象1人→消費→神業カードの段・適用/使用は対象の操作者)／swapDamage=《神出鬼没》(状態の
+        // 入れ替え・適用は RL か両者の操作者)／acquireOutfit=《タイムリー》《買収》(辞典ブラウザで選んで
+        // 再入→複製を付与・神業由来の印=常備化できない)／insensible=《不可知》(次の行動に印)
+        if (selectedUsage.type === "miracleDeclaration" && selectedUsage.miracleEffect) {
+            const effect = selectedUsage.miracleEffect;
+            if (effect === "acquireOutfit" && !openExtra.purchase) {
+                const { TnxDictionaryBrowser } = await import("../module/tnx-dictionary-browser.mjs");
+                TnxDictionaryBrowser.openOutfitPicker({
+                    actorId: actor.id, itemId: item.id, usageId: selectedUsage._id, miracle: true, asOtherUuid: asOther?.uuid ?? "",
+                });
+                return false;
+            }
             try {
-                const { useMiracleInterference } = await import("../module/miracle-flow.mjs");
-                return await useMiracleInterference(actor, item, selectedUsage, { asOther });
+                const mf = await import("../module/miracle-flow.mjs");
+                if (effect === "swapDamage")    return await mf.useMiracleSwap(actor, item, selectedUsage, { asOther });
+                if (effect === "acquireOutfit") return await mf.useMiracleAcquire(actor, item, selectedUsage, { uuid: openExtra.purchase.uuid, asOther });
+                if (effect === "insensible")    return await mf.useMiracleInsensible(actor, item, selectedUsage, { asOther });
+                return await mf.useMiracleInterference(actor, item, selectedUsage, { asOther });
             } catch (err) {
-                console.error("TNX | 神業の干渉の実行に失敗しました", err);
-                ui.notifications.error(`神業の干渉の実行に失敗しました: ${err.message}`);
+                console.error("TNX | 神業の宣言の効果の実行に失敗しました", err);
+                ui.notifications.error(`神業の宣言の効果の実行に失敗しました: ${err.message}`);
                 return false;
             }
         }

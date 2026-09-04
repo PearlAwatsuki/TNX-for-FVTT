@@ -14,7 +14,7 @@ import {
     miracleUseGate, miracleConsumeUpdate, buildMiracleCardData, miracleOriginOf,
     negateCheckGate, negatedCheckMods, evadePlan,
     buildMiracleDamageFlag, terminalKindFor,
-    interferenceCandidates, addUseEffectSource, asOtherRefCandidates, miracleLogCandidates,
+    interferenceCandidates, addUseEffectSource, asOtherRefCandidates, miracleLogCandidates, conditionSwapPlan,
 } from "./miracle-logic.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
@@ -172,12 +172,97 @@ async function resolveSingleTarget(actor, usage) {
     return target;
 }
 
+/** uuid のアクター(トークンならそのアクター)を自分が所有しているか。 */
+function isOwnerOfUuid(uuid) {
+    let target = null;
+    try { const doc = fromUuidSync(uuid); target = doc?.actor ?? doc; } catch { target = null; }
+    return target?.isOwner === true;
+}
+
 /** カードのボタン(適用/使用)を押せるのは対象の操作者か RL。 */
 function isTargetOperator(targetUuid) {
-    if (game.user.isGM) return true;
-    let target = null;
-    try { const doc = fromUuidSync(targetUuid); target = doc?.actor ?? doc; } catch { target = null; }
-    return target?.isOwner === true;
+    return game.user.isGM || isOwnerOfUuid(targetUuid);
+}
+
+// ─── 宣言の効果(17-6): 《神出鬼没》《タイムリー》《買収》《不可知》 ─────────────────────
+// 《神出鬼没》「“宿主”が受けたあらゆるダメージや状況はカゲムシャが引き受けることになるし、その逆も発生する」
+// 《タイムリー》「《タイムリー》で得たアウトフィットは［常備化］できない」《買収》「（入手品は）［常備化］できない」
+// 《不可知》「完全に姿を消して、即座に好きな行動をひとつとれる。カット進行中の場合、この行動はアクションランクを
+// 消費しない。この行動に対しては、神業を使用しない限り、一切のリアクションやアウトフィットの使用などを行うことは
+// できない。…《不可知》でダメージを与えた場合、神業によってしか治療を行えない」
+
+/**
+ * 《神出鬼没》: 対象1人→消費→神業カードに「入れ替え」の段(適用は RL か両者の操作者)。
+ * @returns {Promise<boolean>} 発動したか
+ */
+export async function useMiracleSwap(actor, item, usage, { asOther = null } = {}) {
+    const target = await resolveSingleTarget(actor, usage);
+    if (!target) return false;
+    if (target.id === actor.id) { ui.notifications.warn("自分自身とは入れ替えられません。"); return false; }
+    const rows = resolveConsumeRowsForActor(actor, item, usage.consumeTargets);
+    const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${item.name}` });
+    if (plan === null) return false;
+    await applyConsumptionPlan(plan);
+    await postMiracleCard(item, { swap: {
+        actorUuid: actor.uuid, actorName: actor.name, targetUuid: target.uuid, targetName: target.name, applied: false,
+    }, asOther });
+    return true;
+}
+
+/** 入れ替えの適用: 両者の状態(conditionKind)を丸ごと入れ替える。カスケードの子は移した親から再生する。 */
+async function applyMiracleSwap(message) {
+    const mf = message.getFlag(SCOPE, "miracle");
+    const sw = mf?.swap;
+    if (!sw || sw.applied) return;
+    const resolve = async (uuid) => { const d = await fromUuid(uuid).catch(() => null); return d?.actor ?? d; };
+    const A = await resolve(sw.actorUuid);
+    const B = await resolve(sw.targetUuid);
+    if (!A || !B) { ui.notifications.warn("入れ替える相手が見つかりません。"); return; }
+    if (!(game.user.isGM || (A.isOwner && B.isOwner))) { ui.notifications.warn("適用は RL（または両者の操作者）が行います。"); return; }
+    const plan = conditionSwapPlan(A.effects.contents, B.effects.contents);
+    const toData = (effects) => effects.map(e => { const d = e.toObject(); delete d._id; return d; });
+    const dataToB = toData(plan.moveToB);
+    const dataToA = toData(plan.moveToA);
+    if (plan.deleteA.length) await A.deleteEmbeddedDocuments("ActiveEffect", plan.deleteA);
+    if (plan.deleteB.length) await B.deleteEmbeddedDocuments("ActiveEffect", plan.deleteB);
+    if (dataToA.length) await A.createEmbeddedDocuments("ActiveEffect", dataToA);
+    if (dataToB.length) await B.createEmbeddedDocuments("ActiveEffect", dataToB);
+    await TnxSocketHandler.applyMessagePatch(message, { [`flags.${SCOPE}.miracle.swap.applied`]: true });
+}
+
+/**
+ * 《タイムリー》《買収》: 辞典ブラウザで選んだアウトフィット(uuid)の複製を付与する(購入判定の入手と同じ器・
+ * 購入値や外界の条件は問わない)。複製に神業由来の印(fromMiracle)を刻む=常備化できない。
+ * @returns {Promise<boolean>} 発動したか
+ */
+export async function useMiracleAcquire(actor, item, usage, { uuid, asOther = null } = {}) {
+    const doc = await fromUuid(uuid).catch(() => null);
+    if (!doc) { ui.notifications.warn("入手するアウトフィットを解決できませんでした。"); return false; }
+    const rows = resolveConsumeRowsForActor(actor, item, usage.consumeTargets);
+    const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${item.name}` });
+    if (plan === null) return false;
+    await applyConsumptionPlan(plan);
+    const { grantPurchasedItem } = await import("./purchase-flow.mjs");
+    const created = await grantPurchasedItem(actor, uuid);
+    if (!created) return false;
+    await created.update({ [`flags.${SCOPE}.fromMiracle`]: true });
+    await postMiracleCard(item, { acquire: { itemId: created.id, itemName: created.name }, asOther });
+    return true;
+}
+
+/**
+ * 《不可知》: 消費→自分に「次の行動」の印(flags.insensible=神業由来の印)。次の判定の実行で消費され、
+ * 攻撃カードのリアクション不可・ダメージの状態への神業由来の印・カット進行中の AR 非消費に効く。
+ * @returns {Promise<boolean>} 発動したか
+ */
+export async function useMiracleInsensible(actor, item, usage, { asOther = null } = {}) {
+    const rows = resolveConsumeRowsForActor(actor, item, usage.consumeTargets);
+    const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${item.name}` });
+    if (plan === null) return false;
+    await applyConsumptionPlan(plan);
+    await actor.setFlag(SCOPE, "insensible", { ...miracleOriginOf(item, asOther), actorId: actor.id });
+    await postMiracleCard(item, { insensible: true, asOther });
+    return true;
 }
 
 // ─── 他の神業への干渉(17-4・《ファイト！》《プリーズ！》) ─────────────────────────────
@@ -193,7 +278,7 @@ function isTargetOperator(targetUuid) {
  * @returns {Promise<boolean>} 発動したか
  */
 export async function useMiracleInterference(actor, item, usage, { asOther = null } = {}) {
-    const mode = usage.miracleInterference;
+    const mode = usage.miracleEffect;
     const target = await resolveSingleTarget(actor, usage);
     if (!target) return false;
     const candidates = interferenceCandidates(target.items?.contents ?? [], { mode, byName: item.name });
@@ -499,9 +584,11 @@ export function renderMiracleCard(message, html) {
         html.querySelector(".tnx-usage-effect-area")?.remove();
         card.querySelector(".mc-destroy")?.remove();
         card.querySelector(".mc-interfere")?.remove();
+        card.querySelector(".mc-effect")?.remove();
         card.classList.add("tnx-miracle-card--negated");
         return;
     }
+    renderMiracleEffectRows(message, card, mf);
     // 他の神業として使う(17-5): 見出しは元の神業、本文の先頭に「効果 《参照先》」
     if (mf.asOther?.name && !card.querySelector(".mc-as-other")) {
         const esc = foundry.utils.escapeHTML;
@@ -564,6 +651,31 @@ export function renderMiracleCard(message, html) {
     }
 }
 
+/** 宣言の効果(17-6)の段: 入れ替え(適用ボタン)／入手(常備化できない)／次の行動(不可知)。 */
+function renderMiracleEffectRows(message, card, mf) {
+    if (card.querySelector(".mc-effect")) return;
+    const esc = foundry.utils.escapeHTML;
+    const body = card.querySelector(".cr-req-body") ?? card;
+    const wrap = document.createElement("div");
+    wrap.className = "mc-effect";
+    const field = (label, value) => `<div class="cr-req-field"><span class="cr-req-field__label">${esc(label)}</span>`
+        + `<span class="cr-req-field__value">${value}</span></div>`;
+    if (mf.swap) {
+        const sw = mf.swap;
+        wrap.innerHTML = field("入れ替え", `${esc(sw.actorName)} ⇄ ${esc(sw.targetName)}${sw.applied ? "（適用済み）" : ""}`);
+        if (!sw.applied && (game.user.isGM || (isOwnerOfUuid(sw.actorUuid) && isOwnerOfUuid(sw.targetUuid)))) {
+            wrap.appendChild(chatButton("fa-right-left", "適用", () => applyMiracleSwap(message)));
+        }
+    } else if (mf.acquire) {
+        wrap.innerHTML = field("入手", `「${esc(mf.acquire.itemName)}」（常備化できない）`);
+    } else if (mf.insensible) {
+        wrap.innerHTML = field("次の行動", "神業以外では妨げられない");
+    } else {
+        return;
+    }
+    body.appendChild(wrap);
+}
+
 /** チャットカードのボタン(全幅・縦積み=既存の .tnx-chat-btn)。 */
 function chatButton(icon, label, onClick) {
     const btn = document.createElement("button");
@@ -583,7 +695,7 @@ function chatButton(icon, label, onClick) {
  * @param {{usageEffects?: ?object}} [opts]
  * @returns {Promise<ChatMessage>}
  */
-export async function postMiracleCard(item, { usageEffects = null, destroy = null, addUse = null, request = null, asOther = null } = {}) {
+export async function postMiracleCard(item, { usageEffects = null, destroy = null, addUse = null, request = null, swap = null, acquire = null, insensible = false, asOther = null } = {}) {
     const TE = foundry.applications.ux.TextEditor;
     // 他の神業として使う(17-5): 効果文と条件は参照先のもの(「うまく使った」条件も参照先と同じ)。名前・印は元の神業
     const textHost = asOther?.source ?? item;
@@ -609,6 +721,7 @@ export async function postMiracleCard(item, { usageEffects = null, destroy = nul
                 miracle: {
                     ...miracleOriginOf(item, asOther),
                     ...(destroy ? { destroy } : {}), ...(addUse ? { addUse } : {}), ...(request ? { request } : {}),
+                    ...(swap ? { swap } : {}), ...(acquire ? { acquire } : {}), ...(insensible ? { insensible: true } : {}),
                 },
                 ...(usageEffects ? { usageEffects } : {}),
             },

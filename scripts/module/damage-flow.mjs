@@ -249,6 +249,8 @@ async function finalizeDamageRoll(ctx, form, played) {
                 damageRoll: {
                     attackMessageId: attackMessage.id,
                     attackerUuid: f.attackerUuid,
+                    // 《不可知》(17-6): このダメージで付与する状態は神業によってしか治療できない
+                    ...(f.insensibleBy ? { insensibleBy: f.insensibleBy } : {}),
                     // 命中対象(複数対象一括・2026-07-15): カード値・攻撃力・手動修正が共有で、
                     // **ダメージ修正・軽減・チャートは対象ごと**(2026-09-01)。各行は自分の
                     // bonusRows(対象ごとに評価したダメージ修正の内訳)を持つ。
@@ -1326,8 +1328,10 @@ async function openMitigationDialog(message, applyCategory = null) {
             });
         // 説得(精神攻撃のスタン宣言)は、チャートの効果タグ(戦闘不能)を付けず BS のみ付与する。
         // 別系統として適用する場合は説得の意味論が対応しないため付けない(元系統=精神の通常適用時のみ)
-        const applyText = await applyDamageToTarget(r.actor, applyCat, final, stage,
-            { persuade: stun && category === "mental" && applyCat === "mental" });
+        const applyText = await applyDamageToTarget(r.actor, applyCat, final, stage, {
+            persuade: stun && category === "mental" && applyCat === "mental",
+            extraFlags: f.insensibleBy ? { fromMiracle: true } : null, // 《不可知》のダメージ(17-6)
+        });
         // 報酬点による軽減(bounty マーカー行)は適用済み表示で「報酬点 −N」に分離する(正の数で記録)
         const bountySum = (r.mods ?? []).filter(m => m.bounty === true)
             .reduce((s, m) => s + (Number(m.value) || 0), 0);
@@ -1389,7 +1393,7 @@ function describeDamagePreview(target, category, final, stage) {
  * 対象へダメージを適用する(型分岐・12-4)。適用内容の説明文を返す。
  * @returns {Promise<string>}
  */
-export async function applyDamageToTarget(target, category, final, stage, { persuade = false } = {}) {
+export async function applyDamageToTarget(target, category, final, stage, { persuade = false, extraFlags = null } = {}) {
     if (target.type === "extra") {
         ui.notifications.warn(`「${target.name}」はエキストラのためダメージの概念がありません（宣言で死亡）。`);
         return "エキストラ: ダメージ適用なし（宣言死）";
@@ -1413,7 +1417,7 @@ export async function applyDamageToTarget(target, category, final, stage, { pers
     }
     // cast/guest: チャート参照→負傷状態付与(フェーズ9 既存機構。BS カスケード等が連動)
     if (final <= 0) return "ダメージ 0（負傷なし）";
-    await applyDamageChartResult(target, category, final, { persuade });
+    await applyDamageChartResult(target, category, final, { persuade, extraFlags });
     const kind = getDamageChartKind(category, stage);
     const woundLabel = kind ? CONDITION_KINDS[kind]?.label : "";
 

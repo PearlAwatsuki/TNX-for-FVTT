@@ -11,6 +11,7 @@ import {
     terminalKindFor, buildMiracleDamageFlag, miracleResultLabel, miracleTargetOutcome,
     withoutConsumption, interferenceCandidates, addUseEffectSource,
     asOtherRefCandidates, miracleLogCandidates, buildMiracleUseLogEntry, miracleUseFromMessageFlags,
+    conditionSwapPlan,
 } from "../../scripts/module/miracle-logic.mjs";
 
 describe("withDefaultMiracleConsumption()（消費先が空の神業用途は自身の使用回数×1を既定消費）", () => {
@@ -470,6 +471,27 @@ describe("buildMiracleUseLogEntry() / miracleUseFromMessageFlags()（アクト�
         expect(miracleUseFromMessageFlags({ damageRoll: { miracle: { itemId: "m", name: "制裁", uuid: "U.m", actorId: "a" } } })?.uuid).toBe("U.m");
         expect(miracleUseFromMessageFlags({ damageRoll: { attackPower: 3 } })).toBeNull();
         expect(miracleUseFromMessageFlags({})).toBeNull();
+    });
+});
+
+// ─── 《神出鬼没》(17-6): 宿主とカゲムシャのダメージ・状態を丸ごと入れ替える ────────────────
+// 効果文「“宿主”が受けたあらゆるダメージや状況はカゲムシャが引き受けることになるし、その逆も発生する」
+describe("conditionSwapPlan()（両者の状態を入れ替える計画）", () => {
+    const SC = "tokyo-nova-axleration";
+    const eff = (id, kind, extra = {}) => ({ id, flags: { [SC]: { conditionKind: kind, ...extra } } });
+    const A = [eff("a1", "wound-light"), eff("a2", "stagger", { addedFrom: "a1", hideFromList: true }), { id: "a3", flags: { [SC]: { grantedFrom: "x" } } }];
+    const B = [eff("b1", "erased")];
+    it("状態(conditionKind)だけを対象にし、カスケードの子(addedFrom)は消すだけで移さない(移した親から再生する)", () => {
+        const plan = conditionSwapPlan(A, B);
+        expect(plan.deleteA).toEqual(["a1", "a2"]);
+        expect(plan.deleteB).toEqual(["b1"]);
+        expect(plan.moveToB.map(e => e.id)).toEqual(["a1"]);
+        expect(plan.moveToA.map(e => e.id)).toEqual(["b1"]);
+    });
+    it("状態でない効果(付与コピー等)には触れない", () => {
+        const plan = conditionSwapPlan(A, []);
+        expect(plan.deleteA).not.toContain("a3");
+        expect(plan.moveToA).toEqual([]);
     });
 });
 

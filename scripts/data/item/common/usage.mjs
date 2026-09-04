@@ -294,11 +294,14 @@ export class UsageTemplate extends SystemDataModel {
                     killCategory: new fields.StringField({ initial: "physical" }),
                     socialDecide: new fields.StringField({ initial: "choose" }),
 
-                    // ─── 他の神業への干渉(17-4・神業の宣言タイプ専用) ───
+                    // ─── 宣言の効果(17-4/17-6・神業の宣言タイプ専用) ───
                     // ""=なし／addUse=対象の神業1つの使用回数を+1(《ファイト！》: 使用済みでも可・
                     // アクト中の効果として対象の神業に載せる)／requestUse=対象に神業を使わせる
-                    // (《プリーズ！》: 相手の神業は使用済みにならない・使い切った神業も可)
-                    miracleInterference: new fields.StringField({ initial: "" }),
+                    // (《プリーズ！》: 相手の神業は使用済みにならない・使い切った神業も可)／
+                    // swapDamage=対象と自分のダメージ・状態を丸ごと入れ替える(《神出鬼没》)／
+                    // acquireOutfit=アウトフィットを入手する・常備化できない(《タイムリー》《買収》)／
+                    // insensible=次の行動を神業以外で妨げられなくする(《不可知》)
+                    miracleEffect: new fields.StringField({ initial: "" }),
 
                     // 修理(2026-07-18 ユーザー確定・repair タイプ): この用途で修理できるアウトフィットの
                     // 分類キーのホワイトリスト(小分類キーまたは大分類キー=その大分類全体・2026-07-19)。

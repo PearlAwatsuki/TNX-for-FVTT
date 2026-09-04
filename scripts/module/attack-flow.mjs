@@ -270,8 +270,9 @@ export async function postAttackCard({ payload, result, suit, cardCheckValue = n
             reactions: [],
         };
         // 非対決(対決欄なし)の攻撃: リアクション不能=制御値で即確定(2026-07-17 ユーザー確定)。
-        // 非攻撃の対決判定は useOpposedCheck が対決欄ありのときだけ通すためここには来ない
-        if (entry.state === "pending" && !opposed) {
+        // 非攻撃の対決判定は useOpposedCheck が対決欄ありのときだけ通すためここには来ない。
+        // 《不可知》(17-6)の行動も同じ=「制御値のみが有効」(神業の回避は確定後もカードの回避で行える)
+        if (entry.state === "pending" && (!opposed || result.insensibleBy)) {
             const r = isAttack
                 ? resolveNoReaction(result.achievement ?? 0, entry.controlValue)
                 : { hit: true, diff: null };
@@ -293,13 +294,15 @@ export async function postAttackCard({ payload, result, suit, cardCheckValue = n
         cardValue: cardCheckValue === "FIXED_21" ? 11 : (Number.isFinite(cardCheckValue) ? cardCheckValue : 0),
         suit,
         damageRolled: false,
+        // 《不可知》(17-6): この行動には神業以外のリアクション(カバー含む)ができない。ダメージカードへも運ぶ
+        ...(result.insensibleBy ? { insensibleBy: result.insensibleBy } : {}),
         // 移動失敗(達成値10未満・2026-07-19): 成否バナーの文言判別用
         ...(movementFailed ? { failedReason: "movement" } : {}),
         // 対象なしの対決(移動・離脱・「判定」の対決等・2026-07-18 任意・複数化): カード上の
         // 「リアクション」ボタンを任意のキャラクターがクリックする(キャラごとに1回)。
         // 結果=成立したリアクションの最高達成値1件のみ。明示の確定操作は無い(ライブ成否)。
         // 移動失敗(failed)でも器は敷く=再判定/事後修正で 10 以上へ回復したとき導線が開くように
-        ...(opposed && !(payload.targets?.length) && !result.fumble && !suitMismatch
+        ...(opposed && !(payload.targets?.length) && !result.fumble && !suitMismatch && !result.insensibleBy
             ? { openReactions: [] } : {}),
     };
 
@@ -669,13 +672,15 @@ export function renderAttackCard(message, html) {
             // 非対決(制御値即確定)はカバーの命中対象クリックのみ・全体失敗後はどちらも不可
             const opposed = isOpposedConfrontation(f.confrontation);
             const coverable = isAttack && t.state === "hit";
-            if (!f.damageRolled && f.state !== "failed" && (opposed || coverable)) {
+            // 《不可知》(17-6): 神業以外のリアクション(カバー含む)の入口を出さない(回避の神業は上の捕捉で生きる)
+            if (!f.damageRolled && f.state !== "failed" && (opposed || coverable) && !f.insensibleBy) {
                 row.classList.add("tnx-attack-clickable");
                 if (coverable) row.classList.add("tnx-attack-coverable");
                 row.addEventListener("click", () => handleTargetRowClick(message, ti));
             }
         }
         area.appendChild(list);
+        if (f.insensibleBy) addLine("tnx-attack-pending-note", `《${f.insensibleBy.name}》: 神業以外ではリアクションできない`);
     } else if (f.state === "open" && !f.openReactions && !f.openReaction) {
         if (isAttack) addLine("tnx-attack-pending-note", "対象なし（ダメージ算出は対象を選択して行います）");
     }
@@ -944,6 +949,7 @@ async function handleTargetRowReactionClick(attackMessage, targetIndex) {
     const t = f?.targets?.[targetIndex];
     if (!t || t.coveredBy) return;
     if (f.damageRolled) { ui.notifications.info("ダメージカードを出した後はリアクションできません。"); return; }
+    if (f.insensibleBy) { ui.notifications.info(`《${f.insensibleBy.name}》により、神業以外ではリアクションできません。`); return; }
     if (["fumble", "miss", "failed"].includes(f.state)) return; // 判定全体が失敗済み=リアクション不要
     if (!isOpposedConfrontation(f.confrontation)) return;        // 非対決(制御値即確定)は導線なし
     const identity = resolveUserIdentityActor();
@@ -1223,6 +1229,7 @@ export async function handleOpenReactionClick(attackMsg) {
         return;
     }
     if (f.damageRolled) { ui.notifications.info("ダメージカードを出した後はリアクションできません。"); return; }
+    if (f.insensibleBy) { ui.notifications.info(`《${f.insensibleBy.name}》により、神業以外ではリアクションできません。`); return; }
     const identity = resolveUserIdentityActor();
     if (!identity) return;
     if (f.openReactions.some(r => r.reactorUuid === identity.uuid)) {

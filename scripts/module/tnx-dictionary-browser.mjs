@@ -84,7 +84,7 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
         if (existing) existing.close();
         return new TnxDictionaryBrowser({
             id: "tnx-dictionary-purchase-picker",
-            window: { title: "購入判定: アウトフィットの選択", resizable: true },
+            window: { title: purchaseOrigin?.miracle ? "神業: アウトフィットの選択" : "購入判定: アウトフィットの選択", resizable: true },
             purchaseOrigin,
         }).render({ force: true });
     }
@@ -284,6 +284,9 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
         const preActMundane = (canvas.tokens?.controlled?.[0]?.actor ?? game.user.character)
             ?.system?.mundane?.total ?? 0;
         applyTriggerDisable(this.element, '[data-action="dictPurchase"]', (el) => {
+            // 神業の入手(17-6): 購入値・常備化経験点・外界の条件を問わない(効果文「ルールブックに載っている
+            // アウトフィットでもよいし…」)
+            if (this._purchaseOrigin?.miracle) return null;
             const mode = el.dataset.buyMode;
             if (mode !== "value") {
                 return { reason: purchaseUnavailableReason(mode === "reference" ? "reference" : "none") };

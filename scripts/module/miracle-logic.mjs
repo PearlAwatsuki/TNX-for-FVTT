@@ -401,3 +401,27 @@ export function buildMiracleUseLogEntry({ sceneNumber, sceneId = "", actorId = "
     return { scene: Number(sceneNumber) || 0, sceneId, actorId, actorName, uuid, name, appeared: [...(appeared ?? [])] };
 }
 
+// ─── 《神出鬼没》(17-6): 宿主とカゲムシャのダメージ・状態を丸ごと入れ替える ────────────────
+// 効果文「“宿主”が受けたあらゆるダメージや状況はカゲムシャが引き受けることになるし、その逆も発生する」。
+// 「いつから入れ替わっていたか」は引き受けるのが全部である以上不要(時点の入力を持たない・ユーザー指摘)。
+
+/**
+ * 両者の状態(conditionKind を持つ効果)を入れ替える計画。カスケードの子(addedFrom)は消すだけで
+ * 移さない(移した親から付与フックが再生する)。状態でない効果(付与コピー等)には触れない。
+ * @param {Iterable<{id: string, flags?: object}>} effectsA
+ * @param {Iterable<{id: string, flags?: object}>} effectsB
+ * @returns {{deleteA: string[], deleteB: string[], moveToA: object[], moveToB: object[]}}
+ */
+export function conditionSwapPlan(effectsA, effectsB) {
+    const isCondition = (e) => !!e?.flags?.[SCOPE]?.conditionKind;
+    const isParent = (e) => isCondition(e) && !e.flags[SCOPE].addedFrom;
+    const a = [...(effectsA ?? [])];
+    const b = [...(effectsB ?? [])];
+    return {
+        deleteA: a.filter(isCondition).map(e => e.id),
+        deleteB: b.filter(isCondition).map(e => e.id),
+        moveToB: a.filter(isParent),
+        moveToA: b.filter(isParent),
+    };
+}
+

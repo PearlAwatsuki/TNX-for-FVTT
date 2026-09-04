@@ -18,7 +18,7 @@
 import { buildCombatSeedUpdate } from "../module/combat-seed-logic.mjs";
 import {
   planAdvance,
-  buildArDecrementUpdate,
+  buildArDecrementUpdate, buildMajorChargeUpdate,
   buildWaitUpdate,
   buildSetupConfirmUpdate,
   pushInterruptFrame,
@@ -266,7 +266,7 @@ export class TnxCombat extends Combat {
     //   来ないようにする。majorActed はメジャー実行フック(markMajorAction)が積む。
     for (const id of this.majorActed) {
       const actor = this.actorOf(id);
-      if (actor) await applyActorUpdate(actor, buildArDecrementUpdate(actor.system));
+      if (actor) await TnxCombat._chargeMajor(actor);
     }
 
     // 2. 遷移計画(記帳後の状態で confirmMain を算出する)
@@ -457,7 +457,7 @@ export class TnxCombat extends Combat {
     if (this.interruptConsumesAr) {
       for (const id of this.majorActed) {
         const actor = this.actorOf(id);
-        if (actor) await applyActorUpdate(actor, buildArDecrementUpdate(actor.system));
+        if (actor) await TnxCombat._chargeMajor(actor);
       }
     }
     const { restore, remaining } = popInterruptFrame(this.interruptStack);
@@ -488,6 +488,16 @@ export class TnxCombat extends Combat {
    * ため、非 GM は activeGM へソケット委譲する。メジャータイミングの用途実行フックから呼ぶ。
    * @param {Actor} actor メジャーアクションを行ったアクター
    */
+  /**
+   * メジャー実行者の記帳(AR−1＋CSカレント0)。《不可知》の行動(actor flag insensibleFree・17-6)は AR を
+   * 消費せず CSカレント0 だけ記帳し、印を消す。
+   */
+  static async _chargeMajor(actor) {
+    const arFree = actor.getFlag(TNX_SCOPE, "insensibleFree") === true;
+    if (arFree) await actor.unsetFlag(TNX_SCOPE, "insensibleFree");
+    await applyActorUpdate(actor, buildMajorChargeUpdate(actor.system, { arFree }));
+  }
+
   static async markMajorAction(actor) {
     const combat = game.combat;
     if (!combat?.started || !actor) return;
