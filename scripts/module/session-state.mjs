@@ -15,7 +15,7 @@
  */
 
 import { TNX_HOOKS } from "./combat-events.mjs";
-import { miracleUseFromMessageFlags, buildMiracleUseLogEntry } from "./miracle-logic.mjs";
+import { miracleUseFromMessageFlags, buildMiracleUseLogEntry, miracleUsePending, markMiracleUseApplied } from "./miracle-logic.mjs";
 import {
     normalizeSceneRow, normalizeHandoutRow, findSceneRow, firstSceneRow,
     buildPreActInit, planSceneSwitchEvents, planActEndEvents,
@@ -159,9 +159,22 @@ export function registerMiracleUseLogging() {
             const entry = buildMiracleUseLogEntry({
                 sceneNumber: st.sceneNumber, sceneId: st.sceneId, actorId,
                 actorName: actor?.name ?? message.speaker?.alias ?? "", origin, appeared: st.appearedThisScene ?? [],
+                messageId: message.id, applied: !miracleUsePending(message.flags?.[SCOPE]),
             });
             await setState({ miracleUseLog: [...(st.miracleUseLog ?? []), entry] });
         }).catch(err => console.error("TNX | 神業の使用ログの記帳に失敗しました", err));
+    });
+    // 適用待ちのカード(神業版ダメージ・破壊・使用回数+1・入れ替え・要求)が適用されたら、その時点の登場者を
+    // 刻む(《突然変異》の「使用→登場→適用」の判定材料・ユーザー裁定 2026-09-04)
+    Hooks.on("updateChatMessage", (message) => {
+        if (game.users.activeGM?.isSelf !== true) return;
+        const flags = message.flags?.[SCOPE];
+        if (!miracleUseFromMessageFlags(flags) || miracleUsePending(flags)) return;
+        _miracleLogQueue = _miracleLogQueue.then(async () => {
+            const st = getSessionState();
+            const next = markMiracleUseApplied(st.miracleUseLog ?? [], message.id, st.appearedThisScene ?? []);
+            if (next) await setState({ miracleUseLog: next });
+        }).catch(err => console.error("TNX | 神業の使用ログの適用記帳に失敗しました", err));
     });
 }
 

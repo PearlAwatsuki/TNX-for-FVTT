@@ -358,10 +358,11 @@ export function asOtherSelection(asOther) {
 }
 
 /**
- * 使用ログのうち、その人が登場したシーンで使われた神業(同じ神業は1つに)。
- * 記帳時に登場していたか、または現在シーンの使用でいま登場していれば候補になる
- * (同じシーンで使用の後に登場した場合も「登場したシーンで使用されたもの」)。
- * @param {Array<{scene: number, uuid: string, name: string, appeared?: string[]}>} log
+ * 使用ログのうち、その人が「見聞きした」神業(同じ神業は1つに)。ユーザー裁定 2026-09-04:
+ * 基本は自分が登場している間に使われたもの(使用時の登場者に自分がいる)。同一シーンで登場前に
+ * 使われた神業は、登場した時点でまだ効果が適用されていなければ「登場中に使用された」と見做す
+ * (使用→登場→適用は可・使用→適用→登場は不可)。適用済みの行は適用時の登場者で判定する。
+ * @param {Array<{scene: number, uuid: string, name: string, appeared?: string[], applied?: boolean, appliedAppeared?: string[]}>} log
  * @param {{actorId: string, sceneNumber: number, appearedNow?: string[]}} ctx
  * @returns {Array<{uuid: string, name: string}>}
  */
@@ -370,12 +371,49 @@ export function miracleLogCandidates(log, { actorId, sceneNumber, appearedNow = 
     const nowHere = (appearedNow ?? []).includes(actorId);
     for (const e of (log ?? [])) {
         if (!e?.uuid) continue;
-        const wasHere = (e.appeared ?? []).includes(actorId) || (nowHere && e.scene === sceneNumber);
-        if (!wasHere) continue;
+        const atUse = (e.appeared ?? []).includes(actorId);
+        const atApply = e.applied === true
+            ? (e.appliedAppeared ?? []).includes(actorId)
+            : (nowHere && e.scene === sceneNumber);
+        if (!atUse && !atApply) continue;
         if (out.some(c => c.uuid === e.uuid)) continue;
         out.push({ uuid: e.uuid, name: e.name ?? "" });
     }
     return out;
+}
+
+/**
+ * カードの効果が適用待ちか(適用ボタンを持つカード=神業版ダメージ・破壊・使用回数+1・入れ替え・要求)。
+ * それ以外の神業カード(宣言・防ぐ/打ち消し/回避・治癒・入手・不可知)は投稿時に適用済みと見做す
+ * (宣言の適用効果トレイはカードに適用状態を持たないため=Code 決定)。
+ * @param {object|null|undefined} flags システムスコープのフラグ
+ * @returns {boolean}
+ */
+export function miracleUsePending(flags) {
+    const d = flags?.damageRoll;
+    if (d?.miracle?.itemId) return d.applied !== true;
+    const m = flags?.miracle;
+    if (!m) return false;
+    if (m.destroy) return m.destroy.applied !== true;
+    if (m.addUse) return m.addUse.applied !== true;
+    if (m.swap) return m.swap.applied !== true;
+    if (m.request) return !m.request.used;
+    return false;
+}
+
+/**
+ * 使用ログの行を適用済みにする(適用時の登場者を刻む)。該当行が無いか適用済みなら null(変更なし)。
+ * @param {Array<object>} log
+ * @param {string} messageId
+ * @param {string[]} appeared 適用時の登場者
+ * @returns {?Array<object>} 新しいログ(元は変えない)
+ */
+export function markMiracleUseApplied(log, messageId, appeared) {
+    const idx = (log ?? []).findIndex(e => e?.messageId === messageId && e.applied !== true);
+    if (idx < 0) return null;
+    const next = [...log];
+    next[idx] = { ...next[idx], applied: true, appliedAppeared: [...(appeared ?? [])] };
+    return next;
 }
 
 /**
@@ -391,13 +429,19 @@ export function miracleUseFromMessageFlags(flags) {
 
 /**
  * 使用ログの1行。他の神業として使った分は**解決後の神業**を記帳する(《突然変異》がコピーするのは
- * 実際に起きた効果の神業)。appeared=記帳時に登場していたアクター id。
- * @returns {{scene: number, sceneId: string, actorId: string, actorName: string, uuid: string, name: string, appeared: string[]}}
+ * 実際に起きた効果の神業)。appeared=使用時に登場していたアクター id。applied=効果が適用済みか
+ * (適用待ちのカードは false・適用で markMiracleUseApplied が登場者を刻む)。
+ * @returns {{scene: number, sceneId: string, actorId: string, actorName: string, uuid: string, name: string,
+ *   appeared: string[], messageId: string, applied: boolean, appliedAppeared: string[]}}
  */
-export function buildMiracleUseLogEntry({ sceneNumber, sceneId = "", actorId = "", actorName = "", origin, appeared = [] }) {
+export function buildMiracleUseLogEntry({ sceneNumber, sceneId = "", actorId = "", actorName = "", origin, appeared = [], messageId = "", applied = true }) {
     const uuid = origin?.asOther?.uuid || origin?.uuid || "";
     const name = origin?.asOther?.uuid ? (origin.asOther.name ?? "") : (origin?.name ?? "");
-    return { scene: Number(sceneNumber) || 0, sceneId, actorId, actorName, uuid, name, appeared: [...(appeared ?? [])] };
+    const list = [...(appeared ?? [])];
+    return {
+        scene: Number(sceneNumber) || 0, sceneId, actorId, actorName, uuid, name, appeared: list,
+        messageId, applied: applied === true, appliedAppeared: applied === true ? [...list] : [],
+    };
 }
 
 // ─── 《神出鬼没》(17-6): 宿主とカゲムシャのダメージ・状態を丸ごと入れ替える ────────────────

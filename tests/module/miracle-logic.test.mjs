@@ -11,7 +11,7 @@ import {
     terminalKindFor, buildMiracleDamageFlag, miracleResultLabel, miracleTargetOutcome,
     withoutConsumption, interferenceCandidates, addUseEffectSource,
     asOtherSelection, miracleLogCandidates, buildMiracleUseLogEntry, miracleUseFromMessageFlags,
-    conditionSwapPlan,
+    miracleUsePending, markMiracleUseApplied, conditionSwapPlan,
 } from "../../scripts/module/miracle-logic.mjs";
 
 describe("withDefaultMiracleConsumption()（消費先が空の神業用途は自身の使用回数×1を既定消費）", () => {
@@ -446,20 +446,55 @@ describe("asOtherSelection()（選択肢から選んで固定した効果・《�
     });
 });
 
-describe("miracleLogCandidates()（使用ログのうち自分が登場したシーンのもの）", () => {
+describe("miracleLogCandidates()（使用ログのうち「見聞きした」神業）", () => {
+    // ユーザー裁定 2026-09-04: 基本は自分が登場している間に使われたものだけ。同一シーンで登場前に使われた
+    // 神業は、登場した時点でまだ効果が適用されていなければ「登場中に使用された」と見做す(使用→登場→適用は可、
+    // 使用→適用→登場は不可)
     const log = [
-        { scene: 1, uuid: "U.dance", name: "死の舞踏", appeared: ["hiruko", "x"] },
-        { scene: 2, uuid: "U.chai", name: "チャイ", appeared: ["x"] },
-        { scene: 3, uuid: "U.buy", name: "買収", appeared: ["x"] },
-        { scene: 1, uuid: "U.dance", name: "死の舞踏", appeared: ["hiruko"] },
+        { scene: 1, uuid: "U.dance", name: "死の舞踏", appeared: ["hiruko", "x"], applied: true, appliedAppeared: ["hiruko", "x"] },
+        { scene: 2, uuid: "U.chai", name: "チャイ", appeared: ["x"], applied: true, appliedAppeared: ["x"] },
+        { scene: 3, uuid: "U.buy", name: "買収", appeared: ["x"], applied: false, appliedAppeared: [] },
+        { scene: 3, uuid: "U.plain", name: "電脳神", appeared: ["x"], applied: true, appliedAppeared: ["x"] },
+        { scene: 3, uuid: "U.word", name: "神の御言葉", appeared: ["x"], applied: true, appliedAppeared: ["x", "hiruko"] },
+        { scene: 1, uuid: "U.dance", name: "死の舞踏", appeared: ["hiruko"], applied: true, appliedAppeared: ["hiruko"] },
     ];
-    it("記帳時に登場していたシーンの神業を、同じ神業は1つにまとめて返す", () => {
+    it("使用時に登場していたシーンの神業を、同じ神業は1つにまとめて返す", () => {
         expect(miracleLogCandidates(log, { actorId: "hiruko", sceneNumber: 5, appearedNow: [] }))
-            .toEqual([{ uuid: "U.dance", name: "死の舞踏" }]);
+            .toEqual([{ uuid: "U.dance", name: "死の舞踏" }, { uuid: "U.word", name: "神の御言葉" }]);
     });
-    it("現在シーンの使用は、いま登場していれば(使用の後で登場しても)候補になる", () => {
-        expect(miracleLogCandidates(log, { actorId: "hiruko", sceneNumber: 3, appearedNow: ["hiruko"] }))
-            .toEqual([{ uuid: "U.dance", name: "死の舞踏" }, { uuid: "U.buy", name: "買収" }]);
+    it("現在シーンで登場前に使われた神業は、まだ適用されていなければ候補(使用→登場→適用)・適用済みなら候補外(使用→適用→登場)", () => {
+        const out = miracleLogCandidates(log, { actorId: "hiruko", sceneNumber: 3, appearedNow: ["hiruko"] });
+        expect(out.map(c => c.uuid)).toEqual(["U.dance", "U.buy", "U.word"]);
+    });
+    it("適用の時点で登場していれば、使用時に不在でも候補(使用→登場→適用)", () => {
+        expect(miracleLogCandidates(log, { actorId: "hiruko", sceneNumber: 9, appearedNow: [] }).some(c => c.uuid === "U.word")).toBe(true);
+    });
+});
+
+describe("miracleUsePending() / markMiracleUseApplied()（効果の適用待ちと適用の記帳）", () => {
+    it("適用ボタンを持つカード(神業版ダメージ・破壊・使用回数+1・入れ替え・要求)は適用されるまで pending", () => {
+        expect(miracleUsePending({ damageRoll: { miracle: { itemId: "m" }, applied: false } })).toBe(true);
+        expect(miracleUsePending({ damageRoll: { miracle: { itemId: "m" }, applied: true } })).toBe(false);
+        expect(miracleUsePending({ miracle: { itemId: "m", destroy: { applied: false } } })).toBe(true);
+        expect(miracleUsePending({ miracle: { itemId: "m", addUse: { applied: true } } })).toBe(false);
+        expect(miracleUsePending({ miracle: { itemId: "m", swap: { applied: false } } })).toBe(true);
+        expect(miracleUsePending({ miracle: { itemId: "m", request: { used: null } } })).toBe(true);
+        expect(miracleUsePending({ miracle: { itemId: "m", request: { used: { id: "x" } } } })).toBe(false);
+    });
+    it("それ以外の神業カード(宣言・防ぐ/打ち消し/回避・治癒・入手・不可知)は投稿時に適用済み", () => {
+        expect(miracleUsePending({ miracle: { itemId: "m" } })).toBe(false);
+        expect(miracleUsePending({ miracle: { itemId: "m", acquire: { itemId: "o" } } })).toBe(false);
+    });
+    it("記帳の行は messageId と applied/appliedAppeared を持ち、適用でその時点の登場者を刻む(1回だけ)", () => {
+        const origin = { itemId: "m", name: "制裁", uuid: "U.m" };
+        const entry = buildMiracleUseLogEntry({ sceneNumber: 3, sceneId: "s3", actorId: "x", actorName: "X", origin, appeared: ["x"], messageId: "msg1", applied: false });
+        expect(entry).toEqual({ scene: 3, sceneId: "s3", actorId: "x", actorName: "X", uuid: "U.m", name: "制裁", appeared: ["x"], messageId: "msg1", applied: false, appliedAppeared: [] });
+        const log = [entry];
+        const marked = markMiracleUseApplied(log, "msg1", ["x", "hiruko"]);
+        expect(marked[0]).toEqual({ ...entry, applied: true, appliedAppeared: ["x", "hiruko"] });
+        expect(log[0].applied).toBe(false);
+        expect(markMiracleUseApplied(marked, "msg1", ["x"])).toBeNull();
+        expect(markMiracleUseApplied(log, "nope", ["x"])).toBeNull();
     });
 });
 
@@ -468,8 +503,8 @@ describe("buildMiracleUseLogEntry() / miracleUseFromMessageFlags()（アクト�
         const flags = { miracle: { itemId: "m1", name: "万能道具", uuid: "Actor.a.Item.m1", asOther: { uuid: "C.x", name: "難攻不落" } } };
         const origin = miracleUseFromMessageFlags(flags);
         expect(origin?.name).toBe("万能道具");
-        const entry = buildMiracleUseLogEntry({ sceneNumber: 2, sceneId: "s2", actorId: "a", actorName: "A", origin, appeared: ["a", "b"] });
-        expect(entry).toEqual({ scene: 2, sceneId: "s2", actorId: "a", actorName: "A", uuid: "C.x", name: "難攻不落", appeared: ["a", "b"] });
+        const entry = buildMiracleUseLogEntry({ sceneNumber: 2, sceneId: "s2", actorId: "a", actorName: "A", origin, appeared: ["a", "b"], messageId: "m2", applied: true });
+        expect(entry).toEqual({ scene: 2, sceneId: "s2", actorId: "a", actorName: "A", uuid: "C.x", name: "難攻不落", appeared: ["a", "b"], messageId: "m2", applied: true, appliedAppeared: ["a", "b"] });
     });
     it("神業版ダメージカード(damageRoll.miracle)からも印を取る・神業でないカードは null", () => {
         expect(miracleUseFromMessageFlags({ damageRoll: { miracle: { itemId: "m", name: "制裁", uuid: "U.m", actorId: "a" } } })?.uuid).toBe("U.m");
