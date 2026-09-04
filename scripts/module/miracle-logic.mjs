@@ -336,26 +336,25 @@ export function buildMiracleCardData(item, { description = "", condition = "", r
 
 // ─── 他の神業として使う神業(17-5・《万能道具》《突然変異》) ───────────────────────────
 // 効果文《万能道具》「取得している〈フォルム〉によって、異なるスタイルの神業と同等の効果が発生する」＋
-// 対応表(アイテム側に参照行として設定)／《突然変異》「そのアクト中に使用された神業をコピーして使用する」
+// 対応表(アイテム側に選択肢として設定・〈フォルム〉を選ぶときに効果を選んで固定)／《突然変異》「そのアクト中に使用された神業をコピーして使用する」
 // 「コピーする神業は、あなたが登場したシーンで使用されたものに限られる」「登場していれば、その神業の
 // 効果が適用される前であっても、コピーすることは可能」。選び方は3つ・実行経路は1つ(選ばれた神業の
 // 用途を、元の神業の名前・使用回数・印のもとで実行する)。
 
 /**
- * 参照行のうち条件技能を満たすものの参照先(uuid)を順に返す。条件技能が空の行は無条件。
- * 参照先が空の行は除き、同じ参照先は1つにまとめる。
- * @param {Array<{name?: string, uuid?: string}>} refs 参照行
- * @param {(key: string) => boolean} hasSkill アクターがその識別キーの技能を所持するか
- * @returns {string[]} 参照先の uuid
+ * 選択肢から選んで固定した効果(《万能道具》《半身》《神意》)。効果は〈フォルム〉等を選ぶときに神業側で
+ * 選んで固定する(スタイル→神業→スタイル技能の順・使用時に取得技能から導かない=ユーザー訂正 2026-09-04)。
+ * 選んだ選択肢(selected)がその参照先。未選択でも選択肢が1つなら自動。
+ * @param {{mode?: string, choices?: Array<{label?: string, uuid?: string}>, selected?: string}|null|undefined} asOther
+ * @returns {?{uuid: string, reason?: "unselected"|"noChoices"}} choice 以外は null
  */
-export function asOtherRefCandidates(refs, hasSkill) {
-    const out = [];
-    for (const r of (refs ?? [])) {
-        if (!r?.uuid) continue;
-        if (r.name && !hasSkill(r.name)) continue;
-        if (!out.includes(r.uuid)) out.push(r.uuid);
-    }
-    return out;
+export function asOtherSelection(asOther) {
+    if (asOther?.mode !== "choice") return null;
+    const choices = (asOther.choices ?? []).filter(c => c?.uuid);
+    if (!choices.length) return { uuid: "", reason: "noChoices" };
+    if (asOther.selected && choices.some(c => c.uuid === asOther.selected)) return { uuid: asOther.selected };
+    if (choices.length === 1) return { uuid: choices[0].uuid };
+    return { uuid: "", reason: "unselected" };
 }
 
 /**

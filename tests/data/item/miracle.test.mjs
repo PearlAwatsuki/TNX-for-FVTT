@@ -91,13 +91,22 @@ describe("MiracleDataModel.defineSchema()", () => {
   });
 
   describe("他の神業として使う asOther（17-5）", () => {
-    it("mode は StringField・既定 空（\"\"=なし／refs=参照先から決まる・選ぶ／log=このアクトで使われた神業から選ぶ）", () => {
+    it("mode は StringField・既定 空（\"\"=なし／choice=指定の選択肢から選んで固定／log=このアクトで使われた神業から選ぶ）・selected=選んだ選択肢の uuid", () => {
       expect(schema.asOther.fields.mode.options.initial).toBe("");
+      expect(schema.asOther.fields.selected.options.initial).toBe("");
     });
 
-    it("refs は行の配列（条件技能のカスケード skillDict/skillGroup/skillSub/name=識別キー・空なら無条件／uuid=参照先の神業）", () => {
-      const row = schema.asOther.fields.refs.element.fields;
-      for (const k of ["skillDict", "skillGroup", "skillSub", "name", "uuid"]) expect(row[k].options.initial).toBe("");
+    it("choices は選択肢の配列（label=区分(〈フォルム〉の種類など)／uuid=参照先の神業）。取得技能では導かない（ユーザー訂正 2026-09-04）", () => {
+      const row = schema.asOther.fields.choices.element.fields;
+      for (const k of ["label", "uuid"]) expect(row[k].options.initial).toBe("");
+      expect(schema.asOther.fields.refs).toBeUndefined();
+    });
+
+    it("migrateData: 旧 refs(mode=refs) は choices(mode=choice) へ移す", () => {
+      const src = MiracleDataModel.migrateData({ asOther: { mode: "refs", refs: [{ name: "form_armor", uuid: "U.a" }] } });
+      expect(src.asOther.mode).toBe("choice");
+      expect(src.asOther.choices).toEqual([{ label: "", uuid: "U.a" }]);
+      expect(src.asOther.refs).toBeUndefined();
     });
   });
 

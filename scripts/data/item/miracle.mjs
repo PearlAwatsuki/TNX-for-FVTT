@@ -45,18 +45,18 @@ export class MiracleDataModel extends SystemDataModel.mixin(BaseTemplate, UsageT
         spent:   new fields.NumberField({ initial: 0 }),
       }),
       identificationKey: new fields.StringField({ initial: "" }),
-      // 他の神業として使う(17-5・アイテム側の機能)。mode: ""=なし／refs=参照先から決まる・選ぶ
-      // (《万能道具》=取得技能で決まる・《半身》=指定の選択肢から選ぶ)／log=このアクトで使われた
-      // 神業から選ぶ(《突然変異》)。refs の行=条件技能(対決欄と同じ辞典カスケード・name=識別キー・
-      // 空なら無条件)→参照先の神業(uuid・スタイル→神業と同じ参照)。対応表はコードに持たずここに設定する
+      // 他の神業として使う(17-5・アイテム側の機能)。mode: ""=なし／choice=指定の選択肢から1つ選んで
+      // 固定する(《万能道具》=〈フォルム〉を選ぶときに効果を選ぶ・《半身》《神意》も同じ)／log=この
+      // アクトで使われた神業から選ぶ(《突然変異》)。choices=選択肢(label=区分(〈フォルム〉の種類など・
+      // 表示用)・uuid=参照先の神業=スタイル→神業と同じ参照)・selected=選んだ選択肢の uuid。
+      // 使用時に取得技能から導かない(スタイル→神業→スタイル技能の順が逆転するため・ユーザー訂正 2026-09-04)。
+      // 対応表はコードに持たずここに設定する
       asOther: new fields.SchemaField({
-        mode: new fields.StringField({ initial: "" }),
-        refs: new fields.ArrayField(new fields.SchemaField({
-          skillDict:  new fields.StringField({ initial: "" }),
-          skillGroup: new fields.StringField({ initial: "" }),
-          skillSub:   new fields.StringField({ initial: "" }),
-          name:       new fields.StringField({ initial: "" }),
-          uuid:       new fields.StringField({ initial: "" }),
+        mode:     new fields.StringField({ initial: "" }),
+        selected: new fields.StringField({ initial: "" }),
+        choices: new fields.ArrayField(new fields.SchemaField({
+          label: new fields.StringField({ initial: "" }),
+          uuid:  new fields.StringField({ initial: "" }),
         })),
       }),
     };
@@ -77,6 +77,12 @@ export class MiracleDataModel extends SystemDataModel.mixin(BaseTemplate, UsageT
     }
     // uses.max の NumberField → StringField(2026-08-09)。**usageCount 移行の後に**呼ぶ
     migrateUsesMaxToString(source);
+    // 他の神業として使う: 旧 refs(取得技能で導く・同日中の未リリース形) → choices(選んで固定・2026-09-04)
+    if (source.asOther && Array.isArray(source.asOther.refs)) {
+      source.asOther.choices = source.asOther.refs.map(r => ({ label: "", uuid: r?.uuid ?? "" }));
+      delete source.asOther.refs;
+      if (source.asOther.mode === "refs") source.asOther.mode = "choice";
+    }
     return super.migrateData(source);
   }
 

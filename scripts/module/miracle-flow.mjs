@@ -14,7 +14,7 @@ import {
     miracleUseGate, miracleConsumeUpdate, buildMiracleCardData, miracleOriginOf,
     negateCheckGate, negatedCheckMods, evadePlan,
     buildMiracleDamageFlag, terminalKindFor,
-    interferenceCandidates, addUseEffectSource, asOtherRefCandidates, miracleLogCandidates, conditionSwapPlan,
+    interferenceCandidates, addUseEffectSource, asOtherSelection, miracleLogCandidates, conditionSwapPlan,
 } from "./miracle-logic.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
@@ -26,7 +26,6 @@ import { getDamageChartKind } from "../data/damage-chart.mjs";
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { isOutfitDestroyed } from "../data/item/helpers.mjs";
 import { buildGrantedEffectDataFrom } from "./usage-effects.mjs";
-import { findItemByIdentificationKey } from "./identification.mjs";
 import { getSessionState } from "./session-state.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
@@ -316,8 +315,9 @@ export async function useMiracleInterference(actor, item, usage, { asOther = nul
 // 実行は唯一の起動関数への再入(参照先の用途を元の神業の名前・回数・印で実行)。
 
 /**
- * 他の神業として使う神業の参照先を決める。refs=条件技能(識別キー)を満たす参照行の神業／
- * log=このアクトで自分が登場したシーンに使われた神業。1つなら自動・複数なら選択・0なら警告して中止。
+ * 他の神業として使う神業の参照先を決める。choice=選択肢から選んで固定した効果(神業シートで選ぶ・
+ * 未選択なら警告して中止)／log=このアクトで自分が登場したシーンに使われた神業(1つなら自動・
+ * 複数なら選択・0なら警告して中止)。
  * @returns {Promise<?{uuid: string, name: string, source: Item}>} 中止なら null
  */
 export async function resolveAsOther(actor, item) {
@@ -328,12 +328,16 @@ export async function resolveAsOther(actor, item) {
         if (doc?.type === "miracle") candidates.push({ uuid, name: doc.name, source: doc });
         else ui.notifications.warn(`「${item.name}」の参照先の神業が見つかりません。`);
     };
-    if (cfg.mode === "refs") {
-        for (const uuid of asOtherRefCandidates(cfg.refs ?? [], (key) => !!findItemByIdentificationKey(actor, key))) await collect(uuid);
-        if (!candidates.length) {
-            ui.notifications.warn(`「${item.name}」の効果になる神業がありません（条件の技能を取得していないか、参照先が未設定です）。`);
+    if (cfg.mode === "choice") {
+        const sel = asOtherSelection(cfg);
+        if (!sel?.uuid) {
+            ui.notifications.warn(sel?.reason === "noChoices"
+                ? `「${item.name}」の効果の選択肢が設定されていません（神業シートの「他の神業として使う」）。`
+                : `「${item.name}」の効果が選ばれていません（神業シートの「他の神業として使う」で選んでください）。`);
             return null;
         }
+        await collect(sel.uuid);
+        if (!candidates.length) return null;
     } else if (cfg.mode === "log") {
         const st = getSessionState();
         const list = miracleLogCandidates(st.miracleUseLog ?? [], {

@@ -76,14 +76,15 @@
                 </div>
             </fieldset>
 
-            {{!-- 他の神業として使う(17-5・アイテム側の機能): 選び方と参照行。条件技能は対決欄と同じ辞典カスケード
-                 (識別キー保存・現在名表示)、参照先はスタイル→神業と同じ uuid 参照(神業のドロップ・右クリックで解除)。
-                 uuid は hidden で持ち、フォーム送信でも行が欠けないようにする --}}
+            {{!-- 他の神業として使う(17-5・アイテム側の機能): 選び方・選んだ効果・選択肢(区分のラベル＋参照先の神業)。
+                 効果は〈フォルム〉等を選ぶときにここで選んで固定する(使用時に取得技能から導かない・2026-09-04)。
+                 参照先はスタイル→神業と同じ uuid 参照(神業のドロップ・右クリックで解除)。区分の入力は name を
+                 持たず配列全体を送る --}}
             <fieldset class="tnx-fieldset tnx-asother-section">
                 <legend>
                     他の神業として使う
-                    {{#if asOtherIsRefs}}{{#if editable}}
-                    <a class="tnx-combo-add" data-action="asOtherRefAdd" title="参照先を追加"><i class="fas fa-plus"></i></a>
+                    {{#if asOtherIsChoice}}{{#if editable}}
+                    <a class="tnx-combo-add" data-action="asOtherChoiceAdd" title="選択肢を追加"><i class="fas fa-plus"></i></a>
                     {{/if}}{{/if}}
                 </legend>
                 <div class="tnx-form-field">
@@ -93,21 +94,26 @@
                             {{selectOptions asOtherModeOptions selected=system.asOther.mode}}
                         </select>
                     </div>
+                    {{#if asOtherIsChoice}}
+                    <div class="form-group">
+                        <label>効果</label>
+                        <select name="system.asOther.selected" {{#unless editable}}disabled{{/unless}}>
+                            {{#each asOtherSelectOptions}}
+                            <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                            {{/each}}
+                        </select>
+                    </div>
+                    {{/if}}
                 </div>
-                {{#if asOtherIsRefs}}
+                {{#if asOtherIsChoice}}
                 <div class="tnx-form-field">
                     <div class="tnx-combo-cards">
-                        {{#each asOtherRefs as |row|}}
+                        {{#each asOtherChoices as |row|}}
                         <div class="tnx-combo-card">
                             <div class="tnx-combo-grid">
-                                {{#each row.cascadeSteps}}
-                                <select name="system.asOther.refs.{{row.idx}}.{{this.field}}"{{#if this.full}} class="tnx-combo-full"{{/if}} {{#unless @root.editable}}disabled{{/unless}}>
-                                    {{selectOptions this.options selected=this.value}}
-                                </select>
-                                {{/each}}
-                                <input type="hidden" name="system.asOther.refs.{{row.idx}}.uuid" value="{{row.uuid}}">
+                                <input type="text" class="tnx-combo-full" data-asother-label="{{row.idx}}" value="{{row.label}}" placeholder="区分（〈フォルム〉の種類など）">
                                 {{#if row.miracle}}
-                                <button type="button" class="tnx-linked-btn tnx-combo-full" data-action="asOtherRefOpen" data-index="{{row.idx}}" data-context-menu-type="asother-ref">
+                                <button type="button" class="tnx-linked-btn tnx-combo-full" data-action="asOtherChoiceOpen" data-index="{{row.idx}}" data-context-menu-type="asother-choice">
                                     <img src="{{row.miracle.img}}" class="tnx-linked-btn__icon"/>
                                     <span class="tnx-linked-btn__label">{{row.miracle.name}}</span>
                                 </button>
@@ -118,7 +124,7 @@
                                 {{/if}}
                             </div>
                             {{#if @root.editable}}
-                            <a class="tnx-combo-del" data-action="asOtherRefDelete" data-index="{{row.idx}}" title="削除"><i class="fas fa-trash"></i></a>
+                            <a class="tnx-combo-del" data-action="asOtherChoiceDelete" data-index="{{row.idx}}" title="削除"><i class="fas fa-trash"></i></a>
                             {{/if}}
                         </div>
                         {{/each}}

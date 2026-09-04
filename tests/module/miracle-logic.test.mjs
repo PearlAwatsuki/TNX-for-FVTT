@@ -10,7 +10,7 @@ import {
     defencePreventPlan, unprotectedTargetIndices, negateCheckGate, negatedCheckMods, evadePlan, recoveryCandidateAllowed,
     terminalKindFor, buildMiracleDamageFlag, miracleResultLabel, miracleTargetOutcome,
     withoutConsumption, interferenceCandidates, addUseEffectSource,
-    asOtherRefCandidates, miracleLogCandidates, buildMiracleUseLogEntry, miracleUseFromMessageFlags,
+    asOtherSelection, miracleLogCandidates, buildMiracleUseLogEntry, miracleUseFromMessageFlags,
     conditionSwapPlan,
 } from "../../scripts/module/miracle-logic.mjs";
 
@@ -428,17 +428,21 @@ describe("addUseEffectSource()（《ファイト！》が対象の神業に載�
 // 効果文《万能道具》「取得している〈フォルム〉によって、異なるスタイルの神業と同等の効果が発生する」＋対応表／
 // 《突然変異》「そのアクト中に使用された神業をコピーして使用する」「あなたが登場したシーンで使用されたものに限られる」
 
-describe("asOtherRefCandidates()（参照行のうち条件技能を満たすもの）", () => {
-    const refs = [
-        { name: "form_weapon", uuid: "U.dance" }, { name: "form_weapon", uuid: "U.finish" },
-        { name: "form_armor", uuid: "U.fortress" }, { name: "", uuid: "U.any" }, { name: "form_icon", uuid: "" },
-    ];
-    it("条件技能が空の行と、所持する識別キーの行の参照先を順に返す(参照先が空の行は除く)", () => {
-        const has = (key) => key === "form_weapon";
-        expect(asOtherRefCandidates(refs, has)).toEqual(["U.dance", "U.finish", "U.any"]);
+describe("asOtherSelection()（選択肢から選んで固定した効果・《万能道具》《半身》《神意》）", () => {
+    // 効果は〈フォルム〉等を選ぶときに神業側で選んで固定する(スタイル→神業→スタイル技能の順・使用時に
+    // 取得技能から導かない=ユーザー訂正 2026-09-04)
+    const choices = [{ label: "ウェポン", uuid: "U.dance" }, { label: "ウェポン", uuid: "U.finish" }, { label: "アーマー", uuid: "U.fortress" }];
+    it("選んだ選択肢(selected)がその参照先", () => {
+        expect(asOtherSelection({ mode: "choice", choices, selected: "U.fortress" })).toEqual({ uuid: "U.fortress" });
     });
-    it("同じ参照先は1つにまとめる", () => {
-        expect(asOtherRefCandidates([{ name: "", uuid: "U.a" }, { name: "", uuid: "U.a" }], () => true)).toEqual(["U.a"]);
+    it("未選択で選択肢が複数なら unselected(警告して中止)・選択肢が1つなら自動", () => {
+        expect(asOtherSelection({ mode: "choice", choices, selected: "" })).toEqual({ uuid: "", reason: "unselected" });
+        expect(asOtherSelection({ mode: "choice", choices: [choices[2]], selected: "" })).toEqual({ uuid: "U.fortress" });
+    });
+    it("選択肢に無い selected は無効・参照先の無い選択肢は数えない・choice 以外は null", () => {
+        expect(asOtherSelection({ mode: "choice", choices, selected: "U.gone" })).toEqual({ uuid: "", reason: "unselected" });
+        expect(asOtherSelection({ mode: "choice", choices: [{ label: "x", uuid: "" }], selected: "" })).toEqual({ uuid: "", reason: "noChoices" });
+        expect(asOtherSelection({ mode: "log", choices, selected: "U.dance" })).toBeNull();
     });
 });
 
