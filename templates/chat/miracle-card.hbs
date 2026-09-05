@@ -10,15 +10,24 @@
     </header>
 
     <div class="cr-req-body">
-        {{#if description}}
-            <div class="cr-req-prose mc-description">{{{description}}}</div>
-        {{/if}}
+        {{!-- 解説の段(効果文＋条件)は畳める(他のチャットカードと同じ details/summary・2026-09-05)。
+             既定は閉じ、宣言そのものが効果になる使用(proseOpen)だけ開く --}}
+        {{#if hasProse}}
+        <details class="mc-prose"{{#if proseOpen}} open{{/if}}>
+            <summary class="cr-req-field mc-prose__summary">
+                <span class="cr-req-field__label">効果文</span>
+            </summary>
+            {{#if description}}
+                <div class="cr-req-prose mc-description">{{{description}}}</div>
+            {{/if}}
 
-        {{#if condition}}
-            <div class="mc-condition">
-                <span class="mc-condition__label">条件</span>
-                <div class="cr-req-prose">{{{condition}}}</div>
-            </div>
+            {{#if condition}}
+                <div class="mc-condition">
+                    <span class="mc-condition__label">条件</span>
+                    <div class="cr-req-prose">{{{condition}}}</div>
+                </div>
+            {{/if}}
+        </details>
         {{/if}}
 
         <div class="cr-req-field mc-uses">

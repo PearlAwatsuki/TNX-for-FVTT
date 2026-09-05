@@ -320,13 +320,17 @@ export function recoveryCandidateAllowed(entry, usage, { byMiracle, currentScene
  * @returns {{typeLabel: string, name: string, furigana: string, description: string,
  *            condition: string, remaining: number, max: number}}
  */
-export function buildMiracleCardData(item, { description = "", condition = "", remaining, max }) {
+export function buildMiracleCardData(item, { description = "", condition = "", remaining, max, proseOpen = false }) {
     return {
         typeLabel:   "神業",
         name:        item?.name ?? "",
         furigana:    item?.system?.furigana ?? "",
         description: description ?? "",
         condition:   condition ?? "",
+        // 解説の段(効果文＋条件)は畳める。既定は閉じ、**宣言そのものが効果になる使用**だけ開く
+        // (2026-09-05 ユーザー指示。他のチャットカードと同じ details/summary の作法)
+        hasProse:    !!((description ?? "").trim() || (condition ?? "").trim()),
+        proseOpen:   proseOpen === true,
         remaining,
         max,
     };

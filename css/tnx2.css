@@ -7939,6 +7939,31 @@ button.tnx-create-act-button span {
 }
 
 .tnx-miracle-card .mc-condition,
+/* 神業カードの解説の段(効果文＋条件)は畳める。見出しの作法は判定カードの内訳(.cr-bonus)と同じ
+   ——▶ を付け、開くと回す(2026-09-05 ユーザー指摘「なぜ神業のチャットカードの効果文だけ
+   折りたためないのですか？」) */
+.tnx-miracle-card .mc-prose__summary {
+    cursor: pointer;
+    list-style: none;
+}
+
+.tnx-miracle-card .mc-prose__summary::-webkit-details-marker {
+    display: none;
+}
+
+.tnx-miracle-card .mc-prose__summary .cr-req-field__label::before {
+    content: "B6"; /* ▶ */
+    display: inline-block;
+    margin-right: 4px;
+    font-size: 0.7em;
+    color: var(--tnx2-text-secondary);
+    transition: transform 0.12s ease;
+}
+
+.tnx-miracle-card .mc-prose[open] .mc-prose__summary .cr-req-field__label::before {
+    transform: rotate(90deg);
+}
+
 .tnx-miracle-card .mc-description + .mc-uses {
     padding-top: 8px;
     border-top: 1px solid var(--tnx2-border, #444);

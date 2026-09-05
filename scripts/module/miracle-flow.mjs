@@ -710,16 +710,19 @@ function chatButton(icon, label, onClick) {
  * @param {{usageEffects?: ?object}} [opts]
  * @returns {Promise<ChatMessage>}
  */
-export async function postMiracleCard(item, { usageEffects = null, destroy = null, addUse = null, request = null, swap = null, acquire = null, insensible = false, asOther = null } = {}) {
+export async function postMiracleCard(item, { usageEffects = null, destroy = null, addUse = null, request = null, swap = null, acquire = null, insensible = false, describe = false, asOther = null } = {}) {
     const TE = foundry.applications.ux.TextEditor;
-    // 他の神業として使う(17-5): 効果文と条件は参照先のもの(「うまく使った」条件も参照先と同じ)。名前・印は元の神業
+    // 解説の段(効果文と条件)は**畳める**(他のチャットカードと同じ details/summary・2026-09-05 ユーザー指示)。
+    // 既定は閉じ、**宣言そのものが効果になる使用**(describe)だけ開く——防ぐ・打ち消し・回避・治癒・
+    // 即死・破壊・入手…は具体的な結果がカードに出るので、効果文を開いたまま並べると結果が埋もれる。
+    // 他の神業として使う(17-5)ときは参照先の文を出す(条件も参照先と同じ)
     const textHost = asOther?.source ?? item;
     const [description, condition] = await Promise.all([
         TE.enrichHTML(textHost.system?.description ?? "", { relativeTo: textHost }),
         TE.enrichHTML(textHost.system?.usageCondition ?? "", { relativeTo: textHost }),
     ]);
     const { remaining, max } = miracleUseGate(item.system);
-    const data = buildMiracleCardData(item, { description, condition, remaining, max });
+    const data = buildMiracleCardData(item, { description, condition, remaining, max, proseOpen: describe });
     const card = await foundry.applications.handlebars.renderTemplate(
         "systems/tokyo-nova-axleration/templates/chat/miracle-card.hbs", data);
     return ChatMessage.create({
@@ -759,6 +762,7 @@ export async function useMiracleWithoutUsage(item, { free = false, asOther = nul
         }
         await item.update(miracleConsumeUpdate(item.system));
     }
-    await postMiracleCard(item, { asOther });
+    // 用途を持たない神業＝宣言そのものが効果(解説の段を出す)
+    await postMiracleCard(item, { describe: true, asOther });
     return true;
 }

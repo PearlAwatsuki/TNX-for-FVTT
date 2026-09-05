@@ -67,14 +67,25 @@ describe("miracleOriginOf() / isMiracleOrigin()（神業由来の印）", () => 
 describe("buildMiracleCardData()（神業カードの描画データ）", () => {
     const item = { id: "m1", type: "miracle", name: "黄泉還り", system: { furigana: "フェニックス" } };
 
-    it("タグ「神業」・名前・ふりがな・効果文・条件・残り/最大を持つ", () => {
+    it("タグ「神業」・名前・ふりがな・効果文・条件・残り/最大を持つ（解説の段は畳める＝既定は閉じる）", () => {
         expect(buildMiracleCardData(item, {
             description: "<p>不死鳥のごとく</p>", condition: "<p>復活したら</p>", remaining: 1, max: 2,
         })).toEqual({
             typeLabel: "神業", name: "黄泉還り", furigana: "フェニックス",
             description: "<p>不死鳥のごとく</p>", condition: "<p>復活したら</p>",
+            hasProse: true, proseOpen: false,
             remaining: 1, max: 2,
         });
+    });
+
+    it("宣言そのものが効果の使用(proseOpen)では解説の段を開いた状態で出す", () => {
+        const d = buildMiracleCardData(item, { description: "<p>x</p>", condition: "", remaining: 1, max: 2, proseOpen: true });
+        expect([d.hasProse, d.proseOpen]).toEqual([true, true]);
+    });
+
+    it("効果文も条件も無ければ解説の段を出さない", () => {
+        const d = buildMiracleCardData(item, { remaining: 1, max: 2, proseOpen: true });
+        expect([d.hasProse, d.proseOpen]).toEqual([false, true]);
     });
 
     it("ふりがな・効果文・条件が無ければ空文字（テンプレート側で行ごと畳む）", () => {

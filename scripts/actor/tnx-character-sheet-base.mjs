@@ -2862,7 +2862,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 神業は神業カード(印つき・条件と残り使用回数を持つ)で出す(17-1)
         // 他の神業として使う(17-5): 適用効果は参照先の神業の効果から組む(用途は参照先のもの)
         const usageEffects = await prepareUsageEffectPayload(actor, asOther?.source ?? item, usage);
-        if (item.type === "miracle") await postMiracleCard(item, { usageEffects, asOther });
+        // 解説の段(効果文と条件)は**具体的な効果を持たない宣言**のときだけ出す(2026-09-05 ユーザー指示)。
+        // 宣言の効果(使用回数+1・神業を使わせる・入れ替え 等)を持つ用途は結果がカードに出る
+        if (item.type === "miracle") await postMiracleCard(item, { usageEffects, asOther, describe: !usage.miracleEffect });
         else await item.postDescriptionCard({ usageEffects });
         return true; // 発動した(神業の要求カードが使用済みを記録する・17-4)
     }
