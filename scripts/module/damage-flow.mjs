@@ -533,9 +533,9 @@ export function renderDamageCard(message, html) {
         // 防いだ対象(防御タイプ「適用前に防ぐ」・17-2)は行を消さず「防いだ」と明示する——行ごと
         // 消えると防げたのか分からない(2026-09-05 ユーザー指摘)
         if (!liveSet.has(i)) {
-            line(area, "cr-result cr-result--nodamage",
-                `<i class="fas fa-shield-halved"></i> 《${esc(t.protectedBy?.name ?? "神業")}》が`
-                + `「${esc(t.name)}」へのダメージを防いだ`);
+            // 対象ごとの行と同じ形(名前＝ラベル・結果＝値)。対象名は行のラベルに出るので繰り返さない
+            row(area, esc(t.name), `<i class="fas fa-shield-halved"></i> 《${esc(t.protectedBy?.name ?? "神業")}》が防いだ`,
+                "cr-calc-row cr-calc-row--wrap cr-calc-row--prevented");
             continue;
         }
         // 対象ごとに見出し(名前)＝最終ダメージを1行・軽減の内訳は名前を繰り返さない小注記に畳む(はみ出し回避)。
@@ -670,7 +670,7 @@ function renderMiracleDamageCard(message, html, f, { ledger, area, row, line, es
 
     if (f.applied && f.appliedResult) {
         for (const tr of (f.appliedResult.targets ?? [])) {
-            row(area, esc(tr.name), esc(tr.resultLabel ?? label));
+            row(area, esc(tr.name), esc(tr.resultLabel ?? label), "cr-calc-row cr-calc-row--wrap");
             line(area, `cr-result ${tr.applied === false ? "cr-result--nodamage" : "cr-result--damage"}`,
                 `<i class="fas ${tr.applied === false ? "fa-shield-halved" : "fa-burst"}"></i> ${esc(tr.applyText ?? "")}`);
         }
@@ -682,13 +682,13 @@ function renderMiracleDamageCard(message, html, f, { ledger, area, row, line, es
     for (let i = 0; i < dmgTargets.length; i++) {
         const t = dmgTargets[i];
         if (!live.has(i)) {
-            // 防がれたのは**その対象への結果**であって対象そのものではない(2026-09-05 ユーザー指摘)
-            line(area, "cr-result cr-result--nodamage",
-                `<i class="fas fa-shield-halved"></i> 《${esc(t.protectedBy?.name ?? "神業")}》が`
-                + `「${esc(t.name)}」への${esc(label)}を防いだ`);
+            // 生きている対象の行と同じ形(名前＝ラベル・結果＝値)。防いだ神業だけを値に出す——
+            // 何を防いだかは台帳の「結果」にあり、対象名は行のラベルにある(2026-09-05 ユーザー指摘)
+            row(area, esc(t.name), `<i class="fas fa-shield-halved"></i> 《${esc(t.protectedBy?.name ?? "神業")}》が防いだ`,
+                "cr-calc-row cr-calc-row--wrap cr-calc-row--prevented");
             continue;
         }
-        row(area, esc(t.name), esc(label));
+        row(area, esc(t.name), esc(label), "cr-calc-row cr-calc-row--wrap");
         const nameEl = area.lastElementChild?.querySelector(".cr-calc-label");
         if (nameEl && !nameEl.classList.contains("tnx-recheck-target")) {
             nameEl.classList.add("tnx-recheck-target");

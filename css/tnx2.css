@@ -1791,6 +1791,11 @@
     white-space: nowrap;
 }
 
+/* 防いだ対象の行(神業・通常のダメージカード)。行の形は生きている対象と同じで、値だけ控えめにする */
+.cr-calc-row--prevented .cr-calc-val {
+    color: var(--tnx2-text-muted);
+}
+
 /* 成否行(.cr-result)は flex(語間 gap つき)なので、本文は1要素にまとめる——塊の span が
    そのまま flex アイテムになると語間が空く(2026-09-05) */
 .cr-result__text {

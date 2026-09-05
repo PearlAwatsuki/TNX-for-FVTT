@@ -15,9 +15,9 @@ describe("keepTogether()（折ってはいけない塊を nowrap でくくる）
     });
 
     it("カード幅に収まらない長い塊はくくらない（nowrap にするとはみ出すため）", () => {
-        const long = `「${"あ".repeat(15)}」`;
+        const long = `「${"あ".repeat(11)}」`;
         expect(keepTogether(long)).toBe(long);
-        const ok = `「${"あ".repeat(14)}」`;
+        const ok = `「${"あ".repeat(10)}」`;
         expect(keepTogether(ok)).toBe(`<span class="tnx-nobr">${ok}</span>`);
     });
 
