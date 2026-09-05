@@ -1792,22 +1792,29 @@
 }
 
 /* 防いだ対象の行(神業・通常のダメージカード)。行の形は生きている対象と同じで、値だけ控えめにする */
-.cr-calc-row--prevented .cr-calc-val {
+.tnx-card__field--prevented .tnx-card__field-value,
+.cr-calc-row--prevented .cr-calc-val,
+.tnx-card__field--prevented .cr-req-field__value {
     color: var(--tnx2-text-muted);
 }
 
 /* 対象名(ラベル)は行の 60% までなら折らない——値(《神業》で防がれた)と幅を取り合って
    縮められると、短い名前まで途中で折れてしまうため(2026-09-05)。60% を超える長い名前だけ折り返す */
+/* 後段の .tnx-card__field--wrap .tnx-card__field-label(flex-shrink:1)より強くするため2クラスで書く */
+.tnx-card__field--prevented.tnx-card__field--wrap .tnx-card__field-label,
 /* 後段の .cr-calc-row--wrap .cr-calc-label(flex-shrink:1)より強くするため2クラスで書く */
-.cr-calc-row--prevented.cr-calc-row--wrap .cr-calc-label {
+.cr-calc-row--prevented.cr-calc-row--wrap .cr-calc-label,
+/* 後段の .tnx-card__field--wrap .cr-req-field__label(flex-shrink:1)より強くするため2クラスで書く */
+.tnx-card__field--prevented.tnx-card__field--wrap .cr-req-field__label {
     flex-shrink: 0;
     max-width: 60%;
     white-space: normal;
     overflow-wrap: anywhere;
 }
 
-/* 成否行(.cr-result)は flex(語間 gap つき)なので、本文は1要素にまとめる——塊の span が
+/* 成否行(.tnx-card__result)は flex(語間 gap つき)なので、本文は1要素にまとめる——塊の span が
    そのまま flex アイテムになると語間が空く(2026-09-05) */
+.tnx-card__result-text,
 .cr-result__text {
     flex: 1 1 auto;
     min-width: 0;
@@ -1835,7 +1842,9 @@
 }
 
 /* 神業版のダメージカード: 防がれた/打ち消された結果は取り消し線で「起きなかった」ことを示す(2026-09-05) */
-.tnx-damage-card .cr-calc-row--voided .cr-calc-val {
+.tnx-damage-card .tnx-card__field--voided .tnx-card__field-value,
+.tnx-damage-card .cr-calc-row--voided .cr-calc-val,
+.tnx-damage-card .tnx-card__field--voided .cr-req-field__value {
     text-decoration: line-through;
     color: var(--tnx2-text-muted);
 }
@@ -3598,62 +3607,9 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     color: var(--tnx2-text-primary);
 }
 
-.chat-message .message-content .tnx-chat-card {
-    border: 1px solid var(--tnx2-border-active);
-    border-radius: var(--tnx2-radius);
-    background: var(--tnx2-bg-2);
-    margin-bottom: 5px;
-    overflow: hidden;
-}
-
-.chat-message .message-content .tnx-chat-card > summary {
-    padding: 12px;
-    background: var(--tnx2-bg-3);
-    cursor: pointer;
-    transition: background var(--tnx2-transition-fast);
-    display: block;
-    outline: none;
-}
-
-.chat-message .message-content .tnx-chat-card > summary:hover {
-    background: var(--tnx2-bg-hover);
-}
-
-.chat-message .message-content .tnx-chat-card > summary::-webkit-details-marker { display: none; }
-
-.chat-message .message-content .tnx-chat-card > summary h3 {
-    margin: 0;
-    display: inline;
-    font-size: 1.1em;
-    border-bottom: none;
-    color: var(--tnx2-text-primary);
-}
-
-.chat-message .message-content .tnx-chat-card > summary::before {
-    content: '';
-    width: 0;
-    height: 0;
-    border-top: 5px solid transparent;
-    border-bottom: 5px solid transparent;
-    border-left: 6px solid var(--tnx2-text-secondary);
-    margin-right: 8px;
-    transition: transform 0.2s ease-in-out;
-    display: inline-block;
-    vertical-align: middle;
-}
-
-.chat-message .message-content .tnx-chat-card[open] > summary::before {
-    transform: rotate(90deg);
-}
-
-.chat-message .message-content .tnx-chat-card .card-content {
-    padding: 10px 12px;
-    border-top: 1px solid var(--tnx2-border-active);
-}
-
-/* 宣言の使用カード(解説カード統合形・2026-08-30): 効果エリアは折りたたみ(details)の外に
-   置くため、カードの枠はラッパーが引き受け、内側の details は枠を持たない。
-   畳んでも「効果を適用」ボタン/適用済み注記は隠れない */
+/* 宣言の使用カード(解説カード統合形・2026-08-30): 効果エリアはカードの外に置くため、
+   枠はラッパーが引き受け、内側のカードは枠を持たない。
+   「効果を適用」ボタン/適用済み注記はカードの段に埋もれず常に見える */
 .chat-message .message-content .tnx-usage-use-card {
     border: 1px solid var(--tnx2-border-active);
     border-radius: var(--tnx2-radius);
@@ -3662,7 +3618,9 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     overflow: hidden;
 }
 
-.chat-message .message-content .tnx-usage-use-card .tnx-chat-card {
+.chat-message .message-content .tnx-usage-use-card .tnx-card,
+.chat-message .message-content .tnx-usage-use-card .tnx-check-result,
+.chat-message .message-content .tnx-usage-use-card .tnx-check-request {
     border: none;
     border-radius: 0;
     margin-bottom: 0;
@@ -3717,14 +3675,115 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
    27b. ニューロカード チャットカード
    ================================================================ */
 
-.tnx-neuro-card-chat {
+/* ニューロカード: 骨格は統一規格の .tnx-card。左の光る縁と絵札だけがこのカードの意匠 */
+.tnx-neuro-card-chat.tnx-card,
+/* ニューロカード: 骨格は統一規格の .tnx-check-result。左の光る縁と絵札だけがこのカードの意匠 */
+.tnx-neuro-card-chat.tnx-check-result,
+/* ニューロカード: 骨格は統一規格の .tnx-check-request。左の光る縁と絵札だけがこのカードの意匠 */
+.tnx-neuro-card-chat.tnx-check-request {
+    border-left: 3px solid var(--tnx2-accent);
+    box-shadow: 0 0 12px rgba(0, 200, 224, 0.08);
+}
+
+.tnx-neuro-card-chat__romaji {
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.8em;
+    color: var(--tnx2-accent);
+    letter-spacing: 0.08em;
+}
+
+
+
+
+.tnx-neuro-card-chat__image {
+    flex-shrink: 0;
+    width: 76px;
+    height: auto;
+    border-radius: var(--tnx2-radius);
+    border: 1px solid var(--tnx2-border-active);
+    display: block;
+}
+
+
+
+
+
+
+
+
+/* ════════════════════════════════════════════════════════════════════
+   過去ログのカードの互換(2026-09-05)
+   チャットカードは**投稿時の HTML がそのまま保存される**ため、統一規格より前に投稿された
+   カードは旧いクラス名のまま卓のログに残る。新しく出るカードは統一規格の名前しか使わないが、
+   過去ログが素の HTML に崩れないよう、旧名をここで受ける。
+   - 名前が変わっただけの段(器・見出し・行・結果 等)は、統一規格の規則に旧名を別名として
+     並べてある(規則そのものは1つ＝二重管理にしない)。
+   - 骨格ごと変わったカード(details でくくっていた解説カード・独自の枠だったニューロカード)は
+     当時の意匠をこの節に残す。**新しいカードでこれらのクラスを使わないこと。**
+   ════════════════════════════════════════════════════════════════════ */
+
+.chat-message .message-content .tnx-chat-card {
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    background: var(--tnx2-bg-2);
+    margin-bottom: 5px;
+    overflow: hidden;
+}
+
+.chat-message .message-content .tnx-chat-card > summary {
+    padding: 12px;
+    background: var(--tnx2-bg-3);
+    cursor: pointer;
+    transition: background var(--tnx2-transition-fast);
+    display: block;
+    outline: none;
+}
+
+.chat-message .message-content .tnx-chat-card > summary:hover {
+    background: var(--tnx2-bg-hover);
+}
+
+.chat-message .message-content .tnx-chat-card > summary::-webkit-details-marker { display: none; }
+
+.chat-message .message-content .tnx-chat-card > summary h3 {
+    margin: 0;
+    display: inline;
+    font-size: 1.1em;
+    border-bottom: none;
+    color: var(--tnx2-text-primary);
+}
+
+.chat-message .message-content .tnx-chat-card > summary::before {
+    content: '';
+    width: 0;
+    height: 0;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-left: 6px solid var(--tnx2-text-secondary);
+    margin-right: 8px;
+    transition: transform 0.2s ease-in-out;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.chat-message .message-content .tnx-chat-card[open] > summary::before {
+    transform: rotate(90deg);
+}
+
+.chat-message .message-content .tnx-chat-card .card-content {
+    padding: 10px 12px;
+    border-top: 1px solid var(--tnx2-border-active);
+}
+
+/* 過去ログのニューロカードは独自の枠を持っていた(統一規格のカードは .tnx-card が枠を持つ) */
+.tnx-neuro-card-chat:not(.tnx-card) {
     border: 1px solid var(--tnx2-border-glow);
     border-left: 3px solid var(--tnx2-accent);
     border-radius: var(--tnx2-radius);
     background: var(--tnx2-bg-0);
     overflow: hidden;
     font-size: 14px;
-    box-shadow: 0 0 12px rgba(0, 200, 224, 0.08);
+    box-shadow: 0 0 12px rgb(0 200 224 / 8%);
 }
 
 .tnx-neuro-card-chat__header {
@@ -3750,23 +3809,6 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     padding: 10px;
     align-items: flex-start;
 }
-
-.tnx-neuro-card-chat__image {
-    flex-shrink: 0;
-    width: 76px;
-    height: auto;
-    border-radius: var(--tnx2-radius);
-    border: 1px solid var(--tnx2-border-active);
-    display: block;
-}
-
-.tnx-neuro-card-chat__info {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-}
-
 
 .tnx-neuro-card-chat__name {
     font-size: 0.93em;
@@ -4955,9 +4997,19 @@ body.tnx-bottom-hud-expanded #hotbar {
     color: #ffaa44;
 }
 
-/* ── 判定結果チャットカード ────────────────────────────────────────── */
+/* ── チャットカードの統一規格 ──────────────────────────────────────────
+   2026-09-05 ユーザー指示「そもそもチャットカードの形式を完全に統一規格にしてください」。
+   **全てのチャットカードはこの骨格の中に段を積む**。器 .tnx-card / 見出し .tnx-card__head
+   (種別タグ＋名前) / 本文 .tnx-card__body。段は機能で分かれる:
+     .tnx-card__field  ラベル＝値の1行(内訳・状態・数値。変種 --total/--wrap/--tn)
+     .tnx-card__fold   畳める段(効果文・解説の長文も、判定ボーナスの内訳も同じ作法。常に閉じて置く)
+     .tnx-card__text   カード本体の長文(テキスト・ハンドアウト。畳まない)
+     .tnx-card__result 結果の行(成否・ダメージ)
+   マークアップは templates/chat/parts/card*.hbs の部品(別名パーシャル tnxCard 他)だけで組む。 */
 
-.tnx-check-result {
+.tnx-card,
+.tnx-check-result,
+.tnx-check-request {
     border-radius: 4px;
     border: 1px solid var(--tnx2-border-active);
     background: var(--tnx2-bg-2);
@@ -4966,35 +5018,86 @@ body.tnx-bottom-hud-expanded #hotbar {
     flex-direction: column;
 }
 
-/* ヘッダー: スキル名 | 判定種別バッジ */
-.cr-head {
+/* 見出し: 種別タグ | 名前(技能名・アイテム名・配布物名) */
+.tnx-card__head,
+.cr-head,
+.cr-req-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 6px;
+    gap: 8px;
     padding: 6px 10px;
     background: var(--tnx2-bg-1);
     border-bottom: 1px solid var(--tnx2-border-subtle);
 }
 
-.cr-skill-name {
+/* 種別のチップは折り返さない(長い名前に押されて「SCE / NE 2」と割れるため) */
+.tnx-card__tag,
+.cr-type-tag,
+.cr-req-type-tag {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    background: var(--tnx2-accent, #c8a84b);
+    color: #1a1208;
+    font-size: 0.72em;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 3px;
+    letter-spacing: 0.04em;
+}
+
+/* 名前はカードの主役として出す */
+.tnx-card__title,
+.cr-skill-name,
+.cr-req-title {
+    flex: 1 1 auto;
+    min-width: 0;
     font-size: 1.05em;
     font-weight: 700;
     color: var(--tnx2-text-primary);
-    flex: 1;
-    min-width: 0;
 }
 
-.cr-type-tag {
-    flex-shrink: 0;
-    font-size: 0.72em;
-    font-weight: 600;
-    color: var(--tnx2-text-accent);
-    background: var(--tnx2-accent-glow-sm);
-    border: 1px solid var(--tnx2-accent-dim);
-    border-radius: 2px;
-    padding: 1px 5px;
-    white-space: nowrap;
+/* 長文(効果文)を持つカードは**見出しそのものが開閉の起点**(details/summary)。
+   解説カードが以前から採っていた作法で、畳むための見出しを別に足さない
+   (2026-09-05 ユーザー指摘「カードのヘッダーそのものが見出しで、折り畳み、展開もそこが起点」) */
+.tnx-card__disclose > .tnx-card__head {
+    cursor: pointer;
+    list-style: none;
+}
+
+.tnx-card__disclose > .tnx-card__head::-webkit-details-marker {
+    display: none;
+}
+
+.tnx-card__disclose > .tnx-card__head::before {
+    content: "▶"; /* 開閉の三角 */
+    flex: 0 0 auto;
+    font-size: 0.7em;
+    color: var(--tnx2-text-secondary);
+    transition: transform 0.12s ease;
+}
+
+.tnx-card__disclose[open] > .tnx-card__head::before {
+    transform: rotate(90deg);
+}
+
+/* 畳まれていた長文。本文と同じ内側余白に揃え、下の段と罫線で切る */
+.tnx-card__prose {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+}
+
+/* 段を1つも持たないカード(効果文だけの解説カード)では本文の帯を出さない */
+.tnx-card__body:empty {
+    display: none;
+}
+
+/* 本文。段の間隔はここで一律に決める(段の側で余白を持たない) */
+.tnx-card__body,
+.cr-req-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 12px;
 }
 
 /* カード行: スートシンボル | カード名 | バッジ群 */
@@ -5084,22 +5187,26 @@ body.tnx-bottom-hud-expanded #hotbar {
     background: rgb(80 200 130 / 25%);
 }
 
-/* 計算内訳セクション */
+/* 段のまとまり(計算内訳など)。余白は本文が持つのでここでは間隔だけ */
+.tnx-card__section,
 .cr-calc-section {
-    padding: 8px 12px 6px;
     display: flex;
     flex-direction: column;
     gap: 3px;
 }
 
-.cr-calc-row {
+.tnx-card__field,
+.cr-calc-row,
+.cr-req-field {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
     padding: 1px 0;
 }
 
-.cr-calc-label {
+.tnx-card__field-label,
+.cr-calc-label,
+.cr-req-field__label {
     font-size: 0.9em;
     color: var(--tnx2-text-secondary);
     /* 短いラベル(攻撃/目標値 等)は折り返さず横に保ち、長い値側を折り返させる(2026-07-15) */
@@ -5107,7 +5214,9 @@ body.tnx-bottom-hud-expanded #hotbar {
     white-space: nowrap;
 }
 
-.cr-calc-val {
+.tnx-card__field-value,
+.cr-calc-val,
+.cr-req-field__value {
     font-size: 1em;
     font-family: var(--tnx2-font-mono);
     color: var(--tnx2-text-primary);
@@ -5119,6 +5228,7 @@ body.tnx-bottom-hud-expanded #hotbar {
 }
 
 /* 達成値合計行 */
+.tnx-card__field--total,
 .cr-total-row {
     margin-top: 5px;
     padding-top: 7px;
@@ -5128,14 +5238,18 @@ body.tnx-bottom-hud-expanded #hotbar {
 
 /* 可変長のラベル(供給元名＋対象条件の理由 等)を持つ行だけ折り返す(2026-09-01)。
    基底の nowrap/flex-shrink:0 を打ち消して見切れを防ぐ(合計行の例外と同じ扱い) */
-.cr-calc-row--wrap .cr-calc-label {
+.tnx-card__field--wrap .tnx-card__field-label,
+.cr-calc-row--wrap .cr-calc-label,
+.tnx-card__field--wrap .cr-req-field__label {
     flex-shrink: 1;
     min-width: 0;
     white-space: normal;
     overflow-wrap: anywhere;
 }
 
-.cr-total-row .cr-calc-label {
+.tnx-card__field--total .tnx-card__field-label,
+.cr-total-row .cr-calc-label,
+.tnx-card__field--total .cr-req-field__label {
     font-size: 0.95em;
     font-weight: 600;
     color: var(--tnx2-text-primary);
@@ -5147,6 +5261,7 @@ body.tnx-bottom-hud-expanded #hotbar {
     overflow-wrap: anywhere;
 }
 
+.tnx-card__field-value--total,
 .cr-total-num {
     font-size: 1.8em;
     font-weight: 700;
@@ -5160,22 +5275,27 @@ body.tnx-bottom-hud-expanded #hotbar {
 }
 
 /* 総計行の単位表記(「1 段階」等): 数字は大きく・単位は控えめに(移動段階の強調表示・2026-07-19) */
+.tnx-card__field-value--total .tnx-card__field-unit,
 .cr-total-num .cr-total-unit {
     font-size: 0.5em;
     font-weight: 600;
 }
 
 /* 判定ボーナス行＝開閉トグル (▶判定ボーナス … +N、開くとエフェクト名一覧) */
+.tnx-card__fold-summary,
 .cr-bonus-summary {
     cursor: pointer;
     list-style: none;
 }
 
+.tnx-card__fold-summary::-webkit-details-marker,
 .cr-bonus-summary::-webkit-details-marker {
     display: none;
 }
 
-.cr-bonus-summary .cr-calc-label::before {
+/* ▶ は見出しの行そのものに付ける(ラベルを持たない畳める段でも出る) */
+.tnx-card__fold-summary::before,
+.cr-bonus-summary::before {
     content: "\25B6"; /* ▶ */
     display: inline-block;
     margin-right: 4px;
@@ -5184,10 +5304,12 @@ body.tnx-bottom-hud-expanded #hotbar {
     transition: transform 0.12s ease;
 }
 
-.cr-bonus[open] .cr-bonus-summary .cr-calc-label::before {
+.tnx-card__fold[open] .tnx-card__fold-summary::before,
+.cr-bonus[open] .cr-bonus-summary::before {
     transform: rotate(90deg);
 }
 
+.tnx-card__fold-list,
 .cr-bonus-list {
     list-style: none;
     margin: 3px 0 0;
@@ -5197,6 +5319,7 @@ body.tnx-bottom-hud-expanded #hotbar {
     background: var(--tnx2-bg-subtle, rgba(0, 0, 0, 0.12));
 }
 
+.tnx-card__fold-list li,
 .cr-bonus-list li {
     display: flex;
     justify-content: space-between;
@@ -5205,6 +5328,7 @@ body.tnx-bottom-hud-expanded #hotbar {
     padding: 1px 0;
 }
 
+.tnx-card__fold-name,
 .cr-bonus-name {
     color: var(--tnx2-text-secondary);
     overflow: hidden;
@@ -5212,12 +5336,14 @@ body.tnx-bottom-hud-expanded #hotbar {
     white-space: nowrap;
 }
 
+.tnx-card__fold-num,
 .cr-bonus-num {
     font-family: var(--tnx2-font-mono);
     color: var(--tnx2-text-primary);
 }
 
 /* 結果フッター (成功 / 失敗 / ファンブル) */
+.tnx-card__result,
 .cr-result {
     display: flex;
     /* 長い注記(強制失敗の理由等)が付いても成否の語を文字割れさせず、注記ごと次行へ落とす */
@@ -5229,15 +5355,18 @@ body.tnx-bottom-hud-expanded #hotbar {
     font-weight: 700;
 }
 
+.tnx-card__result--success,
 .cr-result--success {
     background: rgba(50, 180, 80, 0.20);
     color: #60e880;
 }
 
-/* 判定カードの帰結行(2026-08-16 登場で導入・16-3 で汎用名 cr-flow-outcome を追加):
-   成功で自動適用された帰結(登場・入手)を卓に残す */
-.tnx-check-result .cr-flow-outcome,
-.tnx-check-result .cr-appearance-outcome {
+/* 帰結の行: 成功で自動適用された帰結(登場・入手・情報開示)を卓に残す。
+   2026-09-05 まで登場/購入/情報で3つの名前に割れていたものを1つにした */
+.tnx-card__outcome,
+.cr-flow-outcome,
+.cr-appearance-outcome,
+.cr-info-outcome {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -5246,22 +5375,26 @@ body.tnx-bottom-hud-expanded #hotbar {
     font-weight: 700;
 }
 
+.tnx-card__result--failure,
 .cr-result--failure {
     background: rgba(200, 50, 50, 0.20);
     color: #e86060;
 }
 
+.tnx-card__result--fumble,
 .cr-result--fumble {
     background: rgba(180, 0, 0, 0.32);
     color: #ff6060;
 }
 
+.tnx-card__result--info,
 .cr-result--info {
     background: rgba(120, 150, 200, 0.18);
     color: #a8c4ee;
 }
 
 /* 状態の解決/受付カード(治療・カード決定ドロー。condition-outcome/condition-prompt.hbs) */
+.tnx-condition-card .tnx-card__result--damage,
 .tnx-condition-card .cr-result--damage {
     background: rgba(200, 50, 50, 0.20);
     color: #e86060;
@@ -5288,6 +5421,7 @@ body.tnx-bottom-hud-expanded #hotbar {
     color: #e86060;
 }
 
+.tnx-card__result-note,
 .cr-tn {
     margin-left: auto;
     font-size: 0.82em;
@@ -7746,82 +7880,39 @@ button.tnx-create-act-button span {
 }
 
 /* ============================================================
-   Phase 8-5: 判定要求チャットカード (.tnx-check-request)
+   判定要求カードと送信カード(ハンドアウト・シーン切替・テキスト・情報)の固有部分。
+   骨格(器・見出し・本文・段)は統一規格の .tnx-card を使う
    ============================================================ */
 
-.tnx-check-request {
-    background: var(--tnx2-card-bg, #12131f);
-    border: 1px solid var(--tnx2-border-accent, #555);
-    border-radius: 6px;
-    overflow: hidden;
-    font-size: 0.88em;
-}
-
-.tnx-check-request .cr-req-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 12px;
-    background: rgba(0,0,0,0.35);
-    border-bottom: 1px solid var(--tnx2-border, #444);
-}
-
-.tnx-check-request .cr-req-type-tag {
-    /* 種別のチップは折り返さない(長いタイトルに押されて「SCE / NE 2」と割れるため) */
-    flex: 0 0 auto;
-    white-space: nowrap;
-    background: var(--tnx2-accent, #c8a84b);
-    color: #1a1208;
-    font-size: 0.78em;
-    font-weight: 700;
-    padding: 1px 7px;
-    border-radius: 3px;
-    letter-spacing: 0.04em;
-}
-
-.tnx-check-request .cr-req-title {
-    flex: 1 1 auto;
-    min-width: 0;
-    font-weight: 700;
-    color: var(--tnx2-text-secondary);
-    font-size: 0.85em;
-    letter-spacing: 0.05em;
-}
-
-.tnx-check-request .cr-req-body {
-    padding: 10px 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.tnx-check-request .cr-req-skill-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.tnx-check-request .cr-req-skill-name {
-    font-size: 1.05em;
-    font-weight: 700;
-    color: var(--tnx2-text, #e0e0e0);
-}
-
+.tnx-card .cr-req-suits,
+.tnx-check-result .cr-req-suits,
 .tnx-check-request .cr-req-suits {
     display: flex;
     gap: 4px;
 }
 
+.tnx-card .cr-req-suit,
+.tnx-check-result .cr-req-suit,
 .tnx-check-request .cr-req-suit {
     font-size: 1.1em;
     font-weight: 700;
 }
 
-.tnx-check-request .cr-req-suit.suit-spade   { color: #8ab4f8; }
-.tnx-check-request .cr-req-suit.suit-club     { color: #81c995; }
-.tnx-check-request .cr-req-suit.suit-heart    { color: #f28b82; }
-.tnx-check-request .cr-req-suit.suit-diamond  { color: #fdd663; }
+.tnx-card .cr-req-suit.suit-spade,
+.tnx-check-result .cr-req-suit.suit-spade,
+.tnx-check-request .cr-req-suit.suit-spade { color: #8ab4f8; }
+.tnx-card .cr-req-suit.suit-club,
+.tnx-check-result .cr-req-suit.suit-club,
+.tnx-check-request .cr-req-suit.suit-club { color: #81c995; }
+.tnx-card .cr-req-suit.suit-heart,
+.tnx-check-result .cr-req-suit.suit-heart,
+.tnx-check-request .cr-req-suit.suit-heart { color: #f28b82; }
+.tnx-card .cr-req-suit.suit-diamond,
+.tnx-check-result .cr-req-suit.suit-diamond,
+.tnx-check-request .cr-req-suit.suit-diamond { color: #fdd663; }
 
+.tnx-card .tnx-card__note,
+.tnx-check-result .tnx-card__note,
 .tnx-check-request .cr-req-description {
     font-size: 0.85em;
     color: var(--tnx2-text-secondary);
@@ -7830,19 +7921,24 @@ button.tnx-create-act-button span {
     border-left: 2px solid var(--tnx2-border, #444);
 }
 
-.tnx-check-request .cr-req-tn-row {
+.tnx-card .tnx-card__field.tnx-card__field--tn,
+.tnx-check-result .cr-calc-row.tnx-card__field--tn,
+.tnx-check-request .cr-req-field.cr-req-tn-row {
     display: flex;
     align-items: center;
     gap: 8px;
     font-size: 0.88em;
 }
 
-.tnx-check-request .cr-req-tn-label {
-    color: var(--tnx2-text-secondary);
+.tnx-card .tnx-card__field--tn .tnx-card__field-label,
+.tnx-check-result .tnx-card__field--tn .cr-calc-label,
+.tnx-check-request .cr-req-tn-row .cr-req-field__label {
     font-size: 0.85em;
 }
 
-.tnx-check-request .cr-req-tn-value {
+.tnx-card .tnx-card__field-value.tnx-card__field-value--tn,
+.tnx-check-result .cr-calc-val.tnx-card__field-value--tn,
+.tnx-check-request .cr-req-field__value.cr-req-tn-value {
     font-weight: 700;
     font-size: 1.05em;
     color: var(--tnx2-accent, #c8a84b);
@@ -7850,12 +7946,16 @@ button.tnx-create-act-button span {
     text-align: center;
 }
 
+.tnx-card .tnx-card__field-value--hidden,
+.tnx-check-result .tnx-card__field-value--hidden,
 .tnx-check-request .cr-req-tn-hidden {
     color: var(--tnx2-text-secondary);
     font-weight: normal;
     font-size: 0.9em;
 }
 
+.tnx-card .tnx-card__targets,
+.tnx-check-result .tnx-card__targets,
 .tnx-check-request .cr-req-targets {
     list-style: none;
     margin: 0;
@@ -7865,6 +7965,8 @@ button.tnx-create-act-button span {
     gap: 4px;
 }
 
+.tnx-card .tnx-card__target,
+.tnx-check-result .tnx-card__target,
 .tnx-check-request .cr-req-target-row {
     display: flex;
     flex-wrap: wrap;
@@ -7878,93 +7980,40 @@ button.tnx-create-act-button span {
 
 /* FS判定の行内アクション(進行値に加算ボタン／適用済み表示)は、名前・達成値の下に全幅で回す
    (右寄せの status セルへ詰めると重なるため・13-7・2026-07-26)。 */
+.tnx-card .tnx-fs-row-action,
+.tnx-check-result .tnx-fs-row-action,
 .tnx-check-request .tnx-fs-row-action {
     flex-basis: 100%;
     margin: 2px 0 0;
     text-align: center;
 }
+.tnx-card button.tnx-fs-row-action,
+.tnx-check-result button.tnx-fs-row-action,
 .tnx-check-request button.tnx-fs-row-action {
     width: 100%;
 }
 
-/* ─── 送信カード共通の部品(2026-08-15) ─────────────────────────────────────────
-   シナリオコントロールパネルから送るカード(ハンドアウト・シーン切替・トレーラー/
-   シナリオテキスト・情報)は判定要求カードの骨格(header/body)をそのまま使う。
-   ラベル付きの行と長文ブロックはその4種で共有する */
-
-/* ラベル＋値の行。ラベル列の幅はカードごとに flex-basis で決める */
-.tnx-check-request .cr-req-field {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    font-size: 0.9em;
-}
-
-.tnx-check-request .cr-req-field__label {
-    flex: 0 0 auto;
-    color: var(--tnx2-text-secondary);
-    font-size: 0.85em;
-}
-
-.tnx-check-request .cr-req-field__value {
-    flex: 1 1 auto;
-    min-width: 0;
-    font-weight: 600;
-}
-
 /* 入力された長文(ProseMirror の段落)。ブロックの上下端の余白だけ落とす */
+.tnx-card .tnx-card__text > :first-child,
+.tnx-check-result .tnx-card__text > :first-child,
 .tnx-check-request .cr-req-prose > :first-child { margin-top: 0; }
-.tnx-check-request .cr-req-prose > :last-child  { margin-bottom: 0; }
-
-/* 判定要求はタイトルが固定ラベル(「判定要求」)なので小さく置いているが、送信カードは
-   **タイトルがその配布物の名前**(ハンドアウト名・シーン名・アクト名・情報項目名)なので
-   主役として出す。種別は左のタグが示す */
-.tnx-handout-card .cr-req-title,
-.tnx-scene-switch-card .cr-req-title,
-.tnx-text-card .cr-req-title,
-.tnx-info-card .cr-req-title,
-.tnx-miracle-card .cr-req-title {
-    font-size: 1.05em;
-    color: var(--tnx2-text);
-    letter-spacing: 0;
-}
+.tnx-card .tnx-card__text > :last-child,
+.tnx-check-result .tnx-card__text > :last-child,
+.tnx-check-request .cr-req-prose > :last-child { margin-bottom: 0; }
 
 /* ─── 神業カード(17-1) ────────────────────────────────────────────────────────
    タグ＝「神業」・タイトル＝神業名(ふりがなはルビ)。効果文の下に条件(経験点の取得条件)と
    残り使用回数。条件と回数は効果文と罫線で切る。ルビは名前と同色(辞典カードと同じ規約) */
+.tnx-miracle-card .tnx-card__title rt,
+.tnx-miracle-card .cr-skill-name rt,
 .tnx-miracle-card .cr-req-title rt {
     font-size: 0.55em;
     color: inherit;
     letter-spacing: 0.1em;
 }
 
-.tnx-miracle-card .mc-condition,
-/* 神業カードの解説の段(効果文＋条件)は畳める。見出しの作法は判定カードの内訳(.cr-bonus)と同じ
-   ——▶ を付け、開くと回す(2026-09-05 ユーザー指摘「なぜ神業のチャットカードの効果文だけ
-   折りたためないのですか？」) */
-.tnx-miracle-card .mc-prose__summary {
-    cursor: pointer;
-    list-style: none;
-}
-
-.tnx-miracle-card .mc-prose__summary::-webkit-details-marker {
-    display: none;
-}
-
-.tnx-miracle-card .mc-prose__summary .cr-req-field__label::before {
-    content: "B6"; /* ▶ */
-    display: inline-block;
-    margin-right: 4px;
-    font-size: 0.7em;
-    color: var(--tnx2-text-secondary);
-    transition: transform 0.12s ease;
-}
-
-.tnx-miracle-card .mc-prose[open] .mc-prose__summary .cr-req-field__label::before {
-    transform: rotate(90deg);
-}
-
-.tnx-miracle-card .mc-description + .mc-uses {
+/* 条件は効果文と罫線で切る(効果文と条件は同じ畳みの中に並ぶ) */
+.tnx-miracle-card .mc-condition {
     padding-top: 8px;
     border-top: 1px solid var(--tnx2-border, #444);
 }
@@ -7979,6 +8028,8 @@ button.tnx-create-act-button span {
 
 /* ─── ハンドアウト送信カード(2026-08-12) ───────────────────────────────────────
    担当・スタイル・コネ・推奨スートの4行。ラベルは幅を揃えて値の頭を通す */
+.tnx-handout-card .tnx-card__field-label,
+.tnx-handout-card .cr-calc-label,
 .tnx-handout-card .cr-req-field__label {
     flex-basis: 5.5em;
 }
@@ -8007,6 +8058,8 @@ button.tnx-create-act-button span {
    タグ＝上演中のシーン番号(SCENE n)・タイトル＝シーン名。
    切替メッセージ(台本の長文)はシーンプレイヤーの行と罫線で切る——行が無いカードでは
    上に何も無いので罫線を引かない */
+.tnx-scene-switch-card .tnx-card__field + .sc-message,
+.tnx-scene-switch-card .cr-calc-row + .sc-message,
 .tnx-scene-switch-card .cr-req-field + .sc-message {
     padding-top: 8px;
     border-top: 1px solid var(--tnx2-border, #444);
@@ -8065,41 +8118,61 @@ button.tnx-create-act-button span {
     overflow-wrap: anywhere;
 }
 
+.tnx-card .tnx-card__target-name,
+.tnx-check-result .tnx-card__target-name,
 .tnx-check-request .cr-req-actor-name {
     font-weight: 600;
     flex: 1;
 }
 
+.tnx-card .tnx-card__target-status,
+.tnx-check-result .tnx-card__target-status,
 .tnx-check-request .cr-req-target-status {
     flex: 1;
     display: flex;
     justify-content: flex-end;
 }
 
+.tnx-card .tnx-check-do-btn,
+.tnx-check-result .tnx-check-do-btn,
 .tnx-check-request .tnx-check-do-btn {
     font-size: 0.82em;
     padding: 3px 10px;
 }
 
+.tnx-card .tnx-card__target-negate,
+.tnx-card .tnx-card__target-note,
+.tnx-check-result .tnx-card__target-negate,
+.tnx-check-result .tnx-card__target-note,
 .tnx-check-request .cr-req-negate,
 .tnx-check-request .cr-req-note {
     font-size: 0.82em;
     color: var(--tnx2-text-secondary);
 }
 
+.tnx-card .tnx-card__target-waiting,
+.tnx-check-result .tnx-card__target-waiting,
 .tnx-check-request .cr-req-waiting {
     font-size: 0.82em;
     color: var(--tnx2-text-secondary);
     font-style: italic;
 }
 
+.tnx-card .tnx-card__target-result,
+.tnx-check-result .tnx-card__target-result,
 .tnx-check-request .cr-req-result {
     font-size: 0.88em;
 }
 
+.tnx-card .cr-inline-success,
+.tnx-check-result .cr-inline-success,
 .tnx-check-request .cr-inline-success { color: #81c995; font-weight: 700; }
-.tnx-check-request .cr-inline-failure  { color: #f28b82; font-weight: 700; }
-.tnx-check-request .cr-inline-fumble   { color: #f28b82; font-weight: 700; }
+.tnx-card .cr-inline-failure,
+.tnx-check-result .cr-inline-failure,
+.tnx-check-request .cr-inline-failure { color: #f28b82; font-weight: 700; }
+.tnx-card .cr-inline-fumble,
+.tnx-check-result .cr-inline-fumble,
+.tnx-check-request .cr-inline-fumble { color: #f28b82; font-weight: 700; }
 
 /* ============================================================
    Phase 8-6: 用途シート (.tnx-usage-sheet)
@@ -8701,6 +8774,7 @@ button.tnx-create-act-button span {
     flex-direction: column;
     gap: 6px;
 }
+.tnx-attack-status .tnx-card__result,
 .tnx-attack-status .cr-result {
     padding: 0;
 }
@@ -8776,7 +8850,7 @@ button.tnx-create-act-button span {
 }
 
 /* ── 個別リアクションカード(複数対象一括・2026-07-15): 状態領域の余白を他カードに合わせる。
-   解決後は目標値/差分を cr-calc-section へ足し成否は cr-result フルバナー(check-result と同型)、
+   解決後は目標値/差分を tnx-card__section へ足し成否は tnx-card__result フルバナー(check-result と同型)、
    未解決の注記/ボタンはカード内側余白のラッパへ入れる ── */
 .tnx-reaction-actions {
     display: flex;
@@ -8961,7 +9035,7 @@ button.tnx-create-act-button span {
     color: var(--tnx2-text-secondary);
     font-size: 0.9em;
 }
-/* 対象ごとの軽減内訳(名前を繰り返さない小注記・2026-07-16 はみ出し回避)。cr-tn は white-space:nowrap の
+/* 対象ごとの軽減内訳(名前を繰り返さない小注記・2026-07-16 はみ出し回避)。tnx-card__result-note は white-space:nowrap の
    ため使わず、必ず折り返す独自クラスにする(nowrap の下では overflow-wrap が効かない=はみ出し切れの原因) */
 .tnx-damage-sub {
     padding-left: 10px;
@@ -8970,12 +9044,15 @@ button.tnx-create-act-button span {
     white-space: normal;
     overflow-wrap: anywhere;
 }
+.tnx-damage-card .tnx-card__result,
 .tnx-damage-card .cr-result {
     padding: 4px 0 0;
 }
+.tnx-damage-card .tnx-card__result--damage,
 .tnx-damage-card .cr-result--damage {
     color: #e86060;
 }
+.tnx-damage-card .tnx-card__result--nodamage,
 .tnx-damage-card .cr-result--nodamage {
     color: var(--tnx2-text-secondary);
 }

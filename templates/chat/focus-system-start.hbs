@@ -1,36 +1,18 @@
-<div class="tnx-check-request tokyo-nova">
+{{!-- FS判定の開始カード。タグ＝「FS判定」・名前＝FS名。骨格・段は統一規格の部品で組む(2026-09-05) --}}
+{{#> tnxCard typeLabel="FS判定" title=name}}
+    {{#if restriction}}<p class="tnx-card__note">{{restriction}}</p>{{/if}}
 
-    <header class="cr-req-header">
-        <span class="cr-req-type-tag">FS判定</span>
-        <span class="cr-req-title">{{name}}</span>
-    </header>
+    {{> tnxCardField label="目標進行値" value=targetProgress fieldClass="tnx-card__field--tn" valueClass="tnx-card__field-value--tn"}}
+    {{> tnxCardField label="敗北条件" value=defeatText fieldClass="tnx-card__field--tn" valueClass="tnx-card__field-value--tn"}}
 
-    <div class="cr-req-body">
-
-        {{#if restriction}}
-            <p class="cr-req-description">{{restriction}}</p>
-        {{/if}}
-
-        <div class="cr-req-tn-row">
-            <span class="cr-req-tn-label">目標進行値</span>
-            <span class="cr-req-tn-value">{{targetProgress}}</span>
-        </div>
-
-        <div class="cr-req-tn-row">
-            <span class="cr-req-tn-label">敗北条件</span>
-            <span class="cr-req-tn-value">{{defeatText}}</span>
-        </div>
-
-        {{#if rows.length}}
-            <ul class="cr-req-targets">
-                {{#each rows}}
-                    <li class="cr-req-target-row">
-                        <span class="cr-req-actor-name">進行値 {{this.threshold}} から {{this.skillLabel}}</span>
-                        <div class="cr-req-target-status">目標値 {{this.targetValue}}</div>
-                    </li>
-                {{/each}}
-            </ul>
-        {{/if}}
-
-    </div>
-</div>
+    {{#if rows.length}}
+        <ul class="tnx-card__targets">
+            {{#each rows}}
+                <li class="tnx-card__target">
+                    <span class="tnx-card__target-name">進行値 {{this.threshold}} から {{this.skillLabel}}</span>
+                    <div class="tnx-card__target-status">目標値 {{this.targetValue}}</div>
+                </li>
+            {{/each}}
+        </ul>
+    {{/if}}
+{{/tnxCard}}

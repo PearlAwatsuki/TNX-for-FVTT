@@ -6,7 +6,7 @@
  * 別々に設計されるとカード値・能力値・報酬点・判定ボーナス等の内訳が落ちる(攻撃カード/オープン
  * リアクションの内訳オミットをユーザー指摘・2026-07-19)。
  *
- * - テンプレート部品: templates/chat/parts/check-card-head.hbs(ヘッダー+カード行)・
+ * - テンプレート部品: templates/chat/parts/check-card-row.hbs(ヘッダー+カード行)・
  *   check-calc-rows.hbs(標準計算行=総計を含まない)。
  * - 本モジュールは部品が要求するコンテキストを一箇所で組み立てる(表示の再実装は表示ずれの温床)。
  */
@@ -35,7 +35,7 @@ export function suitSymbolOf(suit) {
  * @param {boolean} [p.suitMismatch] スート不一致(判定不成立)
  * @param {Array} [p.checkSources] 判定ボーナスの供給元内訳
  * @param {boolean} [p.isRecheck] 再判定の置き換え
- * @returns {object} check-card-head / check-calc-rows が要求するコンテキスト
+ * @returns {object} check-card-row / check-calc-rows が要求するコンテキスト
  */
 export function buildCheckCardContext({
     skillLabel, typeLabel, card, suit, result,

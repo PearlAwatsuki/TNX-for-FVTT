@@ -48,7 +48,7 @@ export function renderFocusProgressButton(message, html) {
     if (!game.user.isGM) return; // 進行値の反映は RL(=GM)
 
     const applied = message.getFlag(SCOPE, "focusProgressApplied") ?? {};
-    for (const row of html.querySelectorAll(".cr-req-target-row")) {
+    for (const row of html.querySelectorAll(".tnx-card__target")) {
         const actorId = row.dataset.actorId;
         const result = flag.results?.[actorId];
         if (!result?.success) continue; // 成功のみ(失敗/ファンブルは進行なし)
@@ -57,7 +57,7 @@ export function renderFocusProgressButton(message, html) {
         // 達成値表示と重なってレイアウトが崩れるため(2026-07-26 実機指摘)。
         if (applied[actorId] !== undefined) {
             const note = document.createElement("div");
-            note.className = "tnx-fs-row-action cr-req-note tnx-fs-applied";
+            note.className = "tnx-fs-row-action tnx-card__target-note tnx-fs-applied";
             note.innerHTML = `<i class="fas fa-check"></i> 進行 +${applied[actorId]} 反映済み`;
             row.appendChild(note);
             continue;
@@ -159,13 +159,13 @@ export function renderFocusSupportNote(message, html) {
     const flag = message.getFlag(SCOPE, "checkRequest");
     if (flag?.focusSystemKind !== "support") return;
     const applied = message.getFlag(SCOPE, "focusSupportApplied") ?? {};
-    for (const row of html.querySelectorAll(".cr-req-target-row")) {
+    for (const row of html.querySelectorAll(".tnx-card__target")) {
         const actorId = row.dataset.actorId;
         const rec = applied[actorId];
         if (rec === undefined) continue;
         // 適用済み表示も行の新しい行(全幅)に置く(status セルへ詰めない・2026-07-26)
         const note = document.createElement("div");
-        note.className = "tnx-fs-row-action cr-req-note tnx-fs-applied";
+        note.className = "tnx-fs-row-action tnx-card__target-note tnx-fs-applied";
         if (rec.success) {
             const esc = foundry.utils.escapeHTML;
             const tgt = rec.targetName ? `「${esc(rec.targetName)}」` : "対象";

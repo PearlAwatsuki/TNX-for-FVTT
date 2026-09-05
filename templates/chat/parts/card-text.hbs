@@ -1,5 +1,5 @@
 {{!-- 段: カード本体の長文(テキストカード・ハンドアウト・情報の記述)。カードの用が長文そのものなので
       畳まない。補助の説明(効果文等)は tnxCardProse で畳む。 --}}
 {{#if content}}
-<div class="tnx-card__text{{#if modifier}} {{modifier}}{{/if}}">{{{content}}}</div>
+<div class="tnx-card__text{{#if textClass}} {{textClass}}{{/if}}">{{{content}}}</div>
 {{/if}}

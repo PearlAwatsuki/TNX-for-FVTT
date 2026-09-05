@@ -1,0 +1,9 @@
+{{!-- 派生ダメージのカード(軽減不可の追加ダメージ)。統一規格の骨格で組む(2026-09-05)。
+      タグ＝「派生ダメージ」・名前＝系統と但し書き --}}
+{{#> tnxCard cardClass="tnx-damage-card" typeLabel=typeLabel title=title}}
+    <div class="tnx-card__section">
+        {{#if drawn}}{{> tnxCardField label="めくったカード" value=drawn}}{{/if}}
+        {{> tnxCardField label="ダメージ" value=total fieldClass="tnx-card__field--total" valueClass="tnx-card__field-value--total"}}
+    </div>
+    {{#> tnxCardResult resultClass="tnx-card__result--damage"}}<i class="fas fa-burst"></i> {{applyText}}{{/tnxCardResult}}
+{{/tnxCard}}

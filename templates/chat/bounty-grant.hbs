@@ -1,25 +1,15 @@
-<div class="tnx-check-request tokyo-nova">
+{{!-- 報酬点の付与カード。タグ＝点数・名前＝「報酬点」。
+      対象ごとの受け取りボタン/受け取り済みは renderChatMessageHTML フックが注入する。
+      骨格・段は統一規格の部品で組む(2026-09-05) --}}
+{{#> tnxCard typeLabel=amountLabel title="報酬点"}}
+    {{#if note}}<p class="tnx-card__note">{{note}}</p>{{/if}}
 
-    <header class="cr-req-header">
-        <span class="cr-req-type-tag">{{amountLabel}}</span>
-        <span class="cr-req-title">報酬点</span>
-    </header>
-
-    <div class="cr-req-body">
-
-        {{#if note}}
-            <p class="cr-req-description">{{note}}</p>
-        {{/if}}
-
-        {{!-- 対象一覧（ボタン／受け取り済みは renderChatMessageHTML フックが注入） --}}
-        <ul class="cr-req-targets">
-            {{#each targets}}
-                <li class="cr-req-target-row" data-uuid="{{this.uuid}}">
-                    <span class="cr-req-actor-name">{{this.name}}</span>
-                    <div class="cr-req-target-status"></div>
-                </li>
-            {{/each}}
-        </ul>
-
-    </div>
-</div>
+    <ul class="tnx-card__targets">
+        {{#each targets}}
+            <li class="tnx-card__target" data-uuid="{{this.uuid}}">
+                <span class="tnx-card__target-name">{{this.name}}</span>
+                <div class="tnx-card__target-status"></div>
+            </li>
+        {{/each}}
+    </ul>
+{{/tnxCard}}

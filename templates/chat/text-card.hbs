@@ -1,15 +1,7 @@
 {{!-- 長文送信カード(2026-08-15)。トレーラーとシナリオテキストで共用する——どちらも
-      「種別タグ＋見出し＋入力された長文」で構造が同じもの。意匠はハンドアウトカードと同じ
-      .tnx-check-request ＋ cr-req-header ＋ cr-req-body を踏襲する。
-      見出しは名前が付いているときだけ出す(無名のテキストはタグだけで足りる) --}}
-<div class="tnx-check-request tokyo-nova tnx-text-card">
-
-    <header class="cr-req-header">
-        <span class="cr-req-type-tag">{{typeLabel}}</span>
-        {{#if title}}<span class="cr-req-title">{{title}}</span>{{/if}}
-    </header>
-
-    <div class="cr-req-body">
-        <div class="cr-req-prose">{{{content}}}</div>
-    </div>
-</div>
+      「種別タグ＋名前＋入力された長文」で構造が同じもの。
+      骨格・段は統一規格の部品(tnxCard/tnxCardText)で組む(2026-09-05)。
+      名前は付いているときだけ出す(無名のテキストはタグだけで足りる) --}}
+{{#> tnxCard cardClass="tnx-text-card" typeLabel=typeLabel title=title}}
+    {{> tnxCardText content=content}}
+{{/tnxCard}}

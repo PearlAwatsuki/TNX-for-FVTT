@@ -1,150 +1,100 @@
-{{!-- 判定結果カード(基底の参照実装・2026-07-19 基底化)。ヘッダー/カード行=check-card-head・
-     標準計算行=check-calc-rows の基底部品を合成し、総計行と成否バナーを足す。
+{{!-- 判定結果カード(基底の参照実装・2026-07-19 基底化／2026-09-05 統一規格へ)。
+     骨格・見出し(タグ＝判定種別・名前＝技能名)・段は統一規格の部品で組み、
+     カード行=check-card-row・標準計算行=check-calc-rows を積んで総計行と成否の行を足す。
      コンテキストは check-card-context.mjs の buildCheckCardContext(+固有分)が正。 --}}
-<div class="tnx-check-result tokyo-nova">
+{{#> tnxCard typeLabel=typeLabel title=skillLabel}}
 
-    {{> "systems/tokyo-nova-axleration/templates/chat/parts/check-card-head.hbs"}}
+    {{> "systems/tokyo-nova-axleration/templates/chat/parts/check-card-row.hbs"}}
 
     {{!-- 登場判定の固有情報(2026-08-16): エリアは設定されているときだけ出す(「未定」を出さない) --}}
     {{#if appearance.hasInfo}}
-    <div class="cr-calc-section cr-appearance-info">
-        {{#if appearance.areaLabel}}
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">エリア</span>
-            <span class="cr-calc-val">{{appearance.areaLabel}}</span>
+        <div class="tnx-card__section cr-appearance-info">
+            {{#if appearance.areaLabel}}{{> tnxCardField label="エリア" value=appearance.areaLabel}}{{/if}}
+            {{#if appearance.ghost}}{{> tnxCardField label="宣言" value="ゴースト登場"}}{{/if}}
         </div>
-        {{/if}}
-        {{#if appearance.ghost}}
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">宣言</span>
-            <span class="cr-calc-val">ゴースト登場</span>
-        </div>
-        {{/if}}
-    </div>
     {{/if}}
 
     {{!-- 購入判定の固有情報(16-3): 何を購入しようとしたか(＋改造して入手の内容=16-4) --}}
     {{#if purchase}}
-    <div class="cr-calc-section">
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">購入</span>
-            <span class="cr-calc-val">{{purchase.itemName}}</span>
+        <div class="tnx-card__section">
+            {{> tnxCardField label="購入" value=purchase.itemName}}
+            {{#if purchase.modText}}{{> tnxCardField label="改造" value=purchase.modText}}{{/if}}
         </div>
-        {{#if purchase.modText}}
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">改造</span>
-            <span class="cr-calc-val">{{purchase.modText}}</span>
-        </div>
-        {{/if}}
-    </div>
     {{/if}}
 
     {{!-- 情報収集判定の固有情報(14-9): どの情報項目に挑んだか --}}
     {{#if infoCheck.title}}
-    <div class="cr-calc-section">
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">情報</span>
-            <span class="cr-calc-val">{{infoCheck.title}}</span>
-        </div>
-    </div>
+        <div class="tnx-card__section">{{> tnxCardField label="情報" value=infoCheck.title}}</div>
     {{/if}}
 
     {{#if isFixedCheck}}
-    <div class="cr-calc-section">
-        <div class="cr-calc-row cr-total-row">
-            <span class="cr-calc-label">達成値</span>
-            <span class="cr-total-num">{{result.achievement}}</span>
+        <div class="tnx-card__section">
+            {{> tnxCardField label="達成値" value=result.achievement fieldClass="tnx-card__field--total" valueClass="tnx-card__field-value--total"}}
         </div>
-    </div>
 
     {{else if result.fumble}}
-    <div class="cr-result cr-result--fumble">
-        <i class="fas fa-skull"></i> ファンブル！（致命的失敗）
-    </div>
+        {{#> tnxCardResult resultClass="tnx-card__result--fumble"}}<i class="fas fa-skull"></i> ファンブル！（致命的失敗）{{/tnxCardResult}}
 
     {{else if isControlCheck}}
-    <div class="cr-calc-section">
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">カード値</span>
-            <span class="cr-calc-val">{{result.cardValue}}</span>
+        <div class="tnx-card__section">
+            {{> tnxCardField label="カード値" value=result.cardValue}}
+            {{> tnxCardField label="制御値" value=result.controlVal}}
+            {{!-- 状況修正(手動・2026-07-14): 制御値へ加算(成功条件の緩和/厳格化) --}}
+            {{#if manualModDisplay}}{{> tnxCardField label="修正（手動）" value=manualModDisplay}}{{/if}}
+            {{#if hasCheckBonus}}
+                {{#if checkSources.length}}
+                    {{#> tnxCardFold label="判定ボーナス" value=(signed result.checkBonus)}}
+                        <ul class="tnx-card__fold-list">
+                            {{#each checkSources}}
+                                <li><span class="tnx-card__fold-name">{{this.name}}</span><span class="tnx-card__fold-num">{{signed this.value}}</span></li>
+                            {{/each}}
+                        </ul>
+                    {{/tnxCardFold}}
+                {{else}}
+                    {{> tnxCardField label="判定ボーナス" value=(signed result.checkBonus)}}
+                {{/if}}
+            {{/if}}
         </div>
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">制御値</span>
-            <span class="cr-calc-val">{{result.controlVal}}</span>
-        </div>
-        {{!-- 状況修正(手動・2026-07-14): 制御値へ加算(成功条件の緩和/厳格化) --}}
-        {{#if manualModDisplay}}
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">修正（手動）</span>
-            <span class="cr-calc-val">{{manualModDisplay}}</span>
-        </div>
-        {{/if}}
-        {{#if hasCheckBonus}}
-        {{#if checkSources.length}}
-        <details class="cr-bonus">
-            <summary class="cr-calc-row cr-bonus-summary">
-                <span class="cr-calc-label">判定ボーナス</span>
-                <span class="cr-calc-val">{{signed result.checkBonus}}</span>
-            </summary>
-            <ul class="cr-bonus-list">
-                {{#each checkSources}}
-                <li><span class="cr-bonus-name">{{this.name}}</span><span class="cr-bonus-num">{{signed this.value}}</span></li>
-                {{/each}}
-            </ul>
-        </details>
-        {{else}}
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">判定ボーナス</span>
-            <span class="cr-calc-val">{{signed result.checkBonus}}</span>
-        </div>
-        {{/if}}
-        {{/if}}
-    </div>
-    <div class="cr-result {{#if result.success}}cr-result--success{{else}}cr-result--failure{{/if}}">
-        {{#if result.success}}<i class="fas fa-check"></i>{{else}}<i class="fas fa-times"></i>{{/if}}
-        <span>{{result.cardValue}} ≤ {{result.effectiveControl}} → {{#if result.success}}成功{{else}}失敗{{/if}}</span>
-    </div>
+        {{#> tnxCardResult resultClass=(concat "tnx-card__result--" (ifThen result.success "success" "failure"))}}
+            {{#if result.success}}<i class="fas fa-check"></i>{{else}}<i class="fas fa-times"></i>{{/if}}
+            {{result.cardValue}} ≤ {{result.effectiveControl}} → {{#if result.success}}成功{{else}}失敗{{/if}}
+        {{/tnxCardResult}}
 
     {{else}}
-    <div class="cr-calc-section">
-        {{> "systems/tokyo-nova-axleration/templates/chat/parts/check-calc-rows.hbs"}}
-        <div class="cr-calc-row cr-total-row">
-            <span class="cr-calc-label">達成値</span>
-            <span class="cr-total-num">{{result.achievement}}</span>
+        <div class="tnx-card__section">
+            {{> "systems/tokyo-nova-axleration/templates/chat/parts/check-calc-rows.hbs"}}
+            {{> tnxCardField label="達成値" value=result.achievement fieldClass="tnx-card__field--total" valueClass="tnx-card__field-value--total"}}
         </div>
-    </div>
-    {{#if showSuccess}}
-    <div class="cr-result {{#if result.success}}cr-result--success{{else}}cr-result--failure{{/if}}">
-        {{#if result.success}}<i class="fas fa-check"></i> 成功{{else}}<i class="fas fa-times"></i> 失敗{{/if}}
-        {{!-- 強制失敗(2026-08-15 裁定): 達成値にかかわらず失敗になる判定はその理由を添える --}}
-        {{#if result.forcedFailure}}<span class="cr-tn">{{result.forcedFailure}}</span>{{/if}}
-        {{#if hasTargetValue}}<span class="cr-tn">目標値 {{result.targetValue}}</span>{{/if}}
-        {{!-- 差分値の表示規約(Check_Rules 2026-07-08 確定): 目標値があれば判定の種類を問わず必ず表示 --}}
-        {{#if diffDisplay}}<span class="cr-tn">差分値 {{diffDisplay}}</span>{{/if}}
-    </div>
-    {{/if}}
-
+        {{#if showSuccess}}
+            {{#> tnxCardResult resultClass=(concat "tnx-card__result--" (ifThen result.success "success" "failure"))}}
+                {{#if result.success}}<i class="fas fa-check"></i> 成功{{else}}<i class="fas fa-times"></i> 失敗{{/if}}
+                {{!-- 強制失敗(2026-08-15 裁定): 達成値にかかわらず失敗になる判定はその理由を添える --}}
+                {{#if result.forcedFailure}}<span class="tnx-card__result-note">{{result.forcedFailure}}</span>{{/if}}
+                {{#if hasTargetValue}}<span class="tnx-card__result-note">目標値 {{result.targetValue}}</span>{{/if}}
+                {{!-- 差分値の表示規約(Check_Rules 2026-07-08 確定): 目標値があれば判定の種類を問わず必ず表示 --}}
+                {{#if diffDisplay}}<span class="tnx-card__result-note">差分値 {{diffDisplay}}</span>{{/if}}
+            {{/tnxCardResult}}
+        {{/if}}
     {{/if}}
 
     {{!-- 登場の帰結(2026-08-16): 成功で自動適用された「登場」を卓に残る形で示す --}}
     {{#if appearance.appeared}}
-    <div class="cr-appearance-outcome">
-        <i class="fas fa-door-open"></i> シーンに登場した{{#if appearance.ghost}}（ゴースト）{{/if}}
-    </div>
+        <div class="tnx-card__outcome">
+            <i class="fas fa-door-open"></i> シーンに登場した{{#if appearance.ghost}}（ゴースト）{{/if}}
+        </div>
     {{/if}}
 
     {{!-- 購入の帰結(16-3): 成功で自動付与された入手を卓に残る形で示す --}}
     {{#if purchase.granted}}
-    <div class="cr-flow-outcome">
-        <i class="fas fa-cart-shopping"></i> {{purchase.itemName}}を入手した
-    </div>
+        <div class="tnx-card__outcome">
+            <i class="fas fa-cart-shopping"></i> {{purchase.itemName}}を入手した
+        </div>
     {{/if}}
 
     {{!-- 情報収集の帰結(14-9・KI-042 是正): 開示の実適用と表示を一致させる。初回描画では
          infoCheck.disclosed は常に false(適用後に GM が同じ部品を挿入する)。ここで出るのは
          再判定の置き換え再構築で checkResult.infoDisclosed フラグが立っている場合のみ --}}
     {{#if infoCheck.disclosed}}
-    {{> "systems/tokyo-nova-axleration/templates/chat/parts/info-disclose-outcome.hbs"}}
+        {{> "systems/tokyo-nova-axleration/templates/chat/parts/info-disclose-outcome.hbs"}}
     {{/if}}
-
-</div>
+{{/tnxCard}}

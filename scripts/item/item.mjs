@@ -44,10 +44,11 @@ export class TokyoNovaItem extends Item {
      */
     async postDescriptionCard({ usageEffects = null } = {}) {
         const desc = await foundry.applications.ux.TextEditor.enrichHTML(this.system?.description ?? "", { async: true });
-        // 解説が空なら本文ブロックごと省く(空の余白帯と二重境界線を出さない)
-        const body = desc?.trim() ? `<div class="card-content">${desc}</div>` : "";
-        const card = `<details class="tnx-chat-card" open><summary><h3>${foundry.utils.escapeHTML(this.name)}</h3></summary>`
-            + body + `</details>`;
+        // チャットカードの統一規格(item-card.hbs)で組む。空の効果文は段ごと出ない
+        const card = await foundry.applications.handlebars.renderTemplate(
+            "systems/tokyo-nova-axleration/templates/chat/item-card.hbs",
+            { typeLabel: game.i18n.localize(`TYPES.Item.${this.type}`), name: this.name,
+              description: desc?.trim() ? desc : "" });
         return ChatMessage.create({
             user:    game.user.id,
             speaker: ChatMessage.getSpeaker({ actor: this.actor ?? undefined }),

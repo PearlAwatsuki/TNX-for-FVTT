@@ -1,58 +1,29 @@
-{{!-- 個別リアクションカード(対象ありの対決・2026-07-18 大改修)。リアクションすると決めた
-     キャラクターごとにシークレット(GM＋本人)で作成され、解決時に本文が「リアクション判定の
-     結果カード」(基底=check-card-head/check-calc-rows に対決情報を足す形式・2026-07-19 基底化)へ
+{{!-- 個別リアクションカード(対象ありの対決・2026-07-18 大改修／2026-09-05 統一規格へ)。
+     リアクションすると決めたキャラクターごとにシークレット(GM＋本人)で作成され、解決時に本文が
+     「リアクション判定の結果カード」(段=check-card-row/check-calc-rows に対決情報を足す形式)へ
      再構築されて whisper が解除され全体公開される。
-     未解決=手段ボタン/解決後=差分値・成否バナーは renderChatMessageHTML
+     未解決=手段ボタン/解決後=差分値・成否の行は renderChatMessageHTML
      (attack-flow.renderReactionCard)がフラグ(attackReaction)から .tnx-reaction-status へ描画する。 --}}
-<div class="tnx-check-result tnx-reaction-card tokyo-nova">
 {{#if resolved}}
-    {{> "systems/tokyo-nova-axleration/templates/chat/parts/check-card-head.hbs"}}
-    <div class="cr-calc-section">
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">{{#if isAttack}}攻撃{{else}}対決{{/if}}</span>
-            <span class="cr-calc-val">{{attackerName}}{{#if targetName}} → {{targetName}}{{/if}}</span>
-        </div>
-        {{#if reactorName}}
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">リアクター</span>
-            <span class="cr-calc-val">{{reactorName}}</span>
-        </div>
-        {{/if}}
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">{{#if isAttack}}攻撃達成値{{else}}相手の達成値{{/if}} <span class="cr-suit suit-{{attackSuit}}">{{attackSuitSymbol}}</span></span>
-            <span class="cr-calc-val">{{attackAchievement}}</span>
-        </div>
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">リアクション</span>
-            <span class="cr-calc-val">{{modeLabel}}</span>
-        </div>
+{{#> tnxCard cardClass="tnx-reaction-card" typeLabel=typeLabel title=skillLabel}}
+    {{> "systems/tokyo-nova-axleration/templates/chat/parts/check-card-row.hbs"}}
+    <div class="tnx-card__section">
+        {{> tnxCardField label=(ifThen isAttack "攻撃" "対決") value=(concat attackerName (ifThen targetName (concat " → " targetName) ""))}}
+        {{#if reactorName}}{{> tnxCardField label="リアクター" value=reactorName}}{{/if}}
+        {{#> tnxCardRow label=(ifThen isAttack "攻撃達成値" "相手の達成値")}}<span class="cr-suit suit-{{attackSuit}}">{{attackSuitSymbol}}</span> {{attackAchievement}}{{/tnxCardRow}}
+        {{> tnxCardField label="リアクション" value=modeLabel}}
         {{> "systems/tokyo-nova-axleration/templates/chat/parts/check-calc-rows.hbs"}}
-        <div class="cr-calc-row cr-total-row">
-            <span class="cr-calc-label">達成値</span>
-            <span class="cr-total-num">{{result.achievement}}</span>
-        </div>
+        {{> tnxCardField label="達成値" value=result.achievement fieldClass="tnx-card__field--total" valueClass="tnx-card__field-value--total"}}
     </div>
-{{else}}
-    <div class="cr-head">
-        <span class="cr-skill-name">リアクション</span>
-        <span class="cr-type-tag">{{categoryLabel}}</span>
-    </div>
-    <div class="cr-calc-section">
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">{{#if isAttack}}攻撃{{else}}対決{{/if}}</span>
-            <span class="cr-calc-val">{{attackerName}}{{#if targetName}} → {{targetName}}{{/if}}</span>
-        </div>
-        {{#if reactorName}}
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">リアクター</span>
-            <span class="cr-calc-val">{{reactorName}}</span>
-        </div>
-        {{/if}}
-        <div class="cr-calc-row cr-total-row">
-            <span class="cr-calc-label">{{#if isAttack}}攻撃達成値{{else}}相手の達成値{{/if}} <span class="cr-suit suit-{{suit}}">{{suitSymbol}}</span></span>
-            <span class="cr-total-num">{{achievement}}</span>
-        </div>
-    </div>
-{{/if}}
     <div class="tnx-reaction-status"></div>
-</div>
+{{/tnxCard}}
+{{else}}
+{{#> tnxCard cardClass="tnx-reaction-card" typeLabel="リアクション" title=categoryLabel}}
+    <div class="tnx-card__section">
+        {{> tnxCardField label=(ifThen isAttack "攻撃" "対決") value=(concat attackerName (ifThen targetName (concat " → " targetName) ""))}}
+        {{#if reactorName}}{{> tnxCardField label="リアクター" value=reactorName}}{{/if}}
+        {{#> tnxCardRow label=(ifThen isAttack "攻撃達成値" "相手の達成値") rowClass="tnx-card__field--total" rowValueClass="tnx-card__field-value--total"}}<span class="cr-suit suit-{{suit}}">{{suitSymbol}}</span> {{achievement}}{{/tnxCardRow}}
+    </div>
+    <div class="tnx-reaction-status"></div>
+{{/tnxCard}}
+{{/if}}

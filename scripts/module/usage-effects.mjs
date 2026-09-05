@@ -402,8 +402,7 @@ export async function renderUsageEffectButton(message, html) {
 
     // 差し込み先: 既存のカード本文の末尾(専用の器があればそこ、無ければカード直下)
     const host = html.querySelector(".tnx-usage-effect-area")
-        ?? html.querySelector(".tnx-check-result")
-        ?? html.querySelector(".tnx-chat-card")
+        ?? html.querySelector(".tnx-card")
         ?? html;
     // 二重描画防止
     if (host.querySelector(".tnx-usage-effect-block")) return;

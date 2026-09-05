@@ -1,12 +1,5 @@
-{{!-- 状態の解決結果カード(治療・カード決定ドロー等)。判定結果カード(check-result)の意匠を踏襲。
-     素の tnx-condition-result インライン div の置き換え(2026-07-09)。 --}}
-<div class="tnx-check-result tnx-condition-card tokyo-nova">
-    <div class="cr-head">
-        <span class="cr-skill-name">{{title}}</span>
-        {{#if tag}}<span class="cr-type-tag">{{tag}}</span>{{/if}}
-    </div>
-    <div class="cr-result cr-result--{{status}}">
-        <i class="fas {{icon}}"></i>
-        <span>{{#if label}}「{{label}}」{{/if}}{{text}}</span>
-    </div>
-</div>
+{{!-- 状態の解決結果カード(治療・カード決定ドロー等)。統一規格の骨格で組む(2026-09-05)。
+     タグ＝種別(回復/改造/修理/効果決定)・名前＝用途名や状態名 --}}
+{{#> tnxCard cardClass="tnx-condition-card" typeLabel=tag title=title}}
+    {{#> tnxCardResult resultClass=(concat "tnx-card__result--" status)}}<i class="fas {{icon}}"></i> {{#if label}}「{{label}}」{{/if}}{{text}}{{/tnxCardResult}}
+{{/tnxCard}}

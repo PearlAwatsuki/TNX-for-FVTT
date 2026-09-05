@@ -1,0 +1,5 @@
+{{!-- 短い記録のカード(取得の結果など、段が1行で足りるもの)。統一規格の骨格で組む(2026-09-05)。
+      タグ＝種別・名前＝対象の名前・本文＝ラベル＝値の行 --}}
+{{#> tnxCard typeLabel=typeLabel title=title}}
+    {{#each fields}}{{> tnxCardField label=this.label value=this.value}}{{/each}}
+{{/tnxCard}}

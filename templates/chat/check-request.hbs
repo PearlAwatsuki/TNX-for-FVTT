@@ -1,50 +1,27 @@
-<div class="tnx-check-request tokyo-nova">
+{{!-- 判定要求カード。タグ＝判定の種別(技能判定/制御判定/登場判定…)・名前＝技能名。
+      対象ごとの「判定する」ボタン/結果は renderChatMessageHTML フックが注入する
+      (2026-07-19: ユーザー参照を撤去＝ボタンはアクターの所有者権限で出す)。
+      骨格・段は統一規格の部品で組む(2026-09-05) --}}
+{{#> tnxCard typeLabel=typeLabel title=skillLabel}}
 
-    {{!-- ヘッダー --}}
-    <header class="cr-req-header">
-        <span class="cr-req-type-tag">{{typeLabel}}</span>
-        <span class="cr-req-title">判定要求</span>
-    </header>
+    {{#if validSuits.length}}
+        {{#> tnxCardRow label="スート" rowValueClass="cr-req-suits"}}
+            {{#each validSuits}}<span class="cr-req-suit suit-{{this}}">{{lookup ../suitSymbols this}}</span>{{/each}}
+        {{/tnxCardRow}}
+    {{/if}}
 
-    <div class="cr-req-body">
+    {{#if description}}<p class="tnx-card__note">{{description}}</p>{{/if}}
 
-        {{!-- 技能名 + スート --}}
-        <div class="cr-req-skill-row">
-            <span class="cr-req-skill-name">{{skillLabel}}</span>
-            {{#if validSuits.length}}
-                <span class="cr-req-suits">
-                    {{#each validSuits}}
-                        <span class="cr-req-suit suit-{{this}}">{{lookup ../suitSymbols this}}</span>
-                    {{/each}}
-                </span>
-            {{/if}}
-        </div>
+    {{#> tnxCardRow label="目標値" rowClass="tnx-card__field--tn" rowValueClass="tnx-card__field-value--tn"}}
+        <span data-hidden="{{targetValueHidden}}">{{#if targetValue}}{{targetValue}}{{else}}—{{/if}}</span>
+    {{/tnxCardRow}}
 
-        {{!-- 説明文 --}}
-        {{#if description}}
-            <p class="cr-req-description">{{description}}</p>
-        {{/if}}
-
-        {{!-- 目標値 --}}
-        <div class="cr-req-tn-row">
-            <span class="cr-req-tn-label">目標値</span>
-            <span class="cr-req-tn-value" data-hidden="{{targetValueHidden}}">
-                {{#if targetValue}}{{targetValue}}{{else}}—{{/if}}
-            </span>
-        </div>
-
-        {{!-- 対象アクター一覧（ステータスは renderChatMessage フックが注入。2026-07-19:
-              ユーザー参照を撤去=判定ボタンはアクターの所有者権限で判定する --}}
-        <ul class="cr-req-targets">
-            {{#each targets}}
-                <li class="cr-req-target-row" data-actor-id="{{this.actorId}}">
-                    <span class="cr-req-actor-name">{{this.actorName}}</span>
-                    <div class="cr-req-target-status">
-                        {{!-- フックが「判定する」ボタン or 結果を注入する --}}
-                    </div>
-                </li>
-            {{/each}}
-        </ul>
-
-    </div>
-</div>
+    <ul class="tnx-card__targets">
+        {{#each targets}}
+            <li class="tnx-card__target" data-actor-id="{{this.actorId}}">
+                <span class="tnx-card__target-name">{{this.actorName}}</span>
+                <div class="tnx-card__target-status"></div>
+            </li>
+        {{/each}}
+    </ul>
+{{/tnxCard}}

@@ -1,0 +1,13 @@
+{{!-- 段: 畳める段(統一規格)。カードの中で「畳める」ものはこれ一つ——効果文・解説の長文も、
+      判定ボーナスの供給元一覧のような内訳も同じ作法にする(2026-09-05。神業カードだけ
+      畳めない・神業カードだけ別の作り、といった食い違いを構造から無くす)。
+      見出しは ▶ の行。ラベル(＝値)は**それ自体が卓に要る情報のときだけ**置く(判定ボーナス +2 等)。
+      畳んだ中身の名前を言い足すためのラベルは置かない。**open は出さない＝常に畳んだ状態で置く**。
+      使い方: {{#> tnxCardFold label="効果文"}}…中身…{{/tnxCardFold}} --}}
+<details class="tnx-card__fold{{#if foldClass}} {{foldClass}}{{/if}}">
+    <summary class="tnx-card__field tnx-card__fold-summary">
+        {{#if label}}<span class="tnx-card__field-label">{{label}}</span>{{/if}}
+        {{#if value}}<span class="tnx-card__field-value">{{value}}</span>{{/if}}
+    </summary>
+    <div class="tnx-card__fold-body">{{> @partial-block}}</div>
+</details>

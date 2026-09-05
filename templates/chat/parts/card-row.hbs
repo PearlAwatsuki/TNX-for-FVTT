@@ -1,0 +1,7 @@
+{{!-- 段: ラベル＝値の1行(値が組み立てを要するとき)。値の中身をブロックで書ける以外は
+      tnxCardField と同じもの——スート記号の並びや状態の一覧など、繰り返しを含む値に使う。
+      使い方: {{#> tnxCardRow label="スート"}}…値…{{/tnxCardRow}} --}}
+<div class="tnx-card__field{{#if rowClass}} {{rowClass}}{{/if}}">
+    <span class="tnx-card__field-label">{{label}}</span>
+    <span class="tnx-card__field-value{{#if rowValueClass}} {{rowValueClass}}{{/if}}">{{> @partial-block}}</span>
+</div>

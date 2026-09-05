@@ -28,6 +28,7 @@ import { applyConsumptionPlan } from "./usage-consumption.mjs";
 import { getDamageChartKind } from "../data/damage-chart.mjs";
 import { CONDITION_KINDS, conditionDisplayName, getEffectiveConditions, hasBountyBlock, isWetActor } from "./conditions.mjs";
 import { keepTogether, nowrap } from "./chat-text.mjs";
+import { cardField, cardResult } from "./chat-card.mjs";
 import { applyAttackPatch } from "./attack-flow.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
@@ -406,23 +407,23 @@ export function renderDamageCard(message, html) {
     area.replaceChildren();
 
     const esc = foundry.utils.escapeHTML;
-    const row = (parent, label, val, rowCls = "cr-calc-row", valCls = "cr-calc-val") => {
-        const div = document.createElement("div");
-        div.className = rowCls;
-        div.innerHTML = keepTogether(`<span class="cr-calc-label">${label}</span><span class="${valCls}">${val}</span>`);
-        parent.appendChild(div);
-    };
+    // 段は共通部品で組む(chat-card.mjs＝テンプレートの部品と同じ形・2026-09-05 統一規格)。
+    // ここは呼び出しを短く保つための薄い包みで、マークアップは持たない。
+    // 変種クラス(--total 等)だけを渡すため、基底クラスは語単位で落とす
+    const without = (cls, base) => String(cls).split(/\s+/).filter(c => c && c !== base).join(" ");
+    const row = (parent, label, val, rowCls = "", valCls = "") =>
+        parent.appendChild(cardField(label, val, {
+            modifier:      without(rowCls, "tnx-card__field"),
+            valueModifier: without(valCls, "tnx-card__field-value"),
+        }));
     const line = (parent, cls, inner) => {
+        if (String(cls).split(/\s+/).includes("tnx-card__result")) {
+            return parent.appendChild(cardResult(inner, { modifier: without(cls, "tnx-card__result") }));
+        }
         const div = document.createElement("div");
         div.className = cls;
-        // .cr-result は flex(語間 gap つき)。折らない塊の span をそのまま置くと**塊ごとに flex
-        // アイテムが分かれて語間が空く**ため、アイコン以外を1つの要素にまとめる(2026-09-05)
-        const html = keepTogether(inner);
-        div.innerHTML = cls.includes("cr-result")
-            ? html.replace(/^(\s*<i[^>]*><\/i>)?([\s\S]*)$/,
-                (_m, icon, rest) => `${icon ?? ""}<span class="cr-result__text">${rest}</span>`)
-            : html;
-        parent.appendChild(div);
+        div.innerHTML = keepTogether(inner);
+        return parent.appendChild(div);
     };
 
     // ── 台帳 ──
@@ -467,7 +468,7 @@ export function renderDamageCard(message, html) {
     for (const b of sharedBonusRows) {
         // 対象条件で無効化された行は「（名前・理由）」で 0 の根拠を示す(2026-09-01・黙って落とさない)
         row(ledger, `ダメージ修正（${esc(b.name || "用途")}${b.note ? `・${esc(b.note)}` : ""}）`,
-            signedDisplay("＋", b.value), "cr-calc-row cr-calc-row--wrap");
+            signedDisplay("＋", b.value), "tnx-card__field tnx-card__field--wrap");
     }
     if (f.manualMod) row(ledger, "修正（手動）", signedDisplay("＋", f.manualMod));
     // 物理攻撃＝スタン・精神攻撃＝説得(別メカニクス。系統ごとに専用表記・2026-07-15 ユーザー指摘)。
@@ -479,13 +480,13 @@ export function renderDamageCard(message, html) {
     for (const m of (f.mods ?? [])) {
         row(ledger, `事後修正（${esc(m.label || "用途")}）`,
             m.overrideTo !== undefined ? `→${m.overrideTo}` : signedDisplay("＋", m.value),
-            "cr-calc-row cr-calc-row--wrap");
+            "tnx-card__field tnx-card__field--wrap");
     }
-    row(ledger, `攻撃側合計${f.stun ? `（${stunLabel}宣言）` : ""}`, String(attackerTotal), "cr-calc-row cr-total-row", "cr-total-num");
+    row(ledger, `攻撃側合計${f.stun ? `（${stunLabel}宣言）` : ""}`, String(attackerTotal), "tnx-card__field tnx-card__field--total", "tnx-card__field-value--total");
     // ダメージクリック待ち(modifyDamage): 適用前のダメージの攻撃側合計をクリック可能に
     // (達成値クリックと同じ装飾クラス。モード外のクリックは無視)
     if (!f.applied) {
-        const totalNum = ledger.lastElementChild?.querySelector(".cr-total-num");
+        const totalNum = ledger.lastElementChild?.querySelector(".tnx-card__field-value--total");
         if (totalNum && !totalNum.classList.contains("tnx-recheck-target")) {
             totalNum.classList.add("tnx-recheck-target");
             totalNum.addEventListener("click", () => handleDamageModifyClick(message));
@@ -504,7 +505,7 @@ export function renderDamageCard(message, html) {
             // 対象ごとに見出し(名前)は1回だけ＝軽減の内訳は名前を繰り返さない小注記に畳む(はみ出し回避)。
             // 内訳は適用順(恒久軽減→10上限→事後修正→手動→報酬点)に並べる(2026-07-16 裁定)
             const nameLabel = tr.coveringFor ? `${esc(tr.name)}（${esc(tr.coveringFor)}をカバー）` : esc(tr.name);
-            row(area, nameLabel, String(tr.final), "cr-calc-row cr-total-row", "cr-total-num");
+            row(area, nameLabel, String(tr.final), "tnx-card__field tnx-card__field--total", "tnx-card__field-value--total");
             const parts = [];
             // 新形式=算出時軽減の内訳(防御力・受け値・受けるダメージ軽減 AE を符号つきで格納・2026-07-17)。
             // 旧カード(内訳なし/旧形式)は合計のみの旧表示にフォールバック
@@ -518,7 +519,7 @@ export function renderDamageCard(message, html) {
             if (tr.bounty) parts.push(`報酬点 −${tr.bounty}`);
             if (tr.manual) parts.push(`手動軽減 −${tr.manual}`);
             if (parts.length) line(area, "tnx-damage-sub", esc(parts.join("・")));
-            line(area, `cr-result ${tr.final > 0 ? "cr-result--damage" : "cr-result--nodamage"}`,
+            line(area, `tnx-card__result ${tr.final > 0 ? "tnx-card__result--damage" : "tnx-card__result--nodamage"}`,
                 `<i class="fas ${tr.final > 0 ? "fa-burst" : "fa-shield-halved"}"></i> ${esc(tr.applyText ?? "")}`);
         }
         return;
@@ -536,17 +537,17 @@ export function renderDamageCard(message, html) {
             // 対象ごとの行と同じ形(名前＝ラベル・結果＝値)。対象名は行のラベルに出るので繰り返さない。
             // 値は**その対象に起きたこと**なので受動で書く(神業を主語にすると神業自身が行為者になる)
             row(area, esc(t.name), `<i class="fas fa-shield-halved"></i> 《${esc(t.protectedBy?.name ?? "神業")}》${nowrap("で防がれた")}`,
-                "cr-calc-row cr-calc-row--wrap cr-calc-row--prevented");
+                "tnx-card__field tnx-card__field--wrap tnx-card__field--prevented");
             continue;
         }
         // 対象ごとに見出し(名前)＝最終ダメージを1行・軽減の内訳は名前を繰り返さない小注記に畳む(はみ出し回避)。
         // 内訳は適用順(防御力・受け値→10上限→事後修正→報酬点)に並べる(2026-07-16 裁定=KI-024)
         const p = targetPlannedPreview(f, t);
         const nameLabel = t.coveringFor ? `${esc(t.name)}（${esc(t.coveringFor)}をカバー）` : esc(t.name);
-        row(area, nameLabel, String(p.final), "cr-calc-row cr-total-row", "cr-total-num");
+        row(area, nameLabel, String(p.final), "tnx-card__field tnx-card__field--total", "tnx-card__field-value--total");
         // 防御(適用前に防ぐ)の発動点(17-2): 対象行の名前クリック。クリック待ちモード外は無視
         // (装飾クラスは攻撃側合計クリックと同じ)
-        const nameEl = area.lastElementChild?.querySelector(".cr-calc-label");
+        const nameEl = area.lastElementChild?.querySelector(".tnx-card__field-label");
         if (nameEl && !nameEl.classList.contains("tnx-recheck-target")) {
             nameEl.classList.add("tnx-recheck-target");
             nameEl.addEventListener("click", () => handleDamageProtectClick(message, i));
@@ -556,7 +557,7 @@ export function renderDamageCard(message, html) {
         // 自分の最終ダメージの数字をクリックして報酬点で軽減できる(対象の所有者/RL のみ装飾)
         if (f.category === "social" && t.reactionEstablished === true) {
             const tActor = resolveSync(t.uuid);
-            const num = area.lastElementChild?.querySelector(".cr-total-num");
+            const num = area.lastElementChild?.querySelector(".tnx-card__field-value--total");
             if (num && (game.user.isGM || tActor?.isOwner === true)) {
                 num.classList.add("tnx-recheck-ready", "tnx-recheck-target");
                 num.title = "クリックで報酬点による軽減";
@@ -597,7 +598,7 @@ export function renderDamageCard(message, html) {
     // RL(GM)か攻撃者が押して全対象へ一括適用する(アクセス=RL と攻撃者・ユーザー確定)。
     const canApply = game.user.isGM || attacker?.isOwner;
     if (!dmgTargets.length) {
-        line(area, "cr-tn", "対象未選択（適用は手動で行ってください）");
+        line(area, "tnx-card__result-note", "対象未選択（適用は手動で行ってください）");
     } else if (canApply) {
         const btn = document.createElement("button");
         btn.type = "button";
@@ -623,7 +624,7 @@ export function renderDamageCard(message, html) {
         }
         area.appendChild(details);
     } else {
-        line(area, "cr-tn", "（適用は対象の操作者または RL が行います）");
+        line(area, "tnx-card__result-note", "（適用は対象の操作者または RL が行います）");
     }
 }
 
@@ -649,10 +650,10 @@ function renderMiracleDamageCard(message, html, f, { ledger, area, row, line, es
     // 結果は**通常の行**(値は「完全死亡」等の状態名で、巨大表示は数値のための器・2026-09-05 是正)。
     // 防がれた/打ち消されたときは取り消し線で「起きなかった」ことを示す——結果だけ先に出ると
     // 防げなかったように読める(2026-09-05 ユーザー指摘)
-    row(ledger, "結果", esc(label), `cr-calc-row${voided ? " cr-calc-row--voided" : ""}`);
+    row(ledger, "結果", esc(label), `tnx-card__field${voided ? " tnx-card__field--voided" : ""}`);
 
     // 打ち消し(17-2)の発動点: 見出しクリック(モード外は無視)
-    const head = html.querySelector(".cr-head");
+    const head = html.querySelector(".tnx-card__head");
     if (head && !head.classList.contains("tnx-recheck-target")) {
         head.classList.add("tnx-recheck-target");
         head.addEventListener("click", async () => {
@@ -664,15 +665,15 @@ function renderMiracleDamageCard(message, html, f, { ledger, area, row, line, es
 
     // 打ち消し: カードごと無かったことになる(対象ごとの行は出さない)
     if (negated) {
-        line(area, "cr-result cr-result--nodamage",
+        line(area, "tnx-card__result tnx-card__result--nodamage",
             `<i class="fas fa-ban"></i> 《${esc(f.negatedBy.name ?? "神業")}》${nowrap("で打ち消された")}`);
         return;
     }
 
     if (f.applied && f.appliedResult) {
         for (const tr of (f.appliedResult.targets ?? [])) {
-            row(area, esc(tr.name), esc(tr.resultLabel ?? label), "cr-calc-row cr-calc-row--wrap");
-            line(area, `cr-result ${tr.applied === false ? "cr-result--nodamage" : "cr-result--damage"}`,
+            row(area, esc(tr.name), esc(tr.resultLabel ?? label), "tnx-card__field tnx-card__field--wrap");
+            line(area, `tnx-card__result ${tr.applied === false ? "tnx-card__result--nodamage" : "tnx-card__result--damage"}`,
                 `<i class="fas ${tr.applied === false ? "fa-shield-halved" : "fa-burst"}"></i> ${esc(tr.applyText ?? "")}`);
         }
         return;
@@ -687,20 +688,20 @@ function renderMiracleDamageCard(message, html, f, { ledger, area, row, line, es
             // 何を防いだかは台帳の「結果」にあり、対象名は行のラベルにある(2026-09-05 ユーザー指摘)。
             // 値は**その対象に起きたこと**なので受動で書く(神業を主語にすると神業自身が行為者になる)
             row(area, esc(t.name), `<i class="fas fa-shield-halved"></i> 《${esc(t.protectedBy?.name ?? "神業")}》${nowrap("で防がれた")}`,
-                "cr-calc-row cr-calc-row--wrap cr-calc-row--prevented");
+                "tnx-card__field tnx-card__field--wrap tnx-card__field--prevented");
             continue;
         }
-        row(area, esc(t.name), esc(label), "cr-calc-row cr-calc-row--wrap");
-        const nameEl = area.lastElementChild?.querySelector(".cr-calc-label");
+        row(area, esc(t.name), esc(label), "tnx-card__field tnx-card__field--wrap");
+        const nameEl = area.lastElementChild?.querySelector(".tnx-card__field-label");
         if (nameEl && !nameEl.classList.contains("tnx-recheck-target")) {
             nameEl.classList.add("tnx-recheck-target");
             nameEl.addEventListener("click", () => handleDamageProtectClick(message, i));
         }
     }
     if (allPrevented) return;
-    if (!dmgTargets.length) { line(area, "cr-tn", "対象未選択（適用は手動で行ってください）"); return; }
+    if (!dmgTargets.length) { line(area, "tnx-card__result-note", "対象未選択（適用は手動で行ってください）"); return; }
     const canApply = game.user.isGM || liveIdx.some(i => resolveSync(dmgTargets[i].uuid)?.isOwner);
-    if (!canApply) { line(area, "cr-tn", "（適用は対象の操作者または RL が行います）"); return; }
+    if (!canApply) { line(area, "tnx-card__result-note", "（適用は対象の操作者または RL が行います）"); return; }
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "tnx-chat-btn";
@@ -1509,14 +1510,9 @@ async function applyDerivedDamage(target, derived) {
     const esc = foundry.utils.escapeHTML;
     await ChatMessage.create({
         speaker: ChatMessage.getSpeaker({ actor: target }),
-        content: `<div class="tnx-check-result tnx-damage-card tokyo-nova">
-            <div class="cr-head"><span class="cr-skill-name">派生ダメージ</span><span class="cr-type-tag">${label}・軽減不可</span></div>
-            <div class="cr-calc-section">
-                ${drawn.length ? `<div class="cr-calc-row"><span class="cr-calc-label">めくったカード</span><span class="cr-calc-val">${esc(drawn.join("・"))}</span></div>` : ""}
-                <div class="cr-calc-row cr-total-row"><span class="cr-calc-label">ダメージ</span><span class="cr-total-num">${total}</span></div>
-            </div>
-            <div class="cr-result cr-result--damage"><i class="fas fa-burst"></i> ${esc(applyText)}</div>
-        </div>`,
+        content: await foundry.applications.handlebars.renderTemplate(
+            "systems/tokyo-nova-axleration/templates/chat/derived-damage-card.hbs",
+            { typeLabel: `派生ダメージ`, title: `${label}・軽減不可`, drawn: drawn.join("・"), total, applyText }),
     });
     return `／派生: ${label}ダメージ ${total}`;
 }

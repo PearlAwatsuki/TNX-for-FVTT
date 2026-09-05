@@ -42,6 +42,7 @@ import {
 import { findItemByIdentificationKey, resolveItemNameByKey } from "./identification.mjs";
 
 import { keepTogether } from "./chat-text.mjs";
+import { cardField, cardResult } from "./chat-card.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -557,30 +558,27 @@ export function renderAttackCard(message, html) {
         area.appendChild(div);
     };
     const addVerdict = (cls, icon, label) =>
-        addLine(`cr-result ${cls}`, `<i class="fas ${icon}"></i> <span>${label}</span>`);
+        area.appendChild(cardResult(`<i class="fas ${icon}"></i> ${label}`, { modifier: cls }));
 
     // 移動: 段階数=主情報を**達成値の直下**へ総計行と同じ強調でライブ挿入する(2026-07-19 是正。
     // f.achievement 由来のため事後修正・再判定に追随。使用ヴィークル行は本文=基底へ焼き込み済み)。
     // 全体失敗(移動失敗・対決敗北)は 0 段階。ファンブルは計算セクション自体が無いため挿入なし
     if (f.movement) {
-        const totalRow = html.querySelector(".cr-calc-section .cr-total-row");
+        const totalRow = html.querySelector(".tnx-card__section .tnx-card__field--total");
         if (totalRow) {
             const failedState = ["fumble", "miss", "failed"].includes(f.state);
             const stages = failedState ? 0 : movementStagesFromAchievement(Number(f.achievement) || 0);
-            const row = document.createElement("div");
-            row.className = "cr-calc-row cr-total-row";
-            row.innerHTML = `<span class="cr-calc-label">移動</span>`
-                + `<span class="cr-total-num">${stages}<span class="cr-total-unit"> 段階</span></span>`;
-            totalRow.after(row);
+            totalRow.after(cardField("移動", `${stages}<span class="tnx-card__field-unit"> 段階</span>`,
+                { modifier: "tnx-card__field--total", valueModifier: "tnx-card__field-value--total" }));
         }
     }
 
-    if (f.state === "fumble") { addVerdict("cr-result--fumble", "fa-skull", `ファンブル！（${failWord}）`); return; }
-    if (f.state === "miss") { addVerdict("cr-result--failure", "fa-times", `${failWord}（スート不一致・判定不成立）`); return; }
+    if (f.state === "fumble") { addVerdict("tnx-card__result--fumble", "fa-skull", `ファンブル！（${failWord}）`); return; }
+    if (f.state === "miss") { addVerdict("tnx-card__result--failure", "fa-times", `${failWord}（スート不一致・判定不成立）`); return; }
     // 全体失敗: 移動失敗(達成値10未満=0段階・2026-07-19)／攻撃を失敗させる・対決敗北(リアクション成功)。
     // 対象一覧は下に続けて表示する
     if (f.state === "failed") {
-        addVerdict("cr-result--failure", "fa-times",
+        addVerdict("tnx-card__result--failure", "fa-times",
             f.failedReason === "movement" ? "移動失敗"
                 // 神業による打ち消し(17-2): 打ち消した神業の名前で帰属を示す
                 : f.failedReason === "negated" ? `${failWord}（${foundry.utils.escapeHTML(f.negatedBy?.name ?? "神業")}による打ち消し）`
@@ -590,7 +588,7 @@ export function renderAttackCard(message, html) {
     // 移動は妨害されないこともある=能動側の判定が成功した時点で移動成功が既定(2026-07-19 ユーザー確定)。
     // リアクション確定前でも「移動成功」を表示し、妨害が勝ったときだけ失敗へ覆す(離脱は対象外)
     if (f.movement && f.state === "open") {
-        addVerdict("cr-result--success", "fa-check", "移動成功");
+        addVerdict("tnx-card__result--success", "fa-check", "移動成功");
     }
 
     // 目標リスト(D&D 風・2026-07-15 複数対象一括 → 2026-07-18 大改修): 各対象の防御値と解決結果を
@@ -695,17 +693,12 @@ export function renderAttackCard(message, html) {
         const list = f.openReactions;
         const { effective } = resolveOpenReactions(f.achievement, list);
         if (effective) {
-            const calc = html.querySelector(".cr-calc-section") ?? area;
-            const addRow = (label, value) => {
-                const d = document.createElement("div");
-                d.className = "cr-calc-row";
-                d.innerHTML = `<span class="cr-calc-label">${esc(label)}</span><span class="cr-calc-val">${esc(String(value))}</span>`;
-                calc.appendChild(d);
-            };
+            const calc = html.querySelector(".tnx-card__section") ?? area;
+            const addRow = (label, value) => calc.appendChild(cardField(esc(label), esc(String(value))));
             addRow("リアクション", `${MODE_LABELS[effective.mode] ?? "対決"}（${effective.reactorName ?? "?"}）`);
             addRow("リアクション達成値", effective.achievement ?? 0);
             // 移動は上の「移動成功」バナーが常設のため対決勝利の重複表示はしない(2026-07-19)
-            if (f.state !== "failed" && !f.movement) addVerdict("cr-result--success", "fa-check", "判定成功（対決勝利）");
+            if (f.state !== "failed" && !f.movement) addVerdict("tnx-card__result--success", "fa-check", "判定成功（対決勝利）");
         }
         if (f.state === "open" && !f.damageRolled) {
             const identity = resolveUserIdentityActor({ warn: false });
@@ -735,16 +728,11 @@ export function renderAttackCard(message, html) {
         // 旧形式(先着1件・2026-07-17)の解決済みカードの表示互換
         const o = f.openReaction;
         if (o.resolved && o.mode) {
-            const calc = html.querySelector(".cr-calc-section") ?? area;
-            const addRow = (label, value) => {
-                const d = document.createElement("div");
-                d.className = "cr-calc-row";
-                d.innerHTML = `<span class="cr-calc-label">${esc(label)}</span><span class="cr-calc-val">${esc(String(value))}</span>`;
-                calc.appendChild(d);
-            };
+            const calc = html.querySelector(".tnx-card__section") ?? area;
+            const addRow = (label, value) => calc.appendChild(cardField(esc(label), esc(String(value))));
             addRow("リアクション", `${MODE_LABELS[o.mode] ?? "対決"}（${o.reactorName ?? "?"}）`);
             addRow("リアクション達成値", o.reactionAchievement ?? 0);
-            if (f.state !== "failed") addVerdict("cr-result--success", "fa-check", "判定成功（対決勝利）");
+            if (f.state !== "failed") addVerdict("tnx-card__result--success", "fa-check", "判定成功（対決勝利）");
         }
     }
 
@@ -769,7 +757,7 @@ export function renderAttackCard(message, html) {
                 area.appendChild(btn);
             }
         } else {
-            addLine("cr-tn", "（ダメージカードを出しました）");
+            addLine("tnx-card__result-note", "（ダメージカードを出しました）");
         }
     }
 }
@@ -834,15 +822,14 @@ export function renderReactionCard(message, html) {
 
     if (f.resolved) {
         // 目標値/差分は計算セクションへ足し、成否はフルバナーで表示(check-result と同型・
-        // 余白は cr-calc-section / cr-result 既定に載せる・2026-07-15 余白統一)
-        const calc = html.querySelector(".cr-calc-section") ?? area;
+        // 余白は tnx-card__section / tnx-card__result 既定に載せる・2026-07-15 余白統一)
+        const calc = html.querySelector(".tnx-card__section") ?? area;
         const hit = f.hit === true;
-        const addRow = (label, value, rowCls = "cr-calc-row", valCls = "cr-calc-val") => {
-            const d = document.createElement("div");
-            d.className = rowCls;
-            d.innerHTML = `<span class="cr-calc-label">${label}</span><span class="${valCls}">${esc(String(value))}</span>`;
-            calc.appendChild(d);
-        };
+        const without = (cls, base) => String(cls).split(/\s+/).filter(c => c && c !== base).join(" ");
+        const addRow = (label, value, rowCls = "", valCls = "") =>
+            calc.appendChild(cardField(label, esc(String(value)), {
+                modifier: without(rowCls, "tnx-card__field"), valueModifier: without(valCls, "tnx-card__field-value"),
+            }));
         // 本文が結果カード化済み(2026-07-19 基底化=カード値・能力値等の内訳とリアクション行は
         // buildReactionResultContent が焼き込み済み)ならライブ描画は差分値・成否バナーのみ。
         // 旧カード(contentResolved なし)は従来どおり全行をライブで足す(表示互換)
@@ -857,7 +844,7 @@ export function renderReactionCard(message, html) {
                 // カードをプレイしたリアクション: モード＋達成値。達成値の総計行を renderRecheckButton が
                 // 再判定/修正の対象として拾う(このカードが結果カードそのもの・2026-07-15)
                 addRow("リアクション", isCover ? `${modeLabel}（${f.reactorName}）` : modeLabel);
-                addRow("達成値", f.reactionAchievement ?? 0, "cr-calc-row cr-total-row", "cr-total-num");
+                addRow("達成値", f.reactionAchievement ?? 0, "tnx-card__field tnx-card__field--total", "tnx-card__field-value--total");
             }
         }
         if (Number.isFinite(f.diff)) addRow("差分値", f.diff >= 0 ? `+${f.diff}` : `${f.diff}`);
@@ -868,10 +855,9 @@ export function renderReactionCard(message, html) {
         const notHitLabel = f.resolution === "none"
             ? (isAttack ? "攻撃無効" : "判定不成立")
             : "リアクション成功";
-        const verdict = document.createElement("div");
-        verdict.className = `cr-result ${hit ? "cr-result--failure" : "cr-result--success"}`;
-        verdict.innerHTML = `<i class="fas ${hit ? "fa-burst" : "fa-shield-halved"}"></i> <span>${hit ? hitLabel : notHitLabel}</span>`;
-        area.appendChild(verdict);
+        area.appendChild(cardResult(
+            `<i class="fas ${hit ? "fa-burst" : "fa-shield-halved"}"></i> ${hit ? hitLabel : notHitLabel}`,
+            { modifier: hit ? "tnx-card__result--failure" : "tnx-card__result--success" }));
         return;
     }
 

@@ -88,7 +88,7 @@ export function renderHandoutCard(message, html) {
 
     if (isContactGranted(flag)) {
         const done = document.createElement("div");
-        done.className = "cr-req-result";
+        done.className = "tnx-card__target-result";
         const owner = flag.actorName ? `（${flag.actorName}）` : "";
         done.innerHTML = `<span class="cr-inline-success"><i class="fas fa-check"></i> コネを取得済み${owner}</span>`;
         slot.appendChild(done);

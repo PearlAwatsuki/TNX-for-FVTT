@@ -27,16 +27,16 @@ export function renderBountyGrantCard(message, html) {
     const f = message.getFlag(SCOPE, "bountyGrant");
     if (!root || !f) return;
 
-    for (const row of root.querySelectorAll(".cr-req-target-row")) {
+    for (const row of root.querySelectorAll(".tnx-card__target")) {
         const uuid = row.dataset.uuid;
-        const status = row.querySelector(".cr-req-target-status");
+        const status = row.querySelector(".tnx-card__target-status");
         if (!status) continue;
         status.innerHTML = "";
 
         if (isBountyReceived(f, uuid)) {
-            // 結果表示は判定要求の対象行と同じ意匠(cr-req-result + cr-inline-success)
+            // 結果表示は判定要求の対象行と同じ意匠(tnx-card__target-result + cr-inline-success)
             const done = document.createElement("div");
-            done.className = "cr-req-result";
+            done.className = "tnx-card__target-result";
             done.innerHTML = `<span class="cr-inline-success"><i class="fas fa-check"></i> ${f.amount < 0 ? "支払い済み" : "受け取り済み"}</span>`;
             status.appendChild(done);
             continue;

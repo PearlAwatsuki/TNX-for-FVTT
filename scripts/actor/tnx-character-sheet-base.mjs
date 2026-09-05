@@ -2317,13 +2317,15 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const enrichedDescription = await foundry.applications.ux.TextEditor.enrichHTML(
             item.system.description, { async: true }
         );
+        // チャットカードの統一規格(item-card.hbs)で組む(2026-09-05)
+        const content = await foundry.applications.handlebars.renderTemplate(
+            "systems/tokyo-nova-axleration/templates/chat/item-card.hbs",
+            { typeLabel: game.i18n.localize("TYPES.Item.style"), name: item.name,
+              description: enrichedDescription });
         ChatMessage.create({
             user:    game.user.id,
             speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-            content: `<details class="tnx-chat-card" open>
-                <summary><h3>スタイル: ${item.name}</h3></summary>
-                <div class="card-content">${enrichedDescription}</div>
-            </details>`,
+            content,
             flags: { "core.canPopout": true }
         });
     }

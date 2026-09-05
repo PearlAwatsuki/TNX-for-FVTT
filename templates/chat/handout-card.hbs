@@ -1,55 +1,22 @@
-{{!-- ハンドアウト送信カード(2026-08-12)。意匠は判定要求・報酬点カードと同じ
-      .tnx-check-request ＋ cr-req-header ＋ cr-req-body を踏襲する。
+{{!-- ハンドアウト送信カード(2026-08-12)。骨格・段は統一規格の部品で組む(2026-09-05)。
       最下部のコネ受け取りボタンは renderChatMessageHTML フック(handout-contact.mjs)が注入する --}}
-<div class="tnx-check-request tokyo-nova tnx-handout-card">
+{{#> tnxCard cardClass="tnx-handout-card" typeLabel="ハンドアウト" title=title}}
 
-    <header class="cr-req-header">
-        <span class="cr-req-type-tag">ハンドアウト</span>
-        <span class="cr-req-title">{{title}}</span>
-    </header>
+    {{!-- 担当・スタイル・コネ・推奨スート。空の欄は行ごと出さない --}}
+    {{#if playerName}}{{> tnxCardField label="担当" value=playerName}}{{/if}}
+    {{#if styleName}}{{> tnxCardField label="スタイル" value=styleName}}{{/if}}
+    {{#if contactName}}{{> tnxCardField label="コネ" value=contactName}}{{/if}}
+    {{#if suitLabel}}{{> tnxCardField label="推奨スート" value=suitLabel}}{{/if}}
 
-    <div class="cr-req-body">
+    {{> tnxCardText content=content textClass="ho-content"}}
 
-        {{!-- 見出しの並び: 担当・スタイル・コネ・推奨スート。空の欄は行ごと出さない
-              (ラベル付きの行・長文ブロックは送信カード共通の部品・2026-08-15) --}}
-        {{#if playerName}}
-            <div class="cr-req-field">
-                <span class="cr-req-field__label">担当</span>
-                <span class="cr-req-field__value">{{playerName}}</span>
-            </div>
-        {{/if}}
-        {{#if styleName}}
-            <div class="cr-req-field">
-                <span class="cr-req-field__label">スタイル</span>
-                <span class="cr-req-field__value">{{styleName}}</span>
-            </div>
-        {{/if}}
-        {{#if contactName}}
-            <div class="cr-req-field">
-                <span class="cr-req-field__label">コネ</span>
-                <span class="cr-req-field__value">{{contactName}}</span>
-            </div>
-        {{/if}}
-        {{#if suitLabel}}
-            <div class="cr-req-field">
-                <span class="cr-req-field__label">推奨スート</span>
-                <span class="cr-req-field__value">{{suitLabel}}</span>
-            </div>
-        {{/if}}
+    {{#if ps}}
+        <div class="ho-ps">
+            <span class="ho-ps__label">PS</span>
+            <div class="ho-ps__body tnx-card__text">{{{ps}}}</div>
+        </div>
+    {{/if}}
 
-        {{#if content}}
-            <div class="ho-content cr-req-prose">{{{content}}}</div>
-        {{/if}}
-
-        {{#if ps}}
-            <div class="ho-ps">
-                <span class="ho-ps__label">PS</span>
-                <div class="ho-ps__body cr-req-prose">{{{ps}}}</div>
-            </div>
-        {{/if}}
-
-        {{!-- コネの受け取り(フックが「コネを受け取る」ボタン or 生成済みを注入する) --}}
-        <div class="ho-contact-action"></div>
-
-    </div>
-</div>
+    {{!-- コネの受け取り(フックが「コネを受け取る」ボタン or 生成済みを注入する) --}}
+    <div class="ho-contact-action"></div>
+{{/tnxCard}}

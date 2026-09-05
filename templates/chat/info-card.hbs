@@ -1,39 +1,26 @@
-{{!-- 情報項目の送信カード(2026-08-15)。意匠はハンドアウトカードと同じ
-      .tnx-check-request ＋ cr-req-header ＋ cr-req-body を踏襲する。
-      1 ブロック＝指定技能の 1 行。目標値どうしに上下関係は無いので、入口も段も同列に置く。
+{{!-- 情報項目の送信カード(2026-08-15)。1 ブロック＝指定技能の 1 行。目標値どうしに上下関係は
+      無いので、入口も段も同列に置く。
       - 目標値の送信: 「〈社会：ストリート、警察〉目標値: 8, 12, 15」(横並び・本文は出さない)
       - 開示済みの送信: 目標値｜本文の行(罫線の無い表＝シナリオの紙面と同じ体裁)
-      本文はリッチテキストなので {{{ }}} で置く(囲いを足すと空段落が挟まる) --}}
-<div class="tnx-check-request tokyo-nova tnx-info-card">
+      骨格・段は統一規格の部品で組む(2026-09-05。本文はリッチテキストなので tnxCardText) --}}
+{{#> tnxCard cardClass="tnx-info-card" typeLabel="情報" title=title}}
+    {{#each blocks}}
+        <div class="ic-block">
+            {{#if this.skillLabel}}
+                <div class="ic-skills">
+                    <span class="ic-skills__names">{{this.skillLabel}}</span>
+                    {{#if this.tnList}}<span class="ic-skills__tn">目標値: {{this.tnList}}</span>{{/if}}
+                </div>
+            {{/if}}
 
-    <header class="cr-req-header">
-        <span class="cr-req-type-tag">情報</span>
-        {{#if title}}<span class="cr-req-title">{{title}}</span>{{/if}}
-    </header>
-
-    <div class="cr-req-body">
-        {{#each blocks}}
-            <div class="ic-block">
-
-                {{#if this.skillLabel}}
-                    <div class="ic-skills">
-                        <span class="ic-skills__names">{{this.skillLabel}}</span>
-                        {{#if this.tnList}}
-                            <span class="ic-skills__tn">目標値: {{this.tnList}}</span>
-                        {{/if}}
-                    </div>
-                {{/if}}
-
-                {{#if this.rows.length}}
-                    <div class="ic-table">
-                        {{#each this.rows}}
-                            <div class="ic-table__tn">{{this.tn}}</div>
-                            <div class="ic-table__text cr-req-prose">{{{this.text}}}</div>
-                        {{/each}}
-                    </div>
-                {{/if}}
-
-            </div>
-        {{/each}}
-    </div>
-</div>
+            {{#if this.rows.length}}
+                <div class="ic-table">
+                    {{#each this.rows}}
+                        <div class="ic-table__tn">{{this.tn}}</div>
+                        <div class="ic-table__text tnx-card__text">{{{this.text}}}</div>
+                    {{/each}}
+                </div>
+            {{/if}}
+        </div>
+    {{/each}}
+{{/tnxCard}}

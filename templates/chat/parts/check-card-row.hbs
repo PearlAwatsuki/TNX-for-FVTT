@@ -1,11 +1,7 @@
-{{!-- 判定結果カードの基底①: ヘッダー(技能名+種別タグ)+カード行(スート/カード名/バッジ群)。
-     全ての判定結果系カード(結果/対決判定/リアクション結果/移動)がこれに情報を足す形式で使う
-     (2026-07-19 基底化)。コンテキストは check-card-context.mjs の buildCheckCardContext が正。 --}}
-<div class="cr-head">
-    <span class="cr-skill-name">{{skillLabel}}</span>
-    <span class="cr-type-tag">{{typeLabel}}</span>
-</div>
-
+{{!-- 判定結果系カードの段①: カード行(スート/カード名/バッジ群)。
+     見出し(種別タグ＋技能名)は統一規格の骨格 tnxCard が持つ(2026-09-05)。
+     全ての判定結果系カード(結果/対決判定/リアクション結果/移動)がこの段を積む。
+     コンテキストは check-card-context.mjs の buildCheckCardContext が正。 --}}
 {{#if isFixedCheck}}
 <div class="cr-card-row">
     <span class="cr-card-name">カード・能力値を使用しない</span>

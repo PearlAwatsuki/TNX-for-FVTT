@@ -134,7 +134,7 @@ export async function applyInfoDisclosure({ itemId, contentId, entryTn = null, a
 /**
  * 開示の実適用を卓へ公開する(GM クライアント・KI-042 是正)。
  * ①結果カードへ帰結行「情報を開示した」を刻む——判定側は帰結行を出さないため、これが実適用の
- *   唯一の裏付け。挿入はマーカークラス(cr-info-outcome)で冪等、再判定の置き換え再構築のために
+ *   唯一の裏付け。挿入はマーカークラス(tnx-card__outcome)で冪等、再判定の置き換え再構築のために
  *   `checkResult.infoDisclosed` フラグも立てる。
  * ②新たに判明した分の公開カードを送る(未開示の残りは目標値形式で併記・2026-08-25 ユーザー指示)。
  * @param {object} item 情報項目(開示適用後・識別キーは未解決の生データ)
@@ -146,7 +146,7 @@ async function announceInfoDisclosure(item, contentId, newly, messageId) {
     const message = messageId ? game.messages.get(messageId) : null;
     if (message) {
         const patch = { [`flags.${SCOPE}.checkResult.infoDisclosed`]: true };
-        if (!message.content.includes("cr-info-outcome")) {
+        if (!message.content.includes("tnx-card__outcome")) {
             const outcome = await foundry.applications.handlebars.renderTemplate(
                 "systems/tokyo-nova-axleration/templates/chat/parts/info-disclose-outcome.hbs", {});
             const at = message.content.lastIndexOf("</div>");

@@ -1668,7 +1668,7 @@ export class TnxCheckFlow {
 export function renderRecheckButton(message, html) {
     const rc = message.getFlag("tokyo-nova-axleration", "checkRecheck");
     if (!rc) return;
-    const host = html.querySelector(".tnx-check-result") ?? html.querySelector(".tnx-chat-card") ?? html;
+    const host = html.querySelector(".tnx-card") ?? html;
 
     // 「再判定可能」の直接入口を装飾でも示せるか(表示ゲート。クリック側にも同じ検査がある)
     const actor = game.actors.get(rc.actorId);
@@ -1677,9 +1677,9 @@ export function renderRecheckButton(message, html) {
         && (game.user.isGM || actor?.isOwner === true);
 
     // 達成値クリック(再判定可能/再判定付与/判定を修正): 達成値行の数値をクリック可能に
-    for (const row of host.querySelectorAll(".cr-calc-row, .cr-total-row")) {
-        const label = row.querySelector(".cr-calc-label");
-        const num = row.querySelector(".cr-total-num");
+    for (const row of host.querySelectorAll(".tnx-card__field, .tnx-card__field--total")) {
+        const label = row.querySelector(".tnx-card__field-label");
+        const num = row.querySelector(".tnx-card__field-value--total");
         if (!label || !num || label.textContent.trim() !== "達成値") continue;
         if (canDirect) {
             num.classList.add("tnx-recheck-ready");
@@ -1700,8 +1700,8 @@ export function renderRecheckButton(message, html) {
         area.className = "tnx-checkmod-area";
         const line = (label, val, cls = "") => {
             const div = document.createElement("div");
-            div.className = `cr-calc-row ${cls}`.trim();
-            div.innerHTML = `<span class="cr-calc-label">${label}</span><span class="${cls ? "cr-total-num" : "cr-calc-val"}">${val}</span>`;
+            div.className = `tnx-card__field ${cls}`.trim();
+            div.innerHTML = `<span class="tnx-card__field-label">${label}</span><span class="${cls ? "tnx-card__field-value--total" : "tnx-card__field-value"}">${val}</span>`;
             area.appendChild(div);
         };
         for (const r of mods.rows) {
@@ -1709,7 +1709,7 @@ export function renderRecheckButton(message, html) {
             // 上書き(2026-07-14)は「→N」表記(内部では差分に正規化して合算している)
             line(`事後修正（${esc(r.label)}）`, r.overrideTo !== undefined ? `→${r.overrideTo}` : (v >= 0 ? `+${v}` : String(v)));
         }
-        line("修正後の達成値", String(mods.achievement), "cr-total-row");
+        line("修正後の達成値", String(mods.achievement), "tnx-card__field--total");
         if (mods.targetValue !== undefined && mods.success !== undefined) {
             const diffText = Number.isFinite(mods.diff) ? `（差分値 +${mods.diff}）` : "";
             line("修正後の成否", mods.success ? `成功${diffText}` : "失敗");

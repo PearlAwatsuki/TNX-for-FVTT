@@ -1,35 +1,25 @@
-{{!-- 対決判定カード(旧・攻撃カード)。判定結果カードの基底(check-card-head/check-calc-rows)に
+{{!-- 対決判定カード(旧・攻撃カード)。判定結果カードの段(check-card-row/check-calc-rows)に
      攻撃情報(攻撃力行)を足す形式(2026-07-19 基底化=従来はカード値・能力値等の内訳を独自設計で
-     落としていた)。成否は保留のまま投稿→対象リスト・リアクション導線・解決後の成否表示は
-     .tnx-attack-status に renderChatMessageHTML(attack-flow.renderAttackCard)がフラグからライブ描画 --}}
-<div class="tnx-check-result tnx-attack-card tokyo-nova">
+     落としていた／2026-09-05 統一規格へ)。成否は保留のまま投稿→対象リスト・リアクション導線・
+     解決後の成否表示は .tnx-attack-status に renderChatMessageHTML(attack-flow.renderAttackCard)が
+     フラグからライブ描画する --}}
+{{#> tnxCard cardClass="tnx-attack-card" typeLabel=typeLabel title=skillLabel}}
 
-    {{> "systems/tokyo-nova-axleration/templates/chat/parts/check-card-head.hbs"}}
+    {{> "systems/tokyo-nova-axleration/templates/chat/parts/check-card-row.hbs"}}
 
     {{#unless result.fumble}}
-    <div class="cr-calc-section">
-        {{> "systems/tokyo-nova-axleration/templates/chat/parts/check-calc-rows.hbs"}}
-        {{#if isPhysical}}
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">攻撃力（{{attackSourceName}}）</span>
-            <span class="cr-calc-val">{{attackLabel}}</span>
+        <div class="tnx-card__section">
+            {{> "systems/tokyo-nova-axleration/templates/chat/parts/check-calc-rows.hbs"}}
+            {{#if isPhysical}}
+                {{> tnxCardField label=(concat "攻撃力（" attackSourceName "）") value=attackLabel}}
+            {{/if}}
+            {{#if vehicleName}}{{> tnxCardField label="使用ヴィークル" value=vehicleName}}{{/if}}
+            {{> tnxCardField label="達成値" value=result.achievement fieldClass="tnx-card__field--total" valueClass="tnx-card__field-value--total"}}
+            {{!-- 移動の段階数は renderAttackCard がこの直下へライブ挿入する(事後修正・再判定に追随・2026-07-19) --}}
         </div>
-        {{/if}}
-        {{#if vehicleName}}
-        <div class="cr-calc-row">
-            <span class="cr-calc-label">使用ヴィークル</span>
-            <span class="cr-calc-val">{{vehicleName}}</span>
-        </div>
-        {{/if}}
-        <div class="cr-calc-row cr-total-row">
-            <span class="cr-calc-label">達成値</span>
-            <span class="cr-total-num">{{result.achievement}}</span>
-        </div>
-        {{!-- 移動の段階数は renderAttackCard がこの直下へライブ挿入する(事後修正・再判定に追随・2026-07-19) --}}
-    </div>
     {{/unless}}
 
     {{!-- 状態領域: renderChatMessageHTML がフラグから描画(対象リスト=リアクション入口/
          オープンリアクション/解決後=成否+差分値+ダメージ算出ボタン) --}}
     <div class="tnx-attack-status"></div>
-</div>
+{{/tnxCard}}

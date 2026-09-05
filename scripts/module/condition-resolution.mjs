@@ -11,6 +11,7 @@ import { getCardCheckValue, normalizeSuit } from './tnx-check-engine.mjs';
 import { TnxActionHandler } from './tnx-action-handler.mjs';
 import { TnxSocketHandler } from './tnx-socket-handler.mjs';
 import { CONDITION_KINDS, conditionDisplayName, readConditions } from './conditions.mjs';
+import { cardField, cardResult } from './chat-card.mjs';
 import { getDamageChartKind } from '../data/damage-chart.mjs';
 import { conditionNeedsDraw, drawResultFlags, negateOutcome } from './condition-resolution-core.mjs';
 import { idKeyPrefix, ONOMASTIC_TYPES } from './skill-dictionary.mjs';
@@ -108,9 +109,10 @@ const OUTCOME_ICON = Object.freeze({
 
 /**
  * 状態の解決結果カードを投稿する(治療・カード決定ドロー等の共通)。
- * 判定結果カードと同じ意匠(condition-outcome.hbs)で出す。素のインライン div は使わない。
+ * チャットカードの統一規格(condition-outcome.hbs)で出す。素のインライン div は使わない。
  * @param {?Actor} speakerActor
  * @param {{title:string, tag?:string, status?:string, label?:string, text?:string}} opts
+ *   title=名前(用途名・状態名)・tag=種別(回復/改造/修理/効果決定)
  */
 export async function postConditionOutcome(speakerActor, { title, tag = "", status = "info", label = "", text = "" } = {}) {
   const content = await foundry.applications.handlebars.renderTemplate(
@@ -188,17 +190,12 @@ export function renderConditionDrawCard(message, html) {
   if (f.resolved) {
     const SUIT_SYMBOL = { spade: "♠", club: "♣", heart: "♥", diamond: "♦" };
     if (f.suit) {
-      const row = document.createElement("div");
-      row.className = "cr-calc-row";
-      row.innerHTML = `<span class="cr-calc-label">引いたカード</span>`
-        + `<span class="cr-calc-val"><span class="cr-suit suit-${esc(f.suit)}">${SUIT_SYMBOL[f.suit] ?? ""}</span>`
-        + `${f.value ? ` ${f.value}` : ""}${f.wild ? "（ワイルドカード指定）" : ""}</span>`;
-      area.appendChild(row);
+      area.appendChild(cardField("引いたカード",
+        `<span class="cr-suit suit-${esc(f.suit)}">${SUIT_SYMBOL[f.suit] ?? ""}</span>`
+        + `${f.value ? ` ${f.value}` : ""}${f.wild ? "（ワイルドカード指定）" : ""}`));
     }
-    const line = document.createElement("div");
-    line.className = "cr-result cr-result--info";
-    line.innerHTML = `<i class="fas fa-circle-info"></i> <span>${esc(f.detail ?? "")}</span>`;
-    area.appendChild(line);
+    area.appendChild(cardResult(`<i class="fas fa-circle-info"></i> ${esc(f.detail ?? "")}`,
+      { modifier: "tnx-card__result--info" }));
     return;
   }
 
@@ -258,7 +255,8 @@ export async function executeConditionDraw(actor, effect, kind, message = null) 
   }
   // 旧形式カード(フラグ無し・保存済みの静的ボタン)からの呼び出しは従来どおり別カードで記録
   await postConditionOutcome(actor, {
-    title: "効果決定", tag: conditionDisplayName(kind),
+    // 統一規格: タグ＝カードの種別・タイトル＝名前(2026-09-05)
+    title: conditionDisplayName(kind), tag: "効果決定",
     status: "info", text: detail,
   });
 }

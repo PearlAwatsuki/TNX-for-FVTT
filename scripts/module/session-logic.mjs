@@ -679,7 +679,7 @@ export function isBackstageFinished(backstage, queue) {
 }
 
 // ─── チャットカードの組み立て(14-3・送信元はシナリオコントロールパネル) ───
-// 送信カードは4種とも判定要求カードの骨格(.tnx-check-request の header/body)を踏襲する
+// 送信カードは4種とも判定要求カードの骨格(.tnx-card の header/body)を踏襲する
 // (2026-08-15・ハンドアウトカードに揃えた)。ここは**描画コンテキストを組む純関数だけ**を持ち、
 // HTML の組み立ては templates/chat/ の各テンプレートが行う。
 

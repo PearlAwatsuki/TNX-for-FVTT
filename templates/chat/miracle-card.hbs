@@ -1,38 +1,18 @@
-{{!-- 神業カード(17-1)。神業の使用を卓に提示する——種別タグ「神業」＋名前(ふりがなはルビ)＋
+{{!-- 神業カード(17-1)。神業の使用を卓に提示する——タグ「神業」＋名前(ふりがなはルビ)＋
       効果文＋条件(経験点「うまく神業を使った」の取得条件)＋残り使用回数。
-      意匠は送信カードと同じ .tnx-check-request ＋ cr-req-header ＋ cr-req-body を踏襲する。
-      効果文と条件はエンリッチ済み HTML。空の欄は行ごと出さない --}}
-<div class="tnx-check-request tokyo-nova tnx-miracle-card">
-
-    <header class="cr-req-header">
-        <span class="cr-req-type-tag">{{typeLabel}}</span>
-        <span class="cr-req-title">{{#if furigana}}<ruby>{{name}}<rt>{{furigana}}</rt></ruby>{{else}}{{name}}{{/if}}</span>
-    </header>
-
-    <div class="cr-req-body">
-        {{!-- 解説の段(効果文＋条件)は**常に畳んだ状態で最上部**に置く(2026-09-05)。
-             神業は組み合わせが無く、効果文は読みたいときに開けば足りる --}}
-        {{#if hasProse}}
-        <details class="mc-prose">
-            <summary class="cr-req-field mc-prose__summary">
-                <span class="cr-req-field__label">効果文</span>
-            </summary>
-            {{#if description}}
-                <div class="cr-req-prose mc-description">{{{description}}}</div>
-            {{/if}}
-
-            {{#if condition}}
-                <div class="mc-condition">
-                    <span class="mc-condition__label">条件</span>
-                    <div class="cr-req-prose">{{{condition}}}</div>
-                </div>
-            {{/if}}
-        </details>
+      効果文と条件は**畳んだ状態で置き、見出し(カードの名前)をクリックすると開く**
+      (2026-09-05 ユーザー指示。神業は判定と違って組み合わせが無く、効果文は読みたいときに開けば足りる)。
+      骨格・段は統一規格の部品で組む。効果文・条件はエンリッチ済み HTML --}}
+{{#> tnxCard cardClass="tnx-miracle-card" typeLabel=typeLabel title=name furigana=furigana}}
+    {{#*inline "cardProse"}}
+        {{> tnxCardText content=description}}
+        {{#if condition}}
+            <div class="mc-condition">
+                <span class="mc-condition__label">条件</span>
+                <div class="tnx-card__text">{{{condition}}}</div>
+            </div>
         {{/if}}
+    {{/inline}}
 
-        <div class="cr-req-field mc-uses">
-            <span class="cr-req-field__label">残り使用回数</span>
-            <span class="cr-req-field__value">{{remaining}} / {{max}}</span>
-        </div>
-    </div>
-</div>
+    {{#> tnxCardRow label="残り使用回数" rowClass="mc-uses"}}{{remaining}} / {{max}}{{/tnxCardRow}}
+{{/tnxCard}}

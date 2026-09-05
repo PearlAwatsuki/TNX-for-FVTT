@@ -113,12 +113,15 @@ async function preloadHandlebarsTemplates() {
 
         // === Chat ===
         // 判定結果系カードの基底部品(2026-07-19 基底化): 全カードが参照するためパーシャルとして先読み
-        "systems/tokyo-nova-axleration/templates/chat/parts/check-card-head.hbs",
+        "systems/tokyo-nova-axleration/templates/chat/parts/check-card-row.hbs",
         "systems/tokyo-nova-axleration/templates/chat/parts/check-calc-rows.hbs",
         "systems/tokyo-nova-axleration/templates/chat/parts/info-disclose-outcome.hbs",
         "systems/tokyo-nova-axleration/templates/chat/scene-card.hbs",
         "systems/tokyo-nova-axleration/templates/chat/check-result.hbs",
         "systems/tokyo-nova-axleration/templates/chat/miracle-card.hbs",
+        "systems/tokyo-nova-axleration/templates/chat/item-card.hbs",
+        "systems/tokyo-nova-axleration/templates/chat/simple-card.hbs",
+        "systems/tokyo-nova-axleration/templates/chat/derived-damage-card.hbs",
         "systems/tokyo-nova-axleration/templates/chat/check-request.hbs",
         "systems/tokyo-nova-axleration/templates/chat/attack-card.hbs",
         "systems/tokyo-nova-axleration/templates/chat/reaction-card.hbs",
@@ -187,7 +190,8 @@ async function preloadHandlebarsTemplates() {
     const cardPartials = {
         tnxCard:       "systems/tokyo-nova-axleration/templates/chat/parts/card.hbs",
         tnxCardField:  "systems/tokyo-nova-axleration/templates/chat/parts/card-field.hbs",
-        tnxCardProse:  "systems/tokyo-nova-axleration/templates/chat/parts/card-prose.hbs",
+        tnxCardRow:    "systems/tokyo-nova-axleration/templates/chat/parts/card-row.hbs",
+        tnxCardFold:   "systems/tokyo-nova-axleration/templates/chat/parts/card-fold.hbs",
         tnxCardText:   "systems/tokyo-nova-axleration/templates/chat/parts/card-text.hbs",
         tnxCardResult: "systems/tokyo-nova-axleration/templates/chat/parts/card-result.hbs",
     };
@@ -1097,27 +1101,27 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
     if (!flagData) return;
 
     // 目標値: targetValueHidden かつ非 GM の場合は非公開表示
-    const tnEl = html.querySelector(".cr-req-tn-value");
+    const tnEl = html.querySelector(".tnx-card__field-value--tn");
     if (tnEl && flagData.targetValueHidden && !game.user.isGM) {
         tnEl.textContent = "（非公開）";
-        tnEl.classList.add("cr-req-tn-hidden");
+        tnEl.classList.add("tnx-card__field-value--hidden");
     }
 
     // 各対象行: 結果がある場合は結果表示、未判定の場合はボタンまたは「待機中」
-    for (const row of html.querySelectorAll(".cr-req-target-row")) {
+    for (const row of html.querySelectorAll(".tnx-card__target")) {
         const actorId  = row.dataset.actorId;
-        const statusEl = row.querySelector(".cr-req-target-status");
+        const statusEl = row.querySelector(".tnx-card__target-status");
         if (!statusEl) continue;
 
         const result = flagData.results?.[actorId];
         if (result) {
             // 判定済み: 結果を表示
             const resultEl = document.createElement("div");
-            resultEl.className = "cr-req-result";
+            resultEl.className = "tnx-card__target-result";
             if (flagData.checkType === "controlCheck") {
                 // controlNegate 由来の要求は帰結(無効化/降格/継続)もライブ書き換えで表示する
                 const negateText = result.negateOutcome?.text
-                    ? ` <span class="cr-req-negate">${foundry.utils.escapeHTML(result.negateOutcome.text)}</span>`
+                    ? ` <span class="tnx-card__target-negate">${foundry.utils.escapeHTML(result.negateOutcome.text)}</span>`
                     : "";
                 resultEl.innerHTML = (result.success
                     ? '<span class="cr-inline-success"><i class="fas fa-check"></i> 成功</span>'
@@ -1133,7 +1137,7 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
                         : '';
                 // 代用判定(2026-07-09): 指定と別の技能で判定した事実を要求カードにも明示する
                 const subNote = result.substitution?.usedName
-                    ? ` <span class="cr-req-note">代用:${foundry.utils.escapeHTML(result.substitution.usedName)}</span>`
+                    ? ` <span class="tnx-card__target-note">代用:${foundry.utils.escapeHTML(result.substitution.usedName)}</span>`
                     : '';
                 resultEl.innerHTML = `達成値 <strong>${result.achievement ?? "—"}</strong>${mark}${subNote}`;
             }
@@ -1155,7 +1159,7 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
                 statusEl.replaceChildren(btn);
             } else {
                 const waiting = document.createElement("span");
-                waiting.className = "cr-req-waiting";
+                waiting.className = "tnx-card__target-waiting";
                 waiting.textContent = "待機中…";
                 statusEl.replaceChildren(waiting);
             }

@@ -248,9 +248,13 @@ export async function completeAcquisitionFromCheck(payload, result) {
     const detail = payload.mode === "bunshin"
         ? `${count}体`
         : `${RESOURCE_LABELS[payload.mode]} ${outcome.heads}`;
+    // チャットカードの統一規格(simple-card.hbs)で組む(2026-09-05)
+    const content = await foundry.applications.handlebars.renderTemplate(
+        "systems/tokyo-nova-axleration/templates/chat/simple-card.hbs",
+        { typeLabel: "取得", title: target.name, fields: [{ label: RESOURCE_LABELS[payload.mode] ?? "取得", value: detail }] });
     await ChatMessage.create({
         speaker: summoner ? ChatMessage.getSpeaker({ actor: summoner }) : undefined,
-        content: `<div class="tnx-chat-card"><p>「${foundry.utils.escapeHTML(target.name)}」を取得（${detail}）。</p></div>`,
+        content,
     });
 
     await placeActorTokens(target, count);

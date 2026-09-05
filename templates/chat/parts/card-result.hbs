@@ -1,5 +1,7 @@
-{{!-- 段: 結果の行(成否・ダメージ・状態の帰結)。文は1要素にまとめる——
-      行は flex で語間に gap があるため、直に並べると塊の span の前後に隙間が空く。 --}}
-<div class="tnx-card__result{{#if modifier}} {{modifier}}{{/if}}">
-    <span class="tnx-card__result-text">{{#if textHtml}}{{{textHtml}}}{{else}}{{text}}{{/if}}</span>
+{{!-- 段: 結果の行(成否・ダメージ・状態の帰結)。中身はブロックで書く——アイコン＋語＋注記の
+      組み立てが要るため。文は1要素にまとめてある: 行は flex で語間に gap があるので、
+      直に並べると塊(nowrap の span)の前後に隙間が空く。
+      使い方: {{#> tnxCardResult resultClass="tnx-card__result--success"}}<i …></i> 成功{{/tnxCardResult}} --}}
+<div class="tnx-card__result{{#if resultClass}} {{resultClass}}{{/if}}">
+    <span class="tnx-card__result-text">{{> @partial-block}}</span>
 </div>

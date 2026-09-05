@@ -1,25 +1,12 @@
-<div class="tnx-neuro-card-chat tokyo-nova">
-    <div class="tnx-neuro-card-chat__header">
-        <span class="tnx-neuro-card-chat__type-label">ニューロカード</span>
-    </div>
-    <div class="tnx-neuro-card-chat__body">
-        {{#if cardImage}}
-            <img class="tnx-neuro-card-chat__image" src="{{cardImage}}" alt="{{cardName}}">
-        {{/if}}
-        <div class="tnx-neuro-card-chat__info">
-            {{#if cardNameRomaji}}
-                <div class="tnx-neuro-card-chat__romaji">{{cardNameRomaji}}</div>
-            {{/if}}
-            <div class="tnx-neuro-card-chat__name">{{cardName}}</div>
-            <hr class="tnx-neuro-card-chat__divider">
-            <div class="tnx-neuro-card-chat__field">
-                <span class="tnx-neuro-card-chat__field-label">キーワード</span>
-                <span class="tnx-neuro-card-chat__field-value">{{{keyword}}}</span>
-            </div>
-            <div class="tnx-neuro-card-chat__field">
-                <span class="tnx-neuro-card-chat__field-label">暗示</span>
-                <span class="tnx-neuro-card-chat__field-value">{{{implication}}}</span>
-            </div>
-        </div>
-    </div>
-</div>
+{{!-- ニューロカードの提示カード。統一規格の骨格で組む(2026-09-05)——タグ＝「ニューロカード」・
+     名前＝カード名。絵札とローマ字綴りはこのカード固有の意匠、キーワード/暗示は共通の段。 --}}
+{{#> tnxCard cardClass="tnx-neuro-card-chat" typeLabel="ニューロカード" title=cardName}}
+    {{#if cardImage}}
+        <img class="tnx-neuro-card-chat__image" src="{{cardImage}}" alt="{{cardName}}">
+    {{/if}}
+    {{#if cardNameRomaji}}
+        <div class="tnx-neuro-card-chat__romaji">{{cardNameRomaji}}</div>
+    {{/if}}
+    {{> tnxCardField label="キーワード" valueHtml=keyword}}
+    {{> tnxCardField label="暗示" valueHtml=implication}}
+{{/tnxCard}}
