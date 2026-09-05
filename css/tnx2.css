@@ -5019,12 +5019,13 @@ body.tnx-bottom-hud-expanded #hotbar {
 }
 
 /* 見出し: 名前(技能名・アイテム名・配布物名) | 種別タグ(右寄せ＝元の判定カードの配置)。
-   名前が主役なので、タグに押されて名前が折り返すくらいならタグを次の行へ回す(下の min-width) */
+   **1行に収める**——タグが次の行へ回るのは見出しとしておかしい(2026-09-06 ユーザー指摘)。
+   タグは幅に上限があり、長い種別名は横に縮めて収まるので、名前の取り分は常に残る */
 .tnx-card__head,
 .cr-head,
 .cr-req-header {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 8px;
     padding: 6px 10px;
@@ -5051,18 +5052,23 @@ body.tnx-bottom-hud-expanded #hotbar {
     padding: 1px 5px;
 }
 
-/* タグの幅は固定。基準は**一番長い種別名「アーティフィシャルボディ」(12文字)が潰れずに収まる幅**
-   (2026-09-06 ユーザー指示)。これより長い種別名が来たときだけ横に縮めて収める(fitCardTags)。
+/* タグの幅は内容なり、ただし**上限**を置く(2026-09-06 ユーザー指示)。上限を超える種別名は
+   横に縮めて収める(fitCardTags)。上限は**一番長い種別名「アーティフィシャルボディ」(12文字)を
+   縮めても潰れて見えない幅**——12文字がそのまま収まる幅(13.2em)では長すぎて名前を押し出す。
+   実測: 8em＝81px で 12文字は 0.57 倍。ここまでは条件付き書体のように読める(隔離実機で見比べ)。
    幅はタグの文字サイズ基準(1em = タグの1文字ぶん)。border-box なので枠と内側余白を含む */
 .chat-message .message-content .tnx-card__tag {
-    width: 13.2em;
+    max-width: 8em;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
 }
 
+/* 中身は**縮めない**(flex で潰されると自然幅が測れず、縮む代わりに切り取られる)。
+   幅を超える分は fitCardTags が scaleX で縮める */
 .tnx-card__tag-text {
+    flex: 0 0 auto;
     display: inline-block;
     white-space: nowrap;
     transform-origin: center center;

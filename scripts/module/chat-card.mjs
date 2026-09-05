@@ -80,8 +80,9 @@ export function cardText(content, { modifier = "" } = {}) {
 }
 
 /**
- * 種別タグの文字列を固定幅に収める。幅に入りきらない種別名は**横に縮める**
- * (2026-09-06 ユーザー指示「タグの表示幅を固定にして、入りきらない場合はX拡縮」)。
+ * 種別タグの文字列を幅の上限に収める。上限に入りきらない種別名は**横に縮める**
+ * (2026-09-06 ユーザー指示「タグの表示幅を固定にして、入りきらない場合はX拡縮」
+ *  ＋「固定幅は上限です」。上限＝一番長い「アーティフィシャルボディ」12文字が潰れない幅)。
  *
  * 縮めるのは中身の span だけで、枠(幅)は動かさない——タグが伸びると本体である名前を
  * 押し出してしまうため。カードを描いた後に呼ぶ(renderChatMessageHTML)。
@@ -95,7 +96,8 @@ export function fitCardTags(root) {
         const style = getComputedStyle(box);
         const avail = box.clientWidth - parseFloat(style.paddingLeft || 0) - parseFloat(style.paddingRight || 0);
         const natural = text.getBoundingClientRect().width;
-        if (!(avail > 0) || !(natural > 0) || natural <= avail) continue;
+        // 誤差(小数の丸め)で全部のタグに倍率が付くのを避ける。実際にはみ出した分だけ縮める
+        if (!(avail > 0) || !(natural > 0) || natural <= avail + 0.5) continue;
         // 下限を置く(これ以上潰すと読めない。実際の種別名はここまで長くならない)
         text.style.transform = `scaleX(${Math.max(0.45, avail / natural).toFixed(3)})`;
     }

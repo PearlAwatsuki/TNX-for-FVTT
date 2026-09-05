@@ -1097,8 +1097,9 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
     }
 });
 
-// チャットカードの種別タグ: 固定幅に収める(入りきらない種別名は横に縮める・2026-09-06)
-Hooks.on("renderChatMessageHTML", (message, html) => fitCardTags(html));
+// チャットカードの種別タグ: 幅の上限に収める(入りきらない種別名は横に縮める・2026-09-06)。
+// **描画フックの時点ではまだ DOM に入っていない**(幅が 0 で測れない)ので、次のフレームで当てる
+Hooks.on("renderChatMessageHTML", (message, html) => requestAnimationFrame(() => fitCardTags(html)));
 
 // 判定要求チャットカード: 目標値の可視性制御 + 「判定する」ボタン / 結果注入（フェーズ 8-5）
 Hooks.on("renderChatMessageHTML", (message, html) => {
