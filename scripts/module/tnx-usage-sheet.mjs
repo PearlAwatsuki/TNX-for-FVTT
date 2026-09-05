@@ -16,7 +16,7 @@ import { TnxSkillUtils } from "./tnx-skill-utils.mjs";
 import { getComboSuits } from "./tnx-check-engine.mjs";
 import { resolveUsageSkills, comboLockAnalysis, isComboRequired } from "./skill-chain-resolution.mjs";
 import { deriveConsumeTargets } from "./usage-consumption.mjs";
-import { CONDITION_KINDS } from "./conditions.mjs";
+import { CONDITION_KINDS , conditionDisplayName } from "./conditions.mjs";
 import { ATTACK_DAMAGE_TYPES } from "../data/item/helpers.mjs";
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
@@ -673,7 +673,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             // 除外タグ: 負傷以外(BS/戦闘不能)のタグから選ぶ(負傷は「そのタグを与える」経由で除外される)
             const excludeSet = new Set(usage.recoveryExcludes ?? []);
             context.recoveryExcludeRows = [...excludeSet]
-                .map(k => ({ key: k, label: CONDITION_KINDS[k]?.label ?? k }));
+                .map(k => ({ key: k, label: conditionDisplayName(k) }));
             context.recoveryExcludeChoices = Object.entries(CONDITION_KINDS)
                 .filter(([k, def]) => def.type !== "wound" && !excludeSet.has(k))
                 .map(([value, def]) => ({ value, label: def.label }));

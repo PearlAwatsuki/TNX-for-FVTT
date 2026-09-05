@@ -89,9 +89,25 @@ const BS_AND_INCAPACITATION = {
  */
 export const CONDITION_KINDS = Object.freeze({ ...BS_AND_INCAPACITATION, ...buildDamageStates() });
 
+/**
+ * 状態の表示名。**戦闘不能のタグはルールブックの表記どおり ［］ でくくる**——［完全死亡］［精神崩壊］
+ * ［抹殺］［気絶］［仮死］［支配］等(2026-09-05 ユーザー指示「必ず［］をつけてください」)。
+ * BS・負傷(ダメージそのもの)は名前のまま。`quote` は文中で名前を区切る既存の書式(「恐慌」を付与 等)で、
+ * 戦闘不能は ［］ が区切りを兼ねるので付けない。**状態を名前で出す箇所は必ずこの関数を通す**。
+ * @param {string} kind 状態キー(CONDITION_KINDS のキー)
+ * @param {{quote?: boolean}} [opts] quote=文中で 「」 でくくる(戦闘不能は ［］ のまま)
+ * @returns {string}
+ */
+export function conditionDisplayName(kind, { quote = false } = {}) {
+    const def = CONDITION_KINDS[kind];
+    const label = def?.label ?? String(kind ?? "");
+    if (def?.group === "incapacitation") return `［${label}］`;
+    return quote ? `「${label}」` : label;
+}
+
 /** 状態キー → 表示ラベル。効果の要約表示など、状態を名前で出す箇所で使う。 */
 export function conditionStatusLabels() {
-    return Object.fromEntries(Object.entries(CONDITION_KINDS).map(([kind, def]) => [kind, def.label]));
+    return Object.fromEntries(Object.keys(CONDITION_KINDS).map(kind => [kind, conditionDisplayName(kind)]));
 }
 
 /** group キー → 表示ラベル(ドロップダウンのグループ見出し)。 */
@@ -146,7 +162,7 @@ export function readConditions(effect) {
       kind,
       label:         def?.label ?? kind,
       def,
-      name:          effect.name || def?.label || "(無名効果)",
+      name:          effect.name || conditionDisplayName(kind) || "(無名効果)",
       identity:      `${effect.id ?? ""}:${kind}`,
       active:        effect.active !== false,
       stackable:     def?.stackable === true, // BS ごとにルール固定(切替不可)
@@ -330,7 +346,7 @@ export function buildInflictedEffectsData(kind, { hidden = true } = {}) {
     const flags = { conditionKind: inf.kind, hideFromList: hidden };
     if (Object.keys(cond).length) flags.conditions = { [inf.kind]: cond };
     out.push({
-      name:     idef.label,
+      name:     conditionDisplayName(inf.kind),
       img:      idef.img ?? "icons/svg/aura.svg",
       statuses: [inf.kind],
       flags:    { [SCOPE]: flags },
@@ -432,7 +448,7 @@ export function applyDamageTagMods(dataList, mods) {
       const conds = f.conditions?.[orig];
       entry = {
         ...d,
-        name:     ndef.label,
+        name:     conditionDisplayName(to),
         img:      ndef.img ?? "icons/svg/aura.svg",
         statuses: [to],
         flags: { [SCOPE]: {
@@ -448,7 +464,7 @@ export function applyDamageTagMods(dataList, mods) {
       const adef = CONDITION_KINDS[addTo];
       if (!adef || addTo === entry.statuses?.[0]) continue;
       out.push({
-        name:     adef.label,
+        name:     conditionDisplayName(addTo),
         img:      adef.img ?? "icons/svg/aura.svg",
         statuses: [addTo],
         flags:    { [SCOPE]: { conditionKind: addTo, hideFromList: true, addedFrom: orig } },

@@ -26,7 +26,7 @@ import { aggregateDefence, defenceForType, computeDamage, splitSharedBonusRows }
 import { evaluateBonusRows, evaluateSelfBonus } from "./tnx-formula.mjs";
 import { applyConsumptionPlan } from "./usage-consumption.mjs";
 import { getDamageChartKind } from "../data/damage-chart.mjs";
-import { CONDITION_KINDS, getEffectiveConditions, hasBountyBlock, isWetActor } from "./conditions.mjs";
+import { CONDITION_KINDS, conditionDisplayName, getEffectiveConditions, hasBountyBlock, isWetActor } from "./conditions.mjs";
 import { applyAttackPatch } from "./attack-flow.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
@@ -520,8 +520,17 @@ export function renderDamageCard(message, html) {
     // 対象ごとの最終ダメージ(2026-07-16 ユーザー確定): 防御力・受け値は「ダメージ算出」で適用済み＝各行に
     // 軽減後の最終ダメージを表示する。攻撃側合計はレジャーに残す(攻撃側の事後増強のため)。社会の報酬点軽減と
     // 手動の状況軽減だけ適用時のダイアログで入れる。
-    for (const i of liveIdx) {
+    const liveSet = new Set(liveIdx);
+    for (let i = 0; i < dmgTargets.length; i++) {
         const t = dmgTargets[i];
+        // 防いだ対象(防御タイプ「適用前に防ぐ」・17-2)は行を消さず「防いだ」と明示する——行ごと
+        // 消えると防げたのか分からない(2026-09-05 ユーザー指摘)
+        if (!liveSet.has(i)) {
+            line(area, "cr-result cr-result--nodamage",
+                `<i class="fas fa-shield-halved"></i> 《${esc(t.protectedBy?.name ?? "神業")}》が`
+                + `「${esc(t.name)}」へのダメージを防いだ`);
+            continue;
+        }
         // 対象ごとに見出し(名前)＝最終ダメージを1行・軽減の内訳は名前を繰り返さない小注記に畳む(はみ出し回避)。
         // 内訳は適用順(防御力・受け値→10上限→事後修正→報酬点)に並べる(2026-07-16 裁定=KI-024)
         const p = targetPlannedPreview(f, t);
@@ -648,7 +657,7 @@ function renderMiracleDamageCard(message, html, f, { ledger, area, row, line, es
     // 打ち消し: カードごと無かったことになる(対象ごとの行は出さない)
     if (negated) {
         line(area, "cr-result cr-result--nodamage",
-            `<i class="fas fa-ban"></i> 《${esc(f.negatedBy.name ?? "神業")}》により打ち消された`);
+            `<i class="fas fa-ban"></i> 《${esc(f.negatedBy.name ?? "神業")}》がこの神業を打ち消した`);
         return;
     }
 
@@ -666,8 +675,10 @@ function renderMiracleDamageCard(message, html, f, { ledger, area, row, line, es
     for (let i = 0; i < dmgTargets.length; i++) {
         const t = dmgTargets[i];
         if (!live.has(i)) {
+            // 防がれたのは**その対象への結果**であって対象そのものではない(2026-09-05 ユーザー指摘)
             line(area, "cr-result cr-result--nodamage",
-                `<i class="fas fa-shield-halved"></i> 「${esc(t.name)}」は《${esc(t.protectedBy?.name ?? "神業")}》で防がれた`);
+                `<i class="fas fa-shield-halved"></i> 《${esc(t.protectedBy?.name ?? "神業")}》が`
+                + `「${esc(t.name)}」への${esc(label)}を防いだ`);
             continue;
         }
         row(area, esc(t.name), esc(label));
@@ -723,20 +734,21 @@ export async function applyMiracleDamage(message) {
                 text = "エキストラ: 適用なし（宣言死）"; ok = false;
             } else if (out.op === "terminal") {
                 const def = CONDITION_KINDS[out.kind];
-                if (actor.statuses?.has?.(out.kind)) { text = `既に「${def?.label ?? out.kind}」`; ok = false; }
+                const tag = conditionDisplayName(out.kind, { quote: true });
+                if (actor.statuses?.has?.(out.kind)) { text = `既に${tag}`; ok = false; }
                 else {
                     await actor.createEmbeddedDocuments("ActiveEffect", [{
-                        name: def?.label, img: def?.img, statuses: [out.kind],
+                        name: conditionDisplayName(out.kind), img: def?.img, statuses: [out.kind],
                         flags: { [SCOPE]: { conditionKind: out.kind, hideFromList: true, fromMiracle: true } },
                     }]);
-                    text = `「${def?.label ?? out.kind}」を付与`;
+                    text = `${tag}を付与`;
                 }
             } else if (out.op === "chart") {
                 const stage = Math.min(out.value, 21);
                 await applyDamageChartResult(actor, f.category, out.value, { extraFlags: { fromMiracle: true } });
                 const kind = getDamageChartKind(f.category, stage);
-                const wound = kind ? CONDITION_KINDS[kind]?.label : "";
-                text = `${CATEGORY_LABELS[f.category] ?? f.category}ダメージチャート${wound ? `「${wound}」` : ""}を適用（軽減なし）`;
+                const wound = kind ? conditionDisplayName(kind, { quote: true }) : "";
+                text = `${CATEGORY_LABELS[f.category] ?? f.category}ダメージチャート${wound}を適用（軽減なし）`;
                 const derived = kind ? CONDITION_KINDS[kind]?.derivedDamage : null;
                 if (derived) text += await applyDerivedDamage(actor, derived);
             } else if (out.op === "annihilate") {
@@ -1408,8 +1420,7 @@ function describeDamagePreview(target, category, final, stage) {
     }
     if (final <= 0) return "負傷なし";
     const kind = getDamageChartKind(category, stage);
-    const wound = kind ? CONDITION_KINDS[kind]?.label : "";
-    return wound ? `「${wound}」` : "";
+    return kind ? conditionDisplayName(kind, { quote: true }) : "";
 }
 
 /**
@@ -1442,7 +1453,7 @@ export async function applyDamageToTarget(target, category, final, stage, { pers
     if (final <= 0) return "ダメージ 0（負傷なし）";
     await applyDamageChartResult(target, category, final, { persuade, extraFlags });
     const kind = getDamageChartKind(category, stage);
-    const woundLabel = kind ? CONDITION_KINDS[kind]?.label : "";
+    const woundLabel = kind ? conditionDisplayName(kind) : "";
 
     // 派生ダメージ(社会9→精神・社会19→肉体 等): チャート効果が別ダメージを発生させる場合、
     // その派生は軽減不可・直接ダメージ扱い(Damage_Rules 2026-07-09)。同じ対象へ続けて適用する

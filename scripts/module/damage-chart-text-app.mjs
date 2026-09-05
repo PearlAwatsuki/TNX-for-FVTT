@@ -6,7 +6,7 @@
  * 設定キー: world 設定 "damageChartText" = { physical:{1..21}, mental:{...}, social:{...} }。
  */
 
-import { CONDITION_KINDS } from "./conditions.mjs";
+import { CONDITION_KINDS, conditionDisplayName } from "./conditions.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const SETTING = "damageChartText";
@@ -67,7 +67,7 @@ export class DamageChartTextApp extends HandlebarsApplicationMixin(ApplicationV2
         const tier = n + 1;
         return {
           tier,
-          name: CONDITION_KINDS[`${c.prefix}-${tier}`]?.label ?? "",
+          name: CONDITION_KINDS[`${c.prefix}-${tier}`] ? conditionDisplayName(`${c.prefix}-${tier}`) : "",
           text: stored?.[c.key]?.[tier] ?? "",
         };
       }),

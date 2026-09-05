@@ -38,7 +38,7 @@ import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { buildUsageCheckContext } from "./usage-check-context.mjs";
 import { resolveTargetedOrSelf } from "./target-resolution.mjs";
-import { CONDITION_KINDS, getConditionKinds, recoveryKindMatches, recoveryKindExcluded, readCondition, woundChartValue } from "./conditions.mjs";
+import { CONDITION_KINDS, conditionDisplayName, getConditionKinds, recoveryKindMatches, recoveryKindExcluded, readCondition, woundChartValue } from "./conditions.mjs";
 import { postConditionOutcome } from "./condition-resolution.mjs";
 import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } from "./usage-consumption.mjs";
 import { executionFormOf } from "./usage-types.mjs";
@@ -153,7 +153,9 @@ async function promptRecoverySelection(patient, candidates, usage) {
         const extra = def?.type === "wound"
             ? `（ダメージ値 ${wv}・紐づく戦闘不能・効果も除去）`
             : linkedWound
-                ? `（元の負傷「${CONDITION_KINDS[getConditionKinds(linkedWound)[0]]?.label ?? linkedWound.name}」ごと治療）`
+                ? `（元の負傷${CONDITION_KINDS[getConditionKinds(linkedWound)[0]]
+                    ? conditionDisplayName(getConditionKinds(linkedWound)[0], { quote: true })
+                    : `「${linkedWound.name}」`}ごと治療）`
                 : (mag ? `（強度 ${mag}）` : "");
         const input = usage.recoveryAll
             ? `<input type="checkbox" checked disabled>`

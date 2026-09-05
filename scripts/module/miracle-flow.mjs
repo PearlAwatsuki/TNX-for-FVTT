@@ -21,7 +21,7 @@ import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { applyConsumptionPlan, resolveConsumeRowsForActor, promptConsumption } from "./usage-consumption.mjs";
 import { resolveUsageTargetRefs } from "./target-resolution.mjs";
 import { TargetSelectionDialog, AmountInputDialog } from "./tnx-dialog.mjs";
-import { CONDITION_KINDS } from "./conditions.mjs";
+import { conditionDisplayName } from "./conditions.mjs";
 import { getDamageChartKind } from "../data/damage-chart.mjs";
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { isOutfitDestroyed } from "../data/item/helpers.mjs";
@@ -44,7 +44,7 @@ function chartValueOptions(category) {
     const out = [];
     for (let v = 1; v <= 21; v++) {
         const kind = getDamageChartKind(category, v);
-        out.push({ value: `chart:${v}`, label: `${v}: ${CONDITION_KINDS[kind]?.label ?? ""}` });
+        out.push({ value: `chart:${v}`, label: `${v}: ${conditionDisplayName(kind)}` });
     }
     return out;
 }
@@ -55,7 +55,7 @@ function chartValueOptions(category) {
  * @returns {Promise<?{kind: "terminal"|"chart", value?: number, drawn?: string[]}>} キャンセルは null
  */
 async function promptMiracleDamageResult(item, usage, category) {
-    const terminalLabel = CONDITION_KINDS[terminalKindFor(category)]?.label ?? "終端状態";
+    const terminalLabel = conditionDisplayName(terminalKindFor(category));
     if (usage.type === "miracleSocial" && (usage.socialDecide || "choose") === "rl") {
         const how = await TargetSelectionDialog.prompt({
             title: `${item.name}: 社会戦ダメージ`, label: "社会戦ダメージの決め方（RL）",

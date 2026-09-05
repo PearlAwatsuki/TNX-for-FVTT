@@ -9,6 +9,7 @@
  */
 
 import { usesMaxTotalOf } from "../data/item/uses.mjs";
+import { conditionDisplayName } from "./conditions.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -223,8 +224,6 @@ export function terminalKindFor(category) {
     return { physical: "dead", mental: "mind-break", social: "erased" }[category] ?? "dead";
 }
 
-const TERMINAL_LABELS = Object.freeze({ dead: "完全死亡", "mind-break": "精神崩壊", erased: "抹殺" });
-
 /**
  * 神業版のダメージカードのフラグ(damageRoll)。既存のダメージカードの器に神業の印と結果を載せ、
  * カード・攻撃力・修正の段は持たない(軽減を通さない)。対象行・防ぐ・打ち消し・適用は既存のまま。
@@ -248,7 +247,7 @@ export function buildMiracleDamageFlag({ by, category, targets, result }) {
 
 /** 結果の表示(終端状態は系統の終端の名前・任意ダメージは値)。 */
 export function miracleResultLabel(result, category) {
-    if (result?.kind === "terminal") return TERMINAL_LABELS[terminalKindFor(category)];
+    if (result?.kind === "terminal") return conditionDisplayName(terminalKindFor(category));
     return `ダメージ ${Number(result?.value) || 0}`;
 }
 

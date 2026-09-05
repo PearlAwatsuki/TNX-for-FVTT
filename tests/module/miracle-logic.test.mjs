@@ -352,10 +352,10 @@ describe("buildMiracleDamageFlag()（神業版ダメージカードのフラグ�
 });
 
 describe("miracleResultLabel()（結果の表示）", () => {
-    it("終端状態は系統の終端の名前・任意ダメージは値", () => {
-        expect(miracleResultLabel({ kind: "terminal" }, "physical")).toBe("完全死亡");
-        expect(miracleResultLabel({ kind: "terminal" }, "mental")).toBe("精神崩壊");
-        expect(miracleResultLabel({ kind: "terminal" }, "social")).toBe("抹殺");
+    it("終端状態は系統の終端の名前(戦闘不能のタグは ［］ つき)・任意ダメージは値", () => {
+        expect(miracleResultLabel({ kind: "terminal" }, "physical")).toBe("［完全死亡］");
+        expect(miracleResultLabel({ kind: "terminal" }, "mental")).toBe("［精神崩壊］");
+        expect(miracleResultLabel({ kind: "terminal" }, "social")).toBe("［抹殺］");
         expect(miracleResultLabel({ kind: "chart", value: 13 }, "physical")).toBe("ダメージ 13");
     });
 });

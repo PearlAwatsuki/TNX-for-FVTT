@@ -10,7 +10,7 @@
 import { getCardCheckValue, normalizeSuit } from './tnx-check-engine.mjs';
 import { TnxActionHandler } from './tnx-action-handler.mjs';
 import { TnxSocketHandler } from './tnx-socket-handler.mjs';
-import { CONDITION_KINDS, readConditions } from './conditions.mjs';
+import { CONDITION_KINDS, conditionDisplayName, readConditions } from './conditions.mjs';
 import { getDamageChartKind } from '../data/damage-chart.mjs';
 import { conditionNeedsDraw, drawResultFlags, negateOutcome } from './condition-resolution-core.mjs';
 import { idKeyPrefix, ONOMASTIC_TYPES } from './skill-dictionary.mjs';
@@ -42,7 +42,7 @@ export async function applyDamageChartResult(actor, category, value, { persuade 
   // 休眠(次シーン)は def.sceneDeferred から readConditions が導出する(フラグ設定不要)。
   // persuade=説得(精神)は、フック側で戦闘不能タグ(効果タグ)を付けない目印。BS は通常どおり付与。
   const [eff] = await actor.createEmbeddedDocuments("ActiveEffect", [{
-    name: def?.label, img: def?.img, statuses: [kind],
+    name: conditionDisplayName(kind), img: def?.img, statuses: [kind],
     flags: { [SCOPE]: { conditionKind: kind, hideFromList: true, woundValue: value, woundCategory: category,
       ...(persuade ? { persuade: true } : {}), ...(extraFlags ?? {}) } },
   }]);
@@ -147,7 +147,7 @@ async function drawOneToDiscard() {
  * @param {string} kind
  */
 export async function postDrawPrompt(actor, effect, kind, { magnitude = null } = {}) {
-  const label = CONDITION_KINDS[kind]?.label ?? kind;
+  const label = conditionDisplayName(kind);
   // 邪毒はクリンナップのたびに引く継続ダメージ。誰が引くかは卓に委ねる(受けたキャラクターを
   // 操作しているプレイヤーか RL が引く想定・2026-08-29 ユーザー)ため、ボタンは全体に出す
   const promptText = kind === "poison"
@@ -258,7 +258,7 @@ export async function executeConditionDraw(actor, effect, kind, message = null) 
   }
   // 旧形式カード(フラグ無し・保存済みの静的ボタン)からの呼び出しは従来どおり別カードで記録
   await postConditionOutcome(actor, {
-    title: "効果決定", tag: CONDITION_KINDS[kind]?.label ?? kind,
+    title: "効果決定", tag: conditionDisplayName(kind),
     status: "info", text: detail,
   });
 }
@@ -305,13 +305,13 @@ async function promptJokerWildcard(kind) {
 export async function postControlNegatePrompt(actor, effect, kind, controlNegate) {
   const ABIL = { reason: "理性", passion: "感情", life: "生命", mundane: "外界" };
   const ABILITY_TO_SUIT = { reason: "spade", passion: "club", life: "heart", mundane: "diamond" };
-  const label = CONDITION_KINDS[kind]?.label ?? kind;
+  const label = conditionDisplayName(kind, { quote: true });
   const ability = controlNegate.ability;
   const skillLabel = `${ABIL[ability] ?? ability}（制御判定）`;
   const validSuits = [ABILITY_TO_SUIT[ability] ?? "spade"];
   const description = controlNegate.downgradeTo
-    ? `「${label}」は制御判定に成功すると「${CONDITION_KINDS[controlNegate.downgradeTo]?.label ?? controlNegate.downgradeTo}」に降格します。`
-    : `「${label}」は制御判定に成功すると無効化されます。`;
+    ? `${label}は制御判定に成功すると${conditionDisplayName(controlNegate.downgradeTo, { quote: true })}に降格します。`
+    : `${label}は制御判定に成功すると無効化されます。`;
 
   // 対象はアクターで登録する(2026-07-19 ユーザー指示で checkRequest 全体を統一)。
   // 「判定する」ボタンはそのアクターの所有者権限を持つユーザー(+GM)に描画時に出る
@@ -390,7 +390,7 @@ export async function resolveControlNegateFromCheck(negateCtx, result) {
   }
 
   const outcome = negateOutcome(result?.success === true, { downgradeTo: downgradeTo || undefined });
-  const label = CONDITION_KINDS[kind]?.label ?? kind;
+  const label = conditionDisplayName(kind, { quote: true });
   const woundId = effect.flags?.[SCOPE]?.woundSource || ""; // 付与状態(戦闘不能/BS)=負傷に紐づく
 
   if (outcome.action === "negate") {
@@ -401,25 +401,25 @@ export async function resolveControlNegateFromCheck(negateCtx, result) {
       for (const e of actor.effects) if (e.flags?.[SCOPE]?.woundSource === woundId) ids.add(e.id);
     }
     await actor.deleteEmbeddedDocuments("ActiveEffect", [...ids].filter(id => actor.effects.get(id)));
-    return { text: woundId ? `「${label}」を無効化（ダメージ消滅）` : `「${label}」を無効化` };
+    return { text: woundId ? `${label}を無効化（ダメージ消滅）` : `${label}を無効化` };
   }
   if (outcome.action === "downgrade") {
-    const toLabel = CONDITION_KINDS[outcome.to]?.label ?? outcome.to;
+    const toLabel = conditionDisplayName(outcome.to, { quote: true });
     await effect.delete();
     // 降格後の戦闘不能も同じ負傷に紐づけ直す(治療目標値=特殊値・シーン終了回復が効くように)
     await actor.createEmbeddedDocuments("ActiveEffect", [{
-      name: CONDITION_KINDS[outcome.to]?.label, img: CONDITION_KINDS[outcome.to]?.img,
+      name: conditionDisplayName(outcome.to), img: CONDITION_KINDS[outcome.to]?.img,
       statuses: [outcome.to],
       flags: { [SCOPE]: { conditionKind: outcome.to, hideFromList: true, ...(woundId ? { woundSource: woundId } : {}) } },
     }]);
-    return { text: `「${label}」→「${toLabel}」に降格` };
+    return { text: `${label}→${toLabel}に降格` };
   }
   // 受付済みマークの除去(フラグ由来=inflicts のみ。状態定義直下の controlNegate(動転)は
   // フラグを持たないため何もしない=2026-07-22)
   if (effect.getFlag(SCOPE, `conditions.${kind}`)?.pendingControlNegate !== undefined) {
     await effect.unsetFlag(SCOPE, `conditions.${kind}.pendingControlNegate`);
   }
-  return { text: `「${label}」は継続` };
+  return { text: `${label}は継続` };
 }
 
 /** チャットの受付ボタン(.tnx-condition-action)を解決処理に配線する(renderChatMessageHTML フックで呼ぶ)。 */

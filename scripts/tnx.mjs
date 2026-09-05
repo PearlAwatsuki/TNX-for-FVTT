@@ -80,7 +80,7 @@ import { FOCUS_SYSTEM_FLAG, defaultFocusSystemData } from './module/focus-system
 import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
 import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
-import { CONDITION_KINDS, CONDITION_GROUP_LABELS, getConditionKinds, buildInflictedEffectsData, applyDamageTagMods, readConditions, blocksMainProcess, actorCannotMainProcess } from './module/conditions.mjs';
+import { CONDITION_KINDS, CONDITION_GROUP_LABELS, conditionDisplayName, getConditionKinds, buildInflictedEffectsData, applyDamageTagMods, readConditions, blocksMainProcess, actorCannotMainProcess } from './module/conditions.mjs';
 import { gatherDamageTagMods, parseEffectTargetKey, buildTransferredEffectData, planTransferCopySync, isOutfitItem, planCapabilityTransferCleanup, AE_FLAG_PARAMS } from './data/item/helpers.mjs';
 import { runSerial } from './module/serial-queue.mjs';
 import { registerDamageChartTextSetting } from './module/damage-chart-text-app.mjs';
@@ -1289,7 +1289,7 @@ Hooks.once("init", async function() {
     // バッジのみ追加しシートのアクティブエフェクト一覧には行を出さない(2026-07-11 ユーザー確定)
     CONFIG.statusEffects = Object.entries(CONDITION_KINDS).map(([id, def]) => ({
         id,
-        name: def.label,
+        name: conditionDisplayName(id),
         img:  def.img ?? "icons/svg/aura.svg",
         flags: { "tokyo-nova-axleration": { conditionKind: id, hideFromList: true } },
     }));

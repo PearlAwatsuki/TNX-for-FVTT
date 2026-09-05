@@ -18,7 +18,7 @@
  * 再登場はできない(→ Appearance_Check)以上、退場後にシーン持続の効果を保つ意味がないため。
  */
 
-import { CONDITION_KINDS, getConditionKinds } from "./conditions.mjs";
+import { CONDITION_KINDS, conditionDisplayName, getConditionKinds } from "./conditions.mjs";
 
 /** 適用の起点になる境界。グルーがフックから解決してこの値で呼ぶ。 */
 export const TNX_BOUNDARIES = Object.freeze({
@@ -347,7 +347,7 @@ export function planActionRecoveryRows(effects) {
         .filter(kind => counts.has(kind))
         .map(kind => ({
             kind,
-            label:   CONDITION_KINDS[kind].label,
+            label:   conditionDisplayName(kind),
             count:   counts.get(kind),
             payment: CONDITION_KINDS[kind].payment,
         }));

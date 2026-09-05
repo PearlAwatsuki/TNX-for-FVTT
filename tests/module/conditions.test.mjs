@@ -361,7 +361,7 @@ describe("applyDamageTagMods()（ダメージタグ改変・支配タグ・2026-
   it("replace: 昏睡→支配（名前/statuses/conditionKind を置換・replacedFrom を記録）", () => {
     const [d] = applyDamageTagMods(stuporData(), { replace: new Map([["stupor", "dominated"]]) });
     expect(d.statuses).toEqual(["dominated"]);
-    expect(d.name).toBe("支配");
+    expect(d.name).toBe("［支配］"); // 戦闘不能のタグは ［］ つき(2026-09-05)
     expect(d.flags[SCOPE].conditionKind).toBe("dominated");
     expect(d.flags[SCOPE].replacedFrom).toBe("stupor");
   });
@@ -380,7 +380,7 @@ describe("applyDamageTagMods()（ダメージタグ改変・支配タグ・2026-
   it("add: 抹殺に支配を追加（元タグは残る・addedFrom を記録）", () => {
     const out = applyDamageTagMods(erasedData(), { add: new Map([["erased", ["dominated"]]]) });
     expect(out.map(d => d.statuses[0])).toEqual(["erased", "dominated"]);
-    expect(out[1].name).toBe("支配");
+    expect(out[1].name).toBe("［支配］");
     expect(out[1].flags[SCOPE].addedFrom).toBe("erased");
     expect(out[1].flags[SCOPE].hideFromList).toBe(true);
   });
