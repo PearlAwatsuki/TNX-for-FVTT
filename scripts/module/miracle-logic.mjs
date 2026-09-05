@@ -8,7 +8,7 @@
  * 計算だけを担い、ドキュメントの更新や投稿(Foundry 依存)は呼び出し側が行う。
  */
 
-import { usesMaxTotalOf } from "../data/item/uses.mjs";
+import { usesMaxTotalOf, usesMaxBaseOf } from "../data/item/uses.mjs";
 import { conditionDisplayName } from "./conditions.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
@@ -36,6 +36,26 @@ export function miracleConsumeUpdate(system) {
     const spent = Math.min(max, (Number(system?.uses?.spent) || 0) + 1);
     const update = { "system.uses.spent": spent };
     return update;
+}
+
+/**
+ * 神業を1つ外すときの更新。**母数(uses.max)が2以上なら削除でなく母数-1**——同じ神業を
+ * 多重に取得している状態から1つ外す操作だから(2026-07-18 uses 一本化)。
+ * 母数が1以下ならアイテムごと削除する(null を返す)。
+ *
+ * 母数は式を書ける StringField なので土台の数値で判断し、保存は文字列に戻す。
+ * 消費済みは新しい母数まで詰める(母数より多い消費が残らないように)。
+ * @param {object} system 神業の system
+ * @returns {?object} 母数-1の更新。削除してよいときは null
+ */
+export function miracleRemovalUpdate(system) {
+    const max = usesMaxBaseOf(system);
+    if (!(max > 1)) return null;
+    const newMax = max - 1;
+    return {
+        "system.uses.max":   String(newMax),
+        "system.uses.spent": Math.min(Number(system?.uses?.spent) || 0, newMax),
+    };
 }
 
 /**

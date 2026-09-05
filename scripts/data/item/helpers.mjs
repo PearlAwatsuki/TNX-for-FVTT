@@ -16,7 +16,7 @@
  * 各 DataModel で広く使われるようになったため helpers.mjs に集約した。
  */
 
-import { OUTFIT_TYPES, hasClassification } from "./outfit-categories.mjs";
+import { OUTFIT_TYPES, hasClassification, getMajorCategoryLabel, getMinorCategoryLabel } from "./outfit-categories.mjs";
 
 /**
  * 旧 uses.value（残り回数）→ uses.spent（消費済み回数）へのデータ移行。
@@ -571,6 +571,28 @@ const PSEUDO_CATEGORY_TYPES = Object.freeze(["generalSkill", "styleSkill"]);
  */
 export function isOutfitItem(item) {
   return OUTFIT_TYPES.has(item?.type);
+}
+
+/**
+ * アイテムの「種別」の表示名。チャットカードの種別タグなど、**そのアイテムが何であるかを
+ * 一語で示す**箇所で使う。
+ *
+ * アウトフィットは**アウトフィットの分類**(小分類→無ければ大分類)を返す——FVTT の文書型
+ * (「一般アウトフィット」等)は保管上の区分でしかなく、卓では意味を持たない
+ * (2026-09-05 ユーザー指摘「アイテムの分類を出しても意味がありません」)。
+ * アウトフィット以外(スタイル・技能・神業…)は文書型がそのまま在ゲームの区分なので型の表示名を返す。
+ * 表示の作法はシートのスロット名と同じ(小分類 || 大分類)。
+ * @param {?{type?: string, system?: object}} item
+ * @returns {string} 種別の表示名(不明なら空文字)
+ */
+export function itemKindLabel(item) {
+  if (!item?.type) return "";
+  if (OUTFIT_TYPES.has(item.type)) {
+    return getMinorCategoryLabel(item.system?.minorCategory)
+      || getMajorCategoryLabel(item.system?.majorCategory)
+      || "";
+  }
+  return game.i18n?.localize?.(`TYPES.Item.${item.type}`) ?? "";
 }
 
 export function itemChangeTargets(parsed, item) {

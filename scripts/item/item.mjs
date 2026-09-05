@@ -1,3 +1,5 @@
+import { itemKindLabel } from "../data/item/helpers.mjs";
+
 export class TokyoNovaItem extends Item {
     /**
      * @override
@@ -47,7 +49,8 @@ export class TokyoNovaItem extends Item {
         // チャットカードの統一規格(item-card.hbs)で組む。空の効果文は段ごと出ない
         const card = await foundry.applications.handlebars.renderTemplate(
             "systems/tokyo-nova-axleration/templates/chat/item-card.hbs",
-            { name: this.name, description: desc?.trim() ? desc : "" });
+            { typeLabel: itemKindLabel(this), name: this.name,
+              description: desc?.trim() ? desc : "" });
         return ChatMessage.create({
             user:    game.user.id,
             speaker: ChatMessage.getSpeaker({ actor: this.actor ?? undefined }),

@@ -11,8 +11,7 @@ import {
     terminalKindFor, buildMiracleDamageFlag, miracleResultLabel, miracleTargetOutcome,
     withoutConsumption, interferenceCandidates, addUseEffectSource,
     asOtherSelection, miracleLogCandidates, buildMiracleUseLogEntry, miracleUseFromMessageFlags,
-    miracleUsePending, markMiracleUseApplied, conditionSwapPlan,
-} from "../../scripts/module/miracle-logic.mjs";
+    miracleUsePending, markMiracleUseApplied, conditionSwapPlan, miracleRemovalUpdate } from "../../scripts/module/miracle-logic.mjs";
 
 describe("withDefaultMiracleConsumption()（消費先が空の神業用途は自身の使用回数×1を既定消費）", () => {
     it("消費先が空なら「このアイテム自身の使用回数 ×1」の行を補った複製を返す（元の用途は変えない）", () => {
@@ -545,3 +544,20 @@ describe("conditionSwapPlan()（両者の状態を入れ替える計画）", () 
     });
 });
 
+describe("miracleRemovalUpdate()（多重取得の神業を1つ外す）", () => {
+    it("母数が2以上なら削除でなく母数-1（消費済みは新しい母数まで詰める）", () => {
+        expect(miracleRemovalUpdate({ uses: { max: "3", spent: 3 } }))
+            .toEqual({ "system.uses.max": "2", "system.uses.spent": 2 });
+    });
+
+    it("消費済みが新しい母数に収まっていればそのまま", () => {
+        expect(miracleRemovalUpdate({ uses: { max: "2", spent: 0 } }))
+            .toEqual({ "system.uses.max": "1", "system.uses.spent": 0 });
+    });
+
+    it("母数が1以下ならアイテムごと削除する（null を返す）", () => {
+        expect(miracleRemovalUpdate({ uses: { max: "1", spent: 0 } })).toBeNull();
+        expect(miracleRemovalUpdate({ uses: {} })).toBeNull();
+        expect(miracleRemovalUpdate(null)).toBeNull();
+    });
+});

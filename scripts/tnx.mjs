@@ -5,6 +5,7 @@ import { TokyoNovaExtraSheet } from './actor/tnx-extra-sheet.mjs';
 import { computeTroopFixedName, findDepartmentSkillName } from './data/helpers.mjs';
 import { defaultWeaponKindForCategory } from './data/item/common/outfit-base.mjs';
 import { usesMaxBaseOf } from './data/item/uses.mjs';
+import { miracleRemovalUpdate } from './module/miracle-logic.mjs';
 import { canonicalizeSkillActions } from './module/usage-type-migration.mjs';
 import { CastDataModel } from './data/actor/cast.mjs';
 import { GuestDataModel } from './data/actor/guest.mjs';
@@ -1786,48 +1787,46 @@ Hooks.once("init", async function() {
         }
     });
 
-    Hooks.on("preDeleteItem", async (item, options, userId) => {
+    // **同期のフックにする**: Foundry の pre 系フックは戻り値を同期で見るため、async にすると
+    // `return false` が Promise になり削除を止められない。止めたつもりの削除がそのまま通り、
+    // 後から届く update が「もう無い文書」に当たってサーバがエラーを返していた(KI-051・2026-09-05)。
+    // 中で必要な非同期処理は投げっぱなしにする(止める判断は同期で済ませてから行う)。
+    Hooks.on("preDeleteItem", (item, options, userId) => {
         if (item.type === "miracle" && item.actor) {
             // 母数(uses.max)が2以上なら削除でなく-1(多重取得の1つを外す)。2026-07-18 uses 一本化
-            // max は StringField(式可・2026-08-09)のため土台は usesMaxBaseOf・保存は文字列
-            const uses = item.system.uses ?? {};
-            const max = usesMaxBaseOf(item.system);
-            if (max > 1) {
-                const newMax = max - 1;
-                await item.update({
-                    "system.uses.max": String(newMax),
-                    "system.uses.spent": Math.min(Number(uses.spent) || 0, newMax),
-                });
+            const update = miracleRemovalUpdate(item.system);
+            if (update) {
+                item.update(update);   // 削除は下で止めるので、この更新は投げっぱなしでよい
                 ui.notifications.info(`神業「${item.name}」の母数を-1しました。`);
                 return false;
             }
         }
         if (item.type === "style" && item.actor) {
-            try {
-                // このフックはレベル1のスタイル削除時にのみ動作する想定
-                // 対応する神業を1つだけ削除する
-                const miracleUuid = item.system.miracle?.id;
-                if (miracleUuid) {
-                    const sourceMiracle = await fromUuid(miracleUuid);
-                    if (sourceMiracle) {
-                        const miracleNameToDelete = sourceMiracle.name;
-                        const actor = item.actor;
-                        const itemToDelete = actor.items.find(i => i.type === 'miracle' && i.name === miracleNameToDelete);
-    
-                        if (itemToDelete) {
-                            await itemToDelete.delete();
-                            ui.notifications.info(`スタイル「${item.name}」の削除に伴い、神業「${itemToDelete.name}」を1つ削除しました。`);
-                        }
+            // 対応する神業を1つだけ削除する(このフックはレベル1のスタイル削除時にのみ動作する想定)。
+            // スタイルの削除自体は止めないので、非同期の後始末として流す
+            const miracleUuid = item.system.miracle?.id;
+            const actor = item.actor;
+            const styleName = item.name;
+            if (miracleUuid) {
+                (async () => {
+                    try {
+                        const sourceMiracle = await fromUuid(miracleUuid);
+                        if (!sourceMiracle) return;
+                        const itemToDelete = actor.items.find(i => i.type === "miracle" && i.name === sourceMiracle.name);
+                        if (!itemToDelete) return;
+                        await itemToDelete.delete();
+                        ui.notifications.info(`スタイル「${styleName}」の削除に伴い、神業「${itemToDelete.name}」を1つ削除しました。`);
+                    } catch (e) {
+                        console.error(`TokyoNOVA | Error deleting associated Divine Work for style ${styleName}:`, e);
                     }
-                }
-            } catch (e) {
-                console.error(`TokyoNOVA | Error deleting associated Divine Work for style ${item.name}:`, e);
+                })();
             }
             return true;
         }
     });
 
-    Hooks.on("preUpdateItem", async(item, changes) => {
+    // pre 系は同期(理由は preDeleteItem のコメント)。非同期の連動は中の IIFE で流す
+    Hooks.on("preUpdateItem", (item, changes) => {
         // スタイルアイテム以外の更新は無視 (既存の処理)
         if (item.type === "style" && item.actor) {
             const oldLevel = item.system.level || 1;

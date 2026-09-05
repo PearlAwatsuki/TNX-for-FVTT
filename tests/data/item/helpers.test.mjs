@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
-const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, damageDealtChangeMatches, gatherDamageDealtSources, damageTakenChangeMatches, gatherDamageTakenSources, collectActorEffectBuffs, targetStyleWorksKeys, actorCardValueOverride, itemChangeTargets, buildTransferredEffectData, planTransferCopySync, isOutfitItem, planCapabilityTransferCleanup, effectAutoApplies, analyzeGrantLanding, itemGrantCandidates, rewriteGrantChangesForItem, AE_FLAG_PARAMS, flagTotalPath, readFlag, computeFlagEffectiveValues, parseBooleanFlagValue, isOutfitServiceImmune, isOutfitMalfunctioning, isOutfitDestroyed, isOutfitUnusable } = await import("../../../scripts/data/item/helpers.mjs");
+const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, damageDealtChangeMatches, gatherDamageDealtSources, damageTakenChangeMatches, gatherDamageTakenSources, collectActorEffectBuffs, targetStyleWorksKeys, actorCardValueOverride, itemChangeTargets, buildTransferredEffectData, planTransferCopySync, isOutfitItem, planCapabilityTransferCleanup, effectAutoApplies, analyzeGrantLanding, itemGrantCandidates, rewriteGrantChangesForItem, AE_FLAG_PARAMS, flagTotalPath, readFlag, computeFlagEffectiveValues, parseBooleanFlagValue, isOutfitServiceImmune, isOutfitMalfunctioning, isOutfitDestroyed, isOutfitUnusable, itemKindLabel } = await import("../../../scripts/data/item/helpers.mjs");
 
 describe("defenceField()", () => {
   it("呼び出せる", () => {
@@ -1030,5 +1030,33 @@ describe("planCapabilityTransferCleanup()（キャラクターの一部を表す
   it("除去対象の無いアイテムは結果に出ず、空入力でも落ちない", () => {
     expect(planCapabilityTransferCleanup([{ id: "s1", type: "generalSkill", effects: [] }])).toEqual([]);
     expect(planCapabilityTransferCleanup(null)).toEqual([]);
+  });
+});
+
+describe("itemKindLabel()（種別タグに出すアイテムの区分）", () => {
+  it("アウトフィットは**アウトフィットの分類**を返す（小分類）", () => {
+    expect(itemKindLabel({ type: "general", system: { majorCategory: "cyberware", minorCategory: "neuralware" } }))
+      .toBe("ニューラルウェア");
+  });
+
+  it("小分類が無ければ大分類を返す", () => {
+    expect(itemKindLabel({ type: "general", system: { majorCategory: "cyberware", minorCategory: "" } }))
+      .toBe("サイバーウェア");
+  });
+
+  it("分類が無いアウトフィットは空文字（FVTT の文書型は出さない）", () => {
+    expect(itemKindLabel({ type: "general", system: {} })).toBe("");
+  });
+
+  it("アウトフィット以外は文書型の表示名（在ゲームの区分）", () => {
+    const prev = globalThis.game;
+    globalThis.game = { i18n: { localize: (k) => ({ "TYPES.Item.miracle": "神業", "TYPES.Item.style": "スタイル" })[k] ?? k } };
+    expect(itemKindLabel({ type: "miracle", system: {} })).toBe("神業");
+    expect(itemKindLabel({ type: "style", system: {} })).toBe("スタイル");
+    globalThis.game = prev;
+  });
+
+  it("アイテムが無ければ空文字", () => {
+    expect(itemKindLabel(null)).toBe("");
   });
 });

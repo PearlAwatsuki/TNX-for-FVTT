@@ -5018,11 +5018,13 @@ body.tnx-bottom-hud-expanded #hotbar {
     flex-direction: column;
 }
 
-/* 見出し: 種別タグ | 名前(技能名・アイテム名・配布物名) */
+/* 見出し: 名前(技能名・アイテム名・配布物名) | 種別タグ(右寄せ＝元の判定カードの配置)。
+   名前が主役なので、タグに押されて名前が折り返すくらいならタグを次の行へ回す(下の min-width) */
 .tnx-card__head,
 .cr-head,
 .cr-req-header {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
     padding: 6px 10px;
@@ -5031,18 +5033,22 @@ body.tnx-bottom-hud-expanded #hotbar {
 }
 
 /* 種別のチップは折り返さない(長い名前に押されて「SCE / NE 2」と割れるため) */
-.tnx-card__tag,
-.cr-type-tag,
-.cr-req-type-tag {
+/* 種別タグ: 元からある判定カードのタグ(.cr-type-tag)の意匠のまま——**塗りつぶしにしない**。
+   塗りつぶすと本文色を敷く安全網(.chat-message .message-content [class*="tnx-"])に負けて
+   「明るい地に白文字」になり読めない(2026-09-05 ユーザー指摘)。文字色は安全網より詳細度を上げて置く */
+.chat-message .message-content .tnx-card__tag,
+.chat-message .message-content .cr-type-tag,
+.chat-message .message-content .cr-req-type-tag {
     flex: 0 0 auto;
+    margin-left: auto; /* 常に行の右端(過去ログの「名前→タグ」も同じ位置に来る) */
     white-space: nowrap;
-    background: var(--tnx2-accent, #c8a84b);
-    color: #1a1208;
     font-size: 0.72em;
-    font-weight: 700;
-    padding: 1px 6px;
-    border-radius: 3px;
-    letter-spacing: 0.04em;
+    font-weight: 600;
+    color: var(--tnx2-text-accent);
+    background: var(--tnx2-accent-glow-sm);
+    border: 1px solid var(--tnx2-accent-dim);
+    border-radius: 2px;
+    padding: 1px 5px;
 }
 
 /* 名前はカードの主役として出す */
@@ -5050,7 +5056,8 @@ body.tnx-bottom-hud-expanded #hotbar {
 .cr-skill-name,
 .cr-req-title {
     flex: 1 1 auto;
-    min-width: 0;
+    /* タグと同じ行に置けるのは名前が窮屈にならないときだけ。足りなければタグが下の行へ回る */
+    min-width: 60%;
     font-size: 1.05em;
     font-weight: 700;
     color: var(--tnx2-text-primary);
@@ -5293,7 +5300,13 @@ body.tnx-bottom-hud-expanded #hotbar {
     display: none;
 }
 
-/* ▶ は見出しの行そのものに付ける(ラベルを持たない畳める段でも出る) */
+/* ▶ は見出しの行そのものに付ける(ラベルを持たない畳める段でも出る)。
+   行は「ラベル｜値」で両端に開くので、▶ とラベルは左でくっつける(下の margin-right: auto) */
+.tnx-card__fold-summary .tnx-card__field-label,
+.cr-bonus-summary .cr-calc-label {
+    margin-right: auto;
+}
+
 .tnx-card__fold-summary::before,
 .cr-bonus-summary::before {
     content: "\25B6"; /* ▶ */
