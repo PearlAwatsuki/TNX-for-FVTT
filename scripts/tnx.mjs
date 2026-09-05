@@ -6,6 +6,7 @@ import { computeTroopFixedName, findDepartmentSkillName } from './data/helpers.m
 import { defaultWeaponKindForCategory } from './data/item/common/outfit-base.mjs';
 import { usesMaxBaseOf } from './data/item/uses.mjs';
 import { miracleRemovalUpdate } from './module/miracle-logic.mjs';
+import { fitCardTags } from './module/chat-card.mjs';
 import { canonicalizeSkillActions } from './module/usage-type-migration.mjs';
 import { CastDataModel } from './data/actor/cast.mjs';
 import { GuestDataModel } from './data/actor/guest.mjs';
@@ -1095,6 +1096,9 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
         renderRecheckButton(message, html);
     }
 });
+
+// チャットカードの種別タグ: 固定幅に収める(入りきらない種別名は横に縮める・2026-09-06)
+Hooks.on("renderChatMessageHTML", (message, html) => fitCardTags(html));
 
 // 判定要求チャットカード: 目標値の可視性制御 + 「判定する」ボタン / 結果注入（フェーズ 8-5）
 Hooks.on("renderChatMessageHTML", (message, html) => {

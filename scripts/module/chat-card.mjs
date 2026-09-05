@@ -78,3 +78,25 @@ export function cardText(content, { modifier = "" } = {}) {
     div.innerHTML = content;
     return div;
 }
+
+/**
+ * 種別タグの文字列を固定幅に収める。幅に入りきらない種別名は**横に縮める**
+ * (2026-09-06 ユーザー指示「タグの表示幅を固定にして、入りきらない場合はX拡縮」)。
+ *
+ * 縮めるのは中身の span だけで、枠(幅)は動かさない——タグが伸びると本体である名前を
+ * 押し出してしまうため。カードを描いた後に呼ぶ(renderChatMessageHTML)。
+ * @param {HTMLElement|Document} root 走査の起点
+ */
+export function fitCardTags(root) {
+    for (const text of root?.querySelectorAll?.(".tnx-card__tag-text") ?? []) {
+        const box = text.parentElement;
+        if (!box) continue;
+        text.style.transform = "";
+        const style = getComputedStyle(box);
+        const avail = box.clientWidth - parseFloat(style.paddingLeft || 0) - parseFloat(style.paddingRight || 0);
+        const natural = text.getBoundingClientRect().width;
+        if (!(avail > 0) || !(natural > 0) || natural <= avail) continue;
+        // 下限を置く(これ以上潰すと読めない。実際の種別名はここまで長くならない)
+        text.style.transform = `scaleX(${Math.max(0.45, avail / natural).toFixed(3)})`;
+    }
+}

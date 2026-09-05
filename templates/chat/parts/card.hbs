@@ -2,7 +2,9 @@
       完全に統一規格にしてください」)。**全てのチャットカードはこの器の中に段を積む**——
       器・見出し・段を各所で個別に組まない。
 
-      見出し = 名前(技能名・アイテム名・見出し) ＋ 種別タグ(何のカードか・**右寄せ**)。
+      見出し = 名前(技能名・アイテム名・見出し) ＋ 種別タグ(何のカードか・**右寄せ・幅は固定**)。
+      タグは幅を固定し、入りきらない文字列は横に縮めて収める(fitCardTags)——長い種別名で
+      本体である名前を押し出さないため。
       **タグは卓に意味のある種別だけ**——FVTT の文書型のような内部分類を出さない(タグ無しも可)。
       効果文などの長文を持つカードでは、**見出しそのものが開閉の起点**になる(details/summary)。
       これは解説カードが以前から採っていた作法で、畳むための見出しを別に足さない
@@ -25,7 +27,7 @@
             {{~#if furigana}}<ruby>{{title}}<rt>{{furigana}}</rt></ruby>{{else}}{{title}}{{/if~}}
         </span>
     {{/if}}
-    {{#if typeLabel}}<span class="tnx-card__tag">{{typeLabel}}</span>{{/if}}
+    {{#if typeLabel}}<span class="tnx-card__tag"><span class="tnx-card__tag-text">{{typeLabel}}</span></span>{{/if}}
 {{/inline}}
 <div class="tnx-card tokyo-nova{{#if cardClass}} {{cardClass}}{{/if}}">
 

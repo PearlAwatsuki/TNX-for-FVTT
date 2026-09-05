@@ -5051,13 +5051,30 @@ body.tnx-bottom-hud-expanded #hotbar {
     padding: 1px 5px;
 }
 
+/* タグの幅は固定。基準は**一番長い種別名「アーティフィシャルボディ」(12文字)が潰れずに収まる幅**
+   (2026-09-06 ユーザー指示)。これより長い種別名が来たときだけ横に縮めて収める(fitCardTags)。
+   幅はタグの文字サイズ基準(1em = タグの1文字ぶん)。border-box なので枠と内側余白を含む */
+.chat-message .message-content .tnx-card__tag {
+    width: 13.2em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.tnx-card__tag-text {
+    display: inline-block;
+    white-space: nowrap;
+    transform-origin: center center;
+}
+
 /* 名前はカードの主役として出す */
 .tnx-card__title,
 .cr-skill-name,
 .cr-req-title {
     flex: 1 1 auto;
-    /* タグと同じ行に置けるのは名前が窮屈にならないときだけ。足りなければタグが下の行へ回る */
-    min-width: 60%;
+    /* タグは固定幅なので、名前は残りをそのまま使う(長ければ名前の側で折り返す) */
+    min-width: 0;
     font-size: 1.05em;
     font-weight: 700;
     color: var(--tnx2-text-primary);
