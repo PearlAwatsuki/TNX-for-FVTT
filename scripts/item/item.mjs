@@ -47,8 +47,7 @@ export class TokyoNovaItem extends Item {
         // チャットカードの統一規格(item-card.hbs)で組む。空の効果文は段ごと出ない
         const card = await foundry.applications.handlebars.renderTemplate(
             "systems/tokyo-nova-axleration/templates/chat/item-card.hbs",
-            { typeLabel: game.i18n.localize(`TYPES.Item.${this.type}`), name: this.name,
-              description: desc?.trim() ? desc : "" });
+            { name: this.name, description: desc?.trim() ? desc : "" });
         return ChatMessage.create({
             user:    game.user.id,
             speaker: ChatMessage.getSpeaker({ actor: this.actor ?? undefined }),

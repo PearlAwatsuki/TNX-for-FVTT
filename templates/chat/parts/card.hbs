@@ -3,6 +3,7 @@
       器・見出し・段を各所で個別に組まない。
 
       見出し = 種別タグ(何のカードか) ＋ 名前(技能名・アイテム名・見出し)。
+      **タグは卓に意味のある種別だけ**——FVTT の文書型のような内部分類を出さない(タグ無しも可)。
       効果文などの長文を持つカードでは、**見出しそのものが開閉の起点**になる(details/summary)。
       これは解説カードが以前から採っていた作法で、畳むための見出しを別に足さない
       (2026-09-05 ユーザー指摘「カードのヘッダーそのものが見出しで、折り畳み、展開もそこが起点」)。
@@ -19,7 +20,7 @@
       **段の指定名は段ごとに別**にしてある(cardClass / fieldClass / foldClass …)——同じ名前にすると、
       囲みに渡した指定が中の段へそのまま流れ込む(Handlebars のパーシャルは囲みの文脈を引き継ぐため)。 --}}
 {{#*inline "tnxCardHeadInner"}}
-    <span class="tnx-card__tag">{{typeLabel}}</span>
+    {{#if typeLabel}}<span class="tnx-card__tag">{{typeLabel}}</span>{{/if}}
     {{#if title}}
         <span class="tnx-card__title">
             {{~#if furigana}}<ruby>{{title}}<rt>{{furigana}}</rt></ruby>{{else}}{{title}}{{/if~}}
