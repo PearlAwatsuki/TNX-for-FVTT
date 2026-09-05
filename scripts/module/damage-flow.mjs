@@ -27,6 +27,7 @@ import { evaluateBonusRows, evaluateSelfBonus } from "./tnx-formula.mjs";
 import { applyConsumptionPlan } from "./usage-consumption.mjs";
 import { getDamageChartKind } from "../data/damage-chart.mjs";
 import { CONDITION_KINDS, conditionDisplayName, getEffectiveConditions, hasBountyBlock, isWetActor } from "./conditions.mjs";
+import { keepTogether } from "./chat-text.mjs";
 import { applyAttackPatch } from "./attack-flow.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
@@ -408,13 +409,19 @@ export function renderDamageCard(message, html) {
     const row = (parent, label, val, rowCls = "cr-calc-row", valCls = "cr-calc-val") => {
         const div = document.createElement("div");
         div.className = rowCls;
-        div.innerHTML = `<span class="cr-calc-label">${label}</span><span class="${valCls}">${val}</span>`;
+        div.innerHTML = keepTogether(`<span class="cr-calc-label">${label}</span><span class="${valCls}">${val}</span>`);
         parent.appendChild(div);
     };
     const line = (parent, cls, inner) => {
         const div = document.createElement("div");
         div.className = cls;
-        div.innerHTML = inner;
+        // .cr-result は flex(語間 gap つき)。折らない塊の span をそのまま置くと**塊ごとに flex
+        // アイテムが分かれて語間が空く**ため、アイコン以外を1つの要素にまとめる(2026-09-05)
+        const html = keepTogether(inner);
+        div.innerHTML = cls.includes("cr-result")
+            ? html.replace(/^(\s*<i[^>]*><\/i>)?([\s\S]*)$/,
+                (_m, icon, rest) => `${icon ?? ""}<span class="cr-result__text">${rest}</span>`)
+            : html;
         parent.appendChild(div);
     };
 

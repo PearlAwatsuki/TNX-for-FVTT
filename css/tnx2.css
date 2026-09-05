@@ -1785,6 +1785,19 @@
     margin-right: 8px;
 }
 
+/* 折ってはいけない塊(［状態タグ］《ルール用語》「名前」)。カードは幅が狭く日本語はどこでも折れるため、
+   囲みで閉じた語だけ nowrap にする(chat-text.mjs の keepTogether が付ける・2026-09-05) */
+.tnx-nobr {
+    white-space: nowrap;
+}
+
+/* 成否行(.cr-result)は flex(語間 gap つき)なので、本文は1要素にまとめる——塊の span が
+   そのまま flex アイテムになると語間が空く(2026-09-05) */
+.cr-result__text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
 /* 他の神業として使う(17-5)の選択肢: 1行＝[区分の技能][参照先の神業][削除]。〈フォルム〉の対応表の
    ように十数件並んでも一覧できるよう1行1選択肢にする(2026-09-05 是正) */
 .tokyo-nova.sheet.item .tnx-asother-rows {

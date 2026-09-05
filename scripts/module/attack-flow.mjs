@@ -41,6 +41,8 @@ import {
 } from "./confrontation-logic.mjs";
 import { findItemByIdentificationKey, resolveItemNameByKey } from "./identification.mjs";
 
+import { keepTogether } from "./chat-text.mjs";
+
 const SCOPE = "tokyo-nova-axleration";
 
 // 攻撃系統の明示表記(2026-07-15 ユーザー指摘: 判定カードで物理/精神/社会攻撃を明示)。
@@ -551,7 +553,7 @@ export function renderAttackCard(message, html) {
     const addLine = (cls, inner) => {
         const div = document.createElement("div");
         div.className = cls;
-        div.innerHTML = inner;
+        div.innerHTML = keepTogether(inner);
         area.appendChild(div);
     };
     const addVerdict = (cls, icon, label) =>
@@ -630,10 +632,10 @@ export function renderAttackCard(message, html) {
                         : t.resolution === "none"
                             ? noneText
                             : `${MODE_LABELS[t.resolution] ?? "対決"} 達成値 ${t.reactionAchievement}`);
-            row.innerHTML = `<span class="tnx-attack-target__icon"><i class="fas ${icon}"></i></span>`
+            row.innerHTML = keepTogether(`<span class="tnx-attack-target__icon"><i class="fas ${icon}"></i></span>`
                 + `<span class="tnx-attack-target__name">${esc(t.name || "?")}</span>`
                 + `<span class="tnx-attack-target__val">${esc(valueText)}</span>`
-                + `<span class="tnx-attack-target__verdict">${verdict}</span>`;
+                + `<span class="tnx-attack-target__verdict">${verdict}</span>`);
             list.appendChild(row);
             // 回避(神業《脱出》・17-2): 回避待ち中は対象行クリックが回避の発動点。モードの判定は同期で
             // 行い、既存のリアクション入口(下のクリック)へ流さない。モード外は素通り

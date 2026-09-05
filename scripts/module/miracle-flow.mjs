@@ -22,6 +22,7 @@ import { applyConsumptionPlan, resolveConsumeRowsForActor, promptConsumption } f
 import { resolveUsageTargetRefs } from "./target-resolution.mjs";
 import { TargetSelectionDialog, AmountInputDialog } from "./tnx-dialog.mjs";
 import { conditionDisplayName } from "./conditions.mjs";
+import { keepTogether } from "./chat-text.mjs";
 import { getDamageChartKind } from "../data/damage-chart.mjs";
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { isOutfitDestroyed } from "../data/item/helpers.mjs";
@@ -609,8 +610,8 @@ export function renderMiracleCard(message, html) {
     if (mf.asOther?.name && !card.querySelector(".mc-as-other")) {
         const esc = foundry.utils.escapeHTML;
         const body = card.querySelector(".cr-req-body") ?? card;
-        body.insertAdjacentHTML("afterbegin", `<div class="cr-req-field mc-as-other"><span class="cr-req-field__label">効果</span>`
-            + `<span class="cr-req-field__value">《${esc(mf.asOther.name)}》</span></div>`);
+        body.insertAdjacentHTML("afterbegin", keepTogether(`<div class="cr-req-field mc-as-other"><span class="cr-req-field__label">効果</span>`
+            + `<span class="cr-req-field__value">《${esc(mf.asOther.name)}》</span></div>`));
     }
     const head = card.querySelector(".cr-req-header");
     if (head && !head.classList.contains("tnx-recheck-target")) {
@@ -624,8 +625,8 @@ export function renderMiracleCard(message, html) {
         const body = card.querySelector(".cr-req-body") ?? card;
         const wrap = document.createElement("div");
         wrap.className = "mc-destroy";
-        wrap.innerHTML = `<div class="cr-req-field mc-destroy__row"><span class="cr-req-field__label">破壊</span>`
-            + `<span class="cr-req-field__value">${esc(d.targetName)}の「${esc(d.itemName)}」${d.applied ? "（破壊済み）" : ""}</span></div>`;
+        wrap.innerHTML = keepTogether(`<div class="cr-req-field mc-destroy__row"><span class="cr-req-field__label">破壊</span>`
+            + `<span class="cr-req-field__value">${esc(d.targetName)}の「${esc(d.itemName)}」${d.applied ? "（破壊済み）" : ""}</span></div>`);
         if (!d.applied && isTargetOperator(d.targetUuid)) {
             wrap.appendChild(chatButton("fa-burst", "破壊を適用", () => applyMiracleDestroy(message)));
         }
@@ -638,8 +639,8 @@ export function renderMiracleCard(message, html) {
         const body = card.querySelector(".cr-req-body") ?? card;
         const wrap = document.createElement("div");
         wrap.className = "mc-interfere";
-        wrap.innerHTML = `<div class="cr-req-field"><span class="cr-req-field__label">使用回数+1</span>`
-            + `<span class="cr-req-field__value">${esc(a.targetName)}の《${esc(a.miracleName)}》${a.applied ? "（適用済み）" : ""}</span></div>`;
+        wrap.innerHTML = keepTogether(`<div class="cr-req-field"><span class="cr-req-field__label">使用回数+1</span>`
+            + `<span class="cr-req-field__value">${esc(a.targetName)}の《${esc(a.miracleName)}》${a.applied ? "（適用済み）" : ""}</span></div>`);
         if (!a.applied && isTargetOperator(a.targetUuid)) {
             wrap.appendChild(chatButton("fa-plus", "適用", () => applyMiracleAddUse(message)));
         }
@@ -653,11 +654,11 @@ export function renderMiracleCard(message, html) {
         const body = card.querySelector(".cr-req-body") ?? card;
         const wrap = document.createElement("div");
         wrap.className = "mc-interfere";
-        wrap.innerHTML = `<div class="cr-req-field"><span class="cr-req-field__label">お願い</span>`
-            + `<span class="cr-req-field__value">${esc(r.targetName)}</span></div>`;
+        wrap.innerHTML = keepTogether(`<div class="cr-req-field"><span class="cr-req-field__label">お願い</span>`
+            + `<span class="cr-req-field__value">${esc(r.targetName)}</span></div>`);
         if (r.used) {
-            wrap.insertAdjacentHTML("beforeend", `<div class="cr-req-field"><span class="cr-req-field__label">使用</span>`
-                + `<span class="cr-req-field__value">《${esc(r.used.name)}》</span></div>`);
+            wrap.insertAdjacentHTML("beforeend", keepTogether(`<div class="cr-req-field"><span class="cr-req-field__label">使用</span>`
+                + `<span class="cr-req-field__value">《${esc(r.used.name)}》</span></div>`));
         } else if (isTargetOperator(r.targetUuid)) {
             for (const m of (r.miracles ?? [])) {
                 wrap.appendChild(chatButton("fa-hand-sparkles", `《${m.name}》を使う`, () => handleMiracleRequestClick(message, m.id)));
@@ -674,8 +675,8 @@ function renderMiracleEffectRows(message, card, mf) {
     const body = card.querySelector(".cr-req-body") ?? card;
     const wrap = document.createElement("div");
     wrap.className = "mc-effect";
-    const field = (label, value) => `<div class="cr-req-field"><span class="cr-req-field__label">${esc(label)}</span>`
-        + `<span class="cr-req-field__value">${value}</span></div>`;
+    const field = (label, value) => keepTogether(`<div class="cr-req-field"><span class="cr-req-field__label">${esc(label)}</span>`
+        + `<span class="cr-req-field__value">${value}</span></div>`);
     if (mf.swap) {
         wrap.innerHTML = field("宿主", esc(mf.swap.hostName ?? ""));
     } else if (mf.acquire) {
@@ -695,7 +696,8 @@ function chatButton(icon, label, onClick) {
     btn.type = "button";
     btn.className = "tnx-chat-btn";
     btn.innerHTML = `<i class="fas ${icon}"></i> `;
-    btn.appendChild(document.createTextNode(label));
+    // ボタンのラベルも塊(《神業》)で折らない
+    btn.insertAdjacentHTML("beforeend", keepTogether(foundry.utils.escapeHTML(label)));
     btn.addEventListener("click", onClick);
     return btn;
 }
