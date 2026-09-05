@@ -2864,7 +2864,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const usageEffects = await prepareUsageEffectPayload(actor, asOther?.source ?? item, usage);
         // 解説の段(効果文と条件)は**具体的な効果を持たない宣言**のときだけ出す(2026-09-05 ユーザー指示)。
         // 宣言の効果(使用回数+1・神業を使わせる・入れ替え 等)を持つ用途は結果がカードに出る
-        if (item.type === "miracle") await postMiracleCard(item, { usageEffects, asOther, describe: !usage.miracleEffect });
+        if (item.type === "miracle") await postMiracleCard(item, { usageEffects, asOther });
         else await item.postDescriptionCard({ usageEffects });
         return true; // 発動した(神業の要求カードが使用済みを記録する・17-4)
     }

@@ -1,0 +1,7 @@
+{{!-- 段: ラベル＝値の1行(統一規格)。カードの中で「何かの値を示す行」は全てこれ。
+      値に HTML(アイコン・折らない塊)を入れるときは valueHtml/labelHtml を使う(呼び出し側でエスケープ済みにする)。
+      modifier で行の変種を足す(--total 合計行 / --wrap 値を折り返す / --voided 打ち消し 等)。 --}}
+<div class="tnx-card__field{{#if modifier}} {{modifier}}{{/if}}">
+    <span class="tnx-card__field-label">{{#if labelHtml}}{{{labelHtml}}}{{else}}{{label}}{{/if}}</span>
+    <span class="tnx-card__field-value">{{#if valueHtml}}{{{valueHtml}}}{{else}}{{value}}{{/if}}</span>
+</div>

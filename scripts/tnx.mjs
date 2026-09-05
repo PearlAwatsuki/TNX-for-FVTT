@@ -181,6 +181,17 @@ async function preloadHandlebarsTemplates() {
         // === User Sheets ===
         "systems/tokyo-nova-axleration/templates/user/record-sheet.hbs",
     ];
+    // チャットカードの統一規格(2026-09-05)。骨格と段は**短い別名のパーシャル**で登録する——
+    // パーシャルブロック({{#> tnxCard}}…{{/tnxCard}})はパスでは書けないため。
+    // カードを作る側はこの別名だけを使い、器・見出し・段のマークアップを各所で組まない。
+    const cardPartials = {
+        tnxCard:       "systems/tokyo-nova-axleration/templates/chat/parts/card.hbs",
+        tnxCardField:  "systems/tokyo-nova-axleration/templates/chat/parts/card-field.hbs",
+        tnxCardProse:  "systems/tokyo-nova-axleration/templates/chat/parts/card-prose.hbs",
+        tnxCardText:   "systems/tokyo-nova-axleration/templates/chat/parts/card-text.hbs",
+        tnxCardResult: "systems/tokyo-nova-axleration/templates/chat/parts/card-result.hbs",
+    };
+    await foundry.applications.handlebars.loadTemplates(cardPartials);
     return foundry.applications.handlebars.loadTemplates(templatePaths);
 }
 

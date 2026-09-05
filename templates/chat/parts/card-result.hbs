@@ -1,0 +1,5 @@
+{{!-- 段: 結果の行(成否・ダメージ・状態の帰結)。文は1要素にまとめる——
+      行は flex で語間に gap があるため、直に並べると塊の span の前後に隙間が空く。 --}}
+<div class="tnx-card__result{{#if modifier}} {{modifier}}{{/if}}">
+    <span class="tnx-card__result-text">{{#if textHtml}}{{{textHtml}}}{{else}}{{text}}{{/if}}</span>
+</div>

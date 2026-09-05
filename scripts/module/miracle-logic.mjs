@@ -318,19 +318,19 @@ export function recoveryCandidateAllowed(entry, usage, { byMiracle, currentScene
  * @param {{name?: string, system?: {furigana?: string}}} item 神業アイテム
  * @param {{description?: string, condition?: string, remaining: number, max: number}} opts
  * @returns {{typeLabel: string, name: string, furigana: string, description: string,
- *            condition: string, remaining: number, max: number}}
+ *            condition: string, hasProse: boolean, remaining: number, max: number}}
  */
-export function buildMiracleCardData(item, { description = "", condition = "", remaining, max, proseOpen = false }) {
+export function buildMiracleCardData(item, { description = "", condition = "", remaining, max }) {
     return {
         typeLabel:   "神業",
         name:        item?.name ?? "",
         furigana:    item?.system?.furigana ?? "",
         description: description ?? "",
         condition:   condition ?? "",
-        // 解説の段(効果文＋条件)は畳める。既定は閉じ、**宣言そのものが効果になる使用**だけ開く
-        // (2026-09-05 ユーザー指示。他のチャットカードと同じ details/summary の作法)
+        // 解説の段(効果文＋条件)は**常に畳んだ状態でカードの最上部に置く**——神業は判定と違って
+        // 組み合わせが無く、効果文は「読みたいときに開くもの」で足りる(2026-09-05 ユーザー指示)。
+        // 使用の種類で開閉を変えない(開く条件を持たない)
         hasProse:    !!((description ?? "").trim() || (condition ?? "").trim()),
-        proseOpen:   proseOpen === true,
         remaining,
         max,
     };

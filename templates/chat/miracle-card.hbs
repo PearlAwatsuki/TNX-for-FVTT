@@ -10,10 +10,10 @@
     </header>
 
     <div class="cr-req-body">
-        {{!-- 解説の段(効果文＋条件)は畳める(他のチャットカードと同じ details/summary・2026-09-05)。
-             既定は閉じ、宣言そのものが効果になる使用(proseOpen)だけ開く --}}
+        {{!-- 解説の段(効果文＋条件)は**常に畳んだ状態で最上部**に置く(2026-09-05)。
+             神業は組み合わせが無く、効果文は読みたいときに開けば足りる --}}
         {{#if hasProse}}
-        <details class="mc-prose"{{#if proseOpen}} open{{/if}}>
+        <details class="mc-prose">
             <summary class="cr-req-field mc-prose__summary">
                 <span class="cr-req-field__label">効果文</span>
             </summary>
