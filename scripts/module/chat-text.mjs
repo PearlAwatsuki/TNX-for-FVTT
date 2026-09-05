@@ -34,3 +34,14 @@ const ATOMIC = new RegExp(`(［[^］\\n]{1,${MAX_ATOMIC}}］|《[^》\\n]{1,${MA
 export function keepTogether(html) {
     return String(html ?? "").replace(ATOMIC, '<span class="tnx-nobr">$1</span>');
 }
+
+/**
+ * 決まった短い言い回し(「で防がれた」等)を塊として扱う。囲みで閉じていない語は `keepTogether` が
+ * 拾えないため、**組み立て側が塊だと分かっている部分にだけ**使う(長い可変長の文字列には使わない
+ * ——折れなくなって横にはみ出す)。
+ * @param {string} html 短い言い回し(組み立て済みの HTML 断片)
+ * @returns {string}
+ */
+export function nowrap(html) {
+    return `<span class="tnx-nobr">${html}</span>`;
+}

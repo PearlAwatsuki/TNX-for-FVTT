@@ -1796,6 +1796,16 @@
     color: var(--tnx2-text-muted);
 }
 
+/* 対象名(ラベル)は行の 60% までなら折らない——値(《神業》で防がれた)と幅を取り合って
+   縮められると、短い名前まで途中で折れてしまうため(2026-09-05)。60% を超える長い名前だけ折り返す */
+/* 後段の .cr-calc-row--wrap .cr-calc-label(flex-shrink:1)より強くするため2クラスで書く */
+.cr-calc-row--prevented.cr-calc-row--wrap .cr-calc-label {
+    flex-shrink: 0;
+    max-width: 60%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
 /* 成否行(.cr-result)は flex(語間 gap つき)なので、本文は1要素にまとめる——塊の span が
    そのまま flex アイテムになると語間が空く(2026-09-05) */
 .cr-result__text {

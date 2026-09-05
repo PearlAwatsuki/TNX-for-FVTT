@@ -27,7 +27,7 @@ import { evaluateBonusRows, evaluateSelfBonus } from "./tnx-formula.mjs";
 import { applyConsumptionPlan } from "./usage-consumption.mjs";
 import { getDamageChartKind } from "../data/damage-chart.mjs";
 import { CONDITION_KINDS, conditionDisplayName, getEffectiveConditions, hasBountyBlock, isWetActor } from "./conditions.mjs";
-import { keepTogether } from "./chat-text.mjs";
+import { keepTogether, nowrap } from "./chat-text.mjs";
 import { applyAttackPatch } from "./attack-flow.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
@@ -533,8 +533,9 @@ export function renderDamageCard(message, html) {
         // 防いだ対象(防御タイプ「適用前に防ぐ」・17-2)は行を消さず「防いだ」と明示する——行ごと
         // 消えると防げたのか分からない(2026-09-05 ユーザー指摘)
         if (!liveSet.has(i)) {
-            // 対象ごとの行と同じ形(名前＝ラベル・結果＝値)。対象名は行のラベルに出るので繰り返さない
-            row(area, esc(t.name), `<i class="fas fa-shield-halved"></i> 《${esc(t.protectedBy?.name ?? "神業")}》が防いだ`,
+            // 対象ごとの行と同じ形(名前＝ラベル・結果＝値)。対象名は行のラベルに出るので繰り返さない。
+            // 値は**その対象に起きたこと**なので受動で書く(神業を主語にすると神業自身が行為者になる)
+            row(area, esc(t.name), `<i class="fas fa-shield-halved"></i> 《${esc(t.protectedBy?.name ?? "神業")}》${nowrap("で防がれた")}`,
                 "cr-calc-row cr-calc-row--wrap cr-calc-row--prevented");
             continue;
         }
@@ -664,7 +665,7 @@ function renderMiracleDamageCard(message, html, f, { ledger, area, row, line, es
     // 打ち消し: カードごと無かったことになる(対象ごとの行は出さない)
     if (negated) {
         line(area, "cr-result cr-result--nodamage",
-            `<i class="fas fa-ban"></i> 《${esc(f.negatedBy.name ?? "神業")}》がこの神業を打ち消した`);
+            `<i class="fas fa-ban"></i> 《${esc(f.negatedBy.name ?? "神業")}》${nowrap("で打ち消された")}`);
         return;
     }
 
@@ -683,8 +684,9 @@ function renderMiracleDamageCard(message, html, f, { ledger, area, row, line, es
         const t = dmgTargets[i];
         if (!live.has(i)) {
             // 生きている対象の行と同じ形(名前＝ラベル・結果＝値)。防いだ神業だけを値に出す——
-            // 何を防いだかは台帳の「結果」にあり、対象名は行のラベルにある(2026-09-05 ユーザー指摘)
-            row(area, esc(t.name), `<i class="fas fa-shield-halved"></i> 《${esc(t.protectedBy?.name ?? "神業")}》が防いだ`,
+            // 何を防いだかは台帳の「結果」にあり、対象名は行のラベルにある(2026-09-05 ユーザー指摘)。
+            // 値は**その対象に起きたこと**なので受動で書く(神業を主語にすると神業自身が行為者になる)
+            row(area, esc(t.name), `<i class="fas fa-shield-halved"></i> 《${esc(t.protectedBy?.name ?? "神業")}》${nowrap("で防がれた")}`,
                 "cr-calc-row cr-calc-row--wrap cr-calc-row--prevented");
             continue;
         }
