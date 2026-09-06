@@ -2327,8 +2327,14 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             const miracleDoc = await fromUuid(c.uuid).catch(() => null);
             return { value: c.uuid, label: `${skill?.name ?? "（区分未設定）"}：${miracleDoc?.name ?? "?"}` };
         }));
+        const { asOtherCopyUpdate } = await import("../module/miracle-flow.mjs");
+        // 選択と写し(用途・経験点条件)は**1回の update にまとめる**(作成フックの中で分けると落ちる)
+        const fix = async (uuid) => {
+            const patch = await asOtherCopyUpdate(miracle, uuid);
+            await miracle.update({ "system.asOther.selected": uuid, ...(patch ?? {}) });
+        };
         if (labels.length === 1) {
-            await miracle.update({ "system.asOther.selected": labels[0].value });
+            await fix(labels[0].value);
             return;
         }
         const { TargetSelectionDialog } = await import("../module/tnx-dialog.mjs");
@@ -2336,7 +2342,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             title: `${miracle.name}: 効果を決める`, label: "区分（フォルム・属性）",
             options: labels, selectLabel: "決定",
         });
-        if (picked) await miracle.update({ "system.asOther.selected": picked });
+        if (!picked) return;
+        await fix(picked);
     }
 
     static async _onRollStyleDescription(event, target) {
@@ -2552,14 +2559,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 旧 usableUsagesOf(フラグ無し宣言を除外)は廃止=アウトフィットのように宣言用途しか
         // 持たないアイテムがロールできず解説カードに落ちていた。
         // ※判定要求への応答は別規則(canAnswerCheckRequest=判定タイプ限定・2026-07-19 ユーザー裁定)。
-        // 効果の参照(17-5・《万能道具》《神意》): 区分ごとに固定した神業を決めて再入する。
-        // 以降は参照先の用途で分岐し、名前・使用回数・印・消費・話者は元の神業(この item)のまま
-        if (item.type === "miracle" && item.system.asOther?.mode && !openExtra.asOther) {
-            const { resolveAsOther } = await import("../module/miracle-flow.mjs");
-            const picked = await resolveAsOther(actor, item);
-            if (!picked) return false;
-            return TnxCharacterSheetBase._activateItemCheck(actor, item, { ...openExtra, asOther: picked });
-        }
+        // 効果の参照(17-5・《万能道具》《神意》《半身》)は**実体を写す**方式(2026-09-06 方針A)。
+        // 効果を決めた時点で参照先の用途と経験点条件がこの神業へコピーされているので、
+        // ここでは何もしない(実行時の間接参照は《突然変異》のコピーだけ=openExtra.asOther)
         const asOther = openExtra.asOther ?? null;
         const usableUsages = (asOther?.source ?? item).system.actions ?? [];
 

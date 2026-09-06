@@ -14,7 +14,7 @@ import {
     miracleUseGate, miracleConsumeUpdate, buildMiracleCardData, miracleOriginOf,
     negateCheckGate, negatedCheckMods, evadePlan, miracleIdentityMatches,
     buildMiracleDamageFlag, terminalKindFor,
-    interferenceCandidates, addUseEffectSource, asOtherSelection, miracleLogCandidates, conditionSwapPlan,
+    interferenceCandidates, addUseEffectSource, miracleLogCandidates, conditionSwapPlan,
 } from "./miracle-logic.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
@@ -364,22 +364,45 @@ async function collectMiracleRefs(item, uuids) {
 }
 
 /**
- * 効果の参照(アイテム側の設定)を解決する。区分(〈フォルム〉〈属性〉)ごとに固定した神業と
- * **効果・経験点の取得条件が同じになる**——その神業「として」使うのではない(2026-09-06 訂正)。
- * @returns {Promise<?{uuid: string, name: string, source: Item}>} 中止なら null
+ * 効果の参照(アイテム側の設定)を**実体として写す**。選んだ神業の用途一式と経験点の取得条件を
+ * この神業へコピーする(2026-09-06 ユーザー承認の方針A)。
+ *
+ * 実行時に別アイテムを解決する形(間接参照)をやめた理由: 万能道具は万能道具であって
+ * 「他の神業として使う」ものではなく、アイテムとしての同一性(名前・ふりがな・効果文・識別キー・
+ * 使用回数)は自分のものを保つべきだから。写すのは**振る舞い(用途)と経験点の取得条件**だけで、
+ * 用途タブを開けば実際に動くものがそこに見える。
+ * 参照先を後から直しても写し済みのキャラクターには追随しない(スタイル・技能の写しと同じ)。
+ * @param {Item} miracle 効果の参照を持つ神業(アクター所有)
+ * @returns {Promise<boolean>} 写したか
  */
-export async function resolveAsOther(actor, item) {
-    const cfg = item.system.asOther ?? {};
-    if (cfg.mode !== "choice") return null;
-    const sel = asOtherSelection(cfg);
-    if (!sel?.uuid) {
-        ui.notifications.warn(sel?.reason === "noChoices"
-            ? `「${item.name}」の効果の参照が設定されていません（神業シートの「効果の参照」）。`
-            : `「${item.name}」の効果が選ばれていません（神業シートの「効果の参照」で選んでください）。`);
+export async function applyAsOtherEffectCopy(miracle) {
+    const cfg = miracle?.system?.asOther;
+    if (cfg?.mode !== "choice" || !cfg.selected) return false;
+    const patch = await asOtherCopyUpdate(miracle, cfg.selected);
+    if (!patch) return false;
+    await miracle.update(patch);
+    return true;
+}
+
+/**
+ * 参照先から写す内容(用途一式と経験点の取得条件)を組む。**選択と同じ update にまとめる**ため、
+ * 更新そのものは呼び出し側が行う——文書の作成フックの中で更新を2回に分けると、後の更新が
+ * 作成中の値に負けて落ちることがある(2026-09-06 実機で確認)。
+ * @param {Item} miracle 写し先の神業(名前の警告に使う)
+ * @param {string} uuid 参照先の神業の uuid
+ * @returns {Promise<?object>} update に渡す差分。参照先が見つからなければ null
+ */
+export async function asOtherCopyUpdate(miracle, uuid) {
+    const source = await fromUuid(uuid).catch(() => null);
+    if (source?.type !== "miracle") {
+        ui.notifications.warn(`「${miracle?.name ?? "神業"}」の参照先の神業が見つかりません。`);
         return null;
     }
-    const candidates = await collectMiracleRefs(item, [sel.uuid]);
-    return pickMiracleRef(item, candidates, "効果になる神業");
+    ui.notifications.info(`神業「${miracle?.name ?? ""}」の効果を《${source.name}》と同じにしました。`);
+    return {
+        "system.actions":        foundry.utils.duplicate(source.system.actions ?? []),
+        "system.usageCondition": source.system.usageCondition ?? "",
+    };
 }
 
 /**

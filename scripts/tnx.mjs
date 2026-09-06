@@ -981,19 +981,38 @@ Hooks.on("createItem", async (item, _options, userId) => {
     for (const it of actor.items) {
         for (const e of it.effects) await materializeItemTransfers(actor, e, it);
     }
-    // 効果の参照を持つ神業(《万能道具》《神意》《半身》)をアクターが得たら、その場で効果を決める。
-    // スタイル経由の取得だけでなく**神業を直接インポートしたときも**通す(2026-09-06 ユーザー指摘
-    // 「万能道具をインポートして使用しても、万能道具自体に用途の設定が無いため何の効果も発揮しません」
-    // ——効果と用途は参照先の神業から来るので、参照が決まっていないと何も起きない)
-    if (item.type === "miracle" && item.system?.asOther?.mode === "choice" && !item.system.asOther.selected) {
+});
+
+// 効果の参照を持つ神業(《万能道具》《神意》《半身》)をアクターが得たら、その場で効果を決める。
+// スタイル経由の取得だけでなく**神業を直接インポートしたときも**通す(2026-09-06 ユーザー指摘
+// 「万能道具をインポートして使用しても、万能道具自体に用途の設定が無いため何の効果も発揮しません」
+// ——効果と用途は参照先の神業から来るので、参照が決まっていないと何も起きない)。
+// **転送コピーの実体化とは別のフックにする**——前段が長い/失敗すると後段が動かないため
+// (実機で、既定技能を持つアクターへインポートしたときに動かなかった)
+Hooks.on("createItem", (item, _options, userId) => {
+    if (game.user.id !== userId) return;
+    if (!item.actor || item.type !== "miracle") return;
+    if (item.system?.asOther?.mode !== "choice" || item.system.asOther.selected) return;
+    // **作成の処理から出てから**書き込む。作成フックの中で同じ文書を update しても落ちる
+    // (2026-09-06 実機で確認。手で呼べば通るのにフック内では効かなかった)
+    setTimeout(async () => {
         const { TnxCharacterSheetBase } = await import("./actor/tnx-character-sheet-base.mjs");
         await TnxCharacterSheetBase._chooseMiracleFormEffect(item);
-    }
+    }, 0);
 });
 
 // 武器区分フラグの分類既定(2026-07-17 ユーザー確定): 分類(小分類)を変更したら、その分類の
 // 既定(白兵武器→白兵/射撃武器・搭載兵器→射撃/生体装備→白兵/該当なし=両OFF)で敷き直す
 // (自動入力と同じ「明示的な上書き」の意味論。以後の手動変更はそのまま生きる)
+// 効果の参照を選び直したら、参照先の用途と経験点の取得条件を写し直す(2026-09-06 方針A)
+Hooks.on("updateItem", async (item, changes, _options, userId) => {
+    if (userId !== game.user.id) return;
+    if (item.type !== "miracle") return;
+    if (foundry.utils.getProperty(changes, "system.asOther.selected") === undefined) return;
+    const { applyAsOtherEffectCopy } = await import("./module/miracle-flow.mjs");
+    await applyAsOtherEffectCopy(item);
+});
+
 Hooks.on("preUpdateItem", (item, changes) => {
     const minor = changes?.system?.minorCategory;
     if (minor === undefined || item.system?.isMeleeWeapon === undefined) return;
