@@ -8839,8 +8839,13 @@ button.tnx-create-act-button span {
     flex: 0 0 auto;
     opacity: 0.8;
 }
+/* 名前は行の残りを使い、入りきらなければ末尾を省略する(1行に詰め込まない・2026-09-06 ユーザー指示) */
 .tnx-attack-target__name {
     flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-weight: 600;
 }
 .tnx-attack-target__val {

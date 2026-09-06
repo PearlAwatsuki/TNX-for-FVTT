@@ -816,7 +816,10 @@ export async function handleDamageProtectClick(message, srcIndex) {
     if (state.consumeUses?.length) await applyConsumptionPlan(state.consumeUses);
     // 発動した神業を卓に提示する(神業カード=使用ログの記帳点・17-5)。他の神業として使った分は参照先を添える
     const { postMiracleCard } = await import("./miracle-flow.mjs");
-    await postMiracleCard(skill, { asOther: state.asOther });
+    // 防御そのものを後で打ち消せるよう、当時の対象行を控える(2026-09-06)
+    await postMiracleCard(skill, { asOther: state.asOther, undo: [{ messageId: message.id, patch: {
+        [`flags.${SCOPE}.damageRoll.targets`]: foundry.utils.deepClone(f.targets ?? []),
+    } }] });
     const targets = foundry.utils.deepClone(f.targets ?? []);
     for (const i of plan.indices) targets[i] = { ...targets[i], protectedBy: plan.by };
     await applyDamagePatch(message, { targets });

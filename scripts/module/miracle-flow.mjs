@@ -132,7 +132,11 @@ export async function handleNegateMiracleDamageClick(message) {
     if (f.negatedBy) { ui.notifications.warn("この神業は既に打ち消されています。"); return; }
     if (f.applied) { ui.notifications.warn("適用済みの神業は打ち消せません（時間をさかのぼって打ち消すことはできません）。"); return; }
     if (!await negateLimitOk(ns.state, f.miracle)) return;
-    await commitNegate(ns.state);
+    // 打ち消しそのものを後で打ち消せるよう、当時の値を控える
+    await commitNegate(ns.state, [{ messageId: message.id, patch: {
+        [`flags.${SCOPE}.damageRoll.targets`]:   foundry.utils.deepClone(f.targets ?? []),
+        [`flags.${SCOPE}.damageRoll.negatedBy`]: f.negatedBy ?? null,
+    } }]);
     const { applyDamagePatch } = await import("./damage-flow.mjs");
     const targets = (f.targets ?? []).map(t => ({ ...t, protectedBy: ns.by }));
     await applyDamagePatch(message, { targets, negatedBy: ns.by });
@@ -513,12 +517,27 @@ async function negateLimitOk(state, target) {
     return ok;
 }
 
+/**
+ * 神業が他のカードへ与えた変更を戻す(打ち消し・防御を打ち消されたとき・2026-09-06)。
+ * undo は {messageId, patch} の並びで、patch は**当時の値**(フラグのパス→値)。
+ * 対象のカードが消えている・既に別の神業に触られている場合でも、そのまま当時の値へ戻す
+ * (卓の裁定で戻すのが打ち消しの意味なので、後勝ちで構わない)。
+ * @param {object} mf 打ち消された神業カードのフラグ
+ */
+async function revertMiracleUndo(mf) {
+    for (const step of (mf?.undo ?? [])) {
+        const msg = game.messages.get(step.messageId);
+        if (!msg || !step.patch) continue;
+        await TnxSocketHandler.applyMessagePatch(msg, step.patch);
+    }
+}
+
 /** 打ち消しの確定: モード解除と消費(待ち受け開始時に確定したプラン)、発動した神業のカード(17-5 の記帳点)。 */
-async function commitNegate(state) {
+async function commitNegate(state, undo = null) {
     TnxCheckFlow.cancelAchievementAction();
     if (state.consumeUses?.length) await applyConsumptionPlan(state.consumeUses);
     const skill = game.actors.get(state.actorId)?.items.get(state.skillItemId);
-    if (skill) await postMiracleCard(skill, { asOther: state.asOther });
+    if (skill) await postMiracleCard(skill, { asOther: state.asOther, undo });
 }
 
 /**
@@ -548,7 +567,23 @@ export async function handleNegateAchievementClick(message) {
         ui.notifications.warn("この判定の効果は適用済みのため打ち消せません（時間をさかのぼって打ち消すことはできません）。");
         return;
     }
-    await commitNegate(ns.state);
+    const undo = [{ messageId: message.id, patch: attackF ? {
+        [`flags.${SCOPE}.attackCheck.state`]:        attackF.state ?? "open",
+        [`flags.${SCOPE}.attackCheck.failedReason`]: attackF.failedReason ?? null,
+        [`flags.${SCOPE}.attackCheck.negatedBy`]:    attackF.negatedBy ?? null,
+    } : {
+        [`flags.${SCOPE}.checkMods`]:                    foundry.utils.deepClone(message.getFlag(SCOPE, "checkMods") ?? null),
+        [`flags.${SCOPE}.checkResult.result.success`]:   checkF?.result?.success ?? null,
+        [`flags.${SCOPE}.negatedBy`]:                    message.getFlag(SCOPE, "negatedBy") ?? null,
+    } }];
+    for (const dm of damageCards) {
+        const df = dm.getFlag(SCOPE, "damageRoll");
+        undo.push({ messageId: dm.id, patch: {
+            [`flags.${SCOPE}.damageRoll.targets`]:   foundry.utils.deepClone(df?.targets ?? []),
+            [`flags.${SCOPE}.damageRoll.negatedBy`]: df?.negatedBy ?? null,
+        } });
+    }
+    await commitNegate(ns.state, undo);
 
     if (attackF) {
         const { applyAttackPatch } = await import("./attack-flow.mjs");
@@ -593,7 +628,9 @@ export async function handleNegateTrayClick(message) {
     if (!payload) return;
     if (payload.negatedBy) { ui.notifications.warn("この効果は既に打ち消されています。"); return; }
     if (!await negateLimitOk(ns.state, message.getFlag(SCOPE, "miracle") ?? null)) return;
-    await commitNegate(ns.state);
+    await commitNegate(ns.state, [{ messageId: message.id, patch: {
+        [`flags.${SCOPE}.usageEffects.negatedBy`]: payload.negatedBy ?? null,
+    } }]);
     await TnxSocketHandler.applyMessagePatch(message, { [`flags.${SCOPE}.usageEffects.negatedBy`]: ns.by });
 }
 
@@ -609,7 +646,14 @@ export async function handleNegateMiracleCardClick(message) {
     if (!mf?.itemId) return;
     if (mf.negatedBy) { ui.notifications.warn("この神業は既に打ち消されています。"); return; }
     if (!await negateLimitOk(ns.state, mf)) return;
-    await commitNegate(ns.state);
+    await commitNegate(ns.state, [{ messageId: message.id, patch: {
+        [`flags.${SCOPE}.miracle.negatedBy`]: mf.negatedBy ?? null,
+        ...(message.getFlag(SCOPE, "usageEffects")
+            ? { [`flags.${SCOPE}.usageEffects.negatedBy`]: message.getFlag(SCOPE, "usageEffects").negatedBy ?? null } : {}),
+    } }]);
+    // 打ち消し・防御そのものを打ち消したときは、その神業が他のカードへ与えた変更を戻す
+    // (2026-09-06 ユーザー指摘「撃ち消しや防御はそれ自体を打ち消すこともできます」)
+    await revertMiracleUndo(mf);
     const patch = { [`flags.${SCOPE}.miracle.negatedBy`]: ns.by };
     if (message.getFlag(SCOPE, "usageEffects")) patch[`flags.${SCOPE}.usageEffects.negatedBy`] = ns.by;
     await TnxSocketHandler.applyMessagePatch(message, patch);
@@ -787,7 +831,7 @@ function chatButton(icon, label, onClick) {
  * @param {{usageEffects?: ?object}} [opts]
  * @returns {Promise<ChatMessage>}
  */
-export async function postMiracleCard(item, { usageEffects = null, destroy = null, addUse = null, request = null, swap = null, acquire = null, insensible = false, asOther = null } = {}) {
+export async function postMiracleCard(item, { usageEffects = null, destroy = null, addUse = null, request = null, swap = null, acquire = null, insensible = false, asOther = null, undo = null } = {}) {
     const TE = foundry.applications.ux.TextEditor;
     // 解説の段(効果文と条件)は**常に畳んだ状態でカードの最上部**に置く(2026-09-05 ユーザー指示)。
     // 他の神業として使う(17-5)ときは参照先の文を出す(条件も参照先と同じ)
@@ -815,6 +859,9 @@ export async function postMiracleCard(item, { usageEffects = null, destroy = nul
                     ...miracleOriginOf(item, asOther),
                     ...(destroy ? { destroy } : {}), ...(addUse ? { addUse } : {}), ...(request ? { request } : {}),
                     ...(swap ? { swap } : {}), ...(acquire ? { acquire } : {}), ...(insensible ? { insensible: true } : {}),
+                    // undo(2026-09-06): この神業が**他のカードへ与えた変更を戻す手順**。
+                    // 打ち消し・防御はそれ自体を打ち消せるので、打ち消されたらここを逆に当てる
+                    ...(undo?.length ? { undo } : {}),
                 },
                 ...(usageEffects ? { usageEffects } : {}),
             },

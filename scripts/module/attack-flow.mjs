@@ -41,7 +41,7 @@ import {
 } from "./confrontation-logic.mjs";
 import { findItemByIdentificationKey, resolveItemNameByKey } from "./identification.mjs";
 
-import { keepTogether } from "./chat-text.mjs";
+import { keepTogether, nowrap } from "./chat-text.mjs";
 import { cardField, cardResult } from "./chat-card.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
@@ -578,12 +578,15 @@ export function renderAttackCard(message, html) {
     // 全体失敗: 移動失敗(達成値10未満=0段階・2026-07-19)／攻撃を失敗させる・対決敗北(リアクション成功)。
     // 対象一覧は下に続けて表示する
     if (f.state === "failed") {
+        // 理由は**注記の段**に分ける(成否の語に括弧書きで繋ぐと、狭いカードで括弧の途中から折れる)。
+        // 神業による打ち消し(17-2)は打ち消した神業の名前で帰属を示す
+        const note = (t) => `<span class="tnx-card__result-note">${t}</span>`;
         addVerdict("tnx-card__result--failure", "fa-times",
             f.failedReason === "movement" ? "移動失敗"
-                // 神業による打ち消し(17-2): 打ち消した神業の名前で帰属を示す
-                : f.failedReason === "negated" ? `${failWord}（${foundry.utils.escapeHTML(f.negatedBy?.name ?? "神業")}による打ち消し）`
-                    : f.movement ? "移動失敗（リアクションによる）"
-                        : `${failWord}（リアクションによる）`);
+                : f.failedReason === "negated"
+                    ? `${failWord}${note(`《${foundry.utils.escapeHTML(f.negatedBy?.name ?? "神業")}》${nowrap("で打ち消された")}`)}`
+                    : f.movement ? `移動失敗${note("リアクションによる")}`
+                        : `${failWord}${note("リアクションによる")}`);
     }
     // 移動は妨害されないこともある=能動側の判定が成功した時点で移動成功が既定(2026-07-19 ユーザー確定)。
     // リアクション確定前でも「移動成功」を表示し、妨害が勝ったときだけ失敗へ覆す(離脱は対象外)
@@ -618,10 +621,10 @@ export function renderAttackCard(message, html) {
             const icon = t.state === "hit" ? "fa-burst" : (t.state === "miss" ? "fa-shield-halved" : "fa-hourglass-half");
             const verdict = t.state === "hit" ? (isAttack ? "命中" : "成功")
                 : (t.state === "miss" ? (isAttack ? "回避/失敗" : "失敗") : "リアクション待ち");
-            // RL 中間カードは判定を経由しない＝制御値の表記を出さない(命中確定のみ)
-            const noneText = isRl ? "" : (isAttack ? `制御値 ${t.controlValue}` : "リアクションなし");
+            // 制御値は出さない(結果が出れば自明・2026-09-06 ユーザー指示)
+            const noneText = (isRl || isAttack) ? "" : "リアクションなし";
             const valueText = t.state === "pending"
-                ? (isAttack ? `制御値 ${t.controlValue}` : "")
+                ? ""
                 : (t.resolution === "areaCover"
                     ? "範囲攻撃へのリアクション"
                     // 神業による回避(《脱出》・17-2): 由来の神業名で示す(達成値を持たない)
