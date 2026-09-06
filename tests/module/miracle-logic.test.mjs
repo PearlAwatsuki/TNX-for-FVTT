@@ -10,7 +10,7 @@ import {
     defencePreventPlan, unprotectedTargetIndices, negateCheckGate, negatedCheckMods, evadePlan, recoveryCandidateAllowed,
     terminalKindFor, buildMiracleDamageFlag, miracleResultLabel, miracleTargetOutcome,
     withoutConsumption, interferenceCandidates, addUseEffectSource,
-    asOtherSelection, miracleLogCandidates, buildMiracleUseLogEntry, miracleUseFromMessageFlags,
+    asOtherSelection, renameMiracleInCondition, miracleLogCandidates, buildMiracleUseLogEntry, miracleUseFromMessageFlags,
     miracleUsePending, markMiracleUseApplied, conditionSwapPlan, miracleRemovalUpdate, miracleIdentityMatches } from "../../scripts/module/miracle-logic.mjs";
 
 describe("withDefaultMiracleConsumption()（消費先が空の神業用途は自身の使用回数×1を既定消費）", () => {
@@ -498,6 +498,33 @@ describe("asOtherSelection()（選択肢から選んで固定した効果・《�
         expect(asOtherSelection({ mode: "choice", choices, selected: "U.gone" })).toEqual({ uuid: "", reason: "unselected" });
         expect(asOtherSelection({ mode: "choice", choices: [{ skillUuid: "S.x", uuid: "" }], selected: "" })).toEqual({ uuid: "", reason: "noChoices" });
         expect(asOtherSelection({ mode: "log", choices, selected: "U.dance" })).toBeNull();
+    });
+});
+
+describe("renameMiracleInCondition()（写した経験点の取得条件の神業名を写し先の名前にする）", () => {
+    // 効果文《万能道具》「《万能道具》を『うまく使った』条件は、元となった神業と同じである」＝条件の文を
+    // 名乗るのは写し先の神業なので、文中の《ファイト！》は《万能道具》になる(ユーザー指示 2026-09-06)
+    it("条件の文中の元の神業の名前を、写し先の名前に全て置き換える", () => {
+        const src = "<p>《ファイト！》を使用することで、対象から感謝されたなら「うまく使った」として経験点をもらってよい。"
+            + "また、使用回数を増やされた対象は、その神業を「うまく使った」なら、その分の経験点をもらってよい。"
+            + "ただし、《ファイト！》を《ファイト！》することはできない。</p>";
+        expect(renameMiracleInCondition(src, "ファイト！", "万能道具")).toBe(
+            "<p>《万能道具》を使用することで、対象から感謝されたなら「うまく使った」として経験点をもらってよい。"
+            + "また、使用回数を増やされた対象は、その神業を「うまく使った」なら、その分の経験点をもらってよい。"
+            + "ただし、《万能道具》を《万能道具》することはできない。</p>");
+    });
+    it("名前が 《》 で囲まれていない書き方にも届く・名前が出てこない条件はそのまま", () => {
+        expect(renameMiracleInCondition("<p>タイムリーで他人の危機を救ったら</p>", "タイムリー", "万能道具"))
+            .toBe("<p>万能道具で他人の危機を救ったら</p>");
+        expect(renameMiracleInCondition("<p>障害を排除するなど役に立つ使い方をしたなら</p>", "天変地異", "万能道具"))
+            .toBe("<p>障害を排除するなど役に立つ使い方をしたなら</p>");
+    });
+    it("条件が空・どちらかの名前が空・同じ名前なら元のまま返す", () => {
+        expect(renameMiracleInCondition("", "ファイト！", "万能道具")).toBe("");
+        expect(renameMiracleInCondition(null, "ファイト！", "万能道具")).toBe("");
+        expect(renameMiracleInCondition("<p>《ファイト！》を</p>", "", "万能道具")).toBe("<p>《ファイト！》を</p>");
+        expect(renameMiracleInCondition("<p>《ファイト！》を</p>", "ファイト！", "")).toBe("<p>《ファイト！》を</p>");
+        expect(renameMiracleInCondition("<p>《ファイト！》を</p>", "ファイト！", "ファイト！")).toBe("<p>《ファイト！》を</p>");
     });
 });
 

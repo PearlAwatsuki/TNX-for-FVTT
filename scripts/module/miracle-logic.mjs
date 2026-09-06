@@ -421,6 +421,22 @@ export function asOtherSelection(asOther) {
 }
 
 /**
+ * 写した経験点の取得条件で、元の神業の名前を写し先の名前に置き換える(《ファイト！》→《万能道具》)。
+ * 効果文《万能道具》「《万能道具》を『うまく使った』条件は、元となった神業と同じである」——条件の文を
+ * 名乗るのは写し先の神業なので、文中の神業名も写し先のものにする(ユーザー指示 2026-09-06)。
+ * 名前は 《》 で囲って書かれるが、囲みの内側だけを見れば囲みの有無どちらの書き方にも届く。
+ * @param {string} html 参照先の条件(HTML)
+ * @param {string} fromName 元の神業の名前
+ * @param {string} toName 写し先の神業の名前
+ * @returns {string} 置き換えた条件(どちらかの名前が空・同名なら元のまま)
+ */
+export function renameMiracleInCondition(html, fromName, toName) {
+    const text = html ?? "";
+    if (!text || !fromName || !toName || fromName === toName) return text;
+    return text.split(fromName).join(toName);
+}
+
+/**
  * 使用ログのうち、その人が「見聞きした」神業(同じ神業は1つに)。ユーザー裁定 2026-09-04:
  * 基本は自分が登場している間に使われたもの(使用時の登場者に自分がいる)。同一シーンで登場前に
  * 使われた神業は、登場した時点でまだ効果が適用されていなければ「登場中に使用された」と見做す

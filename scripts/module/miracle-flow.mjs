@@ -15,6 +15,7 @@ import {
     negateCheckGate, negatedCheckMods, evadePlan, miracleIdentityMatches,
     buildMiracleDamageFlag, miracleResultLabel,
     interferenceCandidates, addUseEffectSource, miracleLogCandidates, conditionSwapPlan,
+    renameMiracleInCondition,
 } from "./miracle-logic.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
@@ -387,7 +388,8 @@ async function collectMiracleRefs(item, uuids) {
  * 実行時に別アイテムを解決する形(間接参照)をやめた理由: 万能道具は万能道具であって
  * 「他の神業として使う」ものではなく、アイテムとしての同一性(名前・ふりがな・効果文・識別キー・
  * 使用回数)は自分のものを保つべきだから。写すのは**振る舞い(用途)と経験点の取得条件**だけで、
- * 用途タブを開けば実際に動くものがそこに見える。
+ * 用途タブを開けば実際に動くものがそこに見える。**条件の文中の神業名は写し先の名前に置き換える**
+ * (2026-09-06 ユーザー指示)——文を名乗るのは写し先の神業だから。
  * 参照先を後から直しても写し済みのキャラクターには追随しない(スタイル・技能の写しと同じ)。
  * @param {Item} miracle 効果の参照を持つ神業(アクター所有)
  * @returns {Promise<boolean>} 写したか
@@ -405,7 +407,7 @@ export async function applyAsOtherEffectCopy(miracle) {
  * 参照先から写す内容(用途一式と経験点の取得条件)を組む。**選択と同じ update にまとめる**ため、
  * 更新そのものは呼び出し側が行う——文書の作成フックの中で更新を2回に分けると、後の更新が
  * 作成中の値に負けて落ちることがある(2026-09-06 実機で確認)。
- * @param {Item} miracle 写し先の神業(名前の警告に使う)
+ * @param {Item} miracle 写し先の神業(条件の文中の神業名と警告に使う)
  * @param {string} uuid 参照先の神業の uuid
  * @returns {Promise<?object>} update に渡す差分。参照先が見つからなければ null
  */
@@ -416,9 +418,12 @@ export async function asOtherCopyUpdate(miracle, uuid) {
         return null;
     }
     ui.notifications.info(`神業「${miracle?.name ?? ""}」の効果を《${source.name}》と同じにしました。`);
+    // 経験点の取得条件は**写し先の神業が名乗る文**なので、文中の元の神業の名前を写し先の名前に
+    // 置き換える(《ファイト！》を使用することで…→《万能道具》を使用することで…)。効果文の
+    // 「《万能道具》を『うまく使った』条件は、元となった神業と同じである」をそのまま文にした形
     return {
         "system.actions":        foundry.utils.duplicate(source.system.actions ?? []),
-        "system.usageCondition": source.system.usageCondition ?? "",
+        "system.usageCondition": renameMiracleInCondition(source.system.usageCondition ?? "", source.name, miracle?.name ?? ""),
     };
 }
 
