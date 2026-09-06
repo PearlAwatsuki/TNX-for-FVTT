@@ -9,8 +9,9 @@ const SKILL_TYPES = ["generalSkill", "styleSkill"];
  * その神業「として」使うのではない(2026-09-06 ユーザー訂正)。
  * 表の1行＝[区分の技能][参照する神業]で、**どちらもドロップで結線する**——区分と神業は1対1で
  * 他の候補が入る余地が無いため(選ぶ操作ではない=2026-09-06 の基準)。
- * **どれになるかはスタイルを設定したときに決まる**(〈フォルム〉を選ぶ時点=2026-09-06 ユーザー裁定)ので、
- * このシートに選択の操作は置かない(確定したものを1行で示すだけ)。表は設定タブに置く。
+ * **《万能道具》はスタイルを設定した時点で固定される**(〈フォルム〉を選ぶ時点=2026-09-06 ユーザー裁定)が、
+ * 《半身》のように後で決まるもの(リーダー決定時)もあるため、**効果はいつでも選び直せる**
+ * (対応表の行から選ぶプルダウン)。表とプルダウンは設定タブに置く。
  * 行は配列全体を送って更新する(スタイル技能シートのコンボ行と同方式)。対応表はコードに持たず、
  * 辞典データ側にこの表として設定する。
  */
@@ -75,11 +76,16 @@ export class TokyoNovaMiracleSheet extends TokyoNovaItemSheet {
                 miracle: await TokyoNovaMiracleSheet._resolveRef(c.uuid),
             })));
             context.asOtherChoices = rows;
-            // 効果は**スタイルを設定したときに**決まる(区分＝〈フォルム〉を選ぶ時点)。ここは表示だけ
-            const sel = rows.find(r => r.selected);
-            context.asOtherSelectedLabel = sel
-                ? `《${sel.miracle?.name ?? "?"}》${sel.skill ? `（${sel.skill.name}）` : ""}`
-                : "";
+            // 効果は対応表の行から選ぶ。《万能道具》はスタイルを設定した時点で固定されるが、
+            // 《半身》のように後で決まるもの(リーダー決定時)はここで選ぶ(2026-09-06)
+            context.asOtherSelectOptions = [
+                { value: "", label: "（未選択）", selected: !asOther.selected },
+                ...rows.filter(r => r.uuid).map(r => ({
+                    value: r.uuid,
+                    label: r.skill ? `${r.skill.name}：${r.miracle?.name ?? "?"}` : (r.miracle?.name ?? "?"),
+                    selected: r.selected,
+                })),
+            ];
         }
         return context;
     }

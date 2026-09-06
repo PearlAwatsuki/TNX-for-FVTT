@@ -91,10 +91,16 @@
                             {{selectOptions asOtherModeOptions selected=system.asOther.mode}}
                         </select>
                     </div>
-                    {{#if asOtherSelectedLabel}}
+                    {{#if asOtherIsChoice}}
+                    {{!-- 効果は選ぶもの: 《万能道具》はスタイルを設定した時点で固定され、《半身》のように
+                         後で決まるもの(リーダー決定時)はここで選ぶ。候補は下の対応表の行 --}}
                     <div class="form-group">
-                        <label>このキャラクターの効果</label>
-                        <span>{{asOtherSelectedLabel}}</span>
+                        <label>この神業の効果</label>
+                        <select name="system.asOther.selected" {{#unless editable}}disabled{{/unless}}>
+                            {{#each asOtherSelectOptions}}
+                            <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                            {{/each}}
+                        </select>
                     </div>
                     {{/if}}
                 </div>
