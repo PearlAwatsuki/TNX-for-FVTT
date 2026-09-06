@@ -33,7 +33,7 @@ import { listAppearingActors } from "./appearance-state.mjs";
 import { applyInterruptGrantForUsage } from "./interrupt-grant.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
-const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会" };
+const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会", troop: "壊滅" };
 
 // ─── 即死・社会戦(17-3)＝神業版のダメージカード ─────────────────────────────────
 // 効果文《死の舞踏》「［完全死亡］させる…代わりに任意の肉体戦ダメージを与えても良い」《神の御言葉》「［精神崩壊］
@@ -104,12 +104,16 @@ export async function useMiracleDamage(actor, item, usage, { asOther = null } = 
     const rows = resolveConsumeRowsForActor(actor, item, usage.consumeTargets);
     const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${item.name}` });
     if (plan === null) return false;
-    const result = await promptMiracleDamageResult(item, usage, category, refs);
+    // 系統「トループの壊滅」は結果が壊滅しかない=選ぶものが無いので結果の選択を出さない
+    const result = category === "troop"
+        ? { kind: "terminal" }
+        : await promptMiracleDamageResult(item, usage, category, refs);
     if (!result) return false;
     await applyConsumptionPlan(plan);
     const flag = buildMiracleDamageFlag({
         by: { ...miracleOriginOf(item, asOther), actorId: actor.id }, category, targets: refs, result,
     });
+    // カードの見出しは系統(肉体/精神/社会/壊滅)。壊滅もダメージなので種別タグは「ダメージ」のまま
     const content = await foundry.applications.handlebars.renderTemplate(
         "systems/tokyo-nova-axleration/templates/chat/damage-card.hbs", { categoryLabel: CATEGORY_LABELS[category] });
     await ChatMessage.create({

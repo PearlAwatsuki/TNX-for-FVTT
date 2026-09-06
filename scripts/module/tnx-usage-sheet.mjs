@@ -586,13 +586,16 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
         // 神業専用タイプ(17-2): 神業は判定を行わないため、目標値・対決の設定は出さない
         context.isMiracleUsage = isMiracleType(usage.type);
-        // 即死・社会戦(17-3): 系統(肉体/精神)・結果の決め方(使用者が選ぶ/RL が決める)
+        // 即死・社会戦(17-3): 系統(肉体/精神/トループの壊滅)・結果の決め方(使用者が選ぶ/RL が決める)
         context.isMiracleKill = usage.type === "miracleKill";
         context.isMiracleSocial = usage.type === "miracleSocial";
         if (context.isMiracleKill) {
             const cat = usage.killCategory || "physical";
+            // 「トループの壊滅」は肉体・精神と同列の選択肢(2026-09-06 ユーザー裁定)。
+            // 《天変地異》《突破》=トループ級を壊滅させるだけで、キャスト/ゲストには効果がない
             context.killCategoryOptions = [
                 { value: "physical", label: "肉体" }, { value: "mental", label: "精神" },
+                { value: "troop", label: "トループの壊滅" },
             ].map(o => ({ ...o, selected: o.value === cat }));
         }
         if (context.isMiracleSocial) {

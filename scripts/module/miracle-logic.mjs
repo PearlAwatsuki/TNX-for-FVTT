@@ -184,7 +184,10 @@ export function defencePreventPlan(f, usage, { rowIndex, by }) {
     if (f?.applied) return { ok: false, reason: "applied" };
     const cats = Array.isArray(usage?.defenceCategories) && usage.defenceCategories.length
         ? usage.defenceCategories : ["physical", "mental", "social"];
-    if (!cats.includes(f?.category || "physical")) return { ok: false, reason: "category" };
+    // **トループの壊滅もダメージである**(人数を削り切る)ため、防御神業で防げる(ユーザー裁定
+    // 2026-09-06)。系統の3値(肉体/精神/社会)には載らない値なので、系統照合では弾かない。
+    // Miracle_Rules「防御神業」の「何を防ぐかは使用者が選ぶ＝システムは機械的に判別しない」とも一致
+    if (f?.category !== "troop" && !cats.includes(f?.category || "physical")) return { ok: false, reason: "category" };
     if (!(f?.targets ?? []).length) return { ok: false, reason: "noTargets" };
     const open = unprotectedTargetIndices(f);
     const indices = usage?.defenceScope === "one" ? open.filter(i => i === rowIndex) : open;
@@ -291,8 +294,13 @@ export function buildMiracleDamageFlag({ by, category, targets, result }) {
  * @returns {string}
  */
 export function miracleResultLabel(result, category, targetTypes = []) {
-    if (result?.kind !== "terminal") return `ダメージ ${Number(result?.value) || 0}`;
     const kinds = (targetTypes ?? []).filter(Boolean);
+    // 系統「トループの壊滅」(《天変地異》《突破》)は結果が壊滅しかない。キャスト/ゲストだけの行は
+    // 効果文「この効果で、キャストやゲストに直接ダメージを与えることはできない」のとおり効果なし
+    if (category === "troop") {
+        return kinds.length && kinds.every(k => k === "cast" || k === "guest") ? "効果なし" : "壊滅";
+    }
+    if (result?.kind !== "terminal") return `ダメージ ${Number(result?.value) || 0}`;
     const terminal = conditionDisplayName(terminalKindFor(category));
     if (!kinds.includes("troop")) return terminal;
     return kinds.some(k => k !== "troop") ? `${terminal}／壊滅` : "壊滅";
@@ -306,10 +314,16 @@ export function miracleResultLabel(result, category, targetTypes = []) {
  * @param {{kind: "terminal"|"chart", value?: number}} result
  * @param {string} targetType アクターの type
  * @param {string} category 系統
- * @returns {{op: "terminal", kind: string} | {op: "chart", value: number} | {op: "annihilate"} | {op: "heads", value: number} | {op: "none"}}
+ * @returns {{op: "terminal", kind: string} | {op: "chart", value: number} | {op: "annihilate"}
+ *   | {op: "heads", value: number} | {op: "none", reason: "extra"|"notTroop"}}
  */
 export function miracleTargetOutcome(result, targetType, category) {
-    if (targetType === "extra") return { op: "none" };
+    if (targetType === "extra") return { op: "none", reason: "extra" };
+    // 系統「トループの壊滅」(《天変地異》《突破》): トループ級だけを壊滅させる。キャスト/ゲストへの
+    // 直接ダメージは効果文が禁じているので何も起こらない(理由は結果表示に出す)
+    if (category === "troop") {
+        return targetType === "troop" ? { op: "annihilate" } : { op: "none", reason: "notTroop" };
+    }
     const terminal = result?.kind === "terminal";
     const value = Math.max(0, Number(result?.value) || 0);
     if (targetType === "troop") return terminal ? { op: "annihilate" } : { op: "heads", value };

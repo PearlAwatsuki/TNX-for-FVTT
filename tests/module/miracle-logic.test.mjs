@@ -166,6 +166,16 @@ describe("defencePreventPlan()（ダメージカードの対象行を防ぐ計�
             .toEqual({ ok: false, reason: "applied" });
     });
 
+    // Miracle_Rules「防御神業」: 防ぐものはダメージに限らず悪影響を含み、**何を防ぐかは使用者が選ぶ**
+    // ため、システムが機械的に判別しない(2026-09-03 ユーザー裁定)。トループの壊滅はダメージ系統を
+    // 持たないので、系統の設定で弾かない(防げるかどうかは卓が決める)
+    it("トループの壊滅（系統を持たない結果）は防げる系統の設定で弾かない", () => {
+        expect(defencePreventPlan({ ...f3, category: "troop" }, usageAll, { rowIndex: 0, by }))
+            .toEqual({ ok: true, indices: [0, 1, 2], by });
+        expect(defencePreventPlan({ ...f3, category: "troop" }, { defenceScope: "one", defenceCategories: ["social"] }, { rowIndex: 2, by }))
+            .toEqual({ ok: true, indices: [2], by });
+    });
+
     it("既に防がれた行は計画から外れ、残りが無ければ拒否", () => {
         const f = { ...f3, targets: [{ uuid: "A", protectedBy: by }, { uuid: "B" }, { uuid: "C", protectedBy: by }] };
         expect(defencePreventPlan(f, usageAll, { rowIndex: 0, by })).toEqual({ ok: true, indices: [1], by });
@@ -386,6 +396,14 @@ describe("miracleResultLabel()（結果の表示）", () => {
     it("解決できない対象(null)は型の無い対象として扱う＝終端状態の名前", () => {
         expect(miracleResultLabel({ kind: "terminal" }, "physical", [null])).toBe("［完全死亡］");
     });
+
+    it("系統＝トループの壊滅: 結果は常に壊滅・キャスト/ゲストだけの行は効果なし", () => {
+        expect(miracleResultLabel({ kind: "terminal" }, "troop")).toBe("壊滅");
+        expect(miracleResultLabel({ kind: "terminal" }, "troop", ["troop"])).toBe("壊滅");
+        expect(miracleResultLabel({ kind: "terminal" }, "troop", ["cast", "troop"])).toBe("壊滅");
+        expect(miracleResultLabel({ kind: "terminal" }, "troop", ["cast"])).toBe("効果なし");
+        expect(miracleResultLabel({ kind: "terminal" }, "troop", ["guest"])).toBe("効果なし");
+    });
 });
 
 describe("miracleTargetOutcome()（対象の型ごとに何が起こるか）", () => {
@@ -400,7 +418,16 @@ describe("miracleTargetOutcome()（対象の型ごとに何が起こるか）", 
     });
 
     it("エキストラ: ダメージの概念が無い(宣言死)＝適用なし", () => {
-        expect(miracleTargetOutcome({ kind: "terminal" }, "extra", "physical")).toEqual({ op: "none" });
+        expect(miracleTargetOutcome({ kind: "terminal" }, "extra", "physical")).toEqual({ op: "none", reason: "extra" });
+    });
+
+    // 系統「トループの壊滅」(《天変地異》《突破》)。効果文「トループ1グループを全滅させることができる」
+    // 「この効果で、キャストやゲストに直接ダメージを与えることはできない」
+    it("系統＝トループの壊滅: トループは壊滅・キャスト/ゲストには効果がない", () => {
+        expect(miracleTargetOutcome({ kind: "terminal" }, "troop", "troop")).toEqual({ op: "annihilate" });
+        expect(miracleTargetOutcome({ kind: "terminal" }, "cast", "troop")).toEqual({ op: "none", reason: "notTroop" });
+        expect(miracleTargetOutcome({ kind: "terminal" }, "guest", "troop")).toEqual({ op: "none", reason: "notTroop" });
+        expect(miracleTargetOutcome({ kind: "terminal" }, "extra", "troop")).toEqual({ op: "none", reason: "extra" });
     });
 });
 

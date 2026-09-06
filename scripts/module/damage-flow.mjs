@@ -42,7 +42,7 @@ import { rlGrantAmount, rlGrantLedgerRow, rlGrantTypeLabel, buildRlDamageRollFla
 import { unprotectedTargetIndices, defencePreventPlan, miracleResultLabel, miracleTargetOutcome, miracleOriginOf } from "./miracle-logic.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
-const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会" };
+const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会", troop: "壊滅" };
 const SUIT_SYMBOL = { spade: "♠", club: "♣", heart: "♥", diamond: "♦" };
 
 /**
@@ -744,7 +744,12 @@ export async function applyMiracleDamage(message) {
         let ok = true;
         try {
             if (out.op === "none") {
-                text = "エキストラ: 適用なし（宣言死）"; ok = false;
+                // 起きなかった理由を残す(消さずに理由を書く)。エキストラ=ダメージの概念が無い(宣言死)／
+                // キャスト・ゲスト=系統「トループの壊滅」は効果文が直接ダメージを禁じている
+                text = out.reason === "notTroop"
+                    ? "キャスト・ゲストには効果がない（トループ級のみ）"
+                    : "エキストラ: 適用なし（宣言死）";
+                ok = false;
             } else if (out.op === "terminal") {
                 const def = CONDITION_KINDS[out.kind];
                 const tag = conditionDisplayName(out.kind, { quote: true });
