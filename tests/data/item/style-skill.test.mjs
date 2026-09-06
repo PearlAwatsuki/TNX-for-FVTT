@@ -194,6 +194,16 @@ describe("StyleSkillDataModel.defineSchema()", () => {
       expect(schema.miracleRewrite.fields.refUuid.options.initial).toBe("");
     });
 
+    it("rewriteDescription は効果文も書き換えるか（既定はオン＝効果が変わる以上、文も書き換え後のもの）", () => {
+      expect(schema.miracleRewrite.fields.rewriteDescription).toBeInstanceOf(MockBooleanField);
+      expect(schema.miracleRewrite.fields.rewriteDescription.options.initial).toBe(true);
+    });
+
+    it("description は独自効果型で効果文も書き換えるときの効果文（技能の解説とは別）", () => {
+      expect(schema.miracleRewrite.fields.description).toBeInstanceOf(MockStringField);
+      expect(schema.miracleRewrite.fields.description.options.initial).toBe("");
+    });
+
     it("rewriteCondition は経験点の取得条件も書き換えるか（既定はオフ＝元の神業のまま）", () => {
       expect(schema.miracleRewrite.fields.rewriteCondition).toBeInstanceOf(MockBooleanField);
       expect(schema.miracleRewrite.fields.rewriteCondition.options.initial).toBe(false);

@@ -524,34 +524,51 @@ export function miracleRewriteCandidates(items, miracle) {
 }
 
 /**
- * 書き換え技能から、印に添える情報と条件の決め方を組む。
- * conditionMode: keep=元の神業の条件のまま / source=書き換え先の神業の条件 / text=技能が持つ条件文。
+ * 書き換え技能から、印に添える情報と**効果文・取得条件の決め方**を組む。
+ * どちらのモードも keep=元の神業の文のまま / source=書き換え先の神業の文 / text=技能が持つ文。
+ * **技能の解説は使わない**——技能の解説はその技能の説明であって、書き換えた後の神業の効果文ではない
+ * (2026-09-07 ユーザー指摘)。書き換え後の文は技能の設定欄に書く。
  * @param {?{id?: string, name?: string, system?: object}} skill 書き換え技能
- * @returns {{itemId: string, name: string, conditionMode: "keep"|"source"|"text", conditionText: string}}
+ * @returns {{itemId: string, name: string,
+ *   descriptionMode: "keep"|"source"|"text", descriptionText: string,
+ *   conditionMode: "keep"|"source"|"text", conditionText: string}}
  */
 export function miracleRewriteVia(skill) {
     const cfg = skill?.system?.miracleRewrite ?? {};
-    const conditionMode = cfg.rewriteCondition !== true ? "keep" : (cfg.effect === "ref" ? "source" : "text");
+    const modeOf = (on) => (on !== true ? "keep" : (cfg.effect === "ref" ? "source" : "text"));
+    const descriptionMode = modeOf(cfg.rewriteDescription);
+    const conditionMode   = modeOf(cfg.rewriteCondition);
     return {
         itemId: skill?.id ?? "", name: skill?.name ?? "",
+        descriptionMode,
+        descriptionText: descriptionMode === "text" ? (cfg.description ?? "") : "",
         conditionMode,
         conditionText: conditionMode === "text" ? (cfg.condition ?? "") : "",
     };
 }
 
 /**
- * 神業カードに出す経験点の取得条件の出どころ。効果文は常に出どころ(source)から出るが、条件だけは
- * 書き換えの設定で別れる。書き換えを伴わない効果の参照・コピー(《突然変異》)は従来どおり参照先の条件。
- * @param {?{via?: {conditionMode?: string, conditionText?: string}}} asOther 効果の出どころ(無ければ null)
- * @returns {{from: "item"|"source"|"text", text: string}} item=元の神業 / source=出どころ / text=渡す文
+ * 神業カードに出す効果文と経験点の取得条件の出どころ。効果が差し替わっても文まで差し替わるとは
+ * 限らないため、**文は文で別に決める**(書き換えの設定)。書き換えを伴わない効果の参照・コピー
+ * (《突然変異》)は従来どおりどちらも参照先の文。
+ * @param {?{via?: {descriptionMode?: string, descriptionText?: string, conditionMode?: string, conditionText?: string}}} asOther
+ *   効果の出どころ(無ければ null)
+ * @returns {{description: {from: "item"|"source"|"text", text: string},
+ *   condition: {from: "item"|"source"|"text", text: string}}} item=元の神業 / source=出どころ / text=渡す文
  */
-export function miracleCardConditionPlan(asOther) {
-    if (!asOther) return { from: "item", text: "" };
-    const mode = asOther.via?.conditionMode;
-    if (!mode) return { from: "source", text: "" };
-    if (mode === "text") return { from: "text", text: asOther.via.conditionText ?? "" };
-    if (mode === "source") return { from: "source", text: "" };
-    return { from: "item", text: "" };
+export function miracleCardTextPlan(asOther) {
+    const plan = (mode, text) => {
+        if (mode === "text")   return { from: "text", text: text ?? "" };
+        if (mode === "source") return { from: "source", text: "" };
+        if (mode === "keep")   return { from: "item", text: "" };
+        // モードが無い＝書き換えでない参照・コピー(《突然変異》)は参照先、出どころが無ければ元の神業
+        return { from: asOther ? "source" : "item", text: "" };
+    };
+    const via = asOther?.via;
+    return {
+        description: plan(via?.descriptionMode, via?.descriptionText),
+        condition:   plan(via?.conditionMode, via?.conditionText),
+    };
 }
 
 /**

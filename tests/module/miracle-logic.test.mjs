@@ -13,7 +13,7 @@ import {
     asOtherSelection, renameMiracleInCondition, miracleLogCandidates, buildMiracleUseLogEntry, miracleUseFromMessageFlags,
     miracleUsePending, markMiracleUseApplied, conditionSwapPlan, miracleRemovalUpdate, miracleIdentityMatches,
     listDestroyableOutfits,
-    miracleRewriteCandidates, miracleRewriteVia, miracleCardConditionPlan } from "../../scripts/module/miracle-logic.mjs";
+    miracleRewriteCandidates, miracleRewriteVia, miracleCardTextPlan } from "../../scripts/module/miracle-logic.mjs";
 
 describe("withDefaultMiracleConsumption()（消費先が空の神業用途は自身の使用回数×1を既定消費）", () => {
     it("消費先が空なら「このアイテム自身の使用回数 ×1」の行を補った複製を返す（元の用途は変えない）", () => {
@@ -784,12 +784,11 @@ describe("miracleRewriteCandidates()（その神業をロールしたときに�
     });
 });
 
-describe("miracleRewriteVia()（書き換え技能から、印と条件の決め方を組む）", () => {
+describe("miracleRewriteVia()（書き換え技能から、印と効果文・条件の決め方を組む）", () => {
     const via = (over) => miracleRewriteVia({ id: "s1", name: "〈書き換え〉", system: { miracleRewrite: over } });
 
     it("取得条件を書き換えないなら条件は元の神業のまま（keep）", () => {
-        expect(via({ effect: "ref", refUuid: "Compendium.p.Item.x", rewriteCondition: false }))
-            .toEqual({ itemId: "s1", name: "〈書き換え〉", conditionMode: "keep", conditionText: "" });
+        expect(via({ effect: "ref", refUuid: "Compendium.p.Item.x", rewriteCondition: false }).conditionMode).toBe("keep");
     });
 
     it("参照型で取得条件も書き換えるなら、条件は書き換え先の神業から（source）", () => {
@@ -797,29 +796,58 @@ describe("miracleRewriteVia()（書き換え技能から、印と条件の決め
     });
 
     it("独自効果型で取得条件も書き換えるなら、条件は技能が持つ文（text）", () => {
-        expect(via({ effect: "own", rewriteCondition: true, condition: "<p>危機を救った</p>" }))
-            .toEqual({ itemId: "s1", name: "〈書き換え〉", conditionMode: "text", conditionText: "<p>危機を救った</p>" });
+        const v = via({ effect: "own", rewriteCondition: true, condition: "<p>危機を救った</p>" });
+        expect(v.conditionMode).toBe("text");
+        expect(v.conditionText).toBe("<p>危機を救った</p>");
+    });
+
+    it("効果文を書き換えないなら効果文は元の神業のまま（keep）", () => {
+        expect(via({ effect: "ref", refUuid: "Compendium.p.Item.x", rewriteDescription: false }).descriptionMode).toBe("keep");
+    });
+
+    it("参照型で効果文も書き換えるなら、効果文は書き換え先の神業から（source）", () => {
+        expect(via({ effect: "ref", refUuid: "Compendium.p.Item.x", rewriteDescription: true }).descriptionMode).toBe("source");
+    });
+
+    it("独自効果型で効果文も書き換えるなら、効果文は技能が持つ文（text）＝技能の解説は使わない", () => {
+        const v = via({ effect: "own", rewriteDescription: true, description: "<p>好きな効果が起きる</p>" });
+        expect(v.descriptionMode).toBe("text");
+        expect(v.descriptionText).toBe("<p>好きな効果が起きる</p>");
     });
 });
 
-describe("miracleCardConditionPlan()（神業カードに出す経験点の取得条件の出どころ）", () => {
-    it("書き換えが無ければ元の神業の条件", () => {
-        expect(miracleCardConditionPlan(null)).toEqual({ from: "item", text: "" });
+describe("miracleCardTextPlan()（神業カードに出す効果文と取得条件の出どころ）", () => {
+    it("書き換えが無ければどちらも元の神業", () => {
+        expect(miracleCardTextPlan(null)).toEqual({
+            description: { from: "item", text: "" }, condition: { from: "item", text: "" } });
     });
 
-    it("従来の効果の参照・コピー（《突然変異》）は参照先の条件（現行の挙動を変えない）", () => {
-        expect(miracleCardConditionPlan({ uuid: "Compendium.p.Item.x", name: "死の舞踏" })).toEqual({ from: "source", text: "" });
+    it("従来の効果の参照・コピー（《突然変異》）はどちらも参照先（現行の挙動を変えない）", () => {
+        expect(miracleCardTextPlan({ uuid: "Compendium.p.Item.x", name: "死の舞踏" })).toEqual({
+            description: { from: "source", text: "" }, condition: { from: "source", text: "" } });
     });
 
-    it("条件を書き換えない書き換えでは、効果だけ差し替わり条件は元の神業のまま", () => {
-        const asOther = { uuid: "Compendium.p.Item.x", name: "死の舞踏", via: { itemId: "s1", name: "〈書き換え〉", conditionMode: "keep", conditionText: "" } };
-        expect(miracleCardConditionPlan(asOther)).toEqual({ from: "item", text: "" });
+    it("効果文だけ書き換える書き換えでは、条件は元の神業のまま", () => {
+        const asOther = { uuid: "Compendium.p.Item.x", name: "死の舞踏",
+            via: { itemId: "s1", name: "〈書き換え〉", descriptionMode: "source", descriptionText: "", conditionMode: "keep", conditionText: "" } };
+        expect(miracleCardTextPlan(asOther)).toEqual({
+            description: { from: "source", text: "" }, condition: { from: "item", text: "" } });
     });
 
-    it("独自効果型で条件も書き換えるなら、技能が持つ文をそのまま出す", () => {
+    it("独自効果型は効果文も条件も技能が持つ文をそのまま出す", () => {
         const asOther = { uuid: "Actor.a.Item.s1", name: "〈書き換え〉", kind: "skill",
-            via: { itemId: "s1", name: "〈書き換え〉", conditionMode: "text", conditionText: "<p>危機を救った</p>" } };
-        expect(miracleCardConditionPlan(asOther)).toEqual({ from: "text", text: "<p>危機を救った</p>" });
+            via: { itemId: "s1", name: "〈書き換え〉", descriptionMode: "text", descriptionText: "<p>好きな効果</p>",
+                conditionMode: "text", conditionText: "<p>危機を救った</p>" } };
+        expect(miracleCardTextPlan(asOther)).toEqual({
+            description: { from: "text", text: "<p>好きな効果</p>" },
+            condition: { from: "text", text: "<p>危機を救った</p>" } });
+    });
+
+    it("どちらも書き換えないなら、効果が差し替わっても文は元の神業のまま", () => {
+        const asOther = { uuid: "Actor.a.Item.s1", name: "〈書き換え〉", kind: "skill",
+            via: { itemId: "s1", name: "〈書き換え〉", descriptionMode: "keep", descriptionText: "", conditionMode: "keep", conditionText: "" } };
+        expect(miracleCardTextPlan(asOther)).toEqual({
+            description: { from: "item", text: "" }, condition: { from: "item", text: "" } });
     });
 });
 

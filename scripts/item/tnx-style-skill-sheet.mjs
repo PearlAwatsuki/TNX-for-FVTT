@@ -107,11 +107,16 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
             const rw = system.miracleRewrite ?? {};
             context.rewriteEffectOptions = TokyoNovaStyleSkillSheet.REWRITE_EFFECTS;
             context.rewriteIsRef = rw.effect === "ref";
-            context.rewriteShowCondition = rw.effect === "own" && rw.rewriteCondition === true;
+            // 独自効果型で「書き換える」ときだけ文の欄を出す(参照型は書き換え先の神業の文を使う)
+            context.rewriteShowDescription = rw.effect === "own" && rw.rewriteDescription === true;
+            context.rewriteShowCondition   = rw.effect === "own" && rw.rewriteCondition === true;
             context.rewriteTarget = await TokyoNovaStyleSkillSheet._resolveRewriteRef(rw.target?.uuid, rw.target?.name);
             context.rewriteRef    = context.rewriteIsRef
                 ? await TokyoNovaStyleSkillSheet._resolveRewriteRef(rw.refUuid, "") : null;
-            context.enrichedRewriteCondition = await foundry.applications.ux.TextEditor.enrichHTML(
+            const TE = foundry.applications.ux.TextEditor;
+            context.enrichedRewriteDescription = await TE.enrichHTML(
+                rw.description ?? "", { relativeTo: this.item, editable: context.editable });
+            context.enrichedRewriteCondition = await TE.enrichHTML(
                 rw.condition ?? "", { relativeTo: this.item, editable: context.editable });
         }
 

@@ -145,8 +145,13 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
 
       // 神業書き換え(unique="miracleChange"・神業と同じタイミングで使い、**その1回の使用に限り**
       // 神業の効果を書き換える)。ルール上の4種類を2軸で表す:
-      //   effect            = 書き換え後の効果の出どころ("ref"=別の神業と同じ / "own"=この技能の用途)
-      //   rewriteCondition  = 経験点の取得条件も書き換えるか(オフ=元の神業の条件のまま)
+      //   effect             = 書き換え後の効果の出どころ("ref"=別の神業と同じ / "own"=この技能の用途)
+      //   rewriteDescription = 効果文も書き換えるか(オフ=元の神業の効果文のまま)
+      //   rewriteCondition   = 経験点の取得条件も書き換えるか(オフ=元の神業の条件のまま)
+      // 効果が差し替わっても文まで差し替わるとは限らないため、**文は文で別に決める**。
+      // description = 独自効果型で効果文も書き換えるときの効果文。**技能の解説は使わない**——
+      // 技能の解説はその技能の説明であって、書き換えた後の神業の効果文ではない(2026-09-07 ユーザー指摘)。
+      // 既定はオン(効果が別物になる以上、文も書き換え後のものを出すのが既定)
       // target = 対応する神業(この神業をロールしたときに書き換えを申し出る)。**空欄ならどの神業でも**
       // 候補に出す(組み合わせの可否は卓が決めるという規範を残すため)。照合は識別キー優先・
       // 無ければ名前(辞典の1件とアクターの写しの照合と同じ規則=miracleIdentityMatches)。
@@ -161,10 +166,12 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
           key:  new fields.StringField({ initial: "" }),
           name: new fields.StringField({ initial: "" }),
         }),
-        effect:           new fields.StringField({ initial: "" }),
-        refUuid:          new fields.StringField({ initial: "" }),
-        rewriteCondition: new fields.BooleanField({ initial: false }),
-        condition:        new fields.StringField({ initial: "" }),
+        effect:             new fields.StringField({ initial: "" }),
+        refUuid:            new fields.StringField({ initial: "" }),
+        rewriteDescription: new fields.BooleanField({ initial: true }),
+        description:        new fields.StringField({ initial: "" }),
+        rewriteCondition:   new fields.BooleanField({ initial: false }),
+        condition:          new fields.StringField({ initial: "" }),
       }),
 
       // 使用回数(outfitBase.uses と同型だが styleSkill 固有の別フィールド)

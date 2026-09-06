@@ -412,6 +412,23 @@
                             {{/if}}
 
                             <div class="form-group">
+                                <label for="rewriteDescription-{{item._id}}">効果文も書き換える</label>
+                                <input type="checkbox" name="system.miracleRewrite.rewriteDescription" id="rewriteDescription-{{item._id}}" {{checked system.miracleRewrite.rewriteDescription}}>
+                            </div>
+
+                            {{#if rewriteShowDescription}}
+                            {{!-- 書き換えた後の神業の効果文(技能の解説とは別物) --}}
+                            <div class="tnx-editor-section">
+                                <div class="tnx-editor-section__header">
+                                    <label>効果文</label>
+                                </div>
+                                <div class="tnx-editor-section__content">
+                                    {{editor enrichedRewriteDescription target="system.miracleRewrite.description" engine="prosemirror" button=true owner=owner editable=editable}}
+                                </div>
+                            </div>
+                            {{/if}}
+
+                            <div class="form-group">
                                 <label for="rewriteCondition-{{item._id}}">取得条件も書き換える</label>
                                 <input type="checkbox" name="system.miracleRewrite.rewriteCondition" id="rewriteCondition-{{item._id}}" {{checked system.miracleRewrite.rewriteCondition}}>
                             </div>

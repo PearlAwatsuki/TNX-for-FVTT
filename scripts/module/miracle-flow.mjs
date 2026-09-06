@@ -16,7 +16,7 @@ import {
     buildMiracleDamageFlag, miracleResultLabel,
     interferenceCandidates, addUseEffectSource, miracleLogCandidates, conditionSwapPlan,
     renameMiracleInCondition, listDestroyableOutfits,
-    miracleRewriteCandidates, miracleRewriteVia, miracleCardConditionPlan,
+    miracleRewriteCandidates, miracleRewriteVia, miracleCardTextPlan,
 } from "./miracle-logic.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
@@ -957,19 +957,26 @@ export async function postMiracleCard(item, { usageEffects = null, destroy = nul
     const TE = foundry.applications.ux.TextEditor;
     // 解説の段(効果文と条件)は**常に畳んだ状態でカードの最上部**に置く(2026-09-05 ユーザー指示)。
     // 他の神業として使う(17-5)ときは参照先の文を出す(条件も参照先と同じ)。
-    // 神業書き換え技能は効果文と条件の出どころが別れる——条件を書き換えない書き換えでは、
-    // 効果文だけ差し替わり条件は元の神業のまま(miracleCardConditionPlan)。参照先の条件を出すときは、
-    // 文中の神業名を名乗る神業の名前に置き換える(方針A と同じ理由=文を名乗るのはこの神業)
+    // 神業書き換え技能は効果文・条件それぞれの出どころが設定で決まる(miracleCardTextPlan)——
+    // 効果だけ差し替えて文は元の神業のまま、も表せる。参照先の文を出すときは、文中の神業名を
+    // 名乗る神業の名前に置き換える(方針A と同じ理由=文を名乗るのはこの神業)
     const textHost = asOther?.source ?? item;
-    const conditionPlan = miracleCardConditionPlan(asOther);
-    const conditionHost = conditionPlan.from === "item" ? item : textHost;
-    let conditionRaw = conditionPlan.from === "text" ? conditionPlan.text : (conditionHost.system?.usageCondition ?? "");
-    if (conditionPlan.from === "source" && asOther?.via && conditionHost !== item) {
-        conditionRaw = renameMiracleInCondition(conditionRaw, conditionHost.name, item.name);
-    }
+    const textPlan = miracleCardTextPlan(asOther);
+    const resolveText = (plan, field) => {
+        if (plan.from === "text") return { raw: plan.text, host: item };
+        const host = plan.from === "item" ? item : textHost;
+        const raw = host.system?.[field] ?? "";
+        return {
+            raw: (plan.from === "source" && asOther?.via && host !== item)
+                ? renameMiracleInCondition(raw, host.name, item.name) : raw,
+            host,
+        };
+    };
+    const desc = resolveText(textPlan.description, "description");
+    const cond = resolveText(textPlan.condition, "usageCondition");
     const [description, condition] = await Promise.all([
-        TE.enrichHTML(textHost.system?.description ?? "", { relativeTo: textHost }),
-        TE.enrichHTML(conditionRaw, { relativeTo: conditionPlan.from === "text" ? item : conditionHost }),
+        TE.enrichHTML(desc.raw, { relativeTo: desc.host }),
+        TE.enrichHTML(cond.raw, { relativeTo: cond.host }),
     ]);
     const { remaining, max } = miracleUseGate(item.system);
     const data = buildMiracleCardData(item, { description, condition, remaining, max });
