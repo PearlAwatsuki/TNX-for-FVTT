@@ -987,18 +987,29 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         context.combatTimings = allGroups;
     }
 
+    /**
+     * 神業のボタン(枠)を組む。**枠の数は母数(uses.max の土台)**で、使用回数を増やす効果
+     * (《ファイト！》の AE)では増やさない——枠はキャラクターが持つ神業の数を表すもので、
+     * 合計 3 が上限だから(2026-09-06 ユーザー指示「ボタンの総数が3で最大になるように」)。
+     * 増えた回数は**枠の有効/無効**に効く(使い切った枠が再び押せるようになる)。
+     * @param {Item[]} miracles 神業アイテム
+     * @returns {object[]} 枠(合計 3 まで)
+     */
     _prepareMiraclesForDisplay(miracles) {
+        const MAX_SLOTS = 3;
         const slots = [];
-        miracles.forEach(item => {
+        for (const item of miracles) {
+            if (slots.length >= MAX_SLOTS) break;
             const itemData = item.toObject(false);
-            // 神業も汎用 uses(残り = max − spent)に一本化(2026-07-18)。実効 max は item.system(AE込み)から読む
+            // 神業も汎用 uses(残り = max − spent)に一本化(2026-07-18)。
+            // 残りは実効 max(AE 込み)から、枠の数は母数(AE を数えない)から
             const uses = item.system.uses ?? {};
-            const maxUses       = usesMaxTotalOf(item.system);
-            const remainingUses = Math.max(0, maxUses - (Number(uses.spent) || 0));
-            for (let i = 0; i < maxUses; i++) {
+            const remainingUses = Math.max(0, usesMaxTotalOf(item.system) - (Number(uses.spent) || 0));
+            const baseMax = Math.max(1, usesMaxBaseOf(item.system));
+            for (let i = 0; i < baseMax && slots.length < MAX_SLOTS; i++) {
                 slots.push({ ...itemData, isPlaceholder: false, instanceIndex: i, isDisabled: i >= remainingUses });
             }
-        });
+        }
         return slots;
     }
 
