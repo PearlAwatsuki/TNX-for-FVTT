@@ -8600,6 +8600,10 @@ button.tnx-create-act-button span {
     color: var(--tnx2-text-secondary);
     margin: 0 0 8px;
 }
+/* 行に続くプロンプトは群の切れ目(回復対象の選択=状態の群→効果の群) */
+.tnx-uses-consume .tnx-uses-row + .tnx-uses-note {
+    margin-top: 10px;
+}
 .tnx-uses-consume .tnx-uses-row {
     display: flex;
     align-items: center;

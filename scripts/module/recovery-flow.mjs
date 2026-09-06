@@ -52,7 +52,8 @@ const SCOPE = "tokyo-nova-axleration";
 /**
  * 対象アクターの現在の状態から、回復範囲に合致し除外に当たらない効果を列挙する。
  * 神業の治癒(防御タイプ「受けた後に消す」・17-2)の3条件——神業由来は神業でしか除去できない／
- * 受けたシーンの制限／スタイル技能の効果(付与コピー)の解除——は純関数 recoveryCandidateAllowed が担う。
+ * 受けたシーンの制限／BS・ダメージ以外の効果の解除——は純関数 recoveryCandidateAllowed が担う。
+ * 状態でない効果は**どこから来たかを見ない**(2026-09-07 ユーザー指示)——選ぶのはダイアログ。
  * @param {Actor} patient
  * @param {object} usage
  * @param {{byMiracle?: boolean, currentScene?: ?{act?: string, number?: number}}} [ctx]
@@ -66,31 +67,17 @@ export function listRecoverableEffects(patient, usage, { byMiracle = false, curr
         const entry = {
             isCondition: !!kind,
             isTerminal: CONDITION_KINDS[kind]?.type === "terminal",
-            isGranted: !!f.grantedFrom,
-            sourceIsStyleSkill: grantedSourceIsStyleSkill(f.grantedFrom),
             fromMiracle: f.fromMiracle === true,
             receivedScene: f.receivedScene ?? null,
         };
         if (kind) {
             if (!recoveryKindMatches(kind, usage.recoveryTargets)) continue;
             if (recoveryKindExcluded(kind, usage.recoveryExcludes)) continue;
-        } else if (e.disabled || f.transferredFrom) {
-            continue; // 無効化済み・転送コピー(供給元が正)は候補にしない
         }
         if (!recoveryCandidateAllowed(entry, usage, { byMiracle, currentScene })) continue;
         out.push(e);
     }
     return out;
-}
-
-/** 付与コピーの供給元がスタイル技能か(解決できなければ null=判断保留)。 */
-function grantedSourceIsStyleSkill(uuid) {
-    if (!uuid) return null;
-    try {
-        const src = fromUuidSync(uuid);
-        const parent = src?.parent;
-        return parent?.documentName === "Item" ? parent.type === "styleSkill" : null;
-    } catch { return null; }
 }
 
 /** 上演中のシーン(アクト id とシーン番号)。アクト外は act が空で、比較側は不明を通す。 */
@@ -107,12 +94,14 @@ function woundRemovalIds(patient, wound) {
     return [wound.id, ...linked.map(e => e.id)];
 }
 
-/** 選択された効果群から除去 ID 集合と式参照値(強度・ダメージ値の最大)を組む。 */
+/** 選択された効果群から除去 ID 集合と式参照値(強度・ダメージ値の最大)を組む。
+ *  表示名は状態と効果で分けて返す——状態は「回復」・効果は「解除」で言い方が違う。 */
 function buildRemovalPlan(patient, effects) {
     const ids = new Set();
     let magnitude = 0;
     let woundValue = 0;
-    const labels = [];
+    const conditionLabels = [];
+    const effectLabels = [];
     const addWoundRange = (wound) => {
         for (const id of woundRemovalIds(patient, wound)) ids.add(id);
         // チャート値: 保存値優先・無ければ kind から導出(手動付与の負傷は woundValue を持たない)
@@ -123,7 +112,8 @@ function buildRemovalPlan(patient, effects) {
         const def = CONDITION_KINDS[kind];
         // 表示は名前の書式規約に従う(戦闘不能のタグ＝［］・BS/負傷などの名前＝「」)。
         // **負傷(ダメージ)を［］でくくらない**——戦闘不能と読み違えるため(2026-09-07 ユーザー指示)
-        labels.push(kind ? conditionDisplayName(kind, { quote: true }) : `「${e.name}」`);
+        if (kind) conditionLabels.push(conditionDisplayName(kind, { quote: true }));
+        else effectLabels.push(`「${e.name}」`);
         if (def?.type === "wound") {
             addWoundRange(e);
         } else if (def?.group === "incapacitation") {
@@ -139,21 +129,35 @@ function buildRemovalPlan(patient, effects) {
         }
         magnitude = Math.max(magnitude, Number(readCondition(e)?.magnitude) || 0);
     }
-    return { removeIds: [...ids], magnitude, woundValue, label: labels.join("・") };
+    return { removeIds: [...ids], magnitude, woundValue,
+        conditionLabel: conditionLabels.join("・"), effectLabel: effectLabels.join("・") };
 }
 
-/** 回復の帰結行(アイコンと文)。「誰の何を回復したか」を1行で示す。
+/** 回復の帰結行(アイコンと文)。「誰の何を回復し、何を解除したか」を1行で示す。
  *  文は組み立て済みの HTML 断片(状態名の塊は描画時に、言い回しはここで折らないようにする)。 */
-function recoveryOutcome(patientName, label) {
+function recoveryOutcome(patientName, { conditionLabel = "", effectLabel = "" } = {}) {
     const esc = foundry.utils.escapeHTML;
-    return { icon: "fa-kit-medical", text: `${esc(patientName)}の${esc(label)}${nowrap("を回復した")}` };
+    if (!conditionLabel && !effectLabel) return null;
+    const parts = [];
+    if (conditionLabel) parts.push(`${esc(conditionLabel)}${nowrap(effectLabel ? "を回復し、" : "を回復した")}`);
+    if (effectLabel) parts.push(`${esc(effectLabel)}${nowrap("を解除した")}`);
+    return { icon: "fa-kit-medical", text: `${esc(patientName)}の${parts.join("")}` };
 }
 
-/** 回復対象の選択ダイアログ。recoveryAll=一覧確認のみ・それ以外=recoveryCount 個まで選択。 */
+/**
+ * 回復対象の選択ダイアログ。
+ * - 状態(BS・戦闘不能・負傷): recoveryAll=一覧確認のみ／それ以外=recoveryCount 個まで選択。
+ * - BS・ダメージ以外の効果(recoveryEffects): **常に任意選択**(「該当すべて」でも一括では消さない)。
+ *   効果文が「任意のスタイル技能の効果を解除する」(《人命救助》)「それらも同時に解除できる」(《腹心》)
+ *   と任意にしているため。個数の上限も置かない(2026-09-07 ユーザー指示)。
+ */
 async function promptRecoverySelection(patient, candidates, usage) {
     const esc = foundry.utils.escapeHTML;
-    const max = usage.recoveryAll ? candidates.length : Math.max(1, Number(usage.recoveryCount) || 1);
-    const rows = candidates.map(e => {
+    const conditions = candidates.filter(e => getConditionKinds(e)[0]);
+    const effects = candidates.filter(e => !getConditionKinds(e)[0]);
+    const max = Math.max(1, Number(usage.recoveryCount) || 1);
+
+    const conditionRows = conditions.map(e => {
         const kind = getConditionKinds(e)[0];
         const def = CONDITION_KINDS[kind];
         const mag = Number(readCondition(e)?.magnitude) || 0;
@@ -173,31 +177,46 @@ async function promptRecoverySelection(patient, candidates, usage) {
         return `<div class="tnx-uses-row"><label>${input}
             <span>${esc(def?.label ?? e.name)}${esc(extra)}</span></label></div>`;
     }).join("");
-    const note = usage.recoveryAll
+    const conditionNote = usage.recoveryAll
         ? "<p class=\"tnx-uses-note\">該当するすべての状態を回復します。</p>"
         : `<p class="tnx-uses-note">回復する状態を選んでください（最大 ${max} 個）。</p>`;
+
+    const effectRows = effects.map(e =>
+        `<div class="tnx-uses-row"><label>
+            <input type="checkbox" name="recoverEffect" value="${esc(e.id)}">
+            <span>${esc(e.name)}</span></label></div>`).join("");
+    const effectNote = "<p class=\"tnx-uses-note\">解除する効果を選んでください。</p>";
 
     const picked = await foundry.applications.api.DialogV2.wait({
         window: { title: `回復対象の選択: ${patient.name}` },
         classes: ["tokyo-nova", "tnx-dialog", "tnx-uses-dialog"],
         position: { width: 420 },
-        content: `<div class="tnx-uses-consume">${note}${rows}</div>`,
+        content: `<div class="tnx-uses-consume">`
+            + (conditions.length ? conditionNote + conditionRows : "")
+            + (effects.length ? effectNote + effectRows : "")
+            + `</div>`,
         buttons: [
             { action: "ok", icon: "fas fa-check", label: "決定", default: true,
-              callback: (_e, _b, dialog) => usage.recoveryAll
-                  ? candidates.map(e => e.id)
-                  : [...dialog.element.querySelectorAll('input[name="recover"]:checked')].map(cb => cb.value) },
+              callback: (_e, _b, dialog) => ({
+                  conditions: usage.recoveryAll
+                      ? conditions.map(e => e.id)
+                      : [...dialog.element.querySelectorAll('input[name="recover"]:checked')].map(cb => cb.value),
+                  effects: [...dialog.element.querySelectorAll('input[name="recoverEffect"]:checked')].map(cb => cb.value),
+              }) },
             { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
         ],
         close: () => null,
     });
-    if (!picked) return null;
-    if (!picked.length) { ui.notifications.warn("回復する状態が選ばれていません。"); return null; }
-    if (!usage.recoveryAll && picked.length > max) {
-        ui.notifications.warn(`回復できるのは最大 ${max} 個です。`);
+    // DialogV2 は「コールバックの戻り値 ?? ボタンの action」を返す——キャンセルの戻り値 null は
+    // 文字列 "cancel" になって届く。中止は**選択結果(オブジェクト)でないこと**で判定する
+    if (!picked || typeof picked !== "object") return null;
+    if (!usage.recoveryAll && picked.conditions.length > max) {
+        ui.notifications.warn(`回復できる状態は最大 ${max} 個です。`);
         return null;
     }
-    return candidates.filter(e => picked.includes(e.id));
+    const ids = [...picked.conditions, ...picked.effects];
+    if (!ids.length) { ui.notifications.warn("回復・解除するものが選ばれていません。"); return null; }
+    return candidates.filter(e => ids.includes(e.id));
 }
 
 /** 回復対象(1体)を解決する: ターゲット中のキャラクター(先頭)・いなければ自分(し忘れの自動解決・
@@ -281,7 +300,7 @@ export async function useRecovery(item, usage, prebound = null, { asOther = null
         // 回復したことは、**その使用を表しているカードの帰結行**として出す(2026-09-07 ユーザー指示)——
         // 帰結だけの短いカードを別に出さない。神業の治癒(17-2)は神業カード(神業の使用を卓に提示する・
         // 使用ログの記帳点・17-5)、それ以外は他の宣言用途と同じアイテムの解説カード
-        const outcome = recoveryOutcome(patient.name, plan.label);
+        const outcome = recoveryOutcome(patient.name, plan);
         if (item.type === "miracle") {
             const { postMiracleCard } = await import("./miracle-flow.mjs");
             await postMiracleCard(item, { asOther, outcome });
@@ -304,9 +323,10 @@ export async function useRecovery(item, usage, prebound = null, { asOther = null
         ...base,
         // 完了継続(TnxCheckFlow._execute → resolveRecoveryFromCheck)
         recovery: {
-            patientUuid: patient.uuid,
-            removeIds:   plan.removeIds,
-            label:       plan.label,
+            patientUuid:    patient.uuid,
+            removeIds:      plan.removeIds,
+            conditionLabel: plan.conditionLabel,
+            effectLabel:    plan.effectLabel,
         },
     });
 }
@@ -316,7 +336,7 @@ export async function useRecovery(item, usage, prebound = null, { asOther = null
  * 目標値なし(成否 null)は達成値の報告のみで除去せず、適用は卓裁定(結果カードから判断)。
  * 回復したことは**判定結果カードの帰結行**として刻む(2026-09-07 ユーザー指示・別カードを出さない)。
  * 失敗は結果カード自身が「失敗」と示すため、帰結行は刻まない。
- * @param {{patientUuid:string, removeIds:string[], label:string}} ctx
+ * @param {{patientUuid:string, removeIds:string[], conditionLabel:string, effectLabel:string}} ctx
  * @param {object} result 判定結果
  * @param {{messageId?: ?string}} [args] messageId=帰結行を刻む判定結果カード
  */
@@ -328,5 +348,9 @@ export async function resolveRecoveryFromCheck(ctx, result, { messageId = null }
 
     if (!await applyRecoveryRemoval(patient, ctx.removeIds)) return;
     const message = messageId ? game.messages.get(messageId) : null;
-    if (message) await stampCardOutcome(message, recoveryOutcome(patient.name, ctx.label));
+    // 旧いカードの再判定スナップショットは label 1本(状態のみ)——そのまま状態の名前として読む
+    const outcome = recoveryOutcome(patient.name, {
+        conditionLabel: ctx.conditionLabel ?? ctx.label ?? "", effectLabel: ctx.effectLabel ?? "",
+    });
+    if (message && outcome) await stampCardOutcome(message, outcome);
 }

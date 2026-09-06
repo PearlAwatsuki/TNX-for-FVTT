@@ -333,17 +333,26 @@ describe("recoveryCandidateAllowed()（神業の治癒で候補に載せてよ�
         expect(recoveryCandidateAllowed(cond({ fromMiracle: true }), { recoverySceneLimit: "none" }, { byMiracle: true, currentScene: here })).toBe(true);
     });
 
-    it("スタイル技能の効果(付与コピー)は recoveryEffects がオンの神業の治療でだけ候補になる", () => {
-        const eff = { isCondition: false, isTerminal: false, isGranted: true, sourceIsStyleSkill: true, fromMiracle: false, receivedScene: null };
+    it("BS・ダメージ以外の効果は recoveryEffects がオンの神業の治癒でだけ候補になる", () => {
+        const eff = { isCondition: false, isTerminal: false, fromMiracle: false, receivedScene: null };
         expect(recoveryCandidateAllowed(eff, { recoveryEffects: true }, { byMiracle: true, currentScene: here })).toBe(true);
         expect(recoveryCandidateAllowed(eff, { recoveryEffects: false }, { byMiracle: true, currentScene: here })).toBe(false);
         expect(recoveryCandidateAllowed(eff, { recoveryEffects: true }, { byMiracle: false, currentScene: here })).toBe(false);
     });
 
-    it("スタイル技能以外から付与された効果・付与コピーでない効果は候補にしない（供給元が解決できないものは通す）", () => {
-        expect(recoveryCandidateAllowed({ isCondition: false, isGranted: true, sourceIsStyleSkill: false }, { recoveryEffects: true }, { byMiracle: true, currentScene: here })).toBe(false);
-        expect(recoveryCandidateAllowed({ isCondition: false, isGranted: false, sourceIsStyleSkill: null }, { recoveryEffects: true }, { byMiracle: true, currentScene: here })).toBe(false);
-        expect(recoveryCandidateAllowed({ isCondition: false, isGranted: true, sourceIsStyleSkill: null }, { recoveryEffects: true }, { byMiracle: true, currentScene: here })).toBe(true);
+    it("効果の出どころ(付与経路・供給元の種類)では絞り込まない（2026-09-07 ユーザー指示・選ぶのはダイアログ）", () => {
+        const usage = { recoveryEffects: true };
+        const ctx = { byMiracle: true, currentScene: here };
+        // 付与コピーでない効果・供給元が一般技能の付与コピー・供給元を解決できない効果——すべて候補
+        expect(recoveryCandidateAllowed({ isCondition: false }, usage, ctx)).toBe(true);
+        expect(recoveryCandidateAllowed({ isCondition: false, isGranted: false }, usage, ctx)).toBe(true);
+        expect(recoveryCandidateAllowed({ isCondition: false, isGranted: true, sourceIsStyleSkill: false }, usage, ctx)).toBe(true);
+    });
+
+    it("神業由来の印がある効果は神業の治癒でしか解除できない（印のゲートは効果にも効く）", () => {
+        const eff = { isCondition: false, fromMiracle: true };
+        expect(recoveryCandidateAllowed(eff, { recoveryEffects: true }, { byMiracle: true, currentScene: here })).toBe(true);
+        expect(recoveryCandidateAllowed(eff, { recoveryEffects: true }, { byMiracle: false, currentScene: here })).toBe(false);
     });
 });
 

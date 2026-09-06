@@ -392,9 +392,10 @@ export function isSameReceivedScene(received, current) {
  *  - 印のゲートの受け側: 神業由来(fromMiracle)の状態・効果は神業の治療でしか除去できない。
  *  - 受けたシーンの制限(recoverySceneLimit): terminal=完全死亡・精神崩壊だけそのシーンで受けたもの／
  *    all=すべてそのシーンで受けたもの(《腹心》《人命救助》《黄泉還り》の効果文)。
- *  - スタイル技能の効果の解除(recoveryEffects): 状態でない付与コピーはこの設定がオンの神業の治療で
- *    だけ候補になり、供給元がスタイル技能でないと解決できたものは外す(解決できないものは通す)。
- * @param {{isCondition: boolean, isTerminal?: boolean, isGranted?: boolean, sourceIsStyleSkill?: ?boolean,
+ *  - BS・ダメージ以外の効果の解除(recoveryEffects): 状態でない効果は、この設定がオンの神業の治癒で
+ *    だけ候補になる。**どこから来た効果かは見ない**(2026-09-07 ユーザー指示「付与経路などの判断は
+ *    全て邪魔」)——解除するものはダイアログで選ぶ。
+ * @param {{isCondition: boolean, isTerminal?: boolean,
  *          fromMiracle?: boolean, receivedScene?: ?{act?: string, number?: number}}} entry
  * @param {{recoverySceneLimit?: string, recoveryEffects?: boolean}} usage
  * @param {{byMiracle: boolean, currentScene?: ?{act?: string, number?: number}}} ctx
@@ -402,11 +403,7 @@ export function isSameReceivedScene(received, current) {
  */
 export function recoveryCandidateAllowed(entry, usage, { byMiracle, currentScene = null }) {
     if (entry?.fromMiracle && !byMiracle) return false;
-    if (!entry?.isCondition) {
-        if (!byMiracle || usage?.recoveryEffects !== true) return false;
-        if (!entry?.isGranted) return false;
-        return entry.sourceIsStyleSkill !== false;
-    }
+    if (!entry?.isCondition) return byMiracle && usage?.recoveryEffects === true;
     const limit = usage?.recoverySceneLimit ?? "none";
     if (limit === "all" || (limit === "terminal" && entry.isTerminal)) {
         return isSameReceivedScene(entry.receivedScene ?? null, currentScene);
