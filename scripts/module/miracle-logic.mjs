@@ -39,6 +39,20 @@ export function miracleConsumeUpdate(system) {
 }
 
 /**
+ * 同じ神業か(辞典の1件と、アクターが持つ写しの照合)。識別キーがあればそれで、無ければ名前で見る。
+ * 打ち消しの限定(《真実に対する不可触》のように**特定の神業だけ**打ち消せる用途)で使う。
+ * @param {?{identificationKey?: string, name?: string}} a
+ * @param {?{identificationKey?: string, name?: string}} b
+ * @returns {boolean}
+ */
+export function miracleIdentityMatches(a, b) {
+    const key = (x) => String(x?.identificationKey ?? "").trim();
+    if (key(a) && key(b)) return key(a) === key(b);
+    const name = (x) => String(x?.name ?? "").trim();
+    return !!name(a) && name(a) === name(b);
+}
+
+/**
  * 神業を1つ外すときの更新。**母数(uses.max)が2以上なら削除でなく母数-1**——同じ神業を
  * 多重に取得している状態から1つ外す操作だから(2026-07-18 uses 一本化)。
  * 母数が1以下ならアイテムごと削除する(null を返す)。

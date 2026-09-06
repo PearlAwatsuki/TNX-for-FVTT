@@ -604,7 +604,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         }
         // 宣言の効果(17-4/17-6・神業の宣言タイプ専用): なし／対象の神業の使用回数を+1(《ファイト！》)／
         // 対象に神業を使わせる(《プリーズ！》)／対象と自分のダメージ・状態を入れ替える(《神出鬼没》)／
-        // アウトフィットを入手する(《タイムリー》《買収》)／次の行動を神業以外で妨げられなくする(《不可知》)
+        // アウトフィットを入手する(《タイムリー》《買収》)／次の行動を神業以外で妨げられなくする(《不可知》)／
+        // 見聞きした神業のコピー(《突然変異》・2026-09-06 に効果の参照から移設＝コピーは宣言の効果)
         context.isMiracleDeclaration = usage.type === "miracleDeclaration";
         if (context.isMiracleDeclaration) {
             const mode = usage.miracleEffect || "";
@@ -615,6 +616,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 { value: "swapDamage",    label: "宿主と自分のダメージ・状態を入れ替える" },
                 { value: "acquireOutfit", label: "アウトフィットを入手する（常備化できない）" },
                 { value: "insensible",    label: "次の行動を神業以外で妨げられなくする" },
+                { value: "copyUsed",      label: "このアクトで見聞きした神業をコピーする" },
             ].map(o => ({ ...o, selected: o.value === mode }));
         }
         // 防御タイプ(17-2・神業専用): 動作(打ち消し/適用前に防ぐ/回避/受けた後に消す)・範囲・系統。
@@ -631,6 +633,20 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             ].map(o => ({ ...o, selected: o.value === act }));
             context.isDefencePrevent = act === "prevent";
             context.isDefenceCure    = act === "cure";
+            context.isDefenceNegate  = act === "negate";
+            // 打ち消せる神業の限定(《真実に対する不可触》等)。相手は神業ごとに変わる＝選ぶ操作なので
+            // 辞典の神業を並べたプルダウンにする(2026-09-06 ユーザーの基準)
+            if (context.isDefenceNegate) {
+                const pack = game.packs.get("tokyo-nova-axleration.miracles");
+                const index = pack ? await pack.getIndex() : [];
+                const cur = usage.negateMiracle || "";
+                context.negateMiracleOptions = [
+                    { value: "", label: "すべての神業", selected: !cur },
+                    ...[...index]
+                        .sort((a, b) => a.name.localeCompare(b.name, "ja"))
+                        .map(e => ({ value: e.uuid, label: e.name, selected: e.uuid === cur })),
+                ];
+            }
             const scope = usage.defenceScope || "all";
             context.defenceScopeOptions = [
                 { value: "all", label: "一回の攻撃・神業をまるごと" },

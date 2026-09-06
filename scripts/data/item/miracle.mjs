@@ -47,7 +47,7 @@ export class MiracleDataModel extends SystemDataModel.mixin(BaseTemplate, UsageT
         spent:   new fields.NumberField({ initial: 0 }),
       }),
       identificationKey: new fields.StringField({ initial: "" }),
-      // 他の神業として使う(17-5・アイテム側の機能)。mode: ""=なし／choice=指定の選択肢から1つ選んで
+      // 効果の参照(17-5・アイテム側の機能)。mode: ""=なし／choice=区分ごとに参照する神業を決めて1つ選んで
       // 固定する(《万能道具》=〈フォルム〉を選ぶときに効果を選ぶ・《半身》《神意》も同じ)／log=この
       // アクトで使われた神業から選ぶ(《突然変異》)。choices=選択肢(label=区分(〈フォルム〉の種類など・
       // 表示用)・uuid=参照先の神業=スタイル→神業と同じ参照)・selected=選んだ選択肢の uuid。
@@ -81,7 +81,7 @@ export class MiracleDataModel extends SystemDataModel.mixin(BaseTemplate, UsageT
     }
     // uses.max の NumberField → StringField(2026-08-09)。**usageCount 移行の後に**呼ぶ
     migrateUsesMaxToString(source);
-    // 他の神業として使う: 旧 refs(取得技能で導く) → choices(選んで固定・2026-09-04)、
+    // 効果の参照: 旧 refs(取得技能で導く) → choices(選んで固定・2026-09-04)、
     // 旧 label(区分の文字列) → skillUuid(技能のドロップ・2026-09-05)。いずれも未リリースの中間形
     if (source.asOther && Array.isArray(source.asOther.refs)) {
       source.asOther.choices = source.asOther.refs.map(r => ({ skillUuid: "", uuid: r?.uuid ?? "" }));

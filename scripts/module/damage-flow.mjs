@@ -797,7 +797,7 @@ export async function handleDamageProtectClick(message, srcIndex) {
     const actor = game.actors.get(state.actorId);
     const skill = actor?.items.get(state.skillItemId);
     if (!skill) { TnxCheckFlow.cancelAchievementAction(); return; }
-    // 用途は待ち受け開始時に確定したもの(他の神業として使う=参照先の用途・17-5)。無ければ神業自身から引く
+    // 用途は待ち受け開始時に確定したもの(効果の参照=参照先の用途・17-5)。無ければ神業自身から引く
     const usage = state.usage ?? (skill.system.actions ?? []).find(a => a._id === state.usageId) ?? null;
     const plan = defencePreventPlan(f, usage ?? {}, {
         rowIndex: srcIndex, by: { ...miracleOriginOf(skill, state.asOther), actorId: actor.id },

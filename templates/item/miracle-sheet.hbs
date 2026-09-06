@@ -14,7 +14,7 @@
         <a class="item" data-action="tab" data-group="primary" data-tab="description">説明</a>
         <a class="item" data-action="tab" data-group="primary" data-tab="setting">設定</a>
         <a class="item" data-action="tab" data-group="primary" data-tab="usage">用途</a>
-        <a class="item" data-action="tab" data-group="primary" data-tab="effects">効果</a>
+        <a class="item" data-action="tab" data-group="primary" data-tab="asother">効果の参照</a>
     </nav>
 
      <section class="sheet-body">
@@ -73,15 +73,23 @@
                 </div>
             </fieldset>
 
-            {{!-- 他の神業として使う(17-5・アイテム側の機能): 選び方・選んだ効果・選択肢(区分のラベル＋参照先の神業)。
-                 効果は〈フォルム〉等を選ぶときにここで選んで固定する(使用時に取得技能から導かない・2026-09-04)。
-                 参照先はスタイル→神業と同じ uuid 参照(神業のドロップ・右クリックで解除)。区分の入力は name を
-                 持たず配列全体を送る --}}
-            <fieldset class="tnx-fieldset tnx-asother-section">
+
+        </div>
+
+        <div class="tab usage" data-group="primary" data-tab="usage">
+            {{> "systems/tokyo-nova-axleration/templates/parts/usage-list.hbs"}}
+        </div>
+
+        {{!-- 効果の参照(17-5・アイテム側の機能)。《万能道具》《神意》は、取得した区分(〈フォルム〉〈属性〉)に
+             よって**効果と経験点の取得条件が指定の神業と同じになる**——その神業「として」使うのではない。
+             区分と神業は1対1で他の候補が入る余地が無いのでドロップで結線する(選ぶ操作ではない・2026-09-06)。
+             どれが自分の区分かはラジオで固定する(〈フォルム〉はスタイルを取るときに決まる) --}}
+        <div class="tab asother" data-group="primary" data-tab="asother">
+            <fieldset class="tnx-fieldset">
                 <legend>
-                    他の神業として使う
+                    効果の参照
                     {{#if asOtherIsChoice}}{{#if editable}}
-                    <a class="tnx-combo-add" data-action="asOtherChoiceAdd" title="選択肢を追加"><i class="fas fa-plus"></i></a>
+                    <a class="tnx-combo-add" data-action="asOtherChoiceAdd" title="行を追加"><i class="fas fa-plus"></i></a>
                     {{/if}}{{/if}}
                 </legend>
                 <div class="tnx-form-field">
@@ -91,59 +99,63 @@
                             {{selectOptions asOtherModeOptions selected=system.asOther.mode}}
                         </select>
                     </div>
-                    {{#if asOtherIsChoice}}
-                    <div class="form-group">
-                        <label>効果</label>
-                        <select name="system.asOther.selected" {{#unless editable}}disabled{{/unless}}>
-                            {{#each asOtherSelectOptions}}
-                            <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
-                            {{/each}}
-                        </select>
-                    </div>
-                    {{/if}}
                 </div>
+
                 {{#if asOtherIsChoice}}
-                <div class="tnx-form-field">
-                    <div class="tnx-asother-rows">
-                        {{#each asOtherChoices as |row|}}
-                        <div class="tnx-asother-row">
-                            {{#if row.skill}}
-                            <button type="button" class="tnx-linked-btn" data-action="asOtherSkillOpen" data-index="{{row.idx}}" data-context-menu-type="asother-skill">
-                                <img src="{{row.skill.img}}" class="tnx-linked-btn__icon"/>
-                                <span class="tnx-linked-btn__label">{{row.skill.name}}</span>
-                            </button>
-                            {{else}}
-                            <div class="tnx-import-box tnx-import-box--inline" data-drop-area="asotherSkill-{{row.idx}}">
-                                <span>技能をドロップ</span>
-                            </div>
-                            {{/if}}
-                            {{#if row.miracle}}
-                            <button type="button" class="tnx-linked-btn" data-action="asOtherChoiceOpen" data-index="{{row.idx}}" data-context-menu-type="asother-choice">
-                                <img src="{{row.miracle.img}}" class="tnx-linked-btn__icon"/>
-                                <span class="tnx-linked-btn__label">{{row.miracle.name}}</span>
-                            </button>
-                            {{else}}
-                            <div class="tnx-import-box tnx-import-box--inline" data-drop-area="asotherMiracle-{{row.idx}}">
-                                <span>神業をドロップ</span>
-                            </div>
-                            {{/if}}
-                            {{#if @root.editable}}
-                            <a class="tnx-combo-del" data-action="asOtherChoiceDelete" data-index="{{row.idx}}" title="削除"><i class="fas fa-trash"></i></a>
-                            {{/if}}
-                        </div>
-                        {{/each}}
-                    </div>
+                <div class="tnx-asother-wrap">
+                    <table class="tnx-asother-table">
+                        <thead>
+                            <tr>
+                                <th class="aso-pick">選択</th>
+                                <th class="aso-skill">区分（技能）</th>
+                                <th class="aso-miracle">参照する神業</th>
+                                {{#if editable}}<th class="aso-del"></th>{{/if}}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{#each asOtherChoices as |row|}}
+                            <tr>
+                                <td class="aso-pick">
+                                    <input type="radio" name="system.asOther.selected" value="{{row.uuid}}"
+                                           {{#if row.selected}}checked{{/if}} {{#unless @root.editable}}disabled{{/unless}}>
+                                </td>
+                                <td class="aso-skill">
+                                    {{#if row.skill}}
+                                    <button type="button" class="tnx-linked-btn" data-action="asOtherSkillOpen" data-index="{{row.idx}}" data-context-menu-type="asother-skill">
+                                        <img src="{{row.skill.img}}" class="tnx-linked-btn__icon"/>
+                                        <span class="tnx-linked-btn__label">{{row.skill.name}}</span>
+                                    </button>
+                                    {{else}}
+                                    <div class="tnx-import-box tnx-import-box--inline" data-drop-area="asotherSkill-{{row.idx}}">
+                                        <span>技能をドロップ</span>
+                                    </div>
+                                    {{/if}}
+                                </td>
+                                <td class="aso-miracle">
+                                    {{#if row.miracle}}
+                                    <button type="button" class="tnx-linked-btn" data-action="asOtherChoiceOpen" data-index="{{row.idx}}" data-context-menu-type="asother-choice">
+                                        <img src="{{row.miracle.img}}" class="tnx-linked-btn__icon"/>
+                                        <span class="tnx-linked-btn__label">{{row.miracle.name}}</span>
+                                    </button>
+                                    {{else}}
+                                    <div class="tnx-import-box tnx-import-box--inline" data-drop-area="asotherMiracle-{{row.idx}}">
+                                        <span>神業をドロップ</span>
+                                    </div>
+                                    {{/if}}
+                                </td>
+                                {{#if @root.editable}}
+                                <td class="aso-del">
+                                    <a class="tnx-combo-del" data-action="asOtherChoiceDelete" data-index="{{row.idx}}" title="削除"><i class="fas fa-trash"></i></a>
+                                </td>
+                                {{/if}}
+                            </tr>
+                            {{/each}}
+                        </tbody>
+                    </table>
                 </div>
                 {{/if}}
             </fieldset>
         </div>
 
-        <div class="tab usage" data-group="primary" data-tab="usage">
-            {{> "systems/tokyo-nova-axleration/templates/parts/usage-list.hbs"}}
-        </div>
-
-        <div class="tab effects" data-group="primary" data-tab="effects">
-            {{> "systems/tokyo-nova-axleration/templates/parts/active-effects-list.hbs"}}
-        </div>
     </section>
 </section>

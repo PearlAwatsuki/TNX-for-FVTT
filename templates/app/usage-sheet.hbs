@@ -795,6 +795,16 @@
                         {{/each}}
                     </select>
                 </div>
+                {{#if isDefenceNegate}}
+                <div class="usage-form-row">
+                    <label class="usage-field-label">打ち消せる神業</label>
+                    <select name="negateMiracle" {{#unless editable}}disabled{{/unless}}>
+                        {{#each negateMiracleOptions}}
+                        <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                        {{/each}}
+                    </select>
+                </div>
+                {{/if}}
                 {{#if isDefencePrevent}}
                 <div class="usage-form-row">
                     <label class="usage-field-label">範囲</label>

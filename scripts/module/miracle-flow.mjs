@@ -12,18 +12,18 @@
 
 import {
     miracleUseGate, miracleConsumeUpdate, buildMiracleCardData, miracleOriginOf,
-    negateCheckGate, negatedCheckMods, evadePlan,
+    negateCheckGate, negatedCheckMods, evadePlan, miracleIdentityMatches,
     buildMiracleDamageFlag, terminalKindFor,
     interferenceCandidates, addUseEffectSource, asOtherSelection, miracleLogCandidates, conditionSwapPlan,
 } from "./miracle-logic.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { applyConsumptionPlan, resolveConsumeRowsForActor, promptConsumption } from "./usage-consumption.mjs";
-import { resolveUsageTargetRefs } from "./target-resolution.mjs";
+import { resolveUsageTargetRefs, currentTargetActors } from "./target-resolution.mjs";
 import { TargetSelectionDialog, AmountInputDialog } from "./tnx-dialog.mjs";
 import { conditionDisplayName } from "./conditions.mjs";
-import { keepTogether } from "./chat-text.mjs";
-import { cardField } from "./chat-card.mjs";
+import { keepTogether, nowrap } from "./chat-text.mjs";
+import { cardField, cardResult } from "./chat-card.mjs";
 import { getDamageChartKind } from "../data/damage-chart.mjs";
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { isOutfitDestroyed } from "../data/item/helpers.mjs";
@@ -56,8 +56,17 @@ function chartValueOptions(category) {
  * (choose=使用者がチャートの行か抹殺を選ぶ／rl=RL が値を入力するか山札から2枚めくる)。
  * @returns {Promise<?{kind: "terminal"|"chart", value?: number, drawn?: string[]}>} キャンセルは null
  */
-async function promptMiracleDamageResult(item, usage, category) {
-    const terminalLabel = conditionDisplayName(terminalKindFor(category));
+async function promptMiracleDamageResult(item, usage, category, targets = []) {
+    // 終端の選択肢の呼び名は対象で変わる: トループは壊滅(頭数を 0 にする)、キャスト/ゲストは終端状態
+    const kinds = await Promise.all((targets ?? []).map(async (t) => {
+        const doc = await fromUuid(t.uuid).catch(() => null);
+        return (doc?.actor ?? doc)?.type ?? null;
+    }));
+    const hasTroop = kinds.includes("troop");
+    const hasOther = kinds.some(k => k && k !== "troop");
+    const terminalLabel = hasTroop && !hasOther ? "壊滅"
+        : hasTroop ? `${conditionDisplayName(terminalKindFor(category))}／壊滅`
+        : conditionDisplayName(terminalKindFor(category));
     if (usage.type === "miracleSocial" && (usage.socialDecide || "choose") === "rl") {
         const how = await TargetSelectionDialog.prompt({
             title: `${item.name}: 社会戦ダメージ`, label: "社会戦ダメージの決め方（RL）",
@@ -99,7 +108,7 @@ export async function useMiracleDamage(actor, item, usage, { asOther = null } = 
     const rows = resolveConsumeRowsForActor(actor, item, usage.consumeTargets);
     const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${item.name}` });
     if (plan === null) return false;
-    const result = await promptMiracleDamageResult(item, usage, category);
+    const result = await promptMiracleDamageResult(item, usage, category, refs);
     if (!result) return false;
     await applyConsumptionPlan(plan);
     const flag = buildMiracleDamageFlag({
@@ -122,6 +131,7 @@ export async function handleNegateMiracleDamageClick(message) {
     if (!f?.miracle) return;
     if (f.negatedBy) { ui.notifications.warn("この神業は既に打ち消されています。"); return; }
     if (f.applied) { ui.notifications.warn("適用済みの神業は打ち消せません（時間をさかのぼって打ち消すことはできません）。"); return; }
+    if (!await negateLimitOk(ns.state, f.miracle)) return;
     await commitNegate(ns.state);
     const { applyDamagePatch } = await import("./damage-flow.mjs");
     const targets = (f.targets ?? []).map(t => ({ ...t, protectedBy: ns.by }));
@@ -165,8 +175,11 @@ export async function useMiracleDestroy(actor, item, usage, { asOther = null } =
  * @returns {Promise<?Actor>} 中止なら null
  */
 async function resolveSingleTarget(actor, usage) {
-    const refs = await resolveUsageTargetRefs(actor, usage);
+    let refs = await resolveUsageTargetRefs(actor, usage);
     if (refs === null) return null;
+    // 用途の「対象」欄が空でも、**ターゲットされていればそれを対象にする**——これらの神業は
+    // 効果文で対象が決まっている(「他人に」等)ので、欄の設定でターゲットを無視しない(2026-09-06)
+    if (!refs.length) refs = currentTargetActors().map(a => ({ uuid: a.uuid, name: a.name }));
     if (!refs.length) { ui.notifications.warn("対象をターゲットしてから使用してください。"); return null; }
     if (refs.length > 1) { ui.notifications.warn("対象は1人にしてください。"); return null; }
     const doc = await fromUuid(refs[0].uuid).catch(() => null);
@@ -322,55 +335,70 @@ export async function useMiracleInterference(actor, item, usage, { asOther = nul
     return true;
 }
 
-// ─── 他の神業として使う神業(17-5・《万能道具》《突然変異》) ─────────────────────────────
+// ─── 効果の参照(17-5・《万能道具》《神意》)と見聞きした神業のコピー(《突然変異》) ─────────
 // 効果文《万能道具》「取得している〈フォルム〉によって、異なるスタイルの神業と同等の効果が発生する」＋対応表／
 // 《突然変異》「そのアクト中に使用された神業をコピーして使用する…あなたが登場したシーンで使用されたものに
 // 限られる…効果が適用される前であっても、コピーすることは可能」。選び方はアイテム側の設定(asOther)、
 // 実行は唯一の起動関数への再入(参照先の用途を元の神業の名前・回数・印で実行)。
 
+/** 候補から1つ選ぶ(1つなら自動)。 */
+async function pickMiracleRef(item, candidates, label) {
+    if (!candidates.length) return null;
+    if (candidates.length === 1) return candidates[0];
+    const picked = await TargetSelectionDialog.prompt({
+        title: `${item.name}: ${label}`, label: "神業",
+        options: candidates.map(c => ({ value: c.uuid, label: c.name })), selectLabel: "決定",
+    });
+    return candidates.find(c => c.uuid === picked) ?? null;
+}
+
+/** uuid を参照先(神業)に解決する。 */
+async function collectMiracleRefs(item, uuids) {
+    const out = [];
+    for (const uuid of uuids) {
+        const doc = await fromUuid(uuid).catch(() => null);
+        if (doc?.type === "miracle") out.push({ uuid, name: doc.name, source: doc });
+        else ui.notifications.warn(`「${item.name}」の参照先の神業が見つかりません。`);
+    }
+    return out;
+}
+
 /**
- * 他の神業として使う神業の参照先を決める。choice=選択肢から選んで固定した効果(神業シートで選ぶ・
- * 未選択なら警告して中止)／log=このアクトで自分が登場したシーンに使われた神業(1つなら自動・
- * 複数なら選択・0なら警告して中止)。
+ * 効果の参照(アイテム側の設定)を解決する。区分(〈フォルム〉〈属性〉)ごとに固定した神業と
+ * **効果・経験点の取得条件が同じになる**——その神業「として」使うのではない(2026-09-06 訂正)。
  * @returns {Promise<?{uuid: string, name: string, source: Item}>} 中止なら null
  */
 export async function resolveAsOther(actor, item) {
     const cfg = item.system.asOther ?? {};
-    const candidates = [];
-    const collect = async (uuid) => {
-        const doc = await fromUuid(uuid).catch(() => null);
-        if (doc?.type === "miracle") candidates.push({ uuid, name: doc.name, source: doc });
-        else ui.notifications.warn(`「${item.name}」の参照先の神業が見つかりません。`);
-    };
-    if (cfg.mode === "choice") {
-        const sel = asOtherSelection(cfg);
-        if (!sel?.uuid) {
-            ui.notifications.warn(sel?.reason === "noChoices"
-                ? `「${item.name}」の効果の選択肢が設定されていません（神業シートの「他の神業として使う」）。`
-                : `「${item.name}」の効果が選ばれていません（神業シートの「他の神業として使う」で選んでください）。`);
-            return null;
-        }
-        await collect(sel.uuid);
-        if (!candidates.length) return null;
-    } else if (cfg.mode === "log") {
-        const st = getSessionState();
-        const list = miracleLogCandidates(st.miracleUseLog ?? [], {
-            actorId: actor.id, sceneNumber: st.sceneNumber, appearedNow: listAppearingActors().map(a => a.id),
-        });
-        for (const c of list) await collect(c.uuid);
-        if (!candidates.length) {
-            ui.notifications.warn(`このアクトで「${actor.name}」が登場したシーンに使われた神業がありません。`);
-            return null;
-        }
-    } else {
+    if (cfg.mode !== "choice") return null;
+    const sel = asOtherSelection(cfg);
+    if (!sel?.uuid) {
+        ui.notifications.warn(sel?.reason === "noChoices"
+            ? `「${item.name}」の効果の参照が設定されていません（神業シートの「効果の参照」）。`
+            : `「${item.name}」の効果が選ばれていません（神業シートの「効果の参照」で選んでください）。`);
         return null;
     }
-    if (candidates.length === 1) return candidates[0];
-    const picked = await TargetSelectionDialog.prompt({
-        title: `${item.name}: 効果になる神業`, label: "神業",
-        options: candidates.map(c => ({ value: c.uuid, label: c.name })), selectLabel: "決定",
+    const candidates = await collectMiracleRefs(item, [sel.uuid]);
+    return pickMiracleRef(item, candidates, "効果になる神業");
+}
+
+/**
+ * このアクトで見聞きした神業のコピー(《突然変異》・宣言の効果)。自分が登場したシーンに使われた
+ * ものが候補(1つなら自動・0なら警告して中止)。**コピーであって「その神業として使う」ではない**
+ * (2026-09-06 ユーザー訂正)ため、アイテム側の設定ではなく宣言の効果として置く。
+ * @returns {Promise<?{uuid: string, name: string, source: Item}>} 中止なら null
+ */
+export async function resolveMiracleCopyFromLog(actor, item) {
+    const st = getSessionState();
+    const list = miracleLogCandidates(st.miracleUseLog ?? [], {
+        actorId: actor.id, sceneNumber: st.sceneNumber, appearedNow: listAppearingActors().map(a => a.id),
     });
-    return candidates.find(c => c.uuid === picked) ?? null;
+    const candidates = await collectMiracleRefs(item, list.map(c => c.uuid));
+    if (!candidates.length) {
+        ui.notifications.warn(`このアクトで「${actor.name}」が登場したシーンに使われた神業がありません。`);
+        return null;
+    }
+    return pickMiracleRef(item, candidates, "コピーする神業");
 }
 
 /**
@@ -442,6 +470,26 @@ function negateState() {
     return { state, actor, skill, by: { ...miracleOriginOf(skill, state.asOther), actorId: actor.id } };
 }
 
+/**
+ * 打ち消しの限定(用途の「打ち消せる神業」)。指定があるとその神業しか打ち消せない
+ * (《真実に対する不可触》等)。指定が無ければ何でも打ち消せる。
+ * @param {object} state クリック待ちの状態(usage を持つ)
+ * @param {?{uuid?: string, name?: string}} target 打ち消される神業の印(判定の打ち消しは null)
+ * @returns {Promise<boolean>} 打ち消してよいか(不可なら警告を出す)
+ */
+async function negateLimitOk(state, target) {
+    const limit = state?.usage?.negateMiracle;
+    if (!limit) return true;
+    const want = await fromUuid(limit).catch(() => null);
+    if (!want) return true;
+    const got = target?.uuid ? await fromUuid(target.uuid).catch(() => null) : null;
+    const ok = miracleIdentityMatches(
+        { identificationKey: want.system?.identificationKey, name: want.name },
+        { identificationKey: got?.system?.identificationKey, name: got?.name ?? target?.name });
+    if (!ok) ui.notifications.warn(`この神業で打ち消せるのは《${want.name}》だけです。`);
+    return ok;
+}
+
 /** 打ち消しの確定: モード解除と消費(待ち受け開始時に確定したプラン)、発動した神業のカード(17-5 の記帳点)。 */
 async function commitNegate(state) {
     TnxCheckFlow.cancelAchievementAction();
@@ -471,6 +519,7 @@ export async function handleNegateAchievementClick(message) {
         ui.notifications.warn("この判定は既に打ち消されています。");
         return;
     }
+    if (!await negateLimitOk(ns.state, message.getFlag(SCOPE, "miracle") ?? null)) return;
     const gate = negateCheckGate({ recheck: rc, damageCards: damageCards.map(m => ({ applied: m.getFlag(SCOPE, "damageRoll")?.applied === true })) });
     if (!gate.ok) {
         ui.notifications.warn("この判定の効果は適用済みのため打ち消せません（時間をさかのぼって打ち消すことはできません）。");
@@ -520,6 +569,7 @@ export async function handleNegateTrayClick(message) {
     const payload = message.getFlag(SCOPE, "usageEffects");
     if (!payload) return;
     if (payload.negatedBy) { ui.notifications.warn("この効果は既に打ち消されています。"); return; }
+    if (!await negateLimitOk(ns.state, message.getFlag(SCOPE, "miracle") ?? null)) return;
     await commitNegate(ns.state);
     await TnxSocketHandler.applyMessagePatch(message, { [`flags.${SCOPE}.usageEffects.negatedBy`]: ns.by });
 }
@@ -535,6 +585,7 @@ export async function handleNegateMiracleCardClick(message) {
     const mf = message.getFlag(SCOPE, "miracle");
     if (!mf?.itemId) return;
     if (mf.negatedBy) { ui.notifications.warn("この神業は既に打ち消されています。"); return; }
+    if (!await negateLimitOk(ns.state, mf)) return;
     await commitNegate(ns.state);
     const patch = { [`flags.${SCOPE}.miracle.negatedBy`]: ns.by };
     if (message.getFlag(SCOPE, "usageEffects")) patch[`flags.${SCOPE}.usageEffects.negatedBy`] = ns.by;
@@ -598,16 +649,22 @@ export function renderMiracleCard(message, html) {
     const card = html.querySelector(".tnx-miracle-card");
     if (!card) return;
     if (mf.negatedBy) {
-        card.querySelector(".tnx-card__body")?.remove();
+        // 効果は消えるが、**消えたことを明示する**——黙って中身が消えると打ち消されたのか
+        // 分からない(2026-09-06 ユーザー指摘)。効果文の畳みと残り回数は読めるまま残す
         html.querySelector(".tnx-usage-effect-area")?.remove();
-        card.querySelector(".mc-destroy")?.remove();
-        card.querySelector(".mc-interfere")?.remove();
-        card.querySelector(".mc-effect")?.remove();
+        for (const sel of [".mc-destroy", ".mc-interfere", ".mc-effect", ".mc-as-other"]) card.querySelector(sel)?.remove();
         card.classList.add("tnx-miracle-card--negated");
+        const body = card.querySelector(".tnx-card__body") ?? card;
+        if (!card.querySelector(".mc-negated")) {
+            const esc = foundry.utils.escapeHTML;
+            const line = cardResult(`<i class="fas fa-ban"></i> 《${esc(mf.negatedBy.name ?? "神業")}》${nowrap("で打ち消された")}`,
+                { modifier: "tnx-card__result--nodamage mc-negated" });
+            body.prepend(line);
+        }
         return;
     }
     renderMiracleEffectRows(message, card, mf);
-    // 他の神業として使う(17-5): 見出しは元の神業、本文の先頭に「効果 《参照先》」
+    // 効果の参照/コピー(17-5): 見出しは元の神業、本文の先頭に「効果 《参照先》」
     if (mf.asOther?.name && !card.querySelector(".mc-as-other")) {
         const esc = foundry.utils.escapeHTML;
         const body = card.querySelector(".tnx-card__body") ?? card;
@@ -677,9 +734,7 @@ function renderMiracleEffectRows(message, card, mf) {
     if (mf.swap) {
         field("宿主", esc(mf.swap.hostName ?? ""));
     } else if (mf.acquire) {
-        // 行は短く保つ(狭いカードで語の途中で折れないよう、括弧書きを別の行に分ける)
         field("入手", `「${esc(mf.acquire.itemName)}」`);
-        field("常備化", "できない");
     } else if (mf.insensible) {
         field("次の行動", "神業以外では妨げられない");
         field("割り込み", "AR を消費しない");

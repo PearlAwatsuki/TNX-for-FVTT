@@ -2497,7 +2497,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
      * @param {Item} item 起動する技能/アイテム
      * @param {object} [extraOpen] TnxCheckFlow.open へ合流する追加パラメータ(既定値を上書き可)。
      *   miracleFree={messageId}: 《プリーズ！》の要求カードから使わされる神業(残回数ゲートも消費も無い・17-4)。
-     *   asOther={uuid,name,source}: 他の神業として使う神業(17-5)の解決済みの参照先(再入時に載る)
+     *   asOther={uuid,name,source}: 効果の参照/コピー(17-5)の解決済みの参照先(再入時に載る)
      * @returns {Promise<boolean|undefined>} 神業の分岐は発動したか(要求カードが使用済みを記録する)。判定系は未定義
      */
     static async _activateItemCheck(actor, item, extraOpen = {}) {
@@ -2521,7 +2521,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 旧 usableUsagesOf(フラグ無し宣言を除外)は廃止=アウトフィットのように宣言用途しか
         // 持たないアイテムがロールできず解説カードに落ちていた。
         // ※判定要求への応答は別規則(canAnswerCheckRequest=判定タイプ限定・2026-07-19 ユーザー裁定)。
-        // 他の神業として使う(17-5・《万能道具》《突然変異》): 参照先/使用ログから神業を決めて再入する。
+        // 効果の参照(17-5・《万能道具》《神意》): 区分ごとに固定した神業を決めて再入する。
         // 以降は参照先の用途で分岐し、名前・使用回数・印・消費・話者は元の神業(この item)のまま
         if (item.type === "miracle" && item.system.asOther?.mode && !openExtra.asOther) {
             const { resolveAsOther } = await import("../module/miracle-flow.mjs");
@@ -2771,6 +2771,14 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                 });
                 return false;
             }
+            // 見聞きした神業のコピー(《突然変異》): コピー元を決めて**その用途で再入**する。
+            // 名前・使用回数・印・消費・話者は元の神業のまま(効果の参照と同じ再入の仕組み)
+            if (effect === "copyUsed" && !asOther) {
+                const { resolveMiracleCopyFromLog } = await import("../module/miracle-flow.mjs");
+                const picked = await resolveMiracleCopyFromLog(actor, item);
+                if (!picked) return false;
+                return TnxCharacterSheetBase._activateItemCheck(actor, item, { ...openExtra, asOther: picked });
+            }
             try {
                 const mf = await import("../module/miracle-flow.mjs");
                 if (effect === "swapDamage")    return await mf.useMiracleSwap(actor, item, selectedUsage, { asOther });
@@ -2861,7 +2869,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // あれば効果セクション(トレイ)が末尾に注入され、無くてもカードは出す
         // (旧・実行者ローカル通知はカード化に伴い廃止=他クライアントに見えなかった)。
         // 神業は神業カード(印つき・条件と残り使用回数を持つ)で出す(17-1)
-        // 他の神業として使う(17-5): 適用効果は参照先の神業の効果から組む(用途は参照先のもの)
+        // 効果の参照/コピー(17-5): 適用効果は参照先の神業の効果から組む(用途は参照先のもの)
         const usageEffects = await prepareUsageEffectPayload(actor, asOther?.source ?? item, usage);
         // 解説の段(効果文と条件)は**具体的な効果を持たない宣言**のときだけ出す(2026-09-05 ユーザー指示)。
         // 宣言の効果(使用回数+1・神業を使わせる・入れ替え 等)を持つ用途は結果がカードに出る

@@ -11,7 +11,7 @@ import {
     terminalKindFor, buildMiracleDamageFlag, miracleResultLabel, miracleTargetOutcome,
     withoutConsumption, interferenceCandidates, addUseEffectSource,
     asOtherSelection, miracleLogCandidates, buildMiracleUseLogEntry, miracleUseFromMessageFlags,
-    miracleUsePending, markMiracleUseApplied, conditionSwapPlan, miracleRemovalUpdate } from "../../scripts/module/miracle-logic.mjs";
+    miracleUsePending, markMiracleUseApplied, conditionSwapPlan, miracleRemovalUpdate, miracleIdentityMatches } from "../../scripts/module/miracle-logic.mjs";
 
 describe("withDefaultMiracleConsumption()（消費先が空の神業用途は自身の使用回数×1を既定消費）", () => {
     it("消費先が空なら「このアイテム自身の使用回数 ×1」の行を補った複製を返す（元の用途は変えない）", () => {
@@ -559,5 +559,23 @@ describe("miracleRemovalUpdate()（多重取得の神業を1つ外す）", () =>
         expect(miracleRemovalUpdate({ uses: { max: "1", spent: 0 } })).toBeNull();
         expect(miracleRemovalUpdate({ uses: {} })).toBeNull();
         expect(miracleRemovalUpdate(null)).toBeNull();
+    });
+});
+
+describe("miracleIdentityMatches()（打ち消しの限定＝同じ神業かの照合）", () => {
+    it("識別キーが両方にあればキーで照合する（名前が違っても同じ神業）", () => {
+        expect(miracleIdentityMatches({ identificationKey: "m_touch", name: "真実に対する不可触" },
+            { identificationKey: "m_touch", name: "真実に対する不可触（写し）" })).toBe(true);
+        expect(miracleIdentityMatches({ identificationKey: "m_touch" }, { identificationKey: "m_other" })).toBe(false);
+    });
+
+    it("識別キーが片方でも無ければ名前で照合する", () => {
+        expect(miracleIdentityMatches({ name: "チャイ" }, { name: "チャイ" })).toBe(true);
+        expect(miracleIdentityMatches({ name: "チャイ" }, { identificationKey: "", name: "黄泉還り" })).toBe(false);
+    });
+
+    it("名前も識別キーも無ければ一致しない", () => {
+        expect(miracleIdentityMatches(null, { name: "チャイ" })).toBe(false);
+        expect(miracleIdentityMatches({}, {})).toBe(false);
     });
 });

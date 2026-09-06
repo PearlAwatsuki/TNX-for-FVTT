@@ -4,14 +4,15 @@ import { TokyoNovaItemSheet } from "./tnx-item-sheet.mjs";
 const SKILL_TYPES = ["generalSkill", "styleSkill"];
 
 /**
- * 神業シート。設定タブに「他の神業として使う」(17-5・アイテム側の機能)を持つ:
- * 選び方(なし／指定の選択肢から選んで固定／このアクトで使われた神業から選ぶ)と、選択肢
- * (1行＝[区分の技能][参照先の神業]・**どちらもドロップで指定**)、そして**選んだ効果**
- * (《万能道具》は〈フォルム〉を選ぶときに、《半身》はリーダー決定時に、ここで選んで固定する。
- * スタイル→神業→スタイル技能の順を保つため、使用時に取得技能から導かない=2026-09-04 訂正)。
- * 選択肢は1行1件で、〈フォルム〉の対応表のように十数件あっても一覧できる(2026-09-05 是正)。
+ * 神業シート。「効果の参照」タブ(17-5・アイテム側の機能)を持つ: 《万能道具》《神意》は、取得した
+ * 区分(〈フォルム〉〈属性〉)によって**効果と経験点の取得条件が指定の神業と同じになる**——
+ * その神業「として」使うのではない(2026-09-06 ユーザー訂正)。
+ * 表の1行＝[区分の技能][参照する神業]で、**どちらもドロップで結線する**——区分と神業は1対1で
+ * 他の候補が入る余地が無いため(選ぶ操作ではない=2026-09-06 の基準)。どれが自分の区分かは
+ * 行のラジオで固定する(〈フォルム〉はスタイルを取るときに決まる=使用時に取得技能から導かない)。
+ * 十数件(クロガネの〈フォルム〉)あっても一覧できるよう、設定タブに詰め込まず専用タブの表に置く。
  * 行は配列全体を送って更新する(スタイル技能シートのコンボ行と同方式)。対応表はコードに持たず、
- * この選択肢として辞典データ側に設定する。
+ * 辞典データ側にこの表として設定する。
  */
 export class TokyoNovaMiracleSheet extends TokyoNovaItemSheet {
 
@@ -32,16 +33,16 @@ export class TokyoNovaMiracleSheet extends TokyoNovaItemSheet {
 
     static TABS = {
         primary: {
-            tabs: [{ id: "description" }, { id: "setting" }, { id: "usage" }, { id: "effects" }],
+            // 神業に「効果」タブは置かない——神業に適用される ActiveEffect は無く、事前設定もできない
+            tabs: [{ id: "description" }, { id: "setting" }, { id: "usage" }, { id: "asother" }],
             initial: "description",
         },
     };
 
-    /** 選び方の選択肢。 */
+    /** 選び方の選択肢。見聞きした神業のコピー(《突然変異》)は宣言の効果へ移した(2026-09-06)。 */
     static AS_OTHER_MODES = Object.freeze({
         "":     "なし",
-        choice: "指定の選択肢から選んで固定する",
-        log:    "このアクトで使われた神業から選ぶ",
+        choice: "区分ごとに参照する神業を決める",
     });
 
     /** uuid を {name, img} にライブ解決する(削除済みは null)。 */
@@ -61,26 +62,18 @@ export class TokyoNovaMiracleSheet extends TokyoNovaItemSheet {
             { relativeTo: this.item, editable: context.editable }
         );
 
-        // 他の神業として使う(17-5): 選択肢ごとに区分の技能と参照先の神業をライブ解決し、「効果」の選択肢を組む
+        // 効果の参照(17-5): 行ごとに区分の技能と参照する神業をライブ解決する(選択中の行はラジオ)
         const asOther = this.item.system.asOther ?? { mode: "", choices: [], selected: "" };
         context.asOtherModeOptions = TokyoNovaMiracleSheet.AS_OTHER_MODES;
         context.asOtherIsChoice = asOther.mode === "choice";
         if (context.asOtherIsChoice) {
-            const rows = await Promise.all((asOther.choices ?? []).map(async (c, idx) => ({
+            context.asOtherChoices = await Promise.all((asOther.choices ?? []).map(async (c, idx) => ({
                 idx,
                 uuid: c.uuid ?? "",
+                selected: !!c.uuid && c.uuid === asOther.selected,
                 skill:   await TokyoNovaMiracleSheet._resolveRef(c.skillUuid),
                 miracle: await TokyoNovaMiracleSheet._resolveRef(c.uuid),
             })));
-            context.asOtherChoices = rows;
-            context.asOtherSelectOptions = [
-                { value: "", label: "（未選択）", selected: !asOther.selected },
-                ...rows.filter(r => r.uuid).map(r => ({
-                    value: r.uuid,
-                    label: r.skill ? `${r.skill.name}: ${r.miracle?.name ?? "?"}` : (r.miracle?.name ?? "?"),
-                    selected: r.uuid === asOther.selected,
-                })),
-            ];
         }
         return context;
     }

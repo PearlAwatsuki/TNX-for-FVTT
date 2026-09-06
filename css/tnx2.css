@@ -11789,3 +11789,38 @@ body.system-tokyo-nova-axleration button.bright:hover {
     border-color: var(--color-warm-3);
     color: #001318;
 }
+
+/* ─── 神業「効果の参照」の表(2026-09-06) ─────────────────────────────────────
+   区分(〈フォルム〉等)と参照する神業の対応表。十数件あっても一覧できるよう表で置く
+   (設定タブに詰め込まない)。体裁は経験点付与の表(.exa-table)に揃える */
+.tnx-asother-wrap { overflow-x: auto; }
+
+.tnx-asother-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9em;
+}
+
+.tnx-asother-table th,
+.tnx-asother-table td {
+    padding: 3px 4px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    text-align: left;
+    vertical-align: middle;
+}
+
+.tnx-asother-table th {
+    color: var(--tnx2-text-secondary);
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.tnx-asother-table .aso-pick,
+.tnx-asother-table .aso-del {
+    width: 1.8em;
+    text-align: center;
+}
+
+.tnx-asother-table .tnx-import-box--inline {
+    margin: 0;
+}
