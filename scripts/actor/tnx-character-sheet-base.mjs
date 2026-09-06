@@ -997,19 +997,29 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
      */
     _prepareMiraclesForDisplay(miracles) {
         const MAX_SLOTS = 3;
+        const items = [...miracles];
+        // 枠の配り方: **まず各神業に1枠**、余りを母数の大きい順ではなく並び順に配る。
+        // こうしないと、ある神業の回数が増えたときに他の神業の枠を食い潰してしまう
+        // (2026-09-06 ユーザー指摘「別の神業のボタンだったものが置き換えられてしまう」)
+        const counts = items.map(() => 0);
+        let budget = MAX_SLOTS;
+        for (let i = 0; i < items.length && budget > 0; i++) { counts[i] = 1; budget--; }
+        for (let i = 0; i < items.length && budget > 0; i++) {
+            // 神業も汎用 uses(残り = max − spent)に一本化(2026-07-18)。枠の数は母数(AE を数えない)
+            const want = Math.max(1, usesMaxBaseOf(items[i].system));
+            const add = Math.min(want - counts[i], budget);
+            if (add > 0) { counts[i] += add; budget -= add; }
+        }
         const slots = [];
-        for (const item of miracles) {
-            if (slots.length >= MAX_SLOTS) break;
+        items.forEach((item, idx) => {
             const itemData = item.toObject(false);
-            // 神業も汎用 uses(残り = max − spent)に一本化(2026-07-18)。
-            // 残りは実効 max(AE 込み)から、枠の数は母数(AE を数えない)から
             const uses = item.system.uses ?? {};
+            // 残りは実効 max(AE 込み)。増えた回数は枠を増やさず、枠の有効/無効に効く
             const remainingUses = Math.max(0, usesMaxTotalOf(item.system) - (Number(uses.spent) || 0));
-            const baseMax = Math.max(1, usesMaxBaseOf(item.system));
-            for (let i = 0; i < baseMax && slots.length < MAX_SLOTS; i++) {
+            for (let i = 0; i < counts[idx]; i++) {
                 slots.push({ ...itemData, isPlaceholder: false, instanceIndex: i, isDisabled: i >= remainingUses });
             }
-        }
+        });
         return slots;
     }
 

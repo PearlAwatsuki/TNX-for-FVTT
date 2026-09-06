@@ -20,8 +20,9 @@
  */
 const MAX_ATOMIC = 10;
 
-/** 囲みで閉じた語: ［タグ］ / 《ルール用語》 / 「名前」。改行・入れ子は含まない。 */
-const ATOMIC = new RegExp(`(［[^］\\n]{1,${MAX_ATOMIC}}］|《[^》\\n]{1,${MAX_ATOMIC}}》|「[^」\\n]{1,${MAX_ATOMIC}}」)`, "g");
+/** 囲みで閉じた語: ［タグ］ / 《ルール用語》 / 「名前」 / （短い括弧書き）。改行・入れ子は含まない。 */
+const ATOMIC = new RegExp(
+    `(［[^］\n]{1,${MAX_ATOMIC}}］|《[^》\n]{1,${MAX_ATOMIC}}》|「[^」\n]{1,${MAX_ATOMIC}}」|（[^）\n]{1,${MAX_ATOMIC}}）)`, "g");
 
 /**
  * 囲みで閉じた語を途中で折らないよう nowrap でくくる。

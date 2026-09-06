@@ -33,3 +33,14 @@ describe("keepTogether()（折ってはいけない塊を nowrap でくくる）
         expect(keepTogether(null)).toBe("");
     });
 });
+
+describe("keepTogether()（短い括弧書きも塊として扱う）", () => {
+    it("（対決勝利）のような短い括弧書きは折らない", () => {
+        expect(keepTogether("判定成功（対決勝利）")).toBe('判定成功<span class="tnx-nobr">（対決勝利）</span>');
+    });
+
+    it("長い括弧書きは対象外（折り返させる＝横にはみ出さない）", () => {
+        const long = "（スート不一致・判定不成立）";
+        expect(keepTogether(`攻撃失敗${long}`)).toBe(`攻撃失敗${long}`);
+    });
+});

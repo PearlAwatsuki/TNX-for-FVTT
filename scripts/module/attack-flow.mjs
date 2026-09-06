@@ -573,20 +573,25 @@ export function renderAttackCard(message, html) {
         }
     }
 
-    if (f.state === "fumble") { addVerdict("tnx-card__result--fumble", "fa-skull", `ファンブル！（${failWord}）`); return; }
-    if (f.state === "miss") { addVerdict("tnx-card__result--failure", "fa-times", `${failWord}（スート不一致・判定不成立）`); return; }
+    // 理由は注記の段に分ける(成否の語に括弧書きで繋ぐと、狭いカードで括弧の途中から折れる・2026-09-06)
+    const reason = (t) => `<span class="tnx-card__result-note">${t}</span>`;
+    if (f.state === "fumble") { addVerdict("tnx-card__result--fumble", "fa-skull", `ファンブル！${reason(failWord)}`); return; }
+    if (f.state === "miss") {
+        addVerdict("tnx-card__result--failure", "fa-times",
+            `${failWord}${reason(`${nowrap("スート不一致")}・${nowrap("判定不成立")}`)}`);
+        return;
+    }
     // 全体失敗: 移動失敗(達成値10未満=0段階・2026-07-19)／攻撃を失敗させる・対決敗北(リアクション成功)。
     // 対象一覧は下に続けて表示する
     if (f.state === "failed") {
         // 理由は**注記の段**に分ける(成否の語に括弧書きで繋ぐと、狭いカードで括弧の途中から折れる)。
         // 神業による打ち消し(17-2)は打ち消した神業の名前で帰属を示す
-        const note = (t) => `<span class="tnx-card__result-note">${t}</span>`;
         addVerdict("tnx-card__result--failure", "fa-times",
             f.failedReason === "movement" ? "移動失敗"
                 : f.failedReason === "negated"
-                    ? `${failWord}${note(`《${foundry.utils.escapeHTML(f.negatedBy?.name ?? "神業")}》${nowrap("で打ち消された")}`)}`
-                    : f.movement ? `移動失敗${note("リアクションによる")}`
-                        : `${failWord}${note("リアクションによる")}`);
+                    ? `${failWord}${reason(`《${foundry.utils.escapeHTML(f.negatedBy?.name ?? "神業")}》${nowrap("で打ち消された")}`)}`
+                    : f.movement ? `移動失敗${reason("リアクションによる")}`
+                        : `${failWord}${reason("リアクションによる")}`);
     }
     // 移動は妨害されないこともある=能動側の判定が成功した時点で移動成功が既定(2026-07-19 ユーザー確定)。
     // リアクション確定前でも「移動成功」を表示し、妨害が勝ったときだけ失敗へ覆す(離脱は対象外)
@@ -701,7 +706,7 @@ export function renderAttackCard(message, html) {
             addRow("リアクション", `${MODE_LABELS[effective.mode] ?? "対決"}（${effective.reactorName ?? "?"}）`);
             addRow("リアクション達成値", effective.achievement ?? 0);
             // 移動は上の「移動成功」バナーが常設のため対決勝利の重複表示はしない(2026-07-19)
-            if (f.state !== "failed" && !f.movement) addVerdict("tnx-card__result--success", "fa-check", "判定成功（対決勝利）");
+            if (f.state !== "failed" && !f.movement) addVerdict("tnx-card__result--success", "fa-check", `判定成功${reason("対決勝利")}`);
         }
         if (f.state === "open" && !f.damageRolled) {
             const identity = resolveUserIdentityActor({ warn: false });
@@ -735,7 +740,7 @@ export function renderAttackCard(message, html) {
             const addRow = (label, value) => calc.appendChild(cardField(esc(label), esc(String(value))));
             addRow("リアクション", `${MODE_LABELS[o.mode] ?? "対決"}（${o.reactorName ?? "?"}）`);
             addRow("リアクション達成値", o.reactionAchievement ?? 0);
-            if (f.state !== "failed") addVerdict("tnx-card__result--success", "fa-check", "判定成功（対決勝利）");
+            if (f.state !== "failed") addVerdict("tnx-card__result--success", "fa-check", `判定成功${reason("対決勝利")}`);
         }
     }
 
