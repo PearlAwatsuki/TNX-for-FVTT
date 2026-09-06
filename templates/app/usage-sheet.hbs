@@ -831,8 +831,9 @@
             {{!-- 破壊タイプ(17-3・神業専用): この用途で破壊できるアウトフィットの分類ホワイトリスト
                  (小分類キーまたは大分類キー=その大分類全体・修理と同じキー空間)。神業ごとに壊せる
                  範囲が違う(《天変地異》「住居やヴィークルなどのアウトフィットをひとつ[破壊]」)。
-                 空欄は許容しない(初期値=サービスを除く全大分類・最後の1つは削除できない)。
-                 サービス大分類は破壊免疫のため選択肢に出ない。 --}}
+                 空欄は許容しない(初期値=「全てのアウトフィット」・最後の1つは削除できない)。
+                 「全て」は列挙ではなく専用の選択肢で、個別の分類とは排他。
+                 サービス大分類は破壊免疫のため選択肢に出ない(「全て」でも壊せない)。 --}}
             {{#if isMiracleDestroy}}
             <fieldset class="tnx-fieldset usage-destroy-section">
                 <legend>破壊</legend>
@@ -852,6 +853,9 @@
                 <div class="usage-skill-ref-add">
                     <select class="destroy-category-select">
                         <option value="">── 破壊できる分類を追加 ──</option>
+                        {{#if destroyAllChoice}}
+                        <option value="{{destroyAllChoice.value}}">{{destroyAllChoice.label}}</option>
+                        {{/if}}
                         {{#each destroyCategoryChoices}}
                         <optgroup label="{{this.label}}">
                             {{#each this.minors}}

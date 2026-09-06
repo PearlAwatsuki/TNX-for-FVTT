@@ -20,7 +20,7 @@ import { CONDITION_KINDS , conditionDisplayName } from "./conditions.mjs";
 import { ATTACK_DAMAGE_TYPES } from "../data/item/helpers.mjs";
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
-import { buildCategoryKeyGroups, categoryKeyLabel } from "../data/item/outfit-categories.mjs";
+import { buildCategoryKeyGroups, categoryKeyLabel, ALL_CATEGORIES_KEY } from "../data/item/outfit-categories.mjs";
 import { resolveAttackWeapons, attackWeaponDisplayName, resolveAttackRangeSpan, attackWeaponKindEligible } from "./attack-weapons.mjs";
 import { captureScrollTop, restoreScrollTop } from "./scroll-preserve.mjs";
 import { applyTriggerDisable } from "./ui-trigger-disable.mjs";
@@ -720,6 +720,9 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             const selected = new Set(usage.destroyableCategories ?? []);
             context.destroyCategoryRows = [...selected].map(k => ({ key: k, label: categoryKeyLabel(k) }));
             context.destroyCategoryChoices = buildCategoryKeyGroups({ excludeKeys: selected });
+            // 「全て」は分類の列挙ではなく専用の選択肢(選ぶと他の分類と入れ替わる)
+            context.destroyAllChoice = selected.has(ALL_CATEGORIES_KEY)
+                ? null : { value: ALL_CATEGORIES_KEY, label: categoryKeyLabel(ALL_CATEGORIES_KEY) };
         }
 
         // NPC取得(11-6・Troops.md/2026-07-13 タイプ→フラグへ移管): check/declaration のどちらにも
@@ -1199,8 +1202,14 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                     const key = ev.target.value;
                     if (!key) return;
                     const usage = this.usage;
-                    if (!usage || (usage.destroyableCategories ?? []).includes(key)) { ev.target.value = ""; return; }
-                    await this._patchUsage({ destroyableCategories: [...(usage.destroyableCategories ?? []), key] });
+                    const current = usage?.destroyableCategories ?? [];
+                    if (!usage || current.includes(key)) { ev.target.value = ""; return; }
+                    // 「全て」と個別の分類は排他: 「全て」を選べばそれだけになり、
+                    // 「全て」の状態で分類を選べばその分類だけに絞られる
+                    const next = key === ALL_CATEGORIES_KEY
+                        ? [ALL_CATEGORIES_KEY]
+                        : [...current.filter(k => k !== ALL_CATEGORIES_KEY), key];
+                    await this._patchUsage({ destroyableCategories: next });
                     this.render({ force: true });
                 });
             }

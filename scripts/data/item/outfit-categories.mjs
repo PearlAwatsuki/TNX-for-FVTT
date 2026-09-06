@@ -184,6 +184,18 @@ export function hasClassification(system, key) {
 }
 
 /**
+ * 「全てのアウトフィット」を表す分類キー(2026-09-06 ユーザー確定)。
+ * 大分類を列挙するのではなく**「全て」という値そのもの**で表す——列挙では「たまたま全部選んだ」
+ * 状態と区別がつかず、分類が増えたときに追随しない。神業の破壊用途の既定値。
+ * 大分類キー・小分類キーと衝突しない値であること。
+ * @type {string}
+ */
+export const ALL_CATEGORIES_KEY = "all";
+
+/** 「全て」の表示ラベル。 */
+const ALL_CATEGORIES_LABEL = "全てのアウトフィット";
+
+/**
  * 分類キー(大分類キーまたは小分類キー・全体一意)を、選択済み行の表示ラベルにする。
  * 大分類キーは「大分類／（大分類全体）」、小分類キーは「属する大分類／小分類」。
  * 修理できる分類(用途)・破壊できる分類(神業の破壊用途)の行表示が共用する。
@@ -192,6 +204,7 @@ export function hasClassification(system, key) {
  */
 export function categoryKeyLabel(key) {
   const k = String(key ?? "");
+  if (k === ALL_CATEGORIES_KEY) return ALL_CATEGORIES_LABEL;
   if (OUTFIT_CATEGORIES[k]) return `${OUTFIT_CATEGORIES[k].label}／（大分類全体）`;
   const majorKey = majorOfMinor(k);
   if (!majorKey) return k;

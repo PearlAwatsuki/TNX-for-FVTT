@@ -10,8 +10,8 @@
 
 import { usesMaxTotalOf, usesMaxBaseOf } from "../data/item/uses.mjs";
 import { conditionDisplayName } from "./conditions.mjs";
-import { isOutfitDestroyed } from "../data/item/helpers.mjs";
-import { OUTFIT_TYPES, outfitClassifications } from "../data/item/outfit-categories.mjs";
+import { isOutfitDestroyed, isOutfitServiceImmune } from "../data/item/helpers.mjs";
+import { OUTFIT_TYPES, outfitClassifications, ALL_CATEGORIES_KEY } from "../data/item/outfit-categories.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -261,9 +261,11 @@ export function evadePlan(f, { rowIndex, actorId, by, resolveActorId }) {
  * (小分類キー=その小分類のみ・大分類キー=その大分類の全小分類)。照合は分類集合
  * (主分類＋副分類=「両方の分類として扱う」)で、修理用途の絞り込みと同じ規約。
  *
- * ホワイトリストは**空欄を許容しない**(初期値=サービスを除く全大分類)。空で呼ばれても
- * 「全部壊せる」へフォールバックしない——サービス大分類は破壊免疫で選択肢に出ないため、
- * 初期値のままでもコネ等のサービスは候補から外れる。
+ * ホワイトリストに「全て」(ALL_CATEGORIES_KEY)が入っていれば分類で絞らない。
+ * サービス大分類は**破壊免疫**なので、「全て」でも候補から外れる(選んでも壊れない)。
+ *
+ * ホワイトリストは**空欄を許容しない**(初期値=「全て」の1件)。空で呼ばれても
+ * 「全部壊せる」へフォールバックしない——「全て」は専用の値で明示されるものだから。
  *
  * @param {Actor|{items: Iterable<Item>}} target 対象キャラクター
  * @param {{destroyableCategories?: string[]}} usage 破壊タイプの用途
@@ -272,11 +274,13 @@ export function evadePlan(f, { rowIndex, actorId, by, resolveActorId }) {
 export function listDestroyableOutfits(target, usage) {
     const cats = new Set(usage?.destroyableCategories ?? []);
     if (!cats.size) return [];
+    const all = cats.has(ALL_CATEGORIES_KEY);
     const out = [];
     for (const it of (target?.items ?? [])) {
         if (!OUTFIT_TYPES.has(it.type)) continue;
+        if (isOutfitServiceImmune(it.system)) continue;
         if (isOutfitDestroyed(it.system)) continue;
-        if (!outfitClassifications(it.system).some(c => cats.has(c.major) || cats.has(c.minor))) continue;
+        if (!all && !outfitClassifications(it.system).some(c => cats.has(c.major) || cats.has(c.minor))) continue;
         out.push(it);
     }
     return out;

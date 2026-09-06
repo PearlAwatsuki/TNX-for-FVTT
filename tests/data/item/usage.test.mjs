@@ -183,9 +183,7 @@ describe("破壊タイプ（17-3・神業専用）: 破壊できるアウトフ�
     expect(entry.destroyableCategories.element).toBeInstanceOf(MockStringField);
   });
 
-  it("初期値はサービスを除く全大分類キー（空欄を許容しない・サービス大分類は破壊免疫）", () => {
-    expect(entry.destroyableCategories.options.initial()).toEqual([
-      "weapon", "armor", "cyberware", "tron", "vehicle", "housing", "item",
-    ]);
+  it("初期値は「全て」を表す1件（空欄を許容しない・全ては列挙でなく専用の値で表す）", () => {
+    expect(entry.destroyableCategories.options.initial()).toEqual(["all"]);
   });
 });

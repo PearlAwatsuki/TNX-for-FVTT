@@ -690,10 +690,15 @@ describe("listDestroyableOutfits()（破壊タイプ・破壊できるアウト�
             .toEqual(["i8"]);
     });
 
-    it("サービス大分類は破壊免疫のため、初期値（サービスを除く全大分類）では候補に出ない", () => {
+    it("「全て」（初期値）はアウトフィットを分類で絞らない", () => {
+        const target = { items: [gun, car, house] };
+        expect(listDestroyableOutfits(target, { destroyableCategories: ["all"] }).map(i => i.id))
+            .toEqual(["i1", "i3", "i4"]);
+    });
+
+    it("サービス大分類は破壊免疫のため「全て」でも候補に出ない", () => {
         const target = { items: [gun, contact] };
-        const all = ["weapon", "armor", "cyberware", "tron", "vehicle", "housing", "item"];
-        expect(listDestroyableOutfits(target, { destroyableCategories: all }).map(i => i.id))
+        expect(listDestroyableOutfits(target, { destroyableCategories: ["all"] }).map(i => i.id))
             .toEqual(["i1"]);
     });
 

@@ -5,7 +5,7 @@ const {
   OUTFIT_CATEGORIES, getMajorCategoryChoices, getMinorCategoryChoices,
   getMajorCategoryLabel, getMinorCategoryLabel, LEGACY_CATEGORY_MAP,
   majorOfMinor, outfitClassifications, hasClassification, buildCategoryKeyGroups,
-  categoryKeyLabel,
+  categoryKeyLabel, ALL_CATEGORIES_KEY,
 } = await import("../../../scripts/data/item/outfit-categories.mjs");
 
 describe("OUTFIT_CATEGORIES", () => {
@@ -175,6 +175,11 @@ describe("categoryKeyLabel()（分類キー（大分類/小分類の混在）を
   it("小分類キーは「属する大分類／小分類」", () => {
     expect(categoryKeyLabel("melee")).toBe("武器／白兵武器");
     expect(categoryKeyLabel("residence")).toBe("住宅／住宅施設");
+  });
+
+  it("「全て」を表すキーは「全てのアウトフィット」", () => {
+    expect(categoryKeyLabel(ALL_CATEGORIES_KEY)).toBe("全てのアウトフィット");
+    expect(ALL_CATEGORIES_KEY).toBe("all");
   });
 
   it("未知のキーはキーをそのまま返す（データ不整合を隠さない）", () => {

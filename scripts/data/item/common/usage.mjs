@@ -31,7 +31,7 @@
 
 import { SystemDataModel } from "../../abstract.mjs";
 import { isAttackType, isReactionType, usesVehicle, defaultConfrontationForType } from "../../../module/usage-types.mjs";
-import { OUTFIT_CATEGORIES } from "../outfit-categories.mjs";
+import { ALL_CATEGORIES_KEY } from "../outfit-categories.mjs";
 
 /**
  * 攻撃用途か。攻撃は行動種別タイプ(物理攻撃/精神攻撃/社会攻撃)で表す(2026-07-17 再編。
@@ -324,11 +324,12 @@ export class UsageTemplate extends SystemDataModel {
                     // repairableCategories と同じキー空間)。神業ごとに壊せる範囲が違う
                     // (《天変地異》「住居やヴィークルなどのアウトフィットをひとつ[破壊]」)ため、
                     // 用途側で選ぶ。**空欄は許容しない**(2026-09-06 ユーザー確定)——初期値は
-                    // サービスを除く全大分類(サービス大分類は破壊免疫のため選択肢にも出ない)で、
-                    // シートは最後の1つを削除させない。既存の破壊用途もこの初期値で埋まる
-                    // (フィールド追加前のデータ=現状どおり全部壊せる)。
+                    // 「全てのアウトフィット」(ALL_CATEGORIES_KEY)の1件で、シートは最後の1つを
+                    // 削除させない。「全て」は大分類の列挙ではなく**専用の値**で表す(列挙では
+                    // 「たまたま全部選んだ」と区別がつかない)。既存の破壊用途もこの初期値で
+                    // 埋まる(フィールド追加前のデータ=現状どおり全部壊せる)。
                     destroyableCategories: new fields.ArrayField(new fields.StringField(), {
-                        initial: () => Object.keys(OUTFIT_CATEGORIES).filter(k => k !== "service"),
+                        initial: () => [ALL_CATEGORIES_KEY],
                     }),
 
                     // check: 再判定を付与(2026-07-11 ユーザー確定)。ON の用途は使用しても判定を行わず、
