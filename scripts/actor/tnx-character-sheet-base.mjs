@@ -1229,8 +1229,12 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                             } else {
                                 // uses は DataModel の既定(isLimit:true/max:1/spent:0)で作成。母数のレベル連動は
                                 // preUpdateItem(スタイルレベル変更)が維持する
-                                await this.actor.createEmbeddedDocuments("Item", [sourceMiracle.toObject()]);
+                                const [addedMiracle] = await this.actor.createEmbeddedDocuments("Item", [sourceMiracle.toObject()]);
                                 ui.notifications.info(`神業「${sourceMiracle.name}」がスタイル「${createdStyle.name}」から追加されました。`);
+                                // 効果の参照(《万能道具》《神意》): **スタイルを設定したこの時点で**区分
+                                // (〈フォルム〉〈属性〉)を選び、効果を固定する(2026-09-06 ユーザー裁定。
+                                // 使用時に取得技能から導かない＝スタイル→神業→スタイル技能の順を保つ)
+                                await TnxCharacterSheetBase._chooseMiracleFormEffect(addedMiracle);
                             }
                         }
                     }
@@ -2306,6 +2310,34 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             await item.delete();
             this.render();
         }
+    }
+
+    /**
+     * 効果の参照を持つ神業の効果を、**スタイルを設定した時点で**固定する。
+     * 対応表(区分の技能→参照する神業)から区分を1つ選ばせ、選んだ行の神業を効果として保存する。
+     * 対応表が無い/1件しかない神業は何も聞かない(1件ならそれで固定)。
+     * @param {?Item} miracle アクターに追加された神業
+     */
+    static async _chooseMiracleFormEffect(miracle) {
+        const cfg = miracle?.system?.asOther;
+        if (!miracle || cfg?.mode !== "choice") return;
+        const rows = (cfg.choices ?? []).filter(c => c.uuid);
+        if (!rows.length) return;
+        const labels = await Promise.all(rows.map(async (c) => {
+            const skill   = c.skillUuid ? await fromUuid(c.skillUuid).catch(() => null) : null;
+            const miracleDoc = await fromUuid(c.uuid).catch(() => null);
+            return { value: c.uuid, label: `${skill?.name ?? "（区分未設定）"}：${miracleDoc?.name ?? "?"}` };
+        }));
+        if (labels.length === 1) {
+            await miracle.update({ "system.asOther.selected": labels[0].value });
+            return;
+        }
+        const { TargetSelectionDialog } = await import("../module/tnx-dialog.mjs");
+        const picked = await TargetSelectionDialog.prompt({
+            title: `${miracle.name}: 効果を決める`, label: "区分（フォルム・属性）",
+            options: labels, selectLabel: "決定",
+        });
+        if (picked) await miracle.update({ "system.asOther.selected": picked });
     }
 
     static async _onRollStyleDescription(event, target) {

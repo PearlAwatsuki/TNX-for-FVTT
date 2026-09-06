@@ -14,7 +14,6 @@
         <a class="item" data-action="tab" data-group="primary" data-tab="description">説明</a>
         <a class="item" data-action="tab" data-group="primary" data-tab="setting">設定</a>
         <a class="item" data-action="tab" data-group="primary" data-tab="usage">用途</a>
-        <a class="item" data-action="tab" data-group="primary" data-tab="asother">効果の参照</a>
     </nav>
 
      <section class="sheet-body">
@@ -74,17 +73,10 @@
             </fieldset>
 
 
-        </div>
-
-        <div class="tab usage" data-group="primary" data-tab="usage">
-            {{> "systems/tokyo-nova-axleration/templates/parts/usage-list.hbs"}}
-        </div>
-
-        {{!-- 効果の参照(17-5・アイテム側の機能)。《万能道具》《神意》は、取得した区分(〈フォルム〉〈属性〉)に
-             よって**効果と経験点の取得条件が指定の神業と同じになる**——その神業「として」使うのではない。
-             区分と神業は1対1で他の候補が入る余地が無いのでドロップで結線する(選ぶ操作ではない・2026-09-06)。
-             どれが自分の区分かはラジオで固定する(〈フォルム〉はスタイルを取るときに決まる) --}}
-        <div class="tab asother" data-group="primary" data-tab="asother">
+            {{!-- 効果の参照(17-5・アイテム側の機能)。《万能道具》《神意》は、取得した区分(〈フォルム〉〈属性〉)に
+                 よって**効果と経験点の取得条件が指定の神業と同じになる**——その神業「として」使うのではない。
+                 ここは**対応表**(辞典データ)で、どれになるかは**スタイルを設定したときに決まる**
+                 (2026-09-06 ユーザー裁定)。区分と神業は1対1なのでドロップで結線する --}}
             <fieldset class="tnx-fieldset">
                 <legend>
                     効果の参照
@@ -99,6 +91,12 @@
                             {{selectOptions asOtherModeOptions selected=system.asOther.mode}}
                         </select>
                     </div>
+                    {{#if asOtherSelectedLabel}}
+                    <div class="form-group">
+                        <label>このキャラクターの効果</label>
+                        <span>{{asOtherSelectedLabel}}</span>
+                    </div>
+                    {{/if}}
                 </div>
 
                 {{#if asOtherIsChoice}}
@@ -106,7 +104,6 @@
                     <table class="tnx-asother-table">
                         <thead>
                             <tr>
-                                <th class="aso-pick">選択</th>
                                 <th class="aso-skill">区分（技能）</th>
                                 <th class="aso-miracle">参照する神業</th>
                                 {{#if editable}}<th class="aso-del"></th>{{/if}}
@@ -114,11 +111,7 @@
                         </thead>
                         <tbody>
                             {{#each asOtherChoices as |row|}}
-                            <tr>
-                                <td class="aso-pick">
-                                    <input type="radio" name="system.asOther.selected" value="{{row.uuid}}"
-                                           {{#if row.selected}}checked{{/if}} {{#unless @root.editable}}disabled{{/unless}}>
-                                </td>
+                            <tr {{#if row.selected}}class="aso-row--selected"{{/if}}>
                                 <td class="aso-skill">
                                     {{#if row.skill}}
                                     <button type="button" class="tnx-linked-btn" data-action="asOtherSkillOpen" data-index="{{row.idx}}" data-context-menu-type="asother-skill">
@@ -155,7 +148,14 @@
                 </div>
                 {{/if}}
             </fieldset>
+
         </div>
+
+        <div class="tab usage" data-group="primary" data-tab="usage">
+            {{> "systems/tokyo-nova-axleration/templates/parts/usage-list.hbs"}}
+        </div>
+
+
 
     </section>
 </section>

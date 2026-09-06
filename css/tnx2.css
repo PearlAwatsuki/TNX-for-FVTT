@@ -11815,10 +11815,15 @@ body.system-tokyo-nova-axleration button.bright:hover {
     font-weight: 600;
 }
 
-.tnx-asother-table .aso-pick,
+/* 削除はアイコン1つぶんの列。見出しを持たないので幅を固定してよい */
 .tnx-asother-table .aso-del {
     width: 1.8em;
     text-align: center;
+}
+
+/* スタイル設定時に固定された効果の行を示す */
+.tnx-asother-table .aso-row--selected {
+    background: var(--tnx2-accent-glow-sm);
 }
 
 .tnx-asother-table .tnx-import-box--inline {

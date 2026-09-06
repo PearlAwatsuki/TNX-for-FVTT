@@ -8,9 +8,9 @@ const SKILL_TYPES = ["generalSkill", "styleSkill"];
  * 区分(〈フォルム〉〈属性〉)によって**効果と経験点の取得条件が指定の神業と同じになる**——
  * その神業「として」使うのではない(2026-09-06 ユーザー訂正)。
  * 表の1行＝[区分の技能][参照する神業]で、**どちらもドロップで結線する**——区分と神業は1対1で
- * 他の候補が入る余地が無いため(選ぶ操作ではない=2026-09-06 の基準)。どれが自分の区分かは
- * 行のラジオで固定する(〈フォルム〉はスタイルを取るときに決まる=使用時に取得技能から導かない)。
- * 十数件(クロガネの〈フォルム〉)あっても一覧できるよう、設定タブに詰め込まず専用タブの表に置く。
+ * 他の候補が入る余地が無いため(選ぶ操作ではない=2026-09-06 の基準)。
+ * **どれになるかはスタイルを設定したときに決まる**(〈フォルム〉を選ぶ時点=2026-09-06 ユーザー裁定)ので、
+ * このシートに選択の操作は置かない(確定したものを1行で示すだけ)。表は設定タブに置く。
  * 行は配列全体を送って更新する(スタイル技能シートのコンボ行と同方式)。対応表はコードに持たず、
  * 辞典データ側にこの表として設定する。
  */
@@ -34,7 +34,7 @@ export class TokyoNovaMiracleSheet extends TokyoNovaItemSheet {
     static TABS = {
         primary: {
             // 神業に「効果」タブは置かない——神業に適用される ActiveEffect は無く、事前設定もできない
-            tabs: [{ id: "description" }, { id: "setting" }, { id: "usage" }, { id: "asother" }],
+            tabs: [{ id: "description" }, { id: "setting" }, { id: "usage" }],
             initial: "description",
         },
     };
@@ -67,13 +67,19 @@ export class TokyoNovaMiracleSheet extends TokyoNovaItemSheet {
         context.asOtherModeOptions = TokyoNovaMiracleSheet.AS_OTHER_MODES;
         context.asOtherIsChoice = asOther.mode === "choice";
         if (context.asOtherIsChoice) {
-            context.asOtherChoices = await Promise.all((asOther.choices ?? []).map(async (c, idx) => ({
+            const rows = await Promise.all((asOther.choices ?? []).map(async (c, idx) => ({
                 idx,
                 uuid: c.uuid ?? "",
                 selected: !!c.uuid && c.uuid === asOther.selected,
                 skill:   await TokyoNovaMiracleSheet._resolveRef(c.skillUuid),
                 miracle: await TokyoNovaMiracleSheet._resolveRef(c.uuid),
             })));
+            context.asOtherChoices = rows;
+            // 効果は**スタイルを設定したときに**決まる(区分＝〈フォルム〉を選ぶ時点)。ここは表示だけ
+            const sel = rows.find(r => r.selected);
+            context.asOtherSelectedLabel = sel
+                ? `《${sel.miracle?.name ?? "?"}》${sel.skill ? `（${sel.skill.name}）` : ""}`
+                : "";
         }
         return context;
     }
