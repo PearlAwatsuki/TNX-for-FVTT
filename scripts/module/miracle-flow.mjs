@@ -519,9 +519,7 @@ async function negateLimitOk(state, target) {
 
 /**
  * 神業が他のカードへ与えた変更を戻す(打ち消し・防御を打ち消されたとき・2026-09-06)。
- * undo は {messageId, patch} の並びで、patch は**当時の値**(フラグのパス→値)。
- * 対象のカードが消えている・既に別の神業に触られている場合でも、そのまま当時の値へ戻す
- * (卓の裁定で戻すのが打ち消しの意味なので、後勝ちで構わない)。
+ * undo は {messageId, patch} の並びで、patch は**その神業が触る前の値**(フラグのパス→値)。
  * @param {object} mf 打ち消された神業カードのフラグ
  */
 async function revertMiracleUndo(mf) {
@@ -530,6 +528,28 @@ async function revertMiracleUndo(mf) {
         if (!msg || !step.patch) continue;
         await TnxSocketHandler.applyMessagePatch(msg, step.patch);
     }
+}
+
+/**
+ * これから変える場所の**今の値**を控える。打ち消しは何段でも重なる——打ち消しを打ち消し、
+ * それをさらに打ち消す…と続けられる(2026-09-06 ユーザー指摘「打消し系の神業がある限り無限に可能」)。
+ * 各段が「自分が変えるものの現在値」を持てば、上の段を打ち消すたびに1段ずつ戻り、
+ * 打ち消した事実(それぞれの神業カード)は卓に残ったままになる。
+ * @param {{messageId: string, patch: object}[]} steps 参照する手順(キーだけ使う)
+ * @returns {Promise<{messageId: string, patch: object}[]>}
+ */
+async function captureCurrentValues(steps) {
+    const out = [];
+    for (const step of (steps ?? [])) {
+        const msg = game.messages.get(step.messageId);
+        if (!msg || !step.patch) continue;
+        const patch = {};
+        for (const key of Object.keys(step.patch)) {
+            patch[key] = foundry.utils.deepClone(foundry.utils.getProperty(msg, key) ?? null);
+        }
+        out.push({ messageId: step.messageId, patch });
+    }
+    return out;
 }
 
 /** 打ち消しの確定: モード解除と消費(待ち受け開始時に確定したプラン)、発動した神業のカード(17-5 の記帳点)。 */
@@ -646,11 +666,17 @@ export async function handleNegateMiracleCardClick(message) {
     if (!mf?.itemId) return;
     if (mf.negatedBy) { ui.notifications.warn("この神業は既に打ち消されています。"); return; }
     if (!await negateLimitOk(ns.state, mf)) return;
-    await commitNegate(ns.state, [{ messageId: message.id, patch: {
-        [`flags.${SCOPE}.miracle.negatedBy`]: mf.negatedBy ?? null,
-        ...(message.getFlag(SCOPE, "usageEffects")
-            ? { [`flags.${SCOPE}.usageEffects.negatedBy`]: message.getFlag(SCOPE, "usageEffects").negatedBy ?? null } : {}),
-    } }]);
+    // この打ち消しが変えるもの: (1)この神業カードの negatedBy (2)相手が戻す先の現在値
+    // (2)を控えるので、**この打ち消しがさらに打ち消されたら1段戻る**(何段でも連鎖する)
+    const undo = [
+        { messageId: message.id, patch: {
+            [`flags.${SCOPE}.miracle.negatedBy`]: mf.negatedBy ?? null,
+            ...(message.getFlag(SCOPE, "usageEffects")
+                ? { [`flags.${SCOPE}.usageEffects.negatedBy`]: message.getFlag(SCOPE, "usageEffects").negatedBy ?? null } : {}),
+        } },
+        ...await captureCurrentValues(mf.undo),
+    ];
+    await commitNegate(ns.state, undo);
     // 打ち消し・防御そのものを打ち消したときは、その神業が他のカードへ与えた変更を戻す
     // (2026-09-06 ユーザー指摘「撃ち消しや防御はそれ自体を打ち消すこともできます」)
     await revertMiracleUndo(mf);
