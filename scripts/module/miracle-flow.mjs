@@ -13,7 +13,7 @@
 import {
     miracleUseGate, miracleConsumeUpdate, buildMiracleCardData, miracleOriginOf,
     negateCheckGate, negatedCheckMods, evadePlan, miracleIdentityMatches,
-    buildMiracleDamageFlag, terminalKindFor,
+    buildMiracleDamageFlag, miracleResultLabel,
     interferenceCandidates, addUseEffectSource, miracleLogCandidates, conditionSwapPlan,
 } from "./miracle-logic.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
@@ -57,16 +57,13 @@ function chartValueOptions(category) {
  * @returns {Promise<?{kind: "terminal"|"chart", value?: number, drawn?: string[]}>} キャンセルは null
  */
 async function promptMiracleDamageResult(item, usage, category, targets = []) {
-    // 終端の選択肢の呼び名は対象で変わる: トループは壊滅(頭数を 0 にする)、キャスト/ゲストは終端状態
+    // 終端の選択肢の呼び名は対象で変わる: トループは壊滅(頭数を 0 にする)、キャスト/ゲストは終端状態。
+    // 呼び名の規約はカード側と同じ 1 か所(miracleResultLabel)に置く
     const kinds = await Promise.all((targets ?? []).map(async (t) => {
         const doc = await fromUuid(t.uuid).catch(() => null);
         return (doc?.actor ?? doc)?.type ?? null;
     }));
-    const hasTroop = kinds.includes("troop");
-    const hasOther = kinds.some(k => k && k !== "troop");
-    const terminalLabel = hasTroop && !hasOther ? "壊滅"
-        : hasTroop ? `${conditionDisplayName(terminalKindFor(category))}／壊滅`
-        : conditionDisplayName(terminalKindFor(category));
+    const terminalLabel = miracleResultLabel({ kind: "terminal" }, category, kinds);
     if (usage.type === "miracleSocial" && (usage.socialDecide || "choose") === "rl") {
         const how = await TargetSelectionDialog.prompt({
             title: `${item.name}: 社会戦ダメージ`, label: "社会戦ダメージの決め方（RL）",
@@ -102,9 +99,8 @@ async function promptMiracleDamageResult(item, usage, category, targets = []) {
  */
 export async function useMiracleDamage(actor, item, usage, { asOther = null } = {}) {
     const category = usage.type === "miracleSocial" ? "social" : (usage.killCategory || "physical");
-    const refs = await resolveUsageTargetRefs(actor, usage);
-    if (refs === null) return false;
-    if (!refs.length) { ui.notifications.warn("対象をターゲットしてから使用してください。"); return false; }
+    const refs = await resolveMiracleTargets(actor, usage);
+    if (!refs) return false;
     const rows = resolveConsumeRowsForActor(actor, item, usage.consumeTargets);
     const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${item.name}` });
     if (plan === null) return false;
@@ -174,17 +170,30 @@ export async function useMiracleDestroy(actor, item, usage, { asOther = null } =
 }
 
 /**
+ * 神業の対象解決(全タイプ共通の前段)。用途の「対象」欄が空でも、**ターゲットされていればそれを
+ * 対象にする**——神業は効果文で対象が決まっている(「他人に」「トループを」等)ので、欄の設定を
+ * 理由にターゲットを無視しない(2026-09-06 ユーザー裁定)。この規約は破壊・干渉だけでなく即死・
+ * 社会戦にも効く(欄が空の即死用途がターゲット済みのトループを壊滅させられなかった=KI-052)。
+ * @param {Actor} actor 使用者
+ * @param {object} usage 用途
+ * @returns {Promise<?Array<{uuid: string, name: string}>>} 中止なら null(通知済み)
+ */
+async function resolveMiracleTargets(actor, usage) {
+    let refs = await resolveUsageTargetRefs(actor, usage);
+    if (refs === null) return null;
+    if (!refs.length) refs = currentTargetActors().map(a => ({ uuid: a.uuid, name: a.name }));
+    if (!refs.length) { ui.notifications.warn("対象をターゲットしてから使用してください。"); return null; }
+    return refs;
+}
+
+/**
  * 対象1人を解決する(対象の操作者が後で適用/使用する流れの共通前段)。0人は警告、複数は中止
  * (「他のキャラクター」「アウトフィットをひとつ」=1人への効果)。トークン uuid はそのアクターへ。
  * @returns {Promise<?Actor>} 中止なら null
  */
 async function resolveSingleTarget(actor, usage) {
-    let refs = await resolveUsageTargetRefs(actor, usage);
-    if (refs === null) return null;
-    // 用途の「対象」欄が空でも、**ターゲットされていればそれを対象にする**——これらの神業は
-    // 効果文で対象が決まっている(「他人に」等)ので、欄の設定でターゲットを無視しない(2026-09-06)
-    if (!refs.length) refs = currentTargetActors().map(a => ({ uuid: a.uuid, name: a.name }));
-    if (!refs.length) { ui.notifications.warn("対象をターゲットしてから使用してください。"); return null; }
+    const refs = await resolveMiracleTargets(actor, usage);
+    if (!refs) return null;
     if (refs.length > 1) { ui.notifications.warn("対象は1人にしてください。"); return null; }
     const doc = await fromUuid(refs[0].uuid).catch(() => null);
     const target = doc?.actor ?? doc;

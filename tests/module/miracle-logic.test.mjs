@@ -368,6 +368,24 @@ describe("miracleResultLabel()（結果の表示）", () => {
         expect(miracleResultLabel({ kind: "terminal" }, "social")).toBe("［抹殺］");
         expect(miracleResultLabel({ kind: "chart", value: 13 }, "physical")).toBe("ダメージ 13");
     });
+
+    it("対象がトループなら終端の呼び名は壊滅(人数 0)＝完全死亡ではない", () => {
+        expect(miracleResultLabel({ kind: "terminal" }, "physical", ["troop"])).toBe("壊滅");
+        expect(miracleResultLabel({ kind: "terminal" }, "social", ["troop"])).toBe("壊滅");
+    });
+
+    it("トループと他の対象が混ざるときは両方を並べる(どちらが起きるかは対象ごと)", () => {
+        expect(miracleResultLabel({ kind: "terminal" }, "physical", ["troop", "cast"])).toBe("［完全死亡］／壊滅");
+        expect(miracleResultLabel({ kind: "terminal" }, "physical", ["cast", "guest"])).toBe("［完全死亡］");
+    });
+
+    it("任意ダメージは対象の型で変わらない(トループは人数から引く値)", () => {
+        expect(miracleResultLabel({ kind: "chart", value: 5 }, "physical", ["troop"])).toBe("ダメージ 5");
+    });
+
+    it("解決できない対象(null)は型の無い対象として扱う＝終端状態の名前", () => {
+        expect(miracleResultLabel({ kind: "terminal" }, "physical", [null])).toBe("［完全死亡］");
+    });
 });
 
 describe("miracleTargetOutcome()（対象の型ごとに何が起こるか）", () => {

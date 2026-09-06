@@ -279,10 +279,23 @@ export function buildMiracleDamageFlag({ by, category, targets, result }) {
     };
 }
 
-/** 結果の表示(終端状態は系統の終端の名前・任意ダメージは値)。 */
-export function miracleResultLabel(result, category) {
-    if (result?.kind === "terminal") return conditionDisplayName(terminalKindFor(category));
-    return `ダメージ ${Number(result?.value) || 0}`;
+/**
+ * 結果の表示(終端状態は系統の終端の名前・任意ダメージは値)。
+ * **終端の呼び名は対象の型で変わる**——トループに起きるのは壊滅(人数 0)であって完全死亡ではない
+ * (2026-09-06 是正。結果の選択ダイアログだけが壊滅と呼び、カードは完全死亡のままだった)。
+ * 対象の型が混ざるときは両方を並べる(どちらが起きるかは対象ごとに決まる)。型が解決できない対象
+ * (null)は型なしとして数えない=系統の終端状態の名前になる。
+ * @param {{kind: "terminal"|"chart", value?: number}} result
+ * @param {string} category 系統
+ * @param {Array<?string>} [targetTypes] 対象アクターの type(空=型を問わない)
+ * @returns {string}
+ */
+export function miracleResultLabel(result, category, targetTypes = []) {
+    if (result?.kind !== "terminal") return `ダメージ ${Number(result?.value) || 0}`;
+    const kinds = (targetTypes ?? []).filter(Boolean);
+    const terminal = conditionDisplayName(terminalKindFor(category));
+    if (!kinds.includes("troop")) return terminal;
+    return kinds.some(k => k !== "troop") ? `${terminal}／壊滅` : "壊滅";
 }
 
 /**

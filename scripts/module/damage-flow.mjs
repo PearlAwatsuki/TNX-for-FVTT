@@ -636,7 +636,9 @@ export function renderDamageCard(message, html) {
  * 見出しは打ち消しの発動点(打ち消されたカードは全対象が防がれた扱い=行が消える)。
  */
 function renderMiracleDamageCard(message, html, f, { ledger, area, row, line, esc, dmgTargets, liveIdx }) {
-    const label = miracleResultLabel(f.miracleResult, f.category);
+    // 終端の呼び名は対象の型で変わる(トループ=壊滅)。台帳は対象全体・対象行はその行の型で決める
+    const typeOf = (t) => resolveSync(t?.uuid)?.type ?? null;
+    const label = miracleResultLabel(f.miracleResult, f.category, dmgTargets.map(typeOf));
     const negated = !!f.negatedBy;
     // 全対象が防がれた＝この神業の結果は起きなかった(一部だけ防がれた場合は残りに起きる)
     const allPrevented = dmgTargets.length > 0 && liveIdx.length === 0;
@@ -691,7 +693,8 @@ function renderMiracleDamageCard(message, html, f, { ledger, area, row, line, es
                 "tnx-card__field tnx-card__field--wrap tnx-card__field--prevented");
             continue;
         }
-        row(area, esc(t.name), esc(label), "tnx-card__field tnx-card__field--wrap");
+        row(area, esc(t.name), esc(miracleResultLabel(f.miracleResult, f.category, [typeOf(t)])),
+            "tnx-card__field tnx-card__field--wrap");
         const nameEl = area.lastElementChild?.querySelector(".tnx-card__field-label");
         if (nameEl && !nameEl.classList.contains("tnx-recheck-target")) {
             nameEl.classList.add("tnx-recheck-target");
@@ -733,9 +736,9 @@ export async function applyMiracleDamage(message) {
         ui.notifications.warn("適用は対象の操作者（または RL）が行います。");
         return;
     }
-    const label = miracleResultLabel(f.miracleResult, f.category);
     const applied = [];
     for (const { actor, name } of rows) {
+        const label = miracleResultLabel(f.miracleResult, f.category, [actor.type]);
         const out = miracleTargetOutcome(f.miracleResult, actor.type, f.category);
         let text = "";
         let ok = true;
