@@ -981,6 +981,14 @@ Hooks.on("createItem", async (item, _options, userId) => {
     for (const it of actor.items) {
         for (const e of it.effects) await materializeItemTransfers(actor, e, it);
     }
+    // 効果の参照を持つ神業(《万能道具》《神意》《半身》)をアクターが得たら、その場で効果を決める。
+    // スタイル経由の取得だけでなく**神業を直接インポートしたときも**通す(2026-09-06 ユーザー指摘
+    // 「万能道具をインポートして使用しても、万能道具自体に用途の設定が無いため何の効果も発揮しません」
+    // ——効果と用途は参照先の神業から来るので、参照が決まっていないと何も起きない)
+    if (item.type === "miracle" && item.system?.asOther?.mode === "choice" && !item.system.asOther.selected) {
+        const { TnxCharacterSheetBase } = await import("./actor/tnx-character-sheet-base.mjs");
+        await TnxCharacterSheetBase._chooseMiracleFormEffect(item);
+    }
 });
 
 // 武器区分フラグの分類既定(2026-07-17 ユーザー確定): 分類(小分類)を変更したら、その分類の

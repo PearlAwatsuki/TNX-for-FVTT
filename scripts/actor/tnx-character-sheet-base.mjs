@@ -1229,12 +1229,11 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                             } else {
                                 // uses は DataModel の既定(isLimit:true/max:1/spent:0)で作成。母数のレベル連動は
                                 // preUpdateItem(スタイルレベル変更)が維持する
-                                const [addedMiracle] = await this.actor.createEmbeddedDocuments("Item", [sourceMiracle.toObject()]);
+                                await this.actor.createEmbeddedDocuments("Item", [sourceMiracle.toObject()]);
                                 ui.notifications.info(`神業「${sourceMiracle.name}」がスタイル「${createdStyle.name}」から追加されました。`);
-                                // 効果の参照(《万能道具》《神意》): **スタイルを設定したこの時点で**区分
-                                // (〈フォルム〉〈属性〉)を選び、効果を固定する(2026-09-06 ユーザー裁定。
-                                // 使用時に取得技能から導かない＝スタイル→神業→スタイル技能の順を保つ)
-                                await TnxCharacterSheetBase._chooseMiracleFormEffect(addedMiracle);
+                                // 効果の参照(《万能道具》《神意》《半身》)の効果は、神業がアクターに
+                                // 入った時点で決める(createItem フックが _chooseMiracleFormEffect を呼ぶ)。
+                                // スタイル経由でも直接インポートでも同じ経路を通す(2026-09-06)
                             }
                         }
                     }
