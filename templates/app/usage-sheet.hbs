@@ -952,13 +952,14 @@
                 </div>
                 {{/unless}}
                 {{#if isDefenceCure}}
-                {{!-- 神業の治癒(17-2)で足す2つ: スタイル技能の効果の解除(《人命救助》)・受けたシーンの制限
+                {{!-- 神業の治癒(17-2)で足す2つ: BS・ダメージ以外の効果の解除(《腹心》「バッドステータスなど
+                     不利になる効果」・《人命救助》「任意のスタイル技能の効果」)・受けたシーンの制限
                      (《腹心》《人命救助》=完全死亡・精神崩壊のみ／《黄泉還り》を他人に=すべて) --}}
                 <div class="usage-form-row usage-toggle-row">
                     <label class="usage-toggle-inline">
                         <input type="checkbox" name="recoveryEffects" {{checked recoveryEffects}}
                                {{#unless editable}}disabled{{/unless}}>
-                        <span>スタイル技能の効果も解除できる</span>
+                        <span>BS・ダメージ以外の不利な効果も解除</span>
                     </label>
                 </div>
                 <div class="usage-form-row">
