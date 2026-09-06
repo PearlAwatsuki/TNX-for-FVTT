@@ -107,8 +107,9 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
             const rw = system.miracleRewrite ?? {};
             context.rewriteEffectOptions = TokyoNovaStyleSkillSheet.REWRITE_EFFECTS;
             context.rewriteIsRef = rw.effect === "ref";
-            // 独自効果型で「書き換える」ときだけ文の欄を出す(参照型は書き換え先の神業の文を使う)
-            context.rewriteShowDescription = rw.effect === "own" && rw.rewriteDescription === true;
+            // 効果文は必ず書き換わるので、独自効果型なら常に効果文の欄を出す(参照型は書き換え先の
+            // 神業の効果文を使う)。取得条件は「書き換える」を選んだときだけ欄を出す
+            context.rewriteShowDescription = rw.effect === "own";
             context.rewriteShowCondition   = rw.effect === "own" && rw.rewriteCondition === true;
             context.rewriteTarget = await TokyoNovaStyleSkillSheet._resolveRewriteRef(rw.target?.uuid, rw.target?.name);
             context.rewriteRef    = context.rewriteIsRef

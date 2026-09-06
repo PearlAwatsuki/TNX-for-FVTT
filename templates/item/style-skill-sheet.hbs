@@ -411,13 +411,9 @@
                             </div>
                             {{/if}}
 
-                            <div class="form-group">
-                                <label for="rewriteDescription-{{item._id}}">効果文も書き換える</label>
-                                <input type="checkbox" name="system.miracleRewrite.rewriteDescription" id="rewriteDescription-{{item._id}}" {{checked system.miracleRewrite.rewriteDescription}}>
-                            </div>
-
                             {{#if rewriteShowDescription}}
-                            {{!-- 書き換えた後の神業の効果文(技能の解説とは別物) --}}
+                            {{!-- 書き換えた後の神業の効果文(技能の解説とは別物)。
+                                 効果文は必ず書き換わるので「書き換えるか」の選択は無い --}}
                             <div class="tnx-editor-section">
                                 <div class="tnx-editor-section__header">
                                     <label>効果文</label>

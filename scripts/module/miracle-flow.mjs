@@ -15,7 +15,7 @@ import {
     negateCheckGate, negatedCheckMods, evadePlan, miracleIdentityMatches,
     buildMiracleDamageFlag, miracleResultLabel,
     interferenceCandidates, addUseEffectSource, miracleLogCandidates, conditionSwapPlan,
-    renameMiracleInCondition, listDestroyableOutfits,
+    renameMiracleInText, listDestroyableOutfits,
     miracleRewriteCandidates, miracleRewriteVia, miracleCardTextPlan,
 } from "./miracle-logic.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
@@ -425,7 +425,7 @@ export async function asOtherCopyUpdate(miracle, uuid) {
     // 「《万能道具》を『うまく使った』条件は、元となった神業と同じである」をそのまま文にした形
     return {
         "system.actions":        foundry.utils.duplicate(source.system.actions ?? []),
-        "system.usageCondition": renameMiracleInCondition(source.system.usageCondition ?? "", source.name, miracle?.name ?? ""),
+        "system.usageCondition": renameMiracleInText(source.system.usageCondition ?? "", source.name, miracle?.name ?? ""),
     };
 }
 
@@ -966,9 +966,11 @@ export async function postMiracleCard(item, { usageEffects = null, destroy = nul
         if (plan.from === "text") return { raw: plan.text, host: item };
         const host = plan.from === "item" ? item : textHost;
         const raw = host.system?.[field] ?? "";
+        // 他の神業から写した文は、文中の神業名を**名乗る神業**の名前に置き換える(方針A と同じ規則を
+        // 効果文にも当てる・2026-09-07 ユーザー指示)。書き換えでもコピー(《突然変異》)でも同じ
         return {
-            raw: (plan.from === "source" && asOther?.via && host !== item)
-                ? renameMiracleInCondition(raw, host.name, item.name) : raw,
+            raw: (plan.from === "source" && host !== item)
+                ? renameMiracleInText(raw, host.name, item.name) : raw,
             host,
         };
     };

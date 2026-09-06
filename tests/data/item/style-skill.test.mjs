@@ -194,12 +194,11 @@ describe("StyleSkillDataModel.defineSchema()", () => {
       expect(schema.miracleRewrite.fields.refUuid.options.initial).toBe("");
     });
 
-    it("rewriteDescription は効果文も書き換えるか（既定はオン＝効果が変わる以上、文も書き換え後のもの）", () => {
-      expect(schema.miracleRewrite.fields.rewriteDescription).toBeInstanceOf(MockBooleanField);
-      expect(schema.miracleRewrite.fields.rewriteDescription.options.initial).toBe(true);
+    it("効果文を書き換えるかの選択は持たない（効果が書き換わる以上、効果文は必ず書き換わる）", () => {
+      expect(schema.miracleRewrite.fields).not.toHaveProperty("rewriteDescription");
     });
 
-    it("description は独自効果型で効果文も書き換えるときの効果文（技能の解説とは別）", () => {
+    it("description は独自効果型の効果文（技能の解説とは別）", () => {
       expect(schema.miracleRewrite.fields.description).toBeInstanceOf(MockStringField);
       expect(schema.miracleRewrite.fields.description.options.initial).toBe("");
     });

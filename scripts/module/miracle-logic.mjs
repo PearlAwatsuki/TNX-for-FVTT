@@ -462,16 +462,17 @@ export function asOtherSelection(asOther) {
 }
 
 /**
- * 写した経験点の取得条件で、元の神業の名前を写し先の名前に置き換える(《ファイト！》→《万能道具》)。
- * 効果文《万能道具》「《万能道具》を『うまく使った』条件は、元となった神業と同じである」——条件の文を
- * 名乗るのは写し先の神業なので、文中の神業名も写し先のものにする(ユーザー指示 2026-09-06)。
+ * 他の神業から写した文(効果文・経験点の取得条件)で、元の神業の名前を名乗る神業の名前に置き換える
+ * (《ファイト！》→《万能道具》)。効果文《万能道具》「《万能道具》を『うまく使った』条件は、元となった
+ * 神業と同じである」——その文を名乗るのは写し先の神業なので、文中の神業名も写し先のものにする
+ * (ユーザー指示 2026-09-06)。**効果文にも同じ規則を当てる**(ユーザー指示 2026-09-07)。
  * 名前は 《》 で囲って書かれるが、囲みの内側だけを見れば囲みの有無どちらの書き方にも届く。
- * @param {string} html 参照先の条件(HTML)
+ * @param {string} html 写した文(HTML)
  * @param {string} fromName 元の神業の名前
- * @param {string} toName 写し先の神業の名前
- * @returns {string} 置き換えた条件(どちらかの名前が空・同名なら元のまま)
+ * @param {string} toName 名乗る神業の名前
+ * @returns {string} 置き換えた文(どちらかの名前が空・同名なら元のまま)
  */
-export function renameMiracleInCondition(html, fromName, toName) {
+export function renameMiracleInText(html, fromName, toName) {
     const text = html ?? "";
     if (!text || !fromName || !toName || fromName === toName) return text;
     return text.split(fromName).join(toName);
@@ -525,19 +526,22 @@ export function miracleRewriteCandidates(items, miracle) {
 
 /**
  * 書き換え技能から、印に添える情報と**効果文・取得条件の決め方**を組む。
- * どちらのモードも keep=元の神業の文のまま / source=書き換え先の神業の文 / text=技能が持つ文。
+ * モードは source=書き換え先の神業の文 / text=技能が持つ文 / keep=元の神業の文のまま。
+ * **効果文は必ず書き換わる**(ユーザー指摘 2026-09-07「元の効果文のままというのはありえない」)——
+ * 効果そのものが差し替わる以上、元の神業の効果文を出せば起きないことを説明することになる。
+ * 選べるのは取得条件だけ(ルールに「条件は変わらない」型があるため)。
  * **技能の解説は使わない**——技能の解説はその技能の説明であって、書き換えた後の神業の効果文ではない
  * (2026-09-07 ユーザー指摘)。書き換え後の文は技能の設定欄に書く。
  * @param {?{id?: string, name?: string, system?: object}} skill 書き換え技能
  * @returns {{itemId: string, name: string,
- *   descriptionMode: "keep"|"source"|"text", descriptionText: string,
+ *   descriptionMode: "source"|"text", descriptionText: string,
  *   conditionMode: "keep"|"source"|"text", conditionText: string}}
  */
 export function miracleRewriteVia(skill) {
     const cfg = skill?.system?.miracleRewrite ?? {};
-    const modeOf = (on) => (on !== true ? "keep" : (cfg.effect === "ref" ? "source" : "text"));
-    const descriptionMode = modeOf(cfg.rewriteDescription);
-    const conditionMode   = modeOf(cfg.rewriteCondition);
+    const rewritten = cfg.effect === "ref" ? "source" : "text";
+    const descriptionMode = rewritten;                                     // 効果文は必ず書き換わる
+    const conditionMode   = cfg.rewriteCondition === true ? rewritten : "keep";
     return {
         itemId: skill?.id ?? "", name: skill?.name ?? "",
         descriptionMode,
