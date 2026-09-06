@@ -11,7 +11,8 @@ import {
     terminalKindFor, buildMiracleDamageFlag, miracleResultLabel, miracleTargetOutcome,
     withoutConsumption, interferenceCandidates, addUseEffectSource,
     asOtherSelection, renameMiracleInCondition, miracleLogCandidates, buildMiracleUseLogEntry, miracleUseFromMessageFlags,
-    miracleUsePending, markMiracleUseApplied, conditionSwapPlan, miracleRemovalUpdate, miracleIdentityMatches } from "../../scripts/module/miracle-logic.mjs";
+    miracleUsePending, markMiracleUseApplied, conditionSwapPlan, miracleRemovalUpdate, miracleIdentityMatches,
+    listDestroyableOutfits } from "../../scripts/module/miracle-logic.mjs";
 
 describe("withDefaultMiracleConsumption()（消費先が空の神業用途は自身の使用回数×1を既定消費）", () => {
     it("消費先が空なら「このアイテム自身の使用回数 ×1」の行を補った複製を返す（元の用途は変えない）", () => {
@@ -649,5 +650,62 @@ describe("miracleIdentityMatches()（打ち消しの限定＝同じ神業かの�
     it("名前も識別キーも無ければ一致しない", () => {
         expect(miracleIdentityMatches(null, { name: "チャイ" })).toBe(false);
         expect(miracleIdentityMatches({}, {})).toBe(false);
+    });
+});
+
+describe("listDestroyableOutfits()（破壊タイプ・破壊できるアウトフィットの分類で候補を絞る）", () => {
+    const gun      = { id: "i1", name: "拳銃",   type: "weapon",    system: { majorCategory: "weapon",  minorCategory: "ranged" } };
+    const sword    = { id: "i2", name: "刀",     type: "weapon",    system: { majorCategory: "weapon",  minorCategory: "melee" } };
+    const car      = { id: "i3", name: "車",     type: "vehicle",   system: { majorCategory: "vehicle", minorCategory: "groundVehicle" } };
+    const house    = { id: "i4", name: "自宅",   type: "residence", system: { majorCategory: "housing", minorCategory: "residence" } };
+    const contact  = { id: "i5", name: "コネ",   type: "general",   system: { majorCategory: "service", minorCategory: "social" } };
+    const skill    = { id: "i6", name: "〈運転〉", type: "generalSkill", system: {} };
+
+    it("分類ホワイトリストに合致するアウトフィットだけを候補にする（大分類キー＝その大分類の全小分類）", () => {
+        const target = { items: [gun, car, house] };
+        expect(listDestroyableOutfits(target, { destroyableCategories: ["vehicle", "housing"] }).map(i => i.id))
+            .toEqual(["i3", "i4"]);
+    });
+
+    it("小分類キーはその小分類だけに効く", () => {
+        const target = { items: [gun, sword, car] };
+        expect(listDestroyableOutfits(target, { destroyableCategories: ["melee"] }).map(i => i.id))
+            .toEqual(["i2"]);
+    });
+
+    it("破壊済みのアウトフィットは候補にしない", () => {
+        const wrecked = { id: "i7", name: "残骸", type: "vehicle", system: { majorCategory: "vehicle", minorCategory: "groundVehicle", isDestroyed: true } };
+        const target = { items: [car, wrecked] };
+        expect(listDestroyableOutfits(target, { destroyableCategories: ["vehicle"] }).map(i => i.id))
+            .toEqual(["i3"]);
+    });
+
+    it("副分類でも合致する（主分類・副分類の「両方の分類として扱う」）", () => {
+        const bioBlade = { id: "i8", name: "生体刃", type: "weapon", system: {
+            majorCategory: "item", minorCategory: "biotech",
+            additionalCategories: [{ major: "weapon", minor: "melee" }],
+        } };
+        const target = { items: [bioBlade] };
+        expect(listDestroyableOutfits(target, { destroyableCategories: ["weapon"] }).map(i => i.id))
+            .toEqual(["i8"]);
+    });
+
+    it("サービス大分類は破壊免疫のため、初期値（サービスを除く全大分類）では候補に出ない", () => {
+        const target = { items: [gun, contact] };
+        const all = ["weapon", "armor", "cyberware", "tron", "vehicle", "housing", "item"];
+        expect(listDestroyableOutfits(target, { destroyableCategories: all }).map(i => i.id))
+            .toEqual(["i1"]);
+    });
+
+    it("アウトフィットでないアイテムは候補にしない", () => {
+        const target = { items: [skill, gun] };
+        expect(listDestroyableOutfits(target, { destroyableCategories: ["weapon"] }).map(i => i.id))
+            .toEqual(["i1"]);
+    });
+
+    it("分類が空（シートでは作れない状態）なら候補なし＝「全部壊せる」へフォールバックしない", () => {
+        const target = { items: [gun, car] };
+        expect(listDestroyableOutfits(target, { destroyableCategories: [] })).toEqual([]);
+        expect(listDestroyableOutfits(target, {})).toEqual([]);
     });
 });

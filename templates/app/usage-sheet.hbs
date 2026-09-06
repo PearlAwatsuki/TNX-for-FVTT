@@ -828,6 +828,43 @@
             </fieldset>
             {{/if}}
 
+            {{!-- 破壊タイプ(17-3・神業専用): この用途で破壊できるアウトフィットの分類ホワイトリスト
+                 (小分類キーまたは大分類キー=その大分類全体・修理と同じキー空間)。神業ごとに壊せる
+                 範囲が違う(《天変地異》「住居やヴィークルなどのアウトフィットをひとつ[破壊]」)。
+                 空欄は許容しない(初期値=サービスを除く全大分類・最後の1つは削除できない)。
+                 サービス大分類は破壊免疫のため選択肢に出ない。 --}}
+            {{#if isMiracleDestroy}}
+            <fieldset class="tnx-fieldset usage-destroy-section">
+                <legend>破壊</legend>
+                <label class="usage-field-label">破壊できるアウトフィットの分類</label>
+                <div class="usage-skill-ref-list">
+                    {{#each destroyCategoryRows}}
+                    <div class="usage-skill-ref-row">
+                        <span class="usage-skill-ref-name">{{this.label}}</span>
+                        {{#if ../editable}}
+                        <a class="usage-icon-btn" data-action="destroyCategoryDelete" data-key="{{this.key}}"
+                           title="削除"><i class="fas fa-times"></i></a>
+                        {{/if}}
+                    </div>
+                    {{/each}}
+                </div>
+                {{#if editable}}
+                <div class="usage-skill-ref-add">
+                    <select class="destroy-category-select">
+                        <option value="">── 破壊できる分類を追加 ──</option>
+                        {{#each destroyCategoryChoices}}
+                        <optgroup label="{{this.label}}">
+                            {{#each this.minors}}
+                            <option value="{{this.value}}">{{this.label}}</option>
+                            {{/each}}
+                        </optgroup>
+                        {{/each}}
+                    </select>
+                </div>
+                {{/if}}
+            </fieldset>
+            {{/if}}
+
             {{#if isRecoveryCapable}}
             <fieldset class="tnx-fieldset usage-recovery-section">
                 <legend>治療</legend>

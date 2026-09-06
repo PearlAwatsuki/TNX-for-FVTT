@@ -20,9 +20,10 @@ import { CONDITION_KINDS , conditionDisplayName } from "./conditions.mjs";
 import { ATTACK_DAMAGE_TYPES } from "../data/item/helpers.mjs";
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
-import { OUTFIT_CATEGORIES, getMinorCategoryLabel, buildCategoryKeyGroups } from "../data/item/outfit-categories.mjs";
+import { buildCategoryKeyGroups, categoryKeyLabel } from "../data/item/outfit-categories.mjs";
 import { resolveAttackWeapons, attackWeaponDisplayName, resolveAttackRangeSpan, attackWeaponKindEligible } from "./attack-weapons.mjs";
 import { captureScrollTop, restoreScrollTop } from "./scroll-preserve.mjs";
+import { applyTriggerDisable } from "./ui-trigger-disable.mjs";
 import { WEAPON_RANGE_MAX_OPTIONS } from "../data/item/weapon.mjs";
 import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, loadSkillUsageTypeIndex, loadDictionarySkillItems, SKILL_PACKS, STYLE_PACK, ORGANIZATION_PACK } from "./skill-dictionary.mjs";
 import {
@@ -454,6 +455,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             recoveryRowDelete:     TnxUsageSheet._onRecoveryRowDelete,
             recoveryExcludeDelete: TnxUsageSheet._onRecoveryExcludeDelete,
             repairCategoryDelete:  TnxUsageSheet._onRepairCategoryDelete,
+            destroyCategoryDelete: TnxUsageSheet._onDestroyCategoryDelete,
             incrementRecoveryCount: TnxUsageSheet._onRecoveryCountInc,
             decrementRecoveryCount: TnxUsageSheet._onRecoveryCountDec,
             incrementConsumeAmount: TnxUsageSheet._onConsumeAmountInc,
@@ -705,18 +707,19 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         context.isRepair = usage.type === "repair";
         if (context.isRepair) {
             const selected = new Set(usage.repairableCategories ?? []);
-            const minorMajor = {}; // 小分類キー → 大分類ラベル(行表示用)
-            for (const major of Object.values(OUTFIT_CATEGORIES)) {
-                for (const minorKey of Object.keys(major.minors)) minorMajor[minorKey] = major.label;
-            }
-            context.repairCategoryRows = [...selected].map(k => ({
-                key: k,
-                label: OUTFIT_CATEGORIES[k]
-                    ? `${OUTFIT_CATEGORIES[k].label}／（大分類全体）`
-                    : `${minorMajor[k] ?? ""}／${getMinorCategoryLabel(k) || k}`,
-            }));
+            context.repairCategoryRows = [...selected].map(k => ({ key: k, label: categoryKeyLabel(k) }));
             // 選択肢の構造は共通ビルダー(outfit-categories.mjs・製作技能の対応分類と共用=フェーズ16-1)
             context.repairCategoryChoices = buildCategoryKeyGroups({ excludeKeys: selected });
+        }
+
+        // 破壊(17-3・2026-09-06): この用途で破壊できるアウトフィットの分類ホワイトリスト。
+        // 器は修理と同じ(大分類キー/小分類キーの混在)。**空欄は許容しない**ため、行が1つのときは
+        // 削除をグレーアウト＋クリック不能にする(_onRender の applyTriggerDisable)。
+        context.isMiracleDestroy = usage.type === "miracleDestroy";
+        if (context.isMiracleDestroy) {
+            const selected = new Set(usage.destroyableCategories ?? []);
+            context.destroyCategoryRows = [...selected].map(k => ({ key: k, label: categoryKeyLabel(k) }));
+            context.destroyCategoryChoices = buildCategoryKeyGroups({ excludeKeys: selected });
         }
 
         // NPC取得(11-6・Troops.md/2026-07-13 タイプ→フラグへ移管): check/declaration のどちらにも
@@ -1133,6 +1136,12 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 });
         }
 
+        // 破壊できる分類は空欄を許容しない(2026-09-06): 残り1つになったら削除トリガーを無効化する
+        if ((this.usage?.destroyableCategories ?? []).length <= 1) {
+            applyTriggerDisable(this.element, '[data-action="destroyCategoryDelete"]',
+                () => ({ reason: "1つ以上必要" }));
+        }
+
         if (context.editable) {
             // 組み合わせ技能: ドロップダウン選択で即時追加
             for (const select of this.element.querySelectorAll("select.skill-ref-select")) {
@@ -1179,6 +1188,19 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                     const usage = this.usage;
                     if (!usage || (usage.repairableCategories ?? []).includes(key)) { ev.target.value = ""; return; }
                     await this._patchUsage({ repairableCategories: [...(usage.repairableCategories ?? []), key] });
+                    this.render({ force: true });
+                });
+            }
+
+            // 破壊できる分類(17-3・2026-09-06): ドロップダウン選択で即時追加
+            for (const select of this.element.querySelectorAll("select.destroy-category-select")) {
+                select.addEventListener("change", async (ev) => {
+                    ev.stopPropagation();
+                    const key = ev.target.value;
+                    if (!key) return;
+                    const usage = this.usage;
+                    if (!usage || (usage.destroyableCategories ?? []).includes(key)) { ev.target.value = ""; return; }
+                    await this._patchUsage({ destroyableCategories: [...(usage.destroyableCategories ?? []), key] });
                     this.render({ force: true });
                 });
             }
@@ -1913,6 +1935,20 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         const usage = this.usage;
         if (!usage || !key) return;
         await this._patchUsage({ repairableCategories: (usage.repairableCategories ?? []).filter(k => k !== key) });
+        this.render({ force: true });
+    }
+
+    /**
+     * 破壊できる分類の削除(17-3・2026-09-06)。**最後の1つは削除しない**(空欄を許容しない)。
+     * 行が1つのときは _onRender でトリガー自体を無効化しているが、DOM 経由の発火に備えて弾く。
+     */
+    static async _onDestroyCategoryDelete(_event, target) {
+        const key = target.dataset.key;
+        const usage = this.usage;
+        if (!usage || !key) return;
+        const rest = (usage.destroyableCategories ?? []).filter(k => k !== key);
+        if (!rest.length) return;
+        await this._patchUsage({ destroyableCategories: rest });
         this.render({ force: true });
     }
 

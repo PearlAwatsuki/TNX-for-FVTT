@@ -174,3 +174,18 @@ describe("UsageTemplate.defineSchema()（即死・社会戦タイプの設定・
     expect(entry.miracleInterference).toBeUndefined();
   });
 });
+
+describe("破壊タイプ（17-3・神業専用）: 破壊できるアウトフィットの分類", () => {
+  const entry = UsageTemplate.defineSchema().actions.element.fields;
+
+  it("destroyableCategories は ArrayField(StringField)（大分類キー・小分類キーの混在＝repairableCategories と同じキー空間）", () => {
+    expect(entry.destroyableCategories).toBeInstanceOf(MockArrayField);
+    expect(entry.destroyableCategories.element).toBeInstanceOf(MockStringField);
+  });
+
+  it("初期値はサービスを除く全大分類キー（空欄を許容しない・サービス大分類は破壊免疫）", () => {
+    expect(entry.destroyableCategories.options.initial()).toEqual([
+      "weapon", "armor", "cyberware", "tron", "vehicle", "housing", "item",
+    ]);
+  });
+});

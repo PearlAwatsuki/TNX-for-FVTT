@@ -15,7 +15,7 @@ import {
     negateCheckGate, negatedCheckMods, evadePlan, miracleIdentityMatches,
     buildMiracleDamageFlag, miracleResultLabel,
     interferenceCandidates, addUseEffectSource, miracleLogCandidates, conditionSwapPlan,
-    renameMiracleInCondition,
+    renameMiracleInCondition, listDestroyableOutfits,
 } from "./miracle-logic.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
@@ -26,8 +26,6 @@ import { conditionDisplayName } from "./conditions.mjs";
 import { keepTogether, nowrap } from "./chat-text.mjs";
 import { cardField, cardResult } from "./chat-card.mjs";
 import { getDamageChartKind } from "../data/damage-chart.mjs";
-import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
-import { isOutfitDestroyed } from "../data/item/helpers.mjs";
 import { buildGrantedEffectDataFrom } from "./usage-effects.mjs";
 import { getSessionState } from "./session-state.mjs";
 import { listAppearingActors } from "./appearance-state.mjs";
@@ -147,6 +145,8 @@ export async function handleNegateMiracleDamageClick(message) {
 // 効果文「アウトフィットをひとつ［破壊］」。アウトフィットの破壊のみ(トループ壊滅は即死に含める=
 // ユーザー裁定 2026-09-04)。使用→対象解決→未破壊のアウトフィットから1つ選ぶ→神業カードに結果行と
 // 適用ボタン(対象の操作者/RL)→isDestroyed を立てる。キャスト・ゲストへの直接ダメージは無い。
+// 候補は用途の destroyableCategories(分類ホワイトリスト・空欄不可/初期値=サービス以外の全大分類)
+// で絞る(2026-09-06 ユーザー確定)——神業ごとに壊せる範囲が違う(《天変地異》「住居やヴィークルなど」)。
 
 /**
  * 破壊タイプの使用(17-3)。
@@ -157,7 +157,7 @@ export async function handleNegateMiracleDamageClick(message) {
 export async function useMiracleDestroy(actor, item, usage, { asOther = null } = {}) {
     const target = await resolveSingleTarget(actor, usage);
     if (!target) return false;
-    const candidates = (target.items?.contents ?? []).filter(i => OUTFIT_ITEM_TYPES.has(i.type) && !isOutfitDestroyed(i.system));
+    const candidates = listDestroyableOutfits(target, usage);
     if (!candidates.length) { ui.notifications.warn(`「${target.name}」に破壊できるアウトフィットがありません。`); return false; }
     const rows = resolveConsumeRowsForActor(actor, item, usage.consumeTargets);
     const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${item.name}` });

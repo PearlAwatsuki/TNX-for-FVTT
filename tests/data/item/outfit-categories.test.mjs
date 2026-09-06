@@ -5,6 +5,7 @@ const {
   OUTFIT_CATEGORIES, getMajorCategoryChoices, getMinorCategoryChoices,
   getMajorCategoryLabel, getMinorCategoryLabel, LEGACY_CATEGORY_MAP,
   majorOfMinor, outfitClassifications, hasClassification, buildCategoryKeyGroups,
+  categoryKeyLabel,
 } = await import("../../../scripts/data/item/outfit-categories.mjs");
 
 describe("OUTFIT_CATEGORIES", () => {
@@ -163,5 +164,21 @@ describe("buildCategoryKeyGroups(修理対応分類・製作技能対応分類�
     expect(values).not.toContain("weapon");
     expect(values).not.toContain("melee");
     expect(values).toContain("ranged");
+  });
+});
+
+describe("categoryKeyLabel()（分類キー（大分類/小分類の混在）を選択済み行の表示にする）", () => {
+  it("大分類キーは「大分類／（大分類全体）」", () => {
+    expect(categoryKeyLabel("weapon")).toBe("武器／（大分類全体）");
+  });
+
+  it("小分類キーは「属する大分類／小分類」", () => {
+    expect(categoryKeyLabel("melee")).toBe("武器／白兵武器");
+    expect(categoryKeyLabel("residence")).toBe("住宅／住宅施設");
+  });
+
+  it("未知のキーはキーをそのまま返す（データ不整合を隠さない）", () => {
+    expect(categoryKeyLabel("nonexistent")).toBe("nonexistent");
+    expect(categoryKeyLabel("")).toBe("");
   });
 });

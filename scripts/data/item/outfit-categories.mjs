@@ -184,6 +184,21 @@ export function hasClassification(system, key) {
 }
 
 /**
+ * 分類キー(大分類キーまたは小分類キー・全体一意)を、選択済み行の表示ラベルにする。
+ * 大分類キーは「大分類／（大分類全体）」、小分類キーは「属する大分類／小分類」。
+ * 修理できる分類(用途)・破壊できる分類(神業の破壊用途)の行表示が共用する。
+ * @param {string} key
+ * @returns {string} 未知のキーはキーをそのまま返す(データ不整合を隠さない)
+ */
+export function categoryKeyLabel(key) {
+  const k = String(key ?? "");
+  if (OUTFIT_CATEGORIES[k]) return `${OUTFIT_CATEGORIES[k].label}／（大分類全体）`;
+  const majorKey = majorOfMinor(k);
+  if (!majorKey) return k;
+  return `${OUTFIT_CATEGORIES[majorKey].label}／${getMinorCategoryLabel(k)}`;
+}
+
+/**
  * 「大分類 optgroup ＋（大分類全体）＋ 小分類 option」の選択肢構造を組み立てる。
  * 修理対応分類(用途)と製作技能の対応分類(一般技能)が共用する(2026-08-30)。
  * キー空間は大分類キー・小分類キーの混在(全体一意)。

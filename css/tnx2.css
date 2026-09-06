@@ -9182,6 +9182,11 @@ button.tnx-create-act-button span {
 }
 .usage-icon-btn:hover { color: #f28b82; }
 
+/* 無効化されたアイコンボタン(applyTriggerDisable): 汎用の .tnx-trigger-disabled より後ろで
+   cursor/hover を上書きされるため、押せないことをここで示す(例: 破壊できる分類の最後の1つ) */
+.usage-icon-btn.tnx-trigger-disabled { cursor: not-allowed; }
+.usage-icon-btn.tnx-trigger-disabled:hover { color: var(--tnx2-text-muted); }
+
 /* ── 空状態テキスト ── */
 .usage-empty-hint {
     font-size: 0.82em;
