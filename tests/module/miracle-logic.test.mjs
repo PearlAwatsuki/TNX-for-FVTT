@@ -12,7 +12,8 @@ import {
     withoutConsumption, interferenceCandidates, addUseEffectSource,
     asOtherSelection, renameMiracleInCondition, miracleLogCandidates, buildMiracleUseLogEntry, miracleUseFromMessageFlags,
     miracleUsePending, markMiracleUseApplied, conditionSwapPlan, miracleRemovalUpdate, miracleIdentityMatches,
-    listDestroyableOutfits } from "../../scripts/module/miracle-logic.mjs";
+    listDestroyableOutfits,
+    miracleRewriteCandidates, miracleRewriteVia, miracleCardConditionPlan } from "../../scripts/module/miracle-logic.mjs";
 
 describe("withDefaultMiracleConsumption()（消費先が空の神業用途は自身の使用回数×1を既定消費）", () => {
     it("消費先が空なら「このアイテム自身の使用回数 ×1」の行を補った複製を返す（元の用途は変えない）", () => {
@@ -712,5 +713,144 @@ describe("listDestroyableOutfits()（破壊タイプ・破壊できるアウト�
         const target = { items: [gun, car] };
         expect(listDestroyableOutfits(target, { destroyableCategories: [] })).toEqual([]);
         expect(listDestroyableOutfits(target, {})).toEqual([]);
+    });
+});
+
+// ─── 神業書き換え技能（神業と同じタイミングで使い、その1回の効果を書き換えるスタイル技能） ───────
+// 正本: llm-wiki/01_Wiki/Game_Rules/Miracle_Rules.md「神業書き換え技能」
+// 効果の出どころ（別の神業／この技能の用途）× 経験点の取得条件（元のまま／書き換える）の2軸。
+
+describe("miracleRewriteCandidates()（その神業をロールしたときに書き換えを申し出る技能）", () => {
+    const skill = (over = {}) => ({
+        id: "s1", name: "〈書き換え〉", type: "styleSkill",
+        system: {
+            unique: "miracleChange",
+            uses: { isLimit: true, max: "1", maxTotal: 1, spent: 0 },
+            miracleRewrite: { target: { uuid: "", key: "chai", name: "チャイ" }, effect: "own", refUuid: "", rewriteCondition: false, condition: "" },
+            ...over,
+        },
+    });
+    const chai = { id: "m1", name: "チャイ", type: "miracle", system: { identificationKey: "chai" } };
+
+    it("対応する神業（識別キーが一致）で、使用回数が残っている技能が候補になる", () => {
+        expect(miracleRewriteCandidates([skill()], chai).map(i => i.id)).toEqual(["s1"]);
+    });
+
+    it("対応する神業を指定していない（空欄）技能は、どの神業でも候補になる", () => {
+        const any = skill({ miracleRewrite: { target: { uuid: "", key: "", name: "" }, effect: "own" } });
+        expect(miracleRewriteCandidates([any], chai).map(i => i.id)).toEqual(["s1"]);
+        expect(miracleRewriteCandidates([any], { id: "m2", name: "平和", type: "miracle", system: { identificationKey: "peace" } })
+            .map(i => i.id)).toEqual(["s1"]);
+    });
+
+    it("対応する神業が違えば候補にならない", () => {
+        const other = { id: "m2", name: "平和", type: "miracle", system: { identificationKey: "peace" } };
+        expect(miracleRewriteCandidates([skill()], other)).toEqual([]);
+    });
+
+    it("識別キーを持たない神業とは名前で対応づける（辞典の1件とアクターの写しの照合と同じ規則）", () => {
+        const noKey = { id: "m3", name: "チャイ", type: "miracle", system: {} };
+        expect(miracleRewriteCandidates([skill()], noKey).map(i => i.id)).toEqual(["s1"]);
+    });
+
+    it("使用回数を使い切った技能は候補にならない", () => {
+        const spent = skill({ uses: { isLimit: true, max: "1", maxTotal: 1, spent: 1 } });
+        expect(miracleRewriteCandidates([spent], chai)).toEqual([]);
+    });
+
+    it("使用回数の制限が無い技能は常に候補になる", () => {
+        const unlimited = skill({ uses: { isLimit: false, max: "", maxTotal: 0, spent: 3 } });
+        expect(miracleRewriteCandidates([unlimited], chai).map(i => i.id)).toEqual(["s1"]);
+    });
+
+    it("書き換えの設定が未了なら候補にならない（効果の出どころが空／参照型で参照先が空）", () => {
+        const blank = skill({ miracleRewrite: { target: { uuid: "", key: "", name: "" }, effect: "" } });
+        const refNothing = skill({ miracleRewrite: { target: { uuid: "", key: "", name: "" }, effect: "ref", refUuid: "" } });
+        expect(miracleRewriteCandidates([blank, refNothing], chai)).toEqual([]);
+    });
+
+    it("区分が「神業書き換え技能」でない技能は候補にならない（設定が残っていても効かない）", () => {
+        const notChange = { ...skill(), system: { ...skill().system, unique: "clone" } };
+        expect(miracleRewriteCandidates([notChange], chai)).toEqual([]);
+    });
+
+    it("スタイル技能以外は候補にならない", () => {
+        const general = { ...skill(), type: "generalSkill" };
+        expect(miracleRewriteCandidates([general], chai)).toEqual([]);
+    });
+
+    it("神業以外をロールしたときは候補を出さない", () => {
+        expect(miracleRewriteCandidates([skill()], { id: "w1", name: "拳銃", type: "weapon", system: {} })).toEqual([]);
+    });
+});
+
+describe("miracleRewriteVia()（書き換え技能から、印と条件の決め方を組む）", () => {
+    const via = (over) => miracleRewriteVia({ id: "s1", name: "〈書き換え〉", system: { miracleRewrite: over } });
+
+    it("取得条件を書き換えないなら条件は元の神業のまま（keep）", () => {
+        expect(via({ effect: "ref", refUuid: "Compendium.p.Item.x", rewriteCondition: false }))
+            .toEqual({ itemId: "s1", name: "〈書き換え〉", conditionMode: "keep", conditionText: "" });
+    });
+
+    it("参照型で取得条件も書き換えるなら、条件は書き換え先の神業から（source）", () => {
+        expect(via({ effect: "ref", refUuid: "Compendium.p.Item.x", rewriteCondition: true }).conditionMode).toBe("source");
+    });
+
+    it("独自効果型で取得条件も書き換えるなら、条件は技能が持つ文（text）", () => {
+        expect(via({ effect: "own", rewriteCondition: true, condition: "<p>危機を救った</p>" }))
+            .toEqual({ itemId: "s1", name: "〈書き換え〉", conditionMode: "text", conditionText: "<p>危機を救った</p>" });
+    });
+});
+
+describe("miracleCardConditionPlan()（神業カードに出す経験点の取得条件の出どころ）", () => {
+    it("書き換えが無ければ元の神業の条件", () => {
+        expect(miracleCardConditionPlan(null)).toEqual({ from: "item", text: "" });
+    });
+
+    it("従来の効果の参照・コピー（《突然変異》）は参照先の条件（現行の挙動を変えない）", () => {
+        expect(miracleCardConditionPlan({ uuid: "Compendium.p.Item.x", name: "死の舞踏" })).toEqual({ from: "source", text: "" });
+    });
+
+    it("条件を書き換えない書き換えでは、効果だけ差し替わり条件は元の神業のまま", () => {
+        const asOther = { uuid: "Compendium.p.Item.x", name: "死の舞踏", via: { itemId: "s1", name: "〈書き換え〉", conditionMode: "keep", conditionText: "" } };
+        expect(miracleCardConditionPlan(asOther)).toEqual({ from: "item", text: "" });
+    });
+
+    it("独自効果型で条件も書き換えるなら、技能が持つ文をそのまま出す", () => {
+        const asOther = { uuid: "Actor.a.Item.s1", name: "〈書き換え〉", kind: "skill",
+            via: { itemId: "s1", name: "〈書き換え〉", conditionMode: "text", conditionText: "<p>危機を救った</p>" } };
+        expect(miracleCardConditionPlan(asOther)).toEqual({ from: "text", text: "<p>危機を救った</p>" });
+    });
+});
+
+describe("miracleOriginOf()（書き換えの印）", () => {
+    const chai = { id: "m1", type: "miracle", name: "チャイ", uuid: "Actor.a.Item.m1" };
+
+    it("参照型の書き換えは、書き換え先の神業と書き換えた技能の両方を印に載せる", () => {
+        const origin = miracleOriginOf(chai, {
+            uuid: "Compendium.p.Item.x", name: "死の舞踏", kind: "miracle",
+            via: { itemId: "s1", name: "〈書き換え〉", conditionMode: "keep", conditionText: "" },
+        });
+        expect(origin.asOther).toEqual({ uuid: "Compendium.p.Item.x", name: "死の舞踏" });
+        expect(origin.rewrite).toEqual({ itemId: "s1", name: "〈書き換え〉" });
+    });
+
+    it("独自効果型は技能を「他の神業」として印に載せない（使用ログが技能を神業として拾わないため）", () => {
+        const origin = miracleOriginOf(chai, {
+            uuid: "Actor.a.Item.s1", name: "〈書き換え〉", kind: "skill",
+            via: { itemId: "s1", name: "〈書き換え〉", conditionMode: "keep", conditionText: "" },
+        });
+        expect(origin.asOther).toBeUndefined();
+        expect(origin.rewrite).toEqual({ itemId: "s1", name: "〈書き換え〉" });
+    });
+
+    it("独自効果型の使用は、使用ログでは元の神業として記帳される（《突然変異》のコピー元は神業）", () => {
+        const origin = miracleOriginOf(chai, {
+            uuid: "Actor.a.Item.s1", name: "〈書き換え〉", kind: "skill",
+            via: { itemId: "s1", name: "〈書き換え〉", conditionMode: "keep", conditionText: "" },
+        });
+        const entry = buildMiracleUseLogEntry({ sceneNumber: 1, origin });
+        expect(entry.uuid).toBe("Actor.a.Item.m1");
+        expect(entry.name).toBe("チャイ");
     });
 });

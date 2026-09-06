@@ -16,6 +16,7 @@ import {
     buildMiracleDamageFlag, miracleResultLabel,
     interferenceCandidates, addUseEffectSource, miracleLogCandidates, conditionSwapPlan,
     renameMiracleInCondition, listDestroyableOutfits,
+    miracleRewriteCandidates, miracleRewriteVia, miracleCardConditionPlan,
 } from "./miracle-logic.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
@@ -23,6 +24,7 @@ import { applyConsumptionPlan, resolveConsumeRowsForActor, promptConsumption } f
 import { resolveUsageTargetRefs, currentTargetActors } from "./target-resolution.mjs";
 import { TargetSelectionDialog, AmountInputDialog } from "./tnx-dialog.mjs";
 import { conditionDisplayName } from "./conditions.mjs";
+import { formatSkillName, itemDisplayName } from "./identification.mjs";
 import { keepTogether, nowrap } from "./chat-text.mjs";
 import { cardField, cardResult } from "./chat-card.mjs";
 import { getDamageChartKind } from "../data/damage-chart.mjs";
@@ -446,6 +448,74 @@ export async function resolveMiracleCopyFromLog(actor, item) {
     return pickMiracleRef(item, candidates, "コピーする神業");
 }
 
+// ─── 神業書き換え技能(神業と同じタイミングで使い、その1回の効果を書き換えるスタイル技能) ─────
+// 正本: Miracle_Rules「神業書き換え技能」。効果の出どころ(別の神業と同じ／この技能の用途)と
+// 経験点の取得条件(元のまま／書き換える)の2軸で4種類を表す。
+// **申し出るのは神業をロールした時点**(ユーザー確定 2026-09-06): 対応する技能を使用回数を残して
+// 持っていれば「書き換えるか」を尋ね、選べばその技能が使用され、**その1回の使用に限り**効果が
+// 書き換わる。実行は効果の差し替えレール(asOther・17-5 と同じ)——名前・使用回数・神業由来の印は
+// 元の神業のまま。アイテムには何も書き込まない(《万能道具》の「実体を写す」方針Aとは別物)。
+
+/**
+ * 書き換えるかを尋ねる(候補は縦積みのボタン)。重ねがけは不可(選べるのは1つ・ユーザー裁定)。
+ * @param {Item} miracle ロールした神業
+ * @param {Array<Item>} candidates 書き換えを申し出る技能
+ * @returns {Promise<?string>} 選んだ技能の id ／ ""=書き換えずに使用 ／ null=神業の使用ごと中止
+ */
+async function promptMiracleRewrite(miracle, candidates) {
+    const buttons = candidates.map(skill => ({
+        action: `rewrite-${skill.id}`,
+        icon: "fas fa-pen-to-square",
+        label: `${itemDisplayName(skill)}で書き換える`,
+        callback: () => skill.id,
+    }));
+    buttons.push({ action: "plain", icon: "fas fa-diamond", label: "書き換えずに使用する", callback: () => "" });
+    return foundry.applications.api.DialogV2.wait({
+        window: { title: `${miracle.name}: 神業の書き換え` },
+        classes: ["tokyo-nova", "tnx-dialog", "tnx-usage-picker"],
+        position: { width: 400 },
+        content: "",
+        buttons,
+        close: () => null,
+    });
+}
+
+/**
+ * 神業をロールしたときの書き換えの申し出。候補が無ければ何も尋ねない。
+ * 書き換えを選んだら技能を使用(使用回数の消費)し、効果の出どころを返す。
+ * @param {Actor} actor 神業を使うアクター
+ * @param {Item} miracle ロールした神業
+ * @param {{free?: boolean}} [opts] free=《プリーズ！》で使わされる(残回数ゲートを見ない)
+ * @returns {Promise<?{uuid: string, name: string, source: Item, kind: "miracle"|"skill", via: object}|"cancel">}
+ *   null=書き換えなし(そのまま使用) ／ "cancel"=神業の使用を中止
+ */
+export async function resolveMiracleRewrite(actor, miracle, { free = false } = {}) {
+    // 使い切った神業は使えない=書き換えも尋ねない(ゲートは各分岐が持つが、尋ねるだけ無駄なため)
+    if (!free && !miracleUseGate(miracle.system).ok) return null;
+    const candidates = miracleRewriteCandidates(actor?.items ?? [], miracle);
+    if (!candidates.length) return null;
+    const picked = await promptMiracleRewrite(miracle, candidates);
+    if (picked === null || picked === undefined) return "cancel";
+    if (!picked) return null;
+    const skill = candidates.find(s => s.id === picked);
+    if (!skill) return null;
+    const cfg = skill.system.miracleRewrite ?? {};
+    let source = skill;
+    let kind = "skill";
+    if (cfg.effect === "ref") {
+        const doc = await fromUuid(cfg.refUuid).catch(() => null);
+        if (doc?.type !== "miracle") {
+            ui.notifications.warn(`${itemDisplayName(skill)}の書き換え先の神業が見つかりません。`);
+            return "cancel";
+        }
+        source = doc;
+        kind = "miracle";
+    }
+    // 技能の使用(使用回数の消費)。回数制限を持たない技能は消費しない
+    if (skill.system?.uses?.isLimit === true) await skill.update(miracleConsumeUpdate(skill.system));
+    return { uuid: source.uuid, name: source.name, source, kind, via: miracleRewriteVia(skill) };
+}
+
 /**
  * 使用回数+1 の適用(神業カードのボタン・対象の操作者/RL): 対象の神業にアクト中の効果を載せる。
  * 付与コピーの印(grantedFrom=使った神業)を刻み、アクト終了の境界で付与コピーとして失効させる。
@@ -763,7 +833,7 @@ export function renderMiracleCard(message, html) {
         // 効果は消えるが、**消えたことを明示する**——黙って中身が消えると打ち消されたのか
         // 分からない(2026-09-06 ユーザー指摘)。効果文の畳みと残り回数は読めるまま残す
         html.querySelector(".tnx-usage-effect-area")?.remove();
-        for (const sel of [".mc-destroy", ".mc-interfere", ".mc-effect", ".mc-as-other"]) card.querySelector(sel)?.remove();
+        for (const sel of [".mc-destroy", ".mc-interfere", ".mc-effect", ".mc-as-other", ".mc-rewrite"]) card.querySelector(sel)?.remove();
         card.classList.add("tnx-miracle-card--negated");
         const body = card.querySelector(".tnx-card__body") ?? card;
         if (!card.querySelector(".mc-negated")) {
@@ -775,6 +845,14 @@ export function renderMiracleCard(message, html) {
         return;
     }
     renderMiracleEffectRows(message, card, mf);
+    // 神業書き換え技能: 見出しは元の神業のまま、本文に「書き換え 〈技能〉」(効果の行の下に置く)
+    if (mf.rewrite?.name && !card.querySelector(".mc-rewrite")) {
+        const esc = foundry.utils.escapeHTML;
+        const body = card.querySelector(".tnx-card__body") ?? card;
+        body.insertAdjacentHTML("afterbegin", keepTogether('<div class="tnx-card__field mc-rewrite">'
+            + '<span class="tnx-card__field-label">書き換え</span>'
+            + `<span class="tnx-card__field-value">${esc(formatSkillName(mf.rewrite.name))}</span></div>`));
+    }
     // 効果の参照/コピー(17-5): 見出しは元の神業、本文の先頭に「効果 《参照先》」
     if (mf.asOther?.name && !card.querySelector(".mc-as-other")) {
         const esc = foundry.utils.escapeHTML;
@@ -878,11 +956,20 @@ function chatButton(icon, label, onClick) {
 export async function postMiracleCard(item, { usageEffects = null, destroy = null, addUse = null, request = null, swap = null, acquire = null, insensible = false, asOther = null, undo = null } = {}) {
     const TE = foundry.applications.ux.TextEditor;
     // 解説の段(効果文と条件)は**常に畳んだ状態でカードの最上部**に置く(2026-09-05 ユーザー指示)。
-    // 他の神業として使う(17-5)ときは参照先の文を出す(条件も参照先と同じ)
+    // 他の神業として使う(17-5)ときは参照先の文を出す(条件も参照先と同じ)。
+    // 神業書き換え技能は効果文と条件の出どころが別れる——条件を書き換えない書き換えでは、
+    // 効果文だけ差し替わり条件は元の神業のまま(miracleCardConditionPlan)。参照先の条件を出すときは、
+    // 文中の神業名を名乗る神業の名前に置き換える(方針A と同じ理由=文を名乗るのはこの神業)
     const textHost = asOther?.source ?? item;
+    const conditionPlan = miracleCardConditionPlan(asOther);
+    const conditionHost = conditionPlan.from === "item" ? item : textHost;
+    let conditionRaw = conditionPlan.from === "text" ? conditionPlan.text : (conditionHost.system?.usageCondition ?? "");
+    if (conditionPlan.from === "source" && asOther?.via && conditionHost !== item) {
+        conditionRaw = renameMiracleInCondition(conditionRaw, conditionHost.name, item.name);
+    }
     const [description, condition] = await Promise.all([
         TE.enrichHTML(textHost.system?.description ?? "", { relativeTo: textHost }),
-        TE.enrichHTML(textHost.system?.usageCondition ?? "", { relativeTo: textHost }),
+        TE.enrichHTML(conditionRaw, { relativeTo: conditionPlan.from === "text" ? item : conditionHost }),
     ]);
     const { remaining, max } = miracleUseGate(item.system);
     const data = buildMiracleCardData(item, { description, condition, remaining, max });

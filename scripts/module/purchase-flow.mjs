@@ -216,7 +216,7 @@ export async function startPurchasePicker(actor, item, usage) {
  * @param {{actorId: string, itemId: string, usageId: string}} origin 起動元
  * @returns {Promise<boolean>} 購入手続きを開始したか(選択モードのブラウザを閉じてよいか)
  */
-export async function startPurchaseWithUsage(uuid, { actorId, itemId, usageId, miracle = false, asOtherUuid = "" }) {
+export async function startPurchaseWithUsage(uuid, { actorId, itemId, usageId, miracle = false, asOtherUuid = "", rewriteId = "" }) {
     const actor = game.actors.get(actorId);
     const item = actor?.items.get(itemId);
     // 神業の入手(《タイムリー》《買収》・17-6): 購入値や外界の条件を問わず、宣言の効果へ再入する
@@ -228,7 +228,17 @@ export async function startPurchaseWithUsage(uuid, { actorId, itemId, usageId, m
         let asOther = null;
         if (asOtherUuid) {
             const src = await fromUuid(asOtherUuid).catch(() => null);
-            if (src) asOther = { uuid: asOtherUuid, name: src.name, source: src };
+            // 神業書き換え技能(rewriteId)なら、効果の出どころは技能自身のこともある(kind=skill)。
+            // 書き換えの印(via)はここで組み直す——辞典ブラウザを挟むと文脈が一度切れるため
+            const skill = rewriteId ? actor.items.get(rewriteId) : null;
+            if (src) {
+                asOther = { uuid: asOtherUuid, name: src.name, source: src };
+                if (skill) {
+                    const { miracleRewriteVia } = await import("./miracle-logic.mjs");
+                    asOther.kind = src.type === "miracle" ? "miracle" : "skill";
+                    asOther.via = miracleRewriteVia(skill);
+                }
+            }
         }
         const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
         await TnxCharacterSheetBase._activateItemCheck(actor, item, {

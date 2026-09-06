@@ -63,21 +63,33 @@ export function isMiracleType(type) {
 }
 
 /**
+ * 神業の器(神業専用の5種だけを出す)として扱う親か。神業アイテム本体に加え、**独自効果型の
+ * 神業書き換え技能**——その用途は技能自身の使い方ではなく、書き換えた神業の効果そのものになる。
+ * @param {string} parentType 親アイテムの type
+ * @param {{miracleOwnEffect?: boolean}} [opts] miracleOwnEffect=独自効果型の書き換え技能
+ * @returns {boolean}
+ */
+function isMiracleUsageHost(parentType, { miracleOwnEffect = false } = {}) {
+    return parentType === "miracle" || miracleOwnEffect === true;
+}
+
+/**
  * 親アイテムの型に応じた、用途作成ダイアログに出すタイプ→ラベル。
  * 神業なら神業専用の5種だけ、それ以外は神業専用を除いた既存タイプ(2026-09-03 ユーザー提案)。
  * @param {string} parentType 親アイテムの type
+ * @param {{miracleOwnEffect?: boolean}} [opts] 独自効果型の神業書き換え技能は神業と同じ5種
  * @returns {Record<string, string>}
  */
-export function usageTypeLabelsFor(parentType) {
-    const wantMiracle = parentType === "miracle";
+export function usageTypeLabelsFor(parentType, opts = {}) {
+    const wantMiracle = isMiracleUsageHost(parentType, opts);
     return Object.fromEntries(Object.entries(USAGE_TYPE_DEFS)
         .filter(([, d]) => (d.kind === "miracle") === wantMiracle)
         .map(([k, d]) => [k, d.label]));
 }
 
-/** 新規用途の既定タイプ: 神業は「宣言」、それ以外は「判定」。 */
-export function defaultUsageTypeFor(parentType) {
-    return parentType === "miracle" ? "miracleDeclaration" : "check";
+/** 新規用途の既定タイプ: 神業(と独自効果型の書き換え技能)は「宣言」、それ以外は「判定」。 */
+export function defaultUsageTypeFor(parentType, opts = {}) {
+    return isMiracleUsageHost(parentType, opts) ? "miracleDeclaration" : "check";
 }
 
 /** タイプキー → 表示ラベル(用途作成ダイアログ・用途一覧・シートのタグ表示)。 */

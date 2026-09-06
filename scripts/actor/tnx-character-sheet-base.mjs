@@ -2583,7 +2583,23 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 効果の参照(17-5・《万能道具》《神意》《半身》)は**実体を写す**方式(2026-09-06 方針A)。
         // 効果を決めた時点で参照先の用途と経験点条件がこの神業へコピーされているので、
         // ここでは何もしない(実行時の間接参照は《突然変異》のコピーだけ=openExtra.asOther)
-        const asOther = openExtra.asOther ?? null;
+        let asOther = openExtra.asOther ?? null;
+
+        // 神業書き換え技能(スタイル技能・神業と同じタイミングで使い、その1回の効果を書き換える):
+        // 対応する技能を使用回数を残して持っていれば、ここで「書き換えるか」を尋ねる。書き換えを
+        // 選ぶと技能が使用され、以降は効果の出どころが差し替わったまま既存の分岐を通る
+        // (名前・使用回数・神業由来の印は元の神業のまま)。再入(出どころが決まっている)では尋ねない。
+        // 《プリーズ！》で使わされる神業でも尋ねる——使うのは本人であり、書き換えるのも本人のため
+        if (item.type === "miracle" && !asOther) {
+            const { resolveMiracleRewrite } = await import("../module/miracle-flow.mjs");
+            const rewritten = await resolveMiracleRewrite(actor, item, { free: !!openExtra.miracleFree });
+            if (rewritten === "cancel") return false;
+            if (rewritten) {
+                asOther = rewritten;
+                openExtra.asOther = rewritten; // 再入する分岐(アウトフィットの入手など)へも引き継ぐ
+            }
+        }
+
         const usableUsages = (asOther?.source ?? item).system.actions ?? [];
 
         // 用途を決定（直接指定→カバー再入の引き継ぎ→1つなら自動選択→複数はピッカー表示）。
@@ -2821,7 +2837,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             if (effect === "acquireOutfit" && !openExtra.purchase) {
                 const { TnxDictionaryBrowser } = await import("../module/tnx-dictionary-browser.mjs");
                 TnxDictionaryBrowser.openOutfitPicker({
-                    actorId: actor.id, itemId: item.id, usageId: selectedUsage._id, miracle: true, asOtherUuid: asOther?.uuid ?? "",
+                    actorId: actor.id, itemId: item.id, usageId: selectedUsage._id, miracle: true,
+                    asOtherUuid: asOther?.uuid ?? "", rewriteId: asOther?.via?.itemId ?? "",
                 });
                 return false;
             }

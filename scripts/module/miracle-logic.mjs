@@ -139,15 +139,21 @@ export function addUseEffectSource({ name, img = "" }) {
  * 神業由来の印の出どころ: 用途の親アイテムが miracle 型であること(専用フィールドは持たない)。
  * 他の神業として使ったとき(17-5)は、その神業(uuid と名前)を印に添える——カードの「効果」行と
  * 使用ログ(《突然変異》がコピーするのは解決後の神業)のため。source(ドキュメント)は載せない。
+ * **神業書き換え技能で書き換えたとき**は、書き換えた技能(via)を `rewrite` として添える。効果の
+ * 出どころが技能自身(kind="skill")のときは `asOther` を載せない——技能は神業ではなく、使用ログや
+ * 《突然変異》のコピー元として解決できないため(記帳は元の神業として行う)。
  * @param {{id?: string, type?: string, name?: string, uuid?: string}|null|undefined} item
- * @param {?{uuid: string, name: string}} [asOther] 他の神業として使うときの参照先
- * @returns {?{itemId: string, name: string, uuid: string, asOther?: {uuid: string, name: string}}} 神業でなければ null
+ * @param {?{uuid: string, name: string, kind?: "miracle"|"skill", via?: {itemId: string, name: string}}} [asOther]
+ *   効果の出どころ(他の神業として使うときの参照先／書き換え後の効果の出どころ)
+ * @returns {?{itemId: string, name: string, uuid: string, asOther?: {uuid: string, name: string},
+ *   rewrite?: {itemId: string, name: string}}} 神業でなければ null
  */
 export function miracleOriginOf(item, asOther = null) {
     if (item?.type !== "miracle") return null;
     return {
         itemId: item.id, name: item.name, uuid: item.uuid ?? "",
-        ...(asOther?.uuid ? { asOther: { uuid: asOther.uuid, name: asOther.name ?? "" } } : {}),
+        ...(asOther?.uuid && asOther.kind !== "skill" ? { asOther: { uuid: asOther.uuid, name: asOther.name ?? "" } } : {}),
+        ...(asOther?.via ? { rewrite: { itemId: asOther.via.itemId ?? "", name: asOther.via.name ?? "" } } : {}),
     };
 }
 
@@ -469,6 +475,83 @@ export function renameMiracleInCondition(html, fromName, toName) {
     const text = html ?? "";
     if (!text || !fromName || !toName || fromName === toName) return text;
     return text.split(fromName).join(toName);
+}
+
+// ─── 神業書き換え技能(スタイル技能・神業と同じタイミングで使い、その1回の効果を書き換える) ─────
+// 神業をロールしたとき、対応する書き換え技能を使用回数を残して持っていれば「書き換えるか」を尋ね、
+// 選べばその技能が使用され、**その1回の使用に限り**神業の効果が書き換わる(アイテムには何も書き込ま
+// ない=《万能道具》の「実体を写す」方針Aとは別物)。効果の出どころ(別の神業と同じ／この技能の用途)と
+// 経験点の取得条件(元のまま／書き換える)の2軸で、ルール上の4種類をすべて表す。
+// 実行は効果の差し替えレール(asOther)に乗せる——名前・使用回数・神業由来の印は元の神業のまま。
+
+/**
+ * 書き換えの設定が使える状態か(効果の出どころが決まっているか)。
+ * 独自効果型は用途0件でも成立する(宣言だけ＝神業と同じ原則)。参照型は参照先が要る。
+ * @param {?{effect?: string, refUuid?: string}} cfg スタイル技能の system.miracleRewrite
+ * @returns {boolean}
+ */
+function isRewriteConfigured(cfg) {
+    if (cfg?.effect === "own") return true;
+    return cfg?.effect === "ref" && !!cfg.refUuid;
+}
+
+/**
+ * その神業をロールしたときに書き換えを申し出る技能を集める。
+ * 対応する神業(target)が空欄なら**どの神業でも候補**——組み合わせの可否は卓が決めるという規範を残す。
+ * 対応の照合は辞典の1件とアクターの写しの照合と同じ規則(識別キー優先・無ければ名前)。
+ * @param {Iterable<{id?: string, name?: string, type?: string, system?: object}>} items アクターの所持アイテム
+ * @param {?{type?: string, name?: string, system?: object}} miracle ロールした神業
+ * @returns {Array<object>} 候補(渡されたアイテムをそのまま返す)
+ */
+export function miracleRewriteCandidates(items, miracle) {
+    if (miracle?.type !== "miracle") return [];
+    const out = [];
+    for (const item of (items ?? [])) {
+        // 区分「神業書き換え技能」のスタイル技能だけ(シートが書き換えの設定を出す条件と同じ——
+        // 区分を変えた技能の設定が裏で効き続けないように、判定もここに合わせる)
+        if (item?.type !== "styleSkill" || item.system?.unique !== "miracleChange") continue;
+        const cfg = item.system?.miracleRewrite;
+        if (!isRewriteConfigured(cfg)) continue;
+        const target = cfg.target ?? {};
+        if ((target.key || target.name) && !miracleIdentityMatches(
+            { identificationKey: target.key, name: target.name },
+            { identificationKey: miracle.system?.identificationKey, name: miracle.name })) continue;
+        // 使用回数の制限が無い技能は常に使える(残回数ゲートは制限ありのときだけ)
+        if (item.system?.uses?.isLimit === true && !miracleUseGate(item.system).ok) continue;
+        out.push(item);
+    }
+    return out;
+}
+
+/**
+ * 書き換え技能から、印に添える情報と条件の決め方を組む。
+ * conditionMode: keep=元の神業の条件のまま / source=書き換え先の神業の条件 / text=技能が持つ条件文。
+ * @param {?{id?: string, name?: string, system?: object}} skill 書き換え技能
+ * @returns {{itemId: string, name: string, conditionMode: "keep"|"source"|"text", conditionText: string}}
+ */
+export function miracleRewriteVia(skill) {
+    const cfg = skill?.system?.miracleRewrite ?? {};
+    const conditionMode = cfg.rewriteCondition !== true ? "keep" : (cfg.effect === "ref" ? "source" : "text");
+    return {
+        itemId: skill?.id ?? "", name: skill?.name ?? "",
+        conditionMode,
+        conditionText: conditionMode === "text" ? (cfg.condition ?? "") : "",
+    };
+}
+
+/**
+ * 神業カードに出す経験点の取得条件の出どころ。効果文は常に出どころ(source)から出るが、条件だけは
+ * 書き換えの設定で別れる。書き換えを伴わない効果の参照・コピー(《突然変異》)は従来どおり参照先の条件。
+ * @param {?{via?: {conditionMode?: string, conditionText?: string}}} asOther 効果の出どころ(無ければ null)
+ * @returns {{from: "item"|"source"|"text", text: string}} item=元の神業 / source=出どころ / text=渡す文
+ */
+export function miracleCardConditionPlan(asOther) {
+    if (!asOther) return { from: "item", text: "" };
+    const mode = asOther.via?.conditionMode;
+    if (!mode) return { from: "source", text: "" };
+    if (mode === "text") return { from: "text", text: asOther.via.conditionText ?? "" };
+    if (mode === "source") return { from: "source", text: "" };
+    return { from: "item", text: "" };
 }
 
 /**

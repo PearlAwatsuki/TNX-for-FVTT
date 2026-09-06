@@ -365,22 +365,68 @@
                     </div>
                 </fieldset>
 
-                {{!-- 神業の書き換え(unique=miracleChange のときのみ) --}}
-                {{#if (eq system.unique "miracleChange")}}
+                {{!-- 神業の書き換え(unique=miracleChange のときのみ)。神業と同じタイミングで使い、
+                     その1回の使用に限り神業の効果を書き換える。効果の出どころ(別の神業／この技能の用途)と
+                     経験点の取得条件(元のまま／書き換える)の2軸で4種類を表す --}}
+                {{#if isMiracleChange}}
                 <fieldset class="tnx-fieldset">
                     <legend>神業の書き換え</legend>
                     <div class="tnx-form-field">
                             <div class="form-group">
-                                <label>書き換え対象の神業</label>
-                                <input type="text" name="system.rewritingMiracleName" value="{{system.rewritingMiracleName}}" placeholder="書き換え元の神業名を入力...">
+                                <label>書き換える神業</label>
+                                {{#if rewriteTarget}}
+                                <button type="button" class="tnx-linked-btn{{#if rewriteTarget.missing}} is-missing{{/if}}"
+                                        data-action="viewRewriteRef" data-rewrite="target" data-context-menu-type="rewrite-target">
+                                    {{#if rewriteTarget.img}}<img src="{{rewriteTarget.img}}" class="tnx-linked-btn__icon"/>{{/if}}
+                                    <span class="tnx-linked-btn__label">{{rewriteTarget.name}}{{#if rewriteTarget.missing}}（削除済み）{{/if}}</span>
+                                </button>
+                                {{else}}
+                                <div class="tnx-import-box tnx-import-box--inline" data-drop-area="rewrite-target">
+                                    <span>神業をここにドロップ</span>
+                                </div>
+                                {{/if}}
                             </div>
 
                             <div class="form-group">
-                                <label>書き換え先</label>
-                                <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="rewriting-miracle">
-                                    <span>神業アイテムをここにドロップ</span>
+                                <label>効果</label>
+                                <select name="system.miracleRewrite.effect">
+                                    {{selectOptions rewriteEffectOptions selected=system.miracleRewrite.effect}}
+                                </select>
+                            </div>
+
+                            {{#if rewriteIsRef}}
+                            <div class="form-group">
+                                <label>書き換え先の神業</label>
+                                {{#if rewriteRef}}
+                                <button type="button" class="tnx-linked-btn{{#if rewriteRef.missing}} is-missing{{/if}}"
+                                        data-action="viewRewriteRef" data-rewrite="ref" data-context-menu-type="rewrite-ref">
+                                    {{#if rewriteRef.img}}<img src="{{rewriteRef.img}}" class="tnx-linked-btn__icon"/>{{/if}}
+                                    <span class="tnx-linked-btn__label">{{rewriteRef.name}}{{#if rewriteRef.missing}}（削除済み）{{/if}}</span>
+                                </button>
+                                {{else}}
+                                <div class="tnx-import-box tnx-import-box--inline" data-drop-area="rewrite-ref">
+                                    <span>神業をここにドロップ</span>
+                                </div>
+                                {{/if}}
+                            </div>
+                            {{/if}}
+
+                            <div class="form-group">
+                                <label for="rewriteCondition-{{item._id}}">取得条件も書き換える</label>
+                                <input type="checkbox" name="system.miracleRewrite.rewriteCondition" id="rewriteCondition-{{item._id}}" {{checked system.miracleRewrite.rewriteCondition}}>
+                            </div>
+
+                            {{#if rewriteShowCondition}}
+                            {{!-- 取得条件は他の本文欄と同じ枠付きエディタ(トグルはヘッダーへ移設される) --}}
+                            <div class="tnx-editor-section">
+                                <div class="tnx-editor-section__header">
+                                    <label>取得条件</label>
+                                </div>
+                                <div class="tnx-editor-section__content">
+                                    {{editor enrichedRewriteCondition target="system.miracleRewrite.condition" engine="prosemirror" button=true owner=owner editable=editable}}
                                 </div>
                             </div>
+                            {{/if}}
                     </div>
                 </fieldset>
                 {{/if}}

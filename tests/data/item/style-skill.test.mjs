@@ -174,20 +174,40 @@ describe("StyleSkillDataModel.defineSchema()", () => {
     });
   });
 
-  describe("書き換え神業関連フィールド(KI-018/019 正規化済み)", () => {
-    it("RewrittenTarget は StringField で initial が ''", () => {
-      expect(schema.RewrittenTarget).toBeInstanceOf(MockStringField);
-      expect(schema.RewrittenTarget.options.initial).toBe("");
+  describe("神業書き換え(神業と同じタイミングで使い、その1回の効果を書き換える)", () => {
+    it("miracleRewrite.target は書き換える神業の参照 {uuid, key, name}（空欄＝どの神業でも）", () => {
+      expect(schema.miracleRewrite).toBeInstanceOf(MockSchemaField);
+      const target = schema.miracleRewrite.fields.target;
+      expect(target).toBeInstanceOf(MockSchemaField);
+      expect(target.fields.uuid).toBeInstanceOf(MockStringField);
+      expect(target.fields.key).toBeInstanceOf(MockStringField);
+      expect(target.fields.name).toBeInstanceOf(MockStringField);
     });
 
-    it("rewritingMiracleName は StringField で initial が ''", () => {
-      expect(schema.rewritingMiracleName).toBeInstanceOf(MockStringField);
-      expect(schema.rewritingMiracleName.options.initial).toBe("");
+    it("effect は StringField で initial が ''（未設定＝書き換えを申し出ない）", () => {
+      expect(schema.miracleRewrite.fields.effect).toBeInstanceOf(MockStringField);
+      expect(schema.miracleRewrite.fields.effect.options.initial).toBe("");
     });
 
-    it("rewritingMiracleId は StringField で initial が ''", () => {
-      expect(schema.rewritingMiracleId).toBeInstanceOf(MockStringField);
-      expect(schema.rewritingMiracleId.options.initial).toBe("");
+    it("refUuid は「別の神業と同じ効果」にするときの書き換え先", () => {
+      expect(schema.miracleRewrite.fields.refUuid).toBeInstanceOf(MockStringField);
+      expect(schema.miracleRewrite.fields.refUuid.options.initial).toBe("");
+    });
+
+    it("rewriteCondition は経験点の取得条件も書き換えるか（既定はオフ＝元の神業のまま）", () => {
+      expect(schema.miracleRewrite.fields.rewriteCondition).toBeInstanceOf(MockBooleanField);
+      expect(schema.miracleRewrite.fields.rewriteCondition.options.initial).toBe(false);
+    });
+
+    it("condition は独自効果型で取得条件も書き換えるときの条件文", () => {
+      expect(schema.miracleRewrite.fields.condition).toBeInstanceOf(MockStringField);
+      expect(schema.miracleRewrite.fields.condition.options.initial).toBe("");
+    });
+
+    it("旧・書き換え神業フィールドは持たない（配線されないまま残っていた3つを置き換え）", () => {
+      expect(schema).not.toHaveProperty("RewrittenTarget");
+      expect(schema).not.toHaveProperty("rewritingMiracleName");
+      expect(schema).not.toHaveProperty("rewritingMiracleId");
     });
   });
 

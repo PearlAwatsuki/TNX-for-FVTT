@@ -13,6 +13,7 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
             incrementTargetValue: TokyoNovaStyleSkillSheet._onIncrementTargetValue,
             decrementTargetValue: TokyoNovaStyleSkillSheet._onDecrementTargetValue,
             viewAcquireRef:       TokyoNovaStyleSkillSheet._onViewAcquireRef,
+            viewRewriteRef:       TokyoNovaStyleSkillSheet._onViewRewriteRef,
         },
     };
 
@@ -99,6 +100,21 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
         // レベル自動参照(10-3): アクター上では参照先を同型スタイル技能のドロップダウンで選ぶ
         // (入力欄→プルダウン)。識別キーを値に持ち、既存キーがあれば selected で自動選択される。
         // 辞典/ワールド直下(アクター外)では識別キーの自由入力。
+        // 神業の書き換え(unique=miracleChange): 参照はライブ解決(削除済みは name をフォールバック表示)。
+        // 効果の出どころが「この技能の用途」のときだけ、取得条件の文をここで持つ(参照型は参照先の条件)
+        context.isMiracleChange = system.unique === "miracleChange";
+        if (context.isMiracleChange) {
+            const rw = system.miracleRewrite ?? {};
+            context.rewriteEffectOptions = TokyoNovaStyleSkillSheet.REWRITE_EFFECTS;
+            context.rewriteIsRef = rw.effect === "ref";
+            context.rewriteShowCondition = rw.effect === "own" && rw.rewriteCondition === true;
+            context.rewriteTarget = await TokyoNovaStyleSkillSheet._resolveRewriteRef(rw.target?.uuid, rw.target?.name);
+            context.rewriteRef    = context.rewriteIsRef
+                ? await TokyoNovaStyleSkillSheet._resolveRewriteRef(rw.refUuid, "") : null;
+            context.enrichedRewriteCondition = await foundry.applications.ux.TextEditor.enrichHTML(
+                rw.condition ?? "", { relativeTo: this.item, editable: context.editable });
+        }
+
         context.isOnActor = this.item.parent?.documentName === "Actor";
         if (context.isOnActor) {
             const choices = { "": "—" };
@@ -110,6 +126,26 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
             context.levelRefChoices = choices;
         }
         return context;
+    }
+
+    /** 書き換え後の効果の出どころ(神業の書き換え)。 */
+    static REWRITE_EFFECTS = Object.freeze({
+        "":    "—",
+        ref:   "別の神業と同じ",
+        own:   "この技能の用途",
+    });
+
+    /**
+     * 書き換えの参照(神業)をライブ解決する。削除済み・未設定は name のフォールバックで示す。
+     * @param {string} uuid
+     * @param {string} fallbackName 削除時に見せる名前(対応する神業は照合用に名前も保存している)
+     * @returns {Promise<?{name: string, img: ?string, missing: boolean}>} 未設定なら null
+     */
+    static async _resolveRewriteRef(uuid, fallbackName = "") {
+        if (!uuid) return null;
+        const doc = await fromUuid(uuid).catch(() => null);
+        if (doc) return { name: doc.name, img: doc.img ?? null, missing: false };
+        return { name: fallbackName || "(不明)", img: null, missing: true };
     }
 
     /** 自動取得参照 {uuid,name} をライブ解決して表示用に整える(UUID 解決失敗は missing)。 */
@@ -207,11 +243,76 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
             }
         }
 
-        // 自動取得(10-2): インポートボックスにドロップで追加(rewriting-miracle 等と衝突しないよう acquire- に限定)
+        // 自動取得(10-2): インポートボックスにドロップで追加(神業の書き換えと衝突しないよう acquire- に限定)
         for (const zone of this.element.querySelectorAll('.tnx-import-box--dropzone[data-drop-area^="acquire-"]')) {
             zone.addEventListener("dragover", (event) => event.preventDefault());
             zone.addEventListener("drop", (event) => this._onDropAcquireZone(event));
         }
+
+        // 神業の書き換え: 書き換える神業／書き換え先の神業はドロップで結線する(1対1の結線)
+        for (const zone of this.element.querySelectorAll('[data-drop-area^="rewrite-"]')) {
+            const kind = zone.dataset.dropArea === "rewrite-target" ? "target" : "ref";
+            zone.addEventListener("dragover", (event) => event.preventDefault());
+            zone.addEventListener("drop", (event) => this._onDropRewriteRef(event, kind));
+        }
+        const CM = foundry.applications.ux.ContextMenu.implementation;
+        const unlink = (kind) => [{
+            name: "リンク解除",
+            icon: '<i class="fas fa-unlink"></i>',
+            callback: () => this._clearRewriteRef(kind),
+        }];
+        if (this.element.querySelector('[data-context-menu-type="rewrite-target"]')) {
+            new CM(this.element, '[data-context-menu-type="rewrite-target"]', unlink("target"), { jQuery: false, fixed: true });
+        }
+        if (this.element.querySelector('[data-context-menu-type="rewrite-ref"]')) {
+            new CM(this.element, '[data-context-menu-type="rewrite-ref"]', unlink("ref"), { jQuery: false, fixed: true });
+        }
+    }
+
+    // ─── 神業の書き換え(unique=miracleChange) ──────────────────────────────────
+
+    /**
+     * 書き換える神業／書き換え先の神業のドロップ。対応する神業は**識別キーで照合する**ため、
+     * uuid(表示のライブ解決用)と識別キー・名前(照合)をまとめて保存する。
+     * @param {DragEvent} event
+     * @param {"target"|"ref"} kind
+     */
+    async _onDropRewriteRef(event, kind) {
+        event.preventDefault();
+        event.stopPropagation();
+        let data;
+        try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch { return; }
+        if (data?.type !== "Item") return;
+        const doc = await Item.fromDropData(data);
+        if (doc?.type !== "miracle") {
+            ui.notifications?.warn("神業アイテムをドロップしてください。");
+            return;
+        }
+        if (kind === "target") {
+            await this.item.update({ "system.miracleRewrite.target": {
+                uuid: doc.uuid, key: doc.system?.identificationKey ?? "", name: doc.name,
+            } });
+        } else {
+            await this.item.update({ "system.miracleRewrite.refUuid": doc.uuid });
+        }
+    }
+
+    /** 書き換えの参照を外す(右クリックのリンク解除)。 */
+    async _clearRewriteRef(kind) {
+        if (kind === "target") {
+            await this.item.update({ "system.miracleRewrite.target": { uuid: "", key: "", name: "" } });
+        } else {
+            await this.item.update({ "system.miracleRewrite.refUuid": "" });
+        }
+    }
+
+    /** 書き換えの参照先(神業)のシートを開く。 */
+    static async _onViewRewriteRef(_event, target) {
+        const rw = this.item.system.miracleRewrite ?? {};
+        const uuid = target?.dataset.rewrite === "target" ? (rw.target?.uuid ?? "") : (rw.refUuid ?? "");
+        if (!uuid) return;
+        const doc = await fromUuid(uuid).catch(() => null);
+        doc?.sheet?.render({ force: true });
     }
 
     // ─── 自動取得(10-2) ────────────────────────────────────────────────────────

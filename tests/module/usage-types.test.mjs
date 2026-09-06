@@ -74,3 +74,22 @@ describe("神業専用の用途タイプ（宣言・即死・防御・社会戦�
         expect(defaultUsageTypeFor("weapon")).toBe("check");
     });
 });
+
+describe("神業書き換え技能の用途タイプ（独自効果型の用途は書き換え後の神業の効果になる）", () => {
+    const MIRACLE_KEYS = ["miracleDeclaration", "miracleKill", "miracleDefence", "miracleSocial", "miracleDestroy"];
+
+    it("独自効果型の書き換え技能には、神業と同じ5種だけを出す", () => {
+        expect(Object.keys(usageTypeLabelsFor("styleSkill", { miracleOwnEffect: true }))).toEqual(MIRACLE_KEYS);
+    });
+
+    it("独自効果型の書き換え技能の新規用途の既定タイプは「宣言」", () => {
+        expect(defaultUsageTypeFor("styleSkill", { miracleOwnEffect: true })).toBe("miracleDeclaration");
+    });
+
+    it("参照型・未設定のスタイル技能は従来どおり（神業の5種を出さない）", () => {
+        const labels = usageTypeLabelsFor("styleSkill", { miracleOwnEffect: false });
+        for (const k of MIRACLE_KEYS) expect(labels).not.toHaveProperty(k);
+        expect(labels.check).toBe("判定");
+        expect(defaultUsageTypeFor("styleSkill", { miracleOwnEffect: false })).toBe("check");
+    });
+});

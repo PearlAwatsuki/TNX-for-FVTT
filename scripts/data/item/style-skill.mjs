@@ -5,8 +5,8 @@
  * 固有フィールド: styleSkillCategory / unique / style / comboSkill / maxLevel /
  *               timing / target / range / targetValue / confrontation /
  *               isFixedRange / isFixedTarget / isEssentialSkill / isSubstitute /
- *               substituteTarget / RewrittenTarget / rewritingMiracleName /
- *               rewritingMiracleId / uses / special / performance / secret / mystery
+ *               substituteTarget / miracleRewrite / uses / special / performance /
+ *               secret / mystery
  *
  * 準拠データ: template.json > Item.styleSkill(削除済み)
  *
@@ -25,8 +25,10 @@
  * - unique の initial は "none"。template.json は "" だが、シートの選択肢定義
  *   (TnxSkillUtils.getSkillOptions)で先頭が "none" であり、これが正しいデフォルト値。
  *
- * - RewrittenTarget / rewritingMiracleId: KI-018/KI-019 で旧 typo 名(RewritedTarget /
- *   RewritingMiracle_ID)から正規化済み。テンプレート・ロジックの参照なしのため移行不要。
+ * - miracleRewrite: 神業書き換え技能(神業と同じタイミングで使い、その1回の効果を書き換える)の設定。
+ *   旧 RewrittenTarget / rewritingMiracleName / rewritingMiracleId(KI-018/KI-019 で typo 名から
+ *   正規化したが配線されないまま残っていた3つ)を置き換えた。旧フィールドは読み手ゼロで、
+ *   シートの「書き換え対象の神業」の手入力だけが値を持ちえた——移行はせず捨てる(ユーザー承認済み)。
  *
  * - styleSkillCategory / unique の enum 型化は将来フェーズで対応。
  *
@@ -141,10 +143,29 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
         condition: new fields.StringField({ initial: "society" }),
       })),
 
-      // 書き換え神業関連(KI-018/KI-019: typo・命名揺れを正規化済み)
-      RewrittenTarget:      new fields.StringField({ initial: "" }),
-      rewritingMiracleName: new fields.StringField({ initial: "" }),
-      rewritingMiracleId:   new fields.StringField({ initial: "" }),
+      // 神業書き換え(unique="miracleChange"・神業と同じタイミングで使い、**その1回の使用に限り**
+      // 神業の効果を書き換える)。ルール上の4種類を2軸で表す:
+      //   effect            = 書き換え後の効果の出どころ("ref"=別の神業と同じ / "own"=この技能の用途)
+      //   rewriteCondition  = 経験点の取得条件も書き換えるか(オフ=元の神業の条件のまま)
+      // target = 対応する神業(この神業をロールしたときに書き換えを申し出る)。**空欄ならどの神業でも**
+      // 候補に出す(組み合わせの可否は卓が決めるという規範を残すため)。照合は識別キー優先・
+      // 無ければ名前(辞典の1件とアクターの写しの照合と同じ規則=miracleIdentityMatches)。
+      // uuid は表示のライブ解決用・name は削除時のフォールバック表示と照合の予備。
+      // condition = 独自効果型で取得条件も書き換えるときの条件文(神業の usageCondition と同じ器)。
+      // アイテムには何も書き込まない実行時の差し替えで、《万能道具》の「実体を写す」(方針A)とは別物。
+      // 旧 RewrittenTarget / rewritingMiracleName / rewritingMiracleId(template.json 時代の遺物・
+      // 読み手ゼロ)はここに置き換えた
+      miracleRewrite: new fields.SchemaField({
+        target: new fields.SchemaField({
+          uuid: new fields.StringField({ initial: "" }),
+          key:  new fields.StringField({ initial: "" }),
+          name: new fields.StringField({ initial: "" }),
+        }),
+        effect:           new fields.StringField({ initial: "" }),
+        refUuid:          new fields.StringField({ initial: "" }),
+        rewriteCondition: new fields.BooleanField({ initial: false }),
+        condition:        new fields.StringField({ initial: "" }),
+      }),
 
       // 使用回数(outfitBase.uses と同型だが styleSkill 固有の別フィールド)
       // spent = 消費済み回数（D&D 方式）。残り = max - spent

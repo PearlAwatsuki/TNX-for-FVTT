@@ -40,6 +40,7 @@ import { splitEffectsByTiming } from "./usage-effects.mjs";
 import { spinnerDialogActions } from "./tnx-dialog.mjs";
 import { rlGrantAmount, rlGrantLedgerRow, rlGrantTypeLabel, buildRlDamageRollFlag } from "./rl-grant-logic.mjs";
 import { unprotectedTargetIndices, defencePreventPlan, miracleResultLabel, miracleTargetOutcome, miracleOriginOf } from "./miracle-logic.mjs";
+import { formatSkillName } from "./identification.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会", troop: "壊滅" };
@@ -647,6 +648,8 @@ function renderMiracleDamageCard(message, html, f, { ledger, area, row, line, es
     row(ledger, "神業", esc(f.miracle?.name ?? "神業"));
     // 他の神業として使った分(17-5)は神業カードと同じ「効果」の行(名前に括弧で足すと狭い幅で語の途中で折れる)
     if (f.miracle?.asOther?.name) row(ledger, "効果", `《${esc(f.miracle.asOther.name)}》`);
+    // 神業書き換え技能で書き換えた分も神業カードと同じ行
+    if (f.miracle?.rewrite?.name) row(ledger, "書き換え", esc(formatSkillName(f.miracle.rewrite.name)));
     // めくったカードは1枚1行(ダメージカードの行と同じ形・狭い幅で語の途中で折れない)
     (f.miracleResult?.drawn ?? []).forEach((d, i) => row(ledger, `カード ${i + 1}`, esc(d)));
     // 結果は**通常の行**(値は「完全死亡」等の状態名で、巨大表示は数値のための器・2026-09-05 是正)。
