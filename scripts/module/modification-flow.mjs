@@ -16,10 +16,11 @@
  */
 
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
+import { stampCardOutcome } from "./chat-card.mjs";
+import { nowrap } from "./chat-text.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { buildUsageCheckContext } from "./usage-check-context.mjs";
 import { resolveTargetedOrSelf } from "./target-resolution.mjs";
-import { postConditionOutcome } from "./condition-resolution.mjs";
 import { itemDisplayName } from "./identification.mjs";
 import { DISABLED_TRIGGER_CLASS } from "./ui-trigger-disable.mjs";
 import { OUTFIT_TYPES, getMajorCategoryLabel, getMinorCategoryLabel, outfitClassifications, hasClassification } from "../data/item/outfit-categories.mjs";
@@ -223,37 +224,35 @@ export async function useModification(item, usage) {
 /**
  * 改造判定の完了継続(TnxCheckFlow._execute / 再判定 rerun から)。成功で改造行を適用する。
  * 目標値なし(成否 null)は達成値の報告のみ(適用は卓裁定=手動)。
+ * 改造したことは**判定結果カードの帰結行**として刻む(2026-09-07 ユーザー指示・別カードを出さない)。
+ * 失敗は結果カード自身が「失敗」と示すため、帰結行は刻まない。
+ * @param {{messageId?: ?string}} [args] messageId=帰結行を刻む判定結果カード
  */
-export async function resolveModificationFromCheck(cc, result) {
+export async function resolveModificationFromCheck(cc, result, { messageId = null } = {}) {
     const target = await fromUuid(cc.targetUuid).catch(() => null);
     if (!target) return;
 
-    const paramLabel = MODIFICATION_PARAMS[cc.param]?.label ?? cc.param;
-    const effectText = cc.param === "drugTiming"
-        ? "のマイナーアクション化"
-        : `の${paramLabel}${cc.value >= 0 ? `＋${cc.value}` : `−${Math.abs(cc.value)}`}`;
-
-    if (result?.success === false || result?.fumble) {
-        await postConditionOutcome(target, {
-            title: cc.usageName, tag: "改造失敗", status: "failure",
-            label: cc.outfitName, text: `${effectText}は失敗しました。`,
-        });
-        return;
-    }
-    if (result?.success !== true) return;
+    if (result?.success !== true) return; // 失敗・目標値なし(成否は卓裁定=適用は手動)
 
     const rows = cc.param === "drugTiming"
         ? (cc.drugIds ?? []).map((id) => ({ outfitId: id, param: "drugTiming", value: 0, note: cc.usageName }))
         : [{ outfitId: cc.outfitId, param: cc.param, value: cc.value, note: cc.usageName }];
     if (!await applyModificationRows(target, rows)) return;
 
-    const label = cc.param === "drugTiming"
-        ? (cc.drugIds ?? []).map((id) => itemDisplayName(target.items.get(id)) || "?").join("、")
-        : cc.outfitName;
-    await postConditionOutcome(target, {
-        title: cc.usageName, tag: "改造", status: "success",
-        label, text: `${effectText}を適用しました。`,
-    });
+    const paramLabel = MODIFICATION_PARAMS[cc.param]?.label ?? cc.param;
+    const effectText = cc.param === "drugTiming"
+        ? "のマイナーアクション化"
+        : `の${paramLabel}${cc.value >= 0 ? `＋${cc.value}` : `−${Math.abs(cc.value)}`}`;
+    // 名前は1つずつ「」でくくる(ドラッグは複数=まとめてくくると1つの名前に見える)
+    const esc = foundry.utils.escapeHTML;
+    const names = cc.param === "drugTiming"
+        ? (cc.drugIds ?? []).map((id) => `「${esc(itemDisplayName(target.items.get(id)) || "?")}」`).join("、")
+        : `「${esc(cc.outfitName)}」`;
+    const message = messageId ? game.messages.get(messageId) : null;
+    if (message) {
+        await stampCardOutcome(message, { icon: "fa-wrench",
+            text: `${esc(target.name)}の${names}${nowrap(esc(effectText))}${nowrap("を適用した")}` });
+    }
 }
 
 /**

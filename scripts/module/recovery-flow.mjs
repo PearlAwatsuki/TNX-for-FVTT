@@ -35,11 +35,12 @@
  */
 
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
+import { stampCardOutcome } from "./chat-card.mjs";
+import { nowrap } from "./chat-text.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { buildUsageCheckContext } from "./usage-check-context.mjs";
 import { resolveTargetedOrSelf } from "./target-resolution.mjs";
 import { CONDITION_KINDS, conditionDisplayName, getConditionKinds, recoveryKindMatches, recoveryKindExcluded, readCondition, woundChartValue } from "./conditions.mjs";
-import { postConditionOutcome } from "./condition-resolution.mjs";
 import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } from "./usage-consumption.mjs";
 import { executionFormOf } from "./usage-types.mjs";
 import { buildPostTreatmentRest } from "./treatment-flow.mjs";
@@ -120,7 +121,9 @@ function buildRemovalPlan(patient, effects) {
     for (const e of effects) {
         const kind = getConditionKinds(e)[0];
         const def = CONDITION_KINDS[kind];
-        labels.push(def?.label ?? e.name);
+        // 表示は名前の書式規約に従う(戦闘不能のタグ＝［］・BS/負傷などの名前＝「」)。
+        // **負傷(ダメージ)を［］でくくらない**——戦闘不能と読み違えるため(2026-09-07 ユーザー指示)
+        labels.push(kind ? conditionDisplayName(kind, { quote: true }) : `「${e.name}」`);
         if (def?.type === "wound") {
             addWoundRange(e);
         } else if (def?.group === "incapacitation") {
@@ -137,6 +140,13 @@ function buildRemovalPlan(patient, effects) {
         magnitude = Math.max(magnitude, Number(readCondition(e)?.magnitude) || 0);
     }
     return { removeIds: [...ids], magnitude, woundValue, label: labels.join("・") };
+}
+
+/** 回復の帰結行(アイコンと文)。「誰の何を回復したか」を1行で示す。
+ *  文は組み立て済みの HTML 断片(状態名の塊は描画時に、言い回しはここで折らないようにする)。 */
+function recoveryOutcome(patientName, label) {
+    const esc = foundry.utils.escapeHTML;
+    return { icon: "fa-kit-medical", text: `${esc(patientName)}の${esc(label)}${nowrap("を回復した")}` };
 }
 
 /** 回復対象の選択ダイアログ。recoveryAll=一覧確認のみ・それ以外=recoveryCount 個まで選択。 */
@@ -268,15 +278,16 @@ export async function useRecovery(item, usage, prebound = null, { asOther = null
         if (usesPlan === null) return;
         await applyConsumptionPlan(usesPlan);
         if (!await applyRecoveryRemoval(patient, plan.removeIds)) return;
-        // 神業の治癒(17-2)も神業カードを出す(神業の使用を卓に提示する・使用ログの記帳点・17-5)
+        // 回復したことは、**その使用を表しているカードの帰結行**として出す(2026-09-07 ユーザー指示)——
+        // 帰結だけの短いカードを別に出さない。神業の治癒(17-2)は神業カード(神業の使用を卓に提示する・
+        // 使用ログの記帳点・17-5)、それ以外は他の宣言用途と同じアイテムの解説カード
+        const outcome = recoveryOutcome(patient.name, plan.label);
         if (item.type === "miracle") {
             const { postMiracleCard } = await import("./miracle-flow.mjs");
-            await postMiracleCard(item, { asOther });
+            await postMiracleCard(item, { asOther, outcome });
+        } else {
+            await item.postDescriptionCard({ outcome });
         }
-        await postConditionOutcome(patient, {
-            title: usage.name || item.name, tag: "回復", status: "success",
-            label: plan.label, text: "を回復。",
-        });
         return true; // 発動した(神業の要求カードが使用済みを記録する・17-4)
     }
 
@@ -296,7 +307,6 @@ export async function useRecovery(item, usage, prebound = null, { asOther = null
             patientUuid: patient.uuid,
             removeIds:   plan.removeIds,
             label:       plan.label,
-            usageName:   usage.name || item.name,
         },
     });
 }
@@ -304,25 +314,19 @@ export async function useRecovery(item, usage, prebound = null, { asOther = null
 /**
  * 回復判定の完了継続(TnxCheckFlow._execute から)。成功で除去・失敗はそのまま。
  * 目標値なし(成否 null)は達成値の報告のみで除去せず、適用は卓裁定(結果カードから判断)。
- * @param {{patientUuid:string, removeIds:string[], label:string, usageName:string}} ctx
+ * 回復したことは**判定結果カードの帰結行**として刻む(2026-09-07 ユーザー指示・別カードを出さない)。
+ * 失敗は結果カード自身が「失敗」と示すため、帰結行は刻まない。
+ * @param {{patientUuid:string, removeIds:string[], label:string}} ctx
  * @param {object} result 判定結果
+ * @param {{messageId?: ?string}} [args] messageId=帰結行を刻む判定結果カード
  */
-export async function resolveRecoveryFromCheck(ctx, result) {
+export async function resolveRecoveryFromCheck(ctx, result, { messageId = null } = {}) {
     const patient = await fromUuid(ctx.patientUuid).catch(() => null);
     if (!patient) return;
 
-    if (result?.success === false || result?.fumble) {
-        await postConditionOutcome(patient, {
-            title: ctx.usageName, tag: "回復失敗", status: "failure",
-            label: ctx.label, text: "は回復しませんでした。",
-        });
-        return;
-    }
-    if (result?.success !== true) return; // 目標値なし=成否は卓裁定(除去は手動)
+    if (result?.success !== true) return; // 失敗・目標値なし(成否は卓裁定=除去は手動)
 
     if (!await applyRecoveryRemoval(patient, ctx.removeIds)) return;
-    await postConditionOutcome(patient, {
-        title: ctx.usageName, tag: "回復", status: "success",
-        label: ctx.label, text: "を回復。",
-    });
+    const message = messageId ? game.messages.get(messageId) : null;
+    if (message) await stampCardOutcome(message, recoveryOutcome(patient.name, ctx.label));
 }

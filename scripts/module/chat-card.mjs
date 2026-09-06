@@ -13,6 +13,9 @@
  */
 
 import { keepTogether } from "./chat-text.mjs";
+import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
+
+const SCOPE = "tokyo-nova-axleration";
 
 /**
  * 段: ラベル＝値の1行(card-field.hbs と同じ形)。
@@ -101,4 +104,52 @@ export function fitCardTags(root) {
         // 下限を置く(これ以上潰すと読めない。実際の種別名はここまで長くならない)
         text.style.transform = `scaleX(${Math.max(0.45, avail / natural).toFixed(3)})`;
     }
+}
+
+/**
+ * 段: 帰結行(check-result.hbs の登場/購入/開示と同じ形)。
+ * 「その使用の結果、実際に何が起きたか」を1行で示す段。
+ * 結果の行と同じく**アイコン以外は1つの要素にまとめる**(行は flex で語間 gap があるため、
+ * 折らない塊の span を直に並べると塊ごとに flex アイテムが分かれて語の間が空く)。
+ * @param {string} inner 中身(HTML 断片。先頭の <i> はアイコンとして外に出す)
+ * @param {{modifier?: string}} [opts]
+ * @returns {HTMLDivElement}
+ */
+export function cardOutcome(inner, { modifier = "" } = {}) {
+    const div = document.createElement("div");
+    div.className = `tnx-card__outcome${modifier ? ` ${modifier}` : ""}`;
+    div.innerHTML = keepTogether(inner).replace(
+        /^(\s*<i[^>]*><\/i>)?([\s\S]*)$/,
+        (_m, icon, rest) => `${icon ?? ""}<span class="tnx-card__outcome-text">${rest}</span>`);
+    return div;
+}
+
+/**
+ * 用途の帰結(治療・修理・改造)を、**その使用を表しているカード**へ刻む(2026-09-07 ユーザー指示)。
+ * 帰結だけの短いカードを別に出さない——神業なら神業カード、宣言ならアイテムの解説カード、
+ * 判定なら判定結果カードに、その効果として何が起きたかが出る。
+ *
+ * 保存するのは構造(アイコンと文)で、描画は `renderCardOutcome`(フック)が行う。**本文の書き換えでは
+ * 刻まない**——投稿済みカードの content を後から組み直すと、再判定の置き換えなど他の本文更新と
+ * 競合する(非作者の更新はソケット委譲で非同期に着地するため、古い本文で上書きしうる)。
+ * @param {ChatMessage} message 刻む先のカード
+ * @param {{icon?: string, text?: string}} outcome アイコン(Font Awesome のクラス)と文。
+ *   文は**組み立て済みの HTML 断片**(この段の他の部品と同じ約束——エスケープと、囲みで閉じていない
+ *   決まった言い回しの `nowrap` は呼び出し側の責任。囲みで閉じた語は描画時に一括で塊にする)
+ */
+export async function stampCardOutcome(message, { icon = "fa-circle-info", text = "" } = {}) {
+    if (!message || !text) return;
+    await TnxSocketHandler.applyMessagePatch(message, { icon, text }, "cardOutcome");
+}
+
+/** cardOutcome フラグを帰結行として描画する(renderChatMessageHTML・tnx.mjs から登録)。 */
+export function renderCardOutcome(message, html) {
+    const outcome = message.getFlag(SCOPE, "cardOutcome");
+    const card = html?.querySelector?.(".tnx-card");
+    if (!outcome?.text || !card || card.querySelector(".tnx-card__outcome--stamped")) return;
+    const icon = String(outcome.icon || "fa-circle-info").replace(/[^a-z0-9-]/gi, "");
+    const body = card.querySelector(".tnx-card__body") ?? card;
+    body.appendChild(cardOutcome(
+        `<i class="fas ${icon}"></i> ${outcome.text}`,
+        { modifier: "tnx-card__outcome--stamped" }));
 }

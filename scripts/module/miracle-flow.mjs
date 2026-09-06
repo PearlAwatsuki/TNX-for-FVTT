@@ -950,10 +950,11 @@ function chatButton(icon, label, onClick) {
  * 適用効果(usageEffects)があれば解説カードと同じ器(tnx-usage-use-card ＋ 効果エリア)で包み、
  * 「効果を適用」トレイは renderChatMessageHTML フックが差し込む。
  * @param {Item} item 神業アイテム
- * @param {{usageEffects?: ?object}} [opts]
+ * @param {{usageEffects?: ?object, outcome?: ?{icon:string, text:string}}} [opts]
+ *   outcome=この神業の効果として実際に起きたことの帰結行(治癒した状態など)
  * @returns {Promise<ChatMessage>}
  */
-export async function postMiracleCard(item, { usageEffects = null, destroy = null, addUse = null, request = null, swap = null, acquire = null, insensible = false, asOther = null, undo = null } = {}) {
+export async function postMiracleCard(item, { usageEffects = null, destroy = null, addUse = null, request = null, swap = null, acquire = null, insensible = false, asOther = null, undo = null, outcome = null } = {}) {
     const TE = foundry.applications.ux.TextEditor;
     // 解説の段(効果文と条件)は**常に畳んだ状態でカードの最上部**に置く(2026-09-05 ユーザー指示)。
     // 他の神業として使う(17-5)ときは参照先の文を出す(条件も参照先と同じ)。
@@ -1004,6 +1005,9 @@ export async function postMiracleCard(item, { usageEffects = null, destroy = nul
                     ...(undo?.length ? { undo } : {}),
                 },
                 ...(usageEffects ? { usageEffects } : {}),
+                // 帰結行(2026-09-07): この神業の効果として実際に起きたこと(治癒した状態など)。
+                // 帰結だけの短いカードを別に出さず、神業カードの中で分かるようにする
+                ...(outcome ? { cardOutcome: outcome } : {}),
             },
         },
     });

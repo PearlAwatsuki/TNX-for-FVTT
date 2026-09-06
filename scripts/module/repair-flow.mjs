@@ -17,10 +17,11 @@
  */
 
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
+import { stampCardOutcome } from "./chat-card.mjs";
+import { nowrap } from "./chat-text.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { buildUsageCheckContext } from "./usage-check-context.mjs";
 import { resolveTargetedOrSelf } from "./target-resolution.mjs";
-import { postConditionOutcome } from "./condition-resolution.mjs";
 import { itemDisplayName } from "./identification.mjs";
 import { isOutfitMalfunctioning } from "../data/item/helpers.mjs";
 import { OUTFIT_TYPES, getMajorCategoryLabel, getMinorCategoryLabel, outfitClassifications } from "../data/item/outfit-categories.mjs";
@@ -109,7 +110,6 @@ export async function useRepair(item, usage) {
             targetUuid: target.uuid,
             outfitId:   chosen.id,
             outfitName: itemDisplayName(chosen),
-            usageName:  usage.name || item.name,
         },
     });
 }
@@ -117,27 +117,25 @@ export async function useRepair(item, usage) {
 /**
  * 修理判定の完了継続(TnxCheckFlow._execute から)。成功で選択アウトフィットの故障を解除する。
  * 目標値なし(成否 null)は達成値の報告のみ(解除は卓裁定=手動)。
- * @param {{targetUuid:string, outfitId:string, outfitName:string, usageName:string}} ctx
+ * 修理したことは**判定結果カードの帰結行**として刻む(2026-09-07 ユーザー指示・別カードを出さない)。
+ * 失敗は結果カード自身が「失敗」と示すため、帰結行は刻まない。
+ * @param {{targetUuid:string, outfitId:string, outfitName:string}} ctx
  * @param {object} result 判定結果
+ * @param {{messageId?: ?string}} [args] messageId=帰結行を刻む判定結果カード
  */
-export async function resolveRepairFromCheck(ctx, result) {
+export async function resolveRepairFromCheck(ctx, result, { messageId = null } = {}) {
     const target = await fromUuid(ctx.targetUuid).catch(() => null);
     if (!target) return;
 
-    if (result?.success === false || result?.fumble) {
-        await postConditionOutcome(target, {
-            title: ctx.usageName, tag: "修理失敗", status: "failure",
-            label: ctx.outfitName, text: "の故障は直りませんでした。",
-        });
-        return;
-    }
-    if (result?.success !== true) return; // 目標値なし=成否は卓裁定(解除は手動)
+    if (result?.success !== true) return; // 失敗・目標値なし(成否は卓裁定=解除は手動)
 
     if (!await applyRepairClear(target, ctx.outfitId)) return;
-    await postConditionOutcome(target, {
-        title: ctx.usageName, tag: "修理", status: "success",
-        label: ctx.outfitName, text: "の故障を修理しました。",
-    });
+    const message = messageId ? game.messages.get(messageId) : null;
+    if (message) {
+        const esc = foundry.utils.escapeHTML;
+        await stampCardOutcome(message, { icon: "fa-screwdriver-wrench",
+            text: `${esc(target.name)}の「${esc(ctx.outfitName)}」${nowrap("の故障を修理した")}` });
+    }
 }
 
 /** 故障の解除を実行する(所有権が無ければ repairApply ソケットで GM 委譲)。 */

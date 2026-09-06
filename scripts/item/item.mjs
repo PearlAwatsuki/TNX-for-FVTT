@@ -41,10 +41,13 @@ export class TokyoNovaItem extends Item {
      * 組み合わせが無いため効果文=解説を1枚で提示できる。適用効果ペイロードを渡すと
      * フラグに載せ、本文末尾に効果エリアを設ける(「効果を適用」ボタン/付与注記は
      * renderChatMessageHTML フックの renderUsageEffectButton がそこへ注入する)。
+     * 帰結行(outcome)を渡すと、その使用で実際に起きたこと(治癒した状態など)がカードの末尾に出る
+     * ——帰結だけの短いカードを別に出さないため(2026-09-07 ユーザー指示)。
      * @param {object} [options]
      * @param {object|null} [options.usageEffects] 用途の適用効果ペイロード(宣言使用時のみ)
+     * @param {?{icon:string, text:string}} [options.outcome] 帰結行(アイコンと文)
      */
-    async postDescriptionCard({ usageEffects = null } = {}) {
+    async postDescriptionCard({ usageEffects = null, outcome = null } = {}) {
         const desc = await foundry.applications.ux.TextEditor.enrichHTML(this.system?.description ?? "", { async: true });
         // チャットカードの統一規格(item-card.hbs)で組む。空の効果文は段ごと出ない
         const card = await foundry.applications.handlebars.renderTemplate(
@@ -62,7 +65,12 @@ export class TokyoNovaItem extends Item {
                 : card,
             flags: {
                 "core.canPopout": true,
-                ...(usageEffects ? { "tokyo-nova-axleration": { usageEffects } } : {}),
+                ...(usageEffects || outcome
+                    ? { "tokyo-nova-axleration": {
+                        ...(usageEffects ? { usageEffects } : {}),
+                        ...(outcome ? { cardOutcome: outcome } : {}),
+                    } }
+                    : {}),
             },
         });
     }

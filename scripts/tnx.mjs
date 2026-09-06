@@ -6,7 +6,7 @@ import { computeTroopFixedName, findDepartmentSkillName } from './data/helpers.m
 import { defaultWeaponKindForCategory } from './data/item/common/outfit-base.mjs';
 import { usesMaxBaseOf } from './data/item/uses.mjs';
 import { miracleRemovalUpdate } from './module/miracle-logic.mjs';
-import { fitCardTags } from './module/chat-card.mjs';
+import { fitCardTags, renderCardOutcome } from './module/chat-card.mjs';
 import { canonicalizeSkillActions } from './module/usage-type-migration.mjs';
 import { CastDataModel } from './data/actor/cast.mjs';
 import { GuestDataModel } from './data/actor/guest.mjs';
@@ -1105,6 +1105,14 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
 Hooks.on("renderChatMessageHTML", (message, html) => {
     if (message.getFlag("tokyo-nova-axleration", "miracle")) {
         renderMiracleCard(message, html);
+    }
+});
+
+// 用途の帰結行(2026-09-07): 治療・修理・改造の結果は帰結だけの短いカードを別に出さず、
+// その使用を表しているカード(神業カード・解説カード・判定結果カード)へ刻む
+Hooks.on("renderChatMessageHTML", (message, html) => {
+    if (message.getFlag("tokyo-nova-axleration", "cardOutcome")) {
+        renderCardOutcome(message, html);
     }
 });
 

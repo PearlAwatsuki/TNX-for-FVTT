@@ -875,21 +875,22 @@ export class TnxCheckFlow {
 
         // 回復判定の完了継続(2026-07-13): 成功で選択済みの状態(BS/戦闘不能/負傷)を除去する。
         // 治療メニュー起点も同じ recovery 継続に一本化(2026-07-18・旧 ctx.treatment は廃止)
+        // messageId=結果カード。回復したことは別カードでなくそのカードの帰結行として刻む(2026-09-07)
         if (!ctx.recheckMessageId && ctx.recovery) {
             const { resolveRecoveryFromCheck } = await import("./recovery-flow.mjs");
-            await resolveRecoveryFromCheck(ctx.recovery, result);
+            await resolveRecoveryFromCheck(ctx.recovery, result, { messageId: resultMessage?.id ?? null });
         }
 
         // 修理判定の完了継続(2026-07-18): 成功で選択アウトフィットの故障(isMalfunction)を解除する
         if (!ctx.recheckMessageId && ctx.repair) {
             const { resolveRepairFromCheck } = await import("./repair-flow.mjs");
-            await resolveRepairFromCheck(ctx.repair, result);
+            await resolveRepairFromCheck(ctx.repair, result, { messageId: resultMessage?.id ?? null });
         }
 
         // 改造判定の完了継続(16-4): 成功で選択項目(判定前選択)の改造行を対象へ適用する
         if (!ctx.recheckMessageId && ctx.modification) {
             const { resolveModificationFromCheck } = await import("./modification-flow.mjs");
-            await resolveModificationFromCheck(ctx.modification, result);
+            await resolveModificationFromCheck(ctx.modification, result, { messageId: resultMessage?.id ?? null });
         }
 
         // 登場判定の完了継続(14-5): 成功で登場状態を付与する(ゴースト選択時は isGhost も)
@@ -1119,24 +1120,24 @@ export class TnxCheckFlow {
         },
         recovery: {
             rerunOnSuccessOnly: true,
-            async rerun(cc, result) {
+            async rerun(cc, result, { messageId = null } = {}) {
                 const { resolveRecoveryFromCheck } = await import("./recovery-flow.mjs");
-                await resolveRecoveryFromCheck(cc, result);
+                await resolveRecoveryFromCheck(cc, result, { messageId });
             },
         },
         repair: {
             rerunOnSuccessOnly: true,
-            async rerun(cc, result) {
+            async rerun(cc, result, { messageId = null } = {}) {
                 const { resolveRepairFromCheck } = await import("./repair-flow.mjs");
-                await resolveRepairFromCheck(cc, result);
+                await resolveRepairFromCheck(cc, result, { messageId });
             },
         },
         modification: {
             // 失敗→成功の遷移でのみ適用(適用側に1項目1回の二重ガードあり)
             rerunOnSuccessOnly: true,
-            async rerun(cc, result) {
+            async rerun(cc, result, { messageId = null } = {}) {
                 const { resolveModificationFromCheck } = await import("./modification-flow.mjs");
-                await resolveModificationFromCheck(cc, result);
+                await resolveModificationFromCheck(cc, result, { messageId });
             },
         },
         controlNegate: {
