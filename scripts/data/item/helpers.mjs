@@ -280,6 +280,70 @@ export function isOutfitUnusable(system) {
   return isOutfitMalfunctioning(system) || isOutfitDestroyed(system);
 }
 
+/** 携帯中/準備済みの切り替えを断るときの表示文言(空文字=黙って無視する)。 */
+const OUTFIT_FLAG_BLOCK_MESSAGES = Object.freeze({
+  // 住宅は常に携帯している扱いで、そもそもトグルを出さない画面もある=黙って無視
+  housingCarrying: "",
+  // 準備トグルは携帯していないとき無効表示になっている=黙って無視
+  needsCarrying:   "",
+  hostUnprepared:  "装備先が準備されていないため、このオプションは準備できません。",
+});
+
+/**
+ * 携帯中/準備済みの切り替え計画を返す(2026-09-07 一本化)。
+ *
+ * この不変条件はアクターシートの `_onToggleOutfitFlag` にだけ実装されており、アイテムシートの
+ * `_onToggleFlag` は素で反転していたため、**同じ操作でも入口によって結果が違っていた**
+ * (アイテムシートからは「携帯していないのに準備済み」を作れ、防御力の合算に乗っていた)。
+ * 両方から呼ぶ純関数へ切り出す。
+ *
+ * 規則(既存のアクターシート実装がそのまま正本):
+ * - 住宅大分類は携帯中を変更できない(常時 ON 固定)
+ * - 携帯していなければ準備できない(解除は常に可能)
+ * - オプションは装備先(親)が準備済みでないと準備できない
+ * - 携帯中を外したら準備済みも連動して外す
+ * - 装備先(ホスト)が未準備になったら、配下の準備済みオプションも準備解除する
+ *
+ * @param {{id?:string, system?:object}} item 対象アイテム
+ * @param {string} flag 切り替えるフラグ
+ * @param {{host?: ?{system?:object}, siblings?: Iterable<{id:string, system:object}>}} [ctx]
+ *   host=オプションの装備先(親)アイテム / siblings=同じアクターの全アイテム(配下の抽出に使う)
+ * @returns {?{blocked: ?{reason:string, message:string}, update: object, unprepareOptionIds: string[]}}
+ *   対象外のフラグは null(呼び出し側が素で反転する)
+ */
+export function planOutfitFlagToggle(item, flag, { host = null, siblings = [] } = {}) {
+  if (flag !== "isCarrying" && flag !== "isPrepared") return null;
+  const system = item?.system ?? {};
+  const next = system[flag] !== true;
+  const deny = (reason) => ({
+    blocked: { reason, message: OUTFIT_FLAG_BLOCK_MESSAGES[reason] ?? "" },
+    update: {}, unprepareOptionIds: [],
+  });
+
+  if (flag === "isCarrying" && system.majorCategory === "housing") return deny("housingCarrying");
+  if (flag === "isPrepared" && next && system.isCarrying !== true) return deny("needsCarrying");
+  if (flag === "isPrepared" && next && system.isOption === true
+      && host?.system?.isPrepared !== true) return deny("hostUnprepared");
+
+  const wasPrepared = system.isPrepared === true;
+  const update = { [`system.${flag}`]: next };
+  if (flag === "isCarrying" && !next && wasPrepared) update["system.isPrepared"] = false;
+
+  // オプションは装備先になれない(isOption は部位行由来でトグルでは変わらない)
+  const isHost = system.isOption !== true;
+  const hostBecameUnprepared = isHost
+    && ((flag === "isPrepared" && !next) || (flag === "isCarrying" && !next && wasPrepared));
+  const unprepareOptionIds = hostBecameUnprepared
+    ? [...(siblings ?? [])]
+        .filter(o => o?.system?.isOption === true
+          && o.system.parentItemId === item?.id
+          && o.system.isPrepared === true)
+        .map(o => o.id)
+    : [];
+
+  return { blocked: null, update, unprepareOptionIds };
+}
+
 /**
  * 特性フラグの実効値(`<フラグ>Total`)を base から派生する(フェーズ12)。
  * computeItemEffectiveValues(アウトフィット)と SkillBaseTemplate(技能)の両方から呼ぶ。

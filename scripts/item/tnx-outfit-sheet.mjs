@@ -9,6 +9,7 @@ import { PART_KINDS, PART_REFERENCE_SUB_KINDS, PART_RELATIONS, SHIKI_TYPES } fro
 import { getPartSlotPreset } from "../module/part-slot-preset-app.mjs";
 import { joinPartDesignations, PART_HOST_FEATURE_LABELS, resolvePartRowsForDisplay, resolvePartAdditions, findPartKeyByLabel, matchesHostDescriptor, OUTFIT_NAME_SLOT_KIND } from "../data/item/part-helpers.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
+import { applyOutfitFlagToggle, isEquipStateFlag } from "../module/outfit-flags.mjs";
 import { resolveItemNameByKey } from "../module/identification.mjs";
 import { hideLabel } from "../module/outfit-view.mjs";
 import { loadSkillChoices, loadOnomasticChoices, STYLE_PACK, ORGANIZATION_PACK } from "../module/skill-dictionary.mjs";
@@ -1285,6 +1286,15 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
     static async _onToggleFlag(_event, target) {
         const flag = target.dataset.flag;
         if (!flag) return;
+        // 携帯中/準備済みはアクターシートと同じ不変条件を通す(2026-09-07 一本化)。従来ここは
+        // 素で反転しており、アイテムシートのヘッダからだけ「携帯していないのに準備済み」を
+        // 作れていた(防御力の合算は isPrepared を見るため実効値に乗っていた)。
+        // 無所属アイテム(辞典の原本など)は装備先も配下も無いので従来どおり素で反転する
+        const actor = this.item.actor;
+        if (actor && isEquipStateFlag(flag)) {
+            await applyOutfitFlagToggle(this.item, flag, actor);
+            return;                                  // 適用済み、または不変条件で断られた
+        }
         const current = foundry.utils.getProperty(this.item.system, flag) === true;
         await this.item.update({ [`system.${flag}`]: !current });
     }

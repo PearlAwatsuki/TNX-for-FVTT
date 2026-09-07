@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
-const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, damageDealtChangeMatches, gatherDamageDealtSources, damageTakenChangeMatches, gatherDamageTakenSources, collectActorEffectBuffs, targetStyleWorksKeys, actorCardValueOverride, itemChangeTargets, buildTransferredEffectData, planTransferCopySync, transferCopyIsCurrent, isOutfitItem, planCapabilityTransferCleanup, effectAutoApplies, analyzeGrantLanding, itemGrantCandidates, rewriteGrantChangesForItem, AE_FLAG_PARAMS, flagTotalPath, readFlag, computeFlagEffectiveValues, parseBooleanFlagValue, isOutfitServiceImmune, isOutfitMalfunctioning, isOutfitDestroyed, isOutfitUnusable, itemKindLabel } = await import("../../../scripts/data/item/helpers.mjs");
+const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, damageDealtChangeMatches, gatherDamageDealtSources, damageTakenChangeMatches, gatherDamageTakenSources, collectActorEffectBuffs, targetStyleWorksKeys, actorCardValueOverride, itemChangeTargets, buildTransferredEffectData, planTransferCopySync, transferCopyIsCurrent, isOutfitItem, planCapabilityTransferCleanup, effectAutoApplies, analyzeGrantLanding, itemGrantCandidates, rewriteGrantChangesForItem, AE_FLAG_PARAMS, flagTotalPath, readFlag, computeFlagEffectiveValues, parseBooleanFlagValue, isOutfitServiceImmune, isOutfitMalfunctioning, planOutfitFlagToggle, isOutfitDestroyed, isOutfitUnusable, itemKindLabel } = await import("../../../scripts/data/item/helpers.mjs");
 
 describe("defenceField()", () => {
   it("呼び出せる", () => {
@@ -1121,5 +1121,121 @@ describe("itemKindLabel()（種別タグに出すアイテムの区分）", () =
 
   it("アイテムが無ければ空文字", () => {
     expect(itemKindLabel(null)).toBe("");
+  });
+});
+
+// 携帯中/準備済みの不変条件(2026-09-07)。アクターシートの _onToggleOutfitFlag にだけ実装され、
+// アイテムシートの _onToggleFlag は素で反転していたため、同じ操作でも入口によって結果が
+// 違っていた(アイテムシートからは「携帯していないのに準備済み」を作れた)。両方から呼ぶ
+// 純関数に切り出して一本化する。
+describe("planOutfitFlagToggle()（携帯中/準備済みの不変条件）", () => {
+  const item = (system, id = "i1") => ({ id, system });
+
+  it("対象外のフラグは計画を返さない（呼び出し側が素で反転する）", () => {
+    for (const flag of ["isMalfunction", "isDestroyed", "isPre-play"]) {
+      expect(planOutfitFlagToggle(item({ isCarrying: true }), flag)).toBeNull();
+    }
+  });
+
+  it("携帯中を入れる/外すはそのまま反転する", () => {
+    expect(planOutfitFlagToggle(item({ isCarrying: false }), "isCarrying").update)
+      .toEqual({ "system.isCarrying": true });
+    expect(planOutfitFlagToggle(item({ isCarrying: true }), "isCarrying").update)
+      .toEqual({ "system.isCarrying": false });
+  });
+
+  it("携帯中を外すと準備済みも連動して外れる", () => {
+    const plan = planOutfitFlagToggle(item({ isCarrying: true, isPrepared: true }), "isCarrying");
+    expect(plan.update).toEqual({ "system.isCarrying": false, "system.isPrepared": false });
+  });
+
+  it("携帯中を入れるときは準備済みに触らない", () => {
+    const plan = planOutfitFlagToggle(item({ isCarrying: false, isPrepared: false }), "isCarrying");
+    expect(plan.update).toEqual({ "system.isCarrying": true });
+  });
+
+  it("携帯していなければ準備できない（黙って無視＝従来挙動）", () => {
+    const plan = planOutfitFlagToggle(item({ isCarrying: false, isPrepared: false }), "isPrepared");
+    expect(plan.blocked?.reason).toBe("needsCarrying");
+    expect(plan.blocked?.message).toBe("");
+    expect(plan.update).toEqual({});
+  });
+
+  it("準備済みを外すのは携帯していなくても通る（解除は常に可能）", () => {
+    const plan = planOutfitFlagToggle(item({ isCarrying: false, isPrepared: true }), "isPrepared");
+    expect(plan.blocked).toBeNull();
+    expect(plan.update).toEqual({ "system.isPrepared": false });
+  });
+
+  it("住宅大分類は携帯中を切り替えられない（常時 ON 固定）", () => {
+    const plan = planOutfitFlagToggle(item({ isCarrying: true, majorCategory: "housing" }), "isCarrying");
+    expect(plan.blocked?.reason).toBe("housingCarrying");
+    expect(plan.update).toEqual({});
+  });
+
+  it("住宅でも準備済みの切り替えは通る", () => {
+    const plan = planOutfitFlagToggle(
+      item({ isCarrying: true, isPrepared: false, majorCategory: "housing" }), "isPrepared");
+    expect(plan.blocked).toBeNull();
+    expect(plan.update).toEqual({ "system.isPrepared": true });
+  });
+
+  it("オプションは装備先が準備済みでなければ準備できない（理由を表示する）", () => {
+    const plan = planOutfitFlagToggle(
+      item({ isCarrying: true, isPrepared: false, isOption: true, parentItemId: "h1" }), "isPrepared",
+      { host: { system: { isPrepared: false } } });
+    expect(plan.blocked?.reason).toBe("hostUnprepared");
+    expect(plan.blocked?.message).toContain("装備先");
+    expect(plan.update).toEqual({});
+  });
+
+  it("装備先が準備済みならオプションを準備できる", () => {
+    const plan = planOutfitFlagToggle(
+      item({ isCarrying: true, isPrepared: false, isOption: true, parentItemId: "h1" }), "isPrepared",
+      { host: { system: { isPrepared: true } } });
+    expect(plan.blocked).toBeNull();
+    expect(plan.update).toEqual({ "system.isPrepared": true });
+  });
+
+  it("装備先が未準備になったら配下の準備済みオプションを解除する", () => {
+    const siblings = [
+      { id: "o1", system: { isOption: true, parentItemId: "i1", isPrepared: true } },
+      { id: "o2", system: { isOption: true, parentItemId: "i1", isPrepared: false } }, // 既に未準備
+      { id: "o3", system: { isOption: true, parentItemId: "other", isPrepared: true } }, // 別のホスト
+      { id: "o4", system: { isOption: false, parentItemId: "i1", isPrepared: true } },   // オプションでない
+    ];
+    const plan = planOutfitFlagToggle(item({ isCarrying: true, isPrepared: true }), "isPrepared", { siblings });
+    expect(plan.unprepareOptionIds).toEqual(["o1"]);
+  });
+
+  it("携帯中を外して準備済みが連動解除されたときも配下を解除する", () => {
+    const siblings = [{ id: "o1", system: { isOption: true, parentItemId: "i1", isPrepared: true } }];
+    const plan = planOutfitFlagToggle(item({ isCarrying: true, isPrepared: true }), "isCarrying", { siblings });
+    expect(plan.unprepareOptionIds).toEqual(["o1"]);
+  });
+
+  it("元から未準備のホストを携帯解除しても配下は触らない", () => {
+    const siblings = [{ id: "o1", system: { isOption: true, parentItemId: "i1", isPrepared: true } }];
+    const plan = planOutfitFlagToggle(item({ isCarrying: true, isPrepared: false }), "isCarrying", { siblings });
+    expect(plan.unprepareOptionIds).toEqual([]);
+  });
+
+  it("オプション自身を未準備にしても配下の解除は起きない（オプションは装備先になれない）", () => {
+    const siblings = [{ id: "o1", system: { isOption: true, parentItemId: "i1", isPrepared: true } }];
+    const plan = planOutfitFlagToggle(
+      item({ isCarrying: true, isPrepared: true, isOption: true }), "isPrepared",
+      { host: { system: { isPrepared: true } }, siblings });
+    expect(plan.unprepareOptionIds).toEqual([]);
+  });
+
+  it("準備済みを入れるときは配下を触らない", () => {
+    const siblings = [{ id: "o1", system: { isOption: true, parentItemId: "i1", isPrepared: true } }];
+    const plan = planOutfitFlagToggle(item({ isCarrying: true, isPrepared: false }), "isPrepared", { siblings });
+    expect(plan.unprepareOptionIds).toEqual([]);
+  });
+
+  it("欠けた入力でも落ちない", () => {
+    expect(planOutfitFlagToggle(item({}), "isCarrying").update).toEqual({ "system.isCarrying": true });
+    expect(planOutfitFlagToggle({ id: "x" }, "isPrepared").blocked?.reason).toBe("needsCarrying");
   });
 });

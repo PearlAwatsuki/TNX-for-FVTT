@@ -17,6 +17,7 @@ import { SLOT_KINDS } from '../data/item/common/extensible.mjs';
 import { getPartSlotPreset, PartSlotPresetApp } from '../module/part-slot-preset-app.mjs';
 import { OUTFIT_ITEM_TYPES, findDepartmentSkillName } from '../data/helpers.mjs';
 import { readFlag, isOutfitUnusable, isOutfitDestroyed, isOutfitMalfunctioning } from '../data/item/helpers.mjs';
+import { applyOutfitFlagToggle } from '../module/outfit-flags.mjs';
 import { effectiveUsageTiming } from '../data/item/modification-params.mjs';
 import { usesMaxTotalOf, usesMaxBaseOf } from '../data/item/uses.mjs';
 import { TnxCheckFlow } from '../module/tnx-check-flow.mjs';
@@ -2199,38 +2200,9 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const itemId = target.closest("[data-item-id]")?.dataset.itemId;
         const item   = this.actor.items.get(itemId);
         if (!item) return;
-        const flag = target.dataset.flag;
-        if (flag !== "isCarrying" && flag !== "isPrepared") return;
-        // 住宅大分類は携帯中フラグを変更不可(常時 ON 固定)
-        if (flag === "isCarrying" && item.system.majorCategory === "housing") return;
-        const next = !item.system[flag];
-        // 携帯中でなければ準備済みにできない(念のため)
-        if (flag === "isPrepared" && next && !item.system.isCarrying) return;
-        // オプションは装備先(親)が準備済みでないと準備できない(課題2・2026-07-23)
-        if (flag === "isPrepared" && next && item.system.isOption) {
-            const host = this.actor.items.get(item.system.parentItemId);
-            if (!host?.system?.isPrepared) {
-                ui.notifications?.warn("装備先が準備されていないため、このオプションは準備できません。");
-                return;
-            }
-        }
-        const wasPrepared = item.system.isPrepared; // update 前の状態を控える(連動判定用)
-        const isHost = !item.system.isOption;       // isOption は part 由来でトグルでは変わらない
-        const update = { [`system.${flag}`]: next };
-        // 携帯中を外したとき準備済みも連動して外す
-        if (flag === "isCarrying" && !next && item.system.isPrepared) {
-            update["system.isPrepared"] = false;
-        }
-        await item.update(update);
-        // 装備先(ホスト)が未準備になったら、配下の準備済みオプションも準備解除(連動・課題2)
-        const hostBecameUnprepared = isHost &&
-            ((flag === "isPrepared" && !next) || (flag === "isCarrying" && !next && wasPrepared));
-        if (hostBecameUnprepared) {
-            const optUpdates = this.actor.items
-                .filter(o => o.system.isOption && o.system.parentItemId === item.id && o.system.isPrepared)
-                .map(o => ({ _id: o.id, "system.isPrepared": false }));
-            if (optUpdates.length) await this.actor.updateEmbeddedDocuments("Item", optUpdates);
-        }
+        // 不変条件(住宅の携帯固定・携帯が準備の前提・装備先の連動)は planOutfitFlagToggle が
+        // 正本。アイテムシートのヘッダからも同じ規則で切り替わる(2026-09-07 一本化)
+        await applyOutfitFlagToggle(item, target.dataset.flag, this.actor);
     }
 
     static _onToggleOutfitDesc(event, target) {
