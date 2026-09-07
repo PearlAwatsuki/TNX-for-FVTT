@@ -1,8 +1,8 @@
 import { TokyoNovaItemSheet } from "./tnx-item-sheet.mjs";
-import { TnxSkillUtils } from "../module/tnx-skill-utils.mjs";
+import { TnxSkillUtils } from "../core/tnx-skill-utils.mjs";
 import {
     ONOMASTIC_TYPES, SOCIETY_CLASSES, onomasticTypeOf, composeOnomasticName, stripSkillCategory,
-} from "../module/skill-dictionary.mjs";
+} from "../dictionary/skill-dictionary.mjs";
 import { buildCategoryKeyGroups } from "../data/item/outfit-categories.mjs";
 
 export class TokyoNovaGeneralSkillSheet extends TokyoNovaItemSheet {

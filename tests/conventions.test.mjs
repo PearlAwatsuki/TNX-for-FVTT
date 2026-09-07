@@ -50,7 +50,7 @@ describe("規約: ファイル名は export するクラス名と対応する", 
   const EXCEPTIONS = new Set([
     "scripts/data/abstract.mjs",           // SystemDataModel: ファイル名は役割(抽象基底)を表す
     "scripts/data/card/common/base.mjs",   // CardBaseTemplate: common/ 配下なので base で足りる
-    "scripts/module/tnx-dialog.mjs",       // 複数のダイアログをまとめる置き場(意図的な複数クラス)
+    "scripts/ui/tnx-dialog.mjs",       // 複数のダイアログをまとめる置き場(意図的な複数クラス)
     "scripts/app/tnx-subscene-panel.mjs", // TnxSubScenePanel: subscene の綴り差のみ
   ]);
 
@@ -103,8 +103,8 @@ describe("規約: 参照されない export を残さない", () => {
     // 段の部品の JS 版。対応するパーシャル(tnxCardFold/tnxCardText)はテンプレート 8 箇所で
     // 使用中で、cardField/cardResult は JS からも使う。6 段のうち 2 段だけ JS 側に無いと
     // 次に必要になった人が自前で書くため、対称形として残す
-    "scripts/module/chat-card.mjs::cardFold",
-    "scripts/module/chat-card.mjs::cardText",
+    "scripts/chat/chat-card.mjs::cardFold",
+    "scripts/chat/chat-card.mjs::cardText",
   ]);
 
   // 本番から呼ばれず、テストだけが生かしている export。
@@ -112,12 +112,12 @@ describe("規約: 参照されない export を残さない", () => {
   const TEST_ONLY = new Set([
     "scripts/data/item/helpers.mjs::computeCheckBonus",
     "scripts/rules/appearance.mjs::isAppearanceBlockedScene",
-    "scripts/module/combat-progression.mjs::isValidProcessTransition",
+    "scripts/rules/combat-progression.mjs::isValidProcessTransition",
     "scripts/rules/exp-award.mjs::calcRlExpTotal",
     "scripts/rules/miracle.mjs::asOtherSelection",
     "scripts/rules/session.mjs::nextSceneRow",
-    "scripts/module/skill-chain-resolution.mjs::singleComboSkillName",
-    "scripts/module/usage-target-plan.mjs::usageCardForm",
+    "scripts/rules/skill-chain-resolution.mjs::singleComboSkillName",
+    "scripts/rules/usage-target-plan.mjs::usageCardForm",
   ]);
 
   it("どこからも参照されない export が増えていない", () => {

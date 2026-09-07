@@ -16,7 +16,7 @@ import {
   historyUpdate,
   saveUserFlagHistory,
   deleteUserFlagHistoryEntry,
-} from "../module/user-flag-schema.mjs";
+} from "../core/user-flag-schema.mjs";
 
 const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
 

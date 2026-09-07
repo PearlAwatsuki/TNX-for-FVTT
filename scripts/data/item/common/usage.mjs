@@ -30,7 +30,7 @@
  */
 
 import { SystemDataModel } from "../../abstract.mjs";
-import { isAttackType, isReactionType, usesVehicle, defaultConfrontationForType } from "../../../module/usage-types.mjs";
+import { isAttackType, isReactionType, usesVehicle, defaultConfrontationForType } from "../../../rules/usage-types.mjs";
 import { ALL_CATEGORIES_KEY } from "../outfit-categories.mjs";
 
 /**

@@ -76,7 +76,7 @@ describe("アウトフィットシートのモード選択肢は DataModel の c
 
 describe("携帯中/準備済みの切り替えは両方のシートが共用関数を通る", () => {
   it("アイテムシートは装備状態フラグを applyOutfitFlagToggle へ渡す", () => {
-    expect(sheetSrc).toContain('from "../module/outfit-flags.mjs"');
+    expect(sheetSrc).toContain('from "../../scripts/core/outfit-flags.mjs"');
     const body = methodBody(sheetSrc, "static async _onToggleFlag");
     expect(body).toContain("isEquipStateFlag(flag)");
     expect(body).toContain("applyOutfitFlagToggle(this.item, flag, actor)");

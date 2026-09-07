@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { TNX_HOOKS, planPhaseEvents } from "../../scripts/module/combat-events.mjs";
+import { TNX_HOOKS, planPhaseEvents } from "../../scripts/rules/combat-events.mjs";
 
 describe("planPhaseEvents()（フェーズ遷移で発火するイベント列・13-6）", () => {
   it("setup→initiative: 離脱プロセス終了→遷移先開始（カット境界なし）", () => {

@@ -4,7 +4,7 @@ import {
   hasDuplicateStyleWeapon,
   resolveLevelRef,
   groupStyleSkillsByStyle,
-} from "../../scripts/module/style-skill-acquisition.mjs";
+} from "../../scripts/core/style-skill-acquisition.mjs";
 
 describe("idKeyPrefix()", () => {
   it("区切り「_」までをプレフィックスとして返す", () => {

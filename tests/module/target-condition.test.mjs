@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { hasTargetCondition, matchesTargetCondition, targetConditionApplies, targetConditionNote }
-  from "../../scripts/module/target-condition.mjs";
+  from "../../scripts/rules/target-condition.mjs";
 
 /** 対象コンテキストの略記 */
 const ctx = (isWet, styles = [], works = []) => ({ isWet, styles, works });

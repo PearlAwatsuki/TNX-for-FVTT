@@ -24,12 +24,12 @@ import {
   buildSetupConfirmUpdate,
   pushInterruptFrame,
   popInterruptFrame,
-} from "../module/combat-progression.mjs";
-import { compareTurnOrder, nextActiveMain, firstSpotId, nextSpotId, PHASE_TIMING_KEY } from "../module/combat-turn-order.mjs";
-import { resolveConsumeRowsForActor, isConsumptionDepleted } from "../module/usage-consumption.mjs";
-import { TNX_HOOKS, planPhaseEvents } from "../module/combat-events.mjs";
-import { actorCannotMainProcess } from "../module/conditions.mjs";
-import { TnxSocketHandler } from "../module/tnx-socket-handler.mjs";
+} from "../rules/combat-progression.mjs";
+import { compareTurnOrder, nextActiveMain, firstSpotId, nextSpotId, PHASE_TIMING_KEY } from "../rules/combat-turn-order.mjs";
+import { resolveConsumeRowsForActor, isConsumptionDepleted } from "../flow/usage-consumption.mjs";
+import { TNX_HOOKS, planPhaseEvents } from "../rules/combat-events.mjs";
+import { actorCannotMainProcess } from "../rules/conditions.mjs";
+import { TnxSocketHandler } from "../core/tnx-socket-handler.mjs";
 
 /** スポット走査(プロセスごとの行動権の巡回)を持つサブターンのフェーズ。 */
 const WALK_PHASES = new Set(["setup", "initiative", "cleanup"]);
@@ -364,7 +364,7 @@ export class TnxCombat extends Combat {
     if (sceneEnded) {
       // セッション進行(14-2)がシーンを開いていれば終了境界の発火を委譲(sceneEnded ガードで
       // 次の切替と二重発火しない)。アクト外(シーン外戦闘)は従来どおり素のフックのみ発火。
-      const { endSceneFromCombat } = await import("../module/session-state.mjs");
+      const { endSceneFromCombat } = await import("../session/session-state.mjs");
       const handled = await endSceneFromCombat();
       if (!handled) Hooks.callAll(TNX_HOOKS.sceneEnd, { sceneId: "" });
     }

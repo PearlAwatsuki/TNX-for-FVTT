@@ -9,45 +9,45 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
-import { TnxSkillUtils } from '../module/tnx-skill-utils.mjs';
-import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
+import { TnxSkillUtils } from '../core/tnx-skill-utils.mjs';
+import { EffectsSheetMixin } from "../ui/effects-sheet-mixin.mjs";
 import { OUTFIT_CATEGORIES, getMinorCategoryLabel, getMajorCategoryLabel, isMajorLevelSlotMajor } from '../data/item/outfit-categories.mjs';
-import { formatWeaponRangeLabel } from '../module/outfit-view.mjs';
+import { formatWeaponRangeLabel } from '../ui/outfit-view.mjs';
 import { formatPartDesignation, joinPartDesignations, computePartOccupancy, computeHostOccupancy, resolvePartRowsForDisplay, resolvePartAdditions, OUTFIT_NAME_SLOT_KIND } from '../data/item/part-helpers.mjs';
 import { SLOT_KINDS } from '../data/item/common/extensible.mjs';
 import { getPartSlotPreset, PartSlotPresetApp } from '../app/part-slot-preset-app.mjs';
 import { OUTFIT_ITEM_TYPES, findDepartmentSkillName } from '../data/helpers.mjs';
 import { readFlag, isOutfitUnusable, isOutfitDestroyed, isOutfitMalfunctioning } from '../data/item/helpers.mjs';
-import { applyOutfitFlagToggle } from '../module/outfit-flags.mjs';
+import { applyOutfitFlagToggle } from '../core/outfit-flags.mjs';
 import { effectiveUsageTiming } from '../data/item/modification-params.mjs';
 import { usesMaxTotalOf, usesMaxBaseOf } from '../data/item/uses.mjs';
-import { TnxCheckFlow } from '../module/tnx-check-flow.mjs';
-import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } from '../module/usage-consumption.mjs';
-import { useNpcAcquire } from '../module/npc-acquisition.mjs';
-import { useRecovery } from '../module/recovery-flow.mjs';
-import { useRepair } from '../module/repair-flow.mjs';
-import { buildUsageCheckContext } from '../module/usage-check-context.mjs';
-import { useAttack } from '../module/attack-flow.mjs';
+import { TnxCheckFlow } from '../flow/tnx-check-flow.mjs';
+import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } from '../flow/usage-consumption.mjs';
+import { useNpcAcquire } from '../flow/npc-acquisition.mjs';
+import { useRecovery } from '../flow/recovery-flow.mjs';
+import { useRepair } from '../flow/repair-flow.mjs';
+import { buildUsageCheckContext } from '../flow/usage-check-context.mjs';
+import { useAttack } from '../flow/attack-flow.mjs';
 import { aggregateDefence } from '../rules/damage.mjs';
-import { prepareUsageEffectPayload } from '../module/usage-effects.mjs';
-import { applyInterruptGrantForUsage } from '../module/interrupt-grant.mjs';
-import { useMiracleWithoutUsage, postMiracleCard } from '../module/miracle-flow.mjs';
+import { prepareUsageEffectPayload } from '../flow/usage-effects.mjs';
+import { applyInterruptGrantForUsage } from '../flow/interrupt-grant.mjs';
+import { useMiracleWithoutUsage, postMiracleCard } from '../flow/miracle-flow.mjs';
 import { withDefaultMiracleConsumption, withoutConsumption } from '../rules/miracle.mjs';
-import { ALL_SUITS } from '../module/tnx-check-engine.mjs';
-import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
-import { groupStyleSkillsByStyle } from '../module/style-skill-acquisition.mjs';
+import { ALL_SUITS } from '../rules/tnx-check-engine.mjs';
+import { loadSkillChoices, SKILL_PACKS } from '../dictionary/skill-dictionary.mjs';
+import { groupStyleSkillsByStyle } from '../core/style-skill-acquisition.mjs';
 import { HOUSING_AREA_RANKS } from '../data/item/housing-area.mjs';
-import { CONDITION_KINDS, readConditions, getConditionKind, getConditionKinds, getEffectiveConditions, getCheckBlock, gatherSkillUseWarnings, woundChartValue } from '../module/conditions.mjs';
+import { CONDITION_KINDS, readConditions, getConditionKind, getConditionKinds, getEffectiveConditions, getCheckBlock, gatherSkillUseWarnings, woundChartValue } from '../rules/conditions.mjs';
 import { planActionRecoveryRows, PAYMENT_LABELS, MAJOR_PAYMENTS } from '../rules/time-boundary.mjs';
-import { applyTriggerDisable } from '../module/ui-trigger-disable.mjs';
-import { applyItemCardTooltips, applyContentLinkCardTooltips } from '../module/item-card-tooltips.mjs';
-import { openConditionEditDialog } from '../module/condition-edit.mjs';
-import { startTreatment } from '../module/treatment-flow.mjs';
+import { applyTriggerDisable } from '../ui/ui-trigger-disable.mjs';
+import { applyItemCardTooltips, applyContentLinkCardTooltips } from '../chat/item-card-tooltips.mjs';
+import { openConditionEditDialog } from '../flow/condition-edit.mjs';
+import { startTreatment } from '../flow/treatment-flow.mjs';
 import { isAttackUsage } from '../data/item/common/usage.mjs';
-import { executionFormOf, usageDisplayName, isReactionType, isMiracleType } from '../module/usage-types.mjs';
-import { itemDisplayName, resolveItemNameByKey, calcSkillInsertSort } from '../module/identification.mjs';
+import { executionFormOf, usageDisplayName, isReactionType, isMiracleType } from '../rules/usage-types.mjs';
+import { itemDisplayName, resolveItemNameByKey, calcSkillInsertSort } from '../core/identification.mjs';
 import { isOpposedConfrontation } from '../rules/confrontation.mjs';
-import { resolveHousingAreaMods, residenceEffectiveValues } from '../module/residence-area.mjs';
+import { resolveHousingAreaMods, residenceEffectiveValues } from '../core/residence-area.mjs';
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -2324,7 +2324,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             const miracleDoc = await fromUuid(c.uuid).catch(() => null);
             return { value: c.uuid, label: `${skill?.name ?? "（区分未設定）"}：${miracleDoc?.name ?? "?"}` };
         }));
-        const { asOtherCopyUpdate } = await import("../module/miracle-flow.mjs");
+        const { asOtherCopyUpdate } = await import("../flow/miracle-flow.mjs");
         // 選択と写し(用途・経験点条件)は**1回の update にまとめる**(作成フックの中で分けると落ちる)
         const fix = async (uuid) => {
             const patch = await asOtherCopyUpdate(miracle, uuid);
@@ -2334,7 +2334,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             await fix(labels[0].value);
             return;
         }
-        const { TargetSelectionDialog } = await import("../module/tnx-dialog.mjs");
+        const { TargetSelectionDialog } = await import("../ui/tnx-dialog.mjs");
         const picked = await TargetSelectionDialog.prompt({
             title: `${miracle.name}: 効果を決める`, label: "区分（フォルム・属性）",
             options: labels, selectLabel: "決定",
@@ -2567,7 +2567,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // (名前・使用回数・神業由来の印は元の神業のまま)。再入(出どころが決まっている)では尋ねない。
         // 《プリーズ！》で使わされる神業でも尋ねる——使うのは本人であり、書き換えるのも本人のため
         if (item.type === "miracle" && !asOther) {
-            const { resolveMiracleRewrite } = await import("../module/miracle-flow.mjs");
+            const { resolveMiracleRewrite } = await import("../flow/miracle-flow.mjs");
             const rewritten = await resolveMiracleRewrite(actor, item, { free: !!openExtra.miracleFree });
             if (rewritten === "cancel") return false;
             if (rewritten) {
@@ -2622,7 +2622,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 辞典ブラウザ(選択モード)を開いて対象を選ばせる(D&D のドロップエリア起動と同型)。対象の
         // 購入ボタンで購入文脈(openExtra.purchase)つきで本関数へ合流し、通常判定へ流れる
         if (selectedUsage.type === "purchase" && !openExtra.purchase) {
-            const { startPurchasePicker } = await import("../module/purchase-flow.mjs");
+            const { startPurchasePicker } = await import("../flow/purchase-flow.mjs");
             await startPurchasePicker(actor, item, selectedUsage);
             return;
         }
@@ -2712,7 +2712,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 完了継続 ctx.modification が成功で改造行を適用)
         if (selectedUsage.type === "modification" && !openExtra.modification) {
             try {
-                const { useModification } = await import("../module/modification-flow.mjs");
+                const { useModification } = await import("../flow/modification-flow.mjs");
                 await useModification(item, selectedUsage);
             } catch (err) {
                 console.error("TNX | 改造の実行に失敗しました", err);
@@ -2740,7 +2740,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             && isOpposedConfrontation(selectedUsage.confrontation)
             && !openExtra.reaction && !openExtra.covering && !openExtra.requestMessageId) {
             try {
-                const { useOpposedCheck } = await import("../module/attack-flow.mjs");
+                const { useOpposedCheck } = await import("../flow/attack-flow.mjs");
                 await useOpposedCheck(item, selectedUsage, openExtra);
             } catch (err) {
                 console.error("TNX | 対決判定の実行に失敗しました", err);
@@ -2785,7 +2785,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 即死・社会戦(17-3): 対象解決→消費→結果の選択→神業版のダメージカード(軽減を通さない)
         if (selectedUsage.type === "miracleKill" || selectedUsage.type === "miracleSocial") {
             try {
-                const { useMiracleDamage } = await import("../module/miracle-flow.mjs");
+                const { useMiracleDamage } = await import("../flow/miracle-flow.mjs");
                 return await useMiracleDamage(actor, item, selectedUsage, { asOther });
             } catch (err) {
                 console.error("TNX | 神業のダメージの実行に失敗しました", err);
@@ -2796,7 +2796,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 破壊(17-3): 対象解決→未破壊のアウトフィットを選ぶ→神業カードに結果行と適用ボタン
         if (selectedUsage.type === "miracleDestroy") {
             try {
-                const { useMiracleDestroy } = await import("../module/miracle-flow.mjs");
+                const { useMiracleDestroy } = await import("../flow/miracle-flow.mjs");
                 return await useMiracleDestroy(actor, item, selectedUsage, { asOther });
             } catch (err) {
                 console.error("TNX | 神業の破壊の実行に失敗しました", err);
@@ -2821,13 +2821,13 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             // 見聞きした神業のコピー(《突然変異》): コピー元を決めて**その用途で再入**する。
             // 名前・使用回数・印・消費・話者は元の神業のまま(効果の参照と同じ再入の仕組み)
             if (effect === "copyUsed" && !asOther) {
-                const { resolveMiracleCopyFromLog } = await import("../module/miracle-flow.mjs");
+                const { resolveMiracleCopyFromLog } = await import("../flow/miracle-flow.mjs");
                 const picked = await resolveMiracleCopyFromLog(actor, item);
                 if (!picked) return false;
                 return TnxCharacterSheetBase._activateItemCheck(actor, item, { ...openExtra, asOther: picked });
             }
             try {
-                const mf = await import("../module/miracle-flow.mjs");
+                const mf = await import("../flow/miracle-flow.mjs");
                 if (effect === "swapDamage")    return await mf.useMiracleSwap(actor, item, selectedUsage, { asOther });
                 if (effect === "acquireOutfit") return await mf.useMiracleAcquire(actor, item, selectedUsage, { uuid: openExtra.purchase.uuid, asOther });
                 if (effect === "insensible")    return await mf.useMiracleInsensible(actor, item, selectedUsage, { asOther });
@@ -2897,7 +2897,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 対象解決(2026-08-30 是正): 宣言も判定系と同じ決定表駆動の対象解決を通す(自身/単体の
         // 自動セルフ等)。従来は素通りでレティクル頼み=対象=自身の宣言がノーターゲットで
         // 「対象なし」になる欠陥だった。キャンセルは中止(消費より前に置く)
-        const { resolveUsageTargetRefs } = await import("../module/target-resolution.mjs");
+        const { resolveUsageTargetRefs } = await import("../flow/target-resolution.mjs");
         if (await resolveUsageTargetRefs(actor, usage) === null) return;
 
         // 分身は本体側カウンターへ差し替えて共有(Troops.md)。神業の既定消費は起動関数で用途に

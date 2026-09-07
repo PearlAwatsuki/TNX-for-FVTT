@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { processLabel, footerPlan, rowActions } from "../../scripts/module/combat-tracker-view.mjs";
+import { processLabel, footerPlan, rowActions } from "../../scripts/rules/combat-tracker-view.mjs";
 
 describe("processLabel()（フェーズの日本語ラベル）", () => {
   it("各フェーズのラベルを返す", () => {

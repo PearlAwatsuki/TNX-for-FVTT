@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from "../../scripts/module/exp-sync.mjs";
+import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from "../../scripts/rules/exp-sync.mjs";
 
 describe("calcSharedSpent()", () => {
   it("空配列の場合 0 を返す", () => {

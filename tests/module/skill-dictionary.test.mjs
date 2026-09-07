@@ -10,8 +10,8 @@ import {
   resolveComboSkillName,
   formatGroupedSkillNames,
   mergeSkillEntries,
-} from "../../scripts/module/skill-dictionary.mjs";
-import { styleSortPosition } from "../../scripts/module/identification.mjs";
+} from "../../scripts/dictionary/skill-dictionary.mjs";
+import { styleSortPosition } from "../../scripts/core/identification.mjs";
 
 describe("idKeyPrefix()", () => {
   it("区切り「_」までを返す", () => {

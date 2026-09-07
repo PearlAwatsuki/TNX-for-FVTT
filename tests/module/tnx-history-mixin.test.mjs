@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { TnxHistoryMixin } from "../../scripts/module/tnx-history-mixin.mjs";
+import { TnxHistoryMixin } from "../../scripts/ui/tnx-history-mixin.mjs";
 
 const CAST_A = "Actor.aaaaaaaaaaaaaaaa";
 const CAST_B = "Actor.bbbbbbbbbbbbbbbb";

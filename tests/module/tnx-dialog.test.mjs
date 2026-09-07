@@ -11,8 +11,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { buildSelectionRowsHtml } from "../../scripts/module/tnx-dialog.mjs";
-import { DISABLED_TRIGGER_CLASS } from "../../scripts/module/ui-trigger-disable.mjs";
+import { buildSelectionRowsHtml } from "../../scripts/ui/tnx-dialog.mjs";
+import { DISABLED_TRIGGER_CLASS } from "../../scripts/ui/ui-trigger-disable.mjs";
 
 const opt = (over = {}) => ({ value: "a", label: "アイテムA", ...over });
 

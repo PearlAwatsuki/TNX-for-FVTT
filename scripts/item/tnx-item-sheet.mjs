@@ -1,9 +1,9 @@
-import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
+import { EffectsSheetMixin } from "../ui/effects-sheet-mixin.mjs";
 import { TnxUsageSheet, USAGE_TYPES, deriveUsageAutoFill, updateUsageActions } from "../app/tnx-usage-sheet.mjs";
-import { usageTypeLabelsFor, defaultUsageTypeFor } from "../module/usage-types.mjs";
-import { defaultConfrontationForType, executionFormOf, usageDisplayName, usesVehicle } from "../module/usage-types.mjs";
-import { resolveBunshinOwner } from "../module/usage-consumption.mjs";
-import { attachEditorSectionToggles } from "../module/editor-sections.mjs";
+import { usageTypeLabelsFor, defaultUsageTypeFor } from "../rules/usage-types.mjs";
+import { defaultConfrontationForType, executionFormOf, usageDisplayName, usesVehicle } from "../rules/usage-types.mjs";
+import { resolveBunshinOwner } from "../flow/usage-consumption.mjs";
+import { attachEditorSectionToggles } from "../ui/editor-sections.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -124,7 +124,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         el.classList.toggle("view-mode", !context.isEditMode);
 
         // @UUID コンテンツリンクのカード・ツールチップ(16-x): 解説内の辞典リンクに適用
-        import("../module/item-card-tooltips.mjs").then(m => m.applyContentLinkCardTooltips(el));
+        import("../chat/item-card-tooltips.mjs").then(m => m.applyContentLinkCardTooltips(el));
 
         // V2 はレンダー時に active クラスを DOM に付与しないため、changeTab で補完する。
         // テンプレートは context.tabs を使っていないため毎レンダー後に呼ぶ必要がある。

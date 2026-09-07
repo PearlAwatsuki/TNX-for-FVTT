@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
 const { resolveConsumeRows, buildConsumptionPlan, matchSharedItem, deriveConsumeTargets, isConsumptionDepleted } =
-  await import("../../scripts/module/usage-consumption.mjs");
+  await import("../../scripts/flow/usage-consumption.mjs");
 
 describe("isConsumptionDepleted()（用途の消費リソースが枯渇＝使えない・13-6）", () => {
   it("消費設定なし（行が無い）は枯渇でない＝常に使える（ユーザー厳命）", () => {
@@ -203,7 +203,7 @@ describe("resolveConsumeRows()（消費先設定の解決・2026-07-18 再編）
   });
 
   it("負の使用回数消費=回復: applyConsumptionPlan で spent が減り 0 未満にならない", async () => {
-    const { applyConsumptionPlan } = await import("../../scripts/module/usage-consumption.mjs");
+    const { applyConsumptionPlan } = await import("../../scripts/flow/usage-consumption.mjs");
     // このテストは Foundry 依存(game.actors)のため、buildConsumptionPlan の shortage 判定のみ確認する
     const row = { kind: "uses", itemId: "a", amount: -2, remaining: 1, label: "A" };
     const { plan, shortage } = buildConsumptionPlan([row], new Set(["a"]), "actor1");

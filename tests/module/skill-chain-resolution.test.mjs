@@ -7,7 +7,7 @@ import {
   resolveUsageSkills,
   comboLockAnalysis,
   isComboRequired,
-} from "../../scripts/module/skill-chain-resolution.mjs";
+} from "../../scripts/rules/skill-chain-resolution.mjs";
 
 describe("mandatoryComboNames()", () => {
   it("単一の具体技能名 → [X]", () => {

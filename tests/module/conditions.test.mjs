@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { CONDITION_KINDS, readCondition, readConditions, getConditionKind, getConditionKinds, gatherConditionCheckSources, getCheckBlock, gatherConditionControlPenalty, computeJammingPenalty, isWetActor, WET_IDENT_KEY, buildInflictedEffectsData, applyDamageTagMods, recoveryKindMatches, recoveryKindExcluded, usageCanTreatKinds, woundChartValue, ignoreRuleMatches, gatherIgnoreRules, getEffectiveConditions, gatherSkillUseWarnings, hasBountyBlock, blocksMainProcess, actorCannotMainProcess }
-  from "../../scripts/module/conditions.mjs";
+  from "../../scripts/rules/conditions.mjs";
 
 /** 準備アウトフィット記述子の略記 */
 function pf(majorCategory, minorCategory, hack, identKey) {

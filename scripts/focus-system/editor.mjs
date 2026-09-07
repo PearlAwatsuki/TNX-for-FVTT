@@ -7,8 +7,8 @@
  * まとめた(従来は form / editor に分かれていた)。
  */
 
-import { loadGroupedGeneralSkillChoices, loadSkillEntries, SKILL_PACKS } from "../module/skill-dictionary.mjs";
-import { formatSkillName } from "../module/identification.mjs";
+import { loadGroupedGeneralSkillChoices, loadSkillEntries, SKILL_PACKS } from "../dictionary/skill-dictionary.mjs";
+import { formatSkillName } from "../core/identification.mjs";
 import { PROGRESS_MOD_SOURCES, buildProgressModChoices } from "./progress-mod.mjs";
 import { defeatConditionOptions } from "../rules/focus-system.mjs";
 import { defaultFocusSystemData, newProgressRow } from "./data.mjs";

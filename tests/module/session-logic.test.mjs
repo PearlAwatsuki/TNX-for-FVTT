@@ -69,7 +69,7 @@ import {
   hudInfoItems,
   hudInfoTnChips,
 } from "../../scripts/rules/session.mjs";
-import { TNX_HOOKS } from "../../scripts/module/combat-events.mjs";
+import { TNX_HOOKS } from "../../scripts/rules/combat-events.mjs";
 
 const SCENES = {
   opening:  [{ id: "op1", name: "オープニング1" }],

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { moveItemBy, moveItemTo } from "../../scripts/module/list-order.mjs";
+import { moveItemBy, moveItemTo } from "../../scripts/core/list-order.mjs";
 
 const LIST = [{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d" }];
 

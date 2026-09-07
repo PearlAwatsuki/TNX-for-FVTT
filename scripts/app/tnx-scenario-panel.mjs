@@ -23,14 +23,14 @@ import {
     closeSceneToBackstage, advanceBackstageSpot, addBackstageActor, removeBackstageActor,
     appearActor, setActorNameHidden, setActorGhost,
     getCurrentSceneAppearance, getRotationStatus, markEventSceneDone, promptActLimitedCleanup,
-} from "../module/session-state.mjs";
+} from "../session/session-state.mjs";
 import {
     isAppearing, isNameHidden, displayActorName, listAppearingActors,
     manualExitTargets, confirmTeamExitDialog, applyManualExit,
-} from "../module/appearance-state.mjs";
+} from "../session/appearance-state.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
-import { TnxSocketHandler } from "../module/tnx-socket-handler.mjs";
-import { enrichText, enrichInfoCardData } from "../module/reference-links.mjs";
+import { TnxSocketHandler } from "../core/tnx-socket-handler.mjs";
+import { enrichText, enrichInfoCardData } from "../chat/reference-links.mjs";
 import {
     SCENE_AREA_OPTIONS, PHASE_ORDER, normalizeSceneRow, normalizeHandoutRow,
     nextSceneTarget, canShowNextScene, eventSceneCandidates, areEventScenesDone,
@@ -42,15 +42,15 @@ import {
 } from "../rules/session.mjs";
 import {
     loadGeneralSkillNameByKey, loadSkillChoices, formatGroupedSkillNames, STYLE_PACK,
-} from "../module/skill-dictionary.mjs";
+} from "../dictionary/skill-dictionary.mjs";
 import {
     appearanceCheckParams, formatAppearanceSummary, groupCharacterChoices,
 } from "../rules/appearance.mjs";
-import { presetLabel } from "../module/request-presets.mjs";
+import { presetLabel } from "../session/request-presets.mjs";
 
-import { TnxActionHandler } from "../module/tnx-action-handler.mjs";
-import { applyStageRef } from "../module/subscenes.mjs";
-import { resolveHandoutContact } from "../module/handout-contact.mjs";
+import { TnxActionHandler } from "../cards/tnx-action-handler.mjs";
+import { applyStageRef } from "../session/subscenes.mjs";
+import { resolveHandoutContact } from "../session/handout-contact.mjs";
 import { collectLostCharacters } from "../rules/time-boundary.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -730,7 +730,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
     // ─── 登場判定(14-5) ─────────────────────────────────────────────────────
 
     static async _onAppearanceCheck(_event, _target) {
-        const { startAppearanceCheck } = await import("../module/appearance-check.mjs");
+        const { startAppearanceCheck } = await import("../flow/appearance-check.mjs");
         await startAppearanceCheck();
     }
 

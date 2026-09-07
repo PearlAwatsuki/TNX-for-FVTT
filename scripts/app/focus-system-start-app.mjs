@@ -13,7 +13,7 @@
 
 import { readFocusSystemData, defaultFocusSystemData, isFocusSystemJournal } from "../focus-system/data.mjs";
 import { buildFocusSystemEditorContext, readFocusSystemForm, bindFocusSystemEditor } from "../focus-system/editor.mjs";
-import { captureScrollTop, restoreScrollTop } from "../module/scroll-preserve.mjs";
+import { captureScrollTop, restoreScrollTop } from "../ui/scroll-preserve.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 

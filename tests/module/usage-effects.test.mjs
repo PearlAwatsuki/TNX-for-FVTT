@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 
 const { resolveUsageEffectData, splitEffectsByTiming, attackCardEffectMode,
         prepareUsageEffectPayload, hitEffectTargetRefs, buildGrantedEffectDataFrom } =
-    await import("../../scripts/module/usage-effects.mjs");
+    await import("../../scripts/flow/usage-effects.mjs");
 
 // toObject を持つ簡易 effect / effects コレクション
 const mkEffect = (id, name) => ({ id, name, toObject: () => ({ _id: id, name, disabled: true, transfer: true }) });

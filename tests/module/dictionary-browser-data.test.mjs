@@ -5,7 +5,7 @@ const {
     BROWSER_TABS, buildFilterGroups, entryGroupValues, filterEntries,
     groupOutfitEntries, groupStyleSkillEntries, groupLifePathEntries,
     sortEntriesForTab, NPC_TYPE_LABELS,
-} = await import("../../scripts/module/dictionary-browser-data.mjs");
+} = await import("../../scripts/dictionary/dictionary-browser-data.mjs");
 
 const entry = (over = {}) => ({ uuid: "u", name: "テスト", img: "", type: "weapon", system: {}, sourceLabel: "アウトフィット", ...over });
 

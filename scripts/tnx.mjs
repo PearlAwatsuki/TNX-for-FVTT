@@ -7,9 +7,9 @@ import { computeTroopFixedName, findDepartmentSkillName } from './data/helpers.m
 import { defaultWeaponKindForCategory } from './data/item/common/outfit-base.mjs';
 import { usesMaxBaseOf } from './data/item/uses.mjs';
 import { miracleRemovalUpdate } from './rules/miracle.mjs';
-import { fitCardTags, renderCardOutcome } from './module/chat-card.mjs';
-import { canonicalizeSkillActions } from './module/usage-type-migration.mjs';
-import { SKILL_PACKS } from './module/skill-dictionary.mjs';
+import { fitCardTags, renderCardOutcome } from './chat/chat-card.mjs';
+import { canonicalizeSkillActions } from './core/usage-type-migration.mjs';
+import { SKILL_PACKS } from './dictionary/skill-dictionary.mjs';
 import { CastDataModel } from './data/actor/cast.mjs';
 import { GuestDataModel } from './data/actor/guest.mjs';
 import { TroopDataModel } from './data/actor/troop.mjs';
@@ -35,7 +35,7 @@ import { PlayingCardsDataModel } from './data/card/playing-cards.mjs';
 import { NeuroCardsDataModel } from './data/card/neuro-cards.mjs';
 import { OtherDataModel } from './data/card/other.mjs';
 import { TokyoNovaItem } from './item/item.mjs';
-import { TokyoNovaActiveEffect } from './module/active-effect.mjs';
+import { TokyoNovaActiveEffect } from './core/active-effect.mjs';
 import { TnxCombat } from './combat/tnx-combat.mjs';
 import { TnxCombatant } from './combat/tnx-combatant.mjs';
 import { TnxCombatTracker } from './combat/tnx-combat-tracker.mjs';
@@ -46,56 +46,56 @@ import { TokyoNovaStyleSkillSheet } from './item/tnx-style-skill-sheet.mjs';
 import { TokyoNovaOrganizationSheet } from './item/tnx-organization-sheet.mjs';
 import { TokyoNovaLifePathSheet } from './item/tnx-life-path-sheet.mjs';
 import { TokyoNovaOutfitSheet } from './item/tnx-outfit-sheet.mjs';
-import { formatWeaponRangeLabel } from './module/outfit-view.mjs';
+import { formatWeaponRangeLabel } from './ui/outfit-view.mjs';
 import { TokyoNovaHousingAreaSheet } from './item/tnx-housing-area-sheet.mjs';
 import { TnxScenarioSheet } from './journal/tnx-scenario-sheet.mjs';
 import { TnxFocusSystemSheet } from './journal/tnx-focus-system-sheet.mjs';
 import { TnxCardSetupApp } from './app/tnx-card-setup-app.mjs';
 import { TnxHud } from './app/tnx-hud.mjs';
 import { TnxRecordSheet } from './app/tnx-record-sheet.mjs';
-import { registerDrawTableHooks } from './module/tnx-draw-table.mjs';
-import { recordCastOwnerUser } from './module/cast-ownership.mjs';
+import { registerDrawTableHooks } from './cards/tnx-draw-table.mjs';
+import { recordCastOwnerUser } from './core/cast-ownership.mjs';
 import { enforceUsageChainDefaultsOnImport } from './app/tnx-usage-sheet.mjs';
-import { renderAttackCard, renderReactionCard } from './module/attack-flow.mjs';
-import { renderDamageCard } from './module/damage-flow.mjs';
-import { renderUsageEffectButton } from './module/usage-effects.mjs';
-import { renderMiracleCard } from './module/miracle-flow.mjs';
-import { TnxSocketHandler } from './module/tnx-socket-handler.mjs';
-import { TnxCheckFlow, renderRecheckButton } from './module/tnx-check-flow.mjs';
+import { renderAttackCard, renderReactionCard } from './flow/attack-flow.mjs';
+import { renderDamageCard } from './flow/damage-flow.mjs';
+import { renderUsageEffectButton } from './flow/usage-effects.mjs';
+import { renderMiracleCard } from './flow/miracle-flow.mjs';
+import { TnxSocketHandler } from './core/tnx-socket-handler.mjs';
+import { TnxCheckFlow, renderRecheckButton } from './flow/tnx-check-flow.mjs';
 import { TnxCheckDialog } from './app/tnx-check-dialog.mjs';
 import { TnxRlRequestApp, renderCheckRequestCard } from './app/tnx-rl-request-app.mjs';
 import { openRlGrantDamage } from './app/tnx-rl-grant-damage-app.mjs';
 import { openRlGrantEffect } from './app/tnx-rl-grant-effect-app.mjs';
 import { openRlGrantBounty } from './app/tnx-rl-grant-bounty-app.mjs';
-import { renderBountyGrantCard } from './module/bounty-grant.mjs';
-import { renderHandoutCard } from './module/handout-contact.mjs';
+import { renderBountyGrantCard } from './flow/bounty-grant.mjs';
+import { renderHandoutCard } from './session/handout-contact.mjs';
 import { openFocusSystemPanel } from './app/tnx-focus-system-panel.mjs';
 import { openScenarioPanel } from './app/tnx-scenario-panel.mjs';
 import { registerFocusSystemSetting, advanceFocusCuts } from './focus-system/state.mjs';
-import { registerSessionStateSetting, registerAppearanceExpTracking, registerMiracleUseLogging, getSessionState } from './module/session-state.mjs';
-import { registerSubSceneSetting, refreshSubSceneBackground } from './module/subscenes.mjs';
-import { registerAppearanceTokenSync } from './module/appearance-state.mjs';
-import { registerTimeBoundaries, registerForcedExitWounds } from './module/time-boundary.mjs';
+import { registerSessionStateSetting, registerAppearanceExpTracking, registerMiracleUseLogging, getSessionState } from './session/session-state.mjs';
+import { registerSubSceneSetting, refreshSubSceneBackground } from './session/subscenes.mjs';
+import { registerAppearanceTokenSync } from './session/appearance-state.mjs';
+import { registerTimeBoundaries, registerForcedExitWounds } from './session/time-boundary.mjs';
 import { durationLabelOf, TNX_DURATIONS } from './rules/time-boundary.mjs';
 import { openSubScenePanel } from './app/tnx-subscene-panel.mjs';
 import { renderFocusProgressButton, renderFocusSupportNote } from './focus-system/result.mjs';
 import { autoSendFocusChecks } from './focus-system/request.mjs';
-import { registerEffectScratchHiding, sweepEffectScratchItems } from './module/effect-authoring.mjs';
+import { registerEffectScratchHiding, sweepEffectScratchItems } from './core/effect-authoring.mjs';
 import { FOCUS_SYSTEM_FLAG, defaultFocusSystemData } from './focus-system/data.mjs';
-import { getUserFlagData, calcHistoryExpTotal } from './module/user-flag-schema.mjs';
-import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
-import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
-import { CONDITION_KINDS, CONDITION_GROUP_LABELS, conditionDisplayName, getConditionKinds, buildInflictedEffectsData, applyDamageTagMods, readConditions, blocksMainProcess, actorCannotMainProcess } from './module/conditions.mjs';
+import { getUserFlagData, calcHistoryExpTotal } from './core/user-flag-schema.mjs';
+import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './rules/exp-sync.mjs';
+import { TnxSkillUtils } from './core/tnx-skill-utils.mjs';
+import { CONDITION_KINDS, CONDITION_GROUP_LABELS, conditionDisplayName, getConditionKinds, buildInflictedEffectsData, applyDamageTagMods, readConditions, blocksMainProcess, actorCannotMainProcess } from './rules/conditions.mjs';
 import { gatherDamageTagMods, parseEffectTargetKey, buildTransferredEffectData, planTransferCopySync, transferCopyIsCurrent, isOutfitItem, planCapabilityTransferCleanup, AE_FLAG_PARAMS } from './data/item/helpers.mjs';
-import { runSerial } from './module/serial-queue.mjs';
+import { runSerial } from './core/serial-queue.mjs';
 import { registerPartSlotPresetSetting, getPartSlotPreset, initializeDefaultPartSlotPreset, migratePartSlotKeys } from './app/part-slot-preset-app.mjs';
-import { autoAcquireForStyleSkill, autoImportDerivedData } from './module/style-skill-acquisition.mjs';
-import { conditionNeedsDraw, postDrawPrompt, postControlNegatePrompt, promptWoundSkillSelection, bindConditionChatButtons, renderConditionDrawCard } from './module/condition-resolution.mjs';
-import { enhanceComboboxes } from './module/combobox.mjs';
+import { autoAcquireForStyleSkill, autoImportDerivedData } from './core/style-skill-acquisition.mjs';
+import { conditionNeedsDraw, postDrawPrompt, postControlNegatePrompt, promptWoundSkillSelection, bindConditionChatButtons, renderConditionDrawCard } from './flow/condition-resolution.mjs';
+import { enhanceComboboxes } from './ui/combobox.mjs';
 import { OUTFIT_CATEGORIES } from './data/item/outfit-categories.mjs';
-import { decoratedItemName } from './module/identification.mjs';
+import { decoratedItemName } from './core/identification.mjs';
 import { injectDictionaryBrowserButton } from './app/tnx-dictionary-browser.mjs';
-import { applyContentLinkCardTooltips } from './module/item-card-tooltips.mjs';
+import { applyContentLinkCardTooltips } from './chat/item-card-tooltips.mjs';
 
 async function preloadHandlebarsTemplates() {
     const templatePaths = [
@@ -1031,7 +1031,7 @@ Hooks.on("updateItem", async (item, changes, _options, userId) => {
     if (userId !== game.user.id) return;
     if (item.type !== "miracle") return;
     if (foundry.utils.getProperty(changes, "system.asOther.selected") === undefined) return;
-    const { applyAsOtherEffectCopy } = await import("./module/miracle-flow.mjs");
+    const { applyAsOtherEffectCopy } = await import("./flow/miracle-flow.mjs");
     await applyAsOtherEffectCopy(item);
 });
 
@@ -1521,7 +1521,7 @@ Hooks.once("init", async function() {
                 // 達成値の手動修正と同じ最終裁定ツール=適用済みでも制限しない(2026-07-14 ユーザー確定)
                 condition: (li) => game.user.isGM && !!msgOf(li)?.getFlag(SYSTEM_ID, "damageRoll"),
                 callback: async (li) => {
-                    const { manualEditDamage } = await import("./module/damage-flow.mjs");
+                    const { manualEditDamage } = await import("./flow/damage-flow.mjs");
                     await manualEditDamage(msgOf(li));
                 },
             },
@@ -1537,7 +1537,7 @@ Hooks.once("init", async function() {
                     return !!f && f.damageRolled === true;
                 },
                 callback: async (li) => {
-                    const { applyAttackPatch } = await import("./module/attack-flow.mjs");
+                    const { applyAttackPatch } = await import("./flow/attack-flow.mjs");
                     await applyAttackPatch(msgOf(li), { damageRolled: false });
                     ui.notifications.info("ダメージ処理をリセットしました（出済みのダメージカードは必要に応じて削除してください）。");
                 },

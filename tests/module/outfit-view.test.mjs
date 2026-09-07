@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { hideLabel } from "../../scripts/module/outfit-view.mjs";
+import { hideLabel } from "../../scripts/ui/outfit-view.mjs";
 
 describe("hideLabel()（隠匿値の表示）", () => {
   it("数値はその値", () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildConditionGrantData, rlConditionChoices } from "../../scripts/rules/rl-grant.mjs";
-import { buildGrantedEffectDataFrom } from "../../scripts/module/usage-effects.mjs";
+import { buildGrantedEffectDataFrom } from "../../scripts/flow/usage-effects.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
@@ -61,7 +61,7 @@ describe("rlConditionChoices()（付与できる状態の選択肢）", () => {
 });
 
 // 効果の複製は用途の適用効果と同じ機構を使う(RL 付与も用途付与も「切り離したコピー」)。
-const { buildGrantedEffectData } = await import("../../scripts/module/usage-effects.mjs");
+const { buildGrantedEffectData } = await import("../../scripts/flow/usage-effects.mjs");
 
 /** ActiveEffect のふりをする最小オブジェクト。 */
 function fakeEffect(obj, uuid = "Item.xxx.ActiveEffect.yyy") {

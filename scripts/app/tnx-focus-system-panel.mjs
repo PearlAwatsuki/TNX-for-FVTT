@@ -10,8 +10,8 @@
 import { SYSTEM_ID } from "../constants.mjs";
 import { listActiveFocusSystems, getActiveFocusSystem, startFocusSystem, updateFocusSystem, endFocusSystem } from "../focus-system/state.mjs";
 import { activeProgressRow, clampGauge, gaugeMarkers } from "../rules/focus-system.mjs";
-import { loadSkillEntries, SKILL_PACKS } from "../module/skill-dictionary.mjs";
-import { formatSkillName } from "../module/identification.mjs";
+import { loadSkillEntries, SKILL_PACKS } from "../dictionary/skill-dictionary.mjs";
+import { formatSkillName } from "../core/identification.mjs";
 import { requestFocusSystemCheck } from "../focus-system/request.mjs";
 import { TnxFocusSystemStartApp } from "./focus-system-start-app.mjs";
 

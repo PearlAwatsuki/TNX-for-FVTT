@@ -3,7 +3,7 @@
  * 正本: llm-wiki/01_Wiki/Game_Mechanics/Conditions.md「表記規約」・カードの折り返しの是正。
  */
 import { describe, it, expect } from "vitest";
-import { keepTogether } from "../../scripts/module/chat-text.mjs";
+import { keepTogether } from "../../scripts/chat/chat-text.mjs";
 
 describe("keepTogether()（折ってはいけない塊を nowrap でくくる）", () => {
     it("［状態タグ］《ルール用語》「名前」をくくる（囲みは残す）", () => {

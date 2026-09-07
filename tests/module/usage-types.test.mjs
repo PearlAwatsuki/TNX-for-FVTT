@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
-const { executionFormOf } = await import("../../scripts/module/usage-types.mjs");
+const { executionFormOf } = await import("../../scripts/rules/usage-types.mjs");
 
 // アイテムロール(_activateItemCheck)の候補は**用途を種別で絞らない**(2026-07-19 ユーザー指示
 // 「宣言用途を勝手に除外しないでください」)。旧 usableUsagesOf(フラグ無し宣言を除外)は廃止した
@@ -33,7 +33,7 @@ describe("executionFormOf()（用途の実行形式＝アイテムロールの�
 // 「神業アイテムにしか表示されず、神業アイテムではこれ以外表示されない用途」。
 // 正本: Phase_17_Tasks_Detail 設計判断1(宣言・即死・防御・社会戦・破壊の5種)。
 const { USAGE_TYPE_DEFS, isMiracleType, usageTypeLabelsFor, defaultUsageTypeFor }
-    = await import("../../scripts/module/usage-types.mjs");
+    = await import("../../scripts/rules/usage-types.mjs");
 
 describe("神業専用の用途タイプ（宣言・即死・防御・社会戦・破壊）", () => {
     const MIRACLE_KEYS = ["miracleDeclaration", "miracleKill", "miracleDefence", "miracleSocial", "miracleDestroy"];

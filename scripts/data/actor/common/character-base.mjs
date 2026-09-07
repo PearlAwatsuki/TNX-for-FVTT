@@ -18,8 +18,8 @@ import { computeAttributeFinal, computeOutfitAggregates, resolveCombatSpeedDispl
 import { ATTACK_DAMAGE_TYPES, parseEffectTargetKey, resolveItemTotalPath, evalEffectConditions, effectAutoApplies, itemChangeTargets, isOutfitItem, AE_FLAG_TOTAL_PATHS, parseBooleanFlagValue } from "../../item/helpers.mjs";
 import { buildEffectivePartSlots } from "../../item/part-helpers.mjs";
 import { computeUsesMaxTotalForActor, clampUsesMaxTotalForActor } from "../../item/uses.mjs";
-import { getEffectiveConditions, gatherConditionControlPenalty, gatherPartSlotMods } from "../../../module/conditions.mjs";
-import { parsePlainNumber, evaluateFormulaSync, buildFormulaData } from "../../../module/tnx-formula.mjs";
+import { getEffectiveConditions, gatherConditionControlPenalty, gatherPartSlotMods } from "../../../rules/conditions.mjs";
+import { parsePlainNumber, evaluateFormulaSync, buildFormulaData } from "../../../rules/tnx-formula.mjs";
 
 /** 能力値キー(♠理性 / ♣感情 / ♥生命 / ♦外界) */
 export const ABILITY_KEYS = ["reason", "passion", "life", "mundane"];

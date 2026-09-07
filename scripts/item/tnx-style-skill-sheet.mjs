@@ -1,7 +1,7 @@
 import { TokyoNovaItemSheet } from "./tnx-item-sheet.mjs";
-import { TnxSkillUtils } from "../module/tnx-skill-utils.mjs";
-import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, SKILL_PACKS, STYLE_PACK, ORGANIZATION_PACK, SOCIETY_CLASSES } from "../module/skill-dictionary.mjs";
-import { MIRACLE_PACK } from "../module/dictionary-browser-data.mjs";
+import { TnxSkillUtils } from "../core/tnx-skill-utils.mjs";
+import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, SKILL_PACKS, STYLE_PACK, ORGANIZATION_PACK, SOCIETY_CLASSES } from "../dictionary/skill-dictionary.mjs";
+import { MIRACLE_PACK } from "../dictionary/dictionary-browser-data.mjs";
 import { STAND_IN_KINDS } from "../rules/designation-response.mjs";
 
 export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {

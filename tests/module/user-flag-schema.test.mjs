@@ -17,7 +17,7 @@ import {
   resolveEffectiveHandMaxSize,
   computeEffectiveHandMaxSize,
   gatherHandMaxSizeMod,
-} from "../../scripts/module/user-flag-schema.mjs";
+} from "../../scripts/core/user-flag-schema.mjs";
 import { SYSTEM_ID } from "../../scripts/constants.mjs";
 
 describe("getUserFlagData()", () => {

@@ -12,11 +12,11 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
-import { bindTargetPicker } from "../module/target-picker.mjs";
+import { bindTargetPicker } from "../ui/target-picker.mjs";
 import { buildRlDamageStagingFlag, RL_DAMAGE_TYPES, RL_DAMAGE_CATEGORIES, RL_DAMAGE_MODES } from "../rules/rl-grant.mjs";
 import { formatAttackLabel } from "../rules/attack-flow.mjs";
-import { listDamageGrantPresets, presetLabel, damagePresetToForm } from "../module/request-presets.mjs";
-import { spinnerDialogActions } from "../module/tnx-dialog.mjs";
+import { listDamageGrantPresets, presetLabel, damagePresetToForm } from "../session/request-presets.mjs";
+import { spinnerDialogActions } from "../ui/tnx-dialog.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 

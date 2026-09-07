@@ -10,10 +10,10 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
-import { bindTargetPicker } from "../module/target-picker.mjs";
+import { bindTargetPicker } from "../ui/target-picker.mjs";
 import { buildBountyGrantData } from "../rules/bounty-grant.mjs";
-import { listBountyPresets, presetLabel, bountyPresetToForm } from "../module/request-presets.mjs";
-import { spinnerDialogActions } from "../module/tnx-dialog.mjs";
+import { listBountyPresets, presetLabel, bountyPresetToForm } from "../session/request-presets.mjs";
+import { spinnerDialogActions } from "../ui/tnx-dialog.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 

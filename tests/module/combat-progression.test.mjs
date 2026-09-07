@@ -3,7 +3,7 @@ import {
   isValidProcessTransition, arDecrement, planAdvance,
   buildArDecrementUpdate, buildWaitUpdate, buildSetupConfirmUpdate,
   pushInterruptFrame, popInterruptFrame,
-} from "../../scripts/module/combat-progression.mjs";
+} from "../../scripts/rules/combat-progression.mjs";
 
 // 参加者の素データ(combat-turn-order と同形)
 const P = (over = {}) => ({

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { applyTriggerDisable, DISABLED_TRIGGER_CLASS } from "../../scripts/module/ui-trigger-disable.mjs";
+import { applyTriggerDisable, DISABLED_TRIGGER_CLASS } from "../../scripts/ui/ui-trigger-disable.mjs";
 
 /** DOM 非依存で util を検証するための最小要素モック(classList/属性/title のみ)。 */
 function fakeEl({ classes = ["check-trigger"], dataAction = "startSkillCheck", dataset = {} } = {}) {

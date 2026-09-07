@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
 const { resolveAttackRangeValue, resolveAttackRangeSpan, attackWeaponDisplayName } =
-  await import("../../scripts/module/attack-weapons.mjs");
+  await import("../../scripts/rules/attack-weapons.mjs");
 
 const w = (min, max) => ({ system: { range: { min, max } } });
 

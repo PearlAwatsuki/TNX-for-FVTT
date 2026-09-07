@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
-const { orderSkills } = await import("../../scripts/module/skill-select.mjs");
-const { skillSortPosition } = await import("../../scripts/module/identification.mjs");
-const { groupGeneralSkillEntries } = await import("../../scripts/module/skill-dictionary.mjs");
+const { orderSkills } = await import("../../scripts/ui/skill-select.mjs");
+const { skillSortPosition } = await import("../../scripts/core/identification.mjs");
+const { groupGeneralSkillEntries } = await import("../../scripts/dictionary/skill-dictionary.mjs");
 
 // 技能選択プルダウンの並び統一(2026-07-19 ユーザー指示):
 // シートのソート順(手動 sort)→正規ソート順(識別キー)→名前(ja)。

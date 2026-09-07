@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveTurnOrder, nextActiveMain, confirmMain, firstSpotId, nextSpotId, isMajorActionTiming } from "../../scripts/module/combat-turn-order.mjs";
+import { resolveTurnOrder, nextActiveMain, confirmMain, firstSpotId, nextSpotId, isMajorActionTiming } from "../../scripts/rules/combat-turn-order.mjs";
 
 // 参加者の素データ(Foundry 非依存)。Combatant 側でこの形へ写像する。
 const P = (over = {}) => ({

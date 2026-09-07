@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
-const { resolveUsageTargetValue } = await import("../../scripts/module/usage-target-value.mjs");
+const { resolveUsageTargetValue } = await import("../../scripts/rules/usage-target-value.mjs");
 
 describe("resolveUsageTargetValue()（目標値の一本化・2026-07-13 ユーザー確定）", () => {
   it("数字: 特定の目標値が必ず入る=そのまま目標値", async () => {

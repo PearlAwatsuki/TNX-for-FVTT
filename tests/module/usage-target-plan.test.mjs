@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
 const { usageTargetGroup, usageCardForm, planUsageTargets } =
-  await import("../../scripts/module/usage-target-plan.mjs");
+  await import("../../scripts/rules/usage-target-plan.mjs");
 
 describe("usageTargetGroup()（対象値の群分け・2026-07-18 決定表）", () => {
   it("「-」「解説参照」「その他」= none（対象という概念がない）", () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { conditionNeedsDraw, drawResultFlags, negateOutcome } from "../../scripts/module/condition-resolution-core.mjs";
+import { conditionNeedsDraw, drawResultFlags, negateOutcome } from "../../scripts/rules/condition-resolution.mjs";
 
 describe("conditionNeedsDraw()", () => {
   it("衰弱は対象・数字が未確定(magnitude 0・targetAbility なし)なら要ドロー", () => {

@@ -12,7 +12,7 @@ import {
   newScenarioTextPreset,
   damagePresetToForm,
   effectPresetIsEmpty,
-} from "../../scripts/module/request-presets.mjs";
+} from "../../scripts/session/request-presets.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 

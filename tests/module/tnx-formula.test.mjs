@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
 const { buildCheckFormulaData, buildFormulaData, evaluateBonusRows, evaluateSelfBonus, parsePlainNumber, evaluateFormula, evaluateFormulaSync } =
-  await import("../../scripts/module/tnx-formula.mjs");
+  await import("../../scripts/rules/tnx-formula.mjs");
 
 describe("buildCheckFormulaData()（式評価用の判定結果コンテキスト・Check_Rules「差分値」）", () => {
   it("diff / achievement / card を数値で供給する", () => {

@@ -15,7 +15,7 @@ import {
     executionFormOf,
     attackCategoryOf,
     usageDisplayName,
-} from "../../scripts/module/usage-types.mjs";
+} from "../../scripts/rules/usage-types.mjs";
 
 const row = (value, name = "") => ({ value, name, skillDict: "", skillGroup: "", skillSub: "" });
 

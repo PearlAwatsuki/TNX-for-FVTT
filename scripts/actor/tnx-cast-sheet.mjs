@@ -8,8 +8,8 @@
  */
 
 import { TnxCharacterSheetBase } from './tnx-character-sheet-base.mjs';
-import { TnxHistoryMixin } from '../module/tnx-history-mixin.mjs';
-import { getUserFlagData } from '../module/user-flag-schema.mjs';
+import { TnxHistoryMixin } from '../ui/tnx-history-mixin.mjs';
+import { getUserFlagData } from '../core/user-flag-schema.mjs';
 import { SYSTEM_ID } from '../constants.mjs';
 import { OUTFIT_ITEM_TYPES } from '../data/helpers.mjs';
 import { readFlag } from '../data/item/helpers.mjs';

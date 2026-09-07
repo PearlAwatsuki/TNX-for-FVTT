@@ -8,7 +8,7 @@ import {
     getComboSuits,
     comboUsesBounty,
     normalizeSuit,
-} from "../../scripts/module/tnx-check-engine.mjs";
+} from "../../scripts/rules/tnx-check-engine.mjs";
 
 // ─── スート対応表 ─────────────────────────────────────────────────────────────
 

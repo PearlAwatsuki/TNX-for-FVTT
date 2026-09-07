@@ -1,6 +1,6 @@
 import { SYSTEM_ID } from "../constants.mjs";
 import { TokyoNovaItemSheet } from "./tnx-item-sheet.mjs";
-import { TnxSkillUtils } from "../module/tnx-skill-utils.mjs";
+import { TnxSkillUtils } from "../core/tnx-skill-utils.mjs";
 import { OUTFIT_CATEGORIES, OUTFIT_TYPES, getMajorCategoryLabel, getMinorCategoryLabel } from "../data/item/outfit-categories.mjs";
 import { ATTACK_DAMAGE_TYPES } from "../data/item/helpers.mjs";
 import { WEAPON_RANGE_MIN_OPTIONS, WEAPON_RANGE_MAX_OPTIONS, WEAPON_ATTACK_AREAS } from "../data/item/weapon.mjs";
@@ -10,12 +10,12 @@ import { PART_KINDS, PART_REFERENCE_SUB_KINDS, PART_RELATIONS, SHIKI_TYPES } fro
 import { getPartSlotPreset } from "../app/part-slot-preset-app.mjs";
 import { joinPartDesignations, PART_HOST_FEATURE_LABELS, resolvePartRowsForDisplay, resolvePartAdditions, findPartKeyByLabel, matchesHostDescriptor, OUTFIT_NAME_SLOT_KIND } from "../data/item/part-helpers.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
-import { applyOutfitFlagToggle, isEquipStateFlag, canTogglePreplayPurchase } from "../module/outfit-flags.mjs";
-import { resolveItemNameByKey } from "../module/identification.mjs";
-import { hideLabel } from "../module/outfit-view.mjs";
-import { loadSkillChoices, loadOnomasticChoices, STYLE_PACK, ORGANIZATION_PACK } from "../module/skill-dictionary.mjs";
-import { loadOutfitHostChoices, loadOutfitDictNames } from "../module/outfit-dictionary.mjs";
-import { buildOutfitSummaryRows, formatWeaponRangeLabel } from "../module/outfit-view.mjs";
+import { applyOutfitFlagToggle, isEquipStateFlag, canTogglePreplayPurchase } from "../core/outfit-flags.mjs";
+import { resolveItemNameByKey } from "../core/identification.mjs";
+import { hideLabel } from "../ui/outfit-view.mjs";
+import { loadSkillChoices, loadOnomasticChoices, STYLE_PACK, ORGANIZATION_PACK } from "../dictionary/skill-dictionary.mjs";
+import { loadOutfitHostChoices, loadOutfitDictNames } from "../dictionary/outfit-dictionary.mjs";
+import { buildOutfitSummaryRows, formatWeaponRangeLabel } from "../ui/outfit-view.mjs";
 import { MODIFICATION_PARAMS } from "../data/item/modification-params.mjs";
 
 /** 住宅エリア compendium の pack ID */

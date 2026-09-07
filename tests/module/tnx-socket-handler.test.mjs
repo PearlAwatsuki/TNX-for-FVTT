@@ -16,7 +16,7 @@
  */
 
 import { describe, it, expect, afterEach } from "vitest";
-import { TnxSocketHandler } from "../../scripts/module/tnx-socket-handler.mjs";
+import { TnxSocketHandler } from "../../scripts/core/tnx-socket-handler.mjs";
 
 const origGame = globalThis.game;
 const origFromUuid = globalThis.fromUuid;

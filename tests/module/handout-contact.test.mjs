@@ -8,7 +8,7 @@ beforeAll(() => {
   globalThis.foundry.utils.randomID ??= () => "abc123XYZ";
 });
 
-const load = async () => import("../../scripts/module/handout-contact.mjs");
+const load = async () => import("../../scripts/session/handout-contact.mjs");
 
 describe("buildContactSkillData()（アクトコネクションの技能データ・2026-08-12 ユーザー指定）", () => {
   it("名前は「コネ：<相手の名前>」（入力は素の名前で、接頭はここで付く）", async () => {

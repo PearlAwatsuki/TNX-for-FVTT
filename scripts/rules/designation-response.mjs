@@ -11,7 +11,7 @@
  * 「未所持なら自動で代用へ落とす」遷移は廃止され、代用はプレイヤーが明示的に選ぶ。
  */
 
-import { idKeyPrefix } from "../module/skill-dictionary.mjs";
+import { idKeyPrefix } from "../dictionary/skill-dictionary.mjs";
 
 /** 指定充足宣言の判定種別(拡張可能・2026-08-26 裁定=まず情報収集と登場の2種)。 */
 export const STAND_IN_KINDS = {

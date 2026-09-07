@@ -10,14 +10,14 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
-import { bindTargetPicker } from "../module/target-picker.mjs";
+import { bindTargetPicker } from "../ui/target-picker.mjs";
 import { buildConditionGrantData, rlConditionChoices } from "../rules/rl-grant.mjs";
-import { buildGrantedEffectData, buildGrantedEffectDataFrom } from "../module/usage-effects.mjs";
-import { listEffectGrantPresets, presetLabel, effectPresetIsEmpty } from "../module/request-presets.mjs";
+import { buildGrantedEffectData, buildGrantedEffectDataFrom } from "../flow/usage-effects.mjs";
+import { listEffectGrantPresets, presetLabel, effectPresetIsEmpty } from "../session/request-presets.mjs";
 import { buildEffectSourceGroups, parseEffectSourceKey, describeEffectData } from "../rules/effect-source.mjs";
-import { conditionStatusLabels } from "../module/conditions.mjs";
-import { promptEffectData } from "../module/effect-authoring.mjs";
-import { itemDisplayName } from "../module/identification.mjs";
+import { conditionStatusLabels } from "../rules/conditions.mjs";
+import { promptEffectData } from "../core/effect-authoring.mjs";
+import { itemDisplayName } from "../core/identification.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 

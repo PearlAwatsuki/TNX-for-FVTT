@@ -9,7 +9,7 @@ import { describe, it, expect } from "vitest";
 import {
   pickFirstOwnerUserId,
   resolveOwnerUserIdAction,
-} from "../../scripts/module/cast-ownership.mjs";
+} from "../../scripts/core/cast-ownership.mjs";
 
 // ─── pickFirstOwnerUserId ────────────────────────────────────────────────────
 

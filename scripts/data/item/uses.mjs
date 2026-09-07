@@ -16,7 +16,7 @@
  *   本ファイルの `migrateUsesMaxToString` は**その後に**呼ぶこと(前者が max を数値として読むため)。
  */
 
-import { parsePlainNumber, evaluateFormulaSync, buildFormulaData } from "../../module/tnx-formula.mjs";
+import { parsePlainNumber, evaluateFormulaSync, buildFormulaData } from "../../rules/tnx-formula.mjs";
 
 /**
  * 使用回数の最大値(数値または式)を実効値へ解決する(Foundry 非依存・評価関数は注入)。

@@ -11,7 +11,7 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
-import { enhanceComboboxes } from "../module/combobox.mjs";
+import { enhanceComboboxes } from "../ui/combobox.mjs";
 
 const SETTING = "partSlotPreset";
 const SETTING_INIT = "partSlotPresetInitialized";

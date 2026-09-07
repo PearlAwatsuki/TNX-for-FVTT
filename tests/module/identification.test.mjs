@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { findItemByIdentificationKey, resolveItemNameByKey, styleSortPosition, STYLE_SORT_KEYS,
-  calcSkillInsertSort } from "../../scripts/module/identification.mjs";
+  calcSkillInsertSort } from "../../scripts/core/identification.mjs";
 
 // アクターの items は配列でよい(find を持つ)。system.identificationKey で逆引きする。
 const actor = {

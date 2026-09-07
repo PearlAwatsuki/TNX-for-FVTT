@@ -1,8 +1,8 @@
 import { SYSTEM_ID } from "../constants.mjs";
-import { createDefaultDeckData } from '../module/tnx-playing-cards.mjs';
-import { createNeuroDeckData } from '../module/tnx-neuro-cards.mjs';
-import { createAccessCardsData } from '../module/tnx-access-cards.mjs';
-import { saveUserFlagCards, getUserFlagData } from '../module/user-flag-schema.mjs';
+import { createDefaultDeckData } from '../cards/tnx-playing-cards.mjs';
+import { createNeuroDeckData } from '../cards/tnx-neuro-cards.mjs';
+import { createAccessCardsData } from '../cards/tnx-access-cards.mjs';
+import { saveUserFlagCards, getUserFlagData } from '../core/user-flag-schema.mjs';
 
 const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatSkillName, itemDisplayName } from "../../scripts/module/identification.mjs";
+import { formatSkillName, itemDisplayName } from "../../scripts/core/identification.mjs";
 
 // 技能名の表示整形(2026-07-18 ユーザー確定): アイテム名欄・アクターシートの技能リスト以外の
 // 表示では必ず 〈〉 で囲い、秘技/奥義/演出特技の識別マーク(†・※・@)は省く。

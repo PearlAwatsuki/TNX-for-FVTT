@@ -46,7 +46,7 @@ import { UsageTemplate } from "./common/usage.mjs";
 import { SkillBaseTemplate } from "./common/skill-base.mjs";
 import { migrateUsesValueToSpent } from "./helpers.mjs";
 import { migrateUsesMaxToString, computeUsesMaxTotal } from "./uses.mjs";
-import { resolveLevelRef } from "../../module/style-skill-acquisition.mjs";
+import { resolveLevelRef } from "../../core/style-skill-acquisition.mjs";
 
 export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, UsageTemplate, SkillBaseTemplate) {
   /** @override */

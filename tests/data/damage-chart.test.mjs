@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildDamageStates, getDamageChartKind, getDamageChartValue, DAMAGE_CATEGORIES } from "../../scripts/data/damage-chart.mjs";
-import { CONDITION_KINDS, buildInflictedEffectsData, gatherPartSlotMods } from "../../scripts/module/conditions.mjs";
+import { CONDITION_KINDS, buildInflictedEffectsData, gatherPartSlotMods } from "../../scripts/rules/conditions.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 

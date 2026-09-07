@@ -1,15 +1,15 @@
 import { SYSTEM_ID } from "../constants.mjs";
-import { loadGroupedGeneralSkillChoices, loadGeneralSkillNameByKey, loadSkillChoices, idKeyPrefix, SKILL_PACKS, STYLE_PACK } from '../module/skill-dictionary.mjs';
-import { formatSkillName } from '../module/identification.mjs';
+import { loadGroupedGeneralSkillChoices, loadGeneralSkillNameByKey, loadSkillChoices, idKeyPrefix, SKILL_PACKS, STYLE_PACK } from '../dictionary/skill-dictionary.mjs';
+import { formatSkillName } from '../core/identification.mjs';
 import {
     presetLabel, presetSkillKeys, newCheckRequestPreset, newBountyPreset,
     newDamageGrantPreset, newEffectGrantPreset, newScenarioTextPreset,
-} from '../module/request-presets.mjs';
+} from '../session/request-presets.mjs';
 import { RL_DAMAGE_TYPES, RL_DAMAGE_CATEGORIES, RL_DAMAGE_MODES } from '../rules/rl-grant.mjs';
-import { promptEffectData } from '../module/effect-authoring.mjs';
+import { promptEffectData } from '../core/effect-authoring.mjs';
 import { describeEffectData } from '../rules/effect-source.mjs';
-import { captureScrollTop, restoreScrollTop } from '../module/scroll-preserve.mjs';
-import { conditionStatusLabels } from '../module/conditions.mjs';
+import { captureScrollTop, restoreScrollTop } from '../ui/scroll-preserve.mjs';
+import { conditionStatusLabels } from '../rules/conditions.mjs';
 import { checkTypeOptions } from '../app/tnx-rl-request-app.mjs';
 import {
     SCENE_AREA_OPTIONS, SCENE_KIND_OPTIONS, SCENE_PLAYER_RULER, HANDOUT_SUIT_OPTIONS,
@@ -19,8 +19,8 @@ import {
     CONTACT_TYPES,
 } from '../rules/session.mjs';
 import { normalizeAppearanceActors, groupCharacterChoices } from '../rules/appearance.mjs';
-import { listSubScenes } from '../module/subscenes.mjs';
-import { attachEditorSectionToggles } from '../module/editor-sections.mjs';
+import { listSubScenes } from '../session/subscenes.mjs';
+import { attachEditorSectionToggles } from '../ui/editor-sections.mjs';
 
 const { HandlebarsApplicationMixin, DocumentSheetV2, DialogV2 } = foundry.applications.api;
 
@@ -331,7 +331,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
     _onRender(_context, _options) {
         this._setupChangeListeners();
         // @UUID コンテンツリンクのカード・ツールチップ(16-x): 閲覧ビュー内のリンクに適用
-        import("../module/item-card-tooltips.mjs").then(m => m.applyContentLinkCardTooltips(this.element));
+        import("../chat/item-card-tooltips.mjs").then(m => m.applyContentLinkCardTooltips(this.element));
         // 長文エリアの編集トグルボタンをセクションヘッダーへ移設(常時視認・共有配線)
         attachEditorSectionToggles(this.element);
         for (const [group, tab] of Object.entries(this.tabGroups)) {

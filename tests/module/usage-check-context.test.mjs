@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
 const { resolveUsageSkillSet, detectUsageDefect, enumerateRequestComboCandidates, buildRequestUsageChoices } =
-    await import("../../scripts/module/usage-check-context.mjs");
+    await import("../../scripts/flow/usage-check-context.mjs");
 
 /** アクターのモック(items は Map 互換の get/has だけ使う)。 */
 function mockActor(items) {

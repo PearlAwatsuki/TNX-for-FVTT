@@ -13,7 +13,7 @@
  * **フェーズ13**。ここでは選択肢の提示・保存と、解決値を渡された場合の評価までを担う。
  */
 
-import { evaluateFormula } from "../module/tnx-formula.mjs";
+import { evaluateFormula } from "../rules/tnx-formula.mjs";
 
 /** 進行修正の参照元。 */
 export const PROGRESS_MOD_SOURCES = Object.freeze([
