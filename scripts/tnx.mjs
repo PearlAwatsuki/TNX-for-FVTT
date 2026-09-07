@@ -9,6 +9,7 @@ import { usesMaxBaseOf } from './data/item/uses.mjs';
 import { miracleRemovalUpdate } from './module/miracle-logic.mjs';
 import { fitCardTags, renderCardOutcome } from './module/chat-card.mjs';
 import { canonicalizeSkillActions } from './module/usage-type-migration.mjs';
+import { SKILL_PACKS } from './module/skill-dictionary.mjs';
 import { CastDataModel } from './data/actor/cast.mjs';
 import { GuestDataModel } from './data/actor/guest.mjs';
 import { TroopDataModel } from './data/actor/troop.mjs';
@@ -198,10 +199,10 @@ async function preloadHandlebarsTemplates() {
 
 async function setupDefaultSkills(actor) {
     try {
-        const packId = "tokyo-nova-axleration.general-skills";
+        const packId = SKILL_PACKS.general;
         const pack = game.packs.get(packId);
         if (!pack) {
-            console.warn(`TokyoNOVA | General skills pack '${packId}' not found.`);
+            ui.notifications.warn(`一般技能の辞典（${packId}）が見つからないため、初期技能を入れられませんでした。`);
             return;
         }
 
@@ -218,7 +219,14 @@ async function setupDefaultSkills(actor) {
         );
         const toImport = (await Promise.all(wanted.map(e => pack.getDocument(e._id))))
             .filter(Boolean);
-        if (toImport.length === 0) return;
+        if (toImport.length === 0) {
+            // 本システムはルールブックのデータを同梱していない(著作権配慮・README「著作権」)。
+            // 辞典が空のままだと「新規キャストに初期技能が入らない」が**無言で**起きるため、
+            // 理由を伝える(2026-09-07 ユーザー確定)
+            ui.notifications.warn("一般技能の辞典が空のため、初期技能を入れられませんでした。"
+                + "本システムはルールブックのデータを同梱していないため、辞典への登録は各自で行ってください。");
+            return;
+        }
 
         // 正規ソート順でソートし、sort 値を付与
         const sorted = [...toImport].sort((a, b) =>
