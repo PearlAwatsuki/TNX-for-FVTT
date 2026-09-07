@@ -107,6 +107,9 @@ export async function useRepair(item, usage) {
     await TnxCheckFlow.open({
         ...base,
         repair: {
+            // 委譲の受理条件(GM 代行)で使う行為者=修理する人。対象の所有権が無いから委譲するので、
+            // 検証できるのは対象側ではなく行為者側(2026-09-07)
+            actorUuid:  actor.uuid,
             targetUuid: target.uuid,
             outfitId:   chosen.id,
             outfitName: itemDisplayName(chosen),
@@ -129,7 +132,7 @@ export async function resolveRepairFromCheck(ctx, result, { messageId = null } =
 
     if (result?.success !== true) return; // 失敗・目標値なし(成否は卓裁定=解除は手動)
 
-    if (!await applyRepairClear(target, ctx.outfitId)) return;
+    if (!await applyRepairClear(target, ctx.outfitId, ctx.actorUuid)) return;
     const message = messageId ? game.messages.get(messageId) : null;
     if (message) {
         const esc = foundry.utils.escapeHTML;
@@ -138,15 +141,16 @@ export async function resolveRepairFromCheck(ctx, result, { messageId = null } =
     }
 }
 
-/** 故障の解除を実行する(所有権が無ければ repairApply ソケットで GM 委譲)。 */
-async function applyRepairClear(target, outfitId) {
+/** 故障の解除を実行する(所有権が無ければ repairApply ソケットで GM 委譲)。
+ *  @param {?string} actorUuid 修理する人(委譲の受理条件に使う) */
+async function applyRepairClear(target, outfitId, actorUuid = null) {
     if (target.isOwner) {
         const it = target.items.get(outfitId);
         if (it) await it.update({ "system.isMalfunction": false });
         return true;
     }
     if (game.users.activeGM) {
-        TnxSocketHandler.emitRepairApply({ targetUuid: target.uuid, outfitId });
+        TnxSocketHandler.emitRepairApply({ targetUuid: target.uuid, outfitId, actorUuid });
         return true;
     }
     ui.notifications.warn("対象の所有権がなく GM も不在のため、修理を適用できません。");

@@ -210,6 +210,8 @@ export async function useModification(item, usage) {
     await TnxCheckFlow.open({
         ...base,
         modification: {
+            // 委譲の受理条件で使う行為者=改造する人(修理と同じ)
+            actorUuid:  actor.uuid,
             targetUuid: target.uuid,
             outfitId:   outfit.id,
             outfitName: itemDisplayName(outfit),
@@ -237,7 +239,7 @@ export async function resolveModificationFromCheck(cc, result, { messageId = nul
     const rows = cc.param === "drugTiming"
         ? (cc.drugIds ?? []).map((id) => ({ outfitId: id, param: "drugTiming", value: 0, note: cc.usageName }))
         : [{ outfitId: cc.outfitId, param: cc.param, value: cc.value, note: cc.usageName }];
-    if (!await applyModificationRows(target, rows)) return;
+    if (!await applyModificationRows(target, rows, cc.actorUuid)) return;
 
     const paramLabel = MODIFICATION_PARAMS[cc.param]?.label ?? cc.param;
     const effectText = cc.param === "drugTiming"
@@ -259,13 +261,13 @@ export async function resolveModificationFromCheck(cc, result, { messageId = nul
  * 改造行の適用(所有権が無ければ modificationApply ソケットで GM 委譲)。
  * 二重ガード: 既に同項目の改造行があるアイテムはスキップして警告(1項目1回・並行操作対策)。
  */
-async function applyModificationRows(target, rows) {
+async function applyModificationRows(target, rows, actorUuid = null) {
     if (target.isOwner) {
         await applyModificationRowsLocal(target, rows);
         return true;
     }
     if (game.users.activeGM) {
-        TnxSocketHandler.emitModificationApply({ targetUuid: target.uuid, rows });
+        TnxSocketHandler.emitModificationApply({ targetUuid: target.uuid, rows, actorUuid });
         return true;
     }
     ui.notifications.warn("対象の所有権がなく GM も不在のため、改造を適用できません。");

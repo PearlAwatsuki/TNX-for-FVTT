@@ -28,6 +28,11 @@
  *                    アクトジャーナルのフラグは GM しか書けないため）
  *   passHandCard   - PL → GM: 手札から手札へのカード受け渡しを委譲する（手札は本人+GM のみ
  *                    OWNER のため、非所有者は相手の手札にカードを作成できない）
+ *
+ * **受理条件**(2026-09-07): ソケットは接続中の任意のクライアントが任意のペイロードを投げられる。
+ * アクターを書き換える委譲は `_authorizeDelegation` を通してから実処理へ入る。委譲は
+ * 「**対象**の所有権が無い」から起きるので対象側は検証条件にできない——検証するのは
+ * **行為者側**(修理する人・治療する人・宣言した人)を要求者が操作できるか、である。
  */
 
 const SCOPE = "tokyo-nova-axleration";
@@ -97,6 +102,25 @@ export class TnxSocketHandler {
         }
     }
 
+    /**
+     * アクターを書き換える委譲要求を受理してよいか。
+     *
+     * - 複数 GM 接続時は activeGM だけが代行する(二重適用を防ぐ)。
+     * - 要求者が**行為者アクター**(`actorUuid`)の OWNER であることを確かめる。行為者を渡さない
+     *   旧形式の要求は受理しない。
+     *
+     * @param {{userId?:string, actorUuid?:string}} data 委譲ペイロード
+     * @returns {Promise<boolean>}
+     */
+    static async _authorizeDelegation(data) {
+        if (game.users.activeGM?.id !== game.user.id) return false;
+        const requester = game.users.get(data?.userId);
+        if (!requester || !data?.actorUuid) return false;
+        const doc = await fromUuid(data.actorUuid).catch(() => null);
+        const actor = doc?.actor ?? doc;
+        return actor?.testUserPermission?.(requester, "OWNER") === true;
+    }
+
     // ─── passHandCard（手札から手札への受け渡しの委譲） ───────────────────────
     // 手札は本人+GM のみ OWNER のため、PL は他ユーザーの手札にカードを作成できない。
     // 参加者パネルへの D&D /「指定枚数を渡す」で相手の手札を所有していない場合、
@@ -137,8 +161,11 @@ export class TnxSocketHandler {
      *   actorId    {string}  判定を行ったキャスト Actor ID
      *   result     {object}  TnxCheckEngine が返す判定結果オブジェクト
      */
-    static async _onCheckResult(data) {
+    static async _onCheckResult(data, { viaSocket = true } = {}) {
+        // 複数 GM 接続時、ソケット経由の受信は activeGM だけが処理する(二重更新・支援 AE の
+        // 二重付与を防ぐ)。GM 自身の判定は emitCheckResult から**直接**呼ばれるため素通しする
         if (!game.user.isGM) return;
+        if (viaSocket && game.users.activeGM?.id !== game.user.id) return;
 
         const { messageId, actorId, result } = data;
         const message = game.messages.get(messageId);
@@ -176,7 +203,7 @@ export class TnxSocketHandler {
      */
     static emitCheckResult(messageId, actorId, result) {
         if (game.user.isGM) {
-            TnxSocketHandler._onCheckResult({ messageId, actorId, result });
+            TnxSocketHandler._onCheckResult({ messageId, actorId, result }, { viaSocket: false });
             return;
         }
         game.socket.emit("system.tokyo-nova-axleration", {
@@ -191,7 +218,7 @@ export class TnxSocketHandler {
 
     /** 治療成功による状態除去を GM クライアントが代行する(複数 GM 接続時は activeGM のみ)。 */
     static async _onTreatmentApply(data) {
-        if (game.users.activeGM?.id !== game.user.id) return;
+        if (!await TnxSocketHandler._authorizeDelegation(data)) return;
         const { applyTreatmentDelegated } = await import("./treatment-flow.mjs");
         await applyTreatmentDelegated(data);
     }
@@ -200,19 +227,21 @@ export class TnxSocketHandler {
 
     /** 宿主との状態の入れ替えを GM クライアントが代行する(複数 GM 接続時は activeGM のみ)。 */
     static async _onMiracleSwap(data) {
-        if (game.users.activeGM?.id !== game.user.id) return;
+        if (!await TnxSocketHandler._authorizeDelegation(data)) return;
         const { applyMiracleSwapDelegated } = await import("./miracle-flow.mjs");
         await applyMiracleSwapDelegated(data);
     }
 
     /** 状態の入れ替えを GM へ委譲する(宿主の所有権がない宣言者クライアントから呼ぶ)。 */
     static emitMiracleSwap(payload) {
-        game.socket.emit("system.tokyo-nova-axleration", { type: "miracleSwap", ...payload });
+        game.socket.emit("system.tokyo-nova-axleration", { userId: game.user.id,
+            type: "miracleSwap", ...payload });
     }
 
     /** 治療の状態除去を GM へ委譲する（患者の所有権がない治療者クライアントから呼ぶ）。 */
     static emitTreatmentApply(payload) {
         game.socket.emit("system.tokyo-nova-axleration", {
+            userId: game.user.id,
             type: "treatmentApply",
             ...payload,
         });
@@ -222,7 +251,7 @@ export class TnxSocketHandler {
 
     /** 修理成功による故障解除を GM クライアントが代行する(複数 GM 接続時は activeGM のみ)。 */
     static async _onRepairApply(data) {
-        if (game.users.activeGM?.id !== game.user.id) return;
+        if (!await TnxSocketHandler._authorizeDelegation(data)) return;
         const { applyRepairDelegated } = await import("./repair-flow.mjs");
         await applyRepairDelegated(data);
     }
@@ -230,6 +259,7 @@ export class TnxSocketHandler {
     /** 故障解除を GM へ委譲する（対象の所有権がない修理者クライアントから呼ぶ）。 */
     static emitRepairApply(payload) {
         game.socket.emit("system.tokyo-nova-axleration", {
+            userId: game.user.id,
             type: "repairApply",
             ...payload,
         });
@@ -239,7 +269,7 @@ export class TnxSocketHandler {
 
     /** 改造成功による改造行の適用を GM クライアントが代行する(複数 GM 接続時は activeGM のみ)。 */
     static async _onModificationApply(data) {
-        if (game.users.activeGM?.id !== game.user.id) return;
+        if (!await TnxSocketHandler._authorizeDelegation(data)) return;
         const { applyModificationDelegated } = await import("./modification-flow.mjs");
         await applyModificationDelegated(data);
     }
@@ -247,6 +277,7 @@ export class TnxSocketHandler {
     /** 改造行の適用を GM へ委譲する（対象の所有権がない改造者クライアントから呼ぶ）。 */
     static emitModificationApply(payload) {
         game.socket.emit("system.tokyo-nova-axleration", {
+            userId: game.user.id,
             type: "modificationApply",
             ...payload,
         });
@@ -454,7 +485,8 @@ export class TnxSocketHandler {
      *  および whisper=リアクションカードの公開切替(シークレット解除・2026-07-18)のみ受理。
      *  再判定の置き換え着地は本文の差し替えを含む=2026-07-14)。 */
     static async _onMessagePatch(data) {
-        if (!game.user.isGM) return;
+        // 複数 GM 接続時に両方が update すると二重更新になるため activeGM のみ代行する
+        if (game.users.activeGM?.id !== game.user.id) return;
         const message = game.messages.get(data?.messageId);
         if (!message || !data?.patch) return;
         const updates = {};

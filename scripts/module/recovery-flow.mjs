@@ -226,8 +226,9 @@ function resolveRecoveryPatient(actor) {
     return resolveTargetedOrSelf(actor);
 }
 
-/** 除去を実行する(所有権が無ければ treatmentApply ソケットで GM 委譲=治療と同じ経路)。 */
-async function applyRecoveryRemoval(patient, removeIds) {
+/** 除去を実行する(所有権が無ければ treatmentApply ソケットで GM 委譲=治療と同じ経路)。
+ *  @param {?string} actorUuid 治療する人(委譲の受理条件に使う) */
+async function applyRecoveryRemoval(patient, removeIds, actorUuid = null) {
     if (patient.isOwner) {
         const ids = removeIds.filter(id => patient.effects.get(id));
         const rest = buildPostTreatmentRest(patient, ids);
@@ -236,7 +237,7 @@ async function applyRecoveryRemoval(patient, removeIds) {
         return true;
     }
     if (game.users.activeGM) {
-        TnxSocketHandler.emitTreatmentApply({ patientUuid: patient.uuid, removeIds });
+        TnxSocketHandler.emitTreatmentApply({ patientUuid: patient.uuid, removeIds, actorUuid });
         return true;
     }
     ui.notifications.warn("対象の所有権がなく GM も不在のため、回復を適用できません。");
@@ -296,7 +297,7 @@ export async function useRecovery(item, usage, prebound = null, { asOther = null
         const usesPlan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${item.name}` });
         if (usesPlan === null) return;
         await applyConsumptionPlan(usesPlan);
-        if (!await applyRecoveryRemoval(patient, plan.removeIds)) return;
+        if (!await applyRecoveryRemoval(patient, plan.removeIds, actor.uuid)) return;
         // 回復したことは、**その使用を表しているカードの帰結行**として出す(2026-09-07 ユーザー指示)——
         // 帰結だけの短いカードを別に出さない。神業の治癒(17-2)は神業カード(神業の使用を卓に提示する・
         // 使用ログの記帳点・17-5)、それ以外は他の宣言用途と同じアイテムの解説カード
@@ -323,6 +324,8 @@ export async function useRecovery(item, usage, prebound = null, { asOther = null
         ...base,
         // 完了継続(TnxCheckFlow._execute → resolveRecoveryFromCheck)
         recovery: {
+            // 委譲の受理条件で使う行為者=治療する人(修理・改造と同じ)
+            actorUuid:      actor.uuid,
             patientUuid:    patient.uuid,
             removeIds:      plan.removeIds,
             conditionLabel: plan.conditionLabel,
@@ -346,7 +349,7 @@ export async function resolveRecoveryFromCheck(ctx, result, { messageId = null }
 
     if (result?.success !== true) return; // 失敗・目標値なし(成否は卓裁定=除去は手動)
 
-    if (!await applyRecoveryRemoval(patient, ctx.removeIds)) return;
+    if (!await applyRecoveryRemoval(patient, ctx.removeIds, ctx.actorUuid)) return;
     const message = messageId ? game.messages.get(messageId) : null;
     // 旧いカードの再判定スナップショットは label 1本(状態のみ)——そのまま状態の名前として読む
     const outcome = recoveryOutcome(patient.name, {
