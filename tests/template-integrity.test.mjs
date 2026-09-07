@@ -173,7 +173,8 @@ describe("型定義健全性テスト", () => {
 // 登録は任意だが、パーシャルだけは**必須**。新しいパーシャルを足したときの
 // 登録漏れを機械的に止める(2026-09-07)。
 describe("検証5: テンプレートのパーシャル参照が preload に登録されている", () => {
-  const entry = readFileSync(join(projectRoot, "scripts", "tnx.mjs"), "utf-8");
+  // preload の一覧は 2026-09-07 に tnx.mjs から core/preload-templates.mjs へ移設
+  const entry = readFileSync(join(projectRoot, "scripts", "core", "preload-templates.mjs"), "utf-8");
 
   /** templates/ 配下の .hbs を再帰収集する。 */
   const collect = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((d) =>
@@ -190,7 +191,7 @@ describe("検証5: テンプレートのパーシャル参照が preload に登�
     expect(refs.size).toBeGreaterThan(15);
   });
 
-  it("すべてのパーシャル参照が tnx.mjs の preload に載っている", () => {
+  it("すべてのパーシャル参照が preload-templates.mjs の一覧に載っている", () => {
     expect([...refs].filter((r) => !entry.includes(r)).sort()).toEqual([]);
   });
 
