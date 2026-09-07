@@ -9,7 +9,7 @@
 
 トーキョーN◎VA THE AXLERATION は、株式会社KADOKAWA より発売されているテーブルトークRPG (TRPG) です。本プロジェクトは、このゲームを Foundry Virtual Tabletop (Foundry VTT) 上でオンラインセッションに使うためのシステムを提供することを目的としています。
 
-特徴的な要素として、カードによる判定 (Cards API ベース)、シーン制によるアクト進行、神業 (miracle) によるゲーム進行の書き換え、プレイヤー単位の経験点管理などをサポートする予定です。
+特徴的な要素として、カードによる判定 (Cards API ベース)、シーン制によるアクト進行、神業 (miracle) によるゲーム進行の書き換え、プレイヤー単位の経験点管理などをサポートしています。
 
 ## 対応バージョン
 
@@ -17,7 +17,13 @@
 
 ## インストール
 
-(未定。フェーズ8 公開準備時に追記予定)
+Foundry VTT の設定画面で「Game Systems」→「Install System」を開き、Manifest URL に次を入力します。
+
+```
+https://github.com/PearlAwatsuki/TNX-for-FVTT/releases/latest/download/system.json
+```
+
+コンペンディウム（スタイル・技能・アウトフィット等）のデータは同梱していません。理由は下の「著作権」を参照してください。
 
 ## ライセンス
 

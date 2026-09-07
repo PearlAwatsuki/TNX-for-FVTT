@@ -184,9 +184,9 @@ class Combobox {
             this.list.innerHTML = '<li class="tnx-combobox__empty">候補なし</li>';
         } else {
             this.list.innerHTML = this.visible.map((o, i) => {
-                const label = escapeHtml(o.label);
-                const sub = o.label !== o.value ? `<span class="tnx-combobox__sub">${escapeHtml(o.value)}</span>` : "";
-                return `<li class="tnx-combobox__option" role="option" data-index="${i}" data-value="${escapeHtml(o.value)}">${label}${sub}</li>`;
+                const label = foundry.utils.escapeHTML(o.label);
+                const sub = o.label !== o.value ? `<span class="tnx-combobox__sub">${foundry.utils.escapeHTML(o.value)}</span>` : "";
+                return `<li class="tnx-combobox__option" role="option" data-index="${i}" data-value="${foundry.utils.escapeHTML(o.value)}">${label}${sub}</li>`;
             }).join("");
         }
         this.reposition();
@@ -264,13 +264,4 @@ class Combobox {
         }
         if (active === this) active = null;
     }
-}
-
-/** 属性値/テキストノードへ差し込むための最小限のエスケープ。 */
-function escapeHtml(str) {
-    return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
 }

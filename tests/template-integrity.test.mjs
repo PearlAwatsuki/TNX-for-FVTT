@@ -5,7 +5,7 @@
  *
  * 検証1: template.json の廃止確認 — ファイルが存在しないこと
  * 検証2: system.json の JSON 妥当性 — 末尾カンマ等の構文崩れを検出
- * 検証3: documentTypes に全 25 type が揃っていること
+ * 検証3: documentTypes に全 type(Actor 4 / Item 17 / Card 3)が揃っていること
  * 検証4: DataModel ファイルと documentTypes.Item の整合 — 過不足がないこと
  *
  * このテストは Foundry ランタイムに依存しない(Node.js 単体で完結)。
@@ -105,7 +105,7 @@ describe("型定義健全性テスト", () => {
   });
 
   // ============================================================
-  // 検証3: documentTypes に全 25 type が揃っている
+  // 検証3: documentTypes に全 type が揃っている(内訳は各 it が持つ)
   // ============================================================
 
   describe("検証3: documentTypes に全 type が揃っている", () => {
@@ -162,5 +162,42 @@ describe("型定義健全性テスト", () => {
       const documentTypesItemKeys = Object.keys(json.documentTypes.Item).sort();
       expect(dataModeledTypes).toEqual(documentTypesItemKeys);
     });
+  });
+});
+
+// ============================================================
+// 検証5: パーシャル参照は必ず preload されている
+// ============================================================
+// Handlebars のパーシャル({{> "systems/…"}})は loadTemplates で登録済みでないと
+// 実行時に解決できない。通常のテンプレートは renderTemplate が都度取得するので
+// 登録は任意だが、パーシャルだけは**必須**。新しいパーシャルを足したときの
+// 登録漏れを機械的に止める(2026-09-07)。
+describe("検証5: テンプレートのパーシャル参照が preload に登録されている", () => {
+  const entry = readFileSync(join(projectRoot, "scripts", "tnx.mjs"), "utf-8");
+
+  /** templates/ 配下の .hbs を再帰収集する。 */
+  const collect = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((d) =>
+    d.isDirectory() ? collect(join(dir, d.name))
+      : (d.name.endsWith(".hbs") ? [join(dir, d.name)] : []));
+
+  const refs = new Set();
+  for (const f of collect(join(projectRoot, "templates"))) {
+    const src = readFileSync(f, "utf-8");
+    for (const m of src.matchAll(/\{\{#?>\s*"(systems\/[^"]+)"/g)) refs.add(m[1]);
+  }
+
+  it("参照を実際に拾えている(検証が空振りしていない)", () => {
+    expect(refs.size).toBeGreaterThan(15);
+  });
+
+  it("すべてのパーシャル参照が tnx.mjs の preload に載っている", () => {
+    expect([...refs].filter((r) => !entry.includes(r)).sort()).toEqual([]);
+  });
+
+  it("preload に載っているテンプレートは実在する", () => {
+    const listed = [...entry.matchAll(/"systems\/tokyo-nova-axleration\/(templates\/[^"]+\.hbs)"/g)]
+      .map((m) => m[1]);
+    expect(listed.length).toBeGreaterThan(60);
+    expect(listed.filter((rel) => !existsSync(join(projectRoot, rel)))).toEqual([]);
   });
 });

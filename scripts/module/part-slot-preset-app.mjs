@@ -237,7 +237,7 @@ export class PartSlotPresetApp extends HandlebarsApplicationMixin(ApplicationV2)
   };
 
   static PARTS = {
-    main: { template: "systems/tokyo-nova-axleration/templates/apps/part-slot-preset.hbs" },
+    main: { template: "systems/tokyo-nova-axleration/templates/app/part-slot-preset.hbs" },
   };
 
   /** 編集対象アクター(指定時は actor.system.partSlots を編集。null = ゲーム設定プリセット)。 */
