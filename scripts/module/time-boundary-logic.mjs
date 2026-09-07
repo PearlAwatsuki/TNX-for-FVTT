@@ -18,6 +18,7 @@
  * 再登場はできない(→ Appearance_Check)以上、退場後にシーン持続の効果を保つ意味がないため。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { CONDITION_KINDS, conditionDisplayName, getConditionKinds } from "./conditions.mjs";
 
 /** 適用の起点になる境界。グルーがフックから解決してこの値で呼ぶ。 */
@@ -56,7 +57,6 @@ export const TNX_DURATIONS = Object.freeze({
     act:            "アクト中",
 });
 
-const SCOPE = "tokyo-nova-axleration";
 
 /** 持続の入れ子の深さ。小さいほど短い。 */
 const DURATION_RANK = Object.freeze({
@@ -85,7 +85,7 @@ const BOUNDARY_RANK = Object.freeze({
  * @returns {string} TNX_DURATIONS のキー
  */
 export function readEffectDuration(effect) {
-    const raw = effect?.flags?.[SCOPE]?.tnxDuration;
+    const raw = effect?.flags?.[SYSTEM_ID]?.tnxDuration;
     return (typeof raw === "string" && raw in DURATION_RANK) ? raw : "";
 }
 
@@ -152,7 +152,7 @@ export function planItemGrantExpiry(items, boundary) {
     for (const item of (items ?? [])) {
         const effectIds = [];
         for (const effect of (item?.effects ?? [])) {
-            if (effect?.flags?.[SCOPE]?.grantedFrom === undefined) continue;
+            if (effect?.flags?.[SYSTEM_ID]?.grantedFrom === undefined) continue;
             if (durationExpiresAt(readEffectDuration(effect), boundary)) effectIds.push(effect.id);
         }
         if (effectIds.length) out.push({ itemId: item.id, effectIds });
@@ -267,7 +267,7 @@ const CLEAR_ALL_BS = new Set([
  * @returns {boolean}
  */
 function isUntreatedGated(effect, bsKinds, aliveIds) {
-    const flags = effect?.flags?.[SCOPE] ?? {};
+    const flags = effect?.flags?.[SYSTEM_ID] ?? {};
     const perKind = flags.conditions ?? {};
     const gated = bsKinds.some(k => (perKind[k]?.durationNote ?? flags.durationNote) === "治療まで");
     if (!gated) return false;
@@ -379,7 +379,7 @@ export function planActEndDamageCleanup(effects) {
     }
     // 消える負傷に紐づく効果(終端でないもの)も一緒に落とす
     for (const effect of list) {
-        const woundId = effect?.flags?.[SCOPE]?.woundSource;
+        const woundId = effect?.flags?.[SYSTEM_ID]?.woundSource;
         if (!woundId || !removedWounds.has(woundId)) continue;
         if (removeIds.includes(effect.id)) continue;
         if (getConditionKinds(effect).some(isTerminal)) continue;
@@ -407,7 +407,7 @@ export function buildIncapableEffectData(sceneNumber) {
         name: def?.label ?? "行動不可",
         img:  def?.img ?? "icons/svg/pill.svg",
         statuses: [INCAPABLE_KIND],
-        flags: { [SCOPE]: {
+        flags: { [SYSTEM_ID]: {
             conditionKind: INCAPABLE_KIND,
             conditions: { [INCAPABLE_KIND]: { freeFromScene: from } },
         } },
@@ -426,7 +426,7 @@ export function planSceneDeadlineExpiry(effects, sceneNumber) {
     const now = Number(sceneNumber) || 0;
     return (effects ?? [])
         .filter(e => {
-            const perKind = e?.flags?.[SCOPE]?.conditions ?? {};
+            const perKind = e?.flags?.[SYSTEM_ID]?.conditions ?? {};
             return getConditionKinds(e).some(kind => {
                 const from = perKind[kind]?.freeFromScene;
                 return Number.isFinite(Number(from)) && now >= Number(from);
@@ -499,7 +499,7 @@ export function planPoisonTicks(effects) {
         .filter(e => e?.disabled !== true && getConditionKinds(e).includes("poison"))
         .map(e => ({
             id: e.id,
-            magnitude: Number(e?.flags?.[SCOPE]?.conditions?.poison?.magnitude) || 0,
+            magnitude: Number(e?.flags?.[SYSTEM_ID]?.conditions?.poison?.magnitude) || 0,
         }));
 }
 
@@ -513,7 +513,7 @@ export function planPoisonTicks(effects) {
 export function planSceneDeferredFiring(effects) {
     const out = [];
     for (const effect of (effects ?? [])) {
-        const perKind = effect?.flags?.[SCOPE]?.conditions ?? {};
+        const perKind = effect?.flags?.[SYSTEM_ID]?.conditions ?? {};
         for (const kind of getConditionKinds(effect)) {
             if (CONDITION_KINDS[kind]?.sceneDeferred !== true) continue;
             if (perKind[kind]?.sceneFired === true) continue;

@@ -1,3 +1,4 @@
+import { SYSTEM_ID, SOCKET_CHANNEL } from "../constants.mjs";
 import { TnxActionHandler, buildNeuroCardChatHTML } from './tnx-action-handler.mjs';
 import { TnxCheckFlow } from './tnx-check-flow.mjs';
 import { isDamageCardPending, executeDamageCardFromHand } from './damage-flow.mjs';
@@ -65,16 +66,16 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
 
         // 折り畳み状態はテンプレートに直接出力し、初期描画＝最終状態にする(描画後 JS トグルの
         // チラつき＝展開状態で描画→直後に収納、を防ぐ。_restoreCollapseState は冪等に残す)
-        context.rightCollapsed  = game.settings.get("tokyo-nova-axleration", "hudRightCollapsed");
-        context.bottomCollapsed = game.settings.get("tokyo-nova-axleration", "hudBottomCollapsed");
-        context.accessCollapsed = game.settings.get("tokyo-nova-axleration", "hudAccessCollapsed");
-        context.participantsCollapsed = game.settings.get("tokyo-nova-axleration", "hudParticipantsCollapsed");
+        context.rightCollapsed  = game.settings.get(SYSTEM_ID, "hudRightCollapsed");
+        context.bottomCollapsed = game.settings.get(SYSTEM_ID, "hudBottomCollapsed");
+        context.accessCollapsed = game.settings.get(SYSTEM_ID, "hudAccessCollapsed");
+        context.participantsCollapsed = game.settings.get(SYSTEM_ID, "hudParticipantsCollapsed");
 
         // --- カードID取得（ゲーム設定から直接読み込み）---
-        const cardDeckId    = game.settings.get("tokyo-nova-axleration", "cardDeckId");
-        const discardPileId = game.settings.get("tokyo-nova-axleration", "discardPileId");
-        const neuroDeckId   = game.settings.get("tokyo-nova-axleration", "neuroDeckId");
-        const scenePileId   = game.settings.get("tokyo-nova-axleration", "scenePileId");
+        const cardDeckId    = game.settings.get(SYSTEM_ID, "cardDeckId");
+        const discardPileId = game.settings.get(SYSTEM_ID, "discardPileId");
+        const neuroDeckId   = game.settings.get(SYSTEM_ID, "neuroDeckId");
+        const scenePileId   = game.settings.get(SYSTEM_ID, "scenePileId");
 
         // --- 3. 取得したIDを元にドキュメントを読み込み、コンテキストにセット ---
 
@@ -189,7 +190,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
         }
 
         // --- アクセスカード（全ユーザーに表示。pile 未設定・空のときはエリアごと非表示）---
-        const accessCardPileId = game.settings.get("tokyo-nova-axleration", "accessCardPileId");
+        const accessCardPileId = game.settings.get(SYSTEM_ID, "accessCardPileId");
         const accessPile = await fromUuid(accessCardPileId);
         if (accessPile && accessPile.cards.size > 0) {
             context.accessCards = accessPile.cards.contents;
@@ -202,7 +203,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
         // 手札の表裏: revealPlayerHands がオンのときのみプレイヤーの手札を表向きにする。
         // RL の手札は設定によらず常に裏向き。裏向きのカードには名前等の情報を一切載せない
         // (ツールチップからの内容漏れ防止)
-        const revealHands = game.settings.get("tokyo-nova-axleration", "revealPlayerHands");
+        const revealHands = game.settings.get(SYSTEM_ID, "revealPlayerHands");
         const others = game.users.filter(u =>
             u.active && u.id !== game.user.id && getUserFlagData(u).handPileId);
         // 並びは受け渡しダイアログと同じ規則: プレイヤー(名前順)→GM(名前順)
@@ -262,7 +263,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
             cards.push({ img: `${statusBase}ghost.png`, label: "ゴースト" });
         }
         if (character?.effects?.some(e => !e.disabled
-            && e.flags?.["tokyo-nova-axleration"]?.conditionKind === "erased")) {
+            && e.flags?.[SYSTEM_ID]?.conditionKind === "erased")) {
             cards.push({ img: `${statusBase}erasure.png`, label: "抹殺" });
         }
         return cards;
@@ -279,10 +280,10 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
     }
 
     _restoreCollapseState() {
-        const rightCollapsed  = game.settings.get("tokyo-nova-axleration", "hudRightCollapsed");
-        const bottomCollapsed = game.settings.get("tokyo-nova-axleration", "hudBottomCollapsed");
-        const accessCollapsed = game.settings.get("tokyo-nova-axleration", "hudAccessCollapsed");
-        const participantsCollapsed = game.settings.get("tokyo-nova-axleration", "hudParticipantsCollapsed");
+        const rightCollapsed  = game.settings.get(SYSTEM_ID, "hudRightCollapsed");
+        const bottomCollapsed = game.settings.get(SYSTEM_ID, "hudBottomCollapsed");
+        const accessCollapsed = game.settings.get(SYSTEM_ID, "hudAccessCollapsed");
+        const participantsCollapsed = game.settings.get(SYSTEM_ID, "hudParticipantsCollapsed");
         const right  = this.element.querySelector(".hud-right-column");
         const bottom = this.element.querySelector(".hud-bottom-bar");
         const access = this.element.querySelector(".access-area");
@@ -460,7 +461,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
                     const cardDeck = await TnxActionHandler.getActiveDeck();
                     if (cardDeck) {
                         await cardDeck.recall({ chatNotification: false });
-                        if (game.settings.get("tokyo-nova-axleration", "shuffleOnDeckReset")) {
+                        if (game.settings.get(SYSTEM_ID, "shuffleOnDeckReset")) {
                             await cardDeck.shuffle({ chatNotification: false });
                             ui.notifications.info("山札をリセット（全カードを回収）し、シャッフルしました。");
                         } else {
@@ -656,7 +657,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
         const area = target.closest(".access-area");
         if (!area) return;
         const nowCollapsed = area.classList.toggle("collapsed");
-        game.settings.set("tokyo-nova-axleration", "hudAccessCollapsed", nowCollapsed);
+        game.settings.set(SYSTEM_ID, "hudAccessCollapsed", nowCollapsed);
     }
 
     static _onToggleParticipantsArea(event, target) {
@@ -664,7 +665,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
         const area = target.closest(".participants-area");
         if (!area) return;
         const nowCollapsed = area.classList.toggle("collapsed");
-        game.settings.set("tokyo-nova-axleration", "hudParticipantsCollapsed", nowCollapsed);
+        game.settings.set(SYSTEM_ID, "hudParticipantsCollapsed", nowCollapsed);
     }
 
     /**
@@ -677,7 +678,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
         const cardId = target.dataset.cardId;
         if (!cardId) return;
 
-        const accessPile = await fromUuid(game.settings.get("tokyo-nova-axleration", "accessCardPileId"));
+        const accessPile = await fromUuid(game.settings.get(SYSTEM_ID, "accessCardPileId"));
         const card = accessPile?.cards.get(cardId);
         if (!card) return ui.notifications.warn("アクセスカードが見つかりませんでした。");
 
@@ -686,7 +687,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
             src: card.img,
             window: { title: card.name },
         }).render(true);
-        game.socket.emit("system.tokyo-nova-axleration", {
+        game.socket.emit(SOCKET_CHANNEL, {
             type: "presentAccessCard",
             src: card.img,
             title: card.name,
@@ -704,7 +705,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
         if (!container) return;
 
         const nowCollapsed = container.classList.toggle("collapsed");
-        game.settings.set("tokyo-nova-axleration", settingKey, nowCollapsed);
+        game.settings.set(SYSTEM_ID, settingKey, nowCollapsed);
 
         if (column === "bottom") TnxHud._syncHotbarVisibility(!nowCollapsed);
 
@@ -732,7 +733,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
     static async _buildInfoItems() {
         const st = getSessionState();
         const journal = st.actStarted ? getActiveActJournal() : null;
-        const raw = journal?.getFlag("tokyo-nova-axleration", "infoItems") ?? [];
+        const raw = journal?.getFlag(SYSTEM_ID, "infoItems") ?? [];
         if (!raw.length) return [];
         const nameByKey = await loadGeneralSkillNameByKey();
         const shaped = hudInfoItems(raw, { isGM: game.user.isGM });

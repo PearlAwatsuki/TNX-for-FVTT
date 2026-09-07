@@ -12,7 +12,8 @@
  *   - Foundry 依存(非同期): saveUserFlagHistory / deleteUserFlagHistoryEntry / saveUserFlagCards
  */
 
-export const TNX_FLAG_SCOPE = "tokyo-nova-axleration";
+import { SYSTEM_ID } from "../constants.mjs";
+
 
 /**
  * User flag のデフォルト値(スキーマの権威)。
@@ -43,7 +44,7 @@ const FLAG_DEFAULTS = {
  *             handPileId: string, trumpCardPileId: string, handMaxSize: number }}
  */
 export function getUserFlagData(user) {
-  const f = user?.flags?.[TNX_FLAG_SCOPE] ?? {};
+  const f = user?.flags?.[SYSTEM_ID] ?? {};
   return {
     history:        f.history          ?? FLAG_DEFAULTS.history,
     exp: {
@@ -188,10 +189,10 @@ export function gatherHandMaxSizeMod(user) {
  * @returns {number}
  */
 export function resolveEffectiveHandMaxSize(user) {
-  const explicit = user?.flags?.[TNX_FLAG_SCOPE]?.handMaxSize;
+  const explicit = user?.flags?.[SYSTEM_ID]?.handMaxSize;
   const base = explicit !== undefined
     ? explicit
-    : game.settings.get("tokyo-nova-axleration", "defaultHandMaxSize");
+    : game.settings.get(SYSTEM_ID, "defaultHandMaxSize");
   return computeEffectiveHandMaxSize(base, gatherHandMaxSizeMod(user));
 }
 
@@ -207,8 +208,8 @@ export function resolveEffectiveHandMaxSize(user) {
 export async function saveUserFlagHistory(user, newHistoryMap) {
   const newTotal = calcHistoryExpTotal(newHistoryMap);
   return user.update({
-    [`flags.${TNX_FLAG_SCOPE}.history`]: newHistoryMap,
-    [`flags.${TNX_FLAG_SCOPE}.exp.total`]: newTotal,
+    [`flags.${SYSTEM_ID}.history`]: newHistoryMap,
+    [`flags.${SYSTEM_ID}.exp.total`]: newTotal,
   });
 }
 
@@ -228,8 +229,8 @@ export async function deleteUserFlagHistoryEntry(user, entryId) {
   const newHistory = historyRemove(history, entryId);
   const newTotal = calcHistoryExpTotal(newHistory);
   return user.update({
-    [`flags.${TNX_FLAG_SCOPE}.history.-=${entryId}`]: null,
-    [`flags.${TNX_FLAG_SCOPE}.exp.total`]: newTotal,
+    [`flags.${SYSTEM_ID}.history.-=${entryId}`]: null,
+    [`flags.${SYSTEM_ID}.exp.total`]: newTotal,
   });
 }
 
@@ -243,8 +244,8 @@ export async function deleteUserFlagHistoryEntry(user, entryId) {
  */
 export async function saveUserFlagCards(user, handPileId, trumpCardPileId) {
   return user.update({
-    [`flags.${TNX_FLAG_SCOPE}.handPileId`]: handPileId,
-    [`flags.${TNX_FLAG_SCOPE}.trumpCardPileId`]: trumpCardPileId,
+    [`flags.${SYSTEM_ID}.handPileId`]: handPileId,
+    [`flags.${SYSTEM_ID}.trumpCardPileId`]: trumpCardPileId,
   });
 }
 
@@ -255,5 +256,5 @@ export async function saveUserFlagCards(user, handPileId, trumpCardPileId) {
  * @param {boolean} value
  */
 export async function saveIsScenePlayer(user, value) {
-  return user.update({ [`flags.${TNX_FLAG_SCOPE}.isScenePlayer`]: value === true });
+  return user.update({ [`flags.${SYSTEM_ID}.isScenePlayer`]: value === true });
 }

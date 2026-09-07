@@ -12,6 +12,7 @@
  * 配布とも同じ形式。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { bindTargetPicker } from "./target-picker.mjs";
 import {
     buildRlDamageStagingFlag, buildConditionGrantData, rlConditionChoices,
@@ -30,7 +31,6 @@ import { promptEffectData } from "./effect-authoring.mjs";
 import { itemDisplayName } from "./identification.mjs";
 import { spinnerDialogActions } from "./tnx-dialog.mjs";
 
-const SCOPE = "tokyo-nova-axleration";
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会" };
 
 const CATEGORY_OPTIONS = RL_DAMAGE_CATEGORIES;
@@ -59,7 +59,7 @@ const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
  * あって定義ではないため、付与元には出さない。
  */
 function isSelectableEffect(eff) {
-    const f = eff.flags?.[SCOPE] ?? {};
+    const f = eff.flags?.[SYSTEM_ID] ?? {};
     return !f.grantedFrom && !f.transferredFrom;
 }
 
@@ -93,7 +93,7 @@ function collectEffectSourceGroups() {
 
     const worldItems = game.items
         // 下書き置き場は付与元ではない(組み立て中の一時領域)
-        .filter(i => i.getFlag(SCOPE, "effectScratch") !== true)
+        .filter(i => i.getFlag(SYSTEM_ID, "effectScratch") !== true)
         .map(itemEffectSource).filter(Boolean);
 
     return buildEffectSourceGroups({ presetGroups, actorGroups, worldItems });
@@ -112,7 +112,7 @@ async function resolveEffectSource(key, composed) {
         return composed ? buildGrantedEffectDataFrom(composed) : null;
     }
     if (parsed.kind === "preset") {
-        const presets = game.journal.get(parsed.a)?.getFlag(SCOPE, "effectGrants") ?? [];
+        const presets = game.journal.get(parsed.a)?.getFlag(SYSTEM_ID, "effectGrants") ?? [];
         const preset  = presets.find(p => p.id === parsed.b);
         // プリセットは実体を持つ(供給元ドキュメントが無い＝由来 uuid も無い)
         return preset?.effect ? buildGrantedEffectDataFrom(preset.effect) : null;
@@ -224,7 +224,7 @@ export class TnxRlGrantDamageApp extends HandlebarsApplicationMixin(ApplicationV
                     summaryRows:   stagingSummaryRows({ mode, category, damageType: flags.damageType, value }),
                 }
             ),
-            flags: { [SCOPE]: { attackCheck: flags } },
+            flags: { [SYSTEM_ID]: { attackCheck: flags } },
         });
     }
 }
@@ -441,7 +441,7 @@ export class TnxRlGrantBountyApp extends HandlebarsApplicationMixin(ApplicationV
                     targets:     data.targets,
                 }
             ),
-            flags: { [SCOPE]: { bountyGrant: data } },
+            flags: { [SYSTEM_ID]: { bountyGrant: data } },
         });
     }
 }

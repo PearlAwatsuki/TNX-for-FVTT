@@ -28,6 +28,7 @@ import {
     isAppearing, isNameHidden, displayActorName, listAppearingActors,
     manualExitTargets, confirmTeamExitDialog, applyManualExit,
 } from "./appearance-state.mjs";
+import { SYSTEM_ID } from "../constants.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { enrichText, enrichInfoCardData } from "./reference-links.mjs";
 import {
@@ -55,7 +56,6 @@ import { collectLostCharacters } from "./time-boundary-logic.mjs";
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const { DialogV2 } = foundry.applications.api;
 
-const SCOPE = "tokyo-nova-axleration";
 
 /**
  * 送信カードの描画(2026-08-15)。パネルから送るチャットは4種とも判定要求カードの骨格を
@@ -163,7 +163,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
     }
 
     /** タブ状態(既定=進行)。最後に開いたタブはクライアント設定で次回起動に引き継ぐ。 */
-    tabGroups = { primary: game.settings.get(SCOPE, "scenarioPanelTab") || "flow" };
+    tabGroups = { primary: game.settings.get(SYSTEM_ID, "scenarioPanelTab") || "flow" };
 
     /**
      * タブ切替。コア V13 の changeTab は nav に `.tabs` クラスを要求しコア CSS と競合するため、
@@ -180,8 +180,8 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             section.classList.toggle("active", section.dataset.tab === tab);
         }
         this.tabGroups[group] = tab;
-        if (game.settings.get(SCOPE, "scenarioPanelTab") !== tab) {
-            game.settings.set(SCOPE, "scenarioPanelTab", tab);
+        if (game.settings.get(SYSTEM_ID, "scenarioPanelTab") !== tab) {
+            game.settings.set(SYSTEM_ID, "scenarioPanelTab", tab);
         }
     }
 
@@ -302,7 +302,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         if (!journal || !game.user.isGM) return context;
 
         // シーン一覧(フェイズ別・現在行ハイライト)と「次のシーンへ」(基本操作・台本順で送る)
-        const scenes = journal.getFlag(SCOPE, "scenes") ?? {};
+        const scenes = journal.getFlag(SYSTEM_ID, "scenes") ?? {};
         // 舞台裏(14-6): リサーチシーンでは「シーンを閉じる」→ 舞台裏を回しきるまで
         // 「次のシーンへ」を出さない(2026-08-08 ユーザー指示)
         const bs = getBackstage();
@@ -351,8 +351,8 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         context.rotation = rotating ? getRotationStatus() : null;
         // 折りたたみ状態(2026-08-15 タブ再構成): 巡回・シーン一覧は毎シーンの操作ではないので
         // 既定で畳み、開閉はクライアント設定に永続化する
-        context.rotationOpen  = game.settings.get(SCOPE, "scenarioPanelRotationOpen");
-        context.sceneListOpen = game.settings.get(SCOPE, "scenarioPanelSceneListOpen");
+        context.rotationOpen  = game.settings.get(SYSTEM_ID, "scenarioPanelRotationOpen");
+        context.sceneListOpen = game.settings.get(SYSTEM_ID, "scenarioPanelSceneListOpen");
         // 一覧の番号は台本順の自動採番(14-8・手入力を廃止)
         const seq = sceneSequenceNumbers(scenes);
         context.sceneGroups = PHASE_ORDER.map(phase => ({
@@ -368,7 +368,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         // 送信系(読み込みがあれば開始前でも使用可=プレアクトの配布)。
         // 表示名は「①<スタイル名>用ハンドアウト」形式の自動生成・ラベルは対象ユーザー(2026-08-09 裁定)
         const styleChoices = await loadSkillChoices([STYLE_PACK]);
-        const handoutRows = (journal.getFlag(SCOPE, "handouts") ?? []).map(normalizeHandoutRow);
+        const handoutRows = (journal.getFlag(SYSTEM_ID, "handouts") ?? []).map(normalizeHandoutRow);
         context.handouts = handoutRows.map(h => ({
             id: h.id,
             title: handoutDisplayTitle(h, {
@@ -380,13 +380,13 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         }));
         // 名前が未入力のテキストはアクトシートと同じ「テキストn」で並べる(全部「テキスト」に
         // なると送信先を選べないため)
-        context.texts = (journal.getFlag(SCOPE, "scenarioTexts") ?? []).map((t, i) => ({
+        context.texts = (journal.getFlag(SYSTEM_ID, "scenarioTexts") ?? []).map((t, i) => ({
             id: t.id, title: presetLabel(t, i, "テキスト"),
         }));
         // 技能行の識別キーは辞典逆引きの現在名で表示する(14-7・生キー/空欄を出さない)。
         // 並びは **指定技能が見出し・その下に目標値が同列**(2026-08-15 ユーザー指示):
         // 目標値どうしに上下関係は無いので、入口と段を区別せず 1 つの並びとして出す
-        context.infoItems = (journal.getFlag(SCOPE, "infoItems") ?? [])
+        context.infoItems = (journal.getFlag(SYSTEM_ID, "infoItems") ?? [])
             .map(item => withResolvedInfoSkillNames(item, skillNameByKey))
             .map(item => ({
                 id: item.id,
@@ -514,7 +514,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         const journal = getActiveActJournal();
         const st = getSessionState();
         const next = nextSceneTarget(
-            journal?.getFlag(SCOPE, "scenes") ?? null, st.sceneId, st.doneEventSceneIds);
+            journal?.getFlag(SYSTEM_ID, "scenes") ?? null, st.sceneId, st.doneEventSceneIds);
         if (!next) return void ui.notifications.warn("台本に次のシーンがありません。");
         // 巡回の継続はシーン開始ダイアログが確認を兼ねる(確認ダイアログを二重に出さない)
         if (next.row.id !== st.sceneId) {
@@ -535,7 +535,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
      */
     static async _onLaunchEvent(_event, _target) {
         const st = getSessionState();
-        const scenes = getActiveActJournal()?.getFlag(SCOPE, "scenes") ?? null;
+        const scenes = getActiveActJournal()?.getFlag(SYSTEM_ID, "scenes") ?? null;
         const candidates = eventSceneCandidates(scenes, st.sceneId, st.doneEventSceneIds);
         if (!candidates.length) return void ui.notifications.warn("起動できるイベントシーンがありません。");
 
@@ -578,7 +578,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
 
     /** 「クライマックスへ」(14-8)＝リサーチのイベントを消化しきったらクライマックスの先頭行へ。 */
     static async _onGoClimax(_event, _target) {
-        const scenes = getActiveActJournal()?.getFlag(SCOPE, "scenes") ?? null;
+        const scenes = getActiveActJournal()?.getFlag(SYSTEM_ID, "scenes") ?? null;
         const first = Array.isArray(scenes?.climax) ? scenes.climax[0] : null;
         if (!first) return void ui.notifications.warn("台本にクライマックスのシーンがありません。");
         const name = normalizeSceneRow(first).name || "無題のシーン";
@@ -616,14 +616,14 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
     static async _onSendTrailer(_event, _target) {
         const journal = getActiveActJournal();
         // 見出しはアクト名(トレーラーが名乗るのはそのアクトの題名)
-        const data = buildTrailerCardData(journal?.getFlag(SCOPE, "trailer"), { actName: journal?.name });
+        const data = buildTrailerCardData(journal?.getFlag(SYSTEM_ID, "trailer"), { actName: journal?.name });
         if (!data) return void ui.notifications.warn("トレーラーが入力されていません。");
         await ChatMessage.create({ content: await renderChatCard("text-card", data) });
     }
 
     static async _onSendHandout(_event, target) {
         const journal = getActiveActJournal();
-        const handouts = (journal?.getFlag(SCOPE, "handouts") ?? []).map(normalizeHandoutRow);
+        const handouts = (journal?.getFlag(SYSTEM_ID, "handouts") ?? []).map(normalizeHandoutRow);
         const handout = handouts.find(h => h.id === target.dataset.id);
         if (!handout) return;
         // スタイル(スタイル辞典キー)は逆引きの現在名で表示する(生キーを出さない)。
@@ -643,7 +643,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         // コネの受け取りに要る値はカードへ写す(台本を後で編集してもカードは送った時点の記録)
         await ChatMessage.create({
             content,
-            flags: { [SCOPE]: { handoutContact: {
+            flags: { [SYSTEM_ID]: { handoutContact: {
                 type:        contact.type,
                 contactName: contact.contactName,
                 itemUuid:    contact.itemUuid,
@@ -658,7 +658,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
 
     static async _onSendText(_event, target) {
         const journal = getActiveActJournal();
-        const text = (journal?.getFlag(SCOPE, "scenarioTexts") ?? []).find(t => t.id === target.dataset.id);
+        const text = (journal?.getFlag(SYSTEM_ID, "scenarioTexts") ?? []).find(t => t.id === target.dataset.id);
         const data = buildScenarioTextCardData(text);
         if (!data) return void ui.notifications.warn("送信するテキストがありません。");
         await ChatMessage.create({ content: await renderChatCard("text-card", data) });
@@ -666,7 +666,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
 
     static async _onSendInfo(_event, target) {
         const journal = getActiveActJournal();
-        const item = (journal?.getFlag(SCOPE, "infoItems") ?? []).find(i => i.id === target.dataset.id);
+        const item = (journal?.getFlag(SYSTEM_ID, "infoItems") ?? []).find(i => i.id === target.dataset.id);
         if (!item) return;
         // 非公開の情報はチャットに送れない(2026-08-18 ユーザー指示)。ボタンは公開時のみ
         // 描画されるが、再描画前の押下に備えて実行側でも塞ぐ
@@ -687,13 +687,13 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
     static async _onToggleInfoPublic(_event, target) {
         const journal = getActiveActJournal();
         if (!journal) return;
-        const items = foundry.utils.deepClone(journal.getFlag(SCOPE, "infoItems") ?? []);
+        const items = foundry.utils.deepClone(journal.getFlag(SYSTEM_ID, "infoItems") ?? []);
         const item = items.find(i => i.id === target.dataset.id);
         if (!item) return;
         item.isPublic = item.isPublic !== true;
         // 再描画は updateJournalEntry フック(tnx.mjs)が行う。ここで重ねて render すると
         // 二重描画になり、スクロール位置の控えが 0 の状態を拾って復元が壊れる(2026-08-16)
-        await journal.setFlag(SCOPE, "infoItems", items);
+        await journal.setFlag(SYSTEM_ID, "infoItems", items);
     }
 
     /**
@@ -704,26 +704,26 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
     static async _onToggleInfoDisclosed(_event, target) {
         const journal = getActiveActJournal();
         if (!journal) return;
-        const items = foundry.utils.deepClone(journal.getFlag(SCOPE, "infoItems") ?? []);
+        const items = foundry.utils.deepClone(journal.getFlag(SYSTEM_ID, "infoItems") ?? []);
         const contents = items.find(i => i.id === target.dataset.id)?.contents;
         const index = contents?.findIndex(c => c.id === target.dataset.contentId) ?? -1;
         if (index < 0) return;
         contents[index] = toggleInfoDisclosure(contents[index], target.dataset.tierId || null);
         // 再描画は updateJournalEntry フックが行う(_onToggleInfoPublic と同じ理由で重ねない)
-        await journal.setFlag(SCOPE, "infoItems", items);
+        await journal.setFlag(SYSTEM_ID, "infoItems", items);
     }
 
     // ─── 折りたたみ(巡回・シーン一覧)＝クライアント設定に永続化 ─────────────
 
     static async _onToggleSceneList(_event, _target) {
-        await game.settings.set(SCOPE, "scenarioPanelSceneListOpen",
-            !game.settings.get(SCOPE, "scenarioPanelSceneListOpen"));
+        await game.settings.set(SYSTEM_ID, "scenarioPanelSceneListOpen",
+            !game.settings.get(SYSTEM_ID, "scenarioPanelSceneListOpen"));
         this.render(false);
     }
 
     static async _onToggleRotation(_event, _target) {
-        await game.settings.set(SCOPE, "scenarioPanelRotationOpen",
-            !game.settings.get(SCOPE, "scenarioPanelRotationOpen"));
+        await game.settings.set(SYSTEM_ID, "scenarioPanelRotationOpen",
+            !game.settings.get(SYSTEM_ID, "scenarioPanelRotationOpen"));
         this.render(false);
     }
 

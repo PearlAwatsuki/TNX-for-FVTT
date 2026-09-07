@@ -11,6 +11,7 @@
  * (親ドキュメント＝アクター自身。供給元アイテムを持たない AE は既に正常な状態)。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { CONDITION_KINDS, CONDITION_GROUP_LABELS } from "./conditions.mjs";
 import { ATTACK_DAMAGE_TYPES } from "../data/item/helpers.mjs";
 
@@ -35,7 +36,6 @@ export const RL_DAMAGE_MODES = Object.freeze([
     { value: "card",  label: "カードを出す（通常算出）" },
 ]);
 
-const SCOPE = "tokyo-nova-axleration";
 
 /** ダメージ種別を解決する(物理のみ・既定 I・X 可・不正は I・非物理は空)。 */
 function resolveDamageType(category, damageType) {
@@ -176,7 +176,7 @@ export function buildConditionGrantData(kind) {
         img:      def.img ?? "icons/svg/aura.svg",
         statuses: [kind],
         changes:  [],
-        flags:    { [SCOPE]: { conditionKind: kind, hideFromList: false } },
+        flags:    { [SYSTEM_ID]: { conditionKind: kind, hideFromList: false } },
     };
 }
 

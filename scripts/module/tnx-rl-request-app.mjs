@@ -12,6 +12,7 @@
  *   5. 判定結果がチャットに追記される
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { ALL_SUITS } from './tnx-check-engine.mjs';
 import { TnxCheckFlow } from './tnx-check-flow.mjs';
 import { buildSkillOptions } from './skill-select.mjs';
@@ -112,7 +113,7 @@ export async function postCheckRequest({
     return ChatMessage.create({
         content,
         flags: {
-            "tokyo-nova-axleration": {
+            [SYSTEM_ID]: {
                 checkRequest: {
                     checkType,
                     identificationKey: keys[0] ?? null,
@@ -378,7 +379,7 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
      * チャットの「判定する」ボタン押下時に呼ばれる。
      * 技能アイテムを解決し、TnxCheckFlow.open() に渡す。
      *
-     * @param {object} flagData    - message.flags["tokyo-nova-axleration"].checkRequest
+     * @param {object} flagData    - message.flags[SYSTEM_ID].checkRequest
      * @param {string} actorId     - 判定を行うキャスト Actor ID
      * @param {string} messageId   - 要求元 ChatMessage ID
      */

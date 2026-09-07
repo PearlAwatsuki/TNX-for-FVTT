@@ -8,6 +8,7 @@
  * ゲートする(templates/actor/parts/ の partial 群を共有)。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { TnxSkillUtils } from '../module/tnx-skill-utils.mjs';
 import { EffectsSheetMixin } from "../module/effects-sheet-mixin.mjs";
 import { OUTFIT_CATEGORIES, getMinorCategoryLabel, getMajorCategoryLabel, isMajorLevelSlotMajor } from '../data/item/outfit-categories.mjs';
@@ -317,7 +318,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         this.actor.effects.forEach(e => {
             if (e.disabled) return;
             const conds = readConditions(e);
-            const bsFlags = e.flags?.["tokyo-nova-axleration"];
+            const bsFlags = e.flags?.[SYSTEM_ID];
             let hasStatusCondition = false;
             if (e.statuses && e.statuses.size > 0) {
                 e.statuses.forEach(statusId => {
@@ -1473,19 +1474,19 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             {
                 name:      "効果を無視する",
                 icon:      '<i class="fas fa-ban"></i>',
-                condition: header => this.actor.effects.get(header.dataset.effectId)?.getFlag("tokyo-nova-axleration", "manuallyIgnored") !== true,
+                condition: header => this.actor.effects.get(header.dataset.effectId)?.getFlag(SYSTEM_ID, "manuallyIgnored") !== true,
                 callback:  async header => {
                     const effect = this.actor.effects.get(header.dataset.effectId);
-                    if (effect) await effect.setFlag("tokyo-nova-axleration", "manuallyIgnored", true);
+                    if (effect) await effect.setFlag(SYSTEM_ID, "manuallyIgnored", true);
                 }
             },
             {
                 name:      "無視を解除する",
                 icon:      '<i class="fas fa-arrow-rotate-left"></i>',
-                condition: header => this.actor.effects.get(header.dataset.effectId)?.getFlag("tokyo-nova-axleration", "manuallyIgnored") === true,
+                condition: header => this.actor.effects.get(header.dataset.effectId)?.getFlag(SYSTEM_ID, "manuallyIgnored") === true,
                 callback:  async header => {
                     const effect = this.actor.effects.get(header.dataset.effectId);
-                    if (effect) await effect.unsetFlag("tokyo-nova-axleration", "manuallyIgnored");
+                    if (effect) await effect.unsetFlag(SYSTEM_ID, "manuallyIgnored");
                 }
             }
         ];
@@ -2434,7 +2435,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             const newStatuses = Array.from(effect.statuses).filter(id => id !== statusId);
             await effect.update({ statuses: newStatuses });
             if (newStatuses.length === 0 && effect.changes.length === 0
-                    && !effect.flags?.["tokyo-nova-axleration"]?.isBadStatus) {
+                    && !effect.flags?.[SYSTEM_ID]?.isBadStatus) {
                 await effect.delete();
             }
         } else {
@@ -2975,7 +2976,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             content,
             speaker: ChatMessage.getSpeaker({ actor }),
             flags: {
-                "tokyo-nova-axleration": {
+                [SYSTEM_ID]: {
                     checkResult: { actorId: actor.id, result },
                 },
             },

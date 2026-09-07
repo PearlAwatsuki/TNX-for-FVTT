@@ -35,13 +35,14 @@
  * **行為者側**(修理する人・治療する人・宣言した人)を要求者が操作できるか、である。
  */
 
-const SCOPE = "tokyo-nova-axleration";
+import { SYSTEM_ID, SOCKET_CHANNEL } from "../constants.mjs";
+
 
 export class TnxSocketHandler {
     /**
      * ソケットメッセージを受信して種別ごとに処理する。
      * tnx.mjs の ready フック内で
-     *   game.socket.on("system.tokyo-nova-axleration", TnxSocketHandler.onMessage)
+     *   game.socket.on(SOCKET_CHANNEL, TnxSocketHandler.onMessage)
      * として登録する。
      *
      * @param {object} data  送信側が渡したペイロード
@@ -171,15 +172,15 @@ export class TnxSocketHandler {
         const message = game.messages.get(messageId);
         if (!message) return;
 
-        const flags = message.getFlag("tokyo-nova-axleration", "checkRequest") ?? {};
+        const flags = message.getFlag(SYSTEM_ID, "checkRequest") ?? {};
         const results = foundry.utils.deepClone(flags.results ?? {});
         results[actorId] = result;
 
         const allDone = (flags.targets ?? []).every(t => results[t.actorId] !== undefined);
 
         await message.update({
-            "flags.tokyo-nova-axleration.checkRequest.results": results,
-            "flags.tokyo-nova-axleration.checkRequest.status":
+            [`flags.${SYSTEM_ID}.checkRequest.results`]: results,
+            [`flags.${SYSTEM_ID}.checkRequest.status`]:
                 allDone ? "completed" : "partial",
         });
 
@@ -206,7 +207,7 @@ export class TnxSocketHandler {
             TnxSocketHandler._onCheckResult({ messageId, actorId, result }, { viaSocket: false });
             return;
         }
-        game.socket.emit("system.tokyo-nova-axleration", {
+        game.socket.emit(SOCKET_CHANNEL, {
             type: "checkResult",
             messageId,
             actorId,
@@ -234,13 +235,13 @@ export class TnxSocketHandler {
 
     /** 状態の入れ替えを GM へ委譲する(宿主の所有権がない宣言者クライアントから呼ぶ)。 */
     static emitMiracleSwap(payload) {
-        game.socket.emit("system.tokyo-nova-axleration", { userId: game.user.id,
+        game.socket.emit(SOCKET_CHANNEL, { userId: game.user.id,
             type: "miracleSwap", ...payload });
     }
 
     /** 治療の状態除去を GM へ委譲する（患者の所有権がない治療者クライアントから呼ぶ）。 */
     static emitTreatmentApply(payload) {
-        game.socket.emit("system.tokyo-nova-axleration", {
+        game.socket.emit(SOCKET_CHANNEL, {
             userId: game.user.id,
             type: "treatmentApply",
             ...payload,
@@ -258,7 +259,7 @@ export class TnxSocketHandler {
 
     /** 故障解除を GM へ委譲する（対象の所有権がない修理者クライアントから呼ぶ）。 */
     static emitRepairApply(payload) {
-        game.socket.emit("system.tokyo-nova-axleration", {
+        game.socket.emit(SOCKET_CHANNEL, {
             userId: game.user.id,
             type: "repairApply",
             ...payload,
@@ -276,7 +277,7 @@ export class TnxSocketHandler {
 
     /** 改造行の適用を GM へ委譲する（対象の所有権がない改造者クライアントから呼ぶ）。 */
     static emitModificationApply(payload) {
-        game.socket.emit("system.tokyo-nova-axleration", {
+        game.socket.emit(SOCKET_CHANNEL, {
             userId: game.user.id,
             type: "modificationApply",
             ...payload,
@@ -303,7 +304,7 @@ export class TnxSocketHandler {
 
     /** 「次へ」/手番終了を GM へ委譲する（スポット/手番プレイヤーのクライアントから呼ぶ）。 */
     static emitCutAdvance(payload) {
-        game.socket.emit("system.tokyo-nova-axleration", {
+        game.socket.emit(SOCKET_CHANNEL, {
             type: "cutAdvance",
             userId: game.user.id,
             ...payload,
@@ -326,7 +327,7 @@ export class TnxSocketHandler {
 
     /** 割り込み許可の付与を GM へ委譲する（付与元アクターの操作者クライアントから呼ぶ）。 */
     static emitInterruptGrant(payload) {
-        game.socket.emit("system.tokyo-nova-axleration", {
+        game.socket.emit(SOCKET_CHANNEL, {
             type: "interruptGrant",
             userId: game.user.id,
             ...payload,
@@ -345,7 +346,7 @@ export class TnxSocketHandler {
 
     /** 割り込み開始を GM へ委譲する（割り込む対象の操作者クライアントから呼ぶ）。 */
     static emitInterruptStart(payload) {
-        game.socket.emit("system.tokyo-nova-axleration", {
+        game.socket.emit(SOCKET_CHANNEL, {
             type: "interruptStart",
             userId: game.user.id,
             ...payload,
@@ -364,7 +365,7 @@ export class TnxSocketHandler {
 
     /** 挿入メイン終了を GM へ委譲する（挿入メインの操作者クライアントから呼ぶ）。 */
     static emitInterruptEnd(payload) {
-        game.socket.emit("system.tokyo-nova-axleration", {
+        game.socket.emit(SOCKET_CHANNEL, {
             type: "interruptEnd",
             userId: game.user.id,
             ...payload,
@@ -388,7 +389,7 @@ export class TnxSocketHandler {
 
     /** メジャーアクション記帳を GM へ委譲する（本人の操作者クライアントから呼ぶ）。 */
     static emitMarkMajor(payload) {
-        game.socket.emit("system.tokyo-nova-axleration", {
+        game.socket.emit(SOCKET_CHANNEL, {
             type: "markMajor",
             userId: game.user.id,
             ...payload,
@@ -427,7 +428,7 @@ export class TnxSocketHandler {
 
     /** チーム宣言を GM へ委譲する(プレイヤークライアントから呼ぶ)。 */
     static emitSessionTeam(payload) {
-        game.socket.emit("system.tokyo-nova-axleration", {
+        game.socket.emit(SOCKET_CHANNEL, {
             type: "sessionTeam",
             userId: game.user.id,
             ...payload,
@@ -451,7 +452,7 @@ export class TnxSocketHandler {
 
     /** 手動退場を GM へ委譲する(プレイヤークライアントから呼ぶ)。 */
     static emitTeamExit(payload) {
-        game.socket.emit("system.tokyo-nova-axleration", {
+        game.socket.emit(SOCKET_CHANNEL, {
             type: "teamExit",
             userId: game.user.id,
             ...payload,
@@ -472,7 +473,7 @@ export class TnxSocketHandler {
 
     /** 情報収集判定の自動開示を GM へ委譲する(プレイヤークライアントから呼ぶ)。 */
     static emitInfoDisclose(payload) {
-        game.socket.emit("system.tokyo-nova-axleration", {
+        game.socket.emit(SOCKET_CHANNEL, {
             type: "infoDisclose",
             userId: game.user.id,
             ...payload,
@@ -491,7 +492,7 @@ export class TnxSocketHandler {
         if (!message || !data?.patch) return;
         const updates = {};
         for (const [k, v] of Object.entries(data.patch)) {
-            if (k !== "content" && k !== "whisper" && !k.startsWith(`flags.${SCOPE}.`)) continue; // 自スコープ外は無視
+            if (k !== "content" && k !== "whisper" && !k.startsWith(`flags.${SYSTEM_ID}.`)) continue; // 自スコープ外は無視
             updates[k] = v;
         }
         if (Object.keys(updates).length) await message.update(updates);
@@ -509,12 +510,12 @@ export class TnxSocketHandler {
     static async applyMessagePatch(message, patch, flagPrefix = null) {
         const data = {};
         for (const [k, v] of Object.entries(patch)) {
-            data[flagPrefix ? `flags.${SCOPE}.${flagPrefix}.${k}` : k] = v;
+            data[flagPrefix ? `flags.${SYSTEM_ID}.${flagPrefix}.${k}` : k] = v;
         }
         if (game.user.isGM || message.isAuthor) {
             await message.update(data);
         } else {
-            game.socket.emit("system.tokyo-nova-axleration", {
+            game.socket.emit(SOCKET_CHANNEL, {
                 type: "messagePatch",
                 messageId: message.id,
                 patch: data,

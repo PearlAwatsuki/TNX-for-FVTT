@@ -11,7 +11,8 @@
  * ワールド設定 `activeFocusSystems` で、起動時にスナップショットを取り込む。
  */
 
-const SCOPE = "tokyo-nova-axleration";
+import { SYSTEM_ID } from "../constants.mjs";
+
 const KEY = "focusSystem";
 
 const randomID = () => (globalThis.foundry?.utils?.randomID?.() ?? Math.random().toString(36).slice(2, 18));
@@ -86,7 +87,7 @@ function normalizeRow(row) {
  * @returns {object} FS判定の設定
  */
 export function readFocusSystemData(doc) {
-    const saved = doc?.flags?.[SCOPE]?.[KEY] ?? {};
+    const saved = doc?.flags?.[SYSTEM_ID]?.[KEY] ?? {};
     const base  = defaultFocusSystemData();
 
     const keys = saved.supportSkillKeys
@@ -110,8 +111,8 @@ export function readFocusSystemData(doc) {
 
 /** FS判定シートとして使われているジャーナルか(起動フォームの読み込み元の絞り込み)。 */
 export function isFocusSystemJournal(doc) {
-    return !!doc?.flags?.[SCOPE]?.[KEY];
+    return !!doc?.flags?.[SYSTEM_ID]?.[KEY];
 }
 
 /** flags のスコープとキー(書き込み側で使う)。 */
-export const FOCUS_SYSTEM_FLAG = Object.freeze({ scope: SCOPE, key: KEY });
+export const FOCUS_SYSTEM_FLAG = Object.freeze({ scope: SYSTEM_ID, key: KEY });

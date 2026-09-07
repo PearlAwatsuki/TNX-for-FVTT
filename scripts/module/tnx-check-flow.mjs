@@ -15,6 +15,7 @@
  * ルール正本: llm-wiki/01_Wiki/Game_Rules/Check_Rules.md
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { getCardCheckValue, calcSkillCheck, calcControlCheck, normalizeSuit, ALL_SUITS, SUIT_TO_ABILITY } from './tnx-check-engine.mjs';
 import { gatherCheckBonusSources, collectActorEffectBuffs, actorHasSuitChangeBuff, actorCardValueOverride, readFlag } from '../data/item/helpers.mjs';
 import { evaluateBonusRows, evaluateSelfBonus } from './tnx-formula.mjs';
@@ -702,8 +703,8 @@ export class TnxCheckFlow {
         // 《不可知》(17-6): 宣言で立てた「次の行動」の印をこの判定で消費し、結果に載せて攻撃カード・
         // ダメージカードへ運ぶ(リアクション不可・ダメージの状態に神業由来の印)。AR・CSカレントは
         // 割り込み機構(consumesAr=偽の挿入メイン)が担うのでここでは触らない
-        const insensibleBy = actor.getFlag("tokyo-nova-axleration", "insensible") ?? null;
-        if (insensibleBy) await actor.unsetFlag("tokyo-nova-axleration", "insensible");
+        const insensibleBy = actor.getFlag(SYSTEM_ID, "insensible") ?? null;
+        if (insensibleBy) await actor.unsetFlag(SYSTEM_ID, "insensible");
 
         // 用途起動による使用回数の消費（用途の消費先設定＝consumeTargets 由来・11-6）。
         // 起動時の消費ダイアログで確定した平プランを判定実行時に適用する（キャンセル時は未到達＝非消費）
@@ -923,7 +924,7 @@ export class TnxCheckFlow {
             content,
             speaker: actor ? ChatMessage.getSpeaker({ actor }) : undefined,
             flags: {
-                "tokyo-nova-axleration": {
+                [SYSTEM_ID]: {
                     checkResult: { actorId: ctx.actorId, result },
                     // 用途の適用効果(あれば)。カードに「効果を適用」ボタンを出す(2026-07-10)
                     ...(ctx.usageEffects ? { usageEffects: ctx.usageEffects } : {}),
@@ -988,23 +989,22 @@ export class TnxCheckFlow {
      * - 非作者は GM へソケット委譲(applyMessagePatch・content 込み)。
      */
     static async _applyRecheckReplacement({ ctx, card, suit, result, cardCheckValue = null, fromDeck, trumpUsed, suitMismatch = false, checkSources = [] }) {
-        const SCOPE = "tokyo-nova-axleration";
         const message = game.messages.get(ctx.recheckMessageId);
         if (!message) { ui.notifications.warn("再判定する元のカードが見つかりません。"); return; }
 
         // 継続判定(治療/回復/controlNegate=B)の「失敗→成功のみ適用」ゲート用に旧成否を控える
-        const oldSuccess = message.getFlag(SCOPE, "checkResult")?.result?.success === true;
+        const oldSuccess = message.getFlag(SYSTEM_ID, "checkResult")?.result?.success === true;
 
         const patch = {
-            [`flags.${SCOPE}.checkRecheck.rechecked`]: true,
-            [`flags.${SCOPE}.-=checkMods`]: null,
-            [`flags.${SCOPE}.checkResult`]: { actorId: ctx.actorId, result },
+            [`flags.${SYSTEM_ID}.checkRecheck.rechecked`]: true,
+            [`flags.${SYSTEM_ID}.-=checkMods`]: null,
+            [`flags.${SYSTEM_ID}.checkResult`]: { actorId: ctx.actorId, result },
         };
 
         if (ctx.attack) {
             // 命中判定は全対象で共有(複数対象一括・2026-07-15)。再ロールした達成値で対象リスト全体を
             // 再解決し(リアクションのやり直しはしない)、上位状態も導き直す。
-            const prev = message.getFlag(SCOPE, "attackCheck") ?? {};
+            const prev = message.getFlag(SYSTEM_ID, "attackCheck") ?? {};
             const { buildAttackCardContent, rebuildRecheckedTargets } = await import("./attack-flow.mjs");
             const newTargets = await rebuildRecheckedTargets(prev.targets ?? [], {
                 achievement: result.achievement, fumble: result.fumble === true, suitMismatch, suit,
@@ -1031,7 +1031,7 @@ export class TnxCheckFlow {
                 const { movementStagesFromAchievement } = await import("./vehicle-move-logic.mjs");
                 const movementFailed = movementStagesFromAchievement(Number(result.achievement) || 0) === 0;
                 if (movementFailed) overall = "failed";
-                patch[`flags.${SCOPE}.attackCheck.failedReason`] = movementFailed ? "movement" : null;
+                patch[`flags.${SYSTEM_ID}.attackCheck.failedReason`] = movementFailed ? "movement" : null;
             }
             // 対象なしの対決で openReactions が未作成(作成時に全体失敗/移動失敗だった)なら、
             // 仕切り直しで器を敷く=回復時にリアクション導線が開くように(2026-07-19)
@@ -1039,18 +1039,18 @@ export class TnxCheckFlow {
                 && overall !== "fumble" && overall !== "miss") {
                 const { isOpposedConfrontation } = await import("./confrontation-logic.mjs");
                 if (isOpposedConfrontation(ctx.attack.confrontation)) {
-                    patch[`flags.${SCOPE}.attackCheck.openReactions`] = [];
+                    patch[`flags.${SYSTEM_ID}.attackCheck.openReactions`] = [];
                 }
             }
             patch.content = await buildAttackCardContent({
                 payload: ctx.attack, result, suit, card, fromDeck, trumpUsed, suitMismatch, checkSources, isRecheck: true,
             });
-            patch[`flags.${SCOPE}.attackCheck.achievement`] = result.achievement;
-            patch[`flags.${SCOPE}.attackCheck.cardValue`] =
+            patch[`flags.${SYSTEM_ID}.attackCheck.achievement`] = result.achievement;
+            patch[`flags.${SYSTEM_ID}.attackCheck.cardValue`] =
                 cardCheckValue === "FIXED_21" ? 11 : (Number.isFinite(cardCheckValue) ? cardCheckValue : 0);
-            patch[`flags.${SCOPE}.attackCheck.suit`] = suit;
-            patch[`flags.${SCOPE}.attackCheck.state`] = overall;
-            patch[`flags.${SCOPE}.attackCheck.targets`] = newTargets;
+            patch[`flags.${SYSTEM_ID}.attackCheck.suit`] = suit;
+            patch[`flags.${SYSTEM_ID}.attackCheck.state`] = overall;
+            patch[`flags.${SYSTEM_ID}.attackCheck.targets`] = newTargets;
         } else if (ctx.movement) {
             // 操縦移動は通常結果カードでなく移動カード。達成値÷10 段階を新達成値で描き直す(表示のみ=A)
             const { buildMovementCardContent } = await import("./vehicle-move.mjs");
@@ -1063,19 +1063,19 @@ export class TnxCheckFlow {
             // 下の _rerunContinuation(completeReactionFromCheck allowResolved)が行う。
             // オープンリアクションは通常の結果カードのため下の通常再描画に乗せる
             const { buildReactionResultContent } = await import("./attack-flow.mjs");
-            const rf = message.getFlag(SCOPE, "attackReaction");
+            const rf = message.getFlag(SYSTEM_ID, "attackReaction");
             if (rf) {
                 patch.content = await buildReactionResultContent({
                     reactionFlags: rf, mode: ctx.reaction.mode,
                     skillLabel: ctx.skillLabel, card, suit, result,
                     fromDeck, trumpUsed, suitMismatch, checkSources, isRecheck: true,
                 });
-                patch[`flags.${SCOPE}.attackReaction.contentResolved`] = true;
+                patch[`flags.${SYSTEM_ID}.attackReaction.contentResolved`] = true;
             }
         } else {
             patch.content = await TnxCheckFlow._renderResultContent({
                 ctx, card, suit, result, fromDeck, trumpUsed, suitMismatch, checkSources, isRecheck: true,
-                infoDisclosed: message.getFlag(SCOPE, "checkResult")?.infoDisclosed === true,
+                infoDisclosed: message.getFlag(SYSTEM_ID, "checkResult")?.infoDisclosed === true,
             });
         }
 
@@ -1252,11 +1252,10 @@ export class TnxCheckFlow {
      * @returns {string|null} 警告文(可能なら null)
      */
     static recheckBlockReason(message) {
-        const SCOPE = "tokyo-nova-axleration";
-        const rc = message.getFlag(SCOPE, "checkRecheck");
+        const rc = message.getFlag(SYSTEM_ID, "checkRecheck");
         if (!rc) return "このカードは再判定できません。";
         if (rc.rechecked === true) return "この判定は再判定済みです（再判定は一度だけ）。";
-        if (message.getFlag(SCOPE, "attackCheck")?.damageRolled === true) {
+        if (message.getFlag(SYSTEM_ID, "attackCheck")?.damageRolled === true) {
             return "ダメージ算出後はタイミングが合わないため再判定できません。";
         }
         return null;
@@ -1273,7 +1272,7 @@ export class TnxCheckFlow {
      * @param {Array} [opts.consumeUses] 付与用途の消費プラン(判定実行時に適用)
      */
     static async startRecheck(message, { mergeSkill = null, consumeUses = [] } = {}) {
-        const rc = message.getFlag("tokyo-nova-axleration", "checkRecheck");
+        const rc = message.getFlag(SYSTEM_ID, "checkRecheck");
         if (!rc) return;
         const blocked = TnxCheckFlow.recheckBlockReason(message);
         if (blocked) { ui.notifications.warn(blocked); return; }
@@ -1431,7 +1430,7 @@ export class TnxCheckFlow {
     static async _onGrantAchievementClick(message) {
         const state = TnxCheckFlow._clickState;
         if (!state) {
-            const rc = message.getFlag("tokyo-nova-axleration", "checkRecheck");
+            const rc = message.getFlag(SYSTEM_ID, "checkRecheck");
             if (rc?.allowRecheck !== true) return;
             if (TnxCheckFlow.recheckBlockReason(message)) return;
             const actor = game.actors.get(rc.actorId);
@@ -1477,10 +1476,9 @@ export class TnxCheckFlow {
      * 消費なし・ダメージ算出後も制限しない=2026-07-14)。
      */
     static async _applyCheckModify(message, { actor, skill, usageId, consumeUses, manual = null } = {}) {
-        const SCOPE = "tokyo-nova-axleration";
-        const rc = message.getFlag(SCOPE, "checkRecheck");
-        const attackF = message.getFlag(SCOPE, "attackCheck");
-        const checkF = message.getFlag(SCOPE, "checkResult");
+        const rc = message.getFlag(SYSTEM_ID, "checkRecheck");
+        const attackF = message.getFlag(SYSTEM_ID, "attackCheck");
+        const checkF = message.getFlag(SYSTEM_ID, "checkResult");
         if (!checkF && !attackF) return;
 
         // ダメージ算出後の攻撃は修正不可(算出済みダメージの巻き戻しは整合を壊す)。
@@ -1532,15 +1530,15 @@ export class TnxCheckFlow {
         // 達成値の更新と帰結の再計算(上書きは差分に正規化済み=既存の合算機構にそのまま乗る)。
         // 事後修正でも達成値は 0 未満にならない(下限クランプ・2026-07-15 ユーザー確定)
         const newAch = Math.max(0, prevAch + mod);
-        const mods = foundry.utils.deepClone(message.getFlag(SCOPE, "checkMods") ?? { rows: [] });
+        const mods = foundry.utils.deepClone(message.getFlag(SYSTEM_ID, "checkMods") ?? { rows: [] });
         mods.rows.push({ label, value: mod, ...(overrideTo !== undefined ? { overrideTo } : {}) });
         mods.achievement = newAch;
 
         const patch = {};
-        patch[`flags.${SCOPE}.checkMods`] = mods;
+        patch[`flags.${SYSTEM_ID}.checkMods`] = mods;
         let newSuccess = checkF?.result?.success === true; // 継続再実行の遷移判定用(目標値つきは下で更新)
         if (checkF) {
-            patch[`flags.${SCOPE}.checkResult.result.achievement`] = newAch;
+            patch[`flags.${SYSTEM_ID}.checkResult.result.achievement`] = newAch;
             // 目標値つきは成否・差分値を再計算(差分値は成功時のみ=Check_Rules)。
             // 強制失敗(2026-08-15)は達成値を修正しても成否が覆らない=成否の再計算をしない
             const tv = rc?.targetValue ?? null;
@@ -1550,22 +1548,22 @@ export class TnxCheckFlow {
                 const success = newAch >= tv;
                 newSuccess = success;
                 const diff = success ? newAch - tv : null;
-                patch[`flags.${SCOPE}.checkResult.result.diff`] = diff;
+                patch[`flags.${SYSTEM_ID}.checkResult.result.diff`] = diff;
                 mods.success = success;
                 mods.diff = diff;
                 mods.targetValue = tv;
             }
         }
         if (attackF) {
-            patch[`flags.${SCOPE}.attackCheck.achievement`] = newAch;
+            patch[`flags.${SYSTEM_ID}.attackCheck.achievement`] = newAch;
             // 解決済みなら保存済みの相手値に対して再解決(pending は以後の解決が新しい値を使う)
             if (attackF.state === "hit" || attackF.state === "miss") {
                 const { resolveNoReaction, resolveOpposed } = await import("./attack-flow-logic.mjs");
                 const r = attackF.resolution === "none"
                     ? resolveNoReaction(newAch, attackF.targetValue)
                     : resolveOpposed(newAch, attackF.reactionAchievement ?? 0);
-                patch[`flags.${SCOPE}.attackCheck.state`] = r.hit ? "hit" : "miss";
-                patch[`flags.${SCOPE}.attackCheck.diff`] = r.diff;
+                patch[`flags.${SYSTEM_ID}.attackCheck.state`] = r.hit ? "hit" : "miss";
+                patch[`flags.${SYSTEM_ID}.attackCheck.diff`] = r.diff;
             }
             // オープンリアクション: 保存済みのリアクション達成値で再解決(ライブ成否)
             if (attackF.state === "open" || attackF.state === "failed") {
@@ -1574,23 +1572,23 @@ export class TnxCheckFlow {
                 if (attackF.movement) {
                     const { movementStagesFromAchievement } = await import("./vehicle-move-logic.mjs");
                     movementFailed = movementStagesFromAchievement(newAch) === 0;
-                    patch[`flags.${SCOPE}.attackCheck.failedReason`] = movementFailed ? "movement" : null;
+                    patch[`flags.${SYSTEM_ID}.attackCheck.failedReason`] = movementFailed ? "movement" : null;
                 }
                 if (movementFailed) {
-                    patch[`flags.${SCOPE}.attackCheck.state`] = "failed";
+                    patch[`flags.${SYSTEM_ID}.attackCheck.state`] = "failed";
                 } else if (attackF.openReactions?.length) {
                     // 2026-07-18 任意・複数化: 成立の最高達成値1件との受動有利で再導出
                     const { resolveOpenReactions } = await import("./reaction-logic.mjs");
                     const { failed } = resolveOpenReactions(newAch, attackF.openReactions);
-                    patch[`flags.${SCOPE}.attackCheck.state`] = failed ? "failed" : "open";
+                    patch[`flags.${SYSTEM_ID}.attackCheck.state`] = failed ? "failed" : "open";
                 } else if (attackF.openReaction?.resolved && attackF.openReaction.mode) {
                     // 旧形式(先着1件・2026-07-17)の互換
                     const { resolveOpposed } = await import("./attack-flow-logic.mjs");
                     const { hit } = resolveOpposed(newAch, attackF.openReaction.reactionAchievement ?? 0);
-                    patch[`flags.${SCOPE}.attackCheck.state`] = hit ? "open" : "failed";
+                    patch[`flags.${SYSTEM_ID}.attackCheck.state`] = hit ? "open" : "failed";
                 } else if (attackF.movement) {
                     // 移動失敗のみで failed だったカードが回復した場合
-                    patch[`flags.${SCOPE}.attackCheck.state`] = "open";
+                    patch[`flags.${SYSTEM_ID}.attackCheck.state`] = "open";
                 }
             }
         }
@@ -1618,9 +1616,8 @@ export class TnxCheckFlow {
      * ため制限しない(ダメージ算出後も可)。
      */
     static async manualEditAchievement(message) {
-        const SCOPE = "tokyo-nova-axleration";
-        const attackF = message.getFlag(SCOPE, "attackCheck");
-        const checkF = message.getFlag(SCOPE, "checkResult");
+        const attackF = message.getFlag(SYSTEM_ID, "attackCheck");
+        const checkF = message.getFlag(SYSTEM_ID, "checkResult");
         if (!checkF && !attackF) return;
         const current = Number(attackF?.achievement ?? checkF?.result?.achievement) || 0;
         const { AmountInputDialog } = await import("./tnx-dialog.mjs");
@@ -1667,7 +1664,7 @@ export class TnxCheckFlow {
  * 押下時の権限判定は startRecheck 側(所有者/RL)。
  */
 export function renderRecheckButton(message, html) {
-    const rc = message.getFlag("tokyo-nova-axleration", "checkRecheck");
+    const rc = message.getFlag(SYSTEM_ID, "checkRecheck");
     if (!rc) return;
     const host = html.querySelector(".tnx-card") ?? html;
 
@@ -1692,7 +1689,7 @@ export function renderRecheckButton(message, html) {
     }
 
     // 事後修正の内訳(判定を修正・フラグ checkMods からライブ描画)
-    const mods = message.getFlag("tokyo-nova-axleration", "checkMods");
+    const mods = message.getFlag(SYSTEM_ID, "checkMods");
     if (mods?.rows?.length) {
         const esc = foundry.utils.escapeHTML;
         let area = host.querySelector(".tnx-checkmod-area");

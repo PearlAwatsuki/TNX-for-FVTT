@@ -1,3 +1,4 @@
+import { SYSTEM_ID, SOCKET_CHANNEL } from "./constants.mjs";
 import { TokyoNovaCastSheet } from './actor/tnx-cast-sheet.mjs';
 import { TokyoNovaGuestSheet } from './actor/tnx-guest-sheet.mjs';
 import { TokyoNovaTroopSheet } from './actor/tnx-troop-sheet.mjs';
@@ -78,7 +79,7 @@ import { renderFocusProgressButton, renderFocusSupportNote } from './module/focu
 import { autoSendFocusChecks } from './module/focus-system-request.mjs';
 import { registerEffectScratchHiding, sweepEffectScratchItems } from './module/effect-authoring.mjs';
 import { FOCUS_SYSTEM_FLAG, defaultFocusSystemData } from './module/focus-system-data.mjs';
-import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/user-flag-schema.mjs';
+import { getUserFlagData, calcHistoryExpTotal } from './module/user-flag-schema.mjs';
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
 import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
 import { CONDITION_KINDS, CONDITION_GROUP_LABELS, conditionDisplayName, getConditionKinds, buildInflictedEffectsData, applyDamageTagMods, readConditions, blocksMainProcess, actorCannotMainProcess } from './module/conditions.mjs';
@@ -289,8 +290,8 @@ async function syncCastExpToUser(ownerUser) {
     if (currentSpent === newSpent) return;
 
     await ownerUser.update({
-        [`flags.${TNX_FLAG_SCOPE}.exp.spent`]: newSpent,
-        [`flags.${TNX_FLAG_SCOPE}.exp.value`]: currentTotal - newSpent,
+        [`flags.${SYSTEM_ID}.exp.spent`]: newSpent,
+        [`flags.${SYSTEM_ID}.exp.value`]: currentTotal - newSpent,
     }, { syncing: true });
 }
 
@@ -311,9 +312,9 @@ async function performInitialHistorySync(castActor, ownerUser) {
 
     // User flag: merged history 全エントリ + exp.total を更新
     // syncing: true で updateUser フックのループを防ぐ
-    const flagUpdate = { [`flags.${TNX_FLAG_SCOPE}.exp.total`]: newTotal };
+    const flagUpdate = { [`flags.${SYSTEM_ID}.exp.total`]: newTotal };
     for (const [id, entry] of Object.entries(mergedHistory)) {
-        flagUpdate[`flags.${TNX_FLAG_SCOPE}.history.${id}`] = entry;
+        flagUpdate[`flags.${SYSTEM_ID}.history.${id}`] = entry;
     }
     await ownerUser.update(flagUpdate, { syncing: true });
 
@@ -356,9 +357,9 @@ async function performUnsyncSeparation(castActor, ownerUser) {
     const { history: userHistory } = getUserFlagData(ownerUser);
     const { ownedByOrigin: castEntriesInUser, ownedByOther: remainingUserHistory } = separateHistoryByOrigin(userHistory, castUuid);
     const newTotal = calcHistoryExpTotal(remainingUserHistory);
-    const flagUpdate = { [`flags.${TNX_FLAG_SCOPE}.exp.total`]: newTotal };
+    const flagUpdate = { [`flags.${SYSTEM_ID}.exp.total`]: newTotal };
     for (const id of Object.keys(castEntriesInUser)) {
-        flagUpdate[`flags.${TNX_FLAG_SCOPE}.history.-=${id}`] = null;
+        flagUpdate[`flags.${SYSTEM_ID}.history.-=${id}`] = null;
     }
     await ownerUser.update(flagUpdate, { syncing: true });
 
@@ -546,13 +547,13 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
     });
 
     if (root.querySelector(".tnx-stackable-field")) return;
-    const current = app.document?.getFlag?.("tokyo-nova-axleration", "stackable") === true;
+    const current = app.document?.getFlag?.(SYSTEM_ID, "stackable") === true;
     const group = document.createElement("div");
     group.classList.add("form-group", "tnx-stackable-field");
     group.innerHTML = `
         <label>重複可</label>
         <div class="form-fields">
-            <input type="checkbox" name="flags.tokyo-nova-axleration.stackable" ${current ? "checked" : ""}>
+            <input type="checkbox" name="flags.${SYSTEM_ID}.stackable" ${current ? "checked" : ""}>
         </div>`;
     const anchor = root.querySelector('[name="transfer"], [name="disabled"]')?.closest(".form-group");
     if (anchor) anchor.after(group);
@@ -568,7 +569,7 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
         // ネイティブの欄は <fieldset> でまとめられている。中の .form-group だけ隠すと**枠だけが
         // 空で残る**(隔離実機で実測)ため、タブの直接の子ごと隠してから自分の欄を先頭に挿す。
         for (const el of durationTab.children) el.style.display = "none";
-        const curDuration = app.document?.getFlag?.("tokyo-nova-axleration", "tnxDuration") ?? "";
+        const curDuration = app.document?.getFlag?.(SYSTEM_ID, "tnxDuration") ?? "";
         const durationGroup = document.createElement("div");
         durationGroup.classList.add("form-group", "tnx-duration-field");
         const options = Object.entries(TNX_DURATIONS)
@@ -577,7 +578,7 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
         durationGroup.innerHTML = `
             <label>持続</label>
             <div class="form-fields">
-                <select name="flags.tokyo-nova-axleration.tnxDuration">${options}</select>
+                <select name="flags.${SYSTEM_ID}.tnxDuration">${options}</select>
             </div>`;
         durationTab.prepend(durationGroup);
     }
@@ -600,13 +601,13 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
     // このアイテムの準備先ホストに効かせる(準備で転送・解除で除去)。アイテム上の効果でのみ表示
     let parentGroup = null;
     if (app.document?.parent?.documentName === "Item") {
-        const cur = app.document.getFlag?.("tokyo-nova-axleration", "applyToParent") === true;
+        const cur = app.document.getFlag?.(SYSTEM_ID, "applyToParent") === true;
         parentGroup = document.createElement("div");
         parentGroup.classList.add("form-group", "tnx-apply-parent-field");
         parentGroup.innerHTML = `
             <label>準備先（親アイテム）に適用</label>
             <div class="form-fields">
-                <input type="checkbox" name="flags.tokyo-nova-axleration.applyToParent" ${cur ? "checked" : ""}>
+                <input type="checkbox" name="flags.${SYSTEM_ID}.applyToParent" ${cur ? "checked" : ""}>
             </div>`;
         (transferGroup ?? anchor)?.after(parentGroup);
     }
@@ -619,13 +620,13 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
     // 選択できるため、transfer で出し分けると設定に到達できない)。
     // 用途の効果はアイテム由来のみなので、アイテム上の効果で常時表示する
     if (app.document?.parent?.documentName === "Item") {
-        const grantCur = app.document.getFlag?.("tokyo-nova-axleration", "grantTarget") === "self" ? "self" : "target";
+        const grantCur = app.document.getFlag?.(SYSTEM_ID, "grantTarget") === "self" ? "self" : "target";
         const grantGroup = document.createElement("div");
         grantGroup.classList.add("form-group", "tnx-grant-target-field");
         grantGroup.innerHTML = `
             <label>効果種別</label>
             <div class="form-fields">
-                <select name="flags.tokyo-nova-axleration.grantTarget">
+                <select name="flags.${SYSTEM_ID}.grantTarget">
                     <option value="target"${grantCur === "target" ? " selected" : ""}>通常効果</option>
                     <option value="self"${grantCur === "self" ? " selected" : ""}>代償効果</option>
                 </select>
@@ -652,12 +653,12 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
     const detailsTab = root.querySelector('.tab[data-tab="details"]') ?? root.querySelector("form");
     const statusCtrl = root.querySelector('[name="statuses"]');
     const ABIL = { reason: "理性", passion: "感情", life: "生命", mundane: "外界" };
-    const setK = (k, field, v) => app.document?.setFlag("tokyo-nova-axleration", `conditions.${k}.${field}`, v);
+    const setK = (k, field, v) => app.document?.setFlag(SYSTEM_ID, `conditions.${k}.${field}`, v);
 
     const injectConditionFieldsets = () => {
         if (!detailsTab) return;
         detailsTab.querySelectorAll(".tnx-condition-fieldset").forEach(el => el.remove());
-        const perKind = app.document?.getFlag?.("tokyo-nova-axleration", "conditions") ?? {};
+        const perKind = app.document?.getFlag?.(SYSTEM_ID, "conditions") ?? {};
         for (const kind of getConditionKinds(app.document)) {
             const def = CONDITION_KINDS[kind];
             if (!def) continue;
@@ -746,11 +747,11 @@ Hooks.on("renderActiveEffectConfig", (app, element) => {
 // (AE 自体の削除時はフラグごと消えるため対象外。複数状態 AE から1つ外した場合などが対象。)
 Hooks.on("preUpdateActiveEffect", (effect, changes) => {
     if (!("statuses" in changes)) return;
-    const perKind = effect.flags?.["tokyo-nova-axleration"]?.conditions;
+    const perKind = effect.flags?.[SYSTEM_ID]?.conditions;
     if (!perKind) return;
     const next = new Set(changes.statuses ?? []);
     for (const kind of Object.keys(perKind)) {
-        if (!next.has(kind)) changes[`flags.tokyo-nova-axleration.conditions.-=${kind}`] = null;
+        if (!next.has(kind)) changes[`flags.${SYSTEM_ID}.conditions.-=${kind}`] = null;
     }
 });
 
@@ -764,9 +765,9 @@ Hooks.on("preUpdateActiveEffect", (effect, changes) => {
 // 手動)を問わず生成時の一点で刻む。アクト外(actId 空)は番号だけになり、比較側は不明を通す
 Hooks.on("preCreateActiveEffect", (effect) => {
     if (!getConditionKinds(effect).length) return;
-    if (effect.flags?.["tokyo-nova-axleration"]?.receivedScene) return;
+    if (effect.flags?.[SYSTEM_ID]?.receivedScene) return;
     const st = getSessionState();
-    effect.updateSource({ "flags.tokyo-nova-axleration.receivedScene": {
+    effect.updateSource({ [`flags.${SYSTEM_ID}.receivedScene`]: {
         act: st.actId || null, number: Number.isFinite(st.sceneNumber) ? st.sceneNumber : null,
     } });
 });
@@ -790,7 +791,7 @@ Hooks.on("createActiveEffect", async (effect, options, userId) => {
     const tagMods = srcIsWound ? gatherDamageTagMods(actor) : null;
     // 説得(2026-07-15 ユーザー確定): 精神攻撃の説得は、精神ダメージの「効果タグ」＝戦闘不能
     // (incapacitation グループ・支配含む)を付けず「説得に応じる」形にする。BS は通常どおり付与する。
-    const persuade = effect.flags?.["tokyo-nova-axleration"]?.persuade === true;
+    const persuade = effect.flags?.[SYSTEM_ID]?.persuade === true;
     const data = [];
     const seen = new Set();
     for (const kind of getConditionKinds(effect)) {
@@ -802,12 +803,12 @@ Hooks.on("createActiveEffect", async (effect, options, userId) => {
             if (persuade && idef?.group === "incapacitation") continue; // 説得: 戦闘不能タグ(支配含む)を付けない
             if (idef && !idef.stackable && (actor.statuses?.has?.(ik) || seen.has(ik))) continue;
             if (srcIsWound) {
-                d.flags["tokyo-nova-axleration"].woundSource = effect.id;
+                d.flags[SYSTEM_ID].woundSource = effect.id;
             }
             // 神業由来の印(17-3): 神業のダメージから生じた負傷のカスケード(戦闘不能・BS)も神業由来
             // (神業でしか治せない)
-            if (effect.flags?.["tokyo-nova-axleration"]?.fromMiracle === true) {
-                d.flags["tokyo-nova-axleration"].fromMiracle = true;
+            if (effect.flags?.[SYSTEM_ID]?.fromMiracle === true) {
+                d.flags[SYSTEM_ID].fromMiracle = true;
             }
             seen.add(ik);
             data.push(d);
@@ -818,7 +819,7 @@ Hooks.on("createActiveEffect", async (effect, options, userId) => {
     // 2. この状態自身の解決受付: 衰弱/重圧のカード決定ドロー / controlNegate の制御判定。
     //    フラグ(inflicts 由来=付与時に焼き込み)に加え、状態定義直下の controlNegate(付与状態を
     //    持たない負傷自身の制御判定=動転)も読む(2026-07-22 ユーザー指摘で配線)。
-    const perKind = effect.flags?.["tokyo-nova-axleration"]?.conditions ?? {};
+    const perKind = effect.flags?.[SYSTEM_ID]?.conditions ?? {};
     for (const c of readConditions(effect)) {
         if (conditionNeedsDraw(c.kind, c)) await postDrawPrompt(actor, effect, c.kind);
         const cn = perKind[c.kind]?.pendingControlNegate ?? c.def?.controlNegate;
@@ -868,11 +869,10 @@ Hooks.on("deleteActiveEffect", async (effect, _options, userId) => {
 //   コピーを除去する。
 // コピーは対象アイテムの通常の効果=無条件にそのアイテムへ効く。コピー側の手動編集・切替は
 // 供給元の次の更新で上書きされる(供給元が正の帰結)。
-const TNX_TRANSFER_SCOPE = "tokyo-nova-axleration";
 
 async function materializeItemTransfers(actor, effect, bearer) {
     if (!actor || actor.documentName !== "Actor") return;
-    const flags = effect.flags?.[TNX_TRANSFER_SCOPE] ?? {};
+    const flags = effect.flags?.[SYSTEM_ID] ?? {};
     // 実体化済みインスタンス(転送コピー/使用時付与コピー)は転送の供給元にならない
     if (flags.transferredFrom || flags.grantedFrom) return;
     const isAuto = effect.transfer !== false; // 自動適用ゲート(オフ=ペイロード)
@@ -895,7 +895,7 @@ async function materializeItemTransfers(actor, effect, bearer) {
             // 供給元×アイテムごとにコピーは1つ、が不変条件。過去に多重作成されたものも
             // planTransferCopySync が1つへ畳む(残りは除去)
             const copies = item.effects.filter(
-                e => e.flags?.[TNX_TRANSFER_SCOPE]?.transferredFrom === effect.uuid);
+                e => e.flags?.[SYSTEM_ID]?.transferredFrom === effect.uuid);
             const data = targets(item) ? buildTransferredEffectData(effect, item, bearer) : null;
             const plan = planTransferCopySync(copies, !!data);
             // 狙わなくなった/余分なコピーを先に除去してから、残す1つを現在値へ揃える
@@ -921,7 +921,7 @@ async function materializeItemTransfers(actor, effect, bearer) {
 const CAPABILITY_TRANSFER_CLEANUP_SCHEME = 1;
 async function cleanupCapabilityTransferCopies() {
     if (!game.user.isGM) return;
-    const done = Number(game.settings.get(TNX_TRANSFER_SCOPE, "capabilityTransferCleanupScheme")) || 0;
+    const done = Number(game.settings.get(SYSTEM_ID, "capabilityTransferCleanupScheme")) || 0;
     if (done >= CAPABILITY_TRANSFER_CLEANUP_SCHEME) return;
     let removed = 0;
     for (const actor of game.actors) {
@@ -931,14 +931,14 @@ async function cleanupCapabilityTransferCopies() {
         }
     }
     if (removed) console.info(`TNX | 技能・神業の上に残っていた転送コピーを ${removed} 件除去しました(キャラクター付与への移行)`);
-    await game.settings.set(TNX_TRANSFER_SCOPE, "capabilityTransferCleanupScheme", CAPABILITY_TRANSFER_CLEANUP_SCHEME);
+    await game.settings.set(SYSTEM_ID, "capabilityTransferCleanupScheme", CAPABILITY_TRANSFER_CLEANUP_SCHEME);
 }
 
 /** 供給元(uuid 群)由来の転送コピーをアクターの全アイテムから除去する。 */
 async function removeItemTransferCopies(actor, sourceUuids) {
     for (const item of actor.items) {
         const ids = item.effects
-            .filter(e => sourceUuids.includes(e.flags?.[TNX_TRANSFER_SCOPE]?.transferredFrom))
+            .filter(e => sourceUuids.includes(e.flags?.[SYSTEM_ID]?.transferredFrom))
             .map(e => e.id);
         if (ids.length) await item.deleteEmbeddedDocuments("ActiveEffect", ids);
     }
@@ -963,7 +963,7 @@ Hooks.on("updateActiveEffect", async (effect, changed, _options, userId) => {
 // 供給元の効果が削除されたら転送コピーも除去する(供給元が正・2026-07-12)
 Hooks.on("deleteActiveEffect", async (effect, _options, userId) => {
     if (game.user.id !== userId) return;
-    const flags = effect.flags?.[TNX_TRANSFER_SCOPE] ?? {};
+    const flags = effect.flags?.[SYSTEM_ID] ?? {};
     if (flags.transferredFrom || flags.grantedFrom) return; // コピー自身の削除は独立
     const parent = effect.parent;
     const actor = parent?.documentName === "Actor" ? parent : parent?.actor;
@@ -1079,35 +1079,35 @@ Hooks.on("renderJournalEntryPageSheet", (_app, html) => {
 // 攻撃カード(12-2): 状態領域のライブ描画(未解決=系統別リアクションボタン/解決後=成否表示に置換。
 // checkRequest の結果注入と同型のフラグ+再描画方式)
 Hooks.on("renderChatMessageHTML", (message, html) => {
-    if (message.getFlag("tokyo-nova-axleration", "attackCheck")) {
+    if (message.getFlag(SYSTEM_ID, "attackCheck")) {
         renderAttackCard(message, html);
     }
 });
 
 // 個別リアクションカード(12・複数対象一括・2026-07-15): GM＋対象所有者に whisper・解決で全体公開
 Hooks.on("renderChatMessageHTML", (message, html) => {
-    if (message.getFlag("tokyo-nova-axleration", "attackReaction")) {
+    if (message.getFlag(SYSTEM_ID, "attackReaction")) {
         renderReactionCard(message, html);
     }
 });
 
 // 報酬点の配布カード(12・2026-07-20): 対象行に受け取りボタン/受け取り済みをライブ描画
 Hooks.on("renderChatMessageHTML", (message, html) => {
-    if (message.getFlag("tokyo-nova-axleration", "bountyGrant")) {
+    if (message.getFlag(SYSTEM_ID, "bountyGrant")) {
         renderBountyGrantCard(message, html);
     }
 });
 
 // ハンドアウト送信カード(2026-08-12): コネの受け取りボタン/取得済みをライブ描画
 Hooks.on("renderChatMessageHTML", (message, html) => {
-    if (message.getFlag("tokyo-nova-axleration", "handoutContact")) {
+    if (message.getFlag(SYSTEM_ID, "handoutContact")) {
         renderHandoutCard(message, html);
     }
 });
 
 // ダメージ・カード(12-3): 台帳+状態領域のライブ描画(カード追加・適用で更新)
 Hooks.on("renderChatMessageHTML", (message, html) => {
-    if (message.getFlag("tokyo-nova-axleration", "damageRoll")) {
+    if (message.getFlag(SYSTEM_ID, "damageRoll")) {
         renderDamageCard(message, html);
     }
 });
@@ -1115,7 +1115,7 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
 // 神業カード(17-1/17-2): 打ち消された神業は中身が消える・見出しは打ち消しの発動点。
 // 効果トレイの描画より前に呼ぶ(打ち消し済みは効果エリアごと消す)
 Hooks.on("renderChatMessageHTML", (message, html) => {
-    if (message.getFlag("tokyo-nova-axleration", "miracle")) {
+    if (message.getFlag(SYSTEM_ID, "miracle")) {
         renderMiracleCard(message, html);
     }
 });
@@ -1123,7 +1123,7 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
 // 用途の帰結行(2026-09-07): 治療・修理・改造の結果は帰結だけの短いカードを別に出さず、
 // その使用を表しているカード(神業カード・解説カード・判定結果カード)へ刻む
 Hooks.on("renderChatMessageHTML", (message, html) => {
-    if (message.getFlag("tokyo-nova-axleration", "cardOutcome")) {
+    if (message.getFlag(SYSTEM_ID, "cardOutcome")) {
         renderCardOutcome(message, html);
     }
 });
@@ -1131,7 +1131,7 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
 // 用途の適用効果(2026-07-10): usageEffects フラグを持つカード(判定結果/攻撃/用途使用)に
 // 「効果を適用」ボタンを描画。対象所有者/GM が押すと対象へ AE を複製付与する。
 Hooks.on("renderChatMessageHTML", (message, html) => {
-    if (message.getFlag("tokyo-nova-axleration", "usageEffects")) {
+    if (message.getFlag(SYSTEM_ID, "usageEffects")) {
         renderUsageEffectButton(message, html);
     }
 });
@@ -1139,7 +1139,7 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
 // 再判定(2026-07-11→2026-07-14 置き換え着地): checkRecheck フラグを持つカード(判定結果/攻撃)の
 // 達成値を装飾する(モード外クリック=allowRecheck の素の再判定・モード中=付与/修正の発動)。
 Hooks.on("renderChatMessageHTML", (message, html) => {
-    if (message.getFlag("tokyo-nova-axleration", "checkRecheck")) {
+    if (message.getFlag(SYSTEM_ID, "checkRecheck")) {
         renderRecheckButton(message, html);
     }
 });
@@ -1150,7 +1150,7 @@ Hooks.on("renderChatMessageHTML", (message, html) => requestAnimationFrame(() =>
 
 // 判定要求チャットカード: 目標値の可視性制御 + 「判定する」ボタン / 結果注入（フェーズ 8-5）
 Hooks.on("renderChatMessageHTML", (message, html) => {
-    const flagData = message.getFlag("tokyo-nova-axleration", "checkRequest");
+    const flagData = message.getFlag(SYSTEM_ID, "checkRequest");
     if (!flagData) return;
 
     // 目標値: targetValueHidden かつ非 GM の場合は非公開表示
@@ -1223,7 +1223,7 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
 // FS 進行判定(13-7): 進行判定要求カードで成功した対象行に、RL(=GM)へ「進行値に加算」ボタンを描画する。
 // 上の checkRequest 描画(結果を statusEl に置く)の**後**に登録し、その結果表示にボタンを足す形にする。
 Hooks.on("renderChatMessageHTML", (message, html) => {
-    if (message.getFlag("tokyo-nova-axleration", "checkRequest")?.focusSystemKind === "progress") {
+    if (message.getFlag(SYSTEM_ID, "checkRequest")?.focusSystemKind === "progress") {
         renderFocusProgressButton(message, html);
     }
 });
@@ -1232,7 +1232,7 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
 // autoApplyFocusSupport が _onCheckResult で実行。AR−1＋CS0 はイニシアチブ終了時に一般則で適用・
 // 2026-07-26/08-05)。ここは適用済みの表示(支援成立→対象の進行+1／支援失敗)のみ描画する。
 Hooks.on("renderChatMessageHTML", (message, html) => {
-    if (message.getFlag("tokyo-nova-axleration", "checkRequest")?.focusSystemKind === "support") {
+    if (message.getFlag(SYSTEM_ID, "checkRequest")?.focusSystemKind === "support") {
         renderFocusSupportNote(message, html);
     }
 });
@@ -1359,7 +1359,7 @@ Hooks.once("init", async function() {
         id,
         name: conditionDisplayName(id),
         img:  def.img ?? "icons/svg/aura.svg",
-        flags: { "tokyo-nova-axleration": { conditionKind: id, hideFromList: true } },
+        flags: { [SYSTEM_ID]: { conditionKind: id, hideFromList: true } },
     }));
 
     // トークンリソースバーの割当候補(フェーズ11-4)。トループの heads=人数/エニグマポイントが
@@ -1476,7 +1476,7 @@ Hooks.once("init", async function() {
     registerMiracleUseLogging();
     registerSubSceneSetting();
 
-    game.settings.register("tokyo-nova-axleration", "defaultHandMaxSize", {
+    game.settings.register(SYSTEM_ID, "defaultHandMaxSize", {
         name: "デフォルトの手札上限数",
         hint: "各ユーザーの手札上限の基本となる枚数を設定します。ユーザーが個別に設定していない場合、この値が適用されます。",
         scope: "world",
@@ -1487,18 +1487,18 @@ Hooks.once("init", async function() {
     });
 
     // 正準名ブリッジの一回限り移行(2026-07-17)の実行済みフラグ(ready フックでゲート)
-    game.settings.register("tokyo-nova-axleration", "usageTypeCanonicalMigrated", {
+    game.settings.register(SYSTEM_ID, "usageTypeCanonicalMigrated", {
         scope: "world", config: false, type: Boolean, default: false,
     });
     // 技能・神業の上の転送コピーの一回限り掃除(2026-09-02)の版番号ゲート。部位キー移行と同じ作法
-    game.settings.register("tokyo-nova-axleration", "capabilityTransferCleanupScheme", {
+    game.settings.register(SYSTEM_ID, "capabilityTransferCleanupScheme", {
         scope: "world", config: false, type: Number, default: 0,
     });
 
     // チームの退場連動(2026-08-23 ユーザー裁定・既定オフ)。登場は判定を振るか等の判断が多く
     // 自動化しない(2026-08-22 オミット)が、退場は純粋な記帳なので連動できる——という非対称が
     // 設計根拠。連動の適用は手動の退場操作(パネルの×・盤面のトークン削除)のみ
-    game.settings.register("tokyo-nova-axleration", "teamLinkedExit", {
+    game.settings.register(SYSTEM_ID, "teamLinkedExit", {
         name: "チームの退場連動",
         hint: "チームを組んでいるキャラクターを退場させたとき、チームの登場中メンバー全員を一緒に退場させます。",
         scope: "world",
@@ -1507,7 +1507,7 @@ Hooks.once("init", async function() {
         default: false,
     });
 
-    game.settings.register("tokyo-nova-axleration", "shuffleOnDeckReset", {
+    game.settings.register(SYSTEM_ID, "shuffleOnDeckReset", {
         name: "山札リセット時にシャッフル",
         hint: "山札のリセット（全回収）や捨て札の回収を行った際、自動的に山札をシャッフルします。",
         scope: "world",
@@ -1518,29 +1518,29 @@ Hooks.once("init", async function() {
 
     // カードID設定（config: false — UIはカードセットアップアプリで管理）
     const _cardIdSetting = { scope: "world", config: false, type: String, default: "" };
-    game.settings.register("tokyo-nova-axleration", "cardDeckId",       { ..._cardIdSetting });
-    game.settings.register("tokyo-nova-axleration", "discardPileId",    { ..._cardIdSetting });
-    game.settings.register("tokyo-nova-axleration", "neuroDeckId",      { ..._cardIdSetting });
-    game.settings.register("tokyo-nova-axleration", "scenePileId",      { ..._cardIdSetting });
-    game.settings.register("tokyo-nova-axleration", "accessCardPileId", { ..._cardIdSetting });
-    game.settings.register("tokyo-nova-axleration", "gmTrumpDiscardId", { ..._cardIdSetting });
+    game.settings.register(SYSTEM_ID, "cardDeckId",       { ..._cardIdSetting });
+    game.settings.register(SYSTEM_ID, "discardPileId",    { ..._cardIdSetting });
+    game.settings.register(SYSTEM_ID, "neuroDeckId",      { ..._cardIdSetting });
+    game.settings.register(SYSTEM_ID, "scenePileId",      { ..._cardIdSetting });
+    game.settings.register(SYSTEM_ID, "accessCardPileId", { ..._cardIdSetting });
+    game.settings.register(SYSTEM_ID, "gmTrumpDiscardId", { ..._cardIdSetting });
 
     // HUD UI 状態（クライアントローカル）
     const _hudUiSetting = { scope: "client", config: false, type: Boolean, default: false };
-    game.settings.register("tokyo-nova-axleration", "hudRightCollapsed",  { ..._hudUiSetting });
-    game.settings.register("tokyo-nova-axleration", "hudBottomCollapsed", { ..._hudUiSetting });
-    game.settings.register("tokyo-nova-axleration", "hudAccessCollapsed", { ..._hudUiSetting, default: true });
+    game.settings.register(SYSTEM_ID, "hudRightCollapsed",  { ..._hudUiSetting });
+    game.settings.register(SYSTEM_ID, "hudBottomCollapsed", { ..._hudUiSetting });
+    game.settings.register(SYSTEM_ID, "hudAccessCollapsed", { ..._hudUiSetting, default: true });
     // 参加者パネルはステータスと受け渡し先(D&D)を常時見せる場のため、既定は展開
-    game.settings.register("tokyo-nova-axleration", "hudParticipantsCollapsed", { ..._hudUiSetting });
+    game.settings.register(SYSTEM_ID, "hudParticipantsCollapsed", { ..._hudUiSetting });
 
     // シナリオコントロールパネル UI 状態（クライアントローカル・2026-08-15 タブ再構成）
-    game.settings.register("tokyo-nova-axleration", "scenarioPanelTab", {
+    game.settings.register(SYSTEM_ID, "scenarioPanelTab", {
         scope: "client", config: false, type: String, default: "flow",
     });
-    game.settings.register("tokyo-nova-axleration", "scenarioPanelSceneListOpen", { ..._hudUiSetting });
-    game.settings.register("tokyo-nova-axleration", "scenarioPanelRotationOpen",  { ..._hudUiSetting });
+    game.settings.register(SYSTEM_ID, "scenarioPanelSceneListOpen", { ..._hudUiSetting });
+    game.settings.register(SYSTEM_ID, "scenarioPanelRotationOpen",  { ..._hudUiSetting });
 
-    game.settings.register("tokyo-nova-axleration", "revealPlayerHands", {
+    game.settings.register(SYSTEM_ID, "revealPlayerHands", {
         name: "プレイヤーの手札を開示",
         hint: "有効にすると全ユーザーのHUDにプレイヤー全員の手札が表示されます。",
         scope: "world",
@@ -1549,7 +1549,7 @@ Hooks.once("init", async function() {
         default: false,
     });
 
-    game.settings.registerMenu("tokyo-nova-axleration", "cardSetup", {
+    game.settings.registerMenu(SYSTEM_ID, "cardSetup", {
         name: "カードをセットアップ",
         label: "カードの設定を開く",
         hint: "山札・手札などのカードドキュメントを作成・割り当てします。",
@@ -1591,7 +1591,6 @@ Hooks.once("init", async function() {
     // ※登録は init で行う: ChatLog のコンテキストメニューは ready 発火前のサイドバー描画時に
     // 構築されるため、ready 内の登録では間に合わない(実機で項目が出ず 2026-07-14 修正)
     Hooks.on("getChatMessageContextOptions", (_app, options) => {
-        const SCOPE = "tokyo-nova-axleration";
         const msgOf = (li) => {
             const el = li instanceof Element ? li : li[0];
             return game.messages.get(el?.dataset?.messageId);
@@ -1603,7 +1602,7 @@ Hooks.once("init", async function() {
                 condition: (li) => {
                     if (!game.user.isGM) return false;
                     const m = msgOf(li);
-                    return !!m?.getFlag(SCOPE, "checkRecheck") && !TnxCheckFlow.recheckBlockReason(m);
+                    return !!m?.getFlag(SYSTEM_ID, "checkRecheck") && !TnxCheckFlow.recheckBlockReason(m);
                 },
                 callback: (li) => TnxCheckFlow.startRecheck(msgOf(li)),
             },
@@ -1612,14 +1611,14 @@ Hooks.once("init", async function() {
                 icon: '<i class="fas fa-pen"></i>',
                 // スナップショット持ちのカードに限る: 継続処理系(移動/治療等)は達成値だけ書き換えると
                 // 適用済みの帰結と乖離し、事後修正のライブ描画もスナップショット持ちでしか動かない
-                condition: (li) => game.user.isGM && !!msgOf(li)?.getFlag(SCOPE, "checkRecheck"),
+                condition: (li) => game.user.isGM && !!msgOf(li)?.getFlag(SYSTEM_ID, "checkRecheck"),
                 callback: (li) => TnxCheckFlow.manualEditAchievement(msgOf(li)),
             },
             {
                 name: "ダメージを修正（手動）",
                 icon: '<i class="fas fa-burst"></i>',
                 // 達成値の手動修正と同じ最終裁定ツール=適用済みでも制限しない(2026-07-14 ユーザー確定)
-                condition: (li) => game.user.isGM && !!msgOf(li)?.getFlag(SCOPE, "damageRoll"),
+                condition: (li) => game.user.isGM && !!msgOf(li)?.getFlag(SYSTEM_ID, "damageRoll"),
                 callback: async (li) => {
                     const { manualEditDamage } = await import("./module/damage-flow.mjs");
                     await manualEditDamage(msgOf(li));
@@ -1633,7 +1632,7 @@ Hooks.once("init", async function() {
                 // タイミング系ゲート(再判定・事後修正)もリセット後は自然に再び開く
                 condition: (li) => {
                     if (!game.user.isGM) return false;
-                    const f = msgOf(li)?.getFlag(SCOPE, "attackCheck");
+                    const f = msgOf(li)?.getFlag(SYSTEM_ID, "attackCheck");
                     return !!f && f.damageRolled === true;
                 },
                 callback: async (li) => {
@@ -1787,7 +1786,7 @@ Hooks.once("init", async function() {
         const parentPile = card.parent;
 
         // 既存の切り札上限チェック処理
-        if (!parentPile || !parentPile.getFlag("tokyo-nova-axleration", "isTrumpPile")) {
+        if (!parentPile || !parentPile.getFlag(SYSTEM_ID, "isTrumpPile")) {
             return true;
         }
         if (parentPile.cards.size >= 1) {
@@ -1983,7 +1982,7 @@ Hooks.once("init", async function() {
     // 名前の非公開(14-8)も同じ一覧の表示を変えるため同じ購読に乗せる。
     // 担当キャラクターのゴースト切替は HUD のステータス表示(14-7)にも反映する
     Hooks.on("updateActor", (actor, changes) => {
-        const f = changes.flags?.["tokyo-nova-axleration"];
+        const f = changes.flags?.[SYSTEM_ID];
         const appearanceKeys = ["appearing", "-=appearing", "appearingHidden", "-=appearingHidden"];
         // ゴースト切替(2026-08-22)はチップのトグル表示を変えるため、パネルも追随させる
         if ((f && appearanceKeys.some(key => key in f)) || changes.system?.isGhost !== undefined) {
@@ -2000,7 +1999,7 @@ Hooks.once("init", async function() {
     // HUD のステータス表示(14-7)・参加者パネルの追随: シーンプレイヤー(User flag)・
     // 手札の割り当て変更はどのユーザーの分でも HUD に映る
     Hooks.on("updateUser", (user, changes) => {
-        if (changes.flags?.["tokyo-nova-axleration"]) {
+        if (changes.flags?.[SYSTEM_ID]) {
             foundry.applications.instances.get("tnx-hud")?.render(false);
         }
     });
@@ -2140,7 +2139,7 @@ Hooks.once("ready", async function() {
     // 行動種別タイプへ付け替える(回避→ドッジ・白兵→パリー・自我/信用→各リアクション・医療→治療・
     // 操縦→移動/リアクション（移動妨害）の追加)。以後の資格・候補判定は用途タイプの所持のみ
     // (skillRoles・正準名既定は廃止=この移行とインポート時正規化だけが対応表を使う)
-    if (game.user.isGM && !game.settings.get("tokyo-nova-axleration", "usageTypeCanonicalMigrated")) {
+    if (game.user.isGM && !game.settings.get(SYSTEM_ID, "usageTypeCanonicalMigrated")) {
         const migrateSkill = async (item) => {
             if (item.type !== "generalSkill") return;
             const src = item.toObject().system ?? {};
@@ -2153,13 +2152,13 @@ Hooks.once("ready", async function() {
         for (const actor of game.actors.contents) {
             for (const it of actor.items.contents) await migrateSkill(it);
         }
-        await game.settings.set("tokyo-nova-axleration", "usageTypeCanonicalMigrated", true);
+        await game.settings.set(SYSTEM_ID, "usageTypeCanonicalMigrated", true);
         console.log("TNX | 用途タイプの正準名移行を完了しました");
     }
 
     // 下バー展開時はホットバーを退避する。HUD 初期描画前に body クラスを付与して
     // 「ホットバー表示→直後に非表示」のチラつきを防ぐ(下バー収納の既定は false=展開)。
-    if (!game.settings.get("tokyo-nova-axleration", "hudBottomCollapsed")) {
+    if (!game.settings.get(SYSTEM_ID, "hudBottomCollapsed")) {
         document.body.classList.add("tnx-bottom-hud-expanded");
     }
     game.tnx.hud = new TnxHud();
@@ -2178,7 +2177,7 @@ Hooks.once("ready", async function() {
     game.tnx.check = TnxCheckFlow;
 
     // システムソケットメッセージの受信（TnxSocketHandler に集約）
-    game.socket.on("system.tokyo-nova-axleration", TnxSocketHandler.onMessage);
+    game.socket.on(SOCKET_CHANNEL, TnxSocketHandler.onMessage);
 
     Hooks.on("updateSetting", (setting) => {
         if (setting.key === "tokyo-nova-axleration.revealPlayerHands") {
@@ -2377,7 +2376,7 @@ Hooks.once("ready", async function() {
     Hooks.on('updateUser', async (user, diff, options) => {
         if (options.syncing) return;
 
-        const flagDiff = diff.flags?.[TNX_FLAG_SCOPE];
+        const flagDiff = diff.flags?.[SYSTEM_ID];
         if (!flagDiff) return;
         if (!("exp" in flagDiff) && !("history" in flagDiff)) return;
 

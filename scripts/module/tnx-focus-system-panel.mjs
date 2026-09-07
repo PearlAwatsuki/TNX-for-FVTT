@@ -7,6 +7,7 @@
  * 進行状態の正本はワールド設定(focus-system-state.mjs)。このパネルはその読み書き UI。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { listActiveFocusSystems, getActiveFocusSystem, startFocusSystem, updateFocusSystem, endFocusSystem } from "./focus-system-state.mjs";
 import { activeProgressRow, clampGauge, gaugeMarkers } from "./focus-system-logic.mjs";
 import { loadSkillEntries, SKILL_PACKS } from "./skill-dictionary.mjs";
@@ -16,7 +17,6 @@ import { TnxFocusSystemStartApp } from "./focus-system-start-app.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
-const SCOPE = "tokyo-nova-axleration";
 
 /** 判定行の指定技能(複数)を表示名で連ねる。 */
 function rowSkillLabel(row, label) {
@@ -187,7 +187,7 @@ export async function postFocusSystemStartCard(fs) {
                 })),
             }
         ),
-        flags: { [SCOPE]: { focusSystemStart: { id: fs.id } } },
+        flags: { [SYSTEM_ID]: { focusSystemStart: { id: fs.id } } },
     });
 }
 
@@ -213,7 +213,7 @@ export async function postFocusSystemResultCard(fs, succeeded) {
                 defeatEffect:   fs.defeatEffect ?? "",
             }
         ),
-        flags: { [SCOPE]: { focusSystemResult: { id: fs.id, succeeded } } },
+        flags: { [SYSTEM_ID]: { focusSystemResult: { id: fs.id, succeeded } } },
     });
 }
 

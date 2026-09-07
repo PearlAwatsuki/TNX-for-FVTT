@@ -12,6 +12,7 @@
  *   - タイプは作成時に固定（UI 上で変更不可）
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { TnxSkillUtils } from "./tnx-skill-utils.mjs";
 import { getComboSuits } from "./tnx-check-engine.mjs";
 import { resolveUsageSkills, comboLockAnalysis, isComboRequired } from "./skill-chain-resolution.mjs";
@@ -1094,7 +1095,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                 sourceName: fromParent ? "" : (host?.name ?? ""),   // 親由来は帰属表示を省く
                 // 効果種別(AE 設定・2026-08-30 改名=旧「付与先」)。既定の通常効果は表示せず
                 // 代償効果だけタグを出す
-                grantSelf: eff?.flags?.["tokyo-nova-axleration"]?.grantTarget === "self",
+                grantSelf: eff?.flags?.[SYSTEM_ID]?.grantTarget === "self",
             };
         });
         context.addedEffects = buildAdded(usage.effects);

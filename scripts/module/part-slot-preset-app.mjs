@@ -10,9 +10,9 @@
  * 正本: llm-wiki/01_Wiki/Game_Rules/Outfits.md「部位管理(フェーズ10)」。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { enhanceComboboxes } from "./combobox.mjs";
 
-const SCOPE = "tokyo-nova-axleration";
 const SETTING = "partSlotPreset";
 const SETTING_INIT = "partSlotPresetInitialized";
 // 部位キーのスキーマ版(フェーズ12)。付与済みでも版が上がれば再移行する=キー命名の変更を
@@ -159,39 +159,39 @@ export function reconcilePartSlotKeys(rows) {
  */
 export async function migratePartSlotKeys() {
   if (!game.user.isGM) return;
-  if ((Number(game.settings.get(SCOPE, SETTING_KEY_SCHEME)) || 0) >= PART_KEY_SCHEME) return;
+  if ((Number(game.settings.get(SYSTEM_ID, SETTING_KEY_SCHEME)) || 0) >= PART_KEY_SCHEME) return;
   const preset = reconcilePartSlotKeys(getPartSlotPreset());
-  if (preset) await game.settings.set(SCOPE, SETTING, preset);
+  if (preset) await game.settings.set(SYSTEM_ID, SETTING, preset);
   for (const actor of game.actors) {
     const rows = actor.system?.partSlots;
     if (!Array.isArray(rows) || !rows.length) continue;
     const updated = reconcilePartSlotKeys(rows.map((r) => foundry.utils.deepClone(r)));
     if (updated) await actor.update({ "system.partSlots": updated });
   }
-  await game.settings.set(SCOPE, SETTING_KEY_SCHEME, PART_KEY_SCHEME);
+  await game.settings.set(SYSTEM_ID, SETTING_KEY_SCHEME, PART_KEY_SCHEME);
 }
 
 /** 部位スロットプリセットをワールド設定から読む(配列)。流し込み・占有計算が使う。 */
 export function getPartSlotPreset() {
-  const stored = game.settings.get(SCOPE, SETTING);
+  const stored = game.settings.get(SYSTEM_ID, SETTING);
   return Array.isArray(stored) ? stored : [];
 }
 
 /** ワールド設定 "partSlotPreset" と設定メニューを登録する(init 内で呼ぶ)。 */
 export function registerPartSlotPresetSetting() {
-  game.settings.register(SCOPE, SETTING, {
+  game.settings.register(SYSTEM_ID, SETTING, {
     scope: "world", config: false, type: Array, default: [],
   });
   // 初回初期化済みフラグ(ワールド初回ロードでデフォルトを流し込んだら true。以降は再設定しない)
-  game.settings.register(SCOPE, SETTING_INIT, {
+  game.settings.register(SYSTEM_ID, SETTING_INIT, {
     scope: "world", config: false, type: Boolean, default: false,
   });
   // 部位キーのスキーマ版(フェーズ12。migratePartSlotKeys のゲート。旧 boolean フラグ
   // partSlotKeysMigrated は廃止＝未登録の残存値は無害に無視される)
-  game.settings.register(SCOPE, SETTING_KEY_SCHEME, {
+  game.settings.register(SYSTEM_ID, SETTING_KEY_SCHEME, {
     scope: "world", config: false, type: Number, default: 0,
   });
-  game.settings.registerMenu(SCOPE, "partSlotPresetMenu", {
+  game.settings.registerMenu(SYSTEM_ID, "partSlotPresetMenu", {
     name: "部位スロットプリセット",
     label: "プリセットを編集",
     hint: "新規キャストへ流し込む部位スロット(体部位)の初期集合を定義します。value=部位ラベル、count=保有数。",
@@ -208,12 +208,12 @@ export function registerPartSlotPresetSetting() {
  */
 export async function initializeDefaultPartSlotPreset() {
   if (!game.user.isGM) return;
-  if (game.settings.get(SCOPE, SETTING_INIT)) return;
+  if (game.settings.get(SYSTEM_ID, SETTING_INIT)) return;
   // 既にプリセットが入っている(手入力済み)なら上書きしない。空のときだけデフォルトを流し込む。
   if (!getPartSlotPreset().length) {
-    await game.settings.set(SCOPE, SETTING, foundry.utils.deepClone(DEFAULT_PART_SLOT_PRESET));
+    await game.settings.set(SYSTEM_ID, SETTING, foundry.utils.deepClone(DEFAULT_PART_SLOT_PRESET));
   }
-  await game.settings.set(SCOPE, SETTING_INIT, true);
+  await game.settings.set(SYSTEM_ID, SETTING_INIT, true);
 }
 
 const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
@@ -397,6 +397,6 @@ export class PartSlotPresetApp extends HandlebarsApplicationMixin(ApplicationV2)
       if (t) r.targetKey = t.key;
     }
     if (this._actor) await this._actor.update({ "system.partSlots": cleaned });
-    else await game.settings.set(SCOPE, SETTING, cleaned);
+    else await game.settings.set(SYSTEM_ID, SETTING, cleaned);
   }
 }

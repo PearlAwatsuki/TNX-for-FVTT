@@ -34,6 +34,7 @@
  * (システムはハードコードで強制しない。抹殺は未確定=技能ごとの設定・卓裁定)。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { stampCardOutcome } from "./chat-card.mjs";
 import { nowrap } from "./chat-text.mjs";
@@ -47,7 +48,6 @@ import { buildPostTreatmentRest } from "./treatment-flow.mjs";
 import { recoveryCandidateAllowed } from "./miracle-logic.mjs";
 import { getSessionState } from "./session-state.mjs";
 
-const SCOPE = "tokyo-nova-axleration";
 
 /**
  * 対象アクターの現在の状態から、回復範囲に合致し除外に当たらない効果を列挙する。
@@ -62,7 +62,7 @@ const SCOPE = "tokyo-nova-axleration";
 export function listRecoverableEffects(patient, usage, { byMiracle = false, currentScene = null } = {}) {
     const out = [];
     for (const e of (patient?.effects ?? [])) {
-        const f = e.flags?.[SCOPE] ?? {};
+        const f = e.flags?.[SYSTEM_ID] ?? {};
         const kind = getConditionKinds(e)[0];
         const entry = {
             isCondition: !!kind,
@@ -89,7 +89,7 @@ function currentSceneRef() {
 /** 負傷の除去範囲(治療と同じ: 負傷+紐づきの非BS。BS は残る)。 */
 function woundRemovalIds(patient, wound) {
     const linked = patient.effects.filter(e =>
-        e.flags?.[SCOPE]?.woundSource === wound.id
+        e.flags?.[SYSTEM_ID]?.woundSource === wound.id
         && CONDITION_KINDS[getConditionKinds(e)[0]]?.group !== "bs");
     return [wound.id, ...linked.map(e => e.id)];
 }
@@ -119,7 +119,7 @@ function buildRemovalPlan(patient, effects) {
         } else if (def?.group === "incapacitation") {
             // 戦闘不能=元となる負傷(ダメージ)ごと治療する(2026-07-13 ユーザー確定。戦闘不能は
             // ダメージそのもの=2026-07-09 裁定・医療の治療と同じ扱い)。孤立(手動付与)は単体除去
-            const woundId = e.flags?.[SCOPE]?.woundSource || "";
+            const woundId = e.flags?.[SYSTEM_ID]?.woundSource || "";
             const wound = woundId ? patient.effects.get(woundId) : null;
             if (wound) addWoundRange(wound);
             else ids.add(e.id);
@@ -162,8 +162,8 @@ async function promptRecoverySelection(patient, candidates, usage) {
         const def = CONDITION_KINDS[kind];
         const mag = Number(readCondition(e)?.magnitude) || 0;
         const wv = woundChartValue(e);
-        const linkedWound = def?.group === "incapacitation" && e.flags?.[SCOPE]?.woundSource
-            ? patient.effects.get(e.flags[SCOPE].woundSource) : null;
+        const linkedWound = def?.group === "incapacitation" && e.flags?.[SYSTEM_ID]?.woundSource
+            ? patient.effects.get(e.flags[SYSTEM_ID].woundSource) : null;
         const extra = def?.type === "wound"
             ? `（ダメージ値 ${wv}・紐づく戦闘不能・効果も除去）`
             : linkedWound
@@ -273,7 +273,7 @@ export async function useRecovery(item, usage, prebound = null, { asOther = null
         const effect = patient?.effects?.get(prebound.effectId);
         if (!effect) { ui.notifications.warn("治療対象の状態が見つかりません。"); return; }
         // 神業由来の状態は神業でしか治せない(印のゲートの受け側)
-        if (effect.flags?.[SCOPE]?.fromMiracle === true && !byMiracle) {
+        if (effect.flags?.[SYSTEM_ID]?.fromMiracle === true && !byMiracle) {
             ui.notifications.warn("この状態は神業によるもので、神業以外では治療できません。");
             return;
         }

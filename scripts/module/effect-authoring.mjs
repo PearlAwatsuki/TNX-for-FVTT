@@ -15,19 +15,20 @@
  * ディレクトリには出さない(RL の目に触れる意味が無い)。
  */
 
-const SCOPE = "tokyo-nova-axleration";
+import { SYSTEM_ID } from "../constants.mjs";
+
 const SCRATCH_FLAG = "effectScratch";
 const SCRATCH_NAME = "効果の下書き";
 
 /** 下書きアイテムか。 */
-const isScratchItem = (item) => item.getFlag(SCOPE, SCRATCH_FLAG) === true;
+const isScratchItem = (item) => item.getFlag(SYSTEM_ID, SCRATCH_FLAG) === true;
 
 /** 下書きアイテムを作る(組み立てのたびに作って、終わったら消す)。GM のみが触る。 */
 async function createScratchItem() {
     return Item.create({
         name: SCRATCH_NAME,
         type: "general",
-        flags: { [SCOPE]: { [SCRATCH_FLAG]: true } },
+        flags: { [SYSTEM_ID]: { [SCRATCH_FLAG]: true } },
         ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE },
     });
 }

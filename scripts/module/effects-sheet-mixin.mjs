@@ -3,6 +3,7 @@
  * V2 シートでは ACTIONS を DEFAULT_OPTIONS.actions に展開して使う。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { durationLabelOf } from "./time-boundary-logic.mjs";
 
 export const EffectsSheetMixin = {
@@ -28,7 +29,7 @@ export const EffectsSheetMixin = {
         for (const effect of source) {
             // ダメージ/カスケード由来の状態は AE 本体をリスト非表示にする(供給元が浮くため。
             // 状態自体はトークンのステータスアイコンで見える。技能由来 BS はフラグなし=表示)。
-            const flags = effect.flags?.["tokyo-nova-axleration"] ?? {};
+            const flags = effect.flags?.[SYSTEM_ID] ?? {};
             if (flags.hideFromList) continue;
             // 転送コピー(2026-07-13): 他アイテム由来であることを「転送された効果」セクションで
             // 明示する(物理コピー=このアイテム自身の効果なので通常の操作がそのまま効く)

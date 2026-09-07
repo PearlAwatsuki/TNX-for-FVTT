@@ -1,3 +1,4 @@
+import { SYSTEM_ID } from "../constants.mjs";
 import { itemKindLabel } from "../data/item/helpers.mjs";
 
 export class TokyoNovaItem extends Item {
@@ -66,7 +67,7 @@ export class TokyoNovaItem extends Item {
             flags: {
                 "core.canPopout": true,
                 ...(usageEffects || outcome
-                    ? { "tokyo-nova-axleration": {
+                    ? { [SYSTEM_ID]: {
                         ...(usageEffects ? { usageEffects } : {}),
                         ...(outcome ? { cardOutcome: outcome } : {}),
                     } }

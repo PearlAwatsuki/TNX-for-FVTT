@@ -1,10 +1,10 @@
+import { SYSTEM_ID } from "../constants.mjs";
 import { createDefaultDeckData } from './tnx-playing-cards.mjs';
 import { createNeuroDeckData } from './tnx-neuro-cards.mjs';
 import { createAccessCardsData } from './tnx-access-cards.mjs';
 import { saveUserFlagCards, getUserFlagData } from './user-flag-schema.mjs';
 
 const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
-const SCOPE = "tokyo-nova-axleration";
 
 export class TnxCardSetupApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
@@ -52,12 +52,12 @@ export class TnxCardSetupApp extends HandlebarsApplicationMixin(ApplicationV2) {
         const context = await super._prepareContext(options);
 
         const settings = {
-            cardDeckId:       game.settings.get(SCOPE, "cardDeckId"),
-            discardPileId:    game.settings.get(SCOPE, "discardPileId"),
-            neuroDeckId:      game.settings.get(SCOPE, "neuroDeckId"),
-            scenePileId:      game.settings.get(SCOPE, "scenePileId"),
-            accessCardPileId: game.settings.get(SCOPE, "accessCardPileId"),
-            gmTrumpDiscardId: game.settings.get(SCOPE, "gmTrumpDiscardId"),
+            cardDeckId:       game.settings.get(SYSTEM_ID, "cardDeckId"),
+            discardPileId:    game.settings.get(SYSTEM_ID, "discardPileId"),
+            neuroDeckId:      game.settings.get(SYSTEM_ID, "neuroDeckId"),
+            scenePileId:      game.settings.get(SYSTEM_ID, "scenePileId"),
+            accessCardPileId: game.settings.get(SYSTEM_ID, "accessCardPileId"),
+            gmTrumpDiscardId: game.settings.get(SYSTEM_ID, "gmTrumpDiscardId"),
         };
 
         const decks = game.cards.filter(c => c.type === 'deck').map(c => ({ uuid: c.uuid, name: c.name }));
@@ -129,7 +129,7 @@ export class TnxCardSetupApp extends HandlebarsApplicationMixin(ApplicationV2) {
             img: backImg, back: { img: backImg },
         });
         await deck.shuffle({ chatNotification: false });
-        await game.settings.set(SCOPE, "cardDeckId", deck.uuid);
+        await game.settings.set(SYSTEM_ID, "cardDeckId", deck.uuid);
         ui.notifications.info(`山札「${deck.name}」を作成しました。`);
         this.render();
     }
@@ -139,7 +139,7 @@ export class TnxCardSetupApp extends HandlebarsApplicationMixin(ApplicationV2) {
             name: "捨て札", type: 'pile',
             ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
         });
-        await game.settings.set(SCOPE, "discardPileId", pile.uuid);
+        await game.settings.set(SYSTEM_ID, "discardPileId", pile.uuid);
         ui.notifications.info(`捨て札「${pile.name}」を作成しました。`);
         this.render();
     }
@@ -185,7 +185,7 @@ export class TnxCardSetupApp extends HandlebarsApplicationMixin(ApplicationV2) {
             name: `${gm.name}の切り札(使用済)`, type: 'pile',
             ownership: { [gm.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
         });
-        await game.settings.set(SCOPE, "gmTrumpDiscardId", pile.uuid);
+        await game.settings.set(SYSTEM_ID, "gmTrumpDiscardId", pile.uuid);
         ui.notifications.info(`RL切り札捨て場「${pile.name}」を作成しました。`);
         this.render();
     }
@@ -229,7 +229,7 @@ export class TnxCardSetupApp extends HandlebarsApplicationMixin(ApplicationV2) {
             cards: createNeuroDeckData(), img: backImg, back: { img: backImg },
         });
         await deck.shuffle({ chatNotification: false });
-        await game.settings.set(SCOPE, "neuroDeckId", deck.uuid);
+        await game.settings.set(SYSTEM_ID, "neuroDeckId", deck.uuid);
         ui.notifications.info(`ニューロデッキ「${deck.name}」を作成しました。`);
         this.render();
     }
@@ -239,7 +239,7 @@ export class TnxCardSetupApp extends HandlebarsApplicationMixin(ApplicationV2) {
             name: "シーンカード", type: 'pile',
             ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
         });
-        await game.settings.set(SCOPE, "scenePileId", pile.uuid);
+        await game.settings.set(SYSTEM_ID, "scenePileId", pile.uuid);
         ui.notifications.info(`シーンカード置き場「${pile.name}」を作成しました。`);
         this.render();
     }
@@ -267,7 +267,7 @@ export class TnxCardSetupApp extends HandlebarsApplicationMixin(ApplicationV2) {
             }
         }
 
-        await game.settings.set(SCOPE, "accessCardPileId", pile.uuid);
+        await game.settings.set(SYSTEM_ID, "accessCardPileId", pile.uuid);
         ui.notifications.info(`アクセスカード置き場「${pile.name}」を作成しました。`);
         this.render();
     }
@@ -289,7 +289,7 @@ export class TnxCardSetupApp extends HandlebarsApplicationMixin(ApplicationV2) {
             name: `${user.name}の切り札`, type: "pile",
             description: `「${user.name}」の切り札置き場です。`,
             img: "icons/svg/card-hand.svg", ownership,
-            flags: { [SCOPE]: { isTrumpPile: true } },
+            flags: { [SYSTEM_ID]: { isTrumpPile: true } },
         });
     }
 
@@ -309,7 +309,7 @@ export class TnxCardSetupApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
     static async _onClearSetting(_event, target) {
         const key = target.dataset.setting;
-        if (key) await game.settings.set(SCOPE, key, "");
+        if (key) await game.settings.set(SYSTEM_ID, key, "");
         this.render();
     }
 
@@ -318,7 +318,7 @@ export class TnxCardSetupApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
         const settingKeys = ["cardDeckId", "discardPileId", "neuroDeckId", "scenePileId", "accessCardPileId", "gmTrumpDiscardId"];
         for (const key of settingKeys) {
-            await game.settings.set(SCOPE, key, data[key] ?? "");
+            await game.settings.set(SYSTEM_ID, key, data[key] ?? "");
         }
 
         for (const user of game.users) {

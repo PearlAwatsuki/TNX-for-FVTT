@@ -7,6 +7,7 @@
  * Foundry 連携(山札ドロー・チャット受付・制御判定)はその上に載せる。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { getCardCheckValue, normalizeSuit } from './tnx-check-engine.mjs';
 import { TnxActionHandler } from './tnx-action-handler.mjs';
 import { TnxSocketHandler } from './tnx-socket-handler.mjs';
@@ -16,7 +17,6 @@ import { getDamageChartKind } from '../data/damage-chart.mjs';
 import { conditionNeedsDraw, drawResultFlags, negateOutcome } from './condition-resolution-core.mjs';
 import { idKeyPrefix, ONOMASTIC_TYPES } from './skill-dictionary.mjs';
 
-const SCOPE = "tokyo-nova-axleration";
 
 // 純粋ロジックは core 側(Foundry 非依存・テスト可)。利便のため re-export する。
 export { conditionNeedsDraw, drawResultFlags, negateOutcome };
@@ -44,7 +44,7 @@ export async function applyDamageChartResult(actor, category, value, { persuade 
   // persuade=説得(精神)は、フック側で戦闘不能タグ(効果タグ)を付けない目印。BS は通常どおり付与。
   const [eff] = await actor.createEmbeddedDocuments("ActiveEffect", [{
     name: conditionDisplayName(kind), img: def?.img, statuses: [kind],
-    flags: { [SCOPE]: { conditionKind: kind, hideFromList: true, woundValue: value, woundCategory: category,
+    flags: { [SYSTEM_ID]: { conditionKind: kind, hideFromList: true, woundValue: value, woundCategory: category,
       ...(persuade ? { persuade: true } : {}), ...(extraFlags ?? {}) } },
   }]);
   return eff ?? null;
@@ -62,7 +62,7 @@ export async function promptWoundSkillSelection(actor, effect) {
     const cat = c.def?.skillBlock?.category;
     if (!cat || c.targetSkill) continue; // 選択型のみ・確定済みはスキップ
     const picked = await promptSelectRestrictedSkill(actor, cat, c.def.label);
-    if (picked) await effect.setFlag(SCOPE, `conditions.${c.kind}.targetSkill`, picked);
+    if (picked) await effect.setFlag(SYSTEM_ID, `conditions.${c.kind}.targetSkill`, picked);
   }
 }
 
@@ -164,7 +164,7 @@ export async function postDrawPrompt(actor, effect, kind, { magnitude = null } =
     content,
     speaker: ChatMessage.getSpeaker({ actor }),
     flags: {
-      [SCOPE]: {
+      [SYSTEM_ID]: {
         conditionDraw: {
           actorUuid: actor.uuid, effectId: effect.id, kind,
           ...(magnitude === null ? {} : { magnitude }),
@@ -180,7 +180,7 @@ export async function postDrawPrompt(actor, effect, kind, { magnitude = null } =
  * 未解決=「山札を引く」ボタン/解決後=引いたカード+効果の結果表示。
  */
 export function renderConditionDrawCard(message, html) {
-  const f = message.getFlag(SCOPE, "conditionDraw");
+  const f = message.getFlag(SYSTEM_ID, "conditionDraw");
   if (!f) return;
   const area = html.querySelector(".tnx-condition-status");
   if (!area) return;
@@ -239,7 +239,7 @@ export async function executeConditionDraw(actor, effect, kind, message = null) 
     value = typeof ncheck === "number" ? ncheck : Number(card.value) || 0;
   }
   const flags = drawResultFlags(kind, suit, value);
-  await effect.setFlag(SCOPE, `conditions.${kind}`, flags);
+  await effect.setFlag(SYSTEM_ID, `conditions.${kind}`, flags);
 
   const ABIL = { reason: "理性", passion: "感情", life: "生命", mundane: "外界" };
   const detail = kind === "weakness"
@@ -334,7 +334,7 @@ export async function postControlNegatePrompt(actor, effect, kind, controlNegate
     content,
     speaker: ChatMessage.getSpeaker({ actor }),
     flags: {
-      [SCOPE]: {
+      [SYSTEM_ID]: {
         checkRequest: {
           checkType: "controlCheck",
           identificationKey: null,
@@ -389,14 +389,14 @@ export async function resolveControlNegateFromCheck(negateCtx, result) {
 
   const outcome = negateOutcome(result?.success === true, { downgradeTo: downgradeTo || undefined });
   const label = conditionDisplayName(kind, { quote: true });
-  const woundId = effect.flags?.[SCOPE]?.woundSource || ""; // 付与状態(戦闘不能/BS)=負傷に紐づく
+  const woundId = effect.flags?.[SYSTEM_ID]?.woundSource || ""; // 付与状態(戦闘不能/BS)=負傷に紐づく
 
   if (outcome.action === "negate") {
     // 戦闘不能の無効化はダメージ全体(負傷＋その戦闘不能＋同じ負傷由来の紐づき)を消滅させる
     const ids = new Set([effect.id]);
     if (woundId && actor.effects.get(woundId)) {
       ids.add(woundId);
-      for (const e of actor.effects) if (e.flags?.[SCOPE]?.woundSource === woundId) ids.add(e.id);
+      for (const e of actor.effects) if (e.flags?.[SYSTEM_ID]?.woundSource === woundId) ids.add(e.id);
     }
     await actor.deleteEmbeddedDocuments("ActiveEffect", [...ids].filter(id => actor.effects.get(id)));
     return { text: woundId ? `${label}を無効化（ダメージ消滅）` : `${label}を無効化` };
@@ -408,14 +408,14 @@ export async function resolveControlNegateFromCheck(negateCtx, result) {
     await actor.createEmbeddedDocuments("ActiveEffect", [{
       name: conditionDisplayName(outcome.to), img: CONDITION_KINDS[outcome.to]?.img,
       statuses: [outcome.to],
-      flags: { [SCOPE]: { conditionKind: outcome.to, hideFromList: true, ...(woundId ? { woundSource: woundId } : {}) } },
+      flags: { [SYSTEM_ID]: { conditionKind: outcome.to, hideFromList: true, ...(woundId ? { woundSource: woundId } : {}) } },
     }]);
     return { text: `${label}→${toLabel}に降格` };
   }
   // 受付済みマークの除去(フラグ由来=inflicts のみ。状態定義直下の controlNegate(動転)は
   // フラグを持たないため何もしない=2026-07-22)
-  if (effect.getFlag(SCOPE, `conditions.${kind}`)?.pendingControlNegate !== undefined) {
-    await effect.unsetFlag(SCOPE, `conditions.${kind}.pendingControlNegate`);
+  if (effect.getFlag(SYSTEM_ID, `conditions.${kind}`)?.pendingControlNegate !== undefined) {
+    await effect.unsetFlag(SYSTEM_ID, `conditions.${kind}.pendingControlNegate`);
   }
   return { text: `${label}は継続` };
 }

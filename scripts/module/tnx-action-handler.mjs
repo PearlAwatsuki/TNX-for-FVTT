@@ -4,6 +4,7 @@ import {
     CardSelectionDialog,
     TargetSelectionDialog
     } from './tnx-dialog.mjs';
+import { SYSTEM_ID, SOCKET_CHANNEL } from "../constants.mjs";
 import { lookupDrawTables } from './tnx-draw-table.mjs';
 
 /** スタイル枠ニューロカードの日本語名 → タロット名アルファベット対応表 */
@@ -25,7 +26,7 @@ export class TnxActionHandler {
      * @returns {Promise<Cards|null>}
      */
     static async getActiveDeck() {
-        const id = game.settings.get("tokyo-nova-axleration", "cardDeckId");
+        const id = game.settings.get(SYSTEM_ID, "cardDeckId");
         if (!id) { ui.notifications.error("操作対象の山札が設定されていません。"); return null; }
         return await fromUuid(id);
     }
@@ -35,19 +36,19 @@ export class TnxActionHandler {
      * @returns {Promise<Cards|null>}
      */
     static async getActiveDiscardPile() {
-        const id = game.settings.get("tokyo-nova-axleration", "discardPileId");
+        const id = game.settings.get(SYSTEM_ID, "discardPileId");
         if (!id) { ui.notifications.error("操作対象の捨て札が設定されていません。"); return null; }
         return await fromUuid(id);
     }
 
     static async getActiveNeuroDeck() {
-        const id = game.settings.get("tokyo-nova-axleration", "neuroDeckId");
+        const id = game.settings.get(SYSTEM_ID, "neuroDeckId");
         if (!id) { ui.notifications.error("操作対象のニューロデッキが設定されていません。"); return null; }
         return await fromUuid(id);
     }
 
     static async getActiveScenePile() {
-        const id = game.settings.get("tokyo-nova-axleration", "scenePileId");
+        const id = game.settings.get(SYSTEM_ID, "scenePileId");
         if (!id) { ui.notifications.error("操作対象のシーンカード置き場が設定されていません。"); return null; }
         return await fromUuid(id);
     }
@@ -57,7 +58,7 @@ export class TnxActionHandler {
      * @returns {Promise<Cards|null>}
      */
     static async getActiveGmTrumpDiscardPile() {
-        const id = game.settings.get("tokyo-nova-axleration", "gmTrumpDiscardId");
+        const id = game.settings.get(SYSTEM_ID, "gmTrumpDiscardId");
         if (!id) { ui.notifications.error("操作対象のRL切り札捨て場が設定されていません。"); return null; }
         return await fromUuid(id);
     }
@@ -306,7 +307,7 @@ export class TnxActionHandler {
             return ui.notifications.warn("山札にカードがありません。");
         }
 
-        const defaultHandMaxSize = game.settings.get("tokyo-nova-axleration", "defaultHandMaxSize");
+        const defaultHandMaxSize = game.settings.get(SYSTEM_ID, "defaultHandMaxSize");
         if (!defaultHandMaxSize || defaultHandMaxSize <= 0) {
             return ui.notifications.warn("システム設定で初期手札枚数が設定されていません。");
         }
@@ -493,7 +494,7 @@ export class TnxActionHandler {
         if (targetHand.isOwner) {
             await sourceHand.pass(targetHand, cardIds, { chatNotification: false });
         } else {
-            game.socket.emit("system.tokyo-nova-axleration", {
+            game.socket.emit(SOCKET_CHANNEL, {
                 type: "passHandCard",
                 userId: game.user.id,
                 sourceHandUuid: sourceHand.uuid,
@@ -594,7 +595,7 @@ export class TnxActionHandler {
             updateData: { face: null } 
         });
         
-        if (game.settings.get("tokyo-nova-axleration", "shuffleOnDeckReset")) {
+        if (game.settings.get(SYSTEM_ID, "shuffleOnDeckReset")) {
             await deck.shuffle({ chatNotification: false });
             ui.notifications.info("捨て札を回収し、山札をシャッフルしました。");
         } else {

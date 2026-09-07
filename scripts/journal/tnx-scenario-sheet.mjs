@@ -1,3 +1,4 @@
+import { SYSTEM_ID } from "../constants.mjs";
 import { loadGroupedGeneralSkillChoices, loadGeneralSkillNameByKey, loadSkillChoices, idKeyPrefix, SKILL_PACKS, STYLE_PACK } from '../module/skill-dictionary.mjs';
 import { formatSkillName } from '../module/identification.mjs';
 import {
@@ -94,7 +95,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
     async _prepareContext(options) {
         const context = await super._prepareContext(options);
-        const flagData = this.document.flags["tokyo-nova-axleration"] || {};
+        const flagData = this.document.flags[SYSTEM_ID] || {};
 
         context.phaseLabels = CONFIG.TNX.phaseLabels;
         context.documentName = this.document.name;
@@ -437,14 +438,14 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         const handoutItem = input.closest('.handout-item');
 
         if (handoutItem) {
-            const handouts = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "handouts") || []);
+            const handouts = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "handouts") || []);
             const handout = handouts.find(h => h.id === handoutItem.dataset.id);
             if (handout) {
                 handout[name] = value;
-                await this.document.setFlag("tokyo-nova-axleration", "handouts", handouts);
+                await this.document.setFlag(SYSTEM_ID, "handouts", handouts);
             }
         } else if (name === "trailer") {
-            await this.document.setFlag("tokyo-nova-axleration", "trailer", value);
+            await this.document.setFlag(SYSTEM_ID, "trailer", value);
         } else if (name === "documentName") {
             // アクトシート名の編集(14-7)。空にはしない
             if (value.trim()) await this.document.update({ name: value.trim() });
@@ -462,13 +463,13 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         if (!key) return;
         const sceneItem = select.closest(".scene-item");
         const { sceneId, phase } = sceneItem?.dataset ?? {};
-        const scenes = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "scenes"));
+        const scenes = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "scenes"));
         const scene = scenes?.[phase]?.find(s => s.id === sceneId);
         if (!scene) return;
         const keys = Array.isArray(scene.appearanceSkills) ? scene.appearanceSkills : [];
         if (keys.includes(key)) return;
         scene.appearanceSkills = [...keys, key];
-        await this.document.setFlag("tokyo-nova-axleration", "scenes", scenes);
+        await this.document.setFlag(SYSTEM_ID, "scenes", scenes);
     }
 
     /**
@@ -502,14 +503,14 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         const sceneId = sceneItem.dataset.sceneId;
         const phase = sceneItem.dataset.phase;
 
-        const scenes = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "scenes"));
+        const scenes = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "scenes"));
         const scene = scenes[phase]?.find(s => s.id === sceneId);
         if (!scene) return;
 
         scene[input.name] = input.type === 'checkbox' ? input.checked
             : input.type === 'number' ? (Number.isFinite(parseInt(input.value)) ? parseInt(input.value) : null)
             : input.value;
-        await this.document.setFlag("tokyo-nova-axleration", "scenes", scenes);
+        await this.document.setFlag(SYSTEM_ID, "scenes", scenes);
     }
 
     async _onInfoItemChange(event) {
@@ -519,7 +520,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             : input.type === "number" ? parseInt(input.value)
             : input.value;
 
-        const items = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "infoItems") || []);
+        const items = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "infoItems") || []);
         const item = items.find(i => i.id === infoId);
         if (!item) return;
 
@@ -537,7 +538,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             item[input.name] = value;
         }
 
-        await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
+        await this.document.setFlag(SYSTEM_ID, "infoItems", items);
     }
 
     // ─── 静的アクションハンドラ ───────────────────────────────────────────────
@@ -562,13 +563,13 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
     async _updateAppearanceActors(target, mutate) {
         const sceneItem = target.closest(".scene-item");
         const { sceneId, phase } = sceneItem?.dataset ?? {};
-        const scenes = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "scenes"));
+        const scenes = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "scenes"));
         const scene = scenes?.[phase]?.find(s => s.id === sceneId);
         if (!scene) return;
         const next = mutate(normalizeAppearanceActors(scene.appearanceActors));
         if (!next) return;
         scene.appearanceActors = next;
-        await this.document.setFlag("tokyo-nova-axleration", "scenes", scenes);
+        await this.document.setFlag(SYSTEM_ID, "scenes", scenes);
     }
 
     /** 登場キャラクターを追加する(指定技能と同じタグ入力=選ぶこと自体が追加操作)。 */
@@ -601,11 +602,11 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         const sceneItem = target.closest(".scene-item");
         const { sceneId, phase } = sceneItem?.dataset ?? {};
         const key = target.dataset.key;
-        const scenes = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "scenes"));
+        const scenes = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "scenes"));
         const scene = scenes?.[phase]?.find(s => s.id === sceneId);
         if (!scene) return;
         scene.appearanceSkills = (scene.appearanceSkills ?? []).filter(k => k !== key);
-        await this.document.setFlag("tokyo-nova-axleration", "scenes", scenes);
+        await this.document.setFlag(SYSTEM_ID, "scenes", scenes);
     }
 
     // コネ(アクトコネクション)は必ず一つ(2026-08-09 裁定)＝name="actConnection" の単一セレクト。
@@ -613,10 +614,10 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
     static async _onAddScene(_event, target) {
         const phase = target.dataset.phase;
-        const scenes = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "scenes") || { opening: [], research: [], climax: [], ending: [] });
+        const scenes = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "scenes") || { opening: [], research: [], climax: [], ending: [] });
         if (!Array.isArray(scenes[phase])) scenes[phase] = [];
         scenes[phase].push(normalizeSceneRow({ id: foundry.utils.randomID(), name: "新規シーン" }));
-        this.document.setFlag("tokyo-nova-axleration", "scenes", scenes);
+        this.document.setFlag(SYSTEM_ID, "scenes", scenes);
     }
 
     static async _onDeleteScene(_event, target) {
@@ -627,9 +628,9 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             content: "<p>このシーンを削除しますか？</p>",
         });
         if (!confirmed) return;
-        const scenes = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "scenes"));
+        const scenes = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "scenes"));
         if (scenes[phase]) scenes[phase] = scenes[phase].filter(s => s.id !== sceneId);
-        this.document.setFlag("tokyo-nova-axleration", "scenes", scenes);
+        this.document.setFlag(SYSTEM_ID, "scenes", scenes);
     }
 
     // シーン切替はシナリオコントロールパネル(14-3)へ完全移行した。旧「切替」ボタンは
@@ -637,7 +638,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
     // 14-3 で即オミット(2026-08-08 承認)。
 
     static async _onAddInfoItem(_event, _target) {
-        const items = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "infoItems") || []);
+        const items = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "infoItems") || []);
         items.push({
             id: foundry.utils.randomID(),
             title: "新規情報",
@@ -649,7 +650,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
                 skills: [{ id: foundry.utils.randomID(), identificationKeys: [], tn: null }],
             }],
         });
-        await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
+        await this.document.setFlag(SYSTEM_ID, "infoItems", items);
     }
 
     static async _onDeleteInfoItem(_event, target) {
@@ -659,14 +660,14 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             content: "<p>この情報項目全体を削除しますか？</p>",
         });
         if (!confirmed) return;
-        let items = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "infoItems") || []);
+        let items = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "infoItems") || []);
         items = items.filter(i => i.id !== infoItemId);
-        await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
+        await this.document.setFlag(SYSTEM_ID, "infoItems", items);
     }
 
     static async _onAddInfoContent(_event, target) {
         const infoId = target.dataset.infoId;
-        const items = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "infoItems") || []);
+        const items = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "infoItems") || []);
         const item = items.find(i => i.id === infoId);
         if (!item) return;
         if (!Array.isArray(item.contents)) item.contents = [];
@@ -676,16 +677,16 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             isDisclosed: false,
             skills: [{ id: foundry.utils.randomID(), identificationKeys: [], tn: null }],
         });
-        await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
+        await this.document.setFlag(SYSTEM_ID, "infoItems", items);
     }
 
     static async _onDeleteInfoContent(_event, target) {
         const { infoId, contentId } = target.dataset;
-        const items = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "infoItems") || []);
+        const items = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "infoItems") || []);
         const item = items.find(i => i.id === infoId);
         if (!item) return;
         item.contents = item.contents.filter(c => c.id !== contentId);
-        await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
+        await this.document.setFlag(SYSTEM_ID, "infoItems", items);
     }
 
     /**
@@ -695,22 +696,22 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
      */
     static async _onAddInfoTier(_event, target) {
         const { infoId, contentId } = target.dataset;
-        const items = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "infoItems") || []);
+        const items = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "infoItems") || []);
         const content = items.find(i => i.id === infoId)?.contents?.find(c => c.id === contentId);
         if (!content) return;
         if (!Array.isArray(content.tiers)) content.tiers = [];
         content.tiers.push({ id: foundry.utils.randomID(), tn: null, text: "", isDisclosed: false });
-        await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
+        await this.document.setFlag(SYSTEM_ID, "infoItems", items);
     }
 
     /** 段を削除する(内容ブロック・技能行の削除と同じく確認なし。確認は情報項目全体のみ)。 */
     static async _onDeleteInfoTier(_event, target) {
         const { infoId, contentId, tierId } = target.dataset;
-        const items = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "infoItems") || []);
+        const items = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "infoItems") || []);
         const content = items.find(i => i.id === infoId)?.contents?.find(c => c.id === contentId);
         if (!content) return;
         content.tiers = (content.tiers ?? []).filter(t => t.id !== tierId);
-        await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
+        await this.document.setFlag(SYSTEM_ID, "infoItems", items);
     }
 
     /** 情報項目の技能行(infoId/contentId/skillId)を取り出す。 */
@@ -728,13 +729,13 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         const key = select.value;
         select.value = "";
         if (!key) return;
-        const items = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "infoItems") || []);
+        const items = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "infoItems") || []);
         const row = this._infoSkillRow(items, select.dataset);
         if (!row) return;
         const keys = infoSkillKeys(row);
         if (keys.includes(key)) return;
         row.identificationKeys = [...keys, key];
-        await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
+        await this.document.setFlag(SYSTEM_ID, "infoItems", items);
     }
 
     /**
@@ -767,11 +768,11 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
     /** ハンドアウト行の一部を書き換える(コネのモード別入力など、フォーム送信を経ない更新)。 */
     async _updateHandoutRow(handoutId, patch) {
-        const handouts = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "handouts") || []);
+        const handouts = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "handouts") || []);
         const row = handouts.find(h => h.id === handoutId);
         if (!row) return;
         Object.assign(row, patch);
-        await this.document.setFlag("tokyo-nova-axleration", "handouts", handouts);
+        await this.document.setFlag(SYSTEM_ID, "handouts", handouts);
     }
 
     /** 判定要求プリセットの行を取り出す。 */
@@ -784,14 +785,14 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
      * 旧形式(単数 identificationKey)の行は、足した時点で配列へ移る(一括書き換えはしない)。
      */
     async _setPresetSkillKeys(presetId, update) {
-        const presets = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "checkRequests") || []);
+        const presets = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "checkRequests") || []);
         const preset = this._checkRequestPreset(presets, presetId);
         if (!preset) return;
         const next = update(presetSkillKeys(preset));
         if (!next) return;
         preset.identificationKeys = next;
         delete preset.identificationKey;   // 配列へ移った行に旧単数を残さない
-        await this.document.setFlag("tokyo-nova-axleration", "checkRequests", presets);
+        await this.document.setFlag(SYSTEM_ID, "checkRequests", presets);
     }
 
     /** 判定要求プリセットの指定技能をプルダウンから足す(一般技能)。 */
@@ -833,36 +834,36 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
     /** 情報項目の使用技能を行から外す(キー無し＝旧い自由記述のタグを消す)。 */
     static async _onRemoveInfoSkill(_event, target) {
-        const items = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "infoItems") || []);
+        const items = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "infoItems") || []);
         const row = this._infoSkillRow(items, target.dataset);
         if (!row) return;
         const key = target.dataset.key;
         if (key) row.identificationKeys = infoSkillKeys(row).filter(k => k !== key);
         else row.name = "";
-        await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
+        await this.document.setFlag(SYSTEM_ID, "infoItems", items);
     }
 
     static async _onAddSkillCheck(_event, target) {
         const { infoId, contentId } = target.dataset;
-        const items = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "infoItems") || []);
+        const items = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "infoItems") || []);
         const content = items.find(i => i.id === infoId)?.contents.find(c => c.id === contentId);
         if (!content) return;
         content.skills.push({ id: foundry.utils.randomID(), identificationKeys: [], tn: null });
-        await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
+        await this.document.setFlag(SYSTEM_ID, "infoItems", items);
     }
 
     static async _onDeleteSkillCheck(_event, target) {
         const { infoId, contentId, skillId } = target.dataset;
-        const items = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "infoItems") || []);
+        const items = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "infoItems") || []);
         const content = items.find(i => i.id === infoId)?.contents.find(c => c.id === contentId);
         if (!content) return;
         content.skills = content.skills.filter(s => s.id !== skillId);
         if (content.skills.length === 0) content.skills.push({ id: foundry.utils.randomID(), identificationKeys: [], tn: null });
-        await this.document.setFlag("tokyo-nova-axleration", "infoItems", items);
+        await this.document.setFlag(SYSTEM_ID, "infoItems", items);
     }
 
     static async _onAddHandout(_event, _target) {
-        const handouts = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "handouts") || []);
+        const handouts = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "handouts") || []);
         // 名前は「<スタイル名>用ハンドアウト①」形式の自動表示(2026-08-09 裁定)。title は自由記述用
         handouts.push({
             id: foundry.utils.randomID(),
@@ -874,7 +875,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             userId: "",
             actConnection: "",
         });
-        await this.document.setFlag("tokyo-nova-axleration", "handouts", handouts);
+        await this.document.setFlag(SYSTEM_ID, "handouts", handouts);
     }
 
     static async _onDeleteHandout(_event, target) {
@@ -884,22 +885,22 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             content: "<p>このハンドアウトを削除しますか？</p>",
         });
         if (!confirmed) return;
-        let handouts = foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", "handouts") || []);
+        let handouts = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "handouts") || []);
         handouts = handouts.filter(h => h.id !== id);
-        await this.document.setFlag("tokyo-nova-axleration", "handouts", handouts);
+        await this.document.setFlag(SYSTEM_ID, "handouts", handouts);
     }
 
     // ─── RL プリセット(フェーズ12-5。14-8 でシナリオテキストも合流) ─────────────
 
     /** プリセット配列を取り出す(kind = 保存先のフラグキー。scenarioTexts / checkRequests など)。 */
     _presets(kind) {
-        return foundry.utils.deepClone(this.document.getFlag("tokyo-nova-axleration", kind) || []);
+        return foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, kind) || []);
     }
 
     static async _onAddTextPreset(_event, _target) {
         const rows = this._presets("scenarioTexts");
         rows.push(newScenarioTextPreset());
-        await this.document.setFlag("tokyo-nova-axleration", "scenarioTexts", rows);
+        await this.document.setFlag(SYSTEM_ID, "scenarioTexts", rows);
     }
 
     /**
@@ -913,31 +914,31 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         });
         if (!confirmed) return;
         const rows = this._presets("scenarioTexts").filter(p => p.id !== target.dataset.presetId);
-        await this.document.setFlag("tokyo-nova-axleration", "scenarioTexts", rows);
+        await this.document.setFlag(SYSTEM_ID, "scenarioTexts", rows);
     }
 
     static async _onAddCheckRequestPreset(_event, _target) {
         const rows = this._presets("checkRequests");
         rows.push(newCheckRequestPreset());
-        await this.document.setFlag("tokyo-nova-axleration", "checkRequests", rows);
+        await this.document.setFlag(SYSTEM_ID, "checkRequests", rows);
     }
 
     static async _onAddBountyPreset(_event, _target) {
         const rows = this._presets("bountyGrants");
         rows.push(newBountyPreset());
-        await this.document.setFlag("tokyo-nova-axleration", "bountyGrants", rows);
+        await this.document.setFlag(SYSTEM_ID, "bountyGrants", rows);
     }
 
     static async _onAddDamageGrantPreset(_event, _target) {
         const rows = this._presets("damageGrants");
         rows.push(newDamageGrantPreset());
-        await this.document.setFlag("tokyo-nova-axleration", "damageGrants", rows);
+        await this.document.setFlag(SYSTEM_ID, "damageGrants", rows);
     }
 
     static async _onAddEffectGrantPreset(_event, _target) {
         const rows = this._presets("effectGrants");
         rows.push(newEffectGrantPreset());
-        await this.document.setFlag("tokyo-nova-axleration", "effectGrants", rows);
+        await this.document.setFlag(SYSTEM_ID, "effectGrants", rows);
     }
 
     /**
@@ -951,13 +952,13 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         const effect = await promptEffectData(row.effect);
         if (!effect) return;   // 送信せずに閉じた＝取り消し
         row.effect = effect;
-        await this.document.setFlag("tokyo-nova-axleration", "effectGrants", rows);
+        await this.document.setFlag(SYSTEM_ID, "effectGrants", rows);
     }
 
     static async _onDeletePreset(_event, target) {
         const { presetKind, presetId } = target.dataset;
         const rows = this._presets(presetKind).filter(p => p.id !== presetId);
-        await this.document.setFlag("tokyo-nova-axleration", presetKind, rows);
+        await this.document.setFlag(SYSTEM_ID, presetKind, rows);
     }
 
     static async _onPresetUp(_event, target)   { await TnxScenarioSheet._movePreset.call(this, target, -1); }
@@ -971,7 +972,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         const j = i + delta;
         if (i < 0 || !rows[j]) return;
         [rows[i], rows[j]] = [rows[j], rows[i]];
-        await this.document.setFlag("tokyo-nova-axleration", presetKind, rows);
+        await this.document.setFlag(SYSTEM_ID, presetKind, rows);
     }
 
     /** プリセットの入力欄の変更を保存する。 */
@@ -985,6 +986,6 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         row[el.name] = el.type === "checkbox" ? el.checked
             : el.type === "number" ? (Number(el.value) || 0)
             : el.value;
-        await this.document.setFlag("tokyo-nova-axleration", presetKind, rows);
+        await this.document.setFlag(SYSTEM_ID, presetKind, rows);
     }
 }

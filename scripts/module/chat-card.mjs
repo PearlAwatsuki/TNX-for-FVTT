@@ -12,10 +12,10 @@
  * ここで一括して掛けるので、呼び出し側で keepTogether を書かない。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { keepTogether } from "./chat-text.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 
-const SCOPE = "tokyo-nova-axleration";
 
 /**
  * 段: ラベル＝値の1行(card-field.hbs と同じ形)。
@@ -144,7 +144,7 @@ export async function stampCardOutcome(message, { icon = "fa-circle-info", text 
 
 /** cardOutcome フラグを帰結行として描画する(renderChatMessageHTML・tnx.mjs から登録)。 */
 export function renderCardOutcome(message, html) {
-    const outcome = message.getFlag(SCOPE, "cardOutcome");
+    const outcome = message.getFlag(SYSTEM_ID, "cardOutcome");
     const card = html?.querySelector?.(".tnx-card");
     if (!outcome?.text || !card || card.querySelector(".tnx-card__outcome--stamped")) return;
     const icon = String(outcome.icon || "fa-circle-info").replace(/[^a-z0-9-]/gi, "");

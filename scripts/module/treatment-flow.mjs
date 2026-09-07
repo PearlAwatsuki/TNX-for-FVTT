@@ -18,6 +18,7 @@
  * チャート値=目標値式の @condition.woundValue)。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { CONDITION_KINDS, getConditionKinds, usageCanTreatKinds } from "./conditions.mjs";
 import { TargetSelectionDialog } from "./tnx-dialog.mjs";
 import { itemDisplayName } from "./identification.mjs";
@@ -25,7 +26,6 @@ import { usageDisplayName } from "./usage-types.mjs";
 import { buildIncapableEffectData } from "./time-boundary-logic.mjs";
 import { getSessionState } from "./session-state.mjs";
 
-const SCOPE = "tokyo-nova-axleration";
 
 /**
  * クリックされた状態をダメージインスタンス(負傷＋紐づき戦闘不能/支配)の kind 集合へ展開する。
@@ -41,7 +41,7 @@ export function resolveTreatmentKinds(patient, effect) {
     const def = CONDITION_KINDS[kind];
     if (!def) return null;
     if (def.group === "incapacitation") {
-        const woundId = effect.flags?.[SCOPE]?.woundSource || "";
+        const woundId = effect.flags?.[SYSTEM_ID]?.woundSource || "";
         const wound = woundId ? patient.effects.get(woundId) : null;
         return wound ? woundInstanceKinds(patient, wound) : [kind]; // 孤立戦闘不能は単独
     }
@@ -52,7 +52,7 @@ export function resolveTreatmentKinds(patient, effect) {
 /** 負傷の kind＋紐づく戦闘不能系(支配含む)の kind。BS は独立効果のためインスタンスに含めない。 */
 function woundInstanceKinds(patient, wound) {
     const linked = patient.effects
-        .filter(e => e.flags?.[SCOPE]?.woundSource === wound.id)
+        .filter(e => e.flags?.[SYSTEM_ID]?.woundSource === wound.id)
         .map(e => getConditionKinds(e)[0])
         .filter(k => CONDITION_KINDS[k]?.group === "incapacitation");
     return [getConditionKinds(wound)[0], ...linked];

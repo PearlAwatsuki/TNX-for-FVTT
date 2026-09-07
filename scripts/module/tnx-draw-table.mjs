@@ -22,7 +22,8 @@
  *   TableResult.flags.tokyo-nova-axleration.cardName  照合キー（ニューロモード用）
  */
 
-const SCOPE = "tokyo-nova-axleration";
+import { SYSTEM_ID } from "../constants.mjs";
+
 const DECK_FLAG = "drawTableDeckId";
 const CARD_FLAG = "cardName";
 const NEURO_SENTINEL = "neuro";
@@ -140,11 +141,11 @@ export async function lookupDrawTables(card, sourceDeckUuid) {
     for (const app of foundry.applications.instances.values()) {
         if (!(app instanceof RollTableSheet) || !app.rendered) continue;
         const table = app.document;
-        const flagValue = table.getFlag(SCOPE, DECK_FLAG) ?? "";
+        const flagValue = table.getFlag(SYSTEM_ID, DECK_FLAG) ?? "";
 
         let isMatch = false;
         if (flagValue === NEURO_SENTINEL) {
-            const neuroId  = game.settings.get(SCOPE, "neuroDeckId");
+            const neuroId  = game.settings.get(SYSTEM_ID, "neuroDeckId");
             const neuroDeck = neuroId ? foundry.utils.fromUuidSync(neuroId) : null;
             isMatch = !!neuroDeck && neuroDeck.uuid === sourceDeckUuid;
         } else {
@@ -152,7 +153,7 @@ export async function lookupDrawTables(card, sourceDeckUuid) {
         }
         if (!isMatch) continue;
 
-        const result = table.results.find(r => r.getFlag(SCOPE, CARD_FLAG) === label);
+        const result = table.results.find(r => r.getFlag(SYSTEM_ID, CARD_FLAG) === label);
         if (!result) continue;
         await postDrawTableChat(table, [result]);
     }
@@ -166,7 +167,7 @@ export function registerDrawTableHooks() {
     // table.draw() を全面的に差し替え: コンテキストメニュー・シートボタン等
     // あらゆる経路からの draw() 呼び出しをカードドローへリダイレクトする
     foundry.documents.RollTable.prototype.draw = async function(_options = {}) {
-        const flagValue = this.getFlag(SCOPE, DECK_FLAG) ?? "";
+        const flagValue = this.getFlag(SYSTEM_ID, DECK_FLAG) ?? "";
         if (flagValue === NEURO_SENTINEL) {
             ui.notifications.info("ニューロデッキからのカードドローで結果が出力されます。");
             return;
@@ -231,7 +232,7 @@ export function registerDrawTableHooks() {
                             const el = li instanceof HTMLElement ? li : li?.[0];
                             const tableId = el?.dataset?.documentId ?? li?.data?.("documentId");
                             const table = game.tables?.get(tableId);
-                            if (table && (table.getFlag(SCOPE, DECK_FLAG) ?? "") === "") {
+                            if (table && (table.getFlag(SYSTEM_ID, DECK_FLAG) ?? "") === "") {
                                 return drawVirtualDoc(table);
                             }
                             return origCb?.call(this, li);
@@ -289,7 +290,7 @@ export function registerDrawTableHooks() {
     Hooks.on("preCreateTableResult", (result, _data) => {
         const table = result.parent;
         if (!table || table.pack) return;
-        if (table.getFlag(SCOPE, DECK_FLAG)) return;
+        if (table.getFlag(SYSTEM_ID, DECK_FLAG)) return;
 
         const usedLabels = new Set(
             table.results.map(r => findCardByRange(r.range?.[0])?.label).filter(Boolean)
@@ -313,14 +314,14 @@ function onRenderRollTableSheet(app, element) {
     const table     = app.document;
     if (table.pack) return;
 
-    const flagValue  = table.getFlag(SCOPE, DECK_FLAG) ?? "";
+    const flagValue  = table.getFlag(SYSTEM_ID, DECK_FLAG) ?? "";
     const isTrump    = flagValue === "";
     const isNeuro    = flagValue === NEURO_SENTINEL;
     const isConfigured = !isTrump;
 
     let deckForSelector = null;
     if (isNeuro) {
-        const neuroId = game.settings.get(SCOPE, "neuroDeckId");
+        const neuroId = game.settings.get(SYSTEM_ID, "neuroDeckId");
         deckForSelector = neuroId ? foundry.utils.fromUuidSync(neuroId) : null;
     } else if (!isTrump) {
         deckForSelector = foundry.utils.fromUuidSync(flagValue);
@@ -398,7 +399,7 @@ function injectDeckSelector(element, table, flagValue) {
     formulaGroup.after(group);
 
     group.querySelector("select").addEventListener("change", async (ev) => {
-        await table.setFlag(SCOPE, DECK_FLAG, ev.currentTarget.value);
+        await table.setFlag(SYSTEM_ID, DECK_FLAG, ev.currentTarget.value);
     });
 }
 
@@ -471,14 +472,14 @@ function injectResultSelectors(element, table, deck, isConfigured, isTrump) {
         } else if (isConfigured) {
             // ニューロ・旧 UUID モード: カードラベル選択ドロップダウン
             for (const el of rangeTd.children) el.style.display = "none";
-            const current = result.getFlag(SCOPE, CARD_FLAG) ?? "";
+            const current = result.getFlag(SYSTEM_ID, CARD_FLAG) ?? "";
             const options = [
                 `<option value="">（未設定）</option>`,
                 ...cardLabels.map(l => `<option value="${foundry.utils.escapeHTML(l)}" ${l === current ? "selected" : ""}>${foundry.utils.escapeHTML(l)}</option>`),
             ].join("");
             const select = document.createElement("select");
             select.className = "tnx-card-select";
-            select.name = `results.${i}.flags.${SCOPE}.${CARD_FLAG}`;
+            select.name = `results.${i}.flags.${SYSTEM_ID}.${CARD_FLAG}`;
             select.innerHTML = options;
             rangeTd.appendChild(select);
         }

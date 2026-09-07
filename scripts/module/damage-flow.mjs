@@ -21,6 +21,7 @@
  *   (applyMessagePatch・2026-07-16 一本化)。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { applyDamageChartResult } from "./condition-resolution.mjs";
 import { aggregateDefence, defenceForType, computeDamage, splitSharedBonusRows } from "./damage-logic.mjs";
 import { evaluateBonusRows, evaluateSelfBonus } from "./tnx-formula.mjs";
@@ -42,7 +43,6 @@ import { rlGrantAmount, rlGrantLedgerRow, rlGrantTypeLabel, buildRlDamageRollFla
 import { unprotectedTargetIndices, defencePreventPlan, miracleResultLabel, miracleTargetOutcome, miracleOriginOf } from "./miracle-logic.mjs";
 import { formatSkillName } from "./identification.mjs";
 
-const SCOPE = "tokyo-nova-axleration";
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会", troop: "壊滅" };
 const SUIT_SYMBOL = { spade: "♠", club: "♣", heart: "♥", diamond: "♦" };
 
@@ -103,7 +103,7 @@ function readRollForm(el) {
  * @param {ChatMessage} attackMessage 攻撃カードのメッセージ
  */
 export async function openDamageRollDialog(attackMessage) {
-    const f = attackMessage.getFlag(SCOPE, "attackCheck");
+    const f = attackMessage.getFlag(SYSTEM_ID, "attackCheck");
     if (!f) return;
     if (f.damageRolled) { ui.notifications.info("この攻撃のダメージカードは出されています。"); return; }
     // RL 任意ダメージの固定モード(2026-07-24): カードを出さず、指定値のダメージカードを直接生成する
@@ -232,7 +232,7 @@ async function finalizeDamageRoll(ctx, form, played) {
     // 効果セクションで手動適用する(「1点でも」等の条件はコード化せず卓判断)。ダメージ時の
     // 代償効果(self)も同乗して引き継がれる(2026-08-30)。
     // 対象なし攻撃(RL 手動運用)は命中解決が無い=一般効果も従来どおりこのカードで拾えるよう残す
-    const attackEffects = attackMessage.getFlag(SCOPE, "usageEffects") ?? null;
+    const attackEffects = attackMessage.getFlag(SYSTEM_ID, "usageEffects") ?? null;
     const dataEntries = (attackEffects?.effects ?? []).filter(e => e?.data);
     const carriedEntries = hitTargets.length ? splitEffectsByTiming(dataEntries).damage : dataEntries;
     let usageEffects = null;
@@ -247,7 +247,7 @@ async function finalizeDamageRoll(ctx, form, played) {
         ),
         speaker: attacker ? ChatMessage.getSpeaker({ actor: attacker }) : undefined,
         flags: {
-            [SCOPE]: {
+            [SYSTEM_ID]: {
                 ...(usageEffects ? { usageEffects } : {}),
                 damageRoll: {
                     attackMessageId: attackMessage.id,
@@ -295,7 +295,7 @@ async function finalizeDamageRoll(ctx, form, played) {
  * @param {ChatMessage} stagingMessage 中間カード(attackCheck・rlGrant.mode="fixed")
  */
 async function openRlFixedDamage(stagingMessage) {
-    const f = stagingMessage.getFlag(SCOPE, "attackCheck");
+    const f = stagingMessage.getFlag(SYSTEM_ID, "attackCheck");
     if (!f) return;
     if (f.damageRolled) { ui.notifications.info("このダメージは算出済みです。"); return; }
     const attacker = await fromUuid(f.attackerUuid).catch(() => null);
@@ -319,7 +319,7 @@ async function openRlFixedDamage(stagingMessage) {
             { categoryLabel: CATEGORY_LABELS[category] ?? category }
         ),
         speaker: attacker ? ChatMessage.getSpeaker({ actor: attacker }) : undefined,
-        flags: { [SCOPE]: { damageRoll } },
+        flags: { [SYSTEM_ID]: { damageRoll } },
     });
 
     await applyAttackPatch(stagingMessage, { damageRolled: true });
@@ -399,7 +399,7 @@ async function promptWildcardValue() {
 
 /** 台帳(カード行+攻撃力+FA+修正→攻撃側合計)と状態領域(ボタン/適用結果)をフラグから描画する。 */
 export function renderDamageCard(message, html) {
-    const f = message.getFlag(SCOPE, "damageRoll");
+    const f = message.getFlag(SYSTEM_ID, "damageRoll");
     if (!f) return;
     const ledger = html.querySelector(".tnx-damage-ledger");
     const area = html.querySelector(".tnx-damage-status");
@@ -724,7 +724,7 @@ function renderMiracleDamageCard(message, html, f, { ledger, area, row, line, es
  * @param {ChatMessage} message
  */
 export async function applyMiracleDamage(message) {
-    const f = message.getFlag(SCOPE, "damageRoll");
+    const f = message.getFlag(SYSTEM_ID, "damageRoll");
     if (!f?.miracle || f.applied) return;
     const idx = unprotectedTargetIndices(f);
     const rows = [];
@@ -760,7 +760,7 @@ export async function applyMiracleDamage(message) {
                 else {
                     await actor.createEmbeddedDocuments("ActiveEffect", [{
                         name: conditionDisplayName(out.kind), img: def?.img, statuses: [out.kind],
-                        flags: { [SCOPE]: { conditionKind: out.kind, hideFromList: true, fromMiracle: true } },
+                        flags: { [SYSTEM_ID]: { conditionKind: out.kind, hideFromList: true, fromMiracle: true } },
                     }]);
                     text = `${tag}を付与`;
                 }
@@ -803,7 +803,7 @@ export async function applyMiracleDamage(message) {
 export async function handleDamageProtectClick(message, srcIndex) {
     const state = TnxCheckFlow.peekAchievementAction("protect");
     if (!state) return; // モード外のクリックは無視(通常表示)
-    const f = message.getFlag(SCOPE, "damageRoll");
+    const f = message.getFlag(SYSTEM_ID, "damageRoll");
     if (!f) return;
     const actor = game.actors.get(state.actorId);
     const skill = actor?.items.get(state.skillItemId);
@@ -829,7 +829,7 @@ export async function handleDamageProtectClick(message, srcIndex) {
     const { postMiracleCard } = await import("./miracle-flow.mjs");
     // 防御そのものを後で打ち消せるよう、当時の対象行を控える(2026-09-06)
     await postMiracleCard(skill, { asOther: state.asOther, undo: [{ messageId: message.id, patch: {
-        [`flags.${SCOPE}.damageRoll.targets`]: foundry.utils.deepClone(f.targets ?? []),
+        [`flags.${SYSTEM_ID}.damageRoll.targets`]: foundry.utils.deepClone(f.targets ?? []),
     } }] });
     const targets = foundry.utils.deepClone(f.targets ?? []);
     for (const i of plan.indices) targets[i] = { ...targets[i], protectedBy: plan.by };
@@ -847,7 +847,7 @@ export async function handleDamageProtectClick(message, srcIndex) {
 export async function handleDamageModifyClick(message) {
     const state = TnxCheckFlow.peekAchievementAction("modifyDamage");
     if (!state) return; // モード外のクリックは無視(通常表示)
-    const f = message.getFlag(SCOPE, "damageRoll");
+    const f = message.getFlag(SYSTEM_ID, "damageRoll");
     if (!f) return;
     if (f.applied) {
         ui.notifications.warn("適用済みのダメージは修正できません。");
@@ -930,7 +930,7 @@ export async function handleDamageModifyClick(message) {
  * @param {number} targetIndex f.targets のインデックス
  */
 async function promptBountyMitigation(message, targetIndex) {
-    const f = message.getFlag(SCOPE, "damageRoll");
+    const f = message.getFlag(SYSTEM_ID, "damageRoll");
     if (!f) return;
     if (f.applied) { ui.notifications.warn("適用済みのダメージは軽減できません。"); return; }
     if ((f.category || "physical") !== "social") return;
@@ -978,7 +978,7 @@ async function promptBountyMitigation(message, targetIndex) {
  * 巻き戻さない=台帳の記録訂正。用途経由の modifyDamage は従来どおり適用前まで)。
  */
 export async function manualEditDamage(message) {
-    const f = message.getFlag(SCOPE, "damageRoll");
+    const f = message.getFlag(SYSTEM_ID, "damageRoll");
     if (!f) return;
     // 手動修正も mods(事後修正)に積むため、基準は表示中の攻撃側合計(共有事後修正込みの攻撃側の数字。
     // 対象ごとのダメージ修正は含まない＝台帳の「攻撃側合計」と同じ数字・2026-09-01)
@@ -1187,7 +1187,7 @@ function wetNullified(f, doc) {
  * 初回と同じ待ち受け方式: 手札は HUD クリック・山札はダイアログのボタン。
  */
 async function addDamageCard(message) {
-    const f = message.getFlag(SCOPE, "damageRoll");
+    const f = message.getFlag(SYSTEM_ID, "damageRoll");
     if (!f || f.applied) return;
 
     await cancelPending();
@@ -1216,7 +1216,7 @@ async function addDamageCard(message) {
 
 /** 出したカードをダメージ・カードの台帳に追記する(合算・ライブ更新)。 */
 async function appendDamageCard(message, played) {
-    const f = message.getFlag(SCOPE, "damageRoll");
+    const f = message.getFlag(SYSTEM_ID, "damageRoll");
     if (!f || f.applied) return;
     await applyDamagePatch(message, { cards: [...(f.cards ?? []), played] });
 }
@@ -1236,7 +1236,7 @@ async function appendDamageCard(message, played) {
  * @param {"physical"|"mental"|"social"|null} [applyCategory] 差し替え先の系統(チャート)
  */
 async function openMitigationDialog(message, applyCategory = null) {
-    const f = message.getFlag(SCOPE, "damageRoll");
+    const f = message.getFlag(SYSTEM_ID, "damageRoll");
     if (!f || f.applied) return;
     if (f.miracle) return applyMiracleDamage(message); // 神業版(17-3)は軽減ダイアログを挟まない
 

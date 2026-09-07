@@ -10,11 +10,11 @@
  * 本モジュールは純粋関数(Foundry 非依存)に徹し、actor / item / targets の解決は呼び出し側で行う。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { buildDamageStates, getDamageChartValue } from "../data/damage-chart.mjs";
 import { parseEffectTargetKey, collectActorEffectBuffs, effectAutoApplies, readFlag } from "../data/item/helpers.mjs";
 import { outfitClassifications } from "../data/item/outfit-categories.mjs";
 
-const SCOPE = "tokyo-nova-axleration";
 
 /**
  * condition の効果型。
@@ -131,7 +131,7 @@ export function getConditionKinds(effect) {
   const st = effect?.statuses;
   const ids = st instanceof Set ? [...st] : (Array.isArray(st) ? st : []);
   for (const id of ids) if (CONDITION_KINDS[id] && !out.includes(id)) out.push(id);
-  const flagKind = effect?.flags?.[SCOPE]?.conditionKind;
+  const flagKind = effect?.flags?.[SYSTEM_ID]?.conditionKind;
   if (flagKind && CONDITION_KINDS[flagKind] && !out.includes(flagKind)) out.push(flagKind);
   return out;
 }
@@ -149,7 +149,7 @@ export function getConditionKind(effect) {
  * @returns {Array<object>}
  */
 export function readConditions(effect) {
-  const f = effect?.flags?.[SCOPE] ?? {};
+  const f = effect?.flags?.[SYSTEM_ID] ?? {};
   const perKind = f.conditions ?? {};
   return getConditionKinds(effect).map(kind => {
     const def = CONDITION_KINDS[kind] ?? null;
@@ -264,13 +264,13 @@ export function getEffectiveConditions(actor) {
   // 負傷(woundCategory を持つ効果) id → 系統
   const woundCat = new Map();
   for (const e of (actor?.effects ?? [])) {
-    const wc = e.flags?.[SCOPE]?.woundCategory;
+    const wc = e.flags?.[SYSTEM_ID]?.woundCategory;
     if (wc) woundCat.set(e.id, wc);
   }
   const out = [];
   const consume = (effect) => {
     if (effect?.disabled) return;
-    const f = effect?.flags?.[SCOPE] ?? {};
+    const f = effect?.flags?.[SYSTEM_ID] ?? {};
     let damageCategory = f.woundCategory ?? null;
     if (!damageCategory && f.woundSource) damageCategory = woundCat.get(f.woundSource) ?? null;
     // 手動オーバーライド(卓ツール・バッヂのコンテキストメニュー): このインスタンスの効果を止める。
@@ -349,7 +349,7 @@ export function buildInflictedEffectsData(kind, { hidden = true } = {}) {
       name:     conditionDisplayName(inf.kind),
       img:      idef.img ?? "icons/svg/aura.svg",
       statuses: [inf.kind],
-      flags:    { [SCOPE]: flags },
+      flags:    { [SYSTEM_ID]: flags },
     });
   }
   return out;
@@ -414,7 +414,7 @@ export function usageCanTreatKinds(usage, kinds) {
  * @returns {number}
  */
 export function woundChartValue(effect) {
-  const stored = Number(effect?.flags?.[SCOPE]?.woundValue);
+  const stored = Number(effect?.flags?.[SYSTEM_ID]?.woundValue);
   if (Number.isFinite(stored) && stored > 0) return stored;
   return getDamageChartValue(getConditionKinds(effect)[0]);
 }
@@ -444,14 +444,14 @@ export function applyDamageTagMods(dataList, mods) {
     const to = mods.replace?.get?.(orig);
     if (to && to !== orig && CONDITION_KINDS[to]) {
       const ndef = CONDITION_KINDS[to];
-      const f = d.flags?.[SCOPE] ?? {};
+      const f = d.flags?.[SYSTEM_ID] ?? {};
       const conds = f.conditions?.[orig];
       entry = {
         ...d,
         name:     conditionDisplayName(to),
         img:      ndef.img ?? "icons/svg/aura.svg",
         statuses: [to],
-        flags: { [SCOPE]: {
+        flags: { [SYSTEM_ID]: {
           conditionKind: to,
           hideFromList:  f.hideFromList === true,
           replacedFrom:  orig,
@@ -467,7 +467,7 @@ export function applyDamageTagMods(dataList, mods) {
         name:     conditionDisplayName(addTo),
         img:      adef.img ?? "icons/svg/aura.svg",
         statuses: [addTo],
-        flags:    { [SCOPE]: { conditionKind: addTo, hideFromList: true, addedFrom: orig } },
+        flags:    { [SYSTEM_ID]: { conditionKind: addTo, hideFromList: true, addedFrom: orig } },
       });
     }
   }

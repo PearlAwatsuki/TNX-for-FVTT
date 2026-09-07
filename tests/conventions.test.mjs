@@ -161,13 +161,30 @@ describe("規約: 共通の置き場を迂回しない(ラチェット=増やさ
     expect(files.length).toBeLessThanOrEqual(DIALOG_LIMIT);
   });
 
-  // フラグスコープはファイルごとに SCOPE / TNX_SCOPE / SCOPE_FLAGS / TNX_FLAG_SCOPE /
-  // TNX_TRANSFER_SCOPE と 5 通りの名前で再宣言され、生文字列も残っている。
-  // TODO(18-4): constants.mjs へ一本化する。
-  const SCOPE_LITERAL_LIMIT = 100;
-  it(`フラグスコープの生文字列が ${SCOPE_LITERAL_LIMIT} 箇所を超えない`, () => {
-    const n = countIn(SRC, /(?:get|set|unset)Flag\(\s*"tokyo-nova-axleration"/g)
-      + countIn(SRC, /flags\.tokyo-nova-axleration/g);
-    expect(n).toBeLessThanOrEqual(SCOPE_LITERAL_LIMIT);
+  // システム ID はファイルごとに SCOPE / TNX_SCOPE / SCOPE_FLAGS / TNX_FLAG_SCOPE /
+  // TNX_TRANSFER_SCOPE と 5 通りの名前で再宣言され、生文字列も 100 箇所残っていた。
+  // 2026-09-07 に scripts/constants.mjs へ一本化したので、以後はラチェットでなく**規則**として
+  // 0 件を保つ。テンプレートパス(systems/…/templates/…)とパック ID は対象外
+  // (前者はファイルパスとして読めることに価値があり、後者は用途ごとの定数へまとまっている)。
+  /** 行頭がコメントの行を落とす(説明文中の記述は違反ではない)。 */
+  const codeOf = (src) => src.split(/\r?\n/)
+    .filter(l => !/^\s*(\*|\/\/|\/\*)/.test(l)).join(" ");
+
+  it("システム ID を生の文字列で書かない(constants.mjs の SYSTEM_ID を通す)", () => {
+    const offenders = [];
+    for (const p of SRC) {
+      if (p === "scripts/constants.mjs") continue;
+      const code = codeOf(text.get(p));
+      if (/"tokyo-nova-axleration"/.test(code)
+        || /"system\.tokyo-nova-axleration"/.test(code)
+        || /flags\.tokyo-nova-axleration/.test(code)) offenders.push(p);
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("システム ID をファイルごとに再宣言しない", () => {
+    const offenders = SRC.filter(p => p !== "scripts/constants.mjs"
+      && /const \w+ = "tokyo-nova-axleration";/.test(text.get(p)));
+    expect(offenders).toEqual([]);
   });
 });

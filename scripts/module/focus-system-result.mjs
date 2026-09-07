@@ -19,12 +19,12 @@
  * 進行状態の更新(world 設定)は GM 権限が要るため、ボタンは RL(=GM)にのみ出す。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { getActiveFocusSystem, updateFocusSystem } from "./focus-system-state.mjs";
 import { activeProgressRow, clampGauge, computeProgressGain } from "./focus-system-logic.mjs";
 import { resolveProgressModForActor } from "./progress-mod.mjs";
 import { TnxCombat } from "../combat/tnx-combat.mjs";
 
-const SCOPE = "tokyo-nova-axleration";
 
 // 支援 AE が加算する実フィールド(2026-08-05)。中身のある本物の change:
 // system.focus.progressBonus += 1。ネイティブ適用で対象アクターの progressBonus に乗る(素値0)。
@@ -43,11 +43,11 @@ function supportBonusEffects(actor) {
  * `renderChatMessageHTML` フックから、`checkRequest.focusSystemKind==="progress"` のカードに対して呼ぶ。
  */
 export function renderFocusProgressButton(message, html) {
-    const flag = message.getFlag(SCOPE, "checkRequest");
+    const flag = message.getFlag(SYSTEM_ID, "checkRequest");
     if (flag?.focusSystemKind !== "progress") return;
     if (!game.user.isGM) return; // 進行値の反映は RL(=GM)
 
-    const applied = message.getFlag(SCOPE, "focusProgressApplied") ?? {};
+    const applied = message.getFlag(SYSTEM_ID, "focusProgressApplied") ?? {};
     for (const row of html.querySelectorAll(".tnx-card__target")) {
         const actorId = row.dataset.actorId;
         const result = flag.results?.[actorId];
@@ -78,7 +78,7 @@ export function renderFocusProgressButton(message, html) {
  * @param {string} actorId 判定したキャストの Actor id
  */
 export async function applyFocusProgress(message, actorId) {
-    const flag = message.getFlag(SCOPE, "checkRequest");
+    const flag = message.getFlag(SYSTEM_ID, "checkRequest");
     const result = flag?.results?.[actorId];
     if (!result?.success) return;
 
@@ -100,8 +100,8 @@ export async function applyFocusProgress(message, actorId) {
     if (bonusEffects.length && actor) {
         await actor.deleteEmbeddedDocuments("ActiveEffect", bonusEffects.map(e => e.id));
     }
-    const appliedFlag = { ...(message.getFlag(SCOPE, "focusProgressApplied") ?? {}), [actorId]: gain };
-    await message.update({ [`flags.${SCOPE}.focusProgressApplied`]: appliedFlag });
+    const appliedFlag = { ...(message.getFlag(SYSTEM_ID, "focusProgressApplied") ?? {}), [actorId]: gain };
+    await message.update({ [`flags.${SYSTEM_ID}.focusProgressApplied`]: appliedFlag });
 }
 
 // ─── サブステップ②: 支援判定の記帳(メジャー記帳 ＋ 対象へ支援 AE 付与・結果確定で**自動適用**) ──
@@ -120,11 +120,11 @@ export async function applyFocusProgress(message, actorId) {
  * @param {string} actorId 支援を行ったキャストの Actor id
  */
 export async function autoApplyFocusSupport(message, actorId) {
-    const flag = message.getFlag(SCOPE, "checkRequest");
+    const flag = message.getFlag(SYSTEM_ID, "checkRequest");
     if (flag?.focusSystemKind !== "support") return;
     const result = flag.results?.[actorId];
     if (!result) return;
-    const applied = message.getFlag(SCOPE, "focusSupportApplied") ?? {};
+    const applied = message.getFlag(SYSTEM_ID, "focusSupportApplied") ?? {};
     if (applied[actorId] !== undefined) return; // 一度だけ(再判定等の二重記帳を防ぐ)
 
     const fs = getActiveFocusSystem(flag?.focusSystemId);
@@ -144,10 +144,10 @@ export async function autoApplyFocusSupport(message, actorId) {
             changes: [{ key: FOCUS_SUPPORT_KEY, mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "1", priority: 20 }],
             // カット終了で自動失効する(15-3。ネイティブの duration は本システムでは動かないため
             // TNX の持続で指定する。進行判定での消費=AE 除去も従来どおり効く)
-            flags: { [SCOPE]: { tnxDuration: "cut" } },
+            flags: { [SYSTEM_ID]: { tnxDuration: "cut" } },
         }]);
     }
-    await message.update({ [`flags.${SCOPE}.focusSupportApplied`]: { ...applied, [actorId]: { success: succeeded, targetId, targetName: target?.name ?? null } } });
+    await message.update({ [`flags.${SYSTEM_ID}.focusSupportApplied`]: { ...applied, [actorId]: { success: succeeded, targetId, targetName: target?.name ?? null } } });
 }
 
 /**
@@ -156,9 +156,9 @@ export async function autoApplyFocusSupport(message, actorId) {
  * イニシアチブ終了時に一般則で行われる(トラッカーの AR 表示に出る)ため、この行には出さない。
  */
 export function renderFocusSupportNote(message, html) {
-    const flag = message.getFlag(SCOPE, "checkRequest");
+    const flag = message.getFlag(SYSTEM_ID, "checkRequest");
     if (flag?.focusSystemKind !== "support") return;
-    const applied = message.getFlag(SCOPE, "focusSupportApplied") ?? {};
+    const applied = message.getFlag(SYSTEM_ID, "focusSupportApplied") ?? {};
     for (const row of html.querySelectorAll(".tnx-card__target")) {
         const actorId = row.dataset.actorId;
         const rec = applied[actorId];

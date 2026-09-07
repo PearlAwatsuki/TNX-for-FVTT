@@ -12,23 +12,23 @@
  * フラグの直読み・直書きを散在させず、必ず本モジュールを経由すること(user-flag-schema と同じ規範)。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { pickTokenDropPosition, tokenDeletionImpliesExit } from "./appearance-logic.mjs";
 import { teamLinkedExitTargets } from "./session-logic.mjs";
 import { TNX_HOOKS } from "./combat-events.mjs";
 
-const SCOPE = "tokyo-nova-axleration";
 
 /** 名前を伏せて登場しているキャラクターの、卓に見せる表示名(2026-08-09 ユーザー指示)。 */
 export const HIDDEN_ACTOR_NAME = "？？？";
 
 /** そのキャラクターが現在のシーンに登場しているか。 */
 export function isAppearing(actor) {
-    return actor?.getFlag?.(SCOPE, "appearing") === true;
+    return actor?.getFlag?.(SYSTEM_ID, "appearing") === true;
 }
 
 /** 名前を伏せて登場しているか(14-8。登場状態と対で、退場時に一緒に落ちる)。 */
 export function isNameHidden(actor) {
-    return actor?.getFlag?.(SCOPE, "appearingHidden") === true;
+    return actor?.getFlag?.(SYSTEM_ID, "appearingHidden") === true;
 }
 
 /**
@@ -54,7 +54,7 @@ export async function setAppearing(actor, appearing, { hideName } = {}) {
     if (!actor) return;
     if (!appearing) {
         const wasAppearing = isAppearing(actor);
-        await actor.unsetFlag(SCOPE, "appearing");
+        await actor.unsetFlag(SYSTEM_ID, "appearing");
         await setNameHidden(actor, false);
         // ゴーストも名前非公開と同様、登場と対のシーン単位の状態(2026-08-22 ユーザー指示
         // 「名前の表示非表示と同様に」)＝退場で落とす
@@ -64,7 +64,7 @@ export async function setAppearing(actor, appearing, { hideName } = {}) {
         if (wasAppearing) Hooks.callAll(TNX_HOOKS.actorExit, actor);
         return;
     }
-    await actor.setFlag(SCOPE, "appearing", true);
+    await actor.setFlag(SYSTEM_ID, "appearing", true);
     if (hideName === undefined) return;
     return setNameHidden(actor, hideName);
 }
@@ -88,8 +88,8 @@ export async function setGhost(actor, ghost) {
  */
 export async function setNameHidden(actor, hidden) {
     if (!actor) return;
-    if (hidden) return actor.setFlag(SCOPE, "appearingHidden", true);
-    if (isNameHidden(actor)) return actor.unsetFlag(SCOPE, "appearingHidden");
+    if (hidden) return actor.setFlag(SYSTEM_ID, "appearingHidden", true);
+    if (isNameHidden(actor)) return actor.unsetFlag(SYSTEM_ID, "appearingHidden");
 }
 
 /** 登場中のキャラクターを列挙する(全キャラクター種)。 */
@@ -136,7 +136,7 @@ export function registerAppearanceTokenSync() {
     // 登場フラグ→トークンの有無・isGhost→トークンの表示(activeGM が代行)
     Hooks.on("updateActor", (actor, changes) => {
         if (game.users.activeGM?.id !== game.user.id) return;
-        const f = changes.flags?.[SCOPE];
+        const f = changes.flags?.[SYSTEM_ID];
         if (f && ("appearing" in f || "-=appearing" in f)) syncTokensForActor(actor);
         if (changes.system?.isGhost !== undefined) syncGhostVisibility(actor);
     });
@@ -185,9 +185,9 @@ export function registerAppearanceTokenSync() {
  * @returns {{targetIds: Array<string>, others: Array<string>, teamName: string}}
  */
 export function manualExitTargets(actorId) {
-    const teams = game.settings.get(SCOPE, "sessionState")?.teams ?? [];
+    const teams = game.settings.get(SYSTEM_ID, "sessionState")?.teams ?? [];
     return teamLinkedExitTargets(teams, actorId, {
-        linked: game.settings.get(SCOPE, "teamLinkedExit") === true,
+        linked: game.settings.get(SYSTEM_ID, "teamLinkedExit") === true,
         isAppearing: id => isAppearing(game.actors.get(id)),
     });
 }

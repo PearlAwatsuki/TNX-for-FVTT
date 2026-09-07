@@ -9,7 +9,8 @@
 
 import { TnxCharacterSheetBase } from './tnx-character-sheet-base.mjs';
 import { TnxHistoryMixin } from '../module/tnx-history-mixin.mjs';
-import { getUserFlagData, TNX_FLAG_SCOPE } from '../module/user-flag-schema.mjs';
+import { getUserFlagData } from '../module/user-flag-schema.mjs';
+import { SYSTEM_ID } from '../constants.mjs';
 import { OUTFIT_ITEM_TYPES } from '../data/helpers.mjs';
 import { readFlag } from '../data/item/helpers.mjs';
 
@@ -71,9 +72,9 @@ export class TokyoNovaCastSheet extends TnxCharacterSheetBase {
                 const flagUpdate = {};
                 for (const [key, value] of Object.entries(updateData)) {
                     if (key.startsWith("system.history")) {
-                        flagUpdate[key.replace("system.history", `flags.${TNX_FLAG_SCOPE}.history`)] = value;
+                        flagUpdate[key.replace("system.history", `flags.${SYSTEM_ID}.history`)] = value;
                     } else if (key === "system.exp.total") {
-                        flagUpdate[`flags.${TNX_FLAG_SCOPE}.exp.total`] = value;
+                        flagUpdate[`flags.${SYSTEM_ID}.exp.total`] = value;
                     }
                 }
                 await ownerUser.update(flagUpdate);

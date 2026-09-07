@@ -21,6 +21,7 @@
  * 合成アクターによるリアクションはフェーズ13 のトラッカー文脈で対応)。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { SUIT_TO_ABILITY } from "./tnx-check-engine.mjs";
 import { buildUsageCheckContext } from "./usage-check-context.mjs";
@@ -44,7 +45,6 @@ import { findItemByIdentificationKey, resolveItemNameByKey } from "./identificat
 import { keepTogether, nowrap } from "./chat-text.mjs";
 import { cardField, cardResult } from "./chat-card.mjs";
 
-const SCOPE = "tokyo-nova-axleration";
 
 // 攻撃系統の明示表記(2026-07-15 ユーザー指摘: 判定カードで物理/精神/社会攻撃を明示)。
 // ※物理攻撃が与えるのは肉体ダメージ(攻撃名とダメージ名がずれるのは物理のみ)。
@@ -318,7 +318,7 @@ export async function postAttackCard({ payload, result, suit, cardCheckValue = n
         content,
         speaker: attacker ? ChatMessage.getSpeaker({ actor: attacker }) : undefined,
         flags: {
-            [SCOPE]: {
+            [SYSTEM_ID]: {
                 // 対決読み取り等の互換のため通常判定と同じ checkResult も持たせる
                 checkResult: { actorId: attacker?.id ?? "", result },
                 attackCheck: flags,
@@ -392,12 +392,12 @@ export async function buildReactionResultContent({ reactionFlags, mode, skillLab
  * @param {boolean} isSelf 攻撃対象本人のリアクションか
  */
 export async function createReactionCard(attackMsg, targetIndex, reactor, isSelf) {
-    const f = attackMsg.getFlag(SCOPE, "attackCheck");
+    const f = attackMsg.getFlag(SYSTEM_ID, "attackCheck");
     const t = f?.targets?.[targetIndex];
     if (!t) return;
     // 同一リアクターの未解決カードの二重作成を防ぐ(やり直しは既存カードで行う)
     const pending = game.messages.find(m => {
-        const rf = m.getFlag(SCOPE, "attackReaction");
+        const rf = m.getFlag(SYSTEM_ID, "attackReaction");
         return rf && rf.attackMessageId === attackMsg.id && rf.resolved !== true
             && rf.reactorUuid === reactor.uuid && rf.targetIndex === targetIndex;
     });
@@ -417,7 +417,7 @@ export async function createReactionCard(attackMsg, targetIndex, reactor, isSelf
         speaker: ChatMessage.getSpeaker({ actor: reactor }),
         // シークレット(GM＋クリックしたユーザー・2026-07-18 ユーザー確定)。解決時に whisper 解除で公開
         whisper: [...new Set([...gmIds, game.user.id])],
-        flags: { [SCOPE]: { attackReaction: {
+        flags: { [SYSTEM_ID]: { attackReaction: {
             attackMessageId: attackMsg.id, targetIndex,
             attackerName: f.attackerName ?? "",
             targetUuid: t.uuid, targetName: t.name,
@@ -512,14 +512,14 @@ export async function rebuildRecheckedTargets(prevTargets, next) {
  * @param {{achievement:number, suit:string, wholeFail:boolean}} next
  */
 export async function refreshReactionCardsAfterRecheck(attackMessage, next) {
-    const af = attackMessage.getFlag(SCOPE, "attackCheck");
+    const af = attackMessage.getFlag(SYSTEM_ID, "attackCheck");
     const cards = game.messages.filter(m => {
-        const rf = m.getFlag(SCOPE, "attackReaction");
+        const rf = m.getFlag(SYSTEM_ID, "attackReaction");
         return rf && rf.attackMessageId === attackMessage.id && rf.resolved !== true;
     });
     for (const rc of cards) {
         if (next.wholeFail) { await rc.delete(); continue; }
-        const rf = rc.getFlag(SCOPE, "attackReaction");
+        const rf = rc.getFlag(SYSTEM_ID, "attackReaction");
         const content = await buildReactionCardContent({
             attackerName: af?.attackerName, targetName: rf.targetName,
             category: rf.category, suit: next.suit, achievement: next.achievement,
@@ -528,8 +528,8 @@ export async function refreshReactionCardsAfterRecheck(attackMessage, next) {
         });
         await rc.update({
             content,
-            [`flags.${SCOPE}.attackReaction.achievement`]: next.achievement,
-            [`flags.${SCOPE}.attackReaction.suit`]: next.suit,
+            [`flags.${SYSTEM_ID}.attackReaction.achievement`]: next.achievement,
+            [`flags.${SYSTEM_ID}.attackReaction.suit`]: next.suit,
         });
     }
 }
@@ -538,7 +538,7 @@ export async function refreshReactionCardsAfterRecheck(attackMessage, next) {
 
 /** 対決判定カード(旧・攻撃カード)の状態領域を flags から描画する(未解決=ボタン群/解決後=成否表示に置換)。 */
 export function renderAttackCard(message, html) {
-    const f = message.getFlag(SCOPE, "attackCheck");
+    const f = message.getFlag(SYSTEM_ID, "attackCheck");
     if (!f) return;
     const area = html.querySelector(".tnx-attack-status");
     if (!area) return;
@@ -820,7 +820,7 @@ function resolveSync(uuid) {
  * カードは常に全体公開(単体対象でも他者が代行できるため・2026-07-15)。
  */
 export function renderReactionCard(message, html) {
-    const f = message.getFlag(SCOPE, "attackReaction");
+    const f = message.getFlag(SYSTEM_ID, "attackReaction");
     if (!f) return;
     const area = html.querySelector(".tnx-reaction-status");
     if (!area) return;
@@ -872,7 +872,7 @@ export function renderReactionCard(message, html) {
     // 未解決(シークレット・2026-07-18): リアクション手段のボタンを表示する(ドッジ/パリー/
     // リアクション/リアクション（その他）=対決欄からの導出は buildReactionButtonRow)。
     // リアクターはカード作成時に固定済み(f.reactorUuid)。資格は押下時に判定して弾く
-    const attackF = game.messages.get(f.attackMessageId)?.getFlag(SCOPE, "attackCheck");
+    const attackF = game.messages.get(f.attackMessageId)?.getFlag(SYSTEM_ID, "attackCheck");
     const wrap = buildReactionButtonRow(attackF ?? { confrontation: [] }, {
         onMode: (mode) => startReaction(message, mode),
     });
@@ -909,7 +909,7 @@ function resolveUserIdentityActor({ warn = true } = {}) {
  */
 async function closeUnresolvedReactionCards(attackMessage, exceptIndex) {
     const cards = game.messages.filter(m => {
-        const rf = m.getFlag(SCOPE, "attackReaction");
+        const rf = m.getFlag(SYSTEM_ID, "attackReaction");
         return rf && rf.attackMessageId === attackMessage.id && rf.resolved !== true && rf.targetIndex !== exceptIndex;
     });
     for (const rc of cards) {
@@ -924,7 +924,7 @@ async function closeUnresolvedReactionCards(attackMessage, exceptIndex) {
  * (最優先・2026-07-16)、それ以外はリアクションの入口(本人=決定/スキップ・他者=代理確認)。
  */
 async function handleTargetRowClick(attackMessage, targetIndex) {
-    const f = attackMessage.getFlag(SCOPE, "attackCheck");
+    const f = attackMessage.getFlag(SYSTEM_ID, "attackCheck");
     const t = f?.targets?.[targetIndex];
     if (!t) return;
     if (TnxCheckFlow.peekAchievementAction("covering") && f.isAttack !== false && t.state === "hit") {
@@ -941,7 +941,7 @@ async function handleTargetRowClick(attackMessage, targetIndex) {
  * 決定/確認でシークレットリアクションカードを作成する。締切=ダメージカード(2026-07-18 裁定)。
  */
 async function handleTargetRowReactionClick(attackMessage, targetIndex) {
-    const f = attackMessage.getFlag(SCOPE, "attackCheck");
+    const f = attackMessage.getFlag(SYSTEM_ID, "attackCheck");
     const t = f?.targets?.[targetIndex];
     if (!t || t.coveredBy) return;
     if (f.damageRolled) { ui.notifications.info("ダメージカードを出した後はリアクションできません。"); return; }
@@ -1002,7 +1002,7 @@ async function handleTargetRowReactionClick(attackMessage, targetIndex) {
  * 対象行を即時に解決する(既に付いている代理リアクションとの合成は resolveTargetDefense)。
  */
 async function applySelfSkip(attackMessage, targetIndex) {
-    const f = attackMessage.getFlag(SCOPE, "attackCheck");
+    const f = attackMessage.getFlag(SYSTEM_ID, "attackCheck");
     const targets = foundry.utils.deepClone(f?.targets ?? []);
     const t = targets[targetIndex];
     if (!t || t.selfDecision) return;
@@ -1151,10 +1151,10 @@ async function selectReactionSkill(reactor, confrontationRows, mode) {
  * 完了時に completeReactionFromCheck が防御合成を再解決する。
  */
 export async function startReaction(reactionMsg, mode) {
-    const r = reactionMsg.getFlag(SCOPE, "attackReaction");
+    const r = reactionMsg.getFlag(SYSTEM_ID, "attackReaction");
     if (!r || r.resolved) return;
     const attackMsg = game.messages.get(r.attackMessageId);
-    const attackF = attackMsg?.getFlag(SCOPE, "attackCheck");
+    const attackF = attackMsg?.getFlag(SYSTEM_ID, "attackCheck");
     if (!attackF) { ui.notifications.warn("対決判定カードが見つかりません。"); return; }
     if (attackF.damageRolled) { ui.notifications.info("ダメージカードを出した後はリアクションできません。"); return; }
     if (["fumble", "miss", "failed"].includes(attackF.state)) {
@@ -1219,7 +1219,7 @@ export async function startReaction(reactionMsg, mode) {
  * TnxCheckFlow が投稿し、対決の帰結はこの対決判定カードにライブ表示される。
  */
 export async function handleOpenReactionClick(attackMsg) {
-    const f = attackMsg.getFlag(SCOPE, "attackCheck");
+    const f = attackMsg.getFlag(SYSTEM_ID, "attackCheck");
     if (!f?.openReactions || f.state !== "open") {
         ui.notifications.info("この判定は既に解決済みです。");
         return;
@@ -1255,7 +1255,7 @@ export async function completeReactionFromCheck(payload, result, { suitMismatch 
     const attackMsg = game.messages.get(payload.attackMessageId);
     const reactionMsg = payload.reactionMessageId ? game.messages.get(payload.reactionMessageId) : null;
     if (!attackMsg) return;
-    const f = attackMsg.getFlag(SCOPE, "attackCheck");
+    const f = attackMsg.getFlag(SYSTEM_ID, "attackCheck");
     if (!f) return;
 
     const ok = !result.fumble && !suitMismatch;
@@ -1347,15 +1347,15 @@ export async function completeReactionFromCheck(payload, result, { suitMismatch 
         // 再判定/修正が読む checkResult/checkRecheck をリアクションカードに保存(再解決時は recheckCtx なし=触らない)
         const extraFlags = { whisper: [] };
         if (recheckCtx) {
-            extraFlags[`flags.${SCOPE}.checkResult`] = { actorId: recheckCtx.actorId, result };
-            extraFlags[`flags.${SCOPE}.checkRecheck`] = recheckCtx;
+            extraFlags[`flags.${SYSTEM_ID}.checkResult`] = { actorId: recheckCtx.actorId, result };
+            extraFlags[`flags.${SYSTEM_ID}.checkRecheck`] = recheckCtx;
             // リアクション用途の適用効果(あれば)。リアクションカードに「効果を適用」ボタンを出す
             // (renderUsageEffectButton は usageEffects フラグで発火・2026-07-15)
-            if (recheckCtx.usageEffects) extraFlags[`flags.${SCOPE}.usageEffects`] = recheckCtx.usageEffects;
+            if (recheckCtx.usageEffects) extraFlags[`flags.${SYSTEM_ID}.usageEffects`] = recheckCtx.usageEffects;
         }
         if (render) {
             extraFlags.content = await buildReactionResultContent({
-                reactionFlags: reactionMsg.getFlag(SCOPE, "attackReaction"),
+                reactionFlags: reactionMsg.getFlag(SYSTEM_ID, "attackReaction"),
                 mode: payload.mode,
                 skillLabel: render.skillLabel, card: render.card, suit: render.suit,
                 result, fromDeck: render.fromDeck, trumpUsed: render.trumpUsed,
@@ -1385,7 +1385,7 @@ export async function completeReactionFromCheck(payload, result, { suitMismatch 
 export async function handleCoveringClick(attackMessage, targetIndex) {
     const state = TnxCheckFlow.peekAchievementAction("covering");
     if (!state) return; // モード外のクリックは無視
-    const f = attackMessage.getFlag(SCOPE, "attackCheck");
+    const f = attackMessage.getFlag(SYSTEM_ID, "attackCheck");
     if (!f || f.damageRolled) { ui.notifications.warn("ダメージカードを出した後はカバーできません。"); return; }
     const t = (f.targets ?? [])[targetIndex];
     if (!t || t.state !== "hit" || t.coveredBy) return; // 命中していない/カバー済みは対象にしない
@@ -1411,7 +1411,7 @@ export async function handleCoveringClick(attackMessage, targetIndex) {
 export async function completeCoveringFromCheck(payload, result, { suitMismatch = false, coverer = null } = {}) {
     const attackMsg = game.messages.get(payload.attackMessageId);
     if (!attackMsg) return;
-    const f = attackMsg.getFlag(SCOPE, "attackCheck");
+    const f = attackMsg.getFlag(SYSTEM_ID, "attackCheck");
     if (!f) return;
     if (f.damageRolled) { ui.notifications.warn("ダメージカードを出した後はカバーできません。"); return; }
     const t = (f.targets ?? [])[payload.targetIndex];
@@ -1431,7 +1431,7 @@ export async function applyAttackPatch(message, patch) {
 
 /** 攻撃カードの特定対象(targets[index])を更新する(配列ごと差し替え・権限委譲は applyAttackPatch)。 */
 export async function applyAttackTargetPatch(attackMsg, index, patch) {
-    const f = attackMsg.getFlag(SCOPE, "attackCheck");
+    const f = attackMsg.getFlag(SYSTEM_ID, "attackCheck");
     const targets = foundry.utils.deepClone(f?.targets ?? []);
     if (!targets[index]) return;
     Object.assign(targets[index], patch);
@@ -1443,7 +1443,7 @@ export async function applyAttackTargetPatch(attackMsg, index, patch) {
  *  checkResult/checkRecheck 等)を同時に更新する。 */
 async function applyReactionPatch(reactionMsg, patch, extraFlags = {}) {
     const data = {};
-    for (const [k, v] of Object.entries(patch)) data[`flags.${SCOPE}.attackReaction.${k}`] = v;
+    for (const [k, v] of Object.entries(patch)) data[`flags.${SYSTEM_ID}.attackReaction.${k}`] = v;
     Object.assign(data, extraFlags);
     await TnxSocketHandler.applyMessagePatch(reactionMsg, data);
 }

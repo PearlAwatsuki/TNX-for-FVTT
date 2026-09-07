@@ -16,10 +16,10 @@
  * combatant フラグの更新は GM 権限が要るため、非 GM は GM(activeGM)へ委譲する。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { currentTargetActors } from "./target-resolution.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 
-const SCOPE = "tokyo-nova-axleration";
 
 /**
  * 用途の割り込み許可トグルを適用する。`grantsInterrupt` でない用途は何もしない。
@@ -68,8 +68,8 @@ export async function grantInterruptToTargets(targetUuids, consumesAr = true) {
         for (const combat of game.combats) {
             if (!combat.started) continue;
             for (const c of (combat.getCombatantsByActor?.(target) ?? [])) {
-                await c.setFlag(SCOPE, "canInterrupt", true).catch(() => {});
-                await c.setFlag(SCOPE, "interruptConsumesAr", consumesAr === true).catch(() => {});
+                await c.setFlag(SYSTEM_ID, "canInterrupt", true).catch(() => {});
+                await c.setFlag(SYSTEM_ID, "interruptConsumesAr", consumesAr === true).catch(() => {});
             }
         }
     }

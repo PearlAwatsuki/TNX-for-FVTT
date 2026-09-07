@@ -14,6 +14,7 @@
  * プレイヤークライアントで起きるため、ソケット(sessionSceneCard)で GM に委譲する。
  */
 
+import { SYSTEM_ID, SOCKET_CHANNEL } from "../constants.mjs";
 import { TNX_HOOKS } from "./combat-events.mjs";
 import { miracleUseFromMessageFlags, buildMiracleUseLogEntry, miracleUsePending, markMiracleUseApplied } from "./miracle-logic.mjs";
 import { listAppearingActors } from "./appearance-state.mjs";
@@ -40,7 +41,6 @@ import { getUserFlagData, saveIsScenePlayer } from "./user-flag-schema.mjs";
 
 const { DialogV2 } = foundry.applications.api;
 
-const SCOPE = "tokyo-nova-axleration";
 const SETTING = "sessionState";
 
 const DEFAULTS = Object.freeze({
@@ -89,7 +89,7 @@ const BACKSTAGE_INITIAL = Object.freeze({ open: false, started: false, spotActor
 
 /** ワールド設定の登録(init で呼ぶ)。 */
 export function registerSessionStateSetting() {
-    game.settings.register(SCOPE, SETTING, {
+    game.settings.register(SYSTEM_ID, SETTING, {
         scope:   "world",
         config:  false,
         type:    Object,
@@ -105,7 +105,7 @@ export function registerSessionStateSetting() {
 
 /** 実行状態を返す(全員が読める・既定値フォールバック付き)。 */
 export function getSessionState() {
-    return { ...DEFAULTS, ...(game.settings.get(SCOPE, SETTING) ?? {}) };
+    return { ...DEFAULTS, ...(game.settings.get(SYSTEM_ID, SETTING) ?? {}) };
 }
 
 // ─── シーン登場の記帳(経験点配布の自動入力の元・2026-08-30 ユーザー承認) ────────────
@@ -124,7 +124,7 @@ let _appearanceRecordQueue = Promise.resolve();
 export function registerAppearanceExpTracking() {
     Hooks.on("updateActor", (actor, changes) => {
         if (game.users.activeGM?.isSelf !== true) return;
-        if (changes.flags?.[SCOPE]?.appearing !== true) return;
+        if (changes.flags?.[SYSTEM_ID]?.appearing !== true) return;
         if (actor?.type !== "cast") return;
         _appearanceRecordQueue = _appearanceRecordQueue.then(async () => {
             const st = getSessionState();
@@ -160,7 +160,7 @@ function appearingActorIds() {
 export function registerMiracleUseLogging() {
     Hooks.on("createChatMessage", (message) => {
         if (game.users.activeGM?.isSelf !== true) return;
-        const origin = miracleUseFromMessageFlags(message.flags?.[SCOPE]);
+        const origin = miracleUseFromMessageFlags(message.flags?.[SYSTEM_ID]);
         if (!origin) return;
         _miracleLogQueue = _miracleLogQueue.then(async () => {
             const st = getSessionState();
@@ -169,7 +169,7 @@ export function registerMiracleUseLogging() {
             const entry = buildMiracleUseLogEntry({
                 sceneNumber: st.sceneNumber, sceneId: st.sceneId, actorId,
                 actorName: actor?.name ?? message.speaker?.alias ?? "", origin, appeared: appearingActorIds(),
-                messageId: message.id, applied: !miracleUsePending(message.flags?.[SCOPE]),
+                messageId: message.id, applied: !miracleUsePending(message.flags?.[SYSTEM_ID]),
             });
             await setState({ miracleUseLog: [...(st.miracleUseLog ?? []), entry] });
         }).catch(err => console.error("TNX | 神業の使用ログの記帳に失敗しました", err));
@@ -178,7 +178,7 @@ export function registerMiracleUseLogging() {
     // 刻む(《突然変異》の「使用→登場→適用」の判定材料・ユーザー裁定 2026-09-04)
     Hooks.on("updateChatMessage", (message) => {
         if (game.users.activeGM?.isSelf !== true) return;
-        const flags = message.flags?.[SCOPE];
+        const flags = message.flags?.[SYSTEM_ID];
         if (!miracleUseFromMessageFlags(flags) || miracleUsePending(flags)) return;
         _miracleLogQueue = _miracleLogQueue.then(async () => {
             const st = getSessionState();
@@ -202,7 +202,7 @@ export function listActJournals() {
 
 /** アクティブなアクトの台本(flags.scenes)。 */
 export function getActiveScenes() {
-    return getActiveActJournal()?.getFlag(SCOPE, "scenes") ?? null;
+    return getActiveActJournal()?.getFlag(SYSTEM_ID, "scenes") ?? null;
 }
 
 /** 現在のシーン行(正規化済み)とフェイズ。シーンが無ければ null。 */
@@ -259,7 +259,7 @@ export function getRotationStatus() {
 
 /** アクティブなアクトのハンドアウト行(正規化済み)。 */
 function _activeHandouts() {
-    return (getActiveActJournal()?.getFlag(SCOPE, "handouts") ?? []).map(normalizeHandoutRow);
+    return (getActiveActJournal()?.getFlag(SYSTEM_ID, "handouts") ?? []).map(normalizeHandoutRow);
 }
 
 /**
@@ -288,7 +288,7 @@ function _scriptedScenePlayerId(scene) {
 export async function getCurrentSceneCard() {
     const { sceneCardId } = getSessionState();
     if (!sceneCardId) return null;
-    const pileUuid = game.settings.get(SCOPE, "scenePileId");
+    const pileUuid = game.settings.get(SYSTEM_ID, "scenePileId");
     const pile = pileUuid ? await fromUuid(pileUuid) : null;
     return pile?.cards.get(sceneCardId) ?? null;
 }
@@ -302,7 +302,7 @@ function assertGM() {
 }
 
 async function setState(patch) {
-    await game.settings.set(SCOPE, SETTING, { ...getSessionState(), ...patch });
+    await game.settings.set(SYSTEM_ID, SETTING, { ...getSessionState(), ...patch });
 }
 
 // ─── アクトのライフサイクル ─────────────────────────────────────────────────
@@ -315,7 +315,7 @@ async function setState(patch) {
  */
 export async function loadAct(journal) {
     if (!assertGM() || !journal) return;
-    await game.settings.set(SCOPE, SETTING, { ...DEFAULTS, actId: journal.id });
+    await game.settings.set(SYSTEM_ID, SETTING, { ...DEFAULTS, actId: journal.id });
 }
 
 /**
@@ -335,7 +335,7 @@ export async function startAct({ sceneId = null } = {}) {
     // 参加=ハンドアウトの対象ユーザー(2026-08-09 裁定=ハンドアウトはユーザーに付与)。
     // キャストはユーザーの割当キャラクター(user.character)から解決する。
     // 旧 actorId(キャスト直接参照)は読み替えで吸収(書き換えない)
-    const handouts = (journal.getFlag(SCOPE, "handouts") ?? []).map(normalizeHandoutRow);
+    const handouts = (journal.getFlag(SYSTEM_ID, "handouts") ?? []).map(normalizeHandoutRow);
     const assignments = _resolveHandoutAssignments(handouts);
     const casts = [...new Map(assignments.filter(a => a.cast).map(a => [a.cast.id, a.cast])).values()];
 
@@ -359,7 +359,7 @@ export async function startAct({ sceneId = null } = {}) {
 
     // 先頭シーン(または指定シーン)の確認と、そのシーンで決めるものの聞き取りは**自動設定より
     // 前**に済ませる。ここで中止されても何も変更されていない状態で戻れる
-    const scenes = journal.getFlag(SCOPE, "scenes") ?? null;
+    const scenes = journal.getFlag(SYSTEM_ID, "scenes") ?? null;
     const hit = sceneId ? findSceneRow(scenes, sceneId) : firstSceneRow(scenes);
     if (!hit) {
         ui.notifications.warn("台本にシーンがありません。アクトを開始できません。");
@@ -416,7 +416,7 @@ export async function endAct() {
     if (!st.actId || !st.actStarted) return;
     const events = planActEndEvents({ sceneId: st.sceneId, sceneEnded: st.sceneEnded, actId: st.actId });
     if (st.sceneId) await _applySceneExit();
-    await game.settings.set(SCOPE, SETTING, { ...DEFAULTS, actId: st.actId });
+    await game.settings.set(SYSTEM_ID, SETTING, { ...DEFAULTS, actId: st.actId });
     // アクト限定技能の後始末は**経験点の配布より後**に回す(2026-08-13 ユーザー指示)。
     // 維持するコネは経験点で買う扱いになるため、配布前に聞くと払う原資が無い。
     // 呼び出しはポストアクトの流れを持つパネル側(_onEndAct)が経験点配布アプリの後に行う
@@ -537,7 +537,7 @@ function _resolveHandoutAssignments(handouts) {
  */
 async function _dealTrumpsForCasts(casts) {
     if (!casts.length) return;
-    const deckUuid = game.settings.get(SCOPE, "neuroDeckId");
+    const deckUuid = game.settings.get(SYSTEM_ID, "neuroDeckId");
     const neuroDeck = deckUuid ? await fromUuid(deckUuid) : null;
     if (!neuroDeck) return void ui.notifications.warn("ニューロデッキが設定されていないため、切り札の自動配布をスキップしました。");
     const deckCards = neuroDeck.cards.contents.map(c => ({
@@ -891,7 +891,7 @@ export async function setCurrentSceneCard(cardId) {
  */
 export function recordCurrentSceneCard(cardId) {
     if (game.user.isGM) return void setCurrentSceneCard(cardId);
-    game.socket.emit("system.tokyo-nova-axleration", { type: "sessionSceneCard", cardId });
+    game.socket.emit(SOCKET_CHANNEL, { type: "sessionSceneCard", cardId });
 }
 
 // ─── チーム(宣言はいつでも可・免除ロジックは14-5) ───────────────────────────

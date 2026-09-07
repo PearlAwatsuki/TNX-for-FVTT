@@ -18,15 +18,15 @@
  *   生成されず差し替え先が無い)。サイズの異なる画像はシーンの背景矩形に合わせて伸縮される。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { parseStageRef } from "./session-logic.mjs";
 import { moveItemBy, moveItemTo } from "./list-order.mjs";
 
-const SCOPE = "tokyo-nova-axleration";
 const SETTING = "subScenes";
 
 /** ワールド設定の登録(init で呼ぶ)。 */
 export function registerSubSceneSetting() {
-    game.settings.register(SCOPE, SETTING, {
+    game.settings.register(SYSTEM_ID, SETTING, {
         scope:   "world",
         config:  false,
         type:    Array,
@@ -42,7 +42,7 @@ export function registerSubSceneSetting() {
 
 /** サブシーンを列挙する(全員が読める)。 */
 export function listSubScenes() {
-    return game.settings.get(SCOPE, SETTING) ?? [];
+    return game.settings.get(SYSTEM_ID, SETTING) ?? [];
 }
 
 /** サブシーンを1件取得する。 */
@@ -52,7 +52,7 @@ export function getSubScene(id) {
 
 /** そのサブシーンが現在適用中か(アクティブ Scene の `subSceneOverride` フラグ)。 */
 export function isCurrentSubScene(sub) {
-    return !!sub?.id && game.scenes.active?.getFlag(SCOPE, "subSceneOverride") === sub.id;
+    return !!sub?.id && game.scenes.active?.getFlag(SYSTEM_ID, "subSceneOverride") === sub.id;
 }
 
 function assertGM() {
@@ -64,7 +64,7 @@ function assertGM() {
 }
 
 async function setSubScenes(list) {
-    await game.settings.set(SCOPE, SETTING, list);
+    await game.settings.set(SYSTEM_ID, SETTING, list);
 }
 
 /**
@@ -121,7 +121,7 @@ export async function applySubScene(id) {
     if (!sub.background) return void ui.notifications.warn("このサブシーンに背景画像が設定されていません。");
     const scene = game.scenes.active;
     if (!scene) return void ui.notifications.warn("アクティブなシーン(盤面)がありません。");
-    await scene.setFlag(SCOPE, "subSceneOverride", id);
+    await scene.setFlag(SYSTEM_ID, "subSceneOverride", id);
 }
 
 /** サブシーンの適用を解除し、アクティブ Scene 本来の背景に戻す。 */
@@ -129,7 +129,7 @@ export async function clearSubSceneOverride() {
     if (!assertGM()) return;
     const scene = game.scenes.active;
     if (!scene) return;
-    await scene.unsetFlag(SCOPE, "subSceneOverride");
+    await scene.unsetFlag(SYSTEM_ID, "subSceneOverride");
 }
 
 /**
@@ -139,7 +139,7 @@ export async function clearSubSceneOverride() {
  */
 export async function refreshSubSceneBackground() {
     if (!canvas?.ready || !canvas.scene) return;
-    const overrideId = canvas.scene.getFlag(SCOPE, "subSceneOverride") ?? "";
+    const overrideId = canvas.scene.getFlag(SYSTEM_ID, "subSceneOverride") ?? "";
     const sub = overrideId ? getSubScene(overrideId) : null;
     const src = sub?.background || canvas.scene.background?.src || "";
     const mesh = canvas.primary?.background;

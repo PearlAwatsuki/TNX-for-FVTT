@@ -15,6 +15,7 @@
  * 本クラスは適用のみ。プレイヤーの「手番終了」は GM へソケット委譲(cutAdvance)する。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { buildCombatSeedUpdate } from "../module/combat-seed-logic.mjs";
 import {
   planAdvance,
@@ -34,7 +35,6 @@ import { TnxSocketHandler } from "../module/tnx-socket-handler.mjs";
 const WALK_PHASES = new Set(["setup", "initiative", "cleanup"]);
 
 /** 本システムのドキュメントフラグのスコープ(＝system id)。 */
-const TNX_SCOPE = "tokyo-nova-axleration";
 
 /** アクターに空でない update を適用する(呼び出し側で権限を保証)。 */
 async function applyActorUpdate(actor, update) {
@@ -63,16 +63,16 @@ export class TnxCombat extends Combat {
   // ─── カット進行の状態(正本＝flags。カット番号は round そのもの) ───
 
   /** 現フェーズ(setup/initiative/main/cleanup)。未開始は null。 */
-  get cutPhase() { return this.getFlag(TNX_SCOPE, "phase") ?? null; }
+  get cutPhase() { return this.getFlag(SYSTEM_ID, "phase") ?? null; }
 
   /** 現メインプロセスの combatant id(メインターン中のみ)。 */
-  get mainCombatantId() { return this.getFlag(TNX_SCOPE, "mainCombatantId") ?? null; }
+  get mainCombatantId() { return this.getFlag(SYSTEM_ID, "mainCombatantId") ?? null; }
 
   /**
    * 割り込み(挿入メイン)の退避スタック(2026-07-26 サスペンド／レジューム)。各要素は割り込み開始時に
    * 退避した進行状態フレーム。空=割り込み中でない。入れ子の割り込みは複数フレームが積まれる。
    */
-  get interruptStack() { return this.getFlag(TNX_SCOPE, "interruptStack") ?? []; }
+  get interruptStack() { return this.getFlag(SYSTEM_ID, "interruptStack") ?? []; }
 
   /** 割り込み中か(退避スタックが空でない=現在走っているのは挿入メイン)。 */
   get inInterrupt() { return this.interruptStack.length > 0; }
@@ -81,7 +81,7 @@ export class TnxCombat extends Combat {
    * 現在走っている挿入メインが AR を消費するか(consumesAr・2026-07-26)。割り込み中でないときは null。
    * 真=終了時に majorActed へ AR−1＋CS0(一般則)・偽=無償(追加行動の肩代わり)。
    */
-  get interruptConsumesAr() { return this.getFlag(TNX_SCOPE, "interruptConsumesAr") ?? null; }
+  get interruptConsumesAr() { return this.getFlag(SYSTEM_ID, "interruptConsumesAr") ?? null; }
 
   /** 挿入メイン(割り込み・追加行動)の行動者 id。割り込み中の現メイン=挿入メイン。通常状態は null。 */
   get interruptMainId() { return this.inInterrupt ? this.mainCombatantId : null; }
@@ -90,7 +90,7 @@ export class TnxCombat extends Combat {
    * 現プロセスでメジャーアクションを行った combatant id の配列(2026-07-26 一般則)。
    * プロセス終了時、この各人に AR−1＋CSカレント0 を適用してクリアする(空メジャー廃止)。
    */
-  get majorActed() { return this.getFlag(TNX_SCOPE, "majorActed") ?? []; }
+  get majorActed() { return this.getFlag(SYSTEM_ID, "majorActed") ?? []; }
 
   /**
    * サブターン内で今プロセスの行動権(スポット)を持つ combatant id。
@@ -98,7 +98,7 @@ export class TnxCombat extends Combat {
    */
   get spotCombatantId() {
     if (!WALK_PHASES.has(this.cutPhase)) return null;
-    return this.getFlag(TNX_SCOPE, "spotCombatantId") ?? null;
+    return this.getFlag(SYSTEM_ID, "spotCombatantId") ?? null;
   }
 
   /** 参加者の素データ(手番順ロジック用)。 */
@@ -191,13 +191,13 @@ export class TnxCombat extends Combat {
     const updateData = {
       round: 1,
       turn: this._turnIndexOf(spotId),
-      [`flags.${TNX_SCOPE}.phase`]: "setup",
-      [`flags.${TNX_SCOPE}.mainCombatantId`]: null,
-      [`flags.${TNX_SCOPE}.spotCombatantId`]: spotId,
+      [`flags.${SYSTEM_ID}.phase`]: "setup",
+      [`flags.${SYSTEM_ID}.mainCombatantId`]: null,
+      [`flags.${SYSTEM_ID}.spotCombatantId`]: spotId,
       // 割り込み状態・メジャー追跡は開始時にクリア(前回のカット進行の残骸を持ち越さない)
-      [`flags.${TNX_SCOPE}.interruptStack`]: [],
-      [`flags.${TNX_SCOPE}.interruptConsumesAr`]: null,
-      [`flags.${TNX_SCOPE}.majorActed`]: [],
+      [`flags.${SYSTEM_ID}.interruptStack`]: [],
+      [`flags.${SYSTEM_ID}.interruptConsumesAr`]: null,
+      [`flags.${SYSTEM_ID}.majorActed`]: [],
     };
     Hooks.callAll("combatStart", this, updateData);
     await this.update(updateData);
@@ -221,7 +221,7 @@ export class TnxCombat extends Combat {
     if (this.inInterrupt) return this;
     const phase = this.cutPhase;
     if (WALK_PHASES.has(phase)) {
-      const spot = this.getFlag(TNX_SCOPE, "spotCombatantId") ?? null;
+      const spot = this.getFlag(SYSTEM_ID, "spotCombatantId") ?? null;
       if (spot === null) return this.advancePhase(); // 走査済み(または対象なし)
       // 手番はそのプロセスの用途を持つ参加者にだけ回す(用途なし・消費枯渇は飛ばす・13-6)
       const next = nextSpotId(this.cutParticipants, spot, this._eligibleSpotIds(phase));
@@ -229,7 +229,7 @@ export class TnxCombat extends Combat {
       // core の turn(ターンプレイヤー)もスポットに同期して進める
       await this.update({
         turn: this._turnIndexOf(next),
-        [`flags.${TNX_SCOPE}.spotCombatantId`]: next,
+        [`flags.${SYSTEM_ID}.spotCombatantId`]: next,
       });
       return this;
     }
@@ -290,10 +290,10 @@ export class TnxCombat extends Combat {
       ? firstSpotId(this.cutParticipants, this._eligibleSpotIds(plan.to)) : null;
     const update = {
       turn: this._turnIndexOf(plan.to === "main" ? plan.mainId : spotId),
-      [`flags.${TNX_SCOPE}.phase`]: plan.to,
-      [`flags.${TNX_SCOPE}.mainCombatantId`]: plan.mainId ?? null,
-      [`flags.${TNX_SCOPE}.spotCombatantId`]: spotId,
-      [`flags.${TNX_SCOPE}.majorActed`]: [],
+      [`flags.${SYSTEM_ID}.phase`]: plan.to,
+      [`flags.${SYSTEM_ID}.mainCombatantId`]: plan.mainId ?? null,
+      [`flags.${SYSTEM_ID}.spotCombatantId`]: spotId,
+      [`flags.${SYSTEM_ID}.majorActed`]: [],
     };
     if (plan.nextCut) update.round = this.round + 1;
     await this.update(update);
@@ -414,26 +414,26 @@ export class TnxCombat extends Combat {
     const target = this.combatants.get(combatantId);
     if (!target) return this;
     // consumesAr は付与時に combatant へ載せた値(既定=真=自己割り込み・偽=追加行動の無償)
-    const consumesAr = target.getFlag(TNX_SCOPE, "interruptConsumesAr") !== false;
+    const consumesAr = target.getFlag(SYSTEM_ID, "interruptConsumesAr") !== false;
     const { frame, next } = pushInterruptFrame({
       phase: this.cutPhase,
       mainCombatantId: this.mainCombatantId,
-      spotCombatantId: this.getFlag(TNX_SCOPE, "spotCombatantId") ?? null,
+      spotCombatantId: this.getFlag(SYSTEM_ID, "spotCombatantId") ?? null,
       majorActed: this.majorActed,
       interruptConsumesAr: this.interruptConsumesAr,
     }, combatantId, consumesAr);
     await this.update({
       turn: this._turnIndexOf(next.mainCombatantId),
-      [`flags.${TNX_SCOPE}.phase`]: next.phase,
-      [`flags.${TNX_SCOPE}.mainCombatantId`]: next.mainCombatantId,
-      [`flags.${TNX_SCOPE}.spotCombatantId`]: next.spotCombatantId,
-      [`flags.${TNX_SCOPE}.majorActed`]: next.majorActed,
-      [`flags.${TNX_SCOPE}.interruptStack`]: [...this.interruptStack, frame],
-      [`flags.${TNX_SCOPE}.interruptConsumesAr`]: next.interruptConsumesAr,
+      [`flags.${SYSTEM_ID}.phase`]: next.phase,
+      [`flags.${SYSTEM_ID}.mainCombatantId`]: next.mainCombatantId,
+      [`flags.${SYSTEM_ID}.spotCombatantId`]: next.spotCombatantId,
+      [`flags.${SYSTEM_ID}.majorActed`]: next.majorActed,
+      [`flags.${SYSTEM_ID}.interruptStack`]: [...this.interruptStack, frame],
+      [`flags.${SYSTEM_ID}.interruptConsumesAr`]: next.interruptConsumesAr,
     });
     // 割り込み許可(ワンショット)と consumesAr を消費する
-    if (target.getFlag(TNX_SCOPE, "canInterrupt")) await target.unsetFlag(TNX_SCOPE, "canInterrupt");
-    if (target.getFlag(TNX_SCOPE, "interruptConsumesAr") !== undefined) await target.unsetFlag(TNX_SCOPE, "interruptConsumesAr");
+    if (target.getFlag(SYSTEM_ID, "canInterrupt")) await target.unsetFlag(SYSTEM_ID, "canInterrupt");
+    if (target.getFlag(SYSTEM_ID, "interruptConsumesAr") !== undefined) await target.unsetFlag(SYSTEM_ID, "interruptConsumesAr");
     // 境界イベント(13-6): 退避された元プロセスは終了しない(サスペンド)ので processEnd は発火しない。
     // 挿入メインも「メインプロセス」なので開始で tnxProcessStart(phase:"main") を発火する(＝
     // メインプロセス中効果は挿入メインでも新規に有効になる)。
@@ -465,12 +465,12 @@ export class TnxCombat extends Combat {
     const restoreTurnId = restore.phase === "main" ? restore.mainCombatantId : restore.spotCombatantId;
     await this.update({
       turn: this._turnIndexOf(restoreTurnId),
-      [`flags.${TNX_SCOPE}.phase`]: restore.phase,
-      [`flags.${TNX_SCOPE}.mainCombatantId`]: restore.mainCombatantId,
-      [`flags.${TNX_SCOPE}.spotCombatantId`]: restore.spotCombatantId,
-      [`flags.${TNX_SCOPE}.majorActed`]: restore.majorActed,
-      [`flags.${TNX_SCOPE}.interruptStack`]: remaining,
-      [`flags.${TNX_SCOPE}.interruptConsumesAr`]: restore.interruptConsumesAr,
+      [`flags.${SYSTEM_ID}.phase`]: restore.phase,
+      [`flags.${SYSTEM_ID}.mainCombatantId`]: restore.mainCombatantId,
+      [`flags.${SYSTEM_ID}.spotCombatantId`]: restore.spotCombatantId,
+      [`flags.${SYSTEM_ID}.majorActed`]: restore.majorActed,
+      [`flags.${SYSTEM_ID}.interruptStack`]: remaining,
+      [`flags.${SYSTEM_ID}.interruptConsumesAr`]: restore.interruptConsumesAr,
     });
     // 挿入メインの終了イベント(13-6)。復帰先(メイン/サブターン)は中断からの再開なので開始は再発火
     // しない(退避された効果は割り込みを跨いで持続する)。
@@ -503,7 +503,7 @@ export class TnxCombat extends Combat {
     if (!game.user.isGM) return;
     const cur = this.majorActed;
     if (cur.includes(combatantId)) return;
-    await this.setFlag(TNX_SCOPE, "majorActed", [...cur, combatantId]);
+    await this.setFlag(SYSTEM_ID, "majorActed", [...cur, combatantId]);
   }
 
   // ─── カット開始シード(フェーズ10-5/11 から移設) ───

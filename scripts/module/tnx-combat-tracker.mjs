@@ -12,6 +12,7 @@
  *   文言は「カット進行」に統一(「戦闘」「ラウンド」は使わない)
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { processLabel, footerPlan, rowActions } from "./combat-tracker-view.mjs";
 import { participantOf } from "../combat/tnx-combat.mjs";
 
@@ -122,7 +123,7 @@ export class TnxCombatTracker extends CombatTracker {
     // 挿入メイン(割り込み)の行は通常メインと視覚的に区別する(13-5・造語ラベルは置かず行装飾で)
     turn.tnxIsInterruptMain = combatant.id === this._tnxInterruptMainId;
     // 割り込み許可フラグ(用途が対象に立てる)があれば割り込み入口を出す(フェーズ非依存・rowActions がゲート)
-    const canInterrupt = combatant.getFlag("tokyo-nova-axleration", "canInterrupt") === true;
+    const canInterrupt = combatant.getFlag(SYSTEM_ID, "canInterrupt") === true;
     turn.tnxRowActions = rowActions({
       phase: this._tnxPhase,
       isCandidate,

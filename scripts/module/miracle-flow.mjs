@@ -18,6 +18,7 @@ import {
     renameMiracleInText, listDestroyableOutfits,
     miracleRewriteCandidates, miracleRewriteVia, miracleCardTextPlan,
 } from "./miracle-logic.mjs";
+import { SYSTEM_ID } from "../constants.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { applyConsumptionPlan, resolveConsumeRowsForActor, promptConsumption } from "./usage-consumption.mjs";
@@ -33,7 +34,6 @@ import { getSessionState } from "./session-state.mjs";
 import { listAppearingActors } from "./appearance-state.mjs";
 import { applyInterruptGrantForUsage } from "./interrupt-grant.mjs";
 
-const SCOPE = "tokyo-nova-axleration";
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会", troop: "壊滅" };
 
 // ─── 即死・社会戦(17-3)＝神業版のダメージカード ─────────────────────────────────
@@ -119,7 +119,7 @@ export async function useMiracleDamage(actor, item, usage, { asOther = null } = 
         "systems/tokyo-nova-axleration/templates/chat/damage-card.hbs", { categoryLabel: CATEGORY_LABELS[category] });
     await ChatMessage.create({
         user: game.user.id, speaker: ChatMessage.getSpeaker({ actor }), content,
-        flags: { "core.canPopout": true, [SCOPE]: { damageRoll: flag } },
+        flags: { "core.canPopout": true, [SYSTEM_ID]: { damageRoll: flag } },
     });
     return true;
 }
@@ -128,15 +128,15 @@ export async function useMiracleDamage(actor, item, usage, { asOther = null } = 
 export async function handleNegateMiracleDamageClick(message) {
     const ns = negateState();
     if (!ns) return;
-    const f = message.getFlag(SCOPE, "damageRoll");
+    const f = message.getFlag(SYSTEM_ID, "damageRoll");
     if (!f?.miracle) return;
     if (f.negatedBy) { ui.notifications.warn("この神業は既に打ち消されています。"); return; }
     if (f.applied) { ui.notifications.warn("適用済みの神業は打ち消せません（時間をさかのぼって打ち消すことはできません）。"); return; }
     if (!await negateLimitOk(ns.state, f.miracle)) return;
     // 打ち消しそのものを後で打ち消せるよう、当時の値を控える
     await commitNegate(ns.state, [{ messageId: message.id, patch: {
-        [`flags.${SCOPE}.damageRoll.targets`]:   foundry.utils.deepClone(f.targets ?? []),
-        [`flags.${SCOPE}.damageRoll.negatedBy`]: f.negatedBy ?? null,
+        [`flags.${SYSTEM_ID}.damageRoll.targets`]:   foundry.utils.deepClone(f.targets ?? []),
+        [`flags.${SYSTEM_ID}.damageRoll.negatedBy`]: f.negatedBy ?? null,
     } }]);
     const { applyDamagePatch } = await import("./damage-flow.mjs");
     const targets = (f.targets ?? []).map(t => ({ ...t, protectedBy: ns.by }));
@@ -285,7 +285,7 @@ export async function useMiracleAcquire(actor, item, usage, { uuid, asOther = nu
     const { grantPurchasedItem } = await import("./purchase-flow.mjs");
     const created = await grantPurchasedItem(actor, uuid);
     if (!created) return false;
-    await created.update({ [`flags.${SCOPE}.fromMiracle`]: true });
+    await created.update({ [`flags.${SYSTEM_ID}.fromMiracle`]: true });
     await postMiracleCard(item, { acquire: { itemId: created.id, itemName: created.name }, asOther });
     return true;
 }
@@ -304,7 +304,7 @@ export async function useMiracleInsensible(actor, item, usage, { asOther = null 
     const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${item.name}` });
     if (plan === null) return false;
     await applyConsumptionPlan(plan);
-    await actor.setFlag(SCOPE, "insensible", { ...miracleOriginOf(item, asOther), actorId: actor.id });
+    await actor.setFlag(SYSTEM_ID, "insensible", { ...miracleOriginOf(item, asOther), actorId: actor.id });
     await applyInterruptGrantForUsage(actor, { grantsInterrupt: true, interruptConsumesAr: false },
         { targetOverride: [{ uuid: actor.uuid }] });
     await postMiracleCard(item, { insensible: true, asOther });
@@ -521,7 +521,7 @@ export async function resolveMiracleRewrite(actor, miracle, { free = false } = {
  * 付与コピーの印(grantedFrom=使った神業)を刻み、アクト終了の境界で付与コピーとして失効させる。
  */
 async function applyMiracleAddUse(message) {
-    const mf = message.getFlag(SCOPE, "miracle");
+    const mf = message.getFlag(SYSTEM_ID, "miracle");
     const a = mf?.addUse;
     if (!a || a.applied) return;
     const targetDoc = await fromUuid(a.targetUuid).catch(() => null);
@@ -531,7 +531,7 @@ async function applyMiracleAddUse(message) {
     if (!(game.user.isGM || target.isOwner)) { ui.notifications.warn("適用は対象の操作者（または RL）が行います。"); return; }
     const data = buildGrantedEffectDataFrom(addUseEffectSource({ name: mf.name, img: a.img }), a.sourceUuid ?? null);
     await miracle.createEmbeddedDocuments("ActiveEffect", [data]);
-    await TnxSocketHandler.applyMessagePatch(message, { [`flags.${SCOPE}.miracle.addUse.applied`]: true });
+    await TnxSocketHandler.applyMessagePatch(message, { [`flags.${SYSTEM_ID}.miracle.addUse.applied`]: true });
 }
 
 /**
@@ -539,7 +539,7 @@ async function applyMiracleAddUse(message) {
  * miracleFree 文脈つきで起動する(残回数ゲートも消費も無い)。発動したらカードに使用を記録する。
  */
 async function handleMiracleRequestClick(message, miracleId) {
-    const mf = message.getFlag(SCOPE, "miracle");
+    const mf = message.getFlag(SYSTEM_ID, "miracle");
     const r = mf?.request;
     if (!r || r.used) return;
     const targetDoc = await fromUuid(r.targetUuid).catch(() => null);
@@ -551,13 +551,13 @@ async function handleMiracleRequestClick(message, miracleId) {
     const fired = await TnxCharacterSheetBase._activateItemCheck(target, miracle, { miracleFree: { messageId: message.id } });
     if (fired !== true) return;
     await TnxSocketHandler.applyMessagePatch(message, {
-        [`flags.${SCOPE}.miracle.request.used`]: { id: miracle.id, name: miracle.name },
+        [`flags.${SYSTEM_ID}.miracle.request.used`]: { id: miracle.id, name: miracle.name },
     });
 }
 
 /** 破壊の適用(神業カードのボタン・対象の操作者/RL): アウトフィットの isDestroyed を立てる。 */
 async function applyMiracleDestroy(message) {
-    const mf = message.getFlag(SCOPE, "miracle");
+    const mf = message.getFlag(SYSTEM_ID, "miracle");
     const d = mf?.destroy;
     if (!d || d.applied) return;
     const targetDoc = await fromUuid(d.targetUuid).catch(() => null);
@@ -566,7 +566,7 @@ async function applyMiracleDestroy(message) {
     if (!outfit) { ui.notifications.warn("破壊するアウトフィットが見つかりません。"); return; }
     if (!(game.user.isGM || target.isOwner)) { ui.notifications.warn("適用は対象の操作者（または RL）が行います。"); return; }
     await outfit.update({ "system.isDestroyed": true });
-    await TnxSocketHandler.applyMessagePatch(message, { [`flags.${SCOPE}.miracle.destroy.applied`]: true });
+    await TnxSocketHandler.applyMessagePatch(message, { [`flags.${SYSTEM_ID}.miracle.destroy.applied`]: true });
 }
 
 // ─── 打ち消し(防御タイプ・17-2) ────────────────────────────────────────────────
@@ -658,37 +658,37 @@ async function commitNegate(state, undo = null) {
 export async function handleNegateAchievementClick(message) {
     const ns = negateState();
     if (!ns) return;
-    const checkF = message.getFlag(SCOPE, "checkResult");
-    const attackF = message.getFlag(SCOPE, "attackCheck");
+    const checkF = message.getFlag(SYSTEM_ID, "checkResult");
+    const attackF = message.getFlag(SYSTEM_ID, "attackCheck");
     if (!checkF && !attackF) return;
-    const rc = message.getFlag(SCOPE, "checkRecheck") ?? {};
+    const rc = message.getFlag(SYSTEM_ID, "checkRecheck") ?? {};
     const damageCards = attackF
-        ? [...game.messages].filter(m => m.getFlag(SCOPE, "damageRoll")?.attackMessageId === message.id)
+        ? [...game.messages].filter(m => m.getFlag(SYSTEM_ID, "damageRoll")?.attackMessageId === message.id)
         : [];
-    if ((attackF?.failedReason === "negated") || (message.getFlag(SCOPE, "checkMods")?.rows ?? []).some(r => r?.negatedBy)) {
+    if ((attackF?.failedReason === "negated") || (message.getFlag(SYSTEM_ID, "checkMods")?.rows ?? []).some(r => r?.negatedBy)) {
         ui.notifications.warn("この判定は既に打ち消されています。");
         return;
     }
-    if (!await negateLimitOk(ns.state, message.getFlag(SCOPE, "miracle") ?? null)) return;
-    const gate = negateCheckGate({ recheck: rc, damageCards: damageCards.map(m => ({ applied: m.getFlag(SCOPE, "damageRoll")?.applied === true })) });
+    if (!await negateLimitOk(ns.state, message.getFlag(SYSTEM_ID, "miracle") ?? null)) return;
+    const gate = negateCheckGate({ recheck: rc, damageCards: damageCards.map(m => ({ applied: m.getFlag(SYSTEM_ID, "damageRoll")?.applied === true })) });
     if (!gate.ok) {
         ui.notifications.warn("この判定の効果は適用済みのため打ち消せません（時間をさかのぼって打ち消すことはできません）。");
         return;
     }
     const undo = [{ messageId: message.id, patch: attackF ? {
-        [`flags.${SCOPE}.attackCheck.state`]:        attackF.state ?? "open",
-        [`flags.${SCOPE}.attackCheck.failedReason`]: attackF.failedReason ?? null,
-        [`flags.${SCOPE}.attackCheck.negatedBy`]:    attackF.negatedBy ?? null,
+        [`flags.${SYSTEM_ID}.attackCheck.state`]:        attackF.state ?? "open",
+        [`flags.${SYSTEM_ID}.attackCheck.failedReason`]: attackF.failedReason ?? null,
+        [`flags.${SYSTEM_ID}.attackCheck.negatedBy`]:    attackF.negatedBy ?? null,
     } : {
-        [`flags.${SCOPE}.checkMods`]:                    foundry.utils.deepClone(message.getFlag(SCOPE, "checkMods") ?? null),
-        [`flags.${SCOPE}.checkResult.result.success`]:   checkF?.result?.success ?? null,
-        [`flags.${SCOPE}.negatedBy`]:                    message.getFlag(SCOPE, "negatedBy") ?? null,
+        [`flags.${SYSTEM_ID}.checkMods`]:                    foundry.utils.deepClone(message.getFlag(SYSTEM_ID, "checkMods") ?? null),
+        [`flags.${SYSTEM_ID}.checkResult.result.success`]:   checkF?.result?.success ?? null,
+        [`flags.${SYSTEM_ID}.negatedBy`]:                    message.getFlag(SYSTEM_ID, "negatedBy") ?? null,
     } }];
     for (const dm of damageCards) {
-        const df = dm.getFlag(SCOPE, "damageRoll");
+        const df = dm.getFlag(SYSTEM_ID, "damageRoll");
         undo.push({ messageId: dm.id, patch: {
-            [`flags.${SCOPE}.damageRoll.targets`]:   foundry.utils.deepClone(df?.targets ?? []),
-            [`flags.${SCOPE}.damageRoll.negatedBy`]: df?.negatedBy ?? null,
+            [`flags.${SYSTEM_ID}.damageRoll.targets`]:   foundry.utils.deepClone(df?.targets ?? []),
+            [`flags.${SYSTEM_ID}.damageRoll.negatedBy`]: df?.negatedBy ?? null,
         } });
     }
     await commitNegate(ns.state, undo);
@@ -698,22 +698,22 @@ export async function handleNegateAchievementClick(message) {
         await applyAttackPatch(message, { state: "failed", failedReason: "negated", negatedBy: ns.by });
         const { applyDamagePatch } = await import("./damage-flow.mjs");
         for (const dm of damageCards) {
-            const f = dm.getFlag(SCOPE, "damageRoll");
+            const f = dm.getFlag(SYSTEM_ID, "damageRoll");
             const targets = (f.targets ?? []).map(t => ({ ...t, protectedBy: ns.by }));
             await applyDamagePatch(dm, { targets, negatedBy: ns.by });
         }
         return;
     }
-    const mods = negatedCheckMods(message.getFlag(SCOPE, "checkMods"), {
-        achievement: message.getFlag(SCOPE, "checkMods")?.achievement ?? checkF.result?.achievement ?? 0,
+    const mods = negatedCheckMods(message.getFlag(SYSTEM_ID, "checkMods"), {
+        achievement: message.getFlag(SYSTEM_ID, "checkMods")?.achievement ?? checkF.result?.achievement ?? 0,
         targetValue: rc?.targetValue ?? null,
         by: ns.by,
     });
     await TnxSocketHandler.applyMessagePatch(message, {
-        [`flags.${SCOPE}.checkMods`]: mods,
-        [`flags.${SCOPE}.checkResult.result.success`]: false,
-        [`flags.${SCOPE}.checkResult.result.diff`]: null,
-        [`flags.${SCOPE}.negatedBy`]: ns.by,
+        [`flags.${SYSTEM_ID}.checkMods`]: mods,
+        [`flags.${SYSTEM_ID}.checkResult.result.success`]: false,
+        [`flags.${SYSTEM_ID}.checkResult.result.diff`]: null,
+        [`flags.${SYSTEM_ID}.negatedBy`]: ns.by,
     });
     // 判定要求由来なら要求カードの結果表示を追随させる(失敗に)
     if (rc?.requestMessageId) {
@@ -732,14 +732,14 @@ export async function handleNegateAchievementClick(message) {
 export async function handleNegateTrayClick(message) {
     const ns = negateState();
     if (!ns) return;
-    const payload = message.getFlag(SCOPE, "usageEffects");
+    const payload = message.getFlag(SYSTEM_ID, "usageEffects");
     if (!payload) return;
     if (payload.negatedBy) { ui.notifications.warn("この効果は既に打ち消されています。"); return; }
-    if (!await negateLimitOk(ns.state, message.getFlag(SCOPE, "miracle") ?? null)) return;
+    if (!await negateLimitOk(ns.state, message.getFlag(SYSTEM_ID, "miracle") ?? null)) return;
     await commitNegate(ns.state, [{ messageId: message.id, patch: {
-        [`flags.${SCOPE}.usageEffects.negatedBy`]: payload.negatedBy ?? null,
+        [`flags.${SYSTEM_ID}.usageEffects.negatedBy`]: payload.negatedBy ?? null,
     } }]);
-    await TnxSocketHandler.applyMessagePatch(message, { [`flags.${SCOPE}.usageEffects.negatedBy`]: ns.by });
+    await TnxSocketHandler.applyMessagePatch(message, { [`flags.${SYSTEM_ID}.usageEffects.negatedBy`]: ns.by });
 }
 
 /**
@@ -750,7 +750,7 @@ export async function handleNegateTrayClick(message) {
 export async function handleNegateMiracleCardClick(message) {
     const ns = negateState();
     if (!ns) return;
-    const mf = message.getFlag(SCOPE, "miracle");
+    const mf = message.getFlag(SYSTEM_ID, "miracle");
     if (!mf?.itemId) return;
     if (mf.negatedBy) { ui.notifications.warn("この神業は既に打ち消されています。"); return; }
     if (!await negateLimitOk(ns.state, mf)) return;
@@ -758,7 +758,7 @@ export async function handleNegateMiracleCardClick(message) {
     // (2)を控えるので、**この打ち消しがさらに打ち消されたら1段戻る**(何段でも連鎖する)
     const undo = [
         { messageId: message.id, patch: {
-            [`flags.${SCOPE}.miracle.negatedBy`]: mf.negatedBy ?? null,
+            [`flags.${SYSTEM_ID}.miracle.negatedBy`]: mf.negatedBy ?? null,
         } },
         ...await captureCurrentValues(mf.undo),
     ];
@@ -766,7 +766,7 @@ export async function handleNegateMiracleCardClick(message) {
     // 打ち消し・防御そのものを打ち消したときは、その神業が他のカードへ与えた変更を戻す
     // (2026-09-06 ユーザー指摘「撃ち消しや防御はそれ自体を打ち消すこともできます」)
     await revertMiracleUndo(mf);
-    await TnxSocketHandler.applyMessagePatch(message, { [`flags.${SCOPE}.miracle.negatedBy`]: ns.by });
+    await TnxSocketHandler.applyMessagePatch(message, { [`flags.${SYSTEM_ID}.miracle.negatedBy`]: ns.by });
 }
 
 // ─── 回避(防御タイプ・17-2・《脱出》) ─────────────────────────────────────────
@@ -786,7 +786,7 @@ export async function handleAttackEvadeClick(message, rowIndex) {
     const actor = game.actors.get(state.actorId);
     const skill = actor?.items.get(state.skillItemId);
     if (!skill) { TnxCheckFlow.cancelAchievementAction(); return true; }
-    const f = message.getFlag(SCOPE, "attackCheck");
+    const f = message.getFlag(SYSTEM_ID, "attackCheck");
     if (!f) return true;
     const by = { ...miracleOriginOf(skill, state.asOther), actorId: actor.id };
     const resolveActorId = (uuid) => {
@@ -821,7 +821,7 @@ export async function handleAttackEvadeClick(message, rowIndex) {
  * @param {HTMLElement} html
  */
 export function renderMiracleCard(message, html) {
-    const mf = message.getFlag(SCOPE, "miracle");
+    const mf = message.getFlag(SYSTEM_ID, "miracle");
     if (!mf?.itemId) return;
     const card = html.querySelector(".tnx-miracle-card");
     if (!card) return;
@@ -986,7 +986,7 @@ export async function postMiracleCard(item, { destroy = null, addUse = null, req
         content: card,
         flags: {
             "core.canPopout": true,
-            [SCOPE]: {
+            [SYSTEM_ID]: {
                 // destroy(17-3): 破壊の結果(対象と選んだアウトフィット)／addUse・request(17-4): 干渉の結果。
                 // 描画フックが結果行と適用/使用ボタンを足す
                 miracle: {

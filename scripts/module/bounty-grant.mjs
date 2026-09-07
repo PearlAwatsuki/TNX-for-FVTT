@@ -7,10 +7,10 @@
  * カードのフラグ更新だけは非作者なら GM へ委譲する(applyMessagePatch)。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { nextBountyValue, markBountyReceived, isBountyReceived } from "./bounty-grant-logic.mjs";
 
-const SCOPE = "tokyo-nova-axleration";
 
 /** 同期解決(チャット描画は同期のため fromUuidSync を使う)。 */
 function resolveSync(uuid) {
@@ -24,7 +24,7 @@ function resolveSync(uuid) {
  */
 export function renderBountyGrantCard(message, html) {
     const root = html instanceof HTMLElement ? html : html?.[0];
-    const f = message.getFlag(SCOPE, "bountyGrant");
+    const f = message.getFlag(SYSTEM_ID, "bountyGrant");
     if (!root || !f) return;
 
     for (const row of root.querySelectorAll(".tnx-card__target")) {
@@ -61,7 +61,7 @@ export function renderBountyGrantCard(message, html) {
  * @param {string} uuid 対象アクターの uuid
  */
 export async function receiveBounty(message, uuid) {
-    const f = message.getFlag(SCOPE, "bountyGrant");
+    const f = message.getFlag(SYSTEM_ID, "bountyGrant");
     if (!f || isBountyReceived(f, uuid)) return;
 
     const actor = await fromUuid(uuid);

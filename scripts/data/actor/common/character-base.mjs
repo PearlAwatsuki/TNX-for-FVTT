@@ -9,6 +9,7 @@
  * cast.mjs が追加する(ゲストが持たないのはこの2群のみ＝2026-07-03 確定・同日再訂正)。
  */
 
+import { SYSTEM_ID } from "../../../constants.mjs";
 import { SystemDataModel } from "../../abstract.mjs";
 import { BiographyTemplate } from "./biography.mjs";
 import { AttributesTemplate } from "./attributes.mjs";
@@ -222,7 +223,6 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
     // 文字列に加算モードは意味を成さないため、設定モードに関わらず**常に上書き(OVERRIDE)**で適用する
     const STRING_OVERRIDE_PATHS = new Set(["attack.damageType", "attack.damageTypeTotal"]);
     const isStringScope = (parsed) => parsed.scope === "baseAttackType" || STRING_OVERRIDE_PATHS.has(parsed.path ?? "");
-    const SCOPE_FLAGS = "tokyo-nova-axleration";
 
     const entries = [];
     const collect = (effects, bearer) => {
@@ -230,7 +230,7 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
         if (!effect.active) continue;
         if (!effectAutoApplies(effect)) continue;
         // 準備先(親アイテム)に適用: 供給元の素のキーは準備先ホスト上の転送コピーが適用する
-        if (effect.flags?.[SCOPE_FLAGS]?.applyToParent === true && bearer?.documentName === "Item") continue;
+        if (effect.flags?.[SYSTEM_ID]?.applyToParent === true && bearer?.documentName === "Item") continue;
         for (const change of (effect.changes ?? [])) {
           const parsed = parseEffectTargetKey(change.key);
           if (!parsed || CHECK_SCOPES.has(parsed.scope)) continue;
@@ -241,7 +241,6 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
     collect(actor.effects, actor);
     for (const item of actor.items) collect(item.effects, item);
     if (!entries.length) return;
-    const SCOPE = "tokyo-nova-axleration";
 
     // 適用先へ展開(条件評価込み)。値はまだ評価しない(bearer を持ち回る)
     const apps = [];
@@ -256,8 +255,8 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
           || parsed.scope === "partSlot")
           && bearer?.documentName === "Item" && bearer.system?.isPrepared === false
           && !(bearer.system?.noPrepareRequiredTotal ?? bearer.system?.noPrepareRequired)) continue;
-      const identity  = effect.flags?.[SCOPE]?.effectId || effect.id;
-      const stackable = effect.flags?.[SCOPE]?.stackable === true;
+      const identity  = effect.flags?.[SYSTEM_ID]?.effectId || effect.id;
+      const stackable = effect.flags?.[SYSTEM_ID]?.stackable === true;
       // 名前装飾: 効果が乗るアイテム自身の名前を実行時に飾る(in-memory・source 不変)。
       // total パスへの着地ではないため通常の適用フェーズとは別に末尾で適用する
       if (parsed.scope === "itemName") {

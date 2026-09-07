@@ -12,12 +12,12 @@
  * アクト開始時の自動配布(旧 `_grantActConnections`)は本ボタンに置き換えて廃止した。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { HANDOUT_STYLE_COMMON, HANDOUT_STYLE_FREE } from "./session-logic.mjs";
 import { STYLE_PACK, ONOMASTIC_TYPES, stripSkillCategory } from "./skill-dictionary.mjs";
 import { calcSkillInsertSort } from "./identification.mjs";
 
-const SCOPE = "tokyo-nova-axleration";
 const FLAG = "handoutContact";
 
 /**
@@ -81,7 +81,7 @@ export function isContactGranted(flag) {
  */
 export function renderHandoutCard(message, html) {
     const root = html instanceof HTMLElement ? html : html?.[0];
-    const flag = message.getFlag(SCOPE, FLAG);
+    const flag = message.getFlag(SYSTEM_ID, FLAG);
     const slot = root?.querySelector(".ho-contact-action");
     if (!slot || !flag?.contactName) return;
     slot.innerHTML = "";
@@ -109,7 +109,7 @@ export function renderHandoutCard(message, html) {
  * @param {ChatMessage} message
  */
 export async function grantHandoutContact(message) {
-    const flag = message.getFlag(SCOPE, FLAG);
+    const flag = message.getFlag(SYSTEM_ID, FLAG);
     if (!flag?.contactName || isContactGranted(flag)) return;
 
     const user = flag.userId ? game.users.get(flag.userId) : null;

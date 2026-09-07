@@ -8,7 +8,8 @@
  * 起動時に選ぶ。
  */
 
-const SCOPE = "tokyo-nova-axleration";
+import { SYSTEM_ID } from "../constants.mjs";
+
 
 // テスト環境では foundry グローバルが無いため、ID 生成は存在すれば使う
 const randomID = () => (globalThis.foundry?.utils?.randomID?.() ?? Math.random().toString(36).slice(2, 18));
@@ -22,7 +23,7 @@ const randomID = () => (globalThis.foundry?.utils?.randomID?.() ?? Math.random()
 export function collectPresets(journals, key) {
     const groups = [];
     for (const journal of (journals ?? [])) {
-        const presets = journal?.flags?.[SCOPE]?.[key] ?? [];
+        const presets = journal?.flags?.[SYSTEM_ID]?.[key] ?? [];
         if (!presets.length) continue;
         groups.push({ label: journal.name, journalId: journal.id, presets: [...presets] });
     }

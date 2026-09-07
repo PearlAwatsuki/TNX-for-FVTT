@@ -8,9 +8,9 @@
  * 保存先は他の設定経路と同じ `flags.tokyo-nova-axleration.conditions.<kind>`(readConditions が読む)。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { CONDITION_KINDS } from "./conditions.mjs";
 
-const SCOPE = "tokyo-nova-axleration";
 const ABIL = { reason: "理性", passion: "感情", life: "生命", mundane: "外界" };
 
 /**
@@ -23,7 +23,7 @@ export async function openConditionEditDialog(actor, effect, kind) {
     const def = CONDITION_KINDS[kind];
     if (!def) return;
     const esc = foundry.utils.escapeHTML;
-    const v = effect.getFlag(SCOPE, `conditions.${kind}`) ?? {};
+    const v = effect.getFlag(SYSTEM_ID, `conditions.${kind}`) ?? {};
     const groups = [];
 
     if (def.magnitudeField) {
@@ -83,5 +83,5 @@ export async function openConditionEditDialog(actor, effect, kind) {
         close: () => null,
     });
     if (!result) return;
-    await effect.setFlag(SCOPE, `conditions.${kind}`, { ...v, ...result });
+    await effect.setFlag(SYSTEM_ID, `conditions.${kind}`, { ...v, ...result });
 }

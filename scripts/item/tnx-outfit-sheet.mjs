@@ -1,3 +1,4 @@
+import { SYSTEM_ID } from "../constants.mjs";
 import { TokyoNovaItemSheet } from "./tnx-item-sheet.mjs";
 import { TnxSkillUtils } from "../module/tnx-skill-utils.mjs";
 import { OUTFIT_CATEGORIES, OUTFIT_TYPES, getMajorCategoryLabel, getMinorCategoryLabel } from "../data/item/outfit-categories.mjs";
@@ -310,7 +311,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         const system = context.system;
         const type = this.item.type;
         // 神業で入手した複製(17-6・《タイムリー》《買収》): 常備化できない
-        context.acquiredByMiracle = this.item.getFlag("tokyo-nova-axleration", "fromMiracle") === true;
+        context.acquiredByMiracle = this.item.getFlag(SYSTEM_ID, "fromMiracle") === true;
 
         context.isWeapon    = type === "weapon";
         context.isArmor     = type === "armor";

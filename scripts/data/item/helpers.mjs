@@ -16,6 +16,7 @@
  * 各 DataModel で広く使われるようになったため helpers.mjs に集約した。
  */
 
+import { SYSTEM_ID } from "../../constants.mjs";
 import { OUTFIT_TYPES, hasClassification, getMajorCategoryLabel, getMinorCategoryLabel } from "./outfit-categories.mjs";
 
 /**
@@ -690,7 +691,7 @@ export function itemChangeTargets(parsed, item) {
  * @param {Document} bearer 効果の保持元
  * @returns {?object} createEmbeddedDocuments("ActiveEffect") 用データ。向く変更が無ければ null
  */
-export function buildTransferredEffectData(effect, targetItem, bearer, scope = "tokyo-nova-axleration") {
+export function buildTransferredEffectData(effect, targetItem, bearer, scope = SYSTEM_ID) {
   const srcFlags = effect.flags?.[scope] ?? {};
   const toParent = srcFlags.applyToParent === true;
   if (toParent && (bearer?.documentName !== "Item" || bearer.system?.parentItemId !== targetItem.id)) return null;
@@ -759,7 +760,7 @@ export function planTransferCopySync(copies, wanted) {
  * @param {string} [scope]
  * @returns {boolean} 一致していれば true(書き込み不要)
  */
-export function transferCopyIsCurrent(copy, data, scope = "tokyo-nova-axleration") {
+export function transferCopyIsCurrent(copy, data, scope = SYSTEM_ID) {
   if (!copy || !data) return false;
   if ((copy.name ?? "") !== (data.name ?? "")) return false;
   if ((copy.img ?? "") !== (data.img ?? "")) return false;
@@ -798,7 +799,7 @@ export function transferCopyIsCurrent(copy, data, scope = "tokyo-nova-axleration
  * @param {string} [scope]
  * @returns {Array<{itemId:string, effectIds:string[]}>} 除去対象を持つアイテムのみ
  */
-export function planCapabilityTransferCleanup(items, scope = "tokyo-nova-axleration") {
+export function planCapabilityTransferCleanup(items, scope = SYSTEM_ID) {
   const out = [];
   for (const item of (items ?? [])) {
     if (isOutfitItem(item)) continue;
@@ -860,14 +861,14 @@ export function actorHasSuitChangeBuff(actor) {
  * @param {ActiveEffect} effect
  * @returns {boolean} 自動適用の収集対象なら true
  */
-export function effectAutoApplies(effect, scope = "tokyo-nova-axleration") {
+export function effectAutoApplies(effect, scope = SYSTEM_ID) {
   if (effect?.parent?.documentName !== "Item") return true;
   const f = effect.flags?.[scope] ?? {};
   if (f.transferredFrom !== undefined || f.grantedFrom !== undefined) return true;
   return effect.transfer !== false;
 }
 
-export function collectActorEffectBuffs(actor, scope = "tokyo-nova-axleration") {
+export function collectActorEffectBuffs(actor, scope = SYSTEM_ID) {
   const out = [];
   const push = (e) => out.push({
     identity:  e.flags?.[scope]?.effectId || e.id,

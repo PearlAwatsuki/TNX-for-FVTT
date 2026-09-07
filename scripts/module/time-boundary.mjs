@@ -17,13 +17,13 @@
  * - アクト終了: **絞らない**。参加していないアクターには畳むものが無く no-op になるため
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { TNX_HOOKS } from "./combat-events.mjs";
 import { TNX_BOUNDARIES, planEffectExpiry, planItemGrantExpiry, planItemBoundaryUpdates, planActorBoundaryUpdates, planConditionRecovery, planActEndDamageCleanup, planSceneDeadlineExpiry, planPoisonTicks,
          planSceneDeferredFiring, buildForcedExitFlags } from "./time-boundary-logic.mjs";
 import { CONDITION_KINDS, getConditionKinds } from "./conditions.mjs";
 import { listAppearingActors } from "./appearance-state.mjs";
 
-const SCOPE = "tokyo-nova-axleration";
 
 /** この境界の適用を自分が担うか(activeGM のみ)。 */
 function isApplier() {
@@ -73,11 +73,11 @@ async function recoverConditionsOn(actor, boundary, isMainActor) {
     for (const { id, toKind } of downgrades) {
         const def = CONDITION_KINDS[toKind];
         if (!def) continue;
-        const from = actor.effects.get(id)?.flags?.[SCOPE] ?? {};
+        const from = actor.effects.get(id)?.flags?.[SYSTEM_ID] ?? {};
         const flags = { conditionKind: toKind };
         if (from.hideFromList !== undefined) flags.hideFromList = from.hideFromList;
         if (from.woundSource) flags.woundSource = from.woundSource;
-        created.push({ name: def.label, img: def.img ?? "icons/svg/aura.svg", statuses: [toKind], flags: { [SCOPE]: flags } });
+        created.push({ name: def.label, img: def.img ?? "icons/svg/aura.svg", statuses: [toKind], flags: { [SYSTEM_ID]: flags } });
     }
     await actor.deleteEmbeddedDocuments("ActiveEffect", removeIds);
     if (created.length) await actor.createEmbeddedDocuments("ActiveEffect", created);
@@ -189,7 +189,7 @@ export function registerTimeBoundaries() {
             if (ids.length) await actor.deleteEmbeddedDocuments("ActiveEffect", ids);
             for (const { id, kind } of planSceneDeferredFiring(effects)) {
                 if (ids.includes(id)) continue;
-                await actor.effects.get(id)?.setFlag(SCOPE, `conditions.${kind}.sceneFired`, true);
+                await actor.effects.get(id)?.setFlag(SYSTEM_ID, `conditions.${kind}.sceneFired`, true);
             }
         }
     });
@@ -228,6 +228,6 @@ export function registerForcedExitWounds() {
         if (isAppearing(actor)) await setAppearing(actor, false);
         // ③ 登場できない期限をこの負傷に刻む
         const flags = buildForcedExitFlags(kind, getSessionState()?.sceneNumber ?? 0);
-        if (flags) await effect.setFlag(SCOPE, `conditions.${kind}`, flags);
+        if (flags) await effect.setFlag(SYSTEM_ID, `conditions.${kind}`, flags);
     });
 }

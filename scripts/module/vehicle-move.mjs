@@ -11,10 +11,10 @@
  * ここに残るのは**非対決の移動**の結果カードのみ。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { movementStagesFromAchievement } from "./vehicle-move-logic.mjs";
 import { buildCheckCardContext } from "./check-card-context.mjs";
 
-const SCOPE = "tokyo-nova-axleration";
 
 /**
  * 移動結果カードを投稿する(判定完了時・TnxCheckFlow._execute から。通常の結果カードの代わり)。
@@ -48,7 +48,7 @@ export async function postMovementCard({ payload, result, suit, card, fromDeck, 
     speaker: actor ? ChatMessage.getSpeaker({ actor }) : undefined,
     // 再判定スナップショット(あれば)=移動カードにも再判定/修正の導線(達成値÷10 段階を表示のみ更新)。
     // 操縦技能の適用効果(あれば)も移動カードに載せる(統一起動で用意されるため・renderUsageEffectButton 発火)
-    flags: { [SCOPE]: {
+    flags: { [SYSTEM_ID]: {
       checkResult: { actorId: actor?.id ?? "", result },
       ...(recheckCtx ? { checkRecheck: recheckCtx } : {}),
       ...(recheckCtx?.usageEffects ? { usageEffects: recheckCtx.usageEffects } : {}),

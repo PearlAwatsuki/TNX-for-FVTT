@@ -28,11 +28,11 @@
  * - 効果 `{itemId, effectId}` の itemId 空＝親アイテム。実データ(toObject)をカードのフラグに載せて運ぶ。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { currentTargetActors } from "./target-resolution.mjs";
 import { analyzeGrantLanding, itemGrantCandidates, rewriteGrantChangesForItem } from "../data/item/helpers.mjs";
 import { isWetActor } from "./conditions.mjs";
 
-const SCOPE = "tokyo-nova-axleration";
 
 /**
  * 用途の effects({itemId, effectId})を、付与用のエントリ配列へ解決する。
@@ -82,7 +82,7 @@ export function buildGrantedEffectDataFrom(source, sourceUuid = null) {
     // 由来と同一性(2026-07-13 再設計): grantedFrom=付与コピーの印(転送の供給元にならない)。
     // effectId=重複排除・置き換えリフレッシュの同一性(供給元に無ければ供給元 uuid を刻む)
     data.flags = data.flags ?? {};
-    const f = data.flags[SCOPE] = { ...(data.flags[SCOPE] ?? {}) };
+    const f = data.flags[SYSTEM_ID] = { ...(data.flags[SYSTEM_ID] ?? {}) };
     if (sourceUuid) {
         f.grantedFrom = sourceUuid;
         if (!f.effectId) f.effectId = sourceUuid;
@@ -111,11 +111,11 @@ export function resolveUsageEffectData(actor, parentItem, usage) {
             // 神業由来の印(17-1): 用途の親が神業なら付与コピーに刻む(供給元が組み合わせ側でも
             // 「神業の用途から生じた効果」であることに変わりない)。読み手は 17-2 以降の治療・
             // 打ち消しゲート(神業由来の効果は神業でしか解除できない)
-            if (parentItem?.type === "miracle") data.flags[SCOPE].fromMiracle = true;
+            if (parentItem?.type === "miracle") data.flags[SYSTEM_ID].fromMiracle = true;
             out.push({
                 name: eff.name,
                 data,
-                grantTarget: eff.flags?.[SCOPE]?.grantTarget === "self" ? "self" : "target",
+                grantTarget: eff.flags?.[SYSTEM_ID]?.grantTarget === "self" ? "self" : "target",
                 timing,
                 landing: analyzeGrantLanding(data.changes),
             });
@@ -205,9 +205,9 @@ async function pickGrantItem(actor, candidates, effectName) {
  * @param {object} data AE 生成データ
  */
 async function createOrRefreshGrant(doc, data) {
-    const f = data.flags?.[SCOPE] ?? {};
+    const f = data.flags?.[SYSTEM_ID] ?? {};
     if (f.effectId && f.stackable !== true) {
-        const existing = doc.effects?.find(e => e.flags?.[SCOPE]?.effectId === f.effectId);
+        const existing = doc.effects?.find(e => e.flags?.[SYSTEM_ID]?.effectId === f.effectId);
         if (existing) {
             await existing.update(foundry.utils.deepClone(data));
             return;
@@ -336,15 +336,15 @@ export async function prepareUsageEffectPayload(actor, parentItem, usage, { targ
  *   null=このカードには効果セクションを出さない
  */
 function usageEffectTrayContext(message) {
-    const payload = message.getFlag(SCOPE, "usageEffects");
+    const payload = message.getFlag(SYSTEM_ID, "usageEffects");
     if (!(payload?.effects ?? []).some(e => e?.data)) return null;
     // 打ち消された効果(神業《チャイ》《平和》・17-2)はトレイごと消える(データには negatedBy が残る)
     if (payload.negatedBy) return null;
 
     let entries = payload.effects;
     let refs = payload.targets ?? [];
-    const attackF = message.getFlag(SCOPE, "attackCheck");
-    const damageF = message.getFlag(SCOPE, "damageRoll");
+    const attackF = message.getFlag(SYSTEM_ID, "attackCheck");
+    const damageF = message.getFlag(SYSTEM_ID, "damageRoll");
     if (attackF) {
         const mode = attackCardEffectMode(attackF);
         if (mode === "hide") return null;

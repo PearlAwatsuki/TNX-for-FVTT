@@ -17,8 +17,8 @@ import {
   resolveEffectiveHandMaxSize,
   computeEffectiveHandMaxSize,
   gatherHandMaxSizeMod,
-  TNX_FLAG_SCOPE,
 } from "../../scripts/module/user-flag-schema.mjs";
+import { SYSTEM_ID } from "../../scripts/constants.mjs";
 
 describe("getUserFlagData()", () => {
   describe("フラグ未設定時の初期値", () => {
@@ -52,7 +52,7 @@ describe("getUserFlagData()", () => {
 
   describe("フラグ設定済みの場合", () => {
     const makeUser = (flags) => ({
-      flags: { [TNX_FLAG_SCOPE]: flags },
+      flags: { [SYSTEM_ID]: flags },
     });
 
     it("handMaxSize が設定されている場合、その値を返す", () => {
@@ -102,7 +102,7 @@ describe("getUserFlagData()", () => {
 
 describe("getUserFlagHistorySorted()", () => {
   const makeUser = (history) => ({
-    flags: { [TNX_FLAG_SCOPE]: { history } },
+    flags: { [SYSTEM_ID]: { history } },
   });
 
   it("history が空の場合、空配列を返す", () => {
@@ -253,7 +253,7 @@ describe("historyRemove()", () => {
 describe("saveUserFlagHistory()", () => {
   const makeUser = (flags = {}) => ({
     id: "user-test",
-    flags: { [TNX_FLAG_SCOPE]: flags },
+    flags: { [SYSTEM_ID]: flags },
     update: vi.fn().mockResolvedValue(undefined),
   });
 
@@ -266,8 +266,8 @@ describe("saveUserFlagHistory()", () => {
 
     expect(user.update).toHaveBeenCalledOnce();
     const arg = user.update.mock.calls[0][0];
-    expect(arg[`flags.${TNX_FLAG_SCOPE}.history`]).toEqual(newHistory);
-    expect(arg[`flags.${TNX_FLAG_SCOPE}.exp.total`]).toBe(5);
+    expect(arg[`flags.${SYSTEM_ID}.history`]).toEqual(newHistory);
+    expect(arg[`flags.${SYSTEM_ID}.exp.total`]).toBe(5);
   });
 
   it("複数エントリの exp 合計が exp.total に反映される", async () => {
@@ -280,7 +280,7 @@ describe("saveUserFlagHistory()", () => {
     await saveUserFlagHistory(user, newHistory);
 
     const arg = user.update.mock.calls[0][0];
-    expect(arg[`flags.${TNX_FLAG_SCOPE}.exp.total`]).toBe(10);
+    expect(arg[`flags.${SYSTEM_ID}.exp.total`]).toBe(10);
   });
 
   it("空 history では exp.total が 0 になる", async () => {
@@ -288,7 +288,7 @@ describe("saveUserFlagHistory()", () => {
     await saveUserFlagHistory(user, {});
 
     const arg = user.update.mock.calls[0][0];
-    expect(arg[`flags.${TNX_FLAG_SCOPE}.exp.total`]).toBe(0);
+    expect(arg[`flags.${SYSTEM_ID}.exp.total`]).toBe(0);
   });
 
   it("user.update() の戻り値を返す", async () => {
@@ -306,7 +306,7 @@ describe("saveUserFlagHistory()", () => {
 describe("deleteUserFlagHistoryEntry()", () => {
   const makeUser = (history = {}) => ({
     id: "user-test",
-    flags: { [TNX_FLAG_SCOPE]: { history } },
+    flags: { [SYSTEM_ID]: { history } },
     update: vi.fn().mockResolvedValue(undefined),
   });
 
@@ -319,8 +319,8 @@ describe("deleteUserFlagHistoryEntry()", () => {
 
     expect(user.update).toHaveBeenCalledOnce();
     const arg = user.update.mock.calls[0][0];
-    expect(arg[`flags.${TNX_FLAG_SCOPE}.history.-=a1`]).toBeNull();
-    expect(arg[`flags.${TNX_FLAG_SCOPE}.exp.total`]).toBe(7);
+    expect(arg[`flags.${SYSTEM_ID}.history.-=a1`]).toBeNull();
+    expect(arg[`flags.${SYSTEM_ID}.exp.total`]).toBe(7);
   });
 
   it("削除後の残存エントリ exp の合計が exp.total に反映される", async () => {
@@ -331,7 +331,7 @@ describe("deleteUserFlagHistoryEntry()", () => {
     await deleteUserFlagHistoryEntry(user, "x");
 
     const arg = user.update.mock.calls[0][0];
-    expect(arg[`flags.${TNX_FLAG_SCOPE}.exp.total`]).toBe(10);
+    expect(arg[`flags.${SYSTEM_ID}.exp.total`]).toBe(10);
   });
 
   it("最後のエントリを削除すると exp.total が 0 になる", async () => {
@@ -341,8 +341,8 @@ describe("deleteUserFlagHistoryEntry()", () => {
     await deleteUserFlagHistoryEntry(user, "a1");
 
     const arg = user.update.mock.calls[0][0];
-    expect(arg[`flags.${TNX_FLAG_SCOPE}.history.-=a1`]).toBeNull();
-    expect(arg[`flags.${TNX_FLAG_SCOPE}.exp.total`]).toBe(0);
+    expect(arg[`flags.${SYSTEM_ID}.history.-=a1`]).toBeNull();
+    expect(arg[`flags.${SYSTEM_ID}.exp.total`]).toBe(0);
   });
 
   it("user.update() の戻り値を返す", async () => {
@@ -370,8 +370,8 @@ describe("saveUserFlagCards()", () => {
 
     expect(user.update).toHaveBeenCalledOnce();
     const arg = user.update.mock.calls[0][0];
-    expect(arg[`flags.${TNX_FLAG_SCOPE}.handPileId`]).toBe("uuid-hand-123");
-    expect(arg[`flags.${TNX_FLAG_SCOPE}.trumpCardPileId`]).toBe("uuid-trump-456");
+    expect(arg[`flags.${SYSTEM_ID}.handPileId`]).toBe("uuid-hand-123");
+    expect(arg[`flags.${SYSTEM_ID}.trumpCardPileId`]).toBe("uuid-trump-456");
   });
 
   it("空文字も正しく保存される", async () => {
@@ -379,8 +379,8 @@ describe("saveUserFlagCards()", () => {
     await saveUserFlagCards(user, "", "");
 
     const arg = user.update.mock.calls[0][0];
-    expect(arg[`flags.${TNX_FLAG_SCOPE}.handPileId`]).toBe("");
-    expect(arg[`flags.${TNX_FLAG_SCOPE}.trumpCardPileId`]).toBe("");
+    expect(arg[`flags.${SYSTEM_ID}.handPileId`]).toBe("");
+    expect(arg[`flags.${SYSTEM_ID}.trumpCardPileId`]).toBe("");
   });
 
   it("user.update() の戻り値を返す", async () => {
@@ -397,7 +397,7 @@ describe("saveUserFlagCards()", () => {
 
 describe("resolveEffectiveHandMaxSize()", () => {
   const makeUser = (flags = {}) => ({
-    flags: { [TNX_FLAG_SCOPE]: flags },
+    flags: { [SYSTEM_ID]: flags },
   });
 
   const withGameSettings = (settingValue, fn) => {
@@ -523,7 +523,7 @@ describe("resolveEffectiveHandMaxSize() 層③（AE 修正）", () => {
       actors: [{ type: "cast", system: { ownerUserId: "User.u1", handMaxSizeMod: 3 } }],
     };
     try {
-      const user = { uuid: "User.u1", flags: { [TNX_FLAG_SCOPE]: {} } };
+      const user = { uuid: "User.u1", flags: { [SYSTEM_ID]: {} } };
       expect(resolveEffectiveHandMaxSize(user)).toBe(7); // 既定4 + AE3
     } finally { globalThis.game = original; }
   });

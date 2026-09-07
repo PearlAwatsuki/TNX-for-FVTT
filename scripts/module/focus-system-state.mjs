@@ -10,14 +10,14 @@
  * トラッカーにカット進行が入っても**正本の引っ越しなしに**同じ値を読める。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { buildFocusSystemSnapshot } from "./focus-system-logic.mjs";
 
-const SCOPE = "tokyo-nova-axleration";
 const SETTING = "activeFocusSystems";
 
 /** ワールド設定の登録(init で呼ぶ)。 */
 export function registerFocusSystemSetting() {
-    game.settings.register(SCOPE, SETTING, {
+    game.settings.register(SYSTEM_ID, SETTING, {
         scope:   "world",
         config:  false,
         type:    Array,
@@ -33,7 +33,7 @@ export function registerFocusSystemSetting() {
 
 /** 実行中の FS判定を列挙する(全員が読める)。 */
 export function listActiveFocusSystems() {
-    return game.settings.get(SCOPE, SETTING) ?? [];
+    return game.settings.get(SYSTEM_ID, SETTING) ?? [];
 }
 
 /** 実行中の FS判定を1件取得する。 */
@@ -59,7 +59,7 @@ function assertGM() {
 export async function startFocusSystem(source, { sourceUuid = null } = {}) {
     if (!assertGM()) return null;
     const fs = buildFocusSystemSnapshot(source, { id: foundry.utils.randomID(), sourceUuid });
-    await game.settings.set(SCOPE, SETTING, [...listActiveFocusSystems(), fs]);
+    await game.settings.set(SYSTEM_ID, SETTING, [...listActiveFocusSystems(), fs]);
     return fs;
 }
 
@@ -71,7 +71,7 @@ export async function startFocusSystem(source, { sourceUuid = null } = {}) {
 export async function updateFocusSystem(id, patch) {
     if (!assertGM()) return;
     const next = listActiveFocusSystems().map(fs => (fs.id === id ? { ...fs, ...patch } : fs));
-    await game.settings.set(SCOPE, SETTING, next);
+    await game.settings.set(SYSTEM_ID, SETTING, next);
 }
 
 /**
@@ -97,6 +97,6 @@ export async function endFocusSystem(id) {
     const all  = listActiveFocusSystems();
     const done = all.find(fs => fs.id === id) ?? null;
     if (!done) return null;
-    await game.settings.set(SCOPE, SETTING, all.filter(fs => fs.id !== id));
+    await game.settings.set(SYSTEM_ID, SETTING, all.filter(fs => fs.id !== id));
     return done;
 }

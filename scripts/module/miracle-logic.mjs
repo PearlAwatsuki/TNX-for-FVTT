@@ -8,12 +8,12 @@
  * 計算だけを担い、ドキュメントの更新や投稿(Foundry 依存)は呼び出し側が行う。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { usesMaxTotalOf, usesMaxBaseOf } from "../data/item/uses.mjs";
 import { conditionDisplayName } from "./conditions.mjs";
 import { isOutfitDestroyed, isOutfitServiceImmune } from "../data/item/helpers.mjs";
 import { OUTFIT_TYPES, outfitClassifications, ALL_CATEGORIES_KEY } from "../data/item/outfit-categories.mjs";
 
-const SCOPE = "tokyo-nova-axleration";
 
 /**
  * 残回数ゲート。残り ＝ 実効最大値(AE 込み・usesMaxTotalOf) − 消費済み。
@@ -131,7 +131,7 @@ export function addUseEffectSource({ name, img = "" }) {
     return {
         name, img,
         changes: [{ key: "system.uses.max", mode: 2 /* CONST.ACTIVE_EFFECT_MODES.ADD */, value: "1" }],
-        flags: { [SCOPE]: { tnxDuration: "act", fromMiracle: true, stackable: true } },
+        flags: { [SYSTEM_ID]: { tnxDuration: "act", fromMiracle: true, stackable: true } },
     };
 }
 
@@ -669,8 +669,8 @@ export function buildMiracleUseLogEntry({ sceneNumber, sceneId = "", actorId = "
  * @returns {{deleteA: string[], deleteB: string[], moveToA: object[], moveToB: object[]}}
  */
 export function conditionSwapPlan(effectsA, effectsB) {
-    const isCondition = (e) => !!e?.flags?.[SCOPE]?.conditionKind;
-    const isParent = (e) => isCondition(e) && !e.flags[SCOPE].addedFrom;
+    const isCondition = (e) => !!e?.flags?.[SYSTEM_ID]?.conditionKind;
+    const isParent = (e) => isCondition(e) && !e.flags[SYSTEM_ID].addedFrom;
     const a = [...(effectsA ?? [])];
     const b = [...(effectsB ?? [])];
     return {

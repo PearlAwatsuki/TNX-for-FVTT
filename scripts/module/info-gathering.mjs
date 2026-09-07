@@ -15,6 +15,7 @@
  * - 報酬点は使用可(2026-07-16 裁定＝情報収集は usesBounty 不問・消費時点の一元ゲートに乗る)。
  */
 
+import { SYSTEM_ID } from "../constants.mjs";
 import { getSessionState, getActiveActJournal } from "./session-state.mjs";
 import {
     withResolvedInfoSkillNames, infoDesignationRows, discloseInfoByAchievement,
@@ -26,7 +27,6 @@ import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { ALL_SUITS } from "./tnx-check-engine.mjs";
 
-const SCOPE = "tokyo-nova-axleration";
 
 /**
  * HUD の情報項目ボタンから情報収集判定を起動する。
@@ -39,7 +39,7 @@ export async function startInfoGatheringCheck(itemId) {
     const actor = game.user.character;
     if (!actor) return void ui.notifications.warn("担当キャラクターが設定されていません。");
     const journal = getActiveActJournal();
-    const raw = (journal?.getFlag(SCOPE, "infoItems") ?? []).find(i => i.id === itemId);
+    const raw = (journal?.getFlag(SYSTEM_ID, "infoItems") ?? []).find(i => i.id === itemId);
     if (!raw) return;
 
     const rows = infoDesignationRows(raw, await loadGeneralSkillNameByKey());
@@ -117,7 +117,7 @@ export async function resolveInfoGatheringFromCheck(cc, result, { messageId = nu
 export async function applyInfoDisclosure({ itemId, contentId, entryTn = null, achievement, messageId = null }) {
     const journal = getActiveActJournal();
     if (!journal) return;
-    const items = foundry.utils.deepClone(journal.getFlag(SCOPE, "infoItems") ?? []);
+    const items = foundry.utils.deepClone(journal.getFlag(SYSTEM_ID, "infoItems") ?? []);
     const item = items.find(i => i.id === itemId);
     const contents = item?.contents;
     const index = contents?.findIndex(c => c.id === contentId) ?? -1;
@@ -127,7 +127,7 @@ export async function applyInfoDisclosure({ itemId, contentId, entryTn = null, a
     const newly = newlyDisclosedInfo(before, after);
     if (!newly.entryOpened && !newly.tierIds.length) return;
     contents[index] = after;
-    await journal.setFlag(SCOPE, "infoItems", items);
+    await journal.setFlag(SYSTEM_ID, "infoItems", items);
     await announceInfoDisclosure(item, contentId, newly, messageId);
 }
 
@@ -145,7 +145,7 @@ export async function applyInfoDisclosure({ itemId, contentId, entryTn = null, a
 async function announceInfoDisclosure(item, contentId, newly, messageId) {
     const message = messageId ? game.messages.get(messageId) : null;
     if (message) {
-        const patch = { [`flags.${SCOPE}.checkResult.infoDisclosed`]: true };
+        const patch = { [`flags.${SYSTEM_ID}.checkResult.infoDisclosed`]: true };
         if (!message.content.includes("tnx-card__outcome")) {
             const outcome = await foundry.applications.handlebars.renderTemplate(
                 "systems/tokyo-nova-axleration/templates/chat/parts/info-disclose-outcome.hbs", {});
