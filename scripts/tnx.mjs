@@ -96,6 +96,9 @@ import { OUTFIT_CATEGORIES } from './data/item/outfit-categories.mjs';
 import { decoratedItemName } from './core/identification.mjs';
 import { injectDictionaryBrowserButton } from './app/tnx-dictionary-browser.mjs';
 import { applyContentLinkCardTooltips } from './chat/item-card-tooltips.mjs';
+import { applyAsOtherEffectCopy } from "./flow/miracle-flow.mjs";
+import { manualEditDamage } from "./flow/damage-flow.mjs";
+import { applyAttackPatch } from "./flow/attack-flow.mjs";
 
 async function preloadHandlebarsTemplates() {
     const templatePaths = [
@@ -1031,7 +1034,6 @@ Hooks.on("updateItem", async (item, changes, _options, userId) => {
     if (userId !== game.user.id) return;
     if (item.type !== "miracle") return;
     if (foundry.utils.getProperty(changes, "system.asOther.selected") === undefined) return;
-    const { applyAsOtherEffectCopy } = await import("./flow/miracle-flow.mjs");
     await applyAsOtherEffectCopy(item);
 });
 
@@ -1521,7 +1523,6 @@ Hooks.once("init", async function() {
                 // 達成値の手動修正と同じ最終裁定ツール=適用済みでも制限しない(2026-07-14 ユーザー確定)
                 condition: (li) => game.user.isGM && !!msgOf(li)?.getFlag(SYSTEM_ID, "damageRoll"),
                 callback: async (li) => {
-                    const { manualEditDamage } = await import("./flow/damage-flow.mjs");
                     await manualEditDamage(msgOf(li));
                 },
             },
@@ -1537,7 +1538,6 @@ Hooks.once("init", async function() {
                     return !!f && f.damageRolled === true;
                 },
                 callback: async (li) => {
-                    const { applyAttackPatch } = await import("./flow/attack-flow.mjs");
                     await applyAttackPatch(msgOf(li), { damageRolled: false });
                     ui.notifications.info("ダメージ処理をリセットしました（出済みのダメージカードは必要に応じて削除してください）。");
                 },

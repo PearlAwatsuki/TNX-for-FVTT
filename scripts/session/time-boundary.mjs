@@ -23,6 +23,9 @@ import { TNX_BOUNDARIES, planEffectExpiry, planItemGrantExpiry, planItemBoundary
          planSceneDeferredFiring, buildForcedExitFlags } from "../rules/time-boundary.mjs";
 import { CONDITION_KINDS, getConditionKinds } from "../rules/conditions.mjs";
 import { listAppearingActors } from "./appearance-state.mjs";
+import { postPoisonDrawPrompt } from "../flow/condition-resolution.mjs";
+import { getSessionState, leaveTeam } from "./session-state.mjs";
+import { setAppearing, isAppearing } from "./appearance-state.mjs";
 
 
 /** この境界の適用を自分が担うか(activeGM のみ)。 */
@@ -112,7 +115,6 @@ export async function applyBoundary(boundary, actors, { mainActorId = null } = {
 async function tickPoisonOn(actor) {
     const ticks = planPoisonTicks(actor?.effects?.contents ?? []);
     if (!ticks.length) return;
-    const { postPoisonDrawPrompt } = await import("../flow/condition-resolution.mjs");
     for (const tick of ticks) {
         const effect = actor.effects.get(tick.id);
         if (effect) await postPoisonDrawPrompt(actor, effect, tick.magnitude);
@@ -181,7 +183,6 @@ export function registerTimeBoundaries() {
     // 「シーン番号が進んだ後」に見るのはここだけ。②社会ダメージの「次のシーン」効果を発火する。
     Hooks.on(TNX_HOOKS.sceneStart, async () => {
         if (!isApplier()) return;
-        const { getSessionState } = await import("./session-state.mjs");
         const sceneNumber = getSessionState()?.sceneNumber ?? 0;
         for (const actor of game.actors?.contents ?? []) {
             const effects = actor.effects?.contents ?? [];
@@ -220,8 +221,6 @@ export function registerForcedExitWounds() {
         const kind = getConditionKinds(effect).find(k => CONDITION_KINDS[k]?.forcesExit === true);
         if (!kind) return;
 
-        const { getSessionState, leaveTeam } = await import("./session-state.mjs");
-        const { setAppearing, isAppearing } = await import("./appearance-state.mjs");
         // ① チームから抜ける(退場連動を起こさないため、退場より先)
         await leaveTeam(actor.id);
         // ② 退場(連動には乗せない＝setAppearing を直接呼ぶ)

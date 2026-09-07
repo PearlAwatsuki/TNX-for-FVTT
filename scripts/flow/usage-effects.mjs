@@ -32,6 +32,7 @@ import { SYSTEM_ID } from "../constants.mjs";
 import { currentTargetActors } from "./target-resolution.mjs";
 import { analyzeGrantLanding, itemGrantCandidates, rewriteGrantChangesForItem } from "../data/item/helpers.mjs";
 import { isWetActor } from "../rules/conditions.mjs";
+import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 
 
 /**
@@ -419,7 +420,6 @@ export async function renderUsageEffectButton(message, html) {
     block.querySelector('[data-action="trayToggle"]')
         ?.addEventListener("click", async () => {
             // 打ち消し待ち(17-2)なら見出しクリックは「効果の適用をキャンセル」の発動点(畳まない)
-            const { TnxCheckFlow } = await import("./tnx-check-flow.mjs");
             if (TnxCheckFlow.peekAchievementAction("negate")) {
                 const { handleNegateTrayClick } = await import("./miracle-flow.mjs");
                 await handleNegateTrayClick(message);

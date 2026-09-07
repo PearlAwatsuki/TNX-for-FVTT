@@ -6,6 +6,8 @@ import {
     } from '../ui/tnx-dialog.mjs';
 import { SYSTEM_ID, SOCKET_CHANNEL } from "../constants.mjs";
 import { lookupDrawTables } from './tnx-draw-table.mjs';
+import { getUserFlagData, resolveEffectiveHandMaxSize } from "../core/user-flag-schema.mjs";
+import { recordCurrentSceneCard } from "../session/session-state.mjs";
 
 /** スタイル枠ニューロカードの日本語名 → タロット名アルファベット対応表 */
 const NEURO_STYLE_ROMAJI = {
@@ -68,7 +70,6 @@ export class TnxActionHandler {
      * HUD の空切り札エリアクリックから呼ぶ。
      */
     static async resetRlTrump() {
-        const { getUserFlagData } = await import('../core/user-flag-schema.mjs');
 
         const gmTrumpDiscard = await this.getActiveGmTrumpDiscardPile();
         if (!gmTrumpDiscard) return;
@@ -95,7 +96,6 @@ export class TnxActionHandler {
      * @param {string} cardId - プレイするカードのID
      */
     static async playCard(cardId) {
-        const { getUserFlagData } = await import('../core/user-flag-schema.mjs');
         // ユーザー自身の手札を参照
         const handId = getUserFlagData(game.user).handPileId;
         const hand = handId ? await fromUuid(handId) : null;
@@ -120,7 +120,6 @@ export class TnxActionHandler {
      * @param {string} cardId - 使用する切り札のID
      */
     static async useTrump(cardId) {
-        const { getUserFlagData } = await import('../core/user-flag-schema.mjs');
         // ユーザー自身の切り札を参照
         const trumpPileId = getUserFlagData(game.user).trumpCardPileId;
         const trumpPile = trumpPileId ? await fromUuid(trumpPileId) : null;
@@ -147,7 +146,6 @@ export class TnxActionHandler {
             const cardData = destinationPile.cards.get(passedCard.id);
             await this._postCardToChat(cardData, { speakerActor: actor });
             // 消費した切り札はそのシーンのシーンカードになる → 「現在のシーンカード」を記録(14-2)
-            const { recordCurrentSceneCard } = await import('../session/session-state.mjs');
             recordCurrentSceneCard(passedCard.id);
         }
 
@@ -158,7 +156,6 @@ export class TnxActionHandler {
      * カードを引く（ユーザー自身の手札へ）
      */
     static async drawCard() {
-        const { getUserFlagData, resolveEffectiveHandMaxSize } = await import('../core/user-flag-schema.mjs');
         const deck = await this.getActiveDeck();
         if (!deck || deck.availableCards.length === 0) {
             return ui.notifications.warn("山札にカードがありません。");
@@ -186,7 +183,6 @@ export class TnxActionHandler {
      * 山札が不足している場合は引ける枚数だけ引く。通知は行わない。
      */
     static async autoReplenishHand() {
-        const { getUserFlagData, resolveEffectiveHandMaxSize } = await import('../core/user-flag-schema.mjs');
         const deck = await this.getActiveDeck();
         if (!deck || deck.availableCards.length === 0) return;
 
@@ -253,7 +249,6 @@ export class TnxActionHandler {
         await this._postCardToChat(cardData);
 
         // シーンカードの提示 → 「現在のシーンカード」を記録(14-2。切り札のシーン消費化と同じ参照点)
-        const { recordCurrentSceneCard } = await import('../session/session-state.mjs');
         recordCurrentSceneCard(card.id);
 
         // 開いているドロー表（設定デッキ = ニューロデッキ）に結果をルックアップ
@@ -264,7 +259,6 @@ export class TnxActionHandler {
      * 捨て札からカードを引く（ユーザー自身の手札へ）
      */
     static async takeFromDiscard() {
-        const { getUserFlagData, resolveEffectiveHandMaxSize } = await import('../core/user-flag-schema.mjs');
         const handSourceDescription = "あなた";
 
         // 操作しているユーザーのHUD手札を対象にする
@@ -299,7 +293,6 @@ export class TnxActionHandler {
      * すべての手札に、上限まで1枚ずつカードを補充する
      */
     static async dealInitialHands() {
-        const { getUserFlagData, resolveEffectiveHandMaxSize } = await import('../core/user-flag-schema.mjs');
 
         // --- 1. 配布に必要な基本情報を取得 ---
         const deck = await this.getActiveDeck();
@@ -369,7 +362,6 @@ export class TnxActionHandler {
      * 【HUD用】操作したユーザーが、自身の手に複数枚カードを引く
      */
     static async drawMultipleCardsFromDeck() {
-        const { getUserFlagData, resolveEffectiveHandMaxSize } = await import('../core/user-flag-schema.mjs');
         const flagData = getUserFlagData(game.user);
         const handId = flagData.handPileId;
         if (!handId) return ui.notifications.warn("ユーザーに手札が割り当てられていません。");
@@ -403,7 +395,6 @@ export class TnxActionHandler {
      * GMがニューロデッキから特定のユーザーに切り札を1枚配布する
      */
     static async dealTrumpFromNeuroDeck() {
-        const { getUserFlagData } = await import('../core/user-flag-schema.mjs');
 
         // 1. 配布に必要なユーザーとカードの情報を取得
         const targetUsers = game.users.filter(u => !u.isGM);
@@ -464,7 +455,6 @@ export class TnxActionHandler {
      * @param {string} targetUserId - 渡す相手のユーザーID
      */
     static async passCardToUser(cardId, targetUserId) {
-        const { getUserFlagData } = await import('../core/user-flag-schema.mjs');
         const sourceHandId = getUserFlagData(game.user).handPileId;
         const sourceHand = sourceHandId ? await fromUuid(sourceHandId) : null;
 
@@ -508,7 +498,6 @@ export class TnxActionHandler {
      * 【HUD用】選択した複数枚のカードを、選択した別のユーザーに渡す
      */
     static async selectAndPassMultipleCards() {
-        const { getUserFlagData } = await import('../core/user-flag-schema.mjs');
         const sourceHandId = getUserFlagData(game.user).handPileId;
         const sourceHand = sourceHandId ? await fromUuid(sourceHandId) : null;
         if (!sourceHand || sourceHand.cards.size === 0) return ui.notifications.warn("渡せるカードが手札にありません。");
@@ -558,7 +547,6 @@ export class TnxActionHandler {
      * @param {string} cardId - 捨てるカードのID
      */
     static async discardCard(cardId) {
-        const { getUserFlagData } = await import('../core/user-flag-schema.mjs');
         const sourceHandId = getUserFlagData(game.user).handPileId;
         const sourceHand = sourceHandId ? await fromUuid(sourceHandId) : null;
         if (!sourceHand) return ui.notifications.warn("あなたの手札が設定されていません。");

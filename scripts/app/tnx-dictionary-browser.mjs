@@ -28,6 +28,7 @@ import { readFlag } from "../data/item/helpers.mjs";
 import { applyTriggerDisable } from "../ui/ui-trigger-disable.mjs";
 import { purchaseUnavailableReason, preActUnavailableReason } from "../rules/purchase.mjs";
 import { getSessionState } from "../session/session-state.mjs";
+import { startPurchaseWithUsage, startPurchaseFromBrowser } from "../flow/purchase-flow.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -346,12 +347,10 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
         if (!uuid) return;
         try {
             if (this._purchaseOrigin) {
-                const { startPurchaseWithUsage } = await import("../flow/purchase-flow.mjs");
                 const started = await startPurchaseWithUsage(uuid, this._purchaseOrigin);
                 if (started) await this.close();
                 return;
             }
-            const { startPurchaseFromBrowser } = await import("../flow/purchase-flow.mjs");
             await startPurchaseFromBrowser(uuid);
         } catch (err) {
             console.error("TNX | 購入の実行に失敗しました", err);

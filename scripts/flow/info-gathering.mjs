@@ -26,6 +26,7 @@ import { resolveDesignationResponse } from "./designation-response.mjs";
 import { TnxSocketHandler } from "../core/tnx-socket-handler.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { ALL_SUITS } from "../rules/tnx-check-engine.mjs";
+import { enrichInfoCardData } from "../chat/reference-links.mjs";
 
 
 /**
@@ -159,7 +160,6 @@ async function announceInfoDisclosure(item, contentId, newly, messageId) {
     const data = buildInfoDiscloseCardData(resolved, contentId, newly);
     if (!data) return;
     // 本文のエンリッチ(16-x): @UUID コンテンツリンク等を解決してから描画する
-    const { enrichInfoCardData } = await import("../chat/reference-links.mjs");
     const content = await foundry.applications.handlebars.renderTemplate(
         "systems/tokyo-nova-axleration/templates/chat/info-card.hbs", await enrichInfoCardData(data));
     await ChatMessage.create({ content });

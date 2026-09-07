@@ -16,7 +16,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const src = readFileSync(join(root, "scripts/module/tnx-check-flow.mjs"), "utf8");
+const src = readFileSync(join(root, "scripts/flow/tnx-check-flow.mjs"), "utf8");
 
 /** CONTINUATIONS の宣言部分(キーの並びが実行順)。 */
 const registry = (() => {

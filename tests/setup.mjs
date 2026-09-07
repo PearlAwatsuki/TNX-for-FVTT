@@ -41,6 +41,13 @@ export class MockTypeDataModel {
   static migrateData(source) { return source; }
 }
 
+// Foundry のドキュメント基底クラス。派生クラス(TnxCombat extends Combat 等)は**評価時**に
+// これを読むため、その派生を静的 import の連鎖に含むモジュールはスタブが無いと読み込めない。
+// 振る舞いは持たせない(継承の土台としてだけ要る)。
+for (const name of ["Combat", "Combatant", "CombatTracker", "ActiveEffect", "Item", "Actor"]) {
+  if (!globalThis[name]) globalThis[name] = class {};
+}
+
 let _idCounter = 0;
 
 globalThis.foundry = {

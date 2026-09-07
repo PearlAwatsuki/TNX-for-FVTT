@@ -48,6 +48,13 @@ import { executionFormOf, usageDisplayName, isReactionType, isMiracleType } from
 import { itemDisplayName, resolveItemNameByKey, calcSkillInsertSort } from '../core/identification.mjs';
 import { isOpposedConfrontation } from '../rules/confrontation.mjs';
 import { resolveHousingAreaMods, residenceEffectiveValues } from '../core/residence-area.mjs';
+import { asOtherCopyUpdate, resolveMiracleRewrite, useMiracleDamage, useMiracleDestroy, resolveMiracleCopyFromLog } from "../flow/miracle-flow.mjs";
+import { TargetSelectionDialog } from "../ui/tnx-dialog.mjs";
+import { startPurchasePicker } from "../flow/purchase-flow.mjs";
+import { useModification } from "../flow/modification-flow.mjs";
+import { useOpposedCheck } from "../flow/attack-flow.mjs";
+import { resolveUsageTargetRefs } from "../flow/target-resolution.mjs";
+import { buildCombatSpeedInit } from "../rules/session.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -2324,7 +2331,6 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             const miracleDoc = await fromUuid(c.uuid).catch(() => null);
             return { value: c.uuid, label: `${skill?.name ?? "（区分未設定）"}：${miracleDoc?.name ?? "?"}` };
         }));
-        const { asOtherCopyUpdate } = await import("../flow/miracle-flow.mjs");
         // 選択と写し(用途・経験点条件)は**1回の update にまとめる**(作成フックの中で分けると落ちる)
         const fix = async (uuid) => {
             const patch = await asOtherCopyUpdate(miracle, uuid);
@@ -2334,7 +2340,6 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             await fix(labels[0].value);
             return;
         }
-        const { TargetSelectionDialog } = await import("../ui/tnx-dialog.mjs");
         const picked = await TargetSelectionDialog.prompt({
             title: `${miracle.name}: 効果を決める`, label: "区分（フォルム・属性）",
             options: labels, selectLabel: "決定",
@@ -2567,7 +2572,6 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // (名前・使用回数・神業由来の印は元の神業のまま)。再入(出どころが決まっている)では尋ねない。
         // 《プリーズ！》で使わされる神業でも尋ねる——使うのは本人であり、書き換えるのも本人のため
         if (item.type === "miracle" && !asOther) {
-            const { resolveMiracleRewrite } = await import("../flow/miracle-flow.mjs");
             const rewritten = await resolveMiracleRewrite(actor, item, { free: !!openExtra.miracleFree });
             if (rewritten === "cancel") return false;
             if (rewritten) {
@@ -2622,7 +2626,6 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 辞典ブラウザ(選択モード)を開いて対象を選ばせる(D&D のドロップエリア起動と同型)。対象の
         // 購入ボタンで購入文脈(openExtra.purchase)つきで本関数へ合流し、通常判定へ流れる
         if (selectedUsage.type === "purchase" && !openExtra.purchase) {
-            const { startPurchasePicker } = await import("../flow/purchase-flow.mjs");
             await startPurchasePicker(actor, item, selectedUsage);
             return;
         }
@@ -2712,7 +2715,6 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 完了継続 ctx.modification が成功で改造行を適用)
         if (selectedUsage.type === "modification" && !openExtra.modification) {
             try {
-                const { useModification } = await import("../flow/modification-flow.mjs");
                 await useModification(item, selectedUsage);
             } catch (err) {
                 console.error("TNX | 改造の実行に失敗しました", err);
@@ -2740,7 +2742,6 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             && isOpposedConfrontation(selectedUsage.confrontation)
             && !openExtra.reaction && !openExtra.covering && !openExtra.requestMessageId) {
             try {
-                const { useOpposedCheck } = await import("../flow/attack-flow.mjs");
                 await useOpposedCheck(item, selectedUsage, openExtra);
             } catch (err) {
                 console.error("TNX | 対決判定の実行に失敗しました", err);
@@ -2785,7 +2786,6 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 即死・社会戦(17-3): 対象解決→消費→結果の選択→神業版のダメージカード(軽減を通さない)
         if (selectedUsage.type === "miracleKill" || selectedUsage.type === "miracleSocial") {
             try {
-                const { useMiracleDamage } = await import("../flow/miracle-flow.mjs");
                 return await useMiracleDamage(actor, item, selectedUsage, { asOther });
             } catch (err) {
                 console.error("TNX | 神業のダメージの実行に失敗しました", err);
@@ -2796,7 +2796,6 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 破壊(17-3): 対象解決→未破壊のアウトフィットを選ぶ→神業カードに結果行と適用ボタン
         if (selectedUsage.type === "miracleDestroy") {
             try {
-                const { useMiracleDestroy } = await import("../flow/miracle-flow.mjs");
                 return await useMiracleDestroy(actor, item, selectedUsage, { asOther });
             } catch (err) {
                 console.error("TNX | 神業の破壊の実行に失敗しました", err);
@@ -2821,7 +2820,6 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             // 見聞きした神業のコピー(《突然変異》): コピー元を決めて**その用途で再入**する。
             // 名前・使用回数・印・消費・話者は元の神業のまま(効果の参照と同じ再入の仕組み)
             if (effect === "copyUsed" && !asOther) {
-                const { resolveMiracleCopyFromLog } = await import("../flow/miracle-flow.mjs");
                 const picked = await resolveMiracleCopyFromLog(actor, item);
                 if (!picked) return false;
                 return TnxCharacterSheetBase._activateItemCheck(actor, item, { ...openExtra, asOther: picked });
@@ -2897,7 +2895,6 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 対象解決(2026-08-30 是正): 宣言も判定系と同じ決定表駆動の対象解決を通す(自身/単体の
         // 自動セルフ等)。従来は素通りでレティクル頼み=対象=自身の宣言がノーターゲットで
         // 「対象なし」になる欠陥だった。キャンセルは中止(消費より前に置く)
-        const { resolveUsageTargetRefs } = await import("../flow/target-resolution.mjs");
         if (await resolveUsageTargetRefs(actor, usage) === null) return;
 
         // 分身は本体側カウンターへ差し替えて共有(Troops.md)。神業の既定消費は起動関数で用途に
@@ -3092,7 +3089,6 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
      * 現在の実効ベースからオーバーレイ分を保って value に写す。
      */
     static async _onInitCombatSpeed(_event, _target) {
-        const { buildCombatSpeedInit } = await import("../rules/session.mjs");
         const patch = buildCombatSpeedInit(this.actor.system);
         await this.actor.update(patch);
         ui.notifications?.info(`CS を決定しました（CS ${patch["system.combatSpeed.value"]}）。`);

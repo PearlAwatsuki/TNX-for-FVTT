@@ -18,6 +18,7 @@ import { resolveUsageTargetValue } from "../rules/usage-target-value.mjs";
 import { executionFormOf, effectiveBaseSkillId, usageDisplayName } from "../rules/usage-types.mjs";
 import { formatSkillName } from "../core/identification.mjs";
 import { effectiveUsageTiming } from "../data/item/modification-params.mjs";
+import { resolveUsageTargetRefs } from "./target-resolution.mjs";
 
 /**
  * 技能ベース用途(check)の参加技能を解決する。ベース技能(用途の baseSkillRef 優先・未設定は親アイテム)＋
@@ -187,7 +188,6 @@ export async function buildUsageCheckContext(actor, item, usage, {
     // 対象解決(2026-07-18 決定表駆動): 用途の「対象」×「対決」で解決する(自身/単体の自動セルフ・
     // 未ターゲット時ダイアログ)。攻撃/対決フローは呼び出し前に解決済み=レティクルが
     // 立っているためここでは素通りする。適用効果の対象はこの時点のレティクルが正
-    const { resolveUsageTargetRefs } = await import("./target-resolution.mjs");
     if (await resolveUsageTargetRefs(actor, usage) === null) return null;
 
     // 参加技能(ベース＋コンボ)の解決

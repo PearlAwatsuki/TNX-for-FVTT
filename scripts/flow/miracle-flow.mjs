@@ -33,6 +33,8 @@ import { buildGrantedEffectDataFrom } from "./usage-effects.mjs";
 import { getSessionState } from "../session/session-state.mjs";
 import { listAppearingActors } from "../session/appearance-state.mjs";
 import { applyInterruptGrantForUsage } from "./interrupt-grant.mjs";
+import { grantPurchasedItem } from "./purchase-flow.mjs";
+import { applyAttackPatch, applyAttackTargetPatch } from "./attack-flow.mjs";
 
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会", troop: "壊滅" };
 
@@ -282,7 +284,6 @@ export async function useMiracleAcquire(actor, item, usage, { uuid, asOther = nu
     const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${item.name}` });
     if (plan === null) return false;
     await applyConsumptionPlan(plan);
-    const { grantPurchasedItem } = await import("./purchase-flow.mjs");
     const created = await grantPurchasedItem(actor, uuid);
     if (!created) return false;
     await created.update({ [`flags.${SYSTEM_ID}.fromMiracle`]: true });
@@ -694,7 +695,6 @@ export async function handleNegateAchievementClick(message) {
     await commitNegate(ns.state, undo);
 
     if (attackF) {
-        const { applyAttackPatch } = await import("./attack-flow.mjs");
         await applyAttackPatch(message, { state: "failed", failedReason: "negated", negatedBy: ns.by });
         const { applyDamagePatch } = await import("./damage-flow.mjs");
         for (const dm of damageCards) {
@@ -806,7 +806,6 @@ export async function handleAttackEvadeClick(message, rowIndex) {
     TnxCheckFlow.cancelAchievementAction();
     if (state.consumeUses?.length) await applyConsumptionPlan(state.consumeUses);
     await postMiracleCard(skill, { asOther: state.asOther }); // 発動した神業を卓に提示(17-5 の記帳点)
-    const { applyAttackTargetPatch } = await import("./attack-flow.mjs");
     await applyAttackTargetPatch(message, plan.index, {
         state: "miss", resolution: "miracleEvade", reactionAchievement: null, diff: null, parryGuard: 0, evadedBy: by,
     });

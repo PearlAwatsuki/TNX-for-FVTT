@@ -76,7 +76,7 @@ describe("アウトフィットシートのモード選択肢は DataModel の c
 
 describe("携帯中/準備済みの切り替えは両方のシートが共用関数を通る", () => {
   it("アイテムシートは装備状態フラグを applyOutfitFlagToggle へ渡す", () => {
-    expect(sheetSrc).toContain('from "../../scripts/core/outfit-flags.mjs"');
+    expect(sheetSrc).toContain('from "../core/outfit-flags.mjs"');
     const body = methodBody(sheetSrc, "static async _onToggleFlag");
     expect(body).toContain("isEquipStateFlag(flag)");
     expect(body).toContain("applyOutfitFlagToggle(this.item, flag, actor)");
@@ -104,7 +104,7 @@ describe("携帯中/準備済みの切り替えは両方のシートが共用関
 
   it("規則の正本は純関数が持ち、適用層は書き込みだけを担う", () => {
     expect(read("scripts/data/item/helpers.mjs")).toContain("export function planOutfitFlagToggle(");
-    const flags = read("scripts/module/outfit-flags.mjs");
+    const flags = read("scripts/core/outfit-flags.mjs");
     expect(flags).toContain("planOutfitFlagToggle(item, flag,");
     expect(flags).not.toContain('=== "housing"');   // 規則を再実装していない
   });

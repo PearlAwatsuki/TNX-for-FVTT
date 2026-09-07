@@ -47,6 +47,7 @@ import { executionFormOf } from "../rules/usage-types.mjs";
 import { buildPostTreatmentRest } from "./treatment-flow.mjs";
 import { recoveryCandidateAllowed } from "../rules/miracle.mjs";
 import { getSessionState } from "../session/session-state.mjs";
+import { postMiracleCard } from "./miracle-flow.mjs";
 
 
 /**
@@ -303,7 +304,6 @@ export async function useRecovery(item, usage, prebound = null, { asOther = null
         // 使用ログの記帳点・17-5)、それ以外は他の宣言用途と同じアイテムの解説カード
         const outcome = recoveryOutcome(patient.name, plan);
         if (item.type === "miracle") {
-            const { postMiracleCard } = await import("./miracle-flow.mjs");
             await postMiracleCard(item, { asOther, outcome });
         } else {
             await item.postDescriptionCard({ outcome });

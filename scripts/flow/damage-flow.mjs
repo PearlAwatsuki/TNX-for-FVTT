@@ -42,6 +42,9 @@ import { spinnerDialogActions } from "../ui/tnx-dialog.mjs";
 import { rlGrantAmount, rlGrantLedgerRow, rlGrantTypeLabel, buildRlDamageRollFlag } from "../rules/rl-grant.mjs";
 import { unprotectedTargetIndices, defencePreventPlan, miracleResultLabel, miracleTargetOutcome, miracleOriginOf } from "../rules/miracle.mjs";
 import { formatSkillName } from "../core/identification.mjs";
+import { getUserFlagData } from "../core/user-flag-schema.mjs";
+import { handleNegateMiracleDamageClick, postMiracleCard } from "./miracle-flow.mjs";
+import { AmountInputDialog } from "../ui/tnx-dialog.mjs";
 
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会", troop: "壊滅" };
 const SUIT_SYMBOL = { spade: "♠", club: "♣", heart: "♥", diamond: "♦" };
@@ -329,7 +332,6 @@ async function openRlFixedDamage(stagingMessage) {
 
 /** HUD でクリックされた手札カードをダメージカードとして出す。中断・失敗は null。 */
 async function playHandCardForDamage(cardId) {
-    const { getUserFlagData } = await import("../core/user-flag-schema.mjs");
     const handId = getUserFlagData(game.user).handPileId;
     const hand = handId ? await fromUuid(handId).catch(() => null) : null;
     const card = hand?.cards.get(cardId);
@@ -663,7 +665,6 @@ function renderMiracleDamageCard(message, html, f, { ledger, area, row, line, es
         head.classList.add("tnx-recheck-target");
         head.addEventListener("click", async () => {
             if (!TnxCheckFlow.peekAchievementAction("negate")) return;
-            const { handleNegateMiracleDamageClick } = await import("./miracle-flow.mjs");
             await handleNegateMiracleDamageClick(message);
         });
     }
@@ -826,7 +827,6 @@ export async function handleDamageProtectClick(message, srcIndex) {
     TnxCheckFlow.cancelAchievementAction();
     if (state.consumeUses?.length) await applyConsumptionPlan(state.consumeUses);
     // 発動した神業を卓に提示する(神業カード=使用ログの記帳点・17-5)。他の神業として使った分は参照先を添える
-    const { postMiracleCard } = await import("./miracle-flow.mjs");
     // 防御そのものを後で打ち消せるよう、当時の対象行を控える(2026-09-06)
     await postMiracleCard(skill, { asOther: state.asOther, undo: [{ messageId: message.id, patch: {
         [`flags.${SYSTEM_ID}.damageRoll.targets`]: foundry.utils.deepClone(f.targets ?? []),
@@ -888,7 +888,6 @@ export async function handleDamageModifyClick(message) {
     let overrideTo;
     if (mod === null) {
         // 手入力は「上書き」チェック可=入力値をそのまま新しい攻撃側合計にする(2026-07-14)
-        const { AmountInputDialog } = await import("../ui/tnx-dialog.mjs");
         const input = await AmountInputDialog.prompt({
             title: `ダメージの修正: ${skill.name}`,
             label: "ダメージへの修正値（軽減は負の値）",
@@ -952,7 +951,6 @@ async function promptBountyMitigation(message, targetIndex) {
         ui.notifications.warn(`「${actor.name}」に使用できる報酬点がありません。`);
         return;
     }
-    const { AmountInputDialog } = await import("../ui/tnx-dialog.mjs");
     // allowOverride なしの prompt は数値をそのまま返す(キャンセル=null)
     const input = await AmountInputDialog.prompt({
         title: `報酬点による軽減: ${actor.name}`,
@@ -983,7 +981,6 @@ export async function manualEditDamage(message) {
     // 手動修正も mods(事後修正)に積むため、基準は表示中の攻撃側合計(共有事後修正込みの攻撃側の数字。
     // 対象ごとのダメージ修正は含まない＝台帳の「攻撃側合計」と同じ数字・2026-09-01)
     const current = damageRollTotals(f, { bonusRows: bonusRowsSplit(f).shared }).attackerTotal;
-    const { AmountInputDialog } = await import("../ui/tnx-dialog.mjs");
     const input = await AmountInputDialog.prompt({
         title: `ダメージを修正（攻撃側合計 ${current}）`,
         label: "ダメージへの修正値（軽減は負の値）",

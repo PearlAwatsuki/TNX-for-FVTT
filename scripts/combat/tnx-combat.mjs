@@ -30,6 +30,7 @@ import { resolveConsumeRowsForActor, isConsumptionDepleted } from "../flow/usage
 import { TNX_HOOKS, planPhaseEvents } from "../rules/combat-events.mjs";
 import { actorCannotMainProcess } from "../rules/conditions.mjs";
 import { TnxSocketHandler } from "../core/tnx-socket-handler.mjs";
+import { endSceneFromCombat } from "../session/session-state.mjs";
 
 /** スポット走査(プロセスごとの行動権の巡回)を持つサブターンのフェーズ。 */
 const WALK_PHASES = new Set(["setup", "initiative", "cleanup"]);
@@ -364,7 +365,6 @@ export class TnxCombat extends Combat {
     if (sceneEnded) {
       // セッション進行(14-2)がシーンを開いていれば終了境界の発火を委譲(sceneEnded ガードで
       // 次の切替と二重発火しない)。アクト外(シーン外戦闘)は従来どおり素のフックのみ発火。
-      const { endSceneFromCombat } = await import("../session/session-state.mjs");
       const handled = await endSceneFromCombat();
       if (!handled) Hooks.callAll(TNX_HOOKS.sceneEnd, { sceneId: "" });
     }

@@ -169,6 +169,40 @@ describe("規約: 共通の置き場を迂回しない(ラチェット=増やさ
   const codeOf = (src) => src.split(/\r?\n/)
     .filter(l => !/^\s*(\*|\/\/|\/\*)/.test(l)).join(" ");
 
+  // 動的 import(await import)は循環参照を避けるために使われてきたが、127 箇所のうち
+  // 循環回避になっていないものが多数あった。静的 import は解析が効く(import 整合性テスト・
+  // 未使用 export の検出)ので、循環しないものは静的にする。ここは**静的 import の循環が
+  // 0 のまま**であることを守る(循環が入ると動的 import へ逃がす圧力が生まれる)。
+  it("静的 import に循環が無い", () => {
+    const graph = new Map();
+    for (const p of SRC) {
+      const deps = new Set();
+      for (const m of text.get(p).matchAll(/^import [^;]*?from\s+["'](\.[^"']+)["']/gm)) {
+        const dir = p.slice(0, p.lastIndexOf("/"));
+        const parts = (dir + "/" + m[1]).split("/");
+        const out = [];
+        for (const seg of parts) {
+          if (seg === "." || seg === "") continue;
+          if (seg === "..") out.pop(); else out.push(seg);
+        }
+        deps.add(out.join("/"));
+      }
+      graph.set(p, deps);
+    }
+    const color = new Map(); const stack = []; const cycles = [];
+    const dfs = (u) => {
+      color.set(u, 1); stack.push(u);
+      for (const v of graph.get(u) ?? []) {
+        const c = color.get(v) ?? 0;
+        if (c === 1) cycles.push(stack.slice(stack.indexOf(v)).concat(v).join(" -> "));
+        else if (c === 0 && graph.has(v)) dfs(v);
+      }
+      stack.pop(); color.set(u, 2);
+    };
+    for (const p of SRC) if ((color.get(p) ?? 0) === 0) dfs(p);
+    expect(cycles).toEqual([]);
+  });
+
   it("システム ID を生の文字列で書かない(constants.mjs の SYSTEM_ID を通す)", () => {
     const offenders = [];
     for (const p of SRC) {

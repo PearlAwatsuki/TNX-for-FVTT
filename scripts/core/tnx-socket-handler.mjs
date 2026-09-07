@@ -36,6 +36,10 @@
  */
 
 import { SYSTEM_ID, SOCKET_CHANNEL } from "../constants.mjs";
+import { getUserFlagData } from "./user-flag-schema.mjs";
+import { applyTreatmentDelegated } from "../flow/treatment-flow.mjs";
+import { setCurrentSceneCard } from "../session/session-state.mjs";
+import { applyManualExit } from "../session/appearance-state.mjs";
 
 
 export class TnxSocketHandler {
@@ -130,7 +134,6 @@ export class TnxSocketHandler {
     /** 手札間のカード移動を GM クライアントが代行する(複数 GM 接続時は activeGM のみ)。 */
     static async _onPassHandCard(data) {
         if (game.users.activeGM?.id !== game.user.id) return;
-        const { getUserFlagData } = await import("./user-flag-schema.mjs");
         const requester = game.users.get(data?.userId);
         if (!requester) return;
         if (getUserFlagData(requester).handPileId !== data?.sourceHandUuid) return;
@@ -220,7 +223,6 @@ export class TnxSocketHandler {
     /** 治療成功による状態除去を GM クライアントが代行する(複数 GM 接続時は activeGM のみ)。 */
     static async _onTreatmentApply(data) {
         if (!await TnxSocketHandler._authorizeDelegation(data)) return;
-        const { applyTreatmentDelegated } = await import("../flow/treatment-flow.mjs");
         await applyTreatmentDelegated(data);
     }
 
@@ -403,7 +405,6 @@ export class TnxSocketHandler {
     /** 現在のシーンカードの記録を GM クライアントが代行する(複数 GM 接続時は activeGM のみ)。 */
     static async _onSessionSceneCard(data) {
         if (game.users.activeGM?.id !== game.user.id) return;
-        const { setCurrentSceneCard } = await import("../session/session-state.mjs");
         await setCurrentSceneCard(data?.cardId ?? "");
     }
 
@@ -446,7 +447,6 @@ export class TnxSocketHandler {
         const requester = game.users.get(data?.userId);
         if (!requester) return;
         if (!game.actors.get(data?.actorId)?.testUserPermission(requester, "OWNER")) return;
-        const { applyManualExit } = await import("../session/appearance-state.mjs");
         await applyManualExit(data.actorId);
     }
 

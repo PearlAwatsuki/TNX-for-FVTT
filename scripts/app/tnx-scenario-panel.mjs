@@ -52,6 +52,7 @@ import { TnxActionHandler } from "../cards/tnx-action-handler.mjs";
 import { applyStageRef } from "../session/subscenes.mjs";
 import { resolveHandoutContact } from "../session/handout-contact.mjs";
 import { collectLostCharacters } from "../rules/time-boundary.mjs";
+import { startAppearanceCheck } from "../flow/appearance-check.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const { DialogV2 } = foundry.applications.api;
@@ -730,7 +731,6 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
     // ─── 登場判定(14-5) ─────────────────────────────────────────────────────
 
     static async _onAppearanceCheck(_event, _target) {
-        const { startAppearanceCheck } = await import("../flow/appearance-check.mjs");
         await startAppearanceCheck();
     }
 

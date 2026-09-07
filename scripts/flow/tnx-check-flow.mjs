@@ -30,6 +30,15 @@ import { appearanceCardInfo } from '../rules/appearance.mjs';
 import { purchaseCardInfo } from '../rules/purchase.mjs';
 import { isMajorActionTiming } from '../rules/combat-turn-order.mjs';
 import { TnxCombat } from '../combat/tnx-combat.mjs';
+import { loadSkillClassByKey } from "../dictionary/skill-dictionary.mjs";
+import { postMovementCard, buildMovementCardContent } from "./vehicle-move.mjs";
+import { resolveOpenReactions } from "../rules/reaction.mjs";
+import { resolveOpposed, resolveNoReaction } from "../rules/attack-flow.mjs";
+import { movementStagesFromAchievement } from "../rules/vehicle-move.mjs";
+import { isOpposedConfrontation } from "../rules/confrontation.mjs";
+import { resolveControlNegateFromCheck } from "./condition-resolution.mjs";
+import { resolveAppearanceFromCheck } from "./appearance-check.mjs";
+import { AmountInputDialog } from "../ui/tnx-dialog.mjs";
 
 /**
  * @typedef {object} CheckContext
@@ -85,7 +94,6 @@ export class TnxCheckFlow {
         // societyClass を持たない場合に備え、辞典(+ワールド直下)の生きた値を起動時に ctx へ載せる
         // (_computeCheckBonus は同期のためここで先に解決する。コピー自身の値が優先=criteria 側)
         if (TnxCheckFlow._context.skillIds?.length) {
-            const { loadSkillClassByKey } = await import("../dictionary/skill-dictionary.mjs");
             const classByKey = await loadSkillClassByKey();
             const skillActor = game.actors.get(TnxCheckFlow._context.actorId);
             TnxCheckFlow._context.societyClassByKey = Object.fromEntries(
@@ -819,7 +827,6 @@ export class TnxCheckFlow {
             const { postAttackCard } = await import("./attack-flow.mjs");
             await postAttackCard({ payload: ctx.attack, result, suit, cardCheckValue, card, fromDeck, trumpUsed, suitMismatch, checkSources: checkInfo.sources, recheckCtx });
         } else if (ctx.movement) {
-            const { postMovementCard } = await import("./vehicle-move.mjs");
             await postMovementCard({ payload: ctx.movement, result, suit, card, fromDeck, trumpUsed, suitMismatch, checkSources: checkInfo.sources, recheckCtx });
         } else if (!ctx.reaction || ctx.reaction.open === true) {
             // 対象ありのリアクションは通常の結果カードを出さない(2026-07-15 ユーザー確定)。書き換わった
@@ -965,11 +972,9 @@ export class TnxCheckFlow {
             if (overall === "open") {
                 if (prev.openReactions?.length) {
                     // 2026-07-18 任意・複数化: 成立の最高達成値1件との受動有利で再導出
-                    const { resolveOpenReactions } = await import("../rules/reaction.mjs");
                     if (resolveOpenReactions(result.achievement ?? 0, prev.openReactions).failed) overall = "failed";
                 } else if (prev.openReaction?.resolved && prev.openReaction.mode) {
                     // 旧形式(先着1件・2026-07-17)の互換
-                    const { resolveOpposed } = await import("../rules/attack-flow.mjs");
                     const { hit } = resolveOpposed(result.achievement ?? 0, prev.openReaction.reactionAchievement ?? 0);
                     if (!hit) overall = "failed";
                 }
@@ -977,7 +982,6 @@ export class TnxCheckFlow {
             // 移動(2026-07-19 ユーザー確定): 達成値10未満(=0段階)はその時点で移動失敗=判定失敗扱い。
             // 再判定で回復すれば failedReason も外す
             if (ctx.attack.movement && overall !== "fumble" && overall !== "miss") {
-                const { movementStagesFromAchievement } = await import("../rules/vehicle-move.mjs");
                 const movementFailed = movementStagesFromAchievement(Number(result.achievement) || 0) === 0;
                 if (movementFailed) overall = "failed";
                 patch[`flags.${SYSTEM_ID}.attackCheck.failedReason`] = movementFailed ? "movement" : null;
@@ -986,7 +990,6 @@ export class TnxCheckFlow {
             // 仕切り直しで器を敷く=回復時にリアクション導線が開くように(2026-07-19)
             if (!(prev.targets?.length) && !prev.openReactions
                 && overall !== "fumble" && overall !== "miss") {
-                const { isOpposedConfrontation } = await import("../rules/confrontation.mjs");
                 if (isOpposedConfrontation(ctx.attack.confrontation)) {
                     patch[`flags.${SYSTEM_ID}.attackCheck.openReactions`] = [];
                 }
@@ -1002,7 +1005,6 @@ export class TnxCheckFlow {
             patch[`flags.${SYSTEM_ID}.attackCheck.targets`] = newTargets;
         } else if (ctx.movement) {
             // 操縦移動は通常結果カードでなく移動カード。達成値÷10 段階を新達成値で描き直す(表示のみ=A)
-            const { buildMovementCardContent } = await import("./vehicle-move.mjs");
             patch.content = await buildMovementCardContent({
                 payload: ctx.movement, result, suit, card, fromDeck, trumpUsed, suitMismatch, checkSources, isRecheck: true,
             });
@@ -1078,12 +1080,10 @@ export class TnxCheckFlow {
             phase: "beforeSync",
             rerunOnSuccessOnly: true,
             async apply(cc, result) {
-                const { resolveControlNegateFromCheck } = await import("./condition-resolution.mjs");
                 const negate = await resolveControlNegateFromCheck(cc, result);
                 if (negate) result.negateOutcome = negate;
             },
             async rerun(cc, result) {
-                const { resolveControlNegateFromCheck } = await import("./condition-resolution.mjs");
                 await resolveControlNegateFromCheck(cc, result);
             },
         },
@@ -1162,11 +1162,9 @@ export class TnxCheckFlow {
         appearance: {
             rerunOnSuccessOnly: true,
             async apply(cc, result) {
-                const { resolveAppearanceFromCheck } = await import("./appearance-check.mjs");
                 await resolveAppearanceFromCheck(cc, result);
             },
             async rerun(cc, result) {
-                const { resolveAppearanceFromCheck } = await import("./appearance-check.mjs");
                 await resolveAppearanceFromCheck(cc, result);
             },
         },
@@ -1531,7 +1529,6 @@ export class TnxCheckFlow {
             const self = await evaluateSelfBonus(usage?.checkBonusSelf ?? "", actor, null, null, skill);
             if (self) mod = self.value;
             if (mod === null) {
-                const { AmountInputDialog } = await import("../ui/tnx-dialog.mjs");
                 const input = await AmountInputDialog.prompt({
                     title: `判定の修正: ${skill.name}`,
                     label: "達成値への修正値（ペナルティは負の値）",
@@ -1579,7 +1576,6 @@ export class TnxCheckFlow {
             patch[`flags.${SYSTEM_ID}.attackCheck.achievement`] = newAch;
             // 解決済みなら保存済みの相手値に対して再解決(pending は以後の解決が新しい値を使う)
             if (attackF.state === "hit" || attackF.state === "miss") {
-                const { resolveNoReaction, resolveOpposed } = await import("../rules/attack-flow.mjs");
                 const r = attackF.resolution === "none"
                     ? resolveNoReaction(newAch, attackF.targetValue)
                     : resolveOpposed(newAch, attackF.reactionAchievement ?? 0);
@@ -1591,7 +1587,6 @@ export class TnxCheckFlow {
                 // 移動(2026-07-19): 達成値10未満(=0段階)は移動失敗=判定失敗扱い(回復すれば解除)
                 let movementFailed = false;
                 if (attackF.movement) {
-                    const { movementStagesFromAchievement } = await import("../rules/vehicle-move.mjs");
                     movementFailed = movementStagesFromAchievement(newAch) === 0;
                     patch[`flags.${SYSTEM_ID}.attackCheck.failedReason`] = movementFailed ? "movement" : null;
                 }
@@ -1599,12 +1594,10 @@ export class TnxCheckFlow {
                     patch[`flags.${SYSTEM_ID}.attackCheck.state`] = "failed";
                 } else if (attackF.openReactions?.length) {
                     // 2026-07-18 任意・複数化: 成立の最高達成値1件との受動有利で再導出
-                    const { resolveOpenReactions } = await import("../rules/reaction.mjs");
                     const { failed } = resolveOpenReactions(newAch, attackF.openReactions);
                     patch[`flags.${SYSTEM_ID}.attackCheck.state`] = failed ? "failed" : "open";
                 } else if (attackF.openReaction?.resolved && attackF.openReaction.mode) {
                     // 旧形式(先着1件・2026-07-17)の互換
-                    const { resolveOpposed } = await import("../rules/attack-flow.mjs");
                     const { hit } = resolveOpposed(newAch, attackF.openReaction.reactionAchievement ?? 0);
                     patch[`flags.${SYSTEM_ID}.attackCheck.state`] = hit ? "open" : "failed";
                 } else if (attackF.movement) {
@@ -1641,7 +1634,6 @@ export class TnxCheckFlow {
         const checkF = message.getFlag(SYSTEM_ID, "checkResult");
         if (!checkF && !attackF) return;
         const current = Number(attackF?.achievement ?? checkF?.result?.achievement) || 0;
-        const { AmountInputDialog } = await import("../ui/tnx-dialog.mjs");
         const input = await AmountInputDialog.prompt({
             title: `達成値を修正（現在 ${current}）`,
             label: "達成値への修正値（ペナルティは負の値）",

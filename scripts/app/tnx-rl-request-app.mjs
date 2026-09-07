@@ -44,6 +44,9 @@ async function requestSkillLabel(keys) {
     return formatDesignatedSkills(list, new Map(Object.entries(names))) || "（参照切れ）";
 }
 import { toCheckRequestTargets } from '../rules/target-picker.mjs';
+import { promptTargetToken } from "../flow/target-resolution.mjs";
+import { spinnerDialogActions } from "../ui/tnx-dialog.mjs";
+import { resolveDesignationResponse } from "../flow/designation-response.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -427,7 +430,6 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
             if (flagData.focusSystemKind === "support") {
                 let picked = [...(game.user?.targets ?? [])];
                 if (picked.length !== 1) {
-                    const { promptTargetToken } = await import("../flow/target-resolution.mjs");
                     const refs = await promptTargetToken(actor);
                     if (!refs?.length) return; // キャンセルは中止
                     picked = [...(game.user?.targets ?? [])]; // ダイアログが選んだ対象にレティクルを付与済み
@@ -499,7 +501,6 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
         const esc = foundry.utils.escapeHTML;
         const options = buildSkillOptions(skills)
             .map(o => `<option value="${o.value}">${esc(o.label)}</option>`).join("");
-        const { spinnerDialogActions } = await import("../ui/tnx-dialog.mjs");
         const res = await foundry.applications.api.DialogV2.wait({
             window: { title: `代用判定: ${requestedLabel}` },
             classes: ["tokyo-nova", "tnx-dialog"],
@@ -547,7 +548,6 @@ export async function resolveDesignatedSkillResponse(actor, keys) {
     // 代用判定を1つの縦積みボタンダイアログで選ぶ。指定充足(designationStandIn)は判定種別を
     // 持つ文脈(情報収集・登場)のみのため、判定要求(checkKind なし)では並ばない
     const label = await requestSkillLabel(keys);
-    const { resolveDesignationResponse } = await import("../flow/designation-response.mjs");
     const res = await resolveDesignationResponse(actor, [{ keys, tn: null, label }],
         { checkKind: null, title: label ? `指定技能: ${label}` : "指定技能" });
     if (!res || res.direct) return null;

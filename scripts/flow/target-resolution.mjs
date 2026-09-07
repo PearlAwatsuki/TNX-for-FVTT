@@ -15,6 +15,7 @@
 
 import { planUsageTargets } from "../rules/usage-target-plan.mjs";
 import { isOpposedConfrontation } from "../rules/confrontation.mjs";
+import { TargetSelectionDialog } from "../ui/tnx-dialog.mjs";
 
 /** 現在ターゲット中(レティクル)のアクターを列挙する。 */
 export function currentTargetActors() {
@@ -100,7 +101,6 @@ export async function promptTargetToken(actor) {
         return null;
     }
     // tnx-dialog はモジュールレベルで foundry を参照するため動的 import(テスト環境の非依存を保つ)
-    const { TargetSelectionDialog } = await import("../ui/tnx-dialog.mjs");
     const sel = await TargetSelectionDialog.prompt({
         title: "対象の選択",
         label: "対象を選択してください（トークンをターゲットしておくと複数対象を一括で狙えます）。",

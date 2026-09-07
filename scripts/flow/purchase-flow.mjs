@@ -28,6 +28,7 @@ import { DISABLED_TRIGGER_CLASS } from "../ui/ui-trigger-disable.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { getSessionState } from "../session/session-state.mjs";
 import { promptModificationParamSelection } from "./modification-flow.mjs";
+import { miracleRewriteVia } from "../rules/miracle.mjs";
 
 const { DialogV2 } = foundry.applications.api;
 
@@ -234,7 +235,6 @@ export async function startPurchaseWithUsage(uuid, { actorId, itemId, usageId, m
             if (src) {
                 asOther = { uuid: asOtherUuid, name: src.name, source: src };
                 if (skill) {
-                    const { miracleRewriteVia } = await import("../rules/miracle.mjs");
                     asOther.kind = src.type === "miracle" ? "miracle" : "skill";
                     asOther.via = miracleRewriteVia(skill);
                 }

@@ -10,6 +10,8 @@ import {
     hudInfoItems, hudInfoTnChips, withResolvedInfoSkillNames, buildInfoCardData, infoDesignationRows,
 } from '../rules/session.mjs';
 import { loadGeneralSkillNameByKey } from '../dictionary/skill-dictionary.mjs';
+import { enrichInfoCardData } from "../chat/reference-links.mjs";
+import { startInfoGatheringCheck } from "../flow/info-gathering.mjs";
 
 /** トランプの裏面画像(非開示時・RL手札の裏向き表示に使用) */
 const PLAYING_CARD_BACK = "systems/tokyo-nova-axleration/assets/cards/playing-cards/back.png";
@@ -742,7 +744,6 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
             if (row.masked) return { ...row, hiddenMark: true, tooltipHtml: "", canCheck: false };
             const resolved = withResolvedInfoSkillNames(raw[i], nameByKey);
             // 本文のエンリッチ(16-x): ツールチップ内でも @UUID コンテンツリンク等を解決する
-            const { enrichInfoCardData } = await import("../chat/reference-links.mjs");
             const tooltipHtml = await foundry.applications.handlebars.renderTemplate(
                 "systems/tokyo-nova-axleration/templates/chat/info-card.hbs",
                 await enrichInfoCardData(buildInfoCardData(resolved)));
@@ -764,7 +765,6 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
     /** 情報収集判定の起動(項目の判定ボタン・14-9)。 */
     static async _onInfoCheck(event, target) {
         event.preventDefault();
-        const { startInfoGatheringCheck } = await import("../flow/info-gathering.mjs");
         await startInfoGatheringCheck(target.dataset.itemId);
     }
 
