@@ -1,6 +1,7 @@
 import { TokyoNovaItemSheet } from "./tnx-item-sheet.mjs";
 import { TnxSkillUtils } from "../module/tnx-skill-utils.mjs";
 import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, SKILL_PACKS, STYLE_PACK, ORGANIZATION_PACK, SOCIETY_CLASSES } from "../module/skill-dictionary.mjs";
+import { MIRACLE_PACK } from "../module/dictionary-browser-data.mjs";
 
 export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
 
@@ -111,6 +112,7 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
             // 神業の効果文を使う)。取得条件は「書き換える」を選んだときだけ欄を出す
             context.rewriteShowDescription = rw.effect === "own";
             context.rewriteShowCondition   = rw.effect === "own" && rw.rewriteCondition === true;
+            context.rewriteTargetOptions = await TokyoNovaStyleSkillSheet._miracleKeyOptions(rw.targetKey ?? "");
             context.rewriteRef    = context.rewriteIsRef
                 ? await TokyoNovaStyleSkillSheet._resolveRewriteRef(rw.refUuid, "") : null;
             const TE = foundry.applications.ux.TextEditor;
@@ -139,6 +141,30 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
         ref:   "別の神業と同じ",
         own:   "この技能の用途",
     });
+
+    /**
+     * 辞典の神業を並べた選択肢(値＝識別キー・表示＝名前)。先頭は「すべての神業」(＝指定なし)。
+     * インデックスで読む(getDocuments 禁止・KI-026)。用途シートの「打ち消せる神業」と同じ作り。
+     * @param {string} current 現在の識別キー
+     * @returns {Promise<Array<{value: string, label: string, selected: boolean}>>}
+     */
+    static async _miracleKeyOptions(current) {
+        const pack = game.packs?.get(MIRACLE_PACK);
+        const index = pack ? await pack.getIndex({ fields: ["system.identificationKey"] }) : [];
+        const rows = [...index]
+            .map(e => ({ value: e.system?.identificationKey ?? "", label: e.name }))
+            .filter(r => r.value)
+            .sort((a, b) => a.label.localeCompare(b.label, "ja"));
+        // 辞典に無い識別キーが入っていたら、その値の行を足して選択を保つ(黙って「すべての神業」へ
+        // 落ちて、次の保存で消えるのを防ぐ。名前に解決できないのでキーをそのまま出す)
+        const unknown = current && !rows.some(r => r.value === current)
+            ? [{ value: current, label: current, selected: true }] : [];
+        return [
+            { value: "", label: "すべての神業", selected: !current },
+            ...unknown,
+            ...rows.map(r => ({ ...r, selected: r.value === current })),
+        ];
+    }
 
     /**
      * 書き換えの参照(神業)をライブ解決する。削除済み・未設定は name のフォールバックで示す。
