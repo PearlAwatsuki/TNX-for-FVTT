@@ -372,19 +372,14 @@
                 <fieldset class="tnx-fieldset">
                     <legend>神業の書き換え</legend>
                     <div class="tnx-form-field">
+                            {{!-- 書き換える神業は「どの神業か」の照合なので識別キーで持つ(選ぶ操作＝プルダウン) --}}
                             <div class="form-group">
                                 <label>書き換える神業</label>
-                                {{#if rewriteTarget}}
-                                <button type="button" class="tnx-linked-btn{{#if rewriteTarget.missing}} is-missing{{/if}}"
-                                        data-action="viewRewriteRef" data-rewrite="target" data-context-menu-type="rewrite-target">
-                                    {{#if rewriteTarget.img}}<img src="{{rewriteTarget.img}}" class="tnx-linked-btn__icon"/>{{/if}}
-                                    <span class="tnx-linked-btn__label">{{rewriteTarget.name}}{{#if rewriteTarget.missing}}（削除済み）{{/if}}</span>
-                                </button>
-                                {{else}}
-                                <div class="tnx-import-box tnx-import-box--inline" data-drop-area="rewrite-target">
-                                    <span>神業をここにドロップ</span>
-                                </div>
-                                {{/if}}
+                                <select name="system.miracleRewrite.targetKey">
+                                    {{#each rewriteTargetOptions}}
+                                    <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                                    {{/each}}
+                                </select>
                             </div>
 
                             <div class="form-group">

@@ -735,7 +735,7 @@ describe("miracleRewriteCandidates()（その神業をロールしたときに�
         system: {
             unique: "miracleChange",
             uses: { isLimit: true, max: "1", maxTotal: 1, spent: 0 },
-            miracleRewrite: { target: { uuid: "", key: "chai", name: "チャイ" }, effect: "own", refUuid: "", rewriteCondition: false, condition: "" },
+            miracleRewrite: { targetKey: "chai", effect: "own", refUuid: "", rewriteCondition: false, condition: "" },
             ...over,
         },
     });
@@ -745,8 +745,8 @@ describe("miracleRewriteCandidates()（その神業をロールしたときに�
         expect(miracleRewriteCandidates([skill()], chai).map(i => i.id)).toEqual(["s1"]);
     });
 
-    it("対応する神業を指定していない（空欄）技能は、どの神業でも候補になる", () => {
-        const any = skill({ miracleRewrite: { target: { uuid: "", key: "", name: "" }, effect: "own" } });
+    it("対応する神業を指定していない（すべての神業）技能は、どの神業でも候補になる", () => {
+        const any = skill({ miracleRewrite: { targetKey: "", effect: "own" } });
         expect(miracleRewriteCandidates([any], chai).map(i => i.id)).toEqual(["s1"]);
         expect(miracleRewriteCandidates([any], { id: "m2", name: "平和", type: "miracle", system: { identificationKey: "peace" } })
             .map(i => i.id)).toEqual(["s1"]);
@@ -757,9 +757,9 @@ describe("miracleRewriteCandidates()（その神業をロールしたときに�
         expect(miracleRewriteCandidates([skill()], other)).toEqual([]);
     });
 
-    it("識別キーを持たない神業とは名前で対応づける（辞典の1件とアクターの写しの照合と同じ規則）", () => {
+    it("対応づけは識別キーだけで見る（識別キーを持たない神業は、指定のある技能とは対応しない）", () => {
         const noKey = { id: "m3", name: "チャイ", type: "miracle", system: {} };
-        expect(miracleRewriteCandidates([skill()], noKey).map(i => i.id)).toEqual(["s1"]);
+        expect(miracleRewriteCandidates([skill()], noKey)).toEqual([]);
     });
 
     it("使用回数を使い切った技能は候補にならない", () => {
@@ -773,8 +773,8 @@ describe("miracleRewriteCandidates()（その神業をロールしたときに�
     });
 
     it("書き換えの設定が未了なら候補にならない（効果の出どころが空／参照型で参照先が空）", () => {
-        const blank = skill({ miracleRewrite: { target: { uuid: "", key: "", name: "" }, effect: "" } });
-        const refNothing = skill({ miracleRewrite: { target: { uuid: "", key: "", name: "" }, effect: "ref", refUuid: "" } });
+        const blank = skill({ miracleRewrite: { targetKey: "", effect: "" } });
+        const refNothing = skill({ miracleRewrite: { targetKey: "", effect: "ref", refUuid: "" } });
         expect(miracleRewriteCandidates([blank, refNothing], chai)).toEqual([]);
     });
 

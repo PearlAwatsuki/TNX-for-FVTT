@@ -175,13 +175,11 @@ describe("StyleSkillDataModel.defineSchema()", () => {
   });
 
   describe("神業書き換え(神業と同じタイミングで使い、その1回の効果を書き換える)", () => {
-    it("miracleRewrite.target は書き換える神業の参照 {uuid, key, name}（空欄＝どの神業でも）", () => {
+    it("miracleRewrite.targetKey は書き換える神業の識別キー（空＝すべての神業）", () => {
       expect(schema.miracleRewrite).toBeInstanceOf(MockSchemaField);
-      const target = schema.miracleRewrite.fields.target;
-      expect(target).toBeInstanceOf(MockSchemaField);
-      expect(target.fields.uuid).toBeInstanceOf(MockStringField);
-      expect(target.fields.key).toBeInstanceOf(MockStringField);
-      expect(target.fields.name).toBeInstanceOf(MockStringField);
+      expect(schema.miracleRewrite.fields.targetKey).toBeInstanceOf(MockStringField);
+      expect(schema.miracleRewrite.fields.targetKey.options.initial).toBe("");
+      expect(schema.miracleRewrite.fields).not.toHaveProperty("target");
     });
 
     it("effect は StringField で initial が ''（未設定＝書き換えを申し出ない）", () => {

@@ -1,6 +1,7 @@
 import { TokyoNovaItemSheet } from "./tnx-item-sheet.mjs";
 import { TnxSkillUtils } from "../module/tnx-skill-utils.mjs";
 import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, SKILL_PACKS, STYLE_PACK, ORGANIZATION_PACK, SOCIETY_CLASSES } from "../module/skill-dictionary.mjs";
+import { MIRACLE_PACK } from "../module/dictionary-browser-data.mjs";
 
 export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
 
@@ -111,7 +112,7 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
             // 神業の効果文を使う)。取得条件は「書き換える」を選んだときだけ欄を出す
             context.rewriteShowDescription = rw.effect === "own";
             context.rewriteShowCondition   = rw.effect === "own" && rw.rewriteCondition === true;
-            context.rewriteTarget = await TokyoNovaStyleSkillSheet._resolveRewriteRef(rw.target?.uuid, rw.target?.name);
+            context.rewriteTargetOptions = await TokyoNovaStyleSkillSheet._miracleKeyOptions(rw.targetKey ?? "");
             context.rewriteRef    = context.rewriteIsRef
                 ? await TokyoNovaStyleSkillSheet._resolveRewriteRef(rw.refUuid, "") : null;
             const TE = foundry.applications.ux.TextEditor;
@@ -140,6 +141,25 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
         ref:   "別の神業と同じ",
         own:   "この技能の用途",
     });
+
+    /**
+     * 辞典の神業を並べた選択肢(値＝識別キー・表示＝名前)。先頭は「すべての神業」(＝指定なし)。
+     * インデックスで読む(getDocuments 禁止・KI-026)。用途シートの「打ち消せる神業」と同じ作り。
+     * @param {string} current 現在の識別キー
+     * @returns {Promise<Array<{value: string, label: string, selected: boolean}>>}
+     */
+    static async _miracleKeyOptions(current) {
+        const pack = game.packs?.get(MIRACLE_PACK);
+        const index = pack ? await pack.getIndex({ fields: ["system.identificationKey"] }) : [];
+        const rows = [...index]
+            .map(e => ({ value: e.system?.identificationKey ?? "", label: e.name }))
+            .filter(r => r.value)
+            .sort((a, b) => a.label.localeCompare(b.label, "ja"));
+        return [
+            { value: "", label: "すべての神業", selected: !current },
+            ...rows.map(r => ({ ...r, selected: r.value === current })),
+        ];
+    }
 
     /**
      * 書き換えの参照(神業)をライブ解決する。削除済み・未設定は name のフォールバックで示す。
@@ -255,35 +275,29 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
             zone.addEventListener("drop", (event) => this._onDropAcquireZone(event));
         }
 
-        // 神業の書き換え: 書き換える神業／書き換え先の神業はドロップで結線する(1対1の結線)
-        for (const zone of this.element.querySelectorAll('[data-drop-area^="rewrite-"]')) {
-            const kind = zone.dataset.dropArea === "rewrite-target" ? "target" : "ref";
+        // 神業の書き換え: 書き換え先の神業はドロップで結線する(その神業の実体の用途と文を使うため。
+        // 書き換える神業は「どの神業か」の照合なので識別キーのプルダウン)
+        for (const zone of this.element.querySelectorAll('[data-drop-area="rewrite-ref"]')) {
             zone.addEventListener("dragover", (event) => event.preventDefault());
-            zone.addEventListener("drop", (event) => this._onDropRewriteRef(event, kind));
-        }
-        const CM = foundry.applications.ux.ContextMenu.implementation;
-        const unlink = (kind) => [{
-            name: "リンク解除",
-            icon: '<i class="fas fa-unlink"></i>',
-            callback: () => this._clearRewriteRef(kind),
-        }];
-        if (this.element.querySelector('[data-context-menu-type="rewrite-target"]')) {
-            new CM(this.element, '[data-context-menu-type="rewrite-target"]', unlink("target"), { jQuery: false, fixed: true });
+            zone.addEventListener("drop", (event) => this._onDropRewriteRef(event));
         }
         if (this.element.querySelector('[data-context-menu-type="rewrite-ref"]')) {
-            new CM(this.element, '[data-context-menu-type="rewrite-ref"]', unlink("ref"), { jQuery: false, fixed: true });
+            const CM = foundry.applications.ux.ContextMenu.implementation;
+            new CM(this.element, '[data-context-menu-type="rewrite-ref"]', [{
+                name: "リンク解除",
+                icon: '<i class="fas fa-unlink"></i>',
+                callback: () => this.item.update({ "system.miracleRewrite.refUuid": "" }),
+            }], { jQuery: false, fixed: true });
         }
     }
 
     // ─── 神業の書き換え(unique=miracleChange) ──────────────────────────────────
 
     /**
-     * 書き換える神業／書き換え先の神業のドロップ。対応する神業は**識別キーで照合する**ため、
-     * uuid(表示のライブ解決用)と識別キー・名前(照合)をまとめて保存する。
+     * 書き換え先の神業のドロップ(1対1の結線＝その神業の実体の用途と文を使う)。
      * @param {DragEvent} event
-     * @param {"target"|"ref"} kind
      */
-    async _onDropRewriteRef(event, kind) {
+    async _onDropRewriteRef(event) {
         event.preventDefault();
         event.stopPropagation();
         let data;
@@ -294,28 +308,12 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
             ui.notifications?.warn("神業アイテムをドロップしてください。");
             return;
         }
-        if (kind === "target") {
-            await this.item.update({ "system.miracleRewrite.target": {
-                uuid: doc.uuid, key: doc.system?.identificationKey ?? "", name: doc.name,
-            } });
-        } else {
-            await this.item.update({ "system.miracleRewrite.refUuid": doc.uuid });
-        }
+        await this.item.update({ "system.miracleRewrite.refUuid": doc.uuid });
     }
 
-    /** 書き換えの参照を外す(右クリックのリンク解除)。 */
-    async _clearRewriteRef(kind) {
-        if (kind === "target") {
-            await this.item.update({ "system.miracleRewrite.target": { uuid: "", key: "", name: "" } });
-        } else {
-            await this.item.update({ "system.miracleRewrite.refUuid": "" });
-        }
-    }
-
-    /** 書き換えの参照先(神業)のシートを開く。 */
-    static async _onViewRewriteRef(_event, target) {
-        const rw = this.item.system.miracleRewrite ?? {};
-        const uuid = target?.dataset.rewrite === "target" ? (rw.target?.uuid ?? "") : (rw.refUuid ?? "");
+    /** 書き換え先の神業のシートを開く。 */
+    static async _onViewRewriteRef() {
+        const uuid = this.item.system.miracleRewrite?.refUuid ?? "";
         if (!uuid) return;
         const doc = await fromUuid(uuid).catch(() => null);
         doc?.sheet?.render({ force: true });

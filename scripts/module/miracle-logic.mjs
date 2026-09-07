@@ -495,8 +495,9 @@ function isRewriteConfigured(cfg) {
 
 /**
  * その神業をロールしたときに書き換えを申し出る技能を集める。
- * 対応する神業(target)が空欄なら**どの神業でも候補**——組み合わせの可否は卓が決めるという規範を残す。
- * 対応の照合は辞典の1件とアクターの写しの照合と同じ規則(識別キー優先・無ければ名前)。
+ * 対応する神業(targetKey)が空なら**どの神業でも候補**——組み合わせの可否は卓が決めるという規範を残す。
+ * 対応づけは**識別キー**で行う(ユーザー指示 2026-09-07)。特定の1件への結線ではなく「どの神業か」の
+ * 照合であり、アクターが持つのは辞典の写しだから——写しの uuid は本体と別で、名前は変わりうる。
  * @param {Iterable<{id?: string, name?: string, type?: string, system?: object}>} items アクターの所持アイテム
  * @param {?{type?: string, name?: string, system?: object}} miracle ロールした神業
  * @returns {Array<object>} 候補(渡されたアイテムをそのまま返す)
@@ -510,10 +511,7 @@ export function miracleRewriteCandidates(items, miracle) {
         if (item?.type !== "styleSkill" || item.system?.unique !== "miracleChange") continue;
         const cfg = item.system?.miracleRewrite;
         if (!isRewriteConfigured(cfg)) continue;
-        const target = cfg.target ?? {};
-        if ((target.key || target.name) && !miracleIdentityMatches(
-            { identificationKey: target.key, name: target.name },
-            { identificationKey: miracle.system?.identificationKey, name: miracle.name })) continue;
+        if (cfg.targetKey && cfg.targetKey !== (miracle.system?.identificationKey ?? "")) continue;
         // 使用回数の制限が無い技能は常に使える(残回数ゲートは制限ありのときだけ)
         if (item.system?.uses?.isLimit === true && !miracleUseGate(item.system).ok) continue;
         out.push(item);

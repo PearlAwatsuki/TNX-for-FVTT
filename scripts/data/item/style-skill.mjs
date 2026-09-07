@@ -151,20 +151,17 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
       // いうのはありえない」)。選べるのは取得条件だけ＝ルールに「条件は変わらない」型があるため。
       // description = 独自効果型の効果文。**技能の解説は使わない**——技能の解説はその技能の説明で
       // あって、書き換えた後の神業の効果文ではない(2026-09-07 ユーザー指摘)
-      // target = 対応する神業(この神業をロールしたときに書き換えを申し出る)。**空欄ならどの神業でも**
-      // 候補に出す(組み合わせの可否は卓が決めるという規範を残すため)。照合は識別キー優先・
-      // 無ければ名前(辞典の1件とアクターの写しの照合と同じ規則=miracleIdentityMatches)。
-      // uuid は表示のライブ解決用・name は削除時のフォールバック表示と照合の予備。
+      // targetKey = 対応する神業の**識別キー**(この神業をロールしたときに書き換えを申し出る)。
+      // **空ならどの神業でも**候補に出す(組み合わせの可否は卓が決めるという規範を残すため)。
+      // 特定の1件への結線ではなく「どの神業か」の照合なので、uuid のドロップでなく識別キーで持つ
+      // (ユーザー指示 2026-09-07)——アクターが持つのは辞典の写しで、写しの uuid は本体と別。
+      // シートは辞典の神業を並べたプルダウン(保存は識別キー・表示は名前)。
       // condition = 独自効果型で取得条件も書き換えるときの条件文(神業の usageCondition と同じ器)。
       // アイテムには何も書き込まない実行時の差し替えで、《万能道具》の「実体を写す」(方針A)とは別物。
       // 旧 RewrittenTarget / rewritingMiracleName / rewritingMiracleId(template.json 時代の遺物・
       // 読み手ゼロ)はここに置き換えた
       miracleRewrite: new fields.SchemaField({
-        target: new fields.SchemaField({
-          uuid: new fields.StringField({ initial: "" }),
-          key:  new fields.StringField({ initial: "" }),
-          name: new fields.StringField({ initial: "" }),
-        }),
+        targetKey:          new fields.StringField({ initial: "" }),
         effect:             new fields.StringField({ initial: "" }),
         refUuid:            new fields.StringField({ initial: "" }),
         description:        new fields.StringField({ initial: "" }),
