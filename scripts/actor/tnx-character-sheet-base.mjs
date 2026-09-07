@@ -272,12 +272,15 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             context.lifepathSlots = lifepathSlots;
         }
 
+        // スートの表示名。テンプレートは title="{{suitData.label}}" にそのまま出すので、
+        // ここは**表示文字列**を置く(2026-09-07 是正)。従来は "TNX.Suits.spade" という
+        // 翻訳キーが入っており、localize を通していないテンプレートでは生キーが出ていた
         context.TNX = {
             SUITS: {
-                spade:   { label: "TNX.Suits.spade",   icon: "fa-solid fa-spade" },
-                club:    { label: "TNX.Suits.club",    icon: "fa-solid fa-club" },
-                heart:   { label: "TNX.Suits.heart",   icon: "fa-solid fa-heart" },
-                diamond: { label: "TNX.Suits.diamond", icon: "fa-solid fa-diamond" }
+                spade:   { label: "スペード", icon: "fa-solid fa-spade" },
+                club:    { label: "クラブ",   icon: "fa-solid fa-club" },
+                heart:   { label: "ハート",   icon: "fa-solid fa-heart" },
+                diamond: { label: "ダイヤ",   icon: "fa-solid fa-diamond" }
             }
         };
 
