@@ -240,19 +240,31 @@ async function setupDefaultSkills(actor) {
 }
 
 /**
- * [All Clients] 開かれている関連シートを全て再描画する
+ * [All Clients] カードの増減で表示が変わる本システムのアプリを再描画する。
+ *
+ * 旧実装は `ui.windows`(ApplicationV1 のレジストリ)を走査していたが、本システムのアプリは
+ * すべて ApplicationV2 なのでそこには 1 つも入らない——実際には**他モジュールの V1 ウィンドウ**を
+ * 巻き込んで再描画していた。閉判定の `_closed` もコードのどこにも代入が無く、常に undefined で
+ * 素通しだった(2026-09-07 是正)。
+ *
+ * 対象は id が `tnx-` で始まる、開いているアプリ。id は `foundry.applications.instances` の
+ * キー=グローバルな名前空間で、本システムのアプリはすべてこの接頭辞を持つ(HUD・各パネル・
+ * 記録シート)。開いていないアプリは対象外(カードが配られただけで勝手に開かない)。
  */
 function handleRefreshSheets() {
-    console.log("TokyoNOVA | Refresh request received by client.");
-    // game.tnx.hudが存在し、かつ閉じられていない場合に再描画
-    if (game.tnx?.hud && !game.tnx.hud._closed) {
-        game.tnx.hud.render(true);
+    for (const app of foundry.applications.instances.values()) {
+        if (app.rendered && String(app.id ?? "").startsWith("tnx-")) app.render(false);
     }
-    for (const app of Object.values(ui.windows)) {
-        if (!app._closed) {
-            app.render(true);
-        }
-    }
+}
+
+/**
+ * 上記を束ねて呼ぶ。配札・山札リセット等の一括操作では createCard/deleteCard が枚数分
+ * 連続発火するため、そのたびに全アプリを描き直さないようまとめる(遅延は従来と同じ 50ms)。
+ */
+let _refreshSheetsDebounced = null;
+function refreshSheetsSoon() {
+    _refreshSheetsDebounced ??= foundry.utils.debounce(handleRefreshSheets, 50);
+    _refreshSheetsDebounced();
 }
 
 /**
@@ -2098,19 +2110,13 @@ Hooks.once("init", async function() {
         }
     });
 
-    Hooks.on("createCard", (cardDocument) => {
-        console.log(`TokyoNOVA | Card created in ${cardDocument.parent.name}. Refreshing UIs.`);
-        setTimeout(() => game.tnx.refreshSheets(), 50);
-    });
+    Hooks.on("createCard", () => refreshSheetsSoon());
 
     /**
      * Cardの子ドキュメントが削除された際にUIを更新するフック。
      * カードが山札や手札から移動した（描画された、プレイされた）場合などに作動します。
      */
-    Hooks.on("deleteCard", (cardDocument) => {
-        console.log(`TokyoNOVA | Card deleted from ${cardDocument.parent.name}. Refreshing UIs.`);
-        setTimeout(() => game.tnx.refreshSheets(), 50);
-    });
+    Hooks.on("deleteCard", () => refreshSheetsSoon());
 });
 
 Hooks.once("ready", async function() {
