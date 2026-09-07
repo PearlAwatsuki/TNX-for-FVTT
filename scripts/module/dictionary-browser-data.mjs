@@ -12,7 +12,7 @@
  * (旧 isCyber 包摂込み)を経由する。
  */
 
-import { SKILL_PACKS, STYLE_PACK, ORGANIZATION_PACK, SOCIETY_CLASSES, ONOMASTIC_TYPES, onomasticTypeOf } from "./skill-dictionary.mjs";
+import { SKILL_PACKS, SKILL_PACK_LABELS, STYLE_PACK, ORGANIZATION_PACK, SOCIETY_CLASSES, ONOMASTIC_TYPES, onomasticTypeOf } from "./skill-dictionary.mjs";
 import { OUTFIT_PACKS } from "./outfit-dictionary.mjs";
 import { OUTFIT_CATEGORIES, getMajorCategoryLabel, getMinorCategoryLabel, outfitClassifications } from "../data/item/outfit-categories.mjs";
 import { skillSortPosition } from "./identification.mjs";
@@ -46,11 +46,12 @@ export const BROWSER_TABS = Object.freeze([
     // ワークス専用技能はスタイル技能タブに含める(2026-08-31 ユーザー指摘=ワークス技能の
     // チェックと所属組織で絞り込む)。一般技能タブは一般技能辞典のみ
     { key: "styleSkill",   label: "スタイル技能",       icon: "fa-solid fa-star",
-      packs: { [SKILL_PACKS.style]: "スタイル技能", [SKILL_PACKS.works]: "ワークス専用技能" } },
+      packs: { [SKILL_PACKS.style]: SKILL_PACK_LABELS[SKILL_PACKS.style],
+               [SKILL_PACKS.works]: SKILL_PACK_LABELS[SKILL_PACKS.works] } },
     { key: "outfit",       label: "アウトフィット",     icon: "fa-solid fa-suitcase",
       packs: { [OUTFIT_PACKS.outfits]: "アウトフィット", [OUTFIT_PACKS.works]: "ワークス専用装備" } },
     { key: "generalSkill", label: "一般技能",           icon: "fa-solid fa-book",
-      packs: { [SKILL_PACKS.general]: "一般技能" } },
+      packs: { [SKILL_PACKS.general]: SKILL_PACK_LABELS[SKILL_PACKS.general] } },
     { key: "style",        label: "スタイル",           icon: "fa-solid fa-masks-theater",
       packs: { [STYLE_PACK]: "スタイル" } },
     { key: "miracle",      label: "神業",               icon: "fa-solid fa-bolt",

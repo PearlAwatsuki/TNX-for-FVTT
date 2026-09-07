@@ -106,12 +106,6 @@ describe("規約: 参照されない export を残さない", () => {
     // 次に必要になった人が自前で書くため、対称形として残す
     "scripts/module/chat-card.mjs::cardFold",
     "scripts/module/chat-card.mjs::cardText",
-    // TODO(18-4): いずれも**消費側が同じ内容を直書き**している(正本のほうが浮いている)。
-    // 定数を消すのではなく消費側を繋ぐ
-    "scripts/module/designation-response-logic.mjs::STAND_IN_KINDS",
-    "scripts/module/skill-dictionary.mjs::SKILL_PACK_LABELS",
-    "scripts/module/target-condition.mjs::TARGET_CONDITION_KINDS",
-    "scripts/module/target-condition.mjs::TARGET_CONDITION_MODES",
   ]);
 
   // 本番から呼ばれず、テストだけが生かしている export。
@@ -140,6 +134,15 @@ describe("規約: 参照されない export を残さない", () => {
   it("除外リストは現存する export だけを挙げる(直したら消す)", () => {
     const ids = new Set(rows.map(r => r.id));
     expect([...UNREFERENCED, ...TEST_ONLY].filter(id => !ids.has(id))).toEqual([]);
+  });
+
+  // 「直したら除外リストからも消す」を強制する。片方向(新しい違反だけ)の検査では、繋いだ後も
+  // 一覧に残り続けて負債の目録として嘘をつく(2026-09-07 に実際そうなりかけた)
+  it("除外リストに、既に解消したものが残っていない", () => {
+    const stillUnreferenced = new Set(rows.filter(r => r.inSrc === 0 && r.inTst === 0).map(r => r.id));
+    const stillTestOnly     = new Set(rows.filter(r => r.inSrc === 0 && r.inTst > 0).map(r => r.id));
+    expect([...UNREFERENCED].filter(id => !stillUnreferenced.has(id))).toEqual([]);
+    expect([...TEST_ONLY].filter(id => !stillTestOnly.has(id))).toEqual([]);
   });
 });
 

@@ -343,8 +343,9 @@
                     <div class="tnx-form-field">
                         {{#each standInRows as |row idx|}}
                         <div class="array-row standin-row">
-                            <label class="standin-kind"><input type="checkbox" data-standin-index="{{idx}}" data-standin-kind="infoGathering" {{checked row.has.infoGathering}}>情報収集判定</label>
-                            <label class="standin-kind"><input type="checkbox" data-standin-index="{{idx}}" data-standin-kind="appearance" {{checked row.has.appearance}}>登場判定</label>
+                            {{#each row.kinds as |k|}}
+                            <label class="standin-kind"><input type="checkbox" data-standin-index="{{idx}}" data-standin-kind="{{k.key}}" {{checked k.checked}}>{{k.label}}</label>
+                            {{/each}}
                             <select name="system.designationStandIn.{{idx}}.condition">
                                 {{selectOptions ../standInConditions selected=row.condition}}
                             </select>

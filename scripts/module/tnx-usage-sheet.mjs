@@ -24,6 +24,7 @@ import { buildCategoryKeyGroups, categoryKeyLabel, ALL_CATEGORIES_KEY } from "..
 import { resolveAttackWeapons, attackWeaponDisplayName, resolveAttackRangeSpan, attackWeaponKindEligible } from "./attack-weapons.mjs";
 import { captureScrollTop, restoreScrollTop } from "./scroll-preserve.mjs";
 import { applyTriggerDisable } from "./ui-trigger-disable.mjs";
+import { TARGET_CONDITION_KINDS, TARGET_CONDITION_MODES } from "./target-condition.mjs";
 import { WEAPON_RANGE_MAX_OPTIONS } from "../data/item/weapon.mjs";
 import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, loadSkillUsageTypeIndex, loadDictionarySkillItems, SKILL_PACKS, STYLE_PACK, ORGANIZATION_PACK } from "./skill-dictionary.mjs";
 import {
@@ -41,18 +42,18 @@ import {
 const CHAIN_SKILL_TYPES = ["generalSkill", "styleSkill"];
 
 // ─── ダメージ修正の対象条件(2026-09-01 承認・照合は target-condition.mjs) ─────────
+// 種類・極性の**正本は target-condition.mjs**。ここは表示名だけを持ち、並びと網羅は
+// 正本の配列から導く(2026-09-07。従来ここが値を直書きしており、正本が浮いていた)
+const TARGET_COND_KIND_LABELS = {
+    none: "条件なし", wet: "ウェット", style: "スタイル", works: "ワークス",
+};
+const TARGET_COND_MODE_LABELS = { exclude: "には無効", only: "のみ有効" };
 /** 条件の種類の選択肢(none=条件なし)。 */
-const TARGET_COND_KIND_OPTIONS = [
-    { value: "none",  label: "条件なし" },
-    { value: "wet",   label: "ウェット" },
-    { value: "style", label: "スタイル" },
-    { value: "works", label: "ワークス" },
-];
+const TARGET_COND_KIND_OPTIONS = TARGET_CONDITION_KINDS
+    .map(v => ({ value: v, label: TARGET_COND_KIND_LABELS[v] ?? v }));
 /** 極性の選択肢(exclude=「〜には無効」/ only=「〜のみ有効」)。 */
-const TARGET_COND_MODE_OPTIONS = [
-    { value: "exclude", label: "には無効" },
-    { value: "only",    label: "のみ有効" },
-];
+const TARGET_COND_MODE_OPTIONS = TARGET_CONDITION_MODES
+    .map(v => ({ value: v, label: TARGET_COND_MODE_LABELS[v] ?? v }));
 
 /**
  * 対象条件のセレクト描画用コンテキストを作る。key の候補は kind に対応する辞典
@@ -1814,11 +1815,11 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
     /** 対象条件の入力値を正規化する(kind=none は mode/key をリセット・wet は key を持たない)。 */
     static _normalizeTargetCondition({ kind, mode, key } = {}) {
-        const k = ["none", "wet", "style", "works"].includes(kind) ? kind : "none";
+        const k = TARGET_CONDITION_KINDS.includes(kind) ? kind : "none";
         if (k === "none") return { kind: "none", mode: "exclude", key: "" };
         return {
             kind: k,
-            mode: mode === "only" ? "only" : "exclude",
+            mode: TARGET_CONDITION_MODES.includes(mode) ? mode : "exclude",
             key:  k === "wet" ? "" : (key ?? ""),
         };
     }

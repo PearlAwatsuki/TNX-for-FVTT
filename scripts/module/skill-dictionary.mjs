@@ -180,7 +180,10 @@ export function buildSkillCascadeSteps(data, path = {}) {
   const FIELD = { dict: "skillDict", group: "skillGroup", sub: "skillSub", skill: "name" };
   const push = (key, label, options, value) => steps.push({ key, field: FIELD[key], label, options, value: value ?? "" });
 
-  push("dict", "辞典", { "": "-", general: "一般技能", style: "スタイル技能", works: "ワークス専用技能" }, path.dict);
+  // 辞典名の正本は SKILL_PACK_LABELS(パック ID キー)。ここは短縮キーで引くため写像する
+  const dictOptions = { "": "-" };
+  for (const [key, pack] of Object.entries(SKILL_PACKS)) dictOptions[key] = SKILL_PACK_LABELS[pack];
+  push("dict", "辞典", dictOptions, path.dict);
   if (!path.dict) return steps;
 
   if (path.dict === "general") {

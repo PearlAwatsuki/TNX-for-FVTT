@@ -2,6 +2,7 @@ import { TokyoNovaItemSheet } from "./tnx-item-sheet.mjs";
 import { TnxSkillUtils } from "../module/tnx-skill-utils.mjs";
 import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, SKILL_PACKS, STYLE_PACK, ORGANIZATION_PACK, SOCIETY_CLASSES } from "../module/skill-dictionary.mjs";
 import { MIRACLE_PACK } from "../module/dictionary-browser-data.mjs";
+import { STAND_IN_KINDS } from "../module/designation-response-logic.mjs";
 
 export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
 
@@ -51,12 +52,12 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
         context.substituteSkillChoices = await loadSkillChoices([SKILL_PACKS.general]);
         // 指定充足宣言(2026-08-26): 条件=あらゆる社会+社会下位区分。行ビューはチェック状態を展開
         context.standInConditions = { society: "あらゆる社会", ...SOCIETY_CLASSES };
+        // 判定種別の正本は STAND_IN_KINDS(拡張可能)。行ごとにチェック状態へ展開する
         context.standInRows = system.designationStandIn.map(row => ({
             condition: row.condition,
-            has: {
-                infoGathering: row.kinds.includes("infoGathering"),
-                appearance:    row.kinds.includes("appearance"),
-            },
+            kinds: Object.entries(STAND_IN_KINDS).map(([key, label]) => ({
+                key, label, checked: row.kinds.includes(key),
+            })),
         }));
         // スタイル欄・ワークス(組織名)欄の選択肢: スタイル辞典 / オーガニゼーション辞典(identificationKey 保存)
         context.styleChoices        = await loadSkillChoices([STYLE_PACK]);
