@@ -60,5 +60,14 @@ globalThis.foundry = {
   },
   utils: {
     randomID: () => `mock-id-${++_idCounter}`,
+    // Foundry の escapeHTML と同じ 5 文字を実体参照へ(表示テストで実物と同じ出力にするため)
+    escapeHTML: (s) => String(s ?? "")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#x27;"),
+  },
+  // ダイアログのモジュールは評価時に foundry.applications.api を分割代入するため、
+  // 形だけ用意する(振る舞いのテストはしない=純粋な組み立て関数だけを対象にする)
+  applications: {
+    api: { DialogV2: class MockDialogV2 { static async wait() { return null; } } },
   },
 };

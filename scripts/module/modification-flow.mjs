@@ -23,6 +23,7 @@ import { buildUsageCheckContext } from "./usage-check-context.mjs";
 import { resolveTargetedOrSelf } from "./target-resolution.mjs";
 import { itemDisplayName } from "./identification.mjs";
 import { DISABLED_TRIGGER_CLASS } from "./ui-trigger-disable.mjs";
+import { ListSelectionDialog } from "./tnx-dialog.mjs";
 import { OUTFIT_TYPES, getMajorCategoryLabel, getMinorCategoryLabel, outfitClassifications, hasClassification } from "../data/item/outfit-categories.mjs";
 import {
     MODIFICATION_PARAMS, listModificationChoices, modificationUnavailableReason,
@@ -52,37 +53,24 @@ export function outfitUnmodifiableReason(system, usage) {
 
 /** 対象アウトフィット(1つ)の選択ダイアログ。不能は理由つきグレーアウトで見せる。null=中止。 */
 async function promptOutfitSelection(target, usage) {
-    const esc = foundry.utils.escapeHTML;
     const candidates = (target?.items ?? []).filter((it) => OUTFIT_TYPES.has(it.type));
     if (!candidates.length) {
         ui.notifications.warn(`「${target.name}」は改造できるアウトフィットを所持していません。`);
         return null;
     }
-    let firstOk = true;
-    const rows = candidates.map((it) => {
-        const reason = outfitUnmodifiableReason(it.system, usage);
-        const cat = `${getMajorCategoryLabel(it.system.majorCategory)}／${getMinorCategoryLabel(it.system.minorCategory)}`;
-        const checked = !reason && firstOk ? "checked" : "";
-        if (checked) firstOk = false;
-        return `<div class="tnx-uses-row${reason ? ` ${DISABLED_TRIGGER_CLASS}` : ""}"${reason ? ` title="${esc(reason)}"` : ""}><label>
-            <input type="radio" name="modTarget" value="${esc(it.id)}" ${checked} ${reason ? "disabled" : ""}>
-            <span>${esc(itemDisplayName(it))}（${esc(cat)}）</span></label></div>`;
-    }).join("");
-    const picked = await DialogV2.wait({
-        window: { title: `改造対象の選択: ${target.name}` },
-        classes: ["tokyo-nova", "tnx-dialog", "tnx-uses-dialog"],
-        position: { width: 440 },
-        content: `<div class="tnx-uses-consume">
-            <p class="tnx-uses-note">改造するアウトフィットを選んでください。</p>${rows}</div>`,
-        buttons: [
-            { action: "ok", icon: "fas fa-wrench", label: "決定", default: true,
-              callback: (_e, _b, dialog) => dialog.element.querySelector('input[name="modTarget"]:checked')?.value ?? null },
-            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
-        ],
-        close: () => null,
+    const picked = await ListSelectionDialog.prompt({
+        title:       `改造対象の選択: ${target.name}`,
+        note:        "改造するアウトフィットを選んでください。",
+        confirmIcon: "fas fa-wrench",
+        width:       440,
+        options: candidates.map((it) => ({
+            value:    it.id,
+            label:    itemDisplayName(it),
+            sub:      `${getMajorCategoryLabel(it.system.majorCategory)}／${getMinorCategoryLabel(it.system.minorCategory)}`,
+            disabled: outfitUnmodifiableReason(it.system, usage) ?? "",
+        })),
     });
-    if (!picked) return null;
-    return candidates.find((it) => it.id === picked) ?? null;
+    return picked ? (candidates.find((it) => it.id === picked) ?? null) : null;
 }
 
 /**
@@ -135,38 +123,30 @@ export async function promptModificationParamSelection(outfit, level) {
  * @returns {?string[]} 選択したドラッグの itemId 配列(null=中止)
  */
 async function promptDrugSelection(target, level) {
-    const esc = foundry.utils.escapeHTML;
     const drugs = (target?.items ?? []).filter((it) =>
         OUTFIT_TYPES.has(it.type) && hasClassification(it.system, "drug"));
     if (!drugs.length) {
         ui.notifications.warn(`「${target.name}」はドラッグを所持していません。`);
         return null;
     }
-    const rows = drugs.map((it) => {
-        const done = hasDrugTimingOverride(it.system);
-        const reason = done ? modificationUnavailableReason("modified") : "";
-        return `<div class="tnx-uses-row${done ? ` ${DISABLED_TRIGGER_CLASS}` : ""}"${done ? ` title="${esc(reason)}"` : ""}><label>
-            <input type="checkbox" name="modDrug" value="${esc(it.id)}" ${done ? "disabled" : ""}>
-            <span>${esc(itemDisplayName(it))}</span></label></div>`;
-    }).join("");
-    while (true) {
-        const picked = await DialogV2.wait({
-            window: { title: `マイナーアクション化するドラッグの選択（最大 ${level} 個）` },
-            classes: ["tokyo-nova", "tnx-dialog", "tnx-uses-dialog"],
-            position: { width: 440 },
-            content: `<div class="tnx-uses-consume">${rows}</div>`,
-            buttons: [
-                { action: "ok", icon: "fas fa-wrench", label: "決定", default: true,
-                  callback: (_e, _b, dialog) => [...dialog.element.querySelectorAll('input[name="modDrug"]:checked')].map((el) => el.value) },
-                { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
-            ],
-            close: () => null,
-        });
-        if (picked === null) return null;
-        if (!picked.length) { ui.notifications.warn("ドラッグを1つ以上選んでください。"); continue; }
-        if (picked.length > level) { ui.notifications.warn(`選択できるのは最大 ${level} 個です。`); continue; }
-        return picked;
-    }
+    // 中止の判定は ListSelectionDialog が担う。従来ここは `picked === null` で中止を見ていたが、
+    // DialogV2 はコールバックの戻り値が無いと action 文字列("cancel")を返すため、キャンセルが
+    // 中止と判定されず「最大 N 個」の警告つきで開き直る恐れがあった(2026-09-07)
+    return await ListSelectionDialog.prompt({
+        title:       `マイナーアクション化するドラッグの選択（最大 ${level} 個）`,
+        confirmIcon: "fas fa-wrench",
+        width:       440,
+        multi:       true,
+        min:         1,
+        max:         level,
+        minMessage:  "ドラッグを1つ以上選んでください。",
+        maxMessage:  `選択できるのは最大 ${level} 個です。`,
+        options: drugs.map((it) => ({
+            value:    it.id,
+            label:    itemDisplayName(it),
+            disabled: hasDrugTimingOverride(it.system) ? modificationUnavailableReason("modified") : "",
+        })),
+    });
 }
 
 /**

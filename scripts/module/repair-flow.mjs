@@ -21,6 +21,7 @@ import { stampCardOutcome } from "./chat-card.mjs";
 import { nowrap } from "./chat-text.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { buildUsageCheckContext } from "./usage-check-context.mjs";
+import { ListSelectionDialog } from "./tnx-dialog.mjs";
 import { resolveTargetedOrSelf } from "./target-resolution.mjs";
 import { itemDisplayName } from "./identification.mjs";
 import { isOutfitMalfunctioning } from "../data/item/helpers.mjs";
@@ -50,28 +51,17 @@ export function listRepairableOutfits(target, usage) {
 
 /** 修理対象(故障アウトフィット1つ)の選択ダイアログ。null=中止。 */
 async function promptRepairSelection(target, candidates) {
-    const esc = foundry.utils.escapeHTML;
-    const rows = candidates.map((it, i) => {
-        const cat = `${getMajorCategoryLabel(it.system.majorCategory)}／${getMinorCategoryLabel(it.system.minorCategory)}`;
-        return `<div class="tnx-uses-row"><label>
-            <input type="radio" name="repair" value="${esc(it.id)}" ${i === 0 ? "checked" : ""}>
-            <span>${esc(itemDisplayName(it))}（${esc(cat)}）</span></label></div>`;
-    }).join("");
-    const picked = await foundry.applications.api.DialogV2.wait({
-        window: { title: `修理対象の選択: ${target.name}` },
-        classes: ["tokyo-nova", "tnx-dialog", "tnx-uses-dialog"],
-        position: { width: 420 },
-        content: `<div class="tnx-uses-consume">
-            <p class="tnx-uses-note">修理する故障アウトフィットを選んでください。</p>${rows}</div>`,
-        buttons: [
-            { action: "ok", icon: "fas fa-screwdriver-wrench", label: "決定", default: true,
-              callback: (_e, _b, dialog) => dialog.element.querySelector('input[name="repair"]:checked')?.value ?? null },
-            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
-        ],
-        close: () => null,
+    const picked = await ListSelectionDialog.prompt({
+        title:       `修理対象の選択: ${target.name}`,
+        note:        "修理する故障アウトフィットを選んでください。",
+        confirmIcon: "fas fa-screwdriver-wrench",
+        options: candidates.map((it) => ({
+            value: it.id,
+            label: itemDisplayName(it),
+            sub:   `${getMajorCategoryLabel(it.system.majorCategory)}／${getMinorCategoryLabel(it.system.minorCategory)}`,
+        })),
     });
-    if (!picked) return null;
-    return candidates.find(it => it.id === picked) ?? null;
+    return picked ? (candidates.find(it => it.id === picked) ?? null) : null;
 }
 
 /**

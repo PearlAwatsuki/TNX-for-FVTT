@@ -1,3 +1,5 @@
+import { DISABLED_TRIGGER_CLASS } from "./ui-trigger-disable.mjs";
+
 const { DialogV2 } = foundry.applications.api;
 
 /**
@@ -176,5 +178,111 @@ export class DealTrumpDialog {
             ],
             close: () => null,
         });
+    }
+}
+
+/**
+ * 一覧から選ぶダイアログの行 HTML を組む(純粋・テスト対象)。
+ *
+ * 意匠は使用回数の消費ダイアログで確立した `tnx-uses-*` を共用する。従来この行の組み立てが
+ * 修理・改造(対象/ドラッグ)・消費の各フローへコピーされており、`tnx-uses-dialog` という
+ * 「使用回数」由来のクラス名まで一緒に運ばれていた(2026-09-07 一本化)。
+ *
+ * @param {Array<{value:string, label:string, sub?:string, disabled?:string,
+ *                checked?:boolean, trailing?:string, trailingWarn?:boolean}>} options
+ *   disabled=不可理由(あればグレーアウト＋tooltip＋選択不可)・trailing=右端の補助表示
+ * @param {{multi?:boolean, name?:string}} [opts] multi=複数選択(チェックボックス)
+ * @returns {string}
+ */
+export function buildSelectionRowsHtml(options, { multi = false, name = "sel" } = {}) {
+    const esc = foundry.utils.escapeHTML;
+    const list = options ?? [];
+    // 単一選択で誰も指定が無ければ、選べる最初の 1 つを既定にする
+    const autoIndex = (!multi && !list.some(o => o?.checked))
+        ? list.findIndex(o => o && !o.disabled) : -1;
+    return list.map((o, i) => {
+        if (!o) return "";
+        const off  = !!o.disabled;
+        const on   = off ? false : (o.checked === true || i === autoIndex);
+        const cls  = `tnx-uses-row${off ? ` ${DISABLED_TRIGGER_CLASS}` : ""}`;
+        const tip  = off ? ` title="${esc(o.disabled)}"` : "";
+        const sub  = o.sub ? `（${esc(o.sub)}）` : "";
+        const tail = o.trailing
+            ? `<span class="tnx-uses-count${o.trailingWarn ? " tnx-uses-out" : ""}">${esc(o.trailing)}</span>`
+            : "";
+        return `<div class="${cls}"${tip}><label>`
+            + `<input type="${multi ? "checkbox" : "radio"}" name="${esc(name)}" value="${esc(o.value)}"`
+            + `${on ? " checked" : ""}${off ? " disabled" : ""}>`
+            + `<span>${esc(o.label)}${sub}</span></label>${tail}</div>`;
+    }).join("");
+}
+
+/**
+ * 一覧から選ぶ汎用ダイアログ(単一=ラジオ / 複数=チェックボックス)。
+ *
+ * TargetSelectionDialog は `<select>` を出すため、「名前＋分類を並べ、選べないものを理由つきで
+ * グレーアウトする」形には合わなかった。合わないからと各フローでその場に DialogV2 を書いた結果、
+ * 同じ形が 4 箇所へ複製されていた——**抽象が狭いなら広げる**、が本クラス(2026-09-07)。
+ *
+ * 中止の判定について: DialogV2 はボタンのコールバックの戻り値が無いとき **action 文字列**を
+ * 返す(v13 の公式ドキュメントは「識別子または戻り値」とだけ書いており曖昧だが、実機では
+ * キャンセルの `null` が文字列 "cancel" として届くことが観測されている)。加えて × で閉じた
+ * ときは `close` の戻り値になる。どちらでも誤らないよう、**確定時だけ包んだオブジェクトを返し、
+ * それ以外は全て中止**として扱う。
+ *
+ * @param {object} opts
+ * @param {string} opts.title  ウィンドウタイトル
+ * @param {Array} opts.options {@link buildSelectionRowsHtml} の選択肢
+ * @param {string} [opts.note] 一覧の上に出す説明
+ * @param {boolean} [opts.multi=false]
+ * @param {number} [opts.min=0]  複数選択の下限(下回ると理由を出して選び直し)
+ * @param {number} [opts.max=0]  複数選択の上限(超えると理由を出して選び直し。0=無制限)
+ * @param {string} [opts.minMessage] / @param {string} [opts.maxMessage] 既定文言の差し替え
+ * @param {string} [opts.confirmLabel="決定"] / @param {string} [opts.confirmIcon="fas fa-check"]
+ * @param {number} [opts.width=420]
+ * @param {string} [opts.extraHtml] 一覧の後ろに足す固定の行(選択できない注記など)
+ * @returns {Promise<?string|?string[]>} 単一=値 / 複数=値の配列。中止は null
+ */
+export class ListSelectionDialog {
+    static async prompt({
+        title, options = [], note = "", multi = false, min = 0, max = 0,
+        minMessage = "", maxMessage = "", confirmLabel = "決定",
+        confirmIcon = "fas fa-check", width = 420, extraHtml = "",
+    }) {
+        const name = multi ? "listSelectionMulti" : "listSelectionOne";
+        const rows = buildSelectionRowsHtml(options, { multi, name });
+        const head = note ? `<p class="tnx-uses-note">${foundry.utils.escapeHTML(note)}</p>` : "";
+        const content = `<div class="tnx-uses-consume">${head}${rows}${extraHtml}</div>`;
+
+        // 下限/上限を満たすまで選び直させる
+        for (;;) {
+            const res = await DialogV2.wait({
+                window:   { title },
+                classes:  ["tokyo-nova", "tnx-dialog", "tnx-uses-dialog"],
+                position: { width },
+                content,
+                buttons: [
+                    { action: "ok", icon: confirmIcon, label: confirmLabel, default: true,
+                      // 確定だけを包んで返す(中止の識別を戻り値の形で行うため)
+                      callback: (_e, _b, dialog) => ({ picked: multi
+                          ? [...dialog.element.querySelectorAll(`input[name="${name}"]:checked`)].map(el => el.value)
+                          : (dialog.element.querySelector(`input[name="${name}"]:checked`)?.value ?? null) }) },
+                    { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+                ],
+                close: () => null,
+            });
+            if (!res || typeof res !== "object" || !("picked" in res)) return null;  // 中止
+            const picked = res.picked;
+            if (!multi) return picked ?? null;
+            if (min > 0 && picked.length < min) {
+                ui.notifications?.warn(minMessage || `${min} つ以上選んでください。`);
+                continue;
+            }
+            if (max > 0 && picked.length > max) {
+                ui.notifications?.warn(maxMessage || `選択できるのは最大 ${max} 個です。`);
+                continue;
+            }
+            return picked;
+        }
     }
 }
