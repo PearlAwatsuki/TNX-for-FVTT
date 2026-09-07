@@ -75,12 +75,13 @@ export async function recordCastOwnerUser(castActor) {
   // confirm-overwrite: 既に別 User が記録済み。GM に上書き確認ダイアログを出す。
   const newUser = pickedUserId ? game.users.get(pickedUserId) : null;
   const currentUser = game.users.find(u => u.uuid === currentOwnerUuid);
-  const confirmed = await Dialog.confirm({
-    title: "キャスト主体 User の変更確認",
-    content: `<p><strong>${castActor.name}</strong> の主体 User を</p>` +
-             `<p><strong>${currentUser?.name ?? "不明"}</strong> → <strong>${newUser?.name ?? "不明"}</strong></p>` +
+  const esc = foundry.utils.escapeHTML;
+  const confirmed = await foundry.applications.api.DialogV2.confirm({
+    window:  { title: "キャスト主体 User の変更確認" },
+    content: `<p><strong>${esc(castActor.name)}</strong> の主体 User を</p>` +
+             `<p><strong>${esc(currentUser?.name ?? "不明")}</strong> → <strong>${esc(newUser?.name ?? "不明")}</strong></p>` +
              `<p>に変更しますか？</p>`,
-    defaultYes: false,
+    no: { default: true },
   });
 
   if (confirmed) {
