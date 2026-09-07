@@ -45,7 +45,7 @@ import { CONDITION_KINDS, conditionDisplayName, getConditionKinds, recoveryKindM
 import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } from "./usage-consumption.mjs";
 import { executionFormOf } from "./usage-types.mjs";
 import { buildPostTreatmentRest } from "./treatment-flow.mjs";
-import { recoveryCandidateAllowed } from "./miracle-logic.mjs";
+import { recoveryCandidateAllowed } from "../rules/miracle.mjs";
 import { getSessionState } from "./session-state.mjs";
 
 

@@ -10,7 +10,7 @@
 import { loadGroupedGeneralSkillChoices, loadSkillEntries, SKILL_PACKS } from "./skill-dictionary.mjs";
 import { formatSkillName } from "./identification.mjs";
 import { PROGRESS_MOD_SOURCES, buildProgressModChoices } from "./progress-mod.mjs";
-import { defeatConditionOptions } from "./focus-system-logic.mjs";
+import { defeatConditionOptions } from "../rules/focus-system.mjs";
 import { defaultFocusSystemData, newProgressRow } from "./focus-system-data.mjs";
 
 /** 選択済みの項目に selected を立てる(テンプレートに分岐を書かないため)。 */

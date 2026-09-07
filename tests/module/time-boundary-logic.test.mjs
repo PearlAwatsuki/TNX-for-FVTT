@@ -3,7 +3,7 @@ import {
     TNX_BOUNDARIES, TNX_DURATIONS,
     readEffectDuration, durationLabelOf, durationExpiresAt, planEffectExpiry, planItemGrantExpiry,
     planActorBoundaryUpdates,
-} from "../../scripts/module/time-boundary-logic.mjs";
+} from "../../scripts/rules/time-boundary.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 const withDuration = (id, duration) => ({ id, flags: { [SCOPE]: { tnxDuration: duration } } });

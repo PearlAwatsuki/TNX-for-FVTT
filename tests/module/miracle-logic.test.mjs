@@ -13,7 +13,7 @@ import {
     asOtherSelection, renameMiracleInText, miracleLogCandidates, buildMiracleUseLogEntry, miracleUseFromMessageFlags,
     miracleUsePending, markMiracleUseApplied, conditionSwapPlan, miracleRemovalUpdate, miracleIdentityMatches,
     listDestroyableOutfits,
-    miracleRewriteCandidates, miracleRewriteVia, miracleCardTextPlan } from "../../scripts/module/miracle-logic.mjs";
+    miracleRewriteCandidates, miracleRewriteVia, miracleCardTextPlan } from "../../scripts/rules/miracle.mjs";
 
 describe("withDefaultMiracleConsumption()（消費先が空の神業用途は自身の使用回数×1を既定消費）", () => {
     it("消費先が空なら「このアイテム自身の使用回数 ×1」の行を補った複製を返す（元の用途は変えない）", () => {

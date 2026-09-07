@@ -4,7 +4,7 @@ import {
   nextBountyValue,
   markBountyReceived,
   isBountyReceived,
-} from "../../scripts/module/bounty-grant-logic.mjs";
+} from "../../scripts/rules/bounty-grant.mjs";
 
 const TARGETS = [
   { uuid: "Actor.aaa", name: "キャストA" },

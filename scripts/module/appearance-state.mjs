@@ -13,8 +13,8 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
-import { pickTokenDropPosition, tokenDeletionImpliesExit } from "./appearance-logic.mjs";
-import { teamLinkedExitTargets } from "./session-logic.mjs";
+import { pickTokenDropPosition, tokenDeletionImpliesExit } from "../rules/appearance.mjs";
+import { teamLinkedExitTargets } from "../rules/session.mjs";
 import { TNX_HOOKS } from "./combat-events.mjs";
 
 

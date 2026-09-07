@@ -6,7 +6,7 @@ import { describe, it, expect } from "vitest";
 import {
     decidePurchasePath, computeNoCardPurchase, purchaseCardInfo, purchaseUnavailableReason,
     decidePreActPurchase, preActUnavailableReason,
-} from "../../scripts/module/purchase-logic.mjs";
+} from "../../scripts/rules/purchase.mjs";
 
 describe("decidePurchasePath()（購入経路の3分岐）", () => {
     it("購入値「解説参照」は unavailable（購入手続き自体が存在しない）", () => {

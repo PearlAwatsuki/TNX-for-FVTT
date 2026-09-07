@@ -12,7 +12,7 @@
  * - プレイヤーキャラクターをすべて … **ユーザー設定で割り当てられたアクター**(2026-07-21 確認)
  */
 
-import { addTargets, removeTarget, moveTarget } from "./target-picker-logic.mjs";
+import { addTargets, removeTarget, moveTarget } from "../rules/target-picker.mjs";
 import { currentTargetActors } from "./target-resolution.mjs";
 
 /** 盤面で選択中のトークンのアクター。 */

@@ -7,13 +7,13 @@
  * (会場手配＋PL合計÷min(3, PL人数)[切り捨て])も同時に記帳する。
  *
  * 取得条件の判定そのもの(良い RP だったか等)は主観を含むため自動化しない(§4.2)——
- * 集計と記帳だけを引き受ける。純ロジックは exp-award-logic.mjs。
+ * 集計と記帳だけを引き受ける。純ロジックは rules/exp-award.mjs。
  */
 
 import {
     EXP_AWARD_CHECKS, calcPlayerExpTotal, calcRlExpBreakdown, awardEntryDate,
     sumMiracleSpent, buildAutoFilledRow,
-} from "./exp-award-logic.mjs";
+} from "../rules/exp-award.mjs";
 import { getUserFlagData, historyAdd, saveUserFlagHistory } from "./user-flag-schema.mjs";
 import { getSessionState } from "./session-state.mjs";
 

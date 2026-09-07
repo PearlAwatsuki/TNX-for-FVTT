@@ -39,19 +39,19 @@ import {
     buildHandoutCardData, buildInfoCardData,
     withResolvedInfoSkillNames, handoutDisplayTitle, handoutNumberOf, handoutStyleDisplay,
     infoSkillGroups, infoValueLabel, toggleInfoDisclosure,
-} from "./session-logic.mjs";
+} from "../rules/session.mjs";
 import {
     loadGeneralSkillNameByKey, loadSkillChoices, formatGroupedSkillNames, STYLE_PACK,
 } from "./skill-dictionary.mjs";
 import {
     appearanceCheckParams, formatAppearanceSummary, groupCharacterChoices,
-} from "./appearance-logic.mjs";
+} from "../rules/appearance.mjs";
 import { presetLabel } from "./request-presets.mjs";
 
 import { TnxActionHandler } from "./tnx-action-handler.mjs";
 import { applyStageRef } from "./subscenes.mjs";
 import { resolveHandoutContact } from "./handout-contact.mjs";
-import { collectLostCharacters } from "./time-boundary-logic.mjs";
+import { collectLostCharacters } from "../rules/time-boundary.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const { DialogV2 } = foundry.applications.api;

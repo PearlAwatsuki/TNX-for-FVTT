@@ -26,7 +26,7 @@ import { getPartSlotPreset } from "./part-slot-preset-app.mjs";
 import { resolveItemNameByKey } from "./identification.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
 import { applyTriggerDisable } from "./ui-trigger-disable.mjs";
-import { purchaseUnavailableReason, preActUnavailableReason } from "./purchase-logic.mjs";
+import { purchaseUnavailableReason, preActUnavailableReason } from "../rules/purchase.mjs";
 import { getSessionState } from "./session-state.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;

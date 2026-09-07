@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildConditionGrantData, rlConditionChoices } from "../../scripts/module/rl-grant-logic.mjs";
+import { buildConditionGrantData, rlConditionChoices } from "../../scripts/rules/rl-grant.mjs";
 import { buildGrantedEffectDataFrom } from "../../scripts/module/usage-effects.mjs";
 
 const SCOPE = "tokyo-nova-axleration";

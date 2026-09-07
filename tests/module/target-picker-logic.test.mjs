@@ -4,7 +4,7 @@ import {
   removeTarget,
   moveTarget,
   toCheckRequestTargets,
-} from "../../scripts/module/target-picker-logic.mjs";
+} from "../../scripts/rules/target-picker.mjs";
 
 const A = { uuid: "Actor.a", id: "a", name: "キャストA", img: "a.png" };
 const B = { uuid: "Actor.b", id: "b", name: "キャストB", img: "b.png" };

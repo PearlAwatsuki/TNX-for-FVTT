@@ -43,7 +43,7 @@ async function requestSkillLabel(keys) {
     const names = await requestSkillNames();
     return formatDesignatedSkills(list, new Map(Object.entries(names))) || "（参照切れ）";
 }
-import { toCheckRequestTargets } from './target-picker-logic.mjs';
+import { toCheckRequestTargets } from '../rules/target-picker.mjs';
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 

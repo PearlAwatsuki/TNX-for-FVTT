@@ -11,12 +11,12 @@
  * - 進行は nextTurn 1本(advanceCut)。行動そのものはアイテムロール等で行い、トラッカーは進行と宣言のみ。
  * - 宣言: 待機=候補の操作者(CSカレント→1)・行動不能=RL(AR−1)。
  *
- * 記帳値の算出は純ロジック(combat-progression.mjs / combat-seed-logic.mjs / combat-turn-order.mjs)、
+ * 記帳値の算出は純ロジック(combat-progression.mjs / rules/combat-seed.mjs / combat-turn-order.mjs)、
  * 本クラスは適用のみ。プレイヤーの「手番終了」は GM へソケット委譲(cutAdvance)する。
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
-import { buildCombatSeedUpdate } from "../module/combat-seed-logic.mjs";
+import { buildCombatSeedUpdate } from "../rules/combat-seed.mjs";
 import {
   planAdvance,
   buildArDecrementUpdate,

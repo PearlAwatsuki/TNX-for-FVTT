@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { movementStagesFromAchievement } from "../../scripts/module/vehicle-move-logic.mjs";
+import { movementStagesFromAchievement } from "../../scripts/rules/vehicle-move.mjs";
 
 describe("movementStagesFromAchievement()（操縦移動＝達成値÷10・切り捨て・2026-07-09 確定）", () => {
   it("達成値÷10 の切り捨てを段階数として返す", () => {

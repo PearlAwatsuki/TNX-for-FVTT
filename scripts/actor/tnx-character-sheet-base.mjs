@@ -28,17 +28,17 @@ import { useRecovery } from '../module/recovery-flow.mjs';
 import { useRepair } from '../module/repair-flow.mjs';
 import { buildUsageCheckContext } from '../module/usage-check-context.mjs';
 import { useAttack } from '../module/attack-flow.mjs';
-import { aggregateDefence } from '../module/damage-logic.mjs';
+import { aggregateDefence } from '../rules/damage.mjs';
 import { prepareUsageEffectPayload } from '../module/usage-effects.mjs';
 import { applyInterruptGrantForUsage } from '../module/interrupt-grant.mjs';
 import { useMiracleWithoutUsage, postMiracleCard } from '../module/miracle-flow.mjs';
-import { withDefaultMiracleConsumption, withoutConsumption } from '../module/miracle-logic.mjs';
+import { withDefaultMiracleConsumption, withoutConsumption } from '../rules/miracle.mjs';
 import { ALL_SUITS } from '../module/tnx-check-engine.mjs';
 import { loadSkillChoices, SKILL_PACKS } from '../module/skill-dictionary.mjs';
 import { groupStyleSkillsByStyle } from '../module/style-skill-acquisition.mjs';
 import { HOUSING_AREA_RANKS } from '../data/item/housing-area.mjs';
 import { CONDITION_KINDS, readConditions, getConditionKind, getConditionKinds, getEffectiveConditions, getCheckBlock, gatherSkillUseWarnings, woundChartValue } from '../module/conditions.mjs';
-import { planActionRecoveryRows, PAYMENT_LABELS, MAJOR_PAYMENTS } from '../module/time-boundary-logic.mjs';
+import { planActionRecoveryRows, PAYMENT_LABELS, MAJOR_PAYMENTS } from '../rules/time-boundary.mjs';
 import { applyTriggerDisable } from '../module/ui-trigger-disable.mjs';
 import { applyItemCardTooltips, applyContentLinkCardTooltips } from '../module/item-card-tooltips.mjs';
 import { openConditionEditDialog } from '../module/condition-edit.mjs';
@@ -46,7 +46,7 @@ import { startTreatment } from '../module/treatment-flow.mjs';
 import { isAttackUsage } from '../data/item/common/usage.mjs';
 import { executionFormOf, usageDisplayName, isReactionType, isMiracleType } from '../module/usage-types.mjs';
 import { itemDisplayName, resolveItemNameByKey, calcSkillInsertSort } from '../module/identification.mjs';
-import { isOpposedConfrontation } from '../module/confrontation-logic.mjs';
+import { isOpposedConfrontation } from '../rules/confrontation.mjs';
 import { resolveHousingAreaMods, residenceEffectiveValues } from '../module/residence-area.mjs';
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -3092,7 +3092,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
      * 現在の実効ベースからオーバーレイ分を保って value に写す。
      */
     static async _onInitCombatSpeed(_event, _target) {
-        const { buildCombatSpeedInit } = await import("../module/session-logic.mjs");
+        const { buildCombatSpeedInit } = await import("../rules/session.mjs");
         const patch = buildCombatSpeedInit(this.actor.system);
         await this.actor.update(patch);
         ui.notifications?.info(`CS を決定しました（CS ${patch["system.combatSpeed.value"]}）。`);

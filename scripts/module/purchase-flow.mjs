@@ -21,7 +21,7 @@
 import {
     decidePurchasePath, computeNoCardPurchase, purchaseUnavailableReason,
     decidePreActPurchase, preActUnavailableReason,
-} from "./purchase-logic.mjs";
+} from "../rules/purchase.mjs";
 import { hasBountyBlock } from "./conditions.mjs";
 import { usageDisplayName } from "./usage-types.mjs";
 import { DISABLED_TRIGGER_CLASS } from "./ui-trigger-disable.mjs";
@@ -234,7 +234,7 @@ export async function startPurchaseWithUsage(uuid, { actorId, itemId, usageId, m
             if (src) {
                 asOther = { uuid: asOtherUuid, name: src.name, source: src };
                 if (skill) {
-                    const { miracleRewriteVia } = await import("./miracle-logic.mjs");
+                    const { miracleRewriteVia } = await import("../rules/miracle.mjs");
                     asOther.kind = src.type === "miracle" ? "miracle" : "skill";
                     asOther.via = miracleRewriteVia(skill);
                 }

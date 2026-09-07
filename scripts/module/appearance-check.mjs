@@ -16,13 +16,13 @@
  * 危険値装備携帯でも判定は行え、結果が必ず失敗になる(ctx.forcedFailure)。
  */
 
-import { appearanceCheckParams, hasNegativeDangerOutfit, isAppearanceSkillKey } from "./appearance-logic.mjs";
-import { appearanceBlockOf } from "./time-boundary-logic.mjs";
+import { appearanceCheckParams, hasNegativeDangerOutfit, isAppearanceSkillKey } from "../rules/appearance.mjs";
+import { appearanceBlockOf } from "../rules/time-boundary.mjs";
 import { loadSkillClassByKey } from "./skill-dictionary.mjs";
-import { standInMatchesKey } from "./designation-response-logic.mjs";
+import { standInMatchesKey } from "../rules/designation-response.mjs";
 import { getSessionState, getCurrentSceneAppearance } from "./session-state.mjs";
 import { isAppearing, setAppearing, setGhost } from "./appearance-state.mjs";
-import { SCENE_AREA_OPTIONS } from "./session-logic.mjs";
+import { SCENE_AREA_OPTIONS } from "../rules/session.mjs";
 import { formatSkillName } from "./identification.mjs";
 
 const { DialogV2 } = foundry.applications.api;

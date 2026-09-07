@@ -5,9 +5,9 @@ import {
     presetLabel, presetSkillKeys, newCheckRequestPreset, newBountyPreset,
     newDamageGrantPreset, newEffectGrantPreset, newScenarioTextPreset,
 } from '../module/request-presets.mjs';
-import { RL_DAMAGE_TYPES, RL_DAMAGE_CATEGORIES, RL_DAMAGE_MODES } from '../module/rl-grant-logic.mjs';
+import { RL_DAMAGE_TYPES, RL_DAMAGE_CATEGORIES, RL_DAMAGE_MODES } from '../rules/rl-grant.mjs';
 import { promptEffectData } from '../module/effect-authoring.mjs';
-import { describeEffectData } from '../module/effect-source-logic.mjs';
+import { describeEffectData } from '../rules/effect-source.mjs';
 import { captureScrollTop, restoreScrollTop } from '../module/scroll-preserve.mjs';
 import { conditionStatusLabels } from '../module/conditions.mjs';
 import { checkTypeOptions } from '../module/tnx-rl-request-app.mjs';
@@ -17,8 +17,8 @@ import {
     normalizeSceneRow, normalizeHandoutRow, handoutTitleSuffix, circledNumber, infoSkillKeys,
     sceneSequenceNumbers, handoutPlayerLabel, handoutNumberOf, handoutStyleDisplay, infoTiers,
     CONTACT_TYPES,
-} from '../module/session-logic.mjs';
-import { normalizeAppearanceActors, groupCharacterChoices } from '../module/appearance-logic.mjs';
+} from '../rules/session.mjs';
+import { normalizeAppearanceActors, groupCharacterChoices } from '../rules/appearance.mjs';
 import { listSubScenes } from '../module/subscenes.mjs';
 import { attachEditorSectionToggles } from '../module/editor-sections.mjs';
 

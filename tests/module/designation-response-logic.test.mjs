@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildDesignationOptions,
   standInMatchesKey,
-} from "../../scripts/module/designation-response-logic.mjs";
+} from "../../scripts/rules/designation-response.mjs";
 
 // 辞典由来の区分マップ(識別キー→{type: 区分, societyClass: 社会下位区分})
 const classByKey = new Map([

@@ -12,7 +12,7 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
-import { CONDITION_KINDS, CONDITION_GROUP_LABELS } from "./conditions.mjs";
+import { CONDITION_KINDS, CONDITION_GROUP_LABELS } from "../module/conditions.mjs";
 import { ATTACK_DAMAGE_TYPES } from "../data/item/helpers.mjs";
 
 /** RL 任意ダメージで選べる種別(物理のみ)。表記は S/P/I/X そのものが正式。 */

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { TNX_BOUNDARIES } from "../../scripts/module/time-boundary-logic.mjs";
-import { planItemBoundaryUpdates } from "../../scripts/module/time-boundary-logic.mjs";
+import { TNX_BOUNDARIES } from "../../scripts/rules/time-boundary.mjs";
+import { planItemBoundaryUpdates } from "../../scripts/rules/time-boundary.mjs";
 
 /** 使用回数を持つアイテム(スタイル技能・アウトフィット共通の uses 形) */
 const withUses = (id, type, spent, itemType = "styleSkill") => ({

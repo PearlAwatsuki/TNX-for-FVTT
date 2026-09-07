@@ -19,7 +19,7 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
-import { CONDITION_KINDS, conditionDisplayName, getConditionKinds } from "./conditions.mjs";
+import { CONDITION_KINDS, conditionDisplayName, getConditionKinds } from "../module/conditions.mjs";
 
 /** 適用の起点になる境界。グルーがフックから解決してこの値で呼ぶ。 */
 export const TNX_BOUNDARIES = Object.freeze({

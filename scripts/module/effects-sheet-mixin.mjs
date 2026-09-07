@@ -4,7 +4,7 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
-import { durationLabelOf } from "./time-boundary-logic.mjs";
+import { durationLabelOf } from "../rules/time-boundary.mjs";
 
 export const EffectsSheetMixin = {
 

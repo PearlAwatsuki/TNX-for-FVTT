@@ -21,7 +21,7 @@
 
 import { SYSTEM_ID } from "../constants.mjs";
 import { getActiveFocusSystem, updateFocusSystem } from "./focus-system-state.mjs";
-import { activeProgressRow, clampGauge, computeProgressGain } from "./focus-system-logic.mjs";
+import { activeProgressRow, clampGauge, computeProgressGain } from "../rules/focus-system.mjs";
 import { resolveProgressModForActor } from "./progress-mod.mjs";
 import { TnxCombat } from "../combat/tnx-combat.mjs";
 

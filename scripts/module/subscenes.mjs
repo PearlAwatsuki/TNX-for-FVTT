@@ -19,7 +19,7 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
-import { parseStageRef } from "./session-logic.mjs";
+import { parseStageRef } from "../rules/session.mjs";
 import { moveItemBy, moveItemTo } from "./list-order.mjs";
 
 const SETTING = "subScenes";

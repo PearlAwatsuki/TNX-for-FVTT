@@ -112,11 +112,11 @@ describe("規約: 参照されない export を残さない", () => {
   // テストが**使われていない実装の仕様を固定し続ける**状態なので、増やさない。
   const TEST_ONLY = new Set([
     "scripts/data/item/helpers.mjs::computeCheckBonus",
-    "scripts/module/appearance-logic.mjs::isAppearanceBlockedScene",
+    "scripts/rules/appearance.mjs::isAppearanceBlockedScene",
     "scripts/module/combat-progression.mjs::isValidProcessTransition",
-    "scripts/module/exp-award-logic.mjs::calcRlExpTotal",
-    "scripts/module/miracle-logic.mjs::asOtherSelection",
-    "scripts/module/session-logic.mjs::nextSceneRow",
+    "scripts/rules/exp-award.mjs::calcRlExpTotal",
+    "scripts/rules/miracle.mjs::asOtherSelection",
+    "scripts/rules/session.mjs::nextSceneRow",
     "scripts/module/skill-chain-resolution.mjs::singleComboSkillName",
     "scripts/module/usage-target-plan.mjs::usageCardForm",
   ]);

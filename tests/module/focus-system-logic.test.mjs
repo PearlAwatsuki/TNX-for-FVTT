@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeProgressGain } from "../../scripts/module/focus-system-logic.mjs";
+import { computeProgressGain } from "../../scripts/rules/focus-system.mjs";
 
 describe("computeProgressGain()（進行判定で獲得する進行値・ルール3+5・13-7）", () => {
   it("floor(差分値÷10) の基本（進行修正・支援なし）", () => {

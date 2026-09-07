@@ -9,9 +9,9 @@
  * 発火だけを先行させるため、`sceneEnded` フラグで切替時の二重発火を防ぐ。
  */
 
-import { TNX_HOOKS } from "./combat-events.mjs";
-import { formatDesignatedSkills } from "./skill-dictionary.mjs";
-import { normalizeAppearanceActors } from "./appearance-logic.mjs";
+import { TNX_HOOKS } from "../module/combat-events.mjs";
+import { formatDesignatedSkills } from "../module/skill-dictionary.mjs";
+import { normalizeAppearanceActors } from "./appearance.mjs";
 
 /** メインアクトのフェイズ順(台本の走査順・シーン開始時の phase stamp に使う)。 */
 export const PHASE_ORDER = Object.freeze(["opening", "research", "climax", "ending"]);

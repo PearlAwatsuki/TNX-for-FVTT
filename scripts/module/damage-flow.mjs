@@ -23,7 +23,7 @@
 
 import { SYSTEM_ID } from "../constants.mjs";
 import { applyDamageChartResult } from "./condition-resolution.mjs";
-import { aggregateDefence, defenceForType, computeDamage, splitSharedBonusRows } from "./damage-logic.mjs";
+import { aggregateDefence, defenceForType, computeDamage, splitSharedBonusRows } from "../rules/damage.mjs";
 import { evaluateBonusRows, evaluateSelfBonus } from "./tnx-formula.mjs";
 import { applyConsumptionPlan } from "./usage-consumption.mjs";
 import { getDamageChartKind } from "../data/damage-chart.mjs";
@@ -35,12 +35,12 @@ import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { TnxActionHandler } from "./tnx-action-handler.mjs";
 import { getCardCheckValue } from "./tnx-check-engine.mjs";
-import { formatAttackLabel } from "./attack-flow-logic.mjs";
+import { formatAttackLabel } from "../rules/attack-flow.mjs";
 import { gatherDamageVsSources, gatherDamageDealtSources, gatherDamageTakenSources, collectActorEffectBuffs, targetStyleWorksKeys } from "../data/item/helpers.mjs";
 import { splitEffectsByTiming } from "./usage-effects.mjs";
 import { spinnerDialogActions } from "./tnx-dialog.mjs";
-import { rlGrantAmount, rlGrantLedgerRow, rlGrantTypeLabel, buildRlDamageRollFlag } from "./rl-grant-logic.mjs";
-import { unprotectedTargetIndices, defencePreventPlan, miracleResultLabel, miracleTargetOutcome, miracleOriginOf } from "./miracle-logic.mjs";
+import { rlGrantAmount, rlGrantLedgerRow, rlGrantTypeLabel, buildRlDamageRollFlag } from "../rules/rl-grant.mjs";
+import { unprotectedTargetIndices, defencePreventPlan, miracleResultLabel, miracleTargetOutcome, miracleOriginOf } from "../rules/miracle.mjs";
 import { formatSkillName } from "./identification.mjs";
 
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会", troop: "壊滅" };

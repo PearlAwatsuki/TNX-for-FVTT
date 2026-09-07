@@ -20,7 +20,7 @@ import { getSessionState, getActiveActJournal } from "./session-state.mjs";
 import {
     withResolvedInfoSkillNames, infoDesignationRows, discloseInfoByAchievement,
     newlyDisclosedInfo, buildInfoDiscloseCardData,
-} from "./session-logic.mjs";
+} from "../rules/session.mjs";
 import { loadGeneralSkillNameByKey } from "./skill-dictionary.mjs";
 import { resolveDesignationResponse } from "./designation-response.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";

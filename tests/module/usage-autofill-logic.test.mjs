@@ -3,7 +3,7 @@ import "../setup.mjs";
 
 const {
     resolveTarget, resolveRange, resolveTargetValue, resolveTiming, normalizeUsageExplanation,
-} = await import("../../scripts/module/usage-autofill-logic.mjs");
+} = await import("../../scripts/rules/usage-autofill.mjs");
 
 // 正本: Check_Rules.md「組み合わせ後の対象」「組み合わせ後の射程」。
 // 解説参照/その他の最下位フォールバックと「その他」への変換は KI-033(2026-07-19 ユーザー裁定)。

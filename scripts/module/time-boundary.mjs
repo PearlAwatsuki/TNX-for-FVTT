@@ -6,7 +6,7 @@
  * (効果の持続欄・`uses.type`・`CONDITION_KINDS`)に置き、本モジュールは宣言を読んで
  * 適用するだけにする。境界が増えても購読口は増えず、適用順序も一箇所で決まる。
  *
- * 判断は純ロジック(`time-boundary-logic.mjs`)に置き、ここはドキュメントの走査と更新に徹する。
+ * 判断は純ロジック(`rules/time-boundary.mjs`)に置き、ここはドキュメントの走査と更新に徹する。
  *
  * **適用は黙って行う**(2026-08-29 ユーザー裁定・チャット報告をしない)。
  * **実行は activeGM のみ**——他人のアクターを更新する権限が要るため(appearance-state と同じ作法)。
@@ -20,7 +20,7 @@
 import { SYSTEM_ID } from "../constants.mjs";
 import { TNX_HOOKS } from "./combat-events.mjs";
 import { TNX_BOUNDARIES, planEffectExpiry, planItemGrantExpiry, planItemBoundaryUpdates, planActorBoundaryUpdates, planConditionRecovery, planActEndDamageCleanup, planSceneDeadlineExpiry, planPoisonTicks,
-         planSceneDeferredFiring, buildForcedExitFlags } from "./time-boundary-logic.mjs";
+         planSceneDeferredFiring, buildForcedExitFlags } from "../rules/time-boundary.mjs";
 import { CONDITION_KINDS, getConditionKinds } from "./conditions.mjs";
 import { listAppearingActors } from "./appearance-state.mjs";
 

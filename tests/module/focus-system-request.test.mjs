@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildProgressRequest,
   buildSupportRequest,
-} from "../../scripts/module/focus-system-request-logic.mjs";
+} from "../../scripts/rules/focus-system-request.mjs";
 
 const FS = {
   id: "fs1",

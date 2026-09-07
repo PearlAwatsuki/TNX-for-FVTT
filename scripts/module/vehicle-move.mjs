@@ -12,7 +12,7 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
-import { movementStagesFromAchievement } from "./vehicle-move-logic.mjs";
+import { movementStagesFromAchievement } from "../rules/vehicle-move.mjs";
 import { buildCheckCardContext } from "./check-card-context.mjs";
 
 

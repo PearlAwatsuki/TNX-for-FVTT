@@ -7,7 +7,7 @@ import {
   sumMiracleSpent,
   buildAutoFilledRow,
   awardEntryDate,
-} from "../../scripts/module/exp-award-logic.mjs";
+} from "../../scripts/rules/exp-award.mjs";
 
 describe("EXP_AWARD_CHECKS（PL のチェック項目＝Scenario_Progress の経験点表）", () => {
   it("8項目・配点は 1/1/5/5/5/5/5/5", () => {

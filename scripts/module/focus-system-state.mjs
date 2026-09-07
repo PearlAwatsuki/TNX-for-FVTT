@@ -11,7 +11,7 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
-import { buildFocusSystemSnapshot } from "./focus-system-logic.mjs";
+import { buildFocusSystemSnapshot } from "../rules/focus-system.mjs";
 
 const SETTING = "activeFocusSystems";
 

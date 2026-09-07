@@ -10,7 +10,7 @@
  * 候補グループへの合流で効かせる(appearance-check 側)。
  */
 
-import { buildDesignationOptions } from "./designation-response-logic.mjs";
+import { buildDesignationOptions } from "../rules/designation-response.mjs";
 import {
     loadGeneralSkillNameByKey, loadSkillClassByKey, formatDesignatedSkills,
 } from "./skill-dictionary.mjs";

@@ -14,7 +14,7 @@
 
 import { SYSTEM_ID } from "../constants.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
-import { HANDOUT_STYLE_COMMON, HANDOUT_STYLE_FREE } from "./session-logic.mjs";
+import { HANDOUT_STYLE_COMMON, HANDOUT_STYLE_FREE } from "../rules/session.mjs";
 import { STYLE_PACK, ONOMASTIC_TYPES, stripSkillCategory } from "./skill-dictionary.mjs";
 import { calcSkillInsertSort } from "./identification.mjs";
 

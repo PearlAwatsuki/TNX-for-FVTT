@@ -68,7 +68,7 @@ import {
   infoDesignationRows,
   hudInfoItems,
   hudInfoTnChips,
-} from "../../scripts/module/session-logic.mjs";
+} from "../../scripts/rules/session.mjs";
 import { TNX_HOOKS } from "../../scripts/module/combat-events.mjs";
 
 const SCENES = {

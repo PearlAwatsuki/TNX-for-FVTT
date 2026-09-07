@@ -16,7 +16,7 @@
 
 import { SYSTEM_ID, SOCKET_CHANNEL } from "../constants.mjs";
 import { TNX_HOOKS } from "./combat-events.mjs";
-import { miracleUseFromMessageFlags, buildMiracleUseLogEntry, miracleUsePending, markMiracleUseApplied } from "./miracle-logic.mjs";
+import { miracleUseFromMessageFlags, buildMiracleUseLogEntry, miracleUsePending, markMiracleUseApplied } from "../rules/miracle.mjs";
 import { listAppearingActors } from "./appearance-state.mjs";
 import {
     normalizeSceneRow, normalizeHandoutRow, findSceneRow, firstSceneRow,
@@ -27,15 +27,15 @@ import {
     rotationOrder, resolveRotationDefault, stageCandidateActorIds,
     recordScenePlayerDone, SCENE_PLAYER_RULER, resolveScenePlayerRef, planActLimitedCleanup,
     recordSceneAppearance,
-} from "./session-logic.mjs";
+} from "../rules/session.mjs";
 import {
     setAppearing, setNameHidden, setGhost, clearAllAppearing, isAppearing,
 } from "./appearance-state.mjs";
 import {
     sceneEntryAppearances, resolveSceneAppearance,
-} from "./appearance-logic.mjs";
+} from "../rules/appearance.mjs";
 import { listStageCandidates } from "./residence-area.mjs";
-import { hasIncapable } from "./time-boundary-logic.mjs";
+import { hasIncapable } from "../rules/time-boundary.mjs";
 import { promptSceneEntry } from "./scene-entry-dialog.mjs";
 import { getUserFlagData, saveIsScenePlayer } from "./user-flag-schema.mjs";
 

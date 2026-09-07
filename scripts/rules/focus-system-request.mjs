@@ -10,7 +10,7 @@
  * AR 残量での絞り込みと、進行判定の宛先(手番のキャスト)の自動判別は**フェーズ13**。
  */
 
-import { activeProgressRow } from "./focus-system-logic.mjs";
+import { activeProgressRow } from "./focus-system.mjs";
 
 /**
  * 進行判定の要求内容。指定技能は**複数**ありうる(2026-07-21)。

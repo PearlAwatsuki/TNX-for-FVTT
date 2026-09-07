@@ -17,15 +17,15 @@ import { bindTargetPicker } from "./target-picker.mjs";
 import {
     buildRlDamageStagingFlag, buildConditionGrantData, rlConditionChoices,
     RL_DAMAGE_TYPES, RL_DAMAGE_CATEGORIES, RL_DAMAGE_MODES,
-} from "./rl-grant-logic.mjs";
-import { formatAttackLabel } from "./attack-flow-logic.mjs";
+} from "../rules/rl-grant.mjs";
+import { formatAttackLabel } from "../rules/attack-flow.mjs";
 import { buildGrantedEffectData, buildGrantedEffectDataFrom } from "./usage-effects.mjs";
-import { buildBountyGrantData } from "./bounty-grant-logic.mjs";
+import { buildBountyGrantData } from "../rules/bounty-grant.mjs";
 import {
     listBountyPresets, listDamageGrantPresets, listEffectGrantPresets,
     presetLabel, bountyPresetToForm, damagePresetToForm, effectPresetIsEmpty,
 } from "./request-presets.mjs";
-import { buildEffectSourceGroups, parseEffectSourceKey, describeEffectData } from "./effect-source-logic.mjs";
+import { buildEffectSourceGroups, parseEffectSourceKey, describeEffectData } from "../rules/effect-source.mjs";
 import { conditionStatusLabels } from "./conditions.mjs";
 import { promptEffectData } from "./effect-authoring.mjs";
 import { itemDisplayName } from "./identification.mjs";

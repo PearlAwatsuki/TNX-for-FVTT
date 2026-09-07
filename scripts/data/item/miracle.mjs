@@ -6,7 +6,7 @@
  *
  * 殺し神業/防御神業/万能神業の区分(旧 isKill / isDefence / isAll)は形骸化したフラグとして撤去
  * (フェーズ17-1・2026-09-03 ユーザー裁定)。挙動の区分は用途側で表し、アイテムに区分を持たない。
- * 神業由来の印はアイテムの型(miracle)そのものから導く(miracle-logic.mjs の miracleOriginOf)。
+ * 神業由来の印はアイテムの型(miracle)そのものから導く(rules/miracle.mjs の miracleOriginOf)。
  *
  * 注意(2026-07-18 神業の使用回数を汎用 uses へ一本化):
  * - 旧 `usageCount {value(母数), total(残り), mod(バフ)}` を廃し、他アイテムと同じ汎用

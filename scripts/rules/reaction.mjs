@@ -11,8 +11,8 @@
  * - オープンリアクション(対象なし対決)=キャラごとに任意でクリック・結果は最高達成値の1件のみ。
  */
 
-import { resolveNoReaction, resolveOpposed } from "./attack-flow-logic.mjs";
-import { confrontationReactionTypes, confrontationSkillRows, confrontationHasCannot } from "./confrontation-logic.mjs";
+import { resolveNoReaction, resolveOpposed } from "./attack-flow.mjs";
+import { confrontationReactionTypes, confrontationSkillRows, confrontationHasCannot } from "./confrontation.mjs";
 
 /**
  * リアクション要素。

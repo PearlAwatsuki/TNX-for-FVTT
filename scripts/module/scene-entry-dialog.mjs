@@ -16,8 +16,8 @@
  * (residence-area.mjs)。決めた値は実行状態の上書きへ入り、台本は書き換えない。
  */
 
-import { SCENE_AREA_OPTIONS } from "./session-logic.mjs";
-import { DEFAULT_APPEARANCE_TARGET, areaTargetValue } from "./appearance-logic.mjs";
+import { SCENE_AREA_OPTIONS } from "../rules/session.mjs";
+import { DEFAULT_APPEARANCE_TARGET, areaTargetValue } from "../rules/appearance.mjs";
 import { loadGroupedGeneralSkillChoices, loadGeneralSkillNameByKey } from "./skill-dictionary.mjs";
 import { formatSkillName } from "./identification.mjs";
 

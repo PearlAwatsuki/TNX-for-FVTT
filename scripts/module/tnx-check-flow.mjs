@@ -26,8 +26,8 @@ import { getUserFlagData } from './user-flag-schema.mjs';
 import { applyConsumptionPlan } from './usage-consumption.mjs';
 import { formatSkillName } from './identification.mjs';
 import { buildCheckCardContext } from './check-card-context.mjs';
-import { appearanceCardInfo } from './appearance-logic.mjs';
-import { purchaseCardInfo } from './purchase-logic.mjs';
+import { appearanceCardInfo } from '../rules/appearance.mjs';
+import { purchaseCardInfo } from '../rules/purchase.mjs';
 import { isMajorActionTiming } from './combat-turn-order.mjs';
 import { TnxCombat } from '../combat/tnx-combat.mjs';
 
@@ -965,11 +965,11 @@ export class TnxCheckFlow {
             if (overall === "open") {
                 if (prev.openReactions?.length) {
                     // 2026-07-18 任意・複数化: 成立の最高達成値1件との受動有利で再導出
-                    const { resolveOpenReactions } = await import("./reaction-logic.mjs");
+                    const { resolveOpenReactions } = await import("../rules/reaction.mjs");
                     if (resolveOpenReactions(result.achievement ?? 0, prev.openReactions).failed) overall = "failed";
                 } else if (prev.openReaction?.resolved && prev.openReaction.mode) {
                     // 旧形式(先着1件・2026-07-17)の互換
-                    const { resolveOpposed } = await import("./attack-flow-logic.mjs");
+                    const { resolveOpposed } = await import("../rules/attack-flow.mjs");
                     const { hit } = resolveOpposed(result.achievement ?? 0, prev.openReaction.reactionAchievement ?? 0);
                     if (!hit) overall = "failed";
                 }
@@ -977,7 +977,7 @@ export class TnxCheckFlow {
             // 移動(2026-07-19 ユーザー確定): 達成値10未満(=0段階)はその時点で移動失敗=判定失敗扱い。
             // 再判定で回復すれば failedReason も外す
             if (ctx.attack.movement && overall !== "fumble" && overall !== "miss") {
-                const { movementStagesFromAchievement } = await import("./vehicle-move-logic.mjs");
+                const { movementStagesFromAchievement } = await import("../rules/vehicle-move.mjs");
                 const movementFailed = movementStagesFromAchievement(Number(result.achievement) || 0) === 0;
                 if (movementFailed) overall = "failed";
                 patch[`flags.${SYSTEM_ID}.attackCheck.failedReason`] = movementFailed ? "movement" : null;
@@ -986,7 +986,7 @@ export class TnxCheckFlow {
             // 仕切り直しで器を敷く=回復時にリアクション導線が開くように(2026-07-19)
             if (!(prev.targets?.length) && !prev.openReactions
                 && overall !== "fumble" && overall !== "miss") {
-                const { isOpposedConfrontation } = await import("./confrontation-logic.mjs");
+                const { isOpposedConfrontation } = await import("../rules/confrontation.mjs");
                 if (isOpposedConfrontation(ctx.attack.confrontation)) {
                     patch[`flags.${SYSTEM_ID}.attackCheck.openReactions`] = [];
                 }
@@ -1579,7 +1579,7 @@ export class TnxCheckFlow {
             patch[`flags.${SYSTEM_ID}.attackCheck.achievement`] = newAch;
             // 解決済みなら保存済みの相手値に対して再解決(pending は以後の解決が新しい値を使う)
             if (attackF.state === "hit" || attackF.state === "miss") {
-                const { resolveNoReaction, resolveOpposed } = await import("./attack-flow-logic.mjs");
+                const { resolveNoReaction, resolveOpposed } = await import("../rules/attack-flow.mjs");
                 const r = attackF.resolution === "none"
                     ? resolveNoReaction(newAch, attackF.targetValue)
                     : resolveOpposed(newAch, attackF.reactionAchievement ?? 0);
@@ -1591,7 +1591,7 @@ export class TnxCheckFlow {
                 // 移動(2026-07-19): 達成値10未満(=0段階)は移動失敗=判定失敗扱い(回復すれば解除)
                 let movementFailed = false;
                 if (attackF.movement) {
-                    const { movementStagesFromAchievement } = await import("./vehicle-move-logic.mjs");
+                    const { movementStagesFromAchievement } = await import("../rules/vehicle-move.mjs");
                     movementFailed = movementStagesFromAchievement(newAch) === 0;
                     patch[`flags.${SYSTEM_ID}.attackCheck.failedReason`] = movementFailed ? "movement" : null;
                 }
@@ -1599,12 +1599,12 @@ export class TnxCheckFlow {
                     patch[`flags.${SYSTEM_ID}.attackCheck.state`] = "failed";
                 } else if (attackF.openReactions?.length) {
                     // 2026-07-18 任意・複数化: 成立の最高達成値1件との受動有利で再導出
-                    const { resolveOpenReactions } = await import("./reaction-logic.mjs");
+                    const { resolveOpenReactions } = await import("../rules/reaction.mjs");
                     const { failed } = resolveOpenReactions(newAch, attackF.openReactions);
                     patch[`flags.${SYSTEM_ID}.attackCheck.state`] = failed ? "failed" : "open";
                 } else if (attackF.openReaction?.resolved && attackF.openReaction.mode) {
                     // 旧形式(先着1件・2026-07-17)の互換
-                    const { resolveOpposed } = await import("./attack-flow-logic.mjs");
+                    const { resolveOpposed } = await import("../rules/attack-flow.mjs");
                     const { hit } = resolveOpposed(newAch, attackF.openReaction.reactionAchievement ?? 0);
                     patch[`flags.${SYSTEM_ID}.attackCheck.state`] = hit ? "open" : "failed";
                 } else if (attackF.movement) {

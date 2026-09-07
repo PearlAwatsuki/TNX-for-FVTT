@@ -28,18 +28,18 @@ import { buildUsageCheckContext } from "./usage-check-context.mjs";
 import { resolveUsageTargetRefs } from "./target-resolution.mjs";
 import { TargetSelectionDialog } from "./tnx-dialog.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
-import { resolveNoReaction, resolveOpposed, formatAttackLabel, combineWeaponAttack, resolveAttackRecheckState } from "./attack-flow-logic.mjs";
-import { resolveTargetDefense, resolveOpenReactions, reactionButtonPlan } from "./reaction-logic.mjs";
+import { resolveNoReaction, resolveOpposed, formatAttackLabel, combineWeaponAttack, resolveAttackRecheckState } from "../rules/attack-flow.mjs";
+import { resolveTargetDefense, resolveOpenReactions, reactionButtonPlan } from "../rules/reaction.mjs";
 import { buildCheckCardContext, suitSymbolOf } from "./check-card-context.mjs";
 import { resolveAttackWeapons, attackWeaponDisplayName, attackWeaponKindEligible } from "./attack-weapons.mjs";
 import { isOutfitUnusable, isOutfitDestroyed } from "../data/item/helpers.mjs";
 import { buildSkillOptions } from "./skill-select.mjs";
-import { movementStagesFromAchievement } from "./vehicle-move-logic.mjs";
+import { movementStagesFromAchievement } from "../rules/vehicle-move.mjs";
 import { USAGE_TYPE_LABELS, attackCategoryOf, usageDisplayName, executionFormOf } from "./usage-types.mjs";
 import {
     confrontationHasCannot, asteriskSkillKeys, isOpposedConfrontation,
     confrontationReactionTypes, confrontationSkillRows,
-} from "./confrontation-logic.mjs";
+} from "../rules/confrontation.mjs";
 import { findItemByIdentificationKey, resolveItemNameByKey } from "./identification.mjs";
 
 import { keepTogether, nowrap } from "./chat-text.mjs";

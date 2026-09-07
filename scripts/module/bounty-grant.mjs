@@ -9,7 +9,7 @@
 
 import { SYSTEM_ID } from "../constants.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
-import { nextBountyValue, markBountyReceived, isBountyReceived } from "./bounty-grant-logic.mjs";
+import { nextBountyValue, markBountyReceived, isBountyReceived } from "../rules/bounty-grant.mjs";
 
 
 /** 同期解決(チャット描画は同期のため fromUuidSync を使う)。 */

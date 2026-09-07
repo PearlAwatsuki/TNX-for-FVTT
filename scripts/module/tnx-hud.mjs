@@ -8,7 +8,7 @@ import { getSessionState, getActiveActJournal } from './session-state.mjs';
 import { isAppearing } from './appearance-state.mjs';
 import {
     hudInfoItems, hudInfoTnChips, withResolvedInfoSkillNames, buildInfoCardData, infoDesignationRows,
-} from './session-logic.mjs';
+} from '../rules/session.mjs';
 import { loadGeneralSkillNameByKey } from './skill-dictionary.mjs';
 
 /** トランプの裏面画像(非開示時・RL手札の裏向き表示に使用) */

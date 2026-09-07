@@ -14,7 +14,7 @@ import {
   DEFAULT_APPEARANCE_TARGET,
   pickTokenDropPosition,
   tokenDeletionImpliesExit,
-} from "../../scripts/module/appearance-logic.mjs";
+} from "../../scripts/rules/appearance.mjs";
 
 describe("appearanceCardInfo()（登場判定の専用チャットカード表示・2026-08-16）", () => {
   it("登場文脈が無ければ null（通常の判定カードは無改変）", () => {

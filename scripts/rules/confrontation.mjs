@@ -11,7 +11,7 @@
  * 組み合わせ判定の対決欄=構成技能の対決欄の合算(和集合・重複は吸収)。
  */
 
-import { USAGE_TYPE_DEFS } from "./usage-types.mjs";
+import { USAGE_TYPE_DEFS } from "../module/usage-types.mjs";
 
 /** 対決欄の手段行に使えるリアクション用途タイプのキー(定義順)。 */
 export const CONFRONTATION_REACTION_VALUES = Object.freeze(

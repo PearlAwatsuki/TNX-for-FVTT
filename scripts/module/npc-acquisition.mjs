@@ -23,7 +23,7 @@ import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { buildUsageCheckContext } from "./usage-check-context.mjs";
 import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } from "./usage-consumption.mjs";
 import { placeActorTokens } from "./tnx-token-placement.mjs";
-import { computeAcquisitionOutcome, buildBunshinAbilityMods } from "./npc-acquisition-logic.mjs";
+import { computeAcquisitionOutcome, buildBunshinAbilityMods } from "../rules/npc-acquisition.mjs";
 
 const MODE_LABELS = { extra: "エキストラ", troop: "トループ", enigma: "エニグマ", bunshin: "分身" };
 const RESOURCE_LABELS = { troop: "人数", enigma: "エニグマポイント" };

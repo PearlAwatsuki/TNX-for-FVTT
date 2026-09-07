@@ -10,7 +10,7 @@
 
 import { SYSTEM_ID } from "../constants.mjs";
 import { usesMaxTotalOf, usesMaxBaseOf } from "../data/item/uses.mjs";
-import { conditionDisplayName } from "./conditions.mjs";
+import { conditionDisplayName } from "../module/conditions.mjs";
 import { isOutfitDestroyed, isOutfitServiceImmune } from "../data/item/helpers.mjs";
 import { OUTFIT_TYPES, outfitClassifications, ALL_CATEGORIES_KEY } from "../data/item/outfit-categories.mjs";
 

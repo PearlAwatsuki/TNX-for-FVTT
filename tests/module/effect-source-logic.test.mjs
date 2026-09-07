@@ -5,7 +5,7 @@ import {
   parseEffectSourceKey,
   buildEffectSourceGroups,
   describeEffectData,
-} from "../../scripts/module/effect-source-logic.mjs";
+} from "../../scripts/rules/effect-source.mjs";
 
 describe("effectSourceKey() / parseEffectSourceKey()（付与元の1値エンコード・2026-07-21）", () => {
   it("プリセットはジャーナルIDとプリセットIDを持つ", () => {

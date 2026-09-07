@@ -32,13 +32,13 @@ import {
     USAGE_TYPE_LABELS, isAttackType, attackCategoryOf, isReactionType, isMiracleType,
     executionFormOf, defaultConfrontationForType, usageDisplayName, effectiveBaseSkillId,
 } from "./usage-types.mjs";
-import { USAGE_CONFRONTATION_OPTIONS, mergeConfrontationRows } from "./confrontation-logic.mjs";
+import { USAGE_CONFRONTATION_OPTIONS, mergeConfrontationRows } from "../rules/confrontation.mjs";
 import { findItemByIdentificationKey, formatSkillName, itemDisplayName } from "./identification.mjs";
 import { orderSkills } from "./skill-select.mjs";
 import {
     RANGE_SPAN_CAPABLE, resolveTarget, resolveRange, resolveTargetValue, resolveTiming,
     normalizeUsageExplanation,
-} from "./usage-autofill-logic.mjs";
+} from "../rules/usage-autofill.mjs";
 
 const CHAIN_SKILL_TYPES = ["generalSkill", "styleSkill"];
 
@@ -159,7 +159,7 @@ const RECOVERY_GROUP_LABELS = Object.freeze({
 
 // ─── 発動パラメータ優先度（自動入力で使用） ───────────────────────────────────
 // ルール正本: llm-wiki/01_Wiki/Game_Rules/Check_Rules.md（対象優先度・射程優先度）。
-// 優先度解決の純ロジックは usage-autofill-logic.mjs へ分離(KI-033・2026-07-19)。
+// 優先度解決の純ロジックは rules/usage-autofill.mjs へ分離(KI-033・2026-07-19)。
 
 /**
  * 使用武器の射程を解決する(射程「武器」の実体解決・2026-07-13 再設計)。

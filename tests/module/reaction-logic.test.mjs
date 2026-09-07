@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
 const { resolveTargetDefense, resolveOpenReactions, reactionButtonPlan } =
-  await import("../../scripts/module/reaction-logic.mjs");
+  await import("../../scripts/rules/reaction.mjs");
 
 const R = (over = {}) => ({
   mode: "dodge", achievement: 0, established: true, parryGuard: 0,

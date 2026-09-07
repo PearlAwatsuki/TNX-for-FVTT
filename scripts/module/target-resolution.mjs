@@ -14,7 +14,7 @@
  */
 
 import { planUsageTargets } from "./usage-target-plan.mjs";
-import { isOpposedConfrontation } from "./confrontation-logic.mjs";
+import { isOpposedConfrontation } from "../rules/confrontation.mjs";
 
 /** 現在ターゲット中(レティクル)のアクターを列挙する。 */
 export function currentTargetActors() {

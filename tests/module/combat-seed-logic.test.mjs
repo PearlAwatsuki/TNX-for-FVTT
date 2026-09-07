@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildCombatSeedUpdate } from "../../scripts/module/combat-seed-logic.mjs";
+import { buildCombatSeedUpdate } from "../../scripts/rules/combat-seed.mjs";
 
 describe("buildCombatSeedUpdate()（カット開始シード＝CSカレントへCS実効値・現在ARへ付与値・フェーズ13-2）", () => {
   it("CS・AR 両方あれば current=valueTotal・value=maxTotal を返す", () => {

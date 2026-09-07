@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
 const { aggregateDefence, defenceForType, computeDamage, splitSharedBonusRows } =
-  await import("../../scripts/module/damage-logic.mjs");
+  await import("../../scripts/rules/damage.mjs");
 
 const armor = (S, P, I, { prepared = true, mode = "value" } = {}) => ({
   type: "armor",

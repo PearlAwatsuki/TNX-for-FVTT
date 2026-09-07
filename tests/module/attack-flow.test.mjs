@@ -3,7 +3,7 @@ import "../setup.mjs";
 
 const { resolveNoReaction, resolveOpposed, formatAttackLabel, combineWeaponAttack,
   resolveAttackRecheckState } =
-  await import("../../scripts/module/attack-flow-logic.mjs");
+  await import("../../scripts/rules/attack-flow.mjs");
 
 // ダメージカードは命中判定のカードとは別に出す(Damage_Rules 2026-07-08 訂正)ため、
 // 命中判定値からの導出(novaDamageCardValue)は廃止された

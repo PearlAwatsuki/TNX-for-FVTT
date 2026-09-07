@@ -4,7 +4,7 @@ import {
   clampGauge,
   gaugeMarkers,
   buildFocusSystemSnapshot,
-} from "../../scripts/module/focus-system-logic.mjs";
+} from "../../scripts/rules/focus-system.mjs";
 
 const ROWS = [
   { id: "a", threshold: 0, skillKey: "hacking",  targetValue: 12 },

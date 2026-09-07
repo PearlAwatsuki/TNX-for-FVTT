@@ -6,7 +6,7 @@ import { TokyoNovaExtraSheet } from './actor/tnx-extra-sheet.mjs';
 import { computeTroopFixedName, findDepartmentSkillName } from './data/helpers.mjs';
 import { defaultWeaponKindForCategory } from './data/item/common/outfit-base.mjs';
 import { usesMaxBaseOf } from './data/item/uses.mjs';
-import { miracleRemovalUpdate } from './module/miracle-logic.mjs';
+import { miracleRemovalUpdate } from './rules/miracle.mjs';
 import { fitCardTags, renderCardOutcome } from './module/chat-card.mjs';
 import { canonicalizeSkillActions } from './module/usage-type-migration.mjs';
 import { SKILL_PACKS } from './module/skill-dictionary.mjs';
@@ -74,7 +74,7 @@ import { registerSessionStateSetting, registerAppearanceExpTracking, registerMir
 import { registerSubSceneSetting, refreshSubSceneBackground } from './module/subscenes.mjs';
 import { registerAppearanceTokenSync } from './module/appearance-state.mjs';
 import { registerTimeBoundaries, registerForcedExitWounds } from './module/time-boundary.mjs';
-import { durationLabelOf, TNX_DURATIONS } from './module/time-boundary-logic.mjs';
+import { durationLabelOf, TNX_DURATIONS } from './rules/time-boundary.mjs';
 import { openSubScenePanel } from './module/tnx-subscene-panel.mjs';
 import { renderFocusProgressButton, renderFocusSupportNote } from './module/focus-system-result.mjs';
 import { autoSendFocusChecks } from './module/focus-system-request.mjs';

@@ -1,5 +1,5 @@
 /**
- * @fileoverview 神業の使用フロー(フェーズ17-1・Foundry 依存側)。純ロジックは miracle-logic.mjs。
+ * @fileoverview 神業の使用フロー(フェーズ17-1・Foundry 依存側)。純ロジックは rules/miracle.mjs。
  *
  * 神業はゴールデンルール「RL の絶対権限」のひとつ下に位置する強制力の強いルール(Miracle_Rules
  * 「神業の位置づけ」)。挙動は既存の用途の器で表現し、用途は前提条件にしない——**用途が0件でも
@@ -17,7 +17,7 @@ import {
     interferenceCandidates, addUseEffectSource, miracleLogCandidates, conditionSwapPlan,
     renameMiracleInText, listDestroyableOutfits,
     miracleRewriteCandidates, miracleRewriteVia, miracleCardTextPlan,
-} from "./miracle-logic.mjs";
+} from "../rules/miracle.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";

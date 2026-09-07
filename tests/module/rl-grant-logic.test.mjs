@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildRlDamageRollFlag, rlGrantAmount, rlGrantLedgerRow, rlGrantTypeLabel,
   buildRlDamageStagingFlag, RL_DAMAGE_MODES,
-} from "../../scripts/module/rl-grant-logic.mjs";
+} from "../../scripts/rules/rl-grant.mjs";
 
 const TARGETS = [
   { uuid: "Actor.aaa", name: "キャストA" },

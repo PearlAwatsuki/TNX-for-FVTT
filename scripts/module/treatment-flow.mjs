@@ -23,7 +23,7 @@ import { CONDITION_KINDS, getConditionKinds, usageCanTreatKinds } from "./condit
 import { TargetSelectionDialog } from "./tnx-dialog.mjs";
 import { itemDisplayName } from "./identification.mjs";
 import { usageDisplayName } from "./usage-types.mjs";
-import { buildIncapableEffectData } from "./time-boundary-logic.mjs";
+import { buildIncapableEffectData } from "../rules/time-boundary.mjs";
 import { getSessionState } from "./session-state.mjs";
 
 

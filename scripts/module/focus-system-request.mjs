@@ -10,7 +10,7 @@
  */
 
 import { postCheckRequest } from "./tnx-rl-request-app.mjs";
-import { buildProgressRequest, buildSupportRequest } from "./focus-system-request-logic.mjs";
+import { buildProgressRequest, buildSupportRequest } from "../rules/focus-system-request.mjs";
 import { loadSkillEntries, SKILL_PACKS, formatDesignatedSkills } from "./skill-dictionary.mjs";
 import { listActiveFocusSystems } from "./focus-system-state.mjs";
 

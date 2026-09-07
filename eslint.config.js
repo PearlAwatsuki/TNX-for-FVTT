@@ -66,6 +66,26 @@ export default [
   },
 
   {
+    // scripts/rules/ は「TNX のルール判断」を置く場所で、**Foundry 非依存であること**が
+    // 存在意義(Foundry 実行環境なしでそのままテストできる)。従来この性質は `-logic` という
+    // 接尾辞で表していたが、名乗るかどうかが書き手任せで、同じ性質のファイルの 3 分の 2 は
+    // 名乗っていなかった。ディレクトリに移して機械的に強制する(2026-09-07)。
+    files: ["scripts/rules/**/*.mjs"],
+    rules: {
+      "no-restricted-globals": ["error",
+        { name: "game",        message: "scripts/rules/ は Foundry 非依存にする。値は引数で受け取る" },
+        { name: "ui",          message: "scripts/rules/ は Foundry 非依存にする。通知は呼び出し側で行う" },
+        { name: "Hooks",       message: "scripts/rules/ は Foundry 非依存にする" },
+        { name: "canvas",      message: "scripts/rules/ は Foundry 非依存にする" },
+        { name: "CONFIG",      message: "scripts/rules/ は Foundry 非依存にする" },
+        { name: "ChatMessage", message: "scripts/rules/ は Foundry 非依存にする" },
+        { name: "fromUuid",    message: "scripts/rules/ は Foundry 非依存にする。解決済みの値を受け取る" },
+        { name: "foundry",     message: "scripts/rules/ は Foundry 非依存にする" },
+      ],
+    },
+  },
+
+  {
     // node_modules と tests/ は除外/特殊扱い
     ignores: ["node_modules/**", "lang/**.json"],
   },

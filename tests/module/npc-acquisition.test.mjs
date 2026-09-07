@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
 const { computeAcquisitionOutcome, buildBunshinAbilityMods } =
-  await import("../../scripts/module/npc-acquisition-logic.mjs");
+  await import("../../scripts/rules/npc-acquisition.mjs");
 
 // 旧 findOwnedTroops(所有者逆引き)は 2026-07-07 廃止——対象は用途側の取得アクター参照で明示設定
 

@@ -8,7 +8,7 @@ import {
     confrontationSkillRows,
     asteriskSkillKeys,
     mergeConfrontationRows,
-} from "../../scripts/module/confrontation-logic.mjs";
+} from "../../scripts/rules/confrontation.mjs";
 import {
     USAGE_TYPE_DEFS,
     defaultConfrontationForType,

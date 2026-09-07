@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { TNX_BOUNDARIES, planConditionRecovery, planActionRecoveryRows, planActEndDamageCleanup,
          buildIncapableEffectData, planSceneDeadlineExpiry, appearanceBlockOf,
-         collectLostCharacters, planPoisonTicks, planSceneDeferredFiring } from "../../scripts/module/time-boundary-logic.mjs";
+         collectLostCharacters, planPoisonTicks, planSceneDeferredFiring } from "../../scripts/rules/time-boundary.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 
