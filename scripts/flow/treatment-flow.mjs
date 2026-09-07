@@ -9,7 +9,7 @@
  *    不備(RL は複数のゲストを操作する=2026-07-18 ユーザー是正)。治療に使う技能はその治療者自身のもの。
  * 3. 治療者のアイテムから kind 集合に範囲適合(recoveryTargets/recoveryExcludes)する治療用途を検出。
  *    無ければ「治療できる技能が無い」で中止(代用判定は廃止=2026-07-18)。
- * 4. _activateItemCheck へ prebound 文脈(患者・クリック状態)を注入して起動(起動関数の一本化規範)。
+ * 4. activateItemCheck へ prebound 文脈(患者・クリック状態)を注入して起動(起動関数の一本化規範)。
  *    実行(消費・宣言/判定・除去)は recovery-flow が担う。
  *
  * 旧・治療専用機構(目標値ハードコード 気絶/失神=15・仮死/昏睡=20・それ以外=ダメージ値、
@@ -114,8 +114,8 @@ export async function startTreatment(patient, effectId) {
 
     // 起動は唯一の起動関数へ集約(2026-07-15 ユーザー確定)。患者とクリック状態を prebound 文脈として
     // 注入するだけで、実行(消費・宣言/判定・除去)は recovery-flow が担う
-    const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
-    await TnxCharacterSheetBase._activateItemCheck(treater, picked.item, {
+    const { activateItemCheck } = await import("./item-activation.mjs");
+    await activateItemCheck(treater, picked.item, {
         usageId: picked.usage._id,
         treatment: { patientUuid: patient.uuid, effectId: effect.id },
     });

@@ -47,6 +47,7 @@ import { toCheckRequestTargets } from '../rules/target-picker.mjs';
 import { promptTargetToken } from "../flow/target-resolution.mjs";
 import { spinnerDialogActions } from "../ui/tnx-dialog.mjs";
 import { resolveDesignationResponse } from "../flow/designation-response.mjs";
+import { activateItemCheck } from "../flow/item-activation.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -415,7 +416,6 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
         if (checkType === "skillCheck" && requestKeys.length) {
             const resolved = await resolveDesignatedSkillResponse(actor, requestKeys);
             if (!resolved) return;
-            const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
             const extra = { requestMessageId: messageId, targetValue: targetValue ?? null };
             if (resolved.usageId) extra.usageId = resolved.usageId;
             if (resolved.substitution) {
@@ -438,7 +438,7 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
                 if (!targetActorId) { ui.notifications.warn("ターゲットのアクターを解決できません。"); return; }
                 extra.focusSupportTargetId = targetActorId;
             }
-            await TnxCharacterSheetBase._activateItemCheck(actor, resolved.item, extra);
+            await activateItemCheck(actor, resolved.item, extra);
             return;
         }
 
@@ -537,7 +537,7 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
  * 指定技能(識別キー)への応答を解決する(判定要求と情報収集判定[14-9]で共用・2026-08-16 抽出)。
  * 複数キーの選択 → 所持技能の実解決(REQUEST_SKILL_TYPES=一般/スタイル/ワークス) →
  * 用途・コンボ候補の選択(KI-025) → 代用判定、までを担い、起動パラメータを返す。
- * 起動そのものは呼び出し側が `_activateItemCheck` で行う(唯一の起動関数への集約を保つ)。
+ * 起動そのものは呼び出し側が `activateItemCheck` で行う(唯一の起動関数への集約を保つ)。
  * @param {Actor} actor
  * @param {Array<string>} keys 指定技能の識別キー(1つ以上)
  * @returns {Promise<?{item: Item, usageId?: string, substitution?: {requestedLabel: string,

@@ -7,7 +7,7 @@
  * ダメージ等)は用途のフラグで乗る(17-2 以降)。
  *
  * 神業由来の印(miracleOriginOf)は神業カードのフラグ `miracle` に刻む。読み手は isMiracleOrigin。
- * 起動は唯一の起動関数 `_activateItemCheck` からのみ(旧 _onUseMiracle は撤去)。
+ * 起動は唯一の起動関数 `activateItemCheck` からのみ(旧 _onUseMiracle は撤去)。
  */
 
 import {
@@ -548,8 +548,8 @@ async function handleMiracleRequestClick(message, miracleId) {
     const miracle = target?.items?.get(miracleId);
     if (!miracle) { ui.notifications.warn("使わせる神業が見つかりません。"); return; }
     if (!(game.user.isGM || target.isOwner)) { ui.notifications.warn("神業の使用は対象の操作者（または RL）が行います。"); return; }
-    const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
-    const fired = await TnxCharacterSheetBase._activateItemCheck(target, miracle, { miracleFree: { messageId: message.id } });
+    const { activateItemCheck } = await import("./item-activation.mjs");
+    const fired = await activateItemCheck(target, miracle, { miracleFree: { messageId: message.id } });
     if (fired !== true) return;
     await TnxSocketHandler.applyMessagePatch(message, {
         [`flags.${SYSTEM_ID}.miracle.request.used`]: { id: miracle.id, name: miracle.name },

@@ -1199,8 +1199,8 @@ export async function startReaction(reactionMsg, mode) {
     // 起動は唯一の起動関数へ集約(2026-07-15 ユーザー確定)。用途・コンボ・消費・判定ボーナス・適用効果は
     // シートの技能クリックと全く同じ処理で解決し、ここではリアクション文脈だけを注入する
     // (組み合わせの可否はユーザー/RL が決めるものでシステムは制限しない)。
-    const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
-    await TnxCharacterSheetBase._activateItemCheck(reactor, sel.skill, {
+    const { activateItemCheck } = await import("./item-activation.mjs");
+    await activateItemCheck(reactor, sel.skill, {
         ...(sel.usageId ? { usageId: sel.usageId } : {}),
         reaction: {
             reactionMessageId: reactionMsg.id, attackMessageId: r.attackMessageId,
@@ -1234,8 +1234,8 @@ export async function handleOpenReactionClick(attackMsg) {
     }
     const sel = await selectReactionSkill(identity, f.confrontation ?? [], "open");
     if (!sel) return;
-    const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
-    await TnxCharacterSheetBase._activateItemCheck(identity, sel.skill, {
+    const { activateItemCheck } = await import("./item-activation.mjs");
+    await activateItemCheck(identity, sel.skill, {
         ...(sel.usageId ? { usageId: sel.usageId } : {}),
         reaction: {
             reactionMessageId: null, attackMessageId: attackMsg.id, targetIndex: null,
@@ -1376,7 +1376,7 @@ export async function completeReactionFromCheck(payload, result, { suitMismatch 
 
 /**
  * カバー待ち受け中に、攻撃カードの命中対象がクリックされたときの処理。ダメージ算出の直前=ダメージ
- * カードを出す前(!damageRolled)のみ。その対象を文脈にカバーの判定(唯一の起動関数 `_activateItemCheck`・
+ * カードを出す前(!damageRolled)のみ。その対象を文脈にカバーの判定(唯一の起動関数 `activateItemCheck`・
  * covering 文脈)を起動する。成功で completeCoveringFromCheck が攻撃カードへ印を付ける。モード外の
  * クリックは無視(通常表示)。
  * @param {ChatMessage} attackMessage 攻撃カード
@@ -1393,8 +1393,8 @@ export async function handleCoveringClick(attackMessage, targetIndex) {
     const skill = actor?.items.get(state.skillItemId);
     if (!skill) { TnxCheckFlow.cancelAchievementAction(); return; }
     TnxCheckFlow.cancelAchievementAction();
-    const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
-    await TnxCharacterSheetBase._activateItemCheck(actor, skill, {
+    const { activateItemCheck } = await import("./item-activation.mjs");
+    await activateItemCheck(actor, skill, {
         covering: { attackMessageId: attackMessage.id, targetIndex, usageId: state.usageId },
     });
 }

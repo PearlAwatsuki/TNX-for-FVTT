@@ -3,10 +3,10 @@ import "../setup.mjs";
 
 const { executionFormOf } = await import("../../scripts/rules/usage-types.mjs");
 
-// アイテムロール(_activateItemCheck)の候補は**用途を種別で絞らない**(2026-07-19 ユーザー指示
+// アイテムロール(activateItemCheck)の候補は**用途を種別で絞らない**(2026-07-19 ユーザー指示
 // 「宣言用途を勝手に除外しないでください」)。旧 usableUsagesOf(フラグ無し宣言を除外)は廃止した
 // ——宣言用途しか持たないアウトフィットがロールできず解説カードに落ちていたため。
-// ここでは、候補に入った各用途が _activateItemCheck の分岐で実行経路を持つこと(=到達不能な
+// ここでは、候補に入った各用途が activateItemCheck の分岐で実行経路を持つこと(=到達不能な
 // 用途が生まれないこと)を、分岐の判別に使う executionFormOf の側から確認する。
 
 describe("executionFormOf()（用途の実行形式＝アイテムロールの分岐先）", () => {

@@ -153,11 +153,14 @@ describe("規約: 共通の置き場を迂回しない(ラチェット=増やさ
   // 2026-09-07 に ListSelectionDialog を置き場へ足し、修理・改造(対象/ドラッグ)・使用回数の
   // 消費を差し替えた。回復の2群選択は形が違う(独立した2つの複数選択＋全選択の強制)ため
   // 無理に寄せていない。
-  const DIALOG_LIMIT = 28;
-  it(`DialogV2 を直接呼ぶファイルが ${DIALOG_LIMIT} を超えない`, () => {
-    const files = SRC.filter(p => !p.endsWith("tnx-dialog.mjs")
-      && /DialogV2\.(wait|prompt|confirm)\s*\(/.test(text.get(p)));
-    expect(files.length).toBeLessThanOrEqual(DIALOG_LIMIT);
+  // 数えるのは**呼び出し箇所**であってファイル数ではない。ファイル数で数えると、DialogV2 を
+  // 呼ぶファイルを 2 つに割っただけで違反が増え、逆に 1 ファイルへ寄せ集めれば減る——
+  // 「置き場を迂回した回数」という測りたいものと関係のない値になる(2026-09-07 に実際に誤検知した)。
+  const DIALOG_LIMIT = 53;
+  it(`DialogV2 を直接呼ぶ箇所が ${DIALOG_LIMIT} を超えない`, () => {
+    const n = countIn(SRC.filter(p => !p.endsWith("tnx-dialog.mjs")),
+      /DialogV2\.(wait|prompt|confirm)\s*\(/g);
+    expect(n).toBeLessThanOrEqual(DIALOG_LIMIT);
   });
 
   // システム ID はファイルごとに SCOPE / TNX_SCOPE / SCOPE_FLAGS / TNX_FLAG_SCOPE /

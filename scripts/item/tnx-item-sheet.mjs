@@ -4,6 +4,7 @@ import { usageTypeLabelsFor, defaultUsageTypeFor } from "../rules/usage-types.mj
 import { defaultConfrontationForType, executionFormOf, usageDisplayName, usesVehicle } from "../rules/usage-types.mjs";
 import { resolveBunshinOwner } from "../flow/usage-consumption.mjs";
 import { attachEditorSectionToggles } from "../ui/editor-sections.mjs";
+import { activateItemCheck } from "../flow/item-activation.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -293,7 +294,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
     }
 
     /**
-     * 用途使用（起動）: 唯一の起動関数 `_activateItemCheck` へ用途 ID を直接指定して委譲する
+     * 用途使用（起動）: 唯一の起動関数 `activateItemCheck` へ用途 ID を直接指定して委譲する
      * (2026-07-16 統合。従来ここに在ったNPC取得/クリック待ち/回復/攻撃/宣言使用の分岐は、
      * アクターシートの技能クリックと同じディスパッチャの複製であり、後から足した分岐=カバー・
      * 固定値がこちらに反映されないドリフトが起きていた)。入口は薄く=actor/item を解決して呼ぶだけ。
@@ -310,8 +311,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             ui.notifications.warn("アクターが所持しているアイテムから使用してください。");
             return;
         }
-        const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
-        await TnxCharacterSheetBase._activateItemCheck(actor, this.item, { usageId });
+        await activateItemCheck(actor, this.item, { usageId });
     }
 
     static async _onActionDelete(_event, target) {

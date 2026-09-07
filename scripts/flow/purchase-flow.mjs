@@ -8,7 +8,7 @@
  * - always: 購入値が外界実効値以下＝常時入手(確認→複製付与→カード公開)
  * - check: 方式選択(縦積みボタン・D&D 準拠)
  *   - カード判定: アクターの購入用途(usage.type="purchase")から選択し、唯一の起動関数
- *     `_activateItemCheck` に TN=購入値と完了継続 ctx.purchase を注入(登場判定と同型)。
+ *     `activateItemCheck` に TN=購入値と完了継続 ctx.purchase を注入(登場判定と同型)。
  *     購入用途が無ければ選択肢をグレーアウトで見せる(designation-response と同じ規約)
  *   - カードなし特例(Check_Rules の信用特例): 判定フローを起動せず本フロー内で
  *     達成値 = 外界実効値 ＋ 消費報酬点。報酬点は消費時点一元ゲート(口座凍結/信用失墜=
@@ -168,8 +168,8 @@ async function promptPurchaseMethod(actor, doc, uuid, targetValue, mundane) {
     // 「改造して入手」属性の購入は判定前に改造項目を選ぶ(16-4)
     const spec = await resolveAcquireModSpec(picked.usage, picked.item, doc);
     if (!spec) return;
-    const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
-    await TnxCharacterSheetBase._activateItemCheck(actor, picked.item, {
+    const { activateItemCheck } = await import("./item-activation.mjs");
+    await activateItemCheck(actor, picked.item, {
         usageId: picked.usage._id,
         targetValue,
         purchase: {
@@ -240,8 +240,8 @@ export async function startPurchaseWithUsage(uuid, { actorId, itemId, usageId, m
                 }
             }
         }
-        const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
-        await TnxCharacterSheetBase._activateItemCheck(actor, item, {
+        const { activateItemCheck } = await import("./item-activation.mjs");
+        await activateItemCheck(actor, item, {
             usageId, purchase: { actorId: actor.id, uuid, itemName: doc.name }, ...(asOther ? { asOther } : {}),
         });
         return true;
@@ -268,8 +268,8 @@ export async function startPurchaseWithUsage(uuid, { actorId, itemId, usageId, m
     // 「改造して入手」属性の購入は判定前に改造項目を選ぶ(16-4)
     const spec = await resolveAcquireModSpec(usage, item, doc);
     if (!spec) return false;
-    const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
-    await TnxCharacterSheetBase._activateItemCheck(actor, item, {
+    const { activateItemCheck } = await import("./item-activation.mjs");
+    await activateItemCheck(actor, item, {
         usageId,
         targetValue: decision.targetValue,
         purchase: {

@@ -6,7 +6,7 @@
  * **達成値に加算**(2026-08-07 裁定・グリーン×1/ホワイト×2)。サンクチュアリは危険値ペナルティ
  * 装備の携帯で登場不可。ゴースト登場は判定前ダイアログの選択肢(2026-08-07 裁定)。
  *
- * 判定の起動は唯一の起動関数 `_activateItemCheck` に集約(extraOpen で TN・危険値行・完了継続を
+ * 判定の起動は唯一の起動関数 `activateItemCheck` に集約(extraOpen で TN・危険値行・完了継続を
  * 注入)。成功の帰結は完了継続 `appearance`(tnx-check-flow の CONTINUATIONS)が適用する。
  * 使用技能の既定候補は社会/コネ分類だが、**他の技能も選択できる**(可否の裁定は卓・システムは
  * 制限しない)。失敗しても登場しないだけで再試行は自由(手札入れ替えとしての登場判定)。
@@ -63,8 +63,8 @@ export async function startAppearanceCheck() {
     if (!skill) return;
 
     const areaLabel = SCENE_AREA_OPTIONS.find(o => o.value === scene.area && o.value !== "")?.label ?? "";
-    const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
-    await TnxCharacterSheetBase._activateItemCheck(actor, skill, {
+    const { activateItemCheck } = await import("./item-activation.mjs");
+    await activateItemCheck(actor, skill, {
         targetValue: params.targetValue,
         // areaLabel は専用チャットカードの表示用(未設定は ""=行を出さない・2026-08-16)
         appearance: { actorId: actor.id, ghost: choice.ghost, areaLabel },

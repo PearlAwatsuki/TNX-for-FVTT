@@ -4,7 +4,7 @@
  * - 起動＝HUD の情報項目の判定ボタン(**項目に1つ**・2026-08-16 裁定)。応じ方は統合応答
  *   ダイアログ(designation-response・2026-08-26 設計)が**縦積みボタン1回**で選ばせる——
  *   指定技能(未所持はグレーアウト)・代用技能・指定充足(checkKind=infoGathering)・
- *   代用判定(行=目標値ごとに常設)。起動は唯一の起動関数 `_activateItemCheck`。
+ *   代用判定(行=目標値ごとに常設)。起動は唯一の起動関数 `activateItemCheck`。
  * - **判定成功で自動開示**(RL 承認なし)・**達成値以下の目標値まで一括開示**・**回数制限なし**
  *   (2026-08-16 裁定)。開示の書き込みはアクトジャーナル(GM 所有)のため PL はソケット委譲。
  *   activeGM 不在では適用できないため PL に警告する(KI-042)。
@@ -27,6 +27,7 @@ import { TnxSocketHandler } from "../core/tnx-socket-handler.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { ALL_SUITS } from "../rules/tnx-check-engine.mjs";
 import { enrichInfoCardData } from "../chat/reference-links.mjs";
+import { activateItemCheck } from "./item-activation.mjs";
 
 
 /**
@@ -72,14 +73,13 @@ export async function startInfoGatheringCheck(itemId) {
         });
     }
 
-    const { TnxCharacterSheetBase } = await import("../actor/tnx-character-sheet-base.mjs");
     const extra = { targetValue: row.tn ?? null, infoGathering };
     if (res.usageId) extra.usageId = res.usageId;
     if (res.substitution) {
         extra.substitution = res.substitution;
         extra.manualMod = res.manualMod;
     }
-    await TnxCharacterSheetBase._activateItemCheck(actor, res.item, extra);
+    await activateItemCheck(actor, res.item, extra);
 }
 
 /**
