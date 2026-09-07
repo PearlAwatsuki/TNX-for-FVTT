@@ -124,7 +124,7 @@ async function promptDesignationOption(title, options, nameByKey) {
         class: o.disabled === true ? DISABLED_TRIGGER_CLASS : "",
         callback: () => i,
     }));
-    buttons.push({ action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null });
+    buttons.push({ action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => false });
     const res = await DialogV2.wait({
         window: { title: esc(title) },
         classes: ["tokyo-nova", "tnx-dialog", "tnx-usage-picker"],
@@ -147,6 +147,7 @@ async function promptDesignationOption(title, options, nameByKey) {
         },
         close: () => null,
     });
-    if (res === null || res === undefined || res === "cancel") return null;
+    // 確定は**数値の添字**(0 を含む)。中止(false / null)と 0 を取り違えないよう整数で判定する
+    if (!Number.isInteger(res)) return null;
     return options[res] ?? null;
 }

@@ -653,7 +653,8 @@ export class TnxCheckFlow {
             close: () => 0,
         });
 
-        return result ?? 0;
+        // 確定は 0 以上の数値(0=使わない)。中止(false / null)も 0 として扱う
+        return Number.isInteger(result) ? result : 0;
     }
 
     // 使用回数の消費(フェーズ11-6 で全面改訂): 旧 planUsesConsumption(参加技能の自動スキャン)と

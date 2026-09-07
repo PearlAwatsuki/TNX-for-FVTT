@@ -168,7 +168,7 @@ export async function openDamageRollDialog(attackMessage) {
         buttons: [
             { action: "deck", icon: "fas fa-clone", label: "山札から1枚めくる",
               callback: (_e, _b, dialog) => readRollForm(dialog.element) },
-            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => false },
         ],
         render: (_event, dialog) => { ctx.dialog = dialog; },
         close: () => null,
@@ -389,7 +389,7 @@ async function promptWildcardValue() {
         buttons: [
             { action: "ok", icon: "fas fa-check", label: "この数字で確定", default: true,
               callback: (_e, _b, dialog) => Math.max(1, Number(dialog.element.querySelector('[name="value"]')?.value) || 1) },
-            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => false },
         ],
         close: () => null,
     });
@@ -1201,7 +1201,7 @@ async function addDamageCard(message) {
         content: `<p class="tnx-damage-note">手札のカードを直接クリックするか、山札からめくってください（複数枚は合算されます）。</p>`,
         buttons: [
             { action: "deck", icon: "fas fa-clone", label: "山札から1枚めくる", default: true, callback: () => "deck" },
-            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => false },
         ],
         render: (_event, dialog) => { ctx.dialog = dialog; },
         close: () => null,
@@ -1354,7 +1354,7 @@ async function openMitigationDialog(message, applyCategory = null) {
         buttons: [
             { action: "apply", icon: "fas fa-burst", label: "ダメージ適用（全対象）", default: true,
               callback: (_e, _b, dialog) => rows.map(r => readRow(dialog.element, r.index)) },
-            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => false },
         ],
         render: (_event, dialog) => {
             const root = dialog.element;

@@ -1,3 +1,24 @@
+/**
+ * @fileoverview ダイアログの置き場。
+ *
+ * **中止の表し方(2026-09-07 統一)**: DialogV2 はボタンのコールバックの戻り値が nullish のとき
+ * **ボタンの action 文字列**で解決する(`callback() ?? action`)。したがって
+ * `callback: () => null` と書くと、キャンセルが文字列 `"cancel"` として届く——truthy なので
+ * `if (!result)` を素通りする。実際に 2026-08-14(参加者の記録が全件削除)と 2026-09-07(KI-052・
+ * キャンセルでも使用回数を消費)の 2 度、実機で事故になっている。
+ *
+ * よってキャンセルは **`callback: () => false`** と書く(`false ?? action` は `false` のまま)。
+ * 呼び出し側の契約は次のとおり:
+ *   - `false` … キャンセルボタン
+ *   - `null`  … × で閉じた(`close: () => null`)
+ *   - それ以外 … 確定した値
+ * 確定値が **0 や空文字になりうる**場合は falsy 判定では中止と区別できない。
+ * `Number.isInteger(res)` のように**確定値の形**で判定すること。
+ *
+ * action 文字列そのものを戻り値の protocol にしている箇所(カット終了の "scene"/"cut" 等)は
+ * 意図的な設計なのでこの限りではない。
+ */
+
 import { DISABLED_TRIGGER_CLASS } from "./ui-trigger-disable.mjs";
 
 const { DialogV2 } = foundry.applications.api;
@@ -50,13 +71,14 @@ export class AmountInputDialog {
                     action: "cancel",
                     icon: "fas fa-times",
                     label: "キャンセル",
-                    callback: () => null,
+                    callback: () => false,
                 },
             ],
             close: () => null,
         });
 
-        if (result === null) return null;
+        // 中止はキャンセル=false / × で閉じる=null。確定のときだけオブジェクトが返る
+        if (!result) return null;
         if (isNaN(result.value) || result.value < min) {
             ui.notifications.warn(`入力値は${min}以上である必要があります。`);
             return null;
@@ -93,7 +115,7 @@ export class TargetSelectionDialog {
                     action: "cancel",
                     icon: "fas fa-times",
                     label: "キャンセル",
-                    callback: () => null,
+                    callback: () => false,
                 },
             ],
             close: () => null,
@@ -127,7 +149,7 @@ export class CardSelectionDialog {
                     action: "cancel",
                     icon: "fas fa-times",
                     label: "キャンセル",
-                    callback: () => null,
+                    callback: () => false,
                 },
             ],
             close: () => null,
@@ -173,7 +195,7 @@ export class DealTrumpDialog {
                     action: "cancel",
                     icon: "fas fa-times",
                     label: "キャンセル",
-                    callback: () => null,
+                    callback: () => false,
                 },
             ],
             close: () => null,
@@ -267,7 +289,7 @@ export class ListSelectionDialog {
                       callback: (_e, _b, dialog) => ({ picked: multi
                           ? [...dialog.element.querySelectorAll(`input[name="${name}"]:checked`)].map(el => el.value)
                           : (dialog.element.querySelector(`input[name="${name}"]:checked`)?.value ?? null) }) },
-                    { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+                    { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => false },
                 ],
                 close: () => null,
             });

@@ -114,7 +114,7 @@ export async function promptSceneEntry({
                     rotation, stageCandidates, skills: initialSkills,
                 }),
             },
-            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => false },
         ],
         close: () => null,
     });

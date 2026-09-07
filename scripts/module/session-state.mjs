@@ -477,7 +477,7 @@ export async function promptActLimitedCleanup() {
               callback: (_e, _b, dialog) => [...dialog.element.querySelectorAll("[name=keep]:checked")]
                   .map(cb => cb.value) },
             // 閉じる/キャンセルは「今回は片付けない」＝全部維持(誤操作で消えるより残るほうが安全)
-            { action: "cancel", icon: "fas fa-times", label: "後で", callback: () => null },
+            { action: "cancel", icon: "fas fa-times", label: "後で", callback: () => false },
         ],
         close: () => null,
     });

@@ -78,7 +78,7 @@ export async function openConditionEditDialog(actor, effect, kind) {
                     return out;
                 },
             },
-            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => false },
         ],
         close: () => null,
     });

@@ -144,7 +144,7 @@ async function promptAppearanceOptions(actor, sceneSkillKeys = []) {
                     ghost:   dialog.element.querySelector('[name="ghost"]')?.checked === true,
                 }),
             },
-            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => false },
         ],
         close: () => null,
     });

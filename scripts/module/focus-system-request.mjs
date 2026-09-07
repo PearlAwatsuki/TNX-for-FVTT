@@ -109,7 +109,7 @@ async function promptTargets(kind) {
                   }
                   return candidates.filter(c => el.querySelector(`[name="target_${c.actorId}"]`)?.checked);
               } },
-            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => false },
         ],
         close: () => null,
     });

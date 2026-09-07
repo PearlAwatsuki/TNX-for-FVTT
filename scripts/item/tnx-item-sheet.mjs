@@ -368,7 +368,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
                     callback: (_event, _button, dialog) =>
                         dialog.element.querySelector("select[name='usageType']")?.value ?? null,
                 },
-                { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+                { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => false },
             ],
             close: () => null,
         });

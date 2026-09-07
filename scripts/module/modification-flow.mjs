@@ -106,7 +106,7 @@ export async function promptModificationParamSelection(outfit, level) {
             idx += 1;
         }
     }
-    buttons.push({ action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null });
+    buttons.push({ action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => false });
     return DialogV2.wait({
         window: { title: `改造項目の選択: ${itemDisplayName(outfit)}` },
         classes: ["tokyo-nova", "tnx-dialog", "tnx-usage-picker"],

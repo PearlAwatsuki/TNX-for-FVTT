@@ -283,7 +283,7 @@ async function promptJokerWildcard(kind) {
           value: needValue ? (Number(dlg.element.querySelector('[name="value"]').value) || 1) : 0,
         }) },
       { action: "redraw", icon: "fas fa-rotate", label: "引き直す", callback: () => "redraw" },
-      { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+      { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => false },
     ],
     close: () => null,
   });

@@ -3002,7 +3002,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                 label:    labelFor(u),
                 callback: () => i,
             })),
-            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => false },
         ];
 
         const idx = await foundry.applications.api.DialogV2.wait({
@@ -3014,7 +3014,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             close:    () => null,
         });
 
-        return idx !== null && idx !== undefined ? usages[Number(idx)] : null;
+        // 確定は**数値の添字**(0 を含む)。中止(false / null)と 0 を取り違えないよう整数で判定する
+        return Number.isInteger(idx) ? (usages[idx] ?? null) : null;
     }
 
     static async _onStartAbilityCheck(event, target) {

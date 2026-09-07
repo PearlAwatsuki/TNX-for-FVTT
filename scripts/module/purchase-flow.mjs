@@ -148,7 +148,7 @@ async function promptPurchaseMethod(actor, doc, uuid, targetValue, mundane) {
         action: "noCard", icon: "fas fa-coins", label: "カードを出さずに購入（外界＋報酬点）",
         callback: () => ({ kind: "noCard" }),
     });
-    buttons.push({ action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null });
+    buttons.push({ action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => false });
 
     const choice = await DialogV2.wait({
         window: { title: `購入判定: ${esc(doc.name)}` },

@@ -203,7 +203,7 @@ async function promptRecoverySelection(patient, candidates, usage) {
                       : [...dialog.element.querySelectorAll('input[name="recover"]:checked')].map(cb => cb.value),
                   effects: [...dialog.element.querySelectorAll('input[name="recoverEffect"]:checked')].map(cb => cb.value),
               }) },
-            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => false },
         ],
         close: () => null,
     });

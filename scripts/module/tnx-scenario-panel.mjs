@@ -567,7 +567,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
                         sceneId: dialog.element.querySelector('[name="eventSceneId"]:checked')?.value ?? "",
                     }),
                 },
-                { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+                { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => false },
             ],
             close: () => null,
         });

@@ -473,11 +473,13 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
             buttons: [
                 { action: "ok", icon: "fas fa-diamond", label: "この用途で判定", default: true,
                   callback: (_e, _b, dialog) => dialog.element.querySelector('[name="usageIndex"]')?.value ?? "" },
-                { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+                { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => false },
             ],
             close: () => null,
         });
-        if (res === null || res === undefined || res === "") return null;
+        // 中止(キャンセル=false / × で閉じる=null)と未選択("")をまとめて弾く。
+        // 選択時は "0" 等の**文字列**なので、"0" が falsy にならないことに依存してよい
+        if (!res) return null;
         return choices[Number(res)] ?? null;
     }
 
@@ -519,7 +521,7 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
                       skillId:   dialog.element.querySelector('[name="skillId"]')?.value ?? "",
                       manualMod: Number(dialog.element.querySelector('[name="manualMod"]')?.value) || 0,
                   }) },
-                { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
+                { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => false },
             ],
             close: () => null,
         });

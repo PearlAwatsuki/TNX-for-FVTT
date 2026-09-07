@@ -186,6 +186,14 @@ describe("規約: 共通の置き場を迂回しない(ラチェット=増やさ
   // 15 個のコールバックが走っていた。さらに「上の checkRequest 描画の**後**に登録し…」のように
   // 登録順への依存がコメントでしか表現されておらず、行を並べ替えるだけで壊れた。
   // 2026-09-07 に表(CHAT_CARD_RENDERERS)＋1 回の登録へ寄せたので、再分裂を禁じる。
+  // DialogV2 はコールバックの戻り値が nullish だとボタンの action 文字列で解決するため、
+  // `callback: () => null` はキャンセルを文字列 "cancel" として届けてしまう(truthy)。
+  // 2026-08-14・2026-09-07(KI-052)の 2 度、実機で事故になっている。false を返させる。
+  it("キャンセルボタンのコールバックが null を返さない", () => {
+    const re = /action: "cancel"[^}]*callback: \(\) => null/;
+    expect(SRC.filter(p => re.test(text.get(p)))).toEqual([]);
+  });
+
   it("renderChatMessageHTML の登録は 1 回だけ(表で順序を表す)", () => {
     const n = countIn(SRC, /Hooks\.on\("renderChatMessageHTML"/g);
     expect(n).toBe(1);
