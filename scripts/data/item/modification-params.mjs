@@ -72,6 +72,8 @@ export function paramsForClassifications(classifications) {
 function mvAvailability(field) {
   if (field?.mode === "value") return "ok";
   if (field?.mode === "reference") return "reference";
+  // 隠匿値の「制御値」は数値でないため ＋［レベル］の改造ができない(2026-09-07)
+  if (field?.mode === "control") return "control";
   return "novalue";
 }
 
@@ -79,7 +81,7 @@ function mvAvailability(field) {
  * 対象アウトフィット上での項目の可用性。
  * @param {object} system 対象の system(正規化済み)
  * @param {string} key 項目キー
- * @returns {"ok"|"novalue"|"reference"}
+ * @returns {"ok"|"novalue"|"reference"|"control"}
  */
 export function paramAvailability(system, key) {
   switch (key) {
@@ -116,7 +118,7 @@ export function paramAvailability(system, key) {
  * 項目選択 UI 用の選択肢リスト。改造済み(1項目1回)と「ー」「解説参照」を不能として返す。
  * @param {object} system 対象の system
  * @param {Array<{major: string, minor: string}>} classifications 対象の分類集合
- * @returns {Array<{key: string, label: string, availability: "ok"|"novalue"|"reference"|"modified"}>}
+ * @returns {Array<{key: string, label: string, availability: "ok"|"novalue"|"reference"|"control"|"modified"}>}
  */
 export function listModificationChoices(system, classifications) {
   const modified = new Set((system.modifications ?? []).map((r) => r?.param));
@@ -132,6 +134,7 @@ export function modificationUnavailableReason(availability) {
   switch (availability) {
     case "modified":  return "改造済みの項目です（1つの項目への改造は1回まで）";
     case "reference": return "「解説参照」の項目は改造できません";
+    case "control":   return "「制御値」の項目は改造できません";
     case "novalue":   return "「ー」の項目は改造できません";
     default:          return "";
   }

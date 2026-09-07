@@ -707,7 +707,7 @@
                             <label>購入値</label>
                             <div class="form-fields {{#if (eq system.buy.mode "value")}}split-fields{{/if}}">
                                 <select name="system.buy.mode">
-                                    {{selectOptions options.buyHideMode selected=system.buy.mode}}
+                                    {{selectOptions options.buyMode selected=system.buy.mode}}
                                 </select>
                                 {{#if (eq system.buy.mode "value")}}
                                     <div class="number-input-spinner skill-sheet-spinner">
@@ -754,7 +754,7 @@
                             <label>隠匿値</label>
                             <div class="form-fields {{#if (eq system.hide.mode "value")}}split-fields{{/if}}">
                                 <select name="system.hide.mode">
-                                    {{selectOptions options.buyHideMode selected=system.hide.mode}}
+                                    {{selectOptions options.hideMode selected=system.hide.mode}}
                                 </select>
                                 {{#if (eq system.hide.mode "value")}}
                                     <div class="number-input-spinner skill-sheet-spinner">

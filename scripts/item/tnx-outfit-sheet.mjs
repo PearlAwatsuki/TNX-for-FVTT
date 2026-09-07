@@ -10,6 +10,7 @@ import { getPartSlotPreset } from "../module/part-slot-preset-app.mjs";
 import { joinPartDesignations, PART_HOST_FEATURE_LABELS, resolvePartRowsForDisplay, resolvePartAdditions, findPartKeyByLabel, matchesHostDescriptor, OUTFIT_NAME_SLOT_KIND } from "../data/item/part-helpers.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
 import { resolveItemNameByKey } from "../module/identification.mjs";
+import { hideLabel } from "../module/outfit-view.mjs";
 import { loadSkillChoices, loadOnomasticChoices, STYLE_PACK, ORGANIZATION_PACK } from "../module/skill-dictionary.mjs";
 import { loadOutfitHostChoices, loadOutfitDictNames } from "../module/outfit-dictionary.mjs";
 import { buildOutfitSummaryRows, formatWeaponRangeLabel } from "../module/outfit-view.mjs";
@@ -179,9 +180,15 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         },
     };
 
-    /** 購入値・隠匿値の 3 状態(なし/数値/解説参照) */
-    static get buyHideModes() {
+    /** 購入値の 3 状態(なし/数値/解説参照) */
+    static get buyModes() {
         return { none: "なし", value: "数値", reference: "解説参照" };
+    }
+
+    /** 隠匿値の 4 状態。制御値=知覚判定で相手が使ったスートの制御値がそのまま隠匿値になる
+     *  (2026-09-07 ユーザー裁定)。DataModel の choices と一致させること */
+    static get hideModes() {
+        return { none: "なし", value: "数値", reference: "解説参照", control: "制御値" };
     }
 
     /** 電脳制御値の 2 状態(なし/数値) */
@@ -437,7 +444,8 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         context.options = {
             ...context.options,
             usesType:      skillOptions.usesType,
-            buyHideMode:            this.constructor.buyHideModes,
+            buyMode:                this.constructor.buyModes,
+            hideMode:               this.constructor.hideModes,
             hackMode:               this.constructor.hackModes,
             appearancePenaltyMode:  this.constructor.appearancePenaltyModes,
             noneValueMode:          this.constructor.noneValueModes,
@@ -523,8 +531,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         const s2 = await resolve(system.combine.source2);
 
         const hackOf = (it) => (it?.system?.hack?.mode === "value" ? num(it.system.hack.value) : null);
-        const hideOf = (sys) => sys?.hide?.mode === "reference" ? "解説参照"
-            : sys?.hide?.mode === "value" ? String(num(sys.hide.value)) : "-";
+        const hideOf = (sys) => hideLabel(sys?.hide);
         const penaltyOf = (sys) => sys?.appearancePenalty?.mode === "value"
             ? String(num(sys.appearancePenalty.value)) : "-";
 

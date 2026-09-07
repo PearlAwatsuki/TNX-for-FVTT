@@ -39,6 +39,26 @@ export function formatWeaponRangeLabel(range) {
  * @param {{damageType: string, damageTypeTotal?: string, value: number, total?: number}} attack
  * @returns {string}
  */
+/**
+ * 隠匿値の表示文字列。
+ *
+ * 「制御値」(2026-09-07 ユーザー裁定): 隠匿値はキャラクターの制御値**そのもの**になる。ただし
+ * **どの**制御値かは、知覚判定で相手が使用したスートで決まるため、アイテム単体では確定しない
+ * ——静的な表示では「解説参照」と同じくラベルで示す。
+ *
+ * @param {{mode?:string, value?:number, total?:number}|null|undefined} hide
+ * @returns {string} 表示文字列(なし= "-")
+ */
+export function hideLabel(hide) {
+    if (hide?.mode === "reference") return "解説参照";
+    if (hide?.mode === "control")   return "制御値";
+    if (hide?.mode === "value") {
+        const v = hide.total ?? hide.value;
+        return Number.isFinite(v) ? String(v) : "0";
+    }
+    return "-";
+}
+
 export function attackLabel(attack) {
     const type = attack?.damageTypeTotal || attack?.damageType || "";
     const value = attack?.total ?? attack?.value ?? 0;
@@ -88,9 +108,7 @@ export function buildOutfitSummaryRows(system, type, { areaMods = null, resolveH
     else buy = `-／${expLabel}`;
 
     // 隠匿値／危険値(住宅オプション・住宅アクセサリは危険値なし=隠匿値のみ・2026-07-09)
-    const hideVal = system.hide.mode === "reference" ? "解説参照"
-        : system.hide.mode === "value" ? num(system.hide.total ?? system.hide.value)
-        : "-";
+    const hideVal = hideLabel(system.hide);
     const penaltyVal = mvOpt(system.appearancePenalty);
     const noPenaltyCategory = system.minorCategory === "housingOption" || system.minorCategory === "housingAccessory";
     const hideFull = noPenaltyCategory ? `${hideVal}` : `${hideVal}／${penaltyVal}`;
@@ -191,9 +209,7 @@ export function buildOutfitSummaryRows(system, type, { areaMods = null, resolveH
             if (system.buy.mode === "reference") buyR = "解説参照";
             else if (system.buy.mode === "value") buyR = `${(system.buy.total ?? system.buy.value ?? 0) + am("buyRatingMod")}／${preserveR}`;
             else buyR = `-／${preserveR}`;
-            const hideR = system.hide.mode === "reference" ? "解説参照"
-                : system.hide.mode === "value" ? String(system.hide.total ?? system.hide.value ?? 0)
-                : "-";
+            const hideR = hideLabel(system.hide);
             push("購", buyR); push("隠", hideR);
             push("登場", fmtNum((system.appearanceTargetTotal ?? system.appearanceTarget ?? 0) + am("appearanceTargetMod")), "full");
             push("セ(電／ア)", `${fmtNum((system.cyberSecurityTotal ?? system.cyberSecurity ?? 0) + am("cyberSecurityMod"))}／${fmtNum((system.analogSecurityTotal ?? system.analogSecurity ?? 0) + am("analogSecurityMod"))}`, "full");
